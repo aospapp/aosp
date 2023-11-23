@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+PY_VERSION = 3
 AUTHOR = 'chromeos-gfx'
 NAME = "graphics_KernelMemory"
 PURPOSE = 'Verify that kernel exports graphics memory info through sysfs.'
@@ -16,7 +17,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "graphics"
 TEST_TYPE = "client"
 
-ATTRIBUTES = "suite:bvt-perbuild, suite:graphics, suite:graphics_per-day, suite:graphics_system"
+ATTRIBUTES = "suite:bvt-perbuild, suite:graphics, suite:graphics_per-day, suite:graphics_system, suite:pvs-graphics"
 BUG_TEMPLATE = {
     'components': ['OS>Kernel>Graphics'],
 }

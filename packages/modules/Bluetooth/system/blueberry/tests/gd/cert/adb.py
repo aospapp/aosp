@@ -19,6 +19,7 @@ import logging
 import shlex
 import shutil
 
+from mobly.controllers.android_device_lib.adb import AdbError
 from mobly.controllers.android_device_lib.adb import AdbProxy
 
 ROOT_USER_ID = '0'

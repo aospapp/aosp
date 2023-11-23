@@ -16,44 +16,29 @@
 
 package android.server.wm;
 
+import static android.Manifest.permission.INTERACT_ACROSS_USERS;
 import static android.app.AppOpsManager.MODE_ALLOWED;
 import static android.app.AppOpsManager.MODE_ERRORED;
+import static android.server.wm.BuildUtils.HW_TIMEOUT_MULTIPLIER;
+import static android.server.wm.ShellCommandHelper.executeShellCommand;
 import static android.server.wm.UiDeviceUtils.pressHomeButton;
 import static android.server.wm.WindowManagerState.STATE_INITIALIZING;
-import static android.server.wm.backgroundactivity.appa.Components.APP_A_BACKGROUND_ACTIVITY;
-import static android.server.wm.backgroundactivity.appa.Components.APP_A_BACKGROUND_ACTIVITY_TEST_SERVICE;
-import static android.server.wm.backgroundactivity.appa.Components.APP_A_FOREGROUND_ACTIVITY;
-import static android.server.wm.backgroundactivity.appa.Components.APP_A_SECOND_BACKGROUND_ACTIVITY;
-import static android.server.wm.backgroundactivity.appa.Components.APP_A_SEND_PENDING_INTENT_RECEIVER;
-import static android.server.wm.backgroundactivity.appa.Components.APP_A_SIMPLE_ADMIN_RECEIVER;
-import static android.server.wm.backgroundactivity.appa.Components.APP_A_START_ACTIVITY_RECEIVER;
-import static android.server.wm.backgroundactivity.appa.Components.ForegroundActivity.ACTION_FINISH_ACTIVITY;
-import static android.server.wm.backgroundactivity.appa.Components.ForegroundActivity.ACTION_LAUNCH_BACKGROUND_ACTIVITIES;
-import static android.server.wm.backgroundactivity.appa.Components.ForegroundActivity.LAUNCH_BACKGROUND_ACTIVITY_EXTRA;
-import static android.server.wm.backgroundactivity.appa.Components.ForegroundActivity.LAUNCH_INTENTS_EXTRA;
-import static android.server.wm.backgroundactivity.appa.Components.ForegroundActivity.LAUNCH_SECOND_BACKGROUND_ACTIVITY_EXTRA;
-import static android.server.wm.backgroundactivity.appa.Components.ForegroundActivity.RELAUNCH_FOREGROUND_ACTIVITY_EXTRA;
-import static android.server.wm.backgroundactivity.appa.Components.ForegroundActivity.START_ACTIVITY_FROM_FG_ACTIVITY_DELAY_MS_EXTRA;
-import static android.server.wm.backgroundactivity.appa.Components.ForegroundActivity.START_ACTIVITY_FROM_FG_ACTIVITY_NEW_TASK_EXTRA;
-import static android.server.wm.backgroundactivity.appa.Components.SendPendingIntentReceiver.IS_BROADCAST_EXTRA;
-import static android.server.wm.backgroundactivity.appa.Components.StartBackgroundActivityReceiver.START_ACTIVITY_DELAY_MS_EXTRA;
-import static android.server.wm.backgroundactivity.appb.Components.APP_B_FOREGROUND_ACTIVITY;
-import static android.server.wm.backgroundactivity.appb.Components.APP_B_START_PENDING_INTENT_ACTIVITY;
-import static android.server.wm.backgroundactivity.appb.Components.StartPendingIntentActivity.ALLOW_BAL_EXTRA;
-import static android.server.wm.backgroundactivity.appb.Components.StartPendingIntentReceiver.PENDING_INTENT_EXTRA;
 import static android.server.wm.backgroundactivity.common.CommonComponents.EVENT_NOTIFIER_EXTRA;
+import static android.view.Display.DEFAULT_DISPLAY;
 
-import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
+import static com.android.compatibility.common.util.SystemUtil.runShellCommandOrThrow;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 
-import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeThat;
+import static org.junit.Assume.assumeTrue;
 
 import android.Manifest;
 import android.app.PendingIntent;
@@ -69,13 +54,16 @@ import android.content.pm.ResolveInfo;
 import android.content.pm.UserInfo;
 import android.os.IBinder;
 import android.os.ResultReceiver;
-import android.os.SystemProperties;
+import android.os.UserHandle;
 import android.os.UserManager;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.platform.test.annotations.Presubmit;
-import android.platform.test.annotations.SystemUserOnly;
+import android.provider.Settings;
+import android.server.wm.backgroundactivity.appa.Components;
 import android.server.wm.backgroundactivity.appa.IBackgroundActivityTestService;
 import android.server.wm.backgroundactivity.common.CommonComponents.Event;
 import android.server.wm.backgroundactivity.common.EventReceiver;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.test.filters.FlakyTest;
@@ -88,9 +76,8 @@ import androidx.test.uiautomator.Until;
 
 import com.android.compatibility.common.util.AppOpsUtils;
 
-import org.junit.After;
 import org.junit.Assume;
-import org.junit.Before;
+import org.junit.AssumptionViolatedException;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -98,7 +85,6 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Stream;
 
 /**
  * This class covers all test cases for starting/blocking background activities.
@@ -109,32 +95,23 @@ import java.util.stream.Stream;
  * the result and see if it starts an activity successfully.
  */
 @Presubmit
-public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
+public class BackgroundActivityLaunchTest extends BackgroundActivityTestBase {
 
-    private static final int ACTIVITY_FOCUS_TIMEOUT_MS = 3000;
-    private static final String APP_A_PACKAGE_NAME = APP_A_FOREGROUND_ACTIVITY.getPackageName();
+    private static final String TAG = "BackgroundActivityLaunchTest";
+
     private static final long ACTIVITY_BG_START_GRACE_PERIOD_MS = 10 * 1000;
     private static final int ACTIVITY_START_TIMEOUT_MS = 5000;
     private static final int ACTIVITY_NOT_RESUMED_TIMEOUT_MS = 5000;
 
-    private static final String TEST_PACKAGE_APP_A = "android.server.wm.backgroundactivity.appa";
-    private static final String TEST_PACKAGE_APP_B = "android.server.wm.backgroundactivity.appb";
-    public static final ComponentName APP_A_RELAUNCHING_ACTIVITY =
-            new ComponentName(TEST_PACKAGE_APP_A,
-                    "android.server.wm.backgroundactivity.appa.RelaunchingActivity");
-    public static final ComponentName APP_A_PIP_ACTIVITY =
-            new ComponentName(TEST_PACKAGE_APP_A,
-                    "android.server.wm.backgroundactivity.appa.PipActivity");
-    public static final ComponentName APP_A_VIRTUAL_DISPLAY_ACTIVITY =
-            new ComponentName(TEST_PACKAGE_APP_A,
-                    "android.server.wm.backgroundactivity.appa.VirtualDisplayActivity");
-    public static final ComponentName APP_A_WIDGET_CONFIG_TEST_ACTIVITY =
-            new ComponentName(TEST_PACKAGE_APP_A,
-                    "android.server.wm.backgroundactivity.appa.WidgetConfigTestActivity");
-    public static final ComponentName APP_A_APPWIDGET_PROVIDER =
-            new ComponentName(TEST_PACKAGE_APP_A,
-                    "android.server.wm.backgroundactivity.appa.WidgetProvider");
-    private static final String SHELL_PACKAGE = "com.android.shell";
+    private static final String APP_C_PACKAGE_NAME = "android.server.wm.backgroundactivity.appc";
+    private static final String APP_C33_PACKAGE_NAME = APP_C_PACKAGE_NAME + "33";
+
+    public static final ComponentName APP_C_FOREGROUND_ACTIVITY =
+            new ComponentName(APP_C_PACKAGE_NAME,
+                    "android.server.wm.backgroundactivity.appc.ForegroundActivity");
+    public static final ComponentName APP_C_33_FOREGROUND_ACTIVITY =
+            new ComponentName(APP_C33_PACKAGE_NAME,
+                    "android.server.wm.backgroundactivity.appc.ForegroundActivity");
 
     /**
      * Tests can be executed as soon as the device has booted. When that happens the broadcast queue
@@ -143,59 +120,16 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
     private static final int BROADCAST_DELIVERY_TIMEOUT_MS = 60000;
 
     private IBackgroundActivityTestService mBackgroundActivityTestService;
-    private ServiceConnection mBalServiceConnection;
-
-    @Override
-    @Before
-    public void setUp() throws Exception {
-        // disable SAW appopp for AppA (it's granted autonatically when installed in CTS)
-        AppOpsUtils.setOpMode(APP_A_PACKAGE_NAME, "android:system_alert_window", MODE_ERRORED);
-        assertEquals(AppOpsUtils.getOpMode(APP_A_PACKAGE_NAME, "android:system_alert_window"),
-                MODE_ERRORED);
-
-        super.setUp();
-        assertNull(mWmState.getTaskByActivity(APP_A_BACKGROUND_ACTIVITY));
-        assertNull(mWmState.getTaskByActivity(APP_A_FOREGROUND_ACTIVITY));
-        assertNull(mWmState.getTaskByActivity(APP_B_FOREGROUND_ACTIVITY));
-
-        runShellCommand("cmd deviceidle tempwhitelist -d 100000 "
-                + APP_A_FOREGROUND_ACTIVITY.getPackageName());
-        runShellCommand("cmd deviceidle tempwhitelist -d 100000 "
-                + APP_B_FOREGROUND_ACTIVITY.getPackageName());
-    }
-
-    @After
-    public void tearDown() throws Exception {
-        // We do this before anything else, because having an active device owner can prevent us
-        // from being able to force stop apps. (b/142061276)
-        runWithShellPermissionIdentity(() -> {
-            runShellCommand("dpm remove-active-admin --user 0 "
-                    + APP_A_SIMPLE_ADMIN_RECEIVER.flattenToString());
-            if (UserManager.isHeadlessSystemUserMode()) {
-                // Must also remove the PO from current user
-                runShellCommand("dpm remove-active-admin --user cur "
-                        + APP_A_SIMPLE_ADMIN_RECEIVER.flattenToString());
-            }
-        });
-
-        stopTestPackage(TEST_PACKAGE_APP_A);
-        stopTestPackage(TEST_PACKAGE_APP_B);
-        AppOpsUtils.reset(APP_A_PACKAGE_NAME);
-        AppOpsUtils.reset(SHELL_PACKAGE);
-        if (mBalServiceConnection != null) {
-            mContext.unbindService(mBalServiceConnection);
-        }
-    }
 
     @Test
-    public void testBackgroundActivityBlocked() throws Exception {
+    public void testBackgroundActivityBlocked() {
         // Start AppA background activity and blocked
         Intent intent = new Intent();
-        intent.setComponent(APP_A_START_ACTIVITY_RECEIVER);
+        intent.setComponent(APP_A.START_ACTIVITY_RECEIVER);
         mContext.sendBroadcast(intent);
-        boolean result = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
+        boolean result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
         assertFalse("Should not able to launch background activity", result);
-        assertTaskStack(null, APP_A_BACKGROUND_ACTIVITY);
+        assertTaskStackIsEmpty(APP_A.BACKGROUND_ACTIVITY);
     }
 
     @Test
@@ -211,69 +145,93 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
         // See testBackgroundActivityBlocked() for a case where an app without the
         // START_ACTIVITIES_FROM_BACKGROUND permission is blocked from launching the activity from
         // the background.
-        launchActivity(APP_A_BACKGROUND_ACTIVITY);
+        launchActivity(APP_A.BACKGROUND_ACTIVITY);
 
         // If the activity launches, it means the START_ACTIVITIES_FROM_BACKGROUND permission works.
         assertEquals("Launched activity should be at the top",
-                ComponentNameUtils.getActivityName(APP_A_BACKGROUND_ACTIVITY),
+                ComponentNameUtils.getActivityName(APP_A.BACKGROUND_ACTIVITY),
                 mWmState.getTopActivityName(0));
     }
 
     @Test
     @FlakyTest(bugId = 155454710)
-    public void testBackgroundActivityNotBlockedWithinGracePeriod() throws Exception {
+    public void testBackgroundActivity_withinGracePeriod_isNotBlocked() {
         // Start AppA foreground activity
         Intent firstIntent = new Intent();
-        firstIntent.setComponent(APP_A_FOREGROUND_ACTIVITY);
+        firstIntent.setComponent(APP_A.FOREGROUND_ACTIVITY);
         firstIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(firstIntent);
-        boolean firstResult = waitForActivityFocused(APP_A_FOREGROUND_ACTIVITY);
+        boolean firstResult = waitForActivityFocused(APP_A.FOREGROUND_ACTIVITY);
         assertTrue("Not able to start foreground activity", firstResult);
         // Don't press home button to avoid stop app switches
-        mContext.sendBroadcast(new Intent(ACTION_FINISH_ACTIVITY));
-        mWmState.waitAndAssertActivityRemoved(APP_A_FOREGROUND_ACTIVITY);
+        mContext.sendBroadcast(new Intent(APP_A.FOREGROUND_ACTIVITY_ACTIONS.FINISH_ACTIVITY));
+        mWmState.waitAndAssertActivityRemoved(APP_A.FOREGROUND_ACTIVITY);
         Intent secondIntent = new Intent();
-        secondIntent.setComponent(APP_A_START_ACTIVITY_RECEIVER);
+        secondIntent.setComponent(APP_A.START_ACTIVITY_RECEIVER);
 
         mContext.sendBroadcast(secondIntent);
-        boolean secondResult = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
+        boolean secondResult = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
         assertTrue("Should be able to launch background activity", secondResult);
     }
 
     @Test
-    public void testBackgroundActivityNotBlockedWhenSystemAlertWindowGranted() throws Exception {
+    public void testBackgroundActivityWhenSystemAlertWindowGranted_isNotBlocked()
+            throws Exception {
         // enable appopp for SAW for this test
-        AppOpsUtils.setOpMode(APP_A_PACKAGE_NAME, "android:system_alert_window", MODE_ALLOWED);
-        assertEquals(AppOpsUtils.getOpMode(APP_A_PACKAGE_NAME, "android:system_alert_window"),
+        AppOpsUtils.setOpMode(APP_A_33.APP_PACKAGE_NAME, "android:system_alert_window",
+                MODE_ALLOWED);
+        assertEquals(AppOpsUtils.getOpMode(APP_A_33.APP_PACKAGE_NAME,
+                        "android:system_alert_window"),
                 MODE_ALLOWED);
 
         // Start AppA background activity successfully as the package has SAW
         Intent intent = new Intent();
-        intent.setComponent(APP_A_START_ACTIVITY_RECEIVER);
+        intent.setComponent(APP_A_33.START_ACTIVITY_RECEIVER);
         mContext.sendBroadcast(intent);
-        boolean result = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
+        boolean result = waitForActivityFocused(APP_A_33.BACKGROUND_ACTIVITY);
         assertTrue("Not able to start foreground activity", result);
     }
 
     @Test
-    public void testBackgroundActivityNotBlockedWhenForegroundActivityExists() throws Exception {
-        // Start AppA foreground activity
+    public void testBackgroundActivityNotBlockedWhenForegroundActivityTop() {
         Intent intent = new Intent();
-        intent.setComponent(APP_A_FOREGROUND_ACTIVITY);
+        intent.setComponent(APP_A.FOREGROUND_ACTIVITY);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(intent);
-        boolean result = waitForActivityFocused(APP_A_FOREGROUND_ACTIVITY);
-        assertTrue("Not able to start foreground activity", result);
-        assertTaskStack(new ComponentName[]{APP_A_FOREGROUND_ACTIVITY}, APP_A_FOREGROUND_ACTIVITY);
+        mWmState.waitForValidState(APP_A.FOREGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.FOREGROUND_ACTIVITY, APP_A.FOREGROUND_ACTIVITY);
+
+        // Start AppA background activity successfully in new task as there's a foreground activity
+        intent = new Intent();
+        intent.setComponent(APP_A.START_ACTIVITY_RECEIVER);
+        mContext.sendBroadcast(intent);
+        mWmState.waitForValidState(APP_A.BACKGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.FOREGROUND_ACTIVITY, APP_A.FOREGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.BACKGROUND_ACTIVITY, APP_A.BACKGROUND_ACTIVITY);
+    }
+
+    @Test
+    public void testBackgroundActivityWhenForegroundActivityNotTop_IsNotBlocked() {
+        Intent intent = new Intent();
+        intent.setComponent(APP_A.FOREGROUND_ACTIVITY);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(intent);
+        mWmState.waitForValidState(APP_A.FOREGROUND_ACTIVITY);
+        mContext.sendBroadcast(getLaunchActivitiesBroadcast(APP_A, APP_B.FOREGROUND_ACTIVITY));
+        mWmState.waitForValidState(APP_B.FOREGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.FOREGROUND_ACTIVITY,
+                        APP_B.FOREGROUND_ACTIVITY,
+                        APP_A.FOREGROUND_ACTIVITY);
 
         // Start AppA background activity successfully as there's a foreground activity
         intent = new Intent();
-        intent.setComponent(APP_A_START_ACTIVITY_RECEIVER);
+        intent.setComponent(APP_A.START_ACTIVITY_RECEIVER);
         mContext.sendBroadcast(intent);
-        result = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
-        assertTrue("Not able to launch background activity", result);
-        assertTaskStack(new ComponentName[]{APP_A_FOREGROUND_ACTIVITY}, APP_A_FOREGROUND_ACTIVITY);
-        assertTaskStack(new ComponentName[]{APP_A_BACKGROUND_ACTIVITY}, APP_A_BACKGROUND_ACTIVITY);
+        mWmState.waitForValidState(APP_A.BACKGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.FOREGROUND_ACTIVITY,
+                APP_B.FOREGROUND_ACTIVITY,
+                APP_A.FOREGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.BACKGROUND_ACTIVITY, APP_A.BACKGROUND_ACTIVITY);
     }
 
     @Test
@@ -281,14 +239,15 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
         // Start foreground activity, and foreground activity able to launch background activity
         // successfully
         Intent intent = new Intent();
-        intent.setComponent(APP_A_FOREGROUND_ACTIVITY);
+        intent.setComponent(APP_A.FOREGROUND_ACTIVITY);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        intent.putExtra(LAUNCH_BACKGROUND_ACTIVITY_EXTRA, true);
+        intent.putExtra(APP_A.FOREGROUND_ACTIVITY_EXTRA.LAUNCH_BACKGROUND_ACTIVITY, true);
         mContext.startActivity(intent);
-        boolean result = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
+        boolean result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
         assertTrue("Not able to launch background activity", result);
-        assertTaskStack(new ComponentName[]{APP_A_BACKGROUND_ACTIVITY, APP_A_FOREGROUND_ACTIVITY},
-                APP_A_FOREGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.FOREGROUND_ACTIVITY,
+                APP_A.BACKGROUND_ACTIVITY,
+                APP_A.FOREGROUND_ACTIVITY);
     }
 
     @Test
@@ -296,81 +255,61 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
         // Start foreground activity, and foreground activity able to launch background activity
         // successfully
         Intent intent = new Intent();
-        intent.setComponent(APP_A_FOREGROUND_ACTIVITY);
+        intent.setComponent(APP_A.FOREGROUND_ACTIVITY);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(intent);
         boolean result = waitForActivityFocused(ACTIVITY_FOCUS_TIMEOUT_MS,
-                APP_A_FOREGROUND_ACTIVITY);
+                APP_A.FOREGROUND_ACTIVITY);
         assertTrue("Not able to launch background activity", result);
-        assertTaskStack(new ComponentName[]{APP_A_FOREGROUND_ACTIVITY}, APP_A_FOREGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.FOREGROUND_ACTIVITY, APP_A.FOREGROUND_ACTIVITY);
         // We can't resume app switching after pressing home button, otherwise the grace period
         // will allow the starts.
         pressHomeAndWaitHomeResumed();
 
-        mContext.sendBroadcast(getLaunchActivitiesBroadcast(APP_A_BACKGROUND_ACTIVITY));
+        mContext.sendBroadcast(getLaunchActivitiesBroadcast(APP_A, APP_A.BACKGROUND_ACTIVITY));
 
-        result = waitForActivityFocused(APP_A_FOREGROUND_ACTIVITY);
-        assertFalse("Previously foreground Activity should not be able to make it focused", result);
-        result = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
-        assertFalse("Previously background Activity should not be able to make it focused", result);
-        assertTaskStack(new ComponentName[] {APP_A_BACKGROUND_ACTIVITY, APP_A_FOREGROUND_ACTIVITY},
-                APP_A_FOREGROUND_ACTIVITY);
+        result = waitForActivityFocused(APP_A.FOREGROUND_ACTIVITY);
+        assertFalse("Previously foreground Activity should not be able to make it focused",
+                result);
+        result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
+        assertFalse("Previously background Activity should not be able to make it focused",
+                result);
+        assertTaskStackHasComponents(APP_A.FOREGROUND_ACTIVITY,
+                APP_A.BACKGROUND_ACTIVITY,
+                APP_A.FOREGROUND_ACTIVITY);
     }
 
     @Test
-    @FlakyTest(bugId = 143522449)
-    public void testActivityBlockedWhenLaunchedAfterHomePress() throws Exception {
-        Intent intent = new Intent();
-        intent.setComponent(APP_A_FOREGROUND_ACTIVITY);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        intent.putExtra(LAUNCH_BACKGROUND_ACTIVITY_EXTRA, true);
-        intent.putExtra(START_ACTIVITY_FROM_FG_ACTIVITY_DELAY_MS_EXTRA, 2000);
-        intent.putExtra(START_ACTIVITY_FROM_FG_ACTIVITY_NEW_TASK_EXTRA, true);
-        mContext.startActivity(intent);
-        boolean result = waitForActivityFocused(ACTIVITY_FOCUS_TIMEOUT_MS,
-                APP_A_FOREGROUND_ACTIVITY);
-        assertTrue("Not able to launch background activity", result);
-        assertTaskStack(new ComponentName[]{APP_A_FOREGROUND_ACTIVITY}, APP_A_FOREGROUND_ACTIVITY);
-
-        // We can't resume app switching after pressing home button, otherwise the grace period
-        // will allow the starts.
-        pressHomeAndWaitHomeResumed();
-
-        result = waitForActivityFocused(APP_A_FOREGROUND_ACTIVITY);
-        assertFalse("FG activity shouldn't be visible", result);
-        result = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
-        assertFalse("BG activity shouldn't be visible", result);
-        assertTaskStack(new ComponentName[]{APP_A_FOREGROUND_ACTIVITY}, APP_A_FOREGROUND_ACTIVITY);
-        assertTaskStack(null, APP_A_BACKGROUND_ACTIVITY);
-    }
-
-    @Test
-    public void testActivityNotBlockedFromBgActivityInFgTask() {
+    @FlakyTest(bugId = 272082654)
+    public void testActivityFromBgActivityInFgTask_isNotBlocked() {
         // Launch Activity A, B in the same task with different processes.
         final Intent intent = new Intent()
-                .setComponent(APP_A_FOREGROUND_ACTIVITY)
+                .setComponent(APP_A.FOREGROUND_ACTIVITY)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(intent);
-        mWmState.waitForValidState(APP_A_FOREGROUND_ACTIVITY);
-        mContext.sendBroadcast(getLaunchActivitiesBroadcast(APP_B_FOREGROUND_ACTIVITY));
-        mWmState.waitForValidState(APP_B_FOREGROUND_ACTIVITY);
-        assertTaskStack(new ComponentName[]{APP_B_FOREGROUND_ACTIVITY, APP_A_FOREGROUND_ACTIVITY},
-                APP_A_FOREGROUND_ACTIVITY);
+        mWmState.waitForValidState(APP_A.FOREGROUND_ACTIVITY);
+        mContext.sendBroadcast(getLaunchActivitiesBroadcast(APP_A, APP_B.FOREGROUND_ACTIVITY));
+        mWmState.waitForValidState(APP_B.FOREGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.FOREGROUND_ACTIVITY,
+                APP_B.FOREGROUND_ACTIVITY,
+                APP_A.FOREGROUND_ACTIVITY);
 
         // Refresh last-stop-app-switch-time by returning to home and then make the task foreground.
         pressHomeAndResumeAppSwitch();
         mContext.startActivity(intent);
-        mWmState.waitForValidState(APP_B_FOREGROUND_ACTIVITY);
+        mWmState.waitForValidState(APP_B.FOREGROUND_ACTIVITY);
         // Though process A is in background, it is in a visible Task (top is B) so it should be
         // able to start activity successfully.
-        mContext.sendBroadcast(new Intent(ACTION_LAUNCH_BACKGROUND_ACTIVITIES)
-                .putExtra(LAUNCH_INTENTS_EXTRA, new Intent[]{ new Intent()
-                        .setComponent(APP_A_BACKGROUND_ACTIVITY)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }));
-        mWmState.waitForValidState(APP_A_BACKGROUND_ACTIVITY);
+        mContext.sendBroadcast(new Intent(
+                APP_A.FOREGROUND_ACTIVITY_ACTIONS.LAUNCH_BACKGROUND_ACTIVITIES)
+                .putExtra(APP_A.FOREGROUND_ACTIVITY_EXTRA.LAUNCH_INTENTS,
+                        new Intent[]{ new Intent()
+                                .setComponent(APP_A.BACKGROUND_ACTIVITY)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }));
+        mWmState.waitForValidState(APP_A.BACKGROUND_ACTIVITY);
         mWmState.assertFocusedActivity(
                 "The background activity must be able to launch from a visible task",
-                APP_A_BACKGROUND_ACTIVITY);
+                APP_A.BACKGROUND_ACTIVITY);
     }
 
     @Test
@@ -379,20 +318,21 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
     public void testActivityBlockedWhenForegroundActivityRestartsItself() throws Exception {
         // Start AppA foreground activity
         Intent intent = new Intent();
-        intent.setComponent(APP_A_FOREGROUND_ACTIVITY);
+        intent.setComponent(APP_A.FOREGROUND_ACTIVITY);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        intent.putExtra(RELAUNCH_FOREGROUND_ACTIVITY_EXTRA, true);
+        intent.putExtra(APP_A.FOREGROUND_ACTIVITY_EXTRA.RELAUNCH_FOREGROUND_ACTIVITY_EXTRA, true);
         mContext.startActivity(intent);
-        boolean result = waitForActivityFocused(APP_A_FOREGROUND_ACTIVITY);
+        boolean result = waitForActivityFocused(APP_A.FOREGROUND_ACTIVITY);
         assertTrue("Not able to start foreground activity", result);
-        assertTaskStack(new ComponentName[]{APP_A_FOREGROUND_ACTIVITY}, APP_A_FOREGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.FOREGROUND_ACTIVITY, APP_A.FOREGROUND_ACTIVITY);
 
         // The foreground activity will be paused but will attempt to restart itself in onPause()
         pressHomeAndResumeAppSwitch();
 
-        result = waitForActivityFocused(APP_A_FOREGROUND_ACTIVITY);
-        assertFalse("Previously foreground Activity should not be able to relaunch itself", result);
-        assertTaskStack(new ComponentName[]{APP_A_FOREGROUND_ACTIVITY}, APP_A_FOREGROUND_ACTIVITY);
+        result = waitForActivityFocused(APP_A.FOREGROUND_ACTIVITY);
+        assertFalse("Previously foreground Activity should not be able to relaunch itself",
+                result);
+        assertTaskStackHasComponents(APP_A.FOREGROUND_ACTIVITY, APP_A.FOREGROUND_ACTIVITY);
     }
 
     @Test
@@ -400,125 +340,221 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
         // Start AppA foreground activity, which will immediately launch one activity
         // and then the second.
         Intent intent = new Intent();
-        intent.setComponent(APP_A_FOREGROUND_ACTIVITY);
+        intent.setComponent(APP_A.FOREGROUND_ACTIVITY);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        intent.putExtra(LAUNCH_BACKGROUND_ACTIVITY_EXTRA, true);
-        intent.putExtra(LAUNCH_SECOND_BACKGROUND_ACTIVITY_EXTRA, true);
+        intent.putExtra(APP_A.FOREGROUND_ACTIVITY_EXTRA.LAUNCH_BACKGROUND_ACTIVITY, true);
+        intent.putExtra(APP_A.FOREGROUND_ACTIVITY_EXTRA.LAUNCH_SECOND_BACKGROUND_ACTIVITY, true);
         mContext.startActivity(intent);
 
-        boolean result = waitForActivityFocused(APP_A_SECOND_BACKGROUND_ACTIVITY);
+        boolean result = waitForActivityFocused(APP_A.SECOND_BACKGROUND_ACTIVITY);
         assertTrue("Not able to launch second background activity", result);
 
-        waitAndAssertActivityState(APP_A_BACKGROUND_ACTIVITY, STATE_INITIALIZING,
+        waitAndAssertActivityState(APP_A.BACKGROUND_ACTIVITY, STATE_INITIALIZING,
                 "First activity should have been created");
-        assertTaskStack(
-                new ComponentName[]{APP_A_SECOND_BACKGROUND_ACTIVITY, APP_A_BACKGROUND_ACTIVITY,
-                        APP_A_FOREGROUND_ACTIVITY}, APP_A_FOREGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.FOREGROUND_ACTIVITY,
+                APP_A.SECOND_BACKGROUND_ACTIVITY,
+                APP_A.BACKGROUND_ACTIVITY,
+                APP_A.FOREGROUND_ACTIVITY);
     }
 
     @Test
-    @FlakyTest(bugId = 143522449)
     public void testSecondActivityBlockedWhenBackgroundActivityLaunch() throws Exception {
         Intent baseActivityIntent = new Intent();
-        baseActivityIntent.setComponent(APP_A_FOREGROUND_ACTIVITY);
+        baseActivityIntent.setComponent(APP_A.FOREGROUND_ACTIVITY);
         baseActivityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(baseActivityIntent);
-        boolean result = waitForActivityFocused(APP_A_FOREGROUND_ACTIVITY);
+        boolean result = waitForActivityFocused(APP_A.FOREGROUND_ACTIVITY);
         assertTrue("Not able to start foreground activity", result);
-        assertTaskStack(new ComponentName[]{APP_A_FOREGROUND_ACTIVITY}, APP_A_FOREGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.FOREGROUND_ACTIVITY, APP_A.FOREGROUND_ACTIVITY);
         // We can't resume app switching after pressing home button, otherwise the grace period
         // will allow the starts.
         pressHomeAndWaitHomeResumed();
 
         // The activity, now in the background, will attempt to start 2 activities in quick
         // succession
-        mContext.sendBroadcast(getLaunchActivitiesBroadcast(APP_A_BACKGROUND_ACTIVITY,
-                APP_A_SECOND_BACKGROUND_ACTIVITY));
+        mContext.sendBroadcast(getLaunchActivitiesBroadcast(APP_A,
+                APP_A.BACKGROUND_ACTIVITY,
+                APP_A.SECOND_BACKGROUND_ACTIVITY));
 
         // There should be 2 activities in the background (not focused) INITIALIZING
-        result = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
+        result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
         assertFalse("Activity should not have been launched in the foreground", result);
-        result = waitForActivityFocused(APP_A_SECOND_BACKGROUND_ACTIVITY);
+        result = waitForActivityFocused(APP_A.SECOND_BACKGROUND_ACTIVITY);
         assertFalse("Second activity should not have been launched in the foreground", result);
-        assertTaskStack(
-                new ComponentName[]{APP_A_SECOND_BACKGROUND_ACTIVITY, APP_A_BACKGROUND_ACTIVITY,
-                        APP_A_FOREGROUND_ACTIVITY}, APP_A_FOREGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.FOREGROUND_ACTIVITY,
+                APP_A.SECOND_BACKGROUND_ACTIVITY,
+                APP_A.BACKGROUND_ACTIVITY,
+                APP_A.FOREGROUND_ACTIVITY);
     }
 
     @Test
     public void testPendingIntentActivityBlocked() throws Exception {
         // Cannot start activity by pending intent, as both appA and appB are in background
-        sendPendingIntentActivity();
-        boolean result = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
+        sendPendingIntentActivity(APP_A, APP_B);
+        boolean result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
         assertFalse("Should not able to launch background activity", result);
-        assertTaskStack(null, APP_A_BACKGROUND_ACTIVITY);
+        assertTaskStackIsEmpty(APP_A.BACKGROUND_ACTIVITY);
     }
 
     @Test
-    public void testPendingIntentActivity_whenActivityAllowsBal_isNotBlocked() throws Exception {
-        startPendingIntentSenderActivity(true);
-        boolean result = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
+    public void testPendingIntentActivity_whenSenderAllowsBal_isNotBlocked() throws Exception {
+        // creator (appa) is not privileged
+        AppOpsUtils.setOpMode(APP_A.APP_PACKAGE_NAME, "android:system_alert_window", MODE_ERRORED);
+        // sender (appb) is privileged, and grants
+        AppOpsUtils.setOpMode(APP_B.APP_PACKAGE_NAME, "android:system_alert_window", MODE_ALLOWED);
+
+        startPendingIntentSenderActivity(APP_A, APP_B, /* allowBalBySender */ true);
+        boolean result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
         assertTrue("Not able to launch background activity", result);
-        assertTaskStack(new ComponentName[]{APP_A_BACKGROUND_ACTIVITY}, APP_A_BACKGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.BACKGROUND_ACTIVITY, APP_A.BACKGROUND_ACTIVITY);
     }
 
     @Test
-    public void testPendingIntentActivity_whenActivityDoesNotAllowBal_isBlocked() throws Exception {
-        startPendingIntentSenderActivity(false);
-        boolean result = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
+    public void testPendingIntentActivity_whenSenderDoesNotAllowBal_isBlocked() throws Exception {
+        // creator (appa) is not privileged
+        AppOpsUtils.setOpMode(APP_A.APP_PACKAGE_NAME, "android:system_alert_window", MODE_ERRORED);
+        // sender (appb) is privileged, but revokes
+        AppOpsUtils.setOpMode(APP_B.APP_PACKAGE_NAME, "android:system_alert_window", MODE_ALLOWED);
+
+        startPendingIntentSenderActivity(APP_A, APP_B, /* allowBalBySender */ false);
+
+        boolean result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
         assertFalse("Should not able to launch background activity", result);
     }
 
     @Test
-    @FlakyTest(bugId = 130800326)
-    public void testPendingIntentActivityNotBlocked_appAIsForeground() throws Exception {
+    public void testPendingIntentActivity_appAIsForeground_isNotBlocked() {
         // Start AppA foreground activity
         Intent intent = new Intent();
-        intent.setComponent(APP_A_FOREGROUND_ACTIVITY);
+        intent.setComponent(APP_A.FOREGROUND_ACTIVITY);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(intent);
-        boolean result = waitForActivityFocused(APP_A_FOREGROUND_ACTIVITY);
+        boolean result = waitForActivityFocused(APP_A.FOREGROUND_ACTIVITY);
         assertTrue("Not able to start foreground Activity", result);
-        assertTaskStack(new ComponentName[]{APP_A_FOREGROUND_ACTIVITY}, APP_A_FOREGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.FOREGROUND_ACTIVITY, APP_A.FOREGROUND_ACTIVITY);
 
         // Send pendingIntent from AppA to AppB, and the AppB launch the pending intent to start
         // activity in App A
-        sendPendingIntentActivity();
-        result = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
+        sendPendingIntentActivity(APP_A, APP_B);
+        result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
         assertTrue("Not able to launch background activity", result);
-        assertTaskStack(new ComponentName[]{APP_A_FOREGROUND_ACTIVITY}, APP_A_FOREGROUND_ACTIVITY);
-        assertTaskStack(new ComponentName[]{APP_A_BACKGROUND_ACTIVITY}, APP_A_BACKGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.FOREGROUND_ACTIVITY, APP_A.FOREGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.BACKGROUND_ACTIVITY, APP_A.BACKGROUND_ACTIVITY);
     }
 
     @Test
-    public void testPendingIntentBroadcastActivityNotBlocked_appBIsForeground() throws Exception {
+    public void testPendingIntentBroadcastActivity_appBIsForeground_isBlocked() {
         // Start AppB foreground activity
         Intent intent = new Intent();
-        intent.setComponent(APP_B_FOREGROUND_ACTIVITY);
+        intent.setComponent(APP_B.FOREGROUND_ACTIVITY);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(intent);
-        boolean result = waitForActivityFocused(APP_B_FOREGROUND_ACTIVITY);
+        boolean result = waitForActivityFocused(APP_B.FOREGROUND_ACTIVITY);
         assertTrue("Not able to start foreground Activity", result);
-        assertTaskStack(new ComponentName[]{APP_B_FOREGROUND_ACTIVITY}, APP_B_FOREGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_B.FOREGROUND_ACTIVITY, APP_B.FOREGROUND_ACTIVITY);
 
         // Send pendingIntent from AppA to AppB, and the AppB launch the pending intent to start
         // activity in App A
-        sendPendingIntentActivity();
-        result = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
+        sendPendingIntentActivity(APP_A, APP_B);
+        result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
+        assertWithMessage("Able to launch background activity").that(result).isFalse();
+        assertTaskStackHasComponents(APP_B.FOREGROUND_ACTIVITY, APP_B.FOREGROUND_ACTIVITY);
+    }
+
+    @Test
+    public void testPendingIntentBroadcastActivity_appBIsForegroundAndSdk33_isNotBlocked() {
+        // Start AppB foreground activity
+        Intent intent = new Intent();
+        intent.setComponent(APP_B_33.FOREGROUND_ACTIVITY);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(intent);
+        boolean result = waitForActivityFocused(APP_B_33.FOREGROUND_ACTIVITY);
+        assertTrue("Not able to start foreground Activity", result);
+        assertTaskStackHasComponents(APP_B_33.FOREGROUND_ACTIVITY, APP_B_33.FOREGROUND_ACTIVITY);
+
+        // Send pendingIntent from AppA to AppB, and the AppB launch the pending intent to start
+        // activity in App A
+        sendPendingIntentActivity(APP_A, APP_B_33);
+        result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
         assertTrue("Not able to launch background activity", result);
-        assertTaskStack(new ComponentName[]{APP_A_BACKGROUND_ACTIVITY}, APP_A_BACKGROUND_ACTIVITY);
-        assertTaskStack(new ComponentName[]{APP_B_FOREGROUND_ACTIVITY}, APP_B_FOREGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_A.BACKGROUND_ACTIVITY, APP_A.BACKGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_B_33.FOREGROUND_ACTIVITY, APP_B_33.FOREGROUND_ACTIVITY);
+    }
+
+    @Test
+    public void testPendingIntentBroadcastActivity_appBIsForegroundAndTryPassBalOnIntent_isBlocked() {
+        // Start AppB foreground activity
+        Intent intent = new Intent();
+        intent.setComponent(APP_B.FOREGROUND_ACTIVITY);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(intent);
+        boolean result = waitForActivityFocused(APP_B.FOREGROUND_ACTIVITY);
+        assertTrue("Not able to start foreground Activity", result);
+        assertTaskStackHasComponents(APP_B.FOREGROUND_ACTIVITY, APP_B.FOREGROUND_ACTIVITY);
+
+        // Send pendingIntent from AppA to AppB, and the AppB launch the pending intent to start
+        // activity in App A.
+        // ALLOW_BAL_EXTRA_ON_PENDING_INTENT will trigger AppA (the creator) to try to allow BAL on
+        // behalf of the sender by adding the BAL option to the Intent's extras, which should have
+        // no effect.
+        sendPendingIntentActivity(APP_A, APP_B,
+                APP_A.SEND_PENDING_INTENT_RECEIVER_EXTRA.ALLOW_BAL_EXTRA_ON_PENDING_INTENT);
+        result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
+        assertWithMessage("Able to launch background activity").that(result).isFalse();
+        assertTaskStackHasComponents(APP_B.FOREGROUND_ACTIVITY, APP_B.FOREGROUND_ACTIVITY);
+    }
+
+    @Test
+    public void testPendingIntentBroadcastActivity_appBIsFgAndTryPassBalOnIntentWithNullBundleOnPendingIntent_isBlocked() {
+        // Start AppB foreground activity
+        Intent intent = new Intent();
+        intent.setComponent(APP_B.FOREGROUND_ACTIVITY);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(intent);
+        boolean result = waitForActivityFocused(APP_B.FOREGROUND_ACTIVITY);
+        assertTrue("Not able to start foreground Activity", result);
+        assertTaskStackHasComponents(APP_B.FOREGROUND_ACTIVITY, APP_B.FOREGROUND_ACTIVITY);
+
+        // Send pendingIntent from AppA to AppB, and the AppB launch the pending intent to start
+        // activity in App A
+        sendPendingIntentActivity(APP_A, APP_B,
+                APP_A.SEND_PENDING_INTENT_RECEIVER_EXTRA.ALLOW_BAL_EXTRA_ON_PENDING_INTENT
+                /* on create by app A */,
+                APP_B.START_PENDING_INTENT_ACTIVITY_EXTRA.USE_NULL_BUNDLE /* on send by app B */);
+        result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
+        assertWithMessage("Able to launch background activity").that(result).isFalse();
+        assertTaskStackHasComponents(APP_B.FOREGROUND_ACTIVITY, APP_B.FOREGROUND_ACTIVITY);
+    }
+
+    @Test
+    public void testPendingIntentBroadcastActivity_appBIsForegroundAndAllowsBal_isNotBlocked() {
+        // Start AppB foreground activity
+        Intent intent = new Intent();
+        intent.setComponent(APP_B.FOREGROUND_ACTIVITY);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(intent);
+        boolean result = waitForActivityFocused(APP_B.FOREGROUND_ACTIVITY);
+        assertTrue("Not able to start foreground Activity", result);
+        assertTaskStackHasComponents(APP_B.FOREGROUND_ACTIVITY, APP_B.FOREGROUND_ACTIVITY);
+
+        // Send pendingIntent from AppA to AppB, and the AppB launch the pending intent to start
+        // activity in App A
+        sendPendingIntentActivity(APP_A, APP_B, APP_B.START_PENDING_INTENT_ACTIVITY_EXTRA.ALLOW_BAL);
+        result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
+        assertTrue("Not able to launch background activity", result);
+        assertTaskStackHasComponents(APP_A.BACKGROUND_ACTIVITY, APP_A.BACKGROUND_ACTIVITY);
+        assertTaskStackHasComponents(APP_B.FOREGROUND_ACTIVITY, APP_B.FOREGROUND_ACTIVITY);
     }
 
     @Test
     public void testPendingIntentBroadcastTimeout_noDelay() throws Exception {
-        assertPendingIntentBroadcastTimeoutTest(0, true);
+        assertPendingIntentBroadcastTimeoutTest(APP_A, APP_B, 0, true);
     }
 
     @Test
     @FlakyTest(bugId = 141344170)
     public void testPendingIntentBroadcastTimeout_delay1s() throws Exception {
-        assertPendingIntentBroadcastTimeoutTest(1000, true);
+        assertPendingIntentBroadcastTimeoutTest(APP_A, APP_B, 1000, true);
     }
 
     @Test
@@ -527,9 +563,7 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
         // timeout. Before the timeout, the start would be allowed because app B (the PI sender) was
         // in the foreground during PI send, so app A (the PI creator) would have
         // (10s * hw_multiplier) to start background activity starts.
-        assertPendingIntentBroadcastTimeoutTest(
-                12000 * SystemProperties.getInt("ro.hw_timeout_multiplier", 1),
-                false);
+        assertPendingIntentBroadcastTimeoutTest(APP_A, APP_B, 12000 * HW_TIMEOUT_MULTIPLIER, false);
     }
 
     @Test
@@ -539,14 +573,14 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
 
         // Send pendingIntent from AppA to AppB, and the AppB launch the pending intent to start
         // activity in App A
-        sendPendingIntentBroadcast(0, receiver.getNotifier());
+        sendPendingIntentBroadcast(APP_A, 0, receiver.getNotifier());
 
         // Waits for final hoop in AppA to start looking for activity, otherwise it could succeed
         // if the broadcast took long time to get executed (which may happen after boot).
         receiver.waitForEventOrThrow(BROADCAST_DELIVERY_TIMEOUT_MS);
-        boolean result = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
+        boolean result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
         assertFalse("Should not able to launch background activity", result);
-        assertTaskStack(null, APP_A_BACKGROUND_ACTIVITY);
+        assertTaskStackIsEmpty(APP_A.BACKGROUND_ACTIVITY);
     }
 
     /**
@@ -559,10 +593,7 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
         // MANAGE_USERS.
         UiAutomation uiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
         uiAutomation.adoptShellPermissionIdentity(Manifest.permission.CREATE_USERS);
-        List<UserInfo> userList = mContext.getSystemService(UserManager.class)
-                .getUsers(/* excludePartial= */ true,
-                        /* excludeDying= */ true,
-                        /* excludePreCreated= */ true);
+        List<UserInfo> userList = mContext.getSystemService(UserManager.class).getAliveUsers();
         uiAutomation.dropShellPermissionIdentity();
         return userList;
     }
@@ -589,13 +620,9 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
     }
 
     @Test
-    @SystemUserOnly(reason = "Device owner must be SYSTEM user")
     public void testDeviceOwner() throws Exception {
-        // Send pendingIntent from AppA to AppB, and the AppB launch the pending intent to start
-        // activity in App A
-        if (!mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_DEVICE_ADMIN)) {
-            return;
-        }
+        assumeTrue("Device doesn't support FEATURE_DEVICE_ADMIN",
+                mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_DEVICE_ADMIN));
 
         // Remove existing guest user. The device may already have a guest present if it is
         // configured with config_guestUserAutoCreated.
@@ -606,41 +633,75 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
         // Owner (DO) creation in a similar manner as that of production flow.
         removeGuestUser();
 
-        String cmdResult = runShellCommand("dpm set-device-owner --user 0 "
-                + APP_A_SIMPLE_ADMIN_RECEIVER.flattenToString());
-        assertThat(cmdResult).contains("Success");
+        // This test might be running as current user (on devices that use headless system user
+        // mode), so it needs to get the context for the system user.
+        Context context = runWithShellPermissionIdentity(
+                () -> mContext.createContextAsUser(UserHandle.SYSTEM, /* flags= */ 0),
+                INTERACT_ACROSS_USERS);
+
+        String doComponent = APP_A.SIMPLE_ADMIN_RECEIVER.flattenToString();
+        Log.d(TAG, "Setting DO as " + doComponent);
+        String cmd = "dpm set-device-owner --user " + UserHandle.USER_SYSTEM + " " + doComponent;
+        try {
+            String cmdResult = runShellCommandOrThrow(cmd);
+            assertWithMessage("Result of '%s'", cmd).that(cmdResult).contains("Success");
+        } catch (AssertionError e) {
+            // If failed to set the device owner, stop proceeding to the test case.
+            // Log the error info so that we can investigate further in the future.
+            Log.d(TAG, "Failed to set device owner.", e);
+            String cmdResult = runShellCommandOrThrow("pm list user");
+            Log.d(TAG, "users: " + cmdResult);
+            cmdResult = runShellCommandOrThrow("dpm list-owner");
+            Log.d(TAG, "device owners: " + cmdResult);
+            throw new AssumptionViolatedException("This test needs to be able to set device owner");
+        }
+
+        // Send pendingIntent from AppA to AppB, and the AppB launch the pending intent to start
+        // activity in App A
         EventReceiver receiver = new EventReceiver(
                 Event.APP_A_START_BACKGROUND_ACTIVITY_BROADCAST_RECEIVED);
-        Intent intent = new Intent();
-        intent.setComponent(APP_A_START_ACTIVITY_RECEIVER);
-        intent.putExtra(EVENT_NOTIFIER_EXTRA, receiver.getNotifier());
+        Intent intent = new Intent()
+                .setComponent(APP_A.START_ACTIVITY_RECEIVER)
+                .putExtra(EVENT_NOTIFIER_EXTRA, receiver.getNotifier());
 
-        mContext.sendBroadcast(intent);
+        Log.d(TAG, "Launching " + intent + " on " + context.getUser());
+        // Must run with IAC permission as it might be a context from other user
+        runWithShellPermissionIdentity(() -> context.sendBroadcast(intent), INTERACT_ACROSS_USERS);
 
         // Waits for final hoop in AppA to start looking for activity
         receiver.waitForEventOrThrow(BROADCAST_DELIVERY_TIMEOUT_MS);
-        boolean result = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
-        assertTrue("Not able to launch background activity", result);
-        assertTaskStack(new ComponentName[]{APP_A_BACKGROUND_ACTIVITY}, APP_A_BACKGROUND_ACTIVITY);
+        boolean actualResult = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
+
+        if (UserManager.isHeadlessSystemUserMode()) {
+            assertWithMessage("Launched bg activity (%s) for (headless) system user",
+                    APP_A.BACKGROUND_ACTIVITY).that(actualResult).isFalse();
+            assertTaskDoesNotHaveVisibleComponents(APP_A.BACKGROUND_ACTIVITY,
+                    APP_A.BACKGROUND_ACTIVITY);
+        } else {
+            assertWithMessage("Launched bg activity (%s) for (full) system user",
+                    APP_A.BACKGROUND_ACTIVITY).that(actualResult).isTrue();
+            assertTaskStackHasComponents(APP_A.BACKGROUND_ACTIVITY, APP_A.BACKGROUND_ACTIVITY);
+        }
     }
 
     @Test
     public void testAppCannotStartBgActivityAfterHomeButton() throws Exception {
-
         Intent intent = new Intent();
-        intent.setComponent(APP_A_RELAUNCHING_ACTIVITY);
+        intent.setComponent(APP_A.RELAUNCHING_ACTIVITY);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(intent);
 
         assertTrue("Main activity not started", waitUntilForegroundChanged(
-                TEST_PACKAGE_APP_A, true, ACTIVITY_START_TIMEOUT_MS));
+                APP_A.APP_PACKAGE_NAME, true, ACTIVITY_START_TIMEOUT_MS));
+        assertActivityFocused(APP_A.RELAUNCHING_ACTIVITY);
 
         // Click home button, and test app activity onPause() will try to start a background
         // activity, but we expect this will be blocked BAL logic in system, as app cannot start
         // any background activity even within grace period after pressing home button.
         pressHomeAndWaitHomeResumed();
 
-        assertActivityNotResumed();
+        boolean result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
+        assertFalse("Should not able to launch background activity", result);
     }
 
     // Check picture-in-picture(PIP) won't allow to start BAL after pressing home.
@@ -648,12 +709,12 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
     public void testPipCannotStartAfterHomeButton() throws Exception {
 
         Intent intent = new Intent();
-        intent.setComponent(APP_A_PIP_ACTIVITY);
+        intent.setComponent(APP_A.PIP_ACTIVITY);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(intent);
 
         assertTrue("Pip activity not started", waitUntilForegroundChanged(
-                TEST_PACKAGE_APP_A, true, ACTIVITY_START_TIMEOUT_MS));
+                APP_A.APP_PACKAGE_NAME, true, ACTIVITY_START_TIMEOUT_MS));
 
         // Click home button, and test app activity onPause() will trigger pip window,
         // test will will try to start background activity, but we expect the background activity
@@ -661,42 +722,67 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
         // activity to be started after pressing home button.
         pressHomeAndWaitHomeResumed();
 
-        assertActivityNotResumed();
+        boolean result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
+        assertFalse("Should not able to launch background activity", result);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 271576718)
+    public void testPipCannotStartFromBackground() throws Exception {
+        Intent intent = new Intent();
+        intent.setComponent(APP_A.LAUNCH_INTO_PIP_ACTIVITY);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(intent);
+
+        boolean result = waitForActivityFocused(APP_A.LAUNCH_INTO_PIP_ACTIVITY);
+        assertTrue("Should not able to launch background activity", result);
+
+        pressHomeAndWaitHomeResumed();
+        result = waitForActivityFocused(APP_A.LAUNCH_INTO_PIP_ACTIVITY);
+        assertFalse("Activity should be in background", result);
+
+        Intent broadcast = new Intent(APP_A.LAUNCH_INTO_PIP_ACTIONS.LAUNCH_INTO_PIP);
+        mContext.sendBroadcast(broadcast);
+        result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
+        assertFalse("Should not able to launch LaunchIntoPip activity", result);
+
+        assertPinnedStackDoesNotExist();
     }
 
     // Check that a presentation on a virtual display won't allow BAL after pressing home.
     @Test
     public void testVirtualDisplayCannotStartAfterHomeButton() throws Exception {
         Intent intent = new Intent();
-        intent.setComponent(APP_A_VIRTUAL_DISPLAY_ACTIVITY);
+        intent.setComponent(APP_A.VIRTUAL_DISPLAY_ACTIVITY);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(intent);
 
         assertTrue("VirtualDisplay activity not started", waitUntilForegroundChanged(
-                TEST_PACKAGE_APP_A, true, ACTIVITY_START_TIMEOUT_MS));
+                APP_A.APP_PACKAGE_NAME, true, ACTIVITY_START_TIMEOUT_MS));
 
         // Click home button, and test app activity onPause() will trigger which tries to launch
         // the background activity.
         pressHomeAndWaitHomeResumed();
 
-        assertActivityNotResumed();
+        boolean result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
+        assertFalse("Should not able to launch background activity", result);
     }
 
 
     // Test manage space pending intent created by system cannot bypass BAL check.
     @Test
     public void testManageSpacePendingIntentNoBalAllowed() throws Exception {
-        setupPendingIntentService();
+        setupPendingIntentService(APP_A);
         runWithShellPermissionIdentity(() -> {
-            runShellCommand("cmd appops set " + TEST_PACKAGE_APP_A
+            runShellCommandOrThrow("cmd appops set " + APP_A.APP_PACKAGE_NAME
                     + " android:manage_external_storage allow");
         });
         // Make sure AppA paused at least 10s so it can't start activity because of grace period.
         Thread.sleep(1000 * 10);
         mBackgroundActivityTestService.getAndStartManageSpaceActivity();
-        boolean result = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
+        boolean result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
         assertFalse("Should not able to launch background activity", result);
-        assertTaskStack(null, APP_A_BACKGROUND_ACTIVITY);
+        assertTaskStackIsEmpty(APP_A.BACKGROUND_ACTIVITY);
     }
 
     @Test
@@ -704,19 +790,52 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
         // Click bind widget button and then go home screen so app A will enter background state
         // with bind widget ability.
         EventReceiver receiver = new EventReceiver(Event.APP_A_START_WIDGET_CONFIG_ACTIVITY);
-        clickAllowBindWidget(receiver.getNotifier());
+        clickAllowBindWidget(APP_A, receiver.getNotifier());
         pressHomeAndWaitHomeResumed();
 
         // After pressing home button, wait for appA to start widget config activity.
         receiver.waitForEventOrThrow(1000 * 30);
 
-        boolean result = waitForActivityFocused(APP_A_BACKGROUND_ACTIVITY);
+        boolean result = waitForActivityFocused(APP_A.BACKGROUND_ACTIVITY);
         assertFalse("Should not able to launch background activity", result);
-        assertTaskStack(null, APP_A_BACKGROUND_ACTIVITY);
+        assertTaskStackIsEmpty(APP_A.BACKGROUND_ACTIVITY);
     }
 
-    private void clickAllowBindWidget(ResultReceiver resultReceiver) throws Exception {
+    @Test
+    public void testBalOptInBindToService_whenOptedIn_allowsActivityStarts() {
+        Intent appcIntent = new Intent()
+                .setComponent(APP_C_FOREGROUND_ACTIVITY)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra("android.server.wm.backgroundactivity.appc.ALLOW_BAL", true);
+
+        mContext.startActivity(appcIntent);
+        assertActivityFocused(APP_A.BACKGROUND_ACTIVITY);
+    }
+
+    @Test
+    public void testBalOptInBindToService_whenNotOptedIn_blocksActivityStarts() {
+        Intent appcIntent = new Intent()
+                .setComponent(APP_C_FOREGROUND_ACTIVITY)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        mContext.startActivity(appcIntent);
+        assertActivityNotFocused(APP_A.BACKGROUND_ACTIVITY);
+    }
+
+    @Test
+    public void testBalOptInBindToService_whenNotOptedInAndSdk33_allowsActivityStart() {
+        Intent appcIntent = new Intent()
+                .setComponent(APP_C_33_FOREGROUND_ACTIVITY)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        mContext.startActivity(appcIntent);
+        assertActivityFocused(APP_A.BACKGROUND_ACTIVITY);
+    }
+
+    private void clickAllowBindWidget(Components appA, ResultReceiver resultReceiver)
+            throws Exception {
         PackageManager pm = mContext.getPackageManager();
+        Assume.assumeTrue(pm.hasSystemFeature(PackageManager.FEATURE_APP_WIDGETS));
         // Skip on auto and TV devices only as they don't support appwidget bind.
         Assume.assumeFalse(pm.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE));
         Assume.assumeFalse(pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK_ONLY));
@@ -729,10 +848,10 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
         Intent appWidgetIntent = new Intent(AppWidgetManager.ACTION_APPWIDGET_BIND);
         appWidgetIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
         appWidgetIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER,
-                APP_A_APPWIDGET_PROVIDER);
+                appA.WIDGET_PROVIDER);
 
         Intent intent = new Intent();
-        intent.setComponent(APP_A_WIDGET_CONFIG_TEST_ACTIVITY);
+        intent.setComponent(appA.WIDGET_CONFIG_TEST_ACTIVITY);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.putExtra(Intent.EXTRA_INTENT, appWidgetIntent);
         intent.putExtra(EVENT_NOTIFIER_EXTRA, resultReceiver);
@@ -760,7 +879,7 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
             if (objectText == null) {
                 continue;
             }
-            if (objectText.equalsIgnoreCase("CREATE")) {
+            if (objectText.equalsIgnoreCase("CREATE") || objectText.equalsIgnoreCase("ALLOW")) {
                 object.click();
                 buttonClicked = true;
                 break;
@@ -776,8 +895,21 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
     }
 
     private void pressHomeAndWaitHomeResumed() {
+        assumeSetupComplete();
         pressHomeButton();
         mWmState.waitForHomeActivityVisible();
+        mWmState.waitForAppTransitionIdleOnDisplay(DEFAULT_DISPLAY);
+    }
+
+    private void pressHomeAndWaitHomeResumed(int timeoutMs) {
+        assumeSetupComplete();
+        pressHomeButton();
+        assertActivityFocused(timeoutMs, mWmState.getHomeActivityName());
+    }
+
+    private void assumeSetupComplete() {
+        assumeThat(Settings.Secure.getInt(mContext.getContentResolver(),
+                Settings.Secure.USER_SETUP_COMPLETE, 0), is(1));
     }
 
     private boolean checkPackageResumed(String pkg) {
@@ -801,23 +933,10 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
         return true;
     }
 
-    private void assertActivityNotResumed() throws Exception {
+    private void assertActivityNotResumed(Components appA) throws Exception {
         assertFalse("Test activity is resumed",
-                waitUntilForegroundChanged(TEST_PACKAGE_APP_A, true,
+                waitUntilForegroundChanged(appA.APP_PACKAGE_NAME, true,
                         ACTIVITY_NOT_RESUMED_TIMEOUT_MS));
-    }
-
-    private Intent getLaunchActivitiesBroadcast(ComponentName... componentNames) {
-        Intent broadcastIntent = new Intent(ACTION_LAUNCH_BACKGROUND_ACTIVITIES);
-        Intent[] intents = Stream.of(componentNames)
-                .map(c -> {
-                    Intent intent = new Intent();
-                    intent.setComponent(c);
-                    return intent;
-                })
-                .toArray(Intent[]::new);
-        broadcastIntent.putExtra(LAUNCH_INTENTS_EXTRA, intents);
-        return broadcastIntent;
     }
 
     private void pressHomeAndResumeAppSwitch() {
@@ -835,58 +954,40 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
         resumeAppSwitches();
     }
 
-    private void assertTaskStack(ComponentName[] expectedComponents,
-            ComponentName sourceComponent) {
-        if (expectedComponents == null) {
-            assertNull(mWmState.getTaskByActivity(sourceComponent));
-            return;
-        }
-        List<WindowManagerState.Activity> actual = mWmState.getTaskByActivity(
-                sourceComponent).mActivities;
-        assertEquals(expectedComponents.length, actual.size());
-        int size = expectedComponents.length;
-        for (int i = 0; i < size; i++) {
-            assertEquals(expectedComponents[i].flattenToShortString(), actual.get(i).getName());
-        }
-    }
-
-    private void assertPendingIntentBroadcastTimeoutTest(int delayMs, boolean expectedResult)
+    private void assertPendingIntentBroadcastTimeoutTest(Components appA,
+            android.server.wm.backgroundactivity.appb.Components appB,
+            int delayMs, boolean expectedResult)
             throws TimeoutException {
         // Start AppB foreground activity
         Intent intent = new Intent();
-        intent.setComponent(APP_B_FOREGROUND_ACTIVITY);
+        intent.setComponent(appB.FOREGROUND_ACTIVITY);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(intent);
-        boolean result = waitForActivityFocused(APP_B_FOREGROUND_ACTIVITY);
+        boolean result = waitForActivityFocused(appB.FOREGROUND_ACTIVITY);
         assertTrue("Not able to start foreground Activity", result);
-        assertTaskStack(new ComponentName[]{APP_B_FOREGROUND_ACTIVITY}, APP_B_FOREGROUND_ACTIVITY);
+        assertTaskStackHasComponents(appB.FOREGROUND_ACTIVITY, appB.FOREGROUND_ACTIVITY);
         EventReceiver receiver = new EventReceiver(
                 Event.APP_A_START_BACKGROUND_ACTIVITY_BROADCAST_RECEIVED);
 
         // Send pendingIntent from AppA to AppB, and the AppB launch the pending intent to start
         // activity in App A
-        sendPendingIntentBroadcast(delayMs, receiver.getNotifier());
+        sendPendingIntentBroadcast(appA, delayMs, receiver.getNotifier(), true);
 
         // Waits for final hoop in AppA to start looking for activity
         receiver.waitForEventOrThrow(BROADCAST_DELIVERY_TIMEOUT_MS);
         result = waitForActivityFocused(ACTIVITY_FOCUS_TIMEOUT_MS + delayMs,
-                APP_A_BACKGROUND_ACTIVITY);
+                appA.BACKGROUND_ACTIVITY);
         assertEquals(expectedResult, result);
         if (expectedResult) {
-            assertTaskStack(new ComponentName[]{APP_A_BACKGROUND_ACTIVITY},
-                    APP_A_BACKGROUND_ACTIVITY);
+            assertTaskStackHasComponents(appA.BACKGROUND_ACTIVITY, appA.BACKGROUND_ACTIVITY);
         } else {
-            assertTaskStack(null, APP_A_BACKGROUND_ACTIVITY);
+            assertTaskStackIsEmpty(appA.BACKGROUND_ACTIVITY);
         }
     }
 
-    private boolean waitForActivityFocused(ComponentName componentName) {
-        return waitForActivityFocused(ACTIVITY_FOCUS_TIMEOUT_MS, componentName);
-    }
-
-    private void setupPendingIntentService() throws Exception {
+    private void setupPendingIntentService(Components appA) throws Exception {
         Intent bindIntent = new Intent();
-        bindIntent.setComponent(APP_A_BACKGROUND_ACTIVITY_TEST_SERVICE);
+        bindIntent.setComponent(appA.BACKGROUND_ACTIVITY_TEST_SERVICE);
         final CountDownLatch bindLatch = new CountDownLatch(1);
 
         mBalServiceConnection = new ServiceConnection() {
@@ -908,8 +1009,10 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
                 bindLatch.await(1000, TimeUnit.MILLISECONDS));
     }
 
-    private void startPendingIntentSenderActivity(boolean allowBal) throws Exception {
-        setupPendingIntentService();
+    private void startPendingIntentSenderActivity(Components appA,
+            android.server.wm.backgroundactivity.appb.Components appB, boolean allowBal)
+            throws Exception {
+        setupPendingIntentService(appA);
         // Get a PendingIntent created by appA.
         final PendingIntent pi;
         try {
@@ -920,26 +1023,48 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
 
         // Start app B's activity so it runs send() on PendingIntent created by app A.
         Intent secondIntent = new Intent();
-        secondIntent.setComponent(APP_B_START_PENDING_INTENT_ACTIVITY);
+        secondIntent.setComponent(appB.START_PENDING_INTENT_ACTIVITY);
         secondIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        secondIntent.putExtra(PENDING_INTENT_EXTRA, pi);
-        secondIntent.putExtra(ALLOW_BAL_EXTRA, allowBal);
+        secondIntent.putExtra(appB.START_PENDING_INTENT_RECEIVER_EXTRA.PENDING_INTENT, pi);
+        secondIntent.putExtra(appB.START_PENDING_INTENT_ACTIVITY_EXTRA.ALLOW_BAL, allowBal);
         mContext.startActivity(secondIntent);
     }
 
-    private void sendPendingIntentActivity() {
+    private void sendPendingIntentActivity(Components appA,
+            android.server.wm.backgroundactivity.appb.Components appB,
+            String... booleanExtras) {
         Intent intent = new Intent();
-        intent.setComponent(APP_A_SEND_PENDING_INTENT_RECEIVER);
-        intent.putExtra(IS_BROADCAST_EXTRA, false);
+        intent.setComponent(appA.SEND_PENDING_INTENT_RECEIVER);
+        intent.putExtra(appA.SEND_PENDING_INTENT_RECEIVER_EXTRA.IS_BROADCAST, false);
+        intent.putExtra(appA.SEND_PENDING_INTENT_RECEIVER_EXTRA.APP_B_PACKAGE,
+                appB.APP_PACKAGE_NAME);
+        for (String booleanExtra : booleanExtras) {
+            intent.putExtra(booleanExtra, true);
+        }
+        Log.i(
+                "BackgroundActivityLaunchTest",
+                "Send broadcast to "
+                        + intent.getComponent()
+                        + " with extras: "
+                        + intent.getExtras());
         mContext.sendBroadcast(intent);
     }
 
-    private void sendPendingIntentBroadcast(int delayMs, @Nullable ResultReceiver eventNotifier) {
+    private void sendPendingIntentBroadcast(Components appA, int delayMs,
+            @Nullable ResultReceiver eventNotifier) {
+        sendPendingIntentBroadcast(appA, delayMs, eventNotifier, false);
+    }
+
+    private void sendPendingIntentBroadcast(Components appA, int delayMs,
+            @Nullable ResultReceiver eventNotifier,  boolean allowBalFromStartingApp) {
         Intent intent = new Intent();
-        intent.setComponent(APP_A_SEND_PENDING_INTENT_RECEIVER);
-        intent.putExtra(IS_BROADCAST_EXTRA, true);
+        intent.setComponent(appA.SEND_PENDING_INTENT_RECEIVER);
+        intent.putExtra(appA.SEND_PENDING_INTENT_RECEIVER_EXTRA.IS_BROADCAST, true);
+        if (allowBalFromStartingApp) {
+            intent.putExtra(APP_B.START_PENDING_INTENT_ACTIVITY_EXTRA.ALLOW_BAL, true);
+        }
         if (delayMs > 0) {
-            intent.putExtra(START_ACTIVITY_DELAY_MS_EXTRA, delayMs);
+            intent.putExtra(appA.START_ACTIVITY_RECEIVER_EXTRA.START_ACTIVITY_DELAY_MS, delayMs);
         }
         intent.putExtra(EVENT_NOTIFIER_EXTRA, eventNotifier);
         mContext.sendBroadcast(intent);

@@ -1,4 +1,4 @@
-/* Copyright 2018 The Chromium OS Authors. All rights reserved.
+/* Copyright 2018 The ChromiumOS Authors
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
@@ -191,9 +191,9 @@ static void add_binding(struct minijail *j, char *arg)
 	if (dest == NULL || dest[0] == '\0')
 		dest = src;
 	int writable;
-	if (flags == NULL || flags[0] == '\0' || !strcmp(flags, "0"))
+	if (flags == NULL || flags[0] == '\0' || streq(flags, "0"))
 		writable = 0;
-	else if (!strcmp(flags, "1"))
+	else if (streq(flags, "1"))
 		writable = 1;
 	else
 		errx(1, "Bad value for <writable>: %s", flags);
@@ -213,7 +213,7 @@ static void add_rlimit(struct minijail *j, char *arg)
 	}
 	rlim_t cur_rlim;
 	rlim_t max_rlim;
-	if (!strcmp(cur, "unlimited")) {
+	if (streq(cur, "unlimited")) {
 		cur_rlim = RLIM_INFINITY;
 	} else {
 		end = NULL;
@@ -221,7 +221,7 @@ static void add_rlimit(struct minijail *j, char *arg)
 		if (*end)
 			errx(1, "Bad soft limit: '%s'", cur);
 	}
-	if (!strcmp(max, "unlimited")) {
+	if (streq(max, "unlimited")) {
 		max_rlim = RLIM_INFINITY;
 	} else {
 		end = NULL;
@@ -386,14 +386,14 @@ static void use_profile(struct minijail *j, const char *profile,
 {
 	/* Note: New profiles should be added in minijail0_cli_unittest.cc. */
 
-	if (!strcmp(profile, "minimalistic-mountns") ||
-	    !strcmp(profile, "minimalistic-mountns-nodev")) {
+	if (streq(profile, "minimalistic-mountns") ||
+	    streq(profile, "minimalistic-mountns-nodev")) {
 		minijail_namespace_vfs(j);
 		if (minijail_bind(j, "/", "/", 0))
 			errx(1, "minijail_bind(/) failed");
 		if (minijail_bind(j, "/proc", "/proc", 0))
 			errx(1, "minijail_bind(/proc) failed");
-		if (!strcmp(profile, "minimalistic-mountns")) {
+		if (streq(profile, "minimalistic-mountns")) {
 			if (minijail_bind(j, "/dev/log", "/dev/log", 0))
 				errx(1, "minijail_bind(/dev/log) failed");
 			minijail_mount_dev(j);
@@ -403,6 +403,7 @@ static void use_profile(struct minijail *j, const char *profile,
 			*tmp_size = DEFAULT_TMP_SIZE;
 		}
 		minijail_remount_proc_readonly(j);
+		minijail_set_using_minimalistic_mountns(j);
 		use_pivot_root(j, DEFAULT_PIVOT_ROOT, pivot_root, chroot);
 	} else
 		errx(1, "Unrecognized profile name '%s'", profile);
@@ -411,13 +412,13 @@ static void use_profile(struct minijail *j, const char *profile,
 static void set_remount_mode(struct minijail *j, const char *mode)
 {
 	unsigned long msmode;
-	if (!strcmp(mode, "shared"))
+	if (streq(mode, "shared"))
 		msmode = MS_SHARED;
-	else if (!strcmp(mode, "private"))
+	else if (streq(mode, "private"))
 		msmode = MS_PRIVATE;
-	else if (!strcmp(mode, "slave"))
+	else if (streq(mode, "slave"))
 		msmode = MS_SLAVE;
-	else if (!strcmp(mode, "unbindable"))
+	else if (streq(mode, "unbindable"))
 		msmode = MS_UNBINDABLE;
 	else
 		errx(1, "Unknown remount mode: '%s'", mode);
@@ -467,6 +468,11 @@ enum {
 	OPT_CONFIG,
 	OPT_ENV_ADD,
 	OPT_ENV_RESET,
+	OPT_FS_DEFAULT_PATHS,
+	OPT_FS_PATH_RX,
+	OPT_FS_PATH_RO,
+	OPT_FS_PATH_RW,
+	OPT_FS_PATH_ADVANCED_RW,
 	OPT_LOGGING,
 	OPT_PRELOAD_LIBRARY,
 	OPT_PROFILE,
@@ -501,6 +507,11 @@ static const struct option long_options[] = {
     {"mount", required_argument, 0, 'k'},
     {"bind-mount", required_argument, 0, 'b'},
     {"ns-mount", no_argument, 0, 'v'},
+    {"fs-default-paths", no_argument, 0, OPT_FS_DEFAULT_PATHS},
+    {"fs-path-rx", required_argument, 0, OPT_FS_PATH_RX},
+    {"fs-path-ro", required_argument, 0, OPT_FS_PATH_RO},
+    {"fs-path-rw", required_argument, 0, OPT_FS_PATH_RW},
+    {"fs-path-advanced-rw", required_argument, 0, OPT_FS_PATH_ADVANCED_RW},
     {0, 0, 0, 0},
 };
 
@@ -615,6 +626,17 @@ static const char help_text[] =
 "Uncommon options:\n"
 "  --allow-speculative-execution\n"
 "               Allow speculative execution by disabling mitigations.\n"
+"  --fs-default-paths\n"
+"               Adds a set of allowed paths to allow running common system \n"
+"               executables.\n"
+"  --fs-path-rx\n"
+"               Adds an allowed read-execute path.\n"
+"  --fs-path-ro\n"
+"               Adds an allowed read-only path.\n"
+"  --fs-path-rw\n"
+"               Adds an allowed read-write path.\n"
+"  --fs-path-advanced-rw\n"
+"               Adds an allowed advanced read-write path.\n"
 "  --preload-library=<file>\n"
 "               Overrides the path to \"" PRELOADPATH "\".\n"
 "               This is only really useful for local testing.\n"
@@ -672,7 +694,7 @@ static int getopt_from_conf(const struct option *longopts,
 	const struct option *curr_opt;
 	for (curr_opt = &longopts[0]; curr_opt->name != NULL;
 	     curr_opt = &longopts[++i])
-		if (strcmp(entry->key, curr_opt->name) == 0)
+		if (streq(entry->key, curr_opt->name))
 			break;
 	if (curr_opt->name == NULL) {
 		errx(1,
@@ -953,9 +975,9 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 			add_rlimit(j, optarg);
 			break;
 		case 'T':
-			if (!strcmp(optarg, "static"))
+			if (streq(optarg, "static"))
 				*elftype = ELFSTATIC;
-			else if (!strcmp(optarg, "dynamic"))
+			else if (streq(optarg, "dynamic"))
 				*elftype = ELFDYNAMIC;
 			else {
 				errx(1, "ELF type must be 'static' or "
@@ -986,11 +1008,11 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 				minijail_namespace_set_hostname(j, optarg);
 			break;
 		case OPT_LOGGING:
-			if (!strcmp(optarg, "auto"))
+			if (streq(optarg, "auto"))
 				log_to_stderr = -1;
-			else if (!strcmp(optarg, "syslog"))
+			else if (streq(optarg, "syslog"))
 				log_to_stderr = 0;
-			else if (!strcmp(optarg, "stderr"))
+			else if (streq(optarg, "stderr"))
 				log_to_stderr = 1;
 			else
 				errx(1,
@@ -1001,6 +1023,21 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 			break;
 		case OPT_PRELOAD_LIBRARY:
 			*preload_path = optarg;
+			break;
+		case OPT_FS_DEFAULT_PATHS:
+			minijail_enable_default_fs_restrictions(j);
+			break;
+		case OPT_FS_PATH_RX:
+			minijail_add_fs_restriction_rx(j, optarg);
+			break;
+		case OPT_FS_PATH_RO:
+			minijail_add_fs_restriction_ro(j, optarg);
+			break;
+		case OPT_FS_PATH_RW:
+			minijail_add_fs_restriction_rw(j, optarg);
+			break;
+		case OPT_FS_PATH_ADVANCED_RW:
+			minijail_add_fs_restriction_advanced_rw(j, optarg);
 			break;
 		case OPT_SECCOMP_BPF_BINARY:
 			if (seccomp != None && seccomp != BpfBinaryFilter) {

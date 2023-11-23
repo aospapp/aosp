@@ -20,9 +20,6 @@
 #include <forward_list>
 #include <memory>
 
-#include "hci/address.h"
-
-using bluetooth::hci::Address;
 using bluetooth::packet::BitInserter;
 using std::vector;
 
@@ -51,7 +48,7 @@ TEST(RawBuilderTest, buildCountTest) {
   count_builder->AddOctets2(0x0d0c);
   count_builder->AddOctets1(0x0e);
   count_builder->AddOctets1(0x0f);
-  count_builder->AddAddress(Address({0x10, 0x11, 0x12, 0x13, 0x14, 0x15}));
+  count_builder->AddOctets(std::array<uint8_t, 6>{0x10, 0x11, 0x12, 0x13, 0x14, 0x15});
   std::vector<uint8_t> count_subset(count.begin() + 0x16, count.end());
   count_builder->AddOctets(count_subset);
 

@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
 import argparse
-import distutils.ccompiler
 import glob
 import logging
 import mini_parser
@@ -29,9 +29,13 @@ import zipfile
 """This tool generates a mapping file for {ver} core sepolicy."""
 
 temp_dir = ''
-compat_cil_template = ";; This file can't be empty.\n"
-ignore_cil_template = """;; new_objects - a collection of types that have been introduced that have no
-;;   analogue in older policy.  Thus, we do not need to map these types to
+mapping_cil_footer = ";; mapping information from ToT policy's types to %s policy's types.\n"
+compat_cil_template = """;; complement CIL file for compatibility between ToT policy and %s vendors.
+;; will be compiled along with other normal policy files, on %s vendors.
+;;
+"""
+ignore_cil_template = """;; new_objects - a collection of types that have been introduced with ToT policy
+;;   that have no analogue in %s policy.  Thus, we do not need to map these types to
 ;;   previous ones.  Add here to pass checkapi tests.
 (type new_objects)
 (typeattribute new_objects)
@@ -41,6 +45,7 @@ ignore_cil_template = """;; new_objects - a collection of types that have been i
   ))
 """
 
+SHARED_LIB_EXTENSION = '.dylib' if sys.platform == 'darwin' else '.so'
 
 def check_run(cmd, cwd=None):
     if cwd:
@@ -105,7 +110,7 @@ def extract_mapping_file_from_img(img_path, ver, destination='.'):
     path = os.path.join(destination, '%s.cil' % ver)
     with open(path, 'wb') as f:
         logging.debug('Extracting %s.cil to %s' % (ver, destination))
-        f.write(check_output(cmd).stdout.replace(b'10000.0',b'33.0').replace(b'10000_0',b'33_0'))
+        f.write(check_output(cmd).stdout.replace(b'10000_0', ver.replace('.', '_').encode()))
     return path
 
 
@@ -190,6 +195,122 @@ def change_api_level(versioned_type, api_from, api_to):
     return versioned_type.removesuffix(old_suffix) + new_suffix
 
 
+def create_target_compat_modules(bp_path, target_ver):
+    """ Creates compat modules to Android.bp.
+
+    Args:
+      bp_path: string, path to Android.bp
+      target_ver: string, api version to generate
+    """
+
+    module_template = """
+se_build_files {{
+    name: "{ver}.board.compat.map",
+    srcs: ["compat/{ver}/{ver}.cil"],
+}}
+
+se_build_files {{
+    name: "{ver}.board.compat.cil",
+    srcs: ["compat/{ver}/{ver}.compat.cil"],
+}}
+
+se_build_files {{
+    name: "{ver}.board.ignore.map",
+    srcs: ["compat/{ver}/{ver}.ignore.cil"],
+}}
+
+se_cil_compat_map {{
+    name: "plat_{ver}.cil",
+    stem: "{ver}.cil",
+    bottom_half: [":{ver}.board.compat.map{{.plat_private}}"],
+}}
+
+se_cil_compat_map {{
+    name: "system_ext_{ver}.cil",
+    stem: "{ver}.cil",
+    bottom_half: [":{ver}.board.compat.map{{.system_ext_private}}"],
+    system_ext_specific: true,
+}}
+
+se_cil_compat_map {{
+    name: "product_{ver}.cil",
+    stem: "{ver}.cil",
+    bottom_half: [":{ver}.board.compat.map{{.product_private}}"],
+    product_specific: true,
+}}
+
+se_cil_compat_map {{
+    name: "{ver}.ignore.cil",
+    bottom_half: [":{ver}.board.ignore.map{{.plat_private}}"],
+}}
+
+se_cil_compat_map {{
+    name: "system_ext_{ver}.ignore.cil",
+    stem: "{ver}.ignore.cil",
+    bottom_half: [":{ver}.board.ignore.map{{.system_ext_private}}"],
+    system_ext_specific: true,
+}}
+
+se_cil_compat_map {{
+    name: "product_{ver}.ignore.cil",
+    stem: "{ver}.ignore.cil",
+    bottom_half: [":{ver}.board.ignore.map{{.product_private}}"],
+    product_specific: true,
+}}
+
+se_compat_cil {{
+    name: "{ver}.compat.cil",
+    srcs: [":{ver}.board.compat.cil{{.plat_private}}"],
+}}
+
+se_compat_cil {{
+    name: "system_ext_{ver}.compat.cil",
+    stem: "{ver}.compat.cil",
+    srcs: [":{ver}.board.compat.cil{{.system_ext_private}}"],
+    system_ext_specific: true,
+}}
+"""
+
+    with open(bp_path, 'a') as f:
+        f.write(module_template.format(ver=target_ver))
+
+
+def patch_top_half_of_latest_compat_modules(bp_path, latest_ver, target_ver):
+    """ Adds top_half property to latest compat modules in Android.bp.
+
+    Args:
+      bp_path: string, path to Android.bp
+      latest_ver: string, previous api version
+      target_ver: string, api version to generate
+    """
+
+    modules_to_patch = [
+        "plat_{ver}.cil",
+        "system_ext_{ver}.cil",
+        "product_{ver}.cil",
+        "{ver}.ignore.cil",
+        "system_ext_{ver}.ignore.cil",
+        "product_{ver}.ignore.cil",
+    ]
+
+    for module in modules_to_patch:
+        # set latest_ver module's top_half property to target_ver
+        # e.g.
+        #
+        # se_cil_compat_map {
+        #    name: "plat_33.0.cil",
+        #    top_half: "plat_34.0.cil", <== this
+        #    ...
+        # }
+        check_run([
+            "bpmodify",
+            "-m", module.format(ver=latest_ver),
+            "-property", "top_half",
+            "-str", module.format(ver=target_ver),
+            "-w",
+            bp_path
+        ])
+
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -227,8 +348,7 @@ def main():
 
     try:
         libpath = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), 'libsepolwrap' +
-            distutils.ccompiler.new_compiler().shared_lib_extension)
+            os.path.dirname(os.path.realpath(__file__)), 'libsepolwrap' + SHARED_LIB_EXTENSION)
         if not os.path.exists(libpath):
             sys.exit(
                 'Error: libsepolwrap does not exist. Is this binary corrupted?\n'
@@ -236,6 +356,26 @@ def main():
 
         build_top = get_android_build_top()
         sepolicy_path = os.path.join(build_top, 'system', 'sepolicy')
+
+        # Step 0. Create a placeholder files and compat modules
+        # These are needed to build base policy files below.
+        compat_bp_path = os.path.join(sepolicy_path, 'compat', 'Android.bp')
+        create_target_compat_modules(compat_bp_path, args.target_version)
+        patch_top_half_of_latest_compat_modules(compat_bp_path, args.latest_version,
+            args.target_version)
+
+        target_compat_path = os.path.join(sepolicy_path, 'private', 'compat',
+                                          args.target_version)
+        target_mapping_file = os.path.join(target_compat_path,
+                                           args.target_version + '.cil')
+        target_compat_file = os.path.join(target_compat_path,
+                                          args.target_version + '.compat.cil')
+        target_ignore_file = os.path.join(target_compat_path,
+                                          args.target_version + '.ignore.cil')
+        Path(target_compat_path).mkdir(parents=True, exist_ok=True)
+        Path(target_mapping_file).touch()
+        Path(target_compat_file).touch()
+        Path(target_ignore_file).touch()
 
         # Step 1. Download system/etc/selinux/mapping/{ver}.cil, and remove types/typeattributes
         mapping_file = download_mapping_file(
@@ -342,31 +482,23 @@ def main():
             sys.exit(error_msg)
 
         # Step 5. Write to system/sepolicy/private/compat
-        target_compat_path = os.path.join(sepolicy_path, 'private', 'compat',
-                                          args.target_version)
-        target_mapping_file = os.path.join(target_compat_path,
-                                           args.target_version + '.cil')
-        target_compat_file = os.path.join(target_compat_path,
-                                          args.target_version + '.compat.cil')
-        target_ignore_file = os.path.join(target_compat_path,
-                                          args.target_version + '.ignore.cil')
-
         with open(target_mapping_file, 'w') as f:
             logging.info('writing %s' % target_mapping_file)
             if removed_types:
                 f.write(';; types removed from current policy\n')
                 f.write('\n'.join(f'(type {x})' for x in sorted(target_removed_types)))
                 f.write('\n\n')
+            f.write(mapping_cil_footer % args.target_version)
             f.write(mapping_file_cil.unparse())
 
         with open(target_compat_file, 'w') as f:
             logging.info('writing %s' % target_compat_file)
-            f.write(compat_cil_template)
+            f.write(compat_cil_template % (args.target_version, args.target_version))
 
         with open(target_ignore_file, 'w') as f:
             logging.info('writing %s' % target_ignore_file)
             f.write(ignore_cil_template %
-                    ('\n    '.join(sorted(target_ignored_types))))
+                    (args.target_version, '\n    '.join(sorted(target_ignored_types))))
     finally:
         logging.info('Deleting temporary dir: {}'.format(temp_dir))
         shutil.rmtree(temp_dir)

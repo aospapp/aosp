@@ -132,8 +132,8 @@ else:
 HOST_OUT_EXECUTABLES = os.path.join(ANDROID_BUILD_TOP,
                                     _get_build_var("HOST_OUT_EXECUTABLES"))
 
-# Set up default values for $DX, $SMALI, etc to the $HOST_OUT_EXECUTABLES/$name path.
-for tool in ['dx', 'smali', 'jasmin', 'd8']:
+# Set up default values for $D8, $SMALI, etc to the $HOST_OUT_EXECUTABLES/$name path.
+for tool in ['smali', 'jasmin', 'd8']:
   os.environ.setdefault(tool.upper(), HOST_OUT_EXECUTABLES + '/' + tool)
 
 ANDROID_JAVA_TOOLCHAIN = os.path.join(ANDROID_BUILD_TOP,
@@ -146,3 +146,6 @@ DIST_DIR = _get_build_var('DIST_DIR')
 SOONG_OUT_DIR = _get_build_var('SOONG_OUT_DIR')
 
 ART_TEST_RUN_ON_ARM_FVP = _getEnvBoolean('ART_TEST_RUN_ON_ARM_FVP', False)
+
+ART_TEST_ON_VM = _env.get('ART_TEST_ON_VM')
+ART_SSH_CMD = _env.get('ART_SSH_CMD')

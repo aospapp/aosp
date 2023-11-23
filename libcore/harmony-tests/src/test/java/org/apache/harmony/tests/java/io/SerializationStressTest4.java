@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.tests.java.io;
@@ -168,7 +168,7 @@ public class SerializationStressTest4 extends SerializationStressTest {
         Object objLoaded = null;
 
         try {
-            objToSave = new java.lang.Character('c');
+            objToSave = java.lang.Character.valueOf('c');
             if (DEBUG)
                 System.out.println("Obj = " + objToSave);
             objLoaded = dumpAndReload(objToSave);
@@ -331,7 +331,7 @@ public class SerializationStressTest4 extends SerializationStressTest {
         Object objLoaded = null;
 
         try {
-            objToSave = new java.lang.Short((short) 107);
+            objToSave = java.lang.Short.valueOf((short) 107);
             if (DEBUG)
                 System.out.println("Obj = " + objToSave);
             objLoaded = dumpAndReload(objToSave);
@@ -360,7 +360,7 @@ public class SerializationStressTest4 extends SerializationStressTest {
         Object objLoaded = null;
 
         try {
-            objToSave = new java.lang.Byte((byte) 107);
+            objToSave = java.lang.Byte.valueOf((byte) 107);
             if (DEBUG)
                 System.out.println("Obj = " + objToSave);
             objLoaded = dumpAndReload(objToSave);
@@ -625,7 +625,7 @@ public class SerializationStressTest4 extends SerializationStressTest {
         Object objLoaded = null;
 
         try {
-            objToSave = java.util.Collections.nCopies(2, new Integer(2));
+            objToSave = java.util.Collections.nCopies(2, Integer.valueOf(2));
             if (DEBUG)
                 System.out.println("Obj = " + objToSave);
             objLoaded = dumpAndReload(objToSave);
@@ -722,7 +722,7 @@ public class SerializationStressTest4 extends SerializationStressTest {
                 }
 
                 public Number parse(String p1, java.text.ParsePosition p2) {
-                    return new Long(save);
+                    return Long.valueOf(save);
                 }
 
                 public boolean equals(Object obj) {
@@ -822,7 +822,7 @@ public class SerializationStressTest4 extends SerializationStressTest {
         Object objLoaded = null;
 
         try {
-            objToSave = new java.lang.Double(1.23);
+            objToSave = java.lang.Double.valueOf(1.23);
             if (DEBUG)
                 System.out.println("Obj = " + objToSave);
             objLoaded = dumpAndReload(objToSave);
@@ -1001,7 +1001,7 @@ public class SerializationStressTest4 extends SerializationStressTest {
         Object objLoaded = null;
 
         try {
-            objToSave = new java.lang.Boolean(true);
+            objToSave = java.lang.Boolean.valueOf(true);
             if (DEBUG)
                 System.out.println("Obj = " + objToSave);
             objLoaded = dumpAndReload(objToSave);
@@ -1029,7 +1029,7 @@ public class SerializationStressTest4 extends SerializationStressTest {
         Object objLoaded = null;
 
         try {
-            objToSave = java.util.Collections.singleton(new Byte((byte) 107));
+            objToSave = java.util.Collections.singleton(Byte.valueOf((byte) 107));
             if (DEBUG)
                 System.out.println("Obj = " + objToSave);
             objLoaded = dumpAndReload(objToSave);
@@ -1039,7 +1039,7 @@ public class SerializationStressTest4 extends SerializationStressTest {
             java.util.Iterator iter = ((Set) objLoaded).iterator();
             equals = iter.hasNext();
             if (equals)
-                equals = iter.next().equals(new Byte((byte) 107));
+                equals = iter.next().equals(Byte.valueOf((byte) 107));
             if (equals)
                 equals = !iter.hasNext();
             assertTrue(MSG_TEST_FAILED + objToSave, equals);
@@ -1065,7 +1065,7 @@ public class SerializationStressTest4 extends SerializationStressTest {
 
         try {
             objToSave = java.util.Collections
-                    .singletonList(new Byte((byte) 107));
+                    .singletonList(Byte.valueOf((byte) 107));
             if (DEBUG)
                 System.out.println("Obj = " + objToSave);
             objLoaded = dumpAndReload(objToSave);
@@ -1074,7 +1074,7 @@ public class SerializationStressTest4 extends SerializationStressTest {
             boolean equals;
             java.util.Iterator iter = ((List) objLoaded).iterator();
             equals = objLoaded.equals(objToSave) && iter.hasNext()
-                    && iter.next().equals(new Byte((byte) 107))
+                    && iter.next().equals(Byte.valueOf((byte) 107))
                     && !iter.hasNext();
             assertTrue(MSG_TEST_FAILED + objToSave, equals);
         } catch (IOException e) {
@@ -1110,7 +1110,7 @@ public class SerializationStressTest4 extends SerializationStressTest {
             equals = objLoaded.equals(objToSave) && iter.hasNext();
             Map.Entry entry = (Map.Entry) iter.next();
             equals = equals && entry.getKey().equals("key")
-                    && entry.getValue().equals(new Byte((byte) 107))
+                    && entry.getValue().equals(Byte.valueOf((byte) 107))
                     && !iter.hasNext();
             assertTrue(MSG_TEST_FAILED + objToSave, equals);
         } catch (IOException e) {
@@ -1251,7 +1251,7 @@ public class SerializationStressTest4 extends SerializationStressTest {
         Object objLoaded = null;
 
         try {
-            objToSave = new java.lang.Float(1.23f);
+            objToSave = java.lang.Float.valueOf(1.23f);
             if (DEBUG)
                 System.out.println("Obj = " + objToSave);
             objLoaded = dumpAndReload(objToSave);
@@ -1376,7 +1376,7 @@ public class SerializationStressTest4 extends SerializationStressTest {
         Object objLoaded = null;
 
         try {
-            objToSave = new java.lang.Long(107L);
+            objToSave = java.lang.Long.valueOf(107L);
             if (DEBUG)
                 System.out.println("Obj = " + objToSave);
             objLoaded = dumpAndReload(objToSave);
@@ -1508,7 +1508,7 @@ public class SerializationStressTest4 extends SerializationStressTest {
         public Object invoke(Object proxy, Method method, Object[] args)
                 throws Throwable {
             if (method.getName().equals("equals"))
-                return new Boolean(proxy == args[0]);
+                return Boolean.valueOf(proxy == args[0]);
             if (method.getName().equals("array"))
                 return new int[] { (int) ((long[]) args[0])[1], -1 };
             if (method.getName().equals("string")) {

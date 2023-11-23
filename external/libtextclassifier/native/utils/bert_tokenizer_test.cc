@@ -16,6 +16,8 @@
 
 #include "utils/bert_tokenizer.h"
 
+#include <memory>
+
 #include "utils/test-data-test-utils.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -37,14 +39,14 @@ TEST(BertTokenizerTest, TestTokenizerCreationFromBuffer) {
   std::string buffer = GetTestFileContent(kTestVocabPath);
 
   auto tokenizer =
-      absl::make_unique<BertTokenizer>(buffer.data(), buffer.size());
+      std::make_unique<BertTokenizer>(buffer.data(), buffer.size());
 
   AssertTokenizerResults(std::move(tokenizer));
 }
 
 TEST(BertTokenizerTest, TestTokenizerCreationFromFile) {
   auto tokenizer =
-      absl::make_unique<BertTokenizer>(GetTestDataPath(kTestVocabPath));
+      std::make_unique<BertTokenizer>(GetTestDataPath(kTestVocabPath));
 
   AssertTokenizerResults(std::move(tokenizer));
 }
@@ -55,14 +57,14 @@ TEST(BertTokenizerTest, TestTokenizerCreationFromVector) {
   vocab.emplace_back("'");
   vocab.emplace_back("m");
   vocab.emplace_back("question");
-  auto tokenizer = absl::make_unique<BertTokenizer>(vocab);
+  auto tokenizer = std::make_unique<BertTokenizer>(vocab);
 
   AssertTokenizerResults(std::move(tokenizer));
 }
 
 TEST(BertTokenizerTest, TestTokenizerMultipleRows) {
   auto tokenizer =
-      absl::make_unique<BertTokenizer>(GetTestDataPath(kTestVocabPath));
+      std::make_unique<BertTokenizer>(GetTestDataPath(kTestVocabPath));
 
   auto results = tokenizer->Tokenize("i'm questionansweraskask");
 
@@ -72,7 +74,7 @@ TEST(BertTokenizerTest, TestTokenizerMultipleRows) {
 
 TEST(BertTokenizerTest, TestTokenizeIntoWordpieces) {
   auto tokenizer =
-      absl::make_unique<BertTokenizer>(GetTestDataPath(kTestVocabPath));
+      std::make_unique<BertTokenizer>(GetTestDataPath(kTestVocabPath));
 
   auto results = tokenizer->TokenizeIntoWordpieces("i'm questionansweraskask");
 
@@ -85,7 +87,7 @@ TEST(BertTokenizerTest, TestTokenizeIntoWordpieces) {
 
 TEST(BertTokenizerTest, TestTokenizeIntoWordpiecesLongNonAscii) {
   auto tokenizer =
-      absl::make_unique<BertTokenizer>(GetTestDataPath(kTestVocabPath));
+      std::make_unique<BertTokenizer>(GetTestDataPath(kTestVocabPath));
 
   std::string token;
   for (int i = 0; i < 100; ++i) {
@@ -105,7 +107,7 @@ TEST(BertTokenizerTest, TestTokenizerUnknownTokens) {
   vocab.emplace_back("'");
   vocab.emplace_back("m");
   vocab.emplace_back("question");
-  auto tokenizer = absl::make_unique<BertTokenizer>(vocab);
+  auto tokenizer = std::make_unique<BertTokenizer>(vocab);
 
   auto results = tokenizer->Tokenize("i'm questionansweraskask");
 
@@ -119,7 +121,7 @@ TEST(BertTokenizerTest, TestLookupId) {
   vocab.emplace_back("'");
   vocab.emplace_back("m");
   vocab.emplace_back("question");
-  auto tokenizer = absl::make_unique<BertTokenizer>(vocab);
+  auto tokenizer = std::make_unique<BertTokenizer>(vocab);
 
   int i;
   ASSERT_FALSE(tokenizer->LookupId("iDontExist", &i));
@@ -140,7 +142,7 @@ TEST(BertTokenizerTest, TestLookupWord) {
   vocab.emplace_back("'");
   vocab.emplace_back("m");
   vocab.emplace_back("question");
-  auto tokenizer = absl::make_unique<BertTokenizer>(vocab);
+  auto tokenizer = std::make_unique<BertTokenizer>(vocab);
 
   absl::string_view result;
   ASSERT_FALSE(tokenizer->LookupWord(6, &result));
@@ -161,7 +163,7 @@ TEST(BertTokenizerTest, TestContains) {
   vocab.emplace_back("'");
   vocab.emplace_back("m");
   vocab.emplace_back("question");
-  auto tokenizer = absl::make_unique<BertTokenizer>(vocab);
+  auto tokenizer = std::make_unique<BertTokenizer>(vocab);
 
   bool result;
   tokenizer->Contains("iDontExist", &result);
@@ -183,7 +185,7 @@ TEST(BertTokenizerTest, TestLVocabularySize) {
   vocab.emplace_back("'");
   vocab.emplace_back("m");
   vocab.emplace_back("question");
-  auto tokenizer = absl::make_unique<BertTokenizer>(vocab);
+  auto tokenizer = std::make_unique<BertTokenizer>(vocab);
 
   ASSERT_EQ(tokenizer->VocabularySize(), 4);
 }

@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/link/ipip.c        IPIP Link Info
- *
- *      This library is free software; you can redistribute it and/or
- *      modify it under the terms of the GNU Lesser General Public
- *      License as published by the Free Software Foundation version 2.1
- *      of the License.
- *
  * Copyright (c) 2014 Susant Sahani <susant@redhat.com>
  */
 
@@ -38,6 +32,7 @@
 #define IPIP_ATTR_TTL           (1 << 3)
 #define IPIP_ATTR_TOS           (1 << 4)
 #define IPIP_ATTR_PMTUDISC      (1 << 5)
+#define IPIP_ATTR_FWMARK        (1 << 6)
 
 struct ipip_info
 {
@@ -47,6 +42,7 @@ struct ipip_info
 	uint32_t   link;
 	uint32_t   local;
 	uint32_t   remote;
+	uint32_t   fwmark;
 	uint32_t   ipip_mask;
 };
 
@@ -57,6 +53,7 @@ static struct nla_policy ipip_policy[IFLA_IPTUN_MAX + 1] = {
 	[IFLA_IPTUN_TTL]        = { .type = NLA_U8 },
 	[IFLA_IPTUN_TOS]        = { .type = NLA_U8 },
 	[IFLA_IPTUN_PMTUDISC]   = { .type = NLA_U8 },
+	[IFLA_IPTUN_FWMARK]     = { .type = NLA_U32 },
 };
 
 static int ipip_alloc(struct rtnl_link *link)
@@ -125,6 +122,11 @@ static int ipip_parse(struct rtnl_link *link, struct nlattr *data,
 		ipip->ipip_mask |= IPIP_ATTR_PMTUDISC;
 	}
 
+	if (tb[IFLA_IPTUN_FWMARK]) {
+		ipip->fwmark = nla_get_u32(tb[IFLA_IPTUN_FWMARK]);
+		ipip->ipip_mask |= IPIP_ATTR_FWMARK;
+	}
+
 	err = 0;
 
 errout:
@@ -157,6 +159,9 @@ static int ipip_put_attrs(struct nl_msg *msg, struct rtnl_link *link)
 
 	if (ipip->ipip_mask & IPIP_ATTR_PMTUDISC)
 		NLA_PUT_U8(msg, IFLA_IPTUN_PMTUDISC, ipip->pmtudisc);
+
+	if (ipip->ipip_mask & IPIP_ATTR_FWMARK)
+		NLA_PUT_U32(msg, IFLA_IPTUN_FWMARK, ipip->fwmark);
 
 	nla_nest_end(msg, data);
 
@@ -226,6 +231,11 @@ static void ipip_dump_details(struct rtnl_link *link, struct nl_dump_params *p)
 	if (ipip->ipip_mask & IPIP_ATTR_PMTUDISC) {
 		nl_dump(p, "      pmtudisc ");
 		nl_dump_line(p, "enabled (%#x)\n", ipip->pmtudisc);
+	}
+
+	if (ipip->ipip_mask & IPIP_ATTR_FWMARK) {
+		nl_dump(p, "      fwmark ");
+		nl_dump_line(p, "%x\n", ipip->fwmark);
 	}
 }
 
@@ -526,6 +536,46 @@ uint8_t rtnl_link_ipip_get_pmtudisc(struct rtnl_link *link)
 	IS_IPIP_LINK_ASSERT(link);
 
 	return ipip->pmtudisc;
+}
+
+/**
+ * Set IPIP tunnel fwmark
+ * @arg link            Link object
+ * @arg fwmark          fwmark
+ *
+ * @return 0 on success or a negative error code
+ */
+int rtnl_link_ipip_set_fwmark(struct rtnl_link *link, uint32_t fwmark)
+{
+	struct ipip_info *ipip = link->l_info;
+
+	IS_IPIP_LINK_ASSERT(link);
+
+	ipip->fwmark = fwmark;
+	ipip->ipip_mask |= IPIP_ATTR_FWMARK;
+
+	return 0;
+}
+
+/**
+ * Get IPIP tunnel fwmark
+ * @arg link            Link object
+ * @arg fwmark          addr to fill in with the fwmark
+ *
+ * @return 0 on success or a negative error code
+ */
+int rtnl_link_ipip_get_fwmark(struct rtnl_link *link, uint32_t *fwmark)
+{
+	struct ipip_info *ipip = link->l_info;
+
+	IS_IPIP_LINK_ASSERT(link);
+
+	if (!(ipip->ipip_mask & IPIP_ATTR_FWMARK))
+		return -NLE_NOATTR;
+
+	*fwmark = ipip->fwmark;
+
+	return 0;
 }
 
 static void __init ipip_init(void)

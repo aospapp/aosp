@@ -16,13 +16,16 @@ limitations under the License.
 
 #include <fstream>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "google/protobuf/text_format.h"
 #include "tensorflow/c/kernels.h"
 #include "tensorflow/compiler/mlir/lite/metrics/error_collector.h"
+#include "tensorflow/compiler/mlir/lite/python/flatbuffer_to_mlir.h"
 #include "tensorflow/compiler/mlir/lite/python/graphdef_to_tfl_flatbuffer.h"
+#include "tensorflow/compiler/mlir/lite/python/jax_to_tfl_flatbuffer.h"
 #include "tensorflow/compiler/mlir/lite/python/saved_model_to_tfl_flatbuffer.h"
 #include "tensorflow/compiler/mlir/lite/quantization/lite/quantize_model.h"
 #include "tensorflow/compiler/mlir/lite/sparsity/sparsify_model.h"
@@ -160,7 +163,8 @@ PyObject* TocoConvert(PyObject* model_flags_proto_txt_raw,
       PyErr_SetString(PyExc_ValueError, "Input GraphDef is invalid.");
       return nullptr;
     }
-    if (!graph_def.ParseFromString(input_contents_txt)) {
+    if (!model_flags.use_hlo_import() &&
+        !graph_def.ParseFromString(input_contents_txt)) {
       PyErr_SetString(PyExc_ValueError,
                       "Failed to convert GraphDef to Python String.");
       return nullptr;
@@ -181,7 +185,17 @@ PyObject* TocoConvert(PyObject* model_flags_proto_txt_raw,
 
   // Convert model.
   if (enable_mlir_converter) {
-    if (!model_flags.saved_model_dir().empty()) {
+    if (model_flags.use_hlo_import() && model_flags.has_saved_model_dir()) {
+      PyErr_SetString(PyExc_ValueError,
+                      "Cannot specify both saved_model and hlo import.");
+      return nullptr;
+    }
+
+    if (model_flags.use_hlo_import()) {
+      status = tensorflow::ConvertJaxToTFLiteFlatBuffer(
+          input_contents_txt, model_flags, toco_flags,
+          &output_file_contents_txt);
+    } else if (!model_flags.saved_model_dir().empty()) {
       status = tensorflow::ConvertSavedModelToTFLiteFlatBuffer(
           model_flags, toco_flags, &output_file_contents_txt);
     } else {
@@ -308,7 +322,7 @@ PyObject* MlirQuantizeModel(PyObject* data, bool disable_per_channel,
     PyErr_Format(PyExc_ValueError, "Invalid model");
     return nullptr;
   }
-  auto tflite_model = absl::make_unique<tflite::ModelT>();
+  auto tflite_model = std::make_unique<tflite::ModelT>();
   model->GetModel()->UnPackTo(tflite_model.get(), nullptr);
 
   tflite::TensorType inference_tensor_type =
@@ -351,7 +365,7 @@ PyObject* MlirSparsifyModel(PyObject* data) {
     PyErr_Format(PyExc_ValueError, "Invalid model");
     return nullptr;
   }
-  auto tflite_model = absl::make_unique<tflite::ModelT>();
+  auto tflite_model = std::make_unique<tflite::ModelT>();
   model->GetModel()->UnPackTo(tflite_model.get(), nullptr);
 
   flatbuffers::FlatBufferBuilder builder;
@@ -402,7 +416,7 @@ PyObject* RegisterCustomOpdefs(PyObject* list) {
         [opdef](
             tensorflow::OpRegistrationData* op_reg_data) -> tensorflow::Status {
           *op_reg_data = tensorflow::OpRegistrationData(opdef);
-          return tensorflow::Status::OK();
+          return ::tensorflow::OkStatus();
         });
 
     // Register the corresponding fake op kernel.
@@ -441,6 +455,11 @@ const std::vector<std::string> RetrieveCollectedErrors() {
   }
   collector->Clear();
   return collected_errors;
+}
+
+std::string FlatBufferFileToMlir(const std::string& model,
+                                 bool input_is_filepath) {
+  return ::tensorflow::FlatBufferFileToMlir(model, input_is_filepath);
 }
 
 }  // namespace toco

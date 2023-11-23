@@ -305,7 +305,7 @@ pub fn java_byte_array_from_slice() {
     let java_array = env
         .byte_array_from_slice(buf)
         .expect("JNIEnv#byte_array_from_slice must create a java array from slice");
-    let obj = AutoLocal::new(&env, JObject::from(java_array));
+    let obj = AutoLocal::new(&env, unsafe { JObject::from_raw(java_array) });
 
     assert!(!obj.as_obj().is_null());
     let mut res: [i8; 3] = [0; 3];
@@ -333,8 +333,12 @@ macro_rules! test_get_array_elements {
             // Use a scope to test Drop
             {
                 // Get byte array elements auto wrapper
-                let auto_ptr: AutoArray<$jni_type> =
-                    env.$jni_get(java_array, ReleaseMode::CopyBack).unwrap();
+                let auto_ptr: AutoArray<$jni_type> = {
+                    // Make sure the lifetime is tied to the environment,
+                    // not the particular JNIEnv reference
+                    let temporary_env: JNIEnv = *env;
+                    temporary_env.$jni_get(java_array, ReleaseMode::CopyBack).unwrap()
+                };
 
                 // Check array size
                 assert_eq!(auto_ptr.size().unwrap(), 2);
@@ -572,19 +576,34 @@ pub fn get_object_class_null_arg() {
 #[test]
 pub fn new_direct_byte_buffer() {
     let env = attach_current_thread();
-    let mut vec: Vec<u8> = vec![0, 1, 2, 3];
-    let buf = vec.as_mut_slice();
-    let result = env.new_direct_byte_buffer(buf);
+    let vec: Vec<u8> = vec![0, 1, 2, 3];
+    let (addr, len) = {
+        // (would use buf.into_raw_parts() on nightly)
+        let buf = vec.leak();
+        (buf.as_mut_ptr(), buf.len())
+    };
+    let result = unsafe { env.new_direct_byte_buffer(addr, len) };
     assert!(result.is_ok());
     assert!(!result.unwrap().is_null());
 }
 
 #[test]
+pub fn new_direct_byte_buffer_invalid_addr() {
+    let env = attach_current_thread();
+    let result = unsafe { env.new_direct_byte_buffer(std::ptr::null_mut(), 5) };
+    assert!(result.is_err());
+}
+
+#[test]
 pub fn get_direct_buffer_capacity_ok() {
     let env = attach_current_thread();
-    let mut vec: Vec<u8> = vec![0, 1, 2, 3];
-    let buf = vec.as_mut_slice();
-    let result = env.new_direct_byte_buffer(buf).unwrap();
+    let vec: Vec<u8> = vec![0, 1, 2, 3];
+    let (addr, len) = {
+        // (would use buf.into_raw_parts() on nightly)
+        let buf = vec.leak();
+        (buf.as_mut_ptr(), buf.len())
+    };
+    let result = unsafe { env.new_direct_byte_buffer(addr, len) }.unwrap();
     assert!(!result.is_null());
 
     let capacity = env.get_direct_buffer_capacity(result).unwrap();
@@ -594,21 +613,32 @@ pub fn get_direct_buffer_capacity_ok() {
 #[test]
 pub fn get_direct_buffer_capacity_wrong_arg() {
     let env = attach_current_thread();
-    let wrong_obj = JByteBuffer::from(env.new_string("wrong").unwrap().into_inner());
+    let wrong_obj = unsafe { JByteBuffer::from_raw(env.new_string("wrong").unwrap().into_raw()) };
     let capacity = env.get_direct_buffer_capacity(wrong_obj);
     assert!(capacity.is_err());
 }
 
 #[test]
+pub fn get_direct_buffer_capacity_null_arg() {
+    let env = attach_current_thread();
+    let result = env.get_direct_buffer_capacity(JObject::null().into());
+    assert!(result.is_err());
+}
+
+#[test]
 pub fn get_direct_buffer_address_ok() {
     let env = attach_current_thread();
-    let mut vec: Vec<u8> = vec![0, 1, 2, 3];
-    let buf = vec.as_mut_slice();
-    let result = env.new_direct_byte_buffer(buf).unwrap();
+    let vec: Vec<u8> = vec![0, 1, 2, 3];
+    let (addr, len) = {
+        // (would use buf.into_raw_parts() on nightly)
+        let buf = vec.leak();
+        (buf.as_mut_ptr(), buf.len())
+    };
+    let result = unsafe { env.new_direct_byte_buffer(addr, len) }.unwrap();
     assert!(!result.is_null());
 
     let dest_buffer = env.get_direct_buffer_address(result).unwrap();
-    assert_eq!(buf, dest_buffer);
+    assert_eq!(addr, dest_buffer);
 }
 
 #[test]

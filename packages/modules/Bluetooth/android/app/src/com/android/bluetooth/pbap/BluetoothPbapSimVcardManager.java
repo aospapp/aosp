@@ -15,39 +15,33 @@
 */
 package com.android.bluetooth.pbap;
 
-import com.android.bluetooth.R;
-
 import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteException;
 import android.net.Uri;
-import com.android.vcard.VCardBuilder;
-import com.android.vcard.VCardConfig;
-import com.android.vcard.VCardConstants;
-import com.android.vcard.VCardUtils;
-
-import android.content.ContentValues;
-import android.provider.CallLog;
-import android.provider.CallLog.Calls;
-import android.text.TextUtils;
-import android.util.Log;
-import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.CommonDataKinds;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
+import android.provider.ContactsContract.Contacts;
+import android.text.TextUtils;
+import android.util.Log;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Collections;
-import java.util.Comparator;
-
+import com.android.bluetooth.BluetoothMethodProxy;
+import com.android.bluetooth.R;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.obex.Operation;
 import com.android.obex.ResponseCodes;
 import com.android.obex.ServerOperation;
+import com.android.vcard.VCardBuilder;
+import com.android.vcard.VCardConfig;
+import com.android.vcard.VCardUtils;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * VCard composer especially for Call Log used in Bluetooth.
@@ -57,23 +51,31 @@ public class BluetoothPbapSimVcardManager {
 
     private static final boolean V = BluetoothPbapService.VERBOSE;
 
-    private static final String FAILURE_REASON_FAILED_TO_GET_DATABASE_INFO =
+    @VisibleForTesting
+    public static final String FAILURE_REASON_FAILED_TO_GET_DATABASE_INFO =
         "Failed to get database information";
 
-    private static final String FAILURE_REASON_NO_ENTRY =
+    @VisibleForTesting
+    public static final String FAILURE_REASON_NO_ENTRY =
         "There's no exportable in the database";
 
-    private static final String FAILURE_REASON_NOT_INITIALIZED =
+    @VisibleForTesting
+    public static final String FAILURE_REASON_NOT_INITIALIZED =
         "The vCard composer object is not correctly initialized";
 
     /** Should be visible only from developers... (no need to translate, hopefully) */
-    private static final String FAILURE_REASON_UNSUPPORTED_URI =
+    @VisibleForTesting
+    public static final String FAILURE_REASON_UNSUPPORTED_URI =
         "The Uri vCard composer received is not supported by the composer.";
 
-    private static final String NO_ERROR = "No error";
+    @VisibleForTesting
+    public static final String NO_ERROR = "No error";
 
-    private final String SIM_URI = "content://icc/adn";
-    private final  String SIM_PATH = "/SIM1/telecom";
+    @VisibleForTesting
+    public static final Uri SIM_URI = Uri.parse("content://icc/adn");
+
+    @VisibleForTesting
+    public static final String SIM_PATH = "/SIM1/telecom";
 
     private static final String[] SIM_PROJECTION = new String[] {
         Contacts.DISPLAY_NAME,
@@ -82,8 +84,10 @@ public class BluetoothPbapSimVcardManager {
         CommonDataKinds.Phone.LABEL
     };
 
-    private static final int NAME_COLUMN_INDEX = 0;
-    private static final int NUMBER_COLUMN_INDEX = 1;
+    @VisibleForTesting
+    public static final int NAME_COLUMN_INDEX = 0;
+    @VisibleForTesting
+    public static final int NUMBER_COLUMN_INDEX = 1;
     private static final int NUMBERTYPE_COLUMN_INDEX = 2;
     private static final int NUMBERLABEL_COLUMN_INDEX = 3;
 
@@ -101,16 +105,14 @@ public class BluetoothPbapSimVcardManager {
 
     public boolean init(final Uri contentUri, final String selection,
             final String[] selectionArgs, final String sortOrder) {
-            final Uri myUri = Uri.parse(SIM_URI);
-        if (!myUri.equals(contentUri)) {
-
+        if (!SIM_URI.equals(contentUri)) {
             mErrorReason = FAILURE_REASON_UNSUPPORTED_URI;
             return false;
         }
 
         //checkpoint Figure out if we can apply selection, projection and sort order.
-        mCursor = mContentResolver.query(
-                contentUri, SIM_PROJECTION, null, null,sortOrder);
+        mCursor = BluetoothMethodProxy.getInstance().contentResolverQuery(mContentResolver,
+                contentUri, SIM_PROJECTION, null, null, sortOrder);
 
         if (mCursor == null) {
             mErrorReason = FAILURE_REASON_FAILED_TO_GET_DATABASE_INFO;
@@ -230,7 +232,7 @@ public class BluetoothPbapSimVcardManager {
         return mErrorReason;
     }
 
-    public void setPositionByAlpha(int position) {
+    private void setPositionByAlpha(int position) {
         if(mCursor == null) {
             return;
         }
@@ -260,11 +262,11 @@ public class BluetoothPbapSimVcardManager {
     }
 
     public final int getSIMContactsSize() {
-        final Uri myUri = Uri.parse(SIM_URI);
         int size = 0;
         Cursor contactCursor = null;
         try {
-            contactCursor = mContentResolver.query(myUri, SIM_PROJECTION, null,null, null);
+            contactCursor = BluetoothMethodProxy.getInstance().contentResolverQuery(
+                    mContentResolver, SIM_URI, SIM_PROJECTION, null,null, null);
             if (contactCursor != null) {
                 size = contactCursor.getCount();
             }
@@ -281,10 +283,10 @@ public class BluetoothPbapSimVcardManager {
         nameList.add(BluetoothPbapService.getLocalPhoneName());
         //Since owner card should always be 0.vcf, maintain a separate list to avoid sorting
         ArrayList<String> allnames = new ArrayList<String>();
-        final Uri myUri = Uri.parse(SIM_URI);
         Cursor contactCursor = null;
         try {
-            contactCursor = mContentResolver.query(myUri, SIM_PROJECTION, null,null,null);
+            contactCursor = BluetoothMethodProxy.getInstance().contentResolverQuery(
+                    mContentResolver, SIM_URI, SIM_PROJECTION, null,null,null);
             if (contactCursor != null) {
                 for (contactCursor.moveToFirst(); !contactCursor.isAfterLast(); contactCursor
                         .moveToNext()) {
@@ -322,11 +324,10 @@ public class BluetoothPbapSimVcardManager {
         ArrayList<String> nameList = new ArrayList<String>();
         ArrayList<String> startNameList = new ArrayList<String>();
         Cursor contactCursor = null;
-        final Uri uri = Uri.parse(SIM_URI);
 
         try {
-            contactCursor = mContentResolver.query(uri, SIM_PROJECTION,
-                    null, null, null);
+            contactCursor = BluetoothMethodProxy.getInstance().contentResolverQuery(
+                    mContentResolver, SIM_URI, SIM_PROJECTION, null, null, null);
 
             if (contactCursor != null) {
                 for (contactCursor.moveToFirst(); !contactCursor.isAfterLast(); contactCursor
@@ -370,21 +371,20 @@ public class BluetoothPbapSimVcardManager {
         return nameList;
     }
 
-    public final int composeAndSendSIMPhonebookVcards(Operation op,
+    public static final int composeAndSendSIMPhonebookVcards(Context context, Operation op,
             final int startPoint, final int endPoint, final boolean vcardType21,
             String ownerVCard) {
         if (startPoint < 1 || startPoint > endPoint) {
             Log.e(TAG, "internal error: startPoint or endPoint is not correct.");
             return ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
         }
-        final Uri myUri = Uri.parse(SIM_URI);
         BluetoothPbapSimVcardManager composer = null;
         HandlerForStringBuffer buffer = null;
         try {
-            composer = new BluetoothPbapSimVcardManager(mContext);
+            composer = new BluetoothPbapSimVcardManager(context);
             buffer = new HandlerForStringBuffer(op, ownerVCard);
 
-            if (!composer.init(myUri, null, null, null) || !buffer.onInit(mContext)) {
+            if (!composer.init(SIM_URI, null, null, null) || !buffer.init()) {
                 return ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
             }
             composer.moveToPosition(startPoint -1, false);
@@ -400,91 +400,33 @@ public class BluetoothPbapSimVcardManager {
                             + composer.getErrorReason() + ", count:" + count);
                     return ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
                 }
-                buffer.onEntryCreated(vcard);
+                buffer.writeVCard(vcard);
             }
         } finally {
             if (composer != null) {
                 composer.terminate();
             }
             if (buffer != null) {
-                buffer.onTerminate();
+                buffer.terminate();
             }
         }
         return ResponseCodes.OBEX_HTTP_OK;
     }
 
-    /**
-     * Handler to emit vCards to PCE.
-     */
-    public class HandlerForStringBuffer {
-        private Operation operation;
-
-        private OutputStream outputStream;
-
-        private String phoneOwnVCard = null;
-
-        public HandlerForStringBuffer(Operation op, String ownerVCard) {
-            operation = op;
-            if (ownerVCard != null) {
-                phoneOwnVCard = ownerVCard;
-                if (V) Log.v(TAG, "phoneOwnVCard \n " + phoneOwnVCard);
-            }
-        }
-
-        private boolean write(String vCard) {
-            try {
-                if (vCard != null) {
-                    outputStream.write(vCard.getBytes());
-                    return true;
-                }
-            } catch (IOException e) {
-                Log.e(TAG, "write outputstrem failed" + e.toString());
-            }
-            return false;
-        }
-
-        public boolean onInit(Context context) {
-            try {
-                outputStream = operation.openOutputStream();
-                if (phoneOwnVCard != null) {
-                    return write(phoneOwnVCard);
-                }
-                return true;
-            } catch (IOException e) {
-                Log.e(TAG, "open outputstrem failed" + e.toString());
-            }
-            return false;
-        }
-
-        public boolean onEntryCreated(String vcard) {
-            return write(vcard);
-        }
-
-        public void onTerminate() {
-            if (!BluetoothPbapObexServer.closeStream(outputStream, operation)) {
-                if (V) Log.v(TAG, "CloseStream failed!");
-            } else {
-                if (V) Log.v(TAG, "CloseStream ok!");
-            }
-        }
-    }
-
-    public final int composeAndSendSIMPhonebookOneVcard(Operation op,
+    public static final int composeAndSendSIMPhonebookOneVcard(Context context, Operation op,
             final int offset, final boolean vcardType21, String ownerVCard,
             int orderByWhat) {
         if (offset < 1) {
             Log.e(TAG, "Internal error: offset is not correct.");
             return ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
         }
-        final Uri myUri = Uri.parse(SIM_URI);
         if (V) Log.v(TAG, "composeAndSendSIMPhonebookOneVcard orderByWhat " + orderByWhat);
         BluetoothPbapSimVcardManager composer = null;
         HandlerForStringBuffer buffer = null;
         try {
-            composer = new BluetoothPbapSimVcardManager(mContext);
+            composer = new BluetoothPbapSimVcardManager(context);
             buffer = new HandlerForStringBuffer(op, ownerVCard);
-            if (!composer.init(myUri, null, null,null)||
-                               !buffer.onInit(mContext)) {
+            if (!composer.init(SIM_URI, null, null, null) || !buffer.init()) {
                 return ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
             }
             if (orderByWhat == BluetoothPbapObexServer.ORDER_BY_INDEXED) {
@@ -502,13 +444,13 @@ public class BluetoothPbapSimVcardManager {
                             + composer.getErrorReason());
                 return ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
             }
-            buffer.onEntryCreated(vcard);
+            buffer.writeVCard(vcard);
         } finally {
             if (composer != null) {
                 composer.terminate();
             }
             if (buffer != null) {
-                buffer.onTerminate();
+                buffer.terminate();
             }
         }
 

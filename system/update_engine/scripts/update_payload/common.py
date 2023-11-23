@@ -21,7 +21,7 @@ from __future__ import print_function
 
 import base64
 
-from update_payload import update_metadata_pb2
+import update_metadata_pb2
 from update_payload.error import PayloadError
 
 

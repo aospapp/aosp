@@ -18,6 +18,7 @@ package com.android.tv.settings.device.storage;
 
 import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
 
+import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.app.tvsettings.TvSettingsEnums;
 import android.content.pm.PackageManager;
@@ -35,6 +36,7 @@ import com.android.settingslib.deviceinfo.StorageMeasurement;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.device.apps.AppsFragment;
+import com.android.tv.twopanelsettings.TwoPanelSettingsFragment;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -107,7 +109,7 @@ public class StorageFragment extends SettingsPreferenceFragment {
         mVolumeInfo = mStorageManager.findVolumeById(
                 getArguments().getString(VolumeInfo.EXTRA_VOLUME_ID));
         if (mVolumeInfo == null || !mVolumeInfo.isMountedReadable()) {
-            getFragmentManager().popBackStack();
+            navigateBack();
         } else {
             refresh();
         }
@@ -235,7 +237,7 @@ public class StorageFragment extends SettingsPreferenceFragment {
         try {
             mAvailablePref.setSize(mStorageManager.getAllocatableBytes(
                     StorageManager.convert(mVolumeInfo.fsUuid)));
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
             mAvailablePref.setSize(details.availSize);
         }
         mAppsUsagePref.setSize(details.appsSize.get(currentUser));
@@ -278,7 +280,7 @@ public class StorageFragment extends SettingsPreferenceFragment {
                 if (mVolumeInfo.isMountedReadable()) {
                     refresh();
                 } else {
-                    getFragmentManager().popBackStack();
+                    navigateBack();
                 }
             }
         }
@@ -287,5 +289,18 @@ public class StorageFragment extends SettingsPreferenceFragment {
     @Override
     protected int getPageId() {
         return TvSettingsEnums.SYSTEM_STORAGE_INTERNAL_STORAGE;
+    }
+
+    @SuppressLint("RestrictedApi")
+    private void navigateBack() {
+        if (getCallbackFragment() instanceof TwoPanelSettingsFragment) {
+            TwoPanelSettingsFragment parentFragment =
+                    (TwoPanelSettingsFragment) getCallbackFragment();
+            if (parentFragment.isFragmentInTheMainPanel(this)) {
+                parentFragment.navigateBack();
+            }
+        } else {
+            getFragmentManager().popBackStack();
+        }
     }
 }

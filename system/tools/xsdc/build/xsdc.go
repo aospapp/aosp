@@ -40,16 +40,23 @@ var (
 	xsdc         = pctx.HostBinToolVariable("xsdcCmd", "xsdc")
 	xsdcJavaRule = pctx.StaticRule("xsdcJavaRule", blueprint.RuleParams{
 		Command: `rm -rf "${out}.temp" && mkdir -p "${out}.temp" && ` +
-			`${xsdcCmd} $in -p $pkgName -o ${out}.temp -j $args && ` +
+			`${xsdcCmd} $in -p $pkgName -o ${out}.temp -j $args -d ${out}.dep && ` +
+			`echo "${out} : \\" > ${out}.d && cat ${out}.dep >> ${out}.d && ` +
 			`${config.SoongZipCmd} -jar -o ${out} -C ${out}.temp -D ${out}.temp && ` +
-			`rm -rf ${out}.temp`,
+			`rm -rf ${out}.temp && rm -rf ${out}.dep`,
+		Depfile:     "${out}.d",
+		Deps:        blueprint.DepsGCC,
 		CommandDeps: []string{"${xsdcCmd}", "${config.SoongZipCmd}"},
 		Description: "xsdc Java ${in} => ${out}",
 	}, "pkgName", "args")
 
 	xsdcCppRule = pctx.StaticRule("xsdcCppRule", blueprint.RuleParams{
 		Command: `rm -rf "${outDir}" && ` +
-			`${xsdcCmd} $in -p $pkgName -o ${outDir} -c $args`,
+			`${xsdcCmd} $in -p $pkgName -o ${outDir} -c $args -d ${out}.dep && ` +
+			`echo "${out} : \\" > ${out}.d && cat ${out}.dep >> ${out}.d && ` +
+			`rm -rf ${out}.dep`,
+		Depfile:     "${out}.d",
+		Deps:        blueprint.DepsGCC,
 		CommandDeps: []string{"${xsdcCmd}", "${config.SoongZipCmd}"},
 		Description: "xsdc C++ ${in} => ${out}",
 	}, "pkgName", "outDir", "args")
@@ -86,6 +93,11 @@ type xsdConfigProperties struct {
 	// ENTITY_REFs.
 	// This can improve memory footprint. Default value is false.
 	Tinyxml *bool
+	// Specify root elements explicitly. If not set, XSDC generates parsers and
+	// writers for all elements which can be root element. When set, XSDC
+	// generates parsers and writers for specified root elements. This can be
+	// used to avoid unnecessary code.
+	Root_elements []string
 }
 
 type xsdConfig struct {
@@ -214,6 +226,10 @@ func (module *xsdConfig) GenerateAndroidBuildActions(ctx android.ModuleContext) 
 		args = args + " -t "
 	}
 
+	for _, elem := range module.properties.Root_elements {
+		args = args + " -r " + elem
+	}
+
 	module.genOutputs_j = android.PathForModuleGen(ctx, "java", filenameStem+"_xsdcgen.srcjar")
 
 	ctx.Build(pctx, android.BuildParams{
@@ -246,6 +262,15 @@ func (module *xsdConfig) GenerateAndroidBuildActions(ctx android.ModuleContext) 
 			android.PathForModuleGen(ctx, "cpp", "include/"+filenameStem+".h"),
 			android.PathForModuleGen(ctx, "cpp", "include/"+filenameStem+"_enums.h")}
 	}
+
+	output := module.genOutputs_c[0]
+	// Multiple outputs aren't supported by depslog.
+	// So ImplicitOutputs is used for additional generated code.
+	implicitOutputs := module.genOutputs_h
+	if len(module.genOutputs_c) > 1 {
+		implicitOutputs = append(implicitOutputs, module.genOutputs_c[1:]...)
+	}
+
 	module.genOutputDir = android.PathForModuleGen(ctx, "cpp", "include")
 
 	ctx.Build(pctx, android.BuildParams{
@@ -253,8 +278,8 @@ func (module *xsdConfig) GenerateAndroidBuildActions(ctx android.ModuleContext) 
 		Description:     "xsdc " + xsdFile.String(),
 		Input:           xsdFile,
 		Implicit:        module.docsPath,
-		Outputs:         module.genOutputs_c,
-		ImplicitOutputs: module.genOutputs_h,
+		Output:          output,
+		ImplicitOutputs: implicitOutputs,
 		Args: map[string]string{
 			"pkgName": pkgName,
 			"outDir":  android.PathForModuleGen(ctx, "cpp").String(),
@@ -330,4 +355,4 @@ func (module *xsdConfig) OutputFiles(tag string) (android.Paths, error) {
 	}
 }
 
-var _ android.OutputFileProducer = (*xsdConfig)(nil);
+var _ android.OutputFileProducer = (*xsdConfig)(nil)

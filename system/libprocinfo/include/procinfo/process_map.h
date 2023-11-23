@@ -83,15 +83,15 @@ static inline bool PassXdigit(char** p) {
   return true;
 }
 
-// Parses a line given p pointing at proc/<pid>/maps content buffer and returns true on success
-// and false on failure parsing. The next end of line will be replaced by null character and the
-// immediate offset after the parsed line will be returned in next_line.
+// Parses the given line p pointing at proc/<pid>/maps content buffer and returns true on success
+// and false on failure parsing. The first new line character of line will be replaced by the
+// null character and *next_line will point to the character after the null.
 //
 // Example of how a parsed line look line:
 // 00400000-00409000 r-xp 00000000 fc:00 426998  /usr/lib/gvfs/gvfsd-http
 static inline bool ParseMapsFileLine(char* p, uint64_t& start_addr, uint64_t& end_addr, uint16_t& flags,
                       uint64_t& pgoff, ino_t& inode, char** name, bool& shared, char** next_line) {
-  // Make end of line be null
+  // Make the first new line character null.
   *next_line = strchr(p, '\n');
   if (*next_line != nullptr) {
     **next_line = '\0';
@@ -167,6 +167,7 @@ static inline bool ParseMapsFileLine(char* p, uint64_t& start_addr, uint64_t& en
     return false;
   }
 
+  // Assumes that the first new character was replaced with null.
   *name = p;
 
   return true;
@@ -229,21 +230,33 @@ inline bool ReadMapFile(const std::string& map_file,
   return ReadMapFileContent(&content[0], callback);
 }
 
+
+inline bool ReadMapFile(const std::string& map_file, const MapInfoParamsCallback& callback,
+                        std::string& mapsBuffer) {
+  if (!android::base::ReadFileToString(map_file, &mapsBuffer)) {
+    return false;
+  }
+  return ReadMapFileContent(&mapsBuffer[0], callback);
+}
+
 inline bool ReadMapFile(const std::string& map_file,
                 const MapInfoParamsCallback& callback) {
   std::string content;
-  if (!android::base::ReadFileToString(map_file, &content)) {
-    return false;
-  }
-  return ReadMapFileContent(&content[0], callback);
+  return ReadMapFile(map_file, callback, content);
 }
 
 inline bool ReadProcessMaps(pid_t pid, const MapInfoCallback& callback) {
   return ReadMapFile("/proc/" + std::to_string(pid) + "/maps", callback);
 }
 
+inline bool ReadProcessMaps(pid_t pid, const MapInfoParamsCallback& callback,
+                            std::string& mapsBuffer) {
+  return ReadMapFile("/proc/" + std::to_string(pid) + "/maps", callback, mapsBuffer);
+}
+
 inline bool ReadProcessMaps(pid_t pid, const MapInfoParamsCallback& callback) {
-  return ReadMapFile("/proc/" + std::to_string(pid) + "/maps", callback);
+  std::string content;
+  return ReadProcessMaps(pid, callback, content);
 }
 
 inline bool ReadProcessMaps(pid_t pid, std::vector<MapInfo>* maps) {

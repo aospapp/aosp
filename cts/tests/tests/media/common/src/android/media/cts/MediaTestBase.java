@@ -15,23 +15,12 @@
  */
 package android.media.cts;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
-import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.content.res.AssetFileDescriptor;
-import android.media.MediaPlayer;
-import android.media.cts.TestUtils.Monitor;
-import android.net.Uri;
 import android.os.ConditionVariable;
-import android.os.ParcelFileDescriptor;
-import android.os.PersistableBundle;
 
 import androidx.annotation.CallSuper;
 import androidx.test.core.app.ActivityScenario;
@@ -39,17 +28,10 @@ import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.MediaUtils;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.net.HttpCookie;
-import java.util.List;
 import java.util.logging.Logger;
-import java.util.Map;
-import java.util.Set;
 
 /**
- * Base class for tests which use MediaPlayer to play audio or video.
+ * Base class for media tests that need UI thread access.
  */
 public class MediaTestBase {
     private static final Logger LOG = Logger.getLogger(MediaTestBase.class.getName());
@@ -81,6 +63,7 @@ public class MediaTestBase {
 
     @CallSuper
     protected void tearDown() {
+        mActivityScenario.close();
         mActivity = null;
     }
 

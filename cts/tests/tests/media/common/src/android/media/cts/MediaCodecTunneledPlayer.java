@@ -44,18 +44,23 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
     /** State the player starts in, before configuration. */
     private static final int STATE_IDLE = 1;
     /** State of the player during initial configuration. */
-    private static final int STATE_PREPARING = 2;
+    private static final int STATE_PREPARED = 2;
+    /** State of the player after starting the codecs */
+    private static final int STATE_STARTED = 3;
     /** State of the player during playback. */
-    private static final int STATE_PLAYING = 3;
-    /** State of the player when configured but not playing. */
-    private static final int STATE_PAUSED = 4;
+    private static final int STATE_PLAYING = 4;
+    /** State of the player when playback is paused. */
+    private static final int STATE_PAUSED = 5;
 
-    private Boolean mThreadStarted = false;
+    private final Object mThreadStartedLock = new Object();
+    private boolean mThreadStarted = false;
     private byte[] mSessionId;
     private CodecState mAudioTrackState;
     private int mMediaFormatHeight;
     private int mMediaFormatWidth;
-    private Integer mState;
+    private Float mMediaFormatFrameRate;
+    private final Object mStateLock = new Object();
+    private int mState;
     private long mDeltaTimeUs;
     private long mDurationUs;
     private Map<Integer, CodecState> mAudioCodecStates;
@@ -86,12 +91,12 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
             @Override
             public void run() {
                 while (true) {
-                    synchronized (mThreadStarted) {
+                    synchronized (mThreadStartedLock) {
                         if (mThreadStarted == false) {
                             break;
                         }
                     }
-                    synchronized (mState) {
+                    synchronized (mStateLock) {
                         if (mState == STATE_PLAYING) {
                             doSomeWork();
                             if (mAudioTrackState != null) {
@@ -107,6 +112,10 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
                 }
             }
         });
+    }
+
+    public void setFrameRate(float frameRate) {
+        mMediaFormatFrameRate = frameRate;
     }
 
     public void setAudioDataSource(Uri uri, Map<String, String> headers) {
@@ -194,7 +203,12 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
         return true;
     }
 
+    // Creates the extractors, identifies tracks and formats, and then calls MediaCodec.configure
     public boolean prepare() throws IOException {
+        if (mState != STATE_IDLE) {
+            throw new IllegalStateException("Expected STATE_IDLE, got " + mState);
+        }
+
         if (null == mAudioExtractor) {
             mAudioExtractor = new MediaExtractor();
             if (null == mAudioExtractor) {
@@ -237,9 +251,7 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
             return false;
         }
 
-        synchronized (mState) {
-            mState = STATE_PAUSED;
-        }
+        mState = STATE_PREPARED;
         return true;
     }
 
@@ -280,6 +292,9 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
                 return false;
             }
         }
+        if (isVideo && mMediaFormatFrameRate != null) {
+            format.setFloat(MediaFormat.KEY_FRAME_RATE, mMediaFormatFrameRate);
+        }
         codec.configure(
                 format,
                 isVideo ? mSurfaceHolder.getSurface() : null, null, 0);
@@ -306,70 +321,56 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
         return format.containsKey(key) ? format.getInteger(key) : 0;
     }
 
-    public boolean start() {
+    // Calls MediaCodec.start
+    public void startCodec() {
         Log.d(TAG, "start");
 
-        synchronized (mState) {
-            if (mState == STATE_PLAYING || mState == STATE_PREPARING) {
-                return true;
-            } else if (mState == STATE_IDLE) {
-                mState = STATE_PREPARING;
-                return true;
-            } else if (mState != STATE_PAUSED) {
-                throw new IllegalStateException("Expected STATE_PAUSED, got " + mState);
-            }
-
-            for (CodecState state : mVideoCodecStates.values()) {
-                state.start();
-            }
-
-            for (CodecState state : mAudioCodecStates.values()) {
-                state.start();
-            }
-
-            mDeltaTimeUs = -1;
-            mState = STATE_PLAYING;
+        if (mState != STATE_PREPARED) {
+            throw new IllegalStateException("Expected STATE_PREAPRED, got " + mState);
         }
-        return false;
+
+        for (CodecState state : mVideoCodecStates.values()) {
+            state.startCodec();
+        }
+
+        for (CodecState state : mAudioCodecStates.values()) {
+            state.startCodec();
+        }
+
+        mDeltaTimeUs = -1;
+        mState = STATE_STARTED;
     }
 
-    public void startWork() throws IOException, Exception {
-        try {
-            // Just change state from STATE_IDLE to STATE_PREPARING.
-            start();
-            // Extract media information from uri asset, and change state to STATE_PAUSED.
-            prepare();
-            // Start CodecState, and change from STATE_PAUSED to STATE_PLAYING.
-            start();
-        } catch (IOException e) {
-            throw e;
+    // Starts the decoding threads and then starts AudioTrack playback
+    public void play() {
+        if (mState != STATE_STARTED) {
+            throw new IllegalStateException("Expected STATE_STARTED, got " + mState);
         }
+        mState = STATE_PLAYING;
 
-        synchronized (mThreadStarted) {
+        synchronized (mThreadStartedLock) {
             mThreadStarted = true;
             mThread.start();
         }
-    }
 
-    public void startThread() {
-        start();
-        synchronized (mThreadStarted) {
-            mThreadStarted = true;
-            mThread.start();
+        for (CodecState state : mVideoCodecStates.values()) {
+            state.play();
+        }
+
+        for (CodecState state : mAudioCodecStates.values()) {
+            state.play();
         }
     }
 
-    // Pauses the audio track
+    // Pauses playback by pausing the AudioTrack
     public void pause() {
         Log.d(TAG, "pause");
 
-        synchronized (mState) {
-            if (mState == STATE_PAUSED) {
-                return;
-            } else if (mState != STATE_PLAYING) {
-                throw new IllegalStateException();
-            }
+        if (mState != STATE_PLAYING) {
+            throw new IllegalStateException("Expected STATE_PLAYING, got " + mState);
+        }
 
+        synchronized (mStateLock) {
             for (CodecState state : mVideoCodecStates.values()) {
                 state.pause();
             }
@@ -382,43 +383,60 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
         }
     }
 
-    public void flush() {
-        Log.d(TAG, "flush");
+    // Resume playback when paused
+    public void resume() {
+        Log.d(TAG, "resume");
 
-        synchronized (mState) {
-            if (mState == STATE_PLAYING || mState == STATE_PREPARING) {
-                return;
+        if (mState != STATE_PAUSED) {
+            throw new IllegalStateException("Expected STATE_PAUSED, got " + mState);
+        }
+
+        synchronized (mStateLock) {
+            for (CodecState state : mVideoCodecStates.values()) {
+                state.play();
             }
 
             for (CodecState state : mAudioCodecStates.values()) {
-                state.flush();
+                state.play();
             }
 
-            for (CodecState state : mVideoCodecStates.values()) {
-                state.flush();
-            }
+            mState = STATE_PLAYING;
         }
     }
 
-    /** Seek all tracks to their very beginning.
+    public void flush() {
+        Log.d(TAG, "flush");
+
+        if (mState != STATE_PAUSED) {
+            throw new IllegalStateException("Expected STATE_PAUSED, got " + mState);
+        }
+
+        for (CodecState state : mAudioCodecStates.values()) {
+            state.flush();
+        }
+
+        for (CodecState state : mVideoCodecStates.values()) {
+            state.flush();
+        }
+    }
+
+    /** Seek all tracks to the first sample time.
      *
      * @param  presentationTimeOffsetUs The offset for the presentation time to start at.
      * @throws IllegalStateException  if the player is not paused
      */
     public void seekToBeginning(long presentationTimeOffsetUs) {
         Log.d(TAG, "seekToBeginning");
-        synchronized (mState) {
-            if (mState != STATE_PAUSED) {
-                throw new IllegalStateException("Expected STATE_PAUSED, got " + mState);
-            }
+        if (mState != STATE_PAUSED) {
+            throw new IllegalStateException("Expected STATE_PAUSED, got " + mState);
+        }
 
-            for (CodecState state : mVideoCodecStates.values()) {
-                state.seekToBeginning(presentationTimeOffsetUs);
-            }
+        for (CodecState state : mVideoCodecStates.values()) {
+            state.seekToBeginning(presentationTimeOffsetUs);
+        }
 
-            for (CodecState state : mAudioCodecStates.values()) {
-                state.seekToBeginning(presentationTimeOffsetUs);
-            }
+        for (CodecState state : mAudioCodecStates.values()) {
+            state.seekToBeginning(presentationTimeOffsetUs);
         }
     }
 
@@ -426,54 +444,51 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
      * Enables or disables looping. Should be called after {@link #prepare()}.
      */
     public void setLoopEnabled(boolean enabled) {
-        synchronized (mState) {
-            if (mVideoCodecStates != null) {
-                for (CodecState state : mVideoCodecStates.values()) {
-                    state.setLoopEnabled(enabled);
-                }
-            }
+        if (mState != STATE_PREPARED) {
+            throw new IllegalStateException("Expected STATE_PREPARED, got " + mState);
+        }
 
-            if (mAudioCodecStates != null) {
-                for (CodecState state : mAudioCodecStates.values()) {
-                    state.setLoopEnabled(enabled);
-                }
-            }
+        for (CodecState state : mVideoCodecStates.values()) {
+            state.setLoopEnabled(enabled);
+        }
+
+        for (CodecState state : mAudioCodecStates.values()) {
+            state.setLoopEnabled(enabled);
         }
     }
 
     public void reset() {
-        synchronized (mState) {
-            if (mState == STATE_PLAYING) {
-                pause();
-            }
-            if (mVideoCodecStates != null) {
-                for (CodecState state : mVideoCodecStates.values()) {
-                    state.release();
-                }
-                mVideoCodecStates = null;
-            }
-
-            if (mAudioCodecStates != null) {
-                for (CodecState state : mAudioCodecStates.values()) {
-                    state.release();
-                }
-                mAudioCodecStates = null;
-            }
-
-            if (mAudioExtractor != null) {
-                mAudioExtractor.release();
-                mAudioExtractor = null;
-            }
-
-            if (mVideoExtractor != null) {
-                mVideoExtractor.release();
-                mVideoExtractor = null;
-            }
-
-            mDurationUs = -1;
-            mState = STATE_IDLE;
+        if (mState == STATE_PLAYING) {
+            pause();
         }
-        synchronized (mThreadStarted) {
+        if (mVideoCodecStates != null) {
+            for (CodecState state : mVideoCodecStates.values()) {
+                state.release();
+            }
+            mVideoCodecStates = null;
+        }
+
+        if (mAudioCodecStates != null) {
+            for (CodecState state : mAudioCodecStates.values()) {
+                state.release();
+            }
+            mAudioCodecStates = null;
+        }
+
+        if (mAudioExtractor != null) {
+            mAudioExtractor.release();
+            mAudioExtractor = null;
+        }
+
+        if (mVideoExtractor != null) {
+            mVideoExtractor.release();
+            mVideoExtractor = null;
+        }
+
+        mDurationUs = -1;
+        mState = STATE_IDLE;
+
+        synchronized (mThreadStartedLock) {
             mThreadStarted = false;
         }
         try {
@@ -607,6 +622,14 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
         return mVideoCodecStates.get(0).getVideoTimeUs();
     }
 
+    public long getVideoSystemTimeNs() {
+        if (mVideoCodecStates == null || mVideoCodecStates.get(0) == null) {
+            return -1;
+        }
+        return mVideoCodecStates.get(0).getVideoTimeUs();
+
+    }
+
     /**
      * Returns the ordered list of video frame timestamps rendered in tunnel mode.
      *
@@ -643,36 +666,20 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
     public Long queueOneVideoFrame() {
         Log.d(TAG, "queueOneVideoFrame");
 
-        if (mVideoCodecStates == null || !(mState == STATE_PLAYING || mState == STATE_PAUSED)) {
-            return null;
+        if (mState != STATE_STARTED && mState != STATE_PAUSED) {
+            throw new IllegalStateException("Expected STARTED or PAUSED, got " + mState);
         }
 
         Long result = null;
-        for (CodecState state : mVideoCodecStates.values()) {
-            Long timestamp = state.doSomeWork(true /* mustWait */);
-            if (timestamp != null) {
-                result = timestamp;
+        if (mVideoCodecStates != null) {
+            for (CodecState state : mVideoCodecStates.values()) {
+                Long timestamp = state.doSomeWork(true /* mustWait */);
+                if (timestamp != null) {
+                    result = timestamp;
+                }
             }
         }
         return result;
-    }
-
-    /**
-     * Resume playback when paused.
-     *
-     * @throws IllegalStateException if playback is not paused or if there is no configured audio
-     *                               track.
-     */
-    public void resume() {
-        Log.d(TAG, "resume");
-        if (mAudioTrackState == null) {
-            throw new IllegalStateException("Resuming playback with no audio track");
-        }
-        if (mState != STATE_PAUSED) {
-            throw new IllegalStateException("Expected STATE_PAUSED, got " + mState);
-        }
-        mAudioTrackState.playAudioTrack();
-        mState = STATE_PLAYING;
     }
 
     /**
@@ -729,16 +736,10 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
         return mAudioCodecStates.entrySet().iterator().next().getValue().getFramesWritten();
     }
 
-    public void stopWritingToAudioTrack(boolean stopWriting) {
-        for (CodecState state : mAudioCodecStates.values()) {
-            state.stopWritingToAudioTrack(stopWriting);
-        }
-    }
-
     /** Configure underrun simulation on audio codecs. */
-    public void simulateAudioUnderrun(boolean enabled) {
+    public void stopDrainingAudioOutputBuffers(boolean enabled) {
         for (CodecState state: mAudioCodecStates.values()) {
-            state.simulateUnderrun(enabled);
+            state.stopDrainingOutputBuffers(enabled);
         }
     }
 

@@ -13,4 +13,6 @@
     <string name="localPhoneName" msgid="9119254982537191352">"Telefon neve"</string>
     <string name="defaultnumber" msgid="5348816189286607406">"000000"</string>
     <string name="pbap_notification_group" msgid="4215789331721465381">"Bluetooth-névjegymegosztás"</string>
+    <string name="phonebook_advance_feature_support" msgid="8129553051734505128">"A telefonkönyv speciális funkcióinak támogatása"</string>
+    <string name="repair_for_adv_phonebook_feature" msgid="3489797973131684927">"Újrapárosítás a telefon speciális funkciójának támogatásához"</string>
 </resources>

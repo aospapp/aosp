@@ -16,14 +16,7 @@
 
 package com.android.cts.verifier.bluetooth;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-
-import java.io.ByteArrayOutputStream;
-
-import com.android.cts.verifier.R;
+import static android.content.Context.RECEIVER_EXPORTED;
 
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
@@ -31,7 +24,6 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
-import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
@@ -50,9 +42,13 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.ParcelUuid;
-import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 public class BleCocClientService extends Service {
 
@@ -162,8 +158,10 @@ public class BleCocClientService extends Service {
     public void onCreate() {
         super.onCreate();
 
-        registerReceiver(mBondStatusReceiver,
-                         new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED));
+        registerReceiver(
+                mBondStatusReceiver,
+                new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED),
+                RECEIVER_EXPORTED);
 
         mBluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = mBluetoothManager.getAdapter();
@@ -483,6 +481,7 @@ public class BleCocClientService extends Service {
                     stopScan();
 
                     BluetoothDevice device = result.getDevice();
+                    mDevice = device;
                     if (DEBUG) {
                         Log.d(TAG, "onScanResult: Found ADV with CoC UUID on device="
                               + device);
@@ -493,12 +492,10 @@ public class BleCocClientService extends Service {
                                 notifyError("Failed to call create bond");
                             }
                         } else {
-                            mDevice = device;
                             mBluetoothGatt = connectGatt(result.getDevice(), BleCocClientService.this, false,
                                                          mSecure, mGattCallbacks);
                         }
                     } else {
-                        mDevice = device;
                         mBluetoothGatt = connectGatt(result.getDevice(), BleCocClientService.this, false, mSecure,
                                                      mGattCallbacks);
                     }
@@ -712,10 +709,7 @@ public class BleCocClientService extends Service {
                                              + device + ", mSecure=" + mSecure
                                              + ", mDevice=" + mDevice);
                             }
-                            if (mDevice == null) {
-                                mDevice = device;
-                            }
-
+                            mDevice = device;
                             mBluetoothGatt = connectGatt(mDevice, BleCocClientService.this, false,
                                                          mSecure, mGattCallbacks);
                         }

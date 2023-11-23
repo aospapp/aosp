@@ -16,34 +16,84 @@
 
 package com.android.systemui.car.systembar;
 
-import static com.android.systemui.car.displayarea.DisplayAreaComponent.DISPLAY_AREA_VISIBILITY_CHANGED;
-import static com.android.systemui.car.displayarea.DisplayAreaComponent.INTENT_EXTRA_IS_DISPLAY_AREA_VISIBLE;
+import static com.android.car.caruiportrait.common.service.CarUiPortraitService.INTENT_EXTRA_FG_TASK_VIEW_READY;
+import static com.android.car.caruiportrait.common.service.CarUiPortraitService.REQUEST_FROM_LAUNCHER;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Configuration;
+import android.os.Build;
 import android.util.AttributeSet;
+import android.util.Log;
+import android.widget.Toast;
 
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.annotation.Nullable;
 
-/** A CarSystemBarButton that controls a display area. */
+import com.android.systemui.R;
+
+/**
+ * CarUiPortraitSystemBarButton is an extension of {@link CarSystemBarButton} that disables itself
+ * until it receives a signal from launcher that tasks views are ready.
+ */
 public class CarUiPortraitSystemBarButton extends CarSystemBarButton {
+
+    private static final String TAG = "CarUiPortraitSystemBarButton";
+    private static final boolean DEBUG = Build.IS_DEBUGGABLE;
+
+    // this is static so that we can save its state when configuration changes
+    private static boolean sTaskViewReady = false;
 
     public CarUiPortraitSystemBarButton(Context context, AttributeSet attrs) {
         super(context, attrs);
-        BroadcastReceiver displayAreaVisibilityReceiver = new BroadcastReceiver() {
+        logIfDebuggable("CarUiPortraitSystemBarButton");
+
+        // disable button by default
+        super.setDisabled(/* disabled= */ true, getDisabledRunnable(context));
+
+        BroadcastReceiver taskViewReadyReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                boolean isDefaultDAVisible = intent.getBooleanExtra(
-                        INTENT_EXTRA_IS_DISPLAY_AREA_VISIBLE, true);
-                if (getSelected() && !isDefaultDAVisible) {
-                    context.getMainExecutor().execute(() -> setSelected(/* selected= */ false));
+                if (intent.hasExtra(INTENT_EXTRA_FG_TASK_VIEW_READY)) {
+                    boolean taskViewReady = intent.getBooleanExtra(
+                            INTENT_EXTRA_FG_TASK_VIEW_READY, /* defaultValue= */ false);
+                    sTaskViewReady = taskViewReady;
+                    if (sTaskViewReady) {
+                        logIfDebuggable("Foreground task view ready");
+                    }
+                    setDisabled(!taskViewReady, getDisabledRunnable(context));
                 }
-                setSelected(isDefaultDAVisible);
             }
         };
-        LocalBroadcastManager.getInstance(context).registerReceiver(displayAreaVisibilityReceiver,
-                new IntentFilter(DISPLAY_AREA_VISIBILITY_CHANGED));
+        context.registerReceiverForAllUsers(taskViewReadyReceiver,
+                new IntentFilter(REQUEST_FROM_LAUNCHER), null, null, Context.RECEIVER_EXPORTED);
+    }
+
+    private static void logIfDebuggable(String message) {
+        if (DEBUG) {
+            Log.d(TAG, message);
+        }
+    }
+
+    @Override
+    protected void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        setDisabled(!sTaskViewReady, getDisabledRunnable(getContext()));
+    }
+
+    @Override
+    public void setDisabled(boolean disabled, @Nullable Runnable runnable) {
+        // do not externally control disable state until taskview is ready
+        if (!sTaskViewReady) {
+            return;
+        }
+
+        super.setDisabled(disabled, runnable);
+    }
+
+    private Runnable getDisabledRunnable(Context context) {
+        return () -> Toast.makeText(context, R.string.task_view_not_ready_message,
+                Toast.LENGTH_LONG).show();
     }
 }

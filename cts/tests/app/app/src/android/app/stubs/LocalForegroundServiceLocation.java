@@ -64,7 +64,7 @@ public class LocalForegroundServiceLocation extends LocalForegroundService {
                         .setSmallIcon(R.drawable.black)
                         .build();
                 try {
-                    startForeground(mNotificationId, notification);
+                    startForeground(mNotificationId, notification, type);
                 } catch (ForegroundServiceStartNotAllowedException e) {
                     Log.d(TAG, "startForeground gets an "
                             + " ForegroundServiceStartNotAllowedException", e);

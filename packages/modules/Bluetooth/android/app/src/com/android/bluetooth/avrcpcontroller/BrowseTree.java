@@ -23,6 +23,8 @@ import android.util.Log;
 
 import com.android.bluetooth.Utils;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -56,8 +58,11 @@ public class BrowseTree {
     public static final String NOW_PLAYING_PREFIX = "NOW_PLAYING";
     public static final String PLAYER_PREFIX = "PLAYER";
 
+    public static final int DEFAULT_FOLDER_SIZE = 255;
+
     // Static instance of Folder ID <-> Folder Instance (for navigation purposes)
-    private final HashMap<String, BrowseNode> mBrowseMap = new HashMap<String, BrowseNode>();
+    @VisibleForTesting
+    final HashMap<String, BrowseNode> mBrowseMap = new HashMap<String, BrowseNode>();
     private BrowseNode mCurrentBrowseNode;
     private BrowseNode mCurrentBrowsedPlayer;
     private BrowseNode mCurrentAddressedPlayer;
@@ -82,7 +87,7 @@ public class BrowseTree {
         }
 
         mRootNode.mBrowseScope = AvrcpControllerService.BROWSE_SCOPE_PLAYER_LIST;
-        mRootNode.setExpectedChildren(255);
+        mRootNode.setExpectedChildren(DEFAULT_FOLDER_SIZE);
 
         mNavigateUpNode = new BrowseNode(new AvrcpItem.Builder()
                 .setUuid(UP).setTitle(UP).setBrowsable(true).build());
@@ -91,8 +96,8 @@ public class BrowseTree {
                 .setUuid(NOW_PLAYING_PREFIX).setTitle(NOW_PLAYING_PREFIX)
                 .setBrowsable(true).build());
         mNowPlayingNode.mBrowseScope = AvrcpControllerService.BROWSE_SCOPE_NOW_PLAYING;
-        mNowPlayingNode.setExpectedChildren(255);
-        mBrowseMap.put(ROOT, mRootNode);
+        mNowPlayingNode.setExpectedChildren(DEFAULT_FOLDER_SIZE);
+        mBrowseMap.put(mRootNode.getID(), mRootNode);
         mBrowseMap.put(NOW_PLAYING_PREFIX, mNowPlayingNode);
 
         mCurrentBrowseNode = mRootNode;

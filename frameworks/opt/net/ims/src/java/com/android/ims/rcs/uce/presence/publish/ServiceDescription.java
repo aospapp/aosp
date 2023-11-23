@@ -169,6 +169,20 @@ public class ServiceDescription {
                     null /*description*/
             );
 
+    public static final ServiceDescription SERVICE_DESCRIPTION_SLM =
+            new ServiceDescription(
+                    RcsContactPresenceTuple.SERVICE_ID_SLM,
+                    "2.0" /*version*/,
+                    null /*description*/
+            );
+
+    public static final ServiceDescription SERVICE_DESCRIPTION_SLM_PAGER_LARGE =
+            new ServiceDescription(
+                    RcsContactPresenceTuple.SERVICE_ID_SLM,
+                    "2.0" /*version*/,
+                    "Standalone Messaging" /*description*/
+            );
+
     /** Mandatory "service-id" element */
     public final @NonNull String serviceId;
     /** Mandatory "version" element */

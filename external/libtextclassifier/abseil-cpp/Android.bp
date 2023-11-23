@@ -35,7 +35,7 @@ cc_library_static {
     export_include_dirs: ["."],
     visibility: [
         "//external/libtextclassifier:__subpackages__",
-        "//external/tflite-support:__subpackages__"
+        "//external/tflite-support:__subpackages__",
     ],
     srcs: [
         "absl/**/*.cc",
@@ -43,6 +43,7 @@ cc_library_static {
     apex_available: [
         "//apex_available:platform",
         "com.android.extservices",
+        "com.android.adservices",
     ],
     sdk_version: "current",
     min_sdk_version: "30",

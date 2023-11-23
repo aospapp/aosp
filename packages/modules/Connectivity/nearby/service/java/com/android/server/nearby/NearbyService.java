@@ -29,6 +29,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.hardware.location.ContextHubManager;
 import android.nearby.BroadcastRequestParcelable;
 import android.nearby.IBroadcastListener;
@@ -36,15 +37,18 @@ import android.nearby.INearbyManager;
 import android.nearby.IScanListener;
 import android.nearby.NearbyManager;
 import android.nearby.ScanRequest;
+import android.nearby.aidl.IOffloadCallback;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.nearby.common.locator.LocatorContextWrapper;
 import com.android.server.nearby.fastpair.FastPairManager;
-import com.android.server.nearby.injector.ContextHubManagerAdapter;
 import com.android.server.nearby.injector.Injector;
-import com.android.server.nearby.provider.BroadcastProviderManager;
-import com.android.server.nearby.provider.DiscoveryProviderManager;
+import com.android.server.nearby.managers.BroadcastProviderManager;
+import com.android.server.nearby.managers.DiscoveryManager;
+import com.android.server.nearby.managers.DiscoveryProviderManager;
+import com.android.server.nearby.managers.DiscoveryProviderManagerLegacy;
+import com.android.server.nearby.presence.PresenceManager;
 import com.android.server.nearby.provider.FastPairDataProvider;
 import com.android.server.nearby.util.identity.CallerIdentity;
 import com.android.server.nearby.util.permissions.BroadcastPermissions;
@@ -53,10 +57,14 @@ import com.android.server.nearby.util.permissions.DiscoveryPermissions;
 /** Service implementing nearby functionality. */
 public class NearbyService extends INearbyManager.Stub {
     public static final String TAG = "NearbyService";
+    // Sets to true to start BLE scan from PresenceManager for manual testing.
+    public static final Boolean MANUAL_TEST = false;
 
     private final Context mContext;
-    private Injector mInjector;
     private final FastPairManager mFastPairManager;
+    private final PresenceManager mPresenceManager;
+    private final NearbyConfiguration mNearbyConfiguration;
+    private Injector mInjector;
     private final BroadcastReceiver mBluetoothReceiver =
             new BroadcastReceiver() {
                 @Override
@@ -74,16 +82,21 @@ public class NearbyService extends INearbyManager.Stub {
                     }
                 }
             };
-    private DiscoveryProviderManager mProviderManager;
-    private BroadcastProviderManager mBroadcastProviderManager;
+    private final DiscoveryManager mDiscoveryProviderManager;
+    private final BroadcastProviderManager mBroadcastProviderManager;
 
     public NearbyService(Context context) {
         mContext = context;
         mInjector = new SystemInjector(context);
-        mProviderManager = new DiscoveryProviderManager(context, mInjector);
         mBroadcastProviderManager = new BroadcastProviderManager(context, mInjector);
         final LocatorContextWrapper lcw = new LocatorContextWrapper(context, null);
         mFastPairManager = new FastPairManager(lcw);
+        mPresenceManager = new PresenceManager(lcw);
+        mNearbyConfiguration = new NearbyConfiguration();
+        mDiscoveryProviderManager =
+                mNearbyConfiguration.refactorDiscoveryManager()
+                        ? new DiscoveryProviderManager(context, mInjector)
+                        : new DiscoveryProviderManagerLegacy(context, mInjector);
     }
 
     @VisibleForTesting
@@ -100,10 +113,7 @@ public class NearbyService extends INearbyManager.Stub {
         CallerIdentity identity = CallerIdentity.fromBinder(mContext, packageName, attributionTag);
         DiscoveryPermissions.enforceDiscoveryPermission(mContext, identity);
 
-        if (mProviderManager.registerScanListener(scanRequest, listener, identity)) {
-            return NearbyManager.ScanStatus.SUCCESS;
-        }
-        return NearbyManager.ScanStatus.ERROR;
+        return mDiscoveryProviderManager.registerScanListener(scanRequest, listener, identity);
     }
 
     @Override
@@ -114,7 +124,7 @@ public class NearbyService extends INearbyManager.Stub {
         CallerIdentity identity = CallerIdentity.fromBinder(mContext, packageName, attributionTag);
         DiscoveryPermissions.enforceDiscoveryPermission(mContext, identity);
 
-        mProviderManager.unregisterScanListener(listener);
+        mDiscoveryProviderManager.unregisterScanListener(listener);
     }
 
     @Override
@@ -140,6 +150,11 @@ public class NearbyService extends INearbyManager.Stub {
         mBroadcastProviderManager.stopBroadcast(listener);
     }
 
+    @Override
+    public void queryOffloadCapability(IOffloadCallback callback) {
+        mDiscoveryProviderManager.queryOffloadCapability(callback);
+    }
+
     /**
      * Called by the service initializer.
      *
@@ -157,16 +172,22 @@ public class NearbyService extends INearbyManager.Stub {
                 FastPairDataProvider.init(mContext);
                 break;
             case PHASE_BOOT_COMPLETED:
+                // mInjector needs to be initialized before mProviderManager.
                 if (mInjector instanceof SystemInjector) {
                     // The nearby service must be functioning after this boot phase.
                     ((SystemInjector) mInjector).initializeBluetoothAdapter();
                     // Initialize ContextManager for CHRE scan.
-                    ((SystemInjector) mInjector).initializeContextHubManagerAdapter();
+                    ((SystemInjector) mInjector).initializeContextHubManager();
                 }
+                mDiscoveryProviderManager.init();
                 mContext.registerReceiver(
                         mBluetoothReceiver,
                         new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
                 mFastPairManager.initiate();
+                // Only enable for manual Presence test on device.
+                if (MANUAL_TEST) {
+                    mPresenceManager.initiate();
+                }
                 break;
         }
     }
@@ -177,16 +198,18 @@ public class NearbyService extends INearbyManager.Stub {
      * throw a {@link SecurityException}.
      */
     @RequiresPermission(android.Manifest.permission.BLUETOOTH_PRIVILEGED)
-    private static void enforceBluetoothPrivilegedPermission(Context context) {
-        context.enforceCallingOrSelfPermission(
-                android.Manifest.permission.BLUETOOTH_PRIVILEGED,
-                "Need BLUETOOTH PRIVILEGED permission");
+    private void enforceBluetoothPrivilegedPermission(Context context) {
+        if (!mNearbyConfiguration.isTestAppSupported()) {
+            context.enforceCallingOrSelfPermission(
+                    android.Manifest.permission.BLUETOOTH_PRIVILEGED,
+                    "Need BLUETOOTH PRIVILEGED permission");
+        }
     }
 
     private static final class SystemInjector implements Injector {
         private final Context mContext;
         @Nullable private BluetoothAdapter mBluetoothAdapter;
-        @Nullable private ContextHubManagerAdapter mContextHubManagerAdapter;
+        @Nullable private ContextHubManager mContextHubManager;
         @Nullable private AppOpsManager mAppOpsManager;
 
         SystemInjector(Context context) {
@@ -201,8 +224,8 @@ public class NearbyService extends INearbyManager.Stub {
 
         @Override
         @Nullable
-        public ContextHubManagerAdapter getContextHubManagerAdapter() {
-            return mContextHubManagerAdapter;
+        public ContextHubManager getContextHubManager() {
+            return mContextHubManager;
         }
 
         @Override
@@ -222,15 +245,13 @@ public class NearbyService extends INearbyManager.Stub {
             mBluetoothAdapter = manager.getAdapter();
         }
 
-        synchronized void initializeContextHubManagerAdapter() {
-            if (mContextHubManagerAdapter != null) {
+        synchronized void initializeContextHubManager() {
+            if (mContextHubManager != null) {
                 return;
             }
-            ContextHubManager manager = mContext.getSystemService(ContextHubManager.class);
-            if (manager == null) {
-                return;
+            if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CONTEXT_HUB)) {
+                mContextHubManager = mContext.getSystemService(ContextHubManager.class);
             }
-            mContextHubManagerAdapter = new ContextHubManagerAdapter(manager);
         }
 
         synchronized void initializeAppOpsManager() {

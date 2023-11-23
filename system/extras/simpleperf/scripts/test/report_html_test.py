@@ -18,7 +18,7 @@ import collections
 import json
 import os
 import tempfile
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 
 from binary_cache_builder import BinaryCacheBuilder
 from . test_utils import TestBase, TestHelper
@@ -254,3 +254,25 @@ class TestReportHtml(TestBase):
         self.assertNotIn(art_frame_str, report)
         report = self.get_record_data_string(options + ['--show-art-frames'])
         self.assertIn(art_frame_str, report)
+
+    def test_aggregate_threads(self):
+        def get_thread_names(aggregate_threads_option: Optional[List[str]]) -> Dict[str, int]:
+            options = ['-i', TestHelper.testdata_path('perf_display_bitmaps.data')]
+            if aggregate_threads_option:
+                options += ['--aggregate-threads'] + aggregate_threads_option
+            record_data = self.get_record_data(options)
+            thread_names = {}
+            try:
+                for thread in record_data['sampleInfo'][0]['processes'][0]['threads']:
+                    tid = str(thread['tid'])
+                    thread_names[record_data['threadNames'][tid]] = thread['sampleCount']
+            except IndexError:
+                pass
+            return thread_names
+        thread_names = get_thread_names(None)
+        self.assertEqual(thread_names['AsyncTask #3'], 6)
+        self.assertEqual(thread_names['AsyncTask #4'], 13)
+        thread_names = get_thread_names(['AsyncTask.*'])
+        self.assertEqual(thread_names['AsyncTask.*'], 19)
+        self.assertNotIn('AsyncTask #3', thread_names)
+        self.assertNotIn('AsyncTask #4', thread_names)

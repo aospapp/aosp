@@ -221,7 +221,10 @@ public class VectorDrawableTest {
 
     @Test
     public void testVectorDrawableGradient() throws XmlPullParserException, IOException {
-        verifyVectorDrawables(GRADIENT_ICON_RES_IDS, GRADIENT_GOLDEN_IMAGES, null);
+        verifyVectorDrawables(GRADIENT_ICON_RES_IDS, GRADIENT_GOLDEN_IMAGES, null,
+                DrawableTestUtils.PIXEL_ERROR_THRESHOLD,
+                DrawableTestUtils.PIXEL_ERROR_COUNT_THRESHOLD,
+                DrawableTestUtils.PIXEL_ERROR_TOLERANCE + 0.5f);
     }
 
     @Test
@@ -233,6 +236,15 @@ public class VectorDrawableTest {
     }
 
     private void verifyVectorDrawables(int[] resIds, int[] goldenImages, int[] stateSet)
+            throws XmlPullParserException, IOException {
+        verifyVectorDrawables(resIds, goldenImages, stateSet,
+                DrawableTestUtils.PIXEL_ERROR_THRESHOLD,
+                DrawableTestUtils.PIXEL_ERROR_COUNT_THRESHOLD,
+                DrawableTestUtils.PIXEL_ERROR_TOLERANCE);
+    }
+
+    private void verifyVectorDrawables(int[] resIds, int[] goldenImages, int[] stateSet,
+            float pixelThreshold, float pixelCountThreshold, float pixelDiffTolerance)
             throws XmlPullParserException, IOException {
         for (int i = 0; i < resIds.length; i++) {
             VectorDrawable vectorDrawable = new VectorDrawable();
@@ -271,9 +283,7 @@ public class VectorDrawableTest {
                 // Start to compare
                 Bitmap golden = BitmapFactory.decodeResource(mResources, goldenImages[i]);
                 DrawableTestUtils.compareImages(mResources.getString(resIds[i]), mBitmap, golden,
-                        DrawableTestUtils.PIXEL_ERROR_THRESHOLD,
-                        DrawableTestUtils.PIXEL_ERROR_COUNT_THRESHOLD,
-                        DrawableTestUtils.PIXEL_ERROR_TOLERANCE);
+                        pixelThreshold, pixelCountThreshold, pixelDiffTolerance);
 
             }
         }

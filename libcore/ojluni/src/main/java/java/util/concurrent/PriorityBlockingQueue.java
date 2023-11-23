@@ -53,6 +53,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import jdk.internal.misc.SharedSecrets;
+import jdk.internal.util.ArraysSupport;
 
 /**
  * An unbounded {@linkplain BlockingQueue blocking queue} that uses
@@ -86,7 +87,7 @@ import jdk.internal.misc.SharedSecrets;
  * <pre> {@code
  * class FIFOEntry<E extends Comparable<? super E>>
  *     implements Comparable<FIFOEntry<E>> {
- *   static final AtomicLong seq = new AtomicLong(0);
+ *   static final AtomicLong seq = new AtomicLong();
  *   final long seqNum;
  *   final E entry;
  *   public FIFOEntry(E entry) {
@@ -137,14 +138,6 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
     private static final int DEFAULT_INITIAL_CAPACITY = 11;
 
     /**
-     * The maximum size of array to allocate.
-     * Some VMs reserve some header words in an array.
-     * Attempts to allocate larger arrays may result in
-     * OutOfMemoryError: Requested array size exceeds VM limit
-     */
-    private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
-
-    /**
      * Priority queue represented as a balanced binary heap: the two
      * children of queue[n] are queue[2*n+1] and queue[2*(n+1)].  The
      * priority queue is ordered by comparator, or by the elements'
@@ -173,6 +166,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
     /**
      * Condition for blocking when empty.
      */
+    @SuppressWarnings("serial") // Classes implementing Condition may be serializable.
     private final Condition notEmpty = lock.newCondition();
 
     /**
@@ -232,7 +226,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
     /**
      * Creates a {@code PriorityBlockingQueue} containing the elements
      * in the specified collection.  If the specified collection is a
-     * {@link SortedSet} or a {@link PriorityQueue}, this
+     * {@link SortedSet} or a {@link PriorityBlockingQueue}, this
      * priority queue will be ordered according to the same ordering.
      * Otherwise, this priority queue will be ordered according to the
      * {@linkplain Comparable natural ordering} of its elements.
@@ -299,16 +293,11 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
         if (allocationSpinLock == 0 &&
             ALLOCATIONSPINLOCK.compareAndSet(this, 0, 1)) {
             try {
-                int newCap = oldCap + ((oldCap < 64) ?
-                                       (oldCap + 2) : // grow faster if small
-                                       (oldCap >> 1));
-                if (newCap - MAX_ARRAY_SIZE > 0) {    // possible overflow
-                    int minCap = oldCap + 1;
-                    if (minCap < 0 || minCap > MAX_ARRAY_SIZE)
-                        throw new OutOfMemoryError();
-                    newCap = MAX_ARRAY_SIZE;
-                }
-                if (newCap > oldCap && queue == array)
+                int growth = (oldCap < 64)
+                    ? (oldCap + 2) // grow faster if small
+                    : (oldCap >> 1);
+                int newCap = ArraysSupport.newLength(oldCap, 1, growth);
+                if (queue == array)
                     newArray = new Object[newCap];
             } finally {
                 allocationSpinLock = 0;

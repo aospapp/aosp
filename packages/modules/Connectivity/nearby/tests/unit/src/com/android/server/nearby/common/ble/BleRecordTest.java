@@ -34,6 +34,9 @@ package com.android.server.nearby.common.ble;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.os.ParcelUuid;
+import android.util.SparseArray;
+
 import androidx.test.filters.SdkSuppress;
 
 import org.junit.Test;
@@ -238,13 +241,55 @@ public class BleRecordTest {
         BleRecord record = BleRecord.parseFromBytes(BEACON);
         BleRecord record2 = BleRecord.parseFromBytes(SAME_BEACON);
 
-
         assertThat(record).isEqualTo(record2);
 
         // Different items.
         record2 = BleRecord.parseFromBytes(OTHER_BEACON);
         assertThat(record).isNotEqualTo(record2);
         assertThat(record.hashCode()).isNotEqualTo(record2.hashCode());
+    }
+
+    @Test
+    public void testFields() {
+        BleRecord record = BleRecord.parseFromBytes(BEACON);
+        assertThat(byteString(record.getManufacturerSpecificData()))
+                .isEqualTo("  0215F7826DA64FA24E988024BC5B71E0893E44D02522B3");
+        assertThat(
+                byteString(record.getServiceData(
+                        ParcelUuid.fromString("000000E0-0000-1000-8000-00805F9B34FB"))))
+                .isEqualTo("[null]");
+        assertThat(record.getTxPowerLevel()).isEqualTo(-12);
+        assertThat(record.toString()).isEqualTo(
+                "BleRecord [advertiseFlags=6, serviceUuids=[], "
+                        + "manufacturerSpecificData={76=[2, 21, -9, -126, 109, -90, 79, -94, 78,"
+                        + " -104, -128, 36, -68, 91, 113, -32, -119, 62, 68, -48, 37, 34, -77]},"
+                        + " serviceData={0000d00d-0000-1000-8000-00805f9b34fb"
+                        + "=[116, 109, 77, 107, 50, 54, 100]},"
+                        + " txPowerLevel=-12, deviceName=Kontakt]");
+    }
+
+    private static String byteString(SparseArray<byte[]> bytesArray) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < bytesArray.size(); i++) {
+            builder.append(builder.toString().isEmpty() ? "  " : "\n  ");
+            builder.append(byteString(bytesArray.valueAt(i)));
+        }
+        return builder.toString();
+    }
+
+    private static String byteString(byte[] bytes) {
+        if (bytes == null) {
+            return "[null]";
+        } else {
+            final char[] hexArray = "0123456789ABCDEF".toCharArray();
+            char[] hexChars = new char[bytes.length * 2];
+            for (int i = 0; i < bytes.length; i++) {
+                int v = bytes[i] & 0xFF;
+                hexChars[i * 2] = hexArray[v >>> 4];
+                hexChars[i * 2 + 1] = hexArray[v & 0x0F];
+            }
+            return new String(hexChars);
+        }
     }
 }
 

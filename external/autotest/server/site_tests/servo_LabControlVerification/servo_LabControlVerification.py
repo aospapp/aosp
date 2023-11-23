@@ -1,8 +1,9 @@
+# Lint as: python2, python3
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Test to validate basic, critial servo controls for the lab work."""
+"""Test to validate basic, critical servo controls for the lab work."""
 
 import logging
 import os
@@ -55,7 +56,7 @@ class servo_LabControlVerification(test.test):
                 # This a set servod control.
                 ctrl['ctrl_value'] = ctrl_elems[1]
             elif len(ctrl_elems) > 2:
-                logging.warn('The line containing %r in the control sequence '
+                logging.warning('The line containing %r in the control sequence '
                              'file has an unkown format. Ignoring for now.',
                              ctrl)
             ctrls.append(ctrl)
@@ -84,7 +85,7 @@ class servo_LabControlVerification(test.test):
           error.AutoservRunError if trying to start servod and it fails
         """
         # TODO(coconutruben): board is set to nami for now as that will allow
-        # servod to come up and the nami overlay does not have any crazy changes
+        # servod to come up and the nami overlay does not have any complex changes
         # from normal boards. When the new servod is rolled out and it can infer
         # board names itself, remove the board attribute here.
         self.servo_port = port

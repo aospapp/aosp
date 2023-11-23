@@ -1,9 +1,12 @@
 use regex_automata::DFA;
 
-use crate::ext_slice::ByteSlice;
-use crate::unicode::fsm::simple_word_fwd::SIMPLE_WORD_FWD;
-use crate::unicode::fsm::word_break_fwd::WORD_BREAK_FWD;
-use crate::utf8;
+use crate::{
+    ext_slice::ByteSlice,
+    unicode::fsm::{
+        simple_word_fwd::SIMPLE_WORD_FWD, word_break_fwd::WORD_BREAK_FWD,
+    },
+    utf8,
+};
 
 /// An iterator over words in a byte string.
 ///
@@ -254,7 +257,7 @@ pub struct WordsWithBreakIndices<'a> {
 
 impl<'a> WordsWithBreakIndices<'a> {
     pub(crate) fn new(bs: &'a [u8]) -> WordsWithBreakIndices<'a> {
-        WordsWithBreakIndices { bs: bs, forward_index: 0 }
+        WordsWithBreakIndices { bs, forward_index: 0 }
     }
 
     /// View the underlying data as a subslice of the original data.
@@ -316,13 +319,15 @@ fn decode_word(bs: &[u8]) -> (&str, usize) {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod tests {
+    #[cfg(not(miri))]
     use ucd_parse::WordBreakTest;
 
     use crate::ext_slice::ByteSlice;
 
     #[test]
+    #[cfg(not(miri))]
     fn forward_ucd() {
         for (i, test) in ucdtests().into_iter().enumerate() {
             let given = test.words.concat();
@@ -379,17 +384,26 @@ mod tests {
         assert_eq!(vec!["1XY"], words(b"1XY"));
 
         assert_eq!(vec!["\u{FEFF}", "Ты"], words("\u{FEFF}Ты".as_bytes()));
+
+        // Tests that Vithkuqi works, which was introduced in Unicode 14.
+        // This test fails prior to Unicode 14.
+        assert_eq!(
+            vec!["\u{10570}\u{10597}"],
+            words("\u{10570}\u{10597}".as_bytes())
+        );
     }
 
     fn words(bytes: &[u8]) -> Vec<&str> {
         bytes.words_with_breaks().collect()
     }
 
+    #[cfg(not(miri))]
     fn strs_to_bstrs<S: AsRef<str>>(strs: &[S]) -> Vec<&[u8]> {
         strs.iter().map(|s| s.as_ref().as_bytes()).collect()
     }
 
     /// Return all of the UCD for word breaks.
+    #[cfg(not(miri))]
     fn ucdtests() -> Vec<WordBreakTest> {
         const TESTDATA: &'static str = include_str!("data/WordBreakTest.txt");
 

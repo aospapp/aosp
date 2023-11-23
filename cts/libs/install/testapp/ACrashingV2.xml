@@ -23,7 +23,7 @@
     <uses-sdk android:minSdkVersion="19"/>
 
     <application android:label="Test App A v2">
-        <receiver android:name="com.android.cts.install.lib.testapp.ProcessUserData"
+        <receiver android:name="com.android.cts.install.lib.testapp.ProcessBroadcast"
              android:exported="true"/>
         <activity android:name="com.android.cts.install.lib.testapp.CrashingMainActivity"
              android:exported="true">

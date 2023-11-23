@@ -177,8 +177,14 @@ HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
         resource_manager_.Init();
       } else {
         resource_manager_.DeInit();
-        /* Headless display may still be here, remove it */
-        displays_.erase(kPrimaryDisplay);
+        /* Headless display may still be here. Remove it! */
+        if (displays_.count(kPrimaryDisplay) != 0) {
+          displays_[kPrimaryDisplay]->Deinit();
+          auto &mutex = GetResMan().GetMainLock();
+          mutex.unlock();
+          displays_.erase(kPrimaryDisplay);
+          mutex.lock();
+        }
       }
       break;
     }

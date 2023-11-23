@@ -321,11 +321,20 @@ struct private_handle_t
 	static int validate(const native_handle *h)
 	{
 		const private_handle_t *hnd = (const private_handle_t *)h;
-		if (!h || h->version != sizeof(native_handle) || hnd->magic != sMagic ||
+
+		// Always validate for native_handle members before validating
+		// private_handle_t members
+		if (!h || h->version != sizeof(native_handle) ||
 		    h->numFds + h->numInts != NUM_INTS_IN_PRIVATE_HANDLE)
 		{
 			return -EINVAL;
 		}
+
+		if (hnd->magic != sMagic)
+		{
+			return -EINVAL;
+		}
+
 		return 0;
 	}
 

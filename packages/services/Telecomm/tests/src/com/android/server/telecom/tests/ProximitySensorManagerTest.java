@@ -31,7 +31,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 
-import java.util.ArrayList;
+import java.util.List;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -67,9 +67,7 @@ public class ProximitySensorManagerTest extends TelecomTestCase{
     @SmallTest
     @Test
     public void testTurnOnProximityWithCallsActive() throws Exception {
-        when(mCallsManager.getCalls()).thenReturn(new ArrayList<Call>(){{
-            add(mCall);
-        }});
+        when(mCallsManager.getCalls()).thenReturn(List.of(mCall));
         when(mWakeLockAdapter.isHeld()).thenReturn(false);
 
         mProximitySensorManager.turnOn();
@@ -80,7 +78,7 @@ public class ProximitySensorManagerTest extends TelecomTestCase{
     @SmallTest
     @Test
     public void testTurnOnProximityWithNoCallsActive() throws Exception {
-        when(mCallsManager.getCalls()).thenReturn(new ArrayList<Call>());
+        when(mCallsManager.getCalls()).thenReturn(List.of());
         when(mWakeLockAdapter.isHeld()).thenReturn(false);
 
         mProximitySensorManager.turnOn();
@@ -102,9 +100,7 @@ public class ProximitySensorManagerTest extends TelecomTestCase{
     @SmallTest
     @Test
     public void testCallRemovedFromCallsManagerCallsActive() throws Exception {
-        when(mCallsManager.getCalls()).thenReturn(new ArrayList<Call>(){{
-            add(mCall);
-        }});
+        when(mCallsManager.getCalls()).thenReturn(List.of(mCall));
         when(mWakeLockAdapter.isHeld()).thenReturn(true);
 
         mProximitySensorManager.onCallRemoved(mock(Call.class));
@@ -115,7 +111,7 @@ public class ProximitySensorManagerTest extends TelecomTestCase{
     @SmallTest
     @Test
     public void testCallRemovedFromCallsManagerNoCallsActive() throws Exception {
-        when(mCallsManager.getCalls()).thenReturn(new ArrayList<Call>());
+        when(mCallsManager.getCalls()).thenReturn(List.of());
         when(mWakeLockAdapter.isHeld()).thenReturn(true);
 
         mProximitySensorManager.onCallRemoved(mock(Call.class));

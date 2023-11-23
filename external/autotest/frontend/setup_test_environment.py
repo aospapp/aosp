@@ -78,4 +78,4 @@ def print_queries():
     interest from the command line.
     """
     for query in connection.queries:
-        print query['sql'] + ';\n'
+        print(query['sql'] + ';\n')

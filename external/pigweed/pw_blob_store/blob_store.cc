@@ -81,7 +81,7 @@ Status BlobStore::LoadMetadata() {
   // kvs_.Get() will return RESOURCE_EXHAUSTED as the file name won't fit in the
   // BlobMetadtataHeader object, which is intended behavior.
   if (StatusWithSize sws = kvs_.acquire()->Get(
-          MetadataKey(), std::as_writable_bytes(std::span(&metadata, 1)));
+          MetadataKey(), as_writable_bytes(span(&metadata, 1)));
       !sws.ok() && !sws.IsResourceExhausted()) {
     return Status::NotFound();
   }
@@ -90,7 +90,7 @@ Status BlobStore::LoadMetadata() {
                         metadata.v1_metadata.checksum)
            .ok()) {
     PW_LOG_ERROR("BlobStore init - Invalidating blob with invalid checksum");
-    Invalidate().IgnoreError();  // TODO(pwbug/387): Handle Status properly
+    Invalidate().IgnoreError();  // TODO(b/242598609): Handle Status properly
     return Status::DataLoss();
   }
 
@@ -120,12 +120,12 @@ Status BlobStore::OpenWrite() {
   writer_open_ = true;
 
   // Clear any existing contents.
-  Invalidate().IgnoreError();  // TODO(pwbug/387): Handle Status properly
+  Invalidate().IgnoreError();  // TODO(b/242598609): Handle Status properly
 
   return OkStatus();
 }
 
-StatusWithSize BlobStore::GetFileName(std::span<char> dest) const {
+StatusWithSize BlobStore::GetFileName(span<char> dest) const {
   if (!initialized_) {
     return StatusWithSize(Status::FailedPrecondition(), 0);
   }
@@ -145,7 +145,7 @@ StatusWithSize BlobStore::GetFileName(std::span<char> dest) const {
   constexpr size_t kFileNameOffset = sizeof(BlobMetadataHeader);
   const StatusWithSize kvs_read_sws =
       kvs_.acquire()->Get(MetadataKey(),
-                          std::as_writable_bytes(dest.first(bytes_to_read)),
+                          as_writable_bytes(dest.first(bytes_to_read)),
                           kFileNameOffset);
   status.Update(kvs_read_sws.status());
   return StatusWithSize(status, kvs_read_sws.size());
@@ -316,7 +316,7 @@ Status BlobStore::Flush() {
     return Status::DataLoss();
   }
 
-  ByteSpan data = std::span(write_buffer_.data(), WriteBufferBytesUsed());
+  ByteSpan data = span(write_buffer_.data(), WriteBufferBytesUsed());
   size_t write_size_bytes =
       (data.size_bytes() / flash_write_size_bytes_) * flash_write_size_bytes_;
   if (!CommitToFlash(data.first(write_size_bytes)).ok()) {
@@ -433,7 +433,7 @@ Result<ConstByteSpan> BlobStore::GetMemoryMappedBlob() const {
 }
 
 size_t BlobStore::ReadableDataBytes() const {
-  // TODO: clean up state related to readable bytes.
+  // TODO(davidrogers): clean up state related to readable bytes.
   return flash_address_;
 }
 
@@ -453,7 +453,7 @@ Status BlobStore::Erase() {
 
   // If any writes have been performed, reset the state.
   if (flash_address_ != 0) {
-    Invalidate().IgnoreError();  // TODO(pwbug/387): Handle Status properly
+    Invalidate().IgnoreError();  // TODO(b/242598609): Handle Status properly
   }
 
   PW_TRY(partition_.Erase());
@@ -502,7 +502,7 @@ Status BlobStore::ValidateChecksum(size_t blob_size_bytes,
                static_cast<unsigned>(blob_size_bytes));
   PW_TRY(CalculateChecksumFromFlash(blob_size_bytes));
 
-  Status status = checksum_algo_->Verify(as_bytes(std::span(&expected, 1)));
+  Status status = checksum_algo_->Verify(as_bytes(span(&expected, 1)));
   PW_LOG_DEBUG("  checksum verify of %s", status.str());
 
   return status;
@@ -522,7 +522,7 @@ Status BlobStore::CalculateChecksumFromFlash(size_t bytes_to_check) {
   std::array<std::byte, kReadBufferSizeBytes> buffer;
   while (address < end) {
     const size_t read_size = std::min(size_t(end - address), buffer.size());
-    PW_TRY(partition_.Read(address, std::span(buffer).first(read_size)));
+    PW_TRY(partition_.Read(address, span(buffer).first(read_size)));
 
     checksum_algo_->Update(buffer.data(), read_size);
     address += read_size;
@@ -689,6 +689,7 @@ size_t BlobStore::BlobReader::ConservativeLimit(LimitType limit) const {
 
 Status BlobStore::BlobReader::Open(size_t offset) {
   PW_DCHECK(!open_);
+  PW_TRY(store_.Init());
   if (!store_.HasData()) {
     return Status::FailedPrecondition();
   }
@@ -704,7 +705,7 @@ Status BlobStore::BlobReader::Open(size_t offset) {
   return status;
 }
 
-size_t BlobStore::BlobReader::DoTell() const {
+size_t BlobStore::BlobReader::DoTell() {
   return open_ ? offset_ : kUnknownPosition;
 }
 

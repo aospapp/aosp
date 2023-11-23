@@ -43,6 +43,7 @@ typedef struct {
   WORD16 predictor_data_present;
   ltp_info ltp;
   ltp_info ltp2;
+  WORD8 qshift_adj;
 } ia_ics_info_struct;
 
 typedef struct {
@@ -292,7 +293,7 @@ typedef struct {
 
   WORD16 *ltp_buf;
   UWORD16 ltp_lag;
-
+  ia_ec_state_str str_ec_state;
 } ia_aac_dec_channel_info;
 
 typedef struct {

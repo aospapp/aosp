@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2017 The Android Open Source Project
 #
@@ -66,8 +66,6 @@ class TcpFastOpenTest(multinetwork_base.MultiNetworkBaseTest):
       self.tcp_metrics.GetMetrics(saddr, daddr)
 
   def clearBlackhole(self):
-    if net_test.LINUX_VERSION < (4, 14, 0):
-      return
     # Prior to 4.15 this sysctl is not namespace aware.
     if net_test.LINUX_VERSION < (4, 15, 0) and not os.path.exists(BH_TIMEOUT_SYSCTL):
       return
@@ -98,7 +96,7 @@ class TcpFastOpenTest(multinetwork_base.MultiNetworkBaseTest):
     syn.getlayer("TCP").options = [(TCPOPT_FASTOPEN, "")]
     msg = "Fastopen connect: expected %s" % desc
     syn = self.ExpectPacketOn(netid, msg, syn)
-    syn = ip_layer(str(syn))
+    syn = ip_layer(bytes(syn))
 
     # Receive a SYN+ACK with a TFO cookie and expect the connection to proceed
     # as normal.
@@ -106,7 +104,7 @@ class TcpFastOpenTest(multinetwork_base.MultiNetworkBaseTest):
     synack.getlayer("TCP").options = [
         (TCPOPT_FASTOPEN, "helloT"), ("NOP", None), ("NOP", None)]
     self.ReceivePacketOn(netid, synack)
-    synack = ip_layer(str(synack))
+    synack = ip_layer(bytes(synack))
     desc, ack = packets.ACK(version, myaddr, remoteaddr, synack)
     msg = "First connect: got SYN+ACK, expected %s" % desc
     self.ExpectPacketOn(netid, msg, ack)
@@ -133,11 +131,9 @@ class TcpFastOpenTest(multinetwork_base.MultiNetworkBaseTest):
     msg = "TFO write, expected %s" % desc
     self.ExpectPacketOn(netid, msg, syn)
 
-  @unittest.skipUnless(net_test.LINUX_VERSION >= (4, 9, 0), "not yet backported")
   def testConnectOptionIPv4(self):
     self.CheckConnectOption(4)
 
-  @unittest.skipUnless(net_test.LINUX_VERSION >= (4, 9, 0), "not yet backported")
   def testConnectOptionIPv6(self):
     self.CheckConnectOption(6)
 

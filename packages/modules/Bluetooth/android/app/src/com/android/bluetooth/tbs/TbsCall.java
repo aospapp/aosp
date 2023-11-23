@@ -18,8 +18,7 @@
 package com.android.bluetooth.tbs;
 
 import android.bluetooth.BluetoothLeCall;
-
-import java.util.UUID;
+import android.net.Uri;
 
 public class TbsCall {
 
@@ -31,6 +30,62 @@ public class TbsCall {
     private String mUri;
     private int mFlags;
     private String mFriendlyName;
+
+    /**
+     * Converts state value to human readable state string
+     *
+     * @param state state of call
+     * @return converted to string state
+     */
+    public static String stateToString(Integer state) {
+        if (state.equals(BluetoothLeCall.STATE_INCOMING)) {
+            return "INCOMING";
+        } else if (state.equals(BluetoothLeCall.STATE_DIALING)) {
+            return "DIALING";
+        } else if (state.equals(BluetoothLeCall.STATE_ALERTING)) {
+            return "ALERTING";
+        } else if (state.equals(BluetoothLeCall.STATE_ACTIVE)) {
+            return "ACTIVE";
+        } else if (state.equals(BluetoothLeCall.STATE_LOCALLY_HELD)) {
+            return "LOCALLY HELD";
+        } else if (state.equals(BluetoothLeCall.STATE_REMOTELY_HELD)) {
+            return "REMOTELY HELD";
+        } else if (state.equals(BluetoothLeCall.STATE_LOCALLY_AND_REMOTELY_HELD)) {
+            return "LOCALLY AND REMOTELY HELD";
+        } else {
+            return "UNKNOWN(" + state + ")";
+        }
+    }
+
+    /**
+     * Converts call flags value to human readable flag string
+     *
+     * @param flags call flags
+     * @return converted to string flags
+     */
+    public static String flagsToString(Integer flags) {
+        String string = "";
+
+        if (flags.equals(BluetoothLeCall.FLAG_OUTGOING_CALL)) {
+            if (string.isEmpty()) {
+                string += "OUTGOING";
+            }
+        }
+        if (flags.equals(BluetoothLeCall.FLAG_WITHHELD_BY_SERVER)) {
+            if (!string.isEmpty()) {
+                string += "|";
+            }
+            string += "WITHELD BY SERVER";
+        }
+        if (flags.equals(BluetoothLeCall.FLAG_WITHHELD_BY_NETWORK)) {
+            if (!string.isEmpty()) {
+                string += "|";
+            }
+            string += "WITHELD BY NETWORK";
+        }
+
+        return string;
+    }
 
     private TbsCall(int state, String uri, int flags, String friendlyName) {
         mState = state;
@@ -67,6 +122,10 @@ public class TbsCall {
         return mUri;
     }
 
+    public String getSafeUri() {
+        return Uri.parse(mUri).toSafeString();
+    }
+
     public int getFlags() {
         return mFlags;
     }
@@ -77,5 +136,34 @@ public class TbsCall {
 
     public String getFriendlyName() {
         return mFriendlyName;
+    }
+
+    /**
+     * Converts Friendly Name to safe string (every second letter is replaced by '.')
+     *
+     * @return safe Friendly Name
+     */
+    public String getSafeFriendlyName() {;
+        if (mFriendlyName == null) {
+            return null;
+        }
+
+        /* Don't anonymize short names */
+        if (mFriendlyName.length() < 3) {
+            return mFriendlyName;
+        }
+
+        final StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < mFriendlyName.length(); i++) {
+            final char c = mFriendlyName.charAt(i);
+
+            /* Anonymize every second letter */
+            if ((i % 2) == 0) {
+                builder.append(c);
+            } else {
+                builder.append('.');
+            }
+        }
+        return builder.toString();
     }
 }

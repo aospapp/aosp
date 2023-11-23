@@ -17,6 +17,8 @@
 package com.android.car.settings.security;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 import static com.android.car.settings.security.LockTypeBasePreferenceController.CHOOSE_LOCK_REQUEST;
 
@@ -129,8 +131,53 @@ public class LockTypeBasePreferenceControllerTest {
     }
 
     @Test
+    public void testGetAvailabilityStatus_guestUser_zoneWrite() {
+        when(mMockUserManager.isGuestUser()).thenReturn(true);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_guestUser_zoneRead() {
+        when(mMockUserManager.isGuestUser()).thenReturn(true);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_guestUser_zoneHidden() {
+        when(mMockUserManager.isGuestUser()).thenReturn(true);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_otherUser() {
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_otherUser_zoneWrite() {
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_otherUser_zoneRead() {
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_otherUser_zoneHidden() {
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

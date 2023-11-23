@@ -31,8 +31,29 @@ def check_sources(
         int_param,
         dict_param,
         struct_param,
-    ]
-    x = ("Hah. All that documentation but nothing really to see here")
+    ]  # @unused
+    x = ("Hah. All that documentation but nothing really to see here")  # @unused
+
+def returns_a_thing(name):
+    """Returns a suffixed name.
+
+    Args:
+        name: A unique name for this rule.
+
+    Returns:
+        A suffixed version of the name.
+    """
+    _ignore = name  # @unused
+    pass
+
+def deprecated_do_not_use():
+    """This function is deprecated.
+
+    Deprecated:
+        Use literally anything but this function.
+    """
+    pass
 
 def undocumented_function(a, b, c):
+    _ignore = [a, b, c]  # @unused
     pass

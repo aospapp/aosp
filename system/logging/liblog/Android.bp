@@ -84,17 +84,13 @@ cc_library_headers {
 
 // Shared and static library for host and device
 // ========================================================
-cc_library {
-    name: "liblog",
+cc_defaults {
+    name: "liblog.defaults",
     host_supported: true,
     ramdisk_available: true,
     vendor_ramdisk_available: true,
     recovery_available: true,
     native_bridge_supported: true,
-    llndk: {
-        symbol_file: "liblog.map.txt",
-        override_export_include_dirs: ["include_vndk"],
-    },
     srcs: liblog_sources,
 
     target: {
@@ -129,11 +125,6 @@ cc_library {
     ],
     export_header_lib_headers: ["liblog_headers"],
 
-    stubs: {
-        symbol_file: "liblog.map.txt",
-        versions: ["29", "30"],
-    },
-
     cflags: [
         "-Wall",
         "-Werror",
@@ -147,18 +138,57 @@ cc_library {
         // so make sure we do not regret hard-coding it as follows:
         "-DLIBLOG_LOG_TAG=1006",
         "-DSNET_EVENT_LOG_TAG=1397638484",
+        "-DANDROID_DEBUGGABLE=0",
     ],
     logtags: ["event.logtags"],
     compile_multilib: "both",
+    afdo: true,
+    product_variables: {
+        debuggable: {
+            cflags: [
+                "-UANDROID_DEBUGGABLE",
+                "-DANDROID_DEBUGGABLE=1",
+            ],
+        },
+    },
+}
+
+cc_library {
+    name: "liblog",
+    defaults: ["liblog.defaults"],
+
+    llndk: {
+        symbol_file: "liblog.map.txt",
+        override_export_include_dirs: ["include_vndk"],
+    },
+
+    stubs: {
+        symbol_file: "liblog.map.txt",
+        versions: [
+            "29",
+            "30",
+        ],
+    },
+
+}
+
+// liblog_for_runtime_apex is a static liblog which is exclusively for
+// the runtime APEX. See b/151051671
+cc_library_static {
+    name: "liblog_for_runtime_apex",
+    defaults: ["liblog.defaults"],
     apex_available: [
         "//apex_available:platform",
-        // liblog is exceptionally available to the runtime APEX
-        // because the dynamic linker has to use it statically.
-        // See b/151051671
         "com.android.runtime",
         // DO NOT add more apex names here
     ],
-    afdo: true,
+    visibility: [
+        "//bionic/linker",
+        "//frameworks/libs/native_bridge_support/linker",
+        "//system/apex/libs/libapexutil",
+        "//system/core/debuggerd",
+        "//system/linkerconfig",
+    ],
 }
 
 ndk_headers {
@@ -174,12 +204,16 @@ ndk_library {
     symbol_file: "liblog.map.txt",
     first_version: "9",
     unversioned_until: "current",
+    export_header_libs: [
+        "liblog_ndk_headers",
+    ],
 }
 
 rust_bindgen {
     name: "liblog_event_list_bindgen",
     wrapper_src: "rust/liblog_wrapper.h",
     crate_name: "log_event_list_bindgen",
+    visibility: ["//system/logging/rust"],
     source_stem: "bindings",
 
     bindgen_flags: [

@@ -28,16 +28,19 @@ import static org.junit.Assert.fail;
 
 import android.content.Context;
 import android.content.res.AssetManager;
+import android.content.res.Resources;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.Typeface.Builder;
+import android.graphics.fonts.Font;
+import android.graphics.fonts.FontFamily;
 import android.os.SharedMemory;
 import android.system.ErrnoException;
 import android.util.ArrayMap;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -134,6 +137,42 @@ public class TypefaceTest {
             assertFalse(typeface.isBold());
             assertFalse(typeface.isItalic());
         }
+    }
+
+    @Test
+    public void testGetSystemFontFamilyName() throws Exception {
+        Typeface sansSerifTypeface = Typeface.SANS_SERIF;
+        assertEquals("sans-serif", sansSerifTypeface.getSystemFontFamilyName());
+
+        Typeface sansSerifBold = Typeface.create(sansSerifTypeface, Typeface.BOLD);
+        assertEquals("sans-serif", sansSerifBold.getSystemFontFamilyName());
+
+        Typeface sansSerifBoldItalic = Typeface.create(sansSerifBold, Typeface.ITALIC);
+        assertEquals("sans-serif", sansSerifBoldItalic.getSystemFontFamilyName());
+
+        Typeface sansSerifWeightItalic = Typeface.create(sansSerifTypeface, 10, true);
+        assertEquals("sans-serif", sansSerifWeightItalic.getSystemFontFamilyName());
+
+        Typeface sansSerifWeightItalicBold =
+                Typeface.create(sansSerifWeightItalic, Typeface.BOLD);
+        assertEquals("sans-serif", sansSerifWeightItalicBold.getSystemFontFamilyName());
+
+        Resources res = mContext.getResources();
+        final AssetManager assets = res.getAssets();
+        Typeface typefaceFromAsset = Typeface.createFromAsset(mContext.getAssets(),
+                "fonts/others/samplefont.ttf");
+        assertNull(typefaceFromAsset.getSystemFontFamilyName());
+
+        Typeface typefaceFromAssetBold = Typeface.create(typefaceFromAsset, Typeface.BOLD);
+        assertNull(typefaceFromAssetBold.getSystemFontFamilyName());
+
+        Typeface typefaceFromFile = Typeface.createFromFile(obtainPath());
+        assertNull(typefaceFromFile.getSystemFontFamilyName());
+
+        Font font = new Font.Builder(assets, "fonts/others/samplefont.ttf").build();
+        FontFamily family = new FontFamily.Builder(font).build();
+        Typeface typefaceFromBuilder = new Typeface.CustomFallbackBuilder(family).build();
+        assertNull(typefaceFromBuilder.getSystemFontFamilyName());
     }
 
     @Test
@@ -862,12 +901,18 @@ public class TypefaceTest {
         assertNotNull(shm);
 
         Map<String, Typeface> reversedMap = new ArrayMap<>();
-        Typeface.deserializeFontMap(shm.mapReadOnly(), reversedMap);
+        try {
+            Typeface.deserializeFontMap(shm.mapReadOnly(), reversedMap);
 
-        // Typeface equality doesn't work here since the backing native object is different.
-        assertEquals(3, reversedMap.size());
-        assertTrue(reversedMap.containsKey("sans-serif"));
-        assertTrue(reversedMap.containsKey("serif"));
-        assertTrue(reversedMap.containsKey("monospace"));
+            // Typeface equality doesn't work here since the backing native object is different.
+            assertEquals(3, reversedMap.size());
+            assertTrue(reversedMap.containsKey("sans-serif"));
+            assertTrue(reversedMap.containsKey("serif"));
+            assertTrue(reversedMap.containsKey("monospace"));
+        } finally {
+            for (Typeface typeface : reversedMap.values()) {
+                typeface.releaseNativeObjectForTest();
+            }
+        }
     }
 }

@@ -22,8 +22,8 @@ use crate::sys;
 
 use std::convert::{TryFrom, TryInto};
 use std::ffi::c_void;
-use std::os::raw::{c_char, c_ulong};
-use std::mem::{self, MaybeUninit, ManuallyDrop};
+use std::mem::{self, ManuallyDrop, MaybeUninit};
+use std::os::raw::c_char;
 use std::ptr;
 use std::slice;
 
@@ -103,23 +103,16 @@ pub trait SerializeArray: Serialize + Sized {
 unsafe extern "C" fn serialize_element<T: Serialize>(
     parcel: *mut sys::AParcel,
     array: *const c_void,
-    index: c_ulong,
+    index: usize,
 ) -> status_t {
-    // c_ulong and usize are the same, but we need the explicitly sized version
-    // so the function signature matches what bindgen generates.
-    let index = index as usize;
-
-    let slice: &[T] = slice::from_raw_parts(array.cast(), index+1);
+    let slice: &[T] = slice::from_raw_parts(array.cast(), index + 1);
 
     let mut parcel = match BorrowedParcel::from_raw(parcel) {
         None => return StatusCode::UNEXPECTED_NULL as status_t,
         Some(p) => p,
     };
 
-    slice[index].serialize(&mut parcel)
-                .err()
-                .unwrap_or(StatusCode::OK)
-        as status_t
+    slice[index].serialize(&mut parcel).err().unwrap_or(StatusCode::OK) as status_t
 }
 
 /// Helper trait for types that can be deserialized as arrays.
@@ -161,12 +154,8 @@ pub trait DeserializeArray: Deserialize {
 unsafe extern "C" fn deserialize_element<T: Deserialize>(
     parcel: *const sys::AParcel,
     array: *mut c_void,
-    index: c_ulong,
+    index: usize,
 ) -> status_t {
-    // c_ulong and usize are the same, but we need the explicitly sized version
-    // so the function signature matches what bindgen generates.
-    let index = index as usize;
-
     let vec = &mut *(array as *mut Option<Vec<MaybeUninit<T>>>);
     let vec = match vec {
         Some(v) => v,
@@ -265,10 +254,7 @@ unsafe extern "C" fn allocate_vec_with_buffer<T>(
 ///
 /// The opaque data pointer passed to the array read function must be a mutable
 /// pointer to an `Option<Vec<MaybeUninit<T>>>`.
-unsafe extern "C" fn allocate_vec<T>(
-    data: *mut c_void,
-    len: i32,
-) -> bool {
+unsafe extern "C" fn allocate_vec<T>(data: *mut c_void, len: i32) -> bool {
     let vec = &mut *(data as *mut Option<Vec<MaybeUninit<T>>>);
     if len < 0 {
         *vec = None;
@@ -286,7 +272,6 @@ unsafe extern "C" fn allocate_vec<T>(
     true
 }
 
-
 macro_rules! parcelable_primitives {
     {
         $(
@@ -303,11 +288,7 @@ unsafe fn vec_assume_init<T>(vec: Vec<MaybeUninit<T>>) -> Vec<T> {
     // has the same alignment and size as T, so the pointer to the vector
     // allocation will be compatible.
     let mut vec = ManuallyDrop::new(vec);
-    Vec::from_raw_parts(
-        vec.as_mut_ptr().cast(),
-        vec.len(),
-        vec.capacity(),
-    )
+    Vec::from_raw_parts(vec.as_mut_ptr().cast(), vec.len(), vec.capacity())
 }
 
 macro_rules! impl_parcelable {
@@ -522,11 +503,7 @@ impl SerializeOption for str {
                 // `AParcel`. If the string pointer is null,
                 // `AParcel_writeString` requires that the length is -1 to
                 // indicate that we want to serialize a null string.
-                status_result(sys::AParcel_writeString(
-                    parcel.as_native_mut(),
-                    ptr::null(),
-                    -1,
-                ))
+                status_result(sys::AParcel_writeString(parcel.as_native_mut(), ptr::null(), -1))
             },
             Some(s) => unsafe {
                 // Safety: `Parcel` always contains a valid pointer to an
@@ -540,10 +517,7 @@ impl SerializeOption for str {
                 status_result(sys::AParcel_writeString(
                     parcel.as_native_mut(),
                     s.as_ptr() as *const c_char,
-                    s.as_bytes()
-                        .len()
-                        .try_into()
-                        .or(Err(StatusCode::BAD_VALUE))?,
+                    s.as_bytes().len().try_into().or(Err(StatusCode::BAD_VALUE))?,
                 ))
             },
         }
@@ -602,9 +576,7 @@ impl DeserializeArray for Option<String> {}
 
 impl Deserialize for String {
     fn deserialize(parcel: &BorrowedParcel<'_>) -> Result<Self> {
-        Deserialize::deserialize(parcel)
-            .transpose()
-            .unwrap_or(Err(StatusCode::UNEXPECTED_NULL))
+        Deserialize::deserialize(parcel).transpose().unwrap_or(Err(StatusCode::UNEXPECTED_NULL))
     }
 }
 
@@ -704,10 +676,7 @@ impl Serialize for Status {
             // and `Status` always contains a valid pointer to an `AStatus`, so
             // both parameters are valid and safe. This call does not take
             // ownership of either of its parameters.
-            status_result(sys::AParcel_writeStatusHeader(
-                parcel.as_native_mut(),
-                self.as_native(),
-            ))
+            status_result(sys::AParcel_writeStatusHeader(parcel.as_native_mut(), self.as_native()))
         }
     }
 }
@@ -802,7 +771,13 @@ impl<T: DeserializeOption> Deserialize for Option<T> {
 #[macro_export]
 macro_rules! impl_serialize_for_parcelable {
     ($parcelable:ident) => {
-        impl $crate::binder_impl::Serialize for $parcelable {
+        $crate::impl_serialize_for_parcelable!($parcelable < >);
+    };
+    ($parcelable:ident < $( $param:ident ),* , >) => {
+        $crate::impl_serialize_for_parcelable!($parcelable < $($param),* >);
+    };
+    ($parcelable:ident < $( $param:ident ),* > ) => {
+        impl < $($param),* > $crate::binder_impl::Serialize for $parcelable < $($param),* > {
             fn serialize(
                 &self,
                 parcel: &mut $crate::binder_impl::BorrowedParcel<'_>,
@@ -811,9 +786,9 @@ macro_rules! impl_serialize_for_parcelable {
             }
         }
 
-        impl $crate::binder_impl::SerializeArray for $parcelable {}
+        impl < $($param),* > $crate::binder_impl::SerializeArray for $parcelable < $($param),* > {}
 
-        impl $crate::binder_impl::SerializeOption for $parcelable {
+        impl < $($param),* > $crate::binder_impl::SerializeOption for $parcelable < $($param),* > {
             fn serialize_option(
                 this: Option<&Self>,
                 parcel: &mut $crate::binder_impl::BorrowedParcel<'_>,
@@ -839,7 +814,13 @@ macro_rules! impl_serialize_for_parcelable {
 #[macro_export]
 macro_rules! impl_deserialize_for_parcelable {
     ($parcelable:ident) => {
-        impl $crate::binder_impl::Deserialize for $parcelable {
+        $crate::impl_deserialize_for_parcelable!($parcelable < >);
+    };
+    ($parcelable:ident < $( $param:ident ),* , >) => {
+        $crate::impl_deserialize_for_parcelable!($parcelable < $($param),* >);
+    };
+    ($parcelable:ident < $( $param:ident ),* > ) => {
+        impl < $($param: Default),* > $crate::binder_impl::Deserialize for $parcelable < $($param),* > {
             fn deserialize(
                 parcel: &$crate::binder_impl::BorrowedParcel<'_>,
             ) -> std::result::Result<Self, $crate::StatusCode> {
@@ -861,9 +842,9 @@ macro_rules! impl_deserialize_for_parcelable {
             }
         }
 
-        impl $crate::binder_impl::DeserializeArray for $parcelable {}
+        impl < $($param: Default),* > $crate::binder_impl::DeserializeArray for $parcelable < $($param),* > {}
 
-        impl $crate::binder_impl::DeserializeOption for $parcelable {
+        impl < $($param: Default),* > $crate::binder_impl::DeserializeOption for $parcelable < $($param),* > {
             fn deserialize_option(
                 parcel: &$crate::binder_impl::BorrowedParcel<'_>,
             ) -> std::result::Result<Option<Self>, $crate::StatusCode> {
@@ -881,8 +862,7 @@ macro_rules! impl_deserialize_for_parcelable {
                     Ok(())
                 } else {
                     use $crate::Parcelable;
-                    this.get_or_insert_with(Self::default)
-                        .read_from_parcel(parcel)
+                    this.get_or_insert_with(Self::default).read_from_parcel(parcel)
                 }
             }
         }
@@ -915,8 +895,8 @@ impl<T: DeserializeOption> DeserializeOption for Box<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parcel::Parcel;
     use super::*;
+    use crate::parcel::Parcel;
 
     #[test]
     fn test_custom_parcelable() {
@@ -934,11 +914,11 @@ mod tests {
         impl Deserialize for Custom {
             fn deserialize(parcel: &BorrowedParcel<'_>) -> Result<Self> {
                 Ok(Custom(
-                        parcel.read()?,
-                        parcel.read()?,
-                        parcel.read()?,
-                        parcel.read::<Option<Vec<String>>>()?.unwrap(),
-                        ))
+                    parcel.read()?,
+                    parcel.read()?,
+                    parcel.read()?,
+                    parcel.read::<Option<Vec<String>>>()?.unwrap(),
+                ))
             }
         }
 
@@ -1157,12 +1137,7 @@ mod tests {
 
         assert_eq!(vec, [i64::max_value(), i64::min_value(), 42, -117]);
 
-        let f32s = [
-            std::f32::NAN,
-            std::f32::INFINITY,
-            1.23456789,
-            std::f32::EPSILON,
-        ];
+        let f32s = [std::f32::NAN, std::f32::INFINITY, 1.23456789, std::f32::EPSILON];
 
         unsafe {
             assert!(parcel.set_data_position(start).is_ok());
@@ -1178,12 +1153,7 @@ mod tests {
         assert!(vec[0].is_nan());
         assert_eq!(vec[1..], f32s[1..]);
 
-        let f64s = [
-            std::f64::NAN,
-            std::f64::INFINITY,
-            1.234567890123456789,
-            std::f64::EPSILON,
-        ];
+        let f64s = [std::f64::NAN, std::f64::INFINITY, 1.234567890123456789, std::f64::EPSILON];
 
         unsafe {
             assert!(parcel.set_data_position(start).is_ok());

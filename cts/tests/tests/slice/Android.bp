@@ -34,6 +34,7 @@ android_test {
         "metrics-helper-lib",
         "mockito-target-inline-minus-junit4",
         "platform-test-annotations",
+        "sts-device-util",
         "ub-uiautomator",
     ],
     compile_multilib: "both",

@@ -15,6 +15,7 @@
  */
 
 #include "base/arena_allocator.h"
+#include "base/macros.h"
 #include "builder.h"
 #include "dex/dex_file.h"
 #include "dex/dex_instruction.h"
@@ -25,9 +26,9 @@
 
 #include "gtest/gtest.h"
 
-namespace art {
+namespace art HIDDEN {
 
-class FindLoopsTest : public OptimizingUnitTest {};
+class FindLoopsTest : public CommonCompilerTest, public OptimizingUnitTestHelper {};
 
 TEST_F(FindLoopsTest, CFG1) {
   // Constant is not used.

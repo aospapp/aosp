@@ -1,0 +1,2 @@
+type vendor_usf_stats, vendor_file_type, file_type;
+type vendor_usf_reg_edit, vendor_file_type, file_type;

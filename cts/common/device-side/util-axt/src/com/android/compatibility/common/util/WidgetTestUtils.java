@@ -244,6 +244,48 @@ public class WidgetTestUtils {
     }
 
     /**
+     * Runs the specified {@link Runnable} on the main thread and ensures that the specified
+     * {@link View}'s tree is drawn before returning.
+     *
+     * @param view the view whose tree should be drawn before returning, must be attached to window
+     * @param runner the runnable to run on the main thread, or {@code null} to
+     *               simply force invalidation and a draw pass
+     */
+    public static void runOnMainAndDrawSync(@NonNull final View view,
+            @Nullable final Runnable runner) {
+        final CountDownLatch latch = new CountDownLatch(1);
+        Assert.assertTrue(view.isAttachedToWindow());
+
+        try {
+            view.post(() -> {
+                final OnDrawListener listener = new OnDrawListener() {
+                    @Override
+                    public void onDraw() {
+                        // posting so that the sync happens after the draw that's about to happen
+                        view.post(() -> {
+                            view.getViewTreeObserver().removeOnDrawListener(this);
+                            latch.countDown();
+                        });
+                    }
+                };
+
+                view.getViewTreeObserver().addOnDrawListener(listener);
+
+                if (runner != null) {
+                    runner.run();
+                }
+                view.invalidate();
+            });
+
+            Assert.assertTrue("Expected draw pass occurred within 5 seconds",
+                    latch.await(5, TimeUnit.SECONDS));
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
+
+
+    /**
      * Runs the specified Runnable on the main thread and ensures that the activity's view tree is
      * laid out before returning.
      *

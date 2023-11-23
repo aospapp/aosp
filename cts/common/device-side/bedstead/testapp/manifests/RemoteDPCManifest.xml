@@ -17,8 +17,9 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.RemoteDPC" android:targetSandboxVersion="2">
+          package="com.android.cts.RemoteDPC" android:targetSandboxVersion="2">
     <application
+        android:label="RemoteDPC"
         android:appComponentFactory="com.android.bedstead.testapp.TestAppAppComponentFactory"
         android:testOnly="true">
 
@@ -34,6 +35,32 @@
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".PolicyUpdateReceiver"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <intent-filter>
+                <action android:name="android.app.admin.action.DEVICE_POLICY_SET_RESULT" />
+                <action android:name="android.app.admin.action.DEVICE_POLICY_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name=".FinancedDeviceStateReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.app.admin.action.DEVICE_FINANCING_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- This activity is used to show "Work Policy Info" in Settings for Managed Devices -->
+        <activity android:name=".WorkPolicyInfoActivity"
+                  android:exported="true"
+                  android:launchMode="singleTask">
+            <intent-filter>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <action android:name="android.settings.SHOW_WORK_POLICY_INFO"/>
+            </intent-filter>
+        </activity>
     </application>
-    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="28"/>
+    <uses-sdk android:minSdkVersion="29"/>
 </manifest>

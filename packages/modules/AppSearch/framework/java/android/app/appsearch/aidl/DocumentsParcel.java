@@ -17,6 +17,7 @@
 package android.app.appsearch.aidl;
 
 import android.annotation.NonNull;
+import android.app.appsearch.ParcelableUtil;
 import android.app.appsearch.GenericDocument;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -42,10 +43,11 @@ public final class DocumentsParcel implements Parcelable {
     }
 
     private DocumentsParcel(@NonNull Parcel in) {
-        this(in.readBlob());
+        mDocuments = readFromParcel(in);
     }
 
-    private DocumentsParcel(@NonNull byte[] dataBlob) {
+    private List<GenericDocument> readFromParcel(Parcel source) {
+        byte[] dataBlob = ParcelableUtil.readBlob(source);
         // Create a parcel object to un-serialize the byte array we are reading from
         // Parcel.readBlob(). Parcel.WriteBlob() could take care of whether to pass data via
         // binder directly or Android shared memory if the data is large.
@@ -55,11 +57,13 @@ public final class DocumentsParcel implements Parcelable {
             unmarshallParcel.setDataPosition(0);
             // read the number of document that stored in here.
             int size = unmarshallParcel.readInt();
-            mDocuments = new ArrayList<>(size);
+            List<GenericDocument> documentList = new ArrayList<>(size);
             for (int i = 0; i < size; i++) {
                 // Read document's bundle and convert them.
-                mDocuments.add(new GenericDocument(unmarshallParcel.readBundle()));
+                documentList.add(new GenericDocument(
+                        unmarshallParcel.readBundle(getClass().getClassLoader())));
             }
+            return documentList;
         } finally {
             unmarshallParcel.recycle();
         }
@@ -84,7 +88,8 @@ public final class DocumentsParcel implements Parcelable {
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
-        dest.writeBlob(serializeToByteArray());
+        byte[] documentsByteArray = serializeToByteArray();
+        ParcelableUtil.writeBlob(dest, documentsByteArray);
     }
 
     /**

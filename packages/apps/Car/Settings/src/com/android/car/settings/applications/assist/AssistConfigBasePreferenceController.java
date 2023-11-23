@@ -62,7 +62,7 @@ public abstract class AssistConfigBasePreferenceController extends
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return mAssistUtils.getAssistComponentForUser(
                 UserHandle.myUserId()) != null ? AVAILABLE : CONDITIONALLY_UNAVAILABLE;
     }

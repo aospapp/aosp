@@ -1,6 +1,10 @@
 C Test Case Tutorial
 ====================
 
+NOTE: See also
+      https://github.com/linux-test-project/ltp/wiki/Test-Writing-Guidelines[Test Writing Guidelines],
+      https://github.com/linux-test-project/ltp/wiki/C-Test-API[C Test API].
+
 This is a step-by-step tutorial on writing a simple C LTP test, where topics
 of the LTP and Linux kernel testing will be introduced gradually using a
 concrete example. Most sections will include exercises, some trivial and
@@ -20,15 +24,16 @@ and has some general knowledge of Operating Systems. Experienced Linux
 developers may find it too verbose while people new to system level Linux
 development may find it overwhelming.
 
-Comments and feedback are welcome, please direct them to the mailing list (see
-+README+).
+Comments and feedback are welcome, please direct them to
+https://lists.linux.it/listinfo/ltp[the mailing list].
 
 1. Getting Started
 ------------------
 
-Git-clone the main LTP repository as described in the +README+ and change
-directory to the checked-out Git repository. We recommend installing the LTP
-and running one of the tests mentioned in the Quick guide (in the +README+) to
+Git-clone the main LTP repository as described in
+https://github.com/linux-test-project/ltp#quick-guide-to-running-the-tests[the +README.md+]
+and change directory to the checked-out Git repository. We recommend installing the LTP
+and running one of the tests mentioned in the Quick guide (in the +README.md+) to
 ensure you are starting from a good state.
 
 We also recommended cloning the Linux kernel repository for reference, this
@@ -116,8 +121,8 @@ kernel version if necessary. I will explain what the code does below.
  * Copyright (c) 2017 Instruction Ignorer <"can't"@be.bothered.com>
  */
 
-/*
- * Test statx
+/*\
+ * [Description]
  *
  * All tests should start with a description of _what_ we are testing.
  * Non-trivial explanations of _how_ the code works should also go here.
@@ -216,7 +221,7 @@ $ ./statx01
 
 This should build the test and then run it. However, even though the test is
 in the +syscalls+ directory it won't be automatically ran as part of the
-_syscalls_ test group (remember +./runltp -f syscalls+ from the +README+?). For
+_syscalls_ test group (remember +./runltp -f syscalls+ from the +README.md+?). For
 this we need to add it to the +runtest+ file. So open +runtest/statx+ and add
 the lines starting with a +++.
 
@@ -224,12 +229,12 @@ the lines starting with a +++.
 --------------------------------------------------------------------------------
  statvfs01 statvfs01
  statvfs02 statvfs02
- 
+
 +statx01 statx01
 +
  stime01 stime01
  stime02 stime02
- 
+
 --------------------------------------------------------------------------------
 
 The +runtest+ files are in a two column format. The first column is the test
@@ -267,7 +272,7 @@ the below
 --------------------------------------------------------------------------------
 
 Obviously you need to at least change your name and e-mail. The SMTP server is
-useful for +git send-mail+, which we will discuss later. The editor value is
+useful for +git send-email+, which we will discuss later. The editor value is
 used for things like writing commits (without the +-m+ option).
 
 [source,shell]
@@ -302,17 +307,16 @@ Wiki]).
 
 Is your +.gitignore+ correct?
 
-3.3 Run checkpatch.pl on the source file
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+3.3 Run make check
+~~~~~~~~~~~~~~~~~~
 
-The LTP follows the Linux style guidelines where possible. Check what happens
-if you run +kernel/linux/scripts/checkpatch.pl --no-tree -f statx01.c+ and
-correct any style issues.
+Check coding style with `make check`
+ (more in https://github.com/linux-test-project/ltp/wiki/Test-Writing-Guidelines#21-c-coding-style[C coding style])
 
 3.4 Install the LTP and run the test with runtest
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Run +statx01+ on its own; similar to the +madvise+ tests in the +README+.
+Run +statx01+ on its own; similar to the +madvise+ tests in the +README.md+.
 
 4. Call the system call
 -----------------------
@@ -329,16 +333,16 @@ call in the +*.in+ files (e.g. +x86_64.in+) which are used to generate
 may find the system call number is missing from the +*.in+ files and will need
 to add it (see +include/lapi/syscalls/strip_syscall.awk+).
 
-System call numbers vary between architectures, hence why there are multiple
+System call numbers vary between architectures, hence there are multiple
 +*.in+ files for each architecture. You can find the various values for the
-+statx+ system call across a number of +uinstd.h+ files in the Linux kernel.
++statx+ system call across a number of +unistd.h+ files in the Linux kernel.
 
 Note that we don't use the system-call-identifier value available in
 +/usr/include/linux/uinstd.h+ because the kernel might be much newer than the
 user land development packages.
 
-For +statx+ we had to add +statx 332+ to +testcases/kernel/include/x86_64.in+,
-+statx 383+ to +testcases/kernel/include/powerpc.in+, etc.  Now lets look at
+For +statx+ we had to add +statx 332+ to +include/lapi/syscalls/x86_64.in+,
++statx 383+ to +include/lapi/syscalls/powerpc.in+, etc.  Now lets look at
 the code, which I will explain in more detail further down.
 
 [source,c]
@@ -763,7 +767,7 @@ failing due to some faulty logic.
 6.1 What is wrong with the switch statement?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Were you paying attention? Also see the output of +checkpatch.pl+.
+Were you paying attention? Also see the output of +make check+.
 
 6.2 Test a feature unique to statx
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -791,9 +795,9 @@ of fallback logic in the build system. We can now get our test ready for
 submission.
 
 The first thing you need to do before considering submitting your test is run
-+scripts/checkpatch.pl --no-tree -f+ on +statx01.c+. Again, we use the kernel
-style guidelines where possible. Next you should create a new branch, this
-will allow you to reshape your commit history without fear.
++make check-statx01+ or + make check+ in the test's directory. Again, we use
+the kernel style guidelines where possible. Next you should create a new
+branch, this will allow you to reshape your commit history without fear.
 
 After that we have the pleasure of doing an interactive 'rebase' to clean up
 our commit history. In its current form the test only really needs a single
@@ -810,7 +814,7 @@ master.
 
 [source,shell]
 --------------------------------------------------------------------------------
-$ git log -oneline master..HEAD
+$ git log --oneline master..HEAD
 152d39fe7 (HEAD -> tutorial-rebase2, tutorial-rebase) tutorial: Start Submitting patch section
 70f7ce7ce statx01: Stop checkpatch from complaining
 bb0332bd7 tutorial: Fix review problems
@@ -977,9 +981,9 @@ of the conflict. Usually, all you need to do is remove the lines you don't
 want, stage the changes and continue the 'rebase' with +git rebase
 --continue+.
 
-In order to create a patch e-mail we use +git format-patch+, we can then send
-that e-mail using +git send-email+. It is also possible to import the patch
-(+mbox+) file into a number of e-mail programs.
+In order to create a patch e-mail we use https://git-scm.com/docs/git-format-patch[+git format-patch+],
+we can then send that e-mail using https://git-scm.com/docs/git-send-email[+git send-email+].
+It is also possible to import the patch (+mbox+) file into a number of e-mail programs.
 
 [source,shell]
 --------------------------------------------------------------------------------
@@ -1003,7 +1007,7 @@ We can then send this patch with the following command sans +--dry-run+.
 $ git send-email --dry-run output/v2-0001-tutorial-Add-a-step-by-step-C-test-tutorial.patch
 --------------------------------------------------------------------------------
 
-Git will ask some questions (which you an ignore) and then tell you what it
+Git will ask some questions (which you can ignore) and then tell you what it
 would do if this weren't a dry-run. In order for this to work you have to have
 a valid SMTP server set in +.gitconfig+ and also be signed up to the LTP
 mailing list under the same e-mail address you have configured in Git. You can
@@ -1050,7 +1054,7 @@ systems programming across multiple Kernel and C lib versions as well as
 different hardware architectures. The important thing to take away from this
 is that you have to be conscientious of what will happen on systems different
 from yours. The LTP has a huge and varied user base, so situations you may
-thing are unlikely can and do happen to somebody.
+think are unlikely can and do happen to somebody.
 
 Of course you don't want to spend time allowing for situations which may never
 arise either, so you have to do your research and think about each situation
@@ -1061,9 +1065,12 @@ One important topic which has not been covered by this tutorial, is
 multi-process or multi-threaded testing. The LTP library functions work inside
 child processes and threads, but their semantics change slightly. There are
 also various helper functions for synchronising and forking processes. For
-more information see the Test Writing Guidelines (either at
-https://github.com/linux-test-project/ltp/wiki/Test-Writing-Guidelines[the
-Wiki] or in ./doc), in particular sections 2.2.7 to 2.2.10 and 2.2.13.
+more information see
+https://github.com/linux-test-project/ltp/wiki/C-Test-API[C Test API],
+in particular sections
+https://github.com/linux-test-project/ltp/wiki/C-Test-API#17-fork-ing[1.7 Fork()-ing] to
+https://github.com/linux-test-project/ltp/wiki/C-Test-API#110-signals-and-signal-handlers[1.10 Signals and signal handlers] and
+https://github.com/linux-test-project/ltp/wiki/C-Test-API#114-thread-safety-in-the-ltp-library[1.14 Thread-safety in the LTP library].
 
 When it comes time to submit a test, the preferred way to do it is on the
 mailing list although you can also use GitHub. The LTP follows similar rules

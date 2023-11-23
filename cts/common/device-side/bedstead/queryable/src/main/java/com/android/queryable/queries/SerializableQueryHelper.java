@@ -20,6 +20,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
+import com.android.queryable.QueryableBaseWithMatch;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -35,8 +36,28 @@ public final class SerializableQueryHelper<E extends Queryable>
     private final transient E mQuery;
     private Serializable mEqualsValue;
 
-    SerializableQueryHelper() {
-        mQuery = (E) this;
+    public static final class SerializableQueryBase extends
+            QueryableBaseWithMatch<Serializable, SerializableQueryHelper<SerializableQueryBase>> {
+        SerializableQueryBase() {
+            super();
+            setQuery(new SerializableQueryHelper<>(this));
+        }
+
+        SerializableQueryBase(Parcel in) {
+            super(in);
+        }
+
+        public static final Parcelable.Creator<SerializableQueryHelper.SerializableQueryBase> CREATOR =
+                new Parcelable.Creator<>() {
+                    public SerializableQueryHelper.SerializableQueryBase createFromParcel(
+                            Parcel in) {
+                        return new SerializableQueryHelper.SerializableQueryBase(in);
+                    }
+
+                    public SerializableQueryHelper.SerializableQueryBase[] newArray(int size) {
+                        return new SerializableQueryHelper.SerializableQueryBase[size];
+                    }
+                };
     }
 
     public SerializableQueryHelper(E query) {
@@ -52,6 +73,11 @@ public final class SerializableQueryHelper<E extends Queryable>
     public E isEqualTo(Serializable serializable) {
         this.mEqualsValue = serializable;
         return mQuery;
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        return mEqualsValue == null;
     }
 
     @Override

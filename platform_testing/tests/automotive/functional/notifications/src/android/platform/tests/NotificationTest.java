@@ -21,15 +21,16 @@ import static junit.framework.Assert.assertTrue;
 
 import android.platform.helpers.AutoUtility;
 import android.platform.helpers.HelperAccessor;
-import android.platform.helpers.IAutoNotificationMockingHelper;
 import android.platform.helpers.IAutoNotificationHelper;
+import android.platform.helpers.IAutoNotificationMockingHelper;
+
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.runner.RunWith;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public class NotificationTest {
@@ -86,6 +87,7 @@ public class NotificationTest {
 
     @Test
     public void testSwipeAwayNotification() {
+        mNotificationHelper.get().tapClearAllBtn();
         mNotificationMockingHelper.get().postNotifications(1);
         assertTrue(
                 "Unable to find posted notification.",
@@ -100,5 +102,14 @@ public class NotificationTest {
     public void testSwipeDownNotification() {
         mNotificationHelper.get().openNotification();
         assertTrue("Notification is not open", mNotificationHelper.get().isAppInForeground());
+    }
+
+    @Test
+    public void testManageButton() {
+        mNotificationMockingHelper.get().postNotifications(1);
+        mNotificationHelper.get().clickManageBtn();
+        assertTrue(
+                "Notification Settings did not open.",
+                mNotificationHelper.get().isNotificationSettingsOpened());
     }
 }

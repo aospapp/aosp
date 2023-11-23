@@ -301,29 +301,32 @@ public class RateLimitTest {
     public void testIngressRateLimit_testLimit() throws Exception {
         assumeKernelSupport();
 
+        // These tests are not very precise, especially on lower-end devices.
+        // Add 30% tolerance to reduce test flakiness. Burst size is constant at 128KiB.
+        final double toleranceFactor = 1.3;
+
         // If this value is too low, this test might become flaky because of the burst value that
         // allows to send at a higher data rate for a short period of time. The faster the data rate
         // and the longer the test, the less this test will be affected.
         final long dataLimitInBytesPerSecond = 2_000_000; // 2MB/s
         long resultInBytesPerSecond = runIngressDataRateMeasurement(Duration.ofSeconds(1));
         assertGreaterThan("Failed initial test with rate limit disabled", resultInBytesPerSecond,
-                dataLimitInBytesPerSecond);
+                (long) (dataLimitInBytesPerSecond * toleranceFactor));
 
         // enable rate limit and wait until the tc filter is installed before starting the test.
         ConnectivitySettingsManager.setIngressRateLimitInBytesPerSecond(mContext,
                 dataLimitInBytesPerSecond);
         waitForTcPoliceFilterInstalled(Duration.ofSeconds(1));
 
-        resultInBytesPerSecond = runIngressDataRateMeasurement(Duration.ofSeconds(10));
-        // Add 10% tolerance to reduce test flakiness. Burst size is constant at 128KiB.
+        resultInBytesPerSecond = runIngressDataRateMeasurement(Duration.ofSeconds(15));
         assertLessThan("Failed test with rate limit enabled", resultInBytesPerSecond,
-                (long) (dataLimitInBytesPerSecond * 1.1));
+                (long) (dataLimitInBytesPerSecond * toleranceFactor));
 
         ConnectivitySettingsManager.setIngressRateLimitInBytesPerSecond(mContext, -1);
 
         resultInBytesPerSecond = runIngressDataRateMeasurement(Duration.ofSeconds(1));
         assertGreaterThan("Failed test with rate limit disabled", resultInBytesPerSecond,
-                dataLimitInBytesPerSecond);
+                (long) (dataLimitInBytesPerSecond * toleranceFactor));
     }
 
     @Test

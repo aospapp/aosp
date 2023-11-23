@@ -24,8 +24,9 @@ import android.net.NetworkCapabilities;
 import android.net.RouteInfo;
 import android.net.ip.IpServer;
 import android.net.util.NetworkConstants;
-import android.net.util.SharedLog;
 import android.util.Log;
+
+import com.android.net.module.util.SharedLog;
 
 import java.net.Inet6Address;
 import java.net.InetAddress;

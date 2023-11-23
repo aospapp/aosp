@@ -391,6 +391,16 @@ public class SipDelegateController {
     }
 
     /**
+     * This is a listener to handle SipDialog state of delegate
+     * @param listener {@link SipDialogsStateListener}
+     * @param isNeedNotify It indicates whether the current dialogs state should be notified.
+     */
+    public void setSipDialogsListener(SipDialogsStateListener listener,
+            boolean isNeedNotify) {
+        mMessageTransportWrapper.setSipDialogsListener(listener, isNeedNotify);
+    }
+
+    /**
      * Write the current state of this controller in String format using the PrintWriter provided
      * for dumpsys.
      */

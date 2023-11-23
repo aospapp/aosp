@@ -21,7 +21,10 @@ package {
 
 android_test {
     name: "FrameworksNetIntegrationTests",
-    defaults: ["framework-connectivity-test-defaults"],
+    defaults: [
+        "framework-connectivity-internal-test-defaults",
+        "NetworkStackApiShimSettingsForCurrentBranch",
+    ],
     platform_apis: true,
     certificate: "platform",
     srcs: [
@@ -33,6 +36,13 @@ android_test {
         "ServiceConnectivityResources",
     ],
     static_libs: [
+        // It does not matter if NetworkStackApiStableLib or NetworkStackApiCurrentLib is used here,
+        // since the shims for the branch are already included via
+        // NetworkStackApiShimSettingsForCurrentBranch, and will be used in priority as they are
+        // first in the classpath.
+        // If the wrong shims are used for some reason, tests that use newer APIs fail.
+        // TODO: have NetworkStackApiStableLib link dynamically against the shims to remove this
+        // order-dependent setup.
         "NetworkStackApiStableLib",
         "androidx.test.ext.junit",
         "frameworks-net-integration-testutils",
@@ -71,8 +81,12 @@ java_library {
         "net-tests-utils",
     ],
     libs: [
-        "service-connectivity-for-tests",
+        "service-connectivity-pre-jarjar",
         "services.core",
         "services.net",
+    ],
+    visibility: [
+        "//packages/modules/Connectivity/tests/integration",
+        "//packages/modules/Connectivity/tests/unit",
     ],
 }

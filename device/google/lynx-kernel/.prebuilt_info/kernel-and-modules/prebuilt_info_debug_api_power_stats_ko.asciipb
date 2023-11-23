@@ -1,0 +1,11 @@
+drops {
+  android_build_drop {
+    build_id: "10639820"
+    target: "lynx_debug_api"
+    source_file: "power_stats.ko"
+  }
+  dest_file: "debug_api/power_stats.ko"
+  version: "Linux version 5.10.157-android13-4-00001-g5c7ff5dc7aac-ab10381520 (build-user@build-host) (Android (8508608, based on r450784e) clang version 14.0.7 (https://android.googlesource.com/toolchain/llvm-project 4c603efb0cca074e9238af8b4106c30add4418f6), LLD 14.0.7) #1 SMP PREEMPT Fri Jun 23 18:30:49 UTC 2023"
+  version_group: "kernel-and-modules"
+  git_project: "device/google/lynx-kernel"
+}

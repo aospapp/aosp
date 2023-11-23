@@ -110,7 +110,7 @@ To do so, please do:
 
   make check-valgrind
 
-This runs the tests under the control of Valgrind memcheck and
+This runs the tests under the control of the Valgrind memcheck and
 helgrind tools.
 
 But then, if you want Valgrind to check the libabigail command line
@@ -135,7 +135,7 @@ Generally, both are usually made of a loop that churns through a set of input
 binaries to compare.  Once the comparison is done, the resulting
 report is compared against a reference report that is provided.
 
-Test executable have names that starts with 'runtest*'.  For instance,
+Test executables have names that starts with 'runtest*'.  For instance,
 under <build-directory>/tests/ you can find tests named
 runtestdiffdwarf, runtestabidiff, etc...
 
@@ -151,8 +151,8 @@ runtestdiffdwarf is to be found under tests/data/test-diff-dwarf.
 Data for the test runtestabidiff is to be found under
 tests/data/test-abidiff.cc.
 
-So adding your own tests usually just amounts to adding the input
-right input into the right sub-directory of tests/data/.  To do so,
+So adding your own tests usually just amounts to adding the right input 
+into the right sub-directory of tests/data/.  To do so,
 look at several tests/test-*.cc to see which one you'd like to add
 some input binaries to be compared in.
 

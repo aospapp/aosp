@@ -68,5 +68,17 @@ public class BluetoothProfileConnectionInfoTest {
         assertEquals(info.isSuppressNoisyIntent(), supprNoisy);
         assertEquals(info.isLeOutput(), isLeOutput);
     }
+
+    @Test
+    public void testCoverageLeOutputAudio() {
+        final boolean supprNoisy = true;
+        final int volume = 7;
+        final BluetoothProfileConnectionInfo info = BluetoothProfileConnectionInfo
+                .createLeAudioOutputInfo(supprNoisy, volume);
+        assertEquals(info.getProfile(), BluetoothProfile.LE_AUDIO);
+        assertEquals(info.isSuppressNoisyIntent(), supprNoisy);
+        assertEquals(info.isLeOutput(), true);
+        assertEquals(info.getVolume(), volume);
+    }
 }
 

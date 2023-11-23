@@ -105,15 +105,19 @@ void fdevent_context_epoll::Set(fdevent* fde, unsigned events) {
 }
 
 void fdevent_context_epoll::Loop() {
-    main_thread_id_ = android::base::GetThreadId();
+    looper_thread_id_ = android::base::GetThreadId();
 
     std::vector<fdevent_event> fde_events;
+    std::unordered_map<fdevent*, fdevent_event*> event_map;
     std::vector<epoll_event> epoll_events;
-    epoll_events.resize(this->installed_fdevents_.size());
 
     while (true) {
         if (terminate_loop_) {
             break;
+        }
+
+        if (epoll_events.size() < this->installed_fdevents_.size()) {
+            epoll_events.resize(this->installed_fdevents_.size());
         }
 
         int rc = -1;
@@ -133,7 +137,10 @@ void fdevent_context_epoll::Loop() {
         }
 
         auto post_poll = std::chrono::steady_clock::now();
-        std::unordered_map<fdevent*, unsigned> event_map;
+        fde_events.reserve(installed_fdevents_.size());
+        fde_events.clear();
+        event_map.clear();
+
         for (int i = 0; i < rc; ++i) {
             fdevent* fde = static_cast<fdevent*>(epoll_events[i].data.ptr);
 
@@ -152,13 +159,16 @@ void fdevent_context_epoll::Loop() {
                 events |= FDE_READ | FDE_ERROR;
             }
 
-            event_map[fde] = events;
+            LOG(DEBUG) << dump_fde(fde) << " got events " << std::hex << std::showbase << events;
+            auto& fde_event = fde_events.emplace_back(fde, events);
+            event_map[fde] = &fde_event;
+            fde->last_active = post_poll;
         }
 
         for (auto& [fd, fde] : installed_fdevents_) {
             unsigned events = 0;
             if (auto it = event_map.find(&fde); it != event_map.end()) {
-                events = it->second;
+                events = it->second->events;
             }
 
             if (events == 0) {
@@ -166,22 +176,18 @@ void fdevent_context_epoll::Loop() {
                     auto deadline = fde.last_active + *fde.timeout;
                     if (deadline < post_poll) {
                         events |= FDE_TIMEOUT;
+                        LOG(DEBUG) << dump_fde(&fde) << " timed out";
+                        fde_events.emplace_back(&fde, events);
+                        fde.last_active = post_poll;
                     }
                 }
-            }
-
-            if (events != 0) {
-                LOG(DEBUG) << dump_fde(&fde) << " got events " << std::hex << std::showbase
-                           << events;
-                fde_events.push_back({&fde, events});
-                fde.last_active = post_poll;
             }
         }
         this->HandleEvents(fde_events);
         fde_events.clear();
     }
 
-    main_thread_id_.reset();
+    looper_thread_id_.reset();
 }
 
 size_t fdevent_context_epoll::InstalledCount() {

@@ -18,6 +18,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <sched.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -158,6 +159,18 @@ void Workload::ChildProcessFn(int start_signal_fd, int exec_child_fd) {
   } else {
     PLOG(ERROR) << "child process failed to receive start_signal, nread = " << nread;
   }
+}
+
+bool Workload::SetCpuAffinity(int cpu) {
+  CHECK_EQ(work_state_, NotYetStartNewProcess);
+  cpu_set_t mask;
+  CPU_ZERO(&mask);
+  CPU_SET(cpu, &mask);
+  if (sched_setaffinity(GetPid(), sizeof(mask), &mask) != 0) {
+    PLOG(WARNING) << "sched_setaffinity failed";
+    return false;
+  }
+  return true;
 }
 
 bool Workload::Start() {

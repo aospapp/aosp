@@ -20,7 +20,7 @@
 #include <map>
 #include <memory>
 
-#include "android/base/synchronization/AndroidLock.h"
+#include "aemu/base/synchronization/AndroidLock.h"
 
 using android::base::guest::ReadWriteLock;
 

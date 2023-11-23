@@ -1,14 +1,31 @@
-# *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
-#     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
-#     DEPENDING ON IT IN YOUR PROJECT. ***
+# THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS. PLEASE
+# CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
+# DEPENDING ON IT IN YOUR PROJECT.
+
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update harfbuzz_ng
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
+name: "harfbuzz_ng"
+description: "HarfBuzz is a text shaping engine."
 third_party {
+  url {
+    type: GIT
+    value: "https://github.com/harfbuzz/harfbuzz"
+  }
+  version: "6.0.0"
+  license_type: BY_EXCEPTION_ONLY
   license_note: "would be NOTICE save for GPL in:\n"
-  "   m4/ax_code_coverage.m4\n"
+  " m4/ax_code_coverage.m4\n"
   " and RESTRICTED save for OFL in:\n"
-  "   test/shaping/data/in-house/COPYING\n"
-  "   test/fuzzing/fonts/clusterfuzz-testcase-hb-fuzzer-5662671558934528\n"
+  " test/shaping/data/in-house/COPYING\n"
+  " test/fuzzing/fonts/clusterfuzz-testcase-hb-fuzzer-5662671558934528\n"
   " Also take care when vendoring in not to import content like the\n"
   " culp/ligatures font with CC-BY-NC-SA licensing. Google does not want to\n"
   " host CC-BY-NC* content.\n"
-  license_type: BY_EXCEPTION_ONLY
+  last_upgrade_date {
+    year: 2023
+    month: 2
+    day: 15
+  }
 }

@@ -14,6 +14,7 @@
 #include <xnnpack/igemm.h>
 #include <xnnpack/intrinsics-polyfill.h>
 #include <xnnpack/math.h>
+#include <xnnpack/unaligned.h>
 
 
 void xnn_qc8_igemm_minmax_fp32_ukernel_1x8c8__avx2(
@@ -28,7 +29,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_1x8c8__avx2(
     size_t cn_stride,
     size_t a_offset,
     const int8_t* zero,
-    const union xnn_qs8_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 1);
@@ -45,19 +46,19 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_1x8c8__avx2(
   int8_t* c0 = c;
 
   do {
-    const __m128i vbias0x0 = _mm_loadu_si32(w);
-    const __m128i vbias0x1 = _mm_loadu_si32((const int32_t*) w + 1);
+    const __m128i vbias0x0 = _mm_cvtsi32_si128(((const int*) w)[0]);
+    const __m128i vbias0x1 = _mm_cvtsi32_si128(((const int*) w)[1]);
     __m256i vacc0x01 = _mm256_inserti128_si256(_mm256_castsi128_si256(vbias0x0), vbias0x1, 1);
-    const __m128i vbias0x2 = _mm_loadu_si32((const int32_t*) w + 2);
-    const __m128i vbias0x3 = _mm_loadu_si32((const int32_t*) w + 3);
+    const __m128i vbias0x2 = _mm_cvtsi32_si128(((const int*) w)[2]);
+    const __m128i vbias0x3 = _mm_cvtsi32_si128(((const int*) w)[3]);
     __m256i vacc0x23 = _mm256_inserti128_si256(_mm256_castsi128_si256(vbias0x2), vbias0x3, 1);
-    const __m128i vbias0x4 = _mm_loadu_si32((const int32_t*) w + 4);
-    const __m128i vbias0x5 = _mm_loadu_si32((const int32_t*) w + 5);
+    const __m128i vbias0x4 = _mm_cvtsi32_si128(((const int*) w)[4]);
+    const __m128i vbias0x5 = _mm_cvtsi32_si128(((const int*) w)[5]);
     __m256i vacc0x45 = _mm256_inserti128_si256(_mm256_castsi128_si256(vbias0x4), vbias0x5, 1);
-    const __m128i vbias0x6 = _mm_loadu_si32((const int32_t*) w + 6);
-    const __m128i vbias0x7 = _mm_loadu_si32((const int32_t*) w + 7);
+    const __m128i vbias0x6 = _mm_cvtsi32_si128(((const int*) w)[6]);
+    const __m128i vbias0x7 = _mm_cvtsi32_si128(((const int*) w)[7]);
     __m256i vacc0x67 = _mm256_inserti128_si256(_mm256_castsi128_si256(vbias0x6), vbias0x7, 1);
-    w = (const void*) ((const int32_t*) w + 8);
+    w = (const int32_t*) w + 8;
 
     size_t p = ks;
     do {
@@ -110,19 +111,19 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_1x8c8__avx2(
     w = (const void*) ((const float*) w + 8);
     vscaled0x01234567 = _mm256_mul_ps(vscaled0x01234567, vscale01234567);
 
-    const __m256 voutput_max_less_zero_point = _mm256_load_ps(params->avx2.output_max_less_zero_point);
+    const __m256 voutput_max_less_zero_point = _mm256_load_ps(params->fp32_avx2.output_max_less_zero_point);
     vscaled0x01234567 = _mm256_min_ps(vscaled0x01234567, voutput_max_less_zero_point);
 
     vacc0x01234567 = _mm256_cvtps_epi32(vscaled0x01234567);
 
-    const __m256i voutput_zero_point = _mm256_load_si256((const __m256i*) params->avx2.output_zero_point);
+    const __m256i voutput_zero_point = _mm256_load_si256((const __m256i*) params->fp32_avx2.output_zero_point);
     __m256i vacc00x01234567 = _mm256_adds_epi16(_mm256_packs_epi32(vacc0x01234567, vacc0x01234567), voutput_zero_point);
 
     vacc00x01234567 = _mm256_permute4x64_epi64(vacc00x01234567, _MM_SHUFFLE(3, 1, 2, 0));
 
     __m256i vout = _mm256_packs_epi16(vacc00x01234567, vacc00x01234567);
 
-    vout = _mm256_max_epi8(vout, _mm256_load_si256((const __m256i*) params->avx2.output_min));
+    vout = _mm256_max_epi8(vout, _mm256_load_si256((const __m256i*) params->fp32_avx2.output_min));
 
     __m128i vout_lo = _mm256_castsi256_si128(vout);
     __m128i vout_hi = _mm256_extracti128_si256(vout, 1);
@@ -145,7 +146,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_1x8c8__avx2(
         vout_hi = _mm_srli_epi64(vout_hi, 32);
       }
       if (nc & 2) {
-        *((uint16_t*) c0) = (uint16_t) _mm_extract_epi16(vout_lo, 0);
+        unaligned_store_u16(c0, (uint16_t) _mm_extract_epi16(vout_lo, 0));
 
         c0 += 2;
 

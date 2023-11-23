@@ -48,6 +48,12 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ContextHubStressTestExecutor extends ContextHubClientCallback {
     private static final String TAG = "ContextHubStressTestExecutor";
 
+    /**
+     * Wifi capabilities flags listed in
+     * //system/chre/chre_api/include/chre_api/chre/wifi.h
+     */
+    private static final int WIFI_CAPABILITIES_SCAN_MONITORING = 1;
+
     private final NanoAppBinary mNanoAppBinary;
 
     private final long mNanoAppId;
@@ -64,6 +70,8 @@ public class ContextHubStressTestExecutor extends ContextHubClientCallback {
     private final ContextHubInfo mContextHubInfo;
 
     private CountDownLatch mCountDownLatch;
+
+    private ChreStressTest.Capabilities mCapabilities;
 
     // Set to true to have the test suite only load the nanoapp and start the test.
     // This can be useful for long-running stress tests, where we do not want to wait a fixed
@@ -101,6 +109,16 @@ public class ContextHubStressTestExecutor extends ContextHubClientCallback {
                 case ChreStressTest.MessageType.TEST_WIFI_SCAN_MONITOR_TRIGGERED_VALUE: {
                     mWifiScanMonitorTriggered.set(true);
                     valid = true;
+                    break;
+                }
+                case ChreStressTest.MessageType.CAPABILITIES_VALUE: {
+                    try {
+                        mCapabilities =
+                                ChreStressTest.Capabilities.parseFrom(message.getMessageBody());
+                        valid = true;
+                    } catch (InvalidProtocolBufferException e) {
+                        Log.e(TAG, "Failed to parse message: " + e.getMessage());
+                    }
                     break;
                 }
                 default: {
@@ -151,7 +169,6 @@ public class ContextHubStressTestExecutor extends ContextHubClientCallback {
                     mNanoAppBinary);
         }
         mContextHubClient = mContextHubManager.createClient(mContextHubInfo, this);
-        Assert.assertTrue(mContextHubClient != null);
     }
 
     /**
@@ -164,6 +181,9 @@ public class ContextHubStressTestExecutor extends ContextHubClientCallback {
                 ChreStressTest.TestCommand.Feature.GNSS_LOCATION,
                 ChreStressTest.TestCommand.Feature.GNSS_MEASUREMENT,
                 ChreStressTest.TestCommand.Feature.WWAN,
+                ChreStressTest.TestCommand.Feature.SENSORS,
+                ChreStressTest.TestCommand.Feature.AUDIO,
+                ChreStressTest.TestCommand.Feature.BLE,
         };
 
         mTestResult.set(null);
@@ -220,21 +240,36 @@ public class ContextHubStressTestExecutor extends ContextHubClientCallback {
                 new byte[0]);
         sendMessageToNanoApp(message);
 
-        WifiManager manager = (WifiManager) mInstrumentation.getContext().getSystemService(
-                Context.WIFI_SERVICE);
-        Assert.assertNotNull(manager);
-
-        mWifiScanMonitorTriggered.set(false);
         mCountDownLatch = new CountDownLatch(1);
-        Assert.assertTrue(manager.startScan());
+        message = NanoAppMessage.createMessageToNanoApp(
+                mNanoAppId, ChreStressTest.MessageType.GET_CAPABILITIES_VALUE,
+                new byte[0]);
+        sendMessageToNanoApp(message);
 
         try {
             mCountDownLatch.await(30, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Assert.fail(e.getMessage());
         }
-        Assert.assertTrue(mWifiScanMonitorTriggered.get());
-        checkTestFailure();
+
+        if ((mCapabilities.getWifi() & WIFI_CAPABILITIES_SCAN_MONITORING) != 0) {
+            WifiManager manager =
+                    (WifiManager)
+                            mInstrumentation.getContext().getSystemService(Context.WIFI_SERVICE);
+            Assert.assertNotNull(manager);
+
+            mWifiScanMonitorTriggered.set(false);
+            mCountDownLatch = new CountDownLatch(1);
+            Assert.assertTrue(manager.startScan());
+
+            try {
+                mCountDownLatch.await(30, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Assert.fail(e.getMessage());
+            }
+            Assert.assertTrue(mWifiScanMonitorTriggered.get());
+            checkTestFailure();
+        }
 
         sendTestMessage(ChreStressTest.TestCommand.Feature.WIFI_SCAN_MONITOR, false /* start */);
 

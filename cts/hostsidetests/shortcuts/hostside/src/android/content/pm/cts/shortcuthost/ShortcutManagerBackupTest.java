@@ -15,6 +15,7 @@
  */
 package android.content.pm.cts.shortcuthost;
 
+import com.android.tradefed.util.RunUtil;
 
 import static org.junit.Assert.fail;
 
@@ -176,7 +177,7 @@ public class ShortcutManagerBackupTest extends BaseShortcutManagerHostTest {
 
         String dumpsys = "";
         while (System.nanoTime() < TIMEOUT) {
-            Thread.sleep(1000);
+            RunUtil.getDefault().sleep(1000);
 
             dumpsys = getDevice().executeShellCommand("dumpsys activity broadcasts");
 
@@ -211,7 +212,7 @@ public class ShortcutManagerBackupTest extends BaseShortcutManagerHostTest {
                 TimeUnit.SECONDS.toNanos(BROADCAST_TIMEOUT_SECONDS);
 
         while (System.nanoTime() < TIMEOUT) {
-            Thread.sleep(2000);
+            RunUtil.getDefault().sleep(2000);
             dumpsys = getDevice().executeShellCommand("dumpsys shortcut");
 
             if (dumpsys.contains("Launcher: " + LAUNCHER1_PKG)) continue;

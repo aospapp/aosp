@@ -24,6 +24,9 @@
 #include <mediautils/SchedulingPolicyService.h>
 #include <mediautils/TimeCheck.h>
 #include <utils/Log.h>
+#if MAJOR_VERSION >= 4
+#include <media/AidlConversion.h>
+#endif
 
 #include PATH(android/hardware/audio/CORE_TYPES_FILE_VERSION/IStreamOutCallback.h)
 #include <HidlUtils.h>
@@ -45,9 +48,6 @@ using ReadCommand = ::android::hardware::audio::CORE_TYPES_CPP_VERSION::IStreamI
 
 using namespace ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION;
 using namespace ::android::hardware::audio::CORE_TYPES_CPP_VERSION;
-
-#define TIME_CHECK() auto TimeCheck = \
-       mediautils::makeTimeCheckStatsForClassMethod(getClassName(), __func__)
 
 StreamHalHidl::StreamHalHidl(std::string_view className, IStream *stream)
         : CoreConversionHelperHidl(className),
@@ -441,7 +441,7 @@ status_t StreamOutHalHidl::selectPresentation(int presentationId, int programId)
 #endif
 
 status_t StreamOutHalHidl::write(const void *buffer, size_t bytes, size_t *written) {
-    TIME_CHECK();
+    // TIME_CHECK();  // TODO(b/243839867) reenable only when optimized.
     if (mStream == 0) return NO_INIT;
     *written = 0;
 
@@ -587,7 +587,7 @@ status_t StreamOutHalHidl::prepareForWriting(size_t bufferSize) {
 }
 
 status_t StreamOutHalHidl::getRenderPosition(uint32_t *dspFrames) {
-    TIME_CHECK();
+    // TIME_CHECK();  // TODO(b/243839867) reenable only when optimized.
     if (mStream == 0) return NO_INIT;
     Result retval;
     Return<void> ret = mStream->getRenderPosition(
@@ -668,7 +668,7 @@ status_t StreamOutHalHidl::flush() {
 }
 
 status_t StreamOutHalHidl::getPresentationPosition(uint64_t *frames, struct timespec *timestamp) {
-    TIME_CHECK();
+    // TIME_CHECK();  // TODO(b/243839867) reenable only when optimized.
     if (mStream == 0) return NO_INIT;
     if (mWriterClient == gettid() && mCommandMQ) {
         return callWriterThread(
@@ -979,9 +979,10 @@ void StreamOutHalHidl::onRecommendedLatencyModeChanged(
 }
 
 status_t StreamOutHalHidl::exit() {
-    // FIXME this is using hard-coded strings but in the future, this functionality will be
-    //       converted to use audio HAL extensions required to support tunneling
-    return setParameters(String8("exiting=1"));
+    // Signal exiting to remote_submix HAL.
+    AudioParameter param;
+    param.addInt(String8(AudioParameter::keyExiting), 1);
+    return setParameters(param.toString());
 }
 
 StreamInHalHidl::StreamInHalHidl(
@@ -1012,7 +1013,7 @@ status_t StreamInHalHidl::setGain(float gain) {
 }
 
 status_t StreamInHalHidl::read(void *buffer, size_t bytes, size_t *read) {
-    TIME_CHECK();
+    // TIME_CHECK();  // TODO(b/243839867) reenable only when optimized.
     if (mStream == 0) return NO_INIT;
     *read = 0;
 
@@ -1146,7 +1147,7 @@ status_t StreamInHalHidl::getInputFramesLost(uint32_t *framesLost) {
 }
 
 status_t StreamInHalHidl::getCapturePosition(int64_t *frames, int64_t *time) {
-    TIME_CHECK();
+    // TIME_CHECK();  // TODO(b/243839867) reenable only when optimized.
     if (mStream == 0) return NO_INIT;
     if (mReaderClient == gettid() && mCommandMQ) {
         ReadParameters params;
@@ -1172,7 +1173,7 @@ status_t StreamInHalHidl::getCapturePosition(int64_t *frames, int64_t *time) {
 
 #if MAJOR_VERSION == 2
 status_t StreamInHalHidl::getActiveMicrophones(
-        std::vector<media::MicrophoneInfo> *microphones __unused) {
+        std::vector<media::MicrophoneInfoFw> *microphones __unused) {
     if (mStream == 0) return NO_INIT;
     return INVALID_OPERATION;
 }
@@ -1185,7 +1186,7 @@ status_t StreamInHalHidl::updateSinkMetadata(
 
 #elif MAJOR_VERSION >= 4
 status_t StreamInHalHidl::getActiveMicrophones(
-        std::vector<media::MicrophoneInfo> *microphonesInfo) {
+        std::vector<media::MicrophoneInfoFw> *microphonesInfo) {
     TIME_CHECK();
     if (!mStream) return NO_INIT;
     Result retval;
@@ -1193,11 +1194,17 @@ status_t StreamInHalHidl::getActiveMicrophones(
             [&](Result r, hidl_vec<MicrophoneInfo> micArrayHal) {
         retval = r;
         for (size_t k = 0; k < micArrayHal.size(); k++) {
+            // Convert via legacy.
             audio_microphone_characteristic_t dst;
-            // convert
             (void)CoreUtils::microphoneInfoToHal(micArrayHal[k], &dst);
-            media::MicrophoneInfo microphone = media::MicrophoneInfo(dst);
-            microphonesInfo->push_back(microphone);
+            auto conv = legacy2aidl_audio_microphone_characteristic_t_MicrophoneInfoFw(dst);
+            if (conv.ok()) {
+                microphonesInfo->push_back(conv.value());
+            } else {
+                ALOGW("getActiveMicrophones: could not convert %s to AIDL: %d",
+                        toString(micArrayHal[k]).c_str(), conv.error());
+                microphonesInfo->push_back(media::MicrophoneInfoFw{});
+            }
         }
     });
     return processReturn("getActiveMicrophones", ret, retval);

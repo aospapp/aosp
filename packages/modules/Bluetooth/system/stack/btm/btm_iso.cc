@@ -61,6 +61,10 @@ void IsoManager::RegisterBigCallbacks(BigCallbacks* callbacks) const {
   pimpl_->iso_impl_->handle_register_big_callbacks(callbacks);
 }
 
+void IsoManager::RegisterOnIsoTrafficActiveCallback(void callback(bool)) const {
+  pimpl_->iso_impl_->handle_register_on_iso_traffic_active_callback(callback);
+}
+
 void IsoManager::CreateCig(uint8_t cig_id,
                            struct iso_manager::cig_create_params cig_params) {
   pimpl_->iso_impl_->create_cig(cig_id, std::move(cig_params));
@@ -71,8 +75,8 @@ void IsoManager::ReconfigureCig(
   pimpl_->iso_impl_->reconfigure_cig(cig_id, std::move(cig_params));
 }
 
-void IsoManager::RemoveCig(uint8_t cig_id) {
-  pimpl_->iso_impl_->remove_cig(cig_id);
+void IsoManager::RemoveCig(uint8_t cig_id, bool force) {
+  pimpl_->iso_impl_->remove_cig(cig_id, force);
 }
 
 void IsoManager::EstablishCis(

@@ -62,6 +62,8 @@ MetricProducer::MetricProducer(
       mCurrentBucketStartTimeNs(timeBaseNs),
       mCurrentBucketNum(0),
       mCondition(initialCondition(conditionIndex, initialConditionCache)),
+      // For metrics with pull events, condition timer will be set later within the constructor
+      mConditionTimer(false, timeBaseNs),
       mConditionTrackerIndex(conditionIndex),
       mConditionSliced(false),
       mWizard(wizard),
@@ -73,10 +75,13 @@ MetricProducer::MetricProducer(
       mIsActive(mEventActivationMap.empty()),
       mSlicedStateAtoms(slicedStateAtoms),
       mStateGroupMap(stateGroupMap),
-      mSplitBucketForAppUpgrade(splitBucketForAppUpgrade) {
+      mSplitBucketForAppUpgrade(splitBucketForAppUpgrade),
+      mHasHitGuardrail(false),
+      mSampledWhatFields({}),
+      mShardCount(0) {
 }
 
-bool MetricProducer::onConfigUpdatedLocked(
+optional<InvalidConfigReason> MetricProducer::onConfigUpdatedLocked(
         const StatsdConfig& config, const int configIndex, const int metricIndex,
         const vector<sp<AtomMatchingTracker>>& allAtomMatchingTrackers,
         const unordered_map<int64_t, int>& oldAtomMatchingTrackerMap,
@@ -95,17 +100,18 @@ bool MetricProducer::onConfigUpdatedLocked(
 
     unordered_map<int, shared_ptr<Activation>> newEventActivationMap;
     unordered_map<int, vector<shared_ptr<Activation>>> newEventDeactivationMap;
-    if (!handleMetricActivationOnConfigUpdate(
-                config, mMetricId, metricIndex, metricToActivationMap, oldAtomMatchingTrackerMap,
-                newAtomMatchingTrackerMap, mEventActivationMap, activationAtomTrackerToMetricMap,
-                deactivationAtomTrackerToMetricMap, metricsWithActivation, newEventActivationMap,
-                newEventDeactivationMap)) {
-        return false;
+    optional<InvalidConfigReason> invalidConfigReason = handleMetricActivationOnConfigUpdate(
+            config, mMetricId, metricIndex, metricToActivationMap, oldAtomMatchingTrackerMap,
+            newAtomMatchingTrackerMap, mEventActivationMap, activationAtomTrackerToMetricMap,
+            deactivationAtomTrackerToMetricMap, metricsWithActivation, newEventActivationMap,
+            newEventDeactivationMap);
+    if (invalidConfigReason.has_value()) {
+        return invalidConfigReason;
     }
     mEventActivationMap = newEventActivationMap;
     mEventDeactivationMap = newEventDeactivationMap;
     mAnomalyTrackers.clear();
-    return true;
+    return nullopt;
 }
 
 void MetricProducer::onMatchedLogEventLocked(const size_t matcherIndex, const LogEvent& event) {
@@ -115,6 +121,10 @@ void MetricProducer::onMatchedLogEventLocked(const size_t matcherIndex, const Lo
     int64_t eventTimeNs = event.GetElapsedTimestampNs();
     // this is old event, maybe statsd restarted?
     if (eventTimeNs < mTimeBaseNs) {
+        return;
+    }
+
+    if (!passesSampleCheckLocked(event.getValues())) {
         return;
     }
 
@@ -194,9 +204,13 @@ void MetricProducer::flushIfExpire(int64_t elapsedTimestampNs) {
     if (!mIsActive) {
         return;
     }
-    mIsActive = evaluateActiveStateLocked(elapsedTimestampNs);
-    if (!mIsActive) {
-        onActiveStateChangedLocked(elapsedTimestampNs);
+    const bool isActive = evaluateActiveStateLocked(elapsedTimestampNs);
+    if (!isActive) {  // Metric went from active to not active.
+        onActiveStateChangedLocked(elapsedTimestampNs, false);
+
+        // Set mIsActive to false after onActiveStateChangedLocked to ensure any pulls that occur
+        // through onActiveStateChangedLocked are processed.
+        mIsActive = false;
     }
 }
 
@@ -215,10 +229,12 @@ void MetricProducer::activateLocked(int activationTrackerIndex, int64_t elapsedT
     }
     activation->start_ns = elapsedTimestampNs;
     activation->state = ActivationState::kActive;
-    bool oldActiveState = mIsActive;
-    mIsActive = true;
-    if (!oldActiveState) { // Metric went from not active to active.
-        onActiveStateChangedLocked(elapsedTimestampNs);
+    if (!mIsActive) {  // Metric was previously inactive and now is active.
+        // Set mIsActive to true before onActiveStateChangedLocked to ensure any pulls that occur
+        // through onActiveStateChangedLocked are processed.
+        mIsActive = true;
+
+        onActiveStateChangedLocked(elapsedTimestampNs, true);
     }
 }
 
@@ -352,6 +368,21 @@ DropEvent MetricProducer::buildDropEvent(const int64_t dropTimeNs,
 
 bool MetricProducer::maxDropEventsReached() const {
     return mCurrentSkippedBucket.dropEvents.size() >= StatsdStats::kMaxLoggedBucketDropEvents;
+}
+
+bool MetricProducer::passesSampleCheckLocked(const vector<FieldValue>& values) const {
+    // Only perform sampling if shard count is correct and there is a sampled what field.
+    if (mShardCount <= 1 || mSampledWhatFields.size() == 0) {
+        return true;
+    }
+    // If filtering fails, don't perform sampling. Event could be a gauge trigger event or stop all
+    // event.
+    FieldValue sampleFieldValue;
+    if (!filterValues(mSampledWhatFields[0], values, &sampleFieldValue)) {
+        return true;
+    }
+    return shouldKeepSample(sampleFieldValue, ShardOffsetProvider::getInstance().getShardOffset(),
+                            mShardCount);
 }
 
 }  // namespace statsd

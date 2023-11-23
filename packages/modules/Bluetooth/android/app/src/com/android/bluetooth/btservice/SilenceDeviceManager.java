@@ -222,6 +222,7 @@ public class SilenceDeviceManager {
         }
         mHandler = new SilenceDeviceManagerHandler(mLooper);
         IntentFilter filter = new IntentFilter();
+        filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
         filter.addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
@@ -243,7 +244,7 @@ public class SilenceDeviceManager {
             Log.e(TAG, "setSilenceMode() mHandler is null!");
             return false;
         }
-        Log.d(TAG, "setSilenceMode: " + device.getAddress() + ", " + silence);
+        Log.d(TAG, "setSilenceMode: " + device + ", " + silence);
         Message message = mHandler.obtainMessage(MSG_SILENCE_DEVICE_STATE_CHANGED,
                 silence ? ENABLE_SILENCE : DISABLE_SILENCE, 0, device);
         mHandler.sendMessage(message);
@@ -275,7 +276,7 @@ public class SilenceDeviceManager {
         if (headsetService != null) {
             headsetService.setSilenceMode(device, state);
         }
-        Log.i(TAG, "Silence mode change " + device.getAddress() + ": " + oldState + " -> "
+        Log.i(TAG, "Silence mode change " + device + ": " + oldState + " -> "
                 + state);
         broadcastSilenceStateChange(device, state);
     }
@@ -299,7 +300,7 @@ public class SilenceDeviceManager {
 
     void addConnectedDevice(BluetoothDevice device, int profile) {
         if (VERBOSE) {
-            Log.d(TAG, "addConnectedDevice: " + device.getAddress() + ", profile:" + profile);
+            Log.d(TAG, "addConnectedDevice: " + device + ", profile:" + profile);
         }
         switch (profile) {
             case BluetoothProfile.A2DP:
@@ -317,7 +318,7 @@ public class SilenceDeviceManager {
 
     void removeConnectedDevice(BluetoothDevice device, int profile) {
         if (VERBOSE) {
-            Log.d(TAG, "removeConnectedDevice: " + device.getAddress() + ", profile:" + profile);
+            Log.d(TAG, "removeConnectedDevice: " + device + ", profile:" + profile);
         }
         switch (profile) {
             case BluetoothProfile.A2DP:
@@ -341,7 +342,7 @@ public class SilenceDeviceManager {
         writer.println("\nSilenceDeviceManager:");
         writer.println("  Address            | Is silenced?");
         for (BluetoothDevice device : mSilenceDevices.keySet()) {
-            writer.println("  " + device.getAddress() + "  | " + getSilenceMode(device));
+            writer.println("  " + device+ "  | " + getSilenceMode(device));
         }
     }
 

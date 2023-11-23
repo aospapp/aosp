@@ -24,15 +24,14 @@
 #include <string>
 #include <vector>
 
-#include <hidl-util/FqInstance.h>
-
-#include "HalFormat.h"
-#include "HalInterface.h"
-#include "Level.h"
-#include "ManifestInstance.h"
-#include "TransportArch.h"
-#include "Version.h"
-#include "WithFileName.h"
+#include <vintf/FqInstance.h>
+#include <vintf/HalFormat.h>
+#include <vintf/HalInterface.h>
+#include <vintf/Level.h>
+#include <vintf/ManifestInstance.h>
+#include <vintf/TransportArch.h>
+#include <vintf/Version.h>
+#include <vintf/WithFileName.h>
 
 namespace android {
 namespace vintf {
@@ -43,21 +42,12 @@ struct ManifestHal : public WithFileName {
 
     ManifestHal() = default;
 
-    ManifestHal(HalFormat fmt, std::string&& n, std::vector<Version>&& vs, TransportArch ta,
-                std::map<std::string, HalInterface>&& intf)
-        : format(fmt),
-          name(std::move(n)),
-          versions(std::move(vs)),
-          transportArch(ta),
-          interfaces(std::move(intf)) {}
-
     bool operator==(const ManifestHal &other) const;
 
     HalFormat format = HalFormat::HIDL;
     std::string name;
     std::vector<Version> versions;
     TransportArch transportArch;
-    std::map<std::string, HalInterface> interfaces;
 
     inline Transport transport() const {
         return transportArch.transport;
@@ -81,6 +71,7 @@ struct ManifestHal : public WithFileName {
     bool isDisabledHal() const;
 
     Level getMaxLevel() const { return mMaxLevel; }
+    Level getMinLevel() const { return mMinLevel; }
 
    private:
     friend struct LibVintfTest;
@@ -95,25 +86,31 @@ struct ManifestHal : public WithFileName {
     // Return all versions mentioned by <version>s and <fqname>s.
     void appendAllVersions(std::set<Version>* ret) const;
 
-    // insert instances to mAdditionalInstances.
+    // insert instances to mManifestInstances.
     // Existing instances will be ignored.
     // Pre: all instances to be inserted must satisfy
     // !hasPackage() && hasVersion() && hasInterface() && hasInstance()
-    bool insertInstance(const FqInstance& fqInstance, std::string* error = nullptr);
-    bool insertInstances(const std::set<FqInstance>& fqInstances, std::string* error = nullptr);
+    bool insertInstance(const FqInstance& fqInstance, bool allowDupMajorVersion,
+                        std::string* error = nullptr);
+    bool insertInstances(const std::set<FqInstance>& fqInstances, bool allowDupMajorVersion,
+                         std::string* error = nullptr);
 
     // Verify instance before inserting.
     bool verifyInstance(const FqInstance& fqInstance, std::string* error = nullptr) const;
 
     bool mIsOverride = false;
     std::optional<std::string> mUpdatableViaApex;
-    // Additional instances to <version> x <interface> x <instance>.
-    std::set<ManifestInstance> mAdditionalInstances;
+    // All instances specified with <fqname> and <version> x <interface> x <instance>
+    std::set<ManifestInstance> mManifestInstances;
 
-    // Max level of this HAL. Only valid for framework manifest HALs.
+    // Max level of this HAL (inclusive). Only valid for framework manifest HALs.
     // If set, HALs with max-level < target FCM version in device manifest is
     // disabled.
     Level mMaxLevel = Level::UNSPECIFIED;
+    // Min level of this HAL (inclusive). Only valid for framework manifest HALs.
+    // If set, HALs with max-level > target FCM version in device manifest is
+    // disabled.
+    Level mMinLevel = Level::UNSPECIFIED;
 };
 
 } // namespace vintf

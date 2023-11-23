@@ -16,7 +16,8 @@
 
 #include <gtest/gtest.h>
 
-namespace emugl {
+namespace gfxstream {
+namespace {
 
 TEST_F(GLTest, InitDestroy) {}
 
@@ -41,4 +42,5 @@ TEST_F(GLTest, SetUpMulticontext) {
     EXPECT_EQ(EGL_SUCCESS, egl->eglGetError());
 }
 
-}  // namespace emugl
+}  // namespace
+}  // namespace gfxstream

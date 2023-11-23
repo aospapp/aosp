@@ -1,22 +1,52 @@
 cmake_policy(SET CMP0048 NEW)
-project(gfx-streaming-kit)
+# Set this policy to allow gfxstream to modify the passed in targets like
+# ${GFXSTREAM_HOST_COMMON_LIB}.
+cmake_policy(SET CMP0079 NEW)
+get_directory_property(hasParent PARENT_DIRECTORY)
+if(NOT hasParent)
+    project(gfx-streaming-kit)
+endif()
 cmake_minimum_required(VERSION 3.18)
 
+option(ENABLE_VKCEREAL_TESTS "Enable building vulkan-cereal unittests" OFF)
 option(BUILD_ASAN_WIN32 "Build with ASAN on Windows platform" OFF)
+
+set(VALID_DEPENDENCY_RESOLUTION AOSP SYSTEM DOWNLOAD)
+set(DEPENDENCY_RESOLUTION "AOSP"  CACHE STRING "\
+How to resolve the dependencies. Currently there are 3 options: AOSP, SYSTEM and DOWNLOAD. AOSP \
+will assume the repo is checked out in an Android tree, and find the dependencies through \
+relative paths. SYSTEM will use the cmake find_package to identify the package. DOWNLOAD will use \
+CMake FetchContent to download the dependencies from the AOSP tree.\
+")
+set_property(CACHE DEPENDENCY_RESOLUTION PROPERTY STRINGS ${VALID_DEPENDENCY_RESOLUTION})
+if(NOT DEPENDENCY_RESOLUTION IN_LIST VALID_DEPENDENCY_RESOLUTION)
+    message(FATAL_ERROR "DEPENDENCY_RESOLUTION must be one of ${VALID_DEPENDENCY_RESOLUTION}.")
+endif()
+
+option(BUILD_STANDALONE "Build with standalone implementations of base/host-common libraries" ON)
+if (BUILD_STANDALONE)
+    # These libraries may be changed in non-standalone builds to inject another implementation of
+    # these APIs.
+    set(GFXSTREAM_BASE_LIB aemu-base)
+    set(GFXSTREAM_HOST_COMMON_LIB aemu-host-common)
+endif()
 
 if (WIN32)
     add_definitions("-DUNICODE -D_UNICODE -DNOMINMAX -DEMUGL_BUILD -DVK_USE_PLATFORM_WIN32_KHR -DBUILDING_EMUGL_COMMON_SHARED")
-
-    option(RECORDER_DELEGATE_LIB "Use recorder_delegate_lib dll" OFF)
-    if(RECORDER_DELEGATE_LIB)
-        add_definitions(-DRECORDER_DELEGATE_LIB)
-    endif()
 endif()
 
-option(VIRGL_RENDERER_UNSTABLE_APIS "Use unstable virglrenderer APIs" OFF)
+option(VIRGL_RENDERER_UNSTABLE_APIS "Use unstable virglrenderer APIs" ON)
 if(VIRGL_RENDERER_UNSTABLE_APIS)
     add_definitions(-DVIRGL_RENDERER_UNSTABLE_APIS)
 endif()
+
+option(ASTC_CPU_DECODING "Enable decoding ASTC textures on the CPU" OFF)
+
+# For now the caller of the cmake script is responsible to create the angle_shader_translator
+# target.
+option(USE_ANGLE_SHADER_PARSER "Build with ANGLE shader parser." OFF)
+
+option(WITH_BENCHMARK "Builds benchmarking code" OFF)
 
 if(UNIX AND NOT APPLE)
     set(LINUX TRUE)
@@ -24,6 +54,8 @@ endif()
 
 find_package(Threads)
 include(ExternalProject)
+include(FetchContent)
+set(FETCHCONTENT_QUIET FALSE)
 
 include(GoogleTest)
 enable_testing()
@@ -49,6 +81,8 @@ if (APPLE)
     add_compile_definitions(VK_USE_PLATFORM_MACOS_MVK)
 elseif(UNIX)
     # TODO(kaiyili, b/179477624): Add Linux specific Vulkan platform macro definitions
+    # Use X11 version of EGL platform specific definitions.
+    add_compile_definitions(USE_X11)
 elseif(WIN32)
     add_compile_definitions(VK_USE_PLATFORM_WIN32_KHR)
 endif()
@@ -63,11 +97,10 @@ if (MSVC)
     add_compile_definitions(_CRT_NONSTDC_NO_DEPRECATE)
 endif()
 
-# Macro to easily set the TEST_INCLUDE_FILES properties to point to `test_properties.cmake`
-# This macro should be called at the end of any CMakeLists.txt file that defines test targets.
-macro("set_test_include_files")
-set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES ${CMAKE_SOURCE_DIR}/test_properties.cmake)
-endmacro()
+if(MSVC OR CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    # generate PDB files
+    add_link_options("/DEBUG")
+endif()
 
 # Uncomment for ASAN support
 # set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
@@ -93,19 +126,22 @@ endif()
 
 set(GFXSTREAM_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
+if(USE_ANGLE_SHADER_PARSER)
+    add_compile_definitions(USE_ANGLE_SHADER_PARSER)
+endif()
+
 include(android.cmake)
+
+set(EXTRA_SUBDIR_TEST_INCLUDE_FILES)
+
 
 # Third party dependencies
 add_subdirectory(third-party)
 
-# Common base libraries for host################################################
-
-add_subdirectory(base)
-add_subdirectory(snapshot)
-add_subdirectory(host-common)
-
 # Backends######################################################################
 
+add_subdirectory(utils)
+add_subdirectory(gl-host-common)
 add_subdirectory(stream-servers)
 
 # Protocols and associated code generators######################################
@@ -117,3 +153,9 @@ add_subdirectory(protocols)
 if (NOT WIN32)
     add_subdirectory(fake-android-guest)
 endif()
+
+if (ENABLE_VKCEREAL_TESTS)
+    list(APPEND EXTRA_SUBDIR_TEST_INCLUDE_FILES ${CMAKE_SOURCE_DIR}/cmake/test_properties.cmake)
+endif()
+
+include(cmake/SetSubdirectorProperties.cmake)

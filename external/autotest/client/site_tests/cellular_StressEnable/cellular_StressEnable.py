@@ -1,10 +1,17 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import dbus
 import logging
 import time
+
+from six.moves import range
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
@@ -30,7 +37,7 @@ class cellular_StressEnable(test.test):
                 self.device.Enable(timeout=timeout)
             else:
                 self.device.Disable(timeout=timeout)
-        except dbus.exceptions.DBusException, err:
+        except dbus.exceptions.DBusException as err:
             if err.get_dbus_name() in cellular_StressEnable.okerrors:
                 return
             raise error.TestFail(err)
@@ -47,8 +54,8 @@ class cellular_StressEnable(test.test):
         with test_env, shill_context.ServiceAutoConnectContext(
                 test_env.shill.wait_for_cellular_service_object, False):
             self.device = test_env.shill.find_cellular_device_object()
-            for t in xrange(max, min, -1):
-                for n in xrange(cycles):
+            for t in range(max, min, -1):
+                for n in range(cycles):
                     # deciseconds are an awesome unit.
                     logging.info('Cycle %d: %f seconds delay.', n, t / 10.0)
                     self._test(t / 10.0)

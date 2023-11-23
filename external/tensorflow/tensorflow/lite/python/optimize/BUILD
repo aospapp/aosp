@@ -24,6 +24,7 @@ cc_library(
         "//third_party/python_runtime:headers",  # buildcleaner: keep
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/types:optional",
     ],
 )
 
@@ -34,7 +35,6 @@ pybind_extension(
     ],
     hdrs = ["calibration_wrapper.h"],
     link_in_framework = True,
-    module_name = "_pywrap_tensorflow_lite_calibration_wrapper",
     deps = [
         ":calibration_wrapper_lib",
         "//tensorflow/lite:framework_lib",
@@ -54,6 +54,7 @@ py_library(
     deps = [
         ":_pywrap_tensorflow_lite_calibration_wrapper",  # buildcleaner: keep
         "//tensorflow/lite/python:convert_phase",
+        "//tensorflow/lite/python:interpreter",
         "//tensorflow/python:dtypes",
         "//tensorflow/python:util",
         "//third_party/py/numpy",
@@ -78,6 +79,5 @@ py_test(
         "//tensorflow/python:platform",
         "//third_party/py/numpy",
         "@absl_py//absl/testing:parameterized",
-        "@six_archive//:six",
     ],
 )

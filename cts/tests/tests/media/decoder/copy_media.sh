@@ -17,4 +17,4 @@
 [ -z "$MEDIA_ROOT_DIR" ] && MEDIA_ROOT_DIR=$(dirname $0)/..
 source $MEDIA_ROOT_DIR/common/copy_media_utils.sh
 get_adb_options "$@"
-copy_media "decoder" "CtsMediaDecoderTestCases-1.1"
+copy_media "decoder" "CtsMediaDecoderTestCases-2.0"

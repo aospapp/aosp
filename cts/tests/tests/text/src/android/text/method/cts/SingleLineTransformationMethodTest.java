@@ -77,6 +77,7 @@ public class SingleLineTransformationMethodTest {
         // TODO cannot get transformed text from the view
     }
 
+    @SuppressWarnings("ReturnValueIgnored")
     @Test
     public void testSubsequence_doesNotThrowExceptionWithParagraphSpans() {
         final SingleLineTransformationMethod method = SingleLineTransformationMethod.getInstance();

@@ -25,12 +25,12 @@ import android.hardware.usb.UsbManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.os.Parcel;
 import android.util.Log;
 
 import com.android.internal.annotations.GuardedBy;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -46,10 +46,13 @@ public final class UsbHostController
     public interface UsbHostControllerCallbacks {
         /** Host controller ready for shutdown */
         void shutdown();
+
         /** Change of processing state */
         void processingStarted();
+
         /** Title of processing changed */
         void titleChanged(String title);
+
         /** Options for USB device changed */
         void optionsUpdated(List<UsbDeviceSettings> options);
     }
@@ -82,7 +85,9 @@ public final class UsbHostController
         }
     };
 
-    @GuardedBy("this")
+    private final Object mLock = new Object();
+
+    @GuardedBy("mLock")
     private UsbDevice mActiveDevice;
 
     public UsbHostController(Context context, UsbHostControllerCallbacks callbacks) {
@@ -98,35 +103,52 @@ public final class UsbHostController
         context.registerReceiver(mUsbBroadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
     }
 
-    private synchronized void setActiveDeviceIfMatch(UsbDevice device) {
-        if (mActiveDevice != null && device != null
-                && UsbUtil.isDevicesMatching(device, mActiveDevice)) {
-            mActiveDevice = device;
+    private void setActiveDeviceIfMatch(UsbDevice device) {
+        synchronized (mLock) {
+            if (mActiveDevice != null && device != null
+                    && UsbUtil.isDevicesMatching(device, mActiveDevice)) {
+                mActiveDevice = device;
+            }
         }
     }
 
-    private synchronized void unsetActiveDeviceIfMatch(UsbDevice device) {
+    private void unsetActiveDeviceIfMatch(UsbDevice device) {
         mHandler.requestDeviceRemoved();
-        if (mActiveDevice != null && device != null
-                && UsbUtil.isDevicesMatching(device, mActiveDevice)) {
+        synchronized (mLock) {
+            if (mActiveDevice != null && device != null
+                    && UsbUtil.isDevicesMatching(device, mActiveDevice)) {
+                mActiveDevice = null;
+            }
+        }
+    }
+
+    private boolean startDeviceProcessingIfNull(UsbDevice device) {
+        synchronized (mLock) {
+            if (mActiveDevice == null) {
+                mActiveDevice = device;
+                return true;
+            }
+            return false;
+        }
+    }
+
+    private void stopDeviceProcessing() {
+        synchronized (mLock) {
             mActiveDevice = null;
         }
     }
 
-    private synchronized boolean startDeviceProcessingIfNull(UsbDevice device) {
-        if (mActiveDevice == null) {
-            mActiveDevice = device;
-            return true;
+    private UsbDevice getActiveDevice() {
+        synchronized (mLock) {
+            Parcel parcel = Parcel.obtain();
+            try {
+                parcel.writeParcelable(mActiveDevice, 0);
+                parcel.setDataPosition(0);
+                return parcel.readParcelable(UsbDevice.class.getClassLoader(), UsbDevice.class);
+            } finally {
+                parcel.recycle();
+            }
         }
-        return false;
-    }
-
-    private synchronized void stopDeviceProcessing() {
-        mActiveDevice = null;
-    }
-
-    private synchronized UsbDevice getActiveDevice() {
-        return mActiveDevice;
     }
 
     private boolean deviceMatchedActiveDevice(UsbDevice device) {
@@ -244,7 +266,7 @@ public final class UsbHostController
     private UsbDeviceSettings getSingleAoapDeviceHandlerOrNull(List<UsbDeviceSettings> handlers) {
         UsbDeviceSettings aoapHandler = null;
         for (UsbDeviceSettings handler : handlers) {
-            if (handler.getAoap()) {
+            if (handler.isAaop()) {
                 if (aoapHandler != null) { // Found multiple AOAP handlers.
                     return null;
                 }
@@ -315,17 +337,21 @@ public final class UsbHostController
             sendEmptyMessageDelayed(MSG_DEVICE_REMOVED, DEVICE_REMOVE_TIMEOUT_MS);
         }
 
-        private void onFailure() {
+        private void onFailure(UsbDevice failedDevice) {
             if (mStartAoapRetries == 0) {
                 Log.w(TAG, "Reached maximum retry count for startAoap. Giving up Aoa handshake.");
                 return;
             }
             mStartAoapRetries--;
 
+            UsbDeviceConnection connection = UsbUtil.openConnection(mUsbManager, failedDevice);
+            if (connection != null) {
+                Log.d(TAG, "Resetting USB device.");
+                connection.resetDevice();
+            }
+
             Log.d(TAG, "Restarting USB enumeration.");
-            Iterator<UsbDevice> deviceIterator = mUsbManager.getDeviceList().values().iterator();
-            while (deviceIterator.hasNext()) {
-                UsbDevice device = deviceIterator.next();
+            for (UsbDevice device : mUsbManager.getDeviceList().values()) {
                 if (mLastDeviceId == device.getDeviceId()) {
                     processDevice(device);
                     return;
@@ -345,7 +371,7 @@ public final class UsbHostController
                     UsbDevice device = data.getUsbDevice();
                     mLastDeviceId = device.getDeviceId();
                     UsbDeviceSettings settings = data.getUsbDeviceSettings();
-                    if (!mUsbResolver.dispatch(device, settings.getHandler(), settings.getAoap(),
+                    if (!mUsbResolver.dispatch(device, settings.getHandler(), settings.isAaop(),
                             this::onFailure)) {
                         if (data.mRetries > 0) {
                             --data.mRetries;

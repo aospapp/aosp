@@ -264,7 +264,7 @@ class ResourceMonitorResultTest(unittest.TestCase):
         """
         parsed_results = resource_monitor.ResourceMonitorParsedResult(
                 testdata_file)
-        with open(testans_file, "rb") as testans:
+        with open(testans_file, "r") as testans:
             csvreader = csv.reader(testans)
             columns = next(csvreader)
             self.assertEqual(list(columns),

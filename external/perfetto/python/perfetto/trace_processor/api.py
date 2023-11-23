@@ -46,6 +46,7 @@ class TraceProcessorConfig:
   unique_port: bool
   verbose: bool
   ingest_ftrace_in_raw: bool
+  enable_dev_features: bool
   resolver_registry: Optional[ResolverRegistry]
 
   def __init__(self,
@@ -53,11 +54,13 @@ class TraceProcessorConfig:
                unique_port: bool = True,
                verbose: bool = False,
                ingest_ftrace_in_raw: bool = False,
+               enable_dev_features=False,
                resolver_registry: Optional[ResolverRegistry] = None):
     self.bin_path = bin_path
     self.unique_port = unique_port
     self.verbose = verbose
     self.ingest_ftrace_in_raw = ingest_ftrace_in_raw
+    self.enable_dev_features = enable_dev_features
     self.resolver_registry = resolver_registry
 
 
@@ -77,6 +80,8 @@ class TraceProcessor:
   # class, with the value corresponding to the column name and row in
   # the query results table.
   class Row(object):
+    # Required for pytype to correctly infer attributes from Row objects
+    _HAS_DYNAMIC_ATTRIBUTES = True
 
     def __str__(self):
       return str(self.__dict__)
@@ -87,7 +92,7 @@ class TraceProcessor:
   class QueryResultIterator:
 
     def __init__(self, column_names, batches):
-      self.__column_names = column_names
+      self.__column_names = list(column_names)
       self.__column_count = 0
       self.__count = 0
       self.__cells = []
@@ -255,7 +260,11 @@ class TraceProcessor:
     self.http = self._create_tp_http(addr)
 
     if trace or file_path:
-      self._parse_trace(trace if trace else file_path)
+      try:
+        self._parse_trace(trace if trace else file_path)
+      except TraceProcessorException as ex:
+        self.close()
+        raise ex
 
   def query(self, sql: str):
     """Executes passed in SQL query using class defined HTTP API, and returns
@@ -322,6 +331,7 @@ class TraceProcessor:
                                       self.config.unique_port,
                                       self.config.verbose,
                                       self.config.ingest_ftrace_in_raw,
+                                      self.config.enable_dev_features,
                                       self.platform_delegate)
     return TraceProcessorHttp(url, protos=self.protos)
 
@@ -356,4 +366,10 @@ class TraceProcessor:
   def close(self):
     if hasattr(self, 'subprocess'):
       self.subprocess.kill()
-    self.http.conn.close()
+      self.subprocess.wait()
+
+    if hasattr(self, 'http'):
+      self.http.conn.close()
+
+  def __del__(self):
+    self.close()

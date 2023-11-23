@@ -54,6 +54,7 @@ import java.util.Map;
  */
 @Presubmit
 @AppModeFull(reason = "Requires android.permission.MANAGE_ACTIVITY_TASKS")
+@android.server.wm.annotation.Group2
 public class CrossAppDragAndDropTests extends ActivityManagerTestBase {
     private static final String TAG = "CrossAppDragAndDrop";
 
@@ -229,6 +230,9 @@ public class CrossAppDragAndDropTests extends ActivityManagerTestBase {
                         bundle.putString(EXTRA_LOGTAG, mTargetLogTag);
                     }).execute();
             moveActivitiesToSplitScreen(sourceComponentName, targetComponentName);
+        }
+        if (DROP_TARGET_SDK23.equals(targetComponentName)) {
+            DeprecatedTargetSdkTest.waitAndDismissDeprecatedTargetSdkDialog(mWmState);
         }
 
         Point p1 = getWindowCenter(sourceComponentName);

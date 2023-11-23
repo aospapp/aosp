@@ -23,7 +23,7 @@ kt_jvm_test(
     name = "DaggerKotlinIssueDetectorTest",
     srcs = ["DaggerKotlinIssueDetectorTest.kt"],
     deps = [
-        "@google_bazel_common//third_party/java/junit",
+        "//third_party/java/junit",
         "//java/dagger/lint:lint-artifact-lib",
         "@maven//:com_android_tools_lint_lint_checks",
         "@maven//:com_android_tools_lint_lint_tests",

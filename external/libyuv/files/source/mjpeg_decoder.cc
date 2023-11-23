@@ -417,7 +417,6 @@ void init_source(j_decompress_ptr cinfo) {
 boolean fill_input_buffer(j_decompress_ptr cinfo) {
   BufferVector* buf_vec = reinterpret_cast<BufferVector*>(cinfo->client_data);
   if (buf_vec->pos >= buf_vec->len) {
-    assert(0 && "No more data");
     // ERROR: No more data
     return FALSE;
   }
@@ -430,7 +429,7 @@ boolean fill_input_buffer(j_decompress_ptr cinfo) {
 void skip_input_data(j_decompress_ptr cinfo, long num_bytes) {  // NOLINT
   jpeg_source_mgr* src = cinfo->src;
   size_t bytes = static_cast<size_t>(num_bytes);
-  if(bytes > src->bytes_in_buffer) {
+  if (bytes > src->bytes_in_buffer) {
     src->next_input_byte = nullptr;
     src->bytes_in_buffer = 0;
   } else {

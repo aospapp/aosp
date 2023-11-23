@@ -57,8 +57,8 @@ java_library_host {
     ],
     static_libs: [
         "currysrc_org.eclipse",
-        "guavalib",
-        "gson-prebuilt-jar",
+        "gson",
+        "guava",
         "jopt-simple-4.9",
     ],
     srcs: ["src/**/*.java"],

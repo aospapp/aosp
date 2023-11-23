@@ -17,7 +17,6 @@ package java
 import (
 	"fmt"
 	"reflect"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -294,7 +293,6 @@ func TestAndroidAppImport_DpiVariants(t *testing.T) {
 		},
 	}
 
-	jniRuleRe := regexp.MustCompile("^if \\(zipinfo (\\S+)")
 	for _, test := range testCases {
 		result := android.GroupFixturePreparers(
 			PrepareForTestWithJavaDefaultModules,
@@ -305,13 +303,9 @@ func TestAndroidAppImport_DpiVariants(t *testing.T) {
 		).RunTestWithBp(t, bp)
 
 		variant := result.ModuleForTests("foo", "android_common")
-		jniRuleCommand := variant.Output("jnis-uncompressed/foo.apk").RuleParams.Command
-		matches := jniRuleRe.FindStringSubmatch(jniRuleCommand)
-		if len(matches) != 2 {
-			t.Errorf("failed to extract the src apk path from %q", jniRuleCommand)
-		}
-		if strings.HasSuffix(matches[1], test.expected) {
-			t.Errorf("wrong src apk, expected: %q got: %q", test.expected, matches[1])
+		input := variant.Output("jnis-uncompressed/foo.apk").Input.String()
+		if strings.HasSuffix(input, test.expected) {
+			t.Errorf("wrong src apk, expected: %q got: %q", test.expected, input)
 		}
 
 		provenanceMetaDataRule := variant.Rule("genProvenanceMetaData")
@@ -369,11 +363,14 @@ func TestAndroidAppImport_Filename(t *testing.T) {
 
 		a := variant.Module().(*AndroidAppImport)
 		expectedValues := []string{test.expected}
-		actualValues := android.AndroidMkEntriesForTest(t, ctx, a)[0].EntryMap["LOCAL_INSTALLED_MODULE_STEM"]
+		entries := android.AndroidMkEntriesForTest(t, ctx, a)[0]
+		actualValues := entries.EntryMap["LOCAL_INSTALLED_MODULE_STEM"]
 		if !reflect.DeepEqual(actualValues, expectedValues) {
 			t.Errorf("Incorrect LOCAL_INSTALLED_MODULE_STEM value '%s', expected '%s'",
 				actualValues, expectedValues)
 		}
+		android.AssertStringEquals(t, "unexpected LOCAL_SOONG_MODULE_TYPE", "android_app_import", entries.EntryMap["LOCAL_SOONG_MODULE_TYPE"][0])
+
 		rule := variant.Rule("genProvenanceMetaData")
 		android.AssertStringEquals(t, "Invalid input", test.expectedArtifactPath, rule.Inputs[0].String())
 		android.AssertStringEquals(t, "Invalid output", test.expectedMetaDataPath, rule.Output.String())
@@ -456,7 +453,6 @@ func TestAndroidAppImport_ArchVariants(t *testing.T) {
 		},
 	}
 
-	jniRuleRe := regexp.MustCompile("^if \\(zipinfo (\\S+)")
 	for _, test := range testCases {
 		ctx, _ := testJava(t, test.bp)
 
@@ -469,13 +465,9 @@ func TestAndroidAppImport_ArchVariants(t *testing.T) {
 			android.AssertDeepEquals(t, "Provenance metadata is not empty", android.TestingBuildParams{}, rule)
 			continue
 		}
-		jniRuleCommand := variant.Output("jnis-uncompressed/foo.apk").RuleParams.Command
-		matches := jniRuleRe.FindStringSubmatch(jniRuleCommand)
-		if len(matches) != 2 {
-			t.Errorf("failed to extract the src apk path from %q", jniRuleCommand)
-		}
-		if strings.HasSuffix(matches[1], test.expected) {
-			t.Errorf("wrong src apk, expected: %q got: %q", test.expected, matches[1])
+		input := variant.Output("jnis-uncompressed/foo.apk").Input.String()
+		if strings.HasSuffix(input, test.expected) {
+			t.Errorf("wrong src apk, expected: %q got: %q", test.expected, input)
 		}
 		rule := variant.Rule("genProvenanceMetaData")
 		android.AssertStringEquals(t, "Invalid input", test.artifactPath, rule.Inputs[0].String())
@@ -513,66 +505,6 @@ func TestAndroidAppImport_overridesDisabledAndroidApp(t *testing.T) {
 	}
 }
 
-func TestAndroidAppImport_frameworkRes(t *testing.T) {
-	ctx, _ := testJava(t, `
-		android_app_import {
-			name: "framework-res",
-			certificate: "platform",
-			apk: "package-res.apk",
-			prefer: true,
-			export_package_resources: true,
-			// Disable dexpreopt and verify_uses_libraries check as the app
-			// contains no Java code to be dexpreopted.
-			enforce_uses_libs: false,
-			dex_preopt: {
-				enabled: false,
-			},
-		}
-		`)
-
-	mod := ctx.ModuleForTests("prebuilt_framework-res", "android_common").Module()
-	a := mod.(*AndroidAppImport)
-
-	if !a.preprocessed {
-		t.Errorf("prebuilt framework-res is not preprocessed")
-	}
-
-	expectedInstallPath := "out/soong/target/product/test_device/system/framework/framework-res.apk"
-
-	android.AssertPathRelativeToTopEquals(t, "prebuilt framework-res install location", expectedInstallPath, a.dexpreopter.installPath)
-
-	entries := android.AndroidMkEntriesForTest(t, ctx, mod)[0]
-
-	expectedPath := "."
-	// From apk property above, in the root of the source tree.
-	expectedPrebuiltModuleFile := "package-res.apk"
-	// Verify that the apk is preprocessed: The export package is the same
-	// as the prebuilt.
-	expectedSoongResourceExportPackage := expectedPrebuiltModuleFile
-
-	actualPath := entries.EntryMap["LOCAL_PATH"]
-	actualPrebuiltModuleFile := entries.EntryMap["LOCAL_PREBUILT_MODULE_FILE"]
-	actualSoongResourceExportPackage := entries.EntryMap["LOCAL_SOONG_RESOURCE_EXPORT_PACKAGE"]
-
-	if len(actualPath) != 1 {
-		t.Errorf("LOCAL_PATH incorrect len %d", len(actualPath))
-	} else if actualPath[0] != expectedPath {
-		t.Errorf("LOCAL_PATH mismatch, actual: %s, expected: %s", actualPath[0], expectedPath)
-	}
-
-	if len(actualPrebuiltModuleFile) != 1 {
-		t.Errorf("LOCAL_PREBUILT_MODULE_FILE incorrect len %d", len(actualPrebuiltModuleFile))
-	} else if actualPrebuiltModuleFile[0] != expectedPrebuiltModuleFile {
-		t.Errorf("LOCAL_PREBUILT_MODULE_FILE mismatch, actual: %s, expected: %s", actualPrebuiltModuleFile[0], expectedPrebuiltModuleFile)
-	}
-
-	if len(actualSoongResourceExportPackage) != 1 {
-		t.Errorf("LOCAL_SOONG_RESOURCE_EXPORT_PACKAGE incorrect len %d", len(actualSoongResourceExportPackage))
-	} else if actualSoongResourceExportPackage[0] != expectedSoongResourceExportPackage {
-		t.Errorf("LOCAL_SOONG_RESOURCE_EXPORT_PACKAGE mismatch, actual: %s, expected: %s", actualSoongResourceExportPackage[0], expectedSoongResourceExportPackage)
-	}
-}
-
 func TestAndroidAppImport_relativeInstallPath(t *testing.T) {
 	bp := `
 		android_app_import {
@@ -586,13 +518,6 @@ func TestAndroidAppImport_relativeInstallPath(t *testing.T) {
 			apk: "prebuilts/apk/app.apk",
 			presigned: true,
 			relative_install_path: "my/path",
-		}
-
-		android_app_import {
-			name: "framework-res",
-			apk: "prebuilts/apk/app.apk",
-			presigned: true,
-			prefer: true,
 		}
 
 		android_app_import {
@@ -617,11 +542,6 @@ func TestAndroidAppImport_relativeInstallPath(t *testing.T) {
 			name:                "relative_install_path",
 			expectedInstallPath: "out/soong/target/product/test_device/system/app/my/path/relative_install_path/relative_install_path.apk",
 			errorMessage:        "Install path is not correct for app when relative_install_path is present",
-		},
-		{
-			name:                "prebuilt_framework-res",
-			expectedInstallPath: "out/soong/target/product/test_device/system/framework/framework-res.apk",
-			errorMessage:        "Install path is not correct for framework-res",
 		},
 		{
 			name:                "privileged_relative_install_path",
@@ -686,8 +606,8 @@ func TestAndroidTestImport_NoJinUncompressForPresigned(t *testing.T) {
 		`)
 
 	variant := ctx.ModuleForTests("foo", "android_common")
-	jniRule := variant.Output("jnis-uncompressed/foo.apk").RuleParams.Command
-	if !strings.HasPrefix(jniRule, "if (zipinfo") {
+	jniRule := variant.Output("jnis-uncompressed/foo.apk").BuildParams.Rule.String()
+	if jniRule == android.Cp.String() {
 		t.Errorf("Unexpected JNI uncompress rule command: " + jniRule)
 	}
 
@@ -806,4 +726,24 @@ func TestAndroidTestImport_UncompressDex(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestAppImportMissingCertificateAllowMissingDependencies(t *testing.T) {
+	result := android.GroupFixturePreparers(
+		PrepareForTestWithJavaDefaultModules,
+		android.PrepareForTestWithAllowMissingDependencies,
+		android.PrepareForTestWithAndroidMk,
+	).RunTestWithBp(t, `
+		android_app_import {
+			name: "foo",
+			apk: "a.apk",
+			certificate: ":missing_certificate",
+		}`)
+
+	foo := result.ModuleForTests("foo", "android_common")
+	fooApk := foo.Output("signed/foo.apk")
+	if fooApk.Rule != android.ErrorRule {
+		t.Fatalf("expected ErrorRule for foo.apk, got %s", fooApk.Rule.String())
+	}
+	android.AssertStringDoesContain(t, "expected error rule message", fooApk.Args["error"], "missing dependencies: missing_certificate\n")
 }

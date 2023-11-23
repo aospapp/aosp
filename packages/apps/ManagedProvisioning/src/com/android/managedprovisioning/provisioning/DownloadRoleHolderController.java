@@ -31,6 +31,7 @@ import com.android.managedprovisioning.task.DownloadPackageTask;
 import com.android.managedprovisioning.task.InstallPackageTask;
 import com.android.managedprovisioning.task.VerifyAdminPackageTask;
 import com.android.managedprovisioning.task.VerifyRoleHolderPackageTask;
+import com.google.android.setupdesign.util.DeviceHelper;
 
 /**
  * Controller which establishes network connection and downloads the device policy management
@@ -106,30 +107,32 @@ public class DownloadRoleHolderController extends AbstractProvisioningController
     }
 
     @Override
-    protected int getErrorMsgId(AbstractProvisioningTask task, int errorCode) {
+    protected String getErrorMsgId(AbstractProvisioningTask task, int errorCode) {
+        CharSequence deviceName = DeviceHelper.getDeviceName(mContext);
         if (task instanceof AddWifiNetworkTask) {
-            return R.string.error_wifi;
+            return mContext.getString(R.string.error_wifi);
         } else if (task instanceof DownloadPackageTask) {
             switch (errorCode) {
                 case DownloadPackageTask.ERROR_DOWNLOAD_FAILED:
                 case DownloadPackageTask.ERROR_OTHER:
-                    return R.string.error_role_holder_download_install_failed;
+                    return mContext.getString(R.string.error_role_holder_download_install_failed);
             }
         } else if (task instanceof VerifyAdminPackageTask) {
             switch (errorCode) {
                 case VerifyRoleHolderPackageTask.ERROR_HASH_MISMATCH:
-                    return R.string.error_role_holder_hash_mismatch;
+                    return mContext.getString(R.string.error_role_holder_hash_mismatch, deviceName);
             }
         } else if (task instanceof InstallPackageTask) {
             switch (errorCode) {
                 case InstallPackageTask.ERROR_PACKAGE_INVALID:
-                    return R.string.error_role_holder_package_invalid;
+                    return mContext.getString(R.string.error_role_holder_package_invalid,
+                            deviceName);
                 case InstallPackageTask.ERROR_INSTALLATION_FAILED:
-                    return R.string.error_role_holder_download_install_failed;
+                    return mContext.getString(R.string.error_role_holder_download_install_failed);
             }
         }
 
-        return R.string.cant_set_up_device;
+        return mContext.getString(R.string.cant_set_up_device);
     }
 
     @Override

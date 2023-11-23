@@ -26,10 +26,19 @@ namespace android {
 namespace linkerconfig {
 namespace contents {
 
+enum class VndkUserPartition {
+  Vendor,
+  Product,
+};
+
 // Adds links from all namespaces in the given section to the namespace for
 // /system/${LIB} for standard libraries like Bionic (libc.so, libm.so,
 // libdl.so) and applicable libclang_rt.*.
 void AddStandardSystemLinks(const Context& ctx, modules::Section* section);
+
+// Add LLNDK libs as required for a "use vndk" namespace.
+void AddLlndkLibraries(const Context& ctx, modules::Namespace* ns,
+                       VndkUserPartition vndk_user);
 
 void SetupSystemPermittedPaths(modules::Namespace* ns);
 

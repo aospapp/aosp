@@ -7,12 +7,9 @@ package {
     default_applicable_licenses: ["hardware_st_secure_element_license"],
 }
 
-cc_library_shared {
-
-    name: "ese_spi_st",
+cc_defaults {
+    name: "ese_spi_st_defaults",
     defaults: ["hidl_defaults"],
-    proprietary: true,
-
     srcs: [
         "SpiLayerDriver.cc",
         "SpiLayerInterface.cc",
@@ -28,21 +25,32 @@ cc_library_shared {
         "utils-lib/android_logmsg.cc",
         "utils-lib/DataMgmt.cc",
     ],
-
-    export_include_dirs: ["utils-lib"],
     cflags: [
         "-DANDROID",
         "-DBUILDCFG=1",
         "-Wall",
         "-Werror",
     ],
+}
 
-    shared_libs: [
-        "libcutils",
-        "libhardware",
-        "libhidlbase",
-        "libutils",
-        "liblog",
-        "libbase",
-    ],
+ese_spi_st_libs = [
+    "libcutils",
+    "liblog",
+    "libbase",
+]
+
+cc_library_shared {
+    name: "ese_spi_st",
+    defaults: ["ese_spi_st_defaults"],
+    proprietary: true,
+    export_include_dirs: ["utils-lib"],
+    shared_libs: ese_spi_st_libs,
+}
+
+cc_library_static {
+    name: "ese_spi_st_static",
+    defaults: ["ese_spi_st_defaults"],
+    export_include_dirs: [".", "utils-lib"],
+    static_libs: ese_spi_st_libs,
+    whole_static_libs: ["libcutils"],
 }

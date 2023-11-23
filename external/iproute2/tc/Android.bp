@@ -31,14 +31,43 @@ license {
     ],
 }
 
+genrule {
+    name: "static-syms.h",
+    out: ["static-syms.h"],
+    srcs: ["*.c"],
+    tool_files: ["make-static-syms.sh"],
+    cmd: "$(location make-static-syms.sh) $(in) > $(out)",
+}
+
+genrule {
+    name: "emp_ematch.yacc.c",
+    cmd: "$(location bison) -y --output=$(genDir)/emp_ematch.yacc.c $(in)",
+    out: ["emp_ematch.yacc.c"],
+    srcs: ["emp_ematch.y"],
+    tools: ["bison"],
+}
+
+genrule {
+    name: "emp_ematch.yacc.h",
+    cmd: "$(location bison) -y --defines=$(genDir)/emp_ematch.yacc.h --output=$(genDir)/emp_ematch.yacc.c $(in)",
+    out: ["emp_ematch.yacc.h"],
+    srcs: ["emp_ematch.y"],
+    tools: ["bison"],
+}
+
 cc_binary {
     name: "tc",
     defaults: ["iproute2_defaults"],
 
+    generated_headers: [
+        "emp_ematch.yacc.h",
+        "static-syms.h",
+    ],
+
     // ordering affects link order, so cannot be quite fully sorted
     srcs: [
-        "emp_ematch.lex.c",
-        "emp_ematch.yacc.c",
+        "emp_ematch.l",
+        ":emp_ematch.yacc.c",
         "m_action.c",
         "m_bpf.c",
         "m_connmark.c",
@@ -115,6 +144,7 @@ cc_binary {
     cflags: [
         "-Wno-missing-field-initializers",
         "-Wno-unneeded-internal-declaration",
+        "-Wno-gnu-variable-sized-type-not-at-end",
     ],
 
     // This is a work around for b/18403920

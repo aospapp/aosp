@@ -34,6 +34,7 @@ public final class BuildCompatUtils {
   public static boolean isAtLeastR() {
     return Build.VERSION.SDK_INT >= Build.VERSION_CODES.R;
   }
+
   /**
    * Implementation of BuildCompat.isAtLeastS() suitable for use in Setup
    *
@@ -42,6 +43,16 @@ public final class BuildCompatUtils {
   @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.S)
   public static boolean isAtLeastS() {
     return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S;
+  }
+
+  /**
+   * Implementation of BuildCompat.isAtLeastT() suitable for use in Setup
+   *
+   * @return Whether the current OS version is higher or equal to T.
+   */
+  @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.TIRAMISU)
+  public static boolean isAtLeastT() {
+    return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU;
   }
 
   /**
@@ -60,26 +71,31 @@ public final class BuildCompatUtils {
    * <p>Supported configurations:
    *
    * <ul>
-   *   <li>For current Android release: while new API is not finalized yet (CODENAME = "Tiramisu",
-   *       SDK_INT = 33)
-   *   <li>For current Android release: when new API is finalized (CODENAME = "REL", SDK_INT = 32)
-   *   <li>For next Android release (CODENAME = "U", SDK_INT = 34+)
+   *   <li>For current Android release: while new API is not finalized yet (CODENAME =
+   *       "UpsideDownCake", SDK_INT = 33)
+   *   <li>For current Android release: when new API is finalized (CODENAME = "REL", SDK_INT = 34)
+   *   <li>For next Android release (CODENAME = "VanillaIceCream", SDK_INT = 35+)
    * </ul>
    *
    * <p>Note that Build.VERSION_CODES.T cannot be used here until final SDK is available in all
    * channels, because it is equal to Build.VERSION_CODES.CUR_DEVELOPMENT before API finalization.
    *
-   * @return Whether the current OS version is higher or equal to T.
+   * @return Whether the current OS version is higher or equal to U.
    */
-  public static boolean isAtLeastT() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-      return true;
+  public static boolean isAtLeastU() {
+    return (Build.VERSION.CODENAME.equals("REL") && Build.VERSION.SDK_INT >= 34)
+      || isAtLeastPreReleaseCodename("UpsideDownCake");
+  }
+
+  private static boolean isAtLeastPreReleaseCodename(String codename) {
+    // Special case "REL", which means the build is not a pre-release build.
+    if (Build.VERSION.CODENAME.equals("REL")) {
+      return false;
     }
-    return (Build.VERSION.CODENAME.equals("REL") && Build.VERSION.SDK_INT >= 33)
-        || (Build.VERSION.CODENAME.length() == 1
-            && Build.VERSION.CODENAME.charAt(0) >= 'T'
-            && Build.VERSION.CODENAME.charAt(0) <= 'Z')
-        || (Build.VERSION.CODENAME.equals("Tiramisu") && Build.VERSION.SDK_INT >= 32);
+
+    // Otherwise lexically compare them. Return true if the build codename is equal to or
+    // greater than the requested codename.
+    return Build.VERSION.CODENAME.compareTo(codename) >= 0;
   }
 
   private BuildCompatUtils() {}

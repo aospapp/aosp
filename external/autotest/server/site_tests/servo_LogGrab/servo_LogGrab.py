@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -102,8 +103,8 @@ class servo_LogGrab(test.test):
         """
         artifacts = [re.compile(r'- \(get\) %s' % ctrl) for ctrl in ctrls]
         # We also need to ensure that the initial logs don't get lost.
-        init_artifact = re.compile('Listening on (\d{1,3}\.){3}\d{1,3} '
-                                   'port \d{1,5}')
+        init_artifact = re.compile(r'Listening on (\d{1,3}\.){3}\d{1,3} '
+                                   r'port \d{1,5}')
         artifacts.append(init_artifact)
         fname = os.path.join(outdir, 'log.DEBUG.txt')
         with open(fname, 'r') as f:

@@ -322,6 +322,8 @@ ElfInterface* Elf::CreateInterfaceFromMemory(Memory* memory) {
       arch_ = ARCH_X86_64;
     } else if (e_machine == EM_MIPS) {
       arch_ = ARCH_MIPS64;
+    } else if (e_machine == EM_RISCV) {
+      arch_ = ARCH_RISCV64;
     } else {
       // Unsupported.
       return nullptr;

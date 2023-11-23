@@ -23,7 +23,19 @@
 
 namespace simpleperf {
 
+bool GetThreadMmapsInProcess(pid_t, std::vector<ThreadMmap>*) {
+  return false;
+}
+
 bool GetKernelBuildId(BuildId*) {
+  return false;
+}
+
+bool GetModuleBuildId(const std::string&, BuildId*, const std::string&) {
+  return false;
+}
+
+bool ReadThreadNameAndPid(pid_t, std::string*, pid_t*) {
   return false;
 }
 

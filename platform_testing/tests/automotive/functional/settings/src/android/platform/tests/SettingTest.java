@@ -17,16 +17,14 @@
 package android.platform.tests;
 
 import static junit.framework.Assert.assertFalse;
-import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.assertThat;
+import static junit.framework.Assert.assertTrue;
 
-import android.app.UiModeManager;
-import android.platform.helpers.AutoConfigConstants;
 import android.platform.helpers.AutoUtility;
+import android.platform.helpers.HelperAccessor;
 import android.platform.helpers.IAutoAppInfoSettingsHelper;
 import android.platform.helpers.IAutoSettingHelper;
-import android.platform.helpers.IAutoSettingHelper.DayNightMode;
-import android.platform.helpers.HelperAccessor;
+import android.platform.helpers.SettingsConstants;
+
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
@@ -57,51 +55,53 @@ public class SettingTest {
 
     @Test
     public void testDisplaySettings() {
-        mSettingHelper.get().openSetting(AutoConfigConstants.DISPLAY_SETTINGS);
+        mSettingHelper.get().openSetting(SettingsConstants.DISPLAY_SETTINGS);
+        assertTrue(
+                "Display Setting did not open",
+                mSettingHelper.get().checkMenuExists("Brightness level"));
     }
 
     @Test
     public void testSoundSettings() {
-        mSettingHelper.get().openSetting(AutoConfigConstants.SOUND_SETTINGS);
+        mSettingHelper.get().openSetting(SettingsConstants.SOUND_SETTINGS);
+        assertTrue(
+                "Sound setting did not open",
+                mSettingHelper.get().checkMenuExists("In-call volume"));
     }
 
     @Test
     public void testAppinfoSettings() {
-        mSettingHelper.get().openSetting(AutoConfigConstants.APPS_SETTINGS);
+        mSettingHelper.get().openSetting(SettingsConstants.APPS_SETTINGS);
+        assertTrue(
+                "Apps setting did not open",
+                mSettingHelper.get().checkMenuExists("Recently opened"));
         mAppInfoSettingsHelper.get().showAllApps();
     }
 
     @Test
     public void testAccountsSettings() {
-        mSettingHelper.get().openSetting(AutoConfigConstants.PROFILE_ACCOUNT_SETTINGS);
+        mSettingHelper.get().openSetting(SettingsConstants.PROFILE_ACCOUNT_SETTINGS);
+        assertTrue(
+                "Profiles and accounts settings did not open",
+                mSettingHelper.get().checkMenuExists("Add a profile"));
     }
 
     @Test
     public void testSystemSettings() {
-        mSettingHelper.get().openSetting(AutoConfigConstants.SYSTEM_SETTINGS);
+        mSettingHelper.get().openSetting(SettingsConstants.SYSTEM_SETTINGS);
+        assertTrue(
+                "System settings did not open",
+                mSettingHelper.get().checkMenuExists("Languages & input"));
     }
 
     @Test
     public void testBluetoothSettings() {
-        mSettingHelper.get().openSetting(AutoConfigConstants.BLUETOOTH_SETTINGS);
+        mSettingHelper.get().openSetting(SettingsConstants.BLUETOOTH_SETTINGS);
+        assertTrue(
+                "Bluetooth Setting did not open",
+                mSettingHelper.get().checkMenuExists("Pair new device"));
         mSettingHelper.get().turnOnOffBluetooth(false);
         assertFalse(mSettingHelper.get().isBluetoothOn());
         mSettingHelper.get().turnOnOffBluetooth(true);
-    }
-
-    @Test
-    public void testDayMode() {
-        mSettingHelper.get().openQuickSettings();
-        mSettingHelper.get().setDayNightMode(DayNightMode.DAY_MODE);
-        assertThat(mSettingHelper.get().getDayNightModeStatus().getValue(), is(DAY_MODE_VALUE));
-    }
-
-    @Test
-    public void testNightMode() {
-        mSettingHelper.get().openQuickSettings();
-        mSettingHelper.get().setDayNightMode(DayNightMode.NIGHT_MODE);
-        assertThat(
-                mSettingHelper.get().getDayNightModeStatus().getValue(),
-                is(UiModeManager.MODE_NIGHT_YES));
     }
 }

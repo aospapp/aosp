@@ -347,7 +347,7 @@ def fio_generate_graph():
         for log in logs.split():
             match = matcher.match(log)
             if not match:
-                logging.warn('Unknown log file %s', log)
+                logging.warning('Unknown log file %s', log)
                 continue
 
             jobname = match.group('jobname')

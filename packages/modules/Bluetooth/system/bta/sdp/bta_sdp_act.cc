@@ -27,6 +27,7 @@
 
 #include "bta/include/bta_sdp_api.h"
 #include "bta/sdp/bta_sdp_int.h"
+#include "btif/include/btif_profile_storage.h"
 #include "btif/include/btif_sock_sdp.h"
 #include "main/shim/metrics_api.h"
 #include "osi/include/allocator.h"
@@ -413,6 +414,20 @@ static void bta_sdp_search_cback(tSDP_RESULT result, const void* user_data) {
       } else if (uuid == UUID_SAP) {
         APPL_TRACE_DEBUG("%s() - found SAP uuid", __func__);
         bta_create_sap_sdp_record(&evt_data.records[count], p_rec);
+      } else if (uuid == UUID_PBAP_PCE) {
+        APPL_TRACE_DEBUG("%s() - found PBAP (PCE) uuid", __func__);
+        if (p_rec != NULL) {
+          uint16_t peer_pce_version = 0;
+
+          SDP_FindProfileVersionInRec(p_rec, UUID_SERVCLASS_PHONE_ACCESS,
+                                      &peer_pce_version);
+          if (peer_pce_version != 0) {
+            btif_storage_set_pce_profile_version(p_rec->remote_bd_addr,
+                                                 peer_pce_version);
+          }
+        } else {
+          APPL_TRACE_DEBUG("%s() - PCE Record is null", __func__);
+        }
       } else if (uuid == UUID_DIP) {
         APPL_TRACE_DEBUG("%s() - found DIP uuid", __func__);
         bta_create_dip_sdp_record(&evt_data.records[count], p_rec);

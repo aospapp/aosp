@@ -16,7 +16,7 @@
 
 #include "hci_socket_transport.h"
 
-#include "os/log.h"  // for LOG_INFO, LOG_ALWAYS_FATAL
+#include "log.h"  // for LOG_INFO, LOG_ALWAYS_FATAL
 
 namespace rootcanal {
 
@@ -57,7 +57,7 @@ void HciSocketTransport::RegisterCallbacks(PacketCallback command_callback,
       close_callback);
 }
 
-void HciSocketTransport::TimerTick() { h4_.OnDataReady(socket_); }
+void HciSocketTransport::Tick() { h4_.OnDataReady(socket_); }
 
 void HciSocketTransport::SendHci(PacketType packet_type,
                                  const std::vector<uint8_t>& packet) {

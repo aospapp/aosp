@@ -25,6 +25,7 @@ import android.app.ActivityManager;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.PackageInfoFlags;
 import android.media.IMediaCommunicationService;
 import android.media.IMediaCommunicationServiceCallback;
 import android.media.MediaController2;
@@ -358,7 +359,11 @@ public class MediaCommunicationService extends SystemService {
         public boolean isTrusted(String controllerPackageName, int controllerPid,
                 int controllerUid) {
             final int uid = Binder.getCallingUid();
-            final int userId = UserHandle.getUserHandleForUid(uid).getIdentifier();
+            final UserHandle callingUser = UserHandle.getUserHandleForUid(uid);
+            if (controllerUid < 0
+                    || getPackageUidForUser(controllerPackageName, callingUser) != controllerUid) {
+                return false;
+            }
             final long token = Binder.clearCallingIdentity();
             try {
                 // Don't perform check between controllerPackageName and controllerUid.
@@ -371,7 +376,7 @@ public class MediaCommunicationService extends SystemService {
                 // but it doesn't tell which package has created the MediaController, so useless.
                 return hasMediaControlPermission(controllerPid, controllerUid)
                         || hasEnabledNotificationListener(
-                        userId, controllerPackageName, controllerUid);
+                                callingUser.getIdentifier(), controllerPackageName, controllerUid);
             } finally {
                 Binder.restoreCallingIdentity(token);
             }
@@ -499,6 +504,22 @@ public class MediaCommunicationService extends SystemService {
             throw new SecurityException("Permission denied while calling from " + packageName
                     + " with user id: " + userId + "; Need to run as either the calling user id ("
                     + callingUserId + "), or with " + INTERACT_ACROSS_USERS_FULL + " permission");
+        }
+
+        /**
+         * Return the UID associated with the given package name and user, or -1 if no such package
+         * is available to the caller.
+         */
+        private int getPackageUidForUser(@NonNull String packageName, @NonNull UserHandle user) {
+            final PackageManager packageManager = mContext.getUser().equals(user)
+                    ? mContext.getPackageManager()
+                    : mContext.createContextAsUser(user, 0 /* flags */).getPackageManager();
+            try {
+                return packageManager.getPackageUid(packageName, 0 /* flags */);
+            } catch (PackageManager.NameNotFoundException e) {
+                // package is not available to the caller
+            }
+            return -1;
         }
     }
 

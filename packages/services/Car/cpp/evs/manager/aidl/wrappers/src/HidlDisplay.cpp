@@ -42,9 +42,15 @@ HidlDisplay::~HidlDisplay() {
 }
 
 Return<void> HidlDisplay::getDisplayInfo(getDisplayInfo_cb _hidl_cb) {
+    if (!mAidlDisplay) {
+        LOG(ERROR) << "A reference to AIDL IEvsDisplay is invalid.";
+        _hidl_cb({});
+        return {};
+    }
+
     DisplayDesc aidlDesc;
     if (auto status = mAidlDisplay->getDisplayInfo(&aidlDesc); !status.isOk()) {
-        LOG(WARNING) << "Failed to read a display information";
+        LOG(ERROR) << "Failed to read a display information";
         _hidl_cb({});
         return {};
     }
@@ -58,6 +64,11 @@ Return<void> HidlDisplay::getDisplayInfo(getDisplayInfo_cb _hidl_cb) {
 }
 
 Return<hidlevs::V1_0::EvsResult> HidlDisplay::setDisplayState(hidlevs::V1_0::DisplayState state) {
+    if (!mAidlDisplay) {
+        LOG(ERROR) << "A reference to AIDL IEvsDisplay is invalid.";
+        return hidlevs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR;
+    }
+
     if (auto status = mAidlDisplay->setDisplayState(Utils::makeFromHidl(state)); !status.isOk()) {
         return Utils::makeToHidl(static_cast<EvsResult>(status.getServiceSpecificError()));
     }
@@ -65,6 +76,11 @@ Return<hidlevs::V1_0::EvsResult> HidlDisplay::setDisplayState(hidlevs::V1_0::Dis
 }
 
 Return<hidlevs::V1_0::DisplayState> HidlDisplay::getDisplayState() {
+    if (!mAidlDisplay) {
+        LOG(ERROR) << "A reference to AIDL IEvsDisplay is invalid.";
+        return Utils::makeToHidl(DisplayState::DEAD);
+    }
+
     DisplayState aidlState;
     if (auto status = mAidlDisplay->getDisplayState(&aidlState); !status.isOk()) {
         return Utils::makeToHidl(DisplayState::DEAD);
@@ -74,6 +90,12 @@ Return<hidlevs::V1_0::DisplayState> HidlDisplay::getDisplayState() {
 }
 
 Return<void> HidlDisplay::getTargetBuffer(getTargetBuffer_cb _hidl_cb) {
+    if (!mAidlDisplay) {
+        LOG(ERROR) << "A reference to AIDL IEvsDisplay is invalid.";
+        _hidl_cb({});
+        return {};
+    }
+
     BufferDesc aidlBuffer;
     auto status = mAidlDisplay->getTargetBuffer(&aidlBuffer);
     if (!status.isOk()) {
@@ -92,6 +114,11 @@ Return<void> HidlDisplay::getTargetBuffer(getTargetBuffer_cb _hidl_cb) {
 
 Return<hidlevs::V1_0::EvsResult> HidlDisplay::returnTargetBufferForDisplay(
         const hidlevs::V1_0::BufferDesc& buffer) {
+    if (!mAidlDisplay) {
+        LOG(ERROR) << "A reference to AIDL IEvsDisplay is invalid.";
+        return hidlevs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR;
+    }
+
     if (buffer.bufferId != mHeldBuffer.bufferId) {
         LOG(WARNING) << "Ignores a request to return a buffer " << buffer.bufferId << "; a buffer "
                      << mHeldBuffer.bufferId << " is held.";
@@ -106,15 +133,22 @@ Return<hidlevs::V1_0::EvsResult> HidlDisplay::returnTargetBufferForDisplay(
 }
 
 Return<void> HidlDisplay::getDisplayInfo_1_1(getDisplayInfo_1_1_cb _hidl_cb) {
-    DisplayDesc aidlDesc;
-    if (auto status = mAidlDisplay->getDisplayInfo(&aidlDesc); !status.isOk()) {
-        LOG(WARNING) << "Failed to read a display information";
-        _hidl_cb({}, {});
+    ::android::hardware::hidl_vec<uint8_t> hidlMode(sizeof(::android::ui::DisplayMode));
+    ::android::hardware::hidl_vec<uint8_t> hidlState(sizeof(::android::ui::DisplayState));
+
+    if (!mAidlDisplay) {
+        LOG(ERROR) << "A reference to AIDL IEvsDisplay is invalid.";
+        _hidl_cb(hidlMode, hidlState);
         return {};
     }
 
-    ::android::hardware::hidl_vec<uint8_t> hidlMode(sizeof(::android::ui::DisplayMode));
-    ::android::hardware::hidl_vec<uint8_t> hidlState(sizeof(::android::ui::DisplayState));
+    DisplayDesc aidlDesc;
+    if (auto status = mAidlDisplay->getDisplayInfo(&aidlDesc); !status.isOk()) {
+        LOG(ERROR) << "Failed to read a display information";
+        _hidl_cb(hidlMode, hidlState);
+        return {};
+    }
+
     ::android::ui::DisplayMode* pMode =
             reinterpret_cast<::android::ui::DisplayMode*>(hidlMode.data());
     ::android::ui::DisplayState* pState =

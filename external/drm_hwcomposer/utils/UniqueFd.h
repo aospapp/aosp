@@ -17,6 +17,7 @@
 #ifndef UNIQUEFD_H_
 #define UNIQUEFD_H_
 
+#include <fcntl.h>
 #include <unistd.h>
 
 #include <memory>
@@ -71,6 +72,11 @@ class UniqueFd {
 
   auto Get [[nodiscard]] () const -> int {
     return fd_;
+  }
+
+  static auto Dup(int fd) {
+    // NOLINTNEXTLINE(android-cloexec-dup): fcntl has issue (see issue #63)
+    return UniqueFd(dup(fd));
   }
 
   explicit operator bool() const {

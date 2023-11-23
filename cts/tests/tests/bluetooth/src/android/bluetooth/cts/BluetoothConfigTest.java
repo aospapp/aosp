@@ -60,7 +60,6 @@ public class BluetoothConfigTest extends AndroidTestCase {
         super.tearDown();
         if (!mHasBluetooth) return;
 
-        assertTrue(BTAdapterUtils.disableAdapter(mAdapter, mContext));
         mAdapter = null;
         mUiAutomation.dropShellPermissionIdentity();
     }

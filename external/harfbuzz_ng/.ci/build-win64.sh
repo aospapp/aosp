@@ -3,12 +3,12 @@ set -e
 
 meson 	--cross-file=.ci/win64-cross-file.txt \
 	--wrap-mode=forcefallback \
-	--buildtype=release \
 	-Dtests=disabled \
 	-Dcairo=enabled \
 	-Dcairo:fontconfig=disabled \
+	-Dcairo:freetype=disabled \
 	-Dglib=enabled \
-	-Dfreetype=enabled \
+	-Dfreetype=disabled \
 	-Dgdi=enabled \
 	-Ddirectwrite=enabled \
 	-Dcairo=enabled \

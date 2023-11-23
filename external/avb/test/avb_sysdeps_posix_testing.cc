@@ -77,6 +77,13 @@ void avb_printv(const char* message, ...) {
   va_end(ap);
 }
 
+void avb_printf(const char* fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  vfprintf(stderr, fmt, ap);
+  va_end(ap);
+}
+
 typedef struct {
   size_t size;
   base::debug::StackTrace stack_trace;

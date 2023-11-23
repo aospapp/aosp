@@ -20,11 +20,10 @@ import static android.media.AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE
 import static android.media.AudioAttributes.USAGE_MEDIA;
 import static android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT;
 
-import static com.android.car.audio.CarAudioContext.MUSIC;
-import static com.android.car.audio.CarAudioContext.NAVIGATION;
+import static com.google.common.truth.Truth.assertWithMessage;
 
-import static com.google.common.truth.Truth.assertThat;
-
+import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -34,8 +33,12 @@ import android.media.AudioAttributes;
 import android.media.AudioFocusInfo;
 import android.util.SparseArray;
 
+import com.android.car.CarLocalServices;
 import com.android.car.audio.hal.AudioControlWrapper;
+import com.android.car.oem.CarOemAudioDuckingProxyService;
+import com.android.car.oem.CarOemProxyService;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,6 +47,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
+import java.util.Collections;
 import java.util.List;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -56,6 +60,17 @@ public final class CarDuckingTest {
     private static final String PRIMARY_NAVIGATION_ADDRESS = "primary_navigation_address";
     private static final String REAR_MEDIA_ADDRESS = "rear_media";
 
+    private static final CarAudioContext TEST_CAR_AUDIO_CONTEXT =
+            new CarAudioContext(CarAudioContext.getAllContextsInfo(),
+                    /* useCoreAudioRouting= */ false);
+
+    private static final @CarAudioContext.AudioContext int TEST_MEDIA_AUDIO_CONTEXT =
+            TEST_CAR_AUDIO_CONTEXT.getContextForAudioAttribute(
+                    CarAudioContext.getAudioAttributeFromUsage(USAGE_MEDIA));
+    private static final @CarAudioContext.AudioContext int TEST_NAVIGATION_AUDIO_CONTEXT =
+            TEST_CAR_AUDIO_CONTEXT.getContextForAudioAttribute(CarAudioContext
+                    .getAudioAttributeFromUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE));
+
     private final SparseArray<CarAudioZone> mCarAudioZones = generateZoneMocks();
     private final AudioFocusInfo mMediaFocusInfo = generateAudioFocusInfoForUsage(USAGE_MEDIA);
     private final AudioFocusInfo mNavigationFocusInfo =
@@ -65,6 +80,10 @@ public final class CarDuckingTest {
 
     @Mock
     private AudioControlWrapper mMockAudioControlWrapper;
+    @Mock
+    private CarOemProxyService mMockCarOemProxyService;
+    @Mock
+    private CarOemAudioDuckingProxyService mMockCarDuckingProxyService;
 
     @Captor
     private ArgumentCaptor<List<CarDuckingInfo>> mCarDuckingInfosCaptor;
@@ -76,20 +95,52 @@ public final class CarDuckingTest {
         mCarDucking = new CarDucking(mCarAudioZones, mMockAudioControlWrapper);
         mMediaFocusHolders.put(PRIMARY_ZONE_ID, List.of(mMediaFocusInfo));
         mMediaNavFocusHolders.put(PRIMARY_ZONE_ID, List.of(mMediaFocusInfo, mNavigationFocusInfo));
+        CarLocalServices.removeServiceForTest(CarOemProxyService.class);
+        CarLocalServices.addService(CarOemProxyService.class, mMockCarOemProxyService);
+    }
+
+    @After
+    public void tearDown() {
+        CarLocalServices.removeServiceForTest(CarOemProxyService.class);
+    }
+
+    @Test
+    public void constructor_withNullAudioZones_fails() {
+        NullPointerException thrown = assertThrows(NullPointerException.class, () -> {
+            new CarDucking(null, mMockAudioControlWrapper);
+        });
+
+        assertWithMessage("Null audio zone constructor exception")
+                .that(thrown).hasMessageThat().contains("Car audio zones can not be null");
+    }
+
+    @Test
+    public void constructor_withNullAudioControlWrapper_fails() {
+        NullPointerException thrown = assertThrows(NullPointerException.class, () -> {
+            new CarDucking(mCarAudioZones, null);
+        });
+
+        assertWithMessage("Null audio control wrapper constructor exception")
+                .that(thrown).hasMessageThat().contains("Audio control wrapper can not be null");
     }
 
     @Test
     public void constructor_initializesEmptyDuckingInfoForZones() {
         SparseArray<CarDuckingInfo> currentDuckingInfo = mCarDucking.getCurrentDuckingInfo();
 
-        assertThat(currentDuckingInfo.size()).isEqualTo(mCarAudioZones.size());
+        assertWithMessage("Ducking info size")
+                .that(currentDuckingInfo.size()).isEqualTo(mCarAudioZones.size());
         for (int i = 0; i < mCarAudioZones.size(); i++) {
             int zoneId = mCarAudioZones.keyAt(i);
             CarDuckingInfo duckingInfo = currentDuckingInfo.get(zoneId);
-            assertThat(duckingInfo).isNotNull();
-            assertThat(duckingInfo.mUsagesHoldingFocus).isEmpty();
-            assertThat(duckingInfo.mAddressesToDuck).isEmpty();
-            assertThat(duckingInfo.mAddressesToUnduck).isEmpty();
+            assertWithMessage("Ducking info object for zone %s", zoneId)
+                    .that(duckingInfo).isNotNull();
+            assertWithMessage("Ducking info metadata holding focus for zone %s", zoneId)
+                    .that(duckingInfo.mPlaybackMetaDataHoldingFocus).isEmpty();
+            assertWithMessage("Ducking info addresses to duck for zone %s", zoneId)
+                    .that(duckingInfo.mAddressesToDuck).isEmpty();
+            assertWithMessage("Ducking info addresses to unduck for zone %s", zoneId)
+                    .that(duckingInfo.mAddressesToUnduck).isEmpty();
         }
     }
 
@@ -98,8 +149,11 @@ public final class CarDuckingTest {
         mCarDucking.onFocusChange(ONE_ZONE_CHANGE, mMediaFocusHolders);
 
         SparseArray<CarDuckingInfo> newDuckingInfo = mCarDucking.getCurrentDuckingInfo();
-        assertThat(newDuckingInfo.get(PRIMARY_ZONE_ID).mUsagesHoldingFocus)
-                .asList().containsExactly(USAGE_MEDIA);
+
+        assertWithMessage("Audio attributes holding focus")
+                .that(CarHalAudioUtils.metadataToAudioAttributes(newDuckingInfo
+                        .get(PRIMARY_ZONE_ID).mPlaybackMetaDataHoldingFocus))
+                .containsExactly(CarAudioContext.getAudioAttributeFromUsage(USAGE_MEDIA));
     }
 
     @Test
@@ -107,8 +161,12 @@ public final class CarDuckingTest {
         mCarDucking.onFocusChange(ONE_ZONE_CHANGE, mMediaFocusHolders);
 
         SparseArray<CarDuckingInfo> newDuckingInfo = mCarDucking.getCurrentDuckingInfo();
-        assertThat(newDuckingInfo.get(PASSENGER_ZONE_ID).mUsagesHoldingFocus).isEmpty();
-        assertThat(newDuckingInfo.get(REAR_ZONE_ID).mUsagesHoldingFocus).isEmpty();
+
+        assertWithMessage("Passenger zone playback metadata holding focus")
+                .that(newDuckingInfo.get(PASSENGER_ZONE_ID)
+                        .mPlaybackMetaDataHoldingFocus).isEmpty();
+        assertWithMessage("Rear zone playback metadata holding focus")
+                .that(newDuckingInfo.get(REAR_ZONE_ID).mPlaybackMetaDataHoldingFocus).isEmpty();
     }
 
     @Test
@@ -116,7 +174,9 @@ public final class CarDuckingTest {
         mCarDucking.onFocusChange(ONE_ZONE_CHANGE, mMediaNavFocusHolders);
 
         SparseArray<CarDuckingInfo> newDuckingInfo = mCarDucking.getCurrentDuckingInfo();
-        assertThat(newDuckingInfo.get(PRIMARY_ZONE_ID).mAddressesToDuck)
+
+        assertWithMessage("Ducking info addresses to duck for multiple focus")
+                .that(newDuckingInfo.get(PRIMARY_ZONE_ID).mAddressesToDuck)
                 .containsExactly(PRIMARY_MEDIA_ADDRESS);
     }
 
@@ -127,7 +187,9 @@ public final class CarDuckingTest {
         mCarDucking.onFocusChange(ONE_ZONE_CHANGE, mMediaFocusHolders);
 
         SparseArray<CarDuckingInfo> newDuckingInfo = mCarDucking.getCurrentDuckingInfo();
-        assertThat(newDuckingInfo.get(PRIMARY_ZONE_ID).mAddressesToUnduck)
+
+        assertWithMessage("Ducking info addresses to unduck for multiple focus")
+                .that(newDuckingInfo.get(PRIMARY_ZONE_ID).mAddressesToUnduck)
                 .containsExactly(PRIMARY_MEDIA_ADDRESS);
     }
 
@@ -136,8 +198,14 @@ public final class CarDuckingTest {
         mCarDucking.onFocusChange(ONE_ZONE_CHANGE, mMediaFocusHolders);
 
         verify(mMockAudioControlWrapper).onDevicesToDuckChange(mCarDuckingInfosCaptor.capture());
-        int[] usagesHoldingFocus = mCarDuckingInfosCaptor.getValue().get(0).mUsagesHoldingFocus;
-        assertThat(usagesHoldingFocus).asList().containsExactly(USAGE_MEDIA);
+
+        List<AudioAttributes> audioAttributesList =
+                CarHalAudioUtils.metadataToAudioAttributes(
+                        mCarDuckingInfosCaptor.getValue().get(0).mPlaybackMetaDataHoldingFocus);
+
+        assertWithMessage("Audio attributes holding focus")
+                .that(audioAttributesList)
+                .containsExactly(CarAudioContext.getAudioAttributeFromUsage(USAGE_MEDIA));
     }
 
     @Test
@@ -145,8 +213,10 @@ public final class CarDuckingTest {
         mCarDucking.onFocusChange(ONE_ZONE_CHANGE, mMediaNavFocusHolders);
 
         verify(mMockAudioControlWrapper).onDevicesToDuckChange(mCarDuckingInfosCaptor.capture());
+
         List<String> addressesToDuck = mCarDuckingInfosCaptor.getValue().get(0).mAddressesToDuck;
-        assertThat(addressesToDuck).containsExactly(PRIMARY_MEDIA_ADDRESS);
+        assertWithMessage("Notified addresses to duck")
+                .that(addressesToDuck).containsExactly(PRIMARY_MEDIA_ADDRESS);
     }
 
     @Test
@@ -159,7 +229,8 @@ public final class CarDuckingTest {
                 .onDevicesToDuckChange(mCarDuckingInfosCaptor.capture());
         List<String> addressesToUnduck = mCarDuckingInfosCaptor.getValue().get(0)
                 .mAddressesToUnduck;
-        assertThat(addressesToUnduck).containsExactly(PRIMARY_MEDIA_ADDRESS);
+        assertWithMessage("Notified addresses to unduck")
+                .that(addressesToUnduck).containsExactly(PRIMARY_MEDIA_ADDRESS);
     }
 
     @Test
@@ -172,7 +243,98 @@ public final class CarDuckingTest {
         mCarDucking.onFocusChange(zoneIds, focusChanges);
 
         verify(mMockAudioControlWrapper).onDevicesToDuckChange(mCarDuckingInfosCaptor.capture());
-        assertThat(mCarDuckingInfosCaptor.getValue().size()).isEqualTo(zoneIds.length);
+        assertWithMessage("Notified ducking info, zone size")
+                .that(mCarDuckingInfosCaptor.getValue().size()).isEqualTo(zoneIds.length);
+    }
+
+    @Test
+    public void onFocusChange_withOemServiceAvailable_notifiesForEachZone() {
+        when(mMockCarOemProxyService.isOemServiceEnabled()).thenReturn(true);
+        when(mMockCarOemProxyService.isOemServiceReady()).thenReturn(false);
+        int[] zoneIds = new int[]{PRIMARY_ZONE_ID};
+        SparseArray<List<AudioFocusInfo>> focusChanges = new SparseArray<>();
+        focusChanges.put(PRIMARY_ZONE_ID, List.of(mMediaFocusInfo));
+
+        mCarDucking.onFocusChange(zoneIds, focusChanges);
+
+        verify(mMockAudioControlWrapper).onDevicesToDuckChange(mCarDuckingInfosCaptor.capture());
+        assertWithMessage("Notified ducking info with OEM enabled but not ready, zone size")
+                .that(mCarDuckingInfosCaptor.getValue().size()).isEqualTo(zoneIds.length);
+    }
+
+    @Test
+    public void onFocusChange_withOemServiceReady_notifiesForEachZone() {
+        when(mMockCarOemProxyService.isOemServiceEnabled()).thenReturn(true);
+        when(mMockCarOemProxyService.isOemServiceReady()).thenReturn(true);
+        int[] zoneIds = new int[]{PRIMARY_ZONE_ID};
+        SparseArray<List<AudioFocusInfo>> focusChanges = new SparseArray<>();
+        focusChanges.put(PRIMARY_ZONE_ID, List.of(mMediaFocusInfo));
+
+        mCarDucking.onFocusChange(zoneIds, focusChanges);
+
+        verify(mMockAudioControlWrapper).onDevicesToDuckChange(mCarDuckingInfosCaptor.capture());
+        assertWithMessage("Notified ducking info with OEM service and ready, zone size")
+                .that(mCarDuckingInfosCaptor.getValue().size()).isEqualTo(zoneIds.length);
+    }
+
+    @Test
+    public void onFocusChange_withOemDucking_notifiesForEachZone() {
+        enableOemDuckingService();
+        when(mMockCarDuckingProxyService.evaluateAttributesToDuck(any())).thenReturn(
+                Collections.EMPTY_LIST);
+        int[] zoneIds = new int[]{PRIMARY_ZONE_ID};
+        SparseArray<List<AudioFocusInfo>> focusChanges = new SparseArray<>();
+        focusChanges.put(PRIMARY_ZONE_ID, List.of(mMediaFocusInfo));
+
+        mCarDucking.onFocusChange(zoneIds, focusChanges);
+
+        verify(mMockAudioControlWrapper).onDevicesToDuckChange(mCarDuckingInfosCaptor.capture());
+        assertWithMessage("Notified ducking info with Ducking OEM service active, zone size")
+                .that(mCarDuckingInfosCaptor.getValue().size()).isEqualTo(zoneIds.length);
+    }
+
+    @Test
+    public void onFocusChange_withOemDuckingAndReturnMedia_ducksMedia() {
+        enableOemDuckingService();
+        when(mMockCarDuckingProxyService.evaluateAttributesToDuck(any()))
+                .thenReturn(List.of(CarAudioContext.getAudioAttributeFromUsage(USAGE_MEDIA)));
+        int[] zoneIds = new int[]{PRIMARY_ZONE_ID};
+        SparseArray<List<AudioFocusInfo>> focusChanges = new SparseArray<>();
+        focusChanges.put(PRIMARY_ZONE_ID, List.of(mMediaFocusInfo));
+
+        mCarDucking.onFocusChange(zoneIds, focusChanges);
+
+        verify(mMockAudioControlWrapper).onDevicesToDuckChange(mCarDuckingInfosCaptor.capture());
+        CarDuckingInfo info = mCarDuckingInfosCaptor.getValue().get(0);
+        assertWithMessage("Ducked device address from OEM service")
+                .that(info.getAddressesToDuck()).containsExactly(PRIMARY_MEDIA_ADDRESS);
+    }
+
+    @Test
+    public void onFocusChange_withOemDuckingCalledTwice_unducksMedia() {
+        enableOemDuckingService();
+        when(mMockCarDuckingProxyService.evaluateAttributesToDuck(any()))
+                .thenReturn(List.of(CarAudioContext.getAudioAttributeFromUsage(USAGE_MEDIA)))
+                .thenReturn(List.of());
+        int[] zoneIds = new int[]{PRIMARY_ZONE_ID};
+        SparseArray<List<AudioFocusInfo>> focusChanges = new SparseArray<>();
+        focusChanges.put(PRIMARY_ZONE_ID, List.of(mMediaFocusInfo));
+        mCarDucking.onFocusChange(zoneIds, focusChanges);
+
+        mCarDucking.onFocusChange(zoneIds, focusChanges);
+
+        verify(mMockAudioControlWrapper, times(2))
+                .onDevicesToDuckChange(mCarDuckingInfosCaptor.capture());
+        CarDuckingInfo info = mCarDuckingInfosCaptor.getValue().get(0);
+        assertWithMessage("Un-ducked device address from OEM service")
+                .that(info.getAddressesToUnduck()).containsExactly(PRIMARY_MEDIA_ADDRESS);
+    }
+
+    private void enableOemDuckingService() {
+        when(mMockCarOemProxyService.isOemServiceEnabled()).thenReturn(true);
+        when(mMockCarOemProxyService.isOemServiceReady()).thenReturn(true);
+        when(mMockCarOemProxyService.getCarOemAudioDuckingService())
+                .thenReturn(mMockCarDuckingProxyService);
     }
 
     private AudioFocusInfo generateAudioFocusInfoForUsage(int usage) {
@@ -185,17 +347,23 @@ public final class CarDuckingTest {
         SparseArray<CarAudioZone> zones = new SparseArray<>();
         CarAudioZone primaryZone = mock(CarAudioZone.class);
         when(primaryZone.getId()).thenReturn(PRIMARY_ZONE_ID);
-        when(primaryZone.getAddressForContext(MUSIC)).thenReturn(PRIMARY_MEDIA_ADDRESS);
-        when(primaryZone.getAddressForContext(NAVIGATION)).thenReturn(PRIMARY_NAVIGATION_ADDRESS);
+        when(primaryZone.getAddressForContext(TEST_MEDIA_AUDIO_CONTEXT))
+                .thenReturn(PRIMARY_MEDIA_ADDRESS);
+        when(primaryZone.getAddressForContext(TEST_NAVIGATION_AUDIO_CONTEXT))
+                .thenReturn(PRIMARY_NAVIGATION_ADDRESS);
+        when(primaryZone.getCarAudioContext()).thenReturn(TEST_CAR_AUDIO_CONTEXT);
         zones.append(PRIMARY_ZONE_ID, primaryZone);
 
         CarAudioZone passengerZone = mock(CarAudioZone.class);
         when(passengerZone.getId()).thenReturn(PASSENGER_ZONE_ID);
+        when(passengerZone.getCarAudioContext()).thenReturn(TEST_CAR_AUDIO_CONTEXT);
         zones.append(PASSENGER_ZONE_ID, passengerZone);
 
         CarAudioZone rearZone = mock(CarAudioZone.class);
         when(rearZone.getId()).thenReturn(REAR_ZONE_ID);
-        when(rearZone.getAddressForContext(MUSIC)).thenReturn(REAR_MEDIA_ADDRESS);
+        when(rearZone.getAddressForContext(TEST_MEDIA_AUDIO_CONTEXT))
+                .thenReturn(REAR_MEDIA_ADDRESS);
+        when(rearZone.getCarAudioContext()).thenReturn(TEST_CAR_AUDIO_CONTEXT);
         zones.append(REAR_ZONE_ID, rearZone);
 
         return zones;

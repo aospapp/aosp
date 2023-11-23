@@ -21,19 +21,19 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.media.AudioTrack.OnPlaybackPositionUpdateListener;
 import android.media.cts.AudioHelper;
-import android.media.cts.NonMediaMainlineTest;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
 import com.android.compatibility.common.util.DeviceReportLog;
+import com.android.compatibility.common.util.NonMainlineTest;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 
 import java.util.ArrayList;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 public class AudioTrack_ListenerTest extends CtsAndroidTestCase {
     private final static String TAG = "AudioTrack_ListenerTest";
     private static final String REPORT_LOG_NAME = "CtsMediaAudioTestCases";

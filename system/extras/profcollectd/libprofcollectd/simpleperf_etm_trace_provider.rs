@@ -38,14 +38,17 @@ impl TraceProvider for SimpleperfEtmTraceProvider {
         simpleperf_profcollect::has_device_support()
     }
 
-    fn trace(&self, trace_dir: &Path, tag: &str, sampling_period: &Duration) {
+    fn trace(&self, trace_dir: &Path, tag: &str, sampling_period: &Duration, binary_filter: &str) {
         let trace_file = trace_provider::get_path(trace_dir, tag, ETM_TRACEFILE_EXTENSION);
+        // Record ETM data for kernel space only when it's not filtered out by binary_filter. So we
+        // can get more ETM data for user space when ETM data for kernel space isn't needed.
+        let record_scope = if binary_filter.contains("kernel") {
+            simpleperf_profcollect::RecordScope::BOTH
+        } else {
+            simpleperf_profcollect::RecordScope::USERSPACE
+        };
 
-        simpleperf_profcollect::record(
-            &*trace_file,
-            sampling_period,
-            simpleperf_profcollect::RecordScope::BOTH,
-        );
+        simpleperf_profcollect::record(&trace_file, sampling_period, binary_filter, record_scope);
     }
 
     fn process(&self, trace_dir: &Path, profile_dir: &Path, binary_filter: &str) -> Result<()> {
@@ -75,6 +78,14 @@ impl TraceProvider for SimpleperfEtmTraceProvider {
             .filter(|e| e.is_file())
             .filter(is_etm_extension)
             .try_for_each(process_trace_file)
+    }
+
+    fn set_log_file(&self, filename: &Path) {
+        simpleperf_profcollect::set_log_file(filename);
+    }
+
+    fn reset_log_file(&self) {
+        simpleperf_profcollect::reset_log_file();
     }
 }
 

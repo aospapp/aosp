@@ -521,7 +521,7 @@ public final class AccessibilityInputMethodTest extends EndToEndImeTestBase {
                     event -> "onFinishInput".equals(event.getEventName())).isPresent()).isFalse();
 
             // Make sure that InputMethodManager#updateSelection() will be ignored when there is
-            // no change from the last call of InputMethodManager#interruptInput().
+            // no change from the last call of InputMethodManager#invalidateInput().
             runOnMainSync(() -> {
                 Selection.setSelection(myEditor.mEditable, newSelStart, newSelEnd);
                 myEditor.getContext().getSystemService(InputMethodManager.class).updateSelection(

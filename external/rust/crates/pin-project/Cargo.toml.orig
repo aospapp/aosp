@@ -1,6 +1,6 @@
 [package]
 name = "pin-project"
-version = "1.0.10"
+version = "1.0.12"
 edition = "2018"
 rust-version = "1.37"
 license = "Apache-2.0 OR MIT"
@@ -26,11 +26,14 @@ members = [
 ]
 
 [dependencies]
-pin-project-internal = { version = "=1.0.10", path = "pin-project-internal" }
+pin-project-internal = { version = "=1.0.12", path = "pin-project-internal" }
 
 [dev-dependencies]
 pin-project-auxiliary-macro = { path = "tests/auxiliary/macro" }
-macrotest = "1.0.8"
+macrotest = "1.0.9"
 rustversion = "1"
 static_assertions = "1"
 trybuild = "1.0.49"
+
+[patch.crates-io]
+prettyplease = { git = "https://github.com/taiki-e/prettyplease.git", branch = "dev" } # lower MSRV

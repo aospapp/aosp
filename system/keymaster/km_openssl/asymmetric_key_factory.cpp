@@ -16,6 +16,8 @@
 
 #include <keymaster/asymmetric_key_factory.h>
 
+#include <utility>
+
 #include <keymaster/android_keymaster_utils.h>
 
 #include <keymaster/km_openssl/asymmetric_key.h>
@@ -44,11 +46,12 @@ keymaster_error_t AsymmetricKeyFactory::LoadKey(KeymasterKeyBlob&& key_material,
                                                 AuthorizationSet&& sw_enforced,
                                                 UniquePtr<Key>* key) const {
     UniquePtr<AsymmetricKey> asym_key;
-    keymaster_error_t error = CreateEmptyKey(move(hw_enforced), move(sw_enforced), &asym_key);
+    keymaster_error_t error = CreateEmptyKey(std::move(hw_enforced), std::move(sw_enforced),
+                                             &asym_key);
     if (error != KM_ERROR_OK) return error;
 
     const uint8_t* tmp = key_material.key_material;
-    asym_key->key_material() = move(key_material);
+    asym_key->key_material() = std::move(key_material);
 
     EVP_PKEY* pkey = d2i_PrivateKey(asym_key->evp_key_type(), nullptr /* pkey */, &tmp,
                                     asym_key->key_material().key_material_size);

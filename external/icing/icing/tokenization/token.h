@@ -29,12 +29,36 @@ struct Token {
     VERBATIM,  // A token that should be indexed and searched without any
                // modifications to the raw text
 
+    // An RFC822 section with the content in RFC822_TOKEN tokenizes as follows:
+    RFC822_NAME,                     // "User", "Johnsson"
+    RFC822_COMMENT,                  // "A", "comment", "here"
+    RFC822_LOCAL_ADDRESS,            // "user.name"
+    RFC822_HOST_ADDRESS,             // "domain.name.com"
+    RFC822_ADDRESS,                  // "user.name@domain.name.com"
+    RFC822_ADDRESS_COMPONENT_LOCAL,  // "user", "name",
+    RFC822_ADDRESS_COMPONENT_HOST,   // "domain", "name", "com"
+    RFC822_TOKEN,  // "User Johnsson (A comment) <user.name@domain.name.com>"
+
     // Types only used in raw query
     QUERY_OR,         // Indicates OR logic between its left and right tokens
     QUERY_EXCLUSION,  // Indicates exclusion operation on next token
     QUERY_PROPERTY,   // Indicates property restrict on next token
     QUERY_LEFT_PARENTHESES,   // Left parentheses
     QUERY_RIGHT_PARENTHESES,  // Right parentheses
+
+    // Types used in URL tokenization
+    URL_SCHEME,  // "http", "https", "ftp", "content"
+    URL_USERNAME,
+    URL_PASSWORD,
+    URL_HOST_COMMON_PART,  // Hosts are split into two types, common and
+                           // significant. Common are e.g: www, ww2, .com, etc.
+    URL_HOST_SIGNIFICANT_PART,
+    URL_PORT,
+    URL_PATH_PART,  // Tokenized path, e.g. /abc-d/e.fg-> [abc-d], [e.fg]
+    URL_QUERY,      // After ?, before #, e.g. "param1=value-1&param2=value-2
+    URL_REF,        // Anything after #. Could be anything
+    URL_SUFFIX,
+    URL_SUFFIX_INNERMOST,
 
     // Indicates errors
     INVALID,
@@ -45,10 +69,10 @@ struct Token {
       : type(type_in), text(text_in) {}
 
   // The type of token
-  const Type type;
+  Type type;
 
   // The content of token
-  const std::string_view text;
+  std::string_view text;
 };
 
 }  // namespace lib

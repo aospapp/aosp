@@ -1,0 +1,57 @@
+//
+// Copyright (C) 2023 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+    default_visibility: [
+        "//external/spdx-tools:__subpackages__",
+        "//build/make/tools/compliance:__subpackages__",
+    ],
+}
+
+bootstrap_go_package {
+    name: "spdx-tools-tvloader_parser2v2",
+    pkgPath: "github.com/spdx/tools-golang/tvloader/parser2v2",
+    srcs: [
+        "parse_annotation.go",
+        "parse_creation_info.go",
+        "parse_file.go",
+        "parse_other_license.go",
+        "parse_package.go",
+        "parse_relationship.go",
+        "parse_review.go",
+        "parse_snippet.go",
+        "parser.go",
+        "types.go",
+        "util.go",
+    ],
+    deps: [
+        "spdx-tools-spdxcommon",
+        "spdx-tools-spdxv2_2",
+        "spdx-tools-reader",
+    ],
+    testSrcs: [
+        "parse_annotation_test.go",
+        "parse_creation_info_test.go",
+        "parse_file_test.go",
+        "parse_other_license_test.go",
+        "parse_package_test.go",
+        "parse_relationship_test.go",
+        "parse_review_test.go",
+        "parse_snippet_test.go",
+        "parser_test.go",
+        "util_test.go",
+    ],
+}

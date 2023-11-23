@@ -17,6 +17,7 @@
 #ifndef AUDIO_UTILS_HISTOGRAM_H
 #define AUDIO_UTILS_HISTOGRAM_H
 
+#include <assert.h>
 #include <memory>
 #include <sstream>
 #include <vector>

@@ -22,6 +22,6 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//:dagger_with_compiler",
-        "@google_bazel_common//third_party/java/jsr330_inject",
+        "//third_party/java/jsr330_inject",
     ],
 )

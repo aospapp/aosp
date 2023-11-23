@@ -65,7 +65,7 @@ int tst_parse_kver(const char *str_kver, int *v1, int *v2, int *v3)
 	/*
 	 * Check for a short version e.g '2.4'
 	 */
-	if (*str == ' ' || *str == '\0')
+	if (*str == ' ' || *str == '\0' || *str == '-')
 		return 0;
 
 	if (*(str++) != '.')
@@ -134,23 +134,14 @@ const char *tst_kvcmp_distname(const char *kver)
 	char *ret = distname;
 	char *p = distname;
 
-	if (strstr(kver, ".el5uek"))
-		return "OL5UEK";
-
-	if (strstr(kver, ".el5"))
-		return "RHEL5";
-
-	if (strstr(kver, ".el6uek"))
-		return "OL6UEK";
-
-	if (strstr(kver, ".el6"))
-		return "RHEL6";
-
 	if (strstr(kver, ".el7"))
 		return "RHEL7";
 
 	if (strstr(kver, ".el8"))
 		return "RHEL8";
+
+	if (strstr(kver, ".el9"))
+		return "RHEL9";
 
 	if (access(OSRELEASE_PATH, F_OK) != -1) {
 		SAFE_FILE_LINES_SCANF(NULL, OSRELEASE_PATH, "ID=%s", distname);

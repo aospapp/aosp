@@ -40,8 +40,8 @@ public final class AlwaysOnVpnCurrentUserPreferenceController
     }
 
     @Override
-    protected int getAvailabilityStatus() {
-        int superStatus = super.getAvailabilityStatus();
+    protected int getDefaultAvailabilityStatus() {
+        int superStatus = super.getDefaultAvailabilityStatus();
         if (superStatus != AVAILABLE) return superStatus;
 
         return mVpnManager.getAlwaysOnVpnPackageForUser(UserHandle.myUserId()) != null

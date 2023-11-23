@@ -90,7 +90,7 @@ abstract class DomainVerificationIntentTestBase(
         this.allResults = allResults
 
         if (assertResolvesToBrowsersInBefore) {
-            assertResolvesTo(browsers, debug = true)
+            assertResolvesTo(browsers)
         }
     }
 
@@ -104,33 +104,33 @@ abstract class DomainVerificationIntentTestBase(
     }
 
     protected fun assertResolvesTo(result: ComponentName, domain: String = this.domain) =
-            assertResolvesTo(listOf(result), domain)
+        assertResolvesTo(listOf(result), domain)
 
     protected fun assertResolvesTo(
-            components: Collection<ComponentName>,
-            domain: String = this.domain,
-            debug: Boolean = false
+        components: Collection<ComponentName>,
+        domain: String = this.domain,
     ) {
-        val message = if (debug) {
-            ShellUtils.runShellCommand(
-                "pm get-app-links --user ${context.userId} $DECLARING_PKG_NAME_1")
-        } else {
-            ""
-        }
+        val message = ShellUtils.runShellCommand(
+            "pm get-app-links --user ${context.userId} $DECLARING_PKG_NAME_1"
+        ) + "\n" + ShellUtils.runShellCommand(
+            "pm get-app-links --user ${context.userId} $DECLARING_PKG_NAME_2"
+        )
 
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("http://$domain"))
-                .applyIntentVariant(intentVariant)
+            .addFlags(Intent.FLAG_DEBUG_LOG_RESOLUTION)
+            .applyIntentVariant(intentVariant)
 
         // Pass MATCH_DEFAULT_ONLY to mirror startActivity resolution
         assertWithMessage(message)
             .that(packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
-            .map { it.activityInfo }
-            .map { ComponentName(it.packageName, it.name) })
+                .map { it.activityInfo }
+                .map { ComponentName(it.packageName, it.name) })
             .containsExactlyElementsIn(components)
 
         if (intent.hasCategory(Intent.CATEGORY_DEFAULT)) {
             // Verify explicit DEFAULT mirrors MATCH_DEFAULT_ONLY
-            assertThat(packageManager.queryIntentActivities(intent, 0)
+            assertWithMessage(message)
+                .that(packageManager.queryIntentActivities(intent, 0)
                 .map { it.activityInfo }
                 .map { ComponentName(it.packageName, it.name) })
                 .containsExactlyElementsIn(components)
@@ -144,10 +144,10 @@ abstract class DomainVerificationIntentTestBase(
             }
 
             // Verify that non-DEFAULT match returns all results
-            assertThat(
-                packageManager.queryIntentActivities(intent, 0)
+            assertWithMessage(message)
+                .that(packageManager.queryIntentActivities(intent, 0)
                     .map { it.activityInfo }
-                .map { ComponentName(it.packageName, it.name) })
+                    .map { ComponentName(it.packageName, it.name) })
                 .containsExactlyElementsIn(expected)
         }
     }
@@ -155,6 +155,7 @@ abstract class DomainVerificationIntentTestBase(
     private fun isComponentEnabled(enabledSetting: Int) = when (enabledSetting) {
         PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
         PackageManager.COMPONENT_ENABLED_STATE_ENABLED -> true
+
         else -> false
     }
 

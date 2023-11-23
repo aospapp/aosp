@@ -40,6 +40,7 @@ public final class ImeEvent {
         KnownUnsupportedType,
         Boolean,
         Integer,
+        Long,
         String,
         CharSequence,
         Exception,
@@ -76,6 +77,9 @@ public final class ImeEvent {
         }
         if (object instanceof Integer) {
             return ReturnType.Integer;
+        }
+        if (object instanceof Long) {
+            return ReturnType.Long;
         }
         if (object instanceof String) {
             return ReturnType.String;
@@ -152,6 +156,9 @@ public final class ImeEvent {
             case Integer:
                 bundle.putInt("mReturnValue", getReturnIntegerValue());
                 break;
+            case Long:
+                bundle.putLong("mReturnValue", getReturnLongValue());
+                break;
             case String:
                 bundle.putString("mReturnValue", getReturnStringValue());
                 break;
@@ -200,6 +207,9 @@ public final class ImeEvent {
                 break;
             case Integer:
                 result = bundle.getInt("mReturnValue");
+                break;
+            case Long:
+                result = bundle.getLong("mReturnValue");
                 break;
             case String:
                 result = bundle.getString("mReturnValue");
@@ -356,6 +366,22 @@ public final class ImeEvent {
             throw new ClassCastException();
         }
         return (Integer) mReturnValue;
+    }
+
+    /**
+     * @return result value of this event.
+     * @throws NullPointerException if the return value is {@code null}
+     * @throws ClassCastException if the return value is non-{@code null} object that is different
+     *                            from {@link Long}
+     */
+    public long getReturnLongValue() {
+        if (mReturnType == ReturnType.Null) {
+            throw new NullPointerException();
+        }
+        if (mReturnType != ReturnType.Long) {
+            throw new ClassCastException();
+        }
+        return (Long) mReturnValue;
     }
 
     /**

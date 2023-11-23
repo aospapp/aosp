@@ -72,8 +72,8 @@ else
 fi
 
 ABI=$(ls $AVD_DIR)
-if [[ $ABI != "x86" && $ABI != "x86_64" ]]; then
-  echo "ERROR: AVD image zip file format incorrect as $AVD_DIR should contain x86\ or x86_64\ as: https://source.android.com/devices/automotive/start/avd#pack-an-avd-image-zip-file "
+if [[ $ABI != "x86" && $ABI != "x86_64" && $ABI != "arm64" && $ABI != "arm64-v8a" ]]; then
+  echo "ERROR: AVD image zip file format incorrect as $AVD_DIR should contain x86, x86_64, arm64 or arm64-v8a as: https://source.android.com/devices/automotive/start/avd#pack-an-avd-image-zip-file "
   exit
 fi
 echo "ABI=$ABI"

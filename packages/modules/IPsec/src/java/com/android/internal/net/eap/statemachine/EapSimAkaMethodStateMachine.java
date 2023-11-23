@@ -20,11 +20,13 @@ import static com.android.internal.net.eap.EapAuthenticator.LOG;
 import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_REQUEST;
 import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_RESPONSE;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtEncrData.CIPHER_BLOCK_LENGTH;
+import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_COUNTER;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_ENCR_DATA;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_IV;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_MAC;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_NEXT_REAUTH_ID;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_NOTIFICATION;
+import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_PADDING;
 
 import android.net.eap.EapSessionConfig.EapUiccConfig;
 import android.telephony.TelephonyManager;
@@ -57,10 +59,12 @@ import com.android.internal.net.utils.Log;
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -94,7 +98,6 @@ public abstract class EapSimAkaMethodStateMachine extends EapMethodStateMachine 
     public final byte[] mKAut = new byte[getKAutLength()];
     public final byte[] mMsk = new byte[getMskLength()];
     public final byte[] mEmsk = new byte[getEmskLength()];
-
     @VisibleForTesting boolean mHasReceivedSimAkaNotification = false;
 
     final TelephonyManager mTelephonyManager;
@@ -102,6 +105,7 @@ public abstract class EapSimAkaMethodStateMachine extends EapMethodStateMachine 
     final EapUiccConfig mEapUiccConfig;
 
     @VisibleForTesting Mac mMacAlgorithm;
+    @VisibleForTesting SecureRandom mSecureRandom;
 
     EapSimAkaMethodStateMachine(
             TelephonyManager telephonyManager, byte[] eapIdentity, EapUiccConfig eapUiccConfig) {
@@ -297,7 +301,7 @@ public abstract class EapSimAkaMethodStateMachine extends EapMethodStateMachine 
 
     @VisibleForTesting
     LinkedHashMap<Integer, EapSimAkaAttribute> retrieveSecuredAttributes(
-            String tag, EapAkaTypeData typeData) {
+            String tag, EapSimAkaTypeData typeData) {
         AtEncrData atEncrData = (AtEncrData) typeData.attributeMap.get(EAP_AT_ENCR_DATA);
 
         if (atEncrData == null) {
@@ -481,11 +485,35 @@ public abstract class EapSimAkaMethodStateMachine extends EapMethodStateMachine 
         }
     }
 
+    // AT_COUNTER attribute MUST be included in EAP-AKA notifications and MUST be encrypted.
+    private int validateReauthAkaNotifyAndGetCounter(EapSimAkaTypeData eapSimAkaTypeData) {
+        Set<Integer> attrs = eapSimAkaTypeData.attributeMap.keySet();
+        if (attrs.contains(EAP_AT_IV)
+                && attrs.contains(EAP_AT_ENCR_DATA)
+                && attrs.contains(EAP_AT_MAC)) {
+            LinkedHashMap<Integer, EapSimAkaAttribute> securedAttributes =
+                    retrieveSecuredAttributes("Notification", eapSimAkaTypeData);
+            Set<Integer> securedAttrKeySet = securedAttributes.keySet();
+
+            if (securedAttrKeySet.contains(EAP_AT_COUNTER)
+                    && (securedAttrKeySet.size() == 1
+                            || (securedAttrKeySet.size() == 2
+                                    && securedAttrKeySet.contains(EAP_AT_PADDING)))) {
+                return ((EapSimAkaAttribute.AtCounter) securedAttributes.get(EAP_AT_COUNTER))
+                        .counter;
+            }
+        }
+        return -1;
+    }
+
     @VisibleForTesting
     EapResult handleEapSimAkaNotification(
             String tag,
             boolean isPreChallengeState,
+            boolean isReauthState,
+            boolean hadSuccessfulAuthLocal,
             int identifier,
+            int counterForReauth,
             EapSimAkaTypeData eapSimAkaTypeData) {
         // EAP-SIM exchanges must not include more than one EAP-SIM notification round
         // (RFC 4186#6.1, RFC 4187#6.1)
@@ -505,13 +533,10 @@ public abstract class EapSimAkaMethodStateMachine extends EapMethodStateMachine 
                         + " P=" + (atNotification.isPreSuccessfulChallenge ? "1" : "0")
                         + " Code=" + atNotification.notificationCode);
 
-        // P bit of notification code is only allowed after a successful challenge round. This is
-        // only possible in the ChallengeState (RFC 4186#6.1, RFC 4187#6.1)
-        if (isPreChallengeState && !atNotification.isPreSuccessfulChallenge) {
-            return buildClientErrorResponse(
-                    identifier, getEapMethod(), AtClientErrorCode.UNABLE_TO_PROCESS);
-        }
-
+        // Notification with P bit being set is accepted in both before and in ChallengeState.
+        // Specifically in ChallengeState, after client sends out the challenge response, it's
+        // unclear to the client whether the challenge succeeds or not, and server might send at
+        // most one AKA-Notification after that. Thus, P-0 should be accepted in ChallengeState.
         if (atNotification.isPreSuccessfulChallenge) {
             // AT_MAC attribute must not be included when the P bit is set (RFC 4186#9.8,
             // RFC 4187#9.10)
@@ -522,29 +547,63 @@ public abstract class EapSimAkaMethodStateMachine extends EapMethodStateMachine 
 
             return buildResponseMessage(
                     getEapMethod(), eapSimAkaTypeData.eapSubtype, identifier, Arrays.asList());
-        } else if (!eapSimAkaTypeData.attributeMap.containsKey(EAP_AT_MAC)) {
-            // MAC must be included for messages with their P bit not set (RFC 4186#9.8,
-            // RFC 4187#9.10)
+        }
+
+        // Notification with an unset P bit MUST not be sent before the challenge exchange.
+        if (isPreChallengeState) {
+            return buildClientErrorResponse(
+                    identifier, getEapMethod(), AtClientErrorCode.UNABLE_TO_PROCESS);
+        }
+
+        if (!eapSimAkaTypeData.attributeMap.containsKey(EAP_AT_MAC) || !hadSuccessfulAuthLocal) {
+            // Zero P bit notification should be received after server authenticated & MAC must be
+            // included in that notification. (RFC 4186#9.8, RFC 4187#9.10)
             return buildClientErrorResponse(
                     identifier, getEapMethod(), AtClientErrorCode.UNABLE_TO_PROCESS);
         }
 
         try {
             byte[] mac = getMac(EAP_CODE_REQUEST, identifier, eapSimAkaTypeData, new byte[0]);
-
             AtMac atMac = (AtMac) eapSimAkaTypeData.attributeMap.get(EAP_AT_MAC);
             if (!Arrays.equals(mac, atMac.mac)) {
                 // MAC in message != calculated mac
                 return buildClientErrorResponse(
                         identifier, getEapMethod(), AtClientErrorCode.UNABLE_TO_PROCESS);
             }
+
+            if (!isReauthState) {
+                // server has been authenticated, so we can send a response
+                return buildResponseMessageWithMac(
+                        identifier, eapSimAkaTypeData.eapSubtype, new byte[0]);
+            } else {
+                // AT_COUNTER attribute MUST be included in EAP-AKA notifications, if they are used
+                // after successful authentication in order to provide replay protection.
+                int receivedCounter = validateReauthAkaNotifyAndGetCounter(eapSimAkaTypeData);
+                LOG.d(
+                        tag,
+                        "Counter in Notification: "
+                                + receivedCounter
+                                + ",  Expecting counter for reauth"
+                                + counterForReauth);
+                if (counterForReauth == receivedCounter) {
+                    EapSimAkaAttribute.AtIv atIv = new EapSimAkaAttribute.AtIv(mSecureRandom);
+                    List<EapSimAkaAttribute> attributeList =
+                            buildReauthResponse(counterForReauth, false, mKEncr, atIv);
+                    return buildResponseMessageWithMac(
+                            identifier,
+                            eapSimAkaTypeData.eapSubtype,
+                            new byte[0],
+                            attributeList,
+                            null);
+                } else {
+                    return buildClientErrorResponse(
+                            identifier, getEapMethod(), AtClientErrorCode.UNABLE_TO_PROCESS);
+                }
+            }
         } catch (EapSilentException | EapSimAkaInvalidAttributeException ex) {
             // We can't continue if the MAC can't be generated
             return new EapError(ex);
         }
-
-        // server has been authenticated, so we can send a response
-        return buildResponseMessageWithMac(identifier, eapSimAkaTypeData.eapSubtype, new byte[0]);
     }
 
     abstract EapSimAkaTypeData getEapSimAkaTypeData(AtClientErrorCode clientErrorCode);

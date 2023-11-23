@@ -24,14 +24,13 @@
     <string name="auto_brightness_title" msgid="9124647862844666581">"Adaptiv parlaqlıq"</string>
     <string name="auto_brightness_summary" msgid="2002570577219479702">"Ekran parlaqlığını ətraf mühitə uyğunlaşdırın"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"Gecə İşığı aktivdir"</string>
-    <string name="night_mode_tile_label" msgid="6603597795502131664">"Gecə rejimi"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"Şəbəkə və internet"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"Mobil şəbəkə"</string>
     <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# SIM}other{# SIM}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"Aktiv / SIM"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"Deaktiv / SIM"</string>
-    <string name="mobile_network_active_esim" msgid="5864100786496761032">"Aktiv / Endirilən SIM"</string>
-    <string name="mobile_network_inactive_esim" msgid="1397332352238119032">"Deaktiv / Endirilən SIM"</string>
+    <string name="mobile_network_active_esim" msgid="5175362818078597096">"Aktiv / eSIM"</string>
+    <string name="mobile_network_inactive_esim" msgid="7273712403773327964">"Deaktiv / eSIM"</string>
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"Daha çox əlavə edin"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"Mobil data"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Mobil internetə giriş"</string>
@@ -43,7 +42,7 @@
     <string name="sim_change_data_title" msgid="6677115745127365131">"Mobil data üçün <xliff:g id="CARRIER">%1$s</xliff:g> istifadə edilsin?"</string>
     <string name="sim_change_data_message" msgid="4669775284395549069">"Mobil data üçün <xliff:g id="CARRIER2_0">%2$s</xliff:g> istifadə edirsiniz. <xliff:g id="CARRIER1">%1$s</xliff:g> operatoruna keçsəniz, <xliff:g id="CARRIER2_1">%2$s</xliff:g> artıq mobil data üçün istifadə olunmayacaq."</string>
     <string name="sim_change_data_ok" msgid="2348804996223271081">"<xliff:g id="CARRIER">%1$s</xliff:g> istifadə edin"</string>
-    <string name="roaming_title" msgid="6218635014519017734">"Rominq"</string>
+    <string name="roaming_title" msgid="6218635014519017734">"Rouminq"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"Rouminq zamanı data xidmətinə qoşulun"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"Data rominqə icazə verilsin?"</string>
     <string name="roaming_warning" msgid="4908184914868720704">"Rominq xərcləri arta bilər."</string>
@@ -177,6 +176,7 @@
     <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"Hamısına baxın"</string>
     <string name="progress_scanning" msgid="7191583064717479795">"Axtarılır"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"Bluetooth"</string>
+    <string name="bluetooth_toggle_title" msgid="1431803611346881088">"Bluetooth istifadə edin"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"Adsız cihaz"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"Birləşdirilmiş cihazlar"</string>
     <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"Cihaz əlavə edin"</string>
@@ -221,6 +221,9 @@
     <string name="bluetooth_notif_title" msgid="8374602799367803335">"Birləşdirmə sorğusu"</string>
     <string name="bluetooth_notif_message" msgid="1060821000510108726">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> ilə birləşdirmək üçün toxunun"</string>
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Bluetooth cihazını seçin"</string>
+    <string name="bluetooth_bonded_bluetooth_toggle_content_description" msgid="6800772154405846597">"Bluetooth"</string>
+    <string name="bluetooth_bonded_phone_toggle_content_description" msgid="8152794643249938377">"Telefon"</string>
+    <string name="bluetooth_bonded_media_toggle_content_description" msgid="7803420585378155404">"Media"</string>
     <string name="language_settings" msgid="2079258598337245546">"Dillər"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Dillər və daxiletmə"</string>
     <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Təklif edilmiş"</string>
@@ -300,14 +303,16 @@
     <string name="apps_and_notifications_settings" msgid="8704585874333781975">"Tətbiqlər və bildirişlər"</string>
     <string name="all_applications" msgid="7798210477486822168">"Bütün tətbiqləri göstərin"</string>
     <string name="default_applications" msgid="1558183275638697087">"Defolt tətbiqlər"</string>
+    <string name="performance_impacting_apps" msgid="3439260699394720569">"Performansa təsir edən tətbiqlər"</string>
     <string name="app_permissions" msgid="32799922508313948">"Tətbiq icazələri"</string>
     <string name="app_permissions_summary" msgid="5402214755935368418">"Tətbiqin datanıza girişinə nəzarət edin"</string>
     <string name="applications_settings" msgid="794261395191035632">"Tətbiq haqqında"</string>
-    <string name="force_stop" msgid="2153183697014720520">"Dayandırılsın"</string>
-    <string name="force_stop_dialog_title" msgid="3342850939200388694">"Dayandırılsın?"</string>
+    <string name="force_stop" msgid="1616958676171167028">"Tətbiqi dayandırın"</string>
+    <string name="force_stop_dialog_title" msgid="4481858344628934971">"Tətbiq dayandırılsın?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"Tətbiqi məcburi dayandırsanız, o, düzgün işləməyə bilər."</string>
-    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"\"Tətbiq performansını prioritetləşdir\" aktiv edilsin?"</string>
-    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"Bunu aktiv etməklə sistem stabil işləməyə və ya avadanlığa uzunmüddətli təsirin göstərilə bilər. Davam etmək istəyirsiniz?"</string>
+    <string name="force_stop_success_toast_text" msgid="2986272849275894254">"<xliff:g id="APP_NAME">%1$s</xliff:g> dayandırılıb."</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="3205297520523665568">"Tətbiq performansı prioritetləşdirilsin?"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="4321564728229192878">"Bu, sistemin düzgün işləməməsinə və ya avadanlığa uzunmüddətli təsirin göstərilməsinə yol aça bilər. Davam etmək istəyirsiniz?"</string>
     <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"Bəli"</string>
     <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"Xeyr, çox sağ olun"</string>
     <string name="disable_text" msgid="4358165448648990820">"Deaktiv edin"</string>
@@ -378,6 +383,7 @@
     <string name="apps_permission_manager_title" msgid="8776335943862484131">"İcazə meneceri"</string>
     <string name="apps_permission_manager_summary" msgid="4180424218228141274">"Tətbiqin datanıza girişinə nəzarət edin"</string>
     <string name="apps_default_apps_summary" msgid="2017792579839972926">"Assistent və daha çoxu üçün"</string>
+    <string name="performance_impacting_apps_summary" msgid="7762122057244111162">"{count,plural, =1{# tətbiq performansa təsir göstərir}other{# tətbiq performansa təsir göstərir}}"</string>
     <string name="apps_special_app_access_summary" msgid="6464767436309742163">"Sistem və digər ayarlara"</string>
     <string name="special_access" msgid="5730278220917123811">"Xüsusi tətbiq girişi"</string>
     <string name="show_system" msgid="4401355756969485287">"Sistemi göstərin"</string>
@@ -391,6 +397,8 @@
     <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"<xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> üçün bildiriş girişini deaktiv etsəniz, Narahat Etməyin girişi də deaktiv edilə bilər."</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"Deaktiv edin"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"Ləğv edin"</string>
+    <string name="performance_impacting_apps_description" msgid="7361464904617808444">"Bu tətbiqlər sistemin performansına mənfi təsir göstərir və onların arxa fonda işləməsinin qarşısı alınıb.\nArxa fonda istifadəyə icazə vermək üçün tətbiqi prioritetləşdirin və onu bu siyahıdan silin."</string>
+    <string name="performance_impacting_apps_button_label" msgid="8277507326717608783">"Tətbiqi prioritetləşdirin"</string>
     <string name="premium_sms_access_title" msgid="1409118461646148686">"Premium SMS girişi"</string>
     <string name="premium_sms_access_description" msgid="7119026067677052169">"Premium SMS müəyyən məbləğ tuta bilər və mobil operator fakturasına əlavə oluna bilər. Tətbiq üçün icazəni aktiv etsəniz, həmin tətbiqdən istifadə edərək, Premium SMS göndərə biləcəksiniz."</string>
     <string name="usage_access_title" msgid="7153427122072303254">"İstifadə girişi"</string>
@@ -401,22 +409,27 @@
     <string name="location_settings_title" msgid="901334356682423679">"Məkan"</string>
     <string name="location_toggle_title" msgid="836779750812064601">"Məkandan istifadə edin"</string>
     <string name="location_toggle_summary" msgid="7977868708102299495">"Təyin etdiyiniz tətbiqlərin məkanınıza girişinə icazə verin"</string>
-    <string name="location_toggle_off_warning" msgid="8396854289251143748">"Bunu deaktiv etsəniz, bütün tətbiqlər üçün məkana giriş silinəcək. Sürücü Yardımı tətbiqlərinin hələ də girişi olacaq."</string>
-    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"Sürücü Yardımı üçün məkan istifadə edin"</string>
+    <string name="location_toggle_off_warning" msgid="5959449346865136081">"Bunu deaktiv etsəniz, sürücü yardımı üçün tələb olunanlar xaric, bütün tətbiqlər üçün məkana giriş silinəcək"</string>
+    <string name="location_driver_assistance_toggle_title" msgid="3780157378527924932">"Sürücü yardımı üçün məkan istifadə edin"</string>
     <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"Avtomobilin məkanı deaktivdir"</string>
-    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"Sürücü Yardımı tətbiqləri məkanınıza giriş edə bilmir"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="6040822988891113026">"Sürücü yardımı tətbiqləri məkanınıza giriş edə bilmir"</string>
     <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"Dəyişin"</string>
     <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"Sürməyə kömək edən tətbiqlərin məkanınıza girişinə icazə verin"</string>
-    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"Bunu deaktiv etsəniz, məkan məlumatlarına əsaslanan Sürücü Yardımı tətbiqləri deaktiv ediləcək."</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="2733124752598498356">"Bunu deaktiv etsəniz, məkan məlumatlarına əsaslanan sürücü yardımı tətbiqləri deaktiv ediləcək"</string>
     <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"İstənilən halda deaktiv edin"</string>
-    <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Son Məkan Sorğuları"</string>
-    <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Məkan sorğusu yoxdur"</string>
+    <string name="location_recently_accessed" msgid="522888989582110975">"Son vaxtlar giriş edilib"</string>
+    <string name="location_settings_recently_accessed_title" msgid="6016264778609426382">"Son vaxtlar giriş edilib"</string>
+    <string name="location_settings_recently_accessed_view_all_title" msgid="6344830628885781448">"Hamısına baxın"</string>
+    <string name="location_no_recent_access" msgid="2859914321242257931">"Son tətbiq yoxdur"</string>
+    <string name="driver_assistance_label" msgid="9217315205754658940">"<xliff:g id="TIME">%1$s</xliff:g> • Sürücü yardımı"</string>
+    <string name="location_driver_assistance_privacy_policy_header_content" msgid="8118086439003674350">"Sürücü yardımı funksiyaları üçün bu avtomobilin məkanına giriş icazəsi olan tətbiqlər"</string>
+    <string name="location_driver_assistance_privacy_policy_button_text" msgid="669921557502414704">"Məxfilik siyasəti"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Tətbiq səviyyəsi icazələri"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Məkan Xidmətləri"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"Məkandan istifadə edin"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"Məkan GPS, Wi‑Fi, mobil şəbəkə və sensor kimi mənbələrdən cihazınızın məkanını təyin etmək üçün istifadə edə bilər."</string>
     <string name="driver_assistance_settings_title" msgid="4915804073177128915">"Sürücü yardımı"</string>
-    <string name="adas_settings_footer" msgid="5128483877858058534">"Sürücü Yardımı tətbiqlərinə göndərilən məkan məlumatları sizi tanıdan məlumatları ehtiva etmir. Silinməzdən əvvəl maksimum 2 gün saxlanılır."</string>
+    <string name="adas_settings_footer" msgid="6697021691244459156">"Sürücü yardımı tətbiqlərinə göndərilən məkan məlumatları sizi tanıdan məlumatları ehtiva etmir. Silinməzdən əvvəl maksimum 2 gün saxlanılır."</string>
     <string name="microphone_settings_title" msgid="7125554350537136922">"Mikrofon"</string>
     <string name="microphone_toggle_title" msgid="911586035332827275">"Mikrofondan istifadə edin"</string>
     <string name="microphone_toggle_summary" msgid="2682653449849128626">"Bütün tətbiqlərin mikrofonunuza girişinə icazə verin"</string>
@@ -432,6 +445,9 @@
     <string name="system_update_settings_title" msgid="8448588267784138855">"Sistem yenilənməsi"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"Qabaqcıl"</string>
     <string name="system_advanced_summary" msgid="5833643795981791953">"Haqqında, hüquqi məlumat, sıfırlama və daha çoxu"</string>
+    <string name="restart_infotainment_system_title" msgid="5174129167446756511">"Məlumat-əyləncə sistemini yenidən başladın"</string>
+    <string name="restart_infotainment_system_dialog_text" msgid="6395281407323116808">"Avtomobilinizin məlumat-əyləncə sisteminin yenidən başladılması bir neçə dəqiqə çəkə bilər. Davam etmək istəyirsiniz?"</string>
+    <string name="continue_confirmation" msgid="1598892163951467191">"Davam edin"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android versiyası"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android təhlükəsizlik gücləndirmə səviyyəsi"</string>
     <string name="hardware_info" msgid="3973165746261507658">"Model və avadanlıq"</string>
@@ -472,11 +488,11 @@
     <string name="developer_options_settings" msgid="1530739225109118480">"Tərtibatçı seçimləri"</string>
     <string name="reset_options_title" msgid="4388902952861833420">"Sıfırlama seçimləri"</string>
     <string name="reset_options_summary" msgid="5508201367420359293">"Şəbəkə, tətbiqlər və ya cihaz sıfırlaması"</string>
-    <string name="reset_network_title" msgid="1284233059990797263">"Şəbəkəni sıfırlayın"</string>
-    <string name="reset_network_desc" msgid="602381374544634925">"Bu aşağıdakılar da daxil olmaqla bütün şəbəkə ayarlarını sıfırlayacaq:"</string>
-    <string name="reset_network_item_wifi" msgid="7569481589699982698"><li>"Wi‑Fi"</li></string>
+    <string name="reset_network_title" msgid="3077846909739832734">"Wi‑Fi və Bluetooth\'u sıfırlayın"</string>
+    <string name="reset_network_desc" msgid="3332203703135823033">"Bu, daha öncə qoşulanları yaddaşdan silərək Wi‑Fi və Bluetooth ayarlarını sıfırlayacaq:"</string>
+    <string name="reset_network_item_wifi" msgid="2876370861806060314"><li>"Wi‑Fi şəbəkələri və parollar"</li></string>
     <string name="reset_network_item_mobile" msgid="5747282716664480997"><li>"Mobil məlumatlar"</li></string>
-    <string name="reset_network_item_bluetooth" msgid="6035019931106921284"><li>"Bluetooth"</li></string>
+    <string name="reset_network_item_bluetooth" msgid="7475279871421815601"><li>"Telefonlar və digər Bluetooth cihazları"</li></string>
     <string name="reset_esim_title" msgid="8132107637911831211">"Bütün nəqliyyat eSIM\'lərini silin"</string>
     <string name="reset_esim_desc" msgid="1437276625485586740">"Bu, xidmət planını ləğv etməyəcək."</string>
     <string name="reset_esim_error_title" msgid="7245109418130525492">"eSIM\'ləri sıfırlamaq mümkün deyil"</string>
@@ -574,7 +590,7 @@
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"Yaddaşı təmizləyin"</string>
     <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"Keşi təmizləyin"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"Tətbiq datası silinsin?"</string>
-    <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Bu tətbiq datası həmişəlik silinəcək. Buraya bütün fayllar, ayarlar, hesablar, data bazaları və sair aiddir."</string>
+    <string name="storage_clear_data_dlg_text" msgid="3255314337644212283">"Bu tətbiq datası həmişəlik silinəcək. Buraya fayllar, ayarlar, data bazaları və digər tətbiq datası daxildir."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Tətbiq üçün yaddaşı təmizləmək mümkün olmadı."</string>
     <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> təhlükəsiz şəkildə çıxarıldı"</string>
     <string name="storage_unmount_failure" msgid="4591934911541762883">"<xliff:g id="NAME">%1$s</xliff:g> təhlükəsiz şəkildə çıxarıla bilmədi"</string>
@@ -675,6 +691,7 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Ləğv edin"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Təsdiq edin"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Ən azı 4 simvol olmalıdır"</string>
+    <string name="locktype_unavailable" msgid="2678317466336249126">"Kilid növü əlçatan deyil."</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Yalnız 0-9 aralığında olmalıdır."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Cihaz admini son vaxtlardakı PIN kodu istifadə etməyə icazə vermir"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Ümumi PIN kodlar IT admini tərəfindən blok edilib. Fərqli PIN kod sınayın."</string>
@@ -699,7 +716,6 @@
     <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{# rəqəmdən az olmalıdır}other{# rəqəmdən az olmalıdır}}"</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Artan, azalan və ya təkrarlanan rəqəm ardıcıllığı qadağandır"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Ekran kilidi seçimləri"</string>
-    <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> gün əvvəl"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Kimlik bilgilərini silin"</string>
     <string name="credentials_reset_summary" msgid="6067911547500459637">"Bütün sertifikatları silin"</string>
     <string name="credentials_reset_hint" msgid="3459271621754137661">"Bütün məzmun silinsin?"</string>
@@ -722,10 +738,12 @@
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Demodan çıxın"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"RƏDD EDİN"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"Funksiya avtomobil idarə edərkən əlçatan deyil"</string>
+    <string name="restricted_for_passenger" msgid="7240117443887727753">"Sürücüdən ayarı dəyişməsini istəyin"</string>
+    <string name="restricted_for_driver" msgid="3364388937671526800">"Bu əməliyyat icra edilmir"</string>
     <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"Avtomobil idarə edərkən profil əlavə etmək mümkün deyil"</string>
     <string name="default_search_query" msgid="3137420627428857068">"Axtarış"</string>
     <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"Assistent və səs"</string>
-    <string name="assistant_and_voice_assistant_app_title" msgid="5981647244625171285">"Rəqəmsal assistent tətbiqi"</string>
+    <string name="assistant_and_voice_assistant_app_title" msgid="5981647244625171285">"Rəq. assistent tətbiqi"</string>
     <string name="assistant_and_voice_use_text_from_screen_title" msgid="5851460943413795599">"Ekrandakı mətni istifadə edin"</string>
     <string name="assistant_and_voice_use_text_from_screen_summary" msgid="4161751708121301541">"Assistentin ekran məzmununa girişinə icazə verin"</string>
     <string name="assistant_and_voice_use_screenshot_title" msgid="1930735578425470046">"Skrinşot istifadə edin"</string>
@@ -737,6 +755,7 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"Profil əlavə edin"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"Bu profili silin"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"Profil əlavə edin"</string>
+    <string name="cannot_remove_driver_profile" msgid="4109363161608717969">"Bu profilə sürücü kimi daxil olunub. Profil \"sürücü\" kimi istifadə edilmədikdə yenidən cəhd edin."</string>
     <string name="qc_display_brightness" msgid="2939655289816201170">"Displey parlaqlığı"</string>
     <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"Cihazlarınızı görmək üçün Bluetooth\'u aktiv edin"</string>
     <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"Cihazı birləşdirmək üçün Bluetooth ayarlarını açın"</string>
@@ -769,6 +788,7 @@
     <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# aktiv edilmiş tətbiq}other{# aktiv edilmiş tətbiq}}"</string>
     <string name="number_of_device_admins_none" msgid="5547493703413973954">"Aktiv edilmiş tətbiq yoxdur"</string>
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g> avtomobil siyasəti"</string>
+    <string name="work_policy_privacy_settings_no_org_name" msgid="8011687012493940230">"Avtomobil siyasəti"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Ayarlar təşkilat meneceri tərəfindən idarə edilir"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"<xliff:g id="SERVICE">%1$s</xliff:g> haqqında ətraflı məlumat"</string>
     <string name="enterprise_privacy_settings" msgid="6496900796150572727">"İdarə olunan avtomobil haqqında məlumat"</string>
@@ -791,7 +811,7 @@
     <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"Ən son şəbəkə trafiki qeydi"</string>
     <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"Ən son baq hesabatı"</string>
     <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"Ən son təhlükəsizlik jurnalı"</string>
-    <string name="enterprise_privacy_none" msgid="2566653655908700748">"Heç bir"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"Heç biri"</string>
     <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"Tətbiqlər quraşdırıldı"</string>
     <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"Məkan icazələri"</string>
     <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"Mikrofon icazələri"</string>

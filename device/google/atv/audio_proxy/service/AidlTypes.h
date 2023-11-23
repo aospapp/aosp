@@ -18,6 +18,8 @@
 #include <aidl/device/google/atv/audio_proxy/AudioConfig.h>
 #include <aidl/device/google/atv/audio_proxy/AudioDrain.h>
 #include <aidl/device/google/atv/audio_proxy/AudioFormat.h>
+#include <aidl/device/google/atv/audio_proxy/MmapBufferInfo.h>
+#include <aidl/device/google/atv/audio_proxy/PresentationPosition.h>
 #include <aidl/device/google/atv/audio_proxy/WriteStatus.h>
 
 namespace audio_proxy::service {
@@ -28,6 +30,10 @@ using AidlAudioChannelMask =
 using AidlAudioConfig = aidl::device::google::atv::audio_proxy::AudioConfig;
 using AidlAudioDrain = aidl::device::google::atv::audio_proxy::AudioDrain;
 using AidlAudioFormat = aidl::device::google::atv::audio_proxy::AudioFormat;
+using AidlMmapBufferInfo =
+    aidl::device::google::atv::audio_proxy::MmapBufferInfo;
+using AidlPresentationPosition =
+    aidl::device::google::atv::audio_proxy::PresentationPosition;
 using AidlWriteStatus = aidl::device::google::atv::audio_proxy::WriteStatus;
 
 }  // namespace audio_proxy::service

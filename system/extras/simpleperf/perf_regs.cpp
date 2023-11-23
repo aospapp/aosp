@@ -34,6 +34,8 @@ ArchType GetArchType(const std::string& arch) {
     return ARCH_X86_32;
   } else if (arch == "x86_64") {
     return ARCH_X86_64;
+  } else if (arch == "riscv64") {
+    return ARCH_RISCV64;
   } else if (arch == "aarch64") {
     return ARCH_ARM64;
   } else if (android::base::StartsWith(arch, "arm")) {
@@ -81,6 +83,8 @@ std::string GetArchString(ArchType arch) {
       return "arm64";
     case ARCH_ARM:
       return "arm";
+    case ARCH_RISCV64:
+      return "riscv64";
     default:
       break;
   }
@@ -99,6 +103,8 @@ uint64_t GetSupportedRegMask(ArchType arch) {
       return ((1ULL << PERF_REG_ARM_MAX) - 1);
     case ARCH_ARM64:
       return ((1ULL << PERF_REG_ARM64_MAX) - 1);
+    case ARCH_RISCV64:
+      return ((1ULL << PERF_REG_RISCV_MAX) - 1);
     default:
       return 0;
   }
@@ -123,6 +129,41 @@ static std::unordered_map<size_t, std::string> arm64_reg_map = {
     {PERF_REG_ARM64_LR, "lr"},
     {PERF_REG_ARM64_SP, "sp"},
     {PERF_REG_ARM64_PC, "pc"},
+};
+
+static std::unordered_map<size_t, std::string> riscv64_reg_map = {
+    {PERF_REG_RISCV_PC, "pc"},
+    {PERF_REG_RISCV_RA, "ra"},
+    {PERF_REG_RISCV_SP, "sp"},
+    {PERF_REG_RISCV_GP, "gp"},
+    {PERF_REG_RISCV_TP, "tp"},
+    {PERF_REG_RISCV_T0, "t0"},
+    {PERF_REG_RISCV_T1, "t1"},
+    {PERF_REG_RISCV_T2, "t2"},
+    {PERF_REG_RISCV_S0, "s0"},
+    {PERF_REG_RISCV_S1, "s1"},
+    {PERF_REG_RISCV_A0, "a0"},
+    {PERF_REG_RISCV_A1, "a1"},
+    {PERF_REG_RISCV_A2, "a2"},
+    {PERF_REG_RISCV_A3, "a3"},
+    {PERF_REG_RISCV_A4, "a4"},
+    {PERF_REG_RISCV_A5, "a5"},
+    {PERF_REG_RISCV_A6, "a6"},
+    {PERF_REG_RISCV_A7, "a7"},
+    {PERF_REG_RISCV_S2, "s2"},
+    {PERF_REG_RISCV_S3, "s3"},
+    {PERF_REG_RISCV_S4, "s4"},
+    {PERF_REG_RISCV_S5, "s5"},
+    {PERF_REG_RISCV_S6, "s6"},
+    {PERF_REG_RISCV_S7, "s7"},
+    {PERF_REG_RISCV_S8, "s8"},
+    {PERF_REG_RISCV_S9, "s9"},
+    {PERF_REG_RISCV_S10, "s10"},
+    {PERF_REG_RISCV_S11, "s11"},
+    {PERF_REG_RISCV_T3, "t3"},
+    {PERF_REG_RISCV_T4, "t4"},
+    {PERF_REG_RISCV_T5, "t5"},
+    {PERF_REG_RISCV_T6, "t6"},
 };
 
 std::string GetRegName(size_t regno, ArchType arch) {
@@ -155,6 +196,11 @@ std::string GetRegName(size_t regno, ArchType arch) {
       }
       auto it = arm64_reg_map.find(reg);
       CHECK(it != arm64_reg_map.end()) << "unknown reg " << reg;
+      return it->second;
+    }
+    case ARCH_RISCV64: {
+      auto it = riscv64_reg_map.find(reg);
+      CHECK(it != riscv64_reg_map.end()) << "unknown reg " << reg;
       return it->second;
     }
     default:
@@ -200,6 +246,9 @@ bool RegSet::GetSpRegValue(uint64_t* value) const {
     case ARCH_ARM64:
       regno = PERF_REG_ARM64_SP;
       break;
+    case ARCH_RISCV64:
+      regno = PERF_REG_RISCV_SP;
+      break;
     default:
       return false;
   }
@@ -218,6 +267,9 @@ bool RegSet::GetIpRegValue(uint64_t* value) const {
       break;
     case ARCH_ARM64:
       regno = PERF_REG_ARM64_PC;
+      break;
+    case ARCH_RISCV64:
+      regno = PERF_REG_RISCV_PC;
       break;
     default:
       return false;

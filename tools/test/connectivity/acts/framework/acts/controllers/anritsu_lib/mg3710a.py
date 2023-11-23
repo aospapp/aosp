@@ -18,10 +18,7 @@ Controller interface for Anritsu Signal Generator MG3710A.
 """
 
 import logging
-import time
 import socket
-from enum import Enum
-from enum import IntEnum
 
 from acts.controllers.anritsu_lib._anritsu_utils import AnritsuError
 from acts.controllers.anritsu_lib._anritsu_utils import NO_ERROR
@@ -56,8 +53,8 @@ class MG3710A(object):
         self.log.info("Opening Socket Connection with "
                       "Signal Generator MG3710A ({}) ".format(self._ipaddr))
         try:
-            self._sock = socket.create_connection(
-                (self._ipaddr, 49158), timeout=30)
+            self._sock = socket.create_connection((self._ipaddr, 49158),
+                                                  timeout=30)
             self.send_query("*IDN?", 60)
             self.log.info("Communication Signal Generator MG3710A OK.")
             self.log.info("Opened Socket connection to ({})"
@@ -698,8 +695,8 @@ class MG3710A(object):
         Returns:
             frequency offset
         """
-        return self.send_query(
-            "SOUR{}:RAD:ARB:WM{}:FREQ:OFFS?".format(sg, a_or_b))
+        return self.send_query("SOUR{}:RAD:ARB:WM{}:FREQ:OFFS?".format(
+            sg, a_or_b))
 
     def set_arb_freq_offset_aorb(self, a_or_b, offset, sg=1):
         """ Sets the frequency offset of Pattern A/Pattern B based on Baseband

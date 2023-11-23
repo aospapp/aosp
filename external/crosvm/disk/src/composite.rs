@@ -1,32 +1,63 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::cmp::{max, min};
+use std::cmp::max;
+use std::cmp::min;
 use std::collections::HashSet;
 use std::convert::TryInto;
-use std::fs::{File, OpenOptions};
-use std::io::{self, ErrorKind, Read, Seek, SeekFrom, Write};
+use std::fs::File;
+use std::fs::OpenOptions;
+use std::io;
+use std::io::ErrorKind;
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
+use std::io::Write;
 use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
-use base::{
-    open_file, AsRawDescriptors, FileAllocate, FileReadWriteAtVolatile, FileSetLen, FileSync,
-    PunchHole, RawDescriptor, WriteZeroesAt,
-};
+use async_trait::async_trait;
+use base::open_file;
+use base::AsRawDescriptors;
+use base::FileAllocate;
+use base::FileReadWriteAtVolatile;
+use base::FileSetLen;
+use base::RawDescriptor;
 use crc32fast::Hasher;
+use cros_async::BackingMemory;
+use cros_async::Executor;
+use cros_async::MemRegion;
 use data_model::VolatileSlice;
 use protobuf::Message;
-use protos::cdisk_spec::{self, ComponentDisk, CompositeDisk, ReadWriteCapability};
+use protos::cdisk_spec;
+use protos::cdisk_spec::ComponentDisk;
+use protos::cdisk_spec::CompositeDisk;
+use protos::cdisk_spec::ReadWriteCapability;
 use remain::sorted;
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::gpt::{
-    self, write_gpt_header, write_protective_mbr, GptPartitionEntry, GPT_BEGINNING_SIZE,
-    GPT_END_SIZE, GPT_HEADER_SIZE, GPT_NUM_PARTITIONS, GPT_PARTITION_ENTRY_SIZE, SECTOR_SIZE,
-};
-use crate::{create_disk_file, DiskFile, DiskGetLen, ImageType};
+use crate::create_disk_file;
+use crate::gpt;
+use crate::gpt::write_gpt_header;
+use crate::gpt::write_protective_mbr;
+use crate::gpt::GptPartitionEntry;
+use crate::gpt::GPT_BEGINNING_SIZE;
+use crate::gpt::GPT_END_SIZE;
+use crate::gpt::GPT_HEADER_SIZE;
+use crate::gpt::GPT_NUM_PARTITIONS;
+use crate::gpt::GPT_PARTITION_ENTRY_SIZE;
+use crate::gpt::SECTOR_SIZE;
+use crate::AsyncDisk;
+use crate::DiskFile;
+use crate::DiskGetLen;
+use crate::ImageType;
+use crate::ToAsyncDisk;
 
 /// The amount of padding needed between the last partition entry and the first partition, to align
 /// the partition appropriately. The two sectors are for the MBR and the GPT header.
@@ -93,6 +124,7 @@ struct ComponentDiskPart {
     file: Box<dyn DiskFile>,
     offset: u64,
     length: u64,
+    needs_fsync: bool,
 }
 
 impl ComponentDiskPart {
@@ -110,16 +142,22 @@ pub struct CompositeDiskFile {
     component_disks: Vec<ComponentDiskPart>,
 }
 
+// TODO(b/271381851): implement `try_clone`. It allows virtio-blk to run multiple workers.
+impl DiskFile for CompositeDiskFile {}
+
 fn ranges_overlap(a: &Range<u64>, b: &Range<u64>) -> bool {
-    // essentially !range_intersection(a, b).is_empty(), but that's experimental
-    let intersection = range_intersection(a, b);
-    intersection.start < intersection.end
+    range_intersection(a, b).is_some()
 }
 
-fn range_intersection(a: &Range<u64>, b: &Range<u64>) -> Range<u64> {
-    Range {
+fn range_intersection(a: &Range<u64>, b: &Range<u64>) -> Option<Range<u64>> {
+    let r = Range {
         start: max(a.start, b.start),
         end: min(a.end, b.end),
+    };
+    if r.is_empty() {
+        None
+    } else {
+        Some(r)
     }
 }
 
@@ -128,26 +166,17 @@ const COMPOSITE_DISK_VERSION: u64 = 2;
 
 /// A magic string placed at the beginning of a composite disk file to identify it.
 pub const CDISK_MAGIC: &str = "composite_disk\x1d";
-/// The length of the CDISK_MAGIC string. Created explicitly as a static constant so that it is
-/// possible to create a character array of the same length.
-pub const CDISK_MAGIC_LEN: usize = CDISK_MAGIC.len();
 
 impl CompositeDiskFile {
     fn new(mut disks: Vec<ComponentDiskPart>) -> Result<CompositeDiskFile> {
         disks.sort_by(|d1, d2| d1.offset.cmp(&d2.offset));
-        let contiguous_err = disks
-            .windows(2)
-            .map(|s| {
-                if s[0].offset == s[1].offset {
-                    let text = format!("Two disks at offset {}", s[0].offset);
-                    Err(Error::InvalidSpecification(text))
-                } else {
-                    Ok(())
-                }
-            })
-            .find(|r| r.is_err());
-        if let Some(Err(e)) = contiguous_err {
-            return Err(e);
+        for s in disks.windows(2) {
+            if s[0].offset == s[1].offset {
+                return Err(Error::InvalidSpecification(format!(
+                    "Two disks at offset {}",
+                    s[0].offset
+                )));
+            }
         }
         Ok(CompositeDiskFile {
             component_disks: disks,
@@ -159,12 +188,13 @@ impl CompositeDiskFile {
     /// buffer. Returns an error if it could not read the file or if the specification was invalid.
     pub fn from_file(
         mut file: File,
+        is_sparse_file: bool,
         max_nesting_depth: u32,
         image_path: &Path,
     ) -> Result<CompositeDiskFile> {
         file.seek(SeekFrom::Start(0))
             .map_err(Error::ReadSpecificationError)?;
-        let mut magic_space = [0u8; CDISK_MAGIC_LEN];
+        let mut magic_space = [0u8; CDISK_MAGIC.len()];
         file.read_exact(&mut magic_space[..])
             .map_err(Error::ReadSpecificationError)?;
         if magic_space != CDISK_MAGIC.as_bytes() {
@@ -179,10 +209,13 @@ impl CompositeDiskFile {
             .get_component_disks()
             .iter()
             .map(|disk| {
-                let path = if proto.get_version() == 1 {
-                    PathBuf::from(disk.get_file_path())
+                let writable =
+                    disk.get_read_write_capability() == cdisk_spec::ReadWriteCapability::READ_WRITE;
+                let component_path = PathBuf::from(disk.get_file_path());
+                let path = if component_path.is_relative() || proto.get_version() > 1 {
+                    image_path.parent().unwrap().join(component_path)
                 } else {
-                    image_path.parent().unwrap().join(disk.get_file_path())
+                    component_path
                 };
                 let comp_file = open_file(
                     &path,
@@ -192,11 +225,24 @@ impl CompositeDiskFile {
                     ), // TODO(b/190435784): add support for O_DIRECT.
                 )
                 .map_err(|e| Error::OpenFile(e.into(), disk.get_file_path().to_string()))?;
+
+                // Note that a read-only parts of a composite disk should NOT be marked sparse,
+                // as the action of marking them sparse is a write. This may seem a little hacky,
+                // and it is; however:
+                //    (a)  there is not a good way to pass sparseness parameters per composite disk
+                //         part (the proto does not have fields for it).
+                //    (b)  this override of sorts always matches the correct user intent.
                 Ok(ComponentDiskPart {
-                    file: create_disk_file(comp_file, max_nesting_depth, &path)
-                        .map_err(|e| Error::DiskError(Box::new(e)))?,
+                    file: create_disk_file(
+                        comp_file,
+                        is_sparse_file && writable,
+                        max_nesting_depth,
+                        &path,
+                    )
+                    .map_err(|e| Error::DiskError(Box::new(e)))?,
                     offset: disk.get_offset(),
                     length: 0, // Assigned later
+                    needs_fsync: false,
                 })
             })
             .collect::<Result<Vec<ComponentDiskPart>>>()?;
@@ -214,8 +260,7 @@ impl CompositeDiskFile {
                 return Err(Error::InvalidSpecification(text));
             }
         }
-        let num_disks = disks.len();
-        if let Some(last_disk) = disks.get_mut(num_disks - 1) {
+        if let Some(last_disk) = disks.last_mut() {
             if proto.get_length() <= last_disk.offset {
                 let text = format!(
                     "Full size of disk doesn't match last offset. {} <= {}",
@@ -253,13 +298,6 @@ impl CompositeDiskFile {
                 format!("no disk at offset {}", offset),
             ))
     }
-
-    fn disks_in_range<'a>(&'a mut self, range: &Range<u64>) -> Vec<&'a mut ComponentDiskPart> {
-        self.component_disks
-            .iter_mut()
-            .filter(|disk| ranges_overlap(&disk.range(), range))
-            .collect()
-    }
 }
 
 impl DiskGetLen for CompositeDiskFile {
@@ -271,15 +309,6 @@ impl DiskGetLen for CompositeDiskFile {
 impl FileSetLen for CompositeDiskFile {
     fn set_len(&self, _len: u64) -> io::Result<()> {
         Err(io::Error::new(ErrorKind::Other, "unsupported operation"))
-    }
-}
-
-impl FileSync for CompositeDiskFile {
-    fn fsync(&mut self) -> io::Result<()> {
-        for disk in self.component_disks.iter_mut() {
-            disk.file.fsync()?;
-        }
-        Ok(())
     }
 }
 
@@ -300,7 +329,7 @@ impl FileReadWriteAtVolatile for CompositeDiskFile {
             let new_size = disk.offset + disk.length - cursor_location;
             slice
                 .sub_slice(0, new_size as usize)
-                .map_err(|e| io::Error::new(ErrorKind::InvalidData, format!("{:?}", e)))?
+                .map_err(|e| io::Error::new(ErrorKind::InvalidData, e.to_string()))?
         } else {
             slice
         };
@@ -314,64 +343,16 @@ impl FileReadWriteAtVolatile for CompositeDiskFile {
             let new_size = disk.offset + disk.length - cursor_location;
             slice
                 .sub_slice(0, new_size as usize)
-                .map_err(|e| io::Error::new(ErrorKind::InvalidData, format!("{:?}", e)))?
+                .map_err(|e| io::Error::new(ErrorKind::InvalidData, e.to_string()))?
         } else {
             slice
         };
-        disk.file
-            .write_at_volatile(subslice, cursor_location - disk.offset)
-    }
-}
 
-impl PunchHole for CompositeDiskFile {
-    fn punch_hole(&mut self, offset: u64, length: u64) -> io::Result<()> {
-        let range = offset..(offset + length);
-        let disks = self.disks_in_range(&range);
-        for disk in disks {
-            let intersection = range_intersection(&range, &disk.range());
-            if intersection.start >= intersection.end {
-                continue;
-            }
-            let result = disk.file.punch_hole(
-                intersection.start - disk.offset,
-                intersection.end - intersection.start,
-            );
-            result?;
-        }
-        Ok(())
-    }
-}
-
-impl FileAllocate for CompositeDiskFile {
-    fn allocate(&mut self, offset: u64, length: u64) -> io::Result<()> {
-        let range = offset..(offset + length);
-        let disks = self.disks_in_range(&range);
-        for disk in disks {
-            let intersection = range_intersection(&range, &disk.range());
-            if intersection.start >= intersection.end {
-                continue;
-            }
-            let result = disk.file.allocate(
-                intersection.start - disk.offset,
-                intersection.end - intersection.start,
-            );
-            result?;
-        }
-        Ok(())
-    }
-}
-
-impl WriteZeroesAt for CompositeDiskFile {
-    fn write_zeroes_at(&mut self, offset: u64, length: usize) -> io::Result<usize> {
-        let cursor_location = offset;
-        let disk = self.disk_at_offset(cursor_location)?;
-        let offset_within_disk = cursor_location - disk.offset;
-        let new_length = if cursor_location + length as u64 > disk.offset + disk.length {
-            (disk.offset + disk.length - cursor_location) as usize
-        } else {
-            length
-        };
-        disk.file.write_zeroes_at(offset_within_disk, new_length)
+        let bytes = disk
+            .file
+            .write_at_volatile(subslice, cursor_location - disk.offset)?;
+        disk.needs_fsync = true;
+        Ok(bytes)
     }
 }
 
@@ -381,6 +362,205 @@ impl AsRawDescriptors for CompositeDiskFile {
             .iter()
             .flat_map(|d| d.file.as_raw_descriptors())
             .collect()
+    }
+}
+
+struct AsyncComponentDiskPart {
+    file: Box<dyn AsyncDisk>,
+    offset: u64,
+    length: u64,
+    needs_fsync: AtomicBool,
+}
+
+pub struct AsyncCompositeDiskFile {
+    component_disks: Vec<AsyncComponentDiskPart>,
+}
+
+impl DiskGetLen for AsyncCompositeDiskFile {
+    fn get_len(&self) -> io::Result<u64> {
+        Ok(self.length())
+    }
+}
+
+impl FileSetLen for AsyncCompositeDiskFile {
+    fn set_len(&self, _len: u64) -> io::Result<()> {
+        Err(io::Error::new(ErrorKind::Other, "unsupported operation"))
+    }
+}
+
+impl FileAllocate for AsyncCompositeDiskFile {
+    fn allocate(&mut self, offset: u64, length: u64) -> io::Result<()> {
+        let range = offset..(offset + length);
+        let disks = self
+            .component_disks
+            .iter_mut()
+            .filter(|disk| ranges_overlap(&disk.range(), &range));
+        for disk in disks {
+            if let Some(intersection) = range_intersection(&range, &disk.range()) {
+                disk.file.allocate(
+                    intersection.start - disk.offset,
+                    intersection.end - intersection.start,
+                )?;
+                disk.needs_fsync.store(true, Ordering::SeqCst);
+            }
+        }
+        Ok(())
+    }
+}
+
+impl ToAsyncDisk for CompositeDiskFile {
+    fn to_async_disk(self: Box<Self>, ex: &Executor) -> crate::Result<Box<dyn AsyncDisk>> {
+        Ok(Box::new(AsyncCompositeDiskFile {
+            component_disks: self
+                .component_disks
+                .into_iter()
+                .map(|disk| -> crate::Result<_> {
+                    Ok(AsyncComponentDiskPart {
+                        file: disk.file.to_async_disk(ex)?,
+                        offset: disk.offset,
+                        length: disk.length,
+                        needs_fsync: AtomicBool::new(disk.needs_fsync),
+                    })
+                })
+                .collect::<crate::Result<Vec<_>>>()?,
+        }))
+    }
+}
+
+impl AsyncComponentDiskPart {
+    fn range(&self) -> Range<u64> {
+        self.offset..(self.offset + self.length)
+    }
+
+    fn set_needs_fsync(&self) {
+        self.needs_fsync.store(true, Ordering::SeqCst);
+    }
+}
+
+impl AsyncCompositeDiskFile {
+    fn length(&self) -> u64 {
+        if let Some(disk) = self.component_disks.last() {
+            disk.offset + disk.length
+        } else {
+            0
+        }
+    }
+
+    fn disk_at_offset(&self, offset: u64) -> io::Result<&AsyncComponentDiskPart> {
+        self.component_disks
+            .iter()
+            .find(|disk| disk.range().contains(&offset))
+            .ok_or(io::Error::new(
+                ErrorKind::InvalidData,
+                format!("no disk at offset {}", offset),
+            ))
+    }
+
+    fn disks_in_range<'a>(&'a self, range: &Range<u64>) -> Vec<&'a AsyncComponentDiskPart> {
+        self.component_disks
+            .iter()
+            .filter(|disk| ranges_overlap(&disk.range(), range))
+            .collect()
+    }
+}
+
+#[async_trait(?Send)]
+impl AsyncDisk for AsyncCompositeDiskFile {
+    fn into_inner(self: Box<Self>) -> Box<dyn DiskFile> {
+        Box::new(CompositeDiskFile {
+            component_disks: self
+                .component_disks
+                .into_iter()
+                .map(|disk| ComponentDiskPart {
+                    file: disk.file.into_inner(),
+                    offset: disk.offset,
+                    length: disk.length,
+                    needs_fsync: disk.needs_fsync.into_inner(),
+                })
+                .collect(),
+        })
+    }
+
+    async fn fsync(&self) -> crate::Result<()> {
+        // TODO: handle the disks concurrently
+        for disk in self.component_disks.iter() {
+            if disk.needs_fsync.fetch_and(false, Ordering::SeqCst) {
+                if let Err(e) = disk.file.fsync().await {
+                    disk.set_needs_fsync();
+                    return Err(e);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn read_to_mem<'a>(
+        &'a self,
+        file_offset: u64,
+        mem: Arc<dyn BackingMemory + Send + Sync>,
+        mem_offsets: &'a [MemRegion],
+    ) -> crate::Result<usize> {
+        let disk = self
+            .disk_at_offset(file_offset)
+            .map_err(crate::Error::ReadingData)?;
+        let remaining_disk = disk.offset + disk.length - file_offset;
+        let mem_offsets = MemRegion::truncate(remaining_disk.try_into().unwrap(), mem_offsets);
+        disk.file
+            .read_to_mem(file_offset - disk.offset, mem, &mem_offsets)
+            .await
+    }
+
+    async fn write_from_mem<'a>(
+        &'a self,
+        file_offset: u64,
+        mem: Arc<dyn BackingMemory + Send + Sync>,
+        mem_offsets: &'a [MemRegion],
+    ) -> crate::Result<usize> {
+        let disk = self
+            .disk_at_offset(file_offset)
+            .map_err(crate::Error::ReadingData)?;
+        let remaining_disk = disk.offset + disk.length - file_offset;
+        let mem_offsets = MemRegion::truncate(remaining_disk.try_into().unwrap(), mem_offsets);
+        let n = disk
+            .file
+            .write_from_mem(file_offset - disk.offset, mem, &mem_offsets)
+            .await?;
+        disk.set_needs_fsync();
+        Ok(n)
+    }
+
+    async fn punch_hole(&self, file_offset: u64, length: u64) -> crate::Result<()> {
+        let range = file_offset..(file_offset + length);
+        let disks = self.disks_in_range(&range);
+        for disk in disks {
+            if let Some(intersection) = range_intersection(&range, &disk.range()) {
+                disk.file
+                    .punch_hole(
+                        intersection.start - disk.offset,
+                        intersection.end - intersection.start,
+                    )
+                    .await?;
+                disk.set_needs_fsync();
+            }
+        }
+        Ok(())
+    }
+
+    async fn write_zeroes_at(&self, file_offset: u64, length: u64) -> crate::Result<()> {
+        let range = file_offset..(file_offset + length);
+        let disks = self.disks_in_range(&range);
+        for disk in disks {
+            if let Some(intersection) = range_intersection(&range, &disk.range()) {
+                disk.file
+                    .write_zeroes_at(
+                        intersection.start - disk.offset,
+                        intersection.end - intersection.start,
+                    )
+                    .await?;
+                disk.set_needs_fsync();
+            }
+        }
+        Ok(())
     }
 }
 
@@ -658,13 +838,14 @@ pub fn create_zero_filler<P: AsRef<Path>>(zero_filler_path: P) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
+    use std::fs::OpenOptions;
+    use std::io::Write;
     use std::matches;
 
     use base::AsRawDescriptor;
-    use data_model::VolatileMemory;
     use tempfile::tempfile;
+
+    use super::*;
 
     #[test]
     fn block_duplicate_offset_disks() {
@@ -674,11 +855,13 @@ mod tests {
             file: Box::new(file1),
             offset: 0,
             length: 100,
+            needs_fsync: false,
         };
         let disk_part2 = ComponentDiskPart {
             file: Box::new(file2),
             offset: 0,
             length: 100,
+            needs_fsync: false,
         };
         assert!(CompositeDiskFile::new(vec![disk_part1, disk_part2]).is_err());
     }
@@ -691,13 +874,39 @@ mod tests {
             file: Box::new(file1),
             offset: 0,
             length: 100,
+            needs_fsync: false,
         };
         let disk_part2 = ComponentDiskPart {
             file: Box::new(file2),
             offset: 100,
             length: 100,
+            needs_fsync: false,
         };
         let composite = CompositeDiskFile::new(vec![disk_part1, disk_part2]).unwrap();
+        let len = composite.get_len().unwrap();
+        assert_eq!(len, 200);
+    }
+
+    #[test]
+    fn async_get_len() {
+        let file1 = tempfile().unwrap();
+        let file2 = tempfile().unwrap();
+        let disk_part1 = ComponentDiskPart {
+            file: Box::new(file1),
+            offset: 0,
+            length: 100,
+            needs_fsync: false,
+        };
+        let disk_part2 = ComponentDiskPart {
+            file: Box::new(file2),
+            offset: 100,
+            length: 100,
+            needs_fsync: false,
+        };
+        let composite = CompositeDiskFile::new(vec![disk_part1, disk_part2]).unwrap();
+
+        let ex = Executor::new().unwrap();
+        let composite = Box::new(composite).to_async_disk(&ex).unwrap();
         let len = composite.get_len().unwrap();
         assert_eq!(len, 200);
     }
@@ -709,51 +918,86 @@ mod tests {
             file: Box::new(file),
             offset: 0,
             length: 100,
+            needs_fsync: false,
         };
         let mut composite = CompositeDiskFile::new(vec![disk_part]).unwrap();
         let mut input_memory = [55u8; 5];
         let input_volatile_memory = VolatileSlice::new(&mut input_memory[..]);
         composite
-            .write_all_at_volatile(input_volatile_memory.get_slice(0, 5).unwrap(), 0)
+            .write_all_at_volatile(input_volatile_memory, 0)
             .unwrap();
         let mut output_memory = [0u8; 5];
         let output_volatile_memory = VolatileSlice::new(&mut output_memory[..]);
         composite
-            .read_exact_at_volatile(output_volatile_memory.get_slice(0, 5).unwrap(), 0)
+            .read_exact_at_volatile(output_volatile_memory, 0)
             .unwrap();
         assert_eq!(input_memory, output_memory);
     }
 
     #[test]
-    fn triple_file_fds() {
+    fn async_single_file_passthrough() {
+        let file = tempfile().unwrap();
+        let disk_part = ComponentDiskPart {
+            file: Box::new(file),
+            offset: 0,
+            length: 100,
+            needs_fsync: false,
+        };
+        let composite = CompositeDiskFile::new(vec![disk_part]).unwrap();
+        let ex = Executor::new().unwrap();
+        ex.run_until(async {
+            let composite = Box::new(composite).to_async_disk(&ex).unwrap();
+            let expected = [55u8; 5];
+            assert_eq!(
+                composite.write_double_buffered(0, &expected).await.unwrap(),
+                5
+            );
+            let mut buf = [0u8; 5];
+            assert_eq!(
+                composite
+                    .read_double_buffered(0, &mut buf[..])
+                    .await
+                    .unwrap(),
+                5
+            );
+            assert_eq!(buf, expected);
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn triple_file_descriptors() {
         let file1 = tempfile().unwrap();
         let file2 = tempfile().unwrap();
         let file3 = tempfile().unwrap();
-        let mut in_fds = vec![
+        let mut in_descriptors = vec![
             file1.as_raw_descriptor(),
             file2.as_raw_descriptor(),
             file3.as_raw_descriptor(),
         ];
-        in_fds.sort_unstable();
+        in_descriptors.sort_unstable();
         let disk_part1 = ComponentDiskPart {
             file: Box::new(file1),
             offset: 0,
             length: 100,
+            needs_fsync: false,
         };
         let disk_part2 = ComponentDiskPart {
             file: Box::new(file2),
             offset: 100,
             length: 100,
+            needs_fsync: false,
         };
         let disk_part3 = ComponentDiskPart {
             file: Box::new(file3),
             offset: 200,
             length: 100,
+            needs_fsync: false,
         };
         let composite = CompositeDiskFile::new(vec![disk_part1, disk_part2, disk_part3]).unwrap();
-        let mut out_fds = composite.as_raw_descriptors();
-        out_fds.sort_unstable();
-        assert_eq!(in_fds, out_fds);
+        let mut out_descriptors = composite.as_raw_descriptors();
+        out_descriptors.sort_unstable();
+        assert_eq!(in_descriptors, out_descriptors);
     }
 
     #[test]
@@ -765,34 +1009,37 @@ mod tests {
             file: Box::new(file1),
             offset: 0,
             length: 100,
+            needs_fsync: false,
         };
         let disk_part2 = ComponentDiskPart {
             file: Box::new(file2),
             offset: 100,
             length: 100,
+            needs_fsync: false,
         };
         let disk_part3 = ComponentDiskPart {
             file: Box::new(file3),
             offset: 200,
             length: 100,
+            needs_fsync: false,
         };
         let mut composite =
             CompositeDiskFile::new(vec![disk_part1, disk_part2, disk_part3]).unwrap();
         let mut input_memory = [55u8; 200];
         let input_volatile_memory = VolatileSlice::new(&mut input_memory[..]);
         composite
-            .write_all_at_volatile(input_volatile_memory.get_slice(0, 200).unwrap(), 50)
+            .write_all_at_volatile(input_volatile_memory, 50)
             .unwrap();
         let mut output_memory = [0u8; 200];
         let output_volatile_memory = VolatileSlice::new(&mut output_memory[..]);
         composite
-            .read_exact_at_volatile(output_volatile_memory.get_slice(0, 200).unwrap(), 50)
+            .read_exact_at_volatile(output_volatile_memory, 50)
             .unwrap();
         assert!(input_memory.iter().eq(output_memory.iter()));
     }
 
     #[test]
-    fn triple_file_punch_hole() {
+    fn async_triple_file_passthrough() {
         let file1 = tempfile().unwrap();
         let file2 = tempfile().unwrap();
         let file3 = tempfile().unwrap();
@@ -800,82 +1047,260 @@ mod tests {
             file: Box::new(file1),
             offset: 0,
             length: 100,
+            needs_fsync: false,
         };
         let disk_part2 = ComponentDiskPart {
             file: Box::new(file2),
             offset: 100,
             length: 100,
+            needs_fsync: false,
         };
         let disk_part3 = ComponentDiskPart {
             file: Box::new(file3),
             offset: 200,
             length: 100,
+            needs_fsync: false,
         };
-        let mut composite =
-            CompositeDiskFile::new(vec![disk_part1, disk_part2, disk_part3]).unwrap();
-        let mut input_memory = [55u8; 300];
-        let input_volatile_memory = VolatileSlice::new(&mut input_memory[..]);
-        composite
-            .write_all_at_volatile(input_volatile_memory.get_slice(0, 300).unwrap(), 0)
-            .unwrap();
-        composite.punch_hole(50, 200).unwrap();
-        let mut output_memory = [0u8; 300];
-        let output_volatile_memory = VolatileSlice::new(&mut output_memory[..]);
-        composite
-            .read_exact_at_volatile(output_volatile_memory.get_slice(0, 300).unwrap(), 0)
-            .unwrap();
+        let composite = CompositeDiskFile::new(vec![disk_part1, disk_part2, disk_part3]).unwrap();
+        let ex = Executor::new().unwrap();
+        ex.run_until(async {
+            let composite = Box::new(composite).to_async_disk(&ex).unwrap();
 
-        input_memory[50..250].iter_mut().for_each(|x| *x = 0);
-        assert!(input_memory.iter().eq(output_memory.iter()));
-    }
-
-    #[test]
-    fn triple_file_write_zeroes() {
-        let file1 = tempfile().unwrap();
-        let file2 = tempfile().unwrap();
-        let file3 = tempfile().unwrap();
-        let disk_part1 = ComponentDiskPart {
-            file: Box::new(file1),
-            offset: 0,
-            length: 100,
-        };
-        let disk_part2 = ComponentDiskPart {
-            file: Box::new(file2),
-            offset: 100,
-            length: 100,
-        };
-        let disk_part3 = ComponentDiskPart {
-            file: Box::new(file3),
-            offset: 200,
-            length: 100,
-        };
-        let mut composite =
-            CompositeDiskFile::new(vec![disk_part1, disk_part2, disk_part3]).unwrap();
-        let mut input_memory = [55u8; 300];
-        let input_volatile_memory = VolatileSlice::new(&mut input_memory[..]);
-        composite
-            .write_all_at_volatile(input_volatile_memory.get_slice(0, 300).unwrap(), 0)
-            .unwrap();
-        let mut zeroes_written = 0;
-        while zeroes_written < 200 {
-            zeroes_written += composite
-                .write_zeroes_at(50 + zeroes_written as u64, 200 - zeroes_written)
-                .unwrap();
-        }
-        let mut output_memory = [0u8; 300];
-        let output_volatile_memory = VolatileSlice::new(&mut output_memory[..]);
-        composite
-            .read_exact_at_volatile(output_volatile_memory.get_slice(0, 300).unwrap(), 0)
-            .unwrap();
-
-        input_memory[50..250].iter_mut().for_each(|x| *x = 0);
-        for i in 0..300 {
-            println!(
-                "input[{0}] = {1}, output[{0}] = {2}",
-                i, input_memory[i], output_memory[i]
+            let expected = [55u8; 200];
+            assert_eq!(
+                composite.write_double_buffered(0, &expected).await.unwrap(),
+                100
             );
-        }
-        assert!(input_memory.iter().eq(output_memory.iter()));
+            assert_eq!(
+                composite
+                    .write_double_buffered(100, &expected[100..])
+                    .await
+                    .unwrap(),
+                100
+            );
+
+            let mut buf = [0u8; 200];
+            assert_eq!(
+                composite
+                    .read_double_buffered(0, &mut buf[..])
+                    .await
+                    .unwrap(),
+                100
+            );
+            assert_eq!(
+                composite
+                    .read_double_buffered(100, &mut buf[100..])
+                    .await
+                    .unwrap(),
+                100
+            );
+            assert_eq!(buf, expected);
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn async_triple_file_punch_hole() {
+        let file1 = tempfile().unwrap();
+        let file2 = tempfile().unwrap();
+        let file3 = tempfile().unwrap();
+        let disk_part1 = ComponentDiskPart {
+            file: Box::new(file1),
+            offset: 0,
+            length: 100,
+            needs_fsync: false,
+        };
+        let disk_part2 = ComponentDiskPart {
+            file: Box::new(file2),
+            offset: 100,
+            length: 100,
+            needs_fsync: false,
+        };
+        let disk_part3 = ComponentDiskPart {
+            file: Box::new(file3),
+            offset: 200,
+            length: 100,
+            needs_fsync: false,
+        };
+        let composite = CompositeDiskFile::new(vec![disk_part1, disk_part2, disk_part3]).unwrap();
+        let ex = Executor::new().unwrap();
+        ex.run_until(async {
+            let composite = Box::new(composite).to_async_disk(&ex).unwrap();
+
+            let input = [55u8; 300];
+            assert_eq!(
+                composite.write_double_buffered(0, &input).await.unwrap(),
+                100
+            );
+            assert_eq!(
+                composite
+                    .write_double_buffered(100, &input[100..])
+                    .await
+                    .unwrap(),
+                100
+            );
+            assert_eq!(
+                composite
+                    .write_double_buffered(200, &input[200..])
+                    .await
+                    .unwrap(),
+                100
+            );
+
+            composite.punch_hole(50, 200).await.unwrap();
+
+            let mut buf = [0u8; 300];
+            assert_eq!(
+                composite
+                    .read_double_buffered(0, &mut buf[..])
+                    .await
+                    .unwrap(),
+                100
+            );
+            assert_eq!(
+                composite
+                    .read_double_buffered(100, &mut buf[100..])
+                    .await
+                    .unwrap(),
+                100
+            );
+            assert_eq!(
+                composite
+                    .read_double_buffered(200, &mut buf[200..])
+                    .await
+                    .unwrap(),
+                100
+            );
+
+            let mut expected = input;
+            expected[50..250].iter_mut().for_each(|x| *x = 0);
+            assert_eq!(buf, expected);
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn async_triple_file_write_zeroes() {
+        let file1 = tempfile().unwrap();
+        let file2 = tempfile().unwrap();
+        let file3 = tempfile().unwrap();
+        let disk_part1 = ComponentDiskPart {
+            file: Box::new(file1),
+            offset: 0,
+            length: 100,
+            needs_fsync: false,
+        };
+        let disk_part2 = ComponentDiskPart {
+            file: Box::new(file2),
+            offset: 100,
+            length: 100,
+            needs_fsync: false,
+        };
+        let disk_part3 = ComponentDiskPart {
+            file: Box::new(file3),
+            offset: 200,
+            length: 100,
+            needs_fsync: false,
+        };
+        let composite = CompositeDiskFile::new(vec![disk_part1, disk_part2, disk_part3]).unwrap();
+        let ex = Executor::new().unwrap();
+        ex.run_until(async {
+            let composite = Box::new(composite).to_async_disk(&ex).unwrap();
+
+            let input = [55u8; 300];
+            assert_eq!(
+                composite.write_double_buffered(0, &input).await.unwrap(),
+                100
+            );
+            assert_eq!(
+                composite
+                    .write_double_buffered(100, &input[100..])
+                    .await
+                    .unwrap(),
+                100
+            );
+            assert_eq!(
+                composite
+                    .write_double_buffered(200, &input[200..])
+                    .await
+                    .unwrap(),
+                100
+            );
+
+            composite.write_zeroes_at(50, 200).await.unwrap();
+
+            let mut buf = [0u8; 300];
+            assert_eq!(
+                composite
+                    .read_double_buffered(0, &mut buf[..])
+                    .await
+                    .unwrap(),
+                100
+            );
+            assert_eq!(
+                composite
+                    .read_double_buffered(100, &mut buf[100..])
+                    .await
+                    .unwrap(),
+                100
+            );
+            assert_eq!(
+                composite
+                    .read_double_buffered(200, &mut buf[200..])
+                    .await
+                    .unwrap(),
+                100
+            );
+
+            let mut expected = input;
+            expected[50..250].iter_mut().for_each(|x| *x = 0);
+            assert_eq!(buf, expected);
+        })
+        .unwrap();
+    }
+
+    // TODO: fsync on a RO file is legal, this test doesn't work as expected. Consider using a mock
+    // DiskFile to detect the fsync calls.
+    #[test]
+    fn async_fsync_skips_unchanged_parts() {
+        let mut rw_file = tempfile().unwrap();
+        rw_file.write_all(&[0u8; 100]).unwrap();
+        rw_file.seek(SeekFrom::Start(0)).unwrap();
+        let mut ro_disk_image = tempfile::NamedTempFile::new().unwrap();
+        ro_disk_image.write_all(&[0u8; 100]).unwrap();
+        let ro_file = OpenOptions::new()
+            .read(true)
+            .open(ro_disk_image.path())
+            .unwrap();
+
+        let rw_part = ComponentDiskPart {
+            file: Box::new(rw_file),
+            offset: 0,
+            length: 100,
+            needs_fsync: false,
+        };
+        let ro_part = ComponentDiskPart {
+            file: Box::new(ro_file),
+            offset: 100,
+            length: 100,
+            needs_fsync: false,
+        };
+        let composite = CompositeDiskFile::new(vec![rw_part, ro_part]).unwrap();
+        let ex = Executor::new().unwrap();
+        ex.run_until(async {
+            let composite = Box::new(composite).to_async_disk(&ex).unwrap();
+
+            // Write to the RW part so that some fsync operation will occur.
+            composite.write_zeroes_at(0, 20).await.unwrap();
+
+            // This is the test's assert. fsyncing should NOT touch a read-only disk part. On Windows,
+            // this would be an error.
+            composite.fsync().await.expect(
+                "Failed to fsync composite disk. \
+                     This can happen if the disk writable state is wrong.",
+            );
+        })
+        .unwrap();
     }
 
     #[test]

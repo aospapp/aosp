@@ -11,7 +11,7 @@ from autotest_lib.server import utils
 from autotest_lib.server.cros import provision
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
 
@@ -45,7 +45,14 @@ def provision_machine(machine):
     those given in job_labels.
     """
     job.record('START', None, 'provision')
-    host = hosts.create_target_machine(machine, try_lab_servo=True)
+    # Determine if we should initialize servo based on request type as
+    # we don't need servo in OS only provision.
+    need_servo = False
+    for label in labels_list:
+        if (label.startswith(provision.FW_RW_VERSION_PREFIX) or
+            label.startswith(provision.FW_RO_VERSION_PREFIX)):
+            need_servo = True
+    host = hosts.create_target_machine(machine, try_lab_servo=need_servo)
     try:
         job.sysinfo.add_logdir(
                 sysinfo.logdir(constants.AUTOUPDATE_PRESERVE_LOG))

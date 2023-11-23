@@ -17,6 +17,10 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.appenumeration.syncadapter">
+
+    <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
+
     <application>
         <uses-library android:name="android.test.runner" />
         <activity android:name="android.appenumeration.cts.TestActivity"

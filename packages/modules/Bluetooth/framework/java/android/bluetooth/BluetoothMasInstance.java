@@ -16,6 +16,7 @@
 
 package android.bluetooth;
 
+import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -58,8 +59,7 @@ public final class BluetoothMasInstance implements Parcelable {
         return 0;
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<BluetoothMasInstance> CREATOR =
-            new Parcelable.Creator<BluetoothMasInstance>() {
+    public static final @NonNull Creator<BluetoothMasInstance> CREATOR = new Creator<>() {
                 public BluetoothMasInstance createFromParcel(Parcel in) {
                     return new BluetoothMasInstance(in.readInt(), in.readString(),
                             in.readInt(), in.readInt());
@@ -78,6 +78,7 @@ public final class BluetoothMasInstance implements Parcelable {
         out.writeInt(mMsgTypes);
     }
 
+    /** @hide */
     public static final class MessageType {
         public static final int EMAIL = 0x01;
         public static final int SMS_GSM = 0x02;
@@ -101,6 +102,7 @@ public final class BluetoothMasInstance implements Parcelable {
         return mMsgTypes;
     }
 
+    /** @hide */
     public boolean msgSupported(int msg) {
         return (mMsgTypes & msg) != 0;
     }

@@ -33,28 +33,40 @@ using android::base::ReadFileToString;
 using android::base::WriteStringToFile;
 
 bool PcaChargeStats::CheckPcaContentsAndAck(std::string *file_contents) {
+    std::string path = kPcaChargeMetricsPath;
     std::string line;
     std::istringstream ss;
 
-    if (!ReadFileToString(kPcaChargeMetricsPath.c_str(), file_contents)) {
-        return false;
+    if (!ReadFileToString(path.c_str(), file_contents)) {
+        if (!ReadFileToString(kPca94xxChargeMetricsPath.c_str(), file_contents)) {
+            path = kDcChargeMetricsPath;
+        } else {
+            path = kPca94xxChargeMetricsPath;
+        }
+        if (!ReadFileToString(path.c_str(), file_contents)) {
+            return false;
+        }
     }
 
     ss.str(*file_contents);
 
     if (!std::getline(ss, line)) {
-        ALOGE("Unable to read first line %s - %s", kPcaChargeMetricsPath.c_str(), strerror(errno));
+        ALOGE("Unable to read first line %s - %s", path.c_str(), strerror(errno));
         return false;
     }
-    if (!WriteStringToFile(std::to_string(0), kPcaChargeMetricsPath.c_str())) {
-        ALOGE("Couldn't clear %s - %s", kPcaChargeMetricsPath.c_str(), strerror(errno));
+    if (!WriteStringToFile(std::to_string(0), path.c_str())) {
+        ALOGE("Couldn't clear %s - %s", path.c_str(), strerror(errno));
         return false;
     }
     return true;
 }
 
-PcaChargeStats::PcaChargeStats(const std::string pca_charge_metrics_path)
-    : kPcaChargeMetricsPath(pca_charge_metrics_path) {}
+PcaChargeStats::PcaChargeStats(const std::string pca_charge_metrics_path,
+                               const std::string pca94xx_charge_metrics_path,
+                               const std::string dc_charge_metrics_path)
+    : kPcaChargeMetricsPath(pca_charge_metrics_path),
+      kPca94xxChargeMetricsPath(pca94xx_charge_metrics_path),
+      kDcChargeMetricsPath(dc_charge_metrics_path) {}
 
 }  // namespace pixel
 }  // namespace google

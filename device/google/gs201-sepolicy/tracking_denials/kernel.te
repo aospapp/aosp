@@ -1,0 +1,2 @@
+# b/227121550
+dontaudit kernel vendor_votable_debugfs:dir search;

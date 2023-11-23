@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -22,7 +23,7 @@ class platform_KernelErrorPaths(test.test):
     def _run_client_command(self, command):
         try:
             # Simply sending the trigger into lkdtm resets the target
-            # immediately, leaving files unsaved to disk and the master ssh
+            # immediately, leaving files unsaved to disk and the ssh
             # connection wedged for a long time.
             self.client.run(
                 'sh -c "sync; sleep 1; %s" >/dev/null 2>&1 &' % command)
@@ -223,20 +224,18 @@ class platform_KernelErrorPaths(test.test):
         Test the kernel panic paths.
         """
 
-        # Figure out which kernel crash interface is available.
         interface = "/sys/kernel/debug/provoke-crash/DIRECT"
         trigger = lkdtm
-        breakme, timeout, all_cpu, text = kcrash_tuple
+        timeout, all_cpu, text = kcrash_tuple
         if not self._exists_on_client(interface):
-            interface = "/proc/breakme"
-            trigger = breakme
-            logging.info("Falling back to %s", interface)
+            raise error.TestFail('Missing interface "%s"' % interface)
 
         # Find out how many cpus we have
-        client_cpus = map(lambda x: int(x),
-            self.client.run(
-                'cat /proc/cpuinfo | grep processor | cut -f 2 -d :')
-                .stdout.split())
+        client_cpus = [
+                int(x) for x in self.client.run(
+                        'cat /proc/cpuinfo | grep processor | cut -f 2 -d :').
+                stdout.split()
+        ]
 
         # Skip any triggers that are undefined for the given interface.
         if trigger == None:
@@ -283,31 +282,33 @@ class platform_KernelErrorPaths(test.test):
 
         # kcrash data is given by a dictionary with key lkdtm string to write
         # to /sys/kernel/debug/provoke-crash/DIRECT on the target. The dict
-        # value is a tuple containing 1) the string to write to /proc/breakme.
-        # if lkdtm is not available, 2) the timeout, and 3)whether we run
-        # the tests on all CPUs or not. Some tests take less to run than other
+        # value is a tuple containing 1) the timeout and 2) whether we run the
+        # tests on all CPUs or not. Some tests take less to run than other
         # (null pointer and panic) so it would be best if we would run them on
-        # all the CPUS as it wouldn't add that much time to the total.
-        # The final component is the crash report string to look for in the
-        # crash dump after target restarts.
+        # all the CPUs as it wouldn't add that much time to the total. The
+        # final component is the crash report string to look for in the crash
+        # dump after target restarts.
         kcrash_types = {
-            'BUG' : ('bug', 10, False, ('kernel BUG at', 'BUG: failure at')),
-            'HUNG_TASK' : ('hungtask', 300, False, 'hung_task: blocked tasks'),
-            'SOFTLOCKUP' : (None, 25, False, 'BUG: soft lockup'),
-            'HARDLOCKUP' : ('nmiwatchdog', 50, False,
-                            'Watchdog detected hard LOCKUP'),
-            'SPINLOCKUP' : (None, 25, False, ('softlockup: hung tasks',
-                                             'BUG: scheduling while atomic',
-                                             'BUG: sleeping function called')),
-            'EXCEPTION' : ('nullptr',     10, True,
-             # Logs differ slightly between different kernels and archs (v5.4,
-             # x86, ARM), but all contain 'kernel NULL pointer dereference'.
-                           'kernel NULL pointer dereference'),
-            'PANIC' : ('panic', 10, True, 'Kernel panic - not syncing:'),
-            'CORRUPT_STACK' : (None, 10, True,
-                               'stack-protector: Kernel stack is '
-                               'corrupted in:')
-            }
+                'BUG': (10, False, ('kernel BUG at', 'BUG: failure at')),
+                'HUNG_TASK': (300, False, 'hung_task: blocked tasks'),
+                'SOFTLOCKUP': (25, False, 'BUG: soft lockup'),
+                'HARDLOCKUP': (50, False, 'Watchdog detected hard LOCKUP'),
+                'SPINLOCKUP': (25, False, ('softlockup: hung tasks',
+                                           'BUG: scheduling while atomic',
+                                           'BUG: sleeping function called')),
+                'EXCEPTION': (
+                        10,
+                        True,
+                        # Logs differ slightly between different kernels and archs. Many
+                        # contain 'kernel NULL pointer dereference', but some arm64 think
+                        # a NULL pointer may be a user-space address.
+                        ('kernel NULL pointer dereference',
+                         'Unable to handle kernel access to user memory '
+                         'outside uaccess routines')),
+                'PANIC': (10, True, 'Kernel panic - not syncing:'),
+                'CORRUPT_STACK':
+                (10, True, 'stack-protector: Kernel stack is corrupted in:')
+        }
 
         bad_kcrashes = []
 

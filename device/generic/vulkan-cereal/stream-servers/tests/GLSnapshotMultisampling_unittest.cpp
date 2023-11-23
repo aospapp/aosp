@@ -17,7 +17,9 @@
 
 #include <gtest/gtest.h>
 
-namespace emugl {
+namespace gfxstream {
+namespace gl {
+namespace {
 
 struct GlSampleCoverage {
     GLclampf value;
@@ -52,4 +54,6 @@ INSTANTIATE_TEST_SUITE_P(GLES2SnapshotMultisampling,
                          SnapshotGlSampleCoverageTest,
                          ::testing::ValuesIn(kGLES2TestSampleCoverages));
 
-}  // namespace emugl
+}  // namespace
+}  // namespace gl
+}  // namespace gfxstream

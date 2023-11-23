@@ -1,0 +1,2 @@
+/vendor/bin/dump/dump_gps           u:object_r:dump_gps_exec:s0
+

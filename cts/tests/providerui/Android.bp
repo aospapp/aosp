@@ -26,12 +26,14 @@ android_test {
     static_libs: [
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
-        "ub-uiautomator",
+        "androidx.test.uiautomator_uiautomator",
         "junit",
         "androidx.legacy_legacy-support-v4",
     ],
-    srcs: ["src/**/*.java",
-           ":CtsProviderTestUtils"],
+    srcs: [
+        "src/**/*.java",
+        ":CtsProviderTestUtils",
+    ],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",

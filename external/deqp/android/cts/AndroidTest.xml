@@ -280,4 +280,10 @@
 		<option name="incremental-deqp-include-file" value="vk-incremental-deqp.txt"/>
 		<option name="runtime-hint" value="10m"/>
 	</test>
+	<test class="com.drawelements.deqp.runner.DeqpTestRunner">
+		<option name="deqp-package" value="dEQP-VK"/>
+		<option name="deqp-caselist-file" value="vk-master-2023-03-01.txt"/>
+		<option name="incremental-deqp-include-file" value="vk-incremental-deqp.txt"/>
+		<option name="runtime-hint" value="10m"/>
+	</test>
 </configuration>

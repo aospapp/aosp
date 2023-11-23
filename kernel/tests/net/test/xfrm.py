@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2016 The Android Open Source Project
 #
@@ -122,16 +122,16 @@ XFRM_POLICY_ICMP = 2
 XFRM_STATE_AF_UNSPEC = 32
 
 # XFRM algorithm names, as defined in net/xfrm/xfrm_algo.c.
-XFRM_EALG_CBC_AES = "cbc(aes)"
-XFRM_EALG_CTR_AES = "rfc3686(ctr(aes))"
-XFRM_AALG_HMAC_MD5 = "hmac(md5)"
-XFRM_AALG_HMAC_SHA1 = "hmac(sha1)"
-XFRM_AALG_HMAC_SHA256 = "hmac(sha256)"
-XFRM_AALG_HMAC_SHA384 = "hmac(sha384)"
-XFRM_AALG_HMAC_SHA512 = "hmac(sha512)"
-XFRM_AALG_AUTH_XCBC_AES = "xcbc(aes)"
-XFRM_AEAD_GCM_AES = "rfc4106(gcm(aes))"
-XFRM_AEAD_CHACHA20_POLY1305 = "rfc7539esp(chacha20,poly1305)"
+XFRM_EALG_CBC_AES = b"cbc(aes)"
+XFRM_EALG_CTR_AES = b"rfc3686(ctr(aes))"
+XFRM_AALG_HMAC_MD5 = b"hmac(md5)"
+XFRM_AALG_HMAC_SHA1 = b"hmac(sha1)"
+XFRM_AALG_HMAC_SHA256 = b"hmac(sha256)"
+XFRM_AALG_HMAC_SHA384 = b"hmac(sha384)"
+XFRM_AALG_HMAC_SHA512 = b"hmac(sha512)"
+XFRM_AALG_AUTH_XCBC_AES = b"xcbc(aes)"
+XFRM_AEAD_GCM_AES = b"rfc4106(gcm(aes))"
+XFRM_AEAD_CHACHA20_POLY1305 = b"rfc7539esp(chacha20,poly1305)"
 
 # Data structure formats.
 # These aren't constants, they're classes. So, pylint: disable=invalid-name
@@ -213,7 +213,7 @@ UDP_ENCAP_ESPINUDP = 2
 
 _INF = 2 ** 64 -1
 NO_LIFETIME_CFG = XfrmLifetimeCfg((_INF, _INF, _INF, _INF, 0, 0, 0, 0))
-NO_LIFETIME_CUR = "\x00" * len(XfrmLifetimeCur)
+NO_LIFETIME_CUR = b"\x00" * len(XfrmLifetimeCur)
 
 # IPsec constants.
 IPSEC_PROTO_ANY = 255
@@ -243,7 +243,7 @@ def PaddedAddress(addr):
   """Converts an IP address string to binary format for InetDiagSockId."""
   padded = RawAddress(addr)
   if len(padded) < 16:
-    padded += "\x00" * (16 - len(padded))
+    padded += b"\x00" * (16 - len(padded))
   return padded
 
 
@@ -368,7 +368,7 @@ class Xfrm(netlink.NetlinkSocket):
     else:
       print("%s" % cmdname)
 
-  def _Decode(self, command, unused_msg, nla_type, nla_data):
+  def _Decode(self, command, unused_msg, nla_type, nla_data, nested):
     """Decodes netlink attributes to Python types."""
     name = self._GetConstantName(nla_type, "XFRMA_")
 
@@ -516,7 +516,7 @@ class Xfrm(netlink.NetlinkSocket):
     xfrm_id = XfrmId((PaddedAddress(dst), spi, proto))
     family = AF_INET6 if ":" in dst else AF_INET
 
-    nlattrs = ""
+    nlattrs = b""
     if encryption is not None:
       enc, key = encryption
       nlattrs += self._NlAttr(XFRMA_ALG_CRYPT, enc.Pack() + key)
@@ -602,7 +602,7 @@ class Xfrm(netlink.NetlinkSocket):
       min_spi: The minimum value of the acceptable SPI range (inclusive).
       max_spi: The maximum value of the acceptable SPI range (inclusive).
     """
-    spi = XfrmUserSpiInfo("\x00" * len(XfrmUserSpiInfo))
+    spi = XfrmUserSpiInfo(b"\x00" * len(XfrmUserSpiInfo))
     spi.min = min_spi
     spi.max = max_spi
     spi.info.id.daddr = PaddedAddress(dst)
@@ -618,15 +618,15 @@ class Xfrm(netlink.NetlinkSocket):
     if nl_hdr.type == XFRM_MSG_NEWSA:
       return XfrmUsersaInfo(data)
     if nl_hdr.type == netlink.NLMSG_ERROR:
-      error = netlink.NLMsgErr(data).error
-      raise IOError(error, os.strerror(-error))
+      error = -netlink.NLMsgErr(data).error
+      raise IOError(error, os.strerror(error))
     raise ValueError("Unexpected netlink message type: %d" % nl_hdr.type)
 
   def DumpSaInfo(self):
-    return self._Dump(XFRM_MSG_GETSA, None, XfrmUsersaInfo, "")
+    return self._Dump(XFRM_MSG_GETSA, None, XfrmUsersaInfo)
 
   def DumpPolicyInfo(self):
-    return self._Dump(XFRM_MSG_GETPOLICY, None, XfrmUserpolicyInfo, "")
+    return self._Dump(XFRM_MSG_GETPOLICY, None, XfrmUserpolicyInfo)
 
   def FindSaInfo(self, spi):
     sainfo = [sa for sa, attrs in self.DumpSaInfo() if sa.id.spi == spi]
@@ -635,7 +635,7 @@ class Xfrm(netlink.NetlinkSocket):
   def FlushPolicyInfo(self):
     """Send a Netlink Request to Flush all records from the SPD"""
     flags = netlink.NLM_F_REQUEST | netlink.NLM_F_ACK
-    self._SendNlRequest(XFRM_MSG_FLUSHPOLICY, "", flags)
+    self._SendNlRequest(XFRM_MSG_FLUSHPOLICY, b"", flags)
 
   def FlushSaInfo(self):
     usersa_flush = XfrmUsersaFlush((IPSEC_PROTO_ANY,))
@@ -753,9 +753,12 @@ class Xfrm(netlink.NetlinkSocket):
                       net_test.GetAddressFamily(net_test.GetAddressVersion(new_saddr))))
     nlattrs.append((XFRMA_MIGRATE, xfrmMigrate))
 
+    if xfrm_if_id is not None:
+      nlattrs.append((XFRMA_IF_ID, struct.pack("=I", xfrm_if_id)))
+
     for selector in selectors:
-        self.SendXfrmNlRequest(XFRM_MSG_MIGRATE,
-                               XfrmUserpolicyId(sel=selector, dir=direction), nlattrs)
+      self.SendXfrmNlRequest(XFRM_MSG_MIGRATE,
+                             XfrmUserpolicyId(sel=selector, dir=direction), nlattrs)
 
     # UPDSA is called exclusively to update the set_mark=new_output_mark.
     self.AddSaInfo(new_saddr, new_daddr, spi, XFRM_MODE_TUNNEL, 0, encryption,

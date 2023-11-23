@@ -15,16 +15,20 @@
  */
 package com.android.launcher3.taskbar;
 
+import static com.android.launcher3.Utilities.isRunningInTestHarness;
 import static com.android.launcher3.taskbar.TaskbarStashController.FLAG_IN_APP;
 import static com.android.launcher3.taskbar.TaskbarStashController.FLAG_IN_STASHED_LAUNCHER_STATE;
-import static com.android.launcher3.taskbar.TaskbarStashController.TASKBAR_STASH_DURATION;
 
 import android.animation.Animator;
 
+import com.android.launcher3.popup.SystemShortcut;
 import com.android.launcher3.statemanager.StateManager;
 import com.android.quickstep.RecentsActivity;
+import com.android.quickstep.TopTaskTracker;
 import com.android.quickstep.fallback.RecentsState;
 import com.android.quickstep.views.RecentsView;
+
+import java.util.stream.Stream;
 
 /**
  * A data source which integrates with the fallback RecentsActivity instance (for 3P launchers).
@@ -40,9 +44,19 @@ public class FallbackTaskbarUIController extends TaskbarUIController {
                     animateToRecentsState(toState);
 
                     // Handle tapping on live tile.
-                    RecentsView recentsView = mRecentsActivity.getOverviewPanel();
-                    recentsView.setTaskLaunchListener(toState == RecentsState.DEFAULT
+                    getRecentsView().setTaskLaunchListener(toState == RecentsState.DEFAULT
                             ? (() -> animateToRecentsState(RecentsState.BACKGROUND_APP)) : null);
+                }
+
+                @Override
+                public void onStateTransitionComplete(RecentsState finalState) {
+                    boolean finalStateDefault = finalState == RecentsState.DEFAULT;
+                    // TODO(b/268120202) Taskbar shows up on 3P home, currently we don't go to
+                    //  overview from 3P home. Either implement that or it'll change w/ contextual?
+                    boolean disallowLongClick = finalState == RecentsState.OVERVIEW_SPLIT_SELECT;
+                    Utilities.setOverviewDragState(mControllers,
+                            finalStateDefault /*disallowGlobalDrag*/, disallowLongClick,
+                            finalStateDefault /*allowInitialSplitSelection*/);
                 }
             };
 
@@ -70,19 +84,44 @@ public class FallbackTaskbarUIController extends TaskbarUIController {
      * Currently this animation just force stashes the taskbar in Overview.
      */
     public Animator createAnimToRecentsState(RecentsState toState, long duration) {
-        boolean forceStashed = toState.hasOverviewActions();
-        TaskbarStashController controller = mControllers.taskbarStashController;
+        // Force stash taskbar (disallow unstashing) when:
+        // - in a 3P launcher or overview task.
+        // - not running in a test harness (unstash is needed for tests)
+        boolean forceStash = isIn3pHomeOrRecents() && !isRunningInTestHarness();
+        TaskbarStashController stashController = mControllers.taskbarStashController;
         // Set both FLAG_IN_STASHED_LAUNCHER_STATE and FLAG_IN_APP to ensure the state is respected.
         // For all other states, just use the current stashed-in-app setting (e.g. if long clicked).
-        controller.updateStateForFlag(FLAG_IN_STASHED_LAUNCHER_STATE, forceStashed);
-        controller.updateStateForFlag(FLAG_IN_APP, !forceStashed);
-        return controller.applyStateWithoutStart(duration);
+        stashController.updateStateForFlag(FLAG_IN_STASHED_LAUNCHER_STATE, forceStash);
+        stashController.updateStateForFlag(FLAG_IN_APP, !forceStash);
+        return stashController.createApplyStateAnimator(duration);
     }
 
     private void animateToRecentsState(RecentsState toState) {
-        Animator anim = createAnimToRecentsState(toState, TASKBAR_STASH_DURATION);
+        Animator anim = createAnimToRecentsState(toState,
+                mControllers.taskbarStashController.getStashDuration());
         if (anim != null) {
             anim.start();
         }
+    }
+
+    @Override
+    public RecentsView getRecentsView() {
+        return mRecentsActivity.getOverviewPanel();
+    }
+
+    @Override
+    Stream<SystemShortcut.Factory<BaseTaskbarContext>> getSplitMenuOptions() {
+        if (isIn3pHomeOrRecents()) {
+            // Split from Taskbar is not supported in fallback launcher, so return empty stream
+            return Stream.empty();
+        } else {
+            return super.getSplitMenuOptions();
+        }
+    }
+
+    private boolean isIn3pHomeOrRecents() {
+        TopTaskTracker.CachedTaskInfo topTask = TopTaskTracker.INSTANCE
+                .get(mControllers.taskbarActivityContext).getCachedTopTask(true);
+        return topTask.isHomeTask() || topTask.isRecentsTask();
     }
 }

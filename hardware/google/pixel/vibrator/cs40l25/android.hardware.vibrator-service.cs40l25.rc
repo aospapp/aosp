@@ -71,7 +71,10 @@ service vendor.vibrator.cs40l25 /vendor/bin/hw/android.hardware.vibrator-service
         device/pwle_ramp_down
         device/q_stored
         device/redc_stored
+        device/vibe_state
         state
         "
+
+    setenv STATS_INSTANCE default
 
     disabled

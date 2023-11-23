@@ -37,6 +37,8 @@ TARGET_2ND_CPU_VARIANT_RUNTIME := cortex-a76
 
 BUILD_BROKEN_DUP_RULES := true
 BUILD_BROKEN_USES_BUILD_COPY_HEADERS := true
+# GOOGLE: workaround for https://android-review.googlesource.com/c/platform/system/sepolicy/+/1532995
+BUILD_BROKEN_VENDOR_PROPERTY_NAMESPACE := true
 
 TARGET_BOARD_COMMON_PATH := device/google/sunfish/sm7150
 
@@ -48,8 +50,10 @@ BOARD_KERNEL_CMDLINE += androidboot.memcg=1 cgroup.memory=nokmem
 BOARD_KERNEL_CMDLINE += lpm_levels.sleep_disabled=1 #STOPSHIP
 BOARD_KERNEL_CMDLINE += usbcore.autosuspend=7
 BOARD_KERNEL_CMDLINE += loop.max_part=7
+BOARD_KERNEL_CMDLINE += loop.hw_queue_depth=31
 BOARD_KERNEL_CMDLINE += androidboot.usbcontroller=a600000.dwc3 swiotlb=1
 BOARD_KERNEL_CMDLINE += androidboot.boot_devices=soc/1d84000.ufshc
+BOARD_KERNEL_CMDLINE += cgroup_disable=pressure
 
 #BOARD_KERNEL_CMDLINE += video=vfb:640x400,bpp=32,memsize=3072000 service_locator.enable=1 earlycon=msm_geni_serial,0x880000
 
@@ -250,13 +254,6 @@ BOARD_GOOGLE_DYNAMIC_PARTITIONS_SIZE := 4873781248
 
 # Set error limit to BOARD_SUPER_PARTITON_SIZE - 500MB
 BOARD_SUPER_PARTITION_ERROR_LIMIT := 9231663104
-
-# Note as of b/216531063, our sunfish_tuscany builds are
-# exceeding the super partition limit, causing all builds
-# to fail. Here we increase it by 600 MB to keep building.
-ifeq (,$(filter-out sunfish_tuscany, $(TARGET_PRODUCT)))
-BOARD_SUPER_PARTITION_ERROR_LIMIT := 9831663104
-endif
 
 # DTB
 ifeq (,$(filter-out sunfish_kasan, $(TARGET_PRODUCT)))

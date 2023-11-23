@@ -64,6 +64,7 @@ const int FIELD_ID_DURATION = 3;
 const int FIELD_ID_BUCKET_NUM = 4;
 const int FIELD_ID_START_BUCKET_ELAPSED_MILLIS = 5;
 const int FIELD_ID_END_BUCKET_ELAPSED_MILLIS = 6;
+const int FIELD_ID_CONDITION_TRUE_NS = 7;
 
 DurationMetricProducer::DurationMetricProducer(
         const ConfigKey& key, const DurationMetric& metric, const int conditionIndex,
@@ -114,6 +115,7 @@ DurationMetricProducer::DurationMetricProducer(
     // Dimensions in what must be subset of internal dimensions
     if (!subsetDimensions(mDimensionsInWhat, mInternalDimensions)) {
         ALOGE("Dimensions in what must be a subset of the internal dimensions");
+        // TODO: Add invalidConfigReason
         mValid = false;
     }
 
@@ -127,6 +129,7 @@ DurationMetricProducer::DurationMetricProducer(
             translateFieldMatcher(link.fields_in_condition(), &mc.conditionFields);
             if (!subsetDimensions(mc.metricFields, mInternalDimensions)) {
                 ALOGE(("Condition links must be a subset of the internal dimensions"));
+                // TODO: Add invalidConfigReason
                 mValid = false;
             }
             mMetric2ConditionLinks.push_back(mc);
@@ -142,6 +145,7 @@ DurationMetricProducer::DurationMetricProducer(
         translateFieldMatcher(stateLink.fields_in_state(), &ms.stateFields);
         if (!subsetDimensions(ms.metricFields, mInternalDimensions)) {
             ALOGE(("State links must be a subset of the dimensions in what  internal dimensions"));
+            // TODO: Add invalidConfigReason
             mValid = false;
         }
         mMetric2StateLinks.push_back(ms);
@@ -156,17 +160,20 @@ DurationMetricProducer::DurationMetricProducer(
     flushIfNeededLocked(startTimeNs);
     // Adjust start for partial bucket
     mCurrentBucketStartTimeNs = startTimeNs;
-    VLOG("metric %lld created. bucket size %lld start_time: %lld", (long long)metric.id(),
+    VLOG("metric %lld created. bucket size %lld start_time: %lld", (long long)mMetricId,
          (long long)mBucketSizeNs, (long long)mTimeBaseNs);
 
     initTrueDimensions(whatIndex, startTimeNs);
+    mConditionTimer.newBucketStart(mCurrentBucketStartTimeNs, mCurrentBucketStartTimeNs);
+    mConditionTimer.onConditionChanged(mIsActive && mCondition == ConditionState::kTrue,
+                                       mCurrentBucketStartTimeNs);
 }
 
 DurationMetricProducer::~DurationMetricProducer() {
     VLOG("~DurationMetric() called");
 }
 
-bool DurationMetricProducer::onConfigUpdatedLocked(
+optional<InvalidConfigReason> DurationMetricProducer::onConfigUpdatedLocked(
         const StatsdConfig& config, const int configIndex, const int metricIndex,
         const vector<sp<AtomMatchingTracker>>& allAtomMatchingTrackers,
         const unordered_map<int64_t, int>& oldAtomMatchingTrackerMap,
@@ -180,68 +187,76 @@ bool DurationMetricProducer::onConfigUpdatedLocked(
         unordered_map<int, vector<int>>& activationAtomTrackerToMetricMap,
         unordered_map<int, vector<int>>& deactivationAtomTrackerToMetricMap,
         vector<int>& metricsWithActivation) {
-    if (!MetricProducer::onConfigUpdatedLocked(
-                config, configIndex, metricIndex, allAtomMatchingTrackers,
-                oldAtomMatchingTrackerMap, newAtomMatchingTrackerMap, matcherWizard,
-                allConditionTrackers, conditionTrackerMap, wizard, metricToActivationMap,
-                trackerToMetricMap, conditionToMetricMap, activationAtomTrackerToMetricMap,
-                deactivationAtomTrackerToMetricMap, metricsWithActivation)) {
-        return false;
+    optional<InvalidConfigReason> invalidConfigReason = MetricProducer::onConfigUpdatedLocked(
+            config, configIndex, metricIndex, allAtomMatchingTrackers, oldAtomMatchingTrackerMap,
+            newAtomMatchingTrackerMap, matcherWizard, allConditionTrackers, conditionTrackerMap,
+            wizard, metricToActivationMap, trackerToMetricMap, conditionToMetricMap,
+            activationAtomTrackerToMetricMap, deactivationAtomTrackerToMetricMap,
+            metricsWithActivation);
+    if (invalidConfigReason.has_value()) {
+        return invalidConfigReason;
     }
 
     const DurationMetric& metric = config.duration_metric(configIndex);
     const auto& what_it = conditionTrackerMap.find(metric.what());
     if (what_it == conditionTrackerMap.end()) {
         ALOGE("DurationMetric's \"what\" is not present in the config");
-        return false;
+        return createInvalidConfigReasonWithPredicate(
+                INVALID_CONFIG_REASON_DURATION_METRIC_WHAT_NOT_FOUND, mMetricId, metric.what());
     }
 
     const Predicate& durationWhat = config.predicate(what_it->second);
     if (durationWhat.contents_case() != Predicate::ContentsCase::kSimplePredicate) {
         ALOGE("DurationMetric's \"what\" must be a simple condition");
-        return false;
+        return createInvalidConfigReasonWithPredicate(
+                INVALID_CONFIG_REASON_DURATION_METRIC_WHAT_NOT_SIMPLE, mMetricId, metric.what());
     }
 
     const SimplePredicate& simplePredicate = durationWhat.simple_predicate();
 
     // Update indices: mStartIndex, mStopIndex, mStopAllIndex, mConditionIndex and MetricsManager
     // maps.
-    if (!handleMetricWithAtomMatchingTrackers(simplePredicate.start(), metricIndex,
-                                              metric.has_dimensions_in_what(),
-                                              allAtomMatchingTrackers, newAtomMatchingTrackerMap,
-                                              trackerToMetricMap, mStartIndex)) {
+    invalidConfigReason = handleMetricWithAtomMatchingTrackers(
+            simplePredicate.start(), mMetricId, metricIndex, metric.has_dimensions_in_what(),
+            allAtomMatchingTrackers, newAtomMatchingTrackerMap, trackerToMetricMap, mStartIndex);
+    if (invalidConfigReason.has_value()) {
         ALOGE("Duration metrics must specify a valid start event matcher");
-        return false;
+        return invalidConfigReason;
     }
 
-    if (simplePredicate.has_stop() &&
-        !handleMetricWithAtomMatchingTrackers(simplePredicate.stop(), metricIndex,
-                                              metric.has_dimensions_in_what(),
-                                              allAtomMatchingTrackers, newAtomMatchingTrackerMap,
-                                              trackerToMetricMap, mStopIndex)) {
-        return false;
+    if (simplePredicate.has_stop()) {
+        invalidConfigReason = handleMetricWithAtomMatchingTrackers(
+                simplePredicate.stop(), mMetricId, metricIndex, metric.has_dimensions_in_what(),
+                allAtomMatchingTrackers, newAtomMatchingTrackerMap, trackerToMetricMap, mStopIndex);
+        if (invalidConfigReason.has_value()) {
+            return invalidConfigReason;
+        }
     }
 
-    if (simplePredicate.has_stop_all() &&
-        !handleMetricWithAtomMatchingTrackers(simplePredicate.stop_all(), metricIndex,
-                                              metric.has_dimensions_in_what(),
-                                              allAtomMatchingTrackers, newAtomMatchingTrackerMap,
-                                              trackerToMetricMap, mStopAllIndex)) {
-        return false;
+    if (simplePredicate.has_stop_all()) {
+        invalidConfigReason = handleMetricWithAtomMatchingTrackers(
+                simplePredicate.stop_all(), mMetricId, metricIndex, metric.has_dimensions_in_what(),
+                allAtomMatchingTrackers, newAtomMatchingTrackerMap, trackerToMetricMap,
+                mStopAllIndex);
+        if (invalidConfigReason.has_value()) {
+            return invalidConfigReason;
+        }
     }
 
-    if (metric.has_condition() &&
-        !handleMetricWithConditions(metric.condition(), metricIndex, conditionTrackerMap,
-                                    metric.links(), allConditionTrackers, mConditionTrackerIndex,
-                                    conditionToMetricMap)) {
-        return false;
+    if (metric.has_condition()) {
+        invalidConfigReason = handleMetricWithConditions(
+                metric.condition(), mMetricId, metricIndex, conditionTrackerMap, metric.links(),
+                allConditionTrackers, mConditionTrackerIndex, conditionToMetricMap);
+        if (invalidConfigReason.has_value()) {
+            return invalidConfigReason;
+        }
     }
 
     for (const auto& it : mCurrentSlicedDurationTrackerMap) {
         it.second->onConfigUpdated(wizard, mConditionTrackerIndex);
     }
 
-    return true;
+    return nullopt;
 }
 
 void DurationMetricProducer::initTrueDimensions(const int whatIndex, const int64_t startTimeNs) {
@@ -344,8 +359,7 @@ unique_ptr<DurationTracker> DurationMetricProducer::createDurationTracker(
 // SlicedConditionChange optimization case 1:
 // 1. If combination condition, logical operation is AND, only one sliced child predicate.
 // 2. The links covers all dimension fields in the sliced child condition predicate.
-void DurationMetricProducer::onSlicedConditionMayChangeLocked_opt1(bool condition,
-                                                                   const int64_t eventTime) {
+void DurationMetricProducer::onSlicedConditionMayChangeLocked_opt1(const int64_t eventTime) {
     if (mMetric2ConditionLinks.size() != 1 ||
         !mHasLinksToAllConditionDimensionsInTracker) {
         return;
@@ -403,17 +417,16 @@ void DurationMetricProducer::onSlicedConditionMayChangeLocked_opt1(bool conditio
     }
 }
 
-void DurationMetricProducer::onSlicedConditionMayChangeInternalLocked(bool overallCondition,
-        const int64_t eventTimeNs) {
+void DurationMetricProducer::onSlicedConditionMayChangeInternalLocked(const int64_t eventTimeNs) {
     bool changeDimTrackable = mWizard->IsChangedDimensionTrackable(mConditionTrackerIndex);
     if (changeDimTrackable && mHasLinksToAllConditionDimensionsInTracker) {
-        onSlicedConditionMayChangeLocked_opt1(overallCondition, eventTimeNs);
+        onSlicedConditionMayChangeLocked_opt1(eventTimeNs);
         return;
     }
 
     // Now for each of the on-going event, check if the condition has changed for them.
     for (auto& whatIt : mCurrentSlicedDurationTrackerMap) {
-        whatIt.second->onSlicedConditionMayChange(overallCondition, eventTimeNs);
+        whatIt.second->onSlicedConditionMayChange(eventTimeNs);
     }
 }
 
@@ -431,30 +444,32 @@ void DurationMetricProducer::onSlicedConditionMayChangeLocked(bool overallCondit
         return;
     }
 
-    onSlicedConditionMayChangeInternalLocked(overallCondition, eventTime);
+    onSlicedConditionMayChangeInternalLocked(eventTime);
 }
 
-void DurationMetricProducer::onActiveStateChangedLocked(const int64_t eventTimeNs) {
-    MetricProducer::onActiveStateChangedLocked(eventTimeNs);
+void DurationMetricProducer::onActiveStateChangedLocked(const int64_t eventTimeNs,
+                                                        const bool isActive) {
+    MetricProducer::onActiveStateChangedLocked(eventTimeNs, isActive);
 
     if (!mConditionSliced) {
         if (ConditionState::kTrue != mCondition) {
             return;
         }
 
-        if (mIsActive) {
+        if (isActive) {
             flushIfNeededLocked(eventTimeNs);
         }
 
         for (auto& whatIt : mCurrentSlicedDurationTrackerMap) {
-            whatIt.second->onConditionChanged(mIsActive, eventTimeNs);
+            whatIt.second->onConditionChanged(isActive, eventTimeNs);
         }
-    } else if (mIsActive) {
+        mConditionTimer.onConditionChanged(isActive, eventTimeNs);
+    } else if (isActive) {
         flushIfNeededLocked(eventTimeNs);
-        onSlicedConditionMayChangeInternalLocked(mIsActive, eventTimeNs);
-    } else { // mConditionSliced == true && !mIsActive
+        onSlicedConditionMayChangeInternalLocked(eventTimeNs);
+    } else {  // mConditionSliced == true && !isActive
         for (auto& whatIt : mCurrentSlicedDurationTrackerMap) {
-            whatIt.second->onConditionChanged(mIsActive, eventTimeNs);
+            whatIt.second->onConditionChanged(isActive, eventTimeNs);
         }
     }
 }
@@ -472,6 +487,8 @@ void DurationMetricProducer::onConditionChangedLocked(const bool conditionMet,
     for (auto& whatIt : mCurrentSlicedDurationTrackerMap) {
         whatIt.second->onConditionChanged(conditionMet, eventTime);
     }
+
+    mConditionTimer.onConditionChanged(mCondition, eventTime);
 }
 
 void DurationMetricProducer::dropDataLocked(const int64_t dropTimeNs) {
@@ -558,6 +575,15 @@ void DurationMetricProducer::onDumpReportLocked(const int64_t dumpTimeNs,
                                    (long long)(getBucketNumFromEndTimeNs(bucket.mBucketEndNs)));
             }
             protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_DURATION, (long long)bucket.mDuration);
+
+            // We only write the condition timer value if the metric has a
+            // condition and isn't sliced by state or condition.
+            // TODO(b/268531762): Slice the condition timer by state and condition
+            if (mConditionTrackerIndex >= 0 && mSlicedStateAtoms.empty() && !mConditionSliced) {
+                protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_CONDITION_TRUE_NS,
+                                   (long long)bucket.mConditionTrueNs);
+            }
+
             protoOutput->end(bucketInfoToken);
             VLOG("\t bucket [%lld - %lld] duration: %lld", (long long)bucket.mBucketStartNs,
                  (long long)bucket.mBucketEndNs, (long long)bucket.mDuration);
@@ -588,17 +614,24 @@ void DurationMetricProducer::flushIfNeededLocked(const int64_t& eventTimeNs) {
 
 void DurationMetricProducer::flushCurrentBucketLocked(const int64_t& eventTimeNs,
                                                       const int64_t& nextBucketStartTimeNs) {
+    const auto [globalConditionTrueNs, globalConditionCorrectionNs] =
+            mConditionTimer.newBucketStart(eventTimeNs, nextBucketStartTimeNs);
+
     for (auto whatIt = mCurrentSlicedDurationTrackerMap.begin();
             whatIt != mCurrentSlicedDurationTrackerMap.end();) {
-        if (whatIt->second->flushCurrentBucket(eventTimeNs, mUploadThreshold, &mPastBuckets)) {
+        if (whatIt->second->flushCurrentBucket(eventTimeNs, mUploadThreshold, globalConditionTrueNs,
+                                               &mPastBuckets)) {
             VLOG("erase bucket for key %s", whatIt->first.toString().c_str());
             whatIt = mCurrentSlicedDurationTrackerMap.erase(whatIt);
         } else {
             ++whatIt;
         }
     }
+
     StatsdStats::getInstance().noteBucketCount(mMetricId);
     mCurrentBucketStartTimeNs = nextBucketStartTimeNs;
+    // Reset mHasHitGuardrail boolean since bucket was reset
+    mHasHitGuardrail = false;
 }
 
 void DurationMetricProducer::dumpStatesLocked(FILE* out, bool verbose) const {
@@ -626,8 +659,11 @@ bool DurationMetricProducer::hitGuardRailLocked(const MetricDimensionKey& newKey
                     mConfigKey, mMetricId, newTupleCount);
             // 2. Don't add more tuples, we are above the allowed threshold. Drop the data.
             if (newTupleCount > StatsdStats::kDimensionKeySizeHardLimit) {
-                ALOGE("DurationMetric %lld dropping data for what dimension key %s",
-                    (long long)mMetricId, newKey.getDimensionKeyInWhat().toString().c_str());
+                if (!mHasHitGuardrail) {
+                    ALOGE("DurationMetric %lld dropping data for what dimension key %s",
+                          (long long)mMetricId, newKey.getDimensionKeyInWhat().toString().c_str());
+                    mHasHitGuardrail = true;
+                }
                 StatsdStats::getInstance().noteHardDimensionLimitReached(mMetricId);
                 return true;
             }
@@ -693,6 +729,10 @@ void DurationMetricProducer::handleMatchedLogEventValuesLocked(const size_t matc
         for (auto& whatIt : mCurrentSlicedDurationTrackerMap) {
             whatIt.second->noteStopAll(eventTimeNs);
         }
+        return;
+    }
+
+    if (!passesSampleCheckLocked(values)) {
         return;
     }
 

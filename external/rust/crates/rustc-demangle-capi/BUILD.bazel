@@ -1,0 +1,7 @@
+# TODO(b/266459895): remove these after re-enabling libunwindstack
+
+load("//build/bazel/rules/cc:cc_library_static.bzl", "cc_library_static")
+
+cc_library_static(
+    name = "librustc_demangle_static",
+)

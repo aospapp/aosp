@@ -836,12 +836,6 @@ public:
   show_redundant_changes(bool f);
 
   bool
-  flag_indirect_changes() const;
-
-  void
-  flag_indirect_changes(bool f);
-
-  bool
   show_symbols_unreferenced_by_debug_info() const;
 
   void
@@ -893,7 +887,44 @@ public:
 	       diff_context_sptr	ctxt);
 };//end struct diff_context.
 
-/// The abstraction of a change between two ABI artifacts.
+/// The abstraction of a change between two ABI artifacts, a.k.a an
+/// artifact change.
+///
+/// In the grand scheme of things, a diff is strongly typed; for
+/// instance, a change between two enums is represented by an
+/// enum_diff type.  A change between two function_type is represented
+/// by a function_type_diff type and a change between two class_decl
+/// is represented by a class_diff type.  All of these types derive
+/// from the @ref diff parent class.
+///
+/// An artifact change D can have one (or more) details named D'. A
+/// detail is an artifact change that "belongs" to another one.  Here,
+/// D' belongs to D.  Or said otherwise, D' is a child change of D.
+/// Said otherwise, D and D' are related, and the relation is a
+/// "child relation".
+///
+/// For instance, if we consider a change carried by a class_diff, the
+/// detail change might be a change on one data member of the class.
+/// In other word, the class_diff change might have a child diff node
+/// that would be a var_diff node.
+///
+/// There are two ways to get the child var_diff node (for the data
+/// member change detail) of the class_diff.
+///
+/// The first way is through the typed API, that is, through the
+/// class_diff::sorted_changed_data_members() member function which
+/// returns var_diff nodes.
+///
+/// The second way is through the generic API, that is, through the
+/// diff::children_nodes() member function which returns generic diff
+/// nodes.  This second way enables us to walk the diff nodes graph in
+/// a generic way, regardless of the types of the diff nodes.
+///
+/// Said otherwise, there are two views for a given diff node.  There
+/// is typed view, and there is the generic view.  In the typed view,
+/// the details are accessed through the typed API.  In the generic
+/// view, the details are gathered through the generic view.
+///
 ///
 /// Please read more about the @ref DiffNode "IR" of the comparison
 /// engine to learn more about this.
@@ -1021,6 +1052,11 @@ public:
   virtual const string&
   get_pretty_representation() const;
 
+  /// This constructs the relation between this diff node and its
+  /// detail diff nodes, in the generic view of the diff node.
+  ///
+  /// Each specific typed diff node should implement how the typed
+  /// view "links" itself to its detail nodes in the generic sense.
   virtual void
   chain_into_hierarchy();
 
@@ -1127,9 +1163,6 @@ protected:
 		type_or_decl_base_sptr second,
 		diff_context_sptr ctxt = diff_context_sptr());
 
-  virtual void
-  finish_diff_type();
-
 public:
 
   const type_or_decl_base_sptr
@@ -1183,9 +1216,6 @@ protected:
 	   diff_sptr type_diff,
 	   diff_context_sptr ctxt = diff_context_sptr());
 
-  virtual void
-  finish_diff_type();
-
 public:
   var_decl_sptr
   first_var() const;
@@ -1236,9 +1266,6 @@ protected:
 	       pointer_type_def_sptr	second,
 	       diff_sptr		underlying_type_diff,
 	       diff_context_sptr	ctxt = diff_context_sptr());
-
-  virtual void
-  finish_diff_type();
 
 public:
   const pointer_type_def_sptr
@@ -1297,9 +1324,6 @@ protected:
 		 diff_sptr			underlying,
 		 diff_context_sptr		ctxt = diff_context_sptr());
 
-  virtual void
-  finish_diff_type();
-
 public:
   reference_type_def_sptr
   first_reference() const;
@@ -1357,9 +1381,6 @@ protected:
 	     diff_sptr			element_type_diff,
 	     diff_context_sptr		ctxt = diff_context_sptr());
 
-  virtual void
-  finish_diff_type();
-
 public:
   const array_type_def_sptr
   first_array() const;
@@ -1413,9 +1434,6 @@ protected:
 		      qualified_type_def_sptr	second,
 		      diff_sptr		underling,
 		      diff_context_sptr	ctxt = diff_context_sptr());
-
-  virtual void
-  finish_diff_type();
 
 public:
   const qualified_type_def_sptr
@@ -1482,9 +1500,6 @@ protected:
 	    const enum_type_decl_sptr,
 	    const diff_sptr,
 	    diff_context_sptr ctxt = diff_context_sptr());
-
-  virtual void
-  finish_diff_type();
 
 public:
   const enum_type_decl_sptr
@@ -1555,9 +1570,6 @@ protected:
   class_or_union_diff(class_or_union_sptr first_scope,
 		      class_or_union_sptr second_scope,
 		      diff_context_sptr ctxt = diff_context_sptr());
-
-  virtual void
-  finish_diff_type();
 
 public:
 
@@ -1678,9 +1690,6 @@ protected:
 	     class_decl_sptr second_scope,
 	     diff_context_sptr ctxt = diff_context_sptr());
 
-  virtual void
-  finish_diff_type();
-
 public:
   //TODO: add change of the name of the type.
 
@@ -1706,6 +1715,9 @@ public:
 
   const base_diff_sptrs_type&
   changed_bases();
+
+  const vector<class_decl::base_spec_sptr>&
+  moved_bases() const;
 
   virtual bool
   has_changes() const;
@@ -1757,9 +1769,6 @@ protected:
 	     union_decl_sptr second_union,
 	     diff_context_sptr ctxt = diff_context_sptr());
 
-  virtual void
-  finish_diff_type();
-
 public:
 
   virtual ~union_diff();
@@ -1798,9 +1807,6 @@ protected:
 	    class_decl::base_spec_sptr	second,
 	    class_diff_sptr		underlying,
 	    diff_context_sptr		ctxt = diff_context_sptr());
-
-  virtual void
-  finish_diff_type();
 
 public:
   class_decl::base_spec_sptr
@@ -1865,9 +1871,6 @@ protected:
   scope_diff(scope_decl_sptr first_scope,
 	     scope_decl_sptr second_scope,
 	     diff_context_sptr ctxt = diff_context_sptr());
-
-  virtual void
-  finish_diff_type();
 
 public:
 
@@ -1960,9 +1963,6 @@ class fn_parm_diff : public decl_diff_base
   struct priv;
   std::unique_ptr<priv> priv_;
 
-  virtual void
-  finish_diff_type();
-
   fn_parm_diff(const function_decl::parameter_sptr	first,
 	       const function_decl::parameter_sptr	second,
 	       diff_context_sptr			ctxt);
@@ -2028,9 +2028,6 @@ protected:
   function_type_diff(const function_type_sptr	first,
 		     const function_type_sptr	second,
 		     diff_context_sptr		ctxt);
-
-  virtual void
-  finish_diff_type();
 
 public:
   friend function_type_diff_sptr
@@ -2101,9 +2098,6 @@ protected:
 		     const function_decl_sptr	second,
 		     diff_context_sptr		ctxt);
 
-  virtual void
-  finish_diff_type();
-
 public:
 
 friend function_decl_diff_sptr
@@ -2156,9 +2150,6 @@ protected:
 		 const type_decl_sptr second,
 		 diff_context_sptr ctxt = diff_context_sptr());
 
-  virtual void
-  finish_diff_type();
-
 public:
   friend type_decl_diff_sptr
   compute_diff(const type_decl_sptr	first,
@@ -2207,9 +2198,6 @@ protected:
 	       const typedef_decl_sptr	second,
 	       const diff_sptr		underlying_type_diff,
 	       diff_context_sptr	ctxt = diff_context_sptr());
-
-  virtual void
-  finish_diff_type();
 
 public:
   friend typedef_diff_sptr

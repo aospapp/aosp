@@ -20,8 +20,6 @@
 #include <set>
 #include <string>
 
-#include <android/api-level.h>
-#include <android-base/properties.h>
 #include <android-modules-utils/sdk_level.h>
 #include <bpf/BpfUtils.h>
 
@@ -31,14 +29,10 @@ using std::find;
 using std::set;
 using std::string;
 
+using android::bpf::isAtLeastKernelVersion;
 using android::modules::sdklevel::IsAtLeastR;
 using android::modules::sdklevel::IsAtLeastS;
 using android::modules::sdklevel::IsAtLeastT;
-
-// Mainline development branches lack the constant for the current development OS.
-#ifndef __ANDROID_API_T__
-#define __ANDROID_API_T__ 33
-#endif
 
 #define PLATFORM "/sys/fs/bpf/"
 #define TETHERING "/sys/fs/bpf/tethering/"
@@ -49,7 +43,8 @@ using android::modules::sdklevel::IsAtLeastT;
 class BpfExistenceTest : public ::testing::Test {
 };
 
-static const set<string> INTRODUCED_R = {
+// Part of Android R platform (for 4.9+), but mainlined in S
+static const set<string> PLATFORM_ONLY_IN_R = {
     PLATFORM "map_offload_tether_ingress_map",
     PLATFORM "map_offload_tether_limit_map",
     PLATFORM "map_offload_tether_stats_map",
@@ -57,7 +52,8 @@ static const set<string> INTRODUCED_R = {
     PLATFORM "prog_offload_schedcls_ingress_tether_rawip",
 };
 
-static const set<string> INTRODUCED_S = {
+// Provided by *current* mainline module for S+ devices
+static const set<string> MAINLINE_FOR_S_PLUS = {
     TETHERING "map_offload_tether_dev_map",
     TETHERING "map_offload_tether_downstream4_map",
     TETHERING "map_offload_tether_downstream64_map",
@@ -67,6 +63,7 @@ static const set<string> INTRODUCED_S = {
     TETHERING "map_offload_tether_stats_map",
     TETHERING "map_offload_tether_upstream4_map",
     TETHERING "map_offload_tether_upstream6_map",
+    TETHERING "map_test_bitmap",
     TETHERING "map_test_tether_downstream6_map",
     TETHERING "prog_offload_schedcls_tether_downstream4_ether",
     TETHERING "prog_offload_schedcls_tether_downstream4_rawip",
@@ -78,25 +75,19 @@ static const set<string> INTRODUCED_S = {
     TETHERING "prog_offload_schedcls_tether_upstream6_rawip",
 };
 
-static const set<string> REMOVED_S = {
-    PLATFORM "map_offload_tether_ingress_map",
-    PLATFORM "map_offload_tether_limit_map",
-    PLATFORM "map_offload_tether_stats_map",
-    PLATFORM "prog_offload_schedcls_ingress_tether_ether",
-    PLATFORM "prog_offload_schedcls_ingress_tether_rawip",
+// Provided by *current* mainline module for S+ devices with 5.10+ kernels
+static const set<string> MAINLINE_FOR_S_5_10_PLUS = {
+    TETHERING "prog_test_xdp_drop_ipv4_udp_ether",
 };
 
-static const set<string> INTRODUCED_T = {
+// Provided by *current* mainline module for T+ devices
+static const set<string> MAINLINE_FOR_T_PLUS = {
     SHARED "map_block_blocked_ports_map",
     SHARED "map_clatd_clat_egress4_map",
     SHARED "map_clatd_clat_ingress6_map",
-    SHARED "map_dscp_policy_ipv4_dscp_policies_map",
-    SHARED "map_dscp_policy_ipv4_socket_to_policies_map_A",
-    SHARED "map_dscp_policy_ipv4_socket_to_policies_map_B",
-    SHARED "map_dscp_policy_ipv6_dscp_policies_map",
-    SHARED "map_dscp_policy_ipv6_socket_to_policies_map_A",
-    SHARED "map_dscp_policy_ipv6_socket_to_policies_map_B",
-    SHARED "map_dscp_policy_switch_comp_map",
+    SHARED "map_dscpPolicy_ipv4_dscp_policies_map",
+    SHARED "map_dscpPolicy_ipv6_dscp_policies_map",
+    SHARED "map_dscpPolicy_socket_policy_cache_map",
     NETD "map_netd_app_uid_stats_map",
     NETD "map_netd_configuration_map",
     NETD "map_netd_cookie_tag_map",
@@ -107,13 +98,11 @@ static const set<string> INTRODUCED_T = {
     NETD "map_netd_uid_counterset_map",
     NETD "map_netd_uid_owner_map",
     NETD "map_netd_uid_permission_map",
-    SHARED "prog_clatd_schedcls_egress4_clat_ether",
     SHARED "prog_clatd_schedcls_egress4_clat_rawip",
     SHARED "prog_clatd_schedcls_ingress6_clat_ether",
     SHARED "prog_clatd_schedcls_ingress6_clat_rawip",
     NETD "prog_netd_cgroupskb_egress_stats",
     NETD "prog_netd_cgroupskb_ingress_stats",
-    NETD "prog_netd_cgroupsock_inet_create",
     NETD "prog_netd_schedact_ingress_account",
     NETD "prog_netd_skfilter_allowlist_xtbpf",
     NETD "prog_netd_skfilter_denylist_xtbpf",
@@ -121,65 +110,59 @@ static const set<string> INTRODUCED_T = {
     NETD "prog_netd_skfilter_ingress_xtbpf",
 };
 
-static const set<string> INTRODUCED_T_5_4 = {
+// Provided by *current* mainline module for T+ devices with 4.14+ kernels
+static const set<string> MAINLINE_FOR_T_4_14_PLUS = {
+    NETD "prog_netd_cgroupsock_inet_create",
+};
+
+// Provided by *current* mainline module for T+ devices with 5.4+ kernels
+static const set<string> MAINLINE_FOR_T_5_4_PLUS = {
     SHARED "prog_block_bind4_block_port",
     SHARED "prog_block_bind6_block_port",
-    SHARED "prog_dscp_policy_schedcls_set_dscp_ether",
-    SHARED "prog_dscp_policy_schedcls_set_dscp_raw_ip",
 };
 
-static const set<string> REMOVED_T = {
+// Provided by *current* mainline module for T+ devices with 5.15+ kernels
+static const set<string> MAINLINE_FOR_T_5_15_PLUS = {
+    SHARED "prog_dscpPolicy_schedcls_set_dscp_ether",
 };
 
-void addAll(set<string>* a, const set<string>& b) {
-    a->insert(b.begin(), b.end());
+static void addAll(set<string>& a, const set<string>& b) {
+    a.insert(b.begin(), b.end());
 }
 
-void removeAll(set<string>* a, const set<string>& b) {
-    for (const auto& toRemove : b) {
-        a->erase(toRemove);
-    }
-}
+#define DO_EXPECT(B, V) addAll((B) ? mustExist : mustNotExist, (V))
 
-void getFileLists(set<string>* expected, set<string>* unexpected) {
-    unexpected->clear();
-    expected->clear();
+TEST_F(BpfExistenceTest, TestPrograms) {
+    // Only unconfined root is guaranteed to be able to access everything in /sys/fs/bpf.
+    ASSERT_EQ(0, getuid()) << "This test must run as root.";
 
-    addAll(unexpected, INTRODUCED_R);
-    addAll(unexpected, INTRODUCED_S);
-    addAll(unexpected, INTRODUCED_T);
-
-    if (IsAtLeastR()) {
-        addAll(expected, INTRODUCED_R);
-        removeAll(unexpected, INTRODUCED_R);
-        // Nothing removed in R.
-    }
-
-    if (IsAtLeastS()) {
-        addAll(expected, INTRODUCED_S);
-        removeAll(expected, REMOVED_S);
-
-        addAll(unexpected, REMOVED_S);
-        removeAll(unexpected, INTRODUCED_S);
-    }
-
-    // Nothing added or removed in SCv2.
-
-    if (IsAtLeastT()) {
-        addAll(expected, INTRODUCED_T);
-        if (android::bpf::isAtLeastKernelVersion(5, 4, 0)) addAll(expected, INTRODUCED_T_5_4);
-        removeAll(expected, REMOVED_T);
-
-        addAll(unexpected, REMOVED_T);
-        removeAll(unexpected, INTRODUCED_T);
-    }
-}
-
-void checkFiles() {
     set<string> mustExist;
     set<string> mustNotExist;
 
-    getFileLists(&mustExist, &mustNotExist);
+    // We do not actually check the platform P/Q (netd) and Q (clatd) things
+    // and only verify the mainline module relevant R+ offload maps & progs.
+    //
+    // The goal of this test is to verify compatibility with the tethering mainline module,
+    // and not to test the platform itself, which may have been modified by vendor or oems,
+    // so we should only test for the removal of stuff that was mainline'd,
+    // and for the presence of mainline stuff.
+
+    // R can potentially run on pre-4.9 kernel non-eBPF capable devices.
+    DO_EXPECT(IsAtLeastR() && !IsAtLeastS() && isAtLeastKernelVersion(4, 9, 0), PLATFORM_ONLY_IN_R);
+
+    // S requires Linux Kernel 4.9+ and thus requires eBPF support.
+    DO_EXPECT(IsAtLeastS(), MAINLINE_FOR_S_PLUS);
+    DO_EXPECT(IsAtLeastS() && isAtLeastKernelVersion(5, 10, 0), MAINLINE_FOR_S_5_10_PLUS);
+
+    // Nothing added or removed in SCv2.
+
+    // T still only requires Linux Kernel 4.9+.
+    DO_EXPECT(IsAtLeastT(), MAINLINE_FOR_T_PLUS);
+    DO_EXPECT(IsAtLeastT() && isAtLeastKernelVersion(4, 14, 0), MAINLINE_FOR_T_4_14_PLUS);
+    DO_EXPECT(IsAtLeastT() && isAtLeastKernelVersion(5, 4, 0), MAINLINE_FOR_T_5_4_PLUS);
+    DO_EXPECT(IsAtLeastT() && isAtLeastKernelVersion(5, 15, 0), MAINLINE_FOR_T_5_15_PLUS);
+
+    // U requires Linux Kernel 4.14+, but nothing (as yet) added or removed in U.
 
     for (const auto& file : mustExist) {
         EXPECT_EQ(0, access(file.c_str(), R_OK)) << file << " does not exist";
@@ -192,20 +175,4 @@ void checkFiles() {
             EXPECT_EQ(ENOENT, err) << " accessing " << file << " failed with errno " << err;
         }
     }
-}
-
-TEST_F(BpfExistenceTest, TestPrograms) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
-    // Pre-flight check to ensure test has been updated.
-    uint64_t buildVersionSdk = android_get_device_api_level();
-    ASSERT_NE(0, buildVersionSdk) << "Unable to determine device SDK version";
-    if (buildVersionSdk > __ANDROID_API_T__ && buildVersionSdk != __ANDROID_API_FUTURE__) {
-            FAIL() << "Unknown OS version " << buildVersionSdk << ", please update this test";
-    }
-
-    // Only unconfined root is guaranteed to be able to access everything in /sys/fs/bpf.
-    ASSERT_EQ(0, getuid()) << "This test must run as root.";
-
-    checkFiles();
 }

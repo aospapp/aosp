@@ -18,7 +18,7 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.eventlib.test">
-    <uses-sdk android:minSdkVersion="27" android:targetSdkVersion="27"/>
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29"/>
     <application
         android:label="Event Library Tests"
         android:appComponentFactory="com.android.eventlib.premade.EventLibAppComponentFactory"

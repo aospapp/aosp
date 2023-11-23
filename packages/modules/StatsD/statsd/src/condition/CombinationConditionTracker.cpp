@@ -35,11 +35,11 @@ CombinationConditionTracker::~CombinationConditionTracker() {
     VLOG("~CombinationConditionTracker() %lld", (long long)mConditionId);
 }
 
-bool CombinationConditionTracker::init(const vector<Predicate>& allConditionConfig,
-                                       const vector<sp<ConditionTracker>>& allConditionTrackers,
-                                       const unordered_map<int64_t, int>& conditionIdIndexMap,
-                                       vector<bool>& stack,
-                                       vector<ConditionState>& conditionCache) {
+optional<InvalidConfigReason> CombinationConditionTracker::init(
+        const vector<Predicate>& allConditionConfig,
+        const vector<sp<ConditionTracker>>& allConditionTrackers,
+        const unordered_map<int64_t, int>& conditionIdIndexMap, vector<bool>& stack,
+        vector<ConditionState>& conditionCache) {
     VLOG("Combination predicate init() %lld", (long long)mConditionId);
     if (mInitialized) {
         // All the children are guaranteed to be initialized, but the recursion is needed to
@@ -56,21 +56,24 @@ bool CombinationConditionTracker::init(const vector<Predicate>& allConditionConf
         }
         conditionCache[mIndex] =
                 evaluateCombinationCondition(mChildren, mLogicalOperation, conditionCache);
-        return true;
+        return nullopt;
     }
 
     // mark this node as visited in the recursion stack.
     stack[mIndex] = true;
 
     Predicate_Combination combinationCondition = allConditionConfig[mIndex].combination();
+    optional<InvalidConfigReason> invalidConfigReason;
 
     if (!combinationCondition.has_operation()) {
-        return false;
+        return createInvalidConfigReasonWithPredicate(INVALID_CONFIG_REASON_CONDITION_NO_OPERATION,
+                                                      mConditionId);
     }
     mLogicalOperation = combinationCondition.operation();
 
     if (mLogicalOperation == LogicalOperation::NOT && combinationCondition.predicate_size() != 1) {
-        return false;
+        return createInvalidConfigReasonWithPredicate(
+                INVALID_CONFIG_REASON_CONDITION_NOT_OPERATION_IS_NOT_UNARY, mConditionId);
     }
 
     for (auto child : combinationCondition.predicate()) {
@@ -78,7 +81,10 @@ bool CombinationConditionTracker::init(const vector<Predicate>& allConditionConf
 
         if (it == conditionIdIndexMap.end()) {
             ALOGW("Predicate %lld not found in the config", (long long)child);
-            return false;
+            invalidConfigReason = createInvalidConfigReasonWithPredicate(
+                    INVALID_CONFIG_REASON_CONDITION_CHILD_NOT_FOUND, mConditionId);
+            invalidConfigReason->conditionIds.push_back(child);
+            return invalidConfigReason;
         }
 
         int childIndex = it->second;
@@ -86,15 +92,19 @@ bool CombinationConditionTracker::init(const vector<Predicate>& allConditionConf
         // if the child is a visited node in the recursion -> circle detected.
         if (stack[childIndex]) {
             ALOGW("Circle detected!!!");
-            return false;
+            invalidConfigReason = createInvalidConfigReasonWithPredicate(
+                    INVALID_CONFIG_REASON_CONDITION_CYCLE, mConditionId);
+            invalidConfigReason->conditionIds.push_back(child);
+            return invalidConfigReason;
         }
 
-        bool initChildSucceeded = childTracker->init(allConditionConfig, allConditionTrackers,
-                                                     conditionIdIndexMap, stack, conditionCache);
+        invalidConfigReason = childTracker->init(allConditionConfig, allConditionTrackers,
+                                                 conditionIdIndexMap, stack, conditionCache);
 
-        if (!initChildSucceeded) {
+        if (invalidConfigReason.has_value()) {
             ALOGW("Child initialization failed %lld ", (long long)child);
-            return false;
+            invalidConfigReason->conditionIds.push_back(mConditionId);
+            return invalidConfigReason;
         } else {
             VLOG("Child initialization success %lld ", (long long)child);
         }
@@ -120,10 +130,10 @@ bool CombinationConditionTracker::init(const vector<Predicate>& allConditionConf
 
     mInitialized = true;
 
-    return true;
+    return nullopt;
 }
 
-bool CombinationConditionTracker::onConfigUpdated(
+optional<InvalidConfigReason> CombinationConditionTracker::onConfigUpdated(
         const vector<Predicate>& allConditionProtos, const int index,
         const vector<sp<ConditionTracker>>& allConditionTrackers,
         const unordered_map<int64_t, int>& atomMatchingTrackerMap,
@@ -135,23 +145,30 @@ bool CombinationConditionTracker::onConfigUpdated(
     mUnSlicedChildren.clear();
     mSlicedChildren.clear();
     Predicate_Combination combinationCondition = allConditionProtos[mIndex].combination();
+    optional<InvalidConfigReason> invalidConfigReason;
 
     for (const int64_t child : combinationCondition.predicate()) {
         const auto& it = conditionTrackerMap.find(child);
 
         if (it == conditionTrackerMap.end()) {
             ALOGW("Predicate %lld not found in the config", (long long)child);
-            return false;
+            invalidConfigReason = createInvalidConfigReasonWithPredicate(
+                    INVALID_CONFIG_REASON_CONDITION_CHILD_NOT_FOUND, mConditionId);
+            invalidConfigReason->conditionIds.push_back(child);
+            return invalidConfigReason;
         }
 
         int childIndex = it->second;
         const sp<ConditionTracker>& childTracker = allConditionTrackers[childIndex];
 
         // Ensures that the child's tracker indices are updated.
-        if (!childTracker->onConfigUpdated(allConditionProtos, childIndex, allConditionTrackers,
-                                           atomMatchingTrackerMap, conditionTrackerMap)) {
+        invalidConfigReason =
+                childTracker->onConfigUpdated(allConditionProtos, childIndex, allConditionTrackers,
+                                              atomMatchingTrackerMap, conditionTrackerMap);
+        if (invalidConfigReason.has_value()) {
             ALOGW("Child update failed %lld ", (long long)child);
-            return false;
+            invalidConfigReason->conditionIds.push_back(child);
+            return invalidConfigReason;
         }
 
         if (allConditionTrackers[childIndex]->isSliced()) {
@@ -163,7 +180,7 @@ bool CombinationConditionTracker::onConfigUpdated(
         mTrackerIndex.insert(childTracker->getAtomMatchingTrackerIndex().begin(),
                              childTracker->getAtomMatchingTrackerIndex().end());
     }
-    return true;
+    return nullopt;
 }
 
 void CombinationConditionTracker::isConditionMet(

@@ -175,3 +175,39 @@ TEST(AdvertiseDataParserTest, RemoveTrailingZerosMalformed) {
 
   EXPECT_TRUE(AdvertiseDataParser::IsValid(glued));
 }
+
+TEST(AdvertiseDataParserTest, GetFieldByTypeInLoop) {
+  // Single field.
+  const uint8_t AD_TYPE_SVC_DATA = 0x16;
+  const std::vector<uint8_t> data0{
+    0x02, 0x01, 0x02,
+    0x07, 0x2e, 0x6a, 0xc1, 0x19, 0x52, 0x1e, 0x49,
+    0x09, 0x16, 0x4e, 0x18, 0x00, 0xff, 0x0f, 0x03, 0x00, 0x00,
+    0x02, 0x0a, 0x7f,
+    0x03, 0x16, 0x4f, 0x18,
+    0x04, 0x16, 0x53, 0x18, 0x00,
+    0x0f, 0x09, 0x48, 0x5f, 0x43, 0x33, 0x45, 0x41, 0x31, 0x36, 0x33, 0x46, 0x35, 0x36, 0x34, 0x46 };
+
+  const uint8_t* p_service_data = data0.data();
+  uint8_t service_data_len = 0;
+
+  int match_no = 0;
+  while ((p_service_data = AdvertiseDataParser::GetFieldByType(
+              p_service_data + service_data_len,
+              data0.size() - (p_service_data - data0.data()) - service_data_len,
+              AD_TYPE_SVC_DATA, &service_data_len))) {
+    auto position = (p_service_data - data0.data());
+    if (match_no == 0) {
+      EXPECT_EQ(position, 13);
+      EXPECT_EQ(service_data_len, 8);
+    } else if (match_no == 1) {
+      EXPECT_EQ(position, 26);
+      EXPECT_EQ(service_data_len, 2);
+    } else if (match_no == 2) {
+      EXPECT_EQ(position, 30);
+      EXPECT_EQ(service_data_len, 3);
+    }
+    match_no++;
+  }
+  EXPECT_EQ(match_no, 3);
+}

@@ -15,11 +15,10 @@
      limitations under the License.
 -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
     android:color="?android:colorControlHighlight">
     <item android:id="@android:id/background">
         <shape>
-            <solid android:color="?androidprv:attr/colorAccentPrimary" />
+            <solid android:color="@color/color_accent_primary" />
             <corners android:radius="@dimen/set_wallpaper_dialog_item_inner_corner_radius"/>
         </shape>
     </item>

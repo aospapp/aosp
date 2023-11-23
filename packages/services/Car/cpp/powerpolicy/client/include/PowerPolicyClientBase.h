@@ -68,6 +68,9 @@ public:
     virtual std::vector<::aidl::android::frameworks::automotive::powerpolicy::PowerComponent>
     getComponentsOfInterest() = 0;
 
+    // Override this method to specify custom components of interest.
+    virtual std::vector<int> getCustomComponentsOfInterest() { return {}; }
+
     // init makes connection to power policy daemon and registers to policy change in the
     // background. Call this method one time when you want to listen to power policy changes.
     void init();

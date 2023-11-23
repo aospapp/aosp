@@ -34,6 +34,9 @@
 
 #include "ixheaacd_lt_predict.h"
 
+#include "ixheaacd_cnst.h"
+#include "ixheaacd_ec_defines.h"
+#include "ixheaacd_ec_struct_def.h"
 #include "ixheaacd_channelinfo.h"
 #include "ixheaacd_drc_dec.h"
 #include "ixheaacd_sbrdecoder.h"
@@ -67,8 +70,16 @@
 #include "ixheaacd_audioobjtypes.h"
 #include "ixheaacd_latmdemux.h"
 #include "ixheaacd_aacdec.h"
+#include "ixheaacd_hybrid.h"
+#include "ixheaacd_ps_dec.h"
+
 #include "ixheaacd_mps_polyphase.h"
 #include "ixheaacd_config.h"
+#include "ixheaacd_qmf_dec.h"
+#include "ixheaacd_mps_macro_def.h"
+#include "ixheaacd_mps_struct_def.h"
+#include "ixheaacd_mps_res_rom.h"
+#include "ixheaacd_mps_aac_struct.h"
 #include "ixheaacd_mps_dec.h"
 #include "ixheaacd_struct_def.h"
 #include "ixheaacd_headerdecode.h"
@@ -211,15 +222,16 @@ VOID ixheaacd_read_data_stream_element(ia_bit_buf_struct *it_bit_buff,
 
   if (it_bit_buff->cnt_bits < (cnt << 3)) {
     longjmp(*(it_bit_buff->xaac_jmp_buf),
-            IA_ENHAACPLUS_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+            IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
   }
   it_bit_buff->ptr_read_next += cnt;
   it_bit_buff->cnt_bits -= ((cnt) << 3);
 }
 
-VOID ixheaacd_read_fill_element(ia_bit_buf_struct *it_bit_buff,
-                                ia_drc_dec_struct *drc_dummy,
-                                ia_drc_dec_struct *ptr_drc_dec) {
+VOID ixheaacd_read_fill_element(
+    ia_bit_buf_struct *it_bit_buff, ia_drc_dec_struct *drc_dummy,
+    ia_drc_dec_struct *ptr_drc_dec, UWORD8 *mps_buffer, WORD32 *mps_header,
+    WORD32 *mps_bytes) {
   WORD32 count;
   count = ixheaacd_read_bits_buf(it_bit_buff, 4);
 
@@ -237,13 +249,28 @@ VOID ixheaacd_read_fill_element(ia_bit_buf_struct *it_bit_buff,
       ptr_drc_dec->drc_element_found = 1;
       count -=
           ixheaacd_dec_drc_read_element(ptr_drc_dec, drc_dummy, it_bit_buff);
+    }
+    if (EXT_SAC_DATA == extension_type) {
+      WORD32 anc_type, i;
+      anc_type = ixheaacd_read_bits_buf(it_bit_buff, 2);
+      *mps_header = anc_type;
 
-    } else {
+      ixheaacd_read_bits_buf(it_bit_buff, 1);
+
+      ixheaacd_read_bits_buf(it_bit_buff, 1);
+
+      for (i = 0; i < count - 1; i++) {
+        mps_buffer[i] = ixheaacd_read_bits_buf(it_bit_buff, 8);
+      }
+
+      *mps_bytes = count - 1;
+    }
+    else {
       ixheaacd_read_bits_buf(it_bit_buff, 4);
 
       if (it_bit_buff->cnt_bits < ((count - 1) << 3)) {
         longjmp(*(it_bit_buff->xaac_jmp_buf),
-                IA_ENHAACPLUS_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+                IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
       }
       it_bit_buff->ptr_read_next += count - 1;
       it_bit_buff->cnt_bits -= ((count - 1) << 3);
@@ -255,7 +282,10 @@ WORD32 ixheaacd_get_element_index_tag(
     ia_exhaacplus_dec_api_struct *p_obj_enhaacplus_dec, WORD ch_idx1,
     WORD *ch_idx, WORD *channel, WORD *ele_idx_order, WORD total_elements,
     WORD8 *element_used, WORD total_channels, ia_drc_dec_struct *pstr_drc_dec,
-    ia_drc_dec_struct *drc_dummy) {
+    ia_drc_dec_struct *drc_dummy
+    ,
+    UWORD8 *mps_buffer, WORD32 *mps_header, WORD32 *mps_bytes
+) {
   WORD element_tag, j;
   ia_aac_dec_state_struct *p_state_enhaacplus_dec =
       p_obj_enhaacplus_dec->p_state_aac;
@@ -283,7 +313,7 @@ WORD32 ixheaacd_get_element_index_tag(
   if (it_bit_buff->cnt_bits < 3) {
     it_bit_buff->cnt_bits = -1;
     return (WORD16)(
-        (WORD32)IA_ENHAACPLUS_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+        (WORD32)IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
   }
 
   element_tag = (WORD)ixheaacd_read_bits_buf(it_bit_buff, 7);
@@ -301,7 +331,7 @@ WORD32 ixheaacd_get_element_index_tag(
     if (it_bit_buff->cnt_bits < 3) {
       it_bit_buff->cnt_bits = -1;
       return (WORD16)(
-          (WORD32)IA_ENHAACPLUS_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+          (WORD32)IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
     }
 
     if (type == 4) {
@@ -315,17 +345,18 @@ WORD32 ixheaacd_get_element_index_tag(
           &p_obj_enhaacplus_dec->aac_config.str_prog_config);
       if (error_code != 0) {
         if (error_code < 0) return error_code;
-        return IA_ENHAACPLUS_DEC_EXE_NONFATAL_DECODE_FRAME_ERROR;
+        return IA_XHEAAC_DEC_EXE_NONFATAL_DECODE_FRAME_ERROR;
       }
     }
     if (type == 6) {
-      ixheaacd_read_fill_element(it_bit_buff, drc_dummy, pstr_drc_dec);
+      ixheaacd_read_fill_element(it_bit_buff, drc_dummy, pstr_drc_dec,
+                                 mps_buffer, mps_header, mps_bytes);
     }
 
     if (it_bit_buff->cnt_bits < 7) {
       it_bit_buff->cnt_bits = -1;
       return (WORD16)(
-          (WORD32)IA_ENHAACPLUS_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+          (WORD32)IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
     }
 
     element_tag = (WORD)ixheaacd_aac_showbits_7(it_bit_buff);
@@ -356,12 +387,12 @@ WORD32 ixheaacd_get_element_index_tag(
   if (j == total_elements) {
     if (it_bit_buff->cnt_bits < 0) {
       return (WORD16)(
-          (WORD32)IA_ENHAACPLUS_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+          (WORD32)IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
     }
 
     ixheaacd_read_bidirection(
         it_bit_buff, (WORD16)(it_bit_buff->cnt_bits - it_bit_buff->size));
-    return IA_ENHAACPLUS_DEC_EXE_NONFATAL_ELE_INSTANCE_TAG_NOT_FOUND;
+    return IA_XHEAAC_DEC_EXE_NONFATAL_ELE_INSTANCE_TAG_NOT_FOUND;
   } else
     return 0;
 }

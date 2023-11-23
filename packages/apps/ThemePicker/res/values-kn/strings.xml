@@ -19,7 +19,28 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="1647136562008520313">"ವಾಲ್‌ಪೇಪರ್ ಮತ್ತು ಶೈಲಿ"</string>
     <string name="theme_title" msgid="2144932106319405101">"ಶೈಲಿ"</string>
-    <string name="clock_title" msgid="2126046720254613991">"ಗಡಿಯಾರ"</string>
+    <string name="clock_title" msgid="1974314575211361352">"ಕಸ್ಟಮ್ ಗಡಿಯಾರ"</string>
+    <string name="clock_description" msgid="3563839327378948">"ಕಸ್ಟಮ್ ವಾಚ್ ಪಿಕ್"</string>
+    <string name="clock_picker_entry_content_description" msgid="8377139273468595734">"ಕಸ್ಟಮ್ ಗಡಿಯಾರ ಬದಲಿಸಿ"</string>
+    <string name="select_clock_action_description" msgid="5025888763471843648">"ಕ್ಲಾಕ್ ಫೇಸ್ ಆಯ್ಕೆ <xliff:g id="ID_1">%1$s</xliff:g>"</string>
+    <string name="clock_settings_title" msgid="2050906379377120431">"ಗಡಿಯಾರದ ಬಣ್ಣ, ಗಾತ್ರ"</string>
+    <string name="clock_color_and_size_title" msgid="7146791234905111351">"ಗಡಿಯಾರದ ಬಣ್ಣ, ಗಾತ್ರ"</string>
+    <string name="clock_color_and_size_description" msgid="6578061553012886817">"<xliff:g id="ID_1">%1$s</xliff:g>, <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="clock_color" msgid="8081608867289156163">"ಬಣ್ಣ"</string>
+    <string name="clock_color_red" msgid="3843504214807597810">"ಕೆಂಪು"</string>
+    <string name="clock_color_orange" msgid="4175805201144275804">"ಕಿತ್ತಳೆ"</string>
+    <string name="clock_color_yellow" msgid="7391699163247349977">"ಹಳದಿ"</string>
+    <string name="clock_color_green" msgid="1991157556500156596">"ಹಸಿರು"</string>
+    <string name="clock_color_blue" msgid="4037792003465759149">"ನೀಲಿ"</string>
+    <string name="clock_color_indigo" msgid="8910855386698452917">"ಇಂಡಿಗೊ"</string>
+    <string name="clock_color_violet" msgid="3454503847169375826">"ನೇರಳೆ"</string>
+    <string name="clock_color_gray" msgid="9221530636948859231">"ಬೂದು"</string>
+    <string name="clock_color_teal" msgid="7499223425741344251">"ಟೀಲ್"</string>
+    <string name="clock_size" msgid="5028923902364418263">"ಗಾತ್ರ"</string>
+    <string name="clock_size_dynamic" msgid="1023930312455061642">"ಡೈನಾಮಿಕ್"</string>
+    <string name="clock_size_dynamic_description" msgid="2776620745774561662">"ಲಾಕ್ ಸ್ಕ್ರೀನ್‌ನಲ್ಲಿರುವ ವಿಷಯಕ್ಕೆ ಅನುಗುಣವಾಗಿ ಗಡಿಯಾರದ ಗಾತ್ರ ಬದಲಾಗುತ್ತದೆ"</string>
+    <string name="clock_size_large" msgid="3143248715744138979">"ದೊಡ್ಡದು"</string>
+    <string name="clock_size_small" msgid="2280449912094164133">"ಚಿಕ್ಕದು"</string>
     <string name="grid_title" msgid="1688173478777254123">"ಆ್ಯಪ್ ಗ್ರಿಡ್"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"ಅನ್ವಯಿಸಿ"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"ಎಡಿಟ್ ಮಾಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ"</string>
@@ -85,8 +106,34 @@
     <string name="beta_title" msgid="8703819523760746458">"ಬೀಟಾ"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"ಆ್ಯಪ್ ಗ್ರಿಡ್ ಬದಲಾಯಿಸಿ"</string>
     <string name="wallpaper_color_tab" msgid="1447926591721403840">"ವಾಲ್‌ಪೇಪರ್ ಬಣ್ಣಗಳು"</string>
+    <string name="wallpaper_color_subheader" msgid="4044464573669965670">"ಐಕಾನ್‌, ಪಠ್ಯ ಮತ್ತು ಇತ್ಯಾದಿಗಳು ವಾಲ್‌ಪೇಪರ್‌ನಲ್ಲಿನ ಬಣ್ಣಗಳನ್ನು ಹೋಲುತ್ತವೆ"</string>
     <string name="wallpaper_color_title" msgid="5687965239180986458">"ವಾಲ್‌ಪೇಪರ್ ಬಣ್ಣ"</string>
     <string name="preset_color_tab" msgid="3133391839341329314">"ಮೂಲ ಬಣ್ಣಗಳು"</string>
+    <string name="preset_color_tab_2" msgid="1444107326712562538">"ಇತರ ಬಣ್ಣಗಳು"</string>
+    <string name="preset_color_subheader" msgid="8230588536141279371">"ನಿಮ್ಮ ಐಕಾನ್‌ಗಳು, ಗಡಿಯಾರ ಮತ್ತು ಹೆಚ್ಚಿನವುಗಳಿಗಾಗಿ ಯಾವುದೇ ಬಣ್ಣವನ್ನು ಆರಿಸಿ"</string>
     <string name="color_changed" msgid="7029571720331641235">"ಬಣ್ಣ ಬದಲಾಗಿದೆ"</string>
     <string name="adaptive_color_title" msgid="1336508599235896205">"ಡೈನಾಮಿಕ್"</string>
+    <string name="color_picker_title" msgid="6666830057938082864">"ಸಿಸ್ಟಂ ಬಣ್ಣಗಳು"</string>
+    <string name="keyguard_slot_name_bottom_start" msgid="8747677880200629719">"ಎಡ ಶಾರ್ಟ್‌ಕಟ್"</string>
+    <string name="keyguard_slot_name_bottom_end" msgid="2525487375680217083">"ಬಲ ಶಾರ್ಟ್‌ಕಟ್"</string>
+    <string name="keyguard_affordance_none" msgid="1751643933430782312">"ಯಾವುದೂ ಅಲ್ಲ"</string>
+    <string name="keyguard_affordance_enablement_dialog_headline" msgid="365379085932610314">"ಶಾರ್ಟ್‌ಕಟ್ ಸೇರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
+    <string name="keyguard_affordance_enablement_dialog_action_template" msgid="8117011931337357438">"<xliff:g id="APPNAME">%1$s</xliff:g> ಅನ್ನು ತೆರೆಯಿರಿ"</string>
+    <string name="keyguard_affordance_enablement_dialog_message" msgid="6136286758939253570">"<xliff:g id="APPNAME">%1$s</xliff:g> ಆ್ಯಪ್ ಅನ್ನು ಶಾರ್ಟ್‌ಕಟ್ ಆಗಿ ಸೇರಿಸಲು ಕೆಳಗಿನವುಗಳನ್ನು ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ"</string>
+    <string name="keyguard_affordance_enablement_dialog_dismiss_button" msgid="629754625264422508">"ಮುಗಿದಿದೆ"</string>
+    <string name="keyguard_quick_affordance_title" msgid="4242813186995735584">"ಶಾರ್ಟ್‌ಕಟ್‌ಗಳು"</string>
+    <string name="keyguard_quick_affordance_section_title" msgid="2806304242671717309">"ಶಾರ್ಟ್‌ಕಟ್‌ಗಳು"</string>
+    <string name="keyguard_quick_affordance_two_selected_template" msgid="1757099194522296363">"<xliff:g id="FIRST">%1$s</xliff:g>, <xliff:g id="SECOND">%2$s</xliff:g>"</string>
+    <string name="keyguard_quick_affordance_none_selected" msgid="8494127020144112003">"ಯಾವುದೂ ಅಲ್ಲ"</string>
+    <string name="show_notifications_on_lock_screen" msgid="4157744243084646720">"ಲಾಕ್ ಸ್ಕ್ರೀನ್‌ನಲ್ಲಿ ಅಧಿಸೂಚನೆಗಳನ್ನು ತೋರಿಸಿ"</string>
+    <string name="hide_notifications_on_lock_screen" msgid="7413548956484779174">"ಲಾಕ್ ಸ್ಕ್ರೀನ್‌ನಲ್ಲಿ ಅಧಿಸೂಚನೆಗಳನ್ನು ಮರೆಮಾಡಿ"</string>
+    <string name="more_settings_section_title" msgid="1331425454775815958">"ಇನ್ನಷ್ಟು ಲಾಕ್ ಸ್ಕ್ರೀನ್ ಆಯ್ಕೆಗಳು"</string>
+    <string name="more_settings_section_description" msgid="1860115709122398325">"ಗೌಪ್ಯತೆ, Now Playing ಮತ್ತು ಇನ್ನಷ್ಟು"</string>
+    <string name="more_colors" msgid="3191071655353004591">"ಇನ್ನಷ್ಟು ಬಣ್ಣಗಳು"</string>
+    <string name="content_description_dynamic_color_option" msgid="2191721655642529886">"ಪ್ರಾಥಮಿಕ ಡೈನಾಮಿಕ್ ಥೀಮ್"</string>
+    <string name="content_description_neutral_color_option" msgid="3385443834001275301">"ಪ್ರಾಥಮಿಕ ತಟಸ್ಥ ಥೀಮ್"</string>
+    <string name="content_description_vibrant_color_option" msgid="2230249305878632821">"ಪ್ರಾಥಮಿಕ ವೈಬ್ರೆಂಟ್ ಥೀಮ್"</string>
+    <string name="content_description_expressive_color_option" msgid="6081295313456341282">"ಪ್ರಾಥಮಿಕ ಅಭಿವ್ಯಕ್ತಿಶೀಲ ಥೀಮ್"</string>
+    <string name="content_description_default_color_option" msgid="7011899327541080695">"ಡೀಫಾಲ್ಟ್ ಬಣ್ಣದ ಆಯ್ಕೆ"</string>
+    <string name="content_description_color_option" msgid="4169813692012119578">"ಬಣ್ಣದ ಆಯ್ಕೆ <xliff:g id="ID_1">%1$d</xliff:g>"</string>
 </resources>

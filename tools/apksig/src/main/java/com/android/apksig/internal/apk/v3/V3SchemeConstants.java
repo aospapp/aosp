@@ -52,4 +52,15 @@ public class V3SchemeConstants {
      * finalized.
      */
     public static final int ROTATION_ON_DEV_RELEASE_ATTR_ID = 0xc2a6b3ba;
+
+    /**
+     * The current development release; rotation / signing configs targeting this release should
+     * be written with the {@link #PROD_RELEASE} SDK version and the dev release attribute.
+     */
+    public static final int DEV_RELEASE = AndroidSdkVersion.U;
+
+    /**
+     * The current production release.
+     */
+    public static final int PROD_RELEASE = AndroidSdkVersion.T;
 }

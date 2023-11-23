@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="notification_channel_name_connected" msgid="1795068343200033922">"Autentifikacija na zaštitnom portalu"</string>
-    <string name="notification_channel_description_connected" msgid="7239184168268014518">"Obavijesti koje se prikazuju kada uređaj uspješno prođe provjeru autentičnosti na mreži zaštitnog portala"</string>
+    <string name="notification_channel_description_connected" msgid="7239184168268014518">"Obavijesti koje se prikazuju kada uređaj uspješno prođe autentifikaciju na mreži zaštitnog portala"</string>
     <string name="notification_channel_name_network_venue_info" msgid="6526543187249265733">"Podaci o mrežnom mjestu"</string>
     <string name="notification_channel_description_network_venue_info" msgid="5131499595382733605">"Obavijesti koje se prikazuju kada mreža ima stranicu s podacima o mjestu događaja"</string>
     <string name="connected" msgid="4563643884927480998">"Povezano"</string>

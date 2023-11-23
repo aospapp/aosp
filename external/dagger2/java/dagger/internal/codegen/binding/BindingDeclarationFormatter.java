@@ -16,30 +16,24 @@
 
 package dagger.internal.codegen.binding;
 
-import static com.google.common.collect.Sets.immutableEnumSet;
+import static androidx.room.compiler.processing.XElementKt.isMethodParameter;
+import static androidx.room.compiler.processing.XElementKt.isTypeElement;
 import static dagger.internal.codegen.base.DiagnosticFormatting.stripCommonTypePrefixes;
 import static dagger.internal.codegen.base.ElementFormatter.elementToString;
-import static javax.lang.model.element.ElementKind.PARAMETER;
-import static javax.lang.model.type.TypeKind.DECLARED;
-import static javax.lang.model.type.TypeKind.EXECUTABLE;
+import static dagger.internal.codegen.xprocessing.XElements.asExecutable;
+import static dagger.internal.codegen.xprocessing.XElements.asTypeElement;
+import static dagger.internal.codegen.xprocessing.XElements.isExecutable;
 
-import com.google.auto.common.MoreElements;
-import com.google.auto.common.MoreTypes;
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import dagger.internal.codegen.base.Formatter;
 import javax.inject.Inject;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeKind;
 
 /**
  * Formats a {@link BindingDeclaration} into a {@link String} suitable for use in error messages.
  */
 public final class BindingDeclarationFormatter extends Formatter<BindingDeclaration> {
-  private static final ImmutableSet<TypeKind> FORMATTABLE_ELEMENT_TYPE_KINDS =
-      immutableEnumSet(EXECUTABLE, DECLARED);
-
   private final MethodSignatureFormatter methodSignatureFormatter;
 
   @Inject
@@ -57,9 +51,10 @@ public final class BindingDeclarationFormatter extends Formatter<BindingDeclarat
       return true;
     }
     if (bindingDeclaration.bindingElement().isPresent()) {
-      Element bindingElement = bindingDeclaration.bindingElement().get();
-      return bindingElement.getKind().equals(PARAMETER)
-          || FORMATTABLE_ELEMENT_TYPE_KINDS.contains(bindingElement.asType().getKind());
+      XElement bindingElement = bindingDeclaration.bindingElement().get();
+      return isMethodParameter(bindingElement)
+          || isTypeElement(bindingElement)
+          || isExecutable(bindingElement);
     }
     // TODO(dpb): validate whether what this is doing is correct
     return false;
@@ -72,26 +67,17 @@ public final class BindingDeclarationFormatter extends Formatter<BindingDeclarat
     }
 
     if (bindingDeclaration.bindingElement().isPresent()) {
-      Element bindingElement = bindingDeclaration.bindingElement().get();
-      if (bindingElement.getKind().equals(PARAMETER)) {
+      XElement bindingElement = bindingDeclaration.bindingElement().get();
+      if (isMethodParameter(bindingElement)) {
         return elementToString(bindingElement);
+      } else if (isTypeElement(bindingElement)) {
+        return stripCommonTypePrefixes(asTypeElement(bindingElement).getType().toString());
+      } else if (isExecutable(bindingElement)) {
+        return methodSignatureFormatter.format(
+            asExecutable(bindingElement),
+            bindingDeclaration.contributingModule().map(XTypeElement::getType));
       }
-
-      switch (bindingElement.asType().getKind()) {
-        case EXECUTABLE:
-          return methodSignatureFormatter.format(
-              MoreElements.asExecutable(bindingElement),
-              bindingDeclaration
-                  .contributingModule()
-                  .map(module -> MoreTypes.asDeclared(module.asType())));
-
-        case DECLARED:
-          return stripCommonTypePrefixes(bindingElement.asType().toString());
-
-        default:
-          throw new IllegalArgumentException(
-              "Formatting unsupported for element: " + bindingElement);
-      }
+      throw new IllegalArgumentException("Formatting unsupported for element: " + bindingElement);
     }
 
     return String.format(
@@ -100,7 +86,7 @@ public final class BindingDeclarationFormatter extends Formatter<BindingDeclarat
   }
 
   private String formatSubcomponentDeclaration(SubcomponentDeclaration subcomponentDeclaration) {
-    ImmutableList<TypeElement> moduleSubcomponents =
+    ImmutableList<XTypeElement> moduleSubcomponents =
         subcomponentDeclaration.moduleAnnotation().subcomponents();
     int index = moduleSubcomponents.indexOf(subcomponentDeclaration.subcomponentType());
     StringBuilder annotationValue = new StringBuilder();
@@ -118,7 +104,7 @@ public final class BindingDeclarationFormatter extends Formatter<BindingDeclarat
 
     return String.format(
         "@%s(subcomponents = %s) for %s",
-        subcomponentDeclaration.moduleAnnotation().annotationName(),
+        subcomponentDeclaration.moduleAnnotation().simpleName(),
         annotationValue,
         subcomponentDeclaration.contributingModule().get());
   }

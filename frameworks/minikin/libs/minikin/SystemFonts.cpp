@@ -40,7 +40,8 @@ void SystemFonts::buildFontSetLocked() {
     std::unordered_set<FontFamily*> uniqueFamilies;
 
     for (const auto& collection : mCollections) {
-        for (const auto& family : collection->getFamilies()) {
+        for (size_t i = 0; i < collection->getFamilyCount(); ++i) {
+            const auto& family = collection->getFamilyAt(i);
             uniqueFamilies.insert(family.get());
         }
     }

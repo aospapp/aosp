@@ -188,12 +188,14 @@ interface IConnectivityManager
 
     void startNattKeepaliveWithFd(in Network network, in ParcelFileDescriptor pfd, int resourceId,
             int intervalSeconds, in ISocketKeepaliveCallback cb, String srcAddr,
-            String dstAddr);
+            String dstAddr, boolean automaticOnOffKeepalives, in Network underpinnedNetwork);
 
     void startTcpKeepalive(in Network network, in ParcelFileDescriptor pfd, int intervalSeconds,
             in ISocketKeepaliveCallback cb);
 
-    void stopKeepalive(in Network network, int slot);
+    void stopKeepalive(in ISocketKeepaliveCallback cb);
+
+    int[] getSupportedKeepalives();
 
     String getCaptivePortalServerUrl();
 
@@ -242,7 +244,17 @@ interface IConnectivityManager
 
     void setUidFirewallRule(int chain, int uid, int rule);
 
+    int getUidFirewallRule(int chain, int uid);
+
     void setFirewallChainEnabled(int chain, boolean enable);
 
+    boolean getFirewallChainEnabled(int chain);
+
     void replaceFirewallChain(int chain, in int[] uids);
+
+    IBinder getCompanionDeviceManagerProxyService();
+
+    void setVpnNetworkPreference(String session, in UidRange[] ranges);
+
+    void setTestLowTcpPollingTimerForKeepalive(long timeMs);
 }

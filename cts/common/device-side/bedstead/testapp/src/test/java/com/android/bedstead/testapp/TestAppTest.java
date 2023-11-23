@@ -38,7 +38,7 @@ import org.junit.runner.RunWith;
 import java.io.File;
 
 @RunWith(BedsteadJUnit4.class)
-public class TestAppTest {
+public final class TestAppTest {
 
     @ClassRule @Rule
     public static final DeviceState sDeviceState = new DeviceState();

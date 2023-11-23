@@ -82,6 +82,7 @@ public class GridFragment extends AppbarFragment {
     private final Callback mApplyGridCallback = new Callback() {
         @Override
         public void onSuccess() {
+            mGridManager.fetchOptions(unused -> {}, true);
             Toast.makeText(getContext(), R.string.applied_grid_msg, Toast.LENGTH_SHORT).show();
             getActivity().overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
             getActivity().finish();
@@ -157,10 +158,11 @@ public class GridFragment extends AppbarFragment {
 
         SurfaceView wallpaperSurface = view.findViewById(R.id.wallpaper_preview_surface);
         WallpaperPreviewer wallpaperPreviewer = new WallpaperPreviewer(getLifecycle(),
-                getActivity(), view.findViewById(R.id.wallpaper_preview_image), wallpaperSurface);
+                getActivity(), view.findViewById(R.id.wallpaper_preview_image), wallpaperSurface,
+                view.findViewById(R.id.grid_fadein_scrim));
         // Loads current Wallpaper.
         CurrentWallpaperInfoFactory factory = InjectorProvider.getInjector()
-                .getCurrentWallpaperFactory(getContext().getApplicationContext());
+                .getCurrentWallpaperInfoFactory(getContext().getApplicationContext());
         factory.createCurrentWallpaperInfos((homeWallpaper, lockWallpaper, presentationMode) -> {
             mHomeWallpaper = homeWallpaper;
             wallpaperPreviewer.setWallpaper(mHomeWallpaper, /* listener= */ null);

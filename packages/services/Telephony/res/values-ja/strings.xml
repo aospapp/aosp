@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS での CDMA 通話中着信が OFF になっています"</string>
     <string name="updating_title" msgid="6130548922615719689">"通話設定"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"通話設定は管理者ユーザーのみが変更できます。"</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"モバイル デバイスのアカウント設定を変更できるのは、管理者または従業員ユーザーのみに限られています。"</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"設定（<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>）"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"通話設定エラー"</string>
     <string name="reading_settings" msgid="1605904432450871183">"設定を読み取り中..."</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"通話を保留にできません。"</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"電話をかけるには無線ネットワークに接続してください。"</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"電話をかけるには Wi-Fi 通話を有効にしてください。"</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"電話をかけるには、衛星モードを無効にしてください。"</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"緊急時情報"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"所有者"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"もう一度タップすると情報を確認できます"</string>
@@ -662,7 +664,7 @@
     <string name="voicemail_visual_voicemail_switch_title" msgid="6610414098912832120">"ビジュアル留守番電話"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="7005128605986960003">"PIN の設定"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="4633077715231764435">"PIN の変更"</string>
-    <string name="preference_category_ringtone" msgid="8787281191375434976">"着信音とバイブレーション"</string>
+    <string name="preference_category_ringtone" msgid="8787281191375434976">"音とバイブレーション"</string>
     <string name="pstn_connection_service_label" msgid="9200102709997537069">"内蔵のSIMカード"</string>
     <string name="enable_video_calling_title" msgid="7246600931634161830">"ビデオハングアウトを有効にする"</string>
     <string name="enable_video_calling_dialog_msg" msgid="7141478720386203540">"ビデオハングアウトをONにするには、ネットワーク設定で4G LTE拡張モードを有効にする必要があります。"</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"機内モードが ON になっています"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"SIM カードにアクセスできません"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"モバイル ネットワークを利用できない"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"衛星モードがオンになっています"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"発信先の電話番号に問題があります。エラーコード 1。"</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"通話が切断されました。エラーコード 3。"</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"通話が切断されました。エラーコード 6。"</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"キャンセル"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"リムーバブル eSIM をデフォルトに設定"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"モバイル無線電力"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"圏外状態のシミュレート（デバッグビルドのみ）"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"SIM のアドレス帳を表示"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"発信番号制限を表示"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"サービス電話番号を表示"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"接続済み"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"停止中"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"不明"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"メイン"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pkts"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"バイト"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"送信データ:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"メッセージ待機中:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"電話番号:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"無線バンドを選択"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"音声ネットワークの種類:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"データ ネットワークの種類:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"優先ネットワークの種類:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"音声の未加工登録の状態:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"データの未加工登録の状態:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"WLAN データの未加工登録の状態:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"スマートフォンのインデックスを選択"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"優先ネットワークの種類を設定:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"ホスト名（www.google.com）の ping（IPv4）:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Bluetooth の信号強度が十分ではありません。スピーカーフォンに切り替えてみてください。"</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"通話品質に関するお知らせ"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"サポートが終了した SIP アカウント"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"個人用アプリからのメッセージ送信はできません"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"組織では、仕事用アプリからのメッセージ送信のみ許可されています"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"キャンセル"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"仕事用プロファイルに切り替える"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"仕事用メッセージ アプリをインストール"</string>
 </resources>

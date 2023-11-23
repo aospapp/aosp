@@ -15,12 +15,12 @@
   ~ limitations under the License.
   -->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    style="@style/RootLayoutPadding"
-    tools:ignore="Autofill">
+                xmlns:tools="http://schemas.android.com/tools"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                style="@style/RootLayoutPadding"
+                tools:ignore="Autofill">
 
     <ScrollView
         android:layout_width="fill_parent"
@@ -31,30 +31,80 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
+        <TextView
+            android:text="@string/ble_rssi_precision_test_instructions"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:scrollbars="vertical" />
+
+        <CheckBox
+            android:id="@+id/is_reference_device"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/is_reference_device_checkbox_text"/>
+
+        <LinearLayout
+            android:id="@+id/dut_mode_layout"
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <Button
+                android:id="@+id/start_test"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/start_test_presence"/>
+
+            <Button
+                android:id="@+id/stop_test"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/stop_test_presence"/>
+
             <TextView
-                android:text="@string/ble_rssi_precision_test_instructions"
+                android:id="@+id/device_found_info"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:scrollbars="vertical" />
+                android:text="@string/device_found_presence"/>
 
             <EditText
-                android:id="@+id/report_rssi_range"
+                android:id="@+id/ref_device_id_input"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:hint="@string/report_ble_rssi_range"
-                android:inputType="number" />
+                android:inputType="numberDecimal|numberSigned"
+                android:hint="@string/reference_device_id_input_presence"/>
+        </LinearLayout>
 
-            <EditText
-                android:id="@+id/report_reference_device"
+        <LinearLayout
+            android:id="@+id/ref_mode_layout"
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <Button
+                android:id="@+id/start_advertising"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:hint="@string/report_reference_device"
-                android:inputType="text" />
+                android:text="@string/start_advertising_presence"/>
 
-            <include
-                android:layout_width="match_parent"
+            <Button
+                android:id="@+id/stop_advertising"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                layout="@layout/pass_fail_buttons" />
+                android:text="@string/stop_advertising_presence"/>
+
+            <TextView
+                android:id="@+id/device_id_info"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/device_id_info_presence"/>
+        </LinearLayout>
+
+        <include
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            layout="@layout/pass_fail_buttons" />
+
         </LinearLayout>
     </ScrollView>
 </RelativeLayout>

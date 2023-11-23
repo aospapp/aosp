@@ -67,7 +67,7 @@ impl Shelf {
     pub fn get_mut<T: Any + Send + Default>(&mut self) -> &mut T {
         self.0
             .entry(TypeId::of::<T>())
-            .or_insert_with(|| Box::new(T::default()) as Box<dyn Any + Send>)
+            .or_insert_with(|| Box::<T>::default() as Box<dyn Any + Send>)
             .downcast_mut::<T>()
             .unwrap()
     }

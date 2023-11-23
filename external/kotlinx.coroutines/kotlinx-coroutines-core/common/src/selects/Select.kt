@@ -62,7 +62,6 @@ public interface SelectBuilder<in R> {
  * **Note: This is an experimental api.** It may be replaced with light-weight timer/timeout channels in the future.
  */
 @ExperimentalCoroutinesApi
-@ExperimentalTime
 public fun <R> SelectBuilder<R>.onTimeout(timeout: Duration, block: suspend () -> R): Unit =
         onTimeout(timeout.toDelayMillis(), block)
 
@@ -186,7 +185,6 @@ public interface SelectInstance<in R> {
  * | [SendChannel]    | [send][SendChannel.send]                          | [onSend][SendChannel.onSend]
  * | [ReceiveChannel] | [receive][ReceiveChannel.receive]                 | [onReceive][ReceiveChannel.onReceive]
  * | [ReceiveChannel] | [receiveCatching][ReceiveChannel.receiveCatching] | [onReceiveCatching][ReceiveChannel.onReceiveCatching]
- * | [Mutex]          | [lock][Mutex.lock]                                | [onLock][Mutex.onLock]
  * | none             | [delay]                                           | [onTimeout][SelectBuilder.onTimeout]
  *
  * This suspending function is cancellable. If the [Job] of the current coroutine is cancelled or completed while this

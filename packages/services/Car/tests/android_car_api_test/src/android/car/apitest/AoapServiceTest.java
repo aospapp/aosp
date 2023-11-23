@@ -21,6 +21,8 @@ import static com.google.common.truth.Truth.assertThat;
 import android.car.AoapService;
 import android.hardware.usb.UsbDevice;
 
+import com.android.compatibility.common.util.ApiTest;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,7 +30,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
-public final class AoapServiceTest {
+public final class AoapServiceTest extends CarLessApiTestBase {
 
     private AoapService mAoapService;
 
@@ -47,6 +49,7 @@ public final class AoapServiceTest {
     }
 
     @Test
+    @ApiTest(apis = {"android.car.AoapService#canSwitchToAoap"})
     public void testCanSwitchToAoap_byDefaultReturns_RESULT_OK() {
         assertThat(mAoapService.canSwitchToAoap(mDevice)).isEqualTo(AoapService.RESULT_OK);
     }

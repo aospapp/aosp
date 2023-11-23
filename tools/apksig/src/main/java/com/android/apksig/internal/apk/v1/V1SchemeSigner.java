@@ -16,6 +16,7 @@
 
 package com.android.apksig.internal.apk.v1;
 
+import static com.android.apksig.Constants.MAX_APK_SIGNERS;
 import static com.android.apksig.Constants.OID_RSA_ENCRYPTION;
 import static com.android.apksig.internal.pkcs7.AlgorithmIdentifier.getSignerInfoDigestAlgorithmOid;
 import static com.android.apksig.internal.pkcs7.AlgorithmIdentifier.getSignerInfoSignatureAlgorithm;
@@ -246,6 +247,11 @@ public abstract class V1SchemeSigner {
                             CertificateException, SignatureException {
         if (signerConfigs.isEmpty()) {
             throw new IllegalArgumentException("At least one signer config must be provided");
+        }
+        if (signerConfigs.size() > MAX_APK_SIGNERS) {
+            throw new IllegalArgumentException(
+                    "APK Signature Scheme v1 only supports a maximum of " + MAX_APK_SIGNERS + ", "
+                            + signerConfigs.size() + " provided");
         }
         OutputManifestFile manifest =
                 generateManifestFile(

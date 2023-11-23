@@ -75,17 +75,21 @@ void ICULineBreakerPoolImpl::release(ICULineBreakerPool::Slot&& slot) {
     mPool.push_front(std::move(slot));
 }
 
-WordBreaker::WordBreaker() : mPool(&ICULineBreakerPoolImpl::getInstance()) {}
+WordBreaker::WordBreaker()
+        : mPool(&ICULineBreakerPoolImpl::getInstance()), mUText(nullptr, &utext_close) {}
 
-WordBreaker::WordBreaker(ICULineBreakerPool* pool) : mPool(pool) {}
+WordBreaker::WordBreaker(ICULineBreakerPool* pool) : mPool(pool), mUText(nullptr, &utext_close) {}
 
 ssize_t WordBreaker::followingWithLocale(const Locale& locale, LineBreakStyle lbStyle,
                                          LineBreakWordStyle lbWordStyle, size_t from) {
+    if (!mUText) {
+        return mCurrent;
+    }
     mIcuBreaker = mPool->acquire(locale, lbStyle, lbWordStyle);
     UErrorCode status = U_ZERO_ERROR;
     MINIKIN_ASSERT(mText != nullptr, "setText must be called first");
     // TODO: handle failure status
-    ubrk_setUText(mIcuBreaker.breaker.get(), &mUText, &status);
+    ubrk_setUText(mIcuBreaker.breaker.get(), mUText.get(), &status);
     if (mInEmailOrUrl) {
         // Note:
         // Don't reset mCurrent, mLast, or mScanOffset for keeping email/URL context.
@@ -108,7 +112,7 @@ void WordBreaker::setText(const uint16_t* data, size_t size) {
     mScanOffset = 0;
     mInEmailOrUrl = false;
     UErrorCode status = U_ZERO_ERROR;
-    utext_openUChars(&mUText, reinterpret_cast<const UChar*>(data), size, &status);
+    mUText.reset(utext_openUChars(nullptr, reinterpret_cast<const UChar*>(data), size, &status));
 }
 
 ssize_t WordBreaker::current() const {
@@ -317,8 +321,7 @@ int WordBreaker::breakBadness() const {
 
 void WordBreaker::finish() {
     mText = nullptr;
-    // Note: calling utext_close multiply is safe
-    utext_close(&mUText);
+    mUText.reset();
     mPool->release(std::move(mIcuBreaker));
 }
 

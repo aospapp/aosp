@@ -66,7 +66,7 @@ disk_raw_image_extension: ".img"
 creds_cache_file: ".fake_oauth2.dat"
 user_agent: "fake_user_agent"
 kernel_build_target: "kernel"
-emulator_build_target: "sdk_tools_linux"
+emulator_build_target: "emulator-linux_x64_nolocationui"
 
 default_usr_cfg {
     machine_type: "n1-standard-1"
@@ -245,7 +245,7 @@ common_hw_property_map {
                          "fake_stable_goldfish_host_image_name")
         self.assertEqual(cfg.default_usr_cfg.stable_goldfish_host_image_project,
                          "fake_stable_goldfish_host_image_project")
-        self.assertEqual(cfg.emulator_build_target, "sdk_tools_linux")
+        self.assertEqual(cfg.emulator_build_target, "emulator-linux_x64_nolocationui")
         self.assertEqual(cfg.default_usr_cfg.instance_name_pattern,
                          "fake_instance_name_pattern")
 

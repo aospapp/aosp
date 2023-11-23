@@ -210,6 +210,25 @@ public class ScanResultUtilTest {
     }
 
     /**
+     * Test that a network which advertise SAE_EXT_KEY AKM is detected as SAE network
+     */
+    @Test
+    public void testSaeExtKeyAkmSupportedNetwork() {
+        final String ssid = "WPA3-AP";
+        String caps = "[RSN-SAE_EXT_KEY-CCMP][ESS]";
+
+        ScanResult input = new ScanResult(WifiSsid.fromUtf8Text(ssid), ssid,
+                "ab:cd:01:ef:45:89", 1245, 0, caps, -78, 2450, 1025, 22, 33, 20, 0,
+                0, true);
+
+        input.informationElements = new InformationElement[] {
+                createIE(InformationElement.EID_SSID, ssid.getBytes(StandardCharsets.UTF_8))
+        };
+
+        assertTrue(ScanResultUtil.isScanResultForSaeNetwork(input));
+    }
+
+    /**
      * Test that provided network supports FT/EAP AKM.
      */
     @Test
@@ -362,6 +381,69 @@ public class ScanResultUtilTest {
         };
 
         assertFalse(ScanResultUtil.isScanResultForOpenNetwork(input));
+    }
+
+    private ScanResult makeScanResult(String caps) {
+        final String ssid = "TestSsid";
+        ScanResult r = new ScanResult(WifiSsid.fromUtf8Text(ssid), ssid,
+                "ab:cd:01:ef:45:89", 1245, 0, caps, -78, 2450, 1025, 22, 33, 20, 0,
+                0, true);
+        return r;
+    }
+
+    @Test
+    public void testPurePskNetworkCheck() {
+        // PSK only
+        assertTrue(ScanResultUtil.isScanResultForPskOnlyNetwork(makeScanResult("[PSK]")));
+        // SAE only
+        assertFalse(ScanResultUtil.isScanResultForPskOnlyNetwork(makeScanResult("[SAE]")));
+        // Transition
+        assertFalse(ScanResultUtil.isScanResultForPskOnlyNetwork(makeScanResult("[PSK][SAE]")));
+    }
+
+    @Test
+    public void testPureSaeNetworkCheck() {
+        // SAE only
+        assertTrue(ScanResultUtil.isScanResultForSaeOnlyNetwork(makeScanResult("[SAE]")));
+        // PSK only
+        assertFalse(ScanResultUtil.isScanResultForSaeOnlyNetwork(makeScanResult("[PSK]")));
+        // Transition
+        assertFalse(ScanResultUtil.isScanResultForSaeOnlyNetwork(makeScanResult("[PSK][SAE]")));
+    }
+
+    @Test
+    public void testPureOpenNetworkCheck() {
+        // OPEN only
+        assertTrue(ScanResultUtil.isScanResultForOpenOnlyNetwork(makeScanResult("")));
+        // OWE only
+        assertFalse(ScanResultUtil.isScanResultForOpenOnlyNetwork(makeScanResult("[OWE]")));
+        // Transition
+        assertFalse(ScanResultUtil.isScanResultForOpenOnlyNetwork(
+                makeScanResult("[OWE_TRANSITION]")));
+    }
+
+    @Test
+    public void testPureOweNetworkCheck() {
+        // OWE only
+        assertTrue(ScanResultUtil.isScanResultForOweOnlyNetwork(makeScanResult("[OWE]")));
+        // OPEN only
+        assertFalse(ScanResultUtil.isScanResultForOweOnlyNetwork(makeScanResult("")));
+        // Transition
+        assertFalse(ScanResultUtil.isScanResultForOweOnlyNetwork(
+                makeScanResult("[OWE_TRANSITION]")));
+    }
+
+    @Test
+    public void testPureWpa2EnterpriseNetworkCheck() {
+        // WPA2 Enterprise Only
+        assertTrue(ScanResultUtil.isScanResultForWpa2EnterpriseOnlyNetwork(
+                makeScanResult("[EAP/SHA1]")));
+        // WPA3 Enterprise Only
+        assertFalse(ScanResultUtil.isScanResultForWpa2EnterpriseOnlyNetwork(
+                makeScanResult("[RSN][EAP/SHA256][MFPC][MFPR]")));
+        // Transition
+        assertFalse(ScanResultUtil.isScanResultForWpa2EnterpriseOnlyNetwork(
+                makeScanResult("[RSN][EAP/SHA1][EAP/SHA256][MFPC]")));
     }
 
     /**

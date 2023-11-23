@@ -209,6 +209,9 @@
 #define WLAN_STATUS_DENIED_HE_NOT_SUPPORTED 124
 #define WLAN_STATUS_SAE_HASH_TO_ELEMENT 126
 #define WLAN_STATUS_SAE_PK 127
+#define WLAN_STATUS_INVALID_PUBLIC_KEY 136
+#define WLAN_STATUS_PASN_BASE_AKMP_FAILED 137
+#define WLAN_STATUS_OCI_MISMATCH 138
 
 /* Reason codes (IEEE Std 802.11-2016, 9.4.1.7, Table 9-45) */
 #define WLAN_REASON_UNSPECIFIED 1
@@ -479,7 +482,11 @@
 #define WLAN_EID_EXT_HE_OPERATION 36
 #define WLAN_EID_EXT_HE_MU_EDCA_PARAMS 38
 #define WLAN_EID_EXT_SPATIAL_REUSE 39
+#define WLAN_EID_EXT_COLOR_CHANGE_ANNOUNCEMENT 42
 #define WLAN_EID_EXT_OCV_OCI 54
+#define WLAN_EID_EXT_MULTIPLE_BSSID_CONFIGURATION 55
+#define WLAN_EID_EXT_NON_INHERITANCE 56
+#define WLAN_EID_EXT_KNOWN_BSSID 57
 #define WLAN_EID_EXT_SHORT_SSID_LIST 58
 #define WLAN_EID_EXT_HE_6GHZ_BAND_CAP 59
 #define WLAN_EID_EXT_EDMG_CAPABILITIES 61
@@ -489,6 +496,12 @@
 #define WLAN_EID_EXT_REJECTED_GROUPS 92
 #define WLAN_EID_EXT_ANTI_CLOGGING_TOKEN 93
 #define WLAN_EID_EXT_PASN_PARAMS 100
+#define WLAN_EID_EXT_EHT_OPERATION 106
+#define WLAN_EID_EXT_MULTI_LINK 107
+#define WLAN_EID_EXT_EHT_CAPABILITIES 108
+#define WLAN_EID_EXT_TID_TO_LINK_MAPPING 109
+#define WLAN_EID_EXT_MULTI_LINK_TRAFFIC_INDICATION 110
+#define WLAN_EID_EXT_AKM_SUITE_SELECTOR 114
 
 /* Extended Capabilities field */
 #define WLAN_EXT_CAPAB_20_40_COEX 0
@@ -579,7 +592,11 @@
 #define WLAN_RSNX_CAPAB_SAE_PK 6
 #define WLAN_RSNX_CAPAB_SECURE_LTF 8
 #define WLAN_RSNX_CAPAB_SECURE_RTT 9
-#define WLAN_RSNX_CAPAB_PROT_RANGE_NEG 10
+#define WLAN_RSNX_CAPAB_URNM_MFPR_X20 10
+#define WLAN_RSNX_CAPAB_URNM_MFPR 15
+
+/* Multiple BSSID element subelements */
+#define WLAN_MBSSID_SUBELEMENT_NONTRANSMITTED_BSSID_PROFILE 0
 
 /* Action frame categories (IEEE Std 802.11-2016, 9.4.1.11, Table 9-76) */
 #define WLAN_ACTION_SPECTRUM_MGMT 0
@@ -604,12 +621,20 @@
 #define WLAN_ACTION_ROBUST_AV_STREAMING 19
 #define WLAN_ACTION_UNPROTECTED_DMG 20
 #define WLAN_ACTION_VHT 21
-#define WLAN_ACTION_S1G 22
-#define WLAN_ACTION_S1G_RELAY 23
+#define WLAN_ACTION_UNPROTECTED_S1G 22
+#define WLAN_ACTION_S1G 23
 #define WLAN_ACTION_FLOW_CONTROL 24
 #define WLAN_ACTION_CTRL_RESP_MCS_NEG 25
 #define WLAN_ACTION_FILS 26
+#define WLAN_ACTION_CDMG 27
+#define WLAN_ACTION_CMMG 28
+#define WLAN_ACTION_GLK 29
+#define WLAN_ACTION_HE 30
+#define WLAN_ACTION_PROTECTED_HE 31
+#define WLAN_ACTION_WUR 32
 #define WLAN_ACTION_PROTECTED_FTM 34
+#define WLAN_ACTION_EHT 36
+#define WLAN_ACTION_PROTECTED_EHT 37
 #define WLAN_ACTION_VENDOR_SPECIFIC_PROTECTED 126
 #define WLAN_ACTION_VENDOR_SPECIFIC 127
 /* Note: 128-255 used to report errors by setting category | 0x80 */
@@ -1274,9 +1299,12 @@ struct ieee80211_ampe_ie {
 #define HT_OPER_PARAM_PCO_PHASE				((u16) BIT(11))
 /* B36..B39 - Reserved */
 
+#define BSS_MEMBERSHIP_SELECTOR_HE_PHY 122
+#define BSS_MEMBERSHIP_SELECTOR_SAE_H2E_ONLY 123
+#define BSS_MEMBERSHIP_SELECTOR_EPD 124
+#define BSS_MEMBERSHIP_SELECTOR_GLK 125
 #define BSS_MEMBERSHIP_SELECTOR_VHT_PHY 126
 #define BSS_MEMBERSHIP_SELECTOR_HT_PHY 127
-#define BSS_MEMBERSHIP_SELECTOR_SAE_H2E_ONLY 123
 
 /* VHT Defines */
 #define VHT_CAP_MAX_MPDU_LENGTH_7991                ((u32) BIT(0))
@@ -1334,16 +1362,11 @@ struct ieee80211_ampe_ie {
 
 #define VHT_RX_NSS_MAX_STREAMS			    8
 
-/* VHT/EDMG channel widths */
+/* VHT operation information - channel widths */
 #define CHANWIDTH_USE_HT	0
 #define CHANWIDTH_80MHZ		1
 #define CHANWIDTH_160MHZ	2
 #define CHANWIDTH_80P80MHZ	3
-#define CHANWIDTH_2160MHZ	4
-#define CHANWIDTH_4320MHZ	5
-#define CHANWIDTH_6480MHZ	6
-#define CHANWIDTH_8640MHZ	7
-#define CHANWIDTH_40MHZ_6GHZ	8
 
 #define HE_NSS_MAX_STREAMS			    8
 
@@ -1942,6 +1965,42 @@ enum wnm_notification_Type {
 	WNM_NOTIF_TYPE_VENDOR_SPECIFIC = 221,
 };
 
+struct wnm_event_report_element {
+	u8 eid; /* WLAN_EID_EVENT_REPORT */
+	u8 len;
+	u8 token;
+	u8 type;
+	u8 status;
+	/* Followed by conditional fields */
+	union {
+		struct {
+			u8 tsf[8]; /* Event TSF */
+			u8 color_bitmap[8]; /* Event Report field */
+		} STRUCT_PACKED bss_color_collision;
+		struct {
+			u8 tsf[8]; /* Event TSF */
+			u8 color; /* Event Report field */
+		} STRUCT_PACKED bss_color_in_use;
+	} u;
+} STRUCT_PACKED;
+
+enum wnm_event_report_status {
+	WNM_STATUS_SUCCESSFUL = 0,
+	WNM_STATUS_REQ_FAILED = 1,
+	WNM_STATUS_REQ_REFUSED = 2,
+	WNM_STATUS_REQ_INCAPABLE = 3,
+	WNM_STATUS_FREQUENT_TRANSITION = 4,
+};
+
+enum wnm_event_report_type {
+       WNM_EVENT_TYPE_TRANSITION = 0,
+       WNM_EVENT_TYPE_RSNA = 1,
+       WNM_EVENT_TYPE_P2P_LINK = 2,
+       WNM_EVENT_TYPE_WNM_LOG = 3,
+       WNM_EVENT_TYPE_BSS_COLOR_COLLISION = 4,
+       WNM_EVENT_TYPE_BSS_COLOR_IN_USE = 5,
+};
+
 /* Channel Switch modes (802.11h) */
 #define CHAN_SWITCH_MODE_ALLOW_TX	0
 #define CHAN_SWITCH_MODE_BLOCK_TX	1
@@ -1952,6 +2011,26 @@ struct tpc_report {
 	u8 tx_power;
 	u8 link_margin;
 } STRUCT_PACKED;
+
+/*
+ * IEEE Std 802.11ax-2021, Table 9-275a - Maximum Transmit Power
+ * Interpretation subfield encoding
+ */
+enum max_tx_pwr_interpretation {
+	LOCAL_EIRP = 0,
+	LOCAL_EIRP_PSD = 1,
+	REGULATORY_CLIENT_EIRP = 2,
+	REGULATORY_CLIENT_EIRP_PSD = 3,
+};
+
+/*
+ * IEEE Std 802.11ax-2021, Table E-13 - Maximum Transmit Power
+ * Category subfield encoding in the United States
+ */
+enum reg_6g_client_type {
+	REG_DEFAULT_CLIENT = 0,
+	REG_SUBORDINATE_CLIENT = 1,
+};
 
 #define RRM_CAPABILITIES_IE_LEN 5
 
@@ -2173,6 +2252,7 @@ enum phy_type {
 #define NEI_REP_BSSID_INFO_VHT BIT(12)
 #define NEI_REP_BSSID_INFO_FTM BIT(13)
 #define NEI_REP_BSSID_INFO_HE BIT(14)
+#define NEI_REP_BSSID_INFO_EHT BIT(21)
 
 /*
  * IEEE P802.11-REVmc/D5.0 Table 9-152 - HT/VHT Operation Information
@@ -2209,7 +2289,7 @@ struct ieee80211_he_operation {
 	 * Operation Information subfield (5 octets). */
 } STRUCT_PACKED;
 
-/* IEEE P802.11ax/D6.0, Figure 9-787k - 6 GHz Operation Information field */
+/* IEEE Std 802.11ax-2021, Figure 9-788k - 6 GHz Operation Information field */
 struct ieee80211_he_6ghz_oper_info {
 	u8 primary_chan;
 	u8 control;
@@ -2218,15 +2298,22 @@ struct ieee80211_he_6ghz_oper_info {
 	u8 min_rate;
 } STRUCT_PACKED;
 
+/* IEEE Std 802.11ax-2021, Figure 9-788l - Control field format */
 #define HE_6GHZ_OPER_INFO_CTRL_CHAN_WIDTH_MASK	(BIT(0) | BIT(1))
 #define HE_6GHZ_OPER_INFO_CTRL_DUP_BEACON	BIT(2)
+#define HE_6GHZ_OPER_INFO_CTRL_REG_INFO_MASK	(BIT(3) | BIT(4) | BIT(5))
+#define HE_6GHZ_OPER_INFO_CTRL_REG_INFO_SHIFT	3
 
-/* IEEE P802.11ax/D6.0, 9.4.2.261 HE 6 GHz Band Capabilities element */
+/* IEEE Std 802.11ax-2021, 9.4.2.263 HE 6 GHz Band Capabilities element */
 struct ieee80211_he_6ghz_band_cap {
 	 /* Minimum MPDU Start Spacing B0..B2
 	  * Maximum A-MPDU Length Exponent B3..B5
-	  * Maximum MPDU Length B6..B7 */
-	le16 capab;
+	  * Maximum MPDU Length B6..B7
+	  * SM Power Save B9..B10
+	  * RD Responder B11
+	  * Rx Antenna Pattern Consistency B12
+	  * Tx Antenna Consistency B13 */
+	le16 capab; /* Capabilities Information field */
 } STRUCT_PACKED;
 
 #define HE_6GHZ_BAND_CAP_MIN_MPDU_START              (BIT(0) | BIT(1) | BIT(2))
@@ -2252,7 +2339,7 @@ struct ieee80211_he_6ghz_band_cap {
 #define HE_6GHZ_BAND_CAP_TX_ANTPAT_CONS              BIT(13)
 
 /*
- * IEEE P802.11ax/D4.0, 9.4.2.246 Spatial Reuse Parameter Set element
+ * IEEE Std 802.11ax-2021, 9.4.2.252 Spatial Reuse Parameter Set element
  */
 struct ieee80211_spatial_reuse {
 	u8 sr_ctrl; /* SR Control */
@@ -2323,12 +2410,24 @@ struct ieee80211_6ghz_operation_info {
 #define HE_OPERATION_BSS_COLOR_PARTIAL		((u32) BIT(30))
 #define HE_OPERATION_BSS_COLOR_DISABLED		((u32) BIT(31))
 #define HE_OPERATION_BSS_COLOR_OFFSET		24
+#define HE_OPERATION_BSS_COLOR_MAX		64
 
 /* HE operation fields length*/
 #define HE_OPERATION_IE_MIN_LEN 6
 #define HE_OPERATION_VHT_OPER_INFO_LEN 3
 #define HE_OPERATION_COHOSTED_BSSID_INDICATOR_LEN 1
 #define HE_OPERATION_6GHZ_OPER_INFO_LEN 5
+
+/**
+ * enum he_6ghz_ap_type - Allowed Access Point types for 6 GHz Band
+ *
+ * IEEE Std 802.11ax-2021, Table E-12 (Regulatory Info subfield encoding in the
+ * United States)
+ */
+enum he_6ghz_ap_type {
+	HE_6GHZ_INDOOR_AP		= 0,
+	HE_6GHZ_STANDARD_POWER_AP	= 1,
+};
 
 /* Spatial Reuse defines */
 #define SPATIAL_REUSE_SRP_DISALLOWED		BIT(0)
@@ -2393,6 +2492,252 @@ struct ieee80211_he_mu_edca_parameter_set {
 #define RNR_BSS_PARAM_UNSOLIC_PROBE_RESP_ACTIVE     BIT(5)
 #define RNR_BSS_PARAM_CO_LOCATED                    BIT(6)
 #define RNR_20_MHZ_PSD_MAX_TXPOWER                  255 /* dBm */
+
+/* IEEE P802.11be/D2.3, 9.4.2.311 - EHT Operation element */
+
+#define EHT_OPERATION_IE_MIN_LEN 1
+
+/* Figure 9-1002b: EHT Operation Parameters field subfields */
+#define EHT_OPER_INFO_PRESENT                          BIT(0)
+#define EHT_OPER_DISABLED_SUBCHAN_BITMAP_PRESENT       BIT(1)
+#define EHT_OPER_DEFAULT_PE_DURATION                   BIT(2)
+#define EHT_OPER_GROUP_ADDR_BU_INDICATION_LIMIT        BIT(3)
+#define EHT_OPER_GROUP_ADDR_BU_INDICATION_EXPONENT     (BIT(4) | BIT(5))
+#define EHT_OPER_DISABLED_SUBCHAN_BITMAP_SIZE          2
+
+/* Control subfield: Channel Width subfield; see Table 9-401b */
+#define EHT_OPER_CHANNEL_WIDTH_MASK                    0x7
+#define EHT_OPER_CHANNEL_WIDTH_20MHZ                   0
+#define EHT_OPER_CHANNEL_WIDTH_40MHZ                   1
+#define EHT_OPER_CHANNEL_WIDTH_80MHZ                   2
+#define EHT_OPER_CHANNEL_WIDTH_160MHZ                  3
+#define EHT_OPER_CHANNEL_WIDTH_320MHZ                  4
+
+/* Figure 9-1002c: EHT Operation Information field format */
+#define EHT_OPER_INFO_MIN_LEN 3
+
+struct ieee80211_eht_oper_info {
+	u8 control; /* B0..B2: Channel Width */
+	u8 ccfs0;
+	u8 ccfs1;
+	le16 disabled_chan_bitmap; /* 0 or 2 octets */
+} STRUCT_PACKED;
+
+/* Figure 9-1002a: EHT Operation element format */
+struct ieee80211_eht_operation {
+	u8 oper_params; /* EHT Operation Parameters: EHT_OPER_* bits */
+	u8 basic_eht_mcs_nss_set[4];
+	struct ieee80211_eht_oper_info oper_info; /* 0 or 3 or 5 octets */
+} STRUCT_PACKED;
+
+/* IEEE P802.11be/D1.5, 9.4.2.313 - EHT Capabilities element */
+
+#define  EHT_CAPABILITIES_IE_MIN_LEN 11
+
+/* Figure 9-1002af: EHT MAC Capabilities Information field */
+#define EHT_MACCAP_EPCS_PRIO			BIT(0)
+#define EHT_MACCAP_OM_CONTROL			BIT(1)
+#define EHT_MACCAP_TRIGGERED_TXOP_MODE1		BIT(2)
+#define EHT_MACCAP_TRIGGERED_TXOP_MODE2		BIT(3)
+#define EHT_MACCAP_RESTRICTED_TWT		BIT(4)
+#define EHT_MACCAP_SCS_TRAFFIC_DESC		BIT(5)
+#define EHT_MACCAP_MAX_MPDU_LEN_MASK		(BIT(6) | BIT(7))
+#define EHT_MACCAP_MAX_MPDU_LEN_3895		0
+#define EHT_MACCAP_MAX_MPDU_LEN_7991		BIT(6)
+#define EHT_MACCAP_MAX_MPDU_LEN_11454		BIT(7)
+#define EHT_MACCAP_MAX_AMPDU_LEN_EXP_EXT	BIT(8)
+
+/* Figure 9-1002ag: EHT PHY Capabilities Information field format
+ * _IDX indicates the octet index within the field */
+#define EHT_PHY_CAPAB_LEN			9
+
+#define EHT_PHYCAP_320MHZ_IN_6GHZ_SUPPORT_IDX	0
+#define EHT_PHYCAP_320MHZ_IN_6GHZ_SUPPORT_MASK	((u8) BIT(1))
+
+#define EHT_PHYCAP_SU_BEAMFORMER_IDX		0
+#define EHT_PHYCAP_SU_BEAMFORMER		((u8) BIT(5))
+#define EHT_PHYCAP_SU_BEAMFORMEE_IDX		0
+#define EHT_PHYCAP_SU_BEAMFORMEE		((u8) BIT(6))
+
+#define EHT_PHYCAP_PPE_THRESHOLD_PRESENT_IDX	5
+#define EHT_PHYCAP_PPE_THRESHOLD_PRESENT	((u8) BIT(3))
+
+#define EHT_PHYCAP_MU_BEAMFORMER_IDX		7
+#define EHT_PHYCAP_MU_BEAMFORMER_80MHZ		((u8) BIT(4))
+#define EHT_PHYCAP_MU_BEAMFORMER_160MHZ		((u8) BIT(5))
+#define EHT_PHYCAP_MU_BEAMFORMER_320MHZ		((u8) BIT(6))
+#define EHT_PHYCAP_MU_BEAMFORMER_MASK	(EHT_PHYCAP_MU_BEAMFORMER_80MHZ | \
+					 EHT_PHYCAP_MU_BEAMFORMER_160MHZ | \
+					 EHT_PHYCAP_MU_BEAMFORMER_320MHZ)
+
+/* Figure 9-1002ah: Supported EHT-MCS and NSS Set field format */
+#define EHT_PHYCAP_MCS_NSS_LEN_20MHZ_ONLY	4
+#define EHT_PHYCAP_MCS_NSS_LEN_20MHZ_PLUS	3
+
+#define EHT_MCS_NSS_CAPAB_LEN			9
+/*
+ * Figure 9-1002ak: EHT PPE Thresholds field format
+ * Maximum PPE threshold length: 62 octets
+ * NSS: 4 bits (maximum NSS: 16), RU index: 5 bits, each pair: 6 bits
+ * 4 + 5 + 5 * 16 * 6 = 489 bits, Padding: 7 bits
+ */
+#define EHT_PPE_THRESH_CAPAB_LEN		62
+
+/* 9.4.2.313.5: EHT PPE Thresholds field */
+#define EHT_PPE_THRES_NSS_SHIFT			0
+#define EHT_PPE_THRES_NSS_MASK			((u8) (BIT(0) | BIT(1) | \
+						       BIT(2) | BIT(3)))
+#define EHT_PPE_THRES_RU_INDEX_SHIFT		4
+#define EHT_PPE_THRES_RU_INDEX_MASK		((u16) (BIT(4) | BIT(5) | \
+							BIT(6) | BIT(7) | \
+							BIT(8)))
+
+#define EHT_NSS_MAX_STREAMS			8
+
+/* Figure 9-1002ae: EHT Capabilities element format */
+struct ieee80211_eht_capabilities {
+	/* EHT MAC Capabilities Information */
+	le16 mac_cap;
+	/* EHT PHY Capabilities Information */
+	u8 phy_cap[EHT_PHY_CAPAB_LEN];
+	/* Supported EHT-MCS And NSS Set and EHT PPE thresholds (Optional) */
+	u8 optional[EHT_MCS_NSS_CAPAB_LEN + EHT_PPE_THRESH_CAPAB_LEN];
+} STRUCT_PACKED;
+
+#define IEEE80211_EHT_CAPAB_MIN_LEN (2 + 9)
+
+/* IEEE P802.11be/D2.1, 9.4.2.312 - Multi-Link element */
+
+/* Figure 9-1002f: Multi-Link Control field */
+#define MULTI_LINK_CONTROL_TYPE_MASK			0x07
+#define MULTI_LINK_CONTROL_LEN				2
+
+/* Table 9-401c: Mult-Link element Type subfield encoding */
+#define MULTI_LINK_CONTROL_TYPE_BASIC			0
+#define MULTI_LINK_CONTROL_TYPE_PROBE_REQ		1
+#define MULTI_LINK_CONTROL_TYPE_RECONF			2
+#define MULTI_LINK_CONTROL_TYPE_TDLS			3
+#define MULTI_LINK_CONTROL_TYPE_PRIOR_ACCESS		4
+
+/*
+ * IEEE P802.11be/D2.2, Table 9-401c: Optional subelement IDs for Link Info
+ * field of the Multi-Link element
+ */
+#define MULTI_LINK_SUB_ELEM_ID_PER_STA_PROFILE		0
+#define MULTI_LINK_SUB_ELEM_ID_VENDOR			221
+#define MULTI_LINK_SUB_ELEM_ID_FRAGMENT			254
+
+/* IEEE P802.11be/D2.2, 9.4.2.312.2 - Basic Multi-Link element */
+
+/* Figure 9-1002g: Presence Bitmap subfield of the Basic Multi-Link element */
+#define BASIC_MULTI_LINK_CTRL_PRES_LINK_ID		0x0010
+#define BASIC_MULTI_LINK_CTRL_PRES_BSS_PARAM_CH_COUNT	0x0020
+#define BASIC_MULTI_LINK_CTRL_PRES_MSD_INFO		0x0040
+#define BASIC_MULTI_LINK_CTRL_PRES_EML_CAPA		0x0080
+#define BASIC_MULTI_LINK_CTRL_PRES_MLD_CAPA		0x0100
+#define BASIC_MULTI_LINK_CTRL_PRES_AP_MLD_ID		0x0200
+
+/*
+ * STA Control field definitions of Per-STA Profile subelement in Basic
+ * Multi-Link element as described in Figure 9-1002n: STA Control field format.
+ */
+#define BASIC_MLE_STA_CTRL_LINK_ID_MASK			0x000F
+#define BASIC_MLE_STA_CTRL_COMPLETE_PROFILE		0x0010
+#define BASIC_MLE_STA_CTRL_PRES_STA_MAC			0x0020
+#define BASIC_MLE_STA_CTRL_PRES_BEACON_INT		0x0040
+#define BASIC_MLE_STA_CTRL_PRES_TSF_OFFSET		0x0080
+#define BASIC_MLE_STA_CTRL_PRES_DTIM_INFO		0x0100
+#define BASIC_MLE_STA_CTRL_PRES_NSTR_LINK_PAIR		0x0200
+#define BASIC_MLE_STA_CTRL_NSTR_BITMAP			0x0400
+#define BASIC_MLE_STA_CTRL_PRES_BSS_PARAM_COUNT		0x0800
+
+#define BASIC_MLE_STA_PROF_STA_MAC_IDX			3
+
+/* IEEE P802.11be/D2.2, 9.4.2.312.2.3 - Common Info field of the Basic
+ * Multi-Link element */
+struct eht_ml_basic_common_info {
+	u8 len;
+	u8 mld_addr[ETH_ALEN];
+
+	/*
+	 * Followed by optional fields based on the multi link basic presence
+	 * bitmap
+	 *
+	 * Link ID Info: 1 octet
+	 * BSS Parameters Change Count: 1 octet
+	 * Medium Synchronization Delay Information: 2 octets
+	 * EML Capabilities: 2 octets
+	 * MLD Capabilities and Operations: 2 octets
+	 * AP MLD ID: 1 octet
+	 */
+	u8 variable[];
+} STRUCT_PACKED;
+
+#define EHT_ML_LINK_ID_MSK   0x0f
+
+#define EHT_ML_MEDIUM_SYNC_DELAY_DURATION   0x00ff
+#define EHT_ML_MEDIUM_SYNC_DELAY_OFDM_ED_TH 0x0f00
+#define EHT_ML_MEDIUM_SYNC_DELAY_MAX_TXOP   0xf000
+
+#define EHT_ML_EML_CAPA_EMLSR_SUPP               0x0001
+#define EHT_ML_EML_CAPA_EMLSR_PADDING_DELAY_MASK 0x000e
+#define EHT_ML_EML_CAPA_EMLSR_TRANS_DELAY_MASK   0x0070
+#define EHT_ML_EML_CAPA_EMLMR_SUPP               0x0080
+#define EHT_ML_EML_CAPA_EMLMR_DELAY_MASK         0x0700
+#define EHT_ML_EML_CAPA_TRANSITION_TIMEOUT_MASK  0x7800
+
+#define EHT_ML_MLD_CAPA_MAX_NUM_SIM_LINKS_MASK        0x000f
+#define EHT_ML_MLD_CAPA_SRS_SUPP                      0x0010
+#define EHT_ML_MLD_CAPA_TID_TO_LINK_MAP_ALL_TO_ALL    0x0020
+#define EHT_ML_MLD_CAPA_TID_TO_LINK_MAP_ALL_TO_ONE    0x0040
+#define EHT_ML_MLD_CAPA_TID_TO_LINK_MAP_NEG_SUPP_MSK  0x0060
+#define EHT_ML_MLD_CAPA_FREQ_SEP_FOR_STR_MASK         0x0f80
+#define EHT_ML_MLD_CAPA_AAR_SUPP                      0x1000
+
+/* IEEE P802.11be/D2.0, 9.4.2.312.2.4 - Per-STA Profile subelement format */
+struct ieee80211_eht_per_sta_profile {
+	le16 sta_control;
+
+	/* Followed by STA Info and STA Profile fields */
+	u8 variable[];
+} STRUCT_PACKED;
+
+/* IEEE P802.11be/D2.0, 9.4.2.312.3 - Probe Request Multi-Link element */
+
+#define EHT_ML_PRES_BM_PROBE_REQ_AP_MLD_ID 0x0001
+
+struct eht_ml_probe_req_common_info {
+	u8 len;
+
+	/*
+	 * Followed by optional fields based on the multi link basic presence
+	 * bitmap
+	 *
+	 * AP MLD ID: 1 octet
+	 */
+	u8 variable[];
+} STRUCT_PACKED;
+
+/* IEEE P802.11be/D2.0, 9.4.2.312.4 - Reconfiguration Multi-Link element */
+
+#define EHT_ML_PRES_BM_RECONFIGURE_MLD_ADDRESS 0x0001
+
+/* IEEE P802.11be/D2.0, 9.4.2.312.1 - Multi-Link element / General */
+
+struct ieee80211_eht_ml {
+	le16 ml_control;
+
+	/* Followed by Common Info and Link Info fields */
+	u8 variable[];
+} STRUCT_PACKED;
+
+/* Table 9-401c - Optional subelement IDs for Link Info field of the
+ * Multi-Link element */
+enum ieee80211_eht_ml_sub_elem {
+	EHT_ML_SUB_ELEM_PER_STA_PROFILE = 0,
+	EHT_ML_SUB_ELEM_VENDOR = 221,
+	EHT_ML_SUB_ELEM_FRAGMENT = 254,
+};
 
 /* IEEE P802.11ay/D4.0, 9.4.2.251 - EDMG Operation element */
 #define EDMG_BSS_OPERATING_CHANNELS_OFFSET	6
@@ -2477,6 +2822,7 @@ enum mscs_description_subelem {
 #define FD_CAP_BSS_CHWIDTH_40				1
 #define FD_CAP_BSS_CHWIDTH_80				2
 #define FD_CAP_BSS_CHWIDTH_160_80_80			3
+#define FD_CAP_BSS_CHWIDTH_320				4
 #define FD_CAP_BSS_CHWIDTH_SHIFT			2
 
 #define FD_CAP_NSS_1					0
@@ -2494,9 +2840,15 @@ enum mscs_description_subelem {
 #define FD_CAP_PHY_INDEX_SHIFT				10
 
 /*
- * IEEE P802.11ax/D8.0 26.17.2.3.2, AP behavior for fast passive scanning
+ * IEEE Std 802.11ax-2021, 26.17.2.3.2, AP behavior for fast passive scanning
  */
 #define FD_MAX_INTERVAL_6GHZ                  20 /* TUs */
+
+/* IEEE Std 802.11ax-2021, 26.17.3.5.1: AP needs to wait and see the collision
+ * persists for at least the minimum default timeout
+ * dot11BSSColorCollisionAPPeriod (50 seconds)
+ */
+#define DOT11BSS_COLOR_COLLISION_AP_PERIOD	50
 
 /* Protected Vendor-specific QoS Management Action frame identifiers - WFA */
 #define QM_ACTION_VENDOR_TYPE 0x506f9a1a
@@ -2529,9 +2881,20 @@ enum dscp_policy_request_type {
 #define WFA_CAPA_QM_DSCP_POLICY BIT(0)
 #define WFA_CAPA_QM_UNSOLIC_DSCP BIT(1)
 
-#ifdef CONFIG_DRIVER_NL80211_BRCM
+#if defined(CONFIG_DRIVER_NL80211_BRCM) || defined(CONFIG_DRIVER_NL80211_SYNA)
 #define WPA_KEY_MGMT_CROSS_AKM_ROAM (WPA_KEY_MGMT_SAE | WPA_KEY_MGMT_PSK)
 #define IS_CROSS_AKM_ROAM_KEY_MGMT(key_mgmt) \
 	((key_mgmt & WPA_KEY_MGMT_CROSS_AKM_ROAM) == WPA_KEY_MGMT_CROSS_AKM_ROAM)
-#endif /* CONFIG_DRIVER_NL80211_BRCM */
+#endif /* CONFIG_DRIVER_NL80211_BRCM || CONFIG_DRIVER_NL80211_SYNA */
+
+struct ieee80211_neighbor_ap_info {
+	u8 tbtt_info_hdr;
+	u8 tbtt_info_len;
+	u8 op_class;
+	u8 channel;
+
+	/* Followed by the rest of the TBTT Information field contents */
+	u8 data[0];
+} STRUCT_PACKED;
+
 #endif /* IEEE802_11_DEFS_H */

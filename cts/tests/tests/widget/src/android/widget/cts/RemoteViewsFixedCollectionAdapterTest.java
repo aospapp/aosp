@@ -55,6 +55,7 @@ import android.widget.TextView;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.FlakyTest;
 import androidx.test.filters.MediumTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
@@ -433,6 +434,7 @@ public class RemoteViewsFixedCollectionAdapterTest {
     }
 
     @Test
+    @FlakyTest(bugId = 237442832)
     public void testSetRemoteAdapter_emptyCollection() {
         RemoteCollectionItems items = new RemoteCollectionItems.Builder().build();
         mRemoteViews.setRemoteAdapter(R.id.remoteView_list, items);
@@ -482,7 +484,7 @@ public class RemoteViewsFixedCollectionAdapterTest {
     public void testSetRemoteAdapter_checkedChangeListener() throws Throwable {
         String action = "my-action";
         MockBroadcastReceiver receiver = new MockBroadcastReceiver();
-        mActivity.registerReceiver(receiver, new IntentFilter(action));
+        mActivity.registerReceiver(receiver, new IntentFilter(action), Context.RECEIVER_EXPORTED);
 
         Intent intent = new Intent(action).setPackage(mActivity.getPackageName());
         PendingIntent pendingIntent =
@@ -551,7 +553,7 @@ public class RemoteViewsFixedCollectionAdapterTest {
     public void testSetRemoteAdapter_clickFillListener() throws Throwable {
         String action = "my-action";
         MockBroadcastReceiver receiver = new MockBroadcastReceiver();
-        mActivity.registerReceiver(receiver, new IntentFilter(action));
+        mActivity.registerReceiver(receiver, new IntentFilter(action), Context.RECEIVER_EXPORTED);
 
         Intent intent = new Intent(action).setPackage(mActivity.getPackageName());
         PendingIntent pendingIntent =

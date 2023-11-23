@@ -89,7 +89,7 @@ TEST(SysMemInfo, TestIonTotalPoolsKb) {
     }
 }
 
-// /sys/fs/bpf/map_gpu_mem_gpu_mem_total_map support is required for devices launching with
+// /sys/fs/bpf/map_gpuMem_gpu_mem_total_map support is required for devices launching with
 // Android S and having 5.4 or higher kernel version.
 TEST(SysMemInfo, TestGpuTotalUsageKb) {
     uint64_t size;

@@ -19,13 +19,11 @@
  *   Functions generated:13
  */
 
-#include <map>
-#include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
 #include <base/strings/stringprintf.h>
 #include <string.h>
+
+#include <map>
+#include <string>
 
 #include "bt_target.h"
 #include "device/include/controller.h"
@@ -36,6 +34,7 @@ extern std::map<std::string, int> mock_function_count_map;
 #include "osi/include/mutex.h"
 #include "stack/btm/btm_sec.h"
 #include "stack/include/bt_hdr.h"
+#include "test/common/mock_functions.h"
 #include "types/raw_address.h"
 
 #ifndef UNUSED_ATTR
@@ -43,23 +42,23 @@ extern std::map<std::string, int> mock_function_count_map;
 #endif
 
 const RawAddress* GAP_ConnGetRemoteAddr(uint16_t gap_handle) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }
 int GAP_GetRxQueueCnt(uint16_t handle, uint32_t* p_rx_queue_count) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint16_t GAP_ConnClose(uint16_t gap_handle) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint16_t GAP_ConnGetL2CAPCid(uint16_t gap_handle) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint16_t GAP_ConnGetRemMtuSize(uint16_t gap_handle) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint16_t GAP_ConnOpen(const char* p_serv_name, uint8_t service_id,
@@ -67,19 +66,19 @@ uint16_t GAP_ConnOpen(const char* p_serv_name, uint8_t service_id,
                       uint16_t le_mps, tL2CAP_CFG_INFO* p_cfg,
                       tL2CAP_ERTM_INFO* ertm_info, uint16_t security,
                       tGAP_CONN_CALLBACK* p_cb, tBT_TRANSPORT transport) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint16_t GAP_ConnReadData(uint16_t gap_handle, uint8_t* p_data,
                           uint16_t max_len, uint16_t* p_len) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint16_t GAP_ConnWriteData(uint16_t gap_handle, BT_HDR* msg) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
-void GAP_Init(void) { mock_function_count_map[__func__]++; }
+void GAP_Init(void) { inc_func_call_count(__func__); }
 void gap_tx_complete_ind(uint16_t l2cap_cid, uint16_t sdu_sent) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }

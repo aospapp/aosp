@@ -4,14 +4,13 @@
  */
 
 #define _GNU_SOURCE
-#include <sched.h>
 #include <stdlib.h>
 #include <errno.h>
 
 #include "tst_test.h"
 #include "clone_platform.h"
 #include "lapi/syscalls.h"
-#include "lapi/namespaces_constants.h"
+#include "lapi/sched.h"
 
 static void *child_stack;
 static int sysctl_net = -1;
@@ -88,5 +87,4 @@ static struct tst_test test = {
 	.setup = setup,
 	.cleanup = cleanup,
 	.needs_root = 1,
-	.min_kver = "2.6.24",
 };

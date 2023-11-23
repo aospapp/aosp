@@ -29,7 +29,6 @@
 #include "mirror/class_loader.h"
 #include "reflection.h"
 #include "runtime.h"
-#include "well_known_classes.h"
 
 namespace art {
 namespace hiddenapi {
@@ -123,7 +122,7 @@ class AccessContext {
 
     if (domain == Domain::kApplication &&
         klass->ShouldSkipHiddenApiChecks() &&
-        Runtime::Current()->IsJavaDebuggable()) {
+        Runtime::Current()->IsJavaDebuggableAtInit()) {
       // Class is known, it is marked trusted and we are in debuggable mode.
       domain = ComputeDomain(/* is_trusted= */ true);
     }

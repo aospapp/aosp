@@ -1,0 +1,35 @@
+diff --git a/3.2.23/Android.bp b/3.2.23/Android.bp
+index 0593d09..0e1e5ea 100644
+--- a/3.2.23/Android.bp
++++ b/3.2.23/Android.bp
+@@ -4,7 +4,7 @@
+ 
+ 
+ rust_library {
+-    name: "libclap",
++    name: "libclap_3.2.23",
+     host_supported: true,
+     crate_name: "clap",
+     cargo_env_compat: true,
+@@ -23,21 +23,3 @@ rust_library {
+         "//apex_available:anyapex",
+     ],
+ }
+-
+-rust_binary {
+-    name: "stdio_fixture",
+-    host_supported: true,
+-    crate_name: "stdio_fixture",
+-    cargo_env_compat: true,
+-    cargo_pkg_version: "3.2.23",
+-    srcs: ["src/bin/stdio-fixture.rs"],
+-    edition: "2021",
+-    features: ["std"],
+-    rustlibs: [
+-        "libbitflags",
+-        "libclap",
+-        "libclap_lex",
+-        "libindexmap",
+-        "libtextwrap",
+-    ],
+-}

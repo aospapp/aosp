@@ -17,6 +17,7 @@
 package com.android.tv.settings.accessories;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
 import android.os.Bundle;
@@ -24,6 +25,8 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.fragment.app.FragmentActivity;
+
+import com.android.tv.settings.R;
 
 import java.time.Duration;
 
@@ -45,27 +48,41 @@ public class BluetoothRequestPermissionActivity extends FragmentActivity {
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mBluetoothAdapter == null) {
             Log.e(TAG, "Error: there's a problem starting Bluetooth");
-            setResult(Activity.RESULT_CANCELED);
-            finish();
+            cancelAndFinish();
             return;
         }
 
         if (!parseIntent()) {
-            setResult(Activity.RESULT_CANCELED);
-            finish();
+            cancelAndFinish();
             return;
         }
 
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.bluetooth_ask_discovery_title)
+                .setMessage(getString(R.string.bluetooth_ask_discovery_message, mTimeoutSeconds))
+                .setPositiveButton(R.string.allow,
+                        (dialog, which) -> proceedAndFinish())
+                .setNegativeButton(R.string.deny,
+                        (dialog, which) -> cancelAndFinish())
+                .create()
+                .show();
+    }
+
+    private void cancelAndFinish() {
+        setResult(Activity.RESULT_CANCELED);
+        finish();
+    }
+
+    private void proceedAndFinish() {
         mBluetoothAdapter.setDiscoverableTimeout(Duration.ofSeconds(mTimeoutSeconds));
         mBluetoothAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE);
-
         setResult(Activity.RESULT_OK);
         finish();
     }
 
     private boolean parseIntent() {
         Intent intent = getIntent();
-        if (intent == null) {
+        if (intent == null || intent.getAction() == null) {
             return false;
         }
 

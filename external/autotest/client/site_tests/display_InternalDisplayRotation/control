@@ -11,6 +11,7 @@ TIME = 'SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'display'
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 DOC = """
 Change orientation of internal display

@@ -16,18 +16,25 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.car.carlauncher.test">
+    package="com.android.car.carlauncher.test">
 
-    <application android:label="@string/app_title" android:debuggable="true">
-        <uses-library android:name="android.test.runner" />
+    <application
+        android:debuggable="true"
+        android:label="@string/app_title">
+
+        <activity android:name="com.android.car.carlauncher.TaskViewManagerTest$TestActivity" />
 
         <!-- This is used in AppLauncherUtilTests -->
-        <meta-data android:name="com.android.automotive"
-            android:resource="@xml/automotive_app_desc"/>
+        <activity android:name="com.android.car.carlauncher.TaskViewInputInterceptorTest$TestActivity" />
+        <activity android:name="com.android.car.carlauncher.TestActivity" />
+        <meta-data
+            android:name="com.android.automotive"
+            android:resource="@xml/automotive_app_desc" />
+        <uses-library android:name="android.test.runner" />
     </application>
 
-    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.car.carlauncher.test"
-                     android:label="Tests for Car Launcher"/>
-
+    <instrumentation
+        android:name="androidx.test.runner.AndroidJUnitRunner"
+        android:label="Tests for Car Launcher"
+        android:targetPackage="com.android.car.carlauncher.test" />
 </manifest>

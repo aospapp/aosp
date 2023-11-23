@@ -18,6 +18,7 @@
 #include <map>
 #include <mutex>
 #include <set>
+#include <variant>
 
 #include "common/callback.h"
 #include "hci/address_with_type.h"
@@ -34,6 +35,7 @@ class LeAddressManagerCallback {
   virtual ~LeAddressManagerCallback() = default;
   virtual void OnPause() = 0;
   virtual void OnResume() = 0;
+  virtual void NotifyOnIRKChange(){};
 };
 
 class LeAddressManager {
@@ -70,14 +72,17 @@ class LeAddressManager {
       std::chrono::milliseconds minimum_rotation_time,
       std::chrono::milliseconds maximum_rotation_time);
   AddressPolicy GetAddressPolicy();
-  void AckPause(LeAddressManagerCallback* callback);
-  void AckResume(LeAddressManagerCallback* callback);
+  bool RotatingAddress();
+  virtual void AckPause(LeAddressManagerCallback* callback);
+  virtual void AckResume(LeAddressManagerCallback* callback);
   virtual AddressPolicy Register(LeAddressManagerCallback* callback);
   virtual void Unregister(LeAddressManagerCallback* callback);
   virtual bool UnregisterSync(
-      LeAddressManagerCallback* callback, std::chrono::milliseconds timeout = kUnregisterSyncTimeoutInMs);
-  virtual AddressWithType GetCurrentAddress();  // What was set in SetRandomAddress()
-  virtual AddressWithType GetAnotherAddress();  // A new random address without rotating.
+      LeAddressManagerCallback* callback,
+      std::chrono::milliseconds timeout = kUnregisterSyncTimeoutInMs);
+  virtual AddressWithType GetInitiatorAddress();      // What was set in SetRandomAddress()
+  virtual AddressWithType NewResolvableAddress();     // A new random address without rotating.
+  virtual AddressWithType NewNonResolvableAddress();  // A new non-resolvable address
 
   uint8_t GetFilterAcceptListSize();
   uint8_t GetResolvingListSize();
@@ -93,6 +98,16 @@ class LeAddressManager {
   void ClearResolvingList();
   void OnCommandComplete(CommandCompleteView view);
   std::chrono::milliseconds GetNextPrivateAddressIntervalMs();
+
+  // Unsynchronized check for testing purposes
+  size_t NumberCachedCommands() const {
+    return cached_commands_.size();
+  }
+
+ protected:
+  AddressPolicy address_policy_ = AddressPolicy::POLICY_NOT_SET;
+  std::chrono::milliseconds minimum_rotation_time_;
+  std::chrono::milliseconds maximum_rotation_time_;
 
  private:
   enum ClientState {
@@ -111,12 +126,25 @@ class LeAddressManager {
     REMOVE_DEVICE_FROM_RESOLVING_LIST,
     CLEAR_RESOLVING_LIST,
     SET_ADDRESS_RESOLUTION_ENABLE,
-    LE_SET_PRIVACY_MODE
+    LE_SET_PRIVACY_MODE,
+    UPDATE_IRK,
+  };
+
+  struct RotateRandomAddressCommand {};
+
+  struct UpdateIRKCommand {
+    crypto_toolbox::Octet16 rotation_irk;
+    std::chrono::milliseconds minimum_rotation_time;
+    std::chrono::milliseconds maximum_rotation_time;
+  };
+
+  struct HCICommand {
+    std::unique_ptr<CommandBuilder> command;
   };
 
   struct Command {
-    CommandType command_type;
-    std::unique_ptr<CommandBuilder> command_packet;
+    CommandType command_type;  // Note that this field is only intended for logging, not control flow
+    std::variant<RotateRandomAddressCommand, UpdateIRKCommand, HCICommand> contents;
   };
 
   void pause_registered_clients();
@@ -130,6 +158,8 @@ class LeAddressManager {
   void rotate_random_address();
   void schedule_rotate_random_address();
   void set_random_address();
+  void prepare_to_update_irk(UpdateIRKCommand command);
+  void update_irk(UpdateIRKCommand command);
   hci::Address generate_rpa();
   hci::Address generate_nrpa();
   void handle_next_command();
@@ -141,14 +171,11 @@ class LeAddressManager {
   os::Handler* handler_;
   std::map<LeAddressManagerCallback*, ClientState> registered_clients_;
 
-  AddressPolicy address_policy_ = AddressPolicy::POLICY_NOT_SET;
   AddressWithType le_address_;
   AddressWithType cached_address_;
   Address public_address_;
   std::unique_ptr<os::Alarm> address_rotation_alarm_;
   crypto_toolbox::Octet16 rotation_irk_;
-  std::chrono::milliseconds minimum_rotation_time_;
-  std::chrono::milliseconds maximum_rotation_time_;
   uint8_t connect_list_size_;
   uint8_t resolving_list_size_;
   std::queue<Command> cached_commands_;

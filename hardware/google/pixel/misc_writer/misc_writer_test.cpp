@@ -106,6 +106,19 @@ TEST_F(MiscWriterTest, SetClearSota) {
   CheckMiscPartitionVendorSpaceContent(32, zeros);
 }
 
+TEST_F(MiscWriterTest, SetMaxRamSize) {
+  misc_writer_ = std::make_unique<MiscWriter>(MiscWriterActions::kSetMaxRamSize, "8192");
+  size_t offset = MiscWriter::kMaxRamSizeOffsetInVendorSpace;
+  ASSERT_TRUE(misc_writer_->PerformAction(offset));
+  std::string expected = std::string(MiscWriter::kMaxRamSize) + "8192";
+  CheckMiscPartitionVendorSpaceContent(offset, expected);
+
+  misc_writer_ = std::make_unique<MiscWriter>(MiscWriterActions::kClearMaxRamSize);
+  ASSERT_TRUE(misc_writer_->PerformAction(offset));
+  std::string zeros(expected.size(), 0);
+  CheckMiscPartitionVendorSpaceContent(offset, zeros);
+}
+
 TEST_F(MiscWriterTest, WriteMiscPartitionVendorSpace) {
   std::string kTestMessage = "kTestMessage";
   std::string err;

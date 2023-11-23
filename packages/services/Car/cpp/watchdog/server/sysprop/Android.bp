@@ -17,7 +17,7 @@ package {
 }
 
 sysprop_library {
-  name: "libwatchdog_properties",
+  name: "watchdog_properties",
   srcs: ["*.sysprop"],
   property_owner: "Platform",
   api_packages: ["android.sysprop"],

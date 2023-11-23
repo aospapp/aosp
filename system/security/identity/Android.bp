@@ -19,47 +19,50 @@ cc_defaults {
     sanitize: {
         misc_undefined : ["integer"],
     },
-    clang : true,
+
 }
 
 cc_binary {
     name: "credstore",
     defaults: [
         "identity_defaults",
+        "identity_use_latest_hal_aidl_cpp_static",
         "keymint_use_latest_hal_aidl_ndk_shared",
         "keymint_use_latest_hal_aidl_cpp_static",
     ],
 
     srcs: [
-        "main.cpp",
-        "CredentialStore.cpp",
-        "CredentialStoreFactory.cpp",
-        "WritableCredential.cpp",
         "Credential.cpp",
         "CredentialData.cpp",
+        "CredentialStore.cpp",
+        "CredentialStoreFactory.cpp",
         "Session.cpp",
         "Util.cpp",
+        "WritableCredential.cpp",
+        "main.cpp",
     ],
     init_rc: ["credstore.rc"],
     shared_libs: [
+        "android.hardware.identity-support-lib",
+        "android.hardware.keymaster@4.0",
+        "android.security.authorization-ndk",
         "libbase",
         "libbinder",
         "libbinder_ndk",
-        "android.hardware.keymaster@4.0",
         "libcredstore_aidl",
         "libcrypto",
-        "libutils",
         "libhidlbase",
-        "android.hardware.identity-support-lib",
         "libkeymaster4support",
         "libkeystore-attestation-application-id",
-        "android.security.authorization-ndk",
-        "android.security.remoteprovisioning-cpp",
+        "librkp_support",
+        "libutils",
         "libutilscallstack",
+        "libvintf",
     ],
     static_libs: [
-        "android.hardware.identity-V4-cpp",
+        "android.hardware.security.rkp-V3-cpp",
         "android.hardware.keymaster-V3-cpp",
+        "android.security.rkp_aidl-cpp",
         "libcppbor_external",
     ],
 }

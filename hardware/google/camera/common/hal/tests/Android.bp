@@ -27,7 +27,7 @@ cc_library_headers {
     ],
 }
 
-cc_library_shared {
+cc_library {
     name: "libgoogle_camera_hal_tests",
     defaults: ["google_camera_hal_defaults"],
     compile_multilib: "first",
@@ -91,9 +91,26 @@ cc_test {
         "google_camera_hal_tests.cc",
     ],
     shared_libs: [
-        "libgoogle_camera_hal_tests",
+        "lib_profiler",
+        "libgooglecamerahal",
+        "libgooglecamerahalutils",
+        "android.hardware.camera.provider@2.4",
+        "android.hardware.graphics.mapper@2.0",
+        "android.hardware.graphics.mapper@3.0",
+        "android.hardware.graphics.mapper@4.0",
+        "libcamera_metadata",
+        "libcutils",
+        "libhardware",
+        "libhidlbase",
         "liblog",
         "libutils",
+    ],
+    whole_static_libs: [
+        "libgoogle_camera_hal_tests",
+    ],
+    static_libs: [
+        "libgmock",
+        "libgtest",
     ],
     local_include_dirs: ["."],
 }

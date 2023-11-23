@@ -71,7 +71,7 @@
     <string name="wifi_detail_label" msgid="3032151019356747583">"ବିବରଣୀ"</string>
     <string name="wifi_install_label" msgid="1449629407724323233">"ଇନଷ୍ଟଲ୍‍"</string>
     <string name="wifi_installing_label" msgid="8387393993627129025">"ଇନଷ୍ଟଲ୍ କରାଯାଉଛି"</string>
-    <string name="wifi_cancel_label" msgid="1328748037608392134">"ବାତିଲ୍‍ କରନ୍ତୁ"</string>
+    <string name="wifi_cancel_label" msgid="1328748037608392134">"ବାତିଲ କରନ୍ତୁ"</string>
     <string name="wifi_dismiss_label" msgid="1916684434873972698">"ଖାରଜ"</string>
     <string name="wifi_no_config" msgid="1835743123288916755">"କିଛି ନାହିଁ"</string>
     <string name="wifi_config_text" msgid="8259587306773310314">"ନାମ: %1$s\nFQDN: %2$s\nରୋମିଙ୍ଗ କନ୍ସୋଟିୟମ୍ସ: %3$s\nରେଲାମ୍‍: %4$s\nସ୍ୱୀକୃତି ପଦ୍ଧତି: EAP-%5$s\n"</string>

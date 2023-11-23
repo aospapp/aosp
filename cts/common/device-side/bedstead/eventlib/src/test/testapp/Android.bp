@@ -12,5 +12,5 @@ android_test_helper_app {
         "EventLib"
     ],
     manifest: "src/main/AndroidManifest.xml",
-    min_sdk_version: "27"
+    min_sdk_version: "29"
 }

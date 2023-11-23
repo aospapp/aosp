@@ -1,0 +1,18 @@
+type aocdump, domain;
+type aocdump_exec, vendor_file_type, exec_type, file_type;
+init_daemon_domain(aocdump)
+
+userdebug_or_eng(`
+    # Permit communication with AoC
+    allow aocdump aoc_device:chr_file rw_file_perms;
+
+    allow aocdump radio_vendor_data_file:dir rw_dir_perms;
+    allow aocdump radio_vendor_data_file:file create_file_perms;
+    allow aocdump wifi_logging_data_file:dir create_dir_perms;
+    allow aocdump wifi_logging_data_file:file create_file_perms;
+    set_prop(aocdump, vendor_audio_prop);
+    r_dir_file(aocdump, proc_asound)
+
+    allow aocdump self:unix_stream_socket create_stream_socket_perms;
+    allow aocdump audio_vendor_data_file:sock_file { create unlink };
+')

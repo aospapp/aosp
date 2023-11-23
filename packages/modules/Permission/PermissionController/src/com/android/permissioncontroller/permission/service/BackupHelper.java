@@ -20,6 +20,7 @@ import static android.content.Context.MODE_PRIVATE;
 import static android.content.pm.PackageManager.FLAG_PERMISSION_POLICY_FIXED;
 import static android.content.pm.PackageManager.FLAG_PERMISSION_SYSTEM_FIXED;
 import static android.content.pm.PackageManager.GET_PERMISSIONS;
+import static android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES;
 import static android.util.Xml.newSerializer;
 
 import static com.android.permissioncontroller.Constants.DELAYED_RESTORE_PERMISSIONS_FILE;
@@ -31,13 +32,17 @@ import static org.xmlpull.v1.XmlPullParser.START_TAG;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.Signature;
+import android.content.pm.SigningInfo;
 import android.os.Build;
 import android.os.UserHandle;
 import android.permission.PermissionManager;
 import android.permission.PermissionManager.SplitPermissionInfo;
 import android.util.ArraySet;
+import android.util.Base64;
 import android.util.Log;
 import android.util.Xml;
 
@@ -49,6 +54,7 @@ import com.android.permissioncontroller.Constants;
 import com.android.permissioncontroller.permission.model.AppPermissionGroup;
 import com.android.permissioncontroller.permission.model.AppPermissions;
 import com.android.permissioncontroller.permission.model.Permission;
+import com.android.permissioncontroller.permission.utils.CollectionUtils;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -57,8 +63,13 @@ import org.xmlpull.v1.XmlSerializer;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Helper for creating and restoring permission backups.
@@ -73,6 +84,11 @@ public class BackupHelper {
 
     private static final String TAG_GRANT = "grant";
     private static final String ATTR_PACKAGE_NAME = "pkg";
+
+    private static final String TAG_SIGNING_INFO = "sign";
+    private static final String TAG_CURRENT_CERTIFICATE = "curr-cert";
+    private static final String TAG_PAST_CERTIFICATE = "past-cert";
+    private static final String ATTR_CERTIFICATE_DIGEST = "digest";
 
     private static final String TAG_PERMISSION = "perm";
     private static final String ATTR_PERMISSION_NAME = "name";
@@ -228,9 +244,13 @@ public class BackupHelper {
                 PackageInfo pkgInfo;
                 try {
                     pkgInfo = mContext.getPackageManager().getPackageInfo(pkgState.mPackageName,
-                            GET_PERMISSIONS);
+                            GET_PERMISSIONS | GET_SIGNING_CERTIFICATES);
                 } catch (PackageManager.NameNotFoundException ignored) {
                     packagesToRestoreLater.add(pkgState);
+                    continue;
+                }
+
+                if (!checkCertificateDigestsMatch(pkgInfo, pkgState)) {
                     continue;
                 }
 
@@ -241,6 +261,56 @@ public class BackupHelper {
         synchronized (sLock) {
             writeDelayedStorePkgsLocked(packagesToRestoreLater);
         }
+    }
+
+    /**
+     * Returns whether the backed up package and the package being restored have compatible signing
+     * certificate digests.
+     *
+     * <p> Permissions should only be restored if the backed up package has the same signing
+     * certificate(s) or an ancestor (in the case of certification rotation).
+     *
+     * <p>If no certificates are found stored for the backed up package, we return true anyway as
+     * certificate storage does not exist before {@link Build.VERSION_CODES.TIRAMISU}.
+     */
+    private boolean checkCertificateDigestsMatch(
+            @NonNull PackageInfo packageToRestoreInfo,
+            @NonNull BackupPackageState backupPackageState) {
+        // No signing information was stored for the backed up app.
+        if (backupPackageState.mBackupSigningInfoState == null) {
+            return true;
+        }
+
+        // The backed up app was unsigned.
+        if (backupPackageState.mBackupSigningInfoState.mCurrentCertDigests.isEmpty()) {
+            return false;
+        }
+
+        // We don't have signing information for the restored app, but the backed up app was signed.
+        if (packageToRestoreInfo.signingInfo == null) {
+            return false;
+        }
+
+        // The restored app is unsigned.
+        if (packageToRestoreInfo.signingInfo.getApkContentsSigners() == null
+                || packageToRestoreInfo.signingInfo.getApkContentsSigners().length == 0) {
+            return false;
+        }
+
+        // If the restored app is a system app, we allow permissions to be restored without any
+        // certificate checks.
+        // System apps are signed with the device's platform certificate, so on
+        // different phones the same system app can have different certificates.
+        // We perform this check to be consistent with the Backup and Restore feature logic in
+        // frameworks/base/services/core/java/com/android/server/backup/BackupUtils.java
+        if ((packageToRestoreInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0) {
+            return true;
+        }
+
+        // Both backed up app and restored app have signing information, so we check that these are
+        // compatible for the purpose of restoring permissions to the restored app.
+        return hasCompatibleSignaturesForRestore(packageToRestoreInfo.signingInfo,
+                backupPackageState.mBackupSigningInfoState);
     }
 
     /**
@@ -308,7 +378,7 @@ public class BackupHelper {
      */
     void writeState(@NonNull XmlSerializer serializer) throws IOException {
         List<PackageInfo> pkgs = mContext.getPackageManager().getInstalledPackages(
-                GET_PERMISSIONS);
+                GET_PERMISSIONS | GET_SIGNING_CERTIFICATES);
         ArrayList<BackupPackageState> backupPkgs = new ArrayList<>();
 
         int numPkgs = pkgs.size();
@@ -348,7 +418,8 @@ public class BackupHelper {
 
             PackageInfo pkgInfo = null;
             try {
-                pkgInfo = mContext.getPackageManager().getPackageInfo(packageName, GET_PERMISSIONS);
+                pkgInfo = mContext.getPackageManager().getPackageInfo(
+                        packageName, GET_PERMISSIONS | GET_SIGNING_CERTIFICATES);
             } catch (PackageManager.NameNotFoundException e) {
                 Log.e(LOG_TAG, "Could not restore delayed permissions for " + packageName, e);
             }
@@ -358,7 +429,8 @@ public class BackupHelper {
                 for (int i = 0; i < numPkgs; i++) {
                     BackupPackageState pkgState = packagesToRestoreLater.get(i);
 
-                    if (pkgState.mPackageName.equals(packageName)) {
+                    if (pkgState.mPackageName.equals(packageName) && checkCertificateDigestsMatch(
+                            pkgInfo, pkgState)) {
                         pkgState.restore(mContext, pkgInfo);
                         packagesToRestoreLater.remove(i);
 
@@ -377,7 +449,8 @@ public class BackupHelper {
      * State that needs to be backed up for a permission.
      */
     private static class BackupPermissionState {
-        private final @NonNull String mPermissionName;
+        @NonNull
+        private final String mPermissionName;
         private final boolean mIsGranted;
         private final boolean mIsUserSet;
         private final boolean mIsUserFixed;
@@ -401,7 +474,8 @@ public class BackupHelper {
          *
          * @return The state
          */
-        static @NonNull List<BackupPermissionState> parseFromXml(@NonNull XmlPullParser parser,
+        @NonNull
+        static List<BackupPermissionState> parseFromXml(@NonNull XmlPullParser parser,
                 @NonNull Context context, int backupPlatformVersion)
                 throws XmlPullParserException {
             String permName = parser.getAttributeValue(null, ATTR_PERMISSION_NAME);
@@ -463,7 +537,8 @@ public class BackupHelper {
          * @return The state to back up or {@code null} if the permission does not need to be
          * backed up.
          */
-        private static @Nullable BackupPermissionState fromPermission(@NonNull Permission perm,
+        @Nullable
+        private static BackupPermissionState fromPermission(@NonNull Permission perm,
                 boolean appSupportsRuntimePermissions) {
             int grantFlags = perm.getFlags();
 
@@ -502,7 +577,8 @@ public class BackupHelper {
          * @return The state to back up. Empty list if no permissions in the group need to be backed
          * up
          */
-        static @NonNull ArrayList<BackupPermissionState> fromPermissionGroup(
+        @NonNull
+        static ArrayList<BackupPermissionState> fromPermissionGroup(
                 @NonNull AppPermissionGroup group) {
             ArrayList<BackupPermissionState> permissionsToRestore = new ArrayList<>();
             List<Permission> perms = group.getPermissions();
@@ -594,17 +670,153 @@ public class BackupHelper {
         }
     }
 
+    /** Signing certificate information for a backed up package. */
+    private static class BackupSigningInfoState {
+        @NonNull
+        private final Set<byte[]> mCurrentCertDigests;
+        @NonNull
+        private final Set<byte[]> mPastCertDigests;
+
+        private BackupSigningInfoState(@NonNull Set<byte[]> currentCertDigests,
+                @NonNull Set<byte[]> pastCertDigests) {
+            mCurrentCertDigests = currentCertDigests;
+            mPastCertDigests = pastCertDigests;
+        }
+
+        /**
+         * Write this state as XML.
+         *
+         * @param serializer the file to write to
+         */
+        void writeAsXml(@NonNull XmlSerializer serializer) throws IOException {
+            serializer.startTag(null, TAG_SIGNING_INFO);
+
+            for (byte[] digest : mCurrentCertDigests) {
+                serializer.startTag(null, TAG_CURRENT_CERTIFICATE);
+                serializer.attribute(
+                        null, ATTR_CERTIFICATE_DIGEST,
+                        Base64.encodeToString(digest, Base64.NO_WRAP));
+                serializer.endTag(null, TAG_CURRENT_CERTIFICATE);
+            }
+
+            for (byte[] digest : mPastCertDigests) {
+                serializer.startTag(null, TAG_PAST_CERTIFICATE);
+                serializer.attribute(
+                        null, ATTR_CERTIFICATE_DIGEST,
+                        Base64.encodeToString(digest, Base64.NO_WRAP));
+                serializer.endTag(null, TAG_PAST_CERTIFICATE);
+            }
+
+            serializer.endTag(null, TAG_SIGNING_INFO);
+        }
+
+        /**
+         * Parse the signing information state from XML.
+         *
+         * @param parser the data to read
+         *
+         * @return the signing information state
+         */
+        @NonNull
+        static BackupSigningInfoState parseFromXml(@NonNull XmlPullParser parser)
+                throws IOException, XmlPullParserException {
+            Set<byte[]> currentCertDigests = new HashSet<>();
+            Set<byte[]> pastCertDigests = new HashSet<>();
+
+            while (true) {
+                switch (parser.next()) {
+                    case START_TAG:
+                        switch (parser.getName()) {
+                            case TAG_CURRENT_CERTIFICATE:
+                                String currentCertDigest =
+                                        parser.getAttributeValue(
+                                                null, ATTR_CERTIFICATE_DIGEST);
+                                if (currentCertDigest == null) {
+                                    throw new XmlPullParserException(
+                                            "Found " + TAG_CURRENT_CERTIFICATE + " without "
+                                                    + ATTR_CERTIFICATE_DIGEST);
+                                }
+                                currentCertDigests.add(
+                                        Base64.decode(currentCertDigest, Base64.NO_WRAP));
+                                skipToEndOfTag(parser);
+                                break;
+                            case TAG_PAST_CERTIFICATE:
+                                String pastCertDigest =
+                                        parser.getAttributeValue(
+                                                null, ATTR_CERTIFICATE_DIGEST);
+                                if (pastCertDigest == null) {
+                                    throw new XmlPullParserException(
+                                            "Found " + TAG_PAST_CERTIFICATE + " without "
+                                                    + ATTR_CERTIFICATE_DIGEST);
+                                }
+                                pastCertDigests.add(
+                                        Base64.decode(pastCertDigest, Base64.NO_WRAP));
+                                skipToEndOfTag(parser);
+                                break;
+                            default:
+                                Log.w(LOG_TAG, "Found unexpected tag " + parser.getName());
+                                skipToEndOfTag(parser);
+                        }
+
+                        break;
+                    case END_TAG:
+                        return new BackupSigningInfoState(
+                                currentCertDigests,
+                                pastCertDigests);
+                    default:
+                        throw new XmlPullParserException("Could not parse signing info");
+                }
+            }
+        }
+
+        /**
+         * Construct the signing information state from a {@link SigningInfo} instance.
+         *
+         * @param signingInfo the {@link SigningInfo} instance
+         *
+         * @return the state
+         */
+        @NonNull
+        static BackupSigningInfoState fromSigningInfo(@NonNull SigningInfo signingInfo) {
+            Set<byte[]> currentCertDigests = new HashSet<>();
+            Set<byte[]> pastCertDigests = new HashSet<>();
+
+            Signature[] apkContentsSigners = signingInfo.getApkContentsSigners();
+            for (int i = 0; i < apkContentsSigners.length; i++) {
+                currentCertDigests.add(
+                        computeSha256DigestBytes(apkContentsSigners[i].toByteArray()));
+            }
+
+            if (signingInfo.hasPastSigningCertificates()) {
+                Signature[] signingCertificateHistory = signingInfo.getSigningCertificateHistory();
+                for (int i = 0; i < signingCertificateHistory.length; i++) {
+                    pastCertDigests.add(
+                            computeSha256DigestBytes(signingCertificateHistory[i].toByteArray()));
+                }
+            }
+
+            return new BackupSigningInfoState(currentCertDigests, pastCertDigests);
+        }
+    }
+
     /**
      * State that needs to be backed up for a package.
      */
     private static class BackupPackageState {
-        final @NonNull String mPackageName;
-        private final @NonNull ArrayList<BackupPermissionState> mPermissionsToRestore;
+        @NonNull
+        final String mPackageName;
+        @NonNull
+        private final ArrayList<BackupPermissionState> mPermissionsToRestore;
+        @Nullable
+        private final BackupSigningInfoState mBackupSigningInfoState;
 
-        private BackupPackageState(@NonNull String packageName,
-                @NonNull ArrayList<BackupPermissionState> permissionsToRestore) {
+        private BackupPackageState(
+                @NonNull String packageName,
+                @NonNull ArrayList<BackupPermissionState> permissionsToRestore,
+                @Nullable BackupSigningInfoState backupSigningInfoState) {
             mPackageName = packageName;
             mPermissionsToRestore = permissionsToRestore;
+            mBackupSigningInfoState = backupSigningInfoState;
         }
 
         /**
@@ -616,7 +828,8 @@ public class BackupHelper {
          *
          * @return The state
          */
-        static @NonNull BackupPackageState parseFromXml(@NonNull XmlPullParser parser,
+        @NonNull
+        static BackupPackageState parseFromXml(@NonNull XmlPullParser parser,
                 @NonNull Context context, int backupPlatformVersion)
                 throws IOException, XmlPullParserException {
             String packageName = parser.getAttributeValue(null, ATTR_PACKAGE_NAME);
@@ -626,6 +839,7 @@ public class BackupHelper {
             }
 
             ArrayList<BackupPermissionState> permissionsToRestore = new ArrayList<>();
+            BackupSigningInfoState signingInfo = null;
 
             while (true) {
                 switch (parser.next()) {
@@ -643,6 +857,16 @@ public class BackupHelper {
 
                                 skipToEndOfTag(parser);
                                 break;
+                            case TAG_SIGNING_INFO:
+                                try {
+                                    signingInfo = BackupSigningInfoState.parseFromXml(parser);
+                                } catch (XmlPullParserException e) {
+                                    Log.e(LOG_TAG, "Could not parse signing info for "
+                                            + packageName, e);
+                                    skipToEndOfTag(parser);
+                                }
+
+                                break;
                             default:
                                 // ignore tag
                                 Log.w(LOG_TAG, "Found unexpected tag " + parser.getName()
@@ -652,7 +876,10 @@ public class BackupHelper {
 
                         break;
                     case END_TAG:
-                        return new BackupPackageState(packageName, permissionsToRestore);
+                        return new BackupPackageState(
+                                packageName,
+                                permissionsToRestore,
+                                signingInfo);
                     case END_DOCUMENT:
                         throw new XmlPullParserException("Could not parse state for "
                                 + packageName);
@@ -669,7 +896,8 @@ public class BackupHelper {
          * @return The state to back up or {@code null} if no permission of the package need to be
          * backed up.
          */
-        static @Nullable BackupPackageState fromAppPermissions(@NonNull Context context,
+        @Nullable
+        static BackupPackageState fromAppPermissions(@NonNull Context context,
                 @NonNull PackageInfo pkgInfo) {
             AppPermissions appPerms = new AppPermissions(context, pkgInfo, false, null);
 
@@ -694,7 +922,14 @@ public class BackupHelper {
                 return null;
             }
 
-            return new BackupPackageState(pkgInfo.packageName, permissionsToRestore);
+            BackupSigningInfoState signingInfoState = null;
+
+            if (pkgInfo.signingInfo != null) {
+                signingInfoState = BackupSigningInfoState.fromSigningInfo(pkgInfo.signingInfo);
+            }
+
+            return new BackupPackageState(
+                    pkgInfo.packageName, permissionsToRestore, signingInfoState);
         }
 
         /**
@@ -713,6 +948,10 @@ public class BackupHelper {
             int numPerms = mPermissionsToRestore.size();
             for (int i = 0; i < numPerms; i++) {
                 mPermissionsToRestore.get(i).writeAsXml(serializer);
+            }
+
+            if (mBackupSigningInfoState != null) {
+                mBackupSigningInfoState.writeAsXml(serializer);
             }
 
             serializer.endTag(null, TAG_GRANT);
@@ -759,5 +998,101 @@ public class BackupHelper {
 
             appPerms.persistChanges(true, affectedPermissions);
         }
+    }
+
+    /**
+     * Returns whether the signing certificates of the restored app and backed up app are
+     * compatible for the restored app to be granted the backed up app's permissions.
+     *
+     * <p>This returns true when any one of the following is true:
+     *
+     * <ul>
+     *     <li> the backed up app has multiple signing certificates and the restored app
+     *     has identical multiple signing certificates
+     *     <li> the backed up app has a single signing certificate and it is the current
+     *     single signing certificate of the restored app
+     *     <li> the backed up app has a single signing certificate and it is present in the
+     *     signing certificate history of the restored app
+     *     <li> the backed up app has a single signing certificate and signing certificate
+     *     history, and the signing certificate of the restored app is present in that history
+     * </ul>*
+     */
+    private boolean hasCompatibleSignaturesForRestore(@NonNull SigningInfo restoredSigningInfo,
+            @NonNull BackupSigningInfoState backupSigningInfoState) {
+        Set<byte[]> backupCertDigests = backupSigningInfoState.mCurrentCertDigests;
+        Set<byte[]> backupPastCertDigests = backupSigningInfoState.mPastCertDigests;
+        Signature[] restoredSignatures = restoredSigningInfo.getApkContentsSigners();
+
+        // Check that both apps have the same number of signing certificates. This will be a
+        // required check for both the single and multiple certificate cases.
+        if (backupCertDigests.size() != restoredSignatures.length) {
+            return false;
+        }
+
+        Set<byte[]> restoredCertDigests = new HashSet<>();
+        for (Signature signature: restoredSignatures) {
+            restoredCertDigests.add(computeSha256DigestBytes(signature.toByteArray()));
+        }
+
+        // If the backed up app has multiple signing certificates, the restored app should be
+        // signed by that exact set of multiple signing certificates.
+        if (backupCertDigests.size() > 1) {
+            // Check that the restored certificates are a subset of the backed up certificates.
+            if (!CollectionUtils.containsSubset(backupCertDigests, restoredCertDigests)) {
+                return false;
+            }
+            // Check that the backed up certificates are a subset of the restored certificates.
+            if (!CollectionUtils.containsSubset(restoredCertDigests, backupCertDigests)) {
+                return false;
+            }
+            return true;
+        }
+
+        // If both apps have a single signing certificate, we check if they are equal or if one
+        // app's certificate is in the signing certificate history of the other.
+        byte[] backupCertDigest = backupCertDigests.iterator().next();
+        byte[] restoredPastCertDigest = restoredCertDigests.iterator().next();
+
+        // Check if the backed up app and restored app have the same signing certificate.
+        if (Arrays.equals(backupCertDigest, restoredPastCertDigest)) {
+            return true;
+        }
+
+        // Check if the restored app's certificate is in the backed up app's signing certificate
+        // history.
+        if (CollectionUtils.contains(backupPastCertDigests, restoredPastCertDigest)) {
+            return true;
+        }
+
+        // Check if the backed up app's certificate is in the restored app's signing certificate
+        // history.
+        if (restoredSigningInfo.hasPastSigningCertificates()) {
+            // The last element in the pastSigningCertificates array is the current signer;
+            // since that was verified above, just check all the signers in the lineage.
+            for (int i = 0; i < restoredSigningInfo.getSigningCertificateHistory().length - 1;
+                    i++) {
+                restoredPastCertDigest = computeSha256DigestBytes(
+                        restoredSigningInfo.getSigningCertificateHistory()[i].toByteArray());
+                if (Arrays.equals(backupCertDigest, restoredPastCertDigest)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Computes the SHA256 digest of the provided {@code byte} array. */
+    @Nullable
+    private static byte[] computeSha256DigestBytes(@NonNull byte[] data) {
+        MessageDigest messageDigest;
+        try {
+            messageDigest = MessageDigest.getInstance("SHA256");
+        } catch (NoSuchAlgorithmException e) {
+            return null;
+        }
+
+        messageDigest.update(data);
+
+        return messageDigest.digest();
     }
 }

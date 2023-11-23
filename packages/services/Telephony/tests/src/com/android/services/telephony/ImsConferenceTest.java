@@ -23,6 +23,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -119,6 +120,58 @@ public class ImsConferenceTest {
             assertEquals(TelephonyManager.NETWORK_TYPE_IWLAN, c.getExtras().getInt(
                     TelecomManager.EXTRA_CALL_NETWORK_TYPE));
         }
+    }
+
+    /**
+     * Verifies that an ImsConference will inform listeners when the "fullness" of the conference
+     * changes as participants come and go.
+     */
+    @Test
+    @SmallTest
+    public void testNotifyOnConferenceCapacityChanged() {
+        ImsConference imsConference = new ImsConference(mMockTelecomAccountRegistry,
+                mMockTelephonyConnectionServiceProxy, mConferenceHost,
+                null /* phoneAccountHandle */, () -> true /* featureFlagProxy */,
+                new ImsConference.CarrierConfiguration.Builder()
+                        .setIsMaximumConferenceSizeEnforced(true)
+                        .setMaximumConferenceSize(2)
+                        .build());
+        TelephonyConferenceBase.TelephonyConferenceListener listener =
+                mock(TelephonyConferenceBase.TelephonyConferenceListener.class);
+        imsConference.addTelephonyConferenceListener(listener);
+
+        ConferenceParticipant participant1 = new ConferenceParticipant(
+                Uri.parse("tel:6505551212"),
+                "A",
+                Uri.parse("sip:6505551212@testims.com"),
+                Connection.STATE_ACTIVE,
+                Call.Details.DIRECTION_OUTGOING);
+        ConferenceParticipant participant2 = new ConferenceParticipant(
+                Uri.parse("tel:6505551213"),
+                "A",
+                Uri.parse("sip:6505551213@testims.com"),
+                Connection.STATE_ACTIVE,
+                Call.Details.DIRECTION_INCOMING);
+
+        // no capacity change since we haven't hit the limit yet.
+        imsConference.handleConferenceParticipantsUpdate(mConferenceHost,
+                Arrays.asList(participant1));
+        verify(listener, never()).onConferenceCapacityChanged();
+
+        // Now we should get a capacity change
+        imsConference.handleConferenceParticipantsUpdate(mConferenceHost,
+                Arrays.asList(participant1, participant2));
+        verify(listener, times(1)).onConferenceCapacityChanged();
+
+        // And another when we go back to a non-full conference.
+        imsConference.handleConferenceParticipantsUpdate(mConferenceHost,
+                Arrays.asList(participant1));
+        verify(listener, times(2)).onConferenceCapacityChanged();
+
+        // But not when we reduce count further.
+        imsConference.handleConferenceParticipantsUpdate(mConferenceHost,
+                Collections.emptyList());
+        verify(listener, times(2)).onConferenceCapacityChanged();
     }
 
     @Test
@@ -590,7 +643,7 @@ public class ImsConferenceTest {
 
         ImsConference imsConference = new ImsConference(mMockTelecomAccountRegistry,
                 mMockTelephonyConnectionServiceProxy, mConferenceHost,
-                null /* phoneAccountHandle */, () -> false /* featureFlagProxy */,
+                null /* phoneAccountHandle */, () -> true /* isUsingSinglePartyCallEmulation */,
                 new ImsConference.CarrierConfiguration.Builder()
                         .setShouldLocalDisconnectEmptyConference(true)
                         .build());
@@ -616,6 +669,109 @@ public class ImsConferenceTest {
                 Arrays.asList(participant1));
 
         // Drop to 0 participants; should have a hangup request.
+        imsConference.handleConferenceParticipantsUpdate(mConferenceHost, Collections.emptyList());
+        assertEquals(0, imsConference.getNumberOfParticipants());
+        verify(mConferenceHost.mMockCall).hangup();
+    }
+
+    /**
+     * Preconditions: both single party emulation and local disconnect of empty conferences is
+     * enabled.
+     * Tests the case where we receive a repeat with the same single-party data that caused a
+     * conference to be treated as a single party; we need to verify that we do not disconnect the
+     * conference locally in this case.
+     * @throws Exception
+     */
+    @Test
+    @SmallTest
+    public void testNoLocalDisconnectSinglePartyConferenceOnRepeatedCep() throws Exception {
+        when(mMockTelecomAccountRegistry.isUsingSimCallManager(any(PhoneAccountHandle.class)))
+                .thenReturn(false);
+
+        ImsConference imsConference = new ImsConference(mMockTelecomAccountRegistry,
+                mMockTelephonyConnectionServiceProxy, mConferenceHost,
+                null /* phoneAccountHandle */, () -> true /* isUsingSinglePartyCallEmulation */,
+                new ImsConference.CarrierConfiguration.Builder()
+                        .setShouldLocalDisconnectEmptyConference(true)
+                        .build());
+
+        ConferenceParticipant participant1 = new ConferenceParticipant(
+                Uri.parse("tel:6505551212"),
+                "A",
+                Uri.parse("sip:6505551212@testims.com"),
+                Connection.STATE_ACTIVE,
+                Call.Details.DIRECTION_INCOMING);
+        ConferenceParticipant participant2 = new ConferenceParticipant(
+                Uri.parse("tel:6505551213"),
+                "A",
+                Uri.parse("sip:6505551213@testims.com"),
+                Connection.STATE_ACTIVE,
+                Call.Details.DIRECTION_INCOMING);
+        imsConference.handleConferenceParticipantsUpdate(mConferenceHost,
+                Arrays.asList(participant1, participant2));
+        assertEquals(2, imsConference.getNumberOfParticipants());
+
+        // Drop to 1 participant which enters single party mode.
+        imsConference.handleConferenceParticipantsUpdate(mConferenceHost,
+                Arrays.asList(participant1));
+        assertEquals(0, imsConference.getNumberOfParticipants());
+
+        // Get a repeat CEP with the same participant data; we should still be in single party mode
+        // but we should NOT disconnect the conference.
+        imsConference.handleConferenceParticipantsUpdate(mConferenceHost,
+                Arrays.asList(participant1));
+        assertEquals(0, imsConference.getNumberOfParticipants());
+        verify(mConferenceHost.mMockCall, never()).hangup();
+    }
+
+    /**
+     * An extension of {@link #testNoLocalDisconnectSinglePartyConferenceOnRepeatedCep()} where we
+     * get a repeated CEP with the same single party state, but then finally get a CEP with no
+     * participants anymore.  In this case we do expect a local disconnect as the final state.
+     * @throws Exception
+     */
+    @Test
+    @SmallTest
+    public void testLocalDisconnectSinglePartyConferenceOnRepeatedCep() throws Exception {
+        when(mMockTelecomAccountRegistry.isUsingSimCallManager(any(PhoneAccountHandle.class)))
+                .thenReturn(false);
+
+        ImsConference imsConference = new ImsConference(mMockTelecomAccountRegistry,
+                mMockTelephonyConnectionServiceProxy, mConferenceHost,
+                null /* phoneAccountHandle */, () -> true /* isUsingSinglePartyCallEmulation */,
+                new ImsConference.CarrierConfiguration.Builder()
+                        .setShouldLocalDisconnectEmptyConference(true)
+                        .build());
+
+        ConferenceParticipant participant1 = new ConferenceParticipant(
+                Uri.parse("tel:6505551212"),
+                "A",
+                Uri.parse("sip:6505551212@testims.com"),
+                Connection.STATE_ACTIVE,
+                Call.Details.DIRECTION_INCOMING);
+        ConferenceParticipant participant2 = new ConferenceParticipant(
+                Uri.parse("tel:6505551213"),
+                "A",
+                Uri.parse("sip:6505551213@testims.com"),
+                Connection.STATE_ACTIVE,
+                Call.Details.DIRECTION_INCOMING);
+        imsConference.handleConferenceParticipantsUpdate(mConferenceHost,
+                Arrays.asList(participant1, participant2));
+        assertEquals(2, imsConference.getNumberOfParticipants());
+
+        // Drop to 1 participant which enters single party mode.
+        imsConference.handleConferenceParticipantsUpdate(mConferenceHost,
+                Arrays.asList(participant1));
+        assertEquals(0, imsConference.getNumberOfParticipants());
+
+        // Get a repeat CEP with the same participant data; we should still be in single party mode
+        // but we should NOT disconnect the conference.
+        imsConference.handleConferenceParticipantsUpdate(mConferenceHost,
+                Arrays.asList(participant1));
+        assertEquals(0, imsConference.getNumberOfParticipants());
+        verify(mConferenceHost.mMockCall, never()).hangup();
+
+        // Got another CEP that has no participants at all; we should disconnet in this case
         imsConference.handleConferenceParticipantsUpdate(mConferenceHost, Collections.emptyList());
         assertEquals(0, imsConference.getNumberOfParticipants());
         verify(mConferenceHost.mMockCall).hangup();

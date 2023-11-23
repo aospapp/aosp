@@ -47,7 +47,6 @@ ACTS Config setup:
 """
 from acts import signals
 from datetime import datetime
-from threading import Thread
 
 import ctypes
 import logging

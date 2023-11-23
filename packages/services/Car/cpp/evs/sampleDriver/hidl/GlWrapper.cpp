@@ -16,49 +16,37 @@
 
 #include "GlWrapper.h"
 
-#include <stdio.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-
-#include <utility>
-
 #include <ui/DisplayMode.h>
 #include <ui/DisplayState.h>
 #include <ui/GraphicBuffer.h>
 
+#include <fcntl.h>
+#include <stdio.h>
+#include <sys/ioctl.h>
 
-using namespace android;
-
+#include <utility>
 
 using android::GraphicBuffer;
 using android::sp;
 
+const char vertexShaderSource[] = "attribute vec4 pos;                  \n"
+                                  "attribute vec2 tex;                  \n"
+                                  "varying vec2 uv;                     \n"
+                                  "void main()                          \n"
+                                  "{                                    \n"
+                                  "   gl_Position = pos;                \n"
+                                  "   uv = tex;                         \n"
+                                  "}                                    \n";
 
-const char vertexShaderSource[] = ""
-        "#version 300 es                    \n"
-        "layout(location = 0) in vec4 pos;  \n"
-        "layout(location = 1) in vec2 tex;  \n"
-        "out vec2 uv;                       \n"
-        "void main()                        \n"
-        "{                                  \n"
-        "   gl_Position = pos;              \n"
-        "   uv = tex;                       \n"
-        "}                                  \n";
+const char pixelShaderSource[] = "precision mediump float;              \n"
+                                 "uniform sampler2D tex;                \n"
+                                 "varying vec2 uv;                      \n"
+                                 "void main()                           \n"
+                                 "{                                     \n"
+                                 "    gl_FragColor = texture2D(tex, uv);\n"
+                                 "}                                     \n";
 
-const char pixelShaderSource[] =
-        "#version 300 es                            \n"
-        "precision mediump float;                   \n"
-        "uniform sampler2D tex;                     \n"
-        "in vec2 uv;                                \n"
-        "out vec4 color;                            \n"
-        "void main()                                \n"
-        "{                                          \n"
-        "    vec4 texel = texture(tex, uv);         \n"
-        "    color = texel;                         \n"
-        "}                                          \n";
-
-
-static const char *getEGLError(void) {
+static const char* getEGLError(void) {
     switch (eglGetError()) {
         case EGL_SUCCESS:
             return "EGL_SUCCESS";
@@ -95,11 +83,10 @@ static const char *getEGLError(void) {
     }
 }
 
-
 // Given shader source, load and compile it
-static GLuint loadShader(GLenum type, const char *shaderSrc) {
+static GLuint loadShader(GLenum type, const char* shaderSrc) {
     // Create the shader object
-    GLuint shader = glCreateShader (type);
+    GLuint shader = glCreateShader(type);
     if (shader == 0) {
         return 0;
     }
@@ -116,10 +103,9 @@ static GLuint loadShader(GLenum type, const char *shaderSrc) {
 
         GLint size = 0;
         glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &size);
-        if (size > 0)
-        {
+        if (size > 0) {
             // Get and report the error message
-            char *infoLog = (char*)malloc(size);
+            char* infoLog = (char*)malloc(size);
             glGetShaderInfoLog(shader, size, nullptr, infoLog);
             LOG(ERROR) << "  msg:" << std::endl << infoLog;
             free(infoLog);
@@ -131,7 +117,6 @@ static GLuint loadShader(GLenum type, const char *shaderSrc) {
 
     return shader;
 }
-
 
 // Create a program object given vertex and pixels shader source
 static GLuint buildShaderProgram(const char* vtxSrc, const char* pxlSrc) {
@@ -158,19 +143,20 @@ static GLuint buildShaderProgram(const char* vtxSrc, const char* pxlSrc) {
     glAttachShader(program, vertexShader);
     glAttachShader(program, pixelShader);
 
+    glBindAttribLocation(program, 0, "pos");
+    glBindAttribLocation(program, 1, "tex");
+
     // Link the program
     glLinkProgram(program);
     GLint linked = 0;
     glGetProgramiv(program, GL_LINK_STATUS, &linked);
-    if (!linked)
-    {
+    if (!linked) {
         LOG(ERROR) << "Error linking program";
         GLint size = 0;
         glGetProgramiv(program, GL_INFO_LOG_LENGTH, &size);
-        if (size > 0)
-        {
+        if (size > 0) {
             // Get and report the error message
-            char *infoLog = (char*)malloc(size);
+            char* infoLog = (char*)malloc(size);
             glGetProgramInfoLog(program, size, nullptr, infoLog);
             LOG(ERROR) << "  msg:  " << infoLog;
             free(infoLog);
@@ -185,10 +171,8 @@ static GLuint buildShaderProgram(const char* vtxSrc, const char* pxlSrc) {
     return program;
 }
 
-
 // Main entry point
-bool GlWrapper::initialize(sp<IAutomotiveDisplayProxyService> pWindowProxy,
-                           uint64_t displayId) {
+bool GlWrapper::initialize(sp<IAutomotiveDisplayProxyService> pWindowProxy, uint64_t displayId) {
     LOG(DEBUG) << __FUNCTION__;
 
     if (pWindowProxy == nullptr) {
@@ -198,13 +182,13 @@ bool GlWrapper::initialize(sp<IAutomotiveDisplayProxyService> pWindowProxy,
 
     // We will use the first display in the list as the primary.
     pWindowProxy->getDisplayInfo(displayId, [this](auto dpyConfig, auto dpyState) {
-        ui::DisplayMode *pConfig = (ui::DisplayMode*)dpyConfig.data();
+        android::ui::DisplayMode* pConfig = (android::ui::DisplayMode*)dpyConfig.data();
         mWidth = pConfig->resolution.getWidth();
         mHeight = pConfig->resolution.getHeight();
 
-        ui::DisplayState* pState = (ui::DisplayState*)dpyState.data();
-        if (pState->orientation != ui::ROTATION_0 &&
-            pState->orientation != ui::ROTATION_180) {
+        android::ui::DisplayState* pState = (android::ui::DisplayState*)dpyState.data();
+        if (pState->orientation != android::ui::ROTATION_0 &&
+            pState->orientation != android::ui::ROTATION_180) {
             // rotate
             std::swap(mWidth, mHeight);
         }
@@ -230,7 +214,6 @@ bool GlWrapper::initialize(sp<IAutomotiveDisplayProxyService> pWindowProxy,
         return false;
     }
 
-
     // Set up our OpenGL ES context associated with the default display
     mDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (mDisplay == EGL_NO_DISPLAY) {
@@ -238,22 +221,16 @@ bool GlWrapper::initialize(sp<IAutomotiveDisplayProxyService> pWindowProxy,
         return false;
     }
 
-    EGLint major = 3;
+    EGLint major = 2;
     EGLint minor = 0;
     if (!eglInitialize(mDisplay, &major, &minor)) {
         LOG(ERROR) << "Failed to initialize EGL: " << getEGLError();
         return false;
     }
 
-
-    const EGLint config_attribs[] = {
-            // Tag                  Value
-            EGL_RED_SIZE,           8,
-            EGL_GREEN_SIZE,         8,
-            EGL_BLUE_SIZE,          8,
-            EGL_DEPTH_SIZE,         0,
-            EGL_NONE
-    };
+    const EGLint config_attribs[] = {// Tag                  Value
+                                     EGL_RED_SIZE,   8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8,
+                                     EGL_DEPTH_SIZE, 0, EGL_NONE};
 
     // Pick the default configuration without constraints (is this good enough?)
     EGLConfig egl_config = {0};
@@ -281,13 +258,11 @@ bool GlWrapper::initialize(sp<IAutomotiveDisplayProxyService> pWindowProxy,
         return false;
     }
 
-
     // Activate our render target for drawing
     if (!eglMakeCurrent(mDisplay, mSurface, mSurface, mContext)) {
         LOG(ERROR) << "Failed to make the OpenGL ES Context current: " << getEGLError();
         return false;
     }
-
 
     // Create the shader program for our simple pipeline
     mShaderProgram = buildShaderProgram(vertexShaderSource, pixelShaderSource);
@@ -312,9 +287,7 @@ bool GlWrapper::initialize(sp<IAutomotiveDisplayProxyService> pWindowProxy,
     return true;
 }
 
-
 void GlWrapper::shutdown() {
-
     // Drop our device textures
     if (mKHRimage != EGL_NO_IMAGE_KHR) {
         eglDestroyImageKHR(mDisplay, mKHRimage);
@@ -334,7 +307,6 @@ void GlWrapper::shutdown() {
     mSurfaceHolder = nullptr;
 }
 
-
 void GlWrapper::showWindow(sp<IAutomotiveDisplayProxyService>& pWindowProxy, uint64_t id) {
     if (pWindowProxy != nullptr) {
         pWindowProxy->showWindow(id);
@@ -342,7 +314,6 @@ void GlWrapper::showWindow(sp<IAutomotiveDisplayProxyService>& pWindowProxy, uin
         LOG(ERROR) << "IAutomotiveDisplayProxyService is not available.";
     }
 }
-
 
 void GlWrapper::hideWindow(sp<IAutomotiveDisplayProxyService>& pWindowProxy, uint64_t id) {
     if (pWindowProxy != nullptr) {
@@ -352,11 +323,10 @@ void GlWrapper::hideWindow(sp<IAutomotiveDisplayProxyService>& pWindowProxy, uin
     }
 }
 
-
 bool GlWrapper::updateImageTexture(const BufferDesc_1_0& buffer) {
     BufferDesc_1_1 newBuffer = {};
     AHardwareBuffer_Desc* pDesc =
-        reinterpret_cast<AHardwareBuffer_Desc *>(&newBuffer.buffer.description);
+            reinterpret_cast<AHardwareBuffer_Desc*>(&newBuffer.buffer.description);
     pDesc->width = buffer.width;
     pDesc->height = buffer.height;
     pDesc->layers = 1;
@@ -370,24 +340,19 @@ bool GlWrapper::updateImageTexture(const BufferDesc_1_0& buffer) {
     return updateImageTexture(newBuffer);
 }
 
-
 bool GlWrapper::updateImageTexture(const BufferDesc_1_1& aFrame) {
-
     // If we haven't done it yet, create an "image" object to wrap the gralloc buffer
     if (mKHRimage == EGL_NO_IMAGE_KHR) {
         // create a temporary GraphicBuffer to wrap the provided handle
         const AHardwareBuffer_Desc* pDesc =
-            reinterpret_cast<const AHardwareBuffer_Desc *>(&aFrame.buffer.description);
-        sp<GraphicBuffer> pGfxBuffer = new GraphicBuffer(
-                pDesc->width,
-                pDesc->height,
-                pDesc->format,
-                pDesc->layers,
-                pDesc->usage,
-                pDesc->stride,
-                const_cast<native_handle_t*>(aFrame.buffer.nativeHandle.getNativeHandle()),
-                false   /* keep ownership */
-        );
+                reinterpret_cast<const AHardwareBuffer_Desc*>(&aFrame.buffer.description);
+        sp<GraphicBuffer> pGfxBuffer =
+                new GraphicBuffer(pDesc->width, pDesc->height, pDesc->format, pDesc->layers,
+                                  pDesc->usage, pDesc->stride,
+                                  const_cast<native_handle_t*>(
+                                          aFrame.buffer.nativeHandle.getNativeHandle()),
+                                  false /* keep ownership */
+                );
         if (pGfxBuffer.get() == nullptr) {
             LOG(ERROR) << "Failed to allocate GraphicBuffer to wrap our native handle";
             return false;
@@ -396,27 +361,21 @@ bool GlWrapper::updateImageTexture(const BufferDesc_1_1& aFrame) {
         // Get a GL compatible reference to the graphics buffer we've been given
         EGLint eglImageAttributes[] = {EGL_IMAGE_PRESERVED_KHR, EGL_TRUE, EGL_NONE};
         EGLClientBuffer cbuf = static_cast<EGLClientBuffer>(pGfxBuffer->getNativeBuffer());
-        mKHRimage = eglCreateImageKHR(mDisplay,
-                                      EGL_NO_CONTEXT,
-                                      EGL_NATIVE_BUFFER_ANDROID,
-                                      cbuf,
+        mKHRimage = eglCreateImageKHR(mDisplay, EGL_NO_CONTEXT, EGL_NATIVE_BUFFER_ANDROID, cbuf,
                                       eglImageAttributes);
         if (mKHRimage == EGL_NO_IMAGE_KHR) {
             LOG(ERROR) << "Error creating EGLImage: " << getEGLError();
             return false;
         }
 
-
         // Update the texture handle we already created to refer to this gralloc buffer
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, mTextureMap);
         glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, static_cast<GLeglImageOES>(mKHRimage));
-
     }
 
     return true;
 }
-
 
 void GlWrapper::renderImageToScreen() {
     // Set the viewport
@@ -438,19 +397,20 @@ void GlWrapper::renderImageToScreen() {
     // We want our image to show up opaque regardless of alpha values
     glDisable(GL_BLEND);
 
-
     // Draw a rectangle on the screen
-    GLfloat vertsCarPos[] = { -0.8,  0.8, 0.0f,   // left top in window space
-                               0.8,  0.8, 0.0f,   // right top
-                              -0.8, -0.8, 0.0f,   // left bottom
-                               0.8, -0.8, 0.0f    // right bottom
+    GLfloat vertsCarPos[] = {
+            -0.8, 0.8,  0.0f,  // left top in window space
+            0.8,  0.8,  0.0f,  // right top
+            -0.8, -0.8, 0.0f,  // left bottom
+            0.8,  -0.8, 0.0f   // right bottom
     };
 
     // NOTE:  We didn't flip the image in the texture, so V=0 is actually the top of the image
-    GLfloat vertsCarTex[] = { 0.0f, 0.0f,   // left top
-                              1.0f, 0.0f,   // right top
-                              0.0f, 1.0f,   // left bottom
-                              1.0f, 1.0f    // right bottom
+    GLfloat vertsCarTex[] = {
+            0.0f, 0.0f,  // left top
+            1.0f, 0.0f,  // right top
+            0.0f, 1.0f,  // left bottom
+            1.0f, 1.0f   // right bottom
     };
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, vertsCarPos);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, vertsCarTex);
@@ -458,7 +418,6 @@ void GlWrapper::renderImageToScreen() {
     glEnableVertexAttribArray(1);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
 
     // Clean up and flip the rendered result to the front so it is visible
     glDisableVertexAttribArray(0);
@@ -468,4 +427,3 @@ void GlWrapper::renderImageToScreen() {
 
     eglSwapBuffers(mDisplay, mSurface);
 }
-

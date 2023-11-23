@@ -53,6 +53,9 @@ public final class TvSettings {
     private static final String PREF_CONTENT_RATING_LEVEL = "pref.content_rating_level";
     private static final String PREF_DISABLE_PIN_UNTIL = "pref.disable_pin_until";
 
+    // tviapp settings
+    private static final String PREF_TV_IAPP_STATES = "pref.tviapp_on";
+
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({
         CONTENT_RATING_LEVEL_NONE,
@@ -240,6 +243,18 @@ public final class TvSettings {
         PreferenceManager.getDefaultSharedPreferences(context)
                 .edit()
                 .putLong(PREF_DISABLE_PIN_UNTIL, timeMillis)
+                .apply();
+    }
+
+    public static boolean isTvIAppOn(Context context) {
+        return PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean(PREF_TV_IAPP_STATES, false);
+    }
+
+    public static void setTvIAppOn(Context context, boolean isOn) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putBoolean(PREF_TV_IAPP_STATES, isOn)
                 .apply();
     }
 }

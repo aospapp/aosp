@@ -342,9 +342,9 @@ internal object SettingsDAO {
     private fun getClockStyle(context: Context, prefs: SharedPreferences, key: String): ClockStyle {
         val defaultStyle: String = context.getString(R.string.default_clock_style)
         val clockStyle: String = prefs.getString(key, defaultStyle)!!
-        // Use hardcoded locale to perform toUpperCase, because in some languages toUpperCase adds
+        // Use hardcoded locale to perform uppercase(), because in some languages uppercase() adds
         // accent to character, which breaks the enum conversion.
-        return ClockStyle.valueOf(clockStyle.toUpperCase(Locale.US))
+        return ClockStyle.valueOf(clockStyle.uppercase(Locale.US))
     }
 
     /**

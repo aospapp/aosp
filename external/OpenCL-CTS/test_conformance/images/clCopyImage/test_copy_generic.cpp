@@ -228,6 +228,11 @@ cl_mem create_image( cl_context context, cl_command_queue queue, BufferOwningPtr
         }
         size_t mappedSlicePad = mappedSlice - (mappedRow * height);
 
+        // For 1Darray, the height variable actually contains the arraysize,
+        // so it can't be used for calculating the slice padding.
+        if (imageInfo->type == CL_MEM_OBJECT_IMAGE1D_ARRAY)
+            mappedSlicePad = mappedSlice - (mappedRow * 1);
+
         // Copy the image.
         size_t scanlineSize = row_pitch_lod;
         size_t sliceSize = slice_pitch_lod - scanlineSize * height;
@@ -547,18 +552,19 @@ int test_copy_image_generic( cl_context context, cl_command_queue queue, image_d
         {
             if( memcmp( sourcePtr, destPtr, scanlineSize ) != 0 )
             {
-                // Find the first missing pixel
+                // Find the first differing pixel
                 size_t pixel_size = get_pixel_size( dstImageInfo->format );
-                size_t where = 0;
-                for( where = 0; where < dstImageInfo->width; where++ )
-                    if( memcmp( sourcePtr + pixel_size * where, destPtr + pixel_size * where, pixel_size) )
-                        break;
+                size_t where =
+                    compare_scanlines(dstImageInfo, sourcePtr, destPtr);
 
-                print_first_pixel_difference_error(
-                    where, sourcePtr + pixel_size * where,
-                    destPtr + pixel_size * where, dstImageInfo, y,
-                    dstImageInfo->depth);
-                return -1;
+                if (where < dstImageInfo->width)
+                {
+                    print_first_pixel_difference_error(
+                        where, sourcePtr + pixel_size * where,
+                        destPtr + pixel_size * where, dstImageInfo, y,
+                        dstImageInfo->depth);
+                    return -1;
+                }
             }
             sourcePtr += rowPitch;
             if((dstImageInfo->type == CL_MEM_OBJECT_IMAGE1D_ARRAY || dstImageInfo->type == CL_MEM_OBJECT_IMAGE1D))

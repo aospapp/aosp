@@ -44,7 +44,7 @@ TEST_F(TestBase, WifiCanSubscribeAndUnsubscribeToScanMonitoring) {
   struct App : public TestNanoapp {
     uint32_t perms = NanoappPermissions::CHRE_PERMS_WIFI;
 
-    void (*handleEvent)(uint32_t, uint16_t, const void *) =
+    decltype(nanoappHandleEvent) *handleEvent =
         [](uint32_t, uint16_t eventType, const void *eventData) {
           static uint32_t cookie;
 
@@ -107,7 +107,7 @@ TEST_F(TestBase, WifiScanMonitoringDisabledOnUnload) {
   struct App : public TestNanoapp {
     uint32_t perms = NanoappPermissions::CHRE_PERMS_WIFI;
 
-    void (*handleEvent)(uint32_t, uint16_t, const void *) =
+    decltype(nanoappHandleEvent) *handleEvent =
         [](uint32_t, uint16_t eventType, const void *eventData) {
           static uint32_t cookie;
 
@@ -167,7 +167,7 @@ TEST_F(TestBase, WifiScanMonitoringDisabledOnUnloadAndCanBeReEnabled) {
   struct App : public TestNanoapp {
     uint32_t perms = NanoappPermissions::CHRE_PERMS_WIFI;
 
-    void (*handleEvent)(uint32_t, uint16_t, const void *) =
+    decltype(nanoappHandleEvent) *handleEvent =
         [](uint32_t, uint16_t eventType, const void *eventData) {
           static uint32_t cookie;
 

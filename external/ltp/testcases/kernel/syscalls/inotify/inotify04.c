@@ -50,11 +50,6 @@ char event_buf[EVENT_BUF_LEN];
 
 int fd_notify, reap_wd_file, reap_wd_dir, wd_dir, wd_file;
 
-static struct tst_kern_exv kvers[] = {
-	{ "RHEL5", "2.6.18-132" },
-	{ NULL, NULL },
-};
-
 static void cleanup(void)
 {
 	if (reap_wd_dir && myinotify_rm_watch(fd_notify, wd_dir) == -1)
@@ -110,11 +105,9 @@ void verify_inotify(void)
 	 * This isn't well documented in inotify(7), but it's intuitive if you
 	 * understand how Unix works.
 	 */
-	if (tst_kvercmp2(2, 6, 25, kvers) >= 0) {
-		event_set[test_cnt].mask = IN_ATTRIB;
-		strcpy(event_set[test_cnt].name, "");
-		test_cnt++;
-	}
+	event_set[test_cnt].mask = IN_ATTRIB;
+	strcpy(event_set[test_cnt].name, "");
+	test_cnt++;
 
 	event_set[test_cnt].mask = IN_DELETE_SELF;
 	strcpy(event_set[test_cnt].name, TEST_FILE);
@@ -131,20 +124,6 @@ void verify_inotify(void)
 		struct inotify_event *event;
 		event = (struct inotify_event *)&event_buf[i];
 		if (test_num >= test_cnt) {
-			if (tst_kvercmp(2, 6, 25) < 0
-			    && event_set[test_cnt - 1].mask == event->mask)
-				tst_res(TWARN,
-					"This may be kernel bug. "
-					"Before kernel 2.6.25, a kernel bug "
-					"meant that the kernel code that was "
-					"intended to coalesce successive identical "
-					"events (i.e., the two most recent "
-					"events could potentially be coalesced "
-					"if the older had not yet been read) "
-					"instead checked if the most recent event "
-					"could be coalesced with the oldest "
-					"unread event. This has been fixed by commit"
-					"1c17d18e3775485bf1e0ce79575eb637a94494a2.");
 			tst_res(TFAIL,
 				"got unnecessary event: "
 				"wd=%d mask=%04x cookie=%u len=%u "

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,8 @@
  */
 
 package org.apache.harmony.tests.java.text;
+
+import android.icu.util.VersionInfo;
 
 import java.text.DateFormat;
 import java.text.MessageFormat;
@@ -43,6 +45,8 @@ public class Support_MessageFormat extends Support_Format {
 		new Support_MessageFormat("").runTest();
 	}
 
+	public static final char AM_PM_SPACE_CHAR = ' ';
+
 	public void t_format_with_FieldPosition() {
 		// This test assumes a default DateFormat.is24Hour setting.
 		DateFormat.is24Hour = null;
@@ -51,11 +55,11 @@ public class Support_MessageFormat extends Support_Format {
 		MessageFormat format = new MessageFormat(pattern, Locale.US);
 
 		Date date = new GregorianCalendar(2005, 1, 28, 14, 20, 16).getTime();
-		Integer hamburgers = new Integer(8);
-		Object[] objects = new Object[] { hamburgers, new Double(3.5),
+		Integer hamburgers = Integer.valueOf(8);
+		Object[] objects = new Object[] { hamburgers, Double.valueOf(3.5),
 				hamburgers, date, date };
 
-		super.text = "On Feb 28, 2005 at 2:20:16 PM, he ate 8 hamburgers and drank 3.5 liters of coke. That was more than enough food!";
+		super.text = "On Feb 28, 2005 at 2:20:16" + AM_PM_SPACE_CHAR + "PM, he ate 8 hamburgers and drank 3.5 liters of coke. That was more than enough food!";
 
 		// test with MessageFormat.Field.ARGUMENT
 		t_FormatWithField(1, format, objects, null, Field.ARGUMENT, 3, 15);
@@ -80,8 +84,8 @@ public class Support_MessageFormat extends Support_Format {
 		MessageFormat format = new MessageFormat(pattern, Locale.US);
 
 		Date date = new GregorianCalendar(2005, 1, 28, 14, 20, 16).getTime();
-		Integer hamburgers = new Integer(8);
-		Object[] objects = new Object[] { hamburgers, new Double(3.5), hamburgers, date, date };
+		Integer hamburgers = Integer.valueOf(8);
+		Object[] objects = new Object[] { hamburgers, Double.valueOf(3.5), hamburgers, date, date };
 
 		t_Format(1, objects, format, getMessageVector1());
 	}

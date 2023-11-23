@@ -1,0 +1,75 @@
+/*
+ * Copyright (C) 2022 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+soong_namespace {
+}
+
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_chre_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_chre_license"],
+}
+
+cc_binary {
+    name: "android.hardware.contexthub-service.generic",
+    defaults: ["hidl_defaults"],
+    vendor: true,
+    relative_install_path: "hw",
+    srcs: [
+        "aidl/generic_context_hub_aidl.cc",
+        "aidl/service.cc",
+        "common/hal_chre_socket_connection.cc",
+        "common/permissions_util.cc",
+    ],
+    include_dirs: [
+        "system/chre/util/include",
+    ],
+    local_include_dirs: [
+        "common/",
+    ],
+    init_rc: ["aidl/android.hardware.contexthub-service.generic.rc"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-DCHRE_MESSAGE_TO_HOST_MAX_SIZE=4000", // Needed to import CHRE APIs.
+        "-DCHRE_HAL_SOCKET_METRICS_ENABLED",
+        "-DCHRE_IS_HOST_BUILD",
+    ],
+    shared_libs: [
+        "android.frameworks.stats-V1-ndk",
+        "libcutils",
+        "libjsoncpp",
+        "liblog",
+        "libprotobuf-cpp-lite",
+        "libutils",
+        "libbase",
+        "libbinder_ndk",
+        "android.hardware.contexthub-V2-ndk",
+        "chremetrics-cpp",
+        "chre_atoms_log",
+    ],
+    header_libs: [
+        "chre_api",
+    ],
+    static_libs: [
+        "chre_client",
+        "chre_config_util",
+        "event_logger",
+    ],
+    vintf_fragments: ["aidl/android.hardware.contexthub-service.generic.xml"],
+}

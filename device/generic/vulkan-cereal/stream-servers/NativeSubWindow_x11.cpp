@@ -18,6 +18,8 @@
 
 #include <stdio.h>
 
+namespace {
+
 static Bool WaitForMapNotify(Display *d, XEvent *e, char *arg) {
     if (e->type == MapNotify && e->xmap.window == (Window)arg) {
         return 1;
@@ -34,11 +36,14 @@ static Bool WaitForConfigureNotify(Display *d, XEvent *e, char *arg) {
 
 static Display *s_display = NULL;
 
+}  // namespace
+
 EGLNativeWindowType createSubWindow(FBNativeWindowType p_window,
                                     int x,
                                     int y,
                                     int width,
                                     int height,
+                                    float dpr,
                                     SubWindowRepaintCallback repaint_callback,
                                     void* repaint_callback_param,
                                     int hideWindow) {
@@ -66,7 +71,7 @@ EGLNativeWindowType createSubWindow(FBNativeWindowType p_window,
             &wa);
     if (!hideWindow) {
         x11->XMapWindow(s_display,win);
-        x11->XSetWindowBackground(s_display, win, BlackPixel(s_display, 0));
+        x11->XSetWindowBackground(s_display, win, 0);
         XEvent e;
         x11->XIfEvent(s_display, &e, WaitForMapNotify, (char *)win);
     }

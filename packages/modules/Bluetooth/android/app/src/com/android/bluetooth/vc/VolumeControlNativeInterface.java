@@ -113,8 +113,8 @@ public class VolumeControlNativeInterface {
      * @param volume
      */
     @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
-    public void setVolumeGroup(int groupId, int volume) {
-        setVolumeGroupNative(groupId, volume);
+    public void setGroupVolume(int groupId, int volume) {
+        setGroupVolumeNative(groupId, volume);
     }
 
      /**
@@ -178,6 +178,10 @@ public class VolumeControlNativeInterface {
     @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
     public boolean setExtAudioOutVolumeOffset(BluetoothDevice device, int externalOutputId,
                                                     int offset) {
+        if (Utils.isPtsTestMode()) {
+            setVolumeNative(getByteAddress(device), offset);
+            return true;
+        }
         return setExtAudioOutVolumeOffsetNative(getByteAddress(device), externalOutputId, offset);
     }
 
@@ -256,8 +260,8 @@ public class VolumeControlNativeInterface {
     // Callbacks from the native stack back into the Java framework.
     // All callbacks are routed via the Service which will disambiguate which
     // state machine the message should be routed to.
-
-    private void onConnectionStateChanged(int state, byte[] address) {
+    @VisibleForTesting
+    void onConnectionStateChanged(int state, byte[] address) {
         VolumeControlStackEvent event =
                 new VolumeControlStackEvent(
                         VolumeControlStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
@@ -270,7 +274,8 @@ public class VolumeControlNativeInterface {
         sendMessageToService(event);
     }
 
-    private void onVolumeStateChanged(int volume, boolean mute, byte[] address,
+    @VisibleForTesting
+    void onVolumeStateChanged(int volume, boolean mute, byte[] address,
             boolean isAutonomous) {
         VolumeControlStackEvent event =
                 new VolumeControlStackEvent(
@@ -287,7 +292,8 @@ public class VolumeControlNativeInterface {
         sendMessageToService(event);
     }
 
-    private void onGroupVolumeStateChanged(int volume, boolean mute, int groupId,
+    @VisibleForTesting
+    void onGroupVolumeStateChanged(int volume, boolean mute, int groupId,
             boolean isAutonomous) {
         VolumeControlStackEvent event =
                 new VolumeControlStackEvent(
@@ -304,7 +310,8 @@ public class VolumeControlNativeInterface {
         sendMessageToService(event);
     }
 
-    private void onDeviceAvailable(int numOfExternalOutputs,
+    @VisibleForTesting
+    void onDeviceAvailable(int numOfExternalOutputs,
                                    byte[] address) {
         VolumeControlStackEvent event =
                 new VolumeControlStackEvent(
@@ -318,7 +325,8 @@ public class VolumeControlNativeInterface {
         sendMessageToService(event);
     }
 
-    private void onExtAudioOutVolumeOffsetChanged(int externalOutputId, int offset,
+    @VisibleForTesting
+    void onExtAudioOutVolumeOffsetChanged(int externalOutputId, int offset,
                                                byte[] address) {
         VolumeControlStackEvent event =
                 new VolumeControlStackEvent(
@@ -333,7 +341,8 @@ public class VolumeControlNativeInterface {
         sendMessageToService(event);
     }
 
-    private void onExtAudioOutLocationChanged(int externalOutputId, int location,
+    @VisibleForTesting
+    void onExtAudioOutLocationChanged(int externalOutputId, int location,
                                                byte[] address) {
         VolumeControlStackEvent event =
                 new VolumeControlStackEvent(
@@ -348,7 +357,8 @@ public class VolumeControlNativeInterface {
         sendMessageToService(event);
     }
 
-    private void onExtAudioOutDescriptionChanged(int externalOutputId, String descr,
+    @VisibleForTesting
+    void onExtAudioOutDescriptionChanged(int externalOutputId, String descr,
                                                byte[] address) {
         VolumeControlStackEvent event =
                 new VolumeControlStackEvent(
@@ -370,7 +380,7 @@ public class VolumeControlNativeInterface {
     private native boolean connectVolumeControlNative(byte[] address);
     private native boolean disconnectVolumeControlNative(byte[] address);
     private native void setVolumeNative(byte[] address, int volume);
-    private native void setVolumeGroupNative(int groupId, int volume);
+    private native void setGroupVolumeNative(int groupId, int volume);
     private native void muteNative(byte[] address);
     private native void muteGroupNative(int groupId);
     private native void unmuteNative(byte[] address);

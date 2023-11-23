@@ -33,7 +33,6 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
-import android.os.Build;
 import android.provider.Settings;
 import android.service.quickaccesswallet.QuickAccessWalletClient;
 
@@ -58,7 +57,7 @@ import org.robolectric.shadows.ShadowLog;
  * Ensures compatibility between the {@link QuickAccessWalletClient} and the plugin
  */
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = Build.VERSION_CODES.R, shadows = {
+@Config(shadows = {
         QuickAccessWalletClientTest.ShadowActivityManager.class,
         QuickAccessWalletClientTest.ShadowLockPatternUtils.class})
 public class QuickAccessWalletClientTest {

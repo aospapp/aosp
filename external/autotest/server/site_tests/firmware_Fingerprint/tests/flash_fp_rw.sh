@@ -11,4 +11,4 @@ if [[ ! -f "${FW_FILE}" ]]; then
   exit 1
 fi
 
-flashrom --fast-verify -V -p ec:type=fp -i EC_RW -w "${FW_FILE}"
+flashrom --noverify-all -V -p ec:type=fp -i EC_RW -w "${FW_FILE}"

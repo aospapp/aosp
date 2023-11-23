@@ -20,7 +20,7 @@ import time
 from datetime import timedelta
 from grpc import RpcError
 
-from bluetooth_packets_python3 import hci_packets
+import hci_packets as hci
 from blueberry.facade.hci import le_advertising_manager_facade_pb2 as le_advertising_facade
 from blueberry.facade.hci import le_initiator_address_facade_pb2 as le_initiator_address_facade
 from blueberry.facade import common_pb2 as common
@@ -75,10 +75,9 @@ class GattConnectLowLayerTest(gd_sl4a_base_test.GdSl4aBaseTestClass):
         self.cert.hci_le_initiator_address.SetPrivacyPolicyForInitiatorAddress(private_policy)
 
     def _start_cert_advertising_with_random_address(self, device_name, random_address):
-        gap_name = hci_packets.GapData()
-        gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(device_name, encoding='utf8'))
-        gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
+        gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME,
+                               data=list(bytes(device_name, encoding='utf8')))
+        gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
         config = le_advertising_facade.AdvertisingConfig(
             advertisement=[gap_data],
             interval_min=512,
@@ -189,8 +188,10 @@ class GattConnectLowLayerTest(gd_sl4a_base_test.GdSl4aBaseTestClass):
 
         autoconnect = True
         try:
-            bluetooth_gatt, gatt_callback = setup_gatt_connection(
-                self.dut, RANDOM_ADDRESS, autoconnect, timeout_seconds=self.default_timeout)
+            bluetooth_gatt, gatt_callback = setup_gatt_connection(self.dut,
+                                                                  RANDOM_ADDRESS,
+                                                                  autoconnect,
+                                                                  timeout_seconds=self.default_timeout)
         except GattTestUtilsError as err:
             logging.error(err)
             asserts.fail("Cannot make the first connection , error={}".format(err))
@@ -248,8 +249,10 @@ class GattConnectLowLayerTest(gd_sl4a_base_test.GdSl4aBaseTestClass):
         logging.info("Setting up first GATT connection to CERT")
         autoconnect = True
         try:
-            bluetooth_gatt, gatt_callback = setup_gatt_connection(
-                self.dut, RANDOM_ADDRESS, autoconnect, timeout_seconds=self.default_timeout)
+            bluetooth_gatt, gatt_callback = setup_gatt_connection(self.dut,
+                                                                  RANDOM_ADDRESS,
+                                                                  autoconnect,
+                                                                  timeout_seconds=self.default_timeout)
         except GattTestUtilsError as err:
             logging.error(err)
             asserts.fail("Cannot make the first connection , error={}".format(err))
@@ -267,8 +270,10 @@ class GattConnectLowLayerTest(gd_sl4a_base_test.GdSl4aBaseTestClass):
         cert_acl_connection.wait_for_disconnection_complete(timeout=timedelta(seconds=30))
         logging.info("Setting up second GATT connection to CERT")
         try:
-            bluetooth_gatt, gatt_callback = setup_gatt_connection(
-                self.dut, RANDOM_ADDRESS, autoconnect, timeout_seconds=self.default_timeout)
+            bluetooth_gatt, gatt_callback = setup_gatt_connection(self.dut,
+                                                                  RANDOM_ADDRESS,
+                                                                  autoconnect,
+                                                                  timeout_seconds=self.default_timeout)
         except GattTestUtilsError as err:
             close_gatt_client(self.dut, bluetooth_gatt)
             logging.error(err)
@@ -323,8 +328,10 @@ class GattConnectLowLayerTest(gd_sl4a_base_test.GdSl4aBaseTestClass):
 
         autoconnect = True
         try:
-            bluetooth_gatt, gatt_callback = setup_gatt_connection(
-                self.dut, RANDOM_ADDRESS, autoconnect, timeout_seconds=self.default_timeout)
+            bluetooth_gatt, gatt_callback = setup_gatt_connection(self.dut,
+                                                                  RANDOM_ADDRESS,
+                                                                  autoconnect,
+                                                                  timeout_seconds=self.default_timeout)
         except GattTestUtilsError as err:
             logging.error(err)
             asserts.fail("Cannot make the first connection , error={}".format(err))
@@ -392,8 +399,10 @@ class GattConnectLowLayerTest(gd_sl4a_base_test.GdSl4aBaseTestClass):
 
         autoconnect = True
         try:
-            bluetooth_gatt, gatt_callback = setup_gatt_connection(
-                self.dut, RANDOM_ADDRESS, autoconnect, timeout_seconds=self.default_timeout)
+            bluetooth_gatt, gatt_callback = setup_gatt_connection(self.dut,
+                                                                  RANDOM_ADDRESS,
+                                                                  autoconnect,
+                                                                  timeout_seconds=self.default_timeout)
         except GattTestUtilsError as err:
             logging.error(err)
             asserts.fail("Cannot make the first connection , error={}".format(err))
@@ -483,8 +492,10 @@ class GattConnectLowLayerTest(gd_sl4a_base_test.GdSl4aBaseTestClass):
 
         autoconnect = True
         try:
-            bluetooth_gatt, gatt_callback = setup_gatt_connection(
-                self.dut, RANDOM_ADDRESS, autoconnect, timeout_seconds=self.default_timeout)
+            bluetooth_gatt, gatt_callback = setup_gatt_connection(self.dut,
+                                                                  RANDOM_ADDRESS,
+                                                                  autoconnect,
+                                                                  timeout_seconds=self.default_timeout)
         except GattTestUtilsError as err:
             logging.error(err)
             asserts.fail("Cannot make the first connection , error={}".format(err))

@@ -236,6 +236,28 @@ public class CarModeTrackerTest extends TelecomTestCase {
     }
 
     /**
+     * Verifies that setting automotive projection overrides entering car mode with the highest
+     * priority of 0. Also ensures exiting car mode doesn't interfere with the automotive
+     * projection being set.
+     */
+    @Test
+    public void testInterleaveCarModeAndProjectionMode() {
+        mCarModeTracker.handleEnterCarMode(0, CAR_MODE_APP1_PACKAGE_NAME);
+        assertEquals(CAR_MODE_APP1_PACKAGE_NAME, mCarModeTracker.getCurrentCarModePackage());
+        assertTrue(mCarModeTracker.isInCarMode());
+
+        mCarModeTracker.handleSetAutomotiveProjection(CAR_MODE_APP2_PACKAGE_NAME);
+        assertEquals(CAR_MODE_APP2_PACKAGE_NAME, mCarModeTracker.getCurrentCarModePackage());
+        assertTrue(mCarModeTracker.isInCarMode());
+
+        mCarModeTracker.handleExitCarMode(0, CAR_MODE_APP1_PACKAGE_NAME);
+        assertEquals(CAR_MODE_APP2_PACKAGE_NAME, mCarModeTracker.getCurrentCarModePackage());
+        assertTrue(mCarModeTracker.isInCarMode());
+
+        mCarModeTracker.handleReleaseAutomotiveProjection();
+    }
+
+    /**
      * Verifies that if we set automotive projection more than once with the same package, nothing
      * changes.
      */

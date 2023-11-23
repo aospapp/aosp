@@ -124,6 +124,8 @@ static int find_section(char *spec, struct sh *s)
   char *end;
   unsigned i;
 
+  if (!spec) return 0;
+
   // Valid section number?
   i = estrtol(spec, &end, 0);
   if (!errno && !*end && i<TT.shnum) return get_sh(i, s);
@@ -355,7 +357,7 @@ static void scan_elf()
   char *hdr = TT.elf;
   int type, machine, version, flags, entry, ehsize, phnum, shstrndx, i, j, w;
 
-  if (TT.size < 45 || memcmp(hdr, "\177ELF", 4)) 
+  if (TT.size < 45 || smemcmp(hdr, "\177ELF", 4))
     return error_msg("%s: not ELF", TT.f);
 
   TT.bits = hdr[4] - 1;
@@ -453,7 +455,7 @@ static void scan_elf()
              s.entsize, sh_flags, s.link, s.info, s.addralign);
     }
   }
-  if (FLAG(S) && TT.shnum) 
+  if (FLAG(S) && TT.shnum)
     printf("Key:\n  (W)rite, (A)lloc, e(X)ecute, (M)erge, (S)trings, (I)nfo\n"
            "  (L)ink order, (O)S, (G)roup, (T)LS, (C)ompressed, x=unknown\n");
 
@@ -574,7 +576,7 @@ static void scan_elf()
     }
   }
 
-  if (FLAG(x) && find_section(TT.x, &s)) {
+  if (find_section(TT.x, &s)) {
     char *p = TT.elf+s.offset;
     long offset = 0;
 
@@ -592,7 +594,7 @@ static void scan_elf()
     xputc('\n');
   }
 
-  if (FLAG(p) && find_section(TT.p, &s)) {
+  if (find_section(TT.p, &s)) {
     char *begin = TT.elf+s.offset, *end = begin + s.size, *p = begin;
     int any = 0;
 

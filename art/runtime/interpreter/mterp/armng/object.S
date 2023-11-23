@@ -20,7 +20,7 @@
    mov     r0, rSELF
    ldr     r1, [sp]
    mov     r2, rPC
-   bl      nterp_get_class_or_allocate_object
+   bl      nterp_get_class
    mov     r1, r0
    b       1b
 
@@ -91,7 +91,7 @@
    mov     r0, rSELF
    ldr     r1, [sp]
    mov     r2, rPC
-   bl      nterp_get_class_or_allocate_object
+   bl      nterp_get_class
    mov     r1, r0
    b       1b
 
@@ -513,8 +513,9 @@
 4:
    ldr     lr, [rSELF, #THREAD_ALLOC_OBJECT_ENTRYPOINT_OFFSET]
    blx     lr
+   dmb     ishst                        // need fence for making object's class visible
 1:
-   lsr     r1, rINST, #8                    // r1 <- A
+   lsr     r1, rINST, #8                // r1 <- A
    SET_VREG_OBJECT r0, r1               // fp[A] <- value
    FETCH_ADVANCE_INST 2
    GET_INST_OPCODE ip
@@ -523,7 +524,7 @@
    mov     r0, rSELF
    ldr     r1, [sp]
    mov     r2, rPC
-   bl      nterp_get_class_or_allocate_object
+   bl      nterp_allocate_object
    b       1b
 3:
    bl      art_quick_read_barrier_mark_reg00

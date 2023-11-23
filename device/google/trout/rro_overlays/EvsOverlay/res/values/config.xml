@@ -21,8 +21,14 @@
   Overlay resources to configure car service based on each OEM's preference.
   See also packages/services/Car/service/res/values/config.xml
 -->
-<resources>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- A name of a camera device that provides the rearview through EVS service -->
     <string translatable="false" name="config_evsRearviewCameraId">/dev/video0</string>
+
+    <!-- The camera Activity name for EVS, if defined, the Activity will be launched by
+         CarEvsService. -->
+    <string name="config_evsCameraActivity" translatable="false">
+        com.google.android.car.evs/com.google.android.car.evs.CarEvsCameraPreviewActivity
+    </string>
 </resources>
 

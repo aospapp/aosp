@@ -9,11 +9,11 @@ third_party {
     type: GIT
     value: "https://github.com/libusb/libusb"
   }
-  version: "v1.0.24"
+  version: "v1.0.26"
   license_type: RESTRICTED
   last_upgrade_date {
-    year: 2020
-    month: 12
+    year: 2022
+    month: 8
     day: 10
   }
 }

@@ -125,6 +125,16 @@ void ih264d_get_pre_sei_params(dec_struct_t *ps_dec, UWORD8 u1_nal_unit_type)
         ps_dec->ps_sei->u1_sei_ave_params_present_flag =
                         ps_dec->ps_sei_parse->u1_sei_ave_params_present_flag;
         ps_dec->ps_sei->s_sei_ave_params = ps_dec->ps_sei_parse->s_sei_ave_params;
+        ps_dec->ps_sei->u1_sei_sii_params_present_flag =
+            ps_dec->ps_sei_parse->u1_sei_sii_params_present_flag;
+        ps_dec->ps_sei->s_sei_sii_params = ps_dec->ps_sei_parse->s_sei_sii_params;
+    }
+
+    if(NULL != ps_dec->ps_sei)
+    {
+        ps_dec->ps_sei->u1_sei_fgc_params_present_flag =
+            ps_dec->ps_sei_parse->u1_sei_fgc_params_present_flag;
+        ps_dec->ps_sei->s_sei_fgc_params = ps_dec->ps_sei_parse->s_sei_fgc_params;
     }
 
     ps_dec->ps_sei_parse->u1_sei_mdcv_params_present_flag = 0;
@@ -135,7 +145,8 @@ void ih264d_get_pre_sei_params(dec_struct_t *ps_dec, UWORD8 u1_nal_unit_type)
     memset(&ps_dec->ps_sei_parse->s_sei_ave_params, 0, sizeof(sei_ave_params_t));
     ps_dec->ps_sei_parse->u1_sei_ccv_params_present_flag = 0;
     memset(&ps_dec->ps_sei_parse->s_sei_ccv_params, 0, sizeof(sei_ccv_params_t));
-
+    ps_dec->ps_sei_parse->u1_sei_sii_params_present_flag = 0;
+    memset(&ps_dec->ps_sei_parse->s_sei_sii_params, 0, sizeof(sei_sii_params_t));
 }
 
 /*****************************************************************************/
@@ -362,23 +373,24 @@ WORD32 ih264d_parse_pps(dec_struct_t * ps_dec, dec_bit_stream_t * ps_bitstrm)
 
     if(ps_pps->u1_wted_bipred_idc > MAX_WEIGHT_BIPRED_IDC)
         return ERROR_INV_SPS_PPS_T;
+    {
+        WORD64 i8_temp;
+        i8_temp = (WORD64)26 + ih264d_sev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
 
-    WORD64 i8_temp = (WORD64)26
-                        + ih264d_sev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
+        if((i8_temp < MIN_H264_QP) || (i8_temp > MAX_H264_QP))
+            return ERROR_INV_RANGE_QP_T;
 
-    if((i8_temp < MIN_H264_QP) || (i8_temp > MAX_H264_QP))
-        return ERROR_INV_RANGE_QP_T;
+        ps_pps->u1_pic_init_qp = i8_temp;
+        COPYTHECONTEXT("PPS: pic_init_qp_minus26",ps_pps->u1_pic_init_qp - 26);
 
-    ps_pps->u1_pic_init_qp = i8_temp;
-    COPYTHECONTEXT("PPS: pic_init_qp_minus26",ps_pps->u1_pic_init_qp - 26);
+        i8_temp = (WORD64)26 + ih264d_sev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
 
-    i8_temp = (WORD64)26 + ih264d_sev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
+        if((i8_temp < MIN_H264_QP) || (i8_temp > MAX_H264_QP))
+            return ERROR_INV_RANGE_QP_T;
 
-    if((i8_temp < MIN_H264_QP) || (i8_temp > MAX_H264_QP))
-        return ERROR_INV_RANGE_QP_T;
-
-    ps_pps->u1_pic_init_qs = i8_temp;
-    COPYTHECONTEXT("PPS: pic_init_qs_minus26",ps_pps->u1_pic_init_qs - 26);
+        ps_pps->u1_pic_init_qs = i8_temp;
+        COPYTHECONTEXT("PPS: pic_init_qs_minus26",ps_pps->u1_pic_init_qs - 26);
+    }
 
     i_temp = ih264d_sev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
     if((i_temp < -12) || (i_temp > 12))
@@ -1128,6 +1140,7 @@ WORD32 ih264d_parse_sps(dec_struct_t *ps_dec, dec_bit_stream_t *ps_bitstrm)
 
     ps_dec->u2_pic_wd = u2_pic_wd;
     ps_dec->u2_pic_ht = u2_pic_ht;
+    ps_dec->u4_total_mbs = ps_seq->u2_total_num_of_mbs << (1 - ps_seq->u1_frame_mbs_only_flag);
 
     /* Determining the Width and Height of Frame from that of Picture */
     ps_dec->u2_frm_wd_y = u2_frm_wd_y;
@@ -1372,4 +1385,3 @@ WORD32 ih264d_parse_nal_unit(iv_obj_t *dec_hdl,
     return i_status;
 
 }
-

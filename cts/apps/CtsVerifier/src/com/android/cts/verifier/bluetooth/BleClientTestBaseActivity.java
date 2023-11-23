@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier.bluetooth;
 
+import static android.content.Context.RECEIVER_EXPORTED;
+
 import static com.android.compatibility.common.util.ShellIdentityUtils.invokeWithShellPermissions;
 
 import android.app.AlertDialog;
@@ -32,7 +34,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 import android.widget.ListView;
-
 
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
@@ -65,7 +66,8 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
     private static final int PASS_FLAG_RELIABLE_WRITE_BAD_RESP = 0x20000;
     private static final int PASS_FLAG_ON_SERVICE_CHANGED = 0x40000;
     private static final int PASS_FLAG_READ_PHY = 0x80000;
-    private static final int PASS_FLAG_ALL = 0xFFFFF;
+    private static final int PASS_FLAG_SET_PREFERRED_PHY = 0x100000;
+    private static final int PASS_FLAG_ALL = 0x1FFFFF;
 
     private final int BLE_CLIENT_CONNECT = 0;
     private final int BLE_BLE_DISCOVER_SERVICE = 1;
@@ -85,8 +87,9 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
     private final int BLE_WRITE_DESCRIPTOR_NO_PERMISSION = 14;  //15;
     private final int BLE_READ_RSSI = 15;   //16;
     private final int BLE_READ_PHY = 15;   //16; //17;
-    private final int BLE_ON_SERVICE_CHANGED = 16; //17; //18;
-    private final int BLE_CLIENT_DISCONNECT = 17;  //18; //19;
+    private final int BLE_SET_PREFERRED_PHY = 16;  //17; //18;
+    private final int BLE_ON_SERVICE_CHANGED = 17; //18; //19;
+    private final int BLE_CLIENT_DISCONNECT = 18;  //19; //20;
 
     private TestAdapter mTestAdapter;
     private long mPassed;
@@ -127,6 +130,9 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
         filter.addAction(BleClientService.BLE_RELIABLE_WRITE_BAD_RESP_COMPLETED);
         filter.addAction(BleClientService.BLE_READ_REMOTE_RSSI);
         filter.addAction(BleClientService.BLE_PHY_READ);
+        filter.addAction(BleClientService.BLE_PHY_READ_SKIPPED);
+        filter.addAction(BleClientService.BLE_PHY_UPDATE);
+        filter.addAction(BleClientService.BLE_PHY_UPDATE_SKIPPED);
         filter.addAction(BleClientService.BLE_ON_SERVICE_CHANGED);
         filter.addAction(BleClientService.BLE_CHARACTERISTIC_READ_NOPERMISSION);
         filter.addAction(BleClientService.BLE_CHARACTERISTIC_WRITE_NOPERMISSION);
@@ -138,7 +144,7 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
         filter.addAction(BleClientService.BLE_BLUETOOTH_MISMATCH_INSECURE);
         filter.addAction(BleClientService.BLE_CLIENT_ERROR);
 
-        registerReceiver(mBroadcast, filter);
+        registerReceiver(mBroadcast, filter, RECEIVER_EXPORTED);
     }
 
     @Override
@@ -193,6 +199,7 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
 // TODO: too flaky b/34951749
 //        testList.add(R.string.ble_read_rssi_name);
         testList.add(R.string.ble_read_phy_name);
+        testList.add(R.string.ble_set_preferred_phy_name);
         testList.add(R.string.ble_on_service_changed);
         testList.add(R.string.ble_client_disconnect_name);
 
@@ -375,9 +382,17 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
                     newAction = BleClientService.BLE_CLIENT_ACTION_READ_PHY;
                     break;
                 case BleClientService.BLE_PHY_READ:
+                case BleClientService.BLE_PHY_READ_SKIPPED:
                     actionName = getString(R.string.ble_read_phy_name);
                     mTestAdapter.setTestPass(BLE_READ_PHY);
                     mPassed |= PASS_FLAG_READ_PHY;
+                    newAction = BleClientService.BLE_CLIENT_ACTION_SET_PREFERRED_PHY;
+                    break;
+                case BleClientService.BLE_PHY_UPDATE:
+                case BleClientService.BLE_PHY_UPDATE_SKIPPED:
+                    actionName = getString(R.string.ble_set_preferred_phy_name);
+                    mTestAdapter.setTestPass(BLE_SET_PREFERRED_PHY);
+                    mPassed |= PASS_FLAG_SET_PREFERRED_PHY;
                     newAction = BleClientService.BLE_CLIENT_ACTION_TRIGGER_SERVICE_CHANGED;
                     break;
                 case BleClientService.BLE_ON_SERVICE_CHANGED:
@@ -467,7 +482,7 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
 
             if (!mIsSwitching) {
                 IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
-                registerReceiver(this, filter);
+                registerReceiver(this, filter, RECEIVER_EXPORTED);
                 mIsSwitching = true;
                 mHandler.postDelayed(new Runnable() {
                     @Override

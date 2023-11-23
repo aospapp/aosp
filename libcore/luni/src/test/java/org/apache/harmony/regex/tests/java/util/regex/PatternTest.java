@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.regex.tests.java.util.regex;
@@ -32,6 +32,11 @@ import org.junit.Rule;
 import org.junit.rules.TestRule;
 
 import static java.util.Arrays.asList;
+
+import android.compat.Compatibility;
+
+import dalvik.annotation.compat.VersionCodes;
+import dalvik.system.VMRuntime;
 
 public class PatternTest extends TestCaseWithRules {
     @Rule
@@ -781,16 +786,16 @@ public class PatternTest extends TestCaseWithRules {
     }
 
     public void testBug197() {
-        Object[] vals = { ":", new Integer(2),
-                new String[] { "boo", "and:foo" }, ":", new Integer(5),
-                new String[] { "boo", "and", "foo" }, ":", new Integer(-2),
-                new String[] { "boo", "and", "foo" }, ":", new Integer(3),
-                new String[] { "boo", "and", "foo" }, ":", new Integer(1),
-                new String[] { "boo:and:foo" }, "o", new Integer(5),
+        Object[] vals = { ":", Integer.valueOf(2),
+                new String[] { "boo", "and:foo" }, ":", Integer.valueOf(5),
+                new String[] { "boo", "and", "foo" }, ":", Integer.valueOf(-2),
+                new String[] { "boo", "and", "foo" }, ":", Integer.valueOf(3),
+                new String[] { "boo", "and", "foo" }, ":", Integer.valueOf(1),
+                new String[] { "boo:and:foo" }, "o", Integer.valueOf(5),
                 new String[] { "b", "", ":and:f", "", "" }, "o",
-                new Integer(4), new String[] { "b", "", ":and:f", "o" }, "o",
-                new Integer(-2), new String[] { "b", "", ":and:f", "", "" },
-                "o", new Integer(0), new String[] { "b", "", ":and:f" } };
+                Integer.valueOf(4), new String[] { "b", "", ":and:f", "o" }, "o",
+                Integer.valueOf(-2), new String[] { "b", "", ":and:f", "", "" },
+                "o", Integer.valueOf(0), new String[] { "b", "", ":and:f" } };
 
         for (int i = 0; i < vals.length / 3;) {
             String[] res = Pattern.compile(vals[i++].toString()).split(
@@ -2192,18 +2197,44 @@ public class PatternTest extends TestCaseWithRules {
 
         pat = Pattern.compile("b");
         s = pat.splitAsStream("abccbadfebb").toArray(String[]::new);
-        assertEquals(s.length, 3);
+        assertEquals(3, s.length);
+        assertEquals(s[0], "a");
+        assertEquals(s[1], "cc");
+        assertEquals(s[2], "adfe");
 
         pat = Pattern.compile("b");
         s = pat.splitAsStream("").toArray(String[]::new);
-        assertEquals(s.length, 0);
+        assertEquals(getExpectedEmptyStringSplitLength(), s.length);
+        checkContainsOnlyEmptyStrings(s);
 
         pat = Pattern.compile("");
         s = pat.splitAsStream("").toArray(String[]::new);
-        assertEquals(s.length, 0);
+        assertEquals(getExpectedEmptyStringSplitLength(), s.length);
+        checkContainsOnlyEmptyStrings(s);
 
         pat = Pattern.compile("");
         s = pat.splitAsStream("abccbadfe").toArray(String[]::new);
-        assertEquals(s.length, 9);
+        assertEquals(9, s.length);
+        assertEquals(s[0], "a");
+        assertEquals(s[8], "e");
+    }
+
+    private int getExpectedEmptyStringSplitLength() {
+        if (VMRuntime.getSdkVersion() >= VersionCodes.UPSIDE_DOWN_CAKE
+                && Compatibility.isChangeEnabled(
+                Pattern.SPLIT_AS_STREAM_RETURNS_SINGLE_EMPTY_STRING)) {
+            // The length is 1 because the javadoc says "If this pattern does not match any
+            // subsequence of the input then the resulting stream has just one element,
+            // namely the input sequence in string form.
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+
+    private void checkContainsOnlyEmptyStrings(String[] sArray) {
+        for (String s : sArray) {
+            assertEquals(s, "");
+        }
     }
 }

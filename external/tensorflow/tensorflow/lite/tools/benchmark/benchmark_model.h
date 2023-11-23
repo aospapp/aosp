@@ -22,6 +22,7 @@ limitations under the License.
 #include <ostream>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "tensorflow/core/util/stats_calculator.h"
@@ -188,7 +189,7 @@ class BenchmarkModel {
       : params_(std::move(params)) {}
   virtual ~BenchmarkModel() {}
   virtual TfLiteStatus Init() = 0;
-  TfLiteStatus Run(int argc, char** argv);
+  virtual TfLiteStatus Run(int argc, char** argv);
   virtual TfLiteStatus Run();
   void AddListener(BenchmarkListener* listener) {
     listeners_.AddListener(listener);

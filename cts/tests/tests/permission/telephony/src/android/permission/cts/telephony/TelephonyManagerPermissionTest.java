@@ -36,6 +36,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * Test the non-location-related functionality of TelephonyManager.
@@ -418,5 +421,50 @@ public class TelephonyManagerPermissionTest {
 
     private static void assertThrowsSecurityException(Runnable r, String message) {
         assertThrows(SecurityException.class, r, message);
+    }
+
+    /**
+     * Verify that TelephonyManager.getPrimaryImei requires Permission.
+     * <p>
+     * Requires Permission:
+     * {@link android.Manifest.permission#READ_PRIVILEGED_PHONE_STATE}.
+     */
+    @Test
+    public void testGetPrimaryImei() {
+        if (!mHasTelephony) {
+            return;
+        }
+
+        try {
+            String primaryImei = mTelephonyManager.getPrimaryImei();
+            fail("Received Primary Imei value: " + primaryImei);
+        } catch (SecurityException e) {
+            // expected
+        }
+    }
+
+    /**
+     * Verify that getCarrierRestrictionStatus requires permission
+     * <p>
+     * Requires Permission:
+     * {@link android.Manifest.permission#READ_PHONE_STATE}.
+     */
+    @Test
+    public void getCarrierRestrictionStatus_Exception() {
+        if (!mHasTelephony) {
+            return;
+        }
+        LinkedBlockingQueue<Integer> carrierRestrictionStatusResult = new LinkedBlockingQueue<>(1);
+        try {
+            mTelephonyManager.getCarrierRestrictionStatus(getContext().getMainExecutor(),
+                    carrierRestrictionStatusResult::offer);
+            // Test case fail, if the API don't catch the security exception.
+            fail();
+        } catch (SecurityException ex) {
+            // expecting the security exception.
+        } catch (Exception ex) {
+            // The test case should fail if other than security exception comes.
+            fail();
+        }
     }
 }

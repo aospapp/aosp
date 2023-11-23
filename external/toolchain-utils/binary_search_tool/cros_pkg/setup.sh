@@ -1,6 +1,6 @@
 #!/bin/bash -u
 #
-# Copyright 2015 Google Inc. All Rights Reserved.
+# Copyright 2015 Google LLC
 #
 # This script is part of the ChromeOS package binary search triage process.
 # It should be the first script called by the user, after the user has set up

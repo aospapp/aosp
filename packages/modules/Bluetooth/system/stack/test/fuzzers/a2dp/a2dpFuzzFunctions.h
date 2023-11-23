@@ -54,7 +54,9 @@ std::vector<std::function<void(FuzzedDataProvider*)>> a2dp_operations = {
           fdp->ConsumeBytesWithTerminator<char>(MAX_STR_LEN);
       std::vector<char> p_provider_name =
           fdp->ConsumeBytesWithTerminator<char>(MAX_STR_LEN);
-      A2DP_AddRecord(fdp->ConsumeIntegral<uint16_t>(), p_service_name.data(),
+      uint16_t service_uuid = fdp->ConsumeBool() ? UUID_SERVCLASS_AUDIO_SOURCE
+                                                 : UUID_SERVCLASS_AUDIO_SINK;
+      A2DP_AddRecord(service_uuid, p_service_name.data(),
                      p_provider_name.data(), fdp->ConsumeIntegral<uint16_t>(),
                      // This should be a val returned by SDP_CreateRecord
                      getArbitraryVectorElement(fdp, sdp_record_handles, true));
@@ -62,10 +64,12 @@ std::vector<std::function<void(FuzzedDataProvider*)>> a2dp_operations = {
 
     // A2DP_FindService
     [](FuzzedDataProvider* fdp) -> void {
-      tA2DP_SDP_DB_PARAMS p_db = generateDBParams(fdp);
+      std::vector<uint16_t> attr_list;
+      tA2DP_SDP_DB_PARAMS p_db = generateDBParams(fdp, attr_list);
       const RawAddress bd_addr = generateRawAddress(fdp);
-      A2DP_FindService(fdp->ConsumeIntegral<uint16_t>(), bd_addr, &p_db,
-                       a2dp_find_callback);
+      uint16_t service_uuid = fdp->ConsumeBool() ? UUID_SERVCLASS_AUDIO_SOURCE
+                                                 : UUID_SERVCLASS_AUDIO_SINK;
+      A2DP_FindService(service_uuid, bd_addr, &p_db, a2dp_find_callback);
     },
 
     // A2DP_GetAvdtpVersion

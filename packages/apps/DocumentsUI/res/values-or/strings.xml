@@ -29,12 +29,12 @@
     <string name="menu_create_dir" msgid="2413624798689091042">"ନୂଆ ଫୋଲ୍ଡର୍‌"</string>
     <string name="menu_grid" msgid="1453636521731880680">"ଗ୍ରୀଡ୍‍ ଭ୍ୟୁ"</string>
     <string name="menu_list" msgid="6714267452146410402">"ତାଲିକା ଭ୍ୟୁ"</string>
-    <string name="menu_search" msgid="1876699106790719849">"ସନ୍ଧାନ କରନ୍ତୁ"</string>
+    <string name="menu_search" msgid="1876699106790719849">"ସର୍ଚ୍ଚ କରନ୍ତୁ"</string>
     <string name="menu_settings" msgid="6520844520117939047">"ଷ୍ଟୋରେଜ ସେଟିଂସ"</string>
     <string name="menu_open" msgid="9092138100049759315">"ଖୋଲନ୍ତୁ"</string>
     <string name="menu_open_with" msgid="5507647065467520229">"ଏଥିରେ ଖୋଲନ୍ତୁ"</string>
     <string name="menu_open_in_new_window" msgid="6686563636123311276">"ନୂଆ ୱିଣ୍ଡୋରେ ଖୋଲନ୍ତୁ"</string>
-    <string name="menu_save" msgid="5195367497138965168">"ସେଭ୍‌ କରନ୍ତୁ"</string>
+    <string name="menu_save" msgid="5195367497138965168">"ସେଭ କରନ୍ତୁ"</string>
     <string name="menu_share" msgid="4307140947108068356">"ସେୟାର୍‍ କରନ୍ତୁ"</string>
     <string name="menu_delete" msgid="1022254131543256626">"ଡିଲିଟ୍‌ କରନ୍ତୁ"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"ସବୁ ଚୟନ କରନ୍ତୁ"</string>
@@ -45,7 +45,7 @@
     <string name="menu_move" msgid="2310760789561129882">"ଏଠାକୁ ନିଅନ୍ତୁ…"</string>
     <string name="menu_compress" msgid="37539111904724188">"କମ୍ପ୍ରେସ୍ କରନ୍ତୁ"</string>
     <string name="menu_extract" msgid="8171946945982532262">"ଏଠାକୁ ଏକ୍ସଟ୍ରାକ୍ଟ କରନ୍ତୁ…"</string>
-    <string name="menu_rename" msgid="1883113442688817554">"ନାମ ବଦଳାନ୍ତୁ"</string>
+    <string name="menu_rename" msgid="1883113442688817554">"ରିନେମ କରନ୍ତୁ"</string>
     <string name="menu_inspect" msgid="7279855349299446224">"ସୂଚନା ପାଆନ୍ତୁ"</string>
     <string name="menu_show_hidden_files" msgid="5140676344684492769">"ଲୁକ୍କାୟିତ ଫାଇଲ ଦେଖାନ୍ତୁ"</string>
     <string name="menu_hide_hidden_files" msgid="5654495713350153702">"ଲୁକ୍କାୟିତ ଫାଇଲ ଦେଖାଅ ନାହିଁ"</string>
@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"ଡକୁମେଣ୍ଟକୁ ସେଭ୍‍ କରିପାରିଲା ନାହିଁ"</string>
     <string name="create_error" msgid="3092144450044861994">"ଫୋଲ୍ଡର୍‍ ତିଆରି କରିହେଲା ନାହିଁ"</string>
     <string name="query_error" msgid="6625421453613879336">"ଏହି ସମୟରେ କଣ୍ଟେଣ୍ଟ ଲୋଡ୍‍ କରିପାରିବ ନାହିଁ"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"ୱାର୍କ ପ୍ରୋଫାଇଲ୍ ବିରତ କରାଯାଇଛି"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"ଚାଲୁ କରନ୍ତୁ"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"ୱାର୍କ ଆପଗୁଡ଼ିକୁ ବିରତ କରାଯାଇଛି"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"ୱାର୍କ ଆପ୍ସ ଚାଲୁ କରନ୍ତୁ"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"ୱାର୍କ ଫାଇଲଗୁଡ଼ିକ ଚୟନ କରାଯାଇପାରିବ ନାହିଁ"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"ଆପଣଙ୍କ IT ଆଡମିନ୍ ଆପଣଙ୍କୁ ଏକ ବ୍ୟକ୍ତିଗତ ଆପରୁ ୱାର୍କ ଫାଇଲଗୁଡ଼ିକ ଆକ୍ସେସ୍ କରିବାକୁ ଅନୁମତି ଦିଅନ୍ତି ନାହିଁ"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"ବ୍ୟକ୍ତିଗତ ଫାଇଲଗୁଡ଼ିକ ଚୟନ କରାଯାଇପାରିବ ନାହିଁ"</string>
@@ -103,7 +103,7 @@
     <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"ବ୍ୟକ୍ତିଗତ ପ୍ରୋଫାଇଲରେ ସେଭ୍ କରାଯାଇପାରିବ ନାହିଁ"</string>
     <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"ଆପଣଙ୍କ IT ଆଡମିନ୍ ଆପଣଙ୍କୁ ଆପଣଙ୍କ ବ୍ୟକ୍ତିଗତ ପ୍ରୋଫାଇଲରେ କାର୍ଯ୍ୟସ୍ଥଳୀର ଫାଇଲଗୁଡ଼ିକ ସେଭ୍ କରିବାକୁ ଅନୁମତି ଦିଅନ୍ତି ନାହିଁ"</string>
     <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"ଏହି କାର୍ଯ୍ୟକୁ ଅନୁମତି ଦିଆଯାଇ ନାହିଁ"</string>
-    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"ଅଧିକ ଜାଣିବାକୁ, ଆପଣଙ୍କ IT ଆଡମିନଙ୍କ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ"</string>
+    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"ଅଧିକ ଜାଣିବାକୁ, ଆପଣଙ୍କ IT ଆଡମିନଙ୍କ ସହ କଣ୍ଟାକ୍ଟ କରନ୍ତୁ"</string>
     <string name="root_recent" msgid="1080156975424341623">"ବର୍ତ୍ତମାନର"</string>
     <string name="root_available_bytes" msgid="8269870862691408864">"<xliff:g id="SIZE">%1$s</xliff:g> ଖାଲି ଅଛି"</string>
     <string name="root_type_service" msgid="6521366147466512289">"ଷ୍ଟୋରେଜ୍‍ ସେବା"</string>
@@ -274,8 +274,8 @@
     <string name="directory_blocked_header_title" msgid="1164584889578740066">"ଏହି ଫୋଲ୍ଡରକୁ ବ୍ୟବହାର କରାଯାଇପାରିବ ନାହିଁ"</string>
     <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"ଆପଣଙ୍କ ଗୋପନୀୟତାକୁ ସୁରକ୍ଷିତ କରିବାକୁ ଅନ୍ୟ ଏକ ଫୋଲ୍ଡର୍ ବାଛନ୍ତୁ"</string>
     <string name="create_new_folder_button" msgid="8859613309559794890">"ନୂଆ ଫୋଲ୍ଡର୍ ତିଆରି କରନ୍ତୁ"</string>
-    <string name="search_bar_hint" msgid="4517366509897977321">"ଏହି ଫୋନରେ ଖୋଜନ୍ତୁ"</string>
-    <string name="delete_search_history" msgid="2202015025607694515">"ସର୍ଚ୍ଚ ଇତିବୃତ୍ତି <xliff:g id="TEXT">%1$s</xliff:g>କୁ ଡିଲିଟ୍‌ କରନ୍ତୁ"</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"ଏହି ଫୋନରେ ସର୍ଚ୍ଚ କରନ୍ତୁ"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"ସର୍ଚ୍ଚ ଇତିହାସ <xliff:g id="TEXT">%1$s</xliff:g>କୁ ଡିଲିଟ କରନ୍ତୁ"</string>
     <string name="personal_tab" msgid="3878576287868528503">"ବ୍ୟକ୍ତିଗତ"</string>
     <string name="work_tab" msgid="7265359366883747413">"ୱାର୍କ"</string>
     <string name="a11y_work" msgid="7504431382825242153">"ୱାର୍କ"</string>

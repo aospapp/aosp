@@ -16,7 +16,12 @@
 
 package android.content.pm.cts;
 
+import static android.Manifest.permission.DELETE_PACKAGES;
+import static android.Manifest.permission.GET_INTENT_SENDER_INTENT;
 import static android.Manifest.permission.INSTALL_TEST_ONLY_PACKAGE;
+import static android.Manifest.permission.WRITE_SECURE_SETTINGS;
+import static android.content.Context.RECEIVER_EXPORTED;
+import static android.content.Intent.FLAG_EXCLUDE_STOPPED_PACKAGES;
 import static android.content.pm.ApplicationInfo.FLAG_HAS_CODE;
 import static android.content.pm.ApplicationInfo.FLAG_INSTALLED;
 import static android.content.pm.ApplicationInfo.FLAG_SYSTEM;
@@ -37,16 +42,18 @@ import static android.content.pm.PackageManager.MATCH_HIDDEN_UNTIL_INSTALLED_COM
 import static android.content.pm.PackageManager.MATCH_INSTANT;
 import static android.content.pm.PackageManager.MATCH_SYSTEM_ONLY;
 import static android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES;
+import static android.content.pm.cts.PackageManagerShellCommandIncrementalTest.parsePackageDump;
+import static android.os.UserHandle.CURRENT;
+import static android.os.UserHandle.USER_CURRENT;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-
-import com.google.common.truth.Expect;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeFalse;
@@ -55,7 +62,11 @@ import static org.testng.Assert.assertThrows;
 
 import android.annotation.NonNull;
 import android.app.Activity;
+import android.app.ActivityOptions;
+import android.app.ActivityThread;
 import android.app.Instrumentation;
+import android.app.PendingIntent;
+import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -71,6 +82,7 @@ import android.content.cts.R;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.ComponentInfo;
+import android.content.pm.IPackageManager;
 import android.content.pm.InstrumentationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageItemInfo;
@@ -84,28 +96,35 @@ import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
 import android.content.pm.SharedLibraryInfo;
 import android.content.pm.Signature;
+import android.content.pm.cts.util.AbandonAllPackageSessionsRule;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.IBinder;
+import android.os.RemoteException;
 import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.platform.test.annotations.AppModeFull;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.core.content.FileProvider;
-import androidx.test.InstrumentationRegistry;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ServiceTestRule;
-import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.SystemUtil;
 import com.android.compatibility.common.util.TestUtils;
+import com.android.internal.security.VerityUtils;
+
+import com.google.common.truth.Expect;
 
 import junit.framework.AssertionFailedError;
 
@@ -117,8 +136,10 @@ import org.junit.runner.RunWith;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -167,7 +188,7 @@ public class PackageManagerTest {
     private static final String PERMISSION_TREE_ROOT =
             "android.content.cts.permission.TEST_DYNAMIC";
     // Number of activities/activity-alias in AndroidManifest
-    private static final int NUM_OF_ACTIVITIES_IN_MANIFEST = 12;
+    private static final int NUM_OF_ACTIVITIES_IN_MANIFEST = 21;
     public static final long TIMEOUT_MS = TimeUnit.SECONDS.toMillis(10);
 
     private static final String SHIM_APEX_PACKAGE_NAME = "com.android.apex.cts.shim";
@@ -189,14 +210,20 @@ public class PackageManagerTest {
             + "CtsContentMaxSharedUserIdTestApp.apk";
     private static final String LONG_LABEL_NAME_APK = SAMPLE_APK_BASE
             + "CtsContentLongLabelNameTestApp.apk";
+    private static final String LONG_USES_PERMISSION_NAME_APK = SAMPLE_APK_BASE
+            + "CtsContentLongUsesPermissionNameTestApp.apk";
     private static final String EMPTY_APP_PACKAGE_NAME = "android.content.cts.emptytestapp";
     private static final String EMPTY_APP_MAX_PACKAGE_NAME = "android.content.cts.emptytestapp27j"
             + "EBRNRG3ozwBsGr1sVIM9U0bVTI2TdyIyeRkZgW4JrJefwNIBAmCg4AzqXiCvG6JjqA0uTCWSFu2YqAVxVd"
             + "iRKAay19k5VFlSaM7QW9uhvlrLQqsTW01ofFzxNDbp2QfIFHZR6rebKzKBz6byQFM0DYQnYMwFWXjWkMPN"
             + "dqkRLykoFLyBup53G68k2n8w";
+    private static final String EMPTY_APP_LONG_USES_PERMISSION_PACKAGE_NAME =
+            EMPTY_APP_PACKAGE_NAME + ".longusespermission";
     private static final String SHELL_PACKAGE_NAME = "com.android.shell";
     private static final String HELLO_WORLD_PACKAGE_NAME = "com.example.helloworld";
     private static final String HELLO_WORLD_APK = SAMPLE_APK_BASE + "HelloWorld5.apk";
+    private static final String HELLO_WORLD_LOTS_OF_FLAGS_APK =
+            SAMPLE_APK_BASE + "HelloWorldLotsOfFlags.apk";
     private static final String MOCK_LAUNCHER_PACKAGE_NAME = "android.content.cts.mocklauncherapp";
     private static final String MOCK_LAUNCHER_APK = SAMPLE_APK_BASE
             + "CtsContentMockLauncherTestApp.apk";
@@ -236,13 +263,16 @@ public class PackageManagerTest {
 
     private final ServiceTestRule mServiceTestRule = new ServiceTestRule();
 
+    @Rule
+    public AbandonAllPackageSessionsRule mAbandonSessionsRule = new AbandonAllPackageSessionsRule();
+
     @Rule public final Expect expect = Expect.create();
 
     @Before
     public void setup() throws Exception {
-        mContext = InstrumentationRegistry.getContext();
-        mPackageManager = mContext.getPackageManager();
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mContext = mInstrumentation.getContext();
+        mPackageManager = mContext.getPackageManager();
     }
 
     @After
@@ -251,6 +281,7 @@ public class PackageManagerTest {
         uninstallPackage(EMPTY_APP_MAX_PACKAGE_NAME);
         uninstallPackage(HELLO_WORLD_PACKAGE_NAME);
         uninstallPackage(MOCK_LAUNCHER_PACKAGE_NAME);
+        uninstallPackage(EMPTY_APP_LONG_USES_PERMISSION_PACKAGE_NAME);
     }
 
     @Test
@@ -313,7 +344,44 @@ public class PackageManagerTest {
     }
 
     @Test
-    public void testEnforceIntentToMatchIntentFilter() {
+    public void testStoppedPackagesQuery() throws NameNotFoundException {
+        installPackage(HELLO_WORLD_APK);
+
+        final Intent intent = new Intent(ACTIVITY_ACTION_NAME);
+        intent.addFlags(FLAG_EXCLUDE_STOPPED_PACKAGES);
+
+        // Stopped after install.
+        {
+            final List<ResolveInfo> matches = mPackageManager.queryIntentActivities(intent,
+                    PackageManager.ResolveInfoFlags.of(0));
+            assertFalse(containsActivityInfoName("com.example.helloworld.MainActivity", matches));
+        }
+
+        SystemUtil.runShellCommand("am start -W "
+                + "--user current "
+                + "-a android.intent.action.MAIN "
+                + "-c android.intent.category.LAUNCHER "
+                + HELLO_WORLD_PACKAGE_NAME + "/.MainActivity");
+
+        // Started.
+        {
+            final List<ResolveInfo> matches = mPackageManager.queryIntentActivities(intent,
+                    PackageManager.ResolveInfoFlags.of(0));
+            assertTrue(containsActivityInfoName("com.example.helloworld.MainActivity", matches));
+        }
+
+        assertEquals("", SystemUtil.runShellCommand("am force-stop " + HELLO_WORLD_PACKAGE_NAME));
+
+        // Force stopped.
+        {
+            final List<ResolveInfo> matches = mPackageManager.queryIntentActivities(intent,
+                    PackageManager.ResolveInfoFlags.of(0));
+            assertFalse(containsActivityInfoName("com.example.helloworld.MainActivity", matches));
+        }
+    }
+
+    // Disable the test due to feature revert
+    private void testEnforceIntentToMatchIntentFilter() {
         Intent intent = new Intent();
         List<ResolveInfo> results;
 
@@ -505,21 +573,96 @@ public class PackageManagerTest {
         results = mPackageManager.queryBroadcastReceivers(intent,
                 PackageManager.ResolveInfoFlags.of(0));
         assertEquals(0, results.size());
+
+        /* Pending Intent tests */
+
+        mInstrumentation.getUiAutomation().adoptShellPermissionIdentity(GET_INTENT_SENDER_INTENT);
+        var authority = INTENT_RESOLUTION_TEST_PKG_NAME + ".provider";
+        Bundle b = mContext.getContentResolver().call(authority, "", null, null);
+        assertNotNull(b);
+        PendingIntent pi = b.getParcelable("pendingIntent", PendingIntent.class);
+        assertNotNull(pi);
+        intent = pi.getIntent();
+        // It should be a non-matching intent, which cannot be resolved in our package
+        results = mPackageManager.queryIntentActivities(intent,
+            PackageManager.ResolveInfoFlags.of(0));
+        assertEquals(0, results.size());
+        // However, querying on behalf of the pending intent creator should work properly
+        results = pi.queryIntentComponents(0);
+        assertEquals(1, results.size());
+        mInstrumentation.getUiAutomation().dropShellPermissionIdentity();
+
+        intent = new Intent();
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.setComponent(
+                new ComponentName("android", "com.android.internal.app.ResolverActivity"));
+        try {
+            mContext.startActivity(intent);
+        } catch (ActivityNotFoundException ignore) {
+
+        }
     }
 
-    private void checkActivityInfoName(String expectedName, List<ResolveInfo> resolves) {
-        // Flag for checking if the name is contained in list array.
-        boolean isContained = false;
+    @Test
+    public void testRevertEnforceIntentToMatchIntentFilter() {
+        Intent intent = new Intent();
+        List<ResolveInfo> results;
+        ComponentName comp;
+
+        /* Component explicit intent tests */
+
+        // Explicit intents with non-matching intent filter on target T+
+        intent.setAction(NON_EXISTENT_ACTION_NAME);
+        comp = new ComponentName(INTENT_RESOLUTION_TEST_PKG_NAME, ACTIVITY_NAME);
+        intent.setComponent(comp);
+        results = mPackageManager.queryIntentActivities(intent,
+                PackageManager.ResolveInfoFlags.of(0));
+        assertEquals(1, results.size());
+        comp = new ComponentName(INTENT_RESOLUTION_TEST_PKG_NAME, SERVICE_NAME);
+        intent.setComponent(comp);
+        results = mPackageManager.queryIntentServices(intent,
+                PackageManager.ResolveInfoFlags.of(0));
+        assertEquals(1, results.size());
+        comp = new ComponentName(INTENT_RESOLUTION_TEST_PKG_NAME, RECEIVER_NAME);
+        intent.setComponent(comp);
+        results = mPackageManager.queryBroadcastReceivers(intent,
+                PackageManager.ResolveInfoFlags.of(0));
+        assertEquals(1, results.size());
+
+        /* Intent selector tests */
+
+        Intent selector = new Intent();
+        selector.setPackage(INTENT_RESOLUTION_TEST_PKG_NAME);
+        intent = new Intent();
+        intent.setSelector(selector);
+
+        // Non-matching intent and matching selector
+        selector.setAction(SELECTOR_ACTION_NAME);
+        intent.setAction(NON_EXISTENT_ACTION_NAME);
+        results = mPackageManager.queryIntentActivities(intent,
+                PackageManager.ResolveInfoFlags.of(0));
+        assertEquals(1, results.size());
+        results = mPackageManager.queryIntentServices(intent,
+                PackageManager.ResolveInfoFlags.of(0));
+        assertEquals(1, results.size());
+        results = mPackageManager.queryBroadcastReceivers(intent,
+                PackageManager.ResolveInfoFlags.of(0));
+        assertEquals(1, results.size());
+    }
+
+    private boolean containsActivityInfoName(String expectedName, List<ResolveInfo> resolves) {
         Iterator<ResolveInfo> infoIterator = resolves.iterator();
         String current;
         while (infoIterator.hasNext()) {
             current = infoIterator.next().activityInfo.name;
             if (current.equals(expectedName)) {
-                isContained = true;
-                break;
+                return true;
             }
         }
-        assertTrue(isContained);
+        return false;
+    }
+    private void checkActivityInfoName(String expectedName, List<ResolveInfo> resolves) {
+        assertTrue(containsActivityInfoName(expectedName, resolves));
     }
 
     private void checkServiceInfoName(String expectedName, List<ResolveInfo> resolves) {
@@ -951,20 +1094,92 @@ public class PackageManagerTest {
     }
 
     @Test
-    public void testGetPackageArchiveInfo() throws Exception {
+    public void testGetPackageArchiveInfo() {
         final String apkPath = mContext.getPackageCodePath();
         final String apkName = mContext.getPackageName();
 
-        final int flags = PackageManager.GET_SIGNATURES;
-
-        final PackageInfo pkgInfo = mPackageManager.getPackageArchiveInfo(apkPath,
-                PackageManager.PackageInfoFlags.of(flags));
-
+        PackageInfo pkgInfo = mPackageManager.getPackageArchiveInfo(apkPath,
+                PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES));
         assertEquals("getPackageArchiveInfo should return the correct package name",
                 apkName, pkgInfo.packageName);
+        assertNotNull("SigningInfo should have been collected when GET_SIGNING_CERTIFICATES"
+                        + " flag is specified", pkgInfo.signingInfo);
 
-        assertNotNull("Signatures should have been collected when GET_SIGNATURES flag specified",
+        pkgInfo = mPackageManager.getPackageArchiveInfo(apkPath,
+                PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNATURES));
+        assertNotNull("Signatures should have been collected when GET_SIGNATURES"
+                + " flag is specified", pkgInfo.signatures);
+
+        pkgInfo = mPackageManager.getPackageArchiveInfo(apkPath,
+                PackageManager.PackageInfoFlags.of(
+                        PackageManager.GET_SIGNATURES | PackageManager.GET_SIGNING_CERTIFICATES));
+        assertNotNull("SigningInfo should have been collected when"
+                        + " GET_SIGNATURES and GET_SIGNING_CERTIFICATES flags are both specified",
+                pkgInfo.signingInfo);
+        assertNotNull("Signatures should have been collected when"
+                + " GET_SIGNATURES and GET_SIGNING_CERTIFICATES flags are both specified",
                 pkgInfo.signatures);
+
+    }
+
+    private void runTestGetPackageArchiveInfoSameApplicationInfo(long flags) {
+        final String apkPath = mContext.getPackageCodePath();
+        PackageInfo packageInfo = mPackageManager.getPackageArchiveInfo(apkPath,
+                PackageManager.PackageInfoFlags.of(flags));
+
+        ApplicationInfo applicationInfo = null;
+        if (packageInfo.activities != null) {
+            for (ActivityInfo ac : packageInfo.activities) {
+                if (applicationInfo == null) {
+                    applicationInfo = ac.applicationInfo;
+                } else {
+                    assertSame(applicationInfo, ac.applicationInfo);
+                }
+            }
+        }
+        if (packageInfo.receivers != null) {
+            for (ActivityInfo ac : packageInfo.receivers) {
+                if (applicationInfo == null) {
+                    applicationInfo = ac.applicationInfo;
+                } else {
+                    assertSame(applicationInfo, ac.applicationInfo);
+                }
+            }
+        }
+        if (packageInfo.services != null) {
+            for (ServiceInfo si : packageInfo.services) {
+                if (applicationInfo == null) {
+                    applicationInfo = si.applicationInfo;
+                } else {
+                    assertSame(applicationInfo, si.applicationInfo);
+                }
+            }
+        }
+        if (packageInfo.providers != null) {
+            for (ProviderInfo pi : packageInfo.providers) {
+                if (applicationInfo == null) {
+                    applicationInfo = pi.applicationInfo;
+                } else {
+                    assertSame(applicationInfo, pi.applicationInfo);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testGetPackageArchiveInfoSameApplicationInfo() {
+        runTestGetPackageArchiveInfoSameApplicationInfo(PackageManager.GET_META_DATA);
+        runTestGetPackageArchiveInfoSameApplicationInfo(
+                PackageManager.GET_META_DATA | PackageManager.GET_ACTIVITIES);
+        runTestGetPackageArchiveInfoSameApplicationInfo(
+                PackageManager.GET_META_DATA | PackageManager.GET_RECEIVERS);
+        runTestGetPackageArchiveInfoSameApplicationInfo(
+                PackageManager.GET_META_DATA | PackageManager.GET_SERVICES);
+        runTestGetPackageArchiveInfoSameApplicationInfo(
+                PackageManager.GET_META_DATA | PackageManager.GET_PROVIDERS);
+        runTestGetPackageArchiveInfoSameApplicationInfo(
+                PackageManager.GET_META_DATA | PackageManager.GET_ACTIVITIES
+                        | PackageManager.GET_RECEIVERS);
     }
 
     @Test
@@ -1018,6 +1233,24 @@ public class PackageManagerTest {
     }
 
     @Test
+    public void testPackageSettingsFlags() throws Exception {
+        assertEquals("Success\n", SystemUtil.runShellCommand(
+                "pm install -t " + HELLO_WORLD_LOTS_OF_FLAGS_APK));
+        final String pkgFlags = parsePackageDump(HELLO_WORLD_PACKAGE_NAME, "    pkgFlags=[");
+        assertEquals(
+                " DEBUGGABLE HAS_CODE ALLOW_TASK_REPARENTING ALLOW_CLEAR_USER_DATA TEST_ONLY "
+                        + "VM_SAFE_MODE ALLOW_BACKUP LARGE_HEAP ]",
+                pkgFlags);
+        final String privatePkgFlags = parsePackageDump(HELLO_WORLD_PACKAGE_NAME,
+                "    privatePkgFlags=[");
+        assertEquals(
+                " PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION "
+                        + "ALLOW_AUDIO_PLAYBACK_CAPTURE "
+                        + "PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]",
+                privatePkgFlags);
+    }
+
+    @Test
     public void testGetPackageInfo_notFound() {
         try {
             mPackageManager.getPackageInfo("this.package.does.not.exist",
@@ -1062,9 +1295,13 @@ public class PackageManagerTest {
                 "android.content.cts.permission.TEST_GRANTED");
 
         // Check usesPermissionFlags
+        boolean requestedAccessFineLocation = false;
+        boolean requestedAccessCoarseLocation = false;
         for (int i = 0; i < pkgInfo.requestedPermissions.length; i++) {
             final String name = pkgInfo.requestedPermissions[i];
             final int flags = pkgInfo.requestedPermissionsFlags[i];
+
+            // Verify "never for location" flag
             final boolean neverForLocation = (flags
                     & PackageInfo.REQUESTED_PERMISSION_NEVER_FOR_LOCATION) != 0;
             if ("android.content.cts.permission.TEST_GRANTED".equals(name)) {
@@ -1072,7 +1309,22 @@ public class PackageManagerTest {
             } else {
                 assertFalse(name + " with flags " + flags, neverForLocation);
             }
+
+            // Verify "implicit" flag
+            final boolean hasImplicitFlag =
+                    (flags & PackageInfo.REQUESTED_PERMISSION_IMPLICIT) != 0;
+            if ("android.permission.ACCESS_FINE_LOCATION".equals(name)) {
+                assertFalse(name + " with flags " + flags, hasImplicitFlag);
+                requestedAccessFineLocation = true;
+            }
+            if ("android.permission.ACCESS_COARSE_LOCATION".equals(name)) {
+                assertTrue(name + " with flags " + flags, hasImplicitFlag);
+                requestedAccessCoarseLocation = true;
+            }
         }
+        assertTrue("expected ACCESS_FINE_LOCATION to be requested", requestedAccessFineLocation);
+        assertTrue("expected ACCESS_COARSE_LOCATION to be requested",
+                requestedAccessCoarseLocation);
 
         // Check declared permissions
         PermissionInfo declaredPermission = (PermissionInfo) findPackageItemOrFail(
@@ -1332,9 +1584,12 @@ public class PackageManagerTest {
     public void testGetPackageInfo_ApexSupported_ApexPackage_MatchesApex() throws Exception {
         assumeTrue("Device doesn't support updating APEX", isUpdatingApexSupported());
 
+        final int flags = PackageManager.MATCH_APEX
+                | PackageManager.MATCH_FACTORY_ONLY
+                | PackageManager.GET_SIGNING_CERTIFICATES
+                | PackageManager.GET_SIGNATURES;
         PackageInfo packageInfo = mPackageManager.getPackageInfo(SHIM_APEX_PACKAGE_NAME,
-                PackageManager.PackageInfoFlags.of(
-                        PackageManager.MATCH_APEX | PackageManager.MATCH_FACTORY_ONLY));
+                PackageManager.PackageInfoFlags.of(flags));
         assertShimApexInfoIsCorrect(packageInfo);
     }
 
@@ -1378,9 +1633,12 @@ public class PackageManagerTest {
     public void testGetInstalledPackages_ApexSupported_MatchesApex() {
         assumeTrue("Device doesn't support updating APEX", isUpdatingApexSupported());
 
+        final int flags = PackageManager.MATCH_APEX
+                | PackageManager.MATCH_FACTORY_ONLY
+                | PackageManager.GET_SIGNING_CERTIFICATES
+                | PackageManager.GET_SIGNATURES;
         List<PackageInfo> installedPackages = mPackageManager.getInstalledPackages(
-                PackageManager.PackageInfoFlags.of(
-                        PackageManager.MATCH_APEX | PackageManager.MATCH_FACTORY_ONLY));
+                PackageManager.PackageInfoFlags.of(flags));
         List<PackageInfo> shimApex = installedPackages.stream().filter(
                 packageInfo -> packageInfo.packageName.equals(SHIM_APEX_PACKAGE_NAME)).collect(
                 Collectors.toList());
@@ -1740,6 +1998,24 @@ public class PackageManagerTest {
     }
 
     /**
+     * Test that we con't have conflicting package names between APK and APEX.
+     */
+    @Test
+    public void testGetInstalledPackages_WithApexFlag_ContainsNoDuplicates() {
+        List<PackageInfo> packageInfos = mPackageManager.getInstalledPackages(
+                PackageManager.PackageInfoFlags.of(MATCH_APEX));
+        final Set<String> apexPackageNames = packageInfos.stream()
+                .filter(pi -> pi.isApex).map(pi -> pi.packageName).collect(Collectors.toSet());
+        final Set<String> apkPackageNames = packageInfos.stream()
+                .filter(pi -> !pi.isApex).map(pi -> pi.packageName).collect(Collectors.toSet());
+        for (String packageName : apkPackageNames) {
+            if (apexPackageNames.contains(packageName)) {
+                expect.withMessage("Conflicting APK package " + packageName + " detected").fail();
+            }
+        }
+    }
+
+    /**
      * Test that the MATCH_FACTORY_ONLY flag doesn't add the same package multiple times since there
      * may be multiple versions of a system package on the device.
      */
@@ -1797,6 +2073,21 @@ public class PackageManagerTest {
         assertThat(installPackage(MAX_SHARED_USER_ID_APK)).isTrue();
     }
 
+    @Test
+    public void testInstall_withLongUsesPermissionName_fail() {
+        String expectedErrorCode = "INSTALL_PARSE_FAILED_MANIFEST_MALFORMED";
+        String expectedErrorMessage = "The name in the <uses-permission> is greater than 512";
+
+        String installResult = installPackageWithResult(LONG_USES_PERMISSION_NAME_APK);
+
+        assertThat(installResult.contains(expectedErrorCode)).isTrue();
+        assertThat(installResult.contains(expectedErrorMessage)).isTrue();
+    }
+
+    private String installPackageWithResult(String apkPath) {
+        return SystemUtil.runShellCommand("pm install -t " + apkPath);
+    }
+
     private boolean installPackage(String apkPath) {
         return SystemUtil.runShellCommand(
                 "pm install -t " + apkPath).equals("Success\n");
@@ -1824,8 +2115,7 @@ public class PackageManagerTest {
             assertThat(intentSender.getCreatorPackage()).isEqualTo(PACKAGE_NAME);
             assertThat(intentSender.getCreatorUid()).isEqualTo(mContext.getApplicationInfo().uid);
 
-            intentSender.sendIntent(mContext, 0 /* code */, null /* intent */,
-                    null /* onFinished */, null /* handler */);
+            sendIntent(intentSender);
             final Activity activity = monitor.waitForActivityWithTimeout(TIMEOUT_MS);
             assertThat(activity).isNotNull();
             activity.finish();
@@ -1850,8 +2140,7 @@ public class PackageManagerTest {
         assertThat(intentSender.getCreatorPackage()).isEqualTo(PACKAGE_NAME);
         assertThat(intentSender.getCreatorUid()).isEqualTo(mContext.getApplicationInfo().uid);
 
-        intentSender.sendIntent(mContext, 0 /* code */, null /* intent */,
-                null /* onFinished */, null /* handler */);
+        sendIntent(intentSender);
     }
 
     @Test(expected = IntentSender.SendIntentException.class)
@@ -1867,8 +2156,7 @@ public class PackageManagerTest {
         assertThat(intentSender.getCreatorPackage()).isEqualTo(PACKAGE_NAME);
         assertThat(intentSender.getCreatorUid()).isEqualTo(mContext.getApplicationInfo().uid);
 
-        intentSender.sendIntent(mContext, 0 /* code */, null /* intent */,
-                null /* onFinished */, null /* handler */);
+        sendIntent(intentSender);
     }
 
     @Test
@@ -2065,6 +2353,38 @@ public class PackageManagerTest {
     }
 
     @Test
+    public void setComponentEnabledSetting_disableMultiplePackagesNoKill() throws Exception {
+        final int activityState = mPackageManager.getComponentEnabledSetting(ACTIVITY_COMPONENT);
+        final int serviceState = mPackageManager.getComponentEnabledSetting(SERVICE_COMPONENT);
+        assertThat(installPackage(MOCK_LAUNCHER_APK)).isTrue();
+        final List<ComponentEnabledSetting> settings = List.of(
+                new ComponentEnabledSetting(RESET_ENABLED_SETTING_ACTIVITY_COMPONENT,
+                        COMPONENT_ENABLED_STATE_DISABLED, DONT_KILL_APP),
+                new ComponentEnabledSetting(RESET_ENABLED_SETTING_RECEIVER_COMPONENT,
+                        COMPONENT_ENABLED_STATE_DISABLED, DONT_KILL_APP),
+                new ComponentEnabledSetting(RESET_ENABLED_SETTING_SERVICE_COMPONENT,
+                        COMPONENT_ENABLED_STATE_DISABLED, DONT_KILL_APP),
+                new ComponentEnabledSetting(RESET_ENABLED_SETTING_PROVIDER_COMPONENT,
+                        COMPONENT_ENABLED_STATE_DISABLED, DONT_KILL_APP),
+                new ComponentEnabledSetting(
+                        ACTIVITY_COMPONENT, COMPONENT_ENABLED_STATE_DISABLED, DONT_KILL_APP),
+                new ComponentEnabledSetting(
+                        SERVICE_COMPONENT, COMPONENT_ENABLED_STATE_DISABLED, DONT_KILL_APP));
+
+        try {
+            mInstrumentation.getUiAutomation().adoptShellPermissionIdentity(
+                    android.Manifest.permission.CHANGE_COMPONENT_ENABLED_STATE);
+            setComponentEnabledSettingsAndWaitForBroadcasts(settings);
+        } finally {
+            final List<ComponentEnabledSetting> enabledSettings = List.of(
+                    new ComponentEnabledSetting(ACTIVITY_COMPONENT, activityState, DONT_KILL_APP),
+                    new ComponentEnabledSetting(SERVICE_COMPONENT, serviceState, DONT_KILL_APP));
+            setComponentEnabledSettingsAndWaitForBroadcasts(enabledSettings);
+            mInstrumentation.getUiAutomation().dropShellPermissionIdentity();
+        }
+    }
+
+    @Test
     public void clearApplicationUserData_resetComponentEnabledSettings() throws Exception {
         assertThat(installPackage(MOCK_LAUNCHER_APK)).isTrue();
         final List<ComponentEnabledSetting> settings = List.of(
@@ -2130,7 +2450,7 @@ public class PackageManagerTest {
                 }
             }
         };
-        mContext.registerReceiver(br, filter);
+        mContext.registerReceiver(br, filter, RECEIVER_EXPORTED);
         try {
             mPackageManager.setComponentEnabledSettings(enabledSettings);
             if (!latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
@@ -2242,5 +2562,69 @@ public class PackageManagerTest {
     public void testComponentInfoFlags() {
         final long rawFlags = PackageManager.GET_META_DATA;
         assertEquals(rawFlags, PackageManager.ComponentInfoFlags.of(rawFlags).getValue());
+    }
+
+    @Test
+    public void testDeleteDexopt_withoutShellIdentity() throws Exception {
+        assertThat(runCommand("pm delete-dexopt " + PACKAGE_NAME))
+                .contains(SecurityException.class.getName());
+    }
+
+    @Test
+    public void testSettingAndReserveCopyVerityProtected() throws Exception {
+        File systemDir = new File(Environment.getDataDirectory(), "system");
+        File settings = new File(systemDir, "packages.xml");
+        File settingsReserveCopy = new File(systemDir, "packages.xml.reservecopy");
+
+        // Primary.
+        assertTrue(settings.exists());
+        // Reserve copy.
+        assertTrue(settingsReserveCopy.exists());
+        // Temporary backup.
+        assertFalse(new File(systemDir, "packages-backup.xml").exists());
+
+        assumeTrue(VerityUtils.isFsVeritySupported());
+        assertTrue(VerityUtils.hasFsverity(settings.getAbsolutePath()));
+        assertTrue(VerityUtils.hasFsverity(settingsReserveCopy.getAbsolutePath()));
+    }
+
+    private static String runCommand(String cmd) throws Exception {
+        final Process process = Runtime.getRuntime().exec(cmd);
+        final StringBuilder output = new StringBuilder();
+        BufferedReader reader =
+                new BufferedReader(new InputStreamReader(process.getInputStream()));
+        reader.lines().forEach(line -> output.append(line));
+        reader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+        reader.lines().forEach(line -> output.append(line));
+        process.waitFor();
+        return output.toString();
+    }
+
+    @Test
+    public void testNewAppInstalledNotificationEnabled() {
+        SystemUtil.runWithShellPermissionIdentity(mInstrumentation.getUiAutomation(), () -> {
+            Settings.Global.putString(mContext.getContentResolver(),
+                    Settings.Global.SHOW_NEW_APP_INSTALLED_NOTIFICATION_ENABLED, "1" /* true */);
+        }, WRITE_SECURE_SETTINGS);
+
+        assertEquals(true, mPackageManager.shouldShowNewAppInstalledNotification());
+
+    }
+
+    @Test
+    public void testCanUserUninstall_setToTrue_returnsTrue() throws RemoteException {
+        SystemUtil.runWithShellPermissionIdentity(mInstrumentation.getUiAutomation(), () -> {
+            IPackageManager iPm = ActivityThread.getPackageManager();
+            iPm.setBlockUninstallForUser(PACKAGE_NAME, true, USER_CURRENT);
+        }, DELETE_PACKAGES);
+
+        assertEquals(true, mPackageManager.canUserUninstall(PACKAGE_NAME, CURRENT));
+    }
+
+    private void sendIntent(IntentSender intentSender) throws IntentSender.SendIntentException {
+        intentSender.sendIntent(mContext, 0 /* code */, null /* intent */,
+                null /* onFinished */, null /* handler */, null /* requiredPermission */,
+                ActivityOptions.makeBasic().setPendingIntentBackgroundActivityStartMode(
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED).toBundle());
     }
 }

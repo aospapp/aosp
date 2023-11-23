@@ -26,6 +26,10 @@ impl FromStr for Version {
     type Err = Error;
 
     fn from_str(text: &str) -> Result<Self, Self::Err> {
+        if text.is_empty() {
+            return Err(Error::new(ErrorKind::Empty));
+        }
+
         let mut pos = Position::Major;
         let (major, text) = numeric_identifier(text, pos)?;
         let text = dot(text, pos)?;
@@ -262,23 +266,23 @@ fn identifier(input: &str, pos: Position) -> Result<(&str, &str), Error> {
 
 fn op(input: &str) -> (Op, &str) {
     let bytes = input.as_bytes();
-    if bytes.get(0) == Some(&b'=') {
+    if bytes.first() == Some(&b'=') {
         (Op::Exact, &input[1..])
-    } else if bytes.get(0) == Some(&b'>') {
+    } else if bytes.first() == Some(&b'>') {
         if bytes.get(1) == Some(&b'=') {
             (Op::GreaterEq, &input[2..])
         } else {
             (Op::Greater, &input[1..])
         }
-    } else if bytes.get(0) == Some(&b'<') {
+    } else if bytes.first() == Some(&b'<') {
         if bytes.get(1) == Some(&b'=') {
             (Op::LessEq, &input[2..])
         } else {
             (Op::Less, &input[1..])
         }
-    } else if bytes.get(0) == Some(&b'~') {
+    } else if bytes.first() == Some(&b'~') {
         (Op::Tilde, &input[1..])
-    } else if bytes.get(0) == Some(&b'^') {
+    } else if bytes.first() == Some(&b'^') {
         (Op::Caret, &input[1..])
     } else {
         (Op::DEFAULT, input)

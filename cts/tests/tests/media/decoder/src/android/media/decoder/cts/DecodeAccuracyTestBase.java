@@ -31,7 +31,6 @@ import android.graphics.Bitmap.Config;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.SurfaceTexture;
-import android.media.decoder.cts.R;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodecInfo.VideoCapabilities;
@@ -66,18 +65,19 @@ import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.MediaUtils;
 
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.HashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
@@ -214,6 +214,8 @@ public class DecodeAccuracyTestBase {
                 return false;
             }
             configureVideoFormat(mediaFormat, videoFormat);
+            Assume.assumeTrue("Decoder " + codecName + " doesn't support format " + mediaFormat,
+                    MediaUtils.supports(codecName, mediaFormat));
             setRenderToSurface(surface != null);
             return createDecoder(mediaFormat) && configureDecoder(surface, mediaFormat);
         }
@@ -1759,6 +1761,7 @@ class FilenameParser {
  * CIE L*a*b* color space. The euclidean distance formula is used to determine pixel differences.
  */
 class BitmapCompare {
+    private static final String TAG = "BitmapCompare";
 
     private static final int RED = 0;
     private static final int GREEN = 1;
@@ -1772,6 +1775,8 @@ class BitmapCompare {
     /**
      * Produces greatest pixel between two bitmaps. Used to determine bitmap similarity.
      *
+     * This simplified variant does not ignore any edge pixels.
+     *
      * @param bitmap1 A bitmap to compare to bitmap2.
      * @param bitmap2 A bitmap to compare to bitmap1.
      * @return A {@link Difference} with an integer describing the greatest pixel difference,
@@ -1779,7 +1784,26 @@ class BitmapCompare {
      *     {@link Pair<Integer, Integer>} of the (col, row) pixel coordinate where it was first found.
      */
     @TargetApi(12)
-    public static Difference computeDifference(Bitmap bitmap1, Bitmap bitmap2) {
+    private static Difference computeDifference(Bitmap bitmap1, Bitmap bitmap2) {
+        return computeDifference(bitmap1, bitmap2, 0);
+    }
+
+    /**
+     * Produces greatest pixel between two bitmaps. Used to determine bitmap similarity.
+     *
+     * @param bitmap1 A bitmap to compare to bitmap2.
+     * @param bitmap2 A bitmap to compare to bitmap1.
+     * @param ignorePixels number of pixels at each edge where we ignore the scoring. This
+     *     is used for mainline and older base systems to bypass an edge behavior in the
+     *     GPU code on those systems.
+     * @return A {@link Difference} with an integer describing the greatest pixel difference,
+     *     using {@link Integer#MAX_VALUE} for completely different bitmaps, and an optional
+     *     {@link Pair<Integer, Integer>} of the (col, row) pixel coordinate where it was
+     *     first found.
+     */
+    @TargetApi(12)
+    private static Difference computeDifference(Bitmap bitmap1, Bitmap bitmap2, int ignorePixels) {
+        Log.i(TAG, "ignorePixels = " + ignorePixels);
         if (bitmap1 == null || bitmap2 == null) {
             return new Difference(Integer.MAX_VALUE);
         }
@@ -1793,14 +1817,30 @@ class BitmapCompare {
         // euclidean distance formula.
         final double[][] pixels1 = convertRgbToCieLab(bitmap1);
         final double[][] pixels2 = convertRgbToCieLab(bitmap2);
-        int greatestDifference = 0;
+        int greatestDifference = -1;    // forces a legal index later...
         int greatestDifferenceIndex = -1;
         for (int i = 0; i < pixels1.length; i++) {
+            // pixels within 'ignorePixels' of the edge are to be ignored for
+            // scoring purposes.
+            int x = i % bitmap1.getWidth();
+            int y = i / bitmap1.getWidth();
+            if (x < ignorePixels || x >= bitmap1.getWidth() - ignorePixels
+                    || y < ignorePixels || y >= bitmap1.getHeight() - ignorePixels) {
+                continue;
+            }
+
             final int difference = euclideanDistance(pixels1[i], pixels2[i]);
+
             if (difference > greatestDifference) {
                 greatestDifference = difference;
                 greatestDifferenceIndex = i;
             }
+        }
+
+        // huge ignorePixels values can get here without checking any pixels
+        if (greatestDifferenceIndex == -1) {
+            greatestDifferenceIndex = 0;
+            greatestDifference = 0;
         }
         return new Difference(greatestDifference, Pair.create(
             greatestDifferenceIndex % bitmap1.getWidth(),
@@ -2015,16 +2055,16 @@ class BitmapCompare {
      */
     @TargetApi(12)
     public static Difference computeMinimumDifference(
-            Bitmap bitmap1, Bitmap bitmap2, Pair<Double, Double>[] borderCrops) {
+            Bitmap bitmap1, Bitmap bitmap2, int ignorePixels, Pair<Double, Double>[] borderCrops) {
 
         // Compute the difference with the original image (bitmap2) first.
-        Difference minDiff = computeDifference(bitmap1, bitmap2);
+        Difference minDiff = computeDifference(bitmap1, bitmap2, ignorePixels);
         // Then go through the list of borderCrops.
         for (Pair<Double, Double> borderCrop : borderCrops) {
             // Compute the difference between bitmap1 and a transformed
             // version of bitmap2.
             Bitmap bitmap2s = shrinkAndScaleBilinear(bitmap2, borderCrop.first, borderCrop.second);
-            Difference d = computeDifference(bitmap1, bitmap2s);
+            Difference d = computeDifference(bitmap1, bitmap2s, ignorePixels);
             // Keep the minimum difference.
             if (d.greatestPixelDifference < minDiff.greatestPixelDifference) {
                 minDiff = d;
@@ -2039,7 +2079,7 @@ class BitmapCompare {
      */
     @TargetApi(12)
     public static Difference computeMinimumDifference(
-            Bitmap bitmap1, Bitmap bitmap2, int trueWidth, int trueHeight) {
+            Bitmap bitmap1, Bitmap bitmap2, int ignorePixels, int trueWidth, int trueHeight) {
 
         double hBorder = (double) bitmap1.getWidth() / (double) trueWidth;
         double vBorder = (double) bitmap1.getHeight() / (double) trueHeight;
@@ -2048,6 +2088,7 @@ class BitmapCompare {
         return computeMinimumDifference(
                 bitmap1,
                 bitmap2,
+                ignorePixels,
                 new Pair[] {
                     Pair.create(hBorderH, 0.0),
                     Pair.create(hBorderH, vBorderH),

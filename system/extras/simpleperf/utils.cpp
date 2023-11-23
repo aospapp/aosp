@@ -40,6 +40,9 @@
 #include <Xz.h>
 #include <XzCrc64.h>
 
+#include "RegEx.h"
+#include "environment.h"
+
 namespace simpleperf {
 
 using android::base::ParseInt;
@@ -424,12 +427,75 @@ std::optional<std::set<pid_t>> GetTidsFromString(const std::string& s, bool chec
   return tids;
 }
 
+std::optional<std::set<pid_t>> GetPidsFromStrings(const std::vector<std::string>& strs,
+                                                  bool check_if_exists,
+                                                  bool support_progress_name_regex) {
+  std::set<pid_t> pids;
+  std::vector<std::unique_ptr<RegEx>> regs;
+  for (const auto& s : strs) {
+    for (const auto& p : Split(s, ",")) {
+      int pid;
+      if (ParseInt(p.c_str(), &pid, 0)) {
+        if (check_if_exists && !IsDir(StringPrintf("/proc/%d", pid))) {
+          LOG(ERROR) << "no process with pid " << pid;
+          return std::nullopt;
+        }
+        pids.insert(pid);
+      } else if (support_progress_name_regex) {
+        auto reg = RegEx::Create(p);
+        if (!reg) {
+          return std::nullopt;
+        }
+        regs.emplace_back(std::move(reg));
+      } else {
+        LOG(ERROR) << "invalid pid: " << p;
+        return std::nullopt;
+      }
+    }
+  }
+  if (!regs.empty()) {
+#if defined(__linux__)
+    for (pid_t pid : GetAllProcesses()) {
+      std::string process_name = GetCompleteProcessName(pid);
+      if (process_name.empty()) {
+        continue;
+      }
+      for (const auto& reg : regs) {
+        if (reg->Search(process_name)) {
+          pids.insert(pid);
+          break;
+        }
+      }
+    }
+#else   // defined(__linux__)
+    LOG(ERROR) << "progress name regex isn't supported";
+    return std::nullopt;
+#endif  // defined(__linux__)
+  }
+  return pids;
+}
+
 size_t SafeStrlen(const char* s, const char* end) {
   const char* p = s;
   while (p < end && *p != '\0') {
     p++;
   }
   return p - s;
+}
+
+OverflowResult SafeAdd(uint64_t a, uint64_t b) {
+  OverflowResult result;
+  if (__builtin_add_overflow(a, b, &result.value)) {
+    result.overflow = true;
+  }
+  return result;
+}
+
+void OverflowSafeAdd(uint64_t& dest, uint64_t add) {
+  if (__builtin_add_overflow(dest, add, &dest)) {
+    LOG(WARNING) << "Branch count overflow happened.";
+    dest = UINT64_MAX;
+  }
 }
 
 }  // namespace simpleperf

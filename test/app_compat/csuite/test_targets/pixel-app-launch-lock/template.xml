@@ -16,6 +16,7 @@
     <target_preparer class="com.android.compatibility.targetprep.CheckGmsPreparer"/>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
+        <option name="aapt-version" value="AAPT2" />
         <option name="test-file-name" value="app://{package}"/>
         <option name="test-file-name" value="PixelAppCompTests.apk" />
     </target_preparer>

@@ -39,6 +39,12 @@ cc_library_static {
                 "-DARCH_CPU_ARM64",
             ],
         },
+        riscv64: {
+            cflags: [
+                "-DARCH_CPU_64_BITS",
+                "-DARCH_CPU_RISCV64",
+            ],
+        },
         x86: {
             cflags: [
                 "-DARCH_CPU_32_BITS",

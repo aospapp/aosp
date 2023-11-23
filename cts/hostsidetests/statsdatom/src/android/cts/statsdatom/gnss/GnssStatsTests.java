@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.gnss;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -43,7 +44,7 @@ public class GnssStatsTests extends DeviceTestCase implements IBuildReceiver {
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -75,10 +76,10 @@ public class GnssStatsTests extends DeviceTestCase implements IBuildReceiver {
         try {
             DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests", "testGpsStatus");
 
-            Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
             // Trigger a pull and wait for new pull before killing the process.
             AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-            Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
             // Assert about GnssMetrics for the test app.
             List<AtomsProto.Atom> atoms = ReportUtils.getGaugeMetricAtoms(getDevice());

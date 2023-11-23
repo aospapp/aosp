@@ -16,4 +16,5 @@
 -->
 <resources>
     <integer name="options_grid_num_columns">6</integer>
+    <integer name="color_section_num_columns">5</integer>
 </resources>

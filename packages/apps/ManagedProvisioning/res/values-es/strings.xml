@@ -29,7 +29,7 @@
     <string name="next" msgid="1004321437324424398">"Siguiente"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Configurando el perfil de trabajo…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Tu administrador de TI puede monitorizar y gestionar los ajustes, el acceso corporativo, las aplicaciones, los permisos, los datos y la actividad de red asociados con este perfil, además del historial de llamadas y el historial de búsqueda de contactos. Ponte en contacto con tu administrador de TI para obtener más información y conocer las políticas de privacidad de tu organización."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Tu administrador de TI puede supervisar y gestionar los ajustes, acceso corporativo, aplicaciones, permisos y datos asociados con este dispositivo, además de la actividad de red, la ubicación del dispositivo, el historial de llamadas y el historial de búsqueda de contactos.<xliff:g id="LINE_BREAK">
+    <string name="admin_has_ability_to_monitor_device" msgid="7786186939607332934">"Tu administrador de TI puede monitorizar y gestionar los ajustes, el acceso corporativo, las aplicaciones, los permisos y los datos asociados con este dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>), incluida la actividad de red, la ubicación, el historial de llamadas y el historial de búsqueda de contactos del dispositivo.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Ponte en contacto con tu administrador de TI para obtener más información, además de para conocer las políticas de privacidad de tu organización."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Debes tener un bloqueo de pantalla protegido por contraseña en tu dispositivo para utilizar las funciones de protección antirrobo."</string>
@@ -50,8 +50,8 @@
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Si continúas, se eliminarán todas las aplicaciones y datos de este perfil."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Eliminar"</string>
     <string name="cancel_delete_profile" msgid="5155447537894046036">"Cancelar"</string>
-    <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"Para configurar el perfil de trabajo, hay que cifrar el dispositivo. Este proceso puede tardar un poco."</string>
-    <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"Para configurar este dispositivo, primero hay que cifrarlo. Este proceso puede tardar un poco."</string>
+    <string name="encrypt_device_text_for_profile_owner_setup" msgid="6865483664167134470">"Para configurar el perfil de trabajo, hay que cifrar tu <xliff:g id="DEVICE_NAME">%1$s</xliff:g>. Este proceso puede tardar un poco."</string>
+    <string name="encrypt_device_text_for_device_owner_setup" msgid="230099563510460941">"Para configurar este dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>), primero hay que cifrarlo. Este proceso puede tardar un poco."</string>
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"¿Cifrar dispositivo?"</string>
     <string name="encrypt" msgid="1749320161747489212">"Cifrar"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"Cifrado completado"</string>
@@ -59,7 +59,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"No se ha podido configurar el perfil de trabajo. Ponte en contacto con el departamento de TI o vuelve a intentarlo más tarde."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"No se puede añadir el perfil de trabajo"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"No se ha podido reemplazar ni eliminar el perfil de trabajo"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"No se ha podido añadir un perfil de trabajo a este dispositivo. Si tienes alguna pregunta, ponte en contacto con tu administrador de TI."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4866281518235832928">"No se puede añadir un perfil de trabajo a este dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>). Si tienes alguna pregunta, ponte en contacto con tu administrador de TI."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Cambiar el launcher del dispositivo"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Tu perfil de trabajo no puede utilizar esta aplicación de launcher"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Cancelar"</string>
@@ -67,9 +67,9 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Configuración de usuario incompleta"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Usuario del dispositivo de trabajo"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Configurando el dispositivo de trabajo…"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Este dispositivo no admite el cifrado, a pesar de que es necesario para la configuración. Para obtener ayuda, ponte en contacto con el administrador de TI."</string>
-    <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"¿Detener configuración y restablecer dispositivo?"</string>
-    <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Este proceso recuperará la configuración del dispositivo y volverás a la primera pantalla"</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="410347019947997299">"Este dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>) no admite el cifrado, que es necesario para la configuración. Para obtener ayuda, ponte en contacto con tu administrador de TI."</string>
+    <string name="stop_setup_reset_device_question" msgid="2323844935990001069">"¿Detener configuración y restablecer el dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>)?"</string>
+    <string name="this_will_reset_take_back_first_screen" msgid="5881727570968119259">"Este proceso restablecerá tu <xliff:g id="DEVICE_NAME">%1$s</xliff:g>, y volverás a la primera pantalla"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"¿Quieres detener la configuración y borrar los datos del dispositivo?"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"Cancelar"</string>
     <string name="device_owner_error_ok" msgid="2002250763093787051">"Aceptar"</string>
@@ -79,10 +79,10 @@
     <string name="something_went_wrong" msgid="3593223774041784329">"Se ha producido un error"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"No se ha podido configurar el dispositivo. Para obtener ayuda, ponte en contacto con tu administrador de TI."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Ponte en contacto con tu administrador de TI para solicitar ayuda"</string>
-    <string name="reset_device" msgid="5483853913241939262">"Borrar este dispositivo y probar a configurarlo de nuevo"</string>
-    <string name="device_already_set_up" msgid="507881934487140294">"El dispositivo ya se ha configurado"</string>
+    <string name="reset_device" msgid="265029891515486543">"Restablece este dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>) y prueba a configurarlo de nuevo"</string>
+    <string name="device_already_set_up" msgid="2916285974248611835">"El dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>) ya está configurado"</string>
     <string name="error_wifi" msgid="1850288843966836571">"No se ha podido establecer conexión con la red Wi‑Fi"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"La protección para restablecer los ajustes de fábrica está activada en el dispositivo. Para obtener ayuda, ponte en contacto con el administrador de TI."</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="5922267426079555686">"Tu <xliff:g id="DEVICE_NAME">%1$s</xliff:g> tiene activada la protección de restablecimiento del estado de fábrica. Para obtener ayuda, ponte en contacto con tu administrador de TI."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"Borrando"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"Espera..."</string>
     <string name="error_hash_mismatch" msgid="1145488923243178454">"No se ha podido utilizar la aplicación de administración por un error de suma de comprobación. Para obtener ayuda, ponte en contacto con el administrador de TI."</string>
@@ -128,9 +128,9 @@
     <string name="comp_profile_benefits_description" msgid="379837075456998273">"Si utilizas un perfil de trabajo, puedes tener todas tus aplicaciones de trabajo en un único lugar"</string>
     <string name="setup_profile_encryption" msgid="5241291404536277038">"Configura tu perfil. Cifrado"</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"Configura tu perfil. Mostrando progreso"</string>
-    <string name="setup_device" msgid="6725265673245816366">"Configura tu dispositivo"</string>
-    <string name="setup_device_encryption" msgid="7852944465414197103">"Configura tu dispositivo. Cifrado"</string>
-    <string name="setup_device_progress" msgid="7035335208571175393">"Configura tu dispositivo. Mostrando progreso"</string>
+    <string name="setup_device" msgid="1679201701102889156">"Configura tu <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
+    <string name="setup_device_encryption" msgid="2628196093806001835">"Configura tu <xliff:g id="DEVICE_NAME">%1$s</xliff:g>. Cifrado."</string>
+    <string name="setup_device_progress" msgid="8792474713196537598">"Configura tu <xliff:g id="DEVICE_NAME">%1$s</xliff:g>. Mostrando progreso."</string>
     <string name="learn_more_label" msgid="2723716758654655009">"Botón para obtener más información"</string>
     <string name="mdm_icon_label" msgid="3399134595549660561">"Icono de <xliff:g id="ICON_LABEL">%1$s</xliff:g>"</string>
     <string name="section_heading" msgid="3924666803774291908">"Encabezado de la sección <xliff:g id="SECTION_HEADING">%1$s</xliff:g>."</string>
@@ -158,42 +158,45 @@
     <string name="brand_screen_header" msgid="8865808542690116648">"Este dispositivo pertenece a tu organización"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"La siguiente aplicación se utilizará para gestionar y supervisar este teléfono"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Tu cuenta está gestionada"</string>
-    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Tu administrador de TI utiliza la gestión de dispositivos móviles para hacer cumplir políticas de seguridad"</string>
+    <string name="account_management_disclaimer_subheader" msgid="8991450067243733878">"Tu administrador de TI usa la gestión de dispositivos móviles para implementar políticas de seguridad"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Preparando la configuración del dispositivo de trabajo…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Vamos a configurar tu perfil de trabajo"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Las aplicaciones de trabajo se guardan en tu perfil de trabajo"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Pausa las aplicaciones de trabajo cuando haya acabado tu jornada laboral"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Tu administrador de TI puede ver los datos que hay en tu perfil de trabajo"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Tu administrador de TI puede ver datos de tu perfil de trabajo"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Configurando tu perfil de trabajo…"</string>
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Las aplicaciones de trabajo se guardan en tu perfil de trabajo. Puedes pausar tus aplicaciones de trabajo cuando termine tu jornada laboral. Tu administrador de TI puede ver los datos que hay en tu perfil de trabajo."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Vamos a configurar tu dispositivo de trabajo"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Tener las aplicaciones de trabajo a tu alcance"</string>
-    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Este dispositivo no es privado"</string>
-    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Tu administrador de TI puede ver los datos y la actividad de este dispositivo."</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="142633978260399682">"Este dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>) no es privado"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="3981784440341141618">"Tu administrador de TI puede ver los datos y la actividad de este dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>)."</string>
     <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Tu actividad y tus datos"</string>
     <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Permisos de aplicaciones"</string>
-    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"Tu administrador de TI puede configurar los permisos de las aplicaciones de este dispositivo, como los permisos del micrófono, la cámara y la ubicación."</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="1973320148595109400">"Tu administrador de TI puede configurar los permisos de las aplicaciones de este dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>), incluidos los permisos del micrófono, la cámara y la ubicación."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Configurando el dispositivo…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Utiliza este dispositivo para acceder fácilmente a aplicaciones de trabajo. Este dispositivo no es privado, por lo que tu administrador de TI puede ver tus datos y actividad."</string>
-    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Utiliza este dispositivo para acceder fácilmente a aplicaciones de trabajo. Este dispositivo no es privado, por lo que tu administrador de TI puede ver tu actividad y datos. Tu administrador de TI también puede configurar los permisos de las aplicaciones de este dispositivo, como los permisos del micrófono, la cámara y la ubicación."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="2532673962822596806">"Con este dispositivo (<xliff:g id="DEVICE_NAME_0">%1$s</xliff:g>), puedes acceder fácilmente a tus aplicaciones de trabajo. Este dispositivo (<xliff:g id="DEVICE_NAME_1">%1$s</xliff:g>) no es privado, por lo que tu administrador de TI puede ver tus datos y tu actividad."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="3487964472228264628">"Con este dispositivo (<xliff:g id="DEVICE_NAME_0">%1$s</xliff:g>), puedes acceder fácilmente a tus aplicaciones de trabajo. Este dispositivo (<xliff:g id="DEVICE_NAME_1">%1$s</xliff:g>) no es privado, por lo que tu administrador de TI puede ver tu actividad y tus datos. Tu administrador de TI también puede configurar los permisos de las aplicaciones de este dispositivo, incluidos los permisos del micrófono, la cámara y la ubicación."</string>
     <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Devuelve este dispositivo a tu administrador de TI"</string>
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Vuelve a la pantalla anterior o restablece el dispositivo y devuélveselo a tu administrador de TI."</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Cancelar configuración"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Restablecer y devolver dispositivo"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_header" msgid="7938653381656306039">"El dispositivo no se puede configurar"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_subheader" msgid="5158035482490079567">"Este dispositivo no se puede dar de alta en el modo totalmente gestionado. Restablece el estado de fábrica del dispositivo y ponte en contacto con tu administrador de TI."</string>
+    <string name="fully_managed_device_reset_button" msgid="5957116315144904542">"Restablecer estado de fábrica"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Las aplicaciones de trabajo se guardan en tu perfil de trabajo y las gestiona tu administrador de TI"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Las aplicaciones personales se mantienen separadas y ocultas de las de trabajo"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Tu administrador de TI puede controlar este dispositivo y bloquear ciertas aplicaciones"</string>
-    <string name="cope_provisioning_summary" msgid="993014104601034878">"Las aplicaciones de trabajo se guardan en tu perfil de trabajo y las gestiona el administrador de TI. Las aplicaciones personales se mantienen separadas y ocultas de las aplicaciones de trabajo. El administrador de TI puede controlar este dispositivo y bloquear algunas aplicaciones."</string>
+    <string name="cope_provisioning_summary" msgid="4993405755138454918">"Las aplicaciones de trabajo se guardan en tu perfil de trabajo y las gestiona el administrador de TI. Las aplicaciones personales se mantienen separadas y ocultas de las aplicaciones de trabajo. El administrador de TI puede controlar este dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>) y bloquear determinadas aplicaciones."</string>
     <string name="just_a_sec" msgid="6244676028626237220">"Un segundo…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Recordatorio de privacidad"</string>
-    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Tu administrador de TI puede ver los datos y actividad de este dispositivo"</string>
-    <string name="financed_device_screen_header" msgid="6875169548352717124">"Este dispositivo lo proporciona <xliff:g id="CREDITOR_NAME">%s</xliff:g>"</string>
-    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Hacer pagos para este dispositivo"</string>
-    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> puede instalar la aplicación <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> para hacer pagos de este dispositivo."</string>
-    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Este dispositivo se puede restringir"</string>
-    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> puede restringir el acceso a este dispositivo si no pagas."</string>
-    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"No se puede configurar el dispositivo. Ponte en contacto con tu administrador de TI con la referencia \"Suma de comprobación no válida\"."</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2107315052054483060">"Tu administrador de TI puede ver los datos y la actividad de este dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>)."</string>
+    <string name="financed_device_screen_header" msgid="5934940812896302344">"<xliff:g id="CREDITOR_NAME">%2$s</xliff:g> proporciona este dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>)"</string>
+    <string name="financed_make_payments_subheader_title" msgid="743966229235451097">"Hacer pagos de este dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>)"</string>
+    <string name="financed_make_payments_subheader_description" msgid="7391276584735956742">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> puede instalar la aplicación <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> para hacer pagos de este dispositivo (<xliff:g id="DEVICE_NAME">%3$s</xliff:g>)."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="4248650736543742083">"Este dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>) puede restringirse"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="1539908048861880628">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> puede restringir el acceso a este dispositivo (<xliff:g id="DEVICE_NAME">%2$s</xliff:g>) si no pagas."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="5098975629103567172">"No se puede configurar el dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>). Ponte en contacto con tu administrador de TI con la referencia \"Suma de comprobación no válida\"."</string>
     <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Vuelve a intentarlo más tarde o pide ayuda a tu administrador de TI"</string>
-    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"No se puede configurar el dispositivo. Ponte en contacto con tu administrador de TI con la referencia \"Componentes que faltan o dañados\"."</string>
+    <string name="error_role_holder_package_invalid" msgid="8159929740916126242">"No se puede configurar el dispositivo (<xliff:g id="DEVICE_NAME">%1$s</xliff:g>). Ponte en contacto con tu administrador de TI con la referencia \"Faltan componentes o están dañados\"."</string>
     <string name="setting_up" msgid="1478847967385506664">"Configurando…"</string>
 </resources>

@@ -29,12 +29,14 @@ cc_binary_host {
         "java_writer_q.cpp",
         "main.cpp",
         "native_writer.cpp",
+        "native_writer_vendor.cpp",
         "rust_writer.cpp",
         "utils.cpp",
     ],
     cflags: [
         "-Wall",
         "-Werror",
+        "-Wno-deprecated-declarations",
     ],
 
     shared_libs: [
@@ -43,37 +45,56 @@ cc_binary_host {
         "libbase",
     ],
 
+    whole_static_libs: [
+        "libc++fs",
+    ],
+
     proto: {
         type: "full",
     },
 }
 
 // ==========================================================
-// Build the host test executable: stats-log-api-gen
+// Build the host test executable: stats-log-api-gen-test
 // ==========================================================
 cc_test_host {
     name: "stats-log-api-gen-test",
+    test_suites: [
+        "general-tests",
+    ],
     cflags: [
         "-Wall",
         "-Wextra",
         "-Werror",
         "-g",
         "-DUNIT_TEST",
+        "-Wno-deprecated-declarations",
     ],
     srcs: [
         "Collation.cpp",
+        "test_api_gen.cpp",
+        "test_api_gen_vendor.cpp",
         "test_collation.cpp",
         "test.proto",
+        "test_feature_atoms.proto",
+        "test_vendor_atoms.proto",
         "utils.cpp",
     ],
 
     static_libs: [
         "libgmock_host",
+        "libtestvendoratoms",
     ],
 
     shared_libs: [
+        "android.frameworks.stats-V2-ndk",
         "libstats_proto_host",
         "libprotobuf-cpp-full",
+        "libstatslog",
+    ],
+
+    whole_static_libs: [
+        "libc++fs",
     ],
 
     proto: {
@@ -82,6 +103,69 @@ cc_test_host {
             "external/protobuf/src",
         ],
     },
+
+    data: [
+        ":libprotobuf-internal-protos",
+        ":libstats_internal_protos",
+        "test_external.proto",
+        "test_vendor_atoms.proto",
+    ],
+}
+
+// Filegroup for stats-log-api-gen test proto.
+filegroup {
+    name: "stats_log_api_gen_test_protos",
+    srcs: [
+        "test.proto",
+        "test_external.proto",
+        "test_feature_atoms.proto",
+        "test_vendor_atoms.proto",
+    ],
+}
+
+genrule {
+    name: "test_vendor_atoms.h",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --header $(out) --module test --namespace android,VendorAtoms --vendor-proto frameworks/proto_logging/stats/stats_log_api_gen/test_vendor_atoms.proto",
+    out: [
+        "test_vendor_atoms.h",
+    ],
+    srcs: [
+        "test_vendor_atoms.proto",
+        ":libprotobuf-internal-descriptor-proto",
+        ":libstats_atom_options_protos",
+    ],
+}
+
+genrule {
+    name: "test_vendor_atoms.cpp",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --cpp $(out) --module test --importHeader test_vendor_atoms.h --namespace android,VendorAtoms --vendor-proto frameworks/proto_logging/stats/stats_log_api_gen/test_vendor_atoms.proto",
+    out: [
+        "test_vendor_atoms.cpp",
+    ],
+    srcs: [
+        "test_vendor_atoms.proto",
+        ":libprotobuf-internal-descriptor-proto",
+        ":libstats_atom_options_protos",
+    ],
+}
+
+cc_library_static {
+    name: "libtestvendoratoms",
+    host_supported: true,
+    generated_headers: [
+        "test_vendor_atoms.h",
+    ],
+    generated_sources: [
+        "test_vendor_atoms.cpp",
+    ],
+    export_generated_headers: [
+        "test_vendor_atoms.h",
+    ],
+    shared_libs: [
+        "android.frameworks.stats-V2-ndk",
+    ]
 }
 
 // ==========================================================
@@ -179,8 +263,10 @@ rust_library {
         "libthiserror",
     ],
     apex_available: [
+        "com.android.resolv",
         "com.android.virt",
     ],
+    min_sdk_version: "29",
 }
 
 genrule {
@@ -204,6 +290,8 @@ rust_library {
         "libstatspull_bindgen",
     ],
     apex_available: [
+        "com.android.resolv",
         "com.android.virt",
     ],
+    min_sdk_version: "29",
 }

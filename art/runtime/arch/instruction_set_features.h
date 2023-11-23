@@ -28,6 +28,7 @@ namespace art {
 
 class ArmInstructionSetFeatures;
 class Arm64InstructionSetFeatures;
+class Riscv64InstructionSetFeatures;
 class X86InstructionSetFeatures;
 class X86_64InstructionSetFeatures;
 
@@ -38,6 +39,12 @@ class InstructionSetFeatures {
   static std::unique_ptr<const InstructionSetFeatures> FromVariant(InstructionSet isa,
                                                                    const std::string& variant,
                                                                    std::string* error_msg);
+
+  // Process a CPU variant string for the given ISA and make sure the features advertised
+  // are supported by the hardware. This is needed for Pixel3a which wrongly
+  // reports itself as cortex-a75.
+  static std::unique_ptr<const InstructionSetFeatures> FromVariantAndHwcap(
+      InstructionSet isa, const std::string& variant, std::string* error_msg);
 
   // Parse a bitmap for the given isa and create an InstructionSetFeatures.
   static std::unique_ptr<const InstructionSetFeatures> FromBitmap(InstructionSet isa,
@@ -114,6 +121,9 @@ class InstructionSetFeatures {
 
   // Down cast this Arm64InstructionFeatures.
   const Arm64InstructionSetFeatures* AsArm64InstructionSetFeatures() const;
+
+  // Down cast this Riscv64InstructionFeatures.
+  const Riscv64InstructionSetFeatures* AsRiscv64InstructionSetFeatures() const;
 
   // Down cast this X86InstructionFeatures.
   const X86InstructionSetFeatures* AsX86InstructionSetFeatures() const;

@@ -22,10 +22,9 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 #include "stack/crypto_toolbox/aes.h"
 #include "stack/crypto_toolbox/crypto_toolbox.h"
+#include "test/common/mock_functions.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
@@ -33,7 +32,7 @@ extern std::map<std::string, int> mock_function_count_map;
 
 namespace crypto_toolbox {
 Octet16 aes_cmac(const Octet16& key, const uint8_t* input, uint16_t length) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   Octet16 octet16;
   return octet16;
 }

@@ -225,9 +225,28 @@ Return<V1_0::ErrorStatus> ArmnnPreparedModel_1_2<HalVersion>::PrepareMemoryForIn
         const armnn::TensorInfo inputTensorInfo = m_Runtime->GetInputTensorInfo(m_NetworkId, i);
         const armnn::Tensor inputTensor = GetTensorForRequestArgument(inputArg, inputTensorInfo, memPools);
 
-        if (inputTensor.GetMemoryArea() == nullptr)
+        uint32_t poolIndex = inputArg.location.poolIndex;
+        if (poolIndex >= memPools.size())
+        {
+            ALOGE("Cannot execute request. Error converting request input %u to tensor: wrong poolIndex", i);
+            return V1_0::ErrorStatus::GENERAL_FAILURE;
+        }
+
+        uint8_t* inputTensorBegin = static_cast<uint8_t*>(inputTensor.GetMemoryArea());
+        if (inputTensorBegin == nullptr)
         {
             ALOGE("Cannot execute request. Error converting request input %u to tensor", i);
+            return V1_0::ErrorStatus::GENERAL_FAILURE;
+        }
+
+        const size_t inputTensorSize = inputTensorInfo.GetNumBytes();
+        uint8_t* memoryPoolBegin = memPools[poolIndex].getBuffer();
+        uint32_t memoryPoolSize = memPools[poolIndex].getSize();
+        bool inputTensorIsOutOfMemoryRage = (inputTensorBegin + inputTensorSize) > (memoryPoolBegin + memoryPoolSize);
+
+        if (inputTensorIsOutOfMemoryRage)
+        {
+            ALOGE("Cannot execute request. Error converting request input %u to tensor: out of Memory Pool", i);
             return V1_0::ErrorStatus::GENERAL_FAILURE;
         }
 
@@ -251,7 +270,8 @@ Return<V1_0::ErrorStatus> ArmnnPreparedModel_1_2<HalVersion>::PrepareMemoryForOu
 
         const armnn::TensorInfo outputTensorInfo = m_Runtime->GetOutputTensorInfo(m_NetworkId, i);
         const armnn::Tensor outputTensor = GetTensorForRequestArgument(outputArg, outputTensorInfo, memPools);
-        if (outputTensor.GetMemoryArea() == nullptr)
+        uint8_t* outputTensorBegin = static_cast<uint8_t*>(outputTensor.GetMemoryArea());
+        if (outputTensorBegin == nullptr)
         {
             ALOGE("Cannot execute request. Error converting request output %u to tensor", i);
             return V1_0::ErrorStatus::GENERAL_FAILURE;
@@ -270,6 +290,22 @@ Return<V1_0::ErrorStatus> ArmnnPreparedModel_1_2<HalVersion>::PrepareMemoryForOu
         {
             ALOGW("ArmnnPreparedModel_1_2::Execute failed: bufferSize < outputSize");
             return V1_0::ErrorStatus::OUTPUT_INSUFFICIENT_SIZE;
+        }
+
+        uint32_t poolIndex = outputArg.location.poolIndex;
+        if (poolIndex >= memPools.size())
+        {
+            ALOGE("Cannot execute request. Error converting request output %u to tensor: wrong poolIndex", i);
+            return V1_0::ErrorStatus::GENERAL_FAILURE;
+        }
+
+        uint8_t* memoryPoolBegin = memPools[poolIndex].getBuffer();
+        uint32_t memoryPoolSize = memPools[poolIndex].getSize();
+        bool outputTensorIsOutOfMemoryRage = (outputTensorBegin + outputSize) > (memoryPoolBegin + memoryPoolSize);
+        if (outputTensorIsOutOfMemoryRage)
+        {
+            ALOGE("Cannot execute request. Error converting request output %u to tensor: out of Memory Pool", i);
+            return V1_0::ErrorStatus::GENERAL_FAILURE;
         }
 
         outputs.emplace_back(i, outputTensor);

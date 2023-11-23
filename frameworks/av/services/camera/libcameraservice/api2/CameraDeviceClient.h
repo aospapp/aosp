@@ -29,6 +29,7 @@
 #include "common/FrameProcessorBase.h"
 #include "common/Camera2ClientBase.h"
 #include "CompositeStream.h"
+#include "utils/CameraServiceProxyWrapper.h"
 #include "utils/SessionConfigurationUtils.h"
 
 using android::camera3::OutputStreamInfo;
@@ -58,7 +59,8 @@ protected:
             int sensorOrientation,
             int clientPid,
             uid_t clientUid,
-            int servicePid);
+            int servicePid,
+            bool overrideToPortrait);
 
     sp<hardware::camera2::ICameraDeviceCallbacks> mRemoteCallback;
 };
@@ -178,6 +180,7 @@ public:
 
     CameraDeviceClient(const sp<CameraService>& cameraService,
             const sp<hardware::camera2::ICameraDeviceCallbacks>& remoteCallback,
+            std::shared_ptr<CameraServiceProxyWrapper> cameraServiceProxyWrapper,
             const String16& clientPackageName,
             bool clientPackageOverride,
             const std::optional<String16>& clientFeatureId,
@@ -187,7 +190,8 @@ public:
             int clientPid,
             uid_t clientUid,
             int servicePid,
-            bool overrideForPerfClass);
+            bool overrideForPerfClass,
+            bool overrideToPortrait);
     virtual ~CameraDeviceClient();
 
     virtual status_t      initialize(sp<CameraProviderManager> manager,
@@ -195,8 +199,13 @@ public:
 
     virtual status_t      setRotateAndCropOverride(uint8_t rotateAndCrop) override;
 
+    virtual status_t      setAutoframingOverride(uint8_t autoframingValue) override;
+
     virtual bool          supportsCameraMute();
     virtual status_t      setCameraMute(bool enabled);
+
+    virtual bool          supportsZoomOverride() override;
+    virtual status_t      setZoomOverride(int32_t zoomOverride) override;
 
     virtual status_t      dump(int fd, const Vector<String16>& args);
 
@@ -205,6 +214,11 @@ public:
     virtual status_t      startWatchingTags(const String8 &tags, int out);
     virtual status_t      stopWatchingTags(int out);
     virtual status_t      dumpWatchedEventsToVector(std::vector<std::string> &out);
+
+    virtual status_t      setCameraServiceWatchdog(bool enabled);
+
+    virtual void          setStreamUseCaseOverrides(const std::vector<int64_t>& useCaseOverrides);
+    virtual void          clearStreamUseCaseOverrides() override;
 
     /**
      * Device listener interface
@@ -231,7 +245,7 @@ protected:
     // Calculate the ANativeWindow transform from android.sensor.orientation
     status_t              getRotationTransformLocked(int mirrorMode, /*out*/int32_t* transform);
 
-    bool isUltraHighResolutionSensor(const String8 &cameraId);
+    bool supportsUltraHighResolutionCapture(const String8 &cameraId);
 
     bool isSensorPixelModeConsistent(const std::list<int> &streamIdList,
             const CameraMetadata &settings);

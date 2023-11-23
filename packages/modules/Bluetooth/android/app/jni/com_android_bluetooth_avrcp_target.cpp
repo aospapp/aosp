@@ -16,8 +16,8 @@
 
 #define LOG_TAG "AvrcpTargetJni"
 
-#include <base/bind.h>
-#include <base/callback.h>
+#include <base/functional/bind.h>
+#include <base/functional/callback.h>
 #include <map>
 #include <mutex>
 #include <shared_mutex>
@@ -62,6 +62,27 @@ static void volumeDeviceConnected(
 static void volumeDeviceDisconnected(const RawAddress& address);
 static void setVolume(int8_t volume);
 
+using ListPlayerSettingsCb =
+    PlayerSettingsInterface::ListPlayerSettingsCallback;
+static void listPlayerSettings(ListPlayerSettingsCb cb);
+ListPlayerSettingsCb list_player_settings_cb;
+using ListPlayerSettingValuesCb =
+    PlayerSettingsInterface::ListPlayerSettingValuesCallback;
+static void listPlayerSettingValues(PlayerAttribute setting,
+                                    ListPlayerSettingValuesCb cb);
+ListPlayerSettingValuesCb list_player_setting_values_cb;
+using GetCurrentPlayerSettingValueCb =
+    PlayerSettingsInterface::GetCurrentPlayerSettingValueCallback;
+static void getPlayerSettings(std::vector<PlayerAttribute> attributes,
+                              GetCurrentPlayerSettingValueCb cb);
+GetCurrentPlayerSettingValueCb get_current_player_setting_value_cb;
+using SetPlayerSettingValueCb =
+    PlayerSettingsInterface::SetPlayerSettingValueCallback;
+static void setPlayerSettings(std::vector<PlayerAttribute> attributes,
+                              std::vector<uint8_t> values,
+                              SetPlayerSettingValueCb cb);
+SetPlayerSettingValueCb set_player_setting_value_cb;
+
 // Local Variables
 // TODO (apanicke): Use a map here to store the callback in order to
 // support multi-browsing
@@ -70,6 +91,18 @@ using map_entry = std::pair<std::string, GetFolderItemsCb>;
 std::map<std::string, GetFolderItemsCb> get_folder_items_cb_map;
 std::map<RawAddress, ::bluetooth::avrcp::VolumeInterface::VolumeChangedCb>
     volumeCallbackMap;
+
+template <typename T>
+void copyJavaArraytoCppVector(JNIEnv* env, const jbyteArray& jArray,
+                              std::vector<T>& cVec) {
+  size_t len = (size_t)env->GetArrayLength(jArray);
+  if (len == 0) return;
+  jbyte* elements = env->GetByteArrayElements(jArray, nullptr);
+  T* array = reinterpret_cast<T*>(elements);
+  cVec.reserve(len);
+  std::copy(array, array + len, std::back_inserter(cVec));
+  env->ReleaseByteArrayElements(jArray, elements, 0);
+}
 
 // TODO (apanicke): In the future, this interface should guarantee that
 // all calls happen on the JNI Thread. Right now this is very difficult
@@ -150,6 +183,30 @@ class VolumeInterfaceImpl : public VolumeInterface {
 };
 static VolumeInterfaceImpl mVolumeInterface;
 
+class PlayerSettingsInterfaceImpl : public PlayerSettingsInterface {
+ public:
+  void ListPlayerSettings(ListPlayerSettingsCallback cb) {
+    listPlayerSettings(cb);
+  }
+
+  void ListPlayerSettingValues(PlayerAttribute setting,
+                               ListPlayerSettingValuesCallback cb) {
+    listPlayerSettingValues(setting, cb);
+  }
+
+  void GetCurrentPlayerSettingValue(std::vector<PlayerAttribute> attributes,
+                                    GetCurrentPlayerSettingValueCallback cb) {
+    getPlayerSettings(attributes, cb);
+  }
+
+  void SetPlayerSettings(std::vector<PlayerAttribute> attributes,
+                         std::vector<uint8_t> values,
+                         SetPlayerSettingValueCallback cb) {
+    setPlayerSettings(attributes, values, cb);
+  }
+};
+static PlayerSettingsInterfaceImpl mPlayerSettingsInterface;
+
 static jmethodID method_getCurrentSongInfo;
 static jmethodID method_getPlaybackStatus;
 static jmethodID method_sendMediaKeyEvent;
@@ -169,6 +226,11 @@ static jmethodID method_volumeDeviceConnected;
 static jmethodID method_volumeDeviceDisconnected;
 
 static jmethodID method_setVolume;
+
+static jmethodID method_listPlayerSettings;
+static jmethodID method_listPlayerSettingValues;
+static jmethodID method_getPlayerSettings;
+static jmethodID method_setPlayerSettings;
 
 static void classInitNative(JNIEnv* env, jclass clazz) {
   method_getCurrentSongInfo = env->GetMethodID(
@@ -212,6 +274,18 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 
   method_setVolume = env->GetMethodID(clazz, "setVolume", "(I)V");
 
+  method_listPlayerSettings =
+      env->GetMethodID(clazz, "listPlayerSettingsRequest", "()V");
+
+  method_listPlayerSettingValues =
+      env->GetMethodID(clazz, "listPlayerSettingValuesRequest", "(B)V");
+
+  method_getPlayerSettings =
+      env->GetMethodID(clazz, "getCurrentPlayerSettingValuesRequest", "([B)V");
+
+  method_setPlayerSettings =
+      env->GetMethodID(clazz, "setPlayerSettingsRequest", "([B[B)V");
+
   ALOGI("%s: AvrcpTargetJni initialized!", __func__);
 }
 
@@ -222,7 +296,8 @@ static void initNative(JNIEnv* env, jobject object) {
   mJavaInterface = env->NewGlobalRef(object);
 
   sServiceInterface = getBluetoothInterface()->get_avrcp_service();
-  sServiceInterface->Init(&mAvrcpInterface, &mVolumeInterface);
+  sServiceInterface->Init(&mAvrcpInterface, &mVolumeInterface,
+                          &mPlayerSettingsInterface);
 }
 
 static void registerBipServerNative(JNIEnv* env, jobject object,
@@ -900,6 +975,127 @@ static void setBipClientStatusNative(JNIEnv* env, jobject object,
   sServiceInterface->SetBipClientStatus(bdaddr, status);
 }
 
+// Called from native to list available player settings
+static void listPlayerSettings(ListPlayerSettingsCb cb) {
+  ALOGD("%s", __func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid() || !mJavaInterface) return;
+
+  list_player_settings_cb = std::move(cb);
+  sCallbackEnv->CallVoidMethod(mJavaInterface, method_listPlayerSettings);
+}
+
+static void listPlayerSettingsResponseNative(JNIEnv* env, jobject object,
+                                             jbyteArray attributes) {
+  ALOGD("%s", __func__);
+
+  std::vector<PlayerAttribute> attributes_vector;
+  copyJavaArraytoCppVector(env, attributes, attributes_vector);
+
+  list_player_settings_cb.Run(std::move(attributes_vector));
+}
+
+// Called from native to list available values for player setting
+static void listPlayerSettingValues(PlayerAttribute attribute,
+                                    ListPlayerSettingValuesCb cb) {
+  ALOGD("%s", __func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid() || !mJavaInterface) return;
+
+  list_player_setting_values_cb = std::move(cb);
+  sCallbackEnv->CallVoidMethod(mJavaInterface, method_listPlayerSettingValues,
+                               (jbyte)attribute);
+}
+
+static void listPlayerSettingValuesResponseNative(JNIEnv* env, jobject object,
+                                                  jbyte attribute,
+                                                  jbyteArray values) {
+  ALOGD("%s", __func__);
+  PlayerAttribute player_attribute = static_cast<PlayerAttribute>(attribute);
+  std::vector<uint8_t> values_vector;
+  copyJavaArraytoCppVector(env, values, values_vector);
+  list_player_setting_values_cb.Run(player_attribute, std::move(values_vector));
+}
+
+// Called from native to get current player settings
+static void getPlayerSettings(std::vector<PlayerAttribute> attributes,
+                              GetCurrentPlayerSettingValueCb cb) {
+  ALOGD("%s", __func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid() || !mJavaInterface) return;
+
+  jbyteArray attributes_array = sCallbackEnv->NewByteArray(attributes.size());
+  sCallbackEnv->SetByteArrayRegion(
+      attributes_array, 0, attributes.size(),
+      reinterpret_cast<const jbyte*>(attributes.data()));
+
+  get_current_player_setting_value_cb = std::move(cb);
+  sCallbackEnv->CallVoidMethod(mJavaInterface, method_getPlayerSettings,
+                               attributes_array);
+}
+
+static void getPlayerSettingsResponseNative(JNIEnv* env, jobject object,
+                                            jbyteArray attributes,
+                                            jbyteArray values) {
+  ALOGD("%s", __func__);
+  std::vector<PlayerAttribute> attributes_vector;
+  std::vector<uint8_t> values_vector;
+  copyJavaArraytoCppVector(env, attributes, attributes_vector);
+  copyJavaArraytoCppVector(env, values, values_vector);
+  get_current_player_setting_value_cb.Run(std::move(attributes_vector),
+                                          std::move(values_vector));
+}
+
+// Called from native to set current player settings
+static void setPlayerSettings(std::vector<PlayerAttribute> attributes,
+                              std::vector<uint8_t> values,
+                              SetPlayerSettingValueCb cb) {
+  ALOGD("%s", __func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid() || !mJavaInterface) return;
+
+  jbyteArray attributes_array = sCallbackEnv->NewByteArray(attributes.size());
+  sCallbackEnv->SetByteArrayRegion(
+      attributes_array, 0, attributes.size(),
+      reinterpret_cast<const jbyte*>(attributes.data()));
+
+  jbyteArray values_array = sCallbackEnv->NewByteArray(values.size());
+  sCallbackEnv->SetByteArrayRegion(
+      values_array, 0, values.size(),
+      reinterpret_cast<const jbyte*>(values.data()));
+
+  set_player_setting_value_cb = std::move(cb);
+
+  sCallbackEnv->CallVoidMethod(mJavaInterface, method_setPlayerSettings,
+                               attributes_array, values_array);
+}
+
+static void setPlayerSettingsResponseNative(JNIEnv* env, jobject object,
+                                            jboolean success) {
+  ALOGD("%s", __func__);
+  set_player_setting_value_cb.Run(success);
+}
+
+static void sendPlayerSettingsNative(JNIEnv* env, jobject object,
+                                     jbyteArray attributes, jbyteArray values) {
+  ALOGD("%s", __func__);
+  std::unique_lock<std::shared_timed_mutex> interface_lock(interface_mutex);
+  if (mServiceCallbacks == nullptr) {
+    ALOGW("%s: Service not loaded.", __func__);
+    return;
+  }
+  std::vector<PlayerAttribute> attributes_vector;
+  std::vector<uint8_t> values_vector;
+  copyJavaArraytoCppVector(env, attributes, attributes_vector);
+  copyJavaArraytoCppVector(env, values, values_vector);
+  mServiceCallbacks->SendPlayerSettingsChanged(attributes_vector,
+                                               values_vector);
+}
+
 static JNINativeMethod sMethods[] = {
     {"classInitNative", "()V", (void*)classInitNative},
     {"initNative", "()V", (void*)initNative},
@@ -920,6 +1116,15 @@ static JNINativeMethod sMethods[] = {
      (void*)sendVolumeChangedNative},
     {"setBipClientStatusNative", "(Ljava/lang/String;Z)V",
      (void*)setBipClientStatusNative},
+    {"listPlayerSettingsResponseNative", "([B)V",
+     (void*)listPlayerSettingsResponseNative},
+    {"listPlayerSettingValuesResponseNative", "(B[B)V",
+     (void*)listPlayerSettingValuesResponseNative},
+    {"getPlayerSettingsResponseNative", "([B[B)V",
+     (void*)getPlayerSettingsResponseNative},
+    {"setPlayerSettingsResponseNative", "(Z)V",
+     (void*)setPlayerSettingsResponseNative},
+    {"sendPlayerSettingsNative", "([B[B)V", (void*)sendPlayerSettingsNative},
 };
 
 int register_com_android_bluetooth_avrcp_target(JNIEnv* env) {

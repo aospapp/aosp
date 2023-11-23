@@ -195,6 +195,9 @@ pub use self::image::BitMapElement;
 mod dynelem;
 pub use dynelem::{DynElement, IntoDynElement};
 
+mod pie;
+pub use pie::Pie;
+
 use crate::coord::CoordTranslate;
 use crate::drawing::Rect;
 
@@ -248,11 +251,15 @@ pub trait Drawable<DB: DrawingBackend, CM: CoordMapper = BackendCoordOnly> {
     ) -> Result<(), DrawingErrorKind<DB::ErrorType>>;
 }
 
+/// Useful to translate from guest coordinates to backend coordinates
 pub trait CoordMapper {
+    /// Specifies the output data from the translation
     type Output;
+    /// Performs the translation from guest coordinates to backend coordinates
     fn map<CT: CoordTranslate>(coord_trans: &CT, from: &CT::From, rect: &Rect) -> Self::Output;
 }
 
+/// Used for 2d coordinate transformations.
 pub struct BackendCoordOnly;
 
 impl CoordMapper for BackendCoordOnly {
@@ -262,6 +269,11 @@ impl CoordMapper for BackendCoordOnly {
     }
 }
 
+/**
+Used for 3d coordinate transformations.
+
+See [`Cubiod`] for more information and an example.
+*/
 pub struct BackendCoordAndZ;
 
 impl CoordMapper for BackendCoordAndZ {

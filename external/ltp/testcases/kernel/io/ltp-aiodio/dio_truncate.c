@@ -1,177 +1,185 @@
-
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2004 Daniel McNeil <daniel@osdl.org>
- *               2004 Open Source Development Lab
- *   This program is free software;  you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation; either version 2 of the License, or
- *   (at your option) any later version.
- *
- *   This program is distributed in the hope that it will be useful,
- *   but WITHOUT ANY WARRANTY;  without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
- *   the GNU General Public License for more details.
- *
- *   You should have received a copy of the GNU General Public License
- *   along with this program;  if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
- *
- * Module: .c
+ *				 2004 Open Source Development Lab
+ * Copyright (C) 2021 SUSE LLC Andrea Cervesato <andrea.cervesato@suse.com>
  */
 
-/*
- * Change History:
+/*\
+ * [Description]
  *
- * 2/2004  Marty Ridgeway (mridge@us.ibm.com) Changes to adapt to LTP
+ * This test is mixing direct I/O and truncate operations checking if they can
+ * be used together at the same time. Multiple children are spawned to read a
+ * file that is written to using direct I/O and truncated in a loop.
  *
+ * [Algorithm]
+ *
+ * - Spawn multiple children which start to read on 'file'
+ * - Parent start to fill and truncate 'file' many times with zero char when
+ *   children are reading
+ * - Parent start to fill and truncate a junk file many times with non-zero char
+ *
+ * If no issues occur on direct IO/truncate operations and the file always
+ * contains zero characters, test PASS. Otherwise, test will FAIL.
  */
+
 #define _GNU_SOURCE
 
 #include <stdlib.h>
-#include <sys/types.h>
-#include <signal.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <memory.h>
-#include <string.h>
-#include <limits.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include "tst_test.h"
+#include "tst_kconfig.h"
+#include "common.h"
 
-#include "test.h"
+static volatile int *run_child;
 
-#define NUM_CHILDREN 8
+static char *str_numchildren;
+static char *str_filesize;
+static char *str_numappends;
+static char *str_numwrites;
 
-char *check_zero(unsigned char *buf, int size)
-{
-	unsigned char *p;
+static int numchildren = 16;
+static long long filesize = 64 * 1024;
+static long long alignment;
+static int numappends = 100;
+static int numwrites = 100;
 
-	p = buf;
-
-	while (size > 0) {
-		if (*buf != 0) {
-			fprintf(stderr,
-				"non zero buffer at buf[%d] => 0x%02x,%02x,%02x,%02x\n",
-				buf - p, (unsigned int)buf[0],
-				size > 1 ? (unsigned int)buf[1] : 0,
-				size > 2 ? (unsigned int)buf[2] : 0,
-				size > 3 ? (unsigned int)buf[3] : 0);
-			fprintf(stderr, "buf %p, p %p\n", buf, p);
-			return buf;
-		}
-		buf++;
-		size--;
-	}
-	return 0;		/* all zeros */
-}
-
-int dio_read(char *filename)
+static void dio_read(const char *filename, long long align, size_t bs)
 {
 	int fd;
 	int r;
-	void *bufptr;
+	char *bufptr;
 
-	TEST(posix_memalign(&bufptr, 4096, 64 * 1024));
-	if (TEST_RETURN) {
-		tst_resm(TBROK | TRERRNO, "cannot malloc aligned memory");
-		return -1;
-	}
+	while ((fd = open(filename, O_RDONLY | O_DIRECT, 0666)) < 0)
+		usleep(100);
 
-	while ((fd = open(filename, O_DIRECT | O_RDONLY)) < 0) {
-	}
-	fprintf(stderr, "dio_truncate: child reading file\n");
-	while (1) {
+	bufptr = SAFE_MEMALIGN(align, bs);
+
+	tst_res(TINFO, "child %i reading file", getpid());
+	while (*run_child) {
 		off_t offset;
 		char *bufoff;
 
-		/* read the file, checking for zeros */
-		offset = lseek(fd, SEEK_SET, 0);
+		offset = SAFE_LSEEK(fd, SEEK_SET, 0);
 		do {
 			r = read(fd, bufptr, 64 * 1024);
 			if (r > 0) {
-				if ((bufoff = check_zero(bufptr, r))) {
-					fprintf(stderr,
-						"non-zero read at offset %p\n",
-						offset + bufoff);
-					exit(1);
+				bufoff = check_zero(bufptr, r);
+				if (bufoff) {
+					tst_res(TINFO, "non-zero read at offset %zu",
+						offset + (bufoff - bufptr));
+					free(bufptr);
+					SAFE_CLOSE(fd);
+					return;
 				}
 				offset += r;
 			}
 		} while (r > 0);
 	}
-	return 0;
+
+	free(bufptr);
+	SAFE_CLOSE(fd);
 }
 
-void dio_append(char *filename, int fill)
+static void setup(void)
 {
-	int fd;
-	void *bufptr;
+	struct stat sb;
+	static const char * const kconf_rt[] = {"CONFIG_PREEMPT_RT", NULL};
+
+	if (tst_parse_int(str_numchildren, &numchildren, 1, INT_MAX))
+		tst_brk(TBROK, "Invalid number of children '%s'", str_numchildren);
+
+	if (tst_parse_filesize(str_filesize, &filesize, 1, LLONG_MAX))
+		tst_brk(TBROK, "Invalid file size '%s'", str_filesize);
+
+	if (tst_parse_int(str_numappends, &numappends, 1, INT_MAX))
+		tst_brk(TBROK, "Invalid number of appends '%s'", str_numappends);
+
+	if (tst_parse_int(str_numwrites, &numwrites, 1, INT_MAX))
+		tst_brk(TBROK, "Invalid number of truncate/append '%s'", str_numwrites);
+
+	SAFE_STAT(".", &sb);
+	alignment = sb.st_blksize;
+
+	run_child = SAFE_MMAP(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+	if (numchildren > 2 && !tst_kconfig_check(kconf_rt)) {
+		tst_res(TINFO, "Warning: This test may deadlock on RT kernels");
+		tst_res(TINFO, "If it does, reduce number of threads to 2");
+	}
+}
+
+static void cleanup(void)
+{
+	if (run_child) {
+		*run_child = 0;
+		SAFE_MUNMAP((void *)run_child, sizeof(int));
+	}
+}
+
+static void run(void)
+{
+	char *filename = "file.bin";
+	int wflags = O_DIRECT | O_WRONLY | O_CREAT;
+	int status;
 	int i;
-	int w;
+	int fail = 0;
 
-	fd = open(filename, O_DIRECT | O_WRONLY | O_CREAT, 0666);
+	*run_child = 1;
 
-	if (fd < 0) {
-		perror("cannot create file");
-		return;
-	}
-
-	TEST(posix_memalign(&bufptr, 4096, 64 * 1024));
-	if (TEST_RETURN) {
-		tst_resm(TBROK | TRERRNO, "cannot malloc aligned memory");
-		close(fd);
-		return;
-	}
-
-	memset(bufptr, fill, 64 * 1024);
-
-	for (i = 0; i < 1000; i++) {
-		if ((w = write(fd, bufptr, 64 * 1024)) != 64 * 1024) {
-			fprintf(stderr, "write %d returned %d\n", i, w);
+	for (i = 0; i < numchildren; i++) {
+		if (!SAFE_FORK()) {
+			dio_read(filename, alignment, filesize);
+			return;
 		}
 	}
-	close(fd);
-}
 
-int main(void)
-{
-	char filename[PATH_MAX];
-	int pid[NUM_CHILDREN];
-	int num_children = 1;
-	int i;
+	tst_res(TINFO, "Parent writes/truncates the file");
 
-	snprintf(filename, sizeof(filename), "%s/aiodio/file",
-		 getenv("TMP") ? getenv("TMP") : "/tmp");
+	for (i = 0; i < numwrites; i++) {
+		io_append(filename, 0, wflags, filesize, numappends);
+		SAFE_TRUNCATE(filename, 0);
+		io_append("junkfile", 0xaa, wflags, filesize, numappends);
+		SAFE_TRUNCATE("junkfile", 0);
 
-	for (i = 0; i < num_children; i++) {
-		if ((pid[i] = fork()) == 0) {
-			/* child */
-			return dio_read(filename);
-		} else if (pid[i] < 0) {
-			/* error */
-			perror("fork error");
+		if (SAFE_WAITPID(-1, &status, WNOHANG)) {
+			fail = 1;
 			break;
-		} else {
-			/* Parent */
-			continue;
+		}
+
+		if (!tst_remaining_runtime()) {
+			tst_res(TINFO, "Test out of runtime, exiting");
+			break;
 		}
 	}
 
-	/*
-	 * Parent creates a zero file using DIO.
-	 * Truncates it to zero
-	 * Create another file with '0xaa'
-	 */
-	for (i = 0; i < 100; i++) {
-		dio_append(filename, 0);
-		truncate(filename, 0);
-		dio_append("junkfile", 0xaa);
-		truncate("junkfile", 0);
-	}
+	if (fail)
+		tst_res(TFAIL, "Non zero bytes read");
+	else
+		tst_res(TPASS, "All bytes read were zeroed");
 
-	for (i = 0; i < num_children; i++) {
-		kill(pid[i], SIGTERM);
-	}
-
-	return 0;
+	*run_child = 0;
 }
+
+static struct tst_test test = {
+	.test_all = run,
+	.setup = setup,
+	.cleanup = cleanup,
+	.needs_tmpdir = 1,
+	.forks_child = 1,
+	.max_runtime = 1800,
+	.options = (struct tst_option[]) {
+		{"n:", &str_numchildren, "Number of threads (default 16)"},
+		{"s:", &str_filesize, "Size of file (default 64K)"},
+		{"a:", &str_numappends, "Number of appends (default 100)"},
+		{"c:", &str_numwrites, "Number of append & truncate (default 100)"},
+		{}
+	},
+	.skip_filesystems = (const char *[]) {
+		"tmpfs",
+		NULL
+	},
+};

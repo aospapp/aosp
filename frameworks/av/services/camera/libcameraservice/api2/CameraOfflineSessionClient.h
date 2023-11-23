@@ -56,7 +56,8 @@ public:
                     IInterface::asBinder(remoteCallback),
                     // (v)ndk doesn't have offline session support
                     clientPackageName, /*overridePackageName*/false, clientFeatureId,
-                    cameraIdStr, cameraFacing, sensorOrientation, clientPid, clientUid, servicePid),
+                    cameraIdStr, cameraFacing, sensorOrientation, clientPid, clientUid, servicePid,
+                    /*overrideToPortrait*/false),
             mRemoteCallback(remoteCallback), mOfflineSession(session),
             mCompositeStreamMap(offlineCompositeStreamMap) {}
 
@@ -81,8 +82,21 @@ public:
 
     status_t setRotateAndCropOverride(uint8_t rotateAndCrop) override;
 
+    status_t setAutoframingOverride(uint8_t autoframingValue) override;
+
     bool supportsCameraMute() override;
     status_t setCameraMute(bool enabled) override;
+
+    status_t setCameraServiceWatchdog(bool enabled) override;
+
+    void setStreamUseCaseOverrides(
+            const std::vector<int64_t>& useCaseOverrides) override;
+
+    void clearStreamUseCaseOverrides() override;
+
+    bool supportsZoomOverride() override;
+
+    status_t setZoomOverride(int32_t zoomOverride) override;
 
     // permissions management
     status_t startCameraOps() override;

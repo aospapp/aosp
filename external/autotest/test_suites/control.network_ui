@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "network_ui"
 PURPOSE = "Software-only network UI tests for shill and Chrome integration."
 
@@ -13,7 +13,7 @@ TEST_TYPE = "server"
 
 DOC = """
 Run automated tests backed up by a fake hardware simulator (e.g. pseudomodem)
-to test the Chrome OS network UI and the chrome.networkingPrivate extension
+to test the ChromeOS network UI and the chrome.networkingPrivate extension
 API layer.
 
 @param build: The name of the image to test.

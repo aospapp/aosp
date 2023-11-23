@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cassert>
 #include <cinttypes>
 
 #include "chre_host/st_hal_lpma_handler.h"
@@ -23,7 +24,7 @@ namespace chre {
 
 namespace {
 
-constexpr char kChreWakeLockName[] = "chre_daemon";
+constexpr char kChreWakeLockName[] = "chre_lpma_handler";
 
 void acquireWakeLock() {
   int rc;
@@ -51,13 +52,29 @@ void releaseWakeLock() {
 }  // anonymous namespace
 
 StHalLpmaHandler::StHalLpmaHandler(bool allowed) : mIsLpmaAllowed(allowed) {
+#ifdef CHRE_ST_LPMA_HANDLER_AIDL
+  // TODO(b/278167963): Add death recipient
+#else
   auto cb = [&]() { onStHalServiceDeath(); };
   mDeathRecipient = new StHalDeathRecipient(cb);
+#endif  // CHRE_ST_LPMA_HANDLER_AIDL
+}
+
+StHalLpmaHandler::~StHalLpmaHandler() {
+  if (mTargetLpmaEnabled) {
+    stopAndUnload();
+  }
+  if (mThread.has_value()) {
+    mStThreadShouldExit = true;
+    mCondVar.notify_all();
+    mThread->join();
+  }
+  releaseWakeLock();
 }
 
 void StHalLpmaHandler::init() {
   if (mIsLpmaAllowed) {
-    mThread = std::thread(&StHalLpmaHandler::StHalLpmaHandlerThreadEntry, this);
+    mThread = std::thread(&StHalLpmaHandler::stHalLpmaHandlerThreadEntry, this);
   }
 }
 
@@ -69,6 +86,157 @@ void StHalLpmaHandler::enable(bool enabled) {
     mCondVar.notify_one();
   } else {
     LOGE("Trying to modify LPMA state when LPMA is disabled");
+  }
+}
+
+bool StHalLpmaHandler::loadAndStart() {
+  if (load()) {
+    if (start()) {
+      return true;
+    } else {
+      unload();
+    }
+  }
+  return false;
+}
+
+void StHalLpmaHandler::stopAndUnload() {
+  stop();
+  unload();
+}
+
+void StHalLpmaHandler::stHalRequestAndProcessLocked(
+    std::unique_lock<std::mutex> const &locked) {
+  // Cannot use assert(locked.owns_lock()) since locked are not use in other
+  // places and non-debug version will not use assert. Compiler will not compile
+  // if there is unused parameter.
+  if (!locked.owns_lock()) {
+    assert(false);
+  }
+  if (mCurrentLpmaEnabled == mTargetLpmaEnabled) {
+    return;
+  } else if (mTargetLpmaEnabled && loadAndStart()) {
+    mCurrentLpmaEnabled = mTargetLpmaEnabled;
+  } else if (!mTargetLpmaEnabled) {
+    // Regardless of whether the use case fails to unload, set the
+    // currentLpmaEnabled to the targetLpmaEnabled. This will allow the next
+    // enable request to proceed. After a failure to unload occurs, the
+    // supplied handle is invalid and should not be unloaded again.
+    stopAndUnload();
+    mCurrentLpmaEnabled = mTargetLpmaEnabled;
+  }
+}
+
+void StHalLpmaHandler::stHalLpmaHandlerThreadEntry() {
+  LOGD("Starting LPMA thread");
+  constexpr useconds_t kInitialRetryDelayUs = 500000;
+  constexpr int kRetryGrowthFactor = 2;
+  constexpr int kRetryGrowthLimit = 5;     // Terminates at 8s retry interval.
+  constexpr int kRetryWakeLockLimit = 10;  // Retry with a wakelock 10 times.
+  std::unique_lock<std::mutex> lock(mMutex);
+  while (!mStThreadShouldExit) {
+    stHalRequestAndProcessLocked(lock);
+    bool retryNeeded = (mCurrentLpmaEnabled != mTargetLpmaEnabled);
+    releaseWakeLock();
+
+    if (retryNeeded) {
+      if (mRetryCount < kRetryGrowthLimit) {
+        mRetryCount += 1;
+        mRetryDelay = mRetryDelay * kRetryGrowthFactor;
+      }
+      mCondVar.wait_for(lock, std::chrono::microseconds(mRetryDelay), [this] {
+        return mCondVarPredicate || mStThreadShouldExit;
+      });
+    } else {
+      mRetryCount = 0;
+      mRetryDelay = kInitialRetryDelayUs;
+      mCondVar.wait(
+          lock, [this] { return mCondVarPredicate || mStThreadShouldExit; });
+    }
+    mCondVarPredicate = false;
+    if (mRetryCount <= kRetryWakeLockLimit) {
+      acquireWakeLock();
+    }
+  }
+}
+
+void StHalLpmaHandler::onStHalServiceDeath() {
+  LOGE("ST HAL Service Died");
+  std::lock_guard<std::mutex> lock(mMutex);
+  mStHalService = nullptr;
+  if (mTargetLpmaEnabled) {
+    // ST HAL has died, so assume that the sound model is no longer active,
+    // and trigger a reload of the sound model.
+    mCurrentLpmaEnabled = false;
+    mCondVarPredicate = true;
+    mCondVar.notify_one();
+  }
+}
+
+#ifdef CHRE_ST_LPMA_HANDLER_AIDL
+void StHalLpmaHandler::checkConnectionToStHalServiceLocked() {
+  if (mStHalService == nullptr) {
+    auto aidlServiceName =
+        std::string() + ISoundTriggerHw::descriptor + "/default";
+    ndk::SpAIBinder binder(
+        AServiceManager_waitForService(aidlServiceName.c_str()));
+    if (binder.get() != nullptr) {
+      LOGI("Connected to ST HAL service");
+      mStHalService = ISoundTriggerHw::fromBinder(binder);
+      // TODO(b/278167963): Add death recipient
+    }
+  }
+}
+
+bool StHalLpmaHandler::load() {
+  LOGV("Loading LPMA");
+
+  bool loaded = false;
+  checkConnectionToStHalServiceLocked();
+
+  aidl::android::media::soundtrigger::SoundModel soundModel;
+  soundModel.type = aidl::android::media::soundtrigger::SoundModelType::GENERIC;
+  soundModel.vendorUuid = "57caddb1-acdb-4dce-8cb0-2e95a2313aee";
+  soundModel.dataSize = 0;
+  auto status =
+      mStHalService->loadSoundModel(soundModel, nullptr, &mLpmaHandle);
+  if (status.isOk()) {
+    LOGI("Loaded LPMA");
+    loaded = true;
+  } else {
+    LOGE("Failed to load LPMA with error code %" PRId32,
+         status.getExceptionCode());
+  }
+  return loaded;
+}
+
+void StHalLpmaHandler::unload() {
+  checkConnectionToStHalServiceLocked();
+  auto status = mStHalService->unloadSoundModel(mLpmaHandle);
+  if (!status.isOk()) {
+    LOGE("Failed to unload LPMA with error code %" PRId32,
+         status.getExceptionCode());
+  }
+}
+
+bool StHalLpmaHandler::start() {
+  // TODO(b/278167963): Implement this
+  return true;
+}
+
+void StHalLpmaHandler::stop() {
+  // TODO(b/278167963): Implement this
+}
+
+#else
+
+void StHalLpmaHandler::checkConnectionToStHalServiceLocked() {
+  if (mStHalService == nullptr) {
+    mStHalService = ISoundTriggerHw::getService();
+    if (mStHalService != nullptr) {
+      LOGI("Connected to ST HAL service");
+      mStHalService->linkToDeath(mDeathRecipient, 0 /* flags */);
+    }
   }
 }
 
@@ -127,84 +295,36 @@ void StHalLpmaHandler::unload() {
   }
 }
 
-void StHalLpmaHandler::checkConnectionToStHalServiceLocked() {
-  if (mStHalService == nullptr) {
-    mStHalService = ISoundTriggerHw::getService();
-    if (mStHalService != nullptr) {
-      LOGI("Connected to ST HAL service");
-      mStHalService->linkToDeath(mDeathRecipient, 0 /* flags */);
-    }
+bool StHalLpmaHandler::start() {
+#ifdef CHRE_LPMA_REQUEST_START_RECOGNITION
+  // mLpmaHandle
+  ISoundTriggerHw::RecognitionConfig config = {};
+
+  Return<int32_t> hidlResult = mStHalService->startRecognition(
+      mLpmaHandle, config, nullptr /* callback */, 0 /* cookie */);
+
+  int32_t result = hidlResult.withDefault(-EPIPE);
+  if (result != 0) {
+    LOGE("Failed to start LPMA: %" PRId32, result);
   }
+  return (result == 0);
+#else
+  return true;
+#endif  // CHRE_LPMA_REQUEST_START_RECOGNITION
 }
 
-bool StHalLpmaHandler::waitOnStHalRequestAndProcess() {
-  bool noDelayNeeded = true;
-  std::unique_lock<std::mutex> lock(mMutex);
+void StHalLpmaHandler::stop() {
+#ifdef CHRE_LPMA_REQUEST_START_RECOGNITION
+  Return<int32_t> hidlResult = mStHalService->stopRecognition(mLpmaHandle);
 
-  if (mCurrentLpmaEnabled == mTargetLpmaEnabled) {
-    mRetryDelay = 0;
-    mRetryCount = 0;
-    releaseWakeLock();  // Allow the system to suspend while waiting.
-    mCondVar.wait(lock, [this] { return mCondVarPredicate; });
-    mCondVarPredicate = false;
-    acquireWakeLock();  // Ensure the system stays up while retrying.
-  } else if (mTargetLpmaEnabled && load()) {
-    mCurrentLpmaEnabled = mTargetLpmaEnabled;
-  } else if (!mTargetLpmaEnabled) {
-    // Regardless of whether the use case fails to unload, set the
-    // currentLpmaEnabled to the targetLpmaEnabled. This will allow the next
-    // enable request to proceed. After a failure to unload occurs, the
-    // supplied handle is invalid and should not be unloaded again.
-    unload();
-    mCurrentLpmaEnabled = mTargetLpmaEnabled;
-  } else {
-    noDelayNeeded = false;
+  int32_t result = hidlResult.withDefault(-EPIPE);
+  if (result != 0) {
+    LOGW("Failed to stop LPMA: %" PRId32, result);
   }
-
-  return noDelayNeeded;
+#endif  // CHRE_LPMA_REQUEST_START_RECOGNITION
 }
 
-void StHalLpmaHandler::delay() {
-  constexpr useconds_t kInitialRetryDelayUs = 500000;
-  constexpr int kRetryGrowthFactor = 2;
-  constexpr int kRetryGrowthLimit = 5;     // Terminates at 8s retry interval.
-  constexpr int kRetryWakeLockLimit = 10;  // Retry with a wakelock 10 times.
-
-  if (mRetryDelay == 0) {
-    mRetryDelay = kInitialRetryDelayUs;
-  } else if (mRetryCount < kRetryGrowthLimit) {
-    mRetryDelay *= kRetryGrowthFactor;
-  }
-  usleep(mRetryDelay);
-  mRetryCount++;
-  if (mRetryCount > kRetryWakeLockLimit) {
-    releaseWakeLock();
-  }
-}
-
-void StHalLpmaHandler::StHalLpmaHandlerThreadEntry() {
-  LOGD("Starting LPMA thread");
-
-  while (true) {
-    if (!waitOnStHalRequestAndProcess()) {
-      // processing an LPMA state update failed, retry after a little while
-      delay();
-    }
-  }
-}
-
-void StHalLpmaHandler::onStHalServiceDeath() {
-  LOGE("ST HAL Service Died");
-  std::lock_guard<std::mutex> lock(mMutex);
-  mStHalService = nullptr;
-  if (mTargetLpmaEnabled) {
-    // ST HAL has died, so assume that the sound model is no longer active,
-    // and trigger a reload of the sound model.
-    mCurrentLpmaEnabled = false;
-    mCondVarPredicate = true;
-    mCondVar.notify_one();
-  }
-}
+#endif  // CHRE_ST_LPMA_HANDLER_AIDL
 
 }  // namespace chre
 }  // namespace android

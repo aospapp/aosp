@@ -1,0 +1,20 @@
+name: "spki"
+description: "X.509 Subject Public Key Info types describing public keys as well as their associated AlgorithmIdentifiers (i.e. OIDs)."
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://crates.io/crates/spki"
+  }
+  url {
+    type: ARCHIVE
+    value: "https://static.crates.io/crates/spki/spki-0.6.0.crate"
+  }
+  version: "0.6.0"
+  # Dual-licensed, using the least restrictive per go/thirdpartylicenses#same.
+  license_type: NOTICE
+  last_upgrade_date {
+    year: 2022
+    month: 9
+    day: 6
+  }
+}

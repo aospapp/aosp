@@ -67,7 +67,7 @@ public final class VmsSubscriptionState implements Parcelable {
         mAssociatedLayers = Collections.unmodifiableSet(mAssociatedLayers);
     }
 
-    private void parcelLayers(Parcel dest, int flags) {
+    private void parcelLayers(Parcel dest) {
         ParcelHelper.writeArraySet(dest, new ArraySet<>(mLayers));
     }
 
@@ -76,7 +76,7 @@ public final class VmsSubscriptionState implements Parcelable {
         return (Set<VmsLayer>) ParcelHelper.readArraySet(in, VmsLayer.class.getClassLoader());
     }
 
-    private void parcelAssociatedLayers(Parcel dest, int flags) {
+    private void parcelAssociatedLayers(Parcel dest) {
         ParcelHelper.writeArraySet(dest, new ArraySet<>(mAssociatedLayers));
     }
 
@@ -136,7 +136,6 @@ public final class VmsSubscriptionState implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         // You can override field toString logic by defining methods like:
         // String fieldNameToString() { ... }
@@ -149,7 +148,6 @@ public final class VmsSubscriptionState implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public boolean equals(@android.annotation.Nullable Object o) {
         // You can override field equality logic by defining either of the methods like:
         // boolean fieldNameEquals(VmsSubscriptionState other) { ... }
@@ -167,7 +165,6 @@ public final class VmsSubscriptionState implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public int hashCode() {
         // You can override field hashCode logic by defining methods like:
         // int fieldNameHashCode() { ... }
@@ -186,8 +183,8 @@ public final class VmsSubscriptionState implements Parcelable {
         // void parcelFieldName(Parcel dest, int flags) { ... }
 
         dest.writeInt(mSequenceNumber);
-        parcelLayers(dest, flags);
-        parcelAssociatedLayers(dest, flags);
+        parcelLayers(dest);
+        parcelAssociatedLayers(dest);
     }
 
     @Override

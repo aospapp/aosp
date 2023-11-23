@@ -26,4 +26,16 @@
         <item name="textAppearanceGridItemSecondary">@android:style/TextAppearance.DeviceDefault.Small</item>
     </style>
 
+    <style name="Theme.Launcher.AppGridActivity.NoToolbar" parent="Theme.CarUi.NoToolbar">
+        <item name="textAppearanceGridItem">@android:style/TextAppearance.DeviceDefault.Medium</item>
+        <item name="textAppearanceGridItemSecondary">@android:style/TextAppearance.DeviceDefault.Small</item>
+    </style>
+    <style name="ActionDialogTheme" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation</item>
+        <item name="android:windowIsFloating">true</item>
+    </style>
 </resources>

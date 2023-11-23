@@ -34,8 +34,15 @@
 package android.automotive.watchdog.internal;
 @Backing(type="int")
 enum UserState {
-  USER_STATE_STARTED = 0,
-  USER_STATE_STOPPED = 1,
-  USER_STATE_REMOVED = 2,
-  NUM_USER_STATES = 3,
+  USER_STATE_STARTED,
+  USER_STATE_STOPPED,
+  USER_STATE_REMOVED,
+  /**
+   * @deprecated Value of enum no longer reflects the true amount of user states. Enum should not be used.
+   */
+  NUM_USER_STATES,
+  USER_STATE_SWITCHING,
+  USER_STATE_UNLOCKING,
+  USER_STATE_UNLOCKED,
+  USER_STATE_POST_UNLOCKED,
 }

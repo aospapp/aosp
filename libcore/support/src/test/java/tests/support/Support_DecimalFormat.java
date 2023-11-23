@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -41,7 +41,7 @@ public class Support_DecimalFormat extends Support_Format {
     public void t_format_with_FieldPosition() {
         DecimalFormat format = (DecimalFormat) NumberFormat
                 .getCurrencyInstance(Locale.US);
-        Number number = new Double(10000000.76);
+        Number number = Double.valueOf(10000000.76);
         String text = "$10,000,000.76";
 
         t_FormatWithField(0, format, number, text, NumberFormat.Field.CURRENCY,
@@ -98,7 +98,7 @@ public class Support_DecimalFormat extends Support_Format {
                 NumberFormat.Field.PERMILLE, 0, 0);
 
         // test currency instance with TR Locale
-        number = new Double(350.76);
+        number = Double.valueOf(350.76);
         format = (DecimalFormat) NumberFormat.getCurrencyInstance(new Locale(
                 "de", "CH"));
         text = "SFr. 350.76";
@@ -131,10 +131,10 @@ public class Support_DecimalFormat extends Support_Format {
 
     public void t_formatToCharacterIterator() {
 
-        Number number = new Double(350.76);
-        Number longNumber = new Long(100300400);
-        Number zeroNumber = new Long(0);
-        Number negativeNumber = new Double(-350.76);
+        Number number = Double.valueOf(350.76);
+        Number longNumber = Long.valueOf(100300400);
+        Number zeroNumber = Long.valueOf(0);
+        Number negativeNumber = Double.valueOf(-350.76);
 
         Locale us = Locale.US;
         Locale tr = new Locale("de", "CH");

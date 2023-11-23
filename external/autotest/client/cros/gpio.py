@@ -1,12 +1,12 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-'''Chrome OS device GPIO library
+'''ChromeOS device GPIO library
 
 This module provides a convenient way to detect, setup, and access to GPIO
-values on a Chrome OS compatible device.
+values on a ChromeOS compatible device.
 
 See help(Gpio) for more information.
 '''

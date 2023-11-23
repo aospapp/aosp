@@ -15,21 +15,12 @@
 -->
 
 <resources>
-    <!-- Emergency alerts toggle default value -->
-    <bool name="emergency_alerts_enabled_default">false</bool>
     <!-- 50 -->
-    <string-array name="emergency_alerts_channels_range_strings" translatable="false">
+    <string-array name="operator_defined_alert_range_strings" translatable="false">
         <item>0x0032:rat=gsm, emergency=true, dialog_with_notification=true</item>
     </string-array>
-    <!-- Channel 919, 6400, and 4396-4399 -->
-    <string-array name="additional_cbs_channels_strings" translatable="false">
-        <item>0x397:rat=gsm, emergency=true, alert_duration=86400000</item>
-        <!-- Channel 6400 for Information messages -->
-        <item>0x1900:rat=gsm, emergency=false</item>
-        <!-- Channel 4396-4399 reserved for future -->
-        <item>0x112C-0x112F:rat=gsm, emergency=true</item>
-    </string-array>
-
-    <!-- Show area update info settings in CellBroadcastReceiver and information in SIM status in Settings app -->
-    <bool name="config_showAreaUpdateInfoSettings">false</bool>
+    <!-- This is read only when show_separate_exercise_settings is on -->
+    <bool name="show_operator_defined_settings">true</bool>
+    <!-- whether to display a separate operator defined test settings. today, most of time, operator defined channels was controlled by the main test toggle. -->
+    <bool name="show_separate_operator_defined_settings">true</bool>
 </resources>

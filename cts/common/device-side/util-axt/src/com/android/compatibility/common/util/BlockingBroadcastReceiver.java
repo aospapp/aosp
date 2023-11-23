@@ -62,7 +62,7 @@ import java.util.function.Function;
 public class BlockingBroadcastReceiver extends BroadcastReceiver implements AutoCloseable {
     private static final String TAG = "BlockingBroadcast";
 
-    private static final int DEFAULT_TIMEOUT_SECONDS = 240;
+    private int mTimeoutSeconds = 240; // 4 minutes by default
 
     private Intent mReceivedIntent = null;
     private final BlockingQueue<Intent> mBlockingQueue;
@@ -173,20 +173,20 @@ public class BlockingBroadcastReceiver extends BroadcastReceiver implements Auto
     /**
      * Wait until the broadcast.
      *
-     * <p>If no matching broadcasts is received within 60 seconds an {@link AssertionError} will
-     * be thrown.
+     * <p>If no matching broadcasts is received within {@link #mTimeoutSeconds} seconds an
+     * {@link AssertionError} will be thrown.
      */
     public void awaitForBroadcastOrFail() {
-        awaitForBroadcastOrFail(DEFAULT_TIMEOUT_SECONDS * 1000);
+        awaitForBroadcastOrFail(mTimeoutSeconds * 1000);
     }
 
     /**
      * Wait until the broadcast and return the received broadcast intent. {@code null} is returned
-     * if no broadcast with expected action is received within 60 seconds.
+     * if no broadcast with expected action is received within {@link #mTimeoutSeconds} seconds.
      */
     public @Nullable
     Intent awaitForBroadcast() {
-        return awaitForBroadcast(DEFAULT_TIMEOUT_SECONDS * 1000);
+        return awaitForBroadcast(mTimeoutSeconds * 1000);
     }
 
     /**
@@ -234,5 +234,16 @@ public class BlockingBroadcastReceiver extends BroadcastReceiver implements Auto
         } finally {
             unregisterQuietly();
         }
+    }
+
+    /**
+     * Change the default timeout to wait for the broadcast. It's 4 minutes by default.
+     * @param timeoutSeconds new timeout value, in seconds.
+     */
+    public void setTimeout(int timeoutSeconds) {
+        if (timeoutSeconds <= 0) {
+            throw new IllegalArgumentException("Timeout must be a positive number.");
+        }
+        mTimeoutSeconds = timeoutSeconds;
     }
 }

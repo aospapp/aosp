@@ -14,7 +14,7 @@ class firmware_CorruptBothFwBodyAB(FirmwareTest):
 
     The firmware verification fails on loading RW firmware and enters recovery
     mode. It requires a USB disk plugged-in, which contains a
-    Chrome OS test image (built by "build_image --test").
+    ChromeOS test image (built by "build_image --test").
     """
     version = 1
     NEEDS_SERVO_USB = True
@@ -41,8 +41,10 @@ class firmware_CorruptBothFwBodyAB(FirmwareTest):
         self.check_state((self.checkers.crossystem_checker, {
                     'mainfw_type': 'developer' if dev_mode else 'normal',
                     }))
-        self.faft_client.bios.corrupt_body('a')
-        self.faft_client.bios.corrupt_body('b')
+        offset_a, byte_a = self.faft_client.bios.get_body_one_byte('a')
+        offset_b, byte_b = self.faft_client.bios.get_body_one_byte('b')
+        self.faft_client.bios.modify_body('a', offset_a, byte_a + 1)
+        self.faft_client.bios.modify_body('b', offset_b, byte_b + 1)
 
         # Older devices (without BROKEN screen) didn't wait for removal in
         # dev mode. Make sure the USB key is not plugged in so they won't
@@ -59,8 +61,8 @@ class firmware_CorruptBothFwBodyAB(FirmwareTest):
                               (vboot.RECOVERY_REASON['RO_INVALID_RW'],
                               vboot.RECOVERY_REASON['RW_VERIFY_BODY']),
                               }))
-        self.faft_client.bios.restore_body('a')
-        self.faft_client.bios.restore_body('b')
+        self.faft_client.bios.modify_body('a', offset_a, byte_a)
+        self.faft_client.bios.modify_body('b', offset_b, byte_b)
         self.switcher.mode_aware_reboot()
 
         logging.info("Expected normal boot, done.")

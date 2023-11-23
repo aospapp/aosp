@@ -52,6 +52,9 @@ public class GfxInfoDumpsysTest extends BaseDumpsysTest {
                     installResult);
 
             getDevice().executeShellCommand("am start -W " + TEST_PKG);
+            // Currently "wait for launch" doesn't actually wait for the frame to be finished
+            // So do a little sleep to let things stabilize
+            Thread.sleep(500);
 
             String frameinfo = mDevice.executeShellCommand("dumpsys gfxinfo " +
                     TEST_PKG + " framestats");

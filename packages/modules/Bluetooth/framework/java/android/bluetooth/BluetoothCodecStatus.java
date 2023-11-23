@@ -164,16 +164,15 @@ public final class BluetoothCodecStatus implements Parcelable {
         return 0;
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<BluetoothCodecStatus> CREATOR =
-            new Parcelable.Creator<BluetoothCodecStatus>() {
-                public BluetoothCodecStatus createFromParcel(Parcel in) {
-                    return new BluetoothCodecStatus(in);
-                }
+    public static final @NonNull Creator<BluetoothCodecStatus> CREATOR = new Creator<>() {
+        public BluetoothCodecStatus createFromParcel(Parcel in) {
+            return new BluetoothCodecStatus(in);
+        }
 
-                public BluetoothCodecStatus[] newArray(int size) {
-                    return new BluetoothCodecStatus[size];
-                }
-            };
+        public BluetoothCodecStatus[] newArray(int size) {
+            return new BluetoothCodecStatus[size];
+        }
+    };
 
     /**
      * Flattens the object to a parcel.

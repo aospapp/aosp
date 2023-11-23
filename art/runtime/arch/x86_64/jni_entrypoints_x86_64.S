@@ -118,7 +118,7 @@ DEFINE_FUNCTION art_jni_dlsym_lookup_stub
     // Call artFindNativeMethod() for normal native and artFindNativeMethodRunnable()
     // for @FastNative or @CriticalNative.
     movq THREAD_TOP_QUICK_FRAME_OFFSET(%rdi), %rax   // uintptr_t tagged_quick_frame
-    andq LITERAL(0xfffffffffffffffe), %rax           // ArtMethod** sp
+    andq LITERAL(TAGGED_JNI_SP_MASK_TOGGLED64), %rax // ArtMethod** sp
     movq (%rax), %rax                                // ArtMethod* method
     testl LITERAL(ACCESS_FLAGS_METHOD_IS_FAST_NATIVE | ACCESS_FLAGS_METHOD_IS_CRITICAL_NATIVE), \
           ART_METHOD_ACCESS_FLAGS_OFFSET(%rax)
@@ -398,6 +398,12 @@ JNI_SAVE_MANAGED_ARGS_TRAMPOLINE art_jni_read_barrier, artJniReadBarrier, none
      * Trampoline to `artJniMethodStart()` that preserves all managed arguments.
      */
 JNI_SAVE_MANAGED_ARGS_TRAMPOLINE art_jni_method_start, artJniMethodStart, gs:THREAD_SELF_OFFSET
+
+    /*
+     * Trampoline to `artJniMethodEntryHook` that preserves all managed arguments.
+     */
+JNI_SAVE_MANAGED_ARGS_TRAMPOLINE \
+    art_jni_method_entry_hook, artJniMethodEntryHook, gs:THREAD_SELF_OFFSET
 
     /*
      * Trampoline to `artJniMonitoredMethodStart()` that preserves all managed arguments.

@@ -248,7 +248,7 @@ public class RcsService extends Service {
         IntentFilter filter = new IntentFilter(TelecomManager.ACTION_TTY_PREFERRED_MODE_CHANGED);
         filter.addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED);
         filter.addAction(SubscriptionManager.ACTION_DEFAULT_SUBSCRIPTION_CHANGED);
-        registerReceiver(mReceiver, filter);
+        registerReceiver(mReceiver, filter, android.Manifest.permission.MODIFY_PHONE_STATE, null);
     }
 
     private void unregisterBroadcastReceiver() {

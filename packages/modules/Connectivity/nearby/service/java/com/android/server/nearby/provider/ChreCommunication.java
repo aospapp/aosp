@@ -19,15 +19,18 @@ package com.android.server.nearby.provider;
 import static com.android.server.nearby.NearbyService.TAG;
 
 import android.annotation.Nullable;
+import android.content.Context;
 import android.hardware.location.ContextHubClient;
 import android.hardware.location.ContextHubClientCallback;
 import android.hardware.location.ContextHubInfo;
+import android.hardware.location.ContextHubManager;
 import android.hardware.location.ContextHubTransaction;
 import android.hardware.location.NanoAppMessage;
 import android.hardware.location.NanoAppState;
 import android.util.Log;
 
-import com.android.server.nearby.injector.ContextHubManagerAdapter;
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.server.nearby.NearbyConfiguration;
 import com.android.server.nearby.injector.Injector;
 
 import com.google.common.base.Preconditions;
@@ -36,13 +39,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Responsible for setting up communication with the appropriate contexthub on the device and
  * handling nanoapp messages to / from it.
  */
 public class ChreCommunication extends ContextHubClientCallback {
+
+    public static final int INVALID_NANO_APP_VERSION = -1;
 
     /** Callback that receives messages forwarded from the context hub. */
     public interface ContextHubCommsCallback {
@@ -63,19 +70,30 @@ public class ChreCommunication extends ContextHubClientCallback {
     }
 
     private final Injector mInjector;
+    private final Context mContext;
     private final Executor mExecutor;
 
     private boolean mStarted = false;
+    // null when CHRE availability result has not been returned
+    @Nullable private Boolean mChreSupport = null;
+    private long mNanoAppVersion = INVALID_NANO_APP_VERSION;
     @Nullable private ContextHubCommsCallback mCallback;
     @Nullable private ContextHubClient mContextHubClient;
+    private CountDownLatch mCountDownLatch;
 
-    public ChreCommunication(Injector injector, Executor executor) {
+    public ChreCommunication(Injector injector, Context context, Executor executor) {
         mInjector = injector;
+        mContext = context;
         mExecutor = executor;
     }
 
-    public boolean available() {
-        return mContextHubClient != null;
+    /**
+     * @return {@code true} if NanoApp is available and {@code null} when CHRE availability result
+     * has not been returned
+     */
+    @Nullable
+    public Boolean available() {
+        return mChreSupport;
     }
 
     /**
@@ -86,12 +104,12 @@ public class ChreCommunication extends ContextHubClientCallback {
      *     contexthub.
      */
     public synchronized void start(ContextHubCommsCallback callback, Set<Long> nanoAppIds) {
-        ContextHubManagerAdapter manager = mInjector.getContextHubManagerAdapter();
+        ContextHubManager manager = mInjector.getContextHubManager();
         if (manager == null) {
             Log.e(TAG, "ContexHub not available in this device");
             return;
         } else {
-            Log.i(TAG, "Start ChreCommunication");
+            Log.i(TAG, "[ChreCommunication] Start ChreCommunication");
         }
         Preconditions.checkNotNull(callback);
         Preconditions.checkArgument(!nanoAppIds.isEmpty());
@@ -134,6 +152,7 @@ public class ChreCommunication extends ContextHubClientCallback {
         if (mContextHubClient != null) {
             mContextHubClient.close();
             mContextHubClient = null;
+            mChreSupport = null;
         }
     }
 
@@ -156,6 +175,25 @@ public class ChreCommunication extends ContextHubClientCallback {
         return true;
     }
 
+    /**
+     * Checks the Nano App version
+     */
+    public long queryNanoAppVersion() {
+        if (mCountDownLatch == null || mCountDownLatch.getCount() == 0) {
+            // already gets result from CHRE
+            return mNanoAppVersion;
+        }
+        try {
+            boolean success = mCountDownLatch.await(1, TimeUnit.SECONDS);
+            if (!success) {
+                Log.w(TAG, "Failed to get ContextHubTransaction result before the timeout.");
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return mNanoAppVersion;
+    }
+
     @Override
     public synchronized void onMessageFromNanoApp(ContextHubClient client, NanoAppMessage message) {
         mCallback.onMessageFromNanoApp(message);
@@ -172,7 +210,8 @@ public class ChreCommunication extends ContextHubClientCallback {
         mCallback.onNanoAppRestart(nanoAppId);
     }
 
-    private static String contextHubTransactionResultToString(int result) {
+    @VisibleForTesting
+    static String contextHubTransactionResultToString(int result) {
         switch (result) {
             case ContextHubTransaction.RESULT_SUCCESS:
                 return "RESULT_SUCCESS";
@@ -207,13 +246,13 @@ public class ChreCommunication extends ContextHubClientCallback {
         private final ContextHubInfo mQueriedContextHub;
         private final List<ContextHubInfo> mContextHubs;
         private final Set<Long> mNanoAppIds;
-        private final ContextHubManagerAdapter mManager;
+        private final ContextHubManager mManager;
 
         OnQueryCompleteListener(
                 ContextHubInfo queriedContextHub,
                 List<ContextHubInfo> contextHubs,
                 Set<Long> nanoAppIds,
-                ContextHubManagerAdapter manager) {
+                ContextHubManager manager) {
             this.mQueriedContextHub = queriedContextHub;
             this.mContextHubs = contextHubs;
             this.mNanoAppIds = nanoAppIds;
@@ -231,21 +270,32 @@ public class ChreCommunication extends ContextHubClientCallback {
                 return;
             }
 
+            mCountDownLatch = new CountDownLatch(1);
             if (response.getResult() == ContextHubTransaction.RESULT_SUCCESS) {
                 for (NanoAppState state : response.getContents()) {
+                    long version = state.getNanoAppVersion();
+                    NearbyConfiguration configuration = new NearbyConfiguration();
+                    long minVersion = configuration.getNanoAppMinVersion();
+                    if (version < minVersion) {
+                        Log.w(TAG, String.format("Current nano app version is %s, which does not  "
+                                + "meet minimum version required %s", version, minVersion));
+                        continue;
+                    }
                     if (mNanoAppIds.contains(state.getNanoAppId())) {
                         Log.i(
                                 TAG,
                                 String.format(
                                         "Found valid contexthub: %s", mQueriedContextHub.getId()));
-                        mContextHubClient =
-                                mManager.createClient(
-                                        mQueriedContextHub, ChreCommunication.this, mExecutor);
+                        mContextHubClient = mManager.createClient(mContext, mQueriedContextHub,
+                                mExecutor, ChreCommunication.this);
+                        mChreSupport = true;
                         mCallback.started(true);
+                        mNanoAppVersion = version;
+                        mCountDownLatch.countDown();
                         return;
                     }
                 }
-                Log.e(
+                Log.i(
                         TAG,
                         String.format(
                                 "Didn't find the nanoapp on contexthub: %s",
@@ -259,10 +309,12 @@ public class ChreCommunication extends ContextHubClientCallback {
             }
 
             mContextHubs.remove(mQueriedContextHub);
+            mCountDownLatch.countDown();
             // If this is the last context hub response left to receive, indicate that
             // there isn't a valid context available on this device.
             if (mContextHubs.isEmpty()) {
                 mCallback.started(false);
+                mChreSupport = false;
             }
         }
     }

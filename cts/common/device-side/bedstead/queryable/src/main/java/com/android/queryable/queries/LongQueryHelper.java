@@ -25,6 +25,7 @@ import android.os.Parcelable;
 import androidx.annotation.Nullable;
 
 import com.android.queryable.Queryable;
+import com.android.queryable.QueryableBaseWithMatch;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -43,6 +44,29 @@ public final class LongQueryHelper<E extends Queryable> implements LongQuery<E>,
     @Nullable private Long mLessThanOrEqualToValue = null;
 
     private final transient E mQuery;
+
+    public static final class LongQueryBase extends
+            QueryableBaseWithMatch<Long, LongQueryHelper<LongQueryBase>> {
+        LongQueryBase() {
+            super();
+            setQuery(new LongQueryHelper<>(this));
+        }
+
+        LongQueryBase(Parcel in) {
+            super(in);
+        }
+
+        public static final Parcelable.Creator<LongQueryHelper.LongQueryBase> CREATOR =
+                new Parcelable.Creator<>() {
+                    public LongQueryHelper.LongQueryBase createFromParcel(Parcel in) {
+                        return new LongQueryHelper.LongQueryBase(in);
+                    }
+
+                    public LongQueryHelper.LongQueryBase[] newArray(int size) {
+                        return new LongQueryHelper.LongQueryBase[size];
+                    }
+                };
+    }
 
     public LongQueryHelper(E query) {
         mQuery = query;
@@ -106,6 +130,15 @@ public final class LongQueryHelper<E extends Queryable> implements LongQuery<E>,
     @Override
     public boolean matches(Long value) {
         return matches(value.longValue());
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        return mEqualToValue == null
+                && mGreaterThanValue == null
+                && mGreaterThanOrEqualToValue == null
+                && mLessThanValue == null
+                && mLessThanOrEqualToValue == null;
     }
 
     /** {@code true} if all filters are met by {@code value}. */

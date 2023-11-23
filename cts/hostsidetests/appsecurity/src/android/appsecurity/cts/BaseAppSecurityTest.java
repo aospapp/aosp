@@ -32,7 +32,6 @@ public abstract class BaseAppSecurityTest extends BaseHostJUnit4Test {
 
     /** Whether multi-user is supported. */
     protected boolean mSupportsMultiUser;
-    protected boolean mIsSplitSystemUser;
     protected int mPrimaryUserId;
     /** Users we shouldn't delete in the tests */
     private ArrayList<Integer> mFixedUsers;
@@ -98,6 +97,7 @@ public abstract class BaseAppSecurityTest extends BaseHostJUnit4Test {
             super(getDevice(), getBuild(), getAbi(), grantPermissions);
             addArg(instant ? "--instant" : "");
             addArg("--force-queryable");
+            addArg("--bypass-low-target-sdk-block");
         }
     }
 }

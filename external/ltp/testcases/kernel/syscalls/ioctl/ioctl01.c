@@ -79,14 +79,6 @@ static void setup(void)
 		tst_brk(TBROK, "You must specify a tty device with -D option");
 
 	fd = SAFE_OPEN(device, O_RDWR, 0777);
-
-	if (tst_kvercmp(3, 7, 0) < 0) {
-		for (i = 0; i < ARRAY_SIZE(tcases); i++) {
-			if (tcases[i].request == INVAL_IOCTL)
-				tcases[i].error = EINVAL;
-		}
-	}
-
 	fd_file = SAFE_OPEN("x", O_CREAT, 0777);
 }
 
@@ -107,7 +99,7 @@ static struct tst_test test = {
 	.test = verify_ioctl,
 	.tcnt = ARRAY_SIZE(tcases),
 	.options = (struct tst_option[]) {
-		{"D:", &device, "-D <tty device> : for example, /dev/tty[0-9]"},
+		{"D:", &device, "Tty device. For example, /dev/tty[0-9]"},
 		{}
 	}
 };

@@ -24,15 +24,23 @@ import android.app.Activity;
 import android.content.IntentFilter;
 
 import com.android.activitycontext.ActivityContext;
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
 
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.Set;
 
-@RunWith(JUnit4.class)
-public class ActivityInfoTest {
+@RunWith(BedsteadJUnit4.class)
+public final class ActivityInfoTest {
+
+    @ClassRule
+    @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
 
     private static final Class<? extends Activity> TEST_CLASS = ActivityContext.class;
     private static final String TEST_CLASS_NAME = ActivityContext.class.getName();

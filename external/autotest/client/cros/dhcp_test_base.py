@@ -16,6 +16,7 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
+import six
 from six.moves import filter
 from six.moves import range
 import socket
@@ -53,6 +54,10 @@ IPCONFIG_POLL_PERIOD_SECONDS = 0.5
 class DhcpTestBase(test.test):
     """Parent class for tests that work verify DHCP behavior."""
     version = 1
+
+    def __init__(self, job, bindir, outputdir, namespace='autotest'):
+        test.test.__init__(self, job, bindir, outputdir)
+        self._namespace = namespace
 
     @staticmethod
     def rewrite_ip_suffix(subnet_mask, ip_in_subnet, ip_suffix):
@@ -119,7 +124,10 @@ class DhcpTestBase(test.test):
         if device is None:
             return []
 
-        device_properties = device.GetProperties(utf8_strings=True)
+        if six.PY2:
+            device_properties = device.GetProperties(utf8_strings=True)
+        else:
+            device_properties = device.GetProperties()
         proxy = self.shill_proxy
 
         ipconfig_object = proxy.DBUS_TYPE_IPCONFIG
@@ -142,18 +150,21 @@ class DhcpTestBase(test.test):
         """
         dhcp_properties = None
         for ipconfig in self.get_interface_ipconfig_objects(interface_name):
-          logging.info('Looking at ipconfig %r', ipconfig)
-          ipconfig_properties = ipconfig.GetProperties(utf8_strings=True)
-          if 'Method' not in ipconfig_properties:
-              logging.info('Found ipconfig object with no method field')
-              continue
-          if ipconfig_properties['Method'] != 'dhcp':
-              logging.info('Found ipconfig object with method != dhcp')
-              continue
-          if dhcp_properties != None:
-              raise error.TestFail('Found multiple ipconfig objects '
-                                   'with method == dhcp')
-          dhcp_properties = ipconfig_properties
+            logging.info('Looking at ipconfig %r', ipconfig)
+            if six.PY2:
+                ipconfig_properties = ipconfig.GetProperties(utf8_strings=True)
+            else:
+                ipconfig_properties = ipconfig.GetProperties()
+            if 'Method' not in ipconfig_properties:
+                logging.info('Found ipconfig object with no method field')
+                continue
+            if ipconfig_properties['Method'] != 'dhcp':
+                logging.info('Found ipconfig object with method != dhcp')
+                continue
+            if dhcp_properties != None:
+                raise error.TestFail('Found multiple ipconfig objects '
+                                     'with method == dhcp')
+            dhcp_properties = ipconfig_properties
         if dhcp_properties is None:
             logging.info('Did not find IPConfig object with method == dhcp')
             return None
@@ -169,6 +180,7 @@ class DhcpTestBase(test.test):
         self._shill_proxy = shill_proxy.ShillProxy()
         try:
             self._ethernet_pair = virtual_ethernet_pair.VirtualEthernetPair(
+                    interface_ns=self._namespace,
                     peer_interface_name='pseudoethernet0',
                     peer_interface_ip=None)
             self._ethernet_pair.setup()
@@ -176,7 +188,9 @@ class DhcpTestBase(test.test):
                 raise error.TestFail('Could not create virtual ethernet pair.')
             self._server_ip = self._ethernet_pair.interface_ip
             self._server = dhcp_test_server.DhcpTestServer(
-                    self._ethernet_pair.interface_name)
+                    interface=self._ethernet_pair.interface_name,
+                    ingress_address='',
+                    namespace=self._namespace)
             self._server.start()
             if not self._server.is_healthy:
                 raise error.TestFail('Could not start DHCP test server.')

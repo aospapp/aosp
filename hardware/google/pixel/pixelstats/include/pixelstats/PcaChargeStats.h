@@ -25,12 +25,18 @@ namespace pixel {
 class PcaChargeStats {
   public:
     PcaChargeStats(const std::string pca_charge_metrics_path =
-                           "/sys/class/power_supply/pca9468-mains/device/chg_stats");
+                           "/sys/class/power_supply/pca9468-mains/device/chg_stats",
+                   const std::string pca94xx_charge_metrics_path =
+                           "/sys/class/power_supply/pca94xx-mains/device/chg_stats",
+                   const std::string dc_charge_metrics_path =
+                           "/sys/class/power_supply/dc-mains/device/chg_stats");
 
     bool CheckPcaContentsAndAck(std::string *file_contents);
 
   private:
     const std::string kPcaChargeMetricsPath;
+    const std::string kPca94xxChargeMetricsPath;
+    const std::string kDcChargeMetricsPath;
 };
 
 }  // namespace pixel

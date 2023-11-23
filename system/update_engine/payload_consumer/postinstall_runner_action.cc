@@ -36,7 +36,6 @@
 
 #include "update_engine/common/action_processor.h"
 #include "update_engine/common/boot_control_interface.h"
-#include "update_engine/common/platform_constants.h"
 #include "update_engine/common/subprocess.h"
 #include "update_engine/common/utils.h"
 
@@ -114,9 +113,11 @@ void PostinstallRunnerAction::PerformAction() {
   if (dynamic_control->UpdateUsesSnapshotCompression()) {
     // Before calling MapAllPartitions to map snapshot devices, all CowWriters
     // must be closed, and MapAllPartitions() should be called.
-    dynamic_control->UnmapAllPartitions();
-    if (!dynamic_control->MapAllPartitions()) {
-      return CompletePostinstall(ErrorCode::kPostInstallMountError);
+    if (!install_plan_.partitions.empty()) {
+      dynamic_control->UnmapAllPartitions();
+      if (!dynamic_control->MapAllPartitions()) {
+        return CompletePostinstall(ErrorCode::kPostInstallMountError);
+      }
     }
   }
 
@@ -201,7 +202,7 @@ bool PostinstallRunnerAction::MountPartition(
 
 void PostinstallRunnerAction::PerformPartitionPostinstall() {
   if (install_plan_.download_url.empty()) {
-    LOG(INFO) << "Skipping post-install during rollback";
+    LOG(INFO) << "Skipping post-install";
     return CompletePostinstall(ErrorCode::kSuccess);
   }
 
@@ -447,11 +448,12 @@ void PostinstallRunnerAction::CompletePostinstall(ErrorCode error_code) {
       error_code = ErrorCode::kUpdatedButNotActive;
     }
   }
-
-  auto dynamic_control = boot_control_->GetDynamicPartitionControl();
-  CHECK(dynamic_control);
-  dynamic_control->UnmapAllPartitions();
-  LOG(INFO) << "Unmapped all partitions.";
+  if (!install_plan_.partitions.empty()) {
+    auto dynamic_control = boot_control_->GetDynamicPartitionControl();
+    CHECK(dynamic_control);
+    dynamic_control->UnmapAllPartitions();
+    LOG(INFO) << "Unmapped all partitions.";
+  }
 
   ScopedActionCompleter completer(processor_, this);
   completer.set_code(error_code);

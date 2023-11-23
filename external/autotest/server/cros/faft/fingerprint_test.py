@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -5,6 +6,8 @@
 import logging
 import os
 import time
+
+import six
 
 from autotest_lib.server import test
 from autotest_lib.server.cros import filesystem_util
@@ -91,6 +94,9 @@ class FingerprintTest(test.test):
             _FP_BOARD_NAME_BLOONCHIPPER: {
                     'hatch': 'bloonchipper_v2.0.4277-9f652bb3',
                     'zork': 'bloonchipper_v2.0.5938-197506c1',
+                    'volteer': 'bloonchipper_v2.0.5938-197506c1',
+                    'brya': 'bloonchipper_v2.0.5938-197506c1',
+                    'guybrush': 'bloonchipper_v2.0.5938-197506c1',
             },
             _FP_BOARD_NAME_DARTMONKEY: 'dartmonkey_v2.0.2887-311310808',
             _FP_BOARD_NAME_NOCTURNE: 'nocturne_fp_v2.2.64-58cf5974e',
@@ -110,46 +116,47 @@ class FingerprintTest(test.test):
     #      what we release) is exactly what we expect.
     _FIRMWARE_VERSION_MAP = {
         _FP_BOARD_NAME_BLOONCHIPPER: {
-            'bloonchipper_v2.0.4277-9f652bb3.bin': {
-                _FIRMWARE_VERSION_SHA256SUM: '7d9b788a908bee5c83e27450258b2bbf110d7253d49faa4804562ae27e42cb3b',
+            'bloonchipper_v2.0.4277-9f652bb3-RO_v2.0.13589-727a419-RW.bin': {
+                _FIRMWARE_VERSION_SHA256SUM: 'b500a08d1c4f49ac1455214f1957f178288a2f4b36b40e7cd49acad1d0896ccc',
                 _FIRMWARE_VERSION_RO_VERSION: 'bloonchipper_v2.0.4277-9f652bb3',
-                _FIRMWARE_VERSION_RW_VERSION: 'bloonchipper_v2.0.4277-9f652bb3',
+                _FIRMWARE_VERSION_RW_VERSION: 'bloonchipper_v2.0.13589-727a419',
                 _FIRMWARE_VERSION_KEY_ID: '1c590ef36399f6a2b2ef87079c135b69ef89eb60',
             },
-            'bloonchipper_v2.0.5938-197506c1.bin': {
-                _FIRMWARE_VERSION_SHA256SUM: 'dc62e4b05eaf4fa8ab5546dcf18abdb30c8e64e9bf0fbf377ebc85155c7c3a47',
+            'bloonchipper_v2.0.5938-197506c1-RO_v2.0.13589-727a419-RW.bin': {
+                _FIRMWARE_VERSION_SHA256SUM: 'dfa1a9e409893441c990edde86dbe6d0e301c03b7a9e604ec6af5fc1691ef1be',
                 _FIRMWARE_VERSION_RO_VERSION: 'bloonchipper_v2.0.5938-197506c1',
-                _FIRMWARE_VERSION_RW_VERSION: 'bloonchipper_v2.0.5938-197506c1',
+                _FIRMWARE_VERSION_RW_VERSION: 'bloonchipper_v2.0.13589-727a419',
                 _FIRMWARE_VERSION_KEY_ID: '1c590ef36399f6a2b2ef87079c135b69ef89eb60',
             },
         },
         _FP_BOARD_NAME_NOCTURNE: {
-            'nocturne_fp_v2.2.64-58cf5974e-RO_v2.0.4017-9c45fb4b3-RW.bin': {
-                _FIRMWARE_VERSION_SHA256SUM: '16c405eeaff75dcbc76dbc9f368f66e3fabc47e2ebcf13bd2b64b8b133bbff97',
+            'nocturne_fp_v2.2.64-58cf5974e-RO_v2.0.13584-6fcfe697-RW.bin': {
+                _FIRMWARE_VERSION_SHA256SUM: '8ebc978bf18fc1629a8ab9b33ac91817d850ce5ca9c55dc69c99b0acfb540948',
                 _FIRMWARE_VERSION_RO_VERSION: 'nocturne_fp_v2.2.64-58cf5974e',
-                _FIRMWARE_VERSION_RW_VERSION: 'nocturne_fp_v2.0.4017-9c45fb4b3',
+                _FIRMWARE_VERSION_RW_VERSION: 'nocturne_fp_v2.0.13584-6fcfe697',
                 _FIRMWARE_VERSION_KEY_ID: '6f38c866182bd9bf7a4462c06ac04fa6a0074351',
             },
         },
         _FP_BOARD_NAME_NAMI: {
-            'nami_fp_v2.2.144-7a08e07eb-RO_v2.0.4017-9c45fb4b3-RW.bin': {
-                _FIRMWARE_VERSION_SHA256SUM: '7965ea4c4371ee6d21dc462b9ed7c99078d17f4b772bec51441ca9af7d8f3a80',
+            'nami_fp_v2.2.144-7a08e07eb-RO_v2.0.13584-6fcfe69780-RW.bin': {
+                _FIRMWARE_VERSION_SHA256SUM: 'e198db08020ac71a11a53d641d6ada750061fb3f3faa2728aab7835266ed9e7b',
                 _FIRMWARE_VERSION_RO_VERSION: 'nami_fp_v2.2.144-7a08e07eb',
-                _FIRMWARE_VERSION_RW_VERSION: 'nami_fp_v2.0.4017-9c45fb4b3',
+                _FIRMWARE_VERSION_RW_VERSION: 'nami_fp_v2.0.13584-6fcfe69780',
                 _FIRMWARE_VERSION_KEY_ID: '35486c0090ca390408f1fbbf2a182966084fe2f8',
             },
         },
         _FP_BOARD_NAME_DARTMONKEY: {
-            'dartmonkey_v2.0.2887-311310808-RO_v2.0.4017-9c45fb4b3-RW.bin': {
-                _FIRMWARE_VERSION_SHA256SUM: 'b84914c70e93c28e2221f48be338dbf0ad0cfb12b7877baaf6b47f7bfd2aa958',
+            'dartmonkey_v2.0.2887-311310808-RO_v2.0.13584-6fcfe6978-RW.bin': {
+                _FIRMWARE_VERSION_SHA256SUM: '8fa168c19d886b5fe8e852bba7d3b04cd0cd2344d377d9b3d278a45d76b206a1',
                 _FIRMWARE_VERSION_RO_VERSION: 'dartmonkey_v2.0.2887-311310808',
-                _FIRMWARE_VERSION_RW_VERSION: 'dartmonkey_v2.0.4017-9c45fb4b3',
+                _FIRMWARE_VERSION_RW_VERSION: 'dartmonkey_v2.0.13584-6fcfe6978',
                 _FIRMWARE_VERSION_KEY_ID: '257a0aa3ac9e81aa4bc3aabdb6d3d079117c5799',
             }
         }
     }
 
     _BIOD_UPSTART_JOB_NAME = 'biod'
+    _POWERD_UPSTART_JOB_NAME = 'powerd'
     # TODO(crbug.com/925545)
     _TIMBERSLIDE_UPSTART_JOB_NAME = \
         'timberslide LOG_PATH=/sys/kernel/debug/cros_fp/console_log'
@@ -230,9 +237,18 @@ class FingerprintTest(test.test):
             logging.info('Stopping %s', self._BIOD_UPSTART_JOB_NAME)
             self.host.upstart_stop(self._BIOD_UPSTART_JOB_NAME)
 
+        # TODO(b/183123775): Remove when bug is fixed.
+        #  Disabling powerd to prevent the display from turning off, which kills
+        #  USB on some platforms.
+        self._powerd_running = self.host.upstart_status(
+            self._POWERD_UPSTART_JOB_NAME)
+        if self._powerd_running:
+            logging.info('Stopping %s', self._POWERD_UPSTART_JOB_NAME)
+            self.host.upstart_stop(self._POWERD_UPSTART_JOB_NAME)
+
         # On some platforms an AP reboot is needed after flashing firmware to
         # rebind the driver.
-        self._dut_needs_reboot = self.get_host_board() == 'zork'
+        self._dut_needs_reboot = self.is_uart_device()
 
         if filesystem_util.is_rootfs_writable(self.host):
             if self._dut_needs_reboot:
@@ -285,11 +301,13 @@ class FingerprintTest(test.test):
 
     def cleanup(self):
         """Restores original state."""
-        # Once the tests complete we need to make sure we're running the
-        # original firmware (not dev version) and potentially reset rollback.
-        self._initialize_running_fw_version(use_dev_signed_fw=False,
-                                            force_firmware_flashing=False)
-        self._initialize_fw_entropy()
+        if hasattr(self, '_need_fw_restore') and self._need_fw_restore:
+            # Once the tests complete we need to make sure we're running the
+            # original firmware (not dev version) and potentially reset rollback.
+            self._initialize_running_fw_version(use_dev_signed_fw=False,
+                                                force_firmware_flashing=False)
+            self._initialize_fw_entropy()
+
         # Re-enable biod and updater after flashing and initializing entropy so
         # that they don't interfere if there was a reboot.
         if hasattr(self, '_dut_needs_reboot') and self._dut_needs_reboot:
@@ -300,6 +318,10 @@ class FingerprintTest(test.test):
         self._initialize_hw_and_sw_write_protect(
             enable_hardware_write_protect=True,
             enable_software_write_protect=True)
+        # TODO(b/183123775)
+        if hasattr(self, '_powerd_running') and self._powerd_running:
+            logging.info('Restarting powerd')
+            self.host.upstart_restart(self._POWERD_UPSTART_JOB_NAME)
         if hasattr(self, '_biod_running') and self._biod_running:
             logging.info('Restarting biod')
             self.host.upstart_restart(self._BIOD_UPSTART_JOB_NAME)
@@ -361,7 +383,7 @@ class FingerprintTest(test.test):
 
         Example: self.TEST_IMAGE_DEV = /some/path/images/nocturne_fp.dev
         """
-        for key, val in self._TEST_IMAGE_FORMAT_MAP.iteritems():
+        for key, val in six.iteritems(self._TEST_IMAGE_FORMAT_MAP):
             full_path = os.path.join(dut_fw_test_images_dir,
                                      val % self.get_fp_board())
             setattr(self, key, full_path)
@@ -437,6 +459,11 @@ class FingerprintTest(test.test):
             raise error.TestFail(
                 'Unable to get fingerprint board with cros_config')
         return result.stdout.rstrip()
+
+    def is_uart_device(self) -> bool:
+        """Returns True if the boards transpot device is UART"""
+        uart_devices = ['zork', 'guybrush']
+        return self.get_host_board() in uart_devices
 
     def get_host_board(self):
         """Returns name of the host board."""
@@ -802,8 +829,10 @@ class FingerprintTest(test.test):
 
     def flash_rw_ro_firmware(self, fw_path):
         """Flashes *all* firmware (both RO and RW)."""
+        # Check if FPMCU firmware needs to be re-flashed during cleanup
+        self._need_fw_restore = True
         self.set_hardware_write_protect(False)
-        flash_cmd = 'flash_fp_mcu' + ' ' + fw_path
+        flash_cmd = 'flash_fp_mcu' + ' --noservices ' + fw_path
         logging.info('Running flash cmd: %s', flash_cmd)
         flash_result = self.run_cmd(flash_cmd)
         self.set_hardware_write_protect(True)
@@ -866,7 +895,7 @@ class FingerprintTest(test.test):
         # Sync the filesystem in case we need to reboot the AP soon.
         self.run_cmd('sync')
 
-    def run_server_cmd(self, command, timeout=60):
+    def run_server_cmd(self, command, timeout=65):
         """Runs command on server; return result with output and exit code."""
         logging.info('Server execute: %s', command)
         result = utils.run(command, timeout=timeout, ignore_status=True)

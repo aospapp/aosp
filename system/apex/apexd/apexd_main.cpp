@@ -31,23 +31,29 @@
 
 namespace {
 
+using android::base::SetDefaultTag;
+
 int HandleSubcommand(char** argv) {
   if (strcmp("--bootstrap", argv[1]) == 0) {
+    SetDefaultTag("apexd-bootstrap");
     LOG(INFO) << "Bootstrap subcommand detected";
     return android::apex::OnBootstrap();
   }
 
   if (strcmp("--unmount-all", argv[1]) == 0) {
+    SetDefaultTag("apexd-unmount-all");
     LOG(INFO) << "Unmount all subcommand detected";
     return android::apex::UnmountAll();
   }
 
   if (strcmp("--otachroot-bootstrap", argv[1]) == 0) {
+    SetDefaultTag("apexd-otachroot");
     LOG(INFO) << "OTA chroot bootstrap subcommand detected";
     return android::apex::OnOtaChrootBootstrap();
   }
 
   if (strcmp("--snapshotde", argv[1]) == 0) {
+    SetDefaultTag("apexd-snapshotde");
     LOG(INFO) << "Snapshot DE subcommand detected";
     // Need to know if checkpointing is enabled so that a prerestore snapshot
     // can be taken if it's not.
@@ -72,6 +78,7 @@ int HandleSubcommand(char** argv) {
   }
 
   if (strcmp("--vm", argv[1]) == 0) {
+    SetDefaultTag("apexd-vm");
     LOG(INFO) << "VM subcommand detected";
     return android::apex::OnStartInVmMode();
   }
@@ -102,7 +109,7 @@ int main(int /*argc*/, char** argv) {
   android::base::SetMinimumLogSeverity(android::base::INFO);
 
   // set umask to 022 so that files/dirs created are accessible to other
-  // processes e.g.) apex-info-file.xml is supposed to be read by other
+  // processes e.g.) /apex/apex-info-list.xml is supposed to be read by other
   // processes
   umask(022);
 
@@ -131,6 +138,7 @@ int main(int /*argc*/, char** argv) {
       // mark apexd as ready
       android::apex::OnAllPackagesReady();
     } else if (strcmp("--otachroot-bootstrap", argv[1]) == 0) {
+      SetDefaultTag("apexd-otachroot");
       LOG(INFO) << "OTA chroot bootstrap subcommand detected";
       return android::apex::ActivateFlattenedApex();
     } else if (strcmp("--bootstrap", argv[1]) == 0) {
@@ -169,6 +177,8 @@ int main(int /*argc*/, char** argv) {
     //  ApexFileRepository can act as cache and re-scanning is not expensive
     android::apex::InitializeDataApex();
   }
+  // start apexservice before ApexdLifecycle::WaitForBootStatus which waits for
+  // IApexService::markBootComplete().
   android::apex::binder::CreateAndRegisterService();
   android::apex::binder::StartThreadPool();
 
@@ -181,11 +191,12 @@ int main(int /*argc*/, char** argv) {
     // complete.
     android::apex::OnAllPackagesActivated(/*is_bootstrap=*/false);
     lifecycle.WaitForBootStatus(android::apex::RevertActiveSessionsAndReboot);
+    // Run cleanup routine on boot complete.
+    // This should run before AllowServiceShutdown() to prevent
+    // service_manager killing apexd in the middle of the cleanup.
+    android::apex::BootCompletedCleanup();
   }
 
-  // Run cleanup routine before AllowServiceShutdown(), to prevent
-  // service_manager killing apexd in the middle of the cleanup.
-  android::apex::BootCompletedCleanup();
   android::apex::binder::AllowServiceShutdown();
 
   android::apex::binder::JoinThreadPool();

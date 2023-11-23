@@ -16,16 +16,15 @@
 
 package com.google.android.iwlan;
 
-import android.net.ipsec.ike.exceptions.IkeException;
 import android.net.ipsec.ike.exceptions.IkeIOException;
 import android.net.ipsec.ike.exceptions.IkeInternalException;
+import android.net.ipsec.ike.exceptions.IkeNetworkLostException;
 import android.net.ipsec.ike.exceptions.IkeProtocolException;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class IwlanError {
 
@@ -41,10 +40,14 @@ public class IwlanError {
     public static final int EPDG_SELECTOR_SERVER_SELECTION_FAILED = 4;
     public static final int TUNNEL_TRANSFORM_FAILED = 5;
     public static final int SIM_NOT_READY_EXCEPTION = 6;
-    public static final int NETWORK_FAILURE = 7;
-
-    // Catch all exception
-    public static final int UNKNOWN_EXCEPTION = 8; // catch all
+    public static final int IKE_SESSION_CLOSED_BEFORE_CHILD_SESSION_OPENED = 7;
+    public static final int IKE_NETWORK_LOST_EXCEPTION = 8;
+    public static final int TUNNEL_NOT_FOUND = 9;
+    public static final int EPDG_ADDRESS_ONLY_IPV4_ALLOWED = 10;
+    public static final int EPDG_ADDRESS_ONLY_IPV6_ALLOWED = 11;
+    public static final int IKE_INIT_TIMEOUT = 12;
+    public static final int IKE_MOBILITY_TIMEOUT = 13;
+    public static final int IKE_DPD_TIMEOUT = 14;
 
     @IntDef({
         NO_ERROR,
@@ -54,28 +57,38 @@ public class IwlanError {
         EPDG_SELECTOR_SERVER_SELECTION_FAILED,
         TUNNEL_TRANSFORM_FAILED,
         SIM_NOT_READY_EXCEPTION,
-        NETWORK_FAILURE,
-        UNKNOWN_EXCEPTION
+        IKE_SESSION_CLOSED_BEFORE_CHILD_SESSION_OPENED,
+        IKE_NETWORK_LOST_EXCEPTION,
+        TUNNEL_NOT_FOUND,
+        EPDG_ADDRESS_ONLY_IPV4_ALLOWED,
+        EPDG_ADDRESS_ONLY_IPV6_ALLOWED,
+        IKE_INIT_TIMEOUT,
+        IKE_MOBILITY_TIMEOUT,
+        IKE_DPD_TIMEOUT
     })
-    @interface IwlanErrorType {};
+    @interface IwlanErrorType {}
 
     private static final Map<Integer, String> sErrorTypeStrings =
-            new ConcurrentHashMap<>() {
-                {
-                    put(NO_ERROR, "IWLAN_NO_ERROR");
-                    put(IKE_PROTOCOL_EXCEPTION, "IWLAN_IKE_PROTOCOL_EXCEPTION");
-                    put(IKE_INTERNAL_IO_EXCEPTION, "IWLAN_IKE_INTERNAL_IO_EXCEPTION");
-                    put(IKE_GENERIC_EXCEPTION, "IWLAN_IKE_GENERIC_EXCEPTION");
-                    put(
+            Map.ofEntries(
+                    Map.entry(NO_ERROR, "IWLAN_NO_ERROR"),
+                    Map.entry(IKE_PROTOCOL_EXCEPTION, "IWLAN_IKE_PROTOCOL_EXCEPTION"),
+                    Map.entry(IKE_INTERNAL_IO_EXCEPTION, "IWLAN_IKE_INTERNAL_IO_EXCEPTION"),
+                    Map.entry(IKE_GENERIC_EXCEPTION, "IWLAN_IKE_GENERIC_EXCEPTION"),
+                    Map.entry(
                             EPDG_SELECTOR_SERVER_SELECTION_FAILED,
-                            "IWLAN_EPDG_SELECTOR_SERVER_SELECTION_FAILED");
-                    put(TUNNEL_TRANSFORM_FAILED, "IWLAN_TUNNEL_TRANSFORM_FAILED");
-                    put(SIM_NOT_READY_EXCEPTION, "IWLAN_SIM_NOT_READY_EXCEPTION");
-                    put(NETWORK_FAILURE, "IWLAN_NETWORK_FAILURE");
-                    put(UNKNOWN_EXCEPTION, "IWLAN_UNKNOWN_EXCEPTION");
-                }
-            };
-
+                            "IWLAN_EPDG_SELECTOR_SERVER_SELECTION_FAILED"),
+                    Map.entry(TUNNEL_TRANSFORM_FAILED, "IWLAN_TUNNEL_TRANSFORM_FAILED"),
+                    Map.entry(SIM_NOT_READY_EXCEPTION, "IWLAN_SIM_NOT_READY_EXCEPTION"),
+                    Map.entry(
+                            IKE_SESSION_CLOSED_BEFORE_CHILD_SESSION_OPENED,
+                            "IKE_SESSION_CLOSED_BEFORE_CHILD_SESSION_OPENED"),
+                    Map.entry(IKE_NETWORK_LOST_EXCEPTION, "IWLAN_IKE_NETWORK_LOST_EXCEPTION"),
+                    Map.entry(TUNNEL_NOT_FOUND, "IWLAN_TUNNEL_NOT_FOUND"),
+                    Map.entry(IKE_INIT_TIMEOUT, "IKE_INIT_TIMEOUT"),
+                    Map.entry(IKE_MOBILITY_TIMEOUT, "IKE_MOBILITY_TIMEOUT"),
+                    Map.entry(IKE_DPD_TIMEOUT, "IKE_DPD_TIMEOUT"),
+                    Map.entry(EPDG_ADDRESS_ONLY_IPV4_ALLOWED, "EPDG_ADDRESS_ONLY_IPV4_ALLOWED"),
+                    Map.entry(EPDG_ADDRESS_ONLY_IPV6_ALLOWED, "EPDG_ADDRESS_ONLY_IPV6_ALLOWED"));
     private int mErrorType;
     private Exception mException;
 
@@ -83,11 +96,16 @@ public class IwlanError {
         mErrorType = err;
     }
 
+    public IwlanError(@IwlanErrorType int err, @NonNull Exception exception) {
+        mErrorType = err;
+        mException = exception;
+    }
+
     /**
      * Sets the IwlanError based on the Exception: 1. IkeException is base the class for all IKE
      * exception ErrorType: IKE_GENERIC_EXCEPTION. 2. IkeProtocolException is for specific protocol
      * errors (like IKE notify error codes) ErrorType: IKE_PROTOCOL_EXCEPTION 3.
-     * IkeInternalException is just a wrapper for various exeptions that IKE lib may encounter
+     * IkeInternalException is just a wrapper for various exceptions that IKE lib may encounter
      * ErrorType: IKE_INTERNAL_IO_EXCEPTION if the Exception is instance of IOException ErrorType:
      * IKE_GENERIC_EXCEPTION for all the other.
      */
@@ -99,11 +117,10 @@ public class IwlanError {
             IwlanErrorIkeIOException((IkeIOException) exception);
         } else if (exception instanceof IkeInternalException) {
             IwlanErrorIkeInternalException((IkeInternalException) exception);
-        } else if (exception instanceof IkeException) {
-            mErrorType = IKE_GENERIC_EXCEPTION;
-            mException = exception;
+        } else if (exception instanceof IkeNetworkLostException) {
+            IwlanErrorIkeNetworkLostException((IkeNetworkLostException) exception);
         } else {
-            mErrorType = UNKNOWN_EXCEPTION;
+            mErrorType = IKE_GENERIC_EXCEPTION;
             mException = exception;
         }
     }
@@ -124,6 +141,11 @@ public class IwlanError {
 
     private void IwlanErrorIkeIOException(@NonNull IkeIOException exception) {
         mErrorType = IKE_INTERNAL_IO_EXCEPTION;
+        mException = exception;
+    }
+
+    private void IwlanErrorIkeNetworkLostException(@NonNull IkeNetworkLostException exception) {
+        mErrorType = IKE_NETWORK_LOST_EXCEPTION;
         mException = exception;
     }
 
@@ -154,58 +176,29 @@ public class IwlanError {
 
         switch (mErrorType) {
             case IKE_GENERIC_EXCEPTION:
-                sb.append("MSG: " + mException.getMessage() + "\n CAUSE: ");
+                sb.append("MSG: ").append(mException.getMessage()).append("\n CAUSE: ");
                 sb.append(mException.getCause());
                 break;
-            case UNKNOWN_EXCEPTION:
-                sb.append(mException.toString());
-                break;
             case IKE_PROTOCOL_EXCEPTION:
-                sb.append("ERR: " + ((IkeProtocolException) mException).getErrorType() + "\nDATA:");
+                sb.append("ERR: ")
+                        .append(((IkeProtocolException) mException).getErrorType())
+                        .append("\nDATA:");
                 for (byte b : ((IkeProtocolException) mException).getErrorData()) {
                     sb.append(String.format("%02x ", b));
                 }
+                break;
+            case IKE_NETWORK_LOST_EXCEPTION:
+                sb.append("ERR: ")
+                        .append(mException.getMessage())
+                        .append("\n CAUSE: ")
+                        .append(mException.getCause())
+                        .append("\n NETWORK: ")
+                        .append(((IkeNetworkLostException) mException).getNetwork());
                 break;
             default:
                 sb.append("-No Details-");
         }
         return sb.toString();
-    }
-
-    /**
-     * Returns the error of the String. String that matches the name of the Error
-     *
-     * @param errorType string form of errorType
-     * @return IwlanErrorType
-     */
-    public static int getErrorType(String errorType) {
-        int ret = IwlanError.UNKNOWN_EXCEPTION;
-
-        // TODO: Add representation for Global error
-        switch (errorType) {
-            case "IKE_PROTOCOL_EXCEPTION":
-                ret = IwlanError.IKE_PROTOCOL_EXCEPTION;
-                break;
-            case "IKE_INTERNAL_IO_EXCEPTION":
-                ret = IwlanError.IKE_INTERNAL_IO_EXCEPTION;
-                break;
-            case "IKE_GENERIC_EXCEPTION":
-                ret = IwlanError.IKE_GENERIC_EXCEPTION;
-                break;
-            case "EPDG_SELECTOR_SERVER_SELECTION_FAILED":
-                ret = IwlanError.EPDG_SELECTOR_SERVER_SELECTION_FAILED;
-                break;
-            case "TUNNEL_TRANSFORM_FAILED":
-                ret = IwlanError.TUNNEL_TRANSFORM_FAILED;
-                break;
-            case "SIM_NOT_READY_EXCEPTION":
-                ret = IwlanError.SIM_NOT_READY_EXCEPTION;
-                break;
-            case "NETWORK_FAILURE":
-                ret = IwlanError.NETWORK_FAILURE;
-                break;
-        }
-        return ret;
     }
 
     @Override
@@ -231,4 +224,3 @@ public class IwlanError {
         return ret;
     }
 }
-;

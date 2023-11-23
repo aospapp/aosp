@@ -3,8 +3,8 @@
  * Copyright (c) 2014 Cyril Hrubis <chrubis@suse.cz>
  */
 
-#ifndef __LAPI_FCNTL_H__
-#define __LAPI_FCNTL_H__
+#ifndef LAPI_FCNTL_H__
+#define LAPI_FCNTL_H__
 
 #include "config.h"
 #include <fcntl.h>
@@ -141,6 +141,9 @@
 # define MAX_HANDLE_SZ	128
 #endif
 
+#define TST_OPEN_NEEDS_MODE(oflag) \
+	(((oflag) & O_CREAT) != 0 || ((oflag) & O_TMPFILE) == O_TMPFILE)
+
 #ifndef HAVE_STRUCT_FILE_HANDLE
 struct file_handle {
 	unsigned int handle_bytes;
@@ -150,4 +153,4 @@ struct file_handle {
 };
 #endif /* HAVE_STRUCT_FILE_HANDLE */
 
-#endif /* __LAPI_FCNTL_H__ */
+#endif /* LAPI_FCNTL_H__ */

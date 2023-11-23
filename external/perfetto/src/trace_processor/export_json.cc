@@ -86,8 +86,8 @@ const char kLegacyEventIdScopeKey[] = "id_scope";
 const char kStrippedArgument[] = "__stripped__";
 
 const char* GetNonNullString(const TraceStorage* storage,
-                             base::Optional<StringId> id) {
-  return id == base::nullopt || *id == kNullStringId
+                             std::optional<StringId> id) {
+  return id == std::nullopt || *id == kNullStringId
              ? ""
              : storage->GetString(*id).c_str();
 }
@@ -608,7 +608,7 @@ class JsonExporter {
                             args_sets_[set_id].toStyledString().c_str());
               return;
             }
-            base::Optional<uint32_t> index = base::StringToUInt32(s);
+            std::optional<uint32_t> index = base::StringToUInt32(s);
             if (PERFETTO_UNLIKELY(!index)) {
               PERFETTO_ELOG("Expected to be able to extract index from %s",
                             key_part.c_str());
@@ -683,7 +683,7 @@ class JsonExporter {
     const auto& thread_table = storage_->thread_table();
     for (UniqueTid utid = 0; utid < thread_table.row_count(); utid++) {
       uint32_t exported_pid = 0;
-      base::Optional<UniquePid> upid = thread_table.upid()[utid];
+      std::optional<UniquePid> upid = thread_table.upid()[utid];
       if (upid) {
         auto exported_pid_it = upids_to_exported_pids_.find(*upid);
         PERFETTO_DCHECK(exported_pid_it != upids_to_exported_pids_.end());
@@ -742,7 +742,7 @@ class JsonExporter {
 
     const auto& process_table = storage_->process_table();
     for (UniquePid upid = 0; upid < process_table.row_count(); ++upid) {
-      base::Optional<int64_t> start_timestamp_ns =
+      std::optional<int64_t> start_timestamp_ns =
           process_table.start_ts()[upid];
       if (!start_timestamp_ns.has_value())
         continue;
@@ -777,27 +777,28 @@ class JsonExporter {
 
   util::Status ExportSlices() {
     const auto& slices = storage_->slice_table();
-    for (uint32_t i = 0; i < slices.row_count(); ++i) {
+    for (auto it = slices.IterateRows(); it; ++it) {
       // Skip slices with empty category - these are ftrace/system slices that
       // were also imported into the raw table and will be exported from there
       // by trace_to_text.
       // TODO(b/153609716): Add a src column or do_not_export flag instead.
-      auto cat = slices.category().GetString(i);
+      if (!it.category())
+        continue;
+      auto cat = storage_->GetString(*it.category());
       if (cat.c_str() == nullptr || cat == "binder")
         continue;
 
       Json::Value event;
-      event["ts"] = Json::Int64(slices.ts()[i] / 1000);
-      event["cat"] = GetNonNullString(storage_, slices.category()[i]);
-      event["name"] = GetNonNullString(storage_, slices.name()[i]);
+      event["ts"] = Json::Int64(it.ts() / 1000);
+      event["cat"] = GetNonNullString(storage_, it.category());
+      event["name"] = GetNonNullString(storage_, it.name());
       event["pid"] = 0;
       event["tid"] = 0;
 
-      base::Optional<UniqueTid> legacy_utid;
+      std::optional<UniqueTid> legacy_utid;
       std::string legacy_phase;
 
-      event["args"] =
-          args_builder_.GetArgs(slices.arg_set_id()[i]);  // Makes a copy.
+      event["args"] = args_builder_.GetArgs(it.arg_set_id());  // Makes a copy.
       if (event["args"].isMember(kLegacyEventArgsKey)) {
         const auto& legacy_args = event["args"][kLegacyEventArgsKey];
 
@@ -815,12 +816,12 @@ class JsonExporter {
       // or chrome tracks (i.e. TrackEvent slices). Slices on other tracks may
       // also be present as raw events and handled by trace_to_text. Only add
       // more track types here if they are not already covered by trace_to_text.
-      TrackId track_id = slices.track_id()[i];
+      TrackId track_id = it.track_id();
 
       const auto& track_table = storage_->track_table();
 
-      uint32_t track_row = *track_table.id().IndexOf(track_id);
-      auto track_args_id = track_table.source_arg_set_id()[track_row];
+      auto track_row_ref = *track_table.FindById(track_id);
+      auto track_args_id = track_row_ref.source_arg_set_id();
       const Json::Value* track_args = nullptr;
       bool legacy_chrome_track = false;
       bool is_child_track = false;
@@ -833,27 +834,22 @@ class JsonExporter {
 
       const auto& thread_track = storage_->thread_track_table();
       const auto& process_track = storage_->process_track_table();
-      const auto& thread_slices = storage_->thread_slice_table();
       const auto& virtual_track_slices = storage_->virtual_track_slices();
 
-      int64_t duration_ns = slices.dur()[i];
-      base::Optional<int64_t> thread_ts_ns;
-      base::Optional<int64_t> thread_duration_ns;
-      base::Optional<int64_t> thread_instruction_count;
-      base::Optional<int64_t> thread_instruction_delta;
+      int64_t duration_ns = it.dur();
+      std::optional<int64_t> thread_ts_ns;
+      std::optional<int64_t> thread_duration_ns;
+      std::optional<int64_t> thread_instruction_count;
+      std::optional<int64_t> thread_instruction_delta;
 
-      SliceId id = slices.id()[i];
-      base::Optional<uint32_t> thread_slice_row =
-          thread_slices.id().IndexOf(id);
-      if (thread_slice_row) {
-        thread_ts_ns = thread_slices.thread_ts()[*thread_slice_row];
-        thread_duration_ns = thread_slices.thread_dur()[*thread_slice_row];
-        thread_instruction_count =
-            thread_slices.thread_instruction_count()[*thread_slice_row];
-        thread_instruction_delta =
-            thread_slices.thread_instruction_delta()[*thread_slice_row];
+      if (it.thread_dur()) {
+        thread_ts_ns = it.thread_ts();
+        thread_duration_ns = it.thread_dur();
+        thread_instruction_count = it.thread_instruction_count();
+        thread_instruction_delta = it.thread_instruction_delta();
       } else {
-        base::Optional<uint32_t> vtrack_slice_row =
+        SliceId id = it.id();
+        std::optional<uint32_t> vtrack_slice_row =
             virtual_track_slices.FindRowForSliceId(id);
         if (vtrack_slice_row) {
           thread_ts_ns =
@@ -1008,7 +1004,7 @@ class JsonExporter {
           // write the end event in this case.
           if (duration_ns > 0) {
             event["ph"] = legacy_phase.empty() ? "e" : "F";
-            event["ts"] = Json::Int64((slices.ts()[i] + duration_ns) / 1000);
+            event["ts"] = Json::Int64((it.ts() + duration_ns) / 1000);
             if (thread_ts_ns && thread_duration_ns && *thread_ts_ns > 0) {
               event["tts"] =
                   Json::Int64((*thread_ts_ns + *thread_duration_ns) / 1000);
@@ -1058,25 +1054,25 @@ class JsonExporter {
     return util::OkStatus();
   }
 
-  base::Optional<Json::Value> CreateFlowEventV1(uint32_t flow_id,
-                                                SliceId slice_id,
-                                                std::string name,
-                                                std::string cat,
-                                                Json::Value args,
-                                                bool flow_begin) {
+  std::optional<Json::Value> CreateFlowEventV1(uint32_t flow_id,
+                                               SliceId slice_id,
+                                               std::string name,
+                                               std::string cat,
+                                               Json::Value args,
+                                               bool flow_begin) {
     const auto& slices = storage_->slice_table();
     const auto& thread_tracks = storage_->thread_track_table();
 
     auto opt_slice_idx = slices.id().IndexOf(slice_id);
     if (!opt_slice_idx)
-      return base::nullopt;
+      return std::nullopt;
     uint32_t slice_idx = opt_slice_idx.value();
 
     TrackId track_id = storage_->slice_table().track_id()[slice_idx];
     auto opt_thread_track_idx = thread_tracks.id().IndexOf(track_id);
     // catapult only supports flow events attached to thread-track slices
     if (!opt_thread_track_idx)
-      return base::nullopt;
+      return std::nullopt;
 
     UniqueTid utid = thread_tracks.utid()[opt_thread_track_idx.value()];
     auto pid_and_tid = UtidToPidAndTid(utid);
@@ -1116,9 +1112,9 @@ class JsonExporter {
       } else {
         auto opt_slice_out_idx = slice_table.id().IndexOf(slice_out);
         PERFETTO_DCHECK(opt_slice_out_idx.has_value());
-        base::Optional<StringId> cat_id =
+        std::optional<StringId> cat_id =
             slice_table.category()[opt_slice_out_idx.value()];
-        base::Optional<StringId> name_id =
+        std::optional<StringId> name_id =
             slice_table.name()[opt_slice_out_idx.value()];
         cat = GetNonNullString(storage_, cat_id);
         name = GetNonNullString(storage_, name_id);
@@ -1215,13 +1211,13 @@ class JsonExporter {
   }
 
   util::Status ExportRawEvents() {
-    base::Optional<StringId> raw_legacy_event_key_id =
+    std::optional<StringId> raw_legacy_event_key_id =
         storage_->string_pool().GetId("track_event.legacy_event");
-    base::Optional<StringId> raw_legacy_system_trace_event_id =
+    std::optional<StringId> raw_legacy_system_trace_event_id =
         storage_->string_pool().GetId("chrome_event.legacy_system_trace");
-    base::Optional<StringId> raw_legacy_user_trace_event_id =
+    std::optional<StringId> raw_legacy_user_trace_event_id =
         storage_->string_pool().GetId("chrome_event.legacy_user_trace");
-    base::Optional<StringId> raw_chrome_metadata_event_id =
+    std::optional<StringId> raw_chrome_metadata_event_id =
         storage_->string_pool().GetId("chrome_event.metadata");
 
     const auto& events = storage_->raw_table();
@@ -1397,7 +1393,7 @@ class JsonExporter {
       const auto& mappings = storage_->stack_profile_mapping_table();
 
       std::vector<std::string> callstack;
-      base::Optional<CallsiteId> opt_callsite_id = samples.callsite_id()[i];
+      std::optional<CallsiteId> opt_callsite_id = samples.callsite_id()[i];
 
       while (opt_callsite_id) {
         CallsiteId callsite_id = *opt_callsite_id;
@@ -1449,7 +1445,7 @@ class JsonExporter {
       // For now, only do this when the trace has already been symbolized i.e.
       // are not directly output by Chrome, to avoid interfering with other
       // processing pipelines.
-      base::Optional<CallsiteId> opt_current_callsite_id =
+      std::optional<CallsiteId> opt_current_callsite_id =
           samples.callsite_id()[i];
 
       if (opt_current_callsite_id && storage_->symbol_table().row_count() > 0) {
@@ -1560,9 +1556,9 @@ class JsonExporter {
 
   util::Status ExportMemorySnapshots() {
     const auto& memory_snapshots = storage_->memory_snapshot_table();
-    base::Optional<StringId> private_footprint_id =
+    std::optional<StringId> private_footprint_id =
         storage_->string_pool().GetId("chrome.private_footprint_kb");
-    base::Optional<StringId> peak_resident_set_id =
+    std::optional<StringId> peak_resident_set_id =
         storage_->string_pool().GetId("chrome.peak_resident_set_kb");
 
     for (uint32_t memory_index = 0; memory_index < memory_snapshots.row_count();

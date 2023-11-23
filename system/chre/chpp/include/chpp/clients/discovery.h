@@ -34,36 +34,40 @@ extern "C" {
 /**
  * CHPP discovery state initialization that should be called on CHPP startup. It
  * may be called during transient internal resets, but is a no-op.
+ *
+ * @param appState Application layer state.
  */
-void chppDiscoveryInit(struct ChppAppState *context);
+void chppDiscoveryInit(struct ChppAppState *appState);
 
 /**
  * CHPP discovery state de-initialization that should be called during shutdown.
+ *
+ * @param appState Application layer state.
  */
-void chppDiscoveryDeinit(struct ChppAppState *context);
+void chppDiscoveryDeinit(struct ChppAppState *appState);
 
 /**
  * A method that can be invoked to block until the CHPP discovery sequence
  * completes. This can be useful to wait until CHPP client invocations can
  * succeed.
  *
- * @param context The non-null pointer to the ChppAppState of this instance.
+ * @param appState Application layer state.
  * @param timeoutMs The timeout in milliseconds.
  *
  * @return False if timed out waiting for discovery completion.
  */
-bool chppWaitForDiscoveryComplete(struct ChppAppState *context,
+bool chppWaitForDiscoveryComplete(struct ChppAppState *appState,
                                   uint64_t timeoutMs);
 
 /**
  * Dispatches an Rx Datagram from the transport layer that is determined to be
  * for the CHPP Discovery Client.
  *
- * @param context Maintains status for each app layer instance.
+ * @param appState Application layer state.
  * @param buf Input (request) datagram. Cannot be null.
  * @param len Length of input data in bytes.
  */
-bool chppDispatchDiscoveryServiceResponse(struct ChppAppState *context,
+bool chppDispatchDiscoveryServiceResponse(struct ChppAppState *appState,
                                           const uint8_t *buf, size_t len);
 
 /**
@@ -72,19 +76,19 @@ bool chppDispatchDiscoveryServiceResponse(struct ChppAppState *context,
  * expected that this function be called upon initialization, after sending or
  * receiving a reset-ack.
  *
- * @param context Maintains status for each app layer instance.
+ * @param appState Application layer state.
  */
-void chppInitiateDiscovery(struct ChppAppState *context);
+void chppInitiateDiscovery(struct ChppAppState *appState);
 
 /**
  * Checks if all discovery clients have been matched with a remote service.
  *
- * @param context Maintains status for each app layer instance.
+ * @param appState Application layer state.
  *
  * @return true if all registered clients have been matched by a discovered
  * service.
  */
-bool chppAreAllClientsMatched(struct ChppAppState *context);
+bool chppAreAllClientsMatched(struct ChppAppState *appState);
 
 #ifdef __cplusplus
 }

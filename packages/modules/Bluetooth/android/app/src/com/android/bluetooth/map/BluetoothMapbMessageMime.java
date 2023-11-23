@@ -591,14 +591,6 @@ public class BluetoothMapbMessageMime extends BluetoothMapbMessage {
                 headerValue = BluetoothMapUtils.stripEncoding(headerValue);
                 Rfc822Token[] tokens = Rfc822Tokenizer.tokenize(headerValue);
                 mFrom = new ArrayList<Rfc822Token>(Arrays.asList(tokens));
-            } else if (headerType.contains("TO")) {
-                headerValue = BluetoothMapUtils.stripEncoding(headerValue);
-                Rfc822Token[] tokens = Rfc822Tokenizer.tokenize(headerValue);
-                mTo = new ArrayList<Rfc822Token>(Arrays.asList(tokens));
-            } else if (headerType.contains("CC")) {
-                headerValue = BluetoothMapUtils.stripEncoding(headerValue);
-                Rfc822Token[] tokens = Rfc822Tokenizer.tokenize(headerValue);
-                mCc = new ArrayList<Rfc822Token>(Arrays.asList(tokens));
             } else if (headerType.contains("BCC")) {
                 headerValue = BluetoothMapUtils.stripEncoding(headerValue);
                 Rfc822Token[] tokens = Rfc822Tokenizer.tokenize(headerValue);
@@ -607,6 +599,14 @@ public class BluetoothMapbMessageMime extends BluetoothMapbMessage {
                 headerValue = BluetoothMapUtils.stripEncoding(headerValue);
                 Rfc822Token[] tokens = Rfc822Tokenizer.tokenize(headerValue);
                 mReplyTo = new ArrayList<Rfc822Token>(Arrays.asList(tokens));
+            } else if (headerType.contains("TO")) {
+                headerValue = BluetoothMapUtils.stripEncoding(headerValue);
+                Rfc822Token[] tokens = Rfc822Tokenizer.tokenize(headerValue);
+                mTo = new ArrayList<Rfc822Token>(Arrays.asList(tokens));
+            } else if (headerType.contains("CC")) {
+                headerValue = BluetoothMapUtils.stripEncoding(headerValue);
+                Rfc822Token[] tokens = Rfc822Tokenizer.tokenize(headerValue);
+                mCc = new ArrayList<Rfc822Token>(Arrays.asList(tokens));
             } else if (headerType.contains("SUBJECT")) { // Other headers
                 mSubject = BluetoothMapUtils.stripEncoding(headerValue);
             } else if (headerType.contains("MESSAGE-ID")) {

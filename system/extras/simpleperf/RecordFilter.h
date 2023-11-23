@@ -19,12 +19,12 @@
 #include <sys/types.h>
 
 #include <optional>
-#include <regex>
 #include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include "RegEx.h"
 #include "command.h"
 #include "record.h"
 #include "thread_tree.h"
@@ -97,8 +97,8 @@ struct RecordFilterCondition {
   bool used = false;
   std::set<pid_t> pids;
   std::set<pid_t> tids;
-  std::vector<std::regex> process_name_regs;
-  std::vector<std::regex> thread_name_regs;
+  std::vector<std::unique_ptr<RegEx>> process_name_regs;
+  std::vector<std::unique_ptr<RegEx>> thread_name_regs;
   std::set<uint32_t> uids;
 };
 
@@ -114,8 +114,8 @@ class RecordFilter {
   bool ParseOptions(OptionValueMap& options);
   void AddPids(const std::set<pid_t>& pids, bool exclude);
   void AddTids(const std::set<pid_t>& tids, bool exclude);
-  void AddProcessNameRegex(const std::string& process_name, bool exclude);
-  void AddThreadNameRegex(const std::string& thread_name, bool exclude);
+  bool AddProcessNameRegex(const std::string& process_name, bool exclude);
+  bool AddThreadNameRegex(const std::string& thread_name, bool exclude);
   void AddUids(const std::set<uint32_t>& uids, bool exclude);
   bool SetFilterFile(const std::string& filename);
 
@@ -132,7 +132,7 @@ class RecordFilter {
 
  private:
   bool CheckCondition(const SampleRecord* r, const RecordFilterCondition& condition);
-  bool SearchInRegs(const std::string& s, const std::vector<std::regex>& regs);
+  bool SearchInRegs(std::string_view s, const std::vector<std::unique_ptr<RegEx>>& regs);
   std::optional<uint32_t> GetUidForProcess(pid_t pid);
 
   const ThreadTree& thread_tree_;

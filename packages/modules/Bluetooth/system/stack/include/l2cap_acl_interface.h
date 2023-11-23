@@ -20,6 +20,7 @@
 #include <cstdint>
 
 #include "stack/include/bt_hdr.h"
+#include "types/ble_address_with_type.h"
 #include "types/raw_address.h"
 
 // This header contains functions for L2cap-ACL to invoke
@@ -30,6 +31,8 @@ void acl_create_classic_connection(const RawAddress& bd_addr,
                                    bool is_bonding);
 bool acl_create_le_connection(const RawAddress& bd_addr);
 bool acl_create_le_connection_with_id(uint8_t id, const RawAddress& bd_addr);
+bool acl_create_le_connection_with_id(uint8_t id, const RawAddress& bd_addr,
+                                      tBLE_ADDR_TYPE addr_type);
 void acl_reject_connection_request(const RawAddress& bd_addr, uint8_t reason);
 void acl_send_data_packet_br_edr(const RawAddress& bd_addr, BT_HDR* p_buf);
 void acl_send_data_packet_ble(const RawAddress& bd_addr, BT_HDR* p_buf);
@@ -37,15 +40,13 @@ void acl_write_automatic_flush_timeout(const RawAddress& bd_addr,
                                        uint16_t flush_timeout);
 
 // ACL data received from HCI-ACL
-extern void l2c_rcv_acl_data(BT_HDR* p_msg);
+void l2c_rcv_acl_data(BT_HDR* p_msg);
 
 // Segments is sent to HCI-ACL
-extern void l2c_link_segments_xmitted(BT_HDR* p_msg);
+void l2c_link_segments_xmitted(BT_HDR* p_msg);
 
-extern void l2c_link_hci_conn_req(const RawAddress& bd_addr);
+void l2c_link_hci_conn_req(const RawAddress& bd_addr);
 
-extern void l2cu_resubmit_pending_sec_req(const RawAddress* p_bda);
+void l2cu_resubmit_pending_sec_req(const RawAddress* p_bda);
 
-extern void l2c_link_process_num_completed_pkts(uint8_t* p, uint8_t evt_len);
-
-extern void l2c_packets_completed(uint16_t handle, uint16_t num_sent);
+void l2c_packets_completed(uint16_t handle, uint16_t num_sent);

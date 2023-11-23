@@ -342,7 +342,7 @@ class BasePackageManager(object):
 
     def repo_check(self, repo):
         '''
-        Check to make sure the repo is in a sane state:
+        Check to make sure the repo is in a valid state:
         ensure we have at least XX amount of free space
         Make sure we can write to the repo
         '''

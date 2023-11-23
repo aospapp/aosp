@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Copyright 2022 The Chromium OS Authors. All rights reserved.
+# Copyright 2022 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
+
 # Regenerate net_sys bindgen bindings.
 
 set -euo pipefail
@@ -44,6 +44,10 @@ bindgen_generate \
 bindgen_generate \
     --allowlist-type='sock_fprog' \
     --allowlist-var='TUN_.*' \
+    --allowlist-var='IFF_NO_PI' \
+    --allowlist-var='IFF_MULTI_QUEUE' \
+    --allowlist-var='IFF_TAP' \
+    --allowlist-var='IFF_VNET_HDR' \
     "${BINDGEN_LINUX}/include/uapi/linux/if_tun.h" \
     | replace_linux_int_types \
     > net_sys/src/if_tun.rs

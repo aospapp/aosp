@@ -1,7 +1,7 @@
 """Tests for base_sysinfo."""
 
-import mock
 import unittest
+from unittest import mock
 
 import common
 from autotest_lib.client.common_lib import autotemp

@@ -23,6 +23,9 @@ namespace task {
 namespace text {
 namespace nlclassifier {
 
+using ::tflite::support::utils::kAssertionError;
+using ::tflite::support::utils::kInvalidPointer;
+using ::tflite::support::utils::ThrowException;
 using ::tflite::support::utils::ConvertVectorToArrayList;
 using ::tflite::support::utils::JStringToString;
 using ::tflite::task::core::Category;
@@ -31,14 +34,21 @@ using ::tflite::task::text::nlclassifier::NLClassifier;
 jobject RunClassifier(JNIEnv* env, jlong native_handle, jstring text) {
   auto* nl_classifier = reinterpret_cast<NLClassifier*>(native_handle);
 
-  auto results = nl_classifier->Classify(JStringToString(env, text));
+  auto results = nl_classifier->ClassifyText(JStringToString(env, text));
+  if (!results.ok()) {
+        ThrowException(env, kAssertionError,
+                       "Error occurred when running classifier: %s",
+                       results.status().message().data());
+        return env->ExceptionOccurred();
+  }
+
   jclass category_class =
       env->FindClass("org/tensorflow/lite/support/label/Category");
   jmethodID category_init =
       env->GetMethodID(category_class, "<init>", "(Ljava/lang/String;F)V");
 
   return ConvertVectorToArrayList<Category>(
-      env, results,
+      env, results.value(),
       [env, category_class, category_init](const Category& category) {
         jstring class_name = env->NewStringUTF(category.class_name.data());
         // Convert double to float as Java interface exposes float as scores.
@@ -48,6 +58,16 @@ jobject RunClassifier(JNIEnv* env, jlong native_handle, jstring text) {
         env->DeleteLocalRef(class_name);
         return jcategory;
       });
+}
+
+jstring GetModelVersionNative(JNIEnv* env, jlong native_handle) {
+  auto* nl_classifier = reinterpret_cast<NLClassifier*>(native_handle);
+  return env->NewStringUTF(nl_classifier->GetModelVersion().c_str());
+}
+
+jstring GetLabelsVersionNative(JNIEnv* env, jlong native_handle) {
+  auto* nl_classifier = reinterpret_cast<NLClassifier*>(native_handle);
+  return env->NewStringUTF(nl_classifier->GetLabelsVersion().c_str());
 }
 
 }  // namespace nlclassifier

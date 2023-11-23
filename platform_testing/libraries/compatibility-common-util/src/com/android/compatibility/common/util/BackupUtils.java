@@ -20,6 +20,8 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.io.Closeables;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -55,8 +57,9 @@ public abstract class BackupUtils {
 
     /**
      * Kicks off adb shell {@param command} and return an {@link InputStream} with the command
-     * output stream.
+     * output stream. The return value can be ignored and there might no need to close it.
      */
+    @CanIgnoreReturnValue
     protected abstract InputStream executeShellCommand(String command) throws IOException;
 
     public void executeShellCommandSync(String command) throws IOException {
@@ -64,7 +67,10 @@ public abstract class BackupUtils {
     }
 
     public String getShellCommandOutput(String command) throws IOException {
-        return StreamUtil.readInputStream(executeShellCommand(command));
+        InputStream inputStream = executeShellCommand(command);
+        String result = StreamUtil.readInputStream(inputStream);
+        Closeables.closeQuietly(inputStream);
+        return result;
     }
 
     /** Executes shell command "bmgr backupnow <package>" and assert success. */
@@ -268,6 +274,7 @@ public abstract class BackupUtils {
         while ((str = br.readLine()) != null) {
             out.append(str).append("\n");
         }
+        Closeables.closeQuietly(in);
         return out.toString();
     }
 
@@ -282,7 +289,7 @@ public abstract class BackupUtils {
             throw new RuntimeException("non-parsable output setting bmgr enabled: " + output);
         }
 
-        executeShellCommand("bmgr enable " + enable);
+        Closeables.closeQuietly(executeShellCommand("bmgr enable " + enable));
         return previouslyEnabled;
     }
 
@@ -291,7 +298,7 @@ public abstract class BackupUtils {
      */
     public boolean enableBackupForUser(boolean enable, int userId) throws IOException {
         boolean previouslyEnabled = isBackupEnabledForUser(userId);
-        executeShellCommand(String.format("bmgr --user %d enable %b", userId, enable));
+        executeShellCommandSync(String.format("bmgr --user %d enable %b", userId, enable));
         return previouslyEnabled;
     }
 

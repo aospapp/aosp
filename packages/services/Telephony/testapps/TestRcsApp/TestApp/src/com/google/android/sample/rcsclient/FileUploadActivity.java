@@ -189,6 +189,7 @@ public class FileUploadActivity extends AppCompatActivity {
         });
     }
 
+    @SuppressWarnings("MissingSuperCall") // TODO: fix me
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {

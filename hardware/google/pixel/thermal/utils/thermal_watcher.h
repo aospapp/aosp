@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,21 +35,21 @@
 #include <unordered_map>
 #include <vector>
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace thermal {
-namespace V2_0 {
 namespace implementation {
 
-using android::base::boot_clock;
-using android::base::unique_fd;
+using ::android::base::boot_clock;
+using ::android::base::unique_fd;
 using WatcherCallback = std::function<std::chrono::milliseconds(const std::set<std::string> &name)>;
 
 // A helper class for monitoring thermal files changes.
 class ThermalWatcher : public ::android::Thread {
   public:
     explicit ThermalWatcher(const WatcherCallback &cb)
-        : Thread(false), cb_(cb), looper_(new Looper(true)) {}
+        : Thread(false), cb_(cb), looper_(new ::android::Looper(true)) {}
     ~ThermalWatcher() = default;
 
     // Disallow copy and assign.
@@ -91,12 +91,12 @@ class ThermalWatcher : public ::android::Thread {
     // Callback will return thermal trigger status for next polling decision.
     const WatcherCallback cb_;
 
-    sp<Looper> looper_;
+    ::android::sp<::android::Looper> looper_;
 
     // For uevent socket registration.
-    android::base::unique_fd uevent_fd_;
+    ::android::base::unique_fd uevent_fd_;
     // For thermal genl socket registration.
-    android::base::unique_fd thermal_genl_fd_;
+    ::android::base::unique_fd thermal_genl_fd_;
     // Sensor list which monitor flag is enabled.
     std::set<std::string> monitored_sensors_;
     // Sleep interval voting result
@@ -108,7 +108,7 @@ class ThermalWatcher : public ::android::Thread {
 };
 
 }  // namespace implementation
-}  // namespace V2_0
 }  // namespace thermal
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl

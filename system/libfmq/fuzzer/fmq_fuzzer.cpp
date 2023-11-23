@@ -36,8 +36,8 @@ using android::hardware::kUnsynchronizedWrite;
 
 typedef int32_t payload_t;
 
-// The reader will wait for 10 ms
-static constexpr int kBlockingTimeoutNs = 10000000;
+// The reader/writers will wait during blocking calls
+static constexpr int kBlockingTimeoutNs = 100000;
 
 /*
  * MessageQueueBase.h contains asserts when memory allocation fails. So we need
@@ -45,6 +45,13 @@ static constexpr int kBlockingTimeoutNs = 10000000;
  */
 static constexpr size_t kAlignment = 8;
 static constexpr size_t kMaxNumElements = PAGE_SIZE * 10 / sizeof(payload_t) - kAlignment + 1;
+/*
+ * limit the custom grantor case to one page of memory.
+ * If we want to increase this, we need to make sure that all of grantors offset
+ * plus extent are less than the size of the page aligned ashmem region that is
+ * created
+ */
+static constexpr size_t kMaxCustomGrantorMemoryBytes = PAGE_SIZE;
 
 /*
  * The read counter can be found in the shared memory 16 bytes before the start
@@ -72,8 +79,40 @@ typedef aidl::android::hardware::common::fmq::MQDescriptor<payload_t, Unsynchron
 typedef android::hardware::MQDescriptorSync<payload_t> MQDescSync;
 typedef android::hardware::MQDescriptorUnsync<payload_t> MQDescUnsync;
 
-static inline uint64_t* getCounterPtr(payload_t* start, int byteOffset) {
-    return reinterpret_cast<uint64_t*>(reinterpret_cast<uint8_t*>(start) - byteOffset);
+// AIDL and HIDL have different ways of accessing the grantors
+template <typename Desc>
+uint64_t* getCounterPtr(payload_t* start, const Desc& desc, int grantorIndx);
+
+uint64_t* createCounterPtr(payload_t* start, uint32_t offset, uint32_t data_offset) {
+    // start is the address of the beginning of the FMQ data section in memory
+    // offset is overall offset of the counter in the FMQ memory
+    // data_offset is the overall offset of the data section in the FMQ memory
+    // start - (data_offset) = beginning address of the FMQ memory
+    return reinterpret_cast<uint64_t*>(reinterpret_cast<uint8_t*>(start) - data_offset + offset);
+}
+
+uint64_t* getCounterPtr(payload_t* start, const MQDescSync& desc, int grantorIndx) {
+    uint32_t offset = desc.grantors()[grantorIndx].offset;
+    uint32_t data_offset = desc.grantors()[android::hardware::details::DATAPTRPOS].offset;
+    return createCounterPtr(start, offset, data_offset);
+}
+
+uint64_t* getCounterPtr(payload_t* start, const MQDescUnsync& desc, int grantorIndx) {
+    uint32_t offset = desc.grantors()[grantorIndx].offset;
+    uint32_t data_offset = desc.grantors()[android::hardware::details::DATAPTRPOS].offset;
+    return createCounterPtr(start, offset, data_offset);
+}
+
+uint64_t* getCounterPtr(payload_t* start, const AidlMQDescSync& desc, int grantorIndx) {
+    uint32_t offset = desc.grantors[grantorIndx].offset;
+    uint32_t data_offset = desc.grantors[android::hardware::details::DATAPTRPOS].offset;
+    return createCounterPtr(start, offset, data_offset);
+}
+
+uint64_t* getCounterPtr(payload_t* start, const AidlMQDescUnsync& desc, int grantorIndx) {
+    uint32_t offset = desc.grantors[grantorIndx].offset;
+    uint32_t data_offset = desc.grantors[android::hardware::details::DATAPTRPOS].offset;
+    return createCounterPtr(start, offset, data_offset);
 }
 
 template <typename Queue, typename Desc>
@@ -84,7 +123,7 @@ void reader(const Desc& desc, std::vector<uint8_t> readerData, bool userFd) {
         return;
     }
     FuzzedDataProvider fdp(&readerData[0], readerData.size());
-    payload_t* ring = nullptr;
+    payload_t* ring = reinterpret_cast<payload_t*>(readMq.getRingBufferPtr());
     while (fdp.remaining_bytes()) {
         typename Queue::MemTransaction tx;
         size_t numElements = fdp.ConsumeIntegralInRange<size_t>(0, kMaxNumElements);
@@ -97,11 +136,9 @@ void reader(const Desc& desc, std::vector<uint8_t> readerData, bool userFd) {
         // the ring buffer is only next to the read/write counters when there is
         // no user supplied fd
         if (!userFd) {
-            if (ring == nullptr) {
-                ring = firstStart;
-            }
             if (fdp.ConsumeIntegral<uint8_t>() == 1) {
-                uint64_t* writeCounter = getCounterPtr(ring, kWriteCounterOffsetBytes);
+                uint64_t* writeCounter =
+                        getCounterPtr(ring, desc, android::hardware::details::WRITEPTRPOS);
                 *writeCounter = fdp.ConsumeIntegral<uint64_t>();
             }
         }
@@ -124,7 +161,7 @@ void readerBlocking(const Desc& desc, std::vector<uint8_t>& readerData,
     FuzzedDataProvider fdp(&readerData[0], readerData.size());
     do {
         size_t count = fdp.remaining_bytes()
-                               ? fdp.ConsumeIntegralInRange<size_t>(1, readMq.getQuantumCount())
+                               ? fdp.ConsumeIntegralInRange<size_t>(0, readMq.getQuantumCount() + 1)
                                : 1;
         std::vector<payload_t> data;
         data.resize(count);
@@ -142,9 +179,9 @@ template <>
 void readerBlocking<MessageQueueUnsync, MQDescUnsync>(const MQDescUnsync&, std::vector<uint8_t>&,
                                                       std::atomic<size_t>&, std::atomic<size_t>&) {}
 
-template <typename Queue>
-void writer(Queue& writeMq, FuzzedDataProvider& fdp, bool userFd) {
-    payload_t* ring = nullptr;
+template <typename Queue, typename Desc>
+void writer(const Desc& desc, Queue& writeMq, FuzzedDataProvider& fdp, bool userFd) {
+    payload_t* ring = reinterpret_cast<payload_t*>(writeMq.getRingBufferPtr());
     while (fdp.remaining_bytes()) {
         typename Queue::MemTransaction tx;
         size_t numElements = 1;
@@ -159,11 +196,9 @@ void writer(Queue& writeMq, FuzzedDataProvider& fdp, bool userFd) {
         // the ring buffer is only next to the read/write counters when there is
         // no user supplied fd
         if (!userFd) {
-            if (ring == nullptr) {
-                ring = firstStart;
-            }
             if (fdp.ConsumeIntegral<uint8_t>() == 1) {
-                uint64_t* readCounter = getCounterPtr(ring, kReadCounterOffsetBytes);
+                uint64_t* readCounter =
+                        getCounterPtr(ring, desc, android::hardware::details::READPTRPOS);
                 *readCounter = fdp.ConsumeIntegral<uint64_t>();
             }
         }
@@ -179,7 +214,7 @@ void writerBlocking(Queue& writeMq, FuzzedDataProvider& fdp,
                     std::atomic<size_t>& readersNotFinished) {
     android::base::ScopeGuard guard([&writersNotFinished]() { writersNotFinished--; });
     while (fdp.remaining_bytes() > sizeof(size_t) && readersNotFinished > 0) {
-        size_t count = fdp.ConsumeIntegralInRange<size_t>(1, writeMq.getQuantumCount());
+        size_t count = fdp.ConsumeIntegralInRange<size_t>(0, writeMq.getQuantumCount() + 1);
         std::vector<payload_t> data;
         for (int i = 0; i < count; i++) {
             data.push_back(fdp.ConsumeIntegral<payload_t>());
@@ -197,74 +232,132 @@ void writerBlocking<MessageQueueUnsync>(MessageQueueUnsync&, FuzzedDataProvider&
                                         std::atomic<size_t>&, std::atomic<size_t>&) {}
 
 template <typename Queue, typename Desc>
-void fuzzAidlWithReaders(std::vector<uint8_t>& writerData,
-                         std::vector<std::vector<uint8_t>>& readerData, bool blocking) {
-    FuzzedDataProvider fdp(&writerData[0], writerData.size());
-    bool evFlag = blocking || fdp.ConsumeBool();
-    android::base::unique_fd dataFd;
-    size_t bufferSize = 0;
-    size_t numElements = fdp.ConsumeIntegralInRange<size_t>(1, kMaxNumElements);
-    bool userFd = fdp.ConsumeBool();
-    if (userFd) {
-        // run test with our own data region
-        bufferSize = numElements * sizeof(payload_t);
-        dataFd.reset(::ashmem_create_region("SyncReadWrite", bufferSize));
-    }
-    Queue writeMq(numElements, evFlag, std::move(dataFd), bufferSize);
-    if (!writeMq.isValid()) {
-        LOG(ERROR) << "AIDL write mq invalid";
-        return;
-    }
-    const auto desc = writeMq.dupeDesc();
-    CHECK(desc.handle.fds[0].get() != -1);
+inline std::optional<Desc> getDesc(std::unique_ptr<Queue>& queue, FuzzedDataProvider& fdp);
 
-    std::atomic<size_t> readersNotFinished = readerData.size();
-    std::atomic<size_t> writersNotFinished = 1;
-    std::vector<std::thread> readers;
-    for (int i = 0; i < readerData.size(); i++) {
-        if (blocking) {
-            readers.emplace_back(readerBlocking<Queue, Desc>, std::ref(desc),
-                                 std::ref(readerData[i]), std::ref(readersNotFinished),
-                                 std::ref(writersNotFinished));
-
+template <typename Queue, typename Desc>
+inline std::optional<Desc> getAidlDesc(std::unique_ptr<Queue>& queue, FuzzedDataProvider& fdp) {
+    if (queue) {
+        // get the existing descriptor from the queue
+        Desc desc = queue->dupeDesc();
+        if (desc.handle.fds[0].get() == -1) {
+            return std::nullopt;
         } else {
-            readers.emplace_back(reader<Queue, Desc>, std::ref(desc), std::ref(readerData[i]),
-                                 userFd);
+            return std::make_optional(std::move(desc));
         }
-    }
-
-    if (blocking) {
-        writerBlocking<Queue>(writeMq, fdp, writersNotFinished, readersNotFinished);
     } else {
-        writer<Queue>(writeMq, fdp, userFd);
-    }
+        // create a custom descriptor
+        std::vector<aidl::android::hardware::common::fmq::GrantorDescriptor> grantors;
+        size_t numGrantors = fdp.ConsumeIntegralInRange<size_t>(0, 4);
+        for (int i = 0; i < numGrantors; i++) {
+            grantors.push_back({fdp.ConsumeIntegralInRange<int32_t>(-2, 2) /* fdIndex */,
+                                fdp.ConsumeIntegralInRange<int32_t>(
+                                        0, kMaxCustomGrantorMemoryBytes) /* offset */,
+                                fdp.ConsumeIntegralInRange<int64_t>(
+                                        0, kMaxCustomGrantorMemoryBytes) /* extent */});
+            // ashmem region is PAGE_SIZE and we need to make sure all of the
+            // pointers and data region fit inside
+            if (grantors.back().offset + grantors.back().extent > PAGE_SIZE) return std::nullopt;
+        }
 
-    for (auto& reader : readers) {
-        reader.join();
+        android::base::unique_fd fd(
+                ashmem_create_region("AidlCustomGrantors", kMaxCustomGrantorMemoryBytes));
+        ashmem_set_prot_region(fd, PROT_READ | PROT_WRITE);
+        aidl::android::hardware::common::NativeHandle handle;
+        handle.fds.emplace_back(fd.get());
+
+        return std::make_optional<Desc>(
+                {grantors, std::move(handle), sizeof(payload_t), fdp.ConsumeBool()});
     }
 }
 
+template <>
+inline std::optional<AidlMQDescSync> getDesc(std::unique_ptr<AidlMessageQueueSync>& queue,
+                                             FuzzedDataProvider& fdp) {
+    return getAidlDesc<AidlMessageQueueSync, AidlMQDescSync>(queue, fdp);
+}
+
+template <>
+inline std::optional<AidlMQDescUnsync> getDesc(std::unique_ptr<AidlMessageQueueUnsync>& queue,
+                                               FuzzedDataProvider& fdp) {
+    return getAidlDesc<AidlMessageQueueUnsync, AidlMQDescUnsync>(queue, fdp);
+}
+
 template <typename Queue, typename Desc>
-void fuzzHidlWithReaders(std::vector<uint8_t>& writerData,
-                         std::vector<std::vector<uint8_t>>& readerData, bool blocking) {
+inline std::optional<Desc> getHidlDesc(std::unique_ptr<Queue>& queue, FuzzedDataProvider& fdp) {
+    if (queue) {
+        auto desc = queue->getDesc();
+        if (!desc->isHandleValid()) {
+            return std::nullopt;
+        } else {
+            return std::make_optional(std::move(*desc));
+        }
+    } else {
+        // create a custom descriptor
+        std::vector<android::hardware::GrantorDescriptor> grantors;
+        size_t numGrantors = fdp.ConsumeIntegralInRange<size_t>(0, 4);
+        for (int i = 0; i < numGrantors; i++) {
+            grantors.push_back({fdp.ConsumeIntegral<uint32_t>() /* flags */,
+                                fdp.ConsumeIntegralInRange<uint32_t>(0, 2) /* fdIndex */,
+                                fdp.ConsumeIntegralInRange<uint32_t>(
+                                        0, kMaxCustomGrantorMemoryBytes) /* offset */,
+                                fdp.ConsumeIntegralInRange<uint64_t>(
+                                        0, kMaxCustomGrantorMemoryBytes) /* extent */});
+            // ashmem region is PAGE_SIZE and we need to make sure all of the
+            // pointers and data region fit inside
+            if (grantors.back().offset + grantors.back().extent > PAGE_SIZE) return std::nullopt;
+        }
+
+        native_handle_t* handle = native_handle_create(1, 0);
+        int ashmemFd = ashmem_create_region("HidlCustomGrantors", kMaxCustomGrantorMemoryBytes);
+        ashmem_set_prot_region(ashmemFd, PROT_READ | PROT_WRITE);
+        handle->data[0] = ashmemFd;
+
+        return std::make_optional<Desc>(grantors, handle, sizeof(payload_t));
+    }
+}
+
+template <>
+inline std::optional<MQDescSync> getDesc(std::unique_ptr<MessageQueueSync>& queue,
+                                         FuzzedDataProvider& fdp) {
+    return getHidlDesc<MessageQueueSync, MQDescSync>(queue, fdp);
+}
+
+template <>
+inline std::optional<MQDescUnsync> getDesc(std::unique_ptr<MessageQueueUnsync>& queue,
+                                           FuzzedDataProvider& fdp) {
+    return getHidlDesc<MessageQueueUnsync, MQDescUnsync>(queue, fdp);
+}
+
+template <typename Queue, typename Desc>
+void fuzzWithReaders(std::vector<uint8_t>& writerData,
+                     std::vector<std::vector<uint8_t>>& readerData, bool blocking) {
     FuzzedDataProvider fdp(&writerData[0], writerData.size());
     bool evFlag = blocking || fdp.ConsumeBool();
-    android::base::unique_fd dataFd;
-    size_t bufferSize = 0;
     size_t numElements = fdp.ConsumeIntegralInRange<size_t>(1, kMaxNumElements);
+    size_t bufferSize = numElements * sizeof(payload_t);
     bool userFd = fdp.ConsumeBool();
-    if (userFd) {
-        // run test with our own data region
-        bufferSize = numElements * sizeof(payload_t);
-        dataFd.reset(::ashmem_create_region("SyncReadWrite", bufferSize));
+    bool manualGrantors = fdp.ConsumeBool();
+    std::unique_ptr<Queue> writeMq = nullptr;
+    if (manualGrantors) {
+        std::optional<Desc> customDesc(getDesc<Queue, Desc>(writeMq, fdp));
+        if (customDesc) {
+            writeMq = std::make_unique<Queue>(*customDesc);
+        }
+    } else {
+        android::base::unique_fd dataFd;
+        if (userFd) {
+            // run test with our own data region
+            dataFd.reset(::ashmem_create_region("CustomData", bufferSize));
+        }
+        writeMq = std::make_unique<Queue>(numElements, evFlag, std::move(dataFd), bufferSize);
     }
-    Queue writeMq(numElements, evFlag, std::move(dataFd), bufferSize);
-    if (!writeMq.isValid()) {
-        LOG(ERROR) << "HIDL write mq invalid";
+
+    if (writeMq == nullptr || !writeMq->isValid()) {
         return;
     }
-    const auto desc = writeMq.getDesc();
-    CHECK(desc->isHandleValid());
+    // get optional desc
+    const std::optional<Desc> desc(std::move(getDesc<Queue, Desc>(writeMq, fdp)));
+    CHECK(desc != std::nullopt);
 
     std::atomic<size_t> readersNotFinished = readerData.size();
     std::atomic<size_t> writersNotFinished = 1;
@@ -281,9 +374,9 @@ void fuzzHidlWithReaders(std::vector<uint8_t>& writerData,
     }
 
     if (blocking) {
-        writerBlocking<Queue>(writeMq, fdp, writersNotFinished, readersNotFinished);
+        writerBlocking<Queue>(*writeMq, fdp, writersNotFinished, readersNotFinished);
     } else {
-        writer<Queue>(writeMq, fdp, userFd);
+        writer<Queue>(*desc, *writeMq, fdp, userFd);
     }
 
     for (auto& reader : readers) {
@@ -307,13 +400,11 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     bool fuzzBlocking = fdp.ConsumeBool();
     std::vector<uint8_t> writerData = fdp.ConsumeRemainingBytes<uint8_t>();
     if (fuzzSync) {
-        fuzzHidlWithReaders<MessageQueueSync, MQDescSync>(writerData, readerData, fuzzBlocking);
-        fuzzAidlWithReaders<AidlMessageQueueSync, AidlMQDescSync>(writerData, readerData,
-                                                                  fuzzBlocking);
+        fuzzWithReaders<MessageQueueSync, MQDescSync>(writerData, readerData, fuzzBlocking);
+        fuzzWithReaders<AidlMessageQueueSync, AidlMQDescSync>(writerData, readerData, fuzzBlocking);
     } else {
-        fuzzHidlWithReaders<MessageQueueUnsync, MQDescUnsync>(writerData, readerData, false);
-        fuzzAidlWithReaders<AidlMessageQueueUnsync, AidlMQDescUnsync>(writerData, readerData,
-                                                                      false);
+        fuzzWithReaders<MessageQueueUnsync, MQDescUnsync>(writerData, readerData, false);
+        fuzzWithReaders<AidlMessageQueueUnsync, AidlMQDescUnsync>(writerData, readerData, false);
     }
 
     return 0;

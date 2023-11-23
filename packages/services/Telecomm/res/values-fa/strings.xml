@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"به‌دلیل انجام تماسی اضطراری، تماس با <xliff:g id="CALLER">%s</xliff:g> قطع شده است."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"به‌دلیل برقراری تماس اضطراری، تماس شما قطع شده است."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"تماس پس‌زمینه"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> تماسی را در پس‌زمینه قرار داد. ممکن است این برنامه درحین تماس به صدا دسترسی پیدا کند و آن را پخش کند."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> درحال پردازش تماس در پس‌زمینه است. ممکن است این برنامه درحین تماس به صدا دسترسی پیدا کند و آن را پخش کند."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> متوقف شد"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"تماستان بااستفاده از برنامه تلفن ارائه‌شده در دستگاهتان برقرار شد"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"تماس نادیده گرفته شد."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"تماس‌های پس‌زمینه"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"تماس‌های قطع‌شده"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"برنامه‌های تلفن خراب"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"جاری‌سازی تماس"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"اگر این تماس را برقرار کنید، تماس <xliff:g id="OTHER_APP">%1$s</xliff:g> شما قطع می‌شود."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"انتخاب نحوه برقراری این تماس"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"هدایت تماس با استفاده از <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"‏منوی برنامه‌نویس Telecom"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"درحین برقراری تماسی اضطراری، نمی‌توان به تماس‌ها پاسخ داد."</string>
     <string name="cancel" msgid="6733466216239934756">"لغو"</string>
+    <string name="back" msgid="6915955601805550206">"برگشتن"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"گوشی"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"بلوتوث"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"هدست سیمی"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"بلندگو"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"خارجی"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"نامشخص"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"درحال جاری‌سازی صدا به دستگاه دیگر"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"قطع تماس"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"انتقال در اینجا انجام شود"</string>
 </resources>

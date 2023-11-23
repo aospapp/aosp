@@ -31,13 +31,23 @@ cc_defaults {
         "VtsHalTargetTestDefaults",
     ],
     shared_libs: [
+        "libbinder",
         "libbinder_ndk",
         "libcrypto",
+        "libbase",
+        "libgatekeeper",
+        "packagemanager_aidl-cpp",
     ],
     static_libs: [
+        "android.hardware.gatekeeper@1.0",
+        "android.hardware.gatekeeper-V1-ndk",
+        "android.hardware.security.rkp-V3-ndk",
         "android.hardware.security.secureclock-V1-ndk",
+        "libavb_user",
+        "libavb",
         "libcppbor_external",
         "libcppcose_rkp",
+        "libfs_mgr",
         "libjsoncpp",
         "libkeymint",
         "libkeymint_remote_prov_support",
@@ -55,7 +65,10 @@ cc_test {
     ],
     srcs: [
         "AttestKeyTest.cpp",
+        "AuthTest.cpp",
+        "BootloaderStateTest.cpp",
         "DeviceUniqueAttestationTest.cpp",
+        "KeyBlobUpgradeTest.cpp",
         "KeyMintTest.cpp",
         "SecureElementProvisioningTest.cpp",
     ],
@@ -87,26 +100,5 @@ cc_test_library {
     ],
     static_libs: [
         "libgmock_ndk",
-    ],
-}
-
-cc_test {
-    name: "VtsHalRemotelyProvisionedComponentTargetTest",
-    defaults: [
-        "keymint_vts_defaults",
-    ],
-    srcs: [
-        "VtsRemotelyProvisionedComponentTests.cpp",
-    ],
-    static_libs: [
-        "libgmock_ndk",
-        "libkeymaster_portable",
-        "libkeymint_vts_test_utils",
-        "libpuresoftkeymasterdevice",
-    ],
-    test_config: "VtsRemotelyProvisionedComponentTests.xml",
-    test_suites: [
-        "general-tests",
-        "vts",
     ],
 }

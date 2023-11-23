@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -43,7 +44,7 @@ class bluetooth_AdapterControllerRoleTests(
 
         self.test_discover_device(device.address)
         time.sleep(self.TEST_SLEEP_SECS)
-        self.test_pairing(device.address, device.pin, trusted=True)
+        self.test_pairing(device.address, device.pin, trusted=False)
         self.test_disconnection_by_adapter(device.address)
 
 
@@ -54,10 +55,19 @@ class bluetooth_AdapterControllerRoleTests(
         @param secondary_test_func: function handle to test connection
         """
         logging.info('Setting up secondary device')
-        self.test_discover_device(device.address)
-        self.test_pairing(device.address, device.pin, trusted=True)
+        if not self.test_discover_device(device.address):
+            logging.error('connect_and_test_secondary_device exits early as '
+                          'test_discover_device fails')
+            return
+        if not self.test_pairing(device.address, device.pin, trusted=False):
+            logging.error('connect_and_test_secondary_device exits early as '
+                          'test_pairing fails')
+            return
         time.sleep(self.TEST_SLEEP_SECS)
-        self.test_connection_by_adapter(device.address)
+        if not self.test_connection_by_adapter(device.address):
+            logging.error('connect_and_test_secondary_device exits early as '
+                          'test_connection_by_adapter fails')
+            return
         time.sleep(self.TEST_SLEEP_SECS)
         secondary_test_func(device)
 
@@ -142,8 +152,7 @@ class bluetooth_AdapterControllerRoleTests(
         self.test_set_advertising_intervals(DEFAULT_MIN_ADV_INTERVAL,
                                             DEFAULT_MAX_ADV_INTERVAL)
         self.test_register_advertisement(advertisements_data.ADVERTISEMENTS[0],
-                                         1, DEFAULT_MIN_ADV_INTERVAL,
-                                         DEFAULT_MAX_ADV_INTERVAL)
+                                         1)
 
         # Discover DUT from peer
         self.test_discover_by_device(primary_device)
@@ -228,9 +237,8 @@ class bluetooth_AdapterControllerRoleTests(
         # For now, advertise connectable advertisement. If we use a broadcast
         # advertisement, the Pi can't resolve the address and
         # test_discover_by_device will fail
-        self.test_register_advertisement(
-            advertisements_data.ADVERTISEMENTS[0], 1,
-            DEFAULT_MIN_ADV_INTERVAL, DEFAULT_MAX_ADV_INTERVAL)
+        self.test_register_advertisement(advertisements_data.ADVERTISEMENTS[0],
+                                         1)
 
         # Second thread runs on peer, delays, discovers DUT, and then advertises
         # itself back
@@ -332,8 +340,7 @@ class bluetooth_AdapterControllerRoleTests(
         self.test_set_advertising_intervals(DEFAULT_MIN_ADV_INTERVAL,
                                             DEFAULT_MAX_ADV_INTERVAL)
         self.test_register_advertisement(advertisements_data.ADVERTISEMENTS[0],
-                                         1, DEFAULT_MIN_ADV_INTERVAL,
-                                         DEFAULT_MAX_ADV_INTERVAL)
+                                         1)
 
         # If test requires it, connect and test secondary device
         if secondary_info is not None and device_use == 'mid':

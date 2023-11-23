@@ -37,7 +37,7 @@ import mock  # pylint: disable=import-error
 from update_payload import checker
 from update_payload import common
 from update_payload import test_utils
-from update_payload import update_metadata_pb2
+import update_metadata_pb2
 from update_payload.error import PayloadError
 from update_payload.payload import Payload  # Avoid name conflicts later.
 

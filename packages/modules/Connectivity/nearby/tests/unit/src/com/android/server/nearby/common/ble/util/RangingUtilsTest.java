@@ -48,8 +48,10 @@ public class RangingUtilsTest {
         // RSSI expected at 1 meter based on the calibrated tx field of -41dBm
         // Using params: distance (m), int calibratedTxPower (dBm),
         int rssi = RangingUtils.rssiFromTargetDistance(1.0, -41);
+        int rssi1 = RangingUtils.rssiFromTargetDistance(0.0, -41);
 
         assertThat(rssi).isEqualTo(-82);
+        assertThat(rssi1).isEqualTo(-41);
     }
 
     @Test

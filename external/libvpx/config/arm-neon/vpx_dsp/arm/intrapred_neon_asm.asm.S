@@ -1,6 +1,6 @@
 @ This file was created from a .asm file
 @  using the ads2gas.pl script.
-	.syntax unified
+.syntax unified
 @
 @  Copyright (c) 2014 The WebM project authors. All Rights Reserved.
 @
@@ -11,36 +11,36 @@
 @  be found in the AUTHORS file in the root of the source tree.
 @
 
-    .global vpx_v_predictor_4x4_neon 
-	.type vpx_v_predictor_4x4_neon, function
-    .global vpx_v_predictor_8x8_neon 
-	.type vpx_v_predictor_8x8_neon, function
-    .global vpx_v_predictor_16x16_neon 
-	.type vpx_v_predictor_16x16_neon, function
-    .global vpx_v_predictor_32x32_neon 
-	.type vpx_v_predictor_32x32_neon, function
-    .global vpx_h_predictor_4x4_neon 
-	.type vpx_h_predictor_4x4_neon, function
-    .global vpx_h_predictor_8x8_neon 
-	.type vpx_h_predictor_8x8_neon, function
-    .global vpx_h_predictor_16x16_neon 
-	.type vpx_h_predictor_16x16_neon, function
-    .global vpx_h_predictor_32x32_neon 
-	.type vpx_h_predictor_32x32_neon, function
-    .global vpx_tm_predictor_4x4_neon 
-	.type vpx_tm_predictor_4x4_neon, function
-    .global vpx_tm_predictor_8x8_neon 
-	.type vpx_tm_predictor_8x8_neon, function
-    .global vpx_tm_predictor_16x16_neon 
-	.type vpx_tm_predictor_16x16_neon, function
-    .global vpx_tm_predictor_32x32_neon 
-	.type vpx_tm_predictor_32x32_neon, function
-   .arm
-   .eabi_attribute 24, 1 @Tag_ABI_align_needed
-   .eabi_attribute 25, 1 @Tag_ABI_align_preserved
+    .global vpx_v_predictor_4x4_neon
+    .type vpx_v_predictor_4x4_neon, function
+    .global vpx_v_predictor_8x8_neon
+    .type vpx_v_predictor_8x8_neon, function
+    .global vpx_v_predictor_16x16_neon
+    .type vpx_v_predictor_16x16_neon, function
+    .global vpx_v_predictor_32x32_neon
+    .type vpx_v_predictor_32x32_neon, function
+    .global vpx_h_predictor_4x4_neon
+    .type vpx_h_predictor_4x4_neon, function
+    .global vpx_h_predictor_8x8_neon
+    .type vpx_h_predictor_8x8_neon, function
+    .global vpx_h_predictor_16x16_neon
+    .type vpx_h_predictor_16x16_neon, function
+    .global vpx_h_predictor_32x32_neon
+    .type vpx_h_predictor_32x32_neon, function
+    .global vpx_tm_predictor_4x4_neon
+    .type vpx_tm_predictor_4x4_neon, function
+    .global vpx_tm_predictor_8x8_neon
+    .type vpx_tm_predictor_8x8_neon, function
+    .global vpx_tm_predictor_16x16_neon
+    .type vpx_tm_predictor_16x16_neon, function
+    .global vpx_tm_predictor_32x32_neon
+    .type vpx_tm_predictor_32x32_neon, function
+    .arm
+    .eabi_attribute 24, 1 @Tag_ABI_align_needed
+    .eabi_attribute 25, 1 @Tag_ABI_align_preserved
 
-.text
-.p2align 2
+    .text
+    .p2align 2
 
 @void vpx_v_predictor_4x4_neon(uint8_t *dst, ptrdiff_t y_stride,
 @                              const uint8_t *above,
@@ -50,15 +50,14 @@
 @ r2  const uint8_t *above
 @ r3  const uint8_t *left
 
-_vpx_v_predictor_4x4_neon:
-	vpx_v_predictor_4x4_neon: @ PROC
+vpx_v_predictor_4x4_neon: @ PROC
     vld1.32             {d0[0]}, [r2]
     vst1.32             {d0[0]}, [r0], r1
     vst1.32             {d0[0]}, [r0], r1
     vst1.32             {d0[0]}, [r0], r1
     vst1.32             {d0[0]}, [r0], r1
     bx                  lr
-	.size vpx_v_predictor_4x4_neon, .-vpx_v_predictor_4x4_neon    @ ENDP                @ |vpx_v_predictor_4x4_neon|
+.size vpx_v_predictor_4x4_neon, .-vpx_v_predictor_4x4_neon    @ ENDP                @ |vpx_v_predictor_4x4_neon|
 
 @void vpx_v_predictor_8x8_neon(uint8_t *dst, ptrdiff_t y_stride,
 @                              const uint8_t *above,
@@ -68,8 +67,7 @@ _vpx_v_predictor_4x4_neon:
 @ r2  const uint8_t *above
 @ r3  const uint8_t *left
 
-_vpx_v_predictor_8x8_neon:
-	vpx_v_predictor_8x8_neon: @ PROC
+vpx_v_predictor_8x8_neon: @ PROC
     vld1.8              {d0}, [r2]
     vst1.8              {d0}, [r0], r1
     vst1.8              {d0}, [r0], r1
@@ -80,7 +78,7 @@ _vpx_v_predictor_8x8_neon:
     vst1.8              {d0}, [r0], r1
     vst1.8              {d0}, [r0], r1
     bx                  lr
-	.size vpx_v_predictor_8x8_neon, .-vpx_v_predictor_8x8_neon    @ ENDP                @ |vpx_v_predictor_8x8_neon|
+.size vpx_v_predictor_8x8_neon, .-vpx_v_predictor_8x8_neon    @ ENDP                @ |vpx_v_predictor_8x8_neon|
 
 @void vpx_v_predictor_16x16_neon(uint8_t *dst, ptrdiff_t y_stride,
 @                                const uint8_t *above,
@@ -90,8 +88,7 @@ _vpx_v_predictor_8x8_neon:
 @ r2  const uint8_t *above
 @ r3  const uint8_t *left
 
-_vpx_v_predictor_16x16_neon:
-	vpx_v_predictor_16x16_neon: @ PROC
+vpx_v_predictor_16x16_neon: @ PROC
     vld1.8              {q0}, [r2]
     vst1.8              {q0}, [r0], r1
     vst1.8              {q0}, [r0], r1
@@ -110,7 +107,7 @@ _vpx_v_predictor_16x16_neon:
     vst1.8              {q0}, [r0], r1
     vst1.8              {q0}, [r0], r1
     bx                  lr
-	.size vpx_v_predictor_16x16_neon, .-vpx_v_predictor_16x16_neon    @ ENDP                @ |vpx_v_predictor_16x16_neon|
+.size vpx_v_predictor_16x16_neon, .-vpx_v_predictor_16x16_neon    @ ENDP                @ |vpx_v_predictor_16x16_neon|
 
 @void vpx_v_predictor_32x32_neon(uint8_t *dst, ptrdiff_t y_stride,
 @                                const uint8_t *above,
@@ -120,8 +117,7 @@ _vpx_v_predictor_16x16_neon:
 @ r2  const uint8_t *above
 @ r3  const uint8_t *left
 
-_vpx_v_predictor_32x32_neon:
-	vpx_v_predictor_32x32_neon: @ PROC
+vpx_v_predictor_32x32_neon: @ PROC
     vld1.8              {q0, q1}, [r2]
     mov                 r2, #2
 loop_v:
@@ -144,7 +140,7 @@ loop_v:
     subs                r2, r2, #1
     bgt                 loop_v
     bx                  lr
-	.size vpx_v_predictor_32x32_neon, .-vpx_v_predictor_32x32_neon    @ ENDP                @ |vpx_v_predictor_32x32_neon|
+.size vpx_v_predictor_32x32_neon, .-vpx_v_predictor_32x32_neon    @ ENDP                @ |vpx_v_predictor_32x32_neon|
 
 @void vpx_h_predictor_4x4_neon(uint8_t *dst, ptrdiff_t y_stride,
 @                              const uint8_t *above,
@@ -154,8 +150,7 @@ loop_v:
 @ r2  const uint8_t *above
 @ r3  const uint8_t *left
 
-_vpx_h_predictor_4x4_neon:
-	vpx_h_predictor_4x4_neon: @ PROC
+vpx_h_predictor_4x4_neon: @ PROC
     vld1.32             {d1[0]}, [r3]
     vdup.8              d0, d1[0]
     vst1.32             {d0[0]}, [r0], r1
@@ -166,7 +161,7 @@ _vpx_h_predictor_4x4_neon:
     vdup.8              d0, d1[3]
     vst1.32             {d0[0]}, [r0], r1
     bx                  lr
-	.size vpx_h_predictor_4x4_neon, .-vpx_h_predictor_4x4_neon    @ ENDP                @ |vpx_h_predictor_4x4_neon|
+.size vpx_h_predictor_4x4_neon, .-vpx_h_predictor_4x4_neon    @ ENDP                @ |vpx_h_predictor_4x4_neon|
 
 @void vpx_h_predictor_8x8_neon(uint8_t *dst, ptrdiff_t y_stride,
 @                              const uint8_t *above,
@@ -176,8 +171,7 @@ _vpx_h_predictor_4x4_neon:
 @ r2  const uint8_t *above
 @ r3  const uint8_t *left
 
-_vpx_h_predictor_8x8_neon:
-	vpx_h_predictor_8x8_neon: @ PROC
+vpx_h_predictor_8x8_neon: @ PROC
     vld1.64             {d1}, [r3]
     vdup.8              d0, d1[0]
     vst1.64             {d0}, [r0], r1
@@ -196,7 +190,7 @@ _vpx_h_predictor_8x8_neon:
     vdup.8              d0, d1[7]
     vst1.64             {d0}, [r0], r1
     bx                  lr
-	.size vpx_h_predictor_8x8_neon, .-vpx_h_predictor_8x8_neon    @ ENDP                @ |vpx_h_predictor_8x8_neon|
+.size vpx_h_predictor_8x8_neon, .-vpx_h_predictor_8x8_neon    @ ENDP                @ |vpx_h_predictor_8x8_neon|
 
 @void vpx_h_predictor_16x16_neon(uint8_t *dst, ptrdiff_t y_stride,
 @                                const uint8_t *above,
@@ -206,8 +200,7 @@ _vpx_h_predictor_8x8_neon:
 @ r2  const uint8_t *above
 @ r3  const uint8_t *left
 
-_vpx_h_predictor_16x16_neon:
-	vpx_h_predictor_16x16_neon: @ PROC
+vpx_h_predictor_16x16_neon: @ PROC
     vld1.8              {q1}, [r3]
     vdup.8              q0, d2[0]
     vst1.8              {q0}, [r0], r1
@@ -242,7 +235,7 @@ _vpx_h_predictor_16x16_neon:
     vdup.8              q0, d3[7]
     vst1.8              {q0}, [r0], r1
     bx                  lr
-	.size vpx_h_predictor_16x16_neon, .-vpx_h_predictor_16x16_neon    @ ENDP                @ |vpx_h_predictor_16x16_neon|
+.size vpx_h_predictor_16x16_neon, .-vpx_h_predictor_16x16_neon    @ ENDP                @ |vpx_h_predictor_16x16_neon|
 
 @void vpx_h_predictor_32x32_neon(uint8_t *dst, ptrdiff_t y_stride,
 @                                const uint8_t *above,
@@ -252,8 +245,7 @@ _vpx_h_predictor_16x16_neon:
 @ r2  const uint8_t *above
 @ r3  const uint8_t *left
 
-_vpx_h_predictor_32x32_neon:
-	vpx_h_predictor_32x32_neon: @ PROC
+vpx_h_predictor_32x32_neon: @ PROC
     sub                 r1, r1, #16
     mov                 r2, #2
 loop_h:
@@ -309,7 +301,7 @@ loop_h:
     subs                r2, r2, #1
     bgt                 loop_h
     bx                  lr
-	.size vpx_h_predictor_32x32_neon, .-vpx_h_predictor_32x32_neon    @ ENDP                @ |vpx_h_predictor_32x32_neon|
+.size vpx_h_predictor_32x32_neon, .-vpx_h_predictor_32x32_neon    @ ENDP                @ |vpx_h_predictor_32x32_neon|
 
 @void vpx_tm_predictor_4x4_neon (uint8_t *dst, ptrdiff_t y_stride,
 @                                const uint8_t *above,
@@ -319,8 +311,7 @@ loop_h:
 @ r2  const uint8_t *above
 @ r3  const uint8_t *left
 
-_vpx_tm_predictor_4x4_neon:
-	vpx_tm_predictor_4x4_neon: @ PROC
+vpx_tm_predictor_4x4_neon: @ PROC
     @ Load ytop_left = above[-1];
     sub                 r12, r2, #1
     vld1.u8             {d0[]}, [r12]
@@ -356,7 +347,7 @@ _vpx_tm_predictor_4x4_neon:
     vst1.32             {d0[0]}, [r0], r1
     vst1.32             {d1[0]}, [r0], r1
     bx                  lr
-	.size vpx_tm_predictor_4x4_neon, .-vpx_tm_predictor_4x4_neon    @ ENDP                @ |vpx_tm_predictor_4x4_neon|
+.size vpx_tm_predictor_4x4_neon, .-vpx_tm_predictor_4x4_neon    @ ENDP                @ |vpx_tm_predictor_4x4_neon|
 
 @void vpx_tm_predictor_8x8_neon (uint8_t *dst, ptrdiff_t y_stride,
 @                                const uint8_t *above,
@@ -366,8 +357,7 @@ _vpx_tm_predictor_4x4_neon:
 @ r2  const uint8_t *above
 @ r3  const uint8_t *left
 
-_vpx_tm_predictor_8x8_neon:
-	vpx_tm_predictor_8x8_neon: @ PROC
+vpx_tm_predictor_8x8_neon: @ PROC
     @ Load ytop_left = above[-1];
     sub                 r12, r2, #1
     vld1.8              {d0[]}, [r12]
@@ -429,7 +419,7 @@ _vpx_tm_predictor_8x8_neon:
     vst1.64             {d3}, [r0], r1
 
     bx                  lr
-	.size vpx_tm_predictor_8x8_neon, .-vpx_tm_predictor_8x8_neon    @ ENDP                @ |vpx_tm_predictor_8x8_neon|
+.size vpx_tm_predictor_8x8_neon, .-vpx_tm_predictor_8x8_neon    @ ENDP                @ |vpx_tm_predictor_8x8_neon|
 
 @void vpx_tm_predictor_16x16_neon (uint8_t *dst, ptrdiff_t y_stride,
 @                                const uint8_t *above,
@@ -439,8 +429,7 @@ _vpx_tm_predictor_8x8_neon:
 @ r2  const uint8_t *above
 @ r3  const uint8_t *left
 
-_vpx_tm_predictor_16x16_neon:
-	vpx_tm_predictor_16x16_neon: @ PROC
+vpx_tm_predictor_16x16_neon: @ PROC
     @ Load ytop_left = above[-1];
     sub                 r12, r2, #1
     vld1.8              {d0[]}, [r12]
@@ -523,7 +512,7 @@ loop_16x16_neon:
     bgt                 loop_16x16_neon
 
     bx                  lr
-	.size vpx_tm_predictor_16x16_neon, .-vpx_tm_predictor_16x16_neon    @ ENDP                @ |vpx_tm_predictor_16x16_neon|
+.size vpx_tm_predictor_16x16_neon, .-vpx_tm_predictor_16x16_neon    @ ENDP                @ |vpx_tm_predictor_16x16_neon|
 
 @void vpx_tm_predictor_32x32_neon (uint8_t *dst, ptrdiff_t y_stride,
 @                                  const uint8_t *above,
@@ -533,8 +522,7 @@ loop_16x16_neon:
 @ r2  const uint8_t *above
 @ r3  const uint8_t *left
 
-_vpx_tm_predictor_32x32_neon:
-	vpx_tm_predictor_32x32_neon: @ PROC
+vpx_tm_predictor_32x32_neon: @ PROC
     @ Load ytop_left = above[-1];
     sub                 r12, r2, #1
     vld1.8              {d0[]}, [r12]
@@ -653,6 +641,6 @@ loop_32x32_neon:
     bgt                 loop_32x32_neon
 
     bx                  lr
-	.size vpx_tm_predictor_32x32_neon, .-vpx_tm_predictor_32x32_neon    @ ENDP                @ |vpx_tm_predictor_32x32_neon|
+.size vpx_tm_predictor_32x32_neon, .-vpx_tm_predictor_32x32_neon    @ ENDP                @ |vpx_tm_predictor_32x32_neon|
 
-	.section	.note.GNU-stack,"",%progbits
+    .section .note.GNU-stack,"",%progbits

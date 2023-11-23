@@ -16,16 +16,16 @@
 
 package dagger.internal.codegen.binding;
 
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
-import dagger.model.Key;
-import dagger.model.RequestKind;
+import dagger.spi.model.Key;
+import dagger.spi.model.RequestKind;
 import java.util.Collection;
 import java.util.Map;
-import javax.lang.model.element.TypeElement;
 
 // TODO(bcorso): Remove the LegacyBindingGraph after we've migrated to the new BindingGraph.
 /** The canonical representation of a full-resolved graph. */
@@ -69,7 +69,7 @@ final class LegacyBindingGraph {
 
   private static ImmutableList<LegacyBindingGraph> checkForDuplicates(
       ImmutableList<LegacyBindingGraph> graphs) {
-    Map<TypeElement, Collection<LegacyBindingGraph>> duplicateGraphs =
+    Map<XTypeElement, Collection<LegacyBindingGraph>> duplicateGraphs =
         Maps.filterValues(
             Multimaps.index(graphs, graph -> graph.componentDescriptor().typeElement()).asMap(),
             overlapping -> overlapping.size() > 1);

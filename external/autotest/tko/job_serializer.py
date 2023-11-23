@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 """A script that provides convertion between models.job and a protocol
 buffer object.
@@ -10,6 +10,9 @@ responsible for serializing the job instance via protocol buffers.
 """
 
 # import python libraries
+from __future__ import division
+from __future__ import print_function
+
 import datetime
 import time
 import logging
@@ -18,6 +21,7 @@ import logging
 from autotest_lib.tko import models
 from autotest_lib.tko import tko_pb2
 from autotest_lib.tko import utils
+import six
 
 __author__ = 'darrenkuo@google.com (Darren Kuo)'
 
@@ -93,7 +97,7 @@ class JobSerializer(object):
         protocol buffer.
 
         The method takes a tko job object and constructs a protocol
-        buffer job object. Then invokes the native serializing
+        buffer job object. Then invokes the built-in serializing
         function on the object to get a binary string. The string is
         then written to outfile.
 
@@ -194,7 +198,7 @@ class JobSerializer(object):
             newtest = pb_job.tests.add()
             self.set_pb_test(test, newtest)
 
-        for key, val in tko_job.keyval_dict.iteritems():
+        for key, val in six.iteritems(tko_job.keyval_dict):
             newkeyval = pb_job.keyval_dict.add()
             newkeyval.name = key
             newkeyval.value = str(val)
@@ -269,7 +273,7 @@ class JobSerializer(object):
             pb_iteration = pb_test.iterations.add()
             self.set_pb_iteration(current_iteration, pb_iteration)
 
-        for key, val in tko_test.attributes.iteritems():
+        for key, val in six.iteritems(tko_test.attributes):
             newkeyval = pb_test.attributes.add()
             newkeyval.name = key
             newkeyval.value = str(val)
@@ -354,12 +358,12 @@ class JobSerializer(object):
         self.set_trivial_attr(tko_iteration, pb_iteration,
                               self.iteration_type_dict)
 
-        for key, val in tko_iteration.attr_keyval.iteritems():
+        for key, val in six.iteritems(tko_iteration.attr_keyval):
             newkeyval = pb_iteration.attr_keyval.add()
             newkeyval.name = key
             newkeyval.value = str(val)
 
-        for key, val in tko_iteration.perf_keyval.iteritems():
+        for key, val in six.iteritems(tko_iteration.perf_keyval):
             newkeyval = pb_iteration.perf_keyval.add()
             newkeyval.name = key
             newkeyval.value = str(val)
@@ -382,7 +386,9 @@ class JobSerializer(object):
         resultdict = {}
         for field, field_type in objdict.items():
             value = getattr(obj, field)
-            if field_type in (str, int, long):
+            # six.integer_types is a tuple, so we can't check
+            # "if field_type in (str, six.integer_types)"
+            if field_type == str or field_type in six.integer_types:
                 resultdict[field] = field_type(value)
             elif field_type == datetime:
                 resultdict[field] = (
@@ -406,14 +412,17 @@ class JobSerializer(object):
         are working with.
 
         """
-        for attr, attr_type in objdict.iteritems():
+        for attr, attr_type in six.iteritems(objdict):
             if attr_type == datetime:
                 t = getattr(tko_obj, attr)
                 if not t:
                     self.set_attr_safely(pb_obj, attr, t, int)
                 else:
                     t = mktime(t.timetuple()) + 1e-6 * t.microsecond
-                    setattr(pb_obj, attr, long(t*1000))
+                    if six.PY2:
+                        setattr(pb_obj, attr, long(t*1000))
+                    else:
+                        setattr(pb_obj, attr, int(t*1000))
             else:
                 value = getattr(tko_obj, attr)
                 self.set_attr_safely(pb_obj, attr, value, attr_type)
@@ -434,8 +443,8 @@ class JobSerializer(object):
         vartype: the expected type of the attr
 
         """
-
-        supported_types = [int, long, str]
+        # In py2, there is int and long, in py3 its only int.
+        supported_types = six.integer_types + (str,)
         if vartype in supported_types:
             if value is None:
                 value = vartype()

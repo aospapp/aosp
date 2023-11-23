@@ -16,7 +16,6 @@
 
 package android.cts.statsdatom.lib;
 
-import com.android.os.AtomsProto.AppBreadcrumbReported;
 import com.android.internal.os.StatsdConfigProto.AtomMatcher;
 import com.android.internal.os.StatsdConfigProto.EventMetric;
 import com.android.internal.os.StatsdConfigProto.FieldFilter;
@@ -25,14 +24,13 @@ import com.android.internal.os.StatsdConfigProto.FieldValueMatcher;
 import com.android.internal.os.StatsdConfigProto.GaugeMetric;
 import com.android.internal.os.StatsdConfigProto.MessageMatcher;
 import com.android.internal.os.StatsdConfigProto.Position;
-import com.android.internal.os.StatsdConfigProto.Predicate;
 import com.android.internal.os.StatsdConfigProto.SimpleAtomMatcher;
-import com.android.internal.os.StatsdConfigProto.SimplePredicate;
 import com.android.internal.os.StatsdConfigProto.StatsdConfig;
 import com.android.internal.os.StatsdConfigProto.TimeUnit;
 import com.android.os.AtomsProto.Atom;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.util.RunUtil;
 
 import com.google.common.io.Files;
 
@@ -69,10 +67,6 @@ public final class ConfigUtils {
                 .addAllowedLogSource("AID_SYSTEM")
                 .addAllowedLogSource("AID_BLUETOOTH")
                 .addAllowedLogSource("com.android.bluetooth")
-                // TODO(b/236681553): Remove this.
-                .addAllowedLogSource("com.android.bluetooth.services")
-                // TODO(b/236681553): Remove this.
-                .addAllowedLogSource("com.google.android.bluetooth.services")
                 .addAllowedLogSource("AID_LMKD")
                 .addAllowedLogSource("AID_MEDIA")
                 .addAllowedLogSource("AID_RADIO")
@@ -275,22 +269,25 @@ public final class ConfigUtils {
         CLog.d("Uploading the following config to statsd:\n" + config.toString());
 
         File configFile = File.createTempFile("statsdconfig", ".config");
-        configFile.deleteOnExit();
-        Files.write(config.toByteArray(), configFile);
+        try {
+            Files.write(config.toByteArray(), configFile);
 
-        // Push config to temporary location
-        String remotePath = "/data/local/tmp/" + configFile.getName();
-        device.pushFile(configFile, remotePath);
+            // Push config to temporary location
+            String remotePath = "/data/local/tmp/" + configFile.getName();
+            device.pushFile(configFile, remotePath);
 
-        // Send config to statsd
-        device.executeShellCommand(String.join(" ", "cat", remotePath, "|", UPDATE_CONFIG_CMD,
-                CONFIG_ID_STRING));
+            // Send config to statsd
+            device.executeShellCommand(
+                    String.join(" ", "cat", remotePath, "|", UPDATE_CONFIG_CMD, CONFIG_ID_STRING));
 
-        // Remove config from temporary location
-        device.executeShellCommand("rm " + remotePath);
+            // Remove config from temporary location
+            device.executeShellCommand("rm " + remotePath);
+        } finally {
+            configFile.delete();
+        }
 
         // Sleep for a bit so that statsd receives config before more work is done within the test.
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
     }
 
     /**

@@ -18,7 +18,9 @@
 struct v2_disk_dqheader {
 	__le32 dqh_magic;	/* Magic number identifying file */
 	__le32 dqh_version;	/* File version */
-} __attribute__ ((packed));
+};
+
+static_assert(sizeof(struct v2_disk_dqheader) == 8, "");
 
 /* Flags for version specific files */
 #define V2_DQF_MASK  0x0000	/* Mask for all valid ondisk flags */
@@ -34,7 +36,9 @@ struct v2_disk_dqinfo {
 	__le32 dqi_free_blk;	/* Number of first free block in the list */
 	__le32 dqi_free_entry;	/* Number of block with at least one
 					 * free entry */
-} __attribute__ ((packed));
+};
+
+static_assert(sizeof(struct v2_disk_dqinfo) == 24, "");
 
 struct v2r1_disk_dqblk {
 	__le32 dqb_id;	/* id this quota applies to */
@@ -49,6 +53,8 @@ struct v2r1_disk_dqblk {
 	__le64 dqb_curspace;	/* current space occupied (in bytes) */
 	__le64 dqb_btime;	/* time limit for excessive disk use */
 	__le64 dqb_itime;	/* time limit for excessive inode use */
-} __attribute__ ((packed));
+};
+
+static_assert(sizeof(struct v2r1_disk_dqblk) == 72, "");
 
 #endif

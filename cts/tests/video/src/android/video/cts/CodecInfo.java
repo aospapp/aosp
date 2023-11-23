@@ -16,17 +16,12 @@
 
 package android.video.cts;
 
-import com.android.compatibility.common.util.MediaUtils;
-
 import android.media.MediaCodec;
-import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
-import android.media.MediaCodecInfo.CodecProfileLevel;
-import android.media.MediaCodecInfo.VideoCapabilities;
-import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.util.Log;
-import android.util.Range;
+
+import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.IOException;
 

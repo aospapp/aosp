@@ -9,7 +9,7 @@ TIME = 'SHORT'
 NAME = 'cellular_ChromeEndToEnd.autoconnectCellular'
 TEST_TYPE = 'Server'
 DEPENDENCIES = 'servo_state:WORKING'
-
+PY_VERSION = 3
 DOC = """
 Tests that the device auto connects to cellular network..
 """

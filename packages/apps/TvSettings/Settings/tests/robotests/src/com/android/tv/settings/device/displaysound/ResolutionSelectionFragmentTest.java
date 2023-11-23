@@ -33,6 +33,7 @@ import androidx.preference.PreferenceCategory;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.RadioPreference;
+import com.android.tv.settings.util.ResolutionSelectionUtils;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -115,13 +116,27 @@ public class ResolutionSelectionFragmentTest {
         Preference modePreference = fragment.getPreferenceScreen().getPreference(0);
         assertThat(getChildrenTitles(modePreference)).containsExactly(
                 fragment.getContext().getString(R.string.resolution_selection_auto_title),
-                "4k (60 Hz)",
-                "4k (59.94 Hz)",
-                "576p (60 Hz)",
-                "800p (120 Hz)",
-                "800p (60 Hz)",
-                "600p (120 Hz)",
-                "600p (59.94 Hz)");
+                fragment.getContext().getString(R.string.resolution_display_mode,
+                        ResolutionSelectionUtils.getResolutionString(2160, 2160),
+                        ResolutionSelectionUtils.getRefreshRateString(60)),
+                fragment.getContext().getString(R.string.resolution_display_mode,
+                        ResolutionSelectionUtils.getResolutionString(2160, 2160),
+                        ResolutionSelectionUtils.getRefreshRateString(59.944f)),
+                fragment.getContext().getString(R.string.resolution_display_mode,
+                        ResolutionSelectionUtils.getResolutionString(576, 576),
+                        ResolutionSelectionUtils.getRefreshRateString(60)),
+                fragment.getContext().getString(R.string.resolution_display_mode,
+                        ResolutionSelectionUtils.getResolutionString(800, 1200),
+                        ResolutionSelectionUtils.getRefreshRateString(120)),
+                fragment.getContext().getString(R.string.resolution_display_mode,
+                        ResolutionSelectionUtils.getResolutionString(800, 1200),
+                        ResolutionSelectionUtils.getRefreshRateString(60)),
+                fragment.getContext().getString(R.string.resolution_display_mode,
+                        ResolutionSelectionUtils.getResolutionString(600, 800),
+                        ResolutionSelectionUtils.getRefreshRateString(120)),
+                fragment.getContext().getString(R.string.resolution_display_mode,
+                        ResolutionSelectionUtils.getResolutionString(600, 800),
+                        ResolutionSelectionUtils.getRefreshRateString(59.944f)));
 
         assertThat(getChildrenSummaries(modePreference)).containsExactly(
                 "2160 x 2160",

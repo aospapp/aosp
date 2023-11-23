@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -26,12 +27,22 @@ from autotest_lib.server.cros.tradefed import tradefed_test
 # Maximum default time allowed for each individual CTS module.
 _CTS_TIMEOUT_SECONDS = 3600
 
-# Public download locations for android cts bundles.
 _PUBLIC_CTS = 'https://dl.google.com/dl/android/cts/'
-_PARTNER_CTS = 'gs://chromeos-partner-cts/'
-_CTS_URI = {
-        'arm': _PUBLIC_CTS + 'android-cts-9.0_r14-linux_x86-arm.zip',
-        'x86': _PUBLIC_CTS + 'android-cts-9.0_r14-linux_x86-x86.zip',
+_INTERNAL_CTS = 'gs://chromeos-arc-images/cts/bundle/P/'
+_PARTNER_CTS = 'gs://chromeos-partner-gts/P/'
+_OFFICIAL_ZIP_NAME = 'android-cts-9.0_r20-linux_x86-%s.zip'
+_PREVIEW_ZIP_NAME = 'android-cts-8480133-linux_x86-%s.zip'
+_BUNDLE_MAP = {
+        (None, 'arm'): _PUBLIC_CTS + _OFFICIAL_ZIP_NAME % 'arm',
+        (None, 'x86'): _PUBLIC_CTS + _OFFICIAL_ZIP_NAME % 'x86',
+        ('DEV_MOBLAB', 'arm'): _PARTNER_CTS + _PREVIEW_ZIP_NAME % 'arm',
+        ('DEV_MOBLAB', 'x86'): _PARTNER_CTS + _PREVIEW_ZIP_NAME % 'x86',
+        ('LATEST', 'arm'): _INTERNAL_CTS + _OFFICIAL_ZIP_NAME % 'arm',
+        ('LATEST', 'x86'): _INTERNAL_CTS + _OFFICIAL_ZIP_NAME % 'x86',
+        ('DEV', 'arm'): _INTERNAL_CTS + _PREVIEW_ZIP_NAME % 'arm',
+        ('DEV', 'x86'): _INTERNAL_CTS + _PREVIEW_ZIP_NAME % 'x86',
+        ('DEV_WAIVER', 'arm'): _INTERNAL_CTS + _PREVIEW_ZIP_NAME % 'arm',
+        ('DEV_WAIVER', 'x86'): _INTERNAL_CTS + _PREVIEW_ZIP_NAME % 'x86',
 }
 _CTS_MEDIA_URI = _PUBLIC_CTS + 'android-cts-media-1.5.zip'
 _CTS_MEDIA_LOCALPATH = '/tmp/android-cts-media'
@@ -76,8 +87,11 @@ class cheets_CTS_P(tradefed_test.TradefedTest):
         cmd.append('--quiet-output=true')
         return cmd
 
-    def _get_default_bundle_url(self, bundle):
-        return _CTS_URI[bundle]
+    def _get_bundle_url(self, uri, bundle):
+        if uri and (uri.startswith('http') or uri.startswith('gs')):
+            return uri
+        else:
+            return _BUNDLE_MAP[(uri, bundle)]
 
     def _get_tradefed_base_dir(self):
         return 'android-cts'
@@ -107,8 +121,8 @@ class cheets_CTS_P(tradefed_test.TradefedTest):
         chart_hosts = [hosts.create_host(ip) for ip in chart_address]
 
         self.chart_fixtures = [
-            camerabox_utils.ChartFixture(h, self._SCENE_URI)
-            for h in chart_hosts
+                camerabox_utils.ChartFixture(h, self._SCENE_URI, self.job)
+                for h in chart_hosts
         ]
         self.dut_fixtures = [
             camerabox_utils.DUTFixture(self, h, camera_facing)
@@ -205,7 +219,6 @@ class cheets_CTS_P(tradefed_test.TradefedTest):
             bundle=bundle,
             extra_artifacts=extra_artifacts,
             extra_artifacts_host=extra_artifacts_host,
-            cts_uri=_CTS_URI,
             login_precondition_commands=login_precondition_commands,
             precondition_commands=precondition_commands,
             prerequisites=prerequisites)

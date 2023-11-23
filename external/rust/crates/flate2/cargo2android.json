@@ -5,5 +5,14 @@
   ],
   "device": true,
   "features": "zlib",
-  "run": true
+  "run": true,
+  "patch": "patches/Android.bp.patch",
+  "tests": true,
+  "test-data": [
+    "tests/gunzip.rs=tests/corrupt-gz-file.bin",
+    "tests/gunzip.rs=tests/good-file.gz",
+    "tests/gunzip.rs=tests/good-file.txt",
+    "tests/gunzip.rs=tests/multi.gz",
+    "tests/gunzip.rs=tests/multi.txt"
+  ]
 }

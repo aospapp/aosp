@@ -12,6 +12,7 @@
 
 #include <xnnpack/dwconv.h>
 #include <xnnpack/math.h>
+#include <xnnpack/unaligned.h>
 
 
 void xnn_qc8_dwconv_minmax_fp32_ukernel_up1x25__scalar_lrintf(
@@ -24,14 +25,14 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_up1x25__scalar_lrintf(
     size_t output_increment,
     size_t input_offset,
     const int8_t* zero,
-    const union xnn_qs8_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(channels != 0);
   assert(output_width != 0);
 
-  const float voutput_min_less_zero_point = params->scalar_lrintf.output_min_less_zero_point;
-  const float voutput_max_less_zero_point = params->scalar_lrintf.output_max_less_zero_point;
-  const int32_t voutput_zero_point = params->scalar_lrintf.output_zero_point;
+  const float voutput_min_less_zero_point = params->fp32_scalar_lrintf.output_min_less_zero_point;
+  const float voutput_max_less_zero_point = params->fp32_scalar_lrintf.output_max_less_zero_point;
+  const int32_t voutput_zero_point = params->fp32_scalar_lrintf.output_zero_point;
   do {
     const int8_t* i0 = input[0];
     assert(i0 != NULL);
@@ -163,7 +164,7 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_up1x25__scalar_lrintf(
     size_t c = channels;
     const void* w = weights;
     do {
-      int32_t vacc = *((const int32_t*) w);
+      int32_t vacc = unaligned_load_s32(w);
 
       const int32_t vi0 = (int32_t) *i0++;
       const int32_t vk0 = ((const int8_t*) ((uintptr_t) w + sizeof(int32_t)))[0];
@@ -243,8 +244,7 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_up1x25__scalar_lrintf(
 
       w = (const void*) ((uintptr_t) w + sizeof(int32_t) + 25 * sizeof(int8_t));
 
-      typedef XNN_UNALIGNED float unaligned_float;
-      const float vscale = *((const unaligned_float*) w);
+      const float vscale = unaligned_load_f32(w);
       w = (const void*) ((const float*) w + 1);
       float vfpacc = (float) vacc * vscale;
 

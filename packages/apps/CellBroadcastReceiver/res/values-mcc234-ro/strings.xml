@@ -31,9 +31,9 @@
     <string name="cmas_exercise_alert" msgid="4540370572086918020">"Simulare de alertă"</string>
     <string name="app_label" msgid="3863159788297913185">"Alerte de urgență"</string>
     <string name="sms_cb_settings" msgid="4187131985831792308">"Alerte de urgență"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="805446672915814777">"Primiți notificări privind alertele de urgență"</string>
-    <string name="enable_alert_speech_summary" msgid="5021926525240750702">"Folosiți funcția de redare vocală a textului pentru a asculta mesajele alertelor de urgență"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="805446672915814777">"Primește notificări privind alertele de urgență"</string>
+    <string name="enable_alert_speech_summary" msgid="5021926525240750702">"Folosește funcția de redare vocală a textului pentru a asculta mesajele alertelor de urgență"</string>
     <string name="cmas_opt_out_dialog_text" msgid="1972978578760513449">"Primirea alertelor de urgență este activată. Doriți să primiți alertele în continuare?"</string>
     <string name="emergency_alert_settings_title_watches" msgid="5299419351642118203">"Alerte de urgență"</string>
-    <string name="notification_cb_settings_changed_text" msgid="6861845802821634203">"Atingeți ca să vedeți setările pentru alerte de urgență"</string>
+    <string name="notification_cb_settings_changed_text" msgid="6861845802821634203">"Atinge ca să vezi setările pentru alerte de urgență"</string>
 </resources>

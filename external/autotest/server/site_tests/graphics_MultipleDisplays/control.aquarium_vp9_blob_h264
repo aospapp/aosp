@@ -4,6 +4,7 @@
 
 from autotest_lib.server import utils
 
+PY_VERSION = 3
 AUTHOR = "chromeos-chameleon"
 NAME = "graphics_MultipleDisplays.aquarium_vp9_blob_h264"
 PURPOSE = "Test WebGL and video playback on internal and external displays."

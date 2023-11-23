@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (c) 2018-2019 Petr Vorel <pvorel@suse.cz>
+# Copyright (c) 2018-2022 Petr Vorel <pvorel@suse.cz>
 # Copyright (c) 2014-2021 Oracle and/or its affiliates. All Rights Reserved.
 # Author: Alexey Kodanev <alexey.kodanev@oracle.com>
 #
@@ -18,6 +18,13 @@
 
 TST_SETUP="${TST_SETUP:-virt_lib_setup}"
 TST_CLEANUP="${TST_CLEANUP:-cleanup_vifaces}"
+TST_NEEDS_ROOT=1
+
+# Max performance loss (%) for virtual devices during network load
+VIRT_PERF_THRESHOLD=${VIRT_PERF_THRESHOLD:-80}
+if [ -n "$VIRT_PERF_THRESHOLD_MIN" ] && [ "$VIRT_PERF_THRESHOLD" -lt $VIRT_PERF_THRESHOLD_MIN ]; then
+	 VIRT_PERF_THRESHOLD="$VIRT_PERF_THRESHOLD_MIN"
+fi
 
 virt_lib_usage()
 {
@@ -37,16 +44,12 @@ virt_lib_setup()
 {
 	case "$virt_type" in
 	vxlan|geneve)
-		if tst_kvcmp -lt "3.8"; then
-			tst_brk TCONF "test must be run with kernel 3.8 or newer"
-		fi
-
 		if [ "$TST_IPV6" ] && tst_kvcmp -lt "3.12"; then
 			tst_brk TCONF "test must be run with kernels >= 3.12"
 		fi
 
 		# newer versions of 'ip' complain if this option not set
-		ip li add type vxlan help 2>&1 | grep -q dstport && vxlan_dstport=1
+		ip link add type vxlan help 2>&1 | grep -q dstport && vxlan_dstport=1
 	;;
 	esac
 
@@ -58,27 +61,10 @@ virt_lib_setup()
 	ROD_SILENT "ip link delete ltp_v0"
 }
 
-TST_NEEDS_ROOT=1
-. tst_net.sh
-
-ip_virt_local="$(TST_IPV6= tst_ipaddr_un)"
-ip6_virt_local="$(TST_IPV6=6 tst_ipaddr_un)"
-
-ip_virt_remote="$(TST_IPV6= tst_ipaddr_un rhost)"
-ip6_virt_remote="$(TST_IPV6=6 tst_ipaddr_un rhost)"
-
-vxlan_dstport=0
-
-# Max performance loss (%) for virtual devices during network load
-VIRT_PERF_THRESHOLD=${VIRT_PERF_THRESHOLD:-80}
-if [ -n "$VIRT_PERF_THRESHOLD_MIN" ] && [ "$VIRT_PERF_THRESHOLD" -lt $VIRT_PERF_THRESHOLD_MIN ]; then
-	 VIRT_PERF_THRESHOLD="$VIRT_PERF_THRESHOLD_MIN"
-fi
-
 cleanup_vifaces()
 {
 	tst_res TINFO "cleanup virtual interfaces..."
-	local viface=`ip li | sed -nE 's/^[0-9]+: (ltp_v[0-9]+)[@:].+/\1/p'`
+	local viface=`ip link | sed -nE 's/^[0-9]+: (ltp_v[0-9]+)[@:].+/\1/p'`
 	for vx in $viface; do
 		ip link delete $vx
 	done
@@ -138,7 +124,7 @@ virt_add()
 
 	case $virt_type in
 	vxlan|geneve|sit|wireguard)
-		ip li add $vname type $virt_type $opt
+		ip link add $vname type $virt_type $opt
 	;;
 	gre|ip6gre)
 		ip -f inet$TST_IPV6 tu add $vname mode $virt_type $opt
@@ -147,7 +133,7 @@ virt_add()
 		ip link add name $vname type $(_get_gue_fou_tnl $virt_type) $opt
 	;;
 	*)
-		ip li add link $(tst_iface) $vname type $virt_type $opt
+		ip link add link $(tst_iface) $vname type $virt_type $opt
 	;;
 	esac
 }
@@ -159,7 +145,7 @@ virt_add_rhost()
 	vxlan|geneve)
 		[ "$virt_type" = "vxlan" ] && opt="dev $(tst_iface rhost)"
 		[ "$vxlan_dstport" -eq 1 ] && opt="$opt dstport 0"
-		tst_rhost_run -s -c "ip li add ltp_v0 type $virt_type $@ $opt"
+		tst_rhost_run -s -c "ip link add ltp_v0 type $virt_type $@ $opt"
 	;;
 	sit|wireguard)
 		tst_rhost_run -s -c "ip link add ltp_v0 type $virt_type $@"
@@ -173,7 +159,7 @@ virt_add_rhost()
 				     type $(_get_gue_fou_tnl $virt_type) $@"
 	;;
 	*)
-		tst_rhost_run -s -c "ip li add link $(tst_iface rhost) ltp_v0 \
+		tst_rhost_run -s -c "ip link add link $(tst_iface rhost) ltp_v0 \
 				     type $virt_type $@"
 	;;
 	esac
@@ -231,7 +217,7 @@ virt_setup()
 	virt_add_rhost "$opt_r"
 
 	ROD_SILENT "ip addr add ${ip6_virt_local}/64 dev ltp_v0 nodad"
-	tst_rhost_run -s -c "ip ad add ${ip6_virt_remote}/64 dev ltp_v0 nodad"
+	tst_rhost_run -s -c "ip addr add ${ip6_virt_remote}/64 dev ltp_v0 nodad"
 
 	ROD_SILENT "ip addr add ${ip_virt_local}/24 dev ltp_v0"
 	tst_rhost_run -s -c "ip addr add ${ip_virt_remote}/24 dev ltp_v0"
@@ -239,8 +225,8 @@ virt_setup()
 	ROD_SILENT "sysctl -q net.ipv6.conf.ltp_v0.accept_dad=0"
 	tst_rhost_run -s -c "sysctl -q net.ipv6.conf.ltp_v0.accept_dad=0"
 
-	ROD_SILENT "ip li set up ltp_v0"
-	tst_rhost_run -s -c "ip li set up ltp_v0"
+	ROD_SILENT "ip link set up ltp_v0"
+	tst_rhost_run -s -c "ip link set up ltp_v0"
 }
 
 virt_tcp_syn=
@@ -250,9 +236,9 @@ virt_minimize_timeout()
 	local mac_rmt="$(tst_rhost_run -c 'cat /sys/class/net/ltp_v0/address')"
 
 	if [ "$mac_loc" ]; then
-		ROD_SILENT "ip ne replace $ip_virt_remote lladdr \
+		ROD_SILENT "ip neigh replace $ip_virt_remote lladdr \
 			    $mac_rmt nud permanent dev ltp_v0"
-		tst_rhost_run -s -c "ip ne replace $ip_virt_local lladdr \
+		tst_rhost_run -s -c "ip neigh replace $ip_virt_local lladdr \
 				     $mac_loc nud permanent dev ltp_v0"
 	fi
 
@@ -262,11 +248,7 @@ virt_minimize_timeout()
 
 vxlan_setup_subnet_uni()
 {
-	if tst_kvcmp -lt "3.10"; then
-		tst_brk TCONF "test must be run with kernel 3.10 or newer"
-	fi
-
-	[ "$(ip li add type $virt_type help 2>&1 | grep remote)" ] || \
+	[ "$(ip link add type $virt_type help 2>&1 | grep remote)" ] || \
 		tst_brk TCONF "iproute doesn't support remote unicast address"
 
 	local opt="$1 remote $(tst_ipaddr rhost)"
@@ -329,7 +311,7 @@ virt_check_cmd()
 		tst_res TCONF "'$@' option(s) not supported, skipping it"
 		return 1
 	fi
-	ROD_SILENT "ip li delete ltp_v0"
+	ROD_SILENT "ip link delete ltp_v0"
 	return 0
 }
 
@@ -384,3 +366,13 @@ virt_gre_setup()
 	virt_setup "local $(tst_ipaddr) remote $(tst_ipaddr rhost) dev $(tst_iface)" \
 	"local $(tst_ipaddr rhost) remote $(tst_ipaddr) dev $(tst_iface rhost)"
 }
+
+. tst_net.sh
+
+ip_virt_local="$(TST_IPV6= tst_ipaddr_un)"
+ip6_virt_local="$(TST_IPV6=6 tst_ipaddr_un)"
+
+ip_virt_remote="$(TST_IPV6= tst_ipaddr_un rhost)"
+ip6_virt_remote="$(TST_IPV6=6 tst_ipaddr_un rhost)"
+
+vxlan_dstport=0

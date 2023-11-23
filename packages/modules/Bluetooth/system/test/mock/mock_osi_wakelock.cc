@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "test/mock/mock_osi_wakelock.h"
 
@@ -51,27 +49,27 @@ struct wakelock_set_paths wakelock_set_paths;
 
 // Mocked functions, if any
 bool wakelock_acquire(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_wakelock::wakelock_acquire();
 }
 void wakelock_cleanup(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_wakelock::wakelock_cleanup();
 }
 void wakelock_debug_dump(int fd) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_wakelock::wakelock_debug_dump(fd);
 }
 bool wakelock_release(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_wakelock::wakelock_release();
 }
 void wakelock_set_os_callouts(bt_os_callouts_t* callouts) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_wakelock::wakelock_set_os_callouts(callouts);
 }
 void wakelock_set_paths(const char* lock_path, const char* unlock_path) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_wakelock::wakelock_set_paths(lock_path, unlock_path);
 }
 // Mocked functions complete

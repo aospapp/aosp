@@ -13,7 +13,7 @@
 // limitations under the License.#pragma once
 #include "AndroidBufferQueue.h"
 
-#include "base/MessageChannel.h"
+#include "aemu/base/synchronization/MessageChannel.h"
 
 using android::base::MessageChannel;
 

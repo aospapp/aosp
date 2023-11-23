@@ -17,6 +17,7 @@
 package android.assist.cts;
 
 import android.assist.common.Utils;
+import android.content.pm.PackageManager;
 import android.util.Log;
 
 import org.junit.Test;
@@ -40,6 +41,9 @@ public class DisableContextTest extends AssistTestBase {
 
     @Test
     public void testContextAndScreenshotOff() throws Exception {
+        if (!isSupportedDevice()) {
+            return;
+        }
         if (!mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS)) {
             Log.d(TAG, "Not running assist tests - voice_recognizers feature is not supported");
             return;
@@ -56,6 +60,9 @@ public class DisableContextTest extends AssistTestBase {
 
     @Test
     public void testContextOff() throws Exception {
+        if (!isSupportedDevice()) {
+            return;
+        }
         if (!mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS)) {
             Log.d(TAG, "Not running assist tests - voice_recognizers feature is not supported");
             return;
@@ -72,6 +79,9 @@ public class DisableContextTest extends AssistTestBase {
 
     @Test
     public void testScreenshotOff() throws Exception {
+        if (!isSupportedDevice()) {
+            return;
+        }
         if (!mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS)) {
             Log.d(TAG, "Not running assist tests - voice_recognizers feature is not supported");
             return;
@@ -84,5 +94,16 @@ public class DisableContextTest extends AssistTestBase {
 
         logContextAndScreenshotSetting();
         verifyAssistDataNullness(true, true, true, true);
+    }
+
+    private boolean isSupportedDevice() {
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+            // TODO(b/280025610): Need to check if this test class should be tested on Auto.
+            return false;
+        } else if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            // TODO(b/280025610): Need to check if this test class should be tested on Wear.
+            return false;
+        }
+        return true;
     }
 }

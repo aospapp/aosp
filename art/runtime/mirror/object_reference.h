@@ -21,6 +21,7 @@
 #include <string_view>
 
 #include "base/atomic.h"
+#include "base/casts.h"
 #include "base/locks.h"  // For Locks::mutator_lock_.
 #include "heap_poisoning.h"
 #include "obj_ptr.h"
@@ -50,6 +51,7 @@ constexpr bool IsMirroredDescriptor(std::string_view desc) {
     vis("Ljava/lang/ClassNotFoundException;")         \
     vis("Ljava/lang/DexCache;")                       \
     vis("Ljava/lang/Object;")                         \
+    vis("Ljava/lang/StackFrameInfo;")                 \
     vis("Ljava/lang/StackTraceElement;")              \
     vis("Ljava/lang/String;")                         \
     vis("Ljava/lang/Throwable;")                      \
@@ -94,14 +96,14 @@ class PtrCompression {
  public:
   // Compress reference to its bit representation.
   static uint32_t Compress(MirrorType* mirror_ptr) {
-    uintptr_t as_bits = reinterpret_cast<uintptr_t>(mirror_ptr);
-    return static_cast<uint32_t>(kPoisonReferences ? -as_bits : as_bits);
+    uint32_t as_bits = reinterpret_cast32<uint32_t>(mirror_ptr);
+    return kPoisonReferences ? -as_bits : as_bits;
   }
 
   // Uncompress an encoded reference from its bit representation.
   static MirrorType* Decompress(uint32_t ref) {
-    uintptr_t as_bits = kPoisonReferences ? -ref : ref;
-    return reinterpret_cast<MirrorType*>(as_bits);
+    uint32_t as_bits = kPoisonReferences ? -ref : ref;
+    return reinterpret_cast32<MirrorType*>(as_bits);
   }
 
   // Convert an ObjPtr to a compressed reference.
@@ -143,10 +145,6 @@ class MANAGED ObjectReference {
     return reference_ == 0;
   }
 
-  uint32_t AsVRegValue() const {
-    return reference_;
-  }
-
   static ObjectReference<kPoisonReferences, MirrorType> FromMirrorPtr(MirrorType* mirror_ptr)
       REQUIRES_SHARED(Locks::mutator_lock_) {
     return ObjectReference<kPoisonReferences, MirrorType>(mirror_ptr);
@@ -155,6 +153,9 @@ class MANAGED ObjectReference {
  protected:
   explicit ObjectReference(MirrorType* mirror_ptr) REQUIRES_SHARED(Locks::mutator_lock_)
       : reference_(Compression::Compress(mirror_ptr)) {
+  }
+  ObjectReference() : reference_(0u) {
+    DCHECK(IsNull());
   }
 
   // The encoded reference to a mirror::Object.
@@ -221,17 +222,27 @@ static_assert(sizeof(mirror::HeapReference<mirror::Object>) == kHeapReferenceSiz
 template<class MirrorType>
 class MANAGED CompressedReference : public mirror::ObjectReference<false, MirrorType> {
  public:
-  CompressedReference<MirrorType>() REQUIRES_SHARED(Locks::mutator_lock_)
-      : mirror::ObjectReference<false, MirrorType>(nullptr) {}
+  CompressedReference<MirrorType>()
+      : mirror::ObjectReference<false, MirrorType>() {}
 
   static CompressedReference<MirrorType> FromMirrorPtr(MirrorType* p)
       REQUIRES_SHARED(Locks::mutator_lock_) {
     return CompressedReference<MirrorType>(p);
   }
 
+  static CompressedReference<MirrorType> FromVRegValue(uint32_t vreg_value) {
+    CompressedReference<MirrorType> result;
+    result.reference_ = vreg_value;
+    return result;
+  }
+
+  uint32_t AsVRegValue() const {
+    return this->reference_;
+  }
+
  private:
   explicit CompressedReference(MirrorType* p) REQUIRES_SHARED(Locks::mutator_lock_)
-      : mirror::ObjectReference<false, MirrorType>(p) {}
+      : ObjectReference<false, MirrorType>(p) {}
 };
 
 }  // namespace mirror

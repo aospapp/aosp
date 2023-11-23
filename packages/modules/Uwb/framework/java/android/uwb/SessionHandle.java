@@ -16,6 +16,7 @@
 
 package android.uwb;
 
+import android.content.AttributionSource;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -26,13 +27,26 @@ import java.util.Objects;
  */
 public final class SessionHandle implements Parcelable  {
     private final int mId;
+    private final String mPackageName;
+    private final int mUid;
+    private final int mPid;
 
-    public SessionHandle(int id) {
+    public SessionHandle(int id, AttributionSource attributionSource, int pid) {
+        this(id, attributionSource.getPackageName(), attributionSource.getUid(), pid);
+    }
+
+    private SessionHandle(int id, String packageName, int uid, int pid) {
         mId = id;
+        mPackageName = packageName;
+        mUid = uid;
+        mPid = pid;
     }
 
     protected SessionHandle(Parcel in) {
         mId = in.readInt();
+        mPackageName = in.readString();
+        mUid = in.readInt();
+        mPid = in.readInt();
     }
 
     public static final Creator<SessionHandle> CREATOR = new Creator<SessionHandle>() {
@@ -51,6 +65,18 @@ public final class SessionHandle implements Parcelable  {
         return mId;
     }
 
+    public String getPackageName() {
+        return mPackageName;
+    }
+
+    public int getUid() {
+        return mUid;
+    }
+
+    public int getPid() {
+        return mPid;
+    }
+
     @Override
     public int describeContents() {
         return 0;
@@ -59,6 +85,9 @@ public final class SessionHandle implements Parcelable  {
     @Override
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeInt(mId);
+        dest.writeString(mPackageName);
+        dest.writeInt(mUid);
+        dest.writeInt(mPid);
     }
 
     @Override
@@ -69,18 +98,22 @@ public final class SessionHandle implements Parcelable  {
 
         if (obj instanceof SessionHandle) {
             SessionHandle other = (SessionHandle) obj;
-            return mId == other.mId;
+            return mId == other.mId
+                    && Objects.equals(mPackageName, other.mPackageName)
+                    && mUid == other.mUid
+                    && mPid == other.mPid;
         }
         return false;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(mId);
+        return Objects.hash(mId, mPackageName, mUid, mPid);
     }
 
     @Override
     public String toString() {
-        return "SessionHandle [id=" + mId + "]";
+        return "SessionHandle [id=" + mId + ", package-name: " + mPackageName
+                + ", uid: " + mUid + ", pid: " + mPid + "]";
     }
 }

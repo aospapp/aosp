@@ -17,7 +17,6 @@
 #include <stdio.h>
 
 #include <memory>
-#include <regex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -30,6 +29,7 @@
 #include <android-base/unique_fd.h>
 #include <ziparchive/zip_writer.h>
 
+#include "RegEx.h"
 #include "cmd_api_impl.h"
 #include "command.h"
 #include "environment.h"
@@ -126,19 +126,15 @@ std::optional<uint32_t> PrepareCommand::GetAppUid() {
     PLOG(ERROR) << "failed to run `pm list packages -U`";
     return std::nullopt;
   }
-  std::regex re(R"(package:([\w\.]+)\s+uid:(\d+))");
-  std::sregex_iterator match_it(content.begin(), content.end(), re);
-  std::sregex_iterator match_end;
-  while (match_it != match_end) {
-    std::smatch match = *match_it++;
-    std::string name = match.str(1);
+  auto re = RegEx::Create(R"(package:([\w\.]+)\s+uid:(\d+))");
+  auto match = re->SearchAll(content);
+  while (match->IsValid()) {
+    std::string name = match->GetField(1);
     uint32_t uid;
-    if (!android::base::ParseUint(match.str(2), &uid)) {
-      continue;
-    }
-    if (name == app_name_) {
+    if (name == app_name_ && android::base::ParseUint(match->GetField(2), &uid)) {
       return uid;
     }
+    match->MoveToNextMatch();
   }
   LOG(ERROR) << "failed to find package " << app_name_;
   return std::nullopt;

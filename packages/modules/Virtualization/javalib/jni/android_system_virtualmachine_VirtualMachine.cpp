@@ -16,18 +16,19 @@
 
 #define LOG_TAG "VirtualMachine"
 
-#include <tuple>
-
-#include <log/log.h>
-
 #include <aidl/android/system/virtualizationservice/IVirtualMachine.h>
 #include <android/binder_auto_utils.h>
 #include <android/binder_ibinder_jni.h>
-#include <binder_rpc_unstable.hpp>
-
 #include <jni.h>
+#include <log/log.h>
 
-JNIEXPORT jobject JNICALL android_system_virtualmachine_VirtualMachine_connectToVsockServer(
+#include <binder_rpc_unstable.hpp>
+#include <tuple>
+
+#include "common.h"
+
+extern "C" JNIEXPORT jobject JNICALL
+Java_android_system_virtualmachine_VirtualMachine_nativeConnectToVsockServer(
         JNIEnv* env, [[maybe_unused]] jclass clazz, jobject vmBinder, jint port) {
     using aidl::android::system::virtualizationservice::IVirtualMachine;
     using ndk::ScopedFileDescriptor;
@@ -55,34 +56,12 @@ JNIEXPORT jobject JNICALL android_system_virtualmachine_VirtualMachine_connectTo
         return ret;
     };
 
-    return AIBinder_toJavaBinder(env, RpcPreconnectedClient(requestFunc, &args));
-}
-
-JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
-    JNIEnv* env;
-    if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
-        ALOGE("%s: Failed to get the environment", __FUNCTION__);
-        return JNI_ERR;
-    }
-
-    jclass c = env->FindClass("android/system/virtualmachine/VirtualMachine");
-    if (c == nullptr) {
-        ALOGE("%s: Failed to find class android.system.virtualmachine.VirtualMachine",
-              __FUNCTION__);
-        return JNI_ERR;
-    }
-
-    // Register your class' native methods.
-    static const JNINativeMethod methods[] = {
-            {"nativeConnectToVsockServer", "(Landroid/os/IBinder;I)Landroid/os/IBinder;",
-             reinterpret_cast<void*>(
-                     android_system_virtualmachine_VirtualMachine_connectToVsockServer)},
-    };
-    int rc = env->RegisterNatives(c, methods, sizeof(methods) / sizeof(JNINativeMethod));
-    if (rc != JNI_OK) {
-        ALOGE("%s: Failed to register natives", __FUNCTION__);
-        return rc;
-    }
-
-    return JNI_VERSION_1_6;
+    RpcSessionHandle session;
+    // We need a thread pool to be able to support linkToDeath, or callbacks
+    // (b/268335700). These threads are currently created eagerly, so we don't
+    // want too many. The number 1 is chosen after some discussion, and to match
+    // the server-side default (mMaxThreads on RpcServer).
+    ARpcSession_setMaxIncomingThreads(session.get(), 1);
+    auto client = ARpcSession_setupPreconnectedClient(session.get(), requestFunc, &args);
+    return AIBinder_toJavaBinder(env, client);
 }

@@ -24,12 +24,16 @@ import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
 import static android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
 import static android.view.inputmethod.cts.util.InputMethodVisibilityVerifier.expectImeInvisible;
 import static android.view.inputmethod.cts.util.InputMethodVisibilityVerifier.expectImeVisible;
+import static android.view.inputmethod.cts.util.TestUtils.getOnMainSync;
+import static android.view.inputmethod.cts.util.TestUtils.isInputMethodPickerShown;
 
 import static com.android.cts.mockime.ImeEventStreamTestUtils.editorMatcher;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEventWithKeyValue;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.notExpectEvent;
+import static com.android.cts.mockime.ImeEventStreamTestUtils.showSoftInputMatcher;
 
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
@@ -45,6 +49,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethod;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.cts.util.EndToEndImeTestBase;
 import android.view.inputmethod.cts.util.TestActivity;
@@ -60,7 +65,6 @@ import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.compatibility.common.util.CtsTouchUtils;
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.cts.mockime.ImeEventStream;
 import com.android.cts.mockime.ImeSettings;
@@ -92,6 +96,8 @@ public class ImeInsetsVisibilityTest extends EndToEndImeTestBase {
 
     @Test
     public void testImeVisibilityWhenImeFocusableChildPopup() throws Exception {
+        final InputMethodManager imm = getImmOrFail();
+
         try (MockImeSession imeSession = MockImeSession.create(
                 InstrumentationRegistry.getInstrumentation().getContext(),
                 InstrumentationRegistry.getInstrumentation().getUiAutomation(),
@@ -107,13 +113,11 @@ public class ImeInsetsVisibilityTest extends EndToEndImeTestBase {
             notExpectEvent(stream, editorMatcher("onStartInputView", marker), TIMEOUT);
             expectImeInvisible(TIMEOUT);
 
-            // Emulate tap event
-            CtsTouchUtils.emulateTapOnViewCenter(
-                    InstrumentationRegistry.getInstrumentation(), null, editText);
-            TestUtils.waitOnMainUntil(() -> editText.hasFocus(), TIMEOUT);
+            assertTrue("showSoftInput must success if the View has IME focus", getOnMainSync(
+                    () -> editText.requestFocus() && imm.showSoftInput(editText, 0)));
 
             expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT);
-            expectEvent(stream, event -> "showSoftInput".equals(event.getEventName()), TIMEOUT);
+            expectEvent(stream, showSoftInputMatcher(InputMethod.SHOW_EXPLICIT), TIMEOUT);
             expectEvent(stream, editorMatcher("onStartInputView", marker), TIMEOUT);
             expectEventWithKeyValue(stream, "onWindowVisibilityChanged", "visible",
                     View.VISIBLE, TIMEOUT);
@@ -139,6 +143,8 @@ public class ImeInsetsVisibilityTest extends EndToEndImeTestBase {
 
     @Test
     public void testImeVisibilityWhenImeFocusableGravityBottomChildPopup() throws Exception {
+        final InputMethodManager imm = getImmOrFail();
+
         try (MockImeSession imeSession = MockImeSession.create(
                 InstrumentationRegistry.getInstrumentation().getContext(),
                 InstrumentationRegistry.getInstrumentation().getUiAutomation(),
@@ -154,10 +160,11 @@ public class ImeInsetsVisibilityTest extends EndToEndImeTestBase {
             notExpectEvent(stream, editorMatcher("onStartInputView", marker), TIMEOUT);
             expectImeInvisible(TIMEOUT);
 
-            // Emulate tap event
-            CtsTouchUtils.emulateTapOnViewCenter(
-                    InstrumentationRegistry.getInstrumentation(), null, editText);
-            TestUtils.waitOnMainUntil(editText::hasFocus, TIMEOUT);
+            assertTrue("showSoftInput must success if the View has IME focus", getOnMainSync(
+                    () -> editText.requestFocus() && imm.showSoftInput(editText, 0)));
+
+            expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT);
+            expectEvent(stream, showSoftInputMatcher(InputMethod.SHOW_EXPLICIT), TIMEOUT);
             expectEvent(stream, editorMatcher("onStartInputView", marker), TIMEOUT);
             PollingCheck.check("Ime insets should be visible", TIMEOUT,
                     () -> editText.getRootWindowInsets().isVisible(WindowInsets.Type.ime()));
@@ -184,6 +191,8 @@ public class ImeInsetsVisibilityTest extends EndToEndImeTestBase {
 
     @Test
     public void testImeVisibilityWhenImeFocusableChildPopupOverlaps() throws Exception {
+        final InputMethodManager imm = getImmOrFail();
+
         try (MockImeSession imeSession = MockImeSession.create(
                 InstrumentationRegistry.getInstrumentation().getContext(),
                 InstrumentationRegistry.getInstrumentation().getUiAutomation(),
@@ -199,10 +208,11 @@ public class ImeInsetsVisibilityTest extends EndToEndImeTestBase {
             notExpectEvent(stream, editorMatcher("onStartInputView", marker), TIMEOUT);
             expectImeInvisible(TIMEOUT);
 
-            // Emulate tap event
-            CtsTouchUtils.emulateTapOnViewCenter(
-                    InstrumentationRegistry.getInstrumentation(), null, editText);
-            TestUtils.waitOnMainUntil(editText::hasFocus, TIMEOUT);
+            assertTrue("showSoftInput must success if the View has IME focus", getOnMainSync(
+                    () -> editText.requestFocus() && imm.showSoftInput(editText, 0)));
+
+            expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT);
+            expectEvent(stream, showSoftInputMatcher(InputMethod.SHOW_EXPLICIT), TIMEOUT);
             expectEvent(stream, editorMatcher("onStartInputView", marker), TIMEOUT);
             PollingCheck.check("Ime insets should be visible", TIMEOUT,
                     () -> editText.getRootWindowInsets().isVisible(WindowInsets.Type.ime()));
@@ -230,8 +240,7 @@ public class ImeInsetsVisibilityTest extends EndToEndImeTestBase {
     @AppModeFull(reason = "Instant apps cannot rely on ACTION_CLOSE_SYSTEM_DIALOGS")
     @Test
     public void testEditTextPositionAndPersistWhenAboveImeWindowShown() throws Exception {
-        final InputMethodManager imm = InstrumentationRegistry.getInstrumentation().getContext()
-                .getSystemService(InputMethodManager.class);
+        final InputMethodManager imm = getImmOrFail();
 
         try (MockImeSession imeSession = MockImeSession.create(
                 InstrumentationRegistry.getInstrumentation().getContext(),
@@ -255,13 +264,11 @@ public class ImeInsetsVisibilityTest extends EndToEndImeTestBase {
             notExpectEvent(stream, editorMatcher("onStartInputView", marker), TIMEOUT);
             expectImeInvisible(TIMEOUT);
 
-            // Emulate tap event to show soft-keyboard
-            CtsTouchUtils.emulateTapOnViewCenter(
-                    InstrumentationRegistry.getInstrumentation(), null, editText);
-            TestUtils.waitOnMainUntil(() -> editText.hasFocus(), TIMEOUT);
+            assertTrue("showSoftInput must success if the View has IME focus", getOnMainSync(
+                    () -> editText.requestFocus() && imm.showSoftInput(editText, 0)));
 
             expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT);
-            expectEvent(stream, event -> "showSoftInput".equals(event.getEventName()), TIMEOUT);
+            expectEvent(stream, showSoftInputMatcher(InputMethod.SHOW_EXPLICIT), TIMEOUT);
             expectEvent(stream, editorMatcher("onStartInputView", marker), TIMEOUT);
             expectEventWithKeyValue(stream, "onWindowVisibilityChanged", "visible",
                     View.VISIBLE, TIMEOUT);
@@ -288,7 +295,7 @@ public class ImeInsetsVisibilityTest extends EndToEndImeTestBase {
             }
 
             imm.showInputMethodPicker();
-            TestUtils.waitOnMainUntil(() -> imm.isInputMethodPickerShown() && editText.isLaidOut(),
+            TestUtils.waitOnMainUntil(() -> isInputMethodPickerShown(imm) && editText.isLaidOut(),
                     TIMEOUT, "InputMethod picker should be shown");
             lastEditTextPos = new Point(curEditPos);
             curEditPos = getLocationOnScreenForView(editText);
@@ -300,7 +307,7 @@ public class ImeInsetsVisibilityTest extends EndToEndImeTestBase {
 
             InstrumentationRegistry.getInstrumentation().getContext().sendBroadcast(
                     new Intent(ACTION_CLOSE_SYSTEM_DIALOGS).setFlags(FLAG_RECEIVER_FOREGROUND));
-            TestUtils.waitOnMainUntil(() -> !imm.isInputMethodPickerShown(), TIMEOUT,
+            TestUtils.waitOnMainUntil(() -> !isInputMethodPickerShown(imm), TIMEOUT,
                     "InputMethod picker should be closed");
         }
     }
@@ -491,5 +498,13 @@ public class ImeInsetsVisibilityTest extends EndToEndImeTestBase {
             activity.getSystemService(WindowManager.class).addView(childViewRoot, attrs);
             return new ChildWindowHolder(childViewRoot);
         });
+    }
+
+    @NonNull
+    private static InputMethodManager getImmOrFail() {
+        final InputMethodManager imm = InstrumentationRegistry.getInstrumentation()
+                .getTargetContext().getSystemService(InputMethodManager.class);
+        assertNotNull(imm);
+        return imm;
     }
 }

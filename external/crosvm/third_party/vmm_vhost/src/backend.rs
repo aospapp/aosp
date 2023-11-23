@@ -9,13 +9,14 @@
 
 //! Common traits and structs for vhost-user backend drivers.
 
-use base::{RawDescriptor, INVALID_DESCRIPTOR};
 use std::cell::RefCell;
 use std::sync::RwLock;
 
 use base::Event;
+use base::RawDescriptor;
+use base::INVALID_DESCRIPTOR;
 
-use super::Result;
+use crate::Result;
 
 /// Maximum number of memory regions supported.
 pub const VHOST_MAX_MEMORY_REGIONS: usize = 255;

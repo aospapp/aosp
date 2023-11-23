@@ -15,5 +15,39 @@
 
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
-    default_visibility: [":__subpackages__"],
+}
+
+android_test {
+    name: "ModulesUtilsTests",
+
+    sdk_version: "module_current",
+    min_sdk_version: "29",
+
+    srcs: [
+        "com/android/internal/testing/*.java",
+        "com/android/internal/util/*.java",
+        "com/android/modules/testing/utils/*.java",
+        "com/android/modules/utils/*.java",
+    ],
+
+    static_libs: [
+        "androidx.test.rules",
+        "androidx.test.runner",
+        "modules-testing-flaggedapi-rule",
+        "modules-utils-backgroundthread",
+        "modules-utils-bytesmatcher",
+        "modules-utils-handlerexecutor",
+        "modules-utils-list-slice",
+        "modules-utils-shell-command-handler",
+        "modules-utils-statemachine",
+        "modules-utils-synchronous-result-receiver",
+    ],
+
+    libs: [
+        "android.test.base",
+        "android.test.runner",
+        "framework-configinfrastructure",
+    ],
+
+    test_suites: ["general-tests"],
 }

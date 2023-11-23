@@ -24,7 +24,7 @@ import java.lang.invoke.MethodHandle
 /**
  * Detects injectable inputs to an expression language interpreter which may lead to remote code execution.
  */
-@Suppress("unused_parameter")
+@Suppress("unused_parameter", "unused")
 object ExpressionLanguageInjection {
 
     /**
@@ -44,6 +44,16 @@ object ExpressionLanguageInjection {
             targetClassName = "javax.el.ExpressionFactory",
             targetMethod = "createMethodExpression",
         ),
+        MethodHook(
+            type = HookType.BEFORE,
+            targetClassName = "jakarta.el.ExpressionFactory",
+            targetMethod = "createValueExpression",
+        ),
+        MethodHook(
+            type = HookType.BEFORE,
+            targetClassName = "jakarta.el.ExpressionFactory",
+            targetMethod = "createMethodExpression",
+        ),
     )
     @JvmStatic
     fun hookElExpressionFactory(
@@ -52,10 +62,8 @@ object ExpressionLanguageInjection {
         arguments: Array<Any>,
         hookId: Int
     ) {
-        if (arguments[1] is String) {
-            val expression = arguments[1] as String
-            Jazzer.guideTowardsContainment(expression, EXPRESSION_LANGUAGE_ATTACK, hookId)
-        }
+        val expression = arguments[1] as? String ?: return
+        Jazzer.guideTowardsContainment(expression, EXPRESSION_LANGUAGE_ATTACK, hookId)
     }
 
     // With default configurations the argument to

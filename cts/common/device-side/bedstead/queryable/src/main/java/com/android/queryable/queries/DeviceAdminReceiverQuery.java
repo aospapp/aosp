@@ -25,8 +25,9 @@ import com.android.queryable.info.DeviceAdminReceiverInfo;
 public interface DeviceAdminReceiverQuery<E extends Queryable>
         extends Query<DeviceAdminReceiverInfo>  {
 
-    static DeviceAdminReceiverQuery<DeviceAdminReceiverQuery<?>> deviceAdminReceiver() {
-        return new DeviceAdminReceiverQueryHelper<>();
+    /** Queries a {@link DeviceAdminReceiver}. */
+    static DeviceAdminReceiverQueryHelper.DeviceAdminReceiverQueryBase deviceAdminReceiver() {
+        return new DeviceAdminReceiverQueryHelper.DeviceAdminReceiverQueryBase();
     }
 
     BroadcastReceiverQuery<E> broadcastReceiver();

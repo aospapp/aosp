@@ -18,6 +18,8 @@ package android.bluetooth.cts;
 
 import static android.Manifest.permission.BLUETOOTH_CONNECT;
 
+import static org.junit.Assert.assertTrue;
+
 import android.app.UiAutomation;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -28,14 +30,24 @@ import android.bluetooth.BluetoothGattServerCallback;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
-import android.content.pm.PackageManager;
-import android.test.AndroidTestCase;
+import android.content.Context;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.CddTest;
+
+import org.junit.After;
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.UUID;
 
-public class BluetoothGattServerCallbackTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class BluetoothGattServerCallbackTest {
+
     private final BluetoothGattServerCallback mCallbacks = new BluetoothGattServerCallback() {
         @Override
         public void onConnectionStateChange(BluetoothDevice device, int status, int newState) {
@@ -92,7 +104,7 @@ public class BluetoothGattServerCallbackTest extends AndroidTestCase {
     };
     private final UUID TEST_UUID = UUID.fromString("0000110a-0000-1000-8000-00805f9b34fb");
     private final byte[] mBytes = new byte[]{};
-    private boolean mHasBluetooth;
+    private Context mContext;
     private BluetoothDevice mBluetoothDevice;
     private BluetoothAdapter mAdapter;
     private UiAutomation mUiAutomation;
@@ -100,13 +112,13 @@ public class BluetoothGattServerCallbackTest extends AndroidTestCase {
     private BluetoothGattDescriptor mBluetoothGattDescriptor;
     private BluetoothGattCharacteristic mBluetoothGattCharacteristic;
 
-    @Override
+    @Before
     public void setUp() throws Exception {
-        super.setUp();
-        mHasBluetooth = getContext().getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_BLUETOOTH);
-        BluetoothManager manager = getContext().getSystemService(BluetoothManager.class);
-        if (!mHasBluetooth) return;
+        mContext = InstrumentationRegistry.getInstrumentation().getContext();
+
+        Assume.assumeTrue(TestUtils.isBleSupported(mContext));
+
+        BluetoothManager manager = mContext.getSystemService(BluetoothManager.class);
         mUiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
         mUiAutomation.adoptShellPermissionIdentity(BLUETOOTH_CONNECT);
         mAdapter = manager.getAdapter();
@@ -118,21 +130,20 @@ public class BluetoothGattServerCallbackTest extends AndroidTestCase {
         mBluetoothGattDescriptor = new BluetoothGattDescriptor(TEST_UUID, 0x11);
     }
 
-    @Override
+    @After
     public void tearDown() throws Exception {
-        super.tearDown();
-        if (mHasBluetooth) {
-            mUiAutomation.adoptShellPermissionIdentity(BLUETOOTH_CONNECT);
-            assertTrue(BTAdapterUtils.disableAdapter(mAdapter, mContext));
-            mAdapter = null;
-            mBluetoothDevice = null;
-            mBluetoothGattService = null;
-            mBluetoothGattCharacteristic = null;
-            mBluetoothGattDescriptor = null;
+        mAdapter = null;
+        mBluetoothDevice = null;
+        mBluetoothGattService = null;
+        mBluetoothGattCharacteristic = null;
+        mBluetoothGattDescriptor = null;
+        if (mUiAutomation != null) {
             mUiAutomation.dropShellPermissionIdentity();
         }
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1", "7.4.3/C-3-2"})
+    @Test
     public void test_allMethods() {
         mCallbacks.onConnectionStateChange(mBluetoothDevice, BluetoothProfile.STATE_CONNECTED,
                 BluetoothProfile.STATE_CONNECTED);

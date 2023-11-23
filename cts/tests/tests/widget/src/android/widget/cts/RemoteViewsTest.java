@@ -628,6 +628,8 @@ public class RemoteViewsTest {
 
         mRemoteViews.setBitmap(R.id.remoteView_absolute, "setImageBitmap", bitmap);
         assertThrowsOnReapply(ActionException.class);
+
+        assertEquals(bitmap.getAllocationByteCount(), mRemoteViews.estimateMemoryUsage());
     }
 
     @Test
@@ -825,7 +827,7 @@ public class RemoteViewsTest {
 
         Intent intent = new Intent(Intent.ACTION_VIEW, uri);
         PendingIntent pendingIntent =
-                PendingIntent.getActivity(mContext, 0, intent, PendingIntent.FLAG_MUTABLE);
+                PendingIntent.getActivity(mContext, 0, intent, PendingIntent.FLAG_IMMUTABLE);
         mRemoteViews.setOnClickPendingIntent(R.id.remoteView_image, pendingIntent);
         mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
         mActivityRule.runOnUiThread(() -> view.performClick());
@@ -839,7 +841,8 @@ public class RemoteViewsTest {
     public void testSetOnCheckedChangeResponse() throws Throwable {
         String action = "my-checked-change-action";
         MockBroadcastReceiver receiver =  new MockBroadcastReceiver();
-        mContext.registerReceiver(receiver, new IntentFilter(action));
+        mContext.registerReceiver(receiver, new IntentFilter(action),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
 
         Intent intent = new Intent(action).setPackage(mContext.getPackageName());
         PendingIntent pendingIntent =
@@ -1989,8 +1992,9 @@ public class RemoteViewsTest {
                 actual == null ? null : actual.toString());
     }
 
-    private <T extends Throwable>  void assertThrowsOnReapply(Class<T> klass) throws Throwable {
-        assertThrows(klass, () -> mRemoteViews.reapply(mContext, mResult));
+    private <T extends Throwable> void assertThrowsOnReapply(Class<T> klass) throws Throwable {
+        assertThrows(klass,
+                () -> mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult)));
     }
 
     // Change the night mode and return the previous mode

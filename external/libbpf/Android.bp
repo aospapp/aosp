@@ -22,12 +22,10 @@ license {
     visibility: [":__subpackages__"],
     license_kinds: [
         "SPDX-license-identifier-BSD-2-Clause",
-        "SPDX-license-identifier-GPL-2.0",
-        "SPDX-license-identifier-LGPL-2.1-only",
+        "SPDX-license-identifier-Linux-syscall-note",
     ],
     license_text: [
         "LICENSE.BSD-2-Clause",
-        "LICENSE.LGPL-2.1",
     ],
 }
 

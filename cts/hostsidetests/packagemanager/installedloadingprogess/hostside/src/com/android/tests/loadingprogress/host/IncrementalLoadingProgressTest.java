@@ -16,9 +16,9 @@
 
 package com.android.tests.loadingprogress.host;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
@@ -40,7 +40,9 @@ import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -172,29 +174,27 @@ public class IncrementalLoadingProgressTest extends BaseHostJUnit4Test {
         assertTrue(loadingPercentage > 0 && loadingPercentage < 100);
     }
 
-    @LargeTest
-    @Test
-    public void testLoadingProgressNotInDumpsysWhenFullyLoaded() throws Exception {
-        // Trigger full download
-        assertTrue(runDeviceTests(DEVICE_TEST_PACKAGE_NAME, TEST_CLASS_NAME,
-                "testReadAllBytes"));
-        // Wait for loading progress to update
-        RunUtil.getDefault().sleep(WAIT_FOR_LOADING_PROGRESS_UPDATE_MS);
-        // Check that no more showing of "loadingProgress" in dumpsys for this package
-        assertNull(getLoadingProgressFromDumpsys());
-        // Wait a bit before reboot, allowing the package setting info to be written to disk.
-        RunUtil.getDefault().sleep(PACKAGE_SETTING_WRITE_SLEEP_MS);
-        getDevice().reboot();
-        assertNull(getLoadingProgressFromDumpsys());
+    private String getLoadingProgressFromDumpsys() throws Exception {
+        return getStringFromDumpsys("loadingProgress=(\\d+)%");
     }
 
-    private String getLoadingProgressFromDumpsys() throws Exception {
+    private long getLoadingCompletedTimeSecondsFromDumpsys() throws Exception {
+        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String dateString = getStringFromDumpsys("loadingCompletedTime=(.*)");
+        if (dateString == null) {
+            return -1;
+        }
+        Date date = df.parse(dateString);
+        return Math.floorDiv(date.getTime(), 1000);
+    }
+
+    private String getStringFromDumpsys(String regex) throws Exception {
         final CollectingOutputReceiver receiver = new CollectingOutputReceiver();
         getDevice().executeShellCommand("dumpsys package " + TEST_APP_PACKAGE_NAME,
                 receiver);
         final String output = receiver.getOutput();
         // Expecting output like "loadingProgress=50%"
-        final Matcher matcher = Pattern.compile("loadingProgress=(\\d+)%").matcher(output);
+        final Matcher matcher = Pattern.compile(regex).matcher(output);
         if (!matcher.find() || matcher.groupCount() < 1) {
             return null;
         }

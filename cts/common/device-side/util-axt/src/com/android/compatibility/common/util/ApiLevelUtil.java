@@ -31,36 +31,46 @@ public class ApiLevelUtil {
     private static final int FIRST_API_LEVEL =
             SystemProperties.getInt("ro.product.first_api_level", 0);
 
+    private static void verifyVersion(int version) {
+        if (version == Build.VERSION_CODES.CUR_DEVELOPMENT) {
+            throw new RuntimeException("Invalid version: " + version);
+        }
+    }
+
     public static boolean isBefore(int version) {
+        verifyVersion(version);
         return Build.VERSION.SDK_INT < version;
     }
 
     public static boolean isBefore(String version) {
-        return Build.VERSION.SDK_INT < resolveVersionString(version);
+        return isBefore(resolveVersionString(version));
     }
 
     public static boolean isAfter(int version) {
+        verifyVersion(version);
         return Build.VERSION.SDK_INT > version;
     }
 
     public static boolean isAfter(String version) {
-        return Build.VERSION.SDK_INT > resolveVersionString(version);
+        return isAfter(resolveVersionString(version));
     }
 
     public static boolean isAtLeast(int version) {
+        verifyVersion(version);
         return Build.VERSION.SDK_INT >= version;
     }
 
     public static boolean isAtLeast(String version) {
-        return Build.VERSION.SDK_INT >= resolveVersionString(version);
+        return isAtLeast(resolveVersionString(version));
     }
 
     public static boolean isAtMost(int version) {
+        verifyVersion(version);
         return Build.VERSION.SDK_INT <= version;
     }
 
     public static boolean isAtMost(String version) {
-        return Build.VERSION.SDK_INT <= resolveVersionString(version);
+        return isAtMost(resolveVersionString(version));
     }
 
     public static int getApiLevel() {
@@ -68,19 +78,21 @@ public class ApiLevelUtil {
     }
 
     public static boolean isFirstApiBefore(int version) {
+        verifyVersion(version);
         return FIRST_API_LEVEL < version;
     }
 
     public static boolean isFirstApiBefore(String version) {
-        return FIRST_API_LEVEL < resolveVersionString(version);
+        return isFirstApiBefore(resolveVersionString(version));
     }
 
     public static boolean isFirstApiAfter(int version) {
+        verifyVersion(version);
         return FIRST_API_LEVEL > version;
     }
 
     public static boolean isFirstApiAfter(String version) {
-        return FIRST_API_LEVEL > resolveVersionString(version);
+        return isFirstApiAfter(resolveVersionString(version));
     }
 
     public static boolean isFirstApiAtLeast(int version) {
@@ -88,7 +100,7 @@ public class ApiLevelUtil {
     }
 
     public static boolean isFirstApiAtLeast(String version) {
-        return FIRST_API_LEVEL >= resolveVersionString(version);
+        return isFirstApiAtLeast(resolveVersionString(version));
     }
 
     public static boolean isFirstApiAtMost(int version) {
@@ -96,7 +108,7 @@ public class ApiLevelUtil {
     }
 
     public static boolean isFirstApiAtMost(String version) {
-        return FIRST_API_LEVEL <= resolveVersionString(version);
+        return isFirstApiAtMost(resolveVersionString(version));
     }
 
     public static int getFirstApiLevel() {

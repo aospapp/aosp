@@ -32,15 +32,22 @@ aidl_interface {
         java: {
             platform_apis: true,
         },
-        ndk: {
-            vndk: {
-                enabled: true,
-            },
-        },
         cpp: {
             enabled: true,
         },
     },
     host_supported: true,
-    versions: ["1"],
+    versions_with_info: [
+        {
+            version: "1",
+            imports: [],
+        },
+        {
+            version: "2",
+            imports: [],
+        },
+
+    ],
+    frozen: true,
+
 }

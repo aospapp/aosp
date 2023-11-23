@@ -2,14 +2,17 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+
 import array
 import logging
-import mox
 import multiprocessing
 import struct
 import unittest
+from unittest.mock import patch
 
 import common
+
 from autotest_lib.client.cros.cellular.mbim_compliance import mbim_channel
 from autotest_lib.client.cros.cellular.mbim_compliance import mbim_errors
 
@@ -25,16 +28,11 @@ class MBIMChannelTestCase(unittest.TestCase):
         self._in_buffer_size = 100
 
         self._setup_mock_subprocess()
-        self._mox = mox.Mox()
 
-        # Reach into |MBIMChannel| and mock out the request queue, so we can set
-        # expectations on it.
-        # |multiprocessing.Queue| is actually a function that returns some
-        # hidden |multiprocessing.queues.Queue| class. We'll grab the class from
-        # a temporary object so we can mock it.
-        some_queue = multiprocessing.Queue()
-        queue_class = some_queue.__class__
-        self._mock_request_queue = self._mox.CreateMock(queue_class)
+        patcher = patch('multiprocessing.Queue')
+        self._mock_request_queue = patcher.start()
+        self.addCleanup(patcher.stop)
+
         self._channel._request_queue = self._mock_request_queue
 
         # On the other hand, just grab the real response queue.
@@ -47,7 +45,6 @@ class MBIMChannelTestCase(unittest.TestCase):
 
     def tearDown(self):
         self._channel.close()
-        self._subprocess_mox.VerifyAll()
 
 
     def _setup_mock_subprocess(self):
@@ -58,22 +55,17 @@ class MBIMChannelTestCase(unittest.TestCase):
         |tearDown|.
 
         """
-        self._subprocess_mox = mox.Mox()
-        mock_process = self._subprocess_mox.CreateMock(multiprocessing.Process)
-        mock_process(target=mox.IgnoreArg(),
-                     args=mox.IgnoreArg()).AndReturn(mock_process)
-        mock_process.start()
+        patcher = patch.object(multiprocessing, 'Process')
+        mock_process = patcher.start()
+        self.addCleanup(patcher.stop)
+        mock_process.return_value = mock_process
 
         # Each API call into MBIMChannel results in an aliveness ping to the
         # subprocess.
         # Finally, when |self._channel| is destructed, it will attempt to
         # terminate the |mock_process|, with increasingly drastic actions.
-        mock_process.is_alive().MultipleTimes().AndReturn(True)
-        mock_process.join(mox.IgnoreArg())
-        mock_process.is_alive().AndReturn(True)
-        mock_process.terminate()
+        mock_process.is_alive.return_value = True
 
-        self._subprocess_mox.ReplayAll()
         self._channel = mbim_channel.MBIMChannel(
                 self._device,
                 self._interface_number,
@@ -84,7 +76,7 @@ class MBIMChannelTestCase(unittest.TestCase):
 
     def test_creation(self):
         """ A trivial test that we mocked out the |Process| class correctly. """
-        pass
+        self._setup_mock_subprocess()
 
 
     def test_unfragmented_packet_successful(self):
@@ -264,26 +256,26 @@ class MBIMChannelTestCase(unittest.TestCase):
         response = self._get_unfragmented_packet(1)
         notification_1 = self._get_fragment(0, 1, 0)
         self._response_queue.put_nowait(notification_1)
-        self._mock_request_queue.qsize().AndReturn(1)
-        self._mock_request_queue.empty().AndReturn(False)
-        self._mock_request_queue.empty().WithSideEffects(
-                self._response_queue.put_nowait(response)).AndReturn(True)
-        self._mox.ReplayAll()
+        self._mock_request_queue.qsize.return_value = 1
+        self._mock_request_queue.empty.return_value = False
+
+        def put_response():
+            """Side effect for mock"""
+            self._response_queue.put_nowait(response)
+
+        self._mock_request_queue.empty.side_effect = [None, put_response]
         self._channel.flush()
-        self._mox.VerifyAll()
         self.assertEqual(0, self._response_queue.qsize())
 
 
     def test_flush_failed(self):
         """ Test the case when the request queue fails to empty out. """
         packet = self._get_unfragmented_packet(1)
-        self._mock_request_queue.qsize().AndReturn(1)
-        self._mock_request_queue.empty().MultipleTimes().AndReturn(False)
-        self._mox.ReplayAll()
+        self._mock_request_queue.qsize.return_value = 1
+        self._mock_request_queue.empty.return_value = False
         self.assertRaises(
                 mbim_errors.MBIMComplianceChannelError,
                 self._channel.flush)
-        self._mox.VerifyAll()
 
 
     def _queue_responses(self, responses):
@@ -303,14 +295,14 @@ class MBIMChannelTestCase(unittest.TestCase):
         """
 
         last_request = requests[len(requests) - 1]
-        earlier_requests = requests[:len(requests) - 1]
-        for request in earlier_requests:
-            self._mock_request_queue.put_nowait(request)
         if responses:
-            self._mock_request_queue.put_nowait(last_request).WithSideEffects(
-                    lambda _: self._queue_responses(responses))
-        else:
-            self._mock_request_queue.put_nowait(last_request)
+
+            def put_if_last_request(msg):
+                """Side effect for mock"""
+                if msg == last_request:
+                    self._queue_responses(responses)
+
+            self._mock_request_queue.put_nowait.side_effect = put_if_last_request
 
 
     def _verify_transaction_successful(self, requests, responses):
@@ -320,10 +312,8 @@ class MBIMChannelTestCase(unittest.TestCase):
         @param requests: List of packets sent.
         @param responses: List of packets expected back.
         """
-        self._mox.ReplayAll()
         self.assertEqual(responses,
                          self._channel.bidirectional_transaction(*requests))
-        self._mox.VerifyAll()
 
 
     def _verify_transaction_failed(self, requests):
@@ -333,11 +323,9 @@ class MBIMChannelTestCase(unittest.TestCase):
         @param requests: List of packets sent.
 
         """
-        self._mox.ReplayAll()
         self.assertRaises(mbim_errors.MBIMComplianceChannelError,
                           self._channel.bidirectional_transaction,
                           *requests)
-        self._mox.VerifyAll()
 
 
     def _get_unfragmented_packet(self, transaction_id):
@@ -371,7 +359,7 @@ class MBIMChannelTestCase(unittest.TestCase):
 
     def _create_buffer(self, size):
         """ Create an array of the give size initialized to 0x00. """
-        return array.array('B', '\x00' * size)
+        return array.array('B', b'\x00' * size)
 
 
 if __name__ == '__main__':

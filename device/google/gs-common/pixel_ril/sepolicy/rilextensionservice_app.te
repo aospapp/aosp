@@ -1,0 +1,11 @@
+type rilextensionservice_app, domain;
+app_domain(rilextensionservice_app)
+
+allow rilextensionservice_app app_api_service:service_manager find;
+allow rilextensionservice_app hal_ril_ext_service:service_manager find;
+allow rilextensionservice_app radio_service:service_manager find;
+
+binder_call(rilextensionservice_app, rild)
+
+set_prop(rilextensionservice_app, vendor_rild_prop)
+set_prop(rilextensionservice_app, radio_prop)

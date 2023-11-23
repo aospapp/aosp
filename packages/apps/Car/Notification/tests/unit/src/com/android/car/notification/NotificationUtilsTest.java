@@ -22,23 +22,31 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import android.app.ActivityManager;
 import android.app.Notification;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.Process;
+import android.os.UserHandle;
+import android.os.UserManager;
 import android.service.notification.StatusBarNotification;
 import android.testing.TestableContext;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.dx.mockito.inline.extended.ExtendedMockito;
+
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.MockitoSession;
+import org.mockito.quality.Strictness;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -49,20 +57,36 @@ public class NotificationUtilsTest {
     public final TestableContext mContext = new TestableContext(
             InstrumentationRegistry.getInstrumentation().getTargetContext());
 
+    private MockitoSession mSession;
     private AlertEntry mAlertEntry;
 
     @Mock
     private StatusBarNotification mStatusBarNotification;
     @Mock
     private PackageManager mPackageManager;
+    @Mock
+    private UserManager mUserManager;
 
     @Before
     public void setup() {
-        MockitoAnnotations.initMocks(this);
+        mSession = ExtendedMockito.mockitoSession()
+                .initMocks(this)
+                .spyStatic(Process.class)
+                .strictness(Strictness.LENIENT)
+                .startMocking();
         when(mStatusBarNotification.getKey()).thenReturn("TEST_KEY");
         when(mStatusBarNotification.getPackageName()).thenReturn("TEST_PACKAGE_NAME");
         mAlertEntry = new AlertEntry(mStatusBarNotification);
         mContext.setMockPackageManager(mPackageManager);
+        mContext.addMockSystemService(UserManager.class, mUserManager);
+    }
+
+    @After
+    public void tearDown() {
+        if (mSession != null) {
+            mSession.finishMocking();
+            mSession = null;
+        }
     }
 
     @Test
@@ -187,50 +211,6 @@ public class NotificationUtilsTest {
                 .isFalse();
     }
 
-
-    @Test
-    public void onShouldUseLauncherIcon_noExtras_returnsDefault()
-            throws PackageManager.NameNotFoundException {
-        setApplicationInfo(/* signedWithPlatformKey= */ false, /* isSystemApp= */
-                true, /* isPrivilegedApp= */ false);
-        Notification notification = new Notification();
-        notification.extras = new Bundle();
-        when(mStatusBarNotification.getNotification()).thenReturn(notification);
-
-        assertThat(NotificationUtils.shouldUseLauncherIcon(mContext, mStatusBarNotification))
-                .isTrue();
-    }
-
-    @Test
-    public void onShouldUseLauncherIcon_notSystemApp_returnsDefault()
-            throws PackageManager.NameNotFoundException {
-        setApplicationInfo(/* signedWithPlatformKey= */ false, /* isSystemApp= */
-                false, /* isPrivilegedApp= */ false);
-        Notification notification = new Notification();
-        notification.extras = new Bundle();
-        notification.extras.putBoolean(
-                NotificationUtils.EXTRA_USE_LAUNCHER_ICON, false);
-        when(mStatusBarNotification.getNotification()).thenReturn(notification);
-
-        assertThat(NotificationUtils.shouldUseLauncherIcon(mContext, mStatusBarNotification))
-                .isTrue();
-    }
-
-    @Test
-    public void onShouldUseLauncherIcon_systemApp_returnsExtra()
-            throws PackageManager.NameNotFoundException {
-        setApplicationInfo(/* signedWithPlatformKey= */ false, /* isSystemApp= */
-                true, /* isPrivilegedApp= */ false);
-        Notification notification = new Notification();
-        notification.extras = new Bundle();
-        notification.extras.putBoolean(
-                NotificationUtils.EXTRA_USE_LAUNCHER_ICON, false);
-        when(mStatusBarNotification.getNotification()).thenReturn(notification);
-
-        assertThat(NotificationUtils.shouldUseLauncherIcon(mContext, mStatusBarNotification))
-                .isFalse();
-    }
-
     @Test
     public void onGetNotificationViewType_notificationIsARecognizedType_returnsCorrectType() {
         Map<String, CarNotificationTypeItem> typeMap = new HashMap<>();
@@ -273,6 +253,42 @@ public class NotificationUtilsTest {
 
         assertThat(NotificationUtils.getNotificationViewType(alertEntry)).isEqualTo(
                 CarNotificationTypeItem.BASIC);
+    }
+
+    @Test
+    public void getCurrentUser_visibleBackgroundUsersNotSupported_returnsPrimaryUser() {
+        when(mUserManager.isVisibleBackgroundUsersSupported()).thenReturn(false);
+
+        assertThat(NotificationUtils.getCurrentUser(mContext)).isEqualTo(
+                ActivityManager.getCurrentUser());
+    }
+
+    @Test
+    public void getCurrentUser_systemUser_returnsPrimaryUser() {
+        when(mUserManager.isVisibleBackgroundUsersSupported()).thenReturn(true);
+        when(Process.myUserHandle()).thenReturn(UserHandle.SYSTEM);
+
+        assertThat(NotificationUtils.getCurrentUser(mContext)).isEqualTo(
+                ActivityManager.getCurrentUser());
+    }
+
+    @Test
+    public void getCurrentUser_primaryUser_returnsPrimaryUser() {
+        when(mUserManager.isVisibleBackgroundUsersSupported()).thenReturn(true);
+        when(Process.myUserHandle()).thenReturn(UserHandle.of(ActivityManager.getCurrentUser()));
+
+        assertThat(NotificationUtils.getCurrentUser(mContext)).isEqualTo(
+                ActivityManager.getCurrentUser());
+    }
+
+    @Test
+    public void getCurrentUser_secondaryUser_returnsSecondaryUser() {
+        UserHandle myUserHandle = UserHandle.of(1000);
+        when(mUserManager.isVisibleBackgroundUsersSupported()).thenReturn(true);
+        when(Process.myUserHandle()).thenReturn(myUserHandle);
+
+        assertThat(NotificationUtils.getCurrentUser(mContext)).isEqualTo(
+                myUserHandle.getIdentifier());
     }
 
     private void setApplicationInfo(boolean signedWithPlatformKey, boolean isSystemApp,

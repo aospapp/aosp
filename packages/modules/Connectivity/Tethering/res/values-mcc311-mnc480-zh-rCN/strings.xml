@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="no_upstream_notification_title" msgid="611650570559011140">"共享网络未连接到互联网"</string>
-    <string name="no_upstream_notification_message" msgid="6508394877641864863">"设备无法连接"</string>
-    <string name="no_upstream_notification_disable_button" msgid="7609346639290990508">"关闭网络共享"</string>
-    <string name="upstream_roaming_notification_title" msgid="6032901176124830787">"热点或网络共享已开启"</string>
-    <string name="upstream_roaming_notification_message" msgid="7599056263326217523">"漫游时可能会产生额外的费用"</string>
+    <string name="no_upstream_notification_title" msgid="5897815458155858594">"共享网络未连接到互联网"</string>
+    <string name="no_upstream_notification_message" msgid="9037716118606459874">"设备无法连接"</string>
+    <string name="no_upstream_notification_disable_button" msgid="5284024068281565456">"关闭网络共享"</string>
+    <string name="upstream_roaming_notification_title" msgid="186331286017243006">"热点或网络共享已开启"</string>
+    <string name="upstream_roaming_notification_message" msgid="7692641323940316538">"漫游时可能会产生额外的费用"</string>
 </resources>

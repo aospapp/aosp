@@ -107,7 +107,10 @@ class ControlData(object):
         self.attributes = set()
         self.max_result_size_KB = DEFAULT_MAX_RESULT_SIZE_KB
         self.priority = priorities.Priority.DEFAULT
-        self.fast = False
+        self.extended_timeout = None
+        self.fast = True
+        # This will only be honored via `test_that`, and not in lab (for now).
+        self.py_version = None
 
         _validate_control_file_fields(self.path, vars, raise_warnings)
 
@@ -316,6 +319,14 @@ class ControlData(object):
 
     def set_attributes(self, val):
         self._set_set('attributes', val)
+
+    def set_extended_timeout(self, val):
+        """In seconds."""
+        self._set_int('extended_timeout', val)
+
+    def set_py_version(self, val):
+        """In majors, ie: 2 or 3."""
+        self._set_int('py_version', val)
 
 
 def _extract_const(expr):

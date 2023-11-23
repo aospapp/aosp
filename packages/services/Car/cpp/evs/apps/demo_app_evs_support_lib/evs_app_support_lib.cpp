@@ -14,16 +14,22 @@
  * limitations under the License.
  */
 
-#include <stdio.h>
-#include <utils/SystemClock.h>
-#include <string>
 #include <log/log.h>
+#include <utils/SystemClock.h>
 
-#include <DisplayUseCase.h>
 #include <AnalyzeUseCase.h>
+#include <DisplayUseCase.h>
 #include <Utils.h>
+#include <stdio.h>
 
-using namespace ::android::automotive::evs::support;
+#include <string>
+
+using ::android::automotive::evs::support::AnalyzeUseCase;
+using ::android::automotive::evs::support::BaseRenderCallback;
+using ::android::automotive::evs::support::BaseAnalyzeCallback;
+using ::android::automotive::evs::support::DisplayUseCase;
+using ::android::automotive::evs::support::Frame;
+using ::android::automotive::evs::support::Utils;
 
 class SimpleRenderCallback : public BaseRenderCallback {
     void render(const Frame& inputFrame, const Frame& outputFrame) {
@@ -42,20 +48,16 @@ class SimpleRenderCallback : public BaseRenderCallback {
         uint8_t* outDataPtr = outputFrame.data;
         for (int i = 0; i < inputFrame.width; i++)
             for (int j = 0; j < inputFrame.height; j++) {
-                outDataPtr[(i + j * stride) * 4 + 0] =
-                    inDataPtr[(i + j * stride) * 4 + 1];
-                outDataPtr[(i + j * stride) * 4 + 1] =
-                    inDataPtr[(i + j * stride) * 4 + 2];
-                outDataPtr[(i + j * stride) * 4 + 2] =
-                    inDataPtr[(i + j * stride) * 4 + 0];
-                outDataPtr[(i + j * stride) * 4 + 3] =
-                    inDataPtr[(i + j * stride) * 4 + 3];
+                outDataPtr[(i + j * stride) * 4 + 0] = inDataPtr[(i + j * stride) * 4 + 1];
+                outDataPtr[(i + j * stride) * 4 + 1] = inDataPtr[(i + j * stride) * 4 + 2];
+                outDataPtr[(i + j * stride) * 4 + 2] = inDataPtr[(i + j * stride) * 4 + 0];
+                outDataPtr[(i + j * stride) * 4 + 3] = inDataPtr[(i + j * stride) * 4 + 3];
             }
     }
 };
 
 class SimpleAnalyzeCallback : public BaseAnalyzeCallback {
-    void analyze(const Frame &frame) {
+    void analyze(const Frame& frame) {
         ALOGD("SimpleAnalyzeCallback::analyze");
         if (frame.data == nullptr) {
             ALOGE("Invalid frame data was passed to analyze callback");
@@ -82,15 +84,13 @@ int main() {
     }
 
     DisplayUseCase displayUseCase =
-        DisplayUseCase::createDefaultUseCase(cameraId, new SimpleRenderCallback());
+            DisplayUseCase::createDefaultUseCase(cameraId, new SimpleRenderCallback());
 
     AnalyzeUseCase analyzeUseCase =
-        AnalyzeUseCase::createDefaultUseCase(cameraId, new SimpleAnalyzeCallback());
+            AnalyzeUseCase::createDefaultUseCase(cameraId, new SimpleAnalyzeCallback());
 
     // Run both DisplayUseCase and AnalyzeUseCase together for 10 seconds.
-    if (displayUseCase.startVideoStream()
-        && analyzeUseCase.startVideoStream()) {
-
+    if (displayUseCase.startVideoStream() && analyzeUseCase.startVideoStream()) {
         std::this_thread::sleep_for(std::chrono::seconds(10));
 
         displayUseCase.stopVideoStream();

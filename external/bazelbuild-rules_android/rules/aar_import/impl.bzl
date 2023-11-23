@@ -15,25 +15,25 @@
 """Implementation."""
 
 load(
-    "@rules_android//rules:acls.bzl",
+    "//rules:acls.bzl",
     _acls = "acls",
 )
 load(
-    "@rules_android//rules:common.bzl",
+    "//rules:common.bzl",
     _common = "common",
 )
-load("@rules_android//rules:intellij.bzl", "intellij")
+load("//rules:intellij.bzl", "intellij")
 load(
-    "@rules_android//rules:java.bzl",
+    "//rules:java.bzl",
     _java = "java",
 )
-load("@rules_android//rules:providers.bzl", "AndroidLintRulesInfo")
+load("//rules:providers.bzl", "AndroidLintRulesInfo")
 load(
-    "@rules_android//rules:resources.bzl",
+    "//rules:resources.bzl",
     _resources = "resources",
 )
 load(
-    "@rules_android//rules:utils.bzl",
+    "//rules:utils.bzl",
     _get_android_toolchain = "get_android_toolchain",
     _utils = "utils",
 )
@@ -41,38 +41,44 @@ load(
 RULE_PREFIX = "_aar"
 ANDROID_MANIFEST = "AndroidManifest.xml"
 LINT_JAR = "lint.jar"
-_UNEXPECTED_LINT_JAR_ERROR = (
-    "In target %s, has_lint_jar attribute is required when the aar contains " +
-    "a lint.jar file."
-)
 
 # Resources context dict fields.
 _PROVIDERS = "providers"
 _VALIDATION_RESULTS = "validation_results"
 
-def _create_aar_artifact(ctx, name):
-    return ctx.actions.declare_file("%s/%s/%s" % (RULE_PREFIX, ctx.label.name, name))
-
 def _create_aar_tree_artifact(ctx, name):
     return ctx.actions.declare_directory("%s/unzipped/%s/%s" % (RULE_PREFIX, name, ctx.label.name))
 
+def create_aar_artifact(ctx, name):
+    return ctx.actions.declare_file("%s/%s/%s" % (RULE_PREFIX, ctx.label.name, name))
+
 # Create an action to extract a file (specified by the parameter filename) from an AAR file.
-def _extract_single_file(
+# Will optionally create an empty output if the requested file does not exist..
+def extract_single_file(
         ctx,
         out_file,
         aar,
         filename,
-        unzip_tool):
-    args = ctx.actions.args()
-    args.add(aar)
-    args.add(filename)
-    args.add("-d", out_file.dirname)
-
-    ctx.actions.run(
-        executable = unzip_tool,
-        arguments = [args],
+        unzip_tool,
+        create_empty_file = False):
+    ctx.actions.run_shell(
+        tools = [unzip_tool],
         inputs = [aar],
         outputs = [out_file],
+        command =
+            """
+            if ! {create_empty_file} || {unzip_tool} -l {aar} | grep -q {file}; then
+              {unzip_tool} -q {aar} {file} -d {dirname};
+           else
+               touch {dirname}/{file};
+           fi
+        """.format(
+                unzip_tool = unzip_tool.executable.path,
+                aar = aar.path,
+                file = out_file.basename,
+                dirname = out_file.dirname,
+                create_empty_file = str(create_empty_file).lower(),
+            ),
         mnemonic = "AarFileExtractor",
         progress_message = "Extracting %s from %s" % (filename, aar.basename),
     )
@@ -220,7 +226,7 @@ def _extract_and_merge_jars(
     extracts and merges all Jars.
     """
     jars_tree_artifact = _create_aar_tree_artifact(ctx, "jars")
-    jars_params_file = _create_aar_artifact(ctx, "jar_merging_params")
+    jars_params_file = create_aar_artifact(ctx, "jar_merging_params")
     _extract_jars(
         ctx,
         jars_tree_artifact,
@@ -314,7 +320,7 @@ def _process_jars(
         ])
 
     merged_java_info = java_common.merge(java_infos + r_java_info)
-    jdeps_artifact = _create_aar_artifact(ctx, "jdeps.proto")
+    jdeps_artifact = create_aar_artifact(ctx, "jdeps.proto")
     _create_import_deps_check(
         ctx,
         [out_jar],
@@ -384,26 +390,31 @@ def _process_lint_rules(
         ctx,
         aar,
         unzip_tool):
-    providers = []
+    transitive_lint_jars = [info.lint_jars for info in _utils.collect_providers(
+        AndroidLintRulesInfo,
+        ctx.attr.exports,
+    )]
 
     if ctx.attr.has_lint_jar:
-        lint_jar = _create_aar_artifact(ctx, LINT_JAR)
-        _extract_single_file(
+        lint_jar = create_aar_artifact(ctx, LINT_JAR)
+        extract_single_file(
             ctx,
             lint_jar,
             aar,
             LINT_JAR,
             unzip_tool,
         )
-        providers.append(AndroidLintRulesInfo(
-            lint_jar = lint_jar,
-        ))
-
-    providers.extend(_utils.collect_providers(
-        AndroidLintRulesInfo,
-        ctx.attr.exports,
-    ))
-    return providers
+        return [
+            AndroidLintRulesInfo(
+                lint_jars = depset(direct = [lint_jar], transitive = transitive_lint_jars),
+            ),
+        ]
+    elif transitive_lint_jars:
+        return [
+            AndroidLintRulesInfo(lint_jars = depset(transitive = transitive_lint_jars)),
+        ]
+    else:
+        return []
 
 def _collect_proguard(
         ctx,
@@ -443,8 +454,8 @@ def impl(ctx):
     package = _java.resolve_package_from_label(ctx.label, ctx.attr.package)
 
     # Extract the AndroidManifest.xml from the AAR.
-    android_manifest = _create_aar_artifact(ctx, ANDROID_MANIFEST)
-    _extract_single_file(
+    android_manifest = create_aar_artifact(ctx, ANDROID_MANIFEST)
+    extract_single_file(
         ctx,
         android_manifest,
         aar,
@@ -452,11 +463,19 @@ def impl(ctx):
         unzip_tool,
     )
 
+    # Bump min SDK to floor
+    manifest_ctx = _resources.bump_min_sdk(
+        ctx,
+        manifest = android_manifest,
+        floor = _resources.DEPOT_MIN_SDK_FLOOR if _acls.in_enforce_min_sdk_floor_rollout(str(ctx.label)) else 0,
+        enforce_min_sdk_floor_tool = _get_android_toolchain(ctx).enforce_min_sdk_floor_tool.files_to_run,
+    )
+
     resources_ctx = _process_resources(
         ctx,
         aar = aar,
         package = package,
-        manifest = android_manifest,
+        manifest = manifest_ctx.processed_manifest,
         deps = ctx.attr.deps,
         aar_resources_extractor_tool =
             _get_android_toolchain(ctx).aar_resources_extractor.files_to_run,
@@ -464,7 +483,7 @@ def impl(ctx):
     )
     providers.extend(resources_ctx.providers)
 
-    merged_jar = _create_aar_artifact(ctx, "classes_and_libs_merged.jar")
+    merged_jar = create_aar_artifact(ctx, "classes_and_libs_merged.jar")
     jvm_ctx = _process_jars(
         ctx,
         out_jar = merged_jar,
@@ -493,7 +512,7 @@ def impl(ctx):
     providers.extend(jvm_ctx.providers)
     validation_outputs.extend(jvm_ctx.validation_results)
 
-    native_libs = _create_aar_artifact(ctx, "native_libs.zip")
+    native_libs = create_aar_artifact(ctx, "native_libs.zip")
     _extract_native_libs(
         ctx,
         native_libs,
@@ -517,7 +536,7 @@ def impl(ctx):
     )
 
     # Will be empty if there's no proguard.txt file in the aar
-    proguard_spec = _create_aar_artifact(ctx, "proguard.txt")
+    proguard_spec = create_aar_artifact(ctx, "proguard.txt")
     providers.append(_collect_proguard(
         ctx,
         proguard_spec,
@@ -536,7 +555,7 @@ def impl(ctx):
         ctx,
         aar = aar,
         package = package,
-        manifest = android_manifest,
+        manifest = manifest_ctx.processed_manifest,
         checks = _get_android_toolchain(ctx).aar_import_checks.files_to_run,
     ))
 

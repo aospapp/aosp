@@ -146,39 +146,6 @@ AudioRecord::AudioRecord(
         audio_channel_mask_t channelMask,
         const AttributionSourceState& client,
         size_t frameCount,
-        legacy_callback_t callback,
-        void* user,
-        uint32_t notificationFrames,
-        audio_session_t sessionId,
-        transfer_type transferType,
-        audio_input_flags_t flags,
-        const audio_attributes_t* pAttributes,
-        audio_port_handle_t selectedDeviceId,
-        audio_microphone_direction_t selectedMicDirection,
-        float microphoneFieldDimension)
-    : mActive(false),
-      mStatus(NO_INIT),
-      mClientAttributionSource(client),
-      mSessionId(AUDIO_SESSION_ALLOCATE),
-      mPreviousPriority(ANDROID_PRIORITY_NORMAL),
-      mPreviousSchedulingGroup(SP_DEFAULT),
-      mProxy(NULL)
-{
-    uid_t uid = VALUE_OR_FATAL(aidl2legacy_int32_t_uid_t(mClientAttributionSource.uid));
-    pid_t pid = VALUE_OR_FATAL(aidl2legacy_int32_t_pid_t(mClientAttributionSource.pid));
-    (void)set(inputSource, sampleRate, format, channelMask, frameCount, callback, user,
-            notificationFrames, false /*threadCanCallJava*/, sessionId, transferType, flags,
-            uid, pid, pAttributes, selectedDeviceId, selectedMicDirection,
-            microphoneFieldDimension);
-}
-
-AudioRecord::AudioRecord(
-        audio_source_t inputSource,
-        uint32_t sampleRate,
-        audio_format_t format,
-        audio_channel_mask_t channelMask,
-        const AttributionSourceState& client,
-        size_t frameCount,
         const wp<IAudioRecordCallback>& callback,
         uint32_t notificationFrames,
         audio_session_t sessionId,
@@ -255,37 +222,6 @@ void AudioRecord::stopAndJoinCallbacks() {
         mDeviceCallback.clear();
     }
 }
-namespace {
-class LegacyCallbackWrapper : public AudioRecord::IAudioRecordCallback {
-    const AudioRecord::legacy_callback_t mCallback;
-    void* const mData;
-
-  public:
-    LegacyCallbackWrapper(AudioRecord::legacy_callback_t callback, void* user)
-        : mCallback(callback), mData(user) {}
-
-    size_t onMoreData(const AudioRecord::Buffer& buffer) override {
-        AudioRecord::Buffer copy = buffer;
-        mCallback(AudioRecord::EVENT_MORE_DATA, mData, &copy);
-        return copy.size();
-    }
-
-    void onOverrun() override { mCallback(AudioRecord::EVENT_OVERRUN, mData, nullptr); }
-
-    void onMarker(uint32_t markerPosition) override {
-        mCallback(AudioRecord::EVENT_MARKER, mData, &markerPosition);
-    }
-
-    void onNewPos(uint32_t newPos) override {
-        mCallback(AudioRecord::EVENT_NEW_POS, mData, &newPos);
-    }
-
-    void onNewIAudioRecord() override {
-        mCallback(AudioRecord::EVENT_NEW_IAUDIORECORD, mData, nullptr);
-    }
-};
-}  // namespace
-
 status_t AudioRecord::set(
         audio_source_t inputSource,
         uint32_t sampleRate,
@@ -479,37 +415,6 @@ exit:
     return status;
 }
 
-status_t AudioRecord::set(
-        audio_source_t inputSource,
-        uint32_t sampleRate,
-        audio_format_t format,
-        audio_channel_mask_t channelMask,
-        size_t frameCount,
-        legacy_callback_t callback,
-        void* user,
-        uint32_t notificationFrames,
-        bool threadCanCallJava,
-        audio_session_t sessionId,
-        transfer_type transferType,
-        audio_input_flags_t flags,
-        uid_t uid,
-        pid_t pid,
-        const audio_attributes_t* pAttributes,
-        audio_port_handle_t selectedDeviceId,
-        audio_microphone_direction_t selectedMicDirection,
-        float microphoneFieldDimension,
-        int32_t maxSharedAudioHistoryMs)
-{
-    if (callback != nullptr) {
-        mLegacyCallbackWrapper = sp<LegacyCallbackWrapper>::make(callback, user);
-    } else if (user) {
-        LOG_ALWAYS_FATAL("Callback data provided without callback pointer!");
-    }
-    return set(inputSource, sampleRate, format, channelMask, frameCount, mLegacyCallbackWrapper,
-        notificationFrames, threadCanCallJava, sessionId, transferType, flags, uid, pid,
-        pAttributes, selectedDeviceId, selectedMicDirection, microphoneFieldDimension,
-        maxSharedAudioHistoryMs);
-}
 // -------------------------------------------------------------------------
 
 status_t AudioRecord::start(AudioSystem::sync_event_t event, audio_session_t triggerSession)
@@ -653,6 +558,21 @@ status_t AudioRecord::setMarkerPosition(uint32_t marker)
         t->wake();
     }
     return NO_ERROR;
+}
+
+uint32_t AudioRecord::getHalSampleRate() const
+{
+    return mHalSampleRate;
+}
+
+uint32_t AudioRecord::getHalChannelCount() const
+{
+    return mHalChannelCount;
+}
+
+audio_format_t AudioRecord::getHalFormat() const
+{
+    return mHalFormat;
 }
 
 status_t AudioRecord::getMarkerPosition(uint32_t *marker) const
@@ -973,6 +893,9 @@ status_t AudioRecord::createRecord_l(const Modulo<uint32_t> &epoch)
     mServerFrameSize = audio_bytes_per_frame(
             audio_channel_count_from_in_mask(mServerConfig.channel_mask), mServerConfig.format);
     mServerSampleSize = audio_bytes_per_sample(mServerConfig.format);
+    mHalSampleRate = output.halConfig.sample_rate;
+    mHalChannelCount = audio_channel_count_from_in_mask(output.halConfig.channel_mask);
+    mHalFormat = output.halConfig.format;
 
     if (output.cblk == 0) {
         errorMessage = StringPrintf("%s(%d): Could not get control block", __func__, mPortId);
@@ -1712,16 +1635,10 @@ void AudioRecord::onAudioDeviceUpdate(audio_io_handle_t audioIo,
 
 // -------------------------------------------------------------------------
 
-status_t AudioRecord::getActiveMicrophones(std::vector<media::MicrophoneInfo>* activeMicrophones)
+status_t AudioRecord::getActiveMicrophones(std::vector<media::MicrophoneInfoFw>* activeMicrophones)
 {
     AutoMutex lock(mLock);
-    std::vector<media::MicrophoneInfoData> mics;
-    status_t status = statusTFromBinderStatus(mAudioRecord->getActiveMicrophones(&mics));
-    activeMicrophones->resize(mics.size());
-    for (size_t i = 0; status == OK && i < mics.size(); ++i) {
-        status = activeMicrophones->at(i).readFromParcelable(mics[i]);
-    }
-    return status;
+    return statusTFromBinderStatus(mAudioRecord->getActiveMicrophones(activeMicrophones));
 }
 
 status_t AudioRecord::setPreferredMicrophoneDirection(audio_microphone_direction_t direction)

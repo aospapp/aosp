@@ -1,3 +1,18 @@
+//
+// Copyright (C) 2020 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
@@ -31,19 +46,21 @@ soong_config_module_type {
 }
 
 cvd_host_tools = [
-    "android.hardware.automotive.vehicle@2.0-virtualization-grpc-server",
     "adb",
     "adb_connector",
     "allocd",
     "allocd_client",
     "assemble_cvd",
     "avbtool",
-    "bt_connector",
+    "tcp_connector",
     "common_crosvm",
     "config_server",
     "console_forwarder",
     "crosvm",
     "cvd",
+    "cvd_internal_display",
+    "cvd_internal_env",
+    "echo_server",
     "cvd_internal_host_bugreport",
     "cvd_internal_start",
     "cvd_internal_status",
@@ -51,8 +68,12 @@ cvd_host_tools = [
     "cvd_host_bugreport",
     "cvd_status",
     "cvd_test_gce_driver",
+    "cvdremote",
+    "e2fsdroid",
     "extract-ikconfig",
     "extract-vmlinux",
+    "fastboot",
+    "fec",
     "fsck.f2fs",
     "gnss_grpc_proxy",
     "health",
@@ -62,6 +83,7 @@ cvd_host_tools = [
     "libgrpc++_unsecure",
     "log_tee",
     "logcat_receiver",
+    "lpadd",
     "lpmake",
     "lpunpack",
     "lz4",
@@ -70,20 +92,32 @@ cvd_host_tools = [
     "mkbootfs",
     "mkbootimg",
     "mkenvimage_slim",
+    "mke2fs",
+    "mkuserimg_mke2fs",
     "modem_simulator",
     "ms-tpm-20-ref",
     "mcopy",
     "mmd",
     "mtools",
+    "netsim",
+    "netsimd",
     "newfs_msdos",
+    "openwrt_control_server",
+    "pica",
     "powerwash_cvd",
+    "process_restarter",
     "restart_cvd",
     "root-canal",
     "run_cvd",
     "secure_env",
+    "sefcontext_compile",
     "cvd_send_sms",
+    "cvd_update_location",
+    "cvd_import_locations",
+    "simg2img",
     "socket_vsock_proxy",
     "stop_cvd",
+    "test_cvd_load_parser",
     "tombstone_receiver",
     "toybox",
     "unpack_bootimg",
@@ -96,8 +130,10 @@ cvd_host_tools = [
 ]
 
 cvd_openwrt_images = [
-    "kernel_for_openwrt",
-    "openwrt_rootfs",
+    "openwrt_kernel_x86_64",
+    "openwrt_rootfs_x86_64",
+    "openwrt_kernel_aarch64",
+    "openwrt_rootfs_aarch64",
 ]
 
 cvd_bluetooth_config_files = [
@@ -120,6 +156,7 @@ cvd_host_webrtc_assets = [
     "webrtc_index.html",
     "webrtc_client.html",
     "webrtc_rootcanal.js",
+    "webrtc_location.js",
     "webrtc_server.crt",
     "webrtc_server.key",
     "webrtc_server.p12",
@@ -135,13 +172,19 @@ cvd_host_model_simulator_files = [
     "numeric_operator.xml_host",
 ]
 
+cvd_host_acloud_data = [
+    "default.config_host",
+]
+
 cvd_host_seccomp_policy_x86_64 = [
     "9p_device.policy_x86_64",
     "balloon_device.policy_x86_64",
     "battery.policy_x86_64",
     "block_device.policy_x86_64",
+    "block_device_vhost_user.policy_x86_64",
+    "block_device_vvu.policy_x86_64",
+    "coiommu_device.policy_x86_64",
     "cras_audio_device.policy_x86_64",
-    "cras_snd_device.policy_x86_64",
     "fs_device.policy_x86_64",
     "gpu_device.policy_x86_64",
     "gpu_render_server.policy_x86_64",
@@ -151,15 +194,21 @@ cvd_host_seccomp_policy_x86_64 = [
     "null_audio_device.policy_x86_64",
     "pmem_device.policy_x86_64",
     "rng_device.policy_x86_64",
-    "serial.policy_x86_64",
+    "serial_device.policy_x86_64",
+    "serial_device_vhost_user.policy_x86_64",
+    "serial_device_vvu.policy_x86_64",
+    "snd_cras_device.policy_x86_64",
+    "snd_null_device.policy_x86_64",
     "tpm_device.policy_x86_64",
     "vfio_device.policy_x86_64",
     "vhost_net_device.policy_x86_64",
     "vhost_vsock_device.policy_x86_64",
     "video_device.policy_x86_64",
     "vios_audio_device.policy_x86_64",
+    "vtpm_proxy_device.policy_x86_64",
+    "vvu_proxy_device.policy_x86_64",
     "wl_device.policy_x86_64",
-    "xhci.policy_x86_64",
+    "xhci_device.policy_x86_64",
 ]
 
 cvd_host_seccomp_policy_aarch64 = [
@@ -167,8 +216,8 @@ cvd_host_seccomp_policy_aarch64 = [
     "balloon_device.policy_aarch64",
     "battery.policy_aarch64",
     "block_device.policy_aarch64",
+    "coiommu_device.policy_aarch64",
     "cras_audio_device.policy_aarch64",
-    "cras_snd_device.policy_aarch64",
     "fs_device.policy_aarch64",
     "gpu_device.policy_aarch64",
     "gpu_render_server.policy_aarch64",
@@ -177,19 +226,25 @@ cvd_host_seccomp_policy_aarch64 = [
     "null_audio_device.policy_aarch64",
     "pmem_device.policy_aarch64",
     "rng_device.policy_aarch64",
-    "serial.policy_aarch64",
+    "serial_device.policy_aarch64",
+    "snd_cras_device.policy_aarch64",
+    "snd_null_device.policy_aarch64",
     "tpm_device.policy_aarch64",
     "vhost_net_device.policy_aarch64",
     "vhost_vsock_device.policy_aarch64",
+    "video_device.policy_aarch64",
     "vios_audio_device.policy_aarch64",
     "wl_device.policy_aarch64",
-    "xhci.policy_aarch64",
+    "xhci_device.policy_aarch64",
 ]
 
-cvd_host_qemu_bootloader = [
-    "bootloader_qemu_x86_64",
+cvd_host_bootloader = [
+    "bootloader_crosvm_x86_64",
+    "bootloader_crosvm_aarch64",
     "bootloader_qemu_aarch64",
     "bootloader_qemu_arm",
+    "bootloader_qemu_riscv64",
+    "bootloader_qemu_x86_64",
 ]
 
 prebuilt_etc_host {
@@ -203,6 +258,30 @@ cvd_host_avb_testkey = [
     "cvd_avb_testkey",
 ]
 
+cvd_host_netsim_gui_assets = [
+    "netsim_ui_index.html",
+    "netsim_ui_js_cube-sprite.js",
+    "netsim_ui_js_customize-map-button.js",
+    "netsim_ui_js_device-dragzone.js",
+    "netsim_ui_js_device-dropzone.js",
+    "netsim_ui_js_device-info.js",
+    "netsim_ui_js_device-list.js",
+    "netsim_ui_js_device-map.js",
+    "netsim_ui_js_device-observer.js",
+    "netsim_ui_js_license-info.js",
+    "netsim_ui_js_navigation-bar.js",
+    "netsim_ui_js_netsim-app.js",
+    "netsim_ui_js_packet-info.js",
+    "netsim_ui_js_pyramid-sprite.js",
+    "netsim_ui_js_model.js",
+    "netsim_ui_tslib",
+    "netsim_ui_assets_grid-background.svg",
+    "netsim_ui_assets_hexagonal-background.png",
+    "netsim_ui_assets_netsim-logo-b.svg",
+    "netsim_ui_assets_netsim-logo.svg",
+    "netsim_ui_assets_polar-background.svg",
+]
+
 cvd_host_package_customization {
     name: "cvd-host_package",
     deps: cvd_host_tools +
@@ -212,9 +291,11 @@ cvd_host_package_customization {
             deps: cvd_host_webrtc_assets +
                 cvd_host_avb_testkey +
                 cvd_host_model_simulator_files +
-                cvd_host_qemu_bootloader +
+                cvd_host_acloud_data +
+                cvd_host_bootloader +
                 cvd_bluetooth_config_files +
-                cvd_openwrt_images,
+                cvd_openwrt_images +
+                cvd_host_netsim_gui_assets,
         },
     },
 

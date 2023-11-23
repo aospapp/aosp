@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -12,6 +13,7 @@ from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.client.cros.chameleon import chameleon_audio_helper
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids
 from autotest_lib.server.cros.audio import audio_test
+from autotest_lib.client.common_lib import error
 
 
 class audio_AudioBasicUSBRecord(audio_test.AudioTest):
@@ -24,13 +26,17 @@ class audio_AudioBasicUSBRecord(audio_test.AudioTest):
     version = 1
     RECORD_SECONDS = 5
 
-    def run_once(self, suspend=False):
+    def run_once(self, suspend=False, blocked_boards=[]):
         """Runs Basic Audio USB recording test.
 
         @param suspend: True for suspend the device before recording.
                         False for not suspend.
 
         """
+
+        if self.host.get_board().split(':')[1] in blocked_boards:
+            raise error.TestNAError('Board pending fix for b/233962403!')
+
         golden_file = audio_test_data.GenerateAudioTestData(
                 path=os.path.join(self.bindir, 'fix_1k_440_16.wav'),
                 duration_secs=6,

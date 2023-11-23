@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -180,7 +181,8 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
 
     def run_once(self, host, audio_nodes, golden_data,
                  bind_from=None, bind_to=None,
-                 source=None, recorder=None, plug_status=None):
+                 source=None, recorder=None, plug_status=None,
+                 blocked_boards=[]):
         """Runs the test main workflow
 
         @param host: A host object representing the DUT.
@@ -196,8 +198,11 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
         @param recorder: recorder widget entity
             should be defined in chameleon_audio_ids
         @param plug_status: audio channel plug unplug sequence
+        @blocked_boards: boards to ignore and exit.
 
         """
+        if self.host.get_board().split(':')[1] in blocked_boards:
+            raise error.TestNAError('Board NOT APPLICABLE to test!')
         if ((bind_from == chameleon_audio_ids.CrosIds.HEADPHONE or
             bind_to == chameleon_audio_ids.CrosIds.EXTERNAL_MIC) and
             not audio_test_utils.has_audio_jack(self.host)):

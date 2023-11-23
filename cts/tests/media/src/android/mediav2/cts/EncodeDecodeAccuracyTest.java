@@ -16,38 +16,65 @@
 
 package android.mediav2.cts;
 
+import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_Format32bitABGR2101010;
+import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface;
+import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUVP010;
+import static android.mediav2.common.cts.CodecEncoderTestBase.colorFormatToString;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
+
 import android.media.MediaCodec;
-import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
-import android.media.MediaMuxer;
+import android.mediav2.common.cts.CodecAsyncHandler;
+import android.mediav2.common.cts.CodecDecoderTestBase;
+import android.mediav2.common.cts.CodecTestBase;
+import android.mediav2.common.cts.EncoderConfigParams;
+import android.mediav2.common.cts.InputSurface;
+import android.mediav2.common.cts.OutputManager;
+import android.mediav2.common.cts.OutputSurface;
 import android.opengl.GLES20;
+import android.opengl.GLES30;
 import android.util.Log;
 import android.util.Pair;
 import android.view.Surface;
 
 import androidx.test.filters.LargeTest;
 
-import org.junit.Assume;
+import com.android.compatibility.common.util.ApiTest;
+import com.android.compatibility.common.util.MediaUtils;
+
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 import javax.microedition.khronos.opengles.GL10;
 
-import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_Format32bitABGR2101010;
-import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUVP010;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
-
+/**
+ * Color Primaries, Color Standard and Color Transfer are essential information to display the
+ * decoded YUV on an RGB display accurately. Tests
+ * {@link EncoderColorAspectsTest#testColorAspects()} and
+ * {@link DecoderColorAspectsTest#testColorAspects()} checks if the encoder and decoder
+ * components are signalling the configured color aspects correctly.
+ * This test verifies if the device decoder/display is using this color aspects correctly
+ * <p>
+ * Test pipeline:
+ * <pre> [[ Input RGB frames -> encoder -> muxer -> decoder -> display -> Output RGB frames ]]
+ * </pre>
+ * Assuming no quantization losses, the test verifies if the input rgb pixel values and output
+ * rgb pixel values are within tolerance limits.
+ */
 @RunWith(Parameterized.class)
 public class EncodeDecodeAccuracyTest extends CodecDecoderTestBase {
     private final String LOG_TAG = EncodeDecodeAccuracyTest.class.getSimpleName();
@@ -55,9 +82,10 @@ public class EncodeDecodeAccuracyTest extends CodecDecoderTestBase {
     // qp of the encoded clips shall drop down to < 10. Further the color bands are aligned to 2,
     // so from downsampling rgb24 to yuv420p, even if bilinear filters are used as opposed to
     // skipping samples, we may not see large color loss. Hence allowable tolerance is kept to 5.
-    // until QP stabilizes, the tolerance is set at 7.
-    private final int TRANSIENT_STATE_COLOR_DELTA = 7;
-    private final int STEADY_STATE_COLOR_DELTA = 5;
+    // until QP stabilizes, the tolerance is set at 7. For devices upgrading to T, thresholds are
+    // relaxed to 8 and 10.
+    private static final int TRANSIENT_STATE_COLOR_DELTA = FIRST_SDK_IS_AT_LEAST_T ? 7 : 10;
+    private static final int STEADY_STATE_COLOR_DELTA = FIRST_SDK_IS_AT_LEAST_T ? 5 : 8;
     private final int[][] mColorBars = new int[][]{
             {66, 133, 244},
             {219, 68, 55},
@@ -75,19 +103,12 @@ public class EncodeDecodeAccuracyTest extends CodecDecoderTestBase {
     private final int STEADY_STATE_FRAME_INDEX = 20;
 
     private final String mCompName;
-    private final int mWidth;
-    private final int mHeight;
-    private final int mFrameRate;
-    private final int mBitRate;
-    private final int mRange;
-    private final int mStandard;
-    private final int mTransferCurve;
-    private final boolean mUseHighBitDepth;
+    private final EncoderConfigParams mEncCfgParams;
 
     private final CodecAsyncHandler mAsyncHandleEncoder;
     private MediaCodec mEncoder;
     private Surface mInpSurface;
-    private EGLWindowSurface mEGLWindowInpSurface;
+    private InputSurface mEGLWindowInpSurface;
     private OutputSurface mEGLWindowOutSurface;
     private boolean mSawInputEOSEnc;
     private boolean mSawOutputEOSEnc;
@@ -105,29 +126,38 @@ public class EncodeDecodeAccuracyTest extends CodecDecoderTestBase {
     private int mLargestColorDelta;
     private int mBadFrames;
 
-    private final boolean mMuxOutput = false;
-    private MediaMuxer mMuxer;
-    private int mTrackID = -1;
+    @After
+    public void tearDown() {
+        if (mEGLWindowInpSurface != null) {
+            mEGLWindowInpSurface.release();
+            mEGLWindowInpSurface = null;
+        }
+        if (mInpSurface != null) {
+            mInpSurface.release();
+            mInpSurface = null;
+        }
+        if (mEncoder != null) {
+            mEncoder.release();
+            mEncoder = null;
+        }
+        mSurface = null;
+        if (mEGLWindowOutSurface != null) {
+            mEGLWindowOutSurface.release();
+            mEGLWindowOutSurface = null;
+        }
+    }
 
-    public EncodeDecodeAccuracyTest(String encoder, String mime, int width, int height,
-            int frameRate, int bitrate, int range, int standard, int transfer,
-            boolean useHighBitDepth) {
-        super(null, mime, null);
+    public EncodeDecodeAccuracyTest(String encoder, String mediaType,
+            EncoderConfigParams encCfgParams, @SuppressWarnings("unused") String testLabel,
+            String allTestParams) {
+        super(null, mediaType, null, allTestParams);
         mCompName = encoder;
-        mMime = mime;
-        mWidth = width;
-        mHeight = height;
-        mFrameRate = frameRate;
-        mBitRate = bitrate;
-        mRange = range;
-        mStandard = standard;
-        mTransferCurve = transfer;
-        mUseHighBitDepth = useHighBitDepth;
+        mEncCfgParams = encCfgParams;
         mAsyncHandleEncoder = new CodecAsyncHandler();
         mLatency = 0;
         mReviseLatency = false;
         mInfoListEnc = new ArrayList<>();
-        int barWidth = (mWidth + mColorBars.length - 1) / mColorBars.length;
+        int barWidth = (mEncCfgParams.mWidth + mColorBars.length - 1) / mColorBars.length;
         // aligning color bands to 2 is done because, during chroma subsampling of rgb24 to yuv420p,
         // simple skipping alternate samples or bilinear filter would have same effect.
         mColorBarWidth = (barWidth % 2 == 0) ? barWidth : barWidth + 1;
@@ -137,26 +167,60 @@ public class EncodeDecodeAccuracyTest extends CodecDecoderTestBase {
 
     @Before
     public void setUp() throws IOException {
-        if (mUseHighBitDepth) {
+        // Few cuttlefish specific color conversion issues were fixed after Android T.
+        if (MediaUtils.onCuttlefish()) {
+            assumeTrue("Color conversion related tests are not valid on cuttlefish releases "
+                    + "through android T", IS_AT_LEAST_U);
+        }
+        if (mEncCfgParams.mInputBitDepth == 10) {
             assumeTrue("Codec doesn't support ABGR2101010",
-                    hasSupportForColorFormat(mCompName, mMime, COLOR_Format32bitABGR2101010));
+                    hasSupportForColorFormat(mCompName, mMediaType, COLOR_Format32bitABGR2101010));
             assumeTrue("Codec doesn't support high bit depth profile encoding",
-                    doesCodecSupportHDRProfile(mCompName, mMime));
+                    doesCodecSupportHDRProfile(mCompName, mMediaType));
         }
     }
 
-    @Parameterized.Parameters(name = "{index}({0}_{1}_{6}_{7}_{8}_{9})")
+    private static EncoderConfigParams getVideoEncoderCfgParams(String mediaType, int width,
+            int height, int frameRate, int bitRate, int range, int standard, int transfer,
+            int colorFormat, int bitDepth) {
+        EncoderConfigParams.Builder foreman = new EncoderConfigParams.Builder(mediaType)
+                .setWidth(width)
+                .setHeight(height)
+                .setBitRate(bitRate)
+                .setFrameRate(frameRate)
+                .setRange(range)
+                .setStandard(standard)
+                .setTransfer(transfer)
+                .setColorFormat(colorFormat)
+                .setInputBitDepth(bitDepth);
+        if (colorFormat == COLOR_FormatSurface && bitDepth == 10) {
+            foreman.setProfile(Objects.requireNonNull(PROFILE_HLG_MAP.get(mediaType))[0]);
+        }
+        return foreman.build();
+    }
+
+    @Parameterized.Parameters(name = "{index}_{0}_{1}_{3}")
     public static Collection<Object[]> input() {
         final boolean isEncoder = true;
         final boolean needAudio = false;
         final boolean needVideo = true;
-        final List<Object[]> baseArgsList = Arrays.asList(new Object[][]{
-                // "video/*", width, height, framerate, bitrate, range, standard, transfer
+        final Object[][] baseArgsList = new Object[][]{
+                // "video/*", width, height, framerate, bitrate, range, standard, transfer,
+                // useHighBitDepth
                 {720, 480, 30, 3000000, MediaFormat.COLOR_RANGE_LIMITED,
                         MediaFormat.COLOR_STANDARD_BT601_NTSC,
-                        MediaFormat.COLOR_TRANSFER_SDR_VIDEO},
+                        MediaFormat.COLOR_TRANSFER_SDR_VIDEO, false},
                 {720, 576, 30, 3000000, MediaFormat.COLOR_RANGE_LIMITED,
-                        MediaFormat.COLOR_STANDARD_BT601_PAL, MediaFormat.COLOR_TRANSFER_SDR_VIDEO},
+                        MediaFormat.COLOR_STANDARD_BT601_PAL, MediaFormat.COLOR_TRANSFER_SDR_VIDEO,
+                        false},
+                {720, 480, 30, 3000000, MediaFormat.COLOR_RANGE_FULL,
+                        MediaFormat.COLOR_STANDARD_BT2020,
+                        MediaFormat.COLOR_TRANSFER_ST2084, true},
+
+                {720, 480, 30, 3000000, MediaFormat.COLOR_RANGE_LIMITED,
+                    MediaFormat.COLOR_STANDARD_BT2020, MediaFormat.COLOR_TRANSFER_ST2084, true},
+                {720, 480, 30, 3000000, MediaFormat.COLOR_RANGE_LIMITED,
+                    MediaFormat.COLOR_STANDARD_BT709, MediaFormat.COLOR_TRANSFER_SDR_VIDEO, true},
                 // TODO (b/186511593)
                 /*
                 {1280, 720, 30, 3000000, MediaFormat.COLOR_RANGE_LIMITED,
@@ -184,20 +248,35 @@ public class EncodeDecodeAccuracyTest extends CodecDecoderTestBase {
                 {1280, 720, 30, 3000000, MediaFormat.COLOR_RANGE_FULL,
                         MediaFormat.COLOR_STANDARD_BT601_PAL, MediaFormat.COLOR_TRANSFER_SDR_VIDEO},
                  */
-        });
+        };
         // Note: although vp8 and vp9 donot contain fields to signal color aspects properly, this
         // information can be muxed in to containers of mkv and mp4. So even those clips
         // should pass these tests
-        final String[] mimes = {MediaFormat.MIMETYPE_VIDEO_AVC, MediaFormat.MIMETYPE_VIDEO_HEVC,
-                MediaFormat.MIMETYPE_VIDEO_VP8, MediaFormat.MIMETYPE_VIDEO_VP9,
-                MediaFormat.MIMETYPE_VIDEO_AV1};
+        final String[] mediaTypes =
+                {MediaFormat.MIMETYPE_VIDEO_AVC, MediaFormat.MIMETYPE_VIDEO_HEVC,
+                        MediaFormat.MIMETYPE_VIDEO_VP8, MediaFormat.MIMETYPE_VIDEO_VP9,
+                        MediaFormat.MIMETYPE_VIDEO_AV1};
         final List<Object[]> exhaustiveArgsList = new ArrayList<>();
-        for (String mime : mimes) {
-            for (Object[] obj : baseArgsList) {
-                exhaustiveArgsList.add(new Object[]{mime, obj[0], obj[1], obj[2], obj[3], obj[4],
-                        obj[5], obj[6], false});
-                exhaustiveArgsList.add(new Object[]{mime, obj[0], obj[1], obj[2], obj[3], obj[4],
-                        obj[5], obj[6], true});
+        for (Object[] obj : baseArgsList) {
+            final int width = (int) obj[0];
+            final int height = (int) obj[1];
+            final int fps = (int) obj[2];
+            final int br = (int) obj[3];
+            final int range = (int) obj[4];
+            final int std = (int) obj[5];
+            final int tfr = (int) obj[6];
+            final int bd = (boolean) obj[7] ? 10 : 8;
+            for (String mediaType : mediaTypes) {
+                // the vp8 spec only supports 8 bit
+                if (mediaType.equals(MediaFormat.MIMETYPE_VIDEO_VP8) && bd == 10) continue;
+                Object[] testArgs = new Object[3];
+                testArgs[0] = mediaType;
+                testArgs[1] = getVideoEncoderCfgParams(mediaType, width, height, fps, br, range,
+                        std, tfr, COLOR_FormatSurface, bd);
+                testArgs[2] = String.format("%d_%d_%dkbps_%dfps_%d_%d_%d_%s", width, height,
+                        br / 1000, fps, range, std, tfr,
+                        colorFormatToString(COLOR_FormatSurface, bd));
+                exhaustiveArgsList.add(testArgs);
             }
         }
         return CodecTestBase.prepareParamList(exhaustiveArgsList, isEncoder, needAudio, needVideo,
@@ -227,8 +306,9 @@ public class EncodeDecodeAccuracyTest extends CodecDecoderTestBase {
             mLatency = mEncoder.getInputFormat().getInteger(MediaFormat.KEY_LATENCY);
         }
         mInpSurface = mEncoder.createInputSurface();
-        assertTrue("Surface is not valid", mInpSurface.isValid());
-        mEGLWindowInpSurface = new EGLWindowSurface(mInpSurface, mUseHighBitDepth);
+        assertTrue("Surface is not valid \n" + mTestConfig + mTestEnv, mInpSurface.isValid());
+        mEGLWindowInpSurface =
+                new InputSurface(mInpSurface, false, mEncCfgParams.mInputBitDepth == 10);
         if (ENABLE_LOGS) {
             Log.v(LOG_TAG, "codec configured");
         }
@@ -250,13 +330,6 @@ public class EncodeDecodeAccuracyTest extends CodecDecoderTestBase {
                         info.flags);
                 mInfoListEnc.add(copy);
                 mOutputBuffEnc.saveToMemory(buf, info);
-                if (mMuxer != null) {
-                    if (mTrackID == -1) {
-                        mTrackID = mMuxer.addTrack(mEncoder.getOutputFormat());
-                        mMuxer.start();
-                    }
-                    mMuxer.writeSampleData(mTrackID, buf, info);
-                }
             }
             if ((info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0) {
                 mOutputBuffEnc.saveOutPTS(info.presentationTimeUs);
@@ -344,33 +417,17 @@ public class EncodeDecodeAccuracyTest extends CodecDecoderTestBase {
         }
     }
 
-    private MediaFormat setUpEncoderFormat() {
-        MediaFormat format = new MediaFormat();
-        format.setString(MediaFormat.KEY_MIME, mMime);
-        format.setInteger(MediaFormat.KEY_WIDTH, mWidth);
-        format.setInteger(MediaFormat.KEY_HEIGHT, mHeight);
-        format.setInteger(MediaFormat.KEY_FRAME_RATE, mFrameRate);
-        format.setInteger(MediaFormat.KEY_BIT_RATE, mBitRate);
-        format.setFloat(MediaFormat.KEY_I_FRAME_INTERVAL, 1.0f);
-        format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
-                MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
-        format.setInteger(MediaFormat.KEY_COLOR_RANGE, mRange);
-        format.setInteger(MediaFormat.KEY_COLOR_STANDARD, mStandard);
-        format.setInteger(MediaFormat.KEY_COLOR_TRANSFER, mTransferCurve);
-        return format;
-    }
-
     private long computePresentationTime(int frameIndex) {
-        return frameIndex * 1000000 / mFrameRate;
+        return frameIndex * 1000000L / mEncCfgParams.mFrameRate;
     }
 
     private void generateSurfaceFrame() {
-        GLES20.glViewport(0, 0, mWidth, mHeight);
+        GLES20.glViewport(0, 0, mEncCfgParams.mWidth, mEncCfgParams.mHeight);
         GLES20.glEnable(GLES20.GL_SCISSOR_TEST);
         for (int i = 0; i < mColorBars.length; i++) {
             int startX = i * mColorBarWidth;
-            int endX = Math.min(startX + mColorBarWidth, mWidth);
-            GLES20.glScissor(startX, 0, endX, mHeight);
+            int endX = Math.min(startX + mColorBarWidth, mEncCfgParams.mWidth);
+            GLES20.glScissor(startX, 0, endX, mEncCfgParams.mHeight);
             GLES20.glClearColor(mColorBars[i][0] / 255.0f, mColorBars[i][1] / 255.0f,
                     mColorBars[i][2] / 255.0f, 1.0f);
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
@@ -382,11 +439,6 @@ public class EncodeDecodeAccuracyTest extends CodecDecoderTestBase {
         if (delta > mLargestColorDelta) mLargestColorDelta = delta;
         int maxAllowedDelta = (mOutputCount >= STEADY_STATE_FRAME_INDEX ? STEADY_STATE_COLOR_DELTA :
                 TRANSIENT_STATE_COLOR_DELTA);
-        // Since glReadPixels currently reads 8 bits per component, allow significantly higher error
-        // for high bit depth case
-        if (mUseHighBitDepth) {
-            maxAllowedDelta *= 8;
-        }
         return (delta <= maxAllowedDelta);
     }
 
@@ -396,10 +448,23 @@ public class EncodeDecodeAccuracyTest extends CodecDecoderTestBase {
         for (int i = 0; i < mColorBars.length; i++) {
             int x = mColorBarWidth * i + xOffset;
             int y = yOffset;
-            GLES20.glReadPixels(x, y, 1, 1, GL10.GL_RGBA, GL10.GL_UNSIGNED_BYTE, pixelBuf);
-            int r = pixelBuf.get(0) & 0xff;
-            int g = pixelBuf.get(1) & 0xff;
-            int b = pixelBuf.get(2) & 0xff;
+            int r, g, b;
+            if (mEncCfgParams.mInputBitDepth == 10) {
+                GLES30.glReadPixels(x, y, 1, 1, GL10.GL_RGBA, GLES30.GL_UNSIGNED_INT_2_10_10_10_REV,
+                        pixelBuf);
+                r = (pixelBuf.get(1) & 0x03) << 8 | (pixelBuf.get(0) & 0xFF);
+                g = (pixelBuf.get(2) & 0x0F) << 6 | ((pixelBuf.get(1) >> 2) & 0x3F);
+                b = (pixelBuf.get(3) & 0x3F) << 4 | ((pixelBuf.get(2) >> 4) & 0x0F);
+                // Convert the values to 8 bit as comparisons later are with 8 bit RGB values
+                r = (r + 2) >> 2;
+                g = (g + 2) >> 2;
+                b = (b + 2) >> 2;
+            } else {
+                GLES20.glReadPixels(x, y, 1, 1, GL10.GL_RGBA, GL10.GL_UNSIGNED_BYTE, pixelBuf);
+                r = pixelBuf.get(0) & 0xFF;
+                g = pixelBuf.get(1) & 0xFF;
+                b = pixelBuf.get(2) & 0xFF;
+            }
             if (!(isColorClose(r, mColorBars[i][0]) && isColorClose(g, mColorBars[i][1]) &&
                     isColorClose(b, mColorBars[i][2]))) {
                 Log.w(LOG_TAG, "Bad frame " + frameIndex + " (rect={" + x + " " + y + "} :rgb=" +
@@ -411,7 +476,7 @@ public class EncodeDecodeAccuracyTest extends CodecDecoderTestBase {
         return frameFailed;
     }
 
-    void dequeueOutput(int bufferIndex, MediaCodec.BufferInfo info) {
+    protected void dequeueOutput(int bufferIndex, MediaCodec.BufferInfo info) {
         if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
             mSawOutputEOS = true;
         }
@@ -433,18 +498,20 @@ public class EncodeDecodeAccuracyTest extends CodecDecoderTestBase {
 
     private void decodeElementaryStream(MediaFormat format)
             throws IOException, InterruptedException {
-        mEGLWindowOutSurface = new OutputSurface(mWidth, mHeight, mUseHighBitDepth);
+        mEGLWindowOutSurface = new OutputSurface(mEncCfgParams.mWidth, mEncCfgParams.mHeight,
+                mEncCfgParams.mInputBitDepth == 10);
         mSurface = mEGLWindowOutSurface.getSurface();
         ArrayList<MediaFormat> formats = new ArrayList<>();
         formats.add(format);
         ArrayList<String> listOfDecoders =
-                CodecDecoderTestBase.selectCodecs(mMime, formats, null, false);
-        assertTrue("no suitable codecs found for : " + format.toString(),
-                !listOfDecoders.isEmpty());
+                CodecDecoderTestBase.selectCodecs(mMediaType, formats, null, false);
+        assertFalse("no suitable codecs found for : " + format + "\n" + mTestConfig + mTestEnv,
+                listOfDecoders.isEmpty());
         for (String decoder : listOfDecoders) {
-            if (mUseHighBitDepth &&
-                    !hasSupportForColorFormat(decoder, mMime, COLOR_FormatYUVP010) &&
-                    !hasSupportForColorFormat(decoder, mMime, COLOR_Format32bitABGR2101010)) {
+            if (mEncCfgParams.mInputBitDepth == 10
+                    && !hasSupportForColorFormat(decoder, mMediaType, COLOR_FormatYUVP010)
+                    && !hasSupportForColorFormat(decoder, mMediaType,
+                                                 COLOR_Format32bitABGR2101010)) {
                 continue;
             }
             mCodec = MediaCodec.createByCodecName(decoder);
@@ -457,78 +524,52 @@ public class EncodeDecodeAccuracyTest extends CodecDecoderTestBase {
             mCodec.stop();
             mCodec.release();
         }
+        mSurface = null;
         mEGLWindowOutSurface.release();
+        mEGLWindowOutSurface = null;
     }
 
     /**
-     * Current test encodes RGB frames at high bitrates (this is to ensure very minor quantization
-     * losses). The Color Aspects information is passed in the bitstream or container format. The
-     * decoder is expected to produce the color information accurately
+     * Check description of class {@link EncodeDecodeAccuracyTest}
      */
+    @ApiTest(apis = {"android.media.MediaFormat#KEY_COLOR_RANGE",
+            "android.media.MediaFormat#KEY_COLOR_STANDARD",
+            "android.media.MediaFormat#KEY_COLOR_TRANSFER"})
     @LargeTest
     @Test(timeout = CodecTestBase.PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testEncodeDecodeAccuracyRGB() throws IOException, InterruptedException {
-        ArrayList<MediaFormat> formats = new ArrayList<>();
-        formats.add(setUpEncoderFormat());
+        MediaFormat format = mEncCfgParams.getFormat();
         final boolean isAsync = true;
         mSaveToMemEnc = true;
         mOutputBuffEnc = new OutputManager();
-        String tmpPath;
         {
-            if (mMuxOutput) {
-                int muxerFormat;
-                if (mMime.equals(MediaFormat.MIMETYPE_VIDEO_VP8) ||
-                        mMime.equals(MediaFormat.MIMETYPE_VIDEO_VP9)) {
-                    muxerFormat = MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM;
-                    tmpPath = File.createTempFile("tmp", ".webm").getAbsolutePath();
-                } else {
-                    muxerFormat = MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4;
-                    tmpPath = File.createTempFile("tmp", ".mp4").getAbsolutePath();
-                }
-                mMuxer = new MediaMuxer(tmpPath, muxerFormat);
-            }
             mEncoder = MediaCodec.createByCodecName(mCompName);
             mOutputBuffEnc.reset();
             mInfoListEnc.clear();
-            configureCodec(formats.get(0), isAsync);
+            configureCodec(format, isAsync);
             mEncoder.start();
             doWorkEnc(FRAMES_TO_ENCODE);
             queueEOSEnc();
             waitForAllEncoderOutputs();
-            if (mMuxOutput) {
-                if (mTrackID != -1) {
-                    mMuxer.stop();
-                    mTrackID = -1;
-                }
-                if (mMuxer != null) {
-                    mMuxer.release();
-                    mMuxer = null;
-                }
-            }
             MediaFormat outputFormat = mEncoder.getOutputFormat();
             assertTrue(outputFormat.containsKey(MediaFormat.KEY_COLOR_RANGE));
             assertTrue(outputFormat.containsKey(MediaFormat.KEY_COLOR_STANDARD));
             assertTrue(outputFormat.containsKey(MediaFormat.KEY_COLOR_TRANSFER));
-            if (mMime.equals(MediaFormat.MIMETYPE_VIDEO_AVC) ||
-                    mMime.equals(MediaFormat.MIMETYPE_VIDEO_HEVC)) {
+            if (mMediaType.equals(MediaFormat.MIMETYPE_VIDEO_AVC)
+                    || mMediaType.equals(MediaFormat.MIMETYPE_VIDEO_HEVC)) {
                 outputFormat.removeKey(MediaFormat.KEY_COLOR_RANGE);
                 outputFormat.removeKey(MediaFormat.KEY_COLOR_STANDARD);
                 outputFormat.removeKey(MediaFormat.KEY_COLOR_TRANSFER);
             }
             mEGLWindowInpSurface.release();
+            mEGLWindowInpSurface = null;
             mInpSurface.release();
             mInpSurface = null;
             mEncoder.reset();
             mEncoder.release();
             decodeElementaryStream(outputFormat);
-            assertTrue("output pts list is not Strictly increasing",
-                    mOutputBuffEnc.isPtsStrictlyIncreasing(-1));
-            assertTrue("input pts list and output pts list are not identical",
-                    mOutputBuff.isOutPtsListIdenticalToInpPtsList(false));
-            assertTrue("mOutputCnt != mInputCnt", mOutputCount == FRAMES_TO_ENCODE);
-            assertTrue("color difference exceeds allowed tolerance in " + mBadFrames + " out of " +
-                    FRAMES_TO_ENCODE + " frames", 0 == mBadFrames);
-            if (mMuxOutput) new File(tmpPath).delete();
+            assertEquals("color difference exceeds allowed tolerance in " + mBadFrames + " out of "
+                    + FRAMES_TO_ENCODE + " frames \n" + mTestConfig + mTestEnv, 0, mBadFrames);
         }
     }
 }

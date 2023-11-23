@@ -14,11 +14,14 @@
 
 package com.code_intelligence.jazzer.instrumentor
 
+import com.code_intelligence.jazzer.instrumentor.PatchTestUtils.bytecodeToClass
+import com.code_intelligence.jazzer.instrumentor.PatchTestUtils.classToBytecode
 import org.junit.Test
 import java.io.File
 
 private fun applyReplaceHooks(bytecode: ByteArray): ByteArray {
-    return HookInstrumentor(loadHooks(ReplaceHooks::class.java), false).instrument(bytecode)
+    val hooks = Hooks.loadHooks(setOf(ReplaceHooks::class.java.name)).first().hooks
+    return HookInstrumentor(hooks, false).instrument(bytecode)
 }
 
 private fun getOriginalReplaceHooksTargetInstance(): ReplaceHooksTargetContract {

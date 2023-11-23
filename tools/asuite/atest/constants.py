@@ -18,7 +18,7 @@ Imports the various constant files that are available (default, google, etc).
 # pylint: disable=wildcard-import
 # pylint: disable=unused-wildcard-import
 
-from constants_default import *
+from atest.constants_default import *
 
 
 # Now try to import the various constant files outside this repo to overwrite

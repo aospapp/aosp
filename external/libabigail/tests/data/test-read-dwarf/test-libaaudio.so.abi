@@ -88,6 +88,7 @@
     <type-decl name='long int' size-in-bits='64' id='bd54fe1a'/>
     <type-decl name='long long int' size-in-bits='64' id='1eb56b1e'/>
     <type-decl name='long long unsigned int' size-in-bits='64' id='3a47d82b'/>
+    <type-decl name='long unsigned int' size-in-bits='64' id='cac2f49f'/>
     <typedef-decl name='__builtin_va_list' type-id='30357e0a' id='7f896fb4'/>
     <type-decl name='unnamed-enum-underlying-type-32' is-anonymous='yes' size-in-bits='32' alignment-in-bits='32' id='9cac1fee'/>
     <type-decl name='unsigned char' size-in-bits='8' id='002ac4a6'/>
@@ -95,8 +96,6 @@
       <subrange length='4' type-id='7ff19f0f' id='16fe7105'/>
     </array-type-def>
     <type-decl name='unsigned int' size-in-bits='32' id='f0981eeb'/>
-    <type-decl name='unsigned long int' size-in-bits='64' id='7359adad'/>
-    <type-decl name='variadic parameter type' id='2c1145c5'/>
     <type-decl name='wchar_t' size-in-bits='32' id='c523b9f1'/>
     <class-decl name='mbstate_t' size-in-bits='64' is-struct='yes' naming-typedef-id='3d7d8cbf' visibility='default' filepath='bionic/libc/include/bits/mbstate_t.h' line='42' column='1' id='a76d8e48'>
       <data-member access='public' layout-offset-in-bits='0'>
@@ -199,7 +198,7 @@
     <typedef-decl name='AAudioStream_errorCallback' type-id='8b51a308' filepath='frameworks/av/media/libaaudio/include/aaudio/AAudio.h' line='966' column='1' id='2e91990d'/>
     <typedef-decl name='aaudio_policy_t' type-id='3ff5601b' filepath='frameworks/av/media/libaaudio/include/aaudio/AAudioTesting.h' line='50' column='1' id='d062bfb5'/>
     <typedef-decl name='va_list' type-id='7f896fb4' filepath='prebuilts/clang/host/linux-x86/clang-r416183b/lib64/clang/12.0.5/include/stdarg.h' line='14' column='1' id='2aee9912'/>
-    <typedef-decl name='size_t' type-id='7359adad' filepath='prebuilts/clang/host/linux-x86/clang-r416183b/lib64/clang/12.0.5/include/stddef.h' line='46' column='1' id='b59d7dce'/>
+    <typedef-decl name='size_t' type-id='cac2f49f' filepath='prebuilts/clang/host/linux-x86/clang-r416183b/lib64/clang/12.0.5/include/stddef.h' line='46' column='1' id='b59d7dce'/>
     <enum-decl name='audio_format_t' naming-typedef-id='aff86d3f' filepath='system/media/audio/include/system/audio-hal-enums.h' line='610' column='1' id='ff439793'>
       <underlying-type type-id='9cac1fee'/>
       <enumerator name='AUDIO_FORMAT_DEFAULT' value='0'/>
@@ -1545,7 +1544,7 @@
       <parameter type-id='80f4b756'/>
       <parameter type-id='9b23c9ad'/>
       <parameter type-id='95e97e5e'/>
-      <return type-id='7359adad'/>
+      <return type-id='cac2f49f'/>
     </function-decl>
     <function-decl name='strtoull' filepath='bionic/libc/include/stdlib.h' line='78' column='1' visibility='default' binding='global' size-in-bits='64'>
       <parameter type-id='80f4b756'/>
@@ -1985,7 +1984,7 @@
       <parameter type-id='f077d3f8'/>
       <parameter type-id='01efdaf1'/>
       <parameter type-id='95e97e5e'/>
-      <return type-id='7359adad'/>
+      <return type-id='cac2f49f'/>
     </function-decl>
     <function-decl name='wcstoull' filepath='bionic/libc/include/wchar.h' line='108' column='1' visibility='default' binding='global' size-in-bits='64'>
       <parameter type-id='f077d3f8'/>

@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -10,7 +10,7 @@ from __future__ import print_function
 
 import unittest
 
-import boolparse_lib
+from autotest_lib.server.cros.dynamic_suite import boolparse_lib
 
 
 class ParserTest(unittest.TestCase):

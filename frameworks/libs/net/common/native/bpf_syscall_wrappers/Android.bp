@@ -33,6 +33,8 @@ cc_library_headers {
         "//apex_available:platform",
         "com.android.art.debug",
         "com.android.mediaprovider",
+        "com.android.os.statsd",
+        "com.android.resolv",
         "com.android.tethering",
     ],
 }

@@ -21,21 +21,28 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
-import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.*;
 
 import android.net.http.SslError;
-import android.os.StrictMode;
-import android.os.StrictMode.ThreadPolicy;
 import android.platform.test.annotations.AppModeFull;
-import android.test.ActivityInstrumentationTestCase2;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.webkit.cts.WebViewSyncLoader.WaitForLoadedClient;
+
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.MediumTest;
 
 import com.android.compatibility.common.util.NullWebViewUtils;
 import com.android.compatibility.common.util.PollingCheck;
+
+import org.junit.After;
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -44,97 +51,104 @@ import java.util.concurrent.LinkedBlockingQueue;
  *  Test WebView zooming behaviour
  */
 @AppModeFull
-public class WebViewZoomTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class WebViewZoomTest extends SharedWebViewTest{
+    @Rule
+    public ActivityScenarioRule mActivityScenarioRule =
+            new ActivityScenarioRule(WebViewCtsActivity.class);
+
+    private WebViewCtsActivity mActivity;
     private WebView mWebView;
     private WebViewOnUiThread mOnUiThread;
     private ScaleChangedWebViewClient mWebViewClient;
-    private CtsTestServer mWebServer;
+    private SharedSdkWebServer mWebServer;
 
     /**
      * Epsilon used in page scale value comparisons.
      */
     private static final float PAGE_SCALE_EPSILON = 0.0001f;
 
-    public WebViewZoomTest() {
-        super("com.android.cts.webkit", WebViewCtsActivity.class);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        final WebViewCtsActivity activity = getActivity();
-        mWebView = activity.getWebView();
-        if (mWebView == null)
-            return;
+    @Before
+    public void setUp() throws Exception {
+        mWebView = getTestEnvironment().getWebView();
         mOnUiThread = new WebViewOnUiThread(mWebView);
-        mOnUiThread.requestFocus();
-
-        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
-            @Override
-                protected boolean check() {
-                    return activity.hasWindowFocus();
-            }
-        }.run();
-
         mWebViewClient = new ScaleChangedWebViewClient();
         mOnUiThread.setWebViewClient(mWebViewClient);
-
         // Pinch zoom is not supported in wrap_content layouts.
         mOnUiThread.setLayoutHeightToMatchParent();
-
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void cleanup() throws Exception {
         if (mOnUiThread != null) {
             mOnUiThread.cleanUp();
         }
         if (mWebServer != null) {
-            stopWebServer();
+            mWebServer.shutdown();
         }
-        super.tearDown();
+
+        mActivity = null;
     }
 
-    private void stopWebServer() throws Exception {
-        assertNotNull(mWebServer);
-        ThreadPolicy oldPolicy = StrictMode.getThreadPolicy();
-        ThreadPolicy tmpPolicy = new ThreadPolicy.Builder(oldPolicy)
-                .permitNetwork()
-                .build();
-        StrictMode.setThreadPolicy(tmpPolicy);
-        mWebServer.shutdown();
-        mWebServer = null;
-        StrictMode.setThreadPolicy(oldPolicy);
+    @Override
+    protected SharedWebViewTestEnvironment createTestEnvironment() {
+        Assume.assumeTrue("WebView is not available", NullWebViewUtils.isWebViewAvailable());
+
+        SharedWebViewTestEnvironment.Builder builder = new SharedWebViewTestEnvironment.Builder();
+
+        mActivityScenarioRule
+                .getScenario()
+                .onActivity(
+                        activity -> {
+                            mActivity = (WebViewCtsActivity) activity;
+
+                            WebView webView = mActivity.getWebView();
+                            builder.setHostAppInvoker(
+                                            SharedWebViewTestEnvironment.createHostAppInvoker(
+                                                    mActivity))
+                                    .setContext(mActivity)
+                                    .setWebView(webView);
+                        });
+
+        SharedWebViewTestEnvironment environment = builder.build();
+
+        // Wait for window focus and clean up the snapshot before
+        // returning the test environment.
+        if (environment.getWebView() != null) {
+            new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
+                @Override
+                protected boolean check() {
+                    return mActivity.hasWindowFocus();
+                }
+            }.run();
+        }
+
+        return environment;
     }
 
     private void setUpPage() throws Exception {
         assertFalse("onScaleChanged has already been called before page has been setup",
                 mWebViewClient.onScaleChangedCalled());
         assertNull(mWebServer);
-        // Pass CtsTestserver.SslMode.TRUST_ANY_CLIENT to make the server serve https URLs yet do
+        // Pass SslMode.TRUST_ANY_CLIENT to make the server serve https URLs yet do
         // not ask client for client authentication.
-        mWebServer = new CtsTestServer(getActivity(), CtsTestServer.SslMode.TRUST_ANY_CLIENT);
+        mWebServer = getTestEnvironment().getSetupWebServer(SslMode.TRUST_ANY_CLIENT);
         mOnUiThread.loadUrlAndWaitForCompletion(
                 mWebServer.getAssetUrl(TestHtmlConstants.HELLO_WORLD_URL));
         pollingCheckForCanZoomIn();
     }
 
+    @Test
     public void testZoomIn() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         setUpPage();
 
         assertTrue(mOnUiThread.zoomIn());
         mWebViewClient.waitForNextScaleChange();
     }
 
-    @SuppressWarnings("deprecation")
+    @Test
     public void testGetZoomControls() {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         WebSettings settings = mOnUiThread.getSettings();
         assertTrue(settings.supportZoom());
         assertNotNull(
@@ -149,20 +163,16 @@ public class WebViewZoomTest extends ActivityInstrumentationTestCase2<WebViewCts
                 WebkitUtils.onMainThreadSync(() -> { return mWebView.getZoomControls(); }));
     }
 
+    @Test
     public void testInvokeZoomPicker() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         WebSettings settings = mOnUiThread.getSettings();
         assertTrue(settings.supportZoom());
         setUpPage();
         WebkitUtils.onMainThreadSync(() -> mWebView.invokeZoomPicker());
     }
 
+    @Test
     public void testZoom_canNotZoomInPastMaximum() {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         float currScale = mOnUiThread.getScale();
         // Zoom in until maximum scale, in default increments.
         while (mOnUiThread.zoomIn()) {
@@ -173,10 +183,8 @@ public class WebViewZoomTest extends ActivityInstrumentationTestCase2<WebViewCts
         assertNoScaleChange(currScale);
     }
 
+    @Test
     public void testZoom_canNotZoomOutPastMinimum() {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         float currScale = mOnUiThread.getScale();
         // Zoom in until maximum scale, in default increments.
         while (mOnUiThread.zoomOut()) {
@@ -187,12 +195,9 @@ public class WebViewZoomTest extends ActivityInstrumentationTestCase2<WebViewCts
         assertNoScaleChange(currScale);
     }
 
+    @Test
     public void testCanZoomWhileZoomSupportedFalse() throws Throwable {
         // setZoomSupported disables user controls, but not zooming via API
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         setUpPage();
 
         WebSettings settings = mOnUiThread.getSettings();
@@ -210,12 +215,9 @@ public class WebViewZoomTest extends ActivityInstrumentationTestCase2<WebViewCts
         currScale = mWebViewClient.expectZoomOut(currScale);
     }
 
+    @Test
     public void testZoomByPowerOfTwoIncrements() throws Throwable {
         // setZoomSupported disables user controls, but not zooming via API
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         setUpPage();
         float currScale = mOnUiThread.getScale();
 
@@ -226,11 +228,8 @@ public class WebViewZoomTest extends ActivityInstrumentationTestCase2<WebViewCts
         currScale = mWebViewClient.expectZoomBy(currScale, 0.75f);
     }
 
+    @Test
     public void testZoomByNonPowerOfTwoIncrements() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         setUpPage();
 
         float currScale = mOnUiThread.getScale();
@@ -258,10 +257,8 @@ public class WebViewZoomTest extends ActivityInstrumentationTestCase2<WebViewCts
         assertNoScaleChange(currScale);
     }
 
+    @Test
     public void testScaleChangeCallbackMatchesGetScale() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         assertFalse("There is an onScaleChanged before we call setUpPage()",
                 mWebViewClient.onScaleChangedCalled());
 
@@ -274,7 +271,7 @@ public class WebViewZoomTest extends ActivityInstrumentationTestCase2<WebViewCts
         ScaleChangedState state = mWebViewClient.waitForNextScaleChange();
         assertEquals(
                 "Expected onScaleChanged arg 2 (new scale) to equal view.getScale()",
-                state.mNewScale, mOnUiThread.getScale());
+                state.mNewScale, mOnUiThread.getScale(), 0);
     }
 
     private void assertNoScaleChange(float currScale) {
@@ -284,7 +281,7 @@ public class WebViewZoomTest extends ActivityInstrumentationTestCase2<WebViewCts
             Thread.sleep(500);
             assertFalse("There is an onScaleChanged left over from previous scale change",
                     mWebViewClient.onScaleChangedCalled());
-            assertEquals(currScale, mOnUiThread.getScale());
+            assertEquals(currScale, mOnUiThread.getScale(), 0);
         } catch (InterruptedException e) {
             fail("Interrupted");
         }
@@ -332,7 +329,7 @@ public class WebViewZoomTest extends ActivityInstrumentationTestCase2<WebViewCts
 
             float nextScale = currentScale * scaleAmount;
             ScaleChangedState state = waitForNextScaleChange();
-            assertEquals(currentScale, state.mOldScale);
+            assertEquals(currentScale, state.mOldScale, 0);
 
 
             // Zoom scale changes can come in multiple steps and the initial scale may have
@@ -373,14 +370,14 @@ public class WebViewZoomTest extends ActivityInstrumentationTestCase2<WebViewCts
 
         public float expectZoomOut(float currentScale) {
             ScaleChangedState state = waitForNextScaleChange();
-            assertEquals(currentScale, state.mOldScale);
+            assertEquals(currentScale, state.mOldScale, 0);
             assertThat(state.mNewScale, lessThan(currentScale));
             return state.mNewScale;
         }
 
         public float expectZoomIn(float currentScale) {
             ScaleChangedState state = waitForNextScaleChange();
-            assertEquals(currentScale, state.mOldScale);
+            assertEquals(currentScale, state.mOldScale, 0);
             assertThat(state.mNewScale, greaterThan(currentScale));
             return state.mNewScale;
         }

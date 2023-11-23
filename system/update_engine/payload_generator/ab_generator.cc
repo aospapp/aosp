@@ -25,7 +25,6 @@
 #include "update_engine/common/utils.h"
 #include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_generator/annotated_operation.h"
-#include "update_engine/payload_generator/bzip.h"
 #include "update_engine/payload_generator/delta_diff_generator.h"
 #include "update_engine/payload_generator/delta_diff_utils.h"
 

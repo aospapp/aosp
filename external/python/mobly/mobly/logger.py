@@ -17,6 +17,7 @@ import logging
 import os
 import re
 import sys
+from typing import Any, MutableMapping, Tuple
 
 from mobly import records
 from mobly import utils
@@ -168,7 +169,7 @@ def get_log_file_timestamp(delta=None):
   return _get_timestamp('%m-%d-%Y_%H-%M-%S-%f', delta)
 
 
-def _setup_test_logger(log_path, prefix=None):
+def _setup_test_logger(log_path, console_level, prefix=None):
   """Customizes the root logger for a test run.
 
   The logger object has a stream handler and a file handler. The stream
@@ -177,6 +178,9 @@ def _setup_test_logger(log_path, prefix=None):
 
   Args:
     log_path: Location of the log file.
+    console_level: Log level threshold used for log messages printed
+      to the console. Logs with a level less severe than
+      console_level will not be printed to the console.
     prefix: A prefix for each log line in terminal.
     filename: Name of the log file. The default is the time the logger
       is requested.
@@ -192,7 +196,7 @@ def _setup_test_logger(log_path, prefix=None):
   c_formatter = logging.Formatter(terminal_format, log_line_time_format)
   ch = logging.StreamHandler(sys.stdout)
   ch.setFormatter(c_formatter)
-  ch.setLevel(logging.INFO)
+  ch.setLevel(console_level)
   # Log everything to file
   f_formatter = logging.Formatter(log_line_format, log_line_time_format)
   # Write logger output to files
@@ -237,7 +241,10 @@ def create_latest_log_alias(actual_path, alias):
   utils.create_alias(actual_path, alias_path)
 
 
-def setup_test_logger(log_path, prefix=None, alias='latest'):
+def setup_test_logger(log_path,
+                      prefix=None,
+                      alias='latest',
+                      console_level=logging.INFO):
   """Customizes the root logger for a test run.
 
   In addition to configuring the Mobly logging handlers, this also sets two
@@ -256,9 +263,12 @@ def setup_test_logger(log_path, prefix=None, alias='latest'):
       will not be created, which is useful to save storage space when the
       storage system (e.g. ZIP files) does not properly support
       shortcut/symlinks.
+    console_level: optional logging level, log level threshold used for log
+      messages printed to the console. Logs with a level less severe than
+      console_level will not be printed to the console.
   """
   utils.create_dir(log_path)
-  _setup_test_logger(log_path, prefix)
+  _setup_test_logger(log_path, console_level, prefix)
   logging.debug('Test output folder: "%s"', log_path)
   if alias:
     create_latest_log_alias(log_path, alias=alias)
@@ -364,3 +374,58 @@ def normalize_log_line_timestamp(log_line_timestamp):
     special characters.
   """
   return sanitize_filename(log_line_timestamp)
+
+
+class PrefixLoggerAdapter(logging.LoggerAdapter):
+  """A wrapper that adds a prefix to each log line.
+
+  This logger adapter class is like a decorator to Logger. It takes one
+  Logger-like object and returns a new Logger-like object. The new Logger-like
+  object will print logs with a custom prefix added. Creating new Logger-like
+  objects doesn't modify the behavior of the old Logger-like object.
+
+  Chaining multiple logger adapters is also supported. The multiple adapters
+  will take effect in the order in which they are chained, i.e. the log will be
+  '<prefix1> <prefix2> <prefix3> <message>' if we chain 3 PrefixLoggerAdapters.
+
+  Example Usage:
+
+  .. code-block:: python
+
+    logger = PrefixLoggerAdapter(logging.getLogger(), {
+      'log_prefix': <custom prefix>
+    })
+
+  Then each log line added by the logger will have a prefix:
+  '<custom prefix> <message>'.
+  """
+
+  _KWARGS_TYPE = MutableMapping[str, Any]
+  _PROCESS_RETURN_TYPE = Tuple[str, _KWARGS_TYPE]
+
+  # The key of log_preifx item in the dict self.extra
+  EXTRA_KEY_LOG_PREFIX: str = 'log_prefix'
+
+  extra: _KWARGS_TYPE
+
+  def process(self, msg: str, kwargs: _KWARGS_TYPE) -> _PROCESS_RETURN_TYPE:
+    """Processes the logging call to insert contextual information.
+
+    Args:
+      msg: The logging message.
+      kwargs: Keyword arguments passed in to a logging call.
+
+    Returns:
+      The message and kwargs modified.
+    """
+    new_msg = f'{self.extra[PrefixLoggerAdapter.EXTRA_KEY_LOG_PREFIX]} {msg}'
+    return (new_msg, kwargs)
+
+  def set_log_prefix(self, prefix: str) -> None:
+    """Sets the log prefix to the given string.
+
+    Args:
+      prefix: The new log prefix.
+    """
+    self.debug('Setting the log prefix to "%s".', prefix)
+    self.extra[PrefixLoggerAdapter.EXTRA_KEY_LOG_PREFIX] = prefix

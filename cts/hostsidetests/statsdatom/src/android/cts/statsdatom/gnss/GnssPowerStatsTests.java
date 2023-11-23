@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.gnss;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.cts.statsdatom.lib.AtomTestUtils;
@@ -42,7 +43,7 @@ public class GnssPowerStatsTests extends DeviceTestCase implements IBuildReceive
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -65,7 +66,7 @@ public class GnssPowerStatsTests extends DeviceTestCase implements IBuildReceive
                 AtomsProto.Atom.GNSS_POWER_STATS_FIELD_NUMBER);
 
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         List<AtomsProto.Atom> dataList = ReportUtils.getGaugeMetricAtoms(getDevice());
 

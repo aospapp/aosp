@@ -25,6 +25,9 @@ import java.lang.annotation.Target;
 
 /**
  * Ensure that the given permission is denied before running the test.
+ *
+ * <p>Note that use of this annotation implies {@link RequireNotInstantApp} as instant apps are not
+ * able to drop permissions.
  */
 @Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)

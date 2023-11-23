@@ -23,11 +23,12 @@ import static android.autofillservice.cts.testcore.Timeouts.UI_TIMEOUT;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.BySelector;
-import android.support.test.uiautomator.Direction;
-import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
+
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.Direction;
+import androidx.test.uiautomator.UiObject2;
 
 import com.android.compatibility.common.util.RequiredFeatureRule;
 import com.android.cts.mockime.MockIme;

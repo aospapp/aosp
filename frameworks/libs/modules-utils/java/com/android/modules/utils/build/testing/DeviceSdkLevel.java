@@ -44,12 +44,20 @@ public final class DeviceSdkLevel {
         return device.getApiLevel() >= 31;
     }
 
-    /**
-     * Checks if the device is running on a pre-release version of Android T or a release version of
-     * Android T or newer.
-     */
+    /** Checks if the device is running on a release version of Android T or newer. */
     public boolean isDeviceAtLeastT() throws DeviceNotAvailableException {
         return device.getApiLevel() >= 33;
+    }
+
+    /** Checks if the device is running on a (pre-)release version of Android U or newer. */
+    public boolean isDeviceAtLeastU() throws DeviceNotAvailableException {
+        return device.getApiLevel() >= 34 ||
+               (device.getApiLevel() == 33 && isDeviceAtLeastPreReleaseCodename("UpsideDownCake"));
+    }
+
+    /** Checks if the device is running on a (pre-)release version of Android V or newer. */
+    public boolean isDeviceAtLeastV() throws DeviceNotAvailableException {
+        return device.getApiLevel() >= 34 && isDeviceAtLeastPreReleaseCodename("VanillaIceCream");
     }
 
     private boolean isDeviceAtLeastPreReleaseCodename(@NonNull String codename)

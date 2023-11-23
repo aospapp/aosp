@@ -1,8 +1,8 @@
 /*
  * Header for sinf, cosf and sincosf.
  *
- * Copyright (c) 2018, Arm Limited.
- * SPDX-License-Identifier: MIT
+ * Copyright (c) 2018-2021, Arm Limited.
+ * SPDX-License-Identifier: MIT OR Apache-2.0 WITH LLVM-exception
  */
 
 #include <stdint.h>
@@ -12,7 +12,7 @@
 /* 2PI * 2^-64.  */
 static const double pi63 = 0x1.921FB54442D18p-62;
 /* PI / 4.  */
-static const double pio4 = 0x1.921FB54442D18p-1;
+static const float pio4f = 0x1.921FB6p-1f;
 
 /* The constants and polynomials for sine and cosine.  */
 typedef struct

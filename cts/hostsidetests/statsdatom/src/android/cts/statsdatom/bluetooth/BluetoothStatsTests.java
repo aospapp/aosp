@@ -16,8 +16,7 @@
 
 package android.cts.statsdatom.bluetooth;
 
-import static android.cts.statsdatom.statsd.AtomTestCase.FEATURE_BLUETOOTH_LE;
-
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.cts.statsdatom.lib.AtomTestUtils;
@@ -39,6 +38,8 @@ import java.util.List;
 import java.util.Set;
 
 public class BluetoothStatsTests extends DeviceTestCase implements IBuildReceiver {
+    private static final String FEATURE_BLUETOOTH_LE = "android.hardware.bluetooth_le";
+
     private IBuildInfo mCtsBuild;
 
     @Override
@@ -48,7 +49,7 @@ public class BluetoothStatsTests extends DeviceTestCase implements IBuildReceive
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -79,7 +80,7 @@ public class BluetoothStatsTests extends DeviceTestCase implements IBuildReceive
                 atomTag, /*useAttributionChain=*/ true);
 
         DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests", "testBleScanUnoptimized");
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         List<StatsLog.EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, expectedWait,
@@ -102,7 +103,7 @@ public class BluetoothStatsTests extends DeviceTestCase implements IBuildReceive
                 atomTag, /*useAttributionChain=*/ true);
 
         DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests", "testBleScanUnoptimized");
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         List<StatsLog.EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         AtomTestUtils.assertTimeDiffBetween(data.get(0), data.get(1), minTimeDiffMillis,
@@ -154,26 +155,5 @@ public class BluetoothStatsTests extends DeviceTestCase implements IBuildReceive
         assertThat(a1.getIsFiltered()).isFalse();
         assertThat(a1.getIsFirstMatch()).isFalse();
         assertThat(a1.getIsOpportunistic()).isTrue();
-    }
-
-    public void testBleScanResult() throws Exception {
-        if (!DeviceUtils.hasFeature(getDevice(), FEATURE_BLUETOOTH_LE)) return;
-
-        final int atom = AtomsProto.Atom.BLE_SCAN_RESULT_RECEIVED_FIELD_NUMBER;
-        final int field = AtomsProto.BleScanResultReceived.NUM_RESULTS_FIELD_NUMBER;
-        StatsdConfigProto.StatsdConfig.Builder config = ConfigUtils.createConfigBuilder(
-                DeviceUtils.STATSD_ATOM_TEST_PKG);
-        ConfigUtils.addEventMetric(config, atom, Arrays.asList(
-                ConfigUtils.createUidFvm(/*useAttributionChain=*/ true,
-                        DeviceUtils.STATSD_ATOM_TEST_PKG),
-                ConfigUtils.createFvm(field).setGteInt(0)));
-        ConfigUtils.uploadConfig(getDevice(), config);
-
-        DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests", "testBleScanResult");
-
-        List<StatsLog.EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
-        assertThat(data.size()).isAtLeast(1);
-        AtomsProto.BleScanResultReceived a0 = data.get(0).getAtom().getBleScanResultReceived();
-        assertThat(a0.getNumResults()).isAtLeast(1);
     }
 }

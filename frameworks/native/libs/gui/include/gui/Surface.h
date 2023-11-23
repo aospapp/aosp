@@ -17,8 +17,8 @@
 #ifndef ANDROID_GUI_SURFACE_H
 #define ANDROID_GUI_SURFACE_H
 
+#include <android/gui/FrameTimelineInfo.h>
 #include <gui/BufferQueueDefs.h>
-#include <gui/FrameTimelineInfo.h>
 #include <gui/HdrMetadata.h>
 #include <gui/IGraphicBufferProducer.h>
 #include <gui/IProducerListener.h>
@@ -40,6 +40,8 @@ class ISurfaceComposer;
 } // namespace gui
 
 class ISurfaceComposer;
+
+using gui::FrameTimelineInfo;
 
 /* This is the same as ProducerListener except that onBuffersDiscarded is
  * called with a vector of graphic buffers instead of buffer slots.
@@ -109,6 +111,24 @@ public:
      * well as its IGraphicBufferProducer */
     static bool isValid(const sp<Surface>& surface) {
         return surface != nullptr && surface->getIGraphicBufferProducer() != nullptr;
+    }
+
+    static sp<IGraphicBufferProducer> getIGraphicBufferProducer(ANativeWindow* window) {
+        int val;
+        if (window->query(window, NATIVE_WINDOW_CONCRETE_TYPE, &val) >= 0 &&
+            val == NATIVE_WINDOW_SURFACE) {
+            return ((Surface*) window)->mGraphicBufferProducer;
+        }
+        return nullptr;
+    }
+
+    static sp<IBinder> getSurfaceControlHandle(ANativeWindow* window) {
+        int val;
+        if (window->query(window, NATIVE_WINDOW_CONCRETE_TYPE, &val) >= 0 &&
+            val == NATIVE_WINDOW_SURFACE) {
+            return ((Surface*) window)->mSurfaceControlHandle;
+        }
+        return nullptr;
     }
 
     /* Attaches a sideband buffer stream to the Surface's IGraphicBufferProducer.
@@ -185,15 +205,15 @@ public:
             nsecs_t* outDisplayPresentTime, nsecs_t* outDequeueReadyTime,
             nsecs_t* outReleaseTime);
 
-    status_t getWideColorSupport(bool* supported);
-    status_t getHdrSupport(bool* supported);
+    status_t getWideColorSupport(bool* supported) __attribute__((__deprecated__));
+    status_t getHdrSupport(bool* supported) __attribute__((__deprecated__));
 
     status_t getUniqueId(uint64_t* outId) const;
     status_t getConsumerUsage(uint64_t* outUsage) const;
 
     virtual status_t setFrameRate(float frameRate, int8_t compatibility,
                                   int8_t changeFrameRateStrategy);
-    virtual status_t setFrameTimelineInfo(const FrameTimelineInfo& info);
+    virtual status_t setFrameTimelineInfo(uint64_t frameNumber, const FrameTimelineInfo& info);
 
 protected:
     virtual ~Surface();
@@ -282,6 +302,10 @@ private:
     int dispatchGetLastQueuedBuffer(va_list args);
     int dispatchGetLastQueuedBuffer2(va_list args);
     int dispatchSetFrameTimelineInfo(va_list args);
+
+    std::mutex mNameMutex;
+    std::string mName;
+    const char* getDebugName();
 
 protected:
     virtual int dequeueBuffer(ANativeWindowBuffer** buffer, int* fenceFd);
@@ -461,6 +485,11 @@ protected:
     // mHdrMetadata is the HDR metadata that will be used for the next buffer
     // queue operation.  There is no HDR metadata by default.
     HdrMetadata mHdrMetadata;
+
+    // mHdrMetadataIsSet is a bitfield to track which HDR metadata has been set.
+    // Prevent Surface from resetting HDR metadata that was set on a bufer when
+    // HDR metadata is not set on this Surface.
+    uint32_t mHdrMetadataIsSet{0};
 
     // mCrop is the crop rectangle that will be used for the next buffer
     // that gets queued. It is set by calling setCrop.

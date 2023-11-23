@@ -1,0 +1,13 @@
+{
+  "run": true,
+  "device": true,
+  "apex-available": [
+    "//apex_available:platform",
+    "com.android.compos",
+    "com.android.virt"
+  ],
+  "patch": "patches/Android.bp.patch",
+  "lib-blocklist": [
+    "minijail.pic"
+  ]
+}

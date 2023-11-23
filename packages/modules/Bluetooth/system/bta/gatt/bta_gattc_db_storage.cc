@@ -33,6 +33,15 @@ using gatt::StoredAttribute;
 using std::string;
 using std::vector;
 
+#ifdef TARGET_FLOSS
+#define GATT_CACHE_PREFIX "/var/lib/bluetooth/gatt/gatt_cache_"
+#define GATT_CACHE_VERSION 6
+
+#define GATT_HASH_MAX_SIZE 30
+#define GATT_HASH_PATH_PREFIX "/var/lib/bluetooth/gatt/gatt_hash_"
+#define GATT_HASH_PATH "/var/lib/bluetooth/gatt"
+#define GATT_HASH_FILE_PREFIX "gatt_hash_"
+#else
 #define GATT_CACHE_PREFIX "/data/misc/bluetooth/gatt_cache_"
 #define GATT_CACHE_VERSION 6
 
@@ -40,6 +49,7 @@ using std::vector;
 #define GATT_HASH_PATH_PREFIX "/data/misc/bluetooth/gatt_hash_"
 #define GATT_HASH_PATH "/data/misc/bluetooth"
 #define GATT_HASH_FILE_PREFIX "gatt_hash_"
+#endif
 
 // Default expired time is 7 days
 #define GATT_HASH_EXPIRED_TIME 604800

@@ -16,6 +16,7 @@
 
 package com.android.server.nearby.provider;
 
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -24,12 +25,14 @@ import android.app.AppOpsManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.AdvertiseSettings;
+import android.bluetooth.le.AdvertisingSetCallback;
 import android.content.Context;
+import android.hardware.location.ContextHubManager;
 import android.nearby.BroadcastCallback;
+import android.nearby.BroadcastRequest;
 
 import androidx.test.core.app.ApplicationProvider;
 
-import com.android.server.nearby.injector.ContextHubManagerAdapter;
 import com.android.server.nearby.injector.Injector;
 
 import com.google.common.util.concurrent.MoreExecutors;
@@ -59,9 +62,10 @@ public class BleBroadcastProviderTest {
     }
 
     @Test
-    public void testOnStatus_success() {
+    public void testOnStatus_success_fastAdv() {
         byte[] advertiseBytes = new byte[]{1, 2, 3, 4};
-        mBleBroadcastProvider.start(advertiseBytes, mBroadcastListener);
+        mBleBroadcastProvider.start(BroadcastRequest.PRESENCE_VERSION_V0,
+                advertiseBytes, mBroadcastListener);
 
         AdvertiseSettings settings = new AdvertiseSettings.Builder().build();
         mBleBroadcastProvider.onStartSuccess(settings);
@@ -69,13 +73,45 @@ public class BleBroadcastProviderTest {
     }
 
     @Test
-    public void testOnStatus_failure() {
+    public void testOnStatus_success_extendedAdv() {
         byte[] advertiseBytes = new byte[]{1, 2, 3, 4};
-        mBleBroadcastProvider.start(advertiseBytes, mBroadcastListener);
+        mBleBroadcastProvider.start(BroadcastRequest.PRESENCE_VERSION_V1,
+                advertiseBytes, mBroadcastListener);
+
+        // advertising set can not be mocked, so we will allow nulls
+        mBleBroadcastProvider.mAdvertisingSetCallback.onAdvertisingSetStarted(null, -30,
+                AdvertisingSetCallback.ADVERTISE_SUCCESS);
+        verify(mBroadcastListener).onStatusChanged(eq(BroadcastCallback.STATUS_OK));
+    }
+
+    @Test
+    public void testOnStatus_failure_fastAdv() {
+        byte[] advertiseBytes = new byte[]{1, 2, 3, 4};
+        mBleBroadcastProvider.start(BroadcastRequest.PRESENCE_VERSION_V0,
+                advertiseBytes, mBroadcastListener);
 
         mBleBroadcastProvider.onStartFailure(BroadcastCallback.STATUS_FAILURE);
         verify(mBroadcastListener, times(1))
                 .onStatusChanged(eq(BroadcastCallback.STATUS_FAILURE));
+    }
+
+    @Test
+    public void testOnStatus_failure_extendedAdv() {
+        byte[] advertiseBytes = new byte[]{1, 2, 3, 4};
+        mBleBroadcastProvider.start(BroadcastRequest.PRESENCE_VERSION_V1,
+                advertiseBytes, mBroadcastListener);
+
+        // advertising set can not be mocked, so we will allow nulls
+        mBleBroadcastProvider.mAdvertisingSetCallback.onAdvertisingSetStarted(null, -30,
+                AdvertisingSetCallback.ADVERTISE_FAILED_INTERNAL_ERROR);
+        // Can be additional failure if the test device does not support LE Extended Advertising.
+        verify(mBroadcastListener, atLeastOnce())
+                .onStatusChanged(eq(BroadcastCallback.STATUS_FAILURE));
+    }
+
+    @Test
+    public void testStop() {
+        mBleBroadcastProvider.stop();
     }
 
     private static class TestInjector implements Injector {
@@ -88,7 +124,7 @@ public class BleBroadcastProviderTest {
         }
 
         @Override
-        public ContextHubManagerAdapter getContextHubManagerAdapter() {
+        public ContextHubManager getContextHubManager() {
             return null;
         }
 

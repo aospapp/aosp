@@ -20,12 +20,21 @@ import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
+
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
-public class ClassInfoTest {
+@RunWith(BedsteadJUnit4.class)
+public final class ClassInfoTest {
+
+    @ClassRule
+    @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
 
     private static final Class<?> TEST_CLASS = ClassInfoTest.class;
     private static final String TEST_CLASS_NAME = ClassInfoTest.class.getName();

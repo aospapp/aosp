@@ -29,7 +29,6 @@
 #include "avdt_int.h"
 #include "avdtc_api.h"
 #include "bt_target.h"
-#include "bt_utils.h"
 #include "osi/include/osi.h"
 #include "types/raw_address.h"
 
@@ -445,7 +444,7 @@ AvdtpCcb* avdt_ccb_alloc(const RawAddress& bd_addr) {
     if (!p_ccb->allocated) {
       p_ccb->Allocate(bd_addr);
       AVDT_TRACE_DEBUG("%s: allocated (index %d) for peer %s", __func__, i,
-                       bd_addr.ToString().c_str());
+                       ADDRESS_TO_LOGGABLE_CSTR(bd_addr));
       return p_ccb;
     }
   }
@@ -459,18 +458,20 @@ AvdtpCcb* avdt_ccb_alloc_by_channel_index(const RawAddress& bd_addr,
   // Allocate the entry for the specified channel index
   if (channel_index >= AVDT_NUM_LINKS) {
     AVDT_TRACE_ERROR("%s: peer %s invalid channel index %d (max %d)", __func__,
-                     bd_addr.ToString().c_str(), channel_index, AVDT_NUM_LINKS);
+                     ADDRESS_TO_LOGGABLE_CSTR(bd_addr), channel_index,
+                     AVDT_NUM_LINKS);
     return nullptr;
   }
   AvdtpCcb* p_ccb = &avdtp_cb.ccb[channel_index];
   if (p_ccb->allocated) {
     AVDT_TRACE_ERROR("%s: peer %s channel index %d already allocated", __func__,
-                     bd_addr.ToString().c_str(), channel_index);
+                     ADDRESS_TO_LOGGABLE_CSTR(bd_addr), channel_index);
     return nullptr;
   }
   p_ccb->Allocate(bd_addr);
   AVDT_TRACE_DEBUG("%s: allocated (index %d) peer=%s p_ccb=%p", __func__,
-                   channel_index, p_ccb->peer_addr.ToString().c_str(), p_ccb);
+                   channel_index, ADDRESS_TO_LOGGABLE_CSTR(p_ccb->peer_addr),
+                   p_ccb);
   return p_ccb;
 }
 
@@ -497,8 +498,8 @@ void AvdtpCcb::Allocate(const RawAddress& peer_address) {
  ******************************************************************************/
 void avdt_ccb_dealloc(AvdtpCcb* p_ccb, UNUSED_ATTR tAVDT_CCB_EVT* p_data) {
   AVDT_TRACE_DEBUG("%s: deallocated (index %d) peer=%s p_ccb=%p", __func__,
-                   avdt_ccb_to_idx(p_ccb), p_ccb->peer_addr.ToString().c_str(),
-                   p_ccb);
+                   avdt_ccb_to_idx(p_ccb),
+                   ADDRESS_TO_LOGGABLE_CSTR(p_ccb->peer_addr), p_ccb);
   p_ccb->ResetCcb();
 }
 

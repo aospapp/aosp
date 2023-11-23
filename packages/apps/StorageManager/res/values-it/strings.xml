@@ -40,7 +40,7 @@
     <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"Libera spazio"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"Gestire automaticamente lo spazio di archiviazione?"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"<xliff:g id="USED">%1$s</xliff:g> liberi. Vuoi consentire a Gestione archiviazione di liberare spazio automaticamente rimuovendo dal dispositivo i contenuti di cui hai eseguito il backup?"</string>
-    <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"No grazie"</string>
+    <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"No, grazie"</string>
     <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"Attiva"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"App meno utilizzate"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->

@@ -167,6 +167,29 @@ class BluetoothAdapterBetterTogether(BluetoothAdapterQuickTests,
     return True
 
 
+  def test_smart_unlock_llt(self, address):
+    """Smart unlock flow for llt cases """
+    filter = {'Transport': 'le'}
+    parameters = {'MinimumConnectionInterval': 6,
+                  'MaximumConnectionInterval': 6}
+
+    self.test_set_discovery_filter(filter)
+    self.test_discover_device(address)
+
+    self.test_set_le_connection_parameters(address, parameters)
+    self.test_connection_by_adapter(address)
+
+    self.test_set_trusted(address)
+    self.test_service_resolved(address)
+    self.test_find_object_path(address)
+
+    self.test_start_notify(self.rx_object_path,
+                           self.CCCD_VALUE_INDICATION)
+    self.test_messages_exchange(
+        self.rx_object_path, self.tx_object_path, address)
+    self.test_stop_notify(self.rx_object_path)
+
+
   @test_retry_and_log(False)
   def test_remove_device_object(self, address):
     """Test the device object can be removed from the adapter"""

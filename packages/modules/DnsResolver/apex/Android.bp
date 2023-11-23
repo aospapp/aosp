@@ -46,7 +46,7 @@ apex {
     //   so that the package can be installed.
     // - build artifacts (lib/javalib/bin) against Android 10 SDK
     //   so that the artifacts can run.
-    defaults: ["q-launched-apex-module"],
+    defaults: ["q-launched-dcla-enabled-apex-module"],
 }
 
 apex_key {

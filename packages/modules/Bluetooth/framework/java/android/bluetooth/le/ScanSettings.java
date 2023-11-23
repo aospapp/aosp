@@ -96,24 +96,36 @@ public final class ScanSettings implements Parcelable {
      */
     public static final int CALLBACK_TYPE_MATCH_LOST = 4;
 
+    /**
+     * A result callback for every Bluetooth advertisement found that matches the filter criteria
+     * is only triggered when screen is turned on. While the screen is turned off, the
+     * advertisements are batched and the batched result callbacks are triggered every report delay.
+     * When the batch scan with this callback type is activated, the batched result callbacks are
+     * also triggered while turning on screen or disabling the scan. This callback type must be used
+     * with a report delay of {@link ScanSettings#AUTO_BATCH_MIN_REPORT_DELAY_MILLIS} or greater.
+     */
+    public static final int CALLBACK_TYPE_ALL_MATCHES_AUTO_BATCH = 8;
 
     /**
-     * Determines how many advertisements to match per filter, as this is scarce hw resource
+     * Minimum report delay for {@link ScanSettings#CALLBACK_TYPE_ALL_MATCHES_AUTO_BATCH}.
      */
+    public static final long AUTO_BATCH_MIN_REPORT_DELAY_MILLIS = 1000 * 60 * 10;
+
     /**
-     * Match one advertisement per filter
+     * Determines how many advertisements to match per filter, as this is scarce hw resource.
+     * Match one advertisement per filter.
      */
     public static final int MATCH_NUM_ONE_ADVERTISEMENT = 1;
 
     /**
-     * Match few advertisement per filter, depends on current capability and availibility of
-     * the resources in hw
+     * Match few advertisement per filter, depends on current capability and availability of
+     * the resources in hw.
      */
     public static final int MATCH_NUM_FEW_ADVERTISEMENT = 2;
 
     /**
      * Match as many advertisement per filter as hw could allow, depends on current
-     * capability and availibility of the resources in hw
+     * capability and availability of the resources in hw.
      */
     public static final int MATCH_NUM_MAX_ADVERTISEMENT = 3;
 
@@ -126,7 +138,7 @@ public final class ScanSettings implements Parcelable {
 
     /**
      * For sticky mode, higher threshold of signal strength and sightings is required
-     * before reporting by hw
+     * before reporting by hw.
      */
     public static final int MATCH_MODE_STICKY = 2;
 
@@ -161,20 +173,20 @@ public final class ScanSettings implements Parcelable {
     // Bluetooth LE scan mode.
     private int mScanMode;
 
-    // Bluetooth LE scan callback type
+    // Bluetooth LE scan callback type.
     private int mCallbackType;
 
-    // Bluetooth LE scan result type
+    // Bluetooth LE scan result type.
     private int mScanResultType;
 
-    // Time of delay for reporting the scan result
+    // Time of delay for reporting the scan result.
     private long mReportDelayMillis;
 
     private int mMatchMode;
 
     private int mNumOfMatchesPerFilter;
 
-    // Include only legacy advertising results
+    // Include only legacy advertising results.
     private boolean mLegacy;
 
     private int mPhy;
@@ -337,6 +349,7 @@ public final class ScanSettings implements Parcelable {
         // Returns true if the callbackType is valid.
         private boolean isValidCallbackType(int callbackType) {
             if (callbackType == CALLBACK_TYPE_ALL_MATCHES
+                    || callbackType == CALLBACK_TYPE_ALL_MATCHES_AUTO_BATCH
                     || callbackType == CALLBACK_TYPE_FIRST_MATCH
                     || callbackType == CALLBACK_TYPE_MATCH_LOST) {
                 return true;
@@ -382,7 +395,7 @@ public final class ScanSettings implements Parcelable {
         }
 
         /**
-         * Set the number of matches for Bluetooth LE scan filters hardware match
+         * Set the number of matches for Bluetooth LE scan filters hardware match.
          *
          * @param numOfMatches The num of matches can be one of
          * {@link ScanSettings#MATCH_NUM_ONE_ADVERTISEMENT}
@@ -400,7 +413,7 @@ public final class ScanSettings implements Parcelable {
         }
 
         /**
-         * Set match mode for Bluetooth LE scan filters hardware match
+         * Set match mode for Bluetooth LE scan filters hardware match.
          *
          * @param matchMode The match mode can be one of {@link ScanSettings#MATCH_MODE_AGGRESSIVE}
          * or {@link ScanSettings#MATCH_MODE_STICKY}
@@ -447,8 +460,15 @@ public final class ScanSettings implements Parcelable {
 
         /**
          * Build {@link ScanSettings}.
+         *
+         * @throws IllegalArgumentException if the settings cannot be built.
          */
         public ScanSettings build() {
+            if (mCallbackType == CALLBACK_TYPE_ALL_MATCHES_AUTO_BATCH
+                    && mReportDelayMillis < AUTO_BATCH_MIN_REPORT_DELAY_MILLIS) {
+                throw new IllegalArgumentException("report delay for auto batch must be >= "
+                        + AUTO_BATCH_MIN_REPORT_DELAY_MILLIS);
+            }
             return new ScanSettings(mScanMode, mCallbackType, mScanResultType,
                     mReportDelayMillis, mMatchMode,
                     mNumOfMatchesPerFilter, mLegacy, mPhy);

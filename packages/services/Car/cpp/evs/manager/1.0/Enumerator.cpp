@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-#include <hwbinder/IPCThreadState.h>
-#include <cutils/android_filesystem_config.h>
-
 #include "Enumerator.h"
+
 #include "HalDisplay.h"
+
+#include <cutils/android_filesystem_config.h>
+#include <hwbinder/IPCThreadState.h>
 
 namespace android {
 namespace automotive {
 namespace evs {
 namespace V1_0 {
 namespace implementation {
-
 
 bool Enumerator::init(const char* hardwareServiceName) {
     ALOGD("init");
@@ -37,9 +37,8 @@ bool Enumerator::init(const char* hardwareServiceName) {
     return result;
 }
 
-
 bool Enumerator::checkPermission() {
-    hardware::IPCThreadState *ipc = hardware::IPCThreadState::self();
+    hardware::IPCThreadState* ipc = hardware::IPCThreadState::self();
     if (AID_AUTOMOTIVE_EVS != ipc->getCallingUid()) {
         ALOGE("EVS access denied: pid = %d, uid = %d", ipc->getCallingPid(), ipc->getCallingUid());
         return false;
@@ -48,9 +47,8 @@ bool Enumerator::checkPermission() {
     return true;
 }
 
-
 // Methods from ::android::hardware::automotive::evs::V1_0::IEvsEnumerator follow.
-Return<void> Enumerator::getCameraList(getCameraList_cb list_cb)  {
+Return<void> Enumerator::getCameraList(getCameraList_cb list_cb) {
     ALOGD("getCameraList");
     if (!checkPermission()) {
         return Void();
@@ -60,7 +58,6 @@ Return<void> Enumerator::getCameraList(getCameraList_cb list_cb)  {
     return mHwEnumerator->getCameraList(list_cb);
 }
 
-
 Return<sp<IEvsCamera>> Enumerator::openCamera(const hidl_string& cameraId) {
     ALOGD("openCamera");
     if (!checkPermission()) {
@@ -69,14 +66,13 @@ Return<sp<IEvsCamera>> Enumerator::openCamera(const hidl_string& cameraId) {
 
     // Is the underlying hardware camera already open?
     sp<HalCamera> hwCamera;
-    for (auto &&cam : mCameras) {
+    for (auto&& cam : mCameras) {
         bool match = false;
         cam->getHwCamera()->getCameraInfo([cameraId, &match](CameraDesc desc) {
-                                      if (desc.cameraId == cameraId) {
-                                          match = true;
-                                      }
-                                  }
-        );
+            if (desc.cameraId == cameraId) {
+                match = true;
+            }
+        });
         if (match) {
             hwCamera = cam;
             break;
@@ -115,7 +111,6 @@ Return<sp<IEvsCamera>> Enumerator::openCamera(const hidl_string& cameraId) {
     return clientCamera;
 }
 
-
 Return<void> Enumerator::closeCamera(const ::android::sp<IEvsCamera>& clientCamera) {
     ALOGD("closeCamera");
 
@@ -145,7 +140,6 @@ Return<void> Enumerator::closeCamera(const ::android::sp<IEvsCamera>& clientCame
 
     return Void();
 }
-
 
 Return<sp<IEvsDisplay>> Enumerator::openDisplay() {
     ALOGD("openDisplay");
@@ -178,7 +172,6 @@ Return<sp<IEvsDisplay>> Enumerator::openDisplay() {
     return pHalDisplay;
 }
 
-
 Return<void> Enumerator::closeDisplay(const ::android::sp<IEvsDisplay>& display) {
     ALOGD("closeDisplay");
 
@@ -189,7 +182,7 @@ Return<void> Enumerator::closeDisplay(const ::android::sp<IEvsDisplay>& display)
         ALOGW("Ignoring call to closeDisplay with unrecognized display object.");
     } else {
         // Pass this request through to the hardware layer
-        sp<HalDisplay> halDisplay = reinterpret_cast<HalDisplay *>(pActiveDisplay.get());
+        sp<HalDisplay> halDisplay = reinterpret_cast<HalDisplay*>(pActiveDisplay.get());
         mHwEnumerator->closeDisplay(halDisplay->getHwDisplay());
         mActiveDisplay = nullptr;
     }
@@ -197,8 +190,7 @@ Return<void> Enumerator::closeDisplay(const ::android::sp<IEvsDisplay>& display)
     return Void();
 }
 
-
-Return<DisplayState> Enumerator::getDisplayState()  {
+Return<DisplayState> Enumerator::getDisplayState() {
     ALOGD("getDisplayState");
     if (!checkPermission()) {
         return DisplayState::DEAD;
@@ -216,9 +208,8 @@ Return<DisplayState> Enumerator::getDisplayState()  {
     }
 }
 
-
-} // namespace implementation
-} // namespace V1_0
-} // namespace evs
-} // namespace automotive
-} // namespace android
+}  // namespace implementation
+}  // namespace V1_0
+}  // namespace evs
+}  // namespace automotive
+}  // namespace android

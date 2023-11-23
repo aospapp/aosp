@@ -263,6 +263,13 @@ static void mesh_mpm_send_plink_action(struct wpa_supplicant *wpa_s,
 	if (type != PLINK_CLOSE && conf->ocv)
 		buf_len += OCV_OCI_EXTENDED_LEN;
 #endif /* CONFIG_OCV */
+#ifdef CONFIG_IEEE80211BE
+	if (type != PLINK_CLOSE && wpa_s->mesh_eht_enabled) {
+		buf_len += 3 + 2 + EHT_PHY_CAPAB_LEN + EHT_MCS_NSS_CAPAB_LEN +
+			EHT_PPE_THRESH_CAPAB_LEN;
+		buf_len += 3 + sizeof(struct ieee80211_eht_operation);
+}
+#endif /* CONFIG_IEEE80211BE */
 
 	buf = wpabuf_alloc(buf_len);
 	if (!buf)
@@ -390,7 +397,6 @@ static void mesh_mpm_send_plink_action(struct wpa_supplicant *wpa_s,
 		wpabuf_put_data(buf, he_capa_oper, pos - he_capa_oper);
 	}
 #endif /* CONFIG_IEEE80211AX */
-
 #ifdef CONFIG_OCV
 	if (type != PLINK_CLOSE && conf->ocv) {
 		struct wpa_channel_info ci;
@@ -406,6 +412,21 @@ static void mesh_mpm_send_plink_action(struct wpa_supplicant *wpa_s,
 			goto fail;
 	}
 #endif /* CONFIG_OCV */
+
+#ifdef CONFIG_IEEE80211BE
+	if (type != PLINK_CLOSE && wpa_s->mesh_eht_enabled) {
+		u8 eht_capa_oper[3 +
+				 2 +
+				 EHT_PHY_CAPAB_LEN +
+				 EHT_MCS_NSS_CAPAB_LEN +
+				 EHT_PPE_THRESH_CAPAB_LEN +
+				 3 + sizeof(struct ieee80211_eht_operation)];
+		pos = hostapd_eid_eht_capab(bss, eht_capa_oper,
+					    IEEE80211_MODE_MESH);
+		pos = hostapd_eid_eht_operation(bss, pos);
+		wpabuf_put_data(buf, eht_capa_oper, pos - eht_capa_oper);
+	}
+#endif /* CONFIG_IEEE80211BE */
 
 	if (ampe && mesh_rsn_protect_frame(wpa_s->mesh_rsn, sta, cat, buf)) {
 		wpa_msg(wpa_s, MSG_INFO,
@@ -758,6 +779,13 @@ static struct sta_info * mesh_mpm_add_peer(struct wpa_supplicant *wpa_s,
 			  elems->he_capabilities, elems->he_capabilities_len);
 	copy_sta_he_6ghz_capab(data, sta, elems->he_6ghz_band_cap);
 #endif /* CONFIG_IEEE80211AX */
+#ifdef CONFIG_IEEE80211BE
+	copy_sta_eht_capab(data, sta, IEEE80211_MODE_MESH,
+			   elems->he_capabilities,
+			   elems->he_capabilities_len,
+			   elems->eht_capabilities,
+			   elems->eht_capabilities_len);
+#endif /*CONFIG_IEEE80211BE */
 
 	if (hostapd_get_aid(data, sta) < 0) {
 		wpa_msg(wpa_s, MSG_ERROR, "No AIDs available");
@@ -779,6 +807,8 @@ static struct sta_info * mesh_mpm_add_peer(struct wpa_supplicant *wpa_s,
 	params.he_capab = sta->he_capab;
 	params.he_capab_len = sta->he_capab_len;
 	params.he_6ghz_capab = sta->he_6ghz_capab;
+	params.eht_capab = sta->eht_capab;
+	params.eht_capab_len = sta->eht_capab_len;
 	params.flags |= WPA_STA_WMM;
 	params.flags_mask |= WPA_STA_AUTHENTICATED;
 	if (conf->security == MESH_CONF_SEC_NONE) {
@@ -879,7 +909,8 @@ static void mesh_mpm_plink_estab(struct wpa_supplicant *wpa_s,
 
 	if (conf->security & MESH_CONF_SEC_AMPE) {
 		wpa_hexdump_key(MSG_DEBUG, "mesh: MTK", sta->mtk, sta->mtk_len);
-		wpa_drv_set_key(wpa_s, wpa_cipher_to_alg(conf->pairwise_cipher),
+		wpa_drv_set_key(wpa_s, -1,
+				wpa_cipher_to_alg(conf->pairwise_cipher),
 				sta->addr, 0, 0, seq, sizeof(seq),
 				sta->mtk, sta->mtk_len,
 				KEY_FLAG_PAIRWISE_RX_TX);
@@ -888,7 +919,8 @@ static void mesh_mpm_plink_estab(struct wpa_supplicant *wpa_s,
 				sta->mgtk_rsc, sizeof(sta->mgtk_rsc));
 		wpa_hexdump_key(MSG_DEBUG, "mesh: RX MGTK",
 				sta->mgtk, sta->mgtk_len);
-		wpa_drv_set_key(wpa_s, wpa_cipher_to_alg(conf->group_cipher),
+		wpa_drv_set_key(wpa_s, -1,
+				wpa_cipher_to_alg(conf->group_cipher),
 				sta->addr, sta->mgtk_key_id, 0,
 				sta->mgtk_rsc, sizeof(sta->mgtk_rsc),
 				sta->mgtk, sta->mgtk_len,
@@ -900,7 +932,7 @@ static void mesh_mpm_plink_estab(struct wpa_supplicant *wpa_s,
 			wpa_hexdump_key(MSG_DEBUG, "mesh: RX IGTK",
 					sta->igtk, sta->igtk_len);
 			wpa_drv_set_key(
-				wpa_s,
+				wpa_s, -1,
 				wpa_cipher_to_alg(conf->mgmt_group_cipher),
 				sta->addr, sta->igtk_key_id, 0,
 				sta->igtk_rsc, sizeof(sta->igtk_rsc),

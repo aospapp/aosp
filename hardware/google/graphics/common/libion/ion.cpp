@@ -30,6 +30,8 @@
 
 #include <mutex>
 
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
+
 static const struct {
     std::string heap_name;
     std::string ion_heap_name;
@@ -49,6 +51,13 @@ static const struct {
         {"faprev-secure", "faprev_heap", ION_FLAG_PROTECTED, EXYNOS_ION_HEAP_FA_PREV_MASK},
         {"famodel-secure", "famodel_heap", ION_FLAG_PROTECTED, EXYNOS_ION_HEAP_FA_MODEL_MASK},
 };
+
+const char *exynos_ion_get_heap_name(unsigned int legacy_heap_id) {
+    if (legacy_heap_id >= ARRAY_SIZE(heap_map_table))
+        return NULL;
+
+    return heap_map_table[legacy_heap_id].ion_heap_name.c_str();
+}
 
 int exynos_ion_open(void) {
     return 0;

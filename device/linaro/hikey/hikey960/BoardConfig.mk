@@ -12,6 +12,18 @@ BOARD_KERNEL_CMDLINE := androidboot.hardware=hikey960 firmware_class.path=/vendo
 BOARD_KERNEL_CMDLINE += androidboot.boot_devices=soc/ff3b0000.ufs
 BOARD_KERNEL_CMDLINE += loglevel=15 androidboot.slot_suffix=_a
 
+ifeq ($(HIKEY960_ENABLE_AVF), true)
+# The GKI kernel set protected mode by default via gki_defconfig,
+# but hikey960 does not support the protected kvm mode, here overwriting
+# to make it possible to play with AVF in the non-protected mode.
+BOARD_KERNEL_CMDLINE += kvm-arm.mode=nvhe
+# hypervisor.version would be better to be the same as CROSVM_PLATFORM_VERSION in
+# packages/modules/Virtualization/virtualizationmanager/src/crosvm.rs
+BOARD_KERNEL_CMDLINE += androidboot.hypervisor.version=1.0.0
+BOARD_KERNEL_CMDLINE += androidboot.hypervisor.vm.supported=1
+BOARD_KERNEL_CMDLINE += androidboot.hypervisor.protected_vm.supported=0
+endif
+
 ifeq ($(TARGET_BUILTIN_EDID), true)
 BOARD_KERNEL_CMDLINE += drm_kms_helper.edid_firmware=edid/1920x1080.bin
 endif

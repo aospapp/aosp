@@ -3,5 +3,5 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="1051886861071228918">"Fəaliyyət Genişlənməsi"</string>
     <string name="message_not_supported" msgid="5269947674108844893">"Bunu edə bilən tətbiqiniz yoxdur"</string>
-    <string name="stub_name" msgid="2907730040872891281">"Heç bir"</string>
+    <string name="stub_name" msgid="2907730040872891281">"Heç biri"</string>
 </resources>

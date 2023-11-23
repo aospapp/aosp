@@ -1,11 +1,6 @@
 """Variation fonts interpolation models."""
 
 __all__ = [
-    "nonNone",
-    "allNone",
-    "allEqual",
-    "allEqualTo",
-    "subList",
     "normalizeValue",
     "normalizeLocation",
     "supportScalar",
@@ -50,12 +45,13 @@ def subList(truth, lst):
 
 def normalizeValue(v, triple):
     """Normalizes value based on a min/default/max triple.
-    >>> normalizeValue(400, (100, 400, 900))
-    0.0
-    >>> normalizeValue(100, (100, 400, 900))
-    -1.0
-    >>> normalizeValue(650, (100, 400, 900))
-    0.5
+
+      >>> normalizeValue(400, (100, 400, 900))
+      0.0
+      >>> normalizeValue(100, (100, 400, 900))
+      -1.0
+      >>> normalizeValue(650, (100, 400, 900))
+      0.5
     """
     lower, default, upper = triple
     if not (lower <= default <= upper):
@@ -75,41 +71,42 @@ def normalizeValue(v, triple):
 
 def normalizeLocation(location, axes):
     """Normalizes location based on axis min/default/max values from axes.
-    >>> axes = {"wght": (100, 400, 900)}
-    >>> normalizeLocation({"wght": 400}, axes)
-    {'wght': 0.0}
-    >>> normalizeLocation({"wght": 100}, axes)
-    {'wght': -1.0}
-    >>> normalizeLocation({"wght": 900}, axes)
-    {'wght': 1.0}
-    >>> normalizeLocation({"wght": 650}, axes)
-    {'wght': 0.5}
-    >>> normalizeLocation({"wght": 1000}, axes)
-    {'wght': 1.0}
-    >>> normalizeLocation({"wght": 0}, axes)
-    {'wght': -1.0}
-    >>> axes = {"wght": (0, 0, 1000)}
-    >>> normalizeLocation({"wght": 0}, axes)
-    {'wght': 0.0}
-    >>> normalizeLocation({"wght": -1}, axes)
-    {'wght': 0.0}
-    >>> normalizeLocation({"wght": 1000}, axes)
-    {'wght': 1.0}
-    >>> normalizeLocation({"wght": 500}, axes)
-    {'wght': 0.5}
-    >>> normalizeLocation({"wght": 1001}, axes)
-    {'wght': 1.0}
-    >>> axes = {"wght": (0, 1000, 1000)}
-    >>> normalizeLocation({"wght": 0}, axes)
-    {'wght': -1.0}
-    >>> normalizeLocation({"wght": -1}, axes)
-    {'wght': -1.0}
-    >>> normalizeLocation({"wght": 500}, axes)
-    {'wght': -0.5}
-    >>> normalizeLocation({"wght": 1000}, axes)
-    {'wght': 0.0}
-    >>> normalizeLocation({"wght": 1001}, axes)
-    {'wght': 0.0}
+
+      >>> axes = {"wght": (100, 400, 900)}
+      >>> normalizeLocation({"wght": 400}, axes)
+      {'wght': 0.0}
+      >>> normalizeLocation({"wght": 100}, axes)
+      {'wght': -1.0}
+      >>> normalizeLocation({"wght": 900}, axes)
+      {'wght': 1.0}
+      >>> normalizeLocation({"wght": 650}, axes)
+      {'wght': 0.5}
+      >>> normalizeLocation({"wght": 1000}, axes)
+      {'wght': 1.0}
+      >>> normalizeLocation({"wght": 0}, axes)
+      {'wght': -1.0}
+      >>> axes = {"wght": (0, 0, 1000)}
+      >>> normalizeLocation({"wght": 0}, axes)
+      {'wght': 0.0}
+      >>> normalizeLocation({"wght": -1}, axes)
+      {'wght': 0.0}
+      >>> normalizeLocation({"wght": 1000}, axes)
+      {'wght': 1.0}
+      >>> normalizeLocation({"wght": 500}, axes)
+      {'wght': 0.5}
+      >>> normalizeLocation({"wght": 1001}, axes)
+      {'wght': 1.0}
+      >>> axes = {"wght": (0, 1000, 1000)}
+      >>> normalizeLocation({"wght": 0}, axes)
+      {'wght': -1.0}
+      >>> normalizeLocation({"wght": -1}, axes)
+      {'wght': -1.0}
+      >>> normalizeLocation({"wght": 500}, axes)
+      {'wght': -0.5}
+      >>> normalizeLocation({"wght": 1000}, axes)
+      {'wght': 0.0}
+      >>> normalizeLocation({"wght": 1001}, axes)
+      {'wght': 0.0}
     """
     out = {}
     for tag, triple in axes.items():
@@ -118,27 +115,32 @@ def normalizeLocation(location, axes):
     return out
 
 
-def supportScalar(location, support, ot=True):
+def supportScalar(location, support, ot=True, extrapolate=False):
     """Returns the scalar multiplier at location, for a master
     with support.  If ot is True, then a peak value of zero
     for support of an axis means "axis does not participate".  That
     is how OpenType Variation Font technology works.
-    >>> supportScalar({}, {})
-    1.0
-    >>> supportScalar({'wght':.2}, {})
-    1.0
-    >>> supportScalar({'wght':.2}, {'wght':(0,2,3)})
-    0.1
-    >>> supportScalar({'wght':2.5}, {'wght':(0,2,4)})
-    0.75
-    >>> supportScalar({'wght':2.5, 'wdth':0}, {'wght':(0,2,4), 'wdth':(-1,0,+1)})
-    0.75
-    >>> supportScalar({'wght':2.5, 'wdth':.5}, {'wght':(0,2,4), 'wdth':(-1,0,+1)}, ot=False)
-    0.375
-    >>> supportScalar({'wght':2.5, 'wdth':0}, {'wght':(0,2,4), 'wdth':(-1,0,+1)})
-    0.75
-    >>> supportScalar({'wght':2.5, 'wdth':.5}, {'wght':(0,2,4), 'wdth':(-1,0,+1)})
-    0.75
+
+      >>> supportScalar({}, {})
+      1.0
+      >>> supportScalar({'wght':.2}, {})
+      1.0
+      >>> supportScalar({'wght':.2}, {'wght':(0,2,3)})
+      0.1
+      >>> supportScalar({'wght':2.5}, {'wght':(0,2,4)})
+      0.75
+      >>> supportScalar({'wght':2.5, 'wdth':0}, {'wght':(0,2,4), 'wdth':(-1,0,+1)})
+      0.75
+      >>> supportScalar({'wght':2.5, 'wdth':.5}, {'wght':(0,2,4), 'wdth':(-1,0,+1)}, ot=False)
+      0.375
+      >>> supportScalar({'wght':2.5, 'wdth':0}, {'wght':(0,2,4), 'wdth':(-1,0,+1)})
+      0.75
+      >>> supportScalar({'wght':2.5, 'wdth':.5}, {'wght':(0,2,4), 'wdth':(-1,0,+1)})
+      0.75
+      >>> supportScalar({'wght':4}, {'wght':(0,2,3)}, extrapolate=True)
+      2.0
+      >>> supportScalar({'wght':4}, {'wght':(0,2,2)}, extrapolate=True)
+      2.0
     """
     scalar = 1.0
     for axis, (lower, peak, upper) in support.items():
@@ -156,9 +158,27 @@ def supportScalar(location, support, ot=True):
             v = location[axis]
         if v == peak:
             continue
+
+        if extrapolate:
+            if v < -1 and lower <= -1:
+                if peak <= -1 and peak < upper:
+                    scalar *= (v - upper) / (peak - upper)
+                    continue
+                elif -1 < peak:
+                    scalar *= (v - lower) / (peak - lower)
+                    continue
+            elif +1 < v and +1 <= upper:
+                if +1 <= peak and lower < peak:
+                    scalar *= (v - lower) / (peak - lower)
+                    continue
+                elif peak < +1:
+                    scalar *= (v - upper) / (peak - upper)
+                    continue
+
         if v <= lower or upper <= v:
             scalar = 0.0
             break
+
         if v < peak:
             scalar *= (v - lower) / (peak - lower)
         else:  # v > peak
@@ -167,10 +187,11 @@ def supportScalar(location, support, ot=True):
 
 
 class VariationModel(object):
+    """Locations must have the base master at the origin (ie. 0).
 
-    """
-  Locations must be in normalized space.  Ie. base master
-  is at origin (0)::
+    If the extrapolate argument is set to True, then location values are
+    interpretted in the normalized space, ie. in the [-1,+1] range, and
+    values are extrapolated outside this range.
 
       >>> from pprint import pprint
       >>> locations = [ \
@@ -210,14 +231,16 @@ class VariationModel(object):
         5: 0.6666666666666667,
         6: 0.4444444444444445,
         7: 0.6666666666666667}]
-	"""
+    """
 
-    def __init__(self, locations, axisOrder=None):
+    def __init__(self, locations, axisOrder=None, extrapolate=False):
+
         if len(set(tuple(sorted(l.items())) for l in locations)) != len(locations):
             raise VariationModelError("Locations must be unique.")
 
         self.origLocations = locations
         self.axisOrder = axisOrder if axisOrder is not None else []
+        self.extrapolate = extrapolate
 
         locations = [{k: v for k, v in loc.items() if v != 0.0} for loc in locations]
         keyFunc = self.getMasterLocationsSortKeyFunc(
@@ -416,7 +439,8 @@ class VariationModel(object):
         return model.getDeltas(items, round=round), model.supports
 
     def getScalars(self, loc):
-        return [supportScalar(loc, support) for support in self.supports]
+        return [supportScalar(loc, support, extrapolate=self.extrapolate)
+                for support in self.supports]
 
     @staticmethod
     def interpolateFromDeltasAndScalars(deltas, scalars):

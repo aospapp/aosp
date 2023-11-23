@@ -43,6 +43,10 @@ bool IsInNativeAbi() {
       if (s.find("arm") == std::string::npos && s.find("aarch64") == std::string::npos) {
         in_native_abi = 0;
       }
+    } else if (GetTargetArch() == ARCH_RISCV64) {
+      if (s.find("riscv") == std::string::npos) {
+        in_native_abi = 0;
+      }
     }
   }
   return in_native_abi == 1;
@@ -78,11 +82,13 @@ bool HasHardwareCounter() {
     auto arch = GetTargetArch();
     std::string fingerprint = android::base::GetProperty("ro.system.build.fingerprint", "");
     bool is_emulator = android::base::StartsWith(fingerprint, "google/sdk_gphone") ||
+                       android::base::StartsWith(fingerprint, "google/sdk_gpc") ||
                        android::base::StartsWith(fingerprint, "generic/cf");
 
-    if (arch == ARCH_X86_64 || arch == ARCH_X86_32 || is_emulator) {
-      // On x86 and x86_64, it's likely to run on an emulator or vm without hardware perf
-      // counters. It's hard to enumerate them all. So check the support at runtime.
+    if (arch == ARCH_X86_64 || arch == ARCH_X86_32 || !IsInNativeAbi() || is_emulator) {
+      // On x86 and x86_64, or when we are not in native abi, it's likely to run on an emulator or
+      // vm without hardware perf counters. It's hard to enumerate them all. So check the support
+      // at runtime.
       const simpleperf::EventType* type = simpleperf::FindEventTypeByName("cpu-cycles", false);
       CHECK(type != nullptr);
       perf_event_attr attr = CreateDefaultPerfEventAttr(*type);

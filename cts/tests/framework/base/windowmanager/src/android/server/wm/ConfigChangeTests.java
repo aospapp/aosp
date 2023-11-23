@@ -18,12 +18,14 @@ package android.server.wm;
 
 import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 import static android.server.wm.StateLogger.log;
+import static android.server.wm.StateLogger.logAlways;
 import static android.server.wm.StateLogger.logE;
 import static android.server.wm.WindowManagerState.STATE_RESUMED;
 import static android.server.wm.app.Components.FONT_SCALE_ACTIVITY;
 import static android.server.wm.app.Components.FONT_SCALE_NO_RELAUNCH_ACTIVITY;
 import static android.server.wm.app.Components.FontScaleActivity.EXTRA_FONT_ACTIVITY_DPI;
 import static android.server.wm.app.Components.FontScaleActivity.EXTRA_FONT_PIXEL_SIZE;
+import static android.server.wm.app.Components.FontScaleActivity.EXTRA_FONT_SCALE;
 import static android.server.wm.app.Components.NO_RELAUNCH_ACTIVITY;
 import static android.server.wm.app.Components.TEST_ACTIVITY;
 import static android.server.wm.app.Components.TestActivity.EXTRA_CONFIG_ASSETS_SEQ;
@@ -232,7 +234,13 @@ public class ConfigChangeTests extends ActivityManagerTestBase {
             separateTestJournal();
             rotationSession.set(rotation);
             mWmState.computeState(activityName);
-            assertRelaunchOrConfigChanged(activityName, numRelaunch, numConfigChange);
+            // The configuration could be changed more than expected due to TaskBar recreation.
+            new ActivityLifecycleCounts(activityName).assertCountWithRetry(
+                    "relaunch or config changed",
+                    countSpec(ActivityCallback.ON_DESTROY, CountSpec.EQUALS, numRelaunch),
+                    countSpec(ActivityCallback.ON_CREATE, CountSpec.EQUALS, numRelaunch),
+                    countSpec(ActivityCallback.ON_CONFIGURATION_CHANGED,
+                            CountSpec.GREATER_THAN_OR_EQUALS, numConfigChange));
         }
     }
 
@@ -249,21 +257,38 @@ public class ConfigChangeTests extends ActivityManagerTestBase {
         }
         final int densityDpi = extras.getInt(EXTRA_FONT_ACTIVITY_DPI);
 
-        for (float fontScale = 0.85f; fontScale <= 1.3f; fontScale += 0.15f) {
+        // Retry set font scale if needed, but with a maximum retry count to prevent infinite loop.
+        int retrySetFontScale = 5;
+        final float step = 0.15f;
+        for (float fontScale = 0.85f; fontScale <= 1.3f; fontScale += step) {
             separateTestJournal();
             fontScaleSession.set(fontScale);
             mWmState.computeState(activityName);
-            assertRelaunchOrConfigChanged(activityName, relaunch ? 1 : 0, relaunch ? 0 : 1);
+            // The number of config changes could be greater than expected as there may have
+            // other configuration change events triggered after font scale changed, such as
+            // NavigationBar recreated.
+            new ActivityLifecycleCounts(activityName).assertCountWithRetry(
+                    "relaunch or config changed",
+                    countSpec(ActivityCallback.ON_DESTROY, CountSpec.EQUALS, relaunch ? 1 : 0),
+                    countSpec(ActivityCallback.ON_CREATE, CountSpec.EQUALS, relaunch ? 1 : 0),
+                    countSpec(ActivityCallback.ON_RESUME, CountSpec.EQUALS, relaunch ? 1 : 0),
+                    countSpec(ActivityCallback.ON_CONFIGURATION_CHANGED,
+                            CountSpec.GREATER_THAN_OR_EQUALS, relaunch ? 0 : 1));
 
             // Verify that the display metrics are updated, and therefore the text size is also
             // updated accordingly.
             final Bundle changedExtras = TestJournalContainer.get(activityName).extras;
-            waitForOrFail("reported fontPixelSize from " + activityName,
-                    () -> changedExtras.containsKey(EXTRA_FONT_PIXEL_SIZE));
-            final int expectedFontPixelSize =
-                    scaledPixelsToPixels(EXPECTED_FONT_SIZE_SP, fontScale, densityDpi);
-            assertEquals("Expected font pixel size should match", expectedFontPixelSize,
-                    changedExtras.getInt(EXTRA_FONT_PIXEL_SIZE));
+            if (changedExtras.getFloat(EXTRA_FONT_SCALE) == fontScale) {
+                final float scale = fontScale;
+                waitForOrFail("reported fontPixelSize from " + activityName,
+                        () -> scaledPixelsToPixels(EXPECTED_FONT_SIZE_SP, scale, densityDpi)
+                                == changedExtras.getInt(EXTRA_FONT_PIXEL_SIZE));
+            } else if (retrySetFontScale-- > 0) {
+                logE("retry set font scale " + fontScale + ", currently is "
+                        + changedExtras.getFloat(EXTRA_FONT_SCALE) + " session="
+                        + fontScaleSession.get());
+                fontScale -= step;
+            }
         }
     }
 
@@ -308,6 +333,11 @@ public class ConfigChangeTests extends ActivityManagerTestBase {
     private static int scaledPixelsToPixels(float sp, float fontScale, int densityDpi) {
         final int DEFAULT_DENSITY = 160;
         float f = densityDpi * (1.0f / DEFAULT_DENSITY) * fontScale * sp;
+        logAlways("scaledPixelsToPixels, f=" + f + ", densityDpi=" + densityDpi
+                + ", fontScale=" + fontScale + ", sp=" + sp
+                + ", Math.nextUp(f)=" + Math.nextUp(f));
+        // Use the next up adjacent number to prevent precision loss of the float number.
+        f = Math.nextUp(f);
         return (int) ((f >= 0) ? (f + 0.5f) : (f - 0.5f));
     }
 

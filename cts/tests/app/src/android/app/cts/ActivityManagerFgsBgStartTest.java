@@ -16,11 +16,12 @@
 
 package android.app.cts;
 
-import static android.app.ActivityManager.PROCESS_CAPABILITY_ALL;
 import static android.app.ActivityManager.PROCESS_CAPABILITY_FOREGROUND_CAMERA;
+import static android.app.ActivityManager.PROCESS_CAPABILITY_FOREGROUND_LOCATION;
 import static android.app.ActivityManager.PROCESS_CAPABILITY_FOREGROUND_MICROPHONE;
-import static android.app.ActivityManager.PROCESS_CAPABILITY_NETWORK;
 import static android.app.ActivityManager.PROCESS_CAPABILITY_NONE;
+import static android.app.ActivityManager.PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK;
+import static android.app.ActivityManager.PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK;
 import static android.app.stubs.LocalForegroundService.ACTION_START_FGS_RESULT;
 import static android.app.stubs.LocalForegroundServiceLocation.ACTION_START_FGSL_RESULT;
 import static android.os.PowerExemptionManager.REASON_PUSH_MESSAGING;
@@ -33,6 +34,7 @@ import static android.os.PowerExemptionManager.TEMPORARY_ALLOW_LIST_TYPE_NONE;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 
 import static junit.framework.Assert.assertNotNull;
+import static junit.framework.Assert.assertNull;
 import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
 
@@ -46,27 +48,33 @@ import android.app.cts.android.app.cts.tools.WatchUidRunner;
 import android.app.stubs.CommandReceiver;
 import android.app.stubs.LocalForegroundService;
 import android.app.stubs.LocalForegroundServiceLocation;
+import android.app.stubs.shared.NotificationHelper;
+import android.app.stubs.shared.TestNotificationListener;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.ServiceInfo;
+import android.media.session.MediaController;
+import android.media.session.MediaSessionManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.PowerExemptionManager;
+import android.os.RemoteCallback;
 import android.os.SystemClock;
 import android.permission.cts.PermissionUtils;
 import android.platform.test.annotations.AsbSecurityTest;
+import android.platform.test.annotations.Presubmit;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
 import android.server.wm.settings.SettingsSession;
-import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
+import androidx.test.uiautomator.UiDevice;
 
 import com.android.compatibility.common.util.SystemUtil;
 
@@ -75,6 +83,10 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
 public class ActivityManagerFgsBgStartTest {
@@ -94,12 +106,22 @@ public class ActivityManagerFgsBgStartTest {
     private static final String KEY_PUSH_MESSAGING_OVER_QUOTA_BEHAVIOR =
             "push_messaging_over_quota_behavior";
 
+    // REASON_ALARM_MANAGER_ALARM_CLOCK is not exposed by PowerExemptionManager, hard code its value
+    // here.
+    private static final int REASON_ALARM_MANAGER_ALARM_CLOCK = 301;
     private static final int DEFAULT_FGS_START_FOREGROUND_TIMEOUT_MS = 10 * 1000;
 
     public static final Integer LOCAL_SERVICE_PROCESS_CAPABILITY = new Integer(
             PROCESS_CAPABILITY_FOREGROUND_CAMERA
+                    | PROCESS_CAPABILITY_FOREGROUND_MICROPHONE
+                    | PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+                    | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK);
+
+    private static final int PROCESS_CAPABILITY_ALL = PROCESS_CAPABILITY_FOREGROUND_LOCATION
+            | PROCESS_CAPABILITY_FOREGROUND_CAMERA
             | PROCESS_CAPABILITY_FOREGROUND_MICROPHONE
-            | PROCESS_CAPABILITY_NETWORK);
+            | PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+            | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK;
 
     static final int WAITFOR_MSEC = 10000;
 
@@ -114,6 +136,7 @@ public class ActivityManagerFgsBgStartTest {
     private Context mTargetContext;
 
     private int mOrigDeviceDemoMode = 0;
+    private boolean mOrigFgsTypeStartPermissionEnforcement;
 
     @Before
     public void setUp() throws Exception {
@@ -127,6 +150,7 @@ public class ActivityManagerFgsBgStartTest {
             // other BG-FGS-launch exemptions.
             allowBgActivityStart(PACKAGE_NAMES[i], false);
         }
+        mOrigFgsTypeStartPermissionEnforcement = toggleBgFgsTypeStartPermissionEnforcement(false);
         CtsAppTestUtils.turnScreenOn(mInstrumentation, mContext);
         cleanupResiduals();
         enableFgsRestriction(true, true, null);
@@ -141,9 +165,10 @@ public class ActivityManagerFgsBgStartTest {
             CtsAppTestUtils.makeUidIdle(mInstrumentation, PACKAGE_NAMES[i]);
             allowBgActivityStart(PACKAGE_NAMES[i], true);
         }
+        toggleBgFgsTypeStartPermissionEnforcement(mOrigFgsTypeStartPermissionEnforcement);
         cleanupResiduals();
         enableFgsRestriction(true, true, null);
-        for (String packageName: PACKAGE_NAMES) {
+        for (String packageName : PACKAGE_NAMES) {
             resetFgsRestriction(packageName);
         }
     }
@@ -162,17 +187,32 @@ public class ActivityManagerFgsBgStartTest {
                 AccessibilityService.GLOBAL_ACTION_HOME);
     }
 
+    static boolean toggleBgFgsTypeStartPermissionEnforcement(Boolean enforce) {
+        final String namespaceActivityManager = "activity_manager";
+        final String keygFgsTypeStartPermissionEnforcement = "fgs_type_fg_perm_enforcement_flag";
+        final boolean[] origValue = new boolean[1];
+
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            origValue[0] = DeviceConfig.getBoolean(namespaceActivityManager,
+                    keygFgsTypeStartPermissionEnforcement, true);
+            DeviceConfig.setProperty(namespaceActivityManager,
+                    keygFgsTypeStartPermissionEnforcement, enforce.toString(), false);
+        });
+        return origValue[0];
+    }
+
     /**
      * APP1 is in BG state, it can start FGSL, but it won't get location capability.
      * APP1 is in TOP state, it gets location capability.
      * @throws Exception
      */
+    @Presubmit
     @Test
     public void testFgsLocationStartFromBG() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
                 PACKAGE_NAME_APP1, 0);
         WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
-                WAITFOR_MSEC);
+                WAITFOR_MSEC, PROCESS_CAPABILITY_ALL);
 
         try {
             WaitForBroadcast waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
@@ -180,7 +220,13 @@ public class ActivityManagerFgsBgStartTest {
             // APP1 is in BG state, Start FGSL in APP1, it won't get location capability.
             Bundle bundle = new Bundle();
             bundle.putInt(LocalForegroundServiceLocation.EXTRA_FOREGROUND_SERVICE_TYPE,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                    | ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+                    | ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+            final Bundle bundle2 = new Bundle();
+            bundle2.putInt(LocalForegroundServiceLocation.EXTRA_FOREGROUND_SERVICE_TYPE,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+                    | ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
             // start FGSL.
             enableFgsRestriction(false, true, null);
             CommandReceiver.sendCommand(mContext,
@@ -189,7 +235,8 @@ public class ActivityManagerFgsBgStartTest {
             // APP1 is in FGS state, but won't get location capability.
             uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
                     WatchUidRunner.STATE_FG_SERVICE,
-                    new Integer(PROCESS_CAPABILITY_NETWORK));
+                    new Integer(PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+                    | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK));
             waiter.doWait(WAITFOR_MSEC);
             // stop FGSL
             CommandReceiver.sendCommand(mContext,
@@ -204,7 +251,7 @@ public class ActivityManagerFgsBgStartTest {
             // APP1 is in FGS state,
             CommandReceiver.sendCommand(mContext,
                     CommandReceiver.COMMAND_START_FOREGROUND_SERVICE,
-                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, bundle);
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, bundle2);
             // start FGSL in app1, it won't get location capability.
             CommandReceiver.sendCommand(mContext,
                     CommandReceiver.COMMAND_START_FOREGROUND_SERVICE_LOCATION,
@@ -212,7 +259,8 @@ public class ActivityManagerFgsBgStartTest {
             // APP1 is in STATE_FG_SERVICE, but won't get location capability.
             uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
                     WatchUidRunner.STATE_FG_SERVICE,
-                    new Integer(PROCESS_CAPABILITY_NETWORK));
+                    new Integer(PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+                    | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK));
             waiter.doWait(WAITFOR_MSEC);
             // stop FGS.
             CommandReceiver.sendCommand(mContext,
@@ -266,6 +314,7 @@ public class ActivityManagerFgsBgStartTest {
      * APP1 is in TOP state, it can start FGSL in APP2, FGSL gets location capability.
      * @throws Exception
      */
+    @Presubmit
     @Test
     public void testFgsLocationStartFromBGTwoProcesses() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
@@ -273,15 +322,17 @@ public class ActivityManagerFgsBgStartTest {
         ApplicationInfo app2Info = mContext.getPackageManager().getApplicationInfo(
                 PACKAGE_NAME_APP2, 0);
         WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
-                WAITFOR_MSEC);
+                WAITFOR_MSEC, PROCESS_CAPABILITY_ALL);
         WatchUidRunner uid2Watcher = new WatchUidRunner(mInstrumentation, app2Info.uid,
-                WAITFOR_MSEC);
+                WAITFOR_MSEC, PROCESS_CAPABILITY_ALL);
 
         try {
             // APP1 is in BG state, start FGSL in APP2.
             Bundle bundle = new Bundle();
             bundle.putInt(LocalForegroundServiceLocation.EXTRA_FOREGROUND_SERVICE_TYPE,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                    | ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+                    | ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
             WaitForBroadcast waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
             waiter.prepare(ACTION_START_FGSL_RESULT);
             enableFgsRestriction(false, true, null);
@@ -291,7 +342,8 @@ public class ActivityManagerFgsBgStartTest {
             // APP2 won't have location capability because APP1 is not in TOP state.
             uid2Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
                     WatchUidRunner.STATE_FG_SERVICE,
-                    new Integer(PROCESS_CAPABILITY_NETWORK));
+                    new Integer(PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+                    | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK));
             waiter.doWait(WAITFOR_MSEC);
 
             CommandReceiver.sendCommand(mContext,
@@ -350,6 +402,7 @@ public class ActivityManagerFgsBgStartTest {
      * FGSL gets location capability.
      * @throws Exception
      */
+    @Presubmit
     @Test
     public void testFgsLocationPendingIntent() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
@@ -357,9 +410,9 @@ public class ActivityManagerFgsBgStartTest {
         ApplicationInfo app2Info = mContext.getPackageManager().getApplicationInfo(
                 PACKAGE_NAME_APP2, 0);
         WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
-                WAITFOR_MSEC);
+                WAITFOR_MSEC, PROCESS_CAPABILITY_ALL);
         WatchUidRunner uid2Watcher = new WatchUidRunner(mInstrumentation, app2Info.uid,
-                WAITFOR_MSEC);
+                WAITFOR_MSEC, PROCESS_CAPABILITY_ALL);
 
         try {
             WaitForBroadcast waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
@@ -375,7 +428,8 @@ public class ActivityManagerFgsBgStartTest {
             // APP2 won't have location capability.
             uid2Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
                     WatchUidRunner.STATE_FG_SERVICE,
-                    new Integer(PROCESS_CAPABILITY_NETWORK));
+                    new Integer(PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+                    | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK));
             waiter.doWait(WAITFOR_MSEC);
             // Stop FGSL in APP2.
             CommandReceiver.sendCommand(mContext,
@@ -393,7 +447,8 @@ public class ActivityManagerFgsBgStartTest {
                     PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
             uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
                     WatchUidRunner.STATE_FG_SERVICE,
-                    new Integer(PROCESS_CAPABILITY_NETWORK));
+                    new Integer(PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+                    | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK));
             waiter.doWait(WAITFOR_MSEC);
             CommandReceiver.sendCommand(mContext,
                     CommandReceiver.COMMAND_CREATE_FGSL_PENDING_INTENT,
@@ -407,7 +462,8 @@ public class ActivityManagerFgsBgStartTest {
             // APP2 won't have location capability.
             uid2Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
                     WatchUidRunner.STATE_FG_SERVICE,
-                    new Integer(PROCESS_CAPABILITY_NETWORK));
+                    new Integer(PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+                    | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK));
             waiter.doWait(WAITFOR_MSEC);
             // stop FGSL in APP2.
             CommandReceiver.sendCommand(mContext,
@@ -469,13 +525,14 @@ public class ActivityManagerFgsBgStartTest {
      * Test a FGS start by bind from BG does not get get while-in-use capability.
      * @throws Exception
      */
+    @Presubmit
     @Test
     @AsbSecurityTest(cveBugId = 173516292)
     public void testFgsLocationStartFromBGWithBind() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
                 PACKAGE_NAME_APP1, 0);
         WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
-                WAITFOR_MSEC);
+                WAITFOR_MSEC, PROCESS_CAPABILITY_ALL);
 
         try {
             WaitForBroadcast waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
@@ -486,7 +543,9 @@ public class ActivityManagerFgsBgStartTest {
                     PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
             Bundle bundle = new Bundle();
             bundle.putInt(LocalForegroundServiceLocation.EXTRA_FOREGROUND_SERVICE_TYPE,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                    | ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+                    | ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
             // Then start FGSL in APP1, it won't get location capability.
             CommandReceiver.sendCommand(mContext,
                     CommandReceiver.COMMAND_START_FOREGROUND_SERVICE_LOCATION,
@@ -495,7 +554,8 @@ public class ActivityManagerFgsBgStartTest {
             // APP1 is in FGS state, but won't get location capability.
             uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
                     WatchUidRunner.STATE_FG_SERVICE,
-                    new Integer(PROCESS_CAPABILITY_NETWORK));
+                    new Integer(PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+                    | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK));
             waiter.doWait(WAITFOR_MSEC);
 
             // unbind service.
@@ -513,6 +573,7 @@ public class ActivityManagerFgsBgStartTest {
         }
     }
 
+    @Presubmit
     @Test
     public void testUpdateUidProcState() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
@@ -596,6 +657,7 @@ public class ActivityManagerFgsBgStartTest {
      * Test FGS background startForeground() restriction, use DeviceConfig to turn on restriction.
      * @throws Exception
      */
+    @Presubmit
     @Test
     public void testFgsStartFromBG1() throws Exception {
         testFgsStartFromBG(true);
@@ -606,6 +668,7 @@ public class ActivityManagerFgsBgStartTest {
      * restriction.
      * @throws Exception
      */
+    @Presubmit
     @Test
     public void testFgsStartFromBG2() throws Exception {
         testFgsStartFromBG(false);
@@ -687,6 +750,7 @@ public class ActivityManagerFgsBgStartTest {
      * Test a FGS can start from a process that is at BOUND_TOP state.
      * @throws Exception
      */
+    @Presubmit
     @Test
     public void testFgsStartFromBoundTopState() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
@@ -753,6 +817,7 @@ public class ActivityManagerFgsBgStartTest {
      * Test a FGS can start from a process that is at FOREGROUND_SERVICE state.
      * @throws Exception
      */
+    @Presubmit
     @Test
     public void testFgsStartFromFgsState() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
@@ -823,6 +888,7 @@ public class ActivityManagerFgsBgStartTest {
      * restriction is disabled, FGS can start from background.
      * @throws Exception
      */
+    @Presubmit
     @Test
     public void testFgsStartFromBGWithBind() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
@@ -863,6 +929,7 @@ public class ActivityManagerFgsBgStartTest {
      * restriction is enabled, FGS can NOT start from background.
      * @throws Exception
      */
+    @Presubmit
     @Test
     public void testFgsStartFromBGWithBindWithRestriction() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
@@ -906,6 +973,7 @@ public class ActivityManagerFgsBgStartTest {
      * Shell has START_ACTIVITIES_FROM_BACKGROUND permission, it can use this bind flag to
      * pass BG-Activity-launch ability to APP2, then APP2 can start APP2 FGS from background.
      */
+    @Presubmit
     @Test
     public void testFgsBindingFlagActivity() throws Exception {
         testFgsBindingFlag(Context.BIND_ALLOW_BACKGROUND_ACTIVITY_STARTS);
@@ -916,6 +984,7 @@ public class ActivityManagerFgsBgStartTest {
      * Shell has START_FOREGROUND_SERVICES_FROM_BACKGROUND permission, it can use this bind flag to
      * pass BG-FGS-launch ability to APP2, then APP2 can start APP3 FGS from background.
      */
+    @Presubmit
     @Test
     public void testFgsBindingFlagFGS() throws Exception {
         testFgsBindingFlag(Context.BIND_ALLOW_FOREGROUND_SERVICE_STARTS_FROM_BACKGROUND);
@@ -927,6 +996,7 @@ public class ActivityManagerFgsBgStartTest {
      * the BG-FGS-launch ability can be passed to APP2 by service binding, then APP2 can start
      * APP3 FGS from background.
      */
+    @Presubmit
     @Test
     public void testFgsBindingFlagNone() throws Exception {
         testFgsBindingFlag(0);
@@ -1028,6 +1098,7 @@ public class ActivityManagerFgsBgStartTest {
     /**
      * Test a FGS can start from BG if the app has SYSTEM_ALERT_WINDOW permission.
      */
+    @Presubmit
     @Test
     public void testFgsStartSystemAlertWindow() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
@@ -1073,6 +1144,7 @@ public class ActivityManagerFgsBgStartTest {
     /**
      * Test a FGS can start from BG if the device is in retail demo mode.
      */
+    @Presubmit
     @Test
     // Change Settings.Global.DEVICE_DEMO_MODE on device may trigger other listener and put
     // the device in undesired state, for example, the battery charge level is set to 35%
@@ -1154,6 +1226,7 @@ public class ActivityManagerFgsBgStartTest {
     /**
      * Test a FGS can start from BG if the app is in the DeviceIdleController's AllowList.
      */
+    @Presubmit
     @Test
     public void testFgsStartAllowList() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
@@ -1203,6 +1276,7 @@ public class ActivityManagerFgsBgStartTest {
     /**
      * Test temp allowlist types in BroadcastOptions.
      */
+    @Presubmit
     @Test
     public void testTempAllowListType() throws Exception {
         testTempAllowListTypeInternal(TEMPORARY_ALLOW_LIST_TYPE_FOREGROUND_SERVICE_NOT_ALLOWED);
@@ -1328,7 +1402,7 @@ public class ActivityManagerFgsBgStartTest {
             throws Exception {
         testVisibleActivityGracePeriodInternal(uidWatcher, keyCode, null,
                 () -> uidWatcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
-                                         WatchUidRunner.STATE_FG_SERVICE), true);
+                        WatchUidRunner.STATE_FG_SERVICE), true);
 
         testVisibleActivityGracePeriodInternal(uidWatcher, keyCode,
                 () -> SystemClock.sleep(WAITFOR_MSEC + 2000), // Wait for the grace period to expire
@@ -1387,12 +1461,13 @@ public class ActivityManagerFgsBgStartTest {
      * succeed or not depends on the service's app proc state.
      * Test starService() -> startForeground()
      */
+    @Presubmit
     @Test
     public void testStartForegroundTimeout() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
                 PACKAGE_NAME_APP1, 0);
         WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
-                WAITFOR_MSEC);
+                WAITFOR_MSEC, PROCESS_CAPABILITY_ALL);
         try {
             // Enable the FGS background startForeground() restriction.
             enableFgsRestriction(true, true, null);
@@ -1469,12 +1544,13 @@ public class ActivityManagerFgsBgStartTest {
      * Test startForegroundService() -> startForeground() -> stopForeground() -> startForeground()
      * -> startForeground().
      */
+    @Presubmit
     @Test
     public void testSecondStartForeground() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
                 PACKAGE_NAME_APP1, 0);
         WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
-                WAITFOR_MSEC);
+                WAITFOR_MSEC, PROCESS_CAPABILITY_ALL);
         try {
             // Enable the FGS background startForeground() restriction.
             enableFgsRestriction(true, true, null);
@@ -1532,6 +1608,9 @@ public class ActivityManagerFgsBgStartTest {
             waiter.prepare(ACTION_START_FGS_RESULT);
             extras = LocalForegroundService.newCommand(
                     LocalForegroundService.COMMAND_START_FOREGROUND);
+            extras.putInt(LocalForegroundServiceLocation.EXTRA_FOREGROUND_SERVICE_TYPE,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+                    | ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
             CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_START_SERVICE,
                     PACKAGE_NAME_APP2, PACKAGE_NAME_APP1, 0, extras);
             waiter.doWait(WAITFOR_MSEC);
@@ -1556,6 +1635,7 @@ public class ActivityManagerFgsBgStartTest {
      * restriction.
      * @throws Exception
      */
+    @Presubmit
     @Test
     public void testFgsStartVpn() throws Exception {
         testFgsStartVpnInternal("ACTIVATE_VPN");
@@ -1610,13 +1690,13 @@ public class ActivityManagerFgsBgStartTest {
      * is TEMPORARY_ALLOW_LIST_TYPE_FOREGROUND_SERVICE_NOT_ALLOWED (not allowed to start FGS). But
      * the behavior can be changed by device config command. There are three possible values:
      * {@link TEMPORARY_ALLOW_LIST_TYPE_NONE} (-1):
-     *      not temp allowlisted.
+     * not temp allowlisted.
      * {@link TEMPORARY_ALLOW_LIST_TYPE_FOREGROUND_SERVICE_ALLOWED} (0):
-     *      temp allowlisted and allow FGS.
+     * temp allowlisted and allow FGS.
      * {@link TEMPORARY_ALLOW_LIST_TYPE_FOREGROUND_SERVICE_NOT_ALLOWED} (1):
-     *      temp allowlisted, not allow FGS.
-     * @throws Exception
+     * temp allowlisted, not allow FGS.
      */
+    @Presubmit
     @Test
     public void testPushMessagingOverQuota() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
@@ -1699,6 +1779,7 @@ public class ActivityManagerFgsBgStartTest {
      * TEMPORARY_ALLOWLIST_TYPE_NONE, the temp allowlist itself is not allowed.
      * All other reason codes, DeviceIdleController does not change temp allowlist type.
      */
+    @Presubmit
     @Test
     public void testTempAllowListReasonCode() throws Exception {
         // FGS start is temp allowed.
@@ -1728,7 +1809,7 @@ public class ActivityManagerFgsBgStartTest {
             // Now it can start FGS.
             WaitForBroadcast waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
             waiter.prepare(ACTION_START_FGS_RESULT);
-            runWithShellPermissionIdentity(()-> {
+            runWithShellPermissionIdentity(() -> {
                 final BroadcastOptions options = BroadcastOptions.makeBasic();
                 // setTemporaryAppAllowlist API requires
                 // START_FOREGROUND_SERVICES_FROM_BACKGROUND permission.
@@ -1769,9 +1850,156 @@ public class ActivityManagerFgsBgStartTest {
     }
 
     /**
+     * AlarmManagerService uses REASON_ALARM_MANAGER_ALARM_CLOCK(301) to temp allow FGS start.
+     * Test when temp allowlist reasonCode is REASON_ALARM_MANAGER_ALARM_CLOCK, even the app is
+     * background-restricted (appop RUN_ANY_IN_BACKGROUND is false), the app can still start FGS.
+     */
+    @Presubmit
+    @Test
+    public void testTempAllowListReasonCodeAlarmClock() throws Exception {
+        ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP1, 0);
+        WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
+                WAITFOR_MSEC);
+        final String dumpCommand = "dumpsys activity services " + PACKAGE_NAME_APP1
+                + "/android.app.stubs.LocalForegroundService";
+        try {
+            // Set APP1 to be background-restricted.
+            setAppOp(PACKAGE_NAME_APP1, "RUN_ANY_IN_BACKGROUND", false);
+            // Enable the FGS background startForeground() restriction.
+            enableFgsRestriction(true, true, null);
+            WaitForBroadcast waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
+            waiter.prepare(ACTION_START_FGS_RESULT);
+            runWithShellPermissionIdentity(() -> {
+                final BroadcastOptions options = BroadcastOptions.makeBasic();
+                // setTemporaryAppAllowlist API requires
+                // START_FOREGROUND_SERVICES_FROM_BACKGROUND permission.
+                options.setTemporaryAppAllowlist(TEMP_ALLOWLIST_DURATION_MS,
+                        TEMPORARY_ALLOW_LIST_TYPE_FOREGROUND_SERVICE_ALLOWED,
+                        REASON_ALARM_MANAGER_ALARM_CLOCK,
+                        "");
+                // Must use Shell to issue this command because Shell has
+                // START_FOREGROUND_SERVICES_FROM_BACKGROUND permission.
+                CommandReceiver.sendCommandWithBroadcastOptions(mContext,
+                        CommandReceiver.COMMAND_START_FOREGROUND_SERVICE,
+                        PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null,
+                        options.toBundle());
+            });
+            // Although APP1 is background-restricted, FGS can still start because temp allowlist
+            // reasonCode is REASON_ALARM_MANAGER_ALARM_CLOCK.
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+            waiter.doWait(WAITFOR_MSEC);
+            String[] dumpLines = CtsAppTestUtils.executeShellCmd(
+                    mInstrumentation, dumpCommand).split("\n");
+            assertNotNull(CtsAppTestUtils.findLine(dumpLines, "isForeground=true"));
+            // Stop the FGS.
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_STOP_FOREGROUND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
+                    WatchUidRunner.STATE_CACHED_EMPTY);
+        } finally {
+            uid1Watcher.finish();
+            CtsAppTestUtils.executeShellCmd(mInstrumentation,
+                    "appops reset " + PACKAGE_NAME_APP1);
+            // Sleep to let the temp allowlist expire so it won't affect next test case.
+            SystemClock.sleep(TEMP_ALLOWLIST_DURATION_MS);
+        }
+    }
+
+    /**
+     * FGS is already started because the app is temp allowlisted. Afterwards, when the
+     * app becomes background-restricted, if the FGS start reasonCode is
+     * REASON_ALARM_MANAGER_ALARM_CLOCK, FGS can keep running.
+     */
+    @Presubmit
+    @Test
+    public void testAlarmClockFgsNotStoppedByBackgroundRestricted() throws Exception {
+        testAlarmClockFgsNotStoppedByBackgroundRestrictedInternal(REASON_ALARM_MANAGER_ALARM_CLOCK);
+    }
+
+    /**
+     * FGS is already started because the app is temp allowlisted. Afterwards, when the
+     * app becomes background-restricted, if the FGS start reasonCode is NOT
+     * REASON_ALARM_MANAGER_ALARM_CLOCK, the FGS is stopped.
+     */
+    @Presubmit
+    @Test
+    public void testFgsStoppedByBackgroundRestricted() throws Exception {
+        testAlarmClockFgsNotStoppedByBackgroundRestrictedInternal(REASON_UNKNOWN);
+    }
+
+    private void testAlarmClockFgsNotStoppedByBackgroundRestrictedInternal(int reasonCode)
+            throws Exception {
+        ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP1, 0);
+        WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
+                WAITFOR_MSEC);
+        final String dumpCommand = "dumpsys activity services " + PACKAGE_NAME_APP1
+                + "/android.app.stubs.LocalForegroundService";
+        final long shortWaitMsec = 5_000;
+        try {
+            // Enable the FGS background startForeground() restriction.
+            enableFgsRestriction(true, true, null);
+            WaitForBroadcast waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
+            waiter.prepare(ACTION_START_FGS_RESULT);
+            runWithShellPermissionIdentity(() -> {
+                final BroadcastOptions options = BroadcastOptions.makeBasic();
+                // setTemporaryAppAllowlist API requires
+                // START_FOREGROUND_SERVICES_FROM_BACKGROUND permission.
+                options.setTemporaryAppAllowlist(TEMP_ALLOWLIST_DURATION_MS,
+                        TEMPORARY_ALLOW_LIST_TYPE_FOREGROUND_SERVICE_ALLOWED,
+                        reasonCode,
+                        "");
+                // Must use Shell to issue this command because Shell has
+                // START_FOREGROUND_SERVICES_FROM_BACKGROUND permission.
+                CommandReceiver.sendCommandWithBroadcastOptions(mContext,
+                        CommandReceiver.COMMAND_START_FOREGROUND_SERVICE,
+                        PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null,
+                        options.toBundle());
+            });
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+            waiter.doWait(WAITFOR_MSEC);
+            String[] dumpLines = CtsAppTestUtils.executeShellCmd(
+                    mInstrumentation, dumpCommand).split("\n");
+            assertNotNull(CtsAppTestUtils.findLine(dumpLines, "isForeground=true"));
+
+            // Set APP1 to be background-restricted.
+            setAppOp(PACKAGE_NAME_APP1, "RUN_ANY_IN_BACKGROUND", false);
+            if (reasonCode == REASON_ALARM_MANAGER_ALARM_CLOCK) {
+                SystemClock.sleep(shortWaitMsec);
+                // Because the FGS start reasonCode is REASON_ALARM_MANAGER_ALARM_CLOCK, when the
+                // app becomes background-restricted, its FGS can keep running.
+                dumpLines = CtsAppTestUtils.executeShellCmd(
+                        mInstrumentation, dumpCommand).split("\n");
+                assertNotNull(CtsAppTestUtils.findLine(dumpLines, "isForeground=true"));
+                // Stop the FGS.
+                CommandReceiver.sendCommand(mContext,
+                        CommandReceiver.COMMAND_STOP_FOREGROUND_SERVICE,
+                        PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+                uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
+                        WatchUidRunner.STATE_CACHED_EMPTY);
+            } else {
+                SystemClock.sleep(shortWaitMsec);
+                // For other reasonCode, when the app is background-restricted, FGS is stopped.
+                dumpLines = CtsAppTestUtils.executeShellCmd(
+                        mInstrumentation, dumpCommand).split("\n");
+                assertNull(CtsAppTestUtils.findLine(dumpLines, "isForeground=true"));
+            }
+        } finally {
+            uid1Watcher.finish();
+            CtsAppTestUtils.executeShellCmd(mInstrumentation,
+                    "appops reset " + PACKAGE_NAME_APP1);
+            // Sleep to let the temp allowlist expire so it won't affect next test case.
+            SystemClock.sleep(TEMP_ALLOWLIST_DURATION_MS);
+        }
+    }
+
+    /**
      * Test default_input_method is exempted from BG-FGS-start restriction.
      * @throws Exception
      */
+    @Presubmit
     @Test
     public void testFgsStartInputMethod() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
@@ -1823,6 +2051,7 @@ public class ActivityManagerFgsBgStartTest {
         }
     }
 
+    @Presubmit
     @Test
     public void testFgsStartInBackgroundRestrictions() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
@@ -1873,7 +2102,7 @@ public class ActivityManagerFgsBgStartTest {
 
             String[] dumpLines = CtsAppTestUtils.executeShellCmd(
                     mInstrumentation, dumpCommand).split("\n");
-            assertNotNull(findLine(dumpLines, "isForeground=true"));
+            assertNotNull(CtsAppTestUtils.findLine(dumpLines, "isForeground=true"));
 
             // Finish the activity in APP1
             CommandReceiver.sendCommand(mContext,
@@ -1918,7 +2147,7 @@ public class ActivityManagerFgsBgStartTest {
 
             dumpLines = CtsAppTestUtils.executeShellCmd(
                     mInstrumentation, dumpCommand).split("\n");
-            assertNotNull(findLine(dumpLines, "isForeground=true"));
+            assertNotNull(CtsAppTestUtils.findLine(dumpLines, "isForeground=true"));
 
             // Set background restriction for APP1.
             setAppOp(PACKAGE_NAME_APP1, "RUN_ANY_IN_BACKGROUND", false);
@@ -1939,22 +2168,11 @@ public class ActivityManagerFgsBgStartTest {
     }
 
     /**
-     * Find a line containing {@code label} in {@code lines}.
-     */
-    private String findLine(String[] lines, CharSequence label) {
-        for (String line: lines) {
-            if (line.contains(label)) {
-                return line;
-            }
-        }
-        return null;
-    }
-
-    /**
      * When PowerExemptionManager.addToTemporaryAllowList() is called more than one time, the second
      * call can extend the duration of the first call if the first call has not expired yet.
      * @throws Exception
      */
+    @Presubmit
     @Test
     public void testOverlappedTempAllowList() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
@@ -2016,6 +2234,102 @@ public class ActivityManagerFgsBgStartTest {
     }
 
     /**
+     * Test overlapped BroadcastOptions.setTemporaryAppAllowlist().
+     * This is similar to test case testOverlappedTempAllowList which is
+     * PowerExemptionManager.addToTemporaryAllowList().
+     */
+    @Presubmit
+    @Test
+    public void testOverlappedTempAllowListByBroadcastOptions() throws Exception {
+        ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP1, 0);
+        ApplicationInfo app2Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP2, 0);
+        WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
+                WAITFOR_MSEC);
+        WatchUidRunner uid2Watcher = new WatchUidRunner(mInstrumentation, app2Info.uid,
+                WAITFOR_MSEC);
+        try {
+            // Enable the FGS background startForeground() restriction.
+            enableFgsRestriction(true, true, null);
+            WaitForBroadcast waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
+            waiter.prepare(ACTION_START_FGS_RESULT);
+            runWithShellPermissionIdentity(()-> {
+                final BroadcastOptions options = BroadcastOptions.makeBasic();
+                // setTemporaryAppAllowlist API requires
+                // START_FOREGROUND_SERVICES_FROM_BACKGROUND permission.
+                options.setTemporaryAppAllowlist(10000,
+                        TEMPORARY_ALLOW_LIST_TYPE_FOREGROUND_SERVICE_ALLOWED, REASON_UNKNOWN,
+                        "10seconds_br_options");
+                // Must use Shell to issue this command because Shell has
+                // START_FOREGROUND_SERVICES_FROM_BACKGROUND permission.
+                CommandReceiver.sendCommandWithBroadcastOptions(mContext,
+                        CommandReceiver.COMMAND_START_FOREGROUND_SERVICE,
+                        PACKAGE_NAME_APP1, PACKAGE_NAME_APP2, 0, null,
+                        options.toBundle());
+            });
+
+            uid2Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+            waiter.doWait(WAITFOR_MSEC);
+            // Stop the FGS.
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_STOP_FOREGROUND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP2, 0, null);
+            uid2Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
+                    WatchUidRunner.STATE_CACHED_EMPTY);
+
+            Thread.sleep(5000);
+            // second BroadcastOptions.setTemporaryAppAllowlist() overlap with
+            // first one.
+            waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
+            waiter.prepare(ACTION_START_FGS_RESULT);
+            runWithShellPermissionIdentity(()-> {
+                final BroadcastOptions options = BroadcastOptions.makeBasic();
+                // setTemporaryAppAllowlist API requires
+                // START_FOREGROUND_SERVICES_FROM_BACKGROUND permission.
+                options.setTemporaryAppAllowlist(10000,
+                        TEMPORARY_ALLOW_LIST_TYPE_FOREGROUND_SERVICE_ALLOWED, REASON_UNKNOWN,
+                        "10seconds_br_options_2");
+                // Must use Shell to issue this command because Shell has
+                // START_FOREGROUND_SERVICES_FROM_BACKGROUND permission.
+                CommandReceiver.sendCommandWithBroadcastOptions(mContext,
+                        CommandReceiver.COMMAND_START_FOREGROUND_SERVICE,
+                        PACKAGE_NAME_APP1, PACKAGE_NAME_APP2, 0, null,
+                        options.toBundle());
+            });
+            uid2Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+            waiter.doWait(WAITFOR_MSEC);
+            // Stop the FGS.
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_STOP_FOREGROUND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP2, 0, null);
+            uid2Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
+                    WatchUidRunner.STATE_CACHED_EMPTY);
+
+            Thread.sleep(5000);
+            // The first BroadcastOptions.setTemporaryAppAllowlist()'s 10000ms duration has expired.
+            // Now FGS start is allowed by second BroadcastOption's 10000ms duration.
+            waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
+            waiter.prepare(ACTION_START_FGS_RESULT);
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_START_FOREGROUND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP2, 0, null);
+            uid2Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+            waiter.doWait(WAITFOR_MSEC);
+            // Stop the FGS.
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_STOP_FOREGROUND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP2, 0, null);
+            uid2Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_EMPTY);
+        } finally {
+            uid1Watcher.finish();
+            uid2Watcher.finish();
+            // Sleep 10 seconds to let the temp allowlist expire so it won't affect next test case.
+            SystemClock.sleep(10000);
+        }
+    }
+
+    /**
      * IActivityManager.startService() is called directly (does not go through
      * {@link Context#startForegroundService(Intent)}, a spoofed packageName "com.google.android.as"
      * is used as callingPackage. Although "com.google.android.as" is allowlisted to start
@@ -2023,6 +2337,7 @@ public class ActivityManagerFgsBgStartTest {
      * packageName and disallow foreground service start from the background.
      * @throws Exception
      */
+    @Presubmit
     @Test
     public void testSpoofPackageName() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
@@ -2061,13 +2376,72 @@ public class ActivityManagerFgsBgStartTest {
         }
     }
 
+    @Test
+    public void testStartMediaPlaybackFromBg() throws Exception {
+        NotificationHelper notificationHelper = new NotificationHelper(mContext);
+        ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP1, 0);
+        WatchUidRunner uidWatcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
+                WAITFOR_MSEC);
+        // Grant notification listener access in order to query
+        // MediaSessionManager.getActiveSessions().
+        notificationHelper.enableListener(STUB_PACKAGE_NAME);
+        try {
+            // Enable the FGS background startForeground() restriction.
+            enableFgsRestriction(true, true, null);
+
+            final Bundle bundle = new Bundle();
+            final CountDownLatch latch = new CountDownLatch(1);
+            bundle.putParcelable(Intent.EXTRA_REMOTE_CALLBACK,
+                    new RemoteCallback(result -> latch.countDown()));
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_CREATE_ACTIVE_MEDIA_SESSION,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0 /* flags */, bundle);
+            if (!latch.await(WAITFOR_MSEC, TimeUnit.MILLISECONDS)) {
+                fail("Timed out waiting for the test app to receive the start_media_playback cmd");
+            }
+            uidWatcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_EMPTY);
+
+            final MediaSessionManager mediaSessionManager = mTargetContext.getSystemService(
+                    MediaSessionManager.class);
+            final List<MediaController> mediaControllers = mediaSessionManager.getActiveSessions(
+                    new ComponentName(STUB_PACKAGE_NAME, TestNotificationListener.class.getName()));
+            final MediaController controller = findMediaControllerForPkg(mediaControllers,
+                    PACKAGE_NAME_APP1);
+            // Send "play" command and verify that the app moves to FGS state.
+            controller.getTransportControls().play();
+            uidWatcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+            controller.getTransportControls().pause();
+            uidWatcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_SERVICE);
+            controller.getTransportControls().play();
+            uidWatcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+
+            controller.getTransportControls().stop();
+        } finally {
+            notificationHelper.disableListener(STUB_PACKAGE_NAME);
+            uidWatcher.finish();
+            //DEFAULT_MEDIA_SESSION_CALLBACK_FGS_WHILE_IN_USE_TEMP_ALLOW_DURATION_MS = 10000ms
+            SystemClock.sleep(10000);
+        }
+    }
+
+    private MediaController findMediaControllerForPkg(List<MediaController> mediaControllers,
+            String packageName) {
+        for (MediaController controller : mediaControllers) {
+            if (packageName.equals(controller.getPackageName())) {
+                return controller;
+            }
+        }
+        return null;
+    }
+
     /**
      * Turn on the FGS BG-launch restriction. DeviceConfig can turn on restriction on the whole
      * device (across all apps). AppCompat can turn on restriction on a single app package.
-     * @param enable true to turn on restriction, false to turn off.
+     *
+     * @param enable          true to turn on restriction, false to turn off.
      * @param useDeviceConfig true to use DeviceConfig, false to use AppCompat CHANGE ID.
-     * @param packageName the packageName if using AppCompat CHANGE ID.
-     * @throws Exception
+     * @param packageName     the packageName if using AppCompat CHANGE ID.
      */
     private void enableFgsRestriction(boolean enable, boolean useDeviceConfig, String packageName)
             throws Exception {
@@ -2087,8 +2461,8 @@ public class ActivityManagerFgsBgStartTest {
 
     /**
      * Clean up the FGS BG-launch restriction.
+     *
      * @param packageName the packageName that will have its changeid override reset.
-     * @throws Exception
      */
     private void resetFgsRestriction(String packageName)
             throws Exception {
@@ -2101,9 +2475,6 @@ public class ActivityManagerFgsBgStartTest {
      * Some cases we want to grant this permission to allow activity start to bring the app up to
      * TOP state.
      * Some cases we want to revoke this permission to test other BG-FGS-launch exemptions.
-     * @param packageName
-     * @param allow
-     * @throws Exception
      */
     private void allowBgActivityStart(String packageName, boolean allow) throws Exception {
         if (allow) {

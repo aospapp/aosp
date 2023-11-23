@@ -70,7 +70,7 @@ public final class UsbDeviceSettings {
         mAoap = aoap;
     }
 
-    public boolean getAoap() {
+    public boolean isAaop() {
         return mAoap;
     }
 

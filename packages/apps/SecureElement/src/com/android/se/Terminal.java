@@ -36,8 +36,10 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HwBinder;
+import android.os.IBinder;
 import android.os.Message;
 import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.os.ServiceSpecificException;
 import android.os.UserHandle;
 import android.se.omapi.ISecureElementListener;
@@ -75,7 +77,7 @@ public class Terminal {
     private Context mContext;
     private boolean mDefaultApplicationSelectedOnBasicChannel = true;
 
-    private static final boolean DEBUG = Build.IS_DEBUGGABLE;
+    private static final boolean DEBUG = Build.isDebuggable();
     private static final int GET_SERVICE_DELAY_MILLIS = 4 * 1000;
     private static final int EVENT_GET_HAL = 1;
 
@@ -84,6 +86,7 @@ public class Terminal {
 
     private ISecureElement mSEHal;
     private android.hardware.secure_element.V1_2.ISecureElement mSEHal12;
+    private android.hardware.secure_element.ISecureElement mAidlHal;
 
     /** For each Terminal there will be one AccessController object. */
     private AccessControlEnforcer mAccessControlEnforcer;
@@ -127,6 +130,24 @@ public class Terminal {
 
         public void onStateChange(boolean state) {
             return;
+        }
+    };
+
+    private android.hardware.secure_element.ISecureElementCallback.Stub mAidlCallback =
+                new android.hardware.secure_element.ISecureElementCallback.Stub() {
+        @Override
+        public void onStateChange(boolean state, String debugReason) {
+            stateChange(state, debugReason);
+        }
+
+        @Override
+        public int getInterfaceVersion() {
+            return super.VERSION;
+        }
+
+        @Override
+        public String getInterfaceHash() {
+            return super.HASH;
         }
     };
 
@@ -174,9 +195,20 @@ public class Terminal {
         mContext.sendBroadcastAsUser(intent, UserHandle.CURRENT);
     };
 
-    class SecureElementDeathRecipient implements HwBinder.DeathRecipient {
+    class SecureElementDeathRecipient implements HwBinder.DeathRecipient, Binder.DeathRecipient {
+        // for AIDL
+        @Override
+        public void binderDied() {
+            onDied();
+        }
+
+        // for HIDL
         @Override
         public void serviceDied(long cookie) {
+            onDied();
+        }
+
+        private void onDied() {
             Log.e(mTag, mName + " died");
             SecureElementStatsLog.write(
                     SecureElementStatsLog.SE_STATE_CHANGED,
@@ -194,7 +226,7 @@ public class Terminal {
         }
     }
 
-    private HwBinder.DeathRecipient mDeathRecipient = new SecureElementDeathRecipient();
+    private SecureElementDeathRecipient mDeathRecipient = new SecureElementDeathRecipient();
 
     private Handler mHandler = new Handler() {
         @Override
@@ -240,17 +272,35 @@ public class Terminal {
         android.hardware.secure_element.V1_1.ISecureElement mSEHal11 = null;
         synchronized (mLock) {
             try {
-                mSEHal = mSEHal11 = mSEHal12 =
-                        android.hardware.secure_element.V1_2.ISecureElement.getService(mName,
-                                                                                       retryOnFail);
+                String name = "android.hardware.secure_element.ISecureElement/" + mName;
+                IBinder binder = null;
+                if (retryOnFail) {
+                    binder = ServiceManager.waitForDeclaredService(name);
+                } else {
+                    if (ServiceManager.isDeclared(name)) {
+                        binder = ServiceManager.getService(name);
+                    }
+                }
+                mAidlHal = android.hardware.secure_element.ISecureElement.Stub.asInterface(binder);
             } catch (Exception e) {
-                Log.d(mTag, "SE Hal V1.2 is not supported");
+                Log.d(mTag, "SE AIDL Hal is not supported");
             }
-            if (mSEHal12 == null) {
+
+            if (mAidlHal == null) {
+                try {
+                    mSEHal = mSEHal11 = mSEHal12 =
+                            android.hardware.secure_element.V1_2.ISecureElement.getService(
+                                    mName, retryOnFail);
+                } catch (Exception e) {
+                    Log.d(mTag, "SE Hal V1.2 is not supported");
+                }
+            }
+
+            if (mSEHal12 == null && mAidlHal == null) {
                 try {
                     mSEHal = mSEHal11 =
-                            android.hardware.secure_element.V1_1.ISecureElement.getService(mName,
-                                    retryOnFail);
+                            android.hardware.secure_element.V1_1.ISecureElement.getService(
+                                    mName, retryOnFail);
                 } catch (Exception e) {
                     Log.d(mTag, "SE Hal V1.1 is not supported");
                 }
@@ -262,12 +312,16 @@ public class Terminal {
                     }
                 }
             }
-            if (mSEHal11 != null || mSEHal12 != null) {
+            if (mAidlHal != null) {
+                mAidlHal.init(mAidlCallback);
+                mAidlHal.asBinder().linkToDeath(mDeathRecipient, 0);
+            } else if (mSEHal11 != null || mSEHal12 != null) {
                 mSEHal11.init_1_1(mHalCallback11);
+                mSEHal.linkToDeath(mDeathRecipient, 0);
             } else {
                 mSEHal.init(mHalCallback);
+                mSEHal.linkToDeath(mDeathRecipient, 0);
             }
-            mSEHal.linkToDeath(mDeathRecipient, 0);
         }
         Log.i(mTag, mName + " was initialized");
         SecureElementStatsLog.write(
@@ -309,7 +363,16 @@ public class Terminal {
         synchronized (mLock) {
             if (mIsConnected) {
                 try {
-                    byte status = mSEHal.closeChannel((byte) channel.getChannelNumber());
+                    int status = 0;
+                    if (mAidlHal != null) {
+                        try {
+                            mAidlHal.closeChannel((byte) channel.getChannelNumber());
+                        } catch (ServiceSpecificException e) {
+                            status = e.errorCode;
+                        }
+                    } else {
+                        status = mSEHal.closeChannel((byte) channel.getChannelNumber());
+                    }
                     /* For Basic Channels, errors are expected.
                      * Underlying implementations use this call as an indication when there
                      * aren't any users actively using the channel, and the chip can go
@@ -347,6 +410,13 @@ public class Terminal {
      */
     public void close() {
         synchronized (mLock) {
+            if (mAidlHal != null) {
+                try {
+                    mAidlHal.asBinder().unlinkToDeath(mDeathRecipient, 0);
+                } catch (Exception e) {
+                    // ignore
+                }
+            }
             if (mSEHal != null) {
                 try {
                     mSEHal.unlinkToDeath(mDeathRecipient);
@@ -370,16 +440,27 @@ public class Terminal {
         }
 
         try {
-            ArrayList<Byte> responseList = mSEHal.getAtr();
-            if (responseList.isEmpty()) {
-                return null;
+            byte[] atr;
+            if (mAidlHal != null) {
+                atr = mAidlHal.getAtr();
+                if (atr.length == 0) {
+                    return null;
+                }
+            } else {
+                ArrayList<Byte> responseList = mSEHal.getAtr();
+                if (responseList.isEmpty()) {
+                    return null;
+                }
+                atr = arrayListToByteArray(responseList);
             }
-            byte[] atr = arrayListToByteArray(responseList);
             if (DEBUG) {
                 Log.i(mTag, "ATR : " + ByteArrayConverter.byteArrayToHexString(atr));
             }
             return atr;
         } catch (RemoteException e) {
+            Log.e(mTag, "Exception in getAtr()" + e);
+            return null;
+        } catch (ServiceSpecificException e) {
             Log.e(mTag, "Exception in getAtr()" + e);
             return null;
         }
@@ -487,23 +568,35 @@ public class Terminal {
             }
 
             ArrayList<byte[]> responseList = new ArrayList<byte[]>();
-            byte[] status = new byte[1];
+            int[] status = new int[1];
+            status[0] = 0;
 
-            try {
-                mSEHal.openBasicChannel(byteArrayToArrayList(aid), p2,
-                        new ISecureElement.openBasicChannelCallback() {
-                            @Override
-                            public void onValues(ArrayList<Byte> responseObject, byte halStatus) {
-                                status[0] = halStatus;
-                                responseList.add(arrayListToByteArray(responseObject));
-                                return;
-                            }
-                        });
-            } catch (RemoteException e) {
-                throw new IOException(e.getMessage());
+            if (mAidlHal != null) {
+                try {
+                    responseList.add(mAidlHal.openBasicChannel(
+                                aid == null ? new byte[0] : aid, p2));
+                } catch (RemoteException e) {
+                    throw new IOException(e.getMessage());
+                } catch (ServiceSpecificException e) {
+                    status[0] = e.errorCode;
+                }
+            } else {
+                try {
+                    mSEHal.openBasicChannel(byteArrayToArrayList(aid), p2,
+                            new ISecureElement.openBasicChannelCallback() {
+                                @Override
+                                public void onValues(ArrayList<Byte> responseObject,
+                                                     byte halStatus) {
+                                    status[0] = halStatus;
+                                    responseList.add(arrayListToByteArray(responseObject));
+                                    return;
+                                }
+                            });
+                } catch (RemoteException e) {
+                    throw new IOException(e.getMessage());
+                }
             }
 
-            byte[] selectResponse = responseList.get(0);
             if (status[0] == SecureElementStatus.CHANNEL_NOT_AVAILABLE) {
                 return null;
             } else if (status[0] == SecureElementStatus.UNSUPPORTED_OPERATION) {
@@ -514,6 +607,7 @@ public class Terminal {
                 throw new NoSuchElementException("OpenBasicChannel() failed");
             }
 
+            byte[] selectResponse = responseList.get(0);
             Channel basicChannel = new Channel(session, this, 0, selectResponse, aid,
                     listener);
             basicChannel.setChannelAccess(channelAccess);
@@ -577,20 +671,36 @@ public class Terminal {
 
         synchronized (mLock) {
             LogicalChannelResponse[] responseArray = new LogicalChannelResponse[1];
-            byte[] status = new byte[1];
+            int[] status = new int[1];
+            status[0] = 0;
 
-            try {
-                mSEHal.openLogicalChannel(byteArrayToArrayList(aid), p2,
-                        new ISecureElement.openLogicalChannelCallback() {
-                            @Override
-                            public void onValues(LogicalChannelResponse response, byte halStatus) {
-                                status[0] = halStatus;
-                                responseArray[0] = response;
-                                return;
-                            }
-                        });
-            } catch (RemoteException e) {
-                throw new IOException(e.getMessage());
+            if (mAidlHal != null) {
+                try {
+                    responseArray[0] = new LogicalChannelResponse();
+                    android.hardware.secure_element.LogicalChannelResponse aidlRs =
+                            mAidlHal.openLogicalChannel(aid == null ? new byte[0] : aid, p2);
+                    responseArray[0].channelNumber = aidlRs.channelNumber;
+                    responseArray[0].selectResponse = byteArrayToArrayList(aidlRs.selectResponse);
+                } catch (RemoteException e) {
+                    throw new IOException(e.getMessage());
+                } catch (ServiceSpecificException e) {
+                    status[0] = e.errorCode;
+                }
+            } else {
+                try {
+                    mSEHal.openLogicalChannel(byteArrayToArrayList(aid), p2,
+                            new ISecureElement.openLogicalChannelCallback() {
+                                @Override
+                                public void onValues(LogicalChannelResponse response,
+                                                     byte halStatus) {
+                                    status[0] = halStatus;
+                                    responseArray[0] = response;
+                                    return;
+                                }
+                            });
+                } catch (RemoteException e) {
+                    throw new IOException(e.getMessage());
+                }
             }
 
             if (status[0] == SecureElementStatus.CHANNEL_NOT_AVAILABLE) {
@@ -610,7 +720,6 @@ public class Terminal {
             Channel logicalChannel = new Channel(session, this, channelNumber,
                     selectResponse, aid, listener);
             logicalChannel.setChannelAccess(channelAccess);
-
             mChannels.put(channelNumber, logicalChannel);
             return logicalChannel;
         }
@@ -628,6 +737,19 @@ public class Terminal {
         }
 
         synchronized (mLock) {
+            if (mAidlHal != null) {
+                try {
+                    android.hardware.secure_element.LogicalChannelResponse aidlRs =
+                            mAidlHal.openLogicalChannel(aid, (byte) 0x00);
+                    mAidlHal.closeChannel(aidlRs.channelNumber);
+                } catch (RemoteException e) {
+                    return false;
+                } catch (ServiceSpecificException e) {
+                    return false;
+                }
+                return true;
+            }
+
             LogicalChannelResponse[] responseArray = new LogicalChannelResponse[1];
             byte[] status = new byte[1];
             try {
@@ -689,16 +811,31 @@ public class Terminal {
     }
 
     private byte[] transmitInternal(byte[] cmd) throws IOException {
-        ArrayList<Byte> response;
-        try {
-            response = mSEHal.transmit(byteArrayToArrayList(cmd));
-        } catch (RemoteException e) {
-            throw new IOException(e.getMessage());
+        byte[] rsp;
+        if (mAidlHal != null) {
+            try {
+                rsp = mAidlHal.transmit(cmd);
+                if (rsp.length == 0) {
+                    throw new IOException("Error in transmit()");
+                }
+            } catch (RemoteException e) {
+                throw new IOException(e.getMessage());
+            } catch (ServiceSpecificException e) {
+                throw new IOException(e.getMessage());
+            }
+        } else {
+            ArrayList<Byte> response;
+            try {
+                response = mSEHal.transmit(byteArrayToArrayList(cmd));
+            } catch (RemoteException e) {
+                throw new IOException(e.getMessage());
+            }
+            if (response.isEmpty()) {
+                throw new IOException("Error in transmit()");
+            }
+            rsp = arrayListToByteArray(response);
         }
-        if (response.isEmpty()) {
-            throw new IOException("Error in transmit()");
-        }
-        byte[] rsp = arrayListToByteArray(response);
+
         if (DEBUG) {
             Log.i(mTag, "Sent : " + ByteArrayConverter.byteArrayToHexString(cmd));
             Log.i(mTag, "Received : " + ByteArrayConverter.byteArrayToHexString(rsp));
@@ -737,7 +874,14 @@ public class Terminal {
      */
     public boolean isSecureElementPresent() {
         try {
-            return mSEHal.isCardPresent();
+            if (mAidlHal != null) {
+                return mAidlHal.isCardPresent();
+            } else {
+                return mSEHal.isCardPresent();
+            }
+        } catch (ServiceSpecificException e) {
+            Log.e(mTag, "Error in isSecureElementPresent() " + e);
+            return false;
         } catch (RemoteException e) {
             Log.e(mTag, "Error in isSecureElementPresent() " + e);
             return false;
@@ -748,23 +892,32 @@ public class Terminal {
      * Reset the Secure Element. Return true if success, false otherwise.
      */
     public boolean reset() {
-        if (mSEHal12 == null) {
-            return false;
-        }
-        mContext.enforceCallingOrSelfPermission(
+        synchronized (mLock) {
+            if (mSEHal12 == null && mAidlHal == null) {
+                return false;
+            }
+            mContext.enforceCallingOrSelfPermission(
                 android.Manifest.permission.SECURE_ELEMENT_PRIVILEGED_OPERATION,
                 "Need SECURE_ELEMENT_PRIVILEGED_OPERATION permission");
 
-        try {
-            byte status = mSEHal12.reset();
-            // Successfully trigger reset. HAL service should send onStateChange
-            // after secure element reset and initialization process complete
-            if (status == SecureElementStatus.SUCCESS) {
-                return true;
+            try {
+                if (mAidlHal != null) {
+                    mAidlHal.reset();
+                    return true;
+                } else {
+                    byte status = mSEHal12.reset();
+                    // Successfully trigger reset. HAL service should send onStateChange
+                    // after secure element reset and initialization process complete
+                    if (status == SecureElementStatus.SUCCESS) {
+                        return true;
+                    }
+                    Log.e(mTag, "Error resetting terminal " + mName);
+                }
+            } catch (ServiceSpecificException e) {
+                Log.e(mTag, "Exception in reset()" + e);
+            } catch (RemoteException e) {
+                Log.e(mTag, "Exception in reset()" + e);
             }
-            Log.e(mTag, "Error reseting terminal " + mName);
-        } catch (RemoteException e) {
-            Log.e(mTag, "Exception in reset()" + e);
         }
         return false;
     }

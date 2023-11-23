@@ -16,11 +16,11 @@
 package com.android.server.wifi.util;
 
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_BACKGROUND;
+import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
@@ -42,6 +42,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 /** Unit tests for {@link WorkSourceHelper}. */
@@ -58,91 +59,54 @@ public class WorkSourceHelperTest extends WifiBaseTest {
     @Mock private PackageManager mPackageManager;
     @Mock private Resources mResources;
 
-    private WorkSource mWorkSource;
-    private WorkSourceHelper mWorkSourceHelper;
-
-    @Before public void setUp() {
+    @Before public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
-
-        // Create a test worksource with 2 app's request.
-        mWorkSource = new WorkSource();
-        mWorkSource.add(new WorkSource(TEST_UID_1, TEST_PACKAGE_1));
-        mWorkSource.add(new WorkSource(TEST_UID_2, TEST_PACKAGE_2));
-
-        mWorkSourceHelper = new WorkSourceHelper(
-                mWorkSource, mWifiPermissionsUtil, mActivityManager, mPackageManager, mResources);
+        when(mActivityManager.getPackageImportance(null)).thenReturn(IMPORTANCE_CACHED);
+        when(mPackageManager.getApplicationInfoAsUser(any(), anyInt(), any())).thenReturn(
+                Mockito.mock(ApplicationInfo.class));
     }
 
     @Test
-    public void testHasAnyPrivilegedRequest() {
-        assertFalse(mWorkSourceHelper.hasAnyPrivilegedAppRequest());
+    public void testGetRequestorWsPriority() throws Exception {
+        // PRIORITY_INTERNAL
+        WorkSource ws = new WorkSource(Process.WIFI_UID, "com.android.wifi");
+        WorkSourceHelper wsHelper = new WorkSourceHelper(
+                ws, mWifiPermissionsUtil, mActivityManager, mPackageManager, mResources);
+        assertEquals(wsHelper.getRequestorWsPriority(), WorkSourceHelper.PRIORITY_INTERNAL);
 
-        when(mWifiPermissionsUtil.checkNetworkSettingsPermission(TEST_UID_1)).thenReturn(true);
-        assertTrue(mWorkSourceHelper.hasAnyPrivilegedAppRequest());
-    }
+        // PRIORITY_BG
+        ws.add(new WorkSource(TEST_UID_1, TEST_PACKAGE_1));
+        ws.add(new WorkSource(TEST_UID_2, TEST_PACKAGE_2));
+        when(mActivityManager.getPackageImportance(TEST_PACKAGE_1)).thenReturn(IMPORTANCE_CACHED);
+        when(mActivityManager.getPackageImportance(TEST_PACKAGE_2)).thenReturn(IMPORTANCE_CACHED);
+        assertEquals(WorkSourceHelper.PRIORITY_BG, wsHelper.getRequestorWsPriority());
 
-    @Test
-    public void testHasAnySystemRequest() throws Exception {
-        ApplicationInfo appInfo = new ApplicationInfo();
-        when(mPackageManager.getApplicationInfoAsUser(any(), anyInt(), any())).thenReturn(appInfo);
+        // PRIORITY_FG_SERVICE
+        when(mActivityManager.getPackageImportance(TEST_PACKAGE_1))
+                .thenReturn(IMPORTANCE_FOREGROUND_SERVICE);
+        assertEquals(WorkSourceHelper.PRIORITY_FG_SERVICE, wsHelper.getRequestorWsPriority());
 
-        assertFalse(mWorkSourceHelper.hasAnySystemAppRequest());
+        // PRIORITY_FG_APP
+        when(mActivityManager.getPackageImportance(TEST_PACKAGE_1))
+                .thenReturn(IMPORTANCE_FOREGROUND);
+        assertEquals(WorkSourceHelper.PRIORITY_FG_APP, wsHelper.getRequestorWsPriority());
 
-        appInfo.flags = ApplicationInfo.FLAG_SYSTEM;
-        assertTrue(mWorkSourceHelper.hasAnySystemAppRequest());
-    }
-
-    @Test
-    public void testHasAnyForegroundAppRequest() throws Exception {
-        // 2 from bg app.
+        // PRIORITY_FG_APP with "treat as foreground" package
         when(mActivityManager.getPackageImportance(TEST_PACKAGE_1))
                 .thenReturn(IMPORTANCE_BACKGROUND);
-        when(mActivityManager.getPackageImportance(TEST_PACKAGE_2))
-                .thenReturn(IMPORTANCE_BACKGROUND);
-        assertFalse(mWorkSourceHelper.hasAnyForegroundAppRequest(true));
-
-        // override background status
         when(mResources.getStringArray(
                 R.array.config_wifiInterfacePriorityTreatAsForegroundList)).thenReturn(
                 new String[]{TEST_PACKAGE_2});
-        assertTrue(mWorkSourceHelper.hasAnyForegroundAppRequest(true));
-        assertFalse(mWorkSourceHelper.hasAnyForegroundAppRequest(false));
+        assertEquals(WorkSourceHelper.PRIORITY_FG_APP, wsHelper.getRequestorWsPriority());
 
-        // 1 request from fg app, 1 from bg app.
-        when(mActivityManager.getPackageImportance(TEST_PACKAGE_1))
-                .thenReturn(IMPORTANCE_FOREGROUND);
-        assertTrue(mWorkSourceHelper.hasAnyForegroundAppRequest(true));
-    }
+        // PRIORITY_SYSTEM
+        ApplicationInfo appInfo = new ApplicationInfo();
+        appInfo.flags = ApplicationInfo.FLAG_SYSTEM;
+        when(mPackageManager.getApplicationInfoAsUser(any(), anyInt(), any())).thenReturn(appInfo);
+        assertEquals(WorkSourceHelper.PRIORITY_SYSTEM, wsHelper.getRequestorWsPriority());
 
-    @Test
-    public void testHasAnyForegroundServiceRequest() throws Exception {
-        // 2 from bg app.
-        when(mActivityManager.getPackageImportance(TEST_PACKAGE_1))
-                .thenReturn(IMPORTANCE_BACKGROUND);
-        when(mActivityManager.getPackageImportance(TEST_PACKAGE_2))
-                .thenReturn(IMPORTANCE_BACKGROUND);
-        assertFalse(mWorkSourceHelper.hasAnyForegroundServiceRequest());
-
-        // 1 request from fg service, 1 from bg app.
-        when(mActivityManager.getPackageImportance(TEST_PACKAGE_1))
-                .thenReturn(IMPORTANCE_FOREGROUND_SERVICE);
-        when(mActivityManager.getPackageImportance(TEST_PACKAGE_2))
-                .thenReturn(IMPORTANCE_BACKGROUND);
-        assertTrue(mWorkSourceHelper.hasAnyForegroundServiceRequest());
-    }
-
-
-    @Test
-    public void testHasAnyInternalRequest() throws Exception {
-        // 2 from bg app.
-        when(mActivityManager.getPackageImportance(TEST_PACKAGE_1))
-                .thenReturn(IMPORTANCE_BACKGROUND);
-        when(mActivityManager.getPackageImportance(TEST_PACKAGE_2))
-                .thenReturn(IMPORTANCE_BACKGROUND);
-        assertFalse(mWorkSourceHelper.hasAnyInternalRequest());
-
-        // add a new internal request.
-        mWorkSource.add(new WorkSource(Process.WIFI_UID, "com.android.wifi"));
-        assertTrue(mWorkSourceHelper.hasAnyInternalRequest());
+        // PRIORITY_PRIVILEGED
+        when(mWifiPermissionsUtil.checkNetworkSettingsPermission(TEST_UID_1)).thenReturn(true);
+        assertEquals(WorkSourceHelper.PRIORITY_PRIVILEGED, wsHelper.getRequestorWsPriority());
     }
 }

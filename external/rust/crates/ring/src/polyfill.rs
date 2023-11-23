@@ -37,3 +37,10 @@ pub mod slice {
         }
     }
 }
+
+#[macro_use]
+mod chunks_fixed;
+
+pub(crate) mod array_map;
+
+pub use chunks_fixed::*;

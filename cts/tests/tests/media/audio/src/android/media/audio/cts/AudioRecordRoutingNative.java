@@ -16,19 +16,12 @@
 
 package android.media.audio.cts;
 
-import android.annotation.IntDef;
-import android.annotation.NonNull;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.media.AudioRouting;
-import android.media.cts.NonMediaMainlineTest;
 import android.test.AndroidTestCase;
-import android.util.Log;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 
 public class AudioRecordRoutingNative extends AndroidTestCase {
     private static final String TAG = "AudioRecordRoutingNative";

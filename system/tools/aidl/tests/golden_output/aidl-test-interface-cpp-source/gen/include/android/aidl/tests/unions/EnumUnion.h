@@ -23,6 +23,8 @@ namespace android {
 namespace aidl {
 namespace tests {
 namespace unions {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 class EnumUnion : public ::android::Parcelable {
 public:
   enum class Tag : int32_t {
@@ -102,8 +104,8 @@ public:
   ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
   ::android::status_t writeToParcel(::android::Parcel* _aidl_parcel) const final;
   static const ::android::String16& getParcelableDescriptor() {
-    static const ::android::StaticString16 DESCIPTOR (u"android.aidl.tests.unions.EnumUnion");
-    return DESCIPTOR;
+    static const ::android::StaticString16 DESCRIPTOR (u"android.aidl.tests.unions.EnumUnion");
+    return DESCRIPTOR;
   }
   inline std::string toString() const {
     std::ostringstream os;
@@ -111,10 +113,7 @@ public:
     switch (getTag()) {
     case intEnum: os << "intEnum: " << ::android::internal::ToString(get<intEnum>()); break;
     case longEnum: os << "longEnum: " << ::android::internal::ToString(get<longEnum>()); break;
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     case deprecatedField: os << "deprecatedField: " << ::android::internal::ToString(get<deprecatedField>()); break;
-    #pragma clang diagnostic pop
     }
     os << "}";
     return os.str();
@@ -122,6 +121,7 @@ public:
 private:
   std::variant<::android::aidl::tests::IntEnum, ::android::aidl::tests::LongEnum, int32_t> _value;
 };  // class EnumUnion
+#pragma clang diagnostic pop
 }  // namespace unions
 }  // namespace tests
 }  // namespace aidl

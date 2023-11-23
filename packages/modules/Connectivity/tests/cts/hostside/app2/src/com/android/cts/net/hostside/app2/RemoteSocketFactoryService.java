@@ -17,16 +17,17 @@
 package com.android.cts.net.hostside.app2;
 
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.os.Process;
-import android.util.Log;
 
 import com.android.cts.net.hostside.IRemoteSocketFactory;
 
+import java.io.UncheckedIOException;
+import java.net.DatagramSocket;
 import java.net.Socket;
+import java.net.SocketException;
 
 
 public class RemoteSocketFactoryService extends Service {
@@ -53,6 +54,16 @@ public class RemoteSocketFactoryService extends Service {
         @Override
         public int getUid() {
             return Process.myUid();
+        }
+
+        @Override
+        public ParcelFileDescriptor openDatagramSocketFd() {
+            try {
+                final DatagramSocket s = new DatagramSocket();
+                return ParcelFileDescriptor.fromDatagramSocket(s);
+            } catch (SocketException e) {
+                throw new UncheckedIOException(e);
+            }
         }
     };
 

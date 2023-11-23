@@ -1,0 +1,7 @@
+type trout_virtwifi_setup, domain;
+type trout_virtwifi_setup_exec, exec_type, vendor_file_type, file_type;
+
+init_daemon_domain(trout_virtwifi_setup)
+
+allow trout_virtwifi_setup vendor_shell_exec:file rx_file_perms;
+

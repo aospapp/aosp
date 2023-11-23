@@ -65,6 +65,11 @@ cc_defaults {
             local_include_dirs: ["nonlinux_support/include"],
         },
     },
+    arch: {
+        riscv64: {
+            enabled: false,
+        },
+    },
 }
 
 // linked as a separate library because using OpenCSD headers needs to enable exception
@@ -98,6 +103,20 @@ cc_library_static {
     },
 }
 
+// Build regex support in a separate library to catch std::regex_error exception.
+cc_library_static {
+    name: "libsimpleperf_regex",
+    host_supported: true,
+    srcs: ["RegEx.cpp"],
+    cppflags: ["-fexceptions"],
+    static_libs: ["libbase"],
+    target: {
+        windows: {
+            enabled: true,
+        },
+    },
+}
+
 cc_defaults {
     name: "simpleperf_static_libs",
     defaults: [
@@ -107,6 +126,7 @@ cc_defaults {
     host_supported: true,
     static_libs: [
         "libsimpleperf_etm_decoder",
+        "libsimpleperf_regex",
         "libbase",
         "liblog",
         "libutils",
@@ -121,11 +141,7 @@ cc_defaults {
                 "libprocinfo",
                 "libevent",
                 "libc++fs",
-            ],
-        },
-        android: {
-            static_libs: [
-                "libc",
+                "librustc_demangle_static",
             ],
         },
         linux_glibc_x86_64: {
@@ -156,6 +172,7 @@ cc_defaults {
     ],
     static_libs: [
         "libsimpleperf_etm_decoder",
+        "libsimpleperf_regex",
         "libopencsd_decoder",
     ],
     target: {
@@ -170,6 +187,7 @@ cc_defaults {
             static_libs: [
                 "libc++fs",
                 "libdexfile_support",
+                "librustc_demangle_static",
             ],
             runtime_libs: [
                 "libdexfile", // libdexfile_support dependency
@@ -224,6 +242,7 @@ cc_defaults {
         "command.cpp",
         "dso.cpp",
         "etm_branch_list.proto",
+        "ETMBranchListFile.cpp",
         "event_attr.cpp",
         "event_type.cpp",
         "kallsyms.cpp",
@@ -389,6 +408,9 @@ cc_binary {
     target: {
         android: {
             static_executable: true,
+            static_libs: [
+                "libc",
+            ],
         },
         android_arm: {
             dist: {
@@ -576,6 +598,7 @@ cc_defaults {
         "read_elf_test.cpp",
         "read_symbol_map_test.cpp",
         "RecordFilter_test.cpp",
+        "RegEx_test.cpp",
         "record_file_test.cpp",
         "record_test.cpp",
         "report_utils_test.cpp",
@@ -684,6 +707,7 @@ cc_library_static {
     whole_static_libs: [
         "libgmock",
         "libsimpleperf",
+        "libsimpleperf_regex",
     ],
 }
 
@@ -709,19 +733,6 @@ cc_test {
     },
 }
 
-python_library_host {
-    name: "simpleperf_report_lib",
-    srcs: [
-        "scripts/simpleperf_report_lib.py",
-        "scripts/simpleperf_utils.py",
-    ],
-    data: [
-        "scripts/bin/darwin/x86_64/libsimpleperf_report.dylib",
-        "scripts/bin/linux/x86_64/libsimpleperf_report.so",
-        "scripts/bin/windows/**/*.dll",
-    ],
-}
-
 filegroup {
     name: "system-extras-simpleperf-testdata",
     srcs: ["CtsSimpleperfTestCases_testdata/**/*"],
@@ -730,7 +741,7 @@ filegroup {
 cc_fuzz {
     name: "libsimpleperf_report_fuzzer",
     defaults: [
-        "simpleperf_shared_libs",
+        "simpleperf_static_libs",
     ],
     host_supported: true,
     srcs: [
@@ -738,17 +749,15 @@ cc_fuzz {
     ],
     static_libs: [
         "libsimpleperf",
-        "libLLVMObject",
-        "libLLVMBitReader",
-        "libLLVMMC",
-        "libLLVMMCParser",
-        "libLLVMCore",
-        "libLLVMSupport",
     ],
     target: {
+        linux: {
+            // Fuzzer may not be able to load libdexfile. So statically link it.
+            static_libs: ["libdexfile_static"],
+        },
         windows: {
             enabled: false,
         },
     },
-    corpus: ["testdata/*.data"],
+    corpus: ["testdata/**/*.data"],
 }

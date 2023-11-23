@@ -1,0 +1,26 @@
+type battery_mitigation, domain;
+type battery_mitigation_exec, exec_type, vendor_file_type, file_type;
+init_daemon_domain(battery_mitigation)
+get_prop(battery_mitigation, boot_status_prop)
+get_prop(battery_mitigation, vendor_brownout_reason_prop)
+get_prop(battery_mitigation, system_boot_reason_prop)
+set_prop(battery_mitigation, vendor_mitigation_ready_prop)
+set_prop(battery_mitigation, vendor_brownout_br_feasible_prop)
+
+hal_client_domain(battery_mitigation, hal_thermal);
+hal_client_domain(battery_mitigation, hal_health);
+
+r_dir_file(battery_mitigation, sysfs_batteryinfo)
+r_dir_file(battery_mitigation, sysfs_iio_devices)
+r_dir_file(battery_mitigation, sysfs_thermal)
+r_dir_file(battery_mitigation, thermal_link_device)
+r_dir_file(battery_mitigation, sysfs_odpm)
+allow battery_mitigation sysfs_bcl:dir r_dir_perms;
+allow battery_mitigation sysfs_bcl:file r_file_perms;
+allow battery_mitigation sysfs_bcl:lnk_file r_file_perms;
+allow battery_mitigation sysfs_thermal:lnk_file r_file_perms;
+allow battery_mitigation mitigation_vendor_data_file:dir rw_dir_perms;
+allow battery_mitigation mitigation_vendor_data_file:file create_file_perms;
+
+# Allow battery_mitigation to use Binder IPC so that service manager can notify it for callbacks
+binder_use(battery_mitigation)

@@ -40,6 +40,7 @@ const char* const kQemuSensorName[] = {
     "heart-rate",
     "rgbc-light",
     "wrist-tilt",
+    "acceleration-uncalibrated",
 };
 
 const SensorInfo kAllSensors[] = {
@@ -338,6 +339,25 @@ const SensorInfo kAllSensors[] = {
         .flags = SensorFlagBits::DATA_INJECTION |
                  SensorFlagBits::SPECIAL_REPORTING_MODE |
                  SensorFlagBits::WAKE_UP
+    },
+    {
+        .sensorHandle = kSensorHandleAccelerometerUncalibrated,
+        .name = "Goldfish 3-axis Accelerometer Uncalibrated",
+        .vendor = kAospVendor,
+        .version = 1,
+        .type = SensorType::ACCELEROMETER_UNCALIBRATED,
+        .typeAsString = "android.sensor.accelerometer_uncalibrated",
+        .maxRange = 39.3,
+        .resolution = 1.0 / 4032.0,
+        .power = 3.0,
+        .minDelay = 10000,
+        .fifoReservedEventCount = 0,
+        .fifoMaxEventCount = 0,
+        .requiredPermission = "",
+        .maxDelay = 500000,
+        .flags = SensorFlagBits::DATA_INJECTION |
+                 SensorFlagBits::ADDITIONAL_INFO |
+                 SensorFlagBits::CONTINUOUS_MODE
     }};
 
 constexpr int kSensorNumber = sizeof(kAllSensors) / sizeof(kAllSensors[0]);

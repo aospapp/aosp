@@ -27,7 +27,7 @@
 #define LOG_TAG "bt_btif_gattc"
 
 #include <base/at_exit.h>
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/logging.h>
 #include <base/threading/thread.h>
 #include <errno.h>
@@ -61,12 +61,11 @@ using base::Owned;
 using bluetooth::Uuid;
 using std::vector;
 
-extern bool btif_get_address_type(const RawAddress& bda,
-                                  tBLE_ADDR_TYPE* p_addr_type);
-extern bool btif_get_device_type(const RawAddress& bda, int* p_device_type);
+bool btif_get_address_type(const RawAddress& bda, tBLE_ADDR_TYPE* p_addr_type);
+bool btif_get_device_type(const RawAddress& bda, int* p_device_type);
 
-extern bt_status_t btif_gattc_test_command_impl(
-    int command, const btgatt_test_params_t* params);
+bt_status_t btif_gattc_test_command_impl(int command,
+                                         const btgatt_test_params_t* params);
 extern const btgatt_callbacks_t* bt_gatt_callbacks;
 
 /*******************************************************************************
@@ -106,46 +105,9 @@ namespace {
 
 uint8_t rssi_request_client_if;
 
-std::string bta_gattc_event_text(const tBTA_GATTC_EVT& event) {
-  switch (event) {
-    case BTA_GATTC_DEREG_EVT:
-      return std::string("GATT client deregistered");
-    case BTA_GATTC_OPEN_EVT:
-      return std::string("GATTC open request status");
-    case BTA_GATTC_CLOSE_EVT:
-      return std::string("GATTC close request status");
-    case BTA_GATTC_SEARCH_CMPL_EVT:
-      return std::string("GATT discovery complete");
-    case BTA_GATTC_SEARCH_RES_EVT:
-      return std::string("GATT discovery result");
-    case BTA_GATTC_SRVC_DISC_DONE_EVT:
-      return std::string("GATT service discovery done");
-    case BTA_GATTC_NOTIF_EVT:
-      return std::string("GATT attribute notification");
-    case BTA_GATTC_EXEC_EVT:
-      return std::string("execute write complete");
-    case BTA_GATTC_ACL_EVT:
-      return std::string("ACL up");
-    case BTA_GATTC_CANCEL_OPEN_EVT:
-      return std::string("cancel open");
-    case BTA_GATTC_SRVC_CHG_EVT:
-      return std::string("service change");
-    case BTA_GATTC_ENC_CMPL_CB_EVT:
-      return std::string("encryption complete callback");
-    case BTA_GATTC_CFG_MTU_EVT:
-      return std::string("configure MTU complete");
-    case BTA_GATTC_CONGEST_EVT:
-      return std::string("congestion");
-    case BTA_GATTC_PHY_UPDATE_EVT:
-      return std::string("PHY change");
-    case BTA_GATTC_CONN_UPDATE_EVT:
-      return std::string("connection parameters update");
-  }
-}
-
 static void btif_gattc_upstreams_evt(uint16_t event, char* p_param) {
   LOG_DEBUG("Event %s [%d]",
-            bta_gattc_event_text(static_cast<tBTA_GATTC_EVT>(event)).c_str(),
+            gatt_client_event_text(static_cast<tBTA_GATTC_EVT>(event)).c_str(),
             event);
 
   tBTA_GATTC* p_data = (tBTA_GATTC*)p_param;
@@ -183,7 +145,7 @@ static void btif_gattc_upstreams_evt(uint16_t event, char* p_param) {
 
     case BTA_GATTC_OPEN_EVT: {
       LOG_DEBUG("BTA_GATTC_OPEN_EVT %s",
-                p_data->open.remote_bda.ToString().c_str());
+                ADDRESS_TO_LOGGABLE_CSTR(p_data->open.remote_bda));
       HAL_CBACK(bt_gatt_callbacks, client->open_cb, p_data->open.conn_id,
                 p_data->open.status, p_data->open.client_if,
                 p_data->open.remote_bda);
@@ -242,6 +204,13 @@ static void btif_gattc_upstreams_evt(uint16_t event, char* p_param) {
     case BTA_GATTC_SRVC_CHG_EVT:
       HAL_CBACK(bt_gatt_callbacks, client->service_changed_cb,
                 p_data->service_changed.conn_id);
+      break;
+
+    case BTA_GATTC_SUBRATE_CHG_EVT:
+      HAL_CBACK(bt_gatt_callbacks, client->subrate_chg_cb,
+                p_data->subrate_chg.conn_id, p_data->subrate_chg.subrate_factor,
+                p_data->subrate_chg.latency, p_data->subrate_chg.cont_num,
+                p_data->subrate_chg.timeout, p_data->subrate_chg.status);
       break;
 
     default:
@@ -304,18 +273,24 @@ static bt_status_t btif_gattc_unregister_app(int client_if) {
   return do_in_jni_thread(Bind(&btif_gattc_unregister_app_impl, client_if));
 }
 
-void btif_gattc_open_impl(int client_if, RawAddress address, bool is_direct,
+void btif_gattc_open_impl(int client_if, RawAddress address,
+                          tBLE_ADDR_TYPE addr_type, bool is_direct,
                           int transport_p, bool opportunistic,
                           int initiating_phys) {
-  // Ensure device is in inquiry database
-  tBLE_ADDR_TYPE addr_type = BLE_ADDR_PUBLIC;
-  int device_type = 0;
+  int device_type = BT_DEVICE_TYPE_UNKNOWN;
   tBT_TRANSPORT transport = (tBT_TRANSPORT)BT_TRANSPORT_LE;
 
-  if (btif_get_address_type(address, &addr_type) &&
-      btif_get_device_type(address, &device_type) &&
-      device_type != BT_DEVICE_TYPE_BREDR) {
+  if (addr_type == BLE_ADDR_RANDOM) {
+    device_type = BT_DEVICE_TYPE_BLE;
     BTA_DmAddBleDevice(address, addr_type, device_type);
+  } else {
+    // Ensure device is in inquiry database
+    addr_type = BLE_ADDR_PUBLIC;
+    if (btif_get_address_type(address, &addr_type) &&
+        btif_get_device_type(address, &device_type) &&
+        device_type != BT_DEVICE_TYPE_BREDR) {
+      BTA_DmAddBleDevice(address, addr_type, device_type);
+    }
   }
 
   // Check for background connections
@@ -363,23 +338,26 @@ void btif_gattc_open_impl(int client_if, RawAddress address, bool is_direct,
   // Connect!
   LOG_INFO("Transport=%d, device type=%d, address type =%d, phy=%d", transport,
            device_type, addr_type, initiating_phys);
-  BTA_GATTC_Open(client_if, address, is_direct, transport, opportunistic,
+  tBTM_BLE_CONN_TYPE type =
+      is_direct ? BTM_BLE_DIRECT_CONNECTION : BTM_BLE_BKG_CONNECT_ALLOW_LIST;
+  BTA_GATTC_Open(client_if, address, addr_type, type, transport, opportunistic,
                  initiating_phys);
 }
 
 static bt_status_t btif_gattc_open(int client_if, const RawAddress& bd_addr,
-                                   bool is_direct, int transport,
-                                   bool opportunistic, int initiating_phys) {
+                                   uint8_t addr_type, bool is_direct,
+                                   int transport, bool opportunistic,
+                                   int initiating_phys) {
   CHECK_BTGATT_INIT();
   // Closure will own this value and free it.
   return do_in_jni_thread(Bind(&btif_gattc_open_impl, client_if, bd_addr,
-                               is_direct, transport, opportunistic,
+                               addr_type, is_direct, transport, opportunistic,
                                initiating_phys));
 }
 
 void btif_gattc_close_impl(int client_if, RawAddress address, int conn_id) {
   LOG_INFO("client_if=%d, conn_id=%d, address=%s", client_if, conn_id,
-           PRIVATE_ADDRESS(address));
+           ADDRESS_TO_LOGGABLE_CSTR(address));
   // Disconnect established connections
   if (conn_id != 0) {
     BTA_GATTC_Close(conn_id);
@@ -684,6 +662,25 @@ static bt_status_t btif_gattc_test_command(int command,
   return btif_gattc_test_command_impl(command, &params);
 }
 
+static void btif_gattc_subrate_request_impl(RawAddress addr, int subrate_min,
+                                            int subrate_max, int max_latency,
+                                            int cont_num, int sup_timeout) {
+  if (BTA_DmGetConnectionState(addr)) {
+    BTA_DmBleSubrateRequest(addr, subrate_min, subrate_max, max_latency,
+                            cont_num, sup_timeout);
+  }
+}
+
+static bt_status_t btif_gattc_subrate_request(const RawAddress& bd_addr,
+                                              int subrate_min, int subrate_max,
+                                              int max_latency, int cont_num,
+                                              int sup_timeout) {
+  CHECK_BTGATT_INIT();
+  return do_in_jni_thread(
+      Bind(base::IgnoreResult(&btif_gattc_subrate_request_impl), bd_addr,
+           subrate_min, subrate_max, max_latency, cont_num, sup_timeout));
+}
+
 }  // namespace
 
 const btgatt_client_interface_t btgattClientInterface = {
@@ -709,4 +706,6 @@ const btgatt_client_interface_t btgattClientInterface = {
     btif_gattc_set_preferred_phy,
     btif_gattc_read_phy,
     btif_gattc_test_command,
-    btif_gattc_get_gatt_db};
+    btif_gattc_get_gatt_db,
+    btif_gattc_subrate_request,
+};

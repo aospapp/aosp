@@ -31,6 +31,10 @@
 #include "globals.h"
 #include "macros.h"
 
+#if defined(__linux__)
+#include <sys/utsname.h>
+#endif
+
 namespace art {
 
 static inline uint32_t PointerToLowMemUInt32(const void* p) {
@@ -125,6 +129,10 @@ NO_RETURN void SleepForever();
 // Flush CPU caches. Returns true on success, false if flush failed.
 WARN_UNUSED bool FlushCpuCaches(void* begin, void* end);
 
+#if defined(__linux__)
+bool IsKernelVersionAtLeast(int reqd_major, int reqd_minor);
+#endif
+
 // On some old kernels, a cache operation may segfault.
 WARN_UNUSED bool CacheOperationsMaySegFault();
 
@@ -156,6 +164,13 @@ static inline void CheckedCall(const Func& function, const char* what, Args... a
   if (UNLIKELY(rc != 0)) {
     PLOG(FATAL) << "Checked call failed for " << what;
   }
+}
+
+// Forces the compiler to emit a load instruction, but discards the value.
+// Useful when dealing with memory paging.
+template <typename T>
+inline void ForceRead(const T* pointer) {
+  static_cast<void>(*const_cast<volatile T*>(pointer));
 }
 
 // Lookup value for a given key in /proc/self/status. Keys and values are separated by a ':' in

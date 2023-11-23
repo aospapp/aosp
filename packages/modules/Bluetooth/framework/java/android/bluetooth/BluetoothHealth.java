@@ -262,6 +262,12 @@ public final class BluetoothHealth implements BluetoothProfile {
         return STATE_DISCONNECTED;
     }
 
+    /** @hide */
+    @Override
+    public void close() {
+        // Do nothing.
+    }
+
     /**
      * Get connected devices for the health profile.
      *

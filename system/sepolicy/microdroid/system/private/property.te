@@ -1,7 +1,13 @@
+system_restricted_prop(boot_status_prop)
+
 # Declare ART properties for CompOS
 system_public_prop(dalvik_config_prop)
+system_public_prop(dalvik_dynamic_config_prop)
 system_restricted_prop(device_config_runtime_native_prop)
 system_restricted_prop(device_config_runtime_native_boot_prop)
+
+typeattribute dalvik_config_prop         dalvik_config_prop_type;
+typeattribute dalvik_dynamic_config_prop dalvik_config_prop_type;
 
 # Don't audit legacy ctl. property handling.  We only want the newer permission check to appear
 # in the audit log
@@ -35,3 +41,23 @@ neverallow {
   domain
   -init
 } apexd_payload_metadata_prop:property_service set;
+
+# Only microdroid_manager and init can set the microdroid_config_prop sysprops
+neverallow {
+    domain
+    -init
+    -microdroid_manager
+} {microdroid_config_prop microdroid_lifecycle_prop}:property_service set;
+
+neverallow {
+    domain
+    -init
+    -microdroid_manager
+} {microdroid_lifecycle_prop}:file no_rw_file_perms;
+
+neverallow {
+    domain
+    -init
+    -microdroid_manager
+    -crash_dump
+} {microdroid_config_prop}:file no_rw_file_perms;

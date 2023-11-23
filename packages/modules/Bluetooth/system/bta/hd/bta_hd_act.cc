@@ -22,6 +22,7 @@
  *  This file contains the HID device action functions.
  *
  ******************************************************************************/
+#include <frameworks/proto_logging/stats/enums/bluetooth/enums.pb.h>
 
 #include <cstdint>
 #include <string>
@@ -32,6 +33,7 @@
 
 #include "bta/hd/bta_hd_int.h"
 #include "include/hardware/bt_hd.h"
+#include "main/shim/metrics_api.h"
 #include "osi/include/allocator.h"
 #include "osi/include/log.h"
 #include "stack/include/bt_hdr.h"
@@ -172,6 +174,10 @@ void bta_hd_register_act(tBTA_HD_DATA* p_data) {
     APPL_TRACE_ERROR("%s: Descriptor is too long or malformed", __func__);
     ret.reg_status.status = BTA_HD_ERROR;
     (*bta_hd_cb.p_cback)(BTA_HD_REGISTER_APP_EVT, &ret);
+    bluetooth::shim::CountCounterMetrics(
+        android::bluetooth::CodePathCounterKeyEnum::
+            HIDD_REGISTER_DESCRIPTOR_MALFORMED,
+        1);
     return;
   }
 
@@ -270,7 +276,7 @@ void bta_hd_unregister2_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_connect_act(tBTA_HD_DATA* p_data) {
+void bta_hd_connect_act(tBTA_HD_DATA* p_data) {
   tHID_STATUS ret;
   tBTA_HD_DEVICE_CTRL* p_ctrl = (tBTA_HD_DEVICE_CTRL*)p_data;
   tBTA_HD cback_data;
@@ -304,7 +310,7 @@ extern void bta_hd_connect_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_disconnect_act() {
+void bta_hd_disconnect_act() {
   tHID_STATUS ret;
   tBTA_HD cback_data;
 
@@ -332,7 +338,7 @@ extern void bta_hd_disconnect_act() {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_add_device_act(tBTA_HD_DATA* p_data) {
+void bta_hd_add_device_act(tBTA_HD_DATA* p_data) {
   tBTA_HD_DEVICE_CTRL* p_ctrl = (tBTA_HD_DEVICE_CTRL*)p_data;
 
   APPL_TRACE_API("%s", __func__);
@@ -349,7 +355,7 @@ extern void bta_hd_add_device_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_remove_device_act(tBTA_HD_DATA* p_data) {
+void bta_hd_remove_device_act(tBTA_HD_DATA* p_data) {
   tBTA_HD_DEVICE_CTRL* p_ctrl = (tBTA_HD_DEVICE_CTRL*)p_data;
 
   APPL_TRACE_API("%s", __func__);
@@ -366,7 +372,7 @@ extern void bta_hd_remove_device_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_send_report_act(tBTA_HD_DATA* p_data) {
+void bta_hd_send_report_act(tBTA_HD_DATA* p_data) {
   tBTA_HD_SEND_REPORT* p_report = (tBTA_HD_SEND_REPORT*)p_data;
   uint8_t channel;
   uint8_t report_id;
@@ -394,7 +400,7 @@ extern void bta_hd_send_report_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_report_error_act(tBTA_HD_DATA* p_data) {
+void bta_hd_report_error_act(tBTA_HD_DATA* p_data) {
   tBTA_HD_REPORT_ERR* p_report = (tBTA_HD_REPORT_ERR*)p_data;
   tHID_STATUS ret;
 
@@ -416,7 +422,7 @@ extern void bta_hd_report_error_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_vc_unplug_act() {
+void bta_hd_vc_unplug_act() {
   tHID_STATUS ret;
 
   APPL_TRACE_API("%s", __func__);
@@ -444,7 +450,7 @@ extern void bta_hd_vc_unplug_act() {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_open_act(tBTA_HD_DATA* p_data) {
+void bta_hd_open_act(tBTA_HD_DATA* p_data) {
   tBTA_HD_CBACK_DATA* p_cback = (tBTA_HD_CBACK_DATA*)p_data;
   tBTA_HD cback_data;
 
@@ -468,7 +474,7 @@ extern void bta_hd_open_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_close_act(tBTA_HD_DATA* p_data) {
+void bta_hd_close_act(tBTA_HD_DATA* p_data) {
   tBTA_HD_CBACK_DATA* p_cback = (tBTA_HD_CBACK_DATA*)p_data;
   tBTA_HD cback_data;
   tBTA_HD_EVT cback_event = BTA_HD_CLOSE_EVT;
@@ -498,7 +504,7 @@ extern void bta_hd_close_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_intr_data_act(tBTA_HD_DATA* p_data) {
+void bta_hd_intr_data_act(tBTA_HD_DATA* p_data) {
   tBTA_HD_CBACK_DATA* p_cback = (tBTA_HD_CBACK_DATA*)p_data;
   BT_HDR* p_msg = p_cback->p_data;
   uint16_t len = p_msg->len;
@@ -509,7 +515,6 @@ extern void bta_hd_intr_data_act(tBTA_HD_DATA* p_data) {
 
   if (bta_hd_cb.use_report_id || bta_hd_cb.boot_mode) {
     if (len < 1) {
-      android_errorWriteLog(0x534e4554, "109757986");
       return;
     }
     ret.report_id = *p_buf;
@@ -537,7 +542,7 @@ extern void bta_hd_intr_data_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_get_report_act(tBTA_HD_DATA* p_data) {
+void bta_hd_get_report_act(tBTA_HD_DATA* p_data) {
   tBTA_HD_CBACK_DATA* p_cback = (tBTA_HD_CBACK_DATA*)p_data;
   bool rep_size_follows = p_cback->data;
   BT_HDR* p_msg = p_cback->p_data;
@@ -548,7 +553,6 @@ extern void bta_hd_get_report_act(tBTA_HD_DATA* p_data) {
 
   uint16_t remaining_len = p_msg->len;
   if (remaining_len < 1) {
-    android_errorWriteLog(0x534e4554, "109757168");
     return;
   }
 
@@ -558,7 +562,6 @@ extern void bta_hd_get_report_act(tBTA_HD_DATA* p_data) {
 
   if (bta_hd_cb.use_report_id) {
     if (remaining_len < 1) {
-      android_errorWriteLog(0x534e4554, "109757168");
       return;
     }
     ret.report_id = *p_buf;
@@ -568,7 +571,6 @@ extern void bta_hd_get_report_act(tBTA_HD_DATA* p_data) {
 
   if (rep_size_follows) {
     if (remaining_len < 2) {
-      android_errorWriteLog(0x534e4554, "109757168");
       return;
     }
     ret.buffer_size = *p_buf | (*(p_buf + 1) << 8);
@@ -588,7 +590,7 @@ extern void bta_hd_get_report_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_set_report_act(tBTA_HD_DATA* p_data) {
+void bta_hd_set_report_act(tBTA_HD_DATA* p_data) {
   tBTA_HD_CBACK_DATA* p_cback = (tBTA_HD_CBACK_DATA*)p_data;
   BT_HDR* p_msg = p_cback->p_data;
   uint16_t len = p_msg->len;
@@ -598,7 +600,6 @@ extern void bta_hd_set_report_act(tBTA_HD_DATA* p_data) {
   APPL_TRACE_API("%s", __func__);
 
   if (len < 1) {
-    android_errorWriteLog(0x534e4554, "110846194");
     return;
   }
   ret.report_type = *p_buf & HID_PAR_REP_TYPE_MASK;
@@ -607,7 +608,6 @@ extern void bta_hd_set_report_act(tBTA_HD_DATA* p_data) {
 
   if (bta_hd_cb.use_report_id || bta_hd_cb.boot_mode) {
     if (len < 1) {
-      android_errorWriteLog(0x534e4554, "109757435");
       return;
     }
     ret.report_id = *p_buf;
@@ -635,7 +635,7 @@ extern void bta_hd_set_report_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_set_protocol_act(tBTA_HD_DATA* p_data) {
+void bta_hd_set_protocol_act(tBTA_HD_DATA* p_data) {
   tBTA_HD_CBACK_DATA* p_cback = (tBTA_HD_CBACK_DATA*)p_data;
   tBTA_HD cback_data;
 
@@ -656,7 +656,7 @@ extern void bta_hd_set_protocol_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_vc_unplug_done_act(tBTA_HD_DATA* p_data) {
+void bta_hd_vc_unplug_done_act(tBTA_HD_DATA* p_data) {
   tBTA_HD_CBACK_DATA* p_cback = (tBTA_HD_CBACK_DATA*)p_data;
   tBTA_HD cback_data;
 
@@ -681,7 +681,7 @@ extern void bta_hd_vc_unplug_done_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_suspend_act(tBTA_HD_DATA* p_data) {
+void bta_hd_suspend_act(tBTA_HD_DATA* p_data) {
   tBTA_HD_CBACK_DATA* p_cback = (tBTA_HD_CBACK_DATA*)p_data;
 
   APPL_TRACE_API("%s", __func__);
@@ -698,7 +698,7 @@ extern void bta_hd_suspend_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_exit_suspend_act(tBTA_HD_DATA* p_data) {
+void bta_hd_exit_suspend_act(tBTA_HD_DATA* p_data) {
   tBTA_HD_CBACK_DATA* p_cback = (tBTA_HD_CBACK_DATA*)p_data;
 
   APPL_TRACE_API("%s", __func__);

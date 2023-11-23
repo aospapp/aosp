@@ -16,8 +16,10 @@
 
 package com.android.apksigner;
 
+import com.android.apksig.SigningCertificateLineage;
 import com.android.apksig.SigningCertificateLineage.SignerCapabilities;
 import com.android.apksig.internal.util.X509CertificateUtils;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -70,6 +72,9 @@ public class SignerParams {
     private List<X509Certificate> certs;
     private final SignerCapabilities.Builder signerCapabilitiesBuilder =
             new SignerCapabilities.Builder();
+
+    private int minSdkVersion;
+    private SigningCertificateLineage signingCertificateLineage;
 
     public String getName() {
         return name;
@@ -149,6 +154,22 @@ public class SignerParams {
 
     public SignerCapabilities.Builder getSignerCapabilitiesBuilder() {
         return signerCapabilitiesBuilder;
+    }
+
+    public int getMinSdkVersion() {
+        return minSdkVersion;
+    }
+
+    public void setMinSdkVersion(int minSdkVersion) {
+        this.minSdkVersion = minSdkVersion;
+    }
+
+    public SigningCertificateLineage getSigningCertificateLineage() {
+        return signingCertificateLineage;
+    }
+
+    public void setSigningCertificateLineage(SigningCertificateLineage lineage) {
+        this.signingCertificateLineage = lineage;
     }
 
     boolean isEmpty() {

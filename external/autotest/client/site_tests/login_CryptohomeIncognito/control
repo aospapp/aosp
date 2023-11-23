@@ -9,6 +9,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "login"
 TEST_TYPE = "client"
 JOB_RETRIES = 2
+PY_VERSION = 3
 
 DOC = """
 This test will fail if guest cryptohome is not mounted when logged in as guest,

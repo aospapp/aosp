@@ -21,8 +21,11 @@ import android.annotation.TestApi;
 import android.car.Car;
 import android.car.CarManagerBase;
 import android.car.annotation.AddedInOrBefore;
+import android.car.annotation.ApiRequirements;
 import android.os.IBinder;
 import android.os.RemoteException;
+
+import java.util.List;
 
 /**
  * API for testing only. Allows mocking vehicle hal.
@@ -89,5 +92,55 @@ public final class CarTestManager extends CarManagerBase {
         } catch (RemoteException e) {
             handleRemoteExceptionFromCarService(e);
         }
+    }
+
+    /**
+     * Dumps VHAL information or debug VHAL.
+     *
+     * {@code waitTimeoutMs} specifies the longest time CarTestService will wait to receive all
+     * dumped information from VHAL before timeout. A correctly implemented VHAL should finish
+     * dumping all the info before returning. As a result, {@code waitTimeoutMs} is used to regulate
+     * how long CarTestService would wait before it determines that VHAL is dead or stuck and
+     * returns error.
+     *
+     * @hide
+     */
+    @TestApi
+    @RequiresPermission(Car.PERMISSION_CAR_TEST_SERVICE)
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+             minPlatformVersion = ApiRequirements.PlatformVersion.TIRAMISU_0)
+    public String dumpVhal(List<String> options, long waitTimeoutMs) {
+        try {
+            return mService.dumpVhal(options, waitTimeoutMs);
+        } catch (RemoteException e) {
+            handleRemoteExceptionFromCarService(e);
+            return "";
+        }
+    }
+
+    /**
+     * Returns whether AIDL VHAL is used for VHAL backend.
+     *
+     * @hide
+     */
+    @TestApi
+    @RequiresPermission(Car.PERMISSION_CAR_TEST_SERVICE)
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+             minPlatformVersion = ApiRequirements.PlatformVersion.TIRAMISU_0)
+    public boolean hasAidlVhal() throws RemoteException {
+        return mService.hasAidlVhal();
+    }
+
+    /**
+     * Returns OEM service name.
+     *
+     * @hide
+     */
+    @TestApi
+    @RequiresPermission(Car.PERMISSION_CAR_TEST_SERVICE)
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+             minPlatformVersion = ApiRequirements.PlatformVersion.TIRAMISU_0)
+    public String getOemServiceName() throws RemoteException {
+        return mService.getOemServiceName();
     }
 }

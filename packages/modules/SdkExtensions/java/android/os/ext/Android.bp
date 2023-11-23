@@ -18,11 +18,9 @@ package {
 
 filegroup {
     name: "framework-sdkextensions-sources",
+    defaults: ["framework-sources-module-defaults"],
     srcs: ["SdkExtensions.java"],
-    visibility: [
-        "//frameworks/base", // For the "global" stubs.
-        "//packages/modules/SdkExtensions:__subpackages__",
-    ],
+    visibility: ["//packages/modules/SdkExtensions:__subpackages__"],
 }
 
 filegroup {
@@ -47,5 +45,14 @@ java_sdk_library {
     apex_available: [
         "com.android.sdkext",
         "test_com.android.sdkext",
+    ],
+}
+
+java_api_contribution {
+    name: "framework-sdkextensions-public-stubs",
+    api_surface: "public",
+    api_file: "api/current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
     ],
 }

@@ -34,10 +34,10 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
         jar_module_paths: A dict records a mapping of jar file and module path.
         r_java_paths: A list contains the relative folder paths of the R.java
                       files.
-        project_file: The absolutely path of .project file.
+        project_file: The absolute path of .project file.
         project_content: A string ready to be written into project_file.
         src_paths: A list contains the project's source paths.
-        classpath_file: The absolutely path of .classpath file.
+        classpath_file: The absolute path of .classpath file.
         classpath_content: A string ready to be written into classpath_file.
     """
     # Constants of .project file
@@ -46,14 +46,13 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
     _PROJECT_FILENAME = '.project'
     _OUTPUT_BIN_SYMBOLIC_NAME = 'bin'
 
-    # constans of .classpath file
+    # constants of .classpath file
     _CLASSPATH_SRC_ENTRY = '    <classpathentry kind="src" path="{}"/>\n'
     _EXCLUDE_ANDROID_BP_ENTRY = ('    <classpathentry excluding="Android.bp" '
                                  'kind="src" path="{}"/>\n')
     _CLASSPATH_LIB_ENTRY = ('    <classpathentry exported="true" kind="lib" '
                             'path="{}" sourcepath="{}"/>\n')
     _CLASSPATH_FILENAME = '.classpath'
-
 
     def __init__(self, project):
         """Initialize class.
@@ -274,7 +273,7 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
         Returns: A list has a class path entry of the bin folder.
         """
         return [self._CLASSPATH_SRC_ENTRY.format(self._OUTPUT_BIN_SYMBOLIC_NAME)
-               ]
+                ]
 
     def _create_classpath_content(self):
         """Create the project file .classpath under the module."""

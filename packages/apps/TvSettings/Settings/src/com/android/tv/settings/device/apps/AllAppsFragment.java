@@ -255,13 +255,15 @@ public class AllAppsFragment extends SettingsPreferenceFragment implements
             ArrayList<ApplicationsState.AppEntry> entries) {
         if (entries != null) {
             final Set<String> touched = new ArraySet<>(entries.size());
-            for (final ApplicationsState.AppEntry entry : entries) {
+            for (int i = 0; i < entries.size(); ++i) {
+                final ApplicationsState.AppEntry entry = entries.get(i);
                 final String packageName = entry.info.packageName;
                 Preference recycle = group.findPreference(packageName);
                 if (recycle == null) {
                     recycle = new Preference(getPreferenceManager().getContext());
                 }
                 final Preference newPref = bindPreference(recycle, entry);
+                newPref.setOrder(i);
                 group.addPreference(newPref);
                 touched.add(packageName);
             }

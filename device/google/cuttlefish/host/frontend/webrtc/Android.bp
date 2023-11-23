@@ -17,68 +17,15 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-cc_library_static {
-    name: "libcuttlefish_webrtc",
-    srcs: [
-        "lib/audio_device.cpp",
-        "lib/audio_track_source_impl.cpp",
-        "lib/camera_streamer.cpp",
-        "lib/client_handler.cpp",
-        "lib/keyboard.cpp",
-        "lib/local_recorder.cpp",
-        "lib/port_range_socket_factory.cpp",
-        "lib/streamer.cpp",
-        "lib/utils.cpp",
-        "lib/video_track_source_impl.cpp",
-        "lib/vp8only_encoder_factory.cpp",
-        "lib/server_connection.cpp",
-    ],
-    cflags: [
-        // libwebrtc headers need this
-        "-Wno-unused-parameter",
-        "-DWEBRTC_POSIX",
-        "-DWEBRTC_LINUX",
-    ],
-    header_libs: [
-        "webrtc_signaling_headers",
-        "libwebrtc_absl_headers",
-    ],
-    static_libs: [
-        "libsrtp2",
-        "libcuttlefish_host_config",
-        "libcuttlefish_screen_connector",
-        "libcuttlefish_wayland_server",
-        "libgflags",
-        "libdrm",
-        "libffi",
-        "libwayland_crosvm_gpu_display_extension_server_protocols",
-        "libwayland_extension_server_protocols",
-        "libwayland_server",
-        "libwebsockets",
-        "libcap",
-        "libcuttlefish_utils",
-        "libwebrtc",
-        "libwebrtc_absl_base",
-        "libwebrtc_absl_types",
-    ],
-    shared_libs: [
-        "libbase",
-        "libcn-cbor",
-        "libcuttlefish_fs",
-        "libfruit",
-        "libjsoncpp",
-        "libssl",
-        "libwebm_mkvmuxer",
-    ],
-    defaults: ["cuttlefish_buildhost_only"],
-}
-
 cc_binary_host {
     name: "webRTC",
     srcs: [
         "adb_handler.cpp",
         "audio_handler.cpp",
         "bluetooth_handler.cpp",
+        "location_handler.cpp",
+        "gpx_locations_handler.cpp",
+        "kml_locations_handler.cpp",
         "client_server.cpp",
         "connection_observer.cpp",
         "cvd_video_frame_buffer.cpp",
@@ -86,23 +33,19 @@ cc_binary_host {
         "kernel_log_events_handler.cpp",
         "main.cpp",
     ],
+    cflags: [
+        // libwebrtc headers need this
+        "-Wno-unused-parameter",
+        "-D_XOPEN_SOURCE",
+        "-DWEBRTC_POSIX",
+        "-DWEBRTC_LINUX",
+    ],
     header_libs: [
         "webrtc_signaling_headers",
         "libwebrtc_absl_headers",
         "libcuttlefish_confui_host_headers",
     ],
     static_libs: [
-        "libwebrtc_absl_base",
-        "libwebrtc_absl_container",
-        "libwebrtc_absl_debugging",
-        "libwebrtc_absl_flags",
-        "libwebrtc_absl_hash",
-        "libwebrtc_absl_numeric",
-        "libwebrtc_absl_status",
-        "libwebrtc_absl_strings",
-        "libwebrtc_absl_synchronization",
-        "libwebrtc_absl_time",
-        "libwebrtc_absl_types",
         "libaom",
         "libcap",
         "libcn-cbor",
@@ -128,9 +71,12 @@ cc_binary_host {
         "libwayland_extension_server_protocols",
         "libwayland_server",
         "libwebrtc",
-        "libcuttlefish_webrtc",
+        "libcuttlefish_webrtc_device",
+        "libcuttlefish_webrtc_common",
         "libwebsockets",
         "libyuv",
+        "libcvd_gnss_grpc_proxy",
+        "liblocation",
     ],
     shared_libs: [
         "libext2_blkid",
@@ -146,62 +92,10 @@ cc_binary_host {
         "libvpx",
         "libyuv",
         "libwebm_mkvmuxer",
+        "libprotobuf-cpp-full",
+        "libgrpc++_unsecure",
+        "libxml2",
     ],
     defaults: ["cuttlefish_buildhost_only"],
 }
 
-prebuilt_usr_share_host {
-    name: "webrtc_client.html",
-    src: "client/client.html",
-    filename: "client.html",
-    sub_dir: "webrtc/assets",
-}
-
-prebuilt_usr_share_host {
-    name: "webrtc_style.css",
-    src: "client/style.css",
-    filename: "style.css",
-    sub_dir: "webrtc/assets",
-}
-
-prebuilt_usr_share_host {
-    name: "webrtc_controls.css",
-    src: "client/controls.css",
-    filename: "controls.css",
-    sub_dir: "webrtc/assets",
-}
-
-prebuilt_usr_share_host {
-    name: "webrtc_adb.js",
-    src: "client/js/adb.js",
-    filename: "adb.js",
-    sub_dir: "webrtc/assets/js",
-}
-
-prebuilt_usr_share_host {
-    name: "webrtc_cf.js",
-    src: "client/js/cf_webrtc.js",
-    filename: "cf_webrtc.js",
-    sub_dir: "webrtc/assets/js",
-}
-
-prebuilt_usr_share_host {
-    name: "webrtc_app.js",
-    src: "client/js/app.js",
-    filename: "app.js",
-    sub_dir: "webrtc/assets/js",
-}
-
-prebuilt_usr_share_host {
-    name: "webrtc_controls.js",
-    src: "client/js/controls.js",
-    filename: "controls.js",
-    sub_dir: "webrtc/assets/js",
-}
-
-prebuilt_usr_share_host {
-    name: "webrtc_rootcanal.js",
-    src: "client/js/rootcanal.js",
-    filename: "rootcanal.js",
-    sub_dir: "webrtc/assets/js",
-}

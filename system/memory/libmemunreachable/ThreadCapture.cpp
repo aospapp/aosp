@@ -226,16 +226,16 @@ bool ThreadCaptureImpl::PtraceThreadInfo(pid_t tid, ThreadInfo& thread_info) {
   thread_info.regs.assign(&regs[0], &regs[num_regs]);
 
   const int sp =
-#if defined(__x86_64__)
-      offsetof(struct pt_regs, rsp) / sizeof(uintptr_t)
-#elif defined(__i386__)
-      offsetof(struct pt_regs, esp) / sizeof(uintptr_t)
+#if defined(__aarch64__)
+      offsetof(struct user_pt_regs, sp) / sizeof(uintptr_t)
 #elif defined(__arm__)
       offsetof(struct pt_regs, ARM_sp) / sizeof(uintptr_t)
-#elif defined(__aarch64__)
-      offsetof(struct user_pt_regs, sp) / sizeof(uintptr_t)
-#elif defined(__mips__) || defined(__mips64__)
-      offsetof(struct pt_regs, regs[29]) / sizeof(uintptr_t)
+#elif defined(__i386__)
+      offsetof(struct pt_regs, esp) / sizeof(uintptr_t)
+#elif defined(__riscv)
+      offsetof(struct user_regs_struct, sp) / sizeof(uintptr_t)
+#elif defined(__x86_64__)
+      offsetof(struct pt_regs, rsp) / sizeof(uintptr_t)
 #else
 #error Unrecognized architecture
 #endif

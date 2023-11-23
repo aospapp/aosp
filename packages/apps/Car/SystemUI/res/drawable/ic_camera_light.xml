@@ -21,5 +21,5 @@
         android:viewportHeight="36">
 <path
         android:pathData="M25.5 15.75V10.5C25.5 9.675 24.825 9 24 9H6C5.175 9 4.5 9.675 4.5 10.5V25.5C4.5 26.325 5.175 27 6 27H24C24.825 27 25.5 26.325 25.5 25.5V20.25L31.5 26.25V9.75L25.5 15.75Z"
-        android:fillColor="@color/car_nav_icon_fill_color_selected" />
+        android:fillColor="@color/privacy_chip_light_icon_color" />
 </vector>

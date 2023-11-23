@@ -20,12 +20,12 @@ import logging
 import os
 import re
 
-import constants
+from atest import constants
 
-from test_finders import test_finder_base
-from test_finders import test_finder_utils
-from test_finders import test_info
-from test_runners import suite_plan_test_runner
+from atest.test_finders import test_finder_base
+from atest.test_finders import test_finder_utils
+from atest.test_finders import test_info
+from atest.test_runners import suite_plan_test_runner
 
 _SUITE_PLAN_NAME_RE = re.compile(r'^.*\/(?P<suite>.*)-tradefed\/res\/config\/'
                                  r'(?P<suite_plan_name>.*).xml$')

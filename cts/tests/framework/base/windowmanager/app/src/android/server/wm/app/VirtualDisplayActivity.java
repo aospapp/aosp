@@ -35,6 +35,7 @@ import static android.server.wm.app.Components.VirtualDisplayActivity.KEY_PRESEN
 import static android.server.wm.app.Components.VirtualDisplayActivity.KEY_PUBLIC_DISPLAY;
 import static android.server.wm.app.Components.VirtualDisplayActivity.KEY_RESIZE_DISPLAY;
 import static android.server.wm.app.Components.VirtualDisplayActivity.KEY_SHOW_SYSTEM_DECORATIONS;
+import static android.server.wm.app.Components.VirtualDisplayActivity.KEY_SUPPORTS_TOUCH;
 import static android.server.wm.app.Components.VirtualDisplayActivity.VIRTUAL_DISPLAY_PREFIX;
 
 import android.app.Activity;
@@ -201,10 +202,15 @@ public class VirtualDisplayActivity extends Activity implements SurfaceHolder.Ca
             flags |= VIRTUAL_DISPLAY_FLAG_PRESENTATION;
         }
 
+        final boolean supportsTouch = entry.extras.getBoolean(KEY_SUPPORTS_TOUCH);
+        if (supportsTouch) {
+            flags |= 1 << 6; // VIRTUAL_DISPLAY_FLAG_SUPPORTS_TOUCH
+        }
+
         Log.d(TAG, "createVirtualDisplay: " + width + "x" + height + ", dpi: " + densityDpi
                 + ", canShowWithInsecureKeyguard=" + canShowWithInsecureKeyguard
                 + ", publicDisplay=" + publicDisplay + ", presentationDisplay="
-                + presentationDisplay);
+                + presentationDisplay + ", supportsTouch= " + supportsTouch);
 
         try {
             VirtualDisplay virtualDisplay = mDisplayManager.createVirtualDisplay(

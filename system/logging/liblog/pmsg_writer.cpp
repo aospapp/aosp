@@ -75,7 +75,7 @@ int PmsgWrite(log_id_t logId, struct timespec* ts, struct iovec* vec, size_t nr)
   size_t i, payloadSize;
   ssize_t ret;
 
-  if (!__android_log_is_debuggable()) {
+  if (!ANDROID_DEBUGGABLE) {
     if (logId != LOG_ID_EVENTS && logId != LOG_ID_SECURITY) {
       return -1;
     }

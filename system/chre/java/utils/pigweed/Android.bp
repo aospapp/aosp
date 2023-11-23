@@ -27,6 +27,7 @@ java_library {
     srcs: ["src/**/*.java"],
 
     static_libs: [
+        "androidx.annotation_annotation",
         "guava",
         "pw_rpc_java_client",
     ],

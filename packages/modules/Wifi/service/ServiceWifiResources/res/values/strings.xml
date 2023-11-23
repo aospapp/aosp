@@ -38,6 +38,8 @@
     <string name="notification_channel_network_alerts">Network alerts</string>
     <!-- Text shown when viewing the channel settings for notification about open nearby wireless networks. -->
     <string name="notification_channel_network_available">Network available</string>
+    <!-- Text shown when viewing the channel settings for notifications related apm enhancement. -->
+    <string name="notification_channel_apm_alerts">APM alerts</string>
 
     <!-- Notification title for a connection to a app suggested wireless network.-->
     <string name="wifi_suggestion_title">Allow suggested Wi\u2011Fi networks?</string>
@@ -98,6 +100,13 @@
     <string name="wifi_p2p_invitation_sent_title">Invitation sent</string>
     <string name="wifi_p2p_invitation_to_connect_title">Invitation to connect</string>
 
+    <!-- The message of the P2P Invitation Received dialog indicating the seconds left to accept before auto rejection [CHAR_LIMIT=NONE] [ICU SYNTAX] -->
+    <string name="wifi_p2p_invitation_seconds_remaining">
+        {0, plural,
+            =1 {Accept in # second.}
+            other {Accept in # seconds.}
+        }
+    </string>
     <string name="wifi_p2p_from_message">From: </string>
     <string name="wifi_p2p_to_message">To: </string>
     <string name="wifi_p2p_enter_pin_message">Type the required PIN: </string>
@@ -157,19 +166,19 @@
     </string-array>
     <string name="wifi_eap_error_message_code_32767"><xliff:g id="ssid">%1$s</xliff:g> : EAP authentication error 32767</string>
     <string-array name="wifi_eap_error_message_code_32767_carrier_overrides">
-      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : There is a problem connecting you to Verizon Wi-Fi Access. Try again later or try from a different location.</item>
+      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : There is a problem connecting you to Verizon Wi-Fi Access. Try again later or try from a different location. (Error = 32767)</item>
     </string-array>
     <string name="wifi_eap_error_message_code_16384"><xliff:g id="ssid">%1$s</xliff:g> : EAP authentication error 16384</string>
     <string-array name="wifi_eap_error_message_code_16384_carrier_overrides">
-      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : There is a problem connecting you to Verizon Wi-Fi Access due to error 16384.</item>
+      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : There is a problem connecting you to Verizon Wi-Fi. (Error = 16384)</item>
     </string-array>
     <string name="wifi_eap_error_message_code_16385"><xliff:g id="ssid">%1$s</xliff:g> : EAP authentication error 16385</string>
     <string-array name="wifi_eap_error_message_code_16385_carrier_overrides">
-      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : There is a problem connecting you to Verizon Wi-Fi Access due to error 16385.</item>
+      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : There is a problem connecting you to Verizon Wi-Fi. (Error = 16385)</item>
     </string-array>
     <string name="wifi_eap_error_message_unknown_error_code"><xliff:g id="ssid">%1$s</xliff:g> : EAP authentication error, unknown error code</string>
     <string-array name="wifi_eap_error_message_unknown_error_code_carrier_overrides">
-      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : There is a problem connecting you to Verizon Wi-Fi Access.</item>
+      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : There is a problem connecting you to Verizon Wi-Fi. (Error = Unknown)</item>
     </string-array>
 
 
@@ -183,14 +192,21 @@
 
     <!-- External approver for interface priority calls. -->
     <string name="wifi_interface_priority_title"><xliff:g id="app">%1$s</xliff:g> wants to use a networking resource</string>
-    <!-- Note: additional available arguments for customized message (not used in default string):
-          %1$s: application name
-          %2$s: interface name
+    <!-- Note: additional available arguments for customized title and message (not necessarily used in default string):
+          %1$s: requestor application name
+          %2$s: requested interface name
+          %3$s: impacted application names
+          %4$s: impacted interface names
      -->
     <string name="wifi_interface_priority_message">This may cause problems for <xliff:g id="apps">%3$s</xliff:g>.</string>
     <string name="wifi_interface_priority_message_plural">This may cause problems for these apps: <xliff:g id="apps">%3$s</xliff:g>.</string>
     <string name="wifi_interface_priority_approve">Allow</string>
     <string name="wifi_interface_priority_reject">Don\'t allow</string>
+    <string name="wifi_interface_priority_interface_name_sta">STA</string>
+    <string name="wifi_interface_priority_interface_name_ap">Wi\u2011Fi Hotspot</string>
+    <string name="wifi_interface_priority_interface_name_ap_bridge">Wi\u2011Fi Hotspot</string>
+    <string name="wifi_interface_priority_interface_name_p2p">Wi\u2011Fi Direct</string>
+    <string name="wifi_interface_priority_interface_name_nan">Wi\u2011Fi Aware</string>
 
     <!-- Trust On First Use dialog and notification text. -->
     <string name="wifi_ca_cert_dialog_title">Is this network trusted?</string>
@@ -200,16 +216,20 @@
     <string name="wifi_ca_cert_dialog_message_server_name_text">Server Name:\n<xliff:g id="value">%1$s</xliff:g>\n\n</string>
     <string name="wifi_ca_cert_dialog_message_issuer_name_text">Issuer Name:\n<xliff:g id="value">%1$s</xliff:g>\n\n</string>
     <string name="wifi_ca_cert_dialog_message_organization_text">Organization:\n<xliff:g id="value">%1$s</xliff:g>\n\n</string>
+    <string name="wifi_ca_cert_dialog_message_expiration_text">Certificate Expiration:\n<xliff:g id="value">%1$s</xliff:g>\n\n</string>
+    <string name="wifi_ca_cert_dialog_message_signature_name_text">SHA-256 Fingerprint:\n<xliff:g id="value">%1$s</xliff:g>\n\n</string>
     <string name="wifi_ca_cert_dialog_message_contact_text">Contact:\n<xliff:g id="value">%1$s</xliff:g>\n\n</string>
-    <string name="wifi_ca_cert_dialog_message_signature_name_text">Signature:\n<xliff:g id="value">%1$s</xliff:g>\n\n</string>
     <string name="wifi_ca_cert_notification_title">Network needs to be verified</string>
     <string name="wifi_ca_cert_notification_message">Review network details for <xliff:g id="ssid">%1$s</xliff:g> before connecting. Tap to continue.</string>
     <string name="wifi_ca_cert_failed_to_install_ca_cert">Certificate installation failed.</string>
+    <string name="wifi_tofu_invalid_cert_chain_title">Can\'t connect to <xliff:g id="value">%1$s</xliff:g></string>
+    <string name="wifi_tofu_invalid_cert_chain_message">The server certificate chain is invalid.</string>
+    <string name="wifi_tofu_invalid_cert_chain_ok_text">OK</string>
 
     <!-- Legacy EAP network dialog and notification text on Pre-T devices. -->
     <string name="wifi_ca_cert_dialog_preT_title">Can\'t verify this network</string>
-    <string name="wifi_ca_cert_dialog_preT_continue_text">Connect anyway</string>
-    <string name="wifi_ca_cert_dialog_preT_abort_text">Don\'t connect</string>
+    <string name="wifi_ca_cert_dialog_preT_continue_text">Stay connected</string>
+    <string name="wifi_ca_cert_dialog_preT_abort_text">Disconnect now</string>
     <string name="wifi_ca_cert_dialog_preT_message_hint">The network <xliff:g id="ssid">%1$s</xliff:g> is missing a certificate.</string>
     <string name="wifi_ca_cert_dialog_preT_message_link">Learn how to add certificates</string>
     <string name="wifi_ca_cert_notification_preT_title">Can\'t verify this network</string>
@@ -222,4 +242,20 @@
     <string name="wifi_enable_request_dialog_message">You can turn off Wi\u2011Fi in Quick Settings</string>
     <string name="wifi_enable_request_dialog_positive_button">Allow</string>
     <string name="wifi_enable_request_dialog_negative_button">Don\u0027t allow</string>
+
+    <!-- Notifying the user that the device will remember Wi-Fi state in APM. -->
+    <string name="wifi_enabled_apm_first_time_title">Wi\u2011Fi on in airplane mode</string>
+    <string name="wifi_enabled_apm_first_time_message">If you keep Wi\u2011Fi on, your device will remember to keep it on the next time you\'re in airplane mode</string>
+    <string name="apm_enabled_first_time_title">Wi\u2011Fi stays on</string>
+    <string name="apm_enabled_first_time_message">Your device remembers to keep Wi\u2011Fi on in airplane mode. Turn off Wi\u2011Fi if you don\'t want it to stay on.</string>
+
+    <!-- Dialog for connecting to a network with only disabled type BSSes. -->
+    <string name="wifi_network_disabled_by_admin_title">Unavailable Network</string>
+    <string name="wifi_network_disabled_by_admin_message"><xliff:g id="ssid">%1$s</xliff:g> is disabled by your administrator.</string>
+    <string name="wifi_network_disabled_by_admin_button">Close</string>
+
+    <string name="wifi_network_switch_dialog_title_no_internet"><xliff:g id="ssid">%1$s</xliff:g> does not appear to be connected to the internet. Switch to <xliff:g id="ssid">%2$s</xliff:g>?</string>
+    <string name="wifi_network_switch_dialog_title_bad_internet"><xliff:g id="ssid">%1$s</xliff:g> is low quality. Switch to <xliff:g id="ssid">%2$s</xliff:g>?</string>
+    <string name="wifi_network_switch_dialog_positive_button">Switch</string>
+    <string name="wifi_network_switch_dialog_negative_button">Don\u0027t switch</string>
 </resources>

@@ -115,6 +115,9 @@ with PPD files are prepared with ppdTool.go:
     go run ppdTool.go download
 3. Calculate new clusters:
     go run ppdTool.go compare
+   If it fails with an error "too many open files" you have to increase the
+   soft limit of open files with ulimit, e.g.:
+    ulimit -Sn 10123
 4. Compress new directories with PPD files:
     tar cJf ppds_core.tar.xz ppds_core
     tar cJf ppds_ext.tar.xz ppds_ext

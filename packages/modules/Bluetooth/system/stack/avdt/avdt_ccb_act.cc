@@ -29,7 +29,6 @@
 #include "avdt_int.h"
 #include "avdtc_api.h"
 #include "bt_target.h"
-#include "bt_utils.h"
 #include "btm_api.h"
 #include "osi/include/allocator.h"
 #include "osi/include/osi.h"
@@ -1001,7 +1000,8 @@ void avdt_ccb_ll_closed(AvdtpCcb* p_ccb, UNUSED_ATTR tAVDT_CCB_EVT* p_data) {
   tAVDT_CTRL_CBACK* p_cback;
   tAVDT_CTRL avdt_ctrl;
 
-  AVDT_TRACE_DEBUG("%s peer %s", __func__, p_ccb->peer_addr.ToString().c_str());
+  AVDT_TRACE_DEBUG("%s peer %s", __func__,
+                   ADDRESS_TO_LOGGABLE_CSTR(p_ccb->peer_addr));
 
   /* clear any pending commands */
   avdt_ccb_clear_cmds(p_ccb, NULL);
@@ -1037,8 +1037,8 @@ void avdt_ccb_ll_opened(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data) {
   tAVDT_CTRL avdt_ctrl;
 
   AVDT_TRACE_DEBUG("%s peer %s BtaAvScbIndex=%d p_ccb=%p", __func__,
-                   p_ccb->peer_addr.ToString().c_str(), p_ccb->BtaAvScbIndex(),
-                   p_ccb);
+                   ADDRESS_TO_LOGGABLE_CSTR(p_ccb->peer_addr),
+                   p_ccb->BtaAvScbIndex(), p_ccb);
   p_ccb->ll_opened = true;
 
   if (!p_ccb->p_conn_cback) p_ccb->p_conn_cback = avdtp_cb.p_conn_cback;

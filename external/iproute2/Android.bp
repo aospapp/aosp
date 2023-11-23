@@ -85,5 +85,7 @@ cc_defaults {
         "-DHAVE_UTIME_H",
 
         "-DNO_SHARED_LIBS",
+
+        "-Dstrdupa(__S)=strcpy(alloca(strlen(__S) + 1), __S)",
     ],
 }

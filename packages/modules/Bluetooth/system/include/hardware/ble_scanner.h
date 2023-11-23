@@ -58,6 +58,8 @@ typedef struct {
 
 class AdvertisingTrackInfo {
  public:
+  // For MSFT-based advertisement monitor.
+  uint8_t monitor_handle;
   uint8_t scanner_id;
   uint8_t filter_index;
   uint8_t advertiser_state;
@@ -107,6 +109,7 @@ class ScanningCallbacks {
   virtual void OnPeriodicSyncLost(uint16_t sync_handle) = 0;
   virtual void OnPeriodicSyncTransferred(int pa_source, uint8_t status,
                                          RawAddress address) = 0;
+  virtual void OnBigInfoReport(uint16_t sync_handle, bool encrypted) = 0;
 };
 
 class BleScannerInterface {
@@ -128,6 +131,15 @@ class BleScannerInterface {
   using FilterConfigCallback =
       base::Callback<void(uint8_t /* filt_type */, uint8_t /* avbl_space */,
                           uint8_t /* action */, uint8_t /* btm_status */)>;
+
+  using MsftAdvMonitorAddCallback =
+      base::Callback<void(uint8_t /* monitor_handle */, uint8_t /* status */)>;
+
+  using MsftAdvMonitorRemoveCallback =
+      base::Callback<void(uint8_t /* status */)>;
+
+  using MsftAdvMonitorEnableCallback =
+      base::Callback<void(uint8_t /* status */)>;
 
   /** Registers a scanner with the stack */
   virtual void RegisterScanner(const bluetooth::Uuid& app_uuid,
@@ -154,6 +166,21 @@ class BleScannerInterface {
 
   /** Enable / disable scan filter feature*/
   virtual void ScanFilterEnable(bool enable, EnableCallback cb) = 0;
+
+  /** Is MSFT Extension supported? */
+  virtual bool IsMsftSupported() = 0;
+
+  /** Configures MSFT scan filter (advertisement monitor) */
+  virtual void MsftAdvMonitorAdd(MsftAdvMonitor monitor,
+                                 MsftAdvMonitorAddCallback cb) = 0;
+
+  /** Removes previously added MSFT scan filter */
+  virtual void MsftAdvMonitorRemove(uint8_t monitor_handle,
+                                    MsftAdvMonitorRemoveCallback cb) = 0;
+
+  /** Enable / disable MSFT scan filter feature */
+  virtual void MsftAdvMonitorEnable(bool enable,
+                                    MsftAdvMonitorEnableCallback cb) = 0;
 
   /** Sets the LE scan interval and window in units of N*0.625 msec */
   virtual void SetScanParameters(int scanner_id, int scan_interval,

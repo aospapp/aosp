@@ -96,6 +96,10 @@ cc_library_static {
     ],
     // being part of updatable apexes, this should work on older releases
     min_sdk_version: "apex_inherit",
+    // sdk_version normally isn't needed as only the platform variant
+    // is used, except on riscv64 which doesn't have an NDK libc++ and
+    // reuses this module for sdk variants.
+    sdk_version: "current",
     native_bridge_supported: true,
     srcs: [
         "src/algorithm.cpp",
@@ -161,6 +165,10 @@ cc_library_shared {
     ],
     // being part of updatable apexes, this should work on older releases
     min_sdk_version: "apex_inherit",
+    // sdk_version normally isn't needed as only the platform variant
+    // is used, except on riscv64 which doesn't have an NDK libc++ and
+    // reuses this module for sdk variants.
+    sdk_version: "current",
     whole_static_libs: ["libc++_static"],
     stl: "none",
 
@@ -168,6 +176,9 @@ cc_library_shared {
 
     target: {
         darwin: {
+            // TODO: LLD does not implement force_symbols_weak_list or
+            // force_symbols_not_weak_list. Opt out and keep using ld64.
+            use_clang_lld: false,
             unexported_symbols_list: "lib/libc++unexp.exp",
             force_symbols_not_weak_list: "lib/notweak.exp",
             force_symbols_weak_list: "lib/weak.exp",
@@ -179,10 +190,6 @@ cc_library_shared {
         linux_bionic: {
             enabled: true,
         },
-    },
-
-    header_abi_checker: {
-        diff_flags: ["-allow-adding-removing-weak-symbols"],
     },
 }
 
@@ -205,7 +212,7 @@ cc_library_static {
         "//apex_available:platform",
         "com.android.art",
         "com.android.art.debug",
-        "com.android.bluetooth",
+        "com.android.btservices",
     ],
     // being part of updatable apexes, this should work on older releases
     min_sdk_version: "apex_inherit",
@@ -241,6 +248,7 @@ cc_binary {
         "-fsized-deallocation",
         "-fexceptions",
         "-fcoroutines-ts",
+        "-Wno-deprecated-experimental-coroutine",
         "-Wno-format-zero-length",
         "-Wno-implicit-fallthrough",
         "-Wno-non-virtual-dtor",
@@ -281,23 +289,6 @@ cc_binary {
     },
     gnu_extensions: false,
     cpp_std: "c++17",
-}
-
-python_test {
-    name: "filesystem_dynamic_test_helper.py",
-    main: "test/support/filesystem_dynamic_test_helper.py",
-    srcs: [
-        "test/support/filesystem_dynamic_test_helper.py",
-    ],
-    version: {
-        py2: {
-            enabled: true,
-            embedded_launcher: true,
-        },
-        py3: {
-            enabled: false,
-        },
-    },
 }
 
 // Export libc++ headers for inclusion in the musl sysroot.

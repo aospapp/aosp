@@ -20,19 +20,17 @@
  */
 
 #include <cstdint>
-#include <functional>
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <base/bind.h>
-#include <base/callback.h>
+#include <base/functional/bind.h>
+#include <base/functional/callback.h>
 
 #include "main/shim/btm_api.h"
 #include "stack/include/bt_hdr.h"
 #include "stack/include/bt_octets.h"
 #include "stack/include/btm_ble_api_types.h"
+#include "test/common/mock_functions.h"
 #include "types/bluetooth/uuid.h"
 #include "types/bt_transport.h"
 #include "types/raw_address.h"
@@ -46,45 +44,45 @@ Octet16 octet16;
 bool bluetooth::shim::BTM_BleDataSignature(const RawAddress& bd_addr,
                                            uint8_t* p_text, uint16_t len,
                                            BLE_SIGNATURE signature) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool bluetooth::shim::BTM_BleLocalPrivacyEnabled(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool bluetooth::shim::BTM_BleSecurityProcedureIsRunning(
     const RawAddress& bd_addr) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool bluetooth::shim::BTM_BleVerifySignature(const RawAddress& bd_addr,
                                              uint8_t* p_orig, uint16_t len,
                                              uint32_t counter,
                                              uint8_t* p_comp) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool bluetooth::shim::BTM_GetLeSecurityState(const RawAddress& bd_addr,
                                              uint8_t* p_le_dev_sec_flags,
                                              uint8_t* p_le_key_size) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool bluetooth::shim::BTM_HasEirService(const uint32_t* p_eir_uuid,
                                         uint16_t uuid16) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool bluetooth::shim::BTM_ReadConnectedTransportAddress(
     RawAddress* remote_bda, tBT_TRANSPORT transport) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool bluetooth::shim::BTM_ReadRemoteConnectionAddr(
     const RawAddress& pseudo_addr, RawAddress& conn_addr,
     tBLE_ADDR_TYPE* p_addr_type) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool bluetooth::shim::BTM_SecAddDevice(const RawAddress& bd_addr,
@@ -92,113 +90,117 @@ bool bluetooth::shim::BTM_SecAddDevice(const RawAddress& bd_addr,
                                        const BD_NAME& bd_name,
                                        uint8_t* features, LinkKey* link_key,
                                        uint8_t key_type, uint8_t pin_length) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool bluetooth::shim::BTM_SecAddRmtNameNotifyCallback(
     tBTM_RMT_NAME_CALLBACK* p_callback) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool bluetooth::shim::BTM_SecDeleteDevice(const RawAddress& bd_addr) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool bluetooth::shim::BTM_SecDeleteRmtNameNotifyCallback(
     tBTM_RMT_NAME_CALLBACK* p_callback) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool bluetooth::shim::BTM_SecRegister(const tBTM_APPL_INFO* bta_callbacks) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool bluetooth::shim::BTM_UseLeLink(const RawAddress& raw_address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 char* bluetooth::shim::BTM_SecReadDevName(const RawAddress& address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }
 const Octet16& bluetooth::shim::BTM_GetDeviceEncRoot() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return octet16;
 }
 const Octet16& bluetooth::shim::BTM_GetDeviceDHK() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return octet16;
 }
 const Octet16& bluetooth::shim::BTM_GetDeviceIDRoot() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return octet16;
 }
 tBTM_EIR_SEARCH_RESULT bluetooth::shim::BTM_HasInquiryEirService(
     tBTM_INQ_RESULTS* p_results, uint16_t uuid16) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 tBTM_INQ_INFO* bluetooth::shim::BTM_InqDbFirst(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }
 tBTM_INQ_INFO* bluetooth::shim::BTM_InqDbNext(tBTM_INQ_INFO* p_cur) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }
 tBTM_INQ_INFO* bluetooth::shim::BTM_InqDbRead(const RawAddress& p_bda) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }
 tBTM_STATUS bluetooth::shim::BTM_BleObserve(bool start, uint8_t duration_sec,
                                             tBTM_INQ_RESULTS_CB* p_results_cb,
                                             tBTM_CMPL_CB* p_cmpl_cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 void bluetooth::shim::BTM_BleOpportunisticObserve(
     bool enable, tBTM_INQ_RESULTS_CB* p_results_cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
+}
+void bluetooth::shim::BTM_BleTargetAnnouncementObserve(
+    bool enable, tBTM_INQ_RESULTS_CB* p_results_cb) {
+  inc_func_call_count(__func__);
 }
 tBTM_STATUS bluetooth::shim::BTM_CancelRemoteDeviceName(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS bluetooth::shim::BTM_ClearInqDb(const RawAddress* p_bda) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS bluetooth::shim::BTM_ReadRemoteDeviceName(
-    const RawAddress& raw_address, tBTM_CMPL_CB* callback,
+    const RawAddress& raw_address, tBTM_NAME_CMPL_CB* callback,
     tBT_TRANSPORT transport) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS bluetooth::shim::BTM_SecBond(const RawAddress& bd_addr,
                                          tBLE_ADDR_TYPE addr_type,
                                          tBT_TRANSPORT transport,
                                          tBT_DEVICE_TYPE device_type) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS bluetooth::shim::BTM_SecBondCancel(const RawAddress& bd_addr) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS bluetooth::shim::BTM_SetConnectability(uint16_t page_mode,
                                                    uint16_t window,
                                                    uint16_t interval) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS bluetooth::shim::BTM_SetDeviceClass(DEV_CLASS dev_class) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS bluetooth::shim::BTM_SetDiscoverability(uint16_t discoverable_mode,
                                                     uint16_t window,
                                                     uint16_t interval) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS bluetooth::shim::BTM_SetEncryption(const RawAddress& bd_addr,
@@ -206,153 +208,138 @@ tBTM_STATUS bluetooth::shim::BTM_SetEncryption(const RawAddress& bd_addr,
                                                tBTM_SEC_CALLBACK* p_callback,
                                                void* p_ref_data,
                                                tBTM_BLE_SEC_ACT sec_act) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS bluetooth::shim::BTM_SetInquiryMode(uint8_t inquiry_mode) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS bluetooth::shim::BTM_StartInquiry(tBTM_INQ_RESULTS_CB* p_results_cb,
                                               tBTM_CMPL_CB* p_cmpl_cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS bluetooth::shim::btm_sec_mx_access_request(
     const RawAddress& bd_addr, bool is_originator,
     uint16_t security_requirement, tBTM_SEC_CALLBACK* p_callback,
     void* p_ref_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 uint16_t bluetooth::shim::BTM_GetHCIConnHandle(const RawAddress& remote_bda,
                                                tBT_TRANSPORT transport) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint16_t bluetooth::shim::BTM_IsInquiryActive(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint8_t bluetooth::shim::BTM_BleGetSupportedKeySize(const RawAddress& bd_addr) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint8_t bluetooth::shim::BTM_BleMaxMultiAdvInstanceCount() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 void bluetooth::shim::BTM_AddEirService(uint32_t* p_eir_uuid, uint16_t uuid16) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_BleAdvFilterParamSetup(
     tBTM_BLE_SCAN_COND_OP action, tBTM_BLE_PF_FILT_INDEX filt_index,
     std::unique_ptr<btgatt_filt_param_setup_t> p_filt_params,
     tBTM_BLE_PF_PARAM_CB cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_BleEnableDisableFilterFeature(
     uint8_t enable, tBTM_BLE_PF_STATUS_CBACK p_stat_cback) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_BleLoadLocalKeys(uint8_t key_type,
                                            tBTM_BLE_LOCAL_KEYS* p_key) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_BleOobDataReply(const RawAddress& bd_addr,
                                           uint8_t res, uint8_t len,
                                           uint8_t* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_BleReadPhy(
     const RawAddress& bd_addr,
     base::Callback<void(uint8_t tx_phy, uint8_t rx_phy, uint8_t status)> cb) {
-  mock_function_count_map[__func__]++;
-}
-void bluetooth::shim::BTM_BleReceiverTest(uint8_t rx_freq,
-                                          tBTM_CMPL_CB* p_cmd_cmpl_cback) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_BleSecureConnectionOobDataReply(
     const RawAddress& bd_addr, uint8_t* p_c, uint8_t* p_r) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_BleSetConnScanParams(uint32_t scan_interval,
                                                uint32_t scan_window) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_BleSetPhy(const RawAddress& bd_addr, uint8_t tx_phys,
                                     uint8_t rx_phys, uint16_t phy_options) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_BleSetPrefConnParams(const RawAddress& bd_addr,
                                                uint16_t min_conn_int,
                                                uint16_t max_conn_int,
                                                uint16_t peripheral_latency,
                                                uint16_t supervision_tout) {
-  mock_function_count_map[__func__]++;
-}
-void bluetooth::shim::BTM_BleTestEnd(tBTM_CMPL_CB* p_cmd_cmpl_cback) {
-  mock_function_count_map[__func__]++;
-}
-void bluetooth::shim::BTM_BleTransmitterTest(uint8_t tx_freq,
-                                             uint8_t test_data_len,
-                                             uint8_t packet_payload,
-                                             tBTM_CMPL_CB* p_cmd_cmpl_cback) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_BleUpdateAdvFilterPolicy(tBTM_BLE_AFP adv_policy) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
-void bluetooth::shim::BTM_CancelInquiry(void) {
-  mock_function_count_map[__func__]++;
-}
+void bluetooth::shim::BTM_CancelInquiry(void) { inc_func_call_count(__func__); }
 void bluetooth::shim::BTM_ConfirmReqReply(tBTM_STATUS res,
                                           const RawAddress& bd_addr) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_EnableInterlacedInquiryScan() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_EnableInterlacedPageScan() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_LE_PF_addr_filter(tBTM_BLE_SCAN_COND_OP action,
                                             tBTM_BLE_PF_FILT_INDEX filt_index,
                                             tBLE_BD_ADDR addr,
                                             tBTM_BLE_PF_CFG_CBACK cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_LE_PF_clear(tBTM_BLE_PF_FILT_INDEX filt_index,
                                       tBTM_BLE_PF_CFG_CBACK cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_LE_PF_local_name(tBTM_BLE_SCAN_COND_OP action,
                                            tBTM_BLE_PF_FILT_INDEX filt_index,
                                            std::vector<uint8_t> name,
                                            tBTM_BLE_PF_CFG_CBACK cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_LE_PF_manu_data(
     tBTM_BLE_SCAN_COND_OP action, tBTM_BLE_PF_FILT_INDEX filt_index,
     uint16_t company_id, uint16_t company_id_mask, std::vector<uint8_t> data,
     std::vector<uint8_t> data_mask, tBTM_BLE_PF_CFG_CBACK cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
                                     std::vector<ApcfCommand> commands,
                                     tBTM_BLE_PF_CFG_CBACK cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_LE_PF_srvc_data(tBTM_BLE_SCAN_COND_OP action,
                                           tBTM_BLE_PF_FILT_INDEX filt_index) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_LE_PF_srvc_data_pattern(
     tBTM_BLE_SCAN_COND_OP action, tBTM_BLE_PF_FILT_INDEX filt_index,
     std::vector<uint8_t> data, std::vector<uint8_t> data_mask,
     tBTM_BLE_PF_CFG_CBACK cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_LE_PF_uuid_filter(tBTM_BLE_SCAN_COND_OP action,
                                             tBTM_BLE_PF_FILT_INDEX filt_index,
@@ -361,48 +348,48 @@ void bluetooth::shim::BTM_LE_PF_uuid_filter(tBTM_BLE_SCAN_COND_OP action,
                                             tBTM_BLE_PF_LOGIC_TYPE cond_logic,
                                             const bluetooth::Uuid& uuid_mask,
                                             tBTM_BLE_PF_CFG_CBACK cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_PINCodeReply(const RawAddress& bd_addr,
                                        tBTM_STATUS res, uint8_t pin_len,
                                        uint8_t* p_pin) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_ReadConnectionAddr(const RawAddress& remote_bda,
                                              RawAddress& local_conn_addr,
                                              tBLE_ADDR_TYPE* p_addr_type) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_ReadDevInfo(const RawAddress& remote_bda,
                                       tBT_DEVICE_TYPE* p_dev_type,
                                       tBLE_ADDR_TYPE* p_addr_type) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_RemoteOobDataReply(tBTM_STATUS res,
                                              const RawAddress& bd_addr,
                                              const Octet16& c,
                                              const Octet16& r) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_SecAddBleDevice(const RawAddress& bd_addr,
                                           tBT_DEVICE_TYPE dev_type,
                                           tBLE_ADDR_TYPE addr_type) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_SecAddBleKey(const RawAddress& bd_addr,
                                        tBTM_LE_KEY_VALUE* p_le_key,
                                        tBTM_LE_KEY_TYPE key_type) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_SecClearSecurityFlags(const RawAddress& bd_addr) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::BTM_SecurityGrant(const RawAddress& bd_addr,
                                         uint8_t res) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bluetooth::shim::SendRemoteNameRequest(const RawAddress& raw_address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void btm_api_process_extended_inquiry_result(RawAddress raw_address,
                                              uint8_t page_scan_rep_mode,
@@ -410,23 +397,77 @@ void btm_api_process_extended_inquiry_result(RawAddress raw_address,
                                              uint16_t clock_offset, int8_t rssi,
                                              const uint8_t* eir_data,
                                              size_t eir_len) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void btm_api_process_inquiry_result(const RawAddress& raw_address,
                                     uint8_t page_scan_rep_mode,
                                     DEV_CLASS device_class,
                                     uint16_t clock_offset) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void btm_api_process_inquiry_result_with_rssi(RawAddress raw_address,
                                               uint8_t page_scan_rep_mode,
                                               DEV_CLASS device_class,
                                               uint16_t clock_offset,
                                               int8_t rssi) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 
 tBTM_STATUS bluetooth::shim::BTM_ClearEventFilter() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_ClearEventMask() {
+  inc_func_call_count(__func__);
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_ClearFilterAcceptList() {
+  inc_func_call_count(__func__);
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_DisconnectAllAcls() {
+  inc_func_call_count(__func__);
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_LeRand(LeRandCallback cb) {
+  inc_func_call_count(__func__);
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_SetEventFilterConnectionSetupAllDevices() {
+  inc_func_call_count(__func__);
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_AllowWakeByHid(
+    std::vector<RawAddress> classic_hid_devices,
+    std::vector<std::pair<RawAddress, uint8_t>> le_hid_devices) {
+  inc_func_call_count(__func__);
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_RestoreFilterAcceptList(
+    std::vector<std::pair<RawAddress, uint8_t>> le_devices) {
+  inc_func_call_count(__func__);
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_SetDefaultEventMaskExcept(uint64_t mask,
+                                                           uint64_t le_mask) {
+  inc_func_call_count(__func__);
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_SetEventFilterInquiryResultAllDevices() {
+  inc_func_call_count(__func__);
+  return BTM_SUCCESS;
+}
+
+tBTM_STATUS bluetooth::shim::BTM_BleResetId() {
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }

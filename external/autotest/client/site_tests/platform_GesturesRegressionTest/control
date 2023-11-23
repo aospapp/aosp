@@ -10,6 +10,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Regression"
 TEST_CLASS = "platform"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This tests the regression of gestures library and stores the results in autotest

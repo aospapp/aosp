@@ -21,24 +21,16 @@ pw_source_set("bcc") {
   deps = [
     "//:cbor_reader",
     "//:cbor_writer",
-    "//:dice_with_cbor_cert",
+    "//:dice_with_cbor_ed25519_cert",
   ]
 }
 
 pw_test("bcc_test") {
-  sources = [
-    "bcc_test.cc",
-  ]
-  deps = [
-    ":bcc",
-  ]
+  sources = [ "bcc_test.cc" ]
+  deps = [ ":bcc" ]
 }
 
 pw_executable("bcc_fuzzer") {
-  sources = [
-    "bcc_fuzzer.cc",
-  ]
-  deps = [
-    ":bcc",
-  ]
+  sources = [ "bcc_fuzzer.cc" ]
+  deps = [ ":bcc" ]
 }

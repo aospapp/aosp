@@ -1,11 +1,12 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2021 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 //! Functions for writing GUID Partition Tables for use in a composite disk image.
 
 use std::convert::TryInto;
-use std::io::{self, Write};
+use std::io;
+use std::io::Write;
 use std::num::TryFromIntError;
 
 use crc32fast::Hasher;

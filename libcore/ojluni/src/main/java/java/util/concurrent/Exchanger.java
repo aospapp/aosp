@@ -57,8 +57,8 @@ import java.util.concurrent.locks.LockSupport;
  * <pre> {@code
  * class FillAndEmpty {
  *   Exchanger<DataBuffer> exchanger = new Exchanger<>();
- *   DataBuffer initialEmptyBuffer = ... a made-up type
- *   DataBuffer initialFullBuffer = ...
+ *   DataBuffer initialEmptyBuffer = ...; // a made-up type
+ *   DataBuffer initialFullBuffer = ...;
  *
  *   class FillingLoop implements Runnable {
  *     public void run() {
@@ -69,7 +69,7 @@ import java.util.concurrent.locks.LockSupport;
  *           if (currentBuffer.isFull())
  *             currentBuffer = exchanger.exchange(currentBuffer);
  *         }
- *       } catch (InterruptedException ex) { ... handle ... }
+ *       } catch (InterruptedException ex) { ... handle ...}
  *     }
  *   }
  *
@@ -565,8 +565,8 @@ public class Exchanger<V> {
         Object item = (x == null) ? NULL_ITEM : x; // translate null args
         if (((a = arena) != null ||
              (v = slotExchange(item, false, 0L)) == null) &&
-            ((Thread.interrupted() || // disambiguates null return
-              (v = arenaExchange(item, false, 0L)) == null)))
+            (Thread.interrupted() || // disambiguates null return
+             (v = arenaExchange(item, false, 0L)) == null))
             throw new InterruptedException();
         return (v == NULL_ITEM) ? null : (V)v;
     }
@@ -621,8 +621,8 @@ public class Exchanger<V> {
         long ns = unit.toNanos(timeout);
         if ((arena != null ||
              (v = slotExchange(item, true, ns)) == null) &&
-            ((Thread.interrupted() ||
-              (v = arenaExchange(item, true, ns)) == null)))
+            (Thread.interrupted() ||
+             (v = arenaExchange(item, true, ns)) == null))
             throw new InterruptedException();
         if (v == TIMED_OUT)
             throw new TimeoutException();

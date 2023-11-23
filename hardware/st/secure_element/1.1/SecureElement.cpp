@@ -158,6 +158,13 @@ Return<void> SecureElement::openLogicalChannel(const hidl_vec<uint8_t>& aid,
   memset(&resApduBuff, 0x00, sizeof(resApduBuff));
   STLOG_HAL_D("%s: Enter", __func__);
 
+  if (aid.size() > 16) {
+    STLOG_HAL_E("%s: Invalid AID size: %u", __func__, (unsigned)aid.size());
+    _hidl_cb(resApduBuff, SecureElementStatus::FAILED);
+    OpenLogicalChannelProcessing = false;
+    return Void();
+  }
+
   if (!isSeInitialized()) {
     STLOG_HAL_D("%s: Enter SeInitialized", __func__);
     ESESTATUS status = seHalInit();
@@ -296,6 +303,13 @@ Return<void> SecureElement::openBasicChannel(const hidl_vec<uint8_t>& aid,
   hidl_vec<uint8_t> result;
   OpenBasicChannelProcessing = true;
   STLOG_HAL_D("%s: Enter", __func__);
+
+  if (aid.size() > 16) {
+    STLOG_HAL_E("%s: Invalid AID size: %u", __func__, (unsigned)aid.size());
+    _hidl_cb(result, SecureElementStatus::FAILED);
+    OpenBasicChannelProcessing = false;
+    return Void();
+  }
 
   if (!isSeInitialized()) {
     ESESTATUS status = seHalInit();

@@ -51,10 +51,10 @@ int CloseTestEngine(bool force_report = false);
 
 // Write captured state to a log and terminate test run.
 void TestFail(const char *expval, const char *val, const char *exp,
-              const char *file, int line, const char *func = 0);
+              const char *file, int line, const char *func = nullptr);
 
 void TestEqStr(const char *expval, const char *val, const char *exp,
-               const char *file, int line, const char *func = 0);
+               const char *file, int line, const char *func = nullptr);
 
 // Workaround for `enum class` printing.
 // There is an issue with the printing of enums with a fixed underlying type.
@@ -73,7 +73,7 @@ struct underlying_of_scalar {
 template<typename T> struct underlying_of_scalar<T, true> {
 // clang-format off
   // There are old compilers without full C++11 support (see stl_emulation.h).
-  #if defined(FLATBUFFERS_TEMPLATES_ALIASES) && !defined(FLATBUFFERS_CPP98_STL)
+  #if defined(FLATBUFFERS_TEMPLATES_ALIASES)
   using type = typename std::underlying_type<T>::type;
   #else
   typedef int64_t type;

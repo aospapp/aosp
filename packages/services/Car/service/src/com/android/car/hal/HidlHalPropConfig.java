@@ -16,10 +16,13 @@
 
 package com.android.car.hal;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+
 import android.hardware.automotive.vehicle.V2_0.VehicleAreaConfig;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
 
 import com.android.car.CarServiceUtils;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 
 import java.util.ArrayList;
 
@@ -122,6 +125,7 @@ public final class HidlHalPropConfig extends HalPropConfig {
      * Get the string representation for debugging.
      */
     @Override
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     public String toString() {
         return mConfig.toString();
     }

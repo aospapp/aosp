@@ -56,7 +56,7 @@ import org.mockito.stubbing.Answer;
 import java.util.ArrayList;
 import java.util.List;
 
-public class QosPolicyRequestHandlerTest {
+public class QosPolicyRequestHandlerTest extends WifiBaseTest{
     private static final String TEST_IFACE_NAME = "mockWlan";
     private static final byte[] TEST_INET_ADDR = {127, 0, 0, 1};
     private static final int QOS_REQUEST_DIALOG_TOKEN = 124;
@@ -114,7 +114,7 @@ public class QosPolicyRequestHandlerTest {
                 srcIp != null, srcIp,
                 dstIp != null, dstIp,
                 srcPort != null ? srcPort : DscpPolicy.SOURCE_PORT_ANY,
-                dstPortRange != null ? dstPortRange : new int[]{0, 65535},
+                dstPortRange,
                 protocol != null ? protocol : DscpPolicy.PROTOCOL_ANY);
         return new QosPolicyRequest((byte) policyId, requestType, (byte) dscp, classifierParams);
     }
@@ -149,11 +149,11 @@ public class QosPolicyRequestHandlerTest {
         for (QosPolicyStatus status : mQosStatusListCaptor.getValue()) {
             if (status.policyId == invalidPolicyRequest.policyId) {
                 assertEquals(NetworkAgent.DSCP_POLICY_STATUS_REQUEST_DECLINED,
-                        status.dscpPolicyStatus);
+                        status.statusCode);
             } else if (status.policyId == removePolicyRequest.policyId) {
-                assertEquals(NetworkAgent.DSCP_POLICY_STATUS_DELETED, status.dscpPolicyStatus);
+                assertEquals(NetworkAgent.DSCP_POLICY_STATUS_DELETED, status.statusCode);
             } else {  // valid add request
-                assertEquals(NetworkAgent.DSCP_POLICY_STATUS_SUCCESS, status.dscpPolicyStatus);
+                assertEquals(NetworkAgent.DSCP_POLICY_STATUS_SUCCESS, status.statusCode);
             }
         }
     }
@@ -186,7 +186,7 @@ public class QosPolicyRequestHandlerTest {
                     eq(QOS_REQUEST_DIALOG_TOKEN + i), eq(true), mQosStatusListCaptor.capture());
             assertEquals(policies.size(), mQosStatusListCaptor.getValue().size());
             for (QosPolicyStatus status : mQosStatusListCaptor.getValue()) {
-                assertEquals(NetworkAgent.DSCP_POLICY_STATUS_SUCCESS, status.dscpPolicyStatus);
+                assertEquals(NetworkAgent.DSCP_POLICY_STATUS_SUCCESS, status.statusCode);
             }
         }
     }
@@ -214,7 +214,7 @@ public class QosPolicyRequestHandlerTest {
                 eq(true), mQosStatusListCaptor.capture());
         assertEquals(policies.size(), mQosStatusListCaptor.getValue().size());
         for (QosPolicyStatus status : mQosStatusListCaptor.getValue()) {
-            assertEquals(NetworkAgent.DSCP_POLICY_STATUS_REQUEST_DECLINED, status.dscpPolicyStatus);
+            assertEquals(NetworkAgent.DSCP_POLICY_STATUS_REQUEST_DECLINED, status.statusCode);
         }
     }
 
@@ -272,9 +272,9 @@ public class QosPolicyRequestHandlerTest {
         for (QosPolicyStatus status : mQosStatusListCaptor.getValue()) {
             if (status.policyId == 3) {
                 assertEquals(NetworkAgent.DSCP_POLICY_STATUS_INSUFFICIENT_PROCESSING_RESOURCES,
-                        status.dscpPolicyStatus);
+                        status.statusCode);
             }  else {
-                assertEquals(NetworkAgent.DSCP_POLICY_STATUS_SUCCESS, status.dscpPolicyStatus);
+                assertEquals(NetworkAgent.DSCP_POLICY_STATUS_SUCCESS, status.statusCode);
             }
         }
     }

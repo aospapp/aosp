@@ -29,16 +29,15 @@ from . test_utils import TestBase, TestHelper, AdbHelper, INFERNO_SCRIPT
 
 class TestExampleBase(TestBase):
     @classmethod
-    def prepare(cls, example_name, package_name, activity_name, abi=None, adb_root=False):
+    def prepare(cls, example_name, package_name, activity_name, abi=None, adb_root=False,
+                apk_name: str = 'app-debug.apk'):
         cls.adb = AdbHelper(enable_switch_to_root=adb_root)
         cls.example_path = TestHelper.testdata_path(example_name)
         if not os.path.isdir(cls.example_path):
             log_fatal("can't find " + cls.example_path)
-        apk_files = list(Path(cls.example_path).glob('**/app-profiling.apk'))
+        apk_files = list(Path(cls.example_path).glob(f'**/{apk_name}'))
         if not apk_files:
-            apk_files = list(Path(cls.example_path).glob('**/app-debug.apk'))
-        if not apk_files:
-            log_fatal("can't find apk under " + cls.example_path)
+            log_fatal(f"can't find {apk_name} under " + cls.example_path)
         cls.apk_path = apk_files[0]
         cls.package_name = package_name
         cls.activity_name = activity_name
@@ -56,12 +55,16 @@ class TestExampleBase(TestBase):
 
     @classmethod
     def tearDownClass(cls):
-        remove(cls.testcase_dir)
+        if hasattr(cls, 'testcase_dir'):
+            remove(cls.testcase_dir)
         if hasattr(cls, 'package_name'):
             cls.adb.check_run(["uninstall", cls.package_name])
 
     def setUp(self):
         super(TestExampleBase, self).setUp()
+        if TestHelper.android_version == 8 and (
+                'ExampleJava' in self.id() or 'ExampleKotlin' in self.id()):
+            self.skipTest('Profiling java code needs wrap.sh on Android O (8.x)')
         if 'TraceOffCpu' in self.id() and not TestHelper.is_trace_offcpu_supported():
             self.skipTest('trace-offcpu is not supported on device')
         # Use testcase_dir to share a common perf.data for reporting. So we don't need to

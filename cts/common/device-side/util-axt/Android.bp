@@ -16,9 +16,11 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-java_library_static {
-    name: "compatibility-device-util-axt",
+java_defaults {
+    name: "compatibility-device-util-axt-default",
     sdk_version: "test_current",
+    min_sdk_version: "21",
+    dxflags: ["--multi-dex"],
 
     srcs: [
         "src/**/*.java",
@@ -31,23 +33,40 @@ java_library_static {
         "androidx.test.rules",
         "androidx.test.ext.junit",
         "ub-uiautomator",
-        "mockito-target-minus-junit4",
         "androidx.annotation_annotation",
+        "androidx.test.uiautomator_uiautomator",
         "truth-prebuilt",
         "modules-utils-build_system",
     ],
 
     libs: [
-        "android.test.runner",
-        "android.test.base",
+        "android.test.runner.stubs",
+        "android.test.base.stubs",
     ],
 
     jarjar_rules: "protobuf-jarjar-rules.txt",
 }
 
+java_library_static {
+    name: "compatibility-device-util-axt",
+    defaults: ["compatibility-device-util-axt-default"],
+    static_libs: [
+        "mockito-target-minus-junit4",
+    ],
+}
+
+// This target can be used with ExtendedMockito
+java_library {
+    name: "compatibility-device-util-axt-minus-dexmaker",
+    defaults: ["compatibility-device-util-axt-default"],
+    static_libs: [
+        "mockito",
+    ],
+}
+
 filegroup {
     name: "compatibility-device-util-nodeps",
     srcs: [
-         "src/com/android/compatibility/common/util/IBinderParcelable.java",
+        "src/com/android/compatibility/common/util/IBinderParcelable.java",
     ],
 }

@@ -22,17 +22,22 @@ import android.content.Intent
 import java.util.concurrent.CompletableFuture
 
 class StartForFutureActivity : Activity() {
-    private val future = CompletableFuture<Instrumentation.ActivityResult>()
-
-    fun startActivityForFuture(intent: Intent): CompletableFuture<Instrumentation.ActivityResult> {
+    fun startActivityForFuture(
+        intent: Intent,
+        future: CompletableFuture<Instrumentation.ActivityResult>
+    ) {
         startActivityForResult(intent, 1)
-        return future
+        StartForFutureActivity.future = future
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-
-        future.complete(Instrumentation.ActivityResult(resultCode, data))
+        future!!.complete(Instrumentation.ActivityResult(resultCode, data))
+        future = null
         finish()
+    }
+
+    companion object {
+        private var future: CompletableFuture<Instrumentation.ActivityResult>? = null
     }
 }

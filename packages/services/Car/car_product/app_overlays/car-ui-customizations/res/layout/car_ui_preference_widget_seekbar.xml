@@ -51,7 +51,8 @@
             android:id="@android:id/title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:singleLine="true"
+            android:ellipsize="end"
+            android:maxLines="2"
             android:textAppearance="@style/TextAppearance.CarUi.PreferenceTitle"/>
 
         <com.android.car.ui.uxr.DrawableStateTextView

@@ -1,4 +1,5 @@
 use crate::syntax::attrs::OtherAttrs;
+use crate::syntax::cfg::CfgExpr;
 use crate::syntax::discriminant::DiscriminantSet;
 use crate::syntax::file::{Item, ItemForeignMod};
 use crate::syntax::report::Errors;
@@ -43,7 +44,7 @@ pub fn parse_items(
             Item::ForeignMod(foreign_mod) => {
                 parse_foreign_mod(cx, foreign_mod, &mut apis, trusted, namespace)
             }
-            Item::Impl(item) => match parse_impl(item) {
+            Item::Impl(item) => match parse_impl(cx, item) {
                 Ok(imp) => apis.push(imp),
                 Err(err) => cx.push(err),
             },
@@ -55,6 +56,7 @@ pub fn parse_items(
 }
 
 fn parse_struct(cx: &mut Errors, mut item: ItemStruct, namespace: &Namespace) -> Result<Api> {
+    let mut cfg = CfgExpr::Unconditional;
     let mut doc = Doc::new();
     let mut derives = Vec::new();
     let mut namespace = namespace.clone();
@@ -64,6 +66,7 @@ fn parse_struct(cx: &mut Errors, mut item: ItemStruct, namespace: &Namespace) ->
         cx,
         mem::take(&mut item.attrs),
         attrs::Parser {
+            cfg: Some(&mut cfg),
             doc: Some(&mut doc),
             derives: Some(&mut derives),
             namespace: Some(&mut namespace),
@@ -124,6 +127,7 @@ fn parse_struct(cx: &mut Errors, mut item: ItemStruct, namespace: &Namespace) ->
     let mut fields = Vec::new();
     for field in named_fields.named {
         let ident = field.ident.unwrap();
+        let mut cfg = CfgExpr::Unconditional;
         let mut doc = Doc::new();
         let mut cxx_name = None;
         let mut rust_name = None;
@@ -131,6 +135,7 @@ fn parse_struct(cx: &mut Errors, mut item: ItemStruct, namespace: &Namespace) ->
             cx,
             field.attrs,
             attrs::Parser {
+                cfg: Some(&mut cfg),
                 doc: Some(&mut doc),
                 cxx_name: Some(&mut cxx_name),
                 rust_name: Some(&mut rust_name),
@@ -148,6 +153,7 @@ fn parse_struct(cx: &mut Errors, mut item: ItemStruct, namespace: &Namespace) ->
         let name = pair(Namespace::default(), &ident, cxx_name, rust_name);
         let colon_token = field.colon_token.unwrap();
         fields.push(Var {
+            cfg,
             doc,
             attrs,
             visibility,
@@ -168,6 +174,7 @@ fn parse_struct(cx: &mut Errors, mut item: ItemStruct, namespace: &Namespace) ->
     let brace_token = named_fields.brace_token;
 
     Ok(Api::Struct(Struct {
+        cfg,
         doc,
         derives,
         attrs,
@@ -181,6 +188,7 @@ fn parse_struct(cx: &mut Errors, mut item: ItemStruct, namespace: &Namespace) ->
 }
 
 fn parse_enum(cx: &mut Errors, item: ItemEnum, namespace: &Namespace) -> Api {
+    let mut cfg = CfgExpr::Unconditional;
     let mut doc = Doc::new();
     let mut derives = Vec::new();
     let mut repr = None;
@@ -192,6 +200,7 @@ fn parse_enum(cx: &mut Errors, item: ItemEnum, namespace: &Namespace) -> Api {
         cx,
         item.attrs,
         attrs::Parser {
+            cfg: Some(&mut cfg),
             doc: Some(&mut doc),
             derives: Some(&mut derives),
             repr: Some(&mut repr),
@@ -254,6 +263,7 @@ fn parse_enum(cx: &mut Errors, item: ItemEnum, namespace: &Namespace) -> Api {
     let variants_from_header = variants_from_header_attr.is_some();
 
     Api::Enum(Enum {
+        cfg,
         doc,
         derives,
         attrs,
@@ -275,6 +285,7 @@ fn parse_variant(
     mut variant: RustVariant,
     discriminants: &mut DiscriminantSet,
 ) -> Result<Variant> {
+    let mut cfg = CfgExpr::Unconditional;
     let mut doc = Doc::new();
     let mut cxx_name = None;
     let mut rust_name = None;
@@ -282,6 +293,7 @@ fn parse_variant(
         cx,
         mem::take(&mut variant.attrs),
         attrs::Parser {
+            cfg: Some(&mut cfg),
             doc: Some(&mut doc),
             cxx_name: Some(&mut cxx_name),
             rust_name: Some(&mut rust_name),
@@ -311,6 +323,7 @@ fn parse_variant(
     let expr = variant.discriminant.map(|(_, expr)| expr);
 
     Ok(Variant {
+        cfg,
         doc,
         attrs,
         name,
@@ -345,11 +358,13 @@ fn parse_foreign_mod(
 
     let trusted = trusted || foreign_mod.unsafety.is_some();
 
+    let mut cfg = CfgExpr::Unconditional;
     let mut namespace = namespace.clone();
-    attrs::parse(
+    let attrs = attrs::parse(
         cx,
         foreign_mod.attrs,
         attrs::Parser {
+            cfg: Some(&mut cfg),
             namespace: Some(&mut namespace),
             ..Default::default()
         },
@@ -359,23 +374,26 @@ fn parse_foreign_mod(
     for foreign in foreign_mod.items {
         match foreign {
             ForeignItem::Type(foreign) => {
-                let ety = parse_extern_type(cx, foreign, lang, trusted, &namespace);
+                let ety = parse_extern_type(cx, foreign, lang, trusted, &cfg, &namespace, &attrs);
                 items.push(ety);
             }
             ForeignItem::Fn(foreign) => {
-                match parse_extern_fn(cx, foreign, lang, trusted, &namespace) {
+                match parse_extern_fn(cx, foreign, lang, trusted, &cfg, &namespace, &attrs) {
                     Ok(efn) => items.push(efn),
                     Err(err) => cx.push(err),
                 }
             }
             ForeignItem::Macro(foreign) if foreign.mac.path.is_ident("include") => {
                 match foreign.mac.parse_body_with(parse_include) {
-                    Ok(include) => items.push(Api::Include(include)),
+                    Ok(mut include) => {
+                        include.cfg = cfg.clone();
+                        items.push(Api::Include(include));
+                    }
                     Err(err) => cx.push(err),
                 }
             }
             ForeignItem::Verbatim(tokens) => {
-                match parse_extern_verbatim(cx, tokens, lang, trusted, &namespace) {
+                match parse_extern_verbatim(cx, tokens, lang, trusted, &cfg, &namespace, &attrs) {
                     Ok(api) => items.push(api),
                     Err(err) => cx.push(err),
                 }
@@ -443,17 +461,22 @@ fn parse_extern_type(
     foreign_type: ForeignItemType,
     lang: Lang,
     trusted: bool,
+    extern_block_cfg: &CfgExpr,
     namespace: &Namespace,
+    attrs: &OtherAttrs,
 ) -> Api {
+    let mut cfg = extern_block_cfg.clone();
     let mut doc = Doc::new();
     let mut derives = Vec::new();
     let mut namespace = namespace.clone();
     let mut cxx_name = None;
     let mut rust_name = None;
-    let attrs = attrs::parse(
+    let mut attrs = attrs.clone();
+    attrs.extend(attrs::parse(
         cx,
         foreign_type.attrs,
         attrs::Parser {
+            cfg: Some(&mut cfg),
             doc: Some(&mut doc),
             derives: Some(&mut derives),
             namespace: Some(&mut namespace),
@@ -461,7 +484,7 @@ fn parse_extern_type(
             rust_name: Some(&mut rust_name),
             ..Default::default()
         },
-    );
+    ));
 
     let type_token = foreign_type.type_token;
     let visibility = visibility_pub(&foreign_type.vis, type_token.span);
@@ -479,6 +502,7 @@ fn parse_extern_type(
         Lang::Cxx => Api::CxxType,
         Lang::Rust => Api::RustType,
     })(ExternType {
+        cfg,
         lang,
         doc,
         derives,
@@ -499,23 +523,28 @@ fn parse_extern_fn(
     mut foreign_fn: ForeignItemFn,
     lang: Lang,
     trusted: bool,
+    extern_block_cfg: &CfgExpr,
     namespace: &Namespace,
+    attrs: &OtherAttrs,
 ) -> Result<Api> {
+    let mut cfg = extern_block_cfg.clone();
     let mut doc = Doc::new();
     let mut namespace = namespace.clone();
     let mut cxx_name = None;
     let mut rust_name = None;
-    let attrs = attrs::parse(
+    let mut attrs = attrs.clone();
+    attrs.extend(attrs::parse(
         cx,
         mem::take(&mut foreign_fn.attrs),
         attrs::Parser {
+            cfg: Some(&mut cfg),
             doc: Some(&mut doc),
             namespace: Some(&mut namespace),
             cxx_name: Some(&mut cxx_name),
             rust_name: Some(&mut rust_name),
             ..Default::default()
         },
-    );
+    ));
 
     let generics = &foreign_fn.sig.generics;
     if generics.where_clause.is_some()
@@ -537,10 +566,13 @@ fn parse_extern_fn(
         ));
     }
 
-    if foreign_fn.sig.asyncness.is_some() {
+    if foreign_fn.sig.asyncness.is_some() && !cfg!(feature = "experimental-async-fn") {
         return Err(Error::new_spanned(
             foreign_fn,
-            "async function is not directly supported yet, but see https://cxx.rs/async.html for a working approach",
+            "async function is not directly supported yet, but see https://cxx.rs/async.html \
+            for a working approach, and https://github.com/pcwalton/cxx-async for some helpers; \
+            eventually what you wrote will work but it isn't integrated into the cxx::bridge \
+            macro yet",
         ));
     }
 
@@ -591,12 +623,14 @@ fn parse_extern_fn(
                 };
                 let ty = parse_type(&arg.ty)?;
                 if ident != "self" {
+                    let cfg = CfgExpr::Unconditional;
                     let doc = Doc::new();
                     let attrs = OtherAttrs::none();
                     let visibility = Token![pub](ident.span());
                     let name = pair(Namespace::default(), &ident, None, None);
                     let colon_token = arg.colon_token;
                     args.push_value(Var {
+                        cfg,
                         doc,
                         attrs,
                         visibility,
@@ -634,6 +668,7 @@ fn parse_extern_fn(
     let mut throws_tokens = None;
     let ret = parse_return_type(&foreign_fn.sig.output, &mut throws_tokens)?;
     let throws = throws_tokens.is_some();
+    let asyncness = foreign_fn.sig.asyncness;
     let unsafety = foreign_fn.sig.unsafety;
     let fn_token = foreign_fn.sig.fn_token;
     let inherited_span = unsafety.map_or(fn_token.span, |unsafety| unsafety.span);
@@ -647,12 +682,14 @@ fn parse_extern_fn(
         Lang::Cxx => Api::CxxFunction,
         Lang::Rust => Api::RustFunction,
     }(ExternFn {
+        cfg,
         lang,
         doc,
         attrs,
         visibility,
         name,
         sig: Signature {
+            asyncness,
             unsafety,
             fn_token,
             generics,
@@ -673,13 +710,25 @@ fn parse_extern_verbatim(
     tokens: TokenStream,
     lang: Lang,
     trusted: bool,
+    extern_block_cfg: &CfgExpr,
     namespace: &Namespace,
+    attrs: &OtherAttrs,
 ) -> Result<Api> {
     |input: ParseStream| -> Result<Api> {
-        let attrs = input.call(Attribute::parse_outer)?;
+        let unparsed_attrs = input.call(Attribute::parse_outer)?;
         let visibility: Visibility = input.parse()?;
         if input.peek(Token![type]) {
-            parse_extern_verbatim_type(cx, attrs, visibility, input, lang, trusted, namespace)
+            parse_extern_verbatim_type(
+                cx,
+                unparsed_attrs,
+                visibility,
+                input,
+                lang,
+                trusted,
+                extern_block_cfg,
+                namespace,
+                attrs,
+            )
         } else if input.peek(Token![fn]) {
             parse_extern_verbatim_fn(input)
         } else {
@@ -695,12 +744,14 @@ fn parse_extern_verbatim(
 
 fn parse_extern_verbatim_type(
     cx: &mut Errors,
-    attrs: Vec<Attribute>,
+    unparsed_attrs: Vec<Attribute>,
     visibility: Visibility,
     input: ParseStream,
     lang: Lang,
     trusted: bool,
+    extern_block_cfg: &CfgExpr,
     namespace: &Namespace,
+    attrs: &OtherAttrs,
 ) -> Result<Api> {
     let type_token: Token![type] = input.parse()?;
     let ident: Ident = input.parse()?;
@@ -746,12 +797,33 @@ fn parse_extern_verbatim_type(
     if lookahead.peek(Token![=]) {
         // type Alias = crate::path::to::Type;
         parse_type_alias(
-            cx, attrs, visibility, type_token, ident, lifetimes, input, lang, namespace,
+            cx,
+            unparsed_attrs,
+            visibility,
+            type_token,
+            ident,
+            lifetimes,
+            input,
+            lang,
+            extern_block_cfg,
+            namespace,
+            attrs,
         )
     } else if lookahead.peek(Token![:]) || lookahead.peek(Token![;]) {
         // type Opaque: Bound2 + Bound2;
         parse_extern_type_bounded(
-            cx, attrs, visibility, type_token, ident, lifetimes, input, lang, trusted, namespace,
+            cx,
+            unparsed_attrs,
+            visibility,
+            type_token,
+            ident,
+            lifetimes,
+            input,
+            lang,
+            trusted,
+            extern_block_cfg,
+            namespace,
+            attrs,
         )
     } else {
         Err(lookahead.error())
@@ -766,28 +838,33 @@ fn parse_extern_verbatim_fn(input: ParseStream) -> Result<Api> {
 
 fn parse_type_alias(
     cx: &mut Errors,
-    attrs: Vec<Attribute>,
+    unparsed_attrs: Vec<Attribute>,
     visibility: Visibility,
     type_token: Token![type],
     ident: Ident,
     generics: Lifetimes,
     input: ParseStream,
     lang: Lang,
+    extern_block_cfg: &CfgExpr,
     namespace: &Namespace,
+    attrs: &OtherAttrs,
 ) -> Result<Api> {
     let eq_token: Token![=] = input.parse()?;
     let ty: RustType = input.parse()?;
     let semi_token: Token![;] = input.parse()?;
 
+    let mut cfg = extern_block_cfg.clone();
     let mut doc = Doc::new();
     let mut derives = Vec::new();
     let mut namespace = namespace.clone();
     let mut cxx_name = None;
     let mut rust_name = None;
-    let attrs = attrs::parse(
+    let mut attrs = attrs.clone();
+    attrs.extend(attrs::parse(
         cx,
-        attrs,
+        unparsed_attrs,
         attrs::Parser {
+            cfg: Some(&mut cfg),
             doc: Some(&mut doc),
             derives: Some(&mut derives),
             namespace: Some(&mut namespace),
@@ -795,7 +872,7 @@ fn parse_type_alias(
             rust_name: Some(&mut rust_name),
             ..Default::default()
         },
-    );
+    ));
 
     if lang == Lang::Rust {
         let span = quote!(#type_token #semi_token);
@@ -807,6 +884,7 @@ fn parse_type_alias(
     let name = pair(namespace, &ident, cxx_name, rust_name);
 
     Ok(Api::TypeAlias(TypeAlias {
+        cfg,
         doc,
         derives,
         attrs,
@@ -822,7 +900,7 @@ fn parse_type_alias(
 
 fn parse_extern_type_bounded(
     cx: &mut Errors,
-    attrs: Vec<Attribute>,
+    unparsed_attrs: Vec<Attribute>,
     visibility: Visibility,
     type_token: Token![type],
     ident: Ident,
@@ -830,7 +908,9 @@ fn parse_extern_type_bounded(
     input: ParseStream,
     lang: Lang,
     trusted: bool,
+    extern_block_cfg: &CfgExpr,
     namespace: &Namespace,
+    attrs: &OtherAttrs,
 ) -> Result<Api> {
     let mut bounds = Vec::new();
     let colon_token: Option<Token![:]> = input.parse()?;
@@ -865,15 +945,18 @@ fn parse_extern_type_bounded(
     }
     let semi_token: Token![;] = input.parse()?;
 
+    let mut cfg = extern_block_cfg.clone();
     let mut doc = Doc::new();
     let mut derives = Vec::new();
     let mut namespace = namespace.clone();
     let mut cxx_name = None;
     let mut rust_name = None;
-    let attrs = attrs::parse(
+    let mut attrs = attrs.clone();
+    attrs.extend(attrs::parse(
         cx,
-        attrs,
+        unparsed_attrs,
         attrs::Parser {
+            cfg: Some(&mut cfg),
             doc: Some(&mut doc),
             derives: Some(&mut derives),
             namespace: Some(&mut namespace),
@@ -881,7 +964,7 @@ fn parse_extern_type_bounded(
             rust_name: Some(&mut rust_name),
             ..Default::default()
         },
-    );
+    ));
 
     let visibility = visibility_pub(&visibility, type_token.span);
     let name = pair(namespace, &ident, cxx_name, rust_name);
@@ -890,6 +973,7 @@ fn parse_extern_type_bounded(
         Lang::Cxx => Api::CxxType,
         Lang::Rust => Api::RustType,
     }(ExternType {
+        cfg,
         lang,
         doc,
         derives,
@@ -905,8 +989,18 @@ fn parse_extern_type_bounded(
     }))
 }
 
-fn parse_impl(imp: ItemImpl) -> Result<Api> {
+fn parse_impl(cx: &mut Errors, imp: ItemImpl) -> Result<Api> {
     let impl_token = imp.impl_token;
+
+    let mut cfg = CfgExpr::Unconditional;
+    attrs::parse(
+        cx,
+        imp.attrs,
+        attrs::Parser {
+            cfg: Some(&mut cfg),
+            ..Default::default()
+        },
+    );
 
     if !imp.items.is_empty() {
         let mut span = Group::new(Delimiter::Brace, TokenStream::new());
@@ -993,6 +1087,7 @@ fn parse_impl(imp: ItemImpl) -> Result<Api> {
     let brace_token = imp.brace_token;
 
     Ok(Api::Impl(Impl {
+        cfg,
         impl_token,
         impl_generics,
         negative,
@@ -1008,6 +1103,7 @@ fn parse_include(input: ParseStream) -> Result<Include> {
         let lit: LitStr = input.parse()?;
         let span = lit.span();
         return Ok(Include {
+            cfg: CfgExpr::Unconditional,
             path: lit.value(),
             kind: IncludeKind::Quoted,
             begin_span: span,
@@ -1037,6 +1133,7 @@ fn parse_include(input: ParseStream) -> Result<Include> {
         let rangle: Token![>] = input.parse()?;
 
         return Ok(Include {
+            cfg: CfgExpr::Unconditional,
             path,
             kind: IncludeKind::Bracketed,
             begin_span: langle.span,
@@ -1297,11 +1394,13 @@ fn parse_type_fn(ty: &TypeBareFn) -> Result<Type> {
                 }
             };
             let ty = parse_type(&arg.ty)?;
+            let cfg = CfgExpr::Unconditional;
             let doc = Doc::new();
             let attrs = OtherAttrs::none();
             let visibility = Token![pub](ident.span());
             let name = pair(Namespace::default(), &ident, None, None);
             Ok(Var {
+                cfg,
                 doc,
                 attrs,
                 visibility,
@@ -1316,6 +1415,7 @@ fn parse_type_fn(ty: &TypeBareFn) -> Result<Type> {
     let ret = parse_return_type(&ty.output, &mut throws_tokens)?;
     let throws = throws_tokens.is_some();
 
+    let asyncness = None;
     let unsafety = ty.unsafety;
     let fn_token = ty.fn_token;
     let generics = Generics::default();
@@ -1323,6 +1423,7 @@ fn parse_type_fn(ty: &TypeBareFn) -> Result<Type> {
     let paren_token = ty.paren_token;
 
     Ok(Type::Fn(Box::new(Signature {
+        asyncness,
         unsafety,
         fn_token,
         generics,

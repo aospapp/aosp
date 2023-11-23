@@ -24,30 +24,6 @@ namespace keymint {
 
 using namespace ::keymaster;
 
-vector<uint8_t> authToken2AidlVec(const HardwareAuthToken& token) {
-    static_assert(1 /* version size */ + sizeof(token.challenge) + sizeof(token.userId) +
-                          sizeof(token.authenticatorId) + sizeof(token.authenticatorType) +
-                          sizeof(token.timestamp) + 32 /* HMAC size */
-                      == sizeof(hw_auth_token_t),
-                  "HardwareAuthToken content size does not match hw_auth_token_t size");
-
-    vector<uint8_t> result;
-
-    if (token.mac.size() <= 32) return result;
-
-    result.resize(sizeof(hw_auth_token_t));
-    auto pos = result.begin();
-    *pos++ = 0;  // Version byte
-    pos = copy_bytes_to_iterator(token.challenge, pos);
-    pos = copy_bytes_to_iterator(token.userId, pos);
-    pos = copy_bytes_to_iterator(token.authenticatorId, pos);
-    pos = copy_bytes_to_iterator(token.authenticatorType, pos);
-    pos = copy_bytes_to_iterator(token.timestamp, pos);
-    pos = std::copy(token.mac.data(), token.mac.data() + token.mac.size(), pos);
-
-    return result;
-}
-
 // TODO(seleneh): This needs to be modified depends on how aidl support for union came out to
 // be.
 vector<KeyParameter> kmParamSet2Aidl(const keymaster_key_param_set_t& set) {

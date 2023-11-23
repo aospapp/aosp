@@ -31,15 +31,16 @@ namespace automotive {
 namespace watchdog {
 
 using ::android::base::Error;
+using ::android::base::ParseInt;
+using ::android::base::ParseUint;
 using ::android::base::ReadFileToString;
 using ::android::base::Result;
+using ::android::base::Split;
 using ::android::base::StartsWith;
-using base::ParseUint;
-using base::Split;
 
 namespace {
 
-bool parseCpuStats(const std::string& data, CpuStats* cpuStats) {
+bool parseCpuStats(const std::string& data, int32_t millisPerClockTick, CpuStats* cpuStats) {
     std::vector<std::string> fields = Split(data, " ");
     if (fields.size() == 12 && fields[1].empty()) {
         /* The first cpu line will have an extra space after the first word. This will generate an
@@ -47,15 +48,38 @@ bool parseCpuStats(const std::string& data, CpuStats* cpuStats) {
          */
         fields.erase(fields.begin() + 1);
     }
-    if (fields.size() != 11 || fields[0] != "cpu" || !ParseUint(fields[1], &cpuStats->userTime) ||
-        !ParseUint(fields[2], &cpuStats->niceTime) || !ParseUint(fields[3], &cpuStats->sysTime) ||
-        !ParseUint(fields[4], &cpuStats->idleTime) ||
-        !ParseUint(fields[5], &cpuStats->ioWaitTime) || !ParseUint(fields[6], &cpuStats->irqTime) ||
-        !ParseUint(fields[7], &cpuStats->softIrqTime) ||
-        !ParseUint(fields[8], &cpuStats->stealTime) ||
-        !ParseUint(fields[9], &cpuStats->guestTime) ||
-        !ParseUint(fields[10], &cpuStats->guestNiceTime)) {
+    if (fields.size() != 11 || fields[0] != "cpu" ||
+        !ParseInt(fields[1], &cpuStats->userTimeMillis) ||
+        !ParseInt(fields[2], &cpuStats->niceTimeMillis) ||
+        !ParseInt(fields[3], &cpuStats->sysTimeMillis) ||
+        !ParseInt(fields[4], &cpuStats->idleTimeMillis) ||
+        !ParseInt(fields[5], &cpuStats->ioWaitTimeMillis) ||
+        !ParseInt(fields[6], &cpuStats->irqTimeMillis) ||
+        !ParseInt(fields[7], &cpuStats->softIrqTimeMillis) ||
+        !ParseInt(fields[8], &cpuStats->stealTimeMillis) ||
+        !ParseInt(fields[9], &cpuStats->guestTimeMillis) ||
+        !ParseInt(fields[10], &cpuStats->guestNiceTimeMillis)) {
         ALOGW("Invalid cpu line: \"%s\"", data.c_str());
+        return false;
+    }
+    // Convert clock ticks to millis
+    cpuStats->userTimeMillis *= millisPerClockTick;
+    cpuStats->niceTimeMillis *= millisPerClockTick;
+    cpuStats->sysTimeMillis *= millisPerClockTick;
+    cpuStats->idleTimeMillis *= millisPerClockTick;
+    cpuStats->ioWaitTimeMillis *= millisPerClockTick;
+    cpuStats->irqTimeMillis *= millisPerClockTick;
+    cpuStats->softIrqTimeMillis *= millisPerClockTick;
+    cpuStats->stealTimeMillis *= millisPerClockTick;
+    cpuStats->guestTimeMillis *= millisPerClockTick;
+    cpuStats->guestNiceTimeMillis *= millisPerClockTick;
+    return true;
+}
+
+bool parseContextSwitches(const std::string& data, uint64_t* out) {
+    std::vector<std::string> fields = Split(data, " ");
+    if (fields.size() != 2 || !StartsWith(fields[0], "ctxt") || !ParseUint(fields[1], out)) {
+        ALOGW("Invalid ctxt line: \"%s\"", data.c_str());
         return false;
     }
     return true;
@@ -74,7 +98,7 @@ bool parseProcsCount(const std::string& data, uint32_t* out) {
 
 Result<void> ProcStatCollector::collect() {
     if (!mEnabled) {
-        return Error() << "Can not access " << kPath;
+        return Error() << "Cannot access " << kPath;
     }
 
     Mutex::Autolock lock(mMutex);
@@ -98,6 +122,7 @@ Result<ProcStatInfo> ProcStatCollector::getProcStatLocked() const {
 
     std::vector<std::string> lines = Split(std::move(buffer), "\n");
     ProcStatInfo info;
+    bool didReadContextSwitches = false;
     bool didReadProcsRunning = false;
     bool didReadProcsBlocked = false;
     for (size_t i = 0; i < lines.size(); i++) {
@@ -105,12 +130,20 @@ Result<ProcStatInfo> ProcStatCollector::getProcStatLocked() const {
             continue;
         }
         if (!lines[i].compare(0, 4, "cpu ")) {
-            if (info.totalCpuTime() != 0) {
+            if (info.totalCpuTimeMillis() != 0) {
                 return Error() << "Duplicate `cpu .*` line in " << kPath;
             }
-            if (!parseCpuStats(std::move(lines[i]), &info.cpuStats)) {
+            if (!parseCpuStats(lines[i], mMillisPerClockTick, &info.cpuStats)) {
                 return Error() << "Failed to parse `cpu .*` line in " << kPath;
             }
+        } else if (!lines[i].compare(0, 4, "ctxt")) {
+            if (didReadContextSwitches) {
+                return Error() << "Duplicate `ctxt .*` line in " << kPath;
+            }
+            if (!parseContextSwitches(std::move(lines[i]), &info.contextSwitchesCount)) {
+                return Error() << "Failed to parse `ctxt .*` line in " << kPath;
+            }
+            didReadContextSwitches = true;
         } else if (!lines[i].compare(0, 6, "procs_")) {
             if (!lines[i].compare(0, 13, "procs_running")) {
                 if (didReadProcsRunning) {
@@ -134,7 +167,8 @@ Result<ProcStatInfo> ProcStatCollector::getProcStatLocked() const {
             return Error() << "Unknown procs_ line `" << lines[i] << "` in " << kPath;
         }
     }
-    if (info.totalCpuTime() == 0 || !didReadProcsRunning || !didReadProcsBlocked) {
+    if (info.totalCpuTimeMillis() == 0 || !didReadContextSwitches || !didReadProcsRunning ||
+        !didReadProcsBlocked) {
         return Error() << kPath << " is incomplete";
     }
     return info;

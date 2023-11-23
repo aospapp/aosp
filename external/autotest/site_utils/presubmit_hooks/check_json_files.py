@@ -1,4 +1,4 @@
-#!/usr/bin/python2 -u
+#!/usr/bin/python3 -u
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -32,10 +32,10 @@ def main():
                     json.load(json_file)
             except ValueError:
                 # Re-raise the error to include the file path.
-                print ('Presubmit check `check_json_file` failed. If the file '
-                       'is meant to be malformated, please do not name it as a '
-                       'json file, or you will have to upload the CL using '
-                       '--no-verify')
+                print('Presubmit check `check_json_file` failed. If the file '
+                      'is meant to be malformated, please do not name it as a '
+                      'json file, or you will have to upload the CL using '
+                      '--no-verify')
                 raise InvalidJsonFile('Invalid json file: %s' % f)
 
 

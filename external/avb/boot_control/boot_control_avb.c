@@ -58,7 +58,7 @@ static unsigned int module_getCurrentSlot(boot_control_module_t* module) {
   } else if (strcmp(propbuf, "_b") == 0) {
     return 1;
   } else {
-    avb_errorv("Unexpected slot suffix '", propbuf, "'.\n", NULL);
+    avb_error("Unexpected slot suffix '", propbuf, "'.\n");
     return 0;
   }
   return 0;

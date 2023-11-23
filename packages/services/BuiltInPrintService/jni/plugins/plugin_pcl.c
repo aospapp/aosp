@@ -32,6 +32,7 @@
 
 #include <pthread.h>
 #include <semaphore.h>
+#include <string.h>
 
 #define MAX_SEND_BUFFS (BUFFERED_ROWS / STRIPE_HEIGHT)
 
@@ -273,10 +274,94 @@ static int _start_job(wJob_t job_handle, const ifc_wprint_t *wprint_ifc_p,
     return ERROR;
 }
 
+static status_t _setup_image_info(wprint_job_params_t *job_params, wprint_image_info_t *image_info,
+        const char *mime_type, const char *pathname) {
+    FILE *imgfile;
+    status_t result;
+    plugin_data_t *priv;
+
+    priv = (plugin_data_t *) job_params->plugin_data;
+    if (priv == NULL) return ERROR;
+
+    if (pathname == NULL) {
+        LOGE("_setup_image_info(): cannot print file with NULL name");
+        return ERROR;
+    }
+
+    if (!strlen(pathname)) {
+        LOGE("_setup_image_info(): filename was empty");
+        return ERROR;
+    }
+
+    imgfile = fopen(pathname, "r");
+    if (imgfile == NULL) {
+        LOGE("_setup_image_info(): could not open %s", pathname);
+        return CORRUPT;
+    }
+
+    LOGD("_setup_image_info(): fopen succeeded on %s", pathname);
+    wprint_image_setup(image_info, mime_type, priv->job_info.wprint_ifc,
+            job_params->pixel_units, job_params->pdf_render_resolution);
+    wprint_image_init(image_info, pathname, job_params->page_num);
+
+    // get the image_info of the input file of specified MIME type
+    if ((result = wprint_image_get_info(imgfile, image_info)) == OK) {
+        wprint_rotation_t rotation = ROT_0;
+
+        if ((job_params->render_flags & RENDER_FLAG_PORTRAIT_MODE) != 0) {
+            LOGI("_setup_image_info(): portrait mode");
+            rotation = ROT_0;
+        } else if ((job_params->render_flags & RENDER_FLAG_LANDSCAPE_MODE) != 0) {
+            LOGI("_setup_image_info(): landscape mode");
+            rotation = ROT_90;
+        } else if (wprint_image_is_landscape(image_info) &&
+                ((job_params->render_flags & RENDER_FLAG_AUTO_ROTATE) != 0)) {
+            LOGI("_setup_image_info(): auto mode");
+            rotation = ROT_90;
+        }
+
+        if ((job_params->render_flags & RENDER_FLAG_CENTER_ON_ORIENTATION) != 0) {
+            job_params->render_flags &= ~(RENDER_FLAG_CENTER_HORIZONTAL |
+                    RENDER_FLAG_CENTER_VERTICAL);
+            job_params->render_flags |= ((rotation == ROT_0) ? RENDER_FLAG_CENTER_HORIZONTAL
+                    : RENDER_FLAG_CENTER_VERTICAL);
+        }
+
+        if ((job_params->duplex == DUPLEX_MODE_BOOK) &&
+                (job_params->page_backside) &&
+                ((job_params->render_flags & RENDER_FLAG_ROTATE_BACK_PAGE) != 0) &&
+                ((job_params->render_flags & RENDER_FLAG_BACK_PAGE_PREROTATED) == 0)) {
+            rotation = ((rotation == ROT_0) ? ROT_180 : ROT_270);
+        }
+        LOGI("_setup_image_info(): rotation = %d", rotation);
+
+        int image_padding = PAD_PRINT;
+        switch (job_params->pcl_type) {
+            case PCLm:
+            case PCLPWG:
+                image_padding = PAD_ALL;
+                break;
+            default:
+                break;
+        }
+
+        wprint_image_set_output_properties(image_info, rotation,
+                job_params->printable_area_width, job_params->printable_area_height,
+                job_params->print_top_margin, job_params->print_left_margin,
+                job_params->print_right_margin, job_params->print_bottom_margin,
+                job_params->render_flags, job_params->strip_height, MAX_SEND_BUFFS,
+                image_padding);
+    } else {
+        LOGE("_setup_image_info(): file does not appear to be valid");
+        result = CORRUPT;
+    }
+    fclose(imgfile);
+    return result;
+}
+
 static status_t _print_page(wprint_job_params_t *job_params, const char *mime_type,
         const char *pathname) {
     wprint_image_info_t *image_info;
-    FILE *imgfile;
     status_t result;
     int num_rows, height, image_row;
     int blank_data;
@@ -287,7 +372,6 @@ static status_t _print_page(wprint_job_params_t *job_params, const char *mime_ty
     int nbytes;
     plugin_data_t *priv;
     msgQ_msg_t msg;
-    int image_padding = PAD_PRINT;
 
     if (job_params == NULL) return ERROR;
 
@@ -295,200 +379,124 @@ static status_t _print_page(wprint_job_params_t *job_params, const char *mime_ty
 
     if (priv == NULL) return ERROR;
 
-    switch (job_params->pcl_type) {
-        case PCLm:
-        case PCLPWG:
-            image_padding = PAD_ALL;
-            break;
-        default:
-            break;
-    }
+    image_info = malloc(sizeof(wprint_image_info_t));
 
-    if (pathname == NULL) {
-        LOGE("_print_page(): cannot print file with NULL name");
-        msg.param.end_page.page = -1;
-        msg.param.end_page.count = 0;
-        result = ERROR;
-    } else if (strlen(pathname)) {
-        image_info = malloc(sizeof(wprint_image_info_t));
-        if (image_info == NULL) return ERROR;
+    if (image_info == NULL) return ERROR;
 
-        imgfile = fopen(pathname, "r");
-        if (imgfile) {
-            LOGD("_print_page(): fopen succeeded on %s", pathname);
-            wprint_image_setup(image_info, mime_type, priv->job_info.wprint_ifc,
-                    job_params->pixel_units, job_params->pdf_render_resolution);
-            wprint_image_init(image_info, pathname, job_params->page_num);
+    if ((result = _setup_image_info(job_params, image_info, mime_type, pathname)) == OK) {
+        // allocate memory for a stripe of data
+        for (i = 0; i < MAX_SEND_BUFFS; i++) {
+            buff_pool[i] = NULL;
+        }
 
-            // get the image_info of the input file of specified MIME type
-            if ((result = wprint_image_get_info(imgfile, image_info)) == OK) {
-                wprint_rotation_t rotation = ROT_0;
+        blank_data = MAX_SEND_BUFFS;
+        buff_size = wprint_image_get_output_buff_size(image_info);
+        for (i = 0; i < MAX_SEND_BUFFS; i++) {
+            buff_pool[i] = malloc(buff_size);
+            if (buff_pool[i] == NULL) {
+                break;
+            }
+            memset(buff_pool[i], 0xff, buff_size);
+        }
 
-                if ((job_params->render_flags & RENDER_FLAG_PORTRAIT_MODE) != 0) {
-                    LOGI("_print_page(): portrait mode");
-                    rotation = ROT_0;
-                } else if ((job_params->render_flags & RENDER_FLAG_LANDSCAPE_MODE) != 0) {
-                    LOGI("_print_page(): landscape mode");
-                    rotation = ROT_90;
-                } else if (wprint_image_is_landscape(image_info) &&
-                        ((job_params->render_flags & RENDER_FLAG_AUTO_ROTATE) != 0)) {
-                    LOGI("_print_page(): auto mode");
-                    rotation = ROT_90;
+        if (i == MAX_SEND_BUFFS) {
+            msg.id = MSG_START_PAGE;
+            msg.param.start_page.extra_margin = ((job_params->duplex != DUPLEX_MODE_NONE) &&
+                    ((job_params->page_num & 0x1) == 0)) ? job_params->page_bottom_margin : 0.0f;
+            msg.param.start_page.width = wprint_image_get_width(image_info);
+            msg.param.start_page.height = wprint_image_get_height(image_info);
+            priv->job_info.num_components = image_info->num_components;
+            priv->job_info.wprint_ifc->msgQSend(priv->msgQ, (char *) &msg, sizeof(msgQ_msg_t),
+                    NO_WAIT, MSG_Q_FIFO);
+
+            msg.id = MSG_SEND;
+            msg.param.send.bytes_per_row = BYTES_PER_PIXEL(wprint_image_get_width(image_info));
+
+            // send blank rows for any offset
+            buff_index = 0;
+            num_rows = wprint_image_get_height(image_info);
+            image_row = 0;
+
+            // decode and render each stripe into PCL3 raster format
+            while ((result != ERROR) && (num_rows > 0)) {
+                if (priv->pcl_ifc->canCancelMidPage() && job_params->cancelled) {
+                    break;
                 }
+                sem_wait(&priv->buffs_sem);
 
-                if ((job_params->render_flags & RENDER_FLAG_CENTER_ON_ORIENTATION) != 0) {
-                    job_params->render_flags &= ~(RENDER_FLAG_CENTER_HORIZONTAL |
-                            RENDER_FLAG_CENTER_VERTICAL);
-                    job_params->render_flags |= ((rotation == ROT_0) ? RENDER_FLAG_CENTER_HORIZONTAL
-                            : RENDER_FLAG_CENTER_VERTICAL);
-                }
+                buff = buff_pool[buff_index];
+                buff_index = ((buff_index + 1) % MAX_SEND_BUFFS);
 
-                if ((job_params->duplex == DUPLEX_MODE_BOOK) &&
-                        (job_params->page_backside) &&
-                        ((job_params->render_flags & RENDER_FLAG_ROTATE_BACK_PAGE) != 0) &&
-                        ((job_params->render_flags & RENDER_FLAG_BACK_PAGE_PREROTATED) == 0)) {
-                    rotation = ((rotation == ROT_0) ? ROT_180 : ROT_270);
-                }
-                LOGI("_print_page(): rotation = %d", rotation);
+                height = MIN(num_rows, job_params->strip_height);
+                if (!job_params->cancelled) {
+                    nbytes = wprint_image_decode_stripe(image_info, image_row, &height,
+                            (unsigned char *) buff);
 
-                wprint_image_set_output_properties(image_info, rotation,
-                        job_params->printable_area_width, job_params->printable_area_height,
-                        job_params->print_top_margin, job_params->print_left_margin,
-                        job_params->print_right_margin, job_params->print_bottom_margin,
-                        job_params->render_flags, job_params->strip_height, MAX_SEND_BUFFS,
-                        image_padding);
-
-                // allocate memory for a stripe of data
-                for (i = 0; i < MAX_SEND_BUFFS; i++) {
-                    buff_pool[i] = NULL;
-                }
-
-                blank_data = MAX_SEND_BUFFS;
-                buff_size = wprint_image_get_output_buff_size(image_info);
-                for (i = 0; i < MAX_SEND_BUFFS; i++) {
-                    buff_pool[i] = malloc(buff_size);
-                    if (buff_pool[i] == NULL) {
-                        break;
+                    if (blank_data > 0) {
+                        blank_data--;
                     }
-                    memset(buff_pool[i], 0xff, buff_size);
+                } else if (blank_data < MAX_SEND_BUFFS) {
+                    nbytes = buff_size;
+                    memset(buff, 0xff, buff_size);
+                    blank_data++;
                 }
 
-                if (i == MAX_SEND_BUFFS) {
-                    msg.id = MSG_START_PAGE;
-                    msg.param.start_page.extra_margin = ((job_params->duplex !=
-                            DUPLEX_MODE_NONE) &&
-                            ((job_params->page_num & 0x1) == 0))
-                            ? job_params->page_bottom_margin : 0.0f;
-                    msg.param.start_page.width = wprint_image_get_width(image_info);
-                    msg.param.start_page.height = wprint_image_get_height(image_info);
-                    priv->job_info.num_components = image_info->num_components;
-                    priv->job_info.wprint_ifc->msgQSend(priv->msgQ, (char *) &msg,
+                if (nbytes > 0) {
+                    msg.param.send.buffer = buff;
+                    msg.param.send.start_row = image_row;
+                    msg.param.send.num_rows = height;
+
+                    result = priv->job_info.wprint_ifc->msgQSend(priv->msgQ, (char *) &msg,
                             sizeof(msgQ_msg_t), NO_WAIT, MSG_Q_FIFO);
-
-                    msg.id = MSG_SEND;
-                    msg.param.send.bytes_per_row = BYTES_PER_PIXEL(wprint_image_get_width(
-                            image_info));
-
-                    // send blank rows for any offset
-                    buff_index = 0;
-                    num_rows = wprint_image_get_height(image_info);
-                    image_row = 0;
-
-                    // decode and render each stripe into PCL3 raster format
-                    while ((result != ERROR) && (num_rows > 0)) {
-                        if (priv->pcl_ifc->canCancelMidPage() && job_params->cancelled) {
-                            break;
-                        }
-                        sem_wait(&priv->buffs_sem);
-
-                        buff = buff_pool[buff_index];
-                        buff_index = ((buff_index + 1) % MAX_SEND_BUFFS);
-
-                        height = MIN(num_rows, job_params->strip_height);
-                        if (!job_params->cancelled) {
-                            nbytes = wprint_image_decode_stripe(image_info, image_row, &height,
-                                    (unsigned char *) buff);
-
-                            if (blank_data > 0) {
-                                blank_data--;
-                            }
-                        } else if (blank_data < MAX_SEND_BUFFS) {
-                            nbytes = buff_size;
-                            memset(buff, 0xff, buff_size);
-                            blank_data++;
-                        }
-
-                        if (nbytes > 0) {
-                            msg.param.send.buffer = buff;
-                            msg.param.send.start_row = image_row;
-                            msg.param.send.num_rows = height;
-
-                            result = priv->job_info.wprint_ifc->msgQSend(priv->msgQ, (char *) &msg,
-                                    sizeof(msgQ_msg_t), NO_WAIT, MSG_Q_FIFO);
-                            if (result < 0) {
-                                sem_post(&priv->buffs_sem);
-                            }
-
-                            image_row += height;
-                            num_rows -= height;
-                        } else {
-                            sem_post(&priv->buffs_sem);
-                            if (nbytes < 0) {
-                                LOGE("_print_page(): ERROR: file appears to be corrupted");
-                                result = CORRUPT;
-                            }
-                            break;
-                        }
+                    if (result < 0) {
+                        sem_post(&priv->buffs_sem);
                     }
 
-                    if ((result == OK) && job_params->cancelled) {
-                        result = CANCELLED;
-                    }
-
-                    LOGI("_print_page(): sends done, result: %d", result);
-
-                    // free the buffer and eject the page
-                    msg.param.end_page.page = job_params->page_num;
-                    LOGI("_print_page(): processed %d out of"
-                            " %d rows of page # %d from %s to printer %s %s {%s}",
-                            image_row, wprint_image_get_height(image_info),
-                            job_params->page_num, pathname,
-                            (job_params->last_page) ? "- last page" : "- ",
-                            (job_params->cancelled) ? "- job cancelled"
-                                    : ".",
-                            (result == OK) ? "OK" : "ERROR");
+                    image_row += height;
+                    num_rows -= height;
                 } else {
-                    msg.param.end_page.page = -1;
-                    result = ERROR;
-                    LOGE("_print_page(): plugin_pcl cannot allocate memory for image stripe");
+                    sem_post(&priv->buffs_sem);
+                    if (nbytes < 0) {
+                        LOGE("_print_page(): ERROR: file appears to be corrupted");
+                        result = CORRUPT;
+                    }
+                    break;
                 }
-                for (i = 0; i < MAX_SEND_BUFFS; i++) {
-                    msg.param.end_page.buffers[i] = buff_pool[i];
-                }
-                msg.param.end_page.count = MAX_SEND_BUFFS;
-            } else {
-                msg.param.end_page.page = -1;
-                msg.param.end_page.count = 0;
-                result = CORRUPT;
-                LOGE("_print_page(): file does not appear to be valid");
             }
 
-            // send the end page message
-            wprint_image_cleanup(image_info);
-            fclose(imgfile);
+            if ((result == OK) && job_params->cancelled) {
+                result = CANCELLED;
+            }
+
+            LOGI("_print_page(): sends done, result: %d", result);
+
+            // free the buffer and eject the page
+            msg.param.end_page.page = job_params->page_num;
+            LOGI("_print_page(): processed %d out of"
+                 " %d rows of page # %d from %s to printer %s %s {%s}",
+                    image_row, wprint_image_get_height(image_info), job_params->page_num, pathname,
+                    (job_params->last_page) ? "- last page" : "- ",
+                    (job_params->cancelled) ? "- job cancelled" : ".",
+                    (result == OK) ? "OK" : "ERROR");
         } else {
             msg.param.end_page.page = -1;
-            msg.param.end_page.count = 0;
-            LOGE("_print_page(): could not open %s", pathname);
-            result = CORRUPT;
+            result = ERROR;
+            LOGE("_print_page(): plugin_pcl cannot allocate memory for image stripe");
         }
-        free(image_info);
+        for (i = 0; i < MAX_SEND_BUFFS; i++) {
+            msg.param.end_page.buffers[i] = buff_pool[i];
+        }
+        msg.param.end_page.count = MAX_SEND_BUFFS;
+
+        // send the end page message
+        wprint_image_cleanup(image_info);
     } else {
-        LOGE("_print_page(): ERROR: filename was empty");
+        LOGE("_print_page(): _setup_image_info() is failed");
         msg.param.end_page.page = -1;
         msg.param.end_page.count = 0;
         result = ERROR;
     }
+    free(image_info);
 
     msg.id = MSG_END_PAGE;
     priv->job_info.wprint_ifc->msgQSend(priv->msgQ, (char *) &msg, sizeof(msgQ_msg_t), NO_WAIT,
@@ -499,7 +507,8 @@ static status_t _print_page(wprint_job_params_t *job_params, const char *mime_ty
 /*
  * Prints a blank page
  */
-static int _print_blank_page(wJob_t job_handle, wprint_job_params_t *job_params) {
+static int _print_blank_page(wJob_t job_handle, wprint_job_params_t *job_params,
+        const char *mime_type, const char *pathname) {
     msgQ_msg_t msg;
     plugin_data_t *priv;
 
@@ -507,6 +516,22 @@ static int _print_blank_page(wJob_t job_handle, wprint_job_params_t *job_params)
 
     priv = (plugin_data_t *) job_params->plugin_data;
     if (priv == NULL) return ERROR;
+
+    if ((!job_params->face_down_tray && job_params->duplex != DUPLEX_MODE_NONE) ||
+            priv->job_info.pixel_width <= 0 || priv->job_info.pixel_height <= 0) {
+        // in this case, the page size for blank page has not been decided yet
+        // so we need to calculate it
+        wprint_image_info_t *image_info = malloc(sizeof(wprint_image_info_t));
+        if (image_info == NULL) return ERROR;
+
+        if (_setup_image_info(job_params, image_info, mime_type, pathname) == OK) {
+            priv->job_info.pixel_width = wprint_image_get_width(image_info);
+            priv->job_info.pixel_height = wprint_image_get_height(image_info);
+            priv->job_info.num_components = image_info->num_components;
+            wprint_image_cleanup(image_info);
+        }
+        free(image_info);
+    }
 
     msg.id = MSG_END_PAGE;
     msg.param.end_page.page = -1;

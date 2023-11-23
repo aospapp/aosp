@@ -27,7 +27,7 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
+#include "test/common/mock_functions.h"
 
 // Original included files, if any
 // NOTE: Since this is a mock file with mock definitions some number of
@@ -118,6 +118,39 @@ struct ACL_ClearFilterAcceptList {
 };
 extern struct ACL_ClearFilterAcceptList ACL_ClearFilterAcceptList;
 
+// Name: ACL_LeSetDefaultSubrate
+// Params:
+// Return: void
+struct ACL_LeSetDefaultSubrate {
+  std::function<void(uint16_t subrate_min, uint16_t subrate_max,
+                     uint16_t max_latency, uint16_t cont_num,
+                     uint16_t sup_tout)>
+      body{[](uint16_t subrate_min, uint16_t subrate_max, uint16_t max_latency,
+              uint16_t cont_num, uint16_t sup_tout) {}};
+  void operator()(uint16_t subrate_min, uint16_t subrate_max,
+                  uint16_t max_latency, uint16_t cont_num, uint16_t sup_tout) {
+    body(subrate_min, subrate_max, max_latency, cont_num, sup_tout);
+  };
+};
+extern struct ACL_LeSetDefaultSubrate ACL_LeSetDefaultSubrate;
+
+// Name: ACL_LeSubrateRequest
+// Params:
+// Return: void
+struct ACL_LeSubrateRequest {
+  std::function<void(uint16_t hci_handle, uint16_t subrate_min,
+                     uint16_t subrate_max, uint16_t max_latency,
+                     uint16_t cont_num, uint16_t sup_tout)>
+      body{[](uint16_t hci_handle, uint16_t subrate_min, uint16_t subrate_max,
+              uint16_t max_latency, uint16_t cont_num, uint16_t sup_tout) {}};
+  void operator()(uint16_t hci_handle, uint16_t subrate_min,
+                  uint16_t subrate_max, uint16_t max_latency, uint16_t cont_num,
+                  uint16_t sup_tout) {
+    body(hci_handle, subrate_min, subrate_max, max_latency, cont_num, sup_tout);
+  };
+};
+extern struct ACL_LeSubrateRequest ACL_LeSubrateRequest;
+
 // Name: ACL_ConfigureLePrivacy
 // Params: bool is_le_privacy_enabled
 // Return: void
@@ -188,6 +221,19 @@ struct ACL_ReadConnectionAddress {
   };
 };
 extern struct ACL_ReadConnectionAddress ACL_ReadConnectionAddress;
+
+// Name: ACL_GetAdvertisingSetConnectedTo
+// Params: const RawAddress& addr
+// Return: std::optional<uint8_t>
+struct ACL_GetAdvertisingSetConnectedTo {
+  static std::optional<uint8_t> return_value;
+  std::function<std::optional<uint8_t>(const RawAddress& addr)> body{
+      [](const RawAddress& addr) { return return_value; }};
+  std::optional<uint8_t> operator()(const RawAddress& addr) {
+    return body(addr);
+  };
+};
+extern struct ACL_GetAdvertisingSetConnectedTo ACL_GetAdvertisingSetConnectedTo;
 
 // Name: ACL_RemoveFromAddressResolution
 // Params: const tBLE_BD_ADDR& legacy_address_with_type

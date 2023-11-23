@@ -15,9 +15,8 @@
 //
 #include "pw_trace_tokenized/trace_buffer.h"
 
-#include <span>
-
 #include "pw_ring_buffer/prefixed_entry_ring_buffer.h"
+#include "pw_span/span.h"
 #include "pw_trace_tokenized/trace_callback.h"
 
 namespace pw {
@@ -28,11 +27,11 @@ class TraceBuffer {
  public:
   TraceBuffer() {
     ring_buffer_.SetBuffer(raw_buffer_)
-        .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+        .IgnoreError();  // TODO(b/242598609): Handle Status properly
     Callbacks::Instance()
         .RegisterSink(
             TraceSinkStartBlock, TraceSinkAddBytes, TraceSinkEndBlock, this)
-        .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+        .IgnoreError();  // TODO(b/242598609): Handle Status properly
   }
 
   static void TraceSinkStartBlock(void* user_data, size_t size) {
@@ -63,18 +62,18 @@ class TraceBuffer {
       return;  // Block is too large, skipping.
     }
     buffer->ring_buffer_
-        .PushBack(std::span<const std::byte>(&buffer->current_block_[0],
-                                             buffer->block_size_))
-        .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+        .PushBack(span<const std::byte>(&buffer->current_block_[0],
+                                        buffer->block_size_))
+        .IgnoreError();  // TODO(b/242598609): Handle Status properly
   }
 
   pw::ring_buffer::PrefixedEntryRingBuffer& RingBuffer() {
     return ring_buffer_;
-  };
+  }
 
   ConstByteSpan DeringAndViewRawBuffer() {
     ring_buffer_.Dering()
-        .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+        .IgnoreError();  // TODO(b/242598609): Handle Status properly
     return ByteSpan(raw_buffer_, ring_buffer_.TotalUsedBytes());
   }
 

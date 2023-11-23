@@ -1265,6 +1265,18 @@ IHEVCD_ERROR_T ihevcd_parse_pic_init(codec_t *ps_codec)
             }
 
         }
+        if(ps_codec->u1_enable_cu_info)
+        {
+            ps_codec->as_buf_id_info_map[cur_pic_buf_id].pu1_qp_map =
+                ps_codec->pu1_qp_map_base + (cur_pic_buf_id * ps_codec->u4_num_8x8_blks);
+            ps_codec->as_buf_id_info_map[cur_pic_buf_id].pu1_cu_type_map =
+                ps_codec->pu1_cu_type_map_base + (cur_pic_buf_id * ps_codec->u4_num_8x8_blks);
+            memset(ps_codec->as_buf_id_info_map[cur_pic_buf_id].pu1_qp_map,
+                0, ps_codec->u4_num_8x8_blks);
+            memset(ps_codec->as_buf_id_info_map[cur_pic_buf_id].pu1_qp_map,
+                0, ps_codec->u4_num_8x8_blks);
+        }
+
         ps_codec->s_parse.s_deblk_ctxt.pu1_cur_pic_luma = pu1_cur_pic_luma;
         ps_codec->s_parse.s_deblk_ctxt.pu1_cur_pic_chroma = pu1_cur_pic_chroma;
 

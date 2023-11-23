@@ -21,45 +21,35 @@ import com.google.android.enterprise.connectedapps.exceptions.UnavailableProfile
 
 /** A {@link UserConnector} is used to manage the connection between users. */
 public interface UserConnector {
-  /**
-   * Start trying to connect to another user and start manually managing the connection.
-   *
-   * <p>This will mean that the connection will not be dropped automatically to save resources.
-   *
-   * <p>Must be called before interacting with synchronous cross-user methods.
-   *
-   * <p>If the connection can not be made, then no errors will be thrown and connections will
-   * re-attempted indefinitely.
-   *
-   * @see #connect(UserHandle)
-   * @see #stopManualConnectionManagement(UserHandle)
-   */
-  void startConnecting(UserHandle userHandle);
 
   /**
-   * Attempt to connect to the user and start manually managing the connection.
+   * Execute {@link #connect(UserHandle, Object)} with a new connection holder.
+   *
+   * <p>You must use {@link #removeConnectionHolder(UserHandle, Object)} with the returned {@link
+   * UserConnectionHolder} or call {@link UserConnectionHolder#close()} when you are finished with
+   * the connection.
+   */
+  UserConnectionHolder connect(UserHandle userHandle) throws UnavailableProfileException;
+
+  /**
+   * Attempt to connect to the other user and add a connection holder.
    *
    * <p>This will mean that the connection will not be dropped automatically to save resources.
-   *
-   * <p>Must be called before interacting with synchronous cross-profile methods.
    *
    * <p>This must not be called from the main thread.
    *
-   * @see #startConnecting(UserHandle)
-   * @see #stopManualConnectionManagement(UserHandle)
+   * <p>You must remove the connection holder once you have finished with it. See {@link
+   * #removeConnectionHolder(UserHandle, Object)}.
+   *
+   * <p>Returns a {@link UserConnectionHolder} which can be used to automatically remove this
+   * connection holder using try-with-resources. Either the {@link UserConnectionHolder} or the
+   * passed in {@code connectionHolder} can be used with {@link #removeConnectionHolder(UserHandle,
+   * Object)}.
+   *
    * @throws UnavailableProfileException If the connection cannot be made.
    */
-  void connect(UserHandle userHandle) throws UnavailableProfileException;
-
-  /**
-   * Stop manual connection management.
-   *
-   * <p>This can be called after {@link #startConnecting(UserHandle)} to return connection
-   * management responsibilities to the SDK.
-   *
-   * <p>You should not make any synchronous cross-profile calls after calling this method.
-   */
-  void stopManualConnectionManagement(UserHandle userHandle);
+  UserConnectionHolder connect(UserHandle userHandle, Object connectionHolder)
+      throws UnavailableProfileException;
 
   /**
    * Return the {@link CrossProfileSender} being used for the connection to the user.
@@ -69,34 +59,34 @@ public interface UserConnector {
   CrossProfileSender crossProfileSender(UserHandle userHandle);
 
   /**
-   * Register a listener to be called when the user is connected or disconnected.
+   * Add a listener to be called when the user is connected or disconnected.
    *
    * <p>{@link #isConnected(UserHandle)} can be called to check if a connection is established.
    *
-   * @see #unregisterConnectionListener(UserHandle, ConnectionListener)
+   * @see #removeConnectionListener(UserHandle, ConnectionListener)
    */
-  void registerConnectionListener(UserHandle userHandle, ConnectionListener listener);
+  void addConnectionListener(UserHandle userHandle, ConnectionListener listener);
 
   /**
-   * Unregister a listener registered using {@link #registerConnectionListener(UserHandle,
+   * Remove a listener registered using {@link #addConnectionListener(UserHandle,
    * ConnectionListener)}.
    */
-  void unregisterConnectionListener(UserHandle userHandle, ConnectionListener listener);
+  void removeConnectionListener(UserHandle userHandle, ConnectionListener listener);
 
   /**
-   * Register a listener to be called when a user becomes available or unavailable.
+   * Add a listener to be called when a user becomes available or unavailable.
    *
    * <p>{@link #isAvailable(UserHandle)} can be called to check if a user is available.
    *
-   * @see #unregisterAvailabilityListener(UserHandle, AvailabilityListener)
+   * @see #removeAvailabilityListener(UserHandle, AvailabilityListener)
    */
-  void registerAvailabilityListener(UserHandle userHandle, AvailabilityListener listener);
+  void addAvailabilityListener(UserHandle userHandle, AvailabilityListener listener);
 
   /**
-   * Unregister a listener registered using {@link #registerAvailabilityListener(UserHandle,
+   * Remove a listener registered using {@link #addAvailabilityListener(UserHandle,
    * AvailabilityListener)}.
    */
-  void unregisterAvailabilityListener(UserHandle userHandle, AvailabilityListener listener);
+  void removeAvailabilityListener(UserHandle userHandle, AvailabilityListener listener);
 
   /**
    * Return true if the user can be connected to.
@@ -114,21 +104,43 @@ public interface UserConnector {
    */
   boolean isConnected(UserHandle userHandle);
 
-  /**
-   * Return an instance of {@link ConnectedAppsUtils} for dealing with the connection to the user.
-   */
-  ConnectedAppsUtils utils(UserHandle userHandle);
-
   Permissions permissions(UserHandle userHandle);
 
   /** Return the application context used by the user. */
   Context applicationContext(UserHandle userHandle);
 
   /**
-   * Returns true if the connection to the user is being managed manually.
+   * Register an object as holding the connection open.
    *
-   * <p>Use {@link #startConnecting(UserHandle)} to begin manual connection management, and {@link
-   * #stopManualConnectionManagement(UserHandle)} to end it.
+   * <p>While there is at least one connection holder, the Connected Apps SDK will attempt to stay
+   * connected.
+   *
+   * <p>You must remove the connection holder once you have finished with it. See {@link
+   * #removeConnectionHolder(UserHandle, Object)}.
+   *
+   * <p>Returns a {@link UserConnectionHolder} which can be used to automatically remove this
+   * connection holder using try-with-resources. Either the {@link UserConnectionHolder} or the
+   * passed in {@code connectionHolder} can be used with {@link #removeConnectionHolder(UserHandle,
+   * Object)}.
    */
-  boolean isManuallyManagingConnection(UserHandle userHandle);
+  UserConnectionHolder addConnectionHolder(UserHandle userHandle, Object connectionHolder);
+
+  /**
+   * Registers a connection holder alias.
+   *
+   * <p>This means that if the key is removed, then the value will also be removed. If the value is
+   * removed, the key will not be removed.
+   */
+  void addConnectionHolderAlias(UserHandle userHandle, Object key, Object value);
+
+  /**
+   * Remove a connection holder.
+   *
+   * <p>Once there are no remaining connection holders, the connection will be able to be closed.
+   *
+   * <p>See {@link #addConnectionHolder(UserHandle, Object)}.
+   */
+  void removeConnectionHolder(UserHandle userHandle, Object connectionHolder);
+
+  void clearConnectionHolders(UserHandle userHandle);
 }

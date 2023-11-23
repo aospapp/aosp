@@ -4,8 +4,8 @@
 
 """Test the install module."""
 
-import mock
 import unittest
+from unittest import mock
 
 import common
 from autotest_lib.site_utils.deployment import install

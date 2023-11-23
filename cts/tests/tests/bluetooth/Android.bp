@@ -38,4 +38,5 @@ android_test {
         "general-tests",
         "mts-bluetooth",
     ],
+    min_sdk_version: "Tiramisu",
 }

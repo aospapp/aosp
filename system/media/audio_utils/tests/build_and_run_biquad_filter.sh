@@ -23,7 +23,7 @@ testdir="/data/local/tmp/biquadTest"
 echo "========================================"
 echo "testing biquad filter"
 adb shell mkdir -p $testdir
-adb push $ANDROID_BUILD_TOP/cts/tests/tests/media/res/raw/sinesweepraw.raw $testdir
+adb push $ANDROID_BUILD_TOP/cts/tests/tests/media/audio/res/raw/sinesweepraw.raw $testdir
 
 adb push $OUT/system/bin/biquad_filter $testdir
 for ch in {1..8}

@@ -15,6 +15,7 @@
  */
 package com.android.car.internal.user;
 
+import android.annotation.ColorInt;
 import android.annotation.NonNull;
 import android.annotation.RequiresPermission;
 import android.content.Context;
@@ -26,7 +27,6 @@ import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Preconditions;
-import com.android.internal.util.UserIcons;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -125,10 +125,29 @@ public final class UserHelper {
         if (userInfo == null) {
             return null;
         }
-        int idForIcon = userInfo.isGuest() ? UserHandle.USER_NULL : user.getIdentifier();
-        Bitmap bitmap = UserIcons.convertToBitmap(
-                UserIcons.getDefaultUserIcon(context.getResources(), idForIcon, false));
+        Bitmap bitmap = CarUserIconProvider.getDefaultUserIcon(context, userInfo);
         userManager.setUserIcon(user.getIdentifier(), bitmap);
         return bitmap;
+    }
+
+    /**
+     * Get the user icon color for a given user id. This should not be the guest user.
+     *
+     * @param context Current application context
+     * @param user Non-guest user to get the user icon color
+     * @return ColorInt of the icon.
+     *
+     * @hide
+     */
+    @ColorInt
+    public static int getUserNameIconColor(@NonNull Context context, @NonNull UserHandle user) {
+        Preconditions.checkArgument(context != null, "Context cannot be null");
+        Preconditions.checkArgument(user != null, "User cannot be null");
+        UserManager userManager = context.getSystemService(UserManager.class);
+        UserInfo userInfo = userManager.getUserInfo(user.getIdentifier());
+        if (userInfo == null) {
+            throw new IllegalArgumentException("Invalid UserHandle - could not get UserInfo");
+        }
+        return CarUserIconProvider.getUserNameIconColor(context, userInfo);
     }
 }

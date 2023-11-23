@@ -33,6 +33,7 @@ class firmware_ECCbiEeprom(FirmwareTest):
         # Don't bother if CBI isn't on this device.
         if not self.check_ec_capability(['cbi']):
             raise error.TestNAError("Nothing needs to be tested on this device")
+        self.host = host
         cmd = 'ectool locatechip %d %d' % (self.EEPROM_LOCATE_TYPE,
                                            self.EEPROM_LOCATE_INDEX)
         cmd_out = self.faft_client.system.run_shell_command_get_output(
@@ -62,6 +63,12 @@ class firmware_ECCbiEeprom(FirmwareTest):
             logging.info("i2c_mux_en present and reset.")
         except servo.ControlUnavailableError:
             logging.info("i2c_mux_en does not exist. Ignoring.")
+
+        # Check to see if the CBI WP is decoupled.  If it's decoupled, the EC
+        # will have its own signal to control the CBI WP called `EC_CBI_WP`.
+        cmd = 'ectool gpioget ec_cbi_wp'
+        cmd_status = self.faft_client.system.run_shell_command_get_status(cmd)
+        self._wp_is_decoupled = True if cmd_status == 0 else False
 
     def _gen_write_command(self, offset, data):
         return ('ectool i2cxfer %d %d %d %d %s' %
@@ -102,10 +109,30 @@ class firmware_ECCbiEeprom(FirmwareTest):
 
         return before, write_data, after
 
+    def _reset_ec_and_wait_up(self):
+        self.servo.set('cold_reset', 'on')
+        self.servo.set('cold_reset', 'off')
+        self.host.wait_up(timeout=30)
+
     def check_eeprom_write_protected(self):
         """Checks that CBI EEPROM cannot be written to when WP is asserted"""
         self.set_hardware_write_protect(True)
         offset = 0
+
+        if self._wp_is_decoupled:
+            # When the CBI WP is decoupled from the main system write protect,
+            # the EC drives a latch which sets the CBI WP.  This latch is only
+            # reset when EC_RST_ODL is asserted.  Since the WP has changed
+            # above, toggle EC_RST_ODL in order to clear this latch.
+            logging.info(
+                    "CBI WP is EC driven, resetting EC before continuing...")
+            self._reset_ec_and_wait_up()
+
+            # Additionally, EC SW WP must be set in order for the system to be
+            # locked, which is the criteria that the EC uses to assert CBI
+            # EEPROM WP or not.
+            cmd = 'flashrom -p ec --wp-enable'
+            self.faft_client.system.run_shell_command(cmd)
 
         for offset in range(0, self.MAX_BYTES, self.PAGE_SIZE):
             before, write_data, after = self._read_write_data(offset)
@@ -124,6 +151,15 @@ class firmware_ECCbiEeprom(FirmwareTest):
         self.set_hardware_write_protect(False)
         offset = 0
 
+        if self._wp_is_decoupled:
+            # When the CBI WP is decoupled from the main system write protect,
+            # the EC drives a latch which sets the CBI WP.  This latch is only
+            # reset when EC_RST_ODL is asserted.  Since the WP has changed
+            # above, toggle EC_RST_ODL in order to clear this latch.
+            logging.info(
+                    "CBI WP is EC driven, resetting EC before continuing...")
+            self._reset_ec_and_wait_up()
+
         for offset in range(0, self.MAX_BYTES, self.PAGE_SIZE):
             before, write_data, after = self._read_write_data(offset)
 
@@ -135,6 +171,16 @@ class firmware_ECCbiEeprom(FirmwareTest):
             self._write_eeprom(offset, before)
 
         return True
+
+    def cleanup(self):
+        # Make sure to remove EC SW WP since we enabled it when testing
+        if self._wp_is_decoupled:
+            logging.debug("Disabling EC HW & SW WP...")
+            self.set_hardware_write_protect(False)
+            self._reset_ec_and_wait_up()
+            cmd = 'flashrom -p ec --wp-disable'
+            self.faft_client.system.run_shell_command(cmd)
+        return super(firmware_ECCbiEeprom, self).cleanup()
 
     def run_once(self):
         """Execute the main body of the test."""

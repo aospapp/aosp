@@ -16,7 +16,7 @@
 
 package com.google.uwb.support.fira;
 
-import static com.android.internal.util.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import static java.util.Objects.requireNonNull;
 
@@ -24,6 +24,7 @@ import android.os.PersistableBundle;
 import android.uwb.RangingSession;
 import android.uwb.UwbAddress;
 
+import androidx.annotation.FloatRange;
 import androidx.annotation.Nullable;
 
 /**
@@ -38,39 +39,63 @@ public class FiraRangingReconfigureParams extends FiraParams {
     @Nullable @MulticastListUpdateAction private final Integer mAction;
     @Nullable private final UwbAddress[] mAddressList;
     @Nullable private final int[] mSubSessionIdList;
+    @Nullable private final byte[] mSubSessionKeyList;
 
     @Nullable private final Integer mBlockStrideLength;
 
     @Nullable @RangeDataNtfConfig private final Integer mRangeDataNtfConfig;
     @Nullable private final Integer mRangeDataProximityNear;
     @Nullable private final Integer mRangeDataProximityFar;
+    @Nullable private final Double mRangeDataAoaAzimuthLower;
+    @Nullable private final Double mRangeDataAoaAzimuthUpper;
+    @Nullable private final Double mRangeDataAoaElevationLower;
+    @Nullable private final Double mRangeDataAoaElevationUpper;
 
     private static final String KEY_ACTION = "action";
     private static final String KEY_MAC_ADDRESS_MODE = "mac_address_mode";
     private static final String KEY_ADDRESS_LIST = "address_list";
     private static final String KEY_SUB_SESSION_ID_LIST = "sub_session_id_list";
+    private static final String KEY_SUB_SESSION_KEY_LIST = "sub_session_key_list";
     private static final String KEY_UPDATE_BLOCK_STRIDE_LENGTH = "update_block_stride_length";
     private static final String KEY_UPDATE_RANGE_DATA_NTF_CONFIG = "update_range_data_ntf_config";
     private static final String KEY_UPDATE_RANGE_DATA_NTF_PROXIMITY_NEAR =
             "update_range_data_proximity_near";
     private static final String KEY_UPDATE_RANGE_DATA_NTF_PROXIMITY_FAR =
             "update_range_data_proximity_far";
+    private static final String KEY_UPDATE_RANGE_DATA_NTF_AOA_AZIMUTH_LOWER =
+            "range_data_aoa_azimuth_lower";
+    private static final String KEY_UPDATE_RANGE_DATA_NTF_AOA_AZIMUTH_UPPER =
+            "range_data_aoa_azimuth_upper";
+    private static final String KEY_UPDATE_RANGE_DATA_NTF_AOA_ELEVATION_LOWER =
+            "range_data_aoa_elevation_lower";
+    private static final String KEY_UPDATE_RANGE_DATA_NTF_AOA_ELEVATION_UPPER =
+            "range_data_aoa_elevation_upper";
 
     private FiraRangingReconfigureParams(
             @Nullable @MulticastListUpdateAction Integer action,
             @Nullable UwbAddress[] addressList,
             @Nullable int[] subSessionIdList,
+            @Nullable byte[] subSessionKeyList,
             @Nullable Integer blockStrideLength,
             @Nullable Integer rangeDataNtfConfig,
             @Nullable Integer rangeDataProximityNear,
-            @Nullable Integer rangeDataProximityFar) {
+            @Nullable Integer rangeDataProximityFar,
+            @Nullable Double rangeDataAoaAzimuthLower,
+            @Nullable Double rangeDataAoaAzimuthUpper,
+            @Nullable Double rangeDataAoaElevationLower,
+            @Nullable Double rangeDataAoaElevationUpper) {
         mAction = action;
         mAddressList = addressList;
         mSubSessionIdList = subSessionIdList;
+        mSubSessionKeyList = subSessionKeyList;
         mBlockStrideLength = blockStrideLength;
         mRangeDataNtfConfig = rangeDataNtfConfig;
         mRangeDataProximityNear = rangeDataProximityNear;
         mRangeDataProximityFar = rangeDataProximityFar;
+        mRangeDataAoaAzimuthLower = rangeDataAoaAzimuthLower;
+        mRangeDataAoaAzimuthUpper = rangeDataAoaAzimuthUpper;
+        mRangeDataAoaElevationLower = rangeDataAoaElevationLower;
+        mRangeDataAoaElevationUpper = rangeDataAoaElevationUpper;
     }
 
     @Override
@@ -95,6 +120,11 @@ public class FiraRangingReconfigureParams extends FiraParams {
     }
 
     @Nullable
+    public byte[] getSubSessionKeyList() {
+        return mSubSessionKeyList;
+    }
+
+    @Nullable
     public Integer getBlockStrideLength() {
         return mBlockStrideLength;
     }
@@ -112,6 +142,51 @@ public class FiraRangingReconfigureParams extends FiraParams {
     @Nullable
     public Integer getRangeDataProximityFar() {
         return mRangeDataProximityFar;
+    }
+
+    @Nullable
+    public Double getRangeDataAoaAzimuthLower() {
+        return mRangeDataAoaAzimuthLower;
+    }
+
+    @Nullable
+    public Double getRangeDataAoaAzimuthUpper() {
+        return mRangeDataAoaAzimuthUpper;
+    }
+
+    @Nullable
+    public Double getRangeDataAoaElevationLower() {
+        return mRangeDataAoaElevationLower;
+    }
+
+    @Nullable
+    public Double getRangeDataAoaElevationUpper() {
+        return mRangeDataAoaElevationUpper;
+    }
+
+    @Nullable
+    private static int[] byteArrayToIntArray(@Nullable byte[] bytes) {
+        if (bytes == null) {
+            return null;
+        }
+
+        int[] values = new int[bytes.length];
+        for (int i = 0; i < values.length; i++) {
+            values[i] = bytes[i];
+        }
+        return values;
+    }
+
+    @Nullable
+    private static byte[] intArrayToByteArray(@Nullable int[] values) {
+        if (values == null) {
+            return null;
+        }
+        byte[] bytes = new byte[values.length];
+        for (int i = 0; i < values.length; i++) {
+            bytes[i] = (byte) values[i];
+        }
+        return bytes;
     }
 
     @Override
@@ -132,6 +207,7 @@ public class FiraRangingReconfigureParams extends FiraParams {
             }
             bundle.putInt(KEY_MAC_ADDRESS_MODE, macAddressMode);
             bundle.putLongArray(KEY_ADDRESS_LIST, addressList);
+            bundle.putIntArray(KEY_SUB_SESSION_KEY_LIST, byteArrayToIntArray(mSubSessionKeyList));
             bundle.putIntArray(KEY_SUB_SESSION_ID_LIST, mSubSessionIdList);
         }
 
@@ -149,6 +225,26 @@ public class FiraRangingReconfigureParams extends FiraParams {
 
         if (mRangeDataProximityFar != null) {
             bundle.putInt(KEY_UPDATE_RANGE_DATA_NTF_PROXIMITY_FAR, mRangeDataProximityFar);
+        }
+
+        if (mRangeDataAoaAzimuthLower != null) {
+            bundle.putDouble(KEY_UPDATE_RANGE_DATA_NTF_AOA_AZIMUTH_LOWER,
+                    mRangeDataAoaAzimuthLower);
+        }
+
+        if (mRangeDataAoaAzimuthUpper != null) {
+            bundle.putDouble(KEY_UPDATE_RANGE_DATA_NTF_AOA_AZIMUTH_UPPER,
+                    mRangeDataAoaAzimuthUpper);
+        }
+
+        if (mRangeDataAoaElevationLower != null) {
+            bundle.putDouble(KEY_UPDATE_RANGE_DATA_NTF_AOA_ELEVATION_LOWER,
+                    mRangeDataAoaElevationLower);
+        }
+
+        if (mRangeDataAoaElevationUpper != null) {
+            bundle.putDouble(KEY_UPDATE_RANGE_DATA_NTF_AOA_ELEVATION_UPPER,
+                    mRangeDataAoaElevationUpper);
         }
 
         return bundle;
@@ -184,7 +280,9 @@ public class FiraRangingReconfigureParams extends FiraParams {
             }
             builder.setAction(bundle.getInt(KEY_ACTION))
                     .setAddressList(addressList)
-                    .setSubSessionIdList(bundle.getIntArray(KEY_SUB_SESSION_ID_LIST));
+                    .setSubSessionIdList(bundle.getIntArray(KEY_SUB_SESSION_ID_LIST))
+                    .setSubSessionKeyList(
+                            intArrayToByteArray(bundle.getIntArray(KEY_SUB_SESSION_KEY_LIST)));
         }
 
         if (bundle.containsKey(KEY_UPDATE_BLOCK_STRIDE_LENGTH)) {
@@ -205,6 +303,25 @@ public class FiraRangingReconfigureParams extends FiraParams {
                     bundle.getInt(KEY_UPDATE_RANGE_DATA_NTF_PROXIMITY_FAR));
         }
 
+        if (bundle.containsKey(KEY_UPDATE_RANGE_DATA_NTF_AOA_AZIMUTH_LOWER)) {
+            builder.setRangeDataAoaAzimuthLower(
+                    bundle.getDouble(KEY_UPDATE_RANGE_DATA_NTF_AOA_AZIMUTH_LOWER));
+        }
+
+        if (bundle.containsKey(KEY_UPDATE_RANGE_DATA_NTF_AOA_AZIMUTH_UPPER)) {
+            builder.setRangeDataAoaAzimuthUpper(
+                    bundle.getDouble(KEY_UPDATE_RANGE_DATA_NTF_AOA_AZIMUTH_UPPER));
+        }
+
+        if (bundle.containsKey(KEY_UPDATE_RANGE_DATA_NTF_AOA_ELEVATION_LOWER)) {
+            builder.setRangeDataAoaElevationLower(
+                    bundle.getDouble(KEY_UPDATE_RANGE_DATA_NTF_AOA_ELEVATION_LOWER));
+        }
+
+        if (bundle.containsKey(KEY_UPDATE_RANGE_DATA_NTF_AOA_ELEVATION_UPPER)) {
+            builder.setRangeDataAoaElevationUpper(
+                    bundle.getDouble(KEY_UPDATE_RANGE_DATA_NTF_AOA_ELEVATION_UPPER));
+        }
         return builder.build();
     }
 
@@ -213,12 +330,17 @@ public class FiraRangingReconfigureParams extends FiraParams {
         @Nullable private Integer mAction = null;
         @Nullable private UwbAddress[] mAddressList = null;
         @Nullable private int[] mSubSessionIdList = null;
+        @Nullable private byte[] mSubSessionKeyList = null;
 
         @Nullable private Integer mBlockStrideLength = null;
 
         @Nullable private Integer mRangeDataNtfConfig = null;
         @Nullable private Integer mRangeDataProximityNear = null;
         @Nullable private Integer mRangeDataProximityFar = null;
+        @Nullable private Double mRangeDataAoaAzimuthLower = null;
+        @Nullable private Double mRangeDataAoaAzimuthUpper = null;
+        @Nullable private Double mRangeDataAoaElevationLower = null;
+        @Nullable private Double mRangeDataAoaElevationUpper = null;
 
         public FiraRangingReconfigureParams.Builder setAction(
                 @MulticastListUpdateAction int action) {
@@ -233,6 +355,12 @@ public class FiraRangingReconfigureParams extends FiraParams {
 
         public FiraRangingReconfigureParams.Builder setSubSessionIdList(int[] subSessionIdList) {
             mSubSessionIdList = subSessionIdList;
+            return this;
+        }
+
+        /** Sub Session Key List setter. This is a 2D array of keys represented as 1D array */
+        public FiraRangingReconfigureParams.Builder setSubSessionKeyList(byte[] subSessionKeyList) {
+            mSubSessionKeyList = subSessionKeyList;
             return this;
         }
 
@@ -258,6 +386,38 @@ public class FiraRangingReconfigureParams extends FiraParams {
             return this;
         }
 
+        public Builder setRangeDataAoaAzimuthLower(
+                @FloatRange(from = RANGE_DATA_NTF_AOA_AZIMUTH_LOWER_DEFAULT,
+                        to = RANGE_DATA_NTF_AOA_AZIMUTH_UPPER_DEFAULT)
+                        double rangeDataAoaAzimuthLower) {
+            mRangeDataAoaAzimuthLower = rangeDataAoaAzimuthLower;
+            return this;
+        }
+
+        public Builder setRangeDataAoaAzimuthUpper(
+                @FloatRange(from = RANGE_DATA_NTF_AOA_AZIMUTH_LOWER_DEFAULT,
+                        to = RANGE_DATA_NTF_AOA_AZIMUTH_UPPER_DEFAULT)
+                        double rangeDataAoaAzimuthUpper) {
+            mRangeDataAoaAzimuthUpper = rangeDataAoaAzimuthUpper;
+            return this;
+        }
+
+        public Builder setRangeDataAoaElevationLower(
+                @FloatRange(from = RANGE_DATA_NTF_AOA_ELEVATION_LOWER_DEFAULT,
+                        to = RANGE_DATA_NTF_AOA_ELEVATION_UPPER_DEFAULT)
+                        double rangeDataAoaElevationLower) {
+            mRangeDataAoaElevationLower = rangeDataAoaElevationLower;
+            return this;
+        }
+
+        public Builder setRangeDataAoaElevationUpper(
+                @FloatRange(from = RANGE_DATA_NTF_AOA_ELEVATION_LOWER_DEFAULT,
+                        to = RANGE_DATA_NTF_AOA_ELEVATION_UPPER_DEFAULT)
+                        double rangeDataAoaElevationUpper) {
+            mRangeDataAoaElevationUpper = rangeDataAoaElevationUpper;
+            return this;
+        }
+
         private void checkAddressList() {
             checkArgument(mAddressList != null && mAddressList.length > 0);
             for (UwbAddress uwbAddress : mAddressList) {
@@ -265,8 +425,53 @@ public class FiraRangingReconfigureParams extends FiraParams {
                 checkArgument(uwbAddress.size() == UwbAddress.SHORT_ADDRESS_BYTE_LENGTH);
             }
 
-            checkArgument(
-                    mSubSessionIdList == null || mSubSessionIdList.length == mAddressList.length);
+            if (mAction == P_STS_MULTICAST_LIST_UPDATE_ACTION_ADD_16_BYTE) {
+                checkArgument(mSubSessionKeyList != null
+                        && mSubSessionKeyList.length == 16 * mSubSessionIdList.length);
+            }
+            if (mAction == P_STS_MULTICAST_LIST_UPDATE_ACTION_ADD_32_BYTE) {
+                checkArgument(mSubSessionKeyList != null
+                        && mSubSessionKeyList.length == 32 * mSubSessionIdList.length);
+            }
+        }
+
+        private void checkRangeDataNtfConfig() {
+            if (mRangeDataNtfConfig == null) {
+                return;
+            }
+            if (mRangeDataNtfConfig == RANGE_DATA_NTF_CONFIG_DISABLE) {
+                checkArgument(mRangeDataProximityNear == null);
+                checkArgument(mRangeDataProximityFar == null);
+                checkArgument(mRangeDataAoaAzimuthLower == null);
+                checkArgument(mRangeDataAoaAzimuthUpper == null);
+                checkArgument(mRangeDataAoaElevationLower == null);
+                checkArgument(mRangeDataAoaElevationUpper == null);
+            } else if (mRangeDataNtfConfig == RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_LEVEL_TRIG
+                    || mRangeDataNtfConfig == RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_EDGE_TRIG) {
+                checkArgument(mRangeDataProximityNear != null
+                        || mRangeDataProximityFar != null);
+                checkArgument(mRangeDataAoaAzimuthLower == null);
+                checkArgument(mRangeDataAoaAzimuthUpper == null);
+                checkArgument(mRangeDataAoaElevationLower == null);
+                checkArgument(mRangeDataAoaElevationUpper == null);
+            } else if (mRangeDataNtfConfig == RANGE_DATA_NTF_CONFIG_ENABLE_AOA_LEVEL_TRIG
+                    || mRangeDataNtfConfig == RANGE_DATA_NTF_CONFIG_ENABLE_AOA_EDGE_TRIG) {
+                checkArgument(mRangeDataProximityNear == null);
+                checkArgument(mRangeDataProximityFar == null);
+                checkArgument((mRangeDataAoaAzimuthLower != null
+                        && mRangeDataAoaAzimuthUpper != null)
+                        || (mRangeDataAoaElevationLower != null
+                        && mRangeDataAoaElevationUpper != null));
+            } else if (mRangeDataNtfConfig == RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_AOA_LEVEL_TRIG
+                    || mRangeDataNtfConfig
+                    == RANGE_DATA_NTF_CONFIG_ENABLE_PROXIMITY_AOA_EDGE_TRIG) {
+                checkArgument(mRangeDataProximityNear != null
+                        || mRangeDataProximityFar != null
+                        || (mRangeDataAoaAzimuthLower != null
+                            && mRangeDataAoaAzimuthUpper != null)
+                        || (mRangeDataAoaElevationLower != null
+                            && mRangeDataAoaElevationUpper != null));
+            }
         }
 
         public FiraRangingReconfigureParams build() {
@@ -277,23 +482,37 @@ public class FiraRangingReconfigureParams extends FiraParams {
                         mBlockStrideLength == null
                                 && mRangeDataNtfConfig == null
                                 && mRangeDataProximityNear == null
-                                && mRangeDataProximityFar == null);
+                                && mRangeDataProximityFar == null
+                                && mRangeDataAoaAzimuthLower == null
+                                && mRangeDataAoaAzimuthUpper == null
+                                && mRangeDataAoaElevationLower == null
+                                && mRangeDataAoaElevationUpper == null);
             } else {
+                checkRangeDataNtfConfig();
                 checkArgument(
                         mBlockStrideLength != null
                                 || mRangeDataNtfConfig != null
                                 || mRangeDataProximityNear != null
-                                || mRangeDataProximityFar != null);
+                                || mRangeDataProximityFar != null
+                                || mRangeDataAoaAzimuthLower == null
+                                || mRangeDataAoaAzimuthUpper == null
+                                || mRangeDataAoaElevationLower == null
+                                || mRangeDataAoaElevationUpper == null);
             }
 
             return new FiraRangingReconfigureParams(
                     mAction,
                     mAddressList,
                     mSubSessionIdList,
+                    mSubSessionKeyList,
                     mBlockStrideLength,
                     mRangeDataNtfConfig,
                     mRangeDataProximityNear,
-                    mRangeDataProximityFar);
+                    mRangeDataProximityFar,
+                    mRangeDataAoaAzimuthLower,
+                    mRangeDataAoaAzimuthUpper,
+                    mRangeDataAoaElevationLower,
+                    mRangeDataAoaElevationUpper);
         }
     }
 }

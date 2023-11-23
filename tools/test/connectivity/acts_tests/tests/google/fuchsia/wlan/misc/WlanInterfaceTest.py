@@ -16,11 +16,12 @@
 
 from acts import signals
 
+from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
-from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 
 
-class WlanInterfaceTest(AbstractDeviceWlanDeviceBaseTest):
+class WlanInterfaceTest(WifiBaseTest):
+
     def setup_class(self):
         super().setup_class()
         dut = self.user_params.get('dut', None)

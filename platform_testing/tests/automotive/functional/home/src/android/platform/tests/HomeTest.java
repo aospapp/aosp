@@ -16,13 +16,12 @@
 
 package android.platform.tests;
 
-import android.platform.helpers.AutoUtility;
+
 import android.platform.helpers.HelperAccessor;
 import android.platform.helpers.IAutoHomeHelper;
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -34,11 +33,6 @@ public class HomeTest {
 
     public HomeTest() {
         mHomeHelper = new HelperAccessor<>(IAutoHomeHelper.class);
-    }
-
-    @BeforeClass
-    public static void exitSuw() {
-        AutoUtility.exitSuw();
     }
 
     @Before

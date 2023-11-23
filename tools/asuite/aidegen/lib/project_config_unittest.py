@@ -46,17 +46,17 @@ class AidegenProjectConfigUnittests(unittest.TestCase):
     def test_check_whole_android_tree(self, mock_is_android_root):
         """Test _check_whole_android_tree with different conditions."""
         mock_is_android_root.return_value = True
-        exspected = [constant.WHOLE_ANDROID_TREE_TARGET]
+        expected = [constant.WHOLE_ANDROID_TREE_TARGET]
         self.assertEqual(
-            exspected, project_config._check_whole_android_tree([''], True))
+            expected, project_config._check_whole_android_tree([''], True))
         self.assertEqual(
-            exspected, project_config._check_whole_android_tree([''], False))
-        exspected = constant.WHOLE_ANDROID_TREE_TARGET
+            expected, project_config._check_whole_android_tree([''], False))
+        expected = constant.WHOLE_ANDROID_TREE_TARGET
         self.assertEqual(
-            exspected, project_config._check_whole_android_tree(['a'], True)[0])
-        exspected = ['a']
+            expected, project_config._check_whole_android_tree(['a'], True)[0])
+        expected = ['a']
         self.assertEqual(
-            exspected, project_config._check_whole_android_tree(['a'], False))
+            expected, project_config._check_whole_android_tree(['a'], False))
 
     def test_init_with_no_launch_ide(self):
         """Test __init__ method without launching IDE."""

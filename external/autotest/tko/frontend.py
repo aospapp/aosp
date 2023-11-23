@@ -1,9 +1,14 @@
+# Lint as: python2, python3
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import os, re, db, sys, datetime
 import common
 from autotest_lib.client.common_lib import kernel_versions
+from six.moves import map
 
-MAX_RECORDS = 50000L
-MAX_CELLS = 500000L
+MAX_RECORDS = 50000
+MAX_CELLS = 500000
 
 tko = os.path.dirname(os.path.realpath(os.path.abspath(__file__)))
 root_url_file = os.path.join(tko, '.root_url')
@@ -51,9 +56,9 @@ class status_data:
             else:
                 (x,y, status, count, job_tags) = row
                 reasons = None
-            if not data.has_key(x):
+            if x not in data:
                 data[x] = {}
-            if not data[x].has_key(y):
+            if y not in data[x]:
                 y_values.add(y)
                 data[x][y] = status_cell()
             data[x][y].add(status, count, job_tags, reasons)
@@ -61,7 +66,7 @@ class status_data:
         # 2-d hash of data - [x-value][y-value]
         self.data = data
         # List of possible columns (x-values)
-        self.x_values = smart_sort(data.keys(), x_field)
+        self.x_values = smart_sort(list(data.keys()), x_field)
         # List of rows columns (y-values)
         self.y_values = smart_sort(list(y_values), y_field)
         nCells = len(self.y_values)*len(self.x_values)
@@ -122,14 +127,14 @@ def smart_sort(list, field):
                 return datetime.datetime(1970, 1, 1, 0, 0, 0)
             else:
                 return date_time
-        list = map(convert_None_to_datetime, list)
+        list = list(map(convert_None_to_datetime, list))
     elif field == 'DATE(test_finished_time)':
         def convert_None_to_date(date):
             if not date:
                 return datetime.date(1970, 1, 1)
             else:
                 return date
-        list = map(convert_None_to_date, list)
+        list = list(map(convert_None_to_date, list))
     list.sort()
     return list
 
@@ -249,7 +254,7 @@ class test:
             # A dictionary - dict{key} = [value1, value2, ....]
             where = {'test_idx' : self.idx}
             for i in iteration.select(self.db, where):
-                if self.__iterations.has_key(i.key):
+                if i.key in self.__iterations:
                     self.__iterations[i.key].append(i.value)
                 else:
                     self.__iterations[i.key] = [i.value]

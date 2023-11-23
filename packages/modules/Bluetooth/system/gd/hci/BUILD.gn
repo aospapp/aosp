@@ -17,6 +17,7 @@ source_set("BluetoothHciSources") {
   sources = [
     "acl_manager.cc",
     "acl_manager/acl_connection.cc",
+    "acl_manager/acl_scheduler.cc",
     "acl_manager/acl_fragmenter.cc",
     "acl_manager/classic_acl_connection.cc",
     "acl_manager/le_acl_connection.cc",
@@ -24,12 +25,16 @@ source_set("BluetoothHciSources") {
     "address.cc",
     "class_of_device.cc",
     "controller.cc",
+    "distance_measurement_manager.cc",
     "hci_layer.cc",
     "hci_metrics_logging.cc",
     "le_address_manager.cc",
     "le_advertising_manager.cc",
     "le_scanning_manager.cc",
+    "le_scanning_reassembler.cc",
     "link_key.cc",
+    "msft.cc",
+    "remote_name_request.cc",
     "uuid.cc",
     "vendor_specific_event_manager.cc",
   ]
@@ -41,4 +46,33 @@ source_set("BluetoothHciSources") {
   ]
 
   configs += [ "//bt/system:target_defaults" ]
+}
+
+if (use.test) {
+  executable("hci_tests") {
+    sources = [
+      "hci_packets_test.cc",
+    ]
+
+    include_dirs = [ "//bt/system/gd" ]
+
+    deps = [
+      "//bt/system/main:bluetooth-static",
+    ]
+
+    configs += [
+      "//bt/system:target_defaults",
+      "//bt/system:external_gtest_main",
+    ]
+
+    libs = [
+      "pthread",
+      "rt",
+      "dl",
+    ]
+
+    ldflags = [
+      "-lpthread"
+    ]
+  }
 }

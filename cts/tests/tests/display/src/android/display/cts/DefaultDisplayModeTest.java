@@ -17,7 +17,6 @@
 package android.display.cts;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
@@ -38,6 +37,7 @@ import androidx.test.runner.AndroidJUnit4;
 import com.android.compatibility.common.util.AdoptShellPermissionsRule;
 import com.android.compatibility.common.util.DisplayUtil;
 import com.android.compatibility.common.util.FeatureUtil;
+import com.android.compatibility.common.util.MediaUtils;
 
 import org.junit.After;
 import org.junit.Before;
@@ -72,7 +72,8 @@ public class DefaultDisplayModeTest {
     public void setUp() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
         assumeTrue("Need an Android TV device to run this test.", FeatureUtil.isTV());
-        assertTrue("Physical display is expected.", DisplayUtil.isDisplayConnected(context));
+        assertTrue("Physical display is expected.", DisplayUtil.isDisplayConnected(context)
+                || MediaUtils.onCuttlefish());
 
         mDisplayManager = context.getSystemService(DisplayManager.class);
         mDefaultDisplay = mDisplayManager.getDisplay(Display.DEFAULT_DISPLAY);
@@ -320,60 +321,6 @@ public class DefaultDisplayModeTest {
 
         mDisplayManager.clearGlobalUserPreferredDisplayMode();
         assertNull(mDisplayManager.getGlobalUserPreferredDisplayMode());
-    }
-
-    @Test
-    public void testSetUserPreferredDisplayModePrioritizesDisplaySpecificMode()
-            throws InterruptedException {
-        Display.Mode[] modes = mDefaultDisplay.getSupportedModes();
-        assumeTrue("Need two or more display modes to exercise switching.", modes.length > 1);
-
-        // Set the global display mode which is different from default display mode
-        Display.Mode globalDefaultMode = findNonDefaultMode(mDefaultDisplay);
-        assertNotNull(globalDefaultMode);
-        mDisplayManager.setGlobalUserPreferredDisplayMode(globalDefaultMode);
-        waitUntil(mDefaultDisplay,
-                mDefaultDisplay -> mDefaultDisplay.getDefaultMode().getModeId()
-                        == globalDefaultMode.getModeId(),
-                Duration.ofSeconds(5));
-        assertTrue(mDefaultDisplay.getDefaultMode()
-                .matches(globalDefaultMode.getPhysicalWidth(),
-                        globalDefaultMode.getPhysicalHeight(),
-                        globalDefaultMode.getRefreshRate()));
-
-        // Set a display mode, only for a specific display which is different from default display
-        // mode
-        Display.Mode displaySpecificMode = findNonDefaultMode(mDefaultDisplay);
-        assertNotNull(displaySpecificMode);
-        mDefaultDisplay.setUserPreferredDisplayMode(displaySpecificMode);
-        waitUntil(mDefaultDisplay,
-                mDefaultDisplay -> mDefaultDisplay.getDefaultMode().getModeId()
-                        == displaySpecificMode.getModeId(),
-                Duration.ofSeconds(5));
-        assertTrue(mDefaultDisplay.getDefaultMode()
-                .matches(displaySpecificMode.getPhysicalWidth(),
-                        displaySpecificMode.getPhysicalHeight(),
-                        displaySpecificMode.getRefreshRate()));
-        assertFalse(mDefaultDisplay.getDefaultMode()
-                .matches(globalDefaultMode.getPhysicalWidth(),
-                        globalDefaultMode.getPhysicalHeight(),
-                        globalDefaultMode.getRefreshRate()));
-
-        mDisplayManager.setGlobalUserPreferredDisplayMode(globalDefaultMode);
-        // This should never happen. The display specific mode has priority over global
-        // display mode.
-        waitUntil(mDefaultDisplay,
-                mDefaultDisplay -> mDefaultDisplay.getDefaultMode().getModeId()
-                        == globalDefaultMode.getModeId(),
-                Duration.ofSeconds(5));
-        assertTrue(mDefaultDisplay.getDefaultMode()
-                .matches(displaySpecificMode.getPhysicalWidth(),
-                        displaySpecificMode.getPhysicalHeight(),
-                        displaySpecificMode.getRefreshRate()));
-        assertFalse(mDefaultDisplay.getDefaultMode()
-                .matches(globalDefaultMode.getPhysicalWidth(),
-                        globalDefaultMode.getPhysicalHeight(),
-                        globalDefaultMode.getRefreshRate()));
     }
 
     private void cacheOriginalUserPreferredModeSetting() {

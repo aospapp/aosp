@@ -20,10 +20,11 @@ license {
 
 rust_library {
     name: "libzip",
+    // has rustc warnings
     host_supported: true,
     crate_name: "zip",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.6.2",
+    cargo_pkg_version: "0.6.4",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -39,6 +40,8 @@ rust_library {
         "//apex_available:platform",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
     arch: {
         arm: {
             rustlibs: ["libcrossbeam_utils"],

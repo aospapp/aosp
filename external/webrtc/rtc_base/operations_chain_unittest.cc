@@ -10,13 +10,14 @@
 
 #include "rtc_base/operations_chain.h"
 
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <utility>
 #include <vector>
 
-#include "rtc_base/bind.h"
 #include "rtc_base/event.h"
+#include "rtc_base/gunit.h"
 #include "rtc_base/thread.h"
 #include "test/gmock.h"
 #include "test/gtest.h"
@@ -24,6 +25,12 @@
 namespace rtc {
 
 using ::testing::ElementsAre;
+
+namespace {
+
+constexpr int kDefaultTimeout = 3000;
+
+}  // namespace
 
 class OperationTracker {
  public:
@@ -71,8 +78,8 @@ class OperationTracker {
     callback();
   }
 
-  // This operation is completed asynchronously; it pings |background_thread_|,
-  // blocking that thread until |unblock_operation_event| is signaled and then
+  // This operation is completed asynchronously; it pings `background_thread_`,
+  // blocking that thread until `unblock_operation_event` is signaled and then
   // completes upon posting back to the thread that the operation started on.
   // Note that this requires the starting thread to be executing tasks (handle
   // messages), i.e. must not be blocked.
@@ -80,17 +87,15 @@ class OperationTracker {
                                   Event* operation_complete_event,
                                   std::function<void()> callback) {
     Thread* current_thread = Thread::Current();
-    background_thread_->PostTask(
-        RTC_FROM_HERE, [this, current_thread, unblock_operation_event,
-                        operation_complete_event, callback]() {
-          unblock_operation_event->Wait(Event::kForever);
-          current_thread->PostTask(
-              RTC_FROM_HERE, [this, operation_complete_event, callback]() {
-                completed_operation_events_.push_back(operation_complete_event);
-                operation_complete_event->Set();
-                callback();
-              });
-        });
+    background_thread_->PostTask([this, current_thread, unblock_operation_event,
+                                  operation_complete_event, callback]() {
+      unblock_operation_event->Wait(Event::kForever);
+      current_thread->PostTask([this, operation_complete_event, callback]() {
+        completed_operation_events_.push_back(operation_complete_event);
+        operation_complete_event->Set();
+        callback();
+      });
+    });
   }
 
   std::unique_ptr<Thread> background_thread_;
@@ -111,22 +116,43 @@ class OperationTrackerProxy {
 
   std::unique_ptr<Event> Initialize() {
     std::unique_ptr<Event> event = std::make_unique<Event>();
-    operations_chain_thread_->PostTask(
-        RTC_FROM_HERE, [this, event_ptr = event.get()]() {
-          operation_tracker_ = std::make_unique<OperationTracker>();
-          operations_chain_ = OperationsChain::Create();
-          event_ptr->Set();
-        });
+    operations_chain_thread_->PostTask([this, event_ptr = event.get()]() {
+      operation_tracker_ = std::make_unique<OperationTracker>();
+      operations_chain_ = OperationsChain::Create();
+      event_ptr->Set();
+    });
     return event;
+  }
+
+  void SetOnChainEmptyCallback(std::function<void()> on_chain_empty_callback) {
+    Event event;
+    operations_chain_thread_->PostTask(
+        [this, &event,
+         on_chain_empty_callback = std::move(on_chain_empty_callback)]() {
+          operations_chain_->SetOnChainEmptyCallback(
+              std::move(on_chain_empty_callback));
+          event.Set();
+        });
+    event.Wait(Event::kForever);
+  }
+
+  bool IsEmpty() {
+    Event event;
+    bool is_empty = false;
+    operations_chain_thread_->PostTask([this, &event, &is_empty]() {
+      is_empty = operations_chain_->IsEmpty();
+      event.Set();
+    });
+    event.Wait(Event::kForever);
+    return is_empty;
   }
 
   std::unique_ptr<Event> ReleaseOperationChain() {
     std::unique_ptr<Event> event = std::make_unique<Event>();
-    operations_chain_thread_->PostTask(RTC_FROM_HERE,
-                                       [this, event_ptr = event.get()]() {
-                                         operations_chain_ = nullptr;
-                                         event_ptr->Set();
-                                       });
+    operations_chain_thread_->PostTask([this, event_ptr = event.get()]() {
+      operations_chain_ = nullptr;
+      event_ptr->Set();
+    });
     return event;
   }
 
@@ -134,8 +160,8 @@ class OperationTrackerProxy {
   std::unique_ptr<Event> PostSynchronousOperation() {
     std::unique_ptr<Event> operation_complete_event = std::make_unique<Event>();
     operations_chain_thread_->PostTask(
-        RTC_FROM_HERE, [this, operation_complete_event_ptr =
-                                  operation_complete_event.get()]() {
+        [this,
+         operation_complete_event_ptr = operation_complete_event.get()]() {
           operations_chain_->ChainOperation(
               operation_tracker_->BindSynchronousOperation(
                   operation_complete_event_ptr));
@@ -149,7 +175,6 @@ class OperationTrackerProxy {
       Event* unblock_operation_event) {
     std::unique_ptr<Event> operation_complete_event = std::make_unique<Event>();
     operations_chain_thread_->PostTask(
-        RTC_FROM_HERE,
         [this, unblock_operation_event,
          operation_complete_event_ptr = operation_complete_event.get()]() {
           operations_chain_->ChainOperation(
@@ -159,7 +184,7 @@ class OperationTrackerProxy {
     return operation_complete_event;
   }
 
-  // The order of completed events. Touches the |operation_tracker_| on the
+  // The order of completed events. Touches the `operation_tracker_` on the
   // calling thread, this is only thread safe if all chained operations have
   // completed.
   const std::vector<Event*>& completed_operation_events() const {
@@ -180,12 +205,15 @@ class SignalOnDestruction final {
     RTC_DCHECK(destructor_called_);
   }
   ~SignalOnDestruction() {
-    // Moved objects will have |destructor_called_| set to null. Destroying a
+    // Moved objects will have `destructor_called_` set to null. Destroying a
     // moved SignalOnDestruction should not signal.
     if (destructor_called_) {
       *destructor_called_ = true;
     }
   }
+
+  SignalOnDestruction(const SignalOnDestruction&) = delete;
+  SignalOnDestruction& operator=(const SignalOnDestruction&) = delete;
 
   // Move operators.
   SignalOnDestruction(SignalOnDestruction&& other)
@@ -200,8 +228,6 @@ class SignalOnDestruction final {
 
  private:
   bool* destructor_called_;
-
-  RTC_DISALLOW_COPY_AND_ASSIGN(SignalOnDestruction);
 };
 
 TEST(OperationsChainTest, SynchronousOperation) {
@@ -220,7 +246,8 @@ TEST(OperationsChainTest, AsynchronousOperation) {
       operation_tracker_proxy.PostAsynchronousOperation(
           &unblock_async_operation_event);
   // This should not be signaled until we unblock the operation.
-  EXPECT_FALSE(async_operation_completed_event->Wait(0));
+  EXPECT_FALSE(
+      async_operation_completed_event->Wait(webrtc::TimeDelta::Zero()));
   // Unblock the operation and wait for it to complete.
   unblock_async_operation_event.Set();
   async_operation_completed_event->Wait(Event::kForever);
@@ -238,13 +265,13 @@ TEST(OperationsChainTest,
       operation_tracker.BindSynchronousOperation(&event0));
   // This should already be signaled. (If it wasn't, waiting wouldn't help,
   // because we'd be blocking the only thread that exists.)
-  EXPECT_TRUE(event0.Wait(0));
+  EXPECT_TRUE(event0.Wait(webrtc::TimeDelta::Zero()));
   // Chaining another operation should also execute immediately because the
   // chain should already be empty.
   Event event1;
   operations_chain->ChainOperation(
       operation_tracker.BindSynchronousOperation(&event1));
-  EXPECT_TRUE(event1.Wait(0));
+  EXPECT_TRUE(event1.Wait(webrtc::TimeDelta::Zero()));
 }
 
 TEST(OperationsChainTest, AsynchronousOperationBlocksSynchronousOperation) {
@@ -264,7 +291,7 @@ TEST(OperationsChainTest, AsynchronousOperationBlocksSynchronousOperation) {
   sync_operation_completed_event->Wait(Event::kForever);
   // The asynchronous avent should have blocked the synchronous event, meaning
   // this should already be signaled.
-  EXPECT_TRUE(async_operation_completed_event->Wait(0));
+  EXPECT_TRUE(async_operation_completed_event->Wait(webrtc::TimeDelta::Zero()));
 }
 
 TEST(OperationsChainTest, OperationsAreExecutedInOrder) {
@@ -324,6 +351,88 @@ TEST(OperationsChainTest, OperationsAreExecutedInOrder) {
           operation2_completed_event.get(), operation3_completed_event.get(),
           operation4_completed_event.get(), operation5_completed_event.get(),
           operation6_completed_event.get()));
+}
+
+TEST(OperationsChainTest, IsEmpty) {
+  OperationTrackerProxy operation_tracker_proxy;
+  operation_tracker_proxy.Initialize()->Wait(Event::kForever);
+
+  // The chain is initially empty.
+  EXPECT_TRUE(operation_tracker_proxy.IsEmpty());
+  // Chain a single event.
+  Event unblock_async_operation_event0;
+  auto async_operation_completed_event0 =
+      operation_tracker_proxy.PostAsynchronousOperation(
+          &unblock_async_operation_event0);
+  // The chain is not empty while an event is pending.
+  EXPECT_FALSE(operation_tracker_proxy.IsEmpty());
+  // Completing the operation empties the chain.
+  unblock_async_operation_event0.Set();
+  async_operation_completed_event0->Wait(Event::kForever);
+  EXPECT_TRUE(operation_tracker_proxy.IsEmpty());
+
+  // Chain multiple events.
+  Event unblock_async_operation_event1;
+  auto async_operation_completed_event1 =
+      operation_tracker_proxy.PostAsynchronousOperation(
+          &unblock_async_operation_event1);
+  Event unblock_async_operation_event2;
+  auto async_operation_completed_event2 =
+      operation_tracker_proxy.PostAsynchronousOperation(
+          &unblock_async_operation_event2);
+  // Again, the chain is not empty while an event is pending.
+  EXPECT_FALSE(operation_tracker_proxy.IsEmpty());
+  // Upon completing the first event, the chain is still not empty.
+  unblock_async_operation_event1.Set();
+  async_operation_completed_event1->Wait(Event::kForever);
+  EXPECT_FALSE(operation_tracker_proxy.IsEmpty());
+  // Completing the last evenet empties the chain.
+  unblock_async_operation_event2.Set();
+  async_operation_completed_event2->Wait(Event::kForever);
+  EXPECT_TRUE(operation_tracker_proxy.IsEmpty());
+}
+
+TEST(OperationsChainTest, OnChainEmptyCallback) {
+  rtc::AutoThread main_thread;
+  OperationTrackerProxy operation_tracker_proxy;
+  operation_tracker_proxy.Initialize()->Wait(Event::kForever);
+
+  std::atomic<size_t> on_empty_callback_counter(0u);
+  operation_tracker_proxy.SetOnChainEmptyCallback(
+      [&on_empty_callback_counter] { ++on_empty_callback_counter; });
+
+  // Chain a single event.
+  Event unblock_async_operation_event0;
+  auto async_operation_completed_event0 =
+      operation_tracker_proxy.PostAsynchronousOperation(
+          &unblock_async_operation_event0);
+  // The callback is not invoked until the operation has completed.
+  EXPECT_EQ(0u, on_empty_callback_counter);
+  // Completing the operation empties the chain, invoking the callback.
+  unblock_async_operation_event0.Set();
+  async_operation_completed_event0->Wait(Event::kForever);
+  EXPECT_TRUE_WAIT(1u == on_empty_callback_counter, kDefaultTimeout);
+
+  // Chain multiple events.
+  Event unblock_async_operation_event1;
+  auto async_operation_completed_event1 =
+      operation_tracker_proxy.PostAsynchronousOperation(
+          &unblock_async_operation_event1);
+  Event unblock_async_operation_event2;
+  auto async_operation_completed_event2 =
+      operation_tracker_proxy.PostAsynchronousOperation(
+          &unblock_async_operation_event2);
+  // Again, the callback is not invoked until the operation has completed.
+  EXPECT_TRUE_WAIT(1u == on_empty_callback_counter, kDefaultTimeout);
+  // Upon completing the first event, the chain is still not empty, so the
+  // callback must not be invoked yet.
+  unblock_async_operation_event1.Set();
+  async_operation_completed_event1->Wait(Event::kForever);
+  EXPECT_TRUE_WAIT(1u == on_empty_callback_counter, kDefaultTimeout);
+  // Completing the last evenet empties the chain, invoking the callback.
+  unblock_async_operation_event2.Set();
+  async_operation_completed_event2->Wait(Event::kForever);
+  EXPECT_TRUE_WAIT(2u == on_empty_callback_counter, kDefaultTimeout);
 }
 
 TEST(OperationsChainTest,

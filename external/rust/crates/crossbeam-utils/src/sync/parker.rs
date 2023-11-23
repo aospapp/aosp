@@ -44,6 +44,7 @@ use std::time::{Duration, Instant};
 ///
 /// // Wakes up when `u.unpark()` provides the token.
 /// p.park();
+/// # std::thread::sleep(std::time::Duration::from_millis(500)); // wait for background threads closed: https://github.com/rust-lang/miri/issues/1371
 /// ```
 ///
 /// [`park`]: Parker::park
@@ -121,7 +122,10 @@ impl Parker {
     /// p.park_timeout(Duration::from_millis(500));
     /// ```
     pub fn park_timeout(&self, timeout: Duration) {
-        self.park_deadline(Instant::now() + timeout)
+        match Instant::now().checked_add(timeout) {
+            Some(deadline) => self.park_deadline(deadline),
+            None => self.park(),
+        }
     }
 
     /// Blocks the current thread until the token is made available, or until a certain deadline.
@@ -241,6 +245,7 @@ impl Unparker {
     ///
     /// // Wakes up when `u.unpark()` provides the token.
     /// p.park();
+    /// # std::thread::sleep(std::time::Duration::from_millis(500)); // wait for background threads closed: https://github.com/rust-lang/miri/issues/1371
     /// ```
     ///
     /// [`park`]: Parker::park
@@ -262,7 +267,7 @@ impl Unparker {
     /// # let _ = unsafe { Unparker::from_raw(raw) };
     /// ```
     pub fn into_raw(this: Unparker) -> *const () {
-        Arc::into_raw(this.inner) as *const ()
+        Arc::into_raw(this.inner).cast::<()>()
     }
 
     /// Converts a raw pointer into an `Unparker`.
@@ -284,7 +289,7 @@ impl Unparker {
     /// ```
     pub unsafe fn from_raw(ptr: *const ()) -> Unparker {
         Unparker {
-            inner: Arc::from_raw(ptr as *const Inner),
+            inner: Arc::from_raw(ptr.cast::<Inner>()),
         }
     }
 }

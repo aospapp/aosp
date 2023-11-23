@@ -39,7 +39,7 @@ if __name__ == "__main__":
   metadata = parser.metadata
 
   for sec in find_all_sections(metadata):
-    for entry in remove_synthetic_or_fwk_only(find_unique_entries(sec)):
+    for entry in remove_hal_non_visible(find_unique_entries(sec)):
       if entry.enum:
         enum_name = entry.name.removeprefix("android.")
         s = enum_name.split(".")

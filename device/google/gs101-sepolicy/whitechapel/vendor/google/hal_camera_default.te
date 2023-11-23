@@ -23,6 +23,10 @@ allow hal_camera_default sysfs_edgetpu:dir r_dir_perms;
 allow hal_camera_default sysfs_edgetpu:file r_file_perms;
 allow hal_camera_default edgetpu_vendor_service:service_manager find;
 binder_call(hal_camera_default, edgetpu_vendor_server)
+# Allow edgetpu_app_service as well, due to the EdgeTpu metrics logging
+# library has a dependency on edgetpu_app_service, see b/275016466.
+allow hal_camera_default edgetpu_app_service:service_manager find;
+binder_call(hal_camera_default, edgetpu_app_server)
 
 # Allow access to data files used by the camera HAL
 allow hal_camera_default mnt_vendor_file:dir search;
@@ -96,3 +100,14 @@ allow hal_camera_default proc_interrupts:file r_file_perms;
 
 # Allow camera HAL to send trace packets to Perfetto
 userdebug_or_eng(`perfetto_producer(hal_camera_default)')
+
+# Some file searches attempt to access system data and are denied.
+# This is benign and can be ignored.
+dontaudit hal_camera_default system_data_file:dir { search };
+
+# google3 prebuilts attempt to connect to the wrong trace socket, ignore them.
+dontaudit hal_camera_default traced:unix_stream_socket { connectto };
+dontaudit hal_camera_default traced_producer_socket:sock_file { write };
+
+# Allow access to always-on compute device node
+allow hal_camera_default aoc_device:chr_file rw_file_perms;

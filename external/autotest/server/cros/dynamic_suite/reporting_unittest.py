@@ -1,24 +1,24 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import datetime
-import mock
-import mox
+import six
 import unittest
+from unittest import mock
 
 import common
 
 from autotest_lib.server.cros.dynamic_suite import reporting_utils
 
 
-class TestMergeBugTemplate(mox.MoxTestBase):
+class TestMergeBugTemplate(unittest.TestCase):
     """Test bug can be properly merged and validated."""
     def test_validate_success(self):
         """Test a valid bug can be verified successfully."""
-        bug_template= {}
+        bug_template = {}
         bug_template['owner'] = 'someone@company.com'
         reporting_utils.BugTemplate.validate_bug_template(bug_template)
 
@@ -32,33 +32,33 @@ class TestMergeBugTemplate(mox.MoxTestBase):
                           bug_template)
 
         # Bug template must contain value for essential attribute, e.g., owner.
-        bug_template= {'no-owner': 'user1'}
+        bug_template = {'no-owner': 'user1'}
         self.assertRaises(reporting_utils.InvalidBugTemplateException,
                           reporting_utils.BugTemplate.validate_bug_template,
                           bug_template)
 
         # Bug template must contain value for essential attribute, e.g., owner.
-        bug_template= {'owner': 'invalid_email_address'}
+        bug_template = {'owner': 'invalid_email_address'}
         self.assertRaises(reporting_utils.InvalidBugTemplateException,
                           reporting_utils.BugTemplate.validate_bug_template,
                           bug_template)
 
         # Check unexpected attributes.
-        bug_template= {}
+        bug_template = {}
         bug_template['random tag'] = 'test'
         self.assertRaises(reporting_utils.InvalidBugTemplateException,
                           reporting_utils.BugTemplate.validate_bug_template,
                           bug_template)
 
         # Value for cc must be a list
-        bug_template= {}
+        bug_template = {}
         bug_template['cc'] = 'test'
         self.assertRaises(reporting_utils.InvalidBugTemplateException,
                           reporting_utils.BugTemplate.validate_bug_template,
                           bug_template)
 
         # Value for labels must be a list
-        bug_template= {}
+        bug_template = {}
         bug_template['labels'] = 'test'
         self.assertRaises(reporting_utils.InvalidBugTemplateException,
                           reporting_utils.BugTemplate.validate_bug_template,
@@ -151,11 +151,20 @@ class TestLinks(unittest.TestCase):
         """Test a link of test history can be generated."""
         self._mock_now.return_value = datetime.datetime(2018, 3, 29)
         link = reporting_utils.link_test_history('jetstream_PrioritizedDevice')
-        expected_link = ('https://stainless.corp.google.com/search?'
-                         'test=^jetstream\_PrioritizedDevice$&'
-                         'first_date=2018-03-01&'
-                         'last_date=2018-03-29&'
-                         'row=model&col=build&view=matrix')
+        # re.escape changes in py3 (per the docs):
+        # "Changed in version 3.3: The '_' character is no longer escaped."
+        if six.PY2:
+            expected_link = ('https://stainless.corp.google.com/search?'
+                             'test=^jetstream\_PrioritizedDevice$&'
+                             'first_date=2018-03-01&'
+                             'last_date=2018-03-29&'
+                             'row=model&col=build&view=matrix')
+        else:
+            expected_link = ('https://stainless.corp.google.com/search?'
+                             'test=^jetstream_PrioritizedDevice$&'
+                             'first_date=2018-03-01&'
+                             'last_date=2018-03-29&'
+                             'row=model&col=build&view=matrix')
         self.assertEqual(link, expected_link)
 
 

@@ -20,6 +20,12 @@ import com.android.queryable.Queryable;
 
 /** Query for a {@link Long}. */
 public interface LongQuery<E extends Queryable> extends Query<Long> {
+
+    /** Queries a {@link Long}. */
+    static LongQueryHelper.LongQueryBase Long() {
+        return new LongQueryHelper.LongQueryBase();
+    }
+
     /** Require the {@link Long} is equal to {@code i}. */
     E isEqualTo(long i);
 

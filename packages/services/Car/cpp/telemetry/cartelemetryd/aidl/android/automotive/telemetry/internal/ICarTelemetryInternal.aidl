@@ -35,4 +35,14 @@ interface ICarTelemetryInternal {
    * Clears the listener if exists. Silently ignores if there is no listener.
    */
   void clearListener();
+
+  /**
+   * Adds CarData IDs that a MetricsConfig subscribes to. Can be used for filtering purposes.
+   */
+  void addCarDataIds(in int[] ids);
+
+  /**
+   * Removes CarData IDs.
+   */
+  void removeCarDataIds(in int[] ids);
 }

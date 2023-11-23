@@ -16,15 +16,14 @@ limitations under the License.
 #ifndef TENSORFLOW_CORE_DISTRIBUTED_RUNTIME_EAGER_EAGER_SERVICE_IMPL_H_
 #define TENSORFLOW_CORE_DISTRIBUTED_RUNTIME_EAGER_EAGER_SERVICE_IMPL_H_
 
+#include <memory>
+#include <unordered_map>
+#include <utility>
+
 #include "tensorflow/core/common_runtime/eager/context.h"
-#include "tensorflow/core/common_runtime/eager/tensor_handle.h"
 #include "tensorflow/core/distributed_runtime/eager/remote_mgr.h"
 #include "tensorflow/core/distributed_runtime/eager/remote_tensor_handle.h"
 #include "tensorflow/core/distributed_runtime/worker_env.h"
-#include "tensorflow/core/lib/core/refcount.h"
-#include "tensorflow/core/lib/gtl/array_slice.h"
-#include "tensorflow/core/lib/strings/stringprintf.h"
-#include "tensorflow/core/protobuf/eager_service.pb.h"
 
 namespace tensorflow {
 namespace eager {
@@ -161,8 +160,8 @@ class EagerServiceImpl {
     const WorkerEnv* const env_;  // Not owned.
 
     mutex last_accessed_mu_;
-    int64 last_accessed_micros_ TF_GUARDED_BY(last_accessed_mu_);
-    int64 destroy_after_micros_;
+    int64_t last_accessed_micros_ TF_GUARDED_BY(last_accessed_mu_);
+    int64_t destroy_after_micros_;
 
     const bool is_master_;
   };

@@ -22,6 +22,7 @@ import static android.os.UserManager.DISALLOW_CONFIG_BLUETOOTH;
 import static com.android.car.qc.QCItem.QC_ACTION_TOGGLE_STATE;
 import static com.android.car.qc.QCItem.QC_TYPE_ACTION_TOGGLE;
 import static com.android.car.settings.qc.QCUtils.getActionDisabledDialogIntent;
+import static com.android.car.settings.qc.QCUtils.getAvailabilityStatusForZoneFromXml;
 
 import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
@@ -34,6 +35,7 @@ import android.content.pm.PackageManager;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.SystemProperties;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.VisibleForTesting;
@@ -43,6 +45,7 @@ import com.android.car.qc.QCItem;
 import com.android.car.qc.QCList;
 import com.android.car.qc.QCRow;
 import com.android.car.settings.R;
+import com.android.car.settings.bluetooth.BluetoothUtils;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.enterprise.EnterpriseUtils;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
@@ -74,19 +77,24 @@ public class PairedBluetoothDevices extends SettingsQCItem {
 
     private final LocalBluetoothManager mBluetoothManager;
     private final int mDeviceLimit;
+    private final boolean mShowDevicesWithoutNames;
 
     public PairedBluetoothDevices(Context context) {
         super(context);
+        setAvailabilityStatusForZone(getAvailabilityStatusForZoneFromXml(context,
+                R.xml.bluetooth_settings_fragment, R.string.pk_bluetooth_paired_devices));
         mBluetoothManager = LocalBluetoothManager.getInstance(context, /* onInitCallback= */ null);
         mDeviceLimit = context.getResources().getInteger(
                 R.integer.config_qc_bluetooth_device_limit);
+        mShowDevicesWithoutNames = SystemProperties.getBoolean(
+                BluetoothUtils.BLUETOOTH_SHOW_DEVICES_WITHOUT_NAMES_PROPERTY, false);
     }
 
     @Override
     QCItem getQCItem() {
         if (!getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)
                 || EnterpriseUtils.hasUserRestrictionByDpm(getContext(), DISALLOW_BLUETOOTH)
-                || mDeviceLimit == 0) {
+                || mDeviceLimit == 0 || isHiddenForZone()) {
             return null;
         }
 
@@ -119,7 +127,7 @@ public class PairedBluetoothDevices extends SettingsQCItem {
         if (filteredDevices.isEmpty()) {
             listBuilder.addRow(new QCRow.Builder()
                     .setIcon(Icon.createWithResource(getContext(),
-                            R.drawable.ic_settings_bluetooth))
+                            R.drawable.ic_add))
                     .setTitle(getContext().getString(R.string.qc_bluetooth_on_no_devices_info))
                     .build());
             return listBuilder.build();
@@ -130,15 +138,17 @@ public class PairedBluetoothDevices extends SettingsQCItem {
                 : filteredDevices.size();
         for (int j = 0; j < deviceLimit; j++) {
             CachedBluetoothDevice cachedDevice = filteredDevices.get(j);
-            listBuilder.addRow(new QCRow.Builder()
-                    .setTitle(cachedDevice.getName())
-                    .setSubtitle(cachedDevice.getCarConnectionSummary(/* shortSummary= */ true))
-                    .setIcon(Icon.createWithResource(getContext(), getIconRes(cachedDevice)))
-                    .addEndItem(createBluetoothButton(cachedDevice, i++))
-                    .addEndItem(createPhoneButton(cachedDevice, i++))
-                    .addEndItem(createMediaButton(cachedDevice, i++))
-                    .build()
-            );
+            if (mShowDevicesWithoutNames || cachedDevice.hasHumanReadableName()) {
+                listBuilder.addRow(new QCRow.Builder()
+                        .setTitle(cachedDevice.getName())
+                        .setSubtitle(cachedDevice.getCarConnectionSummary(/* shortSummary= */ true))
+                        .setIcon(Icon.createWithResource(getContext(), getIconRes(cachedDevice)))
+                        .addEndItem(createBluetoothButton(cachedDevice, i++))
+                        .addEndItem(createPhoneButton(cachedDevice, i++))
+                        .addEndItem(createMediaButton(cachedDevice, i++))
+                        .build()
+                );
+            }
         }
 
         return listBuilder.build();
@@ -279,14 +289,18 @@ public class PairedBluetoothDevices extends SettingsQCItem {
         extras.putString(EXTRA_DEVICE_KEY, device.getAddress());
         PendingIntent action = getBroadcastIntent(extras, requestCode);
 
+        boolean isReadOnlyForZone = isReadOnlyForZone();
+        PendingIntent disabledPendingIntent = isReadOnlyForZone
+                ? QCUtils.getDisabledToastBroadcastIntent(getContext())
+                : getActionDisabledDialogIntent(getContext(), DISALLOW_CONFIG_BLUETOOTH);
+
         return new QCActionItem.Builder(QC_TYPE_ACTION_TOGGLE)
                 .setAvailable(available)
                 .setChecked(checked)
-                .setEnabled(enabled)
-                .setClickableWhileDisabled(clickableWhileDisabled)
+                .setEnabled(enabled && isWritableForZone())
+                .setClickableWhileDisabled(clickableWhileDisabled | isReadOnlyForZone)
                 .setAction(action)
-                .setDisabledClickAction(getActionDisabledDialogIntent(getContext(),
-                        DISALLOW_CONFIG_BLUETOOTH))
+                .setDisabledClickAction(disabledPendingIntent)
                 .setIcon(icon)
                 .build();
     }

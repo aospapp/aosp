@@ -15,8 +15,8 @@
  */
 package com.android.nearby.halfsheet.utils;
 
-import static com.android.server.nearby.common.fastpair.service.UserActionHandlerBase.EXTRA_COMPANION_APP;
-import static com.android.server.nearby.fastpair.UserActionHandler.ACTION_FAST_PAIR;
+import static com.android.nearby.halfsheet.constants.UserActionHandlerBase.ACTION_FAST_PAIR;
+import static com.android.nearby.halfsheet.constants.UserActionHandlerBase.EXTRA_COMPANION_APP;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;

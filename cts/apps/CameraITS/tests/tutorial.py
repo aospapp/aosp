@@ -108,14 +108,14 @@ class TutorialTest(its_base_test.ItsBaseTest):
 
       # The captured image is YUV420. Convert to RGB, and save as a file.
       rgbimg = image_processing_utils.convert_capture_to_rgb_image(cap)
-      image_processing_utils.write_image(rgbimg, '%s_rgb_1.jpg' % file_name)
+      image_processing_utils.write_image(rgbimg, f'{file_name}_rgb.jpg')
 
       # Can also get the Y,U,V planes separately; save these to greyscale
       # files.
       yimg, uimg, vimg = image_processing_utils.convert_capture_to_planes(cap)
-      image_processing_utils.write_image(yimg, '%s_y_plane_1.jpg' % file_name)
-      image_processing_utils.write_image(uimg, '%s_u_plane_1.jpg' % file_name)
-      image_processing_utils.write_image(vimg, '%s_v_plane_1.jpg' % file_name)
+      image_processing_utils.write_image(yimg, f'{file_name}_y_plane.jpg')
+      image_processing_utils.write_image(uimg, f'{file_name}_u_plane.jpg')
+      image_processing_utils.write_image(vimg, f'{file_name}_v_plane.jpg')
 
       # Run 3A on the device. In this case, just use the entire image as the
       # 3A region, and run each of AWB,AE,AF. Can also change the region and

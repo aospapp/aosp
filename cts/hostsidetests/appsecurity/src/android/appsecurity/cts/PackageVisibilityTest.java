@@ -16,6 +16,7 @@
 
 package android.appsecurity.cts;
 
+import com.android.tradefed.util.RunUtil;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -163,7 +164,7 @@ public class PackageVisibilityTest extends BaseAppSecurityTest {
             if (isBootCompleted()) {
                 return;
             }
-            Thread.sleep(1000);
+            RunUtil.getDefault().sleep(1000);
         }
         throw new AssertionError("System failed to become ready!");
     }

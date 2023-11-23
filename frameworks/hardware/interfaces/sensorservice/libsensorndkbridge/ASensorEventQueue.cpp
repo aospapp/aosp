@@ -20,14 +20,12 @@
 
 #define LOG_TAG "libsensorndkbridge"
 #include <android-base/logging.h>
+#include <android/binder_auto_utils.h>
 
-using android::sp;
-using android::frameworks::sensorservice::V1_0::Result;
-using android::hardware::sensors::V1_0::SensorInfo;
-using android::OK;
+using aidl::android::hardware::sensors::SensorInfo;
 using android::BAD_VALUE;
 using android::Mutex;
-using android::hardware::Return;
+using android::OK;
 
 ASensorEventQueue::ASensorEventQueue(ALooper* looper, ALooper_callbackFunc callback, void* data)
     : mLooper(looper),
@@ -36,7 +34,7 @@ ASensorEventQueue::ASensorEventQueue(ALooper* looper, ALooper_callbackFunc callb
       mRequestAdditionalInfo(false),
       mValid(true) {}
 
-void ASensorEventQueue::setImpl(const sp<IEventQueue> &queueImpl) {
+void ASensorEventQueue::setImpl(const std::shared_ptr<IEventQueue>& queueImpl) {
     mQueueImpl = queueImpl;
 }
 
@@ -44,10 +42,9 @@ int ASensorEventQueue::registerSensor(
         ASensorRef sensor,
         int32_t samplingPeriodUs,
         int64_t maxBatchReportLatencyUs) {
-    Return<Result> ret = mQueueImpl->enableSensor(
-            reinterpret_cast<const SensorInfo *>(sensor)->sensorHandle,
-            samplingPeriodUs,
-            maxBatchReportLatencyUs);
+    ndk::ScopedAStatus ret =
+        mQueueImpl->enableSensor(reinterpret_cast<const SensorInfo*>(sensor)->sensorHandle,
+                                 samplingPeriodUs, maxBatchReportLatencyUs);
 
     if (!ret.isOk()) {
         return BAD_VALUE;
@@ -77,8 +74,8 @@ int ASensorEventQueue::requestAdditionalInfoEvents(bool enable) {
 }
 
 int ASensorEventQueue::disableSensor(ASensorRef sensor) {
-    Return<Result> ret = mQueueImpl->disableSensor(
-            reinterpret_cast<const SensorInfo *>(sensor)->sensorHandle);
+    ndk::ScopedAStatus ret =
+        mQueueImpl->disableSensor(reinterpret_cast<const SensorInfo*>(sensor)->sensorHandle);
 
     return ret.isOk() ? OK : BAD_VALUE;
 }
@@ -106,7 +103,7 @@ int ASensorEventQueue::hasEvents() const {
     return !mQueue.empty();
 }
 
-Return<void> ASensorEventQueue::onEvent(const Event &event) {
+ndk::ScopedAStatus ASensorEventQueue::onEvent(const Event& event) {
     LOG(VERBOSE) << "ASensorEventQueue::onEvent";
 
     if (static_cast<int32_t>(event.sensorType) != ASENSOR_TYPE_ADDITIONAL_INFO ||
@@ -127,17 +124,16 @@ Return<void> ASensorEventQueue::onEvent(const Event &event) {
             Mutex::Autolock autoLock(mLock);
             mQueue.emplace_back();
             sensors_event_t* sensorEvent = &mQueue[mQueue.size() - 1];
-            android::hardware::sensors::V1_0::implementation::convertToSensorEvent(event,
-                                                                                   sensorEvent);
+            android::hardware::sensors::implementation::convertToSensorEvent(event, sensorEvent);
         }
 
         Mutex::Autolock autoLock(mValidLock);
         if (mValid) {
-            mLooper->signalSensorEvents(this);
+            mLooper->signalSensorEvents(this->ref<ASensorEventQueue>());
         }
     }
 
-    return android::hardware::Void();
+    return ndk::ScopedAStatus::ok();
 }
 
 void ASensorEventQueue::dispatchCallback() {
@@ -159,7 +155,7 @@ void ASensorEventQueue::invalidate() {
       Mutex::Autolock autoLock(mValidLock);
       mValid = false;
     }
-    mLooper->invalidateSensorQueue(this);
+    mLooper->invalidateSensorQueue(this->ref<ASensorEventQueue>());
     setImpl(nullptr);
 }
 

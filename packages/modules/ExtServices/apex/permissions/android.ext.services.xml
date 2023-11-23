@@ -21,4 +21,9 @@
         <permission name="android.permission.REQUEST_NOTIFICATION_ASSISTANT_SERVICE" />
         <permission name="android.permission.INTERACT_ACROSS_USERS" />
     </privapp-permissions>
+    <library
+        name="android.ext.adservices"
+        file="/apex/com.android.extservices/javalib/android.ext.adservices.jar"
+        on-bootclasspath-since="33"
+    />
 </permissions>

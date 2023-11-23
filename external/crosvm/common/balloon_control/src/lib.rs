@@ -1,8 +1,9 @@
-// Copyright 2022 The Chromium OS Authors. All rights reserved.
+// Copyright 2022 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 // Balloon commands that are send on the balloon command tube.
 #[derive(Serialize, Deserialize, Debug)]
@@ -25,10 +26,15 @@ pub enum BalloonTubeCommand {
     Stats {
         id: u64,
     },
+    // Fetch balloon wss. The ID can be used to discard stale states if any
+    // previous wss request failed or timed out.
+    WorkingSetSize {
+        id: u64,
+    },
 }
 
 // BalloonStats holds stats returned from the stats_queue.
-#[derive(Default, Serialize, Deserialize, Debug)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct BalloonStats {
     pub swap_in: Option<u64>,
     pub swap_out: Option<u64>,
@@ -44,6 +50,33 @@ pub struct BalloonStats {
     pub unevictable_memory: Option<u64>,
 }
 
+// TODO(b/276353613): remove and refactor bins into Vec
+pub const VIRTIO_BALLOON_WSS_NUM_BINS: usize = 4;
+pub const VIRTIO_BALLOON_WSS_CONFIG_SIZE: usize = 5;
+
+// WSSBucket stores information about a bucket (or bin) of the working set size.
+#[derive(Default, Serialize, Deserialize, Debug, Clone, Copy)]
+pub struct WSSBucket {
+    pub age: u64,
+    pub bytes: [u64; 2],
+}
+
+// BalloonWSS holds WSS returned from the wss_queue.
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+pub struct BalloonWSS {
+    pub wss: [WSSBucket; VIRTIO_BALLOON_WSS_NUM_BINS],
+}
+
+impl BalloonWSS {
+    pub fn new() -> Self {
+        BalloonWSS {
+            wss: [WSSBucket {
+                ..Default::default()
+            }; VIRTIO_BALLOON_WSS_NUM_BINS],
+        }
+    }
+}
+
 // BalloonTubeResult are results to BalloonTubeCommand defined above.
 #[derive(Serialize, Deserialize, Debug)]
 pub enum BalloonTubeResult {
@@ -54,5 +87,9 @@ pub enum BalloonTubeResult {
     },
     Adjusted {
         num_bytes: u64,
+    },
+    WorkingSetSize {
+        wss: BalloonWSS,
+        id: u64,
     },
 }

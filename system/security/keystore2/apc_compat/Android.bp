@@ -27,7 +27,9 @@ cc_library {
         "apc_compat.cpp",
     ],
     shared_libs: [
+        "libbinder_ndk",
         "android.hardware.confirmationui@1.0",
+        "android.hardware.confirmationui-V1-ndk",
         "libbase",
         "libhidlbase",
         "libutils",

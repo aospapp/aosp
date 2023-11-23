@@ -24,6 +24,7 @@ import static com.android.libraries.entitlement.eapaka.EapAkaResponseTest.EAP_AK
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -66,6 +67,8 @@ public class EapAkaApiTest {
     private static final String TEST_URL = "https://test.url/test-path";
     private static final String EAP_AKA_CHALLENGE =
             "{\"eap-relay-packet\":\"" + EAP_AKA_CHALLENGE_REQUEST + "\"}";
+    private static final String INVALID_EAP_AKA_CHALLENGE =
+            "{\"invalid-eap-relay-packet\":\"" + EAP_AKA_CHALLENGE_REQUEST + "\"}";
     // com.google.common.net.HttpHeaders.COOKIE
     private static final String HTTP_HEADER_COOKIE = "Cookie";
     private static final String COOKIE_VALUE = "COOKIE=abcdefg";
@@ -94,6 +97,7 @@ public class EapAkaApiTest {
     private static final int SUB_ID = 1;
     private static final String ACCEPT_CONTENT_TYPE_JSON_AND_XML =
             "application/vnd.gsma.eap-relay.v1.0+json, text/vnd.wap.connectivity-xml";
+    private static final String BYPASS_EAP_AKA_RESPONSE = "abc";
 
     @Rule public final MockitoRule rule = MockitoJUnit.rule();
 
@@ -105,11 +109,14 @@ public class EapAkaApiTest {
 
     private Context mContext;
     private EapAkaApi mEapAkaApi;
+    private EapAkaApi mEapAkaApiBypassAuthentication;
 
     @Before
     public void setUp() {
         mContext = spy(ApplicationProvider.getApplicationContext());
-        mEapAkaApi = new EapAkaApi(mContext, SUB_ID, mMockHttpClient);
+        mEapAkaApi = new EapAkaApi(mContext, SUB_ID, mMockHttpClient, "");
+        mEapAkaApiBypassAuthentication =
+                new EapAkaApi(mContext, SUB_ID, mMockHttpClient, BYPASS_EAP_AKA_RESPONSE);
         when(mContext.getSystemService(TelephonyManager.class))
                 .thenReturn(mMockTelephonyManager);
         when(mMockTelephonyManager.createForSubscriptionId(SUB_ID))
@@ -164,8 +171,8 @@ public class EapAkaApiTest {
                         ImmutableList.of(ServiceEntitlement.APP_VOWIFI), carrierConfig, request);
 
         assertThat(respopnse).isEqualTo(RESPONSE_XML);
-        // Verify that the 2nd request has cookies set by the 1st response
         verify(mMockHttpClient, times(2)).request(mHttpRequestCaptor.capture());
+        // Verify that the 2nd request has cookies set by the 1st response
         assertThat(mHttpRequestCaptor.getAllValues().get(1).requestProperties())
                 .containsAtLeast(HTTP_HEADER_COOKIE, COOKIE_VALUE,
                                  HTTP_HEADER_COOKIE, COOKIE_VALUE_1);
@@ -175,6 +182,180 @@ public class EapAkaApiTest {
         assertThat(mHttpRequestCaptor.getAllValues().get(1).timeoutInSec())
                 .isEqualTo(CarrierConfig.DEFAULT_TIMEOUT_IN_SEC);
         assertThat(mHttpRequestCaptor.getAllValues().get(1).network()).isNull();
+    }
+
+    @Test
+    public void queryEntitlementStatus_noAuthenticationToken_invalidChallenge() throws Exception {
+        when(mMockTelephonyManagerForSubId.getIccAuthentication(
+                TelephonyManager.APPTYPE_USIM,
+                TelephonyManager.AUTHTYPE_EAP_AKA,
+                EAP_AKA_SECURITY_CONTEXT_REQUEST_EXPECTED))
+                .thenReturn(EAP_AKA_SECURITY_CONTEXT_RESPONSE_SUCCESS);
+        HttpResponse eapChallengeResponse =
+                HttpResponse.builder()
+                        .setContentType(ContentType.JSON)
+                        .setBody(INVALID_EAP_AKA_CHALLENGE)
+                        .setCookies(ImmutableList.of(COOKIE_VALUE, COOKIE_VALUE_1))
+                        .build();
+        HttpResponse xmlResponse =
+                HttpResponse.builder().setContentType(ContentType.XML).setBody(RESPONSE_XML)
+                        .build();
+        when(mMockHttpClient.request(any()))
+                .thenReturn(eapChallengeResponse).thenReturn(xmlResponse);
+        CarrierConfig carrierConfig = CarrierConfig.builder().setServerUrl(TEST_URL).build();
+        ServiceEntitlementRequest request = ServiceEntitlementRequest.builder().build();
+
+        ServiceEntitlementException exception =
+                expectThrows(
+                        ServiceEntitlementException.class,
+                        () ->
+                                mEapAkaApi.queryEntitlementStatus(
+                                        ImmutableList.of(ServiceEntitlement.APP_VOWIFI),
+                                        carrierConfig,
+                                        request));
+
+        assertThat(exception.getErrorCode())
+                .isEqualTo(ServiceEntitlementException.ERROR_MALFORMED_HTTP_RESPONSE);
+        assertThat(exception.getMessage())
+                .isEqualTo("Failed to parse EAP-AKA challenge: " + INVALID_EAP_AKA_CHALLENGE);
+        assertThat(exception.getCause()).isNull();
+        assertThat(exception.getHttpStatus()).isEqualTo(0);
+        assertThat(exception.getRetryAfter()).isEmpty();
+    }
+
+    @Test
+    public void queryEntitlementStatus_noAuthenticationToken_secondChallenge() throws Exception {
+        when(mMockTelephonyManagerForSubId.getIccAuthentication(
+                        TelephonyManager.APPTYPE_USIM,
+                        TelephonyManager.AUTHTYPE_EAP_AKA,
+                        EAP_AKA_SECURITY_CONTEXT_REQUEST_EXPECTED))
+                .thenReturn(EAP_AKA_SECURITY_CONTEXT_RESPONSE_SUCCESS);
+        HttpResponse eapChallengeResponse =
+                HttpResponse.builder()
+                        .setContentType(ContentType.JSON)
+                        .setBody(EAP_AKA_CHALLENGE)
+                        .setCookies(ImmutableList.of(COOKIE_VALUE, COOKIE_VALUE_1))
+                        .build();
+        HttpResponse xmlResponse =
+                HttpResponse.builder()
+                        .setContentType(ContentType.XML)
+                        .setBody(RESPONSE_XML)
+                        .build();
+        when(mMockHttpClient.request(any()))
+                .thenReturn(eapChallengeResponse)
+                .thenReturn(eapChallengeResponse)
+                .thenReturn(xmlResponse);
+        CarrierConfig carrierConfig = CarrierConfig.builder().setServerUrl(TEST_URL).build();
+        ServiceEntitlementRequest request = ServiceEntitlementRequest.builder().build();
+
+        String respopnse =
+                mEapAkaApi.queryEntitlementStatus(
+                        ImmutableList.of(ServiceEntitlement.APP_VOWIFI), carrierConfig, request);
+
+        assertThat(respopnse).isEqualTo(RESPONSE_XML);
+        // Verify that the subsequent requests have cookies set by the 1st response
+        verify(mMockHttpClient, times(3)).request(mHttpRequestCaptor.capture());
+        assertThat(mHttpRequestCaptor.getAllValues().get(1).requestProperties())
+                .containsAtLeast(HTTP_HEADER_COOKIE, COOKIE_VALUE,
+                                 HTTP_HEADER_COOKIE, COOKIE_VALUE_1);
+        assertThat(mHttpRequestCaptor.getAllValues().get(0).timeoutInSec())
+                .isEqualTo(CarrierConfig.DEFAULT_TIMEOUT_IN_SEC);
+        assertThat(mHttpRequestCaptor.getAllValues().get(0).network()).isNull();
+        assertThat(mHttpRequestCaptor.getAllValues().get(1).timeoutInSec())
+                .isEqualTo(CarrierConfig.DEFAULT_TIMEOUT_IN_SEC);
+        assertThat(mHttpRequestCaptor.getAllValues().get(1).network()).isNull();
+        assertThat(mHttpRequestCaptor.getAllValues().get(2).timeoutInSec())
+                .isEqualTo(CarrierConfig.DEFAULT_TIMEOUT_IN_SEC);
+        assertThat(mHttpRequestCaptor.getAllValues().get(2).network()).isNull();
+    }
+
+    @Test
+    public void queryEntitlementStatus_noAuthenticationToken_thirdChallenge() throws Exception {
+        when(mMockTelephonyManagerForSubId.getIccAuthentication(
+                        TelephonyManager.APPTYPE_USIM,
+                        TelephonyManager.AUTHTYPE_EAP_AKA,
+                        EAP_AKA_SECURITY_CONTEXT_REQUEST_EXPECTED))
+                .thenReturn(EAP_AKA_SECURITY_CONTEXT_RESPONSE_SUCCESS);
+        HttpResponse eapChallengeResponse =
+                HttpResponse.builder()
+                        .setContentType(ContentType.JSON)
+                        .setBody(EAP_AKA_CHALLENGE)
+                        .setCookies(ImmutableList.of(COOKIE_VALUE, COOKIE_VALUE_1))
+                        .build();
+        HttpResponse xmlResponse =
+                HttpResponse.builder()
+                        .setContentType(ContentType.XML)
+                        .setBody(RESPONSE_XML)
+                        .build();
+        when(mMockHttpClient.request(any()))
+                .thenReturn(eapChallengeResponse)
+                .thenReturn(eapChallengeResponse)
+                .thenReturn(eapChallengeResponse)
+                .thenReturn(xmlResponse);
+        CarrierConfig carrierConfig = CarrierConfig.builder().setServerUrl(TEST_URL).build();
+        ServiceEntitlementRequest request = ServiceEntitlementRequest.builder().build();
+
+        String respopnse =
+                mEapAkaApi.queryEntitlementStatus(
+                        ImmutableList.of(ServiceEntitlement.APP_VOWIFI), carrierConfig, request);
+
+        assertThat(respopnse).isEqualTo(RESPONSE_XML);
+        // Verify that the subsequent requests have cookies set by the 1st response
+        verify(mMockHttpClient, times(4)).request(mHttpRequestCaptor.capture());
+        assertThat(mHttpRequestCaptor.getAllValues().get(1).requestProperties())
+                .containsAtLeast(HTTP_HEADER_COOKIE, COOKIE_VALUE,
+                                 HTTP_HEADER_COOKIE, COOKIE_VALUE_1);
+        assertThat(mHttpRequestCaptor.getAllValues().get(0).timeoutInSec())
+                .isEqualTo(CarrierConfig.DEFAULT_TIMEOUT_IN_SEC);
+        assertThat(mHttpRequestCaptor.getAllValues().get(0).network()).isNull();
+        assertThat(mHttpRequestCaptor.getAllValues().get(1).timeoutInSec())
+                .isEqualTo(CarrierConfig.DEFAULT_TIMEOUT_IN_SEC);
+        assertThat(mHttpRequestCaptor.getAllValues().get(1).network()).isNull();
+        assertThat(mHttpRequestCaptor.getAllValues().get(2).timeoutInSec())
+                .isEqualTo(CarrierConfig.DEFAULT_TIMEOUT_IN_SEC);
+        assertThat(mHttpRequestCaptor.getAllValues().get(2).network()).isNull();
+        assertThat(mHttpRequestCaptor.getAllValues().get(3).timeoutInSec())
+                .isEqualTo(CarrierConfig.DEFAULT_TIMEOUT_IN_SEC);
+        assertThat(mHttpRequestCaptor.getAllValues().get(3).network()).isNull();
+    }
+
+    @Test
+    public void queryEntitlementStatus_noAuthenticationToken_fourthChallenge_throwException()
+            throws Exception {
+        when(mMockTelephonyManagerForSubId.getIccAuthentication(
+                        TelephonyManager.APPTYPE_USIM,
+                        TelephonyManager.AUTHTYPE_EAP_AKA,
+                        EAP_AKA_SECURITY_CONTEXT_REQUEST_EXPECTED))
+                .thenReturn(EAP_AKA_SECURITY_CONTEXT_RESPONSE_SUCCESS);
+        HttpResponse eapChallengeResponse =
+                HttpResponse.builder()
+                        .setContentType(ContentType.JSON)
+                        .setBody(EAP_AKA_CHALLENGE)
+                        .setCookies(ImmutableList.of(COOKIE_VALUE, COOKIE_VALUE_1))
+                        .build();
+        when(mMockHttpClient.request(any()))
+                .thenReturn(eapChallengeResponse)
+                .thenReturn(eapChallengeResponse)
+                .thenReturn(eapChallengeResponse)
+                .thenReturn(eapChallengeResponse);
+        CarrierConfig carrierConfig = CarrierConfig.builder().setServerUrl(TEST_URL).build();
+        ServiceEntitlementRequest request = ServiceEntitlementRequest.builder().build();
+
+        ServiceEntitlementException exception =
+                expectThrows(
+                        ServiceEntitlementException.class,
+                        () ->
+                                mEapAkaApi.queryEntitlementStatus(
+                                        ImmutableList.of(ServiceEntitlement.APP_VOWIFI),
+                                        carrierConfig,
+                                        request));
+
+        assertThat(exception.getErrorCode())
+                .isEqualTo(ServiceEntitlementException.ERROR_EAP_AKA_FAILURE);
+        assertThat(exception.getMessage()).isEqualTo("Unable to EAP-AKA authenticate");
+        assertThat(exception.getCause()).isNull();
+        assertThat(exception.getHttpStatus()).isEqualTo(0);
+        assertThat(exception.getRetryAfter()).isEmpty();
     }
 
     @Test
@@ -258,6 +439,131 @@ public class EapAkaApiTest {
                 .containsEntry(HTTP_HEADER_COOKIE, COOKIE_VALUE);
         assertThat(mHttpRequestCaptor.getAllValues().get(2).requestProperties())
                 .containsEntry(HTTP_HEADER_COOKIE, COOKIE_VALUE);
+    }
+
+    @Test
+    public void queryEntitlementStatus_noAuthenticationToken_eapAkaSyncFailure_invalidChallenge()
+            throws Exception {
+        when(mMockTelephonyManagerForSubId.getIccAuthentication(
+                TelephonyManager.APPTYPE_USIM,
+                TelephonyManager.AUTHTYPE_EAP_AKA,
+                EAP_AKA_SECURITY_CONTEXT_REQUEST_EXPECTED))
+                .thenReturn(EAP_AKA_SECURITY_CONTEXT_RESPONSE_SYNC_FAILURE);
+        HttpResponse eapChallengeResponse =
+                HttpResponse
+                        .builder().setContentType(ContentType.JSON).setBody(EAP_AKA_CHALLENGE)
+                        .setCookies(ImmutableList.of(COOKIE_VALUE)).build();
+        HttpResponse invalidEapChallengeResponse =
+                HttpResponse.builder()
+                        .setContentType(ContentType.JSON)
+                        .setBody(INVALID_EAP_AKA_CHALLENGE)
+                        .setCookies(ImmutableList.of(COOKIE_VALUE))
+                        .build();
+        when(mMockHttpClient.request(any()))
+                .thenReturn(eapChallengeResponse)
+                .thenReturn(invalidEapChallengeResponse);
+        CarrierConfig carrierConfig = CarrierConfig.builder().setServerUrl(TEST_URL).build();
+        ServiceEntitlementRequest request = ServiceEntitlementRequest.builder().build();
+
+        ServiceEntitlementException exception =
+                expectThrows(
+                        ServiceEntitlementException.class,
+                        () ->
+                                mEapAkaApi.queryEntitlementStatus(
+                                        ImmutableList.of(ServiceEntitlement.APP_VOWIFI),
+                                        carrierConfig,
+                                        request));
+
+        assertThat(exception.getErrorCode())
+                .isEqualTo(ServiceEntitlementException.ERROR_MALFORMED_HTTP_RESPONSE);
+        assertThat(exception.getMessage())
+                .isEqualTo("Failed to parse EAP-AKA challenge: " + INVALID_EAP_AKA_CHALLENGE);
+        assertThat(exception.getCause()).isNull();
+        assertThat(exception.getHttpStatus()).isEqualTo(0);
+        assertThat(exception.getRetryAfter()).isEmpty();
+    }
+
+    @Test
+    public void queryEntitlementStatus_noAuthenticationToken_fourthEapAkaSyncFailure()
+            throws Exception {
+        when(mMockTelephonyManagerForSubId.getIccAuthentication(
+                TelephonyManager.APPTYPE_USIM,
+                TelephonyManager.AUTHTYPE_EAP_AKA,
+                EAP_AKA_SECURITY_CONTEXT_REQUEST_EXPECTED))
+                .thenReturn(EAP_AKA_SECURITY_CONTEXT_RESPONSE_SYNC_FAILURE)
+                .thenReturn(EAP_AKA_SECURITY_CONTEXT_RESPONSE_SYNC_FAILURE)
+                .thenReturn(EAP_AKA_SECURITY_CONTEXT_RESPONSE_SYNC_FAILURE)
+                .thenReturn(EAP_AKA_SECURITY_CONTEXT_RESPONSE_SYNC_FAILURE);
+        HttpResponse eapChallengeResponse =
+                HttpResponse
+                        .builder().setContentType(ContentType.JSON).setBody(EAP_AKA_CHALLENGE)
+                        .setCookies(ImmutableList.of(COOKIE_VALUE)).build();
+        when(mMockHttpClient.request(any()))
+                .thenReturn(eapChallengeResponse)
+                .thenReturn(eapChallengeResponse)
+                .thenReturn(eapChallengeResponse)
+                .thenReturn(eapChallengeResponse);
+        CarrierConfig carrierConfig = CarrierConfig.builder().setServerUrl(TEST_URL).build();
+        ServiceEntitlementRequest request = ServiceEntitlementRequest.builder().build();
+
+        ServiceEntitlementException exception =
+                expectThrows(
+                        ServiceEntitlementException.class,
+                        () ->
+                                mEapAkaApi.queryEntitlementStatus(
+                                        ImmutableList.of(ServiceEntitlement.APP_VOWIFI),
+                                        carrierConfig,
+                                        request));
+
+        assertThat(exception.getErrorCode())
+                .isEqualTo(ServiceEntitlementException.ERROR_EAP_AKA_SYNCHRONIZATION_FAILURE);
+        assertThat(exception.getMessage())
+                .isEqualTo("Unable to recover from EAP-AKA synchroinization failure");
+        assertThat(exception.getCause()).isNull();
+        assertThat(exception.getHttpStatus()).isEqualTo(0);
+        assertThat(exception.getRetryAfter()).isEmpty();
+    }
+
+    @Test
+    public void queryEntitlementStatus_hasNoAuthenticationToken_bypassAuthentication()
+            throws Exception {
+        HttpResponse eapChallengeResponse =
+                HttpResponse
+                        .builder().setContentType(ContentType.JSON).setBody(EAP_AKA_CHALLENGE)
+                        .setCookies(ImmutableList.of(COOKIE_VALUE, COOKIE_VALUE_1)).build();
+        HttpResponse xmlResponse =
+                HttpResponse.builder().setContentType(ContentType.XML).setBody(RESPONSE_XML)
+                        .build();
+        when(mMockHttpClient.request(any()))
+                .thenReturn(eapChallengeResponse).thenReturn(xmlResponse);
+        CarrierConfig carrierConfig = CarrierConfig.builder().setServerUrl(TEST_URL).build();
+        ServiceEntitlementRequest request = ServiceEntitlementRequest.builder().build();
+
+        String respopnse =
+                mEapAkaApiBypassAuthentication.queryEntitlementStatus(
+                        ImmutableList.of(ServiceEntitlement.APP_VOWIFI), carrierConfig, request);
+
+        assertThat(respopnse).isEqualTo(RESPONSE_XML);
+        // Verify that the 2nd request has cookies set by the 1st response
+        verify(mMockHttpClient, times(2)).request(mHttpRequestCaptor.capture());
+        assertThat(mHttpRequestCaptor.getAllValues().get(1).requestProperties())
+                .containsAtLeast(HTTP_HEADER_COOKIE, COOKIE_VALUE,
+                                 HTTP_HEADER_COOKIE, COOKIE_VALUE_1);
+        assertThat(mHttpRequestCaptor.getAllValues().get(0).timeoutInSec())
+                .isEqualTo(CarrierConfig.DEFAULT_TIMEOUT_IN_SEC);
+        assertThat(mHttpRequestCaptor.getAllValues().get(0).network()).isNull();
+        assertThat(mHttpRequestCaptor.getAllValues().get(1).timeoutInSec())
+                .isEqualTo(CarrierConfig.DEFAULT_TIMEOUT_IN_SEC);
+        assertThat(mHttpRequestCaptor.getAllValues().get(1).network()).isNull();
+        verify(mMockTelephonyManagerForSubId, times(0))
+                .getIccAuthentication(anyInt(), anyInt(), any());
+        assertThat(
+                        mHttpRequestCaptor
+                                .getAllValues()
+                                .get(1)
+                                .postData()
+                                .get(EapAkaApi.EAP_CHALLENGE_RESPONSE))
+                .isEqualTo(BYPASS_EAP_AKA_RESPONSE);
     }
 
     @Test
@@ -350,5 +656,49 @@ public class EapAkaApiTest {
 
         assertThat(response).isEqualTo(RESPONSE_XML);
         verify(mMockHttpClient, times(1)).request(any());
+    }
+
+    @Test
+    public void performEsimOdsaOperation_noAuthenticationToken_invalidChallenge() throws Exception {
+        when(mMockTelephonyManagerForSubId.getIccAuthentication(
+                        TelephonyManager.APPTYPE_USIM,
+                        TelephonyManager.AUTHTYPE_EAP_AKA,
+                        EAP_AKA_SECURITY_CONTEXT_REQUEST_EXPECTED))
+                .thenReturn(EAP_AKA_SECURITY_CONTEXT_RESPONSE_SUCCESS);
+        HttpResponse eapChallengeResponse =
+                HttpResponse.builder()
+                        .setContentType(ContentType.JSON)
+                        .setBody(INVALID_EAP_AKA_CHALLENGE)
+                        .setCookies(ImmutableList.of(COOKIE_VALUE))
+                        .build();
+        HttpResponse xmlResponse =
+                HttpResponse.builder()
+                        .setContentType(ContentType.XML)
+                        .setBody(RESPONSE_XML)
+                        .build();
+        when(mMockHttpClient.request(any()))
+                .thenReturn(eapChallengeResponse)
+                .thenReturn(xmlResponse);
+        CarrierConfig carrierConfig = CarrierConfig.builder().setServerUrl(TEST_URL).build();
+        ServiceEntitlementRequest request = ServiceEntitlementRequest.builder().build();
+        EsimOdsaOperation operation = EsimOdsaOperation.builder().build();
+
+        ServiceEntitlementException exception =
+                expectThrows(
+                        ServiceEntitlementException.class,
+                        () ->
+                                mEapAkaApi.performEsimOdsaOperation(
+                                        ServiceEntitlement.APP_ODSA_COMPANION,
+                                        carrierConfig,
+                                        request,
+                                        operation));
+
+        assertThat(exception.getErrorCode())
+                .isEqualTo(ServiceEntitlementException.ERROR_MALFORMED_HTTP_RESPONSE);
+        assertThat(exception.getMessage())
+                .isEqualTo("Failed to parse EAP-AKA challenge: " + INVALID_EAP_AKA_CHALLENGE);
+        assertThat(exception.getCause()).isNull();
+        assertThat(exception.getHttpStatus()).isEqualTo(0);
+        assertThat(exception.getRetryAfter()).isEmpty();
     }
 }

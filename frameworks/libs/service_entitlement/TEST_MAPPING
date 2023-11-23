@@ -3,10 +3,5 @@
     {
       "name": "service-entitlement-tests"
     }
-  ],
-  "postsubmit": [
-    {
-      "name": "service-entitlement-tests"
-    }
   ]
 }

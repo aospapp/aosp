@@ -17,13 +17,19 @@
 # Must execute at the root of workspace.
 # https://docs.bazel.build/versions/main/command-line-reference.html#flag--workspace_status_command
 
+# Common script utilities
+source $(cd $(dirname $BASH_SOURCE) &> /dev/null && pwd)/../../make/shell_utils.sh
+require_top
+
+
 if [[ ! -f "WORKSPACE" ]]; then
     echo "ERROR: gen_build_number.sh must be executed at the root of Bazel workspace." >&2
     exit 1
 fi
 
+
 # TODO(b/228463719): figure out how to get the path properly.
-BUILD_NUMBER_FILE=out/soong/build_number.txt
+BUILD_NUMBER_FILE=$(getoutdir)/soong/build_number.txt
 if [[ -f ${BUILD_NUMBER_FILE} ]]; then
     BUILD_NUMBER=$(cat ${BUILD_NUMBER_FILE})
 else

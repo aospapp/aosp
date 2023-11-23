@@ -53,18 +53,24 @@ static void
 vkr_dispatch_vkGetPipelineCacheData(UNUSED struct vn_dispatch_context *dispatch,
                                     struct vn_command_vkGetPipelineCacheData *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkGetPipelineCacheData_args_handle(args);
-   args->ret = vkGetPipelineCacheData(args->device, args->pipelineCache, args->pDataSize,
-                                      args->pData);
+   args->ret = vk->GetPipelineCacheData(args->device, args->pipelineCache,
+                                        args->pDataSize, args->pData);
 }
 
 static void
 vkr_dispatch_vkMergePipelineCaches(UNUSED struct vn_dispatch_context *dispatch,
                                    struct vn_command_vkMergePipelineCaches *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkMergePipelineCaches_args_handle(args);
-   args->ret = vkMergePipelineCaches(args->device, args->dstCache, args->srcCacheCount,
-                                     args->pSrcCaches);
+   args->ret = vk->MergePipelineCaches(args->device, args->dstCache, args->srcCacheCount,
+                                       args->pSrcCaches);
 }
 
 static void
@@ -75,10 +81,10 @@ vkr_dispatch_vkCreateGraphicsPipelines(struct vn_dispatch_context *dispatch,
    struct vkr_device *dev = vkr_device_from_handle(args->device);
    struct object_array arr;
 
-   if (vkr_graphics_pipeline_create_array(ctx, args, &arr) != VK_SUCCESS)
+   if (vkr_graphics_pipeline_create_array(ctx, args, &arr) < VK_SUCCESS)
       return;
 
-   vkr_pipeline_add_array(ctx, dev, &arr);
+   vkr_pipeline_add_array(ctx, dev, &arr, args->pPipelines);
 }
 
 static void
@@ -89,10 +95,10 @@ vkr_dispatch_vkCreateComputePipelines(struct vn_dispatch_context *dispatch,
    struct vkr_device *dev = vkr_device_from_handle(args->device);
    struct object_array arr;
 
-   if (vkr_compute_pipeline_create_array(ctx, args, &arr) != VK_SUCCESS)
+   if (vkr_compute_pipeline_create_array(ctx, args, &arr) < VK_SUCCESS)
       return;
 
-   vkr_pipeline_add_array(ctx, dev, &arr);
+   vkr_pipeline_add_array(ctx, dev, &arr, args->pPipelines);
 }
 
 static void

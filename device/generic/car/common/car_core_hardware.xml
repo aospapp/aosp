@@ -49,7 +49,6 @@
     <feature name="android.software.home_screen" />
     <feature name="android.software.companion_device_setup" />
     <feature name="android.software.cant_save_state" />
-    <feature name="android.software.midi" />
     <feature name="android.software.secure_lock_screen" />
 
     <!-- devices with GPS must include android.hardware.location.gps.xml -->

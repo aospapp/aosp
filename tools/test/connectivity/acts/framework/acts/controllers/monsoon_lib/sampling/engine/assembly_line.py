@@ -316,15 +316,12 @@ class DevNullBufferStream(BufferStream):
 
     def initialize(self):
         """Does nothing. Nothing to initialize."""
-        pass
 
     def end_stream(self):
         """Does nothing. The stream always returns end-of-stream when read."""
-        pass
 
     def add_indexed_buffer(self, buffer):
         """Imitating /dev/null, nothing will be written to the stream."""
-        pass
 
     def remove_indexed_buffer(self):
         """Always returns the end-of-stream marker."""

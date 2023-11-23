@@ -27,7 +27,7 @@
     <string name="title_open" msgid="3165686459158020921">"Hap nga"</string>
     <string name="title_save" msgid="4384490653102710025">"Ruaje te"</string>
     <string name="menu_create_dir" msgid="2413624798689091042">"Dosje e re"</string>
-    <string name="menu_grid" msgid="1453636521731880680">"Pamje rrjete"</string>
+    <string name="menu_grid" msgid="1453636521731880680">"Pamje rrjetë"</string>
     <string name="menu_list" msgid="6714267452146410402">"Pamje liste"</string>
     <string name="menu_search" msgid="1876699106790719849">"Kërko"</string>
     <string name="menu_settings" msgid="6520844520117939047">"Cilësimet e hapësirës ruajtëse"</string>
@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"Ruajtja e dokumentit dështoi"</string>
     <string name="create_error" msgid="3092144450044861994">"Krijimi i dosjes dështoi"</string>
     <string name="query_error" msgid="6625421453613879336">"Përmbajtja nuk mund të ngarkohet për momentin"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Profili i punës është në pauzë"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Aktivizo"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"Aplikacionet e punës janë vendosur në pauzë"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"Aktivizo aplikacionet e punës"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Nuk mund të zgjedhësh skedarë pune"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Administratori i teknologjisë së informacionit nuk të lejon të kesh qasje te skedarët e punës nga një aplikacion personal"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Nuk mund të zgjedhësh skedarë personalë"</string>

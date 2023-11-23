@@ -23,16 +23,20 @@
  *
  ******************************************************************************/
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/location.h>
 #include <base/logging.h>
 
 #include "bt_target.h"  // Legacy stack config
 #include "bt_trace.h"   // Legacy trace logging
-
 #include "bta/ag/bta_ag_int.h"
 #include "btif/include/btif_config.h"
+#include "common/init_flags.h"
+#include "device/include/interop.h"
+#include "device/include/interop_config.h"
+#include "os/log.h"
 #include "osi/include/allocator.h"
+#include "stack/btm/btm_sco_hfp_hal.h"
 #include "stack/include/btm_api.h"
 #include "stack/include/btu.h"  // do_in_main_thread
 #include "stack/include/port_api.h"
@@ -135,9 +139,11 @@ bool bta_ag_add_record(uint16_t service_uuid, const char* p_service_name,
   uint8_t network;
   bool result = true;
   bool codec_supported = false;
+  bool swb_supported = false;
   uint8_t buf[2];
 
   APPL_TRACE_DEBUG("%s uuid: %x", __func__, service_uuid);
+  LOG_INFO("features: %d", features);
 
   for (auto& proto_element : proto_elem_list) {
     proto_element = {};
@@ -161,7 +167,11 @@ bool bta_ag_add_record(uint16_t service_uuid, const char* p_service_name,
   /* add profile descriptor list */
   if (service_uuid == UUID_SERVCLASS_AG_HANDSFREE) {
     profile_uuid = UUID_SERVCLASS_HF_HANDSFREE;
-    version = BTA_HFP_VERSION;
+    if (bluetooth::common::init_flags::hfp_dynamic_version_is_enabled()) {
+      version = HFP_VERSION_1_6;
+    } else {
+      version = get_default_hfp_version();
+    }
   } else {
     profile_uuid = UUID_SERVCLASS_HEADSET;
     version = HSP_VERSION_1_2;
@@ -181,12 +191,19 @@ bool bta_ag_add_record(uint16_t service_uuid, const char* p_service_name,
     result &= SDP_AddAttribute(sdp_handle, ATTR_ID_DATA_STORES_OR_NETWORK,
                                UINT_DESC_TYPE, 1, &network);
 
+    // check property for SWB support
+    if (hfp_hal_interface::get_swb_supported()) {
+      features |= BTA_AG_FEAT_SWB;
+    }
+
     if (features & BTA_AG_FEAT_CODEC) codec_supported = true;
+    if (features & BTA_AG_FEAT_SWB) swb_supported = true;
 
     features &= BTA_AG_SDP_FEAT_SPEC;
 
     /* Codec bit position is different in SDP and in BRSF */
-    if (codec_supported) features |= 0x0020;
+    if (codec_supported) features |= BTA_AG_FEAT_WBS_SUPPORT;
+    if (swb_supported) features |= BTA_AG_FEAT_SWB_SUPPORT;
 
     UINT16_TO_BE_FIELD(buf, features);
     result &= SDP_AddAttribute(sdp_handle, ATTR_ID_SUPPORTED_FEATURES,
@@ -271,7 +288,6 @@ void bta_ag_del_records(tBTA_AG_SCB* p_scb) {
         bta_ag_cb.profile[i].sdp_handle = 0;
       }
       BTM_FreeSCN(bta_ag_cb.profile[i].scn);
-      RFCOMM_ClearSecurityRecord(bta_ag_cb.profile[i].scn);
       bta_sys_remove_uuid(bta_ag_uuid[i]);
     }
   }
@@ -350,10 +366,10 @@ bool bta_ag_sdp_find_attr(tBTA_AG_SCB* p_scb, tBTA_SERVICE_MASK service) {
         if (btif_config_set_bin(
                 p_scb->peer_addr.ToString(), HFP_VERSION_CONFIG_KEY,
                 (const uint8_t*)&peer_version, sizeof(peer_version))) {
-          btif_config_save();
         } else {
           APPL_TRACE_WARNING("%s: Failed to store peer HFP version for %s",
-                             __func__, p_scb->peer_addr.ToString().c_str());
+                             __func__,
+                             ADDRESS_TO_LOGGABLE_CSTR(p_scb->peer_addr));
         }
       }
       /* get features if HFP */
@@ -370,7 +386,7 @@ bool bta_ag_sdp_find_attr(tBTA_AG_SCB* p_scb, tBTA_SERVICE_MASK service) {
           // 2. But do not send required AT+BAC command
           // Will assume mSBC is enabled and try codec negotiation by default
           p_scb->codec_updated = true;
-          p_scb->peer_codecs = BTM_SCO_CODEC_CVSD & BTM_SCO_CODEC_MSBC;
+          p_scb->peer_codecs = BTM_SCO_CODEC_CVSD | BTM_SCO_CODEC_MSBC;
           p_scb->sco_codec = UUID_CODEC_MSBC;
         }
         if (sdp_features != p_scb->peer_sdp_features) {
@@ -378,15 +394,21 @@ bool bta_ag_sdp_find_attr(tBTA_AG_SCB* p_scb, tBTA_SERVICE_MASK service) {
           if (btif_config_set_bin(
                   p_scb->peer_addr.ToString(), HFP_SDP_FEATURES_CONFIG_KEY,
                   (const uint8_t*)&sdp_features, sizeof(sdp_features))) {
-            btif_config_save();
           } else {
             APPL_TRACE_WARNING(
                 "%s: Failed to store peer HFP SDP Features for %s", __func__,
-                p_scb->peer_addr.ToString().c_str());
+                ADDRESS_TO_LOGGABLE_CSTR(p_scb->peer_addr));
           }
         }
         if (p_scb->peer_features == 0) {
           p_scb->peer_features = sdp_features & HFP_SDP_BRSF_FEATURES_MASK;
+        }
+        /* Remote supports 1.7, store it in HFP 1.7 BL file */
+        if (bluetooth::common::init_flags::hfp_dynamic_version_is_enabled()) {
+          if (p_scb->peer_version == HFP_VERSION_1_7) {
+            interop_database_add_addr(INTEROP_HFP_1_7_ALLOWLIST,
+                                      &p_scb->peer_addr, 3);
+          }
         }
       }
     } else {
@@ -477,7 +499,6 @@ void bta_ag_do_disc(tBTA_AG_SCB* p_scb, tBTA_SERVICE_MASK service) {
   }
 
   if (p_scb->p_disc_db != nullptr) {
-    android_errorWriteLog(0x534e4554, "174052148");
     LOG_ERROR("Discovery already in progress... returning.");
     return;
   }

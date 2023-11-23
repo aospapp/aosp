@@ -30,6 +30,7 @@ import android.util.Log;
 import com.google.android.chre.nanoapp.proto.ChreAudioConcurrencyTest;
 import com.google.android.chre.nanoapp.proto.ChreTestCommon;
 import com.google.android.utils.chre.ChreTestUtil;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import org.junit.Assert;
@@ -68,6 +69,12 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
 
     private final AtomicReference<ChreTestCommon.TestResult> mTestResult = new AtomicReference<>();
 
+    // Options for updating test results
+    private enum UpdateOption {
+        ALWAYS,
+        SKIP_IF_EXISTS
+    }
+
     public ContextHubAudioConcurrencyTestExecutor(
             ContextHubManager manager, ContextHubInfo info, NanoAppBinary binary) {
         mContextHubManager = manager;
@@ -76,20 +83,18 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
         mNanoAppId = mNanoAppBinary.getNanoAppId();
 
         mContextHubClient = mContextHubManager.createClient(mContextHubInfo, this);
-        Assert.assertTrue(mContextHubClient != null);
     }
 
     @Override
     public void onMessageFromNanoApp(ContextHubClient client, NanoAppMessage message) {
         if (message.getNanoAppId() == mNanoAppId) {
             boolean valid = true;
+            ChreTestCommon.TestResult result = null;
             switch (message.getMessageType()) {
                 case ChreAudioConcurrencyTest.MessageType.TEST_RESULT_VALUE: {
                     try {
-                        mTestResult.set(
-                                ChreTestCommon.TestResult.parseFrom(message.getMessageBody()));
-                        Log.d(TAG, "Got test result message with code: "
-                                + mTestResult.get().getCode());
+                        result = ChreTestCommon.TestResult.parseFrom(message.getMessageBody());
+                        Log.d(TAG, "Got test result message with code: " + result.getCode());
                     } catch (InvalidProtocolBufferException e) {
                         Log.e(TAG, "Failed to parse message: " + e.getMessage());
                     }
@@ -106,15 +111,18 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
                 }
             }
 
-            if (valid && mCountDownLatch != null) {
-                mCountDownLatch.countDown();
+            if (valid) {
+                updateTestResult(result, UpdateOption.SKIP_IF_EXISTS);
             }
         }
     }
 
     @Override
     public void onHubReset(ContextHubClient client) {
-        // TODO: Handle Reset
+        updateTestResult(ChreTestCommon.TestResult.newBuilder()
+                .setCode(ChreTestCommon.TestResult.Code.FAILED)
+                .setErrorMessage(ByteString.copyFromUtf8("Hub Reset"))
+                .build(), UpdateOption.ALWAYS);
     }
 
     /**
@@ -208,6 +216,19 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
         int result = mContextHubClient.sendMessageToNanoApp(message);
         if (result != ContextHubTransaction.RESULT_SUCCESS) {
             Assert.fail("Failed to send message: result = " + result);
+        }
+    }
+
+    /**
+     * Set test result and update count
+     */
+    private void updateTestResult(ChreTestCommon.TestResult result, UpdateOption option) {
+        if (result != null && (mTestResult.get() == null || option == UpdateOption.ALWAYS)) {
+            mTestResult.set(result);
+        }
+
+        if (mCountDownLatch != null) {
+            mCountDownLatch.countDown();
         }
     }
 }

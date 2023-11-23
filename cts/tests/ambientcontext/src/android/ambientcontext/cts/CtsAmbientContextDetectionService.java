@@ -29,7 +29,7 @@ import java.util.function.Consumer;
 
 
 public class CtsAmbientContextDetectionService extends AmbientContextDetectionService {
-    private static final String TAG = "CtsTestAmbientContextEventProviderService";
+    private static final String TAG = "CtsAmbientContextDetectionService";
     private static final String FAKE_APP_PACKAGE = "foo.bar.baz";
 
     private static Consumer<AmbientContextDetectionResult> sResultConsumer;
@@ -47,6 +47,8 @@ public class CtsAmbientContextDetectionService extends AmbientContextDetectionSe
 
     @Override
     public void onStopDetection(String packageName) {
+        reset();
+        sRespondLatch.countDown();
     }
 
     @Override
@@ -57,9 +59,9 @@ public class CtsAmbientContextDetectionService extends AmbientContextDetectionSe
     }
 
     public static void reset() {
+        Log.d(TAG, "reset");
         sResultConsumer = null;
         sQueryConsumer = null;
-        sRespondLatch = new CountDownLatch(1);
     }
 
     public static void respondSuccess(AmbientContextEvent event) {
@@ -77,7 +79,6 @@ public class CtsAmbientContextDetectionService extends AmbientContextDetectionSe
                             .build();
             sQueryConsumer.accept(serviceStatus);
         }
-        reset();
     }
 
     public static void respondFailure(int status) {
@@ -88,7 +89,6 @@ public class CtsAmbientContextDetectionService extends AmbientContextDetectionSe
                             .build();
             sQueryConsumer.accept(serviceStatus);
         }
-        reset();
     }
 
     public static boolean hasPendingRequest() {

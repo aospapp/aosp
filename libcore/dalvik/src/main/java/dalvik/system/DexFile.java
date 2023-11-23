@@ -19,8 +19,18 @@ package dalvik.system;
 import static android.annotation.SystemApi.Client.MODULE_LIBRARIES;
 
 import android.annotation.SystemApi;
+import android.annotation.TestApi;
+import android.compat.annotation.ChangeId;
+import android.compat.annotation.EnabledAfter;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.system.ErrnoException;
+
+import dalvik.annotation.compat.VersionCodes;
+import dalvik.annotation.optimization.ReachabilitySensitive;
+
+import libcore.io.Libcore;
+import libcore.util.NonNull;
+import libcore.util.Nullable;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -29,23 +39,15 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
-import libcore.io.Libcore;
-import libcore.util.NonNull;
-import libcore.util.Nullable;
-
-import dalvik.annotation.optimization.ReachabilitySensitive;
 
 /**
- * Loads DEX files. This class is meant for internal use and should not be used
- * by applications.
+ * Loads DEX files. This class is meant for internal use and should not be used by applications.
  *
- * @deprecated This class should not be used directly by applications. It will hurt
- *     performance in most cases and will lead to incorrect execution of bytecode in
- *     the worst case. Applications should use one of the standard classloaders such
- *     as {@link dalvik.system.PathClassLoader} instead. <b>This API will be removed
- *     in a future Android release</b>.
+ * Applications should not instantiate this class. It will hurt performance in most cases and will
+ * lead to incorrect execution of bytecode in the worst case. Applications should use one of the
+ * standard classloaders such as {@link dalvik.system.PathClassLoader} instead. <b>Non-static APIs
+ * will be removed in a future Android release</b>.
  */
-@Deprecated
 public final class DexFile {
   /**
    * If close is called, mCookie becomes null but the internal cookie is preserved if the close
@@ -59,6 +61,19 @@ public final class DexFile {
     private Object mInternalCookie;
     @UnsupportedAppUsage
     private final String mFileName;
+
+    /**
+     * Enforce the file passed to open DexFile to be set as read-only for apps targeting U+. This
+     * is to prevent files to be dynamically loaded being unexpectedly overwritten by
+     * malicious actors.
+     *
+     * @hide
+     */
+    // TODO (topjohnwu@): change to @EnabledSince with U API version
+    @TestApi
+    @ChangeId
+    @EnabledAfter(targetSdkVersion = VersionCodes.TIRAMISU)
+    public static final long ENFORCE_READ_ONLY_JAVA_DCL = 218865702;
 
     /**
      * Opens a DEX file from a given File object.
@@ -220,7 +235,12 @@ public final class DexFile {
      * Gets the name of the (already opened) DEX file.
      *
      * @return the file name
+     *
+     * @deprecated Applications should use one of the standard classloaders such
+     *     as {@link dalvik.system.PathClassLoader} instead. <b>This API will be removed
+     *     in a future Android release</b>.
      */
+    @Deprecated
     public String getName() {
         return mFileName;
     }
@@ -243,7 +263,12 @@ public final class DexFile {
      * @throws IOException
      *             if an I/O error occurs during closing the file, which
      *             normally should not happen
+     *
+     * @deprecated Applications should use one of the standard classloaders such
+     *     as {@link dalvik.system.PathClassLoader} instead. <b>This API will be removed
+     *     in a future Android release</b>.
      */
+    @Deprecated
     public void close() throws IOException {
         if (mInternalCookie != null) {
             if (closeDexFile(mInternalCookie)) {
@@ -273,7 +298,12 @@ public final class DexFile {
      *
      * @return the {@link Class} object representing the class, or {@code null}
      *         if the class cannot be loaded
+     *
+     * @deprecated Applications should use one of the standard classloaders such
+     *     as {@link dalvik.system.PathClassLoader} instead. <b>This API will be removed
+     *     in a future Android release</b>.
      */
+    @Deprecated
     public Class loadClass(String name, ClassLoader loader) {
         String slashName = name.replace('.', '/');
         return loadClassBinaryName(slashName, loader, null);
@@ -313,7 +343,12 @@ public final class DexFile {
      *
      * @return an enumeration of names of classes contained in the DEX file, in
      *         the usual internal form (like "java/lang/String").
+     *
+     * @deprecated Applications should use one of the standard classloaders such
+     *     as {@link dalvik.system.PathClassLoader} instead. <b>This API will be removed
+     *     in a future Android release</b>.
      */
+    @Deprecated
     public Enumeration<String> entries() {
         return new DFEnum(this);
     }
@@ -453,7 +488,10 @@ public final class DexFile {
      * @throws java.io.IOException if fileName is not a valid apk/jar file or
      *         if problems occur while parsing it.
      * @throws java.lang.NullPointerException if fileName is null.
+     *
+     * @deprecated Use {@code Artd.getDexoptNeeded} instead.
      */
+    @Deprecated
     public static native boolean isDexOptNeeded(String fileName)
             throws FileNotFoundException, IOException;
 
@@ -465,6 +503,7 @@ public final class DexFile {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
+    @Deprecated
     public static final int NO_DEXOPT_NEEDED = 0;
 
     /**
@@ -474,6 +513,7 @@ public final class DexFile {
      *
      * @hide
      */
+    @Deprecated
     public static final int DEX2OAT_FROM_SCRATCH = 1;
 
     /**
@@ -484,6 +524,7 @@ public final class DexFile {
      *
      * @hide
      */
+    @Deprecated
     public static final int DEX2OAT_FOR_BOOT_IMAGE = 2;
 
     /**
@@ -495,6 +536,7 @@ public final class DexFile {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
+    @Deprecated
     public static final int DEX2OAT_FOR_FILTER = 3;
 
 
@@ -538,10 +580,12 @@ public final class DexFile {
      * @throws java.io.IOException if fileName is not a valid apk/jar file or
      *         if problems occur while parsing it.
      * @throws java.lang.NullPointerException if {@code fileName} is {@code null}.
+     * @deprecated Use {@code Artd.getDexoptNeeded} instead.
      *
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
+    @Deprecated
     public static native int getDexOptNeeded(@NonNull String fileName,
             @NonNull String instructionSet, @NonNull String compilerFilter, @Nullable String classLoaderContext,
             boolean newProfile, boolean downgrade)
@@ -563,10 +607,7 @@ public final class DexFile {
      *
      * Note that the info is only meant for debugging and is not guaranteed to be
      * stable across releases and/or devices.
-     *
-     * @hide
      */
-    @SystemApi(client = MODULE_LIBRARIES)
     public static final class OptimizationInfo {
         // The human readable refined optimization status of the validity of the odex file.
         private final String status;
@@ -602,6 +643,28 @@ public final class DexFile {
         public @NonNull String getReason() {
             return reason;
         }
+
+        /**
+         * Returns whether the dex file is verified.
+         */
+        public boolean isVerified() {
+            return isVerifiedCompilerFilter(status);
+        }
+
+        /**
+         * Returns whether the dex file is in an optimal state. Currently, this means the dex file
+         * is either ahead-of-time compiled with a profile or fully ahead-of-time compiled.
+         */
+        public boolean isOptimized() {
+            return isOptimizedCompilerFilter(status);
+        }
+
+        /**
+         * Returns whether the dex file is fully ahead-of-time compiled.
+         */
+        public boolean isFullyCompiled() {
+            return isOptimizedCompilerFilter(status) && !isProfileGuidedCompilerFilter(status);
+        }
     }
 
     /**
@@ -611,10 +674,13 @@ public final class DexFile {
      * @param instructionSet instruction set to get optimization info for
      * @return {@link OptimizationInfo} for {@code fileName} dex file
      * @throws FileNotFoundException if {@code fileName} not found
+     * @deprecated Applications should use {@link VMRuntime#getCurrentOptimizationStatus()}.
+     *         System server should use {@code ArtManagerLocal.getOptimizationStatus}.
      *
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
+    @Deprecated
     public static @NonNull OptimizationInfo getDexFileOptimizationInfo(
             @NonNull String fileName, @NonNull String instructionSet) throws FileNotFoundException {
         String[] status = getDexFileOptimizationStatus(fileName, instructionSet);
@@ -672,6 +738,31 @@ public final class DexFile {
      */
     @SystemApi(client = MODULE_LIBRARIES)
     public native static boolean isProfileGuidedCompilerFilter(@NonNull String filter);
+
+    /**
+     * Returns whether the given filter includes verification.
+     *
+     * @hide
+     */
+    @SystemApi(client = MODULE_LIBRARIES)
+    public native static boolean isVerifiedCompilerFilter(@NonNull String filter);
+
+    /**
+     * Returns whether the given filter includes AOT compilation.
+     *
+     * @hide
+     */
+    @SystemApi(client = MODULE_LIBRARIES)
+    public native static boolean isOptimizedCompilerFilter(@NonNull String filter);
+
+    /**
+     * Returns whether JAR/DEX files' read-only status is enforced.
+     *
+     * @see #ENFORCE_READ_ONLY_JAVA_DCL
+     * @hide
+     */
+    @TestApi
+    public static native boolean isReadOnlyJavaDclEnforced();
 
     /**
      * Returns the version of the compiler filter that is not based on profiles.

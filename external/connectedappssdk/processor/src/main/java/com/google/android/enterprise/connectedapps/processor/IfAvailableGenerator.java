@@ -15,6 +15,8 @@
  */
 package com.google.android.enterprise.connectedapps.processor;
 
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.append;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.transformClassName;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.IF_AVAILABLE_FUTURE_RESULT_WRITER;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.UNAVAILABLE_PROFILE_EXCEPTION_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.GeneratorUtilities.generateMethodReference;
@@ -22,6 +24,7 @@ import static com.google.android.enterprise.connectedapps.processor.containers.C
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileCallbackInterfaceInfo;
+import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileCallbackParameterInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileMethodInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileTypeInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.FutureWrapper;
@@ -31,7 +34,6 @@ import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeSpec;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
@@ -149,13 +151,10 @@ final class IfAvailableGenerator {
         return;
       }
 
+      CrossProfileCallbackParameterInfo callbackParam =
+          method.getCrossProfileCallbackParam(generatorContext).get();
       CrossProfileCallbackInterfaceInfo callbackInterface =
-          CrossProfileCallbackInterfaceInfo.create(
-              (TypeElement)
-                  generatorContext
-                      .types()
-                      .asElement(
-                          method.getCrossProfileCallbackParam(generatorContext).get().asType()));
+          callbackParam.crossProfileCallbackInterface();
       if (callbackInterface.argumentTypes().isEmpty()) {
         // Void
         // This assumes a single callback method
@@ -167,7 +166,7 @@ final class IfAvailableGenerator {
                 method.simpleName(),
                 method.commaSeparatedParameters(
                     crossProfileType.supportedTypes(), REMOVE_AUTOMATICALLY_RESOLVED_PARAMETERS),
-                method.getCrossProfileCallbackParam(generatorContext).get().getSimpleName(),
+                callbackParam.getSimpleName(),
                 callbackInterface.methods().get(0).getSimpleName());
       } else {
         // This assumes a single callback method
@@ -226,7 +225,6 @@ final class IfAvailableGenerator {
 
   static ClassName getIfAvailableClassName(
       GeneratorContext generatorContext, CrossProfileTypeInfo crossProfileType) {
-    return GeneratorUtilities.appendToClassName(
-        crossProfileType.profileClassName(), "_IfAvailable");
+    return transformClassName(crossProfileType.generatedClassName(), append("_IfAvailable"));
   }
 }

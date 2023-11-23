@@ -24,6 +24,8 @@ import android.net.wifi.WifiConfiguration;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.util.KeystoreWrapper;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -41,45 +43,103 @@ import javax.crypto.Mac;
 public class MacAddressUtilTest extends WifiBaseTest {
     private MacAddressUtil mMacAddressUtil;
 
-    @Mock private Mac mMac;
+    @Mock private KeystoreWrapper mKeystoreWrapper;
+    @Mock private Mac mMacForSta;
+    @Mock private Mac mMacForSap;
 
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
-        mMacAddressUtil = new MacAddressUtil();
+        when(mKeystoreWrapper.getHmacSHA256ForUid(anyInt(),
+                eq(MacAddressUtil.MAC_RANDOMIZATION_ALIAS))).thenReturn(mMacForSta);
+        when(mKeystoreWrapper.getHmacSHA256ForUid(anyInt(),
+                eq(MacAddressUtil.MAC_RANDOMIZATION_SAP_ALIAS))).thenReturn(mMacForSap);
+        mMacAddressUtil = new MacAddressUtil(mKeystoreWrapper);
     }
 
-    /**
-     * Verifies that calculatePersistentMac generate valid randomized MACs.
-     */
     @Test
-    public void testCalculatePersistentMac() {
-        // verify null inputs
-        assertNull(mMacAddressUtil.calculatePersistentMac(null, null));
+    public void testCalculatePersistentMacForSta() {
+        // verify null input
+        assertNull(mMacAddressUtil.calculatePersistentMacForSta(null, 0));
 
         Random rand = new Random();
-        // Verify that a the MAC address calculated is valid
+        byte[] bytes = new byte[32];
+        // Verify that the MAC address calculated is valid
         for (int i = 0; i < 10; i++) {
-            byte[] bytes = new byte[32];
             rand.nextBytes(bytes);
-            when(mMac.doFinal(any())).thenReturn(bytes);
-            MacAddress macAddress = mMacAddressUtil.calculatePersistentMac(
-                    "TEST_SSID_AND_SECURITY_TYPE_" + i, mMac);
+            when(mMacForSta.doFinal(any())).thenReturn(bytes);
+            MacAddress macAddress = mMacAddressUtil.calculatePersistentMacForSta(
+                    "TEST_SSID_AND_SECURITY_TYPE_" + i, 0);
             assertTrue(WifiConfiguration.isValidMacAddressForRandomization(macAddress));
         }
+
+        // Verify the HashFunction is only queried from KeyStore once
+        verify(mMacForSta, times(10)).doFinal(any());
+        verify(mKeystoreWrapper).getHmacSHA256ForUid(0, MacAddressUtil.MAC_RANDOMIZATION_ALIAS);
+
+        // Now simulate the cached hash being invalid
+        when(mMacForSta.doFinal(any())).thenThrow(new ProviderException("error occurred"));
+        // Mock mKeystoreWrapper to return a new Mac when called again
+        Mac macForSta2 = mock(Mac.class);
+        when(macForSta2.doFinal(any())).thenReturn(bytes);
+        when(mKeystoreWrapper.getHmacSHA256ForUid(anyInt(),
+                eq(MacAddressUtil.MAC_RANDOMIZATION_ALIAS))).thenReturn(macForSta2);
+
+        // Then verify the cache is updated
+        assertTrue(WifiConfiguration.isValidMacAddressForRandomization(
+                mMacAddressUtil.calculatePersistentMacForSta("TEST_SSID_AND_SECURITY_TYPE", 0)));
+        verify(mKeystoreWrapper, times(2)).getHmacSHA256ForUid(
+                0, MacAddressUtil.MAC_RANDOMIZATION_ALIAS);
+        verify(macForSta2).doFinal(any());
+    }
+
+    @Test
+    public void testCalculatePersistentMacForSap() {
+        // verify null input
+        assertNull(mMacAddressUtil.calculatePersistentMacForSap(null, 0));
+
+        Random rand = new Random();
+        byte[] bytes = new byte[32];
+        // Verify that the MAC address calculated is valid
+        for (int i = 0; i < 10; i++) {
+            rand.nextBytes(bytes);
+            when(mMacForSap.doFinal(any())).thenReturn(bytes);
+            MacAddress macAddress = mMacAddressUtil.calculatePersistentMacForSap(
+                    "TEST_SSID_AND_SECURITY_TYPE_" + i, 0);
+            assertTrue(WifiConfiguration.isValidMacAddressForRandomization(macAddress));
+        }
+
+        // Verify the HashFunction is only queried from KeyStore once
+        verify(mMacForSap, times(10)).doFinal(any());
+        verify(mKeystoreWrapper).getHmacSHA256ForUid(0,
+                MacAddressUtil.MAC_RANDOMIZATION_SAP_ALIAS);
+
+        // Now simulate the cached hash being invalid
+        when(mMacForSap.doFinal(any())).thenThrow(new ProviderException("error occurred"));
+        // Mock mKeystoreWrapper to return a new Mac when called again
+        Mac macForSap2 = mock(Mac.class);
+        when(macForSap2.doFinal(any())).thenReturn(bytes);
+        when(mKeystoreWrapper.getHmacSHA256ForUid(anyInt(),
+                eq(MacAddressUtil.MAC_RANDOMIZATION_SAP_ALIAS))).thenReturn(macForSap2);
+
+        // Then verify the cache is updated
+        assertTrue(WifiConfiguration.isValidMacAddressForRandomization(
+                mMacAddressUtil.calculatePersistentMacForSap("TEST_SSID_AND_SECURITY_TYPE", 0)));
+        verify(mKeystoreWrapper, times(2)).getHmacSHA256ForUid(
+                0, MacAddressUtil.MAC_RANDOMIZATION_SAP_ALIAS);
+        verify(macForSap2).doFinal(any());
     }
 
     /**
-     * Verify the java.security.ProviderException is caught.
+     * Verifies getNextMacAddressForSecondary()
      */
     @Test
-    public void testCalculatePersistentMacCatchesException() {
-        when(mMac.doFinal(any())).thenThrow(new ProviderException("error occurred"));
-        try {
-            assertNull(mMacAddressUtil.calculatePersistentMac("TEST_SSID_AND_SECURITY_TYPE",
-                    mMac));
-        } catch (Exception e) {
-            fail("Exception not caught.");
-        }
+    public void testGetNextMacAddressForSecondary() {
+        assertTrue(MacAddress.fromString("2a:53:43:c3:56:2b").equals(
+                MacAddressUtil.nextMacAddress(
+                        MacAddress.fromString("2a:53:43:c3:56:2a"))));
+        assertTrue(MacAddress.fromString("2a:53:43:c3:56:00").equals(
+                MacAddressUtil.nextMacAddress(
+                        MacAddress.fromString("2a:53:43:c3:56:ff"))));
     }
 }

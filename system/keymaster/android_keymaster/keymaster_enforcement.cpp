@@ -313,6 +313,7 @@ keymaster_error_t KeymasterEnforcement::AuthorizeBegin(const keymaster_purpose_t
         case KM_TAG_ATTESTATION_ID_PRODUCT:
         case KM_TAG_ATTESTATION_ID_SERIAL:
         case KM_TAG_ATTESTATION_ID_IMEI:
+        case KM_TAG_ATTESTATION_ID_SECOND_IMEI:
         case KM_TAG_ATTESTATION_ID_MEID:
         case KM_TAG_ATTESTATION_ID_MANUFACTURER:
         case KM_TAG_ATTESTATION_ID_MODEL:

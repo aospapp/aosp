@@ -15,20 +15,27 @@
 #
 
 PRODUCT_MAKEFILES := \
+    $(LOCAL_DIR)/bluejay_car/aosp_bluejay_car.mk \
     $(LOCAL_DIR)/bramble_car/aosp_bramble_car.mk \
+    $(LOCAL_DIR)/cheetah_car/aosp_cheetah_car.mk \
     $(LOCAL_DIR)/coral_car/aosp_coral_car.mk \
     $(LOCAL_DIR)/flame_car/aosp_flame_car.mk \
     $(LOCAL_DIR)/oriole_car/aosp_oriole_car.mk \
+    $(LOCAL_DIR)/panther_car/aosp_panther_car.mk \
     $(LOCAL_DIR)/raven_car/aosp_raven_car.mk \
     $(LOCAL_DIR)/redfin_car/aosp_redfin_car.mk \
-    $(LOCAL_DIR)/sunfish_car/aosp_sunfish_car.mk
+    $(LOCAL_DIR)/sunfish_car/aosp_sunfish_car.mk \
+    $(LOCAL_DIR)/tangorpro_car/aosp_tangorpro_car.mk
 
 
 COMMON_LUNCH_CHOICES := \
+    aosp_bluejay_car-userdebug \
     aosp_bramble_car-userdebug \
+    aosp_cheetah_car-userdebug \
     aosp_coral_car-userdebug \
     aosp_flame_car-userdebug \
     aosp_oriole_car-userdebug \
+    aosp_panther_car-userdebug \
     aosp_raven_car-userdebug \
     aosp_redfin_car-userdebug \
     aosp_sunfish_car-userdebug

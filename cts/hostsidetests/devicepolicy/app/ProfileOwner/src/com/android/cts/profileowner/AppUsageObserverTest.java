@@ -33,10 +33,10 @@ public class AppUsageObserverTest extends BaseProfileOwnerTest {
         final int obsId = 0;
         UsageStatsManager usm = mContext.getSystemService(UsageStatsManager.class);
 
-        Intent intent = new Intent(Intent.ACTION_MAIN);
+        Intent intent = new Intent(Intent.ACTION_MAIN).setPackage(mContext.getPackageName());
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 InstrumentationRegistry.getContext(),
-                1, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
+                1, intent, PendingIntent.FLAG_MUTABLE);
 
         usm.registerAppUsageObserver(obsId, packages, 60, TimeUnit.SECONDS, pendingIntent);
         usm.unregisterAppUsageObserver(obsId);
@@ -53,10 +53,10 @@ public class AppUsageObserverTest extends BaseProfileOwnerTest {
         final int obsId = 0;
         UsageStatsManager usm = mContext.getSystemService(UsageStatsManager.class);
 
-        Intent intent = new Intent(Intent.ACTION_MAIN);
+        Intent intent = new Intent(Intent.ACTION_MAIN).setPackage(mContext.getPackageName());
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 InstrumentationRegistry.getContext(),
-                1, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
+                1, intent, PendingIntent.FLAG_MUTABLE);
 
         usm.registerUsageSessionObserver(obsId, packages, Duration.ofSeconds(60),
                 Duration.ofSeconds(10), pendingIntent, null);
@@ -74,10 +74,10 @@ public class AppUsageObserverTest extends BaseProfileOwnerTest {
         final String[] packages = {"not.real.package.name"};
         UsageStatsManager usm = mContext.getSystemService(UsageStatsManager.class);
 
-        Intent intent = new Intent(Intent.ACTION_MAIN);
+        Intent intent = new Intent(Intent.ACTION_MAIN).setPackage(mContext.getPackageName());
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 InstrumentationRegistry.getContext(),
-                1, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
+                1, intent, PendingIntent.FLAG_MUTABLE);
 
         // Register too many AppUsageObservers
         for (int obsId = 0; obsId < OBSERVER_LIMIT; obsId++) {

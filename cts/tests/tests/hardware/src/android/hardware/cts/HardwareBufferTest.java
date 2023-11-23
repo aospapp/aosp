@@ -18,11 +18,15 @@ package android.hardware.cts;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.hardware.HardwareBuffer;
 import android.os.Build;
+import android.os.Parcel;
 import android.os.SystemProperties;
 
 import androidx.test.filters.SmallTest;
@@ -39,7 +43,9 @@ import org.junit.runner.RunWith;
 public class HardwareBufferTest {
     private static native HardwareBuffer nativeCreateHardwareBuffer(int width, int height,
             int format, int layers, long usage);
-    private static native void nativeReleaseHardwareBuffer(HardwareBuffer hardwareBufferObj);
+
+    private static native HardwareBuffer nativeReadHardwareBuffer(Parcel parcel);
+    private static native void nativeWriteHardwareBuffer(HardwareBuffer buffer, Parcel parcel);
 
     static {
         System.loadLibrary("ctshardware_jni");
@@ -112,7 +118,6 @@ public class HardwareBufferTest {
         assertEquals(HardwareBuffer.RGBA_8888, buffer.getFormat());
         assertEquals(1, buffer.getLayers());
         assertEquals(HardwareBuffer.USAGE_CPU_READ_RARELY, buffer.getUsage());
-        nativeReleaseHardwareBuffer(buffer);
     }
 
     @Test
@@ -151,5 +156,83 @@ public class HardwareBufferTest {
             }
         }
 
+    }
+
+    @Test
+    public void testGetId() {
+        HardwareBuffer buffer1 = HardwareBuffer.create(2, 4, HardwareBuffer.RGBA_8888, 1,
+                HardwareBuffer.USAGE_CPU_READ_RARELY);
+        assertNotNull(buffer1);
+        HardwareBuffer buffer2 = HardwareBuffer.create(2, 4, HardwareBuffer.RGBA_8888, 1,
+                HardwareBuffer.USAGE_CPU_READ_RARELY);
+        assertNotNull(buffer2);
+        assertNotEquals(0, buffer1.getId());
+        assertNotEquals(0, buffer2.getId());
+        assertNotEquals(buffer1.getId(), buffer2.getId());
+        buffer1.close();
+        buffer2.close();
+    }
+
+    @Test
+    public void testClosedFails() {
+        HardwareBuffer buffer = HardwareBuffer.create(2, 4, HardwareBuffer.RGBA_8888, 1,
+                HardwareBuffer.USAGE_CPU_READ_RARELY);
+        assertNotNull(buffer);
+        assertFalse(buffer.isClosed());
+        assertEquals(2, buffer.getWidth());
+        buffer.close();
+        assertTrue(buffer.isClosed());
+        assertThrows(IllegalStateException.class, buffer::getWidth);
+        assertThrows(IllegalStateException.class, buffer::getHeight);
+        assertThrows(IllegalStateException.class, buffer::getId);
+        assertTrue(buffer.isClosed());
+    }
+
+    @Test
+    public void testWriteJavaReadNativeParcel() {
+        Parcel parcel = Parcel.obtain();
+        HardwareBuffer inBuffer = HardwareBuffer.create(2, 4, HardwareBuffer.RGBA_8888, 1,
+                HardwareBuffer.USAGE_CPU_READ_RARELY);
+        assertNotNull(inBuffer);
+        long beforeId = inBuffer.getId();
+        assertEquals(2, inBuffer.getWidth());
+        assertNotEquals(0, beforeId);
+        assertEquals(0, parcel.dataPosition());
+        assertEquals(0, parcel.dataAvail());
+        inBuffer.writeToParcel(parcel, 0);
+        assertNotEquals(0, parcel.dataPosition());
+        parcel.setDataPosition(0);
+        HardwareBuffer outBuffer = nativeReadHardwareBuffer(parcel);
+        assertNotNull(outBuffer);
+        // Spot check it's the same thing, and also the input buffer wasn't clobbered
+        assertEquals(2, inBuffer.getWidth());
+        assertEquals(2, outBuffer.getWidth());
+        assertNotEquals(0, outBuffer.getId());
+        assertEquals(beforeId, outBuffer.getId());
+        parcel.recycle();
+    }
+
+    @Test
+    public void testWriteNativeReadJavaParcel() {
+        Parcel parcel = Parcel.obtain();
+        final HardwareBuffer inBuffer = HardwareBuffer.create(2, 4, HardwareBuffer.RGBA_8888, 1,
+                HardwareBuffer.USAGE_CPU_READ_RARELY);
+        assertNotNull(inBuffer);
+        long beforeId = inBuffer.getId();
+        assertEquals(2, inBuffer.getWidth());
+        assertNotEquals(0, beforeId);
+        assertEquals(0, parcel.dataPosition());
+        assertEquals(0, parcel.dataAvail());
+        nativeWriteHardwareBuffer(inBuffer, parcel);
+        assertNotEquals(0, parcel.dataPosition());
+        parcel.setDataPosition(0);
+        final HardwareBuffer outBuffer = HardwareBuffer.CREATOR.createFromParcel(parcel);
+        assertNotNull(outBuffer);
+        // Spot check it's the same thing, and also the input buffer wasn't clobbered
+        assertEquals(2, inBuffer.getWidth());
+        assertEquals(2, outBuffer.getWidth());
+        assertNotEquals(0, outBuffer.getId());
+        assertEquals(beforeId, outBuffer.getId());
+        parcel.recycle();
     }
 }

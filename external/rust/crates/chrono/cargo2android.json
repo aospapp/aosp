@@ -4,6 +4,6 @@
     "com.android.virt"
   ],
   "device": true,
-  "features": "std,clock",
+  "features": "std,clock,serde",
   "run": true
 }

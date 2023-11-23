@@ -37,7 +37,7 @@ class NetstackController:
             List of dicts, one for each interface, containing interface
             information
         """
-        response = self.device.netstack_lib.netstackListInterfaces()
+        response = self.device.sl4f.netstack_lib.netstackListInterfaces()
         if response.get('error'):
             raise NetstackControllerError(
                 'Failed to get network interfaces list: %s' %

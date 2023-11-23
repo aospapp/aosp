@@ -28,9 +28,12 @@ import androidx.test.filters.MediumTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.OverrideAnimationScaleRule;
+
 import junit.framework.Assert;
 
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,15 +51,27 @@ public class AnimatorLeakTest {
     public  ActivityTestRule<EmptyActivity2> mActivityRule2 =
             new ActivityTestRule<>(EmptyActivity2.class, false, false);
 
+    // Ensure animators are enabled when these tests run
+    @Rule
+    public final OverrideAnimationScaleRule animationScaleRule =
+            new OverrideAnimationScaleRule(1f);
+
     boolean mPaused = false;
     boolean mPausedSet = false;
     boolean mFinitePaused = false;
     boolean mFinitePausedSet = false;
     boolean mResumed = false;
+    long mDefaultAnimatorPauseDelay = 10000L;
+
+    @Before
+    public void setup() {
+        mDefaultAnimatorPauseDelay = Animator.getBackgroundPauseDelay();
+    }
 
     @After
     public void cleanup() {
         Animator.setAnimatorPausingEnabled(true);
+        Animator.setBackgroundPauseDelay(mDefaultAnimatorPauseDelay);
     }
 
     /**

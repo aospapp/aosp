@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2014 NXP Semiconductors
+ * Copyright 2012-2014, 2021 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 #include <phNxpConfig.h>
 #include <phNxpLog.h>
+#include <phNxpNciHal.h>
 #include <phNxpNciHal_dta.h>
 
 /*********************** Global Variables *************************************/
@@ -137,6 +138,10 @@ NFCSTATUS phNxpNHal_DtaUpdate(uint16_t* cmd_len, uint8_t* p_cmd_data,
       status = NFCSTATUS_FAILED;
       phNxpNciHal_print_packet("DTARECV", p_rsp_data, 5);
     } else if (p_cmd_data[0] == 0x21 && p_cmd_data[1] == 0x03) {
+      if (*cmd_len > (NCI_MAX_DATA_LEN - 6)) {
+        android_errorWriteLog(0x534e4554, "183487770");
+        return NFCSTATUS_FAILED;
+      }
       NXPLOG_NCIHAL_D(">>>>DTA Add NFC-F listen tech params");
       p_cmd_data[2] += 6;
       p_cmd_data[3] += 3;

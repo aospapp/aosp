@@ -1,0 +1,31 @@
+type hal_usb_impl, domain;
+
+type hal_usb_impl_exec, vendor_file_type, exec_type, file_type;
+init_daemon_domain(hal_usb_impl)
+hal_server_domain(hal_usb_impl, hal_usb)
+hal_server_domain(hal_usb_impl, hal_usb_gadget)
+
+set_prop(hal_usb_impl, vendor_usb_config_prop)
+allow hal_usb_impl functionfs:dir { watch watch_reads };
+
+allow hal_usb_impl sysfs_batteryinfo:dir r_dir_perms;
+allow hal_usb_impl sysfs_batteryinfo:file rw_file_perms;
+
+# Needed for reporting Usb Overheat suez event through statsd
+allow hal_usb_impl fwk_stats_service:service_manager find;
+binder_call(hal_usb_impl, servicemanager)
+
+# Needed for monitoring usb port temperature
+allow hal_usb_impl self:capability2 wake_alarm;
+wakelock_use(hal_usb_impl);
+
+# For interfacing with ThermalHAL
+hal_client_domain(hal_usb_impl, hal_thermal);
+
+# For reading the usb-c throttling stats
+allow hal_usb_impl sysfs_usbc_throttling_stats:file r_file_perms;
+
+# For issuing vendor commands to USB hub via libusbhost
+allow hal_usb_impl device:dir r_dir_perms;
+allow hal_usb_impl usb_device:chr_file rw_file_perms;
+allow hal_usb_impl usb_device:dir r_dir_perms;

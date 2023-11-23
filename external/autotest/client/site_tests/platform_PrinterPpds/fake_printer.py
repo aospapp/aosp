@@ -4,7 +4,10 @@
 
 import socket
 import threading
-import Queue
+
+# Importing from six to maintain compatibility with Python 2. Safe to
+# `import queue` once Tauto transitions fully to Python 3.
+from six.moves import queue
 
 _BUF_SIZE = 4096
 
@@ -40,7 +43,7 @@ class FakePrinter():
         # It is set when printer is stopped because of some internal error
         self._error_message = None
         # An internal queue with printed documents
-        self._documents = Queue.Queue()
+        self._documents = queue.Queue()
         # Create a TCP/IP socket
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
@@ -90,7 +93,7 @@ class FakePrinter():
         """
         try:
             return self._documents.get(block=True, timeout=timeout)
-        except Queue.Empty:
+        except queue.Empty:
             # Builds a message for the exception
             message = 'Timeout occured when waiting for the document. '
             if self._stopped:
@@ -126,7 +129,7 @@ class FakePrinter():
                     return None
 
         # Reads document
-        document = ''
+        document = bytearray()
         while True:
             try:
                 data = connection.recv(_BUF_SIZE)
@@ -135,7 +138,7 @@ class FakePrinter():
                     # we got the whole document - exit the loop
                     break
                 # save chunk of the document and return to the loop
-                document += data
+                document.extend(data)
             except socket.timeout:
                 # exit if the printer was stopped, else return to the loop
                 if self._stopped:
@@ -144,7 +147,7 @@ class FakePrinter():
 
         # Closes connection & returns document
         connection.close()
-        return document
+        return bytes(document)
 
 
     def _thread_read_docs(self):

@@ -10,6 +10,7 @@ PURPOSE = "Verify the inactive cr50 header is corrupted after login"
 ATTRIBUTES = "suite:faft_cr50_pvt, suite:faft_cr50_prepvt"
 TIME = "MEDIUM"
 TEST_TYPE = "server"
+PY_VERSION = 3
 
 DOC = """
 Verify the inactive Cr50 header on the first login after cryptohome restarts.

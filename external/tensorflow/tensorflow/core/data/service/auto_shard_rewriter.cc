@@ -14,6 +14,7 @@ limitations under the License.
 ==============================================================================*/
 #include "tensorflow/core/data/service/auto_shard_rewriter.h"
 
+#include <cstdlib>
 #include <iterator>
 #include <memory>
 #include <string>
@@ -29,6 +30,7 @@ limitations under the License.
 #include "tensorflow/core/data/rewrite_utils.h"
 #include "tensorflow/core/data/service/common.h"
 #include "tensorflow/core/data/service/common.pb.h"
+#include "tensorflow/core/data/service/url.h"
 #include "tensorflow/core/framework/dataset_options.pb.h"
 #include "tensorflow/core/framework/graph.pb.h"
 #include "tensorflow/core/framework/node_def.pb.h"
@@ -53,27 +55,12 @@ namespace {
 
 using ::tensorflow::data::experimental::AutoShardDatasetOp;
 
-// Extracts the host from `address`.
-std::string GetHost(absl::string_view address) {
-  absl::string_view::size_type port_pos = address.find_last_of(':');
-  return std::string(address.substr(0, port_pos));
-}
-
-// Extracts the port from `address`. Returns nullopt if `address` does not
-// specify a port.
-absl::optional<absl::string_view> GetPort(absl::string_view address) {
-  absl::string_view::size_type port_pos = address.find_last_of(':');
-  if (port_pos == absl::string_view::npos) {
-    return absl::nullopt;
-  }
-  return address.substr(port_pos + 1);
-}
-
 // A dynamic port has form %port% or %port_foo% that is to be replaced with the
 // actual port.
 bool HasDynamicPort(absl::string_view address) {
-  absl::optional<absl::string_view> port = GetPort(address);
-  return port && absl::StartsWith(*port, "%port") && absl::EndsWith(*port, "%");
+  URL url(address);
+  return url.has_port() && absl::StartsWith(url.port(), "%port") &&
+         absl::EndsWith(url.port(), "%");
 }
 
 // Returns true if `config_address` has no port or a dynamic port (e.g.: %port%)
@@ -91,9 +78,9 @@ bool HasDynamicPort(absl::string_view address) {
 //  localhost:%port%                  localhost:10000
 bool ShouldReplaceDynamicPort(absl::string_view config_address,
                               absl::string_view worker_address) {
-  return (!GetPort(config_address) || HasDynamicPort(config_address)) &&
-         GetPort(worker_address) &&
-         GetHost(config_address) == GetHost(worker_address);
+  URL config_url(config_address), worker_url(worker_address);
+  return (!config_url.has_port() || HasDynamicPort(config_address)) &&
+         worker_url.has_port() && config_url.host() == worker_url.host();
 }
 }  // namespace
 
@@ -134,7 +121,7 @@ StatusOr<GraphDef> AutoShardRewriter::ApplyAutoShardRewrite(
 }
 
 AutoShardRewriter::AutoShardRewriter(AutoShardPolicy auto_shard_policy,
-                                     int64 num_workers, int64 worker_index)
+                                     int64_t num_workers, int64_t worker_index)
     : auto_shard_policy_(auto_shard_policy),
       num_workers_(num_workers),
       worker_index_(worker_index) {}
@@ -149,6 +136,8 @@ AutoShardRewriter::GetRewriteConfig() const {
       worker_index_);
   (*config.mutable_parameter_map())[AutoShardDatasetOp::kAutoShardPolicy].set_i(
       auto_shard_policy_);
+  // This parameter is used internally by tf.distribute to rebatch the dataset.
+  // It is not used outside the context of `experimental_distribute_dataset`.
   (*config.mutable_parameter_map())[AutoShardDatasetOp::kNumReplicas].set_i(1);
   return config;
 }
@@ -156,13 +145,13 @@ AutoShardRewriter::GetRewriteConfig() const {
 Status WorkerIndexResolver::ValidateWorker(
     absl::string_view worker_address) const {
   if (worker_addresses_.empty()) {
-    return Status::OK();
+    return OkStatus();
   }
 
   for (absl::string_view config_address : worker_addresses_) {
     if (config_address == worker_address ||
         ShouldReplaceDynamicPort(config_address, worker_address)) {
-      return Status::OK();
+      return OkStatus();
     }
   }
 
@@ -186,7 +175,7 @@ void WorkerIndexResolver::AddWorker(absl::string_view worker_address) {
   }
 }
 
-StatusOr<int64> WorkerIndexResolver::GetWorkerIndex(
+StatusOr<int64_t> WorkerIndexResolver::GetWorkerIndex(
     absl::string_view worker_address) const {
   const auto it = absl::c_find(worker_addresses_, worker_address);
   if (it == worker_addresses_.cend()) {

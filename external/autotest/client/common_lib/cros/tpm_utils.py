@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -12,10 +13,14 @@ from autotest_lib.client.cros import constants
 _RM_FILES = ['/home/chronos/.oobe_completed',
              '/home/chronos/Local\ State',
              '/var/cache/shill/default.profile']
-_RM_DIRS = ['/home/.shadow/*',
-            os.path.join(constants.ALLOWLIST_DIR, '*'),
-            '/var/cache/app_pack',
-            '/var/lib/tpm']
+# TODO(b/187793661) Delete /var/lib/whitelist once migration is finished.
+_RM_DIRS = [
+        '/home/.shadow/*',
+        os.path.join(constants.DEVICESETTINGS_DIR, '*'),
+        '/var/lib/whitelist/*',
+        '/var/cache/app_pack',
+        '/var/lib/tpm',
+]
 
 
 class NoTPMPasswordException(Exception):
@@ -37,20 +42,11 @@ def TPMStatus(client):
             continue
         if len(item) == 1:
             item.append('')
-        item = map(lambda x : x.strip(), item)
+        item = [x.strip() for x in item]
         item[1] = True if item[1] == 'true' else item[1]
         item[1] = False if item[1] == 'false' else item[1]
         status[item[0]] = item[1]
     return status
-
-
-def IsTPMAvailable(client):
-    """Returns True if the TPM is unowned and enabled.
-
-    @param client: client object to run commands on.
-    """
-    status = TPMStatus(client)
-    return status['is_enabled'] and not status['is_owned']
 
 
 def ClearTPMServer(client, out_dir):
@@ -59,13 +55,9 @@ def ClearTPMServer(client, out_dir):
     @param client: client object to run commands on.
     @param out_dir: temporary directory.
     """
-    if IsTPMAvailable(client):
-        logging.debug('TPM is not owned')
-        return
-
     client.run('stop ui')
-    client.run('crossystem clear_tpm_owner_request=1')
-    CleanupAndReboot(client)
+    ClearTPMOwnerRequest(client)
+
 
 def ClearTPMOwnerRequest(client, wait_for_ready=False, timeout=60):
     """Clears the TPM using crossystem command.
@@ -74,25 +66,25 @@ def ClearTPMOwnerRequest(client, wait_for_ready=False, timeout=60):
     @param wait_for_ready: wait until the TPM status is ready
     @param timeout: number of seconds to wait for the TPM to become ready.
     """
-    if not client.run('crossystem clear_tpm_owner_request=1',
-                      ignore_status=True).exit_status == 0:
-        raise error.TestFail('Unable to clear TPM.')
+    ownership_id = client.run('hwsec-ownership-id id')
+    if not ownership_id.exit_status == 0:
+        raise error.TestFail('Unable to get ownership ID.')
 
+    ownership_id = ownership_id.stdout.strip()
+
+    logging.info('Sending Clear TPM owner request')
+    client.run('crossystem clear_tpm_owner_request=1')
     CleanupAndReboot(client)
 
     if wait_for_ready:
-        status = ''
+        status = 1
         end_time = time.time() + timeout
-        # Wait for tpm_manager to send a successful reply.
-        while 'STATUS_SUCCESS' not in status and time.time() < end_time:
-            status = client.run('tpm_manager_client status --nonsensitive',
-                                ignore_status=True).stdout.strip()
-            logging.debug(status)
+        # Wait for the ownership ID changed.
+        while status != 0 and time.time() < end_time:
+            status = client.run('hwsec-ownership-id diff id=' + ownership_id,
+                                ignore_status=True).exit_status
             time.sleep(1)
-        # Verify if the TPM is unowned.
-        tpm_status = TPMStatus(client)
-        logging.info('TPM status: %s', tpm_status)
-        if tpm_status['is_owned']:
+        if status != 0:
             raise error.TestFail('Failed to clear TPM.')
 
 
@@ -116,3 +108,14 @@ def CleanupAndReboot(client):
     client.run(full_rm, ignore_status=True)
     client.run('sync', ignore_status=True)
     client.reboot()
+
+
+def FwmpIsAllZero(get_fwmp_output):
+    """Check if firmware management parameters are all zero.
+
+    @param get_fwmp_output: output from the command
+        'cryptohome --action=get_firmware_management_parameters'.
+    """
+    return ('flags=0x00000000' in get_fwmp_output and
+            'hash=0000000000000000000000000000000000000000000000000000000000000000'
+            in get_fwmp_output)

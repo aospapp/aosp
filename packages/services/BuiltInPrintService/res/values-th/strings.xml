@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="3551052199033657984">"บริการการพิมพ์เริ่มต้น"</string>
+    <string name="app_name" msgid="3551052199033657984">"บริการพิมพ์เริ่มต้น"</string>
     <string name="printer_busy" msgid="8604311528104955859">"ไม่ว่าง"</string>
     <string name="printer_out_of_paper" msgid="4882186432807703877">"กระดาษหมด"</string>
     <string name="printer_out_of_ink" msgid="7361897651097675464">"หมึกหมด"</string>
@@ -60,7 +60,7 @@
     <string name="forget" msgid="892068061425802502">"ไม่ต้องจำ"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"เชื่อมต่อผ่าน Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"เชื่อมต่อผ่านเครือข่ายปัจจุบันที่ <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
-    <string name="recommendation_summary" msgid="2979700524954307566">"บริการการพิมพ์เริ่มต้นมีตัวเลือกพื้นฐานต่างๆ ตัวเลือกอื่นๆ สำหรับเครื่องพิมพ์นี้อาจพร้อมให้ใช้งานจากบริการการพิมพ์อื่น"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"บริการพิมพ์เริ่มต้นมีตัวเลือกพื้นฐานต่างๆ ตัวเลือกอื่นๆ สำหรับเครื่องพิมพ์นี้อาจพร้อมให้ใช้งานจากบริการพิมพ์อื่น"</string>
     <string name="recommendations_heading" msgid="5086762263560605249">"บริการที่แนะนำ"</string>
     <string name="recommendation_install_summary" msgid="374785283809791669">"เลือกเพื่อติดตั้ง"</string>
     <string name="recommendation_enable_summary" msgid="3500907868251326224">"เลือกเพื่อเปิดใช้"</string>
@@ -71,7 +71,7 @@
     <string name="accept" msgid="4426153292469698134">"ยอมรับ"</string>
     <string name="reject" msgid="24751635160440693">"ปฏิเสธ"</string>
     <string name="connections" msgid="8895413761760117180">"การเชื่อมต่อ"</string>
-    <string name="wifi_direct_problem" msgid="8995174986718516990">"บริการการพิมพ์เริ่มต้นไม่พบเครื่องพิมพ์ Wi-Fi Direct"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"บริการพิมพ์เริ่มต้นไม่พบเครื่องพิมพ์ Wi-Fi Direct"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"ปิดใช้ Wi-Fi Direct"</string>
     <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"บริการพิมพ์เริ่มต้นต้องมีสิทธิ์เข้าถึงอุปกรณ์ที่อยู่ใกล้เคียงเพื่อค้นหาเครื่องพิมพ์"</string>
     <string name="fix" msgid="7784394272611365393">"ตรวจสอบสิทธิ์"</string>

@@ -4,48 +4,26 @@
  *   Copyright (c) 2018 Linux Test Project
  */
 
-/*
- * DESCRIPTION
- *	Check for the following errors:
- *	1.	EEXIST
- *	2.	EISDIR
- *	3.	ENOTDIR
- *	4.	ENAMETOOLONG
- *	5.	EACCES
- *	6.	EFAULT
+/*\
+ * [Description]
  *
- * ALGORITHM
- *	1. Open a file with O_CREAT and O_EXCL, when the file already
- *	   exists. Check the errno for EEXIST
+ * Verify that open() fails with:
  *
- *	2. Pass a directory as the pathname and request a write access,
- *	   check for errno for EISDIR
- *
- *	3. Specify O_DIRECTORY as a parameter to open and pass a file as the
- *	   pathname, check errno for ENOTDIR
- *
- *	4. Attempt to open() a filename which is more than VFS_MAXNAMLEN, and
- *	   check for errno to be ENAMETOOLONG.
- *
- *	5. Attempt to open a (0600) file owned by different user in WRONLY mode,
- *	   open(2) should fail with EACCES.
- *
- *	6. Attempt to pass an invalid pathname with an address pointing outside
- *	   the accessible address space of the process, as the argument to open(),
- *	   and expect to get EFAULT.
+ * - EEXIST when pathname already exists and O_CREAT and O_EXCL were used
+ * - EISDIR when pathname refers to a directory and the access requested
+ * involved writing
+ * - ENOTDIR when O_DIRECTORY was specified and pathname was not a directory
+ * - ENAMETOOLONG when pathname was too long
+ * - EACCES when requested access to the file is not allowed
+ * - EFAULT when pathname points outside the accessible address space
  */
 
 #define _GNU_SOURCE		/* for O_DIRECTORY */
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <stdio.h>
-#include <errno.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <signal.h>
+
 #include <pwd.h>
 #include "tst_test.h"
-#include "tst_get_bad_addr.h"
+
+#define FLAGS_DESC(x) .flags = x, .desc = #x
 
 static char *existing_fname = "open08_testfile";
 static char *toolong_fname = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstmnopqrstuvwxyzabcdefghijklmnopqrstmnopqrstuvwxyzabcdefghijklmnopqrstmnopqrstuvwxyzabcdefghijklmnopqrstmnopqrstuvwxyzabcdefghijklmnopqrstmnopqrstuvwxyzabcdefghijklmnopqrstmnopqrstuvwxyz";
@@ -58,35 +36,21 @@ struct test_case_t;
 static struct test_case_t {
 	char **fname;
 	int flags;
+	const char *desc;
 	int error;
 } tcases[] = {
-	{&existing_fname, O_CREAT | O_EXCL, EEXIST},
-	{&dir_fname, O_RDWR, EISDIR},
-	{&existing_fname, O_DIRECTORY, ENOTDIR},
-	{&toolong_fname, O_RDWR, ENAMETOOLONG},
-	{&user2_fname, O_WRONLY, EACCES},
-	{&unmapped_fname, O_CREAT, EFAULT}
+	{&existing_fname, FLAGS_DESC(O_CREAT | O_EXCL), EEXIST},
+	{&dir_fname, FLAGS_DESC(O_RDWR), EISDIR},
+	{&existing_fname, FLAGS_DESC(O_DIRECTORY), ENOTDIR},
+	{&toolong_fname, FLAGS_DESC(O_RDWR), ENAMETOOLONG},
+	{&user2_fname, FLAGS_DESC(O_WRONLY), EACCES},
+	{&unmapped_fname, FLAGS_DESC(O_CREAT), EFAULT},
 };
 
-void verify_open(unsigned int i)
+static void verify_open(unsigned int i)
 {
-	TEST(open(*tcases[i].fname, tcases[i].flags,
-		S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH));
-
-	if (TST_RET != -1) {
-		tst_res(TFAIL, "call succeeded unexpectedly");
-		return;
-	}
-
-	if (TST_ERR == tcases[i].error) {
-		tst_res(TPASS, "expected failure - "
-				"errno = %d : %s", TST_ERR,
-				strerror(TST_ERR));
-	} else {
-		tst_res(TFAIL, "unexpected error - %d : %s - "
-				"expected %d", TST_ERR,
-				strerror(TST_ERR), tcases[i].error);
-	}
+	TST_EXP_FAIL2(open(*tcases[i].fname, tcases[i].flags, 0644),
+				tcases[i].error, "%s", tcases[i].desc);
 }
 
 static void setup(void)
@@ -105,7 +69,7 @@ static void setup(void)
 	SAFE_SETUID(ltpuser->pw_uid);
 
 	fildes = SAFE_CREAT(existing_fname, 0600);
-	close(fildes);
+	SAFE_CLOSE(fildes);
 
 	unmapped_fname = tst_get_bad_addr(NULL);
 }

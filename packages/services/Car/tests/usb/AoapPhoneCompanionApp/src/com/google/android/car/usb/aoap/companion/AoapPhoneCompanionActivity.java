@@ -34,6 +34,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Objects;
+
+import javax.annotation.concurrent.GuardedBy;
 
 /** Activity for AOAP phone test app. */
 public class AoapPhoneCompanionActivity extends Activity {
@@ -145,7 +148,12 @@ public class AoapPhoneCompanionActivity extends Activity {
     }
 
     private class ProcessorThread extends Thread {
+
+        private final Object mLock = new Object();
+
+        @GuardedBy("mLock")
         private boolean mShouldQuit = false;
+
         private final FileInputStream mInputStream;
         private final FileOutputStream mOutputStream;
         private final byte[] mBuffer = new byte[16384];
@@ -156,12 +164,16 @@ public class AoapPhoneCompanionActivity extends Activity {
             mOutputStream = new FileOutputStream(fd.getFileDescriptor());
         }
 
-        private synchronized void requestToQuit() {
-            mShouldQuit = true;
+        private void requestToQuit() {
+            synchronized (mLock) {
+                mShouldQuit = true;
+            }
         }
 
-        private synchronized boolean shouldQuit() {
-            return mShouldQuit;
+        private boolean shouldQuit() {
+            synchronized (mLock) {
+                return mShouldQuit;
+            }
         }
 
         protected int byteToInt(byte[] buffer) {
@@ -218,7 +230,7 @@ public class AoapPhoneCompanionActivity extends Activity {
                     if (mAccessory != null && mAccessory.equals(accessory)) {
                         onAccessoryDetached(accessory);
                     }
-                } else if (action.equals(ACTION_USB_ACCESSORY_PERMISSION)) {
+                } else if (Objects.equals(action, ACTION_USB_ACCESSORY_PERMISSION)) {
                     if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
                         Log.i(TAG, "Accessory permission granted: " + accessory);
                         onAccessoryAttached(accessory);

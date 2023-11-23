@@ -28,8 +28,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.media.session.MediaController;
 import android.media.session.MediaSession;
-import android.media.session.MediaSessionManager.RemoteUserInfo;
 import android.media.session.MediaSessionManager;
+import android.media.session.MediaSessionManager.RemoteUserInfo;
 import android.media.session.PlaybackState;
 import android.os.Process;
 import android.service.notification.NotificationListenerService;
@@ -37,14 +37,11 @@ import android.service.notification.NotificationListenerService;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 
-import com.android.compatibility.common.util.MediaUtils;
-
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -167,9 +164,6 @@ public class MediaSessionManagerTest extends NotificationListenerService {
      */
     @Test
     public void testOnMediaKeyEventSessionChangedListener_whenSessionIsReleased() throws Exception {
-        MediaSession.Token previousMediaKeyEventSessionToken =
-                mMediaSessionManager.getMediaKeyEventSession();
-
         MediaKeyEventSessionListener keyEventSessionListener = new MediaKeyEventSessionListener();
         mMediaSessionManager.addOnMediaKeyEventSessionChangedListener(
                 Executors.newSingleThreadExecutor(), keyEventSessionListener);

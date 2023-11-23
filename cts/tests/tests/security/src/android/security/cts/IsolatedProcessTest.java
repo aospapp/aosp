@@ -15,6 +15,8 @@
  */
 package android.security.cts;
 
+import static org.junit.Assert.assertThrows;
+
 import android.app.Instrumentation;
 import android.content.ComponentName;
 import android.content.Context;
@@ -27,17 +29,23 @@ import android.platform.test.annotations.AsbSecurityTest;
 import android.security.cts.IIsolatedService;
 import android.security.cts.IsolatedService;
 import android.util.Log;
+
 import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.internal.util.ArrayUtils;
+
+import junit.framework.Assert;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import junit.framework.Assert;
-import org.junit.Before;
-import org.junit.After;
 
-import androidx.test.runner.AndroidJUnit4;
-import org.junit.runner.RunWith;
-import org.junit.Test;
+
 
 @RunWith(AndroidJUnit4.class)
 public class IsolatedProcessTest {
@@ -110,6 +118,11 @@ public class IsolatedProcessTest {
     public void testGetProcessIsIsolated() throws RemoteException {
         Assert.assertFalse(Process.isIsolated());
         Assert.assertTrue(mService.getProcessIsIsolated());
+    }
+
+    @Test
+    public void testRegisterBroadcastListener() throws RemoteException {
+        assertThrows(SecurityException.class, () -> mService.registerBroadcastReceiver());
     }
 
     @After

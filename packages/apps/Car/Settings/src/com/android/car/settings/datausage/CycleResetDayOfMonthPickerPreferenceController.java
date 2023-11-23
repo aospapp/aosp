@@ -20,7 +20,6 @@ import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.text.BidiFormatter;
 import android.text.TextDirectionHeuristics;
-import android.text.format.Time;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.ListPreference;
@@ -28,6 +27,7 @@ import androidx.preference.ListPreference;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 
+import java.util.TimeZone;
 import java.util.stream.IntStream;
 
 /**
@@ -80,6 +80,6 @@ public class CycleResetDayOfMonthPickerPreferenceController extends
 
     private void onDayOfMonthPicked(int dayOfMonth) {
         getNetworkPolicyEditor().setPolicyCycleDay(getNetworkTemplate(), dayOfMonth,
-                new Time().timezone);
+                TimeZone.getDefault().getID());
     }
 }

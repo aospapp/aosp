@@ -117,7 +117,7 @@ def make_job_entry(tko, job, parent=None, suite_job=False, job_entries=None):
         if s.hostname:
             dut = s.hostname
         if s.test_started_time == 'None' or s.test_finished_time == 'None':
-            logging.warn('TKO entry for %d missing time: %s' % (job.id, str(s)))
+            logging.warning('TKO entry for %d missing time: %s' % (job.id, str(s)))
     start_time, finish_time = find_start_finish_times(statuses)
     entry = make_entry(('Suite' if suite_job else 'HWTest', int(job.id)),
                        job.name.split('/')[-1], status, start_time,

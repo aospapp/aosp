@@ -504,7 +504,7 @@ public class EventLibDeviceAdminReceiver extends DeviceAdminReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         BroadcastReceivedEvent.BroadcastReceivedEventLogger logger =
-                BroadcastReceivedEvent.logger(this, context, intent);
+                BroadcastReceivedEvent.logger(this, context, intent, getResultCode());
 
         if (mOverrideDeviceAdminReceiverClassName != null) {
             logger.setBroadcastReceiver(mOverrideDeviceAdminReceiverClassName);

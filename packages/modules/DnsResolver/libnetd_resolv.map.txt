@@ -20,9 +20,9 @@
 
 LIBNETD_RESOLV {
   global:
-    resolv_has_nameservers;
-    resolv_init;
-    resolv_gethostbyaddr_from_cache;
+    resolv_has_nameservers; # apex
+    resolv_init; # apex
+    resolv_gethostbyaddr_from_cache; # apex
   local:
     *;
 };

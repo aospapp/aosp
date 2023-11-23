@@ -29,7 +29,7 @@ public class BTAudioEventLogger {
     private final EvictingQueue<Event> mEvents;
 
     // Event class contain timestamp and log context.
-    private class Event {
+    private static class Event {
         private final String mTimeStamp;
         private final String mMsg;
 

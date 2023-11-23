@@ -53,8 +53,9 @@ license {
 // referenced by old copies of bionic that may be statically linked
 // via the NDK. It is no longer used by ZoneInfoDb.
 prebuilt_usr_share {
-    name: "tzdata",
+    name: "tzdata_prebuilt",
     src: "tzdata",
+    filename_from_src: true,
     sub_dir: "zoneinfo",
 }
 

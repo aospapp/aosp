@@ -16,29 +16,27 @@
 
 package android.media.decoder.cts;
 
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
+
 import android.content.res.AssetFileDescriptor;
-import android.media.decoder.cts.R;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
-import android.media.cts.MediaTestBase;
-import android.media.cts.Preconditions;
 import android.media.cts.TestArgs;
 import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.MediaUtils;
+import com.android.compatibility.common.util.Preconditions;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -55,9 +53,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeTrue;
-
 /**
  * Conformance test for decoders on the device.
  *
@@ -68,7 +63,7 @@ import static org.junit.Assume.assumeTrue;
  */
 @AppModeFull(reason = "There should be no instant apps specific behavior related to conformance")
 @RunWith(Parameterized.class)
-public class DecoderConformanceTest extends MediaTestBase {
+public class DecoderConformanceTest {
     private enum Status {
         FAIL,
         PASS,
@@ -79,9 +74,8 @@ public class DecoderConformanceTest extends MediaTestBase {
     private static final String TAG = "DecoderConformanceTest";
     private static final String CONFORMANCE_SUBDIR = "conformance_vectors/";
     private static final String mInpPrefix = WorkDir.getMediaDirString() + CONFORMANCE_SUBDIR;
-    private static final Map<String, String> MIMETYPE_TO_TAG = new HashMap<String, String>() {{
-        put(MediaFormat.MIMETYPE_VIDEO_VP9, "vp9");
-    }};
+    private static final Map<String, String> MIMETYPE_TO_TAG = Map.of(
+            MediaFormat.MIMETYPE_VIDEO_VP9, "vp9");
 
     private final String mDecoderName;
     private final String mMediaType;
@@ -92,7 +86,7 @@ public class DecoderConformanceTest extends MediaTestBase {
 
     private DeviceReportLog mReportLog;
 
-    @Parameterized.Parameters(name = "{index}({0})")
+    @Parameterized.Parameters(name = "{index}_{0}")
     public static Collection<Object[]> input() throws Exception {
         final String[] mediaTypeList = new String[] {MediaFormat.MIMETYPE_VIDEO_VP9};
         final List<Object[]> argsList = new ArrayList<>();
@@ -118,18 +112,6 @@ public class DecoderConformanceTest extends MediaTestBase {
         mDecoderName = decodername;
         mMediaType = mediaType;
         mTestVector = testvector;
-    }
-
-    @Before
-    @Override
-    public void setUp() throws Throwable {
-        super.setUp();
-    }
-
-    @After
-    @Override
-    public void tearDown() {
-        super.tearDown();
     }
 
     private static List<String> readResourceLines(String fileName) throws Exception {

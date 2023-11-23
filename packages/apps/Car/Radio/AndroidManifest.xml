@@ -67,6 +67,7 @@
                 <action android:name="android.media.browse.MediaBrowserService" />
                 <action android:name="android.car.intent.action.PLAY_BROADCASTRADIO" />
             </intent-filter>
+            <meta-data android:name="androidx.car.app.launchable" android:value="false"/>
         </service>
     </application>
 </manifest>

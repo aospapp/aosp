@@ -63,8 +63,6 @@ import android.service.autofill.CharSequenceTransformation;
 import android.service.autofill.CustomDescription;
 import android.service.autofill.FillContext;
 import android.service.autofill.ImageTransformation;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiObject2;
 import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillValue;
 import android.widget.ArrayAdapter;
@@ -75,6 +73,9 @@ import android.widget.RadioGroup;
 import android.widget.RemoteViews;
 import android.widget.Spinner;
 import android.widget.TimePicker;
+
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Ignore;
 import org.junit.Test;

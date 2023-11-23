@@ -1,0 +1,30 @@
+{
+  "presubmit": [
+    {
+      "name": "SafetyCenterFunctionalMultiUsersTestCases",
+      "options": [
+        {
+          "exclude-annotation": "com.android.bedstead.harrier.annotations.Postsubmit"
+        }
+      ]
+    }
+  ],
+  "postsubmit": [
+    {
+      "name": "SafetyCenterFunctionalMultiUsersTestCases"
+    }
+  ],
+  "mainline-presubmit": [
+    {
+      "name": "SafetyCenterFunctionalMultiUsersTestCases[com.google.android.permission.apex]",
+      "options": [
+        {
+          "exclude-annotation": "android.platform.test.annotations.FlakyTest"
+        },
+        {
+          "exclude-annotation": "com.android.bedstead.harrier.annotations.Postsubmit"
+        }
+      ]
+    }
+  ]
+}

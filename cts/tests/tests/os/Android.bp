@@ -18,17 +18,14 @@ package {
 
 android_test {
     name: "CtsOsTestCases",
-    defaults: [
-        "cts_defaults",
-        "mts-target-sdk-version-current",
-    ],
+    defaults: ["cts_defaults"],
     compile_multilib: "both",
     static_libs: [
         "android.hidl.manager-V1.0-java",
         "androidx.test.core",
         "androidx.test.ext.junit",
         "androidx.test.rules",
-        "androidx.test.uiautomator",
+        "androidx.test.uiautomator_uiautomator",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
         "testng",
@@ -38,8 +35,8 @@ android_test {
         "Harrier",
         "CtsMockInputMethodLib",
         "hamcrest-library",
-        "modules-utils-build_system",
         "platformprotosnano",
+        "device-time-shell-utils",
     ],
     jni_uses_platform_apis: true,
     jni_libs: [
@@ -63,7 +60,6 @@ android_test {
     test_suites: [
         "cts",
         "general-tests",
-        "mts-permission",
         "sts",
     ],
     sdk_version: "test_current",
@@ -74,11 +70,5 @@ android_test {
     // Do not compress minijail policy files.
     aaptflags: ["-0 .policy"],
     min_sdk_version: "29",
-    data: [
-        ":CtsAutoRevokeQApp",
-        ":CtsAutoRevokeSApp",
-        ":CtsAutoRevokeRApp",
-        ":CtsCompanionTestApp",
-    ],
     per_testcase_directory: true,
 }

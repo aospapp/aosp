@@ -71,4 +71,8 @@
     <color name="car_seekbar_thumb">#FFFFFF</color>
     <!-- The SeekBar thumb color when disabled. Use for the dark theme. -->
     <color name="car_seekbar_thumb_disabled_on_dark">#757575</color>
+
+    <!-- Color for launcher icon background -->
+    <color name="ic_launcher_android_background">#1A73E8</color>
+
 </resources>

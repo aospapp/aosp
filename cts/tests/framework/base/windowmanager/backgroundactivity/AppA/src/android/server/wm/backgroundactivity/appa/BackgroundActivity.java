@@ -18,6 +18,7 @@ package android.server.wm.backgroundactivity.appa;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.os.Process;
 import android.util.Log;
 
 /**
@@ -31,18 +32,18 @@ public class BackgroundActivity extends Activity {
     @Override
     protected void onCreate(Bundle bundle) {
         super.onCreate(bundle);
-        Log.i(TAG, "onCreate");
+        Log.i(TAG, "onCreate(" + Process.myUserHandle() + ")");
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        Log.i(TAG, "onResume");
+        Log.i(TAG, "onResume(" + Process.myUserHandle() + ")");
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        Log.i(TAG, "onPause");
+        Log.i(TAG, "onPause(" + Process.myUserHandle() + ")");
     }
 }

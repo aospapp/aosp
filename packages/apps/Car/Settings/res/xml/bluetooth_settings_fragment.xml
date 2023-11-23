@@ -22,11 +22,10 @@
     android:key="@string/psk_bluetooth_settings">
     <com.android.car.settings.common.ColoredSwitchPreference
         android:key="@string/pk_bluetooth_state_switch"
-        android:title="@string/bluetooth_settings_title"
+        android:title="@string/bluetooth_toggle_title"
         style="@style/ColoredSwitchPreferenceStyle"
         settings:controller="com.android.car.settings.bluetooth.BluetoothStateSwitchPreferenceController"
         settings:searchable="false"/>
-    <com.android.car.settings.common.DividerPreference/>
     <PreferenceCategory
         android:key="@string/pk_bluetooth_paired_devices"
         android:title="@string/bluetooth_paired_devices"
@@ -37,5 +36,7 @@
         android:key="@string/pk_bluetooth_pair_new_device"
         android:title="@string/bluetooth_pair_new_device"
         settings:controller="com.android.car.settings.bluetooth.PairNewDevicePreferenceController"
-        settings:showChevron="false"/>
+        settings:showChevron="false">
+        <intent android:action="android.car.settings.PAIR_DEVICE_SETTINGS" />
+    </com.android.car.ui.preference.CarUiPreference>
 </PreferenceScreen>

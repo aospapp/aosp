@@ -18,8 +18,10 @@ package android.sensorprivacy.cts
 
 import android.hardware.SensorPrivacyManager.Sensors.CAMERA
 import android.hardware.camera2.CameraManager
+import com.android.compatibility.common.util.CddTest
 import org.junit.Assume
 
+@CddTest(requirement = "9.8.13/C-1-1,C-1-2")
 class SensorPrivacyCameraTest : SensorPrivacyBaseTest(CAMERA, USE_CAM_EXTRA) {
 
     override fun init() {

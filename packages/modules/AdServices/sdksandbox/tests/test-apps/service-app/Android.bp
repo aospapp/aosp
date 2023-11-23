@@ -27,4 +27,6 @@ android_test_helper_app {
         enabled: true,
     },
     test_suites: ["general-tests"],
+    min_sdk_version: "33",
+    target_sdk_version: "33",
 }

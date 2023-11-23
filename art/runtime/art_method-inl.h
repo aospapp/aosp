@@ -48,6 +48,201 @@
 
 namespace art {
 
+namespace detail {
+
+template <> struct ShortyTraits<'V'> {
+  using Type = void;
+  static Type Get(const JValue& value ATTRIBUTE_UNUSED) {}
+  // `kVRegCount` and `Set()` are not defined.
+};
+
+template <> struct ShortyTraits<'Z'> {
+  // Despite using `uint8_t` for `boolean` in `JValue`, we shall use `bool` here.
+  using Type = bool;
+  static Type Get(const JValue& value) { return value.GetZ() != 0u; }
+  static constexpr size_t kVRegCount = 1u;
+  static void Set(uint32_t* args, Type value) { args[0] = static_cast<uint32_t>(value ? 1u : 0u); }
+};
+
+template <> struct ShortyTraits<'B'> {
+  using Type = int8_t;
+  static Type Get(const JValue& value) { return value.GetB(); }
+  static constexpr size_t kVRegCount = 1u;
+  static void Set(uint32_t* args, Type value) { args[0] = static_cast<uint32_t>(value); }
+};
+
+template <> struct ShortyTraits<'C'> {
+  using Type = uint16_t;
+  static Type Get(const JValue& value) { return value.GetC(); }
+  static constexpr size_t kVRegCount = 1u;
+  static void Set(uint32_t* args, Type value) { args[0] = static_cast<uint32_t>(value); }
+};
+
+template <> struct ShortyTraits<'S'> {
+  using Type = int16_t;
+  static Type Get(const JValue& value) { return value.GetS(); }
+  static constexpr size_t kVRegCount = 1u;
+  static void Set(uint32_t* args, Type value) { args[0] = static_cast<uint32_t>(value); }
+};
+
+template <> struct ShortyTraits<'I'> {
+  using Type = int32_t;
+  static Type Get(const JValue& value) { return value.GetI(); }
+  static constexpr size_t kVRegCount = 1u;
+  static void Set(uint32_t* args, Type value) { args[0] = static_cast<uint32_t>(value); }
+};
+
+template <> struct ShortyTraits<'J'> {
+  using Type = int64_t;
+  static Type Get(const JValue& value) { return value.GetJ(); }
+  static constexpr size_t kVRegCount = 2u;
+  static void Set(uint32_t* args, Type value) {
+    // Little-endian representation.
+    args[0] = static_cast<uint32_t>(value);
+    args[1] = static_cast<uint32_t>(static_cast<uint64_t>(value) >> 32);
+  }
+};
+
+template <> struct ShortyTraits<'F'> {
+  using Type = float;
+  static Type Get(const JValue& value) { return value.GetF(); }
+  static constexpr size_t kVRegCount = 1u;
+  static void Set(uint32_t* args, Type value) { args[0] = bit_cast<uint32_t>(value); }
+};
+
+template <> struct ShortyTraits<'D'> {
+  using Type = double;
+  static Type Get(const JValue& value) { return value.GetD(); }
+  static constexpr size_t kVRegCount = 2u;
+  static void Set(uint32_t* args, Type value) {
+    // Little-endian representation.
+    uint64_t v = bit_cast<uint64_t>(value);
+    args[0] = static_cast<uint32_t>(v);
+    args[1] = static_cast<uint32_t>(v >> 32);
+  }
+};
+
+template <> struct ShortyTraits<'L'> {
+  using Type = ObjPtr<mirror::Object>;
+  static Type Get(const JValue& value) REQUIRES_SHARED(Locks::mutator_lock_) {
+      return value.GetL();
+  }
+  static constexpr size_t kVRegCount = 1u;
+  static void Set(uint32_t* args, Type value) REQUIRES_SHARED(Locks::mutator_lock_) {
+    args[0] = StackReference<mirror::Object>::FromMirrorPtr(value.Ptr()).AsVRegValue();
+  }
+};
+
+template <char... Shorty>
+constexpr auto MaterializeShorty() {
+  constexpr size_t kSize = std::size({Shorty...}) + 1u;
+  return std::array<char, kSize>{Shorty..., '\0'};
+}
+
+template <char... ArgType>
+constexpr size_t NumberOfVRegs() {
+  constexpr size_t kArgVRegCount[] = {
+    ShortyTraits<ArgType>::kVRegCount...
+  };
+  size_t sum = 0u;
+  for (size_t count : kArgVRegCount) {
+    sum += count;
+  }
+  return sum;
+}
+
+template <char... ArgType>
+inline ALWAYS_INLINE void FillVRegs(uint32_t* vregs ATTRIBUTE_UNUSED,
+                                    typename ShortyTraits<ArgType>::Type... args ATTRIBUTE_UNUSED)
+    REQUIRES_SHARED(Locks::mutator_lock_) {}
+
+template <char FirstArgType, char... ArgType>
+inline ALWAYS_INLINE void FillVRegs(uint32_t* vregs,
+                                    typename ShortyTraits<FirstArgType>::Type first_arg,
+                                    typename ShortyTraits<ArgType>::Type... args)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  ShortyTraits<FirstArgType>::Set(vregs, first_arg);
+  FillVRegs<ArgType...>(vregs + ShortyTraits<FirstArgType>::kVRegCount, args...);
+}
+
+template <char... ArgType>
+inline ALWAYS_INLINE auto MaterializeVRegs(typename ShortyTraits<ArgType>::Type... args)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  constexpr size_t kNumVRegs = NumberOfVRegs<ArgType...>();
+  std::array<uint32_t, kNumVRegs> vregs;
+  FillVRegs<ArgType...>(vregs.data(), args...);
+  return vregs;
+}
+
+}  // namespace detail
+
+template <char ReturnType, char... ArgType>
+inline typename detail::ShortyTraits<ReturnType>::Type
+ArtMethod::InvokeStatic(Thread* self, typename detail::ShortyTraits<ArgType>::Type... args) {
+  DCHECK(IsStatic());
+  DCHECK(GetDeclaringClass()->IsInitialized());  // Used only for initialized well-known classes.
+  JValue result;
+  constexpr auto shorty = detail::MaterializeShorty<ReturnType, ArgType...>();
+  auto vregs = detail::MaterializeVRegs<ArgType...>(args...);
+  Invoke(self, vregs.data(), sizeof(vregs), &result, shorty.data());
+  return detail::ShortyTraits<ReturnType>::Get(result);
+}
+
+template <char ReturnType, char... ArgType>
+typename detail::ShortyTraits<ReturnType>::Type
+ArtMethod::InvokeInstance(Thread* self,
+                          ObjPtr<mirror::Object> receiver,
+                          typename detail::ShortyTraits<ArgType>::Type... args) {
+  DCHECK(!GetDeclaringClass()->IsInterface());
+  DCHECK(!IsStatic());
+  JValue result;
+  constexpr auto shorty = detail::MaterializeShorty<ReturnType, ArgType...>();
+  auto vregs = detail::MaterializeVRegs<'L', ArgType...>(receiver, args...);
+  Invoke(self, vregs.data(), sizeof(vregs), &result, shorty.data());
+  return detail::ShortyTraits<ReturnType>::Get(result);
+}
+
+template <char ReturnType, char... ArgType>
+typename detail::ShortyTraits<ReturnType>::Type
+ArtMethod::InvokeFinal(Thread* self,
+                       ObjPtr<mirror::Object> receiver,
+                       typename detail::ShortyTraits<ArgType>::Type... args) {
+  DCHECK(!GetDeclaringClass()->IsInterface());
+  DCHECK(!IsStatic());
+  DCHECK(IsFinal() || GetDeclaringClass()->IsFinal());
+  DCHECK(receiver != nullptr);
+  return InvokeInstance<ReturnType, ArgType...>(self, receiver, args...);
+}
+
+template <char ReturnType, char... ArgType>
+typename detail::ShortyTraits<ReturnType>::Type
+ArtMethod::InvokeVirtual(Thread* self,
+                         ObjPtr<mirror::Object> receiver,
+                         typename detail::ShortyTraits<ArgType>::Type... args) {
+  DCHECK(!GetDeclaringClass()->IsInterface());
+  DCHECK(!IsStatic());
+  DCHECK(!IsFinal());
+  DCHECK(receiver != nullptr);
+  ArtMethod* target_method =
+      receiver->GetClass()->FindVirtualMethodForVirtual(this, kRuntimePointerSize);
+  DCHECK(target_method != nullptr);
+  return target_method->InvokeInstance<ReturnType, ArgType...>(self, receiver, args...);
+}
+
+template <char ReturnType, char... ArgType>
+typename detail::ShortyTraits<ReturnType>::Type
+ArtMethod::InvokeInterface(Thread* self,
+                           ObjPtr<mirror::Object> receiver,
+                           typename detail::ShortyTraits<ArgType>::Type... args) {
+  DCHECK(GetDeclaringClass()->IsInterface());
+  DCHECK(!IsStatic());
+  DCHECK(receiver != nullptr);
+  ArtMethod* target_method =
+      receiver->GetClass()->FindVirtualMethodForInterface(this, kRuntimePointerSize);
+  DCHECK(target_method != nullptr);
+  return target_method->InvokeInstance<ReturnType, ArgType...>(self, receiver, args...);
+}
+
 template <ReadBarrierOption kReadBarrierOption>
 inline ObjPtr<mirror::Class> ArtMethod::GetDeclaringClassUnchecked() {
   GcRootSource gc_root_source(this);
@@ -100,6 +295,15 @@ inline ObjPtr<mirror::Class> ArtMethod::ResolveClassFromTypeIndex(dex::TypeIndex
   ObjPtr<mirror::Class> type = Runtime::Current()->GetClassLinker()->ResolveType(type_idx, this);
   DCHECK_EQ(type == nullptr, Thread::Current()->IsExceptionPending());
   return type;
+}
+
+inline bool ArtMethod::IsStringConstructor() {
+  uint32_t access_flags = GetAccessFlags();
+  DCHECK(!IsClassInitializer(access_flags));
+  return IsConstructor(access_flags) &&
+         // No read barrier needed for reading a constant reference only to read
+         // a constant string class flag. See `ReadBarrierOption`.
+         GetDeclaringClass<kWithoutReadBarrier>()->IsStringClass();
 }
 
 inline bool ArtMethod::IsOverridableByDefaultMethod() {
@@ -332,7 +536,7 @@ inline ObjPtr<mirror::DexCache> ArtMethod::GetDexCache() {
     return klass->GetDexCache<kDefaultVerifyFlags, kReadBarrierOption>();
   } else {
     DCHECK(!IsProxyMethod());
-    return GetObsoleteDexCache();
+    return GetObsoleteDexCache<kReadBarrierOption>();
   }
 }
 
@@ -378,9 +582,10 @@ inline ObjPtr<mirror::Class> ArtMethod::ResolveReturnType() {
   return ResolveClassFromTypeIndex(GetReturnTypeIndex());
 }
 
-template <ReadBarrierOption kReadBarrierOption>
 inline bool ArtMethod::HasSingleImplementation() {
-  if (IsFinal() || GetDeclaringClass<kReadBarrierOption>()->IsFinal()) {
+  // No read barrier needed for reading a constant reference only to read
+  // a constant final class flag. See `ReadBarrierOption`.
+  if (IsFinal() || GetDeclaringClass<kWithoutReadBarrier>()->IsFinal()) {
     // We don't set kAccSingleImplementation for these cases since intrinsic
     // can use the flag also.
     return true;
@@ -388,18 +593,63 @@ inline bool ArtMethod::HasSingleImplementation() {
   return (GetAccessFlags() & kAccSingleImplementation) != 0;
 }
 
-template<ReadBarrierOption kReadBarrierOption, typename RootVisitorType>
+template<ReadBarrierOption kReadBarrierOption, bool kVisitProxyMethod, typename RootVisitorType>
 void ArtMethod::VisitRoots(RootVisitorType& visitor, PointerSize pointer_size) {
   if (LIKELY(!declaring_class_.IsNull())) {
     visitor.VisitRoot(declaring_class_.AddressWithoutBarrier());
-    ObjPtr<mirror::Class> klass = declaring_class_.Read<kReadBarrierOption>();
-    if (UNLIKELY(klass->IsProxyClass())) {
-      // For normal methods, dex cache shortcuts will be visited through the declaring class.
-      // However, for proxies we need to keep the interface method alive, so we visit its roots.
-      ArtMethod* interface_method = GetInterfaceMethodForProxyUnchecked(pointer_size);
-      DCHECK(interface_method != nullptr);
-      interface_method->VisitRoots<kReadBarrierOption>(visitor, pointer_size);
+    if (kVisitProxyMethod) {
+      ObjPtr<mirror::Class> klass = declaring_class_.Read<kReadBarrierOption>();
+      if (UNLIKELY(klass->IsProxyClass())) {
+        // For normal methods, dex cache shortcuts will be visited through the declaring class.
+        // However, for proxies we need to keep the interface method alive, so we visit its roots.
+        ArtMethod* interface_method = GetInterfaceMethodForProxyUnchecked(pointer_size);
+        DCHECK(interface_method != nullptr);
+        interface_method->VisitRoots<kReadBarrierOption, kVisitProxyMethod>(visitor, pointer_size);
+      }
     }
+  }
+}
+
+template<typename RootVisitorType>
+void ArtMethod::VisitRoots(RootVisitorType& visitor,
+                           uint8_t* start_boundary,
+                           uint8_t* end_boundary,
+                           ArtMethod* method) {
+  mirror::CompressedReference<mirror::Object>* cls_ptr =
+      reinterpret_cast<mirror::CompressedReference<mirror::Object>*>(
+          reinterpret_cast<uint8_t*>(method) + DeclaringClassOffset().Int32Value());
+  if (reinterpret_cast<uint8_t*>(cls_ptr) >= start_boundary
+      && reinterpret_cast<uint8_t*>(cls_ptr) < end_boundary) {
+    visitor.VisitRootIfNonNull(cls_ptr);
+  }
+}
+
+template<PointerSize kPointerSize, typename RootVisitorType>
+void ArtMethod::VisitArrayRoots(RootVisitorType& visitor,
+                                uint8_t* start_boundary,
+                                uint8_t* end_boundary,
+                                LengthPrefixedArray<ArtMethod>* array) {
+  DCHECK_LE(start_boundary, end_boundary);
+  DCHECK_NE(array->size(), 0u);
+  static constexpr size_t kMethodSize = ArtMethod::Size(kPointerSize);
+  ArtMethod* first_method = &array->At(0, kMethodSize, ArtMethod::Alignment(kPointerSize));
+  DCHECK_LE(static_cast<void*>(end_boundary),
+            static_cast<void*>(reinterpret_cast<uint8_t*>(first_method)
+                               + array->size() * kMethodSize));
+  uint8_t* declaring_class =
+      reinterpret_cast<uint8_t*>(first_method) + DeclaringClassOffset().Int32Value();
+  // Jump to the first class to visit.
+  if (declaring_class < start_boundary) {
+    size_t remainder = (start_boundary - declaring_class) % kMethodSize;
+    declaring_class = start_boundary;
+    if (remainder > 0) {
+      declaring_class += kMethodSize - remainder;
+    }
+  }
+  while (declaring_class < end_boundary) {
+    visitor.VisitRootIfNonNull(
+        reinterpret_cast<mirror::CompressedReference<mirror::Object>*>(declaring_class));
+    declaring_class += kMethodSize;
   }
 }
 
@@ -417,6 +667,43 @@ inline void ArtMethod::UpdateEntrypoints(const Visitor& visitor, PointerSize poi
   if (old_code != new_code) {
     SetEntryPointFromQuickCompiledCodePtrSize(new_code, pointer_size);
   }
+}
+
+template <ReadBarrierOption kReadBarrierOption>
+inline bool ArtMethod::StillNeedsClinitCheck() {
+  if (!NeedsClinitCheckBeforeCall()) {
+    return false;
+  }
+  ObjPtr<mirror::Class> klass = GetDeclaringClass<kReadBarrierOption>();
+  return !klass->IsVisiblyInitialized();
+}
+
+inline bool ArtMethod::StillNeedsClinitCheckMayBeDead() {
+  if (!NeedsClinitCheckBeforeCall()) {
+    return false;
+  }
+  ObjPtr<mirror::Class> klass = GetDeclaringClassMayBeDead();
+  return !klass->IsVisiblyInitialized();
+}
+
+inline bool ArtMethod::IsDeclaringClassVerifiedMayBeDead() {
+  ObjPtr<mirror::Class> klass = GetDeclaringClassMayBeDead();
+  return klass->IsVerified();
+}
+
+inline ObjPtr<mirror::Class> ArtMethod::GetDeclaringClassMayBeDead() {
+  // Helper method for checking the status of the declaring class which may be dead.
+  //
+  // To avoid resurrecting an unreachable object, or crashing the GC in some GC phases,
+  // we must not use a full read barrier. Therefore we read the declaring class without
+  // a read barrier and check if it's already marked. If yes, we check the status of the
+  // to-space class object as intended. Otherwise, there is no to-space object and the
+  // from-space class object contains the most recent value of the status field; even if
+  // this races with another thread doing a read barrier and updating the status, that's
+  // no different from a race with a thread that just updates the status.
+  ObjPtr<mirror::Class> klass = GetDeclaringClass<kWithoutReadBarrier>();
+  ObjPtr<mirror::Class> marked = ReadBarrier::IsMarked(klass.Ptr());
+  return (marked != nullptr) ? marked : klass;
 }
 
 inline CodeItemInstructionAccessor ArtMethod::DexInstructions() {

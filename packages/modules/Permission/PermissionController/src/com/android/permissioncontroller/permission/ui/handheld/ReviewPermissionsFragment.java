@@ -57,9 +57,9 @@ import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.permission.model.livedatatypes.LightAppPermGroup;
 import com.android.permissioncontroller.permission.model.livedatatypes.LightPermission;
 import com.android.permissioncontroller.permission.ui.ManagePermissionsActivity;
-import com.android.permissioncontroller.permission.ui.model.v33.ReviewPermissionViewModelFactory;
-import com.android.permissioncontroller.permission.ui.model.v33.ReviewPermissionsViewModel;
-import com.android.permissioncontroller.permission.ui.model.v33.ReviewPermissionsViewModel.PermissionTarget;
+import com.android.permissioncontroller.permission.ui.model.ReviewPermissionViewModelFactory;
+import com.android.permissioncontroller.permission.ui.model.ReviewPermissionsViewModel;
+import com.android.permissioncontroller.permission.ui.model.ReviewPermissionsViewModel.PermissionTarget;
 import com.android.permissioncontroller.permission.utils.KotlinUtils;
 import com.android.permissioncontroller.permission.utils.Utils;
 

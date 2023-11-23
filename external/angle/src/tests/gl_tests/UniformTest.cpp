@@ -16,7 +16,7 @@ using namespace angle;
 namespace
 {
 
-class SimpleUniformTest : public ANGLETest
+class SimpleUniformTest : public ANGLETest<>
 {
   protected:
     SimpleUniformTest()
@@ -312,7 +312,7 @@ void main() {
     }
 }
 
-class UniformTest : public ANGLETest
+class UniformTest : public ANGLETest<>
 {
   protected:
     UniformTest() : mProgram(0), mUniformFLocation(-1), mUniformILocation(-1), mUniformBLocation(-1)
@@ -679,7 +679,7 @@ TEST_P(UniformTest, BooleanArrayUniformStateQuery)
     ASSERT_GL_NO_ERROR();
 }
 
-class UniformTestES3 : public ANGLETest
+class UniformTestES3 : public ANGLETest<>
 {
   protected:
     UniformTestES3() : mProgram(0) {}
@@ -1153,7 +1153,7 @@ TEST_P(UniformTestES3, BooleanUniformAsIfAndForCondition)
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
 }
 
-class UniformTestES31 : public ANGLETest
+class UniformTestES31 : public ANGLETest<>
 {
   protected:
     UniformTestES31() : mProgram(0) {}
@@ -1391,7 +1391,8 @@ TEST_P(UniformTestES3, MatrixUniformUpload)
                 drawQuad(program.get(), essl3_shaders::PositionAttrib(), 0.0f);
 
                 ASSERT_GL_NO_ERROR();
-                EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::white);
+                EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::white)
+                    << " transpose = " << transpose << ", cols = " << cols << ", rows = " << rows;
             }
         }
     }
@@ -1508,6 +1509,34 @@ void main()
 })";
 
     mProgram = CompileProgram(kVS, kFS);
+    ASSERT_NE(mProgram, 0u);
+    drawQuad(mProgram, "position", 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+}
+
+// Bug: chromium:4210448 : Ensure programs properly
+// compiles and renders where the uniforms form
+// a struct with an alignment not matched with
+// the actual size of the individual members.
+// (Metal)
+TEST_P(UniformTest, Vec4Vec2SizeAlignment)
+{
+    constexpr char kVS[] = R"(precision highp float;
+attribute vec4 position;
+uniform vec4 uniformA;
+uniform vec4 uniformB;
+uniform vec2 uniformC;
+void main()
+{
+    gl_Position = position+uniformA +
+    uniformB + vec4(uniformC.x, uniformC.y, 0, 0);
+})";
+    constexpr char kFS[] = R"(precision highp float;
+void main()
+{
+    gl_FragColor = vec4(0,1,0,1);
+})";
+    mProgram             = CompileProgram(kVS, kFS);
     ASSERT_NE(mProgram, 0u);
     drawQuad(mProgram, "position", 0.5f);
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);

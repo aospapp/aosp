@@ -36,10 +36,13 @@ java_test_host {
     ],
     data: [
         ":CtsStatsdAtomEmptyApp",
+        ":CtsStatsdAtomEmptyAppV2",
         ":CtsStatsdAtomEmptyApp2",
+        ":CtsStatsdAtomStaticSharedLibProviderV1",
+        ":CtsStatsdAtomStaticSharedLibProviderV2",
         ":CtsStatsdAtomEmptySplitApp",
         ":CtsStatsdAtomApp",
-        ":IncrementalAppErrorStatsTestsHelper",
+        ":PackageManagerStatsTestsHelper",
     ],
     java_resource_dirs: ["res"],
 }

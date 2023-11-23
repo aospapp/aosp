@@ -19,6 +19,7 @@ package com.android.testutils
 import android.net.Uri
 import com.android.net.module.util.ArrayTrackRecord
 import fi.iki.elonen.NanoHTTPD
+import java.io.IOException
 
 /**
  * A minimal HTTP server running on a random available port.
@@ -82,7 +83,23 @@ class TestHttpServer(host: String? = null) : NanoHTTPD(host, 0 /* auto-select th
         val request = Request(session.uri
                 ?: "", session.method, session.queryParameterString ?: "")
         requestsRecord.add(request)
+
+        // For PUT and POST, call parseBody to read InputStream before responding.
+        if (Method.PUT == session.method || Method.POST == session.method) {
+            try {
+                session.parseBody(HashMap())
+            } catch (e: Exception) {
+                when (e) {
+                    is IOException, is ResponseException -> e.toResponse()
+                    else -> throw e
+                }
+            }
+        }
+
         // Default response is a 404
         return responses[request] ?: super.serve(session)
     }
+
+    fun Exception.toResponse() =
+        newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", this.toString())
 }

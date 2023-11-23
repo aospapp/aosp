@@ -31,7 +31,10 @@ void doBpfStructSizeTest(const char *elfPath) {
   std::ifstream elfFile(elfPath, std::ios::in | std::ios::binary);
   ASSERT_TRUE(elfFile.is_open());
 
-  if (android::modules::sdklevel::IsAtLeastT()) {
+  if (android::modules::sdklevel::IsAtLeastU()) {
+    EXPECT_EQ(120, readSectionUint("size_of_bpf_map_def", elfFile, 0));
+    EXPECT_EQ(92, readSectionUint("size_of_bpf_prog_def", elfFile, 0));
+  } else if (android::modules::sdklevel::IsAtLeastT()) {
     EXPECT_EQ(116, readSectionUint("size_of_bpf_map_def", elfFile, 0));
     EXPECT_EQ(92, readSectionUint("size_of_bpf_prog_def", elfFile, 0));
   } else {
@@ -47,8 +50,13 @@ TEST(BpfTest, bpfStructSizeTestPreT) {
 }
 
 TEST(BpfTest, bpfStructSizeTest) {
-  doBpfStructSizeTest("/system/etc/bpf/gpu_mem.o");
-  doBpfStructSizeTest("/system/etc/bpf/time_in_state.o");
+  if (android::modules::sdklevel::IsAtLeastU()) {
+      doBpfStructSizeTest("/system/etc/bpf/gpuMem.o");
+      doBpfStructSizeTest("/system/etc/bpf/timeInState.o");
+  } else {
+      doBpfStructSizeTest("/system/etc/bpf/gpu_mem.o");
+      doBpfStructSizeTest("/system/etc/bpf/time_in_state.o");
+  }
 }
 
 int main(int argc, char **argv) {

@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"Čakajoči klic CDMA v sistemu IMS je izklopljen"</string>
     <string name="updating_title" msgid="6130548922615719689">"Nastavitve klicev"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Nastavitve klicanja lahko spremeni samo uporabnik s skrbniškim dostopom."</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"Nastavitve računa telefona lahko spremeni samo uporabnik s skrbniškim ali službenim dostopom."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Nastavitve (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"Napaka nastavitev klicev"</string>
     <string name="reading_settings" msgid="1605904432450871183">"Branje nastavitev …"</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"Klicev ni mogoče zadržati."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"Povežite se v omrežje Wi-Fi, če želite opraviti klic."</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"Če želite opraviti klic, omogočite klicanja prek Wi-Fi-ja."</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"Če želite opraviti klic, onemogočite satelitski način."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"Informacije za nujne primere"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"Lastnik"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"Znova se dotaknite, da si ogledate podatke"</string>
@@ -671,7 +673,7 @@
     <string name="sim_label_emergency_calls" msgid="9078241989421522310">"Klici v sili"</string>
     <string name="sim_description_emergency_calls" msgid="5146872803938897296">"Samo klicanje v sili"</string>
     <string name="sim_description_default" msgid="7474671114363724971">"Kartica SIM, reža: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
-    <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Funkcije za ljudi s posebnimi potrebami"</string>
+    <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Dostopnost"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Klic prek Wi-Fi-ja osebe"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Klic Wi-Fi"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Napaka pri dekodiranju sporočila."</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"Način za letalo je vklopljen"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"Do kartice SIM ni mogoče dostopati"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"Mobilno omrežje ni na voljo"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"Satelitski način je vklopljen"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"Težava s telefonsko številko, ki jo poskušate poklicati. Koda napake 1."</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"Klica ni bilo mogoče končati. Koda napake 3."</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"Klica ni bilo mogoče končati. Koda napake 6."</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Prekliči"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"Nastavi izmenljivo kartico e-SIM kot privzeto"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Moč radia mobilne naprave"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"Simulacija nedelovanja (samo za gradnjo za odpravljanje napak)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Prikaži imenik na kartici SIM"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Prikaži številke za zaporo odhodnih klicev"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"Prikaži številke za klicanje storitev"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"Povezano"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"Onemogočeno"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"Neznano"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"Glavno"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pkts"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"B"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"Poslani podatki:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"Čakajoče sporočilo:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"Telefonska številka:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"Izbira radijskega območja"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Vrsta glasovnega omrežja:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Vrsta podatkovnega omrežja:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Preglasi vrsto omrežja:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"Stanje neobdelane glasovne registracije:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"Stanje registracije neobdelanih podatkov:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"Stanje registracije neobdelanih podatkov WLAN:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Izberite indeks telefona"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Nastavitev vrste prednostnega omrežja:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Preverjanje imena gostitelja (www.google.com) za IPv4:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Signal povezave Bluetooth je šibek. Poskusite preklopiti na zvočnik."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"Obvestilo o kakovosti klica"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"Opuščeni računi SIP"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"Sporočila ni mogoče poslati iz osebne aplikacije"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"Organizacija vam omogoča pošiljanje sporočil samo iz delovnih aplikacij"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"Prekliči"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"Preklopi na delovni profil"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"Namestite delovno aplikacijo za sporočanje"</string>
 </resources>

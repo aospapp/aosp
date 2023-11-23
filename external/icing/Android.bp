@@ -58,6 +58,8 @@ cc_defaults {
     apex_available: ["com.android.appsearch"],
 }
 
+// TODO(b/193244409): Use the filegroup libicing_test_common along with
+//                    libicing_defaults to build libicing.
 cc_library_shared {
     name: "libicing",
     defaults: ["libicing_defaults"],
@@ -89,6 +91,63 @@ cc_library_shared {
     ],
     version_script: "icing/jni.lds",
     min_sdk_version: "Tiramisu",
+}
+
+filegroup {
+    name: "libicing_test_common",
+    // TODO(b/193244409): Utilize globs once all build errors are fixed.
+    srcs: [
+        "icing/absl_ports/*.cc",
+        "icing/file/**/*.cc",
+        "icing/index/**/*.cc",
+        "icing/legacy/**/*.cc",
+        "icing/portable/*.cc",
+        "icing/query/**/*.cc",
+        "icing/schema/*.cc",
+        "icing/scoring/**/*.cc",
+        "icing/store/*.cc",
+        "icing/testing/*.cc",
+        "icing/text_classifier/lib3/utils/base/*.cc",
+        "icing/text_classifier/lib3/utils/hash/*.cc",
+        "icing/tokenization/*.cc",
+        "icing/util/*.cc",
+    ],
+    // TODO(b/193244409): Remove after all the excluded tests are passing.
+    exclude_srcs: [
+        "icing/**/*_benchmark.cc",
+        "icing/**/*-jni-layer.cc",
+        "icing/index/**/*_test.cc",
+        "icing/legacy/**/*_test.cc",
+        "icing/query/**/*_test.cc",
+        "icing/scoring/**/*_test.cc",
+        "icing/store/*_test.cc",
+        "icing/testing/*test*.cc",
+        "icing/tokenization/*_test.cc",
+        "icing/util/*_test.cc",
+    ],
+}
+
+cc_test {
+    name: "libicing_tests",
+    defaults: ["libicing_defaults"],
+    test_suites: ["device_tests"],
+    // TODO(b/193244409): Implement globs for additional tests.
+    srcs: [
+        ":libicing_test_common",
+    ],
+    static_libs: [
+        "icing-c-proto",
+        "libgmock",
+        "libgoogle-benchmark",
+        "libgtest",
+    ],
+    shared_libs: [
+        "libicu",
+        "libicu_cts_stub",
+        "liblog",
+        "libprotobuf-cpp-lite",
+        "libz",
+    ],
 }
 
 // TODO(cassiewang): Add build rules and a TEST_MAPPING for cc_tests

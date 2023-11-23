@@ -22,6 +22,7 @@ import android.car.drivingstate.CarUxRestrictions;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.format.DateFormat;
+import android.util.Log;
 import android.view.ViewGroup;
 import android.widget.NumberPicker;
 import android.widget.TimePicker;
@@ -45,7 +46,7 @@ import java.util.List;
  * Sets the system time.
  */
 public class TimePickerFragment extends BaseFragment {
-    private static final int MILLIS_IN_SECOND = 1000;
+    private static final String TAG = "TimePickerFragment";
 
     private DirectManipulationState mDirectManipulationMode;
     private TimePicker mTimePicker;
@@ -59,14 +60,18 @@ public class TimePickerFragment extends BaseFragment {
         c.set(Calendar.MINUTE, mTimePicker.getMinute());
         c.set(Calendar.SECOND, 0);
         c.set(Calendar.MILLISECOND, 0);
-        long when = Math.max(c.getTimeInMillis(), DatetimeSettingsFragment.MIN_DATE);
-        if (when / MILLIS_IN_SECOND < Integer.MAX_VALUE) {
-            TimeDetector timeDetector =
-                    getContext().getSystemService(TimeDetector.class);
-            ManualTimeSuggestion manualTimeSuggestion =
-                    TimeDetector.createManualTimeSuggestion(when, "Settings: Set time");
-            timeDetector.suggestManualTime(manualTimeSuggestion);
+
+        long when = c.getTimeInMillis();
+        TimeDetector timeDetector = getContext().getSystemService(TimeDetector.class);
+        ManualTimeSuggestion manualTimeSuggestion =
+                TimeDetector.createManualTimeSuggestion(when, "Settings: Set time");
+        boolean success = timeDetector.suggestManualTime(manualTimeSuggestion);
+        if (success) {
             getContext().sendBroadcast(new Intent(Intent.ACTION_TIME_CHANGED));
+        } else {
+            // This implies the system server is applying tighter bounds than the settings app or
+            // the date/time cannot be set for other reasons, e.g. perhaps "auto time" is turned on.
+            Log.w(TAG, "Unable to set time with suggestion=" + manualTimeSuggestion);
         }
     }
 

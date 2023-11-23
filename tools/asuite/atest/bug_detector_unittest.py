@@ -25,9 +25,9 @@ import unittest
 
 from unittest import mock
 
-import bug_detector
-import constants
-import unittest_constants as uc
+from atest import bug_detector
+from atest import constants
+from atest import unittest_constants as uc
 
 TEST_DICT = {
     'test1': {

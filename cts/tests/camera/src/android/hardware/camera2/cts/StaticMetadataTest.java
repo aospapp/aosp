@@ -21,10 +21,10 @@ import static android.hardware.camera2.CameraCharacteristics.*;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraCharacteristics.Key;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
-import android.hardware.camera2.CameraCharacteristics.Key;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.helpers.StaticMetadata.CheckLevel;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
@@ -33,6 +33,12 @@ import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
 
+import static org.junit.Assert.assertTrue;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -40,13 +46,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 /**
  * <p>
@@ -435,6 +434,7 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
             case REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME:
             case REQUEST_AVAILABLE_CAPABILITIES_DYNAMIC_RANGE_TEN_BIT:
             case REQUEST_AVAILABLE_CAPABILITIES_STREAM_USE_CASE:
+            case REQUEST_AVAILABLE_CAPABILITIES_COLOR_SPACE_PROFILES:
                 // Tested in ExtendedCameraCharacteristicsTest
                 return;
             case REQUEST_AVAILABLE_CAPABILITIES_SECURE_IMAGE_DATA:
@@ -453,6 +453,15 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
                 additionalRequirements.add(new Pair<String, Boolean>(
                         "Must support maximum resolution keys",
                         mStaticInfo.areMaximumResolutionKeysSupported()));
+                return;
+            case REQUEST_AVAILABLE_CAPABILITIES_SYSTEM_CAMERA:
+                if (isCapabilityAvailable) {
+                    mCollector.expectTrue("System camera shouldn't be available without" +
+                            " SYSTEM_CAMERA permissons", mAdoptShellPerm);
+                }
+                return;
+             case REQUEST_AVAILABLE_CAPABILITIES_OFFLINE_PROCESSING:
+                //Tested in OfflineSessionTest
                 return;
             default:
                 capabilityName = "Unknown";

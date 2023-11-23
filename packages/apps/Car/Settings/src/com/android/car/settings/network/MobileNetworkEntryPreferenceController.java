@@ -84,7 +84,7 @@ public class MobileNetworkEntryPreferenceController extends
     protected void updateState(CarUiTwoActionSwitchPreference preference) {
         List<SubscriptionInfo> subs = SubscriptionUtils.getAvailableSubscriptions(
                 mSubscriptionManager, mTelephonyManager);
-        preference.setEnabled(!subs.isEmpty());
+        preference.setEnabled(!subs.isEmpty() && getAvailabilityStatus() == AVAILABLE);
         preference.setSummary(getSummary(subs));
         getPreference().setSecondaryActionChecked(mTelephonyManager.isDataEnabled());
     }
@@ -107,7 +107,7 @@ public class MobileNetworkEntryPreferenceController extends
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         if (!NetworkUtils.hasSim(mTelephonyManager)) {
             return UNSUPPORTED_ON_DEVICE;
         }

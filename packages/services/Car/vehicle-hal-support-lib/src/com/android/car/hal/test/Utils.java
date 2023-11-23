@@ -20,8 +20,11 @@ import android.util.SparseArray;
 
 import java.util.Iterator;
 
-class Utils {
-    private Utils() {}
+final class Utils {
+
+    private Utils() throws Exception {
+        throw new Exception("Utils class only contains static methods, must not be instantiated.");
+    }
 
     static class SparseArrayIterator<T>
             implements Iterable<SparseArrayIterator.SparseArrayEntry<T>>,

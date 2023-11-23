@@ -45,4 +45,11 @@ public abstract class RemotePolicyManager extends TestAppInstance {
     public boolean isDelegate() {
         return false;
     }
+
+    /**
+     * Is this an app for which .devicePolicyManager() will call through to the parent instance?
+     */
+    public boolean isParentInstance() {
+        return false;
+    }
 }

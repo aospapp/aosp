@@ -158,7 +158,7 @@ Java_com_android_game_qualification_tests_ChoreoTestActivity_runTheTest(JNIEnv* 
 
     AChoreographer_postFrameCallback(choreographer, frameCallback, nullptr);
 
-    while (doRender && ALooper_pollAll(-1, nullptr, nullptr, nullptr));
+    while (doRender && ALooper_pollOnce(-1, nullptr, nullptr, nullptr));
 
     shutdownEGL();
 

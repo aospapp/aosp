@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
+include common/fdt_wrappers.mk
+
 # Use the GICv3 driver on the FVP by default
 FVP_USE_GIC_DRIVER	:= FVP_GICV3
 
@@ -130,15 +132,17 @@ else
 					lib/cpus/aarch64/neoverse_n2.S		\
 					lib/cpus/aarch64/neoverse_e1.S		\
 					lib/cpus/aarch64/neoverse_v1.S		\
+					lib/cpus/aarch64/neoverse_demeter.S	\
 					lib/cpus/aarch64/cortex_a78_ae.S	\
 					lib/cpus/aarch64/cortex_a510.S		\
 					lib/cpus/aarch64/cortex_a710.S	\
 					lib/cpus/aarch64/cortex_makalu.S	\
 					lib/cpus/aarch64/cortex_makalu_elp_arm.S \
-					lib/cpus/aarch64/cortex_demeter.S	\
 					lib/cpus/aarch64/cortex_a65.S		\
 					lib/cpus/aarch64/cortex_a65ae.S		\
-					lib/cpus/aarch64/cortex_a78c.S
+					lib/cpus/aarch64/cortex_a78c.S		\
+					lib/cpus/aarch64/cortex_hayes.S		\
+					lib/cpus/aarch64/cortex_hunter.S
 	endif
 	# AArch64/AArch32 cores
 	FVP_CPU_LIBS	+=	lib/cpus/aarch64/cortex_a55.S		\
@@ -185,6 +189,10 @@ ifeq (${COT_DESC_IN_DTB},1)
 BL2_SOURCES		+=	plat/arm/common/fconf/fconf_nv_cntr_getter.c
 endif
 
+ifeq (${ENABLE_RME},1)
+BL2_SOURCES		+=	plat/arm/board/fvp/aarch64/fvp_helpers.S
+endif
+
 ifeq (${BL2_AT_EL3},1)
 BL2_SOURCES		+=	plat/arm/board/fvp/${ARCH}/fvp_helpers.S	\
 				plat/arm/board/fvp/fvp_bl2_el3_setup.c		\
@@ -222,10 +230,11 @@ BL31_SOURCES		+=	drivers/arm/fvp/fvp_pwrc.c			\
 # Support for fconf in BL31
 # Added separately from the above list for better readability
 ifeq ($(filter 1,${BL2_AT_EL3} ${RESET_TO_BL31}),)
-BL31_SOURCES		+=	common/fdt_wrappers.c				\
-				lib/fconf/fconf.c				\
+BL31_SOURCES		+=	lib/fconf/fconf.c				\
 				lib/fconf/fconf_dyn_cfg_getter.c		\
 				plat/arm/board/fvp/fconf/fconf_hw_config_getter.c
+
+BL31_SOURCES		+=	${FDT_WRAPPERS_SOURCES}
 
 ifeq (${SEC_INT_DESC_IN_FCONF},1)
 BL31_SOURCES		+=	plat/arm/common/fconf/fconf_sec_intr_config.c
@@ -371,10 +380,22 @@ BL1_SOURCES		+=	plat/arm/board/fvp/fvp_trusted_boot.c
 BL2_SOURCES		+=	plat/arm/board/fvp/fvp_trusted_boot.c
 
 ifeq (${MEASURED_BOOT},1)
-BL2_SOURCES		+=	plat/arm/board/fvp/fvp_measured_boot.c
+BL1_SOURCES		+=	plat/arm/board/fvp/fvp_common_measured_boot.c	\
+				plat/arm/board/fvp/fvp_bl1_measured_boot.c
+BL2_SOURCES		+=	plat/arm/board/fvp/fvp_common_measured_boot.c	\
+				plat/arm/board/fvp/fvp_bl2_measured_boot.c
 endif
 
 # FVP being a development platform, enable capability to disable Authentication
 # dynamically if TRUSTED_BOARD_BOOT is set.
 DYN_DISABLE_AUTH	:=	1
 endif
+
+# enable trace buffer control registers access to NS by default
+ENABLE_TRBE_FOR_NS		:= 1
+
+# enable trace system registers access to NS by default
+ENABLE_SYS_REG_TRACE_FOR_NS	:= 1
+
+# enable trace filter control registers access to NS by default
+ENABLE_TRF_FOR_NS		:= 1

@@ -24,18 +24,24 @@ import (
 func init() {
 	registerSystemserverClasspathBuildComponents(android.InitRegistrationContext)
 
-	android.RegisterSdkMemberType(&systemServerClasspathFragmentMemberType{
-		SdkMemberTypeBase: android.SdkMemberTypeBase{
-			PropertyName: "systemserverclasspath_fragments",
-			SupportsSdk:  true,
-		},
-	})
+	android.RegisterSdkMemberType(SystemServerClasspathFragmentSdkMemberType)
 }
 
 func registerSystemserverClasspathBuildComponents(ctx android.RegistrationContext) {
 	ctx.RegisterModuleType("platform_systemserverclasspath", platformSystemServerClasspathFactory)
 	ctx.RegisterModuleType("systemserverclasspath_fragment", systemServerClasspathFactory)
 	ctx.RegisterModuleType("prebuilt_systemserverclasspath_fragment", prebuiltSystemServerClasspathModuleFactory)
+}
+
+var SystemServerClasspathFragmentSdkMemberType = &systemServerClasspathFragmentMemberType{
+	SdkMemberTypeBase: android.SdkMemberTypeBase{
+		PropertyName: "systemserverclasspath_fragments",
+		SupportsSdk:  true,
+
+		// Support for adding systemserverclasspath_fragments to the sdk snapshot was only added in
+		// Tiramisu.
+		SupportedBuildReleaseSpecification: "Tiramisu+",
+	},
 }
 
 type platformSystemServerClasspathModule struct {
@@ -77,7 +83,6 @@ func (p *platformSystemServerClasspathModule) standaloneConfiguredJars(ctx andro
 type SystemServerClasspathModule struct {
 	android.ModuleBase
 	android.ApexModuleBase
-	android.SdkBase
 
 	ClasspathFragmentBase
 
@@ -107,7 +112,6 @@ func systemServerClasspathFactory() android.Module {
 	m := &SystemServerClasspathModule{}
 	m.AddProperties(&m.properties)
 	android.InitApexModule(m)
-	android.InitSdkAwareModule(m)
 	initClasspathFragment(m, SYSTEMSERVERCLASSPATH)
 	android.InitAndroidArchModule(m, android.DeviceSupported, android.MultilibCommon)
 	return m
@@ -154,7 +158,7 @@ func (s *SystemServerClasspathModule) configuredJars(ctx android.ModuleContext) 
 	// This is an exception to support end-to-end test for ApexdUnitTests, until such support exists.
 	if android.InList("test_service-apexd", possibleUpdatableModules) {
 		jars = jars.Append("com.android.apex.test_package", "test_service-apexd")
-	} else if global.ApexSystemServerJars.Len() > 0 && len(unknown) > 0 && !android.IsModuleInVersionedSdk(ctx.Module()) {
+	} else if global.ApexSystemServerJars.Len() > 0 && len(unknown) > 0 {
 		// For non test apexes, make sure that all contents are actually declared in make.
 		ctx.ModuleErrorf("%s in contents must also be declared in PRODUCT_APEX_SYSTEM_SERVER_JARS", unknown)
 	}
@@ -325,7 +329,6 @@ func prebuiltSystemServerClasspathModuleFactory() android.Module {
 	// array.
 	android.InitPrebuiltModule(m, &[]string{"placeholder"})
 	android.InitApexModule(m)
-	android.InitSdkAwareModule(m)
 	android.InitAndroidArchModule(m, android.DeviceSupported, android.MultilibCommon)
 	return m
 }

@@ -19,18 +19,21 @@ package com.google.android.setupdesign.util;
 import static com.google.android.setupcompat.util.BuildCompatUtils.isAtLeastS;
 
 import android.content.Context;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.VectorDrawable;
 import android.os.Build;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.ViewTreeObserver;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.ImageView.ScaleType;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.annotation.Nullable;
@@ -98,6 +101,53 @@ public final class HeaderAreaStyler {
             PartnerConfig.CONFIG_DESCRIPTION_TEXT_MARGIN_TOP,
             PartnerConfig.CONFIG_DESCRIPTION_TEXT_MARGIN_BOTTOM,
             PartnerStyleHelper.getLayoutGravity(description.getContext())));
+  }
+
+  public static void applyPartnerCustomizationAccountStyle(
+      ImageView avatar, TextView name, LinearLayout container) {
+    if (avatar == null || name == null) {
+      return;
+    }
+
+    Context context = avatar.getContext();
+
+    ViewGroup.LayoutParams lpIcon = avatar.getLayoutParams();
+    if (lpIcon instanceof ViewGroup.MarginLayoutParams) {
+      ViewGroup.MarginLayoutParams mlp = (ViewGroup.MarginLayoutParams) lpIcon;
+
+      int rightMargin =
+          (int)
+              PartnerConfigHelper.get(context)
+                  .getDimension(context, PartnerConfig.CONFIG_ACCOUNT_AVATAR_MARGIN_END);
+      mlp.setMargins(mlp.leftMargin, mlp.topMargin, rightMargin, mlp.bottomMargin);
+    }
+
+    int maxHeight =
+        (int)
+            PartnerConfigHelper.get(context)
+                .getDimension(context, PartnerConfig.CONFIG_ACCOUNT_AVATAR_SIZE,
+                context.getResources().getDimension(R.dimen.sud_account_avatar_max_height));
+    avatar.setMaxHeight(maxHeight);
+
+    int textSize =
+        (int)
+            PartnerConfigHelper.get(context)
+                .getDimension(
+                    context,
+                    PartnerConfig.CONFIG_ACCOUNT_NAME_TEXT_SIZE,
+                    context.getResources().getDimension(R.dimen.sud_account_name_text_size));
+    name.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize);
+
+    String textFamily =
+            PartnerConfigHelper.get(context)
+                .getString(context, PartnerConfig.CONFIG_ACCOUNT_NAME_FONT_FAMILY);
+    Typeface font = Typeface.create(textFamily, Typeface.NORMAL);
+    if (font != null) {
+      name.setTypeface(font);
+    }
+
+    int gravity = PartnerStyleHelper.getLayoutGravity(container.getContext());
+    container.setGravity(gravity);
   }
 
   /**

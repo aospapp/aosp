@@ -16,6 +16,7 @@
 
 package android.bootstats.cts;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
@@ -77,7 +78,7 @@ public class BootStatsHostTest implements IDeviceTest {
             if (notExistingAtoms.isEmpty()) {
                 return;
             }
-            Thread.sleep(WAIT_SLEEP_MS);
+            RunUtil.getDefault().sleep(WAIT_SLEEP_MS);
         }
         assertThat(checkAllExpectedAtoms(expectedAtomHeaders)).isEmpty();
     }
@@ -129,7 +130,7 @@ public class BootStatsHostTest implements IDeviceTest {
         int upperBoundSeconds = (int) ((System.currentTimeMillis() - startTime) / 1000);
 
         // wait for logs to post
-        Thread.sleep(10000);
+        RunUtil.getDefault().sleep(10000);
 
         // find logs and parse them
         // ex: sysui_multi_action: [757,804,799,ota_boot_complete,801,85,802,1]
@@ -174,7 +175,7 @@ public class BootStatsHostTest implements IDeviceTest {
             if (isBootCompleted()) {
                 return;
             }
-            Thread.sleep(1000);
+            RunUtil.getDefault().sleep(1000);
         }
         throw new AssertionError("System failed to become ready!");
     }

@@ -16,9 +16,25 @@
 
 package android.keystore.cts;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
+
+import android.keystore.cts.util.ImportedKey;
+import android.keystore.cts.util.TestUtils;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyInfo;
+import android.security.keystore.KeyProperties;
+import android.security.keystore.KeyProtection;
+
+import androidx.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.ApiTest;
+
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
@@ -28,22 +44,10 @@ import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
+import java.security.spec.ECGenParameterSpec;
 import java.security.spec.InvalidKeySpecException;
 
 import javax.crypto.KeyAgreement;
-
-import junit.framework.TestCase;
-
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
-import android.content.Context;
-import android.keystore.cts.util.TestUtils;
-import android.security.keystore.KeyGenParameterSpec;
-import android.security.keystore.KeyProperties;
-import android.security.keystore.KeyInfo;
 
 public class KeyAgreementTest {
     private static final String PRIVATE_KEY_ALIAS = "TemporaryPrivateKey";
@@ -104,6 +108,22 @@ public class KeyAgreementTest {
         byte[] sharedSecret2 = ka.generateSecret();
 
         Assert.assertArrayEquals(sharedSecret1, sharedSecret2);
+    }
+
+    @Test
+    public void testGenerateSecret_withImportedKey() throws Exception {
+        KeyProtection importParams =
+                new KeyProtection.Builder(KeyProperties.PURPOSE_AGREE_KEY).build();
+        ImportedKey importedKey = TestUtils.importIntoAndroidKeyStore("testECsecp256r1",
+                InstrumentationRegistry.getTargetContext(),
+                R.raw.ec_key4_secp256r1_pkcs8, R.raw.ec_key4_secp256r1_cert, importParams);
+        KeyPair keyPair = importedKey.getKeystoreBackedKeyPair();
+
+        KeyAgreement ka = getKeyStoreKeyAgreement();
+        ka.init(keyPair.getPrivate());
+        ka.doPhase(generateEphemeralServerKeyPair().getPublic(), true);
+        byte[] sharedSecret = ka.generateSecret();
+        assertNotNull(sharedSecret);
     }
 
     @Test
@@ -177,12 +197,64 @@ public class KeyAgreementTest {
         }
     }
 
-    private static KeyPair generateEphemeralAndroidKeyPair() throws Exception {
+    @Test
+    @ApiTest(apis = "javax.crypto.KeyAgreement#doPhase")
+    public void testDoPhase_withDifferentCurveKey_fails_withSecp256AndSecp224() throws Exception {
+        KeyAgreement ka = getKeyStoreKeyAgreement();
+        ka.init(generateEphemeralAndroidKeyPair(
+                new ECGenParameterSpec("secp256r1")).getPrivate());
+        assertThrows("Calling KeyAgreement.doPhase with EC key of different curves should throw an "
+                + "InvalidKeyException.", InvalidKeyException.class, () -> {
+                ka.doPhase(generateEphemeralAndroidKeyPair(
+                        new ECGenParameterSpec("secp224r1")).getPublic(), true);
+            });
+    }
+
+    @Test
+    @ApiTest(apis = "javax.crypto.KeyAgreement#doPhase")
+    public void testDoPhase_withDifferentCurveKey_fails_withX25519AndSecp224() throws Exception {
+        // Due to key factory for x25519 not available we could not use
+        // generateEphemeralAndroidKeyPair().
         KeyPairGenerator kpg =
                 KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore");
-        kpg.initialize(
-                new KeyGenParameterSpec.Builder(PRIVATE_KEY_ALIAS,
-                        KeyProperties.PURPOSE_AGREE_KEY).build());
+        KeyGenParameterSpec.Builder specBuilder = new KeyGenParameterSpec.Builder(PRIVATE_KEY_ALIAS,
+                KeyProperties.PURPOSE_AGREE_KEY)
+                .setAlgorithmParameterSpec(new ECGenParameterSpec("x25519"));
+        kpg.initialize(specBuilder.build());
+
+        KeyPair kp = kpg.generateKeyPair();
+        KeyAgreement ka = getKeyStoreKeyAgreement();
+        /* TODO This case is temporary commented, because OpenSSL implementation does not implement
+         * OpenSSLX25519PublicKey from XECKey interface (b/214203951). This case has to execute
+         * once conscrypt implements OpenSSLX25519PublicKey from XECKey interface.
+         * ka.init(kp.getPrivate());
+         * assertThrows("Calling KeyAgreement.doPhase with XEC private key and EC public key should"
+         *       + " throw an InvalidKeyException.", InvalidKeyException.class, () -> {
+         *       ka.doPhase(generateEphemeralAndroidKeyPair(
+         *               new ECGenParameterSpec("secp224r1")).getPublic(), true);
+         *   });*/
+        ka.init(generateEphemeralAndroidKeyPair(
+                new ECGenParameterSpec("secp224r1")).getPrivate());
+        assertThrows("Calling KeyAgreement.doPhase with EC private key and XEC public key should"
+                + " throw an InvalidKeyException.", InvalidKeyException.class, () -> {
+                ka.doPhase(kp.getPublic(), true);
+            });
+    }
+
+    private static KeyPair generateEphemeralAndroidKeyPair() throws Exception {
+        return generateEphemeralAndroidKeyPair(null);
+    }
+
+    private static KeyPair generateEphemeralAndroidKeyPair(ECGenParameterSpec spec)
+            throws Exception {
+        KeyPairGenerator kpg =
+                KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore");
+        KeyGenParameterSpec.Builder specBuilder = new KeyGenParameterSpec.Builder(PRIVATE_KEY_ALIAS,
+                KeyProperties.PURPOSE_AGREE_KEY);
+        if (spec != null) {
+            specBuilder.setAlgorithmParameterSpec(spec);
+        }
+        kpg.initialize(specBuilder.build());
 
         KeyPair kp = kpg.generateKeyPair();
 

@@ -15,6 +15,10 @@
  */
 package com.android.wallpaper.module;
 
+import static android.app.WallpaperManager.FLAG_LOCK;
+import static android.app.WallpaperManager.FLAG_SYSTEM;
+import static android.app.WallpaperManager.SetWallpaperFlags;
+
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
@@ -135,7 +139,9 @@ public interface WallpaperPersister {
             int actionLabelRes,
             int actionIconRes,
             String collectionId,
-            int wallpaperId);
+            int wallpaperId,
+            @Destination int destination
+        );
 
     /**
      * @return the flag indicating which wallpaper to set when we're trying to set a wallpaper with
@@ -163,14 +169,26 @@ public interface WallpaperPersister {
      * Saves attributions to WallpaperPreferences for the last previewed wallpaper if it has an
      * {@link android.app.WallpaperInfo} component matching the one currently set to the
      * {@link android.app.WallpaperManager}.
+     *
+     * @param destination Live wallpaper destination (home/lock/both)
      */
-    void onLiveWallpaperSet();
+    void onLiveWallpaperSet(@Destination int destination);
+
+    /**
+     * Updates lie wallpaper metadata by persisting them to SharedPreferences.
+     *
+     * @param wallpaperInfo Wallpaper model for the live wallpaper
+     * @param effects Comma-separate list of effect (see {@link WallpaperInfo#getEffectNames})
+     * @param destination Live wallpaper destination (home/lock/both)
+     */
+    void setLiveWallpaperMetadata(WallpaperInfo wallpaperInfo, String effects,
+            @Destination int destination);
 
     /**
      * Interface for tracking success or failure of set wallpaper operations.
      */
     interface SetWallpaperCallback {
-        void onSuccess(WallpaperInfo wallpaperInfo);
+        void onSuccess(WallpaperInfo wallpaperInfo, @Destination int destination);
 
         void onError(@Nullable Throwable throwable);
     }
@@ -193,5 +211,38 @@ public interface WallpaperPersister {
             WALLPAPER_POSITION_CENTER_CROP,
             WALLPAPER_POSITION_STRETCH})
     @interface WallpaperPosition {
+    }
+
+    /**
+     * Converts a {@link Destination} to the corresponding set of {@link SetWallpaperFlags}.
+     */
+    @SetWallpaperFlags
+    static int destinationToFlags(@Destination int destination) {
+        switch (destination) {
+            case DEST_HOME_SCREEN:
+                return FLAG_SYSTEM;
+            case DEST_LOCK_SCREEN:
+                return FLAG_LOCK;
+            case DEST_BOTH:
+                return FLAG_SYSTEM | FLAG_LOCK;
+            default:
+                throw new AssertionError("Unknown @Destination");
+        }
+    }
+
+    /**
+     * Converts a set of {@link SetWallpaperFlags} to the corresponding {@link Destination}.
+     */
+    @Destination
+    static int flagsToDestination(@SetWallpaperFlags int flags) {
+        if (flags == (FLAG_SYSTEM | FLAG_LOCK)) {
+            return DEST_BOTH;
+        } else if (flags == FLAG_SYSTEM) {
+            return DEST_HOME_SCREEN;
+        } else if (flags == FLAG_LOCK) {
+            return DEST_LOCK_SCREEN;
+        } else {
+            throw new AssertionError("Unknown @SetWallpaperFlags value");
+        }
     }
 }

@@ -47,7 +47,7 @@ public class SetWallpaperViewModel extends ViewModel {
         SetWallpaperViewModel viewModel = provider.get(SetWallpaperViewModel.class);
         return new SetWallpaperCallback() {
             @Override
-            public void onSuccess(WallpaperInfo wallpaperInfo) {
+            public void onSuccess(WallpaperInfo wallpaperInfo, @Destination int destination) {
                 Log.d(TAG, "SetWallpaperCallback success");
                 viewModel.mStatus.setValue(SetWallpaperStatus.SUCCESS);
             }

@@ -81,14 +81,10 @@ public class FileServiceRepository {
     private void createFileService(String className, Uri... filesIncluded) {
         sServiceIdCounter++;
         String id = "FileServiceId[" + sServiceIdCounter + "]";
-        List<Locale> locales = new ArrayList<Locale>(2) {{
-            add(Locale.US);
-            add(Locale.UK);
-        }};
-        Map<Locale, String> localeDict = new HashMap<Locale, String>() {{
-            put(Locale.US, "File Source " + sServiceIdCounter);
-            put(Locale.UK, "File Source with extra vowels " + sServiceIdCounter);
-        }};
+        List<Locale> locales = List.of(Locale.US, Locale.UK);
+        Map<Locale, String> localeDict = Map.of(
+                Locale.US, "File Source " + sServiceIdCounter,
+                Locale.UK, "File Source with extra vowels " + sServiceIdCounter);
         List<FileInfo> fileInfos = Arrays.stream(filesIncluded)
                 .map(this::getFileInfoForUri)
                 .collect(Collectors.toList());

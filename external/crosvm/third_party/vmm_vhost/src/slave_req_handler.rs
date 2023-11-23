@@ -1,18 +1,24 @@
 // Copyright (C) 2019 Alibaba Cloud Computing. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-use base::{AsRawDescriptor, RawDescriptor};
 use std::fs::File;
 use std::mem;
 use std::slice;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
+use base::AsRawDescriptor;
+use base::RawDescriptor;
 use data_model::DataInit;
+use zerocopy::AsBytes;
 
-use super::connection::{Endpoint, EndpointExt};
-use super::message::*;
-use super::{take_single_file, Error, Result};
-use crate::{MasterReqEndpoint, SystemStream};
+use crate::connection::Endpoint;
+use crate::connection::EndpointExt;
+use crate::message::*;
+use crate::take_single_file;
+use crate::Error;
+use crate::MasterReqEndpoint;
+use crate::Result;
+use crate::SystemStream;
 
 #[derive(PartialEq, Eq, Debug)]
 /// Vhost-user protocol variants used for the communication.
@@ -22,6 +28,21 @@ pub enum Protocol {
     /// Use the virtio-vhost-user protocol, which is proxied through virtqueues.
     /// The protocol is mostly same as the vhost-user protocol but no file transfer is allowed.
     Virtio,
+}
+
+impl Protocol {
+    /// Returns whether the protocol assumes that messages are sent in stream mode like Unix's SOCK_STREAM.
+    ///
+    /// In stream mode, the receivers cannot know the size of the entire message in advance so a
+    /// message header with the body size and the message body will be sent separately. See
+    /// [`SlaveReqHandler::recv_header()`]'s doc comment for more details.
+    fn is_stream_mode(&self) -> bool {
+        match self {
+            Protocol::Regular => true,
+            // VVU proxy sends a message header and its payload at once.
+            Protocol::Virtio => false,
+        }
+    }
 }
 
 /// Services provided to the master by the slave with interior mutability.
@@ -76,12 +97,13 @@ pub trait VhostUserSlaveReqHandler {
     fn set_vring_enable(&self, index: u32, enable: bool) -> Result<()>;
     fn get_config(&self, offset: u32, size: u32, flags: VhostUserConfigFlags) -> Result<Vec<u8>>;
     fn set_config(&self, offset: u32, buf: &[u8], flags: VhostUserConfigFlags) -> Result<()>;
-    fn set_slave_req_fd(&self, _vu_req: File) {}
+    fn set_slave_req_fd(&self, _vu_req: Box<dyn Endpoint<SlaveReq>>) {}
     fn get_inflight_fd(&self, inflight: &VhostUserInflight) -> Result<(VhostUserInflight, File)>;
     fn set_inflight_fd(&self, inflight: &VhostUserInflight, file: File) -> Result<()>;
     fn get_max_mem_slots(&self) -> Result<u64>;
     fn add_mem_region(&self, region: &VhostUserSingleMemoryRegion, fd: File) -> Result<()>;
     fn remove_mem_region(&self, region: &VhostUserSingleMemoryRegion) -> Result<()>;
+    fn get_shared_memory_regions(&self) -> Result<Vec<VhostSharedMemoryRegion>>;
 }
 
 /// Services provided to the master by the slave without interior mutability.
@@ -124,7 +146,7 @@ pub trait VhostUserSlaveReqHandlerMut {
         flags: VhostUserConfigFlags,
     ) -> Result<Vec<u8>>;
     fn set_config(&mut self, offset: u32, buf: &[u8], flags: VhostUserConfigFlags) -> Result<()>;
-    fn set_slave_req_fd(&mut self, _vu_req: File) {}
+    fn set_slave_req_fd(&mut self, _vu_req: Box<dyn Endpoint<SlaveReq>>) {}
     fn get_inflight_fd(
         &mut self,
         inflight: &VhostUserInflight,
@@ -133,6 +155,7 @@ pub trait VhostUserSlaveReqHandlerMut {
     fn get_max_mem_slots(&mut self) -> Result<u64>;
     fn add_mem_region(&mut self, region: &VhostUserSingleMemoryRegion, fd: File) -> Result<()>;
     fn remove_mem_region(&mut self, region: &VhostUserSingleMemoryRegion) -> Result<()>;
+    fn get_shared_memory_regions(&mut self) -> Result<Vec<VhostSharedMemoryRegion>>;
 }
 
 impl<T: VhostUserSlaveReqHandlerMut> VhostUserSlaveReqHandler for Mutex<T> {
@@ -222,7 +245,7 @@ impl<T: VhostUserSlaveReqHandlerMut> VhostUserSlaveReqHandler for Mutex<T> {
         self.lock().unwrap().set_config(offset, buf, flags)
     }
 
-    fn set_slave_req_fd(&self, vu_req: File) {
+    fn set_slave_req_fd(&self, vu_req: Box<dyn Endpoint<SlaveReq>>) {
         self.lock().unwrap().set_slave_req_fd(vu_req)
     }
 
@@ -244,6 +267,128 @@ impl<T: VhostUserSlaveReqHandlerMut> VhostUserSlaveReqHandler for Mutex<T> {
 
     fn remove_mem_region(&self, region: &VhostUserSingleMemoryRegion) -> Result<()> {
         self.lock().unwrap().remove_mem_region(region)
+    }
+
+    fn get_shared_memory_regions(&self) -> Result<Vec<VhostSharedMemoryRegion>> {
+        self.lock().unwrap().get_shared_memory_regions()
+    }
+}
+
+impl<T> VhostUserSlaveReqHandler for T
+where
+    T: AsRef<dyn VhostUserSlaveReqHandler>,
+{
+    fn protocol(&self) -> Protocol {
+        self.as_ref().protocol()
+    }
+
+    fn set_owner(&self) -> Result<()> {
+        self.as_ref().set_owner()
+    }
+
+    fn reset_owner(&self) -> Result<()> {
+        self.as_ref().reset_owner()
+    }
+
+    fn get_features(&self) -> Result<u64> {
+        self.as_ref().get_features()
+    }
+
+    fn set_features(&self, features: u64) -> Result<()> {
+        self.as_ref().set_features(features)
+    }
+
+    fn set_mem_table(&self, ctx: &[VhostUserMemoryRegion], files: Vec<File>) -> Result<()> {
+        self.as_ref().set_mem_table(ctx, files)
+    }
+
+    fn set_vring_num(&self, index: u32, num: u32) -> Result<()> {
+        self.as_ref().set_vring_num(index, num)
+    }
+
+    fn set_vring_addr(
+        &self,
+        index: u32,
+        flags: VhostUserVringAddrFlags,
+        descriptor: u64,
+        used: u64,
+        available: u64,
+        log: u64,
+    ) -> Result<()> {
+        self.as_ref()
+            .set_vring_addr(index, flags, descriptor, used, available, log)
+    }
+
+    fn set_vring_base(&self, index: u32, base: u32) -> Result<()> {
+        self.as_ref().set_vring_base(index, base)
+    }
+
+    fn get_vring_base(&self, index: u32) -> Result<VhostUserVringState> {
+        self.as_ref().get_vring_base(index)
+    }
+
+    fn set_vring_kick(&self, index: u8, fd: Option<File>) -> Result<()> {
+        self.as_ref().set_vring_kick(index, fd)
+    }
+
+    fn set_vring_call(&self, index: u8, fd: Option<File>) -> Result<()> {
+        self.as_ref().set_vring_call(index, fd)
+    }
+
+    fn set_vring_err(&self, index: u8, fd: Option<File>) -> Result<()> {
+        self.as_ref().set_vring_err(index, fd)
+    }
+
+    fn get_protocol_features(&self) -> Result<VhostUserProtocolFeatures> {
+        self.as_ref().get_protocol_features()
+    }
+
+    fn set_protocol_features(&self, features: u64) -> Result<()> {
+        self.as_ref().set_protocol_features(features)
+    }
+
+    fn get_queue_num(&self) -> Result<u64> {
+        self.as_ref().get_queue_num()
+    }
+
+    fn set_vring_enable(&self, index: u32, enable: bool) -> Result<()> {
+        self.as_ref().set_vring_enable(index, enable)
+    }
+
+    fn get_config(&self, offset: u32, size: u32, flags: VhostUserConfigFlags) -> Result<Vec<u8>> {
+        self.as_ref().get_config(offset, size, flags)
+    }
+
+    fn set_config(&self, offset: u32, buf: &[u8], flags: VhostUserConfigFlags) -> Result<()> {
+        self.as_ref().set_config(offset, buf, flags)
+    }
+
+    fn set_slave_req_fd(&self, vu_req: Box<dyn Endpoint<SlaveReq>>) {
+        self.as_ref().set_slave_req_fd(vu_req)
+    }
+
+    fn get_inflight_fd(&self, inflight: &VhostUserInflight) -> Result<(VhostUserInflight, File)> {
+        self.as_ref().get_inflight_fd(inflight)
+    }
+
+    fn set_inflight_fd(&self, inflight: &VhostUserInflight, file: File) -> Result<()> {
+        self.as_ref().set_inflight_fd(inflight, file)
+    }
+
+    fn get_max_mem_slots(&self) -> Result<u64> {
+        self.as_ref().get_max_mem_slots()
+    }
+
+    fn add_mem_region(&self, region: &VhostUserSingleMemoryRegion, fd: File) -> Result<()> {
+        self.as_ref().add_mem_region(region, fd)
+    }
+
+    fn remove_mem_region(&self, region: &VhostUserSingleMemoryRegion) -> Result<()> {
+        self.as_ref().remove_mem_region(region)
+    }
+
+    fn get_shared_memory_regions(&self) -> Result<Vec<VhostSharedMemoryRegion>> {
+        self.as_ref().get_shared_memory_regions()
     }
 }
 
@@ -395,27 +540,30 @@ impl<E: Endpoint<MasterReq> + AsRawDescriptor> AsRawDescriptor for SlaveReqHelpe
 pub struct SlaveReqHandler<S: VhostUserSlaveReqHandler, E: Endpoint<MasterReq>> {
     slave_req_helper: SlaveReqHelper<E>,
     // the vhost-user backend device object
-    backend: Arc<S>,
+    backend: S,
 
     virtio_features: u64,
     acked_virtio_features: u64,
     protocol_features: VhostUserProtocolFeatures,
     acked_protocol_features: u64,
-
-    // whether the endpoint has encountered any failure
-    error: Option<i32>,
 }
 
 impl<S: VhostUserSlaveReqHandler> SlaveReqHandler<S, MasterReqEndpoint> {
     /// Create a vhost-user slave endpoint from a connected socket.
-    pub fn from_stream(socket: SystemStream, backend: Arc<S>) -> Self {
+    pub fn from_stream(socket: SystemStream, backend: S) -> Self {
         Self::new(MasterReqEndpoint::from(socket), backend)
+    }
+}
+
+impl<S: VhostUserSlaveReqHandler, E: Endpoint<MasterReq>> AsRef<S> for SlaveReqHandler<S, E> {
+    fn as_ref(&self) -> &S {
+        &self.backend
     }
 }
 
 impl<S: VhostUserSlaveReqHandler, E: Endpoint<MasterReq>> SlaveReqHandler<S, E> {
     /// Create a vhost-user slave endpoint.
-    pub(super) fn new(endpoint: E, backend: Arc<S>) -> Self {
+    pub fn new(endpoint: E, backend: S) -> Self {
         SlaveReqHandler {
             slave_req_helper: SlaveReqHelper::new(endpoint, backend.protocol()),
             backend,
@@ -423,41 +571,57 @@ impl<S: VhostUserSlaveReqHandler, E: Endpoint<MasterReq>> SlaveReqHandler<S, E> 
             acked_virtio_features: 0,
             protocol_features: VhostUserProtocolFeatures::empty(),
             acked_protocol_features: 0,
-            error: None,
         }
     }
 
-    /// Create a new vhost-user slave endpoint.
+    /// Receives and validates a vhost-user message header and optional files.
     ///
-    /// # Arguments
-    /// * - `path` - path of Unix domain socket listener to connect to
-    /// * - `backend` - handler for requests from the master to the slave
-    pub fn connect(path: &str, backend: Arc<S>) -> Result<Self> {
-        Ok(Self::new(Endpoint::<MasterReq>::connect(path)?, backend))
-    }
-
-    /// Mark endpoint as failed with specified error code.
-    pub fn set_failed(&mut self, error: i32) {
-        self.error = Some(error);
-    }
-
-    /// Main entrance to request from the communication channel.
+    /// Since the length of vhost-user messages are different among message types, regular
+    /// vhost-user messages are sent via an underlying communication channel in stream mode.
+    /// (e.g. `SOCK_STREAM` in UNIX)
+    /// So, the logic of receiving and handling a message consists of the following steps:
     ///
-    /// Receive and handle one incoming request message from the vmm. The caller needs to:
-    /// - serialize calls to this function
-    /// - decide what to do when error happens
-    /// - optional recover from failure
+    /// 1. Receives a message header and optional attached file.
+    /// 2. Validates the message header.
+    /// 3. Check if optional payloads is expected.
+    /// 4. Wait for the optional payloads.
+    /// 5. Receives optional payloads.
+    /// 6. Processes the message.
     ///
-    /// # Return:
-    /// * - `Ok(())`: one request was successfully handled.
-    /// * - `Err(ClientExit)`: the vmm closed the connection properly. This isn't an actual failure.
-    /// * - `Err(Disconnect)`: the connection was closed unexpectedly.
-    /// * - `Err(InvalidMessage)`: the vmm sent a illegal message.
-    /// * - other errors: failed to handle a request.
-    pub fn handle_request(&mut self) -> Result<()> {
-        // Return error if the endpoint is already in failed state.
-        self.check_state()?;
-
+    /// This method [`SlaveReqHandler::recv_header()`] is in charge of the step (1) and (2),
+    /// [`SlaveReqHandler::needs_wait_for_payload()`] is (3), and
+    /// [`SlaveReqHandler::process_message()`] is (5) and (6).
+    /// We need to have the three method separately for multi-platform supports;
+    /// [`SlaveReqHandler::recv_header()`] and [`SlaveReqHandler::process_message()`] need to be
+    /// separated because the way of waiting for incoming messages differs between Unix and Windows
+    /// so it's the caller's responsibility to wait before [`SlaveReqHandler::process_message()`].
+    ///
+    /// Note that some vhost-user protocol variant such as VVU doesn't assume stream mode. In this
+    /// case, a message header and its body are sent together so the step (4) is skipped. We handle
+    /// this case in [`SlaveReqHandler::needs_wait_for_payload()`].
+    ///
+    /// The following pseudo code describes how a caller should process incoming vhost-user
+    /// messages:
+    /// ```ignore
+    /// loop {
+    ///   // block until a message header comes.
+    ///   // The actual code differs, depending on platforms.
+    ///   connection.wait_readable().unwrap();
+    ///
+    ///   // (1) and (2)
+    ///   let (hdr, files) = slave_req_handler.recv_header();
+    ///
+    ///   // (3)
+    ///   if slave_req_handler.needs_wait_for_payload(&hdr) {
+    ///     // (4) block until a payload comes if needed.
+    ///     connection.wait_readable().unwrap();
+    ///   }
+    ///
+    ///   // (5) and (6)
+    ///   slave_req_handler.process_message(&hdr, &files).unwrap();
+    /// }
+    /// ```
+    pub fn recv_header(&mut self) -> Result<(VhostUserMsgHeader<MasterReq>, Option<Vec<File>>)> {
         // The underlying communication channel is a Unix domain socket in
         // stream mode, and recvmsg() is a little tricky here. To successfully
         // receive attached file descriptors, we need to receive messages and
@@ -481,6 +645,35 @@ impl<S: VhostUserSlaveReqHandler, E: Endpoint<MasterReq>> SlaveReqHandler<S, E> 
 
         self.check_attached_files(&hdr, &files)?;
 
+        Ok((hdr, files))
+    }
+
+    /// Returns whether the caller needs to wait for the incoming message before calling
+    /// [`SlaveReqHandler::process_message`].
+    ///
+    /// See [`SlaveReqHandler::recv_header`]'s doc comment for the usage.
+    pub fn needs_wait_for_payload(&self, hdr: &VhostUserMsgHeader<MasterReq>) -> bool {
+        // For the vhost-user protocols using stream mode, we need to wait until an additional
+        // payload is available if exists.
+        self.backend.protocol().is_stream_mode() && hdr.get_size() != 0
+    }
+
+    /// Main entrance to request from the communication channel.
+    ///
+    /// Receive and handle one incoming request message from the vmm.
+    /// See [`SlaveReqHandler::recv_header`]'s doc comment for the usage.
+    ///
+    /// # Return:
+    /// * - `Ok(())`: one request was successfully handled.
+    /// * - `Err(ClientExit)`: the vmm closed the connection properly. This isn't an actual failure.
+    /// * - `Err(Disconnect)`: the connection was closed unexpectedly.
+    /// * - `Err(InvalidMessage)`: the vmm sent a illegal message.
+    /// * - other errors: failed to handle a request.
+    pub fn process_message(
+        &mut self,
+        hdr: VhostUserMsgHeader<MasterReq>,
+        files: Option<Vec<File>>,
+    ) -> Result<()> {
         let buf = match hdr.get_size() {
             0 => vec![0u8; 0],
             len => {
@@ -722,6 +915,16 @@ impl<S: VhostUserSlaveReqHandler, E: Endpoint<MasterReq>> SlaveReqHandler<S, E> 
                 self.slave_req_helper.send_ack_message(&hdr, res.is_ok())?;
                 res?;
             }
+            MasterReq::GET_SHARED_MEMORY_REGIONS => {
+                let regions = self.backend.get_shared_memory_regions()?;
+                let mut buf = Vec::new();
+                let msg = VhostUserU64::new(regions.len() as u64);
+                for r in regions {
+                    buf.extend_from_slice(r.as_bytes())
+                }
+                self.slave_req_helper
+                    .send_reply_with_payload(&hdr, &msg, buf.as_slice())?;
+            }
             _ => {
                 return Err(Error::InvalidMessage);
             }
@@ -838,13 +1041,12 @@ impl<S: VhostUserSlaveReqHandler, E: Endpoint<MasterReq>> SlaveReqHandler<S, E> 
     }
 
     fn set_slave_req_fd(&mut self, files: Option<Vec<File>>) -> Result<()> {
-        if cfg!(windows) {
-            unimplemented!();
-        } else {
-            let file = take_single_file(files).ok_or(Error::InvalidMessage)?;
-            self.backend.set_slave_req_fd(file);
-            Ok(())
-        }
+        let ep = self
+            .slave_req_helper
+            .endpoint
+            .create_slave_request_endpoint(files)?;
+        self.backend.set_slave_req_fd(ep);
+        Ok(())
     }
 
     fn handle_vring_fd_request(
@@ -853,13 +1055,6 @@ impl<S: VhostUserSlaveReqHandler, E: Endpoint<MasterReq>> SlaveReqHandler<S, E> 
         files: Option<Vec<File>>,
     ) -> Result<(u8, Option<File>)> {
         self.slave_req_helper.handle_vring_fd_request(buf, files)
-    }
-
-    fn check_state(&self) -> Result<()> {
-        match self.error {
-            Some(e) => Err(Error::SocketBroken(std::io::Error::from_raw_os_error(e))),
-            None => Ok(()),
-        }
     }
 
     fn check_request_size(
@@ -940,18 +1135,17 @@ mod tests {
     use base::INVALID_DESCRIPTOR;
 
     use super::*;
-    use crate::{dummy_slave::DummySlaveReqHandler, MasterReqEndpoint, SystemStream};
+    use crate::dummy_slave::DummySlaveReqHandler;
+    use crate::MasterReqEndpoint;
+    use crate::SystemStream;
 
     #[test]
     fn test_slave_req_handler_new() {
         let (p1, _p2) = SystemStream::pair().unwrap();
         let endpoint = MasterReqEndpoint::from(p1);
-        let backend = Arc::new(Mutex::new(DummySlaveReqHandler::new()));
-        let mut handler = SlaveReqHandler::new(endpoint, backend);
+        let backend = Mutex::new(DummySlaveReqHandler::new());
+        let handler = SlaveReqHandler::new(endpoint, backend);
 
-        handler.check_state().unwrap();
-        handler.set_failed(libc::EAGAIN);
-        handler.check_state().unwrap_err();
         assert!(handler.as_raw_descriptor() != INVALID_DESCRIPTOR);
     }
 }

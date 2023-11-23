@@ -17,11 +17,30 @@
 
 package android.fragment.cts;
 
+import static org.junit.Assert.assertTrue;
+
 import android.app.Activity;
 import android.os.Bundle;
 import android.view.WindowManager;
 
+import androidx.test.rule.ActivityTestRule;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 public class FragmentTestActivity extends Activity {
+    // These must be cleared after each test using clearState()
+    public static FragmentTestActivity sActivity;
+    public static CountDownLatch sResumed;
+    public static CountDownLatch sDestroyed;
+    public boolean mIsResumed;
+
+    public static void clearState() {
+        sActivity = null;
+        sResumed = null;
+        sDestroyed = null;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -29,5 +48,48 @@ public class FragmentTestActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD |
                 WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON |
                 WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        sActivity = this;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mIsResumed = true;
+        if (sResumed != null) {
+            sResumed.countDown();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mIsResumed = false;
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (sDestroyed != null) {
+            sDestroyed.countDown();
+        }
+    }
+
+    public void waitForResume(ActivityTestRule<? extends Activity> rule) throws Throwable {
+        if (mIsResumed) {
+            return;
+        }
+        if (sResumed != null) {
+            assertTrue(sResumed.await(1, TimeUnit.SECONDS));
+        } else {
+            rule.runOnUiThread(() -> {
+                if (!mIsResumed) {
+                    sResumed = new CountDownLatch(1);
+                }
+            });
+            if (sResumed != null) {
+                assertTrue(sResumed.await(1, TimeUnit.SECONDS));
+                sResumed = null;
+            }
+        }
     }
 }

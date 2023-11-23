@@ -10,7 +10,7 @@
 #include "unicode/utypes.h"
 
 /**
- * @addtogroup ICU4C
+ * @addtogroup icu4c ICU4C
  * @{
  * \file
  * \brief C API: Bit set option bit constants for various string and character processing functions.

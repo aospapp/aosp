@@ -157,12 +157,6 @@ Options (in lexicographical order):)",
                another.  It will only propagate an array if the source is never
                written to, and the only store to the target is the copy.)");
   printf(R"(
-  --decompose-initialized-variables
-               Decomposes initialized variable declarations into a declaration
-               followed by a store of the initial value. This is done to work
-               around known issues with some Vulkan drivers for initialize
-               variables.)");
-  printf(R"(
   --replace-desc-array-access-using-var-index
                Replaces accesses to descriptor arrays based on a variable index
                with a switch that has a case for every possible value of the
@@ -208,6 +202,10 @@ Options (in lexicographical order):)",
                unused stores to vector components, that are not removed by
                aggressive dead code elimination.)");
   printf(R"(
+  --eliminate-dead-input-components
+               Deletes unused components from input variables. Currently
+               deletes trailing unused elements from input arrays.)");
+  printf(R"(
   --eliminate-dead-variables
                Deletes module scope variables that are not referenced.)");
   printf(R"(
@@ -232,6 +230,10 @@ Options (in lexicographical order):)",
                only stored once. Performed on variables referenceed only with
                loads and stores. Performed only on entry point call tree
                functions.)");
+  printf(R"(
+  --fix-func-call-param
+               fix non memory argument for the function call, replace 
+               accesschain pointer argument with a variable.)");
   printf(R"(
   --flatten-decorations
                Replace decoration groups with repeated OpDecorate and
@@ -482,9 +484,6 @@ Options (in lexicographical order):)",
   printf(R"(
   --strength-reduction
                Replaces instructions with equivalent and less expensive ones.)");
-  printf(R"(
-  --strip-atomic-counter-memory
-               Removes AtomicCountMemory bit from memory semantics values.)");
   printf(R"(
   --strip-debug
                Remove all debug instructions.)");

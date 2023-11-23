@@ -1,0 +1,10 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+prebuilt_etc {
+    name: "cbd_gps.rc",
+    src: "cbd_gps.rc",
+    relative_install_path: "init",
+    vendor: true,
+}

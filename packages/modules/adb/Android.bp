@@ -62,6 +62,7 @@ cc_defaults {
                 "-lpthread",
                 "-framework CoreFoundation",
                 "-framework IOKit",
+                "-framework Security",
                 "-lobjc",
             ],
             cflags: [
@@ -248,6 +249,7 @@ libadb_test_srcs = [
     "adb_listeners_test.cpp",
     "adb_utils_test.cpp",
     "fdevent/fdevent_test.cpp",
+    "shell_service_protocol.cpp",
     "socket_spec_test.cpp",
     "socket_test.cpp",
     "sysdeps_test.cpp",
@@ -362,6 +364,7 @@ cc_test_host {
     defaults: ["adb_defaults"],
     srcs: libadb_test_srcs + [
         "client/mdns_utils_test.cpp",
+        "test_utils/test_utils.cpp",
     ],
 
     static_libs: [
@@ -393,6 +396,11 @@ cc_test_host {
             shared_libs: ["AdbWinApi"],
         },
     },
+
+    test_options: {
+        // TODO(b/247985207) remove "no-remote" tag when b/247985207 is fixed.
+        tags: ["no-remote"],
+    }
 }
 
 cc_binary_host {
@@ -465,6 +473,8 @@ cc_binary_host {
         targets: [
             "dist_files",
             "sdk",
+            "sdk-repo-platform-tools",
+            "sdk_repo",
             "win_sdk",
         ],
     },
@@ -753,8 +763,14 @@ phony {
         "libadbd_fs",
         "abb",
         "reboot",
-        "set-verity-state",
-    ]
+    ],
+    product_variables: {
+        debuggable: {
+            required: [
+                "remount",
+            ],
+        },
+    },
 }
 
 phony {
@@ -801,6 +817,13 @@ cc_binary {
     ],
 }
 
+ADBD_TEST_LIBS = [
+    "libadbd",
+    "libadbd_auth",
+    "libbase",
+    "libusb",
+]
+
 cc_test {
     name: "adbd_test",
 
@@ -808,15 +831,17 @@ cc_test {
 
     recovery_available: false,
     srcs: libadb_test_srcs + [
+        "daemon/restart_service.cpp",
+        "daemon/restart_service_test.cpp",
         "daemon/services.cpp",
         "daemon/shell_service.cpp",
         "daemon/shell_service_test.cpp",
-        "shell_service_protocol.cpp",
+        "test_utils/test_utils.cpp",
         "shell_service_protocol_test.cpp",
         "mdns_test.cpp",
     ],
 
-    test_config: "adb_test.xml",
+    test_config: "adbd_test.xml",
 
     target: {
         android: {
@@ -830,13 +855,16 @@ cc_test {
         "liblog",
     ],
 
-    static_libs: [
-        "libadbd",
-        "libadbd_auth",
-        "libbase",
-        "libcrypto_utils",
-        "libusb",
-    ],
+    static_libs: ADBD_TEST_LIBS,
+
+    // Shared lib versions of static libs can potentially come from
+    // libadbd_binary_dependencies (e.g. libbase as a shared_lib, depending on
+    // library_linking_strategy), which will cause both shared/static versions of
+    // the same library to be in the link action.
+    //
+    // adbd_test uses the static version of these libraries above, so exclude them here.
+    exclude_shared_libs: ADBD_TEST_LIBS,
+
     test_suites: ["general-tests", "mts-adbd"],
     require_root: true,
 }
@@ -849,14 +877,6 @@ python_test_host {
     ],
     test_config: "adb_integration_test_adb.xml",
     test_suites: ["general-tests"],
-    version: {
-        py2: {
-            enabled: false,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     test_options: {
         unit_test: false,
     },
@@ -873,14 +893,6 @@ python_test_host {
     ],
     test_config: "adb_integration_test_device.xml",
     test_suites: ["general-tests"],
-    version: {
-        py2: {
-            enabled: false,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     test_options: {
         unit_test: false,
     },

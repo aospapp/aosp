@@ -62,7 +62,7 @@ public class ResetNetworkEntryPreferenceController extends PreferenceController<
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         if (!isAlwaysAvailableForUser()
                 || hasUserRestrictionByUm(getContext(), DISALLOW_NETWORK_RESET)) {
             return DISABLED_FOR_PROFILE;

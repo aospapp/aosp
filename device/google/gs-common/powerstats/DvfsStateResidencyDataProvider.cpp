@@ -37,7 +37,7 @@ namespace stats {
 
 DvfsStateResidencyDataProvider::DvfsStateResidencyDataProvider(std::string path, uint64_t clockRate,
         std::vector<Config> cfgs)
-    : mPath(std::move(path)), mClockRate(clockRate), mPowerEntities(std::move(cfgs)) {}
+    : mPowerEntities(std::move(cfgs)), mPath(std::move(path)), mClockRate(clockRate) {}
 
 int32_t DvfsStateResidencyDataProvider::matchEntity(char const *line) {
     for (int32_t i = 0; i < mPowerEntities.size(); i++) {
@@ -102,6 +102,10 @@ bool DvfsStateResidencyDataProvider::getStateResidencies(
             powerEntityIndex = temp;
             it = residencies->find(mPowerEntities[powerEntityIndex].powerEntityName + nameSuffix);
         }
+
+        // The given string is last state for each entity.
+        if (StartsWith(Trim(std::string(line)), "last_freq_change_time_ns:"))
+            it = residencies->end();
 
         if (it != residencies->end()) {
             stateId = matchState(line, mPowerEntities[powerEntityIndex]);

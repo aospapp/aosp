@@ -24,6 +24,7 @@ import com.android.internal.telephony.SipMessageParsingUtils;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
@@ -60,7 +61,8 @@ public class RestrictedOutgoingSubscribeValidator implements SipMessageValidator
             return ValidationResult.SUCCESS;
         }
         boolean isRestricted = eventHeaders.stream().map(e -> e.second)
-                .anyMatch(e -> Arrays.asList(RESTRICTED_EVENTS).contains(e.trim().toLowerCase()));
+                .anyMatch(e -> Arrays.asList(RESTRICTED_EVENTS).contains(e.trim().toLowerCase(
+                        Locale.ROOT)));
 
         return isRestricted ? new ValidationResult(
                 SipDelegateManager.MESSAGE_FAILURE_REASON_INVALID_HEADER_FIELDS,

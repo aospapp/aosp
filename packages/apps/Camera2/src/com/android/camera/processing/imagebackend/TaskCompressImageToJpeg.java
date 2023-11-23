@@ -18,6 +18,7 @@ package com.android.camera.processing.imagebackend;
 
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
+import android.hardware.Camera;
 import android.location.Location;
 import android.media.CameraProfile;
 import android.net.Uri;
@@ -420,7 +421,21 @@ public class TaskCompressImageToJpeg extends TaskJpegEncode {
      * @return Quality level to use for JPEG compression.
      */
     protected int getJpegCompressionQuality () {
-        return CameraProfile.getJpegEncodingQualityParameter(CameraProfile.QUALITY_HIGH);
+        final int quality = CameraProfile.QUALITY_HIGH;
+        int level = CameraProfile.getJpegEncodingQualityParameter(quality);
+
+        if (level > 0) {
+            return level;
+        }
+
+        // getJpegEncodingQualityParameter(int) could not find any back-facing
+        // cameras. Let's use the first (likely front-facing) camera ID, if any,
+        // to get the encoding quality.
+        if (Camera.getNumberOfCameras() > 0) {
+            return CameraProfile.getJpegEncodingQualityParameter(0, quality);
+        }
+
+        return 0;
     }
 
     /**

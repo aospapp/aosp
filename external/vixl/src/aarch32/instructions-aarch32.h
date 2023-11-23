@@ -38,7 +38,7 @@ extern "C" {
 #include "utils-vixl.h"
 #include "aarch32/constants-aarch32.h"
 
-#ifdef __arm__
+#if defined(__arm__) && !defined(__SOFTFP__)
 #define HARDFLOAT __attribute__((noinline, pcs("aapcs-vfp")))
 #else
 #define HARDFLOAT __attribute__((noinline))
@@ -491,6 +491,8 @@ class RegisterList {
   }
   Register GetFirstAvailableRegister() const;
   bool IsEmpty() const { return list_ == 0; }
+  bool IsSingleRegister() const { return IsPowerOf2(list_); }
+  int GetCount() const { return CountSetBits(list_); }
   static RegisterList Union(const RegisterList& list_1,
                             const RegisterList& list_2) {
     return RegisterList(list_1.list_ | list_2.list_);

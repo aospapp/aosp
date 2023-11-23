@@ -24,6 +24,7 @@ namespace angle
 {
 struct FeatureSetBase;
 struct Format;
+struct ImageLoadContext;
 enum class FormatID;
 }  // namespace angle
 
@@ -60,6 +61,8 @@ enum class SurfaceRotation
     InvalidEnum,
     EnumCount = InvalidEnum,
 };
+
+bool IsRotatedAspectRatio(SurfaceRotation rotation);
 
 using SpecConstUsageBits = angle::PackedEnumBitSet<sh::vk::SpecConstUsage, uint32_t>;
 
@@ -144,7 +147,8 @@ using InitializeTextureDataFunction = void (*)(size_t width,
                                                size_t outputRowPitch,
                                                size_t outputDepthPitch);
 
-using LoadImageFunction = void (*)(size_t width,
+using LoadImageFunction = void (*)(const angle::ImageLoadContext &context,
+                                   size_t width,
                                    size_t height,
                                    size_t depth,
                                    const uint8_t *input,
@@ -443,6 +447,11 @@ angle::FormatID ConvertToSRGB(angle::FormatID formatID);
 angle::FormatID ConvertToLinear(angle::FormatID formatID);
 bool IsOverridableLinearFormat(angle::FormatID formatID);
 
+template <bool swizzledLuma = true>
+const gl::ColorGeneric AdjustBorderColor(const angle::ColorGeneric &borderColorGeneric,
+                                         const angle::Format &format,
+                                         bool stencilMode);
+
 enum class PipelineType
 {
     Graphics = 0,
@@ -484,5 +493,14 @@ enum class PipelineType
     gl::MarkTransformFeedbackBufferUsage(context, counts[drawID], instanceCounts[drawID])
 #define ANGLE_MARK_TRANSFORM_FEEDBACK_USAGE(instanced) \
     ANGLE_MARK_TRANSFORM_FEEDBACK_USAGE##instanced
+
+// Helper macro that casts to a bitfield type then verifies no bits were dropped.
+#define SetBitField(lhs, rhs)                                                         \
+    do                                                                                \
+    {                                                                                 \
+        auto ANGLE_LOCAL_VAR = rhs;                                                   \
+        lhs = static_cast<typename std::decay<decltype(lhs)>::type>(ANGLE_LOCAL_VAR); \
+        ASSERT(static_cast<decltype(ANGLE_LOCAL_VAR)>(lhs) == ANGLE_LOCAL_VAR);       \
+    } while (0)
 
 #endif  // LIBANGLE_RENDERER_RENDERER_UTILS_H_

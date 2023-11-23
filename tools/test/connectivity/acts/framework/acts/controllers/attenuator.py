@@ -181,7 +181,6 @@ class InvalidDataError(AttenuatorError):
     attenuator instrument is probably necessary. Something has gone wrong in
     the transport.
     """
-    pass
 
 
 class InvalidOperationError(AttenuatorError):
@@ -191,7 +190,6 @@ class InvalidOperationError(AttenuatorError):
     invoked is in a certain state. This indicates that the object is not in the
     correct state for a method to be called.
     """
-    pass
 
 
 class AttenuatorInstrument(object):

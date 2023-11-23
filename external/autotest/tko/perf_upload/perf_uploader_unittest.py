@@ -1,8 +1,12 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 """Unit tests for the perf_uploader.py module.
 
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import json
 import os
@@ -12,6 +16,7 @@ import unittest
 import common
 from autotest_lib.tko import models as tko_models
 from autotest_lib.tko.perf_upload import perf_uploader
+import six
 
 
 class test_aggregate_iterations(unittest.TestCase):
@@ -76,14 +81,14 @@ class test_aggregate_iterations(unittest.TestCase):
     def setUp(self):
         """Sets up for each test case."""
         self._perf_values = []
-        for iter_num, iter_data in self._PERF_ITERATION_DATA.iteritems():
+        for iter_num, iter_data in six.iteritems(self._PERF_ITERATION_DATA):
             self._perf_values.append(
                     tko_models.perf_value_iteration(iter_num, iter_data))
 
 
 
-class test_json_config_file_sanity(unittest.TestCase):
-    """Sanity tests for the JSON-formatted presentation config file."""
+class test_json_config_file(unittest.TestCase):
+    """Tests for the JSON-formatted presentation config file."""
 
     def test_parse_json(self):
         """Verifies _parse_config_file function."""
@@ -114,22 +119,21 @@ class test_json_config_file_sanity(unittest.TestCase):
             self.fail('Presentation config file could not be parsed as JSON.')
 
 
-    def test_required_master_name(self):
-        """Verifies that master name must be specified."""
+    def test_required_main_name(self):
+        """Verifies that main name must be specified."""
         json_obj = []
         try:
             with open(perf_uploader._PRESENTATION_CONFIG_FILE, 'r') as fp:
                 json_obj = json.load(fp)
         except:
             self.fail('Presentation config file could not be parsed as JSON.')
-
         for entry in json_obj:
-            if not 'master_name' in entry:
-                self.fail('Missing master field for test %s.' %
+            if not 'main_name' in entry:
+                self.fail('Missing main field for test %s.' %
                           entry['autotest_name'])
 
 class test_get_image_board_name(unittest.TestCase):
-    """Sanity tests for retrieving the image board name."""
+    """Tests for retrieving the image board name."""
     def test_normal_platform(self):
         """Verify image board name is equal to the platform in normal image."""
         platform = 'veyron_jerry'
@@ -138,7 +142,7 @@ class test_get_image_board_name(unittest.TestCase):
                          'veyron_jerry')
 
     def test_empty_platform(self):
-        """Sanity Verify image board name is equal to the platform."""
+        """Verify image board name is equal to the platform."""
         platform = ''
         image = '-release/R78-12428.0.0'
         self.assertEqual(perf_uploader._get_image_board_name(platform, image),
@@ -163,12 +167,12 @@ class test_gather_presentation_info(unittest.TestCase):
 
     _PRESENT_INFO = {
         'test_name': {
-            'master_name': 'new_master_name',
+            'main_name': 'new_main_name',
             'dashboard_test_name': 'new_test_name',
         }
     }
 
-    _PRESENT_INFO_MISSING_MASTER = {
+    _PRESENT_INFO_MISSING_MAIN = {
         'test_name': {
             'dashboard_test_name': 'new_test_name',
         }
@@ -176,18 +180,18 @@ class test_gather_presentation_info(unittest.TestCase):
 
     _PRESENT_INFO_REGEX = {
         'test_name.*': {
-            'master_name': 'new_master_name',
+            'main_name': 'new_main_name',
             'dashboard_test_name': 'new_test_name',
         }
     }
 
     _PRESENT_INFO_COLLISION = {
         'test_name.*': {
-            'master_name': 'new_master_name',
+            'main_name': 'new_main_name',
             'dashboard_test_name': 'new_test_name',
         },
         'test_name-test.*': {
-            'master_name': 'new_master_name',
+            'main_name': 'new_main_name',
             'dashboard_test_name': 'new_test_name',
         },
     }
@@ -209,11 +213,11 @@ class test_gather_presentation_info(unittest.TestCase):
                     self._PRESENT_INFO, 'test_name_P')
             self.assertTrue(
                     all([key in result for key in
-                         ['test_name', 'master_name']]),
+                         ['test_name', 'main_name']]),
                     msg='Unexpected keys in resulting dictionary: %s' % result)
-            self.assertEqual(result['master_name'], 'new_master_name',
-                             msg='Unexpected "master_name" value: %s' %
-                                 result['master_name'])
+            self.assertEqual(result['main_name'], 'new_main_name',
+                             msg='Unexpected "main_name" value: %s' %
+                                 result['main_name'])
             self.assertEqual(result['test_name'], 'new_test_name',
                              msg='Unexpected "test_name" value: %s' %
                                  result['test_name'])
@@ -224,11 +228,11 @@ class test_gather_presentation_info(unittest.TestCase):
                 self._PRESENT_INFO, 'test_name')
         self.assertTrue(
                 all([key in result for key in
-                     ['test_name', 'master_name']]),
+                     ['test_name', 'main_name']]),
                 msg='Unexpected keys in resulting dictionary: %s' % result)
-        self.assertEqual(result['master_name'], 'new_master_name',
-                         msg='Unexpected "master_name" value: %s' %
-                             result['master_name'])
+        self.assertEqual(result['main_name'], 'new_main_name',
+                         msg='Unexpected "main_name" value: %s' %
+                             result['main_name'])
         self.assertEqual(result['test_name'], 'new_test_name',
                          msg='Unexpected "test_name" value: %s' %
                              result['test_name'])
@@ -242,24 +246,24 @@ class test_gather_presentation_info(unittest.TestCase):
                         self._PRESENT_INFO, 'other_test_name')
 
 
-    def test_master_not_specified(self):
-        """Verifies exception raised if master is not there."""
+    def test_main_not_specified(self):
+        """Verifies exception raised if main is not there."""
         self.assertRaises(
                 perf_uploader.PerfUploadingError,
                 perf_uploader._gather_presentation_info,
-                    self._PRESENT_INFO_MISSING_MASTER, 'test_name')
+                    self._PRESENT_INFO_MISSING_MAIN, 'test_name')
 
 
 class test_parse_and_gather_presentation(unittest.TestCase):
     """Tests for _parse_config_file and then_gather_presentation_info."""
     _AUTOTEST_NAME_CONFIG = """[{
         "autotest_name": "test.test.VM",
-        "master_name": "ChromeOSPerf"
+        "main_name": "ChromeOSPerf"
     }]"""
 
     _AUTOTEST_REGEX_CONFIG = r"""[{
         "autotest_regex": "test\\.test\\.VM.*",
-        "master_name": "ChromeOSPerf"
+        "main_name": "ChromeOSPerf"
     }]"""
 
     def setUp(self):
@@ -277,7 +281,7 @@ class test_parse_and_gather_presentation(unittest.TestCase):
         result = perf_uploader._gather_presentation_info(config, test_name)
         self.assertEqual(result, {
             'test_name': test_name,
-            'master_name': 'ChromeOSPerf'
+            'main_name': 'ChromeOSPerf'
         })
 
     def test_autotest_name_is_exact_matched(self):
@@ -318,7 +322,7 @@ class test_parse_and_gather_presentation(unittest.TestCase):
             result = perf_uploader._gather_presentation_info(config, test_name)
             self.assertEqual(result, {
                 'test_name': test_name,
-                'master_name': 'ChromeOSPerf'
+                'main_name': 'ChromeOSPerf'
             })
 
     def test_autotest_regex_is_not_matched(self):
@@ -371,42 +375,44 @@ class test_get_version_numbers(unittest.TestCase):
     """Tests for the _get_version_numbers function."""
 
     def test_with_valid_versions(self):
-      """Checks the version numbers used when data is formatted as expected."""
-      self.assertEqual(
-              ('34.5678.9.0', '34.5.678.9'),
-              perf_uploader._get_version_numbers(
-                  {
-                      'CHROME_VERSION': '34.5.678.9',
-                      'CHROMEOS_RELEASE_VERSION': '5678.9.0',
-                  }))
+        """Checks the version numbers used when data is formatted as expected."""
+        self.assertEqual(('34.5678.9.0', '34.5.678.9'),
+                         perf_uploader._get_version_numbers({
+                                 'CHROME_VERSION':
+                                 '34.5.678.9',
+                                 'CHROMEOS_RELEASE_VERSION':
+                                 '5678.9.0',
+                         }))
 
     def test_with_missing_version_raises_error(self):
-      """Checks that an error is raised when a version is missing."""
-      with self.assertRaises(perf_uploader.PerfUploadingError):
-          perf_uploader._get_version_numbers(
-              {
-                  'CHROMEOS_RELEASE_VERSION': '5678.9.0',
-              })
+        """Checks that an error is raised when a version is missing."""
+        with self.assertRaises(perf_uploader.PerfUploadingError):
+            perf_uploader._get_version_numbers({
+                    'CHROMEOS_RELEASE_VERSION':
+                    '5678.9.0',
+            })
 
     def test_with_unexpected_version_format_raises_error(self):
-      """Checks that an error is raised when there's a rN suffix."""
-      with self.assertRaises(perf_uploader.PerfUploadingError):
-          perf_uploader._get_version_numbers(
-              {
-                  'CHROME_VERSION': '34.5.678.9',
-                  'CHROMEOS_RELEASE_VERSION': '5678.9.0r1',
-              })
+        """Checks that an error is raised when there's a rN suffix."""
+        with self.assertRaises(perf_uploader.PerfUploadingError):
+            perf_uploader._get_version_numbers({
+                    'CHROME_VERSION':
+                    '34.5.678.9',
+                    'CHROMEOS_RELEASE_VERSION':
+                    '5678.9.0r1',
+            })
 
     def test_with_valid_release_milestone(self):
-      """Checks the version numbers used when data is formatted as expected."""
-      self.assertEqual(
-              ('54.5678.9.0', '34.5.678.9'),
-              perf_uploader._get_version_numbers(
-                  {
-                      'CHROME_VERSION': '34.5.678.9',
-                      'CHROMEOS_RELEASE_VERSION': '5678.9.0',
-                      'CHROMEOS_RELEASE_CHROME_MILESTONE': '54',
-                  }))
+        """Checks the version numbers used when data is formatted as expected."""
+        self.assertEqual(('54.5678.9.0', '34.5.678.9'),
+                         perf_uploader._get_version_numbers({
+                                 'CHROME_VERSION':
+                                 '34.5.678.9',
+                                 'CHROMEOS_RELEASE_VERSION':
+                                 '5678.9.0',
+                                 'CHROMEOS_RELEASE_CHROME_MILESTONE':
+                                 '54',
+                         }))
 
 
 class test_format_for_upload(unittest.TestCase):
@@ -433,7 +439,7 @@ class test_format_for_upload(unittest.TestCase):
         },
     }
     _PRESENT_INFO = {
-        'master_name': 'new_master_name',
+        'main_name': 'new_main_name',
         'test_name': 'new_test_name',
     }
 
@@ -458,11 +464,12 @@ class test_format_for_upload(unittest.TestCase):
         def ordered(obj):
             """Return the sorted obj."""
             if isinstance(obj, dict):
-               return sorted((k, ordered(v)) for k, v in obj.items())
+                return sorted((k, ordered(v)) for k, v in obj.items())
             if isinstance(obj, list):
-               return sorted(ordered(x) for x in obj)
+                return sorted(ordered(x) for x in obj)
             else:
-               return obj
+                return obj
+
         fail_msg = 'Unexpected result string: %s' % actual_result
         self.assertEqual(ordered(expected), ordered(actual), msg=fail_msg)
 
@@ -473,39 +480,42 @@ class test_format_for_upload(unittest.TestCase):
                 'platform', '25.1200.0.0', '25.10.1000.0', 'WINKY E2A-F2K-Q35',
                 'test_machine', self._perf_data, self._PRESENT_INFO,
                 '52926644-username/hostname')
+        # TODO b:169251326 terms below are set outside of this codebase and
+        # should be updated when possible ("master" -> "main"). # nocheck
+        # see catapult-project/catapult/dashboard/dashboard/add_point.py
         expected_result_string = (
-          '{"versions":  {'
-             '"cros_version": "25.1200.0.0",'
-             '"chrome_version": "25.10.1000.0"'
-          '},'
-          '"point_id": 10000000120000000,'
-          '"bot": "cros-platform",'
-          '"chart_data": {'
-             '"charts": {'
-               '"metric2": {'
-                 '"summary": {'
-                   '"units": "frames_per_sec",'
-                   '"type": "scalar",'
-                   '"value": 101.35,'
-                   '"improvement_direction": "up"'
-                 '}'
-               '},'
-               '"metric1": {'
-                 '"summary": {'
-                 '"units": "msec",'
-                 '"type": "scalar",'
-                 '"value": 2.7,'
-                 '"improvement_direction": "down"}'
-               '}'
-             '}'
-          '},'
-          '"master": "new_master_name",'
-          '"supplemental": {'
-             '"hardware_identifier": "WINKY E2A-F2K-Q35",'
-             '"jobname": "52926644-username/hostname",'
-             '"hardware_hostname": "test_machine",'
-             '"default_rev": "r_cros_version"}'
-           '}')
+                '{"versions":  {'
+                '"cros_version": "25.1200.0.0",'
+                '"chrome_version": "25.10.1000.0"'
+                '},'
+                '"point_id": 10000000120000000,'
+                '"bot": "cros-platform",'
+                '"chart_data": {'
+                '"charts": {'
+                '"metric2": {'
+                '"summary": {'
+                '"units": "frames_per_sec",'
+                '"type": "scalar",'
+                '"value": 101.35,'
+                '"improvement_direction": "up"'
+                '}'
+                '},'
+                '"metric1": {'
+                '"summary": {'
+                '"units": "msec",'
+                '"type": "scalar",'
+                '"value": 2.7,'
+                '"improvement_direction": "down"}'
+                '}'
+                '}'
+                '},'
+                '"master": "new_main_name",'  # nocheck
+                '"supplemental": {'
+                '"hardware_identifier": "WINKY E2A-F2K-Q35",'
+                '"jobname": "52926644-username/hostname",'
+                '"hardware_hostname": "test_machine",'
+                '"default_rev": "r_cros_version"}'
+                '}')
         self._verify_result_string(result['data'], expected_result_string)
 
 

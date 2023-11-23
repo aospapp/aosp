@@ -34,5 +34,5 @@ oneway interface IScanListener {
         void onLost(in NearbyDeviceParcelable nearbyDeviceParcelable);
 
         /** Reports when there is an error during scanning. */
-        void onError();
+        void onError(in int errorCode);
 }

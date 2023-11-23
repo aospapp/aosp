@@ -40,6 +40,7 @@ import android.util.Log;
 import com.android.modules.utils.SynchronousResultReceiver;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
@@ -233,12 +234,13 @@ public final class BluetoothMapClient implements BluetoothProfile, AutoCloseable
     }
 
     /**
-     * Close the connection to the backing service.
-     * Other public functions of BluetoothMap will return default error
-     * results once close() has been called. Multiple invocations of close()
+     * Close the connection to the backing service. Other public functions of BluetoothMap will
+     * return default error results once close() has been called. Multiple invocations of close()
      * are ok.
+     *
      * @hide
      */
+    @Override
     public void close() {
         mProfileConnector.disconnect();
         if (mCloseGuard != null) {
@@ -386,8 +388,8 @@ public final class BluetoothMapClient implements BluetoothProfile, AutoCloseable
             android.Manifest.permission.BLUETOOTH_CONNECT,
             android.Manifest.permission.BLUETOOTH_PRIVILEGED,
     })
-    public
-    @NonNull List<BluetoothDevice> getDevicesMatchingConnectionStates(@NonNull int[] states) {
+    @NonNull
+    public List<BluetoothDevice> getDevicesMatchingConnectionStates(@NonNull int[] states) {
         if (DBG) Log.d(TAG, "getDevicesMatchingStates()");
         final IBluetoothMapClient service = getService();
         final List<BluetoothDevice> defaultValue = new ArrayList<>();
@@ -615,7 +617,10 @@ public final class BluetoothMapClient implements BluetoothProfile, AutoCloseable
     })
     public boolean sendMessage(BluetoothDevice device, Uri[] contacts, String message,
             PendingIntent sentIntent, PendingIntent deliveredIntent) {
-        if (DBG) Log.d(TAG, "sendMessage(" + device + ", " + contacts + ", " + message);
+        if (DBG) {
+            Log.d(TAG, "sendMessage(" + device + ", " + Arrays.toString(contacts)
+                    + ", " + message);
+        }
         final IBluetoothMapClient service = getService();
         final boolean defaultValue = false;
         if (service == null) {

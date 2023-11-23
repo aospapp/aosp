@@ -19,12 +19,9 @@
  *   Functions generated:6
  */
 
+#include <cstdint>
 #include <map>
 #include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <cstdint>
 
 #include "osi/include/log.h"
 #include "stack/btm/btm_ble_int.h"
@@ -33,6 +30,7 @@ extern std::map<std::string, int> mock_function_count_map;
 #include "stack/gatt/connection_manager.h"
 #include "stack/include/acl_api.h"
 #include "stack/include/l2cap_hci_link_interface.h"
+#include "test/common/mock_functions.h"
 #include "types/ble_address_with_type.h"
 #include "types/hci_role.h"
 #include "types/raw_address.h"
@@ -41,30 +39,25 @@ extern std::map<std::string, int> mock_function_count_map;
 #define UNUSED_ATTR
 #endif
 
-void acl_ble_connection_complete(const tBLE_BD_ADDR& address_with_type,
-                                 uint16_t handle, tHCI_ROLE role, bool match,
-                                 uint16_t conn_interval, uint16_t conn_latency,
-                                 uint16_t conn_timeout) {
-  mock_function_count_map[__func__]++;
-}
 void acl_ble_connection_fail(const tBLE_BD_ADDR& address_with_type,
                              uint16_t handle, bool enhanced,
                              tHCI_STATUS status) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void acl_ble_enhanced_connection_complete(
     const tBLE_BD_ADDR& address_with_type, uint16_t handle, tHCI_ROLE role,
     bool match, uint16_t conn_interval, uint16_t conn_latency,
     uint16_t conn_timeout, const RawAddress& local_rpa,
-    const RawAddress& peer_rpa, uint8_t peer_addr_type) {
-  mock_function_count_map[__func__]++;
+    const RawAddress& peer_rpa, uint8_t peer_addr_type,
+    bool can_read_discoverable_characteristics) {
+  inc_func_call_count(__func__);
 }
 void acl_ble_enhanced_connection_complete_from_shim(
     const tBLE_BD_ADDR& address_with_type, uint16_t handle, tHCI_ROLE role,
     uint16_t conn_interval, uint16_t conn_latency, uint16_t conn_timeout,
     const RawAddress& local_rpa, const RawAddress& peer_rpa,
-    tBLE_ADDR_TYPE peer_addr_type) {
-  mock_function_count_map[__func__]++;
+    tBLE_ADDR_TYPE peer_addr_type, bool can_read_discoverable_characteristics) {
+  inc_func_call_count(__func__);
 }
 
 void gatt_notify_conn_update(const RawAddress& remote, uint16_t interval,
@@ -73,12 +66,12 @@ void gatt_notify_conn_update(const RawAddress& remote, uint16_t interval,
 void acl_ble_update_event_received(tHCI_STATUS status, uint16_t handle,
                                    uint16_t interval, uint16_t latency,
                                    uint16_t timeout) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 
 void acl_ble_data_length_change_event(uint16_t handle, uint16_t max_tx_octets,
                                       uint16_t max_tx_time,
                                       uint16_t max_rx_octets,
                                       uint16_t max_rx_time) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }

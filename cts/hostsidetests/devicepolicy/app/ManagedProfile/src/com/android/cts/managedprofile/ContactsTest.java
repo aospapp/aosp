@@ -18,7 +18,6 @@ package com.android.cts.managedprofile;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
-import android.annotation.TargetApi;
 import android.app.admin.DevicePolicyManager;
 import android.content.ContentProviderOperation;
 import android.content.ContentResolver;
@@ -30,7 +29,6 @@ import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.graphics.Rect;
 import android.net.Uri;
-import android.os.Build;
 import android.os.RemoteException;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Callable;
@@ -44,12 +42,17 @@ import android.provider.ContactsContract.RawContacts;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+import com.google.common.collect.Sets;
+
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class ContactsTest extends AndroidTestCase {
 
@@ -75,6 +78,14 @@ public class ContactsTest extends AndroidTestCase {
     private static final String SHARED_CONTACT_PHONE = "00000002";
     private static final String SHARED_CONTACT_EMAIL = "shared@shared.com";
     private static final String SHARED_CONTACT_SIP = "baz@sip";
+
+    // expected results for queries that list all contacts
+    private static final Set<String> PRIMARY_CONTACT_NAMES =
+            Set.of(PRIMARY_CONTACT_DISPLAY_NAME, PRIMARY_CONTACT_DISPLAY_NAME_2);
+    private static final Set<String> MANAGED_CONTACT_NAMES =
+            Set.of(MANAGED_CONTACT_DISPLAY_NAME, MANAGED_CONTACT_DISPLAY_NAME_2);
+    private static final Set<String> ALL_CONTACT_NAMES =
+            Sets.union(PRIMARY_CONTACT_NAMES, MANAGED_CONTACT_NAMES);
 
     // Directory display name
     private static final String PRIMARY_DIRECTORY_NAME = "PrimaryDirectory";
@@ -156,6 +167,14 @@ public class ContactsTest extends AndroidTestCase {
     public void testAddTestAccount() {
         Account account = new Account(TEST_ACCOUNT_NAME, TEST_ACCOUNT_TYPE);
         AccountManager.get(getContext()).addAccountExplicitly(account, null, null);
+    }
+
+    public void testRemoveAllUserContacts() throws RemoteException {
+        for (ContactInfo contact : getContactInfoFromListContacts(false)) {
+            mResolver.delete(
+                    Contacts.CONTENT_URI.buildUpon().appendPath(contact.contactId).build(), null);
+        }
+        assertEquals(0, getContactInfoFromListContacts(false).size());
     }
 
     public void testPrimaryProfilePhoneAndEmailLookup_insertedAndfound() throws RemoteException,
@@ -255,6 +274,104 @@ public class ContactsTest extends AndroidTestCase {
         contactInfo.assertNoPhotoUri();
         assertFalse(contactInfo.hasPhotoId());
         assertFalse(isEnterpriseContactId(contactInfo.contactId));
+    }
+
+    public void testPrimaryProfileContactList_canListOnlyPrimaryContacts() {
+        assertFalse(isManagedProfile());
+        ArrayList<ContactInfo> contacts = getContactInfoFromListContacts(false /*isEnterprise*/);
+        assertEquals(2, contacts.size());
+        assertEquals(PRIMARY_CONTACT_NAMES, mapToDisplayNames(contacts));
+        assertFalse(isEnterpriseContactId(contacts.get(0).contactId));
+        assertFalse(isEnterpriseContactId(contacts.get(1).contactId));
+    }
+
+    public void testPrimaryProfilePhoneList_canListOnlyPrimaryContacts() {
+        assertFalse(isManagedProfile());
+        ArrayList<ContactInfo> contacts = getContactInfoFromListPhones(false /*isEnterprise*/);
+        assertEquals(2, contacts.size());
+        assertEquals(PRIMARY_CONTACT_NAMES, mapToDisplayNames(contacts));
+        assertFalse(isEnterpriseContactId(contacts.get(0).contactId));
+        assertFalse(isEnterpriseContactId(contacts.get(1).contactId));
+    }
+
+    public void testPrimaryProfileEnterpriseContactList_canListAllContacts() {
+        assertFalse(isManagedProfile());
+        ArrayList<ContactInfo> contacts = getContactInfoFromListContacts(true /*isEnterprise*/);
+        assertEquals(4, contacts.size());
+        assertEquals(ALL_CONTACT_NAMES, mapToDisplayNames(contacts));
+        assertFalse(isEnterpriseContactId(contacts.get(0).contactId));
+        assertFalse(isEnterpriseContactId(contacts.get(1).contactId));
+        assertTrue(isEnterpriseContactId(contacts.get(2).contactId));
+        assertTrue(isEnterpriseContactId(contacts.get(3).contactId));
+    }
+
+    public void testPrimaryProfileEnterprisePhoneList_canListAllContacts() {
+        assertFalse(isManagedProfile());
+        ArrayList<ContactInfo> contacts = getContactInfoFromListPhones(true /*isEnterprise*/);
+        assertEquals(4, contacts.size());
+        assertEquals(ALL_CONTACT_NAMES, mapToDisplayNames(contacts));
+        assertFalse(isEnterpriseContactId(contacts.get(0).contactId));
+        assertFalse(isEnterpriseContactId(contacts.get(1).contactId));
+        assertTrue(isEnterpriseContactId(contacts.get(2).contactId));
+        assertTrue(isEnterpriseContactId(contacts.get(3).contactId));
+    }
+
+    public void testPrimaryProfileEnterpriseContactList_canListOnlyPrimaryContacts() {
+        assertFalse(isManagedProfile());
+        ArrayList<ContactInfo> contacts = getContactInfoFromListContacts(true /*isEnterprise*/);
+        assertEquals(2, contacts.size());
+        assertEquals(PRIMARY_CONTACT_NAMES, mapToDisplayNames(contacts));
+        assertFalse(isEnterpriseContactId(contacts.get(0).contactId));
+        assertFalse(isEnterpriseContactId(contacts.get(1).contactId));
+    }
+
+    public void testPrimaryProfileEnterprisePhoneList_canListOnlyPrimaryContacts() {
+        assertFalse(isManagedProfile());
+        ArrayList<ContactInfo> contacts = getContactInfoFromListPhones(true /*isEnterprise*/);
+        assertEquals(2, contacts.size());
+        assertEquals(PRIMARY_CONTACT_NAMES, mapToDisplayNames(contacts));
+        assertFalse(isEnterpriseContactId(contacts.get(0).contactId));
+        assertFalse(isEnterpriseContactId(contacts.get(1).contactId));
+    }
+
+    public void testManagedProfileContactList_canListManagedContacts() {
+        assertTrue(isManagedProfile());
+        ArrayList<ContactInfo> contacts = getContactInfoFromListContacts(false /*isEnterprise*/);
+        assertEquals(2, contacts.size());
+        assertEquals(MANAGED_CONTACT_NAMES, mapToDisplayNames(contacts));
+        // When the managed profile queries itself, all contacts should have "normal" IDs
+        assertFalse(isEnterpriseContactId(contacts.get(0).contactId));
+        assertFalse(isEnterpriseContactId(contacts.get(1).contactId));
+    }
+
+    public void testManagedProfilePhoneList_canListManagedContacts() {
+        assertTrue(isManagedProfile());
+        ArrayList<ContactInfo> contacts = getContactInfoFromListPhones(false /*isEnterprise*/);
+        assertEquals(2, contacts.size());
+        assertEquals(MANAGED_CONTACT_NAMES, mapToDisplayNames(contacts));
+        // When the managed profile queries itself, all contacts should have "normal" IDs
+        assertFalse(isEnterpriseContactId(contacts.get(0).contactId));
+        assertFalse(isEnterpriseContactId(contacts.get(1).contactId));
+    }
+
+    public void testManagedProfileEnterpriseContactList_canListManagedContacts() {
+        assertTrue(isManagedProfile());
+        ArrayList<ContactInfo> contacts = getContactInfoFromListContacts(true /*isEnterprise*/);
+        assertEquals(2, contacts.size());
+        assertEquals(MANAGED_CONTACT_NAMES, mapToDisplayNames(contacts));
+        // When the managed profile queries itself, all contacts should have "normal" IDs
+        assertFalse(isEnterpriseContactId(contacts.get(0).contactId));
+        assertFalse(isEnterpriseContactId(contacts.get(1).contactId));
+    }
+
+    public void testManagedProfileEnterprisePhoneList_canListManagedContacts() {
+        assertTrue(isManagedProfile());
+        ArrayList<ContactInfo> contacts = getContactInfoFromListPhones(true /*isEnterprise*/);
+        assertEquals(2, contacts.size());
+        assertEquals(MANAGED_CONTACT_NAMES, mapToDisplayNames(contacts));
+        // When the managed profile queries itself, all contacts should have "normal" IDs
+        assertFalse(isEnterpriseContactId(contacts.get(0).contactId));
+        assertFalse(isEnterpriseContactId(contacts.get(1).contactId));
     }
 
     public void testPrimaryProfileEnterprisePhoneLookup_canAccessEnterpriseContact()
@@ -1147,6 +1264,18 @@ public class ContactsTest extends AndroidTestCase {
         }
     }
 
+    private ArrayList<ContactInfo> getContactInfoFromListContacts(boolean isEnterprise) {
+        Uri uri = isEnterprise ? Contacts.ENTERPRISE_CONTENT_URI : Contacts.CONTENT_URI;
+        return getAllContactsFromUri(uri, Contacts._ID, Contacts.DISPLAY_NAME_PRIMARY,
+                Contacts.PHOTO_URI, Contacts.PHOTO_THUMBNAIL_URI, Contacts.PHOTO_ID);
+    }
+
+    private ArrayList<ContactInfo> getContactInfoFromListPhones(boolean isEnterprise) {
+        Uri uri = isEnterprise ? Phone.ENTERPRISE_CONTENT_URI : Phone.CONTENT_URI;
+        return getAllContactsFromUri(uri, Phone.CONTACT_ID, Phone.DISPLAY_NAME_PRIMARY,
+                Phone.PHOTO_URI, Phone.PHOTO_THUMBNAIL_URI, Phone.PHOTO_ID);
+    }
+
     private ContactInfo getContactInfoFromPhoneLookupUri(boolean isEnterprise, String phoneNumber) {
         Uri baseUri = (isEnterprise) ? PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI
                 : PhoneLookup.CONTENT_FILTER_URI;
@@ -1234,6 +1363,30 @@ public class ContactsTest extends AndroidTestCase {
                 Phone.PHOTO_URI, Phone.PHOTO_THUMBNAIL_URI, Phone.PHOTO_ID);
     }
 
+    private ArrayList<ContactInfo> getAllContactsFromUri(Uri uri, String idColumn,
+            String displayNameColumn, String photoUriColumn, String photoThumbnailColumn,
+            String photoIdColumn) {
+        Cursor cursor = mResolver.query(uri,
+                new String[] {
+                        idColumn,
+                        displayNameColumn,
+                        photoUriColumn,
+                        photoIdColumn,
+                        photoThumbnailColumn,
+                }, null, null, null);
+        try (cursor) {
+            ArrayList<ContactInfo> allContacts = new ArrayList<>();
+            while (cursor != null && cursor.moveToNext()) {
+                allContacts.add(new ContactInfo(
+                        cursor.getString(cursor.getColumnIndexOrThrow(idColumn)),
+                        cursor.getString(cursor.getColumnIndexOrThrow(displayNameColumn)),
+                        cursor.getString(cursor.getColumnIndexOrThrow(photoUriColumn)),
+                        cursor.getString(cursor.getColumnIndexOrThrow(photoThumbnailColumn)),
+                        cursor.getString(cursor.getColumnIndexOrThrow(photoIdColumn))));
+            }
+            return allContacts;
+        }
+    }
 
     private ContactInfo getContactInfoFromUri(Uri uri, String idColumn,
             String displayNameColumn, String photoUriColumn, String photoThumbnailColumn,
@@ -1307,6 +1460,10 @@ public class ContactsTest extends AndroidTestCase {
             outputStream.write(buf, 0, i);
         }
         return outputStream.toByteArray();
+    }
+
+    private static Set<String> mapToDisplayNames(Collection<ContactInfo> contacts) {
+        return contacts.stream().map(c -> c.displayName).collect(Collectors.toSet());
     }
 
     private boolean isEnterpriseContactId(String contactId) {

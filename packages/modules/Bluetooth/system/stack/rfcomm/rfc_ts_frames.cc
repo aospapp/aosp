@@ -534,12 +534,10 @@ tRFC_EVENT rfc_parse_data(tRFC_MCB* p_mcb, MX_FRAME* p_frame, BT_HDR* p_buf) {
     len += (*(p_data)++ << RFCOMM_SHIFT_LENGTH2);
   } else if (eal == 0) {
     RFCOMM_TRACE_ERROR("Bad Length when EAL = 0: %d", p_buf->len);
-    android_errorWriteLog(0x534e4554, "78288018");
     return RFC_EVENT_BAD_FRAME;
   }
 
   if (p_buf->len < (3 + !ead + !eal + 1)) {
-    android_errorWriteLog(0x534e4554, "120255805");
     RFCOMM_TRACE_ERROR("Bad Length: %d", p_buf->len);
     return RFC_EVENT_BAD_FRAME;
   }
@@ -645,7 +643,6 @@ void rfc_process_mx_message(tRFC_MCB* p_mcb, BT_HDR* p_buf) {
     RFCOMM_TRACE_ERROR(
         "%s: Illegal MX Frame len when reading EA, C/R. len:%d < 2", __func__,
         length);
-    android_errorWriteLog(0x534e4554, "111937065");
     osi_free(p_buf);
     return;
   }
@@ -674,7 +671,6 @@ void rfc_process_mx_message(tRFC_MCB* p_mcb, BT_HDR* p_buf) {
     if (length < 1) {
       RFCOMM_TRACE_ERROR("%s: Illegal MX Frame when EA = 0. len:%d < 1",
                          __func__, length);
-      android_errorWriteLog(0x534e4554, "111937065");
       osi_free(p_buf);
       return;
     }
@@ -690,7 +686,7 @@ void rfc_process_mx_message(tRFC_MCB* p_mcb, BT_HDR* p_buf) {
   }
 
   RFCOMM_TRACE_DEBUG("%s: type=0x%02x, bd_addr=%s", __func__, p_rx_frame->type,
-                     p_mcb->bd_addr.ToString().c_str());
+                     ADDRESS_TO_LOGGABLE_CSTR(p_mcb->bd_addr));
   switch (p_rx_frame->type) {
     case RFCOMM_MX_PN:
       if (length != RFCOMM_MX_PN_LEN) {
@@ -757,7 +753,6 @@ void rfc_process_mx_message(tRFC_MCB* p_mcb, BT_HDR* p_buf) {
       if (length != RFCOMM_MX_MSC_LEN_WITH_BREAK &&
           length != RFCOMM_MX_MSC_LEN_NO_BREAK) {
         RFCOMM_TRACE_ERROR("%s: Illegal MX MSC Frame len:%d", __func__, length);
-        android_errorWriteLog(0x534e4554, "111937065");
         osi_free(p_buf);
         return;
       }

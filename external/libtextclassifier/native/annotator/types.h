@@ -65,6 +65,7 @@ struct CodepointSpan {
   CodepointSpan(CodepointIndex start, CodepointIndex end)
       : first(start), second(end) {}
 
+  CodepointSpan(const CodepointSpan& other) = default;
   CodepointSpan& operator=(const CodepointSpan& other) = default;
 
   bool operator==(const CodepointSpan& other) const {
@@ -439,6 +440,8 @@ struct ClassificationResult {
       contact_nickname, contact_email_address, contact_phone_number,
       contact_account_type, contact_account_name, contact_id,
       contact_alternate_name;
+  int64 contact_recognition_source;
+  float contact_neural_match_score;
   std::string app_name, app_package_name;
   int64 numeric_value;
   double numeric_double_value;
@@ -577,12 +580,18 @@ struct ClassificationOptions : public BaseOptions, public DatetimeOptions {
   std::string user_familiar_language_tags;
   // If true, trigger dictionary on words that are of beginner level.
   bool trigger_dictionary_on_beginner_words = false;
+  // If true, generate *Add* contact intent for email/phone entity.
+  bool enable_add_contact_intent;
+  // If true, generate *Search* intent for named entities.
+  bool enable_search_intent;
 
   bool operator==(const ClassificationOptions& other) const {
     return this->user_familiar_language_tags ==
                other.user_familiar_language_tags &&
            this->trigger_dictionary_on_beginner_words ==
                other.trigger_dictionary_on_beginner_words &&
+           this->enable_add_contact_intent == other.enable_add_contact_intent &&
+           this->enable_search_intent == other.enable_search_intent &&
            BaseOptions::operator==(other) && DatetimeOptions::operator==(other);
   }
 };

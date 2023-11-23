@@ -279,7 +279,7 @@ ICUBreakIteratorService::~ICUBreakIteratorService() {}
 // defined in ucln_cmn.h
 U_NAMESPACE_END
 
-static icu::UInitOnce gInitOnceBrkiter = U_INITONCE_INITIALIZER;
+static icu::UInitOnce gInitOnceBrkiter {};
 static icu::ICULocaleService* gService = NULL;
 
 
@@ -296,7 +296,7 @@ static UBool U_CALLCONV breakiterator_cleanup(void) {
     }
     gInitOnceBrkiter.reset();
 #endif
-    return TRUE;
+    return true;
 }
 U_CDECL_END
 U_NAMESPACE_BEGIN
@@ -347,7 +347,7 @@ BreakIterator::unregister(URegistryKey key, UErrorCode& status)
         }
         status = U_MEMORY_ALLOCATION_ERROR;
     }
-    return FALSE;
+    return false;
 }
 
 // -------------------------------------
@@ -439,8 +439,8 @@ BreakIterator::makeInstance(const Locale& loc, int32_t kind, UErrorCode& status)
                 uprv_strcat(lb_lw, "_");
                 uprv_strcat(lb_lw, value.data());
             }
-            // lw=phrase is only supported in Japanese.
-            if (uprv_strcmp(loc.getLanguage(), "ja") == 0) {
+            // lw=phrase is only supported in Japanese and Korean
+            if (uprv_strcmp(loc.getLanguage(), "ja") == 0 || uprv_strcmp(loc.getLanguage(), "ko") == 0) {
                 value.clear();
                 loc.getKeywordValue("lw", valueSink, kvStatus);
                 if (U_SUCCESS(kvStatus) && value == "phrase") {

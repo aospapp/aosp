@@ -9,10 +9,9 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 
-#include <xnnpack/math.h>
-#include <xnnpack/params-init.h>
-#include <xnnpack/params.h>
+#include <xnnpack/microfnptr.h>
 #include <xnnpack/requantization.h>
 
 
@@ -210,12 +209,12 @@ class GemmMicrokernelTester {
 
   void Test(
     xnn_qc8_gemm_minmax_ukernel_function gemm,
-    xnn_init_qs8_minmax_params_fn init_params,
+    xnn_init_qc8_conv_minmax_params_fn init_params,
     xnn_qs8_requantize_fn requantize) const;
 
   void Test(
     xnn_qc8_igemm_minmax_ukernel_function igemm,
-    xnn_init_qs8_minmax_params_fn init_params,
+    xnn_init_qc8_conv_minmax_params_fn init_params,
     xnn_qs8_requantize_fn requantize) const;
 
   void Test(
@@ -228,9 +227,11 @@ class GemmMicrokernelTester {
     xnn_init_qs8_conv_minmax_params_fn init_params,
     xnn_qs8_requantize_fn requantize) const;
 
-  void Test(xnn_f16_gemm_minmax_ukernel_function gemm_minmax, xnn_init_f16_scaleminmax_params_fn init_params) const;
+  void Test(xnn_bf16_gemm_minmax_ukernel_function gemm_minmax, xnn_init_bf16_minmax_params_fn init_params) const;
 
-  void Test(xnn_f16_igemm_minmax_ukernel_function igemm_minmax, xnn_init_f16_scaleminmax_params_fn init_params) const;
+  void Test(xnn_f16_gemm_minmax_ukernel_function gemm_minmax, xnn_init_f16_minmax_params_fn init_params) const;
+
+  void Test(xnn_f16_igemm_minmax_ukernel_function igemm_minmax, xnn_init_f16_minmax_params_fn init_params) const;
 
   void Test(xnn_f32_ppmm_minmax_ukernel_function ppmm_minmax, xnn_init_f32_minmax_params_fn init_params) const;
 
@@ -257,11 +258,11 @@ class GemmMicrokernelTester {
     xnn_init_f32_minmax_params_fn init_params) const;
   void Test(
     xnn_jit_gemm_code_generator_function gemm_generator,
-    xnn_init_qs8_minmax_params_fn init_params,
+    xnn_init_qc8_conv_minmax_params_fn init_params,
     xnn_qs8_requantize_fn requantize) const;
   void Test(
     xnn_jit_igemm_code_generator_function igemm_generator,
-    xnn_init_qs8_minmax_params_fn init_params,
+    xnn_init_qc8_conv_minmax_params_fn init_params,
     xnn_qs8_requantize_fn requantize) const;
   void Test(
     xnn_jit_gemm_code_generator_function gemm_generator,

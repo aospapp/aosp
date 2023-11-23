@@ -17,112 +17,109 @@
 package android.mediav2.cts;
 
 import android.media.MediaFormat;
+import android.mediav2.common.cts.HDRDecoderTestBase;
 import android.os.Build;
 
 import androidx.test.filters.SdkSuppress;
 import androidx.test.filters.SmallTest;
 
-import org.junit.Assume;
+import com.android.compatibility.common.util.CddTest;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Test to validate hdr static metadata in decoders
+ * HDR Metadata is an aid for a display device to show the content in an optimal manner. It
+ * contains the HDR content and mastering device properties that are used by the display device
+ * to map the content according to its own color gamut and peak brightness. This information can
+ * be part of container and/or elementary stream.
+ * <p>
+ * The test checks if the muxer and/or decoder propagates this information from file to application
+ * correctly. Whether this information is used by the device during display is beyond the scope
+ * of this test.
  */
 @RunWith(Parameterized.class)
 // P010 support was added in Android T, hence limit the following tests to Android T and above
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU, codeName = "Tiramisu")
-public class DecoderHDRInfoTest extends CodecDecoderTestBase {
+public class DecoderHDRInfoTest extends HDRDecoderTestBase {
     private static final String LOG_TAG = DecoderHDRInfoTest.class.getSimpleName();
-    private static final String HDR_STATIC_INFO =
-            "00 d0 84 80 3e c2 33 c4 86 4c 1d b8 0b 13 3d 42 40 a0 0f 32 00 10 27 df 0d";
-    private static final String HDR_STATIC_INCORRECT_INFO =
-            "00 d0 84 80 3e c2 33 c4 86 10 27 d0 07 13 3d 42 40 a0 0f 32 00 10 27 df 0d";
-
-    private final ByteBuffer mHDRStaticInfoStream;
-    private final ByteBuffer mHDRStaticInfoContainer;
+    private static final String MEDIA_DIR = WorkDir.getMediaDirString();
+    private final String mHDRStaticInfoStream;
+    private final String mHDRStaticInfoContainer;
+    private final Map<Integer, String> mHDRDynamicInfoStream;
+    private final Map<Integer, String> mHDRDynamicInfoContainer;
 
     public DecoderHDRInfoTest(String codecName, String mediaType, String testFile,
-                              String hdrStaticInfoStream, String hdrStaticInfoContainer) {
-        super(codecName, mediaType, testFile);
-        mHDRStaticInfoStream = hdrStaticInfoStream != null ?
-                ByteBuffer.wrap(loadByteArrayFromString(hdrStaticInfoStream)) : null;
-        mHDRStaticInfoContainer = hdrStaticInfoContainer != null ?
-                ByteBuffer.wrap(loadByteArrayFromString(hdrStaticInfoContainer)) : null;
+            String hdrStaticInfoStream, String hdrStaticInfoContainer,
+            Map<Integer, String> hdrDynamicInfoStream, Map<Integer, String> hdrDynamicInfoContainer,
+            String allTestParams) {
+        super(codecName, mediaType, MEDIA_DIR + testFile, allTestParams);
+        mHDRStaticInfoStream = hdrStaticInfoStream;
+        mHDRStaticInfoContainer = hdrStaticInfoContainer;
+        mHDRDynamicInfoStream = hdrDynamicInfoStream;
+        mHDRDynamicInfoContainer = hdrDynamicInfoContainer;
     }
 
-    @Parameterized.Parameters(name = "{index}({0}_{1})")
+    @Parameterized.Parameters(name = "{index}_{0}_{1}")
     public static Collection<Object[]> input() {
         final boolean isEncoder = false;
         final boolean needAudio = false;
         final boolean needVideo = true;
         final List<Object[]> exhaustiveArgsList = Arrays.asList(new Object[][]{
-                // codecMediaType, testFile, hdrInfo in stream, hdrInfo in container
+                // codecMediaType, testFile, hdrStaticInfo in stream, hdrStaticInfo in container,
+                // hdrDynamicInfo in stream, hdrDynamicInfo in container
                 {MediaFormat.MIMETYPE_VIDEO_HEVC,
                         "cosmat_352x288_hdr10_stream_and_container_correct_hevc.mkv",
-                        HDR_STATIC_INFO, HDR_STATIC_INFO},
+                        HDR_STATIC_INFO, HDR_STATIC_INFO, null, null},
                 {MediaFormat.MIMETYPE_VIDEO_HEVC,
                         "cosmat_352x288_hdr10_stream_correct_container_incorrect_hevc.mkv",
-                        HDR_STATIC_INFO, HDR_STATIC_INCORRECT_INFO},
+                        HDR_STATIC_INFO, HDR_STATIC_INCORRECT_INFO, null, null},
                 {MediaFormat.MIMETYPE_VIDEO_HEVC, "cosmat_352x288_hdr10_only_stream_hevc.mkv",
-                        HDR_STATIC_INFO, null},
+                        HDR_STATIC_INFO, null, null, null},
                 {MediaFormat.MIMETYPE_VIDEO_HEVC, "cosmat_352x288_hdr10_only_container_hevc.mkv",
-                        null, HDR_STATIC_INFO},
+                        null, HDR_STATIC_INFO, null, null},
                 {MediaFormat.MIMETYPE_VIDEO_VP9, "cosmat_352x288_hdr10_only_container_vp9.mkv",
-                        null, HDR_STATIC_INFO},
+                        null, HDR_STATIC_INFO, null, null},
                 {MediaFormat.MIMETYPE_VIDEO_AV1,
                         "cosmat_352x288_hdr10_stream_and_container_correct_av1.mkv",
-                        HDR_STATIC_INFO, HDR_STATIC_INFO},
+                        HDR_STATIC_INFO, HDR_STATIC_INFO, null, null},
                 {MediaFormat.MIMETYPE_VIDEO_AV1,
                         "cosmat_352x288_hdr10_stream_correct_container_incorrect_av1.mkv",
-                        HDR_STATIC_INFO, HDR_STATIC_INCORRECT_INFO},
+                        HDR_STATIC_INFO, HDR_STATIC_INCORRECT_INFO, null, null},
                 {MediaFormat.MIMETYPE_VIDEO_AV1, "cosmat_352x288_hdr10_only_stream_av1.mkv",
-                        HDR_STATIC_INFO, null},
+                        HDR_STATIC_INFO, null, null, null},
                 {MediaFormat.MIMETYPE_VIDEO_AV1, "cosmat_352x288_hdr10_only_container_av1.mkv",
-                        null, HDR_STATIC_INFO},
+                        null, HDR_STATIC_INFO, null, null},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, "cosmat_352x288_hdr10plus_hevc.mp4",
+                        null, null, HDR_DYNAMIC_INFO, null},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, "cosmat_352x288_hdr10plus_hevc.mp4",
+                        null, null, HDR_DYNAMIC_INFO, HDR_DYNAMIC_INCORRECT_INFO},
+                {MediaFormat.MIMETYPE_VIDEO_AV1, "cosmat_352x288_hdr10plus_av1.mkv",
+                        null, null, HDR_DYNAMIC_INFO, null},
+                {MediaFormat.MIMETYPE_VIDEO_AV1, "cosmat_352x288_hdr10plus_av1.mkv",
+                        null, null, HDR_DYNAMIC_INFO, HDR_DYNAMIC_INCORRECT_INFO},
+                {MediaFormat.MIMETYPE_VIDEO_VP9, "cosmat_352x288_hdr10_only_container_vp9.mkv",
+                        null, null, null, HDR_DYNAMIC_INFO},
+
         });
         return prepareParamList(exhaustiveArgsList, isEncoder, needAudio, needVideo, false);
     }
 
+    /**
+     * Check description of class {@link DecoderHDRInfoTest}
+     */
     @SmallTest
     @Test(timeout = PER_TEST_TIMEOUT_SMALL_TEST_MS)
-    public void testHDRMetadata() throws IOException, InterruptedException {
-        int[] Hdr10Profiles = mProfileHdr10Map.get(mMime);
-        Assume.assumeNotNull("Test is only applicable to codecs that have HDR10 profiles",
-                Hdr10Profiles);
-        MediaFormat format = setUpSource(mTestFile);
-        mExtractor.release();
-        ArrayList<MediaFormat> formats = new ArrayList<>();
-        formats.add(format);
-
-        // When HDR metadata isn't present in the container, but included in the bitstream,
-        // extractors may not be able to populate HDR10/HDR10+ profiles correctly.
-        // In such cases, override the profile
-        if (mHDRStaticInfoContainer == null && mHDRStaticInfoStream != null) {
-            int profile = Hdr10Profiles[0];
-            format.setInteger(MediaFormat.KEY_PROFILE, profile);
-        }
-        Assume.assumeTrue(areFormatsSupported(mCodecName, mMime, formats));
-
-        if (mHDRStaticInfoContainer != null) {
-            validateHDRStaticMetaData(format, mHDRStaticInfoContainer);
-        }
-
-        validateHDRStaticMetaData(mInpPrefix, mTestFile,
-                mHDRStaticInfoStream == null ? mHDRStaticInfoContainer : mHDRStaticInfoStream,
-                false);
-        if (mHDRStaticInfoStream != null) {
-            if (EncoderHDRInfoTest.mCheckESList.contains(mMime)) {
-                validateHDRStaticMetaData(mInpPrefix, mTestFile, mHDRStaticInfoStream, true);
-            }
-        }
+    @CddTest(requirements = {"5.3.5/C-3-1", "5.3.7/C-4-1", "5.3.9/C-3-1"})
+    public void testHDRInfo() throws IOException, InterruptedException {
+        validateHDRInfo(mHDRStaticInfoStream, mHDRStaticInfoContainer, mHDRDynamicInfoStream,
+                mHDRDynamicInfoContainer);
     }
 }

@@ -525,7 +525,7 @@ public final class TextClassifierSettings {
         variantsMapBuilder.put(modelLanguageTag, urlFlagValue);
       }
     }
-    return variantsMapBuilder.build();
+    return variantsMapBuilder.buildOrThrow();
   }
 
   public String getTestingLocaleListOverride() {

@@ -216,8 +216,9 @@ class AudioPolicyManagerFuzzer {
     virtual void process();
 
    protected:
+    sp<AudioPolicyConfig> mConfig{AudioPolicyConfig::createWritableForTests()};
     std::unique_ptr<AudioPolicyManagerTestClient> mClient{new AudioPolicyManagerTestClient};
-    std::unique_ptr<AudioPolicyTestManager> mManager{new AudioPolicyTestManager(mClient.get())};
+    std::unique_ptr<AudioPolicyTestManager> mManager;
     FuzzedDataProvider *mFdp;
 };
 
@@ -230,7 +231,10 @@ bool AudioPolicyManagerFuzzer::initialize() {
     }
     // init code
     SetUpManagerConfig();
-
+    if (mConfig == nullptr) {
+        return false;
+    }
+    mManager.reset(new AudioPolicyTestManager(mConfig, mClient.get()));
     if (mManager->initialize() != NO_ERROR) {
         return false;
     }
@@ -240,7 +244,7 @@ bool AudioPolicyManagerFuzzer::initialize() {
     return true;
 }
 
-void AudioPolicyManagerFuzzer::SetUpManagerConfig() { mManager->getConfig().setDefault(); }
+void AudioPolicyManagerFuzzer::SetUpManagerConfig() { mConfig->setDefault(); }
 
 bool AudioPolicyManagerFuzzer::getOutputForAttr(
     audio_port_handle_t *selectedDeviceId, audio_format_t format, audio_channel_mask_t channelMask,
@@ -259,13 +263,15 @@ bool AudioPolicyManagerFuzzer::getOutputForAttr(
     *portId = AUDIO_PORT_HANDLE_NONE;
     AudioPolicyInterface::output_type_t outputType;
     bool isSpatialized;
+    bool isBitPerfect;
 
     // TODO b/182392769: use attribution source util
     AttributionSourceState attributionSource;
     attributionSource.uid = 0;
     attributionSource.token = sp<BBinder>::make();
     if (mManager->getOutputForAttr(&attr, output, AUDIO_SESSION_NONE, &stream, attributionSource,
-            &config, &flags, selectedDeviceId, portId, {}, &outputType, &isSpatialized) != OK) {
+            &config, &flags, selectedDeviceId, portId, {}, &outputType, &isSpatialized,
+            &isBitPerfect) != OK) {
         return false;
     }
     if (*output == AUDIO_IO_HANDLE_NONE || *portId == AUDIO_PORT_HANDLE_NONE) {
@@ -406,7 +412,11 @@ std::string AudioPolicyManagerFuzzerWithConfigurationFile::getConfigFile() {
 }
 
 void AudioPolicyManagerFuzzerWithConfigurationFile::SetUpManagerConfig() {
-    deserializeAudioPolicyFile(getConfigFile().c_str(), &mManager->getConfig());
+    const std::string configFilePath = getConfigFile();
+    auto result = AudioPolicyConfig::loadFromCustomXmlConfigForTests(configFilePath);
+    mConfig = result.ok() ? mConfig = result.value() : nullptr;
+    ALOGE_IF(!result.ok(), "%s: Failed to deserialize \"%s\": %d",
+            __func__, configFilePath.c_str(), result.error());
 }
 
 void AudioPolicyManagerFuzzerWithConfigurationFile::traverseAndFuzzXML(xmlDocPtr pDoc,
@@ -544,10 +554,11 @@ AudioPolicyManagerFuzzerDynamicPolicy::~AudioPolicyManagerFuzzerDynamicPolicy() 
 status_t AudioPolicyManagerFuzzerDynamicPolicy::addPolicyMix(
     int mixType, int mixFlag, audio_devices_t deviceType, std::string mixAddress,
     const audio_config_t &audioConfig, const std::vector<PolicyMixTuple> &rules) {
-    Vector<AudioMixMatchCriterion> myMixMatchCriteria;
+    std::vector<AudioMixMatchCriterion> myMixMatchCriteria;
 
+    myMixMatchCriteria.reserve(rules.size());
     for (const auto &rule : rules) {
-        myMixMatchCriteria.add(
+        myMixMatchCriteria.push_back(
             AudioMixMatchCriterion(std::get<0>(rule), std::get<1>(rule), std::get<2>(rule)));
     }
 

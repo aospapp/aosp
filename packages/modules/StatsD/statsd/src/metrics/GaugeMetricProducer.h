@@ -76,13 +76,19 @@ public:
     virtual ~GaugeMetricProducer();
 
     // Handles when the pulled data arrives.
-    void onDataPulled(const std::vector<std::shared_ptr<LogEvent>>& data,
-                      bool pullSuccess, int64_t originalPullTimeNs) override;
+    void onDataPulled(const std::vector<std::shared_ptr<LogEvent>>& data, PullResult pullResult,
+                      int64_t originalPullTimeNs) override;
+
+    // Determine if metric needs to pull
+    bool isPullNeeded() const override {
+        std::lock_guard<std::mutex> lock(mMutex);
+        return mIsActive && (mCondition == ConditionState::kTrue);
+    };
 
     // GaugeMetric needs to immediately trigger another pull when we create the partial bucket.
     void notifyAppUpgradeInternalLocked(const int64_t eventTimeNs) override {
         flushLocked(eventTimeNs);
-        if (mIsPulled && mSamplingType == GaugeMetric::RANDOM_ONE_SAMPLE) {
+        if (mIsPulled && mSamplingType == GaugeMetric::RANDOM_ONE_SAMPLE && mIsActive) {
             pullAndMatchEventsLocked(eventTimeNs);
         }
     };
@@ -92,7 +98,7 @@ public:
         std::lock_guard<std::mutex> lock(mMutex);
 
         flushLocked(eventTimeNs);
-        if (mIsPulled && mSamplingType == GaugeMetric::RANDOM_ONE_SAMPLE) {
+        if (mIsPulled && mSamplingType == GaugeMetric::RANDOM_ONE_SAMPLE && mIsActive) {
             pullAndMatchEventsLocked(eventTimeNs);
         }
     };
@@ -120,7 +126,7 @@ private:
     void onConditionChangedLocked(const bool conditionMet, const int64_t eventTime) override;
 
     // Internal interface to handle active state change.
-    void onActiveStateChangedLocked(const int64_t eventTimeNs) override;
+    void onActiveStateChangedLocked(const int64_t eventTimeNs, const bool isActive) override;
 
     // Internal interface to handle sliced condition change.
     void onSlicedConditionMayChangeLocked(bool overallCondition, const int64_t eventTime) override;
@@ -140,9 +146,10 @@ private:
 
     void prepareFirstBucketLocked() override;
 
+    // Only call if mCondition == ConditionState::kTrue && metric is active.
     void pullAndMatchEventsLocked(const int64_t timestampNs);
 
-    bool onConfigUpdatedLocked(
+    optional<InvalidConfigReason> onConfigUpdatedLocked(
             const StatsdConfig& config, const int configIndex, const int metricIndex,
             const std::vector<sp<AtomMatchingTracker>>& allAtomMatchingTrackers,
             const std::unordered_map<int64_t, int>& oldAtomMatchingTrackerMap,
@@ -157,6 +164,11 @@ private:
             std::unordered_map<int, std::vector<int>>& activationAtomTrackerToMetricMap,
             std::unordered_map<int, std::vector<int>>& deactivationAtomTrackerToMetricMap,
             std::vector<int>& metricsWithActivation) override;
+
+    inline bool isRandomNSamples() const {
+        return (mTriggerAtomId == -1 && mSamplingType == GaugeMetric::FIRST_N_SAMPLES) ||
+               mSamplingType == GaugeMetric::RANDOM_ONE_SAMPLE;
+    }
 
     int mWhatMatcherIndex;
 
@@ -219,7 +231,9 @@ private:
     FRIEND_TEST(GaugeMetricProducerTest, TestPulledEventsAnomalyDetection);
     FRIEND_TEST(GaugeMetricProducerTest, TestFirstBucket);
     FRIEND_TEST(GaugeMetricProducerTest, TestPullOnTrigger);
+    FRIEND_TEST(GaugeMetricProducerTest, TestPullNWithoutTrigger);
     FRIEND_TEST(GaugeMetricProducerTest, TestRemoveDimensionInOutput);
+    FRIEND_TEST(GaugeMetricProducerTest, TestPullDimensionalSampling);
 
     FRIEND_TEST(GaugeMetricProducerTest_PartialBucket, TestPushedEvents);
     FRIEND_TEST(GaugeMetricProducerTest_PartialBucket, TestPulled);

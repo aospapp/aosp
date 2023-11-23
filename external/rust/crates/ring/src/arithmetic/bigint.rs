@@ -38,7 +38,7 @@
 
 use crate::{
     arithmetic::montgomery::*,
-    bits, bssl, c, error,
+    bits, bssl, c, debug, error,
     limb::{self, Limb, LimbMask, LIMB_BITS, LIMB_BYTES},
 };
 use alloc::{borrow::ToOwned as _, boxed::Box, vec, vec::Vec};
@@ -46,6 +46,8 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+
+mod bn_mul_mont_fallback;
 
 pub unsafe trait Prime {}
 
@@ -165,7 +167,7 @@ pub unsafe trait NotMuchSmallerModulus<L>: SmallerModulus<L> {}
 
 pub unsafe trait PublicModulus {}
 
-/// The x86 implementation of `GFp_bn_mul_mont`, at least, requires at least 4
+/// The x86 implementation of `bn_mul_mont`, at least, requires at least 4
 /// limbs. For a long time we have required 4 limbs for all targets, though
 /// this may be unnecessary. TODO: Replace this with
 /// `n.len() < 256 / LIMB_BITS` so that 32-bit and 64-bit platforms behave the
@@ -221,11 +223,36 @@ pub struct Modulus<M> {
     oneRR: One<M, RR>,
 }
 
+impl<M: PublicModulus> Modulus<M> {
+    pub fn to_be_bytes(&self) -> Box<[u8]> {
+        let mut padded = vec![0u8; self.limbs.len() * LIMB_BYTES];
+        // See Falko Strenzke, "Manger's Attack revisited", ICICS 2010.
+        limb::big_endian_from_limbs(&self.limbs, &mut padded);
+        strip_leading_zeros(&padded)
+    }
+}
+
+impl<M: PublicModulus> Clone for Modulus<M> {
+    fn clone(&self) -> Self {
+        Self {
+            limbs: self.limbs.clone(),
+            n0: self.n0.clone(),
+            oneRR: self.oneRR.clone(),
+        }
+    }
+}
+
 impl<M: PublicModulus> core::fmt::Debug for Modulus<M> {
     fn fmt(&self, fmt: &mut ::core::fmt::Formatter) -> Result<(), ::core::fmt::Error> {
-        fmt.debug_struct("Modulus")
-            // TODO: Print modulus value.
-            .finish()
+        let mut state = fmt.debug_tuple("Modulus");
+
+        #[cfg(feature = "alloc")]
+        let state = {
+            let value = self.to_be_bytes(); // XXX: Allocates
+            state.field(&debug::HexStr(&value))
+        };
+
+        state.finish()
     }
 }
 
@@ -265,8 +292,8 @@ impl<M> Modulus<M> {
         // done by taking the lowest `N0_LIMBS_USED` limbs of `n`.
         #[allow(clippy::useless_conversion)]
         let n0 = {
-            extern "C" {
-                fn GFp_bn_neg_inv_mod_r_u64(n: u64) -> u64;
+            prefixed_extern! {
+                fn bn_neg_inv_mod_r_u64(n: u64) -> u64;
             }
 
             // XXX: u64::from isn't guaranteed to be constant time.
@@ -278,7 +305,7 @@ impl<M> Modulus<M> {
                 debug_assert_eq!(LIMB_BITS, 32);
                 n_mod_r |= u64::from(n[1]) << 32;
             }
-            N0::from(unsafe { GFp_bn_neg_inv_mod_r_u64(n_mod_r) })
+            N0::from(unsafe { bn_neg_inv_mod_r_u64(n_mod_r) })
         };
 
         let bits = limb::limbs_minimal_bits(&n.limbs);
@@ -432,7 +459,7 @@ impl<M> Elem<M, Unencoded> {
         input: untrusted::Input,
         m: &Modulus<M>,
     ) -> Result<Self, error::Unspecified> {
-        Ok(Elem {
+        Ok(Self {
             limbs: BoxedLimbs::from_be_bytes_padded_less_than(input, m)?,
             encoding: PhantomData,
         })
@@ -482,7 +509,7 @@ where
 }
 
 fn elem_mul_by_2<M, AF>(a: &mut Elem<M, AF>, m: &PartialModulus<M>) {
-    extern "C" {
+    prefixed_extern! {
         fn LIMBS_shl_mod(r: *mut Limb, a: *const Limb, m: *const Limb, num_limbs: c::size_t);
     }
     unsafe {
@@ -550,31 +577,13 @@ pub fn elem_widen<Larger, Smaller: SmallerModulus<Larger>>(
 
 // TODO: Document why this works for all Montgomery factors.
 pub fn elem_add<M, E>(mut a: Elem<M, E>, b: Elem<M, E>, m: &Modulus<M>) -> Elem<M, E> {
-    extern "C" {
-        // `r` and `a` may alias.
-        fn LIMBS_add_mod(
-            r: *mut Limb,
-            a: *const Limb,
-            b: *const Limb,
-            m: *const Limb,
-            num_limbs: c::size_t,
-        );
-    }
-    unsafe {
-        LIMBS_add_mod(
-            a.limbs.as_mut_ptr(),
-            a.limbs.as_ptr(),
-            b.limbs.as_ptr(),
-            m.limbs.as_ptr(),
-            m.limbs.len(),
-        )
-    }
+    limb::limbs_add_assign_mod(&mut a.limbs, &b.limbs, &m.limbs);
     a
 }
 
 // TODO: Document why this works for all Montgomery factors.
 pub fn elem_sub<M, E>(mut a: Elem<M, E>, b: &Elem<M, E>, m: &Modulus<M>) -> Elem<M, E> {
-    extern "C" {
+    prefixed_extern! {
         // `r` and `a` may alias.
         fn LIMBS_sub_mod(
             r: *mut Limb,
@@ -646,6 +655,12 @@ impl<M> One<M, RR> {
     }
 }
 
+impl<M: PublicModulus, E> Clone for One<M, E> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
 impl<M, E> AsRef<Elem<M, E>> for One<M, E> {
     fn as_ref(&self) -> &Elem<M, E> {
         &self.0
@@ -654,8 +669,14 @@ impl<M, E> AsRef<Elem<M, E>> for One<M, E> {
 
 /// A non-secret odd positive value in the range
 /// [3, PUBLIC_EXPONENT_MAX_VALUE].
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub struct PublicExponent(u64);
+
+impl core::fmt::Debug for PublicExponent {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl PublicExponent {
     pub fn from_be_bytes(
@@ -703,6 +724,11 @@ impl PublicExponent {
         }
 
         Ok(Self(value))
+    }
+
+    #[inline]
+    pub fn to_be_bytes(&self) -> Box<[u8]> {
+        strip_leading_zeros(&u64::to_be_bytes(self.0))
     }
 }
 
@@ -823,7 +849,7 @@ pub fn elem_exp_consttime<M>(
     let mut table = vec![0; TABLE_ENTRIES * num_limbs];
 
     fn gather<M>(table: &[Limb], i: Window, r: &mut Elem<M, R>) {
-        extern "C" {
+        prefixed_extern! {
             fn LIMBS_select_512_32(
                 r: *mut Limb,
                 table: *const Limb,
@@ -950,11 +976,11 @@ pub fn elem_exp_consttime<M>(
     entry_mut(state, M, num_limbs).copy_from_slice(&m.limbs);
 
     fn scatter(table: &mut [Limb], state: &[Limb], i: Window, num_limbs: usize) {
-        extern "C" {
-            fn GFp_bn_scatter5(a: *const Limb, a_len: c::size_t, table: *mut Limb, i: Window);
+        prefixed_extern! {
+            fn bn_scatter5(a: *const Limb, a_len: c::size_t, table: *mut Limb, i: Window);
         }
         unsafe {
-            GFp_bn_scatter5(
+            bn_scatter5(
                 entry(state, ACC, num_limbs).as_ptr(),
                 num_limbs,
                 table.as_mut_ptr(),
@@ -964,11 +990,11 @@ pub fn elem_exp_consttime<M>(
     }
 
     fn gather(table: &[Limb], state: &mut [Limb], i: Window, num_limbs: usize) {
-        extern "C" {
-            fn GFp_bn_gather5(r: *mut Limb, a_len: c::size_t, table: *const Limb, i: Window);
+        prefixed_extern! {
+            fn bn_gather5(r: *mut Limb, a_len: c::size_t, table: *const Limb, i: Window);
         }
         unsafe {
-            GFp_bn_gather5(
+            bn_gather5(
                 entry_mut(state, ACC, num_limbs).as_mut_ptr(),
                 num_limbs,
                 table.as_ptr(),
@@ -986,8 +1012,8 @@ pub fn elem_exp_consttime<M>(
     }
 
     fn gather_mul_base(table: &[Limb], state: &mut [Limb], n0: &N0, i: Window, num_limbs: usize) {
-        extern "C" {
-            fn GFp_bn_mul_mont_gather5(
+        prefixed_extern! {
+            fn bn_mul_mont_gather5(
                 rp: *mut Limb,
                 ap: *const Limb,
                 table: *const Limb,
@@ -998,7 +1024,7 @@ pub fn elem_exp_consttime<M>(
             );
         }
         unsafe {
-            GFp_bn_mul_mont_gather5(
+            bn_mul_mont_gather5(
                 entry_mut(state, ACC, num_limbs).as_mut_ptr(),
                 entry(state, BASE, num_limbs).as_ptr(),
                 table.as_ptr(),
@@ -1011,8 +1037,8 @@ pub fn elem_exp_consttime<M>(
     }
 
     fn power(table: &[Limb], state: &mut [Limb], n0: &N0, i: Window, num_limbs: usize) {
-        extern "C" {
-            fn GFp_bn_power5(
+        prefixed_extern! {
+            fn bn_power5(
                 r: *mut Limb,
                 a: *const Limb,
                 table: *const Limb,
@@ -1023,7 +1049,7 @@ pub fn elem_exp_consttime<M>(
             );
         }
         unsafe {
-            GFp_bn_power5(
+            bn_power5(
                 entry_mut(state, ACC, num_limbs).as_mut_ptr(),
                 entry_mut(state, ACC, num_limbs).as_mut_ptr(),
                 table.as_ptr(),
@@ -1069,8 +1095,8 @@ pub fn elem_exp_consttime<M>(
         },
     );
 
-    extern "C" {
-        fn GFp_bn_from_montgomery(
+    prefixed_extern! {
+        fn bn_from_montgomery(
             r: *mut Limb,
             a: *const Limb,
             not_used: *const Limb,
@@ -1080,7 +1106,7 @@ pub fn elem_exp_consttime<M>(
         ) -> bssl::Result;
     }
     Result::from(unsafe {
-        GFp_bn_from_montgomery(
+        bn_from_montgomery(
             entry_mut(state, ACC, num_limbs).as_mut_ptr(),
             entry(state, ACC, num_limbs).as_ptr(),
             core::ptr::null(),
@@ -1207,15 +1233,8 @@ impl From<u64> for N0 {
 fn limbs_mont_mul(r: &mut [Limb], a: &[Limb], m: &[Limb], n0: &N0) {
     debug_assert_eq!(r.len(), m.len());
     debug_assert_eq!(a.len(), m.len());
-
-    #[cfg(any(
-        target_arch = "aarch64",
-        target_arch = "arm",
-        target_arch = "x86_64",
-        target_arch = "x86"
-    ))]
     unsafe {
-        GFp_bn_mul_mont(
+        bn_mul_mont(
             r.as_mut_ptr(),
             r.as_ptr(),
             a.as_ptr(),
@@ -1224,24 +1243,11 @@ fn limbs_mont_mul(r: &mut [Limb], a: &[Limb], m: &[Limb], n0: &N0) {
             r.len(),
         )
     }
-
-    #[cfg(not(any(
-        target_arch = "aarch64",
-        target_arch = "arm",
-        target_arch = "x86_64",
-        target_arch = "x86"
-    )))]
-    {
-        let mut tmp = [0; 2 * MODULUS_MAX_LIMBS];
-        let tmp = &mut tmp[..(2 * a.len())];
-        limbs_mul(tmp, r, a);
-        limbs_from_mont_in_place(r, tmp, m, n0);
-    }
 }
 
 fn limbs_from_mont_in_place(r: &mut [Limb], tmp: &mut [Limb], m: &[Limb], n0: &N0) {
-    extern "C" {
-        fn GFp_bn_from_montgomery_in_place(
+    prefixed_extern! {
+        fn bn_from_montgomery_in_place(
             r: *mut Limb,
             num_r: c::size_t,
             a: *mut Limb,
@@ -1252,7 +1258,7 @@ fn limbs_from_mont_in_place(r: &mut [Limb], tmp: &mut [Limb], m: &[Limb], n0: &N
         ) -> bssl::Result;
     }
     Result::from(unsafe {
-        GFp_bn_from_montgomery_in_place(
+        bn_from_montgomery_in_place(
             r.as_mut_ptr(),
             r.len(),
             tmp.as_mut_ptr(),
@@ -1268,8 +1274,8 @@ fn limbs_from_mont_in_place(r: &mut [Limb], tmp: &mut [Limb], m: &[Limb], n0: &N
 #[cfg(not(any(
     target_arch = "aarch64",
     target_arch = "arm",
-    target_arch = "x86_64",
-    target_arch = "x86"
+    target_arch = "x86",
+    target_arch = "x86_64"
 )))]
 fn limbs_mul(r: &mut [Limb], a: &[Limb], b: &[Limb]) {
     debug_assert_eq!(r.len(), 2 * a.len());
@@ -1279,7 +1285,7 @@ fn limbs_mul(r: &mut [Limb], a: &[Limb], b: &[Limb]) {
     crate::polyfill::slice::fill(&mut r[..ab_len], 0);
     for (i, &b_limb) in b.iter().enumerate() {
         r[ab_len + i] = unsafe {
-            GFp_limbs_mul_add_limb(
+            limbs_mul_add_limb(
                 (&mut r[i..][..ab_len]).as_mut_ptr(),
                 a.as_ptr(),
                 b_limb,
@@ -1296,14 +1302,8 @@ fn limbs_mont_product(r: &mut [Limb], a: &[Limb], b: &[Limb], m: &[Limb], n0: &N
     debug_assert_eq!(a.len(), m.len());
     debug_assert_eq!(b.len(), m.len());
 
-    #[cfg(any(
-        target_arch = "aarch64",
-        target_arch = "arm",
-        target_arch = "x86_64",
-        target_arch = "x86"
-    ))]
     unsafe {
-        GFp_bn_mul_mont(
+        bn_mul_mont(
             r.as_mut_ptr(),
             a.as_ptr(),
             b.as_ptr(),
@@ -1312,32 +1312,13 @@ fn limbs_mont_product(r: &mut [Limb], a: &[Limb], b: &[Limb], m: &[Limb], n0: &N
             r.len(),
         )
     }
-
-    #[cfg(not(any(
-        target_arch = "aarch64",
-        target_arch = "arm",
-        target_arch = "x86_64",
-        target_arch = "x86"
-    )))]
-    {
-        let mut tmp = [0; 2 * MODULUS_MAX_LIMBS];
-        let tmp = &mut tmp[..(2 * a.len())];
-        limbs_mul(tmp, a, b);
-        limbs_from_mont_in_place(r, tmp, m, n0)
-    }
 }
 
 /// r = r**2
 fn limbs_mont_square(r: &mut [Limb], m: &[Limb], n0: &N0) {
     debug_assert_eq!(r.len(), m.len());
-    #[cfg(any(
-        target_arch = "aarch64",
-        target_arch = "arm",
-        target_arch = "x86_64",
-        target_arch = "x86"
-    ))]
     unsafe {
-        GFp_bn_mul_mont(
+        bn_mul_mont(
             r.as_mut_ptr(),
             r.as_ptr(),
             r.as_ptr(),
@@ -1346,30 +1327,11 @@ fn limbs_mont_square(r: &mut [Limb], m: &[Limb], n0: &N0) {
             r.len(),
         )
     }
-
-    #[cfg(not(any(
-        target_arch = "aarch64",
-        target_arch = "arm",
-        target_arch = "x86_64",
-        target_arch = "x86"
-    )))]
-    {
-        let mut tmp = [0; 2 * MODULUS_MAX_LIMBS];
-        let tmp = &mut tmp[..(2 * r.len())];
-        limbs_mul(tmp, r, r);
-        limbs_from_mont_in_place(r, tmp, m, n0)
-    }
 }
 
-extern "C" {
-    #[cfg(any(
-        target_arch = "aarch64",
-        target_arch = "arm",
-        target_arch = "x86_64",
-        target_arch = "x86"
-    ))]
+prefixed_extern! {
     // `r` and/or 'a' and/or 'b' may alias.
-    fn GFp_bn_mul_mont(
+    fn bn_mul_mont(
         r: *mut Limb,
         a: *const Limb,
         b: *const Limb,
@@ -1377,19 +1339,33 @@ extern "C" {
         n0: &N0,
         num_limbs: c::size_t,
     );
+}
 
+#[cfg(any(
+    test,
+    not(any(
+        target_arch = "aarch64",
+        target_arch = "arm",
+        target_arch = "x86_64",
+        target_arch = "x86"
+    ))
+))]
+prefixed_extern! {
     // `r` must not alias `a`
-    #[cfg(any(
-        test,
-        not(any(
-            target_arch = "aarch64",
-            target_arch = "arm",
-            target_arch = "x86_64",
-            target_arch = "x86"
-        ))
-    ))]
     #[must_use]
-    fn GFp_limbs_mul_add_limb(r: *mut Limb, a: *const Limb, b: Limb, num_limbs: c::size_t) -> Limb;
+    fn limbs_mul_add_limb(r: *mut Limb, a: *const Limb, b: Limb, num_limbs: c::size_t) -> Limb;
+}
+
+fn strip_leading_zeros(value: &[u8]) -> Box<[u8]> {
+    fn index_after_zeros(bytes: &[u8]) -> usize {
+        for (i, &value) in bytes.iter().enumerate() {
+            if value != 0 {
+                return i;
+            }
+        }
+        bytes.len()
+    }
+    (&value[index_after_zeros(value)..]).into()
 }
 
 #[cfg(test)]
@@ -1528,11 +1504,13 @@ mod tests {
 
     #[test]
     fn test_modulus_debug() {
-        let (modulus, _) = Modulus::<M>::from_be_bytes_with_bit_length(untrusted::Input::from(
-            &[0xff; LIMB_BYTES * MODULUS_MIN_LIMBS],
-        ))
-        .unwrap();
-        assert_eq!("Modulus", format!("{:?}", modulus));
+        let (modulus, _) =
+            Modulus::<M>::from_be_bytes_with_bit_length(untrusted::Input::from(&[0xff; 1024 / 8]))
+                .unwrap();
+        assert_eq!(
+            "Modulus(\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\")",
+            format!("{:?}", modulus)
+        );
     }
 
     #[test]
@@ -1540,7 +1518,7 @@ mod tests {
         let exponent =
             PublicExponent::from_be_bytes(untrusted::Input::from(&[0x1, 0x00, 0x01]), 65537)
                 .unwrap();
-        assert_eq!("PublicExponent(65537)", format!("{:?}", exponent));
+        assert_eq!("65537", format!("{:?}", exponent));
     }
 
     fn consume_elem<M>(
@@ -1615,7 +1593,7 @@ mod tests {
             let mut r = std::vec::Vec::from(*r_input);
             assert_eq!(r.len(), a.len()); // Sanity check
             let actual_retval =
-                unsafe { GFp_limbs_mul_add_limb(r.as_mut_ptr(), a.as_ptr(), *w, a.len()) };
+                unsafe { limbs_mul_add_limb(r.as_mut_ptr(), a.as_ptr(), *w, a.len()) };
             assert_eq!(&r, expected_r, "{}: {:x?} != {:x?}", i, &r[..], expected_r);
             assert_eq!(
                 actual_retval, *expected_retval,

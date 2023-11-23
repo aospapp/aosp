@@ -16,6 +16,8 @@
 
 package com.android.car.settings.qc;
 
+import static android.content.ContentResolver.NOTIFY_NO_DELAY;
+
 import android.annotation.MainThread;
 import android.annotation.Nullable;
 import android.content.Context;
@@ -26,6 +28,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
 import android.os.SystemClock;
+import android.os.UserManager;
 import android.util.ArrayMap;
 
 import com.android.car.settings.common.Logger;
@@ -195,7 +198,13 @@ public abstract class SettingsQCBackgroundWorker<E extends SettingsQCItem> imple
             Uri uri = worker.getUri();
             Context context = worker.getContext();
             mLastUpdateTimeLookup.put(uri, SystemClock.uptimeMillis());
-            context.getContentResolver().notifyChange(uri, /* observer= */ null);
+            if (UserManager.isVisibleBackgroundUsersEnabled()
+                    && UserManager.get(context).isUserVisible()) {
+                context.getContentResolver().notifyChange(uri, /* observer= */ null,
+                        NOTIFY_NO_DELAY);
+            } else {
+                context.getContentResolver().notifyChange(uri, /* observer= */ null);
+            }
         }
 
         private void updateQCItem(SettingsQCBackgroundWorker worker) {

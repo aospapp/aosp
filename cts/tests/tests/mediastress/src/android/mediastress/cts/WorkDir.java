@@ -45,7 +45,7 @@ public class WorkDir {
             // user has specified the mediaDirString via instrumentation-arg
             return mediaDirString + ((mediaDirString.endsWith("/")) ? "" : "/");
         } else {
-            return (getTopDirString() + "test/");
+            return (getTopDirString() + "test/CtsMediaStressTestCases-1.0/");
         }
     }
 }

@@ -22,7 +22,9 @@
     <string name="cancel" msgid="8943320028373963831">"Ghairi"</string>
     <string name="back" msgid="6249950659061523680">"Rudi nyuma"</string>
     <string name="available" msgid="6007778121920339498">"Inaruhusiwa kufikia"</string>
-    <string name="blocked" msgid="9195547604866033708">"Umezuiwa kufikia"</string>
+    <string name="blocked" msgid="9195547604866033708">"Imezuiwa kufikia"</string>
+    <string name="on" msgid="280241003226755921">"Imewashwa"</string>
+    <string name="off" msgid="1438489226422866263">"Imezimwa"</string>
     <string name="uninstall_or_disable" msgid="4496612999740858933">"Ondoa au uzime"</string>
     <string name="app_not_found_dlg_title" msgid="6029482906093859756">"Programu haikupatikana"</string>
     <string name="grant_dialog_button_deny" msgid="88262611492697192">"Usiruhusu"</string>
@@ -30,6 +32,11 @@
     <string name="grant_dialog_button_no_upgrade" msgid="8344732743633736625">"Usibadilishe “Wakati programu inatumika”"</string>
     <string name="grant_dialog_button_no_upgrade_one_time" msgid="5125892775684968694">"Usibadilishe “Wakati huu pekee”"</string>
     <string name="grant_dialog_button_more_info" msgid="213350268561945193">"Maelezo zaidi"</string>
+    <string name="grant_dialog_button_allow_all" msgid="5939066403732409516">"Ruhusu zote"</string>
+    <string name="grant_dialog_button_always_allow_all" msgid="1719900027660252167">"Ruhusu zote kila wakati"</string>
+    <string name="grant_dialog_button_allow_selected_photos" msgid="5497042471576153842">"Chagua picha na video"</string>
+    <string name="grant_dialog_button_allow_more_selected_photos" msgid="5145657877588697709">"Chagua zaidi"</string>
+    <string name="grant_dialog_button_dont_select_more" msgid="6643552729129461268">"Usichague zaidi"</string>
     <string name="grant_dialog_button_deny_anyway" msgid="7225905870668915151">"Usiruhusu hata hivyo"</string>
     <string name="grant_dialog_button_dismiss" msgid="1930399742250226393">"Ondoa"</string>
     <string name="current_permission_template" msgid="7452035392573329375">"<xliff:g id="CURRENT_PERMISSION_INDEX">%1$s</xliff:g> kati ya <xliff:g id="PERMISSION_COUNT">%2$s</xliff:g>"</string>
@@ -60,7 +67,7 @@
     <string name="review_permission_decisions_empty" msgid="8120775336417279806">"Hakuna uamuzi wa ruhusa wa hivi majuzi"</string>
     <string name="auto_permission_manager_summary" msgid="9157438376234301354">"Dhibiti ufikiaji wa data kwenye kalenda, rekodi za nambari za simu na zaidi"</string>
     <string name="granted_permission_decision" msgid="7824827491551861365">"Umeipa <xliff:g id="APP_NAME">%1$s</xliff:g> ruhusa ya kufikia <xliff:g id="PERMISSION_NAME">%2$s</xliff:g>"</string>
-    <string name="denied_permission_decision" msgid="5308961501779563781">"Umeinyima <xliff:g id="APP_NAME">%1$s</xliff:g> ruhusa ya kufikia<xliff:g id="PERMISSION_NAME">%2$s</xliff:g>"</string>
+    <string name="denied_permission_decision" msgid="5308961501779563781">"Umeinyima <xliff:g id="APP_NAME">%1$s</xliff:g> ruhusa ya kufikia <xliff:g id="PERMISSION_NAME">%2$s</xliff:g>"</string>
     <string name="days_ago" msgid="6650359081551335629">"{count,plural, =0{Leo}=1{Siku moja iliyopita}other{Siku # zilizopita}}"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"Zima programu"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"Ukizima programu hii, huenda Android na programu zingine zikakosa kufanya kazi tena kama zilivyokusudiwa. Kumbuka, huwezi kufuta programu hii kwa kuwa ilisakinishwa mapema kwenye kifaa chako. Kwa kuizima, unazima programu hii na kuificha kwenye kifaa chako."</string>
@@ -107,9 +114,6 @@
     <string name="all_permissions" msgid="6911125611996872522">"Ruhusa zote"</string>
     <string name="other_permissions" msgid="2901186127193849594">"Uwezo mwingine wa programu"</string>
     <string name="permission_request_title" msgid="8790310151025020126">"Ombi la idhini"</string>
-    <string name="screen_overlay_title" msgid="6977038513913222078">"Imetambua tangazo lililowekelewa juu ya skrini"</string>
-    <string name="screen_overlay_message" msgid="5622563069757142102">"Ili kubadilisha mipangilio hii ya ruhusa, ni lazima kwanza uzime tangazo lililowekelewa juu ya skrini kwenye Mipangilio &gt; Programu"</string>
-    <string name="screen_overlay_button" msgid="4655005928054025250">"Fungua mipangilio"</string>
     <string name="wear_not_allowed_dlg_title" msgid="1429467891296932713">"Android Wear"</string>
     <string name="wear_not_allowed_dlg_text" msgid="512340555334769098">"Huduma ya Android Wear haiwezi kutekeleza vitendo vya Kusakinisha au Kuondoa vipengee."</string>
     <string name="permission_review_title_template_install" msgid="1284337937156289081">"Chagua vipengee ambavyo unaruhusu &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ifikie"</string>
@@ -130,21 +134,20 @@
     <string name="permission_group_usage_subtitle_7d" msgid="1465828402260324654">"Rekodi ya wakati ambapo programu zilitumia <xliff:g id="PERMGROUP">%1$s</xliff:g> katika siku saba zilizopita"</string>
     <string name="permission_usage_access_dialog_subtitle" msgid="4171772805196955753">"Wakati programu hii ilipotumia ruhusa yako ya <xliff:g id="PERMGROUP">%1$s</xliff:g>"</string>
     <string name="permission_usage_access_dialog_learn_more" msgid="7121468469493184613">"Pata maelezo zaidi"</string>
+    <string name="learn_more_content_description" msgid="8673699744544502539">"Pata maelezo zaidi kuhusu <xliff:g id="PERMGROUP">%1$s</xliff:g>"</string>
     <string name="manage_permission_summary" msgid="4117555482684114317">"Dhibiti ufikiaji wa programu yako kwenye <xliff:g id="PERMGROUP">%1$s</xliff:g>"</string>
     <string name="auto_permission_usage_timeline_summary" msgid="2713135806453218703">"<xliff:g id="ACCESS_TIME">%1$s</xliff:g> • <xliff:g id="SUMMARY_TEXT">%2$s</xliff:g>"</string>
     <string name="history_preference_subtext_2" msgid="1521763591164293683">"<xliff:g id="APP_NAME">%1$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%2$s</xliff:g>"</string>
     <string name="history_preference_subtext_3" msgid="758761785983094351">"<xliff:g id="ATTRIBUTION_NAME">%1$s</xliff:g> • <xliff:g id="APP_NAME">%2$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%3$s</xliff:g>"</string>
-    <string name="duration_used_days" msgid="8293010131040301793">"{count,plural, =1{Siku moja}other{Siku #}}"</string>
-    <string name="duration_used_hours" msgid="1128716208752263576">"{count,plural, =1{Saa moja}other{Saa #}}"</string>
-    <string name="duration_used_minutes" msgid="5335824115042576567">"{count,plural, =1{Dak 1}other{Dak #}}"</string>
-    <string name="duration_used_seconds" msgid="6543746449171675028">"{count,plural, =1{Sek 1}other{Sek #}}"</string>
+    <string name="duration_used_days" msgid="8238355545812998877">"{count,plural, =1{Siku #}other{Siku #}}"</string>
+    <string name="duration_used_hours" msgid="4983814806123370332">"{count,plural, =1{Saa #}other{Saa #}}"</string>
+    <string name="duration_used_minutes" msgid="1701379522897227819">"{count,plural, =1{Dak #}other{Dak #}}"</string>
+    <string name="duration_used_seconds" msgid="4067390990568727715">"{count,plural, =1{Sek #}other{Sek #}}"</string>
     <string name="permission_usage_any_permission" msgid="6358023078298106997">"Ruhusa yoyote"</string>
     <string name="permission_usage_any_time" msgid="3802087027301631827">"Wakati wowote"</string>
-    <string name="permission_usage_last_7_days" msgid="7386221251886130065">"Siku 7 zilizopita"</string>
-    <string name="permission_usage_last_day" msgid="1512880889737305115">"Saa 24 zilizopita"</string>
-    <string name="permission_usage_last_hour" msgid="3866005205535400264">"Saa 1 iliyopita"</string>
-    <string name="permission_usage_last_15_minutes" msgid="9077554653436200702">"Dakika 15 zilizopita"</string>
-    <string name="permission_usage_last_minute" msgid="7297055967335176238">"Dakika 1 iliyopita"</string>
+    <string name="permission_usage_last_n_days" msgid="7882626467375714145">"{count,plural, =1{Siku # iliyopita}other{Siku # zilizopita}}"</string>
+    <string name="permission_usage_last_n_hours" msgid="8490466053680267858">"{count,plural, =1{Saa # iliyopita}other{Saa # zilizopita}}"</string>
+    <string name="permission_usage_last_n_minutes" msgid="7817864229878281983">"{count,plural, =1{Dakika # iliyopita}other{Dakika # zilizopita}}"</string>
     <string name="no_permission_usages" msgid="9119517454177289331">"Hakuna matumizi ya ruhusa"</string>
     <string name="permission_usage_list_title_any_time" msgid="8718257027381592407">"Zinazotumia zaidi wakati wowote"</string>
     <string name="permission_usage_list_title_last_7_days" msgid="9048542342670890615">"Zilizotumiwa zaidi katika siku 7 zilizopita"</string>
@@ -158,8 +161,8 @@
     <string name="permission_usage_bar_chart_title_last_hour" msgid="6571647509660009185">"Ruhusa zilizotumiwa zaidi katika saa 1 iliyopita"</string>
     <string name="permission_usage_bar_chart_title_last_15_minutes" msgid="2743143675412824819">"Matumizi ya ruhusa katika dakika 15 zilizopita."</string>
     <string name="permission_usage_bar_chart_title_last_minute" msgid="820450867183487607">"Matumizi ya ruhusa katika dakika 1 iliyopita"</string>
-    <string name="permission_usage_preference_summary_not_used_24h" msgid="3087783232178611025">"Haijatumiwa katika saa 24 zilizopita"</string>
-    <string name="permission_usage_preference_summary_not_used_7d" msgid="4592301300810120096">"Haijatumiwa katika siku saba zilizopita"</string>
+    <string name="permission_usage_preference_summary_not_used_in_past_n_days" msgid="4771868094611359651">"{count,plural, =1{Haijatumiwa katika siku # iliyopita}other{Haijatumiwa katika siku # zilizopita}}"</string>
+    <string name="permission_usage_preference_summary_not_used_in_past_n_hours" msgid="3828973177433435742">"{count,plural, =1{Haijatumiwa katika saa # iliyopita}other{Haijatumiwa katika saa # zilizopita}}"</string>
     <string name="permission_usage_preference_label" msgid="8343167938128676378">"{count,plural, =1{Imetumiwa na programu moja}other{Imetumiwa na programu #}}"</string>
     <string name="permission_usage_view_details" msgid="6675335735468752787">"Yaone yote kwenye Dashibodi"</string>
     <string name="app_permission_usage_filter_label" msgid="7182861154638631550">"Zilizochujwa kulingana na: <xliff:g id="PERM">%1$s</xliff:g>"</string>
@@ -185,6 +188,7 @@
     <string name="app_permission_button_allow_media_only" msgid="2834282724426046154">"Ruhusu ufikiaji wa maudhui pekee"</string>
     <string name="app_permission_button_allow_always" msgid="4573292371734011171">"Ruhusu kila wakati"</string>
     <string name="app_permission_button_allow_foreground" msgid="1991570451498943207">"Ruhusu tu unapotumia programu"</string>
+    <string name="app_permission_button_always_allow_all" msgid="4905699259378428855">"Ruhusu zote kila wakati"</string>
     <string name="app_permission_button_ask" msgid="3342950658789427">"Uliza kila wakati"</string>
     <string name="app_permission_button_deny" msgid="6016454069832050300">"Usiruhusu"</string>
     <string name="precise_image_description" msgid="6349638632303619872">"Eneo mahususi"</string>
@@ -211,14 +215,13 @@
     <string name="auto_revocable_permissions_two" msgid="4874067408752041716">"Ruhusa za <xliff:g id="PERM_0">%1$s</xliff:g> na <xliff:g id="PERM_1">%2$s</xliff:g> zitaondolewa."</string>
     <string name="auto_revocable_permissions_many" msgid="1521807896206032992">"Ruhusa zitakazoondolewa: <xliff:g id="PERMS">%1$s</xliff:g>."</string>
     <string name="auto_manage_title" msgid="7693181026874842935">"Dhibiti ruhusa kiotomatiki"</string>
-    <string name="off" msgid="1438489226422866263">"Imezimwa"</string>
     <string name="auto_revoked_app_summary_one" msgid="7093213590301252970">"Ruhusa ya <xliff:g id="PERMISSION_NAME">%s</xliff:g> imeondolewa"</string>
     <string name="auto_revoked_app_summary_two" msgid="1910545340763709389">"Ruhusa ya <xliff:g id="PERMISSION_NAME_0">%1$s</xliff:g> na <xliff:g id="PERMISSION_NAME_1">%2$s</xliff:g> zimeondolewa"</string>
     <string name="auto_revoked_app_summary_many" msgid="5930976230827378798">"Ruhusa ya <xliff:g id="PERMISSION_NAME">%1$s</xliff:g> na ruhusa zingine <xliff:g id="NUMBER">%2$s</xliff:g> zimeondolewa"</string>
     <string name="unused_apps_page_title" msgid="6986983535677572559">"Programu zisizotumika"</string>
     <string name="unused_apps_page_summary" msgid="1867593913217272155">"Programu isipotumika kwa miezi kadhaa:\n\n• Ruhusa huondolewa ili kulinda data yako \n• Arifa husimamishwa ili kuokoa betri\n• Faili za muda huondolewa ili upate nafasi\n\nIli uidhinishe ruhusa na arifa tena, fungua programu."</string>
-    <string name="unused_apps_page_tv_summary" msgid="3685907153054355671">"Programu isipotumika kwa miezi kadhaa:\n\n• Ruhusa huondolewa ili kulinda data yako\n• Faili za muda huondolewa ili upate nafasi\n\nIli uidhinishe ruhusa tena, fungua programu."</string>
-    <string name="last_opened_category_title" msgid="7871347400611202595">"Zilizofunguliwa mwisho zaidi ya miezi <xliff:g id="NUMBER">%s</xliff:g> iliyopita"</string>
+    <string name="unused_apps_page_tv_summary" msgid="2624911608663778308">"Programu isipotumika kwa mwezi mmoja:\n\n• Ruhusa huondolewa ili kulinda data yako\n• Faili za muda huondolewa ili upate nafasi\n\nIli uidhinishe ruhusa tena, fungua programu."</string>
+    <string name="last_opened_category_title" msgid="8796557894614236128">"{count,plural, =1{Zilifunguliwa mwisho zaidi ya mwezi # uliopita}other{Zilifunguliwa mwisho zaidi ya miezi # iliyopita}}"</string>
     <string name="last_opened_summary" msgid="5248984030024968808">"Ilifunguliwa mara ya mwisho tarehe <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="last_opened_summary_short" msgid="1646067226191176825">"Ilifunguliwa mara ya mwisho <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="app_permission_footer_special_file_access" msgid="1884202176147657788">"Ukiruhusu udhibiti wa faili zote, programu hii inaweza kufikia, kubadilisha na kufuta faili zozote zilizo katika hifadhi kwenye kifaa hiki au vifaa vilivyounganishwa vya kuhifadhi. Programu inaweza kufikia faili bila kukuomba ruhusa."</string>
@@ -251,9 +254,9 @@
     <string name="denied_header" msgid="903209608358177654">"Zisizoruhusiwa"</string>
     <string name="storage_footer_hyperlink_text" msgid="8873343987957834810">"Angalia programu zaidi zinazoweza kufikia faili zote"</string>
     <string name="days" msgid="609563020985571393">"{count,plural, =1{Siku moja}other{Siku #}}"</string>
-    <string name="hours" msgid="3447767892295843282">"{count,plural, =1{Saa moja}other{Saa #}}"</string>
-    <string name="minutes" msgid="4408293038068503157">"{count,plural, =1{Dakika moja}other{Dakika #}}"</string>
-    <string name="seconds" msgid="5397771912131132690">"{count,plural, =1{Sekunde 1}other{Sekunde #}}"</string>
+    <string name="hours" msgid="7302866489666950038">"{count,plural, =1{Saa #}other{Saa #}}"</string>
+    <string name="minutes" msgid="4868414855445375753">"{count,plural, =1{Dakika #}other{Dakika #}}"</string>
+    <string name="seconds" msgid="5893958182059842734">"{count,plural, =1{Sekunde #}other{Sekunde #}}"</string>
     <string name="permission_reminders" msgid="6528257957664832636">"Vikumbusho vya ruhusa"</string>
     <string name="auto_revoke_permission_reminder_notification_title_one" msgid="6690347469376854137">"Programu moja isiyotumika"</string>
     <string name="auto_revoke_permission_reminder_notification_title_many" msgid="6062217713645069960">"Programu <xliff:g id="NUMBER_OF_APPS">%s</xliff:g> zisizotumika"</string>
@@ -262,10 +265,13 @@
     <string name="auto_revoke_permission_notification_content" msgid="5125990886047799375">"Baadhi ya programu hazijatumiwa kwa miezi michache. Gusa ili ukague."</string>
     <string name="unused_apps_notification_title" msgid="4314832015894238019">"{count,plural, =1{Programu # isiyotumika}other{Programu # zisizotumika}}"</string>
     <string name="unused_apps_notification_content" msgid="9195026773244581246">"Ruhusa na faili za muda zimeondolewa na arifa zimesimamishwa. Gusa ili ukague."</string>
+    <string name="unused_apps_safety_center_card_title" msgid="5638409355530099149">"Kagua programu zilizoondolewa ruhusa"</string>
+    <string name="unused_apps_safety_center_card_content" msgid="1088557243627427820">"Kwa programu ambazo hujazitumia kwa muda mrefu, ruhusa na faili za muda ziliondolewa na arifa zilisimamishwa."</string>
+    <string name="unused_apps_safety_center_action_title" msgid="8865914432518993194">"Kagua programu"</string>
     <string name="post_drive_permission_decision_reminder_title" msgid="1290697371418139976">"Angalia ruhusa za hivi majuzi"</string>
-    <string name="post_drive_permission_decision_reminder_summary_1_app_1_permission" msgid="670521503734140711">"Wakati wa kuendesha, uliipa <xliff:g id="APP">%1$s</xliff:g> uwezo wa kufikia <xliff:g id="PERMISSION">%2$s</xliff:g>"</string>
-    <string name="post_drive_permission_decision_reminder_summary_1_app_2_permissions" msgid="671791184670801301">"Wakati wa kuendesha, uliipa <xliff:g id="APP">%1$s</xliff:g> uwezo wa kufikia <xliff:g id="PERMISSION_1">%2$s</xliff:g> na <xliff:g id="PERMISSION_2">%3$s</xliff:g>"</string>
-    <string name="post_drive_permission_decision_reminder_summary_1_app_multi_permission" msgid="4080701771111456927">"Wakati wa kuendesha, uliipa <xliff:g id="APP">%2$s</xliff:g> ruhusa <xliff:g id="COUNT">%1$d</xliff:g>"</string>
+    <string name="post_drive_permission_decision_reminder_summary_1_app_1_permission" msgid="670521503734140711">"Wakati wa kuendesha gari, uliipa <xliff:g id="APP">%1$s</xliff:g> uwezo wa kufikia <xliff:g id="PERMISSION">%2$s</xliff:g>"</string>
+    <string name="post_drive_permission_decision_reminder_summary_1_app_2_permissions" msgid="671791184670801301">"Wakati wa kuendesha gari, uliipa <xliff:g id="APP">%1$s</xliff:g> uwezo wa kufikia <xliff:g id="PERMISSION_1">%2$s</xliff:g> na <xliff:g id="PERMISSION_2">%3$s</xliff:g>"</string>
+    <string name="post_drive_permission_decision_reminder_summary_1_app_multi_permission" msgid="4080701771111456927">"Wakati wa kuendesha gari, uliipa <xliff:g id="APP">%2$s</xliff:g> ruhusa <xliff:g id="COUNT">%1$d</xliff:g>"</string>
     <string name="post_drive_permission_decision_reminder_summary_multi_apps" msgid="5253882771252863902">"{count,plural, =1{Ulipokuwa ukiendesha gari, uliipa <xliff:g id="APP_0">%1$s</xliff:g> na programu nyingine # ruhusa ya kufikia}other{Ulipokuwa ukiendesha gari, uliipa <xliff:g id="APP_1">%1$s</xliff:g> na programu zingine # ruhusa ya kufikia}}"</string>
     <string name="go_to_settings" msgid="1053735612211228335">"Nenda kwenye Mipangilio"</string>
     <string name="auto_revoke_setting_subtitle" msgid="8631720570723050460">"Baadhi ya programu hazijatumiwa kwa miezi michache"</string>
@@ -276,6 +282,19 @@
     <string name="auto_revoke_preference_summary" msgid="5517958331781391481">"Ruhusa zimeondolewa ili kulinda faragha yako"</string>
     <string name="background_location_access_reminder_notification_title" msgid="1140797924301941262">"<xliff:g id="APP_NAME">%s</xliff:g> ilipata mahali ulipo chinichini"</string>
     <string name="background_location_access_reminder_notification_content" msgid="7787084707336546245">"Programu hii inaweza kufikia maelezo ya mahali ulipo kila wakati. Gusa ili ubadilishe."</string>
+    <string name="notification_listener_reminder_notification_title" msgid="3747210460187479091">"Kagua programu inayoweza kufikia arifa zako"</string>
+    <string name="notification_listener_reminder_notification_content" msgid="831476101108863427">"<xliff:g id="APP_NAME">%s</xliff:g> inaweza kuondoa, kutekeleza na kufikia maudhui ndani ya arifa zako"</string>
+    <string name="notification_listener_warning_card_content" msgid="7840973324284115893">"Programu hii inaweza kuondoa, kutekeleza na kufikia maudhui ndani ya arifa zako. Baadhi ya programu zinahitaji ufikiaji huu ili zifanye kazi kadiri ilivyokusudiwa."</string>
+    <string name="notification_listener_remove_access_button_label" msgid="7101898782417817097">"Ondoa idhini ya kufikia"</string>
+    <string name="notification_listener_review_app_button_label" msgid="3433073281029143924">"Angalia chaguo zaidi"</string>
+    <string name="notification_listener_remove_access_success_label" msgid="2477611529875633107">"Idhini ya kufikia imeondolewa"</string>
+    <string name="accessibility_access_reminder_notification_title" msgid="2971317234668807566">"Kagua programu yenye idhini kamili ya kufikia kifaa"</string>
+    <string name="accessibility_access_reminder_notification_content" msgid="7389454158175306720">"<xliff:g id="APP_NAME">%s</xliff:g> inaweza kuona skrini yako na kutekeleza vitendo kwenye kifaa chako. Programu za ufikivu zinahitaji aina hii ya ufikiaji ili zifanye kazi kadiri ilivyokusudiwa."</string>
+    <string name="accessibility_access_warning_card_content" msgid="4370327190293217358">"Programu hii inaweza kuona skrini yako na kutekeleza vitendo kwenye kifaa chako. Programu za ufikivu zinahitaji aina hii ya ufikiaji ili zifanye kazi kama ilivyokusudiwa, lakini kagua programu na uhakikishe kuwa unaiamini."</string>
+    <string name="accessibility_remove_access_button_label" msgid="44145801526711640">"Ondoa idhini ya kufikia"</string>
+    <string name="accessibility_show_all_apps_button_label" msgid="960067249326392280">"Angalia programu zenye ufikiaji kamili"</string>
+    <string name="accessibility_remove_access_success_label" msgid="4380995302917014670">"Idhini ya kufikia imeondolewa"</string>
+    <string name="safety_center_notification_app_label" msgid="2457720616141926534">"Mfumo wa Android"</string>
     <string name="auto_revoke_after_notification_title" msgid="5417761027669887431">"Ruhusa za programu zimeondolewa ili kulinda faragha"</string>
     <string name="auto_revoke_after_notification_content_one" msgid="6804038707453662753">"<xliff:g id="APP_NAME">%s</xliff:g> haijatumiwa kwa miezi michache. Gusa ili ukague."</string>
     <string name="auto_revoke_after_notification_content_two" msgid="9108709764831425172">"<xliff:g id="APP_NAME">%s</xliff:g> na programu nyingine moja hazijatumiwa kwa miezi michache. Gusa ili ukague."</string>
@@ -328,8 +347,8 @@
     <string name="accessibility_service_dialog_title_multiple" msgid="5527879210683548175">"Programu <xliff:g id="NUM_SERVICES">%s</xliff:g> za ufikivu zina idhini kamili ya kufikia kifaa chako"</string>
     <string name="accessibility_service_dialog_bottom_text_single" msgid="1128666197822205958">"<xliff:g id="SERVICE_NAME">%s</xliff:g> inaweza kuona skrini, vitendo na maudhui unayoweka, kutekeleza vitendo na kudhibiti onyesho."</string>
     <string name="accessibility_service_dialog_bottom_text_multiple" msgid="7009848932395519852">"Programu hizi zinaweza kuona skrini, vitendo na maudhui unayoweka, kutekeleza vitendo na kudhibiti onyesho."</string>
-    <string name="role_assistant_label" msgid="4727586018198208128">"Programu msingi dijitali ya usaidizi"</string>
-    <string name="role_assistant_short_label" msgid="3369003713187703399">"Programu dijitali ya usaidizi"</string>
+    <string name="role_assistant_label" msgid="4727586018198208128">"Programu msingi ya usaidizi wa kidijitali"</string>
+    <string name="role_assistant_short_label" msgid="3369003713187703399">"Programu saidizi ya kidijitali"</string>
     <string name="role_assistant_description" msgid="6622458130459922952">"Programu za usaidizi zinaweza kukusaidia kulingana na maelezo kutoka skrini unayotazama. Baadhi ya programu zinaweza kutumia huduma za kifungua programu na kuweka data kwa kutamka ili kukupa usaidizi wa pamoja."</string>
     <string name="role_browser_label" msgid="2877796144554070207">"Programu kuu ya kivinjari"</string>
     <string name="role_browser_short_label" msgid="6745009127123292296">"Programu ya kivinjari"</string>
@@ -366,7 +385,7 @@
     <string name="role_call_redirection_request_title" msgid="2816244455003562925">"Je, ungependa kuweka <xliff:g id="APP_NAME">%1$s</xliff:g> iwe programu yako chaguomsingi ya kuelekeza simu kwingine?"</string>
     <string name="role_call_redirection_request_description" msgid="3118895714178527164">"Hakuna ruhusa zinazohitajika"</string>
     <string name="role_call_screening_label" msgid="883935222060878724">"Kutambua taka na anayepiga: programu msingi"</string>
-    <string name="role_call_screening_short_label" msgid="2048465565063130834">"Ya kukagua kitambulisho cha anayepiga na taka"</string>
+    <string name="role_call_screening_short_label" msgid="2048465565063130834">"Kutambua anayepiga na taka"</string>
     <string name="role_call_screening_description" msgid="2349431420497468981">"Programu zinazokuruhusu utambue simu zinazoingia na kuzuia taka, simu zinazopigwa kiotomatiki au nambari zisizohitajika"</string>
     <string name="role_call_screening_request_title" msgid="7358309224566977290">"Je, ungependa kuweka <xliff:g id="APP_NAME">%1$s</xliff:g> iwe programu chaguomsingi ya kukagua kitambulisho cha anayepiga na taka?"</string>
     <string name="role_call_screening_request_description" msgid="7338511921032446006">"Hakuna ruhusa zinazohitajika"</string>
@@ -378,6 +397,10 @@
     <string name="role_watch_description" msgid="267003778693177779">"<xliff:g id="APP_NAME">%1$s</xliff:g> itaruhusiwa kushirikiana na arifa zako na kufikia ruhusa za Simu, SMS, Anwani na Kalenda yako."</string>
     <string name="role_app_streaming_description" msgid="7341638576226183992">"<xliff:g id="APP_NAME">%1$s</xliff:g> itaruhusiwa kufikia arifa zako na kutiririsha programu zako kwenye kifaa kilichounganishwa."</string>
     <string name="role_companion_device_computer_description" msgid="416099879217066377">"Huduma hii inashiriki picha, maudhui na arifa zako kutoka kwenye simu yako hadi vifaa vingine."</string>
+    <string name="role_notes_label" msgid="7451627001058089536">"Programu chaguomsingi ya madokezo"</string>
+    <string name="role_notes_short_label" msgid="8796604147546125285">"Programu ya madokezo"</string>
+    <string name="role_notes_description" msgid="8496852798616883551">"Programu zinazokuruhusu uandike madokezo kwenye kifaa chako"</string>
+    <string name="role_notes_search_keywords" msgid="7710756695666744631">"madokezo"</string>
     <string name="request_role_current_default" msgid="738722892438247184">"Chaguomsingi ya sasa"</string>
     <string name="request_role_dont_ask_again" msgid="3556017886029520306">"Isiniulize tena"</string>
     <string name="request_role_set_as_default" msgid="4253949643984172880">"Weka iwe chaguomsingi"</string>
@@ -452,6 +475,7 @@
     <string name="permgrouprequest_storage_pre_q" msgid="168130651144569428">"Ungependa kuruhusu &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ifikie &lt;b&gt;picha, video, muziki, sauti na faili zingine&lt;/b&gt; kwenye kifaa hiki?"</string>
     <string name="permgrouprequest_read_media_aural" msgid="2593365397347577812">"Ungependa kuruhusu &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ifikie muziki na sauti kwenye kifaa hiki?"</string>
     <string name="permgrouprequest_read_media_visual" msgid="5548780620779729975">"Ungependa kuruhusu &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ifikie picha na video kwenye kifaa hiki?"</string>
+    <string name="permgrouprequest_more_photos" msgid="128933814654231321">"Ungependa kuruhusu &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ifikie picha na video zaidi kwenye kifaa hiki?"</string>
     <string name="permgrouprequest_microphone" msgid="2825208549114811299">"Ungependa kuruhusu &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; kurekodi sauti?"</string>
     <string name="permgrouprequestdetail_microphone" msgid="8510456971528228861">"Programu itaweza kurekodi sauti unapoitumia tu"</string>
     <string name="permgroupbackgroundrequest_microphone" msgid="8874462606796368183">"Ungependa kuiruhusu &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; irekodi sauti?"</string>
@@ -474,8 +498,8 @@
     <string name="permgroupupgraderequest_sensors" msgid="7576527638411370468">"Ungependa kuendelea kuruhusu &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ifikie data ya vitambuzi vya shughuli za mwili wakati programu inatumika?"</string>
     <string name="permgrouprequest_notifications" msgid="6396739062335106181">"Ungependa kuruhusu &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ikutumie arifa?"</string>
     <string name="auto_granted_permissions" msgid="6009452264824455892">"Ruhusa zinazodhibitiwa"</string>
-    <string name="auto_granted_location_permission_notification_title" msgid="1438871159268985993">"Maelezo ya mahali yanaweza kufikiwa"</string>
-    <string name="auto_granted_permission_notification_body" msgid="6919835973190443695">"Msimamizi wako wa TEHAMA anaruhusu <xliff:g id="APP_NAME">%s</xliff:g> kufikia maelezo ya mahali ulipo"</string>
+    <string name="auto_granted_location_permission_notification_title" msgid="7570818224669050377">"<xliff:g id="APP_NAME">%1$s</xliff:g> ina idhini ya kufikia maelezo ya mahali kilipo kifaa"</string>
+    <string name="auto_granted_permission_notification_body" msgid="5040234389205471318">"Shirika lako limeruhusu <xliff:g id="APP_NAME">%1$s</xliff:g> kufikia maelezo ya mahali kilipo kifaa chako"</string>
     <string name="other_permissions_label" msgid="8986184335503271992">"Ruhusa nyinginezo"</string>
     <string name="not_used_permissions_label" msgid="3939839426115141264">"Ruhusa zinazotumiwa na mfumo"</string>
     <string name="not_used_permissions_description" msgid="7595514824169388718">"Ruhusa zinazotumiwa tu na programu za mfumo."</string>
@@ -496,17 +520,28 @@
     <string name="blocked_sensor_summary" msgid="4443707628305027375">"Kwa ajili ya programu na huduma"</string>
     <string name="blocked_mic_summary" msgid="8960466941528458347">"Huenda bado data ya maikrofoni ikashirikiwa unapopigia nambari ya dharura."</string>
     <string name="blocked_sensor_button_label" msgid="6742092634984289658">"Badilisha"</string>
-    <string name="safety_center_dashboard_page_title" msgid="7514620345152008005">"Usalama na Faragha"</string>
-    <string name="safety_center_rescan_button" msgid="8047036829052958144">"Tafuta"</string>
+    <string name="safety_center_dashboard_page_title" msgid="2810774008694315854">"Usalama na faragha"</string>
+    <string name="safety_center_rescan_button" msgid="4517514567809409596">"Kagua kifaa"</string>
     <string name="safety_center_issue_card_dismiss_button" msgid="5113965506144222402">"Ondoa"</string>
+    <string name="safety_center_issue_card_dismiss_confirmation_title" msgid="2734809473425036382">"Ungependa kuondoa arifa hii?"</string>
+    <string name="safety_center_issue_card_dismiss_confirmation_message" msgid="3775418736671093563">"Kagua mipangilio yako ya usalama na faragha wakati wowote ili kuongeza ulinzi zaidi"</string>
+    <string name="safety_center_issue_card_confirm_dismiss_button" msgid="5884137843083634556">"Ondoa"</string>
+    <string name="safety_center_issue_card_cancel_dismiss_button" msgid="2874578798877712346">"Ghairi"</string>
+    <string name="safety_center_entries_category_title" msgid="34356964062813115">"Mipangilio"</string>
+    <string name="safety_status_preference_title_and_summary_content_description" msgid="3511373256505058464">"Hali ya usalama na faragha. <xliff:g id="OVERALL_SAFETY_STATUS">%1$s</xliff:g>. <xliff:g id="SUMMARY_OF_DEVICE_STATUS">%2$s</xliff:g>"</string>
     <string name="security_settings" msgid="3808106921175271317">"Mipangilio ya Usalama"</string>
-    <string name="sensor_permissions_qs" msgid="4365989229426201877">"Ruhusa za Kitambuzi"</string>
-    <string name="privacy_controls_qs" msgid="471793881466080745">"Vidhibiti vya Faragha"</string>
+    <string name="sensor_permissions_qs" msgid="1022267900031317472">"Ruhusa"</string>
+    <string name="safety_privacy_qs_tile_title" msgid="727301867710374052">"Usalama na faragha"</string>
+    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"Kagua hali"</string>
+    <string name="privacy_controls_qs" msgid="5780144882040591169">"Vidhibiti vyako vya faragha"</string>
+    <string name="security_settings_button_label_qs" msgid="8280343822465962330">"Mipangilio zaidi"</string>
+    <string name="camera_toggle_label_qs" msgid="3880261453066157285">"Ufikiaji wa kamera"</string>
+    <string name="microphone_toggle_label_qs" msgid="8132912469813396552">"Ufikiaji wa maikrofoni"</string>
     <string name="permissions_removed_qs" msgid="8957319130625294572">"Ruhusa imeondolewa"</string>
-    <string name="camera_usage_qs" msgid="7943349178368641820">"Angalia matumizi zaidi ya kamera"</string>
-    <string name="microphone_usage_qs" msgid="2393193350541830472">"Angalia matumizi zaidi ya maikrofoni"</string>
-    <string name="remove_camera_qs" msgid="8209716677879809162">"Ondoa ruhusa ya kamera"</string>
-    <string name="remove_microphone_qs" msgid="2893536836641560183">"Ondoa ruhusa ya maikrofoni"</string>
+    <string name="camera_usage_qs" msgid="4394233566086665994">"Angalia matumizi ya hivi karibuni ya kamera"</string>
+    <string name="microphone_usage_qs" msgid="8527666682168170417">"Angalia matumizi ya hivi karibuni ya maikrofoni"</string>
+    <string name="remove_camera_qs" msgid="3649996161066883350">"Ondolea programu hii ruhusa"</string>
+    <string name="remove_microphone_qs" msgid="1276551965129953198">"Ondolea programu hii ruhusa"</string>
     <string name="manage_service_qs" msgid="7862555549364153805">"Dhibiti huduma"</string>
     <string name="manage_permissions_qs" msgid="3780541819763475434">"Dhibiti ruhusa"</string>
     <string name="active_call_usage_qs" msgid="8559974395932523391">"Inatumiwa na simu"</string>
@@ -517,8 +552,6 @@
     <string name="recent_app_usage_1_qs" msgid="261450184773310741">"Ilitumiwa hivi karibuni na <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g>)"</string>
     <string name="active_app_usage_2_qs" msgid="6107866785243565283">"Inatumiwa na <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>)"</string>
     <string name="recent_app_usage_2_qs" msgid="3591205954235694403">"Ilitumiwa hivi karibuni na <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>)"</string>
-    <string name="safety_privacy_qs_tile_title" msgid="5431148204168066203">"Usalama na Faragha"</string>
-    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"Kagua hali"</string>
     <string name="media_confirm_dialog_positive_button" msgid="9020793594051526399">"Thibitisha"</string>
     <string name="media_confirm_dialog_negative_button" msgid="226987376924861785">"Nyuma"</string>
     <string name="media_confirm_dialog_title_a_to_p_aural_allow" msgid="8560601114044699903">"Pia, uwezo wa kufikia faili zingine utaruhusiwa"</string>
@@ -537,4 +570,53 @@
     <string name="media_confirm_dialog_message_q_to_s_aural_deny" msgid="6832087393653561911">"Programu hii haiwezi kutumia toleo jipya zaidi la Android. Iwapo programu hii haitaweza kufikia faili za muziki na sauti, haitaruhusiwa pia kufikia picha na video."</string>
     <string name="media_confirm_dialog_message_q_to_s_visual_allow" msgid="3504335060843147760">"Programu hii haiwezi kutumia toleo jipya zaidi la Android. Iwapo programu hii itaweza kufikia picha na video, itaruhusiwa pia kufikia muziki na faili za sauti."</string>
     <string name="media_confirm_dialog_message_q_to_s_visual_deny" msgid="2145973462806481992">"Programu hii haiwezi kutumia toleo jipya zaidi la Android. Iwapo programu hii haitaweza kufikia faili za muziki na sauti, haitaruhusiwa pia kufikia picha na video."</string>
+    <string name="safety_center_background_location_access_notification_title" msgid="8933610618810588237">"Kagua programu yenye ufikiaji wa mahali chinichini"</string>
+    <string name="safety_center_background_location_access_reminder_notification_content" msgid="4066560182507301022">"<xliff:g id="APP_NAME">%s</xliff:g> inaweza kufikia mahali ulipo kila wakati, hata kama programu imefungwa"</string>
+    <string name="safety_center_background_location_access_reminder_title" msgid="5477847038103863843">"Kagua programu yenye ufikiaji wa mahali chinichini"</string>
+    <string name="safety_center_background_location_access_reminder_summary" msgid="7431657777510537658">"Programu hii inaweza kufikia data ya mahali ulipo kila wakati, hata kama imefungwa.\n\nBaadhi ya programu za usalama na dharura zinahitaji ufikiaji wa data ya mahali ulipo chinichini ili kufanya kazi ipasavyo."</string>
+    <string name="safety_center_background_location_access_revoked" msgid="6972274943343442213">"Ruhusa ya ufikiaji imebadilishwa"</string>
+    <string name="safety_center_view_recent_location_access" msgid="3524391299490678243">"Angalia matumizi ya hivi karibuni ya maelezo ya mahali"</string>
+    <string name="privacy_controls_title" msgid="7605929972256835199">"Vidhibiti vya faragha"</string>
+    <string name="camera_toggle_title" msgid="1251201397431837666">"Ufikiaji wa kamera"</string>
+    <string name="mic_toggle_title" msgid="2649991093496110162">"Ufikiaji wa maikrofoni"</string>
+    <string name="perm_toggle_description" msgid="7801326363741451379">"Kwenye programu na huduma"</string>
+    <string name="mic_toggle_description" msgid="9163104307990677157">"Kwenye programu na huduma. Mipangilio hii ikizimwa, huenda data ya maikrofoni ikaendelea kushirikiwa unapopiga nambari ya dharura."</string>
+    <string name="location_settings_subtitle" msgid="2328360561197430695">"Angalia huduma na programu zenye uwezo wa kufikia mipangilio ya mahali"</string>
+    <string name="show_clip_access_notification_title" msgid="5168467637351109096">"Onyesha ufikiaji wa ubao wa kunakili"</string>
+    <string name="show_clip_access_notification_summary" msgid="3532020182782112687">"Onyesha ujumbe programu zinapofikia maandishi, picha au maudhui mengine uliyonakili"</string>
+    <string name="show_password_title" msgid="2877269286984684659">"Onyesha manenosiri"</string>
+    <string name="show_password_summary" msgid="1110166488865981610">"Onyesha herufi kwa muda mfupi unapoandika"</string>
+    <string name="permission_rationale_message_location" msgid="2153841534298068414">"Maelezo ya programu yanasema kuwa inaweza kushiriki data na kampuni za wengine"</string>
+    <string name="permission_rationale_location_title" msgid="2404797182678793506">"Kushiriki data na mahali"</string>
+    <string name="permission_rationale_data_sharing_source_title" msgid="6874604543125814316">"Maelezo ya kushiriki data yanakotokea"</string>
+    <string name="permission_rationale_data_sharing_device_manufacturer_message" msgid="7569261218145653185">"Msanidi programu ametoa maelezo kwa mtengenezaji wa kifaa hiki kuhusu jinsi programu hii inavyoshiriki data. Msanidi programu anaweza kusasisha maelezo haya kadiri muda unavyosonga."</string>
+    <string name="permission_rationale_data_sharing_source_message" msgid="8330794595417986883">"Wasanidi programu wametoa maelezo kwenye "<annotation id="link"><annotation id="install_source" example="App Store">"%1$s"</annotation></annotation>" kuhusu jinsi programu hii inavyoshiriki data. Msanidi programu anaweza kusasisha maelezo haya kadiri muda unavyosonga."</string>
+    <string name="permission_rationale_location_purpose_title" msgid="5115877143670012618">"Programu hii inaweza kushiriki data ya mahali ili:"</string>
+    <string name="permission_rationale_permission_data_sharing_varies_title" msgid="9103718980919908316">"Kanuni za kushiriki data hutofautiana"</string>
+    <string name="permission_rationale_data_sharing_varies_message" msgid="4224469559084489222">"Kanuni za data zinaweza kutofautiana kulingana na toleo la programu yako, matumizi, eneo na umri wako. "<annotation id="link">"Maelezo zaidi kuhusu kushiriki data"</annotation></string>
+    <string name="permission_rationale_data_sharing_varies_message_without_link" msgid="4912763761399025094">"Kanuni za data zinaweza kutofautiana kulingana na toleo la programu yako, matumizi, eneo na umri wako."</string>
+    <string name="permission_rationale_location_settings_title" msgid="7204145004850190953">"Data ya mahali ulipo"</string>
+    <string name="permission_rationale_permission_settings_message" msgid="631286040979660267">"Badilisha ufikiaji wa programu hii kwenye "<annotation id="link">"mipangilio ya faragha"</annotation></string>
+    <string name="permission_rationale_purpose_app_functionality" msgid="8397736681065841405">"Utendaji wa programu"</string>
+    <string name="permission_rationale_purpose_analytics" msgid="2070800501189620712">"Takwimu"</string>
+    <string name="permission_rationale_purpose_developer_communications" msgid="6453047018892062374">"Mawasiliano ya msanidi programu"</string>
+    <string name="permission_rationale_purpose_advertising" msgid="7156966429245180236">"Utangazaji au uuzaji"</string>
+    <string name="permission_rationale_purpose_fraud_prevention_security" msgid="4262104770357031902">"Kuzuia ulaghai, usalama na kutii"</string>
+    <string name="permission_rationale_purpose_personalization" msgid="1589973273682238708">"Kuweka mapendeleo"</string>
+    <string name="permission_rationale_purpose_account_management" msgid="2985772421946688879">"Usimamizi wa akaunti"</string>
+    <string name="app_permission_rationale_message" msgid="8511466916077100713">"Usalama wa data"</string>
+    <string name="app_location_permission_rationale_title" msgid="925420340572401350">"Data ya mahali inaweza kushirikiwa"</string>
+    <string name="app_location_permission_rationale_subtitle" msgid="6986985722752868692">"Programu hii ilitaja kuwa inaweza kushiriki data yako ya mahali na washirika wengine"</string>
+    <string name="data_sharing_updates_title" msgid="7996933386875213859">"Masasisho ya kushiriki data ya mahali"</string>
+    <string name="data_sharing_updates_summary" msgid="764113985772233889">"Kagua programu zilizobadilisha jinsi zinavyoweza kushiriki data ya mahali ulipo"</string>
+    <string name="data_sharing_updates_subtitle" msgid="6311537708950632329">"Programu hizi zimebadilisha jinsi zinavyoweza kushiriki data ya mahali ulipo. Huenda zilikuwa haziishiriki hapo awali au sasa zinaweza kuishiriki kwa madhumuni ya utangazaji au uuzaji."</string>
+    <string name="data_sharing_updates_footer_message" msgid="1582711655172892107">"Wasanidi wa programu hizi wametoa maelezo kuhusu mbinu zao za kushiriki data kwenye duka la programu. Wanaweza kuyasasisha kadiri muda unavyosonga.\n\nMbinu za kushiriki data zinaweza kutofautiana kulingana na toleo la programu, matumizi, eneo na umri wako."</string>
+    <string name="learn_about_data_sharing" msgid="4200480587079488045">"Pata maelezo kuhusu kushiriki data"</string>
+    <string name="shares_location_with_third_parties" msgid="2278051743742057767">"Sasa data ya mahali ulipo inashirikiwa na wengine"</string>
+    <string name="shares_location_with_third_parties_for_advertising" msgid="1918588064014480513">"Sasa data ya mahali ulipo inashirikiwa na wengine kwa madhumuni ya utangazaji au uuzaji"</string>
+    <string name="updated_in_last_days" msgid="8371811947153042322">"{count,plural, =0{Imesasisha ndani ya siku iliyopita}=1{Imesasisha ndani ya siku iliyopita}other{Imesasisha ndani ya siku #}}"</string>
+    <string name="no_updates_at_this_time" msgid="9031085635689982935">"Hakuna masasisho kwa wakati huu"</string>
+    <string name="safety_label_changes_notification_title" msgid="4479955083472203839">"Masasisho ya kushiriki data"</string>
+    <string name="safety_label_changes_notification_desc" msgid="7808764283266234675">"Baadhi ya programu zimebadilisha jinsi zinavyoweza kushiriki data ya mahali ulipo"</string>
+    <string name="safety_label_changes_gear_description" msgid="2655887555599138509">"Mipangilio"</string>
 </resources>

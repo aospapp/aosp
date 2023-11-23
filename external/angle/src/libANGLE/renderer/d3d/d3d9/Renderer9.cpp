@@ -523,7 +523,7 @@ egl::ConfigSet Renderer9::generateConfigs()
                     egl::Config config;
                     config.renderTargetFormat = colorBufferInternalFormat;
                     config.depthStencilFormat = depthStencilBufferInternalFormat;
-                    config.bufferSize         = colorBufferFormatInfo.pixelBytes * 8;
+                    config.bufferSize         = colorBufferFormatInfo.getEGLConfigBufferSize();
                     config.redSize            = colorBufferFormatInfo.redBits;
                     config.greenSize          = colorBufferFormatInfo.greenBits;
                     config.blueSize           = colorBufferFormatInfo.blueBits;
@@ -830,8 +830,8 @@ egl::Error Renderer9::validateShareHandle(const egl::Config *config,
 
     IDirect3DTexture9 *texture = nullptr;
     HRESULT result             = mDevice->CreateTexture(width, height, 1, D3DUSAGE_RENDERTARGET,
-                                            backBufferd3dFormatInfo.texFormat, D3DPOOL_DEFAULT,
-                                            &texture, &shareHandle);
+                                                        backBufferd3dFormatInfo.texFormat, D3DPOOL_DEFAULT,
+                                                        &texture, &shareHandle);
     if (FAILED(result))
     {
         return egl::EglBadParameter() << "Failed to open share handle, " << gl::FmtHR(result);
@@ -1026,13 +1026,52 @@ angle::Result Renderer9::setSamplerState(const gl::Context *context,
             mDevice->SetSamplerState(d3dSampler, D3DSAMP_MAXANISOTROPY, maxAnisotropy);
         }
 
-        const bool isSrgb = gl::GetSizedInternalFormatInfo(textureD3D->getBaseLevelInternalFormat())
-                                .colorEncoding == GL_SRGB;
-        mDevice->SetSamplerState(d3dSampler, D3DSAMP_SRGBTEXTURE, isSrgb);
+        const gl::InternalFormat &info =
+            gl::GetSizedInternalFormatInfo(textureD3D->getBaseLevelInternalFormat());
 
-        ASSERT(texture->getBorderColor().type == angle::ColorGeneric::Type::Float);
-        mDevice->SetSamplerState(d3dSampler, D3DSAMP_BORDERCOLOR,
-                                 gl_d3d9::ConvertColor(texture->getBorderColor().colorF));
+        mDevice->SetSamplerState(d3dSampler, D3DSAMP_SRGBTEXTURE, info.colorEncoding == GL_SRGB);
+
+        if (samplerState.usesBorderColor())
+        {
+            angle::ColorGeneric borderColor = texture->getBorderColor();
+            ASSERT(borderColor.type == angle::ColorGeneric::Type::Float);
+
+            // Enforce opaque alpha for opaque formats, excluding DXT1 RGBA as it has no bits info.
+            if (info.alphaBits == 0 && info.componentCount < 4)
+            {
+                borderColor.colorF.alpha = 1.0f;
+            }
+
+            if (info.isLUMA())
+            {
+                if (info.luminanceBits == 0)
+                {
+                    borderColor.colorF.red = 0.0f;
+                }
+                // Older Intel drivers use RGBA border color when sampling from D3DFMT_A8L8.
+                // However, some recent Intel drivers sample alpha from green border channel
+                // when using this format. Assume the old behavior because newer GPUs should
+                // use D3D11 anyway.
+                borderColor.colorF.green = borderColor.colorF.red;
+                borderColor.colorF.blue  = borderColor.colorF.red;
+            }
+
+            D3DCOLOR d3dBorderColor;
+            if (info.colorEncoding == GL_SRGB && getFeatures().borderColorSrgb.enabled)
+            {
+                d3dBorderColor =
+                    D3DCOLOR_RGBA(gl::linearToSRGB(gl::clamp01(borderColor.colorF.red)),
+                                  gl::linearToSRGB(gl::clamp01(borderColor.colorF.green)),
+                                  gl::linearToSRGB(gl::clamp01(borderColor.colorF.blue)),
+                                  gl::unorm<8>(borderColor.colorF.alpha));
+            }
+            else
+            {
+                d3dBorderColor = gl_d3d9::ConvertColor(borderColor.colorF);
+            }
+
+            mDevice->SetSamplerState(d3dSampler, D3DSAMP_BORDERCOLOR, d3dBorderColor);
+        }
     }
 
     appliedSampler.forceSet     = false;
@@ -2403,7 +2442,7 @@ unsigned int Renderer9::getReservedFragmentUniformVectors() const
 bool Renderer9::getShareHandleSupport() const
 {
     // PIX doesn't seem to support using share handles, so disable them.
-    return (mD3d9Ex != nullptr) && !gl::DebugAnnotationsActive();
+    return (mD3d9Ex != nullptr) && !gl::DebugAnnotationsActive(/*context=*/nullptr);
 }
 
 int Renderer9::getMajorShaderModel() const
@@ -2706,7 +2745,7 @@ angle::Result Renderer9::compileToExecutable(d3d::Context *context,
         flags = D3DCOMPILE_OPTIMIZATION_LEVEL3;
     }
 
-    if (gl::DebugAnnotationsActive())
+    if (gl::DebugAnnotationsActive(/*context=*/nullptr))
     {
 #ifndef NDEBUG
         flags = D3DCOMPILE_SKIP_OPTIMIZATION;
@@ -2887,6 +2926,15 @@ TextureStorage *Renderer9::createTextureStorageEGLImage(EGLImageD3D *eglImage,
                                         label);
 }
 
+TextureStorage *Renderer9::createTextureStorageBuffer(
+    const gl::OffsetBindingPointer<gl::Buffer> &buffer,
+    GLenum internalFormat,
+    const std::string &label)
+{
+    UNREACHABLE();
+    return nullptr;
+}
+
 TextureStorage *Renderer9::createTextureStorageExternal(
     egl::Stream *stream,
     const egl::Stream::GLTextureDescription &desc,
@@ -2897,29 +2945,30 @@ TextureStorage *Renderer9::createTextureStorageExternal(
 }
 
 TextureStorage *Renderer9::createTextureStorage2D(GLenum internalformat,
-                                                  bool renderTarget,
+                                                  BindFlags bindFlags,
                                                   GLsizei width,
                                                   GLsizei height,
                                                   int levels,
                                                   const std::string &label,
                                                   bool hintLevelZeroOnly)
 {
-    return new TextureStorage9_2D(this, internalformat, renderTarget, width, height, levels, label);
+    return new TextureStorage9_2D(this, internalformat, bindFlags.renderTarget, width, height,
+                                  levels, label);
 }
 
 TextureStorage *Renderer9::createTextureStorageCube(GLenum internalformat,
-                                                    bool renderTarget,
+                                                    BindFlags bindFlags,
                                                     int size,
                                                     int levels,
                                                     bool hintLevelZeroOnly,
                                                     const std::string &label)
 {
-    return new TextureStorage9_Cube(this, internalformat, renderTarget, size, levels,
+    return new TextureStorage9_Cube(this, internalformat, bindFlags.renderTarget, size, levels,
                                     hintLevelZeroOnly, label);
 }
 
 TextureStorage *Renderer9::createTextureStorage3D(GLenum internalformat,
-                                                  bool renderTarget,
+                                                  BindFlags bindFlags,
                                                   GLsizei width,
                                                   GLsizei height,
                                                   GLsizei depth,
@@ -2933,7 +2982,7 @@ TextureStorage *Renderer9::createTextureStorage3D(GLenum internalformat,
 }
 
 TextureStorage *Renderer9::createTextureStorage2DArray(GLenum internalformat,
-                                                       bool renderTarget,
+                                                       BindFlags bindFlags,
                                                        GLsizei width,
                                                        GLsizei height,
                                                        GLsizei depth,
@@ -3041,7 +3090,8 @@ angle::Result Renderer9::getVertexSpaceRequired(const gl::Context *context,
 void Renderer9::generateCaps(gl::Caps *outCaps,
                              gl::TextureCapsMap *outTextureCaps,
                              gl::Extensions *outExtensions,
-                             gl::Limitations *outLimitations) const
+                             gl::Limitations *outLimitations,
+                             ShPixelLocalStorageOptions *outPLSOptions) const
 {
     d3d9_gl::GenerateCaps(mD3d9, mDevice, mDeviceType, mAdapter, outCaps, outTextureCaps,
                           outExtensions, outLimitations);
@@ -3051,10 +3101,12 @@ void Renderer9::initializeFeatures(angle::FeaturesD3D *features) const
 {
     if (!mDisplay->getState().featuresAllDisabled)
     {
-        d3d9::InitializeFeatures(features);
+        d3d9::InitializeFeatures(features, mAdapterIdentifier.VendorId);
     }
     ApplyFeatureOverrides(features, mDisplay->getState());
 }
+
+void Renderer9::initializeFrontendFeatures(angle::FrontendFeatures *features) const {}
 
 DeviceImpl *Renderer9::createEGLDevice()
 {

@@ -334,7 +334,7 @@ public class TzLookupGeneratorTest {
     public void incorrectOffset() throws Exception {
         CountryZonesFile.Country validGbCountry = createValidCountryGb();
         CountryZonesFile.Country.Builder gbWithWrongOffsetBuilder = validGbCountry.toBuilder();
-        gbWithWrongOffsetBuilder.getTimeZoneMappingsBuilder(0).setUtcOffset("20:00").build();
+        gbWithWrongOffsetBuilder.getTimeZoneMappingsBuilder(0).setUtcOffset("20:00");
         CountryZonesFile.Country gbWithWrongOffset = gbWithWrongOffsetBuilder.build();
 
         CountryZonesFile.CountryZones countryZones = createValidCountryZones(gbWithWrongOffset);
@@ -399,7 +399,7 @@ public class TzLookupGeneratorTest {
                 + ">\n"
                 + "\n"
                 + "timeZoneMappings:<\n"
-                + "  utcOffset:\"-3:00\"\n"
+                + "  utcOffset:\"-2:00\"\n"
                 + "  id:\"America/Godthab\"\n"
                 + "  alternativeIds: \"America/Nuuk\"\n"
                 + ">\n"
@@ -570,11 +570,11 @@ public class TzLookupGeneratorTest {
                 + "<id notafter=\"247042800000\" repl=\"America/Indiana/Vincennes\">America/Indiana/Petersburg</id>\n"
                 + "<id notafter=\"89186400000\" repl=\"America/Indiana/Indianapolis\">America/Indiana/Vevay</id>\n"
                 + "<id>America/Chicago</id>\n"
+                + "<id notafter=\"1143964800000\" repl=\"America/Chicago\">America/Indiana/Tell_City</id>\n"
                 + "<id notafter=\"688546800000\" repl=\"America/Indiana/Tell_City\">America/Indiana/Knox</id>\n"
                 + "<id notafter=\"104918400000\" repl=\"America/Chicago\">America/Menominee</id>\n"
                 + "<id notafter=\"720000000000\" repl=\"America/Chicago\">America/North_Dakota/Center</id>\n"
                 + "<id notafter=\"1067155200000\" repl=\"America/Chicago\">America/North_Dakota/New_Salem</id>\n"
-                + "<id notafter=\"1143964800000\" repl=\"America/Chicago\">America/Indiana/Tell_City</id>\n"
                 + "<id notafter=\"1289116800000\" repl=\"America/Chicago\">America/North_Dakota/Beulah</id>\n"
                 + "<id>America/Denver</id>\n"
                 + "<id notafter=\"129114000000\" repl=\"America/Denver\">America/Boise</id>\n"
@@ -617,11 +617,11 @@ public class TzLookupGeneratorTest {
         addReplacement(b, 183535200000L, "America/Indiana/Indianapolis", "America/Indiana/Marengo");
         addReplacement(b, 247042800000L, "America/Indiana/Vincennes", "America/Indiana/Petersburg");
         addReplacement(b, 89186400000L, "America/Indiana/Indianapolis", "America/Indiana/Vevay");
+        addReplacement(b, 1143964800000L, "America/Chicago", "America/Indiana/Tell_City");
         addReplacement(b, 688546800000L, "America/Indiana/Tell_City", "America/Indiana/Knox");
         addReplacement(b, 104918400000L, "America/Chicago", "America/Menominee");
         addReplacement(b, 720000000000L, "America/Chicago", "America/North_Dakota/Center");
         addReplacement(b, 1067155200000L, "America/Chicago", "America/North_Dakota/New_Salem");
-        addReplacement(b, 1143964800000L, "America/Chicago", "America/Indiana/Tell_City");
         addReplacement(b, 1289116800000L, "America/Chicago", "America/North_Dakota/Beulah");
         addReplacement(b, 129114000000L, "America/Denver", "America/Boise");
         addReplacement(b, 436359600000L, "America/Anchorage", "America/Juneau");
@@ -857,6 +857,40 @@ public class TzLookupGeneratorTest {
     }
 
     @Test
+    public void shouldFail_whenAnAliasComesBeforeOriginalTimeZone() throws Exception {
+        // These time zones relationship is unlikely to change judging by the recent
+        // TZDB updates.
+        CountryZonesFile.Country country =
+                CountryZonesFile.Country.newBuilder()
+                        .setIsoCode("de")
+                        .setDefaultTimeZoneId("Europe/Berlin")
+                        .addTimeZoneMappings(
+                                CountryZonesFile.TimeZoneMapping.newBuilder()
+                                        .setUtcOffset("01:00")
+                                        .setId("Europe/Busingen"))
+                        .addTimeZoneMappings(
+                                CountryZonesFile.TimeZoneMapping.newBuilder()
+                                        .setUtcOffset("01:00")
+                                        .setId("Europe/Berlin"))
+                        .build();
+
+        CountryZonesFile.CountryZones countryZones = createValidCountryZones(country);
+        String countryZonesFile = createCountryZonesFile(countryZones);
+
+        String zoneTabFile = createZoneTabFile(
+                List.of(
+                        new ZoneTabFile.CountryEntry("DE", "Europe/Berlin"),
+                        new ZoneTabFile.CountryEntry("DE", "Europe/Busingen")));
+        String tzlookupFile = createTempFileName("tzlookup");
+        String tzIdsFile = createTempFileName("tzids");
+
+        TzLookupGenerator tzLookupGenerator = new TzLookupGenerator(
+                countryZonesFile, zoneTabFile, tzlookupFile, tzIdsFile);
+
+        assertFalse(tzLookupGenerator.execute(false /* validateAllIanaIdsAreMapped */));
+    }
+
+    @Test
     public void shouldFail_whenCountryzonesMissesTimeZone() throws Exception {
         CountryZonesFile.Country gbCountry =
                 CountryZonesFile.Country.newBuilder()
@@ -1039,6 +1073,11 @@ public class TzLookupGeneratorTest {
                 + "  >\n"
                 + "  timeZoneMappings:<\n"
                 + "    utcOffset:\"-6:00\"\n"
+                + "    id:\"America/Indiana/Tell_City\"\n"
+                + "    priority:9\n"
+                + "  >\n"
+                + "  timeZoneMappings:<\n"
+                + "    utcOffset:\"-6:00\"\n"
                 + "    id:\"America/Indiana/Knox\"\n"
                 + "  >\n"
                 + "  timeZoneMappings:<\n"
@@ -1052,11 +1091,6 @@ public class TzLookupGeneratorTest {
                 + "  timeZoneMappings:<\n"
                 + "    utcOffset:\"-6:00\"\n"
                 + "    id:\"America/North_Dakota/New_Salem\"\n"
-                + "  >\n"
-                + "  timeZoneMappings:<\n"
-                + "    utcOffset:\"-6:00\"\n"
-                + "    id:\"America/Indiana/Tell_City\"\n"
-                + "    priority:9\n"
                 + "  >\n"
                 + "  timeZoneMappings:<\n"
                 + "    utcOffset:\"-6:00\"\n"

@@ -23,187 +23,24 @@ import (
 	"github.com/google/blueprint/proptools"
 )
 
-// sdkAwareWithoutModule is provided simply to improve code navigation with the IDE.
-type sdkAwareWithoutModule interface {
-	// SdkMemberComponentName will return the name to use for a component of this module based on the
-	// base name of this module.
-	//
-	// The baseName is the name returned by ModuleBase.BaseModuleName(), i.e. the name specified in
-	// the name property in the .bp file so will not include the prebuilt_ prefix.
-	//
-	// The componentNameCreator is a func for creating the name of a component from the base name of
-	// the module, e.g. it could just append ".component" to the name passed in.
-	//
-	// This is intended to be called by prebuilt modules that create component models. It is because
-	// prebuilt module base names come in a variety of different forms:
-	// * unversioned - this is the same as the source module.
-	// * internal to an sdk - this is the unversioned name prefixed by the base name of the sdk
-	//   module.
-	// * versioned - this is the same as the internal with the addition of an "@<version>" suffix.
-	//
-	// While this can be called from a source module in that case it will behave the same way as the
-	// unversioned name and return the result of calling the componentNameCreator func on the supplied
-	// base name.
-	//
-	// e.g. Assuming the componentNameCreator func simply appends ".component" to the name passed in
-	// then this will work as follows:
-	// * An unversioned name of "foo" will return "foo.component".
-	// * An internal to the sdk name of "sdk_foo" will return "sdk_foo.component".
-	// * A versioned name of "sdk_foo@current" will return "sdk_foo.component@current".
-	//
-	// Note that in the latter case the ".component" suffix is added before the version. Adding it
-	// after would change the version.
-	SdkMemberComponentName(baseName string, componentNameCreator func(string) string) string
-
-	sdkBase() *SdkBase
-	MakeMemberOf(sdk SdkRef)
-	IsInAnySdk() bool
-
-	// IsVersioned determines whether the module is versioned, i.e. has a name of the form
-	// <name>@<version>
-	IsVersioned() bool
-
-	ContainingSdk() SdkRef
-	MemberName() string
+// minApiLevelForSdkSnapshot provides access to the min_sdk_version for MinApiLevelForSdkSnapshot
+type minApiLevelForSdkSnapshot interface {
+	MinSdkVersion(ctx EarlyModuleContext) ApiLevel
 }
 
-// SdkAware is the interface that must be supported by any module to become a member of SDK or to be
-// built with SDK
-type SdkAware interface {
-	Module
-	sdkAwareWithoutModule
-}
-
-// SdkRef refers to a version of an SDK
-type SdkRef struct {
-	Name    string
-	Version string
-}
-
-// Unversioned determines if the SdkRef is referencing to the unversioned SDK module
-func (s SdkRef) Unversioned() bool {
-	return s.Version == ""
-}
-
-// String returns string representation of this SdkRef for debugging purpose
-func (s SdkRef) String() string {
-	if s.Name == "" {
-		return "(No Sdk)"
+// MinApiLevelForSdkSnapshot returns the ApiLevel of the min_sdk_version of the supplied module.
+//
+// If the module does not provide a min_sdk_version then it defaults to 1.
+func MinApiLevelForSdkSnapshot(ctx EarlyModuleContext, module Module) ApiLevel {
+	minApiLevel := NoneApiLevel
+	if m, ok := module.(minApiLevelForSdkSnapshot); ok {
+		minApiLevel = m.MinSdkVersion(ctx)
 	}
-	if s.Unversioned() {
-		return s.Name
+	if minApiLevel == NoneApiLevel {
+		// The default min API level is 1.
+		minApiLevel = uncheckedFinalApiLevel(1)
 	}
-	return s.Name + string(SdkVersionSeparator) + s.Version
-}
-
-// SdkVersionSeparator is a character used to separate an sdk name and its version
-const SdkVersionSeparator = '@'
-
-// ParseSdkRef parses a `name@version` style string into a corresponding SdkRef struct
-func ParseSdkRef(ctx BaseModuleContext, str string, property string) SdkRef {
-	tokens := strings.Split(str, string(SdkVersionSeparator))
-	if len(tokens) < 1 || len(tokens) > 2 {
-		ctx.PropertyErrorf(property, "%q does not follow name@version syntax", str)
-		return SdkRef{Name: "invalid sdk name", Version: "invalid sdk version"}
-	}
-
-	name := tokens[0]
-
-	var version string
-	if len(tokens) == 2 {
-		version = tokens[1]
-	}
-
-	return SdkRef{Name: name, Version: version}
-}
-
-type SdkRefs []SdkRef
-
-// Contains tells if the given SdkRef is in this list of SdkRef's
-func (refs SdkRefs) Contains(s SdkRef) bool {
-	for _, r := range refs {
-		if r == s {
-			return true
-		}
-	}
-	return false
-}
-
-type sdkProperties struct {
-	// The SDK that this module is a member of. nil if it is not a member of any SDK
-	ContainingSdk *SdkRef `blueprint:"mutated"`
-
-	// Name of the module that this sdk member is representing
-	Sdk_member_name *string
-}
-
-// SdkBase is a struct that is expected to be included in module types to implement the SdkAware
-// interface. InitSdkAwareModule should be called to initialize this struct.
-type SdkBase struct {
-	properties sdkProperties
-	module     SdkAware
-}
-
-func (s *SdkBase) sdkBase() *SdkBase {
-	return s
-}
-
-func (s *SdkBase) SdkMemberComponentName(baseName string, componentNameCreator func(string) string) string {
-	if s.MemberName() == "" {
-		return componentNameCreator(baseName)
-	} else {
-		index := strings.LastIndex(baseName, "@")
-		unversionedName := baseName[:index]
-		unversionedComponentName := componentNameCreator(unversionedName)
-		versionSuffix := baseName[index:]
-		return unversionedComponentName + versionSuffix
-	}
-}
-
-// MakeMemberOf sets this module to be a member of a specific SDK
-func (s *SdkBase) MakeMemberOf(sdk SdkRef) {
-	s.properties.ContainingSdk = &sdk
-}
-
-// IsInAnySdk returns true if this module is a member of any SDK
-func (s *SdkBase) IsInAnySdk() bool {
-	return s.properties.ContainingSdk != nil
-}
-
-// IsVersioned returns true if this module is versioned.
-func (s *SdkBase) IsVersioned() bool {
-	return strings.Contains(s.module.Name(), "@")
-}
-
-// ContainingSdk returns the SDK that this module is a member of
-func (s *SdkBase) ContainingSdk() SdkRef {
-	if s.properties.ContainingSdk != nil {
-		return *s.properties.ContainingSdk
-	}
-	return SdkRef{Name: "", Version: ""}
-}
-
-// MemberName returns the name of the module that this SDK member is overriding
-func (s *SdkBase) MemberName() string {
-	return proptools.String(s.properties.Sdk_member_name)
-}
-
-// InitSdkAwareModule initializes the SdkBase struct. This must be called by all modules including
-// SdkBase.
-func InitSdkAwareModule(m SdkAware) {
-	base := m.sdkBase()
-	base.module = m
-	m.AddProperties(&base.properties)
-}
-
-// IsModuleInVersionedSdk returns true if the module is an versioned sdk.
-func IsModuleInVersionedSdk(module Module) bool {
-	if s, ok := module.(SdkAware); ok {
-		if !s.ContainingSdk().Unversioned() {
-			return true
-		}
-	}
-	return false
+	return minApiLevel
 }
 
 // SnapshotBuilder provides support for generating the build rules which will build the snapshot.
@@ -430,13 +267,13 @@ func (r *sdkRegistry) uniqueOnceKey() OnceKey {
 // required for some members but not others. Traits can cause additional information to be output
 // to the sdk snapshot or replace the default information exported for a member with something else.
 // e.g.
-// * By default cc libraries only export the default image variants to the SDK. However, for some
-//   members it may be necessary to export specific image variants, e.g. vendor, or recovery.
-// * By default cc libraries export all the configured architecture variants except for the native
-//   bridge architecture variants. However, for some members it may be necessary to export the
-//   native bridge architecture variants as well.
-// * By default cc libraries export the platform variant (i.e. sdk:). However, for some members it
-//   may be necessary to export the sdk variant (i.e. sdk:sdk).
+//   - By default cc libraries only export the default image variants to the SDK. However, for some
+//     members it may be necessary to export specific image variants, e.g. vendor, or recovery.
+//   - By default cc libraries export all the configured architecture variants except for the native
+//     bridge architecture variants. However, for some members it may be necessary to export the
+//     native bridge architecture variants as well.
+//   - By default cc libraries export the platform variant (i.e. sdk:). However, for some members it
+//     may be necessary to export the sdk variant (i.e. sdk:sdk).
 //
 // A sdk can request a module to provide no traits, one trait or a collection of traits. The exact
 // behavior of a trait is determined by how SdkMemberType implementations handle the traits. A trait
@@ -447,17 +284,17 @@ func (r *sdkRegistry) uniqueOnceKey() OnceKey {
 // SdkPropertyName(). Each property contains a list of modules that are required to have that trait.
 // e.g. something like this:
 //
-//   sdk {
-//     name: "sdk",
-//     ...
-//     traits: {
-//       recovery_image: ["module1", "module4", "module5"],
-//       native_bridge: ["module1", "module2"],
-//       native_sdk: ["module1", "module3"],
-//       ...
-//     },
-//     ...
-//   }
+//	sdk {
+//	  name: "sdk",
+//	  ...
+//	  traits: {
+//	    recovery_image: ["module1", "module4", "module5"],
+//	    native_bridge: ["module1", "module2"],
+//	    native_sdk: ["module1", "module3"],
+//	    ...
+//	  },
+//	  ...
+//	}
 type SdkMemberTrait interface {
 	// SdkPropertyName returns the name of the traits property on an sdk module.
 	SdkPropertyName() string
@@ -573,7 +410,7 @@ type SdkMember interface {
 	Name() string
 
 	// Variants returns all the variants of this module depended upon by the SDK.
-	Variants() []SdkAware
+	Variants() []Module
 }
 
 // SdkMemberDependencyTag is the interface that a tag must implement in order to allow the
@@ -639,20 +476,19 @@ func DependencyTagForSdkMemberType(memberType SdkMemberType, export bool) SdkMem
 // The basic implementation should look something like this, where ModuleType is
 // the name of the module type being supported.
 //
-//    type moduleTypeSdkMemberType struct {
-//        android.SdkMemberTypeBase
-//    }
+//	type moduleTypeSdkMemberType struct {
+//	    android.SdkMemberTypeBase
+//	}
 //
-//    func init() {
-//        android.RegisterSdkMemberType(&moduleTypeSdkMemberType{
-//            SdkMemberTypeBase: android.SdkMemberTypeBase{
-//                PropertyName: "module_types",
-//            },
-//        }
-//    }
+//	func init() {
+//	    android.RegisterSdkMemberType(&moduleTypeSdkMemberType{
+//	        SdkMemberTypeBase: android.SdkMemberTypeBase{
+//	            PropertyName: "module_types",
+//	        },
+//	    }
+//	}
 //
-//    ...methods...
-//
+//	...methods...
 type SdkMemberType interface {
 	// SdkPropertyName returns the name of the member type property on an sdk module.
 	SdkPropertyName() string
@@ -660,6 +496,10 @@ type SdkMemberType interface {
 	// RequiresBpProperty returns true if this member type requires its property to be usable within
 	// an Android.bp file.
 	RequiresBpProperty() bool
+
+	// SupportedBuildReleases returns the string representation of a set of target build releases that
+	// support this member type.
+	SupportedBuildReleases() string
 
 	// UsableWithSdkAndSdkSnapshot returns true if the member type supports the sdk/sdk_snapshot,
 	// false otherwise.
@@ -669,6 +509,13 @@ type SdkMemberType interface {
 	// applicable to modules where HostSupported() is true. If this is true, snapshots will list each
 	// host OS variant explicitly and disable all other host OS'es.
 	IsHostOsDependent() bool
+
+	// SupportedLinkages returns the names of the linkage variants supported by this module.
+	SupportedLinkages() []string
+
+	// ArePrebuiltsRequired returns true if prebuilts are required in the sdk snapshot, false
+	// otherwise.
+	ArePrebuiltsRequired() bool
 
 	// AddDependencies adds dependencies from the SDK module to all the module variants the member
 	// type contributes to the SDK. `names` is the list of module names given in the member type
@@ -695,7 +542,7 @@ type SdkMemberType interface {
 	// The sdk module code generates the snapshot as follows:
 	//
 	// * A properties struct of type SdkMemberProperties is created for each variant and
-	//   populated with information from the variant by calling PopulateFromVariant(SdkAware)
+	//   populated with information from the variant by calling PopulateFromVariant(Module)
 	//   on the struct.
 	//
 	// * An additional properties struct is created into which the common properties will be
@@ -705,8 +552,13 @@ type SdkMemberType interface {
 	//   have common values. Those fields are cleared and the common value added to the common
 	//   properties.
 	//
-	//   A field annotated with a tag of `sdk:"keep"` will be treated as if it
-	//   was not capitalized, i.e. not optimized for common values.
+	//   A field annotated with a tag of `sdk:"ignore"` will be treated as if it
+	//   was not capitalized, i.e. ignored and not optimized for common values.
+	//
+	//   A field annotated with a tag of `sdk:"keep"` will not be cleared even if the value is common
+	//   across multiple structs. Common values will still be copied into the common property struct.
+	//   So, if the same value is placed in all structs populated from variants that value would be
+	//   copied into all common property structs and so be available in every instance.
 	//
 	//   A field annotated with a tag of `android:"arch_variant"` will be allowed to have
 	//   values that differ by arch, fields not tagged as such must have common values across
@@ -733,6 +585,9 @@ type SdkMemberType interface {
 
 	// SupportedTraits returns the set of traits supported by this member type.
 	SupportedTraits() SdkMemberTraitSet
+
+	// Overrides returns whether type overrides other SdkMemberType
+	Overrides(SdkMemberType) bool
 }
 
 var _ sdkRegisterable = (SdkMemberType)(nil)
@@ -756,17 +611,39 @@ type SdkDependencyContext interface {
 type SdkMemberTypeBase struct {
 	PropertyName string
 
+	// Property names that this SdkMemberTypeBase can override, this is useful when a module type is a
+	// superset of another module type.
+	OverridesPropertyNames map[string]bool
+
+	// The names of linkage variants supported by this module.
+	SupportedLinkageNames []string
+
 	// When set to true BpPropertyNotRequired indicates that the member type does not require the
 	// property to be specifiable in an Android.bp file.
 	BpPropertyNotRequired bool
 
-	SupportsSdk     bool
+	// The name of the first targeted build release.
+	//
+	// If not specified then it is assumed to be available on all targeted build releases.
+	SupportedBuildReleaseSpecification string
+
+	// Set to true if this must be usable with the sdk/sdk_snapshot module types. Otherwise, it will
+	// only be usable with module_exports/module_exports_snapshots module types.
+	SupportsSdk bool
+
+	// Set to true if prebuilt host artifacts of this member may be specific to the host OS. Only
+	// applicable to modules where HostSupported() is true.
 	HostOsDependent bool
 
 	// When set to true UseSourceModuleTypeInSnapshot indicates that the member type creates a source
 	// module type in its SdkMemberType.AddPrebuiltModule() method. That prevents the sdk snapshot
 	// code from automatically adding a prefer: true flag.
 	UseSourceModuleTypeInSnapshot bool
+
+	// Set to proptools.BoolPtr(false) if this member does not generate prebuilts but is only provided
+	// to allow the sdk to gather members from this member's dependencies. If not specified then
+	// defaults to true.
+	PrebuiltsRequired *bool
 
 	// The list of supported traits.
 	Traits []SdkMemberTrait
@@ -780,6 +657,10 @@ func (b *SdkMemberTypeBase) RequiresBpProperty() bool {
 	return !b.BpPropertyNotRequired
 }
 
+func (b *SdkMemberTypeBase) SupportedBuildReleases() string {
+	return b.SupportedBuildReleaseSpecification
+}
+
 func (b *SdkMemberTypeBase) UsableWithSdkAndSdkSnapshot() bool {
 	return b.SupportsSdk
 }
@@ -788,12 +669,24 @@ func (b *SdkMemberTypeBase) IsHostOsDependent() bool {
 	return b.HostOsDependent
 }
 
+func (b *SdkMemberTypeBase) ArePrebuiltsRequired() bool {
+	return proptools.BoolDefault(b.PrebuiltsRequired, true)
+}
+
 func (b *SdkMemberTypeBase) UsesSourceModuleTypeInSnapshot() bool {
 	return b.UseSourceModuleTypeInSnapshot
 }
 
 func (b *SdkMemberTypeBase) SupportedTraits() SdkMemberTraitSet {
 	return NewSdkMemberTraitSet(b.Traits)
+}
+
+func (b *SdkMemberTypeBase) Overrides(other SdkMemberType) bool {
+	return b.OverridesPropertyNames[other.SdkPropertyName()]
+}
+
+func (b *SdkMemberTypeBase) SupportedLinkages() []string {
+	return b.SupportedLinkageNames
 }
 
 // registeredModuleExportsMemberTypes is the set of registered SdkMemberTypes for module_exports
@@ -852,18 +745,18 @@ type SdkMemberPropertiesBase struct {
 	// the locations of any of their prebuilt files in the snapshot by os type to prevent them
 	// from colliding. See OsPrefix().
 	//
-	// This property is the same for all variants of a member and so would be optimized away
-	// if it was not explicitly kept.
-	Os_count int `sdk:"keep"`
+	// Ignore this property during optimization. This is needed because this property is the same for
+	// all variants of a member and so would be optimized away if it was not ignored.
+	Os_count int `sdk:"ignore"`
 
 	// The os type for which these properties refer.
 	//
 	// Provided to allow a member to differentiate between os types in the locations of their
 	// prebuilt files when it supports more than one os type.
 	//
-	// This property is the same for all os type specific variants of a member and so would be
-	// optimized away if it was not explicitly kept.
-	Os OsType `sdk:"keep"`
+	// Ignore this property during optimization. This is needed because this property is the same for
+	// all variants of a member and so would be optimized away if it was not ignored.
+	Os OsType `sdk:"ignore"`
 
 	// The setting to use for the compile_multilib property.
 	Compile_multilib string `android:"arch_variant"`
@@ -933,6 +826,10 @@ type SdkMemberContext interface {
 
 	// RequiresTrait returns true if this member is expected to provide the specified trait.
 	RequiresTrait(trait SdkMemberTrait) bool
+
+	// IsTargetBuildBeforeTiramisu return true if the target build release for which this snapshot is
+	// being generated is before Tiramisu, i.e. S.
+	IsTargetBuildBeforeTiramisu() bool
 }
 
 // ExportedComponentsInfo contains information about the components that this module exports to an
@@ -961,3 +858,10 @@ type ExportedComponentsInfo struct {
 }
 
 var ExportedComponentsInfoProvider = blueprint.NewProvider(ExportedComponentsInfo{})
+
+// AdditionalSdkInfo contains additional properties to add to the generated SDK info file.
+type AdditionalSdkInfo struct {
+	Properties map[string]interface{}
+}
+
+var AdditionalSdkInfoProvider = blueprint.NewProvider(AdditionalSdkInfo{})

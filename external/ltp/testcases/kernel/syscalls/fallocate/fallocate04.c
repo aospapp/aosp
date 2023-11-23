@@ -91,7 +91,7 @@ static void test01(void)
 
 	fill_tst_buf(buf);
 
-	SAFE_WRITE(1, fd, buf, buf_size);
+	SAFE_WRITE(SAFE_WRITE_ALL, fd, buf, buf_size);
 
 	tst_res(TPASS, "test-case succeeded");
 }
@@ -102,11 +102,6 @@ static void test02(void)
 
 	tst_res(TINFO, "read allocated file size '%zu'", alloc_size0);
 	tst_res(TINFO, "make a hole with FALLOC_FL_PUNCH_HOLE");
-
-	if (tst_kvercmp(2, 6, 38) < 0) {
-		tst_brk(TCONF,
-			"FALLOC_FL_PUNCH_HOLE needs Linux 2.6.38 or newer");
-	}
 
 	if (fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
 	    block_size, block_size) == -1) {
@@ -126,13 +121,8 @@ static void test02(void)
 			tst_brk(TFAIL | TERRNO,
 				 "fallocate() or lseek() failed");
 		}
-		if (tst_kvercmp(3, 1, 0) < 0) {
-			tst_res(TINFO, "lseek() doesn't support SEEK_HOLE, "
-				 "this is expected for < 3.1 kernels");
-		} else {
-			tst_brk(TBROK | TERRNO,
-				 "lseek() doesn't support SEEK_HOLE");
-		}
+		tst_brk(TBROK | TERRNO,
+			"lseek() doesn't support SEEK_HOLE");
 	} else {
 		tst_res(TINFO, "found a hole at '%ld' offset", ret);
 	}
@@ -298,7 +288,7 @@ static void cleanup(void)
 
 static struct tst_test test = {
 	.options = (struct tst_option[]) {
-		{"v", &verbose, "-v       Turns on verbose mode"},
+		{"v", &verbose, "Turns on verbose mode"},
 		{}
 	},
 	.cleanup = cleanup,

@@ -45,6 +45,8 @@ $(call inherit-product, device/google/atv/products/atv_product.mk)
 PRODUCT_PACKAGES += \
     LeanbackIME \
     TvSampleLeanbackLauncher
+# Specify product type
+PRODUCT_CHARACTERISTICS := tv
 
 #
 # Special settings for GSI releasing

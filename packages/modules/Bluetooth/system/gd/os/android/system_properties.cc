@@ -100,5 +100,9 @@ int GetAndroidVendorReleaseVersion() {
   }
 }
 
+bool ClearSystemPropertiesForHost() {
+  return false;
+}
+
 }  // namespace os
 }  // namespace bluetooth

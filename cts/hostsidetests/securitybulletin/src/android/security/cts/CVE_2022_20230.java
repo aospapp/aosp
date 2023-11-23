@@ -20,7 +20,7 @@ import static org.junit.Assume.assumeNoException;
 
 import android.platform.test.annotations.AsbSecurityTest;
 
-import com.android.sts.common.tradefed.testtype.StsExtraBusinessLogicHostTestBase;
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
@@ -28,7 +28,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2022_20230 extends StsExtraBusinessLogicHostTestBase {
+public class CVE_2022_20230 extends NonRootSecurityTestCase {
     public static final int USER_ID = 0;
     static final String TEST_APP = "CVE-2022-20230.apk";
     static final String TEST_PKG = "android.security.cts.CVE_2022_20230";

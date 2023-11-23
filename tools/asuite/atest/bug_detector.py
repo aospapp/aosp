@@ -21,10 +21,10 @@ import logging
 import json
 import os
 
-import atest_utils
-import constants
+from atest import atest_utils
+from atest import constants
 
-from metrics import metrics_utils
+from atest.metrics import metrics_utils
 
 _META_FILE = os.path.join(atest_utils.get_misc_dir(),
                           '.config', 'asuite', 'atest_history.json')

@@ -63,10 +63,21 @@ TEST(apex_namespace, build_namespace) {
       "namespace.foo.search.paths = /apex/com.android.foo/${LIB}\n"
       "namespace.foo.permitted.paths = /apex/com.android.foo/${LIB}\n"
       "namespace.foo.permitted.paths += /system/${LIB}\n"
+      "namespace.foo.permitted.paths += /system_ext/${LIB}\n"
       "namespace.foo.asan.search.paths = /apex/com.android.foo/${LIB}\n"
       "namespace.foo.asan.permitted.paths = /apex/com.android.foo/${LIB}\n"
       "namespace.foo.asan.permitted.paths += /data/asan/system/${LIB}\n"
-      "namespace.foo.asan.permitted.paths += /system/${LIB}\n",
+      "namespace.foo.asan.permitted.paths += /system/${LIB}\n"
+      "namespace.foo.asan.permitted.paths += /data/asan/system_ext/${LIB}\n"
+      "namespace.foo.asan.permitted.paths += /system_ext/${LIB}\n"
+      "namespace.foo.hwasan.search.paths = /apex/com.android.foo/${LIB}/hwasan\n"
+      "namespace.foo.hwasan.search.paths += /apex/com.android.foo/${LIB}\n"
+      "namespace.foo.hwasan.permitted.paths = /apex/com.android.foo/${LIB}/hwasan\n"
+      "namespace.foo.hwasan.permitted.paths += /apex/com.android.foo/${LIB}\n"
+      "namespace.foo.hwasan.permitted.paths += /system/${LIB}/hwasan\n"
+      "namespace.foo.hwasan.permitted.paths += /system/${LIB}\n"
+      "namespace.foo.hwasan.permitted.paths += /system_ext/${LIB}/hwasan\n"
+      "namespace.foo.hwasan.permitted.paths += /system_ext/${LIB}\n",
       writer.ToString());
 }
 
@@ -103,8 +114,7 @@ TEST(apex_namespace, resolve_between_apex_namespaces) {
   namespaces.push_back(std::move(bar));
   Section section("section", std::move(namespaces));
 
-  auto result = section.Resolve(ctx);
-  ASSERT_RESULT_OK(result);
+  section.Resolve(ctx);
 
   // See if two namespaces are linked correctly
   ASSERT_THAT(section.GetNamespace("foo")->GetLink("bar").GetSharedLibs(),
@@ -133,16 +143,31 @@ TEST(apex_namespace, extra_permitted_paths) {
       "namespace.foo.search.paths = /apex/com.android.foo/${LIB}\n"
       "namespace.foo.permitted.paths = /apex/com.android.foo/${LIB}\n"
       "namespace.foo.permitted.paths += /system/${LIB}\n"
+      "namespace.foo.permitted.paths += /system_ext/${LIB}\n"
       "namespace.foo.permitted.paths += /a\n"
       "namespace.foo.permitted.paths += /b/c\n"
       "namespace.foo.asan.search.paths = /apex/com.android.foo/${LIB}\n"
       "namespace.foo.asan.permitted.paths = /apex/com.android.foo/${LIB}\n"
       "namespace.foo.asan.permitted.paths += /data/asan/system/${LIB}\n"
       "namespace.foo.asan.permitted.paths += /system/${LIB}\n"
+      "namespace.foo.asan.permitted.paths += /data/asan/system_ext/${LIB}\n"
+      "namespace.foo.asan.permitted.paths += /system_ext/${LIB}\n"
       "namespace.foo.asan.permitted.paths += /data/asan/a\n"
       "namespace.foo.asan.permitted.paths += /a\n"
       "namespace.foo.asan.permitted.paths += /data/asan/b/c\n"
-      "namespace.foo.asan.permitted.paths += /b/c\n",
+      "namespace.foo.asan.permitted.paths += /b/c\n"
+      "namespace.foo.hwasan.search.paths = /apex/com.android.foo/${LIB}/hwasan\n"
+      "namespace.foo.hwasan.search.paths += /apex/com.android.foo/${LIB}\n"
+      "namespace.foo.hwasan.permitted.paths = /apex/com.android.foo/${LIB}/hwasan\n"
+      "namespace.foo.hwasan.permitted.paths += /apex/com.android.foo/${LIB}\n"
+      "namespace.foo.hwasan.permitted.paths += /system/${LIB}/hwasan\n"
+      "namespace.foo.hwasan.permitted.paths += /system/${LIB}\n"
+      "namespace.foo.hwasan.permitted.paths += /system_ext/${LIB}/hwasan\n"
+      "namespace.foo.hwasan.permitted.paths += /system_ext/${LIB}\n"
+      "namespace.foo.hwasan.permitted.paths += /a/hwasan\n"
+      "namespace.foo.hwasan.permitted.paths += /a\n"
+      "namespace.foo.hwasan.permitted.paths += /b/c/hwasan\n"
+      "namespace.foo.hwasan.permitted.paths += /b/c\n",
       writer.ToString());
 }
 
@@ -224,4 +249,75 @@ TEST_F(ApexTest, validate_path) {
   apexes = ScanActiveApexes(root);
   ASSERT_TRUE(apexes.ok()) << "Valid path with ${LIB} should be accepted. : "
                            << apexes.error();
+}
+
+TEST_F(ApexTest, skip_sharedlibs_apex) {
+  PrepareApex("foo", {}, {}, {});
+  WriteFile("/apex/apex-info-list.xml", R"(<apex-info-list>
+    <apex-info moduleName="foo"
+      preinstalledModulePath="/system/apex/foo.apex"
+      modulePath="/data/apex/active/foo.apex"
+      isActive="true" />
+    <apex-info moduleName="sharedlibs"
+      preinstalledModulePath="/system/apex/sharedlibs.apex"
+      modulePath="/data/apex/active/sharedlibs.apex"
+      provideSharedApexLibs="true"
+      isActive="true" />
+  </apex-info-list>)");
+  auto apexes = ScanActiveApexes(root);
+  ASSERT_TRUE(apexes.ok()) << apexes.error();
+  ASSERT_EQ(apexes->find("sharedlibs"), apexes->end());
+}
+
+TEST_F(ApexTest, public_libraries_txt_malformed_line) {
+  PrepareApex("foo", {}, {}, {});
+  CreateApexInfoList();
+  WriteFile("/system/etc/public.libraries.txt", "foo.so blah blah blah");
+  auto apexes = ScanActiveApexes(root);
+  ASSERT_FALSE(apexes.ok());
+  ASSERT_THAT(apexes.error().message(), testing::HasSubstr("Malformed line"));
+}
+
+TEST_F(ApexTest, public_libs_with_public_libraries_txt) {
+  PrepareApex("foo", /*provide_libs=*/{"libfoo.so"}, {}, {});
+  WriteFile("/apex/apex-info-list.xml", R"(<apex-info-list>
+    <apex-info moduleName="foo"
+      preinstalledModulePath="/system/apex/foo.apex"
+      modulePath="/data/apex/active/foo.apex"
+      isActive="true" />
+  </apex-info-list>)");
+  WriteFile("/system/etc/public.libraries.txt", "libfoo.so");
+  auto apexes = ScanActiveApexes(root);
+  ASSERT_TRUE(apexes.ok()) << apexes.error();
+  ASSERT_EQ(apexes->at("foo").public_libs,
+            std::vector<std::string>{"libfoo.so"});
+}
+
+TEST_F(ApexTest, public_libs_should_be_system_apex) {
+  PrepareApex("foo", /*provide_libs=*/{"libfoo.so"}, {}, {});
+  WriteFile("/apex/apex-info-list.xml", R"(<apex-info-list>
+    <apex-info moduleName="foo"
+      preinstalledModulePath="/vendor/apex/foo.apex"
+      modulePath="/data/apex/active/foo.apex"
+      isActive="true" />
+  </apex-info-list>)");
+  WriteFile("/system/etc/public.libraries.txt", "libfoo.so");
+  auto apexes = ScanActiveApexes(root);
+  ASSERT_TRUE(apexes.ok()) << apexes.error();
+  ASSERT_EQ(apexes->at("foo").public_libs, std::vector<std::string>{});
+}
+
+TEST_F(ApexTest, system_ext_can_be_linked_to_system_system_ext) {
+  PrepareApex("foo", /*provide_libs=*/{"libfoo.so"}, {}, {});
+  WriteFile("/apex/apex-info-list.xml", R"(<apex-info-list>
+    <apex-info moduleName="foo"
+      preinstalledModulePath="/system/system_ext/apex/foo.apex"
+      modulePath="/data/apex/active/foo.apex"
+      isActive="true" />
+  </apex-info-list>)");
+  WriteFile("/system/etc/public.libraries.txt", "libfoo.so");
+  auto apexes = ScanActiveApexes(root);
+  ASSERT_TRUE(apexes.ok()) << apexes.error();
+  ASSERT_EQ(apexes->at("foo").public_libs,
+            std::vector<std::string>{"libfoo.so"});
 }

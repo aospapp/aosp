@@ -1,27 +1,47 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::cell::RefCell;
 use std::fs::File;
 use std::io;
-use std::rc::Rc;
-use std::thread;
 
-use base::{error, AsRawDescriptor, Event, RawDescriptor, Tube};
-use base::{Error as SysError, Result as SysResult};
-use cros_async::{select3, EventAsync, Executor};
-use data_model::{DataInit, Le32, Le64};
+use anyhow::anyhow;
+use anyhow::Context;
+use base::error;
+use base::AsRawDescriptor;
+use base::Error as SysError;
+use base::Event;
+use base::RawDescriptor;
+use base::Result as SysResult;
+use base::Tube;
+use base::WorkerThread;
+use cros_async::select3;
+use cros_async::EventAsync;
+use cros_async::Executor;
+use data_model::Le32;
+use data_model::Le64;
 use futures::pin_mut;
 use remain::sorted;
 use thiserror::Error;
-use vm_control::{MemSlot, VmMsyncRequest, VmMsyncResponse};
-use vm_memory::{GuestAddress, GuestMemory};
+use vm_control::MemSlot;
+use vm_control::VmMsyncRequest;
+use vm_control::VmMsyncResponse;
+use vm_memory::GuestAddress;
+use vm_memory::GuestMemory;
+use zerocopy::AsBytes;
+use zerocopy::FromBytes;
 
-use super::{
-    async_utils, copy_config, DescriptorChain, DescriptorError, Interrupt, Queue, Reader,
-    VirtioDevice, Writer, TYPE_PMEM,
-};
+use super::async_utils;
+use super::copy_config;
+use super::DescriptorChain;
+use super::DescriptorError;
+use super::DeviceType;
+use super::Interrupt;
+use super::Queue;
+use super::Reader;
+use super::VirtioDevice;
+use super::Writer;
+use crate::Suspendable;
 
 const QUEUE_SIZE: u16 = 256;
 const QUEUE_SIZES: &[u16] = &[QUEUE_SIZE];
@@ -30,33 +50,24 @@ const VIRTIO_PMEM_REQ_TYPE_FLUSH: u32 = 0;
 const VIRTIO_PMEM_RESP_TYPE_OK: u32 = 0;
 const VIRTIO_PMEM_RESP_TYPE_EIO: u32 = 1;
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, AsBytes, FromBytes)]
 #[repr(C)]
 struct virtio_pmem_config {
     start_address: Le64,
     size: Le64,
 }
 
-// Safe because it only has data and has no implicit padding.
-unsafe impl DataInit for virtio_pmem_config {}
-
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, AsBytes, FromBytes)]
 #[repr(C)]
 struct virtio_pmem_resp {
     status_code: Le32,
 }
 
-// Safe because it only has data and has no implicit padding.
-unsafe impl DataInit for virtio_pmem_resp {}
-
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, AsBytes, FromBytes)]
 #[repr(C)]
 struct virtio_pmem_req {
     type_: Le32,
 }
-
-// Safe because it only has data and has no implicit padding.
-unsafe impl DataInit for virtio_pmem_req {}
 
 #[sorted]
 #[derive(Error, Debug)]
@@ -142,7 +153,7 @@ async fn handle_queue(
     mem: &GuestMemory,
     mut queue: Queue,
     mut queue_event: EventAsync,
-    interrupt: Rc<RefCell<Interrupt>>,
+    interrupt: Interrupt,
     pmem_device_tube: Tube,
     mapping_arena_slot: u32,
     mapping_size: usize,
@@ -170,7 +181,7 @@ async fn handle_queue(
             }
         };
         queue.add_used(mem, index, written as u32);
-        queue.trigger_interrupt(mem, &*interrupt.borrow());
+        queue.trigger_interrupt(mem, &interrupt);
     }
 }
 
@@ -184,12 +195,9 @@ fn run_worker(
     mapping_arena_slot: u32,
     mapping_size: usize,
 ) {
-    // Wrap the interrupt in a `RefCell` so it can be shared between async functions.
-    let interrupt = Rc::new(RefCell::new(interrupt));
-
     let ex = Executor::new().unwrap();
 
-    let queue_evt = EventAsync::new(queue_evt.0, &ex).expect("failed to set up the queue event");
+    let queue_evt = EventAsync::new(queue_evt, &ex).expect("failed to set up the queue event");
 
     // Process requests from the virtio queue.
     let queue_fut = handle_queue(
@@ -217,8 +225,7 @@ fn run_worker(
 }
 
 pub struct Pmem {
-    kill_event: Option<Event>,
-    worker_thread: Option<thread::JoinHandle<()>>,
+    worker_thread: Option<WorkerThread<()>>,
     base_features: u64,
     disk_image: Option<File>,
     mapping_address: GuestAddress,
@@ -241,7 +248,6 @@ impl Pmem {
         }
 
         Ok(Pmem {
-            kill_event: None,
             worker_thread: None,
             base_features,
             disk_image: Some(disk_image),
@@ -250,19 +256,6 @@ impl Pmem {
             mapping_size,
             pmem_device_tube,
         })
-    }
-}
-
-impl Drop for Pmem {
-    fn drop(&mut self) {
-        if let Some(kill_evt) = self.kill_event.take() {
-            // Ignore the result because there is nothing we can do about it.
-            let _ = kill_evt.write(1);
-        }
-
-        if let Some(worker_thread) = self.worker_thread.take() {
-            let _ = worker_thread.join();
-        }
     }
 }
 
@@ -279,8 +272,8 @@ impl VirtioDevice for Pmem {
         keep_rds
     }
 
-    fn device_type(&self) -> u32 {
-        TYPE_PMEM
+    fn device_type(&self) -> DeviceType {
+        DeviceType::Pmem
     }
 
     fn queue_max_sizes(&self) -> &[u16] {
@@ -296,62 +289,45 @@ impl VirtioDevice for Pmem {
             start_address: Le64::from(self.mapping_address.offset()),
             size: Le64::from(self.mapping_size as u64),
         };
-        copy_config(data, 0, config.as_slice(), offset);
+        copy_config(data, 0, config.as_bytes(), offset);
     }
 
     fn activate(
         &mut self,
         memory: GuestMemory,
         interrupt: Interrupt,
-        mut queues: Vec<Queue>,
-        mut queue_events: Vec<Event>,
-    ) {
-        if queues.len() != 1 || queue_events.len() != 1 {
-            return;
+        mut queues: Vec<(Queue, Event)>,
+    ) -> anyhow::Result<()> {
+        if queues.len() != 1 {
+            return Err(anyhow!("expected 1 queue, got {}", queues.len()));
         }
 
-        let queue = queues.remove(0);
-        let queue_event = queue_events.remove(0);
+        let (queue, queue_event) = queues.remove(0);
 
         let mapping_arena_slot = self.mapping_arena_slot;
         // We checked that this fits in a usize in `Pmem::new`.
         let mapping_size = self.mapping_size as usize;
 
-        if let Some(pmem_device_tube) = self.pmem_device_tube.take() {
-            let (self_kill_event, kill_event) =
-                match Event::new().and_then(|e| Ok((e.try_clone()?, e))) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        error!("failed creating kill Event pair: {}", e);
-                        return;
-                    }
-                };
-            self.kill_event = Some(self_kill_event);
+        let pmem_device_tube = self
+            .pmem_device_tube
+            .take()
+            .context("missing pmem device tube")?;
 
-            let worker_result = thread::Builder::new()
-                .name("virtio_pmem".to_string())
-                .spawn(move || {
-                    run_worker(
-                        queue_event,
-                        queue,
-                        pmem_device_tube,
-                        interrupt,
-                        kill_event,
-                        memory,
-                        mapping_arena_slot,
-                        mapping_size,
-                    )
-                });
+        self.worker_thread = Some(WorkerThread::start("v_pmem", move |kill_event| {
+            run_worker(
+                queue_event,
+                queue,
+                pmem_device_tube,
+                interrupt,
+                kill_event,
+                memory,
+                mapping_arena_slot,
+                mapping_size,
+            )
+        }));
 
-            match worker_result {
-                Err(e) => {
-                    error!("failed to spawn virtio_pmem worker: {}", e);
-                    return;
-                }
-                Ok(join_handle) => {
-                    self.worker_thread = Some(join_handle);
-                }
-            }
-        }
+        Ok(())
     }
 }
+
+impl Suspendable for Pmem {}

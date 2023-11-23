@@ -25,11 +25,11 @@ import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
-import androidx.preference.SwitchPreference;
 import androidx.preference.TwoStatePreference;
 
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;
+import com.android.tv.settings.widget.SwitchWithSoundPreference;
 
 /**
  * Fragment for controlling if apps can monitor app usage
@@ -60,12 +60,13 @@ public class AppUsageAccess extends ManageAppOp
     @Override
     public Preference bindPreference(@NonNull Preference preference,
             ApplicationsState.AppEntry entry) {
-        final TwoStatePreference switchPref = (SwitchPreference) preference;
+        final TwoStatePreference switchPref = (SwitchWithSoundPreference) preference;
         switchPref.setTitle(entry.label);
         switchPref.setKey(entry.info.packageName);
         switchPref.setIcon(entry.icon);
         switchPref.setOnPreferenceChangeListener((pref, newValue) -> {
-            setAppUsageAccess(entry, (Boolean) newValue);
+            findEntriesUsingPackageName(entry.info.packageName)
+                    .forEach(packageEntry -> setAppUsageAccess(packageEntry, (Boolean) newValue));
             return true;
         });
 
@@ -78,7 +79,7 @@ public class AppUsageAccess extends ManageAppOp
     @NonNull
     @Override
     public Preference createAppPreference() {
-        return new SwitchPreference(getPreferenceManager().getContext());
+        return new SwitchWithSoundPreference(getPreferenceManager().getContext());
     }
 
     @Override

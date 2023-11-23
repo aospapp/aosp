@@ -69,14 +69,17 @@ cc_library_static {
         "lib/igt_core.c",
         "lib/igt_debugfs.c",
         "lib/igt_device.c",
+        "lib/igt_draw.c",
         "lib/igt_dummy.c",
         "lib/igt_dummyload.c",
         "lib/igt_fb.c",
         "lib/igt_kmod.c",
         "lib/igt_kms.c",
         "lib/igt_pm.c",
+        "lib/igt_rand.c",
         "lib/igt_stats.c",
         "lib/igt_sysfs.c",
+        "lib/igt_syncobj.c",
         "lib/ion.c",
         "lib/ioctl_wrappers.c",
         "lib/sw_sync.c",
@@ -138,14 +141,6 @@ python_test_host {
     srcs: [ "scripts/test_igt_gpu_tools.py", ],
     data: [ "scripts/test_igt_gpu_tools.xml" ],
     test_config: "scripts/test_igt_gpu_tools.xml",
-    version: {
-        py2: {
-            enabled: false,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     test_options: {
         unit_test: false,
     },
@@ -155,4 +150,82 @@ cc_test {
     name: "kms_throughput",
     defaults: ["igt-gpu-tools-test-defaults"],
     srcs: ["benchmarks/kms_throughput.c"],
+}
+
+cc_test {
+    name: "core_auth",
+    defaults: ["igt-gpu-tools-test-defaults"],
+    srcs: ["tests/core_auth.c"],
+}
+
+cc_test {
+    name: "kms_properties",
+    defaults: ["igt-gpu-tools-test-defaults"],
+    srcs: ["tests/kms_properties.c"],
+}
+
+cc_test {
+    name: "core_getclient",
+    defaults: ["igt-gpu-tools-test-defaults"],
+    srcs: ["tests/core_getclient.c"],
+}
+
+cc_test {
+    name: "drm_read",
+    defaults: ["igt-gpu-tools-test-defaults"],
+    srcs: ["tests/drm_read.c"]
+}
+
+cc_test {
+    name: "kms_addfb_basic",
+    defaults: ["igt-gpu-tools-test-defaults"],
+    srcs: ["tests/kms_addfb_basic.c"],
+}
+
+cc_test {
+    name: "kms_getfb",
+    defaults: ["igt-gpu-tools-test-defaults"],
+    srcs: ["tests/kms_getfb.c"],
+}
+
+cc_test {
+    name: "kms_atomic_interruptible",
+    defaults: ["igt-gpu-tools-test-defaults"],
+    srcs: ["tests/kms_atomic_interruptible.c"],
+}
+
+cc_test {
+    name: "kms_atomic_transition",
+    defaults: ["igt-gpu-tools-test-defaults"],
+    srcs: ["tests/kms_atomic_transition.c"],
+}
+
+cc_test {
+    name: "kms_plane_lowres",
+    defaults: ["igt-gpu-tools-test-defaults"],
+    srcs: ["tests/kms_plane_lowres.c"],
+}
+
+cc_test {
+    name: "kms_plane_scaling",
+    defaults: ["igt-gpu-tools-test-defaults"],
+    srcs: ["tests/kms_plane_scaling.c"],
+}
+
+cc_test {
+    name: "kms_prop_blob",
+    defaults: ["igt-gpu-tools-test-defaults"],
+    srcs: ["tests/kms_prop_blob.c"],
+}
+
+cc_test {
+    name: "syncobj_basic",
+    defaults: ["igt-gpu-tools-test-defaults"],
+    srcs: ["tests/syncobj_basic.c"],
+}
+
+cc_test {
+    name: "syncobj_wait",
+    defaults: ["igt-gpu-tools-test-defaults"],
+    srcs: ["tests/syncobj_wait.c"],
 }

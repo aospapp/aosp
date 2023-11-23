@@ -49,16 +49,11 @@ bzl_library(
     srcs = ["common_settings.bzl"],
 )
 
-# Exported for build_test.bzl to make sure of, it is an implementation detail
-# of the rule and should not be directly used by anything else.
-exports_files(["empty_test.sh"])
-
 filegroup(
     name = "test_deps",
     testonly = True,
     srcs = [
         "BUILD",
-        "empty_test.sh",
     ] + glob(["*.bzl"]),
 )
 
@@ -68,14 +63,6 @@ filegroup(
     srcs = [
         "BUILD",
     ] + glob(["*.bzl"]),
-    visibility = [
-        "//:__pkg__",
-    ],
-)
-
-filegroup(
-    name = "bins",
-    srcs = glob(["*.sh"]),
     visibility = [
         "//:__pkg__",
     ],

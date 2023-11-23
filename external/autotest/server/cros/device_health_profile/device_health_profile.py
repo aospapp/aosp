@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -8,6 +8,9 @@ import copy
 import json
 import time
 import logging
+import shutil
+
+import common
 
 from autotest_lib.server.cros.device_health_profile.profile_constants import *
 
@@ -44,13 +47,17 @@ class DeviceHealthProfile(object):
         # the profile is located on servo-host as temporally location.
         # The servo-host will be provided later
         self._profile_host = None
+        # The flag will be set when we set _profile_host.
+        # For servod container setups we keep device prfile on drone instead
+        # the servo-host.
+        self._is_containerized_servod = False
         self._health_profile = None
 
         # Construct remote and local file path.
-        profile_filename = self._hostname + '.profile'
-        self._remote_path = os.path.join(PROFILE_FILE_DIR, profile_filename)
+        self._filename = self._hostname + '.profile'
+        self._remote_path = os.path.join(PROFILE_FILE_DIR, self._filename)
         result_dir = result_dir or '/tmp'
-        self._local_path = os.path.join(result_dir, profile_filename)
+        self._local_path = os.path.join(result_dir, self._filename)
 
     def init_profile(self, profile_host):
         """Initialize device health profile data.
@@ -65,18 +72,26 @@ class DeviceHealthProfile(object):
         if not profile_host:
             raise DeviceHealthProfileError('The profile host is not provided.')
         self._profile_host = profile_host
-        # Do a lightweighted check to make sure the machine is up
-        # (by ping), as we don't waste time on unreachable DUT.
-        if not self._profile_host.check_cached_up_status():
-            raise DeviceHealthProfileError(
-                'The profile host %s is not reachable via ping.'
-                % self._profile_host.hostname)
+        # When we work with containeried servod we do not have access to the
+        # remote host and keep profiles in local volume on the drone.
+        if self._profile_host.is_containerized_servod():
+            self._is_containerized_servod = True
+            # Set path to volume on the drone where we keep all profiles.
+            self._remote_path = os.path.join(PROFILE_DIR_CONTAINER,
+                                             self._filename)
+        else:
+            # Do a lightweighted check to make sure the machine is up
+            # (by ping), as we don't waste time on unreachable DUT.
+            if not self._profile_host.check_cached_up_status():
+                raise DeviceHealthProfileError(
+                        'The profile host %s is not reachable via ping.' %
+                        self._profile_host.hostname)
 
-        # We also want try to check if the DUT is available for ssh.
-        if not self._profile_host.is_up():
-            raise DeviceHealthProfileError(
-                'The profile host %s is pingable but not sshable.'
-                % self._profile_host.hostname)
+            # We also want try to check if the DUT is available for ssh.
+            if not self._profile_host.is_up():
+                raise DeviceHealthProfileError(
+                        'The profile host %s is pingable but not sshable.' %
+                        self._profile_host.hostname)
 
         if not self._sync_existing_profile():
             self._create_profile_from_template()
@@ -91,11 +106,15 @@ class DeviceHealthProfile(object):
 
         @returns True if sync and validate succeed otherwise False.
         """
-        if not self._profile_host.is_file_exists(self._remote_path):
-            logging.debug('%s not exists on %s.', self._remote_path,
-                          self._profile_host.hostname)
-            return False
-        self._download_profile()
+        if self._is_containerized_servod:
+            self._copy_from_local()
+        else:
+            if not self._profile_host.is_file_exists(self._remote_path):
+                logging.debug('%s not exists on %s.', self._remote_path,
+                              self._profile_host.hostname)
+                return False
+            self._download_profile()
+
         self._read_profile()
         return self._validate_profile_data(self._health_profile)
 
@@ -123,9 +142,36 @@ class DeviceHealthProfile(object):
         self._profile_host.send_file(source=self._local_path,
                                      dest=self._remote_path)
 
+    def _copy_from_local(self):
+        """Copy profile from local volume to result directory.
+
+        For Satlab all device profiles saved in special volume on the drone.
+        """
+        if os.path.exists(self._remote_path):
+            logging.info('Copying profile file from %s to local path: %s',
+                         self._remote_path, self._local_path)
+            shutil.copyfile(self._remote_path, self._local_path)
+        else:
+            logging.info(
+                    'Skipping copy from remote path %s as file is not exist.',
+                    self._remote_path)
+
+    def _copy_to_local(self):
+        """Copy profile file from result directory to local volume.
+
+        For Satlab all device profiles saved in special volume on the drone.
+        """
+        logging.info('Copying profile file from %s to remote path: %s',
+                     self._local_path, self._remote_path)
+        shutil.copyfile(self._local_path, self._remote_path)
+
     def _read_profile(self):
         """Read profile data from local path and convert it into json format.
         """
+        if not os.path.exists(self._local_path):
+            logging.info('Skipping reading as local file: %s is not exist.',
+                         self._local_path)
+            return
         logging.debug('Reading device health profile from: %s',
                       self._local_path)
         with open(self._local_path, 'r') as f:
@@ -499,4 +545,7 @@ class DeviceHealthProfile(object):
         # pylint: disable=missing-docstring
         self.refresh_update_time()
         self._dump_profile()
-        self._upload_profile()
+        if self._is_containerized_servod:
+            self._copy_to_local()
+        else:
+            self._upload_profile()

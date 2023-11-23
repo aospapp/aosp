@@ -15,24 +15,38 @@
  */
 package com.android.bluetooth.map;
 
+import static com.android.bluetooth.map.BluetoothMapService.MSG_MAS_CONNECT_CANCEL;
+import static com.android.bluetooth.map.BluetoothMapService.UPDATE_MAS_INSTANCES;
+import static com.android.bluetooth.map.BluetoothMapService.USER_TIMEOUT;
+
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.bluetooth.BluetoothAdapter;
-import android.content.Context;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothProfile;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 
-import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.MediumTest;
 import androidx.test.rule.ServiceTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.bluetooth.R;
 import com.android.bluetooth.TestUtils;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
@@ -44,9 +58,11 @@ import org.mockito.MockitoAnnotations;
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class BluetoothMapServiceTest {
+    private static final String REMOTE_DEVICE_ADDRESS = "00:00:00:00:00:00";
+
     private BluetoothMapService mService = null;
     private BluetoothAdapter mAdapter = null;
-    private Context mTargetContext;
+    private BluetoothDevice mRemoteDevice;
 
     @Rule public final ServiceTestRule mServiceRule = new ServiceTestRule();
 
@@ -55,34 +71,96 @@ public class BluetoothMapServiceTest {
 
     @Before
     public void setUp() throws Exception {
-        mTargetContext = InstrumentationRegistry.getTargetContext();
-        Assume.assumeTrue("Ignore test when BluetoothMapService is not enabled",
-                BluetoothMapService.isEnabled());
         MockitoAnnotations.initMocks(this);
         TestUtils.setAdapterService(mAdapterService);
         doReturn(mDatabaseManager).when(mAdapterService).getDatabase();
         doReturn(true, false).when(mAdapterService).isStartedProfile(anyString());
         TestUtils.startService(mServiceRule, BluetoothMapService.class);
         mService = BluetoothMapService.getBluetoothMapService();
-        Assert.assertNotNull(mService);
+        assertThat(mService).isNotNull();
         // Try getting the Bluetooth adapter
         mAdapter = BluetoothAdapter.getDefaultAdapter();
-        Assert.assertNotNull(mAdapter);
+        assertThat(mAdapter).isNotNull();
+        mRemoteDevice = mAdapter.getRemoteDevice(REMOTE_DEVICE_ADDRESS);
     }
 
     @After
     public void tearDown() throws Exception {
-        if (!BluetoothMapService.isEnabled()) {
-            return;
-        }
         TestUtils.stopService(mServiceRule, BluetoothMapService.class);
         mService = BluetoothMapService.getBluetoothMapService();
-        Assert.assertNull(mService);
+        assertThat(mService).isNull();
         TestUtils.clearAdapterService(mAdapterService);
     }
 
     @Test
-    public void testInitialize() {
-        Assert.assertNotNull(BluetoothMapService.getBluetoothMapService());
+    public void initialize() {
+        assertThat(BluetoothMapService.getBluetoothMapService()).isNotNull();
+    }
+
+    @Test
+    public void getDevicesMatchingConnectionStates_whenNoDeviceIsConnected_returnsEmptyList() {
+        when(mAdapterService.getBondedDevices()).thenReturn(new BluetoothDevice[] {mRemoteDevice});
+
+        assertThat(mService.getDevicesMatchingConnectionStates(
+                new int[] {BluetoothProfile.STATE_CONNECTED})).isEmpty();
+    }
+
+    @Test
+    public void getNextMasId_isInRange() {
+        int masId = mService.getNextMasId();
+        assertThat(masId).isAtMost(0xff);
+        assertThat(masId).isAtLeast(1);
+    }
+
+    @Test
+    public void sendConnectCancelMessage() {
+        TestableHandler handler = spy(new TestableHandler(Looper.getMainLooper()));
+        mService.mSessionStatusHandler = handler;
+
+        mService.sendConnectCancelMessage();
+
+        verify(handler, timeout(1_000)).messageArrived(
+                eq(MSG_MAS_CONNECT_CANCEL), anyInt(), anyInt(), any());
+    }
+
+    @Test
+    public void sendConnectTimeoutMessage() {
+        TestableHandler handler = spy(new TestableHandler(Looper.getMainLooper()));
+        mService.mSessionStatusHandler = handler;
+
+        mService.sendConnectTimeoutMessage();
+
+        verify(handler, timeout(1_000)).messageArrived(
+                eq(USER_TIMEOUT), anyInt(), anyInt(), any());
+    }
+
+    @Test
+    public void updateMasInstances() {
+        int action = 5;
+        TestableHandler handler = spy(new TestableHandler(Looper.getMainLooper()));
+        mService.mSessionStatusHandler = handler;
+
+        mService.updateMasInstances(action);
+
+        verify(handler, timeout(1_000)).messageArrived(
+                eq(UPDATE_MAS_INSTANCES), eq(action), anyInt(), any());
+    }
+
+    public static class TestableHandler extends Handler {
+        public TestableHandler(Looper looper) {
+            super(looper);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            messageArrived(msg.what, msg.arg1, msg.arg2, msg.obj);
+        }
+
+        public void messageArrived(int what, int arg1, int arg2, Object obj) {}
+    }
+
+    @Test
+    public void testDumpDoesNotCrash() {
+        mService.dump(new StringBuilder());
     }
 }

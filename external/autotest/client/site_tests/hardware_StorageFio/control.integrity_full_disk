@@ -7,6 +7,7 @@ AUTHOR = 'puthik'
 PURPOSE = 'Verify that data written to disk remains valid after 72 hours.'
 TIME = 'LENGTHY'
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 DOC = """
 Test full drive integrity for internal disk.

@@ -5,6 +5,8 @@ default	rel
 %define XMMWORD
 %define YMMWORD
 %define ZMMWORD
+
+%include "ring_core_generated/prefix_symbols_nasm.inc"
 section	.text code align=64
 
 
@@ -338,14 +340,14 @@ $L$6x_done:
 	DB	0F3h,0C3h		;repret
 
 
-global	GFp_aesni_gcm_decrypt
+global	aesni_gcm_decrypt
 
 ALIGN	32
-GFp_aesni_gcm_decrypt:
+aesni_gcm_decrypt:
 	mov	QWORD[8+rsp],rdi	;WIN64 prologue
 	mov	QWORD[16+rsp],rsi
 	mov	rax,rsp
-$L$SEH_begin_GFp_aesni_gcm_decrypt:
+$L$SEH_begin_aesni_gcm_decrypt:
 	mov	rdi,rcx
 	mov	rsi,rdx
 	mov	rdx,r8
@@ -486,7 +488,7 @@ $L$gcm_dec_abort:
 	mov	rsi,QWORD[16+rsp]
 	DB	0F3h,0C3h		;repret
 
-$L$SEH_end_GFp_aesni_gcm_decrypt:
+$L$SEH_end_aesni_gcm_decrypt:
 
 ALIGN	32
 _aesni_ctr32_6x:
@@ -580,14 +582,14 @@ $L$handle_ctr32_2:
 
 
 
-global	GFp_aesni_gcm_encrypt
+global	aesni_gcm_encrypt
 
 ALIGN	32
-GFp_aesni_gcm_encrypt:
+aesni_gcm_encrypt:
 	mov	QWORD[8+rsp],rdi	;WIN64 prologue
 	mov	QWORD[16+rsp],rsi
 	mov	rax,rsp
-$L$SEH_begin_GFp_aesni_gcm_encrypt:
+$L$SEH_begin_aesni_gcm_encrypt:
 	mov	rdi,rcx
 	mov	rsi,rdx
 	mov	rdx,r8
@@ -894,7 +896,7 @@ $L$gcm_enc_abort:
 	mov	rsi,QWORD[16+rsp]
 	DB	0F3h,0C3h		;repret
 
-$L$SEH_end_GFp_aesni_gcm_encrypt:
+$L$SEH_end_aesni_gcm_encrypt:
 ALIGN	64
 $L$bswap_mask:
 DB	15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0
@@ -1006,20 +1008,20 @@ $L$common_seh_tail:
 
 section	.pdata rdata align=4
 ALIGN	4
-	DD	$L$SEH_begin_GFp_aesni_gcm_decrypt wrt ..imagebase
-	DD	$L$SEH_end_GFp_aesni_gcm_decrypt wrt ..imagebase
+	DD	$L$SEH_begin_aesni_gcm_decrypt wrt ..imagebase
+	DD	$L$SEH_end_aesni_gcm_decrypt wrt ..imagebase
 	DD	$L$SEH_gcm_dec_info wrt ..imagebase
 
-	DD	$L$SEH_begin_GFp_aesni_gcm_encrypt wrt ..imagebase
-	DD	$L$SEH_end_GFp_aesni_gcm_encrypt wrt ..imagebase
-	DD	$L$SEH_GFp_gcm_enc_info wrt ..imagebase
+	DD	$L$SEH_begin_aesni_gcm_encrypt wrt ..imagebase
+	DD	$L$SEH_end_aesni_gcm_encrypt wrt ..imagebase
+	DD	$L$SEH_gcm_enc_info wrt ..imagebase
 section	.xdata rdata align=8
 ALIGN	8
 $L$SEH_gcm_dec_info:
 DB	9,0,0,0
 	DD	gcm_se_handler wrt ..imagebase
 	DD	$L$gcm_dec_body wrt ..imagebase,$L$gcm_dec_abort wrt ..imagebase
-$L$SEH_GFp_gcm_enc_info:
+$L$SEH_gcm_enc_info:
 DB	9,0,0,0
 	DD	gcm_se_handler wrt ..imagebase
 	DD	$L$gcm_enc_body wrt ..imagebase,$L$gcm_enc_abort wrt ..imagebase

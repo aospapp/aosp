@@ -26,4 +26,9 @@ java_library_host {
         "tradefed",
         "mts-tradefed",
     ],
+
+    static_libs: [
+        // Import common validation tests
+        "suite-loading-tests",
+    ],
 }

@@ -20,9 +20,10 @@ limitations under the License.
 #ifndef TENSORFLOW_STREAM_EXECUTOR_ROCM_ROCM_BLAS_H_
 #define TENSORFLOW_STREAM_EXECUTOR_ROCM_ROCM_BLAS_H_
 
+#include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/types/span.h"
 #include "rocm/include/rocblas.h"
-#include "tensorflow/core/platform/thread_annotations.h"
 #include "tensorflow/stream_executor/blas.h"
 #include "tensorflow/stream_executor/platform/port.h"
 #include "tensorflow/stream_executor/plugin_registry.h"
@@ -89,7 +90,7 @@ class ROCMBlas : public blas::BlasSupport {
   // rocBLAS is stateful, and only be associated with one stream (in order to
   // enqueue dispatch) at a given time. As a result, this generally must be
   // invoked before calling into rocBLAS.
-  bool SetStream(Stream *stream) TF_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  bool SetStream(Stream *stream) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   // A helper function that calls the real rocBLAS function together with error
   // handling.
@@ -164,24 +165,27 @@ class ROCMBlas : public blas::BlasSupport {
   template <typename T, typename FuncT>
   port::Status DoBlasGemmBatchedInternal(
       FuncT rocblas_func, Stream *stream, blas::Transpose transa,
-      blas::Transpose transb, uint64 m, uint64 n, uint64 k, T alpha,
-      const port::ArraySlice<DeviceMemory<T> *> &a_ptrs_to_wrappers, int lda,
-      const port::ArraySlice<DeviceMemory<T> *> &b_ptrs_to_wrappers, int ldb,
-      T beta, const port::ArraySlice<DeviceMemory<T> *> &c_ptrs_to_wrappers,
+      blas::Transpose transb, uint64_t m, uint64 n, uint64 k, T alpha,
+      const absl::Span<DeviceMemory<T> *const> &a_ptrs_to_wrappers, int lda,
+      const absl::Span<DeviceMemory<T> *const> &b_ptrs_to_wrappers, int ldb,
+      T beta, const absl::Span<DeviceMemory<T> *const> &c_ptrs_to_wrappers,
       int ldc, int batch_count, ScratchAllocator *scratch_allocator);
 
   // Helper function for implementing DoBlasGemmWithProfiling.
   template <typename T, typename ParamType>
-  bool DoBlasGemmWithProfilingImpl(
-      Stream *stream, blas::Transpose transa, blas::Transpose transb, uint64 m,
-      uint64 n, uint64 k, const ParamType &alpha, const DeviceMemory<T> &a,
-      int lda, const DeviceMemory<T> &b, int ldb, const ParamType &beta,
-      DeviceMemory<T> *c, int ldc, blas::ProfileResult *output_profile_result);
+  bool DoBlasGemmWithProfilingImpl(Stream *stream, blas::Transpose transa,
+                                   blas::Transpose transb, uint64_t m,
+                                   uint64_t n, uint64 k, const ParamType &alpha,
+                                   const DeviceMemory<T> &a, int lda,
+                                   const DeviceMemory<T> &b, int ldb,
+                                   const ParamType &beta, DeviceMemory<T> *c,
+                                   int ldc,
+                                   blas::ProfileResult *output_profile_result);
 
   // Helper function for implementing DoBlasGemvWithProfiling.
   template <typename T>
   bool DoBlasGemvWithProfilingImpl(Stream *stream, blas::Transpose trans,
-                                   uint64 m, uint64 n, const T &alpha,
+                                   uint64_t m, uint64 n, const T &alpha,
                                    const DeviceMemory<T> &a, int lda,
                                    const DeviceMemory<T> &x, int incx,
                                    const T &beta, DeviceMemory<T> *y, int incy,
@@ -195,7 +199,7 @@ class ROCMBlas : public blas::BlasSupport {
   GpuExecutor *parent_;
 
   // rocBLAS library handle on the device.
-  rocblas_handle blas_ TF_GUARDED_BY(mu_);
+  rocblas_handle blas_ ABSL_GUARDED_BY(mu_);
 
   SE_DISALLOW_COPY_AND_ASSIGN(ROCMBlas);
 };

@@ -1,0 +1,11 @@
+<manifest version="1.0" type="device" target-level="7">
+    <hal format="hidl">
+       <name>vendor.google.audiometricext</name>
+       <transport>hwbinder</transport>
+       <version>1.0</version>
+       <interface>
+           <name>IAudioMetricExt</name>
+           <instance>default</instance>
+       </interface>
+    </hal>
+</manifest>

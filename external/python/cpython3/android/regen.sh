@@ -20,7 +20,15 @@ cd `dirname ${BASH_SOURCE[0]}`
 
 ANDROID_BUILD_TOP=$(cd ../../../..; pwd)
 
-DIR=`uname | tr 'A-Z' 'a-z'`_x86_64
+if [ $(uname) == 'Darwin' ]; then
+  DIR=darwin
+else
+  if [ $(uname -m) == 'aarch64' ]; then
+      DIR=linux_arm64
+  else
+      DIR=linux_x86_64
+  fi
+fi
 mkdir -p $DIR/pyconfig
 cd $DIR
 
@@ -30,6 +38,11 @@ if [ $DIR == "linux_x86_64" ]; then
   export CC="$ANDROID_BUILD_TOP/prebuilts/clang/host/linux-x86/$CLANG_VERSION/bin/clang"
   export CFLAGS="--sysroot=$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/sysroot"
   export LDFLAGS="--sysroot=$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/sysroot -B$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/lib/gcc/x86_64-linux/4.8.3 -L$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/lib/gcc/x86_64-linux/4.8.3 -L$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/x86_64-linux/lib64"
+elif [ $DIR == "linux_arm64" ]; then
+  #export CC="$ANDROID_BUILD_TOP/prebuilts/clang/host/linux-x86/$CLANG_VERSION/bin/clang"
+  export CC=clang
+  export CFLAGS="--sysroot=$ANDROID_BUILD_TOP/prebuilts/build-tools/sysroots/aarch64-linux-musl"
+  export LDFLAGS="--sysroot=$ANDROID_BUILD_TOP/prebuilts/build-tools/sysroots/aarch64-linux-musl -rtlib=compiler-rt -fuse-ld=lld --unwindlib=none"
 fi
 
 #
@@ -40,10 +53,25 @@ mkdir tmp
 cd tmp
 ../../../configure
 
-if [ $DIR == "darwin_x86_64" ]; then
+if [ $DIR == "darwin" ]; then
   # preadv and pwritev are not safe on <11, which we still target
   sed -ibak "s%#define HAVE_PREADV 1%/* #undef HAVE_PREADV */%" pyconfig.h
   sed -ibak "s%#define HAVE_PWRITEV 1%/* #undef HAVE_PWRITEV */%" pyconfig.h
+  # mkfifoat and mknodat are not safe on <13, which we still target
+  sed -ibak "s%#define HAVE_MKNODAT 1%/* #undef HAVE_MKNODAT */%" pyconfig.h
+  sed -ibak "s%#define HAVE_MKFIFOAT 1%/* #undef HAVE_MKFIFOAT */%" pyconfig.h
+
+  if [ $(machine) != "x86_64h" ]; then
+    echo "This script expects to be run on an X86_64 machine"
+    exit 1
+  fi
+
+  # Changes to support darwin_arm64
+  sed -ibak 's%#define HAVE_FINITE 1%#ifdef __x86_64__\n#define HAVE_FINITE 1\n#endif%' pyconfig.h
+  sed -ibak 's%#define HAVE_GAMMA 1%#ifdef __x86_64__\n#define HAVE_GAMMA 1\n#endif%' pyconfig.h
+  sed -ibak 's%#define HAVE_GCC_ASM_FOR_X64 1%#ifdef __x86_64__\n#define HAVE_GCC_ASM_FOR_X64 1\n#endif%' pyconfig.h
+  sed -ibak 's%#define HAVE_GCC_ASM_FOR_X87 1%#ifdef __x86_64__\n#define HAVE_GCC_ASM_FOR_X87 1\n#endif%' pyconfig.h
+  sed -ibak 's%#define SIZEOF_LONG_DOUBLE .*%#ifdef __x86_64__\n#define SIZEOF_LONG_DOUBLE 16\n#else\n#define SIZEOF_LONG_DOUBLE 8\n#endif%' pyconfig.h
 fi
 
 if [ $DIR == "linux_x86_64" ]; then

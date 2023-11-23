@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <jni.h>
+
 #include <android/log.h>
 
 #include "DefaultAudioSink.h"
@@ -28,5 +30,15 @@ void DefaultAudioSink::stop() {
 }
 
 void DefaultAudioSink::push(float* audioData, int numChannels, int numFrames) {
-    __android_log_print(ANDROID_LOG_INFO, TAG, "process()");
+    // __android_log_print(ANDROID_LOG_INFO, TAG, "process()");
 }
+
+extern "C" {
+JNIEXPORT jlong JNICALL
+Java_org_hyphonate_megaaudio_recorder_sinks_NopAudioSinkProvider_allocOboeSinkN(
+        JNIEnv *env, jobject thiz) {
+    __android_log_print(ANDROID_LOG_INFO, TAG, "Java_org_hyphonate_megaaudio_recorder_sinks_NopAudioSinkProvider_allocOboeSinkN");
+    DefaultAudioSink* sink = new DefaultAudioSink();
+    return (jlong)sink;
+}
+} // extern "C"

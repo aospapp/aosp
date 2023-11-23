@@ -154,7 +154,8 @@ typedef enum {
   BTA_AV_CODEC_TYPE_AAC = 0x02,
   BTA_AV_CODEC_TYPE_APTX = 0x04,
   BTA_AV_CODEC_TYPE_APTXHD = 0x08,
-  BTA_AV_CODEC_TYPE_LDAC = 0x10
+  BTA_AV_CODEC_TYPE_LDAC = 0x10,
+  BTA_AV_CODEC_TYPE_OPUS = 0x20
 } tBTA_AV_CODEC_TYPE;
 
 /* Event associated with BTA_AV_ENABLE_EVT */
@@ -500,7 +501,7 @@ void BTA_AvDisconnect(tBTA_AV_HNDL handle);
  * Returns          void
  *
  ******************************************************************************/
-void BTA_AvStart(tBTA_AV_HNDL handle);
+void BTA_AvStart(tBTA_AV_HNDL handle, bool use_latency_mode);
 
 /*******************************************************************************
  *
@@ -673,6 +674,17 @@ void BTA_AvMetaRsp(uint8_t rc_handle, uint8_t label, tBTA_AV_CODE rsp_code,
  ******************************************************************************/
 void BTA_AvMetaCmd(uint8_t rc_handle, uint8_t label, tBTA_AV_CMD cmd_code,
                    BT_HDR* p_pkt);
+
+/*******************************************************************************
+ *
+ * Function         BTA_AvSetLatency
+ *
+ * Description      Set audio/video stream latency.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void BTA_AvSetLatency(tBTA_AV_HNDL handle, bool is_low_latency);
 
 /*******************************************************************************
  *

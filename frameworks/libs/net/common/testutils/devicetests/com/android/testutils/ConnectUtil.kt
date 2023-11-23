@@ -32,6 +32,7 @@ import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry.getInstrumentation
+import com.android.testutils.RecorderCallback.CallbackEntry
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertNotNull
@@ -63,6 +64,7 @@ class ConnectUtil(private val context: Context) {
 
         try {
             val connInfo = wifiManager.connectionInfo
+            Log.d(TAG, "connInfo=" + connInfo)
             if (connInfo == null || connInfo.networkId == -1) {
                 clearWifiBlocklist()
                 val pfd = getInstrumentation().uiAutomation.executeShellCommand("svc wifi enable")
@@ -71,11 +73,9 @@ class ConnectUtil(private val context: Context) {
                 val config = getOrCreateWifiConfiguration()
                 connectToWifiConfig(config)
             }
-            val cb = callback.eventuallyExpectOrNull<RecorderCallback.CallbackEntry.Available>(
-                    timeoutMs = WIFI_CONNECT_TIMEOUT_MS)
-
+            val cb = callback.poll(WIFI_CONNECT_TIMEOUT_MS) { it is CallbackEntry.Available }
             assertNotNull(cb, "Could not connect to a wifi access point within " +
-                    "$WIFI_CONNECT_INTERVAL_MS ms. Check that the test device has a wifi network " +
+                    "$WIFI_CONNECT_TIMEOUT_MS ms. Check that the test device has a wifi network " +
                     "configured, and that the test access point is functioning properly.")
             return cb.network
         } finally {

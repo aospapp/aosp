@@ -17,7 +17,7 @@
 package com.android.permissioncontroller.permission.service
 
 import android.permission.PermissionManager
-import com.android.permissioncontroller.permission.utils.Utils
+import com.android.permissioncontroller.permission.utils.PermissionMapping
 
 /**
  * Takes a list of split permissions, and provides methods that return which split-permissions will
@@ -37,15 +37,15 @@ class SplitPermissionIndex() {
         for (splitPerm in splitPermissionInfos) {
             val oldPerm = splitPerm.splitPermission
             for (newPerm in splitPerm.newPermissions) {
-                val oldPermGroup = Utils.getGroupOfPlatformPermission(oldPerm)
-                val newPermGroup = Utils.getGroupOfPlatformPermission(newPerm)
+                val oldPermGroup = PermissionMapping.getGroupOfPlatformPermission(oldPerm)
+                val newPermGroup = PermissionMapping.getGroupOfPlatformPermission(newPerm)
                 if (newPermGroup != null) {
                     permToGroupSplits.add(SplitPermissionIndexEntry(
-                        oldPerm, splitPerm.targetSdk, newPermGroup!!))
+                        oldPerm, splitPerm.targetSdk, newPermGroup))
                 }
                 if (oldPermGroup != null && newPermGroup != null) {
                     groupToGroupSplits.add(SplitPermissionIndexEntry(
-                        oldPermGroup!!, splitPerm.targetSdk, newPermGroup!!))
+                        oldPermGroup, splitPerm.targetSdk, newPermGroup))
                 }
             }
         }

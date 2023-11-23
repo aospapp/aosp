@@ -19,14 +19,6 @@ mod ffi {
     unsafe extern "C++" {
         include!("vintf.hpp");
 
-        /// Gets all HAL names.
-        /// Note that this is not a zero-cost shim: it will make copies of the strings.
-        fn get_hal_names() -> Vec<String>;
-
-        /// Gets all HAL names and versions.
-        /// Note that this is not a zero-cost shim: it will make copies of the strings.
-        fn get_hal_names_and_versions() -> Vec<String>;
-
         /// Gets the instances of the given package, version, and interface tuple.
         /// Note that this is not a zero-cost shim: it will make copies of the strings.
         fn get_hidl_instances(
@@ -35,28 +27,7 @@ mod ffi {
             minor_version: usize,
             interface_name: &str,
         ) -> Vec<String>;
-
-        /// Gets the instances of the given package, version, and interface tuple.
-        /// Note that this is not a zero-cost shim: it will make copies of the strings.
-        fn get_aidl_instances(package: &str, version: usize, interface_name: &str) -> Vec<String>;
     }
 }
 
 pub use ffi::*;
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-
-    #[test]
-    fn test() {
-        let names = get_hal_names();
-        assert_ne!(names.len(), 0);
-
-        let names_and_versions = get_hal_names_and_versions();
-        assert_ne!(names_and_versions.len(), 0);
-
-        assert!(names_and_versions.len() >= names.len());
-    }
-}

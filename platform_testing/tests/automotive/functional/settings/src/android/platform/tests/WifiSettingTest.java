@@ -19,10 +19,10 @@ package android.platform.tests;
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
-import android.platform.helpers.AutoConfigConstants;
 import android.platform.helpers.AutoUtility;
 import android.platform.helpers.HelperAccessor;
 import android.platform.helpers.IAutoSettingHelper;
+import android.platform.helpers.SettingsConstants;
 
 import androidx.test.runner.AndroidJUnit4;
 
@@ -47,7 +47,10 @@ public class WifiSettingTest {
 
     @Before
     public void openNetworkSetting() {
-        mSettingHelper.get().openSetting(AutoConfigConstants.NETWORK_AND_INTERNET_SETTINGS);
+        mSettingHelper.get().openSetting(SettingsConstants.NETWORK_AND_INTERNET_SETTINGS);
+        assertTrue(
+                "Network and Internet settings did not open",
+                mSettingHelper.get().checkMenuExists("Hotspot"));
     }
 
     @After

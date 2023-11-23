@@ -46,7 +46,7 @@
             android:gravity="center"
             android:textColor="@android:color/white"
             android:textSize="@*android:dimen/car_body1_size"
-            android:text="@string/keyguard_enter_your_pattern"
+            android:text="@string/car_keyguard_enter_your_pattern"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"

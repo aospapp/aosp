@@ -17,6 +17,7 @@
 
 use crate::error::{map_binder_status, map_km_error, Error, ErrorCode};
 use crate::key_parameter::KeyParameter;
+use crate::ks_err;
 use crate::permission;
 use crate::permission::{KeyPerm, KeyPermSet, KeystorePerm};
 use crate::{
@@ -51,9 +52,9 @@ use std::iter::IntoIterator;
 pub fn check_keystore_permission(perm: KeystorePerm) -> anyhow::Result<()> {
     ThreadState::with_calling_sid(|calling_sid| {
         permission::check_keystore_permission(
-            calling_sid.ok_or_else(Error::sys).context(
-                "In check_keystore_permission: Cannot check permission without calling_sid.",
-            )?,
+            calling_sid
+                .ok_or_else(Error::sys)
+                .context(ks_err!("Cannot check permission without calling_sid."))?,
             perm,
         )
     })
@@ -65,9 +66,9 @@ pub fn check_keystore_permission(perm: KeystorePerm) -> anyhow::Result<()> {
 pub fn check_grant_permission(access_vec: KeyPermSet, key: &KeyDescriptor) -> anyhow::Result<()> {
     ThreadState::with_calling_sid(|calling_sid| {
         permission::check_grant_permission(
-            calling_sid.ok_or_else(Error::sys).context(
-                "In check_grant_permission: Cannot check permission without calling_sid.",
-            )?,
+            calling_sid
+                .ok_or_else(Error::sys)
+                .context(ks_err!("Cannot check permission without calling_sid."))?,
             access_vec,
             key,
         )
@@ -87,7 +88,7 @@ pub fn check_key_permission(
             ThreadState::get_calling_uid(),
             calling_sid
                 .ok_or_else(Error::sys)
-                .context("In check_key_permission: Cannot check permission without calling_sid.")?,
+                .context(ks_err!("Cannot check permission without calling_sid."))?,
             perm,
             key,
             access_vector,
@@ -103,6 +104,7 @@ pub fn is_device_id_attestation_tag(tag: Tag) -> bool {
             | Tag::ATTESTATION_ID_MEID
             | Tag::ATTESTATION_ID_SERIAL
             | Tag::DEVICE_UNIQUE_ATTESTATION
+            | Tag::ATTESTATION_ID_SECOND_IMEI
     )
 }
 
@@ -135,14 +137,12 @@ fn check_android_permission(permission: &str) -> anyhow::Result<()> {
             ThreadState::get_calling_uid() as i32,
         )
     };
-    let has_permissions = map_binder_status(binder_result)
-        .context("In check_device_attestation_permissions: checkPermission failed")?;
+    let has_permissions =
+        map_binder_status(binder_result).context(ks_err!("checkPermission failed"))?;
     match has_permissions {
         true => Ok(()),
-        false => Err(Error::Km(ErrorCode::CANNOT_ATTEST_IDS)).context(concat!(
-            "In check_device_attestation_permissions: ",
-            "caller does not have the permission to attest device IDs"
-        )),
+        false => Err(Error::Km(ErrorCode::CANNOT_ATTEST_IDS))
+            .context(ks_err!("caller does not have the permission to attest device IDs")),
     }
 }
 
@@ -189,18 +189,15 @@ where
                 );
                 map_km_error(km_dev.upgradeKey(key_blob, upgrade_params))
             }
-            .context("In utils::upgrade_keyblob_if_required_with: Upgrade failed.")?;
+            .context(ks_err!("Upgrade failed."))?;
 
-            new_blob_handler(&upgraded_blob)
-                .context("In utils::upgrade_keyblob_if_required_with: calling new_blob_handler.")?;
+            new_blob_handler(&upgraded_blob).context(ks_err!("calling new_blob_handler."))?;
 
             km_op(&upgraded_blob)
                 .map(|v| (v, Some(upgraded_blob)))
-                .context("In utils::upgrade_keyblob_if_required_with: Calling km_op after upgrade.")
+                .context(ks_err!("Calling km_op after upgrade."))
         }
-        r => r
-            .map(|v| (v, None))
-            .context("In utils::upgrade_keyblob_if_required_with: Calling km_op."),
+        r => r.map(|v| (v, None)).context(ks_err!("Calling km_op.")),
     }
 }
 
@@ -212,6 +209,7 @@ pub fn key_parameters_to_authorizations(
     parameters.into_iter().map(|p| p.into_authorization()).collect()
 }
 
+#[allow(clippy::unnecessary_cast)]
 /// This returns the current time (in milliseconds) as an instance of a monotonic clock,
 /// by invoking the system call since Rust does not support getting monotonic time instance
 /// as an integer.
@@ -260,26 +258,116 @@ pub fn uid_to_android_user(uid: u32) -> u32 {
     rustutils::users::multiuser_get_user_id(uid)
 }
 
-/// List all key aliases for a given domain + namespace.
+/// Merges and filters two lists of key descriptors. The first input list, legacy_descriptors,
+/// is assumed to not be sorted or filtered. As such, all key descriptors in that list whose
+/// alias is less than, or equal to, start_past_alias (if provided) will be removed.
+/// This list will then be merged with the second list, db_descriptors. The db_descriptors list
+/// is assumed to be sorted and filtered so the output list will be sorted prior to returning.
+/// The returned value is a list of KeyDescriptor objects whose alias is greater than
+/// start_past_alias, sorted and de-duplicated.
+fn merge_and_filter_key_entry_lists(
+    legacy_descriptors: &[KeyDescriptor],
+    db_descriptors: &[KeyDescriptor],
+    start_past_alias: Option<&str>,
+) -> Vec<KeyDescriptor> {
+    let mut result: Vec<KeyDescriptor> =
+        match start_past_alias {
+            Some(past_alias) => legacy_descriptors
+                .iter()
+                .filter(|kd| {
+                    if let Some(alias) = &kd.alias {
+                        alias.as_str() > past_alias
+                    } else {
+                        false
+                    }
+                })
+                .cloned()
+                .collect(),
+            None => legacy_descriptors.to_vec(),
+        };
+
+    result.extend_from_slice(db_descriptors);
+    result.sort_unstable();
+    result.dedup();
+    result
+}
+
+fn estimate_safe_amount_to_return(
+    key_descriptors: &[KeyDescriptor],
+    response_size_limit: usize,
+) -> usize {
+    let mut items_to_return = 0;
+    let mut returned_bytes: usize = 0;
+    // Estimate the transaction size to avoid returning more items than what
+    // could fit in a binder transaction.
+    for kd in key_descriptors.iter() {
+        // 4 bytes for the Domain enum
+        // 8 bytes for the Namespace long.
+        returned_bytes += 4 + 8;
+        // Size of the alias string. Includes 4 bytes for length encoding.
+        if let Some(alias) = &kd.alias {
+            returned_bytes += 4 + alias.len();
+        }
+        // Size of the blob. Includes 4 bytes for length encoding.
+        if let Some(blob) = &kd.blob {
+            returned_bytes += 4 + blob.len();
+        }
+        // The binder transaction size limit is 1M. Empirical measurements show
+        // that the binder overhead is 60% (to be confirmed). So break after
+        // 350KB and return a partial list.
+        if returned_bytes > response_size_limit {
+            log::warn!(
+                "Key descriptors list ({} items) may exceed binder \
+                       size, returning {} items est {} bytes.",
+                key_descriptors.len(),
+                items_to_return,
+                returned_bytes
+            );
+            break;
+        }
+        items_to_return += 1;
+    }
+    items_to_return
+}
+
+/// List all key aliases for a given domain + namespace. whose alias is greater
+/// than start_past_alias (if provided).
 pub fn list_key_entries(
     db: &mut KeystoreDB,
     domain: Domain,
     namespace: i64,
+    start_past_alias: Option<&str>,
 ) -> Result<Vec<KeyDescriptor>> {
-    let mut result = Vec::new();
-    result.append(
-        &mut LEGACY_IMPORTER
-            .list_uid(domain, namespace)
-            .context("In list_key_entries: Trying to list legacy keys.")?,
+    let legacy_key_descriptors: Vec<KeyDescriptor> = LEGACY_IMPORTER
+        .list_uid(domain, namespace)
+        .context(ks_err!("Trying to list legacy keys."))?;
+
+    // The results from the database will be sorted and unique
+    let db_key_descriptors: Vec<KeyDescriptor> = db
+        .list_past_alias(domain, namespace, KeyType::Client, start_past_alias)
+        .context(ks_err!("Trying to list keystore database past alias."))?;
+
+    let merged_key_entries = merge_and_filter_key_entry_lists(
+        &legacy_key_descriptors,
+        &db_key_descriptors,
+        start_past_alias,
     );
-    result.append(
-        &mut db
-            .list(domain, namespace, KeyType::Client)
-            .context("In list_key_entries: Trying to list keystore database.")?,
-    );
-    result.sort_unstable();
-    result.dedup();
-    Ok(result)
+
+    const RESPONSE_SIZE_LIMIT: usize = 358400;
+    let safe_amount_to_return =
+        estimate_safe_amount_to_return(&merged_key_entries, RESPONSE_SIZE_LIMIT);
+    Ok(merged_key_entries[..safe_amount_to_return].to_vec())
+}
+
+/// Count all key aliases for a given domain + namespace.
+pub fn count_key_entries(db: &mut KeystoreDB, domain: Domain, namespace: i64) -> Result<i32> {
+    let legacy_keys = LEGACY_IMPORTER
+        .list_uid(domain, namespace)
+        .context(ks_err!("Trying to list legacy keys."))?;
+
+    let num_keys_in_db = db.count_keys(domain, namespace, KeyType::Client)?;
+
+    Ok((legacy_keys.len() + num_keys_in_db) as i32)
 }
 
 /// This module provides helpers for simplified use of the watchdog module.
@@ -333,12 +421,11 @@ pub trait AesGcmKey {
 
 impl<T: AesGcmKey> AesGcm for T {
     fn decrypt(&self, data: &[u8], iv: &[u8], tag: &[u8]) -> Result<ZVec> {
-        aes_gcm_decrypt(data, iv, tag, self.key())
-            .context("In AesGcm<T>::decrypt: Decryption failed")
+        aes_gcm_decrypt(data, iv, tag, self.key()).context(ks_err!("Decryption failed"))
     }
 
     fn encrypt(&self, plaintext: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>)> {
-        aes_gcm_encrypt(plaintext, self.key()).context("In AesGcm<T>::encrypt: Encryption failed.")
+        aes_gcm_encrypt(plaintext, self.key()).context(ks_err!("Encryption failed."))
     }
 }
 
@@ -376,5 +463,85 @@ mod tests {
                 _ => Err(error),
             }
         })
+    }
+
+    fn create_key_descriptors_from_aliases(key_aliases: &[&str]) -> Vec<KeyDescriptor> {
+        key_aliases
+            .iter()
+            .map(|key_alias| KeyDescriptor {
+                domain: Domain::APP,
+                nspace: 0,
+                alias: Some(key_alias.to_string()),
+                blob: None,
+            })
+            .collect::<Vec<KeyDescriptor>>()
+    }
+
+    fn aliases_from_key_descriptors(key_descriptors: &[KeyDescriptor]) -> Vec<String> {
+        key_descriptors
+            .iter()
+            .map(
+                |kd| {
+                    if let Some(alias) = &kd.alias {
+                        String::from(alias)
+                    } else {
+                        String::from("")
+                    }
+                },
+            )
+            .collect::<Vec<String>>()
+    }
+
+    #[test]
+    fn test_safe_amount_to_return() -> Result<()> {
+        let key_aliases = vec!["key1", "key2", "key3"];
+        let key_descriptors = create_key_descriptors_from_aliases(&key_aliases);
+
+        assert_eq!(estimate_safe_amount_to_return(&key_descriptors, 20), 1);
+        assert_eq!(estimate_safe_amount_to_return(&key_descriptors, 50), 2);
+        assert_eq!(estimate_safe_amount_to_return(&key_descriptors, 100), 3);
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_and_sort_lists_without_filtering() -> Result<()> {
+        let legacy_key_aliases = vec!["key_c", "key_a", "key_b"];
+        let legacy_key_descriptors = create_key_descriptors_from_aliases(&legacy_key_aliases);
+        let db_key_aliases = vec!["key_a", "key_d"];
+        let db_key_descriptors = create_key_descriptors_from_aliases(&db_key_aliases);
+        let result =
+            merge_and_filter_key_entry_lists(&legacy_key_descriptors, &db_key_descriptors, None);
+        assert_eq!(aliases_from_key_descriptors(&result), vec!["key_a", "key_b", "key_c", "key_d"]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_and_sort_lists_with_filtering() -> Result<()> {
+        let legacy_key_aliases = vec!["key_f", "key_a", "key_e", "key_b"];
+        let legacy_key_descriptors = create_key_descriptors_from_aliases(&legacy_key_aliases);
+        let db_key_aliases = vec!["key_c", "key_g"];
+        let db_key_descriptors = create_key_descriptors_from_aliases(&db_key_aliases);
+        let result = merge_and_filter_key_entry_lists(
+            &legacy_key_descriptors,
+            &db_key_descriptors,
+            Some("key_b"),
+        );
+        assert_eq!(aliases_from_key_descriptors(&result), vec!["key_c", "key_e", "key_f", "key_g"]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_and_sort_lists_with_filtering_and_dups() -> Result<()> {
+        let legacy_key_aliases = vec!["key_f", "key_a", "key_e", "key_b"];
+        let legacy_key_descriptors = create_key_descriptors_from_aliases(&legacy_key_aliases);
+        let db_key_aliases = vec!["key_d", "key_e", "key_g"];
+        let db_key_descriptors = create_key_descriptors_from_aliases(&db_key_aliases);
+        let result = merge_and_filter_key_entry_lists(
+            &legacy_key_descriptors,
+            &db_key_descriptors,
+            Some("key_c"),
+        );
+        assert_eq!(aliases_from_key_descriptors(&result), vec!["key_d", "key_e", "key_f", "key_g"]);
+        Ok(())
     }
 }

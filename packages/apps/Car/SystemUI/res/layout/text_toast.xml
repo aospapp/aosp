@@ -35,16 +35,16 @@
     <!-- This is needed so that toasts don't crash -->
     <ImageView
         android:id="@+id/icon"
-        android:visibility="gone"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:paddingEnd="16dp"/>
 
     <TextView
         android:id="@+id/text"
         android:layout_width="642dp"
         android:layout_height="wrap_content"
         android:ellipsize="end"
-        android:maxLines="3"
+        android:maxLines="2"
         android:lineHeight="32dp"
         android:textAppearance="@style/TextAppearance.Toast"/>
 </LinearLayout>

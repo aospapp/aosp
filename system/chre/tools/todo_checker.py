@@ -67,7 +67,7 @@ def check_for_unassociated_todos() -> int:
                                               shell=True,
                                               encoding='UTF-8') \
                                               .split('\n')
-  regex = r'TODO\(b\/([0-9]+)(?=[^\/]*$)'
+  regex = r'TODO\(b\/([0-9]+)'
 
   for line in diff_result_lines:
     if line.startswith('+') and not line.startswith('+++') and \

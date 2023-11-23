@@ -19,5 +19,6 @@
         <permission name="android.permission.INTERACT_ACROSS_USERS"/>
         <permission name="android.permission.MANAGE_USERS"/>
         <permission name="android.permission.MODIFY_PHONE_STATE"/>
+        <permission name="android.permission.STATUS_BAR"/>
     </privapp-permissions>
 </permissions>

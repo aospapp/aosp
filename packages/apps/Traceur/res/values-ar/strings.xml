@@ -4,6 +4,9 @@
     <string name="system_tracing" msgid="4719188511746319848">"تتبّع النظام"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"تسجيل نشاط النظام وتحليله لاحقًا لتحسين الأداء"</string>
     <string name="record_trace" msgid="6416875085186661845">"تسجيل آثار الأنشطة"</string>
+    <string name="record_trace_summary" msgid="6705357754827849292">"تسجيل تتبُّع النظام باستخدام مجموعة الإعدادات في \"إعدادات التتبُّع\""</string>
+    <string name="record_stack_samples" msgid="3498368637185702335">"‏تسجيل محلّل وحدة المعالجة المركزية (CPU)"</string>
+    <string name="record_stack_samples_summary" msgid="7827953921526410478">"‏يمكن أيضًا تفعيل جمع عيّنات تكدس الاستدعاءات في أنشطة التتبُّع عن طريق وضع علامة في مربّع فئة \"cpu\"."</string>
     <string name="start_new_trace" msgid="8177130420802170353">"بدء عملية تتبّع جديدة"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"تتبّع التطبيقات التي يمكن تصحيح الأخطاء بها"</string>
     <string name="categories" msgid="2280163673538611008">"الفئات"</string>
@@ -17,7 +20,9 @@
     <string name="show_quick_settings_tile" msgid="4971147332635291585">"إظهار قسم الإعدادات السريعة"</string>
     <string name="saving_trace" msgid="1468692734770800541">"جارٍ حفظ آثار الأنشطة."</string>
     <string name="trace_saved" msgid="5869970594780992309">"تم حفظ آثار الأنشطة."</string>
-    <string name="tap_to_share" msgid="6766732404489536899">"انقر لمشاركة آثار الأنشطة."</string>
+    <string name="saving_stack_samples" msgid="8174915522390525221">"حفظ عيّنات التكدس"</string>
+    <string name="stack_samples_saved" msgid="8863295751647724616">"تم حفظ عيّنات التكدس"</string>
+    <string name="tap_to_share" msgid="4440713575852187545">"انقر لمشاركة التسجيل."</string>
     <string name="attaching_to_report" msgid="2629202947947275886">"جارٍ إرفاق آثار الأنشطة إلى تقرير الخطأ."</string>
     <string name="attached_to_report" msgid="5806905349184608870">"تم إرفاق آثار الأنشطة إلى تقرير الخطأ"</string>
     <string name="attached_to_report_summary" msgid="7665675771190391355">"‏انقر لفتح BetterBug."</string>
@@ -25,18 +30,19 @@
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"بعض فئات التتبّع غير متاحة:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"يتم تسجيل التتبّع"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"انقر لإيقاف التتبّع"</string>
-    <string name="clear_saved_traces" msgid="4809195654452260944">"محو بيانات التتبّع المحفوظة"</string>
-    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"تتم إزالة ملفات التتبُع بعد شهر."</string>
-    <string name="clear_saved_traces_question" msgid="2184026613055303818">"محو آثار الأنشطة المحفوظة"</string>
-    <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"‏سيتم حذف جميع آثار الأنشطة من /data/local/traces"</string>
+    <string name="stack_samples_are_being_recorded" msgid="8669254939248349583">"جارٍ تسجيل عيّنات التكدس"</string>
+    <string name="tap_to_stop_stack_sampling" msgid="5911317684139059415">"انقر لإيقاف جمع عيّنات التكدس."</string>
+    <string name="clear_saved_files" msgid="9156079311231446825">"محو الملفات المحفوظة"</string>
+    <string name="clear_saved_files_summary" msgid="109751867417553670">"يتم محو التسجيلات بعد شهر واحد."</string>
+    <string name="clear_saved_files_question" msgid="8586686617760838834">"هل تريد محو الملفات المحفوظة؟"</string>
+    <string name="all_recordings_will_be_deleted" msgid="7731693738485947891">"‏سيتم حذف التسجيلات من /data/local/traces."</string>
     <string name="clear" msgid="5484761795406948056">"محو"</string>
     <string name="system_traces_storage_title" msgid="8294090839883366871">"عمليات تتبُّع النظام"</string>
     <string name="keywords" msgid="736547007949049535">"‏systrace، التتبّع، الأداء"</string>
-    <string name="share_trace" msgid="4528525067822044385">"مشاركة ملف التتبّع؟"</string>
+    <string name="share_file" msgid="1982029143280382271">"هل تريد مشاركة الملف؟"</string>
     <string name="system_trace_sensitive_data" msgid="3069389866696009549">"قد تشتمل ملفات \"تتبُّع النظام\" على بيانات حساسة عن النظام والتطبيقات (مثل إحصاءات استخدام التطبيقات). يُرجى عدم مشاركة ملفات تتبُّع النظام إلا مع الأشخاص والتطبيقات التي تثق فيها."</string>
     <string name="share" msgid="8443979083706282338">"مشاركة"</string>
     <string name="dont_show_again" msgid="6662492041164390600">"عدم الإظهار مرة أخرى"</string>
-    <string name="use_perfetto_beta" msgid="2725630143916520160">"‏استخدام Perfetto (تجريبي)"</string>
     <string name="long_traces" msgid="5110949471775966329">"آثار الأنشطة طويلة المدة"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"يتم الحفظ في مساحة تخزين الجهاز دائمًا"</string>
     <string name="long_traces_summary_betterbug" msgid="445546400875135624">"يتم الحفظ باستمرار في مساحة تخزين الجهاز (لن يتم الإرفاق بتقارير الخطأ تلقائيًا)"</string>
@@ -58,9 +64,12 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16384 كيلوبايت"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32768 كيلوبايت"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65536 كيلوبايت"</string>
-    <string name="stop_on_bugreport" msgid="2045328149107284734">"إيقاف التتبع لتقارير الأخطاء"</string>
-    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"لإيقاف تسجيلات التتبع النشطة عند بدء تقرير أخطاء."</string>
-    <string name="attach_to_bug_report" msgid="2953745117960948415">"إرفاق آثار الأنشطة بتقارير الخطأ"</string>
-    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"‏إرسال آثار الأنشطة الجاري تنفيذها إلى BetterBug عند جمع تقرير خطأ."</string>
-    <string name="link_to_traces" msgid="6569969595898995517">"عرض ملفات التتبُّع"</string>
+    <string name="stop_on_bugreport" msgid="4591832600597126422">"إيقاف التسجيل لتقارير الأخطاء"</string>
+    <string name="stop_on_bugreport_summary" msgid="1601834864982891381">"لإنهاء التسجيلات النشطة عند بدء تقرير أخطاء"</string>
+    <string name="attach_to_bug_report" msgid="5388986830016247490">"إرفاق التسجيلات بتقارير الأخطاء"</string>
+    <string name="attach_to_bug_report_summary" msgid="4213730623971240002">"‏يمكنك تلقائيًا إرسال التسجيلات الجاري تسجيلها إلى BetterBug عند جمع تقرير خطأ."</string>
+    <string name="link_to_traces" msgid="1404687523304348490">"عرض الملفات المحفوظة"</string>
+    <string name="pref_category_trace_settings" msgid="6507535407023329628">"إعدادات التتبُّع"</string>
+    <string name="pref_category_saved_files" msgid="1477491400970413291">"الملفات المحفوظة"</string>
+    <string name="pref_category_misc" msgid="6217624054980014683">"خيارات متنوعة"</string>
 </resources>

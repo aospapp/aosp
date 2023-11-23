@@ -46,7 +46,11 @@ bool ReadFdToString(int fd, std::string* content) {
 }
 
 bool WriteStringToFd(const std::string& content, int fd) {
-  return WriteStringToFd(content, borrowed_fd(fd));
+  return WriteStringToFd(std::string_view(content), borrowed_fd(fd));
+}
+
+bool WriteStringToFd(const std::string& content, borrowed_fd fd) {
+  return WriteStringToFd(std::string_view(content), fd);
 }
 
 bool ReadFully(int fd, void* data, size_t byte_count) {
@@ -59,6 +63,14 @@ bool ReadFullyAtOffset(int fd, void* data, size_t byte_count, off64_t offset) {
 
 bool WriteFully(int fd, const void* data, size_t byte_count) {
   return WriteFully(borrowed_fd(fd), data, byte_count);
+}
+
+std::string Basename(const std::string& path) {
+  return Basename(std::string_view(path));
+}
+
+std::string Dirname(const std::string& path) {
+  return Dirname(std::string_view(path));
 }
 
 #if defined(__LP64__)

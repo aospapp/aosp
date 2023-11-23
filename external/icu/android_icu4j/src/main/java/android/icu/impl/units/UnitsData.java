@@ -12,6 +12,7 @@ import android.icu.impl.ICUData;
 import android.icu.impl.ICUResourceBundle;
 import android.icu.impl.IllegalIcuArgumentException;
 import android.icu.impl.UResource;
+import android.icu.util.ULocale;
 import android.icu.util.UResourceBundle;
 
 /**
@@ -111,8 +112,8 @@ public class UnitsData {
         return Categories.indexToCategory[index];
     }
 
-    public UnitPreferences.UnitPreference[] getPreferencesFor(String category, String usage, String region) {
-        return this.unitPreferences.getPreferencesFor(category, usage, region);
+    public UnitPreferences.UnitPreference[] getPreferencesFor(String category, String usage, ULocale locale) {
+        return this.unitPreferences.getPreferencesFor(category, usage, locale, this);
     }
 
     /**

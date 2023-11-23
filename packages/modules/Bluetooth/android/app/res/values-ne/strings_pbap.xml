@@ -13,4 +13,6 @@
     <string name="localPhoneName" msgid="9119254982537191352">"मेरो नाम"</string>
     <string name="defaultnumber" msgid="5348816189286607406">"००००००"</string>
     <string name="pbap_notification_group" msgid="4215789331721465381">"ब्लुटुथमार्फत सम्पर्कको आदान प्रदान"</string>
+    <string name="phonebook_advance_feature_support" msgid="8129553051734505128">"फोनबुकको उन्नत सुविधा प्रयोग गर्न मिल्छ"</string>
+    <string name="repair_for_adv_phonebook_feature" msgid="3489797973131684927">"फोनबुकको उन्नत सुविधा प्रयोग गर्न फेरि ब्लुटुथमा कनेक्ट गर्नुहोस्"</string>
 </resources>

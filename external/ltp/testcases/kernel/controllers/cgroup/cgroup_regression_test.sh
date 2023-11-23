@@ -1,26 +1,20 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (c) 2019 Petr Vorel <pvorel@suse.cz>
+# Copyright (c) 2019-2022 Petr Vorel <pvorel@suse.cz>
 # Copyright (c) 2009 FUJITSU LIMITED
 # Author: Li Zefan <lizf@cn.fujitsu.com>
 
 TST_TESTFUNC=test
 TST_SETUP=do_setup
 TST_CLEANUP=do_cleanup
-TST_CNT=9
+TST_CNT=8
 TST_NEEDS_ROOT=1
 TST_NEEDS_TMPDIR=1
 TST_NEEDS_CMDS="awk dmesg find mountpoint rmdir"
 
-. cgroup_lib.sh
-
 do_setup()
 {
 	mkdir cgroup/
-
-	if tst_kvcmp -lt "2.6.29"; then
-		tst_brk TCONF ignored "test must be run with kernel 2.6.29 or newer"
-	fi
 
 	if [ ! -f /proc/cgroups ]; then
 		tst_brk TCONF ignored "Kernel does not support for control groups; skipping testcases";
@@ -145,7 +139,7 @@ test2()
 	fi
 
 	rmdir cgroup/0 cgroup/1
-	umount cgroup/
+	tst_umount $PWD/cgroup
 }
 
 #---------------------------------------------------------------------------
@@ -170,17 +164,8 @@ test3()
 		return
 	fi
 
-	cpu_subsys_path=$(get_cgroup_mountpoint "cpu")
-
-	# Run the test for 30 secs
-	if [ -z "$cpu_subsys_path" ]; then
-		mount -t cgroup -o cpu xxx cgroup/
-		if [ $? -ne 0 ]; then
-			tst_res TFAIL "Failed to mount cpu subsys"
-			return
-		fi
-		cpu_subsys_path=cgroup
-	fi
+	cgroup_require "cpu"
+	cpu_subsys_path=$(cgroup_get_mountpoint "cpu")
 
 	cgroup_regression_3_1.sh $cpu_subsys_path &
 	pid1=$!
@@ -193,7 +178,7 @@ test3()
 	wait $pid2 2>/dev/null
 
 	rmdir $cpu_subsys_path/0 2> /dev/null
-	umount cgroup/ 2> /dev/null
+	cgroup_cleanup
 	check_kernel_bug
 }
 
@@ -222,7 +207,7 @@ test4()
 	mount -t cgroup -o none,name=foo cgroup cgroup/
 	mkdir cgroup/0
 	rmdir cgroup/0
-	umount cgroup/
+	tst_umount $PWD/cgroup
 
 	if dmesg | grep -q "MAX_LOCKDEP_SUBCLASSES too low"; then
 		tst_res TFAIL "lockdep BUG was found"
@@ -254,43 +239,31 @@ test5()
 	mount -t cgroup none cgroup 2> /dev/null
 	mkdir cgroup/0
 	rmdir cgroup/0
-	umount cgroup/ 2> /dev/null
+	tst_umount $PWD/cgroup
 	check_kernel_bug
 }
 
 #---------------------------------------------------------------------------
-# Bug:    There was a race between cgroup_clone and umount
-# Kernel: 2.6.24 - 2.6.28, 2.6.29-rcX
-# Links:  http://lkml.org/lkml/2008/12/24/124
-# Fix:    commit 7b574b7b0124ed344911f5d581e9bc2d83bbeb19
+# Bug:    When running 2 concurrent mount/umount threads, lockdep warning
+#         may be triggered, it's a false positive, and it's VFS' issue but
+#         not cgroup.
+# Kernel: 2.6.24 - 2.6.29-rcX
+# Links:  http://lkml.org/lkml/2009/1/4/352
+# Fix:    commit ada723dcd681e2dffd7d73345cc8fda0eb0df9bd
 #---------------------------------------------------------------------------
 test6()
 {
-	if tst_kvcmp -ge "3.0"; then
-		tst_res TCONF "CONFIG_CGROUP_NS is NOT supported in Kernels >= 3.0"
-		return
-	fi
-
-	if ! grep -q -w "ns" /proc/cgroups; then
-		tst_res TCONF "CONFIG_CGROUP_NS is NOT enabled"
-		return
-	fi
-
 	cgroup_regression_6_1.sh &
 	local pid1=$!
-	cgroup_regression_6_2 &
+	cgroup_regression_6_2.sh &
 	local pid2=$!
 
-	tst_res TINFO "run test for 30 sec"
 	sleep 30
-	kill -USR1 $pid1
-	kill -TERM $pid2
+	kill -USR1 $pid1 $pid2
 	wait $pid1 2>/dev/null
 	wait $pid2 2>/dev/null
 
-	mount -t cgroup -o ns xxx cgroup/ > /dev/null 2>&1
-	rmdir cgroup/[1-9]* > /dev/null 2>&1
-	umount cgroup/
+	umount cgroup/ 2> /dev/null
 	check_kernel_bug
 }
 
@@ -305,21 +278,15 @@ test6()
 test_7_1()
 {
 	local subsys=$1
+	local subsys_path
 	# we should be careful to select a $subsys_path which is related to
 	# cgroup only: if cgroup debugging is enabled a 'debug' $subsys
 	# could be passed here as params and this will lead to ambiguity and
 	# errors when grepping simply for 'debug' in /proc/mounts since we'll
 	# find also /sys/kernel/debug. Helper takes care of this.
-	local subsys_path=$(get_cgroup_mountpoint $subsys)
 
-	if [ -z "$subsys_path" ]; then
-		mount -t cgroup -o $subsys xxx cgroup/
-		if [ $? -ne 0 ]; then
-			tst_res TFAIL "failed to mount $subsys"
-			return
-		fi
-		subsys_path=cgroup
-	fi
+	cgroup_require "$subsys"
+	subsys_path=$(cgroup_get_mountpoint "$subsys")
 
 	mkdir $subsys_path/0
 	sleep 100 < $subsys_path/0 &	# add refcnt to this dir
@@ -334,6 +301,8 @@ test_7_1()
 		wait $! 2>/dev/null
 		umount cgroup/
 	fi
+
+	cgroup_cleanup
 }
 
 test_7_2()
@@ -415,28 +384,5 @@ test8()
 	check_kernel_bug
 }
 
-#---------------------------------------------------------------------------
-# Bug:    When running 2 concurrent mount/umount threads, lockdep warning
-#         may be triggered, it's a false positive, and it's VFS' issue but
-#         not cgroup.
-# Kernel: 2.6.24 - 2.6.29-rcX
-# Links:  http://lkml.org/lkml/2009/1/4/352
-# Fix:    commit ada723dcd681e2dffd7d73345cc8fda0eb0df9bd
-#---------------------------------------------------------------------------
-test9()
-{
-	cgroup_regression_9_1.sh &
-	local pid1=$!
-	cgroup_regression_9_2.sh &
-	local pid2=$!
-
-	sleep 30
-	kill -USR1 $pid1 $pid2
-	wait $pid1 2>/dev/null
-	wait $pid2 2>/dev/null
-
-	umount cgroup/ 2> /dev/null
-	check_kernel_bug
-}
-
+. cgroup_lib.sh
 tst_run

@@ -39,11 +39,16 @@ license {
 
 rust_library {
     name: "libglob",
-    // has rustc warnings
     host_supported: true,
     crate_name: "glob",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.3.0",
+    cargo_pkg_version: "0.3.1",
     srcs: ["src/lib.rs"],
     edition: "2015",
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }

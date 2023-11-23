@@ -20,6 +20,7 @@ android_test_helper_app {
     name: "CtsAppUsageTestApp",
     defaults: ["cts_support_defaults"],
     srcs: ["src/**/*.java"],
+    min_sdk_version: "29",
     sdk_version: "current",
     // tag this module as a cts test artifact
     test_suites: [
@@ -35,6 +36,7 @@ android_test_helper_app {
     name: "CtsAppUsageTestAppToo",
     defaults: ["cts_support_defaults"],
     srcs: ["src/**/*.java"],
+    min_sdk_version: "29",
     sdk_version: "current",
     // tag this module as a cts test artifact
     test_suites: [

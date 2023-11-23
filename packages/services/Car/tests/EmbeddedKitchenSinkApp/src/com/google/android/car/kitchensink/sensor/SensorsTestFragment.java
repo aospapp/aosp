@@ -144,6 +144,7 @@ public class SensorsTestFragment extends Fragment {
     private TextView mGyroLimitedAxesInfo;
     private TextView mAccelLimitedAxesUncalInfo;
     private TextView mGyroLimitedAxesUncalInfo;
+    private TextView mHeadingInfo;
 
     @Nullable
     @Override
@@ -169,6 +170,7 @@ public class SensorsTestFragment extends Fragment {
         mAccelLimitedAxesUncalInfo =
                 (TextView) view.findViewById(R.id.accel_limited_axes_uncal_info);
         mGyroLimitedAxesUncalInfo = (TextView) view.findViewById(R.id.gyro_limited_axes_uncal_info);
+        mHeadingInfo = (TextView) view.findViewById(R.id.heading_info);
 
         mNaString = getContext().getString(R.string.sensor_na);
         return view;
@@ -386,6 +388,10 @@ public class SensorsTestFragment extends Fragment {
 
         public void setGyroLimitedAxesUncalField(String value) {
             setTimestampedTextField(mGyroLimitedAxesUncalInfo, value);
+        }
+
+        public void setHeadingField(String value) {
+            setTimestampedTextField(mHeadingInfo, value);
         }
 
         private void setTimestampedTextField(TextView text, String value) {

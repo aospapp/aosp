@@ -5,23 +5,40 @@
       "path": "external/rust/crates/argh"
     },
     {
-      "path": "external/rust/crates/base64"
-    }
-  ],
-  "presubmit": [
-    {
-      "name": "authfs_device_test_src_lib"
+      "path": "external/rust/crates/heck/0.3.3"
     },
     {
-      "name": "heck_test_src_lib"
-    }
-  ],
-  "presubmit-rust": [
-    {
-      "name": "authfs_device_test_src_lib"
+      "path": "external/rust/crates/libsqlite3-sys"
     },
     {
-      "name": "heck_test_src_lib"
+      "path": "packages/modules/Virtualization/apkdmverity"
+    },
+    {
+      "path": "packages/modules/Virtualization/authfs"
+    },
+    {
+      "path": "packages/modules/Virtualization/avmd"
+    },
+    {
+      "path": "packages/modules/Virtualization/encryptedstore"
+    },
+    {
+      "path": "packages/modules/Virtualization/virtualizationmanager"
+    },
+    {
+      "path": "packages/modules/Virtualization/vm"
+    },
+    {
+      "path": "packages/modules/Virtualization/zipfuse"
+    },
+    {
+      "path": "system/security/diced"
+    },
+    {
+      "path": "system/security/keystore2"
+    },
+    {
+      "path": "system/security/keystore2/legacykeystore"
     }
   ]
 }

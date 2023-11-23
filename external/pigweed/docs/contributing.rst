@@ -16,35 +16,41 @@ to respect these guidelines.
 
 Pigweed contribution overview
 -----------------------------
-
-#. One-time contributor setup:
-
-  - Sign the `Contributor License Agreement <https://cla.developers.google.com/>`_.
-  - Verify that your Git user email (git config user.email) is either Google
-    Account email or an Alternate email for the Google account used to sign
-    the CLA (Manage Google account → Personal Info → email)
-  - Sign in to `Gerrit <https://pigweed-review.googlesource.com/>`_ to create
-    an account using the same Google account you used above.
-  - Obtain a login cookie from Gerrit's `new-password <https://pigweed-review.googlesource.com/new-password>`_ page
-  - Install the Gerrit commit hook to automatically add a ``Change-Id: ...``
-    line to your commit
-  - Install the Pigweed presubmit check hook with ``pw presubmit --install``
-
-#. Ensure all files include the correct copyright and license headers
-#. Include any necessary changes to the documentation
-#. Run :ref:`module-pw_presubmit` to detect style or compilation issues before
-   uploading
-#. Upload the change with ``git push origin HEAD:refs/for/main``
-#. Address any reviewer feedback by amending the commit (``git commit --amend``)
-#. Submit change to CI builders to merge. If you are not part of Pigweed's
-   core team, you can ask the reviewer to add the `+2 CQ` vote, which will
-   trigger a rebase and submit once the builders pass
-
 .. note::
 
   If you have any trouble with this flow, reach out in our `chat room
   <https://discord.gg/M9NSeTA>`_ or on the `mailing list
   <https://groups.google.com/forum/#!forum/pigweed>`_ for help.
+
+One-time contributor setup
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+#. Sign the
+   `Contributor License Agreement <https://cla.developers.google.com/>`_.
+#. Verify that your Git user email (git config user.email) is either Google
+   Account email or an Alternate email for the Google account used to sign
+   the CLA (Manage Google account → Personal Info → email).
+#. Obtain a login cookie from Gerrit's
+   `new-password <https://pigweed.googlesource.com/new-password>`_ page.
+#. Install the :ref:`gerrit-commit-hook` to automatically add a
+   ``Change-Id: ...`` line to your commit.
+#. Install the Pigweed presubmit check hook with ``pw presubmit --install``.
+   Remember to :ref:`activate-pigweed-environment` first!
+
+Change submission process
+^^^^^^^^^^^^^^^^^^^^^^^^^
+#. Ensure all files include the correct copyright and license headers.
+#. Include any necessary changes to the documentation.
+#. Run :ref:`module-pw_presubmit` to detect style or compilation issues before
+   uploading.
+#. Upload the change with ``git push origin HEAD:refs/for/main``.
+#. Add ``gwsq-pigweed@pigweed.google.com.iam.gserviceaccount.com`` as a
+   reviewer. This will automatically choose an appropriate person to review the
+   change.
+#. Address any reviewer feedback by amending the commit
+   (``git commit --amend``).
+#. Submit change to CI builders to merge. If you are not part of Pigweed's
+   core team, you can ask the reviewer to add the `+2 CQ` vote, which will
+   trigger a rebase and submit once the builders pass.
 
 Contributor License Agreement
 -----------------------------
@@ -58,6 +64,8 @@ You generally only need to submit a CLA once, so if you've already submitted one
 (even if it was for a different project), you probably don't need to do it
 again.
 
+.. _gerrit-commit-hook:
+
 Gerrit Commit Hook
 ------------------
 Gerrit requires all changes to have a ``Change-Id`` tag at the bottom of each
@@ -65,6 +73,9 @@ commit message. You should set this up to be done automatically using the
 instructions below.
 
 **Linux/macOS**
+
+The command below assumes that your current working directory is the root
+of your Pigweed repository.
 
 .. code:: bash
 
@@ -80,167 +91,10 @@ it to the ``.git\hooks`` directory in the Pigweed repository.
 
   copy %HOMEPATH%\Downloads\commit-msg %HOMEPATH%\pigweed\.git\hooks\commit-msg
 
-Commit message
+Commit Message
 --------------
-Consider the following when writing a commit message:
-
-#. **Documentation and comments are better** - Consider whether the commit
-   message contents would be better expressed in the documentation or code
-   comments. Docs and code comments are durable and readable later; commit
-   messages are rarely read after the change lands.
-#. **Include why the change is made, not just what the change is** - It is
-   important to include a "why" component in most commits. Sometimes, why is
-   evident - for example, reducing memory usage, or optimizing. But it is often
-   not. Err on the side of over-explaining why, not under-explaining why.
-
-Pigweed commit messages should conform to the following style:
-
-**Yes:**
-
-.. code:: none
-
-   pw_some_module: Short capitalized description
-
-   Details about the change here. Include a summary of the what, and a clear
-   description of why the change is needed for future maintainers.
-
-   Consider what parts of the commit message are better suited for
-   documentation.
-
-**Yes**: Small number of modules affected; use {} syntax.
-
-.. code:: none
-
-   pw_{foo, bar, baz}: Change something in a few places
-
-   When changes cross a few modules, include them with the syntax shown above.
-
-
-**Yes**: targets are effectively modules, even though they're nested, so they get a
-``/`` character.
-
-.. code:: none
-
-   targets/xyz123: Tweak support for XYZ's PQR
-
-**Yes**: Uses imperative style for subject and text.
-
-.. code:: none
-
-   pw_something: Add foo and bar functions
-
-   This commit correctly uses imperative present-tense style.
-
-**No**: Uses non-imperative style for subject and text.
-
-.. code:: none
-
-   pw_something: Adds more things
-
-   Use present tense imperative style for subjects and commit. The above
-   subject has a plural "Adds" which is incorrect; should be "Add".
-
-**Yes**: Use bulleted lists when multiple changes are in a single CL. Prefer
-smaller CLs, but larger CLs are a practical reality.
-
-.. code:: none
-
-   pw_complicated_module: Pre-work for refactor
-
-   Prepare for a bigger refactor by reworking some arguments before the larger
-   change. This change must land in downstream projects before the refactor to
-   enable a smooth transition to the new API.
-
-   - Add arguments to MyImportantClass::MyFunction
-   - Update MyImportantClass to handle precondition Y
-   - Add stub functions to be used during the transition
-
-**No**: Run on paragraph instead of bulleted list
-
-.. code:: none
-
-   pw_foo: Many things in a giant BWOT
-
-   This CL does A, B, and C. The commit message is a Big Wall Of Text (BWOT),
-   which we try to discourage in Pigweed. Also changes X and Y, because Z and
-   Q. Furthermore, in some cases, adds a new Foo (with Bar, because we want
-   to). Also refactors qux and quz.
-
-**No**: Doesn't capitalize the subject
-
-.. code:: none
-
-   pw_foo: do a thing
-
-   Above subject is incorrect, since it is a sentence style subject.
-
-**Yes**: Doesn't capitalize the subject when subject's first word is a
-lowercase identifier.
-
-.. code:: none
-
-   pw_foo: std::unique_lock cleanup
-
-   This commit message demonstrates the subject when the subject has an
-   identifier for the first word. In that case, follow the identifier casing
-   instead of capitalizing.
-
-   However, imperative style subjects often have the identifier elsewhere in
-   the subject; for example:
-
-     pw_foo: Improve use of std::unique_lock
-
-**No**: Uses a non-standard ``[]`` to indicate moduule:
-
-.. code:: none
-
-   [pw_foo]: Do a thing
-
-**No**: Has a period at the end of the subject
-
-.. code:: none
-
-   pw_bar: Do somehthing great.
-
-**No**: Puts extra stuff after the module which isn't a module.
-
-.. code:: none
-
-   pw_bar/byte_builder: Add more stuff to builder
-
-Footer
-^^^^^^
-We support a number of `git footers`_ in the commit message, such as ``Bug:
-123`` in the message below:
-
-.. code:: none
-
-   pw_something: Add foo and bar functions
-
-   Bug: 123
-
-You are encouraged to use the following footers when appropriate:
-
-* ``Bug``: Associates this commit with a bug (issue in our `bug tracker`_). The
-  bug will be automatically updated when the change is submitted. When a change
-  is relevant to more than one bug, include multiple ``Bug`` lines, like so:
-
-  .. code:: none
-
-      pw_something: Add foo and bar functions
-
-      Bug: 123
-      Bug: 456
-
-* ``Fixed``: Like ``Bug``, but automatically closes the bug when submitted.
-
-In addition, we support all of the `Chromium CQ footers`_, but those are
-relatively rarely useful.
-
-.. _bug tracker: https://bugs.chromium.org/p/pigweed/issues/list
-.. _Chromium CQ footers: https://chromium.googlesource.com/chromium/src/+/refs/heads/main/docs/infra/cq.md#options
-.. _git footers: https://commondatastorage.googleapis.com/chrome-infra-docs/flat/depot_tools/docs/html/git-footers.html
-
+See the :ref:`commit message section of the style guide<commit-style>` for how
+commit messages should look.
 
 Documentation
 -------------
@@ -266,9 +120,37 @@ development workflow <http://ceres-solver.org/contributing.html>`_. Consult the
 <https://gerrit-documentation.storage.googleapis.com/Documentation/2.12.3/intro-user.html>`_
 for more information on using Gerrit.
 
+You may add the special address
+``gwsq-pigweed@pigweed.google.com.iam.gserviceaccount.com`` as a reviewer to
+have Gerrit automatically choose an appropriate person to review your change.
+
 In the future we may support GitHub pull requests, but until that time we will
 close GitHub pull requests and ask that the changes be uploaded to Gerrit
 instead.
+
+Instructions for reviewers
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+#.  Get the `Gerrit Monitor extension
+    <https://chrome.google.com/webstore/detail/gerrit-monitor/leakcdjcdifiihdgalplgkghidmfafoh?hl=en>`_.
+#.  When added to the attention set for a change, respond within 1 business day:
+
+    * Review the change if possible, OR
+    * If you will not be able to review the change within 1 business day (e.g.
+      due to handling P0s), comment on the change stating so, and reassign to
+      another reviewer if possible.
+    * The response time expectation only applies to Googlers working full-time
+      on Pigweed.
+#. Remove yourself from the `attention set
+   <https://gerrit-review.googlesource.com/Documentation/user-attention-set.html>`_
+   for changes where another person (author or reviewer) must take action
+   before you can continue to review. You are encouraged, but not required, to
+   leave a comment when doing so, especially for changes by external
+   contributors who may not be familiar with our process.
+
+SLO
+^^^
+90% of changes on which a Googler working on Pigweed full-time is added to the
+attention set as a reviewer get triaged within 1 business day.
 
 Community Guidelines
 --------------------
@@ -409,6 +291,44 @@ track, e.g.
 
 When tracking an upstream branch, ``pw presubmit`` will only run checks on the
 modified files, rather than the entire repository.
+
+Presubmit flags
+^^^^^^^^^^^^^^^
+``pw presubmit`` can accept a number of flags
+
+``-b commit, --base commit``
+  Git revision against which to diff for changed files. Default is the tracking
+  branch of the current branch. Set commit to "HEAD" to check files added or
+  modified but not yet commited. Cannot be used with --full.
+
+``--full``
+  Run presubmit on all files, not just changed files. Cannot be used with
+  --base.
+
+``-e regular_expression, --exclude regular_expression``
+  Exclude paths matching any of these regular expressions, which are interpreted
+  relative to each Git repository's root.
+
+``-k, --keep-going``
+  Continue instead of aborting when errors occur.
+
+``--output-directory OUTPUT_DIRECTORY``
+  Output directory (default: <repo root>/out/presubmit)
+
+``--package-root PACKAGE_ROOT``
+  Package root directory (default: <output directory>/packages)
+
+``--clear, --clean``
+  Delete the presubmit output directory and exit.
+
+``-p, --program PROGRAM``
+  Which presubmit program to run
+
+``--step STEP``
+  Provide explicit steps instead of running a predefined program.
+
+``--install``
+  Install the presubmit as a Git pre-push hook and exit.
 
 .. _Sphinx: https://www.sphinx-doc.org/
 

@@ -18,7 +18,7 @@ class RobolectricGeneratorAdapter extends GeneratorAdapter {
   private final String desc;
 
   public RobolectricGeneratorAdapter(MethodNode methodNode) {
-    super(Opcodes.ASM4, methodNode, methodNode.access, methodNode.name, methodNode.desc);
+    super(Opcodes.ASM9, methodNode, methodNode.access, methodNode.name, methodNode.desc);
     this.isStatic = Modifier.isStatic(methodNode.access);
     this.desc = methodNode.desc;
   }

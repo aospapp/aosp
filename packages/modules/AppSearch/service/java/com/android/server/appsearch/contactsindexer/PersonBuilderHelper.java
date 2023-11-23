@@ -17,22 +17,26 @@
 package com.android.server.appsearch.contactsindexer;
 
 import android.annotation.NonNull;
+import android.app.appsearch.GenericDocument;
+import android.app.appsearch.util.IndentingStringBuilder;
 import android.app.appsearch.util.LogUtil;
 import android.util.ArrayMap;
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.Preconditions;
 import com.android.server.appsearch.contactsindexer.appsearchtypes.ContactPoint;
 import com.android.server.appsearch.contactsindexer.appsearchtypes.Person;
 
+import java.lang.reflect.Array;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-
-import com.android.internal.util.Preconditions;
 
 /**
  * Helper class to help build the {@link Person}.
@@ -211,7 +215,99 @@ public final class PersonBuilderHelper {
         Objects.requireNonNull(person);
 
         MessageDigest md = MessageDigest.getInstance("MD5");
-        md.update(person.toString().getBytes(StandardCharsets.UTF_8));
+        md.update(generateFingerprintStringForPerson(person).getBytes(StandardCharsets.UTF_8));
         return md.digest();
+    }
+
+    @VisibleForTesting
+    /** Returns a string presentation of {@link Person} for fingerprinting. */
+    static String generateFingerprintStringForPerson(@NonNull Person person) {
+        Objects.requireNonNull(person);
+
+        StringBuilder builder = new StringBuilder();
+        appendGenericDocumentString(person, builder);
+        return builder.toString();
+    }
+
+    /**
+     * Appends string representation of a {@link GenericDocument} to the {@link StringBuilder}.
+     *
+     * <p>This is basically same as
+     * {@link GenericDocument#appendGenericDocumentString(IndentingStringBuilder)}, but only keep
+     * the properties part and use a normal {@link StringBuilder} to skip the indentation.
+     */
+    private static void appendGenericDocumentString(@NonNull GenericDocument doc,
+            @NonNull StringBuilder builder) {
+        Objects.requireNonNull(doc);
+        Objects.requireNonNull(builder);
+
+        builder.append("properties: {\n");
+        String[] sortedProperties = doc.getPropertyNames().toArray(new String[0]);
+        Arrays.sort(sortedProperties);
+        for (int i = 0; i < sortedProperties.length; i++) {
+            Object property = Objects.requireNonNull(doc.getProperty(sortedProperties[i]));
+            appendPropertyString(sortedProperties[i], property, builder);
+            if (i != sortedProperties.length - 1) {
+                builder.append(",\n");
+            }
+        }
+        builder.append("\n");
+        builder.append("}");
+    }
+
+    /**
+     * Appends string representation of a {@link GenericDocument}'s property to the
+     * {@link StringBuilder}.
+     *
+     * <p>This is basically same as
+     * {@link GenericDocument#appendPropertyString(String, Object, IndentingStringBuilder)}, but
+     * use a normal {@link StringBuilder} to skip the indentation.
+     *
+     * <p>Here we still keep most of the formatting(e.g. '\n') to make sure we won't hit some
+     * possible corner cases. E.g. We will have "someProperty1: some\n Property2:..." instead of
+     * "someProperty1: someProperty2:". For latter, we can interpret it as empty string value for
+     * "someProperty1", with a different property name "someProperty2". In this case, the content is
+     * changed but fingerprint will remain same if we don't have that '\n'.
+     *
+     * <p>Plus, some basic formatting will make the testing more clear.
+     */
+    private static void appendPropertyString(
+            @NonNull String propertyName,
+            @NonNull Object property,
+            @NonNull StringBuilder builder) {
+        Objects.requireNonNull(propertyName);
+        Objects.requireNonNull(property);
+        Objects.requireNonNull(builder);
+
+        builder.append("\"").append(propertyName).append("\": [");
+        if (property instanceof GenericDocument[]) {
+            GenericDocument[] documentValues = (GenericDocument[]) property;
+            for (int i = 0; i < documentValues.length; ++i) {
+                builder.append("\n");
+                appendGenericDocumentString(documentValues[i], builder);
+                if (i != documentValues.length - 1) {
+                    builder.append(",");
+                }
+                builder.append("\n");
+            }
+            builder.append("]");
+        } else {
+            int propertyArrLength = Array.getLength(property);
+            for (int i = 0; i < propertyArrLength; i++) {
+                Object propertyElement = Array.get(property, i);
+                if (propertyElement instanceof String) {
+                    builder.append("\"").append((String) propertyElement).append("\"");
+                } else if (propertyElement instanceof byte[]) {
+                    builder.append(Arrays.toString((byte[]) propertyElement));
+                } else {
+                    builder.append(propertyElement.toString());
+                }
+                if (i != propertyArrLength - 1) {
+                    builder.append(", ");
+                } else {
+                    builder.append("]");
+                }
+            }
+        }
     }
 }

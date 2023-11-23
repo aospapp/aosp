@@ -35,5 +35,13 @@ java_library {
         "jsr305",
         "libprotobuf-java-lite",
     ],
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
     sdk_version: "current",
+    min_sdk_version: "30",
+    apex_available: [
+        "com.android.adservices",
+        "com.android.devicelock",
+        "com.android.extservices",
+    ],
 }

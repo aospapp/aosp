@@ -25,14 +25,17 @@ import com.android.os.nano.AtomsProto;
 import com.android.os.nano.AtomsProto.BatteryUsageStatsAtomsProto;
 import com.android.os.nano.AtomsProto.BatteryUsageStatsAtomsProto.BatteryConsumerData;
 import com.android.os.nano.AtomsProto.BatteryUsageStatsAtomsProto.BatteryConsumerData.PowerComponentUsage;
+import com.android.os.nano.AtomsProto.BatteryUsageStatsAtomsProto.PowerComponentModel;
 import com.android.os.nano.AtomsProto.BatteryUsageStatsAtomsProto.UidBatteryConsumer;
 import com.android.os.nano.StatsLog;
 
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -51,25 +54,74 @@ public class BatteryUsageStatsHelper implements ICollectorHelper<Long> {
         Log.i(LOG_TAG, "Adding BatteryUsageStats config to statsd.");
         List<Integer> atomIdList = new ArrayList<>();
         atomIdList.add(AtomsProto.Atom.BATTERY_USAGE_STATS_SINCE_RESET_FIELD_NUMBER);
+        atomIdList.add(
+                AtomsProto.Atom
+                        .BATTERY_USAGE_STATS_SINCE_RESET_USING_POWER_PROFILE_MODEL_FIELD_NUMBER);
         return mStatsdHelper.addGaugeConfig(atomIdList);
     }
 
-    private Map<String, Long> batteryUsageStatsFromBucket(StatsLog.GaugeBucketInfo bucket) {
+    private Map<String, Long> batteryUsageStatsFromBucket(List<StatsLog.GaugeBucketInfo> buckets) {
         PackageManager packageManager =
                 InstrumentationRegistry.getInstrumentation().getContext().getPackageManager();
 
-        List<BatteryUsageStatsAtomsProto> atoms =
-                Arrays.stream(bucket.atom)
+        // Get the atom with the best available data to BatteryStats.
+        List<BatteryUsageStatsAtomsProto> bestModeledAtom =
+                buckets.stream()
+                        .flatMap(b -> Arrays.stream(b.atom))
                         .filter(a -> a.hasBatteryUsageStatsSinceReset())
                         .map(a -> a.getBatteryUsageStatsSinceReset().batteryUsageStats)
                         .collect(Collectors.toList());
-        if (atoms.size() != 1) {
+        if (bestModeledAtom.size() != 1) {
             throw new IllegalStateException(
                     String.format(
                             "Expected exactly 1 BatteryUsageStats atom, but has %d.",
-                            atoms.size()));
+                            bestModeledAtom.size()));
         }
-        BatteryUsageStatsAtomsProto atom = atoms.get(0);
+        BatteryUsageStatsAtomsProto atom = bestModeledAtom.get(0);
+
+        // Get the atom with the power profile based data..
+        List<BatteryUsageStatsAtomsProto> powerProfileOnlyAtoms =
+                buckets.stream()
+                        .flatMap(b -> Arrays.stream(b.atom))
+                        .filter(a -> a.hasBatteryUsageStatsSinceResetUsingPowerProfileModel())
+                        .map(
+                                a ->
+                                        a.getBatteryUsageStatsSinceResetUsingPowerProfileModel()
+                                                .batteryUsageStats)
+                        .collect(Collectors.toList());
+        if (powerProfileOnlyAtoms.size() != 1) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Expected exactly 1 BatteryUsageStats using Power Profile atom, but"
+                                    + " has %d.",
+                            powerProfileOnlyAtoms.size()));
+        }
+        BatteryUsageStatsAtomsProto powerProfileOnlyAtom = powerProfileOnlyAtoms.get(0);
+
+        // Find any component that has both Measured Energy and Power Profile data.
+        Set<Integer> comparableModelComponents = new HashSet<>();
+        if (atom.componentModels != null && powerProfileOnlyAtom.componentModels != null) {
+            for (PowerComponentModel componentModel : atom.componentModels) {
+                if (componentModel.powerModel != PowerComponentModel.MEASURED_ENERGY) {
+                    // Measured Energy unavailable for component
+                    continue;
+                }
+
+                if (Arrays.stream(powerProfileOnlyAtom.componentModels)
+                        .filter(cm -> cm.component == componentModel.component)
+                        .filter(cm -> cm.powerModel == PowerComponentModel.POWER_PROFILE)
+                        .findAny()
+                        .isPresent()) {
+                    comparableModelComponents.add(componentModel.component);
+                } else {
+                    Log.w(
+                            LOG_TAG,
+                            "Component "
+                                    + componentName(componentModel.component)
+                                    + " has Measured Energy model but no Power Profile model");
+                }
+            }
+        }
 
         Map<String, Long> results = new HashMap<>();
 
@@ -86,12 +138,31 @@ public class BatteryUsageStatsHelper implements ICollectorHelper<Long> {
                     results.put(
                             totalDurationByComponentMetricKey(usage.component),
                             usage.durationMillis);
+                    if (comparableModelComponents.contains(usage.component)) {
+                        results.put(
+                                powerModeledTotalConsumptionByComponentMetricKey(
+                                        PowerComponentModel.MEASURED_ENERGY, usage.component),
+                                usage.powerDeciCoulombs);
+                    }
                 }
             } else {
                 Log.w(LOG_TAG, "Device consumer data doesn't have specific component data.");
             }
         } else {
             Log.w(LOG_TAG, "Atom doesn't have the expected device consumer data.");
+        }
+
+        // Collect Power Profile based data for components with model types.
+        BatteryConsumerData powerProfileData = powerProfileOnlyAtom.deviceBatteryConsumer;
+        if (powerProfileData != null && powerProfileData.powerComponents != null) {
+            for (PowerComponentUsage usage : powerProfileData.powerComponents) {
+                if (comparableModelComponents.contains(usage.component)) {
+                    results.put(
+                            powerModeledTotalConsumptionByComponentMetricKey(
+                                    PowerComponentModel.POWER_PROFILE, usage.component),
+                            usage.powerDeciCoulombs);
+                }
+            }
         }
 
         // Collect the per-UID consumer data.
@@ -151,6 +222,11 @@ public class BatteryUsageStatsHelper implements ICollectorHelper<Long> {
         return String.format("power-consumed-total-on-%s-dC", componentName(component));
     }
 
+    private String powerModeledTotalConsumptionByComponentMetricKey(int model, int component) {
+        return String.format(
+                "modeled-%s-total-on-%s-dC", modelName(model), componentName(component));
+    }
+
     private String attributedDurationMetricKey(String packages, int component) {
         return String.format("duration-by-%s-on-%s-ms", packages, componentName(component));
     }
@@ -202,28 +278,50 @@ public class BatteryUsageStatsHelper implements ICollectorHelper<Long> {
         }
     }
 
+    private String modelName(int model) {
+        switch (model) {
+            case BatteryUsageStatsAtomsProto.PowerComponentModel.UNDEFINED:
+                return "undefined";
+            case BatteryUsageStatsAtomsProto.PowerComponentModel.POWER_PROFILE:
+                return "power_profile";
+            case BatteryUsageStatsAtomsProto.PowerComponentModel.MEASURED_ENERGY:
+                return "measured_energy";
+            default:
+                return "unknown_model_" + model;
+        }
+    }
+
     @Override
     public Map<String, Long> getMetrics() {
         List<StatsLog.GaugeMetricData> gaugeMetricList = mStatsdHelper.getGaugeMetrics();
-        if (gaugeMetricList.size() != 1) {
+        if (gaugeMetricList.size() != 2) {
             throw new IllegalStateException(
                     String.format(
-                            "Expected exactly 1 gauge metric data, but has %d.",
+                            "Expected exactly 2 gauge metric data, but has %d.",
                             gaugeMetricList.size()));
         }
 
-        StatsLog.GaugeMetricData gaugeMetricData = gaugeMetricList.get(0);
-        if (gaugeMetricData.bucketInfo.length != 2) {
-            throw new IllegalStateException(
-                    String.format(
-                            "Expected exactly 2 buckets in data, but has %d.",
-                            gaugeMetricData.bucketInfo.length));
+        List<StatsLog.GaugeBucketInfo> beforeBuckets = new ArrayList<>();
+        List<StatsLog.GaugeBucketInfo> afterBuckets = new ArrayList<>();
+        for (StatsLog.GaugeMetricData gaugeMetricData : gaugeMetricList) {
+            // It's possible for multiple statsd-based listeners to run at the same time, which
+            // causes there to be more than 2 buckets. To most safely collect the beginning and
+            // end of collection, we take the first and last buckets.
+            if (gaugeMetricData.bucketInfo.length < 2) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Expected at least 2 buckets in data, but has %d.",
+                                gaugeMetricData.bucketInfo.length));
+            }
+            beforeBuckets.add(gaugeMetricData.bucketInfo[0]);
+            afterBuckets.add(gaugeMetricData.bucketInfo[gaugeMetricData.bucketInfo.length - 1]);
         }
-        Map<String, Long> beforeData = batteryUsageStatsFromBucket(gaugeMetricData.bucketInfo[0]);
-        Map<String, Long> afterData = batteryUsageStatsFromBucket(gaugeMetricData.bucketInfo[1]);
 
-        printEntries(0, beforeData);
-        printEntries(1, afterData);
+        Map<String, Long> beforeData = batteryUsageStatsFromBucket(beforeBuckets);
+        Map<String, Long> afterData = batteryUsageStatsFromBucket(afterBuckets);
+
+        printEntries("First bucket", beforeData);
+        printEntries("Last bucket", afterData);
 
         Map<String, Long> results = new HashMap<>();
         for (String sharedKey : beforeData.keySet()) {
@@ -241,12 +339,11 @@ public class BatteryUsageStatsHelper implements ICollectorHelper<Long> {
         return mStatsdHelper.removeStatsConfig();
     }
 
-    private void printEntries(int bucket, Map<String, Long> data) {
+    private void printEntries(String prefix, Map<String, Long> data) {
         for (Map.Entry<String, Long> datum : data.entrySet()) {
             Log.e(
                     LOG_TAG,
-                    String.format(
-                            "Bucket: %d\t|\t%s = %s", bucket, datum.getKey(), datum.getValue()));
+                    String.format("%s\t|\t%s = %s", prefix, datum.getKey(), datum.getValue()));
         }
     }
 }

@@ -28,7 +28,7 @@ cc_test {
     static_libs: [
         "libgflags",
         "libgmock",
-        "android.frameworks.automotive.telemetry-V1-ndk",
+        "android.frameworks.automotive.telemetry-V2-ndk",
     ],
     test_suites: [
         "general-tests",

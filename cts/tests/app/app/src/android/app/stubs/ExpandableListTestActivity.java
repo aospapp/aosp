@@ -26,8 +26,6 @@ import android.widget.ExpandableListAdapter;
 import android.widget.ExpandableListView;
 import android.widget.SimpleExpandableListAdapter;
 
-import androidx.test.InstrumentationRegistry;
-
 import com.android.internal.R;
 import com.android.internal.view.menu.ContextMenuBuilder;
 
@@ -38,6 +36,10 @@ import java.util.List;
 import java.util.Map;
 
 public class ExpandableListTestActivity extends ExpandableListActivity {
+
+    public static final int NUMBER_OF_GROUPS = 20;
+    public static final int NUMBER_OF_CHILDREN = 15;
+
     private static final String NAME = "NAME";
     private static final String IS_EVEN = "IS_EVEN";
     private boolean mOnContentChangedCalled = false;
@@ -49,18 +51,17 @@ public class ExpandableListTestActivity extends ExpandableListActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         final List<Map<String, String>> groupData = Lists.newArrayList();
         final List<List<Map<String, String>>> childData = Lists.newArrayList();
-        for (int i = 0; i < 20; i++) {
-            final Map<String, String> curGroupMap = new HashMap<String, String>();
+        for (int i = 0; i < NUMBER_OF_GROUPS; i++) {
+            final Map<String, String> curGroupMap = new HashMap<>();
             groupData.add(curGroupMap);
             curGroupMap.put(NAME, "Group " + i);
             curGroupMap.put(IS_EVEN, (i % 2 == 0) ? "This group is even" : "This group is odd");
 
             final List<Map<String, String>> children = Lists.newArrayList();
-            for (int j = 0; j < 15; j++) {
-                Map<String, String> curChildMap = new HashMap<String, String>();
+            for (int j = 0; j < NUMBER_OF_CHILDREN; j++) {
+                Map<String, String> curChildMap = new HashMap<>();
                 children.add(curChildMap);
                 curChildMap.put(NAME, "Child " + j);
                 curChildMap.put(IS_EVEN, (j % 2 == 0) ? "This child is even" : "This child is odd");
@@ -75,7 +76,6 @@ public class ExpandableListTestActivity extends ExpandableListActivity {
                 R.layout.simple_expandable_list_item_2,
                 new String[] { NAME, IS_EVEN }, new int[] { R.id.text1, R.id.text2 });
         setListAdapter(mAdapter);
-
     }
 
     private int testCallback() {
@@ -117,45 +117,17 @@ public class ExpandableListTestActivity extends ExpandableListActivity {
         return RESULT_OK;
     }
 
-    private int testSelect() {
-        final ExpandableListView v = getExpandableListView();
-        try {
-            // Make sure the touch mode is disabled since selection doesn't work in touch mode.
-            InstrumentationRegistry.getInstrumentation().setInTouchMode(false);
-            for (int i = 0; i < 20; i++) {
-                v.expandGroup(i);
-                setSelectedGroup(i);
-                for (int k = 0; k < 15; k++) {
-                    setSelectedChild(i, k, false);
-                    if (ExpandableListView.getPackedPositionForChild(i, k) != getSelectedPosition())
-                        return RESULT_CANCELED;
-                }
-
-                for (int k = 0; k < 15; k++) {
-                    setSelectedChild(i, k, true);
-                    if (ExpandableListView.getPackedPositionForChild(i, k) != getSelectedPosition())
-                        return RESULT_CANCELED;
-                }
-                v.collapseGroup(i);
-            }
-        } finally {
-            InstrumentationRegistry.getInstrumentation().setInTouchMode(true);
-        }
-        return RESULT_OK;
-    }
-
     @Override
     protected void onResume() {
         super.onResume();
         final String action = getIntent().getAction();
-        if (LaunchpadActivity.EXPANDLIST_SELECT.equals(action)) {
-            setResult(testSelect());
-        } else if (LaunchpadActivity.EXPANDLIST_VIEW.equals(action)) {
+        if (LaunchpadActivity.EXPANDLIST_VIEW.equals(action)) {
             setResult(testView());
+            Looper.myQueue().addIdleHandler(new Idler());
         } else if (LaunchpadActivity.EXPANDLIST_CALLBACK.equals(action)) {
             setResult(testCallback());
+            Looper.myQueue().addIdleHandler(new Idler());
         }
-        Looper.myQueue().addIdleHandler(new Idler());
     }
 
     protected void onRestoreInstanceState(Bundle state) {

@@ -22,6 +22,11 @@ import com.squareup.javapoet.ClassName;
 
 /** Holder for commonly used class names. */
 public final class ClassNames {
+  public static final ClassName AGGREGATED_ELEMENT_PROXY =
+      get("dagger.hilt.android.internal.legacy", "AggregatedElementProxy");
+  public static final ClassName COMPONENT_TREE_DEPS =
+      get("dagger.hilt.internal.componenttreedeps", "ComponentTreeDeps");
+
   public static final String AGGREGATED_ROOT_PACKAGE =
       "dagger.hilt.internal.aggregatedroot.codegen";
   public static final ClassName AGGREGATED_ROOT =
@@ -30,6 +35,8 @@ public final class ClassNames {
       "dagger.hilt.internal.processedrootsentinel.codegen";
   public static final ClassName PROCESSED_ROOT_SENTINEL =
       get("dagger.hilt.internal.processedrootsentinel", "ProcessedRootSentinel");
+
+  public static final ClassName CONTEXTS = get("dagger.hilt.android.internal", "Contexts");
 
   public static final String AGGREGATED_EARLY_ENTRY_POINT_PACKAGE =
       "dagger.hilt.android.internal.earlyentrypoint.codegen";
@@ -201,6 +208,9 @@ public final class ClassNames {
   public static final ClassName PRECONDITIONS = get("dagger.hilt.internal", "Preconditions");
 
   public static final ClassName OBJECT = get("java.lang", "Object");
+
+  public static final ClassName SUPPRESS_WARNINGS = get("java.lang", "SuppressWarnings");
+  public static final ClassName KOTLIN_SUPPRESS = get("kotlin", "Suppress");
 
   // Kotlin-specific class names
   public static final ClassName KOTLIN_METADATA = get("kotlin", "Metadata");

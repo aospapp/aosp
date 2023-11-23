@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2016 The Android Open Source Project
 #
@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import binascii
 import unittest
 
 import cstruct
@@ -87,9 +88,9 @@ class CstructTest(unittest.TestCase):
         " nest2=Nested(word1=33214, nest2=TestStructA(byte1=3, int2=4),"
         " nest3=TestStructB(byte1=7, int2=33627591), int4=-55), byte3=252)")
     self.assertEqual(expected, str(d))
-    expected = ("01" "02000000"
-                "81be" "03" "04000000"
-                "07" "c71d0102" "ffffffc9" "fc").decode("hex")
+    expected = binascii.unhexlify("01" "02000000"
+                                  "81be" "03" "04000000"
+                                  "07" "c71d0102" "ffffffc9" "fc")
     self.assertEqual(expected, d.Pack())
     unpacked = DoubleNested(expected)
     self.CheckEquals(unpacked, d)
@@ -97,16 +98,22 @@ class CstructTest(unittest.TestCase):
   def testNullTerminatedStrings(self):
     TestStruct = cstruct.Struct("TestStruct", "B16si16AH",
                                 "byte1 string2 int3 ascii4 word5")
-    nullstr = "hello" + (16 - len("hello")) * "\x00"
+    nullstr = b"hello" + (16 - len("hello")) * b"\x00"
 
     t = TestStruct((2, nullstr, 12345, nullstr, 33210))
     expected = ("TestStruct(byte1=2, string2=68656c6c6f0000000000000000000000,"
                 " int3=12345, ascii4=hello, word5=33210)")
     self.assertEqual(expected, str(t))
 
-    embeddednull = "hello\x00visible123"
+    embeddednull = b"hello\x00visible123"
     t = TestStruct((2, embeddednull, 12345, embeddednull, 33210))
     expected = ("TestStruct(byte1=2, string2=68656c6c6f0076697369626c65313233,"
+                " int3=12345, ascii4=hello\x00visible123, word5=33210)")
+    self.assertEqual(expected, str(t))
+
+    embedded_non_ascii = b"hello\xc0visible123"
+    t = TestStruct((2, embedded_non_ascii, 12345, embeddednull, 33210))
+    expected = ("TestStruct(byte1=2, string2=68656c6c6fc076697369626c65313233,"
                 " int3=12345, ascii4=hello\x00visible123, word5=33210)")
     self.assertEqual(expected, str(t))
 
@@ -115,32 +122,32 @@ class CstructTest(unittest.TestCase):
                                 "byte1 string2 int3 ascii4 word5")
     t = TestStruct()
     self.assertEqual(0, t.byte1)
-    self.assertEqual("\x00" * 16, t.string2)
+    self.assertEqual(b"\x00" * 16, t.string2)
     self.assertEqual(0, t.int3)
-    self.assertEqual("\x00" * 16, t.ascii4)
+    self.assertEqual(b"\x00" * 16, t.ascii4)
     self.assertEqual(0, t.word5)
-    self.assertEqual("\x00" * len(TestStruct), t.Pack())
+    self.assertEqual(b"\x00" * len(TestStruct), t.Pack())
 
   def testKeywordInitialization(self):
     TestStruct = cstruct.Struct("TestStruct", "=B16sIH",
                                 "byte1 string2 int3 word4")
-    text = "hello world! ^_^"
-    text_bytes = text.encode("hex")
+    bytes = b"hello world! ^_^"
+    hex_bytes = binascii.hexlify(bytes)
 
     # Populate all fields
-    t1 = TestStruct(byte1=1, string2=text, int3=0xFEDCBA98, word4=0x1234)
-    expected = ("01" + text_bytes + "98BADCFE" "3412").decode("hex")
+    t1 = TestStruct(byte1=1, string2=bytes, int3=0xFEDCBA98, word4=0x1234)
+    expected = binascii.unhexlify(b"01" + hex_bytes + b"98BADCFE" b"3412")
     self.assertEqual(expected, t1.Pack())
 
     # Partially populated
-    t1 = TestStruct(string2=text, word4=0x1234)
-    expected = ("00" + text_bytes + "00000000" "3412").decode("hex")
+    t1 = TestStruct(string2=bytes, word4=0x1234)
+    expected = binascii.unhexlify(b"00" + hex_bytes + b"00000000" b"3412")
     self.assertEqual(expected, t1.Pack())
 
   def testCstructOffset(self):
     TestStruct = cstruct.Struct("TestStruct", "B16si16AH",
                                 "byte1 string2 int3 ascii4 word5")
-    nullstr = "hello" + (16 - len("hello")) * "\x00"
+    nullstr = b"hello" + (16 - len("hello")) * b"\x00"
     t = TestStruct((2, nullstr, 12345, nullstr, 33210))
     self.assertEqual(0, t.offset("byte1"))
     self.assertEqual(1, t.offset("string2"))  # sizeof(byte)

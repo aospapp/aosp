@@ -23,7 +23,8 @@ namespace gs101 {
 
 class ExynosExternalDisplayModule : public ExynosExternalDisplay {
     public:
-        ExynosExternalDisplayModule(uint32_t index, ExynosDevice *device);
+        ExynosExternalDisplayModule(uint32_t index, ExynosDevice* device,
+                                    const std::string& displayName);
         ~ExynosExternalDisplayModule();
         virtual int32_t validateWinConfigData();
 };

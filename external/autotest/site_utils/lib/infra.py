@@ -12,7 +12,6 @@ from autotest_lib.server.hosts import ssh_host
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils
-from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 
 
 @contextlib.contextmanager
@@ -43,20 +42,20 @@ def local_runner(cmd, stream_output=False):
     @returns: The output of cmd, will be stdout and stderr.
     @raises CalledProcessError: If there was a non-0 return code.
     """
-    print 'Running command: %s' % cmd
+    print('Running command: %s' % cmd)
     proc = subprocess.Popen(
         cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if stream_output:
         output = ''
         for newline in iter(proc.stdout.readline, ''):
             output += newline
-            print newline.rstrip(os.linesep)
+            print(newline.rstrip(os.linesep))
     else:
         output = proc.communicate()[0]
 
     return_code = proc.wait()
     if return_code !=0:
-        print "ERROR: '%s' failed with error:\n%s" % (cmd, output)
+        print("ERROR: '%s' failed with error:\n%s" % (cmd, output))
         raise subprocess.CalledProcessError(return_code, cmd, output[:1024])
     return output
 

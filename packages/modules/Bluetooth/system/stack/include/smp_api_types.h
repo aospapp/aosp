@@ -26,6 +26,7 @@
 #include "bt_target.h"  // Must be first to define build configuration
 #include "stack/include/bt_octets.h"
 #include "stack/include/btm_status.h"
+#include "stack/include/smp_status.h"
 #include "types/ble_address_with_type.h"
 #include "types/raw_address.h"
 
@@ -98,79 +99,9 @@ typedef enum : uint8_t {
   SMP_UNUSED11 = 11,
   SMP_BR_KEYS_REQ_EVT = 12, /* SMP over BR keys request event */
   SMP_UNUSED13 = 13,
-  SMP_CONSENT_REQ_EVT = 14, /* Consent request event */
+  SMP_CONSENT_REQ_EVT = 14,   /* Consent request event */
+  SMP_LE_ADDR_ASSOC_EVT = 15, /* Identity address association event */
 } tSMP_EVT;
-
-/* pairing failure reason code */
-typedef enum : uint8_t {
-  SMP_SUCCESS = 0,
-  SMP_PASSKEY_ENTRY_FAIL = 0x01,
-  SMP_OOB_FAIL = 0x02,
-  SMP_PAIR_AUTH_FAIL = 0x03,
-  SMP_CONFIRM_VALUE_ERR = 0x04,
-  SMP_PAIR_NOT_SUPPORT = 0x05,
-  SMP_ENC_KEY_SIZE = 0x06,
-  SMP_INVALID_CMD = 0x07,
-  SMP_PAIR_FAIL_UNKNOWN = 0x08,
-  SMP_REPEATED_ATTEMPTS = 0x09,
-  SMP_INVALID_PARAMETERS = 0x0A,
-  SMP_DHKEY_CHK_FAIL = 0x0B,
-  SMP_NUMERIC_COMPAR_FAIL = 0x0C,
-  SMP_BR_PARING_IN_PROGR = 0x0D,
-  SMP_XTRANS_DERIVE_NOT_ALLOW = 0x0E,
-  SMP_MAX_FAIL_RSN_PER_SPEC = SMP_XTRANS_DERIVE_NOT_ALLOW,
-
-  /* self defined error code */
-  SMP_PAIR_INTERNAL_ERR = (SMP_MAX_FAIL_RSN_PER_SPEC + 0x01), /* 0x0F */
-
-  /* Unknown IO capability, unable to decide association model */
-  SMP_UNKNOWN_IO_CAP = (SMP_MAX_FAIL_RSN_PER_SPEC + 0x02), /* 0x10 */
-
-  SMP_BUSY = (SMP_MAX_FAIL_RSN_PER_SPEC + 0x05),        /* 0x13 */
-  SMP_ENC_FAIL = (SMP_MAX_FAIL_RSN_PER_SPEC + 0x06),    /* 0x14 */
-  SMP_STARTED = (SMP_MAX_FAIL_RSN_PER_SPEC + 0x07),     /* 0x15 */
-  SMP_RSP_TIMEOUT = (SMP_MAX_FAIL_RSN_PER_SPEC + 0x08), /* 0x16 */
-
-  /* Unspecified failure reason */
-  SMP_FAIL = (SMP_MAX_FAIL_RSN_PER_SPEC + 0x0A), /* 0x18 */
-
-  SMP_CONN_TOUT = (SMP_MAX_FAIL_RSN_PER_SPEC + 0x0B), /* 0x19 */
-} tSMP_STATUS;
-
-#define CASE_RETURN_TEXT(code) \
-  case code:                   \
-    return #code
-
-inline std::string smp_status_text(const tSMP_STATUS& status) {
-  switch (status) {
-    CASE_RETURN_TEXT(SMP_SUCCESS);
-    CASE_RETURN_TEXT(SMP_PASSKEY_ENTRY_FAIL);
-    CASE_RETURN_TEXT(SMP_OOB_FAIL);
-    CASE_RETURN_TEXT(SMP_PAIR_AUTH_FAIL);
-    CASE_RETURN_TEXT(SMP_CONFIRM_VALUE_ERR);
-    CASE_RETURN_TEXT(SMP_PAIR_NOT_SUPPORT);
-    CASE_RETURN_TEXT(SMP_ENC_KEY_SIZE);
-    CASE_RETURN_TEXT(SMP_INVALID_CMD);
-    CASE_RETURN_TEXT(SMP_PAIR_FAIL_UNKNOWN);
-    CASE_RETURN_TEXT(SMP_REPEATED_ATTEMPTS);
-    CASE_RETURN_TEXT(SMP_INVALID_PARAMETERS);
-    CASE_RETURN_TEXT(SMP_DHKEY_CHK_FAIL);
-    CASE_RETURN_TEXT(SMP_NUMERIC_COMPAR_FAIL);
-    CASE_RETURN_TEXT(SMP_BR_PARING_IN_PROGR);
-    CASE_RETURN_TEXT(SMP_XTRANS_DERIVE_NOT_ALLOW);
-    CASE_RETURN_TEXT(SMP_PAIR_INTERNAL_ERR);
-    CASE_RETURN_TEXT(SMP_UNKNOWN_IO_CAP);
-    CASE_RETURN_TEXT(SMP_BUSY);
-    CASE_RETURN_TEXT(SMP_ENC_FAIL);
-    CASE_RETURN_TEXT(SMP_STARTED);
-    CASE_RETURN_TEXT(SMP_RSP_TIMEOUT);
-    CASE_RETURN_TEXT(SMP_FAIL);
-    CASE_RETURN_TEXT(SMP_CONN_TOUT);
-    default:
-      return base::StringPrintf("UNKNOWN[%hhu]", status);
-  }
-}
-#undef CASE_RETURN_TEXT
 
 /* Device IO capability */
 #define SMP_IO_CAP_IO BTM_IO_CAP_IO         /* DisplayYesNo */
@@ -297,6 +228,7 @@ typedef union {
   tSMP_CMPL cmplt;
   tSMP_OOB_DATA_TYPE req_oob_type;
   tSMP_LOC_OOB_DATA loc_oob_data;
+  RawAddress id_addr;
 } tSMP_EVT_DATA;
 
 /* AES Encryption output */

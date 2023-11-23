@@ -15,3 +15,7 @@ get_prop(hal_vibrator_default, vendor_vibrator_prop);
 
 # Allow vibrator HAL's default implementation to use vendor-binder service
 vndbinder_use(hal_vibrator_default);
+
+# Allow Vibrator HAL to communicate with stats service
+allow hal_vibrator_default fwk_stats_service:service_manager find;
+binder_use(hal_vibrator_default)

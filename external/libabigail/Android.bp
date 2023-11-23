@@ -54,7 +54,7 @@ cc_defaults {
     ],
 
     visibility: [
-        "//external/stg",
+        "//visibility:private",
     ],
     compile_multilib: "64",
     target: {
@@ -78,15 +78,6 @@ cc_library_host_static {
         "src/abg-viz-*",
     ],
     export_include_dirs: ["include"],
-}
-
-cc_library_headers {
-    name: "libabigail_src_headers",
-    host_supported: true,
-    visibility: ["//external/stg"],
-    export_include_dirs: [
-        "src",
-    ],
 }
 
 cc_binary_host {

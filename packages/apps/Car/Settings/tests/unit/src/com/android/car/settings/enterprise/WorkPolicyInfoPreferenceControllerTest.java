@@ -18,6 +18,8 @@ package com.android.car.settings.enterprise;
 import static android.car.test.mocks.CarArgumentMatchers.intentFor;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
@@ -71,9 +73,66 @@ public final class WorkPolicyInfoPreferenceControllerTest
     }
 
     @Test
+    public void testGetAvailabilityStatus_noFeature_zoneWrite() throws Exception {
+        WorkPolicyInfoPreferenceController controller = newControllerWithFeatureDisabled();
+        controller.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noFeature_zoneRead() throws Exception {
+        WorkPolicyInfoPreferenceController controller = newControllerWithFeatureDisabled();
+        controller.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noFeature_zoneHidden() throws Exception {
+        WorkPolicyInfoPreferenceController controller = newControllerWithFeatureDisabled();
+        controller.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_noAdmin() throws Exception {
         WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
         // Don't need to mock anything else
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noAdmin_zoneWrite() throws Exception {
+        WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
+        // Don't need to mock anything else
+        controller.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noAdmin_zoneRead() throws Exception {
+        WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
+        // Don't need to mock anything else
+        controller.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noAdmin_zoneHidden() throws Exception {
+        WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
+        // Don't need to mock anything else
+        controller.setAvailabilityStatusForZone("hidden");
 
         PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
                 DISABLED_FOR_PROFILE);
@@ -90,6 +149,39 @@ public final class WorkPolicyInfoPreferenceControllerTest
     }
 
     @Test
+    public void testGetAvailabilityStatus_adminWithoutReceiver_zoneWrite() throws Exception {
+        WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
+        mockProfileOwner();
+        // Don't need to mock anything else
+        controller.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_adminWithoutReceiver_zoneRead() throws Exception {
+        WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
+        mockProfileOwner();
+        // Don't need to mock anything else
+        controller.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_adminWithoutReceiver_zoneHidden() throws Exception {
+        WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
+        mockProfileOwner();
+        // Don't need to mock anything else
+        controller.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_adminWithReceiver()  {
         WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
         mockProfileOwner();
@@ -97,6 +189,39 @@ public final class WorkPolicyInfoPreferenceControllerTest
 
         PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
                 AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_adminWithReceiver_zoneWrite()  {
+        WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
+        mockProfileOwner();
+        mockHasIntent();
+        controller.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_adminWithReceiver_zoneRead()  {
+        WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
+        mockProfileOwner();
+        mockHasIntent();
+        controller.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_adminWithReceiver_zoneHidden()  {
+        WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
+        mockProfileOwner();
+        mockHasIntent();
+        controller.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test
@@ -204,6 +329,6 @@ public final class WorkPolicyInfoPreferenceControllerTest
 
     private void verifyPreferenceTitleSet() {
         verify(mPreference).setTitle(mRealContext.getString(R.string.work_policy_privacy_settings,
-                mPackageName)); // NOTE: this test package doesn't provide a label
+                mAppName));
     }
 }

@@ -16,7 +16,10 @@
 
 package com.android.net.module.util;
 
+import android.annotation.NonNull;
 import android.os.Parcel;
+import android.util.Log;
+
 
 import java.net.Inet6Address;
 import java.net.InetAddress;
@@ -28,6 +31,7 @@ import java.net.UnknownHostException;
  */
 public class InetAddressUtils {
 
+    private static final String TAG = InetAddressUtils.class.getSimpleName();
     private static final int INET6_ADDR_LENGTH = 16;
 
     /**
@@ -67,6 +71,24 @@ public class InetAddressUtils {
 
             return InetAddress.getByAddress(addressArray);
         } catch (UnknownHostException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Create a Inet6Address with scope id if it is a link local address. Otherwise, returns the
+     * original address.
+     */
+    public static Inet6Address withScopeId(@NonNull final Inet6Address addr, int scopeid) {
+        if (!addr.isLinkLocalAddress()) {
+            return addr;
+        }
+        try {
+            return Inet6Address.getByAddress(null /* host */, addr.getAddress(),
+                    scopeid);
+        } catch (UnknownHostException impossible) {
+            Log.wtf(TAG, "Cannot construct scoped Inet6Address with Inet6Address.getAddress("
+                    + addr.getHostAddress() + "): ", impossible);
             return null;
         }
     }

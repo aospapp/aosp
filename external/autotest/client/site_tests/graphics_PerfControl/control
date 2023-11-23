@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+PY_VERSION = 3
 NAME = 'graphics_PerfControl'
 AUTHOR = 'chromeos-gfx'
 PURPOSE = 'Verifies that we are able to obtain a cool and idle machine.'
@@ -10,7 +11,7 @@ If there are problems reading temperature sensors this test will fail.
 This test will also fail if more than 10 percent of the system CPU
 even after a wait of 60 seconds.
 """
-ATTRIBUTES = "suite:bvt-perbuild, suite:graphics, suite:graphics_per-day, suite:graphics_system"
+ATTRIBUTES = "suite:bvt-perbuild, suite:graphics, suite:graphics_per-day, suite:graphics_system, suite:pvs-graphics"
 TIME='fast'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = "Performance"

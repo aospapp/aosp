@@ -6,6 +6,8 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 
+import androidx.annotation.Nullable;
+
 import com.airbnb.lottie.LottieDrawable;
 import com.airbnb.lottie.animation.LPaint;
 import com.airbnb.lottie.animation.keyframe.BaseKeyframeAnimation;
@@ -22,13 +24,11 @@ import com.airbnb.lottie.value.LottieValueCallback;
 import java.util.ArrayList;
 import java.util.List;
 
-import androidx.annotation.Nullable;
-
 public class ContentGroup implements DrawingContent, PathContent,
     BaseKeyframeAnimation.AnimationListener, KeyPathElement {
 
-  private Paint offScreenPaint = new LPaint();
-  private RectF offScreenRectF = new RectF();
+  private final Paint offScreenPaint = new LPaint();
+  private final RectF offScreenRectF = new RectF();
 
   private static List<Content> contentsFromModels(LottieDrawable drawable, BaseLayer layer,
       List<ContentModel> contentModels) {
@@ -221,7 +221,7 @@ public class ContentGroup implements DrawingContent, PathContent,
 
   @Override public void resolveKeyPath(
       KeyPath keyPath, int depth, List<KeyPath> accumulator, KeyPath currentPartialKeyPath) {
-    if (!keyPath.matches(getName(), depth)) {
+    if (!keyPath.matches(getName(), depth) && !"__container".equals(getName())) {
       return;
     }
 

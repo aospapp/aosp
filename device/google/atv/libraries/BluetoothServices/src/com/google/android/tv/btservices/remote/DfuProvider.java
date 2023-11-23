@@ -16,7 +16,6 @@
 
 package com.google.android.tv.btservices.remote;
 
-import android.annotation.Nullable;
 import android.content.Context;
 import android.os.AsyncTask;
 import android.os.Environment;
@@ -25,6 +24,7 @@ import android.os.Handler;
 import android.os.SystemProperties;
 import android.text.TextUtils;
 import android.util.Log;
+import androidx.annotation.Nullable;
 import com.google.android.tv.btservices.R;
 import java.io.File;
 import java.io.FileInputStream;

@@ -17,8 +17,11 @@ provides access to global configuration file
 import collections
 import os
 import re
+import six
 import six.moves.configparser as ConfigParser
 import sys
+
+from six.moves import StringIO
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import lsbrelease_utils
@@ -290,12 +293,46 @@ class global_config_class(object):
                 val = override_config.get(section, option)
                 self.config.set(section, option, val)
 
+    def _load_config_file(self, config_file):
+        """
+        Load the config_file into a StringIO buffer parsable by the current py
+        version.
+
+        TODO b:179407161, when running only in Python 3, force config files
+        to be correct, and remove this special parsing.
+
+        When in Python 3, this will change instances of %, not followed
+        immediately by (, to %%. Thus:
+            "%foo" --> "%%foo"
+            "%(foo" --> "%(foo"
+            "%%foo" --> "%%foo"
+        In Python 2, we will do the opposite, and change instances of %%, to %.
+            "%%foo" --> "%foo"
+            "%%(foo" --> "%(foo"
+            "%foo" --> "%foo"
+        """
+        with open(config_file) as cf:
+            config_file_str = cf.read()
+        if six.PY3:
+            config_file_str = re.sub(r"([^%]|^)%([^%(]|$)", r"\1%%\2",
+                                     config_file_str)
+        else:
+            config_file_str = config_file_str.replace('%%', '%')
+        return StringIO(config_file_str)
+
+    def _read_config(self, config, buf):
+        """Read the provided io buffer, into the specified config."""
+        if six.PY3:
+            config.read_file(buf)
+        else:
+            config.readfp(buf)
 
     def parse_config_file(self):
         """Parse config files."""
         self.config = seven.config_parser()
         if self.config_file and os.path.exists(self.config_file):
-            self.config.read(self.config_file)
+            buf = self._load_config_file(self.config_file)
+            self._read_config(self.config, buf)
         else:
             raise ConfigError('%s not found' % (self.config_file))
 
@@ -304,7 +341,8 @@ class global_config_class(object):
         if (lsbrelease_utils.is_moblab() and self.moblab_file and
             os.path.exists(self.moblab_file)):
             moblab_config = seven.config_parser()
-            moblab_config.read(self.moblab_file)
+            mob_buf = self._load_config_file(self.moblab_file)
+            self._read_config(moblab_config, mob_buf)
             # now we merge moblab into global
             self.merge_configs(moblab_config)
 
@@ -313,7 +351,8 @@ class global_config_class(object):
         # other config
         if self.shadow_file and os.path.exists(self.shadow_file):
             shadow_config = seven.config_parser()
-            shadow_config.read(self.shadow_file)
+            shadow_buf = self._load_config_file(self.shadow_file)
+            self._read_config(shadow_config, shadow_buf)
             # now we merge shadow into global
             self.merge_configs(shadow_config)
 

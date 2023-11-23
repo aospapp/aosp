@@ -29,40 +29,40 @@ namespace android {
 
 LEGACY_BUFFER_INFO_GETTER(BufferInfoImagination);
 
-int BufferInfoImagination::ConvertBoInfo(buffer_handle_t handle,
-                                         hwc_drm_bo_t *bo) {
+auto BufferInfoImagination::GetBoInfo(buffer_handle_t handle)
+    -> std::optional<BufferInfo> {
   auto *hnd = (IMG_native_handle_t *)handle;
   if (!hnd)
-    return -EINVAL;
+    return {};
 
   /* Extra bits are responsible for buffer compression and memory layout */
   if (hnd->iFormat & ~0x10f) {
     ALOGV("Special buffer formats are not supported");
-    return -EINVAL;
+    return {};
   }
 
-  bo->width = hnd->iWidth;
-  bo->height = hnd->iHeight;
-  bo->usage = hnd->usage;
-  bo->prime_fds[0] = hnd->fd[0];
-  bo->pitches[0] = ALIGN(hnd->iWidth, HW_ALIGN) * hnd->uiBpp >> 3;
-  bo->hal_format = hnd->iFormat;
+  BufferInfo bi{};
+
+  bi.width = hnd->iWidth;
+  bi.height = hnd->iHeight;
+  bi.prime_fds[0] = hnd->fd[0];
+  bi.pitches[0] = ALIGN(hnd->iWidth, HW_ALIGN) * hnd->uiBpp >> 3;
 
   switch (hnd->iFormat) {
 #ifdef HAL_PIXEL_FORMAT_BGRX_8888
     case HAL_PIXEL_FORMAT_BGRX_8888:
-      bo->format = DRM_FORMAT_XRGB8888;
+      bi.format = DRM_FORMAT_XRGB8888;
       break;
 #endif
     default:
-      bo->format = ConvertHalFormatToDrm(hnd->iFormat & 0xf);
-      if (bo->format == DRM_FORMAT_INVALID) {
+      bi.format = ConvertHalFormatToDrm(hnd->iFormat & 0xf);
+      if (bi.format == DRM_FORMAT_INVALID) {
         ALOGV("Cannot convert hal format to drm format %u", hnd->iFormat);
-        return -EINVAL;
+        return {};
       }
   }
 
-  return 0;
+  return bi;
 }
 
 }  // namespace android

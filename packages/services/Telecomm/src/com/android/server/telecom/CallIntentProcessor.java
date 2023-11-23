@@ -182,9 +182,10 @@ public class CallIntentProcessor {
         boolean isPrivilegedDialer = defaultDialerCache.isDefaultOrSystemDialer(callingPackage,
                 initiatingUser.getIdentifier());
 
+
         NewOutgoingCallIntentBroadcaster broadcaster = new NewOutgoingCallIntentBroadcaster(
                 context, callsManager, intent, callsManager.getPhoneNumberUtilsAdapter(),
-                isPrivilegedDialer, defaultDialerCache);
+                isPrivilegedDialer, defaultDialerCache, new MmiUtils());
 
         // If the broadcaster comes back with an immediate error, disconnect and show a dialog.
         NewOutgoingCallIntentBroadcaster.CallDisposition disposition = broadcaster.evaluateCall();

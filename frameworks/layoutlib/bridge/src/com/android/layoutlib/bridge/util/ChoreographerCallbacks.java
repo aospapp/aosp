@@ -20,13 +20,11 @@ import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.tools.layoutlib.annotations.NotNull;
 
 import android.os.SystemClock_Delegate;
-import android.util.Pair;
 import android.util.TimeUtils;
 import android.view.Choreographer.FrameCallback;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Manages {@link android.view.Choreographer} callbacks. Keeps track of the currently active
@@ -40,37 +38,50 @@ public class ChoreographerCallbacks {
         }
     }
 
-    private final RangeList<Pair<Object, Long>> mCallbacks = new RangeList<>();
+    private static class Callback {
+        private final Object mAction;
+        private final Object mToken;
+        private final long mDueTime;
 
-    public void add(Object action, long delayMillis) {
+        private Callback(@NotNull Object action, Object token, long dueTime) {
+            mAction = action;
+            mToken = token;
+            mDueTime = dueTime;
+        }
+    }
+
+    private final RangeList<Callback> mCallbacks = new RangeList<>();
+
+    public void add(Object action, Object token, long delayMillis) {
         synchronized (mCallbacks) {
             int idx = 0;
             final long now = SystemClock_Delegate.uptimeMillis();
             final long dueTime = now + delayMillis;
             while (idx < mCallbacks.size()) {
-                if (mCallbacks.get(idx).second > dueTime) {
+                if (mCallbacks.get(idx).mDueTime > dueTime) {
                     break;
                 } else {
                     ++idx;
                 }
             }
-            mCallbacks.add(idx, Pair.create(action, dueTime));
+            mCallbacks.add(idx, new Callback(action, token, dueTime));
         }
     }
 
-    public void remove(Object action) {
+    public void remove(Object action, Object token) {
         synchronized (mCallbacks) {
-            mCallbacks.removeIf(el -> el.first == action);
+            mCallbacks.removeIf(el -> (action == null || el.mAction == action)
+                    && (token == null || el.mToken == token));
         }
     }
 
     public void execute(long currentTimeMs, @NotNull ILayoutLog logger) {
         final long currentTimeNanos = currentTimeMs * TimeUtils.NANOS_PER_MS;
-        List<Pair<Object, Long>> toExecute;
+        List<Callback> toExecute;
         synchronized (mCallbacks) {
             int idx = 0;
             while (idx < mCallbacks.size()) {
-                if (mCallbacks.get(idx).second > currentTimeMs) {
+                if (mCallbacks.get(idx).mDueTime > currentTimeMs) {
                     break;
                 } else {
                     ++idx;
@@ -82,7 +93,7 @@ public class ChoreographerCallbacks {
 
         // We run the callbacks outside of the synchronized block to avoid deadlocks caused by
         // callbacks calling back into ChoreographerCallbacks.
-        toExecute.forEach(p -> executeSafely(p.first, currentTimeNanos, logger));
+        toExecute.forEach(p -> executeSafely(p.mAction, currentTimeNanos, logger));
     }
 
     public void clear() {

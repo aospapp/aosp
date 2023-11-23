@@ -13,7 +13,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Runs sample instrumentation test.">
+<configuration description="Runs Microdroid device-side tests.">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="security" />
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
@@ -21,11 +21,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="test-file-name" value="MicrodroidTestApp.apk" />
-    </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
-      <option
-        name="run-command"
-        value="pm grant com.android.microdroid.test android.permission.MANAGE_VIRTUAL_MACHINE" />
+        <option name="test-file-name" value="MicrodroidVmShareApp.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="com.android.microdroid.test" />

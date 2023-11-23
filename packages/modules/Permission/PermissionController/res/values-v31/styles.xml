@@ -90,6 +90,12 @@
            parent="@style/PermissionGrantButtonTop"></style>
     <style name="PermissionGrantButtonAllowOneTimeMaterial3"
            parent="@style/PermissionGrantButtonMiddle"></style>
+    <style name="PermissionGrantButtonAllowAllMaterial3"
+        parent="@style/PermissionGrantButtonMiddle"></style>
+    <style name="PermissionGrantButtonAllowSelectedMaterial3"
+        parent="@style/PermissionGrantButtonTop"></style>
+    <style name="PermissionGrantButtonDontAllowMoreMaterial3"
+        parent="@style/PermissionGrantButtonBottom"></style>
     <style name="PermissionGrantButtonDenyMaterial3"
            parent="@style/PermissionGrantButtonBottom"></style>
     <style name="PermissionGrantButtonNoUpgradeMaterial3"
@@ -115,136 +121,4 @@
         <item name="android:textDirection">locale</item>
         <item name="android:textAppearance">?android:attr/textAppearanceListItem</item>
     </style>
-
-    <!-- START SAFETY Center QUICK SETTINGS PAGE -->
-
-    <style name="SafetyCenterLinkText">
-        <item name="android:layout_marginTop">5dp</item>
-        <item name="android:layout_marginBottom">5dp</item>
-        <item name="android:layout_marginStart">5dp</item>
-        <item name="android:layout_marginEnd">5dp</item>
-        <item name="android:paddingTop">10dp</item>
-        <item name="android:paddingBottom">10dp</item>
-        <item name="android:paddingStart">10dp</item>
-        <item name="android:paddingEnd">10dp</item>
-        <item name="android:textDirection">locale</item>
-        <item name="android:textAppearance">?android:attr/textAppearanceSmall</item>
-    </style>
-
-    <style name="SafetyCenterToggleText" parent="Theme.AppCompat">
-        <item name="android:layout_marginTop">2dp</item>
-        <item name="android:layout_marginStart">5dp</item>
-        <item name="android:layout_marginEnd">5dp</item>
-        <item name="android:textDirection">locale</item>
-        <item name="android:textAppearance">?android:attr/textAppearanceSmall</item>
-    </style>
-
-    <style name="SafetyCenterSensorToggleButton" parent="SafetyCenterLinkText">
-        <item name="android:background">@drawable/safety_center_button_background</item>
-    </style>
-
-    <style name="TextAppearance.SafetyStatusTitle"
-        parent="@android:style/TextAppearance.DeviceDefault.Medium">
-        <item name="android:fontFamily">@*android:string/config_headlineFontFamily</item>
-        <item name="android:textSize">22sp</item>
-        <item name="android:textColor">?android:attr/textColorPrimary</item>
-    </style>
-
-    <style name="TextAppearance.SafetyStatusSummary"
-        parent="@android:style/TextAppearance.DeviceDefault.Small">
-        <item name="android:fontFamily">@*android:string/config_bodyFontFamily</item>
-        <item name="android:textSize">14sp</item>
-        <item name="android:textColor">?android:attr/textColorSecondary</item>
-    </style>
-
-    <style name="SafetyCenter.RescanButton"
-        parent="android:Widget.DeviceDefault.Button.Colored">
-        <item name="android:layout_marginStart">24dp</item>
-        <item name="android:layout_marginEnd">24dp</item>
-    </style>
-
-    <style name="SafetyCenter.IssueCard"
-        parent="android:Widget.DeviceDefault">
-        <item name="android:paddingStart">20dp</item>
-        <item name="android:paddingEnd">20dp</item>
-        <item name="android:paddingTop">20dp</item>
-        <item name="android:paddingBottom">8dp</item>
-        <item name="android:layout_marginTop">8dp</item>
-        <item name="android:layout_marginStart">16dp</item>
-        <item name="android:layout_marginBottom">8dp</item>
-        <item name="android:layout_marginEnd">16dp</item>
-        <item name="android:background">@drawable/safety_center_card_background</item>
-    </style>
-
-    <style name="SafetyCenter.IssueCard.TopRow"
-        parent="android:Widget.DeviceDefault">
-        <item name="android:paddingBottom">8dp</item>
-    </style>
-
-    <style name="SafetyCenter.IssueCard.Dismiss"
-        parent="android:Widget.DeviceDefault.ImageButton">
-        <item name="android:background">@android:color/transparent</item>
-    </style>
-
-    <style name="SafetyCenter.IssueCard.Title"
-        parent="@android:style/TextAppearance.Material.Subhead">
-        <item name="android:textSize">20sp</item>
-        <item name="android:fontFamily">@string/settingslib_config_headlineFontFamily</item>
-        <item name="android:textColor">?android:attr/textColorPrimary</item>
-    </style>
-
-    <style name="SafetyCenter.IssueCard.Subtitle"
-        parent="@android:style/TextAppearance.DeviceDefault">
-        <item name="android:textColor">?android:attr/textColorSecondary</item>
-        <item name="android:textSize">14sp</item>
-    </style>
-
-    <style name="SafetyCenter.IssueCard.Summary"
-        parent="@android:style/TextAppearance.DeviceDefault">
-        <item name="android:textColor">?android:attr/textColorSecondary</item>
-        <item name="android:textSize">14sp</item>
-    </style>
-
-    <style name="SafetyCenter.IssueCard.ActionButtonList"
-        parent="android:Widget.DeviceDefault" />
-
-    <style name="SafetyCenter.IssueCard.ActionButton"
-        parent="android:Widget.DeviceDefault.Button.Colored" />
-
-    <style name="IndicatorCardView"
-           xmlns:card_view="http://schemas.android.com/apk/res-auto"
-           xmlns:app="http://schemas.android.com/apk/res-auto" >
-        <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">wrap_content</item>
-        <item name="app:cardCornerRadius">20dp</item>
-        <item name="app:cardElevation">0dp</item>
-        <item name="app:cardBackgroundColor">#2f3133</item>
-        <item name="card_view:contentPaddingBottom">15dp</item>
-        <item name="card_view:contentPaddingTop">15dp</item>
-        <item name="card_view:contentPaddingLeft">15dp</item>
-        <item name="card_view:contentPaddingRight">15dp</item>
-    </style>
-
-    <style name="ExpandedCardView" parent="Theme.MaterialComponents">
-        <item name="android:layout_marginBottom">0dp</item>
-        <item name="android:layout_marginStart">0dp</item>
-        <item name="android:layout_marginEnd">0dp</item>
-        <item name="cardElevation">0dp</item>
-        <item name="cardBackgroundColor">#454749</item>
-    </style>
-
-    <style name="TopCornersCardView" parent="ExpandedCardView">
-        <item name="cornerSizeTopRight">8dp</item>
-        <item name="cornerSizeTopLeft">8dp</item>
-        <item name="cornerSizeBottomRight">0dp</item>
-        <item name="cornerSizeBottomLeft">0dp</item>
-    </style>
-
-    <style name="BottomCornersCardView" parent="ExpandedCardView">
-        <item name="cornerSizeTopRight">0dp</item>
-        <item name="cornerSizeTopLeft">0dp</item>
-        <item name="cornerSizeBottomRight">8dp</item>
-        <item name="cornerSizeBottomLeft">8dp</item>
-    </style>
-
 </resources>

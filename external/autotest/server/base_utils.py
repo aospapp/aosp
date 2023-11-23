@@ -236,7 +236,7 @@ def form_ntuples_from_machines(machines, n=2, mapping_func=default_mappings):
     return (ntuples, failures)
 
 
-def parse_machine(machine, user='root', password='', port=22):
+def parse_machine(machine, user='root', password='', port=None):
     """
     Parse the machine string user:pass@host:port and return it separately,
     if the machine string is not complete, use the default parameters

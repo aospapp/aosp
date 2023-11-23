@@ -21,7 +21,7 @@ package {
 android_test_helper_app {
     name: "CtsHostsideNetworkTestsApp2",
     defaults: ["cts_support_defaults"],
-    sdk_version: "test_current",
+    platform_apis: true,
     static_libs: [
         "androidx.annotation_annotation",
         "CtsHostsideNetworkTestsAidl",

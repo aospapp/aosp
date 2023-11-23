@@ -44,6 +44,7 @@ cc_library_headers {
     defaults: ["deqp_and_deps_defaults"],
     export_include_dirs: [
         "external/vulkancts/framework/vulkan",
+        "external/vulkancts/framework/vulkan/generated/vulkan",
         "framework/delibs/debase",
     ],
 }
@@ -105,6 +106,7 @@ cc_defaults {
         "-DDEQP_SUPPORT_GLES1=1",
         "-DDEQP_TARGET_NAME=\"Android\"",
         "-DQP_SUPPORT_PNG",
+        "-DCTS_USES_VULKAN",
 
         "-Wall",
         "-Werror",
@@ -195,8 +197,6 @@ android_test {
     name: "com.drawelements.deqp",
 
     test_suites: [
-        "cts",
-        "mts",
         "vts10",
     ],
 
@@ -216,6 +216,10 @@ android_test {
 
     // We could go down all the way to API-13 for 32bit. 22 is required for 64bit ARM.
     sdk_version: "test_current",
+
+    // Avoid apk installation failures ('Requires development platform...' errors)
+    min_sdk_version: "31",
+    target_sdk_version: "34",
 }
 
 cc_test {
@@ -266,10 +270,10 @@ cc_test {
 filegroup {
     name: "deqp_binary_incremental_test_lists",
     srcs: [
-        "android/cts/master/gles3-incremental-deqp.txt",
-        "android/cts/master/vk-incremental-deqp.txt",
+        "android/cts/main/gles3-incremental-deqp.txt",
+        "android/cts/main/vk-incremental-deqp.txt",
     ],
-    path: "android/cts/master",
+    path: "android/cts/main",
 }
 
 filegroup {

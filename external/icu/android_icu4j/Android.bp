@@ -77,7 +77,7 @@ java_library_host {
     name: "timezone-host",
     visibility: [
         "//packages/modules/RuntimeI18n/apex",
-        "//system/timezone/distro/core",
+        "//system/timezone/input_tools/version",
     ],
     srcs: [
         "libcore_bridge/src/java/com/android/i18n/timezone/TzDataSetVersion.java",
@@ -111,7 +111,13 @@ java_library_static {
         javacflags: [
             "-Xep:MissingOverride:OFF", // Ignore missing @Override.
             "-Xep:ConstantOverflow:WARN", // Known constant overflow in SplittableRandom
+            "-Xep:BoxedPrimitiveEquality:WARN",
+            "-Xep:ComparableType:WARN",
+            "-Xep:EmptyTopLevelDeclaration:WARN",
         ],
+    },
+    lint: {
+        warning_checks: ["SuspiciousIndentation"],
     },
 }
 
@@ -151,6 +157,7 @@ java_library {
     name: "core-icu4j-for-host",
     visibility: [
         "//art/build",
+        "//external/robolectric",
         "//external/robolectric-shadows",
         "//frameworks/layoutlib",
         "//packages/modules/RuntimeI18n/apex",
@@ -190,6 +197,9 @@ java_sdk_library {
         javacflags: [
             "-Xep:MissingOverride:OFF",
         ],
+    },
+    lint: {
+        warning_checks: ["SuspiciousIndentation"],
     },
 
     public: {
@@ -254,6 +264,10 @@ java_sdk_library {
 
     // Don't copy any output files to the dist.
     no_dist: true,
+
+    lint: {
+        warning_checks: ["SuspiciousIndentation"],
+    },
 }
 
 // Referenced implicitly from i18n.module.intra.core.api.
@@ -366,6 +380,10 @@ java_sdk_library {
 
     // Don't copy any output files to the dist.
     no_dist: true,
+
+    lint: {
+        warning_checks: ["SuspiciousIndentation"],
+    },
 }
 
 java_sdk_library {
@@ -396,6 +414,10 @@ java_sdk_library {
 
     // Don't copy any output files to the dist.
     no_dist: true,
+
+    lint: {
+        warning_checks: ["SuspiciousIndentation"],
+    },
 }
 
 //==========================================================
@@ -433,6 +455,42 @@ java_test {
     system_modules: "art-module-intra-core-api-stubs-system-modules",
 
     errorprone: {
-        javacflags: ["-Xep:EqualsNull:WARN"],
+        javacflags: [
+            "-Xep:EqualsNull:WARN",
+            "-Xep:ArrayToString:WARN",
+            "-Xep:SelfEquals:WARN",
+            "-Xep:SelfComparison:WARN",
+            "-Xep:ReturnValueIgnored:WARN",
+            "-Xep:IdentityBinaryExpression:WARN",
+            "-Xep:BoxedPrimitiveEquality:WARN",
+            "-Xep:ComparableType:WARN",
+        ],
     },
+}
+
+java_api_contribution {
+    name: "i18n-intra-core-stubs",
+    api_surface: "intra-core",
+    api_file: "api/intra/current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
+}
+
+java_api_contribution {
+    name: "i18n-public-stubs",
+    api_surface: "public",
+    api_file: "api/public/current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
+}
+
+java_api_contribution {
+    name: "i18n-module-lib-stubs",
+    api_surface: "module-lib",
+    api_file: "api/stable_platform/current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
 }

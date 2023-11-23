@@ -352,10 +352,7 @@ MemMap MemMap::MapAnonymous(const char* name,
 
   if (actual == MAP_FAILED) {
     if (error_msg != nullptr) {
-      if (kIsDebugBuild || VLOG_IS_ON(oat)) {
-        PrintFileToLog("/proc/self/maps", LogSeverity::WARNING);
-      }
-
+      PrintFileToLog("/proc/self/maps", LogSeverity::WARNING);
       *error_msg = StringPrintf("Failed anonymous mmap(%p, %zd, 0x%x, 0x%x, %d, 0): %s. "
                                     "See process maps in the log.",
                                 addr,
@@ -387,6 +384,32 @@ MemMap MemMap::MapAnonymous(const char* name,
                 page_aligned_byte_count,
                 prot,
                 reuse);
+}
+
+MemMap MemMap::MapAnonymousAligned(const char* name,
+                                   size_t byte_count,
+                                   int prot,
+                                   bool low_4gb,
+                                   size_t alignment,
+                                   /*out=*/std::string* error_msg) {
+  DCHECK(IsPowerOfTwo(alignment));
+  DCHECK_GT(alignment, kPageSize);
+  // Allocate extra 'alignment - kPageSize' bytes so that the mapping can be aligned.
+  MemMap ret = MapAnonymous(name,
+                            /*addr=*/nullptr,
+                            byte_count + alignment - kPageSize,
+                            prot,
+                            low_4gb,
+                            /*reuse=*/false,
+                            /*reservation=*/nullptr,
+                            error_msg);
+  if (LIKELY(ret.IsValid())) {
+    ret.AlignBy(alignment, /*align_both_ends=*/false);
+    ret.SetSize(byte_count);
+    DCHECK_EQ(ret.Size(), byte_count);
+    DCHECK_ALIGNED_PARAM(ret.Begin(), alignment);
+  }
+  return ret;
 }
 
 MemMap MemMap::MapPlaceholder(const char* name, uint8_t* addr, size_t byte_count) {
@@ -777,11 +800,11 @@ MemMap MemMap::RemapAtEnd(uint8_t* new_end,
   return MemMap(tail_name, actual, tail_size, actual, tail_base_size, tail_prot, false);
 }
 
-MemMap MemMap::TakeReservedMemory(size_t byte_count) {
+MemMap MemMap::TakeReservedMemory(size_t byte_count, bool reuse) {
   uint8_t* begin = Begin();
   ReleaseReservedMemory(byte_count);  // Performs necessary DCHECK()s on this reservation.
   size_t base_size = RoundUp(byte_count, kPageSize);
-  return MemMap(name_, begin, byte_count, begin, base_size, prot_, /* reuse= */ false);
+  return MemMap(name_, begin, byte_count, begin, base_size, prot_, reuse);
 }
 
 void MemMap::ReleaseReservedMemory(size_t byte_count) {
@@ -997,6 +1020,8 @@ void MemMap::Init() {
 
   TargetMMapInit();
 }
+
+bool MemMap::IsInitialized() { return mem_maps_lock_ != nullptr; }
 
 void MemMap::Shutdown() {
   if (mem_maps_lock_ == nullptr) {
@@ -1247,40 +1272,46 @@ void ZeroAndReleasePages(void* address, size_t length) {
   }
 }
 
-void MemMap::AlignBy(size_t size) {
+void MemMap::AlignBy(size_t alignment, bool align_both_ends) {
   CHECK_EQ(begin_, base_begin_) << "Unsupported";
   CHECK_EQ(size_, base_size_) << "Unsupported";
-  CHECK_GT(size, static_cast<size_t>(kPageSize));
-  CHECK_ALIGNED(size, kPageSize);
+  CHECK_GT(alignment, static_cast<size_t>(kPageSize));
+  CHECK_ALIGNED(alignment, kPageSize);
   CHECK(!reuse_);
-  if (IsAlignedParam(reinterpret_cast<uintptr_t>(base_begin_), size) &&
-      IsAlignedParam(base_size_, size)) {
+  if (IsAlignedParam(reinterpret_cast<uintptr_t>(base_begin_), alignment) &&
+      (!align_both_ends || IsAlignedParam(base_size_, alignment))) {
     // Already aligned.
     return;
   }
   uint8_t* base_begin = reinterpret_cast<uint8_t*>(base_begin_);
-  uint8_t* base_end = base_begin + base_size_;
-  uint8_t* aligned_base_begin = AlignUp(base_begin, size);
-  uint8_t* aligned_base_end = AlignDown(base_end, size);
+  uint8_t* aligned_base_begin = AlignUp(base_begin, alignment);
   CHECK_LE(base_begin, aligned_base_begin);
-  CHECK_LE(aligned_base_end, base_end);
-  size_t aligned_base_size = aligned_base_end - aligned_base_begin;
-  CHECK_LT(aligned_base_begin, aligned_base_end)
-      << "base_begin = " << reinterpret_cast<void*>(base_begin)
-      << " base_end = " << reinterpret_cast<void*>(base_end);
-  CHECK_GE(aligned_base_size, size);
-  // Unmap the unaligned parts.
   if (base_begin < aligned_base_begin) {
     MEMORY_TOOL_MAKE_UNDEFINED(base_begin, aligned_base_begin - base_begin);
     CHECK_EQ(TargetMUnmap(base_begin, aligned_base_begin - base_begin), 0)
         << "base_begin=" << reinterpret_cast<void*>(base_begin)
         << " aligned_base_begin=" << reinterpret_cast<void*>(aligned_base_begin);
   }
-  if (aligned_base_end < base_end) {
-    MEMORY_TOOL_MAKE_UNDEFINED(aligned_base_end, base_end - aligned_base_end);
-    CHECK_EQ(TargetMUnmap(aligned_base_end, base_end - aligned_base_end), 0)
-        << "base_end=" << reinterpret_cast<void*>(base_end)
-        << " aligned_base_end=" << reinterpret_cast<void*>(aligned_base_end);
+  uint8_t* base_end = base_begin + base_size_;
+  size_t aligned_base_size;
+  if (align_both_ends) {
+    uint8_t* aligned_base_end = AlignDown(base_end, alignment);
+    CHECK_LE(aligned_base_end, base_end);
+    CHECK_LT(aligned_base_begin, aligned_base_end)
+        << "base_begin = " << reinterpret_cast<void*>(base_begin)
+        << " base_end = " << reinterpret_cast<void*>(base_end);
+    aligned_base_size = aligned_base_end - aligned_base_begin;
+    CHECK_GE(aligned_base_size, alignment);
+    if (aligned_base_end < base_end) {
+      MEMORY_TOOL_MAKE_UNDEFINED(aligned_base_end, base_end - aligned_base_end);
+      CHECK_EQ(TargetMUnmap(aligned_base_end, base_end - aligned_base_end), 0)
+          << "base_end=" << reinterpret_cast<void*>(base_end)
+          << " aligned_base_end=" << reinterpret_cast<void*>(aligned_base_end);
+    }
+  } else {
+    CHECK_LT(aligned_base_begin, base_end)
+        << "base_begin = " << reinterpret_cast<void*>(base_begin);
+    aligned_base_size = base_end - aligned_base_begin;
   }
   std::lock_guard<std::mutex> mu(*mem_maps_lock_);
   if (base_begin < aligned_base_begin) {

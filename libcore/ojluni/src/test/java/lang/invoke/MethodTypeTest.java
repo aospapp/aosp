@@ -118,7 +118,8 @@ public class MethodTypeTest {
     public void testMake_Class_ClassArr() {
         System.out.println("make (from type array)");
         MethodType result = MethodType.methodType(rtype, ptypes);
-        assertSame(mt_viS, result);
+        // Android-changed: assertEquals replacing assertSame because MethodTypes are not interned.
+        assertEquals(mt_viS, result);
     }
 
     /**
@@ -128,7 +129,8 @@ public class MethodTypeTest {
     public void testMake_Class_List() {
         System.out.println("make (from type list)");
         MethodType result = MethodType.methodType(rtype, Arrays.asList(ptypes));
-        assertSame(mt_viS, result);
+        // Android-changed: assertEquals replacing assertSame because MethodTypes are not interned.
+        assertEquals(mt_viS, result);
     }
 
     /**
@@ -138,7 +140,8 @@ public class MethodTypeTest {
     public void testMake_3args() {
         System.out.println("make (from type with varargs)");
         MethodType result = MethodType.methodType(rtype, ptypes[0], ptypes[1]);
-        assertSame(mt_viS, result);
+        // Android-changed: assertEquals replacing assertSame because MethodTypes are not interned.
+        assertEquals(mt_viS, result);
     }
 
     /**
@@ -150,7 +153,8 @@ public class MethodTypeTest {
         Class<?> rt = Integer.class;
         MethodType expResult = MethodType.methodType(rt, new Class<?>[0]);
         MethodType result = MethodType.methodType(rt);
-        assertSame(expResult, result);
+        // Android-changed: assertEquals replacing assertSame because MethodTypes are not interned.
+        assertEquals(expResult, result);
     }
 
     @Test
@@ -159,7 +163,8 @@ public class MethodTypeTest {
         int objectArgCount = 2;
         MethodType expResult = mt_OO2;
         MethodType result = MethodType.genericMethodType(objectArgCount);
-        assertSame(expResult, result);
+        // Android-changed: assertEquals replacing assertSame because MethodTypes are not interned.
+        assertEquals(expResult, result);
     }
 
     /**
@@ -170,7 +175,8 @@ public class MethodTypeTest {
         System.out.println("make (from rtype, MethodType)");
         MethodType expResult = mt_iO2;
         MethodType result = MethodType.methodType(int.class, mt_IO2);
-        assertSame(expResult, result);
+        // Android-changed: assertEquals replacing assertSame because MethodTypes are not interned.
+        assertEquals(expResult, result);
     }
 
     /**
@@ -197,7 +203,8 @@ public class MethodTypeTest {
             String result = instance.toMethodDescriptorString();
             assertEquals("#"+i, expResults[i], result);
             MethodType parsed = MethodType.fromMethodDescriptorString(result, loader);
-            assertSame("--#"+i, instance, parsed);
+            // Android-changed: assertEquals replacing assertSame because MethodTypes are not interned.
+            assertEquals("--#"+i, instance, parsed);
         }
     }
     private static String concat(Object... parts) {
@@ -248,7 +255,8 @@ public class MethodTypeTest {
         MethodType[] expResults = {mt_viO, mt_OO2, mt_vv, mt_Ov, mt_iO2, mt_OOi, mt_OO2, mt_iOi};
         for (int i = 0; i < instances.length; i++) {
             MethodType result = instances[i].erase();
-            assertSame("#"+i, expResults[i], result);
+            // Android-changed: assertEquals replacing assertSame because MethodTypes are not interned.
+            assertEquals("#"+i, expResults[i], result);
         }
     }
 
@@ -259,7 +267,8 @@ public class MethodTypeTest {
         MethodType[] expResults = {mt_OO2, mt_OO2, mt_Ov, mt_Ov, mt_OO2, mt_OO2, mt_OO2, mt_OO2};
         for (int i = 0; i < instances.length; i++) {
             MethodType result = instances[i].generic();
-            assertSame("#"+i, expResults[i], result);
+            // Android-changed: assertEquals replacing assertSame because MethodTypes are not interned.
+            assertEquals("#"+i, expResults[i], result);
         }
     }
 
@@ -270,7 +279,8 @@ public class MethodTypeTest {
         MethodType[] expResults = {mt_VIS, mt_OO2, mt_Vv, mt_Ov, mt_ISI, mt_ISI, mt_ISI, mt_ISI};
         for (int i = 0; i < instances.length; i++) {
             MethodType result = instances[i].wrap();
-            assertSame("#"+i, expResults[i], result);
+            // Android-changed: assertEquals replacing assertSame because MethodTypes are not interned.
+            assertEquals("#"+i, expResults[i], result);
         }
     }
 
@@ -281,7 +291,8 @@ public class MethodTypeTest {
         MethodType[] expResults = {mt_viS, mt_OO2, mt_vv, mt_Ov, mt_iSi, mt_iSi, mt_iSi, mt_iSi};
         for (int i = 0; i < instances.length; i++) {
             MethodType result = instances[i].unwrap();
-            assertSame("#"+i, expResults[i], result);
+            // Android-changed: assertEquals replacing assertSame because MethodTypes are not interned.
+            assertEquals("#"+i, expResults[i], result);
         }
     }
 
@@ -295,7 +306,8 @@ public class MethodTypeTest {
             MethodType instance = mt_viS;
             Class<?> expResult = ptypes[num];
             Class<?> result = instance.parameterType(num);
-            assertSame(expResult, result);
+            // Android-changed: assertEquals replacing assertSame because MethodTypes are not interned.
+            assertEquals(expResult, result);
         }
     }
 
@@ -320,7 +332,8 @@ public class MethodTypeTest {
         MethodType instance = mt_viS;
         Class<?> expResult = void.class;
         Class<?> result = instance.returnType();
-        assertSame(expResult, result);
+        // Android-changed: assertEquals replacing assertSame because MethodTypes are not interned.
+        assertEquals(expResult, result);
     }
 
     /**

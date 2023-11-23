@@ -16,8 +16,6 @@
 #ifndef EXYNOS_DISPLAY_MODULE_H
 #define EXYNOS_DISPLAY_MODULE_H
 
-#include <gs101/displaycolor/displaycolor_gs101.h>
-
 #include "ExynosDeviceModule.h"
 #include "ExynosDisplay.h"
 #include "ExynosLayer.h"
@@ -96,8 +94,10 @@ namespace gs101 {
 using namespace displaycolor;
 
 class ExynosPrimaryDisplayModule : public ExynosPrimaryDisplay {
+    using GsInterfaceType = gs::ColorDrmBlobFactory::GsInterfaceType;
     public:
-        ExynosPrimaryDisplayModule(uint32_t index, ExynosDevice *device);
+        ExynosPrimaryDisplayModule(uint32_t index, ExynosDevice* device,
+                                   const std::string& displayName);
         ~ExynosPrimaryDisplayModule();
         void usePreDefinedWindow(bool use);
         virtual int32_t validateWinConfigData();
@@ -119,7 +119,7 @@ class ExynosPrimaryDisplayModule : public ExynosPrimaryDisplay {
         virtual int32_t updatePresentColorConversionInfo();
         virtual bool checkRrCompensationEnabled() {
             const DisplayType display = getDisplayTypeFromIndex(mIndex);
-            IDisplayColorGS101* displayColorInterface = getDisplayColorInterface();
+            GsInterfaceType* displayColorInterface = getDisplayColorInterface();
             return displayColorInterface
                 ? displayColorInterface->IsRrCompensationEnabled(display)
                 : false;
@@ -130,6 +130,7 @@ class ExynosPrimaryDisplayModule : public ExynosPrimaryDisplay {
         virtual int32_t getColorAdjustedDbv(uint32_t &dbv_adj);
 
         virtual void initLbe();
+        virtual bool isLbeSupported();
         virtual void setLbeState(LbeState state);
         virtual void setLbeAmbientLight(int value);
         virtual LbeState getLbeState();
@@ -228,13 +229,13 @@ class ExynosPrimaryDisplayModule : public ExynosPrimaryDisplay {
         };
 
         bool hasDisplayColor() {
-            IDisplayColorGS101* displayColorInterface = getDisplayColorInterface();
+            GsInterfaceType* displayColorInterface = getDisplayColorInterface();
             return displayColorInterface != nullptr;
         }
 
         /* Call getDppForLayer() only if hasDppForLayer() is true */
         bool hasDppForLayer(ExynosMPPSource* layer);
-        const IDisplayColorGS101::IDpp& getDppForLayer(ExynosMPPSource* layer);
+        const GsInterfaceType::IDpp& getDppForLayer(ExynosMPPSource* layer);
         int32_t getDppIndexForLayer(ExynosMPPSource* layer);
         /* Check if layer's assigned plane id has changed, save the new planeId.
          * call only if hasDppForLayer is true */
@@ -247,14 +248,14 @@ class ExynosPrimaryDisplayModule : public ExynosPrimaryDisplay {
 
         size_t getNumOfDpp() {
             const DisplayType display = getDisplayTypeFromIndex(mIndex);
-            IDisplayColorGS101* displayColorInterface = getDisplayColorInterface();
+            GsInterfaceType* displayColorInterface = getDisplayColorInterface();
             return displayColorInterface->GetPipelineData(display)->Dpp().size();
         };
 
-        const IDisplayColorGS101::IDqe& getDqe()
+        const GsInterfaceType::IDqe& getDqe()
         {
             const DisplayType display = getDisplayTypeFromIndex(mIndex);
-            IDisplayColorGS101* displayColorInterface = getDisplayColorInterface();
+            GsInterfaceType* displayColorInterface = getDisplayColorInterface();
             return displayColorInterface->GetPipelineData(display)->Dqe();
         };
 
@@ -297,12 +298,7 @@ class ExynosPrimaryDisplayModule : public ExynosPrimaryDisplay {
                 return false;
         };
 
-        DisplayType getDisplayTypeFromIndex(uint32_t index) {
-            return (index >= DisplayType::DISPLAY_MAX) ? DisplayType::DISPLAY_PRIMARY
-                                                       : DisplayType(mIndex);
-        };
-
-        IDisplayColorGS101* getDisplayColorInterface() {
+        GsInterfaceType* getDisplayColorInterface() {
             ExynosDeviceModule* device = (ExynosDeviceModule*)mDevice;
             return device->getDisplayColorInterface();
         }
@@ -328,6 +324,7 @@ class ExynosPrimaryDisplayModule : public ExynosPrimaryDisplay {
         Mutex mAtcStMutex;
         bool mPendingAtcOff;
         bool mForceColorUpdate = false;
+        bool mLbeSupported = false;
 
     protected:
         virtual int32_t setPowerMode(int32_t mode) override;

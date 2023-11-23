@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.appexit;
 
+import com.android.tradefed.util.RunUtil;
 import static android.app.AppExitReasonCode.REASON_OTHER;
 import static android.app.AppExitReasonCode.REASON_PERMISSION_CHANGE;
 import static android.app.AppExitSubReasonCode.SUBREASON_ISOLATED_NOT_NEEDED;
@@ -71,7 +72,7 @@ public class AppExitHostTest extends BaseHostJUnit4Test implements IBuildReceive
         DeviceUtils.installTestApp(getDevice(), TEST_APK, TEST_PKG, mCtsBuild);
         DeviceUtils.installTestApp(getDevice(), HELPER_APK1, HELPER_PKG1, mCtsBuild);
         DeviceUtils.installTestApp(getDevice(), HELPER_APK2, HELPER_PKG2, mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         getDevice().executeShellCommand("cmd deviceidle tempwhitelist -r " + HELPER_PKG1);
         getDevice().executeShellCommand("cmd deviceidle tempwhitelist -r " + HELPER_PKG2);
         getDevice().executeShellCommand("pm grant " + TEST_PKG + " " + PERM_PACKAGE_USAGE_STATS);
@@ -132,7 +133,7 @@ public class AppExitHostTest extends BaseHostJUnit4Test implements IBuildReceive
                 atomTag, /* useUidAttributionChain= */ false);
 
         DeviceUtils.runDeviceTests(getDevice(), TEST_PKG, TEST_CLASS, testMethod);
-        Thread.sleep(APP_EXIT_INFO_STATSD_LOG_DEBOUNCE_MSEC);
+        RunUtil.getDefault().sleep(APP_EXIT_INFO_STATSD_LOG_DEBOUNCE_MSEC);
 
         List<StatsLog.EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
 

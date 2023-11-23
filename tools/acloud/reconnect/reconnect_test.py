@@ -25,6 +25,7 @@ from acloud.internal.lib import auth
 from acloud.internal.lib import android_compute_client
 from acloud.internal.lib import cvd_runtime_config
 from acloud.internal.lib import driver_test_lib
+from acloud.internal.lib import gcompute_client
 from acloud.internal.lib import utils
 from acloud.internal.lib import ssh as ssh_object
 from acloud.internal.lib.adb_tools import AdbTools
@@ -34,7 +35,9 @@ from acloud.reconnect import reconnect
 
 
 ForwardedPorts = collections.namedtuple("ForwardedPorts",
-                                        [constants.VNC_PORT, constants.ADB_PORT])
+                                        [constants.VNC_PORT,
+                                         constants.ADB_PORT,
+                                         constants.FASTBOOT_PORT])
 
 
 class ReconnectTest(driver_test_lib.BaseDriverTest):
@@ -50,6 +53,7 @@ class ReconnectTest(driver_test_lib.BaseDriverTest):
         instance_object.ip = "1.1.1.1"
         instance_object.islocal = False
         instance_object.adb_port = "8686"
+        instance_object.fastboot_port = "9686"
         instance_object.avd_type = "cuttlefish"
         self.Patch(subprocess, "check_call", return_value=True)
         self.Patch(utils, "LaunchVncClient")
@@ -62,6 +66,7 @@ class ReconnectTest(driver_test_lib.BaseDriverTest):
             constants.INSTANCE_NAME: "fake_name",
             constants.VNC_PORT: 6666,
             constants.ADB_PORT: "8686",
+            constants.FASTBOOT_PORT: "9686",
             constants.DEVICE_SERIAL: "127.0.0.1:8686"
         }
 
@@ -90,13 +95,14 @@ class ReconnectTest(driver_test_lib.BaseDriverTest):
         instance_object.vnc_port = 5555
         extra_args_ssh_tunnel = None
         self.Patch(utils, "AutoConnect",
-                   return_value=ForwardedPorts(vnc_port=11111, adb_port=22222))
+                   return_value=ForwardedPorts(vnc_port=11111, adb_port=22222, fastboot_port=33333))
         reconnect.ReconnectInstance(
             ssh_private_key_path, instance_object, fake_report, autoconnect="vnc")
         utils.AutoConnect.assert_called_with(ip_addr=instance_object.ip,
                                              rsa_key_file=ssh_private_key_path,
                                              target_vnc_port=constants.CF_VNC_PORT,
                                              target_adb_port=constants.CF_ADB_PORT,
+                                             target_fastboot_port=constants.CF_FASTBOOT_PORT,
                                              ssh_user=constants.GCE_USER,
                                              extra_args_ssh_tunnel=extra_args_ssh_tunnel)
         utils.LaunchVncClient.assert_called_with(11111)
@@ -105,6 +111,7 @@ class ReconnectTest(driver_test_lib.BaseDriverTest):
             constants.INSTANCE_NAME: "fake_name",
             constants.VNC_PORT: 11111,
             constants.ADB_PORT: 22222,
+            constants.FASTBOOT_PORT: 33333,
             constants.DEVICE_SERIAL: "127.0.0.1:22222"
         }
         fake_report.AddData.assert_called_with(key="devices", value=fake_device_dict)
@@ -120,6 +127,7 @@ class ReconnectTest(driver_test_lib.BaseDriverTest):
                                              rsa_key_file=ssh_private_key_path,
                                              target_vnc_port=constants.CF_VNC_PORT,
                                              target_adb_port=constants.CF_ADB_PORT,
+                                             target_fastboot_port=constants.CF_FASTBOOT_PORT,
                                              ssh_user=constants.GCE_USER,
                                              extra_args_ssh_tunnel=extra_args_ssh_tunnel)
         utils.LaunchVncClient.assert_called_with(11111, "999", "777")
@@ -127,14 +135,15 @@ class ReconnectTest(driver_test_lib.BaseDriverTest):
 
         # test fail reconnect report.
         self.Patch(utils, "AutoConnect",
-                   return_value=ForwardedPorts(vnc_port=None, adb_port=None))
+                   return_value=ForwardedPorts(vnc_port=None, adb_port=None, fastboot_port=None))
         reconnect.ReconnectInstance(
             ssh_private_key_path, instance_object, fake_report, autoconnect="vnc")
         fake_device_dict = {
             constants.IP: "1.1.1.1",
             constants.INSTANCE_NAME: "fake_name",
             constants.VNC_PORT: None,
-            constants.ADB_PORT: None
+            constants.ADB_PORT: None,
+            constants.FASTBOOT_PORT: None
         }
         fake_report.AddData.assert_called_with(key="device_failing_reconnect",
                                                value=fake_device_dict)
@@ -153,7 +162,8 @@ class ReconnectTest(driver_test_lib.BaseDriverTest):
             constants.IP: "1.1.1.1",
             constants.INSTANCE_NAME: "fake_name",
             constants.VNC_PORT: 5555,
-            constants.ADB_PORT: "8686"
+            constants.ADB_PORT: "8686",
+            constants.FASTBOOT_PORT: "9686"
         }
         fake_report.AddData.assert_called_with(key="devices", value=fake_device_dict)
 
@@ -235,6 +245,7 @@ class ReconnectTest(driver_test_lib.BaseDriverTest):
                                              rsa_key_file=ssh_private_key_path,
                                              target_vnc_port=constants.GCE_VNC_PORT,
                                              target_adb_port=constants.GCE_ADB_PORT,
+                                             target_fastboot_port=None,
                                              ssh_user=constants.GCE_USER,
                                              extra_args_ssh_tunnel=None)
         reconnect.StartVnc.assert_called_once()
@@ -248,6 +259,7 @@ class ReconnectTest(driver_test_lib.BaseDriverTest):
                                              rsa_key_file=ssh_private_key_path,
                                              target_vnc_port=constants.CF_VNC_PORT,
                                              target_adb_port=constants.CF_ADB_PORT,
+                                             target_fastboot_port=constants.CF_FASTBOOT_PORT,
                                              ssh_user=constants.GCE_USER,
                                              extra_args_ssh_tunnel=None)
         reconnect.StartVnc.assert_called_once()
@@ -368,6 +380,20 @@ class ReconnectTest(driver_test_lib.BaseDriverTest):
                    return_value=[fake_ins1, fake_ins2])
         reconnect.Run(fake_args)
         self.assertEqual(reconnect.ReconnectInstance.call_count, 1)
+
+    def testGetSshConnectHostname(self):
+        """Test GetSshConnectHostname."""
+        self.Patch(gcompute_client, "GetGCEHostName", return_value="fake_host")
+        instance = mock.MagicMock()
+        instance.islocal = True
+        cfg = mock.MagicMock()
+        self.assertEqual(None, reconnect.GetSshConnectHostname(cfg, instance))
+
+        # Remote instance will get the GCE hostname.
+        instance.islocal = False
+        cfg.connect_hostname = True
+        self.assertEqual("fake_host",
+                         reconnect.GetSshConnectHostname(cfg, instance))
 
 
 if __name__ == "__main__":

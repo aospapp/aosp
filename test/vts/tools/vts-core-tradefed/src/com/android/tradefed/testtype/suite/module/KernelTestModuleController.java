@@ -30,7 +30,7 @@ public class KernelTestModuleController extends BaseModuleController {
 
     @Option(name = "arch",
             description = "The architecture name that should run for this module."
-                    + "This should be like arm64, arm, x86_64, x86, mips64, or mips.",
+                    + "This should be like arm64, arm, riscv64, x86_64, or x86.",
             mandatory = true)
     private String mArch = null;
 

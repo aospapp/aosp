@@ -30,6 +30,7 @@
 #include "test-runner.h"
 #include "test-utils-aarch64.h"
 
+#include "../test/aarch64/test-simulator-inputs-aarch64.h"
 #include "aarch64/cpu-aarch64.h"
 #include "aarch64/disasm-aarch64.h"
 #include "aarch64/macro-assembler-aarch64.h"
@@ -776,6 +777,241 @@ bool CanRun(const CPUFeatures& required, bool* queried_can_run) {
   }
   return false;
 #endif
+}
+
+// Note that the function assumes p0, p1, p2 and p3 are set to all true in b-,
+// h-, s- and d-lane sizes respectively, and p4, p5 are clobberred as a temp
+// predicate.
+template <typename T, size_t N>
+void SetFpData(MacroAssembler* masm,
+               int esize,
+               const T (&values)[N],
+               uint64_t lcg_mult) {
+  uint64_t a = 0;
+  uint64_t b = lcg_mult;
+  // Be used to populate the assigned element slots of register based on the
+  // type of floating point.
+  __ Pfalse(p5.VnB());
+  switch (esize) {
+    case kHRegSize:
+      a = Float16ToRawbits(Float16(1.5));
+      // Pick a convenient number within largest normal half-precision floating
+      // point.
+      b = Float16ToRawbits(Float16(lcg_mult % 1024));
+      // Step 1: Set fp16 numbers to the undefined registers.
+      //      p4< 15:0>: 0b0101010101010101
+      // z{code}<127:0>: 0xHHHHHHHHHHHHHHHH
+      __ Zip1(p4.VnB(), p0.VnB(), p5.VnB());
+      break;
+    case kSRegSize:
+      a = FloatToRawbits(1.5);
+      b = FloatToRawbits(lcg_mult);
+      // Step 2: Set fp32 numbers to register on top of fp16 initialized.
+      //      p4< 15:0>: 0b0000000100000001
+      // z{code}<127:0>: 0xHHHHSSSSHHHHSSSS
+      __ Zip1(p4.VnS(), p2.VnS(), p5.VnS());
+      break;
+    case kDRegSize:
+      a = DoubleToRawbits(1.5);
+      b = DoubleToRawbits(lcg_mult);
+      // Step 3: Set fp64 numbers to register on top of both fp16 and fp 32
+      // initialized.
+      //      p4< 15:0>: 0b0000000000000001
+      // z{code}<127:0>: 0xHHHHSSSSDDDDDDDD
+      __ Zip1(p4.VnD(), p3.VnD(), p5.VnD());
+      break;
+    default:
+      VIXL_UNIMPLEMENTED();
+      break;
+  }
+
+  __ Dup(z30.WithLaneSize(esize), a);
+  __ Dup(z31.WithLaneSize(esize), b);
+
+  for (unsigned j = 0; j <= (kZRegMaxSize / (N * esize)); j++) {
+    // As floating point operations on random values have a tendency to
+    // converge on special-case numbers like NaNs, adopt normal floating point
+    // values be the seed instead.
+    InsrHelper(masm, z0.WithLaneSize(esize), values);
+  }
+
+  __ Fmla(z0.WithLaneSize(esize),
+          p4.Merging(),
+          z30.WithLaneSize(esize),
+          z0.WithLaneSize(esize),
+          z31.WithLaneSize(esize),
+          FastNaNPropagation);
+
+  for (unsigned i = 1; i < kNumberOfZRegisters - 1; i++) {
+    __ Fmla(ZRegister(i).WithLaneSize(esize),
+            p4.Merging(),
+            z30.WithLaneSize(esize),
+            ZRegister(i - 1).WithLaneSize(esize),
+            z31.WithLaneSize(esize),
+            FastNaNPropagation);
+  }
+
+  __ Fmul(z31.WithLaneSize(esize),
+          p4.Merging(),
+          z31.WithLaneSize(esize),
+          z30.WithLaneSize(esize),
+          FastNaNPropagation);
+  __ Fadd(z31.WithLaneSize(esize), p4.Merging(), z31.WithLaneSize(esize), 1);
+}
+
+// Set z0 - z31 to some normal floating point data.
+void InitialiseRegisterFp(MacroAssembler* masm, uint64_t lcg_mult) {
+  // Initialise each Z registers to a mixture of fp16/32/64 values as following
+  // pattern:
+  // z0.h[0-1] = fp16, z0.s[1] = fp32, z0.d[1] = fp64 repeatedly throughout the
+  // register.
+  //
+  // For example:
+  // z{code}<2047:1920>: 0x{<      fp64      ><  fp32  ><fp16><fp16>}
+  // ...
+  // z{code}< 127:   0>: 0x{<      fp64      ><  fp32  ><fp16><fp16>}
+  //
+  // In current manner, in order to make a desired mixture, each part of
+  // initialization have to be called in the following order.
+  SetFpData(masm, kHRegSize, kInputFloat16Basic, lcg_mult);
+  SetFpData(masm, kSRegSize, kInputFloatBasic, lcg_mult);
+  SetFpData(masm, kDRegSize, kInputDoubleBasic, lcg_mult);
+}
+
+void SetInitialMachineState(MacroAssembler* masm, InputSet input_set) {
+  USE(input_set);
+  uint64_t lcg_mult = 6364136223846793005;
+
+  // Set x0 - x30 to pseudo-random data.
+  __ Mov(x29, 1);  // LCG increment.
+  __ Mov(x30, lcg_mult);
+  __ Mov(x0, 42);  // LCG seed.
+
+  __ Cmn(x0, 0);  // Clear NZCV flags for later.
+
+  __ Madd(x0, x0, x30, x29);  // First pseudo-random number.
+
+  // Registers 1 - 29.
+  for (unsigned i = 1; i < 30; i++) {
+    __ Madd(XRegister(i), XRegister(i - 1), x30, x29);
+  }
+  __ Mul(x30, x29, x30);
+  __ Add(x30, x30, 1);
+
+
+  // Set first four predicate registers to true for increasing lane sizes.
+  __ Ptrue(p0.VnB());
+  __ Ptrue(p1.VnH());
+  __ Ptrue(p2.VnS());
+  __ Ptrue(p3.VnD());
+
+  // Set z0 - z31 to pseudo-random data.
+  if (input_set == kIntInputSet) {
+    __ Dup(z30.VnD(), 1);
+    __ Dup(z31.VnD(), lcg_mult);
+    __ Index(z0.VnB(), -16, 13);  // LCG seeds.
+
+    __ Mla(z0.VnD(), p0.Merging(), z30.VnD(), z0.VnD(), z31.VnD());
+    for (unsigned i = 1; i < kNumberOfZRegisters - 1; i++) {
+      __ Mla(ZRegister(i).VnD(),
+             p0.Merging(),
+             z30.VnD(),
+             ZRegister(i - 1).VnD(),
+             z31.VnD());
+    }
+    __ Mul(z31.VnD(), p0.Merging(), z31.VnD(), z30.VnD());
+    __ Add(z31.VnD(), z31.VnD(), 1);
+
+  } else {
+    VIXL_ASSERT(input_set == kFpInputSet);
+    InitialiseRegisterFp(masm, lcg_mult);
+  }
+
+  // Set remaining predicate registers based on earlier pseudo-random data.
+  for (unsigned i = 4; i < kNumberOfPRegisters; i++) {
+    __ Cmpge(PRegister(i).VnB(), p0.Zeroing(), ZRegister(i).VnB(), 0);
+  }
+  for (unsigned i = 4; i < kNumberOfPRegisters; i += 2) {
+    __ Zip1(p0.VnB(), PRegister(i).VnB(), PRegister(i + 1).VnB());
+    __ Zip2(PRegister(i + 1).VnB(), PRegister(i).VnB(), PRegister(i + 1).VnB());
+    __ Mov(PRegister(i), p0);
+  }
+  __ Ptrue(p0.VnB());
+
+  // At this point, only sp and a few status registers are undefined. These
+  // must be ignored when computing the state hash.
+}
+
+void ComputeMachineStateHash(MacroAssembler* masm, uint32_t* dst) {
+  // Use explicit registers, to avoid hash order varying if
+  // UseScratchRegisterScope changes.
+  UseScratchRegisterScope temps(masm);
+  temps.ExcludeAll();
+  Register t0 = w0;
+  Register t1 = x1;
+
+  // Compute hash of x0 - x30.
+  __ Push(t0.X(), t1);
+  __ Crc32x(t0, wzr, t0.X());
+  for (unsigned i = 0; i < kNumberOfRegisters; i++) {
+    if (i == xzr.GetCode()) continue;   // Skip sp.
+    if (t0.Is(WRegister(i))) continue;  // Skip t0, as it's already hashed.
+    __ Crc32x(t0, t0, XRegister(i));
+  }
+
+  // Hash the status flags.
+  __ Mrs(t1, NZCV);
+  __ Crc32x(t0, t0, t1);
+
+  // Acquire another temp, as integer registers have been hashed already.
+  __ Push(x30, xzr);
+  Register t2 = x30;
+
+  // Compute hash of all bits in z0 - z31. This implies different hashes are
+  // produced for machines of different vector length.
+  for (unsigned i = 0; i < kNumberOfZRegisters; i++) {
+    __ Rdvl(t2, 1);
+    __ Lsr(t2, t2, 4);
+    Label vl_loop;
+    __ Bind(&vl_loop);
+    __ Umov(t1, VRegister(i).V2D(), 0);
+    __ Crc32x(t0, t0, t1);
+    __ Umov(t1, VRegister(i).V2D(), 1);
+    __ Crc32x(t0, t0, t1);
+    __ Ext(ZRegister(i).VnB(), ZRegister(i).VnB(), ZRegister(i).VnB(), 16);
+    __ Sub(t2, t2, 1);
+    __ Cbnz(t2, &vl_loop);
+  }
+
+  // Hash predicate registers. For simplicity, this writes the predicate
+  // registers to a zero-initialised area of stack of the maximum size required
+  // for P registers. It then computes a hash of that entire stack area.
+  unsigned p_stack_space = kNumberOfPRegisters * kPRegMaxSizeInBytes;
+
+  // Zero claimed stack area.
+  for (unsigned i = 0; i < p_stack_space; i += kXRegSizeInBytes * 2) {
+    __ Push(xzr, xzr);
+  }
+
+  // Store all P registers to the stack.
+  __ Mov(t1, sp);
+  for (unsigned i = 0; i < kNumberOfPRegisters; i++) {
+    __ Str(PRegister(i), SVEMemOperand(t1));
+    __ Add(t1, t1, kPRegMaxSizeInBytes);
+  }
+
+  // Hash the entire stack area.
+  for (unsigned i = 0; i < p_stack_space; i += kXRegSizeInBytes * 2) {
+    __ Pop(t1, t2);
+    __ Crc32x(t0, t0, t1);
+    __ Crc32x(t0, t0, t2);
+  }
+
+  __ Mov(t1, reinterpret_cast<uint64_t>(dst));
+  __ Str(t0, MemOperand(t1));
+
+  __ Pop(xzr, x30);
+  __ Pop(t1, t0.X());
 }
 
 }  // namespace aarch64

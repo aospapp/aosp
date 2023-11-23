@@ -17,6 +17,7 @@
 #ifndef ANDROID_AUDIO_UTILS_TIMESTAMP_VERIFIER_H
 #define ANDROID_AUDIO_UTILS_TIMESTAMP_VERIFIER_H
 
+#include <assert.h>
 #include <audio_utils/clock.h>
 #include <audio_utils/Statistics.h>
 

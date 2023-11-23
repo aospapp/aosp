@@ -17,9 +17,16 @@
 package android.voiceinteraction.cts.activities;
 
 import android.app.Activity;
+import android.util.Log;
 
 /**
  * Empty activity
  */
 public final class EmptyActivity extends Activity {
+
+    @Override
+    protected void onResume() {
+        Log.d("EmptyActivity", "onResume!");
+        super.onResume();
+    }
 }

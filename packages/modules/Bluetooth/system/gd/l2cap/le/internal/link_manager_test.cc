@@ -272,9 +272,11 @@ TEST_F(L2capLeLinkManagerTest, connect_fixed_channel_service_without_acl_with_hc
 
   // Step 3: ACL connection failure event should trigger connection failure callback
   EXPECT_CALL(mock_service_1, NotifyChannelCreation(_)).Times(0);
-  hci_callback_handler->Post(common::BindOnce(&hci::acl_manager::LeConnectionCallbacks::OnLeConnectFail,
-                                              common::Unretained(hci_le_connection_callbacks), address_with_type,
-                                              hci::ErrorCode::PAGE_TIMEOUT));
+  hci_callback_handler->Post(common::BindOnce(
+      &hci::acl_manager::LeConnectionCallbacks::OnLeConnectFail,
+      common::Unretained(hci_le_connection_callbacks),
+      address_with_type,
+      hci::ErrorCode::PAGE_TIMEOUT));
   SyncHandler(hci_callback_handler);
   SyncHandler(user_handler_);
   EXPECT_EQ(my_result.connection_result_code, FixedChannelManager::ConnectionResultCode::FAIL_HCI_ERROR);

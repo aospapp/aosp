@@ -16,7 +16,6 @@
 """Python unittest module for pdu_lib.synaccess.np02b"""
 
 import unittest
-from unittest.mock import Mock
 from unittest.mock import patch
 
 from acts.controllers.pdu import PduError

@@ -113,14 +113,15 @@ public class EncryptionAppTest extends InstrumentationTestCase {
         mDevice.waitForIdle();
 
         // Set a PIN for this user
-        mDevice.executeShellCommand("settings put global require_password_to_decrypt 0");
         mDevice.executeShellCommand("locksettings set-disabled false");
         String output = mDevice.executeShellCommand("locksettings set-pin 1234");
         assertTrue("set-pin failed. Output: " + output, output.contains("1234"));
     }
 
     public void testTearDown() throws Exception {
-        // Just in case, always try tearing down keyguard
+        // Since there's not a good way to check whether the keyguard is already dismissed, summon
+        // the keyguard and dismiss it.
+        summonKeyguard();
         dismissKeyguard();
 
         mActivity = launchActivity(getInstrumentation().getTargetContext().getPackageName(),
@@ -130,7 +131,6 @@ public class EncryptionAppTest extends InstrumentationTestCase {
         // Clear PIN for this user
         mDevice.executeShellCommand("locksettings clear --old 1234");
         mDevice.executeShellCommand("locksettings set-disabled true");
-        mDevice.executeShellCommand("settings delete global require_password_to_decrypt");
     }
 
     public void testLockScreen() throws Exception {
@@ -213,7 +213,11 @@ public class EncryptionAppTest extends InstrumentationTestCase {
     }
 
     private void dismissKeyguard() throws Exception {
+        mDevice.waitForIdle();
         mDevice.wakeUp();
+        mDevice.waitForIdle();
+        // Press back in case the PIN pad is already showing.
+        mDevice.pressBack();
         mDevice.waitForIdle();
         mDevice.pressMenu();
         mDevice.waitForIdle();
@@ -337,6 +341,7 @@ public class EncryptionAppTest extends InstrumentationTestCase {
         assertQuery(2, MATCH_DIRECT_BOOT_AWARE | MATCH_DIRECT_BOOT_UNAWARE);
 
         if (Environment.isExternalStorageEmulated()) {
+            pollForExternalStorageMountedState();
             assertEquals(Environment.MEDIA_MOUNTED, Environment.getExternalStorageState());
 
             final File expected = new File(
@@ -358,6 +363,15 @@ public class EncryptionAppTest extends InstrumentationTestCase {
                 new StrictMode.VmPolicy.Builder().detectCredentialProtectedWhileLocked()
                         .penaltyLog().build(),
                 ceFile::exists);
+    }
+
+    private void pollForExternalStorageMountedState() {
+        for (int i = 0; i < 10; i++) {
+            if (Environment.getExternalStorageState().equalsIgnoreCase(Environment.MEDIA_MOUNTED)) {
+                break;
+            }
+            SystemClock.sleep(500);
+        }
     }
 
     private void assertQuery(int count, int flags) throws Exception {

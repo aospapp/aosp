@@ -5,7 +5,7 @@
       "path": "external/rust/crates/base64"
     },
     {
-      "path": "external/rust/crates/libsqlite3-sys"
+      "path": "external/rust/crates/clap/2.33.3"
     },
     {
       "path": "external/rust/crates/tinytemplate"
@@ -15,52 +15,6 @@
     },
     {
       "path": "external/rust/crates/unicode-xid"
-    }
-  ],
-  "presubmit": [
-    {
-      "name": "ZipFuseTest"
-    },
-    {
-      "name": "apkdmverity.test"
-    },
-    {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "diced_test"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "keystore2_vintf_test"
-    },
-    {
-      "name": "legacykeystore_test"
-    }
-  ],
-  "presubmit-rust": [
-    {
-      "name": "ZipFuseTest"
-    },
-    {
-      "name": "apkdmverity.test"
-    },
-    {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "diced_test"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "keystore2_vintf_test"
-    },
-    {
-      "name": "legacykeystore_test"
     }
   ]
 }

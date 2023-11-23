@@ -45,7 +45,7 @@ Status GraphMemory::InferStatically(
     return s;
   }
   InferFromTrace(metadata.step_stats());
-  return Status::OK();
+  return OkStatus();
 }
 
 Status GraphMemory::InferDynamically(Cluster* cluster) {
@@ -57,10 +57,10 @@ Status GraphMemory::InferDynamically(Cluster* cluster) {
   RunMetadata metadata;
   TF_RETURN_IF_ERROR(cluster->Run(item_, &metadata));
   InferFromTrace(metadata.step_stats());
-  return Status::OK();
+  return OkStatus();
 }
 
-int64 GraphMemory::GetWorstCaseMemoryUsage() const {
+int64_t GraphMemory::GetWorstCaseMemoryUsage() const {
   int64_t worst_case = -1;
   for (const auto& peak_usage : peak_usage_) {
     worst_case = std::max(worst_case, peak_usage.second.used_memory);
@@ -70,7 +70,7 @@ int64 GraphMemory::GetWorstCaseMemoryUsage() const {
 
 void GraphMemory::InferMemUsageForNodes(
     const std::vector<const NodeDef*>& nodes, GraphProperties* properties,
-    int64* worst_case_memory_usage, int64* best_case_memory_usage) const {
+    int64_t* worst_case_memory_usage, int64_t* best_case_memory_usage) const {
   // TODO(bsteiner) refine this: we should consider the multidevice case.
   *worst_case_memory_usage = 0;
   *best_case_memory_usage = 0;
@@ -95,7 +95,7 @@ void GraphMemory::InferMemUsageForNodes(
   }
 }
 
-int64 GraphMemory::InferMemUsageForNeighbors(
+int64_t GraphMemory::InferMemUsageForNeighbors(
     const std::vector<OpInfo::TensorProperties>& props) const {
   int64_t neighbors_memory_usage = 0;
   for (const auto& prop : props) {
@@ -146,7 +146,7 @@ struct Event {
         const GraphMemory::LiveTensor* _tensor)
       : timestamp(_timestamp), allocated(_allocated), tensor(_tensor) {}
 
-  int64 timestamp;
+  int64_t timestamp;
   bool allocated;
   const GraphMemory::LiveTensor* tensor;
 
@@ -245,9 +245,9 @@ void GraphMemory::InferFromTrace(const StepStats& timeline) {
     std::vector<Event> events;
     events.reserve(2 * live_per_device.second.size());
     for (const auto& live : live_per_device.second) {
-      events.emplace_back(static_cast<int64>(live.allocation_time.count()),
+      events.emplace_back(static_cast<int64_t>(live.allocation_time.count()),
                           true, &live);
-      events.emplace_back(static_cast<int64>(live.deallocation_time.count()),
+      events.emplace_back(static_cast<int64_t>(live.deallocation_time.count()),
                           false, &live);
     }
     std::stable_sort(events.begin(), events.end());

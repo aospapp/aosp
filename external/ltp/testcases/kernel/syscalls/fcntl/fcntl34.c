@@ -7,14 +7,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <pthread.h>
 #include <sched.h>
 
-#include "lapi/fcntl.h"
-#include "tst_safe_pthread.h"
-#include "tst_test.h"
 #include "fcntl_common.h"
+#include "tst_safe_pthread.h"
 
 static int thread_cnt;
 static const int max_thread_cnt = 32;
@@ -55,7 +52,7 @@ void *thread_fn_01(void *arg)
 
 	memset(buf, (intptr_t)arg, write_size);
 
-	struct flock64 lck = {
+	struct flock lck = {
 		.l_whence = SEEK_SET,
 		.l_start  = 0,
 		.l_len    = 1,
@@ -63,13 +60,13 @@ void *thread_fn_01(void *arg)
 
 	for (i = 0; i < writes_num; ++i) {
 		lck.l_type = F_WRLCK;
-		my_fcntl(fd, F_OFD_SETLKW, &lck);
+		FCNTL_COMPAT(fd, F_OFD_SETLKW, &lck);
 
 		SAFE_LSEEK(fd, 0, SEEK_END);
-		SAFE_WRITE(1, fd, buf, write_size);
+		SAFE_WRITE(SAFE_WRITE_ALL, fd, buf, write_size);
 
 		lck.l_type = F_UNLCK;
-		my_fcntl(fd, F_OFD_SETLKW, &lck);
+		FCNTL_COMPAT(fd, F_OFD_SETLKW, &lck);
 
 		sched_yield();
 	}

@@ -157,6 +157,7 @@ class TestDecoratorUnitTests(unittest.TestCase):
 
     def test_function_name(self):
         """Test test_func.__name__ returns its original unwrapped name"""
+
         @test_decorators.test_info(uuid='SOME_UID')
         def test_func():
             pass
@@ -165,15 +166,16 @@ class TestDecoratorUnitTests(unittest.TestCase):
 
     def test_function_doc(self):
         """Test test_func.__doc__ returns its original unwrapped doc string"""
+
         @test_decorators.test_info(uuid='SOME_UID')
         def test_func():
             """DOC_STRING"""
-            pass
 
         self.assertEqual(test_func.__doc__, "DOC_STRING")
 
     def test_function_module(self):
         """Test test_func.__module__ returns its original unwrapped module"""
+
         @test_decorators.test_info(uuid='SOME_UID')
         def test_func():
             pass
@@ -196,7 +198,7 @@ class FakeTest(base_test.BaseTestClass):
     def __init__(self):
         self.user_params = {
             'testtracker_properties': 'tt_prop_a=param_a,'
-                                      'tt_prop_b=param_b',
+            'tt_prop_b=param_b',
             'param_a': 'prop_a_value',
             'param_b': 'prop_b_value',
         }
@@ -209,7 +211,6 @@ class FakeTest(base_test.BaseTestClass):
 
 
 class TestTrackerInfoDecoratorFuncTests(unittest.TestCase):
-
     @mock.patch('acts.test_decorators.TestTrackerResultsWriter')
     def test_write_to_testtracker_no_effort_name_no_ad(self, mock_writer):
         """Should not set the TT Effort name."""
@@ -217,9 +218,10 @@ class TestTrackerInfoDecoratorFuncTests(unittest.TestCase):
             FakeTest().test_case()
 
         testtracker_properties = mock_writer.call_args[0][1]
-        self.assertEqual(testtracker_properties,
-                         {'tt_prop_a': 'prop_a_value',
-                          'tt_prop_b': 'prop_b_value'})
+        self.assertEqual(testtracker_properties, {
+            'tt_prop_a': 'prop_a_value',
+            'tt_prop_b': 'prop_b_value'
+        })
 
     @mock.patch('acts.test_decorators.TestTrackerResultsWriter')
     def test_write_to_testtracker_no_effort_name_has_ad(self, mock_writer):
@@ -231,10 +233,12 @@ class TestTrackerInfoDecoratorFuncTests(unittest.TestCase):
             fake_test.test_case()
 
         testtracker_properties = mock_writer.call_args[0][1]
-        self.assertEqual(testtracker_properties,
-                         {'tt_prop_a': 'prop_a_value',
-                          'tt_prop_b': 'prop_b_value',
-                          KEY_EFFORT_NAME: 'EFFORT_NAME'})
+        self.assertEqual(
+            testtracker_properties, {
+                'tt_prop_a': 'prop_a_value',
+                'tt_prop_b': 'prop_b_value',
+                KEY_EFFORT_NAME: 'EFFORT_NAME'
+            })
 
     @mock.patch('acts.test_decorators.TestTrackerResultsWriter')
     def test_write_to_testtracker_has_effort_name_has_ad(self, mock_writer):
@@ -243,17 +247,19 @@ class TestTrackerInfoDecoratorFuncTests(unittest.TestCase):
         fake_test.android_devices = [mock.Mock()]
         fake_test.android_devices[0].build_info = {'build_id': 'BAD_EFFORT'}
         fake_test.user_params['testtracker_properties'] += (
-                    ',' + KEY_EFFORT_NAME + '=param_effort_name')
+            ',' + KEY_EFFORT_NAME + '=param_effort_name')
         fake_test.user_params['param_effort_name'] = 'GOOD_EFFORT_NAME'
 
         with self.assertRaises(signals.TestPass):
             fake_test.test_case()
 
         testtracker_properties = mock_writer.call_args[0][1]
-        self.assertEqual(testtracker_properties,
-                         {'tt_prop_a': 'prop_a_value',
-                          'tt_prop_b': 'prop_b_value',
-                          KEY_EFFORT_NAME: 'GOOD_EFFORT_NAME'})
+        self.assertEqual(
+            testtracker_properties, {
+                'tt_prop_a': 'prop_a_value',
+                'tt_prop_b': 'prop_b_value',
+                KEY_EFFORT_NAME: 'GOOD_EFFORT_NAME'
+            })
 
     @mock.patch('acts.test_decorators.TestTrackerResultsWriter')
     def test_no_testtracker_properties_provided(self, mock_writer):
@@ -287,7 +293,6 @@ class TestTrackerInfoDecoratorFuncTests(unittest.TestCase):
             some_decorated_func()
 
         self.assertFalse(mock_writer.called)
-
 
 
 class TestDecoratorIntegrationTests(unittest.TestCase):
@@ -390,6 +395,7 @@ class RepeatedTestTests(unittest.TestCase):
 
     def test_teardown_and_setup_are_called_between_test_cases(self):
         mock_test_class = mock.Mock()
+
         @test_decorators.repeated_test(1, 1)
         def test_case(*_):
             raise signals.TestFailure('Failed')

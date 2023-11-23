@@ -16,10 +16,10 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="grant_dialog_button_deny_dont_ask_again" msgid="5709879604352260492">"Respingeți, nu mai întrebați"</string>
+    <string name="grant_dialog_button_deny_dont_ask_again" msgid="5709879604352260492">"Refuz, nu mai întreba"</string>
     <string name="current_permission_template" msgid="6634462553790549887">"<xliff:g id="CURRENT_PERMISSION_INDEX">%1$s</xliff:g>/<xliff:g id="PERMISSION_COUNT">%2$s</xliff:g>"</string>
-    <string name="preference_show_system_apps" msgid="1055740303992024300">"Afișați aplicațiile de sistem"</string>
+    <string name="preference_show_system_apps" msgid="1055740303992024300">"Afișează aplicațiile de sistem"</string>
     <string name="permission_summary_enforced_by_policy" msgid="2352478756952948019">"Nu se poate modif"</string>
     <string name="generic_yes" msgid="2489207724988649846">"Da"</string>
-    <string name="generic_cancel" msgid="2631708607129269698">"Anulați"</string>
+    <string name="generic_cancel" msgid="2631708607129269698">"Anulează"</string>
 </resources>

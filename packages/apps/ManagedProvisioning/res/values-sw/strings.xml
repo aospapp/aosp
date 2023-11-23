@@ -29,9 +29,9 @@
     <string name="next" msgid="1004321437324424398">"Inayofuata"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Inaweka mipangilio ya wasifu wa kazini..."</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Msimamizi wako wa TEHAMA anaweza kufuatilia na kudhibiti mipangilio, ufikiaji wa maudhui ya shirika, programu, ruhusa, data na shughuli ya mtandao inayohusiana na wasifu huu, pamoja na rekodi ya simu zilizopigwa na historia ya anwani ulizotafuta. Wasiliana na Msimamizi wako wa TEHAMA kwa maelezo zaidi pamoja na kupata maelezo zaidi kuhusu sera za faragha za shirika lako."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Msimamizi wako wa TEHAMA ana uwezo wa kufuatilia na kudhibiti mipangilio, ufikiaji wa vipengele vya shirika, ruhusa za programu na data inayohusiana na kifaa hiki, ikiwa ni pamoja na shughuli zako za mtandaoni, pamoja na mahali kilipo kifaa chako, rekodi ya simu zilizopigwa na historia ya anwani ulizotafuta.<xliff:g id="LINE_BREAK">
+    <string name="admin_has_ability_to_monitor_device" msgid="7786186939607332934">"Msimamizi wako wa TEHAMA ana uwezo wa kufuatilia na kudhibiti mipangilio, ufikiaji wa maudhui ya shirika, programu, ruhusa na data inayohusiana na <xliff:g id="DEVICE_NAME">%1$s</xliff:g> hii, ikiwa ni pamoja na shughuli zako za mtandaoni, pamoja na mahali kilipo kifaa chako, rekodi ya simu zilizopigwa na historia ya anwani ulizotafuta.<xliff:g id="LINE_BREAK">
 
-</xliff:g>Wasiliana na msimamizi wako wa TEHAMA kwa maelezo zaidi, ikiwa ni pamoja na sera za faragha za shirika lako."</string>
+</xliff:g>Wasiliana na Msimamizi wako wa TEHAMA kwa maelezo zaidi, ikiwa ni pamoja na sera za faragha za shirika lako."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Ili utumie vipengele vya kifaa vya kuzuia wizi, lazima uwe na skrini inayoweza kufungwa kwa nenosiri kwenye kifaa chako."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Wasiliana na msimamizi wako wa TEHAMA kwa maelezo zaidi, ikiwa ni pamoja na sera za faragha za shirika lako."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Pata maelezo zaidi"</string>
@@ -50,8 +50,8 @@
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Ukiendelea, utafuta data na programu zote zilizo kwenye wasifu huu."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Futa"</string>
     <string name="cancel_delete_profile" msgid="5155447537894046036">"Ghairi"</string>
-    <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"Ili kuweka wasifu wako wa kazini, unahitaji kusimba kifaa chako kwa njia fiche. Huenda shughuli hii ikachukua muda."</string>
-    <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"Ili kupanga kifaa hiki, unahitaji kwanza kukisimba kwa njia fiche. Huenda shughuli hii ikachukua muda."</string>
+    <string name="encrypt_device_text_for_profile_owner_setup" msgid="6865483664167134470">"Ili kuweka wasifu wako wa kazini, unahitaji kusimba <xliff:g id="DEVICE_NAME">%1$s</xliff:g> yako kwa njia fiche. Huenda shughuli hii ikachukua muda."</string>
+    <string name="encrypt_device_text_for_device_owner_setup" msgid="230099563510460941">"Ili uweke mipangilio kwenye <xliff:g id="DEVICE_NAME">%1$s</xliff:g> hii, unahitaji kuisimba kwanza kwa njia fiche. Huenda shughuli hii ikachukua muda."</string>
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"Ungependa kusimba kifaa hiki kwa njia fiche?"</string>
     <string name="encrypt" msgid="1749320161747489212">"Simba kwa njia fiche"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"Usimbaji fiche umekamilika"</string>
@@ -59,7 +59,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Haikuweza kusanidi wasifu wako wa kazi. Wasiliana na idara yako ya Teknolojia ya Habari au ujaribu tena baadaye."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Imeshindwa kuongeza wasifu wa kazini"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Huwezi kubadilisha au kuondoa wasifu wa kazini"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"Wasifu wa kazini hauwezi kuongezwa kwenye kifaa hiki. Ikiwa una maswali, wasiliana na msimamizi wako wa TEHAMA."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4866281518235832928">"Wasifu wa kazini hauwezi kuwekwa kwenye <xliff:g id="DEVICE_NAME">%1$s</xliff:g> hii. Ikiwa una maswali, wasiliana na Msimamizi wako wa TEHAMA."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Badilisha kifungua programu cha kifaa"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Wasifu wako wa kazini hauwezi kutumia kifungua programu hiki"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Ghairi"</string>
@@ -67,9 +67,9 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Usanidi wa Mtumiaji Hujakamilika"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Mtumiaji wa kifaa cha kazini"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Inaweka mipangilio kwenye kifaa cha kazini..."</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Kifaa hiki hakiruhusu usimbaji fiche, unaohitajika kuweka mipangilio. Wasiliana na msimamizi wako wa TEHAMA ili upate usaidizi."</string>
-    <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Ungependa kusimamisha shughuli ya kuweka mipangilio na uweke upya mipangilio ya kifaa?"</string>
-    <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Hatua hii itaweka upya mipangilio ya kifaa chako na kukurejesha kwenye skrini ya kwanza."</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="410347019947997299">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> hii hairuhusu usimbaji fiche, unaohitajika kwa ajili ya kuweka mipangilio. Ili upate usaidizi, wasiliana na Msimamizi wako wa TEHAMA."</string>
+    <string name="stop_setup_reset_device_question" msgid="2323844935990001069">"Ungependa kusitisha mchakato wa kuweka mipangilio na kurejesha mipangilio ambayo <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ilitoka nayo kiwandani?"</string>
+    <string name="this_will_reset_take_back_first_screen" msgid="5881727570968119259">"Hatua hii itarejesha mipangilio ambayo <xliff:g id="DEVICE_NAME">%1$s</xliff:g> ilitoka nayo kiwandani na kukurudisha kwenye skrini ya kwanza"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"Je, ungependa kuacha kusanidi na ufute data iliyomo kwenye kifaa chako?"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"Ghairi"</string>
     <string name="device_owner_error_ok" msgid="2002250763093787051">"Sawa"</string>
@@ -79,10 +79,10 @@
     <string name="something_went_wrong" msgid="3593223774041784329">"Hitilafu fulani imetokea"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Imeshindwa kuweka mipangilio ya kifaa. Ili upate usaidizi, wasiliana na msimamizi wako wa TEHAMA."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Wasiliana na msimamizi wako wa TEHAMA ili upate usaidizi"</string>
-    <string name="reset_device" msgid="5483853913241939262">"Badilisha mipangilio ya kifaa hiki na ujaribu kuiweka tena."</string>
-    <string name="device_already_set_up" msgid="507881934487140294">"Tayari umeweka mipangilio ya kifaa"</string>
+    <string name="reset_device" msgid="265029891515486543">"Badilisha mipangilio ya <xliff:g id="DEVICE_NAME">%1$s</xliff:g> hii kisha ujaribu kuiweka tena"</string>
+    <string name="device_already_set_up" msgid="2916285974248611835">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> tayari ina mipangilio"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Imeshindwa kuunganisha kwenye Wi-Fi"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Kipengele cha kuweka upya mipangilio kimewashwa katika kifaa chako. Wasiliana na msimamizi wako wa TEHAMA ili upate usaidizi."</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="5922267426079555686">"Kipengele cha kuzuia kuweka upya mipangilio kimewashwa katika <xliff:g id="DEVICE_NAME">%1$s</xliff:g> yako. Wasiliana na msimamizi wako wa TEHAMA ili upate usaidizi."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"Inafuta"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"Tafadhali subiri..."</string>
     <string name="error_hash_mismatch" msgid="1145488923243178454">"Imeshindwa kutumia programu ya msimamizi kutokana na hitilafu ya \"checksum\". Wasiliana na msimamizi wako wa TEHAMA ili upate usaidizi."</string>
@@ -128,9 +128,9 @@
     <string name="comp_profile_benefits_description" msgid="379837075456998273">"Kwa kutumia wasifu wa kazini, unaweza kuweka programu zako za kazini mahali pamoja"</string>
     <string name="setup_profile_encryption" msgid="5241291404536277038">"Weka mipangilio ya wasifu wako. Usimbaji fiche"</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"Weka mipangilio ya wasifu wako. Inaonyesha maendeleo"</string>
-    <string name="setup_device" msgid="6725265673245816366">"Sanidi kifaa chako"</string>
-    <string name="setup_device_encryption" msgid="7852944465414197103">"Weka mipangilio ya kifaa chako. Usimbaji fiche"</string>
-    <string name="setup_device_progress" msgid="7035335208571175393">"Weka mipangilio ya kifaa chako. Inaonyesha maendeleo"</string>
+    <string name="setup_device" msgid="1679201701102889156">"Weka mipangilio ya <xliff:g id="DEVICE_NAME">%1$s</xliff:g> yako"</string>
+    <string name="setup_device_encryption" msgid="2628196093806001835">"Weka mipangilio ya <xliff:g id="DEVICE_NAME">%1$s</xliff:g> yako. Usimbaji fiche"</string>
+    <string name="setup_device_progress" msgid="8792474713196537598">"Weka mipangilio ya <xliff:g id="DEVICE_NAME">%1$s</xliff:g> yako. Inaonyesha hatua"</string>
     <string name="learn_more_label" msgid="2723716758654655009">"Kitufe cha pata maelezo zaidi"</string>
     <string name="mdm_icon_label" msgid="3399134595549660561">"Aikoni ya <xliff:g id="ICON_LABEL">%1$s</xliff:g>"</string>
     <string name="section_heading" msgid="3924666803774291908">"Sehemu ya kichwa cha <xliff:g id="SECTION_HEADING">%1$s</xliff:g>."</string>
@@ -158,7 +158,7 @@
     <string name="brand_screen_header" msgid="8865808542690116648">"Kifaa hiki kinamilikiwa na shirika lako"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Programu ifuatayo itatumika kudhiiti na kufuatilia simu hii"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Akaunti yako inadhibitiwa"</string>
-    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Msimamizi wako wa TEHAMA hutumia udhibiti wa vifaa vya mkononi ili kutekeleza sera za usalama"</string>
+    <string name="account_management_disclaimer_subheader" msgid="8991450067243733878">"Msimamizi wako wa TEHAMA hutumia kidhibiti cha vifaa vya mkononi ili kutekeleza sera za usalama"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Inajiandaa ili kuweka mipangilio ya kazini…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Turuhusu tuweke wasifu wako wa kazini"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Programu za kazini zinawekwa kwenye wasifu wako wa kazini"</string>
@@ -168,32 +168,35 @@
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Programu za kazini zinawekwa kwenye wasifu wako wa kazini. Unaweza kusimamisha programu zako za kazini unapoondoka kazini. Msimamizi wako wa TEHAMA anaona data iliyo kwenye wasifu wako wa kazini."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Tuweke mipangilio kwenye kifaa chako cha kazini"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Tumia programu zako za kazini popote ulipo"</string>
-    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Kifaa hiki si cha faragha"</string>
-    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Msimamizi wako wa TEHAMA anaweza kuona data na shughuli zako kwenye kifaa hiki."</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="142633978260399682">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> si ya faragha"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="3981784440341141618">"Msimamizi wako wa TEHAMA anaweza kuona data na shughuli zako kwenye <xliff:g id="DEVICE_NAME">%1$s</xliff:g> hii."</string>
     <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Shughuli na data yako"</string>
     <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Ruhusa za programu"</string>
-    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"Msimamizi wako wa TEHAMA anaweza kuweka ruhusa za programu kwenye kifaa hiki, kama vile ruhusa za maikrofoni, kamera na mahali."</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="1973320148595109400">"Msimamizi wako wa TEHAMA anaweza kuweka ruhusa za programu kwenye <xliff:g id="DEVICE_NAME">%1$s</xliff:g> hii, kama vile ruhusa za maikrofoni, kamera na mahali."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Inaweka mipangilio ya kifaa chako…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Tumia kifaa hiki kufikia programu zako za kazini kwa urahisi. Kifaa hiki si cha faragha, kwa hivyo msimamizi wako wa TEHAMA anaweza kuona data na shughuli zako."</string>
-    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Tumia kifaa hiki kufikia programu zako za kazini kwa urahisi. Kifaa hiki si cha faragha, kwa hivyo msimamizi wako wa TEHAMA anaweza kuona shughuli na data yako. Msimamizi wako wa TEHAMA anaweza pia kuweka ruhusa za programu kwenye kifaa hiki, kama vile ruhusa za maikrofoni, kamera na mahali."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="2532673962822596806">"Tumia <xliff:g id="DEVICE_NAME_0">%1$s</xliff:g> hii kufikia programu zako za kazini kwa urahisi. <xliff:g id="DEVICE_NAME_1">%1$s</xliff:g> hii si ya faragha, kwa hivyo Msimamizi wako wa TEHAMA anaweza kuona data na shughuli zako."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="3487964472228264628">"Tumia <xliff:g id="DEVICE_NAME_0">%1$s</xliff:g> hii kufikia programu zako za kazini kwa urahisi. <xliff:g id="DEVICE_NAME_1">%1$s</xliff:g> hii si ya faragha, kwa hivyo Msimamizi wako wa TEHAMA anaweza kuona shughuli na data yako. Pia, Msimamizi wako wa TEHAMA anaweza kuweka ruhusa za programu kwenye kifaa hiki, kama vile ruhusa za maikrofoni, kamera na mahali."</string>
     <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Rejesha kifaa hiki kwa msimamizi wako wa TEHAMA"</string>
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Rudi kwenye skrini iliyotangulia, au ubadilishe mipangilio ya kifaa hiki na ukirejeshe kwa msimamizi wako wa TEHAMA."</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Ghairi mipangilio"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Badilisha mipangilio na urejeshe kifaa"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_header" msgid="7938653381656306039">"Haiwezi kuweka mipangilio ya kifaa"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_subheader" msgid="5158035482490079567">"Kifaa hiki hakiwezi kuandikishwa katika hali ya usimamizi kamili. Rejesha mipangilio ya kiwandani na uwasiliane na Msimamizi wako wa TEHAMA."</string>
+    <string name="fully_managed_device_reset_button" msgid="5957116315144904542">"Rejesha mipangilio ya kiwandani"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Programu za kazini huwa kwenye wasifu wako wa kazini na hudhibitiwa na msimamizi wa TEHAMA"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Programu za binafsi huwa kando na hazionyeshwi kwenye za kazini"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Msimamizi wa TEHAMA anaweza kudhibiti kifaa hiki na kuzuia baadhi ya programu"</string>
-    <string name="cope_provisioning_summary" msgid="993014104601034878">"Programu za kazini huwekwa kwenye wasifu wako wa kazini na kudhibitiwa na msimamizi wako wa TEHAMA. Programu za binafsi ni tofauti na hazionyeshwi kwenye programu za kazini. Msimamizi wako wa TEHAMA anaweza kudhibiti kifaa hiki na kuzuia programu fulani."</string>
+    <string name="cope_provisioning_summary" msgid="4993405755138454918">"Programu za kazini huwekwa kwenye wasifu wako wa kazini na kudhibitiwa na msimamizi wako wa TEHAMA. Programu za binafsi ni tofauti na hazionyeshwi kwenye programu za kazini. Msimamizi wako wa TEHAMA anaweza kudhibiti <xliff:g id="DEVICE_NAME">%1$s</xliff:g> hii na kuzuia programu fulani."</string>
     <string name="just_a_sec" msgid="6244676028626237220">"Subiri kidogo…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Kikumbusho cha faragha"</string>
-    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Msimamizi wako wa TEHAMA anaweza kuona data na shughuli zako kwenye kifaa hiki"</string>
-    <string name="financed_device_screen_header" msgid="6875169548352717124">"Kifaa hiki kimetolewa na <xliff:g id="CREDITOR_NAME">%s</xliff:g>"</string>
-    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Lipia kifaa hiki"</string>
-    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> anaweza kusakinisha programu ya<xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ili uweze kulipia kifaa hiki."</string>
-    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Kifaa hiki kinaweza kudhibitiwa"</string>
-    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> anaweza kudhibiti ufikiaji wa kifaa hiki usipofanya malipo."</string>
-    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Imeshindwa kuweka mipangilio ya kifaa. Wasiliana na msimamizi wako wa TEHAMA na urejelee \"Alama ya kuthibitisha uhalali si sahihi\"."</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2107315052054483060">"Msimamizi wako wa TEHAMA anaweza kuona data na shughuli zako kwenye <xliff:g id="DEVICE_NAME">%1$s</xliff:g> hii"</string>
+    <string name="financed_device_screen_header" msgid="5934940812896302344">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> hii imetolewa na <xliff:g id="CREDITOR_NAME">%2$s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_title" msgid="743966229235451097">"Lipia <xliff:g id="DEVICE_NAME">%1$s</xliff:g> hii"</string>
+    <string name="financed_make_payments_subheader_description" msgid="7391276584735956742">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> inaweza kusakinisha programu ya <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ili uweze kulipia <xliff:g id="DEVICE_NAME">%3$s</xliff:g> hii."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="4248650736543742083">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> hii inaweza kudhibitiwa"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="1539908048861880628">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> inaweza kudhibiti ufikiaji wa <xliff:g id="DEVICE_NAME">%2$s</xliff:g> hii usipofanya malipo."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="5098975629103567172">"Imeshindwa kuweka mipangilio ya <xliff:g id="DEVICE_NAME">%1$s</xliff:g>. Wasiliana na msimamizi wako wa TEHAMA na urejelee \"Alama ya kuthibitisha uhalali si sahihi\"."</string>
     <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Jaribu tena baadaye au wasiliana na msimamizi wako wa TEHAMA ili upate usaidizi"</string>
-    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Imeshindwa kuweka mipangilio ya kifaa. Wasiliana na msimamizi wako wa TEHAMA na urejelee \"Vipengele havipo au vina hitilafu\"."</string>
+    <string name="error_role_holder_package_invalid" msgid="8159929740916126242">"Imeshindwa kuweka mipangilio ya <xliff:g id="DEVICE_NAME">%1$s</xliff:g>. Wasiliana na msimamizi wako wa TEHAMA na urejelee \"Vipengele havipo au vina hitilafu\"."</string>
     <string name="setting_up" msgid="1478847967385506664">"Inaweka mipangilio…"</string>
 </resources>

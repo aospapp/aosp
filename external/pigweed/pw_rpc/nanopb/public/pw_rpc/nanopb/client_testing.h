@@ -24,7 +24,7 @@
 
 namespace pw::rpc {
 
-// TODO(pwbug/477): Document the client testing APIs.
+// TODO(b/234878467): Document the client testing APIs.
 
 // Sends packets to an RPC client as if it were a pw_rpc server. Accepts
 // payloads as Nanopb structs.
@@ -67,9 +67,10 @@ class NanopbFakeServer : public FakeServer {
   template <auto kMethod>
   static ConstByteSpan EncodeResponse(const void* payload, ByteSpan buffer) {
     const StatusWithSize result =
-        internal::MethodInfo<kMethod>::serde().EncodeResponse(payload, buffer);
+        internal::MethodInfo<kMethod>::serde().response().Encode(payload,
+                                                                 buffer);
     PW_ASSERT(result.ok());
-    return std::span(buffer).first(result.size());
+    return span(buffer).first(result.size());
   }
 };
 
@@ -83,7 +84,7 @@ class NanopbClientTestContext {
  public:
   constexpr NanopbClientTestContext()
       : channel_(Channel::Create<kDefaultChannelId>(&channel_output_)),
-        client_(std::span(&channel_, 1)),
+        client_(span(&channel_, 1)),
         packet_buffer_{},
         fake_server_(
             channel_output_, client_, kDefaultChannelId, packet_buffer_) {}
@@ -98,6 +99,7 @@ class NanopbClientTestContext {
   Client& client() { return client_; }
 
   const auto& output() const { return channel_output_; }
+  auto& output() { return channel_output_; }
 
  private:
   static constexpr uint32_t kDefaultChannelId = 1;

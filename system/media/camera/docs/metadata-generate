@@ -42,7 +42,7 @@ ctsdir="$ANDROID_BUILD_TOP/cts/tests/camera/src/android/hardware/camera2/cts"
 outdir="$ANDROID_PRODUCT_OUT/obj/ETC/system-media-camera-docs_intermediates"
 ndk_header_dir="$ANDROID_BUILD_TOP/frameworks/av/camera/ndk/include/camera"
 ndk_impl_dir="$ANDROID_BUILD_TOP/frameworks/av/camera/ndk/impl"
-libcameraservice_hidl_dir="$ANDROID_BUILD_TOP/frameworks/av/services/camera/libcameraservice/hidl"
+libcameraservice_aidl_dir="$ANDROID_BUILD_TOP/frameworks/av/services/camera/libcameraservice/aidl"
 device_info_dir="$ANDROID_BUILD_TOP/cts/tools/cts-device-info/"`
         `"src/com/android/cts/deviceinfo"
 out_files=()
@@ -235,7 +235,7 @@ gen_file camera_metadata_tags.mako ../include/system/camera_metadata_tags.h || e
 gen_file camera_metadata_asserts.mako ../src/camera_metadata_asserts.cpp || exit 1
 
 #Generate tags with vndk versions for filtering
-gen_file_abs vndk_camera_metadata_tags.mako "$libcameraservice_hidl_dir/VndkVersionMetadataTags.h" yes || exit 1
+gen_file_abs vndk_camera_metadata_tags.mako "$libcameraservice_aidl_dir/VndkVersionMetadataTags.h" yes || exit 1
 
 #Generate NDK header
 gen_file_abs ndk_camera_metadata_tags.mako "$ndk_header_dir/NdkCameraMetadataTags.h" yes || exit 1

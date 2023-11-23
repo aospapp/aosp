@@ -33,6 +33,7 @@
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 
+#define BPF_MAP_MAKE_VISIBLE_FOR_TESTING
 #include "bpf/BpfMap.h"
 #include "bpf/BpfUtils.h"
 

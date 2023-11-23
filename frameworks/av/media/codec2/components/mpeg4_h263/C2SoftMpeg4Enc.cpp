@@ -49,6 +49,8 @@ constexpr char COMPONENT_NAME[] = "c2.android.h263.encoder";
 const char *MEDIA_MIMETYPE_VIDEO = MEDIA_MIMETYPE_VIDEO_H263;
 #endif
 
+constexpr float VBV_DELAY = 5.0f;
+
 } // namepsace
 
 class C2SoftMpeg4Enc::IntfImpl : public SimpleInterface<void>::BaseParams {
@@ -131,7 +133,7 @@ class C2SoftMpeg4Enc::IntfImpl : public SimpleInterface<void>::BaseParams {
                             C2Config::LEVEL_MP4V_1,
                             C2Config::LEVEL_MP4V_2})
                 })
-                .withSetter(ProfileLevelSetter)
+                .withSetter(ProfileLevelSetter, mSize, mFrameRate, mBitrate)
                 .build());
 #else
         addParameter(
@@ -148,7 +150,7 @@ class C2SoftMpeg4Enc::IntfImpl : public SimpleInterface<void>::BaseParams {
                             C2Config::LEVEL_H263_40,
                             C2Config::LEVEL_H263_45})
                 })
-                .withSetter(ProfileLevelSetter)
+                .withSetter(ProfileLevelSetter, mSize, mFrameRate, mBitrate)
                 .build());
 #endif
     }
@@ -179,7 +181,10 @@ class C2SoftMpeg4Enc::IntfImpl : public SimpleInterface<void>::BaseParams {
 
     static C2R ProfileLevelSetter(
             bool mayBlock,
-            C2P<C2StreamProfileLevelInfo::output> &me) {
+            C2P<C2StreamProfileLevelInfo::output> &me,
+            const C2P<C2StreamPictureSizeInfo::input> &size,
+            const C2P<C2StreamFrameRateInfo::output> &frameRate,
+            const C2P<C2StreamBitrateInfo::output> &bitrate) {
         (void)mayBlock;
         if (!me.F(me.v.profile).supportsAtAll(me.v.profile)) {
 #ifdef MPEG4
@@ -188,13 +193,91 @@ class C2SoftMpeg4Enc::IntfImpl : public SimpleInterface<void>::BaseParams {
             me.set().profile = PROFILE_H263_BASELINE;
 #endif
         }
-        if (!me.F(me.v.level).supportsAtAll(me.v.level)) {
+
+        struct LevelLimits {
+            C2Config::level_t level;
+            uint32_t sampleRate;
+            uint32_t width;
+            uint32_t height;
+            uint32_t frameRate;
+            uint32_t bitrate;
+            uint32_t vbvSize;
+        };
+
+        constexpr LevelLimits kLimits[] = {
 #ifdef MPEG4
-            me.set().level = LEVEL_MP4V_2;
+            { LEVEL_MP4V_0, 380160, 176, 144, 15, 64000, 163840 },
+            // { LEVEL_MP4V_0B, 380160, 176, 144, 15, 128000, 163840 },
+            { LEVEL_MP4V_1, 380160, 176, 144, 30, 64000, 163840 },
+            { LEVEL_MP4V_2, 1520640, 352, 288, 30, 128000, 655360 },
 #else
-            me.set().level = LEVEL_H263_45;
+            // HRD Buffer Size = (B + BPPmaxKb * 1024 bits)
+            // where, (BPPmaxKb * 1024) is maximum number of bits per picture
+            // that has been negotiated for use in the bitstream Sec 3.6 of T-Rec-H.263
+            // and B = 4 * Rmax / PCF. Rmax is max bit rate and PCF is picture
+            // clock frequency
+            { LEVEL_H263_10, 380160, 176, 144, 15, 64000, 74077 },
+            { LEVEL_H263_45, 380160, 176, 144, 15, 128000, 82619 },
+            { LEVEL_H263_20, 1520640, 352, 288, 30, 128000, 279227 },
+            { LEVEL_H263_30, 3041280, 352, 288, 30, 384000, 313395 },
+            { LEVEL_H263_40, 3041280, 352, 288, 30, 2048000, 535483 },
+            // { LEVEL_H263_50, 5068800, 352, 288, 60, 4096000, 808823 },
 #endif
+        };
+
+        auto mbs = ((size.v.width + 15) / 16) * ((size.v.height + 15) / 16);
+        auto sampleRate = mbs * frameRate.v.value * 16 * 16;
+        auto vbvSize = bitrate.v.value * VBV_DELAY;
+
+        // Check if the supplied level meets the MB / bitrate requirements. If
+        // not, update the level with the lowest level meeting the requirements.
+        bool found = false;
+
+        // By default needsUpdate = false in case the supplied level does meet
+        // the requirements.
+        bool needsUpdate = false;
+#ifdef MPEG4
+        // For Level 0b, we want to update the level anyway, as library does not
+        // seem to accept this value.
+        if (me.v.level == LEVEL_MP4V_0B) {
+            needsUpdate = true;
         }
+#endif
+        if (!me.F(me.v.level).supportsAtAll(me.v.level)) {
+            needsUpdate = true;
+        }
+        for (const LevelLimits &limit : kLimits) {
+            if (sampleRate <= limit.sampleRate && size.v.width <= limit.width &&
+                    vbvSize <= limit.vbvSize && size.v.height <= limit.height &&
+                    bitrate.v.value <= limit.bitrate && frameRate.v.value <= limit.frameRate) {
+                // This is the lowest level that meets the requirements, and if
+                // we haven't seen the supplied level yet, that means we don't
+                // need the update.
+                if (needsUpdate) {
+                    ALOGD("Given level %x does not cover current configuration: "
+                          "adjusting to %x", me.v.level, limit.level);
+                    me.set().level = limit.level;
+                }
+                found = true;
+                break;
+            }
+            if (me.v.level == limit.level) {
+                // We break out of the loop when the lowest feasible level is
+                // found. The fact that we're here means that our level doesn't
+                // meet the requirement and needs to be updated.
+                needsUpdate = true;
+            }
+        }
+        // If not found or exceeds max level, set to the highest supported level.
+#ifdef MPEG4
+        if (!found || me.v.level > LEVEL_MP4V_2) {
+            me.set().level = LEVEL_MP4V_2;
+        }
+#else
+        if (!found || (me.v.level != LEVEL_H263_45 && me.v.level > LEVEL_H263_40)) {
+            me.set().level = LEVEL_H263_40;
+        }
+#endif
         return C2R::Ok();
     }
 
@@ -325,7 +408,7 @@ c2_status_t C2SoftMpeg4Enc::initEncParams() {
     mEncParams->encHeight[0] = mSize->height;
     mEncParams->encFrameRate[0] = mFrameRate->value + 0.5;
     mEncParams->rcType = VBR_1;
-    mEncParams->vbvDelay = 5.0f;
+    mEncParams->vbvDelay = VBV_DELAY;
     mEncParams->profile_level = CORE_PROFILE_LEVEL2;
     mEncParams->packetSize = 32;
     mEncParams->rvlcEnable = PV_OFF;
@@ -464,18 +547,21 @@ void C2SoftMpeg4Enc::process(
         }
     }
 
-    std::shared_ptr<const C2GraphicView> rView;
+    std::shared_ptr<C2GraphicView> rView;
     std::shared_ptr<C2Buffer> inputBuffer;
     bool eos = ((work->input.flags & C2FrameData::FLAG_END_OF_STREAM) != 0);
     if (!work->input.buffers.empty()) {
         inputBuffer = work->input.buffers[0];
-        rView = std::make_shared<const C2GraphicView>(
+        rView = std::make_shared<C2GraphicView>(
                 inputBuffer->data().graphicBlocks().front().map().get());
         if (rView->error() != C2_OK) {
             ALOGE("graphic view map err = %d", rView->error());
             work->result = rView->error();
             return;
         }
+        //(b/232396154)
+        //workaround for incorrect crop size in view when using surface mode
+        rView->setCrop_be(C2Rect(mSize->width, mSize->height));
     } else {
         fillEmptyWork(work);
         if (eos) {

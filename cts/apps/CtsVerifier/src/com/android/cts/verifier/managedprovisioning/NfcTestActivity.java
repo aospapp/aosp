@@ -77,6 +77,7 @@ public class NfcTestActivity extends Activity {
 
         final Intent shareIntent = new Intent(Intent.ACTION_SEND);
         shareIntent.putExtra(Intent.EXTRA_TEXT, SAMPLE_TEXT);
+        shareIntent.setType("text/plain");
 
         findViewById(R.id.manual_beam_button).setOnClickListener(new OnClickListener() {
             @Override

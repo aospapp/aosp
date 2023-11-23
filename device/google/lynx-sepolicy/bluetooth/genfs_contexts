@@ -1,0 +1,1 @@
+genfscon sysfs /devices/platform/odm/odm:btqcom/rfkill/rfkill0/state                             u:object_r:sysfs_bluetooth_writable:s0

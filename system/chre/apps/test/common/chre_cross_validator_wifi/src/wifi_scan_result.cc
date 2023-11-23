@@ -16,9 +16,8 @@
 
 #include "wifi_scan_result.h"
 
-#include <chre.h>
-
 #include "chre/util/nanoapp/log.h"
+#include "chre_api/chre.h"
 
 #include <stdio.h>
 #include <cstring>

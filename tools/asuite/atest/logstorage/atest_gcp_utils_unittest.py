@@ -20,17 +20,18 @@ import os
 import tempfile
 import unittest
 
+from pathlib import Path
 from unittest import mock
 
-import constants
+from atest import constants
 
-from logstorage import atest_gcp_utils
+from atest.logstorage import atest_gcp_utils
 
 class AtestGcpUtilsUnittests(unittest.TestCase):
     """Unit tests for atest_gcp_utils.py"""
 
     @mock.patch.object(atest_gcp_utils, '_prepare_data')
-    @mock.patch.object(atest_gcp_utils, 'request_consent_of_upload_test_result')
+    @mock.patch.object(atest_gcp_utils, 'fetch_credential')
     def test_do_upload_flow(self, mock_request, mock_prepare):
         """test do_upload_flow method."""
         fake_extra_args = {}
@@ -62,41 +63,79 @@ class AtestGcpUtilsUnittests(unittest.TestCase):
         self.assertEqual(None, inv)
 
     @mock.patch.object(atest_gcp_utils.GCPHelper,
-    'get_credential_with_auth_flow')
-    @mock.patch('builtins.input')
-    def test_request_consent_of_upload_test_result_yes(
-        self, mock_input, mock_get_credential_with_auth_flow):
-        """test request_consent_of_upload_test_result method."""
+                       'get_credential_with_auth_flow')
+    def test_fetch_credential_with_request_option(
+        self, mock_get_credential_with_auth_flow):
+        """test fetch_credential method."""
         constants.CREDENTIAL_FILE_NAME = 'cred_file'
         constants.GCP_ACCESS_TOKEN = 'access_token'
         tmp_folder = tempfile.mkdtemp()
-        mock_input.return_value = 'Y'
         not_upload_file = os.path.join(tmp_folder,
                                        constants.DO_NOT_UPLOAD)
 
-        atest_gcp_utils.request_consent_of_upload_test_result(tmp_folder, True)
+        atest_gcp_utils.fetch_credential(tmp_folder,
+                                         {constants.REQUEST_UPLOAD_RESULT:True})
         self.assertEqual(1, mock_get_credential_with_auth_flow.call_count)
         self.assertFalse(os.path.exists(not_upload_file))
 
-        atest_gcp_utils.request_consent_of_upload_test_result(tmp_folder, True)
+        atest_gcp_utils.fetch_credential(tmp_folder,
+                                         {constants.REQUEST_UPLOAD_RESULT:True})
         self.assertEqual(2, mock_get_credential_with_auth_flow.call_count)
         self.assertFalse(os.path.exists(not_upload_file))
 
     @mock.patch.object(atest_gcp_utils.GCPHelper,
                        'get_credential_with_auth_flow')
-    @mock.patch('builtins.input')
-    def test_request_consent_of_upload_test_result_no(
-        self, mock_input, mock_get_credential_with_auth_flow):
-        """test request_consent_of_upload_test_result method."""
-        mock_input.return_value = 'N'
+    def test_fetch_credential_with_disable_option(
+        self, mock_get_credential_with_auth_flow):
+        """test fetch_credential method."""
         constants.CREDENTIAL_FILE_NAME = 'cred_file'
         constants.GCP_ACCESS_TOKEN = 'access_token'
         tmp_folder = tempfile.mkdtemp()
         not_upload_file = os.path.join(tmp_folder,
                                        constants.DO_NOT_UPLOAD)
 
-        atest_gcp_utils.request_consent_of_upload_test_result(tmp_folder, True)
+        atest_gcp_utils.fetch_credential(tmp_folder,
+                                         {constants.DISABLE_UPLOAD_RESULT:True})
         self.assertTrue(os.path.exists(not_upload_file))
         self.assertEqual(0, mock_get_credential_with_auth_flow.call_count)
-        atest_gcp_utils.request_consent_of_upload_test_result(tmp_folder, True)
+
+        atest_gcp_utils.fetch_credential(tmp_folder,
+                                         {constants.DISABLE_UPLOAD_RESULT:True})
         self.assertEqual(0, mock_get_credential_with_auth_flow.call_count)
+
+    @mock.patch.object(atest_gcp_utils.GCPHelper,
+                       'get_credential_with_auth_flow')
+    def test_fetch_credential_no_upload_option(
+        self, mock_get_credential_with_auth_flow):
+        """test fetch_credential method."""
+        constants.CREDENTIAL_FILE_NAME = 'cred_file'
+        constants.GCP_ACCESS_TOKEN = 'access_token'
+        tmp_folder = tempfile.mkdtemp()
+        not_upload_file = os.path.join(tmp_folder,
+                                       constants.DO_NOT_UPLOAD)
+        fake_cred_file = os.path.join(tmp_folder,
+                                      constants.CREDENTIAL_FILE_NAME)
+
+        # mock cred file not exist, and not_upload file exists.
+        if os.path.exists(fake_cred_file):
+            os.remove(fake_cred_file)
+        if os.path.exists(not_upload_file):
+            os.remove(not_upload_file)
+        Path(not_upload_file).touch()
+
+        atest_gcp_utils.fetch_credential(tmp_folder, dict())
+        self.assertEqual(0, mock_get_credential_with_auth_flow.call_count)
+        self.assertTrue(os.path.exists(not_upload_file))
+
+        # mock cred file exists, and not_upload_file not exist.
+        if os.path.exists(fake_cred_file):
+            os.remove(fake_cred_file)
+        Path(fake_cred_file).touch()
+        if os.path.exists(not_upload_file):
+            os.remove(not_upload_file)
+
+        atest_gcp_utils.fetch_credential(tmp_folder, dict())
+        # TODO(b/275113186): Change back to assertEqual 1 and assertFalse after
+        #  switch back to default not upload.
+        self.assertEqual(0, mock_get_credential_with_auth_flow.call_count)
+        self.assertTrue(os.path.exists(not_upload_file))

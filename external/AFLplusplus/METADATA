@@ -1,0 +1,24 @@
+
+name: "AFLplusplus"
+description:
+	"AFLplusplus (american fuzzy lop plus plus) is a fuzzer"
+
+third_party: {
+	type: PACKAGE,
+	url {
+		type: HOMEPAGE
+		value: "https://aflplus.plus"
+	}
+	url {
+		type: GIT
+		value: "https://github.com/AFLplusplus/AFLplusplus"
+	}
+license_type: NOTICE
+	version: "ba3c7bfe40f9b17a691958e3525828385127ad25"
+	last_upgrade_date {
+		year: 2022
+		month: 6
+		day: 6
+	}
+}
+

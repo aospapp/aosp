@@ -52,7 +52,9 @@ This also builds for Android on-device.
 
 # Regenerating Vulkan code
 
-    scripts/generate-vulkan-sources.sh
+Check out the [gfxstream-protocols](https://android.googlesource.com/platform/external/gfxstream-protocols/)
+repo at `../../../external/gfxstream-protocols` relative to the root directory of this repo, and
+run the `scripts/generate-vulkan-sources.sh` script in the `gfxstream-protocols` root folder.
 
 If you're in an AOSP checkout, this will also modify contents of the guest Vulkan encoder in `../goldfish-opengl`.
 

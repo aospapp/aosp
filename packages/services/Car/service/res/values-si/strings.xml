@@ -42,8 +42,6 @@
     <string name="car_permission_desc_projection" msgid="2352178999656292944">"යෙදුමකට දුරකථනයකින් මෝටර් රථයේ සංදර්ශකයෙහි අතුරු මුහුණතක් ප්‍රක්ෂේපණයට ඉඩ දෙයි."</string>
     <string name="car_permission_label_access_projection_status" msgid="4231618890836627402">"ප්‍රක්ෂේපණ තත්ත්වයට ප්‍රවේශ වන්න"</string>
     <string name="car_permission_desc_access_projection_status" msgid="8497351979100616278">"යෙදුමකට මෝටර් රථයේ සංදර්ශකයට ප්‍රක්ෂේපණය වන වෙනත් යෙදුම්වල තත්ත්වය ලබා ගැනීමට ඉඩ දෙයි."</string>
-    <string name="car_permission_label_bind_projection_service" msgid="5362076216606651526">"ප්‍රක්ෂේපණ සේවාවකට බඳින්න"</string>
-    <string name="car_permission_desc_bind_projection_service" msgid="2282657787853408639">"ප්‍රක්ෂේපණ සේවාවක ඉහළ-මට්ටමේ අතුරු මුහුණතට බැඳීමට ධාරකයට ඉඩ දෙයි. සාමාන්‍ය යෙදුම්වලට කිසි විටෙක අවශ්‍ය නොවෙයි."</string>
     <string name="car_permission_label_audio_volume" msgid="310587969373137690">"මෝටර් රථයේ ශ්‍රව්‍ය හඬ පාලනය කරන්න"</string>
     <string name="car_permission_label_audio_settings" msgid="6524703796944023977">"මෝටර් රථයේ ශ්‍රව්‍ය සැකසුම් කළමනාකරණය කරන්න"</string>
     <string name="car_permission_label_mock_vehicle_hal" msgid="7198852512207405935">"වාහන HAL අනුකරණය කරන්න"</string>
@@ -62,8 +60,6 @@
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"උපකරණ කලඹ තුළ යෙදුම් දියත් කරන්න"</string>
     <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"උපකරණ පොකුරු සංචාලන තත්ත්වය"</string>
     <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"උපකරණ පොකුරු සංචාලන තත්ත්වය වෙනස් කිරීම සඳහා සවන් දෙන්න"</string>
-    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"උපකරණ කලප් විදහීම"</string>
-    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"උපකරණ කලප් දත්ත ලබා ගන්න"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"UX සීමා කිරීම් වින්‍යාසය"</string>
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"UX සීමා කිරීම් වින්‍යාස කරන්න"</string>
     <string name="car_permission_label_access_private_display_id" msgid="6712116114341634316">"පෞද්ගලික සංදර්ශක ID සඳහා කියවීම් ප්‍රවේශය"</string>
@@ -74,8 +70,12 @@
     <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"පදිංචිකරුවන් දැනුවත් කිරීමේ පද්ධතිය සඳහා තත්ත්වය සහ අනාවරණ දත්ත කියවීමට ඉඩ දෙයි"</string>
     <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"පදිංචිකරුවන් දැනුවත් කිරීමේ පද්ධති ප්‍රස්ථාරය"</string>
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"පදිංචිකරුවන් දැනුවත් කිරීමේ පද්ධති අනාවරණ ප්‍රස්ථාරයෙහි ආරම්භය සහ නැවැත්වීම පාලනයට ඉඩ දෙයි"</string>
-    <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"මෝටර් රථ ආදාන සේවය"</string>
-    <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"ආදාන සිදුවීම් පරිහරණ කරන්න"</string>
+    <string name="car_permission_label_read_driver_monitoring_settings" msgid="5208935577581001710">"මෝටර් රථයේ රියදුරු අධීක්ෂණ සැකසීම් තොරතුරු කියවන්න"</string>
+    <string name="car_permission_desc_read_driver_monitoring_settings" msgid="3721117607024237175">"මෝටර් රථයේ රියදුරු අධීක්ෂණ සැකසීම් තොරතුරු කියවන්න."</string>
+    <string name="car_permission_label_control_driver_monitoring_settings" msgid="239453247872865455">"මෝටර් රථයේ රියදුරු අධීක්ෂණ සැකසීම් තොරතුරු පාලනය කරන්න"</string>
+    <string name="car_permission_desc_control_driver_monitoring_settings" msgid="7244804817277236221">"මෝටර් රථයේ රියදුරු අධීක්ෂණ සැකසීම් තොරතුරු පාලනය කරන්න."</string>
+    <string name="car_permission_label_read_driver_monitoring_states" msgid="1555412806741155523">"මෝටර් රථයේ රියදුරු අධීක්ෂණ තත්ත්ව තොරතුරු කියවන්න"</string>
+    <string name="car_permission_desc_read_driver_monitoring_states" msgid="3124328827934661489">"මෝටර් රථයේ රියදුරු අධීක්ෂණ තත්ත්ව තොරතුරු කියවන්න."</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"දෝෂනිර්ණ දත්ත කියවන්න"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"මෝටර් රථයෙන් දෝෂනිර්ණ දත්ත කියවන්න."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"දෝෂනිර්ණ දත්ත හිස් කරන්න"</string>
@@ -84,8 +84,6 @@
     <string name="car_permission_desc_vms_publisher" msgid="5589489298597386828">"VMS පණිවිඩ ප්‍රකාශනය"</string>
     <string name="car_permission_label_vms_subscriber" msgid="5648841182059222299">"VMS ග්‍රාහකයා"</string>
     <string name="car_permission_desc_vms_subscriber" msgid="7551009457847673620">"VMS පණිවිඩවලට දායක වන්න"</string>
-    <string name="car_permission_label_bind_vms_client" msgid="4889732900973280313">"VMS සේවාලාභී සේවාව"</string>
-    <string name="car_permission_desc_bind_vms_client" msgid="4062835325264330564">"VMS සේවාලාභීන්ට බඳින්න"</string>
     <string name="car_permission_label_storage_monitoring" msgid="2327639346522530549">"ෆ්ලෑෂ් ආචයන නිරීක්‍ෂණය"</string>
     <string name="car_permission_desc_storage_monitoring" msgid="2075712271139671318">"ෆ්ලෑෂ් ආචයන භාවිතය නිරීක්‍ෂණ කරන්න"</string>
     <string name="car_permission_label_driving_state" msgid="7754624599537393650">"රිය පැදවීමේ තත්ත්වයට සවන් දෙන්න"</string>
@@ -118,6 +116,8 @@
     <string name="car_permission_desc_control_car_mirrors" msgid="1224135684068855032">"මෝටර් රථයේ දර්පණ පාලනය කරන්න."</string>
     <string name="car_permission_label_control_car_seats" msgid="1826934820585497135">"මෝටර් රථයේ ආසන පාලනය කරන්න"</string>
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"මෝටර් රථයේ ආසන පාලනය කරන්න."</string>
+    <string name="car_permission_label_control_car_airbags" msgid="6823727183218389617">"මෝටර් රථයේ වායු බෑග් පාලනය කරන්න"</string>
+    <string name="car_permission_desc_control_car_airbags" msgid="6181671903761622348">"මෝටර් රථයේ වායු බෑග් පාලනය කරන්න."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"මෝටර් රථයේ මූලික තොරතුරුවලට ප්‍රවේශ වන්න"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"මෝටර් රථයේ මූලික තොරතුරුවලට ප්‍රවේශ වන්න."</string>
     <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"මෝටර් රථයේ වරප්‍රසාද ලත් තොරතුරු වෙත ප්‍රවේශ වන්න"</string>
@@ -126,10 +126,10 @@
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"මෝටර් රථයේ විකුණුම්කරුගේ අවසර තොරතුරු වෙත ප්‍රවේශ වන්න."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"මෝටර් රථයේ බාහිර ආලෝක තත්ත්වය කියවන්න"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"මෝටර් රථයේ බාහිර ආලෝක තත්ත්වයට ප්‍රවේශ වන්න."</string>
+    <string name="car_permission_label_control_glove_box" msgid="992118647212706782">"මෝටර් රථයේ අත්වැසුම් පෙට්ටි තත්ත්වයට ප්‍රවේශ වන්න"</string>
+    <string name="car_permission_desc_control_glove_box" msgid="2888062136750123261">"මෝටර් රථයේ අත්වැසුම් පෙට්ටි තත්ත්වයට ප්‍රවේශ වන්න."</string>
     <string name="car_permission_label_car_epoch_time" msgid="6303397910662625112">"මෝටර් රථයේ අවධි වේලාවට ප්‍රවේශ වන්න"</string>
     <string name="car_permission_desc_car_epoch_time" msgid="398907082895238558">"මෝටර් රථයේ අවධි වේලාවට ප්‍රවේශ වන්න."</string>
-    <string name="car_permission_label_encryption_binding_seed" msgid="4652180636501144684">"මෝටර් රථයේ සංකේතන බැඳුම් සීඩ් වෙත ප්‍රවේශ වන්න"</string>
-    <string name="car_permission_desc_encryption_binding_seed" msgid="6290944678417286024">"මෝටර් රථයේ සංකේතන බැඳුම් සීඩ් වෙත ප්‍රවේශ වන්න."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"මෝටර් රථයේ බාහිර ආලෝකයන් කියවන්න"</string>
     <string name="car_permission_desc_control_car_exterior_lights" msgid="6332252612685264180">"මෝටර් රථයේ බාහිර ආලෝක පාලනය කරන්න."</string>
     <string name="car_permission_label_car_interior_lights" msgid="8506302199784427680">"මෝටර් රථයේ අභ්‍යන්තර ආලෝක කියවන්න"</string>
@@ -146,6 +146,8 @@
     <string name="car_permission_desc_read_car_display_units" msgid="6891898275208542385">"සංදර්ශන ඒකක කියවන්න."</string>
     <string name="car_permission_label_control_car_display_units" msgid="4975303668183173076">"මෝටර් රථයේ සංදර්ශන ඒකක පාලනය කරන්න"</string>
     <string name="car_permission_desc_control_car_display_units" msgid="8744397195158556945">"සංදර්ශන ඒකක පාලනය කරන්න."</string>
+    <string name="car_permission_label_control_car_powertrain" msgid="234831541490237603">"මෝටර් රථයේ බල ශ්‍රේණියේ තොරතුරු පාලනය කරන්න"</string>
+    <string name="car_permission_desc_control_car_powertrain" msgid="8205110385130069179">"මෝටර් රථයේ බල ශ්‍රේණියේ තොරතුරු පාලනය කරන්න."</string>
     <string name="car_permission_label_car_powertrain" msgid="4586122326622134886">"මෝටර් රථයේ ජව දාම තොරතුරු කියවන්න"</string>
     <string name="car_permission_desc_car_powertrain" msgid="1116007372551797796">"මෝටර් රථයේ ජව දාම තොරතුරුවලට ප්‍රවේශ වන්න."</string>
     <string name="car_permission_label_car_power" msgid="8111448088314368268">"මෝටර් රථයේ බලය තත්ත්වය කියවන්න"</string>
@@ -172,6 +174,40 @@
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"අච්චු විදහන්න."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"යෙදුම් දියත් කිරීම කළමනාකරණය කරන්න"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"යෙදුම් දියත් කිරීම කළමනාකරණය කරන්න."</string>
+    <string name="car_permission_label_manage_thread_priority" msgid="6775846409863509575">"පොට ප්‍රමුඛතාවය කළමනාකරණය කරන්න"</string>
+    <string name="car_permission_desc_manage_thread_priority" msgid="3833845502119615929">"පොට ප්‍රමුඛතාවය කළමනාකරණය කරන්න."</string>
+    <string name="car_permission_label_manage_occupant_zone" msgid="1390420387640478679">"පදිංචි කලාපය කළමනාකරණය කරන්න"</string>
+    <string name="car_permission_desc_manage_occupant_zone" msgid="1641484205694436465">"පදිංචි කලාපය කළමනාකරණය කරන්න."</string>
+    <string name="car_permission_label_use_remote_access" msgid="4192095854784769805">"දුරස්ථ ප්‍රවේශය භාවිතා කරන්න"</string>
+    <string name="car_permission_desc_use_remote_access" msgid="7287637348044911791">"දුරස්ථ ප්‍රවේශය භාවිතා කරන්න."</string>
+    <string name="car_permission_label_control_remote_access" msgid="4247590162299914718">"දුරස්ථ ප්‍රවේශය පාලනය කරන්න"</string>
+    <string name="car_permission_desc_control_remote_access" msgid="127215188256669260">"දුරස්ථ ප්‍රවේශය පාලනය කරන්න."</string>
+    <string name="car_permission_label_control_steering_wheel" msgid="6244908950907824488">"මෝටර් රථයේ සුක්කානම පාලනය කරන්න"</string>
+    <string name="car_permission_desc_control_steering_wheel" msgid="8408970211196600423">"මෝටර් රථයේ සුක්කානම පාලනය කරන්න."</string>
+    <string name="car_permission_label_read_adas_settings" msgid="151296373212801328">"මෝටර් රථයේ ADAS සැකසීම් තොරතුරු කියවන්න"</string>
+    <string name="car_permission_desc_read_adas_settings" msgid="8490545343454791279">"මෝටර් රථයේ ADAS සැකසීම් තොරතුරු කියවන්න."</string>
+    <string name="car_permission_label_control_adas_settings" msgid="2535088218472880855">"මෝටර් රථයේ ADAS සැකසීම් තොරතුරු පාලනය කරන්න"</string>
+    <string name="car_permission_desc_control_adas_settings" msgid="8781131640392345285">"මෝටර් රථයේ ADAS සැකසීම් තොරතුරු පාලනය කරන්න."</string>
+    <string name="car_permission_label_read_adas_states" msgid="8968657466958098106">"මෝටර් රථයේ ADAS තත්ත්ව තොරතුරු කියවන්න"</string>
+    <string name="car_permission_desc_read_adas_states" msgid="5042430899788416991">"මෝටර් රථයේ ADAS තත්ත්ව තොරතුරු කියවන්න."</string>
+    <string name="car_permission_label_control_adas_states" msgid="758803765406463138">"මෝටර් රථයේ ADAS තට්ත්ව තොරතුරු පාලනය කරන්න"</string>
+    <string name="car_permission_desc_control_adas_states" msgid="1893171217779342348">"මෝටර් රථයේ ADAS තට්ත්ව තොරතුරු පාලනය කරන්න."</string>
+    <string name="car_permission_label_read_windshield_wipers" msgid="896867772546890348">"මෝටර් රථයේ හුළං පලිහ පිසින කියවන්න"</string>
+    <string name="car_permission_desc_read_windshield_wipers" msgid="597300271560195986">"මෝටර් රථයේ හුළං පලිහ පිසින කියවන්න."</string>
+    <string name="car_permission_label_control_windshield_wipers" msgid="7971852482734087493">"මෝටර් රථයේ හුළං පලිහ පිසින පාලනය කරන්න"</string>
+    <string name="car_permission_desc_control_windshield_wipers" msgid="3803429825323199728">"මෝටර් රථයේ හුළං පලිහ පිසින පාලනය කරන්න."</string>
+    <string name="car_permission_label_manage_remote_device" msgid="1144368625081074994">"එම කලාප තුළ ස්ථාපනය කර ඇති මෝටර් රථ සහ සම වයසේ යෙදුම් (ඇමතුම්කරු මෙන් එකම පැකේජ නාමය ඇති යෙදුම්) තුළ ඇති අනෙකුත් පදිංචිකරුවන්ගේ කලාපවල තත්ත්වයන් අධීක්ෂණය කරන්න, සහ එම කලාපවල බලය කළමනාකරණය කරන්න."</string>
+    <string name="car_permission_desc_manage_remote_device" msgid="4802785901453919948">"එම කලාප තුළ ස්ථාපනය කර ඇති මෝටර් රථ සහ සම වයසේ යෙදුම් (ඇමතුම්කරු මෙන් එකම පැකේජ නාමය ඇති යෙදුම්) තුළ ඇති අනෙකුත් පදිංචිකරුවන්ගේ කලාපවල තත්ත්වයන් අධීක්ෂණය කරන්න, සහ එම කලාපවල බලය කළමනාකරණය කරන්න."</string>
+    <string name="car_permission_label_manage_occupant_connection" msgid="6007579379849984187">"මෝටර් රථයේ වෙනත් පදිංචිකරුවන්ගේ කලාපවල ස්ථාපනය කර ඇති සම වයසේ යෙදුම් (ඇමතුම්කරු මෙන් එකම පැකේජ නම ඇති යෙදුම්) වෙත සම්බන්ධතාවය ස්ථාපිත කර සන්නිවේදනය කරන්න."</string>
+    <string name="car_permission_desc_manage_occupant_connection" msgid="6525045077082552965">"මෝටර් රථයේ වෙනත් පදිංචිකරුවන්ගේ කලාපවල ස්ථාපනය කර ඇති සම වයසේ යෙදුම් (ඇමතුම්කරු මෙන් එකම පැකේජ නම ඇති යෙදුම්) වෙත සම්බන්ධතාවය ස්ථාපිත කර සන්නිවේදනය කරන්න."</string>
+    <string name="car_permission_label_access_mirrored_surface" msgid="6235459468766618021">"වෙනත් යෙදුම්වල තිරය පිළිබිඹු කරන්න"</string>
+    <string name="car_permission_desc_access_mirrored_surface" msgid="7701151689600074639">"වෙනත් යෙදුම්වල තිරය පිළිබිඹු කරන්න."</string>
+    <string name="car_permission_label_mirror_display" msgid="7591958768912962529">"වෙනත් පරිශීලකයින්ගේ සංදර්ශකය පිළිබිඹු කරන්න"</string>
+    <string name="car_permission_desc_mirror_display" msgid="2403249980834394896">"වෙනත් පරිශීලකයින්ගේ සංදර්ශකය පිළිබිඹු කරන්න."</string>
+    <string name="car_permission_label_register_car_system_ui_proxy" msgid="4211405049007842422">"පද්ධති ui කළමනාකරණය කිරීමට සහ කාර්ය දසුන් තැනීමට වෙනත් යෙදුම්වලට භාවිතා කළ හැකි පද්ධති ui ප්‍රොක්සියක් සපයන්න."</string>
+    <string name="car_permission_desc_register_car_system_ui_proxy" msgid="8863676956785764681">"පද්ධති ui කළමනාකරණය කිරීමට සහ කාර්ය දසුන් තැනීමට වෙනත් යෙදුම්වලට භාවිතා කළ හැකි පද්ධති ui ප්‍රොක්සියක් සපයන්න."</string>
+    <string name="car_permission_label_manage_car_system_ui" msgid="1361615518679353414">"කාර්ය දසුන් තැනීම හෝ පද්ධති ui වෙනස්කම් පිළිබඳව දැනුවත් වීම සඳහා මෝටර් රථ පද්ධති ui සමග සන්නිවේදනය කරන්න."</string>
+    <string name="car_permission_desc_manage_car_system_ui" msgid="6201733970421818637">"කාර්ය දසුන් තැනීම හෝ පද්ධති ui වෙනස්කම් පිළිබඳව දැනුවත් වීම සඳහා මෝටර් රථ පද්ධති ui සමග සන්නිවේදනය කරන්න."</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN බස් අසාර්ථකයි"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN බස් ප්‍රතිචාර නොදක්වයි. හෙඩ්යුනිට් පෙට්ටිය පේනු ඉවත් කර ආපසු පේනුගත කර, මෝටර් රථය යළි අරඹන්න"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"මගේ උපාංගය"</string>

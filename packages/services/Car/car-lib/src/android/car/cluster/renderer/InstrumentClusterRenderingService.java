@@ -31,6 +31,7 @@ import android.app.Service;
 import android.car.Car;
 import android.car.CarLibLog;
 import android.car.annotation.AddedInOrBefore;
+import android.car.builtin.util.Slogf;
 import android.car.cluster.ClusterActivityState;
 import android.car.navigation.CarNavigationInstrumentCluster;
 import android.content.ActivityNotFoundException;
@@ -101,6 +102,7 @@ public abstract class InstrumentClusterRenderingService extends Service {
             "android.car.cluster.renderer.IInstrumentClusterHelper";
 
     private static final String TAG = CarLibLog.TAG_CLUSTER;
+    private static final boolean DBG = Slogf.isLoggable(TAG, Log.DEBUG);
 
     private static final String BITMAP_QUERY_WIDTH = "w";
     private static final String BITMAP_QUERY_HEIGHT = "h";
@@ -168,8 +170,8 @@ public abstract class InstrumentClusterRenderingService extends Service {
                         .map(provider -> provider.authority)
                         .collect(Collectors.toList());
             } catch (PackageManager.NameNotFoundException e) {
-                Log.w(TAG, "Package name not found while retrieving content provider authorities: "
-                        + packageName);
+                Slogf.w(TAG, "Package name not found while retrieving content provider "
+                        + "authorities: %s" , packageName);
                 return Collections.emptyList();
             }
         }
@@ -179,8 +181,8 @@ public abstract class InstrumentClusterRenderingService extends Service {
     @CallSuper
     @AddedInOrBefore(majorVersion = 33)
     public IBinder onBind(Intent intent) {
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "onBind, intent: " + intent);
+        if (DBG) {
+            Slogf.d(TAG, "onBind, intent: %s", intent);
         }
 
         Bundle bundle = intent.getBundleExtra(EXTRA_BUNDLE_KEY_FOR_INSTRUMENT_CLUSTER_HELPER);
@@ -189,7 +191,7 @@ public abstract class InstrumentClusterRenderingService extends Service {
             binder = bundle.getBinder(EXTRA_BUNDLE_KEY_FOR_INSTRUMENT_CLUSTER_HELPER);
         }
         if (binder == null) {
-            Log.wtf(TAG, "IInstrumentClusterHelper not passed through binder");
+            Slogf.wtf(TAG, "IInstrumentClusterHelper not passed through binder");
         } else {
             synchronized (mLock) {
                 mInstrumentClusterHelper = IInstrumentClusterHelper.Stub.asInterface(binder);
@@ -242,7 +244,7 @@ public abstract class InstrumentClusterRenderingService extends Service {
     private IInstrumentClusterHelper getClusterHelper() {
         synchronized (mLock) {
             if (mInstrumentClusterHelper == null) {
-                Log.w("mInstrumentClusterHelper still null, should wait until onBind",
+                Slogf.w("mInstrumentClusterHelper still null, should wait until onBind",
                         new RuntimeException());
             }
             return mInstrumentClusterHelper;
@@ -261,7 +263,7 @@ public abstract class InstrumentClusterRenderingService extends Service {
      * {@link #stopFixedActivityMode(int)} can be called to get the top activitgy out of this
      * mode.</p>
      *
-     * @param intent Should include specific {@code ComponentName}.
+     * @param intentParam Should include specific {@code ComponentName}.
      * @param options Should include target display.
      * @param userId Target user id
      * @return {@code true} if succeeded. {@code false} may mean the target component is not ready
@@ -271,8 +273,10 @@ public abstract class InstrumentClusterRenderingService extends Service {
      *         other events.
      */
     @AddedInOrBefore(majorVersion = 33)
-    public boolean startFixedActivityModeForDisplayAndUser(@NonNull Intent intent,
+    public boolean startFixedActivityModeForDisplayAndUser(@NonNull Intent intentParam,
             @NonNull ActivityOptions options, @UserIdInt int userId) {
+        Intent intent = intentParam;
+
         IInstrumentClusterHelper helper = getClusterHelper();
         if (helper == null) {
             return false;
@@ -286,7 +290,7 @@ public abstract class InstrumentClusterRenderingService extends Service {
             return helper.startFixedActivityModeForDisplayAndUser(intent, options.toBundle(),
                     userId);
         } catch (RemoteException e) {
-            Log.w("Remote exception from car service", e);
+            Slogf.w("Remote exception from car service", e);
             // Probably car service will restart and rebind. So do nothing.
         }
         return false;
@@ -306,7 +310,7 @@ public abstract class InstrumentClusterRenderingService extends Service {
         try {
             helper.stopFixedActivityMode(displayId);
         } catch (RemoteException e) {
-            Log.w("Remote exception from car service, displayId:" + displayId, e);
+            Slogf.w("Remote exception from car service, displayId:" + displayId, e);
             // Probably car service will restart and rebind. So do nothing.
         }
     }
@@ -318,10 +322,10 @@ public abstract class InstrumentClusterRenderingService extends Service {
     private void updateNavigationActivity() {
         ContextOwner contextOwner = getNavigationContextOwner();
 
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, String.format("updateNavigationActivity (mActivityOptions: %s, "
+        if (DBG) {
+            Slogf.d(TAG, "updateNavigationActivity (mActivityOptions: %s, "
                             + "mActivityState: %s, mNavContextOwnerUid: %s)", mActivityOptions,
-                    mActivityState, contextOwner));
+                    mActivityState, contextOwner);
         }
 
         if (contextOwner == null || contextOwner.mUid == 0 || mActivityOptions == null
@@ -337,22 +341,22 @@ public abstract class InstrumentClusterRenderingService extends Service {
         ComponentName component = getNavigationComponentByOwner(contextOwner);
         if (Objects.equals(mNavigationComponent, component)) {
             // We have already launched this component.
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "Already launched component: " + component);
+            if (DBG) {
+                Slogf.d(TAG, "Already launched component: %s", component);
             }
             return;
         }
 
         if (component == null) {
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "No component found for owner: " + contextOwner);
+            if (DBG) {
+                Slogf.d(TAG, "No component found for owner: %s", contextOwner);
             }
             return;
         }
 
         if (!startNavigationActivity(component)) {
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "Unable to launch component: " + component);
+            if (DBG) {
+                Slogf.d(TAG, "Unable to launch component: %s", component);
             }
             return;
         }
@@ -370,8 +374,8 @@ public abstract class InstrumentClusterRenderingService extends Service {
         for (String packageName : contextOwner.mPackageNames) {
             ComponentName component = getComponentFromPackage(packageName);
             if (component != null) {
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "Found component: " + component);
+                if (DBG) {
+                    Slogf.d(TAG, "Found component: %s", component);
                 }
                 return component;
             }
@@ -401,8 +405,8 @@ public abstract class InstrumentClusterRenderingService extends Service {
         // Check package permission.
         if (packageManager.checkPermission(Car.PERMISSION_CAR_DISPLAY_IN_CLUSTER, packageName)
                 != PackageManager.PERMISSION_GRANTED) {
-            Log.i(TAG, String.format("Package '%s' doesn't have permission %s", packageName,
-                    Car.PERMISSION_CAR_DISPLAY_IN_CLUSTER));
+            Slogf.i(TAG, "Package '%s' doesn't have permission %s", packageName,
+                    Car.PERMISSION_CAR_DISPLAY_IN_CLUSTER);
             return null;
         }
 
@@ -414,7 +418,7 @@ public abstract class InstrumentClusterRenderingService extends Service {
                 UserHandle.of(ActivityManager.getCurrentUser()));
         if (resolveList == null || resolveList.isEmpty()
                 || resolveList.get(0).activityInfo == null) {
-            Log.i(TAG, "Failed to resolve an intent: " + intent);
+            Slogf.i(TAG, "Failed to resolve an intent: %s", intent);
             return null;
         }
 
@@ -438,15 +442,15 @@ public abstract class InstrumentClusterRenderingService extends Service {
         try {
             startFixedActivityModeForDisplayAndUser(intent, mActivityOptions,
                     ActivityManager.getCurrentUser());
-            Log.i(TAG, String.format("Activity launched: %s (options: %s, displayId: %d)",
-                    mActivityOptions, intent, mActivityOptions.getLaunchDisplayId()));
+            Slogf.i(TAG, "Activity launched: %s (options: %s, displayId: %d)",
+                    mActivityOptions, intent, mActivityOptions.getLaunchDisplayId());
         } catch (ActivityNotFoundException e) {
-            Log.w(TAG, "Unable to find activity for intent: " + intent);
+            Slogf.w(TAG, "Unable to find activity for intent: " + intent);
             return false;
         } catch (RuntimeException e) {
             // Catch all other possible exception to prevent service disruption by misbehaving
             // applications.
-            Log.e(TAG, "Error trying to launch intent: " + intent + ". Ignored", e);
+            Slogf.e(TAG, "Error trying to launch intent: " + intent + ". Ignored", e);
             return false;
         }
         return true;
@@ -469,10 +473,9 @@ public abstract class InstrumentClusterRenderingService extends Service {
      *
      * @param activityOptions contains information of how to start cluster activity (on what display
      *                        or activity stack).
-     * @hide
      */
     @AddedInOrBefore(majorVersion = 33)
-    public void setClusterActivityLaunchOptions(ActivityOptions activityOptions) {
+    public void setClusterActivityLaunchOptions(@NonNull ActivityOptions activityOptions) {
         mActivityOptions = activityOptions;
         updateNavigationActivity();
     }
@@ -493,10 +496,9 @@ public abstract class InstrumentClusterRenderingService extends Service {
      *
      * @param state pass information about activity state, see
      *              {@link android.car.cluster.ClusterActivityState}
-     * @hide
      */
     @AddedInOrBefore(majorVersion = 33)
-    public void setClusterActivityState(ClusterActivityState state) {
+    public void setClusterActivityState(@NonNull ClusterActivityState state) {
         mActivityState = state;
         updateNavigationActivity();
     }
@@ -535,8 +537,8 @@ public abstract class InstrumentClusterRenderingService extends Service {
 
         @Override
         public void setNavigationContextOwner(int uid, int pid) throws RemoteException {
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "Updating navigation ownership to uid: " + uid + ", pid: " + pid);
+            if (DBG) {
+                Slogf.d(TAG, "Updating navigation ownership to uid: %d, pid: %d", uid, pid);
             }
             synchronized (mLock) {
                 mNavContextOwner = new ContextOwner(uid, pid, getPackageManager());
@@ -631,13 +633,13 @@ public abstract class InstrumentClusterRenderingService extends Service {
 
             ContextOwner contextOwner = getNavigationContextOwner();
             if (contextOwner == null) {
-                Log.e(TAG, "No context owner available while fetching: " + uri);
+                Slogf.e(TAG, "No context owner available while fetching: " + uri);
                 return null;
             }
 
             String host = uri.getHost();
             if (!contextOwner.mAuthorities.contains(host)) {
-                Log.e(TAG, "Uri points to an authority not handled by the current context owner: "
+                Slogf.e(TAG, "Uri points to an authority not handled by the current context owner: "
                         + uri + " (valid authorities: " + contextOwner.mAuthorities + ")");
                 return null;
             }
@@ -648,8 +650,8 @@ public abstract class InstrumentClusterRenderingService extends Service {
             Uri filteredUid = uri.buildUpon().encodedAuthority(userId + "@" + host).build();
 
             // Fetch the bitmap
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "Requesting bitmap: " + uri);
+            if (DBG) {
+                Slogf.d(TAG, "Requesting bitmap: %s", uri);
             }
             try (ParcelFileDescriptor fileDesc = getContentResolver()
                     .openFileDescriptor(filteredUid, "r")) {
@@ -658,11 +660,11 @@ public abstract class InstrumentClusterRenderingService extends Service {
                             fileDesc.getFileDescriptor());
                     return bitmap;
                 } else {
-                    Log.e(TAG, "Failed to create pipe for uri string: " + uri);
+                    Slogf.e(TAG, "Failed to create pipe for uri string: %s", uri);
                 }
             }
         } catch (IOException e) {
-            Log.e(TAG, "Unable to fetch uri: " + uri, e);
+            Slogf.e(TAG, "Unable to fetch uri: " + uri, e);
         }
         return null;
     }
@@ -687,7 +689,7 @@ public abstract class InstrumentClusterRenderingService extends Service {
      * </ul>
      * This is a costly operation. Returned bitmaps should be fetched on a secondary thread.
      *
-     * @param uri           The URI of the bitmap
+     * @param bitmapUri     The URI of the bitmap
      * @param width         Requested width
      * @param height        Requested height
      * @param offLanesAlpha Opacity value of the off-lane images. Only used for lane guidance images
@@ -695,7 +697,9 @@ public abstract class InstrumentClusterRenderingService extends Service {
      */
     @Nullable
     @AddedInOrBefore(majorVersion = 33)
-    public Bitmap getBitmap(@NonNull Uri uri, int width, int height, float offLanesAlpha) {
+    public Bitmap getBitmap(@NonNull Uri bitmapUri, int width, int height, float offLanesAlpha) {
+        Uri uri = bitmapUri;
+
         if (width <= 0 || height <= 0) {
             throw new IllegalArgumentException("Width and height must be > 0");
         }
@@ -706,7 +710,7 @@ public abstract class InstrumentClusterRenderingService extends Service {
         try {
             ContextOwner contextOwner = getNavigationContextOwner();
             if (contextOwner == null) {
-                Log.e(TAG, "No context owner available while fetching: " + uri);
+                Slogf.e(TAG, "No context owner available while fetching: %s", uri);
                 return null;
             }
 
@@ -719,8 +723,8 @@ public abstract class InstrumentClusterRenderingService extends Service {
             String host = uri.getHost();
 
             if (!contextOwner.mAuthorities.contains(host)) {
-                Log.e(TAG, "Uri points to an authority not handled by the current context owner: "
-                        + uri + " (valid authorities: " + contextOwner.mAuthorities + ")");
+                Slogf.e(TAG, "Uri points to an authority not handled by the current context owner: "
+                        + "%s (valid authorities: %s)", uri, contextOwner.mAuthorities);
                 return null;
             }
 
@@ -732,16 +736,15 @@ public abstract class InstrumentClusterRenderingService extends Service {
             Bitmap bitmap = mCache.get(uri.toString());
             if (bitmap == null) {
                 // Fetch the bitmap
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "Requesting bitmap: " + uri);
+                if (DBG) {
+                    Slogf.d(TAG, "Requesting bitmap: %s", uri);
                 }
                 try (ParcelFileDescriptor fileDesc = getContentResolver()
                         .openFileDescriptor(filteredUid, "r")) {
                     if (fileDesc != null) {
                         bitmap = BitmapFactory.decodeFileDescriptor(fileDesc.getFileDescriptor());
-                        return bitmap;
                     } else {
-                        Log.e(TAG, "Failed to create pipe for uri string: " + uri);
+                        Slogf.e(TAG, "Failed to create pipe for uri string: %s", uri);
                     }
                 }
                 if (bitmap.getWidth() != width || bitmap.getHeight() != height) {
@@ -751,7 +754,7 @@ public abstract class InstrumentClusterRenderingService extends Service {
             }
             return bitmap;
         } catch (IOException e) {
-            Log.e(TAG, "Unable to fetch uri: " + uri, e);
+            Slogf.e(TAG, "Unable to fetch uri: " + uri, e);
         }
         return null;
     }

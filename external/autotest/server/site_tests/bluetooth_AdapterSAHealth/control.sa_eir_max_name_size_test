@@ -8,12 +8,13 @@ AUTHOR = 'chromeos-bluetooth'
 NAME = 'bluetooth_AdapterSAHealth.sa_eir_max_name_size_test'
 PURPOSE = ('Test that non-default EIR name length is applied')
 CRITERIA = 'Pass the test'
-ATTRIBUTES = 'suite:bluetooth_flaky'
+ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_standalone'
 TIME = 'SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
 DEPENDENCIES = 'bluetooth'
+PY_VERSION = 3
 
 DOC = """
     Tests that the bluetoothd dbus API can be used to set EIR name longer than

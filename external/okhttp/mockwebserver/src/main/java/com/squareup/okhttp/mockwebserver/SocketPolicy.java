@@ -26,8 +26,9 @@ package com.squareup.okhttp.mockwebserver;
  * server may not have had time to close the socket. The socket will be closed at an indeterminate
  * point before or during the second request. It may be closed after client has started sending the
  * request body. If a request body is not retryable then the client may fail the request, making
- * client behavior non-deterministic. Add delays in the client to improve the chances that the
- * server has closed the socket before follow up requests are made.
+ * client behavior non-deterministic. In order to prevent that {@link
+ * MockResponse#setSocketShutdownListener} can be used. Otherwise, add delays in the client to
+ * improve the chances that the server has closed the socket before follow up requests are made.
  */
 public enum SocketPolicy {
 

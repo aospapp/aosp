@@ -89,7 +89,7 @@ bool MacroAssembler::TrySingleAddSub(AddSubHelperOption option,
   return false;
 }
 
-void MacroAssembler::IntWideImmHelper(IntWideImmFn imm_fn,
+void MacroAssembler::IntWideImmHelper(IntArithImmFn imm_fn,
                                       SVEArithPredicatedFn reg_macro,
                                       const ZRegister& zd,
                                       const ZRegister& zn,
@@ -130,7 +130,7 @@ void MacroAssembler::Mul(const ZRegister& zd,
                          const ZRegister& zn,
                          IntegerOperand imm) {
   VIXL_ASSERT(allow_macro_instructions_);
-  IntWideImmFn imm_fn = &Assembler::mul;
+  IntArithImmFn imm_fn = &Assembler::mul;
   SVEArithPredicatedFn reg_fn = &MacroAssembler::Mul;
   IntWideImmHelper(imm_fn, reg_fn, zd, zn, imm, true);
 }
@@ -140,7 +140,7 @@ void MacroAssembler::Smin(const ZRegister& zd,
                           IntegerOperand imm) {
   VIXL_ASSERT(allow_macro_instructions_);
   VIXL_ASSERT(imm.FitsInSignedLane(zd));
-  IntWideImmFn imm_fn = &Assembler::smin;
+  IntArithImmFn imm_fn = &Assembler::smin;
   SVEArithPredicatedFn reg_fn = &MacroAssembler::Smin;
   IntWideImmHelper(imm_fn, reg_fn, zd, zn, imm, true);
 }
@@ -150,7 +150,7 @@ void MacroAssembler::Smax(const ZRegister& zd,
                           IntegerOperand imm) {
   VIXL_ASSERT(allow_macro_instructions_);
   VIXL_ASSERT(imm.FitsInSignedLane(zd));
-  IntWideImmFn imm_fn = &Assembler::smax;
+  IntArithImmFn imm_fn = &Assembler::smax;
   SVEArithPredicatedFn reg_fn = &MacroAssembler::Smax;
   IntWideImmHelper(imm_fn, reg_fn, zd, zn, imm, true);
 }
@@ -160,7 +160,7 @@ void MacroAssembler::Umax(const ZRegister& zd,
                           IntegerOperand imm) {
   VIXL_ASSERT(allow_macro_instructions_);
   VIXL_ASSERT(imm.FitsInUnsignedLane(zd));
-  IntWideImmFn imm_fn = &Assembler::umax;
+  IntArithImmFn imm_fn = &Assembler::umax;
   SVEArithPredicatedFn reg_fn = &MacroAssembler::Umax;
   IntWideImmHelper(imm_fn, reg_fn, zd, zn, imm, false);
 }
@@ -170,7 +170,7 @@ void MacroAssembler::Umin(const ZRegister& zd,
                           IntegerOperand imm) {
   VIXL_ASSERT(allow_macro_instructions_);
   VIXL_ASSERT(imm.FitsInUnsignedLane(zd));
-  IntWideImmFn imm_fn = &Assembler::umin;
+  IntArithImmFn imm_fn = &Assembler::umin;
   SVEArithPredicatedFn reg_fn = &MacroAssembler::Umin;
   IntWideImmHelper(imm_fn, reg_fn, zd, zn, imm, false);
 }
@@ -562,80 +562,143 @@ void MacroAssembler::FPCommutativeArithmeticHelper(
   }
 }
 
-void MacroAssembler::Asr(const ZRegister& zd,
-                         const PRegisterM& pg,
-                         const ZRegister& zn,
-                         const ZRegister& zm) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  NoncommutativeArithmeticHelper(zd,
-                                 pg,
-                                 zn,
-                                 zm,
-                                 static_cast<SVEArithPredicatedFn>(
-                                     &Assembler::asr),
-                                 static_cast<SVEArithPredicatedFn>(
-                                     &Assembler::asrr));
-}
+// Instructions of the form "inst zda, zn, zm, #num", where they are
+// non-commutative and no reversed form is provided.
+#define VIXL_SVE_NONCOMM_ARITH_ZZZZI_LIST(V) \
+  V(Cmla, cmla)                              \
+  V(Sqrdcmlah, sqrdcmlah)
 
-void MacroAssembler::Lsl(const ZRegister& zd,
-                         const PRegisterM& pg,
-                         const ZRegister& zn,
-                         const ZRegister& zm) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  NoncommutativeArithmeticHelper(zd,
-                                 pg,
-                                 zn,
-                                 zm,
-                                 static_cast<SVEArithPredicatedFn>(
-                                     &Assembler::lsl),
-                                 static_cast<SVEArithPredicatedFn>(
-                                     &Assembler::lslr));
-}
+#define VIXL_DEFINE_MASM_FUNC(MASMFN, ASMFN)                     \
+  void MacroAssembler::MASMFN(const ZRegister& zd,               \
+                              const ZRegister& za,               \
+                              const ZRegister& zn,               \
+                              const ZRegister& zm,               \
+                              int imm) {                         \
+    if ((zd.Aliases(zn) || zd.Aliases(zm)) && !zd.Aliases(za)) { \
+      UseScratchRegisterScope temps(this);                       \
+      VIXL_ASSERT(AreSameLaneSize(zn, zm));                      \
+      ZRegister ztmp = temps.AcquireZ().WithSameLaneSizeAs(zn);  \
+      Mov(ztmp, zd.Aliases(zn) ? zn : zm);                       \
+      MovprfxHelperScope guard(this, zd, za);                    \
+      ASMFN(zd,                                                  \
+            (zd.Aliases(zn) ? ztmp : zn),                        \
+            (zd.Aliases(zm) ? ztmp : zm),                        \
+            imm);                                                \
+    } else {                                                     \
+      MovprfxHelperScope guard(this, zd, za);                    \
+      ASMFN(zd, zn, zm, imm);                                    \
+    }                                                            \
+  }
+VIXL_SVE_NONCOMM_ARITH_ZZZZI_LIST(VIXL_DEFINE_MASM_FUNC)
+#undef VIXL_DEFINE_MASM_FUNC
 
-void MacroAssembler::Lsr(const ZRegister& zd,
-                         const PRegisterM& pg,
-                         const ZRegister& zn,
-                         const ZRegister& zm) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  NoncommutativeArithmeticHelper(zd,
-                                 pg,
-                                 zn,
-                                 zm,
-                                 static_cast<SVEArithPredicatedFn>(
-                                     &Assembler::lsr),
-                                 static_cast<SVEArithPredicatedFn>(
-                                     &Assembler::lsrr));
-}
+// Instructions of the form "inst zda, zn, zm, #num, #num", where they are
+// non-commutative and no reversed form is provided.
+#define VIXL_SVE_NONCOMM_ARITH_ZZZZII_LIST(V) \
+  V(Cmla, cmla)                               \
+  V(Sqrdcmlah, sqrdcmlah)
 
-void MacroAssembler::Fdiv(const ZRegister& zd,
-                          const PRegisterM& pg,
-                          const ZRegister& zn,
-                          const ZRegister& zm) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  NoncommutativeArithmeticHelper(zd,
-                                 pg,
-                                 zn,
-                                 zm,
-                                 static_cast<SVEArithPredicatedFn>(
-                                     &Assembler::fdiv),
-                                 static_cast<SVEArithPredicatedFn>(
-                                     &Assembler::fdivr));
-}
+// This doesn't handle zm when it's out of the range that can be encoded in
+// instruction. The range depends on element size: z0-z7 for H, z0-15 for S.
+#define VIXL_DEFINE_MASM_FUNC(MASMFN, ASMFN)                     \
+  void MacroAssembler::MASMFN(const ZRegister& zd,               \
+                              const ZRegister& za,               \
+                              const ZRegister& zn,               \
+                              const ZRegister& zm,               \
+                              int index,                         \
+                              int rot) {                         \
+    if ((zd.Aliases(zn) || zd.Aliases(zm)) && !zd.Aliases(za)) { \
+      UseScratchRegisterScope temps(this);                       \
+      ZRegister ztmp = temps.AcquireZ().WithSameLaneSizeAs(zd);  \
+      {                                                          \
+        MovprfxHelperScope guard(this, ztmp, za);                \
+        ASMFN(ztmp, zn, zm, index, rot);                         \
+      }                                                          \
+      Mov(zd, ztmp);                                             \
+    } else {                                                     \
+      MovprfxHelperScope guard(this, zd, za);                    \
+      ASMFN(zd, zn, zm, index, rot);                             \
+    }                                                            \
+  }
+VIXL_SVE_NONCOMM_ARITH_ZZZZII_LIST(VIXL_DEFINE_MASM_FUNC)
+#undef VIXL_DEFINE_MASM_FUNC
 
-void MacroAssembler::Fsub(const ZRegister& zd,
-                          const PRegisterM& pg,
-                          const ZRegister& zn,
-                          const ZRegister& zm) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  NoncommutativeArithmeticHelper(zd,
-                                 pg,
-                                 zn,
-                                 zm,
-                                 static_cast<SVEArithPredicatedFn>(
-                                     &Assembler::fsub),
-                                 static_cast<SVEArithPredicatedFn>(
-                                     &Assembler::fsubr));
-}
+// Instructions of the form "inst zda, pg, zda, zn", where they are
+// non-commutative and no reversed form is provided.
+#define VIXL_SVE_NONCOMM_ARITH_ZPZZ_LIST(V) \
+  V(Addp, addp)                             \
+  V(Faddp, faddp)                           \
+  V(Fmaxnmp, fmaxnmp)                       \
+  V(Fminnmp, fminnmp)                       \
+  V(Fmaxp, fmaxp)                           \
+  V(Fminp, fminp)                           \
+  V(Fscale, fscale)                         \
+  V(Smaxp, smaxp)                           \
+  V(Sminp, sminp)                           \
+  V(Suqadd, suqadd)                         \
+  V(Umaxp, umaxp)                           \
+  V(Uminp, uminp)                           \
+  V(Usqadd, usqadd)
+
+#define VIXL_DEFINE_MASM_FUNC(MASMFN, ASMFN)                       \
+  void MacroAssembler::MASMFN(const ZRegister& zd,                 \
+                              const PRegisterM& pg,                \
+                              const ZRegister& zn,                 \
+                              const ZRegister& zm) {               \
+    VIXL_ASSERT(allow_macro_instructions_);                        \
+    if (zd.Aliases(zm) && !zd.Aliases(zn)) {                       \
+      UseScratchRegisterScope temps(this);                         \
+      ZRegister scratch = temps.AcquireZ().WithSameLaneSizeAs(zm); \
+      Mov(scratch, zm);                                            \
+      MovprfxHelperScope guard(this, zd, pg, zn);                  \
+      ASMFN(zd, pg, zd, scratch);                                  \
+    } else {                                                       \
+      MovprfxHelperScope guard(this, zd, pg, zn);                  \
+      ASMFN(zd, pg, zd, zm);                                       \
+    }                                                              \
+  }
+VIXL_SVE_NONCOMM_ARITH_ZPZZ_LIST(VIXL_DEFINE_MASM_FUNC)
+#undef VIXL_DEFINE_MASM_FUNC
+
+// Instructions of the form "inst zda, pg, zda, zn", where they are
+// non-commutative and a reversed form is provided.
+#define VIXL_SVE_NONCOMM_ARITH_REVERSE_ZPZZ_LIST(V) \
+  V(Asr, asr)                                       \
+  V(Fdiv, fdiv)                                     \
+  V(Fsub, fsub)                                     \
+  V(Lsl, lsl)                                       \
+  V(Lsr, lsr)                                       \
+  V(Sdiv, sdiv)                                     \
+  V(Shsub, shsub)                                   \
+  V(Sqrshl, sqrshl)                                 \
+  V(Sqshl, sqshl)                                   \
+  V(Sqsub, sqsub)                                   \
+  V(Srshl, srshl)                                   \
+  V(Sub, sub)                                       \
+  V(Udiv, udiv)                                     \
+  V(Uhsub, uhsub)                                   \
+  V(Uqrshl, uqrshl)                                 \
+  V(Uqshl, uqshl)                                   \
+  V(Uqsub, uqsub)                                   \
+  V(Urshl, urshl)
+
+#define VIXL_DEFINE_MASM_FUNC(MASMFN, ASMFN)                          \
+  void MacroAssembler::MASMFN(const ZRegister& zd,                    \
+                              const PRegisterM& pg,                   \
+                              const ZRegister& zn,                    \
+                              const ZRegister& zm) {                  \
+    VIXL_ASSERT(allow_macro_instructions_);                           \
+    NoncommutativeArithmeticHelper(zd,                                \
+                                   pg,                                \
+                                   zn,                                \
+                                   zm,                                \
+                                   static_cast<SVEArithPredicatedFn>( \
+                                       &Assembler::ASMFN),            \
+                                   static_cast<SVEArithPredicatedFn>( \
+                                       &Assembler::ASMFN##r));        \
+  }
+VIXL_SVE_NONCOMM_ARITH_REVERSE_ZPZZ_LIST(VIXL_DEFINE_MASM_FUNC)
+#undef VIXL_DEFINE_MASM_FUNC
 
 void MacroAssembler::Fadd(const ZRegister& zd,
                           const PRegisterM& pg,
@@ -828,14 +891,14 @@ void MacroAssembler::Index(const ZRegister& zd,
     static IndexOperand Prepare(MacroAssembler* masm,
                                 UseScratchRegisterScope* temps,
                                 const Operand& op,
-                                const ZRegister& zd) {
+                                const ZRegister& zd_inner) {
       // Look for encodable immediates.
       int imm;
       if (op.IsImmediate()) {
-        if (IntegerOperand(op).TryEncodeAsIntNForLane<5>(zd, &imm)) {
+        if (IntegerOperand(op).TryEncodeAsIntNForLane<5>(zd_inner, &imm)) {
           return IndexOperand(imm);
         }
-        Register scratch = temps->AcquireRegisterToHoldLane(zd);
+        Register scratch = temps->AcquireRegisterToHoldLane(zd_inner);
         masm->Mov(scratch, op);
         return IndexOperand(scratch);
       } else {
@@ -1022,21 +1085,6 @@ void MacroAssembler::Ptrue(const PRegisterWithLaneSize& pd,
   VIXL_UNREACHABLE();
 }
 
-void MacroAssembler::Sdiv(const ZRegister& zd,
-                          const PRegisterM& pg,
-                          const ZRegister& zn,
-                          const ZRegister& zm) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  NoncommutativeArithmeticHelper(zd,
-                                 pg,
-                                 zn,
-                                 zm,
-                                 static_cast<SVEArithPredicatedFn>(
-                                     &Assembler::sdiv),
-                                 static_cast<SVEArithPredicatedFn>(
-                                     &Assembler::sdivr));
-}
-
 void MacroAssembler::Sub(const ZRegister& zd,
                          IntegerOperand imm,
                          const ZRegister& zm) {
@@ -1056,36 +1104,6 @@ void MacroAssembler::Sub(const ZRegister& zd,
     SingleEmissionCheckScope guard(this);
     sub(zd, scratch, zm);
   }
-}
-
-void MacroAssembler::Sub(const ZRegister& zd,
-                         const PRegisterM& pg,
-                         const ZRegister& zn,
-                         const ZRegister& zm) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  NoncommutativeArithmeticHelper(zd,
-                                 pg,
-                                 zn,
-                                 zm,
-                                 static_cast<SVEArithPredicatedFn>(
-                                     &Assembler::sub),
-                                 static_cast<SVEArithPredicatedFn>(
-                                     &Assembler::subr));
-}
-
-void MacroAssembler::Udiv(const ZRegister& zd,
-                          const PRegisterM& pg,
-                          const ZRegister& zn,
-                          const ZRegister& zm) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  NoncommutativeArithmeticHelper(zd,
-                                 pg,
-                                 zn,
-                                 zm,
-                                 static_cast<SVEArithPredicatedFn>(
-                                     &Assembler::udiv),
-                                 static_cast<SVEArithPredicatedFn>(
-                                     &Assembler::udivr));
 }
 
 void MacroAssembler::SVELoadBroadcastImmHelper(const ZRegister& zt,
@@ -1135,7 +1153,7 @@ void MacroAssembler::SVELoadStoreScalarImmHelper(const CPURegister& rt,
 }
 
 template <typename Tg, typename Tf>
-void MacroAssembler::SVELoadStoreScalarImmHelper(
+void MacroAssembler::SVELoadStoreNTBroadcastQOHelper(
     const ZRegister& zt,
     const Tg& pg,
     const SVEMemOperand& addr,
@@ -1152,6 +1170,13 @@ void MacroAssembler::SVELoadStoreScalarImmHelper(
        IsIntN(imm_bits, addr.GetImmediateOffset() / imm_divisor) &&
        ((addr.GetImmediateOffset() % imm_divisor) == 0) &&
        (addr.GetOffsetModifier() == supported_modifier))) {
+    SingleEmissionCheckScope guard(this);
+    (this->*fn)(zt, pg, addr);
+    return;
+  }
+
+  if (addr.IsScalarPlusScalar() && !addr.GetScalarOffset().IsZero() &&
+      addr.IsEquivalentToLSL(zt.GetLaneSizeInBytesLog2())) {
     SingleEmissionCheckScope guard(this);
     (this->*fn)(zt, pg, addr);
     return;
@@ -1473,169 +1498,176 @@ void MacroAssembler::Ldff1sw(const ZRegister& zt,
                   static_cast<SVELoad1Fn>(&Assembler::ldff1sw));
 }
 
-void MacroAssembler::Ld1rqb(const ZRegister& zt,
-                            const PRegisterZ& pg,
-                            const SVEMemOperand& addr) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  SVELoadStoreScalarImmHelper(zt,
-                              pg,
-                              addr,
-                              &MacroAssembler::ld1rqb,
-                              4,
-                              4,
-                              NO_SVE_OFFSET_MODIFIER,
-                              -1);
-}
+#define VIXL_SVE_LD1R_LIST(V) \
+  V(qb, 4) V(qh, 4) V(qw, 4) V(qd, 4) V(ob, 5) V(oh, 5) V(ow, 5) V(od, 5)
 
-void MacroAssembler::Ld1rqd(const ZRegister& zt,
-                            const PRegisterZ& pg,
-                            const SVEMemOperand& addr) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  SVELoadStoreScalarImmHelper(zt,
-                              pg,
-                              addr,
-                              &MacroAssembler::ld1rqd,
-                              4,
-                              4,
-                              NO_SVE_OFFSET_MODIFIER,
-                              -1);
-}
+#define VIXL_DEFINE_MASM_FUNC(SZ, SH)                          \
+  void MacroAssembler::Ld1r##SZ(const ZRegister& zt,           \
+                                const PRegisterZ& pg,          \
+                                const SVEMemOperand& addr) {   \
+    VIXL_ASSERT(allow_macro_instructions_);                    \
+    SVELoadStoreNTBroadcastQOHelper(zt,                        \
+                                    pg,                        \
+                                    addr,                      \
+                                    &MacroAssembler::ld1r##SZ, \
+                                    4,                         \
+                                    SH,                        \
+                                    NO_SVE_OFFSET_MODIFIER,    \
+                                    -1);                       \
+  }
 
-void MacroAssembler::Ld1rqh(const ZRegister& zt,
-                            const PRegisterZ& pg,
-                            const SVEMemOperand& addr) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  SVELoadStoreScalarImmHelper(zt,
-                              pg,
-                              addr,
-                              &MacroAssembler::ld1rqh,
-                              4,
-                              4,
-                              NO_SVE_OFFSET_MODIFIER,
-                              -1);
-}
+VIXL_SVE_LD1R_LIST(VIXL_DEFINE_MASM_FUNC)
 
-void MacroAssembler::Ld1rqw(const ZRegister& zt,
-                            const PRegisterZ& pg,
-                            const SVEMemOperand& addr) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  SVELoadStoreScalarImmHelper(zt,
-                              pg,
-                              addr,
-                              &MacroAssembler::ld1rqw,
-                              4,
-                              4,
-                              NO_SVE_OFFSET_MODIFIER,
-                              -1);
-}
+#undef VIXL_DEFINE_MASM_FUNC
+#undef VIXL_SVE_LD1R_LIST
 
 void MacroAssembler::Ldnt1b(const ZRegister& zt,
                             const PRegisterZ& pg,
                             const SVEMemOperand& addr) {
   VIXL_ASSERT(allow_macro_instructions_);
-  SVELoadStoreScalarImmHelper(zt,
-                              pg,
-                              addr,
-                              &MacroAssembler::ldnt1b,
-                              4,
-                              0,
-                              SVE_MUL_VL);
+  if (addr.IsVectorPlusScalar()) {
+    SingleEmissionCheckScope guard(this);
+    ldnt1b(zt, pg, addr);
+  } else {
+    SVELoadStoreNTBroadcastQOHelper(zt,
+                                    pg,
+                                    addr,
+                                    &MacroAssembler::ldnt1b,
+                                    4,
+                                    0,
+                                    SVE_MUL_VL);
+  }
 }
 
 void MacroAssembler::Ldnt1d(const ZRegister& zt,
                             const PRegisterZ& pg,
                             const SVEMemOperand& addr) {
   VIXL_ASSERT(allow_macro_instructions_);
-  SVELoadStoreScalarImmHelper(zt,
-                              pg,
-                              addr,
-                              &MacroAssembler::ldnt1d,
-                              4,
-                              0,
-                              SVE_MUL_VL);
+  if (addr.IsVectorPlusScalar()) {
+    SingleEmissionCheckScope guard(this);
+    ldnt1d(zt, pg, addr);
+  } else {
+    SVELoadStoreNTBroadcastQOHelper(zt,
+                                    pg,
+                                    addr,
+                                    &MacroAssembler::ldnt1d,
+                                    4,
+                                    0,
+                                    SVE_MUL_VL);
+  }
 }
 
 void MacroAssembler::Ldnt1h(const ZRegister& zt,
                             const PRegisterZ& pg,
                             const SVEMemOperand& addr) {
   VIXL_ASSERT(allow_macro_instructions_);
-  SVELoadStoreScalarImmHelper(zt,
-                              pg,
-                              addr,
-                              &MacroAssembler::ldnt1h,
-                              4,
-                              0,
-                              SVE_MUL_VL);
+  if (addr.IsVectorPlusScalar()) {
+    SingleEmissionCheckScope guard(this);
+    ldnt1h(zt, pg, addr);
+  } else {
+    SVELoadStoreNTBroadcastQOHelper(zt,
+                                    pg,
+                                    addr,
+                                    &MacroAssembler::ldnt1h,
+                                    4,
+                                    0,
+                                    SVE_MUL_VL);
+  }
 }
 
 void MacroAssembler::Ldnt1w(const ZRegister& zt,
                             const PRegisterZ& pg,
                             const SVEMemOperand& addr) {
   VIXL_ASSERT(allow_macro_instructions_);
-  SVELoadStoreScalarImmHelper(zt,
-                              pg,
-                              addr,
-                              &MacroAssembler::ldnt1w,
-                              4,
-                              0,
-                              SVE_MUL_VL);
+  if (addr.IsVectorPlusScalar()) {
+    SingleEmissionCheckScope guard(this);
+    ldnt1w(zt, pg, addr);
+  } else {
+    SVELoadStoreNTBroadcastQOHelper(zt,
+                                    pg,
+                                    addr,
+                                    &MacroAssembler::ldnt1w,
+                                    4,
+                                    0,
+                                    SVE_MUL_VL);
+  }
 }
 
 void MacroAssembler::Stnt1b(const ZRegister& zt,
                             const PRegister& pg,
                             const SVEMemOperand& addr) {
   VIXL_ASSERT(allow_macro_instructions_);
-  SVELoadStoreScalarImmHelper(zt,
-                              pg,
-                              addr,
-                              &MacroAssembler::stnt1b,
-                              4,
-                              0,
-                              SVE_MUL_VL);
+  if (addr.IsVectorPlusScalar()) {
+    SingleEmissionCheckScope guard(this);
+    stnt1b(zt, pg, addr);
+  } else {
+    SVELoadStoreNTBroadcastQOHelper(zt,
+                                    pg,
+                                    addr,
+                                    &MacroAssembler::stnt1b,
+                                    4,
+                                    0,
+                                    SVE_MUL_VL);
+  }
 }
 void MacroAssembler::Stnt1d(const ZRegister& zt,
                             const PRegister& pg,
                             const SVEMemOperand& addr) {
   VIXL_ASSERT(allow_macro_instructions_);
-  SVELoadStoreScalarImmHelper(zt,
-                              pg,
-                              addr,
-                              &MacroAssembler::stnt1d,
-                              4,
-                              0,
-                              SVE_MUL_VL);
+  if (addr.IsVectorPlusScalar()) {
+    SingleEmissionCheckScope guard(this);
+    stnt1d(zt, pg, addr);
+  } else {
+    SVELoadStoreNTBroadcastQOHelper(zt,
+                                    pg,
+                                    addr,
+                                    &MacroAssembler::stnt1d,
+                                    4,
+                                    0,
+                                    SVE_MUL_VL);
+  }
 }
 void MacroAssembler::Stnt1h(const ZRegister& zt,
                             const PRegister& pg,
                             const SVEMemOperand& addr) {
   VIXL_ASSERT(allow_macro_instructions_);
-  SVELoadStoreScalarImmHelper(zt,
-                              pg,
-                              addr,
-                              &MacroAssembler::stnt1h,
-                              4,
-                              0,
-                              SVE_MUL_VL);
+  if (addr.IsVectorPlusScalar()) {
+    SingleEmissionCheckScope guard(this);
+    stnt1h(zt, pg, addr);
+  } else {
+    SVELoadStoreNTBroadcastQOHelper(zt,
+                                    pg,
+                                    addr,
+                                    &MacroAssembler::stnt1h,
+                                    4,
+                                    0,
+                                    SVE_MUL_VL);
+  }
 }
 void MacroAssembler::Stnt1w(const ZRegister& zt,
                             const PRegister& pg,
                             const SVEMemOperand& addr) {
   VIXL_ASSERT(allow_macro_instructions_);
-  SVELoadStoreScalarImmHelper(zt,
-                              pg,
-                              addr,
-                              &MacroAssembler::stnt1w,
-                              4,
-                              0,
-                              SVE_MUL_VL);
+  if (addr.IsVectorPlusScalar()) {
+    SingleEmissionCheckScope guard(this);
+    stnt1w(zt, pg, addr);
+  } else {
+    SVELoadStoreNTBroadcastQOHelper(zt,
+                                    pg,
+                                    addr,
+                                    &MacroAssembler::stnt1w,
+                                    4,
+                                    0,
+                                    SVE_MUL_VL);
+  }
 }
 
-void MacroAssembler::SVESdotUdotIndexHelper(IntArithIndexFn fn,
-                                            const ZRegister& zd,
-                                            const ZRegister& za,
-                                            const ZRegister& zn,
-                                            const ZRegister& zm,
-                                            int index) {
+void MacroAssembler::SVEDotIndexHelper(ZZZImmFn fn,
+                                       const ZRegister& zd,
+                                       const ZRegister& za,
+                                       const ZRegister& zn,
+                                       const ZRegister& zm,
+                                       int index) {
   if (zd.Aliases(za)) {
     // zda = zda + (zn . zm)
     SingleEmissionCheckScope guard(this);
@@ -1660,20 +1692,15 @@ void MacroAssembler::SVESdotUdotIndexHelper(IntArithIndexFn fn,
   }
 }
 
-void MacroAssembler::SVESdotUdotHelper(IntArithFn fn,
-                                       const ZRegister& zd,
-                                       const ZRegister& za,
-                                       const ZRegister& zn,
-                                       const ZRegister& zm) {
-  if (zd.Aliases(za)) {
-    // zda = zda + (zn . zm)
-    SingleEmissionCheckScope guard(this);
-    (this->*fn)(zd, zn, zm);
-
-  } else if (zd.Aliases(zn) || zd.Aliases(zm)) {
-    // zdn = za + (zdn . zm)
-    // zdm = za + (zn . zdm)
-    // zdnm = za + (zdnm . zdnm)
+void MacroAssembler::FourRegDestructiveHelper(Int3ArithFn fn,
+                                              const ZRegister& zd,
+                                              const ZRegister& za,
+                                              const ZRegister& zn,
+                                              const ZRegister& zm) {
+  if (!zd.Aliases(za) && (zd.Aliases(zn) || zd.Aliases(zm))) {
+    // zd = za . zd . zm
+    // zd = za . zn . zd
+    // zd = za . zd . zd
     UseScratchRegisterScope temps(this);
     ZRegister scratch = temps.AcquireZ().WithSameLaneSizeAs(zd);
     {
@@ -1683,36 +1710,181 @@ void MacroAssembler::SVESdotUdotHelper(IntArithFn fn,
 
     Mov(zd, scratch);
   } else {
-    // zd = za + (zn . zm)
     MovprfxHelperScope guard(this, zd, za);
     (this->*fn)(zd, zn, zm);
   }
 }
 
-void MacroAssembler::Fscale(const ZRegister& zd,
-                            const PRegisterM& pg,
-                            const ZRegister& zn,
-                            const ZRegister& zm) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  if (zd.Aliases(zm) && !zd.Aliases(zn)) {
+void MacroAssembler::FourRegDestructiveHelper(Int4ArithFn fn,
+                                              const ZRegister& zd,
+                                              const ZRegister& za,
+                                              const ZRegister& zn,
+                                              const ZRegister& zm) {
+  if (!zd.Aliases(za) && (zd.Aliases(zn) || zd.Aliases(zm))) {
+    // zd = za . zd . zm
+    // zd = za . zn . zd
+    // zd = za . zd . zd
     UseScratchRegisterScope temps(this);
-    ZRegister scratch = temps.AcquireZ().WithSameLaneSizeAs(zm);
-    Mov(scratch, zm);
-    MovprfxHelperScope guard(this, zd, pg, zn);
-    fscale(zd, pg, zd, scratch);
+    ZRegister scratch = temps.AcquireZ().WithSameLaneSizeAs(zd);
+    {
+      MovprfxHelperScope guard(this, scratch, za);
+      (this->*fn)(scratch, scratch, zn, zm);
+    }
+
+    Mov(zd, scratch);
   } else {
-    MovprfxHelperScope guard(this, zd, pg, zn);
-    fscale(zd, pg, zd, zm);
+    MovprfxHelperScope guard(this, zd, za);
+    (this->*fn)(zd, zd, zn, zm);
   }
 }
 
-void MacroAssembler::Sdot(const ZRegister& zd,
-                          const ZRegister& za,
-                          const ZRegister& zn,
-                          const ZRegister& zm) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  SVESdotUdotHelper(&Assembler::sdot, zd, za, zn, zm);
+void MacroAssembler::FourRegOneImmDestructiveHelper(ZZZImmFn fn,
+                                                    const ZRegister& zd,
+                                                    const ZRegister& za,
+                                                    const ZRegister& zn,
+                                                    const ZRegister& zm,
+                                                    int imm) {
+  if (!zd.Aliases(za) && (zd.Aliases(zn) || zd.Aliases(zm))) {
+    // zd = za . zd . zm[i]
+    // zd = za . zn . zd[i]
+    // zd = za . zd . zd[i]
+    UseScratchRegisterScope temps(this);
+    ZRegister scratch = temps.AcquireZ().WithSameLaneSizeAs(zd);
+    {
+      MovprfxHelperScope guard(this, scratch, za);
+      (this->*fn)(scratch, zn, zm, imm);
+    }
+
+    Mov(zd, scratch);
+  } else {
+    // zd = za . zn . zm[i]
+    MovprfxHelperScope guard(this, zd, za);
+    (this->*fn)(zd, zn, zm, imm);
+  }
 }
+
+void MacroAssembler::AbsoluteDifferenceAccumulate(Int3ArithFn fn,
+                                                  const ZRegister& zd,
+                                                  const ZRegister& za,
+                                                  const ZRegister& zn,
+                                                  const ZRegister& zm) {
+  if (zn.Aliases(zm)) {
+    // If zn == zm, the difference is zero.
+    if (!zd.Aliases(za)) {
+      Mov(zd, za);
+    }
+  } else if (zd.Aliases(za)) {
+    SingleEmissionCheckScope guard(this);
+    (this->*fn)(zd, zn, zm);
+  } else if (zd.Aliases(zn)) {
+    UseScratchRegisterScope temps(this);
+    ZRegister ztmp = temps.AcquireZ().WithLaneSize(zn.GetLaneSizeInBits());
+    Mov(ztmp, zn);
+    MovprfxHelperScope guard(this, zd, za);
+    (this->*fn)(zd, ztmp, zm);
+  } else if (zd.Aliases(zm)) {
+    UseScratchRegisterScope temps(this);
+    ZRegister ztmp = temps.AcquireZ().WithLaneSize(zn.GetLaneSizeInBits());
+    Mov(ztmp, zm);
+    MovprfxHelperScope guard(this, zd, za);
+    (this->*fn)(zd, zn, ztmp);
+  } else {
+    MovprfxHelperScope guard(this, zd, za);
+    (this->*fn)(zd, zn, zm);
+  }
+}
+
+#define VIXL_SVE_4REG_LIST(V)                       \
+  V(Saba, saba, AbsoluteDifferenceAccumulate)       \
+  V(Uaba, uaba, AbsoluteDifferenceAccumulate)       \
+  V(Sabalb, sabalb, AbsoluteDifferenceAccumulate)   \
+  V(Sabalt, sabalt, AbsoluteDifferenceAccumulate)   \
+  V(Uabalb, uabalb, AbsoluteDifferenceAccumulate)   \
+  V(Uabalt, uabalt, AbsoluteDifferenceAccumulate)   \
+  V(Sdot, sdot, FourRegDestructiveHelper)           \
+  V(Udot, udot, FourRegDestructiveHelper)           \
+  V(Adclb, adclb, FourRegDestructiveHelper)         \
+  V(Adclt, adclt, FourRegDestructiveHelper)         \
+  V(Sbclb, sbclb, FourRegDestructiveHelper)         \
+  V(Sbclt, sbclt, FourRegDestructiveHelper)         \
+  V(Smlalb, smlalb, FourRegDestructiveHelper)       \
+  V(Smlalt, smlalt, FourRegDestructiveHelper)       \
+  V(Smlslb, smlslb, FourRegDestructiveHelper)       \
+  V(Smlslt, smlslt, FourRegDestructiveHelper)       \
+  V(Umlalb, umlalb, FourRegDestructiveHelper)       \
+  V(Umlalt, umlalt, FourRegDestructiveHelper)       \
+  V(Umlslb, umlslb, FourRegDestructiveHelper)       \
+  V(Umlslt, umlslt, FourRegDestructiveHelper)       \
+  V(Bcax, bcax, FourRegDestructiveHelper)           \
+  V(Bsl, bsl, FourRegDestructiveHelper)             \
+  V(Bsl1n, bsl1n, FourRegDestructiveHelper)         \
+  V(Bsl2n, bsl2n, FourRegDestructiveHelper)         \
+  V(Eor3, eor3, FourRegDestructiveHelper)           \
+  V(Nbsl, nbsl, FourRegDestructiveHelper)           \
+  V(Fmlalb, fmlalb, FourRegDestructiveHelper)       \
+  V(Fmlalt, fmlalt, FourRegDestructiveHelper)       \
+  V(Fmlslb, fmlslb, FourRegDestructiveHelper)       \
+  V(Fmlslt, fmlslt, FourRegDestructiveHelper)       \
+  V(Sqdmlalb, sqdmlalb, FourRegDestructiveHelper)   \
+  V(Sqdmlalbt, sqdmlalbt, FourRegDestructiveHelper) \
+  V(Sqdmlalt, sqdmlalt, FourRegDestructiveHelper)   \
+  V(Sqdmlslb, sqdmlslb, FourRegDestructiveHelper)   \
+  V(Sqdmlslbt, sqdmlslbt, FourRegDestructiveHelper) \
+  V(Sqdmlslt, sqdmlslt, FourRegDestructiveHelper)   \
+  V(Sqrdmlah, sqrdmlah, FourRegDestructiveHelper)   \
+  V(Sqrdmlsh, sqrdmlsh, FourRegDestructiveHelper)   \
+  V(Fmmla, fmmla, FourRegDestructiveHelper)         \
+  V(Smmla, smmla, FourRegDestructiveHelper)         \
+  V(Ummla, ummla, FourRegDestructiveHelper)         \
+  V(Usmmla, usmmla, FourRegDestructiveHelper)       \
+  V(Usdot, usdot, FourRegDestructiveHelper)
+
+#define VIXL_DEFINE_MASM_FUNC(MASMFN, ASMFN, HELPER) \
+  void MacroAssembler::MASMFN(const ZRegister& zd,   \
+                              const ZRegister& za,   \
+                              const ZRegister& zn,   \
+                              const ZRegister& zm) { \
+    VIXL_ASSERT(allow_macro_instructions_);          \
+    HELPER(&Assembler::ASMFN, zd, za, zn, zm);       \
+  }
+VIXL_SVE_4REG_LIST(VIXL_DEFINE_MASM_FUNC)
+#undef VIXL_DEFINE_MASM_FUNC
+
+#define VIXL_SVE_4REG_1IMM_LIST(V)                      \
+  V(Fmla, fmla, FourRegOneImmDestructiveHelper)         \
+  V(Fmls, fmls, FourRegOneImmDestructiveHelper)         \
+  V(Fmlalb, fmlalb, FourRegOneImmDestructiveHelper)     \
+  V(Fmlalt, fmlalt, FourRegOneImmDestructiveHelper)     \
+  V(Fmlslb, fmlslb, FourRegOneImmDestructiveHelper)     \
+  V(Fmlslt, fmlslt, FourRegOneImmDestructiveHelper)     \
+  V(Mla, mla, FourRegOneImmDestructiveHelper)           \
+  V(Mls, mls, FourRegOneImmDestructiveHelper)           \
+  V(Smlalb, smlalb, FourRegOneImmDestructiveHelper)     \
+  V(Smlalt, smlalt, FourRegOneImmDestructiveHelper)     \
+  V(Smlslb, smlslb, FourRegOneImmDestructiveHelper)     \
+  V(Smlslt, smlslt, FourRegOneImmDestructiveHelper)     \
+  V(Sqdmlalb, sqdmlalb, FourRegOneImmDestructiveHelper) \
+  V(Sqdmlalt, sqdmlalt, FourRegOneImmDestructiveHelper) \
+  V(Sqdmlslb, sqdmlslb, FourRegOneImmDestructiveHelper) \
+  V(Sqdmlslt, sqdmlslt, FourRegOneImmDestructiveHelper) \
+  V(Sqrdmlah, sqrdmlah, FourRegOneImmDestructiveHelper) \
+  V(Sqrdmlsh, sqrdmlsh, FourRegOneImmDestructiveHelper) \
+  V(Umlalb, umlalb, FourRegOneImmDestructiveHelper)     \
+  V(Umlalt, umlalt, FourRegOneImmDestructiveHelper)     \
+  V(Umlslb, umlslb, FourRegOneImmDestructiveHelper)     \
+  V(Umlslt, umlslt, FourRegOneImmDestructiveHelper)
+
+#define VIXL_DEFINE_MASM_FUNC(MASMFN, ASMFN, HELPER) \
+  void MacroAssembler::MASMFN(const ZRegister& zd,   \
+                              const ZRegister& za,   \
+                              const ZRegister& zn,   \
+                              const ZRegister& zm,   \
+                              int imm) {             \
+    VIXL_ASSERT(allow_macro_instructions_);          \
+    HELPER(&Assembler::ASMFN, zd, za, zn, zm, imm);  \
+  }
+VIXL_SVE_4REG_1IMM_LIST(VIXL_DEFINE_MASM_FUNC)
+#undef VIXL_DEFINE_MASM_FUNC
 
 void MacroAssembler::Sdot(const ZRegister& zd,
                           const ZRegister& za,
@@ -1720,15 +1892,7 @@ void MacroAssembler::Sdot(const ZRegister& zd,
                           const ZRegister& zm,
                           int index) {
   VIXL_ASSERT(allow_macro_instructions_);
-  SVESdotUdotIndexHelper(&Assembler::sdot, zd, za, zn, zm, index);
-}
-
-void MacroAssembler::Udot(const ZRegister& zd,
-                          const ZRegister& za,
-                          const ZRegister& zn,
-                          const ZRegister& zm) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  SVESdotUdotHelper(&Assembler::udot, zd, za, zn, zm);
+  SVEDotIndexHelper(&Assembler::sdot, zd, za, zn, zm, index);
 }
 
 void MacroAssembler::Udot(const ZRegister& zd,
@@ -1737,7 +1901,65 @@ void MacroAssembler::Udot(const ZRegister& zd,
                           const ZRegister& zm,
                           int index) {
   VIXL_ASSERT(allow_macro_instructions_);
-  SVESdotUdotIndexHelper(&Assembler::udot, zd, za, zn, zm, index);
+  SVEDotIndexHelper(&Assembler::udot, zd, za, zn, zm, index);
+}
+
+void MacroAssembler::Sudot(const ZRegister& zd,
+                           const ZRegister& za,
+                           const ZRegister& zn,
+                           const ZRegister& zm,
+                           int index) {
+  VIXL_ASSERT(allow_macro_instructions_);
+  SVEDotIndexHelper(&Assembler::sudot, zd, za, zn, zm, index);
+}
+
+void MacroAssembler::Usdot(const ZRegister& zd,
+                           const ZRegister& za,
+                           const ZRegister& zn,
+                           const ZRegister& zm,
+                           int index) {
+  VIXL_ASSERT(allow_macro_instructions_);
+  SVEDotIndexHelper(&Assembler::usdot, zd, za, zn, zm, index);
+}
+
+void MacroAssembler::Cdot(const ZRegister& zd,
+                          const ZRegister& za,
+                          const ZRegister& zn,
+                          const ZRegister& zm,
+                          int index,
+                          int rot) {
+  // This doesn't handle zm when it's out of the range that can be encoded in
+  // instruction. The range depends on element size: z0-z7 for B, z0-15 for H.
+  if ((zd.Aliases(zn) || zd.Aliases(zm)) && !zd.Aliases(za)) {
+    UseScratchRegisterScope temps(this);
+    ZRegister ztmp = temps.AcquireZ().WithSameLaneSizeAs(zd);
+    {
+      MovprfxHelperScope guard(this, ztmp, za);
+      cdot(ztmp, zn, zm, index, rot);
+    }
+    Mov(zd, ztmp);
+  } else {
+    MovprfxHelperScope guard(this, zd, za);
+    cdot(zd, zn, zm, index, rot);
+  }
+}
+
+void MacroAssembler::Cdot(const ZRegister& zd,
+                          const ZRegister& za,
+                          const ZRegister& zn,
+                          const ZRegister& zm,
+                          int rot) {
+  if ((zd.Aliases(zn) || zd.Aliases(zm)) && !zd.Aliases(za)) {
+    UseScratchRegisterScope temps(this);
+    VIXL_ASSERT(AreSameLaneSize(zn, zm));
+    ZRegister ztmp = temps.AcquireZ().WithSameLaneSizeAs(zn);
+    Mov(ztmp, zd.Aliases(zn) ? zn : zm);
+    MovprfxHelperScope guard(this, zd, za);
+    cdot(zd, (zd.Aliases(zn) ? ztmp : zn), (zd.Aliases(zm) ? ztmp : zm), rot);
+  } else {
+    MovprfxHelperScope guard(this, zd, za);
+    cdot(zd, zn, zm, rot);
+  }
 }
 
 void MacroAssembler::FPMulAddHelper(const ZRegister& zd,
@@ -1792,35 +2014,6 @@ void MacroAssembler::FPMulAddHelper(const ZRegister& zd,
   }
 }
 
-void MacroAssembler::FPMulAddIndexHelper(SVEMulAddIndexFn fn,
-                                         const ZRegister& zd,
-                                         const ZRegister& za,
-                                         const ZRegister& zn,
-                                         const ZRegister& zm,
-                                         int index) {
-  if (zd.Aliases(za)) {
-    // zda = zda + (zn * zm[i])
-    SingleEmissionCheckScope guard(this);
-    (this->*fn)(zd, zn, zm, index);
-
-  } else if (zd.Aliases(zn) || zd.Aliases(zm)) {
-    // zdn = za + (zdn * zm[i])
-    // zdm = za + (zn * zdm[i])
-    // zdnm = za + (zdnm * zdnm[i])
-    UseScratchRegisterScope temps(this);
-    ZRegister scratch = temps.AcquireZ().WithSameLaneSizeAs(zd);
-    {
-      MovprfxHelperScope guard(this, scratch, za);
-      (this->*fn)(scratch, zn, zm, index);
-    }
-    Mov(zd, scratch);
-  } else {
-    // zd = za + (zn * zm[i])
-    MovprfxHelperScope guard(this, zd, za);
-    (this->*fn)(zd, zn, zm, index);
-  }
-}
-
 void MacroAssembler::Fmla(const ZRegister& zd,
                           const PRegisterM& pg,
                           const ZRegister& za,
@@ -1838,15 +2031,6 @@ void MacroAssembler::Fmla(const ZRegister& zd,
                  nan_option);
 }
 
-void MacroAssembler::Fmla(const ZRegister& zd,
-                          const ZRegister& za,
-                          const ZRegister& zn,
-                          const ZRegister& zm,
-                          int index) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  FPMulAddIndexHelper(&Assembler::fmla, zd, za, zn, zm, index);
-}
-
 void MacroAssembler::Fmls(const ZRegister& zd,
                           const PRegisterM& pg,
                           const ZRegister& za,
@@ -1862,15 +2046,6 @@ void MacroAssembler::Fmls(const ZRegister& zd,
                  &Assembler::fmls,
                  &Assembler::fmsb,
                  nan_option);
-}
-
-void MacroAssembler::Fmls(const ZRegister& zd,
-                          const ZRegister& za,
-                          const ZRegister& zn,
-                          const ZRegister& zm,
-                          int index) {
-  VIXL_ASSERT(allow_macro_instructions_);
-  FPMulAddIndexHelper(&Assembler::fmls, zd, za, zn, zm, index);
 }
 
 void MacroAssembler::Fnmla(const ZRegister& zd,
@@ -1944,25 +2119,24 @@ void MacroAssembler::Fcadd(const ZRegister& zd,
   }
 }
 
-void MacroAssembler::Ext(const ZRegister& zd,
-                         const ZRegister& zn,
-                         const ZRegister& zm,
-                         unsigned offset) {
+void MacroAssembler::Fcmla(const ZRegister& zd,
+                           const PRegisterM& pg,
+                           const ZRegister& za,
+                           const ZRegister& zn,
+                           const ZRegister& zm,
+                           int rot) {
   VIXL_ASSERT(allow_macro_instructions_);
-  if (zd.Aliases(zm) && !zd.Aliases(zn)) {
-    // zd = ext(zn, zd, offset)
+  if ((zd.Aliases(zn) || zd.Aliases(zm)) && !zd.Aliases(za)) {
     UseScratchRegisterScope temps(this);
-    ZRegister scratch = temps.AcquireZ().WithSameLaneSizeAs(zd);
+    ZRegister ztmp = temps.AcquireZ().WithSameLaneSizeAs(zd);
     {
-      MovprfxHelperScope guard(this, scratch, zn);
-      ext(scratch, scratch, zm, offset);
+      MovprfxHelperScope guard(this, ztmp, za);
+      fcmla(ztmp, pg, zn, zm, rot);
     }
-    Mov(zd, scratch);
+    Mov(zd, pg, ztmp);
   } else {
-    // zd = ext(zn, zm, offset)
-    // zd = ext(zd, zd, offset)
-    MovprfxHelperScope guard(this, zd, zn);
-    ext(zd, zd, zm, offset);
+    MovprfxHelperScope guard(this, zd, pg, za);
+    fcmla(zd, pg, zn, zm, rot);
   }
 }
 
@@ -1971,7 +2145,10 @@ void MacroAssembler::Splice(const ZRegister& zd,
                             const ZRegister& zn,
                             const ZRegister& zm) {
   VIXL_ASSERT(allow_macro_instructions_);
-  if (zd.Aliases(zm) && !zd.Aliases(zn)) {
+  if (CPUHas(CPUFeatures::kSVE2) && AreConsecutive(zn, zm) && !zd.Aliases(zn)) {
+    SingleEmissionCheckScope guard(this);
+    splice(zd, pg, zn, zm);
+  } else if (zd.Aliases(zm) && !zd.Aliases(zn)) {
     UseScratchRegisterScope temps(this);
     ZRegister scratch = temps.AcquireZ().WithSameLaneSizeAs(zd);
     {
@@ -2021,6 +2198,88 @@ void MacroAssembler::Clastb(const ZRegister& zd,
     MovprfxHelperScope guard(this, zd, zn);
     clastb(zd, pg, zd, zm);
   }
+}
+
+void MacroAssembler::ShiftRightAccumulate(IntArithImmFn fn,
+                                          const ZRegister& zd,
+                                          const ZRegister& za,
+                                          const ZRegister& zn,
+                                          int shift) {
+  VIXL_ASSERT(allow_macro_instructions_);
+  if (!zd.Aliases(za) && zd.Aliases(zn)) {
+    UseScratchRegisterScope temps(this);
+    ZRegister ztmp = temps.AcquireZ().WithSameLaneSizeAs(zn);
+    Mov(ztmp, zn);
+    {
+      MovprfxHelperScope guard(this, zd, za);
+      (this->*fn)(zd, ztmp, shift);
+    }
+  } else {
+    MovprfxHelperScope guard(this, zd, za);
+    (this->*fn)(zd, zn, shift);
+  }
+}
+
+void MacroAssembler::Srsra(const ZRegister& zd,
+                           const ZRegister& za,
+                           const ZRegister& zn,
+                           int shift) {
+  ShiftRightAccumulate(&Assembler::srsra, zd, za, zn, shift);
+}
+
+void MacroAssembler::Ssra(const ZRegister& zd,
+                          const ZRegister& za,
+                          const ZRegister& zn,
+                          int shift) {
+  ShiftRightAccumulate(&Assembler::ssra, zd, za, zn, shift);
+}
+
+void MacroAssembler::Ursra(const ZRegister& zd,
+                           const ZRegister& za,
+                           const ZRegister& zn,
+                           int shift) {
+  ShiftRightAccumulate(&Assembler::ursra, zd, za, zn, shift);
+}
+
+void MacroAssembler::Usra(const ZRegister& zd,
+                          const ZRegister& za,
+                          const ZRegister& zn,
+                          int shift) {
+  ShiftRightAccumulate(&Assembler::usra, zd, za, zn, shift);
+}
+
+void MacroAssembler::ComplexAddition(ZZZImmFn fn,
+                                     const ZRegister& zd,
+                                     const ZRegister& zn,
+                                     const ZRegister& zm,
+                                     int rot) {
+  VIXL_ASSERT(allow_macro_instructions_);
+  if (!zd.Aliases(zn) && zd.Aliases(zm)) {
+    UseScratchRegisterScope temps(this);
+    ZRegister ztmp = temps.AcquireZ().WithSameLaneSizeAs(zm);
+    Mov(ztmp, zm);
+    {
+      MovprfxHelperScope guard(this, zd, zn);
+      (this->*fn)(zd, zd, ztmp, rot);
+    }
+  } else {
+    MovprfxHelperScope guard(this, zd, zn);
+    (this->*fn)(zd, zd, zm, rot);
+  }
+}
+
+void MacroAssembler::Cadd(const ZRegister& zd,
+                          const ZRegister& zn,
+                          const ZRegister& zm,
+                          int rot) {
+  ComplexAddition(&Assembler::cadd, zd, zn, zm, rot);
+}
+
+void MacroAssembler::Sqcadd(const ZRegister& zd,
+                            const ZRegister& zn,
+                            const ZRegister& zm,
+                            int rot) {
+  ComplexAddition(&Assembler::sqcadd, zd, zn, zm, rot);
 }
 
 }  // namespace aarch64

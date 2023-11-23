@@ -20,13 +20,13 @@ import static com.android.uibench.janktests.UiBenchJankTestsHelper.PACKAGE_NAME;
 import static com.android.uibench.janktests.UiBenchJankTestsHelper.SHORT_EXPECTED_FRAMES;
 
 import android.os.Bundle;
-import android.support.test.uiautomator.UiDevice;
 import android.view.KeyEvent;
 
 import androidx.test.jank.GfxFrameStatsMonitor;
 import androidx.test.jank.GfxMonitor;
 import androidx.test.jank.JankTest;
 import androidx.test.jank.JankTestBase;
+import androidx.test.uiautomator.UiDevice;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

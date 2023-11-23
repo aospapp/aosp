@@ -74,6 +74,8 @@ bool IsInterpolationIn(TQualifier qualifier)
         case EvqNoPerspectiveIn:
         case EvqCentroidIn:
         case EvqSampleIn:
+        case EvqNoPerspectiveCentroidIn:
+        case EvqNoPerspectiveSampleIn:
             return true;
         default:
             return false;
@@ -89,6 +91,8 @@ bool IsInterpolationOut(TQualifier qualifier)
         case EvqNoPerspectiveOut:
         case EvqCentroidOut:
         case EvqSampleOut:
+        case EvqNoPerspectiveCentroidOut:
+        case EvqNoPerspectiveSampleOut:
             return true;
         default:
             return false;
@@ -380,11 +384,16 @@ GLenum GLVariableType(const TType &type)
             return GL_UNSIGNED_INT_ATOMIC_COUNTER;
         case EbtSamplerVideoWEBGL:
             return GL_SAMPLER_VIDEO_IMAGE_WEBGL;
+        case EbtPixelLocalANGLE:
+        case EbtIPixelLocalANGLE:
+        case EbtUPixelLocalANGLE:
+            // TODO(anglebug.com/7279): For now, we can expect PLS handles to be rewritten to images
+            // before anyone calls into here.
+            [[fallthrough]];
         default:
             UNREACHABLE();
+            return GL_NONE;
     }
-
-    return GL_NONE;
 }
 
 GLenum GLVariablePrecision(const TType &type)
@@ -462,15 +471,10 @@ bool IsVaryingOut(TQualifier qualifier)
     switch (qualifier)
     {
         case EvqVaryingOut:
-        case EvqSmoothOut:
-        case EvqFlatOut:
-        case EvqNoPerspectiveOut:
-        case EvqCentroidOut:
         case EvqVertexOut:
         case EvqGeometryOut:
         case EvqTessControlOut:
         case EvqTessEvaluationOut:
-        case EvqSampleOut:
         case EvqPatchOut:
             return true;
 
@@ -478,7 +482,7 @@ bool IsVaryingOut(TQualifier qualifier)
             break;
     }
 
-    return false;
+    return IsInterpolationOut(qualifier);
 }
 
 bool IsVaryingIn(TQualifier qualifier)
@@ -486,15 +490,10 @@ bool IsVaryingIn(TQualifier qualifier)
     switch (qualifier)
     {
         case EvqVaryingIn:
-        case EvqSmoothIn:
-        case EvqFlatIn:
-        case EvqNoPerspectiveIn:
-        case EvqCentroidIn:
         case EvqFragmentIn:
         case EvqGeometryIn:
         case EvqTessControlIn:
         case EvqTessEvaluationIn:
-        case EvqSampleIn:
         case EvqPatchIn:
             return true;
 
@@ -502,7 +501,7 @@ bool IsVaryingIn(TQualifier qualifier)
             break;
     }
 
-    return false;
+    return IsInterpolationIn(qualifier);
 }
 
 bool IsVarying(TQualifier qualifier)
@@ -569,6 +568,14 @@ InterpolationType GetInterpolationType(TQualifier qualifier)
         case EvqNoPerspectiveOut:
             return INTERPOLATION_NOPERSPECTIVE;
 
+        case EvqNoPerspectiveCentroidIn:
+        case EvqNoPerspectiveCentroidOut:
+            return INTERPOLATION_NOPERSPECTIVE_CENTROID;
+
+        case EvqNoPerspectiveSampleIn:
+        case EvqNoPerspectiveSampleOut:
+            return INTERPOLATION_NOPERSPECTIVE_SAMPLE;
+
         case EvqSmoothIn:
         case EvqSmoothOut:
         case EvqVertexOut:
@@ -592,9 +599,7 @@ InterpolationType GetInterpolationType(TQualifier qualifier)
             return INTERPOLATION_SAMPLE;
         default:
             UNREACHABLE();
-#if !UNREACHABLE_IS_NORETURN
             return INTERPOLATION_SMOOTH;
-#endif
     }
 }
 
@@ -603,14 +608,20 @@ InterpolationType GetFieldInterpolationType(TQualifier qualifier)
 {
     switch (qualifier)
     {
+        case EvqSmooth:
+            return INTERPOLATION_SMOOTH;
         case EvqFlat:
             return INTERPOLATION_FLAT;
         case EvqNoPerspective:
             return INTERPOLATION_NOPERSPECTIVE;
-        case EvqSmooth:
-            return INTERPOLATION_SMOOTH;
         case EvqCentroid:
             return INTERPOLATION_CENTROID;
+        case EvqSample:
+            return INTERPOLATION_SAMPLE;
+        case EvqNoPerspectiveCentroid:
+            return INTERPOLATION_NOPERSPECTIVE_CENTROID;
+        case EvqNoPerspectiveSample:
+            return INTERPOLATION_NOPERSPECTIVE_SAMPLE;
         default:
             return GetInterpolationType(qualifier);
     }
@@ -672,9 +683,7 @@ TType GetShaderVariableBasicType(const sh::ShaderVariable &var)
             return TType(EbtUInt, 4);
         default:
             UNREACHABLE();
-#if !UNREACHABLE_IS_NORETURN
             return TType();
-#endif
     }
 }
 
@@ -717,6 +726,7 @@ bool IsBuiltinOutputVariable(TQualifier qualifier)
         case EvqClipDistance:
         case EvqCullDistance:
         case EvqLastFragData:
+        case EvqLastFragColor:
         case EvqSampleMask:
             return true;
         default:
@@ -734,6 +744,7 @@ bool IsBuiltinFragmentInputVariable(TQualifier qualifier)
         case EvqFrontFacing:
         case EvqHelperInvocation:
         case EvqLastFragData:
+        case EvqLastFragColor:
             return true;
         default:
             break;
@@ -744,6 +755,18 @@ bool IsBuiltinFragmentInputVariable(TQualifier qualifier)
 bool IsShaderOutput(TQualifier qualifier)
 {
     return IsVaryingOut(qualifier) || IsBuiltinOutputVariable(qualifier);
+}
+
+bool IsFragmentOutput(TQualifier qualifier)
+{
+    switch (qualifier)
+    {
+        case EvqFragmentOut:
+        case EvqFragmentInOut:
+            return true;
+        default:
+            return false;
+    }
 }
 
 bool IsOutputESSL(ShShaderOutput output)
@@ -788,10 +811,6 @@ bool IsOutputHLSL(ShShaderOutput output)
 bool IsOutputVulkan(ShShaderOutput output)
 {
     return output == SH_SPIRV_VULKAN_OUTPUT;
-}
-bool IsOutputMetal(ShShaderOutput output)
-{
-    return output == SH_SPIRV_METAL_OUTPUT;
 }
 bool IsOutputMetalDirect(ShShaderOutput output)
 {
@@ -990,8 +1009,9 @@ bool IsPrecisionApplicableToType(TBasicType type)
 
 bool IsRedeclarableBuiltIn(const ImmutableString &name)
 {
-    return name == "gl_ClipDistance" || name == "gl_CullDistance" || name == "gl_LastFragData" ||
-           name == "gl_PerVertex" || name == "gl_Position" || name == "gl_PointSize";
+    return name == "gl_ClipDistance" || name == "gl_CullDistance" || name == "gl_FragDepth" ||
+           name == "gl_LastFragData" || name == "gl_LastFragColorARM" || name == "gl_PerVertex" ||
+           name == "gl_Position" || name == "gl_PointSize";
 }
 
 size_t FindFieldIndex(const TFieldList &fieldList, const char *fieldName)

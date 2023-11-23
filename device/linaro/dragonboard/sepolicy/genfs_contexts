@@ -6,6 +6,7 @@ genfscon sysfs   /devices/platform/soc@0/4080000.remoteproc					u:object_r:sysfs
 genfscon sysfs   /devices/platform/soc@0/8300000.remoteproc					u:object_r:sysfs_remoteproc:s0
 genfscon sysfs   /devices/platform/soc@0/17300000.remoteproc					u:object_r:sysfs_remoteproc:s0
 genfscon sysfs   /devices/platform/soc@0/ae00000.mdss						u:object_r:sysfs_gpu:s0
+genfscon sysfs   /devices/platform/soc@0/ae00000.display-subsystem				u:object_r:sysfs_gpu:s0
 genfscon sysfs   /class/udc									u:object_r:sysfs_udc:s0
 genfscon sysfs   /firmware/devicetree/base/compatible						u:object_r:sysfs_dt_compatible:s0
 

@@ -5,7 +5,9 @@ add_library(
 target_link_libraries(
     renderControl_dec
     PUBLIC
-    apigen-codec-common)
+    apigen-codec-common
+    PRIVATE
+    gfxstream_egl_headers)
 target_include_directories(
     renderControl_dec
     PRIVATE

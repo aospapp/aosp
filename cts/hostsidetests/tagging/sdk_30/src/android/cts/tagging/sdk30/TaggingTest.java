@@ -43,6 +43,8 @@ import com.android.compatibility.common.util.DropBoxReceiver;
 import android.cts.tagging.ServiceRunnerActivity;
 import static android.cts.tagging.Constants.*;
 
+import java.util.regex.Pattern;
+
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 public class TaggingTest {
@@ -91,7 +93,7 @@ public class TaggingTest {
                         mContext,
                         NATIVE_CRASH_TAG,
                         mContext.getPackageName() + ":CrashProcess",
-                        "SEGV_MTEAERR",
+                        Pattern.compile("SEGV_MTE[AS]ERR"),
                         "backtrace:");
         Intent intent = new Intent();
         intent.setClass(mContext, CrashActivity.class);
@@ -99,7 +101,6 @@ public class TaggingTest {
         mContext.startActivity(intent);
 
         assertTrue(receiver.await());
-        assertFalse(Utils.mistaggedKernelUaccessFails());
     }
 
     @Test
@@ -132,7 +133,7 @@ public class TaggingTest {
                         mContext,
                         NATIVE_CRASH_TAG,
                         mContext.getPackageName() + ":CrashMemtagAsync",
-                        "SEGV_MTEAERR",
+                        Pattern.compile("SEGV_MTE[AS]ERR"),
                         "backtrace:");
         Intent intent = new Intent();
         intent.setClass(mContext, CrashMemtagAsyncActivity.class);

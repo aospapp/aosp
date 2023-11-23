@@ -43,3 +43,9 @@ To click the controller center button, run:
 ```
 adb shell cmd car_service inject-key 23
 ```
+
+To long click the controller center button, send down and up action seperately. For example:
+```
+adb shell cmd car_service inject-key 23 -a down && sleep 2 && adb shell cmd car_service inject-key 23 -a up
+```
+

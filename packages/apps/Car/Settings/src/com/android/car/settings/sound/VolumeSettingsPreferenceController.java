@@ -16,8 +16,8 @@
 
 package com.android.car.settings.sound;
 
+import static android.car.media.CarAudioManager.AUDIO_FEATURE_DYNAMIC_ROUTING;
 import static android.car.media.CarAudioManager.AUDIO_FEATURE_VOLUME_GROUP_MUTING;
-import static android.car.media.CarAudioManager.PRIMARY_AUDIO_ZONE;
 import static android.os.UserManager.DISALLOW_ADJUST_VOLUME;
 
 import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
@@ -25,7 +25,6 @@ import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestric
 import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByUm;
 import static com.android.car.settings.sound.VolumeItemParser.VolumeItem;
 
-import android.car.Car;
 import android.car.CarNotConnectedException;
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.media.CarAudioManager;
@@ -42,6 +41,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.annotation.XmlRes;
 import androidx.preference.PreferenceGroup;
 
+import com.android.car.settings.CarSettingsApplication;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
@@ -90,35 +90,30 @@ public class VolumeSettingsPreferenceController extends PreferenceController<Pre
                 }
             };
 
-    private Car mCar;
-    private CarAudioManager mCarAudioManager;
-
     public VolumeSettingsPreferenceController(Context context, String preferenceKey,
-            FragmentController fragmentController,
-            CarUxRestrictions uxRestrictions) {
-        this(context, preferenceKey, fragmentController, uxRestrictions, Car.createCar(context),
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions,
                 new VolumeSettingsRingtoneManager(context));
     }
 
     @VisibleForTesting
     VolumeSettingsPreferenceController(Context context, String preferenceKey,
-            FragmentController fragmentController,
-            CarUxRestrictions uxRestrictions, Car car,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
             VolumeSettingsRingtoneManager ringtoneManager) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mCar = car;
         mRingtoneManager = ringtoneManager;
         mVolumeItems = VolumeItemParser.loadAudioUsageItems(context, carVolumeItemsXml());
         mUiHandler = new Handler(Looper.getMainLooper());
 
-        mCarAudioManager = (CarAudioManager) mCar.getCarManager(Car.AUDIO_SERVICE);
-        if (mCarAudioManager != null) {
-            int volumeGroupCount = mCarAudioManager.getVolumeGroupCount();
+        CarAudioManager carAudioManager = getCarAudioManager();
+        if (carAudioManager != null) {
+            int zoneId = getMyAudioZoneId();
+            int volumeGroupCount = carAudioManager.getVolumeGroupCount(zoneId);
             cleanUpVolumePreferences();
             // Populates volume slider items from volume groups to UI.
             for (int groupId = 0; groupId < volumeGroupCount; groupId++) {
                 VolumeItem volumeItem = getVolumeItemForUsages(
-                        mCarAudioManager.getUsagesForVolumeGroupId(groupId));
+                        carAudioManager.getUsagesForVolumeGroupId(zoneId, groupId));
                 VolumeSeekBarPreference volumePreference = createVolumeSeekBarPreference(
                         groupId, volumeItem.getUsage(), volumeItem.getIcon(),
                         volumeItem.getMuteIcon(), volumeItem.getTitle());
@@ -133,7 +128,7 @@ public class VolumeSettingsPreferenceController extends PreferenceController<Pre
                 });
                 mVolumePreferences.add(volumePreference);
             }
-            mCarAudioManager.registerCarVolumeCallback(mVolumeChangeCallback);
+            carAudioManager.registerCarVolumeCallback(mVolumeChangeCallback);
         }
     }
 
@@ -145,7 +140,6 @@ public class VolumeSettingsPreferenceController extends PreferenceController<Pre
     /** Disconnect from car on destroy. */
     @Override
     protected void onDestroyInternal() {
-        mCar.disconnect();
         cleanupAudioManager();
     }
 
@@ -176,11 +170,16 @@ public class VolumeSettingsPreferenceController extends PreferenceController<Pre
         preference.setMutedIcon(getContext().getDrawable(secondaryIconResId));
         preference.getMutedIcon().setTintList(
                 getContext().getColorStateList(R.color.icon_color_default));
+
+        int zoneId = getMyAudioZoneId();
+        CarAudioManager carAudioManager = getCarAudioManager();
         try {
-            preference.setValue(mCarAudioManager.getGroupVolume(volumeGroupId));
-            preference.setMin(mCarAudioManager.getGroupMinVolume(volumeGroupId));
-            preference.setMax(mCarAudioManager.getGroupMaxVolume(volumeGroupId));
-            preference.setIsMuted(isGroupMuted(volumeGroupId));
+            if (carAudioManager != null) {
+                preference.setValue(carAudioManager.getGroupVolume(zoneId, volumeGroupId));
+                preference.setMin(carAudioManager.getGroupMinVolume(zoneId, volumeGroupId));
+                preference.setMax(carAudioManager.getGroupMaxVolume(zoneId, volumeGroupId));
+                preference.setIsMuted(isGroupMuted(carAudioManager, volumeGroupId));
+            }
         } catch (CarNotConnectedException e) {
             LOG.e("Car is not connected!", e);
         }
@@ -194,28 +193,34 @@ public class VolumeSettingsPreferenceController extends PreferenceController<Pre
             int prefUsage = pref.getExtras().getInt(VOLUME_USAGE_KEY);
             int newVolume = (Integer) newValue;
             setGroupVolume(prefGroup, newVolume);
-            mRingtoneManager.playAudioFeedback(prefGroup, prefUsage);
+
+            if (carAudioManager != null
+                    && (!carAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_DYNAMIC_ROUTING)
+                    || !carAudioManager.isPlaybackOnVolumeGroupActive(zoneId, volumeGroupId))) {
+                mRingtoneManager.playAudioFeedback(prefGroup, prefUsage);
+            }
             return true;
         });
         return preference;
     }
 
-    private boolean isGroupMuted(int volumeGroupId) {
-        if (!mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_VOLUME_GROUP_MUTING)) {
+    private boolean isGroupMuted(CarAudioManager carAudioManager, int volumeGroupId) {
+        if (!carAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_VOLUME_GROUP_MUTING)) {
             return false;
         }
-        return mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, volumeGroupId);
+        return carAudioManager.isVolumeGroupMuted(getMyAudioZoneId(), volumeGroupId);
     }
 
     private void updateVolumeAndMute(int zoneId, int groupId) {
-        // Settings only handles primary zone changes
-        if (zoneId != PRIMARY_AUDIO_ZONE) {
+        if (zoneId != getMyAudioZoneId()) {
             return;
         }
-        if (mCarAudioManager != null) {
 
-            boolean isMuted = isGroupMuted(groupId);
-            int value = mCarAudioManager.getGroupVolume(groupId);
+        CarAudioManager carAudioManager = getCarAudioManager();
+        if (carAudioManager != null) {
+
+            boolean isMuted = isGroupMuted(carAudioManager, groupId);
+            int value = carAudioManager.getGroupVolume(getMyAudioZoneId(), groupId);
 
             for (VolumeSeekBarPreference volumePreference : mVolumePreferences) {
                 Bundle extras = volumePreference.getExtras();
@@ -235,7 +240,8 @@ public class VolumeSettingsPreferenceController extends PreferenceController<Pre
 
     private void setGroupVolume(int volumeGroupId, int newVolume) {
         try {
-            mCarAudioManager.setGroupVolume(volumeGroupId, newVolume, /* flags= */ 0);
+            getCarAudioManager()
+                    .setGroupVolume(getMyAudioZoneId(), volumeGroupId, newVolume, /* flags= */ 0);
         } catch (CarNotConnectedException e) {
             LOG.w("Ignoring volume change event because the car isn't connected", e);
         }
@@ -243,8 +249,7 @@ public class VolumeSettingsPreferenceController extends PreferenceController<Pre
 
     private void cleanupAudioManager() {
         cleanUpVolumePreferences();
-        mCarAudioManager.unregisterCarVolumeCallback(mVolumeChangeCallback);
-        mCarAudioManager = null;
+        getCarAudioManager().unregisterCarVolumeCallback(mVolumeChangeCallback);
     }
 
     private void cleanUpVolumePreferences() {
@@ -266,7 +271,7 @@ public class VolumeSettingsPreferenceController extends PreferenceController<Pre
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         if (hasUserRestrictionByUm(getContext(), DISALLOW_ADJUST_VOLUME)
                 || hasUserRestrictionByDpm(getContext(), DISALLOW_ADJUST_VOLUME)) {
             return AVAILABLE_FOR_VIEWING;
@@ -279,5 +284,15 @@ public class VolumeSettingsPreferenceController extends PreferenceController<Pre
                 EnterpriseUtils.getActionDisabledByAdminDialog(getContext(),
                         DISALLOW_ADJUST_VOLUME),
                 DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG);
+    }
+
+    private int getMyAudioZoneId() {
+        return ((CarSettingsApplication) getContext().getApplicationContext())
+                .getMyAudioZoneId();
+    }
+
+    private CarAudioManager getCarAudioManager() {
+        return ((CarSettingsApplication) getContext().getApplicationContext())
+                .getCarAudioManager();
     }
 }

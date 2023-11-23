@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -23,7 +24,7 @@ class power_SuspendStress(test.test):
 
         @param duration: total run time of the test
         @param idle: use sys_power.idle_suspend method.
-                (use with dummy_IdleSuspend)
+                (use with stub_IdleSuspend)
         @param init_delay: wait this many seconds before starting the test to
                 give parallel tests time to get started
         @param min_suspend: suspend durations will be chosen randomly out of

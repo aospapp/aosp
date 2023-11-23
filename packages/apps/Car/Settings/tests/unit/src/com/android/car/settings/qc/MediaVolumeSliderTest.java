@@ -40,7 +40,7 @@ public class MediaVolumeSliderTest extends VolumeSliderTestCase {
     @Before
     public void setUp() {
         super.setUp();
-        mVolumeSlider = new TestMediaVolumeSlider(mContext);
+        mVolumeSlider = getMediaVolumeSliderInstance();
     }
 
     @Test
@@ -82,6 +82,10 @@ public class MediaVolumeSliderTest extends VolumeSliderTestCase {
         QCList list = (QCList) item;
         assertThat(list.getRows().size()).isEqualTo(1);
         return list.getRows().get(0);
+    }
+
+    protected MediaVolumeSlider getMediaVolumeSliderInstance() {
+        return new TestMediaVolumeSlider(mContext);
     }
 
     private static class TestMediaVolumeSlider extends MediaVolumeSlider {

@@ -223,7 +223,7 @@ class EnterprisePolicyTest(arc.ArcTest, test.test):
         If the AutoTest fake DM Server is used, make a JSON policy blob
         and upload it to the fake DM server.
 
-        Launch Chrome and sign in to Chrome OS. Examine the user's
+        Launch Chrome and sign in to ChromeOS. Examine the user's
         cryptohome vault, to confirm user is signed in successfully.
 
         @param user_policies: dict of mandatory user policies in
@@ -375,7 +375,7 @@ class EnterprisePolicyTest(arc.ArcTest, test.test):
         Assumes start_arc() was run with use_clouddpc_test.
 
         Determines the policy values to pass to the test from those set in
-        Chrome OS.
+        ChromeOS.
 
         @raises error.TestFail if the test does not pass.
 

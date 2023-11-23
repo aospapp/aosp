@@ -17,12 +17,26 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
+          xmlns:tools="http://schemas.android.com/tools"
           package="com.android.systemui"
           android:sharedUserId="android.uid.systemui"
           coreApp="true">
     <!-- Permission to assign Activity to TDA -->
     <uses-permission android:name="android.car.permission.CONTROL_CAR_APP_LAUNCH"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <!-- System permission to call AM.getRunningAppProcesses().
      TODO: change this to REAL_GET_TASKS. -->
     <uses-permission android:name="android.permission.GET_TASKS"/>
+
+    <!-- Permission to get car driving state -->
+    <uses-permission android:name="android.car.permission.CAR_DRIVING_STATE"/>
+
+    <!-- Permission to get outside temperature -->
+    <uses-permission android:name="android.car.permission.CAR_EXTERIOR_ENVIRONMENT"/>
+
+    <protected-broadcast android:name="REQUEST_FROM_SYSTEM_UI" />
+    <application
+        tools:replace="android:appComponentFactory"
+        android:appComponentFactory="com.android.systemui.CarUiPortraitSystemUIAppComponentFactory">
+    </application>
 </manifest>

@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/serde
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "serde"
 description: "A generic serialization/deserialization framework"
 third_party {
@@ -7,13 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/serde/serde-1.0.136.crate"
+    value: "https://static.crates.io/crates/serde/serde-1.0.152.crate"
   }
-  version: "1.0.136"
+  version: "1.0.152"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2022
-    month: 3
-    day: 1
+    year: 2023
+    month: 2
+    day: 6
   }
 }

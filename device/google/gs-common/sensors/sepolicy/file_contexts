@@ -1,0 +1,3 @@
+/vendor/bin/dump/dump_sensors      u:object_r:dump_sensors_exec:s0
+/vendor/bin/usf_stats              u:object_r:vendor_usf_stats:s0
+/vendor/bin/usf_reg_edit           u:object_r:vendor_usf_reg_edit:s0

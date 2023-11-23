@@ -58,7 +58,7 @@ public final class MetricQueryBuilderSubject extends Subject {
         if (mActual.poll() == null) {
             // TODO(b/197315353): Add non-matching metrics
             failWithoutActual(Fact.simpleFact("Expected metric to have been logged matching: "
-                    + mActual + " but it was not logged."));
+                    + mActual + " but it was not logged. Did see: " + mActual.nonMatchingMetrics()));
         }
     }
 

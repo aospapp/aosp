@@ -15,8 +15,8 @@
 #include <sys/wait.h>
 
 #include "tst_test.h"
-#include "lapi/clone.h"
-#include "lapi/pidfd_send_signal.h"
+#include "lapi/sched.h"
+#include "lapi/pidfd.h"
 
 #define CHILD_SIGNAL	SIGUSR1
 #define DATA	777

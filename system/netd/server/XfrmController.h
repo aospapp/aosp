@@ -48,6 +48,8 @@ extern const uint32_t ALGO_MASK_CRYPT_ALL;
 extern const uint32_t ALGO_MASK_AEAD_ALL;
 // Exposed for testing
 extern const uint8_t REPLAY_WINDOW_SIZE;
+// Exposed for testing
+extern const uint32_t REPLAY_WINDOW_SIZE_ESN;
 
 // Suggest we avoid the smallest and largest ints
 class XfrmMessage;
@@ -115,6 +117,8 @@ struct XfrmEndpointPair {
 
 // minimally sufficient structure to match either an SA or a Policy
 struct XfrmCommonInfo : XfrmEndpointPair {
+    // TODO: b/259298885 rename "transformId" to "requestId" and update
+    // all the related methods/fields/logs
     int transformId; // requestId
     int spi;
     xfrm_mark mark;
@@ -286,6 +290,10 @@ public:
     // Exposed for testing
     static constexpr size_t MAX_KEY_LENGTH = 128;
 
+    // Disable this warning since avoiding it makes the code unreadable.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-variable-sized-type-not-at-end"
+
     // Container for the content of an XFRMA_ALG_CRYPT netlink attribute.
     // Exposed for testing
     struct nlattr_algo_crypt {
@@ -309,6 +317,15 @@ public:
         xfrm_algo_aead aead;
         uint8_t key[MAX_KEY_LENGTH];
     };
+
+    // Container for the content of an XFRMA_REPLAY_ESN_VAL netlink attribute.
+    // Exposed for testing
+    struct nlattr_xfrm_replay_esn {
+        nlattr hdr;
+        xfrm_replay_state_esn replay_state;
+    };
+
+#pragma clang diagnostic pop
 
     // Exposed for testing
     struct nlattr_user_tmpl {
@@ -405,6 +422,7 @@ public:
     static int fillNlAttrXfrmOutputMark(const XfrmSaInfo& record,
                                         nlattr_xfrm_output_mark* output_mark);
     static int fillNlAttrXfrmIntfId(const __u32 intf_id_value, nlattr_xfrm_interface_id* intf_id);
+    static int fillNlAttrXfrmReplayEsn(nlattr_xfrm_replay_esn* replay_esn);
     static int fillNlAttrXfrmMigrate(const XfrmMigrateInfo& record,
                                      nlattr_xfrm_user_migrate* migrate);
 

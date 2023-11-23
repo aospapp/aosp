@@ -179,11 +179,10 @@ struct BlendDesc
     uint8_t rgbBlendOperation : 3;
 
     // Use uint8_t instead of MTLBlendFactor to compact space
-    // NOTE(hqle): enum MTLBlendFactorSource1Color and above are unused.
-    uint8_t destinationAlphaBlendFactor : 4;
-    uint8_t destinationRGBBlendFactor : 4;
-    uint8_t sourceAlphaBlendFactor : 4;
-    uint8_t sourceRGBBlendFactor : 4;
+    uint8_t destinationAlphaBlendFactor : 5;
+    uint8_t destinationRGBBlendFactor : 5;
+    uint8_t sourceAlphaBlendFactor : 5;
+    uint8_t sourceRGBBlendFactor : 5;
 
     bool blendingEnabled : 1;
 };
@@ -217,15 +216,14 @@ struct RenderPipelineOutputDesc
 
     void updateEnabledDrawBuffers(gl::DrawBufferMask enabledBuffers);
 
-    RenderPipelineColorAttachmentDesc colorAttachments[kMaxRenderTargets];
+    std::array<RenderPipelineColorAttachmentDesc, kMaxRenderTargets> colorAttachments;
 
     // Use uint16_t instead of MTLPixelFormat to compact space
     uint16_t depthAttachmentPixelFormat : 16;
     uint16_t stencilAttachmentPixelFormat : 16;
 
-    static_assert(kMaxRenderTargets <= 4, "kMaxRenderTargets must be <= 4");
-    uint8_t numColorAttachments : 3;
-    uint8_t sampleCount : 5;
+    uint8_t numColorAttachments;
+    uint8_t sampleCount;
 };
 
 // Some SDK levels don't declare MTLPrimitiveTopologyClass. Needs to do compile time check here:
@@ -290,7 +288,6 @@ struct alignas(4) RenderPipelineDesc
     // MTLRenderPipelineDescriptor descriptor. These flags should be used by
     // RenderPipelineCacheSpecializeShaderFactory.
     RenderPipelineRasterization rasterizationType : 2;
-    bool emulateCoverageMask : 1;
 };
 
 struct alignas(4) ProvokingVertexComputePipelineDesc
@@ -383,11 +380,12 @@ struct RenderPassStencilAttachmentDesc : public RenderPassAttachmentDesc
 //
 struct RenderPassDesc
 {
-    RenderPassColorAttachmentDesc colorAttachments[kMaxRenderTargets];
+    std::array<RenderPassColorAttachmentDesc, kMaxRenderTargets> colorAttachments;
     RenderPassDepthAttachmentDesc depthAttachment;
     RenderPassStencilAttachmentDesc stencilAttachment;
 
-    void convertToMetalDesc(MTLRenderPassDescriptor *objCDesc) const;
+    void convertToMetalDesc(MTLRenderPassDescriptor *objCDesc,
+                            uint32_t deviceMaxRenderTargets) const;
 
     // This will populate the RenderPipelineOutputDesc with default blend state and
     // MTLColorWriteMaskAll
@@ -406,6 +404,8 @@ struct RenderPassDesc
 
     uint32_t numColorAttachments = 0;
     uint32_t sampleCount         = 1;
+    uint32_t defaultWidth        = 0;
+    uint32_t defaultHeight       = 0;
 };
 
 }  // namespace mtl

@@ -25,7 +25,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <string.h>
 #include <signal.h>
 #include <sys/types.h>
@@ -80,11 +79,9 @@ int main(int ac, char **av)
 		tst_resm(TINFO, "orig_pipe_size: %d new_pipe_size: %d",
 			 orig_pipe_size, new_pipe_size);
 		if (TEST_RETURN >= new_pipe_size) {
-			tst_resm(TPASS, "fcntl test F_GETPIPE_SZ"
-				 "and F_SETPIPE_SZ success");
+			tst_resm(TPASS, "fcntl test F_GETPIPE_SZ and F_SETPIPE_SZ passed");
 		} else {
-			tst_resm(TFAIL, "fcntl test F_GETPIPE_SZ"
-				 "and F_SETPIPE_SZ fail");
+			tst_resm(TFAIL, "fcntl test F_GETPIPE_SZ and F_SETPIPE_SZ failed");
 		}
 		SAFE_CLOSE(cleanup, pipe_fds[0]);
 		SAFE_CLOSE(cleanup, pipe_fds[1]);
@@ -96,11 +93,6 @@ int main(int ac, char **av)
 
 static void setup(void)
 {
-	if ((tst_kvercmp(2, 6, 35)) < 0) {
-		tst_brkm(TCONF, NULL, "This test can only run on kernels"
-			 "that are 2.6.35 and higher");
-	}
-
 	tst_sig(NOFORK, DEF_HANDLER, cleanup);
 
 	TEST_PAUSE;

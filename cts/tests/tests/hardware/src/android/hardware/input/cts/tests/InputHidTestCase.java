@@ -34,7 +34,6 @@ import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.hardware.BatteryState;
 import android.hardware.input.InputManager;
-import android.hardware.input.cts.GlobalKeyMapping;
 import android.hardware.lights.Light;
 import android.hardware.lights.LightState;
 import android.hardware.lights.LightsManager;
@@ -42,12 +41,10 @@ import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.Vibrator.OnVibratorStateChangedListener;
-import android.os.VintfRuntimeInfo;
-import android.text.TextUtils;
 import android.util.Log;
-import android.util.Pair;
 import android.view.InputDevice;
 import android.view.KeyEvent;
+import android.view.WindowManager;
 
 import com.android.cts.input.HidBatteryTestData;
 import com.android.cts.input.HidDevice;
@@ -56,6 +53,8 @@ import com.android.cts.input.HidResultData;
 import com.android.cts.input.HidTestData;
 import com.android.cts.input.HidVibratorTestData;
 import com.android.cts.input.InputJsonParser;
+
+import com.google.common.primitives.Floats;
 
 import org.junit.Rule;
 import org.mockito.Mock;
@@ -66,8 +65,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Objects;
 
 public abstract class InputHidTestCase extends InputTestCase {
 
@@ -77,7 +75,7 @@ public abstract class InputHidTestCase extends InputTestCase {
     private static final long CALLBACK_TIMEOUT_MILLIS = 5000;
 
     private final int mRegisterResourceId;
-    private final GlobalKeyMapping mGlobalKeyMapping;
+    private final WindowManager mWindowManager;
     private final boolean mIsLeanback;
     private final boolean mVolumeKeysHandledInWindowManager;
 
@@ -96,7 +94,7 @@ public abstract class InputHidTestCase extends InputTestCase {
     InputHidTestCase(int registerResourceId) {
         mRegisterResourceId = registerResourceId;
         Context context = mInstrumentation.getTargetContext();
-        mGlobalKeyMapping = new GlobalKeyMapping(context);
+        mWindowManager = context.getSystemService(WindowManager.class);
         mIsLeanback = context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
         mVolumeKeysHandledInWindowManager = context.getResources().getBoolean(
                 Resources.getSystem().getIdentifier("config_handleVolumeKeysInWindowManager",
@@ -113,7 +111,7 @@ public abstract class InputHidTestCase extends InputTestCase {
                 mDeviceId,
                 mVid,
                 mPid,
-                mParser.readSources(mRegisterResourceId),
+                mParser.readSources(mRegisterResourceId) | getAdditionalSources(),
                 mParser.readRegisterCommand(mRegisterResourceId));
         assertNotNull(mHidDevice);
         // Even though we already wait for all possible callbacks such as UHID_START and UHID_OPEN,
@@ -136,46 +134,18 @@ public abstract class InputHidTestCase extends InputTestCase {
         mDelayAfterSetup = true;
     }
 
+    protected int getAdditionalSources() {
+        return 0;
+    }
+
     /** Check if input device has specific capability */
     interface Capability {
         boolean check(InputDevice inputDevice);
     }
 
-    private static Pair<Integer, Integer> getVersionFromString(String version) {
-        // Only gets major and minor number of the version string.
-        final Pattern versionPattern = Pattern.compile("^(\\d+)(\\.(\\d+))?.*");
-        final Matcher m = versionPattern.matcher(version);
-        if (m.matches()) {
-            final int major = Integer.parseInt(m.group(1));
-            final int minor = TextUtils.isEmpty(m.group(3)) ? 0 : Integer.parseInt(m.group(3));
-
-            return new Pair<>(major, minor);
-
-        } else {
-            fail("Cannot parse kernel version: " + version);
-            return new Pair<>(0, 0);
-        }
-    }
-
-    private static int compareMajorMinorVersion(final String s1, final String s2) throws Exception {
-        final Pair<Integer, Integer> v1 = getVersionFromString(s1);
-        final Pair<Integer, Integer> v2 = getVersionFromString(s2);
-
-        if (v1.first == v2.first) {
-            return Integer.compare(v1.second, v2.second);
-        } else {
-            return Integer.compare(v1.first, v2.first);
-        }
-    }
-
-    protected static boolean isKernelVersionGreaterThan(String version) throws Exception {
-        final String actualVersion = VintfRuntimeInfo.getKernelVersion();
-        return compareMajorMinorVersion(actualVersion, version) > 0;
-    }
-
     private boolean isForwardedToApps(KeyEvent e) {
         int keyCode = e.getKeyCode();
-        if (mGlobalKeyMapping.isGlobalKey(keyCode)) {
+        if (mWindowManager.isGlobalKey(keyCode)) {
             return false;
         }
         if (isVolumeKey(keyCode) && (mIsLeanback || mVolumeKeysHandledInWindowManager)) {
@@ -190,13 +160,17 @@ public abstract class InputHidTestCase extends InputTestCase {
                 || keyCode == KeyEvent.KEYCODE_VOLUME_MUTE;
     }
 
-    /** Gets an input device with specific capability */
+    /**
+     * Gets an input device with the given capability and with Vendor and Product IDs that match the
+     * ones specified in the registration command.
+     */
     protected InputDevice getInputDevice(Capability capability) {
-        final InputManager inputManager =
-                mInstrumentation.getTargetContext().getSystemService(InputManager.class);
+        final InputManager inputManager = Objects.requireNonNull(
+                mInstrumentation.getTargetContext().getSystemService(InputManager.class));
         final int[] inputDeviceIds = inputManager.getInputDeviceIds();
         for (int inputDeviceId : inputDeviceIds) {
             final InputDevice inputDevice = inputManager.getInputDevice(inputDeviceId);
+            Objects.requireNonNull(inputDevice, "Failed to get InputDevice");
             if (inputDevice.getVendorId() == mVid && inputDevice.getProductId() == mPid
                     && capability.check(inputDevice)) {
                 return inputDevice;
@@ -216,19 +190,6 @@ public abstract class InputHidTestCase extends InputTestCase {
             fail("Failed to find test device with vibrator");
         }
         return inputDevice.getVibrator();
-    }
-
-    /**
-     * Gets a battery from input device with specified Vendor Id and Product Id
-     * from device registration command.
-     * @return Battery object in specified InputDevice
-     */
-    private BatteryState getBatteryState() {
-        InputDevice inputDevice = getInputDevice((d) -> d.getBatteryState().isPresent());
-        if (inputDevice == null) {
-            fail("Failed to find test device with battery");
-        }
-        return inputDevice.getBatteryState();
     }
 
     /**
@@ -419,8 +380,8 @@ public abstract class InputHidTestCase extends InputTestCase {
     }
 
     public void testInputBatteryEvents(int resourceId) {
-        final BatteryState batteryState = getBatteryState();
-        assertNotNull(batteryState);
+        final InputDevice inputDevice = getInputDevice((d) -> d.getBatteryState().isPresent());
+        assertNotNull("Failed to find test device with battery", inputDevice);
 
         final List<HidBatteryTestData> tests = mParser.getHidBatteryTestData(resourceId);
         for (HidBatteryTestData testData : tests) {
@@ -432,18 +393,15 @@ public abstract class InputHidTestCase extends InputTestCase {
             }
             // Wait for power_supply sysfs node get updated.
             SystemClock.sleep(100);
-            float capacity = batteryState.getCapacity();
-            int status = batteryState.getStatus();
-            assertEquals("Test: " + testData.name, testData.status, status);
-            boolean capacityMatch = false;
-            for (int i = 0; i < testData.capacities.length; i++) {
-                if (capacity == testData.capacities[i]) {
-                    capacityMatch = true;
-                    break;
-                }
-            }
-            assertTrue("Test: " + testData.name + " capacity " + capacity + " expect "
-                    + Arrays.toString(testData.capacities), capacityMatch);
+
+            final BatteryState batteryState = inputDevice.getBatteryState();
+            assertNotNull(batteryState);
+            assertEquals("Test: " + testData.name, testData.status, batteryState.getStatus());
+            final float capacity = batteryState.getCapacity();
+            assertTrue("Test: " + testData.name
+                            + " got capacity " + capacity
+                            + ", expected " + Arrays.toString(testData.capacities),
+                    Floats.contains(testData.capacities, capacity));
         }
     }
 

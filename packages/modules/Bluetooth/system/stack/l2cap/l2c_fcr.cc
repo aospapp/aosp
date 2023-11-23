@@ -681,8 +681,12 @@ void l2c_lcc_proc_pdu(tL2C_CCB* p_ccb, BT_HDR* p_buf) {
 
   /* Buffer length should not exceed local mps */
   if (p_buf->len > p_ccb->local_conn_cfg.mps) {
-    /* Discard the buffer */
+    LOG_ERROR("buffer length=%d exceeds local mps=%d. Drop and disconnect.",
+              p_buf->len, p_ccb->local_conn_cfg.mps);
+
+    /* Discard the buffer and disconnect*/
     osi_free(p_buf);
+    l2cu_disconnect_chnl(p_ccb);
     return;
   }
 
@@ -690,7 +694,6 @@ void l2c_lcc_proc_pdu(tL2C_CCB* p_ccb, BT_HDR* p_buf) {
     if (p_buf->len < sizeof(sdu_length)) {
       L2CAP_TRACE_ERROR("%s: buffer length=%d too small. Need at least 2.",
                         __func__, p_buf->len);
-      android_errorWriteWithInfoLog(0x534e4554, "120665616", -1, NULL, 0);
       /* Discard the buffer */
       osi_free(p_buf);
       return;
@@ -699,8 +702,11 @@ void l2c_lcc_proc_pdu(tL2C_CCB* p_ccb, BT_HDR* p_buf) {
 
     /* Check the SDU Length with local MTU size */
     if (sdu_length > p_ccb->local_conn_cfg.mtu) {
-      /* Discard the buffer */
+      LOG_ERROR("sdu length=%d exceeds local mtu=%d. Drop and disconnect.",
+                sdu_length, p_ccb->local_conn_cfg.mtu);
+      /* Discard the buffer and disconnect*/
       osi_free(p_buf);
+      l2cu_disconnect_chnl(p_ccb);
       return;
     }
 
@@ -709,7 +715,6 @@ void l2c_lcc_proc_pdu(tL2C_CCB* p_ccb, BT_HDR* p_buf) {
 
     if (sdu_length < p_buf->len) {
       L2CAP_TRACE_ERROR("%s: Invalid sdu_length: %d", __func__, sdu_length);
-      android_errorWriteWithInfoLog(0x534e4554, "112321180", -1, NULL, 0);
       /* Discard the buffer */
       osi_free(p_buf);
       return;
@@ -729,11 +734,14 @@ void l2c_lcc_proc_pdu(tL2C_CCB* p_ccb, BT_HDR* p_buf) {
 
   } else {
     p_data = p_ccb->ble_sdu;
+    if (p_data == NULL) {
+      osi_free(p_buf);
+      return;
+    }
     if (p_buf->len > (p_ccb->ble_sdu_length - p_data->len)) {
       L2CAP_TRACE_ERROR("%s: buffer length=%d too big. max=%d. Dropped",
                         __func__, p_data->len,
                         (p_ccb->ble_sdu_length - p_data->len));
-      android_errorWriteWithInfoLog(0x534e4554, "75298652", -1, NULL, 0);
       osi_free(p_buf);
 
       /* Throw away all pending fragments and disconnects */
@@ -1719,12 +1727,11 @@ bool l2c_fcr_renegotiate_chan(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg) {
        * channel */
       switch (p_ccb->our_cfg.fcr.mode) {
         case L2CAP_FCR_ERTM_MODE:
-          /* We can try basic for any other peer mode if we support it */
-          if (p_ccb->p_rcb->ertm_info.preferred_mode & L2CAP_FCR_BASIC_MODE) {
-            L2CAP_TRACE_DEBUG("%s(Trying Basic)", __func__);
-            can_renegotiate = true;
-            p_ccb->our_cfg.fcr.mode = L2CAP_FCR_BASIC_MODE;
-          }
+          /* We can try basic for any other peer mode because it's always
+           * supported */
+          L2CAP_TRACE_DEBUG("%s(Trying Basic)", __func__);
+          can_renegotiate = true;
+          p_ccb->our_cfg.fcr.mode = L2CAP_FCR_BASIC_MODE;
           break;
 
         default:
@@ -1792,23 +1799,17 @@ uint8_t l2c_fcr_process_peer_cfg_req(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg) {
       p_cfg->fcr_present, p_cfg->fcr.mode, p_ccb->our_cfg.fcr.mode,
       p_ccb->p_rcb->ertm_info.preferred_mode);
 
-  /* If Peer wants basic, we are done (accept it or disconnect) */
-  if (p_cfg->fcr.mode == L2CAP_FCR_BASIC_MODE) {
-    /* If we do not allow basic, disconnect */
-    if (p_ccb->p_rcb->ertm_info.preferred_mode != L2CAP_FCR_BASIC_MODE)
-      fcr_ok = L2CAP_PEER_CFG_DISCONNECT;
-  }
-
   /* Need to negotiate if our modes are not the same */
-  else if (p_cfg->fcr.mode != p_ccb->p_rcb->ertm_info.preferred_mode) {
+  if (p_cfg->fcr.mode != p_ccb->p_rcb->ertm_info.preferred_mode) {
     /* If peer wants a mode that we don't support then retry our mode (ex.
-    *rtx/flc), OR
-    ** If we want ERTM and they wanted streaming retry our mode.
-    ** Note: If we have already determined they support our mode previously
-    **       from their EXF mask.
-    */
+     *rtx/flc), OR
+     ** If we want ERTM and they want non-basic mode, retry our mode.
+     ** Note: If we have already determined they support our mode previously
+     **       from their EXF mask.
+     */
     if ((((1 << p_cfg->fcr.mode) & L2CAP_FCR_CHAN_OPT_ALL_MASK) == 0) ||
-        (p_ccb->p_rcb->ertm_info.preferred_mode == L2CAP_FCR_ERTM_MODE)) {
+        ((p_ccb->p_rcb->ertm_info.preferred_mode == L2CAP_FCR_ERTM_MODE) &&
+         (p_cfg->fcr.mode != L2CAP_FCR_BASIC_MODE))) {
       p_cfg->fcr.mode = p_ccb->our_cfg.fcr.mode;
       p_cfg->fcr.tx_win_sz = p_ccb->our_cfg.fcr.tx_win_sz;
       p_cfg->fcr.max_transmit = p_ccb->our_cfg.fcr.max_transmit;

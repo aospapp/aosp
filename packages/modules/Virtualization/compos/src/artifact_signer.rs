@@ -24,7 +24,7 @@ use odsign_proto::odsign_info::OdsignInfo;
 use protobuf::Message;
 use std::fs::File;
 use std::io::Write;
-use std::os::unix::io::AsRawFd;
+use std::os::unix::io::AsFd;
 use std::path::Path;
 
 const TARGET_DIRECTORY: &str = "/data/misc/apexdata/com.android.art/dalvik-cache";
@@ -46,13 +46,13 @@ impl<'a> ArtifactSigner<'a> {
     pub fn add_artifact(&mut self, path: &Path) -> Result<()> {
         // The path we store is where the file will be when it is verified, not where it is now.
         let suffix = path
-            .strip_prefix(&self.base_directory)
+            .strip_prefix(self.base_directory)
             .context("Artifacts must be under base directory")?;
         let target_path = Path::new(TARGET_DIRECTORY).join(suffix);
         let target_path = target_path.to_str().ok_or_else(|| anyhow!("Invalid path"))?;
 
         let file = File::open(path).with_context(|| format!("Opening {}", path.display()))?;
-        let digest = fsverity::measure(file.as_raw_fd())?;
+        let digest = fsverity::measure(file.as_fd())?;
         let digest = to_hex_string(&digest);
 
         self.file_digests.push((target_path.to_owned(), digest));

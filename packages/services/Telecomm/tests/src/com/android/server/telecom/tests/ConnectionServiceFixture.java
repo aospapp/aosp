@@ -34,6 +34,7 @@ import android.os.IInterface;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.telecom.CallAudioState;
+import android.telecom.CallEndpoint;
 import android.telecom.CallScreeningService;
 import android.telecom.Conference;
 import android.telecom.Connection;
@@ -68,6 +69,9 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
     static int INVALID_VIDEO_STATE = -1;
     public CountDownLatch mExtrasLock = new CountDownLatch(1);
     static int NOT_SPECIFIED = 0;
+    public static final String STATUS_HINTS_EXTRA = "updateStatusHints";
+    public static final PhoneAccountHandle TEST_PHONE_ACCOUNT_HANDLE =
+            new PhoneAccountHandle(new ComponentName("pkg", "cls"), "test");
 
     /**
      * Implementation of ConnectionService that performs no-ops for tasks normally meant for
@@ -102,6 +106,11 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
             if (mProperties != NOT_SPECIFIED) {
                 fakeConnection.setConnectionProperties(mProperties);
             }
+            // Testing for StatusHints image icon cross user access
+            if (request.getExtras() != null) {
+                fakeConnection.setStatusHints(
+                        request.getExtras().getParcelable(STATUS_HINTS_EXTRA));
+            }
 
             return fakeConnection;
         }
@@ -117,6 +126,11 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
             }
             if (mProperties != NOT_SPECIFIED) {
                 fakeConnection.setConnectionProperties(mProperties);
+            }
+            // Testing for StatusHints image icon cross user access
+            if (request.getExtras() != null) {
+                fakeConnection.setStatusHints(
+                        request.getExtras().getParcelable(STATUS_HINTS_EXTRA));
             }
             return fakeConnection;
         }
@@ -134,6 +148,12 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
                 Conference fakeConference = new FakeConference();
                 fakeConference.addConnection(cxn1);
                 fakeConference.addConnection(cxn2);
+                if (cxn1.getStatusHints() != null || cxn2.getStatusHints() != null) {
+                    // For testing purposes, pick one of the status hints that isn't null.
+                    StatusHints statusHints = cxn1.getStatusHints() != null
+                            ? cxn1.getStatusHints() : cxn2.getStatusHints();
+                    fakeConference.setStatusHints(statusHints);
+                }
                 mLatestConference = fakeConference;
                 addConference(fakeConference);
             } else {
@@ -178,7 +198,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
 
     public class FakeConference extends Conference {
         public FakeConference() {
-            super(null);
+            super(TEST_PHONE_ACCOUNT_HANDLE);
             setConnectionCapabilities(
                     Connection.CAPABILITY_SUPPORT_HOLD
                             | Connection.CAPABILITY_HOLD
@@ -343,6 +363,18 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
                 throws RemoteException { }
 
         @Override
+        public void onCallEndpointChanged(String callId, CallEndpoint callEndpoint,
+                Session.Info sessionInfo) { }
+
+        @Override
+        public void onAvailableCallEndpointsChanged(String callId,
+                List<CallEndpoint> availableCallEndpoints, Session.Info sessionInfo) { }
+
+        @Override
+        public void onMuteStateChanged(String callId, boolean isMuted,
+                Session.Info sessionInfo) { }
+
+        @Override
         public void onUsingAlternativeUi(String activeCallId, boolean usingAlternativeUi,
                 Session.Info info) throws RemoteException { }
 
@@ -494,6 +526,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
 
     public String mLatestConnectionId;
     public Connection mLatestConnection;
+    public ParcelableConnection mLatestParcelableConnection;
     public Conference mLatestConference;
     public final Set<IConnectionServiceAdapter> mConnectionServiceAdapters = new HashSet<>();
     public final Map<String, ConnectionInfo> mConnectionById = new HashMap<>();
@@ -738,7 +771,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
     }
 
     private ParcelableConnection parcelable(ConnectionInfo c) {
-        return new ParcelableConnection(
+        mLatestParcelableConnection = new ParcelableConnection(
                 c.request.getAccountHandle(),
                 c.state,
                 c.capabilities,
@@ -759,5 +792,6 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
                 c.conferenceableConnectionIds,
                 c.extras,
                 c.callerNumberVerificationStatus);
+        return mLatestParcelableConnection;
     }
 }

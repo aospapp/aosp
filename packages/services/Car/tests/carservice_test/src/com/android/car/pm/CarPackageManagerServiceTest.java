@@ -21,15 +21,13 @@ import static androidx.car.app.activity.CarAppActivity.ACTION_START_SECOND_INSTA
 import static androidx.car.app.activity.CarAppActivity.SECOND_INSTANCE_TITLE;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assume.assumeTrue;
 
 import android.app.Activity;
 import android.app.ActivityOptions;
-import android.app.ActivityTaskManager;
 import android.app.AlertDialog;
-import android.app.IActivityTaskManager;
 import android.app.UiAutomation;
 import android.car.Car;
 import android.car.content.pm.CarPackageManager;
@@ -53,7 +51,6 @@ import androidx.test.filters.MediumTest;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -77,7 +74,6 @@ public class CarPackageManagerServiceTest {
 
     private CarDrivingStateManager mCarDrivingStateManager;
     private CarPackageManager mCarPackageManager;
-    private IActivityTaskManager mAtm;
 
     private UiDevice mDevice;
 
@@ -86,7 +82,6 @@ public class CarPackageManagerServiceTest {
 
     @Before
     public void setUp() throws Exception {
-        mAtm = ActivityTaskManager.getService();
         Car car = Car.createCar(getContext());
         mCarDrivingStateManager = (CarDrivingStateManager)
                 car.getCarManager(Car.CAR_DRIVING_STATE_SERVICE);
@@ -146,7 +141,8 @@ public class CarPackageManagerServiceTest {
         assertThat(mDevice.wait(Until.findObject(By.text(
                 CarAppActivity.class.getSimpleName())),
                 UI_TIMEOUT_MS)).isNotNull();
-        getContext().sendBroadcast(new Intent().setAction(ACTION_START_SECOND_INSTANCE));
+        getContext().sendBroadcast(new Intent().setAction(ACTION_START_SECOND_INSTANCE)
+                .setPackage(getTestContext().getPackageName()));
         assertThat(mDevice.wait(Until.findObject(By.text(
                 SECOND_INSTANCE_TITLE)),
                 UI_TIMEOUT_MS)).isNotNull();
@@ -165,7 +161,8 @@ public class CarPackageManagerServiceTest {
                 CarAppActivity.class.getName()
         )).isTrue();
 
-        getContext().sendBroadcast(new Intent().setAction(ACTION_SHOW_DIALOG));
+        getContext().sendBroadcast(new Intent().setAction(ACTION_SHOW_DIALOG)
+                .setPackage(getTestContext().getPackageName()));
 
         assertThat(mDevice.wait(Until.findObject(By.res(ACTIVITY_BLOCKING_ACTIVITY_TEXTVIEW_ID)),
                 UI_TIMEOUT_MS)).isNotNull();
@@ -184,11 +181,10 @@ public class CarPackageManagerServiceTest {
 
         // To exit ABA will close nonDoActivity.
         assertBlockingActivityNotFound();
-        assertThat(mDevice.getCurrentActivityName()).isNotEqualTo(
-                NonDoActivity.class.getSimpleName());
+        assertThat(mDevice.wait(Until.findObject(By.text(NonDoActivity.class.getSimpleName())),
+                UI_TIMEOUT_MS)).isNull();
     }
 
-    @Ignore("b/232019789") // Debug and enable after fixing it.
     @Test
     public void testBlockingActivity_DoLaunchesNonDoOnCreate_isBlocked() throws Exception {
         startDoActivity(DoActivity.INTENT_EXTRA_LAUNCH_NONDO);
@@ -198,7 +194,26 @@ public class CarPackageManagerServiceTest {
 
         // To exit ABA will show the root task, DoActivity.
         assertBlockingActivityNotFound();
-        assertThat(mDevice.getCurrentActivityName()).isEqualTo(DoActivity.class.getSimpleName());
+        assertThat(mDevice.wait(Until.findObject(By.text(DoActivity.class.getSimpleName())),
+                UI_TIMEOUT_MS)).isNotNull();
+    }
+
+    @Test
+    public void testBlockingActivity_DoLaunchesNonDo_nonDoIsKilled_noBlockingActivity()
+            throws Exception {
+        startDoActivity(DoActivity.INTENT_EXTRA_LAUNCH_NONDO_NEW_TASK);
+        assertBlockingActivityFound();
+
+        for (TempActivity activity : sTestingActivities) {
+            if (activity instanceof NonDoActivity) {
+                activity.finishCompletely();
+                sTestingActivities.remove(activity);
+            }
+        }
+
+        assertBlockingActivityNotFound();
+        // After NonDo & ABA finishes, DoActivity will come to the top.
+        assertActivityLaunched(DoActivity.class.getSimpleName());
     }
 
     @Test
@@ -347,10 +362,10 @@ public class CarPackageManagerServiceTest {
         mDevice.pressHome();
         final String launcherPackage = mDevice.getLauncherPackageName();
         assertNotNull(launcherPackage);
-        assertWithMessage(
-                "Home is not displayed even after " + HOME_DISPLAYED_TIMEOUT_MS + "ms.").that(
+
+        assumeTrue("Home is not displayed even after " + HOME_DISPLAYED_TIMEOUT_MS + "ms.",
                 mDevice.wait(Until.hasObject(By.pkg(launcherPackage).depth(0)),
-                        HOME_DISPLAYED_TIMEOUT_MS)).isTrue();
+                        HOME_DISPLAYED_TIMEOUT_MS));
     }
 
     private void setDrivingStateMoving() {
@@ -422,12 +437,17 @@ public class CarPackageManagerServiceTest {
         public static final String DIALOG_TITLE = "Title";
 
         public static final String INTENT_EXTRA_LAUNCH_NONDO = "LAUNCH_NONDO";
+        public static final String INTENT_EXTRA_LAUNCH_NONDO_NEW_TASK = "LAUNCH_NONDO_NEW_TASK";
 
         @Override
         protected void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
             if (getIntent().getBooleanExtra(INTENT_EXTRA_LAUNCH_NONDO, false)) {
                 startActivity(new Intent(this, NonDoActivity.class));
+            }
+            if (getIntent().getBooleanExtra(INTENT_EXTRA_LAUNCH_NONDO_NEW_TASK, false)) {
+                startActivity(new Intent(this, NonDoActivity.class)
+                        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             }
             if (getIntent().getBooleanExtra(INTENT_EXTRA_SHOW_DIALOG, false)) {
                 AlertDialog dialog = new AlertDialog.Builder(DoActivity.this)

@@ -33,6 +33,9 @@
             <meta-data android:name="android.nfc.cardemulation.host_apdu_service"
                        android:resource="@xml/payment_aid_list"/>
         </service>
+        <activity android:name="android.nfc.cts.NfcFCardEmulationActivity"
+             android:exported="false">
+        </activity>
     </application>
 
     <!-- This is a self-instrumenting test package. -->

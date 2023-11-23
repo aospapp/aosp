@@ -1,0 +1,87 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!--
+  ~ Copyright (C) 2022 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+<!--
+THIS FILE WAS AUTO GENERATED, DO NOT EDIT MANUALLY.
+REGENERATE USING packages/apps/Car/tests/tools/rro/generate-overlayable.py
+-->
+<resources>
+    <overlayable name="car-qc-lib">
+        <policy type="system|product|signature">
+            <item type="attr" name="state_toggle_unavailable"/>
+            <item type="color" name="qc_start_icon_color"/>
+            <item type="color" name="qc_toggle_background_color"/>
+            <item type="color" name="qc_toggle_icon_fill_color"/>
+            <item type="color" name="qc_toggle_off_background_color"/>
+            <item type="color" name="qc_toggle_rotary_shadow_color"/>
+            <item type="color" name="qc_toggle_unavailable_background_color"/>
+            <item type="color" name="qc_toggle_unavailable_color"/>
+            <item type="dimen" name="qc_action_items_horizontal_margin"/>
+            <item type="dimen" name="qc_row_content_margin"/>
+            <item type="dimen" name="qc_row_horizontal_margin"/>
+            <item type="dimen" name="qc_row_icon_margin_end"/>
+            <item type="dimen" name="qc_row_icon_size"/>
+            <item type="dimen" name="qc_row_margin_vertical"/>
+            <item type="dimen" name="qc_row_min_height"/>
+            <item type="dimen" name="qc_row_padding_end"/>
+            <item type="dimen" name="qc_row_padding_start"/>
+            <item type="dimen" name="qc_seekbar_padding_top"/>
+            <item type="dimen" name="qc_toggle_background_padding"/>
+            <item type="dimen" name="qc_toggle_background_radius"/>
+            <item type="dimen" name="qc_toggle_foreground_icon_inset"/>
+            <item type="dimen" name="qc_toggle_margin"/>
+            <item type="dimen" name="qc_toggle_rotary_highlight_radius"/>
+            <item type="dimen" name="qc_toggle_rotary_highlight_size"/>
+            <item type="dimen" name="qc_toggle_rotary_shadow_padding"/>
+            <item type="dimen" name="qc_toggle_rotary_shadow_radius"/>
+            <item type="dimen" name="qc_toggle_rotary_shadow_size"/>
+            <item type="dimen" name="qc_toggle_rotary_shadow_width"/>
+            <item type="dimen" name="qc_toggle_background_size"/>
+            <item type="dimen" name="qc_toggle_size"/>
+            <item type="dimen" name="qc_toggle_unavailable_outline_width"/>
+            <item type="drawable" name="qc_row_action_divider"/>
+            <item type="drawable" name="qc_seekbar_wrapper_background"/>
+            <item type="drawable" name="qc_toggle_background"/>
+            <item type="drawable" name="qc_toggle_button_background"/>
+            <item type="drawable" name="qc_toggle_rotary_background"/>
+            <item type="drawable" name="qc_toggle_rotary_highlight"/>
+            <item type="drawable" name="qc_toggle_rotary_shadow"/>
+            <item type="drawable" name="qc_toggle_unavailable_background"/>
+            <item type="id" name="barrier1"/>
+            <item type="id" name="barrier2"/>
+            <item type="id" name="qc_icon"/>
+            <item type="id" name="qc_row_content"/>
+            <item type="id" name="qc_row_end_items"/>
+            <item type="id" name="qc_row_start_items"/>
+            <item type="id" name="qc_seekbar"/>
+            <item type="id" name="qc_seekbar_wrapper"/>
+            <item type="id" name="qc_summary"/>
+            <item type="id" name="qc_tile_toggle_button"/>
+            <item type="id" name="qc_tile_wrapper"/>
+            <item type="id" name="qc_title"/>
+            <item type="id" name="qc_toggle_button"/>
+            <item type="layout" name="qc_action_switch"/>
+            <item type="layout" name="qc_action_toggle"/>
+            <item type="layout" name="qc_row_view"/>
+            <item type="layout" name="qc_tile_view"/>
+            <item type="style" name="TextAppearance.QC"/>
+            <item type="style" name="TextAppearance.QC.Subtitle"/>
+            <item type="style" name="TextAppearance.QC.Title"/>
+            <item type="style" name="Widget.QC"/>
+            <item type="style" name="Widget.QC.SeekBar"/>
+        </policy>
+    </overlayable>
+</resources>

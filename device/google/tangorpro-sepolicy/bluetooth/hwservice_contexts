@@ -1,0 +1,3 @@
+# Bluetooth HAL extension
+hardware.google.bluetooth.bt_channel_avoidance::IBTChannelAvoidance   u:object_r:hal_bluetooth_coexistence_hwservice:s0
+hardware.google.bluetooth.sar::IBluetoothSar                          u:object_r:hal_bluetooth_coexistence_hwservice:s0

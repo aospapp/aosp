@@ -26,8 +26,8 @@ kt_jvm_library(
     name = "processor",
     srcs = ["TestGeneratedTypeProcessor.kt"],
     deps = [
-        "@google_bazel_common//third_party/java/auto:service",
-        "@google_bazel_common//third_party/java/javapoet",
+        "//third_party/java/auto:service",
+        "//third_party/java/javapoet",
     ],
 )
 

@@ -25,3 +25,10 @@ java_library_static {
         "*.proto",
     ],
 }
+
+filegroup {
+    name: "text_classifier_proto",
+    srcs: [
+        "*.proto",
+    ],
+}

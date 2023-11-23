@@ -1,0 +1,11 @@
+service vendor.lights-tangotron  /vendor/bin/hw/android.hardware.lights-service.tangorpro
+    interface aidl android.hardware.light.ILights/default
+    class hal
+    user system
+    group system
+    # shutting off lights while powering-off
+    shutdown critical
+
+on post-fs
+    chown system system /sys/class/leds/green/brightness
+    chmod 664 /sys/class/leds/green/brightness

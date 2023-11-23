@@ -1,0 +1,4 @@
+-keep class com.android.rkpdapp.metrics.ProvisioningAttempt { *; }
+-keep class com.android.rkpdapp.interfaces.ServiceManagerInterface { *; }
+-keep class com.android.rkpdapp.service.** { *; }
+-keep class com.android.rkpdapp.utils.Settings { *; }

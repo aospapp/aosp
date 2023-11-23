@@ -22,11 +22,10 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 #include "bta/av/bta_av_int.h"
 #include "osi/include/allocator.h"
 #include "osi/include/log.h"
+#include "test/common/mock_functions.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
@@ -35,8 +34,8 @@ extern std::map<std::string, int> mock_function_count_map;
 void bta_av_ci_setconfig(tBTA_AV_HNDL bta_av_handle, uint8_t err_code,
                          uint8_t category, uint8_t num_seid, uint8_t* p_seid,
                          bool recfg_needed, uint8_t avdt_handle) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void bta_av_ci_src_data_ready(tBTA_AV_CHNL chnl) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }

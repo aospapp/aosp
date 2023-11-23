@@ -1,5 +1,5 @@
---- android_icu4j/src/main/java/android/icu/lang/UCharacter.java	2021-11-19 15:35:27.250742750 +0000
-+++ android_icu4j/src/main/java/android/icu/lang/UCharacter.java	2021-11-19 15:40:24.805136914 +0000
+--- android_icu4j/src/main/java/android/icu/lang/UCharacter.java	2022-11-18 13:20:57.177622506 +0000
++++ android_icu4j/src/main/java/android/icu/lang/UCharacter.java	2022-11-18 13:25:47.016087180 +0000
 @@ -54,16 +54,6 @@
   * more convenient in Java to have a separate primitive datatype for them,
   * ints suffice in the meantime.
@@ -29,7 +29,7 @@
   * In addition to Java compatibility functions, which calculate derived properties,
   * this API provides low-level access to the Unicode Character Database.
   * <p>
-@@ -5306,7 +5291,6 @@
+@@ -5362,7 +5347,6 @@
       *         Unicode version does not have data for the property at all, or
       *         not for this code point.
       * @see android.icu.lang.UProperty
@@ -37,7 +37,15 @@
       */
      public static boolean hasBinaryProperty(int ch, int property)
      {
-@@ -5432,7 +5416,6 @@
+@@ -5386,7 +5370,6 @@
+      *         does not have data for the property at all.
+      *
+      * @see android.icu.lang.UProperty
+-     * @see CharacterProperties#getBinaryPropertySet(int)
+      */
+     public static boolean hasBinaryProperty(CharSequence s, int property) {
+         int length = s.length();
+@@ -5487,7 +5470,6 @@
       * @see #hasBinaryProperty
       * @see #getIntPropertyMinValue
       * @see #getIntPropertyMaxValue

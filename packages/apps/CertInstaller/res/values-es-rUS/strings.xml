@@ -49,7 +49,7 @@
     <string name="invalid_certificate_close_button" msgid="350986774973653102">"Cerrar"</string>
     <string name="invalid_certificate_message" msgid="3508065546083182733">"No se puede usar este archivo como <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>"</string>
     <string name="certificate" msgid="8790577925509962529">"Certificado"</string>
-    <string name="ca_certificate" msgid="7397198551290322945">"Certificado de CA"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"Certificado de la AC"</string>
     <string name="user_certificate" msgid="514888069820553128">"Certificado de usuario de app y VPN"</string>
     <string name="wifi_certificate" msgid="5356595832360140989">"Certificado de Wi‑Fi"</string>
     <string name="ca_cert_is_added" msgid="2847081843756291802">"Se instaló el Certificado de CA"</string>

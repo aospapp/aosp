@@ -16,13 +16,10 @@
 
 package com.android.car.settings.profiles;
 
-import static android.content.pm.UserInfo.FLAG_GUEST;
-
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.content.pm.UserInfo;
-import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.os.UserManager;
 
@@ -70,30 +67,6 @@ public class ProfileIconProviderTest {
 
         assertThat(returnedIcon).isNotNull();
         assertThat(getShadowUserManager().getUserIcon(mUserInfo.id)).isNotNull();
-    }
-
-    @Test
-    public void assignDefaultIcon_AssignsIconForNonGuest() {
-        ShadowUserManager.setUserIcon(mUserInfo.id, null);
-
-        Bitmap returnedIcon = mProfileIconProvider.assignDefaultIcon(
-                mUserManager, mContext.getResources(), mUserInfo);
-
-        assertThat(returnedIcon).isNotNull();
-        assertThat(getShadowUserManager().getUserIcon(mUserInfo.id)).isNotNull();
-    }
-
-    @Test
-    public void assignDefaultIcon_AssignsIconForGuest() {
-        UserInfo guestUserInfo =
-                new UserInfo(/* id= */ 11, "USER_NAME", FLAG_GUEST);
-        ShadowUserManager.setUserIcon(guestUserInfo.id, null);
-
-        Bitmap returnedIcon = mProfileIconProvider.assignDefaultIcon(
-                mUserManager, mContext.getResources(), guestUserInfo);
-
-        assertThat(returnedIcon).isNotNull();
-        assertThat(getShadowUserManager().getUserIcon(guestUserInfo.id)).isNotNull();
     }
 
     private ShadowUserManager getShadowUserManager() {

@@ -18,7 +18,6 @@ package com.android.tools.layoutlib.create;
 
 import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
 import com.android.tools.layoutlib.java.LinkedHashMap_Delegate;
-import com.android.tools.layoutlib.java.NioUtils_Delegate;
 import com.android.tools.layoutlib.java.Reference_Delegate;
 
 import org.objectweb.asm.Opcodes;
@@ -26,15 +25,12 @@ import org.objectweb.asm.Type;
 
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
-import java.text.DateFormat;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.zip.ZipEntry;
 
 /**
  * Describes the work to be done by {@link AsmGenerator}.
@@ -139,18 +135,17 @@ public final class CreateInfo implements ICreateInfo {
         new SystemLoadLibraryReplacer(),
         new SystemArrayCopyReplacer(),
         new LocaleGetDefaultReplacer(),
-        new LocaleAdjustLanguageCodeReplacer(),
         new SystemLogReplacer(),
         new SystemNanoTimeReplacer(),
         new SystemCurrentTimeMillisReplacer(),
         new LinkedHashMapEldestReplacer(),
         new ContextGetClassLoaderReplacer(),
         new ImageReaderNativeInitReplacer(),
-        new NioUtilsFreeBufferReplacer(),
-        new ProcessInitializerInitSchedReplacer(),
         new NativeInitPathReplacer(),
+        new AdaptiveIconMaskReplacer(),
         new ActivityThreadInAnimationReplacer(),
         new ReferenceRefersToReplacer(),
+        new HtmlApplicationResourceReplacer(),
     };
 
     /**
@@ -167,7 +162,6 @@ public final class CreateInfo implements ICreateInfo {
             InjectMethodRunnables.class,
             /* Java package classes */
             LinkedHashMap_Delegate.class,
-            NioUtils_Delegate.class,
             Reference_Delegate.class,
         };
 
@@ -213,7 +207,6 @@ public final class CreateInfo implements ICreateInfo {
         "android.graphics.DrawFilter",
         "android.graphics.EmbossMaskFilter",
         "android.graphics.FontFamily",
-        "android.graphics.HardwareRenderer",
         "android.graphics.ImageDecoder",
         "android.graphics.Interpolator",
         "android.graphics.LightingColorFilter",
@@ -257,9 +250,6 @@ public final class CreateInfo implements ICreateInfo {
         "android.graphics.text.MeasuredText",
         "android.graphics.text.MeasuredText$Builder",
         "android.graphics.text.TextRunShaper",
-        "android.media.ImageReader",
-        "android.media.ImageReader$SurfaceImage",
-        "android.media.PublicFormatUtils",
         "android.os.SystemProperties",
         "android.os.Trace",
         "android.text.AndroidCharacter",
@@ -280,8 +270,6 @@ public final class CreateInfo implements ICreateInfo {
             "android.view.textservice.TextServicesManager",    "android.view.textservice._Original_TextServicesManager",
             "android.view.SurfaceView",                        "android.view._Original_SurfaceView",
             "android.view.WindowManagerImpl",                  "android.view._Original_WindowManagerImpl",
-            "android.view.accessibility.AccessibilityManager", "android.view.accessibility._Original_AccessibilityManager",
-            "android.view.accessibility.AccessibilityNodeIdManager", "android.view.accessibility._Original_AccessibilityNodeIdManager",
             "android.webkit.WebView",                          "android.webkit._Original_WebView",
         };
 
@@ -311,6 +299,7 @@ public final class CreateInfo implements ICreateInfo {
         new String[] {
             "android.preference.PreferenceActivity",
             "java.**",
+            "kotlin.**",
             "org.kxml2.io.KXmlParser",
             "org.xmlpull.**",
             "sun.**",
@@ -337,10 +326,11 @@ public final class CreateInfo implements ICreateInfo {
         "android.graphics.drawable.AnimatedVectorDrawable$VectorDrawableAnimatorUI#mSet",
         "android.graphics.drawable.AnimatedVectorDrawable$VectorDrawableAnimatorRT#mPendingAnimationActions",
         "android.graphics.drawable.AnimatedVectorDrawable#mAnimatorSet",
-        "android.graphics.drawable.AdaptiveIconDrawable#sMask",
         "android.graphics.drawable.DrawableInflater#mRes",
+        "android.hardware.input.InputManagerGlobal#sInstance",
         "android.view.Choreographer#mCallbackQueues", // required for tests only
         "android.view.Choreographer$CallbackQueue#mHead", // required for tests only
+        "android.view.ViewRootImpl#mTmpFrames",
         "com.android.internal.util.ArrayUtils#sCache",
     };
 
@@ -353,6 +343,8 @@ public final class CreateInfo implements ICreateInfo {
         "android.content.res.StringBlock#getColor",
         "android.graphics.Bitmap#setNinePatchChunk",
         "android.graphics.Path#nInit",
+        "android.graphics.Typeface$Builder#createAssetUid",
+        "android.hardware.input.InputManagerGlobal#<init>",
         "android.media.ImageReader#nativeClassInit",
         "android.view.Choreographer#doFrame",
         "android.view.Choreographer#postCallbackDelayedInternal",
@@ -367,6 +359,7 @@ public final class CreateInfo implements ICreateInfo {
     private final static String[] PROMOTED_CLASSES = new String[] {
         "android.content.res.StringBlock$Height",
         "android.graphics.ImageDecoder$InputStreamSource",
+        "android.graphics.ImageDecoder$ResourceSource",
         "android.graphics.drawable.AnimatedVectorDrawable$VectorDrawableAnimatorUI",
         "android.graphics.drawable.AnimatedVectorDrawable$VectorDrawableAnimator",
         "android.view.Choreographer$CallbackQueue", // required for tests only
@@ -385,11 +378,8 @@ public final class CreateInfo implements ICreateInfo {
     private final static String[] DEFERRED_STATIC_INITIALIZER_CLASSES =
             NativeConfig.DEFERRED_STATIC_INITIALIZER_CLASSES;
 
-    private final static Map<String, InjectMethodRunnable> INJECTED_METHODS =
-            new HashMap<String, InjectMethodRunnable>(1) {{
-                put("android.content.Context",
-                        InjectMethodRunnables.CONTEXT_GET_FRAMEWORK_CLASS_LOADER);
-            }};
+    private final static Map<String, InjectMethodRunnable> INJECTED_METHODS = Map.of(
+            "android.content.Context", InjectMethodRunnables.CONTEXT_GET_FRAMEWORK_CLASS_LOADER);
 
     public static class LinkedHashMapEldestReplacer implements MethodReplacer {
 
@@ -529,21 +519,6 @@ public final class CreateInfo implements ICreateInfo {
         }
     }
 
-    public static class LocaleAdjustLanguageCodeReplacer implements MethodReplacer {
-
-        @Override
-        public boolean isNeeded(String owner, String name, String desc, String sourceClass) {
-            return Type.getInternalName(java.util.Locale.class).equals(owner)
-                    && ("adjustLanguageCode".equals(name)
-                    && desc.equals(Type.getMethodDescriptor(Type.getType(String.class), Type.getType(String.class))));
-        }
-
-        @Override
-        public void replace(MethodInformation mi) {
-            mi.owner = "com/android/tools/layoutlib/java/util/LocaleAdjustLanguageCodeReplacement";
-        }
-    }
-
     private static class SystemArrayCopyReplacer implements MethodReplacer {
         /**
          * Descriptors for specialized versions {@link System#arraycopy} that are not present on the
@@ -565,67 +540,6 @@ public final class CreateInfo implements ICreateInfo {
         }
     }
 
-    public static class DateFormatSet24HourTimePrefReplacer implements MethodReplacer {
-
-        @Override
-        public boolean isNeeded(String owner, String name, String desc, String sourceClass) {
-            return Type.getInternalName(DateFormat.class).equals(owner) &&
-                    "set24HourTimePref".equals(name);
-        }
-
-        @Override
-        public void replace(MethodInformation mi) {
-            mi.owner = "com/android/tools/layoutlib/java/text/DateFormat_Delegate";
-        }
-    }
-
-    /**
-     * Replace references to ZipEntry.getDataOffset with a delegate, since it does not exist in the JDK.
-     * @see {@link com.android.tools.layoutlib.java.util.zip.ZipEntry_Delegate#getDataOffset(ZipEntry)}
-     */
-    public static class ZipEntryGetDataOffsetReplacer implements MethodReplacer {
-        @Override
-        public boolean isNeeded(String owner, String name, String desc, String sourceClass) {
-            return Type.getInternalName(ZipEntry.class).equals(owner)
-                    && "getDataOffset".equals(name);
-        }
-
-        @Override
-        public void replace(MethodInformation mi) {
-            mi.opcode = Opcodes.INVOKESTATIC;
-            mi.owner = "com/android/tools/layoutlib/java/util/zip/ZipEntry_Delegate";
-            mi.desc = Type.getMethodDescriptor(
-                    Type.getType(long.class), Type.getType(ZipEntry.class));
-        }
-    }
-
-    public static class NioUtilsFreeBufferReplacer implements MethodReplacer {
-        @Override
-        public boolean isNeeded(String owner, String name, String desc, String sourceClass) {
-            return "java/nio/NioUtils".equals(owner) && name.equals("freeDirectBuffer");
-        }
-
-        @Override
-        public void replace(MethodInformation mi) {
-            mi.owner = Type.getInternalName(NioUtils_Delegate.class);
-        }
-    }
-
-    public static class ProcessInitializerInitSchedReplacer implements MethodReplacer {
-        @Override
-        public boolean isNeeded(String owner, String name, String desc, String sourceClass) {
-            return "android/graphics/HardwareRenderer$ProcessInitializer".equals(owner) &&
-                    name.equals("initSched");
-        }
-
-        @Override
-        public void replace(MethodInformation mi) {
-            mi.owner = "android/graphics/HardwareRenderer_ProcessInitializer_Delegate";
-            mi.opcode = Opcodes.INVOKESTATIC;
-            mi.desc = "(J)V";
-        }
-    }
-
     public static class NativeInitPathReplacer implements MethodReplacer {
         @Override
         public boolean isNeeded(String owner, String name, String desc, String sourceClass) {
@@ -637,6 +551,23 @@ public final class CreateInfo implements ICreateInfo {
         public void replace(MethodInformation mi) {
             mi.owner = "android/graphics/Path_Delegate";
             mi.opcode = Opcodes.INVOKESTATIC;
+        }
+    }
+
+    public static class AdaptiveIconMaskReplacer implements MethodReplacer {
+        @Override
+        public boolean isNeeded(String owner, String name, String desc, String sourceClass) {
+            return "android/graphics/drawable/AdaptiveIconDrawable".equals(sourceClass) &&
+                    "android/content/res/Resources".equals(owner) &&
+                    name.equals("getString");
+        }
+
+        @Override
+        public void replace(MethodInformation mi) {
+            mi.owner = "android/graphics/drawable/AdaptiveIconDrawable_Delegate";
+            mi.name = "getResourceString";
+            mi.opcode = Opcodes.INVOKESTATIC;
+            mi.desc = "(Landroid/content/res/Resources;I)Ljava/lang/String;";
         }
     }
 
@@ -669,6 +600,24 @@ public final class CreateInfo implements ICreateInfo {
             mi.owner = Type.getInternalName(Reference_Delegate.class);
             mi.desc = Type.getMethodDescriptor(Type.BOOLEAN_TYPE, Type.getType(Reference.class),
                     Type.getType(Object.class));
+        }
+    }
+
+    public static class HtmlApplicationResourceReplacer implements MethodReplacer {
+        @Override
+        public boolean isNeeded(String owner, String name, String desc, String sourceClass) {
+            return ("android/text/Html".equals(sourceClass) ||
+                    "android/text/HtmlToSpannedConverter".equals(sourceClass)) &&
+                    "android/app/Application".equals(owner) &&
+                    name.equals("getResources");
+        }
+
+        @Override
+        public void replace(MethodInformation mi) {
+            mi.owner = "android/app/Application_Delegate";
+            mi.name = "getResources";
+            mi.opcode = Opcodes.INVOKESTATIC;
+            mi.desc = "(Landroid/app/Application;)Landroid/content/res/Resources;";
         }
     }
 }

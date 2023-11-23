@@ -29,8 +29,12 @@ import com.android.managedprovisioning.common.ThemeHelper;
 import com.android.managedprovisioning.common.ThemeHelper.DefaultNightModeChecker;
 import com.android.managedprovisioning.common.ThemeHelper.DefaultSetupWizardBridge;
 import com.android.managedprovisioning.common.Utils;
-import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.ProvisioningParams;
+
+import com.google.android.setupcompat.logging.ScreenKey;
+import com.google.android.setupcompat.logging.SetupMetric;
+import com.google.android.setupcompat.logging.SetupMetricsLogger;
+import com.google.android.setupdesign.util.DeviceHelper;
 
 /**
  * Progress activity shown whilst network setup, downloading, verifying and installing the
@@ -42,6 +46,8 @@ import com.android.managedprovisioning.model.ProvisioningParams;
  */
 public class AdminIntegratedFlowPrepareActivity extends AbstractProvisioningActivity {
 
+    private static final String SETUP_METRIC_ADMIN_INTEGRATED_SCREEN_NAME =
+            "ShowAdminIntegratedFlowScreen";
     private AdminIntegratedFlowPrepareManager mProvisioningManager;
 
     public AdminIntegratedFlowPrepareActivity() {
@@ -82,33 +88,47 @@ public class AdminIntegratedFlowPrepareActivity extends AbstractProvisioningActi
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setupMetricScreenName = SETUP_METRIC_ADMIN_INTEGRATED_SCREEN_NAME;
+        mScreenKey = ScreenKey.of(setupMetricScreenName, this);
+        SetupMetricsLogger.logMetrics(this, mScreenKey,
+                SetupMetric.ofImpression(setupMetricScreenName));
         initializeUi();
     }
 
+    @Override
     protected ProvisioningManagerInterface getProvisioningManager() {
         if (mProvisioningManager == null) {
             mProvisioningManager = AdminIntegratedFlowPrepareManager.getInstance(this);
         }
         return mProvisioningManager;
+
     }
 
     @Override
     public void preFinalizationCompleted() {
         ProvisionLogger.logi("AdminIntegratedFlowPrepareActivity pre-finalization completed");
         setResult(Activity.RESULT_OK);
-        getTransitionHelper().finishActivity(this);
+        this.overridePendingTransition(R.anim.sud_slide_next_in, R.anim.sud_slide_next_out);
+        this.finish();
     }
 
     @Override
     protected void decideCancelProvisioningDialog() {
-        showCancelProvisioningDialog(/* resetRequired = */true);
+        if (getUtils().isDeviceOwnerAction(mParams.provisioningAction)
+                || getUtils().isOrganizationOwnedAllowed(mParams)) {
+            showCancelProvisioningDialog(/* resetRequired= */ true);
+        } else {
+            showCancelProvisioningDialog(/* resetRequired= */ false);
+        }
     }
+
 
     private void initializeUi() {
         final int headerResId = R.string.downloading_administrator_header;
-        final int titleResId = R.string.setup_device_progress;
+        CharSequence deviceName = DeviceHelper.getDeviceName(getApplicationContext());
+        final String title = getString(R.string.setup_device_progress, deviceName);
         initializeLayoutParams(R.layout.empty_loading_layout, headerResId);
-        setTitle(titleResId);
+        setTitle(title);
     }
 
     @Override

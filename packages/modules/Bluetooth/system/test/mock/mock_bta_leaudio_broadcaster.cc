@@ -14,30 +14,29 @@
  * limitations under the License.
  */
 
+#include <base/bind_helpers.h>
+#include <base/functional/bind.h>
+#include <hardware/bt_le_audio.h>
+
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <base/bind.h>
-#include <base/bind_helpers.h>
-#include <hardware/bt_le_audio.h>
-
 #include "bta/include/bta_le_audio_broadcaster_api.h"
+#include "test/common/mock_functions.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
 #endif
 
-void LeAudioBroadcaster::DebugDump(int) { mock_function_count_map[__func__]++; }
+void LeAudioBroadcaster::DebugDump(int) { inc_func_call_count(__func__); }
 void LeAudioBroadcaster::Initialize(
     bluetooth::le_audio::LeAudioBroadcasterCallbacks*,
     base::RepeatingCallback<bool()>) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
-void LeAudioBroadcaster::Stop() { mock_function_count_map[__func__]++; }
-void LeAudioBroadcaster::Cleanup() { mock_function_count_map[__func__]++; }
+void LeAudioBroadcaster::Stop() { inc_func_call_count(__func__); }
+void LeAudioBroadcaster::Cleanup() { inc_func_call_count(__func__); }
 LeAudioBroadcaster* LeAudioBroadcaster::Get() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }

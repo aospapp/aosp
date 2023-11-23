@@ -78,7 +78,6 @@ class CarAudioPowerListener {
     void startListeningForPolicyChanges() {
         if (mCarPowerManagementService == null) {
             Slogf.w(TAG, "Cannot find CarPowerManagementService");
-            mCarAudioService.setAudioEnabled(/* isAudioEnabled= */ true);
             return;
         }
 
@@ -100,7 +99,6 @@ class CarAudioPowerListener {
 
         if (policy == null) {
             Slogf.w(TAG, "Policy is null. Defaulting to enabled");
-            mCarAudioService.setAudioEnabled(/* isAudioEnabled= */ true);
             return;
         }
 

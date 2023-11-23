@@ -78,7 +78,6 @@ public final class DevicePolicyFragment extends Fragment {
     private EditText mNewUserNameText;
     private CheckBox mNewUserIsAdminCheckBox;
     private CheckBox mNewUserIsGuestCheckBox;
-    private EditText mNewUserExtraFlagsText;
     private Button mCreateUserButton;
 
     // Reset password

@@ -15,23 +15,21 @@
  */
 
 #include "EvsEnumerator.h"
-#include "EvsV4lCamera.h"
-#include "EvsGlDisplay.h"
+
 #include "ConfigManager.h"
+#include "EvsGlDisplay.h"
+#include "EvsV4lCamera.h"
 
 #include <android-base/file.h>
-#include <android-base/strings.h>
 #include <android-base/stringprintf.h>
+#include <android-base/strings.h>
+#include <cutils/android_filesystem_config.h>
 #include <hardware_legacy/uevent.h>
 #include <hwbinder/IPCThreadState.h>
-#include <cutils/android_filesystem_config.h>
 
 #include <sys/inotify.h>
-#include <string_view>
 
-using namespace std::chrono_literals;
-using CameraDesc_1_0 = ::android::hardware::automotive::evs::V1_0::CameraDesc;
-using CameraDesc_1_1 = ::android::hardware::automotive::evs::V1_1::CameraDesc;
+#include <string_view>
 
 namespace android {
 namespace hardware {
@@ -40,19 +38,21 @@ namespace evs {
 namespace V1_1 {
 namespace implementation {
 
+using std::chrono_literals::operator""s;
+using CameraDesc_1_0 = ::android::hardware::automotive::evs::V1_0::CameraDesc;
+using CameraDesc_1_1 = ::android::hardware::automotive::evs::V1_1::CameraDesc;
 
 // NOTE:  All members values are static so that all clients operate on the same state
 //        That is to say, this is effectively a singleton despite the fact that HIDL
 //        constructs a new instance for each client.
 std::unordered_map<std::string, EvsEnumerator::CameraRecord> EvsEnumerator::sCameraList;
-wp<EvsGlDisplay>                                             EvsEnumerator::sActiveDisplay;
-std::mutex                                                   EvsEnumerator::sLock;
-std::condition_variable                                      EvsEnumerator::sCameraSignal;
-std::unique_ptr<ConfigManager>                               EvsEnumerator::sConfigManager;
-sp<IAutomotiveDisplayProxyService>                           EvsEnumerator::sDisplayProxy;
-std::unordered_map<uint8_t, uint64_t>                        EvsEnumerator::sDisplayPortList;
-uint64_t                                                     EvsEnumerator::sInternalDisplayId;
-
+wp<EvsGlDisplay> EvsEnumerator::sActiveDisplay;
+std::mutex EvsEnumerator::sLock;
+std::condition_variable EvsEnumerator::sCameraSignal;
+std::unique_ptr<ConfigManager> EvsEnumerator::sConfigManager;
+sp<IAutomotiveDisplayProxyService> EvsEnumerator::sDisplayProxy;
+std::unordered_map<uint8_t, uint64_t> EvsEnumerator::sDisplayPortList;
+uint64_t EvsEnumerator::sInternalDisplayId;
 
 // Constants
 constexpr std::chrono::seconds kEnumerationTimeout = 10s;
@@ -61,12 +61,10 @@ constexpr std::string_view kPrefix = "video";
 constexpr size_t kEventBufferSize = 512;
 
 bool EvsEnumerator::checkPermission() {
-    hardware::IPCThreadState *ipc = hardware::IPCThreadState::self();
-    if (AID_AUTOMOTIVE_EVS != ipc->getCallingUid() &&
-        AID_ROOT != ipc->getCallingUid()) {
+    hardware::IPCThreadState* ipc = hardware::IPCThreadState::self();
+    if (AID_AUTOMOTIVE_EVS != ipc->getCallingUid() && AID_ROOT != ipc->getCallingUid()) {
         LOG(ERROR) << "EVS access denied: "
-                   << "pid = " << ipc->getCallingPid()
-                   << ", uid = " << ipc->getCallingUid();
+                   << "pid = " << ipc->getCallingPid() << ", uid = " << ipc->getCallingUid();
         return false;
     }
 
@@ -114,10 +112,9 @@ void EvsEnumerator::EvsHotplugThread(std::atomic<bool>& running) {
                     std::unique_ptr<ConfigManager::CameraInfo>& camInfo =
                             sConfigManager->getCameraInfo(deviceId);
                     if (camInfo) {
-                        cam.desc.metadata.setToExternal(
-                                (uint8_t *)camInfo->characteristics,
-                                get_camera_metadata_size(camInfo->characteristics)
-                        );
+                        cam.desc.metadata.setToExternal((uint8_t*)camInfo->characteristics,
+                                                        get_camera_metadata_size(
+                                                                camInfo->characteristics));
                     }
                 }
                 {
@@ -143,8 +140,7 @@ EvsEnumerator::EvsEnumerator(sp<IAutomotiveDisplayProxyService> proxyService) {
 
     if (sConfigManager == nullptr) {
         /* loads and initializes ConfigManager in a separate thread */
-        sConfigManager =
-            ConfigManager::Create();
+        sConfigManager = ConfigManager::Create();
     }
 
     if (sDisplayProxy == nullptr) {
@@ -165,9 +161,8 @@ void EvsEnumerator::enumerateCameras() {
     //           For example, this code might be replaced with nothing more than:
     //                   sCameraList.emplace("/dev/video0");
     //                   sCameraList.emplace("/dev/video1");
-    LOG(INFO) << __FUNCTION__
-              << ": Starting dev/video* enumeration";
-    unsigned videoCount   = 0;
+    LOG(INFO) << __FUNCTION__ << ": Starting dev/video* enumeration";
+    unsigned videoCount = 0;
     unsigned captureCount = 0;
     DIR* dir = opendir("/dev");
     if (!dir) {
@@ -186,7 +181,7 @@ void EvsEnumerator::enumerateCameras() {
                 if (sCameraList.find(deviceName) != sCameraList.end()) {
                     LOG(INFO) << deviceName << " has been added already.";
                     captureCount++;
-                } else if(qualifyCaptureDevice(deviceName.c_str())) {
+                } else if (qualifyCaptureDevice(deviceName.c_str())) {
                     sCameraList.emplace(deviceName, deviceName.c_str());
                     captureCount++;
                 }
@@ -198,37 +193,31 @@ void EvsEnumerator::enumerateCameras() {
               << "of " << videoCount << " checked.";
 }
 
-
 void EvsEnumerator::enumerateDisplays() {
-    LOG(INFO) << __FUNCTION__
-              << ": Starting display enumeration";
+    LOG(INFO) << __FUNCTION__ << ": Starting display enumeration";
     if (!sDisplayProxy) {
         LOG(ERROR) << "AutomotiveDisplayProxyService is not available!";
         return;
     }
 
-    sDisplayProxy->getDisplayIdList(
-        [](const auto& displayIds) {
-            // The first entry of the list is the internal display.  See
-            // SurfaceFlinger::getPhysicalDisplayIds() implementation.
-            if (displayIds.size() > 0) {
-                sInternalDisplayId = displayIds[0];
-                for (const auto& id : displayIds) {
-                    const auto port = id & 0xFF;
-                    LOG(INFO) << "Display " << std::hex << id
-                              << " is detected on the port, " << port;
-                    sDisplayPortList.insert_or_assign(port, id);
-                }
+    sDisplayProxy->getDisplayIdList([](const auto& displayIds) {
+        // The first entry of the list is the internal display.  See
+        // SurfaceFlinger::getPhysicalDisplayIds() implementation.
+        if (displayIds.size() > 0) {
+            sInternalDisplayId = displayIds[0];
+            for (const auto& id : displayIds) {
+                const auto port = id & 0xFF;
+                LOG(INFO) << "Display " << std::hex << id << " is detected on the port, " << port;
+                sDisplayPortList.insert_or_assign(port, id);
             }
         }
-    );
+    });
 
     LOG(INFO) << "Found " << sDisplayPortList.size() << " displays";
 }
 
-
 // Methods from ::android::hardware::automotive::evs::V1_0::IEvsEnumerator follow.
-Return<void> EvsEnumerator::getCameraList(getCameraList_cb _hidl_cb)  {
+Return<void> EvsEnumerator::getCameraList(getCameraList_cb _hidl_cb) {
     LOG(DEBUG) << __FUNCTION__;
     if (!checkPermission()) {
         return Void();
@@ -239,9 +228,8 @@ Return<void> EvsEnumerator::getCameraList(getCameraList_cb _hidl_cb)  {
         if (sCameraList.size() < 1) {
             // No qualified device has been found.  Wait until new device is ready,
             // for 10 seconds.
-            if (!sCameraSignal.wait_for(lock,
-                                        kEnumerationTimeout,
-                                        []{ return sCameraList.size() > 0; })) {
+            if (!sCameraSignal.wait_for(lock, kEnumerationTimeout,
+                                        [] { return sCameraList.size() > 0; })) {
                 LOG(DEBUG) << "Timer expired.  No new device has been added.";
             }
         }
@@ -265,7 +253,6 @@ Return<void> EvsEnumerator::getCameraList(getCameraList_cb _hidl_cb)  {
     return Void();
 }
 
-
 Return<sp<IEvsCamera_1_0>> EvsEnumerator::openCamera(const hidl_string& cameraId) {
     LOG(DEBUG) << __FUNCTION__;
     if (!checkPermission()) {
@@ -273,7 +260,7 @@ Return<sp<IEvsCamera_1_0>> EvsEnumerator::openCamera(const hidl_string& cameraId
     }
 
     // Is this a recognized camera id?
-    CameraRecord *pRecord = findCameraById(cameraId);
+    CameraRecord* pRecord = findCameraById(cameraId);
     if (pRecord == nullptr) {
         LOG(ERROR) << cameraId << " does not exist!";
         return nullptr;
@@ -290,8 +277,8 @@ Return<sp<IEvsCamera_1_0>> EvsEnumerator::openCamera(const hidl_string& cameraId
     if (sConfigManager == nullptr) {
         pActiveCamera = EvsV4lCamera::Create(cameraId.c_str());
     } else {
-        pActiveCamera = EvsV4lCamera::Create(cameraId.c_str(),
-                                             sConfigManager->getCameraInfo(cameraId));
+        pActiveCamera =
+                EvsV4lCamera::Create(cameraId.c_str(), sConfigManager->getCameraInfo(cameraId));
     }
 
     pRecord->activeInstance = pActiveCamera;
@@ -301,7 +288,6 @@ Return<sp<IEvsCamera_1_0>> EvsEnumerator::openCamera(const hidl_string& cameraId
 
     return pActiveCamera;
 }
-
 
 Return<void> EvsEnumerator::closeCamera(const ::android::sp<IEvsCamera_1_0>& pCamera) {
     LOG(DEBUG) << __FUNCTION__;
@@ -313,16 +299,12 @@ Return<void> EvsEnumerator::closeCamera(const ::android::sp<IEvsCamera_1_0>& pCa
 
     // Get the camera id so we can find it in our list
     std::string cameraId;
-    pCamera->getCameraInfo([&cameraId](CameraDesc_1_0 desc) {
-                               cameraId = desc.cameraId;
-                           }
-    );
+    pCamera->getCameraInfo([&cameraId](CameraDesc_1_0 desc) { cameraId = desc.cameraId; });
 
     closeCamera_impl(pCamera, cameraId);
 
     return Void();
 }
-
 
 Return<sp<IEvsDisplay_1_0>> EvsEnumerator::openDisplay() {
     LOG(DEBUG) << __FUNCTION__;
@@ -346,7 +328,6 @@ Return<sp<IEvsDisplay_1_0>> EvsEnumerator::openDisplay() {
     return pActiveDisplay;
 }
 
-
 Return<void> EvsEnumerator::closeDisplay(const ::android::sp<IEvsDisplay_1_0>& pDisplay) {
     LOG(DEBUG) << __FUNCTION__;
 
@@ -366,8 +347,7 @@ Return<void> EvsEnumerator::closeDisplay(const ::android::sp<IEvsDisplay_1_0>& p
     return Void();
 }
 
-
-Return<EvsDisplayState> EvsEnumerator::getDisplayState()  {
+Return<EvsDisplayState> EvsEnumerator::getDisplayState() {
     LOG(DEBUG) << __FUNCTION__;
     if (!checkPermission()) {
         return EvsDisplayState::DEAD;
@@ -382,9 +362,8 @@ Return<EvsDisplayState> EvsEnumerator::getDisplayState()  {
     }
 }
 
-
 // Methods from ::android::hardware::automotive::evs::V1_1::IEvsEnumerator follow.
-Return<void> EvsEnumerator::getCameraList_1_1(getCameraList_1_1_cb _hidl_cb)  {
+Return<void> EvsEnumerator::getCameraList_1_1(getCameraList_1_1_cb _hidl_cb) {
     LOG(DEBUG) << __FUNCTION__;
     if (!checkPermission()) {
         return Void();
@@ -394,9 +373,8 @@ Return<void> EvsEnumerator::getCameraList_1_1(getCameraList_1_1_cb _hidl_cb)  {
         std::unique_lock<std::mutex> lock(sLock);
         if (sCameraList.size() < 1) {
             // No qualified device has been found.  Wait until new device is ready,
-            if (!sCameraSignal.wait_for(lock,
-                                        kEnumerationTimeout,
-                                        []{ return sCameraList.size() > 0; })) {
+            if (!sCameraSignal.wait_for(lock, kEnumerationTimeout,
+                                        [] { return sCameraList.size() > 0; })) {
                 LOG(DEBUG) << "Timer expired.  No new device has been added.";
             }
         }
@@ -415,13 +393,12 @@ Return<void> EvsEnumerator::getCameraList_1_1(getCameraList_1_1_cb _hidl_cb)  {
     } else {
         // Build up a packed array of CameraDesc for return
         for (auto&& [key, cam] : sCameraList) {
-            unique_ptr<ConfigManager::CameraInfo> &tempInfo =
-                sConfigManager->getCameraInfo(key);
+            std::unique_ptr<ConfigManager::CameraInfo>& tempInfo =
+                    sConfigManager->getCameraInfo(key);
             if (tempInfo != nullptr) {
-                cam.desc.metadata.setToExternal(
-                    (uint8_t *)tempInfo->characteristics,
-                     get_camera_metadata_size(tempInfo->characteristics)
-                );
+                cam.desc.metadata.setToExternal((uint8_t*)tempInfo->characteristics,
+                                                get_camera_metadata_size(
+                                                        tempInfo->characteristics));
             }
 
             hidlCameras.emplace_back(cam.desc);
@@ -435,14 +412,13 @@ Return<void> EvsEnumerator::getCameraList_1_1(getCameraList_1_1_cb _hidl_cb)  {
                 continue;
             }
 
-            unique_ptr<ConfigManager::CameraGroupInfo> &tempInfo =
-                sConfigManager->getCameraGroupInfo(id);
+            std::unique_ptr<ConfigManager::CameraGroupInfo>& tempInfo =
+                    sConfigManager->getCameraGroupInfo(id);
             CameraRecord cam(id.c_str());
             if (tempInfo != nullptr) {
-                cam.desc.metadata.setToExternal(
-                    (uint8_t *)tempInfo->characteristics,
-                     get_camera_metadata_size(tempInfo->characteristics)
-                );
+                cam.desc.metadata.setToExternal((uint8_t*)tempInfo->characteristics,
+                                                get_camera_metadata_size(
+                                                        tempInfo->characteristics));
             }
 
             sCameraList.emplace(id, cam);
@@ -457,7 +433,6 @@ Return<void> EvsEnumerator::getCameraList_1_1(getCameraList_1_1_cb _hidl_cb)  {
     return Void();
 }
 
-
 Return<sp<IEvsCamera_1_1>> EvsEnumerator::openCamera_1_1(const hidl_string& cameraId,
                                                          const Stream& streamCfg) {
     LOG(DEBUG) << __FUNCTION__;
@@ -466,7 +441,7 @@ Return<sp<IEvsCamera_1_1>> EvsEnumerator::openCamera_1_1(const hidl_string& came
     }
 
     // Is this a recognized camera id?
-    CameraRecord *pRecord = findCameraById(cameraId);
+    CameraRecord* pRecord = findCameraById(cameraId);
     if (pRecord == nullptr) {
         LOG(ERROR) << cameraId << " does not exist!";
         return nullptr;
@@ -486,8 +461,7 @@ Return<sp<IEvsCamera_1_1>> EvsEnumerator::openCamera_1_1(const hidl_string& came
         pActiveCamera = EvsV4lCamera::Create(cameraId.c_str());
     } else {
         pActiveCamera = EvsV4lCamera::Create(cameraId.c_str(),
-                                             sConfigManager->getCameraInfo(cameraId),
-                                             &streamCfg);
+                                             sConfigManager->getCameraInfo(cameraId), &streamCfg);
     }
     pRecord->activeInstance = pActiveCamera;
     if (pActiveCamera == nullptr) {
@@ -496,7 +470,6 @@ Return<sp<IEvsCamera_1_1>> EvsEnumerator::openCamera_1_1(const hidl_string& came
 
     return pActiveCamera;
 }
-
 
 Return<void> EvsEnumerator::getDisplayIdList(getDisplayIdList_cb _list_cb) {
     hidl_vec<uint8_t> ids;
@@ -516,7 +489,6 @@ Return<void> EvsEnumerator::getDisplayIdList(getDisplayIdList_cb _list_cb) {
     return Void();
 }
 
-
 Return<sp<IEvsDisplay_1_1>> EvsEnumerator::openDisplay_1_1(uint8_t port) {
     LOG(DEBUG) << __FUNCTION__;
     if (!checkPermission()) {
@@ -533,8 +505,7 @@ Return<sp<IEvsDisplay_1_1>> EvsEnumerator::openDisplay_1_1(uint8_t port) {
 
     // Create a new display interface and return it
     if (sDisplayPortList.find(port) == sDisplayPortList.end()) {
-        LOG(ERROR) << "No display is available on the port "
-                   << static_cast<int32_t>(port);
+        LOG(ERROR) << "No display is available on the port " << static_cast<int32_t>(port);
         return nullptr;
     }
 
@@ -545,11 +516,10 @@ Return<sp<IEvsDisplay_1_1>> EvsEnumerator::openDisplay_1_1(uint8_t port) {
     return pActiveDisplay;
 }
 
-
 void EvsEnumerator::closeCamera_impl(const sp<IEvsCamera_1_0>& pCamera,
                                      const std::string& cameraId) {
     // Find the named camera
-    CameraRecord *pRecord = findCameraById(cameraId);
+    CameraRecord* pRecord = findCameraById(cameraId);
 
     // Is the display being destroyed actually the one we think is active?
     if (!pRecord) {
@@ -575,17 +545,18 @@ void EvsEnumerator::closeCamera_impl(const sp<IEvsCamera_1_0>& pCamera,
     return;
 }
 
-
 bool EvsEnumerator::qualifyCaptureDevice(const char* deviceName) {
     class FileHandleWrapper {
     public:
-        FileHandleWrapper(int fd)   { mFd = fd; }
-        ~FileHandleWrapper()        { if (mFd > 0) close(mFd); }
-        operator int() const        { return mFd; }
+        FileHandleWrapper(int fd) { mFd = fd; }
+        ~FileHandleWrapper() {
+            if (mFd > 0) close(mFd);
+        }
+        operator int() const { return mFd; }
+
     private:
         int mFd = -1;
     };
-
 
     FileHandleWrapper fd = open(deviceName, O_RDWR, 0);
     if (fd < 0) {
@@ -594,11 +565,11 @@ bool EvsEnumerator::qualifyCaptureDevice(const char* deviceName) {
 
     v4l2_capability caps;
     int result = ioctl(fd, VIDIOC_QUERYCAP, &caps);
-    if (result  < 0) {
+    if (result < 0) {
         return false;
     }
     if (((caps.capabilities & V4L2_CAP_VIDEO_CAPTURE) == 0) ||
-        ((caps.capabilities & V4L2_CAP_STREAMING)     == 0)) {
+        ((caps.capabilities & V4L2_CAP_STREAMING) == 0)) {
         return false;
     }
 
@@ -606,27 +577,39 @@ bool EvsEnumerator::qualifyCaptureDevice(const char* deviceName) {
     v4l2_fmtdesc formatDescription;
     formatDescription.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     bool found = false;
-    for (int i=0; !found; i++) {
+    for (int i = 0; !found; i++) {
         formatDescription.index = i;
         if (ioctl(fd, VIDIOC_ENUM_FMT, &formatDescription) == 0) {
-            LOG(INFO) << "Format: 0x" << std::hex << formatDescription.pixelformat
-                      << " Type: 0x" << std::hex << formatDescription.type
-                      << " Desc: " << formatDescription.description
-                      << " Flags: 0x" << std::hex << formatDescription.flags;
-            switch (formatDescription.pixelformat)
-            {
-                case V4L2_PIX_FMT_YUYV:     found = true; break;
-                case V4L2_PIX_FMT_NV21:     found = true; break;
-                case V4L2_PIX_FMT_NV16:     found = true; break;
-                case V4L2_PIX_FMT_YVU420:   found = true; break;
-                case V4L2_PIX_FMT_RGB32:    found = true; break;
+            LOG(INFO) << "Format: 0x" << std::hex << formatDescription.pixelformat << " Type: 0x"
+                      << std::hex << formatDescription.type
+                      << " Desc: " << formatDescription.description << " Flags: 0x" << std::hex
+                      << formatDescription.flags;
+            switch (formatDescription.pixelformat) {
+                case V4L2_PIX_FMT_YUYV:
+                    found = true;
+                    break;
+                case V4L2_PIX_FMT_NV21:
+                    found = true;
+                    break;
+                case V4L2_PIX_FMT_NV16:
+                    found = true;
+                    break;
+                case V4L2_PIX_FMT_YVU420:
+                    found = true;
+                    break;
+                case V4L2_PIX_FMT_RGB32:
+                    found = true;
+                    break;
 #ifdef V4L2_PIX_FMT_ARGB32  // introduced with kernel v3.17
-                case V4L2_PIX_FMT_ARGB32:   found = true; break;
-                case V4L2_PIX_FMT_XRGB32:   found = true; break;
-#endif // V4L2_PIX_FMT_ARGB32
+                case V4L2_PIX_FMT_ARGB32:
+                    found = true;
+                    break;
+                case V4L2_PIX_FMT_XRGB32:
+                    found = true;
+                    break;
+#endif  // V4L2_PIX_FMT_ARGB32
                 default:
-                    LOG(WARNING) << "Unsupported, "
-                                 << std::hex << formatDescription.pixelformat;
+                    LOG(WARNING) << "Unsupported, " << std::hex << formatDescription.pixelformat;
                     break;
             }
         } else {
@@ -637,7 +620,6 @@ bool EvsEnumerator::qualifyCaptureDevice(const char* deviceName) {
 
     return found;
 }
-
 
 EvsEnumerator::CameraRecord* EvsEnumerator::findCameraById(const std::string& cameraId) {
     // Find the named camera
@@ -651,14 +633,12 @@ EvsEnumerator::CameraRecord* EvsEnumerator::findCameraById(const std::string& ca
     return nullptr;
 }
 
-
 // TODO(b/149874793): Add implementation for EVS Manager and Sample driver
 Return<void> EvsEnumerator::getUltrasonicsArrayList(getUltrasonicsArrayList_cb _hidl_cb) {
     hidl_vec<UltrasonicsArrayDesc> ultrasonicsArrayDesc;
     _hidl_cb(ultrasonicsArrayDesc);
     return Void();
 }
-
 
 // TODO(b/149874793): Add implementation for EVS Manager and Sample driver
 Return<sp<IEvsUltrasonicsArray>> EvsEnumerator::openUltrasonicsArray(
@@ -667,21 +647,18 @@ Return<sp<IEvsUltrasonicsArray>> EvsEnumerator::openUltrasonicsArray(
     return sp<IEvsUltrasonicsArray>();
 }
 
-
 // TODO(b/149874793): Add implementation for EVS Manager and Sample driver
 Return<void> EvsEnumerator::closeUltrasonicsArray(
-        const ::android::sp<IEvsUltrasonicsArray>& evsUltrasonicsArray)  {
+        const ::android::sp<IEvsUltrasonicsArray>& evsUltrasonicsArray) {
     (void)evsUltrasonicsArray;
     return Void();
 }
 
-
-using android::base::Result;
 using android::base::EqualsIgnoreCase;
+using android::base::Result;
 using android::base::StringPrintf;
 using android::base::WriteStringToFd;
-Return<void> EvsEnumerator::debug(const hidl_handle& fd,
-                                  const hidl_vec<hidl_string>& options) {
+Return<void> EvsEnumerator::debug(const hidl_handle& fd, const hidl_vec<hidl_string>& options) {
     if (fd.getNativeHandle() != nullptr && fd->numFds > 0) {
         parseCommand(fd->data[0], options);
     } else {
@@ -690,7 +667,6 @@ Return<void> EvsEnumerator::debug(const hidl_handle& fd,
 
     return {};
 }
-
 
 void EvsEnumerator::parseCommand(int fd, const hidl_vec<hidl_string>& options) {
     if (options.size() < 1) {
@@ -709,13 +685,12 @@ void EvsEnumerator::parseCommand(int fd, const hidl_vec<hidl_string>& options) {
     }
 }
 
-
 void EvsEnumerator::cmdHelp(int fd) {
     WriteStringToFd("--help: shows this help.\n"
                     "--dump [id] [start|stop] [directory]\n"
-                    "\tDump camera frames to a target directory\n", fd);
+                    "\tDump camera frames to a target directory\n",
+                    fd);
 }
-
 
 void EvsEnumerator::cmdDump(int fd, const hidl_vec<hidl_string>& options) {
     if (options.size() < 3) {
@@ -724,7 +699,7 @@ void EvsEnumerator::cmdDump(int fd, const hidl_vec<hidl_string>& options) {
         return;
     }
 
-    EvsEnumerator::CameraRecord *pRecord = findCameraById(options[1]);
+    EvsEnumerator::CameraRecord* pRecord = findCameraById(options[1]);
     if (pRecord == nullptr) {
         WriteStringToFd(StringPrintf("%s is not active\n", options[1].c_str()), fd);
         return;
@@ -749,14 +724,16 @@ void EvsEnumerator::cmdDump(int fd, const hidl_vec<hidl_string>& options) {
         auto ret = device->startDumpFrames(path);
         if (!ret.ok()) {
             WriteStringToFd(StringPrintf("Failed to start storing frames: %s\n",
-                                         ret.error().message().c_str()), fd);
+                                         ret.error().message().c_str()),
+                            fd);
         }
     } else if (EqualsIgnoreCase(command, "stop")) {
         // --dump [device id] stop
         auto ret = device->stopDumpFrames();
         if (!ret.ok()) {
             WriteStringToFd(StringPrintf("Failed to stop storing frames: %s\n",
-                                         ret.error().message().c_str()), fd);
+                                         ret.error().message().c_str()),
+                            fd);
         }
     } else {
         WriteStringToFd(StringPrintf("Unknown command: %s", command.c_str()), fd);
@@ -766,10 +743,9 @@ void EvsEnumerator::cmdDump(int fd, const hidl_vec<hidl_string>& options) {
     return;
 }
 
-
-} // namespace implementation
-} // namespace V1_1
-} // namespace evs
-} // namespace automotive
-} // namespace hardware
-} // namespace android
+}  // namespace implementation
+}  // namespace V1_1
+}  // namespace evs
+}  // namespace automotive
+}  // namespace hardware
+}  // namespace android

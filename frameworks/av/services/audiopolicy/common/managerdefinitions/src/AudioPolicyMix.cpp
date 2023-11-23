@@ -15,8 +15,12 @@
  */
 
 #define LOG_TAG "APM_AudioPolicyMix"
-//#define LOG_NDEBUG 0
+// #define LOG_NDEBUG 0
 
+#include <algorithm>
+#include <iterator>
+#include <optional>
+#include <regex>
 #include "AudioPolicyMix.h"
 #include "TypeConverter.h"
 #include "HwModule.h"
@@ -25,6 +29,98 @@
 #include <AudioOutputDescriptor.h>
 
 namespace android {
+namespace {
+
+bool matchAddressToTags(const audio_attributes_t& attr, const String8& addr) {
+    std::optional<std::string> tagAddress = extractAddressFromAudioAttributes(attr);
+    return tagAddress.has_value() && tagAddress->compare(addr.c_str()) == 0;
+}
+
+// Returns true if the criterion matches.
+// The exclude criteria are handled in the same way as positive
+// ones - only condition is matched (the function will return
+// same result both for RULE_MATCH_X and RULE_EXCLUDE_X).
+bool isCriterionMatched(const AudioMixMatchCriterion& criterion,
+                        const audio_attributes_t& attr,
+                        const uid_t uid,
+                        const audio_session_t session) {
+    uint32_t ruleWithoutExclusion = criterion.mRule & ~RULE_EXCLUSION_MASK;
+    switch(ruleWithoutExclusion) {
+        case RULE_MATCH_ATTRIBUTE_USAGE:
+            return criterion.mValue.mUsage == attr.usage;
+        case RULE_MATCH_ATTRIBUTE_CAPTURE_PRESET:
+            return criterion.mValue.mSource == attr.source;
+        case RULE_MATCH_UID:
+            return criterion.mValue.mUid == uid;
+        case RULE_MATCH_USERID:
+            {
+                userid_t userId = multiuser_get_user_id(uid);
+                return criterion.mValue.mUserId == userId;
+            }
+        case RULE_MATCH_AUDIO_SESSION_ID:
+            return criterion.mValue.mAudioSessionId == session;
+    }
+    ALOGE("Encountered invalid mix rule 0x%x", criterion.mRule);
+    return false;
+}
+
+// Returns true if vector of criteria is matched:
+// - If any of the exclude criteria is matched the criteria doesn't match.
+// - Otherwise, for each 'dimension' of positive rule present
+//   (usage, capture preset, uid, userid...) at least one rule must match
+//   for the criteria to match.
+bool areMixCriteriaMatched(const std::vector<AudioMixMatchCriterion>& criteria,
+                           const audio_attributes_t& attr,
+                           const uid_t uid,
+                           const audio_session_t session) {
+    // If any of the exclusion criteria are matched the mix doesn't match.
+    auto isMatchingExcludeCriterion = [&](const AudioMixMatchCriterion& c) {
+        return c.isExcludeCriterion() && isCriterionMatched(c, attr, uid, session);
+    };
+    if (std::any_of(criteria.begin(), criteria.end(), isMatchingExcludeCriterion)) {
+        return false;
+    }
+
+    uint32_t presentPositiveRules = 0; // Bitmask of all present positive criteria.
+    uint32_t matchedPositiveRules = 0; // Bitmask of all matched positive criteria.
+    for (const auto& criterion : criteria) {
+        if (criterion.isExcludeCriterion()) {
+            continue;
+        }
+        presentPositiveRules |= criterion.mRule;
+        if (isCriterionMatched(criterion, attr, uid, session)) {
+            matchedPositiveRules |= criterion.mRule;
+        }
+    }
+    return presentPositiveRules == matchedPositiveRules;
+}
+
+// Consistency checks: for each "dimension" of rules (usage, uid...), we can
+// only have MATCH rules, or EXCLUDE rules in each dimension, not a combination.
+bool areMixCriteriaConsistent(const std::vector<AudioMixMatchCriterion>& criteria) {
+    std::set<uint32_t> positiveCriteria;
+    for (const AudioMixMatchCriterion& c : criteria) {
+        if (c.isExcludeCriterion()) {
+            continue;
+        }
+        positiveCriteria.insert(c.mRule);
+    }
+
+    auto isConflictingCriterion = [&positiveCriteria](const AudioMixMatchCriterion& c) {
+        uint32_t ruleWithoutExclusion = c.mRule & ~RULE_EXCLUSION_MASK;
+        return c.isExcludeCriterion() &&
+               (positiveCriteria.find(ruleWithoutExclusion) != positiveCriteria.end());
+    };
+    return std::none_of(criteria.begin(), criteria.end(), isConflictingCriterion);
+}
+
+template <typename Predicate>
+void EraseCriteriaIf(std::vector<AudioMixMatchCriterion>& v,
+                     const Predicate& predicate) {
+    v.erase(std::remove_if(v.begin(), v.end(), predicate), v.end());
+}
+
+} // namespace
 
 void AudioPolicyMix::dump(String8 *dst, int spaces, int index) const
 {
@@ -66,6 +162,9 @@ void AudioPolicyMix::dump(String8 *dst, int spaces, int index) const
         case RULE_MATCH_USERID:
             ruleValue = std::to_string(criterion.mValue.mUserId);
             break;
+        case RULE_MATCH_AUDIO_SESSION_ID:
+            ruleValue = std::to_string(criterion.mValue.mAudioSessionId);
+            break;
         default:
             unknownRule = true;
         }
@@ -78,23 +177,30 @@ void AudioPolicyMix::dump(String8 *dst, int spaces, int index) const
     }
 }
 
-status_t AudioPolicyMixCollection::registerMix(AudioMix mix, sp<SwAudioOutputDescriptor> desc)
+status_t AudioPolicyMixCollection::registerMix(const AudioMix& mix,
+                                               const sp<SwAudioOutputDescriptor>& desc)
 {
     for (size_t i = 0; i < size(); i++) {
         const sp<AudioPolicyMix>& registeredMix = itemAt(i);
         if (mix.mDeviceType == registeredMix->mDeviceType
-                && mix.mDeviceAddress.compare(registeredMix->mDeviceAddress) == 0) {
+                && mix.mDeviceAddress.compare(registeredMix->mDeviceAddress) == 0
+                && is_mix_loopback(mix.mRouteFlags)) {
             ALOGE("registerMix(): mix already registered for dev=0x%x addr=%s",
                     mix.mDeviceType, mix.mDeviceAddress.string());
             return BAD_VALUE;
         }
     }
-    sp<AudioPolicyMix> policyMix = new AudioPolicyMix(mix);
+    if (!areMixCriteriaConsistent(mix.mCriteria)) {
+        ALOGE("registerMix(): Mix contains inconsistent criteria "
+              "(MATCH & EXCLUDE criteria of the same type)");
+        return BAD_VALUE;
+    }
+    sp<AudioPolicyMix> policyMix = sp<AudioPolicyMix>::make(mix);
     add(policyMix);
     ALOGD("registerMix(): adding mix for dev=0x%x addr=%s",
             policyMix->mDeviceType, policyMix->mDeviceAddress.string());
 
-    if (desc != 0) {
+    if (desc != nullptr) {
         desc->mPolicyMix = policyMix;
         policyMix->setOutput(desc);
     }
@@ -151,25 +257,26 @@ void AudioPolicyMixCollection::closeOutput(sp<SwAudioOutputDescriptor> &desc)
 }
 
 status_t AudioPolicyMixCollection::getOutputForAttr(
-        const audio_attributes_t& attributes, uid_t uid,
+        const audio_attributes_t& attributes, const audio_config_base_t& config, const uid_t uid,
+        const audio_session_t session,
         audio_output_flags_t flags,
+        const DeviceVector &availableOutputDevices,
+        const sp<DeviceDescriptor>& requestedDevice,
         sp<AudioPolicyMix> &primaryMix,
-        std::vector<sp<AudioPolicyMix>> *secondaryMixes)
+        std::vector<sp<AudioPolicyMix>> *secondaryMixes,
+        bool& usePrimaryOutputFromPolicyMixes)
 {
     ALOGV("getOutputForAttr() querying %zu mixes:", size());
     primaryMix.clear();
+    bool mixesDisallowsRequestedDevice = false;
     for (size_t i = 0; i < size(); i++) {
         sp<AudioPolicyMix> policyMix = itemAt(i);
         const bool primaryOutputMix = !is_mix_loopback_render(policyMix->mRouteFlags);
-        if (!primaryOutputMix && (flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ)) {
-            // AAudio does not support MMAP_NO_IRQ loopback render, and there is no way with
-            // the current MmapStreamInterface::start to reject a specific client added to a shared
-            // mmap stream.
-            // As a result all MMAP_NOIRQ requests have to be rejected when an loopback render
-            // policy is present. That ensures no shared mmap stream is used when an loopback
-            // render policy is registered.
-            ALOGD("%s: Rejecting MMAP_NOIRQ request due to LOOPBACK|RENDER mix present.", __func__);
-            return INVALID_OPERATION;
+        sp<DeviceDescriptor> mixDevice = getOutputDeviceForMix(policyMix.get(),
+            availableOutputDevices);
+        if (mixDisallowsRequestedDevice(policyMix.get(), requestedDevice, mixDevice, uid)) {
+            ALOGV("%s: Mix %zu: does not allows device", __func__, i);
+            mixesDisallowsRequestedDevice = true;
         }
 
         if (primaryOutputMix && primaryMix != nullptr) {
@@ -177,15 +284,22 @@ status_t AudioPolicyMixCollection::getOutputForAttr(
             continue; // Primary output already found
         }
 
-        switch (mixMatch(policyMix.get(), i, attributes, uid)) {
-            case MixMatchStatus::INVALID_MIX:
-                // The mix has contradictory rules, ignore it
-                // TODO: reject invalid mix at registration
-                continue;
-            case MixMatchStatus::NO_MATCH:
-                ALOGV("%s: Mix %zu: does not match", __func__, i);
-                continue; // skip the mix
-            case MixMatchStatus::MATCH:;
+        if(!mixMatch(policyMix.get(), i, attributes, config, uid, session)) {
+            ALOGV("%s: Mix %zu: does not match", __func__, i);
+            continue; // skip the mix
+        }
+
+        if ((flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) && is_mix_loopback(policyMix->mRouteFlags)) {
+            // AAudio MMAP_NOIRQ streams cannot be routed to loopback/loopback+render
+            // using dynamic audio policy.
+            ALOGD("%s: Rejecting MMAP_NOIRQ request matched to loopback dynamic audio policy mix.",
+                __func__);
+            return INVALID_OPERATION;
+        }
+
+        if (mixDevice != nullptr && mixDevice->equals(requestedDevice)) {
+            ALOGV("%s: Mix %zu: requested device mathches", __func__, i);
+            mixesDisallowsRequestedDevice = false;
         }
 
         if (primaryOutputMix) {
@@ -198,11 +312,39 @@ status_t AudioPolicyMixCollection::getOutputForAttr(
             }
         }
     }
+
+    // Explicit routing is higher priority than dynamic policy primary output, but policy may
+    // explicitly deny it
+    usePrimaryOutputFromPolicyMixes =
+        (mixesDisallowsRequestedDevice || requestedDevice == nullptr) && primaryMix != nullptr;
+
     return NO_ERROR;
 }
 
-AudioPolicyMixCollection::MixMatchStatus AudioPolicyMixCollection::mixMatch(
-        const AudioMix* mix, size_t mixIndex, const audio_attributes_t& attributes, uid_t uid) {
+sp<DeviceDescriptor> AudioPolicyMixCollection::getOutputDeviceForMix(const AudioMix* mix,
+                                                    const DeviceVector& availableOutputDevices) {
+    ALOGV("%s: device (0x%x, addr=%s) forced by mix", __func__, mix->mDeviceType,
+        mix->mDeviceAddress.c_str());
+    return availableOutputDevices.getDevice(mix->mDeviceType, mix->mDeviceAddress,
+        AUDIO_FORMAT_DEFAULT);
+}
+
+bool AudioPolicyMixCollection::mixDisallowsRequestedDevice(const AudioMix* mix,
+                                                     const sp<DeviceDescriptor>& requestedDevice,
+                                                     const sp<DeviceDescriptor>& mixDevice,
+                                                     const uid_t uid) {
+    if (requestedDevice == nullptr || mixDevice == nullptr) {
+        return false;
+    }
+
+    return is_mix_disallows_preferred_device(mix->mRouteFlags)
+        && requestedDevice->equals(mixDevice)
+        && mix->hasUserIdRule(false /* match */, multiuser_get_user_id(uid));
+}
+
+bool AudioPolicyMixCollection::mixMatch(const AudioMix* mix, size_t mixIndex,
+    const audio_attributes_t& attributes, const audio_config_base_t& config,
+    uid_t uid, audio_session_t session) {
 
     if (mix->mMixType == MIX_TYPE_PLAYERS) {
         // Loopback render mixes are created from a public API and thus restricted
@@ -212,163 +354,45 @@ AudioPolicyMixCollection::MixMatchStatus AudioPolicyMixCollection::mixMatch(
                   attributes.usage == AUDIO_USAGE_MEDIA ||
                   attributes.usage == AUDIO_USAGE_GAME ||
                   attributes.usage == AUDIO_USAGE_VOICE_COMMUNICATION)) {
-                return MixMatchStatus::NO_MATCH;
+                return false;
             }
             auto hasFlag = [](auto flags, auto flag) { return (flags & flag) == flag; };
             if (hasFlag(attributes.flags, AUDIO_FLAG_NO_SYSTEM_CAPTURE)) {
-                return MixMatchStatus::NO_MATCH;
+                return false;
             }
 
             if (attributes.usage == AUDIO_USAGE_VOICE_COMMUNICATION) {
                 if (!mix->mVoiceCommunicationCaptureAllowed) {
-                    return MixMatchStatus::NO_MATCH;
+                    return false;
                 }
             } else if (!mix->mAllowPrivilegedMediaPlaybackCapture &&
                 hasFlag(attributes.flags, AUDIO_FLAG_NO_MEDIA_PROJECTION)) {
-                return MixMatchStatus::NO_MATCH;
+                return false;
             }
         }
 
-        int userId = (int) multiuser_get_user_id(uid);
-
-        // TODO if adding more player rules (currently only 2), make rule handling "generic"
-        //      as there is no difference in the treatment of usage- or uid-based rules
-        bool hasUsageMatchRules = false;
-        bool hasUsageExcludeRules = false;
-        bool usageMatchFound = false;
-        bool usageExclusionFound = false;
-
-        bool hasUidMatchRules = false;
-        bool hasUidExcludeRules = false;
-        bool uidMatchFound = false;
-        bool uidExclusionFound = false;
-
-        bool hasUserIdExcludeRules = false;
-        bool userIdExclusionFound = false;
-        bool hasUserIdMatchRules = false;
-        bool userIdMatchFound = false;
-
-
-        bool hasAddrMatch = false;
-
-        // iterate over all mix criteria to list what rules this mix contains
-        for (size_t j = 0; j < mix->mCriteria.size(); j++) {
-            ALOGV(" getOutputForAttr: mix %zu: inspecting mix criteria %zu of %zu",
-                    mixIndex, j, mix->mCriteria.size());
-
-            // if there is an address match, prioritize that match
-            if (strncmp(attributes.tags, "addr=", strlen("addr=")) == 0 &&
-                    strncmp(attributes.tags + strlen("addr="),
-                            mix->mDeviceAddress.string(),
-                            AUDIO_ATTRIBUTES_TAGS_MAX_SIZE - strlen("addr=") - 1) == 0) {
-                hasAddrMatch = true;
-                break;
-            }
-
-            switch (mix->mCriteria[j].mRule) {
-            case RULE_MATCH_ATTRIBUTE_USAGE:
-                ALOGV("\tmix has RULE_MATCH_ATTRIBUTE_USAGE for usage %d",
-                                            mix->mCriteria[j].mValue.mUsage);
-                hasUsageMatchRules = true;
-                if (mix->mCriteria[j].mValue.mUsage == attributes.usage) {
-                    // found one match against all allowed usages
-                    usageMatchFound = true;
-                }
-                break;
-            case RULE_EXCLUDE_ATTRIBUTE_USAGE:
-                ALOGV("\tmix has RULE_EXCLUDE_ATTRIBUTE_USAGE for usage %d",
-                        mix->mCriteria[j].mValue.mUsage);
-                hasUsageExcludeRules = true;
-                if (mix->mCriteria[j].mValue.mUsage == attributes.usage) {
-                    // found this usage is to be excluded
-                    usageExclusionFound = true;
-                }
-                break;
-            case RULE_MATCH_UID:
-                ALOGV("\tmix has RULE_MATCH_UID for uid %d", mix->mCriteria[j].mValue.mUid);
-                hasUidMatchRules = true;
-                if (mix->mCriteria[j].mValue.mUid == uid) {
-                    // found one UID match against all allowed UIDs
-                    uidMatchFound = true;
-                }
-                break;
-            case RULE_EXCLUDE_UID:
-                ALOGV("\tmix has RULE_EXCLUDE_UID for uid %d", mix->mCriteria[j].mValue.mUid);
-                hasUidExcludeRules = true;
-                if (mix->mCriteria[j].mValue.mUid == uid) {
-                    // found this UID is to be excluded
-                    uidExclusionFound = true;
-                }
-                break;
-            case RULE_MATCH_USERID:
-                ALOGV("\tmix has RULE_MATCH_USERID for userId %d",
-                    mix->mCriteria[j].mValue.mUserId);
-                hasUserIdMatchRules = true;
-                if (mix->mCriteria[j].mValue.mUserId == userId) {
-                    // found one userId match against all allowed userIds
-                    userIdMatchFound = true;
-                }
-                break;
-            case RULE_EXCLUDE_USERID:
-                ALOGV("\tmix has RULE_EXCLUDE_USERID for userId %d",
-                    mix->mCriteria[j].mValue.mUserId);
-                hasUserIdExcludeRules = true;
-                if (mix->mCriteria[j].mValue.mUserId == userId) {
-                    // found this userId is to be excluded
-                    userIdExclusionFound = true;
-                }
-                break;
-            default:
-                break;
-            }
-
-            // consistency checks: for each "dimension" of rules (usage, uid...), we can
-            // only have MATCH rules, or EXCLUDE rules in each dimension, not a combination
-            if (hasUsageMatchRules && hasUsageExcludeRules) {
-                ALOGE("getOutputForAttr: invalid combination of RULE_MATCH_ATTRIBUTE_USAGE"
-                        " and RULE_EXCLUDE_ATTRIBUTE_USAGE in mix %zu", mixIndex);
-                return MixMatchStatus::INVALID_MIX;
-            }
-            if (hasUidMatchRules && hasUidExcludeRules) {
-                ALOGE("getOutputForAttr: invalid combination of RULE_MATCH_UID"
-                        " and RULE_EXCLUDE_UID in mix %zu", mixIndex);
-                return MixMatchStatus::INVALID_MIX;
-            }
-            if (hasUserIdMatchRules && hasUserIdExcludeRules) {
-                ALOGE("getOutputForAttr: invalid combination of RULE_MATCH_USERID"
-                        " and RULE_EXCLUDE_USERID in mix %zu", mixIndex);
-                    return MixMatchStatus::INVALID_MIX;
-            }
-
-            if ((hasUsageExcludeRules && usageExclusionFound)
-                    || (hasUidExcludeRules && uidExclusionFound)
-                    || (hasUserIdExcludeRules && userIdExclusionFound)) {
-                break; // stop iterating on criteria because an exclusion was found (will fail)
-            }
-        }//iterate on mix criteria
-
-        // determine if exiting on success (or implicit failure as desc is 0)
-        if (hasAddrMatch ||
-                !((hasUsageExcludeRules && usageExclusionFound) ||
-                  (hasUsageMatchRules && !usageMatchFound)  ||
-                  (hasUidExcludeRules && uidExclusionFound) ||
-                  (hasUidMatchRules && !uidMatchFound) ||
-                  (hasUserIdExcludeRules && userIdExclusionFound) ||
-                  (hasUserIdMatchRules && !userIdMatchFound))) {
-            ALOGV("\tgetOutputForAttr will use mix %zu", mixIndex);
-            return MixMatchStatus::MATCH;
+        // Permit match only if requested format and mix format are PCM and can be format
+        // adapted by the mixer, or are the same (compressed) format.
+        if (!is_mix_loopback(mix->mRouteFlags) &&
+            !((audio_is_linear_pcm(config.format) && audio_is_linear_pcm(mix->mFormat.format)) ||
+              (config.format == mix->mFormat.format)) &&
+              config.format != AUDIO_CONFIG_BASE_INITIALIZER.format) {
+            return false;
         }
 
+        // if there is an address match, prioritize that match
+        if (matchAddressToTags(attributes, mix->mDeviceAddress)
+            || areMixCriteriaMatched(mix->mCriteria, attributes, uid, session)) {
+                ALOGV("\tgetOutputForAttr will use mix %zu", mixIndex);
+                return true;
+        }
     } else if (mix->mMixType == MIX_TYPE_RECORDERS) {
         if (attributes.usage == AUDIO_USAGE_VIRTUAL_SOURCE &&
-                strncmp(attributes.tags, "addr=", strlen("addr=")) == 0 &&
-                strncmp(attributes.tags + strlen("addr="),
-                        mix->mDeviceAddress.string(),
-                        AUDIO_ATTRIBUTES_TAGS_MAX_SIZE - strlen("addr=") - 1) == 0) {
-            return MixMatchStatus::MATCH;
+            matchAddressToTags(attributes, mix->mDeviceAddress)) {
+            return true;
         }
     }
-    return MixMatchStatus::NO_MATCH;
+    return false;
 }
 
 sp<DeviceDescriptor> AudioPolicyMixCollection::getDeviceAndMixForOutput(
@@ -378,20 +402,17 @@ sp<DeviceDescriptor> AudioPolicyMixCollection::getDeviceAndMixForOutput(
     for (size_t i = 0; i < size(); i++) {
         if (itemAt(i)->getOutput() == output) {
             // This Desc is involved in a Mix, which has the highest prio
-            audio_devices_t deviceType = itemAt(i)->mDeviceType;
-            String8 address = itemAt(i)->mDeviceAddress;
-            ALOGV("%s: device (0x%x, addr=%s) forced by mix",
-                  __FUNCTION__, deviceType, address.c_str());
-            return availableOutputDevices.getDevice(deviceType, address, AUDIO_FORMAT_DEFAULT);
+            return getOutputDeviceForMix(itemAt(i).get(), availableOutputDevices);
         }
     }
     return nullptr;
 }
 
 sp<DeviceDescriptor> AudioPolicyMixCollection::getDeviceAndMixForInputSource(
-        audio_source_t inputSource,
+        const audio_attributes_t& attributes,
         const DeviceVector &availDevices,
         uid_t uid,
+        audio_session_t session,
         sp<AudioPolicyMix> *policyMix) const
 {
     for (size_t i = 0; i < size(); i++) {
@@ -399,28 +420,17 @@ sp<DeviceDescriptor> AudioPolicyMixCollection::getDeviceAndMixForInputSource(
         if (mix->mMixType != MIX_TYPE_RECORDERS) {
             continue;
         }
-        for (size_t j = 0; j < mix->mCriteria.size(); j++) {
-            if ((RULE_MATCH_ATTRIBUTE_CAPTURE_PRESET == mix->mCriteria[j].mRule &&
-                    mix->mCriteria[j].mValue.mSource == inputSource) ||
-               (RULE_EXCLUDE_ATTRIBUTE_CAPTURE_PRESET == mix->mCriteria[j].mRule &&
-                    mix->mCriteria[j].mValue.mSource != inputSource) ||
-               (RULE_MATCH_UID == mix->mCriteria[j].mRule &&
-                    mix->mCriteria[j].mValue.mUid == uid) ||
-               (RULE_EXCLUDE_UID == mix->mCriteria[j].mRule &&
-                    mix->mCriteria[j].mValue.mUid != uid)) {
-                // assuming PolicyMix only for remote submix for input
-                // so mix->mDeviceType can only be AUDIO_DEVICE_OUT_REMOTE_SUBMIX
-                audio_devices_t device = AUDIO_DEVICE_IN_REMOTE_SUBMIX;
-                auto mixDevice =
-                        availDevices.getDevice(device, mix->mDeviceAddress, AUDIO_FORMAT_DEFAULT);
+        if (areMixCriteriaMatched(mix->mCriteria, attributes, uid, session)) {
+            // Assuming PolicyMix only for remote submix for input
+            // so mix->mDeviceType can only be AUDIO_DEVICE_OUT_REMOTE_SUBMIX.
+            auto mixDevice = availDevices.getDevice(AUDIO_DEVICE_IN_REMOTE_SUBMIX,
+             mix->mDeviceAddress, AUDIO_FORMAT_DEFAULT);
                 if (mixDevice != nullptr) {
                     if (policyMix != nullptr) {
                         *policyMix = mix;
                     }
                     return mixDevice;
                 }
-                break;
-            }
         }
     }
     return nullptr;
@@ -429,14 +439,14 @@ sp<DeviceDescriptor> AudioPolicyMixCollection::getDeviceAndMixForInputSource(
 status_t AudioPolicyMixCollection::getInputMixForAttr(
         audio_attributes_t attr, sp<AudioPolicyMix> *policyMix)
 {
-    if (strncmp(attr.tags, "addr=", strlen("addr=")) != 0) {
+    std::optional<std::string> address = extractAddressFromAudioAttributes(attr);
+    if (!address.has_value()) {
         return BAD_VALUE;
     }
-    String8 address(attr.tags + strlen("addr="));
 
 #ifdef LOG_NDEBUG
     ALOGV("getInputMixForAttr looking for address %s for source %d\n  mixes available:",
-            address.string(), attr.source);
+            address->c_str(), attr.source);
     for (size_t i = 0; i < size(); i++) {
         const sp<AudioPolicyMix> audioPolicyMix = itemAt(i);
         ALOGV("\tmix %zu address=%s", i, audioPolicyMix->mDeviceAddress.string());
@@ -446,20 +456,20 @@ status_t AudioPolicyMixCollection::getInputMixForAttr(
     size_t index;
     for (index = 0; index < size(); index++) {
         const sp<AudioPolicyMix>& registeredMix = itemAt(index);
-        if (registeredMix->mDeviceAddress.compare(address) == 0) {
+        if (address->compare(registeredMix->mDeviceAddress.c_str()) == 0) {
             ALOGD("getInputMixForAttr found addr=%s dev=0x%x",
                     registeredMix->mDeviceAddress.string(), registeredMix->mDeviceType);
             break;
         }
     }
     if (index == size()) {
-        ALOGW("getInputMixForAttr() no policy for address %s", address.string());
+        ALOGW("getInputMixForAttr() no policy for address %s", address->c_str());
         return BAD_VALUE;
     }
     const sp<AudioPolicyMix> audioPolicyMix = itemAt(index);
 
     if (audioPolicyMix->mMixType != MIX_TYPE_PLAYERS) {
-        ALOGW("getInputMixForAttr() bad policy mix type for address %s", address.string());
+        ALOGW("getInputMixForAttr() bad policy mix type for address %s", address->c_str());
         return BAD_VALUE;
     }
     if (policyMix != nullptr) {
@@ -491,7 +501,7 @@ status_t AudioPolicyMixCollection::setUidDeviceAffinities(uid_t uid,
     //     AND it doesn't have a "match uid" rule
     //   THEN add a rule to exclude the uid
     for (size_t i = 0; i < size(); i++) {
-        const AudioPolicyMix *mix = itemAt(i).get();
+        AudioPolicyMix *mix = itemAt(i).get();
         if (!mix->isDeviceAffinityCompatible()) {
             continue;
         }
@@ -521,27 +531,16 @@ status_t AudioPolicyMixCollection::setUidDeviceAffinities(uid_t uid,
 status_t AudioPolicyMixCollection::removeUidDeviceAffinities(uid_t uid) {
     // for each player mix: remove existing rules that match or exclude this uid
     for (size_t i = 0; i < size(); i++) {
-        bool foundUidRule = false;
-        const AudioPolicyMix *mix = itemAt(i).get();
+        AudioPolicyMix *mix = itemAt(i).get();
         if (!mix->isDeviceAffinityCompatible()) {
             continue;
         }
-        std::vector<size_t> criteriaToRemove;
-        for (size_t j = 0; j < mix->mCriteria.size(); j++) {
-            const uint32_t rule = mix->mCriteria[j].mRule;
-            // is this rule excluding the uid? (not considering uid match rules
-            // as those are not used for uid-device affinity)
-            if (rule == RULE_EXCLUDE_UID
-                    && uid == mix->mCriteria[j].mValue.mUid) {
-                foundUidRule = true;
-                criteriaToRemove.insert(criteriaToRemove.begin(), j);
-            }
-        }
-        if (foundUidRule) {
-            for (size_t j = 0; j < criteriaToRemove.size(); j++) {
-                mix->mCriteria.removeAt(criteriaToRemove[j]);
-            }
-        }
+
+        // is this rule excluding the uid? (not considering uid match rules
+        // as those are not used for uid-device affinity)
+        EraseCriteriaIf(mix->mCriteria, [uid](const AudioMixMatchCriterion& c) {
+            return c.mRule == RULE_EXCLUDE_UID && c.mValue.mUid == uid;
+        });
     }
     return NO_ERROR;
 }
@@ -576,7 +575,7 @@ status_t AudioPolicyMixCollection::setUserIdDeviceAffinities(int userId,
     //    "match userId" rule for this userId, return an error
     //    (adding a userId-device affinity would result in contradictory rules)
     for (size_t i = 0; i < size(); i++) {
-        const AudioPolicyMix* mix = itemAt(i).get();
+        AudioPolicyMix* mix = itemAt(i).get();
         if (!mix->isDeviceAffinityCompatible()) {
             continue;
         }
@@ -593,7 +592,7 @@ status_t AudioPolicyMixCollection::setUserIdDeviceAffinities(int userId,
     //     AND it doesn't have a "match userId" rule
     //   THEN add a rule to exclude the userId
     for (size_t i = 0; i < size(); i++) {
-        const AudioPolicyMix *mix = itemAt(i).get();
+        AudioPolicyMix *mix = itemAt(i).get();
         if (!mix->isDeviceAffinityCompatible()) {
             continue;
         }
@@ -606,13 +605,14 @@ status_t AudioPolicyMixCollection::setUserIdDeviceAffinities(int userId,
                 break;
             }
         }
-        if (!deviceMatch && !mix->hasMatchUserIdRule()) {
+        if (!deviceMatch && !mix->hasUserIdRule(true /*match*/)) {
             // this mix doesn't go to one of the listed devices for the given userId,
             // and it's not already restricting the mix on a userId,
             // modify its rules to exclude the userId
-            if (!mix->hasUserIdRule(false /*match*/, userId)) {
+            if (!mix->hasUserIdRule(false /* match */, userId)) {
                 // no need to do it again if userId is already excluded
                 mix->setExcludeUserId(userId);
+                mix->mRouteFlags = mix->mRouteFlags | MIX_ROUTE_FLAG_DISALLOWS_PREFERRED_DEVICE;
             }
         }
     }
@@ -623,26 +623,19 @@ status_t AudioPolicyMixCollection::setUserIdDeviceAffinities(int userId,
 status_t AudioPolicyMixCollection::removeUserIdDeviceAffinities(int userId) {
     // for each player mix: remove existing rules that match or exclude this userId
     for (size_t i = 0; i < size(); i++) {
-        bool foundUserIdRule = false;
-        const AudioPolicyMix *mix = itemAt(i).get();
+        AudioPolicyMix *mix = itemAt(i).get();
         if (!mix->isDeviceAffinityCompatible()) {
             continue;
         }
-        std::vector<size_t> criteriaToRemove;
-        for (size_t j = 0; j < mix->mCriteria.size(); j++) {
-            const uint32_t rule = mix->mCriteria[j].mRule;
-            // is this rule excluding the userId? (not considering userId match rules
-            // as those are not used for userId-device affinity)
-            if (rule == RULE_EXCLUDE_USERID
-                    && userId == mix->mCriteria[j].mValue.mUserId) {
-                foundUserIdRule = true;
-                criteriaToRemove.insert(criteriaToRemove.begin(), j);
-            }
-        }
-        if (foundUserIdRule) {
-            for (size_t j = 0; j < criteriaToRemove.size(); j++) {
-                mix->mCriteria.removeAt(criteriaToRemove[j]);
-            }
+
+        // is this rule excluding the userId? (not considering userId match rules
+        // as those are not used for userId-device affinity)
+        EraseCriteriaIf(mix->mCriteria, [userId](const AudioMixMatchCriterion& c) {
+            return c.mRule == RULE_EXCLUDE_USERID && c.mValue.mUserId == userId;
+        });
+
+        if (!mix->hasUserIdRule(false /* match */)) {
+            mix->mRouteFlags = mix->mRouteFlags & ~MIX_ROUTE_FLAG_DISALLOWS_PREFERRED_DEVICE;
         }
     }
     return NO_ERROR;
@@ -679,6 +672,16 @@ void AudioPolicyMixCollection::dump(String8 *dst) const
     for (size_t i = 0; i < size(); i++) {
         itemAt(i)->dump(dst, 2, i);
     }
+}
+
+std::optional<std::string> extractAddressFromAudioAttributes(const audio_attributes_t& attr) {
+    static const std::regex addrTagRegex("addr=([^;]+)");
+
+    std::cmatch match;
+    if (std::regex_search(attr.tags, match, addrTagRegex)) {
+        return match[1].str();
+    }
+    return std::nullopt;
 }
 
 }; //namespace android

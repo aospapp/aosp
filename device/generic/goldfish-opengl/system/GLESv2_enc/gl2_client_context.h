@@ -437,13 +437,25 @@ struct gl2_client_context_t {
 	glUnmapBufferAsyncAEMU_client_proc_t glUnmapBufferAsyncAEMU;
 	glFlushMappedBufferRangeAEMU2_client_proc_t glFlushMappedBufferRangeAEMU2;
 	glBufferDataSyncAEMU_client_proc_t glBufferDataSyncAEMU;
+	glTexBufferOES_client_proc_t glTexBufferOES;
+	glTexBufferRangeOES_client_proc_t glTexBufferRangeOES;
+	glTexBufferEXT_client_proc_t glTexBufferEXT;
+	glTexBufferRangeEXT_client_proc_t glTexBufferRangeEXT;
+	glEnableiEXT_client_proc_t glEnableiEXT;
+	glDisableiEXT_client_proc_t glDisableiEXT;
+	glBlendEquationiEXT_client_proc_t glBlendEquationiEXT;
+	glBlendEquationSeparateiEXT_client_proc_t glBlendEquationSeparateiEXT;
+	glBlendFunciEXT_client_proc_t glBlendFunciEXT;
+	glBlendFuncSeparateiEXT_client_proc_t glBlendFuncSeparateiEXT;
+	glColorMaskiEXT_client_proc_t glColorMaskiEXT;
+	glIsEnablediEXT_client_proc_t glIsEnablediEXT;
 	virtual ~gl2_client_context_t() {}
 
 	typedef gl2_client_context_t *CONTEXT_ACCESSOR_TYPE(void);
 	static void setContextAccessor(CONTEXT_ACCESSOR_TYPE *f);
 	int initDispatchByName( void *(*getProc)(const char *name, void *userData), void *userData);
-	virtual void setError(unsigned int  error){ (void)error; };
-	virtual unsigned int getError(){ return 0; };
+	virtual void setError(unsigned int  error){ (void)error; }
+	virtual unsigned int getError(){ return 0; }
 };
 
 #endif

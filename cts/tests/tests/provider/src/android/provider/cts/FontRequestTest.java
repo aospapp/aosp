@@ -30,6 +30,7 @@ import org.junit.runner.RunWith;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Collections;
 
 /**
  * Tests for {@link android.provider.FontRequest}.
@@ -42,7 +43,8 @@ public class FontRequestTest {
     private static final String PACKAGE = "com.test.fontprovider.package";
     private static final byte[] BYTE_ARRAY =
             Base64.decode("e04fd020ea3a6910a2d808002b30", Base64.DEFAULT);
-    private static final List<List<byte[]>> CERTS = Arrays.asList(Arrays.asList(BYTE_ARRAY));
+    private static final List<List<byte[]>> CERTS =
+            Collections.singletonList(Collections.singletonList(BYTE_ARRAY));
 
 
     @Test(expected = NullPointerException.class)

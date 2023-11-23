@@ -55,11 +55,11 @@ ndk::ScopedAStatus AudioControl::registerFocusListener(
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus AudioControl::setBalanceTowardRight(float value) {
+ndk::ScopedAStatus AudioControl::setBalanceTowardRight(float) {
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus AudioControl::setFadeTowardFront(float value) {
+ndk::ScopedAStatus AudioControl::setFadeTowardFront(float) {
     return ndk::ScopedAStatus::ok();
 }
 
@@ -108,7 +108,7 @@ ndk::ScopedAStatus AudioControl::onDevicesToMuteChange(
     return ndk::ScopedAStatus::ok();
 }
 
-binder_status_t AudioControl::dump(int fd, const char** args, uint32_t numArgs) {
+binder_status_t AudioControl::dump(int /*fd*/, const char** /*args*/, uint32_t /*numArgs*/) {
     return STATUS_BAD_VALUE;
 }
 

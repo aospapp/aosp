@@ -87,6 +87,7 @@ absl_cc_library(
     $<$<PLATFORM_ID:Darwin>:${CoreFoundation}>
 )
 
+# Internal-only target, do not depend on directly.
 absl_cc_library(
   NAME
     time_internal_test_util
@@ -124,5 +125,18 @@ absl_cc_test(
     absl::config
     absl::core_headers
     absl::time_zone
+    GTest::gmock_main
+)
+
+absl_cc_test(
+  NAME
+    flag_test
+  SRCS
+    "flag_test.cc"
+  COPTS
+    ${ABSL_TEST_COPTS}
+  DEPS
+    absl::flags
+    absl::flags_reflection
     GTest::gmock_main
 )

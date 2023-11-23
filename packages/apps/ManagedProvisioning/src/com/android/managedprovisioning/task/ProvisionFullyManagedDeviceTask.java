@@ -16,6 +16,8 @@
 
 package com.android.managedprovisioning.task;
 
+import static android.app.admin.DevicePolicyManager.STATUS_HEADLESS_SYSTEM_USER_MODE_NOT_SUPPORTED;
+
 import static java.util.Objects.requireNonNull;
 
 import android.annotation.UserIdInt;
@@ -41,6 +43,8 @@ import com.android.managedprovisioning.model.ProvisioningParams;
  * Task to provision a fully managed device.
  */
 public class ProvisionFullyManagedDeviceTask extends AbstractProvisioningTask {
+
+    public static final int ERROR_FULLY_MANAGED_MODE_UNSUPPORTED_IN_HEADLESS = 1;
     private final DevicePolicyManager mDpm;
     private final Utils mUtils;
 
@@ -89,7 +93,10 @@ public class ProvisionFullyManagedDeviceTask extends AbstractProvisioningTask {
             mDpm.provisionFullyManagedDevice(params);
         } catch (ProvisioningException provisioningException) {
             ProvisionLogger.loge("Failure provisioning device owner", provisioningException);
-            error(/* resultCode= */ 0, provisioningException.getMessage());
+            int resultCode = provisioningException.getProvisioningError()
+                    == STATUS_HEADLESS_SYSTEM_USER_MODE_NOT_SUPPORTED
+                    ? ERROR_FULLY_MANAGED_MODE_UNSUPPORTED_IN_HEADLESS : 0;
+            error(resultCode, provisioningException.getMessage());
             return;
         } catch (Exception e) {
             // Catching all Exceptions to allow Managed Provisioning to handle any failure

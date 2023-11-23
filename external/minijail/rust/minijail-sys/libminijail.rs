@@ -10,7 +10,6 @@ pub type rlim_t = __rlim64_t;
 pub type gid_t = __gid_t;
 pub type uid_t = __uid_t;
 pub type pid_t = __pid_t;
-pub type size_t = ::std::os::raw::c_ulong;
 #[repr(C)]
 pub struct sock_filter {
     pub code: __u16,
@@ -68,7 +67,7 @@ extern "C" {
     pub fn minijail_change_gid(j: *mut minijail, gid: gid_t);
 }
 extern "C" {
-    pub fn minijail_set_supplementary_gids(j: *mut minijail, size: size_t, list: *const gid_t);
+    pub fn minijail_set_supplementary_gids(j: *mut minijail, size: usize, list: *const gid_t);
 }
 extern "C" {
     pub fn minijail_keep_supplementary_gids(j: *mut minijail);
@@ -96,6 +95,15 @@ extern "C" {
 }
 extern "C" {
     pub fn minijail_set_seccomp_filter_tsync(j: *mut minijail);
+}
+extern "C" {
+    pub fn minijail_set_using_minimalistic_mountns(j: *mut minijail);
+}
+extern "C" {
+    pub fn minijail_add_minimalistic_mountns_fs_rules(j: *mut minijail);
+}
+extern "C" {
+    pub fn minijail_enable_default_fs_restrictions(j: *mut minijail);
 }
 extern "C" {
     pub fn minijail_set_seccomp_filter_allow_speculation(j: *mut minijail);
@@ -229,6 +237,36 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
+    pub fn minijail_add_fs_restriction_rx(
+        j: *mut minijail,
+        path: *const ::std::os::raw::c_char,
+    ) -> ::std::os::raw::c_int;
+}
+extern "C" {
+    pub fn minijail_add_fs_restriction_ro(
+        j: *mut minijail,
+        path: *const ::std::os::raw::c_char,
+    ) -> ::std::os::raw::c_int;
+}
+extern "C" {
+    pub fn minijail_add_fs_restriction_rw(
+        j: *mut minijail,
+        path: *const ::std::os::raw::c_char,
+    ) -> ::std::os::raw::c_int;
+}
+extern "C" {
+    pub fn minijail_add_fs_restriction_advanced_rw(
+        j: *mut minijail,
+        path: *const ::std::os::raw::c_char,
+    ) -> ::std::os::raw::c_int;
+}
+extern "C" {
+    pub fn minijail_add_fs_restriction_edit(
+        j: *mut minijail,
+        path: *const ::std::os::raw::c_char,
+    ) -> ::std::os::raw::c_int;
+}
+extern "C" {
     pub fn minijail_forward_signals(j: *mut minijail) -> ::std::os::raw::c_int;
 }
 extern "C" {
@@ -256,7 +294,7 @@ extern "C" {
     pub fn minijail_mount_tmp(j: *mut minijail);
 }
 extern "C" {
-    pub fn minijail_mount_tmp_size(j: *mut minijail, size: size_t);
+    pub fn minijail_mount_tmp_size(j: *mut minijail, size: usize);
 }
 extern "C" {
     pub fn minijail_mount_dev(j: *mut minijail);
@@ -318,6 +356,14 @@ extern "C" {
 }
 extern "C" {
     pub fn minijail_enter(j: *const minijail);
+}
+extern "C" {
+    pub fn minijail_run_env(
+        j: *mut minijail,
+        filename: *const ::std::os::raw::c_char,
+        argv: *const *mut ::std::os::raw::c_char,
+        envp: *const *mut ::std::os::raw::c_char,
+    ) -> ::std::os::raw::c_int;
 }
 extern "C" {
     pub fn minijail_run(

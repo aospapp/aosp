@@ -49,7 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Printa haiwezi kutumika"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi moja kwa moja"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Tafuta printa za Wi-Fi moja kwa moja"</string>
-    <string name="wifi_direct_printing" msgid="8423811041563144048">"Uchapishaji kupitia Wi-Fi moja kwa moja"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Chapisha kupitia Wi-Fi moja kwa moja"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Printa zinazotumia Wi-Fi moja kwa moja"</string>
     <string name="searching" msgid="2114018057619514587">"Inatafuta…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Utahitaji kuidhinisha muunganisho huu kwenye kidirisha cha mbele cha printa yako"</string>

@@ -17,18 +17,18 @@ package android.car.apitest;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.junit.Assert.fail;
-import static org.testng.Assert.expectThrows;
+import static org.junit.Assert.assertThrows;
 
 import android.Manifest;
 import android.annotation.FloatRange;
 import android.car.Car;
 import android.car.CarBugreportManager;
 import android.car.CarBugreportManager.CarBugreportManagerCallback;
-import android.os.CancellationSignal;
+import android.car.test.ApiCheckerRule.Builder;
 import android.os.FileUtils;
 import android.os.ParcelFileDescriptor;
 import android.test.suitebuilder.annotation.LargeTest;
+import android.util.Log;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
@@ -55,7 +55,7 @@ import java.util.zip.ZipFile;
 
 @RunWith(AndroidJUnit4.class)
 @LargeTest
-public class CarBugreportManagerTest extends CarApiTestBase {
+public final class CarBugreportManagerTest extends CarApiTestBase {
     private static final String TAG = CarBugreportManagerTest.class.getSimpleName();
 
     // Note that most of the test environments have 600s time limit, and in some cases the time
@@ -72,6 +72,13 @@ public class CarBugreportManagerTest extends CarApiTestBase {
     private FakeCarBugreportCallback mFakeCallback;
     private ParcelFileDescriptor mOutput;
     private ParcelFileDescriptor mExtraOutput;
+
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        Log.w(TAG, "Disabling API requirements check");
+        builder.disableAnnotationsCheck();
+    }
 
     @Before
     public void setUp() throws Exception {
@@ -104,7 +111,7 @@ public class CarBugreportManagerTest extends CarApiTestBase {
         dropPermissions();
 
         SecurityException expected =
-                expectThrows(SecurityException.class,
+                assertThrows(SecurityException.class,
                         () -> mManager.requestBugreportForTesting(
                             mOutput, mExtraOutput, mFakeCallback));
         assertThat(expected).hasMessageThat().contains(
@@ -205,7 +212,7 @@ public class CarBugreportManagerTest extends CarApiTestBase {
                     continue;
                 }
                 try (InputStream entryStream = zipFile.getInputStream(entry)) {
-                    String data = streamToText(entryStream, /* maxSizeBytes= */ 1024);
+                    String data = streamToText(entryStream, /* maxSizeBytes= */  51200);
                     assertThat(data).contains("== dumpstate: ");
                     assertThat(data).contains("dry_run=1");
                     assertThat(data).contains("Build fingerprint: ");
@@ -216,14 +223,19 @@ public class CarBugreportManagerTest extends CarApiTestBase {
         fail("bugreport-TIMESTAMP.txt not found in the final zip file.");
     }
 
-    private static String streamToText(InputStream in, long maxSizeBytes) throws IOException {
+    private static String streamToText(InputStream in, int maxSizeBytes) throws IOException {
+        assertThat(maxSizeBytes).isGreaterThan(0);
+
         ByteArrayOutputStream result = new ByteArrayOutputStream();
-        CancellationSignal cancelSignal = new CancellationSignal();
-        FileUtils.copy(in, result, cancelSignal, /* executor= */ null, (progressBytes) -> {
-            if (progressBytes >= maxSizeBytes) {
-                cancelSignal.cancel();
-            }
-        });
+        byte[] data = new byte[maxSizeBytes];
+        int nRead;
+        int totalRead = 0;
+
+        while ((nRead = in.read(data, 0, data.length)) != -1 && totalRead <= maxSizeBytes) {
+            result.write(data, 0, nRead);
+            totalRead += maxSizeBytes;
+        }
+
         return result.toString(StandardCharsets.UTF_8.name());
     }
 

@@ -347,6 +347,13 @@ class C2GoldfishHevcDec::IntfImpl : public SimpleInterface<void>::BaseParams {
 
     int height() const { return mSize->height; }
 
+    int primaries() const { return mColorAspects->primaries; }
+
+    int range() const { return mColorAspects->range; }
+
+    int transfer() const { return mColorAspects->transfer; }
+
+
   private:
     std::shared_ptr<C2StreamProfileLevelInfo::input> mProfileLevel;
     std::shared_ptr<C2StreamPictureSizeInfo::output> mSize;
@@ -404,10 +411,11 @@ void C2GoldfishHevcDec::onRelease() {
 }
 
 void C2GoldfishHevcDec::decodeHeaderAfterFlush() {
-    if (mContext && !mCsd0.empty() && !mCsd1.empty()) {
+        DDD("calling %s", __func__);
+    if (mContext && !mCsd0.empty()) {
         mContext->decodeFrame(&(mCsd0[0]), mCsd0.size(), 0);
-        mContext->decodeFrame(&(mCsd1[0]), mCsd1.size(), 0);
-        DDD("resending csd0 and csd1");
+        DDD("resending csd0");
+        DDD("calling %s success", __func__);
     }
 }
 
@@ -445,6 +453,30 @@ c2_status_t C2GoldfishHevcDec::onFlush_sm() {
 
     deleteContext();
     return C2_OK;
+}
+
+void C2GoldfishHevcDec::sendMetadata() {
+    // compare and send if changed
+    MetaDataColorAspects currentMetaData = {1, 0, 0, 0};
+    currentMetaData.primaries = mIntf->primaries();
+    currentMetaData.range = mIntf->range();
+    currentMetaData.transfer = mIntf->transfer();
+
+    DDD("metadata primaries %d range %d transfer %d",
+            (int)(currentMetaData.primaries),
+            (int)(currentMetaData.range),
+            (int)(currentMetaData.transfer)
+       );
+
+    if (mSentMetadata.primaries == currentMetaData.primaries &&
+        mSentMetadata.range == currentMetaData.range &&
+        mSentMetadata.transfer == currentMetaData.transfer) {
+        DDD("metadata is the same, no need to update");
+        return;
+    }
+    std::swap(mSentMetadata, currentMetaData);
+
+    mContext->sendMetadata(&(mSentMetadata));
 }
 
 status_t C2GoldfishHevcDec::createDecoder() {
@@ -531,6 +563,9 @@ void C2GoldfishHevcDec::resetPlugin() {
     mSignalledOutputEos = false;
     gettimeofday(&mTimeStart, nullptr);
     gettimeofday(&mTimeEnd, nullptr);
+    if (mOutBlock) {
+        mOutBlock.reset();
+    }
 }
 
 void C2GoldfishHevcDec::deleteContext() {
@@ -631,13 +666,9 @@ C2GoldfishHevcDec::ensureDecoderState(const std::shared_ptr<C2BlockPool> &pool) 
         mOutBlock.reset();
     }
     if (!mOutBlock) {
-        uint32_t format = HAL_PIXEL_FORMAT_YCBCR_420_888;
-        C2MemoryUsage usage = {C2MemoryUsage::CPU_READ,
-                               C2MemoryUsage::CPU_WRITE};
-        usage.expected = (uint64_t)(BufferUsage::VIDEO_DECODER);
-        // C2MemoryUsage usage = {(unsigned
-        // int)(BufferUsage::GPU_DATA_BUFFER)};// { C2MemoryUsage::CPU_READ,
-        // C2MemoryUsage::CPU_WRITE };
+        const uint32_t format = HAL_PIXEL_FORMAT_YCBCR_420_888;
+        const C2MemoryUsage usage = {(uint64_t)(BufferUsage::VIDEO_DECODER),
+                                     C2MemoryUsage::CPU_WRITE | C2MemoryUsage::CPU_READ};
         c2_status_t err = pool->fetchGraphicBlock(ALIGN2(mWidth), mHeight,
                                                   format, usage, &mOutBlock);
         if (err != C2_OK) {
@@ -661,11 +692,19 @@ C2GoldfishHevcDec::ensureDecoderState(const std::shared_ptr<C2BlockPool> &pool) 
 void C2GoldfishHevcDec::checkMode(const std::shared_ptr<C2BlockPool> &pool) {
     mWidth = mIntf->width();
     mHeight = mIntf->height();
+    //const bool isGraphic = (pool->getLocalId() == C2PlatformAllocatorStore::GRALLOC);
     const bool isGraphic = (pool->getAllocatorId() & C2Allocator::GRAPHIC);
-    DDD("buffer id %d", (int)(pool->getAllocatorId()));
+    DDD("buffer pool allocator id %x",  (int)(pool->getAllocatorId()));
     if (isGraphic) {
-        DDD("decoding to host color buffer");
-        mEnableAndroidNativeBuffers = true;
+        uint64_t client_usage = getClientUsage(pool);
+        DDD("client has usage as 0x%llx", client_usage);
+        if (client_usage & BufferUsage::CPU_READ_MASK) {
+            DDD("decoding to guest byte buffer as client has read usage");
+            mEnableAndroidNativeBuffers = false;
+        } else {
+            DDD("decoding to host color buffer");
+            mEnableAndroidNativeBuffers = true;
+        }
     } else {
         DDD("decoding to guest byte buffer");
         mEnableAndroidNativeBuffers = false;
@@ -874,9 +913,6 @@ void C2GoldfishHevcDec::process(const std::unique_ptr<C2Work> &work,
                 if (mCsd0.empty()) {
                     mCsd0.assign(mInPBuffer, mInPBuffer + mInPBufferSize);
                     DDD("assign to csd0 with %d bytpes", mInPBufferSize);
-                } else if (mCsd1.empty()) {
-                    mCsd1.assign(mInPBuffer, mInPBuffer + mInPBufferSize);
-                    DDD("assign to csd1 with %d bytpes", mInPBufferSize);
                 }
                 // this is not really a valid pts from config
                 removePts(mPts);
@@ -885,7 +921,15 @@ void C2GoldfishHevcDec::process(const std::unique_ptr<C2Work> &work,
             bool whChanged = false;
             if (GoldfishHevcHelper::isVpsFrame(mInPBuffer, mInPBufferSize)) {
                 mHevcHelper.reset(new GoldfishHevcHelper(mWidth, mHeight));
-                whChanged = mHevcHelper->decodeHeader(mInPBuffer, mInPBufferSize);
+                bool headerStatus = true;
+                whChanged = mHevcHelper->decodeHeader(
+                    mInPBuffer, mInPBufferSize, headerStatus);
+                if (!headerStatus) {
+                    mSignalledError = true;
+                    work->workletsProcessed = 1u;
+                    work->result = C2_CORRUPTED;
+                    return;
+                }
                 if (whChanged) {
                         DDD("w changed from old %d to new %d\n", mWidth, mHevcHelper->getWidth());
                         DDD("h changed from old %d to new %d\n", mHeight, mHevcHelper->getHeight());
@@ -921,6 +965,8 @@ void C2GoldfishHevcDec::process(const std::unique_ptr<C2Work> &work,
                         continue;//return;
                 } // end of whChanged
             } // end of isVpsFrame
+
+            sendMetadata();
 
             uint32_t delay;
             GETTIME(&mTimeStart, nullptr);

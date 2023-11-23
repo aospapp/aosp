@@ -23,6 +23,7 @@ import android.provider.Settings;
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
+import com.android.car.settings.applications.performance.PerfImpactingAppsItemManager;
 import com.android.car.settings.common.SettingsFragment;
 import com.android.car.settings.search.CarBaseSearchIndexProvider;
 import com.android.settingslib.search.SearchIndexable;
@@ -34,6 +35,7 @@ public class AppsFragment extends SettingsFragment {
     private RecentAppsItemManager mRecentAppsItemManager;
     private InstalledAppCountItemManager mInstalledAppCountItemManager;
     private HibernatedAppsItemManager mHibernatedAppsItemManager;
+    private PerfImpactingAppsItemManager mPerfImpactingAppsItemManager;
 
     @Override
     @XmlRes
@@ -62,6 +64,11 @@ public class AppsFragment extends SettingsFragment {
         mHibernatedAppsItemManager = new HibernatedAppsItemManager(context);
         mHibernatedAppsItemManager.setListener(use(HibernatedAppsPreferenceController.class,
                 R.string.pk_hibernated_apps));
+
+        mPerfImpactingAppsItemManager = new PerfImpactingAppsItemManager(context);
+        mPerfImpactingAppsItemManager.addListener(
+                use(PerfImpactingAppsEntryPreferenceController.class,
+                        R.string.pk_performance_impacting_apps_entry));
     }
 
     @Override
@@ -70,6 +77,12 @@ public class AppsFragment extends SettingsFragment {
         mRecentAppsItemManager.startLoading();
         mInstalledAppCountItemManager.startLoading();
         mHibernatedAppsItemManager.startLoading();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        mPerfImpactingAppsItemManager.startLoading();
     }
 
     /**

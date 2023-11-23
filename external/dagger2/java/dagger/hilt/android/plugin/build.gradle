@@ -15,45 +15,70 @@
  */
 
 buildscript {
+  ext {
+    kotlin_version = "1.5.32"
+    agp_version = System.getenv('AGP_VERSION') ?: "7.2.0-alpha06"
+    pluginArtifactId = 'hilt-android-gradle-plugin'
+    pluginId = 'com.google.dagger.hilt.android'
+  }
   repositories {
     google()
     mavenCentral()
-    jcenter()
   }
 }
 
 plugins {
-  id 'org.jetbrains.kotlin.jvm' version '1.4.20'
+  id 'org.jetbrains.kotlin.jvm' version "$kotlin_version"
   id 'java-gradle-plugin'
   id 'maven-publish'
+  // Use shadow version >= 7.1.1 to get log4j vulnerability patches:
+  //   https://github.com/johnrengelman/shadow/releases/tag/7.1.1
+  id 'com.github.johnrengelman.shadow' version '7.1.1'
 }
 
 repositories {
   google()
   mavenCentral()
-  jcenter()
 }
 
 configurations {
-  additionalTestPlugin {
+  // Config for dependencies that will be shadowed / jarjared
+  shadowed
+  // Make all shadowed dependencies be compileOnly dependencies to not affect
+  // main compilation / configuration
+  compileOnly.extendsFrom(shadowed)
+  // Make all shadowed dependencies be included in the plugin test classpath
+  // since they are compileOnly in the main configuration
+  testPluginCompile.extendsFrom(shadowed)
+  // Config for plugin classpath to be used during tests
+  testPluginCompile {
     canBeConsumed = false
     canBeResolved = true
-    extendsFrom implementation
   }
 }
 
+// Renames default jar to avoid using it in publications.
+jar {
+  archiveClassifier = "before-jarjar"
+}
+shadowJar {
+  archiveClassifier = ""
+  configurations = [project.configurations.shadowed]
+}
+
 dependencies {
+  shadowed fileTree(dir: 'libs', include: '*.jar')
   implementation gradleApi()
-  compileOnly 'com.android.tools.build:gradle:4.2.0-beta04'
-  // TODO(danysantiago): Make compileOnly to avoid dep for non-Kotlin projects.
-  implementation 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.20'
+  compileOnly "com.android.tools.build:gradle:$agp_version"
+  compileOnly "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
   implementation 'org.javassist:javassist:3.26.0-GA'
   implementation 'org.ow2.asm:asm:9.0'
+  implementation "com.squareup:javapoet:1.13.0"
 
   testImplementation gradleTestKit()
   testImplementation 'junit:junit:4.12'
   testImplementation 'com.google.truth:truth:1.0.1'
-  additionalTestPlugin 'com.android.tools.build:gradle:4.2.0-beta04'
+  testPluginCompile 'com.android.tools.build:gradle:4.2.0'
 }
 
 // Configure the generating task of plugin-under-test-metadata.properties to
@@ -61,21 +86,91 @@ dependencies {
 // are not present in the main runtime dependencies. This allows us to test
 // the desired AGP version while keeping a compileOnly dep on the main source.
 tasks.withType(PluginUnderTestMetadata.class).named("pluginUnderTestMetadata").configure {
-  it.pluginClasspath.from(configurations.additionalTestPlugin)
+  it.pluginClasspath.from(configurations.testPluginCompile)
 }
 
 compileKotlin {
   kotlinOptions {
     jvmTarget = "1.8"
+    allWarningsAsErrors = true
   }
 }
+
+java {
+  sourceCompatibility = "1.8"
+  targetCompatibility = "1.8"
+}
+
+// Imports a shared library from the main project. The library and its classes
+// will be shadowed in the plugin's artifact.
+tasks.register("importSharedLib").configure {
+  def outputDir = file("${project.projectDir}/libs")
+  outputs.dir(outputDir)
+  doLast {
+    def buildCmd = 'bazel'
+    def buildDir = 'bazel-bin'
+    def findGenFilesParent
+    findGenFilesParent = { File dir ->
+      if (dir == null || !dir.isDirectory()) {
+        return null
+      }
+      if (new File(dir, buildDir).exists()) {
+        return dir
+      } else {
+        return findGenFilesParent(dir.parentFile)
+      }
+    }
+    // Build shared lib
+    def bazelOutput = new ByteArrayOutputStream()
+    def buildResult = exec {
+      commandLine buildCmd, 'build', 'import-shared-lib'
+      standardOutput = bazelOutput
+      errorOutput = bazelOutput
+    }
+    buildResult.assertNormalExitValue()
+    // Find shared lib Jar in build directory.
+    def genFilesDir = findGenFilesParent(project.buildFile.parentFile)
+    if (genFilesDir == null) {
+      throw new GradleException("Couldn't find build folder '$buildDir'")
+    }
+    def libPath = bazelOutput.toString().split('\n')
+      .find { line -> line.contains("$buildDir/") }.trim()
+    def inputFile = file("$genFilesDir/$libPath")
+    def outputFile = file("$outputDir/${inputFile.name}")
+    outputFile << inputFile.newInputStream()
+  }
+}
+tasks.getByName('compileKotlin').dependsOn('importSharedLib')
+
+// Task that generates a top-level property containing the version of the
+// project so that it can be used in code and at runtime.
+def pluginVersionOutDir = file("$buildDir/generated/source/plugin-version/")
+tasks.register("generatePluginVersionSource").configure {
+  def version = getPublishVersion()
+  inputs.property('version', version)
+  outputs.dir(pluginVersionOutDir)
+  doLast {
+    def versionFile =
+      file("$pluginVersionOutDir/dagger/hilt/android/plugin/Version.kt")
+    versionFile.parentFile.mkdirs()
+    versionFile.text = """
+      // Generated file. Do not edit!
+      package dagger.hilt.android.plugin
+
+      val HILT_VERSION = "${version}"
+    """.stripIndent()
+  }
+}
+sourceSets.main.java.srcDir pluginVersionOutDir
+tasks.getByName('compileKotlin').dependsOn('generatePluginVersionSource')
 
 // Create sources Jar from main kotlin sources
 tasks.register("sourcesJar", Jar).configure {
   group = JavaBasePlugin.DOCUMENTATION_GROUP
   description = "Assembles sources JAR"
-  classifier = "sources"
+  archiveClassifier.set("sources")
   from(sourceSets["main"].allSource)
+  dependsOn('generatePluginVersionSource')
 }
 
 // Create javadoc Jar. The jar is empty since we don't really have docs
@@ -84,7 +179,7 @@ tasks.register("sourcesJar", Jar).configure {
 tasks.register("javadocJar", Jar).configure {
   group = JavaBasePlugin.DOCUMENTATION_GROUP
   description = "Assembles javadoc JAR"
-  classifier = "javadoc"
+  archiveClassifier.set("javadoc")
 }
 
 // Disable Gradle metadata publication.
@@ -96,53 +191,29 @@ tasks.withType(GenerateModuleMetadata) {
 publishing {
   publications {
     plugin(MavenPublication) {
-      artifactId = 'hilt-android-gradle-plugin'
-      def publishVersion = findProperty("PublishVersion")
-      version = (publishVersion != null) ? publishVersion : "LOCAL-SNAPSHOT"
+      artifactId = pluginArtifactId
+      version = getPublishVersion()
       from components.kotlin
+      artifact(shadowJar)
       artifact(sourcesJar)
       artifact(javadocJar)
       pom {
-        name = 'Hilt Android Gradle Plugin'
-        description = 'A fast dependency injector for Android and Java.'
-        url = 'https://github.com/google/dagger'
-        scm {
-          url = 'https://github.com/google/dagger/'
-          connection = 'scm:git:git://github.com/google/dagger.git'
-          developerConnection = 'scm:git:ssh://git@github.com/google/dagger.git'
-          tag = 'HEAD'
-        }
-        issueManagement {
-          system = 'GitHub Issues'
-          url = 'https://github.com/google/dagger/issues'
-        }
-        licenses {
-          license {
-            name = 'Apache 2.0'
-            url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
-          }
-        }
-        organization {
-          name = 'Google, Inc.'
-          url = 'https://www.google.com'
-        }
+        addPomTemplate(owner)
+      }
+    }
+    // https://docs.gradle.org/current/userguide/plugins.html#sec:plugin_markers
+    pluginMarker(MavenPublication) {
+      groupId = pluginId
+      artifactId = "${pluginId}.gradle.plugin"
+      version = getPublishVersion()
+      pom {
+        addPomTemplate(owner)
         withXml {
-          def projectNode = asNode()
-          // Adds:
-          // <parent>
-          //   <groupId>org.sonatype.oss</groupId>
-          //   <artifactId>oss-parent</artifactId>
-          //   <version>7</version>
-          // </parent>
-          def parentNode = projectNode.appendNode('parent')
-          parentNode.appendNode('groupId', 'org.sonatype.oss')
-          parentNode.appendNode('artifactId', 'oss-parent')
-          parentNode.appendNode('version', '7')
-          // Adds scm->tag because for some reason the DSL API does not.
-          // <scm>
-          //   <tag>HEAD</tag>
-          // </scm>
-          projectNode.get('scm').first().appendNode('tag', 'HEAD')
+          def dependencyNode =
+                  asNode().appendNode("dependencies").appendNode("dependency")
+          dependencyNode.appendNode("groupId", group)
+          dependencyNode.appendNode("artifactId", pluginArtifactId)
+          dependencyNode.appendNode("version", getPublishVersion())
         }
       }
     }
@@ -155,4 +226,54 @@ publishing {
   }
 }
 
-group='com.google.dagger'
+group = 'com.google.dagger'
+
+// TODO(danysantiago): Use POM template in tools/ to avoid duplicating lines.
+def addPomTemplate(pom) {
+  pom.name = 'Hilt Android Gradle Plugin'
+  pom.description = 'A fast dependency injector for Android and Java.'
+  pom.url = 'https://github.com/google/dagger'
+  pom.scm {
+    url = 'https://github.com/google/dagger/'
+    connection = 'scm:git:git://github.com/google/dagger.git'
+    developerConnection = 'scm:git:ssh://git@github.com/google/dagger.git'
+    tag = 'HEAD'
+  }
+  pom.issueManagement {
+    system = 'GitHub Issues'
+    url = 'https://github.com/google/dagger/issues'
+  }
+  pom.licenses {
+    license {
+      name = 'Apache 2.0'
+      url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+    }
+  }
+  pom.organization {
+    name = 'Google, Inc.'
+    url = 'https://www.google.com'
+  }
+  pom.withXml {
+    def projectNode = asNode()
+    // Adds:
+    // <parent>
+    //   <groupId>org.sonatype.oss</groupId>
+    //   <artifactId>oss-parent</artifactId>
+    //   <version>7</version>
+    // </parent>
+    def parentNode = projectNode.appendNode('parent')
+    parentNode.appendNode('groupId', 'org.sonatype.oss')
+    parentNode.appendNode('artifactId', 'oss-parent')
+    parentNode.appendNode('version', '7')
+    // Adds scm->tag because for some reason the DSL API does not.
+    // <scm>
+    //   <tag>HEAD</tag>
+    // </scm>
+    projectNode.get('scm').first().appendNode('tag', 'HEAD')
+  }
+}
+
+def getPublishVersion() {
+  def publishVersion = findProperty("PublishVersion")
+  return (publishVersion != null) ? publishVersion : "LOCAL-SNAPSHOT"
+}

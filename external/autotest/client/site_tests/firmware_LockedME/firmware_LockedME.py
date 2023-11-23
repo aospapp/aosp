@@ -65,7 +65,7 @@ class firmware_LockedME(test.test):
                               'count=1', 'bs=%d' % (size)))
         self.flashrom(args=('-V', '-w', self.BIOS_FILE,
                             '-i' , '%s:%s' % (sectname, self.RANDOM_FILE),
-                            '--fast-verify'),
+                            '--noverify-all'),
                       ignore_status=True)
         self.flashrom(args=('-r',
                             '-i', '%s:%s' % (sectname, self.FLASHED_FILE)))
@@ -75,7 +75,7 @@ class firmware_LockedME(test.test):
             logging.info('Oops, it worked! Put it back...')
             self.flashrom(args=('-w', self.BIOS_FILE,
                                 '-i', '%s:%s' % (sectname, sectname),
-                                '--fast-verify'),
+                                '--noverify-all'),
                           ignore_status=True)
             raise error.TestFail('%s is writable, ME is unlocked' % sectname)
 

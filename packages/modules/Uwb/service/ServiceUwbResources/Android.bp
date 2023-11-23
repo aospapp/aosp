@@ -21,12 +21,13 @@ package {
 
 android_app {
     name: "ServiceUwbResources",
+    package_name: "com.android.uwb.resources",
     defaults: ["service-uwb-common-defaults"],
     resource_dirs: [
         "res",
     ],
     privileged: true,
-    sdk_version: "system_Tiramisu",
+    sdk_version: "system_current",
     export_package_resources: true,
     apex_available: [
         "com.android.uwb",

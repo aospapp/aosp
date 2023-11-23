@@ -31,10 +31,17 @@ class TextPackageItem(
 
     private val classes = ArrayList<TextClassItem>(100)
 
+    private val classesNames = HashSet<String>(100)
+
     fun name() = name
 
     fun addClass(classInfo: TextClassItem) {
+        val classFullName = classInfo.fullName()
+        if (classFullName in classesNames) {
+            return
+        }
         classes.add(classInfo)
+        classesNames.add(classFullName)
     }
 
     internal fun pruneClassList() {

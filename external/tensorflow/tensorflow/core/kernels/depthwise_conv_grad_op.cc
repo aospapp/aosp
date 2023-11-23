@@ -33,6 +33,7 @@ limitations under the License.
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/platform/types.h"
+#include "tensorflow/core/util/determinism.h"
 #include "tensorflow/core/util/padding.h"
 #include "tensorflow/core/util/tensor_format.h"
 #include "tensorflow/core/util/use_cudnn.h"
@@ -67,45 +68,45 @@ typedef Eigen::GpuDevice GPUDevice;
   OP_REQUIRES(                                                                 \
       context, out_backprop.dims() == 4,                                       \
       errors::InvalidArgument(label, ": out_backprop must be 4-dimensional")); \
-  const int64 batch = input_shape.dim_size(0);                                 \
+  const int64_t batch = input_shape.dim_size(0);                               \
   OP_REQUIRES(                                                                 \
       context, batch == out_backprop.dim_size(0),                              \
       errors::InvalidArgument(                                                 \
           label, ": input and out_backprop must have the same batch size"));   \
-  const int64 input_rows_raw = GetTensorDim(input_shape, data_format_, 'H');   \
+  const int64_t input_rows_raw = GetTensorDim(input_shape, data_format_, 'H'); \
   OP_REQUIRES(                                                                 \
       context,                                                                 \
       FastBoundsCheck(input_rows_raw, std::numeric_limits<int32>::max()),      \
       errors::InvalidArgument("Input rows too large"));                        \
   const int32 input_rows = static_cast<int32>(input_rows_raw);                 \
-  const int64 input_cols_raw = GetTensorDim(input_shape, data_format_, 'W');   \
+  const int64_t input_cols_raw = GetTensorDim(input_shape, data_format_, 'W'); \
   OP_REQUIRES(                                                                 \
       context,                                                                 \
       FastBoundsCheck(input_cols_raw, std::numeric_limits<int32>::max()),      \
       errors::InvalidArgument("Input cols too large"));                        \
   const int32 input_cols = static_cast<int32>(input_cols_raw);                 \
-  const int64 filter_rows = filter_shape.dim_size(0);                          \
-  const int64 filter_cols = filter_shape.dim_size(1);                          \
-  const int64 output_rows_raw =                                                \
+  const int64_t filter_rows = filter_shape.dim_size(0);                        \
+  const int64_t filter_cols = filter_shape.dim_size(1);                        \
+  const int64_t output_rows_raw =                                              \
       GetTensorDim(out_backprop.shape(), data_format_, 'H');                   \
   OP_REQUIRES(                                                                 \
       context,                                                                 \
       FastBoundsCheck(output_rows_raw, std::numeric_limits<int32>::max()),     \
       errors::InvalidArgument("Output rows too large"));                       \
   const int32 output_rows = static_cast<int32>(output_rows_raw);               \
-  const int64 output_cols_raw =                                                \
+  const int64_t output_cols_raw =                                              \
       GetTensorDim(out_backprop.shape(), data_format_, 'W');                   \
   OP_REQUIRES(                                                                 \
       context,                                                                 \
       FastBoundsCheck(output_cols_raw, std::numeric_limits<int32>::max()),     \
       errors::InvalidArgument("Output cols too large"));                       \
   const int32 output_cols = static_cast<int32>(output_cols_raw);               \
-  const int64 in_depth = GetTensorDim(input_shape, data_format_, 'C');         \
+  const int64_t in_depth = GetTensorDim(input_shape, data_format_, 'C');       \
   OP_REQUIRES(context, in_depth == filter_shape.dim_size(2),                   \
               errors::InvalidArgument(                                         \
                   label, ": input and filter must have the same in_depth"));   \
-  const int64 depth_multiplier = filter_shape.dim_size(3);                     \
-  const int64 out_depth_raw =                                                  \
+  const int64_t depth_multiplier = filter_shape.dim_size(3);                   \
+  const int64_t out_depth_raw =                                                \
       GetTensorDim(out_backprop.shape(), data_format_, 'C');                   \
   OP_REQUIRES(                                                                 \
       context,                                                                 \
@@ -117,8 +118,8 @@ typedef Eigen::GpuDevice GPUDevice;
       errors::InvalidArgument(                                                 \
           label, ": depth_multiplier * in_depth not equal to out_depth"));     \
   const auto stride = stride_;                                                 \
-  int64 out_rows = 0, out_cols = 0, pad_top = 0, pad_bottom = 0, pad_left = 0, \
-        pad_right = 0;                                                         \
+  int64_t out_rows = 0, out_cols = 0, pad_top = 0, pad_bottom = 0,             \
+          pad_left = 0, pad_right = 0;                                         \
   if (padding_ == Padding::EXPLICIT) {                                         \
     GetExplicitPaddingForDim(explicit_paddings_, data_format_, 'H', &pad_top,  \
                              &pad_bottom);                                     \
@@ -205,11 +206,13 @@ static void CopyOutputBackpropRegion(const DepthwiseArgs& args,
   const int64_t out_cols = args.out_cols;
 
   // Calculate the output spatial region which used point (in_r, in_c) as input.
-  const int64_t out_r_start = std::max(
-      static_cast<int64>(0), (in_r - filter_rows + pad_rows + stride) / stride);
+  const int64_t out_r_start =
+      std::max(static_cast<int64_t>(0),
+               (in_r - filter_rows + pad_rows + stride) / stride);
   const int64_t out_r_end = std::min(out_rows - 1, (in_r + pad_rows) / stride);
-  const int64_t out_c_start = std::max(
-      static_cast<int64>(0), (in_c - filter_cols + pad_cols + stride) / stride);
+  const int64_t out_c_start =
+      std::max(static_cast<int64_t>(0),
+               (in_c - filter_cols + pad_cols + stride) / stride);
   const int64_t out_c_end = std::min(out_cols - 1, (in_c + pad_cols) / stride);
 
   // Zero-pad 'buffer' if output region is smaller than filter spatial size.
@@ -526,6 +529,7 @@ static void DepthwiseConvBackpropInputReference(const DepthwiseArgs& args,
 }
 
 // Extern template instantiated in conv_grad_input_ops.cc.
+extern template struct LaunchConv2DBackpropInputOp<CPUDevice, bfloat16>;
 extern template struct LaunchConv2DBackpropInputOp<CPUDevice, Eigen::half>;
 extern template struct LaunchConv2DBackpropInputOp<CPUDevice, float>;
 extern template struct LaunchConv2DBackpropInputOp<CPUDevice, double>;
@@ -621,7 +625,7 @@ class DepthwiseConv2dNativeBackpropInputOp : public OpKernel {
       OP_REQUIRES(context, in_sizes_data[i] >= 0,
                   errors::InvalidArgument("Dimension ", i,
                                           " of input_sizes must be >= 0"));
-      input_shape.AddDim(in_sizes_data[i]);
+      OP_REQUIRES_OK(context, input_shape.AddDimWithStatus(in_sizes_data[i]));
     }
     const TensorShape& filter_shape = filter.shape();
     EXTRACT_AND_VERIFY_DIMENSIONS("DepthwiseConv2DBackpropInput");
@@ -637,13 +641,11 @@ class DepthwiseConv2dNativeBackpropInputOp : public OpKernel {
 
     // If in_depth==1, this operation is just a standard convolution.
     // Depthwise convolution is a special case of cuDNN's grouped convolution.
-    bool use_cudnn = std::is_same<Device, GPUDevice>::value &&
-                     (in_depth == 1 ||
-                      (use_cudnn_grouped_conv_ &&
-                       IsCudnnSupportedFilterSize(/*filter_rows=*/filter_rows,
-                                                  /*filter_cols=*/filter_cols,
-                                                  /*in_depth=*/in_depth,
-                                                  /*out_depth=*/out_depth)));
+    bool use_cudnn =
+        std::is_same<Device, GPUDevice>::value &&
+        (in_depth == 1 || (use_cudnn_grouped_conv_ &&
+                           ShouldCudnnGroupedConvolutionBeUsed(
+                               filter_rows, filter_cols, in_depth, out_depth)));
 
     VLOG(2) << "DepthwiseConv2dNativeBackpropInput: "
             << " Input: [" << batch << ", " << input_rows << ", " << input_cols
@@ -694,9 +696,9 @@ class DepthwiseConv2dNativeBackpropInputOp : public OpKernel {
  private:
   std::vector<int32> strides_;
   Padding padding_;
-  std::vector<int64> explicit_paddings_;
+  std::vector<int64_t> explicit_paddings_;
   TensorFormat data_format_;
-  int64 stride_;
+  int64_t stride_;
 
   // For in_depth == 1 and grouped convolutions.
   LaunchConv2DBackpropInputOp<Device, T> launcher_;
@@ -712,6 +714,7 @@ class DepthwiseConv2dNativeBackpropInputOp : public OpKernel {
                               .TypeConstraint<T>("T"),               \
                           DepthwiseConv2dNativeBackpropInputOp<CPUDevice, T>);
 
+TF_CALL_bfloat16(REGISTER_CPU_KERNEL);
 TF_CALL_half(REGISTER_CPU_KERNEL);
 TF_CALL_float(REGISTER_CPU_KERNEL);
 #if !defined(PLATFORM_WINDOWS) || !defined(_DEBUG)
@@ -1029,6 +1032,7 @@ static void DepthwiseConvBackpropFilterReference(const DepthwiseArgs& args,
 }
 
 // Extern template instantiated in conv_grad_filter_ops.cc.
+extern template struct LaunchConv2DBackpropFilterOp<CPUDevice, bfloat16>;
 extern template struct LaunchConv2DBackpropFilterOp<CPUDevice, Eigen::half>;
 extern template struct LaunchConv2DBackpropFilterOp<CPUDevice, float>;
 extern template struct LaunchConv2DBackpropFilterOp<CPUDevice, double>;
@@ -1085,20 +1089,27 @@ class DepthwiseConv2dNativeBackpropFilterOp : public OpKernel {
 
     cudnn_use_autotune_ = CudnnUseAutotune();
 
-    if (std::is_same<T, Eigen::half>::value) {
+    if (std::is_same<T, bfloat16>::value) {
+      dtype_ = DT_BFLOAT16;
+    } else if (std::is_same<T, Eigen::half>::value) {
       dtype_ = DT_HALF;
     } else if (std::is_same<T, float>::value) {
       dtype_ = DT_FLOAT;
     } else if (std::is_same<T, double>::value) {
       dtype_ = DT_DOUBLE;
     } else {
-      LOG(ERROR) << "Only half, float, and double are supported.";
+      LOG(ERROR) << "Only bfloat16, half, float, and double are supported.";
     }
+#if CUDNN_VERSION >= 7603
     // Use CuDNN grouped conv (filter gradients) when input/output is
     // float16(half). See cudnn release note 7.6.3. (https://docs.nvidia.com/dee
     // plearning/sdk/cudnn-release-notes/rel_763.html#rel_763)
-#if CUDNN_VERSION >= 7603
-    use_cudnn_grouped_conv_ = dtype_ == DT_HALF;
+    //
+    // Grouped convolution was added to cuDNN in version 7.0.1 but
+    // TensorFlow op-determinism has been added only for cuDNN versions 7.6.3
+    // and later intentionally. This is to avoid potential issues with earlier
+    // versions of cuDNN.
+    use_cudnn_grouped_conv_ = OpDeterminismRequired() || dtype_ == DT_HALF;
 #else
     use_cudnn_grouped_conv_ = false;
 #endif
@@ -1118,7 +1129,8 @@ class DepthwiseConv2dNativeBackpropFilterOp : public OpKernel {
       OP_REQUIRES(context, filter_sizes_data[i] >= 0,
                   errors::InvalidArgument("Dimension ", i,
                                           " of filter_sizes must be >= 0"));
-      filter_shape.AddDim(filter_sizes_data[i]);
+      OP_REQUIRES_OK(context,
+                     filter_shape.AddDimWithStatus(filter_sizes_data[i]));
     }
     const TensorShape& input_shape = input.shape();
 
@@ -1137,10 +1149,9 @@ class DepthwiseConv2dNativeBackpropFilterOp : public OpKernel {
     bool use_cudnn = std::is_same<Device, GPUDevice>::value &&
                      (in_depth == 1 ||
                       (use_cudnn_grouped_conv_ &&
-                       IsCudnnSupportedFilterSize(/*filter_rows=*/filter_rows,
-                                                  /*filter_cols=*/filter_cols,
-                                                  /*in_depth=*/in_depth,
-                                                  /*out_depth=*/out_depth)));
+                       (ShouldCudnnGroupedConvolutionBeUsed(
+                            filter_rows, filter_cols, in_depth, out_depth) ||
+                        OpDeterminismRequired())));
 
     VLOG(2) << "DepthwiseConv2dNativeBackpropFilter: "
             << " Input: [" << batch << ", " << input_rows << ", " << input_cols
@@ -1225,9 +1236,9 @@ class DepthwiseConv2dNativeBackpropFilterOp : public OpKernel {
  private:
   std::vector<int32> strides_;
   Padding padding_;
-  std::vector<int64> explicit_paddings_;
+  std::vector<int64_t> explicit_paddings_;
   TensorFormat data_format_;
-  int64 stride_;
+  int64_t stride_;
 
   // For in_depth == 1 and grouped convolutions.
   LaunchConv2DBackpropFilterOp<Device, T> launcher_;
@@ -1243,6 +1254,7 @@ class DepthwiseConv2dNativeBackpropFilterOp : public OpKernel {
           .Device(DEVICE_CPU)                     \
           .TypeConstraint<T>("T"),                \
       DepthwiseConv2dNativeBackpropFilterOp<CPUDevice, T>);
+TF_CALL_bfloat16(REGISTER_CPU_KERNEL);
 TF_CALL_half(REGISTER_CPU_KERNEL);
 TF_CALL_float(REGISTER_CPU_KERNEL);
 #if !defined(PLATFORM_WINDOWS) || !defined(_DEBUG)

@@ -56,17 +56,10 @@ use std::io;
 use std::sync::{Arc, RwLock};
 
 use super::builder::MerkleLeaves;
+use super::common::{Sha256Hash, SHA256_HASH_SIZE};
 use crate::common::{ChunkedSizeIter, CHUNK_SIZE};
-use crate::crypto::{CryptoError, Sha256Hash, Sha256Hasher};
 use crate::file::{ChunkBuffer, RandomWrite, ReadByChunk};
-
-// Implement the conversion from `CryptoError` to `io::Error` just to avoid manual error type
-// mapping below.
-impl From<CryptoError> for io::Error {
-    fn from(error: CryptoError) -> Self {
-        io::Error::new(io::ErrorKind::Other, error)
-    }
-}
+use openssl::sha::{sha256, Sha256};
 
 fn debug_assert_usize_is_u64() {
     // Since we don't need to support 32-bit CPU, make an assert to make conversion between
@@ -90,7 +83,7 @@ impl<F: ReadByChunk + RandomWrite> VerifiedFileEditor<F> {
 
     /// Returns the fs-verity digest size in bytes.
     pub fn get_fsverity_digest_size(&self) -> usize {
-        Sha256Hasher::HASH_SIZE
+        SHA256_HASH_SIZE
     }
 
     /// Calculates the fs-verity digest of the current file.
@@ -119,7 +112,7 @@ impl<F: ReadByChunk + RandomWrite> VerifiedFileEditor<F> {
             let size = self.read_backing_chunk_unverified(chunk_index, buf)?;
 
             // Ensure the returned buffer matches the known hash.
-            let hash = Sha256Hasher::new()?.update(buf)?.finalize()?;
+            let hash = sha256(buf);
             if !merkle_tree_locked.is_consistent(chunk_index as usize, &hash) {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "Inconsistent hash"));
             }
@@ -147,17 +140,17 @@ impl<F: ReadByChunk + RandomWrite> VerifiedFileEditor<F> {
             self.read_backing_chunk_unverified(output_chunk_index as u64, &mut orig_data)?;
 
             // Verify original content
-            let hash = Sha256Hasher::new()?.update(&orig_data)?.finalize()?;
+            let hash = sha256(&orig_data);
             if !merkle_tree.is_consistent(output_chunk_index, &hash) {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "Inconsistent hash"));
             }
         }
 
-        Ok(Sha256Hasher::new()?
-            .update(&orig_data[..offset_from_alignment])?
-            .update(source)?
-            .update(&orig_data[offset_from_alignment + source.len()..])?
-            .finalize()?)
+        let mut ctx = Sha256::new();
+        ctx.update(&orig_data[..offset_from_alignment]);
+        ctx.update(source);
+        ctx.update(&orig_data[offset_from_alignment + source.len()..]);
+        Ok(ctx.finish())
     }
 
     fn new_chunk_hash(
@@ -171,7 +164,7 @@ impl<F: ReadByChunk + RandomWrite> VerifiedFileEditor<F> {
         if current_size as u64 == CHUNK_SIZE {
             // Case 1: If the chunk is a complete one, just calculate the hash, regardless of
             // write location.
-            Ok(Sha256Hasher::new()?.update(source)?.finalize()?)
+            Ok(sha256(source))
         } else {
             // Case 2: For an incomplete write, calculate the hash based on previous data (if
             // any).
@@ -211,7 +204,7 @@ impl<F: ReadByChunk + RandomWrite> RandomWrite for VerifiedFileEditor<F> {
             let mut merkle_tree = self.merkle_tree.write().unwrap();
 
             let offset_in_buf = (output_offset - offset) as usize;
-            let source = &buf[offset_in_buf as usize..offset_in_buf as usize + current_size];
+            let source = &buf[offset_in_buf..offset_in_buf + current_size];
             let output_chunk_index = (output_offset / CHUNK_SIZE) as usize;
             let offset_from_alignment = (output_offset % CHUNK_SIZE) as usize;
 
@@ -273,10 +266,10 @@ impl<F: ReadByChunk + RandomWrite> RandomWrite for VerifiedFileEditor<F> {
                 debug_assert!(new_tail_size <= s);
 
                 let zeros = vec![0; CHUNK_SIZE as usize - new_tail_size];
-                let new_hash = Sha256Hasher::new()?
-                    .update(&buf[..new_tail_size])?
-                    .update(&zeros)?
-                    .finalize()?;
+                let mut ctx = Sha256::new();
+                ctx.update(&buf[..new_tail_size]);
+                ctx.update(&zeros);
+                let new_hash = ctx.finish();
                 merkle_tree.update_hash(chunk_index as usize, &new_hash, size);
             }
         }
@@ -519,7 +512,7 @@ mod tests {
         // detects the inconsistent read.
         {
             let mut merkle_tree = file.merkle_tree.write().unwrap();
-            let overriding_hash = [42; Sha256Hasher::HASH_SIZE];
+            let overriding_hash = [42; SHA256_HASH_SIZE];
             merkle_tree.update_hash(0, &overriding_hash, 8192);
         }
         assert!(file.write_at(&[1; 1], 2048).is_err());
@@ -532,7 +525,7 @@ mod tests {
         // resumed write will fail since no bytes can be written due to the same inconsistency.
         {
             let mut merkle_tree = file.merkle_tree.write().unwrap();
-            let overriding_hash = [42; Sha256Hasher::HASH_SIZE];
+            let overriding_hash = [42; SHA256_HASH_SIZE];
             merkle_tree.update_hash(1, &overriding_hash, 8192);
         }
         assert_eq!(file.write_at(&[10; 8000], 0)?, 4096);

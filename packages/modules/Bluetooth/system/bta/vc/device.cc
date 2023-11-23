@@ -29,26 +29,27 @@
 
 using namespace bluetooth::vc::internal;
 
+void VolumeControlDevice::DeregisterNotifications(tGATT_IF gatt_if) {
+  if (volume_state_handle != 0)
+    BTA_GATTC_DeregisterForNotifications(gatt_if, address, volume_state_handle);
+
+  if (volume_flags_handle != 0)
+    BTA_GATTC_DeregisterForNotifications(gatt_if, address, volume_flags_handle);
+
+  for (const VolumeOffset& of : audio_offsets.volume_offsets) {
+    BTA_GATTC_DeregisterForNotifications(gatt_if, address,
+                                         of.audio_descr_handle);
+    BTA_GATTC_DeregisterForNotifications(gatt_if, address,
+                                         of.audio_location_handle);
+    BTA_GATTC_DeregisterForNotifications(gatt_if, address, of.state_handle);
+  }
+}
+
 void VolumeControlDevice::Disconnect(tGATT_IF gatt_if) {
-  LOG(INFO) << __func__ << ": " << this->ToString();
+  LOG(INFO) << __func__ << ": " << ADDRESS_TO_LOGGABLE_STR(address);
 
   if (IsConnected()) {
-    if (volume_state_handle != 0)
-      BTA_GATTC_DeregisterForNotifications(gatt_if, address,
-                                           volume_state_handle);
-
-    if (volume_flags_handle != 0)
-      BTA_GATTC_DeregisterForNotifications(gatt_if, address,
-                                           volume_flags_handle);
-
-    for (const VolumeOffset& of : audio_offsets.volume_offsets) {
-      BTA_GATTC_DeregisterForNotifications(gatt_if, address,
-                                           of.audio_descr_handle);
-      BTA_GATTC_DeregisterForNotifications(gatt_if, address,
-                                           of.audio_location_handle);
-      BTA_GATTC_DeregisterForNotifications(gatt_if, address, of.state_handle);
-    }
-
+    DeregisterNotifications(gatt_if);
     BtaGattQueue::Clean(connection_id);
     BTA_GATTC_Close(connection_id);
     connection_id = GATT_INVALID_CONN_ID;
@@ -177,6 +178,7 @@ bool VolumeControlDevice::UpdateHandles(void) {
       vcs_found = set_volume_control_service_handles(service);
       if (!vcs_found) break;
 
+      known_service_handles_ = true;
       for (auto const& included : service.included_services) {
         const gatt::Service* service =
             BTA_GATTC_GetOwningService(connection_id, included.start_handle);
@@ -197,6 +199,7 @@ bool VolumeControlDevice::UpdateHandles(void) {
 }
 
 void VolumeControlDevice::ResetHandles(void) {
+  known_service_handles_ = false;
   device_ready = false;
 
   // the handles are not valid, so discard pending GATT operations
@@ -415,10 +418,8 @@ bool VolumeControlDevice::IsEncryptionEnabled() {
   return BTM_IsEncrypted(address, BT_TRANSPORT_LE);
 }
 
-bool VolumeControlDevice::EnableEncryption(tBTM_SEC_CALLBACK* callback) {
-  int result = BTM_SetEncryption(address, BT_TRANSPORT_LE, callback, nullptr,
+void VolumeControlDevice::EnableEncryption() {
+  int result = BTM_SetEncryption(address, BT_TRANSPORT_LE, nullptr, nullptr,
                                  BTM_BLE_SEC_ENCRYPT);
   LOG(INFO) << __func__ << ": result=" << +result;
-  // TODO: should we care about the result??
-  return true;
 }

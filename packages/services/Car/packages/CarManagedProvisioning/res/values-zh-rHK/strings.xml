@@ -28,11 +28,11 @@
     <string name="managed_device_info" msgid="2134697391634083944">"這是受管理車輛"</string>
     <string name="contact_your_admin_for_help" msgid="1741496631607502730">"聯絡機構管理員以尋求協助"</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="8767138982035307813">"設定受管理車輛"</string>
-    <string name="fully_managed_device_provisioning_step_1_header" msgid="8704166635032524345">"存取您機構的應用程式"</string>
+    <string name="fully_managed_device_provisioning_step_1_header" msgid="8704166635032524345">"存取你機構的應用程式"</string>
     <string name="fully_managed_device_provisioning_step_1_description" msgid="5960961281295355254">"正在設定資訊娛樂系統…"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="5888602026900289468">"資訊娛樂系統資料並非私人"</string>
-    <string name="fully_managed_device_provisioning_step_2_subheader_title" msgid="1421575203782743214">"您的活動和資料"</string>
-    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="4881961368653838979">"機構管理員或可查看您在此車輛上的活動和資料。"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader_title" msgid="1421575203782743214">"你的活動和資料"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="4881961368653838979">"機構管理員或可查看你在此車輛上的活動和資料。"</string>
     <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8955791361423166123">"機構管理員可設定此車輛的應用程式權限，例如麥克風和位置資訊權限。"</string>
     <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="2503568673345133100">"透過呢部車嘅資訊娛樂系統輕鬆使用工作應用程式。呢部車並唔係私人嘅，所以機構管理員或者可以睇到你嘅活動同資料。機構管理員亦都可以設定呢部車嘅應用程式權限，例如咪高風同位置資訊權限。"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="4323948058344613817">"透過呢部車嘅資訊娛樂系統輕鬆使用工作應用程式。呢部車並唔係私人嘅，所以機構管理員或者可以睇到你嘅資料同活動。"</string>
@@ -42,5 +42,5 @@
     <string name="fully_managed_device_cancel_setup_button" msgid="4113790677940440998">"取消設定"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="4951274590516561428">"重設並交還"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4789425994893472324">"私隱聲明"</string>
-    <string name="fully_managed_device_provisioning_privacy_body" msgid="5549745709511179391">"機構管理員或可查看您在此車輛上的資料和活動。"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="5549745709511179391">"機構管理員或可查看你在此車輛上的資料和活動。"</string>
 </resources>

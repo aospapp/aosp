@@ -2,6 +2,7 @@ package com.airbnb.lottie.animation.content;
 
 import android.graphics.Path;
 import android.graphics.PointF;
+
 import androidx.annotation.Nullable;
 
 import com.airbnb.lottie.LottieDrawable;
@@ -32,6 +33,7 @@ public class PolystarContent
   private final LottieDrawable lottieDrawable;
   private final PolystarShape.Type type;
   private final boolean hidden;
+  private final boolean isReversed;
   private final BaseKeyframeAnimation<?, Float> pointsAnimation;
   private final BaseKeyframeAnimation<?, PointF> positionAnimation;
   private final BaseKeyframeAnimation<?, Float> rotationAnimation;
@@ -40,7 +42,7 @@ public class PolystarContent
   @Nullable private final BaseKeyframeAnimation<?, Float> innerRoundednessAnimation;
   private final BaseKeyframeAnimation<?, Float> outerRoundednessAnimation;
 
-  private CompoundTrimPathContent trimPaths = new CompoundTrimPathContent();
+  private final CompoundTrimPathContent trimPaths = new CompoundTrimPathContent();
   private boolean isPathValid;
 
   public PolystarContent(LottieDrawable lottieDrawable, BaseLayer layer,
@@ -50,6 +52,7 @@ public class PolystarContent
     name = polystarShape.getName();
     type = polystarShape.getType();
     hidden = polystarShape.isHidden();
+    isReversed = polystarShape.isReversed();
     pointsAnimation = polystarShape.getPoints().createAnimation();
     positionAnimation = polystarShape.getPosition().createAnimation();
     rotationAnimation = polystarShape.getRotation().createAnimation();
@@ -147,6 +150,9 @@ public class PolystarContent
     currentAngle = Math.toRadians(currentAngle);
     // adjust current angle for partial points
     float anglePerPoint = (float) (2 * Math.PI / points);
+    if (isReversed) {
+      anglePerPoint *= -1;
+    }
     float halfAnglePerPoint = anglePerPoint / 2.0f;
     float partialPointAmount = points - (int) points;
     if (partialPointAmount != 0) {
@@ -231,7 +237,7 @@ public class PolystarContent
           }
         }
 
-        path.cubicTo(previousX - cp1x,previousY - cp1y, x + cp2x, y + cp2y, x, y);
+        path.cubicTo(previousX - cp1x, previousY - cp1y, x + cp2x, y + cp2y, x, y);
       }
 
       currentAngle += dTheta;
@@ -285,7 +291,7 @@ public class PolystarContent
         float cp1y = radius * roundedness * POLYGON_MAGIC_NUMBER * cp1Dy;
         float cp2x = radius * roundedness * POLYGON_MAGIC_NUMBER * cp2Dx;
         float cp2y = radius * roundedness * POLYGON_MAGIC_NUMBER * cp2Dy;
-        path.cubicTo(previousX - cp1x,previousY - cp1y, x + cp2x, y + cp2y, x, y);
+        path.cubicTo(previousX - cp1x, previousY - cp1y, x + cp2x, y + cp2y, x, y);
       } else {
         path.lineTo(x, y);
       }
@@ -316,8 +322,7 @@ public class PolystarContent
       innerRadiusAnimation.setValueCallback((LottieValueCallback<Float>) callback);
     } else if (property == LottieProperty.POLYSTAR_OUTER_RADIUS) {
       outerRadiusAnimation.setValueCallback((LottieValueCallback<Float>) callback);
-    } else if (property == LottieProperty.POLYSTAR_INNER_ROUNDEDNESS &&
-        innerRoundednessAnimation != null) {
+    } else if (property == LottieProperty.POLYSTAR_INNER_ROUNDEDNESS && innerRoundednessAnimation != null) {
       innerRoundednessAnimation.setValueCallback((LottieValueCallback<Float>) callback);
     } else if (property == LottieProperty.POLYSTAR_OUTER_ROUNDEDNESS) {
       outerRoundednessAnimation.setValueCallback((LottieValueCallback<Float>) callback);

@@ -16,7 +16,6 @@
 
 import logging
 
-from bluetooth_packets_python3 import hci_packets
 from blueberry.tests.gd.cert.captures import HciCaptures
 from blueberry.tests.gd.cert.closable import safeClose
 from blueberry.tests.gd.cert.event_stream import EventStream
@@ -29,6 +28,8 @@ from blueberry.facade.l2cap.classic import facade_pb2 as l2cap_facade
 from blueberry.facade.security.facade_pb2 import IoCapabilities
 from blueberry.facade.security.facade_pb2 import AuthenticationRequirements
 from blueberry.facade.security.facade_pb2 import OobDataPresent
+from blueberry.utils import bluetooth
+import hci_packets as hci
 
 
 class CertSecurity(PySecurity):
@@ -37,37 +38,37 @@ class CertSecurity(PySecurity):
         HCI commands following the Classic Pairing flows.
     """
     _io_cap_lookup = {
-        IoCapabilities.DISPLAY_ONLY: hci_packets.IoCapability.DISPLAY_ONLY,
-        IoCapabilities.DISPLAY_YES_NO_IO_CAP: hci_packets.IoCapability.DISPLAY_YES_NO,
-        IoCapabilities.KEYBOARD_ONLY: hci_packets.IoCapability.KEYBOARD_ONLY,
-        IoCapabilities.NO_INPUT_NO_OUTPUT: hci_packets.IoCapability.NO_INPUT_NO_OUTPUT,
+        IoCapabilities.DISPLAY_ONLY: hci.IoCapability.DISPLAY_ONLY,
+        IoCapabilities.DISPLAY_YES_NO_IO_CAP: hci.IoCapability.DISPLAY_YES_NO,
+        IoCapabilities.KEYBOARD_ONLY: hci.IoCapability.KEYBOARD_ONLY,
+        IoCapabilities.NO_INPUT_NO_OUTPUT: hci.IoCapability.NO_INPUT_NO_OUTPUT,
     }
 
     _auth_req_lookup = {
         AuthenticationRequirements.NO_BONDING:
-        hci_packets.AuthenticationRequirements.NO_BONDING,
+            hci.AuthenticationRequirements.NO_BONDING,
         AuthenticationRequirements.NO_BONDING_MITM_PROTECTION:
-        hci_packets.AuthenticationRequirements.NO_BONDING_MITM_PROTECTION,
+            hci.AuthenticationRequirements.NO_BONDING_MITM_PROTECTION,
         AuthenticationRequirements.DEDICATED_BONDING:
-        hci_packets.AuthenticationRequirements.DEDICATED_BONDING,
+            hci.AuthenticationRequirements.DEDICATED_BONDING,
         AuthenticationRequirements.DEDICATED_BONDING_MITM_PROTECTION:
-        hci_packets.AuthenticationRequirements.DEDICATED_BONDING_MITM_PROTECTION,
+            hci.AuthenticationRequirements.DEDICATED_BONDING_MITM_PROTECTION,
         AuthenticationRequirements.GENERAL_BONDING:
-        hci_packets.AuthenticationRequirements.GENERAL_BONDING,
+            hci.AuthenticationRequirements.GENERAL_BONDING,
         AuthenticationRequirements.GENERAL_BONDING_MITM_PROTECTION:
-        hci_packets.AuthenticationRequirements.GENERAL_BONDING_MITM_PROTECTION,
+            hci.AuthenticationRequirements.GENERAL_BONDING_MITM_PROTECTION,
     }
 
     _oob_present_lookup = {
-        OobDataPresent.NOT_PRESENT: hci_packets.OobDataPresent.NOT_PRESENT,
-        OobDataPresent.P192_PRESENT: hci_packets.OobDataPresent.P_192_PRESENT,
-        OobDataPresent.P256_PRESENT: hci_packets.OobDataPresent.P_256_PRESENT,
-        OobDataPresent.P192_AND_256_PRESENT: hci_packets.OobDataPresent.P_192_AND_256_PRESENT,
+        OobDataPresent.NOT_PRESENT: hci.OobDataPresent.NOT_PRESENT,
+        OobDataPresent.P192_PRESENT: hci.OobDataPresent.P_192_PRESENT,
+        OobDataPresent.P256_PRESENT: hci.OobDataPresent.P_256_PRESENT,
+        OobDataPresent.P192_AND_256_PRESENT: hci.OobDataPresent.P_192_AND_256_PRESENT,
     }
 
     _hci_event_stream = None
-    _io_caps = hci_packets.IoCapability.DISPLAY_ONLY
-    _auth_reqs = hci_packets.AuthenticationRequirements.DEDICATED_BONDING_MITM_PROTECTION
+    _io_caps = hci.IoCapability.DISPLAY_ONLY
+    _auth_reqs = hci.AuthenticationRequirements.DEDICATED_BONDING_MITM_PROTECTION
     _secure_connections_enabled = False
 
     _hci = None
@@ -90,15 +91,14 @@ class CertSecurity(PySecurity):
         self._device.wait_channel_ready()
         self._hci = PyHci(device)
         self._hci.register_for_events(
-            hci_packets.EventCode.ENCRYPTION_CHANGE, hci_packets.EventCode.CHANGE_CONNECTION_LINK_KEY_COMPLETE,
-            hci_packets.EventCode.CENTRAL_LINK_KEY_COMPLETE, hci_packets.EventCode.RETURN_LINK_KEYS,
-            hci_packets.EventCode.PIN_CODE_REQUEST, hci_packets.EventCode.LINK_KEY_REQUEST,
-            hci_packets.EventCode.LINK_KEY_NOTIFICATION, hci_packets.EventCode.ENCRYPTION_KEY_REFRESH_COMPLETE,
-            hci_packets.EventCode.IO_CAPABILITY_REQUEST, hci_packets.EventCode.IO_CAPABILITY_RESPONSE,
-            hci_packets.EventCode.REMOTE_OOB_DATA_REQUEST, hci_packets.EventCode.SIMPLE_PAIRING_COMPLETE,
-            hci_packets.EventCode.USER_PASSKEY_NOTIFICATION, hci_packets.EventCode.KEYPRESS_NOTIFICATION,
-            hci_packets.EventCode.USER_CONFIRMATION_REQUEST, hci_packets.EventCode.USER_PASSKEY_REQUEST,
-            hci_packets.EventCode.REMOTE_HOST_SUPPORTED_FEATURES_NOTIFICATION)
+            hci.EventCode.ENCRYPTION_CHANGE, hci.EventCode.CHANGE_CONNECTION_LINK_KEY_COMPLETE,
+            hci.EventCode.CENTRAL_LINK_KEY_COMPLETE, hci.EventCode.RETURN_LINK_KEYS, hci.EventCode.PIN_CODE_REQUEST,
+            hci.EventCode.LINK_KEY_REQUEST, hci.EventCode.LINK_KEY_NOTIFICATION,
+            hci.EventCode.ENCRYPTION_KEY_REFRESH_COMPLETE, hci.EventCode.IO_CAPABILITY_REQUEST,
+            hci.EventCode.IO_CAPABILITY_RESPONSE, hci.EventCode.REMOTE_OOB_DATA_REQUEST,
+            hci.EventCode.SIMPLE_PAIRING_COMPLETE, hci.EventCode.USER_PASSKEY_NOTIFICATION,
+            hci.EventCode.KEYPRESS_NOTIFICATION, hci.EventCode.USER_CONFIRMATION_REQUEST,
+            hci.EventCode.USER_PASSKEY_REQUEST, hci.EventCode.REMOTE_HOST_SUPPORTED_FEATURES_NOTIFICATION)
         self._hci_event_stream = self._hci.get_event_stream()
 
     def create_bond(self, address, type):
@@ -119,17 +119,17 @@ class CertSecurity(PySecurity):
         """
             Set the IO Capabilities used for the cert
         """
-        logging.info("Cert: setting IO Capabilities data to '%s'" % self._io_capabilities_name_lookup.get(
-            io_capabilities, "ERROR"))
-        self._io_caps = self._io_cap_lookup.get(io_capabilities, hci_packets.IoCapability.DISPLAY_ONLY)
+        logging.info("Cert: setting IO Capabilities data to '%s'" %
+                     self._io_capabilities_name_lookup.get(io_capabilities, "ERROR"))
+        self._io_caps = self._io_cap_lookup.get(io_capabilities, hci.IoCapability.DISPLAY_ONLY)
 
     def set_authentication_requirements(self, auth_reqs):
         """
             Establish authentication requirements for the stack
         """
-        logging.info("Cert: setting Authentication Requirements data to '%s'" % self._auth_reqs_name_lookup.get(
-            auth_reqs, "ERROR"))
-        self._auth_reqs = self._auth_req_lookup.get(auth_reqs, hci_packets.AuthenticationRequirements.GENERAL_BONDING)
+        logging.info("Cert: setting Authentication Requirements data to '%s'" %
+                     self._auth_reqs_name_lookup.get(auth_reqs, "ERROR"))
+        self._auth_reqs = self._auth_req_lookup.get(auth_reqs, hci.AuthenticationRequirements.GENERAL_BONDING)
 
     def get_oob_data_from_controller(self, pb_oob_data_type):
         """
@@ -141,95 +141,98 @@ class CertSecurity(PySecurity):
         """
         oob_data_type = self._oob_present_lookup[pb_oob_data_type]
 
-        if (oob_data_type == hci_packets.OobDataPresent.NOT_PRESENT):
+        if (oob_data_type == hci.OobDataPresent.NOT_PRESENT):
             logging.warn("No data present, no need to call get_oob_data")
             return ([0 for i in range(0, 16)], [0 for i in range(0, 16)], [0 for i in range(0, 16)],
                     [0 for i in range(0, 16)])
 
         logging.info("Cert: Requesting OOB data")
-        if oob_data_type == hci_packets.OobDataPresent.P_192_PRESENT:
+        if oob_data_type == hci.OobDataPresent.P_192_PRESENT:
             # If host and controller supports secure connections we always used ReadLocalOobExtendedDataRequest
             if self._secure_connections_enabled:
                 logging.info("Cert: Requesting P192 Data; secure connections")
                 complete_capture = HciCaptures.ReadLocalOobExtendedDataCompleteCapture()
-                self._enqueue_hci_command(hci_packets.ReadLocalOobExtendedDataBuilder(), True)
+                self._enqueue_hci_command(hci.ReadLocalOobExtendedData(), True)
                 logging.info("Cert: Waiting for OOB response from controller")
                 assertThat(self._hci_event_stream).emits(complete_capture)
-                command_complete = complete_capture.get()
-                complete = hci_packets.ReadLocalOobExtendedDataCompleteView(command_complete)
-                return (list(complete.GetC192()), list(complete.GetR192()), [0 for i in range(0, 16)],
-                        [0 for i in range(0, 16)])
+                complete = complete_capture.get()
+                return (list(complete.c192), list(complete.r192), [0 for i in range(0, 16)], [0 for i in range(0, 16)])
             # else we use ReadLocalDataRequest
             else:
                 logging.info("Cert: Requesting P192 Data; no secure connections")
                 complete_capture = HciCaptures.ReadLocalOobDataCompleteCapture()
-                self._enqueue_hci_command(hci_packets.ReadLocalOobDataBuilder(), True)
+                self._enqueue_hci_command(hci.ReadLocalOobData(), True)
                 logging.info("Cert: Waiting for OOB response from controller")
                 assertThat(self._hci_event_stream).emits(complete_capture)
-                command_complete = complete_capture.get()
-                complete = hci_packets.ReadLocalOobDataCompleteView(command_complete)
-                return (list(complete.GetC()), list(complete.GetR()), [0 for i in range(0, 16)],
-                        [0 for i in range(0, 16)])
+                complete = complete_capture.get()
+                return (list(complete.c), list(complete.r), [0 for i in range(0, 16)], [0 for i in range(0, 16)])
 
         # Must be secure connection compatible to use these
-        elif oob_data_type == hci_packets.OobDataPresent.P_256_PRESENT:
+        elif oob_data_type == hci.OobDataPresent.P_256_PRESENT:
             logging.info("Cert: Requesting P256 Extended Data; secure connections")
             complete_capture = HciCaptures.ReadLocalOobExtendedDataCompleteCapture()
-            self._enqueue_hci_command(hci_packets.ReadLocalOobExtendedDataBuilder(), True)
+            self._enqueue_hci_command(hci.ReadLocalOobExtendedData(), True)
             logging.info("Cert: Waiting for OOB response from controller")
             assertThat(self._hci_event_stream).emits(complete_capture)
-            command_complete = complete_capture.get()
-            complete = hci_packets.ReadLocalOobExtendedDataCompleteView(command_complete)
-            return ([0 for i in range(0, 16)], [0 for i in range(0, 16)], list(complete.GetC256()),
-                    list(complete.GetR256()))
+            complete = complete_capture.get()
+            return ([0 for i in range(0, 16)], [0 for i in range(0, 16)], list(complete.c256), list(complete.r256))
 
         else:  # Both
             logging.info("Cert: Requesting P192 AND P256 Extended Data; secure connections")
             complete_capture = HciCaptures.ReadLocalOobExtendedDataCompleteCapture()
-            self._enqueue_hci_command(hci_packets.ReadLocalOobExtendedDataBuilder(), True)
+            self._enqueue_hci_command(hci.ReadLocalOobExtendedData(), True)
             logging.info("Cert: Waiting for OOB response from controller")
             assertThat(self._hci_event_stream).emits(complete_capture)
-            command_complete = complete_capture.get()
-            complete = hci_packets.ReadLocalOobExtendedDataCompleteView(command_complete)
-            return (list(complete.GetC192()), list(complete.GetR192()), list(complete.GetC256()),
-                    list(complete.GetR256()))
+            complete = complete_capture.get()
+            return (list(complete.c192), list(complete.r192), list(complete.c256), list(complete.r256))
 
     def input_passkey(self, address, passkey):
         """
             Pretend to answer the pairing dialog as a user
         """
         logging.info("Cert: Waiting for PASSKEY request")
-        assertThat(self._hci_event_stream).emits(HciMatchers.EventWithCode(hci_packets.EventCode.USER_PASSKEY_REQUEST))
+        assertThat(self._hci_event_stream).emits(HciMatchers.EventWithCode(hci.EventCode.USER_PASSKEY_REQUEST))
         logging.info("Cert: Send user input passkey %d for %s" % (passkey, address))
-        peer = address.decode('utf-8')
+        peer = bluetooth.Address(address)
         self._enqueue_hci_command(
-            hci_packets.SendKeypressNotificationBuilder(peer, hci_packets.KeypressNotificationType.ENTRY_STARTED), True)
-        self._enqueue_hci_command(
-            hci_packets.SendKeypressNotificationBuilder(peer, hci_packets.KeypressNotificationType.DIGIT_ENTERED), True)
-        self._enqueue_hci_command(
-            hci_packets.SendKeypressNotificationBuilder(peer, hci_packets.KeypressNotificationType.DIGIT_ENTERED), True)
-        self._enqueue_hci_command(
-            hci_packets.SendKeypressNotificationBuilder(peer, hci_packets.KeypressNotificationType.CLEARED), True)
-        self._enqueue_hci_command(
-            hci_packets.SendKeypressNotificationBuilder(peer, hci_packets.KeypressNotificationType.DIGIT_ENTERED), True)
-        self._enqueue_hci_command(
-            hci_packets.SendKeypressNotificationBuilder(peer, hci_packets.KeypressNotificationType.DIGIT_ENTERED), True)
-        self._enqueue_hci_command(
-            hci_packets.SendKeypressNotificationBuilder(peer, hci_packets.KeypressNotificationType.DIGIT_ERASED), True)
-        self._enqueue_hci_command(
-            hci_packets.SendKeypressNotificationBuilder(peer, hci_packets.KeypressNotificationType.DIGIT_ENTERED), True)
-        self._enqueue_hci_command(
-            hci_packets.SendKeypressNotificationBuilder(peer, hci_packets.KeypressNotificationType.DIGIT_ENTERED), True)
-        self._enqueue_hci_command(
-            hci_packets.SendKeypressNotificationBuilder(peer, hci_packets.KeypressNotificationType.DIGIT_ENTERED), True)
-        self._enqueue_hci_command(
-            hci_packets.SendKeypressNotificationBuilder(peer, hci_packets.KeypressNotificationType.DIGIT_ENTERED), True)
-        self._enqueue_hci_command(
-            hci_packets.SendKeypressNotificationBuilder(peer, hci_packets.KeypressNotificationType.DIGIT_ENTERED), True)
-        self._enqueue_hci_command(
-            hci_packets.SendKeypressNotificationBuilder(peer, hci_packets.KeypressNotificationType.ENTRY_COMPLETED),
+            hci.SendKeypressNotification(bd_addr=peer, notification_type=hci.KeypressNotificationType.ENTRY_STARTED),
             True)
-        self._enqueue_hci_command(hci_packets.UserPasskeyRequestReplyBuilder(peer, passkey), True)
+        self._enqueue_hci_command(
+            hci.SendKeypressNotification(bd_addr=peer, notification_type=hci.KeypressNotificationType.DIGIT_ENTERED),
+            True)
+        self._enqueue_hci_command(
+            hci.SendKeypressNotification(bd_addr=peer, notification_type=hci.KeypressNotificationType.DIGIT_ENTERED),
+            True)
+        self._enqueue_hci_command(
+            hci.SendKeypressNotification(bd_addr=peer, notification_type=hci.KeypressNotificationType.CLEARED), True)
+        self._enqueue_hci_command(
+            hci.SendKeypressNotification(bd_addr=peer, notification_type=hci.KeypressNotificationType.DIGIT_ENTERED),
+            True)
+        self._enqueue_hci_command(
+            hci.SendKeypressNotification(bd_addr=peer, notification_type=hci.KeypressNotificationType.DIGIT_ENTERED),
+            True)
+        self._enqueue_hci_command(
+            hci.SendKeypressNotification(bd_addr=peer, notification_type=hci.KeypressNotificationType.DIGIT_ERASED),
+            True)
+        self._enqueue_hci_command(
+            hci.SendKeypressNotification(bd_addr=peer, notification_type=hci.KeypressNotificationType.DIGIT_ENTERED),
+            True)
+        self._enqueue_hci_command(
+            hci.SendKeypressNotification(bd_addr=peer, notification_type=hci.KeypressNotificationType.DIGIT_ENTERED),
+            True)
+        self._enqueue_hci_command(
+            hci.SendKeypressNotification(bd_addr=peer, notification_type=hci.KeypressNotificationType.DIGIT_ENTERED),
+            True)
+        self._enqueue_hci_command(
+            hci.SendKeypressNotification(bd_addr=peer, notification_type=hci.KeypressNotificationType.DIGIT_ENTERED),
+            True)
+        self._enqueue_hci_command(
+            hci.SendKeypressNotification(bd_addr=peer, notification_type=hci.KeypressNotificationType.DIGIT_ENTERED),
+            True)
+        self._enqueue_hci_command(
+            hci.SendKeypressNotification(bd_addr=peer, notification_type=hci.KeypressNotificationType.ENTRY_COMPLETED),
+            True)
+        self._enqueue_hci_command(hci.UserPasskeyRequestReply(bd_addr=peer, numerical_value=passkey), True)
 
     def input_pin(self, address, pin):
         """
@@ -247,7 +250,8 @@ class CertSecurity(PySecurity):
         # Pad
         for i in range(self.MAX_PIN_LENGTH - len(pin_list)):
             pin_list.append(0)
-        self._enqueue_hci_command(hci_packets.PinCodeRequestReplyBuilder(peer, len(pin), pin_list), True)
+        self._enqueue_hci_command(
+            hci.PinCodeRequestReply(bd_addr=bluetooth.Address(peer), pin_code_length=len(pin), pin_code=pin_list), True)
 
     def __send_ui_callback(self, address, callback_type, b, uid, pin):
         """
@@ -261,10 +265,9 @@ class CertSecurity(PySecurity):
             This is called when you want to enable SSP for testing
         """
         logging.info("Cert: Sending WRITE_SIMPLE_PAIRING_MODE [True]")
-        self._enqueue_hci_command(hci_packets.WriteSimplePairingModeBuilder(hci_packets.Enable.ENABLED), True)
+        self._enqueue_hci_command(hci.WriteSimplePairingMode(simple_pairing_mode=hci.Enable.ENABLED), True)
         logging.info("Cert: Waiting for controller response")
-        assertThat(self._hci_event_stream).emits(
-            HciMatchers.CommandComplete(hci_packets.OpCode.WRITE_SIMPLE_PAIRING_MODE))
+        assertThat(self._hci_event_stream).emits(HciMatchers.CommandComplete(hci.OpCode.WRITE_SIMPLE_PAIRING_MODE))
 
     def enable_secure_connections(self):
         """
@@ -272,10 +275,10 @@ class CertSecurity(PySecurity):
         """
         logging.info("Cert: Sending WRITE_SECURE_CONNECTIONS_HOST_SUPPORT [True]")
         self._enqueue_hci_command(
-            hci_packets.WriteSecureConnectionsHostSupportBuilder(hci_packets.Enable.ENABLED), True)
+            hci.WriteSecureConnectionsHostSupport(secure_connections_host_support=hci.Enable.ENABLED), True)
         logging.info("Cert: Waiting for controller response")
         assertThat(self._hci_event_stream).emits(
-            HciMatchers.CommandComplete(hci_packets.OpCode.WRITE_SECURE_CONNECTIONS_HOST_SUPPORT))
+            HciMatchers.CommandComplete(hci.OpCode.WRITE_SECURE_CONNECTIONS_HOST_SUPPORT))
         # TODO(optedoblivion): Figure this out and remove (see classic_pairing_handler.cc)
         #self._secure_connections_enabled = True
 
@@ -283,34 +286,37 @@ class CertSecurity(PySecurity):
         logging.info("Cert: Waiting for IO_CAPABILITY_REQUEST")
         assertThat(self._hci_event_stream).emits(HciMatchers.IoCapabilityRequest())
         logging.info("Cert: Sending IO_CAPABILITY_REQUEST_REPLY")
-        oob_data_present = hci_packets.OobDataPresent.NOT_PRESENT
+        oob_data_present = hci.OobDataPresent.NOT_PRESENT
         self._enqueue_hci_command(
-            hci_packets.IoCapabilityRequestReplyBuilder(
-                address.decode('utf8'), self._io_caps, oob_data_present, self._auth_reqs), True)
+            hci.IoCapabilityRequestReply(bd_addr=bluetooth.Address(address),
+                                         io_capability=self._io_caps,
+                                         oob_present=oob_data_present,
+                                         authentication_requirements=self._auth_reqs), True)
 
-    def accept_pairing(self, dut_address, reply_boolean):
+    def accept_pairing(self, dut_address, reply_boolean, expect_to_fail, on_responder_reply):
         """
             Here we handle the pairing events at the HCI level
         """
-        logging.info("Cert: Waiting for LINK_KEY_REQUEST")
-        assertThat(self._hci_event_stream).emits(HciMatchers.LinkKeyRequest())
-        logging.info("Cert: Sending LINK_KEY_REQUEST_NEGATIVE_REPLY")
-        self._enqueue_hci_command(hci_packets.LinkKeyRequestNegativeReplyBuilder(dut_address.decode('utf8')), True)
+        logging.info("Cert: Waiting for IO_CAPABILITY_RESPONSE")
+        assertThat(self._hci_event_stream).emits(HciMatchers.IoCapabilityResponse())
         self.send_io_caps(dut_address)
         logging.info("Cert: Waiting for USER_CONFIRMATION_REQUEST")
         assertThat(self._hci_event_stream).emits(HciMatchers.UserConfirmationRequest())
         logging.info("Cert: Sending Simulated User Response '%s'" % reply_boolean)
         if reply_boolean:
             logging.info("Cert: Sending USER_CONFIRMATION_REQUEST_REPLY")
-            self._enqueue_hci_command(hci_packets.UserConfirmationRequestReplyBuilder(dut_address.decode('utf8')), True)
+            self._enqueue_hci_command(hci.UserConfirmationRequestReply(bd_addr=bluetooth.Address(dut_address)), True)
+            on_responder_reply()
             logging.info("Cert: Waiting for SIMPLE_PAIRING_COMPLETE")
             assertThat(self._hci_event_stream).emits(HciMatchers.SimplePairingComplete())
-            logging.info("Cert: Waiting for LINK_KEY_NOTIFICATION")
-            assertThat(self._hci_event_stream).emits(HciMatchers.LinkKeyNotification())
+            if not expect_to_fail:
+                logging.info("Cert: Waiting for LINK_KEY_NOTIFICATION")
+                assertThat(self._hci_event_stream).emits(HciMatchers.LinkKeyNotification())
         else:
             logging.info("Cert: Sending USER_CONFIRMATION_REQUEST_NEGATIVE_REPLY")
-            self._enqueue_hci_command(
-                hci_packets.UserConfirmationRequestNegativeReplyBuilder(dut_address.decode('utf8')), True)
+            self._enqueue_hci_command(hci.UserConfirmationRequestNegativeReply(bd_addr=bluetooth.Address(dut_address)),
+                                      True)
+            on_responder_reply()
             logging.info("Cert: Waiting for SIMPLE_PAIRING_COMPLETE")
             assertThat(self._hci_event_stream).emits(HciMatchers.SimplePairingComplete())
 
@@ -322,8 +328,8 @@ class CertSecurity(PySecurity):
         ssp_complete_capture = HciCaptures.SimplePairingCompleteCapture()
         assertThat(self._hci_event_stream).emits(ssp_complete_capture)
         ssp_complete = ssp_complete_capture.get()
-        logging.info(ssp_complete.GetStatus())
-        assertThat(ssp_complete.GetStatus()).isEqualTo(hci_packets.ErrorCode.SUCCESS)
+        logging.info(ssp_complete.status)
+        assertThat(ssp_complete.status).isEqualTo(hci.ErrorCode.SUCCESS)
 
     def on_user_input(self, dut_address, reply_boolean, expected_ui_event):
         """
@@ -356,8 +362,10 @@ class CertSecurity(PySecurity):
         """
             Cert side needs to pass
         """
-        logging.info("Cert: Waiting for DISCONNECT_COMPLETE")
-        assertThat(self._hci_event_stream).emits(HciMatchers.DisconnectionComplete())
+        pass
+        # FIXME: Gabeldorsche facade don't allow us to register for an DISCONNECT_COMPLETE event
+        # logging.info("Cert: Waiting for DISCONNECT_COMPLETE")
+        # assertThat(self._hci_event_stream).emits(HciMatchers.DisconnectionComplete())
 
     def close(self):
         safeClose(self._hci)

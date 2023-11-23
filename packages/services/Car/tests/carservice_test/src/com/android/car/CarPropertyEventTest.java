@@ -32,6 +32,17 @@ import org.mockito.junit.MockitoJUnitRunner;
 /** Unit tests for {@link android.car.hardware.property.CarPropertyEvent} */
 @RunWith(MockitoJUnitRunner.class)
 public final class CarPropertyEventTest {
+    private static final int PROPERTY_ID = 1234;
+    private static final int AREA_ID = 5678;
+    private static final long TIMESTAMP_NANOS = 9294;
+    private static final Float VALUE = 12.0F;
+    private static final CarPropertyValue<Float> CAR_PROPERTY_VALUE = new CarPropertyValue<>(
+            PROPERTY_ID, AREA_ID, TIMESTAMP_NANOS, VALUE);
+    private static final int EVENT_TYPE = CarPropertyEvent.PROPERTY_EVENT_PROPERTY_CHANGE;
+    private static final int ERROR_CODE =
+            CarPropertyManager.CAR_SET_PROPERTY_ERROR_CODE_INVALID_ARG;
+    private static final CarPropertyEvent CAR_PROPERTY_EVENT = new CarPropertyEvent(EVENT_TYPE,
+            CAR_PROPERTY_VALUE, ERROR_CODE);
 
     private static final int FAKE_PROPERTY_ID = 0x1101111;
     private static final int FAKE_AREA_ID = 0x1;
@@ -60,8 +71,6 @@ public final class CarPropertyEventTest {
 
         assertThat(carPropertyEvent.getErrorCode())
                 .isEqualTo(CarPropertyManager.CAR_SET_PROPERTY_ERROR_CODE_UNKNOWN);
-        assertThat(carPropertyEvent.getCarPropertyValue().getStatus()).isEqualTo(
-                CarPropertyValue.STATUS_ERROR);
         assertThat(carPropertyEvent.getEventType()).isEqualTo(
                 CarPropertyEvent.PROPERTY_EVENT_ERROR);
         assertThat(carPropertyEvent.describeContents()).isEqualTo(0);
@@ -85,5 +94,62 @@ public final class CarPropertyEventTest {
                 .isEqualTo(FAKE_PROPERTY_VALUE);
         assertThat(eventReadFromParcel.getEventType())
                 .isEqualTo(CarPropertyEvent.PROPERTY_EVENT_PROPERTY_CHANGE);
+    }
+
+    @Test
+    public void equals_returnsTrueForSameObject() {
+        assertThat(CAR_PROPERTY_EVENT.equals(CAR_PROPERTY_EVENT)).isTrue();
+    }
+
+    @Test
+    public void equals_returnsFalseForNull() {
+        assertThat(CAR_PROPERTY_EVENT.equals(null)).isFalse();
+    }
+
+    @Test
+    public void equals_returnsFalseForNonCarPropertyEvent() {
+        assertThat(CAR_PROPERTY_EVENT.equals(new Object())).isFalse();
+    }
+
+    @Test
+    public void equals_returnsFalseForDifferentEventTypes() {
+        int differentEventType = CarPropertyEvent.PROPERTY_EVENT_ERROR;
+        assertThat(CAR_PROPERTY_EVENT.equals(
+                new CarPropertyEvent(differentEventType, CAR_PROPERTY_VALUE,
+                        ERROR_CODE))).isFalse();
+    }
+
+    @Test
+    public void equals_returnsFalseForDifferentCarPropertyValues() {
+        CarPropertyValue<Integer> differentCarPropertyValue = new CarPropertyValue<>(PROPERTY_ID,
+                AREA_ID, 893);
+        assertThat(CAR_PROPERTY_EVENT.equals(
+                new CarPropertyEvent(EVENT_TYPE, differentCarPropertyValue, ERROR_CODE))).isFalse();
+    }
+
+    @Test
+    public void equals_returnsFalseForDifferentErrorCodes() {
+        int differentErrorCode = CarPropertyManager.CAR_SET_PROPERTY_ERROR_CODE_UNKNOWN;
+        assertThat(CAR_PROPERTY_VALUE.equals(new CarPropertyEvent(EVENT_TYPE, CAR_PROPERTY_VALUE,
+                differentErrorCode))).isFalse();
+    }
+
+    @Test
+    public void equals_returnsTrueWhenEqual() {
+        assertThat(CAR_PROPERTY_EVENT.equals(
+                new CarPropertyEvent(EVENT_TYPE, CAR_PROPERTY_VALUE, ERROR_CODE))).isTrue();
+    }
+
+    @Test
+    public void hashCode_returnsSameValueForSameInstance() {
+        assertThat(CAR_PROPERTY_EVENT.hashCode()).isEqualTo(CAR_PROPERTY_EVENT.hashCode());
+    }
+
+    @Test
+    public void hashCode_returnsDifferentValueForDifferentCarPropertyEvent() {
+        int differentErrorCode = CarPropertyManager.CAR_SET_PROPERTY_ERROR_CODE_UNKNOWN;
+        assertThat(CAR_PROPERTY_EVENT.hashCode()).isNotEqualTo(
+                new CarPropertyEvent(EVENT_TYPE, CAR_PROPERTY_VALUE,
+                        differentErrorCode).hashCode());
     }
 }

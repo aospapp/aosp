@@ -267,6 +267,9 @@ genrule {
     ":com.android.apex.cts.shim.v2_apk_in_apex_sdk_target_p",
     ":com.android.apex.cts.shim.v2_apk_in_apex_upgrades",
     ":com.android.apex.cts.shim.v2_rebootless",
+    ":com.android.apex.cts.shim.v2_install_constraints_empty",
+    ":com.android.apex.cts.shim.v2_install_constraints_invalid_fingerprint",
+    ":com.android.apex.cts.shim.v2_install_constraints_no_value",
     ":com.android.apex.cts.shim.v3",
     ":com.android.apex.cts.shim.v3_rebootless",
     ":com.android.apex.cts.shim.v3_signed_bob",
@@ -561,6 +564,10 @@ genrule {
   srcs: [":com.android.apex.cts.shim.v2_rebootless"],
   out: ["com.android.apex.cts.shim.v2_unsigned_apk_container.apex"],
   cmd: "cp -v $(in) $(out) && zip -d $(out) META-INF*",
+  dist: {
+    targets: ["com.android.apex.cts.shim.v2_unsigned_apk_container"],
+    dest: "com.android.apex.cts.shim.v2_unsigned_apk_container.apex",
+  },
 }
 
 // Apex shim for testing rebootless updates
@@ -593,6 +600,39 @@ apex {
   key: "com.android.apex.cts.shim.key",
   prebuilts: ["hash_of_dev_null"],
   apps: ["CtsShim", "CtsShimPrivUpgrade"],
+  installable: false,
+  updatable: false,
+}
+
+apex {
+  name: "com.android.apex.cts.shim.v2_install_constraints_empty",
+  manifest: "manifest_v2.json",
+  androidManifest: "AndroidManifestInstallConstraints_empty.xml",
+  file_contexts: ":apex.test-file_contexts",
+  key: "com.android.apex.cts.shim.key",
+  prebuilts: ["hash_of_dev_null"],
+  installable: false,
+  updatable: false,
+}
+
+apex {
+  name: "com.android.apex.cts.shim.v2_install_constraints_invalid_fingerprint",
+  manifest: "manifest_v2.json",
+  androidManifest: "AndroidManifestInstallConstraints_invalid_fingerprint.xml",
+  file_contexts: ":apex.test-file_contexts",
+  key: "com.android.apex.cts.shim.key",
+  prebuilts: ["hash_of_dev_null"],
+  installable: false,
+  updatable: false,
+}
+
+apex {
+  name: "com.android.apex.cts.shim.v2_install_constraints_no_value",
+  manifest: "manifest_v2.json",
+  androidManifest: "AndroidManifestInstallConstraints_no_value.xml",
+  file_contexts: ":apex.test-file_contexts",
+  key: "com.android.apex.cts.shim.key",
+  prebuilts: ["hash_of_dev_null"],
   installable: false,
   updatable: false,
 }

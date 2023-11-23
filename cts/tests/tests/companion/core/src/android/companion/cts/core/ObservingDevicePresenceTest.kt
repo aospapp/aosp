@@ -21,20 +21,20 @@ import android.companion.cts.common.MAC_ADDRESS_A
 import android.companion.cts.common.MAC_ADDRESS_B
 import android.companion.cts.common.PrimaryCompanionService
 import android.companion.cts.common.SecondaryCompanionService
+import android.companion.cts.common.assertEmpty
+import android.companion.cts.common.assertInvalidCompanionDeviceServicesNotBound
+import android.companion.cts.common.assertOnlyPrimaryCompanionDeviceServiceNotified
 import android.companion.cts.common.assertValidCompanionDeviceServicesBind
 import android.companion.cts.common.assertValidCompanionDeviceServicesRemainBound
 import android.companion.cts.common.assertValidCompanionDeviceServicesRemainUnbound
 import android.companion.cts.common.assertValidCompanionDeviceServicesUnbind
-import android.companion.cts.common.assertEmpty
-import android.companion.cts.common.assertInvalidCompanionDeviceServicesNotBound
-import android.companion.cts.common.assertOnlyPrimaryCompanionDeviceServiceNotified
 import android.companion.cts.common.toUpperCaseString
 import android.platform.test.annotations.AppModeFull
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import org.junit.Test
-import org.junit.runner.RunWith
 import kotlin.test.assertContentEquals
 import kotlin.test.assertFailsWith
+import org.junit.Test
+import org.junit.runner.RunWith
 
 /**
  * Test CDM APIs for observing device presence.
@@ -268,6 +268,9 @@ class ObservingDevicePresenceTest : CoreTestBase() {
 
         // Both valid services should unbind now.
         assertValidCompanionDeviceServicesUnbind()
+
+        simulateDeviceDisappeared(idA)
+        simulateDeviceDisappeared(idB)
     }
 
     private fun simulateDeviceAppeared(associationId: Int) = runShellCommand(

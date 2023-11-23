@@ -377,6 +377,9 @@ def get_num_seq_clients():
     '''
     cmd = [ACONNECT_PATH, '-io']
     output = cmd_utils.execute(cmd, stdout=subprocess.PIPE, run_as='chronos')
+
+    #py3 migration
+    output = output.decode()
     num_clients = 0
     for line in output.splitlines():
         match = CLIENT_NUM_RE.match(line)

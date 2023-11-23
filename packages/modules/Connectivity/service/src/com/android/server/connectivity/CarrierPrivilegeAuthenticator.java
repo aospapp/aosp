@@ -38,6 +38,7 @@ import android.util.Log;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.modules.utils.HandlerExecutor;
 import com.android.networkstack.apishim.TelephonyManagerShimImpl;
 import com.android.networkstack.apishim.common.TelephonyManagerShim;
 import com.android.networkstack.apishim.common.TelephonyManagerShim.CarrierPrivilegesListenerShim;
@@ -46,7 +47,6 @@ import com.android.networkstack.apishim.common.UnsupportedApiLevelException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
-import java.util.concurrent.RejectedExecutionException;
 
 /**
  * Tracks the uid of the carrier privileged app that provides the carrier config.
@@ -101,27 +101,6 @@ public class CarrierPrivilegeAuthenticator extends BroadcastReceiver {
             mModemCount = mTelephonyManager.getActiveModemCount();
             registerForCarrierChanges();
             updateCarrierServiceUid();
-        }
-    }
-
-    /**
-     * An adapter {@link Executor} that posts all executed tasks onto the given
-     * {@link Handler}.
-     *
-     * TODO : migrate to the version in frameworks/libs/net when it's ready
-     *
-     * @hide
-     */
-    public class HandlerExecutor implements Executor {
-        private final Handler mHandler;
-        public HandlerExecutor(@NonNull Handler handler) {
-            mHandler = handler;
-        }
-        @Override
-        public void execute(Runnable command) {
-            if (!mHandler.post(command)) {
-                throw new RejectedExecutionException(mHandler + " is shutting down");
-            }
         }
     }
 

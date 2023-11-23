@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 # Copyright 2016, The Android Open Source Project
 #
@@ -33,7 +33,7 @@ import tempfile
 import unittest
 
 sys.dont_write_bytecode = True
-avbtool = imp.load_source('avbtool', './avbtool')
+avbtool = imp.load_source('avbtool', './avbtool.py')
 
 # The file test_file.bin and test_file.bin.sparse are generated using
 # the following python code:
@@ -102,8 +102,8 @@ class ImageHandler(unittest.TestCase):
     return size
 
   def _clone_sparse_file(self):
-    f = tempfile.NamedTemporaryFile()
-    f.write(open(self.TEST_FILE_SPARSE_PATH).read())
+    f = tempfile.NamedTemporaryFile(mode='wb')
+    f.write(open(self.TEST_FILE_SPARSE_PATH, 'rb').read())
     f.flush()
     return f
 
@@ -120,24 +120,24 @@ class ImageHandler(unittest.TestCase):
     self.assertEqual(ih.tell(), 0)
 
     # Check that reading advances the cursor.
-    self.assertEqual(ih.read(14), bytearray('Barfoo43Barfoo'))
+    self.assertEqual(ih.read(14), bytearray(b'Barfoo43Barfoo'))
     self.assertEqual(ih.tell(), 14)
-    self.assertEqual(ih.read(2), bytearray('43'))
+    self.assertEqual(ih.read(2), bytearray(b'43'))
     self.assertEqual(ih.tell(), 16)
 
     # Check reading in the middle of a fill chunk gets the right data.
     ih.seek(0x6000 + 1)
-    self.assertEqual(ih.read(4), bytearray('\x02\x03\x04\x01'))
+    self.assertEqual(ih.read(4), bytearray(b'\x02\x03\x04\x01'))
 
     # Check we can cross the chunk boundary correctly.
     ih.seek(0x3000 - 10)
-    self.assertEqual(ih.read(12), bytearray('43Barfoo43\x00\x00'))
+    self.assertEqual(ih.read(12), bytearray(b'43Barfoo43\x00\x00'))
     ih.seek(0x9000 - 3)
-    self.assertEqual(ih.read(5), bytearray('\x02\x03\x04Fo'))
+    self.assertEqual(ih.read(5), bytearray(b'\x02\x03\x04Fo'))
 
     # Check reading at end of file is a partial read.
     ih.seek(0xf000 - 2)
-    self.assertEqual(ih.read(16), bytearray('\x00\x00'))
+    self.assertEqual(ih.read(16), bytearray(b'\x00\x00'))
 
   def testTruncate(self):
     """Checks that we can truncate a sparse file correctly."""
@@ -165,13 +165,13 @@ class ImageHandler(unittest.TestCase):
                                               self.TEST_FILE_PATH,
                                               self.TEST_FILE_SIZE))
     unsparse_file.seek(self.TEST_FILE_SIZE)
-    self.assertEqual(unsparse_file.read(), '\0'*grow_size)
+    self.assertEqual(unsparse_file.read(), b'\0'*grow_size)
 
   def testAppendRaw(self):
     """Checks that we can append raw data correctly."""
     sparse_file = self._clone_sparse_file()
     ih = avbtool.ImageHandler(sparse_file.name)
-    data = 'SomeData'*4096
+    data = b'SomeData'*4096
     ih.append_raw(data)
     unsparse_file = self._unsparsify(sparse_file.name)
     self.assertTrue(self._file_contents_equal(unsparse_file.name,
@@ -184,8 +184,8 @@ class ImageHandler(unittest.TestCase):
     """Checks that we can append fill data correctly."""
     sparse_file = self._clone_sparse_file()
     ih = avbtool.ImageHandler(sparse_file.name)
-    data = 'ABCD'*4096
-    ih.append_fill('ABCD', len(data))
+    data = b'ABCD'*4096
+    ih.append_fill(b'ABCD', len(data))
     unsparse_file = self._unsparsify(sparse_file.name)
     self.assertTrue(self._file_contents_equal(unsparse_file.name,
                                               self.TEST_FILE_PATH,
@@ -197,7 +197,7 @@ class ImageHandler(unittest.TestCase):
     """Checks that we can append DONT_CARE data correctly."""
     sparse_file = self._clone_sparse_file()
     ih = avbtool.ImageHandler(sparse_file.name)
-    data = '\0'*40960
+    data = b'\0'*40960
     ih.append_dont_care(len(data))
     unsparse_file = self._unsparsify(sparse_file.name)
     self.assertTrue(self._file_contents_equal(unsparse_file.name,

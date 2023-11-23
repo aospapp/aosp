@@ -20,6 +20,7 @@ import static com.android.car.telemetry.AtomsProto.ActivityForegroundStateChange
 import static com.android.car.telemetry.AtomsProto.ActivityForegroundStateChanged.PKG_NAME_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.ActivityForegroundStateChanged.STATE_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.ActivityForegroundStateChanged.UID_FIELD_NUMBER;
+import static com.android.car.telemetry.publisher.Constants.STATS_BUNDLE_KEY_PREFIX;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -105,15 +106,18 @@ public class ActivityForegroundStateChangedConverterTest {
                 dimensionsValuesList, HASH_STR_MAP);
 
         assertThat(bundle.size()).isEqualTo(4);
-        assertThat(bundle.getIntArray(accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getIntArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1000, 2000).inOrder();
-        assertThat(Arrays.asList(
-                bundle.getStringArray(accessorMap.get(PKG_NAME_FIELD_NUMBER).getFieldName())))
+        assertThat(Arrays.asList(bundle.getStringArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(PKG_NAME_FIELD_NUMBER).getFieldName())))
             .containsExactly("package.name.1", "package.name.2").inOrder();
-        assertThat(Arrays.asList(
-                bundle.getStringArray(accessorMap.get(CLASS_NAME_FIELD_NUMBER).getFieldName())))
+        assertThat(Arrays.asList(bundle.getStringArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        CLASS_NAME_FIELD_NUMBER).getFieldName())))
             .containsExactly("className1", "className2").inOrder();
-        assertThat(bundle.getIntArray(accessorMap.get(STATE_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getIntArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(STATE_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(0, 1).inOrder();  // States background=0 and foreground=1
     }
 

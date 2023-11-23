@@ -24,6 +24,8 @@ import android.util.Log;
 
 import androidx.test.filters.LargeTest;
 
+import com.android.compatibility.common.util.ApiTest;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -47,11 +49,13 @@ public class CodecEncoderPerformanceTest extends CodecEncoderPerformanceTestBase
     private static final String LOG_TAG = CodecEncoderPerformanceTest.class.getSimpleName();
 
     public CodecEncoderPerformanceTest(String decoderName, String testFile, String encoderMime,
-            String encoderName, int bitrate, int keyPriority, float scalingFactor) {
-        super(decoderName, testFile, encoderMime, encoderName, bitrate, keyPriority, scalingFactor);
+            String encoderName, int bitrate, int keyPriority, float scalingFactor,
+            boolean isAsync, int maxBFrames) {
+        super(decoderName, testFile, encoderMime, encoderName, bitrate, keyPriority, scalingFactor,
+                isAsync, maxBFrames);
     }
 
-    @Parameterized.Parameters(name = "{index}({0}_{2}_{3}_{5}_{6})")
+    @Parameterized.Parameters(name = "{index}_{0}_{2}_{3}_{5}_{6}_{7}_{8}")
     public static Collection<Object[]> input() throws IOException {
         final List<Object[]> exhaustiveArgsList = Arrays.asList(new Object[][]{
                 // Filename, Recommended AVC bitrate
@@ -80,6 +84,7 @@ public class CodecEncoderPerformanceTest extends CodecEncoderPerformanceTestBase
                     null, false);
             if (listOfDecoders.size() == 0) continue;
             String decoder = listOfDecoders.get(0);
+            boolean[] boolStates = {true, false};
             for (String encoderMime : getMimesOfAvailableHardwareVideoEncoders()) {
                 // Calculate the bitrate based on the encode mime.
                 int bitrate = (int)(((int) arg[1]) * getBitrateScalingFactor(encoderMime));
@@ -91,9 +96,21 @@ public class CodecEncoderPerformanceTest extends CodecEncoderPerformanceTestBase
                 for (String encoder : listOfEncoders) {
                     for (int keyPriority : KEY_PRIORITIES_LIST) {
                         for (float scalingFactor : SCALING_FACTORS_LIST) {
-                            if (keyPriority == 1 || (scalingFactor > 0.0 && scalingFactor <= 1.0)) {
-                                argsList.add(new Object[]{decoder, arg[0], encoderMime, encoder,
-                                        bitrate, keyPriority, scalingFactor});
+                            for (boolean isAsync : boolStates) {
+                                if (keyPriority == 1 || (scalingFactor > 0.0
+                                        && scalingFactor <= 1.0)) {
+                                    argsList.add(
+                                            new Object[]{decoder, arg[0], encoderMime, encoder,
+                                                    bitrate, keyPriority, scalingFactor, isAsync,
+                                                    0});
+                                    if (encoderMime.equals("video/avc") || encoderMime.equals(
+                                            "video/hevc")) {
+                                        argsList.add(
+                                                new Object[]{decoder, arg[0], encoderMime, encoder,
+                                                        bitrate, keyPriority, scalingFactor,
+                                                        isAsync, 2});
+                                    }
+                                }
                             }
                         }
                     }
@@ -106,9 +123,11 @@ public class CodecEncoderPerformanceTest extends CodecEncoderPerformanceTestBase
     /**
      * Validates performance of hardware accelerated video encoders
      */
+    @ApiTest(apis = {"android.media.MediaFormat#KEY_PRIORITY",
+            "android.media.MediaFormat#KEY_OPERATING_RATE"})
     @LargeTest
     @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
-    public void testPerformanceOfHardwareVideoEncoders() throws IOException {
+    public void testPerformanceOfHardwareVideoEncoders() throws IOException, InterruptedException {
         encode();
         String log = String.format("DecodeMime: %s, Decoder: %s, resolution: %dp, EncodeMime: %s," +
                 " Encoder: %s, Key-priority: %d :: ", mDecoderMime, mDecoderName, mHeight,

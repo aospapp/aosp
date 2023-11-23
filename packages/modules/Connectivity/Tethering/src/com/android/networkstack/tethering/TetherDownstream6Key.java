@@ -32,8 +32,8 @@ import java.util.Objects;
 
 /** The key of BpfMap which is used for bpf offload. */
 public class TetherDownstream6Key extends Struct {
-    @Field(order = 0, type = Type.U32)
-    public final long iif; // The input interface index.
+    @Field(order = 0, type = Type.S32)
+    public final int iif; // The input interface index.
 
     @Field(order = 1, type = Type.EUI48, padding = 2)
     public final MacAddress dstMac; // Destination ethernet mac address (zeroed iff rawip ingress).
@@ -41,7 +41,7 @@ public class TetherDownstream6Key extends Struct {
     @Field(order = 2, type = Type.ByteArray, arraysize = 16)
     public final byte[] neigh6; // The destination IPv6 address.
 
-    public TetherDownstream6Key(final long iif, @NonNull final MacAddress dstMac,
+    public TetherDownstream6Key(final int iif, @NonNull final MacAddress dstMac,
             final byte[] neigh6) {
         Objects.requireNonNull(dstMac);
 

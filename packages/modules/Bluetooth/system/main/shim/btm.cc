@@ -33,7 +33,6 @@
 #include "gd/neighbor/connectability.h"
 #include "gd/neighbor/discoverability.h"
 #include "gd/neighbor/inquiry.h"
-#include "gd/neighbor/name.h"
 #include "gd/neighbor/page.h"
 #include "gd/security/security_module.h"
 #include "main/shim/controller.h"
@@ -49,39 +48,41 @@
 
 extern tBTM_CB btm_cb;
 
-static constexpr size_t kRemoteDeviceNameLength = 248;
-
 static constexpr bool kActiveScanning = true;
 static constexpr bool kPassiveScanning = false;
 
 using BtmRemoteDeviceName = tBTM_REMOTE_DEV_NAME;
 
-extern void btm_process_cancel_complete(tHCI_STATUS status, uint8_t mode);
-extern void btm_process_inq_complete(tHCI_STATUS status, uint8_t result_type);
-extern void btm_ble_process_adv_addr(RawAddress& raw_address,
-                                     tBLE_ADDR_TYPE* address_type);
-extern void btm_ble_process_adv_pkt_cont(
-    uint16_t event_type, tBLE_ADDR_TYPE address_type,
-    const RawAddress& raw_address, uint8_t primary_phy, uint8_t secondary_phy,
-    uint8_t advertising_sid, int8_t tx_power, int8_t rssi,
-    uint16_t periodic_adv_int, uint8_t data_len, const uint8_t* data,
-    const RawAddress& original_bda);
+void btm_process_cancel_complete(tHCI_STATUS status, uint8_t mode);
+void btm_process_inq_complete(tHCI_STATUS status, uint8_t result_type);
+void btm_ble_process_adv_addr(RawAddress& raw_address,
+                              tBLE_ADDR_TYPE* address_type);
+void btm_ble_process_adv_pkt_cont(uint16_t event_type,
+                                  tBLE_ADDR_TYPE address_type,
+                                  const RawAddress& raw_address,
+                                  uint8_t primary_phy, uint8_t secondary_phy,
+                                  uint8_t advertising_sid, int8_t tx_power,
+                                  int8_t rssi, uint16_t periodic_adv_int,
+                                  uint8_t data_len, const uint8_t* data,
+                                  const RawAddress& original_bda);
 
-extern void btm_api_process_inquiry_result(const RawAddress& raw_address,
-                                           uint8_t page_scan_rep_mode,
-                                           DEV_CLASS device_class,
-                                           uint16_t clock_offset);
+void btm_api_process_inquiry_result(const RawAddress& raw_address,
+                                    uint8_t page_scan_rep_mode,
+                                    DEV_CLASS device_class,
+                                    uint16_t clock_offset);
 
-extern void btm_api_process_inquiry_result_with_rssi(RawAddress raw_address,
-                                                     uint8_t page_scan_rep_mode,
-                                                     DEV_CLASS device_class,
-                                                     uint16_t clock_offset,
-                                                     int8_t rssi);
+void btm_api_process_inquiry_result_with_rssi(RawAddress raw_address,
+                                              uint8_t page_scan_rep_mode,
+                                              DEV_CLASS device_class,
+                                              uint16_t clock_offset,
+                                              int8_t rssi);
 
-extern void btm_api_process_extended_inquiry_result(
-    RawAddress raw_address, uint8_t page_scan_rep_mode, DEV_CLASS device_class,
-    uint16_t clock_offset, int8_t rssi, const uint8_t* eir_data,
-    size_t eir_len);
+void btm_api_process_extended_inquiry_result(RawAddress raw_address,
+                                             uint8_t page_scan_rep_mode,
+                                             DEV_CLASS device_class,
+                                             uint16_t clock_offset, int8_t rssi,
+                                             const uint8_t* eir_data,
+                                             size_t eir_len);
 
 namespace bluetooth {
 
@@ -168,6 +169,7 @@ void Btm::ScanningCallbacks::OnPeriodicSyncReport(uint16_t sync_handle,
 void Btm::ScanningCallbacks::OnPeriodicSyncLost(uint16_t sync_handle) {}
 void Btm::ScanningCallbacks::OnPeriodicSyncTransferred(
     int pa_source, uint8_t status, bluetooth::hci::Address address) {}
+void Btm::ScanningCallbacks::OnBigInfoReport(uint16_t sync_handle, bool encrypted) {}
 
 Btm::Btm(os::Handler* handler, neighbor::InquiryModule* inquiry)
     : scanning_timer_(handler), observing_timer_(handler) {
@@ -483,50 +485,13 @@ bool Btm::UseLeLink(const RawAddress& raw_address) const {
 }
 
 BtmStatus Btm::ReadClassicRemoteDeviceName(const RawAddress& raw_address,
-                                           tBTM_CMPL_CB* callback) {
-  if (!CheckClassicAclLink(raw_address)) {
-    return BTM_UNKNOWN_ADDR;
-  }
-
-  if (!classic_read_remote_name_.Start(raw_address)) {
-    LOG_INFO("%s Read remote name is currently busy address:%s", __func__,
-             raw_address.ToString().c_str());
-    return BTM_BUSY;
-  }
-
-  LOG_INFO("%s Start read name from address:%s", __func__,
-           raw_address.ToString().c_str());
-  GetName()->ReadRemoteNameRequest(
-      ToGdAddress(raw_address), hci::PageScanRepetitionMode::R1,
-      0 /* clock_offset */, hci::ClockOffsetValid::INVALID,
-
-      base::Bind(
-          [](tBTM_CMPL_CB* callback, ReadRemoteName* classic_read_remote_name,
-             hci::ErrorCode status, hci::Address address,
-             std::array<uint8_t, kRemoteDeviceNameLength> remote_name) {
-            RawAddress raw_address = ToRawAddress(address);
-
-            BtmRemoteDeviceName name{
-                .status = (static_cast<uint8_t>(status) == 0)
-                              ? (BTM_SUCCESS)
-                              : (BTM_BAD_VALUE_RET),
-                .bd_addr = raw_address,
-                .length = kRemoteDeviceNameLength,
-            };
-            std::copy(remote_name.begin(), remote_name.end(),
-                      name.remote_bd_name);
-            LOG_INFO("%s Finish read name from address:%s name:%s", __func__,
-                     address.ToString().c_str(), name.remote_bd_name);
-            callback(&name);
-            classic_read_remote_name->Stop();
-          },
-          callback, &classic_read_remote_name_),
-      GetGdShimHandler());
-  return BTM_CMD_STARTED;
+                                           tBTM_NAME_CMPL_CB* callback) {
+  LOG_ALWAYS_FATAL("unreachable");
+  return BTM_UNDEFINED;
 }
 
 BtmStatus Btm::ReadLeRemoteDeviceName(const RawAddress& raw_address,
-                                      tBTM_CMPL_CB* callback) {
+                                      tBTM_NAME_CMPL_CB* callback) {
   if (!CheckLeAclLink(raw_address)) {
     return BTM_UNKNOWN_ADDR;
   }
@@ -540,51 +505,11 @@ BtmStatus Btm::ReadLeRemoteDeviceName(const RawAddress& raw_address,
 }
 
 BtmStatus Btm::CancelAllReadRemoteDeviceName() {
-  if (classic_read_remote_name_.IsInProgress() ||
-      le_read_remote_name_.IsInProgress()) {
-    if (classic_read_remote_name_.IsInProgress()) {
-      hci::Address address;
-      hci::Address::FromString(classic_read_remote_name_.AddressString(),
-                               address);
-
-      GetName()->CancelRemoteNameRequest(
-          address,
-          common::BindOnce(
-              [](ReadRemoteName* classic_read_remote_name,
-                 hci::ErrorCode status,
-                 hci::Address address) { classic_read_remote_name->Stop(); },
-              &classic_read_remote_name_),
-          GetGdShimHandler());
-    }
-    if (le_read_remote_name_.IsInProgress()) {
-      LOG_INFO("UNIMPLEMENTED %s need access to GATT module", __func__);
-    }
-    return BTM_UNKNOWN_ADDR;
-  }
-  LOG_WARN("%s Cancelling classic remote device name without one in progress",
-           __func__);
-  return BTM_WRONG_MODE;
+  LOG_ALWAYS_FATAL("unreachable");
+  return BTM_UNDEFINED;
 }
 
-void Btm::StartAdvertising() {
-  if (advertiser_id_ == hci::LeAdvertisingManager::kInvalidId) {
-    LOG_WARN("%s Already advertising; please stop prior to starting again",
-             __func__);
-    return;
-  }
-
-  hci::ExtendedAdvertisingConfig config = {};
-  advertiser_id_ = GetAdvertising()->ExtendedCreateAdvertiser(
-      0x00, config,
-      common::Bind([](hci::Address, hci::AddressType) { /*OnScan*/ }),
-      common::Bind([](hci::ErrorCode, uint8_t, uint8_t) { /*OnTerminated*/ }),
-      0, 0, GetGdShimHandler());
-  if (advertiser_id_ == hci::LeAdvertisingManager::kInvalidId) {
-    LOG_WARN("%s Unable to start advertising", __func__);
-    return;
-  }
-  LOG_INFO("%s Started advertising", __func__);
-}
+void Btm::StartAdvertising() { LOG_ALWAYS_FATAL("unreachable"); }
 
 void Btm::StopAdvertising() {
   if (advertiser_id_ == hci::LeAdvertisingManager::kInvalidId) {

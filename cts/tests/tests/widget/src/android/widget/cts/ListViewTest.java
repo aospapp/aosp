@@ -56,7 +56,9 @@ import android.util.Pair;
 import android.util.SparseArray;
 import android.util.SparseBooleanArray;
 import android.util.Xml;
+import android.view.InputDevice;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.LayoutAnimationController;
@@ -65,6 +67,7 @@ import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.BaseAdapter;
+import android.widget.EdgeEffect;
 import android.widget.FrameLayout;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -125,6 +128,8 @@ public class ListViewTest {
     };
 
     private Instrumentation mInstrumentation;
+    private CtsTouchUtils mCtsTouchUtils;
+    private CtsKeyEventUtil mCtsKeyEventUtil;
     private Activity mActivity;
     private ListView mListView;
     private ListView mListViewStretch;
@@ -147,6 +152,8 @@ public class ListViewTest {
         mPreviousDurationScale = ValueAnimator.getDurationScale();
         ValueAnimator.setDurationScale(1.0f);
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mCtsTouchUtils = new CtsTouchUtils(mInstrumentation.getTargetContext());
+        mCtsKeyEventUtil = new CtsKeyEventUtil(mInstrumentation.getTargetContext());
         mActivity = mActivityRule.getActivity();
         XmlPullParser parser = mActivity.getResources().getXml(R.layout.listview_layout);
         mAttributeSet = Xml.asAttributeSet(parser);
@@ -757,7 +764,7 @@ public class ListViewTest {
         assertEquals("test sanity", 0, header.mOnDetachCount);
         while (header.getParent() != null) {
             assertEquals("header view should NOT be detached", 0, header.mOnDetachCount);
-            CtsKeyEventUtil.sendKeys(mInstrumentation, mListView, KeyEvent.KEYCODE_DPAD_DOWN);
+            mCtsKeyEventUtil.sendKeys(mInstrumentation, mListView, KeyEvent.KEYCODE_DPAD_DOWN);
             WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView, null);
         }
         assertEquals("header view should be detached", 1, header.mOnDetachCount);
@@ -819,13 +826,13 @@ public class ListViewTest {
         assertEquals("test sanity", 0, theView.mOnDetachCount);
         while(theView.getParent() != null) {
             assertEquals("the view should NOT be detached", 0, theView.mOnDetachCount);
-            CtsKeyEventUtil.sendKeys(mInstrumentation, mListView, KeyEvent.KEYCODE_DPAD_DOWN);
+            mCtsKeyEventUtil.sendKeys(mInstrumentation, mListView, KeyEvent.KEYCODE_DPAD_DOWN);
             WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView, null);
         }
         assertEquals("the view should be detached", 1, theView.mOnDetachCount);
         assertFalse(theView.isTemporarilyDetached());
         while(theView.getParent() == null) {
-            CtsKeyEventUtil.sendKeys(mInstrumentation, mListView, KeyEvent.KEYCODE_DPAD_UP);
+            mCtsKeyEventUtil.sendKeys(mInstrumentation, mListView, KeyEvent.KEYCODE_DPAD_UP);
             WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView, null);
         }
         assertEquals("the view should be re-attached", 2, theView.mOnAttachCount);
@@ -1028,8 +1035,12 @@ public class ListViewTest {
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
             final View view = super.getView(position, convertView, parent);
-            if (view.getBackground() == null) {
-                view.setBackground(spy(new ColorDrawable(Color.BLACK)));
+            if (convertView == null) {
+                if (view.getBackground() == null) {
+                    view.setBackground(spy(new ColorDrawable(Color.BLACK)));
+                } else {
+                    view.setBackground(spy(view.getBackground()));
+                }
             }
             return view;
         }
@@ -1298,7 +1309,7 @@ public class ListViewTest {
 
 
         // Cause a stretch
-        CtsTouchUtils.emulateDragGesture(
+        mCtsTouchUtils.emulateDragGesture(
                 mInstrumentation,
                 mActivityRule,
                 screenX + mListViewStretch.getWidth() / 2,
@@ -1312,7 +1323,7 @@ public class ListViewTest {
         );
 
         // Now scroll the other direction
-        CtsTouchUtils.emulateDragGesture(
+        mCtsTouchUtils.emulateDragGesture(
                 mInstrumentation,
                 mActivityRule,
                 screenX + mListViewStretch.getWidth() / 2,
@@ -1411,6 +1422,195 @@ public class ListViewTest {
         assertTrue(edgeEffect.isFinished());
         assertEquals(0f, edgeEffect.getDistance(), 0.01f);
         assertNotEquals(firstVisible, mListViewStretch.getFirstVisiblePosition());
+    }
+
+    @Test
+    public void scrollFromRotaryStretchesTop() throws Throwable {
+        showOnlyStretch();
+
+        CaptureOnReleaseEdgeEffect
+                edgeEffect = new CaptureOnReleaseEdgeEffect(mActivity);
+        mListViewStretch.mEdgeGlowTop = edgeEffect;
+
+        mActivityRule.runOnUiThread(() -> {
+            assertTrue(mListViewStretch.dispatchGenericMotionEvent(
+                    createScrollEvent(2f, InputDevice.SOURCE_ROTARY_ENCODER)));
+            assertFalse(edgeEffect.isFinished());
+            assertTrue(edgeEffect.getDistance() > 0f);
+            assertTrue(edgeEffect.onReleaseCalled);
+        });
+    }
+
+    @Test
+    public void scrollFromMouseDoesNotStretchTop() throws Throwable {
+        showOnlyStretch();
+
+        CaptureOnReleaseEdgeEffect
+                edgeEffect = new CaptureOnReleaseEdgeEffect(mActivity);
+        mListViewStretch.mEdgeGlowTop = edgeEffect;
+
+        mActivityRule.runOnUiThread(() -> {
+            assertFalse(mListViewStretch.dispatchGenericMotionEvent(
+                    createScrollEvent(2f, InputDevice.SOURCE_MOUSE)));
+            assertTrue(edgeEffect.isFinished());
+            assertFalse(edgeEffect.onReleaseCalled);
+        });
+    }
+
+    @Test
+    public void scrollFromRotaryStretchesBottom() throws Throwable {
+        showOnlyStretch();
+
+        scrollToBottomOfStretch();
+
+        CaptureOnReleaseEdgeEffect
+                edgeEffect = new CaptureOnReleaseEdgeEffect(mActivity);
+        mListViewStretch.mEdgeGlowBottom = edgeEffect;
+
+        mActivityRule.runOnUiThread(() -> {
+            assertTrue(mListViewStretch.dispatchGenericMotionEvent(
+                    createScrollEvent(-2f, InputDevice.SOURCE_ROTARY_ENCODER)));
+            assertFalse(edgeEffect.isFinished());
+            assertTrue(edgeEffect.getDistance() > 0f);
+            assertTrue(edgeEffect.onReleaseCalled);
+        });
+    }
+
+    @Test
+    public void scrollFromMouseDoesNotStretchBottom() throws Throwable {
+        showOnlyStretch();
+
+        scrollToBottomOfStretch();
+
+        CaptureOnReleaseEdgeEffect
+                edgeEffect = new CaptureOnReleaseEdgeEffect(mActivity);
+        mListViewStretch.mEdgeGlowBottom = edgeEffect;
+
+        mActivityRule.runOnUiThread(() -> {
+            assertFalse(mListViewStretch.dispatchGenericMotionEvent(
+                    createScrollEvent(-2f, InputDevice.SOURCE_MOUSE)));
+            assertTrue(edgeEffect.isFinished());
+            assertFalse(edgeEffect.onReleaseCalled);
+        });
+    }
+
+    @Test
+    public void flingUpWhileStretchedAtTop() throws Throwable {
+        showOnlyStretch();
+
+        CaptureOnReleaseEdgeEffect edgeEffect = new CaptureOnReleaseEdgeEffect(mActivity);
+        mListViewStretch.mEdgeGlowTop = edgeEffect;
+
+        int[] scrollStateValue = new int[1];
+
+        mListViewStretch.setOnScrollListener(new AbsListView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(AbsListView view, int scrollState) {
+                scrollStateValue[0] = scrollState;
+            }
+
+            @Override
+            public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount,
+                    int totalItemCount) {
+            }
+        });
+        executeWhileDragging(1000, () -> {}, () -> {
+            assertFalse(edgeEffect.isFinished());
+        });
+        mActivityRule.runOnUiThread(() -> {
+            edgeEffect.onReleaseCalled = false;
+            mListViewStretch.fling(10000);
+            assertFalse(edgeEffect.onReleaseCalled);
+            assertFalse(edgeEffect.isFinished());
+        });
+        mActivityRule.runOnUiThread(() -> {
+            assertEquals(AbsListView.OnScrollListener.SCROLL_STATE_FLING, scrollStateValue[0]);
+        });
+        long end = SystemClock.uptimeMillis() + 4000;
+        while (scrollStateValue[0] == AbsListView.OnScrollListener.SCROLL_STATE_FLING
+                && SystemClock.uptimeMillis() < end) {
+            // wait one frame
+            mActivityRule.runOnUiThread(() -> {});
+        }
+        assertNotEquals(AbsListView.OnScrollListener.SCROLL_STATE_FLING, scrollStateValue[0]);
+        mActivityRule.runOnUiThread(() -> {
+            assertEquals(0f, edgeEffect.getDistance(), 0f);
+            assertNotEquals(0, mListViewStretch.getFirstVisiblePosition());
+        });
+    }
+
+    @Test
+    public void flingDownWhileStretchedAtBottom() throws Throwable {
+        showOnlyStretch();
+        scrollToBottomOfStretch();
+
+        int bottomItem = mListViewStretch.getLastVisiblePosition();
+
+        CaptureOnReleaseEdgeEffect edgeEffect = new CaptureOnReleaseEdgeEffect(mActivity);
+        mListViewStretch.mEdgeGlowBottom = edgeEffect;
+
+        int[] scrollStateValue = new int[1];
+
+        mListViewStretch.setOnScrollListener(new AbsListView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(AbsListView view, int scrollState) {
+                scrollStateValue[0] = scrollState;
+            }
+
+            @Override
+            public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount,
+                    int totalItemCount) {
+            }
+        });
+        executeWhileDragging(-1000, () -> {}, () -> {
+            assertFalse(edgeEffect.isFinished());
+        });
+        mActivityRule.runOnUiThread(() -> {
+            edgeEffect.onReleaseCalled = false;
+            mListViewStretch.fling(-10000);
+            assertFalse(edgeEffect.onReleaseCalled);
+            assertFalse(edgeEffect.isFinished());
+        });
+        mActivityRule.runOnUiThread(() -> {
+            assertEquals(AbsListView.OnScrollListener.SCROLL_STATE_FLING, scrollStateValue[0]);
+        });
+        long end = SystemClock.uptimeMillis() + 4000;
+        while (scrollStateValue[0] == AbsListView.OnScrollListener.SCROLL_STATE_FLING
+                && SystemClock.uptimeMillis() < end) {
+            // wait one frame
+            mActivityRule.runOnUiThread(() -> {});
+        }
+        assertNotEquals(AbsListView.OnScrollListener.SCROLL_STATE_FLING, scrollStateValue[0]);
+        mActivityRule.runOnUiThread(() -> {
+            assertEquals(0f, edgeEffect.getDistance(), 0f);
+            assertNotEquals(bottomItem, mListViewStretch.getLastVisiblePosition());
+        });
+    }
+
+    private MotionEvent createScrollEvent(float scrollAmount, int source) {
+        MotionEvent.PointerProperties pointerProperties = new MotionEvent.PointerProperties();
+        pointerProperties.toolType = MotionEvent.TOOL_TYPE_MOUSE;
+        MotionEvent.PointerCoords pointerCoords = new MotionEvent.PointerCoords();
+        int axis = source == InputDevice.SOURCE_ROTARY_ENCODER ? MotionEvent.AXIS_SCROLL
+                : MotionEvent.AXIS_VSCROLL;
+        pointerCoords.setAxisValue(axis, scrollAmount);
+
+        return MotionEvent.obtain(
+                0, /* downTime */
+                0, /* eventTime */
+                MotionEvent.ACTION_SCROLL, /* action */
+                1, /* pointerCount */
+                new MotionEvent.PointerProperties[] { pointerProperties },
+                new MotionEvent.PointerCoords[] { pointerCoords },
+                0, /* metaState */
+                0, /* buttonState */
+                0f, /* xPrecision */
+                0f, /* yPrecision */
+                0, /* deviceId */
+                0, /* edgeFlags */
+                source, /* source */
+                0 /* flags */
+        );
     }
 
     private void executeWhileDragging(
@@ -1709,6 +1909,20 @@ public class ListViewTest {
             View view = super.getView(position, convertView, parent);
             view.setOnClickListener((v) -> { });
             return view;
+        }
+    }
+
+    private static class CaptureOnReleaseEdgeEffect extends EdgeEffect {
+        public boolean onReleaseCalled;
+
+        CaptureOnReleaseEdgeEffect(Context context) {
+            super(context);
+        }
+
+        @Override
+        public void onRelease() {
+            onReleaseCalled = true;
+            super.onRelease();
         }
     }
 }

@@ -13,3 +13,4 @@ allow hal_nfc_default uwb_data_vendor:file r_file_perms;
 
 # allow nfc to read uwb calibration file
 get_prop(hal_nfc_default, vendor_uwb_calibration_prop)
+get_prop(hal_nfc_default, vendor_uwb_calibration_country_code)

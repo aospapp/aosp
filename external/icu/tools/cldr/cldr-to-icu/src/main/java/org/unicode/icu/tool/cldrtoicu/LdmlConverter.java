@@ -99,6 +99,7 @@ public final class LdmlConverter {
             "languageMatching",
             "measurementData",
             "parentLocales",
+            "personNamesDefaults",
             "subdivisionContainment",
             "territoryContainment",
             "territoryInfo",
@@ -662,6 +663,8 @@ public final class LdmlConverter {
             .put("boundaries", BRKITR)
             .put("dictionaries", BRKITR)
             .put("exceptions", BRKITR)
+            .put("extensions", BRKITR)
+            .put("lstm", BRKITR)
             // COLL
             .put("collations", COLL)
             .put("depends", COLL)

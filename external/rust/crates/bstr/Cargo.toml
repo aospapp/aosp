@@ -10,31 +10,76 @@
 # See Cargo.toml.orig for the original contents.
 
 [package]
-edition = "2018"
+edition = "2021"
+rust-version = "1.60"
 name = "bstr"
-version = "0.2.17"
+version = "1.3.0"
 authors = ["Andrew Gallant <jamslam@gmail.com>"]
 exclude = ["/.github"]
 description = "A string type that is not required to be valid UTF-8."
 homepage = "https://github.com/BurntSushi/bstr"
 documentation = "https://docs.rs/bstr"
 readme = "README.md"
-keywords = ["string", "str", "byte", "bytes", "text"]
-categories = ["text-processing", "encoding"]
+keywords = [
+    "string",
+    "str",
+    "byte",
+    "bytes",
+    "text",
+]
+categories = [
+    "text-processing",
+    "encoding",
+]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/BurntSushi/bstr"
+resolver = "2"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = [
+    "--cfg",
+    "docsrs",
+]
+
 [profile.release]
 debug = true
 
 [lib]
 bench = false
-[dependencies.lazy_static]
-version = "1.2.0"
-optional = true
+
+[[example]]
+name = "graphemes"
+required-features = [
+    "std",
+    "unicode",
+]
+
+[[example]]
+name = "lines"
+required-features = ["std"]
+
+[[example]]
+name = "uppercase"
+required-features = [
+    "std",
+    "unicode",
+]
+
+[[example]]
+name = "words"
+required-features = [
+    "std",
+    "unicode",
+]
 
 [dependencies.memchr]
 version = "2.4.0"
 default-features = false
+
+[dependencies.once_cell]
+version = "1.14.0"
+optional = true
 
 [dependencies.regex-automata]
 version = "0.1.5"
@@ -45,6 +90,7 @@ default-features = false
 version = "1.0.85"
 optional = true
 default-features = false
+
 [dev-dependencies.quickcheck]
 version = "1"
 default-features = false
@@ -56,8 +102,18 @@ version = "0.1.3"
 version = "1.2.1"
 
 [features]
-default = ["std", "unicode"]
-serde1 = ["std", "serde1-nostd", "serde/std"]
-serde1-nostd = ["serde"]
-std = ["memchr/std"]
-unicode = ["lazy_static", "regex-automata"]
+alloc = ["serde?/alloc"]
+default = [
+    "std",
+    "unicode",
+]
+serde = ["dep:serde"]
+std = [
+    "alloc",
+    "memchr/std",
+    "serde?/std",
+]
+unicode = [
+    "dep:once_cell",
+    "dep:regex-automata",
+]

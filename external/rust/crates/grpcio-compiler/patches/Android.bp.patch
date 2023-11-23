@@ -1,0 +1,36 @@
+From ad56b17ba9a2ceb34a603a58899fe0469c46e2ed Mon Sep 17 00:00:00 2001
+From: Jeff Vander Stoep <jeffv@google.com>
+Date: Wed, 22 Mar 2023 15:35:13 +0100
+Subject: [PATCH] Use version 2.x of the protobuf crate
+
+Test: TH
+Bug: 270895633
+Change-Id: Ida6c42df913b57baadb0907f741627c3261a2f9c
+---
+ Android.bp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Android.bp b/Android.bp
+index fb52b72..36ef473 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -47,7 +47,7 @@ rust_binary_host {
+     ],
+     rustlibs: [
+         "libgrpcio_compiler",
+-        "libprotobuf",
++        "libprotobuf_deprecated",
+     ],
+ }
+ 
+@@ -64,6 +64,6 @@ rust_library_host {
+         "protobuf-codec",
+     ],
+     rustlibs: [
+-        "libprotobuf",
++        "libprotobuf_deprecated",
+     ],
+ }
+-- 
+2.40.0.348.gf938b09366-goog
+

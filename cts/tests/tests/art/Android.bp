@@ -13,4 +13,9 @@ android_test {
         "cts",
         "general-tests",
     ],
+    errorprone: {
+        javacflags: [
+            "-Xep:ReturnValueIgnored:WARN",
+        ],
+    },
 }

@@ -15,6 +15,23 @@
   -->
 
 <overlay>
+
+    <item target="attr/aspect_ratio" value="@attr/aspect_ratio"/>
+    <item target="attr/CarUiToolbarMenuItem_activatable" value="@attr/CarUiToolbarMenuItem_activatable"/>
+    <item target="attr/CarUiToolbarMenuItem_activated" value="@attr/CarUiToolbarMenuItem_activated"/>
+    <item target="attr/CarUiToolbarMenuItem_carUiIcon" value="@attr/CarUiToolbarMenuItem_carUiIcon"/>
+    <item target="attr/CarUiToolbarMenuItem_checkable" value="@attr/CarUiToolbarMenuItem_checkable"/>
+    <item target="attr/CarUiToolbarMenuItem_checked" value="@attr/CarUiToolbarMenuItem_checked"/>
+    <item target="attr/CarUiToolbarMenuItem_displayBehavior" value="@attr/CarUiToolbarMenuItem_displayBehavior"/>
+    <item target="attr/CarUiToolbarMenuItem_id" value="@attr/CarUiToolbarMenuItem_id"/>
+    <item target="attr/CarUiToolbarMenuItem_onClick" value="@attr/CarUiToolbarMenuItem_onClick"/>
+    <item target="attr/CarUiToolbarMenuItem_search" value="@attr/CarUiToolbarMenuItem_search"/>
+    <item target="attr/CarUiToolbarMenuItem_settings" value="@attr/CarUiToolbarMenuItem_settings"/>
+    <item target="attr/CarUiToolbarMenuItem_showIconAndTitle" value="@attr/CarUiToolbarMenuItem_showIconAndTitle"/>
+    <item target="attr/CarUiToolbarMenuItem_tinted" value="@attr/CarUiToolbarMenuItem_tinted"/>
+    <item target="attr/CarUiToolbarMenuItem_title" value="@attr/CarUiToolbarMenuItem_title"/>
+    <item target="attr/CarUiToolbarMenuItem_uxRestrictions" value="@attr/CarUiToolbarMenuItem_uxRestrictions"/>
+    <item target="attr/CarUiToolbarMenuItem_visible" value="@attr/CarUiToolbarMenuItem_visible"/>
     <item target="attr/layout_constraintBottom_toBottomOf" value="@attr/layout_constraintBottom_toBottomOf"/>
     <item target="attr/layout_constraintBottom_toTopOf" value="@attr/layout_constraintBottom_toTopOf"/>
     <item target="attr/layout_constraintEnd_toEndOf" value="@attr/layout_constraintEnd_toEndOf"/>
@@ -30,33 +47,55 @@
     <item target="attr/layout_constraintStart_toStartOf" value="@attr/layout_constraintStart_toStartOf"/>
     <item target="attr/layout_constraintTop_toBottomOf" value="@attr/layout_constraintTop_toBottomOf"/>
     <item target="attr/layout_constraintTop_toTopOf" value="@attr/layout_constraintTop_toTopOf"/>
-    <item target="attr/aspect_ratio" value="@attr/aspect_ratio"/>
 
     <item target="bool/show_mini_playback_controls" value="@bool/show_mini_playback_controls" />
+    <item target="bool/show_persistent_tabs" value="@bool/show_persistent_tabs" />
     <item target="bool/switch_to_playback_view_when_playable_item_is_clicked" value="@bool/switch_to_playback_view_when_playable_item_is_clicked" />
 
-    <item target="id/error_message" value="@id/error_message" />
+    <item target="id/download_icon_with_subtitle" value="@id/download_icon_with_subtitle" />
+    <item target="id/download_icon_with_title" value="@id/download_icon_with_title" />
     <item target="id/error_button" value="@id/error_button" />
+    <item target="id/error_message" value="@id/error_message" />
+    <item target="id/explicit_icon_with_subtitle" value="@id/explicit_icon_with_subtitle" />
+    <item target="id/explicit_icon_with_title" value="@id/explicit_icon_with_title" />
+    <item target="id/focus_area" value="@id/focus_area" />
+    <item target="id/item_container" value="@id/item_container" />
+    <item target="id/menu_item_equalizer" value="@id/menu_item_equalizer" />
+    <item target="id/menu_item_search" value="@id/menu_item_search" />
+    <item target="id/menu_item_selector" value="@id/menu_item_selector" />
+    <item target="id/menu_item_selector_with_source_logo" value="@id/menu_item_selector_with_source_logo" />
+    <item target="id/menu_item_setting" value="@id/menu_item_setting" />
+    <item target="id/right_arrow" value="@id/right_arrow" />
+    <item target="id/subtitle" value="@id/subtitle" />
+    <item target="id/thumbnail" value="@id/thumbnail" />
+    <item target="id/title" value="@id/title" />
+    <item target="id/ui_content_bottom_guideline" value="@id/ui_content_bottom_guideline" />
+    <item target="id/ui_content_end_guideline" value="@id/ui_content_end_guideline" />
     <item target="id/ui_content_start_guideline" value="@id/ui_content_start_guideline" />
     <item target="id/ui_content_top_guideline" value="@id/ui_content_top_guideline" />
-    <item target="id/ui_content_end_guideline" value="@id/ui_content_end_guideline" />
-    <item target="id/ui_content_bottom_guideline" value="@id/ui_content_bottom_guideline" />
-
-    <item target="id/item_container" value="@id/item_container" />
-    <item target="id/thumbnail" value="@id/thumbnail" />
-    <item target="id/download_icon_with_title" value="@id/download_icon_with_title" />
-    <item target="id/explicit_icon_with_title" value="@id/explicit_icon_with_title" />
-    <item target="id/title" value="@id/title" />
-    <item target="id/download_icon_with_subtitle" value="@id/download_icon_with_subtitle" />
-    <item target="id/explicit_icon_with_subtitle" value="@id/explicit_icon_with_subtitle" />
-    <item target="id/subtitle" value="@id/subtitle" />
-    <item target="id/right_arrow" value="@id/right_arrow" />
 
     <item target="layout/fragment_error" value="@layout/fragment_error"/>
     <item target="layout/media_browse_grid_icons_item" value="@layout/media_browse_grid_icons_item"/>
     <item target="layout/media_browse_grid_item" value="@layout/media_browse_grid_item"/>
+    <item target="layout/media_browse_header_item" value="@layout/media_browse_header_item"/>
     <item target="layout/media_browse_list_icons_item" value="@layout/media_browse_list_icons_item"/>
     <item target="layout/media_browse_list_item" value="@layout/media_browse_list_item"/>
 
+    <item target="string/menu_item_app_selector_title" value="@string/menu_item_app_selector_title" />
+    <item target="string/menu_item_sound_settings_title" value="@string/menu_item_sound_settings_title" />
+
+    <item target="style/BrowseGridSubtitleStyle" value="@style/BrowseGridSubtitleStyle" />
+    <item target="style/BrowseGridTitleStyle" value="@style/BrowseGridTitleStyle" />
+    <item target="style/BrowseListItemRightArrowStyle" value="@style/BrowseListItemRightArrowStyle" />
+    <item target="style/BrowseListSubtitleStyle" value="@style/BrowseListSubtitleStyle" />
+    <item target="style/BrowseListTitleStyle" value="@style/BrowseListTitleStyle" />
+    <item target="style/BrowseSubheaderStyle" value="@style/BrowseSubheaderStyle" />
+    <item target="style/ErrorButtonStyle" value="@style/ErrorButtonStyle" />
+    <item target="style/ErrorTextStyle" value="@style/ErrorTextStyle" />
     <item target="style/MediaIconContainerStyle" value="@style/MediaIconContainerStyle" />
+    <item target="style/QueueListItemSubtitleStyle" value="@style/QueueListItemSubtitleStyle" />
+    <item target="style/QueueListItemTimeStyle" value="@style/QueueListItemTimeStyle" />
+    <item target="style/QueueListItemTitlesContainerStyle" value="@style/QueueListItemTitlesContainerStyle" />
+    <item target="style/QueueListItemTitleStyle" value="@style/QueueListItemTitleStyle" />
+    <item target="style/TextAppearance.NoContent" value="@style/TextAppearance.NoContent" />
 </overlay>

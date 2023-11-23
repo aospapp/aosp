@@ -71,7 +71,7 @@ inline PackageInfoData initPackageInfoData(FuzzedDataProvider* fdp) {
         }
     }
     packageInfoData.sharedSignaturesVector =
-        make_shared<KeyAttestationPackageInfo::SignaturesVector>(move(signatureVector));
+        make_shared<KeyAttestationPackageInfo::SignaturesVector>(std::move(signatureVector));
     return packageInfoData;
 }
 #endif  // KEYSTORECOMMON_H

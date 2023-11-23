@@ -28,7 +28,7 @@ import androidx.test.core.app.ApplicationProvider;
 import com.google.android.enterprise.connectedapps.Profile;
 import com.google.android.enterprise.connectedapps.RobolectricTestUtilities;
 import com.google.android.enterprise.connectedapps.TestScheduledExecutorService;
-import com.google.android.enterprise.connectedapps.testapp.CustomRuntimeException;
+import com.google.android.enterprise.connectedapps.testapp.CustomError;
 import com.google.android.enterprise.connectedapps.testapp.configuration.TestApplication;
 import com.google.android.enterprise.connectedapps.testapp.connector.TestProfileConnector;
 import com.google.android.enterprise.connectedapps.testapp.types.ProfileTestCrossProfileType;
@@ -75,7 +75,7 @@ public class BothProfilesListenableFutureTest {
     testUtilities.setRunningOnPersonalProfile();
     testUtilities.setRequestsPermissions(INTERACT_ACROSS_USERS);
     testUtilities.grantPermissions(INTERACT_ACROSS_USERS);
-    testProfileConnector.stopManualConnectionManagement();
+    testProfileConnector.clearConnectionHolders();
   }
 
   @Test
@@ -222,47 +222,39 @@ public class BothProfilesListenableFutureTest {
   }
 
   @Test
-  public void both_listenableFuture_timeoutSet_doesTimeout()
+  public void both_listenableFuture_doesNotTimeout()
       throws ExecutionException, InterruptedException {
     ListenableFuture<Map<Profile, String>> future =
         profileTestCrossProfileType
             .both()
-            .listenableFutureIdentityStringMethodWithNonBlockingDelayWith3SecondTimeout(
-                STRING, /* secondsDelay= */ 5);
-
-    testUtilities.advanceTimeBySeconds(6);
-
-    Map<Profile, String> results = future.get();
-    assertThat(results.get(currentProfileIdentifier)).isEqualTo(STRING);
-    assertThat(results).doesNotContainKey(otherProfileIdentifier);
-  }
-
-  @Test
-  public void both_listenableFuture_timeoutSetByCaller_doesTimeout()
-      throws ExecutionException, InterruptedException {
-    ListenableFuture<Map<Profile, String>> future =
-        profileTestCrossProfileType
-            .both()
-            .timeout(3000)
             .listenableFutureIdentityStringMethodWithNonBlockingDelay(
-                STRING, /* secondsDelay= */ 5);
+                STRING, /* secondsDelay= */ 100);
 
-    testUtilities.advanceTimeBySeconds(6);
+    testUtilities.advanceTimeBySeconds(99);
 
-    Map<Profile, String> results = future.get();
-    assertThat(results.get(currentProfileIdentifier)).isEqualTo(STRING);
-    assertThat(results).doesNotContainKey(otherProfileIdentifier);
+    assertThat(future.isDone()).isFalse();
   }
 
   @Test
   public void
       both_listenableFuture_throwsRuntimeException_exceptionThrownOnCurrentProfileIsThrown() {
     assertThrows(
-        CustomRuntimeException.class,
+        Exception.class,
         () ->
             profileTestCrossProfileType
                 .both()
                 .listenableFutureVoidMethodWhichThrowsRuntimeException());
+  }
+
+  @Test
+  public void
+  both_listenableFuture_throwsError_errorThrownOnCurrentProfileIsThrown() {
+    assertThrows(
+        CustomError.class,
+        () ->
+            profileTestCrossProfileType
+                .both()
+                .listenableFutureVoidMethodWhichThrowsError());
   }
 
   @Test

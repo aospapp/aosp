@@ -27,7 +27,7 @@
 #include "osi/include/list.h"
 #include "osi/include/osi.h"
 #include "osi/include/reactor.h"
-#include "osi/include/semaphore.h"
+#include "osi/semaphore.h"
 
 typedef struct fixed_queue_t {
   list_t* list;

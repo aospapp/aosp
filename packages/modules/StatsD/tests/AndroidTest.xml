@@ -28,4 +28,12 @@
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
         <option name="mainline-module-package-name" value="com.google.android.os.statsd" />
     </object>
+
+    <target_preparer class="com.android.tradefed.targetprep.DeviceSetup">
+        <!-- avoid restarting device after modifying settings -->
+        <option name="force-skip-system-props" value="true" />
+
+        <option name="set-global-setting" key="verifier_verify_adb_installs" value="0" />
+        <option name="restore-settings" value="true" />
+    </target_preparer>
 </configuration>

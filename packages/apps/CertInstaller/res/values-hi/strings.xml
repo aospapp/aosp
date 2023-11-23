@@ -50,8 +50,8 @@
     <string name="invalid_certificate_message" msgid="3508065546083182733">"इस फ़ाइल का इस्तेमाल <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g> के तौर पर नहीं किया जा सकता"</string>
     <string name="certificate" msgid="8790577925509962529">"प्रमाणपत्र"</string>
     <string name="ca_certificate" msgid="7397198551290322945">"CA सर्टिफ़िकेट"</string>
-    <string name="user_certificate" msgid="514888069820553128">"वीपीएन और ऐप्लिकेशन उपयोगकर्ता प्रमाणपत्र"</string>
-    <string name="wifi_certificate" msgid="5356595832360140989">"वाई-फ़ाई प्रमाणपत्र"</string>
+    <string name="user_certificate" msgid="514888069820553128">"वीपीएन और ऐप्लिकेशन यूज़र सर्टिफ़िकेट"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"वाई-फ़ाई सर्टिफ़िकेट"</string>
     <string name="ca_cert_is_added" msgid="2847081843756291802">"CA प्रमाणपत्र इंस्टॉल किया गया"</string>
     <string name="user_cert_is_added" msgid="3088794616560630823">"उपयोगकर्ता प्रमाणपत्र इंस्टॉल किया गया"</string>
     <string name="wifi_cert_is_added" msgid="333220613655140428">"वाई-फ़ाई प्रमाणपत्र इंस्टॉल किया गया"</string>

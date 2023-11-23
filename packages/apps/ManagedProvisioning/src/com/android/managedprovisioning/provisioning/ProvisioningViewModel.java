@@ -47,10 +47,12 @@ public class ProvisioningViewModel extends ViewModel {
 
     static class ProvisioningViewModelFactory implements ViewModelProvider.Factory {
         @Override
+        @SuppressWarnings("unchecked")
         public <T extends ViewModel> T create(Class<T> modelClass) {
             if (!ProvisioningViewModel.class.isAssignableFrom(modelClass)) {
-                throw new IllegalArgumentException("Invalid class for creating a "
-                        + "PreProvisioningViewModel: " + modelClass);
+                throw new IllegalArgumentException(
+                        "Invalid class for creating a " + "PreProvisioningViewModel: "
+                                + modelClass);
             }
             return (T) new ProvisioningViewModel();
         }

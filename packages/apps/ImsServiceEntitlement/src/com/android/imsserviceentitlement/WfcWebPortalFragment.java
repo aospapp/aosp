@@ -95,6 +95,9 @@ public class WfcWebPortalFragment extends Fragment {
                 new OnAttachStateChangeListener() {
                     @Override
                     public void onViewAttachedToWindow(View v) {
+                        if (!v.hasFocus()) {
+                            v.requestFocus();
+                        }
                     }
 
                     @Override

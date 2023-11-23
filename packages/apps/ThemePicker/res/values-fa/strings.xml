@@ -19,8 +19,29 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="1647136562008520313">"کاغذدیواری و سبک"</string>
     <string name="theme_title" msgid="2144932106319405101">"سبک"</string>
-    <string name="clock_title" msgid="2126046720254613991">"ساعت"</string>
-    <string name="grid_title" msgid="1688173478777254123">"جدول برنامه"</string>
+    <string name="clock_title" msgid="1974314575211361352">"ساعت سفارشی"</string>
+    <string name="clock_description" msgid="3563839327378948">"انتخاب ساعت سفارشی"</string>
+    <string name="clock_picker_entry_content_description" msgid="8377139273468595734">"تغییر ساعت سفارشی"</string>
+    <string name="select_clock_action_description" msgid="5025888763471843648">"گزینه صفحه ساعت <xliff:g id="ID_1">%1$s</xliff:g>"</string>
+    <string name="clock_settings_title" msgid="2050906379377120431">"اندازه و رنگ ساعت"</string>
+    <string name="clock_color_and_size_title" msgid="7146791234905111351">"اندازه و رنگ ساعت"</string>
+    <string name="clock_color_and_size_description" msgid="6578061553012886817">"<xliff:g id="ID_1">%1$s</xliff:g>، <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="clock_color" msgid="8081608867289156163">"رنگ"</string>
+    <string name="clock_color_red" msgid="3843504214807597810">"قرمز"</string>
+    <string name="clock_color_orange" msgid="4175805201144275804">"نارنجی"</string>
+    <string name="clock_color_yellow" msgid="7391699163247349977">"زرد"</string>
+    <string name="clock_color_green" msgid="1991157556500156596">"سبز"</string>
+    <string name="clock_color_blue" msgid="4037792003465759149">"آبی"</string>
+    <string name="clock_color_indigo" msgid="8910855386698452917">"نیلی"</string>
+    <string name="clock_color_violet" msgid="3454503847169375826">"یاسی"</string>
+    <string name="clock_color_gray" msgid="9221530636948859231">"خاکستری"</string>
+    <string name="clock_color_teal" msgid="7499223425741344251">"سبز دودی"</string>
+    <string name="clock_size" msgid="5028923902364418263">"اندازه"</string>
+    <string name="clock_size_dynamic" msgid="1023930312455061642">"پویا"</string>
+    <string name="clock_size_dynamic_description" msgid="2776620745774561662">"اندازه ساعت نسبت به محتوای صفحه قفل تغییر می‌کند"</string>
+    <string name="clock_size_large" msgid="3143248715744138979">"بزرگ"</string>
+    <string name="clock_size_small" msgid="2280449912094164133">"کوچک"</string>
+    <string name="grid_title" msgid="1688173478777254123">"شبکه برنامه‌ها"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"اعمال"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"برای ویرایش ضربه بزنید"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"حفظ کاغذدیواری فعلی"</string>
@@ -85,8 +106,34 @@
     <string name="beta_title" msgid="8703819523760746458">"بتا"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"تغییر جدول برنامه"</string>
     <string name="wallpaper_color_tab" msgid="1447926591721403840">"رنگ‌های کاغذدیواری"</string>
+    <string name="wallpaper_color_subheader" msgid="4044464573669965670">"نمادها، نوشتار، و موارد دیگر با رنگ کاغذدیواری هماهنگ می‌شود"</string>
     <string name="wallpaper_color_title" msgid="5687965239180986458">"رنگ کاغذدیواری"</string>
     <string name="preset_color_tab" msgid="3133391839341329314">"رنگ‌های اصلی"</string>
+    <string name="preset_color_tab_2" msgid="1444107326712562538">"رنگ‌های دیگر"</string>
+    <string name="preset_color_subheader" msgid="8230588536141279371">"رنگ دلخواهتان را برای نمادها، ساعت، و موارد دیگر انتخاب کنید"</string>
     <string name="color_changed" msgid="7029571720331641235">"رنگ تغییر کرد"</string>
     <string name="adaptive_color_title" msgid="1336508599235896205">"پویا"</string>
+    <string name="color_picker_title" msgid="6666830057938082864">"رنگ‌های سیستم"</string>
+    <string name="keyguard_slot_name_bottom_start" msgid="8747677880200629719">"میان‌بر چپ"</string>
+    <string name="keyguard_slot_name_bottom_end" msgid="2525487375680217083">"میان‌بر راست"</string>
+    <string name="keyguard_affordance_none" msgid="1751643933430782312">"هیچ‌کدام"</string>
+    <string name="keyguard_affordance_enablement_dialog_headline" msgid="365379085932610314">"میان‌بر اضافه نشد"</string>
+    <string name="keyguard_affordance_enablement_dialog_action_template" msgid="8117011931337357438">"باز کردن <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
+    <string name="keyguard_affordance_enablement_dialog_message" msgid="6136286758939253570">"برای افزودن برنامه <xliff:g id="APPNAME">%1$s</xliff:g> به‌عنوان میان‌بر، مطمئن شوید"</string>
+    <string name="keyguard_affordance_enablement_dialog_dismiss_button" msgid="629754625264422508">"تمام"</string>
+    <string name="keyguard_quick_affordance_title" msgid="4242813186995735584">"میان‌برها"</string>
+    <string name="keyguard_quick_affordance_section_title" msgid="2806304242671717309">"میان‌برها"</string>
+    <string name="keyguard_quick_affordance_two_selected_template" msgid="1757099194522296363">"<xliff:g id="FIRST">%1$s</xliff:g>، <xliff:g id="SECOND">%2$s</xliff:g>"</string>
+    <string name="keyguard_quick_affordance_none_selected" msgid="8494127020144112003">"هیچ‌کدام"</string>
+    <string name="show_notifications_on_lock_screen" msgid="4157744243084646720">"نمایش اعلان‌ها در صفحه قفل"</string>
+    <string name="hide_notifications_on_lock_screen" msgid="7413548956484779174">"پنهان کردن اعلان‌ها در صفحه قفل"</string>
+    <string name="more_settings_section_title" msgid="1331425454775815958">"گزینه‌های بیشتر برای صفحه قفل"</string>
+    <string name="more_settings_section_description" msgid="1860115709122398325">"«حریم خصوصی»، «درحال پخش»، و موارد دیگر"</string>
+    <string name="more_colors" msgid="3191071655353004591">"رنگ‌های بیشتر"</string>
+    <string name="content_description_dynamic_color_option" msgid="2191721655642529886">"زمینه پویای اصلی"</string>
+    <string name="content_description_neutral_color_option" msgid="3385443834001275301">"زمینه خنثی اصلی"</string>
+    <string name="content_description_vibrant_color_option" msgid="2230249305878632821">"زمینه زنده اصلی"</string>
+    <string name="content_description_expressive_color_option" msgid="6081295313456341282">"زمینه تأثیرگذار اصلی"</string>
+    <string name="content_description_default_color_option" msgid="7011899327541080695">"گزینه رنگ پیش‌فرض"</string>
+    <string name="content_description_color_option" msgid="4169813692012119578">"گزینه رنگ <xliff:g id="ID_1">%1$d</xliff:g>"</string>
 </resources>

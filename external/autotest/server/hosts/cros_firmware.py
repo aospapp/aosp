@@ -7,7 +7,7 @@
 Repair actions and verifiers relating to CrOS firmware.
 
 This contains the repair actions and verifiers need to find problems
-with the firmware installed on Chrome OS DUTs, and when necessary, to
+with the firmware installed on ChromeOS DUTs, and when necessary, to
 fix problems by updating or re-installing the firmware.
 
 The operations in the module support two distinct use cases:
@@ -52,7 +52,7 @@ from autotest_lib.server import afe_utils
 from autotest_lib.server.hosts import repair_utils
 from autotest_lib.server.hosts import cros_constants
 
-from chromite.lib import timeout_util
+from autotest_lib.utils.frozen_chromite.lib import timeout_util
 import six
 
 
@@ -374,7 +374,7 @@ class FirmwareVersionVerifier(hosts.Verifier):
         the firmware was built.  This function checks that the hardware
         identified by `version_a` and `version_b` is the same.
 
-        This is a sanity check to protect us from installing the wrong
+        This is a confidence check to protect us from installing the wrong
         firmware on a DUT when a board label has somehow gone astray.
 
         @param version_a  First firmware version for the comparison.
@@ -386,6 +386,28 @@ class FirmwareVersionVerifier(hosts.Verifier):
             message = 'Hardware/Firmware mismatch updating %s to %s'
             raise hosts.AutoservVerifyError(
                     message % (version_a, version_b))
+
+    def _is_stable_image_installed(self, host):
+        """Verify that ChromeOS image on host is a stable version.
+
+        This check verify that device booted from stable image to protect us
+        from installing the firmware from bad/broken/no-tested image. Bad
+        image can have broken updater or corrupted firmware.
+
+        The representation version looks like:
+                nocturne-release/R89-13728.0.0
+        Check compare version from host to version provide as stable image
+        from host-info file.
+
+        @param host  CrosHost instance.
+        """
+        os_from_host = host.get_release_builder_path()
+        os_from_host_info = host.get_cros_repair_image_name()
+        if os_from_host != os_from_host_info:
+            raise hosts.AutoservNonCriticalVerifyError(
+                    'Firmware update can be run only from stable image.'
+                    ' Expected version:"%s", actually: "%s"' %
+                    (os_from_host_info, os_from_host))
 
     @timeout_util.TimeoutDecorator(cros_constants.VERIFY_TIMEOUT_SEC)
     def verify(self, host):
@@ -407,9 +429,10 @@ class FirmwareVersionVerifier(hosts.Verifier):
                               ' with exception: %s', e)
 
         if stable_firmware is None:
+            logging.debug('Expected FW version not found')
             # This DUT doesn't have a firmware update target
             return
-
+        logging.debug('Expected FW version: %s', stable_firmware)
         # For tests 3 and 4:  If the output from `crossystem` or
         # `chromeos-firmwareupdate` isn't what we expect, we log an
         # error, but don't fail:  We don't want DUTs unable to test a
@@ -421,6 +444,7 @@ class FirmwareVersionVerifier(hosts.Verifier):
         if current_firmware is None:
             logging.error('DUT firmware version can\'t be determined.')
             return
+        logging.debug('Current FW version: %s', current_firmware)
         if current_firmware == stable_firmware:
             return
         # Test 4 - The firmware supplied in the running OS build is not
@@ -430,6 +454,7 @@ class FirmwareVersionVerifier(hosts.Verifier):
             logging.error('Supplied firmware version in OS can\'t be '
                           'determined.')
             return
+        self._is_stable_image_installed(host)
         if available_firmware != stable_firmware:
             raise hosts.AutoservVerifyError(
                     'DUT firmware requires update from %s to %s' %

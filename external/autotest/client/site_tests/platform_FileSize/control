@@ -11,5 +11,5 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "client"
-
+PY_VERSION = 3
 job.run_test('platform_FileSize')

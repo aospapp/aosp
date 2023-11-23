@@ -14,7 +14,7 @@
 #   limitations under the License.
 
 import bluetooth_packets_python3 as bt_packets
-from bluetooth_packets_python3 import hci_packets, l2cap_packets
+from bluetooth_packets_python3 import l2cap_packets
 from bluetooth_packets_python3.l2cap_packets import LeCreditBasedConnectionResponseResult
 from blueberry.tests.gd.cert.truth import assertThat
 from blueberry.tests.gd.cert.py_l2cap import PyLeL2cap
@@ -29,6 +29,7 @@ from blueberry.facade.hci import le_advertising_manager_facade_pb2 as le_adverti
 from blueberry.facade.hci import le_initiator_address_facade_pb2 as le_initiator_address_facade
 from blueberry.facade.l2cap.le.facade_pb2 import SecurityLevel
 from mobly import test_runner
+import hci_packets as hci
 
 # Assemble a sample packet.
 SAMPLE_PACKET = bt_packets.RawBuilder([0x19, 0x26, 0x08, 0x17])
@@ -70,10 +71,8 @@ class LeL2capTest(gd_base_test.GdBaseTestClass):
 
     def _setup_link_from_cert(self):
         # DUT Advertises
-        gap_name = hci_packets.GapData()
-        gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(b'Im_The_DUT'))
-        gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
+        gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME, data=list(bytes(b'Im_The_DUT')))
+        gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
         config = le_advertising_facade.AdvertisingConfig(
             advertisement=[gap_data],
             interval_min=512,
@@ -94,10 +93,8 @@ class LeL2capTest(gd_base_test.GdBaseTestClass):
                                             mps=100,
                                             initial_credit=6):
         # Cert Advertises
-        gap_name = hci_packets.GapData()
-        gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(b'Im_The_DUT'))
-        gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
+        gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME, data=list(bytes(b'Im_The_DUT')))
+        gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
         config = le_advertising_facade.AdvertisingConfig(
             advertisement=[gap_data],
             interval_min=512,
@@ -212,8 +209,8 @@ class LeL2capTest(gd_base_test.GdBaseTestClass):
         # The first LeInformation packet contains 2 bytes of SDU size.
         # The packet is divided into first 100 bytes from 'hellohello....'
         # and remaining 5 bytes 'world'
-        assertThat(cert_channel).emits(
-            L2capMatchers.FirstLeIFrame(b'hello' * 20, sdu_size=105), L2capMatchers.Data(b'world')).inOrder()
+        assertThat(cert_channel).emits(L2capMatchers.FirstLeIFrame(b'hello' * 20, sdu_size=105),
+                                       L2capMatchers.Data(b'world')).inOrder()
 
     @metadata(pts_test_id="L2CAP/COS/CFC/BV-02-C", pts_test_name="No Segmentation")
     def test_no_segmentation(self):
@@ -279,9 +276,8 @@ class LeL2capTest(gd_base_test.GdBaseTestClass):
         cert_channel_y.send_first_le_i_frame(4, SAMPLE_PACKET)
         # TODO: We should assert two events in order, but it got stuck
         assertThat(dut_channel_y).emits(L2capMatchers.PacketPayloadRawData(b'\x19\x26\x08\x17'), at_least_times=3)
-        assertThat(dut_channel_z).emits(
-            L2capMatchers.PacketPayloadRawData(b'\x19\x26\x08\x17'),
-            L2capMatchers.PacketPayloadRawData(b'\x19\x26\x08\x17')).inOrder()
+        assertThat(dut_channel_z).emits(L2capMatchers.PacketPayloadRawData(b'\x19\x26\x08\x17'),
+                                        L2capMatchers.PacketPayloadRawData(b'\x19\x26\x08\x17')).inOrder()
         cert_channel_z.send_first_le_i_frame(4, SAMPLE_PACKET)
         assertThat(dut_channel_z).emits(L2capMatchers.PacketPayloadRawData(b'\x19\x26\x08\x17'))
 
@@ -315,8 +311,8 @@ class LeL2capTest(gd_base_test.GdBaseTestClass):
         self.cert_l2cap.verify_and_reject_open_channel_from_remote(psm=0x33)
         assertThat(response_future.get_status()).isNotEqualTo(LeCreditBasedConnectionResponseResult.SUCCESS)
 
-    @metadata(
-        pts_test_id="L2CAP/LE/CFC/BV-02-C", pts_test_name="LE Credit Based Connection Request on Supported LE_PSM")
+    @metadata(pts_test_id="L2CAP/LE/CFC/BV-02-C",
+              pts_test_name="LE Credit Based Connection Request on Supported LE_PSM")
     def test_le_credit_based_connection_request_on_supported_le_psm(self):
         """
         Verify that an IUT sending an LE Credit Based Connection Request to a peer will establish the channel upon receiving the LE Credit Based Connection Response.
@@ -326,8 +322,8 @@ class LeL2capTest(gd_base_test.GdBaseTestClass):
         cert_channel.send_first_le_i_frame(4, SAMPLE_PACKET)
         assertThat(dut_channel).emits(L2capMatchers.PacketPayloadRawData(b'\x19\x26\x08\x17'))
 
-    @metadata(
-        pts_test_id="L2CAP/LE/CFC/BV-03-C", pts_test_name="LE Credit Based Connection Response on Supported LE_PSM")
+    @metadata(pts_test_id="L2CAP/LE/CFC/BV-03-C",
+              pts_test_name="LE Credit Based Connection Response on Supported LE_PSM")
     def test_credit_based_connection_response_on_supported_le_psm(self):
         """
         Verify that an IUT receiving a valid LE Credit Based Connection Request from a peer will send an LE Credit Based Connection Response and establish the channel.
@@ -337,8 +333,8 @@ class LeL2capTest(gd_base_test.GdBaseTestClass):
         dut_channel.send(b'hello')
         assertThat(cert_channel).emits(L2capMatchers.FirstLeIFrame(b'hello', sdu_size=5))
 
-    @metadata(
-        pts_test_id="L2CAP/LE/CFC/BV-04-C", pts_test_name="LE Credit Based Connection Request on an Unsupported LE_PSM")
+    @metadata(pts_test_id="L2CAP/LE/CFC/BV-04-C",
+              pts_test_name="LE Credit Based Connection Request on an Unsupported LE_PSM")
     def test_credit_based_connection_request_on_an_unsupported_le_psm(self):
         """
         Verify that an IUT sending an LE Credit Based Connection Request on an unsupported LE_PSM will not establish a channel upon receiving an LE Credit Based Connection Response refusing the connection.
@@ -349,8 +345,8 @@ class LeL2capTest(gd_base_test.GdBaseTestClass):
             psm=0x33, result=LeCreditBasedConnectionResponseResult.LE_PSM_NOT_SUPPORTED)
         assertThat(response_future.get_status()).isEqualTo(LeCreditBasedConnectionResponseResult.LE_PSM_NOT_SUPPORTED)
 
-    @metadata(
-        pts_test_id="L2CAP/LE/CFC/BV-05-C", pts_test_name="LE Credit Based Connection Request - unsupported LE_PSM")
+    @metadata(pts_test_id="L2CAP/LE/CFC/BV-05-C",
+              pts_test_name="LE Credit Based Connection Request - unsupported LE_PSM")
     def test_credit_based_connection_request_unsupported_le_psm(self):
         """
         Verify that an IUT receiving an LE Credit Based Connection Request on an unsupported LE_PSM will respond with an LE Credit Based Connection Response refusing the connection.
@@ -376,8 +372,8 @@ class LeL2capTest(gd_base_test.GdBaseTestClass):
         cert_channel.send_credits(1)
         assertThat(cert_channel).emits(L2capMatchers.FirstLeIFrame(b'hello', sdu_size=5))
         cert_channel.send_credits(2)
-        assertThat(cert_channel).emits(
-            L2capMatchers.FirstLeIFrame(b'hello', sdu_size=5), L2capMatchers.FirstLeIFrame(b'hello', sdu_size=5))
+        assertThat(cert_channel).emits(L2capMatchers.FirstLeIFrame(b'hello', sdu_size=5),
+                                       L2capMatchers.FirstLeIFrame(b'hello', sdu_size=5))
 
     @metadata(pts_test_id="L2CAP/LE/CFC/BV-07-C", pts_test_name="Credit Exchange – Sending Credits")
     def test_credit_exchange_sending_credits(self):
@@ -477,8 +473,8 @@ Request which fails to satisfy authentication requirements.
         assertThat(response_future.get_status()).isEqualTo(
             LeCreditBasedConnectionResponseResult.INSUFFICIENT_ENCRYPTION_KEY_SIZE)
 
-    @metadata(
-        pts_test_id="L2CAP/LE/CFC/BV-15-C", pts_test_name="Security - Insufficient Encryption Key Size – Responder")
+    @metadata(pts_test_id="L2CAP/LE/CFC/BV-15-C",
+              pts_test_name="Security - Insufficient Encryption Key Size – Responder")
     def test_security_insufficient_encryption_key_size_responder(self):
         """
         Verify that an IUT refuses to create a connection upon receipt of an LE Credit Based Connection
@@ -490,9 +486,8 @@ Request which fails to satisfy authentication requirements.
         self.cert_l2cap.open_channel_with_expected_result(
             psm, LeCreditBasedConnectionResponseResult.INSUFFICIENT_ENCRYPTION_KEY_SIZE)
 
-    @metadata(
-        pts_test_id="L2CAP/LE/CFC/BV-16-C",
-        pts_test_name="LE Credit Based Connection Request - refuse due to insufficient resources - Initiator")
+    @metadata(pts_test_id="L2CAP/LE/CFC/BV-16-C",
+              pts_test_name="LE Credit Based Connection Request - refuse due to insufficient resources - Initiator")
     def test_le_connection_request_insufficient_resources_initiator(self):
         """
         Verify that an IUT sending an LE Credit Based Connection Request does
@@ -506,9 +501,8 @@ Request which fails to satisfy authentication requirements.
             psm=0x33, result=LeCreditBasedConnectionResponseResult.NO_RESOURCES_AVAILABLE)
         assertThat(response_future.get_status()).isEqualTo(LeCreditBasedConnectionResponseResult.NO_RESOURCES_AVAILABLE)
 
-    @metadata(
-        pts_test_id="L2CAP/LE/CFC/BV-18-C",
-        pts_test_name="LE Credit Based Connection Request - refused due to Invalid Source CID - Initiator")
+    @metadata(pts_test_id="L2CAP/LE/CFC/BV-18-C",
+              pts_test_name="LE Credit Based Connection Request - refused due to Invalid Source CID - Initiator")
     def test_request_refused_due_to_invalid_source_cid_initiator(self):
         """
         Verify that an IUT sending an LE Credit Based Connection Request does not establish the channel upon receiving an LE Credit Based Connection Response refusing the connection with result "0x0009 – Connection refused – Invalid Source CID".
@@ -547,9 +541,8 @@ Request which fails to satisfy authentication requirements.
             l2cap_packets.LeCreditBasedConnectionRequestBuilder(2, 0x35, 0x0101, 1000, 1000, 1000))
         assertThat(self.cert_l2cap.get_control_channel()).emits(L2capMatchers.CreditBasedConnectionResponseUsedCid())
 
-    @metadata(
-        pts_test_id="L2CAP/LE/CFC/BV-21-C",
-        pts_test_name="LE Credit Based Connection Request - refused due to Unacceptable Parameters - Initiator")
+    @metadata(pts_test_id="L2CAP/LE/CFC/BV-21-C",
+              pts_test_name="LE Credit Based Connection Request - refused due to Unacceptable Parameters - Initiator")
     def test_request_refused_due_to_unacceptable_parameters_initiator(self):
         """
         Verify that an IUT sending an LE Credit Based Connection Request does not establish the channel upon receiving an LE Credit Based Connection Response refusing the connection with result "0x000B – Connection refused – Unacceptable Parameters".

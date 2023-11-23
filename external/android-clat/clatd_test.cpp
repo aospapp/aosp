@@ -33,7 +33,6 @@ extern "C" {
 #include "checksum.h"
 #include "clatd.h"
 #include "config.h"
-#include "getaddr.h"
 #include "translate.h"
 }
 
@@ -835,56 +834,4 @@ TEST_F(ClatdTest, TranslateChecksumNeutral) {
   fix_udp_checksum(udp_ipv6);
   check_translate_checksum_neutral(udp_ipv4, sizeof(udp_ipv4), sizeof(udp_ipv4) + 20,
                                    "UDP/IPv4 -> UDP/IPv6 checksum neutral");
-}
-
-TEST_F(ClatdTest, GetInterfaceIpV4) {
-  TunInterface v4Iface;
-  ASSERT_EQ(0, v4Iface.init());
-  EXPECT_EQ(0, v4Iface.addAddress("192.0.2.1", 32));
-
-  union anyip *ip = getinterface_ip(v4Iface.name().c_str(), AF_INET);
-  ASSERT_NE(nullptr, ip);
-  EXPECT_EQ(inet_addr("192.0.2.1"), ip->ip4.s_addr);
-  free(ip);
-
-  v4Iface.destroy();
-}
-
-TEST_F(ClatdTest, GetInterfaceIpV6) {
-  union anyip *ip = getinterface_ip(sTun.name().c_str(), AF_INET6);
-  ASSERT_NE(nullptr, ip);
-  in6_addr expected = sTun.srcAddr();
-  in6_addr actual   = ip->ip6;
-  expect_ipv6_addr_equal(&expected, &actual);
-}
-
-TEST_F(ClatdTest, Ipv6AddressChanged) {
-  // Configure the clat IPv6 address.
-  const char *ifname = sTun.name().c_str();
-
-  in6_addr myaddr = sTun.srcAddr();
-  gen_random_iid(&myaddr, &Global_Clatd_Config.ipv4_local_subnet, &Global_Clatd_Config.plat_subnet);
-  char addrstr[INET6_ADDRSTRLEN];
-  ASSERT_NE(nullptr, inet_ntop(AF_INET6, &myaddr, addrstr, sizeof(addrstr)));
-
-  Global_Clatd_Config.ipv6_local_subnet = myaddr;
-  EXPECT_EQ(0, ipv6_address_changed(ifname));
-  EXPECT_EQ(0, ipv6_address_changed(ifname));
-
-  // Change the IP address on the tun interface to a new prefix.
-  char srcaddr[INET6_ADDRSTRLEN];
-  char dstaddr[INET6_ADDRSTRLEN];
-  ASSERT_NE(nullptr, inet_ntop(AF_INET6, &sTun.srcAddr(), srcaddr, sizeof(srcaddr)));
-  ASSERT_NE(nullptr, inet_ntop(AF_INET6, &sTun.dstAddr(), dstaddr, sizeof(dstaddr)));
-  EXPECT_EQ(0, ifc_del_address(ifname, srcaddr, 64));
-  EXPECT_EQ(0, ifc_del_address(ifname, dstaddr, 64));
-
-  // Check that we can tell that the address has changed.
-  EXPECT_EQ(0, ifc_add_address(ifname, "2001:db8::1:2", 64));
-  EXPECT_EQ(1, ipv6_address_changed(ifname));
-  EXPECT_EQ(1, ipv6_address_changed(ifname));
-
-  // Restore the tun interface configuration.
-  sTun.destroy();
-  ASSERT_EQ(0, sTun.init());
 }

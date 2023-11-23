@@ -102,22 +102,26 @@ private:
     void shutdown();
 
     // The low level camera interface that backs this proxy
+    // Use by camera thread, once constructed, do not update/change it
+    // until camera thread quits.
     std::unordered_map<std::string, wp<HalCamera>> mHalCamera;
 
     sp<hardware::automotive::evs::V1_0::IEvsCameraStream> mStream;
     sp<hardware::automotive::evs::V1_1::IEvsCameraStream> mStream_1_1;
 
     unsigned mFramesAllowed = 1;
+
+    // Access by camera thread also, use with cautions for race conditions.
     enum {
         STOPPED,
         RUNNING,
         STOPPING,
     } mStreamState;
-
+    mutable std::recursive_mutex mFramesHeldMutex;
     std::unordered_map<std::string, std::deque<hardware::automotive::evs::V1_1::BufferDesc>>
             mFramesHeld;
-    std::thread mCaptureThread;
     hardware::automotive::evs::V1_1::CameraDesc* mDesc;
+    std::thread mCaptureThread;
 
     mutable std::mutex mFrameDeliveryMutex;
     std::condition_variable mFramesReadySignal;

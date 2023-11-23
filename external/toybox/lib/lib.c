@@ -17,7 +17,7 @@ void verror_msg(char *msg, int err, va_list va)
   if (err<0 && CFG_TOYBOX_HELP)
     fprintf(stderr, " (see \"%s --help\")", toys.which->name);
   if (msg || err) putc('\n', stderr);
-  if (!toys.exitval) toys.exitval++;
+  if (!toys.exitval) toys.exitval = (toys.which->flags>>24) ? : 1;
 }
 
 // These functions don't collapse together because of the va_stuff.
@@ -449,9 +449,9 @@ char *strafter(char *haystack, char *needle)
 // Remove trailing \n
 char *chomp(char *s)
 {
-  char *p = s+strlen(s);
+  char *p;
 
-  while (p>=s && (p[-1]=='\r' || p[-1]=='\n')) *--p = 0;
+  if (s) for (p = s+strlen(s); p>s && (p[-1]=='\r' || p[-1]=='\n'); *--p = 0);
 
   return s;
 }
@@ -518,6 +518,18 @@ int strcasestart(char **a, char *b)
 
   return i;
 }
+
+int same_file(struct stat *st1, struct stat *st2)
+{
+  return st1->st_ino==st2->st_ino && st1->st_dev==st2->st_dev;
+}
+
+int same_dev_ino(struct stat *st, struct dev_ino *di)
+{
+  return st->st_ino==di->ino && st->st_dev==di->dev;
+}
+
+
 
 // Return how long the file at fd is, if there's any way to determine it.
 off_t fdlength(int fd)
@@ -726,7 +738,7 @@ void loopfiles_rw(char **argv, int flags, int permissions,
     // Inability to open a file prints a warning, but doesn't exit.
 
     if (!strcmp(*argv, "-")) fd = 0;
-    else if (0>(fd = notstdio(open(*argv, flags, permissions))) && !failok) {
+    else if (0>(fd = xnotstdio(open(*argv, flags, permissions))) && !failok) {
       perror_msg_raw(*argv);
       if (!anyway) continue;
     }
@@ -888,9 +900,14 @@ void generic_signal(int sig)
   toys.signal = sig;
 }
 
+// More or less SIG_DFL that runs our atexit list and can siglongjmp.
 void exit_signal(int sig)
 {
+  sigset_t sigset;
+
   if (sig) toys.exitval = sig|128;
+  sigfillset(&sigset);
+  sigprocmask(SIG_BLOCK, &sigset, 0);
   xexit();
 }
 
@@ -1060,30 +1077,49 @@ char *fileunderdir(char *file, char *dir)
   return rc ? s2 : 0;
 }
 
-// return (malloced) relative path to get from "from" to "to"
-char *relative_path(char *from, char *to)
+void *mepcpy(void *to, void *from, unsigned long len)
+{
+  memcpy(to, from, len);
+
+  return ((char *)to)+len;
+}
+
+// return (malloced) relative path to get between two normalized absolute paths
+// normalized: no duplicate / or trailing / or .. or . (symlinks optional)
+char *relative_path(char *from, char *to, int abs)
 {
   char *s, *ret = 0;
   int i, j, k;
 
-  if (!(from = xabspath(from, 0))) return 0;
-  if (!(to = xabspath(to, 0))) goto error;
+  if (abs) {
+    if (!(from = xabspath(from, 0))) return 0;
+    if (!(to = xabspath(to, 0))) goto error;
+  }
 
-  // skip common directories from root
-  for (i = j = 0; from[i] && from[i] == to[i]; i++) if (to[i] == '/') j = i+1;
+  for (i = j = 0;; i++) {
+    if (!from[i] || !to[i]) {
+      if (from[i]=='/' || to[i]=='/' || from[i]==to[i]) j = i;
+      break;
+    }
+    if (from[i] != to[i]) break;
+    if (from[i] == '/') j = i;
+  }
 
   // count remaining destination directories
   for (i = j, k = 0; from[i]; i++) if (from[i] == '/') k++;
-
-  if (!k) ret = xstrdup(to+j);
-  else {
-    s = ret = xmprintf("%*c%s", 3*k, ' ', to+j);
-    while (k--) memcpy(s+3*k, "../", 3);
+  if (!k) {
+    if (to[j]=='/') j++;
+    ret = xstrdup(to[j] ? to+j : ".");
+  } else {
+    s = ret = xmprintf("%*c%s", 3*k-!!k, ' ', to+j);
+    for (i = 0; i<k; i++) s = mepcpy(s, "/.."+!i, 3-!i);
   }
 
 error:
-  free(from);
-  free(to);
+  if (abs) {
+    free(from);
+    free(to);
+  }
 
   return ret;
 }
@@ -1129,8 +1165,7 @@ void names_to_pid(char **names, int (*callback)(pid_t pid, char *name),
         char buf[32];
 
         sprintf(buf, "/proc/%u/exe", u);
-        if (stat(buf, &st2)) continue;
-        if (st1.st_dev != st2.st_dev || st1.st_ino != st2.st_ino) continue;
+        if (stat(buf, &st2) || !same_file(&st1, &st2)) continue;
         goto match;
       }
 
@@ -1212,7 +1247,7 @@ int qstrcmp(const void *a, const void *b)
 void create_uuid(char *uuid)
 {
   // "Set all the ... bits to randomly (or pseudo-randomly) chosen values".
-  xgetrandom(uuid, 16, 0);
+  xgetrandom(uuid, 16);
 
   // "Set the four most significant bits ... of the time_hi_and_version
   // field to the 4-bit version number [4]".
@@ -1459,7 +1494,7 @@ int is_tar_header(void *pkt)
   char *p = pkt;
   int i = 0;
 
-  if (p[257] && memcmp("ustar", p+257, 5)) return 0;
+  if (p[257] && smemcmp("ustar", p+257, 5)) return 0;
   if (p[148] != '0' && p[148] != ' ') return 0;
   sscanf(p+148, "%8o", &i);
 
@@ -1475,14 +1510,15 @@ char *elf_arch_name(int type)
     {195, "arcv2"}, {40, "arm"}, {183, "arm64"}, {0x18ad, "avr32"},
     {247, "bpf"}, {106, "blackfin"}, {140, "c6x"}, {23, "cell"}, {76, "cris"},
     {252, "csky"}, {0x5441, "frv"}, {46, "h8300"}, {164, "hexagon"},
-    {50, "ia64"}, {88, "m32r"}, {0x9041, "m32r"}, {4, "m68k"}, {174, "metag"},
-    {189, "microblaze"}, {0xbaab, "microblaze-old"}, {8, "mips"},
-    {10, "mips-old"}, {89, "mn10300"}, {0xbeef, "mn10300-old"}, {113, "nios2"},
-    {92, "openrisc"}, {0x8472, "openrisc-old"}, {15, "parisc"}, {20, "ppc"},
-    {21, "ppc64"}, {243, "riscv"}, {22, "s390"}, {0xa390, "s390-old"},
-    {135, "score"}, {42, "sh"}, {2, "sparc"}, {18, "sparc8+"}, {43, "sparc9"},
-    {188, "tile"}, {191, "tilegx"}, {3, "386"}, {6, "486"}, {62, "x86-64"},
-    {94, "xtensa"}, {0xabc7, "xtensa-old"}
+    {50, "ia64"}, {258, "loongarch"}, {88, "m32r"}, {0x9041, "m32r"},
+    {4, "m68k"}, {174, "metag"}, {189, "microblaze"},
+    {0xbaab, "microblaze-old"}, {8, "mips"}, {10, "mips-old"}, {89, "mn10300"},
+    {0xbeef, "mn10300-old"}, {113, "nios2"}, {92, "openrisc"},
+    {0x8472, "openrisc-old"}, {15, "parisc"}, {20, "ppc"}, {21, "ppc64"},
+    {243, "riscv"}, {22, "s390"}, {0xa390, "s390-old"}, {135, "score"},
+    {42, "sh"}, {2, "sparc"}, {18, "sparc8+"}, {43, "sparc9"}, {188, "tile"},
+    {191, "tilegx"}, {3, "386"}, {6, "486"}, {62, "x86-64"}, {94, "xtensa"},
+    {0xabc7, "xtensa-old"}
   };
 
   for (i = 0; i<ARRAY_LEN(types); i++) {
@@ -1491,3 +1527,45 @@ char *elf_arch_name(int type)
   sprintf(libbuf, "unknown arch %d", type);
   return libbuf;
 }
+
+// Remove octal escapes from string (common in kernel exports)
+void octal_deslash(char *s)
+{
+  char *o = s;
+
+  while (*s) {
+    if (*s == '\\') {
+      int i, oct = 0;
+
+      for (i = 1; i < 4; i++) {
+        if (!isdigit(s[i])) break;
+        oct = (oct<<3)+s[i]-'0';
+      }
+      if (i == 4) {
+        *o++ = oct;
+        s += i;
+        continue;
+      }
+    }
+    *o++ = *s++;
+  }
+
+  *o = 0;
+}
+
+// ASAN flips out about memcmp("a", "abc", 4) but the result is well-defined.
+// This one's guaranteed to stop at len _or_ the first difference.
+int smemcmp(char *one, char *two, unsigned long len)
+{
+  int ii = 0;
+
+  // NULL sorts after anything else
+  if (one == two) return 0;
+  if (!one) return 1;
+  if (!two) return -1;
+
+  while (len--) if ((ii = *one++ - *two++)) break;
+
+  return ii;
+}
+

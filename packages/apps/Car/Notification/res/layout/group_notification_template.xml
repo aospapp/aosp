@@ -58,7 +58,7 @@
         android:layout_gravity="center_horizontal"
         android:layout_marginEnd="@dimen/notification_card_margin_horizontal"
         android:layout_marginStart="@dimen/notification_card_margin_horizontal"
-        app:cardBackgroundColor="?android:attr/colorPrimary"
+        app:cardBackgroundColor="@color/notification_background_color"
         app:cardCornerRadius="@dimen/notification_card_radius">
 
         <RelativeLayout
@@ -72,7 +72,7 @@
                 android:layout_alignParentStart="true"
                 android:layout_alignParentTop="true"
                 android:layout_marginBottom="@dimen/card_header_margin_bottom"
-                android:layout_toStartOf="@+id/group_toggle_button"
+                android:layout_toStartOf="@+id/group_toggle_icon"
                 android:paddingStart="@dimen/card_start_margin"
                 android:gravity="center_vertical"/>
 

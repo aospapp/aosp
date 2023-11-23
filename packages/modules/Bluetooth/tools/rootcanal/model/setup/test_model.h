@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <stddef.h>  // for size_t
-
 #include <chrono>      // for milliseconds
+#include <cstddef>     // for size_t
 #include <functional>  // for function
+#include <map>
 #include <memory>      // for shared_ptr
 #include <string>      // for string
 #include <vector>      // for vector
@@ -28,7 +28,7 @@
 #include "model/devices/hci_device.h"          // for HciDevice
 #include "model/setup/async_manager.h"         // for AsyncUserId, AsyncTaskId
 #include "phy.h"                               // for Phy, Phy::Type
-#include "phy_layer_factory.h"                 // for PhyLayerFactory
+#include "phy_layer.h"
 
 namespace rootcanal {
 class Device;
@@ -38,57 +38,67 @@ using ::bluetooth::hci::Address;
 class TestModel {
  public:
   TestModel(
-      std::function<AsyncUserId()> getNextUserId,
+      std::function<AsyncUserId()> get_user_id,
       std::function<AsyncTaskId(AsyncUserId, std::chrono::milliseconds,
                                 const TaskCallback&)>
-          evtScheduler,
+          event_scheduler,
       std::function<AsyncTaskId(AsyncUserId, std::chrono::milliseconds,
                                 std::chrono::milliseconds, const TaskCallback&)>
-          periodicEvtScheduler,
-      std::function<void(AsyncUserId)> cancel_user_tasks,
+          periodic_event_scheduler,
+      std::function<void(AsyncUserId)> cancel_tasks_from_user,
       std::function<void(AsyncTaskId)> cancel,
       std::function<std::shared_ptr<Device>(const std::string&, int, Phy::Type)>
-          connect_to_remote);
-  ~TestModel() = default;
+          connect_to_remote,
+      std::array<uint8_t, 5> bluetooth_address_prefix = {0xda, 0x4c, 0x10, 0xde,
+                                                         0x17});
+  virtual ~TestModel();
 
   TestModel(TestModel& model) = delete;
   TestModel& operator=(const TestModel& model) = delete;
 
-  // Commands:
+  void SetReuseDeviceIds(bool reuse_device_ids) {
+    reuse_device_ids_ = reuse_device_ids;
+  }
 
-  // Add a device, return its index
-  size_t Add(std::shared_ptr<Device> device);
+  // Allow derived classes to use custom phy layer.
+  virtual std::unique_ptr<PhyLayer> CreatePhyLayer(PhyLayer::Identifier id,
+                                                   Phy::Type type);
 
-  // Remove devices by index
-  void Del(size_t device_index);
+  // Allow derived classes to use custom phy devices.
+  virtual std::shared_ptr<PhyDevice> CreatePhyDevice(
+      PhyDevice::Identifier id, std::string type,
+      std::shared_ptr<Device> device);
 
-  // Add phy, return its index
-  size_t AddPhy(Phy::Type phy_type);
+  // Test model commands
 
-  // Remove phy by index
-  void DelPhy(size_t phy_index);
+  PhyDevice::Identifier AddDevice(std::shared_ptr<Device> device);
+  void RemoveDevice(PhyDevice::Identifier id);
+  PhyLayer::Identifier AddPhy(Phy::Type type);
+  void RemovePhy(PhyLayer::Identifier id);
+  void AddDeviceToPhy(PhyDevice::Identifier device_id,
+                      PhyLayer::Identifier phy_id);
+  void RemoveDeviceFromPhy(PhyDevice::Identifier device_id,
+                           PhyLayer::Identifier phy_id);
 
-  // Add device to phy
-  void AddDeviceToPhy(size_t device_index, size_t phy_index);
-
-  // Remove device from phy
-  void DelDeviceFromPhy(size_t device_index, size_t phy_index);
+  // Runtime implementation.
 
   // Handle incoming remote connections
   void AddLinkLayerConnection(std::shared_ptr<Device> dev, Phy::Type phy_type);
-  void AddHciConnection(std::shared_ptr<HciDevice> dev);
+  // Add an HCI device, return its index
+  PhyDevice::Identifier AddHciConnection(std::shared_ptr<HciDevice> dev);
 
   // Handle closed remote connections (both hci & link layer)
-  void OnConnectionClosed(size_t index, AsyncUserId user_id);
+  void OnConnectionClosed(PhyDevice::Identifier device_id, AsyncUserId user_id);
 
   // Connect to a remote device
   void AddRemote(const std::string& server, int port, Phy::Type phy_type);
 
   // Set the device's Bluetooth address
-  void SetDeviceAddress(size_t device_index, Address device_address);
+  void SetDeviceAddress(PhyDevice::Identifier device_id,
+                        Address device_address);
 
   // Let devices know about the passage of time
-  void TimerTick();
+  void Tick();
   void StartTimer();
   void StopTimer();
   void SetTimerPeriod(std::chrono::milliseconds new_period);
@@ -100,9 +110,17 @@ class TestModel {
   void Reset();
 
  private:
-  std::vector<PhyLayerFactory> phys_;
-  std::vector<std::shared_ptr<Device>> devices_;
+  std::map<PhyLayer::Identifier, std::shared_ptr<PhyLayer>> phy_layers_;
+  std::map<PhyDevice::Identifier, std::shared_ptr<PhyDevice>> phy_devices_;
   std::string list_string_;
+
+  // Generator for device identifiers.
+  PhyDevice::Identifier next_device_id_{0};
+  bool reuse_device_ids_{true};
+
+  // Prefix used to generate public device addresses for hosts
+  // connecting over TCP.
+  std::array<uint8_t, 5> bluetooth_address_prefix_;
 
   // Callbacks to schedule tasks.
   std::function<AsyncUserId()> get_user_id_;

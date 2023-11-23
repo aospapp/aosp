@@ -21,7 +21,7 @@
     <string name="current_permission_template" msgid="6240787325714651204">"<xliff:g id="CURRENT_PERMISSION_INDEX">%1$s</xliff:g>/<xliff:g id="PERMISSION_COUNT">%2$s</xliff:g>"</string>
     <string name="preference_show_system_apps" msgid="4262140518693221093">"Prikaz aplikacija sustava"</string>
     <string name="app_permissions_decor_title" msgid="7438716722786036814">"Dopuštenja za aplikacije"</string>
-    <string name="manage_permissions_decor_title" msgid="4138423885439613577">"Dopuštenja za aplikacije"</string>
+    <string name="manage_permissions_decor_title" msgid="4138423885439613577">"Dopuštenja aplikacije"</string>
     <string name="permission_apps_decor_title" msgid="2811550489429789828">"Dopuštenja – <xliff:g id="PERMISSION">%1$s</xliff:g>"</string>
     <string name="additional_permissions_decor_title" msgid="5113847982502484225">"Dodatna dopuštenja"</string>
     <string name="system_apps_decor_title" msgid="4402004958937474803">"Dopuštenja – <xliff:g id="PERMISSION">%1$s</xliff:g>"</string>

@@ -77,7 +77,7 @@ public class DefaultVoiceInputPickerEntryPreferenceController extends
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         ComponentName currentVoiceService = VoiceInputUtils.getCurrentService(getContext());
         ComponentName currentAssist = mAssistUtils.getAssistComponentForUser(
                 getCurrentProcessUserId());

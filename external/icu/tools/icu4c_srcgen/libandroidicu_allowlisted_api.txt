@@ -59,6 +59,7 @@ u_totitle
 u_toupper
 ubidi_close
 ubidi_countRuns
+ubidi_getDirection
 ubidi_getParaLevel
 ubidi_getLength
 ubidi_getLevelAt
@@ -68,6 +69,7 @@ ubidi_openSized
 ubidi_reorderVisual
 ubidi_setClassCallback
 ubidi_setPara
+ubrk_clone
 ubrk_close
 ubrk_current
 ubrk_first
@@ -77,6 +79,7 @@ ubrk_isBoundary
 ubrk_next
 ubrk_open
 ubrk_preceding
+ubrk_setText
 ubrk_setUText
 ucnv_close
 # Temporarily keep ucnv_convert in Android S due to this feature request. http://b/163081189

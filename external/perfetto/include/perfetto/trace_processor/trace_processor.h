@@ -24,6 +24,7 @@
 #include "perfetto/base/export.h"
 #include "perfetto/trace_processor/basic_types.h"
 #include "perfetto/trace_processor/iterator.h"
+#include "perfetto/trace_processor/metatrace_config.h"
 #include "perfetto/trace_processor/status.h"
 #include "perfetto/trace_processor/trace_processor_storage.h"
 
@@ -32,7 +33,7 @@ namespace trace_processor {
 
 // Extends TraceProcessorStorage to support execution of SQL queries on loaded
 // traces. See TraceProcessorStorage for parsing of trace files.
-class PERFETTO_EXPORT TraceProcessor : public TraceProcessorStorage {
+class PERFETTO_EXPORT_COMPONENT TraceProcessor : public TraceProcessorStorage {
  public:
   // For legacy API clients. Iterator used to be a nested class here. Many API
   // clients depends on it at this point.
@@ -53,6 +54,16 @@ class PERFETTO_EXPORT TraceProcessor : public TraceProcessorStorage {
   // See documentation of the Iterator class for an example on how to use
   // the returned iterator.
   virtual Iterator ExecuteQuery(const std::string& sql) = 0;
+
+  // Registers SQL files with the associated path under the module named
+  // |sql_module.name|. These modules can be run by using the |IMPORT| SQL
+  // function.
+  //
+  // For example, if you registered a module called "camera" with a file path
+  // "camera/cpu/metrics.sql" you can import it (run the file) using "SELECT
+  // IMPORT('camera.cpu.metrics');". The first word of the string has to be a
+  // module name and there can be only one module registered with a given name.
+  virtual base::Status RegisterSqlModule(SqlModule sql_module) = 0;
 
   // Registers a metric at the given path which will run the specified SQL.
   virtual base::Status RegisterMetric(const std::string& path,
@@ -111,7 +122,9 @@ class PERFETTO_EXPORT TraceProcessor : public TraceProcessorStorage {
   // Metatracing involves tracing trace processor itself to root-cause
   // performace issues in trace processor. See |DisableAndReadMetatrace| for
   // more information on the format of the metatrace.
-  virtual void EnableMetatrace() = 0;
+  using MetatraceConfig = metatrace::MetatraceConfig;
+  using MetatraceCategories = metatrace::MetatraceCategories;
+  virtual void EnableMetatrace(MetatraceConfig config = {}) = 0;
 
   // Disables "meta-tracing" of trace processor and writes the trace as a
   // sequence of |TracePackets| into |trace_proto| returning the status of this
@@ -127,7 +140,7 @@ class PERFETTO_EXPORT TraceProcessor : public TraceProcessorStorage {
 };
 
 // When set, logs SQLite actions on the console.
-void PERFETTO_EXPORT EnableSQLiteVtableDebugging();
+void PERFETTO_EXPORT_COMPONENT EnableSQLiteVtableDebugging();
 
 }  // namespace trace_processor
 }  // namespace perfetto

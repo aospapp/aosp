@@ -53,7 +53,9 @@
          CarHeadsUpNotificationBottomAnimationHelper. -->
     <bool name="config_showHeadsUpNotificationOnBottom">true</bool>
 
-    <string name="config_notificationPanelViewMediator" translatable="false">com.android.systemui.car.notification.NotificationPanelViewMediator</string>
+    <string name="config_notificationPanelViewMediator" translatable="false">
+        com.android.systemui.car.notification.NotificationPanelViewMediator</string>
 
-    <string name="config_appGridComponentName" translatable="false">com.android.car.carlauncher/.AppGridActivity</string>
+    <string name="config_appGridComponentName" translatable="false">
+        com.android.car.carlauncher/.AppGridActivity</string>
 </resources>

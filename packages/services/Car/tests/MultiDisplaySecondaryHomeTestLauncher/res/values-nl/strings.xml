@@ -25,4 +25,5 @@
     <string name="set_wallpaper" msgid="3650915172749345197">"Achtergrond instellen"</string>
     <string name="new_instance" msgid="1924479866055190730">"Lancering in nieuwe instantie aanvragen"</string>
     <string name="wallpaper_description" msgid="5885164573334720996">"Voorbeeld van multidisplay-achtergrond"</string>
+    <string name="exit" msgid="3648703694102318310">"Sluiten"</string>
 </resources>

@@ -12,6 +12,7 @@ JOB_RETRIES = 1
 TEST_TYPE = 'server'
 TIME = 'MEDIUM'
 MAX_RESULT_SIZE_KB = 512000
+PY_VERSION = 3
 PRIORITY = 50
 DOC = 'Run module CtsJobSchedulerTestCases of the Android Compatibility Test Suite (CTS) using x86 ABI in the ARC++ container.'
 
@@ -28,7 +29,7 @@ def run_TS(machine):
         target_module='CtsJobSchedulerTestCases',
         target_plan=None,
         bundle='x86',
-        precondition_commands=['/usr/local/autotest/cros/scripts/wifi connect %s %s' % (ssid, wifipass), '/usr/local/autotest/cros/scripts/reorder-services-moblab.sh wifi'],
+        precondition_commands=['/usr/local/autotest/cros/scripts/wifi connect %s %s' % (ssid, wifipass), 'android-sh -c \'dumpsys wifi transports -eth\''],
         retry_manual_tests=True,
         use_jdk9=True,
         warn_on_test_retry=False,

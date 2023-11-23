@@ -1,0 +1,11 @@
+drops {
+  android_build_drop {
+    build_id: "8212252"
+    target: "lynx"
+    source_file: "videobuf2-dma-sg.ko"
+  }
+  dest_file: "videobuf2-dma-sg.ko"
+  version: "Linux version 5.10.100-android13-0-01282-g6d6288c745b2-ab8212252 (build-user@build-host) (Android (8200618, based on r445002) clang version 14.0.2 (https://android.googlesource.com/toolchain/llvm-project ae8d7d1dee3175cbfe3887834135abee1dcfcb68), LLD 14.0.2) #1 SMP PREEMPT Tue Feb 15 09:54:00 UTC 2022"
+  version_group: "kernel-and-modules"
+  git_project: "device/google/lynx-kernel"
+}

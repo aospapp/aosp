@@ -16,20 +16,9 @@
 
 package com.android.car.vehiclehal.test;
 
-import static android.os.SystemClock.elapsedRealtime;
-
-import android.annotation.Nullable;
 import android.car.hardware.CarPropertyValue;
-import android.hardware.automotive.vehicle.V2_0.IVehicle;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.os.RemoteException;
-import android.util.Log;
 
-import com.android.car.vehiclehal.VehiclePropValueBuilder;
-
-import java.util.NoSuchElementException;
-import java.util.Objects;
+import java.util.Arrays;
 
 final class Utils {
     private Utils() {}
@@ -40,78 +29,6 @@ final class Utils {
         return "VehicleHalTest." + clazz.getSimpleName();
     }
 
-    static boolean isVhalPropertyAvailable(IVehicle vehicle, int prop) throws RemoteException {
-        return vehicle.getAllPropConfigs()
-                .stream()
-                .anyMatch((VehiclePropConfig config) -> config.prop == prop);
-    }
-
-    static VehiclePropValue readVhalProperty(
-        IVehicle vehicle,
-        VehiclePropValue request,
-        java.util.function.BiFunction<Integer, VehiclePropValue, Boolean> f) {
-        Objects.requireNonNull(vehicle);
-        Objects.requireNonNull(request);
-        VehiclePropValue vpv[] = new VehiclePropValue[] {null};
-        try {
-            vehicle.get(
-                request,
-                (int status, VehiclePropValue propValue) -> {
-                    if (f.apply(status, propValue)) {
-                        vpv[0] = propValue;
-                    }
-                });
-        } catch (RemoteException e) {
-            Log.w(TAG, "attempt to read VHAL property " + request + " caused RemoteException: ", e);
-        }
-        return vpv[0];
-    }
-
-    static VehiclePropValue readVhalProperty(
-        IVehicle vehicle,
-        int propertyId,
-        java.util.function.BiFunction<Integer, VehiclePropValue, Boolean> f) {
-        return readVhalProperty(vehicle, propertyId, 0, f);
-    }
-
-    static VehiclePropValue readVhalProperty(
-            IVehicle vehicle,
-            int propertyId,
-            int areaId,
-            java.util.function.BiFunction<Integer, VehiclePropValue, Boolean> f) {
-        VehiclePropValue request =
-            VehiclePropValueBuilder.newBuilder(propertyId).setAreaId(areaId).build();
-        return readVhalProperty(vehicle, request, f);
-    }
-
-    @Nullable
-    private static IVehicle getVehicle() {
-        try {
-            return IVehicle.getService();
-        } catch (NoSuchElementException ex) {
-            Log.e(TAG, "IVehicle service not registered yet", ex);
-        } catch (RemoteException e) {
-            Log.e(TAG, "Failed to get IVehicle Service ", e);
-        }
-        Log.d(TAG, "Failed to connect to IVehicle service");
-        return null;
-    }
-
-    static IVehicle getVehicleWithTimeout(long waitMilliseconds) {
-        IVehicle vehicle = getVehicle();
-        long endTime = elapsedRealtime() + waitMilliseconds;
-        while (vehicle == null && endTime > elapsedRealtime()) {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                throw new RuntimeException("Sleep was interrupted", e);
-            }
-            vehicle = getVehicle();
-        }
-
-        return vehicle;
-    }
-
     /**
      * Check the equality of two VehiclePropValue object ignoring timestamp and status.
      *
@@ -119,13 +36,33 @@ final class Utils {
      * @param value2
      * @return true if equal
      */
-    static boolean areCarPropertyValuesEqual(final CarPropertyValue value1,
-            final CarPropertyValue value2) {
-        return value1 == value2
-            || value1 != null
-            && value2 != null
-            && value1.getPropertyId() == value2.getPropertyId()
-            && value1.getAreaId() == value2.getAreaId()
-            && value1.getValue().equals(value2.getValue());
+    static boolean areCarPropertyValuesEqual(CarPropertyValue value1, CarPropertyValue value2) {
+        if (value1 == value2) {
+            return true;
+        }
+        if (value1 == null || value2 == null) {
+            return false;
+        }
+        if (value1.getPropertyId() != value2.getPropertyId()) {
+            return false;
+        }
+        if (value1.getAreaId() != value2.getAreaId()) {
+            return false;
+        }
+
+        if (value1.getValue().equals(value2.getValue())) {
+            return true;
+        }
+
+        Object value1Values = value1.getValue();
+        Object value2Values = value2.getValue();
+        if (!(value1Values instanceof Object[]) || !(value2Values instanceof Object[])) {
+            return false;
+        }
+
+        Object[] value1Objects = (Object[]) value1Values;
+        Object[] value2Objects = (Object[]) value2Values;
+
+        return Arrays.equals(value1Objects, value2Objects);
     }
 }

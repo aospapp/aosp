@@ -196,6 +196,7 @@ DECLARE_ACCESSOR(wpas_dbus_getter_blobs);
 DECLARE_ACCESSOR(wpas_dbus_getter_stas);
 DECLARE_ACCESSOR(wpas_dbus_getter_mac_address_randomization_mask);
 DECLARE_ACCESSOR(wpas_dbus_setter_mac_address_randomization_mask);
+DECLARE_ACCESSOR(wpas_dbus_getter_mac_address);
 DECLARE_ACCESSOR(wpas_dbus_getter_sta_address);
 DECLARE_ACCESSOR(wpas_dbus_getter_sta_aid);
 DECLARE_ACCESSOR(wpas_dbus_getter_sta_caps);
@@ -245,6 +246,8 @@ DECLARE_ACCESSOR(wpas_dbus_setter_wps_device_device_type);
 
 DECLARE_ACCESSOR(wpas_dbus_getter_mesh_peers);
 DECLARE_ACCESSOR(wpas_dbus_getter_mesh_group);
+
+DECLARE_ACCESSOR(wpas_dbus_getter_signal_change);
 
 DBusMessage * wpas_dbus_handler_tdls_discover(DBusMessage *message,
 					      struct wpa_supplicant *wpa_s);

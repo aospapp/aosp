@@ -47,6 +47,9 @@
     <!-- string for "unknown" phone number" -->
     <string name="unknownNumber">Unknown</string>
 
+    <!-- string for "Not Provided" metadata" -->
+    <string name="not_provided">Not Provided</string>
+
     <!-- string for "the title of airplane mode error" -->
     <string name="airplane_error_title">Airplane mode</string>
     <!-- string for "error message in airplane mode" -->
@@ -248,4 +251,10 @@
     <string name="a2dp_sink_mbs_label">Bluetooth Audio</string>
     <string name="bluetooth_opp_file_limit_exceeded">Files bigger than 4GB cannot be transferred</string>
     <string name="bluetooth_connect_action">Connect to Bluetooth</string>
+    <string name="bluetooth_enabled_apm_title">Bluetooth on in airplane mode</string>
+    <string name="bluetooth_enabled_apm_message">If you keep Bluetooth on, your device will remember to keep it on the next time you\'re in airplane mode</string>
+    <string name="bluetooth_stays_on_title">Bluetooth stays on</string>
+    <string name="bluetooth_stays_on_message">Your device remembers to keep Bluetooth on in airplane mode. Turn off Bluetooth if you don\'t want it to stay on.</string>
+    <string name="bluetooth_and_wifi_stays_on_title">Wi-Fi and Bluetooth stay on</string>
+    <string name="bluetooth_and_wifi_stays_on_message">Your device remembers to keep Wi-Fi and Bluetooth on in airplane mode. Turn off Wi-Fi and Bluetooth if you don\'t want them to stay on.</string>
 </resources>

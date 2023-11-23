@@ -33,6 +33,20 @@ namespace shim {
 
 extern ::ScanningCallbacks* default_scanning_callback;
 
+class MsftCallbacks {
+ public:
+  using MsftAdvMonitorAddCallback =
+      base::Callback<void(uint8_t /* monitor_handle */, uint8_t /* status */)>;
+  using MsftAdvMonitorRemoveCallback =
+      base::Callback<void(uint8_t /* status */)>;
+  using MsftAdvMonitorEnableCallback =
+      base::Callback<void(uint8_t /* status */)>;
+
+  MsftAdvMonitorAddCallback Add;
+  MsftAdvMonitorRemoveCallback Remove;
+  MsftAdvMonitorEnableCallback Enable;
+};
+
 class BleScannerInterfaceImpl : public ::BleScannerInterface,
                                 public bluetooth::hci::ScanningCallback {
  public:
@@ -52,6 +66,13 @@ class BleScannerInterfaceImpl : public ::BleScannerInterface,
                      FilterConfigCallback cb) override;
   void ScanFilterClear(int filter_index, FilterConfigCallback cb) override;
   void ScanFilterEnable(bool enable, EnableCallback cb) override;
+  bool IsMsftSupported() override;
+  void MsftAdvMonitorAdd(MsftAdvMonitor monitor,
+                         MsftAdvMonitorAddCallback cb) override;
+  void MsftAdvMonitorRemove(uint8_t monitor_handle,
+                            MsftAdvMonitorRemoveCallback cb) override;
+  void MsftAdvMonitorEnable(bool enable,
+                            MsftAdvMonitorEnableCallback cb) override;
   void SetScanParameters(int scanner_id, int scan_interval, int scan_window,
                          Callback cb) override;
   void BatchscanConfigStorage(int client_if, int batch_scan_full_max,
@@ -109,7 +130,14 @@ class BleScannerInterfaceImpl : public ::BleScannerInterface,
   void OnPeriodicSyncLost(uint16_t sync_handle) override;
   void OnPeriodicSyncTransferred(int pa_source, uint8_t status,
                                  bluetooth::hci::Address address) override;
+  void OnBigInfoReport(uint16_t sync_handle, bool encrypted) override;
+
   ::ScanningCallbacks* scanning_callbacks_ = default_scanning_callback;
+  void OnMsftAdvMonitorAdd(uint8_t monitor_handle,
+                           bluetooth::hci::ErrorCode status);
+  void OnMsftAdvMonitorRemove(bluetooth::hci::ErrorCode status);
+  void OnMsftAdvMonitorEnable(bool enable, bluetooth::hci::ErrorCode status);
+  MsftCallbacks msft_callbacks_;
 
  private:
   bool parse_filter_command(

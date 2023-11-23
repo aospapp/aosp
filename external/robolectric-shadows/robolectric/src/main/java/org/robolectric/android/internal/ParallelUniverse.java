@@ -420,7 +420,8 @@ public class ParallelUniverse implements ParallelUniverseInterface {
    * Create a file system safe directory path name for the current test.
    */
   private String createTestDataDirRootPath(Method method) {
-    return method.getClass().getSimpleName() + "_" + method.getName().replaceAll("[^a-zA-Z0-9.-]", "_");
+    return method.getDeclaringClass().getSimpleName() + "_" +
+        method.getName().replaceAll("[^a-zA-Z0-9.-]", "_");
   }
 
   @Override

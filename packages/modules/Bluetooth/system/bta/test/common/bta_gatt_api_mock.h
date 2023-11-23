@@ -16,7 +16,7 @@
  */
 #pragma once
 
-#include <base/callback.h>
+#include <base/functional/callback.h>
 #include <gmock/gmock.h>
 
 #include "bta_gatt_api.h"
@@ -31,10 +31,10 @@ class BtaGattInterface {
                            BtaAppRegisterCallback cb, bool eatt_support) = 0;
   virtual void AppDeregister(tGATT_IF client_if) = 0;
   virtual void Open(tGATT_IF client_if, const RawAddress& remote_bda,
-                    bool is_direct, tBT_TRANSPORT transport, bool opportunistic,
-                    uint8_t initiating_phys) = 0;
+                    tBTM_BLE_CONN_TYPE connection_type, tBT_TRANSPORT transport,
+                    bool opportunistic, uint8_t initiating_phys) = 0;
   virtual void Open(tGATT_IF client_if, const RawAddress& remote_bda,
-                    bool is_direct, bool opportunistic) = 0;
+                    tBTM_BLE_CONN_TYPE connection_type, bool opportunistic) = 0;
   virtual void CancelOpen(tGATT_IF client_if, const RawAddress& remote_bda,
                           bool is_direct) = 0;
   virtual void Close(uint16_t conn_id) = 0;
@@ -63,13 +63,13 @@ class MockBtaGattInterface : public BtaGattInterface {
               (override));
   MOCK_METHOD((void), AppDeregister, (tGATT_IF client_if), (override));
   MOCK_METHOD((void), Open,
-              (tGATT_IF client_if, const RawAddress& remote_bda, bool is_direct,
-               tBT_TRANSPORT transport, bool opportunistic,
-               uint8_t initiating_phys),
+              (tGATT_IF client_if, const RawAddress& remote_bda,
+               tBTM_BLE_CONN_TYPE connection_type, tBT_TRANSPORT transport,
+               bool opportunistic, uint8_t initiating_phys),
               (override));
   MOCK_METHOD((void), Open,
-              (tGATT_IF client_if, const RawAddress& remote_bda, bool is_direct,
-               bool opportunistic));
+              (tGATT_IF client_if, const RawAddress& remote_bda,
+               tBTM_BLE_CONN_TYPE connection_type, bool opportunistic));
   MOCK_METHOD((void), CancelOpen,
               (tGATT_IF client_if, const RawAddress& remote_bda,
                bool is_direct));

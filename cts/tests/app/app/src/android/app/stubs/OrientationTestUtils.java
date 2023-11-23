@@ -59,7 +59,7 @@ public class OrientationTestUtils {
      */
     private static int[] getOrientations(final Activity activity) {
         // Check the display dimension to get the current device orientation.
-        Rect bounds = activity.getWindowManager().getCurrentWindowMetrics().getBounds();
+        final Rect bounds = activity.getWindowManager().getCurrentWindowMetrics().getBounds();
         final int originalOrientation = bounds.width() > bounds.height()
                 ? ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                 : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;

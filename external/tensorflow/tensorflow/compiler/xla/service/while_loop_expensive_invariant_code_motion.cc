@@ -36,10 +36,10 @@ struct InvariantInfo {
       : remaining_user_count(user_count) {}
   // The transitive input size of all input operands, traced up to the while
   // loop parameter or leaf invariant ops.
-  int64 transitive_input_size = 0;
+  int64_t transitive_input_size = 0;
   // The remaining users count that remain in the body after all hoistable
   // invariant users are hoisted. This number excludes the root instruction.
-  int64 remaining_user_count;
+  int64_t remaining_user_count;
   // If this instruction is hoisted, this stores the copy outside the body.
   HloInstruction* hoisted_copy = nullptr;
   // Hoistable instructions depending on this op to be hoisted.
@@ -59,7 +59,7 @@ static void CreateLoopInvariantCopy(
 
   struct DFSFrame {
     HloInstruction* instruction;
-    int64 operand_index;
+    int64_t operand_index;
   };
 
   InlinedVector<DFSFrame, 8> dfs_stack;
@@ -132,7 +132,7 @@ StatusOr<bool> WhileLoopExpensiveInvariantCodeMotion::
     return false;
   }
 
-  string while_instr_name = while_instr->ToString(print_no_metadata);
+  std::string while_instr_name = while_instr->ToString(print_no_metadata);
   VLOG(2) << "Trying to hoist from " << while_instr_name;
 
   auto maybe_upper_bound = ComputeWhileLoopTripCountUpperBound(while_instr);
@@ -152,7 +152,7 @@ StatusOr<bool> WhileLoopExpensiveInvariantCodeMotion::
   // operands, i.e. operands used by unvisited instructions. If all these
   // operands are used by other invariant instructions, then hoisting out that
   // operand won't leave a copy of itself in the body and it's free to hoist.
-  flat_hash_map<HloInstruction*, int64> to_hoist_when_ready;
+  flat_hash_map<HloInstruction*, int64_t> to_hoist_when_ready;
 
   // Identify invariant GTE instructions so that we can identify its users that
   // are also invariants.
@@ -332,13 +332,15 @@ StatusOr<bool> WhileLoopExpensiveInvariantCodeMotion::
   return true;
 }
 
-StatusOr<bool> WhileLoopExpensiveInvariantCodeMotion::Run(HloModule* module) {
+StatusOr<bool> WhileLoopExpensiveInvariantCodeMotion::Run(
+    HloModule* module,
+    const absl::flat_hash_set<absl::string_view>& execution_threads) {
   VLOG(2) << "HLO module before WhileLoopExpensiveInvariantCodeMotion:";
   XLA_VLOG_LINES(2, module->ToString());
 
   bool changed = false;
   std::vector<HloInstruction*> while_instrs;
-  for (auto* comp : module->computations()) {
+  for (auto* comp : module->computations(execution_threads)) {
     absl::c_copy_if(comp->instructions(), std::back_inserter(while_instrs),
                     [](const HloInstruction* instr) {
                       return instr->opcode() == HloOpcode::kWhile;

@@ -91,7 +91,7 @@ and search for the right build for your board.
 
 ## Test Breakdown
 
-See the [Autotest Best Practices](https://chromium.googlesource.com/chromiumos/third_party/autotest/+/refs/heads/master/docs/best-practices.md#control-files) for general autotest information.
+See the [Autotest Best Practices](https://chromium.googlesource.com/chromiumos/third_party/autotest/+/refs/heads/main/docs/best-practices.md#control-files) for general autotest information.
 This section will provide details on how Enterprise autotests are written.
 Each test will require the following:
 *	A control file
@@ -100,7 +100,8 @@ Each test will require the following:
 
 ### Control files
 
-[Control files](https://chromium.googlesource.com/chromiumos/third_party/autotest/+/refs/heads/master/docs/best-practices.md#control-files) are used as the entry point to a test.
+[Control files](https://chromium.googlesource.com/chromiumos/third_party/autotest/+/refs/heads/main/docs/best-practices.md#control-files) are used as the entry point to a test.
+
 A typical dir for a user policy (client) test will consist of control file(s)
 and, along with .py test file(s). A control file will contain basic description of the
 test as well as options such as these:
@@ -169,7 +170,7 @@ with a cleared TPM (thus a reboot). Client tests do not support rebooting the
 device before/during/after a test.
 
 In order to support clearing the TPM & rebooting, all device policies must be
-written as a ["server"](https://chromium.googlesource.com/chromiumos/third_party/autotest/+/refs/heads/master/docs/best-practices.md#when_why-to-write-a-server_side-test) test.
+written as a ["server"](https://chromium.googlesource.com/chromiumos/third_party/autotest/+/refs/heads/main/docs/best-practices.md#when_why-to-write-a-server_side-test) test.
 Server tests (for Enterprise) will need a "server" control & test, in addition
 to having a client control file and a .py test file. The server test will do
 any server operations (reboot, servo control, wifi cell control, etc)

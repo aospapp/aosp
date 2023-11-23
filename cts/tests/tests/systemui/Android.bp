@@ -37,8 +37,9 @@ android_test {
         "CtsMockInputMethodLib",
         "androidx.test.rules",
         "androidx.test.ext.junit",
-        "androidx.test.uiautomator",
+        "androidx.test.uiautomator_uiautomator",
         "cts-wm-util",
+        "permission-test-util-lib",
         "ub-uiautomator",
     ],
     srcs: [

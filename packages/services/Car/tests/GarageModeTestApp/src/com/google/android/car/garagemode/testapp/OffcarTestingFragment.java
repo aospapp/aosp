@@ -31,6 +31,8 @@ import android.widget.TextView;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import java.util.Objects;
+
 public class OffcarTestingFragment extends Fragment implements AdapterView.OnItemSelectedListener {
     private static final Logger LOG = new Logger("OffcarTestingFragment");
 
@@ -79,6 +81,8 @@ public class OffcarTestingFragment extends Fragment implements AdapterView.OnIte
                 break;
             case R.id.jobDuration:
                 applyJobDuration(value);
+                break;
+            default:
                 break;
         }
     }
@@ -181,13 +185,13 @@ public class OffcarTestingFragment extends Fragment implements AdapterView.OnIte
     }
 
     private int parseNetworkRequirement() {
-        if (mNetworkRequirement.equals("NONE")) {
+        if (Objects.equals(mNetworkRequirement, "NONE")) {
             return JobInfo.NETWORK_TYPE_NONE;
         }
-        if (mNetworkRequirement.equals("UNMETERED")) {
+        if (Objects.equals(mNetworkRequirement, "UNMETERED")) {
             return JobInfo.NETWORK_TYPE_UNMETERED;
         }
-        if (mNetworkRequirement.equals("ANY")) {
+        if (Objects.equals(mNetworkRequirement, "ANY")) {
             return JobInfo.NETWORK_TYPE_ANY;
         }
         return JobInfo.NETWORK_BYTES_UNKNOWN;

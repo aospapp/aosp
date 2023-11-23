@@ -23,7 +23,7 @@ After modifying this file execute it ('./main.star') to regenerate the configs.
 lucicfg.check_version("1.30.9", "Please update depot_tools")
 
 luci.builder.defaults.experiments.set({
-    "luci.recipes.use_python3": 10,
+    "luci.recipes.use_python3": 100,
 })
 
 # Use LUCI Scheduler BBv2 names and add Scheduler realms configs.
@@ -141,13 +141,20 @@ luci.gitiles_poller(
 )
 
 luci.gitiles_poller(
+    name = "vogar",
+    bucket = "ci",
+    repo = "https://android.googlesource.com/platform/external/vogar",
+    refs = ["refs/heads/master"],
+)
+
+luci.gitiles_poller(
     name = "manifest",
     bucket = "ci",
     repo = "https://android.googlesource.com/platform/manifest",
     refs = ["refs/heads/master-art"],
 )
 
-def ci_builder(name, category, short_name):
+def ci_builder(name, category, short_name, dimensions):
     luci.builder(
         name = name,
         bucket = "ci",
@@ -156,11 +163,8 @@ def ci_builder(name, category, short_name):
             cipd_version = "refs/heads/main",
             name = "art",
         ),
-        dimensions = {
+        dimensions = dimensions | {
             "pool": "luci.art.ci",
-
-            # Some builders require specific hardware, so we make the assignment in bots.cfg
-            "builder": name,
         },
         service_account = "art-ci-builder@chops-service-accounts.iam.gserviceaccount.com",
 
@@ -185,6 +189,7 @@ def ci_builder(name, category, short_name):
             "art",
             "libcore",
             "manifest",
+            "vogar",
         ],
     )
     luci.console_view_entry(
@@ -194,28 +199,37 @@ def ci_builder(name, category, short_name):
         short_name = short_name,
     )
 
-ci_builder("angler-armv7-debug", "angler|armv7", "dbg")
-ci_builder("angler-armv7-non-gen-cc", "angler|armv7", "ngen")
-ci_builder("angler-armv7-ndebug", "angler|armv7", "ndbg")
-ci_builder("angler-armv8-debug", "angler|armv8", "dbg")
-ci_builder("angler-armv8-non-gen-cc", "angler|armv8", "ngen")
-ci_builder("angler-armv8-ndebug", "angler|armv8", "ndbg")
-ci_builder("bullhead-armv7-gcstress-ndebug", "bullhead|armv7|gcstress", "dbg")
-ci_builder("bullhead-armv8-gcstress-debug", "bullhead|armv8|gcstress", "dbg")
-ci_builder("bullhead-armv8-gcstress-ndebug", "bullhead|armv8|gcstress", "ndbg")
-ci_builder("fugu-debug", "fugu", "dbg")
-ci_builder("fugu-ndebug", "fugu", "ndbg")
-ci_builder("host-x86-cms", "host|x86", "cms")
-ci_builder("host-x86-debug", "host|x86", "dbg")
-ci_builder("host-x86-ndebug", "host|x86", "ndbg")
-ci_builder("host-x86-gcstress-debug", "host|x86", "gcs")
-ci_builder("host-x86-poison-debug", "host|x86", "psn")
-ci_builder("host-x86_64-cdex-fast", "host|x64", "cdx")
-ci_builder("host-x86_64-cms", "host|x64", "cms")
-ci_builder("host-x86_64-debug", "host|x64", "dbg")
-ci_builder("host-x86_64-non-gen-cc", "host|x64", "ngen")
-ci_builder("host-x86_64-ndebug", "host|x64", "ndbg")
-ci_builder("host-x86_64-poison-debug", "host|x64", "psn")
-ci_builder("walleye-armv7-poison-debug", "walleye|armv7|poison", "dbg")
-ci_builder("walleye-armv8-poison-debug", "walleye|armv8|poison", "dbg")
-ci_builder("walleye-armv8-poison-ndebug", "walleye|armv8|poison", "ndbg")
+# Dimensions specify which bots we can run on.
+host_dims = {"os": "Linux"}
+target_dims = {"os": "Android"}
+arm_target_dims = target_dims | {"device_type": "bonito|oriole|walleye"}
+x86_target_dims = target_dims | {"device_type": "fugu"}
+
+# userfault-GC configurations must be run on Pixel 6.
+userfault_gc_target_dims = target_dims | {"device_type": "oriole"}
+
+ci_builder("angler-armv7-debug", "angler|armv7", "dbg", arm_target_dims)
+ci_builder("angler-armv7-non-gen-cc", "angler|armv7", "ngen", userfault_gc_target_dims)
+ci_builder("angler-armv7-ndebug", "angler|armv7", "ndbg", arm_target_dims)
+ci_builder("angler-armv8-debug", "angler|armv8", "dbg", arm_target_dims)
+ci_builder("angler-armv8-non-gen-cc", "angler|armv8", "ngen", userfault_gc_target_dims)
+ci_builder("angler-armv8-ndebug", "angler|armv8", "ndbg", arm_target_dims)
+ci_builder("bullhead-armv7-gcstress-ndebug", "bullhead|armv7|gcstress", "dbg", arm_target_dims)
+ci_builder("bullhead-armv8-gcstress-debug", "bullhead|armv8|gcstress", "dbg", arm_target_dims)
+ci_builder("bullhead-armv8-gcstress-ndebug", "bullhead|armv8|gcstress", "ndbg", arm_target_dims)
+ci_builder("fugu-debug", "fugu", "dbg", x86_target_dims)
+ci_builder("fugu-ndebug", "fugu", "ndbg", x86_target_dims)
+ci_builder("host-x86-cms", "host|x86", "cms", host_dims)
+ci_builder("host-x86-debug", "host|x86", "dbg", host_dims)
+ci_builder("host-x86-ndebug", "host|x86", "ndbg", host_dims)
+ci_builder("host-x86-gcstress-debug", "host|x86", "gcs", host_dims)
+ci_builder("host-x86-poison-debug", "host|x86", "psn", host_dims)
+ci_builder("host-x86_64-cdex-fast", "host|x64", "cdx", host_dims)
+ci_builder("host-x86_64-cms", "host|x64", "cms", host_dims)
+ci_builder("host-x86_64-debug", "host|x64", "dbg", host_dims)
+ci_builder("host-x86_64-non-gen-cc", "host|x64", "ngen", host_dims)
+ci_builder("host-x86_64-ndebug", "host|x64", "ndbg", host_dims)
+ci_builder("host-x86_64-poison-debug", "host|x64", "psn", host_dims)
+ci_builder("walleye-armv7-poison-debug", "walleye|armv7|poison", "dbg", arm_target_dims)
+ci_builder("walleye-armv8-poison-debug", "walleye|armv8|poison", "dbg", arm_target_dims)
+ci_builder("walleye-armv8-poison-ndebug", "walleye|armv8|poison", "ndbg", arm_target_dims)

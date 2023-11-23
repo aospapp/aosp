@@ -47,7 +47,7 @@ public class CallDiagnosticServiceTest extends BaseTelecomTestWithMockServices {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         mTelecomManager = (TelecomManager) mContext.getSystemService(Context.TELECOM_SERVICE);
@@ -77,7 +77,7 @@ public class CallDiagnosticServiceTest extends BaseTelecomTestWithMockServices {
      * @throws InterruptedException
      */
     public void testAddCallAndPassValues() throws InterruptedException {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         setupCall();
@@ -111,7 +111,7 @@ public class CallDiagnosticServiceTest extends BaseTelecomTestWithMockServices {
      * @throws InterruptedException
      */
     public void testAddMultipleCalls() throws InterruptedException {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         setupCall();
@@ -150,7 +150,7 @@ public class CallDiagnosticServiceTest extends BaseTelecomTestWithMockServices {
      * @throws InterruptedException
      */
     public void testBluetoothCallQualityReport() throws InterruptedException {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         setupCall();
@@ -177,7 +177,7 @@ public class CallDiagnosticServiceTest extends BaseTelecomTestWithMockServices {
      * @throws InterruptedException
      */
     public void testCallAudioRoute() throws InterruptedException {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         setupCall();
@@ -195,7 +195,7 @@ public class CallDiagnosticServiceTest extends BaseTelecomTestWithMockServices {
      * @throws InterruptedException
      */
     public void testReceiveD2DMessage() throws InterruptedException {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         setupCall();
@@ -221,7 +221,7 @@ public class CallDiagnosticServiceTest extends BaseTelecomTestWithMockServices {
      * @throws InterruptedException
      */
     public void testSendD2DMessage() throws InterruptedException {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         setupCall();
@@ -249,7 +249,7 @@ public class CallDiagnosticServiceTest extends BaseTelecomTestWithMockServices {
      * @throws InterruptedException
      */
     public void testDisplayDiagnosticMessage() throws InterruptedException {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         setupCall();
@@ -273,7 +273,7 @@ public class CallDiagnosticServiceTest extends BaseTelecomTestWithMockServices {
      * @throws InterruptedException
      */
     public void testClearDisplayDiagnosticMessage() throws InterruptedException {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         setupCall();
@@ -295,7 +295,7 @@ public class CallDiagnosticServiceTest extends BaseTelecomTestWithMockServices {
      * @throws InterruptedException
      */
     public void testSetNullDisconnectMessage() throws InterruptedException {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         setupCall();
@@ -316,7 +316,7 @@ public class CallDiagnosticServiceTest extends BaseTelecomTestWithMockServices {
      * @throws InterruptedException
      */
     public void testOverrideDisconnectMessage() throws InterruptedException {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         setupCall();
@@ -337,7 +337,7 @@ public class CallDiagnosticServiceTest extends BaseTelecomTestWithMockServices {
      * @throws InterruptedException
      */
     public void testReceiveCallQualityReport() throws InterruptedException {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         setupCall();

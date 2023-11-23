@@ -23,7 +23,6 @@
 #include "ble_scanner.h"
 #include "ble_scanner_hci_interface.h"
 #include "bt_target.h"
-#include "btm_int.h"
 #include "btm_int_types.h"
 #include "device/include/controller.h"
 #include "osi/include/alarm.h"

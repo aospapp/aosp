@@ -52,6 +52,7 @@ using namespace camera2;
 
 Camera2Client::Camera2Client(const sp<CameraService>& cameraService,
         const sp<hardware::ICameraClient>& cameraClient,
+        std::shared_ptr<CameraServiceProxyWrapper> cameraServiceProxyWrapper,
         const String16& clientPackageName,
         const std::optional<String16>& clientFeatureId,
         const String8& cameraDeviceId,
@@ -61,11 +62,14 @@ Camera2Client::Camera2Client(const sp<CameraService>& cameraService,
         int clientPid,
         uid_t clientUid,
         int servicePid,
-        bool overrideForPerfClass):
-        Camera2ClientBase(cameraService, cameraClient, clientPackageName,
+        bool overrideForPerfClass,
+        bool overrideToPortrait,
+        bool forceSlowJpegMode):
+        Camera2ClientBase(cameraService, cameraClient, cameraServiceProxyWrapper, clientPackageName,
                 false/*systemNativeClient - since no ndk for api1*/, clientFeatureId,
                 cameraDeviceId, api1CameraId, cameraFacing, sensorOrientation, clientPid,
-                clientUid, servicePid, overrideForPerfClass, /*legacyClient*/ true),
+                clientUid, servicePid, overrideForPerfClass, overrideToPortrait,
+                /*legacyClient*/ true),
         mParameters(api1CameraId, cameraFacing)
 {
     ATRACE_CALL();
@@ -76,6 +80,7 @@ Camera2Client::Camera2Client(const sp<CameraService>& cameraService,
 
     SharedParameters::Lock l(mParameters);
     l.mParameters.state = Parameters::DISCONNECTED;
+    l.mParameters.isSlowJpegModeForced = forceSlowJpegMode;
 }
 
 status_t Camera2Client::initialize(sp<CameraProviderManager> manager, const String8& monitorTags) {
@@ -139,28 +144,53 @@ status_t Camera2Client::initializeImpl(TProviderPtr providerPtr, const String8& 
     mFrameProcessor = new FrameProcessor(mDevice, this);
     threadName = String8::format("C2-%d-FrameProc",
             mCameraId);
-    mFrameProcessor->run(threadName.string());
+    res = mFrameProcessor->run(threadName.string());
+    if (res != OK) {
+        ALOGE("%s: Unable to start frame processor thread: %s (%d)",
+                __FUNCTION__, strerror(-res), res);
+        return res;
+    }
 
     mCaptureSequencer = new CaptureSequencer(this);
     threadName = String8::format("C2-%d-CaptureSeq",
             mCameraId);
-    mCaptureSequencer->run(threadName.string());
+    res = mCaptureSequencer->run(threadName.string());
+    if (res != OK) {
+        ALOGE("%s: Unable to start capture sequencer thread: %s (%d)",
+                __FUNCTION__, strerror(-res), res);
+        return res;
+    }
 
     mJpegProcessor = new JpegProcessor(this, mCaptureSequencer);
     threadName = String8::format("C2-%d-JpegProc",
             mCameraId);
-    mJpegProcessor->run(threadName.string());
+    res = mJpegProcessor->run(threadName.string());
+    if (res != OK) {
+        ALOGE("%s: Unable to start jpeg processor thread: %s (%d)",
+                __FUNCTION__, strerror(-res), res);
+        return res;
+    }
 
     mZslProcessor = new ZslProcessor(this, mCaptureSequencer);
 
     threadName = String8::format("C2-%d-ZslProc",
             mCameraId);
-    mZslProcessor->run(threadName.string());
+    res = mZslProcessor->run(threadName.string());
+    if (res != OK) {
+        ALOGE("%s: Unable to start zsl processor thread: %s (%d)",
+                __FUNCTION__, strerror(-res), res);
+        return res;
+    }
 
     mCallbackProcessor = new CallbackProcessor(this);
     threadName = String8::format("C2-%d-CallbkProc",
             mCameraId);
-    mCallbackProcessor->run(threadName.string());
+    res = mCallbackProcessor->run(threadName.string());
+    if (res != OK) {
+        ALOGE("%s: Unable to start callback processor thread: %s (%d)",
+                __FUNCTION__, strerror(-res), res);
+        return res;
+    }
 
     if (gLogLevel >= 1) {
         SharedParameters::Lock l(mParameters);
@@ -473,12 +503,13 @@ binder::Status Camera2Client::disconnect() {
 
     ALOGV("Camera %d: Disconnecting device", mCameraId);
 
+    bool hasDeviceError = mDevice->hasDeviceError();
     mDevice->disconnect();
 
     CameraService::Client::disconnect();
 
     int32_t closeLatencyMs = ns2ms(systemTime() - startTime);
-    CameraServiceProxyWrapper::logClose(mCameraIdStr, closeLatencyMs);
+    mCameraServiceProxyWrapper->logClose(mCameraIdStr, closeLatencyMs, hasDeviceError);
 
     return res;
 }
@@ -1330,21 +1361,18 @@ bool Camera2Client::recordingEnabledL() {
             || l.mParameters.state == Parameters::VIDEO_SNAPSHOT);
 }
 
-void Camera2Client::releaseRecordingFrame(const sp<IMemory>& mem) {
-    (void)mem;
+void Camera2Client::releaseRecordingFrame([[maybe_unused]] const sp<IMemory>& mem) {
     ATRACE_CALL();
     ALOGW("%s: Not supported in buffer queue mode.", __FUNCTION__);
 }
 
-void Camera2Client::releaseRecordingFrameHandle(native_handle_t *handle) {
-    (void)handle;
+void Camera2Client::releaseRecordingFrameHandle([[maybe_unused]] native_handle_t *handle) {
     ATRACE_CALL();
     ALOGW("%s: Not supported in buffer queue mode.", __FUNCTION__);
 }
 
 void Camera2Client::releaseRecordingFrameHandleBatch(
-        const std::vector<native_handle_t*>& handles) {
-    (void)handles;
+        [[maybe_unused]] const std::vector<native_handle_t*>& handles) {
     ATRACE_CALL();
     ALOGW("%s: Not supported in buffer queue mode.", __FUNCTION__);
 }
@@ -2316,6 +2344,10 @@ int32_t Camera2Client::getGlobalAudioRestriction() {
     return INVALID_OPERATION;
 }
 
+status_t Camera2Client::setCameraServiceWatchdog(bool enabled) {
+    return mDevice->setCameraServiceWatchdog(enabled);
+}
+
 status_t Camera2Client::setRotateAndCropOverride(uint8_t rotateAndCrop) {
     if (rotateAndCrop > ANDROID_SCALER_ROTATE_AND_CROP_AUTO) return BAD_VALUE;
 
@@ -2333,12 +2365,36 @@ status_t Camera2Client::setRotateAndCropOverride(uint8_t rotateAndCrop) {
         static_cast<camera_metadata_enum_android_scaler_rotate_and_crop_t>(rotateAndCrop));
 }
 
+status_t Camera2Client::setAutoframingOverride(uint8_t autoframingValue) {
+    if (autoframingValue > ANDROID_CONTROL_AUTOFRAMING_AUTO) return BAD_VALUE;
+
+    return mDevice->setAutoframingAutoBehavior(
+        static_cast<camera_metadata_enum_android_control_autoframing_t>(autoframingValue));
+}
+
 bool Camera2Client::supportsCameraMute() {
     return mDevice->supportsCameraMute();
 }
 
 status_t Camera2Client::setCameraMute(bool enabled) {
     return mDevice->setCameraMute(enabled);
+}
+
+void Camera2Client::setStreamUseCaseOverrides(
+        const std::vector<int64_t>& useCaseOverrides) {
+    mDevice->setStreamUseCaseOverrides(useCaseOverrides);
+}
+
+void Camera2Client::clearStreamUseCaseOverrides() {
+    mDevice->clearStreamUseCaseOverrides();
+}
+
+bool Camera2Client::supportsZoomOverride() {
+    return mDevice->supportsZoomOverride();
+}
+
+status_t  Camera2Client::setZoomOverride(int zoomOverride) {
+    return mDevice->setZoomOverride(zoomOverride);
 }
 
 status_t Camera2Client::waitUntilCurrentRequestIdLocked() {

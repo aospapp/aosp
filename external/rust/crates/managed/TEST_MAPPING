@@ -3,6 +3,9 @@
   "imports": [
     {
       "path": "external/rust/crates/gdbstub_arch"
+    },
+    {
+      "path": "packages/modules/Virtualization/virtualizationmanager"
     }
   ],
   "presubmit": [

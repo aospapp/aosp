@@ -14,7 +14,7 @@
 #include "RenderChannelImpl.h"
 
 #include "RenderThread.h"
-#include "base/Lock.h"
+#include "aemu/base/synchronization/Lock.h"
 
 #include <algorithm>
 #include <utility>
@@ -25,7 +25,7 @@
 #define EMUGL_DEBUG_LEVEL 0
 #include "host-common/debug.h"
 
-namespace emugl {
+namespace gfxstream {
 
 using Buffer = RenderChannel::Buffer;
 using IoResult = android::base::BufferQueueResult;
@@ -221,4 +221,4 @@ void RenderChannelImpl::onSave(android::base::Stream* stream) {
     mRenderThread->save(stream);
 }
 
-}  // namespace emugl
+}  // namespace gfxstream

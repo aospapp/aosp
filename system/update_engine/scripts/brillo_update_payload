@@ -220,6 +220,10 @@ a subset of partitions on device."
     "Required if --enabled_lz4diff true is passed. Path to liblz4.so. delta_generator will use this copy of liblz4.so for compression. It is important that this copy of liblz4.so is the same as the one on source build."
   DEFINE_string erofs_compression_param "" \
     "Compression parameter passed to mkfs.erofs's -z option."
+  DEFINE_string security_patch_level "" \
+    "Optional: security patch level of this OTA"
+  DEFINE_string max_threads "" \
+    "Optional: specifies max_threads used to generate OTA"
 fi
 if [[ "${COMMAND}" == "hash" || "${COMMAND}" == "sign" ]]; then
   DEFINE_string unsigned_payload "" "Path to the input unsigned payload."
@@ -759,6 +763,11 @@ cmd_generate() {
       --disable_vabc="${FLAGS_disable_vabc}" )
   fi
 
+  if [[ -n "${FLAGS_max_threads}" ]]; then
+    GENERATOR_ARGS+=(
+      --max_threads="${FLAGS_max_threads}" )
+  fi
+
   # minor version is set only for delta or partial payload.
   if [[ -n "${FORCE_MINOR_VERSION}" ]]; then
     GENERATOR_ARGS+=( --minor_version="${FORCE_MINOR_VERSION}" )
@@ -774,6 +783,10 @@ cmd_generate() {
 
   if [[ -n "${FLAGS_max_timestamp}" ]]; then
     GENERATOR_ARGS+=( --max_timestamp="${FLAGS_max_timestamp}" )
+  fi
+
+  if [[ -n "${FLAGS_security_patch_level}" ]]; then
+    GENERATOR_ARGS+=( --security_patch_level="${FLAGS_security_patch_level}" )
   fi
 
   if [[ -n "${FLAGS_partition_timestamps}" ]]; then

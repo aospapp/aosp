@@ -16,6 +16,8 @@
 
 package android.platform.test.longevity;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.atLeastOnce;
@@ -29,14 +31,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.MockitoAnnotations.initMocks;
 
 import android.os.Bundle;
+import android.platform.test.rule.TestWatcher;
 
-import java.util.List;
-
-import org.junit.Assert;
 import org.junit.After;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.Description;
 import org.junit.runner.RunWith;
@@ -50,8 +53,64 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.exceptions.base.MockitoAssertionError;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /** Unit tests for the {@link LongevityClassRunner}. */
 public class LongevityClassRunnerTest {
+    // Used to test things that are generated reflectively, e.g. dynamic rules.
+    private static final List<String> sLogs = new ArrayList<>();
+
+    public static class LoggingRule extends TestWatcher {
+        private final String mName;
+
+        public LoggingRule(String name) {
+            mName = name;
+        }
+
+        @Override
+        public void starting(Description description) {
+            sLogs.add(String.format("%s starting", mName));
+        }
+
+        @Override
+        public void finished(Description description) {
+            sLogs.add(String.format("%s finished", mName));
+        }
+    }
+
+    public static class InjectedRule1 extends LoggingRule {
+        public InjectedRule1() {
+            super("Injected rule 1");
+        }
+    }
+
+    public static class InjectedRule2 extends LoggingRule {
+        public InjectedRule2() {
+            super("Injected rule 2");
+        }
+    }
+
+    // We use two @Test methods here to distinguish between testing for class
+    // rules vs. test rules. This is for testing only; we still advocate for
+    // one @Test method per class.
+    @RunWith(JUnit4.class)
+    public static class LoggingTestWithRules {
+        @ClassRule public static LoggingRule classRule = new LoggingRule("Hardcoded class rule");
+
+        @Rule public LoggingRule testRule = new LoggingRule("Hardcoded test rule");
+
+        @Test
+        public void test1() {
+            sLogs.add("Test 1 execution");
+        }
+
+        @Test
+        public void test2() {
+            sLogs.add("Test 2 execution");
+        }
+    }
+
     // A sample test class to test the runner with.
     @RunWith(JUnit4.class)
     public static class NoOpTest {
@@ -106,6 +165,7 @@ public class LongevityClassRunnerTest {
     @Before
     public void setUp() {
         initMocks(this);
+        sLogs.clear();
     }
 
     /**
@@ -422,6 +482,70 @@ public class LongevityClassRunnerTest {
         Assert.assertTrue(
                 "Description class name should contain the iteration number.",
                 captor.getValue().getClassName().matches(String.join(sep, "^.*", "7$")));
+    }
+
+    @Test
+    public void testDynamicClassRules() throws Throwable {
+        Bundle args = new Bundle();
+        args.putString(
+                LongevityClassRunner.DYNAMIC_OUTER_CLASS_RULES_OPTION,
+                InjectedRule1.class.getName());
+        args.putString(
+                LongevityClassRunner.DYNAMIC_INNER_CLASS_RULES_OPTION,
+                InjectedRule2.class.getName());
+
+        RunNotifier notifier = mock(RunNotifier.class);
+        mRunner = new LongevityClassRunner(LoggingTestWithRules.class, args);
+        mRunner.run(notifier);
+        verifyForAssertionFailures(notifier);
+        assertThat(sLogs)
+                .containsExactly(
+                        "Injected rule 1 starting",
+                        "Hardcoded class rule starting",
+                        "Injected rule 2 starting",
+                        "Hardcoded test rule starting",
+                        "Test 1 execution",
+                        "Hardcoded test rule finished",
+                        "Hardcoded test rule starting",
+                        "Test 2 execution",
+                        "Hardcoded test rule finished",
+                        "Injected rule 2 finished",
+                        "Hardcoded class rule finished",
+                        "Injected rule 1 finished");
+    }
+
+    @Test
+    public void testDynamicTestRules() throws Throwable {
+        Bundle args = new Bundle();
+        args.putString(
+                LongevityClassRunner.DYNAMIC_OUTER_TEST_RULES_OPTION,
+                InjectedRule1.class.getName());
+        args.putString(
+                LongevityClassRunner.DYNAMIC_INNER_TEST_RULES_OPTION,
+                InjectedRule2.class.getName());
+
+        RunNotifier notifier = mock(RunNotifier.class);
+        mRunner = new LongevityClassRunner(LoggingTestWithRules.class, args);
+        mRunner.run(notifier);
+        verifyForAssertionFailures(notifier);
+        assertThat(sLogs)
+                .containsExactly(
+                        "Hardcoded class rule starting",
+                        "Injected rule 1 starting",
+                        "Hardcoded test rule starting",
+                        "Injected rule 2 starting",
+                        "Test 1 execution",
+                        "Injected rule 2 finished",
+                        "Hardcoded test rule finished",
+                        "Injected rule 1 finished",
+                        "Injected rule 1 starting",
+                        "Hardcoded test rule starting",
+                        "Injected rule 2 starting",
+                        "Test 2 execution",
+                        "Injected rule 2 finished",
+                        "Hardcoded test rule finished",
+                        "Injected rule 1 finished",
+                        "Hardcoded class rule finished");
     }
 
     private List<FrameworkMethod> getMethodNameMatcher(String methodName) {

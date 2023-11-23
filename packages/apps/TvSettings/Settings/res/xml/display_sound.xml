@@ -32,6 +32,10 @@
         android:key="font_scale"
         android:title="@string/font_scale_settings_title"
         android:fragment="com.android.tv.settings.device.displaysound.FontScalePreferenceFragment" />
+    <SwitchPreference
+        android:key="match_content_dynamic_range"
+        android:persistent="true"
+        android:title="@string/match_content_dynamic_range_title" />
     <Preference
         android:fragment="com.android.tv.settings.device.displaysound.MatchContentFrameRateFragment"
         android:key="match_content_frame_rate"

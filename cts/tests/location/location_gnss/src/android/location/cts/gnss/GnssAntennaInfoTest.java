@@ -38,10 +38,11 @@ public class GnssAntennaInfoTest {
     private static final double CARRIER_FREQ_TOLERANCE_HZ = 10 * 1e6;
 
     private TestLocationManager mTestLocationManager;
+    private Context context;
 
     @Before
     public void setUp() throws Exception {
-        Context context = ApplicationProvider.getApplicationContext();
+        context = ApplicationProvider.getApplicationContext();
         mTestLocationManager = new TestLocationManager(context);
     }
 
@@ -98,11 +99,19 @@ public class GnssAntennaInfoTest {
                 LocationManager.GPS_PROVIDER, /* minTimeMs= */0, /* minDistanceM= */ 0, listener,
                 Looper.getMainLooper());
 
-        boolean success = testGnssStatusCallback.awaitStart();
+        boolean isAutomotiveDevice = TestMeasurementUtil.isAutomotiveDevice(context);
+        boolean success = true;
+        if(!isAutomotiveDevice){
+            success = testGnssStatusCallback.awaitStart();
+        }
         success = success ? testGnssStatusCallback.awaitStatus() : false;
-        success = success ? testGnssStatusCallback.awaitTtff() : false;
+        if(!isAutomotiveDevice){
+            success = success ? testGnssStatusCallback.awaitTtff() : false;
+        }
         mTestLocationManager.getLocationManager().removeUpdates(listener);
-        success = success ? testGnssStatusCallback.awaitStop() : false;
+        if(!isAutomotiveDevice){
+            success = success ? testGnssStatusCallback.awaitStop() : false;
+        }
         mTestLocationManager.unregisterGnssStatusCallback(testGnssStatusCallback);
 
         assertWithMessage(

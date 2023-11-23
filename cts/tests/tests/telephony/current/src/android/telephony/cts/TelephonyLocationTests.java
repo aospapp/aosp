@@ -7,6 +7,8 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeNoException;
+import static org.junit.Assume.assumeTrue;
 
 import android.Manifest;
 import android.app.UiAutomation;
@@ -51,17 +53,20 @@ public class TelephonyLocationTests {
 
     private static final long TEST_TIMEOUT = 5000;
 
-    private boolean mShouldTest = false;
-
     @Before
     public void setUp() {
         PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
-        mShouldTest = pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY);
+        assumeTrue(pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY));
+        try {
+            InstrumentationRegistry.getContext().getSystemService(TelephonyManager.class)
+                    .getHalVersion(TelephonyManager.HAL_SERVICE_RADIO);
+        } catch (IllegalStateException e) {
+            assumeNoException("Skipping tests because Telephony service is null", e);
+        }
     }
 
     @Test
     public void testCellLocationFinePermission() {
-        if (!mShouldTest) return;
         Runnable cellLocationAccess = () -> {
             try {
                 Bundle cellLocationBundle = (Bundle) performLocationAccessCommand(
@@ -90,8 +95,6 @@ public class TelephonyLocationTests {
 
     @Test
     public void testServiceStateLocationSanitization() {
-        if (!mShouldTest) return;
-
         withRevokedPermission(LOCATION_ACCESS_APP_CURRENT_PACKAGE, () -> {
                     ServiceState ss = (ServiceState) performLocationAccessCommand(
                             CtsLocationAccessService.COMMAND_GET_SERVICE_STATE);
@@ -116,8 +119,6 @@ public class TelephonyLocationTests {
 
     @Test
     public void testServiceStateLocationSanitizationWithRenouncedPermission() {
-        if (!mShouldTest) return;
-
         TelephonyManagerTest.grantLocationPermissions();
         HashSet<String> permissionsToRenounce =
                 new HashSet<>(Arrays.asList(android.Manifest.permission.ACCESS_FINE_LOCATION));
@@ -134,8 +135,6 @@ public class TelephonyLocationTests {
 
     @Test
     public void testServiceStateListeningWithRenouncedPermission() {
-        if (!mShouldTest) return;
-
         TelephonyManagerTest.grantLocationPermissions();
         HashSet<String> permissionsToRenounce =
                 new HashSet<>(Arrays.asList(android.Manifest.permission.ACCESS_FINE_LOCATION));
@@ -151,8 +150,6 @@ public class TelephonyLocationTests {
 
     @Test
     public void testServiceStateListeningWithoutPermissions() {
-        if (!mShouldTest) return;
-
         withRevokedPermission(LOCATION_ACCESS_APP_CURRENT_PACKAGE, () -> {
                     ServiceState ss = (ServiceState) performLocationAccessCommand(
                             CtsLocationAccessService.COMMAND_GET_SERVICE_STATE_FROM_LISTENER);
@@ -179,8 +176,6 @@ public class TelephonyLocationTests {
 
     @Test
     public void testSdk28ServiceStateListeningWithoutPermissions() {
-        if (!mShouldTest) return;
-
         withRevokedPermission(LOCATION_ACCESS_APP_SDK28_PACKAGE, () -> {
                     ServiceState ss = (ServiceState) performLocationAccessCommand(
                             CtsLocationAccessService.COMMAND_GET_SERVICE_STATE_FROM_LISTENER);
@@ -201,8 +196,6 @@ public class TelephonyLocationTests {
 
     @Test
     public void testRegistryPermissionsForCellLocation() {
-        if (!mShouldTest) return;
-
         withRevokedPermission(LOCATION_ACCESS_APP_CURRENT_PACKAGE, () -> {
                     CellLocation cellLocation = (CellLocation) performLocationAccessCommand(
                             CtsLocationAccessService.COMMAND_LISTEN_CELL_LOCATION);
@@ -220,8 +213,6 @@ public class TelephonyLocationTests {
 
     @Test
     public void testSdk28RegistryPermissionsForCellLocation() {
-        if (!mShouldTest) return;
-
         withRevokedPermission(LOCATION_ACCESS_APP_SDK28_PACKAGE, () -> {
                     CellLocation cellLocation = (CellLocation) performLocationAccessCommand(
                             CtsLocationAccessService.COMMAND_LISTEN_CELL_LOCATION);
@@ -232,8 +223,6 @@ public class TelephonyLocationTests {
 
     @Test
     public void testRegistryPermissionsForCellInfo() {
-        if (!mShouldTest) return;
-
         withRevokedPermission(LOCATION_ACCESS_APP_CURRENT_PACKAGE, () -> {
                     CellLocation cellLocation = (CellLocation) performLocationAccessCommand(
                             CtsLocationAccessService.COMMAND_LISTEN_CELL_INFO);
@@ -251,8 +240,6 @@ public class TelephonyLocationTests {
 
     @Test
     public void testSdk28RegistryPermissionsForCellInfo() {
-        if (!mShouldTest) return;
-
         withRevokedPermission(LOCATION_ACCESS_APP_SDK28_PACKAGE, () -> {
                     List<CellInfo> cis = (List<CellInfo>) performLocationAccessCommand(
                             CtsLocationAccessService.COMMAND_LISTEN_CELL_INFO);
@@ -263,8 +250,6 @@ public class TelephonyLocationTests {
 
     @Test
     public void testSdk28CellLocation() {
-        if (!mShouldTest) return;
-
         // Verify that a target-sdk 28 app can access cell location with ACCESS_COARSE_LOCATION, but
         // not with no location permissions at all.
         withRevokedPermission(LOCATION_ACCESS_APP_SDK28_PACKAGE, () -> {
@@ -291,8 +276,6 @@ public class TelephonyLocationTests {
 
     @Test
     public void testSdk28CellInfoUpdate() {
-        if (!mShouldTest) return;
-
         // Verify that a target-sdk 28 app still requires fine location access
         // to call requestCellInfoUpdate
         withRevokedPermission(LOCATION_ACCESS_APP_SDK28_PACKAGE, () -> {

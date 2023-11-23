@@ -142,7 +142,6 @@ NEAR_SINE_START_OR_END_SECS = 0.01
 
 class SineWaveNotFound(Exception):
     """Error when there's no sine wave found in the signal"""
-    pass
 
 
 def hilbert(x):
@@ -463,8 +462,8 @@ def noise_detection(start_index, end_index, block_amplitude, average_amplitude,
     for index in range(0, length):
         # Ignore noise too close to the beginning or the end of sine wave.
         # Check the docstring of NEAR_SINE_START_OR_END_SECS.
-        if ((start_index - rate * NEAR_SINE_START_OR_END_SECS) <= index and
-            (index < end_index + rate * NEAR_SINE_START_OR_END_SECS)):
+        if ((start_index - rate * NEAR_SINE_START_OR_END_SECS) <= index
+                and (index < end_index + rate * NEAR_SINE_START_OR_END_SECS)):
             continue
 
         # Ignore noise too close to the beginning or the end of original data.
@@ -478,8 +477,8 @@ def noise_detection(start_index, end_index, block_amplitude, average_amplitude,
         if block_amplitude[index] > amplitude_threshold:
             same_event = False
             if previous_noise_index:
-                same_event = (index - previous_noise_index
-                              ) < same_event_samples
+                same_event = (index -
+                              previous_noise_index) < same_event_samples
             if not same_event:
                 index_start_sec = float(index) / rate - APPEND_ZEROS_SECS
                 index_end_sec = float(index + 1) / rate - APPEND_ZEROS_SECS
@@ -560,8 +559,7 @@ def delay_detection(start_index, end_index, block_amplitude, average_amplitude,
         # If amplitude less than its left/right side and small enough,
         # it will be considered as a delay.
         amp_threshold = average_amplitude * delay_amplitude_threshold
-        left_threshold = delay_amplitude_threshold * left_block_amplitude[
-            index]
+        left_threshold = delay_amplitude_threshold * left_block_amplitude[index]
         amp_threshold = min(amp_threshold, left_threshold)
         right_threshold = delay_amplitude_threshold * right_block_amplitude[
             index]
@@ -575,8 +573,8 @@ def delay_detection(start_index, end_index, block_amplitude, average_amplitude,
         if amplitude_too_small or frequency_not_match:
             same_event = False
             if previous_delay_index:
-                same_event = (index - previous_delay_index
-                              ) < same_event_samples
+                same_event = (index -
+                              previous_delay_index) < same_event_samples
             if not same_event:
                 index_start_sec = float(index) / rate - APPEND_ZEROS_SECS
                 index_end_sec = float(index + 1) / rate - APPEND_ZEROS_SECS
@@ -646,8 +644,7 @@ def burst_detection(start_index, end_index, block_amplitude, average_amplitude,
         if abs(index - end_index) < rate * NEAR_START_OR_END_SECS:
             continue
         amp_threshold = average_amplitude * DEFAULT_BURST_TOO_SMALL
-        left_threshold = burst_amplitude_threshold * left_block_amplitude[
-            index]
+        left_threshold = burst_amplitude_threshold * left_block_amplitude[index]
         amp_threshold = max(amp_threshold, left_threshold)
         right_threshold = burst_amplitude_threshold * right_block_amplitude[
             index]
@@ -870,9 +867,10 @@ def quality_measurement(
         frequency_delta, block_size * 2, block_size)
 
     # Finds start and end index of sine wave.
-    start_index, end_index = find_start_end_index(
-        dominant_frequency, block_frequency_delta, block_size,
-        frequency_error_threshold)
+    start_index, end_index = find_start_end_index(dominant_frequency,
+                                                  block_frequency_delta,
+                                                  block_size,
+                                                  frequency_error_threshold)
 
     if start_index > end_index:
         raise SineWaveNotFound('No sine wave found in signal')

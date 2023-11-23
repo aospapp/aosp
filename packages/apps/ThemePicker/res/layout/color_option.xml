@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!--
+<?xml version="1.0" encoding="utf-8"?><!--
      Copyright (C) 2022 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,50 +13,91 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Enclosing layout must be match_parent so that we can center content within -->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:layout_gravity="center"
     android:clipChildren="false"
-    android:clipToPadding="false"
-    android:orientation="vertical">
+    android:gravity="center"
+    android:padding="@dimen/option_tile_grid_tile_padding_min">
 
-    <FrameLayout
-        android:id="@+id/option_tile"
-        android:layout_width="@dimen/option_tile_width"
-        android:layout_height="@dimen/option_tile_width"
-        android:layout_gravity="center_horizontal"
-        android:background="@drawable/option_border_color">
-        <ImageView
-            android:id="@+id/color_preview_0"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+    <!--
+        This displays the background. It is dynamically sized, constrained remain square and
+        have a maximum size, and be centered within its parent.
+     -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_gravity="center"
+        android:background="@drawable/option_border_color"
+        android:gravity="center"
+        android:padding="@dimen/option_tile_grid_icon_padding_min"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintDimensionRatio="1:1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_max="@dimen/option_tile_width">
+
+        <!-- This is the color wheel itself, constrained to a maximum size and centered -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/option_tile"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
             android:layout_gravity="center"
-            android:layout_marginRight="@dimen/color_seed_chip_margin"
-            android:layout_marginBottom="@dimen/color_seed_chip_margin"
-            android:src="@drawable/color_chip_seed_filled0"/>
-        <ImageView
-            android:id="@+id/color_preview_1"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_marginLeft="@dimen/color_seed_chip_margin"
-            android:layout_marginBottom="@dimen/color_seed_chip_margin"
-            android:src="@drawable/color_chip_seed_filled2"/>
-        <ImageView
-            android:id="@+id/color_preview_2"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_marginRight="@dimen/color_seed_chip_margin"
-            android:layout_marginTop="@dimen/color_seed_chip_margin"
-            android:src="@drawable/color_chip_seed_filled1"/>
-        <ImageView
-            android:id="@+id/color_preview_3"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_marginLeft="@dimen/color_seed_chip_margin"
-            android:layout_marginTop="@dimen/color_seed_chip_margin"
-            android:src="@drawable/color_chip_seed_filled3"/>
-    </FrameLayout>
-</FrameLayout>
+            android:gravity="center"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHeight_max="@dimen/component_color_chip_small_diameter_default"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintWidth_max="@dimen/component_color_chip_small_diameter_default">
+
+            <ImageView
+                android:id="@+id/color_preview_0"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:adjustViewBounds="true"
+                android:src="@drawable/color_chip_seed_filled0"
+                app:layout_constraintHeight_percent=".50"
+                app:layout_constraintLeft_toLeftOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintWidth_percent=".50" />
+
+            <ImageView
+                android:id="@+id/color_preview_1"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:adjustViewBounds="true"
+                android:src="@drawable/color_chip_seed_filled2"
+                app:layout_constraintHeight_percent=".50"
+                app:layout_constraintLeft_toRightOf="@id/color_preview_0"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintWidth_percent=".50" />
+
+            <ImageView
+                android:id="@+id/color_preview_2"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:adjustViewBounds="true"
+                android:src="@drawable/color_chip_seed_filled1"
+                app:layout_constraintHeight_percent=".50"
+                app:layout_constraintLeft_toLeftOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/color_preview_0"
+                app:layout_constraintWidth_percent=".50" />
+
+            <ImageView
+                android:id="@+id/color_preview_3"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:adjustViewBounds="true"
+                android:src="@drawable/color_chip_seed_filled3"
+                app:layout_constraintHeight_percent=".50"
+                app:layout_constraintLeft_toRightOf="@id/color_preview_2"
+                app:layout_constraintTop_toBottomOf="@id/color_preview_1"
+                app:layout_constraintWidth_percent=".50" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

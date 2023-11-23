@@ -35,7 +35,7 @@ class TFRecordDatasetParams : public DatasetParams {
     return {
         CreateTensor<tstring>(TensorShape({num_files}), filenames_),
         CreateTensor<tstring>(TensorShape({}), {ToString(compression_type_)}),
-        CreateTensor<int64>(TensorShape({}), {buffer_size_})};
+        CreateTensor<int64_t>(TensorShape({}), {buffer_size_})};
   }
 
   Status GetInputNames(std::vector<string>* input_names) const override {
@@ -45,12 +45,13 @@ class TFRecordDatasetParams : public DatasetParams {
         TFRecordDatasetOp::kCompressionType,
         TFRecordDatasetOp::kBufferSize,
     };
-    return Status::OK();
+    return OkStatus();
   }
 
   Status GetAttributes(AttributeVector* attr_vector) const override {
-    *attr_vector = {};
-    return Status::OK();
+    attr_vector->clear();
+    attr_vector->emplace_back("metadata", "");
+    return OkStatus();
   }
 
   string dataset_type() const override {
@@ -60,7 +61,7 @@ class TFRecordDatasetParams : public DatasetParams {
  private:
   std::vector<tstring> filenames_;
   CompressionType compression_type_;
-  int64 buffer_size_;
+  int64_t buffer_size_;
 };
 
 class TFRecordDatasetOpTest : public DatasetOpsTestBase {};
@@ -80,7 +81,7 @@ Status CreateTestFiles(const std::vector<tstring>& filenames,
                                            contents[i].end());
     TF_RETURN_IF_ERROR(WriteDataToTFRecordFile(filenames[i], records, params));
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 // Test case 1: multiple text files with ZLIB compression.

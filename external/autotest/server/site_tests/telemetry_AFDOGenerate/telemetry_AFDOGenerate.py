@@ -22,12 +22,30 @@ Example invocation:
   telemetry_AFDOGenerate
 """
 
-from __future__ import print_function
 
 import bz2
 import logging
 import os
 import time
+import sys
+
+# TODO (b/206008069), remove this when migrated to new env
+sys.path.insert(0,
+                '/usr/local/lib/python2.7/dist-packages/six-1.16.0-py2.7.egg')
+try:
+    # This is weird. But it seems something is bringing in six earlier
+    # Going to force a reload after the egg is inserted.
+    import six
+    if six.PY2:
+        reload(six)
+    else:
+        import importlib
+        importlib.reload(six)
+    logging.debug("six version is {}".format(six.__version__))
+    if six.__version__ != '1.16.0':
+        logging.debug(sys.path)
+except ImportError as e:
+    logging.warning("Could not import six due to %s", e)
 
 from contextlib import contextmanager
 
@@ -41,7 +59,8 @@ from autotest_lib.site_utils import test_runner_utils
 
 # These are arguments to the linux "perf" tool.
 # The -e value is processor specific and comes from the Intel SDM vol 3b
-PROFILER_ARGS = 'record -a -e r20c4 -c 50000 -b'
+# TODO(b:229298221): Revert to -c 50000 when fixed.
+PROFILER_ARGS = 'record -a -e r20c4 -c 200003 -b'
 
 # In practice, it takes >2min to copy the perf.data back from the DUT, set
 # this timeout to 600 secs to be safe.
@@ -85,11 +104,11 @@ TELEMETRY_AFDO_BENCHMARKS = (
         # page_cycler tests are deprecated. Replace them with loading.desktop.
         ('loading.desktop', ('--pageset-repeat=1',
                              '--story-tag-filter=typical')),
-        ('loading.desktop', ('--pageset-repeat=1',
-                             '--story-tag-filter=intl_ja_zh')),
-        ('rendering.desktop',
-         ('--story-tag-filter=tough_canvas',
-          '--story-filter="bouncing\\*\\|canvas\\*\\|microsoft\\*"')),
+        # TODO(b:229298221): Re-enabled when fixed.
+        # ('loading.desktop', ('--pageset-repeat=1',
+        #                      '--story-tag-filter=intl_ja_zh')),
+        ('rendering.desktop', ('--pageset-repeat=1',
+                               '--story-tag-filter=tough_canvas')),
         ('octane', ),
         ('kraken', ),
         ('speedometer2', ),
@@ -116,7 +135,7 @@ LLVM_BOARDS = ['chell']
 # FIXME(tcwang): only used for testing Async AFDO generation builders.
 # Remove this after testing is done.
 # Due to crbug.com/991299 and crbug.com/992539, AFDO profiles generated
-# by samus is not suitable for production in both master and branch.
+# by samus is not suitable for production in both main and branch.
 # So it's suitable to test generation profiles but not actually use it.
 LLVM_BOARDS_ASYNC = ['samus']
 
@@ -140,8 +159,11 @@ class telemetry_AFDOGenerate(test.test):
         cmd = []
         src = ('root@%s:%s/%s' % (dut.hostname, DUT_CHROME_RESULTS_DIR,
                                   'perf.data'))
-        cmd.extend(['scp', DUT_SCP_OPTIONS, RSA_KEY, '-P', str(dut.port), '-v',
-                    src, host_dir])
+        cmd.extend([
+                'scp', DUT_SCP_OPTIONS, RSA_KEY,
+                '-P %s' % str(dut.port) if dut.port else '', '-v', src,
+                host_dir
+        ])
         command = ' '.join(cmd)
 
         logging.debug('Retrieving Perf Data: %s', command)
@@ -220,20 +242,19 @@ class telemetry_AFDOGenerate(test.test):
             if self._minimal_telemetry:
                 self._run_tests_minimal_telemetry()
             else:
-                self._telemetry_runner = telemetry_runner.TelemetryRunner(
-                        self._host, self._local, telemetry_on_dut=False)
-
-                for benchmark_info in TELEMETRY_AFDO_BENCHMARKS:
-                    benchmark = benchmark_info[0]
-                    args = (
-                    ) if len(benchmark_info) == 1 else benchmark_info[1]
-                    try:
-                        self._run_test_with_retry(benchmark, *args)
-                    except error.TestBaseException:
-                        if not self._ignore_failures:
-                            raise
-                        logging.info('Ignoring failure from benchmark %s.',
-                                     benchmark)
+                with telemetry_runner.TelemetryRunnerFactory().get_runner(
+                        self._host, self._local, telemetry_on_dut=False) as tr:
+                    for benchmark_info in TELEMETRY_AFDO_BENCHMARKS:
+                        benchmark = benchmark_info[0]
+                        args = (
+                        ) if len(benchmark_info) == 1 else benchmark_info[1]
+                        try:
+                            self._run_test_with_retry(tr, benchmark, *args)
+                        except error.TestBaseException:
+                            if not self._ignore_failures:
+                                raise
+                            logging.info('Ignoring failure from benchmark %s.',
+                                         benchmark)
 
     def after_run_once(self):
         """After the profile information has been collected, compress it
@@ -285,7 +306,10 @@ class telemetry_AFDOGenerate(test.test):
         # this will be set to True by default.
         self._minimal_telemetry = False
 
-        for option_name, value in args.iteritems():
+        # Ignored servo arguments.
+        ignored_options = ('servo_host', 'servo_port')
+
+        for option_name, value in args.items():
             if option_name == 'arch':
                 self._arch = value
             elif option_name == 'gs_test_location':
@@ -298,12 +322,15 @@ class telemetry_AFDOGenerate(test.test):
                 self._minimal_telemetry = (value == 'True')
             elif option_name == 'version':
                 self._version = value
+            elif option_name in ignored_options:
+                continue
             else:
                 raise error.TestFail('Unknown option passed: %s' % option_name)
 
-    def _run_test(self, benchmark, *args):
+    def _run_test(self, tr, benchmark, *args):
         """Run the benchmark using Telemetry.
 
+        @param tr: Instance of the TelemetryRunner subclass.
         @param benchmark: Name of the benchmark to run.
         @param args: Additional arguments to pass to the telemetry execution
                      script.
@@ -313,8 +340,7 @@ class telemetry_AFDOGenerate(test.test):
         try:
             logging.info('Starting run for Telemetry benchmark %s', benchmark)
             start_time = time.time()
-            result = self._telemetry_runner.run_telemetry_benchmark(
-                    benchmark, None, *args)
+            result = tr.run_telemetry_benchmark(benchmark, None, *args)
             end_time = time.time()
             logging.info('Completed Telemetry benchmark %s in %f seconds',
                          benchmark, end_time - start_time)
@@ -336,9 +362,10 @@ class telemetry_AFDOGenerate(test.test):
             raise error.TestFail('An error occurred while executing'
                                  ' benchmark: %s' % benchmark)
 
-    def _run_test_with_retry(self, benchmark, *args):
+    def _run_test_with_retry(self, tr, benchmark, *args):
         """Run the benchmark using Telemetry. Retry in case of failure.
 
+        @param tr: An instance of the TelemetryRunner subclass.
         @param benchmark: Name of the benchmark to run.
         @param args: Additional arguments to pass to the telemetry execution
                      script.
@@ -348,7 +375,7 @@ class telemetry_AFDOGenerate(test.test):
         tried = False
         while True:
             try:
-                self._run_test(benchmark, *args)
+                self._run_test(tr, benchmark, *args)
                 logging.info('Benchmark %s succeeded on %s try', benchmark,
                              'first' if not tried else 'second')
                 break
@@ -396,9 +423,9 @@ class telemetry_AFDOGenerate(test.test):
         @returns Name of compressed file.
         """
         dest = ''
-        with open(unc_file, 'r') as inp:
+        with open(unc_file, 'rb') as inp:
             dest = telemetry_AFDOGenerate._get_compressed_name(com_file)
-            with bz2.BZ2File(dest, 'w') as out:
+            with bz2.BZ2File(dest, 'wb') as out:
                 for data in inp:
                     out.write(data)
         if not dest or not os.path.isfile(dest):

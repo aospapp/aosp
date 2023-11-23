@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2020 NXP Semiconductors
+ * Copyright 2012-2020, 2023 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,11 +24,13 @@
 #define NCI_MT_NTF 0x60
 #define NCI_MSG_CORE_RESET 0x00
 #define NCI_MSG_CORE_INIT 0x01
+#define HAL_HCI_NETWORK_RESET_EVT 0x07
 
 #define NXP_NFC_SET_CONFIG_PARAM_EXT 0xA0
 #define NXP_NFC_PARAM_ID_SWP2 0xD4
 #define NXP_NFC_PARAM_ID_SWPUICC3 0xDC
 
+void printNfcMwVersion();
 void phNxpNciHal_ext_init(void);
 NFCSTATUS phNxpNciHal_process_ext_rsp(uint8_t* p_ntf, uint16_t* p_len);
 NFCSTATUS phNxpNciHal_send_ext_cmd(uint16_t cmd_len, uint8_t* p_cmd);

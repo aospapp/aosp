@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update erofs-utils
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "erofs-utils"
 description: "EROFS Utilities"
 third_party {
@@ -5,11 +9,11 @@ third_party {
     type: GIT
     value: "https://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs-utils.git"
   }
-  version: "1.4"
+  version: "v1.5"
   license_type: RESTRICTED
   last_upgrade_date {
-    year: 2021
-    month: 11
-    day: 22
+    year: 2023
+    month: 1
+    day: 18
   }
 }

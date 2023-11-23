@@ -21,6 +21,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
+import com.android.queryable.QueryableBaseWithMatch;
 import com.android.queryable.util.SerializableParcelWrapper;
 
 import java.io.Serializable;
@@ -39,9 +40,27 @@ public final class BundleQueryHelper<E extends Queryable> implements BundleQuery
     private final transient E mQuery;
     private final Map<String, BundleKeyQueryHelper<E>> mKeyQueryHelpers;
 
-    BundleQueryHelper() {
-        mQuery = (E) this;
-        mKeyQueryHelpers = new HashMap<>();
+    public static final class BundleQueryBase extends
+            QueryableBaseWithMatch<Bundle, BundleQueryHelper<BundleQueryBase>> {
+        BundleQueryBase() {
+            super();
+            setQuery(new BundleQueryHelper<>(this));
+        }
+
+        BundleQueryBase(Parcel in) {
+            super(in);
+        }
+
+        public static final Parcelable.Creator<BundleQueryHelper.BundleQueryBase> CREATOR =
+                new Parcelable.Creator<>() {
+                    public BundleQueryHelper.BundleQueryBase createFromParcel(Parcel in) {
+                        return new BundleQueryHelper.BundleQueryBase(in);
+                    }
+
+                    public BundleQueryHelper.BundleQueryBase[] newArray(int size) {
+                        return new BundleQueryHelper.BundleQueryBase[size];
+                    }
+                };
     }
 
     public BundleQueryHelper(E query) {
@@ -60,6 +79,16 @@ public final class BundleQueryHelper<E extends Queryable> implements BundleQuery
             mKeyQueryHelpers.put(key, new BundleKeyQueryHelper<>(mQuery));
         }
         return mKeyQueryHelpers.get(key);
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        for (Map.Entry<String, BundleKeyQueryHelper<E>> keyQueries : mKeyQueryHelpers.entrySet()) {
+            if (!Queryable.isEmptyQuery(keyQueries.getValue())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override

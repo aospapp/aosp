@@ -21,11 +21,10 @@
  *  NFA interface for tag Reader/Writer
  *
  ******************************************************************************/
-#include <string.h>
-
 #include <android-base/stringprintf.h>
 #include <base/logging.h>
 #include <log/log.h>
+#include <string.h>
 
 #include "nfa_api.h"
 #include "nfa_rw_int.h"
@@ -766,8 +765,9 @@ tNFA_STATUS NFA_RwT3tRead(uint8_t num_blocks, tNFA_T3T_BLOCK_DESC* t3t_blocks) {
   if ((num_blocks == 0) || (t3t_blocks == nullptr))
     return (NFA_STATUS_INVALID_PARAM);
 
-  p_msg = (tNFA_RW_OPERATION*)GKI_getbuf((uint16_t)(
-      sizeof(tNFA_RW_OPERATION) + (num_blocks * sizeof(tNFA_T3T_BLOCK_DESC))));
+  p_msg = (tNFA_RW_OPERATION*)GKI_getbuf(
+      (uint16_t)(sizeof(tNFA_RW_OPERATION) +
+                 (num_blocks * sizeof(tNFA_T3T_BLOCK_DESC))));
   if (p_msg != nullptr) {
     /* point to area after tNFA_RW_OPERATION */
     p_block_desc = (uint8_t*)(p_msg + 1);
@@ -930,8 +930,8 @@ tNFA_STATUS NFA_RwI93StayQuiet(uint8_t* p_uid) {
     /* Fill in tNFA_RW_OPERATION struct */
     p_msg->hdr.event = NFA_RW_OP_REQUEST_EVT;
     p_msg->op = NFA_RW_OP_I93_STAY_QUIET;
-    p_msg->params.i93_cmd.p_data = (uint8_t*)(p_msg + 1);
-    memcpy(p_msg->params.i93_cmd.p_data, p_uid, I93_UID_BYTE_LEN);
+    p_msg->params.i93_cmd.uid_present = true;
+    memcpy(p_msg->params.i93_cmd.uid, p_uid, I93_UID_BYTE_LEN);
 
     nfa_sys_sendmsg(p_msg);
 

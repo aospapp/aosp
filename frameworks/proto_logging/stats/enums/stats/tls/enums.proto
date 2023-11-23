@@ -25,6 +25,9 @@ enum Protocol {
     TLS_V1_1 = 3;
     TLS_V1_2 = 4;
     TLS_V1_3 = 5;
+
+    // Handshake failure.
+    TLS_PROTO_FAILED = 0xFFFF;
 }
 
 // Cipher suites' ids are based on IANA's database:
@@ -66,5 +69,26 @@ enum CipherSuite {
     TLS_AES_128_GCM_SHA256 = 0x1301;
     TLS_AES_256_GCM_SHA384 = 0x1302;
     TLS_CHACHA20_POLY1305_SHA256 = 0x1303;
+
+    // Handshake failure.
+    TLS_CIPHER_FAILED = 0XFFFF;
 }
 
+// Log source: Which flavour of Conscrypt is being used
+//
+// Keep in sync with
+// external/conscrypt/{android,platform}/src/main/java/org/conscrypt/Platform.java
+enum Source {
+    // Unknown - could be either GMS or Mainline.
+    SOURCE_UNKNOWN = 0;
+
+    // Conscrypt Mainline module.
+    SOURCE_MAINLINE = 1;
+
+    // GMS Conscrypt, as installed by the Play ProviderInstaller API.
+    SOURCE_GMS = 2;
+
+    // Conscrypt unbundled from the platform and included
+    // by app developer from Maven Central.
+    SOURCE_UNBUNDLED = 3;
+}

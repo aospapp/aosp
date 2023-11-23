@@ -77,4 +77,66 @@ public class TestRunnerTestNgTest extends AbstractTestRunnerTest {
                 .completedNormally();
     }
 
+    @TestRunnerProperties(testClass = TestNgAnnotationsMethod.class)
+    @Test
+    public void testRunner_TestNgAnnotationsMethod_OneMethod() throws Exception {
+        String[] args = {"test1"};
+        TestRunner runner = testRunnerRule.createTestRunner(args);
+        runner.run();
+
+        expectedResults()
+                .text("@BeforeMethod\n")
+                .success("test1")
+                .text("@AfterMethod\n")
+                .completedNormally();
+    }
+
+    @TestRunnerProperties(testClass = TestNgAnnotationsMethod.class)
+    @Test
+    public void testRunner_TestNgAnnotationsMethod_AllMethods() throws Exception {
+        TestRunner runner = testRunnerRule.createTestRunner();
+        runner.run();
+
+        expectedResults()
+                .text("@BeforeMethod\n")
+                .success("test1")
+                .text("@AfterMethod\n")
+                .text("@BeforeMethod\n")
+                .success("test2")
+                .text("@AfterMethod\n")
+                .text("@BeforeMethod\n")
+                .success("test3")
+                .text("@AfterMethod\n")
+                .completedNormally();
+    }
+
+    @TestRunnerProperties(testClass = TestNgAnnotationsClass.class)
+    @Test
+    public void testRunner_TestNgAnnotationsClass_OneMethod() throws Exception {
+        String[] args = {"test1"};
+        TestRunner runner = testRunnerRule.createTestRunner(args);
+        runner.run();
+
+        expectedResults()
+                .text("@BeforeClass\n")
+                .success("test1")
+                .text("@AfterClass\n")
+                .completedNormally();
+    }
+
+    @TestRunnerProperties(testClass = TestNgAnnotationsClass.class)
+    @Test
+    public void testRunner_TestNgAnnotationsClass_AllMethods() throws Exception {
+        TestRunner runner = testRunnerRule.createTestRunner();
+        runner.run();
+
+        expectedResults()
+                .text("@BeforeClass\n")
+                .success("test1")
+                .success("test2")
+                .success("test3")
+                .text("@AfterClass\n")
+                .completedNormally();
+    }
+
 }

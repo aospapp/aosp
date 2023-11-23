@@ -28,6 +28,7 @@ import android.util.SparseArray;
 
 import com.android.modules.utils.build.SdkLevel;
 import com.android.server.wifi.WifiNetworkSuggestionsManager.ExtendedWifiNetworkSuggestion;
+import com.android.server.wifi.entitlement.PseudonymInfo;
 import com.android.server.wifi.hotspot2.PasspointNetworkNominateHelper;
 
 import java.util.ArrayList;
@@ -59,17 +60,19 @@ public class NetworkSuggestionNominator implements WifiNetworkSelector.NetworkNo
     private final PasspointNetworkNominateHelper mPasspointNetworkNominateHelper;
     private final LocalLog mLocalLog;
     private final WifiCarrierInfoManager mWifiCarrierInfoManager;
+    private final WifiPseudonymManager mWifiPseudonymManager;
     private final WifiMetrics mWifiMetrics;
 
     NetworkSuggestionNominator(WifiNetworkSuggestionsManager networkSuggestionsManager,
             WifiConfigManager wifiConfigManager, PasspointNetworkNominateHelper nominateHelper,
             LocalLog localLog, WifiCarrierInfoManager wifiCarrierInfoManager,
-            WifiMetrics wifiMetrics) {
+            WifiPseudonymManager wifiPseudonymManager, WifiMetrics wifiMetrics) {
         mWifiNetworkSuggestionsManager = networkSuggestionsManager;
         mWifiConfigManager = wifiConfigManager;
         mPasspointNetworkNominateHelper = nominateHelper;
         mLocalLog = localLog;
         mWifiCarrierInfoManager = wifiCarrierInfoManager;
+        mWifiPseudonymManager = wifiPseudonymManager;
         mWifiMetrics = wifiMetrics;
     }
 
@@ -214,7 +217,10 @@ public class NetworkSuggestionNominator implements WifiNetworkSelector.NetworkNo
             if (!isNetworkAvailableToAutoConnect(config, untrustedNetworkAllowed,
                     oemPaidNetworkAllowed, oemPrivateNetworkAllowed,
                     restrictedNetworkAllowedUids)) {
+                mWifiPseudonymManager.retrievePseudonymOnFailureTimeoutExpired(config);
                 continue;
+            } else {
+                mWifiPseudonymManager.updateWifiConfiguration(config);
             }
 
             matchMetaInfo.put(matchingPasspointExtSuggestion.get(), config, candidate.first);
@@ -259,12 +265,17 @@ public class NetworkSuggestionNominator implements WifiNetworkSelector.NetworkNo
                 if (!isNetworkAvailableToAutoConnect(wCmConfiguredNetwork, untrustedNetworkAllowed,
                         oemPaidNetworkAllowed, oemPrivateNetworkAllowed,
                         restrictedNetworkAllowedUids)) {
+                    mWifiPseudonymManager.retrievePseudonymOnFailureTimeoutExpired(
+                            wCmConfiguredNetwork);
                     continue;
+                } else {
+                    mWifiPseudonymManager.updateWifiConfiguration(wCmConfiguredNetwork);
                 }
                 matchMetaInfo.put(ewns, wCmConfiguredNetwork, scanDetail);
             }
         }
     }
+
 
     private boolean isNetworkAvailableToAutoConnect(WifiConfiguration config,
             boolean untrustedNetworkAllowed, boolean oemPaidNetworkAllowed,
@@ -330,11 +341,23 @@ public class NetworkSuggestionNominator implements WifiNetworkSelector.NetworkNo
             return true;
         }
         int subId = config.subscriptionId;
+        int carrierId = config.carrierId;
         if (mWifiCarrierInfoManager.requiresImsiEncryption(subId)
                 && !mWifiCarrierInfoManager.isImsiEncryptionInfoAvailable(subId)) {
             mLocalLog.log("Ignoring SIM based network IMSI encryption info not Available, subId: "
                     + subId);
             return false;
+        }
+        if (mWifiCarrierInfoManager.isOobPseudonymFeatureEnabled(carrierId)) {
+            Optional<PseudonymInfo> pseudonymInfo =
+                    mWifiPseudonymManager.getValidPseudonymInfo(carrierId);
+            if (pseudonymInfo.isEmpty()) {
+                // matching on network is seen.
+                mLocalLog.log(
+                        "Ignoring SIM based network because there isn't any valid pseudonym, "
+                                + "subId: " + subId + " carrierId: " + carrierId);
+                return false;
+            }
         }
         return true;
     }

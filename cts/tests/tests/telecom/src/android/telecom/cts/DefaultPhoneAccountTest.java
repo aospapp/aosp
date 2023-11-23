@@ -31,6 +31,14 @@ public class DefaultPhoneAccountTest extends BaseTelecomTestWithMockServices {
     protected void setUp() throws Exception {
         super.setUp();
         mContext = getInstrumentation().getContext();
+        if (!TestUtils.hasTelephonyFeature(mContext)) {
+            mShouldTestTelecom = false;
+        }
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
     }
 
     /**

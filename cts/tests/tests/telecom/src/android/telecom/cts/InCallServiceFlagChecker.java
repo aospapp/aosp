@@ -43,9 +43,11 @@ public class InCallServiceFlagChecker extends BaseTelecomTestWithMockServices {
 
     @Override
     protected void tearDown() throws Exception {
+        if (mShouldTestTelecom) {
+            TestUtils.clearSystemDialerOverride(getInstrumentation());
+            TestUtils.removeTestEmergencyNumber(getInstrumentation(), TEST_EMERGENCY_NUMBER);
+        }
         super.tearDown();
-        TestUtils.clearSystemDialerOverride(getInstrumentation());
-        TestUtils.removeTestEmergencyNumber(getInstrumentation(), TEST_EMERGENCY_NUMBER);
     }
 
     /**

@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -91,7 +92,8 @@ const std::vector<uint8_t>* ZipArchiveStreamEntryUncompressed::Read() {
   size_t bytes = (length_ > data_.size()) ? data_.size() : length_;
   ZipArchive* archive = reinterpret_cast<ZipArchive*>(handle_);
   errno = 0;
-  if (!archive->mapped_zip.ReadAtOffset(data_.data(), bytes, offset_)) {
+  auto res = archive->mapped_zip.ReadAtOffset(data_.data(), bytes, offset_);
+  if (!res) {
     if (errno != 0) {
       ALOGE("Error reading from archive fd: %s", strerror(errno));
     } else {
@@ -101,7 +103,9 @@ const std::vector<uint8_t>* ZipArchiveStreamEntryUncompressed::Read() {
     return nullptr;
   }
 
-  if (bytes < data_.size()) {
+  if (res != data_.data()) {
+    data_.assign(res, res + bytes);
+  } else if (bytes < data_.size()) {
     data_.resize(bytes);
   }
   computed_crc32_ = static_cast<uint32_t>(
@@ -209,7 +213,6 @@ const std::vector<uint8_t>* ZipArchiveStreamEntryCompressed::Read() {
   if (z_stream_.avail_out == 0) {
     z_stream_.next_out = out_.data();
     z_stream_.avail_out = static_cast<uint32_t>(out_.size());
-    ;
   }
 
   while (true) {
@@ -218,11 +221,11 @@ const std::vector<uint8_t>* ZipArchiveStreamEntryCompressed::Read() {
         return nullptr;
       }
       DCHECK_LE(in_.size(), std::numeric_limits<uint32_t>::max());  // Should be buf size = 64k.
-      uint32_t bytes = (compressed_length_ > in_.size()) ? static_cast<uint32_t>(in_.size())
-                                                         : compressed_length_;
-      ZipArchive* archive = reinterpret_cast<ZipArchive*>(handle_);
+      auto bytes = std::min(uint32_t(in_.size()), compressed_length_);
+      auto archive = reinterpret_cast<ZipArchive*>(handle_);
       errno = 0;
-      if (!archive->mapped_zip.ReadAtOffset(in_.data(), bytes, offset_)) {
+      auto res = archive->mapped_zip.ReadAtOffset(in_.data(), bytes, offset_);
+      if (!res) {
         if (errno != 0) {
           ALOGE("Error reading from archive fd: %s", strerror(errno));
         } else {
@@ -233,7 +236,7 @@ const std::vector<uint8_t>* ZipArchiveStreamEntryCompressed::Read() {
 
       compressed_length_ -= bytes;
       offset_ += bytes;
-      z_stream_.next_in = in_.data();
+      z_stream_.next_in = res;
       z_stream_.avail_in = bytes;
     }
 

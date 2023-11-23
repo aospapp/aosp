@@ -89,24 +89,21 @@ class bluetooth_AdapterLEAdvertising(
         @param min_adv_interval_ms: min_adv_interval in milliseconds.
         @param max_adv_interval_ms: max_adv_interval in milliseconds.
         @param instance_ids: the list of instance IDs to register.
-
         """
         if instance_ids is None:
             instance_ids = self.get_instance_ids(advertisements)
 
         for instance_id, advertisement in zip(instance_ids, advertisements):
-            self.test_register_advertisement(advertisement,
-                                             instance_id,
-                                             min_adv_interval_ms,
-                                             max_adv_interval_ms)
+            advertisement['MinInterval'] = min_adv_interval_ms
+            advertisement['MaxInterval'] = max_adv_interval_ms
+
+            self.test_register_advertisement(advertisement, instance_id)
 
 
     def unregister_advertisements(self, advertisements, instance_ids=None):
         """Register multiple advertisements.
 
         @param advertisements: a list of advertisement instances.
-        @param min_adv_interval_ms: min_adv_interval in milliseconds.
-        @param max_adv_interval_ms: max_adv_interval in milliseconds.
         @param instance_ids: the list of instance IDs to unregister.
 
         """
@@ -248,6 +245,51 @@ class bluetooth_AdapterLEAdvertising(
         return discovered_service_data
 
 
+    def validate_scan_rsp_reception(self, peer, advertisement, discover_time):
+        """Validate our advertisement's scan response is located by the peer
+
+        If our advertisements are configured with scan response data, we wish
+        to confirm that a scanning peer will be able to discover this content.
+
+        @param peer: Handle to peer device for advertisement collection
+        @param advertisement: Advertisement data that has been enabled on DUT
+            side
+        @param discover_time: Number of seconds we should spend discovering
+            before considering the device undiscoverable
+
+        @returns: True if scan response is discovered and is correct, else False
+        """
+
+        scan_rsp_data = advertisement.get('ScanResponseData', {})
+
+        # For now, scan response can only contain service data (ad type 0x16):
+        # It appears in a scan response event with the following format:
+        # 'Service Data (UUID 0xfef3): 010203...'
+        if '0x16' in scan_rsp_data:
+            service_uuid_data = scan_rsp_data['0x16']
+
+            # First two bytes of data make up 16 bit service UUID
+            uuid = service_uuid_data[1] * 256 + service_uuid_data[0]
+            # Subsequent bytes make up the service data
+            service_data = ''.join(
+                    ['{:02x}'.format(data) for data in service_uuid_data[2:]])
+
+            search_str = 'Service Data (UUID 0x{:4x}): {}'.format(
+                    uuid, service_data)
+            logging.debug('Searching btmon for content: {}'.format(search_str))
+
+            # Locate a scan response with the above entry. Pass if it is found
+            start_time = time.time()
+            found_adv = peer.FindAdvertisementWithAttributes(
+                    [search_str, 'SCAN_RSP'], discover_time)
+
+            logging.info('Scan response discovered after %fs',
+                         time.time() - start_time)
+
+            return bool(found_adv)
+
+        return True
+
     def _test_peer_received_correct_adv(self, peer, advertisement,
                                         discover_time):
         """Test that configured advertisements are found by peer
@@ -266,6 +308,8 @@ class bluetooth_AdapterLEAdvertising(
         @returns: True if advertisement is discovered and is correct, else False
         """
 
+        self.results = {}
+
         # We locate the advertisement by searching for the ServiceData
         # attribute we configured.
         data_to_match = list(advertisement['ServiceData'].keys())[0]
@@ -276,6 +320,9 @@ class bluetooth_AdapterLEAdvertising(
         logging.info('Advertisement discovered after %fs',
                      time.time() - start_time)
 
+        if not found_adv:
+            self.results['advertisement_found'] = False
+
         # Check that our service UUIDs match what we expect
         found_service_uuids = self._get_uuids_from_advertisement(
                 found_adv, 'Service')
@@ -284,6 +331,7 @@ class bluetooth_AdapterLEAdvertising(
             if int(UUID, 16) not in found_service_uuids:
                 logging.info('Service id %d not found in %s', int(UUID, 16),
                              str(found_service_uuids))
+                self.results['service_ids_found'] = False
                 return False
 
         # Check that our solicit UUIDs match what we expect
@@ -294,6 +342,7 @@ class bluetooth_AdapterLEAdvertising(
             if int(UUID, 16) not in found_solicit_uuids:
                 logging.info('Solicid ID %d not found in %s', int(UUID, 16),
                              str(found_solicit_uuids))
+                self.results['solicit_ids_found'] = False
                 return False
 
         # Check that our Manufacturer info is correct
@@ -304,6 +353,7 @@ class bluetooth_AdapterLEAdvertising(
             if int(UUID, 16) not in company_info:
                 logging.info('Company ID %d not found in advertisement',
                         int(UUID, 16))
+                self.results['manufacturer_uuid_found'] = False
                 return False
 
             expected_data = expected_company_info.get(UUID, None)
@@ -312,6 +362,7 @@ class bluetooth_AdapterLEAdvertising(
             if formatted_data != company_info.get(int(UUID, 16)):
                 logging.info('Manufacturer data %s didn\'t match expected %s',
                         company_info.get(int(UUID, 16)), formatted_data)
+                self.results['manufacturer_data_found'] = False
                 return False
 
         # Check that our service data is correct
@@ -322,6 +373,7 @@ class bluetooth_AdapterLEAdvertising(
             if int(UUID, 16) not in service_data:
                 logging.info('Service UUID %d not found in advertisement',
                              int(UUID, 16))
+                self.results['service_data_uuid_found'] = False
                 return False
 
             expected_data = expected_service_data.get(UUID, None)
@@ -330,7 +382,14 @@ class bluetooth_AdapterLEAdvertising(
             if formatted_data != service_data.get(int(UUID, 16)):
                 logging.info('Service data %s didn\'t match expected %s',
                              service_data.get(int(UUID, 16)), formatted_data)
+                self.results['service_data_found'] = False
                 return False
+
+        # Validate scan response from peer's perspective
+        if not self.validate_scan_rsp_reception(peer, advertisement,
+                                                discover_time):
+            self.results['scan_rsp_found'] = False
+            return False
 
         return True
 
@@ -434,11 +493,14 @@ class bluetooth_AdapterLEAdvertising(
         # advertisements are discoverable. Give a few extra seconds in suspend
         # to be safe
         suspend_time = discover_time * num_adv + 10
+        logging.debug(
+                'suspend_time(%d) = discover_time(%d) * num_adv(%d) + 10',
+                suspend_time, discover_time, num_adv)
 
         # Trigger suspend, asynchronously trigger wake and wait for resume
         boot_id = self.host.get_boot_id()
         suspend = self.suspend_async(suspend_time=suspend_time)
-        start_time = self.bluetooth_facade.get_device_time()
+        start_time = self.bluetooth_facade.get_device_utc_time()
         self.test_suspend_and_wait_for_sleep(suspend, sleep_timeout=5)
 
         # Verify they can not be discovered
@@ -447,9 +509,11 @@ class bluetooth_AdapterLEAdvertising(
                     peer, advertisements_data.ADVERTISEMENTS[i], discover_time)
 
         # Wait for device to come out of suspend
+        logging.debug('test_wait_for_resume(resume_timeout=%d, start_time=%s)',
+                      suspend_time, start_time)
         self.test_wait_for_resume(boot_id,
                                   suspend,
-                                  resume_timeout=suspend_time + 5,
+                                  resume_timeout=suspend_time,
                                   test_start_time=start_time)
 
         # Verify reception of advertisements again
@@ -466,9 +530,6 @@ class bluetooth_AdapterLEAdvertising(
         advertisements = self.three_advertisements
 
         self.test_reset_advertising()
-
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
 
         self.register_advertisements(advertisements, new_min_adv_interval_ms,
                                      new_max_adv_interval_ms)
@@ -491,9 +552,6 @@ class bluetooth_AdapterLEAdvertising(
         one_more_advertisement = [self.sixth_advertisement]
 
         self.test_reset_advertising()
-
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
 
         self.register_advertisements(advertisements, new_min_adv_interval_ms,
                                      new_max_adv_interval_ms)
@@ -542,9 +600,6 @@ class bluetooth_AdapterLEAdvertising(
 
         self.test_reset_advertising()
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
-
         self.register_advertisements(advertisements, new_min_adv_interval_ms,
                                      new_max_adv_interval_ms)
 
@@ -564,9 +619,6 @@ class bluetooth_AdapterLEAdvertising(
         advertisements = copy.copy(self.three_advertisements)
 
         self.test_reset_advertising()
-
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
 
         self.register_advertisements(advertisements, new_min_adv_interval_ms,
                                      new_max_adv_interval_ms)
@@ -603,9 +655,6 @@ class bluetooth_AdapterLEAdvertising(
         number_advs2 = len(advertisements2)
 
         self.test_reset_advertising()
-
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
 
         self.register_advertisements(advertisements1, new_min_adv_interval_ms,
                                      new_max_adv_interval_ms)
@@ -655,9 +704,6 @@ class bluetooth_AdapterLEAdvertising(
 
         self.test_reset_advertising()
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
-
         self.register_advertisements(advertisements, new_min_adv_interval_ms,
                                      new_max_adv_interval_ms)
 
@@ -690,9 +736,6 @@ class bluetooth_AdapterLEAdvertising(
 
         self.test_reset_advertising()
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
-
         self.register_advertisements(advertisements, new_min_adv_interval_ms,
                                      new_max_adv_interval_ms)
 
@@ -721,9 +764,6 @@ class bluetooth_AdapterLEAdvertising(
 
         self.test_reset_advertising()
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
-
         self.register_advertisements(advertisements, new_min_adv_interval_ms,
                                      new_max_adv_interval_ms)
 
@@ -744,8 +784,8 @@ class bluetooth_AdapterLEAdvertising(
     @test_case_log
     def test_case_RA3_CD_SI200_CD_UA3(self):
         """Test Case: RA(3) - CD - SI(200) - CD - UA(3)"""
-        orig_min_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
-        orig_max_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
         new_min_adv_interval_ms = 200
         new_max_adv_interval_ms = 200
         advertisements = self.three_advertisements
@@ -760,8 +800,9 @@ class bluetooth_AdapterLEAdvertising(
                                                orig_max_adv_interval_ms,
                                                number_advs)
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
+        self.unregister_advertisements(advertisements)
+        self.register_advertisements(advertisements, new_min_adv_interval_ms,
+                                     new_max_adv_interval_ms)
 
         self.test_check_duration_and_intervals(new_min_adv_interval_ms,
                                                new_max_adv_interval_ms,
@@ -773,8 +814,8 @@ class bluetooth_AdapterLEAdvertising(
     @test_case_log
     def test_case_RA3_CD_SI200_CD_RS(self):
         """Test Case: RA(3) - CD - SI(200) - CD - RS"""
-        orig_min_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
-        orig_max_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
         new_min_adv_interval_ms = 200
         new_max_adv_interval_ms = 200
         advertisements = self.three_advertisements
@@ -789,8 +830,9 @@ class bluetooth_AdapterLEAdvertising(
                                                orig_max_adv_interval_ms,
                                                number_advs)
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
+        self.unregister_advertisements(advertisements)
+        self.register_advertisements(advertisements, new_min_adv_interval_ms,
+                                     new_max_adv_interval_ms)
 
         self.test_check_duration_and_intervals(new_min_adv_interval_ms,
                                                new_max_adv_interval_ms,
@@ -803,8 +845,8 @@ class bluetooth_AdapterLEAdvertising(
     @test_case_log
     def test_case_RA3_CD_SI200_CD_UA1_CD_RS(self):
         """Test Case: RA(3) - CD - SI(200) - CD - UA(1) - CD - RS"""
-        orig_min_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
-        orig_max_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
         new_min_adv_interval_ms = 200
         new_max_adv_interval_ms = 200
         advertisements = self.three_advertisements
@@ -819,8 +861,9 @@ class bluetooth_AdapterLEAdvertising(
                                                orig_max_adv_interval_ms,
                                                number_advs)
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
+        self.unregister_advertisements(advertisements)
+        self.register_advertisements(advertisements, new_min_adv_interval_ms,
+                                     new_max_adv_interval_ms)
 
         self.test_check_duration_and_intervals(new_min_adv_interval_ms,
                                                new_max_adv_interval_ms,
@@ -844,8 +887,8 @@ class bluetooth_AdapterLEAdvertising(
     @test_case_log
     def test_case_RA3_CD_SI200_CD_SI2000_CD_UA3(self):
         """Test Case: RA(3) - CD - SI(200) - CD - SI(2000) - CD - UA(3)"""
-        orig_min_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
-        orig_max_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
         new_small_min_adv_interval_ms = 200
         new_small_max_adv_interval_ms = 200
         new_large_min_adv_interval_ms = 2000
@@ -862,15 +905,19 @@ class bluetooth_AdapterLEAdvertising(
                                                orig_max_adv_interval_ms,
                                                number_advs)
 
-        self.test_set_advertising_intervals(new_small_min_adv_interval_ms,
-                                            new_small_max_adv_interval_ms)
+        self.unregister_advertisements(advertisements)
+        self.register_advertisements(advertisements,
+                                     new_small_min_adv_interval_ms,
+                                     new_small_max_adv_interval_ms)
 
         self.test_check_duration_and_intervals(new_small_min_adv_interval_ms,
                                                new_small_max_adv_interval_ms,
                                                number_advs)
 
-        self.test_set_advertising_intervals(new_large_min_adv_interval_ms,
-                                            new_large_max_adv_interval_ms)
+        self.unregister_advertisements(advertisements)
+        self.register_advertisements(advertisements,
+                                     new_large_min_adv_interval_ms,
+                                     new_large_max_adv_interval_ms)
 
         self.test_check_duration_and_intervals(new_large_min_adv_interval_ms,
                                                new_large_max_adv_interval_ms,
@@ -882,8 +929,8 @@ class bluetooth_AdapterLEAdvertising(
     @test_case_log
     def test_case_RA5_CD_SI200_CD_FRA1_CD_UA5(self):
         """Test Case: RA(5) - CD - SI(200) - CD - FRA(1) - CD - UA(5)"""
-        orig_min_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
-        orig_max_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
         new_min_adv_interval_ms = 200
         new_max_adv_interval_ms = 200
         advertisements = self.five_advertisements
@@ -899,8 +946,9 @@ class bluetooth_AdapterLEAdvertising(
                                                orig_max_adv_interval_ms,
                                                number_advs)
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
+        self.unregister_advertisements(advertisements)
+        self.register_advertisements(advertisements, new_min_adv_interval_ms,
+                                     new_max_adv_interval_ms)
 
         self.test_check_duration_and_intervals(new_min_adv_interval_ms,
                                                new_max_adv_interval_ms,
@@ -927,8 +975,8 @@ class bluetooth_AdapterLEAdvertising(
         """Test Case: RA(3) - CD - SI(200) - CD - FSI(10) - CD - FSI(20000) - CD
         - UA(3)
         """
-        orig_min_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
-        orig_max_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
         new_min_adv_interval_ms = 200
         new_max_adv_interval_ms = 200
         invalid_small_min_adv_interval_ms = 10
@@ -947,8 +995,9 @@ class bluetooth_AdapterLEAdvertising(
                                                orig_max_adv_interval_ms,
                                                number_advs)
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
+        self.unregister_advertisements(advertisements)
+        self.register_advertisements(advertisements, new_min_adv_interval_ms,
+                                     new_max_adv_interval_ms)
 
         self.test_check_duration_and_intervals(new_min_adv_interval_ms,
                                                new_max_adv_interval_ms,
@@ -983,8 +1032,8 @@ class bluetooth_AdapterLEAdvertising(
     @test_case_log
     def test_case_RA3_CD_SI200_CD_PC_CD_UA3(self):
         """Test Case: RA(3) - CD - SI(200) - CD - PC - CD - UA(3)"""
-        orig_min_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
-        orig_max_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
         new_min_adv_interval_ms = 200
         new_max_adv_interval_ms = 200
         advertisements = self.three_advertisements
@@ -999,8 +1048,9 @@ class bluetooth_AdapterLEAdvertising(
                                                orig_max_adv_interval_ms,
                                                number_advs)
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
+        self.unregister_advertisements(advertisements)
+        self.register_advertisements(advertisements, new_min_adv_interval_ms,
+                                     new_max_adv_interval_ms)
 
         self.test_check_duration_and_intervals(new_min_adv_interval_ms,
                                                new_max_adv_interval_ms,
@@ -1023,8 +1073,8 @@ class bluetooth_AdapterLEAdvertising(
     @test_case_log
     def test_case_RA3_CD_SI200_CD_SR_CD_UA3(self):
         """Test Case: RA(3) - CD - SI(200) - CD - SR - CD - UA(3)"""
-        orig_min_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
-        orig_max_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
         new_min_adv_interval_ms = 200
         new_max_adv_interval_ms = 200
         advertisements = self.three_advertisements
@@ -1039,8 +1089,9 @@ class bluetooth_AdapterLEAdvertising(
                                                orig_max_adv_interval_ms,
                                                number_advs)
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
+        self.unregister_advertisements(advertisements)
+        self.register_advertisements(advertisements, new_min_adv_interval_ms,
+                                     new_max_adv_interval_ms)
 
         self.test_check_duration_and_intervals(new_min_adv_interval_ms,
                                                new_max_adv_interval_ms,
@@ -1067,9 +1118,6 @@ class bluetooth_AdapterLEAdvertising(
 
         self.test_reset_advertising()
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
-
         self.register_advertisements(advertisements, new_min_adv_interval_ms,
                                      new_max_adv_interval_ms)
 
@@ -1088,8 +1136,6 @@ class bluetooth_AdapterLEAdvertising(
         advertisements = [self.first_advertisement]
 
         self.test_reset_advertising()
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
 
         self.register_advertisements(advertisements, new_min_adv_interval_ms,
                                      new_max_adv_interval_ms)
@@ -1110,9 +1156,6 @@ class bluetooth_AdapterLEAdvertising(
 
         self.test_reset_advertising()
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
-
         self.register_advertisements(advertisements, new_min_adv_interval_ms,
                                      new_max_adv_interval_ms)
 
@@ -1120,11 +1163,7 @@ class bluetooth_AdapterLEAdvertising(
                                                new_max_adv_interval_ms,
                                                len(advertisements))
 
-        # On some devices suspend/resume unregisters the advertisement
-        # causing the test to fail. Disabling suspend/resume till
-        # the issue is resolved.
-        # TODO(crbug/949802)
-        # self.suspend_resume()
+        self.suspend_resume()
 
         self.test_check_duration_and_intervals(new_min_adv_interval_ms,
                                                new_max_adv_interval_ms,
@@ -1136,8 +1175,8 @@ class bluetooth_AdapterLEAdvertising(
     @test_case_log
     def test_case_RA1_CD_SI200_CD_UA1(self):
         """Test Case: RA(1) - CD - SI(200) - CD - UA(1)"""
-        orig_min_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
-        orig_max_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
         new_min_adv_interval_ms = 200
         new_max_adv_interval_ms = 200
         advertisements = [self.first_advertisement]
@@ -1151,9 +1190,9 @@ class bluetooth_AdapterLEAdvertising(
                                                orig_max_adv_interval_ms,
                                                len(advertisements))
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
-
+        self.unregister_advertisements(advertisements)
+        self.register_advertisements(advertisements, new_min_adv_interval_ms,
+                                     new_max_adv_interval_ms)
 
         self.test_check_duration_and_intervals(new_min_adv_interval_ms,
                                                new_max_adv_interval_ms,
@@ -1165,8 +1204,8 @@ class bluetooth_AdapterLEAdvertising(
     @test_case_log
     def test_case_RA1_CD_SI200_CD_RS(self):
         """Test Case: RA(1) - CD - SI(200) - CD - RS"""
-        orig_min_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
-        orig_max_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
         new_min_adv_interval_ms = 200
         new_max_adv_interval_ms = 200
         advertisements = [self.sixth_advertisement]
@@ -1179,8 +1218,9 @@ class bluetooth_AdapterLEAdvertising(
                                                orig_max_adv_interval_ms,
                                                len(advertisements))
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
+        self.unregister_advertisements(advertisements)
+        self.register_advertisements(advertisements, new_min_adv_interval_ms,
+                                     new_max_adv_interval_ms)
 
         self.test_check_duration_and_intervals(new_min_adv_interval_ms,
                                                new_max_adv_interval_ms,
@@ -1192,8 +1232,8 @@ class bluetooth_AdapterLEAdvertising(
     def test_case_RA1_CD_SI200_CD_FSI10_UA1_RA1_CD_UA1(self):
         """Test Case:  RA(1) - CD - SI(200) - CD - FSI(10) - UA(1)
          - RA(1) - CD - UA(1)"""
-        orig_min_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
-        orig_max_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
         new_min_adv_interval_ms = 200
         new_max_adv_interval_ms = 200
         invalid_small_min_adv_interval_ms = 10
@@ -1210,8 +1250,9 @@ class bluetooth_AdapterLEAdvertising(
                                                orig_max_adv_interval_ms,
                                                len(advertisements))
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
+        self.unregister_advertisements(advertisements)
+        self.register_advertisements(advertisements, new_min_adv_interval_ms,
+                                     new_max_adv_interval_ms)
 
         self.test_check_duration_and_intervals(new_min_adv_interval_ms,
                                                new_max_adv_interval_ms,
@@ -1240,8 +1281,8 @@ class bluetooth_AdapterLEAdvertising(
     def test_case_RA1_CD_SI200_CD_FSI20000_UA1_RA1_CD_UA1(self):
         """Test Case:  RA(1) - CD - SI(200) - CD - FSI(20000) - UA(1)
          - RA(1) - CD - UA(1)"""
-        orig_min_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
-        orig_max_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
         new_min_adv_interval_ms = 200
         new_max_adv_interval_ms = 200
         invalid_large_min_adv_interval_ms = 20000
@@ -1258,8 +1299,9 @@ class bluetooth_AdapterLEAdvertising(
                                                orig_max_adv_interval_ms,
                                                len(advertisements))
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
+        self.unregister_advertisements(advertisements)
+        self.register_advertisements(advertisements, new_min_adv_interval_ms,
+                                     new_max_adv_interval_ms)
 
         self.test_check_duration_and_intervals(new_min_adv_interval_ms,
                                                new_max_adv_interval_ms,
@@ -1286,8 +1328,8 @@ class bluetooth_AdapterLEAdvertising(
     @test_case_log
     def test_case_RA1_CD_SI200_CD_PC_CD_UA1(self):
         """Test Case: RA(1) - CD - SI(200) - CD - PC - CD - UA(1)"""
-        orig_min_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
-        orig_max_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
         new_min_adv_interval_ms = 200
         new_max_adv_interval_ms = 200
         advertisements = [self.sixth_advertisement]
@@ -1300,8 +1342,9 @@ class bluetooth_AdapterLEAdvertising(
                                                orig_max_adv_interval_ms,
                                                len(advertisements))
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
+        self.unregister_advertisements(advertisements)
+        self.register_advertisements(advertisements, new_min_adv_interval_ms,
+                                     new_max_adv_interval_ms)
 
         self.test_check_duration_and_intervals(new_min_adv_interval_ms,
                                                new_max_adv_interval_ms,
@@ -1322,8 +1365,8 @@ class bluetooth_AdapterLEAdvertising(
     @test_case_log
     def test_case_RA1_CD_SI200_CD_SR_CD_UA1(self):
         """Test Case: RA(1) - CD - SI(200) - CD - SR - CD - UA(1)"""
-        orig_min_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
-        orig_max_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
         new_min_adv_interval_ms = 200
         new_max_adv_interval_ms = 200
         advertisements = [self.first_advertisement]
@@ -1336,20 +1379,15 @@ class bluetooth_AdapterLEAdvertising(
                                                orig_max_adv_interval_ms,
                                                len(advertisements))
 
-        self.test_set_advertising_intervals(new_min_adv_interval_ms,
-                                            new_max_adv_interval_ms)
+        self.unregister_advertisements(advertisements)
+        self.register_advertisements(advertisements, new_min_adv_interval_ms,
+                                     new_max_adv_interval_ms)
 
         self.test_check_duration_and_intervals(new_min_adv_interval_ms,
                                                new_max_adv_interval_ms,
                                                len(advertisements))
 
-        logging.info("Suspend resume is disabled due to crbug/949802")
-
-        # On some devices suspend/resume unregisters the advertisement
-        # causing the test to fail. Disabling suspend/resume till
-        # the issue is resolved.
-        # TODO(crbug/949802)
-        # self.suspend_resume()
+        self.suspend_resume()
 
         self.test_check_duration_and_intervals(new_min_adv_interval_ms,
                                                new_max_adv_interval_ms,
@@ -1360,8 +1398,8 @@ class bluetooth_AdapterLEAdvertising(
     @test_case_log
     def test_case_nearby_mediums_fast(self):
         """Verify minimal test case for nearby sharing"""
-        orig_min_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
-        orig_max_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
 
         # We set a specific advertisement with fields required by Nearby
         # sharing service
@@ -1381,15 +1419,46 @@ class bluetooth_AdapterLEAdvertising(
         self.test_advertising_flags(['Advertise as Discoverable'])
 
     @test_case_log
+    def test_case_adv_before_scan(self):
+        """Verify we can scan after advertising starts
+
+        We found that when extended advertising is available, any Set Adv
+        Disable HCI command would mark the hdev as not advertising, even if
+        other instances were active at the time. Later attempts to start
+        discovery would fail, because kernel tries to update the random address
+        without knowing to pause the advertisements. This test case replicates
+        this failure condition to validate the fix.
+        """
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        advertisements = self.three_advertisements
+
+        self.test_reset_advertising()
+
+        # Register several advertisements
+        self.register_advertisements(advertisements, orig_min_adv_interval_ms,
+                                     orig_max_adv_interval_ms)
+
+        # Unregister one active advertisement.
+        instance_id = 2
+        self.test_unregister_advertisement(advertisements[instance_id - 1],
+                                           instance_id,
+                                           advertising_disabled=False)
+
+        self.test_start_discovery()
+
+        # Test if advertising is reset correctly.Only instances [1, 3] are left.
+        self.test_reset_advertising([1, 3])
+
+    @test_case_log
     def test_case_broadcast(self):
         """Verify minimal test case for broadcasted advertising"""
-        orig_min_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
-        orig_max_adv_interval_ms = self.DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_min_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
+        orig_max_adv_interval_ms = self.DEFAULT_MIN_ADVERTISEMENT_INTERVAL_MS
 
         # We set a specific advertisement that uses the 'broadcast' mode
         advertisements = [advertisements_data.NEARBY_BROADCAST_ADV]
 
-        self.bluetooth_le_facade = self.bluetooth_facade
         self.test_reset_advertising()
 
         # Verify that registration is successful, and that all configured
@@ -1446,8 +1515,6 @@ class bluetooth_AdapterLEAdvertising(
             # until test can be refactored.
             # self.test_case_RA5_CD_SI200_CD_FRA1_CD_UA5()
             self.test_case_RA3_CD_SI200_CD_FSI10_CD_FSI20000_CD_UA3()
-            self.test_case_SI200_RA3_CD_SR_CD_UA3()
-            self.test_case_RA3_CD_SI200_CD_SR_CD_UA3()
             self.test_case_SI200_RA3_CD_PC_CD_UA3()
             self.test_case_RA3_CD_SI200_CD_PC_CD_UA3()
 
@@ -1463,8 +1530,6 @@ class bluetooth_AdapterLEAdvertising(
             self.test_case_RA1_CD_SI200_CD_RS()
             self.test_case_RA1_CD_SI200_CD_FSI10_UA1_RA1_CD_UA1()
             self.test_case_RA1_CD_SI200_CD_FSI20000_UA1_RA1_CD_UA1()
-            self.test_case_SI200_RA1_CD_SR_CD_UA1()
-            self.test_case_RA1_CD_SI200_CD_SR_CD_UA1()
             self.test_case_RA1_CD_SI200_CD_PC_CD_UA1()
 
         elif test_type == 'suspend_resume':
@@ -1486,3 +1551,7 @@ class bluetooth_AdapterLEAdvertising(
 
         elif test_type == 'nearby':
             self.test_case_nearby_mediums_fast()
+            self.test_case_adv_before_scan()
+
+        elif test_type == 'broadcast':
+            self.test_case_broadcast()

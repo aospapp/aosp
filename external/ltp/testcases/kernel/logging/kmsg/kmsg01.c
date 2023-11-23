@@ -384,7 +384,7 @@ static void test_messages_overwritten(void)
 {
 	int i, fd;
 	char msg[MAX_MSGSIZE];
-	unsigned long first_seqno, seqno;
+	unsigned long first_seqno = 0, seqno;
 	char filler_str[] = "<7>"MSG_PREFIX"FILLER MESSAGE TO OVERWRITE OTHERS\n";
 
 	/* Keep injecting messages until we overwrite first one.
@@ -573,5 +573,4 @@ static struct tst_test test = {
 	.cleanup = cleanup,
 	.needs_root = 1,
 	.test_all = test_kmsg,
-	.min_kver = "3.5.0"
 };

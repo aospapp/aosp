@@ -24,9 +24,8 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 #include "device/include/interop.h"
+#include "test/common/mock_functions.h"
 #include "types/raw_address.h"
 
 #ifndef UNUSED_ATTR
@@ -35,15 +34,61 @@ extern std::map<std::string, int> mock_function_count_map;
 
 bool interop_match_addr(const interop_feature_t feature,
                         const RawAddress* addr) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool interop_match_name(const interop_feature_t feature, const char* name) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 void interop_database_add(uint16_t feature, const RawAddress* addr,
                           size_t length) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
-void interop_database_clear() { mock_function_count_map[__func__]++; }
+void interop_database_clear() { inc_func_call_count(__func__); }
+
+bool interop_match_addr_or_name(const interop_feature_t feature,
+                                const RawAddress* addr,
+                                bt_status_t (*get_remote_device_property)(
+                                    const RawAddress*, bt_property_t*)) {
+  inc_func_call_count(__func__);
+  return false;
+}
+
+bool interop_match_manufacturer(const interop_feature_t feature,
+                                uint16_t manufacturer) {
+  inc_func_call_count(__func__);
+  return false;
+}
+
+bool interop_match_vendor_product_ids(const interop_feature_t feature,
+                                      uint16_t vendor_id, uint16_t product_id) {
+  inc_func_call_count(__func__);
+  return false;
+}
+
+bool interop_database_match_version(const interop_feature_t feature,
+                                    uint16_t version) {
+  inc_func_call_count(__func__);
+  return false;
+}
+bool interop_match_addr_get_max_lat(const interop_feature_t feature,
+                                    const RawAddress* addr, uint16_t* max_lat) {
+  inc_func_call_count(__func__);
+  return false;
+}
+
+bool interop_get_allowlisted_media_players_list(list_t* p_bl_devices) {
+  inc_func_call_count(__func__);
+  return false;
+}
+
+int interop_feature_name_to_feature_id(const char* feature_name) {
+  inc_func_call_count(__func__);
+  return false;
+}
+
+void interop_database_add_addr(const uint16_t feature, const RawAddress* addr,
+                               size_t length) {
+  inc_func_call_count(__func__);
+}

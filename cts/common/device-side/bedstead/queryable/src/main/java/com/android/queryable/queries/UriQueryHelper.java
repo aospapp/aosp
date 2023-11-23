@@ -21,6 +21,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
+import com.android.queryable.QueryableBaseWithMatch;
 import com.android.queryable.util.SerializableParcelWrapper;
 
 import java.io.Serializable;
@@ -38,14 +39,32 @@ public final class UriQueryHelper<E extends Queryable>
     private Uri mEqualsValue;
     private final StringQueryHelper<E> mStringValue;
 
-    UriQueryHelper() {
-        mQuery = (E) this;
-        mStringValue = new StringQueryHelper<>();
+    public static final class UriQueryBase extends
+            QueryableBaseWithMatch<Uri, UriQueryHelper<UriQueryBase>> {
+        UriQueryBase() {
+            super();
+            setQuery(new UriQueryHelper<>(this));
+        }
+
+        UriQueryBase(Parcel in) {
+            super(in);
+        }
+
+        public static final Parcelable.Creator<UriQueryHelper.UriQueryBase> CREATOR =
+                new Parcelable.Creator<>() {
+                    public UriQueryHelper.UriQueryBase createFromParcel(Parcel in) {
+                        return new UriQueryHelper.UriQueryBase(in);
+                    }
+
+                    public UriQueryHelper.UriQueryBase[] newArray(int size) {
+                        return new UriQueryHelper.UriQueryBase[size];
+                    }
+                };
     }
 
     public UriQueryHelper(E query) {
         mQuery = query;
-        mStringValue = new StringQueryHelper<>();
+        mStringValue = new StringQueryHelper<>(query);
     }
 
     private UriQueryHelper(Parcel in) {
@@ -63,6 +82,12 @@ public final class UriQueryHelper<E extends Queryable>
     @Override
     public StringQuery<E> stringValue() {
         return mStringValue;
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        return mEqualsValue == null
+                && Queryable.isEmptyQuery(mStringValue);
     }
 
     @Override

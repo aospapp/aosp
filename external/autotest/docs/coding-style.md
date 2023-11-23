@@ -1,4 +1,4 @@
-# Coding style for autotest in Chrome OS / Android / Brillo
+# Coding style for autotest in ChromeOS / Android / Brillo
 These rules elaborate on, but rarely deviate from PEP-8.  When in doubt, go
 with PEP-8.
 
@@ -94,6 +94,20 @@ import MySQLdb  # After common so that we check our site-packages first.
 
 from common_lib import error
 ```
+
+### Automatically reorder imports
+
+To sort the imports on a list of files:
+
+`isort -o common -t common -sl FILENAMES`
+
+Or all the files in the current commit:
+
+`isort -o common -t common -sl $(git diff --name-only HEAD^ HEAD)`
+
+Or all the unstaged files:
+
+`isort -o common -t common -sl $(git diff --name-only)`
 
 ## Testing None
 
@@ -220,6 +234,6 @@ client/common\_lib/error.py.
 
 ## Submitting patches
 
-Submit changes through the Chrome OS gerrit instance.  This process is
+Submit changes through the ChromeOS gerrit instance.  This process is
 documented on
 [chromium.org](http://dev.chromium.org/developers/contributing-code).

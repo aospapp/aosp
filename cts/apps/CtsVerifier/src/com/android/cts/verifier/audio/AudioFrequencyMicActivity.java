@@ -16,6 +16,9 @@
 
 package com.android.cts.verifier.audio;
 
+import static com.android.cts.verifier.TestListActivity.sCurrentDisplayMode;
+import static com.android.cts.verifier.TestListAdapter.setTestNameSuffix;
+
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
@@ -40,9 +43,6 @@ import com.android.cts.verifier.audio.wavelib.DspBufferMath;
 import com.android.cts.verifier.audio.wavelib.DspFftServer;
 import com.android.cts.verifier.audio.wavelib.DspWindow;
 import com.android.cts.verifier.audio.wavelib.PipeShort;
-import com.android.cts.verifier.audio.soundio.SoundPlayerObject;
-import com.android.cts.verifier.audio.wavelib.*;
-
 import com.android.cts.verifier.audio.wavelib.VectorAverage;
 
 /**
@@ -680,6 +680,13 @@ public class AudioFrequencyMicActivity extends AudioFrequencyActivity implements
     /**
      * Store test results in log
      */
+    private static final String SECTION_AUDIOFREQUENCYMIC =
+            "audio_frequency_mic";
+    @Override
+    public final String getReportSectionName() {
+        return setTestNameSuffix(sCurrentDisplayMode, SECTION_AUDIOFREQUENCYMIC);
+    }
+
     private void storeTestResults(Results results) {
         String channelLabel = "channel_" + results.mLabel;
 

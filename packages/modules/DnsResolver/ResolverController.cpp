@@ -25,6 +25,7 @@
 #include <aidl/android/net/IDnsResolver.h>
 #include <android-base/logging.h>
 #include <android-base/strings.h>
+#include <statslog_resolv.h>
 
 #include "Dns64Configuration.h"
 #include "DnsResolver.h"
@@ -77,7 +78,7 @@ void sendNat64PrefixEvent(const Dns64Configuration::Nat64PrefixInfo& args) {
 
 int getDnsInfo(unsigned netId, std::vector<std::string>* servers, std::vector<std::string>* domains,
                res_params* params, std::vector<android::net::ResolverStats>* stats,
-               std::vector<int32_t>* wait_for_pending_req_timeout_count) {
+               int* wait_for_pending_req_timeout_count) {
     using aidl::android::net::IDnsResolver;
     using android::net::ResolverStats;
     static_assert(ResolverStats::STATS_SUCCESSES == IDnsResolver::RESOLVER_STATS_SUCCESSES &&
@@ -100,10 +101,9 @@ int getDnsInfo(unsigned netId, std::vector<std::string>* servers, std::vector<st
     domains->clear();
     *params = res_params{};
     stats->clear();
-    int res_wait_for_pending_req_timeout_count;
-    int revision_id = android_net_res_stats_get_info_for_net(
-            netId, &nscount, res_servers, &dcount, res_domains, params, res_stats,
-            &res_wait_for_pending_req_timeout_count);
+    int revision_id = android_net_res_stats_get_info_for_net(netId, &nscount, res_servers, &dcount,
+                                                             res_domains, params, res_stats,
+                                                             wait_for_pending_req_timeout_count);
 
     // If the netId is unknown (which can happen for valid net IDs for which no DNS servers have
     // yet been configured), there is no revision ID. In this case there is no data to return.
@@ -149,7 +149,6 @@ int getDnsInfo(unsigned netId, std::vector<std::string>* servers, std::vector<st
         domains->push_back(res_domains[i]);
     }
 
-    (*wait_for_pending_req_timeout_count)[0] = res_wait_for_pending_req_timeout_count;
     return 0;
 }
 
@@ -165,10 +164,17 @@ ResolverController::ResolverController()
 void ResolverController::destroyNetworkCache(unsigned netId) {
     LOG(VERBOSE) << __func__ << ": netId = " << netId;
 
+    // Report NetworkDnsServerSupportReported metrics before the cleanup.
+    auto& privateDnsConfiguration = PrivateDnsConfiguration::getInstance();
+    NetworkDnsServerSupportReported event = privateDnsConfiguration.getStatusForMetrics(netId);
+    const std::string str = event.servers().SerializeAsString();
+    stats::BytesField bytesField{str.c_str(), str.size()};
+    android::net::stats::stats_write(android::net::stats::NETWORK_DNS_SERVER_SUPPORT_REPORTED,
+                                     event.network_type(), event.private_dns_modes(), bytesField);
+
     resolv_delete_cache_for_net(netId);
     mDns64Configuration.stopPrefixDiscovery(netId);
-    PrivateDnsConfiguration::getInstance().clear(netId);
-    if (isDoHEnabled()) PrivateDnsConfiguration::getInstance().clearDoh(netId);
+    privateDnsConfiguration.clear(netId);
 
     // Don't get this instance in PrivateDnsConfiguration. It's probe to deadlock.
     DnsTlsDispatcher::getInstance().forceCleanup(netId);
@@ -207,15 +213,11 @@ int ResolverController::setResolverConfiguration(const ResolverParamsParcel& res
     // applies to UID 0, dns_mark is assigned for default network rathan the VPN. (note that it's
     // possible that a VPN doesn't have any DNS servers but DoT servers in DNS strict mode)
     auto& privateDnsConfiguration = PrivateDnsConfiguration::getInstance();
-    int err = privateDnsConfiguration.set(resolverParams.netId, netcontext.app_mark, tlsServers,
+    int err = privateDnsConfiguration.set(resolverParams.netId, netcontext.app_mark,
+                                          resolverParams.servers, tlsServers,
                                           resolverParams.tlsName, resolverParams.caCertificate);
 
     if (err != 0) {
-        return err;
-    }
-
-    if (err = resolv_stats_set_addrs(resolverParams.netId, PROTO_DOT, tlsServers, 853);
-        err != 0) {
         return err;
     }
 
@@ -223,15 +225,6 @@ int ResolverController::setResolverConfiguration(const ResolverParamsParcel& res
         if (err = resolv_stats_set_addrs(resolverParams.netId, PROTO_MDNS,
                                          {"ff02::fb", "224.0.0.251"}, 5353);
             err != 0) {
-            return err;
-        }
-    }
-
-    if (isDoHEnabled()) {
-        err = privateDnsConfiguration.setDoh(resolverParams.netId, netcontext.app_mark, tlsServers,
-                                             resolverParams.tlsName, resolverParams.caCertificate);
-
-        if (err != 0) {
             return err;
         }
     }
@@ -253,7 +246,7 @@ int ResolverController::getResolverInfo(int32_t netId, std::vector<std::string>*
                                         std::vector<std::string>* domains,
                                         std::vector<std::string>* tlsServers,
                                         std::vector<int32_t>* params, std::vector<int32_t>* stats,
-                                        std::vector<int32_t>* wait_for_pending_req_timeout_count) {
+                                        int* wait_for_pending_req_timeout_count) {
     using aidl::android::net::IDnsResolver;
     using android::net::ResolverStats;
     res_params res_params;
@@ -307,7 +300,7 @@ void ResolverController::dump(DumpWriter& dw, unsigned netId) {
     std::vector<std::string> domains;
     res_params params = {};
     std::vector<ResolverStats> stats;
-    std::vector<int32_t> wait_for_pending_req_timeout_count(1, 0);
+    int wait_for_pending_req_timeout_count = 0;
     time_t now = time(nullptr);
     int rv = getDnsInfo(netId, &servers, &domains, &params, &stats,
                         &wait_for_pending_req_timeout_count);
@@ -374,7 +367,7 @@ void ResolverController::dump(DumpWriter& dw, unsigned netId) {
             }
             dw.decIndent();
         }
-        dw.println("Concurrent DNS query timeout: %d", wait_for_pending_req_timeout_count[0]);
+        dw.println("Concurrent DNS query timeout: %d", wait_for_pending_req_timeout_count);
         resolv_netconfig_dump(dw, netId);
     }
     dw.decIndent();

@@ -434,9 +434,14 @@ class MemOperand {
   bool IsImmediateOffset() const;
   // True for register-offset (but not indexed) MemOperands.
   bool IsRegisterOffset() const;
-
+  // True for immediate or register pre-indexed MemOperands.
   bool IsPreIndex() const;
+  // True for immediate or register post-indexed MemOperands.
   bool IsPostIndex() const;
+  // True for immediate pre-indexed MemOperands, [reg, #imm]!
+  bool IsImmediatePreIndex() const;
+  // True for immediate post-indexed MemOperands, [reg], #imm
+  bool IsImmediatePostIndex() const;
 
   void AddOffset(int64_t offset);
 
@@ -545,6 +550,17 @@ class SVEMemOperand {
     VIXL_ASSERT(IsValid());
   }
 
+  // "vector-plus-scalar", like [z0.d, x0]
+  SVEMemOperand(ZRegister base, Register offset)
+      : base_(base),
+        regoffset_(offset),
+        offset_(0),
+        mod_(NO_SVE_OFFSET_MODIFIER),
+        shift_amount_(0) {
+    VIXL_ASSERT(IsValid());
+    VIXL_ASSERT(IsVectorPlusScalar());
+  }
+
   // "vector-plus-vector", like [z0.d, z1.d, UXTW]
   template <typename M = SVEOffsetModifier>
   SVEMemOperand(ZRegister base,
@@ -601,6 +617,11 @@ class SVEMemOperand {
     return base_.IsZRegister() &&
            (base_.IsLaneSizeS() || base_.IsLaneSizeD()) &&
            regoffset_.IsNone() && (mod_ == NO_SVE_OFFSET_MODIFIER);
+  }
+
+  bool IsVectorPlusScalar() const {
+    return base_.IsZRegister() && regoffset_.IsX() &&
+           (base_.IsLaneSizeS() || base_.IsLaneSizeD());
   }
 
   bool IsVectorPlusVector() const {

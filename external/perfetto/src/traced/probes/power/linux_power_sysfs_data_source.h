@@ -17,7 +17,8 @@
 #ifndef SRC_TRACED_PROBES_POWER_LINUX_POWER_SYSFS_DATA_SOURCE_H_
 #define SRC_TRACED_PROBES_POWER_LINUX_POWER_SYSFS_DATA_SOURCE_H_
 
-#include "perfetto/ext/base/optional.h"
+#include <optional>
+
 #include "perfetto/ext/base/weak_ptr.h"
 #include "perfetto/tracing/core/data_source_config.h"
 #include "src/traced/probes/probes_data_source.h"
@@ -39,23 +40,33 @@ class LinuxPowerSysfsDataSource : public ProbesDataSource {
     ~BatteryInfo();
 
     // The current coloumb counter value in µAh.
-    base::Optional<int64_t> GetChargeCounterUah(size_t battery_idx);
+    std::optional<int64_t> GetChargeCounterUah(size_t battery_idx);
+
+    // The current energy counter in µWh.
+    std::optional<int64_t> GetEnergyCounterUah(size_t battery_idx);
+
+    // The voltage in µV.
+    std::optional<int64_t> GetVoltageUv(size_t battery_idx);
 
     // The battery capacity in percent.
-    base::Optional<int64_t> GetCapacityPercent(size_t battery_idx);
+    std::optional<int64_t> GetCapacityPercent(size_t battery_idx);
 
     // The current reading of the battery in µA.
-    base::Optional<int64_t> GetCurrentNowUa(size_t battery_idx);
+    std::optional<int64_t> GetCurrentNowUa(size_t battery_idx);
 
     // The smoothed current reading of the battery in µA.
-    base::Optional<int64_t> GetAverageCurrentUa(size_t battery_idx);
+    std::optional<int64_t> GetAverageCurrentUa(size_t battery_idx);
+
+    // Name of the battery.
+    std::string GetBatteryName(size_t battery_idx);
 
     size_t num_batteries() const;
 
    private:
-    // The subdirectories that contain info of a battery power supply, not
-    // USBPD, AC or other types of power supplies.
-    std::vector<std::string> sysfs_battery_dirs_;
+    std::string power_supply_dir_path_;
+    // The subdirectories that contain info of a battery power supply, e.g.
+    // BAT0.
+    std::vector<std::string> sysfs_battery_subdirs_;
   };
   static const ProbesDataSource::Descriptor descriptor;
 

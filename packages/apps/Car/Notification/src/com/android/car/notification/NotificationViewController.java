@@ -21,9 +21,10 @@ public class NotificationViewController {
     private final PreprocessingManager mPreprocessingManager;
     private final CarNotificationListener mCarNotificationListener;
     private final boolean mShowRecentsAndOlderHeaders;
-    private CarUxRestrictionManagerWrapper mUxResitrictionListener;
-    private NotificationDataManager mNotificationDataManager;
-    private NotificationUpdateHandler mNotificationUpdateHandler = new NotificationUpdateHandler();
+    private final CarUxRestrictionManagerWrapper mUxResitrictionListener;
+    private final NotificationDataManager mNotificationDataManager;
+    private final NotificationUpdateHandler mNotificationUpdateHandler =
+            new NotificationUpdateHandler();
     private boolean mShowLessImportantNotifications;
     private boolean mIsVisible;
 
@@ -87,6 +88,7 @@ public class NotificationViewController {
      */
     public void onVisibilityChanged(boolean isVisible) {
         mIsVisible = isVisible;
+        mCarNotificationListener.onVisibilityChanged(mIsVisible);
         // Reset and collapse all groups when notification view disappears.
         if (!mIsVisible) {
             resetNotifications(mShowLessImportantNotifications);

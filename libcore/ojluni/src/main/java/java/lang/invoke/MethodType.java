@@ -87,7 +87,9 @@ import static java.lang.invoke.MethodHandleStatics.*;
  * @author John Rose, JSR 292 EG
  */
 public final
-class MethodType implements java.io.Serializable {
+class MethodType
+        implements TypeDescriptor.OfMethod<Class<?>, MethodType>,
+                   java.io.Serializable {
     private static final long serialVersionUID = 292L;  // {rtype, {ptype...}}
 
     // The rtype and ptypes fields define the structural identity of the method type:
@@ -1163,7 +1165,34 @@ class MethodType implements java.io.Serializable {
         return desc;
     }
 
-    /*non-public*/ static String toFieldDescriptorString(Class<?> cls) {
+    // Android-changed: Remove MethodTypeDesc from javadoc until MethodTypeDesc is added.
+    /**
+     * Returns a descriptor string for this method type.
+     *
+     * <p>
+     * If this method type can be <a href="#descriptor">described nominally</a>,
+     * then the result is a method type descriptor (JVMS {@jvms 4.3.3}).
+     * <p>
+     * If this method type cannot be <a href="#descriptor">described nominally</a>
+     * and the result is a string of the form:
+     * <blockquote>{@code "(<parameter-descriptors>)<return-descriptor>"}</blockquote>
+     * where {@code <parameter-descriptors>} is the concatenation of the
+     * {@linkplain Class#descriptorString() descriptor string} of all
+     * of the parameter types and the {@linkplain Class#descriptorString() descriptor string}
+     * of the return type.
+     *
+     * @return the descriptor string for this method type
+     * @since 12
+     * @jvms 4.3.3 Method Descriptors
+     * @see <a href="#descriptor">Nominal Descriptor for {@code MethodType}</a>
+     */
+    @Override
+    public String descriptorString() {
+        return toMethodDescriptorString();
+    }
+
+    /*non-public*/
+    static String toFieldDescriptorString(Class<?> cls) {
         return BytecodeDescriptor.unparse(cls);
     }
 

@@ -26,8 +26,8 @@ import com.android.settingslib.graph.SignalDrawable;
 import com.android.systemui.R;
 import com.android.systemui.car.statusicon.StatusIconController;
 import com.android.systemui.dagger.qualifiers.Main;
-import com.android.systemui.statusbar.connectivity.NetworkController;
 import com.android.systemui.statusbar.connectivity.MobileDataIndicators;
+import com.android.systemui.statusbar.connectivity.NetworkController;
 import com.android.systemui.statusbar.connectivity.SignalCallback;
 import com.android.systemui.statusbar.connectivity.WifiIndicators;
 import com.android.systemui.statusbar.policy.HotspotController;
@@ -50,6 +50,9 @@ public class SignalStatusIconController extends StatusIconController implements
     private Drawable mHotSpotIconDrawable;
     private boolean mIsWifiEnabledAndConnected;
     private boolean mIsHotspotEnabled;
+    private String mMobileSignalContentDescription;
+    private String mWifiConnectedContentDescription;
+    private String mHotspotOnContentDescription;
 
     @Inject
     SignalStatusIconController(
@@ -65,6 +68,10 @@ public class SignalStatusIconController extends StatusIconController implements
         mMobileSignalIconDrawable = new SignalDrawable(mContext);
         mHotSpotIconDrawable = mResources.getDrawable(R.drawable.ic_hotspot, mContext.getTheme());
 
+        mMobileSignalContentDescription = resources.getString(R.string.status_icon_signal_mobile);
+        mWifiConnectedContentDescription = resources.getString(R.string.status_icon_signal_wifi);
+        mHotspotOnContentDescription = resources.getString(R.string.status_icon_signal_hotspot);
+
         mNetworkController.addCallback(this);
         mHotspotController.addCallback(this);
     }
@@ -73,10 +80,13 @@ public class SignalStatusIconController extends StatusIconController implements
     protected void updateStatus() {
         if (mIsHotspotEnabled) {
             setIconDrawableToDisplay(mHotSpotIconDrawable);
+            setIconContentDescription(mHotspotOnContentDescription);
         } else if (mIsWifiEnabledAndConnected) {
             setIconDrawableToDisplay(mWifiSignalIconDrawable);
+            setIconContentDescription(mWifiConnectedContentDescription);
         } else {
             setIconDrawableToDisplay(mMobileSignalIconDrawable);
+            setIconContentDescription(mMobileSignalContentDescription);
         }
         onStatusUpdated();
     }
@@ -119,5 +129,10 @@ public class SignalStatusIconController extends StatusIconController implements
     @VisibleForTesting
     Drawable getHotSpotIconDrawable() {
         return mHotSpotIconDrawable;
+    }
+
+    @Override
+    protected int getId() {
+        return R.id.qc_signal_status_icon;
     }
 }

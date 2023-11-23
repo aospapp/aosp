@@ -48,7 +48,6 @@ class MainShimDumpsysTest : public testing::Test {
 
     ModuleList modules;
     modules.add<shim::Dumpsys>();
-    modules.add<storage::StorageModule>();
 
     os::Thread* thread = new os::Thread("thread", os::Thread::Priority::NORMAL);
     stack_manager_.StartUp(&modules, thread);

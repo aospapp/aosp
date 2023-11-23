@@ -25,6 +25,7 @@ import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFra
 import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByDpm;
 import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByUm;
 
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.UserInfo;
 import android.os.UserHandle;
@@ -113,7 +114,8 @@ public class RemoveProfileHandler {
      */
     public boolean canRemoveProfile(UserInfo userInfo) {
         return !mUserManager.hasUserRestriction(DISALLOW_REMOVE_USER)
-                && !isSystemOrDemoUser(userInfo);
+                && !isSystemOrDemoUser(userInfo)
+                && !isNonCurrentForegroundUser(userInfo);
     }
 
     /**
@@ -182,10 +184,22 @@ public class RemoveProfileHandler {
     public void runClickableWhileDisabled() {
         if (hasUserRestrictionByDpm(mContext, DISALLOW_REMOVE_USER)) {
             showActionDisabledByAdminDialog();
+        } else if (isNonCurrentForegroundUser(mUserInfo)) {
+            Toast.makeText(mContext, mContext.getString(R.string.cannot_remove_driver_profile),
+                    Toast.LENGTH_LONG).show();
         } else {
             Toast.makeText(mContext, mContext.getString(R.string.action_unavailable),
                     Toast.LENGTH_LONG).show();
         }
+    }
+
+    /** Returns whether the provided user is the foreground user and the current user is not. */
+    private boolean isNonCurrentForegroundUser(UserInfo userInfo) {
+        if (userInfo == null) {
+            return false;
+        }
+        int foregroundUserId = ActivityManager.getCurrentUser();
+        return userInfo.id == foregroundUserId && UserHandle.myUserId() != foregroundUserId;
     }
 
     private void showActionDisabledByAdminDialog() {

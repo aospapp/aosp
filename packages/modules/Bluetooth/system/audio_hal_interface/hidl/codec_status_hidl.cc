@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "BtAudioCodecStatus_HIDL"
+#define LOG_TAG "BTAudioCodecStatusHIDL"
 
 #include "codec_status_hidl.h"
 
@@ -494,11 +494,23 @@ bool UpdateOffloadingCapabilities(
       case BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC:
         codec_type_masks |= CodecType::LDAC;
         break;
+      case BTAV_A2DP_CODEC_INDEX_SOURCE_LC3:
+        LOG(WARNING) << __func__
+                     << ": Ignore source codec_type=" << preference.codec_type
+                     << ", not supported";
+        break;
+      case BTAV_A2DP_CODEC_INDEX_SOURCE_OPUS:
+        LOG(WARNING) << __func__
+                     << ": Ignore source codec_type=" << preference.codec_type
+                     << ", not supported on HIDL";
+        break;
       case BTAV_A2DP_CODEC_INDEX_SINK_SBC:
         [[fallthrough]];
       case BTAV_A2DP_CODEC_INDEX_SINK_AAC:
         [[fallthrough]];
       case BTAV_A2DP_CODEC_INDEX_SINK_LDAC:
+        [[fallthrough]];
+      case BTAV_A2DP_CODEC_INDEX_SINK_OPUS:
         LOG(WARNING) << __func__
                      << ": Ignore sink codec_type=" << preference.codec_type;
         break;

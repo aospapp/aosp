@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_permission_label" msgid="2215078736675564541">"Fahrzeug­informationen"</string>
+    <string name="car_permission_label" msgid="2215078736675564541">"Fahrzeug­­informationen"</string>
     <string name="car_permission_desc" msgid="3584369074931334964">"Zugriff auf Informationen deines Autos"</string>
     <string name="car_permission_label_camera" msgid="3725702064841827180">"auf die Autokamera zuzugreifen"</string>
     <string name="car_permission_desc_camera" msgid="917024932164501426">"Auf Autokamera(s) zugreifen."</string>
@@ -42,8 +42,6 @@
     <string name="car_permission_desc_projection" msgid="2352178999656292944">"Ermöglicht einer App, den Bildschirm eines Smartphones auf das Display des Autos zu übertragen."</string>
     <string name="car_permission_label_access_projection_status" msgid="4231618890836627402">"auf den Projektionsstatus zuzugreifen"</string>
     <string name="car_permission_desc_access_projection_status" msgid="8497351979100616278">"Ermöglicht einer App, den Status anderer Apps,abzurufen, die auf das Display des Autos übertragen werden."</string>
-    <string name="car_permission_label_bind_projection_service" msgid="5362076216606651526">"sich an einen Projektionsdienst zu binden"</string>
-    <string name="car_permission_desc_bind_projection_service" msgid="2282657787853408639">"Ermöglicht dem Inhaber, sich an die Oberfläche eines Projektionsdienstes auf oberster Ebene zu binden. Sollte für normale Apps nie benötigt werden."</string>
     <string name="car_permission_label_audio_volume" msgid="310587969373137690">"die Lautstärke der Audioanlage des Autos zu steuern"</string>
     <string name="car_permission_label_audio_settings" msgid="6524703796944023977">"die Einstellungen der Audioanlage des Autos zu verwalten"</string>
     <string name="car_permission_label_mock_vehicle_hal" msgid="7198852512207405935">"Fahrzeug-HAL emulieren"</string>
@@ -62,8 +60,6 @@
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"Apps im Kombi-Instrument starten"</string>
     <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"Kombi-Instrumenten-Navigationsstatus"</string>
     <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"Auf Änderungen des Kombi-Instrumenten-Navigationsstatus achten"</string>
-    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"Kombi-Instrument-Rendering"</string>
-    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"Daten von Kombi-Instrument erhalten"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"UX-Einschränkungen konfigurieren"</string>
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"UX-Einschränkungen konfigurieren"</string>
     <string name="car_permission_label_access_private_display_id" msgid="6712116114341634316">"Lesezugriff auf private Display-ID"</string>
@@ -74,8 +70,12 @@
     <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"Berechtigung, die Status- und Erkennungsdaten des Occupant Awareness System zu lesen"</string>
     <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"Occupant Awareness System Graph steuern"</string>
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Berechtigung, den Start- und Stoppvorgang des Occupant Awareness System-Erkennungsgraphen zu steuern"</string>
-    <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Eingabedienst für das Auto"</string>
-    <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Eingabe-Ereignisse verwalten"</string>
+    <string name="car_permission_label_read_driver_monitoring_settings" msgid="5208935577581001710">"Die Informationen zu den Einstellungen des Fahrerüberwachungssystems lesen"</string>
+    <string name="car_permission_desc_read_driver_monitoring_settings" msgid="3721117607024237175">"Die Informationen zu den Einstellungen des Fahrerüberwachungssystems lesen."</string>
+    <string name="car_permission_label_control_driver_monitoring_settings" msgid="239453247872865455">"Die Informationen zu den Einstellungen des Fahrerüberwachungssystems steuern"</string>
+    <string name="car_permission_desc_control_driver_monitoring_settings" msgid="7244804817277236221">"Die Informationen zu den Einstellungen des Fahrerüberwachungssystems steuern."</string>
+    <string name="car_permission_label_read_driver_monitoring_states" msgid="1555412806741155523">"Die Informationen zu den Status des Fahrerüberwachungssystems lesen"</string>
+    <string name="car_permission_desc_read_driver_monitoring_states" msgid="3124328827934661489">"Die Informationen zu den Status des Fahrerüberwachungssystems lesen."</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"Fehlerberichte zu lesen"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Fehlerberichte des Autos lesen."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"Fehlerberichte zu löschen"</string>
@@ -84,8 +84,6 @@
     <string name="car_permission_desc_vms_publisher" msgid="5589489298597386828">"VMS-Meldungen senden"</string>
     <string name="car_permission_label_vms_subscriber" msgid="5648841182059222299">"VMS-Abonnent"</string>
     <string name="car_permission_desc_vms_subscriber" msgid="7551009457847673620">"VMS-Meldungen abonnieren"</string>
-    <string name="car_permission_label_bind_vms_client" msgid="4889732900973280313">"VMS-Clientdienst"</string>
-    <string name="car_permission_desc_bind_vms_client" msgid="4062835325264330564">"An VMS-Clients binden"</string>
     <string name="car_permission_label_storage_monitoring" msgid="2327639346522530549">"Flash-Speicher-Nutzung verfolgen"</string>
     <string name="car_permission_desc_storage_monitoring" msgid="2075712271139671318">"Flash-Speicher-Nutzung verfolgen"</string>
     <string name="car_permission_label_driving_state" msgid="7754624599537393650">"Informationen zum Fahrzustand entgegenzunehmen"</string>
@@ -118,6 +116,8 @@
     <string name="car_permission_desc_control_car_mirrors" msgid="1224135684068855032">"Autospiegel steuern."</string>
     <string name="car_permission_label_control_car_seats" msgid="1826934820585497135">"die Autositze zu steuern"</string>
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Autositze steuern."</string>
+    <string name="car_permission_label_control_car_airbags" msgid="6823727183218389617">"Airbags des Fahrzeugs steuern"</string>
+    <string name="car_permission_desc_control_car_airbags" msgid="6181671903761622348">"Airbags des Fahrzeugs steuern."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"auf grundlegende Fahrzeuginformationen zuzugreifen"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Auf grundlegende Fahrzeuginformationen zugreifen."</string>
     <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"Auf vertrauliche Fahrzeuginformationen zugreifen"</string>
@@ -126,10 +126,10 @@
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Auf Informationen zu Berechtigungen des Herstellers zugreifen."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"Informationen zum Zustand der Außenbeleuchtung zu lesen"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"Auf Informationen zum Zustand der Außenbeleuchtung zugreifen."</string>
+    <string name="car_permission_label_control_glove_box" msgid="992118647212706782">"Status des Handschuhfachs des Autos abrufen"</string>
+    <string name="car_permission_desc_control_glove_box" msgid="2888062136750123261">"Status des Handschuhfachs des Autos abrufen."</string>
     <string name="car_permission_label_car_epoch_time" msgid="6303397910662625112">"Auf die UNIX-Zeit des Fahrzeugs zugreifen"</string>
     <string name="car_permission_desc_car_epoch_time" msgid="398907082895238558">"Auf die UNIX-Zeit des Fahrzeugs zugreifen."</string>
-    <string name="car_permission_label_encryption_binding_seed" msgid="4652180636501144684">"auf die Bindungsquelle des Autos zur Verschlüsselung zugreifen"</string>
-    <string name="car_permission_desc_encryption_binding_seed" msgid="6290944678417286024">"Auf die Bindungsquelle des Autos zur Verschlüsselung zugreifen."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"Informationen zur Außenbeleuchtung zu lesen"</string>
     <string name="car_permission_desc_control_car_exterior_lights" msgid="6332252612685264180">"Außenbeleuchtung steuern."</string>
     <string name="car_permission_label_car_interior_lights" msgid="8506302199784427680">"Informationen zur Innenbeleuchtung zu lesen"</string>
@@ -146,6 +146,8 @@
     <string name="car_permission_desc_read_car_display_units" msgid="6891898275208542385">"Anzeigeeinheiten lesen."</string>
     <string name="car_permission_label_control_car_display_units" msgid="4975303668183173076">"die Anzeigeeinheiten des Autos zu steuern"</string>
     <string name="car_permission_desc_control_car_display_units" msgid="8744397195158556945">"Anzeigeeinheiten steuern."</string>
+    <string name="car_permission_label_control_car_powertrain" msgid="234831541490237603">"Antriebsstrang-Informationen steuern"</string>
+    <string name="car_permission_desc_control_car_powertrain" msgid="8205110385130069179">"Antriebsstrang-Informationen steuern."</string>
     <string name="car_permission_label_car_powertrain" msgid="4586122326622134886">"Antriebsstrang-Informationen zu lesen"</string>
     <string name="car_permission_desc_car_powertrain" msgid="1116007372551797796">"Auf Antriebsstrang-Informationen zugreifen."</string>
     <string name="car_permission_label_car_power" msgid="8111448088314368268">"Informationen zum Energiestatus zu lesen"</string>
@@ -172,6 +174,40 @@
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Vorlagen werden gerendert."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"Der Start von Anwendungen wird gesteuert"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Der Start von Anwendungen wird gesteuert."</string>
+    <string name="car_permission_label_manage_thread_priority" msgid="6775846409863509575">"Thread-Priorität verwalten"</string>
+    <string name="car_permission_desc_manage_thread_priority" msgid="3833845502119615929">"Thread-Priorität verwalten."</string>
+    <string name="car_permission_label_manage_occupant_zone" msgid="1390420387640478679">"Insassenbereich verwalten"</string>
+    <string name="car_permission_desc_manage_occupant_zone" msgid="1641484205694436465">"Insassenbereich verwalten."</string>
+    <string name="car_permission_label_use_remote_access" msgid="4192095854784769805">"Nutzung per Fernzugriff"</string>
+    <string name="car_permission_desc_use_remote_access" msgid="7287637348044911791">"Nutzung per Fernzugriff."</string>
+    <string name="car_permission_label_control_remote_access" msgid="4247590162299914718">"Steuerung per Fernzugriff"</string>
+    <string name="car_permission_desc_control_remote_access" msgid="127215188256669260">"Steuerung per Fernzugriff."</string>
+    <string name="car_permission_label_control_steering_wheel" msgid="6244908950907824488">"Lenkrad des Autos steuern"</string>
+    <string name="car_permission_desc_control_steering_wheel" msgid="8408970211196600423">"Lenkrad des Autos steuern."</string>
+    <string name="car_permission_label_read_adas_settings" msgid="151296373212801328">"Die Informationen zu den Einstellungen des Fahrassistenzsystems lesen"</string>
+    <string name="car_permission_desc_read_adas_settings" msgid="8490545343454791279">"Die Informationen zu den Einstellungen des Fahrassistenzsystems lesen."</string>
+    <string name="car_permission_label_control_adas_settings" msgid="2535088218472880855">"Die Informationen zu den Einstellungen des Fahrassistenzsystems steuern"</string>
+    <string name="car_permission_desc_control_adas_settings" msgid="8781131640392345285">"Die Informationen zu den Einstellungen des Fahrassistenzsystems steuern."</string>
+    <string name="car_permission_label_read_adas_states" msgid="8968657466958098106">"Die Informationen zu den Zuständen des Fahrassistenzsystems lesen"</string>
+    <string name="car_permission_desc_read_adas_states" msgid="5042430899788416991">"Die Informationen zu den Zuständen des Fahrassistenzsystems lesen."</string>
+    <string name="car_permission_label_control_adas_states" msgid="758803765406463138">"Die Informationen zu den Zuständen des Fahrassistenzsystems steuern"</string>
+    <string name="car_permission_desc_control_adas_states" msgid="1893171217779342348">"Die Informationen zu den Zuständen des Fahrassistenzsystems steuern."</string>
+    <string name="car_permission_label_read_windshield_wipers" msgid="896867772546890348">"Informationen zu den Scheibenwischern des Autos auslesen"</string>
+    <string name="car_permission_desc_read_windshield_wipers" msgid="597300271560195986">"Informationen zu den Scheibenwischern des Autos auslesen."</string>
+    <string name="car_permission_label_control_windshield_wipers" msgid="7971852482734087493">"Scheibenwischer des Autos steuern"</string>
+    <string name="car_permission_desc_control_windshield_wipers" msgid="3803429825323199728">"Scheibenwischer des Autos steuern."</string>
+    <string name="car_permission_label_manage_remote_device" msgid="1144368625081074994">"Den Status von anderen Insassenbereichen im Auto und von ähnlichen Apps – d. h. Apps, die denselben Paketnamen wie der Aufrufer haben –, die in diesen Bereichen installiert sind, überwachen und die Energieeinstellungen dieser Bereiche verwalten."</string>
+    <string name="car_permission_desc_manage_remote_device" msgid="4802785901453919948">"Den Status von anderen Insassenbereichen im Auto und von ähnlichen Apps – d. h. Apps, die denselben Paketnamen wie der Aufrufer haben –, die in diesen Bereichen installiert sind, überwachen und die Energieeinstellungen dieser Bereiche verwalten."</string>
+    <string name="car_permission_label_manage_occupant_connection" msgid="6007579379849984187">"Verbindung mit ähnlichen Apps – d. h. Apps, die denselben Paketnamen wie der Aufrufer haben –, die in anderen Insassenbereichen im Auto installiert sind, herstellen und mit diesen kommunizieren"</string>
+    <string name="car_permission_desc_manage_occupant_connection" msgid="6525045077082552965">"Verbindung mit ähnlichen Apps – d. h. Apps, die denselben Paketnamen wie der Aufrufer haben –, die in anderen Insassenbereichen im Auto installiert sind, herstellen und mit diesen kommunizieren."</string>
+    <string name="car_permission_label_access_mirrored_surface" msgid="6235459468766618021">"Bildschirm anderer Apps spiegeln"</string>
+    <string name="car_permission_desc_access_mirrored_surface" msgid="7701151689600074639">"Bildschirm anderer Apps spiegeln."</string>
+    <string name="car_permission_label_mirror_display" msgid="7591958768912962529">"Bildschirm anderer Nutzer spiegeln"</string>
+    <string name="car_permission_desc_mirror_display" msgid="2403249980834394896">"Bildschirm anderer Nutzer spiegeln."</string>
+    <string name="car_permission_label_register_car_system_ui_proxy" msgid="4211405049007842422">"Gib einen System-UI-Proxy an, der von anderen Apps verwendet werden kann, um die System-UI zu verwalten und Ansichten zu Aufgaben zu erstellen."</string>
+    <string name="car_permission_desc_register_car_system_ui_proxy" msgid="8863676956785764681">"Gib einen System-UI-Proxy an, der von anderen Apps verwendet werden kann, um die System-UI zu verwalten und Ansichten zu Aufgaben zu erstellen."</string>
+    <string name="car_permission_label_manage_car_system_ui" msgid="1361615518679353414">"Mit der System-UI des Autos kommunizieren, um Ansichten zu Aufgaben zu erstellen oder über Änderungen an der System-UI benachrichtigt zu werden."</string>
+    <string name="car_permission_desc_manage_car_system_ui" msgid="6201733970421818637">"Mit der System-UI des Autos kommunizieren, um Ansichten zu Aufgaben zu erstellen oder über Änderungen an der System-UI benachrichtigt zu werden."</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN-Bus ausgefallen"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN-Bus reagiert nicht. Trenne die Haupteinheit vom Stromnetz, schließe sie wieder an und starte das Auto."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Mein Gerät"</string>

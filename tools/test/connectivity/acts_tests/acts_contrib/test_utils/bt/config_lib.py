@@ -22,14 +22,13 @@ from acts_contrib.test_utils.bt.bt_gatt_utils import setup_gatt_connection
 from acts_contrib.test_utils.bt.bt_gatt_utils import setup_gatt_mtu
 from acts_contrib.test_utils.bt.bt_gatt_utils import log_gatt_server_uuids
 
-import time
 import os
 
 
 class ConfigLib():
     bluetooth_config_path = "/system/etc/bluetooth/bt_stack.conf"
-    conf_path = "{}/configs".format(
-        os.path.dirname(os.path.realpath(__file__)))
+    conf_path = "{}/configs".format(os.path.dirname(
+        os.path.realpath(__file__)))
     reset_config_path = "{}/bt_stack.conf".format(conf_path)
     non_bond_config_path = "{}/non_bond_bt_stack.conf".format(conf_path)
     disable_mitm_config_path = "{}/dis_mitm_bt_stack.conf".format(conf_path)

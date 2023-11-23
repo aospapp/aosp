@@ -30,7 +30,6 @@ import android.nearby.PresenceScanFilter;
 import android.nearby.PublicCredential;
 import android.nearby.ScanRequest;
 import android.os.Build;
-import android.os.WorkSource;
 
 import androidx.annotation.RequiresApi;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -43,12 +42,10 @@ import org.junit.runner.RunWith;
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 public class ScanRequestTest {
 
-    private static final int UID = 1001;
-    private static final String APP_NAME = "android.nearby.tests";
     private static final int RSSI = -40;
 
     @Test
-    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    @SdkSuppress(minSdkVersion = 33, codeName = "T")
     public void testScanType() {
         ScanRequest request = new ScanRequest.Builder()
                 .setScanType(SCAN_TYPE_NEARBY_PRESENCE)
@@ -59,13 +56,13 @@ public class ScanRequestTest {
 
     // Valid scan type must be set to one of ScanRequest#SCAN_TYPE_
     @Test(expected = IllegalStateException.class)
-    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    @SdkSuppress(minSdkVersion = 33, codeName = "T")
     public void testScanType_notSet_throwsException() {
         new ScanRequest.Builder().setScanMode(SCAN_MODE_BALANCED).build();
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    @SdkSuppress(minSdkVersion = 33, codeName = "T")
     public void testScanMode_defaultLowPower() {
         ScanRequest request = new ScanRequest.Builder()
                 .setScanType(SCAN_TYPE_FAST_PAIR)
@@ -76,7 +73,7 @@ public class ScanRequestTest {
 
     /** Verify setting work source with null value in the scan request is allowed */
     @Test
-    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    @SdkSuppress(minSdkVersion = 33, codeName = "T")
     public void testSetWorkSource_nullValue() {
         ScanRequest request = new ScanRequest.Builder()
                 .setScanType(SCAN_TYPE_FAST_PAIR)
@@ -87,39 +84,9 @@ public class ScanRequestTest {
         assertThat(request.getWorkSource().isEmpty()).isTrue();
     }
 
-    /** Verify toString returns expected string. */
     @Test
-    @SdkSuppress(minSdkVersion = 32, codeName = "T")
-    public void testToString() {
-        WorkSource workSource = getWorkSource();
-        ScanRequest request = new ScanRequest.Builder()
-                .setScanType(SCAN_TYPE_FAST_PAIR)
-                .setScanMode(SCAN_MODE_BALANCED)
-                .setBleEnabled(true)
-                .setWorkSource(workSource)
-                .build();
-
-        assertThat(request.toString()).isEqualTo(
-                "Request[scanType=1, scanMode=SCAN_MODE_BALANCED, "
-                        + "enableBle=true, workSource=WorkSource{" + UID + " " + APP_NAME
-                        + "}, scanFilters=[]]");
-    }
-
-    /** Verify toString works correctly with null WorkSource. */
-    @Test
-    @SdkSuppress(minSdkVersion = 32, codeName = "T")
-    public void testToString_nullWorkSource() {
-        ScanRequest request = new ScanRequest.Builder().setScanType(
-                SCAN_TYPE_FAST_PAIR).setWorkSource(null).build();
-
-        assertThat(request.toString()).isEqualTo("Request[scanType=1, "
-                + "scanMode=SCAN_MODE_LOW_POWER, enableBle=true, workSource=WorkSource{}, "
-                + "scanFilters=[]]");
-    }
-
-    @Test
-    @SdkSuppress(minSdkVersion = 32, codeName = "T")
-    public void testisEnableBle_defaultTrue() {
+    @SdkSuppress(minSdkVersion = 33, codeName = "T")
+    public void testIsEnableBle_defaultTrue() {
         ScanRequest request = new ScanRequest.Builder()
                 .setScanType(SCAN_TYPE_FAST_PAIR)
                 .build();
@@ -128,7 +95,28 @@ public class ScanRequestTest {
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public void testIsOffloadOnly_defaultFalse() {
+        ScanRequest request = new ScanRequest.Builder()
+                .setScanType(SCAN_TYPE_FAST_PAIR)
+                .build();
+
+        assertThat(request.isOffloadOnly()).isFalse();
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public void testSetOffloadOnly_isOffloadOnlyTrue() {
+        ScanRequest request = new ScanRequest.Builder()
+                .setScanType(SCAN_TYPE_NEARBY_PRESENCE)
+                .setOffloadOnly(true)
+                .build();
+
+        assertThat(request.isOffloadOnly()).isTrue();
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 33, codeName = "T")
     public void test_isValidScanType() {
         assertThat(ScanRequest.isValidScanType(SCAN_TYPE_FAST_PAIR)).isTrue();
         assertThat(ScanRequest.isValidScanType(SCAN_TYPE_NEARBY_PRESENCE)).isTrue();
@@ -138,7 +126,7 @@ public class ScanRequestTest {
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    @SdkSuppress(minSdkVersion = 33, codeName = "T")
     public void test_isValidScanMode() {
         assertThat(ScanRequest.isValidScanMode(SCAN_MODE_LOW_LATENCY)).isTrue();
         assertThat(ScanRequest.isValidScanMode(SCAN_MODE_BALANCED)).isTrue();
@@ -150,7 +138,7 @@ public class ScanRequestTest {
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    @SdkSuppress(minSdkVersion = 33, codeName = "T")
     public void test_scanModeToString() {
         assertThat(ScanRequest.scanModeToString(2)).isEqualTo("SCAN_MODE_LOW_LATENCY");
         assertThat(ScanRequest.scanModeToString(1)).isEqualTo("SCAN_MODE_BALANCED");
@@ -162,13 +150,30 @@ public class ScanRequestTest {
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    @SdkSuppress(minSdkVersion = 33, codeName = "T")
     public void testScanFilter() {
         ScanRequest request = new ScanRequest.Builder().setScanType(
                 SCAN_TYPE_NEARBY_PRESENCE).addScanFilter(getPresenceScanFilter()).build();
 
         assertThat(request.getScanFilters()).isNotEmpty();
         assertThat(request.getScanFilters().get(0).getMaxPathLoss()).isEqualTo(RSSI);
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 33, codeName = "T")
+    public void describeContents() {
+        ScanRequest request = new ScanRequest.Builder()
+                .setScanType(SCAN_TYPE_FAST_PAIR)
+                .build();
+        assertThat(request.describeContents()).isEqualTo(0);
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 33, codeName = "T")
+    public void testCreatorNewArray() {
+        ScanRequest[] requests =
+                ScanRequest.CREATOR.newArray(2);
+        assertThat(requests.length).isEqualTo(2);
     }
 
     private static PresenceScanFilter getPresenceScanFilter() {
@@ -189,9 +194,5 @@ public class ScanRequestTest {
                 .setMaxPathLoss(RSSI)
                 .addPresenceAction(action)
                 .build();
-    }
-
-    private static WorkSource getWorkSource() {
-        return new WorkSource(UID, APP_NAME);
     }
 }

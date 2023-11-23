@@ -1,0 +1,6 @@
+type edgetpu_nnapi_service, app_api_service, service_manager_type, isolated_compute_allowed_service;
+type edgetpu_vendor_service, service_manager_type, hal_service_type;
+type edgetpu_dba_service, app_api_service, service_manager_type, isolated_compute_allowed_service;
+
+# EdgeTPU binder service type declaration.
+type edgetpu_app_service, service_manager_type;

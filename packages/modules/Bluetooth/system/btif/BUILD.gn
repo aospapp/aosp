@@ -33,6 +33,9 @@ static_library("btif") {
     # HAL layer
     "src/bluetooth.cc",
 
+    # Initializing core library
+    "src/profile_log_levels.cc",
+
     # BTIF implementation
     "src/btif_a2dp.cc",
 
@@ -51,7 +54,6 @@ static_library("btif") {
     "src/btif_csis_client.cc",
     "src/btif_config.cc",
     "src/btif_config_cache.cc",
-    "src/btif_config_transcode.cc",
     "src/btif_core.cc",
     "src/btif_debug_conn.cc",
     "src/btif_dm.cc",
@@ -68,11 +70,13 @@ static_library("btif") {
     "src/btif_hf.cc",
     "src/btif_hf_client.cc",
     "src/btif_hh.cc",
+    "src/btif_iot_config.cc",
     "src/btif_keystore.cc",
     "src/btif_le_audio.cc",
     "src/btif_metrics_logging.cc",
     "src/btif_pan.cc",
     "src/btif_profile_queue.cc",
+    "src/btif_profile_storage.cc",
     "src/btif_rc.cc",
     "src/btif_sdp.cc",
     "src/btif_sdp_server.cc",
@@ -86,6 +90,7 @@ static_library("btif") {
     "src/btif_storage.cc",
     "src/btif_uid.cc",
     "src/btif_util.cc",
+    "src/profile_log_levels.cc",
     "src/stack_manager.cc",
   ]
 
@@ -108,7 +113,6 @@ static_library("btif") {
     "//bt/system/stack/include",
     "//bt/system/internal_include",
     "//bt/system/udrv/include",
-    "//bt/system/utils/include",
     "//bt/system/vnd/include",
     "//bt/system/profile/avrcp",
   ]

@@ -16,6 +16,8 @@
 
 package android.os.storage.cts;
 
+import android.content.Context;
+import android.content.pm.PackageManager;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
@@ -121,6 +123,23 @@ final class StorageManagerHelper {
             }
         }
         return null;
+    }
+
+    public static boolean isAdoptableStorageSupported(Context context) throws Exception {
+        return hasAdoptableStorageFeature(context) || hasAdoptableStorageFstab();
+    }
+
+    private static boolean hasAdoptableStorageFstab() throws Exception {
+        List<String> hasAdoptable = executeShellCommand("sm has-adoptable");
+        if (hasAdoptable.isEmpty()) {
+            return false;
+        }
+        return Boolean.parseBoolean(hasAdoptable.get(0).trim());
+    }
+
+    private static boolean hasAdoptableStorageFeature(Context context) throws Exception {
+        return context.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_ADOPTABLE_STORAGE);
     }
 
     private static List<String> executeShellCommand(String command) throws Exception {

@@ -55,11 +55,11 @@ import androidx.preference.TwoStatePreference;
 import com.android.car.ui.AlertDialogBuilder;
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.auto.AutoSettingsFrameFragment;
-import com.android.permissioncontroller.permission.ui.AdvancedConfirmDialogArgs;
 import com.android.permissioncontroller.permission.ui.GrantPermissionsViewHandler;
 import com.android.permissioncontroller.permission.ui.model.AppPermissionViewModel;
 import com.android.permissioncontroller.permission.ui.model.AppPermissionViewModel.ChangeRequest;
 import com.android.permissioncontroller.permission.ui.model.AppPermissionViewModelFactory;
+import com.android.permissioncontroller.permission.ui.v33.AdvancedConfirmDialogArgs;
 import com.android.permissioncontroller.permission.utils.KotlinUtils;
 import com.android.permissioncontroller.permission.utils.PackageRemovalMonitor;
 import com.android.settingslib.RestrictedLockUtils;
@@ -461,6 +461,9 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment
         AlertDialog.Builder b = new AlertDialog.Builder(getContext())
                 .setIcon(args.getIconId())
                 .setMessage(args.getMessageId())
+                .setOnCancelListener((DialogInterface dialog) -> {
+                    setRadioButtonsState(mViewModel.getButtonStateLiveData().getValue());
+                })
                 .setNegativeButton(args.getNegativeButtonTextId(),
                         (DialogInterface dialog, int which) -> {
                             setRadioButtonsState(mViewModel.getButtonStateLiveData().getValue());

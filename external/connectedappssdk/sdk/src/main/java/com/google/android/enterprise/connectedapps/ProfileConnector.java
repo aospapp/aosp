@@ -21,44 +21,31 @@ import com.google.android.enterprise.connectedapps.exceptions.UnavailableProfile
 /** A {@link ProfileConnector} is used to manage the connection between profiles. */
 public interface ProfileConnector {
   /**
-   * Start trying to connect to the other profile and start manually managing the connection.
+   * Execute {@link #connect(Object)} with a new connection holder.
    *
-   * <p>This will mean that the connection will not be dropped automatically to save resources.
-   *
-   * <p>Must be called before interacting with synchronous cross-profile methods.
-   *
-   * <p>If the connection can not be made, then no errors will be thrown and connections will
-   * re-attempted indefinitely.
-   *
-   * @see #connect()
-   * @see #stopManualConnectionManagement()
+   * <p>You must use {@link #removeConnectionHolder(Object)} with the returned {@link
+   * ProfileConnectionHolder} or call {@link ProfileConnectionHolder#close()} when you are finished
+   * with the connection.
    */
-  void startConnecting();
+  ProfileConnectionHolder connect() throws UnavailableProfileException;
 
   /**
-   * Attempt to connect to the other profile and start manually managing the connection.
+   * Attempt to connect to the other profile and add a connection holder.
    *
    * <p>This will mean that the connection will not be dropped automatically to save resources.
-   *
-   * <p>Must be called before interacting with synchronous cross-profile methods.
    *
    * <p>This must not be called from the main thread.
    *
-   * @see #startConnecting()
-   * @see #stopManualConnectionManagement()
+   * <p>You must remove the connection holder once you have finished with it. See {@link
+   * #removeConnectionHolder(Object)}.
+   *
+   * <p>Returns a {@link ProfileConnectionHolder} which can be used to automatically remove this
+   * connection holder using try-with-resources. Either the {@link ProfileConnectionHolder} or the
+   * passed in {@code connectionHolder} can be used with {@link #removeConnectionHolder(Object)}.
+   *
    * @throws UnavailableProfileException If the connection cannot be made.
    */
-  void connect() throws UnavailableProfileException;
-
-  /**
-   * Stop manual connection management.
-   *
-   * <p>This can be called after {@link #startConnecting()} to return connection management
-   * responsibilities to the SDK.
-   *
-   * <p>You should not make any synchronous cross-profile calls after calling this method.
-   */
-  void stopManualConnectionManagement();
+  ProfileConnectionHolder connect(Object connectionHolder) throws UnavailableProfileException;
 
   /**
    * Return the {@link CrossProfileSender} being used for this connection.
@@ -68,34 +55,28 @@ public interface ProfileConnector {
   CrossProfileSender crossProfileSender();
 
   /**
-   * Register a listener to be called when a profile is connected or disconnected.
+   * Add a listener to be called when a profile is connected or disconnected.
    *
    * <p>{@link #isConnected()} can be called to check if a connection is established.
    *
-   * @see #unregisterConnectionListener(ConnectionListener)
+   * @see #removeConnectionListener(ConnectionListener)
    */
-  void registerConnectionListener(ConnectionListener listener);
+  void addConnectionListener(ConnectionListener listener);
+
+  /** Remove a listener added using {@link #addConnectionListener(ConnectionListener)}. */
+  void removeConnectionListener(ConnectionListener listener);
 
   /**
-   * Unregister a listener registered using {@link #registerConnectionListener(
-   * ConnectionListener)}.
-   */
-  void unregisterConnectionListener(ConnectionListener listener);
-
-  /**
-   * Register a listener to be called when a profile becomes available or unavailable.
+   * Add a listener to be called when a profile becomes available or unavailable.
    *
    * <p>{@link #isAvailable()} can be called to check if a profile is available.
    *
-   * @see #unregisterAvailabilityListener(AvailabilityListener)
+   * @see #removeAvailabilityListener(AvailabilityListener)
    */
-  void registerAvailabilityListener(AvailabilityListener listener);
+  void addAvailabilityListener(AvailabilityListener listener);
 
-  /**
-   * Unregister a listener registered using {@link #registerAvailabilityListener(
-   * AvailabilityListener)}.
-   */
-  void unregisterAvailabilityListener(AvailabilityListener listener);
+  /** Remove a listener registered using {@link #addAvailabilityListener( AvailabilityListener)}. */
+  void removeAvailabilityListener(AvailabilityListener listener);
 
   /**
    * Return true if there is another profile which could be connected to.
@@ -122,10 +103,36 @@ public interface ProfileConnector {
   Context applicationContext();
 
   /**
-   * Returns true if this connection is being managed manually.
+   * Register an object as holding the connection open.
    *
-   * <p>Use {@link #startConnecting()} to begin manual connection management, and {@link
-   * #stopManualConnectionManagement()} to end it.
+   * <p>While there is at least one connection holder, the connected apps SDK will attempt to stay
+   * connected.
+   *
+   * <p>You must remove the connection holder once you have finished with it. See {@link
+   * #removeConnectionHolder(Object)}.
+   *
+   * <p>Returns a {@link ProfileConnectionHolder} which can be used to automatically remove this
+   * connection holder using try-with-resources. Either the {@link ProfileConnectionHolder} or the
+   * passed in {@code connectionHolder} can be used with {@link #removeConnectionHolder(Object)}.
    */
-  boolean isManuallyManagingConnection();
+  ProfileConnectionHolder addConnectionHolder(Object connectionHolder);
+
+  /**
+   * Registers a connection holder alias.
+   *
+   * <p>This means that if the key is removed, then the value will also be removed. If the value is
+   * removed, the key will not be removed.
+   */
+  void addConnectionHolderAlias(Object key, Object value);
+
+  /**
+   * Remove a connection holder.
+   *
+   * <p>Once there are no remaining connection holders, the connection will be able to be closed.
+   *
+   * <p>See {@link #addConnectionHolder(Object)}.
+   */
+  void removeConnectionHolder(Object connectionHolder);
+
+  void clearConnectionHolders();
 }

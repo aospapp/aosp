@@ -19,6 +19,8 @@ package com.android.internal.net.ipsec.ike.utils;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
+import android.os.Bundle;
 import android.os.Message;
 import android.os.Process;
 import android.os.SystemClock;
@@ -70,6 +72,29 @@ public abstract class IkeAlarm {
         } else {
             return new IkeAlarmWithPendingIntent(alarmConfig);
         }
+    }
+
+    /**
+     * Build an alarm intent for an action, an intent ID and a message to send to the state machine.
+     *
+     * @param context The context for the target package.
+     * @param intentAction The action to use in the alarm intent.
+     * @param intentId The identifier to use in the intent, see {@link Intent#setIdentifier(String)}
+     * @param ikeSmMsg The message that should be sent to the state machine when the alarm fires
+     * @return A constructed PendingIntent for the passed arguments.
+     */
+    public static PendingIntent buildIkeAlarmIntent(
+            Context context, String intentAction, String intentId, Message ikeSmMsg) {
+        Intent intent = new Intent(intentAction);
+        intent.setIdentifier(intentId);
+        intent.setPackage(context.getPackageName());
+
+        Bundle bundle = new Bundle();
+        bundle.putParcelable(IkeAlarmReceiver.PARCELABLE_NAME_IKE_SESSION_MSG, ikeSmMsg);
+        intent.putExtras(bundle);
+
+        return PendingIntent.getBroadcast(
+                context, 0 /* requestCode; unused */, intent, PendingIntent.FLAG_IMMUTABLE);
     }
 
     /** Cancel the alarm */
@@ -172,6 +197,11 @@ public abstract class IkeAlarm {
             this.delayMs = delayMs;
             this.message = message;
             this.pendingIntent = pendingIntent;
+        }
+
+        /** Create a copy with a different delay */
+        public IkeAlarmConfig buildCopyWithDelayMs(long updatedDelayMs) {
+            return new IkeAlarmConfig(context, tag, updatedDelayMs, pendingIntent, message);
         }
     }
 }

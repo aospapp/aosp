@@ -2,16 +2,14 @@
 # source tree. Do not edit by hand.
 
 #if defined(__i386__)
-#if defined(BORINGSSL_PREFIX)
-#include <boringssl_prefix_symbols_asm.h>
-#endif
+#include "ring_core_generated/prefix_symbols_asm.h"
 .text
-.globl	GFp_aes_hw_encrypt
-.hidden	GFp_aes_hw_encrypt
-.type	GFp_aes_hw_encrypt,@function
+.globl	aes_hw_encrypt
+.hidden	aes_hw_encrypt
+.type	aes_hw_encrypt,@function
 .align	16
-GFp_aes_hw_encrypt:
-.L_GFp_aes_hw_encrypt_begin:
+aes_hw_encrypt:
+.L_aes_hw_encrypt_begin:
 	movl	4(%esp),%eax
 	movl	12(%esp),%edx
 	movups	(%eax),%xmm2
@@ -33,7 +31,7 @@ GFp_aes_hw_encrypt:
 	movups	%xmm2,(%eax)
 	pxor	%xmm2,%xmm2
 	ret
-.size	GFp_aes_hw_encrypt,.-.L_GFp_aes_hw_encrypt_begin
+.size	aes_hw_encrypt,.-.L_aes_hw_encrypt_begin
 .hidden	_aesni_encrypt2
 .type	_aesni_encrypt2,@function
 .align	16
@@ -189,12 +187,12 @@ _aesni_encrypt6:
 .byte	102,15,56,221,248
 	ret
 .size	_aesni_encrypt6,.-_aesni_encrypt6
-.globl	GFp_aes_hw_ctr32_encrypt_blocks
-.hidden	GFp_aes_hw_ctr32_encrypt_blocks
-.type	GFp_aes_hw_ctr32_encrypt_blocks,@function
+.globl	aes_hw_ctr32_encrypt_blocks
+.hidden	aes_hw_ctr32_encrypt_blocks
+.type	aes_hw_ctr32_encrypt_blocks,@function
 .align	16
-GFp_aes_hw_ctr32_encrypt_blocks:
-.L_GFp_aes_hw_ctr32_encrypt_blocks_begin:
+aes_hw_ctr32_encrypt_blocks:
+.L_aes_hw_ctr32_encrypt_blocks_begin:
 	pushl	%ebp
 	pushl	%ebx
 	pushl	%esi
@@ -427,7 +425,7 @@ GFp_aes_hw_ctr32_encrypt_blocks:
 	popl	%ebx
 	popl	%ebp
 	ret
-.size	GFp_aes_hw_ctr32_encrypt_blocks,.-.L_GFp_aes_hw_ctr32_encrypt_blocks_begin
+.size	aes_hw_ctr32_encrypt_blocks,.-.L_aes_hw_ctr32_encrypt_blocks_begin
 .hidden	_aesni_set_encrypt_key
 .type	_aesni_set_encrypt_key,@function
 .align	16
@@ -442,7 +440,7 @@ _aesni_set_encrypt_key:
 .L016pic:
 	popl	%ebx
 	leal	.Lkey_const-.L016pic(%ebx),%ebx
-	leal	GFp_ia32cap_P-.Lkey_const(%ebx),%ebp
+	leal	OPENSSL_ia32cap_P-.Lkey_const(%ebx),%ebp
 	movups	(%eax),%xmm0
 	xorps	%xmm4,%xmm4
 	movl	4(%ebp),%ebp
@@ -673,18 +671,18 @@ _aesni_set_encrypt_key:
 	popl	%ebp
 	ret
 .size	_aesni_set_encrypt_key,.-_aesni_set_encrypt_key
-.globl	GFp_aes_hw_set_encrypt_key
-.hidden	GFp_aes_hw_set_encrypt_key
-.type	GFp_aes_hw_set_encrypt_key,@function
+.globl	aes_hw_set_encrypt_key
+.hidden	aes_hw_set_encrypt_key
+.type	aes_hw_set_encrypt_key,@function
 .align	16
-GFp_aes_hw_set_encrypt_key:
-.L_GFp_aes_hw_set_encrypt_key_begin:
+aes_hw_set_encrypt_key:
+.L_aes_hw_set_encrypt_key_begin:
 	movl	4(%esp),%eax
 	movl	8(%esp),%ecx
 	movl	12(%esp),%edx
 	call	_aesni_set_encrypt_key
 	ret
-.size	GFp_aes_hw_set_encrypt_key,.-.L_GFp_aes_hw_set_encrypt_key_begin
+.size	aes_hw_set_encrypt_key,.-.L_aes_hw_set_encrypt_key_begin
 .align	64
 .Lkey_const:
 .long	202313229,202313229,202313229,202313229

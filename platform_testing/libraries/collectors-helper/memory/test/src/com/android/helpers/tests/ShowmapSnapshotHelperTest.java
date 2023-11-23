@@ -17,26 +17,34 @@
 package com.android.helpers.tests;
 
 import static com.android.helpers.MetricUtility.constructKey;
-import static org.junit.Assert.fail;
+
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.matches;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import androidx.test.runner.AndroidJUnit4;
+
 import com.android.helpers.ShowmapSnapshotHelper;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.MockitoAnnotations;
+import org.mockito.Spy;
 
+import java.io.IOException;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Android Unit tests for {@link ShowmapSnapshotHelper}.
  *
- * To run:
- * atest CollectorsHelperTest:com.android.helpers.tests.ShowmapSnapshotHelperTest
+ * <p>To run: atest CollectorsHelperAospTest:ShowmapSnapshotHelperTest
  */
 @RunWith(AndroidJUnit4.class)
 public class ShowmapSnapshotHelperTest {
@@ -67,11 +75,12 @@ public class ShowmapSnapshotHelperTest {
             null
     };
 
-    private ShowmapSnapshotHelper mShowmapSnapshotHelper;
+    private @Spy ShowmapSnapshotHelper mShowmapSnapshotHelper;
 
     @Before
     public void setUp() {
         mShowmapSnapshotHelper = new ShowmapSnapshotHelper();
+        MockitoAnnotations.initMocks(this);
     }
 
     /**
@@ -279,5 +288,36 @@ public class ShowmapSnapshotHelperTest {
                             ShowmapSnapshotHelper.OUTPUT_METRIC_PATTERN, "pss"), processName)));
         }
         assertTrue(metrics.containsKey(ShowmapSnapshotHelper.OUTPUT_FILE_PATH_KEY));
+    }
+
+    /** Test count threads. */
+    @Test
+    public void testCountThreads() throws IOException {
+        String countThreadsSampleOutput =
+                "threads_count_com.google.android.inputmethod.latin : 41\n"
+                        + "threads_count_com.google.android.ims : 35\n"
+                        + "threads_count_ : 1\n"
+                        + "threads_count_com.google.android.connectivitymonitor : 21\n";
+        doReturn(countThreadsSampleOutput)
+                .when(mShowmapSnapshotHelper)
+                .executeShellCommand(matches(mShowmapSnapshotHelper.THREADS_CMD));
+        mShowmapSnapshotHelper.setCountThreadsOption(true);
+        Map<String, String> metrics = mShowmapSnapshotHelper.getMetrics();
+        assertFalse(metrics.isEmpty());
+        assertTrue(metrics.size() == 3);
+        metrics.forEach(
+                (key, value) -> {
+                    assertTrue(key.contains("threads_count_"));
+                });
+    }
+
+    /** Test count threads. */
+    @Test
+    public void testNoCountThreads() throws IOException {
+        mShowmapSnapshotHelper.setCountThreadsOption(false);
+        Map<String, String> metrics = mShowmapSnapshotHelper.getMetrics();
+        assertTrue(metrics.isEmpty());
+        verify(mShowmapSnapshotHelper, never())
+                .executeShellCommand(matches(mShowmapSnapshotHelper.THREADS_CMD));
     }
 }

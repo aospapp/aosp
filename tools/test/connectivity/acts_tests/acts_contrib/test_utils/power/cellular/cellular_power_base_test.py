@@ -13,11 +13,13 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+import json
 import os
 
 import acts_contrib.test_utils.power.PowerBaseTest as PBT
 import acts_contrib.test_utils.cellular.cellular_base_test as CBT
 from acts_contrib.test_utils.power import plot_utils
+from acts import context
 
 
 class PowerCellularLabBaseTest(CBT.CellularBaseTest, PBT.PowerBaseTest):
@@ -39,6 +41,21 @@ class PowerCellularLabBaseTest(CBT.CellularBaseTest, PBT.PowerBaseTest):
         """ Turn screen on before starting a test. """
 
         super().setup_test()
+        try:
+            # Save a json file for device info
+            path = os.path.join(self.log_path, 'device_info.json')
+
+            self.log.info('save the device info to {}'.format(path))
+            baseband = self.dut.adb.getprop('gsm.version.baseband')
+            self.dut.add_device_info('baseband', baseband)
+            with open(path, 'w') as f:
+                json.dump(
+                    self.dut.device_info,
+                    f,
+                    indent=2,
+                    sort_keys=True)
+        except Exception as e:
+            self.log.error('error in saving device_info: {}'.format(e))
 
         # Make the device go to sleep
         self.dut.droid.goToSleepNow()
@@ -98,8 +115,12 @@ class PowerCellularLabBaseTest(CBT.CellularBaseTest, PBT.PowerBaseTest):
 
         path = os.path.join(self.log_path, self.RESULTS_SUMMARY_FILENAME)
 
-        with open(path, 'w') as csvfile:
-            csvfile.write('test,avg_power')
+        # To avoid the test overwrite each other, open file with 'a' option
+        csvfile_exist = os.path.exists(path)
+
+        with open(path, 'a') as csvfile:
+            if not csvfile_exist:
+                csvfile.write('test,avg_power')
             for test_name, value in self.power_results.items():
                 csvfile.write('\n{},{}'.format(test_name, value))
 

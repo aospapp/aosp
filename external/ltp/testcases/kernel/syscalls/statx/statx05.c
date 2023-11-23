@@ -4,11 +4,11 @@
  * Email: code@zilogic.com
  */
 
-/*
- * Test statx
+/*\
+ * [Description]
  *
- * 1) STATX_ATTR_ENCRYPTED - A key is required for the file to be encrypted by
- *                          the filesystem.
+ * Test statx syscall with STATX_ATTR_ENCRYPTED flag, setting a key is required
+ * for the file to be encrypted by the filesystem.
  *
  * e4crypt is used to set the encrypt flag (currently supported only by ext4).
  *
@@ -16,7 +16,6 @@
  * First directory has all flags set.
  * Second directory has no flags set.
  *
- * Minimum kernel version required is 4.11.
  * Minimum e2fsprogs version required is 1.43.
  */
 
@@ -25,7 +24,6 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include "tst_safe_stdio.h"
 #include "tst_test.h"
 #include "lapi/fs.h"
 #include "lapi/stat.h"
@@ -74,7 +72,7 @@ static void test_unflagged(void)
 		tst_res(TFAIL, "STATX_ATTR_ENCRYPTED flag is set");
 }
 
-struct test_cases {
+static struct test_cases {
 	void (*tfunc)(void);
 } tcases[] = {
 	{&test_flagged},
@@ -88,18 +86,9 @@ static void run(unsigned int i)
 
 static void setup(void)
 {
-	FILE *f;
 	char opt_bsize[32];
 	const char *const fs_opts[] = {"-O encrypt", opt_bsize, NULL};
-	int ret, rc, major, minor, patch;
-
-	f = SAFE_POPEN("mkfs.ext4 -V 2>&1", "r");
-	rc = fscanf(f, "mke2fs %d.%d.%d", &major, &minor, &patch);
-	if (rc != 3)
-		tst_res(TWARN, "Unable parse version number");
-	else if (major * 10000 + minor * 100 + patch < 14300)
-		tst_brk(TCONF, "Test needs mkfs.ext4 >= 1.43 for encrypt option, test skipped");
-	pclose(f);
+	int ret;
 
 	snprintf(opt_bsize, sizeof(opt_bsize), "-b %i", getpagesize());
 
@@ -112,10 +101,7 @@ static void setup(void)
 
 	ret = tst_system("echo qwery | e4crypt add_key "TESTDIR_FLAGGED);
 
-	if (WEXITSTATUS(ret) == 127)
-		tst_brk(TCONF, "e4crypt not installed!");
-
-	if (WEXITSTATUS(ret))
+	if (ret)
 		tst_brk(TCONF, "e4crypt failed (CONFIG_EXT4_ENCRYPTION not set?)");
 }
 
@@ -136,7 +122,8 @@ static struct tst_test test = {
 	.mntpoint = MNTPOINT,
 	.dev_fs_type = "ext4",
 	.needs_cmds = (const char *[]) {
-		"mkfs.ext4",
+		"mkfs.ext4 >= 1.43.0",
+		"e4crypt",
 		NULL
 	}
 };

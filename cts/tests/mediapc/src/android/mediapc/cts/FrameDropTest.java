@@ -18,15 +18,19 @@ package android.mediapc.cts;
 
 import android.mediapc.cts.common.PerformanceClassEvaluator;
 import android.mediapc.cts.common.Utils;
+
 import androidx.test.filters.LargeTest;
+
 import com.android.compatibility.common.util.CddTest;
-import java.util.Collection;
+
 import org.junit.Assume;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+
+import java.util.Collection;
 
 /**
  * The following test class validates the frame drops of a playback for the hardware decoders
@@ -46,15 +50,12 @@ public class FrameDropTest extends FrameDropTestBase {
     // Returns the list of parameters with mimeTypes and their hardware decoders
     // combining with sync and async modes.
     // Parameters {0}_{1}_{2} -- Mime_DecoderName_isAsync
-    @Parameterized.Parameters(name = "{index}({0}_{1}_{2})")
+    @Parameterized.Parameters(name = "{index}_{0}_{1}_{2}")
     public static Collection<Object[]> inputParams() {
         return prepareArgumentsList(null);
     }
 
-    private int testDecodeToSurface(int frameRate) throws Exception {
-        String[] testFiles = frameRate == 30 ?
-                new String[]{m1080p30FpsTestFiles.get(mMime)} :
-                new String[]{m1080p60FpsTestFiles.get(mMime)};
+    private int testDecodeToSurface(int frameRate, String[] testFiles) throws Exception {
         PlaybackFrameDrop playbackFrameDrop = new PlaybackFrameDrop(mMime, mDecoderName, testFiles,
                 mSurface, frameRate, mIsAsync);
         return playbackFrameDrop.getFrameDropCount();
@@ -77,9 +78,12 @@ public class FrameDropTest extends FrameDropTestBase {
         PerformanceClassEvaluator pce = new PerformanceClassEvaluator(this.mTestName);
         PerformanceClassEvaluator.FrameDropRequirement r5_3__H_1_1_R = pce.addR5_3__H_1_1_R();
 
-        int framesDropped = testDecodeToSurface(frameRate);
+        String[] testFiles = new String[]{m1080p30FpsTestFiles.get(mMime)};
+        int framesDropped = testDecodeToSurface(frameRate, testFiles);
+
         r5_3__H_1_1_R.setFramesDropped(framesDropped);
         r5_3__H_1_1_R.setFrameRate(frameRate);
+        r5_3__H_1_1_R.setTestResolution(1080);
         pce.submitAndCheck();
     }
 
@@ -100,9 +104,38 @@ public class FrameDropTest extends FrameDropTestBase {
         PerformanceClassEvaluator pce = new PerformanceClassEvaluator(this.mTestName);
         PerformanceClassEvaluator.FrameDropRequirement r5_3__H_1_1_ST = pce.addR5_3__H_1_1_ST();
 
-        int framesDropped = testDecodeToSurface(frameRate);
+        String[] testFiles = new String[]{m1080p60FpsTestFiles.get(mMime)};
+        int framesDropped = testDecodeToSurface(frameRate, testFiles);
+
         r5_3__H_1_1_ST.setFramesDropped(framesDropped);
         r5_3__H_1_1_ST.setFrameRate(frameRate);
+        r5_3__H_1_1_ST.setTestResolution(1080);
+        pce.submitAndCheck();
+    }
+
+    /**
+     * This test validates that the playback of 3840x2160 resolution asset of 3 seconds duration
+     * at 60 fps for U perf class, for at least 30 seconds worth of frames or for 31 seconds of
+     * elapsed time. must not drop more than 3 frames for U perf class.
+     */
+    @LargeTest
+    @Test(timeout = CodecTestBase.PER_TEST_TIMEOUT_LARGE_TEST_MS)
+    @CddTest(requirement="2.2.7.1/5.3/H-1-1")
+    public void test4k() throws Exception {
+        Assume.assumeTrue("Test is limited to U performance class devices or devices that do not " +
+                        "advertise performance class",
+                Utils.isUPerfClass() || !Utils.isPerfClass());
+        int frameRate = 60;
+
+        PerformanceClassEvaluator pce = new PerformanceClassEvaluator(this.mTestName);
+        PerformanceClassEvaluator.FrameDropRequirement r5_3__H_1_1_U = pce.addR5_3__H_1_1_U();
+
+        String[] testFiles = new String[]{m2160p60FpsTestFiles.get(mMime)};
+        int framesDropped = testDecodeToSurface(frameRate, testFiles);
+
+        r5_3__H_1_1_U.setFramesDropped(framesDropped);
+        r5_3__H_1_1_U.setFrameRate(frameRate);
+        r5_3__H_1_1_U.setTestResolution(2160);
         pce.submitAndCheck();
     }
 }

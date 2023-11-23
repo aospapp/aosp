@@ -186,14 +186,16 @@ public class FrameRateOverrideTestActivity extends Activity {
                     mSurface != null, isResumed()),
                     timeRemainingMillis > 0);
             mLock.wait(timeRemainingMillis);
-            assertTrue("Activity was unexpectedly destroyed", !isDestroyed());
+            assertTrue(
+                    "Activity was unexpectedly destroyed", !isDestroyed());
             nowNanos = System.nanoTime();
         }
     }
 
     // Returns true if we encounter a precondition violation, false otherwise.
     private boolean waitForPreconditionViolation() throws InterruptedException {
-        assertTrue("Activity was unexpectedly destroyed", !isDestroyed());
+        assertTrue(
+                "Activity was unexpectedly destroyed", !isDestroyed());
         long nowNanos = System.nanoTime();
         long endTimeNanos = nowNanos + PRECONDITION_VIOLATION_WAIT_TIMEOUT_NANOSECONDS;
         while (mSurface != null && isResumed()) {
@@ -202,7 +204,8 @@ public class FrameRateOverrideTestActivity extends Activity {
                 break;
             }
             mLock.wait(timeRemainingMillis);
-            assertTrue("Activity was unexpectedly destroyed", !isDestroyed());
+            assertTrue(
+                    "Activity was unexpectedly destroyed", !isDestroyed());
             nowNanos = System.nanoTime();
         }
         return mSurface == null || !isResumed();
@@ -419,52 +422,18 @@ public class FrameRateOverrideTestActivity extends Activity {
         }
     }
 
-    interface FrameRateOverrideBehavior{
-        void testFrameRateOverrideBehavior(FrameRateObserver frameRateObserver,
+    interface TestScenario {
+        void test(FrameRateObserver frameRateObserver,
                 float initialRefreshRate) throws InterruptedException, IOException;
     }
 
-    class SurfaceFrameRateOverrideBehavior implements FrameRateOverrideBehavior {
-
-        @Override
-        public void testFrameRateOverrideBehavior(FrameRateObserver frameRateObserver,
-                float initialRefreshRate) throws InterruptedException {
-            Log.i(TAG, "Staring testFrameRateOverride");
-            float halfFrameRate = initialRefreshRate / 2;
-
-            waitForRefreshRateChange(initialRefreshRate);
-            frameRateObserver.observe(initialRefreshRate, initialRefreshRate, "Initial");
-
-            Log.i(TAG, String.format("Setting Frame Rate to %.2f with default compatibility",
-                    halfFrameRate));
-            mSurface.setFrameRate(halfFrameRate, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
-                    Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
-            waitForRefreshRateChange(halfFrameRate);
-            frameRateObserver.observe(initialRefreshRate, halfFrameRate, "setFrameRate(default)");
-
-            Log.i(TAG, String.format("Setting Frame Rate to %.2f with fixed source compatibility",
-                    halfFrameRate));
-            mSurface.setFrameRate(halfFrameRate, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
-                    Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
-            waitForRefreshRateChange(halfFrameRate);
-            frameRateObserver.observe(initialRefreshRate, halfFrameRate,
-                    "setFrameRate(fixed source)");
-
-            Log.i(TAG, "Resetting Frame Rate setting");
-            mSurface.setFrameRate(0, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
-                    Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
-            waitForRefreshRateChange(initialRefreshRate);
-            frameRateObserver.observe(initialRefreshRate, initialRefreshRate, "Reset");
-        }
-    }
-
-    class GameModeFrameRateOverrideBehavior implements FrameRateOverrideBehavior {
+    class GameModeTest implements TestScenario {
         private UiDevice mUiDevice;
-        GameModeFrameRateOverrideBehavior(UiDevice uiDevice) {
+        GameModeTest(UiDevice uiDevice) {
             mUiDevice = uiDevice;
         }
         @Override
-        public void testFrameRateOverrideBehavior(FrameRateObserver frameRateObserver,
+        public void test(FrameRateObserver frameRateObserver,
                 float initialRefreshRate) throws InterruptedException, IOException {
             Log.i(TAG, "Starting testGameModeFrameRateOverride");
 
@@ -490,18 +459,19 @@ public class FrameRateOverrideTestActivity extends Activity {
 
     // The activity being intermittently paused/resumed has been observed to
     // cause test failures in practice, so we run the test with retry logic.
-    public void testFrameRateOverride(FrameRateOverrideBehavior frameRateOverrideBehavior,
+    public void testFrameRateOverride(TestScenario frameRateOverrideBehavior,
             FrameRateObserver frameRateObserver, float initialRefreshRate)
             throws InterruptedException, IOException {
         synchronized (mLock) {
-            Log.i(TAG, "testFrameRateOverride started");
+            Log.i(TAG, "testFrameRateOverride started with initial refresh rate "
+                    + initialRefreshRate);
             int attempts = 0;
             boolean testPassed = false;
             try {
                 while (!testPassed) {
                     waitForPreconditions();
                     try {
-                        frameRateOverrideBehavior.testFrameRateOverrideBehavior(frameRateObserver,
+                        frameRateOverrideBehavior.test(frameRateObserver,
                                 initialRefreshRate);
                         testPassed = true;
                     } catch (PreconditionViolatedException exc) {
@@ -534,12 +504,10 @@ public class FrameRateOverrideTestActivity extends Activity {
                     }
                 }
             } finally {
-                String passFailMessage = String.format(
-                        "%s", testPassed ? "Passed" : "Failed");
                 if (testPassed) {
-                    Log.i(TAG, passFailMessage);
+                    Log.i(TAG, "**** PASS ****");
                 } else {
-                    Log.e(TAG, passFailMessage);
+                    Log.i(TAG, "**** FAIL ****");
                 }
             }
 

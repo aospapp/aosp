@@ -18,6 +18,7 @@ package android.voicerecognition.cts;
 
 import static android.voicerecognition.cts.CallbackMethod.CALLBACK_METHOD_END_SEGMENTED_SESSION;
 import static android.voicerecognition.cts.CallbackMethod.CALLBACK_METHOD_ERROR;
+import static android.voicerecognition.cts.CallbackMethod.CALLBACK_METHOD_LANGUAGE_DETECTION;
 import static android.voicerecognition.cts.CallbackMethod.CALLBACK_METHOD_RESULTS;
 import static android.voicerecognition.cts.CallbackMethod.CALLBACK_METHOD_SEGMENTS_RESULTS;
 import static android.voicerecognition.cts.CallbackMethod.CALLBACK_METHOD_UNSPECIFIED;
@@ -25,6 +26,7 @@ import static android.voicerecognition.cts.RecognizerMethod.RECOGNIZER_METHOD_CA
 import static android.voicerecognition.cts.RecognizerMethod.RECOGNIZER_METHOD_DESTROY;
 import static android.voicerecognition.cts.RecognizerMethod.RECOGNIZER_METHOD_START_LISTENING;
 import static android.voicerecognition.cts.RecognizerMethod.RECOGNIZER_METHOD_STOP_LISTENING;
+import static android.voicerecognition.cts.TestObjects.ERROR_CODE;
 import static android.voicerecognition.cts.TestObjects.START_LISTENING_INTENT;
 
 import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
@@ -35,17 +37,21 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import android.content.Intent;
+import android.os.Looper;
 import android.os.SystemClock;
+import android.speech.ModelDownloadListener;
+import android.speech.RecognitionService;
 import android.speech.RecognitionSupport;
 import android.speech.RecognitionSupportCallback;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
+import android.util.Pair;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.test.InstrumentationRegistry;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.PollingCheck;
@@ -55,18 +61,28 @@ import com.google.common.collect.ImmutableList;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
+import junitparams.naming.TestCaseName;
 
 /** Abstract implementation for {@link android.speech.SpeechRecognizer} CTS tests. */
+@RunWith(JUnitParamsRunner.class)
 abstract class AbstractRecognitionServiceTest {
     private static final String TAG = AbstractRecognitionServiceTest.class.getSimpleName();
 
     private static final long INDICATOR_DISMISS_TIMEOUT = 5000L;
     private static final long WAIT_TIMEOUT_MS = 30000L; // 30 secs
     private static final long SEQUENCE_TEST_WAIT_TIMEOUT_MS = 5000L;
+    private static final long ACTIVITY_INIT_WAIT_TIMEOUT_MS = 5000L;
 
     private static final String CTS_VOICE_RECOGNITION_SERVICE =
             "android.recognitionservice.service/android.recognitionservice.service"
@@ -75,12 +91,19 @@ abstract class AbstractRecognitionServiceTest {
     private static final String IN_PACKAGE_RECOGNITION_SERVICE =
             "android.voicerecognition.cts/android.voicerecognition.cts.CtsRecognitionService";
 
+    // Expected to create 1 more recognizer than what the concurrency limit is,
+    // so that SpeechRecognizer#ERROR_RECOGNIZER_BUSY scenarios can be tested, too.
+    private static final int EXPECTED_RECOGNIZER_COUNT =
+            CtsRecognitionService.MAX_CONCURRENT_SESSIONS_COUNT + 1;
+
     @Rule
     public ActivityTestRule<SpeechRecognitionActivity> mActivityTestRule =
             new ActivityTestRule<>(SpeechRecognitionActivity.class);
 
     private UiDevice mUiDevice;
     private SpeechRecognitionActivity mActivity;
+
+    private final Random mRandom = new Random();
 
     abstract void setCurrentRecognizer(SpeechRecognizer recognizer, String component);
 
@@ -94,23 +117,32 @@ abstract class AbstractRecognitionServiceTest {
         prepareDevice();
         mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         mActivity = mActivityTestRule.getActivity();
-        mActivity.init(isOnDeviceTest(), customRecognizer());
+        mActivity.init(isOnDeviceTest(), customRecognizer(), EXPECTED_RECOGNIZER_COUNT);
+
+        PollingCheck.waitFor(ACTIVITY_INIT_WAIT_TIMEOUT_MS,
+                () -> mActivity.getRecognizerCount() == EXPECTED_RECOGNIZER_COUNT);
+        assertWithMessage("Test activity initialization timed out.")
+                .that(mActivity.getRecognizerCount()).isEqualTo(EXPECTED_RECOGNIZER_COUNT);
     }
 
     @Test
     public void testStartListening() throws Throwable {
-        setCurrentRecognizer(mActivity.mRecognizer, CTS_VOICE_RECOGNITION_SERVICE);
         mUiDevice.waitForIdle();
+        SpeechRecognitionActivity.RecognizerInfo ri = mActivity.getRecognizerInfoDefault();
+        setCurrentRecognizer(ri.mRecognizer, CTS_VOICE_RECOGNITION_SERVICE);
 
-        mActivity.startListening();
+        mUiDevice.waitForIdle();
+        mActivity.startListeningDefault();
         try {
-            // startListening() will call noteProxyOpNoTrow(), if the permission check pass then the
-            // RecognitionService.onStartListening() will be called. Otherwise, a TimeoutException
-            // will be thrown.
-            assertThat(mActivity.mCountDownLatch.await(WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)).isTrue();
+            // startListening() will call noteProxyOpNoTrow(). If the permission check passes,
+            // then the RecognitionService.onStartListening() will be called. Otherwise,
+            // a TimeoutException will be thrown.
+            assertThat(ri.mCountDownLatch.await(
+                    WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)).isTrue();
         } catch (InterruptedException e) {
             assertWithMessage("onStartListening() not called. " + e).fail();
         }
+
         // Wait for the privacy indicator to disappear to avoid the test becoming flaky.
         SystemClock.sleep(INDICATOR_DISMISS_TIMEOUT);
     }
@@ -118,10 +150,11 @@ abstract class AbstractRecognitionServiceTest {
     @Test
     public void testCanCheckForSupport() throws Throwable {
         mUiDevice.waitForIdle();
-        assertThat(mActivity.mRecognizer).isNotNull();
-        setCurrentRecognizer(mActivity.mRecognizer, IN_PACKAGE_RECOGNITION_SERVICE);
-        mUiDevice.waitForIdle();
+        SpeechRecognizer recognizer = mActivity.getRecognizerInfoDefault().mRecognizer;
+        assertThat(recognizer).isNotNull();
+        setCurrentRecognizer(recognizer, IN_PACKAGE_RECOGNITION_SERVICE);
 
+        mUiDevice.waitForIdle();
         List<RecognitionSupport> supportResults = new ArrayList<>();
         List<Integer> errors = new ArrayList<>();
         RecognitionSupportCallback supportCallback = new RecognitionSupportCallback() {
@@ -136,7 +169,7 @@ abstract class AbstractRecognitionServiceTest {
             }
         };
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        mActivity.checkRecognitionSupport(intent, supportCallback);
+        mActivity.checkRecognitionSupportDefault(intent, supportCallback);
         PollingCheck.waitFor(SEQUENCE_TEST_WAIT_TIMEOUT_MS,
                 () -> supportResults.size() + errors.size() > 0);
         assertThat(supportResults).isEmpty();
@@ -155,7 +188,7 @@ abstract class AbstractRecognitionServiceTest {
                 .build();
         CtsRecognitionService.sConsumerQueue.add(c -> c.onSupportResult(rs));
 
-        mActivity.checkRecognitionSupport(intent, supportCallback);
+        mActivity.checkRecognitionSupportDefault(intent, supportCallback);
         PollingCheck.waitFor(SEQUENCE_TEST_WAIT_TIMEOUT_MS,
                 () -> supportResults.size() + errors.size() > 0);
         assertThat(errors).isEmpty();
@@ -173,263 +206,302 @@ abstract class AbstractRecognitionServiceTest {
     @Test
     public void testCanTriggerModelDownload() throws Throwable {
         mUiDevice.waitForIdle();
-        assertThat(mActivity.mRecognizer).isNotNull();
-        setCurrentRecognizer(mActivity.mRecognizer, IN_PACKAGE_RECOGNITION_SERVICE);
-        mUiDevice.waitForIdle();
+        SpeechRecognizer recognizer = mActivity.getRecognizerInfoDefault().mRecognizer;
+        assertThat(recognizer).isNotNull();
+        setCurrentRecognizer(recognizer, IN_PACKAGE_RECOGNITION_SERVICE);
 
+        mUiDevice.waitForIdle();
         CtsRecognitionService.sDownloadTriggers.clear();
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        mActivity.triggerModelDownload(intent);
+        mActivity.triggerModelDownloadDefault(intent);
         PollingCheck.waitFor(SEQUENCE_TEST_WAIT_TIMEOUT_MS,
                 () -> CtsRecognitionService.sDownloadTriggers.size() > 0);
         assertThat(CtsRecognitionService.sDownloadTriggers).hasSize(1);
     }
 
     @Test
-    public void sequenceTest_startListening_stopListening_results() {
-        executeSequenceTest(
-                /* service methods to call: */ ImmutableList.of(
-                        RECOGNIZER_METHOD_START_LISTENING,
-                        RECOGNIZER_METHOD_STOP_LISTENING),
-                /* callback methods to call: */ ImmutableList.of(
-                        CALLBACK_METHOD_UNSPECIFIED,
-                        CALLBACK_METHOD_RESULTS),
-                /* expected service methods propagated: */ ImmutableList.of(true, true),
-                /* expected callback methods invoked: */ ImmutableList.of(
-                        CALLBACK_METHOD_RESULTS)
-                );
-    }
+    public void testCanTriggerModelDownloadWithListener() throws Throwable {
+        mUiDevice.waitForIdle();
+        SpeechRecognizer recognizer = mActivity.getRecognizerInfoDefault().mRecognizer;
+        assertThat(recognizer).isNotNull();
+        setCurrentRecognizer(recognizer, IN_PACKAGE_RECOGNITION_SERVICE);
 
-    /** Tests that stopListening() is ignored after results(). */
-    @Test
-    public void sequenceTest_startListening_results_stopListening() {
-        executeSequenceTest(
-                /* service methods to call: */ ImmutableList.of(
-                        RECOGNIZER_METHOD_START_LISTENING,
-                        RECOGNIZER_METHOD_STOP_LISTENING),
-                /* callback methods to call: */ ImmutableList.of(
-                        CALLBACK_METHOD_RESULTS),
-                /* expected service methods propagated: */ ImmutableList.of(true, false),
-                /* expected callback methods invoked: */ ImmutableList.of(
-                        CALLBACK_METHOD_RESULTS,
-                        CALLBACK_METHOD_ERROR)
-                );
-    }
+        mUiDevice.waitForIdle();
+        CtsRecognitionService.sDownloadTriggers.clear();
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        List<String> callbackCalls = new ArrayList<>();
+        ModelDownloadListener listener = new ModelDownloadListener() {
+            @Override
+            public void onProgress(int completedPercent) {
+                callbackCalls.add("progress");
+            }
 
-    /** Tests that cancel() is ignored after results(). */
-    @Test
-    public void sequenceTest_startListening_results_cancel() {
-        executeSequenceTest(
-                /* service methods to call: */ ImmutableList.of(
-                        RECOGNIZER_METHOD_START_LISTENING,
-                        RECOGNIZER_METHOD_CANCEL),
-                /* callback methods to call: */ ImmutableList.of(
-                        CALLBACK_METHOD_RESULTS),
-                /* expected service methods propagated: */ ImmutableList.of(true, false),
-                /* expected callback methods invoked: */ ImmutableList.of(
-                        CALLBACK_METHOD_RESULTS)
-        );
-    }
+            @Override
+            public void onSuccess() {
+                callbackCalls.add("success");
+            }
 
-    /** Tests that we can kick off execution again after results(). */
-    @Test
-    public void sequenceTest_startListening_results_startListening_results() {
-        executeSequenceTest(
-                /* service methods to call: */ ImmutableList.of(
-                        RECOGNIZER_METHOD_START_LISTENING,
-                        RECOGNIZER_METHOD_START_LISTENING),
-                /* callback methods to call: */ ImmutableList.of(
-                        CALLBACK_METHOD_RESULTS,
-                        CALLBACK_METHOD_RESULTS),
-                /* expected service methods propagated: */ ImmutableList.of(true, true),
-                /* expected callback methods invoked: */ ImmutableList.of(
-                        CALLBACK_METHOD_RESULTS,
-                        CALLBACK_METHOD_RESULTS)
-        );
+            @Override
+            public void onScheduled() {
+                callbackCalls.add("scheduled");
+            }
+
+            @Override
+            public void onError(int error) {
+                callbackCalls.add("error");
+            }
+        };
+        mActivity.triggerModelDownloadWithListenerDefault(intent, listener);
+        PollingCheck.waitFor(SEQUENCE_TEST_WAIT_TIMEOUT_MS,
+                () -> CtsRecognitionService.sDownloadTriggers.size() > 0);
+        PollingCheck.waitFor(SEQUENCE_TEST_WAIT_TIMEOUT_MS,
+                () -> callbackCalls.size() > 0);
+        assertThat(callbackCalls)
+                .containsExactly("progress", "scheduled", "success", "error")
+                .inOrder();
     }
 
     @Test
-    public void setSequenceTest_startListening_segment_endofsession() {
-        executeSequenceTest(
-                /* service methods to call: */ ImmutableList.of(
-                        RECOGNIZER_METHOD_START_LISTENING,
-                        RECOGNIZER_METHOD_STOP_LISTENING
-                        ),
-                /* callback methods to call: */ ImmutableList.of(
-                        CALLBACK_METHOD_SEGMENTS_RESULTS,
-                        CALLBACK_METHOD_END_SEGMENTED_SESSION
-                        ),
-                /* expected service methods propagated: */ ImmutableList.of(true, true, true),
-                /* expected callback methods invoked: */ ImmutableList.of(
-                        CALLBACK_METHOD_SEGMENTS_RESULTS,
-                        CALLBACK_METHOD_END_SEGMENTED_SESSION
-                )
-        );
+    @Parameters(method = "singleScenarios")
+    @TestCaseName("{method}_{0}")
+    public void sequenceTest(SequenceExecutionInfo.Scenario scenario) {
+        Log.d(TAG, "Running a single sequence: " + scenario.name() + ".");
+        executeSequenceTest(SequenceExecutionInfo.fromScenario(scenario));
+    }
+
+    static SequenceExecutionInfo.Scenario[] singleScenarios() {
+        return new SequenceExecutionInfo.Scenario[] {
+                SequenceExecutionInfo.Scenario.START_STOP_RESULTS,
+                SequenceExecutionInfo.Scenario.START_RESULTS_STOP,
+                SequenceExecutionInfo.Scenario.START_RESULTS_CANCEL,
+                SequenceExecutionInfo.Scenario.START_RESULTS_START_RESULTS,
+                SequenceExecutionInfo.Scenario.START_SEGMENT_ENDOFSESSION,
+                SequenceExecutionInfo.Scenario.START_CANCEL,
+                SequenceExecutionInfo.Scenario.START_START,
+                SequenceExecutionInfo.Scenario.START_STOP_CANCEL,
+                SequenceExecutionInfo.Scenario.START_ERROR_CANCEL,
+                SequenceExecutionInfo.Scenario.START_STOP_DESTROY,
+                SequenceExecutionInfo.Scenario.START_ERROR_DESTROY,
+                SequenceExecutionInfo.Scenario.START_DESTROY_DESTROY,
+                SequenceExecutionInfo.Scenario.START_DETECTION_STOP_RESULTS};
     }
 
     @Test
-    public void sequenceTest_startListening_cancel() {
-        executeSequenceTest(
-                /* service methods to call: */ ImmutableList.of(
-                        RECOGNIZER_METHOD_START_LISTENING,
-                        RECOGNIZER_METHOD_CANCEL),
-                /* callback methods to call: */ ImmutableList.of(
-                        CALLBACK_METHOD_UNSPECIFIED,
-                        CALLBACK_METHOD_UNSPECIFIED),
-                /* expected service methods propagated: */ ImmutableList.of(true, true),
-                /* expected callback methods invoked: */ ImmutableList.of()
-        );
+    @Parameters(method = "doubleScenarios")
+    @TestCaseName("{method}_{0}_x_{1}")
+    public void concurrentSequenceTest(
+            SequenceExecutionInfo.Scenario scenario1,
+            SequenceExecutionInfo.Scenario scenario2) {
+        Log.d(TAG, "Running a double sequence: "
+                + scenario1.name() + " x " + scenario2.name() + ".");
+        executeSequenceTest(ImmutableList.of(
+                SequenceExecutionInfo.fromScenario(scenario1),
+                SequenceExecutionInfo.fromScenario(scenario2)),
+                /* inOrder */ true);
+    }
+
+    static Object[] doubleScenarios() {
+        // Scenarios where the results are not received in the same step when start is called.
+        List<SequenceExecutionInfo.Scenario> concurrencyObservableScenarios = ImmutableList.of(
+                SequenceExecutionInfo.Scenario.START_STOP_RESULTS,
+                SequenceExecutionInfo.Scenario.START_SEGMENT_ENDOFSESSION,
+                SequenceExecutionInfo.Scenario.START_CANCEL,
+                SequenceExecutionInfo.Scenario.START_START,
+                SequenceExecutionInfo.Scenario.START_STOP_CANCEL,
+                SequenceExecutionInfo.Scenario.START_STOP_DESTROY,
+                SequenceExecutionInfo.Scenario.START_DESTROY_DESTROY,
+                SequenceExecutionInfo.Scenario.START_DETECTION_STOP_RESULTS);
+
+        List<Object[]> scenarios = new ArrayList<>();
+        for (int i = 0; i < concurrencyObservableScenarios.size(); i++) {
+            for (int j = 0; j < concurrencyObservableScenarios.size(); j++) {
+                scenarios.add(new Object[]{
+                        concurrencyObservableScenarios.get(i),
+                        concurrencyObservableScenarios.get(j)});
+            }
+        }
+        return scenarios.toArray();
     }
 
     @Test
-    public void sequenceTest_startListening_startListening() {
-        executeSequenceTest(
-                /* service methods to call: */ ImmutableList.of(
-                        RECOGNIZER_METHOD_START_LISTENING,
-                        RECOGNIZER_METHOD_START_LISTENING),
-                /* callback methods to call: */ ImmutableList.of(
-                        CALLBACK_METHOD_UNSPECIFIED),
-                /* expected service methods propagated: */ ImmutableList.of(true, false),
-                /* expected callback methods invoked: */ ImmutableList.of(
-                        CALLBACK_METHOD_ERROR)
-        );
+    public void testRecognitionServiceConcurrencyLimitValidity() {
+        // Prepare the looper before creating a RecognitionService object.
+        if (Looper.myLooper() == null) {
+            Looper.prepare();
+        }
+
+        RecognitionService defaultService = new RecognitionService() {
+            @Override
+            protected void onStartListening(Intent recognizerIntent, Callback listener) {}
+
+            @Override
+            protected void onCancel(Callback listener) {}
+
+            @Override
+            protected void onStopListening(Callback listener) {}
+        };
+        assertWithMessage("Default recognition service concurrency limit must be positive.")
+                .that(defaultService.getMaxConcurrentSessionsCount()).isGreaterThan(0);
+
+        RecognitionService testService = new CtsRecognitionService();
+        assertWithMessage("Recognition service implementation concurrency limit must be positive.")
+                .that(testService.getMaxConcurrentSessionsCount()).isGreaterThan(0);
     }
 
     @Test
-    public void sequenceTest_startListening_stopListening_cancel() {
-        executeSequenceTest(
-                /* service methods to call: */ ImmutableList.of(
-                        RECOGNIZER_METHOD_START_LISTENING,
-                        RECOGNIZER_METHOD_STOP_LISTENING,
-                        RECOGNIZER_METHOD_CANCEL),
-                /* callback methods to call: */ ImmutableList.of(
-                        CALLBACK_METHOD_UNSPECIFIED,
-                        CALLBACK_METHOD_UNSPECIFIED,
-                        CALLBACK_METHOD_UNSPECIFIED),
-                /* expected service methods propagated: */ ImmutableList.of(true, true, true),
-                /* expected callback methods invoked: */ ImmutableList.of()
-        );
+    public void testRecognitionServiceBusy() {
+        Log.d(TAG, "Running four sequences, one more than the concurrency limit.");
+        executeSequenceTest(ImmutableList.of(
+                SequenceExecutionInfo.fromScenario(
+                        SequenceExecutionInfo.Scenario.START_STOP_RESULTS),
+                SequenceExecutionInfo.fromScenario(
+                        SequenceExecutionInfo.Scenario.START_SEGMENT_ENDOFSESSION),
+                SequenceExecutionInfo.fromScenario(SequenceExecutionInfo.Scenario.START_CANCEL),
+
+                // This sequence will fail with ERROR_RECOGNIZER_BUSY.
+                SequenceExecutionInfo.fromScenario(SequenceExecutionInfo.Scenario.START_ERROR)),
+                /* inOrder */ true);
     }
 
-    @Test
-    public void sequenceTest_startListening_error_cancel() {
-        executeSequenceTest(
-                /* service methods to call: */ ImmutableList.of(
-                        RECOGNIZER_METHOD_START_LISTENING,
-                        RECOGNIZER_METHOD_CANCEL),
-                /* callback methods to call: */ ImmutableList.of(
-                        CALLBACK_METHOD_ERROR),
-                /* expected service methods propagated: */ ImmutableList.of(true, false),
-                /* expected callback methods invoked: */ ImmutableList.of(
-                        CALLBACK_METHOD_ERROR)
-        );
-    }
-
-    @Test
-    public void sequenceTest_startListening_stopListening_destroy() {
-        executeSequenceTest(
-                /* service methods to call: */ ImmutableList.of(
-                        RECOGNIZER_METHOD_START_LISTENING,
-                        RECOGNIZER_METHOD_STOP_LISTENING,
-                        RECOGNIZER_METHOD_DESTROY),
-                /* callback methods to call: */ ImmutableList.of(
-                        CALLBACK_METHOD_UNSPECIFIED,
-                        CALLBACK_METHOD_UNSPECIFIED,
-                        CALLBACK_METHOD_UNSPECIFIED),
-                /* expected service methods propagated: */ ImmutableList.of(true, true, true),
-                /* expected callback methods invoked: */ ImmutableList.of()
-        );
-    }
-
-    @Test
-    public void sequenceTest_startListening_error_destroy() {
-        executeSequenceTest(
-                /* service methods to call: */ ImmutableList.of(
-                        RECOGNIZER_METHOD_START_LISTENING,
-                        RECOGNIZER_METHOD_DESTROY),
-                /* callback methods to call: */ ImmutableList.of(
-                        CALLBACK_METHOD_ERROR),
-                /* expected service methods propagated: */ ImmutableList.of(true, false),
-                /* expected callback methods invoked: */ ImmutableList.of(
-                        CALLBACK_METHOD_ERROR)
-        );
-    }
-
-    @Test
-    public void sequenceTest_startListening_destroy_destroy() {
-        executeSequenceTest(
-                /* service methods to call: */ ImmutableList.of(
-                        RECOGNIZER_METHOD_START_LISTENING,
-                        RECOGNIZER_METHOD_DESTROY,
-                        RECOGNIZER_METHOD_DESTROY),
-                /* callback methods to call: */ ImmutableList.of(
-                        CALLBACK_METHOD_UNSPECIFIED,
-                        CALLBACK_METHOD_UNSPECIFIED),
-                /* expected service methods propagated: */ ImmutableList.of(true, true, false),
-                /* expected callback methods invoked: */ ImmutableList.of()
-        );
+    private void executeSequenceTest(SequenceExecutionInfo sei) {
+        executeSequenceTest(ImmutableList.of(sei), /* inOrder */ true);
     }
 
     private void executeSequenceTest(
-            List<RecognizerMethod> recognizerMethodsToCall,
-            List<CallbackMethod> callbackMethodInstructions,
-            List<Boolean> expectedRecognizerServiceMethodsToPropagate,
-            List<CallbackMethod> expectedClientCallbackMethods) {
+            List<SequenceExecutionInfo> sequenceExecutionInfos,
+            boolean inOrder) {
         mUiDevice.waitForIdle();
-        SpeechRecognizer speechRecognizer = mActivity.mRecognizer;
-        assertThat(speechRecognizer).isNotNull();
-        setCurrentRecognizer(speechRecognizer, IN_PACKAGE_RECOGNITION_SERVICE);
 
-        mActivity.mCallbackMethodsInvoked.clear();
+        // Initialize the recognizers to be used and clear their invoked callbacks list.
+        for (int recognizerIndex = 0;
+                recognizerIndex < sequenceExecutionInfos.size();
+                recognizerIndex++) {
+            SpeechRecognitionActivity.RecognizerInfo ri =
+                    mActivity.getRecognizerInfo(recognizerIndex);
+            assertThat(ri.mRecognizer).isNotNull();
+            setCurrentRecognizer(ri.mRecognizer, IN_PACKAGE_RECOGNITION_SERVICE);
+            ri.mCallbackMethodsInvoked.clear();
+        }
+
+        // Clear recognition service's invoked recognizer methods list
+        // and callback instruction queue.
         CtsRecognitionService.sInvokedRecognizerMethods.clear();
         CtsRecognitionService.sInstructedCallbackMethods.clear();
-        CtsRecognitionService.sInstructedCallbackMethods.addAll(callbackMethodInstructions);
 
-        List<RecognizerMethod> expectedServiceMethods = new ArrayList<>();
+        // Initialize the list of recognizers to be used.
+        List<Integer> remainingRecognizerIndices = IntStream.range(0, sequenceExecutionInfos.size())
+                .boxed().collect(Collectors.toList());
 
-        for (int i = 0; i < recognizerMethodsToCall.size(); i++) {
-            RecognizerMethod recognizerMethod = recognizerMethodsToCall.get(i);
-            Log.i(TAG, "Sending service method " + recognizerMethod.name());
+        int expectedServiceMethodsRunCount = 0;
+        int nextRemainingRecognizerIndex = 0;
+        while (!remainingRecognizerIndices.isEmpty()) {
+            // If the execution should be in order, select the next recognizer by index.
+            // Else, pick one of the recognizers at random. Start the next step.
+            nextRemainingRecognizerIndex %= remainingRecognizerIndices.size();
+            int selectedRecognizerIndex = remainingRecognizerIndices.get(inOrder
+                    ? nextRemainingRecognizerIndex
+                    : mRandom.nextInt(remainingRecognizerIndices.size()));
+            SequenceExecutionInfo sei = sequenceExecutionInfos.get(selectedRecognizerIndex);
+            int executionStep = sei.getNextStep();
 
+            // If the flag is set, prepare the callback instruction for the service side.
+            if (sei.mExpectedRecognizerServiceMethodsToPropagate.get(executionStep)) {
+                CtsRecognitionService.sInstructedCallbackMethods.add(new Pair<>(
+                        selectedRecognizerIndex,
+                        sei.mCallbackMethodInstructions.get(executionStep)));
+            }
+
+            // Call the recognizer method.
+            RecognizerMethod recognizerMethod = sei.mRecognizerMethodsToCall.get(executionStep);
+            Log.i(TAG, "Sending service method " + recognizerMethod.name() + ".");
             switch (recognizerMethod) {
-                case RECOGNIZER_METHOD_UNSPECIFIED:
-                    fail();
-                    break;
                 case RECOGNIZER_METHOD_START_LISTENING:
-                    mActivity.startListening(START_LISTENING_INTENT);
+                    mActivity.startListening(START_LISTENING_INTENT, selectedRecognizerIndex);
                     break;
                 case RECOGNIZER_METHOD_STOP_LISTENING:
-                    mActivity.stopListening();
+                    mActivity.stopListening(selectedRecognizerIndex);
                     break;
                 case RECOGNIZER_METHOD_CANCEL:
-                    mActivity.cancel();
+                    mActivity.cancel(selectedRecognizerIndex);
                     break;
                 case RECOGNIZER_METHOD_DESTROY:
-                    mActivity.destroyRecognizer();
+                    mActivity.destroyRecognizer(selectedRecognizerIndex);
                     break;
+                case RECOGNIZER_METHOD_UNSPECIFIED:
                 default:
                     fail();
             }
 
-            if (expectedRecognizerServiceMethodsToPropagate.get(i)) {
-                expectedServiceMethods.add(
-                        RECOGNIZER_METHOD_DESTROY != recognizerMethod
-                                ? recognizerMethod
-                                : RECOGNIZER_METHOD_CANCEL);
+            // If the flag is set, wait for the service to propagate the callback.
+            if (sei.mExpectedRecognizerServiceMethodsToPropagate.get(executionStep)) {
+                expectedServiceMethodsRunCount++;
+                int finalExpectedServiceMethodsRunCount = expectedServiceMethodsRunCount;
                 PollingCheck.waitFor(SEQUENCE_TEST_WAIT_TIMEOUT_MS,
-                        () -> CtsRecognitionService.sInvokedRecognizerMethods.size()
-                                == expectedServiceMethods.size());
+                        () -> CtsRecognitionService.totalInvokedRecognizerMethodsCount()
+                                == finalExpectedServiceMethodsRunCount);
+            }
+
+            // TODO(kiridza): Make this part of the sequence execution more robust.
+            if (selectedRecognizerIndex >= CtsRecognitionService.MAX_CONCURRENT_SESSIONS_COUNT) {
+                PollingCheck.waitFor(SEQUENCE_TEST_WAIT_TIMEOUT_MS,
+                        () -> !mActivity.getRecognizerInfo(selectedRecognizerIndex)
+                                .mErrorCodesReceived.isEmpty());
+            }
+
+            // If this was the last step of the sequence, remove it from the list.
+            if (sei.isFinished()) {
+                remainingRecognizerIndices.remove(Integer.valueOf(selectedRecognizerIndex));
+            } else {
+                nextRemainingRecognizerIndex++;
             }
         }
 
+        // Wait until the service has propagated all callbacks
+        // and the recognizers' listeners have received them.
         PollingCheck.waitFor(SEQUENCE_TEST_WAIT_TIMEOUT_MS,
                 () -> CtsRecognitionService.sInstructedCallbackMethods.isEmpty());
-        PollingCheck.waitFor(SEQUENCE_TEST_WAIT_TIMEOUT_MS,
-                () -> mActivity.mCallbackMethodsInvoked.size()
-                        >= expectedClientCallbackMethods.size());
+        for (int recognizerIndex = 0;
+                recognizerIndex < sequenceExecutionInfos.size();
+                recognizerIndex++) {
+            int finalRecognizerIndex = recognizerIndex;
+            PollingCheck.waitFor(SEQUENCE_TEST_WAIT_TIMEOUT_MS,
+                    () -> mActivity.getRecognizerInfo(finalRecognizerIndex)
+                            .mCallbackMethodsInvoked.size()
+                            >= sequenceExecutionInfos.get(finalRecognizerIndex)
+                            .mExpectedClientCallbackMethods.size());
+        }
 
-        assertThat(CtsRecognitionService.sInvokedRecognizerMethods).isEqualTo(expectedServiceMethods);
-        assertThat(mActivity.mCallbackMethodsInvoked).isEqualTo(expectedClientCallbackMethods);
+        // Check for all recognizers that:
+        //  - the service has executed the expected methods in the given order;
+        //  - the expected client callbacks were invoked in the given order.
+        //  - the expected error codes were received in the given order.
+        for (int recognizerIndex = 0;
+                recognizerIndex < sequenceExecutionInfos.size();
+                recognizerIndex++) {
+            SequenceExecutionInfo sei = sequenceExecutionInfos.get(recognizerIndex);
+            SpeechRecognitionActivity.RecognizerInfo ri =
+                    mActivity.getRecognizerInfo(recognizerIndex);
+
+            List<RecognizerMethod> expectedServiceMethods = new ArrayList<>();
+            for (int step = 0; step < sei.mRecognizerMethodsToCall.size(); step++) {
+                if (sei.mExpectedRecognizerServiceMethodsToPropagate.get(step)) {
+                    expectedServiceMethods.add(
+                            RECOGNIZER_METHOD_DESTROY != sei.mRecognizerMethodsToCall.get(step)
+                                    ? sei.mRecognizerMethodsToCall.get(step)
+                                    : RECOGNIZER_METHOD_CANCEL);
+                }
+            }
+
+            if (expectedServiceMethods.isEmpty()) {
+                assertThat(CtsRecognitionService.sInvokedRecognizerMethods
+                        .containsKey(recognizerIndex)).isFalse();
+            } else {
+                assertThat(CtsRecognitionService.sInvokedRecognizerMethods.get(recognizerIndex))
+                        .isEqualTo(expectedServiceMethods);
+            }
+            assertThat(ri.mCallbackMethodsInvoked).isEqualTo(sei.mExpectedClientCallbackMethods);
+            assertThat(ri.mErrorCodesReceived).isEqualTo(sei.mExpectedErrorCodesReceived);
+        }
         assertThat(CtsRecognitionService.sInstructedCallbackMethods).isEmpty();
     }
 
@@ -438,5 +510,283 @@ abstract class AbstractRecognitionServiceTest {
         runShellCommand("input keyevent KEYCODE_WAKEUP");
         // Dismiss keyguard, in case it's set as "Swipe to unlock".
         runShellCommand("wm dismiss-keyguard");
+    }
+
+    /**
+     * Data class containing information about a recognizer object used in the activity:
+     * <ul>
+     *   <li> {@link SequenceExecutionInfo#mRecognizerMethodsToCall} - list of {@link
+     *   RecognizerMethod}s to be invoked by the corresponding recognizer;
+     *   <li> {@link SequenceExecutionInfo#mCallbackMethodInstructions} - list of {@link
+     *   CallbackMethod}s forwarded to the service to be invoked on the corresponding listener;
+     *   <li> {@link SequenceExecutionInfo#mExpectedRecognizerServiceMethodsToPropagate} - list of
+     *   flags denoting if the callback should be expected after corresponding recognizer methods;
+     *   <li> {@link SequenceExecutionInfo#mExpectedClientCallbackMethods} - list of {@link
+     *   CallbackMethod}s expected to be run on the corresponding listener.
+     *   <li> {@link SequenceExecutionInfo#mNextStep} - next step to be run in the sequence.
+     */
+    private static class SequenceExecutionInfo {
+        private final List<RecognizerMethod> mRecognizerMethodsToCall;
+        private final List<CallbackMethod> mCallbackMethodInstructions;
+        private final List<Boolean> mExpectedRecognizerServiceMethodsToPropagate;
+        private final List<CallbackMethod> mExpectedClientCallbackMethods;
+        private final List<Integer> mExpectedErrorCodesReceived;
+        private int mNextStep;
+
+        private SequenceExecutionInfo(
+                List<RecognizerMethod> recognizerMethodsToCall,
+                List<CallbackMethod> callbackMethodInstructions,
+                List<Boolean> expectedRecognizerServiceMethodsToPropagate,
+                List<CallbackMethod> expectedClientCallbackMethods,
+                List<Integer> expectedErrorCodesReceived) {
+            mRecognizerMethodsToCall = recognizerMethodsToCall;
+            mCallbackMethodInstructions = callbackMethodInstructions;
+            mExpectedRecognizerServiceMethodsToPropagate =
+                    expectedRecognizerServiceMethodsToPropagate;
+            mExpectedClientCallbackMethods = expectedClientCallbackMethods;
+            mExpectedErrorCodesReceived = expectedErrorCodesReceived;
+            mNextStep = 0;
+        }
+
+        private int getNextStep() {
+            return mNextStep++;
+        }
+
+        private boolean isFinished() {
+            return mNextStep >= mRecognizerMethodsToCall.size();
+        }
+
+        enum Scenario {
+            // Happy scenarios.
+            START_STOP_RESULTS,
+            START_RESULTS_STOP,
+            START_RESULTS_CANCEL,
+            START_RESULTS_START_RESULTS,
+            START_SEGMENT_ENDOFSESSION,
+            START_CANCEL,
+            START_START,
+            START_STOP_CANCEL,
+            START_ERROR_CANCEL,
+            START_STOP_DESTROY,
+            START_ERROR_DESTROY,
+            START_DESTROY_DESTROY,
+            START_DETECTION_STOP_RESULTS,
+
+            // Sad scenarios.
+            START_ERROR
+        }
+
+        private static SequenceExecutionInfo fromScenario(Scenario scenario) {
+            switch (scenario) {
+                // Happy scenarios.
+                case START_STOP_RESULTS:
+                    return new SequenceExecutionInfo(
+                            /* service methods to call: */ ImmutableList.of(
+                            RECOGNIZER_METHOD_START_LISTENING,
+                            RECOGNIZER_METHOD_STOP_LISTENING),
+                            /* callback methods to call: */ ImmutableList.of(
+                            CALLBACK_METHOD_UNSPECIFIED,
+                            CALLBACK_METHOD_RESULTS),
+                            /* expected service methods propagated: */ ImmutableList.of(
+                            true,
+                            true),
+                            /* expected callback methods invoked: */ ImmutableList.of(
+                            CALLBACK_METHOD_RESULTS),
+                            /* expected error codes received: */ ImmutableList.of());
+                case START_RESULTS_STOP:
+                    return new SequenceExecutionInfo(
+                            /* service methods to call: */ ImmutableList.of(
+                            RECOGNIZER_METHOD_START_LISTENING,
+                            RECOGNIZER_METHOD_STOP_LISTENING),
+                            /* callback methods to call: */ ImmutableList.of(
+                            CALLBACK_METHOD_RESULTS),
+                            /* expected service methods propagated: */ ImmutableList.of(
+                            true,
+                            false),
+                            /* expected callback methods invoked: */ ImmutableList.of(
+                            CALLBACK_METHOD_RESULTS,
+                            CALLBACK_METHOD_ERROR),
+                            /* expected error codes received: */ ImmutableList.of(
+                            SpeechRecognizer.ERROR_CLIENT));
+                case START_RESULTS_CANCEL:
+                    return new SequenceExecutionInfo(
+                            /* service methods to call: */ ImmutableList.of(
+                            RECOGNIZER_METHOD_START_LISTENING,
+                            RECOGNIZER_METHOD_CANCEL),
+                            /* callback methods to call: */ ImmutableList.of(
+                            CALLBACK_METHOD_RESULTS),
+                            /* expected service methods propagated: */ ImmutableList.of(
+                            true,
+                            false),
+                            /* expected callback methods invoked: */ ImmutableList.of(
+                            CALLBACK_METHOD_RESULTS),
+                            /* expected error codes received: */ ImmutableList.of());
+                case START_RESULTS_START_RESULTS:
+                    return new SequenceExecutionInfo(
+                            /* service methods to call: */ ImmutableList.of(
+                            RECOGNIZER_METHOD_START_LISTENING,
+                            RECOGNIZER_METHOD_START_LISTENING),
+                            /* callback methods to call: */ ImmutableList.of(
+                            CALLBACK_METHOD_RESULTS,
+                            CALLBACK_METHOD_RESULTS),
+                            /* expected service methods propagated: */ ImmutableList.of(
+                            true,
+                            true),
+                            /* expected callback methods invoked: */ ImmutableList.of(
+                            CALLBACK_METHOD_RESULTS,
+                            CALLBACK_METHOD_RESULTS),
+                            /* expected error codes received: */ ImmutableList.of());
+                case START_SEGMENT_ENDOFSESSION:
+                    return new SequenceExecutionInfo(
+                            /* service methods to call: */ ImmutableList.of(
+                            RECOGNIZER_METHOD_START_LISTENING,
+                            RECOGNIZER_METHOD_STOP_LISTENING),
+                            /* callback methods to call: */ ImmutableList.of(
+                            CALLBACK_METHOD_SEGMENTS_RESULTS,
+                            CALLBACK_METHOD_END_SEGMENTED_SESSION),
+                            /* expected service methods propagated: */ ImmutableList.of(
+                            true,
+                            true,
+                            true),
+                            /* expected callback methods invoked: */ ImmutableList.of(
+                            CALLBACK_METHOD_SEGMENTS_RESULTS,
+                            CALLBACK_METHOD_END_SEGMENTED_SESSION),
+                            /* expected error codes received: */ ImmutableList.of());
+                case START_CANCEL:
+                    return new SequenceExecutionInfo(
+                            /* service methods to call: */ ImmutableList.of(
+                            RECOGNIZER_METHOD_START_LISTENING,
+                            RECOGNIZER_METHOD_CANCEL),
+                            /* callback methods to call: */ ImmutableList.of(
+                            CALLBACK_METHOD_UNSPECIFIED,
+                            CALLBACK_METHOD_UNSPECIFIED),
+                            /* expected service methods propagated: */ ImmutableList.of(
+                            true,
+                            true),
+                            /* expected callback methods invoked: */ ImmutableList.of(),
+                            /* expected error codes received: */ ImmutableList.of());
+                case START_START:
+                    return new SequenceExecutionInfo(
+                            /* service methods to call: */ ImmutableList.of(
+                            RECOGNIZER_METHOD_START_LISTENING,
+                            RECOGNIZER_METHOD_START_LISTENING),
+                            /* callback methods to call: */ ImmutableList.of(
+                            CALLBACK_METHOD_UNSPECIFIED),
+                            /* expected service methods propagated: */ ImmutableList.of(
+                            true,
+                            false),
+                            /* expected callback methods invoked: */ ImmutableList.of(
+                            CALLBACK_METHOD_ERROR),
+                            /* expected error codes received: */ ImmutableList.of(
+                            SpeechRecognizer.ERROR_CLIENT));
+                case START_STOP_CANCEL:
+                    return new SequenceExecutionInfo(
+                            /* service methods to call: */ ImmutableList.of(
+                            RECOGNIZER_METHOD_START_LISTENING,
+                            RECOGNIZER_METHOD_STOP_LISTENING,
+                            RECOGNIZER_METHOD_CANCEL),
+                            /* callback methods to call: */ ImmutableList.of(
+                            CALLBACK_METHOD_UNSPECIFIED,
+                            CALLBACK_METHOD_UNSPECIFIED,
+                            CALLBACK_METHOD_UNSPECIFIED),
+                            /* expected service methods propagated: */ ImmutableList.of(
+                            true,
+                            true,
+                            true),
+                            /* expected callback methods invoked: */ ImmutableList.of(),
+                            /* expected error codes received: */ ImmutableList.of());
+                case START_ERROR_CANCEL:
+                    return new SequenceExecutionInfo(
+                            /* service methods to call: */ ImmutableList.of(
+                            RECOGNIZER_METHOD_START_LISTENING,
+                            RECOGNIZER_METHOD_CANCEL),
+                            /* callback methods to call: */ ImmutableList.of(
+                            CALLBACK_METHOD_ERROR),
+                            /* expected service methods propagated: */ ImmutableList.of(
+                            true,
+                            false),
+                            /* expected callback methods invoked: */ ImmutableList.of(
+                            CALLBACK_METHOD_ERROR),
+                            /* expected error codes received: */ ImmutableList.of(
+                            ERROR_CODE));
+                case START_STOP_DESTROY:
+                    return new SequenceExecutionInfo(
+                            /* service methods to call: */ ImmutableList.of(
+                            RECOGNIZER_METHOD_START_LISTENING,
+                            RECOGNIZER_METHOD_STOP_LISTENING,
+                            RECOGNIZER_METHOD_DESTROY),
+                            /* callback methods to call: */ ImmutableList.of(
+                            CALLBACK_METHOD_UNSPECIFIED,
+                            CALLBACK_METHOD_UNSPECIFIED,
+                            CALLBACK_METHOD_UNSPECIFIED),
+                            /* expected service methods propagated: */ ImmutableList.of(
+                            true,
+                            true,
+                            true),
+                            /* expected callback methods invoked: */ ImmutableList.of(),
+                            /* expected error codes received: */ ImmutableList.of());
+                case START_ERROR_DESTROY:
+                    return new SequenceExecutionInfo(
+                            /* service methods to call: */ ImmutableList.of(
+                            RECOGNIZER_METHOD_START_LISTENING,
+                            RECOGNIZER_METHOD_DESTROY),
+                            /* callback methods to call: */ ImmutableList.of(
+                            CALLBACK_METHOD_ERROR),
+                            /* expected service methods propagated: */ ImmutableList.of(
+                            true,
+                            false),
+                            /* expected callback methods invoked: */ ImmutableList.of(
+                            CALLBACK_METHOD_ERROR),
+                            /* expected error codes received: */ ImmutableList.of(
+                            ERROR_CODE));
+                case START_DESTROY_DESTROY:
+                    return new SequenceExecutionInfo(
+                            /* service methods to call: */ ImmutableList.of(
+                            RECOGNIZER_METHOD_START_LISTENING,
+                            RECOGNIZER_METHOD_DESTROY,
+                            RECOGNIZER_METHOD_DESTROY),
+                            /* callback methods to call: */ ImmutableList.of(
+                            CALLBACK_METHOD_UNSPECIFIED,
+                            CALLBACK_METHOD_UNSPECIFIED),
+                            /* expected service methods propagated: */ ImmutableList.of(
+                            true,
+                            true,
+                            false),
+                            /* expected callback methods invoked: */ ImmutableList.of(),
+                            /* expected error codes received: */ ImmutableList.of());
+                case START_DETECTION_STOP_RESULTS:
+                    return new SequenceExecutionInfo(
+                            /* service methods to call: */ ImmutableList.of(
+                            RECOGNIZER_METHOD_START_LISTENING,
+                            RECOGNIZER_METHOD_STOP_LISTENING),
+                            /* callback methods to call: */ ImmutableList.of(
+                            CALLBACK_METHOD_LANGUAGE_DETECTION,
+                            CALLBACK_METHOD_RESULTS),
+                            /* expected service methods propagated: */ ImmutableList.of(
+                            true,
+                            true),
+                            /* expected callback methods invoked: */ ImmutableList.of(
+                            CALLBACK_METHOD_LANGUAGE_DETECTION,
+                            CALLBACK_METHOD_RESULTS),
+                            /* expected error codes received: */ ImmutableList.of());
+
+                // Sad scenarios.
+                case START_ERROR:
+                    return new SequenceExecutionInfo(
+                            /* service methods to call: */ ImmutableList.of(
+                            RECOGNIZER_METHOD_START_LISTENING),
+                            /* callback methods to call: */ ImmutableList.of(),
+                            /* expected service methods propagated: */ ImmutableList.of(
+                            false),
+                            /* expected callback methods invoked: */ ImmutableList.of(
+                            CALLBACK_METHOD_ERROR),
+                            /* expected error codes received: */ ImmutableList.of(
+                            SpeechRecognizer.ERROR_RECOGNIZER_BUSY));
+
+                default:
+                    return new SequenceExecutionInfo(ImmutableList.of(), ImmutableList.of(),
+                            ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+            }
+        }
     }
 }

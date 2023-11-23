@@ -23,4 +23,14 @@
     <color name="dialer_button_icon_color">#FFFFFF</color>
     <color name="dialer_end_call_button_color">#EE675C</color>
     <color name="minimized_progress_bar_background">#5CFFFFFF</color>
+    <color name="shortcuts_icon_color">@*android:color/white</color>
+    <color name="launcher_home_icon_color">@*android:color/car_accent_light</color>
+    <color name="seek_bar_color">@*android:color/car_accent</color>
+    <color name="page_indicator_bar_color">@*android:color/car_accent_light</color>
+    <color name="app_item_on_hover_border_color">@*android:color/car_accent_light</color>
+    <color name="app_item_on_hover_background_color">#3d66b5ff</color>
+    <color name="app_name_color">@*android:color/car_grey_200</color>
+    <color name="recents_background_color">@*android:color/car_grey_900</color>
+    <color name="default_recents_thumbnail_color">@*android:color/car_grey_846</color>
+    <color name="clear_all_recents_text_color">@*android:color/car_accent</color>
 </resources>

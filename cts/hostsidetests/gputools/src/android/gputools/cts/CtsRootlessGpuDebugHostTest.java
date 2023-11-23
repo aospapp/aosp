@@ -15,6 +15,8 @@
  */
 package android.gputools.cts;
 
+import com.android.tradefed.util.RunUtil;
+import com.android.compatibility.common.util.CddTest;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
@@ -240,7 +242,7 @@ public class CtsRootlessGpuDebugHostTest extends BaseHostJUnit4Test {
         while (!scanComplete && ((System.currentTimeMillis() - hostStartTime) < LOG_SEARCH_TIMEOUT_MS)) {
 
             // Give our activity a chance to run and fill the log
-            Thread.sleep(1000);
+            RunUtil.getDefault().sleep(1000);
 
             // Pull the logcat since the app started, filter for tags
             // This command should look something like this:
@@ -329,6 +331,7 @@ public class CtsRootlessGpuDebugHostTest extends BaseHostJUnit4Test {
      * This is the primary test of the feature. It pushes layers to our debuggable app and ensures they are
      * loaded in the correct order.
      */
+    @CddTest(requirements = "7.1.4.2/C-1-4")
     @Test
     public void testDebugLayerLoadVulkan() throws Exception {
 
@@ -392,6 +395,7 @@ public class CtsRootlessGpuDebugHostTest extends BaseHostJUnit4Test {
      * This test ensures that we cannot push a layer to a release app
      * It also ensures non-debuggable apps ignore Settings and don't enumerate layers in the base directory.
      */
+    @CddTest(requirements = "7.1.4.2/C-1-5")
     @Test
     public void testReleaseLayerLoadVulkan() throws Exception {
         testLayerNotLoadedVulkan(RELEASE_APP);
@@ -401,6 +405,7 @@ public class CtsRootlessGpuDebugHostTest extends BaseHostJUnit4Test {
      * This test ensures that we cannot push a layer to an injectable app
      * It also ensures non-debuggable apps ignore Settings and don't enumerate layers in the base directory.
      */
+    @CddTest(requirements = "7.1.4.2/C-1-5")
     @Test
     public void testInjectLayerLoadVulkan() throws Exception {
         testLayerNotLoadedVulkan(INJECT_APP);
@@ -410,6 +415,7 @@ public class CtsRootlessGpuDebugHostTest extends BaseHostJUnit4Test {
      * This test ensures debuggable apps do not enumerate layers in base
      * directory if enable_gpu_debug_layers is not enabled.
      */
+    @CddTest(requirements = "7.1.4.2/C-1-5")
     @Test
     public void testDebugNotEnabledVulkan() throws Exception {
 
@@ -438,6 +444,7 @@ public class CtsRootlessGpuDebugHostTest extends BaseHostJUnit4Test {
      * This test ensures debuggable apps do not enumerate layers in base
      * directory if gpu_debug_app does not match.
      */
+    @CddTest(requirements = "7.1.4.2/C-1-5")
     @Test
     public void testDebugWrongAppVulkan() throws Exception {
 
@@ -466,6 +473,7 @@ public class CtsRootlessGpuDebugHostTest extends BaseHostJUnit4Test {
      * This test ensures debuggable apps do not enumerate layers in base
      * directory if gpu_debug_layers are not set.
      */
+    @CddTest(requirements = "7.1.4.2/C-1-5")
     @Test
     public void testDebugNoLayersEnabledVulkan() throws Exception {
 
@@ -493,6 +501,7 @@ public class CtsRootlessGpuDebugHostTest extends BaseHostJUnit4Test {
     /**
      * This test ensures we can still use properties if no layer specified via Settings
      */
+    @CddTest(requirements = "7.1.4.2/C-1-4")
     @Test
     public void testSystemPropertyEnableVulkan() throws Exception {
 
@@ -516,6 +525,7 @@ public class CtsRootlessGpuDebugHostTest extends BaseHostJUnit4Test {
     /**
      * This test ensures system properties are ignored if Settings load a layer
      */
+    @CddTest(requirements = "7.1.4.2/C-1-4")
     @Test
     public void testSystemPropertyIgnoreVulkan() throws Exception {
 
@@ -576,6 +586,7 @@ public class CtsRootlessGpuDebugHostTest extends BaseHostJUnit4Test {
     /**
      * This test ensures a debuggable app can load layers from an external package
      */
+    @CddTest(requirements = "7.1.4.2/C-1-4")
     @Test
     public void testDebugLayerLoadExternalVulkan() throws Exception {
         testLayerLoadExternalVulkan(DEBUG_APP, VK_LAYER_C);
@@ -584,6 +595,7 @@ public class CtsRootlessGpuDebugHostTest extends BaseHostJUnit4Test {
     /**
      * This test ensures an injectLayers app can load layers from an external package
      */
+    @CddTest(requirements = "7.1.4.2/C-1-4")
     @Test
     public void testInjectLayerLoadExternalVulkan() throws Exception {
         testLayerLoadExternalVulkan(INJECT_APP, VK_LAYER_C);
@@ -592,6 +604,7 @@ public class CtsRootlessGpuDebugHostTest extends BaseHostJUnit4Test {
     /**
      * Test that the instance extension is advertised properly from the implicitly enabled layer.
      */
+    @CddTest(requirements = "7.1.4.2/C-1-4")
     @Test
     public void testInstanceExtensionPropertiesFromImplicitLayerVulkanBasic() throws Exception {
         String appStartTime = testLayerLoadExternalVulkan(DEBUG_APP, VK_LAYER_D);
@@ -603,6 +616,7 @@ public class CtsRootlessGpuDebugHostTest extends BaseHostJUnit4Test {
      * extensions with the same extension names advertised by multiple layers, only the extension
      * that is closer to the application is advertised by the loader.
      */
+    @CddTest(requirements = "7.1.4.2/C-1-4")
     @Test
     public void testInstanceExtensionPropertiesFromImplicitLayerVulkanMultipleLayers() throws Exception {
         String appStartTime = testLayerLoadExternalVulkan(DEBUG_APP, VK_LAYER_E + ":" + VK_LAYER_D);

@@ -1,4 +1,5 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -49,7 +50,7 @@ CONFIG['CONTROLFILE_WRITE_EXTRA'] = False
 _COLLECT = 'tradefed-run-collect-tests-only-internal'
 _PUBLIC_COLLECT = 'tradefed-run-collect-tests-only'
 
-# Unlike regular CTS we have to target the native ABI only.
+# Unlike regular CTS we have to target the primary ABI only.
 CONFIG['LAB_DEPENDENCY'] = {
     'x86': ['cts_cpu_x86'],
     'arm': ['cts_cpu_arm']

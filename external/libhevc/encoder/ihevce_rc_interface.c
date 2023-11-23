@@ -3817,7 +3817,7 @@ picture_type_e ihevce_rc_conv_pic_type(
     WORD32 i4_is_bottom_field,
     WORD32 i4_top_field_first)
 {
-    picture_type_e rc_pic_type = pic_type;
+    picture_type_e rc_pic_type = (picture_type_e)pic_type;
     /*interlaced pictype are not supported*/
     if(pic_type > 9 && i4_temporal_layer_id > 3) /**/
     {

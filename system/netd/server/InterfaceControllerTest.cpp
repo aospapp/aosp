@@ -22,6 +22,7 @@
 #include <gtest/gtest.h>
 
 #include <netdutils/MockSyscalls.h>
+#include <netdutils/NetNativeTestBase.h>
 #include <netdutils/Utils.h>
 
 #include "InterfaceController.h"
@@ -66,7 +67,7 @@ class MockProperties {
 
 }  // namespace
 
-class StablePrivacyTest : public testing::Test {
+class StablePrivacyTest : public NetNativeTestBase {
   protected:
     void expectOpenFile(const std::string& path, const Fd fd, int err) {
         if (err == 0) {
@@ -179,7 +180,7 @@ TEST_F(StablePrivacyTest, ExistingPropertyWriteFail) {
     EXPECT_NE(ok, enableStablePrivacyAddresses(kTestIface));
 }
 
-class GetIfaceListTest : public testing::Test {};
+class GetIfaceListTest : public NetNativeTestBase {};
 
 TEST_F(GetIfaceListTest, IfaceNames) {
     StatusOr<std::vector<std::string>> ifaceNames = getIfaceNames();

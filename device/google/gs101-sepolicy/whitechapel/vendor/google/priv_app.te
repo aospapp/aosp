@@ -1,0 +1,2 @@
+# Allows privileged applications to access the PowerHAL.
+hal_client_domain(priv_app, hal_power)

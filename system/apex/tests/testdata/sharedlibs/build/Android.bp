@@ -46,11 +46,7 @@ python_binary_host {
         "shared_libs_repack.py",
     ],
     version: {
-        py2: {
-            enabled: false,
-        },
         py3: {
-            enabled: true,
             embedded_launcher: true,
         },
     },

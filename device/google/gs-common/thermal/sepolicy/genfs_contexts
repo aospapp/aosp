@@ -1,0 +1,3 @@
+# thermal sysfs files
+genfscon sysfs /module/gs_thermal/parameters            u:object_r:sysfs_thermal:s0
+

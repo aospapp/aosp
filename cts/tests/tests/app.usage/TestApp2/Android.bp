@@ -25,18 +25,21 @@ android_test_helper_app {
         "ctstestrunner-axt",
         "cts-wm-util",
         "junit",
-        "ub-uiautomator",
+        "androidx.test.uiautomator_uiautomator",
     ],
     libs: [
         "android.test.base",
         "android.test.runner",
     ],
-    srcs: ["src/**/*.java", "aidl/**/*.aidl"],
+    srcs: [
+        "src/**/*.java",
+        "aidl/**/*.aidl",
+    ],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
-        "mts"
+        "mts",
     ],
-    sdk_version: "test_current"
+    sdk_version: "test_current",
 }

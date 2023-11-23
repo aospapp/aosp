@@ -1,5 +1,6 @@
 {
   "git": {
-    "sha1": "3ea9e3eca7b762c30fbc09205522e3935cd70052"
-  }
+    "sha1": "72d482f911c4057f9a31f7f434dfe27c929a8913"
+  },
+  "path_in_vcs": "regex-syntax"
 }

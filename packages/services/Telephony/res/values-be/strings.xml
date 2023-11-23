@@ -20,7 +20,7 @@
     <string name="phoneAppLabel" product="default" msgid="130465039375347763">"Тэлефонныя службы"</string>
     <string name="emergencyDialerIconLabel" msgid="8668005772339436680">"Экстраныя выклікі"</string>
     <string name="phoneIconLabel" msgid="3015941229249651419">"Тэлефон"</string>
-    <string name="fdnListLabel" msgid="4119121875004244097">"Спіс FDN"</string>
+    <string name="fdnListLabel" msgid="4119121875004244097">"Спіс дазволеных нумароў"</string>
     <string name="unknown" msgid="8279698889921830815">"Невядомы"</string>
     <string name="private_num" msgid="4487990167889159992">"Прыватны нумар"</string>
     <string name="payphone" msgid="7936735771836716941">"Таксафон"</string>
@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"Чаканне выкліку па тэхналогіі CDMA (IMS) выключана"</string>
     <string name="updating_title" msgid="6130548922615719689">"Налады выклікаў"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Налады выклікаў можа мяняць толькі адміністратар."</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"Налады ўліковага запісу на тэлефоне можа мяняць толькі адміністратар ці карыстальнік працоўнага профілю."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Налады (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"Памылка налад выкліку"</string>
     <string name="reading_settings" msgid="1605904432450871183">"Чытанне налад..."</string>
@@ -438,18 +439,18 @@
     <string name="carrier_settings_title" msgid="6292869148169850220">"Налады аператара"</string>
     <string name="fdn" msgid="2545904344666098749">"Фіксаваныя нумары"</string>
     <string name="fdn_with_label" msgid="6412087553365709494">"Нумары закрытай абаненцкай групы (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
-    <string name="manage_fdn_list" msgid="3341716430375195441">"Спіс FDN"</string>
-    <string name="fdn_list_with_label" msgid="1409655283510382556">"Спіс закрытай абаненцкай групы (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
-    <string name="fdn_activation" msgid="2178637004710435895">"Актывацыя FDN"</string>
+    <string name="manage_fdn_list" msgid="3341716430375195441">"Спіс дазволеных нумароў"</string>
+    <string name="fdn_list_with_label" msgid="1409655283510382556">"Спіс дазволеных нумароў (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
+    <string name="fdn_activation" msgid="2178637004710435895">"Актывацыя дазволеных нумароў"</string>
     <string name="fdn_enabled" msgid="7017355494808056447">"Фіксаваныя нумары ўключаны"</string>
     <string name="fdn_disabled" msgid="6696468878037736600">"Фіксаваныя нумары адключаны"</string>
-    <string name="enable_fdn" msgid="4830555730418033723">"Уключыць FDN"</string>
-    <string name="disable_fdn" msgid="3918794950264647541">"Адключыць FDN"</string>
+    <string name="enable_fdn" msgid="4830555730418033723">"Уключыць дазволеныя нумары"</string>
+    <string name="disable_fdn" msgid="3918794950264647541">"Адключыць дазволеныя нумары"</string>
     <string name="change_pin2" msgid="3110844547237754871">"Змяніць PIN2"</string>
-    <string name="enable_fdn_ok" msgid="5080925177369329827">"Адключыць FDN"</string>
-    <string name="disable_fdn_ok" msgid="3745475926874838676">"Уключыць FDN"</string>
+    <string name="enable_fdn_ok" msgid="5080925177369329827">"Адключыць дазволеныя нумары"</string>
+    <string name="disable_fdn_ok" msgid="3745475926874838676">"Уключыць дазволеныя нумары"</string>
     <string name="sum_fdn" msgid="6152246141642323582">"Кіраванне зафіксаванымі нумарамі"</string>
-    <string name="sum_fdn_change_pin" msgid="3510994280557335727">"Змяніць PIN-код для доступу FDN"</string>
+    <string name="sum_fdn_change_pin" msgid="3510994280557335727">"Змяніць PIN-код для доступу да дазволеных нумароў"</string>
     <string name="sum_fdn_manage_list" msgid="3311397063233992907">"Кіраванне спісам тэлефонных нумароў"</string>
     <string name="voice_privacy" msgid="7346935172372181951">"Палiтыка прыватнасцi Voice"</string>
     <string name="voice_privacy_summary" msgid="3556460926168473346">"Уключыць пашыраны рэжым прыватнасці"</string>
@@ -475,10 +476,10 @@
     <string name="delete_fdn_contact" msgid="7027405651994507077">"Выдаліць дазволены нумар"</string>
     <string name="deleting_fdn_contact" msgid="6872320570844460428">"Выдаленне дазволенага нумару..."</string>
     <string name="fdn_contact_deleted" msgid="1680714996763848838">"Дазволены нумар выдалены."</string>
-    <string name="pin2_invalid" msgid="2313954262684494442">"FDN не быў абноўлены, таму што вы набралі няправільны PIN-код."</string>
-    <string name="fdn_invalid_number" msgid="9067189814657840439">"Фіксаваны нумар не абноўлены, бо не можа складацца больш чым з <xliff:g id="FDN_NUMBER_LIMIT_LENGTH">%d</xliff:g> лічбаў."</string>
+    <string name="pin2_invalid" msgid="2313954262684494442">"Дазволены нумар не быў абноўлены, таму што вы набралі няправільны PIN-код."</string>
+    <string name="fdn_invalid_number" msgid="9067189814657840439">"Дазволены нумар не абноўлены, бо не можа складацца больш чым з <xliff:g id="FDN_NUMBER_LIMIT_LENGTH">%d</xliff:g> лічбаў."</string>
     <string name="pin2_or_fdn_invalid" msgid="7542639487955868181">"Cпiс дазволеных нумароў не адноўлены. PIN2 ўведзены няправiльна, або нумар быў адхiлены."</string>
-    <string name="fdn_failed" msgid="216592346853420250">"Аперацыя ў закрытай абаненцкай групе не ўдалася."</string>
+    <string name="fdn_failed" msgid="216592346853420250">"Аперацыя з дазволеным нумарам не ўдалася."</string>
     <string name="simContacts_emptyLoading" msgid="4989040293858675483">"Чытанне з SIM-карты..."</string>
     <string name="simContacts_empty" msgid="1135632055473689521">"На вашай SIM-карце няма кантактаў."</string>
     <string name="simContacts_title" msgid="2714029230160136647">"Выберыце кантакты для імпарту"</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"Немагчыма ўтрымліваць выклікі."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"Падлучыцеся да бесправадной сеткі, каб зрабіць выклік."</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"Дазволіць выклік па Wi-Fi-тэлефаніі."</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"Адключыце рэжым спадарожніка, каб зрабіць выклік."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"Даныя для экстранных сітуацый"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"Уладальнік"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"Каб паглядзець інфармацыю, націсніце яшчэ раз"</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"Уключаны рэжым палёту"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"Няма доступу да SIM-карты"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"Мабільная сетка недаступная"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"Рэжым спадарожніка ўключаны"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"Праблема з нумарам тэлефона, які вы спрабуеце набраць. Код памылкі: 1."</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"Не атрымалася выканаць выклік. Код памылкі: 3."</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"Не атрымалася выканаць выклік. Код памылкі: 6."</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Скасаваць"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"Зрабіць здымную eSIM-карту стандартнай"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Магутнасць радыёсігналу"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"Мадэляванне знаходжання па-за сеткай (толькі ў зборцы для адладкі)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Праглядзець адрасную кнігу на SIM-карце"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Прагляд фіксаваных нумароў"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"Паглядзець сэрвісныя нумары"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"Падключана"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"Прыпынена"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"Невядома"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"Асноўны"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"пак."</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"Б"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"дБм"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"Адпраўленыя даныя:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"Непрачытанае паведамленне:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"Нумар тэлефона:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"Выбраць радыёдыяпазон"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Тып галасавой сеткі:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Тып сеткі перадачы даных:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Перавызначэнне тыпу сеткі:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"Стан пачатковай рэгістрацыі голасу:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"Стан пачатковай рэгістрацыі даных:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"Стан пачатковай рэгістрацыі даных WLAN:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Выбраць тэлефонны код"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Задаць прыярытэтны тып сеткі:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Каманда ping для хоста www.google.com (IPv4):"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Сігнал Bluetooth слабы. Паспрабуйце пераключыцца на гучную сувязь."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"Апавяшчэнне пра якасць выкліку"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"Састарэлыя ўліковыя запісы SIP"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"Нельга адпраўляць паведамленні з асабістай праграмы"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"Ваша арганізацыя дазваляе адпраўляць паведамленні толькі з працоўных праграм"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"Скасаваць"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"Пераключыцца на працоўны профіль"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"Усталюйце працоўную праграму абмену паведамленнямі"</string>
 </resources>

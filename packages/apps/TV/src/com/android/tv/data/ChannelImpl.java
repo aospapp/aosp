@@ -18,6 +18,7 @@ package com.android.tv.data;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.media.tv.TvContract;
@@ -673,7 +674,18 @@ public final class ChannelImpl implements Channel {
         if (!TextUtils.isEmpty(mAppLinkText) && !TextUtils.isEmpty(mAppLinkIntentUri)) {
             try {
                 Intent intent = Intent.parseUri(mAppLinkIntentUri, Intent.URI_INTENT_SCHEME);
-                if (intent.resolveActivityInfo(pm, 0) != null) {
+                ActivityInfo activityInfo = intent.resolveActivityInfo(pm, 0);
+                if (activityInfo != null) {
+                    String packageName = activityInfo.packageName;
+                    // Prevent creation of App Links to private activities in this package
+                    boolean isProtectedActivity = packageName != null
+                            && (packageName.equals(CommonConstants.BASE_PACKAGE)
+                            || packageName.startsWith(CommonConstants.BASE_PACKAGE + "."));
+                    if (isProtectedActivity) {
+                        Log.w(TAG,"Attempt to add app link to protected activity: "
+                                + mAppLinkIntentUri);
+                        return;
+                    }
                     mAppLinkIntent = intent;
                     mAppLinkIntent.putExtra(
                             CommonConstants.EXTRA_APP_LINK_CHANNEL_URI, getUri().toString());

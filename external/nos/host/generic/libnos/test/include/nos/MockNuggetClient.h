@@ -33,6 +33,9 @@ struct MockNuggetClient : public NuggetClientInterface {
     MOCK_METHOD4(CallApp, uint32_t(uint32_t, uint16_t,
                                    const std::vector<uint8_t>&,
                                    std::vector<uint8_t>*));
+    MOCK_METHOD6(CallApp, uint32_t(uint32_t, uint16_t,
+                                   const void*, uint32_t,
+                                   void*, uint32_t*));
     MOCK_CONST_METHOD0(Reset, uint32_t());
 };
 

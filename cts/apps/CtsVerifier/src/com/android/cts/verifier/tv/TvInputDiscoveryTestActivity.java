@@ -47,7 +47,6 @@ public class TvInputDiscoveryTestActivity extends TvAppVerifierActivity
     private View mTuneToChannelItem;
     private View mVerifyTuneItem;
     private View mVerifyOverlayViewItem;
-    private View mVerifyGlobalSearchItem;
     private View mVerifyOverlayViewSizeChanged;
     private View mGoToEpgItem;
     private View mVerifyEpgItem;
@@ -57,7 +56,6 @@ public class TvInputDiscoveryTestActivity extends TvAppVerifierActivity
     private View mSupportThirdPartyInputNoItem;
     private boolean mTuneVerified;
     private boolean mOverlayViewVerified;
-    private boolean mGlobalSearchVerified;
     private boolean mOverlayViewSizeChangedVerified;
 
     @Override
@@ -130,7 +128,7 @@ public class TvInputDiscoveryTestActivity extends TvAppVerifierActivity
                     goToNextState(postTarget, failCallback);
                 }
             });
-            verifyGlobalSearch(postTarget, failCallback);
+            // TODO: handle GLOBAL_SEARCH permission and verify global search
             startActivity(TV_APP_INTENT);
         } else if (containsButton(mGoToEpgItem, v)) {
             startActivity(EPG_INTENT);
@@ -166,10 +164,8 @@ public class TvInputDiscoveryTestActivity extends TvAppVerifierActivity
         mVerifyTuneItem = createAndAttachAutoItem(R.string.tv_input_discover_test_verify_tune);
         mVerifyOverlayViewItem = createAndAttachAutoItem(
                 R.string.tv_input_discover_test_verify_overlay_view);
-        mVerifyOverlayViewSizeChanged = createAndAttachAutoItem(
-                R.string.tv_input_discover_test_verify_size_changed);
-        mVerifyGlobalSearchItem = createAndAttachAutoItem(
-                R.string.tv_input_discover_test_verify_global_search);
+        mVerifyOverlayViewSizeChanged =
+                createAndAttachAutoItem(R.string.tv_input_discover_test_verify_size_changed);
         mGoToEpgItem = createAndAttachUserItem(R.string.tv_input_discover_test_go_to_epg,
                 R.string.tv_launch_epg, this);
         mVerifyEpgItem = createAndAttachUserItem(R.string.tv_input_discover_test_verify_epg,
@@ -187,38 +183,9 @@ public class TvInputDiscoveryTestActivity extends TvAppVerifierActivity
     }
 
     private void goToNextState(View postTarget, Runnable failCallback) {
-        if (mTuneVerified && mOverlayViewVerified
-                && mGlobalSearchVerified && mOverlayViewSizeChangedVerified) {
+        if (mTuneVerified && mOverlayViewVerified && mOverlayViewSizeChangedVerified) {
             postTarget.removeCallbacks(failCallback);
             setButtonEnabled(mGoToEpgItem, true);
         }
-    }
-
-    private void verifyGlobalSearch(final View postTarget, final Runnable failCallback) {
-        new AsyncTask<Void, Void, Boolean>() {
-            @Override
-            protected Boolean doInBackground(Void... params) {
-                Context context = TvInputDiscoveryTestActivity.this;
-                for (SearchableInfo info : SearchUtil.getSearchableInfos(context)) {
-                    if (SearchUtil.verifySearchResult(context, info,
-                            MockTvInputSetupActivity.CHANNEL_NAME,
-                            MockTvInputSetupActivity.PROGRAM_TITLE)
-                            && SearchUtil.verifySearchResult(context, info,
-                                    MockTvInputSetupActivity.PROGRAM_TITLE,
-                                    MockTvInputSetupActivity.PROGRAM_TITLE)) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            @Override
-            protected void onPostExecute(Boolean result) {
-                super.onPostExecute(result);
-                setPassState(mVerifyGlobalSearchItem, result);
-                mGlobalSearchVerified = result;
-                goToNextState(postTarget, failCallback);
-            }
-        }.execute();
     }
 }

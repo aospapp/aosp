@@ -119,7 +119,7 @@ public class ImsManagerTest extends ImsTestBase {
 
         doReturn(true).when(mSubscriptionManagerProxy).isValidSubscriptionId(anyInt());
         doReturn(mSubId).when(mSubscriptionManagerProxy).getActiveSubscriptionIdList();
-        doReturn(mSubId).when(mSubscriptionManagerProxy).getSubscriptionIds(anyInt());
+        doReturn(mSubId[0]).when(mSubscriptionManagerProxy).getSubscriptionId(anyInt());
         doReturn(mPhoneId).when(mSubscriptionManagerProxy).getDefaultVoicePhoneId();
         doReturn(-1).when(mSubscriptionManagerProxy).getIntegerSubscriptionProperty(anyInt(),
                 anyString(), anyInt());
@@ -1010,6 +1010,14 @@ public class ImsManagerTest extends ImsTestBase {
                 eq(ProvisioningManager.KEY_VOICE_OVER_WIFI_ROAMING_ENABLED_OVERRIDE),
                 eq(ProvisioningManager.PROVISIONING_VALUE_DISABLED));
 
+    }
+
+    @Test @SmallTest
+    public void onMemoryAvailableTest() throws Exception{
+        ImsManager imsManager = getImsManagerAndInitProvisionedValues();
+        int token = 1;
+        imsManager.onMemoryAvailable(token);
+        verify(mMmTelFeatureConnection).onMemoryAvailable(eq(token));
     }
 
     private ImsManager getImsManagerAndInitProvisionedValues() {

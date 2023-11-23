@@ -71,7 +71,7 @@ TEST_F(RecordFilterTest, exclude_tid) {
 }
 
 TEST_F(RecordFilterTest, exclude_process_name_regex) {
-  filter.AddProcessNameRegex("processA", true);
+  ASSERT_TRUE(filter.AddProcessNameRegex("processA", true));
   thread_tree.SetThreadName(1, 1, "processA1");
   thread_tree.SetThreadName(2, 2, "processB1");
   ASSERT_FALSE(filter.Check(GetRecord(1, 1)));
@@ -79,7 +79,7 @@ TEST_F(RecordFilterTest, exclude_process_name_regex) {
 }
 
 TEST_F(RecordFilterTest, exclude_thread_name_regex) {
-  filter.AddThreadNameRegex("threadA", true);
+  ASSERT_TRUE(filter.AddThreadNameRegex("threadA", true));
   thread_tree.SetThreadName(1, 1, "processA_threadA");
   thread_tree.SetThreadName(1, 2, "processA_threadB");
   ASSERT_FALSE(filter.Check(GetRecord(1, 1)));
@@ -109,7 +109,7 @@ TEST_F(RecordFilterTest, include_tid) {
 }
 
 TEST_F(RecordFilterTest, include_process_name_regex) {
-  filter.AddProcessNameRegex("processA", false);
+  ASSERT_TRUE(filter.AddProcessNameRegex("processA", false));
   thread_tree.SetThreadName(1, 1, "processA1");
   thread_tree.SetThreadName(2, 2, "processB1");
   ASSERT_TRUE(filter.Check(GetRecord(1, 1)));
@@ -117,7 +117,7 @@ TEST_F(RecordFilterTest, include_process_name_regex) {
 }
 
 TEST_F(RecordFilterTest, include_thread_name_regex) {
-  filter.AddThreadNameRegex("threadA", false);
+  ASSERT_TRUE(filter.AddThreadNameRegex("threadA", false));
   thread_tree.SetThreadName(1, 1, "processA_threadA");
   thread_tree.SetThreadName(1, 2, "processA_threadB");
   ASSERT_TRUE(filter.Check(GetRecord(1, 1)));
@@ -285,15 +285,15 @@ TEST_F(RecordFilterTest, parse_options) {
         filter_cmd.Run({prefix + "process-name", "processA", prefix + "process-name", "processB"}));
     auto& process_regs = filter.GetCondition(exclude).process_name_regs;
     ASSERT_EQ(process_regs.size(), 2);
-    ASSERT_TRUE(std::regex_match("processA", process_regs[0]));
-    ASSERT_TRUE(std::regex_match("processB", process_regs[1]));
+    ASSERT_TRUE(process_regs[0]->Match("processA"));
+    ASSERT_TRUE(process_regs[1]->Match("processB"));
 
     ASSERT_TRUE(
         filter_cmd.Run({prefix + "thread-name", "threadA", prefix + "thread-name", "threadB"}));
     auto& thread_regs = filter.GetCondition(exclude).thread_name_regs;
     ASSERT_EQ(thread_regs.size(), 2);
-    ASSERT_TRUE(std::regex_match("threadA", thread_regs[0]));
-    ASSERT_TRUE(std::regex_match("threadB", thread_regs[1]));
+    ASSERT_TRUE(thread_regs[0]->Match("threadA"));
+    ASSERT_TRUE(thread_regs[1]->Match("threadB"));
 
     ASSERT_TRUE(filter_cmd.Run({prefix + "uid", "1,2", prefix + "uid", "3"}));
     ASSERT_EQ(filter.GetCondition(exclude).uids, std::set<uint32_t>({1, 2, 3}));

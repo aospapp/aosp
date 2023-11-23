@@ -42,8 +42,8 @@ import com.android.permissioncontroller.permission.model.AppPermissions;
 import com.android.permissioncontroller.permission.model.Permission;
 import com.android.permissioncontroller.permission.utils.ArrayUtils;
 import com.android.permissioncontroller.permission.utils.LocationUtils;
-import com.android.permissioncontroller.permission.utils.SafetyNetLogger;
 import com.android.permissioncontroller.permission.utils.Utils;
+import com.android.permissioncontroller.permission.utils.legacy.LegacySafetyNetLogger;
 import com.android.settingslib.RestrictedLockUtils;
 import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
@@ -381,7 +381,7 @@ public final class AppPermissionsFragmentWear extends PreferenceFragmentCompat {
 
     private void logAndClearToggledGroups() {
         if (mToggledGroups != null) {
-            SafetyNetLogger.logPermissionsToggled(mToggledGroups);
+            LegacySafetyNetLogger.logPermissionsToggled(mToggledGroups);
             mToggledGroups = null;
         }
     }

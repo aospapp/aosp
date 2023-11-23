@@ -24,7 +24,7 @@ import org.junit.Test;
 /**
  * To verify PO APIs targeting API level 23.
  */
-public class ProfileOwnerTestApi23 extends BaseDevicePolicyTest {
+public final class ProfileOwnerTestApi23 extends BaseDevicePolicyTest {
     protected static final String DEVICE_ADMIN_PKG = "com.android.cts.deviceandprofileowner";
     protected static final String DEVICE_ADMIN_APK = "CtsDeviceAndProfileOwnerApp23.apk";
     protected static final String ADMIN_RECEIVER_TEST_CLASS

@@ -98,15 +98,16 @@ public class BluetoothOppPreference {
     }
 
     private String getChannelKey(BluetoothDevice remoteDevice, int uuid) {
-        return remoteDevice.getAddress() + "_" + Integer.toHexString(uuid);
+        return remoteDevice.getIdentityAddress() + "_" + Integer.toHexString(uuid);
     }
 
     public String getName(BluetoothDevice remoteDevice) {
-        if (remoteDevice.getAddress().equals("FF:FF:FF:00:00:00")) {
+        String identityAddress = remoteDevice.getIdentityAddress();
+        if (identityAddress != null && identityAddress.equals("FF:FF:FF:00:00:00")) {
             return "localhost";
         }
         if (!mNames.isEmpty()) {
-            String name = mNames.get(remoteDevice.getAddress());
+            String name = mNames.get(remoteDevice.getIdentityAddress());
             if (name != null) {
                 return name;
             }
@@ -124,7 +125,7 @@ public class BluetoothOppPreference {
             channel = mChannels.get(key);
             if (V) {
                 Log.v(TAG,
-                        "getChannel for " + remoteDevice + "_" + Integer.toHexString(uuid) + " as "
+                        "getChannel for " + remoteDevice.getIdentityAddress() + "_" + Integer.toHexString(uuid) + " as "
                                 + channel);
             }
         }
@@ -133,19 +134,19 @@ public class BluetoothOppPreference {
 
     public void setName(BluetoothDevice remoteDevice, String name) {
         if (V) {
-            Log.v(TAG, "Setname for " + remoteDevice + " to " + name);
+            Log.v(TAG, "Setname for " + remoteDevice.getIdentityAddress() + " to " + name);
         }
         if (name != null && !name.equals(getName(remoteDevice))) {
             Editor ed = mNamePreference.edit();
-            ed.putString(remoteDevice.getAddress(), name);
+            ed.putString(remoteDevice.getIdentityAddress(), name);
             ed.apply();
-            mNames.put(remoteDevice.getAddress(), name);
+            mNames.put(remoteDevice.getIdentityAddress(), name);
         }
     }
 
     public void setChannel(BluetoothDevice remoteDevice, int uuid, int channel) {
         if (V) {
-            Log.v(TAG, "Setchannel for " + remoteDevice + "_" + Integer.toHexString(uuid) + " to "
+            Log.v(TAG, "Setchannel for " + remoteDevice.getIdentityAddress() + "_" + Integer.toHexString(uuid) + " to "
                     + channel);
         }
         if (channel != getChannel(remoteDevice, uuid)) {
@@ -163,6 +164,14 @@ public class BluetoothOppPreference {
         ed.remove(key);
         ed.apply();
         mChannels.remove(key);
+    }
+
+    public void removeName(BluetoothDevice remoteDevice) {
+        Editor ed = mNamePreference.edit();
+        String key = remoteDevice.getIdentityAddress();
+        ed.remove(key);
+        ed.apply();
+        mNames.remove(key);
     }
 
     public void dump() {

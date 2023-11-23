@@ -24,7 +24,9 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <functional>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <utility>
 
@@ -35,9 +37,10 @@
 #include <brillo/secure_blob.h>
 #include <brillo/streams/file_stream.h>
 
-#include "common/error_code.h"
+#include "update_engine/common/error_code.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/payload_consumer/file_descriptor.h"
+#include "update_engine/payload_consumer/install_plan.h"
 
 using brillo::data_encoding::Base64Encode;
 using std::string;
@@ -77,7 +80,9 @@ namespace chromeos_update_engine {
 
 namespace {
 const off_t kReadFileBufferSize = 128 * 1024;
-constexpr float kVerityProgressPercent = 0.6;
+constexpr float kVerityProgressPercent = 0.3;
+constexpr float kEncodeFECPercent = 0.3;
+
 }  // namespace
 
 void FilesystemVerifierAction::PerformAction() {
@@ -97,7 +102,27 @@ void FilesystemVerifierAction::PerformAction() {
     abort_action_completer.set_code(ErrorCode::kSuccess);
     return;
   }
+  // partition_weight_[i] = total size of partitions before index i.
+  partition_weight_.clear();
+  partition_weight_.reserve(install_plan_.partitions.size() + 1);
+  partition_weight_.push_back(0);
+  for (const auto& part : install_plan_.partitions) {
+    partition_weight_.push_back(part.target_size);
+  }
+  std::partial_sum(partition_weight_.begin(),
+                   partition_weight_.end(),
+                   partition_weight_.begin(),
+                   std::plus<size_t>());
+
   install_plan_.Dump();
+  // If we are not writing verity, just map all partitions once at the
+  // beginning.
+  // No need to re-map for each partition, because we are not writing any new
+  // COW data.
+  if (dynamic_control_->UpdateUsesSnapshotCompression() &&
+      !install_plan_.write_verity) {
+    dynamic_control_->MapAllPartitions();
+  }
   StartPartitionHashing();
   abort_action_completer.set_should_complete(false);
 }
@@ -135,11 +160,9 @@ void FilesystemVerifierAction::UpdateProgress(double progress) {
 }
 
 void FilesystemVerifierAction::UpdatePartitionProgress(double progress) {
-  // We don't consider sizes of each partition. Every partition
-  // has the same length on progress bar.
-  // TODO(b/186087589): Take sizes of each partition into account.
-  UpdateProgress((progress + partition_index_) /
-                 install_plan_.partitions.size());
+  UpdateProgress((partition_weight_[partition_index_] * (1 - progress) +
+                  partition_weight_[partition_index_ + 1] * progress) /
+                 partition_weight_.back());
 }
 
 bool FilesystemVerifierAction::InitializeFdVABC(bool should_write_verity) {
@@ -166,8 +189,10 @@ bool FilesystemVerifierAction::InitializeFdVABC(bool should_write_verity) {
     // writes won't be visible to previously opened snapuserd daemon. To ensure
     // that we will see the most up to date data from partitions, call Unmap()
     // then Map() to re-spin daemon.
-    dynamic_control_->UnmapAllPartitions();
-    dynamic_control_->MapAllPartitions();
+    if (install_plan_.write_verity) {
+      dynamic_control_->UnmapAllPartitions();
+      dynamic_control_->MapAllPartitions();
+    }
     return InitializeFd(partition.readonly_target_path);
   }
   partition_fd_ =
@@ -196,6 +221,37 @@ bool FilesystemVerifierAction::InitializeFd(const std::string& part_path) {
   return true;
 }
 
+void FilesystemVerifierAction::WriteVerityData(FileDescriptor* fd,
+                                               void* buffer,
+                                               const size_t buffer_size) {
+  if (verity_writer_->FECFinished()) {
+    LOG(INFO) << "EncodeFEC is completed. Resuming other tasks";
+    if (dynamic_control_->UpdateUsesSnapshotCompression()) {
+      // Spin up snapuserd to read fs.
+      if (!InitializeFdVABC(false)) {
+        LOG(ERROR) << "Failed to map all partitions";
+        Cleanup(ErrorCode::kFilesystemVerifierError);
+        return;
+      }
+    }
+    HashPartition(0, partition_size_, buffer, buffer_size);
+    return;
+  }
+  if (!verity_writer_->IncrementalFinalize(fd, fd)) {
+    LOG(ERROR) << "Failed to write verity data";
+    Cleanup(ErrorCode::kVerityCalculationError);
+  }
+  UpdatePartitionProgress(kVerityProgressPercent +
+                          verity_writer_->GetProgress() * kEncodeFECPercent);
+  CHECK(pending_task_id_.PostTask(
+      FROM_HERE,
+      base::BindOnce(&FilesystemVerifierAction::WriteVerityData,
+                     base::Unretained(this),
+                     fd,
+                     buffer,
+                     buffer_size)));
+}
+
 void FilesystemVerifierAction::WriteVerityAndHashPartition(
     const off64_t start_offset,
     const off64_t end_offset,
@@ -207,20 +263,7 @@ void FilesystemVerifierAction::WriteVerityAndHashPartition(
     LOG_IF(WARNING, start_offset > end_offset)
         << "start_offset is greater than end_offset : " << start_offset << " > "
         << end_offset;
-    if (!verity_writer_->Finalize(fd, fd)) {
-      LOG(ERROR) << "Failed to write verity data";
-      Cleanup(ErrorCode::kVerityCalculationError);
-      return;
-    }
-    if (dynamic_control_->UpdateUsesSnapshotCompression()) {
-      // Spin up snapuserd to read fs.
-      if (!InitializeFdVABC(false)) {
-        LOG(ERROR) << "Failed to map all partitions";
-        Cleanup(ErrorCode::kFilesystemVerifierError);
-        return;
-      }
-    }
-    HashPartition(0, partition_size_, buffer, buffer_size);
+    WriteVerityData(fd, buffer, buffer_size);
     return;
   }
   const auto cur_offset = fd->Seek(start_offset, SEEK_SET);
@@ -290,8 +333,16 @@ void FilesystemVerifierAction::HashPartition(const off64_t start_offset,
     return;
   }
   const auto progress = (start_offset + bytes_read) * 1.0f / partition_size_;
-  UpdatePartitionProgress(progress * (1 - kVerityProgressPercent) +
-                          kVerityProgressPercent);
+  // If we are writing verity, then the progress bar will be split between
+  // verity writes and partition hashing. Otherwise, the entire progress bar is
+  // dedicated to partition hashing for smooth progress.
+  if (ShouldWriteVerity()) {
+    UpdatePartitionProgress(
+        progress * (1 - (kVerityProgressPercent + kEncodeFECPercent)) +
+        kVerityProgressPercent + kEncodeFECPercent);
+  } else {
+    UpdatePartitionProgress(progress);
+  }
   CHECK(pending_task_id_.PostTask(
       FROM_HERE,
       base::BindOnce(&FilesystemVerifierAction::HashPartition,

@@ -17,16 +17,13 @@
 #include <linux/input.h>
 
 #include <memory>
-#include <string>
-#include <utility>
-#include <vector>
 
 #include <android-base/logging.h>
 #include <android-base/strings.h>
+#include <fruit/fruit.h>
 #include <gflags/gflags.h>
 #include <libyuv.h>
 
-#include "common/libs/fs/shared_buf.h"
 #include "common/libs/fs/shared_fd.h"
 #include "common/libs/utils/files.h"
 #include "host/frontend/webrtc/audio_handler.h"
@@ -34,10 +31,10 @@
 #include "host/frontend/webrtc/connection_observer.h"
 #include "host/frontend/webrtc/display_handler.h"
 #include "host/frontend/webrtc/kernel_log_events_handler.h"
-#include "host/frontend/webrtc/lib/camera_controller.h"
-#include "host/frontend/webrtc/lib/local_recorder.h"
-#include "host/frontend/webrtc/lib/streamer.h"
-#include "host/frontend/webrtc/lib/video_sink.h"
+#include "host/frontend/webrtc/libdevice/camera_controller.h"
+#include "host/frontend/webrtc/libdevice/local_recorder.h"
+#include "host/frontend/webrtc/libdevice/streamer.h"
+#include "host/frontend/webrtc/libdevice/video_sink.h"
 #include "host/libs/audio_connector/server.h"
 #include "host/libs/config/cuttlefish_config.h"
 #include "host/libs/config/logging.h"
@@ -53,6 +50,10 @@ DEFINE_int32(frame_server_fd, -1, "An fd to listen on for frame updates");
 DEFINE_int32(kernel_log_events_fd, -1,
              "An fd to listen on for kernel log events.");
 DEFINE_int32(command_fd, -1, "An fd to listen to for control messages");
+DEFINE_int32(confui_in_fd, -1,
+             "Confirmation UI virtio-console from host to guest");
+DEFINE_int32(confui_out_fd, -1,
+             "Confirmation UI virtio-console from guest to host");
 DEFINE_string(action_servers, "",
               "A comma-separated list of server_name:fd pairs, "
               "where each entry corresponds to one custom action server.");
@@ -86,47 +87,6 @@ class CfOperatorObserver
     LOG(ERROR) << "Error encountered in connection with Operator";
   }
 };
-
-static std::vector<std::pair<std::string, std::string>> ParseHttpHeaders(
-    const std::string& path) {
-  auto fd = cuttlefish::SharedFD::Open(path, O_RDONLY);
-  if (!fd->IsOpen()) {
-    LOG(WARNING) << "Unable to open operator (signaling server) headers file, "
-                    "connecting to the operator will probably fail: "
-                 << fd->StrError();
-    return {};
-  }
-  std::string raw_headers;
-  auto res = cuttlefish::ReadAll(fd, &raw_headers);
-  if (res < 0) {
-    LOG(WARNING) << "Unable to open operator (signaling server) headers file, "
-                    "connecting to the operator will probably fail: "
-                 << fd->StrError();
-    return {};
-  }
-  std::vector<std::pair<std::string, std::string>> headers;
-  std::size_t raw_index = 0;
-  while (raw_index < raw_headers.size()) {
-    auto colon_pos = raw_headers.find(':', raw_index);
-    if (colon_pos == std::string::npos) {
-      LOG(ERROR)
-          << "Expected to find ':' in each line of the operator headers file";
-      break;
-    }
-    auto eol_pos = raw_headers.find('\n', colon_pos);
-    if (eol_pos == std::string::npos) {
-      eol_pos = raw_headers.size();
-    }
-    // If the file uses \r\n as line delimiters exclude the \r too.
-    auto eov_pos = raw_headers[eol_pos - 1] == '\r'? eol_pos - 1: eol_pos;
-    headers.emplace_back(
-        raw_headers.substr(raw_index, colon_pos + 1 - raw_index),
-        raw_headers.substr(colon_pos + 1, eov_pos - colon_pos - 1));
-    raw_index = eol_pos + 1;
-  }
-  return headers;
-}
-
 std::unique_ptr<cuttlefish::AudioServer> CreateAudioServer() {
   cuttlefish::SharedFD audio_server_fd =
       cuttlefish::SharedFD::Dup(FLAGS_audio_server_fd);
@@ -139,6 +99,21 @@ fruit::Component<cuttlefish::CustomActionConfigProvider> WebRtcComponent() {
       .install(cuttlefish::ConfigFlagPlaceholder)
       .install(cuttlefish::CustomActionsComponent);
 };
+
+fruit::Component<
+    cuttlefish::ScreenConnector<DisplayHandler::WebRtcScProcessedFrame>,
+    cuttlefish::confui::HostServer, cuttlefish::confui::HostVirtualInput>
+CreateConfirmationUIComponent(
+    int* frames_fd, cuttlefish::confui::PipeConnectionPair* pipe_io_pair) {
+  using cuttlefish::ScreenConnectorFrameRenderer;
+  using ScreenConnector = cuttlefish::DisplayHandler::ScreenConnector;
+  return fruit::createComponent()
+      .bindInstance<
+          fruit::Annotated<cuttlefish::WaylandScreenConnector::FramesFd, int>>(
+          *frames_fd)
+      .bindInstance(*pipe_io_pair)
+      .bind<ScreenConnectorFrameRenderer, ScreenConnector>();
+}
 
 int main(int argc, char** argv) {
   cuttlefish::DefaultSubprocessLogging(argv);
@@ -174,6 +149,7 @@ int main(int argc, char** argv) {
       cuttlefish::SharedFD::Accept(*input_sockets.switches_server);
 
   std::vector<std::thread> touch_accepters;
+  touch_accepters.reserve(input_sockets.touch_servers.size());
   for (const auto& touch : input_sockets.touch_servers) {
     auto label = touch.first;
     touch_accepters.emplace_back([label, &input_sockets]() {
@@ -202,25 +178,36 @@ int main(int argc, char** argv) {
 
   auto cvd_config = cuttlefish::CuttlefishConfig::Get();
   auto instance = cvd_config->ForDefaultInstance();
-  auto& host_mode_ctrl = cuttlefish::HostModeCtrl::Get();
-  auto screen_connector_ptr = cuttlefish::DisplayHandler::ScreenConnector::Get(
-      FLAGS_frame_server_fd, host_mode_ctrl);
-  auto& screen_connector = *(screen_connector_ptr.get());
+
+  cuttlefish::confui::PipeConnectionPair conf_ui_comm_fd_pair{
+      .from_guest_ = cuttlefish::SharedFD::Dup(FLAGS_confui_out_fd),
+      .to_guest_ = cuttlefish::SharedFD::Dup(FLAGS_confui_in_fd)};
+  close(FLAGS_confui_in_fd);
+  close(FLAGS_confui_out_fd);
+
+  int frames_fd = FLAGS_frame_server_fd;
+  fruit::Injector<
+      cuttlefish::ScreenConnector<DisplayHandler::WebRtcScProcessedFrame>,
+      cuttlefish::confui::HostServer, cuttlefish::confui::HostVirtualInput>
+      conf_ui_components_injector(CreateConfirmationUIComponent,
+                                  std::addressof(frames_fd),
+                                  &conf_ui_comm_fd_pair);
+  auto& screen_connector =
+      conf_ui_components_injector.get<DisplayHandler::ScreenConnector&>();
+
   auto client_server = cuttlefish::ClientFilesServer::New(FLAGS_client_dir);
   CHECK(client_server) << "Failed to initialize client files server";
-
-  // create confirmation UI service, giving host_mode_ctrl and
-  // screen_connector
-  // keep this singleton object alive until the webRTC process ends
-  static auto& host_confui_server =
-      cuttlefish::confui::HostServer::Get(host_mode_ctrl, screen_connector);
+  auto& host_confui_server =
+      conf_ui_components_injector.get<cuttlefish::confui::HostServer&>();
+  auto& confui_virtual_input =
+      conf_ui_components_injector.get<cuttlefish::confui::HostVirtualInput&>();
 
   StreamerConfig streamer_config;
 
   streamer_config.device_id = instance.webrtc_device_id();
   streamer_config.client_files_port = client_server->port();
-  streamer_config.tcp_port_range = cvd_config->webrtc_tcp_port_range();
-  streamer_config.udp_port_range = cvd_config->webrtc_udp_port_range();
+  streamer_config.tcp_port_range = instance.webrtc_tcp_port_range();
+  streamer_config.udp_port_range = instance.webrtc_udp_port_range();
   streamer_config.operator_server.addr = cvd_config->sig_server_address();
   streamer_config.operator_server.port = cvd_config->sig_server_port();
   streamer_config.operator_server.path = cvd_config->sig_server_path();
@@ -234,42 +221,14 @@ int main(int argc, char** argv) {
         ServerConfig::Security::kInsecure;
   }
 
-  if (!cvd_config->sig_server_headers_path().empty()) {
-    streamer_config.operator_server.http_headers =
-        ParseHttpHeaders(cvd_config->sig_server_headers_path());
-  }
-
   KernelLogEventsHandler kernel_logs_event_handler(kernel_log_events_client);
   auto observer_factory = std::make_shared<CfConnectionObserverFactory>(
-      input_sockets, &kernel_logs_event_handler, host_confui_server);
+      input_sockets, &kernel_logs_event_handler, confui_virtual_input);
 
-  auto streamer = Streamer::Create(streamer_config, observer_factory);
-  CHECK(streamer) << "Could not create streamer";
-
-  uint32_t display_index = 0;
-  std::vector<std::shared_ptr<VideoSink>> displays;
-  for (const auto& display_config : cvd_config->display_configs()) {
-    const std::string display_id = "display_" + std::to_string(display_index);
-
-    auto display =
-        streamer->AddDisplay(display_id, display_config.width,
-                             display_config.height, display_config.dpi, true);
-    displays.push_back(display);
-
-    ++display_index;
-  }
-
-  auto display_handler =
-      std::make_shared<DisplayHandler>(std::move(displays), screen_connector);
-
-  if (instance.camera_server_port()) {
-    auto camera_controller = streamer->AddCamera(instance.camera_server_port(),
-                                                 instance.vsock_guest_cid());
-    observer_factory->SetCameraHandler(camera_controller);
-  }
-
+  // The recorder is created first, so displays added in callbacks to the
+  // Streamer can also be added to the LocalRecorder.
   std::unique_ptr<cuttlefish::webrtc_streaming::LocalRecorder> local_recorder;
-  if (cvd_config->record_screen()) {
+  if (instance.record_screen()) {
     int recording_num = 0;
     std::string recording_path;
     do {
@@ -280,29 +239,45 @@ int main(int argc, char** argv) {
     } while (cuttlefish::FileExists(recording_path));
     local_recorder = LocalRecorder::Create(recording_path);
     CHECK(local_recorder) << "Could not create local recorder";
+  }
 
-    streamer->RecordDisplays(*local_recorder);
+  auto streamer =
+      Streamer::Create(streamer_config, local_recorder.get(), observer_factory);
+  CHECK(streamer) << "Could not create streamer";
+
+  auto display_handler =
+      std::make_shared<DisplayHandler>(*streamer, screen_connector);
+
+  if (instance.camera_server_port()) {
+    auto camera_controller = streamer->AddCamera(instance.camera_server_port(),
+                                                 instance.vsock_guest_cid());
+    observer_factory->SetCameraHandler(camera_controller);
   }
 
   observer_factory->SetDisplayHandler(display_handler);
 
-  streamer->SetHardwareSpec("CPUs", cvd_config->cpus());
-  streamer->SetHardwareSpec("RAM", std::to_string(cvd_config->memory_mb()) + " mb");
+  streamer->SetHardwareSpec("CPUs", instance.cpus());
+  streamer->SetHardwareSpec("RAM", std::to_string(instance.memory_mb()) + " mb");
 
   std::string user_friendly_gpu_mode;
-  if (cvd_config->gpu_mode() == cuttlefish::kGpuModeGuestSwiftshader) {
+  if (instance.gpu_mode() == cuttlefish::kGpuModeGuestSwiftshader) {
     user_friendly_gpu_mode = "SwiftShader (Guest CPU Rendering)";
-  } else if (cvd_config->gpu_mode() == cuttlefish::kGpuModeDrmVirgl) {
-    user_friendly_gpu_mode = "VirglRenderer (Accelerated Host GPU Rendering)";
-  } else if (cvd_config->gpu_mode() == cuttlefish::kGpuModeGfxStream) {
-    user_friendly_gpu_mode = "Gfxstream (Accelerated Host GPU Rendering)";
+  } else if (instance.gpu_mode() == cuttlefish::kGpuModeDrmVirgl) {
+    user_friendly_gpu_mode =
+        "VirglRenderer (Accelerated Rendering using Host OpenGL)";
+  } else if (instance.gpu_mode() == cuttlefish::kGpuModeGfxstream) {
+    user_friendly_gpu_mode =
+        "Gfxstream (Accelerated Rendering using Host OpenGL and Vulkan)";
+  } else if (instance.gpu_mode() == cuttlefish::kGpuModeGfxstreamGuestAngle) {
+    user_friendly_gpu_mode =
+        "Gfxstream (Accelerated Rendering using Host Vulkan)";
   } else {
-    user_friendly_gpu_mode = cvd_config->gpu_mode();
+    user_friendly_gpu_mode = instance.gpu_mode();
   }
   streamer->SetHardwareSpec("GPU Mode", user_friendly_gpu_mode);
 
   std::shared_ptr<AudioHandler> audio_handler;
-  if (cvd_config->enable_audio()) {
+  if (instance.enable_audio()) {
     auto audio_stream = streamer->AddAudioStream("audio");
     auto audio_server = CreateAudioServer();
     auto audio_source = streamer->GetAudioSource();
@@ -336,53 +311,50 @@ int main(int argc, char** argv) {
 
   const auto& actions_provider =
       injector.get<cuttlefish::CustomActionConfigProvider&>();
-  for (const auto& custom_action : actions_provider.CustomActions()) {
-    if (custom_action.shell_command) {
-      if (custom_action.buttons.size() != 1) {
-        LOG(FATAL) << "Expected exactly one button for custom action command: "
-                   << *(custom_action.shell_command);
-      }
-      const auto button = custom_action.buttons[0];
-      streamer->AddCustomControlPanelButtonWithShellCommand(
-          button.command, button.title, button.icon_name,
-          *(custom_action.shell_command));
-    } else if (custom_action.server) {
-      if (action_server_fds.find(*(custom_action.server)) !=
-          action_server_fds.end()) {
-        LOG(INFO) << "Connecting to custom action server "
-                  << *(custom_action.server);
 
-        int fd = action_server_fds[*(custom_action.server)];
-        cuttlefish::SharedFD custom_action_server = cuttlefish::SharedFD::Dup(fd);
-        close(fd);
+  for (const auto& custom_action :
+       actions_provider.CustomShellActions(instance.id())) {
+    const auto button = custom_action.button;
+    streamer->AddCustomControlPanelButtonWithShellCommand(
+        button.command, button.title, button.icon_name,
+        custom_action.shell_command);
+  }
 
-        if (custom_action_server->IsOpen()) {
-          std::vector<std::string> commands_for_this_server;
-          for (const auto& button : custom_action.buttons) {
-            streamer->AddCustomControlPanelButton(button.command, button.title,
-                                                  button.icon_name);
-            commands_for_this_server.push_back(button.command);
-          }
-          observer_factory->AddCustomActionServer(custom_action_server,
-                                                  commands_for_this_server);
-        } else {
-          LOG(ERROR) << "Error connecting to custom action server: "
-                     << *(custom_action.server);
-        }
-      } else {
-        LOG(ERROR) << "Custom action server not provided as command line flag: "
-                   << *(custom_action.server);
-      }
-    } else if (!custom_action.device_states.empty()) {
-      if (custom_action.buttons.size() != 1) {
-        LOG(FATAL)
-            << "Expected exactly one button for custom action device states.";
-      }
-      const auto button = custom_action.buttons[0];
-      streamer->AddCustomControlPanelButtonWithDeviceStates(
-          button.command, button.title, button.icon_name,
-          custom_action.device_states);
+  for (const auto& custom_action :
+       actions_provider.CustomActionServers(instance.id())) {
+    if (action_server_fds.find(custom_action.server) ==
+        action_server_fds.end()) {
+      LOG(ERROR) << "Custom action server not provided as command line flag: "
+                 << custom_action.server;
+      continue;
     }
+    LOG(INFO) << "Connecting to custom action server " << custom_action.server;
+
+    int fd = action_server_fds[custom_action.server];
+    cuttlefish::SharedFD custom_action_server = cuttlefish::SharedFD::Dup(fd);
+    close(fd);
+
+    if (custom_action_server->IsOpen()) {
+      std::vector<std::string> commands_for_this_server;
+      for (const auto& button : custom_action.buttons) {
+        streamer->AddCustomControlPanelButton(button.command, button.title,
+                                              button.icon_name);
+        commands_for_this_server.push_back(button.command);
+      }
+      observer_factory->AddCustomActionServer(custom_action_server,
+                                              commands_for_this_server);
+    } else {
+      LOG(ERROR) << "Error connecting to custom action server: "
+                 << custom_action.server;
+    }
+  }
+
+  for (const auto& custom_action :
+       actions_provider.CustomDeviceStateActions(instance.id())) {
+    const auto button = custom_action.button;
+    streamer->AddCustomControlPanelButtonWithDeviceStates(
+        button.command, button.title, button.icon_name,
+        custom_action.device_states);
   }
 
   std::shared_ptr<cuttlefish::webrtc_streaming::OperatorObserver> operator_observer(

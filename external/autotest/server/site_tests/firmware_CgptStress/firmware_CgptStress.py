@@ -21,7 +21,8 @@ class firmware_CgptStress(FirmwareTest):
         self.faft_iterations = int(dict_args.get('faft_iterations', 1))
         super(firmware_CgptStress, self).initialize(host, cmdline_args)
         self.backup_cgpt_attributes()
-        self.switcher.setup_mode('dev' if dev_mode else 'normal')
+        self.switcher.setup_mode('dev' if dev_mode else 'normal',
+                                 allow_gbb_force=True)
         self.setup_usbkey(usbkey=False)
         self.setup_kernel('a')
 
@@ -34,7 +35,7 @@ class firmware_CgptStress(FirmwareTest):
 
     def run_once(self):
         """Runs a single iteration of the test."""
-        for i in xrange(self.faft_iterations):
+        for i in range(self.faft_iterations):
             logging.info('======== Running FAFT ITERATION %d/%s ========',
                          i + 1, self.faft_iterations)
             logging.info("Expected kernel A boot and prioritize kernel B.")

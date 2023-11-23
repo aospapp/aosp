@@ -30,6 +30,22 @@ public class NativeAudioSource extends AudioSource {
         initN(mNativeSourcePtr, numFrames, numChans);
     }
 
+    /**
+     * Specifies the sample rate for the source.
+     * @param sampleRate The sample rate for this source.
+     */
+    public void setSampleRate(int sampleRate) {
+        setSampleRateN(mNativeSourcePtr, sampleRate);
+    }
+
+    /**
+     * (for period sources) sets the frequency of the signal
+     * @param freq
+     */
+    public void setFreq(float freq) {
+        setFreqN(mNativeSourcePtr, freq);
+    };
+
     // These can be called from Java, but only do so if you don't mind the JNI overhead
     @Override
     public void reset() {
@@ -47,6 +63,8 @@ public class NativeAudioSource extends AudioSource {
     }
 
     private native void initN(long nativeSourcePtr, int numFrames, int numChans);
+    private native void setSampleRateN(long nativeSourcePtr, int sampleRate);
+    private native void setFreqN(long nativeSourcePtr, float freq);
     private native void resetN(long nativeSourcePtr);
     private native void triggerN(long nativeSourcePtr);
     private native int pullN(long nativeSourcePtr, float[] audioData, int numFrames, int numChans);

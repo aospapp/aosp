@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.batterystats;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.cts.statsdatom.lib.AtomTestUtils;
@@ -50,7 +51,7 @@ public class BatteryUsageStatsTests extends DeviceTestCase implements IBuildRece
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -84,7 +85,7 @@ public class BatteryUsageStatsTests extends DeviceTestCase implements IBuildRece
     private void runBatteryUsageStatsAtomTest(int atomFieldNumber,
             Function<AtomsProto.Atom, BatteryUsageStatsAtomsProto> getter) throws Exception {
         unplugDevice();
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         try {
             DeviceUtils.runActivity(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
                     "StatsdCtsForegroundActivity", "action", "action.drain_power", 5_000);
@@ -99,7 +100,7 @@ public class BatteryUsageStatsTests extends DeviceTestCase implements IBuildRece
 
         // Trigger atom pull.
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         final List<AtomsProto.Atom> atoms = ReportUtils.getGaugeMetricAtoms(getDevice());
         assertThat(atoms.size()).isAtLeast(1);
@@ -150,7 +151,8 @@ public class BatteryUsageStatsTests extends DeviceTestCase implements IBuildRece
         // If the test app consumed a measurable amount of power, the break-up
         // by process state should also be present in the atom.
         if (testConsumer != null
-                && testConsumer.getBatteryConsumerData().getTotalConsumedPowerDeciCoulombs() > 0) {
+                && testConsumer.getBatteryConsumerData().getTotalConsumedPowerDeciCoulombs()
+                > 0.1) {
             boolean hasProcStateData = false;
             for (int i = 0; i < testConsumer.getBatteryConsumerData().getSlicesCount(); i++) {
                 final BatteryConsumerData.PowerComponentUsageSlice slice =
@@ -176,6 +178,7 @@ public class BatteryUsageStatsTests extends DeviceTestCase implements IBuildRece
     private void unplugDevice() throws Exception {
         DeviceUtils.unplugDevice(getDevice());
         getDevice().executeShellCommand("dumpsys battery suspend_input");
+        getDevice().executeShellCommand("dumpsys batterystats --reset");
     }
 
     private void plugInDevice() throws Exception {

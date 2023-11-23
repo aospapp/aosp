@@ -46,22 +46,6 @@ public class EcUtil {
     return parameters.getParameterSpec(ECParameterSpec.class);
   }
 
-  public static void printParameters(ECParameterSpec spec) {
-    System.out.println("cofactor:" + spec.getCofactor());
-    EllipticCurve curve = spec.getCurve();
-    System.out.println("A:" + curve.getA());
-    System.out.println("B:" + curve.getB());
-    ECField field = curve.getField();
-    System.out.println("field size:" + field.getFieldSize());
-    if (field instanceof ECFieldFp) {
-      ECFieldFp fp = (ECFieldFp) field;
-      System.out.println("P:" + fp.getP());
-    }
-    ECPoint generator = spec.getGenerator();
-    System.out.println("Gx:" + generator.getAffineX());
-    System.out.println("Gy:" + generator.getAffineY());
-    System.out.println("order:" + spec.getOrder());
-  }
 
   /** Returns the bit size of a given curve. TODO(bleichen): add all curves that are tested. */
   public static int getCurveSize(String name) throws NoSuchAlgorithmException {

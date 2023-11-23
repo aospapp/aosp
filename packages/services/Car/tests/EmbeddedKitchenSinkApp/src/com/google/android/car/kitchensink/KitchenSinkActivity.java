@@ -16,13 +16,15 @@
 
 package com.google.android.car.kitchensink;
 
+import android.annotation.Nullable;
 import android.car.Car;
-import android.car.CarAppFocusManager;
+import android.car.CarOccupantZoneManager;
 import android.car.CarProjectionManager;
 import android.car.hardware.CarSensorManager;
 import android.car.hardware.hvac.CarHvacManager;
 import android.car.hardware.power.CarPowerManager;
 import android.car.hardware.property.CarPropertyManager;
+import android.car.os.CarPerformanceManager;
 import android.car.telemetry.CarTelemetryManager;
 import android.car.watchdog.CarWatchdogManager;
 import android.content.Context;
@@ -31,11 +33,14 @@ import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.SystemProperties;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.fragment.app.Fragment;
@@ -47,9 +52,13 @@ import com.google.android.car.kitchensink.activityresolver.ActivityResolverFragm
 import com.google.android.car.kitchensink.admin.DevicePolicyFragment;
 import com.google.android.car.kitchensink.alertdialog.AlertDialogTestFragment;
 import com.google.android.car.kitchensink.assistant.CarAssistantFragment;
+import com.google.android.car.kitchensink.audio.AudioMirrorTestFragment;
 import com.google.android.car.kitchensink.audio.AudioTestFragment;
+import com.google.android.car.kitchensink.audio.AudioUserAssignmentFragment;
 import com.google.android.car.kitchensink.audio.CarAudioInputTestFragment;
+import com.google.android.car.kitchensink.audiorecorder.AudioRecorderTestFragment;
 import com.google.android.car.kitchensink.backup.BackupAndRestoreFragment;
+import com.google.android.car.kitchensink.biometrics.BiometricPromptTestFragment;
 import com.google.android.car.kitchensink.bluetooth.BluetoothHeadsetFragment;
 import com.google.android.car.kitchensink.bluetooth.BluetoothUuidFragment;
 import com.google.android.car.kitchensink.bluetooth.MapMceTestFragment;
@@ -58,17 +67,28 @@ import com.google.android.car.kitchensink.cluster.InstrumentClusterFragment;
 import com.google.android.car.kitchensink.connectivity.ConnectivityFragment;
 import com.google.android.car.kitchensink.cube.CubesTestFragment;
 import com.google.android.car.kitchensink.diagnostic.DiagnosticTestFragment;
-import com.google.android.car.kitchensink.displayinfo.DisplayInfoFragment;
+import com.google.android.car.kitchensink.display.DisplayInfoFragment;
+import com.google.android.car.kitchensink.display.DisplayMirroringFragment;
+import com.google.android.car.kitchensink.display.VirtualDisplayFragment;
+import com.google.android.car.kitchensink.drivemode.DriveModeSwitchFragment;
 import com.google.android.car.kitchensink.experimental.ExperimentalFeatureTestFragment;
+import com.google.android.car.kitchensink.hotword.CarMultiConcurrentHotwordTestFragment;
 import com.google.android.car.kitchensink.hvac.HvacTestFragment;
+import com.google.android.car.kitchensink.input.DisplayInputLockTestFragment;
 import com.google.android.car.kitchensink.insets.WindowInsetsFullScreenFragment;
+import com.google.android.car.kitchensink.key.InjectKeyTestFragment;
+import com.google.android.car.kitchensink.mainline.CarMainlineFragment;
+import com.google.android.car.kitchensink.media.MultidisplayMediaFragment;
 import com.google.android.car.kitchensink.notification.NotificationFragment;
 import com.google.android.car.kitchensink.orientation.OrientationTestFragment;
+import com.google.android.car.kitchensink.os.CarPerformanceTestFragment;
 import com.google.android.car.kitchensink.packageinfo.PackageInfoFragment;
 import com.google.android.car.kitchensink.power.PowerTestFragment;
+import com.google.android.car.kitchensink.privacy.PrivacyIndicatorFragment;
 import com.google.android.car.kitchensink.projection.ProjectionFragment;
 import com.google.android.car.kitchensink.property.PropertyTestFragment;
 import com.google.android.car.kitchensink.qc.QCViewerFragment;
+import com.google.android.car.kitchensink.remoteaccess.RemoteAccessTestFragment;
 import com.google.android.car.kitchensink.rotary.RotaryFragment;
 import com.google.android.car.kitchensink.sensor.SensorsTestFragment;
 import com.google.android.car.kitchensink.storagelifetime.StorageLifetimeFragment;
@@ -76,6 +96,7 @@ import com.google.android.car.kitchensink.storagevolumes.StorageVolumesFragment;
 import com.google.android.car.kitchensink.systembars.SystemBarsFragment;
 import com.google.android.car.kitchensink.systemfeatures.SystemFeaturesFragment;
 import com.google.android.car.kitchensink.telemetry.CarTelemetryTestFragment;
+import com.google.android.car.kitchensink.touch.InjectMotionTestFragment;
 import com.google.android.car.kitchensink.touch.TouchTestFragment;
 import com.google.android.car.kitchensink.users.ProfileUserFragment;
 import com.google.android.car.kitchensink.users.UserFragment;
@@ -90,15 +111,33 @@ import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 public class KitchenSinkActivity extends FragmentActivity {
+
     private static final String TAG = "KitchenSinkActivity";
     private static final String LAST_FRAGMENT_TAG = "lastFragmentTag";
     private static final String DEFAULT_FRAGMENT_TAG = "";
+
+    private static final String PROPERTY_SHOW_HEADER_INFO =
+            "com.android.car.kitchensink.SHOW_HEADER_INFO";
+
     private RecyclerView mMenu;
+    private LinearLayout mHeader;
     private Button mMenuButton;
+    private TextView mUserIdView;
+    private TextView mDisplayIdView;
     private View mKitchenContent;
     private String mLastFragmentTag = DEFAULT_FRAGMENT_TAG;
+    @Nullable
+    private Fragment mLastFragment;
+    private int mNotificationId = 1000;
+    private boolean mShowHeaderInfo;
+
+    public static final String DUMP_ARG_CMD = "cmd";
+    public static final String DUMP_ARG_FRAGMENT = "fragment";
+    public static final String DUMP_ARG_QUIET = "quiet";
+    public static final String DUMP_ARG_REFRESH = "refresh";
 
     private interface ClickHandler {
         void onClick();
@@ -106,6 +145,10 @@ public class KitchenSinkActivity extends FragmentActivity {
 
     private static abstract class MenuEntry implements ClickHandler {
         abstract String getText();
+
+        public void dump(String prefix, FileDescriptor fd, PrintWriter writer, String[] args) {
+            writer.printf("%s doesn't implement dump()\n", this);
+        }
     }
 
     private final class OnClickMenuEntry extends MenuEntry {
@@ -174,18 +217,38 @@ public class KitchenSinkActivity extends FragmentActivity {
                 Log.e(TAG, "cannot show fragment for " + getText());
             }
         }
+
+        @Override
+        public void dump(String prefix, FileDescriptor fd, PrintWriter writer, String[] args) {
+            Fragment fragment = mFragment.getFragment();
+            if (fragment != null) {
+                fragment.dump(prefix, fd, writer, args);
+            } else {
+                writer.printf("Cannot dump %s\n", getText());
+            }
+        }
     }
 
     private final List<MenuEntry> mMenuEntries = Arrays.asList(
             new FragmentMenuEntry("activity resolver", ActivityResolverFragment.class),
             new FragmentMenuEntry("alert window", AlertDialogTestFragment.class),
             new FragmentMenuEntry("assistant", CarAssistantFragment.class),
-            new FragmentMenuEntry("audio", AudioTestFragment.class),
-            new FragmentMenuEntry("Audio Input", CarAudioInputTestFragment.class),
+            new FragmentMenuEntry(AudioTestFragment.FRAGMENT_NAME, AudioTestFragment.class),
+            new FragmentMenuEntry(AudioUserAssignmentFragment.FRAGMENT_NAME,
+                    AudioUserAssignmentFragment.class),
+            new FragmentMenuEntry(AudioRecorderTestFragment.FRAGMENT_NAME,
+                    AudioRecorderTestFragment.class),
+            new FragmentMenuEntry(CarAudioInputTestFragment.FRAGMENT_NAME,
+                    CarAudioInputTestFragment.class),
+            new FragmentMenuEntry(AudioMirrorTestFragment.FRAGMENT_NAME,
+                    AudioMirrorTestFragment.class),
+            new FragmentMenuEntry("Hotword", CarMultiConcurrentHotwordTestFragment.class),
             new FragmentMenuEntry("B&R", BackupAndRestoreFragment.class),
             new FragmentMenuEntry("BT headset", BluetoothHeadsetFragment.class),
             new FragmentMenuEntry("BT messaging", MapMceTestFragment.class),
             new FragmentMenuEntry("BT Uuids", BluetoothUuidFragment.class),
+            new FragmentMenuEntry(BiometricPromptTestFragment.FRAGMENT_NAME,
+                    BiometricPromptTestFragment.class),
             new FragmentMenuEntry("carapi", CarApiTestFragment.class),
             new FragmentMenuEntry("carboard", KeyboardTestFragment.class),
             new FragmentMenuEntry("connectivity", ConnectivityFragment.class),
@@ -193,17 +256,26 @@ public class KitchenSinkActivity extends FragmentActivity {
             new FragmentMenuEntry("device policy", DevicePolicyFragment.class),
             new FragmentMenuEntry("diagnostic", DiagnosticTestFragment.class),
             new FragmentMenuEntry("display info", DisplayInfoFragment.class),
+            new FragmentMenuEntry("display input lock", DisplayInputLockTestFragment.class),
+            new FragmentMenuEntry("display mirroring", DisplayMirroringFragment.class),
+            new FragmentMenuEntry("drive mode switch", DriveModeSwitchFragment.class),
             new FragmentMenuEntry("experimental feature", ExperimentalFeatureTestFragment.class),
             new FragmentMenuEntry("hvac", HvacTestFragment.class),
             new FragmentMenuEntry("inst cluster", InstrumentClusterFragment.class),
+            new FragmentMenuEntry("mainline", CarMainlineFragment.class),
+            new FragmentMenuEntry("MD media", MultidisplayMediaFragment.class),
             new FragmentMenuEntry("notification", NotificationFragment.class),
             new FragmentMenuEntry("orientation test", OrientationTestFragment.class),
             new FragmentMenuEntry("package info", PackageInfoFragment.class),
+            new FragmentMenuEntry("performance", CarPerformanceTestFragment.class),
             new FragmentMenuEntry("power test", PowerTestFragment.class),
+            new FragmentMenuEntry(PrivacyIndicatorFragment.FRAGMENT_NAME,
+                    PrivacyIndicatorFragment.class),
             new FragmentMenuEntry("profile_user", ProfileUserFragment.class),
             new FragmentMenuEntry("projection", ProjectionFragment.class),
             new FragmentMenuEntry("property test", PropertyTestFragment.class),
             new FragmentMenuEntry("qc viewer", QCViewerFragment.class),
+            new FragmentMenuEntry("remote access", RemoteAccessTestFragment.class),
             new FragmentMenuEntry("rotary", RotaryFragment.class),
             new FragmentMenuEntry("sensors", SensorsTestFragment.class),
             new FragmentMenuEntry("storage lifetime", StorageLifetimeFragment.class),
@@ -215,21 +287,26 @@ public class KitchenSinkActivity extends FragmentActivity {
             new FragmentMenuEntry("users", UserFragment.class),
             new FragmentMenuEntry("user restrictions", UserRestrictionsFragment.class),
             new FragmentMenuEntry("vehicle ctrl", VehicleCtrlFragment.class),
+            new FragmentMenuEntry(VirtualDisplayFragment.FRAGMENT_NAME,
+                    VirtualDisplayFragment.class),
             new FragmentMenuEntry("volume test", VolumeTestFragment.class),
             new FragmentMenuEntry("watchdog", CarWatchdogTestFragment.class),
             new FragmentMenuEntry("web links", WebLinksTestFragment.class),
+            new FragmentMenuEntry("inject motion", InjectMotionTestFragment.class),
+            new FragmentMenuEntry("inject key", InjectKeyTestFragment.class),
             new FragmentMenuEntry("window insets full screen",
                     WindowInsetsFullScreenFragment.class));
 
     private Car mCarApi;
     private CarHvacManager mHvacManager;
+    private CarOccupantZoneManager mOccupantZoneManager;
     private CarPowerManager mPowerManager;
     private CarPropertyManager mPropertyManager;
     private CarSensorManager mSensorManager;
-    private CarAppFocusManager mCarAppFocusManager;
     private CarProjectionManager mCarProjectionManager;
     private CarTelemetryManager mCarTelemetryManager;
     private CarWatchdogManager mCarWatchdogManager;
+    private CarPerformanceManager mCarPerformanceManager;
     private Object mPropertyManagerReady = new Object();
 
     public KitchenSinkActivity() {
@@ -238,6 +315,10 @@ public class KitchenSinkActivity extends FragmentActivity {
 
     public CarHvacManager getHvacManager() {
         return mHvacManager;
+    }
+
+    public CarOccupantZoneManager getOccupantZoneManager() {
+        return mOccupantZoneManager;
     }
 
     public CarPowerManager getPowerManager() {
@@ -264,10 +345,14 @@ public class KitchenSinkActivity extends FragmentActivity {
         return mCarWatchdogManager;
     }
 
+    public CarPerformanceManager getPerformanceManager() {
+        return mCarPerformanceManager;
+    }
+
     /* Open any tab directly:
      * adb shell am force-stop com.google.android.car.kitchensink
-     * adb shell am start -n com.google.android.car.kitchensink/.KitchenSinkActivity \
-     *     --es "select" "connectivity"
+     * adb shell am 'start -n com.google.android.car.kitchensink/.KitchenSinkActivity \
+     *     --es select "connectivity"'
      *
      * Test car watchdog:
      * adb shell am force-stop com.google.android.car.kitchensink
@@ -294,6 +379,7 @@ public class KitchenSinkActivity extends FragmentActivity {
         }
         String select = extras.getString("select");
         if (select != null) {
+            Log.d(TAG, "Trying to launch entry '" + select + "'");
             mMenuEntries.stream().filter(me -> select.equals(me.getText()))
                     .findAny().ifPresent(me -> me.onClick());
         }
@@ -317,7 +403,20 @@ public class KitchenSinkActivity extends FragmentActivity {
 
         mMenuButton = findViewById(R.id.menu_button);
         mMenuButton.setOnClickListener(view -> toggleMenuVisibility());
-        Log.i(TAG, "onCreate");
+        ((Button) findViewById(R.id.finish_button)).setOnClickListener(view -> finish());
+        ((Button) findViewById(R.id.home_button)).setOnClickListener(view -> launchHome());
+
+        mHeader = findViewById(R.id.header);
+
+        int userId = getUserId();
+        int displayId = getDisplayId();
+
+        mUserIdView = findViewById(R.id.user_id);
+        mDisplayIdView = findViewById(R.id.display_id);
+        mUserIdView.setText("U#" + userId);
+        mDisplayIdView.setText("D#" + displayId);
+
+        Log.i(TAG, "onCreate: userId="  + userId + ", displayId=" + displayId);
         onNewIntent(getIntent());
     }
 
@@ -331,7 +430,7 @@ public class KitchenSinkActivity extends FragmentActivity {
 
         // The app is being reloaded, restores the last fragment UI.
         mLastFragmentTag = savedInstanceState.getString(LAST_FRAGMENT_TAG);
-        if (mLastFragmentTag != DEFAULT_FRAGMENT_TAG) {
+        if (!DEFAULT_FRAGMENT_TAG.equals(mLastFragmentTag)) {
             toggleMenuVisibility();
         }
     }
@@ -339,8 +438,34 @@ public class KitchenSinkActivity extends FragmentActivity {
     private void toggleMenuVisibility() {
         boolean menuVisible = mMenu.getVisibility() == View.VISIBLE;
         mMenu.setVisibility(menuVisible ? View.GONE : View.VISIBLE);
-        mKitchenContent.setVisibility(menuVisible ? View.VISIBLE : View.GONE);
+        int contentVisibility = menuVisible ? View.VISIBLE : View.GONE;
+        mKitchenContent.setVisibility(contentVisibility);
         mMenuButton.setText(menuVisible ? "Show KitchenSink Menu" : "Hide KitchenSink Menu");
+        if (mLastFragment != null) {
+            mLastFragment.onHiddenChanged(!menuVisible);
+        }
+    }
+
+    /**
+     * Sets the visibility of the header that's shown on all fragments.
+     */
+    public void setHeaderVisibility(boolean visible) {
+        mHeader.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+
+    /**
+     * Adds a view to the main header (which by default contains the "show/ hide KS menu" button).
+     */
+    public void addHeaderView(View view) {
+        Log.d(TAG, "Adding header view: " + view);
+        mHeader.addView(view, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    private void launchHome() {
+        Intent homeIntent = new Intent(Intent.ACTION_MAIN);
+        homeIntent.addCategory(Intent.CATEGORY_HOME);
+        startActivity(homeIntent);
     }
 
     private void initCarApi() {
@@ -372,6 +497,8 @@ public class KitchenSinkActivity extends FragmentActivity {
     protected void onResume() {
         super.onResume();
         Log.i(TAG, "onResume");
+
+        updateHeaderInfoVisibility();
     }
 
     @Override
@@ -403,41 +530,111 @@ public class KitchenSinkActivity extends FragmentActivity {
 
     @Override
     public void dump(String prefix, FileDescriptor fd, PrintWriter writer, String[] args) {
-        if (args != null && args.length > 0 && args[0].equals("cmd")) {
-            String[] cmdArgs = new String[args.length - 1];
-            System.arraycopy(args, 1, cmdArgs, 0, args.length - 1);
-            new KitchenSinkShellCommand(this, writer, cmdArgs).run();
+        boolean skipParentState = false;
+        if (args != null && args.length > 0) {
+            Log.v(TAG, "dump: args=" + Arrays.toString(args));
+            String arg = args[0];
+            switch (arg) {
+                case DUMP_ARG_CMD:
+                    String[] cmdArgs = new String[args.length - 1];
+                    System.arraycopy(args, 1, cmdArgs, 0, args.length - 1);
+                    new KitchenSinkShellCommand(this, writer, cmdArgs, mNotificationId++).run();
+                    return;
+                case DUMP_ARG_FRAGMENT:
+                    if (args.length < 2) {
+                        writer.println("Missing fragment name");
+                        return;
+                    }
+                    String select = args[1];
+                    Optional<MenuEntry> entry = mMenuEntries.stream()
+                            .filter(me -> select.equals(me.getText())).findAny();
+                    if (entry.isPresent()) {
+                        String[] strippedArgs = new String[args.length - 2];
+                        System.arraycopy(args, 2, strippedArgs, 0, strippedArgs.length);
+                        entry.get().dump(prefix, fd, writer, strippedArgs);
+                    } else {
+                        writer.printf("No entry called '%s'\n", select);
+                    }
+                    return;
+                case DUMP_ARG_QUIET:
+                    skipParentState = true;
+                    break;
+                case DUMP_ARG_REFRESH:
+                    updateHeaderInfoVisibility(writer);
+                    return;
+                default:
+                    Log.v(TAG, "dump(): unknown arg, calling super(): " + Arrays.toString(args));
+            }
+        }
+        String innerPrefix = prefix;
+        if (!skipParentState) {
+            writer.printf("%sCustom state:\n", prefix);
+            innerPrefix = prefix + prefix;
+        }
+        writer.printf("%smLastFragmentTag: %s\n", innerPrefix, mLastFragmentTag);
+        writer.printf("%smLastFragment: %s\n", innerPrefix, mLastFragment);
+        writer.printf("%sHeader views: %d\n", innerPrefix, mHeader.getChildCount());
+        writer.printf("%sNext Notification Id: %d\n", innerPrefix, mNotificationId);
+        writer.printf("%sShow header info: %b\n", innerPrefix, mShowHeaderInfo);
+
+        if (skipParentState) {
+            Log.v(TAG, "dump(): skipping parent state");
             return;
         }
+        writer.println();
+
         super.dump(prefix, fd, writer, args);
     }
 
     private void showFragment(Fragment fragment) {
+        if (mLastFragment != fragment) {
+            Log.v(TAG, "showFragment(): from " + mLastFragment + " to " + fragment);
+        } else {
+            Log.v(TAG, "showFragment(): showing " + fragment + " again");
+        }
         getSupportFragmentManager().beginTransaction()
                 .replace(R.id.kitchen_content, fragment)
                 .commit();
+        mLastFragment = fragment;
     }
 
     private void initManagers(Car car) {
         synchronized (mPropertyManagerReady) {
             mHvacManager = (CarHvacManager) car.getCarManager(
                     android.car.Car.HVAC_SERVICE);
+            mOccupantZoneManager = (CarOccupantZoneManager) car.getCarManager(
+                    android.car.Car.CAR_OCCUPANT_ZONE_SERVICE);
             mPowerManager = (CarPowerManager) car.getCarManager(
                     android.car.Car.POWER_SERVICE);
             mPropertyManager = (CarPropertyManager) car.getCarManager(
                     android.car.Car.PROPERTY_SERVICE);
             mSensorManager = (CarSensorManager) car.getCarManager(
                     android.car.Car.SENSOR_SERVICE);
-            mCarAppFocusManager =
-                    (CarAppFocusManager) car.getCarManager(Car.APP_FOCUS_SERVICE);
             mCarProjectionManager =
                     (CarProjectionManager) car.getCarManager(Car.PROJECTION_SERVICE);
             mCarTelemetryManager =
                     (CarTelemetryManager) car.getCarManager(Car.CAR_TELEMETRY_SERVICE);
             mCarWatchdogManager =
                     (CarWatchdogManager) car.getCarManager(Car.CAR_WATCHDOG_SERVICE);
+            mCarPerformanceManager =
+                    (CarPerformanceManager) car.getCarManager(Car.CAR_PERFORMANCE_SERVICE);
             mPropertyManagerReady.notifyAll();
         }
+    }
+
+    private void updateHeaderInfoVisibility() {
+        mShowHeaderInfo = getBooleanProperty(PROPERTY_SHOW_HEADER_INFO, false);
+        Log.i(TAG, "updateHeaderInfoVisibility(): showHeaderInfo=" + mShowHeaderInfo);
+        int visibility = mShowHeaderInfo ? View.VISIBLE : View.GONE;
+        mUserIdView.setVisibility(visibility);
+        mDisplayIdView.setVisibility(visibility);
+    }
+
+    private void updateHeaderInfoVisibility(PrintWriter writer) {
+        boolean before = mShowHeaderInfo;
+        updateHeaderInfoVisibility();
+        boolean after = mShowHeaderInfo;
+        writer.printf("Updated header info visibility from %b to %b\n", before, after);
     }
 
     public Car getCar() {
@@ -502,5 +699,19 @@ public class KitchenSinkActivity extends FragmentActivity {
             }
         };
         task.execute();
+    }
+
+    private static boolean getBooleanProperty(String prop, boolean defaultValue) {
+        String value = SystemProperties.get(prop);
+        Log.v(TAG, "getBooleanProperty(" + prop + "): got '" + value + "'");
+        if (!TextUtils.isEmpty(value)) {
+            boolean finalValue = Boolean.valueOf(value);
+            Log.v(TAG, "returning " + finalValue);
+            return finalValue;
+        }
+        String persistProp = "persist." + prop;
+        boolean finalValue = SystemProperties.getBoolean(persistProp, defaultValue);
+        Log.v(TAG, "getBooleanProperty(" + persistProp + "): returning " + finalValue);
+        return finalValue;
     }
 }

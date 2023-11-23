@@ -26,12 +26,31 @@ import (
 
 // CopyOf returns a new slice that has the same contents as s.
 func CopyOf(s []string) []string {
-	return append([]string(nil), s...)
+	// If the input is nil, return nil and not an empty list
+	if s == nil {
+		return s
+	}
+	return append([]string{}, s...)
+}
+
+// Concat returns a new slice concatenated from the two input slices. It does not change the input
+// slices.
+func Concat[T any](s1, s2 []T) []T {
+	res := make([]T, 0, len(s1)+len(s2))
+	res = append(res, s1...)
+	res = append(res, s2...)
+	return res
 }
 
 // JoinWithPrefix prepends the prefix to each string in the list and
 // returns them joined together with " " as separator.
 func JoinWithPrefix(strs []string, prefix string) string {
+	return JoinWithPrefixAndSeparator(strs, prefix, " ")
+}
+
+// JoinWithPrefixAndSeparator prepends the prefix to each string in the list and
+// returns them joined together with the given separator.
+func JoinWithPrefixAndSeparator(strs []string, prefix string, sep string) string {
 	if len(strs) == 0 {
 		return ""
 	}
@@ -40,47 +59,40 @@ func JoinWithPrefix(strs []string, prefix string) string {
 	buf.WriteString(prefix)
 	buf.WriteString(strs[0])
 	for i := 1; i < len(strs); i++ {
-		buf.WriteString(" ")
+		buf.WriteString(sep)
 		buf.WriteString(prefix)
 		buf.WriteString(strs[i])
 	}
 	return buf.String()
 }
 
-// JoinWithSuffix appends the suffix to each string in the list and
-// returns them joined together with given separator.
-func JoinWithSuffix(strs []string, suffix string, separator string) string {
-	if len(strs) == 0 {
-		return ""
-	}
-
-	var buf strings.Builder
-	buf.WriteString(strs[0])
-	buf.WriteString(suffix)
-	for i := 1; i < len(strs); i++ {
-		buf.WriteString(separator)
-		buf.WriteString(strs[i])
-		buf.WriteString(suffix)
-	}
-	return buf.String()
+// SortedStringKeys returns the keys of the given map in the ascending order.
+//
+// Deprecated: Use SortedKeys instead.
+func SortedStringKeys[V any](m map[string]V) []string {
+	return SortedKeys(m)
 }
 
-// SorterStringKeys returns the keys of the given string-keyed map in the ascending order.
-func SortedStringKeys(m interface{}) []string {
-	v := reflect.ValueOf(m)
-	if v.Kind() != reflect.Map {
-		panic(fmt.Sprintf("%#v is not a map", m))
-	}
-	if v.Len() == 0 {
+type Ordered interface {
+	~string |
+		~float32 | ~float64 |
+		~int | ~int8 | ~int16 | ~int32 | ~int64 |
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
+}
+
+// SortedKeys returns the keys of the given map in the ascending order.
+func SortedKeys[T Ordered, V any](m map[T]V) []T {
+	if len(m) == 0 {
 		return nil
 	}
-	iter := v.MapRange()
-	s := make([]string, 0, v.Len())
-	for iter.Next() {
-		s = append(s, iter.Key().String())
+	ret := make([]T, 0, len(m))
+	for k := range m {
+		ret = append(ret, k)
 	}
-	sort.Strings(s)
-	return s
+	sort.Slice(ret, func(i, j int) bool {
+		return ret[i] < ret[j]
+	})
+	return ret
 }
 
 // stringValues returns the values of the given string-valued map in randomized map order.
@@ -128,6 +140,38 @@ func IndexList(s string, list []string) int {
 // InList checks if the string belongs to the list
 func InList(s string, list []string) bool {
 	return IndexList(s, list) != -1
+}
+
+func setFromList[T comparable](l []T) map[T]bool {
+	m := make(map[T]bool, len(l))
+	for _, t := range l {
+		m[t] = true
+	}
+	return m
+}
+
+// ListSetDifference checks if the two lists contain the same elements. It returns
+// a boolean which is true if there is a difference, and then returns lists of elements
+// that are in l1 but not l2, and l2 but not l1.
+func ListSetDifference[T comparable](l1, l2 []T) (bool, []T, []T) {
+	listsDiffer := false
+	diff1 := []T{}
+	diff2 := []T{}
+	m1 := setFromList(l1)
+	m2 := setFromList(l2)
+	for t := range m1 {
+		if _, ok := m2[t]; !ok {
+			diff1 = append(diff1, t)
+			listsDiffer = true
+		}
+	}
+	for t := range m2 {
+		if _, ok := m1[t]; !ok {
+			diff2 = append(diff2, t)
+			listsDiffer = true
+		}
+	}
+	return listsDiffer, diff1, diff2
 }
 
 // Returns true if the given string s is prefixed with any string in the given prefix list.
@@ -236,6 +280,8 @@ func RemoveFromList(s string, list []string) (bool, []string) {
 // FirstUniqueStrings returns all unique elements of a slice of strings, keeping the first copy of
 // each.  It modifies the slice contents in place, and returns a subslice of the original slice.
 func FirstUniqueStrings(list []string) []string {
+	// Do not moodify the input in-place, operate on a copy instead.
+	list = CopyOf(list)
 	// 128 was chosen based on BenchmarkFirstUniqueStrings results.
 	if len(list) > 128 {
 		return firstUniqueStringsMap(list)
@@ -292,6 +338,7 @@ func LastUniqueStrings(list []string) []string {
 
 // SortedUniqueStrings returns what the name says
 func SortedUniqueStrings(list []string) []string {
+	// FirstUniqueStrings creates a copy of `list`, so the input remains untouched.
 	unique := FirstUniqueStrings(list)
 	sort.Strings(unique)
 	return unique

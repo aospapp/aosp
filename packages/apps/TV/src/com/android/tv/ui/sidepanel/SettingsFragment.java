@@ -29,6 +29,7 @@ import com.android.tv.common.CommonPreferences;
 import com.android.tv.common.customization.CustomizationManager;
 import com.android.tv.common.util.PermissionUtils;
 import com.android.tv.dialog.PinDialogFragment;
+import com.android.tv.features.TvFeatures;
 import com.android.tv.license.LicenseSideFragment;
 import com.android.tv.license.Licenses;
 import com.android.tv.util.Utils;
@@ -190,6 +191,22 @@ public class SettingsFragment extends SideFragment {
                         }
                     });
         }
+
+        //Interactive Application Settings
+        if (TvFeatures.HAS_TIAF.isEnabled(getContext()))
+        {
+            items.add(
+                    new ActionItem(getString(R.string.interactive_app_settings)) {
+                        @Override
+                        protected void onSelected() {
+                            getMainActivity()
+                                    .getOverlayManager()
+                                    .getSideFragmentManager()
+                                    .show(new InteractiveAppSettingsFragment(), false);
+                        }
+                    });
+        }
+
         // Show version.
         SimpleActionItem version =
                 new SimpleActionItem(

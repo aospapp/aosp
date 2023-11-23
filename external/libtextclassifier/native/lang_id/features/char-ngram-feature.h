@@ -19,6 +19,7 @@
 
 #include <mutex>  // NOLINT: see comments for state_mutex_
 #include <string>
+#include <vector>
 
 #include "lang_id/common/fel/feature-extractor.h"
 #include "lang_id/common/fel/task-context.h"

@@ -24,11 +24,15 @@ package android.net;
 oneway interface ISocketKeepaliveCallback
 {
     /** The keepalive was successfully started. */
-    void onStarted(int slot);
+    void onStarted();
     /** The keepalive was successfully stopped. */
     void onStopped();
     /** The keepalive was stopped because of an error. */
     void onError(int error);
     /** The keepalive on a TCP socket was stopped because the socket received data. */
     void onDataReceived();
+    /** The keepalive was paused by the system because it's not necessary right now. */
+    void onPaused();
+    /** The keepalive was resumed by the system after being suspended. */
+    void onResumed();
 }

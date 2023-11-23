@@ -677,8 +677,9 @@ std::array<std::array<T, 3>, 2> Make2dArray(std::initializer_list<T> values) {
 }
 
 TEST_F(AidlTest, FixedSizeArrayOverBinder) {
-  sp<IRepeatFixedSizeArray> service;
-  ASSERT_EQ(OK, getService(IRepeatFixedSizeArray::descriptor, &service));
+  sp<IRepeatFixedSizeArray> service =
+      android::waitForService<IRepeatFixedSizeArray>(IRepeatFixedSizeArray::descriptor);
+  ASSERT_NE(service, nullptr);
 
   CheckRepeat(service, &IRepeatFixedSizeArray::RepeatBytes, (std::array<uint8_t, 3>{1, 2, 3}));
 

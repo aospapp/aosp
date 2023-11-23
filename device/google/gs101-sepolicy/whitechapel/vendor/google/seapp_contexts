@@ -10,6 +10,7 @@ user=system seinfo=platform name=com.samsung.slsi.telephony.networktestmode doma
 user=_app isPrivApp=true name=com.samsung.slsi.telephony.oemril domain=oemrilservice_app levelFrom=all
 
 # Samsung S.LSI IMS
+user=_app isPrivApp=true name=.ShannonImsService domain=vendor_ims_app levelFrom=all
 user=_app isPrivApp=true name=com.shannon.imsservice domain=vendor_ims_app levelFrom=all
 user=_app isPrivApp=true name=com.shannon.imsservice:remote domain=vendor_ims_app levelFrom=all
 user=_app isPrivApp=true name=com.shannon.rcsservice domain=vendor_rcs_app levelFrom=all
@@ -25,9 +26,6 @@ user=_app isPrivApp=true name=com.google.android.grilservice domain=grilservice_
 
 # HbmSVManager
 user=_app seinfo=platform name=com.android.hbmsvmanager domain=hbmsvmanager_app type=app_data_file levelFrom=all
-
-# Hardware Info Collection
-user=_app isPrivApp=true name=com.google.android.hardwareinfo domain=hardware_info_app type=app_data_file levelFrom=user
 
 # Domain for omadm
 user=_app isPrivApp=true seinfo=platform name=com.android.omadm.service domain=omadm_app type=app_data_file levelFrom=all

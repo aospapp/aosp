@@ -7,7 +7,6 @@
 TST_TESTFUNC=prepare_lvm
 TST_NEEDS_ROOT=1
 TST_NEEDS_CMDS="mount pvcreate vgcreate lvcreate"
-. tst_test.sh
 
 LVM_DIR="${LVM_DIR:-/tmp}"
 LVM_TMPDIR="$LVM_DIR/ltp/growfiles"
@@ -71,7 +70,7 @@ prepare_mounts()
 
 prepare_lvm()
 {
-	FS_LIST=`tst_supported_fs | sort -u`
+	FS_LIST=$(tst_supported_fs -s tmpfs | sort -u)
 	ROD mkdir -p "$LVM_TMPDIR"
 	ROD mkdir -p "$LVM_IMGDIR"
 	chmod 777 "$LVM_TMPDIR"
@@ -81,4 +80,5 @@ prepare_lvm()
 	tst_res TPASS "LVM mounts are ready"
 }
 
+. tst_test.sh
 tst_run

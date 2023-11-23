@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -5,6 +6,8 @@
 import collections
 import copy
 import logging
+
+import six
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros.network import xmlrpc_security_types
@@ -168,6 +171,7 @@ class HostapConfig(object):
         HT_CHANNEL_WIDTH_40_MINUS: 'HT40-',
     }
 
+    VHT_CHANNEL_WIDTH_20 = object()
     VHT_CHANNEL_WIDTH_40 = object()
     VHT_CHANNEL_WIDTH_80 = object()
     VHT_CHANNEL_WIDTH_160 = object()
@@ -175,10 +179,11 @@ class HostapConfig(object):
 
     # Human readable names for these channel widths.
     VHT_NAMES = {
-        VHT_CHANNEL_WIDTH_40: 'VHT40',
-        VHT_CHANNEL_WIDTH_80: 'VHT80',
-        VHT_CHANNEL_WIDTH_160: 'VHT160',
-        VHT_CHANNEL_WIDTH_80_80: 'VHT80+80',
+            VHT_CHANNEL_WIDTH_20: 'VHT20',
+            VHT_CHANNEL_WIDTH_40: 'VHT40',
+            VHT_CHANNEL_WIDTH_80: 'VHT80',
+            VHT_CHANNEL_WIDTH_160: 'VHT160',
+            VHT_CHANNEL_WIDTH_80_80: 'VHT80+80',
     }
 
     # This is a loose merging of the rules for US and EU regulatory
@@ -186,13 +191,13 @@ class HostapConfig(object):
     # we tolerate HT40 in channels 149-161 (not allowed in EU), but also
     # tolerate HT40+ on channel 7 (not allowed in the US).  We take the loose
     # definition so that we don't prohibit testing in either domain.
-    HT40_ALLOW_MAP = {N_CAPABILITY_HT40_MINUS: range(5, 14) +
-                                           range(40, 65, 8) +
-                                           range(104, 145, 8) +
+    HT40_ALLOW_MAP = {N_CAPABILITY_HT40_MINUS: list(range(5, 14)) +
+                                           list(range(40, 65, 8)) +
+                                           list(range(104, 145, 8)) +
                                            [153, 161],
-                  N_CAPABILITY_HT40_PLUS: range(1, 10) +
-                                           range(36, 61, 8) +
-                                           range(100, 141, 8) +
+                  N_CAPABILITY_HT40_PLUS: list(range(1, 10)) +
+                                           list(range(36, 61, 8)) +
+                                           list(range(100, 141, 8)) +
                                            [149, 157]}
 
     PMF_SUPPORT_DISABLED = 0
@@ -226,7 +231,7 @@ class HostapConfig(object):
         @return int frequency in MHz associated with the channel.
 
         """
-        for frequency, channel_iter in HostapConfig.CHANNEL_MAP.iteritems():
+        for frequency, channel_iter in six.iteritems(HostapConfig.CHANNEL_MAP):
             if channel == channel_iter:
                 return frequency
         else:
@@ -288,7 +293,7 @@ class HostapConfig(object):
         """@return string suitable for the vht_capab= line in a hostapd config.
         """
         ret = []
-        for cap in self.AC_CAPABILITIES_MAPPING.keys():
+        for cap in list(self.AC_CAPABILITIES_MAPPING.keys()):
             if cap in self._ac_capabilities:
                 ret.append(self.AC_CAPABILITIES_MAPPING[cap])
         return ''.join(ret)
@@ -324,6 +329,28 @@ class HostapConfig(object):
 
         raise error.TestFail('Invalid mode.')
 
+    @property
+    def mode(self):
+        """@return string hardware mode."""
+        return self._mode
+
+    @property
+    def channel_width(self):
+        """@return object channel width.
+        Note: This property ignores legacy rate (e.g., 11g), It will return
+              None for these rate.
+        """
+        ht_channel_width = self._ht_mode
+        if self.vht_channel_width is not None:
+            if (
+                    self.vht_channel_width == self.VHT_CHANNEL_WIDTH_40
+                    or self.vht_channel_width == self.VHT_CHANNEL_WIDTH_20):
+                if ht_channel_width == self.HT_CHANNEL_WIDTH_20:
+                    return self.VHT_CHANNEL_WIDTH_20
+            return self.vht_channel_width
+        if ht_channel_width:
+            return ht_channel_width
+        return None
 
     @property
     def _is_11n(self):
@@ -421,8 +448,9 @@ class HostapConfig(object):
 
         """
 
-        if (not self.vht_channel_width or
-                self.vht_channel_width == self.VHT_CHANNEL_WIDTH_40):
+        if (not self.vht_channel_width
+                    or self.vht_channel_width == self.VHT_CHANNEL_WIDTH_40
+                    or self.vht_channel_width == self.VHT_CHANNEL_WIDTH_20):
             # if it is VHT40, capture packets on the correct 40MHz band since
             # for packet capturing purposes, only the channel width matters
             ht_mode = self._ht_mode
@@ -544,6 +572,11 @@ class HostapConfig(object):
         are checked for validity (i.e. you can't specify an invalid channel
         or a frequency that will not be accepted).
 
+        According to IEEE80211ac, both HT and VHT channel width fields must
+        be used to select the desired VHT channel width. Refer to IEEE 80211ac
+        Tables (VHT Operation Information subfields) and VHT BSS operating
+        channel width.
+
         @param mode string MODE_11x defined above.
         @param channel int channel number.
         @param frequency int frequency of channel.
@@ -635,7 +668,8 @@ class HostapConfig(object):
         self._security_config = (copy.copy(security_config) or
                                 xmlrpc_security_types.SecurityConfig())
         self._obss_interval = obss_interval
-        if vht_channel_width == self.VHT_CHANNEL_WIDTH_40:
+        if (vht_channel_width == self.VHT_CHANNEL_WIDTH_40
+                    or vht_channel_width == self.VHT_CHANNEL_WIDTH_20):
             self._vht_oper_chwidth = 0
         elif vht_channel_width == self.VHT_CHANNEL_WIDTH_80:
             self._vht_oper_chwidth = 1
@@ -697,7 +731,7 @@ class HostapConfig(object):
         @return True iff the current mode supports the band of the channel.
 
         """
-        for freq, channel in self.CHANNEL_MAP.iteritems():
+        for freq, channel in six.iteritems(self.CHANNEL_MAP):
             if channel == value:
                 return self.supports_frequency(freq)
 

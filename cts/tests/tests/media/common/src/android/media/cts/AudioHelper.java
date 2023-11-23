@@ -20,14 +20,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import com.android.compatibility.common.util.CddTest;
-import com.android.compatibility.common.util.DeviceReportLog;
-import com.android.compatibility.common.util.ResultType;
-import com.android.compatibility.common.util.ResultUnit;
-import java.nio.ByteBuffer;
-
-import org.junit.Assert;
-
 import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
@@ -42,6 +34,15 @@ import android.os.PersistableBundle;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.CddTest;
+import com.android.compatibility.common.util.DeviceReportLog;
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.ShortBuffer;
 
 // Used for statistics and loopers in listener tests.
 // See AudioRecordTest.java and AudioTrack_ListenerTest.java.
@@ -95,6 +96,30 @@ public class AudioHelper {
             vaf[j] = (float)(Math.sin(j * (rad + j * sweep)));
         }
         return vaf;
+    }
+
+    /**
+     * Creates a {@link ByteBuffer} containing short values defining a sine wave or chirp sound.
+     *
+     * @param bufferSamples number of short samples in the buffer
+     * @param sampleRate of the output signal
+     * @param frequency the base frequency of the sine wave
+     * @param sweep if 0 will generate a sine wave with the given frequency otherwise a chirp sound
+     * @return a newly allocated {@link ByteBuffer} containing the described audio signal
+     */
+    public static ByteBuffer createSoundDataInShortByteBuffer(int bufferSamples,
+            final int sampleRate, final double frequency, double sweep) {
+        final double rad = 2.0f * (float) Math.PI * frequency / (float) sampleRate;
+        ByteBuffer audioBuffer = ByteBuffer.allocate(bufferSamples * Short.BYTES);
+        ShortBuffer samples = audioBuffer.order(ByteOrder.nativeOrder()).asShortBuffer();
+        sweep = Math.PI * sweep / ((double) sampleRate * bufferSamples);
+        for (int j = 0; j < bufferSamples; ++j) {
+            short vai = (short) (Math.sin(j * (rad + j * sweep)) * Short.MAX_VALUE);
+            samples.put(vai);
+        }
+
+        audioBuffer.rewind();
+        return audioBuffer;
     }
 
     /**
@@ -194,6 +219,23 @@ public class AudioHelper {
 
     public static int frameCountFromMsec(int ms, AudioFormat format) {
         return ms * format.getSampleRate() / 1000;
+    }
+
+    public static boolean hasAudioSilentProperty() {
+        String silent = null;
+
+        try {
+            silent = (String) Class.forName("android.os.SystemProperties").getMethod("get",
+                    String.class).invoke(null, "ro.audio.silent");
+        } catch (Exception e) {
+            // pass through
+        }
+
+        if (silent != null && silent.equals("1")) {
+            return true;
+        }
+
+        return false;
     }
 
     public static class Statistics {
@@ -532,7 +574,7 @@ public class AudioHelper {
                                         .build())
                                 .setBufferSizeInBytes(bufferOutSize)
                                 .build();
-                Assert.assertEquals(AudioTrack.STATE_INITIALIZED, mTrack.getState());
+                assertEquals(AudioTrack.STATE_INITIALIZED, mTrack.getState());
                 mTrackPosition = 0;
                 mFinishAtMs = 0;
             }
@@ -541,7 +583,7 @@ public class AudioHelper {
         @Override
         public int read(byte[] audioData, int offsetInBytes, int sizeInBytes) {
             // for byte array access we verify format is 8 bit PCM (typical use)
-            Assert.assertEquals(TAG + ": format mismatch",
+            assertEquals(TAG + ": format mismatch",
                     AudioFormat.ENCODING_PCM_8BIT, getAudioFormat());
             int samples = super.read(audioData, offsetInBytes, sizeInBytes);
             if (mTrack != null) {
@@ -555,7 +597,7 @@ public class AudioHelper {
         @Override
         public int read(byte[] audioData, int offsetInBytes, int sizeInBytes, int readMode) {
             // for byte array access we verify format is 8 bit PCM (typical use)
-            Assert.assertEquals(TAG + ": format mismatch",
+            assertEquals(TAG + ": format mismatch",
                     AudioFormat.ENCODING_PCM_8BIT, getAudioFormat());
             int samples = super.read(audioData, offsetInBytes, sizeInBytes, readMode);
             if (mTrack != null) {
@@ -569,7 +611,7 @@ public class AudioHelper {
         @Override
         public int read(short[] audioData, int offsetInShorts, int sizeInShorts) {
             // for short array access we verify format is 16 bit PCM (typical use)
-            Assert.assertEquals(TAG + ": format mismatch",
+            assertEquals(TAG + ": format mismatch",
                     AudioFormat.ENCODING_PCM_16BIT, getAudioFormat());
             int samples = super.read(audioData, offsetInShorts, sizeInShorts);
             if (mTrack != null) {
@@ -583,7 +625,7 @@ public class AudioHelper {
         @Override
         public int read(short[] audioData, int offsetInShorts, int sizeInShorts, int readMode) {
             // for short array access we verify format is 16 bit PCM (typical use)
-            Assert.assertEquals(TAG + ": format mismatch",
+            assertEquals(TAG + ": format mismatch",
                     AudioFormat.ENCODING_PCM_16BIT, getAudioFormat());
             int samples = super.read(audioData, offsetInShorts, sizeInShorts, readMode);
             if (mTrack != null) {
@@ -597,7 +639,7 @@ public class AudioHelper {
         @Override
         public int read(float[] audioData, int offsetInFloats, int sizeInFloats, int readMode) {
             // for float array access we verify format is float PCM (typical use)
-            Assert.assertEquals(TAG + ": format mismatch",
+            assertEquals(TAG + ": format mismatch",
                     AudioFormat.ENCODING_PCM_FLOAT, getAudioFormat());
             int samples = super.read(audioData, offsetInFloats, sizeInFloats, readMode);
             if (mTrack != null) {

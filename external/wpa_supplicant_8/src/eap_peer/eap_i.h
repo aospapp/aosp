@@ -365,6 +365,11 @@ struct eap_sm {
 	/* Optional challenges generated in Phase 1 (EAP-FAST) */
 	u8 *peer_challenge, *auth_challenge;
 
+	/* Whether to use the EAP-FAST-MSCHAPv2 instantiation of EAP-MSCHAPv2.
+	 * That variant is otherwise identical, but it generates the MSK using
+	 * MS-MPPE keys in reverse order. */
+	bool eap_fast_mschapv2;
+
 	int num_rounds;
 	int num_rounds_short;
 	int force_disabled;
@@ -392,6 +397,7 @@ const u8 * eap_get_config_password(struct eap_sm *sm, size_t *len);
 const u8 * eap_get_config_password2(struct eap_sm *sm, size_t *len, int *hash);
 const u8 * eap_get_config_new_password(struct eap_sm *sm, size_t *len);
 const u8 * eap_get_config_otp(struct eap_sm *sm, size_t *len);
+const u8 * eap_get_config_realm(struct eap_sm *sm, size_t *len);
 void eap_clear_config_otp(struct eap_sm *sm);
 const char * eap_get_config_phase1(struct eap_sm *sm);
 const char * eap_get_config_phase2(struct eap_sm *sm);

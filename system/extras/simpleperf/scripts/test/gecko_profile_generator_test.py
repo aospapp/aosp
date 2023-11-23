@@ -18,7 +18,7 @@ import json
 import os
 import re
 import tempfile
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Set
 
 from . test_utils import TestBase, TestHelper
 
@@ -31,19 +31,42 @@ class TestGeckoProfileGenerator(TestBase):
             args.extend(options)
         return self.run_cmd(args, return_output=True)
 
+    def generate_profile(self, testdata_file: str, options: Optional[List[str]] = None) -> Dict:
+        output = self.run_generator(testdata_file, options)
+        return json.loads(output)
+
     def test_golden(self):
-        output = self.run_generator('perf_with_interpreter_frames.data')
+        output = self.run_generator('perf_with_interpreter_frames.data', ['--remove-gaps', '0'])
         got = json.loads(output)
         golden_path = TestHelper.testdata_path('perf_with_interpreter_frames.gecko.json')
         with open(golden_path) as f:
             want = json.load(f)
+        # Golden data is formatted with `jq` tool (https://stedolan.github.io/jq/).
+        # Regenerate golden data by running:
+        # $ apt install jq
+        # $ ./gecko_profile_generator.py --remove-gaps 0 -i ../testdata/perf_with_interpreter_frames.data | jq > test/script_testdata/perf_with_interpreter_frames.gecko.json
+        self.assertEqual(
+            json.dumps(got, sort_keys=True, indent=2),
+            json.dumps(want, sort_keys=True, indent=2))
+
+    def test_golden_offcpu(self):
+        output = self.run_generator('perf_with_tracepoint_event.data', ['--remove-gaps', '0'])
+        got = json.loads(output)
+        golden_path = TestHelper.testdata_path('perf_with_tracepoint_event.gecko.json')
+        with open(golden_path) as f:
+            want = json.load(f)
+        # Golden data is formatted with `jq` tool (https://stedolan.github.io/jq/).
+        # Regenerate golden data by running:
+        # $ apt install jq
+        # $ ./gecko_profile_generator.py --remove-gaps 0 -i ../testdata/perf_with_tracepoint_event.data | jq > test/script_testdata/perf_with_tracepoint_event.gecko.json
         self.assertEqual(
             json.dumps(got, sort_keys=True, indent=2),
             json.dumps(want, sort_keys=True, indent=2))
 
     def test_sample_filters(self):
         def get_threads_for_filter(filter: str) -> Set[int]:
-            report = self.run_generator('perf_display_bitmaps.data', filter.split())
+            report = self.run_generator('perf_display_bitmaps.data',
+                                        filter.split() + ['--remove-gaps', '0'])
             pattern = re.compile(r'"tid":\s+(\d+),')
             threads = set()
             for m in re.finditer(pattern, report):
@@ -79,3 +102,17 @@ class TestGeckoProfileGenerator(TestBase):
         self.assertNotIn(art_frame_str, report)
         report = self.run_generator('perf_with_interpreter_frames.data', ['--show-art-frames'])
         self.assertIn(art_frame_str, report)
+
+    def test_remove_gaps(self):
+        testdata = 'perf_with_interpreter_frames.data'
+
+        def get_sample_count(options: Optional[List[str]] = None) -> int:
+            data = self.generate_profile(testdata, options)
+            sample_count = 0
+            for thread in data['threads']:
+                sample_count += len(thread['samples']['data'])
+            return sample_count
+        # By default, the gap sample is removed.
+        self.assertEqual(4031, get_sample_count())
+        # Use `--remove-gaps 0` to disable removing gaps.
+        self.assertEqual(4032, get_sample_count(['--remove-gaps', '0']))

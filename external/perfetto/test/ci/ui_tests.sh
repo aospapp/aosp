@@ -16,6 +16,8 @@
 INSTALL_BUILD_DEPS_ARGS="--ui"
 source $(dirname ${BASH_SOURCE[0]})/common.sh
 
+infra/perfetto.dev/build
+
 ui/build --out ${OUT_PATH}
 
 cp -a ${OUT_PATH}/ui/dist/ /ci/artifacts/ui
@@ -26,8 +28,8 @@ set +e
 ui/run-integrationtests --out ${OUT_PATH} --no-build
 RES=$?
 
-# Copy the screenshots for diff testing when the test fails.
-if [ $RES -ne 0 -a -d ${OUT_PATH}/ui-test-artifacts ]; then
+# Copy the output of screenshots diff testing.
+if [ -d ${OUT_PATH}/ui-test-artifacts ]; then
   cp -a ${OUT_PATH}/ui-test-artifacts /ci/artifacts/ui-test-artifacts
   exit $RES
 fi

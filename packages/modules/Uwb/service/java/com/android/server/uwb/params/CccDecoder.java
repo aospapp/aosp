@@ -33,6 +33,8 @@ import static com.android.server.uwb.config.CapabilityParam.CCC_HOPPING_SEQUENCE
 import static com.android.server.uwb.config.CapabilityParam.CCC_SUPPORTED_CHANNELS;
 import static com.android.server.uwb.config.CapabilityParam.CCC_SUPPORTED_CHAPS_PER_SLOT;
 import static com.android.server.uwb.config.CapabilityParam.CCC_SUPPORTED_HOPPING_CONFIG_MODES_AND_SEQUENCES;
+import static com.android.server.uwb.config.CapabilityParam.CCC_SUPPORTED_MAX_RANGING_SESSION_NUMBER;
+import static com.android.server.uwb.config.CapabilityParam.CCC_SUPPORTED_MIN_UWB_INITIATION_TIME_MS;
 import static com.android.server.uwb.config.CapabilityParam.CCC_SUPPORTED_PULSE_SHAPE_COMBOS;
 import static com.android.server.uwb.config.CapabilityParam.CCC_SUPPORTED_RAN_MULTIPLIER;
 import static com.android.server.uwb.config.CapabilityParam.CCC_SUPPORTED_SYNC_CODES;
@@ -54,6 +56,8 @@ import static com.google.uwb.support.ccc.CccParams.HOPPING_SEQUENCE_DEFAULT;
 import static com.google.uwb.support.ccc.CccParams.UWB_CHANNEL_5;
 import static com.google.uwb.support.ccc.CccParams.UWB_CHANNEL_9;
 
+import android.util.Log;
+
 import com.android.server.uwb.config.ConfigParam;
 
 import com.google.uwb.support.base.Params;
@@ -69,6 +73,8 @@ import java.nio.ByteOrder;
  * CCC decoder
  */
 public class CccDecoder extends TlvDecoder {
+    private static final String TAG = "CccDecoder";
+
     @Override
     public <T extends Params> T getParams(TlvDecoderBuffer tlvs, Class<T> paramsType)
             throws IllegalArgumentException {
@@ -171,6 +177,20 @@ public class CccDecoder extends TlvDecoder {
         }
         if (isBitSet(hoppingConfigModesAndSequences, CCC_HOPPING_SEQUENCE_DEFAULT)) {
             builder.addHoppingSequence(HOPPING_SEQUENCE_DEFAULT);
+        }
+
+        try {
+            int maxRangingSessionNumber = tlvs.getInt(CCC_SUPPORTED_MAX_RANGING_SESSION_NUMBER);
+            builder.setMaxRangingSessionNumber(maxRangingSessionNumber);
+        } catch (IllegalArgumentException e) {
+            Log.w(TAG, "SUPPORTED_MAX_RANGING_SESSION_NUMBER not found");
+        }
+
+        try {
+            int minUwbInitiationTimeMs = tlvs.getInt(CCC_SUPPORTED_MIN_UWB_INITIATION_TIME_MS);
+            builder.setMinUwbInitiationTimeMs(minUwbInitiationTimeMs);
+        } catch (IllegalArgumentException e) {
+            Log.w(TAG, "SUPPORTED_MIN_UWB_INITIATION_TIME_MS not found");
         }
         return builder.build();
     }

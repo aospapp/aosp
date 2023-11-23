@@ -17,36 +17,33 @@
 #ifndef CAR_EVS_APP_RENDERDIRECTVIEW_H
 #define CAR_EVS_APP_RENDERDIRECTVIEW_H
 
-
+#include "ConfigManager.h"
 #include "RenderBase.h"
+#include "VideoTex.h"
 
 #include <android/hardware/automotive/evs/1.0/IEvsEnumerator.h>
-#include "ConfigManager.h"
-#include "VideoTex.h"
 
 namespace android {
 namespace automotive {
 namespace evs {
 namespace support {
 
-using namespace ::android::hardware::automotive::evs::V1_0;
-
+using ::android::hardware::automotive::evs::V1_0::BufferDesc;
 
 /*
  * Renders the view from a single specified camera directly to the full display.
  */
-class RenderDirectView: public RenderBase {
+class RenderDirectView : public RenderBase {
 public:
     virtual bool activate() override;
     virtual void deactivate() override;
 
-    virtual bool drawFrame(const BufferDesc& tgtBuffer,
-                           const BufferDesc& imageBuffer) override;
+    virtual bool drawFrame(const BufferDesc& tgtBuffer, const BufferDesc& imageBuffer) override;
 
 protected:
-    std::unique_ptr<VideoTex>       mTexture;
+    std::unique_ptr<VideoTex> mTexture;
 
-    GLuint                          mShaderProgram = 0;
+    GLuint mShaderProgram = 0;
 };
 
 }  // namespace support
@@ -54,4 +51,4 @@ protected:
 }  // namespace automotive
 }  // namespace android
 
-#endif //CAR_EVS_APP_RENDERDIRECTVIEW_H
+#endif  // CAR_EVS_APP_RENDERDIRECTVIEW_H

@@ -135,8 +135,10 @@ ifneq ($(DISABLE_ROBO_RUN_TESTS),true)
       $(android_all_lib_path)/android-all-8.1.0-robolectric-4611349.jar:$(my_robolectric_path)/android-all-8.1.0-robolectric-4611349.jar \
       $(android_all_lib_path)/android-all-9-robolectric-4913185-2.jar:$(my_robolectric_path)/android-all-9-robolectric-4913185-2.jar \
       $(android_all_lib_path)/android-all-10-robolectric-5803371.jar:$(my_robolectric_path)/android-all-10-robolectric-5803371.jar \
-      $(android_all_lib_path)/android-all-R-beta2-robolectric-6625208.jar:$(my_robolectric_path)/android-all-R-beta2-robolectric-6625208.jar \
-      $(android_all_lib_path)/android-all-S-beta3-robolectric-7541949.jar:$(my_robolectric_path)/android-all-S-beta3-robolectric-7541949.jar \
+      $(android_all_lib_path)/android-all-11-robolectric-6757853.jar:$(my_robolectric_path)/android-all-11-robolectric-6757853.jar \
+      $(android_all_lib_path)/android-all-12-robolectric-7732740.jar:$(my_robolectric_path)/android-all-12-robolectric-7732740.jar \
+      $(android_all_lib_path)/android-all-12.1-robolectric-8229987.jar:$(my_robolectric_path)/android-all-12.1-robolectric-8229987.jar \
+      $(android_all_lib_path)/android-all-13-robolectric-9030017.jar:$(my_robolectric_path)/android-all-13-robolectric-9030017.jar \
       $(local_android_all_source_jar):$(my_robolectric_path)/android-all-current-robolectric-r0.jar
     copy_android_all_jars := $(call copy-many-files, $(copy_android_all_jar_pairs))
 

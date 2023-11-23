@@ -607,7 +607,7 @@ public final class OldResultSetGetterTests extends OldSQLTest {
         // real input val -1, 22, 2, 33,3, 1, 2
         List<Integer> input = Arrays.asList(1, -1, 22, 2, 33,3, 1, 2);
         ListIterator<Integer> it = input.listIterator();
-        Double test2 = new Double(23.2);
+        Double test2 = Double.valueOf(23.2);
         for (int i = 1;i<9;i++ ) {
             assertEquals(it.next().intValue(),res.getInt(i));
         }

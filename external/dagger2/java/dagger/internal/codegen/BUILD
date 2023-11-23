@@ -34,9 +34,6 @@ java_library(
         "//java/dagger/internal/codegen/bootstrap",
     ],
     tags = ["maven_coordinates=com.google.dagger:dagger-compiler:" + POM_VERSION],
-    exports = [
-        "@google_bazel_common//third_party/java/jsr250_annotations",  # Export for @Generated
-    ],
     deps = [
         ":package_info",
         "//java/dagger:core",
@@ -51,17 +48,19 @@ java_library(
         "//java/dagger/internal/codegen/langmodel",
         "//java/dagger/internal/codegen/validation",
         "//java/dagger/internal/codegen/writing",
-        "//java/dagger/internal/guava:collect",
-        "//java/dagger/producers",
+        "//java/dagger/internal/codegen/xprocessing",
         "//java/dagger/spi",
-        "@google_bazel_common//third_party/java/auto:service",
-        "@google_bazel_common//third_party/java/auto:value",
-        "@google_bazel_common//third_party/java/error_prone:annotations",
-        "@google_bazel_common//third_party/java/google_java_format",
-        "@google_bazel_common//third_party/java/incap",
-        "@google_bazel_common//third_party/java/javapoet",
-        "@google_bazel_common//third_party/java/jsr330_inject",
-        "@maven//:com_google_auto_auto_common",
+        "//third_party/java/auto:common",
+        "//third_party/java/auto:service",
+        "//third_party/java/auto:value",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/google_java_format",
+        "//third_party/java/guava/base",
+        "//third_party/java/guava/collect",
+        "//third_party/java/incap",
+        "//third_party/java/javapoet",
+        "//third_party/java/jsr330_inject",
+        "@bazel_tools//tools/jdk:langtools-neverlink",
     ],
 )
 
@@ -69,7 +68,7 @@ java_library(
     name = "package_info",
     srcs = ["package-info.java"],
     tags = ["maven:merged"],
-    deps = ["@google_bazel_common//third_party/java/error_prone:annotations"],
+    deps = ["//third_party/java/error_prone:annotations"],
 )
 
 gen_maven_artifact(
@@ -90,7 +89,6 @@ gen_maven_artifact(
         "//java/dagger/internal/codegen/langmodel",
         "//java/dagger/internal/codegen/validation",
         "//java/dagger/internal/codegen/writing",
-        "//java/dagger/model:internal-proxies",
     ],
     artifact_target_maven_deps = [
         "com.google.auto:auto-common",
@@ -102,19 +100,18 @@ gen_maven_artifact(
         "com.google.guava:failureaccess",
         "com.google.guava:guava",
         "com.squareup:javapoet",
-        "javax.annotation:jsr250-api",
         "javax.inject:javax.inject",
         "net.ltgt.gradle.incap:incap",
         "org.checkerframework:checker-compat-qual",
         "org.jetbrains.kotlin:kotlin-stdlib",
+        "org.jetbrains.kotlin:kotlin-stdlib-jdk8",
         "org.jetbrains.kotlinx:kotlinx-metadata-jvm",
     ],
     javadoc_root_packages = ["dagger.internal.codegen"],
     # The javadocs should only include ComponentProcessor.java, since that is the only class used
     # externally. Specifically, ComponentProcessor.forTesting() is required for testing SPI plugins.
     javadoc_srcs = ["ComponentProcessor.java"],
-    shaded_deps = ["@maven//:com_google_auto_auto_common"],
-    shaded_rules = ["rule com.google.auto.common.** dagger.shaded.auto.common.@1"],
+    # The shaded deps are inherited from dagger spi. For the shaded rules see util/deploy-dagger.sh
 )
 
 java_plugin(

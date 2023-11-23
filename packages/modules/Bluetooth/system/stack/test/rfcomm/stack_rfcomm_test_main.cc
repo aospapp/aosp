@@ -24,16 +24,6 @@
 
 #include <string>
 
-// Override LogMsg method so that we can output log via VLOG(1)
-extern "C" void LogMsg(uint32_t trace_set_mask, const char* fmt_str, ...) {
-  char buffer[256];
-  va_list args;
-  va_start(args, fmt_str);
-  vsnprintf(buffer, 256, fmt_str, args);
-  VLOG(1) << buffer;
-  va_end(args);
-}
-
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
 

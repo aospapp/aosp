@@ -17,6 +17,7 @@ TEST_TYPE = "server"
 ATTRIBUTES = "suite:audio_basic"
 DEPENDENCIES = "chameleon, audio_board, test_usbaudio"
 JOB_RETRIES = 1
+PY_VERSION = 3
 
 DOC = """
 This test remotely tests USB audio volume function against DUT.

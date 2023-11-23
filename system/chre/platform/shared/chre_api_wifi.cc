@@ -110,3 +110,10 @@ DLL_EXPORT bool chreWifiNanRequestRangingAsync(
   return false;
 #endif  // CHRE_WIFI_SUPPORT_ENABLED
 }
+
+DLL_EXPORT bool chreWifiNanGetCapabilities(
+    struct chreWifiNanCapabilities *capabilities) {
+  // Not implemented yet.
+  UNUSED_VAR(capabilities);
+  return false;
+}

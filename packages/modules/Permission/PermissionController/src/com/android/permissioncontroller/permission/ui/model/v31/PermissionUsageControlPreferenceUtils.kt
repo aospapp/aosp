@@ -61,9 +61,13 @@ object PermissionUsageControlPreferenceUtils {
             if (count == 0) {
                 isEnabled = false
                 val permissionUsageSummaryNotUsed = if (show7Days) {
-                    R.string.permission_usage_preference_summary_not_used_7d
+                    StringUtils.getIcuPluralsString(context,
+                            R.string.permission_usage_preference_summary_not_used_in_past_n_days,
+                            7)
                 } else {
-                    R.string.permission_usage_preference_summary_not_used_24h
+                    StringUtils.getIcuPluralsString(context,
+                            R.string.permission_usage_preference_summary_not_used_in_past_n_hours,
+                            24)
                 }
                 setSummary(permissionUsageSummaryNotUsed)
             } else if (SENSOR_DATA_PERMISSIONS.contains(groupName)) {

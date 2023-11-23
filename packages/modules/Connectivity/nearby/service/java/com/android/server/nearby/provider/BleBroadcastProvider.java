@@ -16,17 +16,25 @@
 
 package com.android.server.nearby.provider;
 
+import static com.android.server.nearby.NearbyService.TAG;
+import static com.android.server.nearby.presence.PresenceConstants.PRESENCE_UUID;
+
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.le.AdvertiseCallback;
 import android.bluetooth.le.AdvertiseData;
 import android.bluetooth.le.AdvertiseSettings;
+import android.bluetooth.le.AdvertisingSet;
+import android.bluetooth.le.AdvertisingSetCallback;
+import android.bluetooth.le.AdvertisingSetParameters;
 import android.bluetooth.le.BluetoothLeAdvertiser;
 import android.nearby.BroadcastCallback;
+import android.nearby.BroadcastRequest;
 import android.os.ParcelUuid;
+import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.nearby.injector.Injector;
 
-import java.util.UUID;
 import java.util.concurrent.Executor;
 
 /**
@@ -37,7 +45,7 @@ public class BleBroadcastProvider extends AdvertiseCallback {
     /**
      * Listener for Broadcast status changes.
      */
-    interface BroadcastListener {
+    public interface BroadcastListener {
         void onStatusChanged(int status);
     }
 
@@ -46,13 +54,19 @@ public class BleBroadcastProvider extends AdvertiseCallback {
 
     private BroadcastListener mBroadcastListener;
     private boolean mIsAdvertising;
-
-    BleBroadcastProvider(Injector injector, Executor executor) {
+    @VisibleForTesting
+    AdvertisingSetCallback mAdvertisingSetCallback;
+    public BleBroadcastProvider(Injector injector, Executor executor) {
         mInjector = injector;
         mExecutor = executor;
+        mAdvertisingSetCallback = getAdvertisingSetCallback();
     }
 
-    void start(byte[] advertisementPackets, BroadcastListener listener) {
+    /**
+     * Starts to broadcast with given bytes.
+     */
+    public void start(@BroadcastRequest.BroadcastVersion int version, byte[] advertisementPackets,
+            BroadcastListener listener) {
         if (mIsAdvertising) {
             stop();
         }
@@ -63,23 +77,36 @@ public class BleBroadcastProvider extends AdvertiseCallback {
                     mInjector.getBluetoothAdapter().getBluetoothLeAdvertiser();
             if (bluetoothLeAdvertiser != null) {
                 advertiseStarted = true;
-                AdvertiseSettings settings =
-                        new AdvertiseSettings.Builder()
-                                .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
-                                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
-                                .setConnectable(true)
-                                .build();
-
-                // TODO(b/230538655) Use empty data until Presence V1 protocol is implemented.
-                ParcelUuid emptyParcelUuid = new ParcelUuid(new UUID(0L, 0L));
-                byte[] emptyAdvertisementPackets = new byte[0];
                 AdvertiseData advertiseData =
                         new AdvertiseData.Builder()
-                                .addServiceData(emptyParcelUuid, emptyAdvertisementPackets).build();
+                                .addServiceData(new ParcelUuid(PRESENCE_UUID),
+                                        advertisementPackets).build();
                 try {
                     mBroadcastListener = listener;
-                    bluetoothLeAdvertiser.startAdvertising(settings, advertiseData, this);
+                    switch (version) {
+                        case BroadcastRequest.PRESENCE_VERSION_V0:
+                            bluetoothLeAdvertiser.startAdvertising(getAdvertiseSettings(),
+                                    advertiseData, this);
+                            break;
+                        case BroadcastRequest.PRESENCE_VERSION_V1:
+                            if (adapter.isLeExtendedAdvertisingSupported()) {
+                                bluetoothLeAdvertiser.startAdvertisingSet(
+                                        getAdvertisingSetParameters(),
+                                        advertiseData,
+                                        null, null, null, mAdvertisingSetCallback);
+                            } else {
+                                Log.w(TAG, "Failed to start advertising set because the chipset"
+                                        + " does not supports LE Extended Advertising feature.");
+                                advertiseStarted = false;
+                            }
+                            break;
+                        default:
+                            Log.w(TAG, "Failed to start advertising set because the advertisement"
+                                    + " is wrong.");
+                            advertiseStarted = false;
+                    }
                 } catch (NullPointerException | IllegalStateException | SecurityException e) {
+                    Log.w(TAG, "Failed to start advertising.", e);
                     advertiseStarted = false;
                 }
             }
@@ -89,7 +116,10 @@ public class BleBroadcastProvider extends AdvertiseCallback {
         }
     }
 
-    void stop() {
+    /**
+     * Stops current advertisement.
+     */
+    public void stop() {
         if (mIsAdvertising) {
             BluetoothAdapter adapter = mInjector.getBluetoothAdapter();
             if (adapter != null) {
@@ -97,6 +127,7 @@ public class BleBroadcastProvider extends AdvertiseCallback {
                         mInjector.getBluetoothAdapter().getBluetoothLeAdvertiser();
                 if (bluetoothLeAdvertiser != null) {
                     bluetoothLeAdvertiser.stopAdvertising(this);
+                    bluetoothLeAdvertiser.stopAdvertisingSet(mAdvertisingSetCallback);
                 }
             }
             mBroadcastListener = null;
@@ -119,5 +150,42 @@ public class BleBroadcastProvider extends AdvertiseCallback {
         if (mBroadcastListener != null) {
             mBroadcastListener.onStatusChanged(BroadcastCallback.STATUS_FAILURE);
         }
+    }
+
+    private static AdvertiseSettings getAdvertiseSettings() {
+        return new AdvertiseSettings.Builder()
+                .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
+                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
+                .setConnectable(true)
+                .build();
+    }
+
+    private static AdvertisingSetParameters getAdvertisingSetParameters() {
+        return new AdvertisingSetParameters.Builder()
+                .setInterval(AdvertisingSetParameters.INTERVAL_MEDIUM)
+                .setTxPowerLevel(AdvertisingSetParameters.TX_POWER_MEDIUM)
+                .setIncludeTxPower(true)
+                .setConnectable(true)
+                .build();
+    }
+
+    private AdvertisingSetCallback getAdvertisingSetCallback() {
+        return new AdvertisingSetCallback() {
+            @Override
+            public void onAdvertisingSetStarted(AdvertisingSet advertisingSet,
+                    int txPower, int status) {
+                if (status == AdvertisingSetCallback.ADVERTISE_SUCCESS) {
+                    if (mBroadcastListener != null) {
+                        mBroadcastListener.onStatusChanged(BroadcastCallback.STATUS_OK);
+                    }
+                    mIsAdvertising = true;
+                } else {
+                    Log.e(TAG, "Starts advertising failed in status " + status);
+                    if (mBroadcastListener != null) {
+                        mBroadcastListener.onStatusChanged(BroadcastCallback.STATUS_FAILURE);
+                    }
+                }
+            }
+        };
     }
 }

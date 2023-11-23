@@ -90,13 +90,15 @@ cc_defaults {
     ],
     compile_multilib: "first",
     shared_libs: [
-        "android.hardware.camera.device-V1-ndk",
+        "android.hardware.camera.device-V2-ndk",
         "android.hardware.camera.common-V1-ndk",
-        "android.hardware.camera.provider-V1-ndk",
+        "android.hardware.camera.provider-V2-ndk",
         "android.hardware.graphics.mapper@2.0",
         "android.hardware.graphics.mapper@3.0",
         "android.hardware.graphics.mapper@4.0",
+        "android.hardware.thermal@1.0",
         "android.hardware.thermal@2.0",
+        "android.hardware.thermal-V1-ndk",
         "libbinder",
         "libbinder_ndk",
         "libbase",
@@ -115,6 +117,7 @@ cc_defaults {
     ],
     static_libs: [
         "libaidlcommonsupport",
+        "libthermalutils",
     ],
 }
 

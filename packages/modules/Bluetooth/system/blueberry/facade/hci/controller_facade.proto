@@ -76,6 +76,7 @@ service ControllerFacade {
   rpc SupportsBlePowerControlRequest(google.protobuf.Empty) returns (SupportedMsg) {}
   rpc SupportsBlePowerChangeIndication(google.protobuf.Empty) returns (SupportedMsg) {}
   rpc SupportsBlePathLossMonitoring(google.protobuf.Empty) returns (SupportedMsg) {}
+  rpc SupportsBlePeriodicAdvertisingAdi(google.protobuf.Empty) returns (SupportedMsg) {}
 }
 
 message NameMsg {

@@ -17,6 +17,8 @@
 package com.android.car.settings.security;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 import static com.android.car.settings.security.ChooseLockTypePreferenceController.LOCK_CHECK;
 import static com.android.internal.widget.LockPatternUtils.CREDENTIAL_TYPE_NONE;
@@ -171,11 +173,68 @@ public class ChooseLockTypePreferenceControllerTest {
     }
 
     @Test
+    public void isNotGuestUser_isAvailable_zoneWrite() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void isNotGuestUser_isAvailable_zoneRead() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void isNotGuestUser_isAvailable_zoneHidden() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void isGuestUser_isNotAvailable() {
         when(mUserManager.isGuestUser()).thenReturn(true);
         mPreferenceController.onCreate(mLifecycleOwner);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void isGuestUser_isNotAvailable_zoneWrite() {
+        when(mUserManager.isGuestUser()).thenReturn(true);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void isGuestUser_isNotAvailable_zoneRead() {
+        when(mUserManager.isGuestUser()).thenReturn(true);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void isGuestUser_isNotAvailable_zoneHidden() {
+        when(mUserManager.isGuestUser()).thenReturn(true);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
     }
 
     @Test

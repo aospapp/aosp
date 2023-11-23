@@ -30,10 +30,12 @@ public class TelephonyDisplayInfoTest {
         Parcel p = Parcel.obtain();
         p.writeInt(1);
         p.writeInt(2);
+        p.writeBoolean(false);
 
         p.setDataPosition(0);
         TelephonyDisplayInfo tdi = TelephonyDisplayInfo.CREATOR.createFromParcel(p);
         assertEquals(1, tdi.getNetworkType());
         assertEquals(2, tdi.getOverrideNetworkType());
+        assertEquals(false, tdi.isRoaming());
     }
 }

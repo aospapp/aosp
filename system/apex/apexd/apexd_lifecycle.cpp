@@ -24,8 +24,6 @@
 
 #include "apexd_utils.h"
 
-#define LOG_TAG "apexd"
-
 using android::base::GetProperty;
 using android::base::Result;
 using android::base::WaitForProperty;

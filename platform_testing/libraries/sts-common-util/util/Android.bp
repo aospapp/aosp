@@ -1,4 +1,4 @@
-// Copyright (C) 2020 The Android Open Source Project
+// Copyright (C) 2022 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,9 +26,9 @@ java_library_static {
     sdk_version: "current",
     srcs: ["src/**/*.java"],
     static_libs: [
+        "compatibility-common-util-devicesidelib",
         "junit",
         "platform-test-annotations",
-        "compatibility-common-util-devicesidelib",
     ],
 }
 
@@ -39,7 +39,9 @@ java_library {
         "//platform_testing/libraries/sts-common-util/util/tests",
     ],
     host_supported: true,
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+    ],
     static_libs: [
         "compatibility-common-util-lib",
     ],

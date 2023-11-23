@@ -1,11 +1,12 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use assertions::const_assert;
-use data_model::DataInit;
-
 use std::mem::size_of;
+
+use static_assertions::const_assert;
+use zerocopy::AsBytes;
+use zerocopy::FromBytes;
 
 /// Standard USB descriptor types.
 pub enum DescriptorType {
@@ -23,15 +24,12 @@ pub trait Descriptor {
 
 /// Standard USB descriptor header common to all descriptor types.
 #[allow(non_snake_case)]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, FromBytes, AsBytes)]
 #[repr(C, packed)]
 pub struct DescriptorHeader {
     pub bLength: u8,
     pub bDescriptorType: u8,
 }
-
-// Safe because it only has data and has no implicit padding.
-unsafe impl DataInit for DescriptorHeader {}
 
 fn _assert_descriptor_header() {
     const_assert!(size_of::<DescriptorHeader>() == 2);
@@ -40,7 +38,7 @@ fn _assert_descriptor_header() {
 /// Standard USB device descriptor as defined in USB 2.0 chapter 9,
 /// not including the standard header.
 #[allow(non_snake_case)]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, FromBytes, AsBytes)]
 #[repr(C, packed)]
 pub struct DeviceDescriptor {
     pub bcdUSB: u16,
@@ -63,9 +61,6 @@ impl Descriptor for DeviceDescriptor {
     }
 }
 
-// Safe because it only has data and has no implicit padding.
-unsafe impl DataInit for DeviceDescriptor {}
-
 fn _assert_device_descriptor() {
     const_assert!(size_of::<DeviceDescriptor>() == 18 - 2);
 }
@@ -73,7 +68,7 @@ fn _assert_device_descriptor() {
 /// Standard USB configuration descriptor as defined in USB 2.0 chapter 9,
 /// not including the standard header.
 #[allow(non_snake_case)]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, FromBytes, AsBytes)]
 #[repr(C, packed)]
 pub struct ConfigDescriptor {
     pub wTotalLength: u16,
@@ -90,9 +85,6 @@ impl Descriptor for ConfigDescriptor {
     }
 }
 
-// Safe because it only has data and has no implicit padding.
-unsafe impl DataInit for ConfigDescriptor {}
-
 fn _assert_config_descriptor() {
     const_assert!(size_of::<ConfigDescriptor>() == 9 - 2);
 }
@@ -106,7 +98,7 @@ impl ConfigDescriptor {
 /// Standard USB interface descriptor as defined in USB 2.0 chapter 9,
 /// not including the standard header.
 #[allow(non_snake_case)]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, FromBytes, AsBytes)]
 #[repr(C, packed)]
 pub struct InterfaceDescriptor {
     pub bInterfaceNumber: u8,
@@ -124,9 +116,6 @@ impl Descriptor for InterfaceDescriptor {
     }
 }
 
-// Safe because it only has data and has no implicit padding.
-unsafe impl DataInit for InterfaceDescriptor {}
-
 fn _assert_interface_descriptor() {
     const_assert!(size_of::<InterfaceDescriptor>() == 9 - 2);
 }
@@ -134,7 +123,7 @@ fn _assert_interface_descriptor() {
 /// Standard USB endpoint descriptor as defined in USB 2.0 chapter 9,
 /// not including the standard header.
 #[allow(non_snake_case)]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, FromBytes, AsBytes)]
 #[repr(C, packed)]
 pub struct EndpointDescriptor {
     pub bEndpointAddress: u8,
@@ -149,9 +138,6 @@ impl Descriptor for EndpointDescriptor {
     }
 }
 
-// Safe because it only has data and has no implicit padding.
-unsafe impl DataInit for EndpointDescriptor {}
-
 fn _assert_endpoint_descriptor() {
     const_assert!(size_of::<EndpointDescriptor>() == 7 - 2);
 }
@@ -161,7 +147,7 @@ const ENDPOINT_DESCRIPTOR_NUMBER_MASK: u8 = 0xf;
 const ENDPOINT_DESCRIPTOR_ATTRIBUTES_TYPE_MASK: u8 = 0x3;
 
 /// Endpoint types.
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum EndpointType {
     Control,
     Isochronous,
@@ -170,7 +156,7 @@ pub enum EndpointType {
 }
 
 /// Endpoint Directions.
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum EndpointDirection {
     HostToDevice = 0,
     DeviceToHost = 1,
@@ -212,7 +198,7 @@ pub const DATA_PHASE_DIRECTION_OFFSET: u8 = 7;
 /// Bit mask of data phase transfer direction.
 pub const DATA_PHASE_DIRECTION: u8 = 1u8 << DATA_PHASE_DIRECTION_OFFSET;
 // Types of data phase transfer directions.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum ControlRequestDataPhaseTransferDirection {
     HostToDevice = 0,
     DeviceToHost = 1,
@@ -223,7 +209,7 @@ pub const CONTROL_REQUEST_TYPE_OFFSET: u8 = 5;
 /// Bit mask of control request type.
 pub const CONTROL_REQUEST_TYPE: u8 = 0b11 << CONTROL_REQUEST_TYPE_OFFSET;
 /// Request types.
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum ControlRequestType {
     Standard = 0,
     Class = 1,
@@ -234,7 +220,7 @@ pub enum ControlRequestType {
 /// Recipient type bits.
 pub const REQUEST_RECIPIENT_TYPE: u8 = 0b1111;
 /// Recipient type of control request.
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum ControlRequestRecipient {
     Device = 0,
     Interface = 1,
@@ -244,7 +230,7 @@ pub enum ControlRequestRecipient {
 }
 
 /// Standard request defined in usb spec.
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum StandardControlRequest {
     GetStatus = 0x00,
     ClearFeature = 0x01,
@@ -261,7 +247,7 @@ pub enum StandardControlRequest {
 
 /// RequestSetup is first part of control transfer buffer.
 #[repr(C, packed)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, FromBytes, AsBytes)]
 pub struct UsbRequestSetup {
     // USB Device Request. USB spec. rev. 2.0 9.3
     pub request_type: u8, // bmRequestType
@@ -274,8 +260,6 @@ pub struct UsbRequestSetup {
 fn _assert_usb_request_setup() {
     const_assert!(size_of::<UsbRequestSetup>() == 8);
 }
-
-unsafe impl DataInit for UsbRequestSetup {}
 
 impl UsbRequestSetup {
     pub fn new(
@@ -357,6 +341,15 @@ pub fn control_request_type(
     ((type_ as u8) << CONTROL_REQUEST_TYPE_OFFSET)
         | ((dir as u8) << DATA_PHASE_DIRECTION_OFFSET)
         | (recipient as u8)
+}
+
+/// USB device speed
+pub enum DeviceSpeed {
+    Full,
+    Low,
+    High,
+    Super,
+    SuperPlus,
 }
 
 #[cfg(test)]

@@ -2,7 +2,6 @@
 #include <CL/cl_gl.h>
 #include <CL/cl_egl.h>
 #include <CL/cl_ext.h>
-#include <CL/cl_gl_ext.h>
 #include <dlfcn.h>
 
 
@@ -31,4 +30,3 @@ rettype fname fargs {                                                           
 #define CL_MACRO FUNC_SYM
 #include "apis.h"
 #undef CL_MACRO
-

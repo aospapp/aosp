@@ -1096,4 +1096,74 @@ public class DuplicateBindingsValidationTest {
         .onLineContaining("interface Parent");
     assertThat(compilation).hadErrorCount(1);
   }
+
+  // Tests the format of the error for a somewhat complex binding method.
+  @Test
+  public void formatTest() {
+    JavaFileObject modules =
+        JavaFileObjects.forSourceLines(
+            "test.Modules",
+            "package test;",
+            "",
+            "import com.google.common.collect.ImmutableList;",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import javax.inject.Singleton;",
+            "",
+            "interface Modules {",
+            "  @interface Foo {",
+            "    Class<?> bar();",
+            "  }",
+            "",
+            "  @Module",
+            "  interface Module1 {",
+            "    @Provides",
+            "    @Singleton",
+            "    @Foo(bar = String.class)",
+            "    static String foo(",
+            "        @SuppressWarnings(\"unused\") int a,",
+            "        @SuppressWarnings(\"unused\") ImmutableList<Boolean> blah) {",
+            "      return \"\";",
+            "    }",
+            "  }",
+            "",
+            "  @Module",
+            "  interface Module2 {",
+            "    @Provides",
+            "    @Singleton",
+            "    @Foo(bar = String.class)",
+            "    static String foo(",
+            "        @SuppressWarnings(\"unused\") int a,",
+            "        @SuppressWarnings(\"unused\") ImmutableList<Boolean> blah) {",
+            "      return \"\";",
+            "    }",
+            "  }",
+            "}");
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.BindsInstance;",
+            "import dagger.Component;",
+            "import javax.inject.Singleton;",
+            "",
+            "@Singleton",
+            "@Component(modules = {Modules.Module1.class, Modules.Module2.class})",
+            "interface TestComponent {",
+            "  @Modules.Foo(bar = String.class) String foo();",
+            "}");
+    Compilation compilation = daggerCompiler().compile(modules, component);
+    assertThat(compilation).failed();
+    assertThat(compilation).hadErrorCount(1);
+    assertThat(compilation)
+        .hadErrorContaining(
+            message(
+                "String is bound multiple times:",
+                "    @Provides @Singleton @Modules.Foo(bar = String.class) String "
+                    + "Modules.Module1.foo(int, ImmutableList<Boolean>)",
+                "    @Provides @Singleton @Modules.Foo(bar = String.class) String "
+                    + "Modules.Module2.foo(int, ImmutableList<Boolean>)"))
+        .inFile(component);
+  }
 }

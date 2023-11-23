@@ -1,0 +1,87 @@
+// Copyright (C) 2022 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_tools_aidl_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_tools_aidl_license"],
+}
+
+aidl_interface {
+    name: "example-dep-aidl-interfaces",
+    local_include_dir: "src",
+    srcs: [
+        "src/a/b/AB.aidl",
+    ],
+    backend: {
+        java: {
+            min_sdk_version: "29",
+        },
+        ndk: {
+            enabled: false,
+        },
+        cpp: {
+            enabled: false,
+        },
+    },
+    versions: [
+        "1",
+    ],
+
+}
+
+aidl_interface {
+    name: "example-aidl-interfaces",
+    local_include_dir: "src",
+    srcs: [
+        "src/c/d/CD.aidl",
+        "src/c/d/CD2.aidl",
+    ],
+    backend: {
+        java: {
+            min_sdk_version: "29",
+        },
+        ndk: {
+            enabled: false,
+        },
+        cpp: {
+            enabled: false,
+        },
+    },
+    imports: ["example-dep-aidl-interfaces-V1"],
+    versions: [
+        "1",
+        "2",
+    ],
+}
+
+java_library {
+    name: "example-aidl-latest",
+    sdk_version: "system_current",
+    min_sdk_version: "29",
+    static_libs: [
+        "example-aidl-interfaces-V2-java",
+    ],
+}
+
+java_library {
+    name: "example-aidl-test",
+    sdk_version: "system_current",
+    min_sdk_version: "29",
+    srcs: ["src/android/Test.java"],
+    static_libs: ["example-aidl-latest"],
+}

@@ -21,9 +21,7 @@ import static org.junit.Assert.assertTrue;
 
 import android.telephony.mbms.StreamingServiceInfo;
 
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -32,14 +30,12 @@ import org.junit.Test;
 
 public class ServiceInfoTest {
     private static final String ID = "StreamingServiceId";
-    private static final Map<Locale, String> LOCALE_DICT = new HashMap<Locale, String>() {{
-        put(Locale.US, "Entertainment Source 1");
-        put(Locale.CANADA, "Entertainment Source 1, eh?");
-    }};
-    private static final List<Locale> LOCALES = new ArrayList<Locale>() {{
-        add(Locale.CANADA);
-        add(Locale.US);
-    }};
+    private static final Map<Locale, String> LOCALE_DICT = Map.of(
+            Locale.US, "Entertainment Source 1",
+            Locale.CANADA, "Entertainment Source 1, eh?");
+    private static final List<Locale> LOCALES = List.of(
+            Locale.CANADA,
+            Locale.US);
     private static final String NAME = "class1";
     private static final Date BEGIN_DATE = new Date(2017, 8, 21, 18, 20, 29);
     private static final Date END_DATE = new Date(2017, 8, 21, 18, 23, 9);

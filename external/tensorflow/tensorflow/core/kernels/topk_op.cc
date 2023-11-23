@@ -120,14 +120,9 @@ struct TopKFunctor<CPUDevice, T> {
 
     // Special case for k == 1.
     if (k == 1) {
-#ifdef EIGEN_HAS_INDEX_LIST
       typename Eigen::IndexList<Eigen::type2index<1>> reduce_on_cols;
       typename Eigen::IndexList<int, Eigen::type2index<1>> rows_by_one;
       rows_by_one.set(0, num_rows);
-#else
-      Eigen::array<int, 1> reduce_on_cols = {1};
-      Eigen::array<int, 2> rows_by_one = {static_cast<int>(num_rows), 1};
-#endif
 
       values.device(d) =
           input.maximum(/*dims=*/reduce_on_cols).eval().reshape(rows_by_one);
@@ -143,7 +138,7 @@ struct TopKFunctor<CPUDevice, T> {
         values(r, 0) = input(r, indices(r, 0));
       }
 
-      return Status::OK();
+      return OkStatus();
     }
 
     auto SortIndices = [&](int64_t start_batch, int64_t limit_batch) {
@@ -232,12 +227,12 @@ struct TopKFunctor<CPUDevice, T> {
     const double total_cost = sort_cost + copy_cost;
     const int64_t final_cost = (total_cost >= static_cast<double>(kint64max))
                                    ? kint64max
-                                   : static_cast<int64>(total_cost);
+                                   : static_cast<int64_t>(total_cost);
     auto worker_threads = *(context->device()->tensorflow_cpu_worker_threads());
     Shard(worker_threads.num_threads, worker_threads.workers, num_rows,
           final_cost, SortIndices);
 
-    return Status::OK();
+    return OkStatus();
   }
 };
 
@@ -259,13 +254,13 @@ TF_CALL_REAL_NUMBER_TYPES(REGISTER_KERNELS);
 #if GOOGLE_CUDA || TENSORFLOW_USE_ROCM
 
 namespace functor {
-#define DECLARE_GPU_SPEC(T)                                                  \
-  template <>                                                                \
-  Status TopKFunctor<GPUDevice, T>::Compute(                                 \
-      OpKernelContext* context, bool sorted, int k,                          \
-      const typename TTypes<T, 2>::ConstTensor& input, const int64 num_rows, \
-      const int64 num_cols, typename TTypes<T, 2>::Tensor values,            \
-      typename TTypes<int, 2>::Tensor indices);                              \
+#define DECLARE_GPU_SPEC(T)                                                    \
+  template <>                                                                  \
+  Status TopKFunctor<GPUDevice, T>::Compute(                                   \
+      OpKernelContext* context, bool sorted, int k,                            \
+      const typename TTypes<T, 2>::ConstTensor& input, const int64_t num_rows, \
+      const int64_t num_cols, typename TTypes<T, 2>::Tensor values,            \
+      typename TTypes<int, 2>::Tensor indices);                                \
   extern template struct functor::TopKFunctor<GPUDevice, T>;
 
 TF_CALL_GPU_NUMBER_TYPES(DECLARE_GPU_SPEC);

@@ -24,6 +24,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.UserHandle;
 import android.provider.BaseColumns;
 import android.provider.Telephony;
 import android.telephony.SubscriptionManager;
@@ -123,6 +124,10 @@ public class FakeTelephonyProvider extends MockContentProvider {
                     + Telephony.SimInfo.COLUMN_PORT_INDEX + " INTEGER DEFAULT -1,"
                     + Telephony.SimInfo.COLUMN_USAGE_SETTING + " INTEGER DEFAULT "
                             + SubscriptionManager.USAGE_SETTING_UNKNOWN
+                    + "," + Telephony.SimInfo.COLUMN_TP_MESSAGE_REF
+                    + "  INTEGER DEFAULT -1,"
+                    + Telephony.SimInfo.COLUMN_USER_HANDLE + " INTEGER DEFAULT "
+                    + UserHandle.USER_NULL
                     + ");";
         }
 
@@ -143,6 +148,7 @@ public class FakeTelephonyProvider extends MockContentProvider {
 
     @Override
     public Uri insert(Uri uri, ContentValues values) {
+        Log.d(TAG, "insert. values=" + values);
         SQLiteDatabase db = mDbHelper.getWritableDatabase();
         long id = db.insert("siminfo", null, values);
         return ContentUris.withAppendedId(Telephony.SimInfo.CONTENT_URI, id);

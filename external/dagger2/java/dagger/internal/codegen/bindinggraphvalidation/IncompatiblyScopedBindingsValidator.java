@@ -18,22 +18,23 @@ package dagger.internal.codegen.bindinggraphvalidation;
 
 import static dagger.internal.codegen.base.Formatter.INDENT;
 import static dagger.internal.codegen.base.Scopes.getReadableSource;
-import static dagger.internal.codegen.langmodel.DaggerElements.closestEnclosingTypeElement;
-import static dagger.model.BindingKind.INJECTION;
+import static dagger.internal.codegen.xprocessing.XElements.asExecutable;
+import static dagger.internal.codegen.xprocessing.XElements.closestEnclosingTypeElement;
+import static dagger.spi.model.BindingKind.INJECTION;
 import static java.util.stream.Collectors.joining;
 import static javax.tools.Diagnostic.Kind.ERROR;
 
-import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
 import dagger.internal.codegen.base.Scopes;
 import dagger.internal.codegen.binding.MethodSignatureFormatter;
 import dagger.internal.codegen.compileroption.CompilerOptions;
-import dagger.model.Binding;
-import dagger.model.BindingGraph;
-import dagger.model.BindingGraph.ComponentNode;
-import dagger.spi.BindingGraphPlugin;
-import dagger.spi.DiagnosticReporter;
+import dagger.internal.codegen.validation.DiagnosticMessageGenerator;
+import dagger.spi.model.Binding;
+import dagger.spi.model.BindingGraph;
+import dagger.spi.model.BindingGraph.ComponentNode;
+import dagger.spi.model.BindingGraphPlugin;
+import dagger.spi.model.DiagnosticReporter;
 import java.util.Optional;
 import java.util.Set;
 import javax.inject.Inject;
@@ -47,12 +48,16 @@ final class IncompatiblyScopedBindingsValidator implements BindingGraphPlugin {
 
   private final MethodSignatureFormatter methodSignatureFormatter;
   private final CompilerOptions compilerOptions;
+  private final DiagnosticMessageGenerator.Factory diagnosticMessageGeneratorFactory;
 
   @Inject
   IncompatiblyScopedBindingsValidator(
-      MethodSignatureFormatter methodSignatureFormatter, CompilerOptions compilerOptions) {
+      MethodSignatureFormatter methodSignatureFormatter,
+      CompilerOptions compilerOptions,
+      DiagnosticMessageGenerator.Factory diagnosticMessageGeneratorFactory) {
     this.methodSignatureFormatter = methodSignatureFormatter;
     this.compilerOptions = compilerOptions;
+    this.diagnosticMessageGeneratorFactory = diagnosticMessageGeneratorFactory;
   }
 
   @Override
@@ -62,9 +67,11 @@ final class IncompatiblyScopedBindingsValidator implements BindingGraphPlugin {
 
   @Override
   public void visitGraph(BindingGraph bindingGraph, DiagnosticReporter diagnosticReporter) {
-    ImmutableSetMultimap.Builder<ComponentNode, dagger.model.Binding> incompatibleBindings =
+    DiagnosticMessageGenerator diagnosticMessageGenerator =
+        diagnosticMessageGeneratorFactory.create(bindingGraph);
+    ImmutableSetMultimap.Builder<ComponentNode, dagger.spi.model.Binding> incompatibleBindings =
         ImmutableSetMultimap.builder();
-    for (dagger.model.Binding binding : bindingGraph.bindings()) {
+    for (dagger.spi.model.Binding binding : bindingGraph.bindings()) {
       binding
           .scope()
           .filter(scope -> !scope.isReusable())
@@ -85,16 +92,19 @@ final class IncompatiblyScopedBindingsValidator implements BindingGraphPlugin {
               });
     }
     Multimaps.asMap(incompatibleBindings.build())
-        .forEach((componentNode, bindings) -> report(componentNode, bindings, diagnosticReporter));
+        .forEach((componentNode, bindings) ->
+            report(componentNode, bindings, diagnosticReporter, diagnosticMessageGenerator));
   }
 
   private void report(
       ComponentNode componentNode,
       Set<Binding> bindings,
-      DiagnosticReporter diagnosticReporter) {
+      DiagnosticReporter diagnosticReporter,
+      DiagnosticMessageGenerator diagnosticMessageGenerator) {
     Diagnostic.Kind diagnosticKind = ERROR;
     StringBuilder message =
-        new StringBuilder(componentNode.componentPath().currentComponent().getQualifiedName());
+        new StringBuilder(
+            componentNode.componentPath().currentComponent().className().canonicalName());
 
     if (!componentNode.isRealComponent()) {
       // If the "component" is really a module, it will have no scopes attached. We want to report
@@ -125,7 +135,7 @@ final class IncompatiblyScopedBindingsValidator implements BindingGraphPlugin {
         case PROVISION:
           message.append(
               methodSignatureFormatter.format(
-                  MoreElements.asExecutable(binding.bindingElement().get())));
+                  asExecutable(binding.bindingElement().get().xprocessing())));
           break;
 
         case INJECTION:
@@ -133,12 +143,17 @@ final class IncompatiblyScopedBindingsValidator implements BindingGraphPlugin {
               .append(getReadableSource(binding.scope().get()))
               .append(" class ")
               .append(
-                  closestEnclosingTypeElement(binding.bindingElement().get()).getQualifiedName());
+                  closestEnclosingTypeElement(binding.bindingElement().get().xprocessing())
+                      .getQualifiedName())
+              .append(diagnosticMessageGenerator.getMessage(binding));
+
           break;
 
         default:
           throw new AssertionError(binding);
       }
+
+      message.append('\n');
     }
     diagnosticReporter.reportComponent(diagnosticKind, componentNode, message.toString());
   }

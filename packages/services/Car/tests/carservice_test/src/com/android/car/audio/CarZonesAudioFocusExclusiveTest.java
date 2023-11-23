@@ -26,6 +26,7 @@ import static org.mockito.Mockito.when;
 import android.media.AudioFocusInfo;
 import android.media.AudioManager;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -104,12 +105,19 @@ public final class CarZonesAudioFocusExclusiveTest extends CarZonesAudioFocusTes
     }
 
     @Before
+    @Override
     public void setUp() {
-        mCarAudioZones = generateAudioZones();
+        super.setUp();
         when(mCarAudioService.getZoneIdForUid(mExcludedAudioClientInfo.getClientUid()))
                 .thenReturn(PRIMARY_ZONE_ID);
         when(mCarAudioService.getZoneIdForUid(mAcceptedAudioClientInfo.getClientUid()))
                 .thenReturn(PRIMARY_ZONE_ID);
+    }
+
+    @After
+    @Override
+    public void tearDown() {
+        super.tearDown();
     }
 
     @Test

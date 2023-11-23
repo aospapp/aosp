@@ -22,13 +22,13 @@ import unittest
 
 from unittest import mock
 
-import unittest_constants as uc
-import unittest_utils
+from atest import unittest_constants as uc
+from atest import unittest_utils
 
-from logstorage import atest_gcp_utils
-from logstorage import logstorage_utils
-from test_finders import test_info
-from test_runners import suite_plan_test_runner
+from atest.logstorage import atest_gcp_utils
+from atest.logstorage import logstorage_utils
+from atest.test_finders import test_info
+from atest.test_runners import suite_plan_test_runner
 
 
 # pylint: disable=protected-access
@@ -42,7 +42,7 @@ class SuitePlanTestRunnerUnittests(unittest.TestCase):
     def tearDown(self):
         mock.patch.stopall()
 
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands(self, mock_resultargs):
         """Test _generate_run_command method.
         Strategy:
@@ -117,7 +117,7 @@ class SuitePlanTestRunnerUnittests(unittest.TestCase):
 
     @mock.patch.object(logstorage_utils, 'BuildClient')
     @mock.patch.object(atest_gcp_utils, 'do_upload_flow')
-    @mock.patch('atest_utils.get_manifest_branch')
+    @mock.patch('atest.atest_utils.get_manifest_branch')
     @mock.patch.object(logstorage_utils.BuildClient, 'update_invocation')
     @mock.patch('subprocess.Popen')
     @mock.patch.object(suite_plan_test_runner.SuitePlanTestRunner, 'run')

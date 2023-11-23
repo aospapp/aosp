@@ -19,6 +19,8 @@ package com.android.server.telecom;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
+import android.os.ResultReceiver;
+import android.telecom.CallEndpoint;
 import android.telecom.Log;
 import android.telecom.PhoneAccountHandle;
 
@@ -396,6 +398,23 @@ class InCallAdapter extends IInCallAdapter.Stub {
     }
 
     @Override
+    public void requestCallEndpointChange(CallEndpoint endpoint, ResultReceiver callback) {
+        try {
+            Log.startSession(LogUtils.Sessions.ICA_SET_AUDIO_ROUTE, mOwnerPackageAbbreviation);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    mCallsManager.requestCallEndpointChange(endpoint, callback);
+                }
+            } finally {
+                Binder.restoreCallingIdentity(token);
+            }
+        } finally {
+            Log.endSession();
+        }
+    }
+
+    @Override
     public void enterBackgroundAudioProcessing(String callId) {
         try {
             Log.startSession(LogUtils.Sessions.ICA_ENTER_AUDIO_PROCESSING,
@@ -602,7 +621,9 @@ class InCallAdapter extends IInCallAdapter.Stub {
                 synchronized (mLock) {
                     Call call = mCallIdMapper.getCall(callId);
                     if (call != null) {
-                        call.putExtras(Call.SOURCE_INCALL_SERVICE, extras);
+                        // Make sure to identify the ICS that originated the extras change so that
+                        // InCallController can propagate these out to other ICSes.
+                        call.putInCallServiceExtras(extras, mOwnerPackageName);
                     } else {
                         Log.w(this, "putExtras, unknown call id: %s", callId);
                     }
@@ -674,7 +695,7 @@ class InCallAdapter extends IInCallAdapter.Stub {
     @Override
     public void sendRttRequest(String callId) {
         try {
-            Log.startSession("ICA.sRR");
+            Log.startSession("ICA.sRR", mOwnerPackageAbbreviation);
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
@@ -696,7 +717,7 @@ class InCallAdapter extends IInCallAdapter.Stub {
     @Override
     public void respondToRttRequest(String callId, int id, boolean accept) {
         try {
-            Log.startSession("ICA.rTRR");
+            Log.startSession("ICA.rTRR", mOwnerPackageAbbreviation);
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
@@ -718,7 +739,7 @@ class InCallAdapter extends IInCallAdapter.Stub {
     @Override
     public void stopRtt(String callId) {
         try {
-            Log.startSession("ICA.sRTT");
+            Log.startSession("ICA.sRTT", mOwnerPackageAbbreviation);
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
@@ -740,11 +761,16 @@ class InCallAdapter extends IInCallAdapter.Stub {
     @Override
     public void setRttMode(String callId, int mode) {
         try {
-            Log.startSession("ICA.sRM");
+            Log.startSession("ICA.sRM", mOwnerPackageAbbreviation);
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
-                    // TODO
+                    Call call = mCallIdMapper.getCall(callId);
+                    if (call != null) {
+                        call.setRttMode(mode);
+                    } else {
+                        Log.w(this, "setRttMode(): call %s not found", callId);
+                    }
                 }
             } finally {
                 Binder.restoreCallingIdentity(token);

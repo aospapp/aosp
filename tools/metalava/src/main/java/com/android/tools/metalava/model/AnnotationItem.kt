@@ -42,7 +42,6 @@ import com.intellij.psi.PsiModifierListOwner
 import com.intellij.psi.PsiReference
 import org.jetbrains.kotlin.psi.KtObjectDeclaration
 import org.jetbrains.uast.UElement
-import java.util.function.Predicate
 
 fun isNullableAnnotation(qualifiedName: String): Boolean {
     return qualifiedName.endsWith("Nullable")
@@ -175,18 +174,20 @@ interface AnnotationItem {
          * Annotations that should not be exported are mapped to null.
          */
         fun mapName(
-            codebase: Codebase,
             qualifiedName: String?,
-            filter: Predicate<Item>? = null,
             target: AnnotationTarget = AnnotationTarget.SIGNATURE_FILE
         ): String? {
             qualifiedName ?: return null
-            if (options.passThroughAnnotations.contains(qualifiedName)) {
+            if (options.passThroughAnnotations.contains(qualifiedName) ||
+                options.showAnnotations.matches(qualifiedName) ||
+                options.hideAnnotations.matches(qualifiedName)
+            ) {
                 return qualifiedName
             }
             if (options.excludeAnnotations.contains(qualifiedName)) {
                 return null
             }
+
             when (qualifiedName) {
                 // Resource annotations
                 "android.annotation.AnimRes" -> return "androidx.annotation.AnimRes"
@@ -282,21 +283,7 @@ interface AnnotationItem {
                 "android.annotation.Condemned",
                 "android.annotation.Hide",
 
-                "android.annotation.Widget" -> {
-                    // Remove, unless (a) public or (b) specifically included in --showAnnotations
-                    return if (options.showAnnotations.matches(qualifiedName)) {
-                        qualifiedName
-                    } else if (filter != null) {
-                        val cls = codebase.findClass(qualifiedName)
-                        if (cls != null && filter.test(cls)) {
-                            qualifiedName
-                        } else {
-                            null
-                        }
-                    } else {
-                        qualifiedName
-                    }
-                }
+                "android.annotation.Widget" -> return qualifiedName
 
                 // Included for analysis, but should not be exported:
                 "android.annotation.BroadcastBehavior",
@@ -325,29 +312,10 @@ interface AnnotationItem {
 
                         // Unknown Android platform annotations
                         qualifiedName.startsWith("android.annotation.") -> {
-                            // Remove, unless specifically included in --showAnnotations
-                            return if (options.showAnnotations.matches(qualifiedName)) {
-                                qualifiedName
-                            } else {
-                                null
-                            }
+                            return null
                         }
 
-                        else -> {
-                            // Remove, unless (a) public or (b) specifically included in --showAnnotations
-                            return if (options.showAnnotations.matches(qualifiedName)) {
-                                qualifiedName
-                            } else if (filter != null) {
-                                val cls = codebase.findClass(qualifiedName)
-                                if (cls != null && filter.test(cls)) {
-                                    qualifiedName
-                                } else {
-                                    null
-                                }
-                            } else {
-                                qualifiedName
-                            }
-                        }
+                        else -> qualifiedName
                     }
                 }
             }
@@ -408,6 +376,14 @@ interface AnnotationItem {
                 "androidx.annotation.OptIn",
                 "kotlin.UseExperimental",
                 "kotlin.OptIn" -> return NO_ANNOTATION_TARGETS
+
+                // These optimization-related annotations shouldn't be exported.
+                "dalvik.annotation.optimization.CriticalNative",
+                "dalvik.annotation.optimization.FastNative",
+                "dalvik.annotation.optimization.NeverCompile",
+                "dalvik.annotation.optimization.NeverInline",
+                "dalvik.annotation.optimization.ReachabilitySensitive" ->
+                    return NO_ANNOTATION_TARGETS
 
                 // TODO(aurimas): consider using annotation directly instead of modifiers
                 "kotlin.Deprecated" -> return NO_ANNOTATION_TARGETS // tracked separately as a pseudo-modifier
@@ -474,10 +450,6 @@ interface AnnotationItem {
             // habit of loading all annotation classes it encounters.)
 
             if (qualifiedName.startsWith("androidx.annotation.")) {
-                if (options.includeSourceRetentionAnnotations) {
-                    return ANNOTATION_IN_ALL_STUBS
-                }
-
                 if (qualifiedName == ANDROIDX_NULLABLE || qualifiedName == ANDROIDX_NONNULL) {
                     // Right now, nullness annotations (other than @RecentlyNullable and @RecentlyNonNull)
                     // have to go in external annotations since they aren't in the class path for
@@ -538,10 +510,14 @@ interface AnnotationItem {
         fun unshortenAnnotation(source: String): String {
             return when {
                 source == "@Deprecated" -> "@java.lang.Deprecated"
-                // These 3 annotations are in the android.annotation. package, not androidx.annotation
+                // The first 3 annotations are in the android.annotation. package, not androidx.annotation
+                // Nullability annotations are written as @NonNull and @Nullable in API text files,
+                // and these should be linked no android.annotation package when generating stubs.
                 source.startsWith("@SystemService") ||
                     source.startsWith("@TargetApi") ||
-                    source.startsWith("@SuppressLint") ->
+                    source.startsWith("@SuppressLint") ||
+                    source.startsWith("@Nullable") ||
+                    source.startsWith("@NonNull") ->
                     "@android.annotation." + source.substring(1)
                 // If the first character of the name (after "@") is lower-case, then
                 // assume it's a package name, so no need to shorten it.

@@ -12,7 +12,10 @@ It is based on [libFuzzer](https://llvm.org/docs/LibFuzzer.html) and brings many
 The JVM bytecode is executed inside the fuzzer process, which ensures fast execution speeds and allows seamless fuzzing of
 native libraries.
 
-Jazzer supports Linux and (experimentally) macOS 10.15 and 11 as well as Windows, all on the x64 architecture.
+Jazzer currently supports the following platforms:
+* Linux x86_64
+* macOS 10.15+ x86_64 (experimental support for arm64)
+* Windows x86_64
 
 ## News: Jazzer available in OSS-Fuzz
 
@@ -20,12 +23,7 @@ Jazzer supports Linux and (experimentally) macOS 10.15 and 11 as well as Windows
 
 If you want to learn more about Jazzer and OSS-Fuzz, [watch the FuzzCon 2020 talk](https://www.youtube.com/watch?v=SmH3Ys_k8vA&list=PLI0R_0_8-TV55gJU-UXrOzZoPbVOj1CW6&index=3) by [Abhishek Arya](https://twitter.com/infernosec) and [Fabian Meumertzheim](https://twitter.com/fhenneke).
 
-## Installation
-
-The preferred way to install Jazzer is to compile it from source using [Bazel](https://bazel.build), but binary distributions for x64 Linux as well as a Docker image are also available.
-Note that these binaries might be outdated as Jazzer follows the "Live at Head" philosophy - you should be able to just checkout the latest commit from `main` and build it.
-
-Support for Jazzer has recently been added to [rules_fuzzing](https://github.com/bazelbuild/rules_fuzzing), the official Bazel rules for fuzzing. See their README for instructions on how to use Jazzer in a Java Bazel project.
+## Getting Jazzer
 
 ### Using Docker
 
@@ -37,29 +35,35 @@ docker run -v path/containing/the/application:/fuzzing cifuzz/jazzer <arguments>
 
 If Jazzer produces a finding, the input that triggered it will be available in the same directory.
 
-### Using Bazel
+### Compiling with Bazel
+
+#### Dependencies
 
 Jazzer has the following dependencies when being built from source:
 
+* Bazel 4 or later
 * JDK 8 or later (e.g. [OpenJDK](https://openjdk.java.net/))
-* [Clang](https://clang.llvm.org/) 9.0 or later (using a recent version is strongly recommended)
+* [Clang](https://clang.llvm.org/) and [LLD](https://lld.llvm.org/) 9.0 or later (using a recent version is strongly recommended)
 
-#### Linux
+It is recommended to use [Bazelisk](https://github.com/bazelbuild/bazelisk) to automatically download and install Bazel.
+Simply download the release binary for your OS and architecture and ensure that it is available in the `PATH`.
+The instructions below will assume that this binary is called `bazel` - Bazelisk is a thin wrapper around the actual Bazel binary and can be used interchangeably.
 
-Jazzer uses [Bazelisk](https://github.com/bazelbuild/bazelisk) to automatically download and install Bazel on Linux.
-Building Jazzer from source and running it thus only requires the following assuming the dependencies are installed:
+#### Compilation
+
+Assuming the dependencies are installed, build Jazzer from source as follows:
 
 ```bash
-git clone https://github.com/CodeIntelligenceTesting/jazzer
-cd jazzer
+$ git clone https://github.com/CodeIntelligenceTesting/jazzer
+$ cd jazzer
 # Note the double dash used to pass <arguments> to Jazzer rather than Bazel.
-./bazelisk-linux-amd64 run //:jazzer -- <arguments>
+$ bazel run //:jazzer -- <arguments>
 ```
 
 If you prefer to build binaries that can be run without Bazel, use the following command to build your own archive with release binaries:
 
 ```bash
-$ ./bazelisk-linux-amd64 build //:jazzer_release
+$ bazel build //:jazzer_release
 ...
 INFO: Found 1 target...
 Target //:jazzer_release up-to-date:
@@ -69,45 +73,27 @@ Target //:jazzer_release up-to-date:
 
 This will print the path of a `jazzer_release.tar.gz` archive that contains the same binaries that would be part of a release.
 
-#### macOS
-
-Since Jazzer does not ship the macOS version of [Bazelisk](https://github.com/bazelbuild/bazelisk), a tool that automatically downloads and installs the correct version of Bazel, download [the most recent release](https://github.com/bazelbuild/bazelisk/releases) of `bazelisk-darwin`.
-Afterwards, clone Jazzer and run it via:
-
-```bash
-git clone https://github.com/CodeIntelligenceTesting/jazzer
-cd jazzer
-# Note the double dash used to pass <arguments> to Jazzer rather than Bazel.
-/path/to/bazelisk-darwin run //:jazzer -- <arguments>
-```
-
-If you prefer to build binaries that can be run without Bazel, use the following command to build your own archive with release binaries:
-
-```bash
-$ /path/to/bazelisk-darwin build //:jazzer_release
-...
-INFO: Found 1 target...
-Target //:jazzer_release up-to-date:
-  bazel-bin/jazzer_release.tar.gz
-...
-```
-
-This will print the path of a `jazzer_release.tar.gz` archive that contains the same binaries that would be part of a release.
+##### macOS
 
 The build may fail with the clang shipped with Xcode. If you encounter issues during the build, add `--config=toolchain`
 right after `run` or `build` in the `bazelisk` commands above to use a checked-in toolchain that is known to work.
+Alternatively, manually install LLVM and set `CC` to the path of LLVM clang.
+
+#### rules_fuzzing
+
+Support for Jazzer has recently been added to [rules_fuzzing](https://github.com/bazelbuild/rules_fuzzing), the official Bazel rules for fuzzing.
+See their README for instructions on how to use Jazzer in a Java Bazel project.
 
 ### Using the provided binaries
 
-Binary releases are available under [Releases](https://github.com/CodeIntelligenceTesting/jazzer/releases) and are built
-using an [LLVM 11 Bazel toolchain](https://github.com/CodeIntelligenceTesting/llvm-toolchain).
+Binary releases are available under [Releases](https://github.com/CodeIntelligenceTesting/jazzer/releases),
+but do not always include the latest changes.
 
 The binary distributions of Jazzer consist of the following components:
 
-- `jazzer_driver` - native binary that interfaces between libFuzzer and the JVM fuzz target
-- `jazzer_agent_deploy.jar` - Java agent that performs bytecode instrumentation and tracks coverage
+- `jazzer` - main binary
+- `jazzer_agent_deploy.jar` - Java agent that performs bytecode instrumentation and tracks coverage (automatically loaded by `jazzer`)
 - `jazzer_api_deploy.jar` - contains convenience methods for creating fuzz targets and defining custom hooks
-- `jazzer` - convenience shell script that runs the Jazzer driver with the local JRE shared libraries added to `LD_LIBRARY_PATH`
 
 The additional release artifact `examples_deploy.jar` contains most of the examples and can be used to run them without having to build them (see Examples below).
 
@@ -126,8 +112,8 @@ Multiple examples for instructive and real-world Jazzer fuzz targets can be foun
 A toy example can be run as follows:
 
 ```bash
-# Using Bazelisk:
-./bazelisk-linux-amd64 run //examples:ExampleFuzzer
+# Using Bazel:
+bazel run //examples:ExampleFuzzer
 # Using the binary release and examples_deploy.jar:
 ./jazzer --cp=examples_deploy.jar
 ```
@@ -274,23 +260,24 @@ engineered to minimize copying and generate both valid and invalid ASCII-only an
 The Autofuzz mode enables fuzzing arbitrary methods without having to manually create fuzz targets.
 Instead, Jazzer will attempt to generate suitable and varied inputs to a specified methods using only public API functions available on the classpath.
 
-To use Autofuzz, specify the `--autofuzz` flag and provide a fully qualified method reference, e.g.:
+To use Autofuzz, specify the `--autofuzz` flag and provide a fully [qualified method reference](https://docs.oracle.com/javase/specs/jls/se8/html/jls-15.html#jls-15.13), e.g.:
 ```
 --autofuzz=org.apache.commons.imaging.Imaging::getBufferedImage
 ```
-If there are multiple overloads and you want Jazzer to only fuzz one, you can optionally specify the signature of the method to fuzz:
+To autofuzz a constructor the `ClassType::new` format can be used.  
+If there are multiple overloads, and you want Jazzer to only fuzz one, you can optionally specify the signature of the method to fuzz:
 ```
 --autofuzz=org.apache.commons.imaging.Imaging::getBufferedImage(java.io.InputStream,java.util.Map)
 ```
 The format of the signature agrees with that obtained from the part after the `#` of the link to the Javadocs for the particular method.
 
-Under the hood, jazzer tries various ways of creating objects from the fuzzer input. For example, if a parameter is an
+Under the hood, Jazzer tries various ways of creating objects from the fuzzer input. For example, if a parameter is an
 interface or an abstract class, it will look for all concrete implementing classes on the classpath.
-Jazzer can also create objects from classes that follow the [builder design pattern](https://www.baeldung.com/creational-design-patterns#builder) 
+Jazzer can also create objects from classes that follow the [builder design pattern](https://www.baeldung.com/creational-design-patterns#builder)
 or have a default constructor and use setters to set the fields.
 
-Creating objects from fuzzer input can lead to many reported exceptions. 
-Jazzer addresses this issue by ignoring exceptions that the target method declares to throw. 
+Creating objects from fuzzer input can lead to many reported exceptions.
+Jazzer addresses this issue by ignoring exceptions that the target method declares to throw.
 In addition to that, you can provide a list of exceptions to be ignored during fuzzing via the `--autofuzz_ignore` flag in the form of a comma-separated list.
 You can specify concrete exceptions (e.g., `java.lang.NullPointerException`), in which case also subclasses of these exception classes will be ignored, or glob patterns to ignore all exceptions in a specific package (e.g. `java.lang.*` or `com.company.**`).
 
@@ -314,7 +301,7 @@ docker run -it cifuzz/jazzer-autofuzz \
    --keep_going=1
 ```
 
-#### 
+####
 
 ### Reproducing a bug
 
@@ -354,6 +341,9 @@ Jazzer has so far uncovered the following vulnerabilities and bugs:
 
 | Project | Bug      | Status | CVE | found by |
 | ------- | -------- | ------ | --- | -------- |
+| [OpenJDK](https://github.com/openjdk/jdk) | `OutOfMemoryError` via a small BMP image | [fixed](https://openjdk.java.net/groups/vulnerability/advisories/2022-01-18) | [CVE-2022-21360](https://nvd.nist.gov/vuln/detail/CVE-2022-21360) | [Code Intelligence](https://code-intelligence.com) |
+| [OpenJDK](https://github.com/openjdk/jdk) | `OutOfMemoryError` via a small TIFF image | [fixed](https://openjdk.java.net/groups/vulnerability/advisories/2022-01-18) | [CVE-2022-21366](https://nvd.nist.gov/vuln/detail/CVE-2022-21366) | [Code Intelligence](https://code-intelligence.com) |
+| [protocolbuffers/protobuf](https://github.com/protocolbuffers/protobuf) | Small protobuf messages can consume minutes of CPU time | [fixed](https://github.com/protocolbuffers/protobuf/security/advisories/GHSA-wrvw-hg22-4m67) | [CVE-2021-22569](https://nvd.nist.gov/vuln/detail/CVE-2021-22569) | [OSS-Fuzz](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=39330) |
 | [jhy/jsoup](https://github.com/jhy/jsoup) | More than 19 Bugs found in HTML and XML parser | [fixed](https://github.com/jhy/jsoup/security/advisories/GHSA-m72m-mhq2-9p6c) | [CVE-2021-37714](https://nvd.nist.gov/vuln/detail/CVE-2021-37714) | [Code Intelligence](https://code-intelligence.com) |
 | [Apache/commons-compress](https://commons.apache.org/proper/commons-compress/) | Infinite loop when loading a crafted 7z | fixed | [CVE-2021-35515](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-35515) | [Code Intelligence](https://code-intelligence.com) |
 | [Apache/commons-compress](https://commons.apache.org/proper/commons-compress/) | `OutOfMemoryError` when loading a crafted 7z | fixed | [CVE-2021-35516](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-35516) | [Code Intelligence](https://code-intelligence.com) |
@@ -376,7 +366,7 @@ Jazzer has so far uncovered the following vulnerabilities and bugs:
 | [google/re2j](https://github.com/google/re2j) | `NullPointerException` in `Pattern.compile` | [reported](https://github.com/google/re2j/issues/148) | | [@schirrmacher](https://github.com/schirrmacher) |
 | [google/gson](https://github.com/google/gson) | `ArrayIndexOutOfBounds` in `ParseString` | [fixed](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=40838) | | [@DavidKorczynski](https://twitter.com/Davkorcz) |
 
-As Jazzer is used to fuzz JVM projects in OSS-Fuzz, an additional list of bugs can be found [on the OSS-Fuzz issue tracker](https://bugs.chromium.org/p/oss-fuzz/issues/list?q=proj%3A%22json-sanitizer%22%20OR%20proj%3A%22fastjson2%22%20OR%20proj%3A%22jackson-core%22%20OR%20proj%3A%22jackson-dataformats-binary%22%20OR%20proj%3A%22jackson-dataformats-xml%22%20OR%20proj%3A%22apache-commons%22%20OR%20proj%3A%22jsoup%22&can=1).
+As Jazzer is used to fuzz JVM projects in OSS-Fuzz, an additional list of bugs can be found [on the OSS-Fuzz issue tracker](https://bugs.chromium.org/p/oss-fuzz/issues/list?q=proj%3A%22json-sanitizer%22%20OR%20proj%3A%22fastjson2%22%20OR%20proj%3A%22jackson-core%22%20OR%20proj%3A%22jackson-dataformats-binary%22%20OR%20proj%3A%22jackson-dataformats-xml%22%20OR%20proj%3A%22apache-commons%22%20OR%20proj%3A%22jsoup%22%20OR%20proj%3A%22apache-commons-codec%22%20OR%20proj%3A%22apache-commons-io%22%20OR%20proj%3A%22apache-commons-jxpath%22%20OR%20proj%3A%22apache-commons-lang%22%20OR%20proj%3A%22httpcomponents-client%22%20OR%20proj%3A%22httpcomponents-core%22%20OR%20proj%3A%22tomcat%22%20OR%20proj%3A%22archaius-core%22%20OR%20proj%3A%22bc-java%22%20OR%20proj%3A%22gson%22%20OR%20proj%3A%22guava%22%20OR%20proj%3A%22guice%22%20OR%20proj%3A%22hdrhistogram%22%20OR%20proj%3A%22jackson-databind%22%20OR%20proj%3A%22javassist%22%20OR%20proj%3A%22jersey%22%20OR%20proj%3A%22jettison%22%20OR%20proj%3A%22joda-time%22%20OR%20proj%3A%22jul-to-slf4j%22%20OR%20proj%3A%22logback%22%20OR%20proj%3A%22servo-core%22%20OR%20proj%3A%22slf4j-api%22%20OR%20proj%3A%22snakeyaml%22%20OR%20proj%3A%22spring-boot-actuator%22%20OR%20proj%3A%22spring-boot%22%20OR%20proj%3A%22spring-framework%22%20OR%20proj%3A%22spring-security%22%20OR%20proj%3A%22stringtemplate4%22%20OR%20proj%3A%22woodstox%22%20OR%20proj%3A%22xmlpulll%22%20OR%20proj%3A%22xstream%22&can=1).
 
 If you find bugs with Jazzer, we would like to hear from you!
 Feel free to [open an issue](https://github.com/CodeIntelligenceTesting/jazzer/issues/new) or submit a pull request.
@@ -392,7 +382,10 @@ to [its documentation](https://llvm.org/docs/LibFuzzer.html) for a detailed desc
 
 ### Passing JVM arguments
 
-Arguments for the JVM started by Jazzer can be supplied via the `--jvm_args` argument. 
+When Jazzer is launched, it starts a JVM in which it executes the fuzz target.
+Arguments for this JVM can be provided via the `JAVA_OPTS` environment variable.
+
+Alternatively, arguments can also be supplied via the `--jvm_args` argument.
 Multiple arguments are delimited by the classpath separator, which is `;` on Windows and `:` else.
 For example, to enable preview features as well as set a maximum heap size, add the following to the Jazzer invocation:
 
@@ -402,6 +395,8 @@ For example, to enable preview features as well as set a maximum heap size, add 
 # Linux & macOS
 --jvm_args=--enable-preview:-Xmx1000m
 ```
+
+Arguments specified with `--jvm_args` take precendence over those in `JAVA_OPTS`.
 
 ### Coverage Instrumentation
 
@@ -434,7 +429,7 @@ The particular instrumentation types to apply can be specified using the `--trac
 * `indir`: call through `Method#invoke`
 * `all`: shorthand to apply all available instrumentations (except `gep`)
 
-Multiple instrumentation types can be combined with a colon.
+Multiple instrumentation types can be combined with a colon (Linux, macOS) or a semicolon (Windows).
 
 ### Value Profile
 
@@ -443,9 +438,6 @@ When running with this flag, the feedback about compares and constants received 
 associated with the particular bytecode location and used to provide additional coverage instrumentation.
 See [ExampleValueProfileFuzzer.java](https://github.com/CodeIntelligenceTesting/jazzer/tree/main/examples/src/main/java/com/example/ExampleValueProfileFuzzer.java)
 for a fuzz target that would be very hard to fuzz without value profile.
-
-As passing the bytecode location back to libFuzzer requires inline assembly and may thus not be fully portable, it can be disabled
-via the flag `--nofake_pcs`.
 
 ### Custom Hooks
 
@@ -465,6 +457,7 @@ for more details.
 
 To use the compiled method hooks they have to be available on the classpath provided by `--cp` and can then be loaded by providing the
 flag `--custom_hooks`, which takes a colon-separated list of names of classes to load hooks from.
+If a hook is meant to be applied to a class in the Java standard library, it has to be loaded from a JAR file so that Jazzer can [add it to the bootstrap class loader search](https://docs.oracle.com/javase/8/docs/api/java/lang/instrument/Instrumentation.html#appendToBootstrapClassLoaderSearch-java.util.jar.JarFile-).
 This list of custom hooks can alternatively be specified via the `Jazzer-Hook-Classes` attribute in the fuzz target
 JAR's manifest.
 
@@ -474,6 +467,34 @@ With the flag `--keep_going=N` Jazzer continues fuzzing until `N` unique stack t
 
 Particular stack traces can also be ignored based on their `DEDUP_TOKEN` by passing a comma-separated list of tokens
 via `--ignore=<token_1>,<token2>`.
+
+### Export coverage information
+
+The internally gathered JaCoCo coverage information can be exported in human-readable and JaCoCo execution data format
+(`.exec`). These can help identify code areas that have not been covered by the fuzzer and thus may require more
+comprehensive fuzz targets or a more extensive initial corpus to reach.
+
+The human-readable report contains coverage information, like branch and line coverage, on file level. It's useful to 
+get a quick overview about the overall coverage. The flag `--coverage_report=<file>` can be used to generate it.
+
+Similar to the JaCoCo `dump` command, the flag `--coverage_dump=<file>` specifies a coverage dump file, often called
+`jacoco.exec`, that is generated after the fuzzing run. It contains a binary representation of the gathered coverage 
+data in the JaCoCo format.
+
+The JaCoCo `report` command can be used to generate reports based on this coverage dump. The JaCoCo CLI tools are 
+available on their [GitHub release page](https://github.com/jacoco/jacoco/releases) as `zip` file. The report tool is 
+located in the `lib` folder and can be used as described in the JaCoCo 
+[CLI documentation](https://www.eclemma.org/jacoco/trunk/doc/cli.html). For example the following command generates an 
+HTML report in the folder `report` containing all classes available in `classes.jar` and their coverage as captured in 
+the export `coverage.exec`. Source code to include in the report is searched for in `some/path/to/sources`. 
+After execution the `index.html` file in the output folder can be opened in a browser.
+```shell
+java -jar path/to/jacococli.jar report coverage.exec \
+  --classfiles classes.jar \
+  --sourcefiles some/path/to/sources \
+  --html report \
+  --name FuzzCoverageReport
+```
 
 ## Advanced fuzz targets
 
@@ -505,14 +526,14 @@ pre-loading the mutator library:
 
 ```bash
 # Using Bazel:
-LD_PRELOAD=libcustom_mutator.so ./bazelisk-linux-amd64 run //:jazzer -- <arguments>
+LD_PRELOAD=libcustom_mutator.so bazel run //:jazzer -- <arguments>
 # Using the binary release:
 LD_PRELOAD=libcustom_mutator.so ./jazzer <arguments>
 ```
 
 ## Credit
 
-The following developers have contributed to Jazzer:
+The following developers have contributed to Jazzer before its public release:
 
 [Sergej Dechand](https://github.com/serj),
 [Christian Hartlage](https://github.com/dende),

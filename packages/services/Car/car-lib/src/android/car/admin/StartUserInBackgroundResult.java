@@ -112,7 +112,6 @@ public final class StartUserInBackgroundResult {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return "StartUserInBackgroundResult[" + statusToString(mStatus) + "]";
     }

@@ -530,7 +530,7 @@ static int get_offline_compiler_output(
                                                 sourceFilename, outputFilename);
             if (error != CL_SUCCESS) return error;
 
-            // read output file
+            // open output file for reading
             ifs.open(outputFilename.c_str(), std::ios::binary);
             if (!ifs.good())
             {
@@ -540,6 +540,26 @@ static int get_offline_compiler_output(
             }
         }
     }
+
+    if (compilationMode == kSpir_v && !gDisableSPIRVValidation)
+    {
+        std::string runString = gSPIRVValidator + " " + outputFilename;
+
+        int returnCode = system(runString.c_str());
+        if (returnCode == -1)
+        {
+            log_error("Error: failed to invoke SPIR-V validator\n");
+            return CL_COMPILE_PROGRAM_FAILURE;
+        }
+        else if (returnCode != 0)
+        {
+            log_error(
+                "Failed to validate SPIR-V file %s: system() returned 0x%x\n",
+                outputFilename.c_str(), returnCode);
+            return CL_COMPILE_PROGRAM_FAILURE;
+        }
+    }
+
     return CL_SUCCESS;
 }
 
@@ -579,7 +599,7 @@ static int create_single_kernel_helper_create_program_offline(
     if (error != CL_SUCCESS) return error;
 
     ifs.seekg(0, ifs.end);
-    int length = ifs.tellg();
+    size_t length = static_cast<size_t>(ifs.tellg());
     ifs.seekg(0, ifs.beg);
 
     // treat modifiedProgram as input for clCreateProgramWithBinary
@@ -1226,7 +1246,7 @@ int is_image_format_supported(cl_context context, cl_mem_flags flags,
     list = (cl_image_format *)malloc(count * sizeof(cl_image_format));
     if (NULL == list)
     {
-        log_error("Error: unable to allocate %ld byte buffer for image format "
+        log_error("Error: unable to allocate %zu byte buffer for image format "
                   "list at %s:%d (err = %d)\n",
                   count * sizeof(cl_image_format), __FILE__, __LINE__, err);
         return 0;
@@ -1641,8 +1661,10 @@ Version get_device_latest_cl_c_version(cl_device_id device)
         Version max_supported_cl_c_version{};
         for (const auto &name_version : name_versions)
         {
-            Version current_version{ CL_VERSION_MAJOR(name_version.version),
-                                     CL_VERSION_MINOR(name_version.version) };
+            Version current_version{
+                static_cast<int>(CL_VERSION_MAJOR(name_version.version)),
+                static_cast<int>(CL_VERSION_MINOR(name_version.version))
+            };
             max_supported_cl_c_version =
                 (current_version > max_supported_cl_c_version)
                 ? current_version
@@ -1687,7 +1709,7 @@ Version get_max_OpenCL_C_for_context(cl_context context)
                       else
                       {
                           current_version =
-                              (std::min)(device_version, current_version);
+                              std::min(device_version, current_version);
                       }
                   });
     return current_version;
@@ -1725,8 +1747,10 @@ bool device_supports_cl_c_version(cl_device_id device, Version version)
 
         for (const auto &name_version : name_versions)
         {
-            Version current_version{ CL_VERSION_MAJOR(name_version.version),
-                                     CL_VERSION_MINOR(name_version.version) };
+            Version current_version{
+                static_cast<int>(CL_VERSION_MAJOR(name_version.version)),
+                static_cast<int>(CL_VERSION_MINOR(name_version.version))
+            };
             if (current_version == version)
             {
                 return true;

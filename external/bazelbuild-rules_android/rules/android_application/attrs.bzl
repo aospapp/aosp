@@ -15,7 +15,7 @@
 """Attributes for android_application."""
 
 load(
-    "@rules_android//rules:attrs.bzl",
+    "//rules:attrs.bzl",
     _attrs = "attrs",
 )
 
@@ -46,23 +46,33 @@ ANDROID_APPLICATION_ATTRS = _attrs.add(
             allow_single_file = True,
             default = ":bundle_deploy.sh_template",
         ),
+        _bundle_keystore_properties = attr.label(
+            allow_single_file = True,
+            default = "//rules:bundle_keystore_properties.tmpl",
+        ),
         _feature_manifest_script = attr.label(
             allow_single_file = True,
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             default = ":gen_android_feature_manifest.sh",
         ),
         _java_toolchain = attr.label(
             default = Label("//tools/jdk:toolchain_android_only"),
         ),
+        _merge_manifests = attr.label(
+            default = ":merge_feature_manifests.par",
+            allow_single_file = True,
+            cfg = "exec",
+            executable = True,
+        ),
         _priority_feature_manifest_script = attr.label(
             allow_single_file = True,
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             default = ":gen_priority_android_feature_manifest.sh",
         ),
         _host_javabase = attr.label(
-            cfg = "host",
+            cfg = "exec",
             default = Label("//tools/jdk:current_java_runtime"),
         ),
     ),
@@ -74,6 +84,7 @@ ANDROID_FEATURE_MODULE_ATTRS = dict(
     feature_name = attr.string(),
     library = attr.label(
         allow_rules = ["android_library"],
+        cfg = android_common.multi_cpu_configuration,
         mandatory = True,
         doc = "android_library target to include as a feature split.",
     ),
@@ -82,7 +93,7 @@ ANDROID_FEATURE_MODULE_ATTRS = dict(
     title_lib = attr.string(),
     _feature_module_validation_script = attr.label(
         allow_single_file = True,
-        cfg = "host",
+        cfg = "exec",
         executable = True,
         default = ":feature_module_validation.sh",
     ),

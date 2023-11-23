@@ -19,6 +19,7 @@
 # pylint: disable=line-too-long
 # pylint: disable=missing-function-docstring
 # pylint: disable=too-many-lines
+# pylint: disable=unused-argument
 
 import os
 import shlex
@@ -32,16 +33,16 @@ from io import StringIO
 from pathlib import Path
 from unittest import mock
 
-import atest_configs
-import atest_utils
-import constants
-import unittest_constants as uc
-import unittest_utils
+from atest import atest_configs
+from atest import atest_utils
+from atest import constants
+from atest import unittest_constants as uc
+from atest import unittest_utils
 
-from test_finders import test_finder_utils
-from test_finders import test_info
-from test_runners import event_handler
-from test_runners import atest_tf_test_runner as atf_tr
+from atest.test_finders import test_finder_utils
+from atest.test_finders import test_info
+from atest.test_runners import event_handler
+from atest.test_runners import atest_tf_test_runner as atf_tr
 
 #pylint: disable=protected-access
 #pylint: disable=invalid-name
@@ -49,14 +50,15 @@ METRICS_DIR = '%s/baseline-metrics' % uc.TEST_INFO_DIR
 METRICS_DIR_ARG = '--metrics-folder %s ' % METRICS_DIR
 # TODO(147567606): Replace {serial} with {extra_args} for general extra
 # arguments testing.
-RUN_CMD_ARGS = ('{metrics}--log-level-display VERBOSE --log-level VERBOSE'
+RUN_CMD_ARGS = ('{metrics}--log-level-display VERBOSE --log-level VERBOSE '
+                '--skip-all-system-status-check=true'
                 '{device_early_release}{serial}')
 LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
     log_root_option_name=constants.LOG_ROOT_OPTION_NAME,
     log_ext_option=constants.LOG_SAVER_EXT_OPTION,
     log_path=os.path.join(uc.TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME),
     proto_path=os.path.join(uc.TEST_INFO_DIR, constants.ATEST_TEST_RECORD_PROTO))
-RUN_ENV_STR = 'tf_env_var=test'
+RUN_ENV_STR = ''
 RUN_CMD = atf_tr.AtestTradefedTestRunner._RUN_CMD.format(
     env=RUN_ENV_STR,
     exe=atf_tr.AtestTradefedTestRunner.EXECUTABLE,
@@ -192,7 +194,6 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
 
     #pylint: disable=arguments-differ
     @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_get_ld_library_path')
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     def setUp(self, mock_get_ld_library_path):
         mock_get_ld_library_path.return_value = RUN_ENV_STR
         self.tr = atf_tr.AtestTradefedTestRunner(results_dir=uc.TEST_INFO_DIR)
@@ -405,7 +406,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     @mock.patch('os.environ.get', return_value=None)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_generate_metrics_folder')
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_without_serial_env(
         self, mock_resultargs, mock_mertrics, _, _mock_all):
         """Test generate_run_command method."""
@@ -446,7 +447,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                        return_value=False)
     @mock.patch('os.environ.get')
     @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_with_serial_env(
         self, mock_resultargs, mock_mertrics, mock_env, _mock_all):
         """Test generate_run_command method."""
@@ -611,7 +612,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     @mock.patch('os.environ.get', return_value=None)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_generate_metrics_folder')
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_collect_tests_only(
         self, mock_resultargs, mock_mertrics, _, _mock_is_all):
         """Test generate_run_command method."""
@@ -646,7 +647,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                        return_value=False)
     @mock.patch('os.environ.get', return_value=None)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_with_tf_template(
         self, mock_resultargs, mock_mertrics, _, _mock_all):
         """Test generate_run_command method."""
@@ -695,7 +696,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                        return_value=False)
     @mock.patch('os.environ.get', return_value=None)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_with_tf_early_device_release(
             self, mock_resultargs, mock_mertrics, _, _mock_all):
         """Test generate_run_command method."""
@@ -738,7 +739,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     @mock.patch('os.environ.get', return_value=None)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_generate_metrics_folder')
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_has_instant_app_config(
         self, mock_resultargs, mock_mertrics, _, _mock_has_config,
         _mock_is_all):
@@ -841,7 +842,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             {constants.CUSTOM_ARGS: [constants.TF_MODULE_PARAMETER]})
         self.assertTrue(constants.TF_ENABLE_PARAMETERIZED_MODULES in args)
 
-    @mock.patch('atest_utils.get_prebuilt_sdk_tools_dir')
+    @mock.patch('atest.atest_utils.get_prebuilt_sdk_tools_dir')
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_is_missing_exec', return_value=False)
     def test_generate_env_vars_aapt_already_in_system_path(
@@ -856,7 +857,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             str(prebuilt_sdk_dir) + ':' in env_vars.get('PATH', ''))
 
     @mock.patch('os.path.exists', return_value=True)
-    @mock.patch('atest_utils.get_prebuilt_sdk_tools_dir')
+    @mock.patch('atest.atest_utils.get_prebuilt_sdk_tools_dir')
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_is_missing_exec', return_value=True)
     def test_generate_env_vars_aapt_not_in_system_path(
@@ -875,7 +876,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     @mock.patch('os.environ.get', return_value=None)
     @mock.patch.object(
         atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_for_aggregate_metric_result(
         self, mock_resultargs, mock_mertrics, _mock_env, _mock_create, _mock_parse, _mock_handle_native):
         """Test generate_run_command method for test need aggregate metric."""
@@ -895,6 +896,38 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             str(run_cmd).find(
                 'metric_post_processor='
                 'google/template/postprocessors/metric-file-aggregate') > 0)
+
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_handle_native_tests')
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_parse_extra_args')
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_create_test_args')
+    @mock.patch('os.environ.get', return_value=None)
+    @mock.patch.object(
+        atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
+    @mock.patch('atest.atest_utils.get_result_server_args')
+    def test_run_commands_for_aggregate_metric_result_with_manually_input(
+        self, mock_resultargs, mock_mertrics, _mock_env, _mock_create,
+            _mock_parse, _mock_handle_native):
+        """Test generate_run_command method for test need aggregate metric."""
+        mock_resultargs.return_value = []
+        mock_mertrics.return_value = ''
+        _mock_create.return_value = []
+        _mock_parse.return_value = [], []
+        test_info_with_aggregate_metrics = test_info.TestInfo(
+            test_name='perf_test', test_runner='test_runner',
+            build_targets=set())
+        test_info_with_aggregate_metrics.aggregate_metrics_result = True
+
+        run_cmd = self.tr.generate_run_commands(
+            [test_info_with_aggregate_metrics],
+            extra_args={constants.TF_TEMPLATE: ['metric_post_processor=a/b/c']})
+
+        self.assertTrue(
+            str(run_cmd).find(
+                'metric_post_processor='
+                'google/template/postprocessors/metric-file-aggregate') < 0)
+
+        self.assertTrue(
+            str(run_cmd).find('metric_post_processor=a/b/c') > 0)
 
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_is_all_tests_parameter_auto_enabled',

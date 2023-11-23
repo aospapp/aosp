@@ -1,6 +1,12 @@
-recursive-include bin *
 recursive-include markdown *.py
 recursive-include docs *
-prune markdown/extensions/legacy.py
+recursive-include tests *.txt *.html *.py
 include setup.py
+include setup.cfg
+include makefile
+include LICENSE.md
+include README.md
+include INSTALL.md
 include MANIFEST
+include *-requirements.txt
+include mkdocs.yml

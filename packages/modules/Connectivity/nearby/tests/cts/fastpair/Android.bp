@@ -31,6 +31,7 @@ android_test {
     libs: [
         "android.test.base",
         "framework-bluetooth.stubs.module_lib",
+        "framework-configinfrastructure",
         "framework-connectivity-t.impl",
     ],
     srcs: ["src/**/*.java"],
@@ -40,7 +41,6 @@ android_test {
         "mts-tethering",
     ],
     certificate: "platform",
-    platform_apis: true,
     sdk_version: "module_current",
     min_sdk_version: "30",
     target_sdk_version: "32",

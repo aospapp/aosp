@@ -22,10 +22,10 @@
     <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"Зымсыз тармактардан келген шашылыш билдирүүлөр"</string>
     <string name="sms_cb_sender_name_emergency" msgid="2937067842997478965">"Зымсыз тармактардан келген шашылыш билдирүүлөр"</string>
     <string name="sms_cb_sender_name_public_safety" msgid="5230033387708907922">"Маалыматтык билдирме"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"Бул колдонуучу үчүн зымсыз шашылыш билдирүүлөрдүн жөндөөлөрү жеткиликсиз"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"Бул колдонуучу үчүн зымсыз шашылыш билдирүүлөрдүн параметрлери жеткиликсиз"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"Азырынча эч нерсе жок"</string>
-    <string name="menu_preferences" msgid="3596514894131599202">"Жөндөөлөр"</string>
+    <string name="menu_preferences" msgid="3596514894131599202">"Параметрлер"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"Уюк таркатмаларын жок кылуу"</string>
     <string name="message_options" msgid="3178489901903589574">"Билдирүүнүн параметрлери"</string>
     <string name="menu_view_details" msgid="1040989019045280975">"Дайындарды көрүү"</string>
@@ -59,7 +59,7 @@
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"Шашылыш билдирүүлөр"</string>
     <string name="notification_channel_emergency_alerts_high_priority" msgid="3937475297436439073">"Ырасталбаган шашылыш билдирүүлөр"</string>
     <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"Аудио чалуу учурунда берилген шашылыш билдирүүлөр"</string>
-    <string name="notification_channel_settings_updates" msgid="6779759372516475085">"WEA жөндөөлөрү SIM картага жараша автоматтык түрдө өзгөрөт"</string>
+    <string name="notification_channel_settings_updates" msgid="6779759372516475085">"WEA параметрлери SIM картага жараша автоматтык түрдө өзгөрөт"</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Шашылыш билдирүүлөргө уруксат берүү"</string>
     <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Зымсыз тармактар аркылуу шашылыш билдирүүлөр келип турат"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Кабарлардын мезгилдүүлүгү"</string>
@@ -97,7 +97,7 @@
     <string name="enable_alert_vibrate_title" msgid="5421032189422312508">"Дирилдөө"</string>
     <string name="enable_alert_vibrate_summary" msgid="4733669825477146614"></string>
     <string name="override_dnd_title" msgid="5120805993144214421">"Эскертүү ар дайым катуу ойнотулсун"</string>
-    <string name="override_dnd_summary" msgid="9026675822792800258">"\"Тынчымды алба\" жана үн көлөмүнүн башка жөндөөлөрүн этибарга албоо"</string>
+    <string name="override_dnd_summary" msgid="9026675822792800258">"\"Тынчымды алба\" жана үн көлөмүнүн башка параметрлерин этибарга албоо"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"Аймакты жаңыртуу боюнча таркатмалар"</string>
     <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"SIM-картанын абалы тууралуу жаңырган маалымат көрүнсүн"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Шашылыш билдирүүнүн категориясы:"</string>
@@ -171,6 +171,6 @@
     <string name="message_copied" msgid="6922953753733166675">"Билдирүү көчүрүлдү"</string>
     <string name="top_intro_default_text" msgid="1922926733152511202"></string>
     <string name="top_intro_roaming_text" msgid="186872150397081032">"Роуминг учурунда бул жөндөөлөрдө камтылбаган эскертүүлөрдү алышыңыз мүмкүн"</string>
-    <string name="notification_cb_settings_changed_title" msgid="7664799881479966932">"Жөндөөлөр байланыш оператору тарабынан өзгөртүлдү"</string>
-    <string name="notification_cb_settings_changed_text" msgid="1397646219615654933">"Зымсыз шашылыш билдирүү жөндөөлөрүн көрүү үчүн басыңыз"</string>
+    <string name="notification_cb_settings_changed_title" msgid="7664799881479966932">"Параметрлер байланыш оператору тарабынан өзгөртүлдү"</string>
+    <string name="notification_cb_settings_changed_text" msgid="1397646219615654933">"Зымсыз шашылыш билдирүү параметрлерин көрүү үчүн басыңыз"</string>
 </resources>

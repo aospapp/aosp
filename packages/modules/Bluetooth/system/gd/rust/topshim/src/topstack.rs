@@ -2,6 +2,7 @@
 //!
 //! Helpers for dealing with the stack on top of the Bluetooth interface.
 
+use lazy_static::lazy_static;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};

@@ -16,15 +16,20 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.AsbSecurityTest;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-
 import static org.junit.Assert.*;
 
+import android.platform.test.annotations.AsbSecurityTest;
+
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
+import com.android.sts.common.util.TombstoneUtils;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.util.RunUtil;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class Poc17_11 extends SecurityTestCase {
+public class Poc17_11 extends NonRootSecurityTestCase {
 
     /**
      * b/36075131
@@ -32,13 +37,14 @@ public class Poc17_11 extends SecurityTestCase {
     @Test
     @AsbSecurityTest(cveBugId = 36075131)
     public void testPocCVE_2017_0859() throws Exception {
-        AdbUtils.runCommandLine("logcat -c", getDevice());
         AdbUtils.pushResource("/cve_2017_0859.mp4", "/sdcard/cve_2017_0859.mp4", getDevice());
-        AdbUtils.runCommandLine("am start -a android.intent.action.VIEW " +
-                                    "-d file:///sdcard/cve_2017_0859.mp4" +
-                                    " -t audio/amr", getDevice());
-        // Wait for intent to be processed before checking logcat
-        Thread.sleep(5000);
-        AdbUtils.assertNoCrashes(getDevice(), "mediaserver");
+        TombstoneUtils.Config config = new TombstoneUtils.Config().setProcessPatterns("mediaserver");
+        try (AutoCloseable a = TombstoneUtils.withAssertNoSecurityCrashes(getDevice(), config)) {
+            AdbUtils.runCommandLine("am start -a android.intent.action.VIEW " +
+                                        "-d file:///sdcard/cve_2017_0859.mp4" +
+                                        " -t audio/amr", getDevice());
+            // Wait for intent to be processed before checking logcat
+            RunUtil.getDefault().sleep(5000);
+        }
     }
 }

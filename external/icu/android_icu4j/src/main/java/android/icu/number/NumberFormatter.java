@@ -109,22 +109,15 @@ public final class NumberFormatter {
      *
      * <p>Here, RELAXED favors Max-Fraction and STRICT favors Max-Significant. Note that this larger
      * number caused the two modes to favor the opposite result.
-     *
-     * @hide Only a subset of ICU is exposed in Android
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static enum RoundingPriority {
         /**
          * Favor greater precision by relaxing one of the rounding constraints.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         RELAXED,
 
         /**
          * Favor adherence to all rounding constraints by producing lower precision.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         STRICT,
     }
@@ -415,15 +408,11 @@ public final class NumberFormatter {
 
         /**
          * Same as AUTO, but do not show the sign on negative zero.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         NEGATIVE,
 
         /**
          * Same as ACCOUNTING, but do not show the sign on negative zero.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         ACCOUNTING_NEGATIVE,
     }
@@ -463,22 +452,15 @@ public final class NumberFormatter {
      * <li>AUTO: 0.90, 1.00, 1.10
      * <li>HIDE_IF_WHOLE: 0.90, 1, 1.10
      * </ul>
-     *
-     * @hide Only a subset of ICU is exposed in Android
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static enum TrailingZeroDisplay {
         /**
          * Display trailing zeros according to the settings for minimum fraction and significant digits.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         AUTO,
 
         /**
          * Same as AUTO, but hide trailing zeros after the decimal separator if they are all zero.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         HIDE_IF_WHOLE,
     }

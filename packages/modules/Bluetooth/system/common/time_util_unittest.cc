@@ -42,8 +42,17 @@ TEST(TimeTest, test_time_get_os_boottime_us_not_zero) {
 }
 
 //
+// Test that the return value of
+// bluetooth::common::time_get_os_monotonic_raw_us() is not zero.
+//
+TEST(TimeTest, test_time_get_os_monotonic_raw_us_not_zero) {
+  uint64_t t1 = bluetooth::common::time_get_os_monotonic_raw_us();
+  ASSERT_GT(t1, uint64_t(0));
+}
+
+//
 // Test that the return value of bluetooth::common::time_get_os_boottime_ms()
-// is monotonically increasing within reasonable boundries.
+// is monotonically increasing within reasonable boundaries.
 //
 TEST(TimeTest, test_time_get_os_boottime_ms_increases_upper_bound) {
   uint64_t t1 = bluetooth::common::time_get_os_boottime_ms();
@@ -53,11 +62,22 @@ TEST(TimeTest, test_time_get_os_boottime_ms_increases_upper_bound) {
 
 //
 // Test that the return value of bluetooth::common::time_get_os_boottime_us()
-// is monotonically increasing within reasonable boundries.
+// is monotonically increasing within reasonable boundaries.
 //
 TEST(TimeTest, test_time_get_os_boottime_us_increases_upper_bound) {
   uint64_t t1 = bluetooth::common::time_get_os_boottime_us();
   uint64_t t2 = bluetooth::common::time_get_os_boottime_us();
+  ASSERT_TRUE((t2 - t1) < TEST_TIME_DELTA_UPPER_BOUND_MS * 1000);
+}
+
+//
+// Test that the return value of
+// bluetooth::common::time_get_os_monotonic_raw_us() is monotonically increasing
+// within reasonable boundaries.
+//
+TEST(TimeTest, test_time_get_os_monotonic_raw_time_us_increases_upper_bound) {
+  uint64_t t1 = bluetooth::common::time_get_os_monotonic_raw_us();
+  uint64_t t2 = bluetooth::common::time_get_os_monotonic_raw_us();
   ASSERT_TRUE((t2 - t1) < TEST_TIME_DELTA_UPPER_BOUND_MS * 1000);
 }
 
@@ -97,6 +117,28 @@ TEST(TimeTest, test_time_get_os_boottime_us_increases_lower_bound) {
   uint64_t t1 = bluetooth::common::time_get_os_boottime_us();
   int err = nanosleep(&delay, &delay);
   uint64_t t2 = bluetooth::common::time_get_os_boottime_us();
+
+  ASSERT_EQ(err, 0);
+  ASSERT_GT(t2, t1);
+  ASSERT_TRUE((t2 - t1) >= TEST_TIME_SLEEP_US);
+  ASSERT_TRUE((t2 - t1) < TEST_TIME_DELTA_UPPER_BOUND_MS * 1000);
+}
+
+//
+// Test that the return value of
+// bluetooth::common::time_get_os_monotonic_raw_us() is increasing.
+//
+TEST(TimeTest, test_time_get_os_monotonic_raw_us_increases_lower_bound) {
+  static const uint64_t TEST_TIME_SLEEP_US = 100 * 1000;
+  struct timespec delay = {};
+
+  delay.tv_sec = TEST_TIME_SLEEP_US / (1000 * 1000);
+  delay.tv_nsec = 1000 * (TEST_TIME_SLEEP_US % (1000 * 1000));
+
+  // Take two timestamps with sleep in-between
+  uint64_t t1 = bluetooth::common::time_get_os_monotonic_raw_us();
+  int err = nanosleep(&delay, &delay);
+  uint64_t t2 = bluetooth::common::time_get_os_monotonic_raw_us();
 
   ASSERT_EQ(err, 0);
   ASSERT_GT(t2, t1);

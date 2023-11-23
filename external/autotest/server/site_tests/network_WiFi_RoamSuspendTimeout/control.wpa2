@@ -8,6 +8,7 @@ TIME = 'SHORT'
 TEST_TYPE = 'Server'
 ATTRIBUTES = "suite:wifi_matfunc"
 DEPENDENCIES = 'wificell'
+PY_VERSION = 3
 
 DOC = """
 This tests verifies that we can reconnect to an AP broadcasting a WPA2 (aka

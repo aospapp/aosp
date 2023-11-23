@@ -16,14 +16,12 @@
 
 #include "RenderThreadInfo.h"
 
-#include "base/Lookup.h"
-#include "base/StreamSerializing.h"
-#include "base/Lock.h"
-
-#include "FrameBuffer.h"
+#include "aemu/base/synchronization/Lock.h"
 
 #include <unordered_map>
 #include <unordered_set>
+
+namespace gfxstream {
 
 using android::base::AutoLock;
 using android::base::Stream;
@@ -62,76 +60,20 @@ void RenderThreadInfo::forAllRenderThreadInfos(std::function<void(RenderThreadIn
     }
 }
 
+void RenderThreadInfo::initGl() {
+    m_glInfo.emplace();
+}
+
 void RenderThreadInfo::onSave(Stream* stream) {
-    if (currContext) {
-        stream->putBe32(currContext->getHndl());
-    } else {
-        stream->putBe32(0);
-    }
-    if (currDrawSurf) {
-        stream->putBe32(currDrawSurf->getHndl());
-    } else {
-        stream->putBe32(0);
-    }
-    if (currReadSurf) {
-        stream->putBe32(currReadSurf->getHndl());
-    } else {
-        stream->putBe32(0);
-    }
-
-    saveCollection(stream, m_contextSet, [](Stream* stream, HandleType val) {
-        stream->putBe32(val);
-    });
-    saveCollection(stream, m_windowSet, [](Stream* stream, HandleType val) {
-        stream->putBe32(val);
-    });
-
-    stream->putBe64(m_puid);
-
-    // No need to associate render threads with sync threads
-    // if there is a global sync thread. This is only needed
-    // to maintain backward compatibility with snapshot file format.
-    // (Used to be: stream->putBe64(syncThreadAlias))
-    stream->putBe64(0);
+    m_glInfo->onSave(stream);
 }
 
 bool RenderThreadInfo::onLoad(Stream* stream) {
-    FrameBuffer* fb = FrameBuffer::getFB();
-    assert(fb);
-    HandleType ctxHndl = stream->getBe32();
-    HandleType drawSurf = stream->getBe32();
-    HandleType readSurf = stream->getBe32();
-    currContextHandleFromLoad = ctxHndl;
-    currDrawSurfHandleFromLoad = drawSurf;
-    currReadSurfHandleFromLoad = readSurf;
-
-    fb->lock();
-    currContext = fb->getContext_locked(ctxHndl);
-    currDrawSurf = fb->getWindowSurface_locked(drawSurf);
-    currReadSurf = fb->getWindowSurface_locked(readSurf);
-    fb->unlock();
-
-    loadCollection(stream, &m_contextSet, [](Stream* stream) {
-        return stream->getBe32();
-    });
-    loadCollection(stream, &m_windowSet, [](Stream* stream) {
-        return stream->getBe32();
-    });
-
-    m_puid = stream->getBe64();
-
-    // (Used to be: syncThreadAlias = stream->getBe64())
-    stream->getBe64();
-
-    return true;
+    return m_glInfo->onLoad(stream);
 }
 
 void RenderThreadInfo::postLoadRefreshCurrentContextSurfacePtrs() {
-    FrameBuffer* fb = FrameBuffer::getFB();
-    assert(fb);
-    fb->lock();
-    currContext = fb->getContext_locked(currContextHandleFromLoad);
-    currDrawSurf = fb->getWindowSurface_locked(currDrawSurfHandleFromLoad);
-    currReadSurf = fb->getWindowSurface_locked(currReadSurfHandleFromLoad);
-    fb->unlock();
+    return m_glInfo->postLoadRefreshCurrentContextSurfacePtrs();
 }
+
+}  // namespace gfxstream

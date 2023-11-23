@@ -27,7 +27,6 @@ void tACL_CONN::Reset() {
   memset(peer_lmp_feature_pages, 0, sizeof(peer_lmp_feature_pages));
   memset(peer_lmp_feature_valid, 0, sizeof(peer_lmp_feature_valid));
   active_remote_addr = RawAddress::kEmpty;
-  conn_addr = RawAddress::kEmpty;
   remote_addr = RawAddress::kEmpty;
   link_up_issued = false;
   transport = BT_TRANSPORT_AUTO;
@@ -36,7 +35,6 @@ void tACL_CONN::Reset() {
   link_super_tout = 0;
   pkt_types_mask = 0;
   active_remote_addr_type = BLE_ADDR_PUBLIC;
-  conn_addr_type = BLE_ADDR_PUBLIC;
   disconnect_reason = 0;
   encrypt_state_ = BTM_ACL_ENCRYPT_STATE_IDLE;
   is_encrypted = false;

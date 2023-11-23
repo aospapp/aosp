@@ -1,16 +1,19 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (c) 2018 Petr Vorel <pvorel@suse.cz>
+# Copyright (c) 2018-2022 Petr Vorel <pvorel@suse.cz>
 # Author: Petr Vorel <pvorel@suse.cz>
 
 CMD="${CMD:-ip}"
 
-TST_SETUP="${TST_SETUP:-if_setup}"
+if [ -z "$TST_SETUP" ]; then
+	TST_SETUP="if_setup"
+	TST_CLEANUP="${TST_CLEANUP:-netstress_cleanup}"
+fi
+
 TST_TESTFUNC="test_body"
 TST_PARSE_ARGS="if_parse_args"
 TST_USAGE="if_usage"
 TST_OPTS="c:"
-. tst_net_stress.sh
 
 if_usage()
 {
@@ -32,7 +35,6 @@ if_setup()
 
 	tst_require_cmds "$CMD"
 	netstress_setup
-	TST_CLEANUP="${TST_CLEANUP:-netstress_cleanup}"
 }
 
 if_cleanup_restore()
@@ -41,3 +43,5 @@ if_cleanup_restore()
 	restore_ipaddr
 	restore_ipaddr rhost
 }
+
+. tst_net_stress.sh

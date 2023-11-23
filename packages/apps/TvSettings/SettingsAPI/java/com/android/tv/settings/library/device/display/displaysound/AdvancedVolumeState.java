@@ -60,7 +60,7 @@ public class AdvancedVolumeState extends PreferenceControllerState {
     static final int[] SURROUND_SOUND_DISPLAY_ORDER = {
             AudioFormat.ENCODING_AC3, AudioFormat.ENCODING_E_AC3, AudioFormat.ENCODING_DOLBY_TRUEHD,
             AudioFormat.ENCODING_E_AC3_JOC, AudioFormat.ENCODING_DOLBY_MAT,
-            AudioFormat.ENCODING_DTS, AudioFormat.ENCODING_DTS_HD, AudioFormat.ENCODING_DTS_UHD,
+            AudioFormat.ENCODING_DTS, AudioFormat.ENCODING_DTS_HD, AudioFormat.ENCODING_DTS_UHD_P1,
             AudioFormat.ENCODING_DRA
     };
 
@@ -375,7 +375,7 @@ public class AdvancedVolumeState extends PreferenceControllerState {
                 return ResourcesUtil.getString(context, "surround_sound_format_dts");
             case AudioFormat.ENCODING_DTS_HD:
                 return ResourcesUtil.getString(context, "surround_sound_format_dts_hd");
-            case AudioFormat.ENCODING_DTS_UHD:
+            case AudioFormat.ENCODING_DTS_UHD_P1:
                 return ResourcesUtil.getString(context, "surround_sound_format_dts_uhd");
             case AudioFormat.ENCODING_DOLBY_TRUEHD:
                 return ResourcesUtil.getString(context, "surround_sound_format_dolby_truehd");

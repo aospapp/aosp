@@ -20,43 +20,38 @@ import static com.android.documentsui.base.Shared.EXTRA_BENCHMARK;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.os.Bundle;
-import android.os.Handler;
+import android.os.SystemClock;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class LauncherActivity extends Activity {
-    private static final String TARGET_PACKAGE = "com.android.documentsui";
     private static final int BENCHMARK_REQUEST_CODE = 1986;
 
-    public static CountDownLatch testCaseLatch = null;
-    public static long measurement = -1;
+    static final Intent OPEN_DOCUMENT_INTENT = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+    static {
+        OPEN_DOCUMENT_INTENT.addCategory(Intent.CATEGORY_OPENABLE);
+        OPEN_DOCUMENT_INTENT.putExtra(EXTRA_BENCHMARK, true);
+        OPEN_DOCUMENT_INTENT.setType("*/*");
+    }
 
-    private long mStartTime = -1;
+    private CountDownLatch mTestCaseLatch;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        new Handler().post(new Runnable() {
-            @Override public void run() {
-                final Intent intent = new Intent("android.intent.action.OPEN_DOCUMENT");
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.putExtra(EXTRA_BENCHMARK, true);
-                intent.setType("*/*");
-
-                mStartTime = System.currentTimeMillis();
-                startActivityForResult(intent, BENCHMARK_REQUEST_CODE);
-            }
-        });
+    /** Starts DocumentsUi and returns the duration until the result is received. */
+    long startAndWaitDocumentsUi() throws InterruptedException {
+        mTestCaseLatch = new CountDownLatch(1);
+        final long startTime = SystemClock.elapsedRealtime();
+        startActivityForResult(OPEN_DOCUMENT_INTENT, BENCHMARK_REQUEST_CODE);
+        if (!mTestCaseLatch.await(10, TimeUnit.SECONDS)) {
+            throw new RuntimeException("DocumentsUi is not responding");
+        }
+        return SystemClock.elapsedRealtime() - startTime;
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == BENCHMARK_REQUEST_CODE) {
-            measurement = System.currentTimeMillis() - mStartTime;
-            testCaseLatch.countDown();
-            finish();
+            mTestCaseLatch.countDown();
         }
     }
 }

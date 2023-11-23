@@ -35,13 +35,15 @@ import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.app.UiAutomation.AccessibilityEventFilter;
+import android.platform.test.annotations.Presubmit;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
-import android.widget.TextView;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.CddTest;
 
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -54,6 +56,8 @@ import org.junit.runner.RunWith;
  * Tests reporting of window-like views
  */
 @RunWith(AndroidJUnit4.class)
+@CddTest(requirements = {"3.10/C-1-1,C-1-2"})
+@Presubmit
 public class AccessibilityPaneTest {
     private static Instrumentation sInstrumentation;
     private static UiAutomation sUiAutomation;
@@ -150,8 +154,8 @@ public class AccessibilityPaneTest {
     }
 
     private AccessibilityNodeInfo getPaneNode() {
-        return sUiAutomation.getRootInActiveWindow().findAccessibilityNodeInfosByText(
-                ((TextView) mPaneView).getText().toString()).get(0);
+        return sUiAutomation.getRootInActiveWindow().findAccessibilityNodeInfosByViewId(
+                "android.accessibilityservice.cts:id/button").get(0);
     }
 
     private Runnable setPaneViewVisibility(int visibility) {

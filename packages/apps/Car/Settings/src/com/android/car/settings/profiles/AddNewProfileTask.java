@@ -16,12 +16,16 @@
 
 package com.android.car.settings.profiles;
 
+import android.app.ActivityManager;
 import android.car.user.CarUserManager;
 import android.car.user.UserCreationResult;
+import android.car.user.UserStartRequest;
+import android.car.user.UserStopRequest;
 import android.car.util.concurrent.AsyncFuture;
 import android.content.Context;
 import android.content.pm.UserInfo;
 import android.os.AsyncTask;
+import android.os.UserHandle;
 import android.os.UserManager;
 
 import com.android.car.internal.user.UserHelper;
@@ -82,9 +86,43 @@ public class AddNewProfileTask extends AsyncTask<String, Void, UserInfo> {
     protected void onPostExecute(UserInfo user) {
         if (user != null) {
             mAddNewProfileListener.onProfileAddedSuccess();
-            mCarUserManager.switchUser(user.id);
+            UserHandle currentUser = mContext.getUser();
+
+            if (currentUser.getIdentifier() == ActivityManager.getCurrentUser()) {
+                mCarUserManager.switchUser(user.id);
+            } else {
+                // For passengers we need to call stop and start
+                try {
+                    mCarUserManager.stopUser(
+                            new UserStopRequest.Builder(currentUser).setForce().build(),
+                            mContext.getMainExecutor(),
+                            result -> {
+                                LOG.i("Stop user result: " + result.toString());
+                                if (result.isSuccess()) {
+                                    startUser(user);
+                                }
+                            });
+                } catch (Exception e) {
+                    LOG.e("Exception stopping user " + currentUser, e);
+                }
+            }
         } else {
             mAddNewProfileListener.onProfileAddedFailure();
+        }
+    }
+
+    private void startUser(UserInfo user) {
+        int displayId = mContext.getDisplayId();
+
+        try {
+            mCarUserManager.startUser(
+                    new UserStartRequest.Builder(user.getUserHandle())
+                            .setDisplayId(displayId)
+                            .build(),
+                    Runnable::run,
+                    result -> LOG.i("Start user result: " + result.toString()));
+        } catch (Exception e) {
+            LOG.e("Exception starting user " + user.id, e);
         }
     }
 

@@ -137,7 +137,7 @@ class VulkanMarshalingCodegen(VulkanTypeIterator):
         if self.direction == "write":
             if self.handleMapOverwrites:
                 self.cgen.stmt(
-                    "static_assert(8 == sizeof(%s), \"handle map overwrite requres %s to be 8 bytes long\")" % \
+                    "static_assert(8 == sizeof(%s), \"handle map overwrite requires %s to be 8 bytes long\")" % \
                             (vulkanType.typeName, vulkanType.typeName))
                 self.cgen.stmt(
                     "%s->handleMapping()->mapHandles_%s((%s*)%s, %s)" %
@@ -267,6 +267,8 @@ class VulkanMarshalingCodegen(VulkanTypeIterator):
                     return "(%s && %s)" % (loop(expr.args[0], lambdaEnv), loop(expr.args[1], lambdaEnv))
                 if "or" == fnamestr:
                     return "(%s || %s)" % (loop(expr.args[0], lambdaEnv), loop(expr.args[1], lambdaEnv))
+                if "bitwise_and" == fnamestr:
+                    return "(%s & %s)" % (loop(expr.args[0], lambdaEnv), loop(expr.args[1], lambdaEnv))
                 if "getfield" == fnamestr:
                     ptrlevels = get_ptrlevels(expr.args[0].val.name)
                     if ptrlevels == 0:
@@ -548,7 +550,7 @@ class VulkanMarshalingCodegen(VulkanTypeIterator):
 
         lenAccess = self.lenAccessor(vulkanType)
         lenAccessGuard = self.lenAccessorGuard(vulkanType)
-    
+
         self.beginFilterGuard(vulkanType)
         self.doAllocSpace(vulkanType)
 
@@ -683,8 +685,8 @@ class VulkanMarshaling(VulkanWrapperGenerator):
         self.module.appendImpl(self.cgenImpl.makeFuncDecl(self.extensionMarshalPrototype))
         self.module.appendImpl(self.cgenImpl.makeFuncDecl(self.extensionUnmarshalPrototype))
 
-    def onBeginFeature(self, featureName):
-        VulkanWrapperGenerator.onBeginFeature(self, featureName)
+    def onBeginFeature(self, featureName, featureType):
+        VulkanWrapperGenerator.onBeginFeature(self, featureName, featureType)
         self.currentFeature = featureName
 
     def onGenType(self, typeXml, name, alias):
@@ -738,7 +740,7 @@ class VulkanMarshaling(VulkanWrapperGenerator):
                 marshalingCode = \
                     CUSTOM_MARSHAL_TYPES[name]["common"] + \
                     CUSTOM_MARSHAL_TYPES[name]["marshaling"].format(
-                        streamVarName=self.writeCodegen.streamVarName, 
+                        streamVarName=self.writeCodegen.streamVarName,
                         rootTypeVarName=self.writeCodegen.rootTypeVarName,
                         inputVarName=self.writeCodegen.inputVarName,
                         newInputVarName=self.writeCodegen.inputVarName + "_new")

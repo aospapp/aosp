@@ -17,5 +17,4 @@
 # get installed too.
 
 PRODUCT_PACKAGES := \
-    DancingScript-Regular.ttf \
-    DancingScript-Bold.ttf
+    DancingScript-Regular.ttf

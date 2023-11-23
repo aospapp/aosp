@@ -31,6 +31,7 @@ import com.android.managedprovisioning.R;
 import static com.android.internal.util.Preconditions.checkNotNull;
 
 import com.google.android.setupdesign.util.Partner;
+import com.google.android.setupdesign.util.DeviceHelper;
 
 /**
  * Helper methods for showing notifications, such as the provisioning reminder and
@@ -86,15 +87,19 @@ public class NotificationHelper {
                 CHANNEL_ID, mContext.getString(R.string.app_label), importance);
         notificationManager.createNotificationChannel(channel);
 
+        CharSequence deviceName = DeviceHelper.getDeviceName(mContext);
         final Notification.Builder notify = new Notification.Builder(mContext, CHANNEL_ID)
                 .setColor(Partner.getColor(context, R.color.setup_notification_bg_color))
                 .setColorized(true)
                 .setContentTitle(mContext.getString(
                         R.string.fully_managed_device_provisioning_privacy_title))
                 .setContentText(
-                        mContext.getString(R.string.fully_managed_device_provisioning_privacy_body))
+                        mContext.getString(
+                                R.string.fully_managed_device_provisioning_privacy_body,
+                                deviceName))
                 .setStyle(new Notification.BigTextStyle().bigText(mContext.getString(
-                        R.string.fully_managed_device_provisioning_privacy_body)))
+                        R.string.fully_managed_device_provisioning_privacy_body,
+                        deviceName)))
                 .setSmallIcon(com.android.internal.R.drawable.ic_corp_statusbar_icon)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setAutoCancel(true);

@@ -7,7 +7,7 @@
     <string name="label_service" msgid="2668963955237345578">"సర్వీస్ కాన్ఫిగరేషన్"</string>
     <string name="label_test" msgid="8425079572898571918">"పరీక్ష కాన్ఫిగరేషన్"</string>
     <string name="button_name_running" msgid="4557363091224858010">"రన్ అవుతోంది"</string>
-    <string name="button_name_exit" msgid="8025683733431538975">"నిష్క్రమించు"</string>
+    <string name="button_name_exit" msgid="8025683733431538975">"నిష్క్రమించండి"</string>
     <string name="label_test_result" msgid="892984695972956196">"పరీక్ష ఫలితం"</string>
     <string name="button_name_clear" msgid="436313515327318537">"రీసెట్ చేయండి"</string>
     <string name="button_name_done" msgid="6030406534322497491">"పూర్తయింది"</string>

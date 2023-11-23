@@ -40,6 +40,13 @@ class firmware_Cr50USB(FirmwareTest):
         self.host = host
         # Disable CCD so it doesn't interfere with the Cr50 AP usb connection.
         if hasattr(self, "cr50"):
+            # TODO(b/218492933) : find better way to disable rddkeepalive
+            # Disable rddkeepalive, so the test can disable ccd.
+            self.cr50.send_command('ccd testlab open')
+            self.cr50.send_command('rddkeepalive disable')
+            # Lock cr50 so the console will be restricted
+            self.cr50.set_ccd_level('lock')
+
             self.cr50.ccd_disable()
 
         # Make sure the device is logged in so TPM activity doesn't keep it
@@ -52,7 +59,7 @@ class firmware_Cr50USB(FirmwareTest):
         logging.info("Running Cr50 USB stress test for %d iterations",
                      num_iterations)
 
-        for iteration in xrange(num_iterations):
+        for iteration in range(num_iterations):
             if iteration:
                 time.sleep(self.SLEEP_DELAY)
 

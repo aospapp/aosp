@@ -71,8 +71,6 @@ public final class PackageInfoFragment extends Fragment{
     private UserManager mUserManager;
     private PackageManager mPackageManager;
     private UserInfo mUserToShow;
-    private int mShowFlags;
-    private TextView mPackageView;
     private boolean mFilterActivities;
     private boolean mFilterServices;
     private boolean mFilterPermissions;
@@ -104,7 +102,6 @@ public final class PackageInfoFragment extends Fragment{
             if (DEBUG) {
                 Log.e(TAG, "failed to get packages for given user: " + mUserToShow);
             }
-            mPackageView.setText("Cannot retrieve packages for this user..");
             return;
         }
 

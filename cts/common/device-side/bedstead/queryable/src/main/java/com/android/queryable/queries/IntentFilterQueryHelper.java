@@ -21,6 +21,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
+import com.android.queryable.QueryableBaseWithMatch;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -32,17 +33,34 @@ import java.util.Set;
  *
  * @param <E> Type of query.
  */
-public class IntentFilterQueryHelper<E extends Queryable> implements IntentFilterQuery<E> {
+public final class IntentFilterQueryHelper<E extends Queryable> implements IntentFilterQuery<E> {
+
+    public static final class IntentFilterQueryBase extends
+            QueryableBaseWithMatch<IntentFilter, IntentFilterQueryHelper<IntentFilterQueryBase>> {
+        IntentFilterQueryBase() {
+            super();
+            setQuery(new IntentFilterQueryHelper<>(this));
+        }
+
+        IntentFilterQueryBase(Parcel in) {
+            super(in);
+        }
+
+        public static final Parcelable.Creator<IntentFilterQueryBase> CREATOR =
+                new Parcelable.Creator<>() {
+                    public IntentFilterQueryBase createFromParcel(Parcel in) {
+                        return new IntentFilterQueryBase(in);
+                    }
+
+                    public IntentFilterQueryBase[] newArray(int size) {
+                        return new IntentFilterQueryBase[size];
+                    }
+                };
+    }
 
     private final transient E mQuery;
-    private final SetQueryHelper<E, String, StringQuery<?>> mActionsQueryHelper;
-    private final SetQueryHelper<E, String, StringQuery<?>> mCategoriesQueryHelper;
-
-    IntentFilterQueryHelper() {
-        mQuery = (E) this;
-        mActionsQueryHelper = new SetQueryHelper<>(mQuery);
-        mCategoriesQueryHelper = new SetQueryHelper<>(mQuery);
-    }
+    private final SetQueryHelper<E, String> mActionsQueryHelper;
+    private final SetQueryHelper<E, String> mCategoriesQueryHelper;
 
     public IntentFilterQueryHelper(E query) {
         mQuery = query;
@@ -57,13 +75,19 @@ public class IntentFilterQueryHelper<E extends Queryable> implements IntentFilte
     }
 
     @Override
-    public SetQuery<E, String, StringQuery<?>> actions() {
+    public SetQuery<E, String> actions() {
         return mActionsQueryHelper;
     }
 
     @Override
-    public SetQuery<E, String, StringQuery<?>> categories() {
+    public SetQuery<E, String> categories() {
         return mCategoriesQueryHelper;
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        return Queryable.isEmptyQuery(mActionsQueryHelper)
+                && Queryable.isEmptyQuery(mCategoriesQueryHelper);
     }
 
     @Override

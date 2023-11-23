@@ -30,6 +30,7 @@ import android.content.Context;
 import android.net.Uri;
 import android.telephony.ims.RcsContactPresenceTuple;
 import android.telephony.ims.RcsContactUceCapability;
+import android.telephony.ims.SipDetails;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
@@ -82,6 +83,7 @@ public class PublishProcessorTest extends ImsTestBase {
 
         doReturn(true).when(mDeviceCapabilities).isImsRegistered();
         RcsContactUceCapability capability = getRcsContactUceCapability();
+        doReturn(capability).when(mDeviceCapabilities).getChangedPresenceCapability(any());
         doReturn(capability).when(mDeviceCapabilities).getDeviceCapabilities(anyInt(), any());
 
         doReturn(mTaskId).when(mResponseCallback).getTaskId();
@@ -112,7 +114,7 @@ public class PublishProcessorTest extends ImsTestBase {
         PublishProcessor publishProcessor = getPublishProcessor();
 
         publishProcessor.doPublish(PublishController.PUBLISH_TRIGGER_RETRY);
-
+        verify(mDeviceCapabilities).getChangedPresenceCapability(any());
         verify(mProcessorState, never()).resetRetryCount();
     }
 
@@ -139,7 +141,7 @@ public class PublishProcessorTest extends ImsTestBase {
 
         publishProcessor.onNetworkResponse(mResponseCallback);
 
-        verify(mPublishCtrlCallback).updatePublishRequestResult(anyInt(), any(), any());
+        verify(mPublishCtrlCallback).updatePublishRequestResult(anyInt(), any(), any(), eq(null));
         verify(mResponseCallback).onDestroy();
         verify(mProcessorState).setPublishingFlag(false);
         verify(mPublishCtrlCallback).clearRequestCanceledTimer();
@@ -171,6 +173,7 @@ public class PublishProcessorTest extends ImsTestBase {
 
         publishProcessor.onCommandError(mResponseCallback);
 
+        verify(mDeviceCapabilities).setPresencePublishResult(false);
         verify(mProcessorState).increaseRetryCount();
         verify(mPublishCtrlCallback).requestPublishFromInternal(
                 eq(PublishController.PUBLISH_TRIGGER_RETRY));
@@ -188,11 +191,13 @@ public class PublishProcessorTest extends ImsTestBase {
         doReturn(mTaskId).when(mProcessorState).getCurrentTaskId();
         doReturn(mTaskId).when(mResponseCallback).getTaskId();
         doReturn(false).when(mResponseCallback).needRetry();
+        doReturn(true).when(mResponseCallback).isRequestSuccess();
         PublishProcessor publishProcessor = getPublishProcessor();
 
         publishProcessor.onCommandError(mResponseCallback);
 
-        verify(mPublishCtrlCallback).updatePublishRequestResult(anyInt(), any(), any());
+        verify(mDeviceCapabilities).setPresencePublishResult(true);
+        verify(mPublishCtrlCallback).updatePublishRequestResult(anyInt(), any(), any(), eq(null));
         verify(mResponseCallback).onDestroy();
         verify(mProcessorState).setPublishingFlag(false);
         verify(mPublishCtrlCallback).clearRequestCanceledTimer();
@@ -209,6 +214,7 @@ public class PublishProcessorTest extends ImsTestBase {
 
         publishProcessor.onNetworkResponse(mResponseCallback);
 
+        verify(mDeviceCapabilities).setPresencePublishResult(false);
         verify(mProcessorState).increaseRetryCount();
         verify(mPublishCtrlCallback).requestPublishFromInternal(
                 eq(PublishController.PUBLISH_TRIGGER_RETRY));
@@ -226,11 +232,20 @@ public class PublishProcessorTest extends ImsTestBase {
         doReturn(false).when(mResponseCallback).needRetry();
         doReturn(true).when(mResponseCallback).isRequestSuccess();
         doReturn(Optional.of(200)).when(mResponseCallback).getNetworkRespSipCode();
+
+        SipDetails details = new SipDetails.Builder(SipDetails.METHOD_PUBLISH)
+                .setCSeq(10).setSipResponseCode(200, "OK").setCallId("CallId").build();
+        Optional<SipDetails> sipDetails = Optional.ofNullable(details);
+        doReturn(sipDetails).when(mResponseCallback).getSipDetails();
+
         PublishProcessor publishProcessor = getPublishProcessor();
 
         publishProcessor.onNetworkResponse(mResponseCallback);
+        SipDetails actualInfo = sipDetails.orElse(null);
 
-        verify(mPublishCtrlCallback).updatePublishRequestResult(anyInt(), any(), any());
+        verify(mDeviceCapabilities).setPresencePublishResult(true);
+        verify(mPublishCtrlCallback).updatePublishRequestResult(anyInt(), any(), any(),
+                eq(actualInfo));
         verify(mResponseCallback).onDestroy();
         verify(mProcessorState).setPublishingFlag(false);
         verify(mPublishCtrlCallback).clearRequestCanceledTimer();
@@ -260,13 +275,21 @@ public class PublishProcessorTest extends ImsTestBase {
         doReturn(0).when(mResponseCallback).getPublishState();
         doReturn("").when(mResponseCallback).getPidfXml();
 
+        SipDetails details = new SipDetails.Builder(SipDetails.METHOD_PUBLISH)
+                .setCSeq(10).setSipResponseCode(200, "").setCallId("CallId").build();
+        Optional<SipDetails> sipDetails = Optional.ofNullable(details);
+        doReturn(sipDetails).when(mResponseCallback).getSipDetails();
+
         PublishProcessor publishProcessor = getPublishProcessor();
 
         publishProcessor.publishUpdated(mResponseCallback);
+        SipDetails actualInfo = sipDetails.orElse(null);
 
+        verify(mDeviceCapabilities).setPresencePublishResult(true);
         verify(mProcessorState).setLastPublishedTime(any());
         verify(mProcessorState).resetRetryCount();
-        verify(mPublishCtrlCallback).updatePublishRequestResult(anyInt(), any(), any());
+        verify(mPublishCtrlCallback).updatePublishRequestResult(anyInt(), any(), any(),
+                eq(actualInfo));
     }
 
     private PublishProcessor getPublishProcessor() {

@@ -187,8 +187,20 @@ static const char* uarch_to_string(enum cpuinfo_uarch uarch) {
 			return "Cortex-A77";
 		case cpuinfo_uarch_cortex_a78:
 			return "Cortex-A78";
+		case cpuinfo_uarch_cortex_a510:
+			return "Cortex-A510";
+		case cpuinfo_uarch_cortex_a710:
+			return "Cortex-A710";
 		case cpuinfo_uarch_cortex_x1:
 			return "Cortex-X1";
+		case cpuinfo_uarch_cortex_x2:
+			return "Cortex-X2";
+		case cpuinfo_uarch_neoverse_n1:
+			return "Neoverse-N1";
+		case cpuinfo_uarch_neoverse_v1:
+			return "Neoverse-V1";
+		case cpuinfo_uarch_neoverse_n2:
+			return "Neoverse-N2";
 		case cpuinfo_uarch_scorpion:
 			return "Scorpion";
 		case cpuinfo_uarch_krait:
@@ -241,6 +253,10 @@ static const char* uarch_to_string(enum cpuinfo_uarch uarch) {
 			return "Firestorm";
 		case cpuinfo_uarch_icestorm:
 			return "Icestorm";
+		case cpuinfo_uarch_avalanche:
+			return "Avalanche";
+		case cpuinfo_uarch_blizzard:
+			return "Blizzard";
 		case cpuinfo_uarch_thunderx:
 			return "ThunderX";
 		case cpuinfo_uarch_thunderx2:

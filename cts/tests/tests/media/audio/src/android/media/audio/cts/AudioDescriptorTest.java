@@ -36,7 +36,7 @@ public class AudioDescriptorTest extends CtsAndroidTestCase {
     // Test case 1: call describeContents(), not used yet, but needs to be exercised
     public void testParcelableDescribeContents() throws Exception {
         final AudioDescriptor ad = new AudioDescriptor(AudioDescriptor.STANDARD_EDID,
-                AudioProfile.AUDIO_ENCAPSULATION_TYPE_IEC61937, new byte[]{0x05, 0x18, 0x4A});
+                AudioProfile.AUDIO_ENCAPSULATION_TYPE_IEC61937, new byte[]{0x0F, 0x18, 0x4A});
         assertNotNull("Failure to create the AudioDescriptor", ad);
         assertEquals(0, ad.describeContents());
     }
@@ -45,7 +45,7 @@ public class AudioDescriptorTest extends CtsAndroidTestCase {
     //      check for equality, both by comparing fields, and with the equals(Object) method
     public void testParcelableWriteToParcelCreate() throws Exception {
         final AudioDescriptor srcDescr = new AudioDescriptor(AudioDescriptor.STANDARD_EDID,
-                AudioProfile.AUDIO_ENCAPSULATION_TYPE_IEC61937, new byte[]{0x05, 0x18, 0x4A});
+                AudioProfile.AUDIO_ENCAPSULATION_TYPE_IEC61937, new byte[]{0x0F, 0x18, 0x4A});
         final Parcel srcParcel = Parcel.obtain();
         final Parcel dstParcel = Parcel.obtain();
         final byte[] mbytes;

@@ -17,6 +17,7 @@
 PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/aosp_redfin.mk \
     $(LOCAL_DIR)/aosp_redfin_64.mk \
+    $(LOCAL_DIR)/aosp_redfin_64_with_32.mk \
     $(LOCAL_DIR)/vf/aosp_redfin_vf.mk \
     $(LOCAL_DIR)/aosp_redfin_hwasan.mk \
 

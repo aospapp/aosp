@@ -1,0 +1,17 @@
+diff --git a/Android.bp b/Android.bp
+index 34d110a..2348c03 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -53,6 +53,12 @@ rust_library_rlib {
+     ],
+     product_available: true,
+     vendor_available: true,
++    prefer_rlib: true,
++    no_stdlibs: true,
++    stdlibs: [
++        "libcompiler_builtins.rust_sysroot",
++        "libcore.rust_sysroot",
++    ],
+ }
+ 
+ rust_test {

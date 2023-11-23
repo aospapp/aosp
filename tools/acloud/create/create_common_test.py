@@ -110,9 +110,9 @@ class CreateCommonTest(driver_test_lib.BaseDriverTest):
 
         self.Patch(os.environ, "get", return_value="/fake_dir2")
         self.Patch(utils, "GetDistDir", return_value="/fake_dir1")
-        # First and 2nd path are host out dirs, 3rd path is dist dir.
         self.Patch(os.path, "exists",
-                   side_effect=[False, False, True])
+                   side_effect=lambda path:
+                       path == "/fake_dir1/cvd-host_package.tar.gz")
 
         # Find cvd host in dist dir.
         self.assertEqual(
@@ -123,10 +123,17 @@ class CreateCommonTest(driver_test_lib.BaseDriverTest):
         self.Patch(os.environ, "get", return_value="/fake_dir2")
         self.Patch(utils, "GetDistDir", return_value=None)
         with mock.patch("os.path.exists") as exists:
-            exists.return_value = True
+            exists.side_effect = lambda path: \
+                path == "/fake_dir2/cvd-host_package.tar.gz"
             self.assertEqual(
                 create_common.GetCvdHostPackage(),
                 "/fake_dir2/cvd-host_package.tar.gz")
+        with mock.patch("os.path.exists") as exists:
+            exists.side_effect = lambda path: \
+                path == "/fake_dir2/cvd-host_package"
+            self.assertEqual(
+                create_common.GetCvdHostPackage(),
+                "/fake_dir2/cvd-host_package")
 
         # Find cvd host in specified path.
         package_path = "/tool_dir/cvd-host_package.tar.gz"
@@ -160,6 +167,29 @@ class CreateCommonTest(driver_test_lib.BaseDriverTest):
 
         with self.assertRaises(errors.GetLocalImageError):
             create_common.FindLocalImage("/dir", "name.?", raise_error=False)
+
+    def testFindBootImage(self):
+        """Test FindBootImage."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaises(errors.GetLocalImageError):
+                create_common.FindBootImage(temp_dir)
+
+            boot_image_path = os.path.join(temp_dir, "boot.img")
+            self.CreateFile(boot_image_path, b"invalid")
+            with self.assertRaises(errors.GetLocalImageError):
+                create_common.FindBootImage(temp_dir)
+            os.remove(boot_image_path)
+
+            boot_image_path = os.path.join(temp_dir, "boot.img")
+            self.CreateFile(boot_image_path, b"ANDROID!")
+            self.assertEqual(boot_image_path,
+                             create_common.FindBootImage(temp_dir))
+            os.remove(boot_image_path)
+
+            boot_image_path = os.path.join(temp_dir, "boot-5.10.img")
+            self.CreateFile(boot_image_path, b"ANDROID!")
+            self.assertEqual(boot_image_path,
+                             create_common.FindBootImage(temp_dir))
 
     @mock.patch.object(utils, "Decompress")
     def testDownloadRemoteArtifact(self, mock_decompress):

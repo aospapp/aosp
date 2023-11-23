@@ -31,6 +31,7 @@ class ApexHandlerInterface {
   virtual android::base::Result<uint64_t> CalculateSize(
       const std::vector<ApexInfo>& apex_infos) const = 0;
   virtual bool AllocateSpace(const std::vector<ApexInfo>& apex_infos) const = 0;
+  static std::unique_ptr<ApexHandlerInterface> CreateApexHandler();
 };
 
 }  // namespace chromeos_update_engine

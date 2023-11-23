@@ -33,7 +33,7 @@ android_local_test(
                         "@maven//:androidx_test_ext_junit",
                         "@maven//:androidx_test_core",
                         
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/truth",
         "//java/dagger/hilt/android/testing:hilt_android_test",
     ],
 )
@@ -55,7 +55,7 @@ android_local_test(
                         "@maven//:androidx_test_ext_junit",
                         "@maven//:androidx_test_core",
                         
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/truth",
         "//java/dagger/hilt/android/testing:hilt_android_test",
         "//java/dagger/hilt/android/testing:uninstall_modules",
         "//java/dagger/hilt/testing:test_install_in",
@@ -79,7 +79,7 @@ android_local_test(
                         "@maven//:androidx_test_ext_junit",
                         "@maven//:androidx_test_core",
                         
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/truth",
     ],
 )
 

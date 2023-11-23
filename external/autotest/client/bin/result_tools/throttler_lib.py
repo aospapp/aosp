@@ -25,6 +25,7 @@ NON_THROTTLEABLE_FILE_NAMES = set([
         'host_keyvals',
         'job_report.html',
         'keyval',
+        'messages',
         'profiling',
         'result_summary.html',
         'sponge_invocation.xml',
@@ -36,7 +37,7 @@ NON_THROTTLEABLE_FILE_NAMES = set([
         'test_run_error.txt',
         'test_run_info.txt',
         'test_run_summary.json',
-        ])
+])
 
 # A list of file name patterns that should not be throttled, that is, not
 # modified by deletion, deduping, trimming or compression.

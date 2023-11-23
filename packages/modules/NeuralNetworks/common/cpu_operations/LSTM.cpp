@@ -18,11 +18,6 @@
 
 #include "LSTM.h"
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-parameter"
-#include <tensorflow/lite/kernels/internal/reference/portable_tensor_utils.h>
-#pragma clang diagnostic pop
-
 #include <tensorflow/lite/kernels/internal/tensor_utils.h>
 
 #include <vector>

@@ -27,6 +27,9 @@ ndk_library {
     symbol_file: "libvulkan.map.txt",
     first_version: "24",
     unversioned_until: "current",
+    export_header_libs: [
+        "ndk_vulkan_headers",
+    ],
 }
 
 cc_library_shared {
@@ -37,7 +40,6 @@ cc_library_shared {
             "vulkan_headers",
         ],
     },
-    clang: true,
     sanitize: {
         misc_undefined: ["integer"],
     },

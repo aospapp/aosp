@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS अन्तर्गत CDMA कल प्रतीक्षाको सुविधा निष्क्रिय छ"</string>
     <string name="updating_title" msgid="6130548922615719689">"कल सेटिङहरू"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"कल सेटिङहरू केवल प्रशासकीय प्रयोगकर्ताद्वारा परिवर्तन गर्न सकिन्छ।"</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"एड्मिन वा कार्य प्रोफाइलका प्रयोगकर्ता मात्र फोनमा लिंक गरिएको खाताका सेटिङ बदल्न सक्नुहुन्छ।"</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"सेटिङहरू (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"कल सेटिङमा त्रुटि"</string>
     <string name="reading_settings" msgid="1605904432450871183">"सेटिङहरू पढ्दै..."</string>
@@ -510,7 +511,7 @@
     <string name="invalidPin2" msgid="6467957903056379343">"4 देखि 8 नम्बरको एक PIN2 प्रविष्टि गर्नुहोस्।"</string>
     <string name="invalidPuk2" msgid="713729511903849544">"8 नम्बरको एक PUK2 प्रविष्टि गर्नुहोस्।"</string>
     <string name="pin2_changed" msgid="5710551850481287821">"PIN2 अद्यावधिक गरियो"</string>
-    <string name="label_puk2_code" msgid="2852217004288085562">"PUK2 कोड प्रविष्टि गर्नुहोस्"</string>
+    <string name="label_puk2_code" msgid="2852217004288085562">"PUK2 कोड हाल्नुहोस्"</string>
     <string name="fdn_enable_puk2_requested" msgid="5793652792131588041">"पासवर्ड गलत छ। PIN2 अहिले ब्लक गरिएको छ। पिन 2 परिवर्तन, फेरि प्रयास गर्नुहोस्।"</string>
     <string name="puk2_requested" msgid="6992374450720307514">"पासवर्ड गलत छ। सिम अब ब्लक गरिएको छ। PUK2 प्रविष्टि गर्नुहोस्।"</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 स्थायी रूपमा रोक्का गरियो।"</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"कल सञ्चालन गर्न सकिँदैन।"</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"एक कल गर्न एक ताररहितको सञ्जालमा कनेक्ट गर्नुहोस्।"</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"कल गर्नका लागि Wi-Fi कलिङ सक्षम गर्नुहोस्।"</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"कल गर्न स्याटेलाइट मोड अफ गर्नुहोस्।"</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"आपत्‌कालीन जानकारी"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"मालिक"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"जानकारी हेर्न पुनः ट्याप गर्नुहोस्"</string>
@@ -618,7 +620,7 @@
     <string name="ota_hfa_activation_dialog_message" msgid="7921718445773342996">"फोनले तपाईँको मोबाइल डेटा सेवा सक्रिय पार्दै छ। \n\nयसले ५ मिनेटसम्म समय लिन सक्छ।"</string>
     <string name="ota_skip_activation_dialog_title" msgid="7666611236789203797">"सक्रिया गर्ने काम छोड्ने हो?"</string>
     <string name="ota_skip_activation_dialog_message" msgid="6691722887019708713">"यदि तपाईं सक्रियता छोड्नुहुन्छ भने तपाईं कल वा मोबाइल डेटा नेटवर्क (तपाईं Wi-Fi नेटवर्क जडान गर्न सक्नु हुन्छ) बाट जडान गर्न सक्नु हुन्छ। तपाईंले आफ्नो फोनलाई सक्रिय गर्ने बेलासम्म तपाईं यसलाई हरेक पटक खोल्ने गर्नुहोस्।"</string>
-    <string name="ota_skip_activation_dialog_skip_label" msgid="5908029466817825633">"छोड्नुहोस्"</string>
+    <string name="ota_skip_activation_dialog_skip_label" msgid="5908029466817825633">"स्किप गर्नुहोस्"</string>
     <string name="ota_activate" msgid="7939695753665438357">"सक्रिय बनाउनुहोस्"</string>
     <string name="ota_title_activate_success" msgid="1272135024761004889">"फोन सक्रिय भएको छ।"</string>
     <string name="ota_title_problem_with_activation" msgid="7019745985413368726">"सक्रिय पार्दा समस्या"</string>
@@ -688,7 +690,7 @@
     <string name="change_pin_cancel_label" msgid="2301711566758827936">"रद्द गर्नुहोस्"</string>
     <string name="change_pin_ok_label" msgid="6861082678817785330">"ठिक छ"</string>
     <string name="change_pin_enter_old_pin_header" msgid="853151335217594829">"आफ्नो पुरानो PIN को पुष्टि गर्नुहोस्"</string>
-    <string name="change_pin_enter_old_pin_hint" msgid="8801292976275169367">"जारी राख्नका लागि आफ्नो भ्वाइस मेलको PIN प्रविष्टि गर्नुहोस्।"</string>
+    <string name="change_pin_enter_old_pin_hint" msgid="8801292976275169367">"जारी राख्नका लागि आफ्नो भ्वाइस मेलको PIN हाल्नुहोस्।"</string>
     <string name="change_pin_enter_new_pin_header" msgid="4739465616733486118">"एउटा नयाँ PIN सेट गर्नुहोस्"</string>
     <string name="change_pin_enter_new_pin_hint" msgid="2326038476516364210">"PIN <xliff:g id="MIN">%1$d</xliff:g>-<xliff:g id="MAX">%2$d</xliff:g> अङ्कको हुनु पर्छ।"</string>
     <string name="change_pin_confirm_pin_header" msgid="2606303906320705726">"तपाईँको PIN को पुष्टि गर्नुहोस्"</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"हवाइजहाज मोड सक्रिय छ"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"SIM कार्डमाथि पहुँच राख्न सकिएन"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"मोबाइल नेटवर्क उपलब्ध छैन"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"स्याटेलाइट मोड अन छ"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"तपाईंले डायल गर्न खोजिरहनुभएको नम्बरमा समस्या छ। त्रुटिको कोड: १।"</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"कल पूरा गर्न सकिएन। त्रुटिको कोड: ३।"</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"कल पूरा गर्न सकिएन। त्रुटिको कोड: ६।"</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"रद्द गर्नुहोस्"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"हटाउन मिल्ने eSIM डिफल्ट रूपमा सेट गर्नुहोस्"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"मोबाइल रेडियोको पावर"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"\"सेवा उपलब्ध छैन\" सिमुलेट गर्नुहोस् (डिबग बिल्डमा मात्र सिमुलेट गर्न मिल्छ)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"SIM को ठेगाना पुस्तिका हेर्नुहोस्"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"स्थिर डायल गर्ने नम्बरहरू हेर्नुहोस्"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"सेवामा डायल गर्ने नम्बरहरू हेर्नुहोस्"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"जडान गरियो"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"निलम्बित"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"अज्ञात"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"प्राथमिक"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pkts"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"बाइटहरू"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"डेटा पठाइयो:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"सन्देशलाई कुर्दै:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"फोन नम्बर:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"रेडियोको ब्यान्ड चयन गर्नुहोस्"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Voice नेटवर्कको प्रकार:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"डेटा नेटवर्कको प्रकार:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"ओभरराइड नेटवर्कको प्रकार:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"अप्रशोधित आवाजको दर्ताको स्थिति:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"अप्रशोधित डेटाको दर्ताको स्थिति:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"अप्रशोधित WLAN डेटाको दर्ताको स्थिति:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"फोनको सूचक चयन गर्नुहोस्"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"रुचाइएको नेटवर्कको प्रकार सेट गर्नुहोस्:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"होस्टनाम (www.google.com) IPv4 मा पिङ गर्नुहोस्:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"ब्लुटुथको सिग्नल कमजोर छ। स्पिकरफोन प्रयोग गरी हेर्नुहोस्।"</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"कलको गुणस्तरसम्बन्धी सूचना"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"चल्तीबाट हटाइएका SIP खाताहरू"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"व्यक्तिगत एपमार्फत म्यासेज पठाउन मिल्दैन"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"तपाईंको सङ्गठनले तपाईंलाई केवल कामसम्बन्धी एपहरूमार्फत म्यासेज पठाउने अनुमति दिएको छ"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"रद्द गर्नुहोस्"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"कार्य प्रोफाइल प्रयोग गर्नुहोस्"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"कामसम्बन्धी म्यासेजिङ एप इन्स्टल गर्नुहोस्"</string>
 </resources>

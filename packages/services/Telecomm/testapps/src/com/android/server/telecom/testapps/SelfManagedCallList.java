@@ -46,20 +46,27 @@ public class SelfManagedCallList {
 
     public static String SELF_MANAGED_ACCOUNT_1 = "1";
     public static String SELF_MANAGED_ACCOUNT_2 = "2";
+    public static String SELF_MANAGED_ACCOUNT_1A = "1A";
     public static String SELF_MANAGED_ACCOUNT_3 = "3";
     public static String SELF_MANAGED_NAME_1 = "SuperCall";
     public static String SELF_MANAGED_NAME_2 = "Mega Call";
-    public static String SELF_MANAGED_NAME_3 = "SM Call";
+    public static String SELF_MANAGED_NAME_1A = "SM Call";
+    public static String SELF_MANAGED_NAME_3 = "Sep Process";
     public static String CUSTOM_URI_SCHEME = "custom";
 
     private static SelfManagedCallList sInstance;
     private static ComponentName COMPONENT_NAME = new ComponentName(
             SelfManagedCallList.class.getPackage().getName(),
             SelfManagedConnectionService.class.getName());
+    private static ComponentName OTHER_COMPONENT_NAME = new ComponentName(
+            SelfManagedCallList.class.getPackage().getName(),
+            OtherSelfManagedConnectionService.class.getName());
     private static Uri SELF_MANAGED_ADDRESS_1 = Uri.fromParts(PhoneAccount.SCHEME_TEL, "555-1212",
             "");
     private static Uri SELF_MANAGED_ADDRESS_2 = Uri.fromParts(PhoneAccount.SCHEME_SIP,
             "me@test.org", "");
+    private static Uri SELF_MANAGED_ADDRESS_3 = Uri.fromParts(PhoneAccount.SCHEME_SIP,
+            "hilda@test.org", "");
     private static Map<String, PhoneAccountHandle> mPhoneAccounts = new ArrayMap();
 
     public static SelfManagedCallList getInstance() {
@@ -101,20 +108,29 @@ public class SelfManagedCallList {
                 SELF_MANAGED_NAME_1, true /* areCallsLogged */);
         registerPhoneAccount(context, SELF_MANAGED_ACCOUNT_2, SELF_MANAGED_ADDRESS_2,
                 SELF_MANAGED_NAME_2, false /* areCallsLogged */);
-        registerPhoneAccount(context, SELF_MANAGED_ACCOUNT_3, SELF_MANAGED_ADDRESS_1,
-                SELF_MANAGED_NAME_3, true /* areCallsLogged */);
+        registerPhoneAccount(context, SELF_MANAGED_ACCOUNT_1A, SELF_MANAGED_ADDRESS_1,
+                SELF_MANAGED_NAME_1A, true /* areCallsLogged */);
+        registerPhoneAccount(context, SELF_MANAGED_ACCOUNT_1A, SELF_MANAGED_ADDRESS_1,
+                SELF_MANAGED_NAME_1A, true /* areCallsLogged */);
+        registerPhoneAccount(context, OTHER_COMPONENT_NAME, SELF_MANAGED_ACCOUNT_3,
+                SELF_MANAGED_ADDRESS_3, SELF_MANAGED_NAME_3, false /* areCallsLogged */);
     }
 
     public void registerPhoneAccount(Context context, String id, Uri address, String name,
-                                     boolean areCallsLogged) {
-        PhoneAccountHandle handle = new PhoneAccountHandle(COMPONENT_NAME, id);
+            boolean areCallsLogged) {
+        registerPhoneAccount(context, COMPONENT_NAME, id, address, name, areCallsLogged);
+    }
+
+    public void registerPhoneAccount(Context context, ComponentName componentName, String id,
+            Uri address, String name, boolean areCallsLogged) {
+        PhoneAccountHandle handle = new PhoneAccountHandle(componentName, id);
         mPhoneAccounts.put(id, handle);
         Bundle extras = new Bundle();
         extras.putBoolean(PhoneAccount.EXTRA_SUPPORTS_HANDOVER_TO, true);
         if (areCallsLogged) {
             extras.putBoolean(PhoneAccount.EXTRA_LOG_SELF_MANAGED_CALLS, true);
         }
-        if (id.equals(SELF_MANAGED_ACCOUNT_3)) {
+        if (id.equals(SELF_MANAGED_ACCOUNT_1A)) {
             extras.putBoolean(PhoneAccount.EXTRA_ADD_SELF_MANAGED_CALLS_TO_INCALLSERVICE, true);
         }
         PhoneAccount.Builder builder = PhoneAccount.builder(handle, name)

@@ -20,10 +20,8 @@
 #include "linkerconfig/link.h"
 
 constexpr const char* kSharedLibsExpectedResult =
-    R"(namespace.originalNamespace.link.targetNamespace.shared_libs = lib1.so
-namespace.originalNamespace.link.targetNamespace.shared_libs += lib2.so
-namespace.originalNamespace.link.targetNamespace.shared_libs += lib3.so
-)";
+    "namespace.originalNamespace.link.targetNamespace.shared_libs = "
+    "lib1.so:lib2.so:lib3.so\n";
 
 TEST(linkerconfig_link, link_with_all_shared_libs) {
   android::linkerconfig::modules::ConfigWriter writer;

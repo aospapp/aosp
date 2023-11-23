@@ -16,6 +16,8 @@
 package com.google.android.enterprise.connectedapps.processor;
 
 import static com.google.android.enterprise.connectedapps.processor.AlwaysThrowsGenerator.getAlwaysThrowsClassName;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.prepend;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.transformClassName;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PROFILE_AWARE_UTILS_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PROFILE_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PROFILE_CONNECTOR_CLASSNAME;
@@ -30,8 +32,10 @@ import static com.google.android.enterprise.connectedapps.processor.OtherProfile
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.android.enterprise.connectedapps.annotations.CustomProfileConnector.ProfileType;
+import com.google.android.enterprise.connectedapps.processor.containers.ConnectorInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileTypeInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.GeneratorContext;
+import com.google.android.enterprise.connectedapps.processor.containers.ProfileConnectorInfo;
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
@@ -40,6 +44,7 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import javax.lang.model.element.Modifier;
 
 /**
@@ -56,12 +61,15 @@ final class DefaultProfileClassGenerator {
   private final GeneratorContext generatorContext;
   private final GeneratorUtilities generatorUtilities;
   private final CrossProfileTypeInfo crossProfileType;
+  private final Optional<ProfileConnectorInfo> profileConnector;
 
   DefaultProfileClassGenerator(
       GeneratorContext generatorContext, CrossProfileTypeInfo crossProfileType) {
     this.generatorContext = checkNotNull(generatorContext);
     this.generatorUtilities = new GeneratorUtilities(generatorContext);
     this.crossProfileType = checkNotNull(crossProfileType);
+    this.profileConnector =
+        crossProfileType.connectorInfo().map(ConnectorInfo::profileConnector).map(Optional::get);
   }
 
   void generate() {
@@ -77,11 +85,6 @@ final class DefaultProfileClassGenerator {
   private void generateDefaultProfileClass() {
     ClassName className = getDefaultProfileClassName(generatorContext, crossProfileType);
 
-    ClassName connectorClassName =
-        crossProfileType.profileConnector().isPresent()
-            ? crossProfileType.profileConnector().get().connectorClassName()
-            : PROFILE_CONNECTOR_CLASSNAME;
-
     ClassName crossProfileTypeInterfaceClassName =
         InterfaceGenerator.getCrossProfileTypeInterfaceClassName(
             generatorContext, crossProfileType);
@@ -96,13 +99,13 @@ final class DefaultProfileClassGenerator {
     classBuilder.addSuperinterface(crossProfileTypeInterfaceClassName);
 
     classBuilder.addField(
-        FieldSpec.builder(connectorClassName, "connector")
+        FieldSpec.builder(PROFILE_CONNECTOR_CLASSNAME, "connector")
             .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
             .build());
 
     classBuilder.addMethod(
         MethodSpec.constructorBuilder()
-            .addParameter(connectorClassName, "connector")
+            .addParameter(PROFILE_CONNECTOR_CLASSNAME, "connector")
             .addModifiers(Modifier.PUBLIC)
             .addStatement("this.connector = connector")
             .build());
@@ -220,8 +223,8 @@ final class DefaultProfileClassGenerator {
             .addStatement("return profiles(currentProfileIdentifier, otherProfileIdentifier)")
             .build());
 
-    if (!crossProfileType.profileConnector().isPresent()
-        || crossProfileType.profileConnector().get().primaryProfile() != ProfileType.NONE) {
+    if (!profileConnector.isPresent()
+        || profileConnector.get().primaryProfile() != ProfileType.NONE) {
       generatePrimarySecondaryMethods(classBuilder);
     }
 
@@ -323,8 +326,6 @@ final class DefaultProfileClassGenerator {
 
   static ClassName getDefaultProfileClassName(
       GeneratorContext generatorContext, CrossProfileTypeInfo crossProfileType) {
-    return ClassName.get(
-        crossProfileType.profileClassName().packageName(),
-        "Default" + crossProfileType.profileClassName().simpleName());
+    return transformClassName(crossProfileType.generatedClassName(), prepend("DefaultProfile"));
   }
 }

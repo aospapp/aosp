@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/act/skbedit.c		skbedit action
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2015 Cong Wang <xiyou.wangcong@gmail.com>
  */
 
@@ -65,14 +59,6 @@ static int skbedit_msg_parser(struct rtnl_tc *tc, void *data)
 
 static void skbedit_free_data(struct rtnl_tc *tc, void *data)
 {
-}
-
-static int skbedit_clone(void *_dst, void *_src)
-{
-	struct rtnl_skbedit *dst = _dst, *src = _src;
-
-	memcpy(dst, src, sizeof(*src));
-	return 0;
 }
 
 static void skbedit_dump_line(struct rtnl_tc *tc, void *data,
@@ -166,10 +152,8 @@ int rtnl_skbedit_set_action(struct rtnl_act *act, int action)
 	if (!(u = (struct rtnl_skbedit *) rtnl_tc_data(TC_CAST(act))))
 		return -NLE_NOMEM;
 
-	if (action > TC_ACT_REPEAT || action < TC_ACT_UNSPEC)
-		return -NLE_INVAL;
-
 	u->s_parm.action = action;
+
 	return 0;
 }
 
@@ -268,7 +252,7 @@ static struct rtnl_tc_ops skbedit_ops = {
 	.to_size		= sizeof(struct rtnl_skbedit),
 	.to_msg_parser		= skbedit_msg_parser,
 	.to_free_data		= skbedit_free_data,
-	.to_clone		= skbedit_clone,
+	.to_clone		= NULL,
 	.to_msg_fill		= skbedit_msg_fill,
 	.to_dump = {
 	    [NL_DUMP_LINE]	= skbedit_dump_line,

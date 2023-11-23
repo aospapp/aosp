@@ -11,7 +11,6 @@
 #define _GNU_SOURCE
 #include <unistd.h>
 #include <stdlib.h>
-#include <fcntl.h>
 #include "tst_test.h"
 #include "lapi/fcntl.h"
 
@@ -45,7 +44,7 @@ static void verify_pipe(unsigned int n)
 
 	tst_res(TINFO, "%s", tc->message);
 	if (tc->full_flag) {
-		SAFE_WRITE(1, fds[1], wrbuf, max_size);
+		SAFE_WRITE(SAFE_WRITE_ALL, fds[1], wrbuf, max_size);
 		TEST(write(fds[1], "x", 1));
 		if (TST_RET != -1) {
 			tst_res(TFAIL, "write succeeded unexpectedly");
@@ -56,7 +55,7 @@ static void verify_pipe(unsigned int n)
 		else
 			tst_res(TFAIL | TTERRNO, "write failed, expected EAGAIN but got");
 	} else {
-		SAFE_WRITE(1, fds[1], "x", tc->offset);
+		SAFE_WRITE(SAFE_WRITE_ALL, fds[1], "x", tc->offset);
 		TEST(write(fds[1], wrbuf, invalid_size));
 		if (TST_RET == -1) {
 			tst_res(TFAIL, "write failed unexpectedly");

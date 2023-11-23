@@ -289,6 +289,14 @@ class NnRetCheckErrorStream {
         return result;
     }
 
+    // This is needed because conversion to Result<int> is ambiguous
+    // due to the above bool() operator overload
+    operator Result<int>() {  // NOLINT(google-explicit-constructor)
+        auto result = base::unexpected(std::move(mBuffer)->str());
+        mBuffer.reset();
+        return result;
+    }
+
    private:
     std::optional<std::ostringstream> mBuffer = std::ostringstream{};
 };

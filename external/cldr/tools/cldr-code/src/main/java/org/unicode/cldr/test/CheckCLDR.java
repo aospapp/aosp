@@ -67,7 +67,7 @@ import com.ibm.icu.util.ICUUncheckedIOException;
  *
  * @author davis
  */
-abstract public class CheckCLDR {
+abstract public class CheckCLDR implements CheckAccessor {
 
     public static final boolean LIMITED_SUBMISSION = false; // TODO represent differently
 
@@ -79,6 +79,24 @@ abstract public class CheckCLDR {
     private boolean skipTest = false;
     private Phase phase;
     private Map<Subtype, List<Pattern>> filtersForLocale = new HashMap<>();
+
+    @Override
+    public String getStringValue(String path) {
+        return getCldrFileToCheck().getStringValue(path);
+    }
+    @Override
+    public String getUnresolvedStringValue(String path) {
+        return getCldrFileToCheck().getUnresolved().getStringValue(path);
+    }
+    @Override
+    public String getLocaleID() {
+        return getCldrFileToCheck().getLocaleID();
+    }
+    @Override
+    public CheckCLDR getCause() {
+        return this;
+    }
+
 
     public enum InputMethod {
         DIRECT, BULK
@@ -205,7 +223,11 @@ abstract public class CheckCLDR {
             // if limited submission, and winner doesn't have an error, limit the values
 
             if (LIMITED_SUBMISSION) {
-                if (!SubmissionLocales.allowEvenIfLimited(pathValueInfo.getLocale().toString(), pathValueInfo.getXpath(), valueStatus == ValueStatus.ERROR, pathValueInfo.getBaselineStatus() == Status.missing)) {
+                if (!SubmissionLocales.allowEvenIfLimited(
+                    pathValueInfo.getLocale().toString(),
+                    pathValueInfo.getXpath(),
+                    valueStatus == ValueStatus.ERROR,
+                    pathValueInfo.getBaselineStatus() == Status.missing)) {
                     return StatusAction.FORBID_READONLY;
                 }
             }
@@ -589,6 +611,7 @@ abstract public class CheckCLDR {
             .add(new CheckMetazones())
             .add(new CheckLogicalGroupings(factory))
             .add(new CheckAlt())
+            .add(new CheckAltOnly(factory))
             .add(new CheckCurrencies())
             .add(new CheckCasing())
             .add(new CheckConsistentCasing(factory)) // this doesn't work; many spurious errors that user can't correct
@@ -596,6 +619,7 @@ abstract public class CheckCLDR {
             .add(new CheckUnits())
             .add(new CheckWidths())
             .add(new CheckPlaceHolders())
+            .add(new CheckPersonNames())
             .add(new CheckNew(factory)) // this is at the end; it will check for other certain other errors and warnings and
             // not add a message if there are any.
             ;
@@ -719,7 +743,7 @@ abstract public class CheckCLDR {
             narrowDateFieldTooWide, illegalCharactersInExemplars, orientationDisagreesWithExemplars,
             inconsistentDatePattern, inconsistentTimePattern, missingDatePattern, illegalDatePattern,
             missingMainExemplars, mustNotStartOrEndWithSpace, illegalCharactersInNumberPattern,
-            numberPatternNotCanonical, currencyPatternMissingCurrencySymbol, missingMinusSign,
+            numberPatternNotCanonical, currencyPatternMissingCurrencySymbol, currencyPatternUnexpectedCurrencySymbol, missingMinusSign,
             badNumericType, percentPatternMissingPercentSymbol, illegalNumberFormat, unexpectedAttributeValue,
             metazoneContainsDigit, tooManyGroupingSeparators, inconsistentPluralFormat, missingZeros, sameAsEnglish, sameAsCode,
             dateSymbolCollision, incompleteLogicalGroup, extraMetazoneString, inconsistentDraftStatus,
@@ -728,7 +752,8 @@ abstract public class CheckCLDR {
             invalidPlaceHolder, asciiQuotesNotAllowed, badMinimumGroupingDigits, inconsistentPeriods,
             inheritanceMarkerNotAllowed, invalidDurationUnitPattern, invalidDelimiter, illegalCharactersInPattern,
             badParseLenient, tooManyValues, invalidSymbol, invalidGenderCode,
-            mismatchedUnitComponent, longPowerWithSubscripts, gapsInPlaceholderNumbers, duplicatePlaceholders, largerDifferences
+            mismatchedUnitComponent, longPowerWithSubscripts, gapsInPlaceholderNumbers, duplicatePlaceholders, largerDifferences,
+            missingNonAltPath, badSamplePersonName, missingLanguage, namePlaceholderProblem
             ;
 
             @Override
@@ -766,8 +791,7 @@ abstract public class CheckCLDR {
         private Subtype subtype = Subtype.none;
         private String messageFormat;
         private Object[] parameters;
-        private String htmlMessage;
-        private CheckCLDR cause;
+        private CheckAccessor cause;
         private boolean checkOnSubmit = true;
 
         public CheckStatus() {
@@ -820,23 +844,6 @@ abstract public class CheckCLDR {
                 }
             }
             return message.replace('\t', ' ');
-        }
-
-        /**
-         * @deprecated
-         */
-        @Deprecated
-        public String getHTMLMessage() {
-            return htmlMessage;
-        }
-
-        /**
-         * @deprecated
-         */
-        @Deprecated
-        public CheckStatus setHTMLMessage(String message) {
-            htmlMessage = message;
-            return this;
         }
 
         public CheckStatus setMessage(String message) {
@@ -910,10 +917,10 @@ abstract public class CheckCLDR {
         }
 
         public CheckCLDR getCause() {
-            return cause;
+            return cause instanceof CheckCLDR ? (CheckCLDR) cause : null;
         }
 
-        public CheckStatus setCause(CheckCLDR cause) {
+        public CheckStatus setCause(CheckAccessor cause) {
             this.cause = cause;
             return this;
         }
@@ -1126,7 +1133,7 @@ abstract public class CheckCLDR {
         // If we're being asked to run tests for an inheritance marker, then we need to change it
         // to the "real" value first before running tests. Testing the value CldrUtility.INHERITANCE_MARKER ("↑↑↑") doesn't make sense.
         if (CldrUtility.INHERITANCE_MARKER.equals(value)) {
-            value = cldrFileToCheck.getConstructedBaileyValue(path, null, null);
+            value = cldrFileToCheck.getBaileyValue(path, null, null);
             // If it hasn't changed, then don't run any tests.
             if (CldrUtility.INHERITANCE_MARKER.equals(value)) {
                 return this;
@@ -1147,7 +1154,7 @@ abstract public class CheckCLDR {
     /**
      * Returns any examples in the result parameter. Both examples and demos can
      * be returned. A demo will have getType() == CheckStatus.demoType. In that
-     * case, there will be no getMessage or getHTMLMessage available; instead,
+     * case, there will be no getMessage available; instead,
      * call getDemo() to get the demo, then call getHTML() to get the initial
      * HTML.
      */
@@ -1223,7 +1230,7 @@ abstract public class CheckCLDR {
             // If we're being asked to run tests for an inheritance marker, then we need to change it
             // to the "real" value first before running tests. Testing the value CldrUtility.INHERITANCE_MARKER ("↑↑↑") doesn't make sense.
             if (CldrUtility.INHERITANCE_MARKER.equals(value)) {
-                value = getCldrFileToCheck().getConstructedBaileyValue(path, null, null);
+                value = getCldrFileToCheck().getBaileyValue(path, null, null);
             }
             for (Iterator<CheckCLDR> it = filteredCheckList.iterator(); it.hasNext();) {
                 CheckCLDR item = it.next();

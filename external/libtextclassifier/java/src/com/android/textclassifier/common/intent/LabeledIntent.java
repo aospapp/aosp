@@ -92,7 +92,7 @@ public final class LabeledIntent {
   @Nullable
   public Result resolve(Context context, @Nullable TitleChooser titleChooser) {
     final PackageManager pm = context.getPackageManager();
-    final ResolveInfo resolveInfo = pm.resolveActivity(intent, 0);
+    final ResolveInfo resolveInfo = pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
 
     if (resolveInfo == null || resolveInfo.activityInfo == null) {
       // Failed to resolve the intent. It could be because there are no apps to handle

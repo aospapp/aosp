@@ -60,7 +60,7 @@
     <string name="notification_channel_emergency_alerts_high_priority" msgid="3937475297436439073">"अस्वीकार की गई आपातकालीन चेतावनियां"</string>
     <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"वॉयस कॉल के दौरान आपातकालीन चेतावनियां"</string>
     <string name="notification_channel_settings_updates" msgid="6779759372516475085">"अपने-आप काम करने वाली WEA की सूचनाओं की सेटिंग, सिम के हिसाब से बदल जाती है"</string>
-    <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"चेतावनी दिखाए जाने की अनुमति दें"</string>
+    <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"चेतावनियां दिखाए जाने की अनुमति दें"</string>
     <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"वायरलेस इमरजेंसी अलर्ट की सूचनाएं पाएं"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"अलर्ट रिमाइंडर"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"अलर्ट मैसेज बोलें"</string>

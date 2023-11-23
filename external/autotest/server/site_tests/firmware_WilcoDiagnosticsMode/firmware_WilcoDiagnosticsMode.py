@@ -22,7 +22,7 @@ class firmware_WilcoDiagnosticsMode(FirmwareTest):
 
     # The delay between pressing <F12> to enter diagnostics mode and reaching
     # the confirmation screen; typically about 10 seconds; overshoot to be safe.
-    DIAGNOSTICS_CONFIRM_SCREEN_DELAY_SECONDS = 15
+    DIAGNOSTICS_CONFIRM_SCREEN_DELAY_SECONDS = 20
     # The delay between pressing <Power> to confirm entry to diagnostics mode
     # and rebooting into diagnostics mode.
     DIAGNOSTICS_CONFIRM_REBOOT_DELAY_SECONDS = 8
@@ -81,27 +81,59 @@ class firmware_WilcoDiagnosticsMode(FirmwareTest):
     def _enter_diagnostics_mode(self):
         # Reboot to the recovery screen, press <F12>, and press power to
         # confirm.
-        logging.info('Rebooting to recovery screen')
-        self.switcher.enable_rec_mode_and_reboot(usb_state='host')
+        self.servo.switch_usbkey('host')
+        psc = self.servo.get_power_state_controller()
+        logging.info('Powering off')
+        if self.cr50.ap_is_on():
+            self.servo.power_key(self.faft_config.hold_pwr_button_poweroff)
+            logging.info('Waiting for power off')
+            time.sleep(1)
+            self._client.close_main_ssh()
+        logging.info('Booting to recovery screen')
+        psc.power_on(psc.REC_ON)
+
+        logging.info('Sleeping %s seconds (firmware_screen)',
+                     self.faft_config.firmware_screen)
         time.sleep(self.faft_config.firmware_screen)
+        if not self.cr50.ap_is_on():
+            raise error.TestFail('Expected AP on when booting to recovery')
         logging.info('Pressing <F12>')
         self._press_f12()
+        logging.info(
+                'Sleeping %s seconds (DIAGNOSTICS_CONFIRM_SCREEN_DELAY_SECONDS)',
+                self.DIAGNOSTICS_CONFIRM_SCREEN_DELAY_SECONDS)
         time.sleep(self.DIAGNOSTICS_CONFIRM_SCREEN_DELAY_SECONDS)
         logging.info('Pressing <Power> to confirm')
         self.servo.power_short_press()
         # At this point, the DUT will try to reboot into diagnostics mode.
 
+    def _verify_diagnostics_mode(self):
+        """Checks that the AP is on and ssh fails.
+
+        This is not certain that we are in the diagnostic mode, but gives some
+        confidence.
+        """
+        # Wait long enough that DUT would have rebooted to normal mode if
+        # diagnostics mode failed.
+        logging.info(
+                'Sleeping %s seconds (DIAGNOSTICS_FAIL_REBOOT_DELAY_SECONDS)',
+                self.DIAGNOSTICS_FAIL_REBOOT_DELAY_SECONDS)
+        time.sleep(self.DIAGNOSTICS_FAIL_REBOOT_DELAY_SECONDS)
+        if not self.cr50.ap_is_on():
+            raise error.TestFail(
+                    'AP is off, expected diagnostics mode. Is diagnostic '
+                    'corrupted? Run chromeos-firmwareupdate --mode=recovery')
+        logging.info('Sleeping %s seconds (delay_reboot_to_ping)',
+                     self.faft_config.delay_reboot_to_ping)
+        time.sleep(self.faft_config.delay_reboot_to_ping)
+        self.switcher.wait_for_client_offline(timeout=5)
+        logging.info('DUT offline after entering diagnostics mode')
+
     def run_once(self):
         """Run the body of the test."""
         logging.info('Attempting to enter diagnostics mode')
         self._enter_diagnostics_mode()
-        # Wait long enough that DUT would have rebooted to normal mode if
-        # diagnostics mode failed.
-        time.sleep(self.DIAGNOSTICS_CONFIRM_REBOOT_DELAY_SECONDS +
-                self.DIAGNOSTICS_FAIL_REBOOT_DELAY_SECONDS +
-                self.faft_config.delay_reboot_to_ping)
-        self.switcher.wait_for_client_offline(timeout=5)
-        logging.info('DUT offline after entering diagnostics mode')
+        self._verify_diagnostics_mode()
         self._client.reset_via_servo()
         self.switcher.wait_for_client()
 
@@ -110,8 +142,16 @@ class firmware_WilcoDiagnosticsMode(FirmwareTest):
         # enter diagnostics mode).
         self._corrupt_diagnostics_image()
         self._enter_diagnostics_mode()
+        logging.info(
+                'Sleeping %s seconds (DIAGNOSTICS_FAIL_REBOOT_DELAY_SECONDS)',
+                self.DIAGNOSTICS_FAIL_REBOOT_DELAY_SECONDS)
+        time.sleep(self.DIAGNOSTICS_FAIL_REBOOT_DELAY_SECONDS)
+        # If the diagnostic mode fails, it might just power off
+        if not self.cr50.ap_is_on():
+            logging.info('AP off, pressing <Power> to boot to normal mode')
+            self.servo.power_short_press()
         self.switcher.wait_for_client()
-        self.checkers.mode_checker('normal')
+        self.check_state((self.checkers.mode_checker, 'normal'))
 
         # Update the firmware to restore the diagnostics image, reboot into
         # diagnostics mode, and verify that the DUT goes down (indicating
@@ -123,10 +163,4 @@ class firmware_WilcoDiagnosticsMode(FirmwareTest):
 
         logging.info('Attempting to enter diagnostics mode')
         self._enter_diagnostics_mode()
-        # Wait long enough that DUT would have rebooted if diagnostics mode
-        # failed.
-        time.sleep(self.DIAGNOSTICS_CONFIRM_REBOOT_DELAY_SECONDS +
-                self.DIAGNOSTICS_FAIL_REBOOT_DELAY_SECONDS +
-                self.faft_config.delay_reboot_to_ping)
-        self.switcher.wait_for_client_offline(timeout=5)
-        logging.info('DUT offline after entering diagnostics mode')
+        self._verify_diagnostics_mode()

@@ -16,14 +16,22 @@
 
 package android.net.wifi.aware;
 
+import static android.Manifest.permission.MANAGE_WIFI_NETWORK_SELECTION;
+import static android.net.wifi.aware.Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_PK_PASN_128;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.net.NetworkSpecifier;
+import android.os.Build;
 import android.util.CloseGuard;
 import android.util.Log;
 
+import androidx.annotation.RequiresApi;
+
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.modules.utils.build.SdkLevel;
 
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
@@ -251,6 +259,209 @@ public class DiscoverySession implements AutoCloseable {
     public void sendMessage(@NonNull PeerHandle peerHandle, int messageId,
             @Nullable byte[] message) {
         sendMessage(peerHandle, messageId, message, 0);
+    }
+
+    /**
+     * Initiate a Wi-Fi Aware Pairing setup request to create a pairing with the target peer.
+     * The Aware pairing request should be done in the context of a discovery session -
+     * after a publish/subscribe
+     * {@link DiscoverySessionCallback#onServiceDiscovered(ServiceDiscoveryInfo)} event is received.
+     * The peer will get a callback indicating a message was received using
+     * {@link DiscoverySessionCallback#onPairingSetupRequestReceived(PeerHandle, int)}.
+     * When the Aware Pairing setup is finished, both sides will receive
+     * {@link DiscoverySessionCallback#onPairingSetupSucceeded(PeerHandle, String)}
+     *
+     * @param peerHandle      The peer's handle for the pairing request. Must be a result of a
+     *                        {@link
+     *                        DiscoverySessionCallback#onServiceDiscovered(ServiceDiscoveryInfo)}
+     *                        or
+     *                        {@link DiscoverySessionCallback#onMessageReceived(PeerHandle, byte[])}
+     *                        events.
+     * @param peerDeviceAlias The alias of paired device set by caller, will help caller to identify
+     *                        the paired device.
+     * @param cipherSuite     The cipher suite to be used to encrypt the link.
+     * @param password        The password used for the pairing setup. If set to empty or null,
+     *                        opportunistic pairing will be used.
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public void initiatePairingRequest(@NonNull PeerHandle peerHandle,
+            @NonNull String peerDeviceAlias,
+            @Characteristics.WifiAwarePairingCipherSuites int cipherSuite,
+            @Nullable String password) {
+        if (!SdkLevel.isAtLeastU()) {
+            throw new UnsupportedOperationException();
+        }
+        WifiAwareManager mgr = mMgr.get();
+        if (mgr == null) {
+            Log.w(TAG, "initiatePairingRequest: called post GC on WifiAwareManager");
+            return;
+        }
+        mgr.initiateNanPairingSetupRequest(mClientId, mSessionId, peerHandle, password,
+                peerDeviceAlias, cipherSuite);
+    }
+
+    /**
+     * Accept and respond to a Wi-Fi Aware Pairing setup request received from peer. This is the
+     * response to the
+     * {@link DiscoverySessionCallback#onPairingSetupRequestReceived(PeerHandle, int)}
+     * When the Aware Pairing setup is finished, both sides will receive
+     * {@link DiscoverySessionCallback#onPairingSetupSucceeded(PeerHandle, String)}
+     *
+     * @param requestId       Id to identify the received pairing session, obtained by
+     *                        {@link
+     *                        DiscoverySessionCallback#onPairingSetupRequestReceived(PeerHandle,
+     *                        int)}
+     * @param peerHandle      The peer's handle for the pairing request. Must be a result of a
+     *                        {@link
+     *                        DiscoverySessionCallback#onServiceDiscovered(ServiceDiscoveryInfo)}
+     *                        or
+     *                        {@link DiscoverySessionCallback#onMessageReceived(PeerHandle, byte[])}
+     *                        events.
+     * @param peerDeviceAlias The alias of paired device set by caller, will help caller to identify
+     *                        the paired device.
+     * @param cipherSuite     The cipher suite to be used to encrypt the link.
+     * @param password        The password is used for the pairing setup. If set to empty or null,
+     *                        opportunistic pairing will be used.
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public void acceptPairingRequest(int requestId, @NonNull PeerHandle peerHandle,
+            @NonNull String peerDeviceAlias,
+            @Characteristics.WifiAwarePairingCipherSuites int cipherSuite,
+            @Nullable String password) {
+        if (!SdkLevel.isAtLeastU()) {
+            throw new UnsupportedOperationException();
+        }
+        WifiAwareManager mgr = mMgr.get();
+        if (mgr == null) {
+            Log.w(TAG, "initiatePairingRequest: called post GC on WifiAwareManager");
+            return;
+        }
+        mgr.responseNanPairingSetupRequest(mClientId, mSessionId, peerHandle, requestId, password,
+                peerDeviceAlias, true, cipherSuite);
+    }
+
+    /**
+     * Reject a Wi-Fi Aware Pairing setup request received from peer. This is the
+     * response to the
+     * {@link DiscoverySessionCallback#onPairingSetupRequestReceived(PeerHandle, int)}
+     *
+     * @param requestId       Id to identify the received pairing session, get by
+     *                        {@link
+     *                        DiscoverySessionCallback#onPairingSetupRequestReceived(PeerHandle,
+     *                        int)}
+     * @param peerHandle      The peer's handle for the pairing request. Must be a result of a
+     *                        {@link
+     *                        DiscoverySessionCallback#onServiceDiscovered(ServiceDiscoveryInfo)}
+     *                        or
+     *                        {@link DiscoverySessionCallback#onMessageReceived(PeerHandle, byte[])}
+     *                        events.
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public void rejectPairingRequest(int requestId, @NonNull PeerHandle peerHandle) {
+        if (!SdkLevel.isAtLeastU()) {
+            throw new UnsupportedOperationException();
+        }
+        WifiAwareManager mgr = mMgr.get();
+        if (mgr == null) {
+            Log.w(TAG, "initiatePairingRequest: called post GC on WifiAwareManager");
+            return;
+        }
+        mgr.responseNanPairingSetupRequest(mClientId, mSessionId, peerHandle, requestId, null,
+                null, false, WIFI_AWARE_CIPHER_SUITE_NCS_PK_PASN_128);
+    }
+
+    /**
+     * Initiate a Wi-Fi Aware bootstrapping setup request to create a pairing with the target peer.
+     * The Aware bootstrapping request should be done in the context of a discovery session -
+     * after a publish/subscribe
+     * {@link DiscoverySessionCallback#onServiceDiscovered(ServiceDiscoveryInfo)} event is received.
+     * The peer will check if the method can be fulfilled by
+     * {@link AwarePairingConfig.Builder#setBootstrappingMethods(int)}
+     * When the Aware Bootstrapping setup finished, both side will receive
+     * {@link DiscoverySessionCallback#onBootstrappingSucceeded(PeerHandle, int)}
+     * @param peerHandle The peer's handle for the pairing request. Must be a result of an
+     * {@link DiscoverySessionCallback#onServiceDiscovered(ServiceDiscoveryInfo)} or
+     * {@link DiscoverySessionCallback#onMessageReceived(PeerHandle, byte[])} events.
+     * @param method one of the AwarePairingConfig#PAIRING_BOOTSTRAPPING_ values, should be one of
+     *               the methods received from {@link ServiceDiscoveryInfo#getPairingConfig()}
+     *               {@link AwarePairingConfig#getBootstrappingMethods()}
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public void initiateBootstrappingRequest(@NonNull PeerHandle peerHandle,
+            @AwarePairingConfig.BootstrappingMethod int method) {
+        if (!SdkLevel.isAtLeastU()) {
+            throw new UnsupportedOperationException();
+        }
+        WifiAwareManager mgr = mMgr.get();
+        if (mgr == null) {
+            Log.w(TAG, "initiatePairingRequest: called post GC on WifiAwareManager");
+            return;
+        }
+        mgr.initiateBootStrappingSetupRequest(mClientId, mSessionId, peerHandle, method);
+    }
+
+    /**
+     * Put Aware connection into suspension mode to save power. Suspend mode pauses all Wi-Fi Aware
+     * activities for this discovery session including any active NDPs.
+     * <p>
+     * This method would work only for a {@link DiscoverySession} which has been created using
+     * a suspendable {@link PublishConfig} or {@link SubscribeConfig}.
+     *
+     * @see PublishConfig#isSuspendable()
+     * @see SubscribeConfig#isSuspendable()
+     * @hide
+     */
+    @SystemApi
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @RequiresPermission(MANAGE_WIFI_NETWORK_SELECTION)
+    public void suspend() {
+        if (mTerminated) {
+            throw new IllegalStateException("Suspend called on a terminated session.");
+        }
+
+        WifiAwareManager mgr = mMgr.get();
+        if (mgr == null) {
+            throw new IllegalStateException("Failed to get WifiAwareManager.");
+        }
+
+        if (!SdkLevel.isAtLeastU()) {
+            throw new UnsupportedOperationException();
+        }
+
+        mgr.suspend(mClientId, mSessionId);
+    }
+
+    /**
+     * Wake up Aware connection from suspension mode to transmit data. Resumes all paused
+     * Wi-Fi Aware activities and any associated NDPs to a state before they were suspended. Resume
+     * operation will be faster than recreating the corresponding discovery session and NDPs with
+     * the same benefit of power.
+     * <p>
+     * This method would work only for a {@link DiscoverySession} which has been created using
+     * a suspendable {@link PublishConfig} or {@link SubscribeConfig}.
+     *
+     * @see PublishConfig#isSuspendable()
+     * @see SubscribeConfig#isSuspendable()
+     * @hide
+     */
+    @SystemApi
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @RequiresPermission(MANAGE_WIFI_NETWORK_SELECTION)
+    public void resume() {
+        if (mTerminated) {
+            throw new IllegalStateException("Resume called on a terminated session.");
+        }
+
+        WifiAwareManager mgr = mMgr.get();
+        if (mgr == null) {
+            throw new IllegalStateException("Failed to get WifiAwareManager.");
+        }
+
+        if (!SdkLevel.isAtLeastU()) {
+            throw new UnsupportedOperationException();
+        }
+
+        mgr.resume(mClientId, mSessionId);
     }
 
     /**

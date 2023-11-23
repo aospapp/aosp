@@ -21,7 +21,6 @@ import com.android.internal.util.Preconditions;
 import java.util.Arrays;
 
 // Copy of frameworks/base/core/java/android/util/IntArray.java
-
 /**
  * Implements a growing array of int primitives.
  *

@@ -93,17 +93,10 @@ art_module_sdk {
         },
 
         android: {
-            bootclasspath_fragments: [
-                // Adds the fragment and its contents to the sdk.
-                "art-bootclasspath-fragment",
-            ],
-
-            systemserverclasspath_fragments: [
-                "art-systemserverclasspath-fragment",
-            ],
-
-            compat_configs: [
-                "libcore-platform-compat-config",
+            apexes: [
+                // Adds exportable dependencies of the API to the sdk,
+                // e.g. *classpath_fragments.
+                "com.android.art",
             ],
 
             java_header_libs: [

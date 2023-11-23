@@ -26,8 +26,8 @@ import com.android.queryable.Queryable;
 public interface PersistableBundleQuery<E extends Queryable> extends Query<PersistableBundle> {
 
     /** Queries a {@link PersistableBundle}. */
-    static PersistableBundleQuery<PersistableBundleQuery<?>> persistableBundle() {
-        return new PersistableBundleQueryHelper<>();
+    static PersistableBundleQueryHelper.PersistableBundleQueryBase persistableBundle() {
+        return new PersistableBundleQueryHelper.PersistableBundleQueryBase();
     }
 
     /** Queries a given key on the {@link PersistableBundle}. */

@@ -66,7 +66,8 @@ public class Choreographer_Delegate {
             Bridge.getLog().error(ILayoutLog.TAG_BROKEN,
                     "Callback with null action", (Object) null, null);
         }
-        context.getSessionInteractiveData().getChoreographerCallbacks().add(action, delayMillis);
+        context.getSessionInteractiveData().getChoreographerCallbacks().add(action,
+                token, delayMillis);
     }
 
     @LayoutlibDelegate
@@ -80,11 +81,7 @@ public class Choreographer_Delegate {
             // Ignore non-animation callbacks
             return;
         }
-        if (action == null) {
-            Bridge.getLog().error(ILayoutLog.TAG_BROKEN,
-                    "Callback with null action", (Object) null, null);
-        }
-        context.getSessionInteractiveData().getChoreographerCallbacks().remove(action);
+        context.getSessionInteractiveData().getChoreographerCallbacks().remove(action, token);
     }
 
     @LayoutlibDelegate

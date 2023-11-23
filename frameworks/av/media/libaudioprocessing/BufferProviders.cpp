@@ -373,18 +373,23 @@ ChannelMixBufferProvider::ChannelMixBufferProvider(audio_channel_mask_t inputCha
                 audio_bytes_per_sample(format)
                     * audio_channel_count_from_out_mask(outputChannelMask),
                 bufferFrameCount)
+        , mChannelMix{format == AUDIO_FORMAT_PCM_FLOAT
+                ? audio_utils::channels::IChannelMix::create(outputChannelMask) : nullptr}
+        , mIsValid{mChannelMix && mChannelMix->setInputChannelMask(inputChannelMask)}
 {
     ALOGV("ChannelMixBufferProvider(%p)(%#x, %#x, %#x)",
             this, format, inputChannelMask, outputChannelMask);
-    if (outputChannelMask == AUDIO_CHANNEL_OUT_STEREO && format == AUDIO_FORMAT_PCM_FLOAT) {
-        mIsValid = mChannelMix.setInputChannelMask(inputChannelMask);
-    }
 }
 
 void ChannelMixBufferProvider::copyFrames(void *dst, const void *src, size_t frames)
 {
-    mChannelMix.process(static_cast<const float *>(src), static_cast<float *>(dst),
-            frames, false /* accumulate */);
+    if (mIsValid) {
+        mChannelMix->process(static_cast<const float *>(src), static_cast<float *>(dst),
+                frames, false /* accumulate */);
+    } else {
+        // Should fall back to a different BufferProvider if not valid.
+        ALOGE("%s: Use without being valid!", __func__);
+    }
 }
 
 ReformatBufferProvider::ReformatBufferProvider(int32_t channelCount,
@@ -739,5 +744,21 @@ void AdjustChannelsBufferProvider::reset()
     mContractedWrittenFrames = 0;
     CopyBufferProvider::reset();
 }
+
+void TeeBufferProvider::copyFrames(void *dst, const void *src, size_t frames) {
+    memcpy(dst, src, frames * mInputFrameSize);
+    if (int teeBufferFrameLeft = mTeeBufferFrameCount - mFrameCopied; teeBufferFrameLeft < frames) {
+        ALOGW("Unable to copy all frames to tee buffer, %d frames dropped",
+              (int)frames - teeBufferFrameLeft);
+        frames = teeBufferFrameLeft;
+    }
+    memcpy(mTeeBuffer + mFrameCopied * mInputFrameSize, src, frames * mInputFrameSize);
+    mFrameCopied += frames;
+}
+
+void TeeBufferProvider::clearFramesCopied() {
+    mFrameCopied = 0;
+}
+
 // ----------------------------------------------------------------------------
 } // namespace android

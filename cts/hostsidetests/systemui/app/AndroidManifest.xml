@@ -19,9 +19,10 @@
      package="android.systemui.cts">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
-    <application>
+    <application
+        android:debuggable="true">
         <activity android:name=".TestNotificationActivity"
-                  android:exported="true"/>
+                  android:exported="true" />
 
         <service android:name=".TestTileService"
              android:icon="@android:drawable/ic_delete"
@@ -31,6 +32,9 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE"/>
             </intent-filter>
         </service>
+
+        <activity android:name=".TestTileService$TestActivity"
+                  android:exported="false" />
 
         <service android:name=".TestActiveTileService"
              android:icon="@android:drawable/ic_delete"

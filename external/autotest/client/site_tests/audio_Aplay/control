@@ -4,7 +4,7 @@
 
 AUTHOR = 'The Chromium OS Authors,chromeos-audio@google.com'
 NAME = 'audio_Aplay'
-ATTRIBUTES = "suite:kernel_per-build_regression"
+ATTRIBUTES = "suite:kernel_per-build_regression, suite:pvs-kernel"
 PURPOSE = """
 Test that simple Aplay with internal speaker succeeds. Used in other tests.
 """
@@ -15,6 +15,7 @@ TIME='SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = "audio,qav"
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 DOC = """
 Check that the system plays audio via internal speaker.

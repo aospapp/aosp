@@ -57,7 +57,6 @@ class __attribute__((packed)) SerializedLogEntry {
                 .realtime = realtime(),
                 .msg = msg(),
                 .msg_len = msg_len(),
-                .dropped_count = 0,
                 .log_id = log_id,
                 .total_len = total_len(),
         };

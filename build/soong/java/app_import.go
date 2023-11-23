@@ -19,6 +19,8 @@ package java
 import (
 	"reflect"
 
+	"github.com/google/blueprint"
+
 	"github.com/google/blueprint/proptools"
 
 	"android/soong/android"
@@ -30,6 +32,24 @@ func init() {
 
 	initAndroidAppImportVariantGroupTypes()
 }
+
+var (
+	uncompressEmbeddedJniLibsRule = pctx.AndroidStaticRule("uncompress-embedded-jni-libs", blueprint.RuleParams{
+		Command: `if (zipinfo $in 'lib/*.so' 2>/dev/null | grep -v ' stor ' >/dev/null) ; then ` +
+			`${config.Zip2ZipCmd} -i $in -o $out -0 'lib/**/*.so'` +
+			`; else cp -f $in $out; fi`,
+		CommandDeps: []string{"${config.Zip2ZipCmd}"},
+		Description: "Uncompress embedded JNI libs",
+	})
+
+	uncompressDexRule = pctx.AndroidStaticRule("uncompress-dex", blueprint.RuleParams{
+		Command: `if (zipinfo $in '*.dex' 2>/dev/null | grep -v ' stor ' >/dev/null) ; then ` +
+			`${config.Zip2ZipCmd} -i $in -o $out -0 'classes*.dex'` +
+			`; else cp -f $in $out; fi`,
+		CommandDeps: []string{"${config.Zip2ZipCmd}"},
+		Description: "Uncompress dex files",
+	})
+)
 
 func RegisterAppImportBuildComponents(ctx android.RegistrationContext) {
 	ctx.RegisterModuleType("android_app_import", AndroidAppImportFactory)
@@ -158,10 +178,6 @@ func MergePropertiesFromVariant(ctx android.EarlyModuleContext,
 	}
 }
 
-func (a *AndroidAppImport) isPrebuiltFrameworkRes() bool {
-	return a.Name() == "prebuilt_framework-res"
-}
-
 func (a *AndroidAppImport) DepsMutator(ctx android.BottomUpMutatorContext) {
 	cert := android.SrcIsModule(String(a.properties.Certificate))
 	if cert != "" {
@@ -178,7 +194,7 @@ func (a *AndroidAppImport) DepsMutator(ctx android.BottomUpMutatorContext) {
 		}
 	}
 
-	a.usesLibrary.deps(ctx, !a.isPrebuiltFrameworkRes())
+	a.usesLibrary.deps(ctx, true)
 }
 
 func (a *AndroidAppImport) uncompressEmbeddedJniLibs(
@@ -193,15 +209,12 @@ func (a *AndroidAppImport) uncompressEmbeddedJniLibs(
 		})
 		return
 	}
-	rule := android.NewRuleBuilder(pctx, ctx)
-	rule.Command().
-		Textf(`if (zipinfo %s 'lib/*.so' 2>/dev/null | grep -v ' stor ' >/dev/null) ; then`, inputPath).
-		BuiltTool("zip2zip").
-		FlagWithInput("-i ", inputPath).
-		FlagWithOutput("-o ", outputPath).
-		FlagWithArg("-0 ", "'lib/**/*.so'").
-		Textf(`; else cp -f %s %s; fi`, inputPath, outputPath)
-	rule.Build("uncompress-embedded-jni-libs", "Uncompress embedded JIN libs")
+
+	ctx.Build(pctx, android.BuildParams{
+		Rule:   uncompressEmbeddedJniLibsRule,
+		Input:  inputPath,
+		Output: outputPath,
+	})
 }
 
 // Returns whether this module should have the dex file stored uncompressed in the APK.
@@ -218,19 +231,6 @@ func (a *AndroidAppImport) shouldUncompressDex(ctx android.ModuleContext) bool {
 	return shouldUncompressDex(ctx, &a.dexpreopter)
 }
 
-func (a *AndroidAppImport) uncompressDex(
-	ctx android.ModuleContext, inputPath android.Path, outputPath android.OutputPath) {
-	rule := android.NewRuleBuilder(pctx, ctx)
-	rule.Command().
-		Textf(`if (zipinfo %s '*.dex' 2>/dev/null | grep -v ' stor ' >/dev/null) ; then`, inputPath).
-		BuiltTool("zip2zip").
-		FlagWithInput("-i ", inputPath).
-		FlagWithOutput("-o ", outputPath).
-		FlagWithArg("-0 ", "'classes*.dex'").
-		Textf(`; else cp -f %s %s; fi`, inputPath, outputPath)
-	rule.Build("uncompress-dex", "Uncompress dex files")
-}
-
 func (a *AndroidAppImport) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	a.generateAndroidBuildActions(ctx)
 }
@@ -240,6 +240,10 @@ func (a *AndroidAppImport) InstallApkName() string {
 }
 
 func (a *AndroidAppImport) generateAndroidBuildActions(ctx android.ModuleContext) {
+	if a.Name() == "prebuilt_framework-res" {
+		ctx.ModuleErrorf("prebuilt_framework-res found. This used to have special handling in soong, but was removed due to prebuilt_framework-res no longer existing. This check is to ensure it doesn't come back without readding the special handling.")
+	}
+
 	apexInfo := ctx.Provider(android.ApexInfoProvider).(android.ApexInfo)
 	if !apexInfo.IsForPlatform() {
 		a.hideApexVariantFromMake = true
@@ -259,7 +263,7 @@ func (a *AndroidAppImport) generateAndroidBuildActions(ctx android.ModuleContext
 		ctx.ModuleErrorf("One and only one of certficate, presigned, and default_dev_cert properties must be set")
 	}
 
-	_, certificates := collectAppDeps(ctx, a, false, false)
+	_, _, certificates := collectAppDeps(ctx, a, false, false)
 
 	// TODO: LOCAL_EXTRACT_APK/LOCAL_EXTRACT_DPI_APK
 	// TODO: LOCAL_PACKAGE_SPLITS
@@ -275,14 +279,7 @@ func (a *AndroidAppImport) generateAndroidBuildActions(ctx android.ModuleContext
 	var pathFragments []string
 	relInstallPath := String(a.properties.Relative_install_path)
 
-	if a.isPrebuiltFrameworkRes() {
-		// framework-res.apk is installed as system/framework/framework-res.apk
-		if relInstallPath != "" {
-			ctx.PropertyErrorf("relative_install_path", "Relative_install_path cannot be set for framework-res")
-		}
-		pathFragments = []string{"framework"}
-		a.preprocessed = true
-	} else if Bool(a.properties.Privileged) {
+	if Bool(a.properties.Privileged) {
 		pathFragments = []string{"priv-app", relInstallPath, a.BaseModuleName()}
 	} else if ctx.InstallInTestcases() {
 		pathFragments = []string{relInstallPath, a.BaseModuleName(), ctx.DeviceConfig().DeviceArch()}
@@ -306,7 +303,11 @@ func (a *AndroidAppImport) generateAndroidBuildActions(ctx android.ModuleContext
 	a.dexpreopter.dexpreopt(ctx, jnisUncompressed)
 	if a.dexpreopter.uncompressedDex {
 		dexUncompressed := android.PathForModuleOut(ctx, "dex-uncompressed", ctx.ModuleName()+".apk")
-		a.uncompressDex(ctx, jnisUncompressed, dexUncompressed.OutputPath)
+		ctx.Build(pctx, android.BuildParams{
+			Rule:   uncompressDexRule,
+			Input:  jnisUncompressed,
+			Output: dexUncompressed,
+		})
 		jnisUncompressed = dexUncompressed
 	}
 
@@ -316,21 +317,13 @@ func (a *AndroidAppImport) generateAndroidBuildActions(ctx android.ModuleContext
 
 	// Sign or align the package if package has not been preprocessed
 
-	if a.isPrebuiltFrameworkRes() {
-		a.outputFile = srcApk
-		certificates = processMainCert(a.ModuleBase, String(a.properties.Certificate), certificates, ctx)
-		if len(certificates) != 1 {
-			ctx.ModuleErrorf("Unexpected number of certificates were extracted: %q", certificates)
-		}
-		a.certificate = certificates[0]
-	} else if a.preprocessed {
+	if a.preprocessed {
 		a.outputFile = srcApk
 		a.certificate = PresignedCertificate
 	} else if !Bool(a.properties.Presigned) {
 		// If the certificate property is empty at this point, default_dev_cert must be set to true.
 		// Which makes processMainCert's behavior for the empty cert string WAI.
-		certificates = processMainCert(a.ModuleBase, String(a.properties.Certificate), certificates, ctx)
-		a.certificate = certificates[0]
+		a.certificate, certificates = processMainCert(a.ModuleBase, String(a.properties.Certificate), certificates, ctx)
 		signed := android.PathForModuleOut(ctx, "signed", apkFilename)
 		var lineageFile android.Path
 		if lineage := String(a.properties.Lineage); lineage != "" {
@@ -421,8 +414,8 @@ func (a *AndroidAppImport) SdkVersion(ctx android.EarlyModuleContext) android.Sd
 	return android.SdkSpecPrivate
 }
 
-func (a *AndroidAppImport) MinSdkVersion(ctx android.EarlyModuleContext) android.SdkSpec {
-	return android.SdkSpecPrivate
+func (a *AndroidAppImport) MinSdkVersion(ctx android.EarlyModuleContext) android.ApiLevel {
+	return android.SdkSpecPrivate.ApiLevel
 }
 
 func (a *AndroidAppImport) LintDepSets() LintDepSets {
@@ -461,19 +454,19 @@ func createVariantGroupType(variants []string, variantGroupName string) reflect.
 // android_app_import imports a prebuilt apk with additional processing specified in the module.
 // DPI-specific apk source files can be specified using dpi_variants. Example:
 //
-//     android_app_import {
-//         name: "example_import",
-//         apk: "prebuilts/example.apk",
-//         dpi_variants: {
-//             mdpi: {
-//                 apk: "prebuilts/example_mdpi.apk",
-//             },
-//             xhdpi: {
-//                 apk: "prebuilts/example_xhdpi.apk",
-//             },
-//         },
-//         presigned: true,
-//     }
+//	android_app_import {
+//	    name: "example_import",
+//	    apk: "prebuilts/example.apk",
+//	    dpi_variants: {
+//	        mdpi: {
+//	            apk: "prebuilts/example_mdpi.apk",
+//	        },
+//	        xhdpi: {
+//	            apk: "prebuilts/example_xhdpi.apk",
+//	        },
+//	    },
+//	    presigned: true,
+//	}
 func AndroidAppImportFactory() android.Module {
 	module := &AndroidAppImport{}
 	module.AddProperties(&module.properties)
@@ -502,7 +495,18 @@ type androidTestImportProperties struct {
 type AndroidTestImport struct {
 	AndroidAppImport
 
-	testProperties testProperties
+	testProperties struct {
+		// list of compatibility suites (for example "cts", "vts") that the module should be
+		// installed into.
+		Test_suites []string `android:"arch_variant"`
+
+		// list of files or filegroup modules that provide data that should be installed alongside
+		// the test
+		Data []string `android:"path"`
+
+		// Install the test into a folder named for the module in all test suites.
+		Per_testcase_directory *bool
+	}
 
 	testImportProperties androidTestImportProperties
 

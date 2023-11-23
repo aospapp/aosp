@@ -23,7 +23,8 @@ import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.res.Resources;
-import android.net.NetworkInfo;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
@@ -40,7 +41,8 @@ public class MergedCarrierEntryTest {
     @Mock private WifiEntry.ConnectCallback mMockConnectCallback;
     @Mock private WifiManager mMockWifiManager;
     @Mock private WifiInfo mMockWifiInfo;
-    @Mock private NetworkInfo mMockNetworkInfo;
+    @Mock private Network mMockNetwork;
+    @Mock private NetworkCapabilities mMockNetworkCapabilities;
     @Mock private Context mMockContext;
     @Mock private Resources mMockResources;
 
@@ -52,8 +54,8 @@ public class MergedCarrierEntryTest {
         MockitoAnnotations.initMocks(this);
         when(mMockWifiInfo.getNetworkId()).thenReturn(WifiConfiguration.INVALID_NETWORK_ID);
         when(mMockWifiInfo.getRssi()).thenReturn(WifiInfo.INVALID_RSSI);
-        when(mMockNetworkInfo.getDetailedState()).thenReturn(
-                NetworkInfo.DetailedState.DISCONNECTED);
+        when(mMockWifiInfo.isPrimary()).thenReturn(true);
+        when(mMockNetworkCapabilities.getTransportInfo()).thenReturn(mMockWifiInfo);
         mTestLooper = new TestLooper();
         mTestHandler = new Handler(mTestLooper.getLooper());
         when(mMockContext.getMainLooper()).thenReturn(Looper.getMainLooper());
@@ -70,9 +72,8 @@ public class MergedCarrierEntryTest {
                 false, mMockContext, subId);
         when(mMockWifiInfo.isCarrierMerged()).thenReturn(true);
         when(mMockWifiInfo.getSubscriptionId()).thenReturn(subId);
-        when(mMockNetworkInfo.getDetailedState()).thenReturn(NetworkInfo.DetailedState.CONNECTED);
 
-        entry.updateConnectionInfo(mMockWifiInfo, mMockNetworkInfo);
+        entry.onNetworkCapabilitiesChanged(mMockNetwork, mMockNetworkCapabilities);
 
         assertThat(entry.getConnectedState()).isEqualTo(WifiEntry.CONNECTED_STATE_CONNECTED);
     }
@@ -127,9 +128,8 @@ public class MergedCarrierEntryTest {
         when(mMockWifiInfo.getSubscriptionId()).thenReturn(subId);
         final String ssid = "ssid";
         when(mMockWifiInfo.getSSID()).thenReturn("\"" + ssid + "\"");
-        when(mMockNetworkInfo.getDetailedState()).thenReturn(NetworkInfo.DetailedState.CONNECTED);
 
-        entry.updateConnectionInfo(mMockWifiInfo, mMockNetworkInfo);
+        entry.onNetworkCapabilitiesChanged(mMockNetwork, mMockNetworkCapabilities);
 
         assertThat(entry.getSsid()).isEqualTo(ssid);
     }

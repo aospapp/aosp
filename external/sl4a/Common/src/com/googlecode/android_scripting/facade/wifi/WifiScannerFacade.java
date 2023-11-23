@@ -27,7 +27,6 @@ import android.net.wifi.WifiScanner.ScanData;
 import android.net.wifi.WifiScanner.ScanSettings;
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.provider.Settings.Global;
 import android.provider.Settings.SettingNotFoundException;
 
 import com.googlecode.android_scripting.Log;
@@ -400,7 +399,7 @@ public class WifiScannerFacade extends RpcReceiver {
             @RpcParameter(name = "scanSettings") JSONObject scanSettings)
                     throws JSONException {
         ScanSettings ss = parseScanSettings(scanSettings);
-        Log.d("startWifiScannerScan with " + ss.channels);
+        Log.d("startWifiScannerScan with " + Arrays.toString(ss.channels));
         WifiScanListener listener = genBackgroundWifiScanListener();
         mScan.startBackgroundScan(ss, listener);
         return listener.mIndex;
@@ -450,7 +449,7 @@ public class WifiScannerFacade extends RpcReceiver {
             @RpcParameter(name = "scanSettings") JSONObject scanSettings)
                     throws JSONException {
         ScanSettings ss = parseScanSettings(scanSettings);
-        Log.d("startWifiScannerScan with " + ss.channels);
+        Log.d("startWifiScannerScan with " + Arrays.toString(ss.channels));
         WifiScanListener listener = genWifiScanListener();
         mScan.startScan(ss, listener);
         return listener.mIndex;

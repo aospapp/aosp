@@ -27,5 +27,8 @@ cc_test {
         "libgmock",
     ],
     defaults: ["vhalclient_defaults"],
-    test_suites: ["device-tests"],
+    test_suites: [
+        "device-tests",
+        "automotive-tests",
+    ],
 }

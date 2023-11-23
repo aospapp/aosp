@@ -20,7 +20,6 @@ import android.annotation.NonNull;
 
 import com.android.server.uwb.secure.iso7816.StatusWord;
 import com.android.server.uwb.secure.iso7816.TlvDatum;
-import com.android.server.uwb.secure.iso7816.TlvDatum.Tag;
 
 import java.util.Arrays;
 import java.util.List;
@@ -32,14 +31,11 @@ public class PutDoCommand extends FiRaCommand {
 
     // TODO: define a DoTag to convert DO structure.
     @NonNull
-    private final Tag mDoTag;
-    @NonNull
-    private final byte[] mDoData;
+    private final TlvDatum mPuttingDataTlv;
 
-    private PutDoCommand(@NonNull Tag doTag, @NonNull byte[] doData) {
+    private PutDoCommand(@NonNull TlvDatum puttingDataTlv) {
         super();
-        mDoTag = doTag;
-        mDoData = doData;
+        mPuttingDataTlv = puttingDataTlv;
     }
 
     @Override
@@ -77,14 +73,14 @@ public class PutDoCommand extends FiRaCommand {
     @Override
     @NonNull
     protected List<TlvDatum> getTlvPayload() {
-        return Arrays.asList(new TlvDatum(mDoTag, mDoData));
+        return Arrays.asList(mPuttingDataTlv);
     }
 
     /**
      * Builds the PutDoCommand.
      */
     @NonNull
-    public static PutDoCommand build(@NonNull Tag doTag, @NonNull byte[] doData) {
-        return new PutDoCommand(doTag, doData);
+    public static PutDoCommand build(@NonNull TlvDatum puttingDataTlv) {
+        return new PutDoCommand(puttingDataTlv);
     }
 }

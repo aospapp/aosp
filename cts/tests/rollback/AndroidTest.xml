@@ -29,6 +29,7 @@
         <option name="teardown-command" value="pm uninstall com.android.cts.install.lib.testapp.A" />
         <option name="teardown-command" value="pm uninstall com.android.cts.install.lib.testapp.B" />
         <option name="teardown-command" value="pm uninstall com.android.cts.install.lib.testapp.C" />
+        <option name="run-command" value="settings put global device_config_sync_disabled 0" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest">
         <option name="package" value="com.android.cts.rollback"/>

@@ -1,14 +1,19 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+use std::fmt;
+use std::fmt::Display;
+
 use bit_field::Error as BitFieldError;
 use bit_field::*;
-use data_model::DataInit;
+use data_model::zerocopy_from_mut_slice;
+use data_model::zerocopy_from_slice;
 use remain::sorted;
-use std::fmt::{self, Display};
 use thiserror::Error;
 use vm_memory::GuestAddress;
+use zerocopy::AsBytes;
+use zerocopy::FromBytes;
 
 #[sorted]
 #[derive(Error, Debug)]
@@ -30,7 +35,7 @@ const SEGMENT_TABLE_SIZE: usize = 16;
 /// All kinds of trb.
 #[bitfield]
 #[bits = 6]
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum TrbType {
     Reserved = 0,
     Normal = 1,
@@ -59,7 +64,7 @@ pub enum TrbType {
 /// Completion code of trb types.
 #[bitfield]
 #[bits = 8]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum TrbCompletionCode {
     Success = 1,
     TransactionError = 4,
@@ -73,7 +78,7 @@ pub enum TrbCompletionCode {
 /// State of device slot.
 #[bitfield]
 #[bits = 5]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum DeviceSlotState {
     // The same value (0) is used for both the enabled and disabled states. See
     // xhci spec table 60.
@@ -86,7 +91,7 @@ pub enum DeviceSlotState {
 /// State of endpoint.
 #[bitfield]
 #[bits = 3]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum EndpointState {
     Disabled = 0,
     Running = 1,
@@ -94,7 +99,7 @@ pub enum EndpointState {
 
 #[bitfield]
 #[bits = 60]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct DequeuePtr(u64);
 
 impl DequeuePtr {
@@ -110,7 +115,7 @@ impl DequeuePtr {
 
 // Generic TRB struct containing only fields common to all types.
 #[bitfield]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq, FromBytes, AsBytes)]
 pub struct Trb {
     parameter: B64,
     status: B32,
@@ -287,7 +292,7 @@ impl Trb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, AsBytes, FromBytes)]
 pub struct NormalTrb {
     data_buffer: B64,
     trb_transfer_length: B17,
@@ -307,7 +312,7 @@ pub struct NormalTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct SetupStageTrb {
     request_type: B8,
     request: B8,
@@ -328,7 +333,7 @@ pub struct SetupStageTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct DataStageTrb {
     data_buffer_pointer: B64,
     trb_transfer_length: B17,
@@ -348,7 +353,7 @@ pub struct DataStageTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct StatusStageTrb {
     reserved0: B64,
     reserved1: B22,
@@ -365,7 +370,7 @@ pub struct StatusStageTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct IsochTrb {
     data_buffer_pointer: B64,
     trb_transfer_length: B17,
@@ -387,7 +392,7 @@ pub struct IsochTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, AsBytes, FromBytes)]
 pub struct LinkTrb {
     ring_segment_pointer: B64,
     reserved0: B22,
@@ -403,7 +408,7 @@ pub struct LinkTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct EventDataTrb {
     event_data: B64,
     reserved0: B22,
@@ -420,7 +425,7 @@ pub struct EventDataTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct NoopTrb {
     reserved0: B64,
     reserved1: B22,
@@ -436,7 +441,7 @@ pub struct NoopTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct DisableSlotCommandTrb {
     reserved0: B32,
     reserved1: B32,
@@ -449,7 +454,7 @@ pub struct DisableSlotCommandTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct AddressDeviceCommandTrb {
     input_context_pointer: B64,
     reserved: B32,
@@ -462,7 +467,7 @@ pub struct AddressDeviceCommandTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct ConfigureEndpointCommandTrb {
     input_context_pointer: B64,
     reserved0: B32,
@@ -475,7 +480,7 @@ pub struct ConfigureEndpointCommandTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct EvaluateContextCommandTrb {
     input_context_pointer: B64,
     reserved0: B32,
@@ -487,7 +492,7 @@ pub struct EvaluateContextCommandTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct ResetEndpointCommandTrb {
     reserved0: B32,
     reserved1: B32,
@@ -502,7 +507,7 @@ pub struct ResetEndpointCommandTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct StopEndpointCommandTrb {
     reserved0: B32,
     reserved1: B32,
@@ -517,7 +522,7 @@ pub struct StopEndpointCommandTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct SetTRDequeuePointerCommandTrb {
     dequeue_cycle_state: bool,
     stream_context_type: B3,
@@ -534,7 +539,7 @@ pub struct SetTRDequeuePointerCommandTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct ResetDeviceCommandTrb {
     reserved0: B32,
     reserved1: B32,
@@ -547,7 +552,7 @@ pub struct ResetDeviceCommandTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct TransferEventTrb {
     trb_pointer: B64,
     trb_transfer_length: B24,
@@ -563,7 +568,7 @@ pub struct TransferEventTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct CommandCompletionEventTrb {
     trb_pointer: B64,
     command_completion_parameter: B24,
@@ -576,7 +581,7 @@ pub struct CommandCompletionEventTrb {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct PortStatusChangeEventTrb {
     reserved0: B24,
     port_id: B8,
@@ -676,17 +681,17 @@ impl TypedTrb for PortStatusChangeEventTrb {
 
 /// All trb structs have the same size. One trb could be safely casted to another, though the
 /// values might be invalid.
-pub unsafe trait TrbCast: DataInit + TypedTrb {
+pub unsafe trait TrbCast: FromBytes + AsBytes + TypedTrb {
     fn cast<T: TrbCast>(&self) -> Result<&T> {
-        T::from_slice(self.as_slice()).ok_or(Error::CannotCastTrb)
+        zerocopy_from_slice(self.as_bytes()).ok_or(Error::CannotCastTrb)
     }
 
     fn cast_mut<T: TrbCast>(&mut self) -> Result<&mut T> {
-        T::from_mut_slice(self.as_mut_slice()).ok_or(Error::CannotCastTrb)
+        zerocopy_from_mut_slice(self.as_bytes_mut()).ok_or(Error::CannotCastTrb)
     }
 
     fn checked_cast<T: TrbCast>(&self) -> Result<&T> {
-        if Trb::from_slice(self.as_slice())
+        if zerocopy_from_slice::<Trb>(self.as_bytes())
             .ok_or(Error::CannotCastTrb)?
             .get_trb_type()
             .map_err(Error::UnknownTrbType)?
@@ -694,11 +699,11 @@ pub unsafe trait TrbCast: DataInit + TypedTrb {
         {
             return Err(Error::CannotCastTrb);
         }
-        T::from_slice(self.as_slice()).ok_or(Error::CannotCastTrb)
+        zerocopy_from_slice(self.as_bytes()).ok_or(Error::CannotCastTrb)
     }
 
     fn checked_mut_cast<T: TrbCast>(&mut self) -> Result<&mut T> {
-        if Trb::from_slice(self.as_slice())
+        if zerocopy_from_slice::<Trb>(self.as_bytes())
             .ok_or(Error::CannotCastTrb)?
             .get_trb_type()
             .map_err(Error::UnknownTrbType)?
@@ -706,37 +711,9 @@ pub unsafe trait TrbCast: DataInit + TypedTrb {
         {
             return Err(Error::CannotCastTrb);
         }
-        T::from_mut_slice(self.as_mut_slice()).ok_or(Error::CannotCastTrb)
+        zerocopy_from_mut_slice(self.as_bytes_mut()).ok_or(Error::CannotCastTrb)
     }
 }
-
-unsafe impl DataInit for Trb {}
-unsafe impl DataInit for NormalTrb {}
-unsafe impl DataInit for SetupStageTrb {}
-unsafe impl DataInit for DataStageTrb {}
-unsafe impl DataInit for StatusStageTrb {}
-unsafe impl DataInit for IsochTrb {}
-unsafe impl DataInit for LinkTrb {}
-unsafe impl DataInit for EventDataTrb {}
-unsafe impl DataInit for NoopTrb {}
-unsafe impl DataInit for DisableSlotCommandTrb {}
-unsafe impl DataInit for AddressDeviceCommandTrb {}
-unsafe impl DataInit for ConfigureEndpointCommandTrb {}
-unsafe impl DataInit for EvaluateContextCommandTrb {}
-unsafe impl DataInit for ResetEndpointCommandTrb {}
-unsafe impl DataInit for StopEndpointCommandTrb {}
-unsafe impl DataInit for SetTRDequeuePointerCommandTrb {}
-unsafe impl DataInit for ResetDeviceCommandTrb {}
-unsafe impl DataInit for TransferEventTrb {}
-unsafe impl DataInit for CommandCompletionEventTrb {}
-unsafe impl DataInit for PortStatusChangeEventTrb {}
-unsafe impl DataInit for EventRingSegmentTableEntry {}
-unsafe impl DataInit for InputControlContext {}
-unsafe impl DataInit for SlotContext {}
-unsafe impl DataInit for EndpointContext {}
-
-unsafe impl DataInit for DeviceContext {}
-unsafe impl DataInit for AddressedTrb {}
 
 unsafe impl TrbCast for Trb {}
 unsafe impl TrbCast for NormalTrb {}
@@ -760,7 +737,7 @@ unsafe impl TrbCast for CommandCompletionEventTrb {}
 unsafe impl TrbCast for PortStatusChangeEventTrb {}
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, AsBytes, FromBytes)]
 pub struct EventRingSegmentTableEntry {
     ring_segment_base_address: B64,
     ring_segment_size: B16,
@@ -768,7 +745,7 @@ pub struct EventRingSegmentTableEntry {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, AsBytes, FromBytes)]
 pub struct InputControlContext {
     // Xhci spec 6.2.5.1.
     drop_context_flags: B32,
@@ -800,7 +777,7 @@ impl InputControlContext {
 pub const DEVICE_CONTEXT_ENTRY_SIZE: usize = 32usize;
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 pub struct SlotContext {
     route_string: B20,
     speed: B4,
@@ -826,7 +803,7 @@ pub struct SlotContext {
 }
 
 #[bitfield]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, AsBytes, FromBytes)]
 pub struct EndpointContext {
     endpoint_state: EndpointState,
     reserved1: B5,
@@ -853,7 +830,8 @@ pub struct EndpointContext {
 }
 
 /// Device context.
-#[derive(Clone, Copy, Debug)]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, FromBytes, AsBytes)]
 pub struct DeviceContext {
     pub slot_context: SlotContext,
     pub endpoint_context: [EndpointContext; 31],
@@ -862,7 +840,7 @@ pub struct DeviceContext {
 /// POD struct associates a TRB with its address in guest memory.  This is
 /// useful because transfer and command completion event TRBs must contain
 /// pointers to the original TRB that generated the event.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AddressedTrb {
     pub trb: Trb,
     pub gpa: u64,

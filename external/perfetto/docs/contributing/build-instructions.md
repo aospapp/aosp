@@ -84,7 +84,7 @@ tools/ninja -C out/android \
   traced_probes \          # Ftrace interop and /proc poller.
   perfetto \               # Cmdline client.
   trace_processor_shell \  # Trace parsing.
-  trace_to_text            # Trace conversion.
+  traceconv                # Trace conversion.
 ...
 ```
 
@@ -141,6 +141,29 @@ The server supports live reloading of CSS and TS/JS contents. Whenever a ui
 source file is changed it, the script will automatically re-build it and show a
 prompt in the web page.
 
+UI unit tests are located next to the functionality being tested, and have
+`_unittest.ts` or `_jsdomtest.ts` suffixes. The following command runs all unit
+tests:
+
+```bash
+ui/run-unittests
+```
+
+This command will perform the build first; which is not necessary if you
+already have a development server running. In this case, to avoid interference
+with the rebuild done by development server and to get the results faster, you
+can use
+
+```bash
+ui/run-unittests --no-build
+```
+
+to skip the build steps.
+
+Script `ui/run-unittests` also supports `--watch` parameter, which would
+restart the testing when the underlying source files are changed. This can be
+used in conjunction with `--no-build`, and on its own as well.
+
 ## Build files
 
 The source of truth of our build file is in the BUILD.gn files, which are based
@@ -194,7 +217,7 @@ chrome://tracing). The MSVC build is maintained best-effort.
 The following targets are supported on Windows:
 
 - `trace_processor_shell`: the trace importer and SQL query engine.
-- `trace_to_text`: the trace conversion tool.
+- `traceconv`: the trace conversion tool.
 - `traced` and `perfetto`: the tracing service and cmdline client. They use an
   alternative implementation of the [inter-process tracing protocol](/docs/design-docs/api-and-abi.md#tracing-protocol-abi)
   based on a TCP socket and named shared memory. This configuration is only for
@@ -282,7 +305,7 @@ below.
 
 ## Build configurations
 
-TIP: `tools/build_all_configs.py` can be used to generate out/XXX folders for
+TIP: `tools/setup_all_configs.py` can be used to generate out/XXX folders for
 most of the supported configurations.
 
 The following [GN args][gn-quickstart] are supported:
@@ -317,6 +340,12 @@ See also the [custom toolchain](#custom-toolchain) section below.
 `is_hermetic_clang = true | false`
 
 Use bundled toolchain from `buildtools/` rather than system-wide one.
+
+`non_hermetic_clang_stdlib = libc++ | libstdc++`
+
+If `is_hermetic_clang` is `false`, sets the `-stdlib` flag for clang
+invocations. `libstdc++` is default on Linux hosts and `libc++` is
+default everywhere else.
 
 `cc = "gcc" / cxx = "g++"`
 

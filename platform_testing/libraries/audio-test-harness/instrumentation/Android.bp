@@ -33,4 +33,7 @@ android_test {
     dex_preopt: {
         enabled: false,
     },
+    test_options: {
+        unit_test: false,
+    },
 }

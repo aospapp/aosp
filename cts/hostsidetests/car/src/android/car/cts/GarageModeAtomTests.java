@@ -15,6 +15,7 @@
  */
 package android.car.cts;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.cts.statsdatom.lib.AtomTestUtils;
@@ -55,7 +56,7 @@ public class GarageModeAtomTests extends DeviceTestCase implements IBuildReceive
 
         // Give enough time to remove/clear reports in statsd because that happens
         // asynchronously
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
     }
@@ -89,9 +90,9 @@ public class GarageModeAtomTests extends DeviceTestCase implements IBuildReceive
         List<Set<Integer>> stateSet = Arrays.asList(garageModeOn, garageModeOff);
 
         turnOnGarageMode();
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         turnOffGarageMode();
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, AtomTestUtils.WAIT_TIME_SHORT,

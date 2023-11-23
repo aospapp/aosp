@@ -195,6 +195,8 @@ class VulkanCountingCodegen(VulkanTypeIterator):
                     return "(%s && %s)" % (loop(expr.args[0], lambdaEnv), loop(expr.args[1], lambdaEnv))
                 if "or" == fnamestr:
                     return "(%s || %s)" % (loop(expr.args[0], lambdaEnv), loop(expr.args[1], lambdaEnv))
+                if "bitwise_and" == fnamestr:
+                    return "(%s & %s)" % (loop(expr.args[0], lambdaEnv), loop(expr.args[1], lambdaEnv))
                 if "getfield" == fnamestr:
                     ptrlevels = get_ptrlevels(expr.args[0].val.name)
                     if ptrlevels == 0:

@@ -36,9 +36,4 @@ python_library {
     srcs: [
        "scapy/**/*.py",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-    },
 }

@@ -16,6 +16,8 @@
 
 package android.net.wifi.rtt.cts;
 
+import static android.net.wifi.rtt.ResponderConfig.RESPONDER_AP;
+
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -35,6 +37,7 @@ import android.net.wifi.rtt.RangingRequest;
 import android.net.wifi.rtt.RangingResult;
 import android.net.wifi.rtt.ResponderConfig;
 import android.net.wifi.rtt.ResponderLocation;
+import android.net.wifi.rtt.WifiRttManager;
 import android.platform.test.annotations.AppModeFull;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -146,16 +149,18 @@ public class WifiRttTest extends TestBase {
                 .setCenterFreq0Mhz(testAp.centerFreq0)
                 .setCenterFreq1Mhz(testAp.centerFreq1)
                 .setPreamble(preamble)
+                .setResponderType(RESPONDER_AP)
                 .build();
 
         // Validate ResponderConfig.Builder set method arguments match getter methods.
         assertTrue(responder.getMacAddress().toString().equalsIgnoreCase(testAp.BSSID)
-                        && responder.is80211mcSupported() == testAp.is80211mcResponder()
-                        && responder.getChannelWidth() == testAp.channelWidth
-                        && responder.getFrequencyMhz() == testAp.frequency
-                        && responder.getCenterFreq0Mhz() == testAp.centerFreq0
-                        && responder.getCenterFreq1Mhz() == testAp.centerFreq1
-                        && responder.getPreamble() == preamble);
+                && responder.is80211mcSupported() == testAp.is80211mcResponder()
+                && responder.getChannelWidth() == testAp.channelWidth
+                && responder.getFrequencyMhz() == testAp.frequency
+                && responder.getCenterFreq0Mhz() == testAp.centerFreq0
+                && responder.getCenterFreq1Mhz() == testAp.centerFreq1
+                && responder.getPreamble() == preamble
+                && responder.getResponderType() == RESPONDER_AP);
 
         // Perform RTT operations
         RangingRequest.Builder builder = new RangingRequest.Builder();
@@ -235,6 +240,8 @@ public class WifiRttTest extends TestBase {
         int[] rssis = new int[NUM_OF_RTT_ITERATIONS];
         int[] numAttempted = new int[NUM_OF_RTT_ITERATIONS];
         int[] numSuccessful = new int[NUM_OF_RTT_ITERATIONS];
+        int[] frequencies = new int[NUM_OF_RTT_ITERATIONS];
+        int[] packetBws = new int[NUM_OF_RTT_ITERATIONS];
         long[] timestampsMs = new long[NUM_OF_RTT_ITERATIONS];
         byte[] lastLci = null;
         byte[] lastLcr = null;
@@ -287,6 +294,8 @@ public class WifiRttTest extends TestBase {
                 numAttempted[i - numFailures] = result.getNumAttemptedMeasurements();
                 numSuccessful[i - numFailures] = result.getNumSuccessfulMeasurements();
                 timestampsMs[i - numFailures] = result.getRangingTimestampMillis();
+                frequencies[i - numFailures] = result.getMeasurementChannelFrequencyMHz();
+                packetBws[i - numFailures] = result.getMeasurementBandwidth();
 
                 byte[] currentLci = result.getLci();
                 byte[] currentLcr = result.getLcr();
@@ -322,6 +331,10 @@ public class WifiRttTest extends TestBase {
         reportLog.addValues("num_successful", Arrays.copyOf(numSuccessful, numGoodResults),
                 ResultType.NEUTRAL, ResultUnit.NONE);
         reportLog.addValues("timestamps", Arrays.copyOf(timestampsMs, numGoodResults),
+                ResultType.NEUTRAL, ResultUnit.NONE);
+        reportLog.addValues("frequencies", Arrays.copyOf(frequencies, numGoodResults),
+                ResultType.NEUTRAL, ResultUnit.NONE);
+        reportLog.addValues("packetBws", Arrays.copyOf(packetBws, numGoodResults),
                 ResultType.NEUTRAL, ResultUnit.NONE);
         reportLog.submit();
 
@@ -562,7 +575,7 @@ public class WifiRttTest extends TestBase {
      */
     @Test
     public void testAwareRttWithPeerHandle() throws InterruptedException {
-        if (WifiFeature.isAwareSupported(getContext())) {
+        if (!WifiFeature.isAwareSupported(getContext())) {
             return;
         }
         PeerHandle peerHandle = mock(PeerHandle.class);
@@ -605,7 +618,7 @@ public class WifiRttTest extends TestBase {
         builder.setRttBurstSize(RangingRequest.getMaxRttBurstSize());
         RangingRequest request = builder.build();
 
-        // Perform the rquest
+        // Perform the request
         rangeNon11mcApRequest(request, testAp, MAX_NON11MC_VARIATION_FROM_AVERAGE_DISTANCE_MM);
     }
 
@@ -639,7 +652,9 @@ public class WifiRttTest extends TestBase {
         builder.setRttBurstSize(RangingRequest.getMaxRttBurstSize());
         RangingRequest request = builder.build();
 
-        // Perform the rquest
+
+
+        // Perform the request
         rangeNon11mcApRequest(request, testAp, MAX_NON11MC_VARIATION_FROM_AVERAGE_DISTANCE_MM);
     }
 
@@ -747,15 +762,14 @@ public class WifiRttTest extends TestBase {
                 ResultType.NEUTRAL, ResultUnit.NONE);
         reportLog.submit();
 
-        // This bug below has been addressed by making the test parameters for Non-80211mc devices
-        // less stringent. Please update the bug if this does not solve the problem.
-        // TODO(b/192909380): enable the performance verification after device fix.
-
-        // Analyze results
-        assertTrue("Wi-Fi RTT failure rate exceeds threshold: FAIL=" + numFailures
-                        + ", ITERATIONS="
-                        + NUM_OF_RTT_ITERATIONS + ", AP=" + testAp,
-                numFailures <= NUM_OF_RTT_ITERATIONS * MAX_NON11MC_FAILURE_RATE_PERCENT / 100);
+        if (mCharacteristics != null && mCharacteristics.getBoolean(WifiRttManager
+                .CHARACTERISTICS_KEY_BOOLEAN_ONE_SIDED_RTT)) {
+            // Analyze results
+            assertTrue("Wi-Fi RTT failure rate exceeds threshold: FAIL=" + numFailures
+                            + ", ITERATIONS="
+                            + NUM_OF_RTT_ITERATIONS + ", AP=" + testAp,
+                    numFailures <= NUM_OF_RTT_ITERATIONS * MAX_NON11MC_FAILURE_RATE_PERCENT / 100);
+        }
 
         if (numFailures != NUM_OF_RTT_ITERATIONS) {
             // Calculate an initial average using all measurements to determine distance outliers

@@ -49,4 +49,10 @@ rust_library {
     srcs: ["src/lib.rs"],
     edition: "2015",
     features: ["std"],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }

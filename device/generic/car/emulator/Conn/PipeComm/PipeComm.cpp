@@ -18,11 +18,11 @@
 
 #include <log/log.h>
 
-#include "qemu_pipe.h"
+#include "qemud.h"
 
 #include "PipeComm.h"
 
-#define CAR_SERVICE_NAME "pipe:qemud:car"
+#define CAR_SERVICE_NAME "car"
 
 
 namespace android {
@@ -36,7 +36,7 @@ namespace impl {
 PipeComm::PipeComm(MessageProcessor* messageProcessor) : CommConn(messageProcessor), mPipeFd(-1) {}
 
 void PipeComm::start() {
-    int fd = qemu_pipe_open(CAR_SERVICE_NAME);
+    int fd = qemud_channel_open(CAR_SERVICE_NAME);
 
     if (fd < 0) {
         ALOGE("%s: Could not open connection to service: %s %d", __FUNCTION__, strerror(errno), fd);
@@ -62,7 +62,7 @@ std::vector<uint8_t> PipeComm::read() {
     std::vector<uint8_t> msg = std::vector<uint8_t>(MAX_RX_MSG_SZ);
     int numBytes;
 
-    numBytes = qemu_pipe_frame_recv(mPipeFd, msg.data(), msg.size());
+    numBytes = qemud_channel_recv(mPipeFd, msg.data(), msg.size());
 
     if (numBytes == MAX_RX_MSG_SZ) {
         ALOGE("%s: Received max size = %d", __FUNCTION__, MAX_RX_MSG_SZ);
@@ -81,7 +81,7 @@ int PipeComm::write(const std::vector<uint8_t>& data) {
     int retVal = 0;
 
     if (mPipeFd != -1) {
-        retVal = qemu_pipe_frame_send(mPipeFd, data.data(), data.size());
+        retVal = qemud_channel_send(mPipeFd, data.data(), data.size());
     }
 
     if (retVal < 0) {

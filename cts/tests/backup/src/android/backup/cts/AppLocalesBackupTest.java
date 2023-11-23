@@ -23,7 +23,6 @@ import static com.android.compatibility.common.util.SystemUtil.callWithShellPerm
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 
 import android.Manifest;
-import android.app.Instrumentation;
 import android.app.LocaleManager;
 import android.app.time.ExternalTimeSuggestion;
 import android.app.time.TimeManager;
@@ -38,6 +37,7 @@ import android.content.IntentFilter;
 import android.os.LocaleList;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
+import android.provider.Settings;
 
 import androidx.test.InstrumentationRegistry;
 
@@ -72,8 +72,13 @@ public class AppLocalesBackupTest extends BaseBackupCtsTest {
 
     private static final Duration RETENTION_PERIOD = Duration.ofDays(3);
 
+    private static final String SHELL_COMMAND_IS_AUTO_DETECTION_ENABLED =
+            "cmd time_detector is_auto_detection_enabled";
+
     private Context mContext;
     private LocaleManager mLocaleManager;
+    private boolean mOriginalAutoTime;
+    private DeviceShellCommandExecutor mShellCommandExecutor;
 
     @Before
     @Override
@@ -82,6 +87,14 @@ public class AppLocalesBackupTest extends BaseBackupCtsTest {
 
         mContext = InstrumentationRegistry.getTargetContext();
         mLocaleManager = mContext.getSystemService(LocaleManager.class);
+        mShellCommandExecutor = new InstrumentationShellCommandExecutor(
+                InstrumentationRegistry.getInstrumentation().getUiAutomation());
+
+        mOriginalAutoTime = isAutoDetectionEnabled(mShellCommandExecutor);
+        // Auto time needs to be enabled to be able to suggest external time
+        if (!mOriginalAutoTime) {
+            assertTrue(setAutoTimeEnabled(/*enabled*/ true, mShellCommandExecutor));
+        }
 
         install(TEST_APP_APK_1);
         install(TEST_APP_APK_2);
@@ -89,6 +102,11 @@ public class AppLocalesBackupTest extends BaseBackupCtsTest {
 
     @After
     public void tearDown() throws Exception {
+        // reset auto time to its original value
+        if (!mOriginalAutoTime) {
+            setAutoTimeEnabled(/*enabled*/ false, mShellCommandExecutor);
+        }
+
         uninstall(TEST_APP_PACKAGE_1);
         uninstall(TEST_APP_PACKAGE_2);
     }
@@ -239,11 +257,8 @@ public class AppLocalesBackupTest extends BaseBackupCtsTest {
         // Locales for App1 should be restored immediately since that's present already.
         assertLocalesForApp(TEST_APP_PACKAGE_1, DEFAULT_LOCALES_1);
 
-        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
-        DeviceShellCommandExecutor shellCommandExecutor = new InstrumentationShellCommandExecutor(
-                instrumentation.getUiAutomation());
         DeviceConfigShellHelper deviceConfigShellHelper = new DeviceConfigShellHelper(
-                shellCommandExecutor);
+                mShellCommandExecutor);
 
         // This anticipates a future state where a generally applied target preparer may disable
         // device_config sync for all CTS tests: only suspend syncing if it isn't already suspended,
@@ -337,11 +352,9 @@ public class AppLocalesBackupTest extends BaseBackupCtsTest {
 
         getBackupUtils().restoreAndAssertSuccess(RESTORE_TOKEN, SYSTEM_PACKAGE);
 
-        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
-        DeviceShellCommandExecutor shellCommandExecutor = new InstrumentationShellCommandExecutor(
-                instrumentation.getUiAutomation());
+
         DeviceConfigShellHelper deviceConfigShellHelper = new DeviceConfigShellHelper(
-                shellCommandExecutor);
+                mShellCommandExecutor);
 
         // This anticipates a future state where a generally applied target preparer may disable
         // device_config sync for all CTS tests: only suspend syncing if it isn't already suspended,
@@ -480,6 +493,23 @@ public class AppLocalesBackupTest extends BaseBackupCtsTest {
     private void resetAppLocales() throws Exception {
         setApplicationLocalesAndVerify(TEST_APP_PACKAGE_1, EMPTY_LOCALES);
         setApplicationLocalesAndVerify(TEST_APP_PACKAGE_2, EMPTY_LOCALES);
+    }
+
+    private boolean isAutoDetectionEnabled(
+            DeviceShellCommandExecutor shellCommandExecutor) throws Exception {
+        return shellCommandExecutor.executeToBoolean(SHELL_COMMAND_IS_AUTO_DETECTION_ENABLED);
+    }
+
+    private boolean setAutoTimeEnabled(
+            boolean enabled, DeviceShellCommandExecutor shellCommandExecutor) throws Exception {
+        // Android T does not have a dedicated shell command or API to change time auto detection
+        // setting, so direct Settings changes are used.
+        Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.AUTO_TIME,
+                enabled ? 1 : 0);
+
+        sleepForAsyncOperation();
+
+        return isAutoDetectionEnabled(shellCommandExecutor) == enabled;
     }
 
     private static final class BlockingBroadcastReceiver extends BroadcastReceiver {

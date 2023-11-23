@@ -17,7 +17,7 @@ def define_tests():
         test_common.define_test(
             'desktopui/ChromeSanity',
             suites = ['bvt-perbuild'],
-            main_package = 'autotest_lib.client.site_tests.desktopui_ChromeSanity.desktopui_ChromeSanity',
+            main_package = 'autotest_lib.client.site_tests.desktopui_ChromeCheck.desktopui_ChromeCheck',
         ),
         test_common.define_test(
             'desktopui/ConnectivityDiagnostics',

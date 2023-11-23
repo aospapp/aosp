@@ -32,7 +32,7 @@ genrule_defaults {
     tool_files: [":SEPolicyKeyPem", ":SEPolicyCertPem"],
     // Use fsverity tool to generate the signature file which
     // will be stored in the apex.
-    // https://git.kernel.org/pub/scm/linux/kernel/git/ebiggers/fsverity-utils.git/tree/README.md
+    // https://git.kernel.org/pub/scm/fs/fsverity/fsverity-utils.git/tree/README.md
     cmd: "$(location fsverity) sign $(in) $(out) " +
         "--key=$(location :SEPolicyKeyPem) " +
         "--cert=$(location :SEPolicyCertPem) " +
@@ -45,6 +45,19 @@ genrule_defaults {
     cmd: "mkdir $(genDir)/files && " +
         "cp $(in) $(genDir)/files && " +
         "$(location soong_zip) -o $(out) -C $(genDir)/files -D $(genDir)/files",
+}
+
+filegroup {
+    name: "sepolicy_proto_def",
+    srcs: [ "sepolicy.proto" ],
+}
+
+genrule_defaults {
+    name: "sepolicy_info_bin_gen_default",
+    tools: ["aprotoc"],
+    tool_files: [ ":sepolicy_proto_def" ],
+    cmd: "$(location aprotoc) --encode=com.android.sepolicy.SepolicyInfo " +
+        "-I $$(dirname $(location :sepolicy_proto_def)) $(location :sepolicy_proto_def) < $(in) > $(out)",
 }
 
 prebuilt_etc {

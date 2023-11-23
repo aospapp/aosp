@@ -53,4 +53,3 @@ class TakoTraceLogger(tracelogger.TraceLogger):
         Note that flushing the log is handled automatically by python's logging
         module.
         """
-        pass

@@ -17,21 +17,18 @@
 package android.media.audio.cts;
 
 import android.content.Context;
-import android.media.audiofx.AudioEffect;
-import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.audio.cts.R;
+import android.media.audiofx.AudioEffect;
 import android.media.audiofx.Visualizer;
 import android.media.audiofx.Visualizer.MeasurementPeakRms;
 import android.media.cts.PostProcTestBase;
-import android.media.cts.Preconditions;
 import android.os.Looper;
 import android.platform.test.annotations.AppModeFull;
-import android.test.AndroidTestCase;
+import android.util.Log;
 
 import java.util.UUID;
-import android.util.Log;
 
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class VisualizerTest extends PostProcTestBase {

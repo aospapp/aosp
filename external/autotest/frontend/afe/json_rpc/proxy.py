@@ -1,4 +1,4 @@
-
+# Lint as: python2, python3
 """
   Copyright (c) 2007 Jan-Klaas Kollhof
 
@@ -19,11 +19,16 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
 import socket
 import subprocess
-import urllib
-import urllib2
+from six.moves import urllib
+import six
+from six.moves import urllib
 from autotest_lib.client.common_lib import error as exceptions
 from autotest_lib.client.common_lib import global_config
 
@@ -123,17 +128,22 @@ class ServiceProxy(object):
         # Caller can pass in a minimum value of timeout to be used for urlopen
         # call. Otherwise, the default socket timeout will be used.
         min_rpc_timeout = kwargs.pop('min_rpc_timeout', None)
-        postdata = json_encoder_class().encode({'method': self.__serviceName,
-                                                'params': args + (kwargs,),
-                                                'id': 'jsonrpc'})
-        url_with_args = self.__serviceURL + '?' + urllib.urlencode({
-            'method': self.__serviceName})
+        postdata = json_encoder_class().encode({
+                'method': self.__serviceName,
+                'params': args + (kwargs, ),
+                'id': 'jsonrpc'
+        }).encode('utf-8')
+        url_with_args = self.__serviceURL + '?' + urllib.parse.urlencode(
+                {'method': self.__serviceName})
         if self.__use_sso_client:
             respdata = _sso_request(url_with_args, self.__headers, postdata,
                                     min_rpc_timeout)
         else:
             respdata = _raw_http_request(url_with_args, self.__headers,
                                          postdata, min_rpc_timeout)
+
+        if isinstance(respdata, bytes):
+            respdata = respdata.decode('utf-8')
 
         try:
             resp = decoder.JSONDecoder().decode(respdata)
@@ -155,13 +165,15 @@ def _raw_http_request(url_with_args, headers, postdata, timeout):
 
     @returns: the response from the http request.
     """
-    request = urllib2.Request(url_with_args, data=postdata, headers=headers)
+    request = urllib.request.Request(url_with_args,
+                                     data=postdata,
+                                     headers=headers)
     default_timeout = socket.getdefaulttimeout()
     if not default_timeout:
         # If default timeout is None, socket will never time out.
-        return urllib2.urlopen(request).read()
+        return urllib.request.urlopen(request).read()
     else:
-        return urllib2.urlopen(
+        return urllib.request.urlopen(
                 request,
                 timeout=max(timeout, default_timeout),
         ).read()
@@ -177,7 +189,8 @@ def _sso_request(url_with_args, headers, postdata, timeout):
 
     @returns: the response from the http request.
     """
-    headers_str = '; '.join(['%s: %s' % (k, v) for k, v in headers.iteritems()])
+    headers_str = '; '.join(
+            ['%s: %s' % (k, v) for k, v in six.iteritems(headers)])
     cmd = [
         'sso_client',
         '-url', url_with_args,

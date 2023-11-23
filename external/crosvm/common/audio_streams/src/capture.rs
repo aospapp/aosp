@@ -1,6 +1,7 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
 //! ```
 //! use audio_streams::{BoxError, capture::CaptureBuffer, SampleFormat, StreamSource,
 //!     NoopStreamSource};
@@ -30,18 +31,23 @@
 //! # }
 //! ```
 
-use async_trait::async_trait;
-use std::{
-    io::{self, Read, Write},
-    time::{Duration, Instant},
-};
+use std::io;
+use std::io::Read;
+use std::io::Write;
+use std::time::Duration;
+use std::time::Instant;
 
-use super::async_api::AudioStreamsExecutor;
-use super::{
-    AsyncBufferCommit, AudioBuffer, BoxError, BufferCommit, NoopBufferCommit, SampleFormat,
-};
+use async_trait::async_trait;
 use remain::sorted;
 use thiserror::Error;
+
+use super::async_api::AudioStreamsExecutor;
+use super::AsyncBufferCommit;
+use super::AudioBuffer;
+use super::BoxError;
+use super::BufferCommit;
+use super::NoopBufferCommit;
+use super::SampleFormat;
 
 /// `CaptureBufferStream` provides `CaptureBuffer`s to read with audio samples from capture.
 pub trait CaptureBufferStream: Send {
@@ -145,6 +151,10 @@ impl<'a> CaptureBuffer<'a> {
         self.drop.commit(self.frame_capacity());
     }
 
+    pub fn latency_bytes(&self) -> u32 {
+        self.drop.latency_bytes()
+    }
+
     /// Reads up to `size` bytes directly from this buffer inside of the given callback function.
     pub fn copy_cb<F: FnOnce(&[u8])>(&mut self, size: usize, cb: F) -> io::Result<usize> {
         self.buffer.read_copy_cb(size, cb)
@@ -193,6 +203,10 @@ impl<'a> AsyncCaptureBuffer<'a> {
     /// Always sends `frame_capacity`.
     pub async fn commit(&mut self) {
         self.trigger.commit(self.frame_capacity()).await;
+    }
+
+    pub fn latency_bytes(&self) -> u32 {
+        self.trigger.latency_bytes()
     }
 
     /// Reads up to `size` bytes directly from this buffer inside of the given callback function.
@@ -308,10 +322,11 @@ where
 
 #[cfg(test)]
 mod tests {
+    use futures::FutureExt;
+
     use super::super::async_api::test::TestExecutor;
     use super::super::*;
     use super::*;
-    use futures::FutureExt;
 
     #[test]
     fn invalid_buffer_length() {

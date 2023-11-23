@@ -41,11 +41,11 @@ data class LightPermGroupInfo(
     val isSinglePermGroup: Boolean
 ) {
 
-    constructor(pII: PackageItemInfo): this(pII.name, pII.packageName, pII.labelRes, pII.icon,
+    constructor(pII: PackageItemInfo) : this(pII.name, pII.packageName, pII.labelRes, pII.icon,
         0, pII is PermissionInfo)
 
-    constructor(pGI: PermissionGroupInfo): this(pGI.name, pGI.packageName, pGI.labelRes, pGI.icon,
-        pGI.descriptionRes, pGI is PermissionInfo)
+    constructor(pGI: PermissionGroupInfo) : this(pGI.name, pGI.packageName, pGI.labelRes, pGI.icon,
+        pGI.descriptionRes, false)
 
     /**
      * Gets the PackageItemInfo for this permission group from the system.

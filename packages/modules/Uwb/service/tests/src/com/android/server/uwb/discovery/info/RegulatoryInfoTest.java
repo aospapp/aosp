@@ -27,6 +27,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 /**
  * Unit test for {@link RegulatoryInfo}
@@ -58,16 +59,23 @@ public class RegulatoryInfoTest {
     }
 
     @Test
+    public void fromBytes_invalidSourceOfInfo() {
+        byte[] bytes = Arrays.copyOf(TEST_BYTES, TEST_BYTES.length);
+        bytes[0] = 0x71;
+        assertThat(RegulatoryInfo.fromBytes(bytes)).isNull();
+    }
+
+    @Test
     public void fromBytes_invalidReservedField() {
-        byte[] bytes =
-                new byte[] {0x47, 0x55, 0x53, 0x7F, 0x3B, 0x1E, 0x62, (byte) 0xD8, (byte) 0x9F};
+        byte[] bytes = Arrays.copyOf(TEST_BYTES, TEST_BYTES.length);
+        bytes[0] = 0x47;
         assertThat(RegulatoryInfo.fromBytes(bytes)).isNull();
     }
 
     @Test
     public void fromBytes_invalidCountryCode() {
-        byte[] bytes =
-                new byte[] {0x47, 0x2b, 0x53, 0x7F, 0x3B, 0x1E, 0x62, (byte) 0xD8, (byte) 0x9F};
+        byte[] bytes = Arrays.copyOf(TEST_BYTES, TEST_BYTES.length);
+        bytes[1] = 0x2b;
         assertThat(RegulatoryInfo.fromBytes(bytes)).isNull();
     }
 
@@ -132,18 +140,9 @@ public class RegulatoryInfoTest {
                                     IS_INDOOR,
                                     AVERAGE_POWER_DBM)
                         });
-        byte[] bytes =
-                new byte[] {
-                    (byte) (sourceOfInfoByte | 0x01),
-                    0x55,
-                    0x53,
-                    0x62,
-                    0x1E,
-                    0x3B,
-                    0x7F,
-                    (byte) 0xD8,
-                    (byte) 0x9F
-                };
+        byte[] bytes = Arrays.copyOf(TEST_BYTES, TEST_BYTES.length);
+        bytes[0] = (byte) (sourceOfInfoByte | 0x01);
+
         byte[] bytesResult = RegulatoryInfo.toBytes(info);
         RegulatoryInfo regulatoryInfoResult = RegulatoryInfo.fromBytes(bytes);
         assertThat(regulatoryInfoResult).isNotNull();

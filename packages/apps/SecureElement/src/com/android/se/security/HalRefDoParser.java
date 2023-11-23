@@ -41,7 +41,7 @@ import java.util.Map;
  */
 public class HalRefDoParser {
 
-    private static final boolean DEBUG = Build.IS_DEBUGGABLE;
+    private static final boolean DEBUG = Build.isDebuggable();
     private final String mTag = "SecureElement-HalRefDoParser";
 
     private static final String PROP_PRODUCT_HARDWARE_SKU = "ro.boot.product.hardware.sku";

@@ -63,6 +63,31 @@ float audio_utils_compute_power_mono(const void *buffer, audio_format_t format, 
 float audio_utils_compute_energy_mono(const void *buffer, audio_format_t format, size_t samples);
 
 /**
+ * \brief Compute for each channel signal energy (sum of squared amplitudes).
+ *
+ *   \param buffer       buffer of samples.
+ *   \param format       one of AUDIO_FORMAT_PCM_8_BIT, AUDIO_FORMAT_PCM_16_BIT,
+ *                       AUDIO_FORMAT_PCM_24_BIT_PACKED, AUDIO_FORMAT_PCM_8_24_BIT,
+ *                       AUDIO_FORMAT_PCM_32_BIT, AUDIO_FORMAT_PCM_FLOAT.
+ *   \param samples      number of samples in buffer.  This is not audio frames;
+ *                       usually the number of samples is the number of audio frames
+ *                       multiplied by channel count.
+ *   \param numChannels  the number of channels for which the energy is computed.
+ *   \param out          interleaved buffer containing for each channel the sample
+ *                       energy. Must be initialized with zero values or pre-existing
+ *                       energy to accumulate to.
+ *
+ * \return
+ *   out array is updated by adding for each channel the signal energy of the samples
+ *   in the buffer (sum of squares).
+ */
+void audio_utils_accumulate_energy(const void* buffer,
+                                   audio_format_t format,
+                                   size_t samples,
+                                   size_t numChannels,
+                                   float* out);
+
+/**
  * \brief  Returns true if the format is supported for compute_energy_for_mono()
  *         and compute_power_for_mono().
  * \param  format        format under consideration.

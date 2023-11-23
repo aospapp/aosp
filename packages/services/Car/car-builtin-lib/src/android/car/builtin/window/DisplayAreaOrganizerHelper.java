@@ -17,6 +17,8 @@
 package android.car.builtin.window;
 
 import android.annotation.SystemApi;
+import android.car.builtin.annotation.AddedIn;
+import android.car.builtin.annotation.PlatformVersion;
 import android.window.DisplayAreaOrganizer;
 
 /**
@@ -29,5 +31,6 @@ public class DisplayAreaOrganizerHelper {
     /**
      * The value in display area indicating that no value has been set.
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static final int FEATURE_UNDEFINED = DisplayAreaOrganizer.FEATURE_UNDEFINED;
 }

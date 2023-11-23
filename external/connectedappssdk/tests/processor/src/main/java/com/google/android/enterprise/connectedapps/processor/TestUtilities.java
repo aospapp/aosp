@@ -32,6 +32,8 @@ final class TestUtilities {
       "com.google.android.enterprise.connectedapps.annotations.CustomUserConnector";
   public static final String GENERATED_PROFILE_CONNECTOR_QUALIFIED_NAME =
       "com.google.android.enterprise.connectedapps.annotations.GeneratedProfileConnector";
+  public static final String UNCAUGHT_EXCEPTIONS_POLICY_QUALIFIED_NAME =
+      "com.google.android.enterprise.connectedapps.annotations.UncaughtExceptionsPolicy";
   public static final String GENERATED_USER_CONNECTOR_QUALIFIED_NAME =
       "com.google.android.enterprise.connectedapps.annotations.GeneratedUserConnector";
   public static final String PROFILE_CONNECTOR_QUALIFIED_NAME =
@@ -498,6 +500,42 @@ final class TestUtilities {
         "}");
   }
 
+  public static JavaFileObject installationListenerSimple(AnnotationPrinter annotationPrinter) {
+    return JavaFileObjects.forSourceLines(
+        NOTES_PACKAGE + ".InstallationListener",
+        "package " + NOTES_PACKAGE + ";",
+        "import " + annotationPrinter.crossProfileCallbackQualifiedName() + ";",
+        annotationPrinter.crossProfileCallbackAsAnnotation("simple=true"),
+        "public interface InstallationListener {",
+        "  void installationComplete();",
+        "}");
+  }
+
+  public static JavaFileObject installationListenerSimpleWithStringParam(
+      AnnotationPrinter annotationPrinter) {
+    return JavaFileObjects.forSourceLines(
+        NOTES_PACKAGE + ".InstallationListener",
+        "package " + NOTES_PACKAGE + ";",
+        "import " + annotationPrinter.crossProfileCallbackQualifiedName() + ";",
+        annotationPrinter.crossProfileCallbackAsAnnotation("simple=true"),
+        "public interface InstallationListener {",
+        "  void installationComplete(String s);",
+        "}");
+  }
+
+  public static JavaFileObject installationListenerSimpleWithIntentParam(
+      AnnotationPrinter annotationPrinter) {
+    return JavaFileObjects.forSourceLines(
+        NOTES_PACKAGE + ".InstallationListener",
+        "package " + NOTES_PACKAGE + ";",
+        "import android.content.Intent;",
+        "import " + annotationPrinter.crossProfileCallbackQualifiedName() + ";",
+        annotationPrinter.crossProfileCallbackAsAnnotation("simple=true"),
+        "public interface InstallationListener {",
+        "  void installationComplete(Intent i);",
+        "}");
+  }
+
   public static JavaFileObject installationListenerWithStringParam(
       AnnotationPrinter annotationPrinter) {
     return JavaFileObjects.forSourceLines(
@@ -573,6 +611,19 @@ final class TestUtilities {
         "import com.google.android.enterprise.connectedapps.CrossProfileConnector;",
         annotationPrinter.crossProfileConfigurationAsAnnotation(
             "providers=NotesProvider.class, connector=CrossProfileConnector.class"),
+        "public abstract class NotesConfiguration {",
+        "}");
+  }
+
+  public static JavaFileObject annotatedNotesConfigurationWithNotesProviderAndCrossUserConnector(
+      AnnotationPrinter annotationPrinter) {
+    return JavaFileObjects.forSourceLines(
+        NOTES_PACKAGE + ".NotesConfiguration",
+        "package " + NOTES_PACKAGE + ";",
+        "import " + annotationPrinter.crossProfileConfigurationQualifiedName() + ";",
+        "import com.google.android.enterprise.connectedapps.CrossUserConnector;",
+        annotationPrinter.crossProfileConfigurationAsAnnotation(
+            "providers=NotesProvider.class, connector=CrossUserConnector.class"),
         "public abstract class NotesConfiguration {",
         "}");
   }

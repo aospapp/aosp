@@ -26,4 +26,5 @@ parcelable GetEntriesResultParcel {
     byte[] deviceNameSpaces;
     byte[] mac;
     byte[] staticAuthenticationData;
+    byte[] signature;                      // Added in Android 14 / U
 }

@@ -17,10 +17,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.view.cts.receivecontent">
 
-    <application android:debuggable="true">
-        <uses-library android:name="android.test.runner" />
-    </application>
-
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.view.cts.receivecontent"
                      android:label="CTS tests for OnReceiveContentListener and related code">

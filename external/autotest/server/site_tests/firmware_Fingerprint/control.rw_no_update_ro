@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_Fingerprint.RWNoUpdateRO"
 PURPOSE = """
 Verify HW write protect prevents RO fingerprint firmware modification.
@@ -19,6 +19,7 @@ TEST_CLASS = "firmware"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING, fingerprint"
 JOB_RETRIES = 0
+PY_VERSION = 3
 
 # This test uses futility and dev keys from autotest/files/server/cros/faft.
 REQUIRE_SSP = True

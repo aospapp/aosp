@@ -23,16 +23,14 @@
 #include <android-base/logging.h>
 
 using android::Mutex;
-using android::sp;
-using android::wp;
 
 ALooper::ALooper()
     : mAwoken(false) {
 }
 
-void ALooper::signalSensorEvents(wp<ASensorEventQueue> queue) {
+void ALooper::signalSensorEvents(const std::shared_ptr<ASensorEventQueue>& queue) {
     Mutex::Autolock autoLock(mLock);
-    mReadyQueues.insert(queue);
+    mReadyQueues.push_back(std::weak_ptr<ASensorEventQueue>(queue));
     mCondition.signal();
 }
 
@@ -74,7 +72,7 @@ int ALooper::pollOnce(
         result = ALOOPER_POLL_CALLBACK;
 
         for (auto& queue : mReadyQueues) {
-            sp<ASensorEventQueue> promotedQueue = queue.promote();
+            std::shared_ptr<ASensorEventQueue> promotedQueue = queue.lock();
             if (promotedQueue != nullptr) {
                 promotedQueue->dispatchCallback();
             }
@@ -91,7 +89,13 @@ int ALooper::pollOnce(
     return result;
 }
 
-void ALooper::invalidateSensorQueue(wp<ASensorEventQueue> queue) {
+void ALooper::invalidateSensorQueue(const std::shared_ptr<ASensorEventQueue>& queue) {
     Mutex::Autolock autoLock(mLock);
-    mReadyQueues.erase(queue);
+
+    mReadyQueues.erase(std::remove_if(mReadyQueues.begin(), mReadyQueues.end(),
+                                      [&](const std::weak_ptr<ASensorEventQueue>& ptr) {
+                                          std::shared_ptr<ASensorEventQueue> in = ptr.lock();
+                                          return (in == nullptr) || (in == queue);
+                                      }),
+                       mReadyQueues.end());
 }

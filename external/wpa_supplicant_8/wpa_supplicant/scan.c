@@ -299,6 +299,8 @@ int wpa_supplicant_trigger_scan(struct wpa_supplicant *wpa_s,
 		return -1;
 	}
 
+	wpa_s->wps_scan_done = false;
+
 	return 0;
 }
 
@@ -443,17 +445,74 @@ static void wpa_supplicant_optimize_freqs(
 	}
 
 	if (params->freqs == NULL && wpa_s->p2p_in_invitation) {
+		struct wpa_ssid *ssid = wpa_s->current_ssid;
+
+		/*
+		 * Perform a single-channel scan if the GO has already been
+		 * discovered on another non-P2P interface. Note that a scan
+		 * initiated by a P2P interface (e.g., the device interface)
+		 * should already have sufficient IEs and scan results will be
+		 * fetched on interface creation in that case.
+		 */
+		if (wpa_s->p2p_in_invitation == 1 && ssid) {
+			struct wpa_supplicant *ifs;
+			struct wpa_bss *bss = NULL;
+			const u8 *bssid = ssid->bssid_set ? ssid->bssid : NULL;
+
+			dl_list_for_each(ifs, &wpa_s->radio->ifaces,
+					 struct wpa_supplicant, radio_list) {
+				bss = wpa_bss_get(ifs, bssid, ssid->ssid,
+						  ssid->ssid_len);
+				if (bss)
+					break;
+			}
+			if (bss && !disabled_freq(wpa_s, bss->freq)) {
+				params->freqs = os_calloc(2, sizeof(int));
+				if (params->freqs) {
+					wpa_dbg(wpa_s, MSG_DEBUG,
+						"P2P: Scan only the known GO frequency %d MHz during invitation",
+						bss->freq);
+					params->freqs[0] = bss->freq;
+				}
+			}
+		}
+
 		/*
 		 * Optimize scan based on GO information during persistent
 		 * group reinvocation
 		 */
-		if (wpa_s->p2p_in_invitation < 5 &&
+		if (!params->freqs && wpa_s->p2p_in_invitation < 5 &&
 		    wpa_s->p2p_invite_go_freq > 0) {
-			wpa_dbg(wpa_s, MSG_DEBUG, "P2P: Scan only GO preferred frequency %d MHz during invitation",
-				wpa_s->p2p_invite_go_freq);
-			params->freqs = os_calloc(2, sizeof(int));
-			if (params->freqs)
-				params->freqs[0] = wpa_s->p2p_invite_go_freq;
+			if (wpa_s->p2p_invite_go_freq == 2 ||
+			    wpa_s->p2p_invite_go_freq == 5) {
+				enum hostapd_hw_mode mode;
+
+				wpa_dbg(wpa_s, MSG_DEBUG,
+					"P2P: Scan only GO preferred band %d GHz during invitation",
+					wpa_s->p2p_invite_go_freq);
+
+				if (!wpa_s->hw.modes)
+					return;
+				mode = wpa_s->p2p_invite_go_freq == 5 ?
+					HOSTAPD_MODE_IEEE80211A :
+					HOSTAPD_MODE_IEEE80211G;
+				if (wpa_s->p2p_in_invitation <= 2)
+					wpa_add_scan_freqs_list(wpa_s, mode,
+								params, false,
+								false, true);
+				if (!params->freqs || params->freqs[0] == 0)
+					wpa_add_scan_freqs_list(wpa_s, mode,
+								params, false,
+								false, false);
+			} else {
+				wpa_dbg(wpa_s, MSG_DEBUG,
+					"P2P: Scan only GO preferred frequency %d MHz during invitation",
+					wpa_s->p2p_invite_go_freq);
+				params->freqs = os_calloc(2, sizeof(int));
+				if (params->freqs)
+					params->freqs[0] =
+					    wpa_s->p2p_invite_go_freq;
+			}
 		}
 		wpa_s->p2p_in_invitation++;
 		if (wpa_s->p2p_in_invitation > 20) {
@@ -465,6 +524,7 @@ static void wpa_supplicant_optimize_freqs(
 			 */
 			wpa_dbg(wpa_s, MSG_DEBUG, "P2P: Clear p2p_in_invitation");
 			wpa_s->p2p_in_invitation = 0;
+			wpa_s->p2p_retry_limit = 0;
 		}
 	}
 #endif /* CONFIG_P2P */
@@ -709,7 +769,9 @@ static int non_p2p_network_enabled(struct wpa_supplicant *wpa_s)
 
 int wpa_add_scan_freqs_list(struct wpa_supplicant *wpa_s,
 			    enum hostapd_hw_mode band,
-			    struct wpa_driver_scan_params *params, bool is_6ghz)
+			    struct wpa_driver_scan_params *params,
+			    bool is_6ghz, bool only_6ghz_psc,
+			    bool exclude_radar)
 {
 	/* Include only supported channels for the specified band */
 	struct hostapd_hw_modes *mode;
@@ -717,7 +779,7 @@ int wpa_add_scan_freqs_list(struct wpa_supplicant *wpa_s,
 	int *freqs, i;
 
 	mode = get_mode(wpa_s->hw.modes, wpa_s->hw.num_modes, band, is_6ghz);
-	if (!mode)
+	if (!mode || !mode->num_channels)
 		return -1;
 
 	if (params->freqs) {
@@ -734,6 +796,14 @@ int wpa_add_scan_freqs_list(struct wpa_supplicant *wpa_s,
 	for (i = 0; i < mode->num_channels; i++) {
 		if (mode->channels[i].flag & HOSTAPD_CHAN_DISABLED)
 			continue;
+		if (exclude_radar &&
+		    (mode->channels[i].flag & HOSTAPD_CHAN_RADAR))
+			continue;
+
+		if (is_6ghz && only_6ghz_psc &&
+		    !is_6ghz_psc_frequency(mode->channels[i].freq))
+			continue;
+
 		params->freqs[num_chans++] = mode->channels[i].freq;
 	}
 	params->freqs[num_chans] = 0;
@@ -752,13 +822,13 @@ static void wpa_setband_scan_freqs(struct wpa_supplicant *wpa_s,
 
 	if (wpa_s->setband_mask & WPA_SETBAND_5G)
 		wpa_add_scan_freqs_list(wpa_s, HOSTAPD_MODE_IEEE80211A, params,
-					false);
+					false, false, false);
 	if (wpa_s->setband_mask & WPA_SETBAND_2G)
 		wpa_add_scan_freqs_list(wpa_s, HOSTAPD_MODE_IEEE80211G, params,
-					false);
+					false, false, false);
 	if (wpa_s->setband_mask & WPA_SETBAND_6G)
 		wpa_add_scan_freqs_list(wpa_s, HOSTAPD_MODE_IEEE80211A, params,
-					true);
+					true, false, false);
 }
 
 
@@ -1036,19 +1106,6 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 	}
 
 #ifdef CONFIG_P2P
-#ifdef ANDROID
-	if (wpa_s->global->p2p_go_found_external_scan &&
-	    (wpa_s->p2p_group_interface == P2P_GROUP_INTERFACE_CLIENT) &&
-	    (wpa_s->global->p2p_group_formation == wpa_s)) {
-		wpa_dbg(wpa_s, MSG_DEBUG,
-			"Try to fast associate since GO is found in external scan");
-		wpa_s->global->p2p_go_found_external_scan = 0;
-		if (wpa_supplicant_fast_associate(wpa_s) >= 0) {
-			return;
-		}
-	}
-#endif
-
 	if ((wpa_s->p2p_in_provisioning || wpa_s->show_group_started) &&
 	    wpa_s->go_params && !wpa_s->conf->passive_scan) {
 		wpa_printf(MSG_DEBUG, "P2P: Use specific SSID for scan during P2P group formation (p2p_in_provisioning=%d show_group_started=%d)",
@@ -1280,7 +1337,8 @@ ssid_list_set:
 
 		params.freqs = os_calloc(num + 1, sizeof(int));
 		if (params.freqs) {
-			num = get_shared_radio_freqs(wpa_s, params.freqs, num);
+			num = get_shared_radio_freqs(wpa_s, params.freqs, num,
+						     false);
 			if (num > 0) {
 				wpa_dbg(wpa_s, MSG_DEBUG, "Scan only the "
 					"current operating channels since "
@@ -1341,6 +1399,12 @@ ssid_list_set:
 		}
 	}
 
+	if (wpa_s->last_scan_req == MANUAL_SCAN_REQ &&
+	    wpa_s->manual_non_coloc_6ghz) {
+		wpa_dbg(wpa_s, MSG_DEBUG, "Collocated 6 GHz logic is disabled");
+		params.non_coloc_6ghz = 1;
+	}
+
 	scan_params = &params;
 
 scan:
@@ -1364,7 +1428,13 @@ scan:
 
 		params.freqs = os_calloc(num + 1, sizeof(int));
 		if (params.freqs) {
-			num = get_shared_radio_freqs(wpa_s, params.freqs, num);
+			/*
+			 * Exclude the operating frequency of the current
+			 * interface since we're looking to transition off of
+			 * it.
+			 */
+			num = get_shared_radio_freqs(wpa_s, params.freqs, num,
+						     true);
 			if (num > 0 && num == wpa_s->num_multichan_concurrent) {
 				wpa_dbg(wpa_s, MSG_DEBUG, "Scan only the current operating channels since all channels are already used");
 			} else {
@@ -1374,33 +1444,9 @@ scan:
 		}
 	}
 
-	if (!params.freqs &&
-	    (wpa_s->p2p_in_invitation || wpa_s->p2p_in_provisioning) &&
-	    !is_p2p_allow_6ghz(wpa_s->global->p2p) &&
-	    is_6ghz_supported(wpa_s)) {
-		int i;
-
-		/* Exclude 5 GHz channels from the full scan for P2P connection
-		 * since the 6 GHz band is disabled for P2P uses. */
-		wpa_printf(MSG_DEBUG,
-			   "P2P: 6 GHz disabled - update the scan frequency list");
-		for (i = 0; i < wpa_s->hw.num_modes; i++) {
-			if (wpa_s->hw.modes[i].num_channels == 0)
-				continue;
-			if (wpa_s->hw.modes[i].mode == HOSTAPD_MODE_IEEE80211G)
-				wpa_add_scan_freqs_list(
-					wpa_s, HOSTAPD_MODE_IEEE80211G,
-					&params, false);
-			if (wpa_s->hw.modes[i].mode == HOSTAPD_MODE_IEEE80211A)
-				wpa_add_scan_freqs_list(
-					wpa_s, HOSTAPD_MODE_IEEE80211A,
-					&params, false);
-			if (wpa_s->hw.modes[i].mode == HOSTAPD_MODE_IEEE80211AD)
-				wpa_add_scan_freqs_list(
-					wpa_s, HOSTAPD_MODE_IEEE80211AD,
-					&params, false);
-		}
-	}
+	if (!params.freqs && is_6ghz_supported(wpa_s) &&
+	    (wpa_s->p2p_in_invitation || wpa_s->p2p_in_provisioning))
+		wpas_p2p_scan_freqs(wpa_s, &params, true);
 #endif /* CONFIG_P2P */
 
 	ret = wpa_supplicant_trigger_scan(wpa_s, scan_params);
@@ -1952,6 +1998,18 @@ const u8 * wpa_scan_get_ie(const struct wpa_scan_res *res, u8 ie)
 }
 
 
+const u8 * wpa_scan_get_ml_ie(const struct wpa_scan_res *res, u8 type)
+{
+	size_t ie_len = res->ie_len;
+
+	/* Use the Beacon frame IEs if res->ie_len is not available */
+	if (!ie_len)
+		ie_len = res->beacon_ie_len;
+
+	return get_ml_ie((const u8 *) (res + 1), ie_len, type);
+}
+
+
 /**
  * wpa_scan_get_vendor_ie - Fetch vendor information element from a scan result
  * @res: Scan result entry
@@ -2194,20 +2252,33 @@ static void dump_scan_res(struct wpa_scan_results *scan_res)
 	for (i = 0; i < scan_res->num; i++) {
 		struct wpa_scan_res *r = scan_res->res[i];
 		u8 *pos;
+		const u8 *ssid_ie, *ssid = NULL;
+		size_t ssid_len = 0;
+
+		ssid_ie = wpa_scan_get_ie(r, WLAN_EID_SSID);
+		if (ssid_ie) {
+			ssid = ssid_ie + 2;
+			ssid_len = ssid_ie[1];
+		}
+
 		if (r->flags & WPA_SCAN_LEVEL_DBM) {
 			int noise_valid = !(r->flags & WPA_SCAN_NOISE_INVALID);
 
-			wpa_printf(MSG_EXCESSIVE, MACSTR " freq=%d qual=%d "
-				   "noise=%d%s level=%d snr=%d%s flags=0x%x age=%u est=%u",
-				   MAC2STR(r->bssid), r->freq, r->qual,
+			wpa_printf(MSG_EXCESSIVE, MACSTR
+				   " ssid=%s freq=%d qual=%d noise=%d%s level=%d snr=%d%s flags=0x%x age=%u est=%u",
+				   MAC2STR(r->bssid),
+				   wpa_ssid_txt(ssid, ssid_len),
+				   r->freq, r->qual,
 				   r->noise, noise_valid ? "" : "~", r->level,
 				   r->snr, r->snr >= GREAT_SNR ? "*" : "",
 				   r->flags,
 				   r->age, r->est_throughput);
 		} else {
-			wpa_printf(MSG_EXCESSIVE, MACSTR " freq=%d qual=%d "
-				   "noise=%d level=%d flags=0x%x age=%u est=%u",
-				   MAC2STR(r->bssid), r->freq, r->qual,
+			wpa_printf(MSG_EXCESSIVE, MACSTR
+				   " ssid=%s freq=%d qual=%d noise=%d level=%d flags=0x%x age=%u est=%u",
+				   MAC2STR(r->bssid),
+				   wpa_ssid_txt(ssid, ssid_len),
+				   r->freq, r->qual,
 				   r->noise, r->level, r->flags, r->age,
 				   r->est_throughput);
 		}
@@ -2364,6 +2435,8 @@ static const struct minsnr_bitrate_entry vht160_table[] = {
 	{ -1, 780000 }  /* SNR > 37 */
 };
 
+/* EHT needs to be enabled in order to achieve MCS12 and MCS13 rates. */
+#define EHT_MCS 12
 
 static const struct minsnr_bitrate_entry he20_table[] = {
 	{ 0, 0 },
@@ -2379,7 +2452,9 @@ static const struct minsnr_bitrate_entry he20_table[] = {
 	{ 31, 114700 }, /* HE20 MCS9 */
 	{ 34, 129000 }, /* HE20 MCS10 */
 	{ 36, 143400 }, /* HE20 MCS11 */
-	{ -1, 143400 }  /* SNR > 29 */
+	{ 39, 154900 }, /* EHT20 MCS12 */
+	{ 42, 172100 }, /* EHT20 MCS13 */
+	{ -1, 172100 }  /* SNR > 42 */
 };
 
 static const struct minsnr_bitrate_entry he40_table[] = {
@@ -2396,7 +2471,9 @@ static const struct minsnr_bitrate_entry he40_table[] = {
 	{ 34, 229400 }, /* HE40 MCS9 */
 	{ 37, 258100 }, /* HE40 MCS10 */
 	{ 39, 286800 }, /* HE40 MCS11 */
-	{ -1, 286800 }  /* SNR > 34 */
+	{ 42, 309500 }, /* EHT40 MCS12 */
+	{ 45, 344100 }, /* EHT40 MCS13 */
+	{ -1, 344100 }  /* SNR > 45 */
 };
 
 static const struct minsnr_bitrate_entry he80_table[] = {
@@ -2413,7 +2490,9 @@ static const struct minsnr_bitrate_entry he80_table[] = {
 	{ 37, 480400 }, /* HE80 MCS9 */
 	{ 40, 540400 }, /* HE80 MCS10 */
 	{ 42, 600500 }, /* HE80 MCS11 */
-	{ -1, 600500 }  /* SNR > 37 */
+	{ 45, 648500 }, /* EHT80 MCS12 */
+	{ 48, 720600 }, /* EHT80 MCS13 */
+	{ -1, 720600 }  /* SNR > 48 */
 };
 
 
@@ -2431,9 +2510,31 @@ static const struct minsnr_bitrate_entry he160_table[] = {
 	{ 40, 960800 },  /* HE160 MCS9 */
 	{ 43, 1080900 }, /* HE160 MCS10 */
 	{ 45, 1201000 }, /* HE160 MCS11 */
-	{ -1, 1201000 }  /* SNR > 37 */
+	{ 48, 1297100 }, /* EHT160 MCS12 */
+	{ 51, 1441200 }, /* EHT160 MCS13 */
+	{ -1, 1441200 }  /* SNR > 51 */
 };
 
+/* See IEEE P802.11be/D2.0, Table 36-86: EHT-MCSs for 4x996-tone RU, NSS,u = 1
+ */
+static const struct minsnr_bitrate_entry eht320_table[] = {
+	{ 0, 0 },
+	{ 14, 144100 },   /* EHT320 MCS0 */
+	{ 17, 288200 },   /* EHT320 MCS1 */
+	{ 21, 432400 },   /* EHT320 MCS2 */
+	{ 23, 576500 },   /* EHT320 MCS3 */
+	{ 27, 864700 },   /* EHT320 MCS4 */
+	{ 30, 1152900 },  /* EHT320 MCS5 */
+	{ 32, 1297100 },  /* EHT320 MCS6 */
+	{ 37, 1441200 },  /* EHT320 MCS7 */
+	{ 41, 1729400 },  /* EHT320 MCS8 */
+	{ 43, 1921500 },  /* EHT320 MCS9 */
+	{ 46, 2161800 },  /* EHT320 MCS10 */
+	{ 48, 2401900 },  /* EHT320 MCS11 */
+	{ 51, 2594100 },  /* EHT320 MCS12 */
+	{ 54, 2882400 },  /* EHT320 MCS13 */
+	{ -1, 2882400 }   /* SNR > 54 */
+};
 
 static unsigned int interpolate_rate(int snr, int snr0, int snr1,
 				     int rate0, int rate1)
@@ -2485,17 +2586,18 @@ static unsigned int max_vht160_rate(int snr)
 }
 
 
-static unsigned int max_he_rate(const struct minsnr_bitrate_entry table[],
-				int snr)
+static unsigned int max_he_eht_rate(const struct minsnr_bitrate_entry table[],
+				    int snr, bool eht)
 {
 	const struct minsnr_bitrate_entry *prev, *entry = table;
 
-	while (entry->minsnr != -1 && snr >= entry->minsnr)
+	while (entry->minsnr != -1 && snr >= entry->minsnr &&
+	       (eht || entry - table <= EHT_MCS))
 		entry++;
 	if (entry == table)
 		return 0;
 	prev = entry - 1;
-	if (entry->minsnr == -1)
+	if (entry->minsnr == -1 || (!eht && entry - table > EHT_MCS))
 		return prev->bitrate;
 	return interpolate_rate(snr, prev->minsnr, entry->minsnr,
 				prev->bitrate, entry->bitrate);
@@ -2633,8 +2735,11 @@ unsigned int wpas_get_est_tpt(const struct wpa_supplicant *wpa_s,
 	if (hw_mode && hw_mode->he_capab[IEEE80211_MODE_INFRA].he_supported) {
 		/* Use +2 to assume HE is always faster than HT/VHT */
 		struct ieee80211_he_capabilities *he;
+		struct ieee80211_eht_capabilities *eht;
 		struct he_capabilities *own_he;
-		u8 cw;
+		u8 cw, boost = 2;
+		const u8 *eht_ie;
+		bool is_eht = false;
 
 		ie = get_ie_ext(ies, ies_len, WLAN_EID_EXT_HE_CAPABILITIES);
 		if (!ie || (ie[1] < 1 + IEEE80211_HE_CAPAB_MIN_LEN))
@@ -2642,7 +2747,18 @@ unsigned int wpas_get_est_tpt(const struct wpa_supplicant *wpa_s,
 		he = (struct ieee80211_he_capabilities *) &ie[3];
 		own_he = &hw_mode->he_capab[IEEE80211_MODE_INFRA];
 
-		tmp = max_he_rate(he20_table, snr) + 2;
+		/* Use +3 to assume EHT is always faster than HE */
+		if (hw_mode->eht_capab[IEEE80211_MODE_INFRA].eht_supported) {
+			eht_ie = get_ie_ext(ies, ies_len,
+					    WLAN_EID_EXT_EHT_CAPABILITIES);
+			if (eht_ie &&
+			    (eht_ie[1] >= 1 + IEEE80211_EHT_CAPAB_MIN_LEN)) {
+				is_eht = true;
+				boost = 3;
+			}
+		}
+
+		tmp = max_he_eht_rate(he20_table, snr, is_eht) + boost;
 		if (tmp > est)
 			est = tmp;
 
@@ -2651,14 +2767,14 @@ unsigned int wpas_get_est_tpt(const struct wpa_supplicant *wpa_s,
 		if (cw &
 		    (IS_2P4GHZ(freq) ? HE_PHYCAP_CHANNEL_WIDTH_SET_40MHZ_IN_2G :
 		     HE_PHYCAP_CHANNEL_WIDTH_SET_40MHZ_80MHZ_IN_5G)) {
-			tmp = max_he_rate(he40_table, snr) + 2;
+			tmp = max_he_eht_rate(he40_table, snr, is_eht) + boost;
 			if (tmp > est)
 				est = tmp;
 		}
 
 		if (!IS_2P4GHZ(freq) &&
 		    (cw & HE_PHYCAP_CHANNEL_WIDTH_SET_40MHZ_80MHZ_IN_5G)) {
-			tmp = max_he_rate(he80_table, snr) + 2;
+			tmp = max_he_eht_rate(he80_table, snr, is_eht) + boost;
 			if (tmp > est)
 				est = tmp;
 		}
@@ -2666,7 +2782,20 @@ unsigned int wpas_get_est_tpt(const struct wpa_supplicant *wpa_s,
 		if (!IS_2P4GHZ(freq) &&
 		    (cw & (HE_PHYCAP_CHANNEL_WIDTH_SET_160MHZ_IN_5G |
 			   HE_PHYCAP_CHANNEL_WIDTH_SET_80PLUS80MHZ_IN_5G))) {
-			tmp = max_he_rate(he160_table, snr) + 2;
+			tmp = max_he_eht_rate(he160_table, snr, is_eht) + boost;
+			if (tmp > est)
+				est = tmp;
+		}
+
+		if (!is_eht)
+			return est;
+
+		eht = (struct ieee80211_eht_capabilities *) &eht_ie[3];
+
+		if (is_6ghz_freq(freq) &&
+		    (eht->phy_cap[EHT_PHYCAP_320MHZ_IN_6GHZ_SUPPORT_IDX] &
+		     EHT_PHYCAP_320MHZ_IN_6GHZ_SUPPORT_MASK)) {
+			tmp = max_he_eht_rate(eht320_table, snr, true);
 			if (tmp > est)
 				est = tmp;
 		}
@@ -2915,6 +3044,7 @@ wpa_scan_clone_params(const struct wpa_driver_scan_params *src)
 	params->relative_adjust_band = src->relative_adjust_band;
 	params->relative_adjust_rssi = src->relative_adjust_rssi;
 	params->p2p_include_6ghz = src->p2p_include_6ghz;
+	params->non_coloc_6ghz = src->non_coloc_6ghz;
 	return params;
 
 failed:

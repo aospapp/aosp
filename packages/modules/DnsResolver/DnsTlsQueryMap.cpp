@@ -112,6 +112,7 @@ int32_t DnsTlsQueryMap::getFreeId() {
 std::vector<DnsTlsQueryMap::Query> DnsTlsQueryMap::getAll() {
     std::lock_guard guard(mLock);
     std::vector<DnsTlsQueryMap::Query> queries;
+    queries.reserve(mQueries.size());
     for (auto& q : mQueries) {
         queries.push_back(q.second.query);
     }

@@ -47,8 +47,8 @@ subdirs = [
     "tests/libufdt_verify",
 ]
 
-cc_library_static {
-    name: "libufdt",
+cc_defaults {
+    name: "libufdt_defaults",
     host_supported: true,
     srcs: [
         "ufdt_overlay.c",
@@ -64,3 +64,16 @@ cc_library_static {
         "libufdt_sysdeps",
     ],
 }
+
+cc_library_static {
+    name: "libufdt",
+    defaults: [ "libufdt_defaults" ],
+}
+
+// Same library but without error messages.
+cc_library_static {
+    name: "libufdt_silent",
+    defaults: [ "libufdt_defaults" ],
+    cflags: ["-Wall", "-Werror", "-DDTO_DISABLE_ERROR_MSG"],
+}
+

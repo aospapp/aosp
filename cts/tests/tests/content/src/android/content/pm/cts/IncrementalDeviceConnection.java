@@ -41,7 +41,6 @@ import libcore.io.IoUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileDescriptor;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -192,11 +191,9 @@ public class IncrementalDeviceConnection implements IDeviceConnection {
                     if (resultCode == 0) {
                         return;
                     }
-                    final String message = readFullStreamOrError(
-                            new FileInputStream(localPfd.getFileDescriptor()));
                     Log.i(TAG, (mExpectInstallationSuccess ? "" : "ERROR: ")
                             + "Installation finished with code: " + resultCode + ", message: "
-                            + message);
+                            + resultData);
                 }
             };
 

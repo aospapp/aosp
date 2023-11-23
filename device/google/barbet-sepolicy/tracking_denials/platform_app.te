@@ -1,0 +1,2 @@
+# b/265359406
+dontaudit platform_app hal_wireless_charger_service:service_manager { find };

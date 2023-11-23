@@ -113,7 +113,7 @@ typedef void (*ACameraDevice_StateCallback)(void* context, ACameraDevice* device
  * @param context The optional context in {@link ACameraDevice_StateCallbacks} will be
  *                passed to this callback.
  * @param device The {@link ACameraDevice} that is being disconnected.
- * @param error The error code describes the cause of this error callback. See the folowing
+ * @param error The error code describes the cause of this error callback. See the following
  *              links for more detail.
  *
  * @see ERROR_CAMERA_IN_USE
@@ -447,8 +447,8 @@ camera_status_t ACaptureSessionOutputContainer_remove(
  *   returned by {@link ACAMERA_SCALER_AVAILABLE_STREAM_CONFIGURATIONS}
  *   before creating a Surface from the SurfaceTexture with <a href=
  *   "http://developer.android.com/reference/android/view/Surface.html#Surface(android.graphics.SurfaceTexture)">
- *   Surface\#Surface(SurfaceTextrue)</a>. If the size is not set by the application, it will be set to be the
- *   smallest supported size less than 1080p, by the camera device.</li>
+ *   Surface\#Surface(SurfaceTexture)</a>. If the size is not set by the application, it will be
+ *   set to be the smallest supported size less than 1080p, by the camera device.</li>
  *
  * <li>For recording with <a href=
  *     "http://developer.android.com/reference/android/media/MediaCodec.html">
@@ -469,18 +469,6 @@ camera_status_t ACaptureSessionOutputContainer_remove(
  *   {@link ACAMERA_SCALER_AVAILABLE_STREAM_CONFIGURATIONS}, or configuring it to use one of the supported
  *   <a href="http://developer.android.com/reference/android/media/CamcorderProfile.html">
  *    CamcorderProfiles</a>.</li>
- *
- * <li>For efficient YUV processing with <a href=
- *   "http://developer.android.com/reference/android/renderscript/package-summary.html">
- *   RenderScript</a>:
- *   Create a RenderScript
- *   <a href="http://developer.android.com/reference/android/renderscript/Allocation.html">
- *   Allocation</a> with a supported YUV
- *   type, the IO_INPUT flag, and one of the YUV output sizes returned by
- *   {@link ACAMERA_SCALER_AVAILABLE_STREAM_CONFIGURATIONS},
- *   Then obtain the Surface with
- *   <a href="http://developer.android.com/reference/android/renderscript/Allocation.html#getSurface()">
- *   Allocation#getSurface}</a>.</li>
  *
  * <li>For access to RAW, uncompressed YUV, or compressed JPEG data in the application: Create an
  *   {@link AImageReader} object using the {@link AImageReader_new} method with one of the supported
@@ -599,7 +587,7 @@ camera_status_t ACaptureSessionOutputContainer_remove(
  * <tr><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th> </tr>
  * <tr> <td>`PRIV`</td><td id="rb">`PREVIEW`</td> <td>`PRIV`</td><td id="rb">`MAXIMUM`</td> <td colspan="2" id="rb"></td> <td>Maximum-resolution GPU processing with preview.</td> </tr>
  * <tr> <td>`PRIV`</td><td id="rb">`PREVIEW`</td> <td>`YUV `</td><td id="rb">`MAXIMUM`</td> <td colspan="2" id="rb"></td> <td>Maximum-resolution in-app processing with preview.</td> </tr>
- * <tr> <td>`YUV `</td><td id="rb">`PREVIEW`</td> <td>`YUV `</td><td id="rb">`MAXIMUM`</td> <td colspan="2" id="rb"></td> <td>Maximum-resolution two-input in-app processsing.</td> </tr>
+ * <tr> <td>`YUV `</td><td id="rb">`PREVIEW`</td> <td>`YUV `</td><td id="rb">`MAXIMUM`</td> <td colspan="2" id="rb"></td> <td>Maximum-resolution two-input in-app processing.</td> </tr>
  * <tr> <td>`PRIV`</td><td id="rb">`PREVIEW`</td> <td>`PRIV`</td><td id="rb">`PREVIEW`</td> <td>`JPEG`</td><td id="rb">`MAXIMUM`</td> <td>Video recording with maximum-size video snapshot</td> </tr>
  * <tr> <td>`YUV `</td><td id="rb">`640x480`</td> <td>`PRIV`</td><td id="rb">`PREVIEW`</td> <td>`YUV `</td><td id="rb">`MAXIMUM`</td> <td>Standard video recording plus maximum-resolution in-app processing.</td> </tr>
  * <tr> <td>`YUV `</td><td id="rb">`640x480`</td> <td>`YUV `</td><td id="rb">`PREVIEW`</td> <td>`YUV `</td><td id="rb">`MAXIMUM`</td> <td>Preview plus two-input maximum-resolution in-app processing.</td> </tr>
@@ -641,7 +629,7 @@ camera_status_t ACaptureSessionOutputContainer_remove(
  * <tr><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th> </tr>
  * <tr> <td>`PRIV`</td><td id="rb">`PREVIEW`</td> <td>`PRIV`</td><td id="rb">`MAXIMUM`</td> <td>Maximum-resolution GPU processing with preview.</td> </tr>
  * <tr> <td>`PRIV`</td><td id="rb">`PREVIEW`</td> <td>`YUV `</td><td id="rb">`MAXIMUM`</td> <td>Maximum-resolution in-app processing with preview.</td> </tr>
- * <tr> <td>`YUV `</td><td id="rb">`PREVIEW`</td> <td>`YUV `</td><td id="rb">`MAXIMUM`</td> <td>Maximum-resolution two-input in-app processsing.</td> </tr>
+ * <tr> <td>`YUV `</td><td id="rb">`PREVIEW`</td> <td>`YUV `</td><td id="rb">`MAXIMUM`</td> <td>Maximum-resolution two-input in-app processing.</td> </tr>
  * </table><br>
  * </p>
  *

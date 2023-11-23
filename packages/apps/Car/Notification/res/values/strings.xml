@@ -102,4 +102,22 @@
 
     <!-- The button text for managing notifications in settings [CHAR_LIMIT=20] -->
     <string name="manage_text">Manage</string>
+
+    <!-- Notification Categories [DO NOT TRANSLATE] -->
+    <string name="category_car_emergency">car_emergency</string>
+    <string name="category_navigation">navigation</string>
+    <string name="category_call">call</string>
+    <string name="category_message">msg</string>
+
+    <!-- Package Names [DO NOT TRANSLATE] -->
+    <string name="pkg_car_dialer">com.android.car.dialer</string>
+
+    <!-- Text indicating the channel for sending notifications on HUN suppression [CHAR_LIMIT=50] -->
+    <string name="hun_suppression_channel_name">Heads Up suppression</string>
+    <!-- Text indicating the title for notification sent to indicate HUN suppression in park state [CHAR_LIMIT=58] -->
+    <string name="hun_suppression_notification_title_park">Keep up with the latest</string>
+    <!-- Text indicating the title for notification sent to indicate HUN suppression in drive state [CHAR_LIMIT=40] -->
+    <string name="hun_suppression_notification_title_drive">Focus on driving</string>
+    <!-- Text indicating the description for notification sent to indicate HUN suppression [CHAR_LIMIT=148] -->
+    <string name="hun_suppression_notification_description">Some new notifications are saved in the Notification Center</string>
 </resources>

@@ -19,9 +19,7 @@ package android.app.time.cts;
 import static android.app.time.cts.ParcelableTestSupport.assertRoundTripParcelable;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
 
 import android.app.time.TimeZoneConfiguration;
 

@@ -113,11 +113,7 @@ public abstract class BrightnessSliderTestCase extends BaseSettingsQCItemTestCas
     }
 
     private int getScreenBrightness() {
-        try {
-            return Settings.System.getIntForUser(mContext.getContentResolver(),
-                    Settings.System.SCREEN_BRIGHTNESS, UserHandle.myUserId());
-        } catch (Settings.SettingNotFoundException e) {
-            return GAMMA_SPACE_MAX;
-        }
+        int gamma = mBrightnessSlider.getSeekbarValue();
+        return convertGammaToLinear(gamma, mMinimumBacklight, mMaximumBacklight);
     }
 }

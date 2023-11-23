@@ -61,9 +61,11 @@ struct HintStatus {
 enum class HintActionType { Node, DoHint, EndHint, MaskHint };
 
 struct HintAction {
-    HintAction(HintActionType t, const std::string &v) : type(t), value(v) {}
+    HintAction(HintActionType t, const std::string &v, const std::string &p)
+        : type(t), value(v), enable_property(p) {}
     HintActionType type;
     std::string value;
+    std::string enable_property;
 };
 
 struct Hint {

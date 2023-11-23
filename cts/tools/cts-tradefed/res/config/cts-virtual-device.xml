@@ -17,20 +17,7 @@
 
     <include name="cts-automated" />
 
-    <!-- Tell all AndroidJUnitTests to exclude certain annotations -->
-    <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:android.support.test.filters.RequiresDevice" />
-    <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:androidx.test.filters.RequiresDevice" />
-    <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:android.platform.test.annotations.RequiresDevice" />
+    <!-- Extra rules for virtual devices -->
+    <include name="cts-virtual-device-rules" />
 
-    <!-- Tell all HostTests to exclude certain annotations -->
-    <option name="compatibility:test-arg" value="com.android.tradefed.testtype.HostTest:exclude-annotation:android.platform.test.annotations.RequiresDevice" />
-    <option name="compatibility:test-arg" value="com.android.compatibility.common.tradefed.testtype.JarHostTest:exclude-annotation:android.platform.test.annotations.RequiresDevice" />
-
-    <!-- add per module rules for virtual devices below -->
-    <option name="compatibility:module-arg" value="CtsDeqpTestCases:include-filter:dEQP-GLES2.functional.prerequisite#*" />
-    <option name="compatibility:module-arg" value="CtsDeqpTestCases:include-filter:dEQP-EGL.*" />
-    <option name="compatibility:module-arg" value="CtsLibcoreTestCases:core-expectation:/virtualdeviceknownfailures.txt" />
-
-    <!-- Virtual devices usually run as root -->
-    <option name="compatibility:skip-system-status-check" value="com.android.tradefed.suite.checker.ShellStatusChecker" />
 </configuration>

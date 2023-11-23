@@ -66,6 +66,7 @@ public class AccountManagerXUserTest extends BaseMultiUserTest implements IBuild
 
     private int mParentUserId;
     private int mProfileUserId;
+    private int mMainUserId;
     private final Map<String, String> mTestArgs = new HashMap<>();
 
     @Before
@@ -79,8 +80,9 @@ public class AccountManagerXUserTest extends BaseMultiUserTest implements IBuild
         getDevice().executeShellCommand("settings put global package_verifier_enable 0");
 
         mParentUserId = getDevice().getCurrentUser();
+        mMainUserId = getDevice().getMainUserId();
 
-        assertThat(mParentUserId).isEqualTo(USER_SYSTEM);
+        assertThat(mParentUserId).isEqualTo(mMainUserId);
 
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
         File apkFile = buildHelper.getTestFile(TEST_WITH_PERMISSION_APK);

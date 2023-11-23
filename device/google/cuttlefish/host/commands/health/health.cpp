@@ -24,7 +24,7 @@
 #include "host/libs/vm_manager/vm_manager.h"
 
 std::string GetControlSocketPath(const cuttlefish::CuttlefishConfig& config) {
-  return config.ForDefaultInstance().PerInstanceInternalPath(
+  return config.ForDefaultInstance().PerInstanceInternalUdsPath(
       "crosvm_control.sock");
 }
 
@@ -87,6 +87,8 @@ int main(int argc, char** argv) {
     LOG(ERROR) << "Failed to obtain config object";
     return 1;
   }
+  // TODO(b/260649774): Consistent executable API for selecting an instance
+  auto instance = config->ForInstance(cuttlefish::GetInstance());
 
   if (argc != 2 && argc != 3) {
     return usage();
@@ -114,7 +116,7 @@ int main(int argc, char** argv) {
     }
   }
 
-  cuttlefish::Command command(config->crosvm_binary());
+  cuttlefish::Command command(instance.crosvm_binary());
   command.AddParameter("battery");
   command.AddParameter("goldfish");
   command.AddParameter(key);

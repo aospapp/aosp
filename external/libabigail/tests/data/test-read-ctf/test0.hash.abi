@@ -39,16 +39,26 @@
     </array-type-def>
     <type-decl name='long int' size-in-bits='64' alignment-in-bits='64' id='bd54fe1a'/>
     <type-decl name='short int' size-in-bits='16' alignment-in-bits='16' id='a2185560'/>
-    <type-decl name='signed char' size-in-bits='8' alignment-in-bits='8' id='28577a57'/>
-    <type-decl name='unsigned char' size-in-bits='8' alignment-in-bits='8' id='002ac4a6'/>
-    <type-decl name='unsigned int' size-in-bits='32' alignment-in-bits='32' id='f0981eeb'/>
     <type-decl name='unsigned long int' size-in-bits='64' alignment-in-bits='64' id='7359adad'/>
-    <type-decl name='unsigned short int' size-in-bits='16' alignment-in-bits='16' id='8efea9e5'/>
     <pointer-type-def type-id='50d9a3fa' size-in-bits='64' alignment-in-bits='64' id='fd01f598'/>
     <pointer-type-def type-id='a84c031d' size-in-bits='64' alignment-in-bits='64' id='26a90f95'/>
     <qualified-type-def type-id='50d9a3fa' const='yes' id='0fb3b55d'/>
     <pointer-type-def type-id='bd54fe1a' size-in-bits='64' alignment-in-bits='64' id='3ccc2590'/>
     <qualified-type-def type-id='3ccc2590' restrict='yes' id='af4b1b38'/>
     <qualified-type-def type-id='a2185560' volatile='yes' id='ec67e496'/>
+    <var-decl name='status' type-id='e7f43f72' mangled-name='status' visibility='default' elf-symbol-id='status'/>
+    <var-decl name='test_pointer' type-id='26a90f95' mangled-name='test_pointer' visibility='default' elf-symbol-id='test_pointer'/>
+    <var-decl name='test_const' type-id='0fb3b55d' mangled-name='test_const' visibility='default' elf-symbol-id='test_const'/>
+    <var-decl name='test_float' type-id='a6c45d85' mangled-name='test_float' visibility='default' elf-symbol-id='test_float'/>
+    <function-decl name='foo_1' visibility='default' binding='global' size-in-bits='64' alignment-in-bits='8' elf-symbol-id='foo_1'>
+      <parameter type-id='fd01f598'/>
+      <return type-id='95e97e5e'/>
+    </function-decl>
+    <function-decl name='main' visibility='default' binding='global' size-in-bits='64' alignment-in-bits='8' elf-symbol-id='main'>
+      <return type-id='95e97e5e'/>
+    </function-decl>
+    <var-decl name='test_array' type-id='b7bd1749' mangled-name='test_array' visibility='default' elf-symbol-id='test_array'/>
+    <var-decl name='test_restrict' type-id='af4b1b38' mangled-name='test_restrict' visibility='default' elf-symbol-id='test_restrict'/>
+    <var-decl name='test_volatile' type-id='ec67e496' mangled-name='test_volatile' visibility='default' elf-symbol-id='test_volatile'/>
   </abi-instr>
 </abi-corpus>

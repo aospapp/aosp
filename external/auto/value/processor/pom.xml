@@ -21,15 +21,14 @@
   <parent>
     <groupId>com.google.auto.value</groupId>
     <artifactId>auto-value-parent</artifactId>
-    <version>1.7.4</version>
+    <version>HEAD-SNAPSHOT</version>
   </parent>
 
-  <groupId>com.google.auto.value</groupId>
   <artifactId>auto-value</artifactId>
-  <version>1.7.4</version>
+  <version>HEAD-SNAPSHOT</version>
   <name>AutoValue Processor</name>
   <description>
-    Immutable value-type code generation for Java 1.6+.
+    Immutable value-type code generation for Java 1.7+.
   </description>
   <url>https://github.com/google/auto/tree/master/value</url>
 
@@ -41,15 +40,15 @@
   </scm>
 
   <properties>
-    <auto-service.version>1.0</auto-service.version>
-    <errorprone.version>2.7.1</errorprone.version>
+    <auto-service.version>1.0.1</auto-service.version>
+    <errorprone.version>2.10.0</errorprone.version>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>com.google.auto</groupId>
       <artifactId>auto-common</artifactId>
-      <version>1.1</version>
+      <version>1.2.1</version>
     </dependency>
     <dependency>
       <groupId>com.google.auto.service</groupId>
@@ -125,7 +124,7 @@
     <dependency>
        <groupId>org.mockito</groupId>
        <artifactId>mockito-core</artifactId>
-       <version>3.11.2</version>
+       <version>4.1.0</version>
        <scope>test</scope>
      </dependency>
   </dependencies>

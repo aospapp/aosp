@@ -38,6 +38,7 @@ java_sdk_library {
         "unsupportedappusage",
         "framework-annotations-lib",
         "conscrypt.module.public.api",
+        "framework-configinfrastructure",
         "framework-connectivity.stubs.module_lib",
         "framework-connectivity-t.stubs.module_lib",
     ],
@@ -82,6 +83,7 @@ java_sdk_library {
 
 filegroup {
     name: "ike-srcs",
+    defaults: ["framework-sources-module-defaults"],
     srcs: [
         ":ike-internal-srcs",
         ":framework-ike-shared-srcs",
@@ -102,6 +104,7 @@ filegroup {
 // Provides internal classes needed to build the ike sources.
 java_library {
     name: "ike-internals",
+    min_sdk_version: "30",
     apex_available: [
         "com.android.ipsec",
         "test_com.android.ipsec",
@@ -152,5 +155,18 @@ java_library {
 
 sdk {
     name: "ipsec-module-sdk",
-    bootclasspath_fragments: ["com.android.ipsec-bootclasspath-fragment"],
+    apexes: [
+        // Adds exportable dependencies of the APEX to the sdk,
+        // e.g. *classpath_fragments.
+        "com.android.ipsec",
+    ],
+}
+
+java_api_contribution {
+    name: "android-net-ipsec-ike-public-stubs",
+    api_surface: "public",
+    api_file: "api/current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
 }

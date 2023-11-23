@@ -639,4 +639,34 @@ public final class AvrcpItemTest {
         Assert.assertEquals(uri, desc.getIconUri());
         Assert.assertEquals(null, desc.getIconBitmap());
     }
+
+    @Test
+    public void equals_withItself() {
+        AvrcpItem.Builder builder = new AvrcpItem.Builder();
+
+        AvrcpItem item = builder.build();
+
+        Assert.assertTrue(item.equals(item));
+    }
+
+    @Test
+    public void equals_withDifferentInstance() {
+        AvrcpItem.Builder builder = new AvrcpItem.Builder();
+        String notAvrcpItem = "notAvrcpItem";
+
+        AvrcpItem item = builder.build();
+
+        Assert.assertFalse(item.equals(notAvrcpItem));
+    }
+
+    @Test
+    public void equals_withItemContainingSameInfo() {
+        AvrcpItem.Builder builder = new AvrcpItem.Builder();
+        AvrcpItem.Builder builderEqual = new AvrcpItem.Builder();
+
+        AvrcpItem item = builder.build();
+        AvrcpItem itemEqual = builderEqual.build();
+
+        Assert.assertTrue(item.equals(itemEqual));
+    }
 }

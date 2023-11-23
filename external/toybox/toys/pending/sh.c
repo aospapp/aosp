@@ -10,6 +10,9 @@
  * and http://opengroup.org/onlinepubs/9699919799/utilities/sh.html
  *
  * deviations from posix: don't care about $LANG or $LC_ALL
+ * deviations from bash:
+ *   redirect+expansion in one pass so we can't report errors between them.
+ *   Trailing redirects error at runtime, not parse time.
 
  * builtins: alias bg command fc fg getopts jobs newgrp read umask unalias wait
  *          disown suspend source pushd popd dirs logout times trap cd hash exit
@@ -70,10 +73,62 @@ config SH
     usage: sh [-c command] [script]
 
     Command shell.  Runs a shell script, or reads input interactively
-    and responds to it.
+    and responds to it. Roughly compatible with "bash". Run "help" for
+    list of built-in commands.
 
     -c	command line to execute
     -i	interactive mode (default when STDIN is a tty)
+    -s	don't run script (args set $* parameters but read commands from stdin)
+
+    Command shells parse each line of input (prompting when interactive), perform
+    variable expansion and redirection, execute commands (spawning child processes
+    and background jobs), and perform flow control based on the return code.
+
+    Parsing:
+      syntax errors
+
+    Interactive prompts:
+      line continuation
+
+    Variable expansion:
+      Note: can cause syntax errors at runtime
+
+    Redirection:
+      HERE documents (parsing)
+      Pipelines (flow control and job control)
+
+    Running commands:
+      process state
+      builtins
+        cd [[ ]] (( ))
+        ! : [ # TODO: help for these?
+        true false help echo kill printf pwd test
+      child processes
+
+    Job control:
+      &    Background process
+      Ctrl-C kill process
+      Ctrl-Z suspend process
+      bg fg jobs kill
+
+    Flow control:
+    ;    End statement (same as newline)
+    &    Background process (returns true unless syntax error)
+    &&   If this fails, next command fails without running
+    ||   If this succeeds, next command succeeds without running
+    |    Pipelines! (Can of worms...)
+    for {name [in...]}|((;;)) do; BODY; done
+    if TEST; then BODY; fi
+    while TEST; do BODY; done
+    case a in X);; esac
+    [[ TEST ]]
+    ((MATH))
+
+    Job control:
+    &    Background process
+    Ctrl-C kill process
+    Ctrl-Z suspend process
+    bg fg jobs kill
 
 # These are here for the help text, they're not selectable and control nothing
 config CD
@@ -256,7 +311,7 @@ GLOBALS(
   long long SECONDS;
   char *isexec, *wcpat;
   unsigned options, jobcnt, LINENO;
-  int hfd, pid, bangpid, varslen, srclvl, recursion;
+  int hfd, pid, bangpid, srclvl, recursion;
 
   // Callable function array
   struct sh_function {
@@ -282,11 +337,11 @@ GLOBALS(
       long flags;
       char *str;
     } *vars;
-    long varslen, shift;
+    long varslen, varscap, shift, oldlineno;
 
     struct sh_function *func; // TODO wire this up
     struct sh_pipeline *pl;
-    char *ifs;
+    char *ifs, *omnom;
     struct sh_arg arg;
     struct arg_list *delete;
 
@@ -318,6 +373,10 @@ GLOBALS(
 
 // Prototype because $($($(blah))) nests, leading to run->parse->run loop
 int do_source(char *name, FILE *ff);
+// functions contain pipelines contain functions: prototype because loop
+static void free_pipeline(void *pipeline);
+// recalculate needs to get/set variables, but setvar_found calls recalculate
+static struct sh_vars *setvar(char *str);
 
 // ordered for greedy matching, so >&; becomes >& ; not > &;
 // making these const means I need to typecast the const away later to
@@ -338,7 +397,10 @@ static const char *redirectors[] = {"<<<", "<<-", "<<", "<&", "<>", "<", ">>",
 
 static void syntax_err(char *s)
 {
-  error_msg("syntax error: %s", s);
+  struct sh_fcall *ff = TT.ff;
+// TODO: script@line only for script not interactive.
+  for (ff = TT.ff; ff != TT.ff->prev; ff = ff->next) if (ff->omnom) break;
+  error_msg("syntax error '%s'@%u: %s", ff->omnom ? : "-c", TT.LINENO, s);
   toys.exitval = 2;
   if (!(TT.options&FLAG_i)) xexit();
 }
@@ -360,6 +422,13 @@ void debug_show_fds()
   *sss = 0;
   dprintf(2, "%d fd:%s\n", getpid(), buf);
   closedir(X);
+}
+
+static char **nospace(char **ss)
+{
+  while (isspace(**ss)) ++*ss;
+
+  return ss;
 }
 
 // append to array with null terminator and realloc as necessary
@@ -440,129 +509,6 @@ static struct sh_vars *findvar(char *name, struct sh_fcall **pff)
   return 0;
 }
 
-// Append variable to ff->vars, returning *struct. Does not check duplicates.
-static struct sh_vars *addvar(char *s, struct sh_fcall *ff)
-{
-  if (!(ff->varslen&31))
-    ff->vars = xrealloc(ff->vars, (ff->varslen+32)*sizeof(*ff->vars));
-  if (!s) return ff->vars;
-  ff->vars[ff->varslen].flags = 0;
-  ff->vars[ff->varslen].str = s;
-
-  return ff->vars+ff->varslen++;
-}
-
-static char **nospace(char **ss)
-{
-  while (isspace(**ss)) ++*ss;
-
-  return ss;
-}
-
-/*
-15L ( [ . -> ++ --
-14R (all prefix operators)
-++ -- + - ! ~ (typecast) * & sizeof
-13L * / %
-12L + -
-11L << >>
-10L < <= > >=
-9L == !=
-8L & (bitwise)
-7L ^ (xor)
-6L |
-5L &&
-4L ||
-3R ? :
-2R (assignments) = += -= *= /= %= &= ^= |= <<= >>=
-1L ,
-
-*/
-
-// Recursively calculate string into dd, returns 0 if failed, ss = error point
-static int recalculate(long long *dd, char **ss, int lvl)
-{
-  long long ee, ff;
-  char cc = **nospace(ss);
-
-  // TODO: assignable (variable)
-  // Always start handling unary prefixes, parenthetical blocks, and constants
-  if (cc=='+' || cc=='-') {
-    ++*ss;
-    if (!recalculate(dd, ss, 1)) return 0;
-    if (cc=='-') *dd = -*dd;
-  } else if (cc=='(') {
-    ++*ss;
-    if (!recalculate(dd, ss, 1)) return 0;
-    if (**ss!=')') return 0;
-    else ++*ss;
-  } else if (isdigit(cc)) *dd = strtoll(*ss, ss, 0); //TODO overflow?
-  else if (!lvl && (!cc || cc==')')) {
-    *dd = 0;
-    return 1;
-  } else return 0;
-
-  // x^y binds first
-  if (lvl<4) while (strstart(nospace(ss), "**")) {
-    if (!recalculate(&ee, ss, 4)) return 0;
-    if (ee<0) perror_msg("** < 0");
-    for (ff = *dd, *dd = 1; ee; ee--) *dd *= ff;
-  }
-
-  // w*x/y%z bind next
-  if (lvl<3) while ((cc = **nospace(ss))) {
-    if (cc=='*' || cc=='/' || cc=='%') {
-      ++*ss;
-      if (!recalculate(&ee, ss, 3)) return 0;
-      if (cc=='*') *dd *= ee;
-      else if (cc=='%') *dd %= ee;
-      else if (!ee) {
-        perror_msg("/0");
-        return 0;
-      } else *dd /= ee;
-    } else break;
-  }
-
-  // x+y-z
-  if (lvl<2) while ((cc = **nospace(ss))) {
-    if (cc=='+' || cc=='-') {
-      ++*ss;
-      if (!recalculate(&ee, ss, 2)) return 0;
-      if (cc=='+') *dd += ee;
-      else *dd -= ee;
-    } else break;
-  }
-  nospace(ss);
-
-  return 1;
-}
-
-static int calculate(long long *ll, char *equation)
-{
-  char *ss = equation;
-
-  // TODO: error_msg->sherror_msg() with LINENO for scripts
-  if (!recalculate(ll, &ss, 0) || *ss) {
-    perror_msg("bad math: %s @ %d", equation, (int)(ss-equation));
-
-    return 0;
-  }
-
-  return 1;
-}
-
-// Return length of utf8 char @s fitting in len, writing value into *cc
-int getutf8(char *s, int len, int *cc)
-{
-  unsigned wc;
-
-  if (len<0) wc = len = 0;
-  else if (1>(len = utf8towc(&wc, s, len))) wc = *s, len = 1;
-  if (cc) *cc = wc;
-
-  return len;
-}
-
 // get value of variable starting at s.
 static char *getvar(char *s)
 {
@@ -590,6 +536,287 @@ static char *getvar(char *s)
   }
 
   return varend(var->str)+1;
+}
+
+// Append variable to ff->vars, returning *struct. Does not check duplicates.
+static struct sh_vars *addvar(char *s, struct sh_fcall *ff)
+{
+  if (ff->varslen == ff->varscap && !(ff->varslen&31)) {
+    ff->varscap += 32;
+    ff->vars = xrealloc(ff->vars, (ff->varscap)*sizeof(*ff->vars));
+  }
+  if (!s) return ff->vars;
+  ff->vars[ff->varslen].flags = 0;
+  ff->vars[ff->varslen].str = s;
+
+  return ff->vars+ff->varslen++;
+}
+
+// Recursively calculate string into dd, returns 0 if failed, ss = error point
+// Recursion resolves operators of lower priority level to a value
+// Loops through operators at same priority
+#define NO_ASSIGN 128
+static int recalculate(long long *dd, char **ss, int lvl)
+{
+  long long ee, ff;
+  char *var = 0, *val, cc = **nospace(ss);
+  int ii, noa = lvl&NO_ASSIGN;
+  lvl &= NO_ASSIGN-1;
+
+  // Unary prefixes can only occur at the start of a parse context
+  if (cc=='!' || cc=='~') {
+    ++*ss;
+    if (!recalculate(dd, ss, noa|15)) return 0;
+    *dd = (cc=='!') ? !*dd : ~*dd;
+  } else if (cc=='+' || cc=='-') {
+    // Is this actually preincrement/decrement? (Requires assignable var.)
+    if (*++*ss==cc) {
+      val = (*ss)++;
+      nospace(ss);
+      if (*ss==(var = varend(*ss))) {
+        *ss = val;
+        var = 0;
+      }
+    }
+    if (!var) {
+      if (!recalculate(dd, ss, noa|15)) return 0;
+      if (cc=='-') *dd = -*dd;
+    }
+  } else if (cc=='(') {
+    ++*ss;
+    if (!recalculate(dd, ss, noa|1)) return 0;
+    if (**ss!=')') return 0;
+    else ++*ss;
+  } else if (isdigit(cc)) {
+    *dd = strtoll(*ss, ss, 0);
+    if (**ss=='#') {
+      if (!*++*ss || isspace(**ss) || ispunct(**ss)) return 0;
+      *dd = strtoll(val = *ss, ss, *dd);
+      if (val == *ss) return 0;
+    }
+  } else if ((var = varend(*ss))==*ss) {
+    // At lvl 0 "" is ok, anything higher needs a non-empty equation
+    if (lvl || (cc && cc!=')')) return 0;
+    *dd = 0;
+
+    return 1;
+  }
+
+  // If we got a variable, evaluate its contents to set *dd
+  if (var) {
+    // Recursively evaluate, catching x=y; y=x; echo $((x))
+    if (TT.recursion++ == 50+200*CFG_TOYBOX_FORK) {
+      perror_msg("recursive occlusion");
+      --TT.recursion;
+
+      return 0;
+    }
+    val = getvar(var = *ss) ? : "";
+    ii = recalculate(dd, &val, noa);
+    TT.recursion--;
+    if (!ii) return 0;
+    if (*val) {
+      perror_msg("bad math: %s @ %d", var, (int)(val-var));
+
+      return 0;
+    }
+    val = *ss = varend(var);
+
+    // Operators that assign to a varible must be adjacent to one:
+
+    // Handle preincrement/predecrement (only gets here if var set before else)
+    if (cc=='+' || cc=='-') {
+      if (cc=='+') ee = ++*dd;
+      else ee = --*dd;
+    } else cc = 0;
+
+    // handle postinc/postdec
+    if ((**nospace(ss)=='+' || **ss=='-') && (*ss)[1]==**ss) {
+      ee = ((cc = **ss)=='+') ? 1+*dd : -1+*dd;
+      *ss += 2;
+
+    // Assignment operators: = *= /= %= += -= <<= >>= &= ^= |=
+    } else if (lvl<=2 && (*ss)[ii = (-1 != stridx("*/%+-", **ss))
+               +2*!smemcmp(*ss, "<<", 2)+2*!smemcmp(*ss, ">>", 2)]=='=')
+    {
+      // TODO: assignments are lower priority BUT must go after variable,
+      // come up with precedence checking tests?
+      cc = **ss;
+      *ss += ii+1;
+      if (!recalculate(&ee, ss, noa|1)) return 0; // TODO lvl instead of 1?
+      if (cc=='*') *dd *= ee;
+      else if (cc=='+') *dd += ee;
+      else if (cc=='-') *dd -= ee;
+      else if (cc=='<') *dd <<= ee;
+      else if (cc=='>') *dd >>= ee;
+      else if (cc=='&') *dd &= ee;
+      else if (cc=='^') *dd ^= ee;
+      else if (cc=='|') *dd |= ee;
+      else if (!cc) *dd = ee;
+      else if (!ee) {
+        perror_msg("%c0", cc);
+
+        return 0;
+      } else if (cc=='/') *dd /= ee;
+      else if (cc=='%') *dd %= ee;
+      ee = *dd;
+    }
+    if (cc && !noa) setvar(xmprintf("%.*s=%lld", (int)(val-var), var, ee));
+  }
+
+  // x**y binds first
+  if (lvl<=14) while (strstart(nospace(ss), "**")) {
+    if (!recalculate(&ee, ss, noa|15)) return 0;
+    if (ee<0) perror_msg("** < 0");
+    for (ff = *dd, *dd = 1; ee; ee--) *dd *= ff;
+  }
+
+  // w*x/y%z bind next
+  if (lvl<=13) while ((cc = **nospace(ss)) && strchr("*/%", cc)) {
+    ++*ss;
+    if (!recalculate(&ee, ss, noa|14)) return 0;
+    if (cc=='*') *dd *= ee;
+    else if (!ee) {
+      perror_msg("%c0", cc);
+
+      return 0;
+    } else if (cc=='%') *dd %= ee;
+    else *dd /= ee;
+  }
+
+  // x+y-z
+  if (lvl<=12) while ((cc = **nospace(ss)) && strchr("+-", cc)) {
+    ++*ss;
+    if (!recalculate(&ee, ss, noa|13)) return 0;
+    if (cc=='+') *dd += ee;
+    else *dd -= ee;
+  }
+
+  // x<<y >>
+
+  if (lvl<=11) while ((cc = **nospace(ss)) && strchr("<>", cc) && cc==(*ss)[1]){
+    *ss += 2;
+    if (!recalculate(&ee, ss, noa|12)) return 0;
+    if (cc == '<') *dd <<= ee;
+    else *dd >>= ee;
+  }
+
+  // x<y <= > >=
+  if (lvl<=10) while ((cc = **nospace(ss)) && strchr("<>", cc)) {
+    if ((ii = *++*ss=='=')) ++*ss;
+    if (!recalculate(&ee, ss, noa|11)) return 0;
+    if (cc=='<') *dd = ii ? (*dd<=ee) : (*dd<ee);
+    else *dd = ii ? (*dd>=ee) : (*dd>ee);
+  }
+
+  if (lvl<=9) while ((cc = **nospace(ss)) && strchr("=!", cc) && (*ss)[1]=='='){
+    *ss += 2;
+    if (!recalculate(&ee, ss, noa|10)) return 0;
+    *dd = (cc=='!') ? *dd != ee : *dd == ee;
+  }
+
+  if (lvl<=8) while (**nospace(ss)=='&' && (*ss)[1]!='&') {
+    ++*ss;
+    if (!recalculate(&ee, ss, noa|9)) return 0;
+    *dd &= ee;
+  }
+
+  if (lvl<=7) while (**nospace(ss)=='^') {
+    ++*ss;
+    if (!recalculate(&ee, ss, noa|8)) return 0;
+    *dd ^= ee;
+  }
+
+  if (lvl<=6) while (**nospace(ss)=='|' && (*ss)[1]!='|') {
+    ++*ss;
+    if (!recalculate(&ee, ss, noa|7)) return 0;
+    *dd |= ee;
+  }
+
+  if (lvl<=5) while (strstart(nospace(ss), "&&")) {
+    if (!recalculate(&ee, ss, noa|6|NO_ASSIGN*!*dd)) return 0;
+    *dd = *dd && ee;
+  }
+
+  if (lvl<=4) while (strstart(nospace(ss), "||")) {
+    if (!recalculate(&ee, ss, noa|5|NO_ASSIGN*!!*dd)) return 0;
+    *dd = *dd || ee;
+  }
+
+  // ? : slightly weird: recurses with lower priority instead of looping
+  // because a ? b ? c : d ? e : f : g == a ? (b ? c : (d ? e : f) : g)
+  if (lvl<=3) if (**nospace(ss)=='?') {
+    ++*ss;
+    if (**nospace(ss)==':' && *dd) ee = *dd;
+    else if (!recalculate(&ee, ss, noa|1|NO_ASSIGN*!*dd) || **nospace(ss)!=':')
+      return 0;
+    ++*ss;
+    if (!recalculate(&ff, ss, noa|1|NO_ASSIGN*!!*dd)) return 0;
+    *dd = *dd ? ee : ff;
+  }
+
+  // lvl<=2 assignment would go here, but handled above because variable
+
+  // , (slightly weird, replaces dd instead of modifying it via ee/ff)
+  if (lvl<=1) while (**nospace(ss)==',') {
+    ++*ss;
+    if (!recalculate(dd, ss, noa|2)) return 0;
+  }
+
+  return 1;
+}
+
+// Return length of utf8 char @s fitting in len, writing value into *cc
+static int getutf8(char *s, int len, int *cc)
+{
+  unsigned wc;
+
+  if (len<0) wc = len = 0;
+  else if (1>(len = utf8towc(&wc, s, len))) wc = *s, len = 1;
+  if (cc) *cc = wc;
+
+  return len;
+}
+
+// utf8 strchr: return wide char matched at wc from chrs, or 0 if not matched
+// if len, save length of next wc (whether or not it's in list)
+static int utf8chr(char *wc, char *chrs, int *len)
+{
+  unsigned wc1, wc2;
+  int ll;
+
+  if (len) *len = 1;
+  if (!*wc) return 0;
+  if (0<(ll = utf8towc(&wc1, wc, 99))) {
+    if (len) *len = ll;
+    while (*chrs) {
+      if(1>(ll = utf8towc(&wc2, chrs, 99))) chrs++;
+      else {
+        if (wc1 == wc2) return wc1;
+        chrs += ll;
+      }
+    }
+  }
+
+  return 0;
+}
+
+// return length of match found at this point (try is null terminated array)
+static int anystart(char *s, char **try)
+{
+  char *ss = s;
+
+  while (*try) if (strstart(&s, *try++)) return s-ss;
+
+  return 0;
+}
+
+// does this entire string match one of the strings in try[]
+static int anystr(char *s, char **try)
+{
+  while (*try) if (!strcmp(s, *try++)) return 1;
+
+  return 0;
 }
 
 // Update $IFS cache in function call stack after variable assignment
@@ -655,7 +882,13 @@ static struct sh_vars *setvar_found(char *s, int freeable, struct sh_vars *var)
   // integer variables treat += differently
   ss = s+vlen+(s[vlen]=='+')+1;
   if (flags&VAR_INT) {
-    if (!calculate(&ll, ss)) goto bad;
+    sd = ss;
+    if (!recalculate(&ll, &sd, 0) || *sd) {
+      perror_msg("bad math: %s @ %d", ss, (int)(sd-ss));
+
+      goto bad;
+    }
+
     sprintf(buf, "%lld", ll);
     if (flags&VAR_MAGIC) {
       if (*s == 'S') {
@@ -704,16 +937,18 @@ static struct sh_vars *setvar_long(char *s, int freeable, struct sh_fcall *ff)
   if (ss[*ss=='+']!='=') {
     error_msg("bad setvar %s\n", s);
     if (freeable) free(s);
+
     return 0;
   }
 
   // Add if necessary, set value, and remove again if we added but set failed
   if (!(was = vv = findvar(s, &ff))) (vv = addvar(s, ff))->flags = VAR_NOFREE;
-  if (!(vv = setvar_found(s, freeable, vv))) {
-    int ii = vv-ff->vars;
+  if (!setvar_found(s, freeable, vv)) {
+    if (!was) memmove(vv, vv+1, sizeof(ff->vars)*(--ff->varslen-(vv-ff->vars)));
 
-    if (!was) memmove(ff->vars+ii, ff->vars+ii+1, (ff->varslen--)-ii);
-  } else cache_ifs(vv->str, ff);
+    return 0;
+  }
+  cache_ifs(vv->str, ff);
 
   return vv;
 }
@@ -731,7 +966,7 @@ static int unsetvar(char *name)
 {
   struct sh_fcall *ff;
   struct sh_vars *var = findvar(name, &ff);
-  int ii = var-ff->vars, len = varend(name)-name;
+  int len = varend(name)-name;
 
   if (!var || (var->flags&VAR_WHITEOUT)) return 0;
   if (var->flags&VAR_READONLY) error_msg("readonly %.*s", len, name);
@@ -744,7 +979,7 @@ static int unsetvar(char *name)
     // free from global context
     } else {
       if (!(var->flags&VAR_NOFREE)) free(var->str);
-      memmove(ff->vars+ii, ff->vars+ii+1, (ff->varslen--)-ii);
+      memmove(var, var+1, sizeof(ff->vars)*(ff->varslen-(var-ff->vars)));
     }
     if (!strcmp(name, "IFS"))
       do ff->ifs = " \t\n"; while ((ff = ff->next) != TT.ff->prev);
@@ -817,26 +1052,8 @@ static char *declarep(struct sh_vars *var)
   return ss; 
 }
 
-// return length of match found at this point (try is null terminated array)
-static int anystart(char *s, char **try)
-{
-  char *ss = s;
-
-  while (*try) if (strstart(&s, *try++)) return s-ss;
-
-  return 0;
-}
-
-// does this entire string match one of the strings in try[]
-static int anystr(char *s, char **try)
-{
-  while (*try) if (!strcmp(s, *try++)) return 1;
-
-  return 0;
-}
-
-// return length of valid prefix that could go before redirect
-static int redir_prefix(char *word)
+// Skip past valid prefix that could go before redirect
+static char *skip_redir_prefix(char *word)
 {
   char *s = word;
 
@@ -845,7 +1062,7 @@ static int redir_prefix(char *word)
     else s = word;
   } else while (isdigit(*s)) s++;
 
-  return s-word;
+  return s;
 }
 
 // parse next word from command line. Returns end, or 0 if need continuation
@@ -857,7 +1074,7 @@ static char *parse_word(char *start, int early, int quote)
   char *end = start, *ss;
 
   // Handle redirections, <(), (( )) that only count at the start of word
-  ss = end + redir_prefix(end); // 123<<file- parses as 2 args: "123<<" "file-"
+  ss = skip_redir_prefix(end); // 123<<file- parses as 2 args: "123<<" "file-"
   if (strstart(&ss, "<(") || strstart(&ss, ">(")) {
     toybuf[quote++]=')';
     end = ss;
@@ -975,6 +1192,21 @@ static int save_redirect(int **rd, int from, int to)
   return 0;
 }
 
+// restore displaced filehandles, closing high filehandles they were copied to
+static void unredirect(int *urd)
+{
+  int *rr = urd+1, i;
+
+  if (!urd) return;
+
+  for (i = 0; i<*urd; i++, rr += 2) if (rr[0] != -1) {
+    // No idea what to do about fd exhaustion here, so Steinbach's Guideline.
+    dup2(rr[0], rr[1]);
+    close(rr[0]);
+  }
+  free(urd);
+}
+
 // TODO: waitpid(WNOHANG) to clean up zombies and catch background& ending
 static void subshell_callback(char **argv)
 {
@@ -1012,21 +1244,6 @@ static char *pl2str(struct sh_pipeline *pl, int one)
 // TODO test output with case and function
 // TODO add HERE documents back in
 // TODO handle functions
-}
-
-// restore displaced filehandles, closing high filehandles they were copied to
-static void unredirect(int *urd)
-{
-  int *rr = urd+1, i;
-
-  if (!urd) return;
-
-  for (i = 0; i<*urd; i++, rr += 2) if (rr[0] != -1) {
-    // No idea what to do about fd exhaustion here, so Steinbach's Guideline.
-    dup2(rr[0], rr[1]);
-    close(rr[0]);
-  }
-  free(urd);
 }
 
 static struct sh_blockstack *clear_block(struct sh_blockstack *blk)
@@ -1081,9 +1298,6 @@ static void call_function(void)
   TT.ff->arg.c = TT.ff->next->arg.c;
   TT.ff->ifs = TT.ff->next->ifs;
 }
-
-// functions contain pipelines contain functions: prototype because loop
-static void free_pipeline(void *pipeline);
 
 static void free_function(struct sh_function *funky)
 {
@@ -1204,29 +1418,6 @@ static int pipe_subshell(char *s, int len, int out)
   unredirect(uu);
 
   return pipes[out];
-}
-
-// utf8 strchr: return wide char matched at wc from chrs, or 0 if not matched
-// if len, save length of next wc (whether or not it's in list)
-static int utf8chr(char *wc, char *chrs, int *len)
-{
-  unsigned wc1, wc2;
-  int ll;
-
-  if (len) *len = 1;
-  if (!*wc) return 0;
-  if (0<(ll = utf8towc(&wc1, wc, 99))) {
-    if (len) *len = ll;
-    while (*chrs) {
-      if(1>(ll = utf8towc(&wc2, chrs, 99))) chrs++;
-      else {
-        if (wc1 == wc2) return wc1;
-        chrs += ll;
-      }
-    }
-  }
-
-  return 0;
 }
 
 // grab variable or special param (ala $$) up to len bytes. Return value.
@@ -1384,7 +1575,7 @@ char *wildcard_path(char *pattern, int off, struct sh_arg *deck, int *idx,
       j = 0;
     }
 
-    // Got wildcard? Return if start of name if out of count, else skip [] ()
+    // Got wildcard? Return start of name if out of count, else skip [] ()
     if (*idx<deck->c && p-pattern == (long)deck->v[*idx]) {
       if (!j++ && !count--) return old;
       ++*idx;
@@ -1589,9 +1780,10 @@ char *slashcopy(char *s, char *c, struct sh_arg *deck)
 #define SEMI_IFS (1<<6)    // Use ' ' instead of IFS to combine $*
 // expand str appending to arg using above flag defines, add mallocs to delete
 // if ant not null, save wildcard deck there instead of expanding vs filesystem
-// returns 0 for success, 1 for error
+// returns 0 for success, 1 for error.
+// If measure stop at *measure and return input bytes consumed in *measure
 static int expand_arg_nobrace(struct sh_arg *arg, char *str, unsigned flags,
-  struct arg_list **delete, struct sh_arg *ant)
+  struct arg_list **delete, struct sh_arg *ant, long *measure)
 {
   char cc, qq = flags&NO_QUOTE, sep[6], *new = str, *s, *ss = ss, *ifs, *slice;
   int ii = 0, oo = 0, xx, yy, dd, jj, kk, ll, mm;
@@ -1628,6 +1820,8 @@ static int expand_arg_nobrace(struct sh_arg *arg, char *str, unsigned flags,
     struct sh_arg aa = {0};
     int nosplit = 0;
 
+    if (measure && cc==*measure) break;
+
     // skip literal chars
     if (!strchr("'\"\\$`"+2*(flags&NO_QUOTE), cc)) {
       if (str != new) new[oo] = cc;
@@ -1644,10 +1838,7 @@ static int expand_arg_nobrace(struct sh_arg *arg, char *str, unsigned flags,
     ifs = slice = 0;
 
     // handle escapes and quoting
-    if (cc == '\\') {
-      if (!(qq&1) || (str[ii] && strchr("\"\\$`", str[ii])))
-        new[oo++] = str[ii] ? str[ii++] : cc;
-    } else if (cc == '"') qq++;
+    if (cc == '"') qq++;
     else if (cc == '\'') {
       if (qq&1) new[oo++] = cc;
       else {
@@ -1657,25 +1848,25 @@ static int expand_arg_nobrace(struct sh_arg *arg, char *str, unsigned flags,
 
     // both types of subshell work the same, so do $( here not in '$' below
 // TODO $((echo hello) | cat) ala $(( becomes $( ( retroactively
-    } else if (cc == '`' || (cc == '$' && str[ii] && strchr("([", str[ii]))) {
+    } else if (cc == '`' || (cc == '$' && (str[ii]=='(' || str[ii]=='['))) {
       off_t pp = 0;
 
       s = str+ii-1;
       kk = parse_word(s, 1, 0)-s;
-      if (str[ii] == '[' || *toybuf == 255) {
+      if (str[ii] == '[' || *toybuf == 255) { // (( parsed together, not (( ) )
         struct sh_arg aa = {0};
         long long ll;
 
         // Expand $VARS in math string
         ss = str+ii+1+(str[ii]=='(');
         push_arg(delete, ss = xstrndup(ss, kk - (3+2*(str[ii]!='['))));
-        expand_arg_nobrace(&aa, ss, NO_PATH|NO_SPLIT, delete, 0);
+        expand_arg_nobrace(&aa, ss, NO_PATH|NO_SPLIT, delete, 0, 0);
         s = ss = (aa.v && *aa.v) ? *aa.v : "";
         free(aa.v);
 
         // Recursively calculate result
         if (!recalculate(&ll, &s, 0) || *s) {
-          error_msg("bad math: %s @ %ld", ss, (s-ss)+1);
+          error_msg("bad math: %s @ %ld", ss, (long)(s-ss)+1);
           goto fail;
         }
         ii += kk-1;
@@ -1705,15 +1896,18 @@ static int expand_arg_nobrace(struct sh_arg *arg, char *str, unsigned flags,
 
 // TODO what does \ in `` mean? What is echo `printf %s \$x` supposed to do?
         // This has to be async so pipe buffer doesn't fill up
-        if (!ss) jj = pipe_subshell(s, kk, 0);
+        if (!ss) jj = pipe_subshell(s, kk, 0); // TODO $(true &&) syntax_err()
         if ((ifs = readfd(jj, 0, &pp)))
           for (kk = strlen(ifs); kk && ifs[kk-1]=='\n'; ifs[--kk] = 0);
         close(jj);
       }
+    } else if (cc=='\\' || !str[ii]) {
+      if (!(qq&1) || (str[ii] && strchr("\"\\$`", str[ii])))
+        new[oo++] = str[ii] ? str[ii++] : cc;
 
     // $VARIABLE expansions
 
-    } else if (cc == '$') {
+    } else if (cc == '$' && str[ii]) {
       cc = *(ss = str+ii++);
       if (cc=='\'') {
         for (s = str+ii; *s != '\''; oo += wcrtomb(new+oo, unescape2(&s, 0),0));
@@ -1766,7 +1960,7 @@ static int expand_arg_nobrace(struct sh_arg *arg, char *str, unsigned flags,
           } else {
             // First expansion
             if (strchr("@*", *ss)) { // special case ${!*}/${!@}
-              expand_arg_nobrace(&aa, "\"$*\"", NO_PATH|NO_SPLIT, delete, 0);
+              expand_arg_nobrace(&aa, "\"$*\"", NO_PATH|NO_SPLIT, delete, 0, 0);
               ifs = *aa.v;
               free(aa.v);
               memset(&aa, 0, sizeof(aa));
@@ -1863,7 +2057,7 @@ barf:
           }
           if (!lc || *ss != '}') {
             for (s = ss; *s != '}' && *s != ':'; s++);
-            error_msg("bad %.*s @ %ld", (int)(s-slice), slice, ss-slice);
+            error_msg("bad %.*s @ %ld", (int)(s-slice), slice,(long)(ss-slice));
 //TODO fix error message
             goto fail;
           }
@@ -1932,7 +2126,7 @@ barf:
             }
 
             if (yy != -1) {
-              if (*delete && (*delete)->arg==ifs) ifs[yy] = 0;
+              if (delete && *delete && (*delete)->arg==ifs) ifs[yy] = 0;
               else push_arg(delete, ifs = xstrndup(ifs, yy));
             }
           }
@@ -1959,7 +2153,7 @@ barf:
                 ll++;
                 continue;
               }
-              if (*delete && (*delete)->arg==ifs) {
+              if (delete && *delete && (*delete)->arg==ifs) {
                 if (jj==dd) memcpy(ifs+ll, ss, jj);
                 else if (jj<dd) sprintf(ifs+ll, "%s%s", ss, ifs+ll+dd);
                 else bird = ifs;
@@ -2067,6 +2261,7 @@ fail:
   if (str != new) free(new);
   free(deck.v);
   if (ant!=&deck && ant->v) collect_wildcards("", 0, ant);
+  if (measure) *measure = --ii;
 
   return !!arg;
 }
@@ -2093,50 +2288,60 @@ static int expand_arg(struct sh_arg *arg, char *old, unsigned flags,
   if ((TT.options&OPT_B) && !(flags&NO_BRACE)) for (i = 0; ; i++) {
     // skip quoted/escaped text
     while ((s = parse_word(old+i, 1, 0)) != old+i) i += s-(old+i);
-    // stop at end of string if we haven't got any more open braces
-    if (!bb && !old[i]) break;
-    // end a brace?
-    if (bb && (!old[i] || old[i] == '}')) {
-      bb->active = bb->commas[bb->cnt+1] = i;
-      // pop brace from bb into bnext
-      for (bnext = bb; bb && bb->active; bb = (bb==blist) ? 0 : bb->prev);
-      // Is this a .. span?
-      j = 1+*bnext->commas;
-      if (old[i] && !bnext->cnt && i-j>=4) {
-        // a..z span? Single digit numbers handled here too. TODO: utf8
-        if (old[j+1]=='.' && old[j+2]=='.') {
-          bnext->commas[2] = old[j];
-          bnext->commas[3] = old[j+3];
-          k = 0;
-          if (old[j+4]=='}' ||
-            (sscanf(old+j+4, "..%u}%n", bnext->commas+4, &k) && k))
-              bnext->cnt = -1;
-        }
-        // 3..11 numeric span?
-        if (!bnext->cnt) {
-          for (k=0, j = 1+*bnext->commas; k<3; k++, j += x)
-            if (!sscanf(old+j, "..%u%n"+2*!k, bnext->commas+2+k, &x)) break;
-          if (old[j] == '}') bnext->cnt = -2;
-        }
-        // Increment goes in the right direction by at least 1
-        if (bnext->cnt) {
-          if (!bnext->commas[4]) bnext->commas[4] = 1;
-          if ((bnext->commas[3]-bnext->commas[2]>0) != (bnext->commas[4]>0))
-            bnext->commas[4] *= -1;
-        }
-      }
-      // discard unterminated span, or commaless span that wasn't x..y
-      if (!old[i] || !bnext->cnt)
-        free(dlist_pop((blist == bnext) ? &blist : &bnext));
-    // starting brace
-    } else if (old[i] == '{') {
+
+    // start a new span
+    if (old[i] == '{') {
       dlist_add_nomalloc((void *)&blist,
         (void *)(bb = xzalloc(sizeof(struct sh_brace)+34*4)));
       bb->commas[0] = i;
+    // end of string: abort unfinished spans and end loop
+    } else if (!old[i]) {
+      for (bb = blist; bb;) {
+        if (!bb->active) {
+          if (bb==blist) {
+            dlist_pop(&blist);
+            bb = blist;
+          } else dlist_pop(&bb);
+        } else bb = (bb->next==blist) ? 0 : bb->next;
+      }
+      break;
     // no active span?
     } else if (!bb) continue;
+    // end current span
+    else if (old[i] == '}') {
+      bb->active = bb->commas[bb->cnt+1] = i;
+      // Is this a .. span?
+      j = 1+*bb->commas;
+      if (!bb->cnt && i-j>=4) {
+        // a..z span? Single digit numbers handled here too. TODO: utf8
+        if (old[j+1]=='.' && old[j+2]=='.') {
+          bb->commas[2] = old[j];
+          bb->commas[3] = old[j+3];
+          k = 0;
+          if (old[j+4]=='}' ||
+            (sscanf(old+j+4, "..%u}%n", bb->commas+4, &k) && k))
+              bb->cnt = -1;
+        }
+        // 3..11 numeric span?
+        if (!bb->cnt) {
+          for (k=0, j = 1+*bb->commas; k<3; k++, j += x)
+            if (!sscanf(old+j, "..%u%n"+2*!k, bb->commas+2+k, &x)) break;
+          if (old[j]=='}') bb->cnt = -2;
+        }
+        // Increment goes in the right direction by at least 1
+        if (bb->cnt) {
+          if (!bb->commas[4]) bb->commas[4] = 1;
+          if ((bb->commas[3]-bb->commas[2]>0) != (bb->commas[4]>0))
+            bb->commas[4] *= -1;
+        }
+      }
+      // discard commaless span that wasn't x..y
+      if (!bb->cnt) free(dlist_pop((blist==bb) ? &blist : &bb));
+      // Set bb to last unfinished brace (if any)
+      for (bb = blist ? blist->prev : 0; bb && bb->active;
+           bb = (bb==blist) ? 0 : bb->prev);
     // add a comma to current span
-    else if (bb && old[i] == ',') {
+    } else if (old[i] == ',') {
       if (bb->cnt && !(bb->cnt&31)) {
         dlist_lpop(&blist);
         dlist_add_nomalloc((void *)&blist,
@@ -2148,7 +2353,7 @@ static int expand_arg(struct sh_arg *arg, char *old, unsigned flags,
 
 // TODO NO_SPLIT with braces? (Collate with spaces?)
   // If none, pass on verbatim
-  if (!blist) return expand_arg_nobrace(arg, old, flags, delete, 0);
+  if (!blist) return expand_arg_nobrace(arg, old, flags, delete, 0, 0);
 
   // enclose entire range in top level brace.
   (bstk = xzalloc(sizeof(struct sh_brace)+8))->commas[1] = strlen(old)+1;
@@ -2227,7 +2432,7 @@ static int expand_arg(struct sh_arg *arg, char *old, unsigned flags,
     }
 
     // Save result, aborting on expand error
-    if (expand_arg_nobrace(arg, push_arg(delete, ss), flags, delete, 0)) {
+    if (expand_arg_nobrace(arg, push_arg(delete, ss), flags, delete, 0, 0)) {
       llist_traverse(blist, free);
 
       return 1;
@@ -2258,6 +2463,7 @@ static char *expand_one_arg(char *new, unsigned flags, struct arg_list **del)
   struct sh_arg arg = {0};
   char *s = 0;
 
+  // TODO: ${var:?error} here?
   if (!expand_arg(&arg, new, flags|NO_PATH|NO_SPLIT, del))
     if (!(s = *arg.v) && (flags&(SEMI_IFS|NO_NULL))) s = "";
   free(arg.v);
@@ -2280,7 +2486,7 @@ static struct sh_process *expand_redir(struct sh_arg *arg, int skip, int *urd)
   pp->urd = urd;
   pp->raw = arg;
 
-  // When we redirect, we copy each displaced filehandle to restore it later.
+  // When redirecting, copy each displaced filehandle to restore it later.
 
   // Expand arguments and perform redirections
   for (j = skip; j<arg->c; j++) {
@@ -2312,7 +2518,7 @@ static struct sh_process *expand_redir(struct sh_arg *arg, int skip, int *urd)
     }
 
     // Is this a redirect? s = prefix, ss = operator
-    ss = s + redir_prefix(arg->v[j]);
+    ss = skip_redir_prefix(s);
     sss = ss + anystart(ss, (void *)redirectors);
     if (ss == sss) {
       // Nope: save/expand argument and loop
@@ -2332,8 +2538,8 @@ static struct sh_process *expand_redir(struct sh_arg *arg, int skip, int *urd)
     // It's a redirect: for [to]<from s = start of [to], ss = <, sss = from
     if (isdigit(*s) && ss-s>5) break;
 
-    // expand arguments for everything but << and <<-
-    if (strncmp(ss, "<<", 2) && ss[2] != '<') {
+    // expand arguments for everything but HERE docs
+    if (strncmp(ss, "<<", 2)) {
       struct sh_arg tmp = {0};
 
       if (!expand_arg(&tmp, sss, 0, &pp->delete) && tmp.c == 1) sss = *tmp.v;
@@ -2367,17 +2573,14 @@ static struct sh_process *expand_redir(struct sh_arg *arg, int skip, int *urd)
     }
 
     // HERE documents?
-    if (!strcmp(ss, "<<<") || !strcmp(ss, "<<-") || !strcmp(ss, "<<")) {
-      char *tmp = getvar("TMPDIR");
+    if (!strncmp(ss, "<<", 2)) {
+      char *tmp = xmprintf("%s/sh-XXXXXX", getvar("TMPDIR") ? : "/tmp");
       int i, len, zap = (ss[2] == '-'), x = !ss[strcspn(ss, "\"'")];
 
-      // store contents in open-but-deleted /tmp file.
-      tmp = xmprintf("%s/sh-XXXXXX", tmp ? tmp : "/tmp");
+      // store contents in open-but-deleted /tmp file: write then lseek(start)
       if ((from = mkstemp(tmp))>=0) {
         if (unlink(tmp)) bad++;
-
-        // write contents to file (if <<< else <<) then lseek back to start
-        else if (ss[2] == '<') {
+        else if (ss[2] == '<') { // not stored in arg[here]
           if (!(ss = expand_one_arg(sss, 0, 0))) {
             s = 0;
             break;
@@ -2386,21 +2589,21 @@ static struct sh_process *expand_redir(struct sh_arg *arg, int skip, int *urd)
           if (len != writeall(from, ss, len)) bad++;
           if (ss != sss) free(ss);
         } else {
-          struct sh_arg *hh = arg+here++;
+          struct sh_arg *hh = arg+ ++here;
 
           for (i = 0; i<hh->c; i++) {
             ss = hh->v[i];
             sss = 0;
 // TODO audit this ala man page
             // expand_parameter, commands, and arithmetic
-            if (x && !(ss = sss = expand_one_arg(ss, ~SEMI_IFS, 0))) {
+            if (x && !(sss = expand_one_arg(ss, ~SEMI_IFS, 0))) {
               s = 0;
               break;
             }
 
             while (zap && *ss == '\t') ss++;
             x = writeall(from, ss, len = strlen(ss));
-            free(sss);
+            if (ss != sss) free(sss);
             if (len != x) break;
           }
           if (i != hh->c) bad++;
@@ -2541,19 +2744,43 @@ static struct sh_process *run_command(void)
 {
   char *s, *ss, *sss;
   struct sh_arg *arg = TT.ff->pl->arg;
-  int envlen, funk = TT.funcslen, jj = 0, prefix = 0;
+  int envlen, skiplen, funk = TT.funcslen, ii, jj = 0, prefix = 0;
   struct sh_process *pp;
 
   // Count leading variable assignments
-  for (envlen = 0; envlen<arg->c; envlen++)
+  for (envlen = skiplen = 0; envlen<arg->c; envlen++)
     if ((ss = varend(arg->v[envlen]))==arg->v[envlen] || ss[*ss=='+']!='=')
       break;
-  pp = expand_redir(arg, envlen, 0);
+
+  // Skip [[ ]] and (( )) contents for now
+  if ((s = arg->v[envlen])) {
+    if (!smemcmp(s, "((", 2)) skiplen = 1;
+    else if (!strcmp(s, "[[")) while (strcmp(arg->v[envlen+skiplen++], "]]"));
+  }
+  pp = expand_redir(arg, envlen+skiplen, 0);
+
+// TODO: if error stops redir, expansion assignments, prefix assignments,
+// what sequence do they occur in?
+  if (skiplen) {
+    // Trailing redirects can't expand to any contents
+    if (pp->arg.c) {
+      syntax_err(*pp->arg.v);
+      pp->exit = 1;
+    }
+    if (!pp->exit) {
+      for (ii = 0; ii<skiplen; ii++)
+// TODO: [[ ~ ] expands but ((~)) doesn't, what else?
+        if (expand_arg(&pp->arg, arg->v[envlen+ii], NO_PATH|NO_SPLIT, &pp->delete))
+          break;
+      if (ii != skiplen) pp->exit = toys.exitval = 1;
+    }
+    if (pp->exit) return pp;
+  }
 
   // Are we calling a shell function?  TODO binary search
-  if (pp->arg.c && !strchr(*pp->arg.v, '/'))
-    for (funk = 0; funk<TT.funcslen; funk++)
-       if (!strcmp(*pp->arg.v, TT.functions[funk]->name)) break;
+  if (pp->arg.c)
+    if (!strchr(s, '/')) for (funk = 0; funk<TT.funcslen; funk++)
+       if (!strcmp(s, TT.functions[funk]->name)) break;
 
   // Create new function context to hold local vars?
   if (funk != TT.funcslen || (envlen && pp->arg.c) || TT.ff->blk->pipe) {
@@ -2590,8 +2817,21 @@ static struct sh_process *run_command(void)
 // TODO what about "echo | x=1 | export fruit", must subshell? Test this.
 //   Several NOFORK can just NOP in a pipeline? Except ${a?b} still errors
 
+  // ((math))
+  else if (!smemcmp(s = *pp->arg.v, "((", 2)) {
+    char *ss = s+2;
+    long long ll;
+
+    funk = TT.funcslen;
+    ii = strlen(s)-2;
+    if (!recalculate(&ll, &ss, 0) || ss!=s+ii)
+      perror_msg("bad math: %.*s @ %ld", ii-2, s+2, (long)(ss-s)-2);
+    else toys.exitval = !ll;
+    pp->exit = toys.exitval;
+    s = 0; // Really!
+
   // call shell function
-  else if (funk != TT.funcslen) {
+  } else if (funk != TT.funcslen) {
     s = 0; // $_ set on return, not here
     (TT.ff->func = TT.functions[funk])->refcount++;
     TT.ff->pl = TT.ff->func->pipeline;
@@ -2605,7 +2845,6 @@ static struct sh_process *run_command(void)
     s = pp->arg.v[pp->arg.c-1];
     sss = pp->arg.v[pp->arg.c];
 //dprintf(2, "%d run command %p %s\n", getpid(), TT.ff, *pp->arg.v); debug_show_fds();
-// TODO handle ((math)): else if (!strcmp(*pp->arg.v, "(("))
 // TODO: figure out when can exec instead of forking, ala sh -c blah
 
     // Is this command a builtin that should run in this process?
@@ -2630,6 +2869,7 @@ static struct sh_process *run_command(void)
       }
       toys.rebound = 0;
       pp->exit = toys.exitval;
+      clearerr(stdout);
       if (toys.optargs != toys.argv+1) free(toys.optargs);
       if (toys.old_umask) umask(toys.old_umask);
       memcpy(&toys, &temp, jj);
@@ -2716,22 +2956,28 @@ static int parse_line(char *line, struct sh_pipeline **ppl,
 
     // is a HERE document in progress?
     } else if (pl->count != pl->here) {
-      arg += 1+pl->here;
+      // Back up to oldest unfinished pipeline segment.
+      while (pl != *ppl && pl->prev->count != pl->prev->here) pl = pl->prev;
+      arg = pl->arg+1+pl->here;
 
       // Match unquoted EOF.
-      for (s = line, end = arg->v[arg->c]; *s && *end; s++) {
+      for (s = line, end = arg->v[arg->c]; *end; s++, end++) {
         s += strspn(s, "\\\"'");
-        if (*s != *end) break;
+        if (!*s || *s != *end) break;
       }
       // Add this line, else EOF hit so end HERE document
-      if (!*s && !*end) {
+      if (*s || *end) {
         end = arg->v[arg->c];
         arg_add(arg, xstrdup(line));
         arg->v[arg->c] = end;
       } else {
+        // End segment and advance/consume bridge segments
         arg->v[arg->c] = 0;
-        pl->here++;
+        if (pl->count == ++pl->here)
+          while (pl->next != *ppl && (pl = pl->next)->here == -1)
+            pl->here = pl->count;
       }
+      if (pl->here != pl->count) return 1;
       start = 0;
 
     // Nope, new segment if not self-managing type
@@ -2744,63 +2990,30 @@ static int parse_line(char *line, struct sh_pipeline **ppl,
 
     // Look for << HERE redirections in completed pipeline segment
     if (pl && pl->count == -1) {
-      pl->count = 0;
-      arg = pl->arg;
-
       // find arguments of the form [{n}]<<[-] with another one after it
-      for (i = 0; i<arg->c; i++) {
-        s = arg->v[i] + redir_prefix(arg->v[i]);
-// TODO <<< is funky
-// argc[] entries removed from main list? Can have more than one?
-        if (strcmp(s, "<<") && strcmp(s, "<<-") && strcmp(s, "<<<")) continue;
+      for (arg = pl->arg, pl->count = i = 0; i<arg->c; i++) {
+        s = skip_redir_prefix(arg->v[i]);
+        if (strncmp(s, "<<", 2) || s[2]=='<') continue;
         if (i+1 == arg->c) goto flush;
 
-        // Add another arg[] to the pipeline segment (removing/readding to list
-        // because realloc can move pointer)
+        // Add another arg[] to the pipeline segment (removing/re-adding
+        // to list because realloc can move pointer, and adjusing end pointers)
         dlist_lpop(ppl);
-        pl = xrealloc(pl, sizeof(*pl) + ++pl->count*sizeof(struct sh_arg));
+        pl2 = pl;
+        pl = xrealloc(pl, sizeof(*pl)+(++pl->count+1)*sizeof(struct sh_arg));
+        arg = pl->arg;
         dlist_add_nomalloc((void *)ppl, (void *)pl);
-
-        // queue up HERE EOF so input loop asks for more lines.
-        arg[pl->count].v = xzalloc(2*sizeof(void *));
-        arg[pl->count].v[0] = arg->v[++i];
-        arg[pl->count].v[1] = 0;
-        arg[pl->count].c = 0;
-        if (s[2] == '<') pl->here++; // <<< doesn't load more data
-      }
-
-      // Did we just end a function?
-      if (ex == (void *)1) {
-        struct sh_function *funky;
-
-        // function must be followed by a compound statement for some reason
-        if ((*ppl)->prev->type != 3) {
-          s = *(*ppl)->prev->arg->v;
-          goto flush;
+        for (pl3 = *ppl;;) {
+          if (pl3->end == pl2) pl3->end = pl;
+          if ((pl3 = pl3->next) == *ppl) break;
         }
 
-        // Back up to saved function() statement and create sh_function
-        free(dlist_lpop(expect));
-        pl = (void *)(*expect)->data;
-        funky = xmalloc(sizeof(struct sh_function));
-        funky->refcount = 1;
-        funky->name = *pl->arg->v;
-        *pl->arg->v = (void *)funky;
-
-        // Chop out pipeline segments added since saved function
-        funky->pipeline = pl->next;
-        pl->next->prev = (*ppl)->prev;
-        (*ppl)->prev->next = pl->next;
-        pl->next = *ppl;
-        (*ppl)->prev = pl;
-        dlist_terminate(funky->pipeline = add_pl(&funky->pipeline, 0));
-        funky->pipeline->type = 'f';
-
-        // Immature function has matured (meaning cleanup is different)
-        pl->type = 'F';
-        free(dlist_lpop(expect));
-        ex = *expect ? (*expect)->prev->data : 0;
+        // queue up HERE EOF so input loop asks for more lines.
+        *(arg[pl->count].v = xzalloc(2*sizeof(void *))) = arg->v[++i];
+        arg[pl->count].c = 0;
       }
+      // Mark "bridge" segment when previous pl had HERE but this doesn't
+      if (!pl->count && pl->prev->count != pl->prev->here) pl->prev->here = -1;
       pl = 0;
     }
     if (done) break;
@@ -2812,15 +3025,13 @@ static int parse_line(char *line, struct sh_pipeline **ppl,
 
     // Parse next word and detect overflow (too many nested quotes).
     if ((end = parse_word(start, 0, 0)) == (void *)1) goto flush;
-//dprintf(2, "%d %p %s word=%.*s\n", getpid(), pl, (ex != (void *)1) ? ex : "function", (int)(end-start), end ? start : "");
+//dprintf(2, "%d %p(%d) %s word=%.*s\n", getpid(), pl, pl ? pl->type : -1, ex, (int)(end-start), end ? start : "");
 
+    // End function declaration?
     if (pl && pl->type == 'f' && arg->c == 1 && (end-start!=1 || *start!='(')) {
-funky:
-      // end function segment, expect function body
-      dlist_add(expect, (void *)pl);
-      pl = 0;
-      dlist_add(expect, (void *)1);
+      // end (possibly multiline) function segment, expect function body next
       dlist_add(expect, 0);
+      pl = 0;
 
       continue;
     }
@@ -2841,7 +3052,7 @@ funky:
     // Ok, we have a word. What does it _mean_?
 
     // case/esac parsing is weird (unbalanced parentheses!), handle first
-    i = (unsigned long)ex>1 && !strcmp(ex, "esac") &&
+    i = ex && !strcmp(ex, "esac") &&
         ((pl->type && pl->type != 3) || (*start==';' && end-start>1));
     if (i) {
 
@@ -2854,7 +3065,7 @@ funky:
       }
 
       // type 0 means just got ;; so start new type 2
-      if (!pl->type) {
+      if (!pl->type || pl->type==3) {
         // catch "echo | ;;" errors
         if (arg->v && arg->v[arg->c] && strcmp(arg->v[arg->c], "&")) goto flush;
         if (!arg->c) {
@@ -2874,6 +3085,7 @@ funky:
     // Did we hit end of line or ) outside a function declaration?
     // ) is only saved at start of a statement, ends current statement
     } else if (end == start || (arg->c && *start == ')' && pl->type!='f')) {
+//TODO: test ) within ]]
       // function () needs both parentheses or neither
       if (pl->type == 'f' && arg->c != 1 && arg->c != 3) {
         s = "function(";
@@ -2881,7 +3093,7 @@ funky:
       }
 
       // "for" on its own line is an error.
-      if (arg->c == 1 && (unsigned long)ex>1 && !memcmp(ex, "do\0A", 4)) {
+      if (arg->c == 1 && !smemcmp(ex, "do\0A", 4)) {
         s = "newline";
         goto flush;
       }
@@ -2959,7 +3171,8 @@ funky:
       if (arg->c == 2 && strcmp(s, "(")) goto flush;
       if (arg->c == 3) {
         if (strcmp(s, ")")) goto flush;
-        goto funky;
+        dlist_add(expect, 0);
+        pl = 0;
       }
 
       continue;
@@ -2968,26 +3181,25 @@ funky:
     } else if (strchr(";|&", *s) && strncmp(s, "&>", 2)) {
       arg->c--;
 
+      // Connecting nonexistent statements is an error
+      if (!arg->c || !smemcmp(ex, "do\0A", 4)) goto flush;
+
       // treat ; as newline so we don't have to check both elsewhere.
       if (!strcmp(s, ";")) {
         arg->v[arg->c] = 0;
         free(s);
         s = 0;
 // TODO can't have ; between "for i" and in or do. (Newline yes, ; no. Why?)
-        if (!arg->c && (unsigned long)ex>1 && !memcmp(ex, "do\0C", 4)) continue;
+        if (!arg->c && !smemcmp(ex, "do\0C", 4)) continue;
 
       // ;; and friends only allowed in case statements
       } else if (*s == ';') goto flush;
-
-      // flow control without a statement is an error
-      if (!arg->c) goto flush;
       pl->count = -1;
 
       continue;
 
     // a for/select must have at least one additional argument on same line
-    } else if ((unsigned long)ex>1 && !memcmp(ex, "do\0A", 4)) {
-
+    } else if (!smemcmp(ex, "do\0A", 4)) {
       // Sanity check and break the segment
       if (strncmp(s, "((", 2) && *varend(s)) goto flush;
       pl->count = -1;
@@ -2996,22 +3208,24 @@ funky:
       continue;
 
     // flow control is the first word of a pipeline segment
-    } else if (arg->c>1) continue;
+    } else if (arg->c>1) {
+      // Except that [[ ]] is a type 0 segment
+      if (ex && *ex==']' && !strcmp(s, ex)) free(dlist_lpop(expect));
 
-    // Do we expect something that _must_ come next? (no multiple statements)
-    if ((unsigned long)ex>1) {
-      // The "test" part of for/select loops can have (at most) one "in" line,
-      // for {((;;))|name [in...]} do
-      if (!memcmp(ex, "do\0C", 4)) {
-        if (strcmp(s, "do")) {
-          // can only have one "in" line between for/do, but not with for(())
-          if (pl->prev->type == 's') goto flush;
-          if (!strncmp(pl->prev->arg->v[1], "((", 2)) goto flush;
-          else if (strcmp(s, "in")) goto flush;
-          pl->type = 's';
+      continue;
+    }
 
-          continue;
-        }
+    // The "test" part of for/select loops can have (at most) one "in" line,
+    // for {((;;))|name [in...]} do
+    if (!smemcmp(ex, "do\0C", 4)) {
+      if (strcmp(s, "do")) {
+        // can only have one "in" line between for/do, but not with for(())
+        if (pl->prev->type == 's') goto flush;
+        if (!strncmp(pl->prev->arg->v[1], "((", 2)) goto flush;
+        else if (strcmp(s, "in")) goto flush;
+        pl->type = 's';
+
+        continue;
       }
     }
 
@@ -3030,28 +3244,36 @@ funky:
     if (!strcmp(s, "if")) end = "then";
     else if (!strcmp(s, "while") || !strcmp(s, "until")) end = "do\0B";
     else if (!strcmp(s, "{")) end = "}";
-    else if (!strcmp(s, "[[")) end = "]]";
     else if (!strcmp(s, "(")) end = ")";
+    else if (!strcmp(s, "[[")) end = "]]";
 
-    // Expecting NULL means a statement: I.E. any otherwise unrecognized word
-    if (!ex && *expect) free(dlist_lpop(expect));
+    // Expecting NULL means any statement (don't care which).
+    if (!ex && *expect) {
+      if (pl->prev->type == 'f' && !end && smemcmp(s, "((", 2)) goto flush;
+      free(dlist_lpop(expect));
+    }
 
     // Did we start a new statement
     if (end) {
-      pl->type = 1;
+      if (*end!=']') pl->type = 1;
+      else {
+        // [[ ]] is a type 0 segment, not a flow control block
+        dlist_add(expect, end);
+        continue;
+      }
 
       // Only innermost statement needed in { { { echo ;} ;} ;} and such
       if (*expect && !(*expect)->prev->data) free(dlist_lpop(expect));
 
-    // if can't end a statement here skip next few tests
-    } else if ((unsigned long)ex<2);
+    // if not looking for end of statement skip next few tests
+    } else if (!ex);
 
     // If we got here we expect a specific word to end this block: is this it?
     else if (!strcmp(s, ex)) {
       // can't "if | then" or "while && do", only ; & or newline works
       if (strcmp(pl->prev->arg->v[pl->prev->arg->c] ? : "&", "&")) goto flush;
 
-      // consume word, record block end location in earlier !0 type blocks
+      // consume word, record block end in earlier !0 type (non-nested) blocks
       free(dlist_lpop(expect));
       if (3 == (pl->type = anystr(s, tails) ? 3 : 2)) {
         for (i = 0, pl2 = pl3 = pl; (pl2 = pl2->prev);) {
@@ -3060,7 +3282,7 @@ funky:
             if (!i) {
               if (pl2->type == 2) {
                 pl2->end = pl3;
-                pl3 = pl2;
+                pl3 = pl2;   // chain multiple gearshifts for case/esac
               } else pl2->end = pl;
             }
             if (pl2->type == 1 && --i<0) break;
@@ -3105,17 +3327,43 @@ funky:
 
   // ignore blank and comment lines
   if (!*ppl) return 0;
-
-// TODO <<< has no parsing impact, why play with it here at all?
-  // advance past <<< arguments (stored as here documents, but no new input)
   pl = (*ppl)->prev;
-  while (pl->count<pl->here && pl->arg[pl->count].c<0)
-    pl->arg[pl->count++].c = 0;
 
   // return if HERE document pending or more flow control needed to complete
+  if (pl->count != pl->here) return 1;
   if (*expect) return 1;
-  if (*ppl && pl->count != pl->here) return 1;
   if (pl->arg->v[pl->arg->c] && strcmp(pl->arg->v[pl->arg->c], "&")) return 1;
+
+  // Transplant completed function bodies into reference counted structures
+  for (;;) {
+    if (pl->type=='f') {
+      struct sh_function *funky;
+
+      // Create sh_function struct, attach to declaration's pipeline segment
+      funky = xmalloc(sizeof(struct sh_function));
+      funky->refcount = 1;
+      funky->name = *pl->arg->v;
+      *pl->arg->v = (void *)funky;
+      pl->type = 'F'; // different cleanup
+
+      // Transplant function body into new struct, re-circling both lists
+      pl2 = pl->next;
+      // Add NOP 'f' segment (TODO: remove need for this?)
+      (funky->pipeline = add_pl(&pl2, 0))->type = 'f';
+      // Find end of block
+      for (i = 0, pl3 = pl2->next;;pl3 = pl3->next)
+        if (pl3->type == 1) i++;
+        else if (pl3->type == 3 && --i<0) break;
+      // Chop removed segment out of old list.
+      pl3->next->prev = pl;
+      pl->next = pl3->next;
+      // Terminate removed segment.
+      pl2->prev = 0;
+      pl3->next = 0;
+    }
+    if (pl == *ppl) break;
+    pl = pl->prev;
+  }
 
   // Don't need more input, can start executing.
 
@@ -3310,6 +3558,7 @@ static char *get_next_line(FILE *ff, int prompt)
 // TODO: ctrl-z during script read having already read partial line,
 // SIGSTOP and SIGTSTP need SA_RESTART, but child proc should stop
 // TODO if (!isspace(*new)) add_to_history(line);
+// TODO: embedded nul bytes need signaling for the "tried to run binary" test.
 
   for (new = 0, len = 0;;) {
     errno = 0;
@@ -3457,8 +3706,7 @@ static void run_lines(void)
           break;
         }
       // Parse and run next command, saving resulting process
-      } else if ((pp = run_command()))
-        dlist_add_nomalloc((void *)&pplist, (void *)pp);
+      } else dlist_add_nomalloc((void *)&pplist, (void *)run_command());
 
     // Start of flow control block?
     } else if (TT.ff->pl->type == 1) {
@@ -3483,7 +3731,7 @@ static void run_lines(void)
 // TODO test background a block: { abc; } &
 
       // If we spawn a subshell, pass data off to child process
-      if (TT.ff->blk->pipe || !strcmp(s, "(") || (ctl && !strcmp(ctl, "&"))) {
+      if (TT.ff->blk->next->pipe || !strcmp(s, "(") || (ctl && !strcmp(ctl, "&"))) {
         if (!(pp->pid = run_subshell(0, -1))) {
 
           // zap forked child's cleanup context and advance to next statement
@@ -3509,10 +3757,39 @@ static void run_lines(void)
 
         // for/select/do/done: populate blk->farg with expanded args (if any)
         if (!strcmp(s, "for") || !strcmp(s, "select")) {
-          if (TT.ff->blk->loop);
+          if (TT.ff->blk->loop); // skip init, not first time through loop
+
+          // in (;;)
           else if (!strncmp(TT.ff->blk->fvar = ss, "((", 2)) {
+            char *in = ss+2, *out;
+            long long ll;
+
             TT.ff->blk->loop = 1;
-dprintf(2, "TODO skipped init for((;;)), need math parser\n");
+            for (i = 0; i<3; i++) {
+              if (i==2) k = strlen(in)-2;
+              else {
+                // perform expansion but immediately discard it to find ;
+                k = ';';
+                pp = xzalloc(sizeof(*pp));
+                if (expand_arg_nobrace(&pp->arg, ss+2, NO_PATH|NO_SPLIT,
+                    &pp->delete, 0, &k)) break;
+                free_process(pp);
+                if (in[k] != ';') break;
+              }
+              (out = xmalloc(k+1))[k] = 0;
+              memcpy(out, in, k);
+              arg_add(&TT.ff->blk->farg, push_arg(&TT.ff->blk->fdelete, out));
+              in += k+1;
+            }
+            if (i!=3) {
+              syntax_err(ss);
+              break;
+            }
+            in = out = *TT.ff->blk->farg.v;
+            if (!recalculate(&ll, &in, 0) || *in) {
+              perror_msg("bad math: %s @ %ld", in, (long)(in-out));
+              break;
+            }
 
           // in LIST
           } else if (TT.ff->pl->next->type == 's') {
@@ -3563,7 +3840,7 @@ dprintf(2, "TODO skipped init for((;;)), need math parser\n");
             }
             arg.c = arg2.c = 0;
             if ((err = expand_arg_nobrace(&arg, *vv++, NO_SPLIT,
-              &TT.ff->blk->fdelete, &arg2))) break;
+              &TT.ff->blk->fdelete, &arg2, 0))) break;
             s = arg.c ? *arg.v : "";
             match = wildcard_match(TT.ff->blk->fvar, s, &arg2, 0);
             if (match>=0 && !s[match]) break;
@@ -3606,7 +3883,21 @@ dprintf(2, "TODO skipped init for((;;)), need math parser\n");
           }
         } else if (blk->loop >= blk->farg.c) TT.ff->pl = pop_block();
         else if (!strncmp(blk->fvar, "((", 2)) {
-dprintf(2, "TODO skipped running for((;;)), need math parser\n");
+          char *aa, *bb;
+          long long ll;
+
+          for (i = 2; i; i--) {
+            if (TT.ff->blk->loop == 1) {
+              TT.ff->blk->loop++;
+              i--;
+            }
+            aa = bb = TT.ff->blk->farg.v[i];
+            if (!recalculate(&ll, &aa, 0) || *aa) {
+              perror_msg("bad math: %s @ %ld", aa, (long)(aa-bb));
+              break;
+            }
+            if (i==1 && !ll) TT.ff->pl = pop_block();
+          }
         } else setvarval(blk->fvar, blk->farg.v[blk->loop++]);
       }
 
@@ -3753,6 +4044,8 @@ int do_source(char *name, FILE *ff)
     goto end;
   }
 
+  if (name) TT.ff->omnom = name;
+
 // TODO fix/catch NONBLOCK on input?
 // TODO when DO we reset lineno? (!LINENO means \0 returns 1)
 // when do we NOT reset lineno? Inherit but preserve perhaps? newline in $()?
@@ -3764,7 +4057,7 @@ int do_source(char *name, FILE *ff)
     // did we exec an ELF file or something?
     if (!TT.LINENO++ && name && new) {
       // A shell script's first line has no high bytes that aren't valid utf-8.
-      for (ii = 0; new[ii] && 0<(cc = utf8towc(&wc, new+ii, 4)); ii += cc);
+      for (ii = 0; new[ii]>6 && 0<(cc = utf8towc(&wc, new+ii, 4)); ii += cc);
       if (new[ii]) {
 is_binary:
         if (name) error_msg("'%s' is binary", name); // TODO syntax_err() exit?
@@ -3780,9 +4073,8 @@ is_binary:
     more = parse_line(new ? : " ", &pl, &expect);
     free(new);
     if (more==1) {
-      if (!new) {
-        if (!ff) syntax_err("unexpected end of file");
-      } else continue;
+      if (!new) syntax_err("unexpected end of file");
+      else continue;
     } else if (!more && pl) {
       TT.ff->pl = pl;
       run_lines();
@@ -3832,7 +4124,7 @@ static void nommu_reentry(void)
   // Read named variables: type, len, var=value\0
   for (;;) {
     len = ll = 0;
-    fscanf(fp, "%u %lu%*[^\n]", &len, &ll);
+    (void)fscanf(fp, "%u %lu%*[^\n]", &len, &ll);
     fgetc(fp); // Discard the newline fscanf didn't eat.
     if (!len) break;
     (s = xmalloc(len+1))[len] = 0;
@@ -3901,7 +4193,7 @@ static void subshell_setup(void)
       shv->flags |= VAR_EXPORT;
       shv->str = s;
     }
-    cache_ifs(s, TT.ff);
+    cache_ifs(s, TT.ff); // TODO: replace with set(get("IFS")) after loop
   }
 
   // set/update PWD
@@ -4394,7 +4686,10 @@ void source_main(void)
   call_function();
   TT.ff->arg.v = toys.optargs;
   TT.ff->arg.c = toys.optc;
+  TT.ff->oldlineno = TT.LINENO;
+  TT.LINENO = 0;
   do_source(name, ff);
+  TT.LINENO = TT.ff->oldlineno;
   free(dlist_pop(&TT.ff));
   --TT.srclvl;
 }

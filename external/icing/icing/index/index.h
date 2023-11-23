@@ -33,12 +33,13 @@
 #include "icing/index/term-metadata.h"
 #include "icing/legacy/index/icing-filesystem.h"
 #include "icing/proto/debug.pb.h"
+#include "icing/proto/scoring.pb.h"
 #include "icing/proto/storage.pb.h"
 #include "icing/proto/term.pb.h"
 #include "icing/schema/section.h"
 #include "icing/store/document-id.h"
-#include "icing/store/namespace-checker.h"
 #include "icing/store/namespace-id.h"
+#include "icing/store/suggestion-result-checker.h"
 #include "icing/util/crc32.h"
 
 namespace icing {
@@ -84,6 +85,16 @@ class Index {
   static libtextclassifier3::StatusOr<std::unique_ptr<Index>> Create(
       const Options& options, const Filesystem* filesystem,
       const IcingFilesystem* icing_filesystem);
+
+  // Reads magic from existing flash (main) index file header. We need this
+  // during Icing initialization phase to determine the version.
+  //
+  // Returns
+  //   Valid magic on success
+  //   NOT_FOUND if the lite index doesn't exist
+  //   INTERNAL on I/O error
+  static libtextclassifier3::StatusOr<int> ReadFlashIndexMagic(
+      const Filesystem* filesystem, const std::string& base_dir);
 
   // Clears all files created by the index. Returns OK if all files were
   // cleared.
@@ -140,11 +151,11 @@ class Index {
   }
 
   // Returns debug information for the index in out.
-  // verbosity <= 0, simplest debug information - just the lexicons and lite
-  //                 index.
-  // verbosity > 0, more detailed debug information including raw postings
-  //                lists.
-  IndexDebugInfoProto GetDebugInfo(int verbosity) const {
+  // verbosity = BASIC, simplest debug information - just the lexicons and lite
+  //                    index.
+  // verbosity = DETAILED, more detailed debug information including raw
+  //                       postings lists.
+  IndexDebugInfoProto GetDebugInfo(DebugInfoVerbosity::Code verbosity) const {
     IndexDebugInfoProto debug_info;
     *debug_info.mutable_index_storage_info() = GetStorageInfo();
     *debug_info.mutable_lite_index_info() =
@@ -176,16 +187,19 @@ class Index {
   IndexStorageInfoProto GetStorageInfo() const;
 
   // Create an iterator to iterate through all doc hit infos in the index that
-  // match the term. section_id_mask can be set to ignore hits from sections not
-  // listed in the mask. Eg. section_id_mask = 1U << 3; would only return hits
-  // that occur in section 3.
+  // match the term. term_start_index is the start index of the given term in
+  // the search query. unnormalized_term_length is the length of the given
+  // unnormalized term in the search query not listed in the mask.
+  // Eg. section_id_mask = 1U << 3; would only return hits that occur in
+  // section 3.
   //
   // Returns:
   //   unique ptr to a valid DocHitInfoIterator that matches the term
   //   INVALID_ARGUMENT if given an invalid term_match_type
   libtextclassifier3::StatusOr<std::unique_ptr<DocHitInfoIterator>> GetIterator(
-      const std::string& term, SectionIdMask section_id_mask,
-      TermMatchType::Code term_match_type);
+      const std::string& term, int term_start_index,
+      int unnormalized_term_length, SectionIdMask section_id_mask,
+      TermMatchType::Code term_match_type, bool need_hit_term_frequency = true);
 
   // Finds terms with the given prefix in the given namespaces. If
   // 'namespace_ids' is empty, returns results from all the namespaces. Results
@@ -197,8 +211,9 @@ class Index {
   //   INTERNAL_ERROR if failed to access term data.
   libtextclassifier3::StatusOr<std::vector<TermMetadata>> FindTermsByPrefix(
       const std::string& prefix, int num_to_return,
-      TermMatchType::Code term_match_type,
-      const NamespaceChecker* namespace_checker);
+      TermMatchType::Code scoring_match_type,
+      SuggestionScoringSpecProto::SuggestionRankingStrategy::Code rank_by,
+      const SuggestionResultChecker* suggestion_result_checker);
 
   // A class that can be used to add hits to the index.
   //
@@ -260,8 +275,21 @@ class Index {
     ICING_RETURN_IF_ERROR(main_index_->AddHits(
         *term_id_codec_, std::move(outputs.backfill_map),
         std::move(term_id_hit_pairs), lite_index_->last_added_document_id()));
+    ICING_RETURN_IF_ERROR(main_index_->PersistToDisk());
     return lite_index_->Reset();
   }
+
+  // Reduces internal file sizes by reclaiming space of deleted documents.
+  // new_last_added_document_id will be used to update the last added document
+  // id in the lite index.
+  //
+  // Returns:
+  //   OK on success
+  //   INTERNAL_ERROR on IO error, this indicates that the index may be in an
+  //                               invalid state and should be cleared.
+  libtextclassifier3::Status Optimize(
+      const std::vector<DocumentId>& document_id_old_to_new,
+      DocumentId new_last_added_document_id);
 
  private:
   Index(const Options& options, std::unique_ptr<TermIdCodec> term_id_codec,
@@ -274,7 +302,9 @@ class Index {
         filesystem_(filesystem) {}
 
   libtextclassifier3::StatusOr<std::vector<TermMetadata>> FindLiteTermsByPrefix(
-      const std::string& prefix, const NamespaceChecker* namespace_checker);
+      const std::string& prefix,
+      SuggestionScoringSpecProto::SuggestionRankingStrategy::Code rank_by,
+      const SuggestionResultChecker* suggestion_result_checker);
 
   std::unique_ptr<LiteIndex> lite_index_;
   std::unique_ptr<MainIndex> main_index_;

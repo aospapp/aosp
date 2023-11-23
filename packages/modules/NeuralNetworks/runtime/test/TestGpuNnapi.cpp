@@ -432,7 +432,9 @@ class VulkanComputePipeline {
                 .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                 .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID,
         };
-        VkExternalBufferProperties externalBufferProperties;
+        VkExternalBufferProperties externalBufferProperties = {
+                .sType = VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES,
+        };
         vkGetPhysicalDeviceExternalBufferProperties(mPhysicalDevice, &externalBufferInfo,
                                                     &externalBufferProperties);
         if (!(externalBufferProperties.externalMemoryProperties.externalMemoryFeatures &

@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"दस्तावेज़ सहेजने में विफल रहा"</string>
     <string name="create_error" msgid="3092144450044861994">"फ़ोल्डर बनाने में विफल रहा"</string>
     <string name="query_error" msgid="6625421453613879336">"इस समय सामग्री लोड नहीं की जा सकती"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"वर्क प्रोफ़ाइल रोक दी गई है"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"चालू करें"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"वर्क ऐप्लिकेशन रोक दिए गए हैं"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"वर्क ऐप्लिकेशन चालू करें"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"दफ़्तर की फ़ाइलें नहीं चुनी जा सकतीं"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"आपका आईटी एडमिन आपको किसी निजी ऐप्लिकेशन से दफ़्तर की फ़ाइलें ऐक्सेस करने की मंज़ूरी नहीं देता"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"निजी फ़ाइलें नहीं चुनी जा सकतीं"</string>
@@ -274,7 +274,7 @@
     <string name="directory_blocked_header_title" msgid="1164584889578740066">"इस फ़ोल्डर का इस्तेमाल नहीं किया जा सकता"</string>
     <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"अपनी निजता की सुरक्षा करने के लिए, कोई और फ़ोल्डर चुनें"</string>
     <string name="create_new_folder_button" msgid="8859613309559794890">"नया फ़ोल्डर बनाएं"</string>
-    <string name="search_bar_hint" msgid="4517366509897977321">"यह फ़ोन खोजें"</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"इस फ़ोन में खोजें"</string>
     <string name="delete_search_history" msgid="2202015025607694515">"खोज का इतिहास मिटाएं <xliff:g id="TEXT">%1$s</xliff:g>"</string>
     <string name="personal_tab" msgid="3878576287868528503">"निजी"</string>
     <string name="work_tab" msgid="7265359366883747413">"काम से जुड़ी"</string>

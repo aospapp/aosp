@@ -25,7 +25,6 @@ import android.os.Parcel;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
-import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -203,9 +202,19 @@ public class SoundTriggerTest {
     public void testRecognitionEventBasicGetters() {
         AudioFormat audioFormat = new AudioFormat.Builder().build();
         SoundTrigger.RecognitionEvent recognitionEvent = new SoundTrigger.RecognitionEvent(
-                0, 100, true, 101, 1000, 1001, true, audioFormat, TEST_MODEL_DATA);
+                0 /* status */,
+                100 /* soundModelHandle */,
+                true /* captureAvailable */,
+                101 /* captureSession */,
+                1000 /* captureDelayMs */,
+                1001 /* capturePreambleMs */,
+                true /* triggerInData */,
+                audioFormat,
+                TEST_MODEL_DATA,
+                12345 /* halEventReceivedMillis */);
         assertEquals(recognitionEvent.getCaptureFormat(), audioFormat);
         assertEquals(recognitionEvent.getCaptureSession(), 101);
         assertArrayEquals(recognitionEvent.getData(), TEST_MODEL_DATA);
+        assertEquals(recognitionEvent.getHalEventReceivedMillis(), 12345);
     }
 }

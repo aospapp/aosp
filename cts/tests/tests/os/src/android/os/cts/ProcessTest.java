@@ -59,6 +59,8 @@ public class ProcessTest {
     private static final String REMOTE_SERVICE = "android.app.REMOTESERVICE";
     private static final int APP_UID = 10001;
     private static final int SANDBOX_SDK_UID = 20001;
+    private static final int ISOLATED_PROCESS_UID = 99037;
+    private static final int APP_ZYGOTE_ISOLATED_UID = 90123;
     private static final String TAG = "ProcessTest";
     private ISecondary mSecondaryService = null;
     private Intent mIntent;
@@ -269,5 +271,20 @@ public class ProcessTest {
             final String[] packages = pm.getPackagesForUid(Process.SDK_SANDBOX_VIRTUAL_UID);
             assertNull(packages);
         });
+    }
+
+    /**
+     * Tests for {@link Process#isIsolatedUid(int)} (int)} API.
+     */
+    @Test
+    public void testIsolatedProccesUids() {
+        assertTrue(Process.isIsolatedUid(ISOLATED_PROCESS_UID));
+        assertTrue(Process.isIsolatedUid(APP_ZYGOTE_ISOLATED_UID));
+        // A random UID before the  FIRST_APPLICATION_UID is not an isolated process uid.
+        assertFalse(Process.isIsolatedUid(57));
+        // Sdk Sandbox UID is not an isolated process uid
+        assertFalse(Process.isIsolatedUid(SANDBOX_SDK_UID));
+        // App uid is not an isolated process uid
+        assertFalse(Process.isIsolatedUid(APP_UID));
     }
 }

@@ -32,18 +32,23 @@ public final class ServiceDiscoveryInfo {
     private final int mPeerCipherSuite;
     private final byte[] mScid;
     private final PeerHandle mPeerHandle;
+    private final String mPairingAlias;
+    private final AwarePairingConfig mPairingConfig;
 
     /**
      * @hide
      */
     public ServiceDiscoveryInfo(PeerHandle peerHandle, int peerCipherSuite,
             @Nullable byte[] serviceSpecificInfo,
-            @NonNull List<byte[]> matchFilter, @Nullable byte[] scid) {
+            @NonNull List<byte[]> matchFilter, @Nullable byte[] scid, String pairingAlias,
+            AwarePairingConfig pairingConfig) {
         mServiceSpecificInfo = serviceSpecificInfo;
         mMatchFilters = matchFilter;
         mPeerCipherSuite = peerCipherSuite;
         mScid = scid;
         mPeerHandle = peerHandle;
+        mPairingAlias = pairingAlias;
+        mPairingConfig = pairingConfig;
     }
 
     /**
@@ -101,7 +106,28 @@ public final class ServiceDiscoveryInfo {
      * Get the cipher suite type specified by the publish session to be used for data-path setup.
      * @return peerCipherSuite An integer represent the cipher suite used to encrypt the data-path.
      */
-    public @Characteristics.WifiAwareCipherSuites int getPeerCipherSuite() {
+    public @Characteristics.WifiAwareDataPathCipherSuites int getPeerCipherSuite() {
         return mPeerCipherSuite;
+    }
+
+    /**
+     * Get the paired device alias if the discovered device has already paired. If not null device
+     * will automatically start the NAN pairing verification,
+     * {@link DiscoverySessionCallback#onPairingVerificationSucceed(PeerHandle, String)}
+     * will trigger when verification is finished
+     */
+    @Nullable
+    public String getPairedAlias() {
+        return mPairingAlias;
+    }
+
+    /**
+     * Get the discovered device's pairing config. Can be used for the following pairing setup or
+     * bootstrapping request.
+     * @see AwarePairingConfig
+     */
+    @Nullable
+    public AwarePairingConfig getPairingConfig() {
+        return mPairingConfig;
     }
 }

@@ -30,7 +30,7 @@ import com.android.bedstead.nene.packages.Package;
 import com.android.bedstead.nene.users.UserReference;
 import com.android.bedstead.nene.users.Users;
 import com.android.bedstead.testapp.processor.annotations.TestAppSender;
-import com.android.queryable.info.ActivityInfo;
+import com.android.queryable.collections.QueryableActivityInfoHashSet;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -44,6 +44,7 @@ import java.util.Set;
 public final class TestApp {
     // Must be instrumentation context to access resources
     private static final Context sContext = TestApis.context().instrumentationContext();
+    private static final String LOG_TAG = "TestApp";
     final TestAppDetails mDetails;
 
     TestApp(TestAppDetails details) {
@@ -77,6 +78,7 @@ public final class TestApp {
     public TestAppInstance install(UserReference user) {
         try {
             pkg().installBytes(user, this::apkBytes);
+//            pkg().setAllowTestApiAccess(true);
         } catch (NeneException e) {
             throw new NeneException("Error while installing TestApp " + this, e);
         }
@@ -99,6 +101,20 @@ public final class TestApp {
      */
     public void uninstall() {
         uninstall(TestApis.users().instrumented());
+    }
+
+    /**
+     * Check if {@link TestApp} is installed on the given {@link UserReference}
+     */
+    public boolean installedOnUser(UserReference user) {
+        return pkg().installedOnUser(user);
+    }
+
+    /**
+     * Check if {@link TestApp} is installed on the given {@link UserHandle}
+     */
+    public boolean installedOnUser(UserHandle user) {
+        return pkg().installedOnUser(user);
     }
 
     /**
@@ -169,6 +185,11 @@ public final class TestApp {
         }
     }
 
+    /** The package label, or the package name if no label is specified. */
+    public String label() {
+        return mDetails.label() != null ? mDetails.label() : packageName();
+    }
+
     /** The package name of the test app. */
     public String packageName() {
         return mDetails.mApp.getPackageName();
@@ -200,8 +221,8 @@ public final class TestApp {
     }
 
     /** The activities which exist in the test app. */
-    public Set<ActivityInfo> activities() {
-        return mDetails.mActivities;
+    public QueryableActivityInfoHashSet activities() {
+        return new QueryableActivityInfoHashSet(mDetails.mActivities);
     }
 
     /**
@@ -217,7 +238,6 @@ public final class TestApp {
     public String toString() {
         return "TestApp{"
                 + "packageName=" + packageName()
-                + ", details=" + mDetails
                 + "}";
     }
 

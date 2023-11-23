@@ -144,9 +144,8 @@ void bta_hh_clean_up_kdev(tBTA_HH_DEV_CB* p_cb) {
  *
  ******************************************************************************/
 void bta_hh_update_di_info(tBTA_HH_DEV_CB* p_cb, uint16_t vendor_id,
-                           uint16_t product_id, uint16_t version,
-                           uint8_t flag)
-{
+                           uint16_t product_id, uint16_t version, uint8_t flag,
+                           uint8_t ctry_code) {
 #if (BTA_HH_DEBUG == TRUE)
   APPL_TRACE_DEBUG("vendor_id = 0x%2x product_id = 0x%2x version = 0x%2x",
                    vendor_id, product_id, version);
@@ -155,6 +154,7 @@ void bta_hh_update_di_info(tBTA_HH_DEV_CB* p_cb, uint16_t vendor_id,
   p_cb->dscp_info.product_id = product_id;
   p_cb->dscp_info.version = version;
   p_cb->dscp_info.flag = flag;
+  p_cb->dscp_info.ctry_code = ctry_code;
 }
 /*******************************************************************************
  *
@@ -241,7 +241,7 @@ tBTA_HH_STATUS bta_hh_read_ssr_param(const RawAddress& bd_addr,
                                      uint16_t* p_min_ssr_tout) {
   tBTA_HH_DEV_CB* p_cb = bta_hh_get_cb(bd_addr);
   if (p_cb == nullptr) {
-    LOG_WARN("Unable to find device:%s", PRIVATE_ADDRESS(bd_addr));
+    LOG_WARN("Unable to find device:%s", ADDRESS_TO_LOGGABLE_CSTR(bd_addr));
     return BTA_HH_ERR;
   }
 
@@ -254,7 +254,7 @@ tBTA_HH_STATUS bta_hh_read_ssr_param(const RawAddress& bd_addr,
     if (get_btm_client_interface().link_controller.BTM_GetLinkSuperTout(
             p_cb->addr, &ssr_max_latency) != BTM_SUCCESS) {
       LOG_WARN("Unable to get supervision timeout for peer:%s",
-               PRIVATE_ADDRESS(p_cb->addr));
+               ADDRESS_TO_LOGGABLE_CSTR(p_cb->addr));
       return BTA_HH_ERR;
     }
     ssr_max_latency = BTA_HH_GET_DEF_SSR_MAX_LAT(ssr_max_latency);

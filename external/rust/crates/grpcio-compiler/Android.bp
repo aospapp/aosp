@@ -47,8 +47,10 @@ rust_binary_host {
     ],
     rustlibs: [
         "libgrpcio_compiler",
-        "libprotobuf",
+        "libprotobuf_deprecated",
     ],
+    product_available: true,
+    vendor_available: true,
 }
 
 rust_library_host {
@@ -64,6 +66,8 @@ rust_library_host {
         "protobuf-codec",
     ],
     rustlibs: [
-        "libprotobuf",
+        "libprotobuf_deprecated",
     ],
+    product_available: true,
+    vendor_available: true,
 }

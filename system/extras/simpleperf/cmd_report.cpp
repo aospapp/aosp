@@ -662,8 +662,8 @@ bool ReportCommand::ParseOptions(const std::vector<std::string>& args) {
     return false;
   }
 
-  for (const OptionValue& value : options.PullValues("--pids")) {
-    if (auto pids = GetTidsFromString(*value.str_value, false); pids) {
+  if (auto strs = options.PullStringValues("--pids"); !strs.empty()) {
+    if (auto pids = GetPidsFromStrings(strs, false, false); pids) {
       record_filter_.AddPids(pids.value(), false);
     } else {
       return false;
@@ -856,9 +856,8 @@ bool ReportCommand::ReadMetaInfoFromRecordFile() {
 }
 
 bool ReportCommand::ReadEventAttrFromRecordFile() {
-  std::vector<EventAttrWithId> attrs = record_file_reader_->AttrSection();
-  for (const auto& attr_with_id : attrs) {
-    const perf_event_attr& attr = *attr_with_id.attr;
+  for (const EventAttrWithId& attr_with_id : record_file_reader_->AttrSection()) {
+    const perf_event_attr& attr = attr_with_id.attr;
     attr_names_.emplace_back(GetEventNameByAttr(attr));
 
     // There are no samples for events added by --add-counter. So skip them.
@@ -895,7 +894,9 @@ bool ReportCommand::ReadEventAttrFromRecordFile() {
 }
 
 bool ReportCommand::ReadFeaturesFromRecordFile() {
-  record_file_reader_->LoadBuildIdAndFileFeatures(thread_tree_);
+  if (!record_file_reader_->LoadBuildIdAndFileFeatures(thread_tree_)) {
+    return false;
+  }
 
   std::string arch = record_file_reader_->ReadFeatureString(PerfFileFormat::FEAT_ARCH);
   if (!arch.empty()) {
@@ -991,11 +992,14 @@ void ReportCommand::ProcessSampleRecordInTraceOffCpuMode(std::unique_ptr<Record>
 }
 
 bool ReportCommand::ProcessTracingData(const std::vector<char>& data) {
-  Tracing tracing(data);
+  auto tracing = Tracing::Create(data);
+  if (!tracing) {
+    return false;
+  }
   for (size_t i = 0; i < event_attrs_.size(); i++) {
     if (event_attrs_[i].type == PERF_TYPE_TRACEPOINT) {
       uint64_t trace_event_id = event_attrs_[i].config;
-      attr_names_[i] = tracing.GetTracingEventNameHavingId(trace_event_id);
+      attr_names_[i] = tracing->GetTracingEventNameHavingId(trace_event_id);
     }
   }
   return true;

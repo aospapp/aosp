@@ -81,9 +81,10 @@ enum CoseKeyAlgorithm : int {
     ES256 = -7,  // ECDSA with SHA-256
     EDDSA = -8,
     ECDH_ES_HKDF_256 = -25,
+    ES384 = -35,  // ECDSA with SHA-384
 };
 
-enum CoseKeyCurve : int { P256 = 1, X25519 = 4, ED25519 = 6 };
+enum CoseKeyCurve : int { P256 = 1, P384 = 2, X25519 = 4, ED25519 = 6 };
 enum CoseKeyType : int { OCTET_KEY_PAIR = 1, EC2 = 2, SYMMETRIC_KEY = 4 };
 enum CoseKeyOps : int { SIGN = 1, VERIFY = 2, ENCRYPT = 3, DECRYPT = 4 };
 
@@ -213,6 +214,20 @@ class CoseKey {
         return key;
     }
 
+    static ErrMsgOr<CoseKey> parseP384(const bytevec& coseKey) {
+        auto key = parse(coseKey, EC2, ES384, P384);
+        if (!key) return key;
+
+        auto& pubkey_x = key->getMap().get(PUBKEY_X);
+        auto& pubkey_y = key->getMap().get(PUBKEY_Y);
+        if (!pubkey_x || !pubkey_y || !pubkey_x->asBstr() || !pubkey_y->asBstr() ||
+            pubkey_x->asBstr()->value().size() != 48 || pubkey_y->asBstr()->value().size() != 48) {
+            return "Invalid P384 public key";
+        }
+
+        return key;
+    }
+
     static ErrMsgOr<bytevec> getEcPublicKey(const bytevec& pubX, const bytevec& pubY) {
         if (pubX.empty() || pubY.empty()) {
             return "Missing input parameters";
@@ -285,9 +300,6 @@ ErrMsgOr<cppbor::Array> constructECDSACoseSign1(const bytevec& key,
                                                 cppbor::Map extraProtectedFields,
                                                 const bytevec& payload, const bytevec& aad);
 
-ErrMsgOr<bytevec> ecdsaCoseSignatureToDer(const bytevec& ecdsaCoseSignature);
-
-ErrMsgOr<bytevec> ecdsaDerSignatureToCose(const bytevec& ecdsaSignature);
 /**
  * Verify and parse a COSE_Sign1 message, returning the payload.
  *
@@ -320,8 +332,8 @@ ErrMsgOr<bytevec> x25519_HKDF_DeriveKey(const bytevec& senderPubKey, const bytev
                                         const bytevec& recipientPubKey, bool senderIsA);
 ErrMsgOr<bytevec> ECDH_HKDF_DeriveKey(const bytevec& pubKeyA, const bytevec& privKeyA,
                                       const bytevec& pubKeyB, bool senderIsA);
-bool verifyEcdsaDigest(const bytevec& key, const bytevec& digest, const bytevec& signature);
 bytevec sha256(const bytevec& data);
+bytevec sha384(const bytevec& data);
 ErrMsgOr<bytevec /* ciphertextWithTag */> aesGcmEncrypt(const bytevec& key, const bytevec& nonce,
                                                         const bytevec& aad,
                                                         const bytevec& plaintext);

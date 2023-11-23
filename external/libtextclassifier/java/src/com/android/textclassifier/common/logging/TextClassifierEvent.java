@@ -19,6 +19,7 @@ package com.android.textclassifier.common.logging;
 import android.os.Bundle;
 import androidx.annotation.IntDef;
 import com.google.common.base.Preconditions;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
@@ -327,6 +328,7 @@ public abstract class TextClassifierEvent {
      *
      * <p>See {@link Locale#toLanguageTag()}
      */
+    @CanIgnoreReturnValue
     public T setEntityTypes(String... entityTypes) {
       Preconditions.checkNotNull(entityTypes);
       this.entityTypes = new String[entityTypes.length];
@@ -335,12 +337,14 @@ public abstract class TextClassifierEvent {
     }
 
     /** Sets the event context. */
+    @CanIgnoreReturnValue
     public T setEventContext(@Nullable TextClassificationContext eventContext) {
       this.eventContext = eventContext;
       return self();
     }
 
     /** Sets the id of the text classifier result related to this event. */
+    @CanIgnoreReturnValue
     @Nonnull
     public T setResultId(@Nullable String resultId) {
       this.resultId = resultId;
@@ -348,6 +352,7 @@ public abstract class TextClassifierEvent {
     }
 
     /** Sets the index of this event in the series of events it belongs to. */
+    @CanIgnoreReturnValue
     @Nonnull
     public T setEventIndex(int eventIndex) {
       this.eventIndex = eventIndex;
@@ -355,6 +360,7 @@ public abstract class TextClassifierEvent {
     }
 
     /** Sets the scores of the suggestions. */
+    @CanIgnoreReturnValue
     @Nonnull
     public T setScores(@Nonnull float... scores) {
       Preconditions.checkNotNull(scores);
@@ -364,6 +370,7 @@ public abstract class TextClassifierEvent {
     }
 
     /** Sets the model name string. */
+    @CanIgnoreReturnValue
     @Nonnull
     public T setModelName(@Nullable String modelVersion) {
       modelName = modelVersion;
@@ -395,6 +402,7 @@ public abstract class TextClassifierEvent {
      *
      * @see android.view.textclassifier.TextClassification#getActions()
      */
+    @CanIgnoreReturnValue
     @Nonnull
     public T setActionIndices(@Nonnull int... actionIndices) {
       this.actionIndices = new int[actionIndices.length];
@@ -403,6 +411,7 @@ public abstract class TextClassifierEvent {
     }
 
     /** Sets the detected locale. */
+    @CanIgnoreReturnValue
     @Nonnull
     public T setLocale(@Nullable Locale locale) {
       this.locale = locale;
@@ -416,6 +425,7 @@ public abstract class TextClassifierEvent {
      * the internals of this bundle as it may have unexpected consequences on the clients of the
      * built event object. For similar reasons, avoid depending on mutable objects in this bundle.
      */
+    @CanIgnoreReturnValue
     @Nonnull
     public T setExtras(@Nonnull Bundle extras) {
       this.extras = Preconditions.checkNotNull(extras);
@@ -578,6 +588,7 @@ public abstract class TextClassifierEvent {
       }
 
       /** Sets the relative word index of the start of the selection. */
+      @CanIgnoreReturnValue
       @Nonnull
       public Builder setRelativeWordStartIndex(int relativeWordStartIndex) {
         this.relativeWordStartIndex = relativeWordStartIndex;
@@ -585,6 +596,7 @@ public abstract class TextClassifierEvent {
       }
 
       /** Sets the relative word (exclusive) index of the end of the selection. */
+      @CanIgnoreReturnValue
       @Nonnull
       public Builder setRelativeWordEndIndex(int relativeWordEndIndex) {
         this.relativeWordEndIndex = relativeWordEndIndex;
@@ -592,6 +604,7 @@ public abstract class TextClassifierEvent {
       }
 
       /** Sets the relative word index of the start of the smart selection. */
+      @CanIgnoreReturnValue
       @Nonnull
       public Builder setRelativeSuggestedWordStartIndex(int relativeSuggestedWordStartIndex) {
         this.relativeSuggestedWordStartIndex = relativeSuggestedWordStartIndex;
@@ -599,6 +612,7 @@ public abstract class TextClassifierEvent {
       }
 
       /** Sets the relative word (exclusive) index of the end of the smart selection. */
+      @CanIgnoreReturnValue
       @Nonnull
       public Builder setRelativeSuggestedWordEndIndex(int relativeSuggestedWordEndIndex) {
         this.relativeSuggestedWordEndIndex = relativeSuggestedWordEndIndex;

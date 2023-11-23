@@ -16,15 +16,22 @@
 
 package android.mediav2.cts;
 
+import static android.mediav2.common.cts.CodecTestBase.SupportClass.CODEC_ALL;
+import static android.mediav2.common.cts.CodecTestBase.SupportClass.CODEC_OPTIONAL;
+
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.mediav2.common.cts.CodecDecoderTestBase;
+import android.mediav2.common.cts.CodecTestActivity;
+import android.mediav2.common.cts.OutputManager;
 
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.filters.LargeTest;
 
-import org.junit.After;
+import com.android.compatibility.common.util.ApiTest;
+
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
@@ -40,18 +47,26 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
-import static android.mediav2.cts.CodecTestBase.SupportClass.*;
-
+/**
+ * Test video decoders support for Adaptive Playback.
+ * <p>
+ * Adaptive playback support for video decoders is only activated if the codec is configured to
+ * decode onto a Surface. The getOutputImage() will return null if the codec was configured with
+ * an output surface. Hence any form of checksum validation for the decoded output is ruled out.
+ * The only form of validation this test currently does is, it checks if the output count is same
+ * as input count and output timestamps list and input timestamps list are same.
+ */
 @RunWith(Parameterized.class)
 public class AdaptivePlaybackTest extends CodecDecoderTestBase {
     private final String[] mSrcFiles;
     private final SupportClass mSupportRequirements;
+    private static final String MEDIA_DIR = WorkDir.getMediaDirString();
 
     private long mMaxPts = 0;
 
-    public AdaptivePlaybackTest(String decoder, String mime, String[] srcFiles,
-            SupportClass supportRequirements) {
-        super(decoder, mime, null);
+    public AdaptivePlaybackTest(String decoder, String mediaType, String[] srcFiles,
+            SupportClass supportRequirements, String allTestParams) {
+        super(decoder, mediaType, null, allTestParams);
         mSrcFiles = srcFiles;
         mSupportRequirements = supportRequirements;
     }
@@ -66,12 +81,7 @@ public class AdaptivePlaybackTest extends CodecDecoderTestBase {
         setUpSurface(mActivity);
     }
 
-    @After
-    public void tearDown() {
-        tearDownSurface();
-    }
-
-    @Parameterized.Parameters(name = "{index}({0}_{1})")
+    @Parameterized.Parameters(name = "{index}_{0}_{1}")
     public static Collection<Object[]> input() {
         final boolean isEncoder = false;
         final boolean needAudio = false;
@@ -163,7 +173,7 @@ public class AdaptivePlaybackTest extends CodecDecoderTestBase {
     }
 
     @Override
-    void dequeueOutput(int bufferIndex, MediaCodec.BufferInfo info) {
+    protected void dequeueOutput(int bufferIndex, MediaCodec.BufferInfo info) {
         if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
             mSawOutputEOS = true;
         }
@@ -215,23 +225,28 @@ public class AdaptivePlaybackTest extends CodecDecoderTestBase {
         return format;
     }
 
+    /**
+     * Test video decoder for seamless resolution changes.
+     */
+    @ApiTest(apis = "MediaCodecInfo.CodecCapabilities#FEATURE_AdaptivePlayback")
     @LargeTest
-    @Test(timeout = CodecTestBase.PER_TEST_TIMEOUT_LARGE_TEST_MS)
+    @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testAdaptivePlayback() throws IOException, InterruptedException {
-        Assume.assumeTrue(isFeatureSupported(mCodecName, mMime,
-                MediaCodecInfo.CodecCapabilities.FEATURE_AdaptivePlayback));
+        Assume.assumeTrue("codec: " + mCodecName + " does not support FEATURE_AdaptivePlayback",
+                isFeatureSupported(mCodecName, mMediaType,
+                        MediaCodecInfo.CodecCapabilities.FEATURE_AdaptivePlayback));
         ArrayList<MediaFormat> formats = new ArrayList<>();
         for (String file : mSrcFiles) {
-            formats.add(setUpSource(file));
+            formats.add(setUpSource(MEDIA_DIR + file));
             mExtractor.release();
         }
-        checkFormatSupport(mCodecName, mMime, false, formats,
+        checkFormatSupport(mCodecName, mMediaType, false, formats,
                 new String[]{MediaCodecInfo.CodecCapabilities.FEATURE_AdaptivePlayback},
                 mSupportRequirements);
         formats.clear();
         int totalSize = 0;
         for (String srcFile : mSrcFiles) {
-            File file = new File(mInpPrefix + srcFile);
+            File file = new File(MEDIA_DIR + srcFile);
             totalSize += (int) file.length();
         }
         long ptsOffset = 0;
@@ -239,7 +254,8 @@ public class AdaptivePlaybackTest extends CodecDecoderTestBase {
         ArrayList<MediaCodec.BufferInfo> list = new ArrayList<>();
         ByteBuffer buffer = ByteBuffer.allocate(totalSize);
         for (String file : mSrcFiles) {
-            formats.add(createInputList(setUpSource(file), buffer, list, buffOffset, ptsOffset));
+            formats.add(createInputList(setUpSource(MEDIA_DIR + file), buffer, list, buffOffset,
+                    ptsOffset));
             mExtractor.release();
             ptsOffset = mMaxPts + 1000000L;
             buffOffset = (list.get(list.size() - 1).offset) + (list.get(list.size() - 1).size);

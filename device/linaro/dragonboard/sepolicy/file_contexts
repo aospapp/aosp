@@ -20,6 +20,7 @@
 /sys/devices/platform/soc@0/8300000.remoteproc						u:object_r:sysfs_remoteproc:s0
 /sys/devices/platform/soc@0/17300000.remoteproc						u:object_r:sysfs_remoteproc:s0
 /sys/devices/platform/soc@0/ae00000.mdss						u:object_r:sysfs_gpu:s0
+/sys/devices/platform/soc@0/ae00000.display-subsystem					u:object_r:sysfs_gpu:s0
 
 #wakeups on db845c
 /sys/devices/platform/soc@0/1c00000.pci/pci0000:00/0000:00:00.0/0000:01:00.0/wakeup/wakeup1						u:object_r:sysfs_wakeup:s0

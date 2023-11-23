@@ -26,3 +26,11 @@ license {
     ],
     license_text: ["LICENSE"],
 }
+
+cc_library_headers {
+    name: "libnetlink_iface_headers",
+    vendor_available: true,
+    export_include_dirs: [
+        "src/drivers",
+    ],
+}

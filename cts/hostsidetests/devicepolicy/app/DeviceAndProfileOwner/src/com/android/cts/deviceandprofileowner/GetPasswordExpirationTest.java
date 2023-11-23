@@ -45,7 +45,7 @@ public class GetPasswordExpirationTest extends BaseDeviceAdminTest {
 
     public void testGetPasswordExpirationUpdatedAfterPasswordReset_afterReset() throws Exception {
         checkPasswordExpiration("Password expiration time not refreshed correctly"
-                + " after reseting password", TIMEOUT_RESET_TEST, 10000);
+                + " after resetting password", TIMEOUT_RESET_TEST, 19000);
     }
 
     private void checkPasswordExpiration(String error, long timeout, long tolerance) {

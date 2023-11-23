@@ -48,13 +48,7 @@ class FakeIoDelegate : public IoDelegate {
   android::base::Result<std::vector<std::string>> ListFiles(const std::string& dir) const override;
 
   // Methods added to facilitate testing.
-  void SetFileContents(const std::string& filename,
-                       const std::string& contents);
-  void AddStubParcelable(const std::string& canonical_name,
-                         const std::string& cpp_header);
-  void AddStubInterface(const std::string& canonical_name);
-  void AddCompoundParcelable(const std::string& canonical_name,
-                             const std::vector<std::string>& subclasses);
+  void SetFileContents(const std::string& filename, const std::string& contents);
   void AddBrokenFilePath(const std::string& path);
   // Returns true iff we've previously written to |path|.
   // When we return true, we'll set *contents to the written string.

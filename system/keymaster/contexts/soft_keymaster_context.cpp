@@ -273,8 +273,8 @@ keymaster_error_t SoftKeymasterContext::ParseKeyBlob(const KeymasterKeyBlob& blo
             return KM_ERROR_INVALID_ARGUMENT;
         }
         auto factory = GetKeyFactory(algorithm);
-        return factory->LoadKey(move(key_material), additional_params, move(hw_enforced),
-                                move(sw_enforced), key);
+        return factory->LoadKey(std::move(key_material), additional_params, std::move(hw_enforced),
+                                std::move(sw_enforced), key);
     };
 
     error = BuildHiddenAuthorizations(additional_params, &hidden, root_of_trust_);

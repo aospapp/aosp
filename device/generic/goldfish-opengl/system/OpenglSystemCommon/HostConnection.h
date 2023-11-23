@@ -35,6 +35,7 @@ struct goldfish_dma_context;
 #endif
 
 #include <memory>
+#include <optional>
 #include <cstring>
 
 class GLEncoder;
@@ -42,9 +43,11 @@ struct gl_client_context_t;
 class GL2Encoder;
 struct gl2_client_context_t;
 
-namespace goldfish_vk {
+namespace gfxstream {
+namespace vk {
 class VkEncoder;
-}
+}  // namespace vk
+}  // namespace gfxstream
 
 // ExtendedRCEncoderContext is an extended version of renderControl_encoder_context_t
 // that will be used to track available emulator features.
@@ -142,6 +145,10 @@ public:
         ExtendedRCEncoderContext* rcEnc, int width, int height, uint32_t glformat) = 0;
     virtual uint32_t getHostHandle(native_handle_t const* handle) = 0;
     virtual int getFormat(native_handle_t const* handle) = 0;
+    virtual uint32_t getFormatDrmFourcc(native_handle_t const* /*handle*/) {
+        // Equal to DRM_FORMAT_INVALID -- see <drm_fourcc.h>
+        return 0;
+    }
     virtual size_t getAllocatedSize(native_handle_t const* handle) = 0;
     virtual ~Gralloc() {}
 };
@@ -181,7 +188,7 @@ public:
 
     GLEncoder *glEncoder();
     GL2Encoder *gl2Encoder();
-    goldfish_vk::VkEncoder *vkEncoder();
+    gfxstream::vk::VkEncoder *vkEncoder();
     ExtendedRCEncoderContext *rcEncoder();
 
     int getRendernodeFd() { return m_rendernodeFd; }
@@ -222,7 +229,7 @@ private:
     static gl_client_context_t  *s_getGLContext();
     static gl2_client_context_t *s_getGL2Context();
 
-    const std::string& queryGLExtensions(ExtendedRCEncoderContext *rcEnc);
+    const std::string& queryHostExtensions(ExtendedRCEncoderContext *rcEnc);
     // setProtocol initilizes GL communication protocol for checksums
     // should be called when m_rcEnc is created
     void setChecksumHelper(ExtendedRCEncoderContext *rcEnc);
@@ -253,6 +260,7 @@ private:
     void queryAndSetVulkanAsyncQsri(ExtendedRCEncoderContext *rcEnc);
     void queryAndSetReadColorBufferDma(ExtendedRCEncoderContext *rcEnc);
     void queryAndSetHWCMultiConfigs(ExtendedRCEncoderContext* rcEnc);
+    void queryAndSetVulkanAuxCommandBufferMemory(ExtendedRCEncoderContext* rcEnc);
     GLint queryVersion(ExtendedRCEncoderContext* rcEnc);
 
 private:
@@ -266,13 +274,13 @@ private:
     std::unique_ptr<GL2Encoder> m_gl2Enc;
 
     // intrusively refcounted
-    goldfish_vk::VkEncoder* m_vkEnc = nullptr;
+    gfxstream::vk::VkEncoder* m_vkEnc = nullptr;
     std::unique_ptr<ExtendedRCEncoderContext> m_rcEnc;
 
     ChecksumCalculator m_checksumHelper;
     Gralloc* m_grallocHelper = nullptr;
     ProcessPipe* m_processPipe = nullptr;
-    std::string m_glExtensions;
+    std::string m_hostExtensions;
     bool m_grallocOnly;
     bool m_noHostError;
 #ifdef GFXSTREAM

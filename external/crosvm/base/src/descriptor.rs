@@ -1,13 +1,16 @@
-// Copyright 2022 The Chromium OS Authors. All rights reserved.
+// Copyright 2022 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use crate::{PollToken, RawDescriptor};
-use serde::{Deserialize, Serialize};
-use std::{
-    fs::File,
-    mem::{self, ManuallyDrop},
-};
+use std::fs::File;
+use std::mem;
+use std::mem::ManuallyDrop;
+
+use serde::Deserialize;
+use serde::Serialize;
+
+use crate::EventToken;
+use crate::RawDescriptor;
 
 /// Wraps a RawDescriptor and safely closes it when self falls out of scope.
 #[derive(Serialize, Deserialize, Debug, Eq)]
@@ -25,11 +28,26 @@ pub trait IntoRawDescriptor {
 /// Trait for returning the underlying raw descriptor, without giving up ownership of the
 /// descriptor.
 pub trait AsRawDescriptor {
+    /// Returns the underlying raw descriptor.
+    ///
+    /// Since the descriptor is still owned by the provider, callers should not assume that it will
+    /// remain open for longer than the immediate call of this method. In particular, it is a
+    /// dangerous practice to store the result of this method for future use: instead, it should be
+    /// used to e.g. obtain a raw descriptor that is immediately passed to a system call.
+    ///
+    /// If you need to use the descriptor for a longer time (and particularly if you cannot reliably
+    /// track the lifetime of the providing object), you should probably consider using
+    /// [`SafeDescriptor`] (possibly along with [`trait@IntoRawDescriptor`]) to get full ownership
+    /// over a descriptor pointing to the same resource.
     fn as_raw_descriptor(&self) -> RawDescriptor;
 }
 
 /// A trait similar to `AsRawDescriptor` but supports an arbitrary number of descriptors.
 pub trait AsRawDescriptors {
+    /// Returns the underlying raw descriptors.
+    ///
+    /// Please refer to the documentation of [`AsRawDescriptor::as_raw_descriptor`] for limitations
+    /// and recommended use.
     fn as_raw_descriptors(&self) -> Vec<RawDescriptor>;
 }
 
@@ -77,7 +95,7 @@ impl TryFrom<&dyn AsRawDescriptor> for SafeDescriptor {
     /// WARNING: Windows does NOT support cloning/duplicating all types of handles. DO NOT use this
     /// function on IO completion ports, sockets, or pseudo-handles (except those from
     /// GetCurrentProcess or GetCurrentThread). See
-    /// https://docs.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-duplicatehandle
+    /// <https://docs.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-duplicatehandle>
     /// for further details.
     ///
     /// TODO(b/191800567): this API has sharp edges on Windows. We should evaluate making some
@@ -106,9 +124,26 @@ impl From<File> for SafeDescriptor {
     }
 }
 
-/// For use cases where a simple wrapper around a RawDescriptor is needed.
-/// This is a simply a wrapper and does not manage the lifetime of the descriptor.
-/// Most usages should prefer SafeDescriptor or using a RawDescriptor directly
+/// For use cases where a simple wrapper around a [`RawDescriptor`] is needed, in order to e.g.
+/// implement [`trait@AsRawDescriptor`].
+///
+/// This is a simply a wrapper and does not manage the lifetime of the descriptor. As such it is the
+/// responsibility of the user to ensure that the wrapped descriptor will not be closed for as long
+/// as the `Descriptor` is alive.
+///
+/// Most use-cases should prefer [`SafeDescriptor`] or implementing and using
+/// [`trait@AsRawDescriptor`] on the type providing the descriptor. Using this wrapper usually means
+/// something can be improved in your code.
+///
+/// Valid uses of this struct include:
+/// * You only have a valid [`RawDescriptor`] and need to pass something that implements
+///   [`trait@AsRawDescriptor`] to a function,
+/// * You need to serialize a [`RawDescriptor`],
+/// * You need [`trait@Send`] or [`trait@Sync`] for your descriptor and properly handle the case
+///   where your descriptor gets closed.
+///
+/// Note that with the exception of the last use-case (which requires proper error checking against
+/// the descriptor being closed), the `Descriptor` instance would be very short-lived.
 #[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct Descriptor(pub RawDescriptor);
@@ -119,7 +154,7 @@ impl AsRawDescriptor for Descriptor {
 }
 
 /// Implement token for implementations that wish to use this struct as such
-impl PollToken for Descriptor {
+impl EventToken for Descriptor {
     fn as_raw_token(&self) -> u64 {
         self.0 as u64
     }

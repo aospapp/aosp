@@ -19,7 +19,6 @@ import com.google.android.enterprise.connectedapps.annotations.CustomParcelableW
 import com.google.android.enterprise.connectedapps.processor.GeneratorUtilities;
 import com.google.auto.value.AutoValue;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Types;
 
 /** Wrapper around information contained in a {@link CustomParcelableWrapper} annotation. */
 @AutoValue
@@ -28,14 +27,14 @@ public abstract class ParcelableWrapperAnnotationInfo {
   public abstract TypeElement originalType();
 
   public static ParcelableWrapperAnnotationInfo extractFromParcelableWrapperAnnotation(
-      Types types, CustomParcelableWrapper customParcelableWrapperAnnotation) {
+      Context context, CustomParcelableWrapper customParcelableWrapperAnnotation) {
     if (customParcelableWrapperAnnotation == null) {
       throw new NullPointerException("parcelableWrapperAnnotation must not be null");
     }
 
     TypeElement originalType =
         GeneratorUtilities.extractClassFromAnnotation(
-            types, customParcelableWrapperAnnotation::originalType);
+            context.types(), customParcelableWrapperAnnotation::originalType);
 
     return new AutoValue_ParcelableWrapperAnnotationInfo(originalType);
   }

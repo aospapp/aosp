@@ -17,14 +17,11 @@
 Tests.
 """
 
-import ctypes
-import random
 import re
 import time
 import traceback
 
 from ctypes import *
-from datetime import datetime
 
 from acts import signals
 from acts.base_test import BaseTestClass

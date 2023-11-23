@@ -74,7 +74,13 @@ void AsyncSafe(const char* format, ...) {
   va_end(args);
 }
 #else
-void AsyncSafe(const char*, ...) {}
+void AsyncSafe(const char* format, ...) {
+  va_list args;
+  va_start(args, format);
+  vprintf(format, args);
+  printf("\n");
+  va_end(args);
+}
 #endif
 
 }  // namespace Log

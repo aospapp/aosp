@@ -17,33 +17,23 @@
 
 package android.bluetooth;
 
-import android.Manifest;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
-import android.bluetooth.annotations.RequiresBluetoothConnectPermission;
-import android.content.ComponentName;
+import android.annotation.SuppressLint;
 import android.content.AttributionSource;
 import android.content.Context;
 import android.os.Binder;
-import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
-import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.RemoteException;
 import android.util.Log;
-import android.annotation.SuppressLint;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 
@@ -198,9 +188,6 @@ public final class BluetoothLeCallControl implements BluetoothProfile {
      * @hide
      */
     public static final int CAPABILITY_JOIN_CALLS = 0x00000002;
-
-    private static final int MESSAGE_TBS_SERVICE_CONNECTED = 102;
-    private static final int MESSAGE_TBS_SERVICE_DISCONNECTED = 103;
 
     private static final int REG_TIMEOUT = 10000;
 
@@ -387,104 +374,43 @@ public final class BluetoothLeCallControl implements BluetoothProfile {
         }
     };
 
-    private Context mContext;
-    private ServiceListener mServiceListener;
-    private volatile IBluetoothLeCallControl mService;
     private BluetoothAdapter mAdapter;
     private final AttributionSource mAttributionSource;
     private int mCcid = 0;
     private String mToken;
     private Callback mCallback = null;
-
-    private final IBluetoothStateChangeCallback mBluetoothStateChangeCallback =
-        new IBluetoothStateChangeCallback.Stub() {
-        public void onBluetoothStateChange(boolean up) {
-            if (DBG)
-                Log.d(TAG, "onBluetoothStateChange: up=" + up);
-            if (!up) {
-                doUnbind();
-            } else {
-                doBind();
-            }
-        }
+    private final BluetoothProfileConnector<IBluetoothLeCallControl> mProfileConnector =
+            new BluetoothProfileConnector(this, BluetoothProfile.LE_CALL_CONTROL,
+                    "BluetoothLeCallControl", IBluetoothLeCallControl.class.getName()) {
+                @Override
+                public IBluetoothLeCallControl getServiceInterface(IBinder service) {
+                    return IBluetoothLeCallControl.Stub.asInterface(service);
+                }
     };
+
 
     /**
      * Create a BluetoothLeCallControl proxy object for interacting with the local Bluetooth
      * telephone bearer service.
      */
     /* package */ BluetoothLeCallControl(Context context, ServiceListener listener) {
-        mContext = context;
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         mAttributionSource = mAdapter.getAttributionSource();
-        mServiceListener = listener;
-
-        IBluetoothManager mgr = mAdapter.getBluetoothManager();
-        if (mgr != null) {
-            try {
-                mgr.registerStateChangeCallback(mBluetoothStateChangeCallback);
-            } catch (RemoteException e) {
-                Log.e(TAG, "", e);
-            }
-        }
-
-        doBind();
+        mProfileConnector.connect(context, listener);
     }
 
-    private boolean doBind() {
-        synchronized (mConnection) {
-            if (mService == null) {
-                if (VDBG)
-                    Log.d(TAG, "Binding service...");
-                try {
-                    return mAdapter.getBluetoothManager().
-                            bindBluetoothProfileService(BluetoothProfile.LE_CALL_CONTROL,
-                            mConnection);
-                } catch (RemoteException e) {
-                    Log.e(TAG, "Unable to bind TelephoneBearerService", e);
-                }
-            }
-        }
-        return false;
-    }
+    /** @hide */
+    @Override
+    public void close() {
+        if (VDBG) log("close()");
 
-    private void doUnbind() {
-        synchronized (mConnection) {
-            if (mService != null) {
-                if (VDBG)
-                    Log.d(TAG, "Unbinding service...");
-                try {
-                    mAdapter.getBluetoothManager().
-                        unbindBluetoothProfileService(BluetoothProfile.LE_CALL_CONTROL,
-                        mConnection);
-                } catch (RemoteException e) {
-                    Log.e(TAG, "Unable to unbind TelephoneBearerService", e);
-                } finally {
-                    mService = null;
-                }
-            }
-        }
-    }
-
-    /* package */ void close() {
-        if (VDBG)
-            log("close()");
         unregisterBearer();
 
-        IBluetoothManager mgr = mAdapter.getBluetoothManager();
-        if (mgr != null) {
-            try {
-                mgr.unregisterStateChangeCallback(mBluetoothStateChangeCallback);
-            } catch (RemoteException re) {
-                Log.e(TAG, "", re);
-            }
-        }
-        mServiceListener = null;
-        doUnbind();
+        mProfileConnector.disconnect();
     }
 
     private IBluetoothLeCallControl getService() {
-        return mService;
+        return mProfileConnector.getService();
     }
 
     /**
@@ -513,8 +439,8 @@ public final class BluetoothLeCallControl implements BluetoothProfile {
      * @throws UnsupportedOperationException
      */
     @Override
-    public @NonNull List<BluetoothDevice> getDevicesMatchingConnectionStates(
-        @NonNull int[] states) {
+    @NonNull
+    public List<BluetoothDevice> getDevicesMatchingConnectionStates(@NonNull int[] states) {
         throw new UnsupportedOperationException("not supported");
     }
 
@@ -742,8 +668,7 @@ public final class BluetoothLeCallControl implements BluetoothProfile {
         }
 
         try {
-            service.callStateChanged(mCcid, new ParcelUuid(callId), state,
-                mAttributionSource);
+            service.callStateChanged(mCcid, new ParcelUuid(callId), state, mAttributionSource);
         } catch (RemoteException e) {
             Log.e(TAG, e.toString() + "\n" + Log.getStackTraceString(new Throwable()));
         }
@@ -863,46 +788,4 @@ public final class BluetoothLeCallControl implements BluetoothProfile {
     private static void log(String msg) {
         Log.d(TAG, msg);
     }
-
-    private final IBluetoothProfileServiceConnection mConnection =
-                                    new IBluetoothProfileServiceConnection.Stub() {
-        @Override
-        public void onServiceConnected(ComponentName className, IBinder service) {
-            if (DBG) {
-                Log.d(TAG, "Proxy object connected");
-            }
-            mService = IBluetoothLeCallControl.Stub.asInterface(service);
-            mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_TBS_SERVICE_CONNECTED));
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName className) {
-            if (DBG) {
-                Log.d(TAG, "Proxy object disconnected");
-            }
-            doUnbind();
-            mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_TBS_SERVICE_DISCONNECTED));
-        }
-    };
-
-    private final Handler mHandler = new Handler(Looper.getMainLooper()) {
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-            case MESSAGE_TBS_SERVICE_CONNECTED: {
-                if (mServiceListener != null) {
-                    mServiceListener.onServiceConnected(BluetoothProfile.LE_CALL_CONTROL,
-                        BluetoothLeCallControl.this);
-                }
-                break;
-            }
-            case MESSAGE_TBS_SERVICE_DISCONNECTED: {
-                if (mServiceListener != null) {
-                    mServiceListener.onServiceDisconnected(BluetoothProfile.LE_CALL_CONTROL);
-                }
-                break;
-            }
-            }
-        }
-    };
 }

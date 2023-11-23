@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2021 NXP
+ * Copyright 2019-2023 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #include <hardware/nfc.h>
-#include "NxpNfc.h"
+
 #include "phNfcStatus.h"
 #include "phNxpConfig.h"
 #include "phNxpLog.h"
@@ -145,6 +145,19 @@ int property_get_intf(const char* propName, char* valueStr,
  **
  ********************************************************************************/
 int property_set_intf(const char* propName, const char* valueStr);
+
+/*******************************************************************************
+ **
+ ** Function:        phNxpNciHal_GetNfcGpiosStatus()
+ **
+ ** Description:     Sets the gpios status flag byte
+ **
+ ** Parameters       gpiostatus: flag byte
+ **
+ ** Returns:        returns 0 on success, < 0 on failure
+ **
+ ********************************************************************************/
+NFCSTATUS phNxpNciHal_GetNfcGpiosStatus(uint32_t* gpiosstatus);
 
 /*******************************************************************************
  **

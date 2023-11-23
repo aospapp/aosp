@@ -21,7 +21,7 @@
 
 #include "btif/include/btif_a2dp_sink.h"
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/logging.h>
 
 #include <atomic>
@@ -196,7 +196,7 @@ bool btif_a2dp_sink_init() {
 
   /* Schedule the rest of the operations */
   if (!btif_a2dp_sink_cb.worker_thread.EnableRealTimeScheduling()) {
-#if defined(OS_ANDROID)
+#if defined(__ANDROID__)
     LOG(FATAL) << __func__
                << ": Failed to increase A2DP decoder thread priority";
 #endif
@@ -226,14 +226,16 @@ static void btif_a2dp_sink_startup_delayed() {
 
 bool btif_a2dp_sink_start_session(const RawAddress& peer_address,
                                   std::promise<void> peer_ready_promise) {
-  LOG(INFO) << __func__ << ": peer_address=" << peer_address;
+  LOG(INFO) << __func__ << ": peer_address="
+            << ADDRESS_TO_LOGGABLE_STR(peer_address);
   if (btif_a2dp_sink_cb.worker_thread.DoInThread(
           FROM_HERE, base::BindOnce(btif_a2dp_sink_start_session_delayed,
                                     std::move(peer_ready_promise)))) {
     return true;
   } else {
     // cannot set promise but triggers crash
-    LOG(FATAL) << __func__ << ": peer_address=" << peer_address
+    LOG(FATAL) << __func__ << ": peer_address="
+               << ADDRESS_TO_LOGGABLE_STR(peer_address)
                << " fails to context switch";
     return false;
   }
@@ -250,8 +252,9 @@ static void btif_a2dp_sink_start_session_delayed(
 bool btif_a2dp_sink_restart_session(const RawAddress& old_peer_address,
                                     const RawAddress& new_peer_address,
                                     std::promise<void> peer_ready_promise) {
-  LOG(INFO) << __func__ << ": old_peer_address=" << old_peer_address
-            << " new_peer_address=" << new_peer_address;
+  LOG(INFO) << __func__ << ": old_peer_address="
+            << ADDRESS_TO_LOGGABLE_STR(old_peer_address)
+            << " new_peer_address=" << ADDRESS_TO_LOGGABLE_STR(new_peer_address);
 
   CHECK(!new_peer_address.IsEmpty());
 
@@ -262,7 +265,7 @@ bool btif_a2dp_sink_restart_session(const RawAddress& old_peer_address,
   if (!bta_av_co_set_active_peer(new_peer_address)) {
     LOG(ERROR) << __func__
                << ": Cannot stream audio: cannot set active peer to "
-               << new_peer_address;
+               << ADDRESS_TO_LOGGABLE_STR(new_peer_address);
     peer_ready_promise.set_value();
     return false;
   }
@@ -276,7 +279,8 @@ bool btif_a2dp_sink_restart_session(const RawAddress& old_peer_address,
 }
 
 bool btif_a2dp_sink_end_session(const RawAddress& peer_address) {
-  LOG_INFO("%s: peer_address=%s", __func__, peer_address.ToString().c_str());
+  LOG_INFO("%s: peer_address=%s", __func__,
+           ADDRESS_TO_LOGGABLE_CSTR(peer_address));
   btif_a2dp_sink_cb.worker_thread.DoInThread(
       FROM_HERE, base::BindOnce(btif_a2dp_sink_end_session_delayed));
   return true;
@@ -386,8 +390,8 @@ static void btif_a2dp_sink_command_ready(BT_HDR_RIGID* p_msg) {
       break;
   }
 
-  osi_free(p_msg);
   LOG_VERBOSE("%s: %s DONE", __func__, dump_media_event(p_msg->event));
+  osi_free(p_msg);
 }
 
 void btif_a2dp_sink_update_decoder(const uint8_t* p_codec_info) {
@@ -476,7 +480,7 @@ static void btif_a2dp_sink_audio_handle_stop_decoding() {
 
   {
     LockGuard lock(g_mutex);
-#ifndef OS_GENERIC
+#ifdef __ANDROID__
     BtifAvrcpAudioTrackPause(btif_a2dp_sink_cb.audio_track);
 #endif
   }
@@ -492,7 +496,7 @@ static void btif_a2dp_sink_clear_track_event() {
   LOG_INFO("%s", __func__);
   LockGuard lock(g_mutex);
 
-#ifndef OS_GENERIC
+#ifdef __ANDROID__
   BtifAvrcpAudioTrackStop(btif_a2dp_sink_cb.audio_track);
   BtifAvrcpAudioTrackDelete(btif_a2dp_sink_cb.audio_track);
 #endif
@@ -505,7 +509,7 @@ static void btif_a2dp_sink_audio_handle_start_decoding() {
   if (btif_a2dp_sink_cb.decode_alarm != nullptr)
     return;  // Already started decoding
 
-#ifndef OS_GENERIC
+#ifdef __ANDROID__
   BtifAvrcpAudioTrackStart(btif_a2dp_sink_cb.audio_track);
 #endif
 
@@ -519,7 +523,7 @@ static void btif_a2dp_sink_audio_handle_start_decoding() {
 }
 
 static void btif_a2dp_sink_on_decode_complete(uint8_t* data, uint32_t len) {
-#ifndef OS_GENERIC
+#ifdef __ANDROID__
   BtifAvrcpAudioTrackWriteData(btif_a2dp_sink_cb.audio_track,
                                reinterpret_cast<void*>(data), len);
 #endif
@@ -645,7 +649,7 @@ static void btif_a2dp_sink_decoder_update_event(
 
   APPL_TRACE_DEBUG("%s: create audio track", __func__);
   btif_a2dp_sink_cb.audio_track =
-#ifndef OS_GENERIC
+#ifdef __ANDROID__
       BtifAvrcpAudioTrackCreate(sample_rate, bits_per_sample, channel_count);
 #else
       NULL;
@@ -678,8 +682,11 @@ uint8_t btif_a2dp_sink_enqueue_buf(BT_HDR* p_pkt) {
   fixed_queue_enqueue(btif_a2dp_sink_cb.rx_audio_queue, p_msg);
   if (fixed_queue_length(btif_a2dp_sink_cb.rx_audio_queue) ==
       MAX_A2DP_DELAYED_START_FRAME_COUNT) {
-    BTIF_TRACE_DEBUG("%s: Initiate decoding", __func__);
-    btif_a2dp_sink_audio_handle_start_decoding();
+    BTIF_TRACE_DEBUG("%s: Initiate decoding. Current focus state:%d", __func__,
+                     btif_a2dp_sink_cb.rx_focus_state);
+    if (btif_a2dp_sink_cb.rx_focus_state == BTIF_A2DP_SINK_FOCUS_GRANTED) {
+      btif_a2dp_sink_audio_handle_start_decoding();
+    }
   }
 
   return fixed_queue_length(btif_a2dp_sink_cb.rx_audio_queue);
@@ -731,10 +738,10 @@ static void btif_a2dp_sink_set_focus_state_event(
 }
 
 void btif_a2dp_sink_set_audio_track_gain(float gain) {
-  LOG_INFO("%s: set gain to %f", __func__, gain);
+  LOG_DEBUG("%s: set gain to %f", __func__, gain);
   LockGuard lock(g_mutex);
 
-#ifndef OS_GENERIC
+#ifdef __ANDROID__
   BtifAvrcpSetAudioTrackGain(btif_a2dp_sink_cb.audio_track, gain);
 #endif
 }

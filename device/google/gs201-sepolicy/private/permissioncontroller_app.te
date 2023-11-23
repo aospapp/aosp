@@ -1,0 +1,2 @@
+allow permissioncontroller_app proc_vendor_sched:dir r_dir_perms;
+allow permissioncontroller_app proc_vendor_sched:file w_file_perms;

@@ -16,10 +16,13 @@
 
 package com.android.systemui.wm;
 
+import static com.android.systemui.car.users.CarSystemUIUserUtil.isSecondaryMUMDSystemUI;
+
+import android.annotation.Nullable;
+import android.content.ComponentName;
 import android.content.Context;
 import android.os.Handler;
 import android.os.RemoteException;
-import android.util.ArraySet;
 import android.util.Slog;
 import android.util.SparseArray;
 import android.view.IDisplayWindowInsetsController;
@@ -27,16 +30,16 @@ import android.view.IWindowManager;
 import android.view.InsetsController;
 import android.view.InsetsSourceControl;
 import android.view.InsetsState;
-import android.view.InsetsVisibilities;
-import android.view.WindowInsets.Type;
+import android.view.WindowInsets;
+import android.view.WindowInsets.Type.InsetsType;
+import android.view.inputmethod.ImeTracker;
+import android.view.inputmethod.InputMethodManager;
 
 import androidx.annotation.VisibleForTesting;
 
 import com.android.systemui.dagger.qualifiers.Main;
 import com.android.wm.shell.common.DisplayController;
-import com.android.wm.shell.common.DisplayImeController;
 import com.android.wm.shell.common.DisplayInsetsController;
-import com.android.wm.shell.common.TransactionPool;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -47,13 +50,14 @@ import java.util.Objects;
  * {@link R.bool#config_remoteInsetsControllerControlsSystemBars} determines whether this controller
  * takes control or not.
  */
-public class DisplaySystemBarsController extends DisplayImeController {
+public class DisplaySystemBarsController implements DisplayController.OnDisplaysChangedListener {
 
     private static final String TAG = "DisplaySystemBarsController";
 
-    private final Context mContext;
-    private final DisplayController mDisplayController;
-    private final Handler mHandler;
+    protected final Context mContext;
+    protected final IWindowManager mWmService;
+    protected final DisplayInsetsController mDisplayInsetsController;
+    protected final Handler mHandler;
     @VisibleForTesting
     SparseArray<PerDisplay> mPerDisplaySparseArray;
 
@@ -62,13 +66,17 @@ public class DisplaySystemBarsController extends DisplayImeController {
             IWindowManager wmService,
             DisplayController displayController,
             DisplayInsetsController displayInsetsController,
-            @Main Handler mainHandler,
-            TransactionPool transactionPool) {
-        super(wmService, displayController, displayInsetsController, (r) -> mainHandler.post(r),
-                transactionPool);
+            @Main Handler mainHandler) {
         mContext = context;
-        mDisplayController = displayController;
+        mWmService = wmService;
+        mDisplayInsetsController = displayInsetsController;
         mHandler = mainHandler;
+        if (!isSecondaryMUMDSystemUI()) {
+            // This WM controller should only be initialized once for the primary SystemUI, as it
+            // will affect insets on all displays.
+            // TODO(b/262773276): support per-user remote inset controllers
+            displayController.addDisplayWindowListener(this);
+        }
     }
 
     @Override
@@ -82,7 +90,7 @@ public class DisplaySystemBarsController extends DisplayImeController {
             BarControlPolicy.registerContentObserver(mContext, mHandler, () -> {
                 int size = mPerDisplaySparseArray.size();
                 for (int i = 0; i < size; i++) {
-                    mPerDisplaySparseArray.valueAt(i).updateDisplayWindowRequestedVisibilities();
+                    mPerDisplaySparseArray.valueAt(i).updateDisplayWindowRequestedVisibleTypes();
                 }
             });
         }
@@ -91,54 +99,57 @@ public class DisplaySystemBarsController extends DisplayImeController {
 
     @Override
     public void onDisplayRemoved(int displayId) {
-        try {
-            mWmService.setDisplayWindowInsetsController(displayId, null);
-        } catch (RemoteException e) {
-            Slog.w(TAG, "Unable to remove insets controller on display " + displayId);
-        }
+        PerDisplay pd = mPerDisplaySparseArray.get(displayId);
+        pd.unregister();
         mPerDisplaySparseArray.remove(displayId);
     }
 
-    @VisibleForTesting
-    class PerDisplay extends DisplayImeController.PerDisplay {
+    class PerDisplay implements DisplayInsetsController.OnInsetsChangedListener {
 
         int mDisplayId;
         InsetsController mInsetsController;
-        InsetsVisibilities mRequestedVisibilities = new InsetsVisibilities();
+        @InsetsType int mRequestedVisibleTypes = WindowInsets.Type.defaultVisible();
         String mPackageName;
 
         PerDisplay(int displayId) {
-            super(displayId, mDisplayController.getDisplayLayout(displayId).rotation());
             mDisplayId = displayId;
+            InputMethodManager inputMethodManager =
+                    mContext.getSystemService(InputMethodManager.class);
             mInsetsController = new InsetsController(
-                    new DisplaySystemBarsInsetsControllerHost(mHandler, visibilities -> {
-                        mRequestedVisibilities.set(visibilities);
-                        updateDisplayWindowRequestedVisibilities();
-                    }));
+                    new DisplaySystemBarsInsetsControllerHost(mHandler, requestedVisibleTypes -> {
+                        mRequestedVisibleTypes = requestedVisibleTypes;
+                        updateDisplayWindowRequestedVisibleTypes();
+                    }, inputMethodManager)
+            );
+        }
+
+        public void register() {
+            mDisplayInsetsController.addInsetsChangedListener(mDisplayId, this);
+        }
+
+        public void unregister() {
+            mDisplayInsetsController.removeInsetsChangedListener(mDisplayId, this);
         }
 
         @Override
         public void insetsChanged(InsetsState insetsState) {
-            super.insetsChanged(insetsState);
             mInsetsController.onStateChanged(insetsState);
-            updateDisplayWindowRequestedVisibilities();
+            updateDisplayWindowRequestedVisibleTypes();
         }
 
         @Override
-        public void hideInsets(@Type.InsetsType int types, boolean fromIme) {
-            if ((types & Type.ime()) == 0) {
-                mInsetsController.hide(types);
-            } else {
-                super.hideInsets(types, fromIme);
+        public void hideInsets(@InsetsType int types, boolean fromIme,
+                @Nullable ImeTracker.Token statsToken) {
+            if ((types & WindowInsets.Type.ime()) == 0) {
+                mInsetsController.hide(types, /* fromIme = */ false, statsToken);
             }
         }
 
         @Override
-        public void showInsets(@Type.InsetsType int types, boolean fromIme) {
-            if ((types & Type.ime()) == 0) {
-                mInsetsController.show(types);
-            } else {
-                super.showInsets(types, fromIme);
+        public void showInsets(@InsetsType int types, boolean fromIme,
+                @Nullable ImeTracker.Token statsToken) {
+            if ((types & WindowInsets.Type.ime()) == 0) {
+                mInsetsController.show(types, /* fromIme= */ false, statsToken);
             }
         }
 
@@ -149,47 +160,44 @@ public class DisplaySystemBarsController extends DisplayImeController {
             // Need to filter out IME control to prevent control after leash is released
             if (activeControls != null) {
                 nonImeControls = Arrays.stream(activeControls).filter(
-                        c -> c.getType() != InsetsState.ITYPE_IME).toArray(
+                        c -> c.getType() != WindowInsets.Type.ime()).toArray(
                         InsetsSourceControl[]::new);
             }
             mInsetsController.onControlsChanged(nonImeControls);
-            // After passing the controls to the InsetsController, pass the original controls to
-            // the parent DisplayImeController to handle IME controls.
-            super.insetsControlChanged(insetsState, activeControls);
         }
 
         @Override
-        public void topFocusedWindowChanged(String packageName,
-                InsetsVisibilities requestedVisibilities) {
+        public void topFocusedWindowChanged(ComponentName component,
+                @InsetsType int requestedVisibleTypes) {
+            String packageName = component != null ? component.getPackageName() : null;
             if (Objects.equals(mPackageName, packageName)) {
                 return;
             }
             mPackageName = packageName;
-            updateDisplayWindowRequestedVisibilities();
+            updateDisplayWindowRequestedVisibleTypes();
         }
 
-        private void updateDisplayWindowRequestedVisibilities() {
+        protected void updateDisplayWindowRequestedVisibleTypes() {
             if (mPackageName == null) {
                 return;
             }
             int[] barVisibilities = BarControlPolicy.getBarVisibilities(mPackageName);
-            updateRequestedVisibilities(barVisibilities[0], /* visible= */ true);
-            updateRequestedVisibilities(barVisibilities[1], /* visible= */ false);
-            showInsets(barVisibilities[0], /* fromIme= */ false);
-            hideInsets(barVisibilities[1], /* fromIme= */ false);
+            updateRequestedVisibleTypes(barVisibilities[0], /* visible= */ true);
+            updateRequestedVisibleTypes(barVisibilities[1], /* visible= */ false);
+            showInsets(barVisibilities[0], /* fromIme= */ false, /* statsToken= */ null);
+            hideInsets(barVisibilities[1], /* fromIme= */ false, /* statsToken = */ null);
             try {
-                mWmService.updateDisplayWindowRequestedVisibilities(mDisplayId,
-                        mRequestedVisibilities);
+                mWmService.updateDisplayWindowRequestedVisibleTypes(mDisplayId,
+                        mRequestedVisibleTypes);
             } catch (RemoteException e) {
                 Slog.w(TAG, "Unable to update window manager service.");
             }
         }
 
-        private void updateRequestedVisibilities(@Type.InsetsType int types, boolean visible) {
-            ArraySet<Integer> internalTypes = InsetsState.toInternalType(types);
-            for (int i = internalTypes.size() - 1; i >= 0; i--) {
-                mRequestedVisibilities.setVisibility(internalTypes.valueAt(i), visible);
-            }
+        protected void updateRequestedVisibleTypes(@InsetsType int types, boolean visible) {
+            mRequestedVisibleTypes = visible
+                    ? (mRequestedVisibleTypes | types)
+                    : (mRequestedVisibleTypes & ~types);
         }
     }
 }

@@ -14,28 +14,40 @@
 # limitations under the License.
 #
 
-LIBARTPALETTE_1 {
+LIBARTPALETTE_1 { # introduced=31
   global:
     # --- VERSION 01 API ---
-    PaletteSchedSetPriority; # apex
-    PaletteSchedGetPriority; # apex
-    PaletteWriteCrashThreadStacks; # apex
-    PaletteTraceEnabled; # apex
-    PaletteTraceBegin; # apex
-    PaletteTraceEnd; # apex
-    PaletteTraceIntegerValue; # apex
-    PaletteAshmemCreateRegion; # apex
-    PaletteAshmemSetProtRegion; # apex
-    PaletteCreateOdrefreshStagingDirectory; # apex
-    PaletteShouldReportDex2oatCompilation; #apex
-    PaletteNotifyStartDex2oatCompilation; #apex
-    PaletteNotifyEndDex2oatCompilation; #apex
-    PaletteNotifyDexFileLoaded; #apex
-    PaletteNotifyOatFileLoaded; #apex
-    PaletteShouldReportJniInvocations; #apex
-    PaletteNotifyBeginJniInvocation; #apex
-    PaletteNotifyEndJniInvocation; #apex
+    PaletteSchedSetPriority; # systemapi
+    PaletteSchedGetPriority; # systemapi
+    PaletteWriteCrashThreadStacks; # systemapi
+    PaletteTraceEnabled; # systemapi
+    PaletteTraceBegin; # systemapi
+    PaletteTraceEnd; # systemapi
+    PaletteTraceIntegerValue; # systemapi
+    PaletteAshmemCreateRegion; # systemapi
+    PaletteAshmemSetProtRegion; # systemapi
+    PaletteCreateOdrefreshStagingDirectory; # systemapi
+    PaletteShouldReportDex2oatCompilation; # systemapi
+    PaletteNotifyStartDex2oatCompilation; # systemapi
+    PaletteNotifyEndDex2oatCompilation; # systemapi
+    PaletteNotifyDexFileLoaded; # systemapi
+    PaletteNotifyOatFileLoaded; # systemapi
+    PaletteShouldReportJniInvocations; # systemapi
+    PaletteNotifyBeginJniInvocation; # systemapi
+    PaletteNotifyEndJniInvocation; # systemapi
 
   local:
     *;
 };
+
+LIBARTPALETTE_2 { # introduced=33
+  global:
+    # --- VERSION 02 API ---
+    PaletteReportLockContention; # systemapi
+} LIBARTPALETTE_1;
+
+LIBARTPALETTE_3 { # introduced=UpsideDownCake
+  global:
+    # --- VERSION 03 API ---
+    PaletteSetTaskProfiles; # systemapi
+} LIBARTPALETTE_2;

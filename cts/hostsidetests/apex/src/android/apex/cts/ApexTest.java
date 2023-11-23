@@ -18,8 +18,8 @@ package android.apex.cts;
 
 import static com.android.cts.shim.lib.ShimPackage.SHIM_APEX_PACKAGE_NAME;
 
-import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.util.CommandResult;
 
 import org.junit.Assert;
@@ -45,7 +45,6 @@ public class ApexTest extends BaseHostJUnit4Test {
             || systemProduct.equals("aosp_arm64")
             || systemProduct.equals("aosp_x86")
             || systemProduct.equals("aosp_x86_64")
-            || systemProduct.equals("aosp_tv_arm")
             || systemProduct.equals("aosp_tv_arm64")
             || systemProduct.equals("aosp_car_arm")
             || systemProduct.equals("aosp_car_arm64")

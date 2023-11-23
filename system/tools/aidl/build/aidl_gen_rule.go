@@ -63,22 +63,24 @@ var (
 )
 
 type aidlGenProperties struct {
-	Srcs            []string `android:"path"`
-	AidlRoot        string   // base directory for the input aidl file
-	Imports         []string
-	Stability       *string
-	Min_sdk_version *string
-	Platform_apis   bool
-	Lang            string // target language [java|cpp|ndk|rust]
-	BaseName        string
-	GenLog          bool
-	Version         string
-	GenRpc          bool
-	GenTrace        bool
-	Unstable        *bool
-	NotFrozen       bool
-	Visibility      []string
-	Flags           []string
+	Srcs                []string `android:"path"`
+	AidlRoot            string   // base directory for the input aidl file
+	Imports             []string
+	Headers             []string
+	Stability           *string
+	Min_sdk_version     *string
+	Platform_apis       bool
+	Lang                string // target language [java|cpp|ndk|rust]
+	BaseName            string
+	GenLog              bool
+	Version             string
+	GenRpc              bool
+	GenTrace            bool
+	Unstable            *bool
+	NotFrozen           bool
+	RequireFrozenReason string
+	Visibility          []string
+	Flags               []string
 }
 
 type aidlGenRule struct {
@@ -114,11 +116,11 @@ func (g *aidlGenRule) getImports(ctx android.ModuleContext) map[string]string {
 func (g *aidlGenRule) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	srcs, imports := getPaths(ctx, g.properties.Srcs, g.properties.AidlRoot)
 
+	g.deps = getDeps(ctx, g.getImports(ctx))
+
 	if ctx.Failed() {
 		return
 	}
-
-	g.deps = getDeps(ctx, g.getImports(ctx))
 
 	genDirTimestamp := android.PathForModuleGen(ctx, "timestamp") // $out/gen/timestamp
 	g.implicitInputs = append(g.implicitInputs, genDirTimestamp)
@@ -170,8 +172,13 @@ func (g *aidlGenRule) generateBuildActionsForSingleAidl(ctx android.ModuleContex
 	implicits := g.implicitInputs
 
 	optionalFlags := append([]string{}, g.properties.Flags...)
-	if g.properties.Version != "" {
-		optionalFlags = append(optionalFlags, "--version "+g.properties.Version)
+	if proptools.Bool(g.properties.Unstable) != true {
+		// default version is 1 for any stable interface
+		version := "1"
+		if g.properties.Version != "" {
+			version = g.properties.Version
+		}
+		optionalFlags = append(optionalFlags, "--version "+version)
 
 		hash := "notfrozen"
 		if !strings.HasPrefix(baseDir, ctx.Config().SoongOutDir()) {
@@ -244,12 +251,11 @@ func (g *aidlGenRule) generateBuildActionsForSingleAidl(ctx android.ModuleContex
 			prefix = "aidl"
 		}
 
-		headers = append(headers, g.genHeaderDir.Join(ctx, prefix, packagePath,
-			typeName+".h"))
-		headers = append(headers, g.genHeaderDir.Join(ctx, prefix, packagePath,
-			"Bp"+baseName+".h"))
-		headers = append(headers, g.genHeaderDir.Join(ctx, prefix, packagePath,
-			"Bn"+baseName+".h"))
+		if g.properties.Lang != langCppAnalyzer {
+			headers = append(headers, g.genHeaderDir.Join(ctx, prefix, packagePath, typeName+".h"))
+			headers = append(headers, g.genHeaderDir.Join(ctx, prefix, packagePath, "Bp"+baseName+".h"))
+			headers = append(headers, g.genHeaderDir.Join(ctx, prefix, packagePath, "Bn"+baseName+".h"))
+		}
 
 		if g.properties.GenLog {
 			optionalFlags = append(optionalFlags, "--log")

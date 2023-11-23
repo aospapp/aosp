@@ -255,16 +255,16 @@ class MergeCommand : public Command {
 
   // Check attr sections to know if recorded event types are the same.
   bool CheckAttrSection() {
-    std::vector<EventAttrWithId> attrs0 = readers_[0]->AttrSection();
+    const EventAttrIds& attrs0 = readers_[0]->AttrSection();
     for (size_t i = 1; i < readers_.size(); i++) {
-      std::vector<EventAttrWithId> attrs = readers_[i]->AttrSection();
+      const EventAttrIds& attrs = readers_[i]->AttrSection();
       if (attrs.size() != attrs0.size()) {
         LOG(ERROR) << input_files_[0] << " and " << input_files_[i]
                    << " are not mergeable for recording different event types";
         return false;
       }
       for (size_t attr_id = 0; attr_id < attrs.size(); attr_id++) {
-        if (memcmp(attrs[attr_id].attr, attrs0[attr_id].attr, sizeof(perf_event_attr)) != 0) {
+        if (attrs[attr_id].attr != attrs0[attr_id].attr) {
           LOG(ERROR) << input_files_[0] << " and " << input_files_[i]
                      << " are not mergeable for recording different event types";
           return false;
@@ -300,7 +300,7 @@ class MergeCommand : public Command {
     // map event_ids in readers_[next_read_id] to event attrs. The map info is put into an
     // EventIdRecord.
     const std::unordered_map<uint64_t, size_t>& cur_map = readers_[prev_reader_id]->EventIdMap();
-    std::vector<EventAttrWithId> attrs = readers_[next_reader_id]->AttrSection();
+    const EventAttrIds& attrs = readers_[next_reader_id]->AttrSection();
     std::vector<uint64_t> event_id_data;
     for (size_t attr_id = 0; attr_id < attrs.size(); attr_id++) {
       for (size_t event_id : attrs[attr_id].ids) {
@@ -381,8 +381,9 @@ class MergeCommand : public Command {
     // Read file features.
     for (auto& reader : readers_) {
       FileFeature file;
-      size_t read_pos = 0;
-      while (reader->ReadFileFeature(read_pos, &file)) {
+      uint64_t read_pos = 0;
+      bool error = false;
+      while (reader->ReadFileFeature(read_pos, file, error)) {
         if (files_to_drop.count(file.path) != 0) {
           continue;
         }
@@ -394,6 +395,9 @@ class MergeCommand : public Command {
               << " has address-conflict symbols in different record files. So drop its symbols.";
           files_to_drop.emplace(file.path);
         }
+      }
+      if (error) {
+        return false;
       }
     }
     // Write file features.

@@ -30,6 +30,7 @@ namespace hidlevs = ::android::hardware::automotive::evs;
 using ::aidl::android::hardware::automotive::evs::BufferDesc;
 using ::aidl::android::hardware::automotive::evs::EvsEventDesc;
 using ::aidl::android::hardware::automotive::evs::EvsEventType;
+using ::aidl::android::hardware::automotive::evs::EvsResult;
 using ::ndk::ScopedAStatus;
 
 AidlCameraStream::AidlCameraStream(
@@ -39,10 +40,6 @@ AidlCameraStream::AidlCameraStream(
         mImpl = std::make_shared<ImplV0>(hidlStream);
     } else {
         mImpl = std::make_shared<ImplV1>(hidlStreamV1);
-    }
-
-    if (!mImpl) {
-        LOG(ERROR) << "Failed to initialize AidlCameraStream instance";
     }
 }
 
@@ -74,28 +71,38 @@ AidlCameraStream::ImplV0::ImplV0(const ::android::sp<hidlevs::V1_0::IEvsCameraSt
       IHidlCameraStream(stream) {}
 
 ScopedAStatus AidlCameraStream::ImplV0::deliverFrame(const std::vector<BufferDesc>& buffers) {
+    if (!mStream) {
+        return ScopedAStatus::fromServiceSpecificError(
+                static_cast<int>(EvsResult::RESOURCE_NOT_AVAILABLE));
+    }
+
     auto hidlBuffer = Utils::makeToHidlV1_0(buffers[0], /* doDup= */ false);
     mBuffers.push_back(std::move(Utils::dupBufferDesc(buffers[0], /* doDup= */ true)));
     if (auto status = mStream->deliverFrame(std::move(hidlBuffer)); !status.isOk()) {
         LOG(ERROR) << "Failed to forward a frame to HIDL v1.0 client";
-        return ScopedAStatus::fromExceptionCode(EX_TRANSACTION_FAILED);
+        return ScopedAStatus::fromStatus(STATUS_FAILED_TRANSACTION);
     }
 
     return ScopedAStatus::ok();
 }
 
 ScopedAStatus AidlCameraStream::ImplV0::notify(const EvsEventDesc& event) {
+    if (!mStream) {
+        return ScopedAStatus::fromServiceSpecificError(
+                static_cast<int>(EvsResult::RESOURCE_NOT_AVAILABLE));
+    }
+
     switch (event.aType) {
         case EvsEventType::STREAM_STOPPED:
             if (auto status = mStream->deliverFrame({}); !status.isOk()) {
                 LOG(ERROR) << "Error delivering the end of stream marker";
-                return ScopedAStatus::fromExceptionCode(EX_TRANSACTION_FAILED);
+                return ScopedAStatus::fromStatus(STATUS_FAILED_TRANSACTION);
             }
             break;
 
         default:
             // HIDL v1.0 interface does not support events
-            LOG(INFO) << "Event " << Utils::toString(event.aType)
+            LOG(INFO) << "Event " << toString(event.aType)
                       << " is received but ignored for HIDL v1.0 client";
             break;
     }
@@ -117,16 +124,26 @@ ScopedAStatus AidlCameraStream::ImplV1::deliverFrame(const std::vector<BufferDes
 
     if (auto status = mStream->deliverFrame_1_1(hidlBuffers); !status.isOk()) {
         LOG(ERROR) << "Failed to forward a frame to HIDL v1.1 client";
-        return ScopedAStatus::fromExceptionCode(EX_TRANSACTION_FAILED);
+        return ScopedAStatus::fromStatus(STATUS_FAILED_TRANSACTION);
     }
 
     return ScopedAStatus::ok();
 }
 
 ScopedAStatus AidlCameraStream::ImplV1::notify(const EvsEventDesc& event) {
-    if (auto status = mStream->notify(Utils::makeToHidl(event)); !status.isOk()) {
-        LOG(ERROR) << "Failed to forward an event, " << Utils::toString(event.aType);
-        return ScopedAStatus::fromExceptionCode(EX_TRANSACTION_FAILED);
+    if (!mStream) {
+        return ScopedAStatus::fromServiceSpecificError(
+                static_cast<int>(EvsResult::RESOURCE_NOT_AVAILABLE));
+    }
+
+    hidlevs::V1_1::EvsEventDesc hidlEvent;
+    if (!Utils::makeToHidl(event, &hidlEvent)) {
+        return ScopedAStatus::fromServiceSpecificError(static_cast<int>(EvsResult::INVALID_ARG));
+    }
+
+    if (auto status = mStream->notify(hidlEvent); !status.isOk()) {
+        LOG(ERROR) << "Failed to forward an event, " << toString(event.aType);
+        return ScopedAStatus::fromStatus(STATUS_FAILED_TRANSACTION);
     }
 
     return ScopedAStatus::ok();

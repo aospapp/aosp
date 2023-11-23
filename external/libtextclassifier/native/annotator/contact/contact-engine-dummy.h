@@ -47,13 +47,15 @@ class ContactEngine {
   }
 
   bool Chunk(const UnicodeText& context_unicode,
-             const std::vector<Token>& tokens,
+             const std::vector<Token>& tokens, ModeFlag mode,
              std::vector<AnnotatedSpan>* result) const {
     return true;
   }
 
   void AddContactMetadataToKnowledgeClassificationResult(
       ClassificationResult* classification_result) const {}
+
+  void CleanUp() const {}
 };
 
 }  // namespace libtextclassifier3

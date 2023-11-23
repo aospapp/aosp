@@ -26,6 +26,8 @@ import android.os.SystemClock;
 import android.text.format.Formatter;
 import android.util.Log;
 
+import com.android.internal.annotations.GuardedBy;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Random;
@@ -153,12 +155,17 @@ class SpeedMeasurementController extends Thread {
     }
 
     private class ReaderThread extends Thread {
-        private boolean mShouldQuit = false;
+
         private final UsbDevice mDevice;
         private final UsbDeviceConnection mUsbConnection;
         private final int mMode;
         private final UsbEndpoint mBulkIn;
         private final byte[] mBuffer = new byte[16384];
+
+        private final Object mLock = new Object();
+
+        @GuardedBy("mLock")
+        private boolean mShouldQuit;
 
         private ReaderThread(UsbDevice device, UsbDeviceConnection conn, int testMode) {
             super("AOAP reader");
@@ -187,12 +194,16 @@ class SpeedMeasurementController extends Thread {
             mBulkIn = bulkIn;
         }
 
-        public synchronized void requestToQuit() {
-            mShouldQuit = true;
+        public void requestToQuit() {
+            synchronized (mLock) {
+                mShouldQuit = true;
+            }
         }
 
-        private synchronized boolean shouldQuit() {
-            return mShouldQuit;
+        private boolean shouldQuit() {
+            synchronized (mLock) {
+                return mShouldQuit;
+            }
         }
 
         @Override
@@ -209,12 +220,19 @@ class SpeedMeasurementController extends Thread {
     }
 
     private abstract class BaseWriterThread extends Thread {
-        protected boolean mShouldQuit = false;
-        protected long mSpeed;
+
         protected final UsbDevice mDevice;
         protected final int mBufferSize;
         protected final UsbDeviceConnection mUsbConnection;
         protected final UsbEndpoint mBulkOut;
+
+        private final Object mLock = new Object();
+
+        @GuardedBy("mLock")
+        protected boolean mShouldQuit;
+
+        @GuardedBy("mLock")
+        protected long mSpeed;
 
         private BaseWriterThread(UsbDevice device, UsbDeviceConnection conn, int bufferSize) {
             super("AOAP writer");
@@ -243,21 +261,29 @@ class SpeedMeasurementController extends Thread {
             mBulkOut = bulkOut;
         }
 
-        public synchronized void requestToQuit() {
-            mShouldQuit = true;
+        public void requestToQuit() {
+            synchronized (mLock) {
+                mShouldQuit = true;
+            }
         }
 
-        protected synchronized boolean shouldQuit() {
-            return mShouldQuit;
+        protected boolean shouldQuit() {
+            synchronized (mLock) {
+                return mShouldQuit;
+            }
         }
 
-        public synchronized String getSpeed() {
-            return Formatter.formatFileSize(mContext, mSpeed) + "/s";
+        public String getSpeed() {
+            synchronized (mLock) {
+                return Formatter.formatFileSize(mContext, mSpeed) + "/s";
+            }
         }
 
-        protected synchronized void setSpeed(long speed) {
-            // Speed is set in bytes/ms. Convert it to bytes/s.
-            mSpeed = speed * 1000;
+        protected void setSpeed(long speed) {
+            synchronized (mLock) {
+                // Speed is set in bytes/ms. Convert it to bytes/s.
+                mSpeed = speed * 1000;
+            }
         }
 
         protected byte[] intToByte(int value) {

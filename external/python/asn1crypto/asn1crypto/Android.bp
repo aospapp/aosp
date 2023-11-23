@@ -27,13 +27,5 @@ python_library {
         "*.py",
         "_perf/*.py",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     pkg_path: "asn1crypto",
 }

@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2022 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package android.companion.cts.uiautomation
 
 import android.Manifest
@@ -5,16 +21,18 @@ import android.annotation.CallSuper
 import android.app.Activity
 import android.app.Activity.RESULT_CANCELED
 import android.app.role.RoleManager
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 import android.companion.AssociationInfo
 import android.companion.AssociationRequest
 import android.companion.BluetoothDeviceFilter
 import android.companion.BluetoothDeviceFilterUtils
 import android.companion.CompanionDeviceManager
-import android.companion.CompanionDeviceManager.REASON_USER_REJECTED
-import android.companion.CompanionDeviceManager.REASON_DISCOVERY_TIMEOUT
 import android.companion.CompanionDeviceManager.REASON_CANCELED
-import android.companion.CompanionDeviceManager.RESULT_USER_REJECTED
+import android.companion.CompanionDeviceManager.REASON_DISCOVERY_TIMEOUT
+import android.companion.CompanionDeviceManager.REASON_USER_REJECTED
 import android.companion.CompanionDeviceManager.RESULT_DISCOVERY_TIMEOUT
+import android.companion.CompanionDeviceManager.RESULT_USER_REJECTED
 import android.companion.DeviceFilter
 import android.companion.cts.common.CompanionActivity
 import android.companion.cts.common.DEVICE_PROFILES
@@ -27,23 +45,26 @@ import android.companion.cts.common.RecordingCallback.OnFailure
 import android.companion.cts.common.SIMPLE_EXECUTOR
 import android.companion.cts.common.TestBase
 import android.companion.cts.common.assertEmpty
-import android.companion.cts.common.setSystemProp
+import android.companion.cts.common.waitFor
+import android.companion.cts.uicommon.CompanionDeviceManagerUi
 import android.content.Intent
 import android.net.MacAddress
 import android.os.Parcelable
 import android.os.SystemClock.sleep
 import androidx.test.uiautomator.UiDevice
-import org.junit.Assume
-import org.junit.Assume.assumeFalse
 import java.util.regex.Pattern
 import kotlin.test.assertContains
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import org.junit.AfterClass
+import org.junit.Assume
+import org.junit.Assume.assumeFalse
+import org.junit.BeforeClass
 
 open class UiAutomationTestBase(
     protected val profile: String?,
@@ -53,9 +74,13 @@ open class UiAutomationTestBase(
         context.getSystemService(RoleManager::class.java)!!
     }
 
-    private val uiDevice: UiDevice by lazy { UiDevice.getInstance(instrumentation) }
-    protected val confirmationUi by lazy { CompanionDeviceManagerUi(uiDevice) }
+    val uiDevice: UiDevice = UiDevice.getInstance(instrumentation)
+    // CDM discovery requires bluetooth is enabled, enable the location if it was disabled.
+    var bluetoothWasEnabled: Boolean = false
+    protected val confirmationUi = CompanionDeviceManagerUi(uiDevice)
     protected val callback by lazy { RecordingCallback() }
+    private val bluetoothManager = context.getSystemService(BluetoothManager::class.java)!!
+    private val bluetoothAdapter: BluetoothAdapter = bluetoothManager.adapter
 
     @CallSuper
     override fun setUp() {
@@ -63,6 +88,7 @@ open class UiAutomationTestBase(
 
         assumeFalse(confirmationUi.isVisible)
         Assume.assumeTrue(CompanionActivity.waitUntilGone())
+
         uiDevice.waitForIdle()
 
         callback.clearRecordedInvocations()
@@ -83,7 +109,10 @@ open class UiAutomationTestBase(
         withShellPermissionIdentity { roleManager.isBypassingRoleQualification = false }
 
         CompanionActivity.safeFinish()
+        CompanionActivity.waitUntilGone()
+
         confirmationUi.dismiss()
+        confirmationUi.waitUntilGone()
 
         restoreDiscoveryTimeout()
 
@@ -122,7 +151,7 @@ open class UiAutomationTestBase(
         // Give the discovery service extra time to find the first match device before
         // pressing the negative button for singleDevice && userRejected.
         if (singleDevice) {
-            setDiscoveryTimeout(2.seconds)
+            setSystemPropertyDuration(2.seconds, SYS_PROP_DEBUG_DISCOVERY_TIMEOUT)
         }
 
         sendRequestAndLaunchConfirmation(singleDevice, selfManaged, displayName)
@@ -131,6 +160,10 @@ open class UiAutomationTestBase(
             // The discovery timeout is 2 sec, but let's wait for 3. So that we have enough
             // time to wait until the dialog appeared.
             sleep(3.seconds.inWholeMilliseconds)
+        }
+
+        if ((singleDevice || selfManaged) && profile != null) {
+            confirmationUi.scrollToBottom()
         }
         // Test can stop here since there's no device found after discovery timeout.
         assumeFalse(callback.invocations.contains(OnFailure(REASON_DISCOVERY_TIMEOUT)))
@@ -162,7 +195,7 @@ open class UiAutomationTestBase(
         // Set discovery timeout to 2 seconds to avoid flaky that
         // there's a chance CDM UI is disappeared before waitUntilVisible
         // is called.
-        setDiscoveryTimeout(2.seconds)
+        setSystemPropertyDuration(2.seconds, SYS_PROP_DEBUG_DISCOVERY_TIMEOUT)
 
         callback.assertInvokedByActions(2.seconds) {
             // Make sure no device will match the request
@@ -196,6 +229,10 @@ open class UiAutomationTestBase(
     ) {
         sendRequestAndLaunchConfirmation(singleDevice = singleDevice)
 
+        if (singleDevice && profile != null) {
+            confirmationUi.scrollToBottom()
+        }
+
         callback.assertInvokedByActions {
             confirmationAction()
         }
@@ -213,21 +250,27 @@ open class UiAutomationTestBase(
         val (resultCode: Int, data: Intent?) = CompanionActivity.waitForActivityResult()
         assertEquals(actual = resultCode, expected = Activity.RESULT_OK)
         assertNotNull(data)
-        val associationFromActivityResult: AssociationInfo? =
-                data.getParcelableExtra(CompanionDeviceManager.EXTRA_ASSOCIATION)
+        val associationFromActivityResult: AssociationInfo? = data.getParcelableExtra(
+                CompanionDeviceManager.EXTRA_ASSOCIATION,
+                AssociationInfo::class.java)
         assertNotNull(associationFromActivityResult)
         // Check that the association reported back via the callback same as the association
         // delivered via onActivityResult().
         assertEquals(associationFromCallback, associationFromActivityResult)
 
-        // Make sure "device data" was included (for backwards compatibility), and that the
-        // MAC address extracted from this data matches the MAC address from AssociationInfo.
-        val deviceFromActivityResult: Parcelable? =
-                data.getParcelableExtra(CompanionDeviceManager.EXTRA_DEVICE)
+        // Make sure "device data" was included (for backwards compatibility)
+        val deviceFromActivityResult = associationFromActivityResult.associatedDevice
         assertNotNull(deviceFromActivityResult)
 
-        val deviceMacAddress =
-                BluetoothDeviceFilterUtils.getDeviceMacAddress(deviceFromActivityResult)
+        // At least one of three types of devices is not null and MAC address from this data
+        // matches the MAC address from AssociationInfo
+        val deviceData: Parcelable = listOf(
+            deviceFromActivityResult.bluetoothDevice,
+            deviceFromActivityResult.bleDevice,
+            deviceFromActivityResult.wifiDevice
+        ).firstNotNullOf { it }
+        assertNotNull(deviceData)
+        val deviceMacAddress = BluetoothDeviceFilterUtils.getDeviceMacAddress(deviceData)
         assertEquals(actual = MacAddress.fromString(deviceMacAddress),
                 expected = associationFromCallback.deviceMacAddress)
 
@@ -308,19 +351,36 @@ open class UiAutomationTestBase(
         assertContains(roleHolders, targetPackageName, "Not a holder of $roleName")
     }
 
-    private fun getRequiredPermissions(selfManaged: Boolean): List<String> =
+    protected fun getRequiredPermissions(selfManaged: Boolean): List<String> =
             mutableListOf<String>().also {
                 if (selfManaged) it += Manifest.permission.REQUEST_COMPANION_SELF_MANAGED
                 if (profilePermission != null) it += profilePermission
             }
 
-    private fun setDiscoveryTimeout(timeout: Duration) =
-        instrumentation.setSystemProp(
-            SYS_PROP_DEBUG_TIMEOUT,
-            timeout.inWholeMilliseconds.toString()
-        )
+    private fun restoreDiscoveryTimeout() = setSystemPropertyDuration(
+        ZERO, SYS_PROP_DEBUG_DISCOVERY_TIMEOUT
+    )
 
-    private fun restoreDiscoveryTimeout() = setDiscoveryTimeout(ZERO)
+    fun enableBluetoothIfNeeded() {
+        bluetoothWasEnabled = bluetoothAdapter.isEnabled
+        if (!bluetoothWasEnabled) {
+            runShellCommand("svc bluetooth enable")
+            val result = waitFor(timeout = 5.seconds, interval = 100.milliseconds) {
+                bluetoothAdapter.isEnabled
+            }
+            assumeFalse("Not able to enable the bluetooth", !result)
+        }
+    }
+
+    fun disableBluetoothIfNeeded() {
+        if (!bluetoothWasEnabled) {
+            runShellCommand("svc bluetooth disable")
+            val result = waitFor(timeout = 5.seconds, interval = 100.milliseconds) {
+                !bluetoothAdapter.isEnabled
+            }
+            assumeFalse("Not able to disable the bluetooth", !result)
+        }
+    }
 
     companion object {
         /**
@@ -346,6 +406,22 @@ open class UiAutomationTestBase(
                 .setNamePattern(Pattern.compile("This Device Does Not Exist"))
                 .build()
 
-        private const val SYS_PROP_DEBUG_TIMEOUT = "debug.cdm.discovery_timeout"
+        private const val SYS_PROP_DEBUG_DISCOVERY_TIMEOUT = "debug.cdm.discovery_timeout"
+
+        @JvmStatic
+        @BeforeClass
+        fun setupBeforeClass() {
+            // Enable bluetooth if it was disabled.
+            val uiAutomationTestBase = UiAutomationTestBase(null, null)
+            uiAutomationTestBase.enableBluetoothIfNeeded()
+        }
+
+        @JvmStatic
+        @AfterClass
+        fun tearDownAfterClass() {
+            // Disable bluetooth if it was disabled.
+            val uiAutomationTestBase = UiAutomationTestBase(null, null)
+            uiAutomationTestBase.disableBluetoothIfNeeded()
+        }
     }
 }

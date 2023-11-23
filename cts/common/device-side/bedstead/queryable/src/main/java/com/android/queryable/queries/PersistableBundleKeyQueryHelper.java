@@ -96,6 +96,13 @@ public final class PersistableBundleKeyQueryHelper<E extends Queryable>
         }
     }
 
+    @Override
+    public boolean isEmptyQuery() {
+        return mExpectsToExist == null
+                && Queryable.isEmptyQuery(mStringQuery)
+                && Queryable.isEmptyQuery(mPersistableBundleQuery);
+    }
+
     public boolean matches(PersistableBundle value, String key) {
         if (mExpectsToExist != null && value.containsKey(key) != mExpectsToExist) {
             return false;

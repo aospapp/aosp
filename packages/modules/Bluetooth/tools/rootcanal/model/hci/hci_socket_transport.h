@@ -31,7 +31,7 @@ class HciSocketTransport : public HciTransport {
   HciSocketTransport(std::shared_ptr<AsyncDataChannel> socket);
   ~HciSocketTransport() = default;
 
-  static std::shared_ptr<HciSocketTransport> Create(
+  static std::shared_ptr<HciTransport> Create(
       std::shared_ptr<AsyncDataChannel> socket) {
     return std::make_shared<HciSocketTransport>(socket);
   }
@@ -50,7 +50,7 @@ class HciSocketTransport : public HciTransport {
                          PacketCallback iso_callback,
                          CloseCallback close_callback) override;
 
-  void TimerTick() override;
+  void Tick() override;
 
   void Close() override;
 

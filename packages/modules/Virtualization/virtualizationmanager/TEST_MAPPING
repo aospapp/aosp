@@ -1,0 +1,7 @@
+{
+  "avf-presubmit": [
+    {
+      "name": "virtualizationmanager_device_test"
+    }
+  ]
+}

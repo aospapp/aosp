@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "base/System.h"
+#include "aemu/base/system/System.h"
 
 #include "Standalone.h"
 
@@ -23,7 +23,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-namespace emugl {
+namespace gfxstream {
 
 class HelloTriangle : public SampleApplication {
 protected:
@@ -40,4 +40,4 @@ private:
     float mTime = 0.0f;
 };
 
-}  // namespace emugl
+}  // namespace gfxstream

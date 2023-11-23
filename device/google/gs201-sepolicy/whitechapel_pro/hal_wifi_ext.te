@@ -1,0 +1,9 @@
+# Allow wifi_ext to report callbacks to gril-service app
+binder_call(hal_wifi_ext, grilservice_app)
+
+# Write wlan driver/fw version into property
+set_prop(hal_wifi_ext, vendor_wifi_version)
+
+# Allow wifi_ext to read and write /data/vendor/firmware/wifi
+allow hal_wifi_ext updated_wifi_firmware_data_file:dir rw_dir_perms;
+allow hal_wifi_ext updated_wifi_firmware_data_file:file create_file_perms;

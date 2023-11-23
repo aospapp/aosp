@@ -8,7 +8,6 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#include <assert.h>
 #include <ApplicationServices/ApplicationServices.h>
 #include <Cocoa/Cocoa.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -24,7 +23,7 @@
 #include "modules/desktop_capture/mac/desktop_frame_cgimage.h"
 #include "modules/desktop_capture/mac/window_list_utils.h"
 #include "modules/desktop_capture/window_finder_mac.h"
-#include "rtc_base/constructor_magic.h"
+#include "rtc_base/checks.h"
 #include "rtc_base/logging.h"
 #include "rtc_base/trace_event.h"
 
@@ -52,6 +51,9 @@ class WindowCapturerMac : public DesktopCapturer {
       rtc::scoped_refptr<DesktopConfigurationMonitor> configuration_monitor);
   ~WindowCapturerMac() override;
 
+  WindowCapturerMac(const WindowCapturerMac&) = delete;
+  WindowCapturerMac& operator=(const WindowCapturerMac&) = delete;
+
   // DesktopCapturer interface.
   void Start(Callback* callback) override;
   void CaptureFrame() override;
@@ -71,8 +73,6 @@ class WindowCapturerMac : public DesktopCapturer {
   const rtc::scoped_refptr<DesktopConfigurationMonitor> configuration_monitor_;
 
   WindowFinderMac window_finder_;
-
-  RTC_DISALLOW_COPY_AND_ASSIGN(WindowCapturerMac);
 };
 
 WindowCapturerMac::WindowCapturerMac(
@@ -142,8 +142,8 @@ bool WindowCapturerMac::IsOccluded(const DesktopVector& pos) {
 }
 
 void WindowCapturerMac::Start(Callback* callback) {
-  assert(!callback_);
-  assert(callback);
+  RTC_DCHECK(!callback_);
+  RTC_DCHECK(callback);
 
   callback_ = callback;
 }
@@ -161,7 +161,19 @@ void WindowCapturerMac::CaptureFrame() {
   if (full_screen_window_detector_) {
     full_screen_window_detector_->UpdateWindowListIfNeeded(
         window_id_, [](DesktopCapturer::SourceList* sources) {
-          return webrtc::GetWindowList(sources, true, false);
+          // Not using webrtc::GetWindowList(sources, true, false)
+          // as it doesn't allow to have in the result window with
+          // empty title along with titled window owned by the same pid.
+          return webrtc::GetWindowList(
+              [sources](CFDictionaryRef window) {
+                WindowId window_id = GetWindowId(window);
+                if (window_id != kNullWindowId) {
+                  sources->push_back(DesktopCapturer::Source{window_id, GetWindowTitle(window)});
+                }
+                return true;
+              },
+              true,
+              false);
         });
 
     CGWindowID full_screen_window = full_screen_window_detector_->FindFullScreenWindow(window_id_);

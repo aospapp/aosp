@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "test/mock/mock_bta_sys_main.h"
 
@@ -55,44 +53,44 @@ struct bta_sys_start_timer bta_sys_start_timer;
 
 // Mocked functions, if any
 void BTA_sys_signal_hw_error() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::bta_sys_main::BTA_sys_signal_hw_error();
 }
 void bta_set_forward_hw_failures(bool value) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::bta_sys_main::bta_set_forward_hw_failures(value);
 }
 void bta_sys_deregister(uint8_t id) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::bta_sys_main::bta_sys_deregister(id);
 }
 void bta_sys_disable() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::bta_sys_main::bta_sys_disable();
 }
 void bta_sys_init(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::bta_sys_main::bta_sys_init();
 }
 bool bta_sys_is_register(uint8_t id) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::bta_sys_main::bta_sys_is_register(id);
 }
 void bta_sys_register(uint8_t id, const tBTA_SYS_REG* p_reg) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::bta_sys_main::bta_sys_register(id, p_reg);
 }
 void bta_sys_sendmsg(void* p_msg) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::bta_sys_main::bta_sys_sendmsg(p_msg);
 }
 void bta_sys_sendmsg_delayed(void* p_msg, const base::TimeDelta& delay) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::bta_sys_main::bta_sys_sendmsg_delayed(p_msg, delay);
 }
 void bta_sys_start_timer(alarm_t* alarm, uint64_t interval_ms, uint16_t event,
                          uint16_t layer_specific) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::bta_sys_main::bta_sys_start_timer(alarm, interval_ms, event,
                                                 layer_specific);
 }

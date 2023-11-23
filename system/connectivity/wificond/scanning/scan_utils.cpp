@@ -281,6 +281,7 @@ bool ScanUtils::Scan(uint32_t interface_index,
                      bool enable_6ghz_rnr,
                      const vector<vector<uint8_t>>& ssids,
                      const vector<uint32_t>& freqs,
+                     const vector<uint8_t>& vendor_ies,
                      int* error_code) {
   NL80211Packet trigger_scan(
       netlink_manager_->GetFamilyId(),
@@ -341,6 +342,12 @@ bool ScanUtils::Scan(uint32_t interface_index,
                               scan_flags));
     LOG(DEBUG) << "Triggering scan with scan_flag=" << scan_flags;
   }
+
+  if (!vendor_ies.empty()) {
+    NL80211Attr<vector<uint8_t>> vendor_ie_attr(NL80211_ATTR_IE, vendor_ies);
+    trigger_scan.AddAttribute(vendor_ie_attr);
+  }
+
   // We are receiving an ERROR/ACK message instead of the actual
   // scan results here, so it is OK to expect a timely response because
   // kernel is supposed to send the ERROR/ACK back before the scan starts.

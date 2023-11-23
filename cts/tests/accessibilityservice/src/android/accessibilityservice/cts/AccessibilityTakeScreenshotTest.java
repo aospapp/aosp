@@ -16,27 +16,30 @@
 
 package android.accessibilityservice.cts;
 
+import static android.accessibilityservice.AccessibilityServiceInfo.CAPABILITY_CAN_RETRIEVE_WINDOW_CONTENT;
+import static android.accessibilityservice.AccessibilityServiceInfo.CAPABILITY_CAN_TAKE_SCREENSHOT;
 import static android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils.filterWindowsChangedWithChangeTypes;
 import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.launchActivityOnSpecifiedDisplayAndWaitForItToBeOnscreen;
 import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.supportsMultiDisplay;
-import static android.accessibilityservice.cts.utils.DisplayUtils.VirtualDisplaySession;
 import static android.accessibilityservice.cts.utils.AsyncUtils.DEFAULT_TIMEOUT_MS;
+import static android.accessibilityservice.cts.utils.DisplayUtils.VirtualDisplaySession;
 import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
 import static android.view.accessibility.AccessibilityEvent.WINDOWS_CHANGE_ADDED;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
+import android.accessibility.cts.common.InstrumentedAccessibilityService;
 import android.accessibility.cts.common.InstrumentedAccessibilityServiceTestRule;
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityService.ScreenshotResult;
 import android.accessibilityservice.AccessibilityService.TakeScreenshotCallback;
 import android.accessibilityservice.cts.activities.AccessibilityWindowQueryActivity;
+import android.accessibilityservice.cts.utils.ActivityLaunchUtils;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
@@ -48,13 +51,18 @@ import android.graphics.Point;
 import android.graphics.drawable.ColorDrawable;
 import android.hardware.HardwareBuffer;
 import android.os.SystemClock;
+import android.platform.test.annotations.Presubmit;
 import android.view.Display;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.accessibility.AccessibilityWindowInfo;
 import android.widget.ImageView;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.ApiTest;
+import com.android.compatibility.common.util.CddTest;
 
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -66,12 +74,19 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Test cases for accessibility service takeScreenshot API.
  */
 @RunWith(AndroidJUnit4.class)
+@CddTest(requirements = {"3.10/C-1-1,C-1-2"})
+@Presubmit
 public class AccessibilityTakeScreenshotTest {
     /**
      * The timeout for waiting screenshot had been taken done.
@@ -227,32 +242,163 @@ public class AccessibilityTakeScreenshotTest {
         verify(mCallback, timeout(TIMEOUT_TAKE_SCREENSHOT_DONE_MILLIS)).onSuccess(
                 mSuccessResultArgumentCaptor.capture());
 
-        final AccessibilityService.ScreenshotResult newScreenshot =
-                mSuccessResultArgumentCaptor.getValue();
-        final Bitmap bitmap = Bitmap.wrapHardwareBuffer(newScreenshot.getHardwareBuffer(),
-                newScreenshot.getColorSpace());
-
-        assertTrue(doesBitmapDisplaySecureContent(activity, bitmap, SECURE_WINDOW_CONTENT_COLOR));
+        assertThat(doesScreenshotContainColor(mSuccessResultArgumentCaptor.getValue(),
+                SECURE_WINDOW_CONTENT_COLOR)).isFalse();
     }
 
-    private boolean doesBitmapDisplaySecureContent(Activity activity, Bitmap screenshot, int color) {
-        final Display display = activity.getWindowManager().getDefaultDisplay();
-        final Point displaySize = new Point();
-        display.getRealSize(displaySize);
+    @Test
+    @ApiTest(apis = {"android.accessibilityservice.AccessibilityService#takeScreenshotOfWindow"})
+    public void testTakeScreenshotOfWindow_GetScreenshotResult() throws Throwable {
+        final Activity activity = launchActivityOnSpecifiedDisplayAndWaitForItToBeOnscreen(
+                sInstrumentation, sUiAutomation, AccessibilityWindowQueryActivity.class,
+                Display.DEFAULT_DISPLAY);
+        try {
+            final AccessibilityWindowInfo activityWindowInfo =
+                    ActivityLaunchUtils.findWindowByTitle(sUiAutomation, activity.getTitle());
+            assertThat(activityWindowInfo).isNotNull();
 
-        final int[] pixels = new int[displaySize.x * displaySize.y];
-        final Bitmap bitmap = screenshot.copy(Bitmap.Config.ARGB_8888, false);
-        bitmap.getPixels(pixels, 0, displaySize.x, 0, 0, displaySize.x,
-                displaySize.y);
-        for (int pixel : pixels) {
-            if ((Color.red(pixel) == Color.red(color))
-                    && (Color.green(pixel) == Color.green(color))
-                    && (Color.blue(pixel) == Color.blue(color))) {
-                return false;
+            final long timestampBeforeTakeScreenshot = SystemClock.uptimeMillis();
+            mService.takeScreenshotOfWindow(activityWindowInfo.getId(),
+                    mContext.getMainExecutor(), mCallback);
+            verify(mCallback, timeout(TIMEOUT_TAKE_SCREENSHOT_DONE_MILLIS)).onSuccess(
+                    mSuccessResultArgumentCaptor.capture());
+
+            final View activityRootView = activity.getWindow().getDecorView();
+            verifyScreenshotResult(mSuccessResultArgumentCaptor.getValue(),
+                    activityRootView.getWidth(), activityRootView.getHeight(),
+                    timestampBeforeTakeScreenshot);
+        } finally {
+            if (activity != null) {
+                activity.finish();
             }
         }
+    }
 
-        return true;
+    @Test
+    @ApiTest(apis = {"android.accessibilityservice.AccessibilityService#takeScreenshotOfWindow"})
+    public void testTakeScreenshotOfWindow_ErrorForSecureWindow() throws Throwable {
+        final Activity activity = launchActivityOnSpecifiedDisplayAndWaitForItToBeOnscreen(
+                sInstrumentation, sUiAutomation, AccessibilityWindowQueryActivity.class,
+                Display.DEFAULT_DISPLAY);
+        try {
+            final ImageView image = new ImageView(activity);
+            image.setImageDrawable(new ColorDrawable(SECURE_WINDOW_CONTENT_COLOR));
+            final String secureWindowTitle = "Secure Window";
+            final WindowManager.LayoutParams params = new WindowManager.LayoutParams();
+            params.width = WindowManager.LayoutParams.MATCH_PARENT;
+            params.height = WindowManager.LayoutParams.MATCH_PARENT;
+            params.flags = WindowManager.LayoutParams.FLAG_SECURE;
+            params.accessibilityTitle = secureWindowTitle;
+            sUiAutomation.executeAndWaitForEvent(
+                    () -> sInstrumentation.runOnMainSync(
+                            () -> activity.getWindowManager().addView(image, params)),
+                    filterWindowsChangedWithChangeTypes(WINDOWS_CHANGE_ADDED),
+                    DEFAULT_TIMEOUT_MS);
+
+            final AccessibilityWindowInfo secureWindowInfo =
+                    ActivityLaunchUtils.findWindowByTitle(sUiAutomation, secureWindowTitle);
+            assertThat(secureWindowTitle).isNotNull();
+
+            mService.takeScreenshotOfWindow(secureWindowInfo.getId(),
+                    mContext.getMainExecutor(), mCallback);
+            verify(mCallback, timeout(TIMEOUT_TAKE_SCREENSHOT_DONE_MILLIS)).onFailure(
+                    AccessibilityService.ERROR_TAKE_SCREENSHOT_SECURE_WINDOW);
+        } finally {
+            if (activity != null) {
+                activity.finish();
+            }
+        }
+    }
+
+    @Test
+    @ApiTest(apis = {"android.accessibilityservice.AccessibilityService#takeScreenshotOfWindow"})
+    public void testTakeScreenshotOfWindow_MultipleWindowsIntervalTime() throws Throwable {
+        final long halfInterval =
+                AccessibilityService.ACCESSIBILITY_TAKE_SCREENSHOT_REQUEST_INTERVAL_TIMES_MS / 2;
+        final List<Integer> accessibilityWindowIds = sUiAutomation.getWindows()
+                .stream().map(AccessibilityWindowInfo::getId).collect(Collectors.toList());
+
+        // The initial batch of window screenshots should succeed.
+        for (TakeScreenshotCallback callback : takeScreenshotsOfWindows(accessibilityWindowIds)) {
+            verify(callback, timeout(TIMEOUT_TAKE_SCREENSHOT_DONE_MILLIS)).onSuccess(
+                    Mockito.any());
+        }
+
+        // The next batch of window screenshots, taken during the interval time, should fail.
+        Thread.sleep(halfInterval);
+        for (TakeScreenshotCallback callback : takeScreenshotsOfWindows(accessibilityWindowIds)) {
+            verify(callback, timeout(TIMEOUT_TAKE_SCREENSHOT_DONE_MILLIS)).onFailure(
+                    AccessibilityService.ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT);
+        }
+
+        // The next batch of window screenshots, taken after the interval time, should succeed.
+        Thread.sleep(halfInterval + 1);
+        for (TakeScreenshotCallback callback : takeScreenshotsOfWindows(accessibilityWindowIds)) {
+            verify(callback, timeout(TIMEOUT_TAKE_SCREENSHOT_DONE_MILLIS)).onSuccess(
+                    Mockito.any());
+        }
+    }
+
+    @Test
+    @ApiTest(apis = {"android.accessibilityservice.AccessibilityService#takeScreenshotOfWindow"})
+    public void testTakeScreenshotOfWindow_InvalidWindow() {
+        mService.takeScreenshotOfWindow(-1,
+                mContext.getMainExecutor(), mCallback);
+        verify(mCallback, timeout(TIMEOUT_TAKE_SCREENSHOT_DONE_MILLIS)).onFailure(
+                AccessibilityService.ERROR_TAKE_SCREENSHOT_INVALID_WINDOW);
+    }
+
+    @Test
+    @ApiTest(apis = {"android.accessibilityservice.AccessibilityService#takeScreenshotOfWindow"})
+    public void testTakeScreenshotOfWindow_ErrorForServiceWithoutScreenshotCapability() {
+        final InstrumentedAccessibilityService serviceWithoutScreenshotCapability =
+                InstrumentedAccessibilityService.enableService(
+                        TouchExplorationStubAccessibilityService.class);
+        try {
+            // Make sure this service can retrieve windows but not take screenshots before we
+            // go forward with the test.
+            final int capabilities =
+                    serviceWithoutScreenshotCapability.getServiceInfo().getCapabilities();
+            assertThat(capabilities & CAPABILITY_CAN_RETRIEVE_WINDOW_CONTENT).isNotEqualTo(0);
+            assertThat(capabilities & CAPABILITY_CAN_TAKE_SCREENSHOT).isEqualTo(0);
+
+            final int accessibilityWindowId = serviceWithoutScreenshotCapability
+                    .getWindows().get(0).getId();
+            serviceWithoutScreenshotCapability.takeScreenshotOfWindow(accessibilityWindowId,
+                    mContext.getMainExecutor(), mCallback);
+            verify(mCallback, timeout(TIMEOUT_TAKE_SCREENSHOT_DONE_MILLIS)).onFailure(
+                    AccessibilityService.ERROR_TAKE_SCREENSHOT_NO_ACCESSIBILITY_ACCESS);
+        } finally {
+            serviceWithoutScreenshotCapability.disableSelfAndRemove();
+        }
+    }
+
+    private List<TakeScreenshotCallback> takeScreenshotsOfWindows(
+            List<Integer> accessibilityWindowIds) {
+        final List<TakeScreenshotCallback> result = new ArrayList<>();
+        for (Integer id : accessibilityWindowIds) {
+            TakeScreenshotCallback callback = Mockito.mock(TakeScreenshotCallback.class);
+            mService.takeScreenshotOfWindow(id, mContext.getMainExecutor(), callback);
+            result.add(callback);
+        }
+        return result;
+    }
+
+    private boolean doesScreenshotContainColor(ScreenshotResult screenshot, int color) {
+        final Bitmap bitmap = Bitmap.wrapHardwareBuffer(screenshot.getHardwareBuffer(),
+                screenshot.getColorSpace()).copy(Bitmap.Config.ARGB_8888, false);
+        final int[] pixels = new int[bitmap.getWidth() * bitmap.getHeight()];
+        bitmap.getPixels(pixels, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(),
+                bitmap.getHeight());
+        final int r = Color.red(color);
+        final int g = Color.green(color);
+        final int b = Color.blue(color);
+        for (int pixel : pixels) {
+            if (Color.red(pixel) == r && Color.green(pixel) == g && Color.blue(pixel) == b) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void takeScreenshot(int displayId) {
@@ -262,20 +408,21 @@ public class AccessibilityTakeScreenshotTest {
     }
 
     private void verifyScreenshotResult(AccessibilityService.ScreenshotResult screenshot) {
-        assertNotNull(screenshot);
+        verifyScreenshotResult(screenshot, mDisplaySize.x, mDisplaySize.y, mStartTestingTime);
+    }
+
+    private void verifyScreenshotResult(AccessibilityService.ScreenshotResult screenshot,
+            int expectedWidth, int expectedHeight, long timestampBeforeTakeScreenshot) {
+        assertThat(screenshot).isNotNull();
+        assertThat(screenshot.getTimestamp()).isGreaterThan(timestampBeforeTakeScreenshot);
+
         final HardwareBuffer hardwareBuffer = screenshot.getHardwareBuffer();
-        assertEquals(mDisplaySize.x, hardwareBuffer.getWidth());
-        assertEquals(mDisplaySize.y, hardwareBuffer.getHeight());
+        assertThat(hardwareBuffer).isNotNull();
+        assertThat(hardwareBuffer.getWidth()).isEqualTo(expectedWidth);
+        assertThat(hardwareBuffer.getHeight()).isEqualTo(expectedHeight);
 
-        // The colorSpace should not be null for taking the screenshot case.
         final ColorSpace colorSpace = screenshot.getColorSpace();
-        assertNotNull(colorSpace);
-
-        final long finishTestingTime = screenshot.getTimestamp();
-        assertTrue(finishTestingTime > mStartTestingTime);
-
-        // The bitmap should not be null for ScreenshotResult's payload.
-        final Bitmap bitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, colorSpace);
-        assertNotNull(bitmap);
+        assertThat(colorSpace).isNotNull();
+        assertThat(Bitmap.wrapHardwareBuffer(hardwareBuffer, colorSpace)).isNotNull();
     }
 }

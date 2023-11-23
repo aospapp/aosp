@@ -18,7 +18,6 @@
 #define HARDWARE_GOOGLE_PIXEL_HEALTH_STATSHELPER_H
 
 #include <aidl/android/frameworks/stats/IStats.h>
-#include <hardware/google/pixel/pixelstats/pixelatoms.pb.h>
 
 namespace hardware {
 namespace google {
@@ -26,16 +25,16 @@ namespace pixel {
 namespace health {
 
 using aidl::android::frameworks::stats::IStats;
-using android::hardware::google::pixel::PixelAtoms::VendorBatteryCausedShutdown;
-using android::hardware::google::pixel::PixelAtoms::VendorBatteryHealthSnapshot;
 
 std::shared_ptr<IStats> getStatsService();
 
-void reportBatteryHealthSnapshot(const std::shared_ptr<IStats> &stats_client,
-                                 const VendorBatteryHealthSnapshot &batteryHealthSnapshot);
+void reportBatteryHealthSnapshot(const std::shared_ptr<IStats> &stats_client, int32_t type,
+                                 int32_t temperature_deci_celsius, int32_t voltage_micro_volt,
+                                 int32_t current_micro_amps, int32_t open_circuit_micro_volt,
+                                 int32_t resistance_micro_ohm, int32_t level_percent);
 
 void reportBatteryCausedShutdown(const std::shared_ptr<IStats> &stats_client,
-                                 const VendorBatteryCausedShutdown &batteryCausedShutdown);
+                                 int32_t last_recorded_micro_volt);
 
 }  // namespace health
 }  // namespace pixel

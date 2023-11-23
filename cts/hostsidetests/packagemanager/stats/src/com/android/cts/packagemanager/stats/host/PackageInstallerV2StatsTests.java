@@ -16,6 +16,7 @@
 
 package com.android.cts.packagemanager.stats.host;
 
+import com.android.tradefed.util.RunUtil;
 import android.cts.statsdatom.lib.AtomTestUtils;
 import android.cts.statsdatom.lib.ConfigUtils;
 import android.cts.statsdatom.lib.DeviceUtils;
@@ -37,7 +38,7 @@ public class PackageInstallerV2StatsTests extends PackageManagerStatsTestsBase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -84,11 +85,11 @@ public class PackageInstallerV2StatsTests extends PackageManagerStatsTestsBase {
             String[] apkNames) throws Exception {
         ConfigUtils.uploadConfigForPushedAtom(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
                 AtomsProto.Atom.PACKAGE_INSTALLER_V2_REPORTED_FIELD_NUMBER);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         installPackageUsingIncremental(apkNames);
         assertTrue(getDevice().isPackageInstalled(TEST_INSTALL_PACKAGE,
                 String.valueOf(getDevice().getCurrentUser())));
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         List<AtomsProto.PackageInstallerV2Reported> reports = new ArrayList<>();
         for (StatsLog.EventMetricData data : ReportUtils.getEventMetricDataList(getDevice())) {

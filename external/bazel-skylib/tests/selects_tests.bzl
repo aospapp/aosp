@@ -129,7 +129,10 @@ def _set_conditions(condition_list):
         ans["//command_line_option:features"] = ["notmyfeature"]
     return ans
 
-_BooleanInfo = provider()
+_BooleanInfo = provider(
+    doc = "value for boolean tests",
+    fields = ["value"],
+)
 
 def _boolean_attr_impl(ctx):
     return [_BooleanInfo(value = ctx.attr.myboolean)]
@@ -152,9 +155,6 @@ def _expect_doesnt_match(ctx):
     attrval = analysistest.target_under_test(env)[_BooleanInfo].value
     asserts.equals(env, False, attrval)
     return analysistest.end(env)
-
-def _config_setting_group_test(name, config_settings):
-    return analysistest.make()
 
 ###################################################
 # and_config_setting_group_matches_test

@@ -17,6 +17,7 @@
 package com.android.car.multidisplay.launcher;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -29,7 +30,10 @@ import com.android.car.multidisplay.R;
 import java.util.List;
 
 /** Adapter for available apps list. */
-public class AppListAdapter extends ArrayAdapter<AppEntry> {
+public final class AppListAdapter extends ArrayAdapter<AppEntry> {
+
+    private static final String TAG = AppListAdapter.class.getSimpleName();
+
     private final LayoutInflater mInflater;
 
     AppListAdapter(Context context) {
@@ -40,6 +44,11 @@ public class AppListAdapter extends ArrayAdapter<AppEntry> {
     void setData(List<AppEntry> data) {
         clear();
         if (data != null) {
+            if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                Log.v(TAG, "Adding " + data.size() + " apps: " + data);
+            } else {
+                Log.d(TAG, "Adding " + data.size() + " apps");
+            }
             addAll(data);
         }
     }

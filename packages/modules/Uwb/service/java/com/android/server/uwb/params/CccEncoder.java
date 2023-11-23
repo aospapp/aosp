@@ -40,6 +40,7 @@ public class CccEncoder extends TlvEncoder {
         int hoppingSequence = params.getHoppingSequence();
 
         int hoppingMode = CccParams.HOPPING_CONFIG_MODE_NONE;
+        byte[] protocolVer = params.getProtocolVersion().toBytes();
 
         switch (hoppingConfig) {
 
@@ -59,9 +60,9 @@ public class CccEncoder extends TlvEncoder {
                 break;
         }
 
-        TlvBuffer tlvBuffer = new TlvBuffer.Builder()
+        TlvBuffer.Builder tlvBufferBuilder = new TlvBuffer.Builder()
                 .putByte(ConfigParam.DEVICE_TYPE,
-                        (byte) UwbUciConstants.DEVICE_TYPE_CONTROLEE) // DEVICE_TYPE
+                        (byte) UwbUciConstants.DEVICE_TYPE_CONTROLLER) // DEVICE_TYPE
                 .putByte(ConfigParam.STS_CONFIG,
                         (byte) UwbUciConstants.STS_MODE_DYNAMIC) // STS_CONFIG
                 .putByte(ConfigParam.CHANNEL_NUMBER, (byte) params.getChannel()) // CHANNEL_ID
@@ -77,11 +78,10 @@ public class CccEncoder extends TlvEncoder {
                         (byte) FiraParams.MULTI_NODE_MODE_ONE_TO_MANY) // MULTI_NODE_MODE
                 .putByte(ConfigParam.SLOTS_PER_RR,
                         (byte) params.getNumSlotsPerRound()) // SLOTS_PER_RR
-                .putByte(ConfigParam.KEY_ROTATION, (byte) 0X01) // KEY_ROTATION
                 .putByte(ConfigParam.HOPPING_MODE, (byte) hoppingMode) // HOPPING_MODE
                 .putByteArray(ConfigParam.RANGING_PROTOCOL_VER,
                         ConfigParam.RANGING_PROTOCOL_VER_BYTE_COUNT,
-                        params.getProtocolVersion().toBytes()) // RANGING_PROTOCOL_VER
+                        new byte[] { protocolVer[1], protocolVer[0] }) // RANGING_PROTOCOL_VER
                 .putShort(ConfigParam.UWB_CONFIG_ID, (short) params.getUwbConfig()) // UWB_CONFIG_ID
                 .putByte(ConfigParam.PULSESHAPE_COMBO,
                         params.getPulseShapeCombo().toBytes()[0]) // PULSESHAPE_COMBO
@@ -92,9 +92,15 @@ public class CccEncoder extends TlvEncoder {
                 .putShort(ConfigParam.SLOT_DURATION,
                         (short) (params.getNumChapsPerSlot() * 400)) // SLOT_DURATION
                 .putByte(ConfigParam.PREAMBLE_CODE_INDEX,
-                        (byte) params.getSyncCodeIndex()) // PREAMBLE_CODE_INDEX
-                .build();
-
-        return tlvBuffer;
+                        (byte) params.getSyncCodeIndex()); // PREAMBLE_CODE_INDEX
+        if (params.getLastStsIndexUsed() != CccParams.LAST_STS_INDEX_USED_UNSET) {
+            tlvBufferBuilder.putInt(
+                    ConfigParam.LAST_STS_INDEX_USED, params.getLastStsIndexUsed());
+        }
+        if (params.getInitiationTimeMs() != CccParams.UWB_INITIATION_TIME_MS_UNSET) {
+            tlvBufferBuilder.putLong(
+                    ConfigParam.UWB_INITIATION_TIME, params.getInitiationTimeMs());
+        }
+        return tlvBufferBuilder.build();
     }
 }

@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.tests.java.util;
@@ -110,12 +110,12 @@ public class TreeMapTest extends junit.framework.TestCase {
         TreeMap reversedTreeMap = new TreeMap(comp);
         assertTrue("TreeMap answered incorrect comparator", reversedTreeMap
                 .comparator() == comp);
-        reversedTreeMap.put(new Integer(1).toString(), new Integer(1));
-        reversedTreeMap.put(new Integer(2).toString(), new Integer(2));
+        reversedTreeMap.put(Integer.valueOf(1).toString(), Integer.valueOf(1));
+        reversedTreeMap.put(Integer.valueOf(2).toString(), Integer.valueOf(2));
         assertTrue("TreeMap does not use comparator (firstKey was incorrect)",
-                reversedTreeMap.firstKey().equals(new Integer(2).toString()));
+                reversedTreeMap.firstKey().equals(Integer.valueOf(2).toString()));
         assertTrue("TreeMap does not use comparator (lastKey was incorrect)",
-                reversedTreeMap.lastKey().equals(new Integer(1).toString()));
+                reversedTreeMap.lastKey().equals(Integer.valueOf(1).toString()));
 
     }
 
@@ -139,15 +139,15 @@ public class TreeMapTest extends junit.framework.TestCase {
         // Test for method java.util.TreeMap(java.util.SortedMap)
         Comparator comp = new ReversedComparator();
         TreeMap reversedTreeMap = new TreeMap(comp);
-        reversedTreeMap.put(new Integer(1).toString(), new Integer(1));
-        reversedTreeMap.put(new Integer(2).toString(), new Integer(2));
+        reversedTreeMap.put(Integer.valueOf(1).toString(), Integer.valueOf(1));
+        reversedTreeMap.put(Integer.valueOf(2).toString(), Integer.valueOf(2));
         TreeMap anotherTreeMap = new TreeMap(reversedTreeMap);
         assertTrue("New tree map does not answer correct comparator",
                 anotherTreeMap.comparator() == comp);
         assertTrue("TreeMap does not use comparator (firstKey was incorrect)",
-                anotherTreeMap.firstKey().equals(new Integer(2).toString()));
+                anotherTreeMap.firstKey().equals(Integer.valueOf(2).toString()));
         assertTrue("TreeMap does not use comparator (lastKey was incorrect)",
-                anotherTreeMap.lastKey().equals(new Integer(1).toString()));
+                anotherTreeMap.lastKey().equals(Integer.valueOf(1).toString()));
 
     }
 
@@ -206,12 +206,12 @@ public class TreeMapTest extends junit.framework.TestCase {
         TreeMap reversedTreeMap = new TreeMap(comp);
         assertTrue("TreeMap answered incorrect comparator", reversedTreeMap
                 .comparator() == comp);
-        reversedTreeMap.put(new Integer(1).toString(), new Integer(1));
-        reversedTreeMap.put(new Integer(2).toString(), new Integer(2));
+        reversedTreeMap.put(Integer.valueOf(1).toString(), Integer.valueOf(1));
+        reversedTreeMap.put(Integer.valueOf(2).toString(), Integer.valueOf(2));
         assertTrue("TreeMap does not use comparator (firstKey was incorrect)",
-                reversedTreeMap.firstKey().equals(new Integer(2).toString()));
+                reversedTreeMap.firstKey().equals(Integer.valueOf(2).toString()));
         assertTrue("TreeMap does not use comparator (lastKey was incorrect)",
-                reversedTreeMap.lastKey().equals(new Integer(1).toString()));
+                reversedTreeMap.lastKey().equals(Integer.valueOf(1).toString()));
     }
 
     /**
@@ -722,10 +722,10 @@ public class TreeMapTest extends junit.framework.TestCase {
         new Support_UnmodifiableCollectionTest(
                 "Test Returned Collection From TreeMap.values()", values)
                 .runTest();
-        values.remove(new Integer(0));
+        values.remove(Integer.valueOf(0));
         assertTrue(
                 "Removing from the values collection should remove from the original map",
-                !myTreeMap.containsValue(new Integer(0)));
+                !myTreeMap.containsValue(Integer.valueOf(0)));
         assertEquals(99, values.size());
         j = 0;
         for (Iterator iter = values.iterator(); iter.hasNext(); ) {
@@ -893,9 +893,9 @@ public class TreeMapTest extends junit.framework.TestCase {
      * {@link java.util.TreeMap#firstEntry()}
      */
     public void test_firstEntry() throws Exception {
-        Integer testint = new Integer(-1);
-        Integer testint10000 = new Integer(-10000);
-        Integer testint9999 = new Integer(-9999);
+        Integer testint = Integer.valueOf(-1);
+        Integer testint10000 = Integer.valueOf(-10000);
+        Integer testint9999 = Integer.valueOf(-9999);
         assertEquals(objArray[0].toString(), tm.firstEntry().getKey());
         assertEquals(objArray[0], tm.firstEntry().getValue());
         tm.put(testint.toString(), testint);
@@ -917,8 +917,8 @@ public class TreeMapTest extends junit.framework.TestCase {
      * {@link java.util.TreeMap#lastEntry()
      */
     public void test_lastEntry() throws Exception {
-        Integer testint10000 = new Integer(10000);
-        Integer testint9999 = new Integer(9999);
+        Integer testint10000 = Integer.valueOf(10000);
+        Integer testint9999 = Integer.valueOf(9999);
         assertEquals(objArray[999].toString(), tm.lastEntry().getKey());
         assertEquals(objArray[999], tm.lastEntry().getValue());
         tm.put(testint10000.toString(), testint10000);
@@ -937,9 +937,9 @@ public class TreeMapTest extends junit.framework.TestCase {
      * {@link java.util.TreeMap#pollFirstEntry()
      */
     public void test_pollFirstEntry() throws Exception {
-        Integer testint = new Integer(-1);
-        Integer testint10000 = new Integer(-10000);
-        Integer testint9999 = new Integer(-9999);
+        Integer testint = Integer.valueOf(-1);
+        Integer testint10000 = Integer.valueOf(-10000);
+        Integer testint9999 = Integer.valueOf(-9999);
         assertEquals(objArray[0].toString(), tm.pollFirstEntry().getKey());
         assertEquals(objArray[1], tm.pollFirstEntry().getValue());
         assertEquals(objArray[10], tm.pollFirstEntry().getValue());
@@ -960,8 +960,8 @@ public class TreeMapTest extends junit.framework.TestCase {
      * {@link java.util.TreeMap#pollLastEntry()
      */
     public void test_pollLastEntry() throws Exception {
-        Integer testint10000 = new Integer(10000);
-        Integer testint9999 = new Integer(9999);
+        Integer testint10000 = Integer.valueOf(10000);
+        Integer testint9999 = Integer.valueOf(9999);
         assertEquals(objArray[999].toString(), tm.pollLastEntry().getKey());
         assertEquals(objArray[998], tm.pollLastEntry().getValue());
         assertEquals(objArray[997], tm.pollLastEntry().getValue());
@@ -980,8 +980,8 @@ public class TreeMapTest extends junit.framework.TestCase {
      * {@link java.util.TreeMap#lowerEntry(Object)
      */
     public void test_lowerEntry() throws Exception {
-        Integer testint10000 = new Integer(10000);
-        Integer testint9999 = new Integer(9999);
+        Integer testint10000 = Integer.valueOf(10000);
+        Integer testint9999 = Integer.valueOf(9999);
         assertEquals(objArray[999], tm.lowerEntry(testint9999.toString())
                 .getValue());
         assertEquals(objArray[100], tm.lowerEntry(testint10000.toString())
@@ -1013,8 +1013,8 @@ public class TreeMapTest extends junit.framework.TestCase {
      * {@link java.util.TreeMap#lowerKey(Object)
      */
     public void test_lowerKey() throws Exception {
-        Integer testint10000 = new Integer(10000);
-        Integer testint9999 = new Integer(9999);
+        Integer testint10000 = Integer.valueOf(10000);
+        Integer testint9999 = Integer.valueOf(9999);
         assertEquals(objArray[999].toString(), tm.lowerKey(testint9999
                 .toString()));
         assertEquals(objArray[100].toString(), tm.lowerKey(testint10000
@@ -1045,8 +1045,8 @@ public class TreeMapTest extends junit.framework.TestCase {
      * {@link java.util.TreeMap#floorEntry(Object)
      */
     public void test_floorEntry() throws Exception {
-        Integer testint10000 = new Integer(10000);
-        Integer testint9999 = new Integer(9999);
+        Integer testint10000 = Integer.valueOf(10000);
+        Integer testint9999 = Integer.valueOf(9999);
         assertEquals(objArray[999], tm.floorEntry(testint9999.toString())
                 .getValue());
         assertEquals(objArray[100], tm.floorEntry(testint10000.toString())
@@ -1078,8 +1078,8 @@ public class TreeMapTest extends junit.framework.TestCase {
      * {@link java.util.TreeMap#floorKey(Object)
      */
     public void test_floorKey() throws Exception {
-        Integer testint10000 = new Integer(10000);
-        Integer testint9999 = new Integer(9999);
+        Integer testint10000 = Integer.valueOf(10000);
+        Integer testint9999 = Integer.valueOf(9999);
         assertEquals(objArray[999].toString(), tm.floorKey(testint9999
                 .toString()));
         assertEquals(objArray[100].toString(), tm.floorKey(testint10000
@@ -1110,8 +1110,8 @@ public class TreeMapTest extends junit.framework.TestCase {
      * {@link java.util.TreeMap#ceilingEntry(Object)
      */
     public void test_ceilingEntry() throws Exception {
-        Integer testint100 = new Integer(100);
-        Integer testint = new Integer(-1);
+        Integer testint100 = Integer.valueOf(100);
+        Integer testint = Integer.valueOf(-1);
         assertEquals(objArray[0], tm.ceilingEntry(testint.toString())
                 .getValue());
         assertEquals(objArray[100], tm.ceilingEntry(testint100.toString())
@@ -1142,8 +1142,8 @@ public class TreeMapTest extends junit.framework.TestCase {
      * {@link java.util.TreeMap#ceilingKey(Object)
      */
     public void test_ceilingKey() throws Exception {
-        Integer testint100 = new Integer(100);
-        Integer testint = new Integer(-1);
+        Integer testint100 = Integer.valueOf(100);
+        Integer testint = Integer.valueOf(-1);
         assertEquals(objArray[0].toString(), tm.ceilingKey(testint.toString()));
         assertEquals(objArray[100].toString(), tm.ceilingKey(testint100
                 .toString()));
@@ -1172,10 +1172,10 @@ public class TreeMapTest extends junit.framework.TestCase {
      * {@link java.util.TreeMap#higherEntry(Object)
      */
     public void test_higherEntry() throws Exception {
-        Integer testint9999 = new Integer(9999);
-        Integer testint10000 = new Integer(10000);
-        Integer testint100 = new Integer(100);
-        Integer testint = new Integer(-1);
+        Integer testint9999 = Integer.valueOf(9999);
+        Integer testint10000 = Integer.valueOf(10000);
+        Integer testint100 = Integer.valueOf(100);
+        Integer testint = Integer.valueOf(-1);
         assertEquals(objArray[0], tm.higherEntry(testint.toString()).getValue());
         assertEquals(objArray[101], tm.higherEntry(testint100.toString())
                 .getValue());
@@ -1210,10 +1210,10 @@ public class TreeMapTest extends junit.framework.TestCase {
      * {@link java.util.TreeMap#higherKey(Object)
      */
     public void test_higherKey() throws Exception {
-        Integer testint9999 = new Integer(9999);
-        Integer testint10000 = new Integer(10000);
-        Integer testint100 = new Integer(100);
-        Integer testint = new Integer(-1);
+        Integer testint9999 = Integer.valueOf(9999);
+        Integer testint10000 = Integer.valueOf(10000);
+        Integer testint100 = Integer.valueOf(100);
+        Integer testint = Integer.valueOf(-1);
         assertEquals(objArray[0].toString(), tm.higherKey(testint.toString()));
         assertEquals(objArray[101].toString(), tm.higherKey(testint100
                 .toString()));
@@ -1245,10 +1245,10 @@ public class TreeMapTest extends junit.framework.TestCase {
     }
 
     public void test_navigableKeySet() throws Exception {
-        Integer testint9999 = new Integer(9999);
-        Integer testint10000 = new Integer(10000);
-        Integer testint100 = new Integer(100);
-        Integer testint0 = new Integer(0);
+        Integer testint9999 = Integer.valueOf(9999);
+        Integer testint10000 = Integer.valueOf(10000);
+        Integer testint100 = Integer.valueOf(100);
+        Integer testint0 = Integer.valueOf(0);
         NavigableSet set = tm.navigableKeySet();
         assertFalse(set.contains(testint9999.toString()));
         tm.put(testint9999.toString(), testint9999);
@@ -1289,7 +1289,7 @@ public class TreeMapTest extends junit.framework.TestCase {
         iter.next();
         iter.remove();
         assertFalse(tm.containsKey(testint0.toString()));
-        collection.add(new Integer(200).toString());
+        collection.add(Integer.valueOf(200).toString());
         set.retainAll(collection);
         assertEquals(1, tm.size());
         set.removeAll(collection);
@@ -1370,41 +1370,41 @@ public class TreeMapTest extends junit.framework.TestCase {
 
         // use integer elements to test
         TreeMap<Integer, String> treeMapInt = new TreeMap<Integer, String>();
-        assertEquals(0, treeMapInt.subMap(new Integer(-1), true,
-                new Integer(100), true).size());
+        assertEquals(0, treeMapInt.subMap(Integer.valueOf(-1), true,
+                Integer.valueOf(100), true).size());
         for (int i = 0; i < 100; i++) {
-            treeMapInt.put(new Integer(i), new Integer(i).toString());
+            treeMapInt.put(Integer.valueOf(i), Integer.valueOf(i).toString());
         }
-        SortedMap<Integer, String> result = treeMapInt.subMap(new Integer(-1),
-                true, new Integer(100), true);
+        SortedMap<Integer, String> result = treeMapInt.subMap(Integer.valueOf(-1),
+                true, Integer.valueOf(100), true);
         assertEquals(100, result.size());
-        result.put(new Integer(-1), new Integer(-1).toString());
+        result.put(Integer.valueOf(-1), Integer.valueOf(-1).toString());
         assertEquals(101, result.size());
         assertEquals(101, treeMapInt.size());
         result = treeMapInt
-                .subMap(new Integer(50), true, new Integer(60), true);
+                .subMap(Integer.valueOf(50), true, Integer.valueOf(60), true);
         assertEquals(11, result.size());
         try {
-            result.put(new Integer(-2), new Integer(-2).toString());
+            result.put(Integer.valueOf(-2), Integer.valueOf(-2).toString());
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // expected
         }
         assertEquals(11, result.size());
-        treeMapInt.remove(new Integer(50));
+        treeMapInt.remove(Integer.valueOf(50));
         assertEquals(100, treeMapInt.size());
         assertEquals(10, result.size());
-        result.remove(new Integer(60));
+        result.remove(Integer.valueOf(60));
         assertEquals(99, treeMapInt.size());
         assertEquals(9, result.size());
         SortedMap<Integer, String> result2 = null;
         try {
-            result2 = result.subMap(new Integer(-2), new Integer(100));
+            result2 = result.subMap(Integer.valueOf(-2), Integer.valueOf(100));
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // expected
         }
-        result2 = result.subMap(new Integer(50), new Integer(60));
+        result2 = result.subMap(Integer.valueOf(50), Integer.valueOf(60));
         assertEquals(9, result2.size());
 
         // sub map of sub map
@@ -1522,49 +1522,49 @@ public class TreeMapTest extends junit.framework.TestCase {
 
         // use integer elements to test
         TreeMap<Integer, String> treeMapInt = new TreeMap<Integer, String>();
-        assertEquals(0, treeMapInt.headMap(new Integer(-1), true).size());
+        assertEquals(0, treeMapInt.headMap(Integer.valueOf(-1), true).size());
         for (int i = 0; i < 100; i++) {
-            treeMapInt.put(new Integer(i), new Integer(i).toString());
+            treeMapInt.put(Integer.valueOf(i), Integer.valueOf(i).toString());
         }
         SortedMap<Integer, String> result = treeMapInt
-                .headMap(new Integer(101));
+                .headMap(Integer.valueOf(101));
         assertEquals(100, result.size());
         try {
-            result.put(new Integer(101), new Integer(101).toString());
+            result.put(Integer.valueOf(101), Integer.valueOf(101).toString());
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // expected
         }
         assertEquals(100, result.size());
         assertEquals(100, treeMapInt.size());
-        result = treeMapInt.headMap(new Integer(50), true);
+        result = treeMapInt.headMap(Integer.valueOf(50), true);
         assertEquals(51, result.size());
-        result.put(new Integer(-1), new Integer(-1).toString());
+        result.put(Integer.valueOf(-1), Integer.valueOf(-1).toString());
         assertEquals(52, result.size());
 
-        treeMapInt.remove(new Integer(40));
+        treeMapInt.remove(Integer.valueOf(40));
         assertEquals(100, treeMapInt.size());
         assertEquals(51, result.size());
-        result.remove(new Integer(30));
+        result.remove(Integer.valueOf(30));
         assertEquals(99, treeMapInt.size());
         assertEquals(50, result.size());
         SortedMap<Integer, String> result2 = null;
         try {
-            result.subMap(new Integer(-2), new Integer(100));
+            result.subMap(Integer.valueOf(-2), Integer.valueOf(100));
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // expected
         }
         try {
-            result.subMap(new Integer(1), new Integer(100));
+            result.subMap(Integer.valueOf(1), Integer.valueOf(100));
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // expected
         }
-        result2 = result.subMap(new Integer(-2), new Integer(48));
+        result2 = result.subMap(Integer.valueOf(-2), Integer.valueOf(48));
         assertEquals(47, result2.size());
 
-        result2 = result.subMap(new Integer(40), new Integer(50));
+        result2 = result.subMap(Integer.valueOf(40), Integer.valueOf(50));
         assertEquals(9, result2.size());
 
         // Null Tolerable Comparator
@@ -1652,39 +1652,39 @@ public class TreeMapTest extends junit.framework.TestCase {
 
         // use integer elements to test
         TreeMap<Integer, String> treeMapInt = new TreeMap<Integer, String>();
-        assertEquals(0, treeMapInt.tailMap(new Integer(-1), true).size());
+        assertEquals(0, treeMapInt.tailMap(Integer.valueOf(-1), true).size());
         for (int i = 0; i < 100; i++) {
-            treeMapInt.put(new Integer(i), new Integer(i).toString());
+            treeMapInt.put(Integer.valueOf(i), Integer.valueOf(i).toString());
         }
-        SortedMap<Integer, String> result = treeMapInt.tailMap(new Integer(1));
+        SortedMap<Integer, String> result = treeMapInt.tailMap(Integer.valueOf(1));
         assertEquals(99, result.size());
         try {
-            result.put(new Integer(-1), new Integer(-1).toString());
+            result.put(Integer.valueOf(-1), Integer.valueOf(-1).toString());
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // expected
         }
         assertEquals(99, result.size());
         assertEquals(100, treeMapInt.size());
-        result = treeMapInt.tailMap(new Integer(50), true);
+        result = treeMapInt.tailMap(Integer.valueOf(50), true);
         assertEquals(50, result.size());
-        result.put(new Integer(101), new Integer(101).toString());
+        result.put(Integer.valueOf(101), Integer.valueOf(101).toString());
         assertEquals(51, result.size());
 
-        treeMapInt.remove(new Integer(60));
+        treeMapInt.remove(Integer.valueOf(60));
         assertEquals(100, treeMapInt.size());
         assertEquals(50, result.size());
-        result.remove(new Integer(70));
+        result.remove(Integer.valueOf(70));
         assertEquals(99, treeMapInt.size());
         assertEquals(49, result.size());
         SortedMap<Integer, String> result2 = null;
         try {
-            result2 = result.subMap(new Integer(-2), new Integer(100));
+            result2 = result.subMap(Integer.valueOf(-2), Integer.valueOf(100));
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // expected
         }
-        result2 = result.subMap(new Integer(60), new Integer(70));
+        result2 = result.subMap(Integer.valueOf(60), Integer.valueOf(70));
         assertEquals(9, result2.size());
 
         // Null Tolerable Comparator
@@ -1858,8 +1858,8 @@ public class TreeMapTest extends junit.framework.TestCase {
         Map m2 = new TreeMap();
         m1.put("key1", "val1");
         m1.put("key2", "val2");
-        m2.put(new Integer(1), "val1");
-        m2.put(new Integer(2), "val2");
+        m2.put(Integer.valueOf(1), "val1");
+        m2.put(Integer.valueOf(2), "val2");
         assertFalse("Maps should not be equal 1", m1.equals(m2));
         assertFalse("Maps should not be equal 2", m2.equals(m1));
 
@@ -2048,7 +2048,7 @@ public class TreeMapTest extends junit.framework.TestCase {
     protected void setUp() {
         tm = new TreeMap();
         for (int i = 0; i < objArray.length; i++) {
-            Object x = objArray[i] = new Integer(i);
+            Object x = objArray[i] = Integer.valueOf(i);
             tm.put(x.toString(), x);
         }
     }

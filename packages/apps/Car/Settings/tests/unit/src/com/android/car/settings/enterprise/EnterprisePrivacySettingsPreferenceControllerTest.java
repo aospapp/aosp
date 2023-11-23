@@ -16,6 +16,8 @@
 package com.android.car.settings.enterprise;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
 import androidx.preference.Preference;
@@ -54,10 +56,79 @@ public final class EnterprisePrivacySettingsPreferenceControllerTest
                 UNSUPPORTED_ON_DEVICE);
     }
 
+    @Test
+    public void testGetAvailabilityStatus_noFeature_zoneWrite() {
+        mockNoDeviceAdminFeature();
+
+        // Must use new controller as availability is set on constructor
+        EnterprisePrivacySettingsPreferenceController controller =
+                new EnterprisePrivacySettingsPreferenceController(mSpiedContext, mPreferenceKey,
+                        mFragmentController, mUxRestrictions);
+        controller.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noFeature_zoneRead() {
+        mockNoDeviceAdminFeature();
+
+        // Must use new controller as availability is set on constructor
+        EnterprisePrivacySettingsPreferenceController controller =
+                new EnterprisePrivacySettingsPreferenceController(mSpiedContext, mPreferenceKey,
+                        mFragmentController, mUxRestrictions);
+        controller.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noFeature_zoneHidden() {
+        mockNoDeviceAdminFeature();
+
+        // Must use new controller as availability is set on constructor
+        EnterprisePrivacySettingsPreferenceController controller =
+                new EnterprisePrivacySettingsPreferenceController(mSpiedContext, mPreferenceKey,
+                        mFragmentController, mUxRestrictions);
+        controller.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
 
     @Test
     public void testGetAvailabilityStatus_noDeviceOwner() {
         mockNoDeviceOwner();
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noDeviceOwner_zoneWrite() {
+        mockNoDeviceOwner();
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noDeviceOwner_zoneRead() {
+        mockNoDeviceOwner();
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noDeviceOwner_zoneHidden() {
+        mockNoDeviceOwner();
+        mController.setAvailabilityStatusForZone("hidden");
 
         PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 UNSUPPORTED_ON_DEVICE);
@@ -69,6 +140,33 @@ public final class EnterprisePrivacySettingsPreferenceControllerTest
 
         PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_withDeviceOwner_zoneWrite() {
+        mockDeviceOwner();
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_withDeviceOwner_zoneRead() {
+        mockDeviceOwner();
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_withDeviceOwner_zoneHidden() {
+        mockDeviceOwner();
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

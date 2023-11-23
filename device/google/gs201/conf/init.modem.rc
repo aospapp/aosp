@@ -1,0 +1,45 @@
+on init
+    # Modem temperature driver
+    chown radio system /sys/devices/platform/cp-tm1/cp_temp
+
+on post-fs-data
+    # Log data folder
+    mkdir /data/vendor 0771 radio system
+    mkdir /data/vendor/log 0771 radio system
+    mkdir /data/vendor/log/cbd 0771 radio system
+    mkdir /data/vendor/log/rfsd 0771 radio system
+    mkdir /data/vendor/slog 0771 system system
+
+    # Modem extended log folder
+    mkdir /data/vendor/radio/extended_logs 0770 radio system
+
+    # Modem MDS log folder
+    mkdir /data/vendor/radio/mds 0771 radio system
+
+    # Modem OTA UECap folder
+    mkdir /data/vendor/radio/ota_uecap 0773 radio system
+
+    # Unzipped modem images folder
+    mkdir /data/vendor/radio/image 0771 radio system
+
+    # Modem stat folder
+    mkdir /data/vendor/modem_stat 0771 radio system
+    write /data/vendor/modem_stat/debug.txt ""
+    chown radio system /data/vendor/modem_stat/debug.txt
+    chmod 0664 /data/vendor/modem_stat/debug.txt
+
+    # Modem replay folder
+    mkdir /mnt/vendor/modem_userdata/replay 0775 radio system
+
+on fs
+    # Mount modem partition
+    mount_all /vendor/etc/fstab.modem --early
+
+    restorecon_recursive /mnt/vendor/efs
+    chown radio system /mnt/vendor/efs
+    restorecon_recursive /mnt/vendor/efs_backup
+    chown radio system /mnt/vendor/efs_backup
+    restorecon_recursive /mnt/vendor/modem_userdata
+    chown radio system /mnt/vendor/modem_userdata
+    restorecon_recursive /mnt/vendor/modem_img
+    restorecon_recursive /mnt/vendor/persist/modem

@@ -15,12 +15,10 @@
  */
 package com.android.bluetooth.btservice;
 
+import static com.android.bluetooth.BtRestrictedStatsLog.RESTRICTED_BLUETOOTH_DEVICE_NAME_REPORTED;
+
 import android.app.AlarmManager;
-import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.SystemClock;
 import android.util.Log;
 
@@ -28,7 +26,22 @@ import com.android.bluetooth.BluetoothMetricsProto.BluetoothLog;
 import com.android.bluetooth.BluetoothMetricsProto.ProfileConnectionStats;
 import com.android.bluetooth.BluetoothMetricsProto.ProfileId;
 import com.android.bluetooth.BluetoothStatsLog;
+import com.android.bluetooth.BtRestrictedStatsLog;
+import com.android.bluetooth.Utils;
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.modules.utils.build.SdkLevel;
 
+import com.google.common.hash.BloomFilter;
+import com.google.common.hash.Funnels;
+import com.google.common.hash.Hashing;
+
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 
 /**
@@ -36,36 +49,32 @@ import java.util.HashMap;
  */
 public class MetricsLogger {
     private static final String TAG = "BluetoothMetricsLogger";
+    private static final String BLOOMFILTER_PATH = "/data/misc/bluetooth";
+    private static final String BLOOMFILTER_FILE = "/devices_for_metrics";
+    public static final String BLOOMFILTER_FULL_PATH = BLOOMFILTER_PATH + BLOOMFILTER_FILE;
 
     public static final boolean DEBUG = false;
 
-    /**
-     * Intent indicating Bluetooth counter metrics should send logs to BluetoothStatsLog
-     */
-    public static final String BLUETOOTH_COUNTER_METRICS_ACTION =
-            "com.android.bluetooth.btservice.BLUETOOTH_COUNTER_METRICS_ACTION";
     // 6 hours timeout for counter metrics
     private static final long BLUETOOTH_COUNTER_METRICS_ACTION_DURATION_MILLIS = 6L * 3600L * 1000L;
+    private static final int MAX_WORDS_ALLOWED_IN_DEVICE_NAME = 7;
 
     private static final HashMap<ProfileId, Integer> sProfileConnectionCounts = new HashMap<>();
 
     HashMap<Integer, Long> mCounters = new HashMap<>();
-    private static MetricsLogger sInstance = null;
+    private static volatile MetricsLogger sInstance = null;
     private Context mContext = null;
     private AlarmManager mAlarmManager = null;
     private boolean mInitialized = false;
     static final private Object mLock = new Object();
+    private BloomFilter<byte[]> mBloomFilter = null;
+    protected boolean mBloomFilterInitialized = false;
 
-    private BroadcastReceiver mDrainReceiver = new BroadcastReceiver() {
+    private AlarmManager.OnAlarmListener mOnAlarmListener = new AlarmManager.OnAlarmListener () {
         @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (DEBUG) {
-                Log.d(TAG, "onReceive: " + action);
-            }
-            if (action.equals(BLUETOOTH_COUNTER_METRICS_ACTION)) {
-                drainBufferedCounters();
-            }
+        public void onAlarm() {
+            drainBufferedCounters();
+            scheduleDrains();
         }
     };
 
@@ -80,8 +89,55 @@ public class MetricsLogger {
         return sInstance;
     }
 
+    /**
+     * Allow unit tests to substitute MetricsLogger with a test instance
+     *
+     * @param instance a test instance of the MetricsLogger
+     */
+    @VisibleForTesting
+    public static void setInstanceForTesting(MetricsLogger instance) {
+        Utils.enforceInstrumentationTestMode();
+        synchronized (mLock) {
+            Log.d(TAG, "setInstanceForTesting(), set to " + instance);
+            sInstance = instance;
+        }
+    }
+
     public boolean isInitialized() {
         return mInitialized;
+    }
+
+    public boolean initBloomFilter(String path) {
+        try {
+            File file = new File(path);
+            if (!file.exists()) {
+                Log.w(TAG, "MetricsLogger is creating a new Bloomfilter file");
+                DeviceBloomfilterGenerator.generateDefaultBloomfilter(path);
+            }
+
+            FileInputStream in = new FileInputStream(new File(path));
+            mBloomFilter = BloomFilter.readFrom(in, Funnels.byteArrayFunnel());
+            mBloomFilterInitialized = true;
+        } catch (IOException e1) {
+            Log.w(TAG, "MetricsLogger can't read the BloomFilter file.");
+            byte[] bloomfilterData = DeviceBloomfilterGenerator.hexStringToByteArray(
+                    DeviceBloomfilterGenerator.BLOOM_FILTER_DEFAULT);
+            try {
+                mBloomFilter = BloomFilter.readFrom(
+                        new ByteArrayInputStream(bloomfilterData), Funnels.byteArrayFunnel());
+                mBloomFilterInitialized = true;
+                Log.i(TAG, "The default bloomfilter is used");
+                return true;
+            } catch (IOException e2) {
+                Log.w(TAG, "The default bloomfilter can't be used.");
+            }
+            return false;
+        }
+        return true;
+    }
+
+    protected void setBloomfilter(BloomFilter bloomfilter) {
+        mBloomFilter = bloomfilter;
     }
 
     public boolean init(Context context) {
@@ -90,14 +146,17 @@ public class MetricsLogger {
         }
         mInitialized = true;
         mContext = context;
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(BLUETOOTH_COUNTER_METRICS_ACTION);
-        mContext.registerReceiver(mDrainReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         scheduleDrains();
+        if (!initBloomFilter(BLOOMFILTER_FULL_PATH)) {
+            Log.w(TAG, "MetricsLogger can't initialize the bloomfilter");
+            // The class is for multiple metrics tasks.
+            // We still want to use this class even if the bloomfilter isn't initialized
+            // so still return true here.
+        }
         return true;
     }
 
-    public boolean count(int key, long count) {
+    public boolean cacheCount(int key, long count) {
         if (!mInitialized) {
             Log.w(TAG, "MetricsLogger isn't initialized");
             return false;
@@ -154,22 +213,30 @@ public class MetricsLogger {
     }
 
     protected void scheduleDrains() {
-        if (DEBUG) {
-            Log.d(TAG, "setCounterMetricsAlarm()");
-        }
+        Log.i(TAG, "setCounterMetricsAlarm()");
         if (mAlarmManager == null) {
             mAlarmManager = mContext.getSystemService(AlarmManager.class);
         }
-        mAlarmManager.setRepeating(
+        mAlarmManager.set(
                 AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                SystemClock.elapsedRealtime(),
-                BLUETOOTH_COUNTER_METRICS_ACTION_DURATION_MILLIS,
-                getDrainIntent());
+                SystemClock.elapsedRealtime() + BLUETOOTH_COUNTER_METRICS_ACTION_DURATION_MILLIS,
+                TAG,
+                mOnAlarmListener,
+                null);
     }
 
-    protected void writeCounter(int key, long count) {
+    public boolean count(int key, long count) {
+        if (!mInitialized) {
+            Log.w(TAG, "MetricsLogger isn't initialized");
+            return false;
+        }
+        if (count <= 0) {
+            Log.w(TAG, "count is not larger than 0. count: " + count + " key: " + key);
+            return false;
+        }
         BluetoothStatsLog.write(
                 BluetoothStatsLog.BLUETOOTH_CODE_PATH_COUNTER, key, count);
+        return true;
     }
 
     protected void drainBufferedCounters() {
@@ -177,7 +244,7 @@ public class MetricsLogger {
         synchronized (mLock) {
             // send mCounters to statsd
             for (int key : mCounters.keySet()) {
-                writeCounter(key, mCounters.get(key));
+                count(key, mCounters.get(key));
             }
             mCounters.clear();
         }
@@ -195,18 +262,80 @@ public class MetricsLogger {
         mAlarmManager = null;
         mContext = null;
         mInitialized = false;
+        mBloomFilterInitialized = false;
         return true;
     }
     protected void cancelPendingDrain() {
-        PendingIntent pIntent = getDrainIntent();
-        pIntent.cancel();
-        mAlarmManager.cancel(pIntent);
+        mAlarmManager.cancel(mOnAlarmListener);
     }
 
-    private PendingIntent getDrainIntent() {
-        Intent counterMetricsIntent = new Intent(BLUETOOTH_COUNTER_METRICS_ACTION);
-        counterMetricsIntent.setPackage(mContext.getPackageName());
-        return PendingIntent.getBroadcast(
-                mContext, 0, counterMetricsIntent, PendingIntent.FLAG_IMMUTABLE);
+    protected boolean logSanitizedBluetoothDeviceName(int metricId, String deviceName) {
+        if (!mBloomFilterInitialized || deviceName == null) {
+            return false;
+        }
+
+        // remove more than one spaces in a row
+        deviceName = deviceName.trim().replaceAll(" +", " ");
+        // remove non alphanumeric characters and spaces, and transform to lower cases.
+        String[] words = deviceName.replaceAll(
+                "[^a-zA-Z0-9 ]", "").toLowerCase().split(" ");
+
+        if (words.length > MAX_WORDS_ALLOWED_IN_DEVICE_NAME) {
+            // Validity checking here to avoid excessively long sequences
+            return false;
+        }
+        // find the longest matched substring
+        String matchedString = "";
+        byte[] matchedSha256 = null;
+        for (int start = 0; start < words.length; start++) {
+
+            String toBeMatched = "";
+            for (int end = start; end < words.length; end++) {
+                toBeMatched += words[end];
+                // TODO(b/280868296): Refactor to log even if bloom filter isn't initialized.
+                if (SdkLevel.isAtLeastU()) {
+                    BtRestrictedStatsLog.write(RESTRICTED_BLUETOOTH_DEVICE_NAME_REPORTED,
+                            toBeMatched);
+                }
+                byte[] sha256 = getSha256(toBeMatched);
+                if (sha256 == null) {
+                    continue;
+                }
+
+                if (mBloomFilter.mightContain(sha256)
+                        && toBeMatched.length() > matchedString.length()) {
+                    matchedString = toBeMatched;
+                    matchedSha256 = sha256;
+                }
+            }
+        }
+
+        // upload the sha256 of the longest matched string.
+        if (matchedSha256 == null) {
+            return false;
+        }
+        statslogBluetoothDeviceNames(
+                metricId,
+                matchedString,
+                Hashing.sha256().hashString(matchedString, StandardCharsets.UTF_8).toString());
+        return true;
+    }
+
+    protected void statslogBluetoothDeviceNames(int metricId, String matchedString, String sha256) {
+        Log.d(TAG,
+                "Uploading sha256 hash of matched bluetooth device name: " + sha256);
+        BluetoothStatsLog.write(
+                BluetoothStatsLog.BLUETOOTH_HASHED_DEVICE_NAME_REPORTED, metricId, sha256);
+    }
+
+    protected static byte[] getSha256(String name) {
+        MessageDigest digest = null;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            Log.w(TAG, "No SHA-256 in MessageDigest");
+            return null;
+        }
+        return digest.digest(name.getBytes(StandardCharsets.UTF_8));
     }
 }

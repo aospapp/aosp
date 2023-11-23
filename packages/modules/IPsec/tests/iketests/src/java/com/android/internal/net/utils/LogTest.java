@@ -32,7 +32,7 @@ public class LogTest {
 
     @Test
     public void testPii() {
-        // Log(String tag, boolean isEngBuild, boolean logSensitive);
+        // Log(String tag, boolean isVdbg, boolean logSensitive);
         String result = new Log(TAG, false, false).pii(PII);
         assertEquals(Integer.toString(PII.hashCode()), result);
 

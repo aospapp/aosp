@@ -156,7 +156,7 @@ public class BugInfoAdapter extends RecyclerView.Adapter<BugInfoAdapter.BugInfoV
             holder.mUploadButton.setEnabled(false);
         }
         if (bugreport.getStatus() == Status.STATUS_AUDIO_PENDING.getValue()) {
-            if (mConfig.getAutoUpload()) {
+            if (mConfig.isAutoUpload()) {
                 holder.mAddAudioButton.setText(R.string.bugreport_add_audio_upload_button_text);
             } else {
                 holder.mAddAudioButton.setText(R.string.bugreport_add_audio_button_text);

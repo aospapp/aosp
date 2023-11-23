@@ -28,11 +28,9 @@
 
 using namespace gs101;
 
-ExynosExternalDisplayModule::ExynosExternalDisplayModule(uint32_t index, ExynosDevice *device)
-    :    ExynosExternalDisplay(index, device)
-{
-
-}
+ExynosExternalDisplayModule::ExynosExternalDisplayModule(uint32_t index, ExynosDevice *device,
+                                                         const std::string &displayName)
+      : ExynosExternalDisplay(index, device, displayName) {}
 
 ExynosExternalDisplayModule::~ExynosExternalDisplayModule ()
 {

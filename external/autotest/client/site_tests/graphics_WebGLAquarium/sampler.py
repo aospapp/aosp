@@ -185,7 +185,7 @@ class ExynosSampler(Sampler):
 
     def calc_stat(self):
         """Calculate the statistics of state duration of all frame buffers"""
-        for fb in self.frame_buffers.values():
+        for fb in list(self.frame_buffers.values()):
             fb.calc_state_avg_stdev()
 
     def frame_buffer_unique_hash(self, pipe, fb):
@@ -248,7 +248,7 @@ class FrameBuffer():
     def calc_state_avg_stdev(self):
         """Call all states to compute its own average and standard deviation"""
         logging.debug("====pipe:%d, fb:%d====", self.pipe, self.fb)
-        for s in self.states.values():
+        for s in list(self.states.values()):
             s.calc_avg_stdev()
 
 

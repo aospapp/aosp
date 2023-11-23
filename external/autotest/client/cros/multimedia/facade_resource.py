@@ -5,14 +5,15 @@
 
 """A module providing common resources for different facades."""
 
-import exceptions
 import logging
 import time
 
 from autotest_lib.client.bin import utils
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.client.cros import constants
+from telemetry.internal.backends.chrome_inspector import devtools_http
 
 import py_utils
 
@@ -20,7 +21,7 @@ _FLAKY_CALL_RETRY_TIMEOUT_SEC = 60
 _FLAKY_CHROME_CALL_RETRY_DELAY_SEC = 1
 
 retry_chrome_call = retry.retry(
-        (chrome.Error, exceptions.IndexError, exceptions.Exception),
+        (chrome.Error, IndexError, Exception),
         timeout_min=_FLAKY_CALL_RETRY_TIMEOUT_SEC / 60.0,
         delay_sec=_FLAKY_CHROME_CALL_RETRY_DELAY_SEC)
 
@@ -190,7 +191,7 @@ class FacadeResource(object):
                 try:
                     tab.Close()
                 except py_utils.TimeoutException:
-                    logging.warn('close tab timeout %r, %s', tab, tab.url)
+                    logging.warning('close tab timeout %r, %s', tab, tab.url)
 
 
     @retry_chrome_call
@@ -346,3 +347,112 @@ class FacadeResource(object):
             raise RuntimeError('There is no tab for %s' % tab_descriptor)
         return self._tabs[tab_descriptor].EvaluateJavaScript(
                 expression, timeout=timeout)
+
+class Application(FacadeResource):
+    """ This class provides access to WebStore Applications"""
+
+    APP_NAME_IDS = {
+        'camera' : 'njfbnohfdkmbmnjapinfcopialeghnmh',
+        'files' : 'hhaomjibdihmijegdhdafkllkbggdgoj'
+    }
+    # Time in seconds to load the app
+    LOAD_TIME = 5
+
+    def __init__(self, chrome_object=None):
+        super(Application, self).__init__(chrome_object)
+
+    @retry_chrome_call
+    def evaluate_javascript(self, code):
+        """Executes javascript and returns some result.
+
+        Occasionally calls to EvaluateJavascript on the autotest_ext will fail
+        to find the extension. Instead of wrapping every call in a try/except,
+        calls will go through this function instead.
+
+        @param code: The javascript string to execute
+
+        """
+        try:
+            result = self._chrome.autotest_ext.EvaluateJavaScript(code)
+            return result
+        except KeyError:
+            logging.exception('Could not find autotest_ext')
+        except (devtools_http.DevToolsClientUrlError,
+                devtools_http.DevToolsClientConnectionError):
+            logging.exception('Could not connect to DevTools')
+
+        raise error.TestError("Could not execute %s" % code)
+
+    def click_on(self, ui, name, isRegex=False, role=None):
+        """
+        Click on given role and name matches
+
+        @ui: ui_utils object
+        @param name: item node name.
+        @param isRegex: If name is in regex format then isRegex should be
+                        True otherwise False.
+        @param role: role of the element. Example: button or window etc.
+        @raise error.TestError if the test is failed to find given node
+        """
+        if not ui.item_present(name, isRegex=isRegex, role=role):
+            raise error.TestError("name=%s, role=%s did not appeared with in "
+                                 "time" % (name, role))
+        ui.doDefault_on_obj(name, isRegex=isRegex, role=role)
+
+    def is_app_opened(self, name):
+        """
+        Verify if the Webstore app is opened or not
+
+        @param name: Name of the app to verify.
+
+        """
+        self.evaluate_javascript("var isShown = null;")
+        is_app_shown_js = """
+            chrome.autotestPrivate.isAppShown('%s',
+            function(appShown){isShown = appShown});
+            """ % self.APP_NAME_IDS[name.lower()]
+        self.evaluate_javascript(is_app_shown_js)
+        return self.evaluate_javascript('isShown')
+
+    def launch_app(self, name):
+        """
+        Launch the app/extension by its ID and verify that it opens.
+
+        @param name: Name of the app to launch.
+
+        """
+        logging.info("Launching %s app" % name)
+        if name == "camera":
+            webapps_js = "chrome.autotestPrivate.waitForSystemWebAppsInstall(" \
+                     "function(){})"
+            self.evaluate_javascript(webapps_js)
+            launch_js = "chrome.autotestPrivate.launchSystemWebApp('%s', '%s', " \
+                    "function(){})" % ("Camera",
+                                       "chrome://camera-app/views/main.html")
+        else:
+            launch_js = "chrome.autotestPrivate.launchApp('%s', function(){})" \
+                         % self.APP_NAME_IDS[name.lower()]
+        self.evaluate_javascript(launch_js)
+        def is_app_opened():
+            return self.is_app_opened(name)
+        utils.poll_for_condition(condition=is_app_opened,
+                    desc="%s app is not launched" % name,
+                    timeout=self.LOAD_TIME)
+        logging.info('%s app is launched', name)
+
+    def close_app(self, name):
+        """
+        Close the app/extension by its ID and verify that it closes.
+
+        @param name: Name of the app to close.
+
+        """
+        close_js = "chrome.autotestPrivate.closeApp('%s', function(){})" \
+                    % self.APP_NAME_IDS[name.lower()]
+        self.evaluate_javascript(close_js)
+        def is_app_closed():
+            return not self.is_app_opened(name)
+        utils.poll_for_condition(condition=is_app_closed,
+                    desc="%s app is not closed" % name,
+                    timeout=self.LOAD_TIME)
+        logging.info('%s app is closed', name)

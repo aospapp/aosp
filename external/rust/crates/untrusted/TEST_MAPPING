@@ -9,64 +9,19 @@
     },
     {
       "path": "external/rust/crates/webpki"
+    },
+    {
+      "path": "packages/modules/DnsResolver"
     }
   ],
   "presubmit": [
     {
-      "name": "apkdmverity.test"
-    },
-    {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "libidsig.test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
-    {
       "name": "untrusted_test_tests_tests"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ],
   "presubmit-rust": [
     {
-      "name": "apkdmverity.test"
-    },
-    {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "libidsig.test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
-    {
       "name": "untrusted_test_tests_tests"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ]
 }

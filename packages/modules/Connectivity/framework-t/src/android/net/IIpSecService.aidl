@@ -66,6 +66,12 @@ interface IIpSecService
     IpSecTransformResponse createTransform(
             in IpSecConfig c, in IBinder binder, in String callingPackage);
 
+    void migrateTransform(
+            int transformId,
+            in String newSourceAddress,
+            in String newDestinationAddress,
+            in String callingPackage);
+
     void deleteTransform(int transformId);
 
     void applyTransportModeTransform(

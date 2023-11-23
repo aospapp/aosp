@@ -32,7 +32,7 @@
 #undef LOG_TAG
 #include "btif/src/btif_rc.cc"
 
-extern void allocation_tracker_uninit(void);
+void allocation_tracker_uninit(void);
 
 namespace {
 int AVRC_BldResponse_ = 0;
@@ -41,6 +41,7 @@ int AVRC_BldResponse_ = 0;
 uint8_t appl_trace_level = BT_TRACE_LEVEL_WARNING;
 uint8_t btif_trace_level = BT_TRACE_LEVEL_WARNING;
 
+bool avrcp_absolute_volume_is_enabled() { return true; }
 tAVRC_STS AVRC_BldCommand(tAVRC_COMMAND* p_cmd, BT_HDR** pp_pkt) { return 0; }
 tAVRC_STS AVRC_BldResponse(uint8_t handle, tAVRC_RESPONSE* p_rsp,
                            BT_HDR** pp_pkt) {
@@ -91,6 +92,7 @@ bt_status_t btif_transfer_context(tBTIF_CBACK* p_cback, uint16_t event,
 const char* dump_rc_event(uint8_t event) { return nullptr; }
 const char* dump_rc_notification_event_id(uint8_t event_id) { return nullptr; }
 const char* dump_rc_pdu(uint8_t pdu) { return nullptr; }
+const char* dump_rc_opcode(uint8_t pdu) { return nullptr; }
 bt_status_t do_in_jni_thread(const base::Location& from_here,
                              base::OnceClosure task) {
   return BT_STATUS_SUCCESS;
@@ -100,7 +102,6 @@ bool interop_match_addr(const interop_feature_t feature,
                         const RawAddress* addr) {
   return false;
 }
-void LogMsg(uint32_t trace_set_mask, const char* fmt_str, ...) {}
 
 /**
  * Test class to test selected functionality in hci/src/hci_layer.cc

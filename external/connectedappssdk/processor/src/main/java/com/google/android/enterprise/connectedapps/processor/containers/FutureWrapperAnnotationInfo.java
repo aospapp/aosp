@@ -19,7 +19,6 @@ import com.google.android.enterprise.connectedapps.annotations.CustomFutureWrapp
 import com.google.android.enterprise.connectedapps.processor.GeneratorUtilities;
 import com.google.auto.value.AutoValue;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Types;
 
 /**
  * Wrapper around information contained in a {@link
@@ -31,14 +30,14 @@ public abstract class FutureWrapperAnnotationInfo {
   public abstract TypeElement originalType();
 
   public static FutureWrapperAnnotationInfo extractFromFutureWrapperAnnotation(
-      Types types, CustomFutureWrapper customFutureWrapperAnnotation) {
+      Context context, CustomFutureWrapper customFutureWrapperAnnotation) {
     if (customFutureWrapperAnnotation == null) {
       throw new NullPointerException("customFutureWrapperAnnotation must not be null");
     }
 
     TypeElement originalType =
         GeneratorUtilities.extractClassFromAnnotation(
-            types, customFutureWrapperAnnotation::originalType);
+            context.types(), customFutureWrapperAnnotation::originalType);
 
     return new AutoValue_FutureWrapperAnnotationInfo(originalType);
   }

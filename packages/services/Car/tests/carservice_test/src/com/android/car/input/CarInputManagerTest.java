@@ -22,10 +22,10 @@ import static android.hardware.automotive.vehicle.CustomInputType.CUSTOM_EVENT_F
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
-import static org.testng.Assert.assertThrows;
 
 import android.annotation.NonNull;
 import android.car.Car;

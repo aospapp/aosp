@@ -61,6 +61,6 @@ public final class ConnectivityFlags {
      */
     public void loadFlags(ConnectivityService.Dependencies deps, Context ctx) {
         mNoRematchAllRequestsOnRegister = deps.isFeatureEnabled(
-                ctx, NO_REMATCH_ALL_REQUESTS_ON_REGISTER, false /* defaultEnabled */);
+                ctx, NO_REMATCH_ALL_REQUESTS_ON_REGISTER);
     }
 }

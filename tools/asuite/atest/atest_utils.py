@@ -22,8 +22,11 @@ Utility functions for atest.
 
 from __future__ import print_function
 
+import enum
+import datetime
 import fnmatch
 import hashlib
+import html
 import importlib
 import itertools
 import json
@@ -35,69 +38,33 @@ import re
 import shutil
 import subprocess
 import sys
-import sysconfig
 import time
+import urllib
 import zipfile
 
+from dataclasses import dataclass
 from multiprocessing import Process
 from pathlib import Path
+from typing import Any, Dict, List, Set
 
 import xml.etree.ElementTree as ET
 
-from atest_enum import DetectType, FilterType
+from atest.atest_enum import DetectType, ExitCode, FilterType
 
-# This is a workaround of b/144743252, where the http.client failed to loaded
-# because the googleapiclient was found before the built-in libs; enabling
-# embedded launcher(b/135639220) has not been reliable and other issue will
-# raise.
-# The workaround is repositioning the built-in libs before other 3rd libs in
-# PYTHONPATH(sys.path) to eliminate the symptom of failed loading http.client.
-for lib in (sysconfig.get_paths()['stdlib'], sysconfig.get_paths()['purelib']):
-    if lib in sys.path:
-        sys.path.remove(lib)
-    sys.path.insert(0, lib)
-# (b/219847353) Move googleapiclient to the last position of sys.path when
-#  existed.
-for lib in sys.path:
-    if 'googleapiclient' in lib:
-        sys.path.remove(lib)
-        sys.path.append(lib)
-        break
 #pylint: disable=wrong-import-position
-import atest_decorator
-import atest_error
-import constants
+from atest import atest_decorator
+from atest import atest_error
+from atest import constants
 
-# This proto related module will be auto generated in build time.
-# pylint: disable=no-name-in-module
-# pylint: disable=import-error
-try:
-    from tools.asuite.atest.tf_proto import test_record_pb2
-except ImportError as err:
-    pass
-# b/147562331 only occurs when running atest in source code. We don't encourge
-# the users to manually "pip3 install protobuf", therefore when the exception
-# occurs, we don't collect data and the tab completion is for args is silence.
-try:
-    from metrics import metrics
-    from metrics import metrics_base
-    from metrics import metrics_utils
-except ImportError as err:
-    # TODO(b/182854938): remove this ImportError after refactor metrics dir.
-    try:
-        from asuite.metrics import metrics
-        from asuite.metrics import metrics_base
-        from asuite.metrics import metrics_utils
-    except ImportError as err:
-        # This exception occurs only when invoking atest in source code.
-        print("You shouldn't see this message unless you ran 'atest-src'. "
-              "To resolve the issue, please run:\n\t{}\n"
-              "and try again.".format('pip3 install protobuf'))
-        print('Import error: ', err)
-        print('sys.path:\n', '\n'.join(sys.path))
-        sys.exit(constants.IMPORT_FAILURE)
+from atest.metrics import metrics
+from atest.metrics import metrics_utils
+from atest.tf_proto import test_record_pb2
 
 _BASH_RESET_CODE = '\033[0m\n'
+DIST_OUT_DIR = Path(os.environ.get(constants.ANDROID_BUILD_TOP, os.getcwd())
+                    + '/out/dist/')
+MAINLINE_MODULES_EXT_RE = re.compile(r'(.apex|.apks|.apk)$')
+
 # Arbitrary number to limit stdout for failed runs in _run_limited_output.
 # Reason for its use is that the make command itself has its own carriage
 # return output mechanism that when collected line by line causes the streaming
@@ -131,20 +98,45 @@ _ANDROID_BUILD_EXT = ('.bp', '.mk')
 _REGEX_CHARS = {'[', '(', '{', '|', '\\', '*', '?', '+', '^'}
 _WILDCARD_CHARS = {'?', '*'}
 
-# TODO: (b/180394948) remove this after the universal build script lands.
-# Variables for building mainline modules:
-_VARS_FOR_MAINLINE = {
-    "TARGET_BUILD_DENSITY": "alldpi",
-    "TARGET_BUILD_TYPE": "release",
-    "OVERRIDE_PRODUCT_COMPRESSED_APEX": "false",
-    "UNBUNDLED_BUILD_SDKS_FROM_SOURCE": "true",
-    "ALWAYS_EMBED_NOTICES": "true",
-}
-
 _ROOT_PREPARER = "com.android.tradefed.targetprep.RootTargetPreparer"
 
 _WILDCARD_FILTER_RE = re.compile(r'.*[?|*]$')
 _REGULAR_FILTER_RE = re.compile(r'.*\w$')
+
+SUGGESTIONS = {
+    # (b/198581508) Do not run "adb sync" for the users.
+    'CANNOT LINK EXECUTABLE': 'Please run "adb sync" or reflash the device(s).',
+    # (b/177626045) If Atest does not install target application properly.
+    'Runner reported an invalid method': 'Please reflash the device(s).'
+}
+
+_BUILD_ENV = {}
+
+
+@dataclass
+class BuildEnvProfiler:
+    """Represents the condition before and after trigging build."""
+    ninja_file: Path
+    ninja_file_mtime: float
+    variable_file: Path
+    variable_file_md5: str
+    clean_out: bool
+    build_files_integrity: bool
+
+
+@enum.unique
+class BuildOutputMode(enum.Enum):
+    "Represents the different ways to display build output."
+    STREAMED = 'streamed'
+    LOGGED = 'logged'
+
+    def __init__(self, arg_name: str):
+        self._description = arg_name
+
+    # pylint: disable=missing-function-docstring
+    def description(self):
+        return self._description
+
 
 def get_build_cmd(dump=False):
     """Compose build command with no-absolute path and flag "--make-mode".
@@ -259,7 +251,7 @@ def _run_limited_output(cmd, env_vars=None):
         raise subprocess.CalledProcessError(proc.returncode, cmd, output)
 
 
-def get_build_out_dir():
+def get_build_out_dir() -> str:
     """Get android build out directory.
 
     The order of the rules are:
@@ -298,57 +290,18 @@ def get_build_out_dir():
         return user_out_dir
     return os.path.join(build_top, "out")
 
-
-def get_mainline_build_cmd(build_targets):
-    """Method that assembles cmd for building mainline modules.
-
-    Args:
-        build_targets: A set of strings of build targets to make.
-
-    Returns:
-        A list of build command.
-    """
-    print('%s\n%s' % (
-        colorize("Building Mainline Modules...", constants.CYAN),
-                 ', '.join(build_targets)))
-    logging.debug('Building Mainline Modules: %s', ' '.join(build_targets))
-    # TODO: (b/180394948) use the consolidated build script when it lands.
-    config = get_android_config()
-    branch = config.get('BUILD_ID')
-    arch = config.get('TARGET_ARCH')
-    # 2. Assemble TARGET_BUILD_APPS and TARGET_PRODUCT.
-    target_build_apps = 'TARGET_BUILD_APPS={}'.format(
-        ' '.join(build_targets))
-    target_product = 'TARGET_PRODUCT=mainline_modules_{}'.format(arch)
-    if 'AOSP' in branch:
-        target_product = 'TARGET_PRODUCT=module_{}'.format(arch)
-    # 3. Assemble DIST_DIR and the rest of static targets.
-    dist_dir = 'DIST_DIR={}'.format(
-        os.path.join('out', 'dist', 'mainline_modules_{}'.format(arch)))
-    static_targets = [
-        'dist',
-        'apps_only',
-        'out/soong/host/linux-x86/bin/merge_zips',
-        'out/soong/host/linux-x86/bin/aapt2'
-    ]
-    cmd = get_build_cmd()
-    cmd.append(target_build_apps)
-    cmd.append(target_product)
-    cmd.append(dist_dir)
-    cmd.extend(static_targets)
-    return cmd
+def update_build_env(env: Dict[str, str]):
+    """Method that updates build environment variables."""
+    # pylint: disable=global-statement
+    global _BUILD_ENV
+    _BUILD_ENV.update(env)
 
 
-def build(build_targets, verbose=False, env_vars=None, mm_build_targets=None):
+def build(build_targets: Set[str]):
     """Shell out and invoke run_build_cmd to make build_targets.
 
     Args:
         build_targets: A set of strings of build targets to make.
-        verbose: Optional arg. If True output is streamed to the console.
-                 If False, only the last line of the build output is outputted.
-        env_vars: Optional arg. Dict of env vars to set during build.
-        mm_build_targets: A set of string like build_targets, but will build
-                          in unbundled(mainline) module mode.
 
     Returns:
         Boolean of whether build command was successful, True if nothing to
@@ -357,76 +310,54 @@ def build(build_targets, verbose=False, env_vars=None, mm_build_targets=None):
     if not build_targets:
         logging.debug('No build targets, skipping build.')
         return True
+
+    # pylint: disable=global-statement
+    global _BUILD_ENV
     full_env_vars = os.environ.copy()
-    if env_vars:
-        full_env_vars.update(env_vars)
-    if mm_build_targets:
-        # Set up necessary variables for building mainline modules.
-        full_env_vars.update(_VARS_FOR_MAINLINE)
-        if not os.getenv('TARGET_BUILD_VARIANT'):
-            full_env_vars.update({'TARGET_BUILD_VARIANT': 'user'})
-        # Inject APEX_BUILD_FOR_PRE_S_DEVICES=true for all products.
-        # TODO: support _bundled(S+) artifacts that link shared libs.
-        colorful_print(
-            '\nWARNING: Only support building pre-S products for now.',
-            constants.YELLOW)
-        full_env_vars.update({'APEX_BUILD_FOR_PRE_S_DEVICES': 'true'})
-        mm_build_cmd = get_mainline_build_cmd(mm_build_targets)
-        status = run_build_cmd(mm_build_cmd, verbose, full_env_vars)
-        if not status:
-            return status
+    update_build_env(full_env_vars)
     print('\n%s\n%s' % (
         colorize("Building Dependencies...", constants.CYAN),
                  ', '.join(build_targets)))
     logging.debug('Building Dependencies: %s', ' '.join(build_targets))
     cmd = get_build_cmd() + list(build_targets)
-    return run_build_cmd(cmd, verbose, full_env_vars)
+    return _run_build_cmd(cmd, _BUILD_ENV)
 
-def run_build_cmd(cmd, verbose=False, env_vars=None):
+
+def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
     """The main process of building targets.
 
     Args:
         cmd: A list of soong command.
-        verbose: Optional arg. If True output is streamed to the console.
-                 If False, only the last line of the build output is outputted.
-        env_vars: Optional arg. Dict of env vars to set during build.
-
+        env_vars: Dict of environment variables used for build.
     Returns:
         Boolean of whether build command was successful, True if nothing to
         build.
     """
     logging.debug('Executing command: %s', cmd)
+    build_profiler = _build_env_profiling()
     try:
-        if verbose:
+        if env_vars.get('BUILD_OUTPUT_MODE') == BuildOutputMode.STREAMED.value:
+            print()
             subprocess.check_call(cmd, stderr=subprocess.STDOUT, env=env_vars)
         else:
-            # TODO: Save output to a log file.
+            # Note that piping stdout forces Soong to switch to 'dumb terminal
+            # mode' which only prints completed actions. This gives users the
+            # impression that actions are taking longer than they really are.
+            # See b/233044822 for more details.
+            log_path = Path(get_build_out_dir()).joinpath('verbose.log.gz')
+            print('\n(Build log may not reflect actual status in simple output'
+                  'mode; check {} for detail after build finishes.)'.format(
+                    colorize(f'{log_path}', constants.CYAN)
+                  ), end='')
             _run_limited_output(cmd, env_vars=env_vars)
+        _send_build_condition_metrics(build_profiler, cmd)
         logging.info('Build successful')
         return True
     except subprocess.CalledProcessError as err:
         logging.error('Build failure when running: %s', ' '.join(cmd))
-        print(constants.REBUILD_MODULE_INFO_MSG.format(
-        colorize(constants.REBUILD_MODULE_INFO_FLAG,
-                 constants.RED)))
         if err.output:
             logging.error(err.output)
         return False
-
-
-def _can_upload_to_result_server():
-    """Return True if we can talk to result server."""
-    # TODO: Also check if we have a slow connection to result server.
-    if constants.RESULT_SERVER:
-        try:
-            from urllib.request import urlopen
-            urlopen(constants.RESULT_SERVER,
-                    timeout=constants.RESULT_SERVER_TIMEOUT).close()
-            return True
-        # pylint: disable=broad-except
-        except Exception as err:
-            logging.debug('Talking to result server raised exception: %s', err)
-    return False
 
 
 # pylint: disable=unused-argument
@@ -453,7 +384,8 @@ def is_test_mapping(args):
     which means the test value is a test group name in TEST_MAPPING file, e.g.,
     `:postsubmit`.
 
-    If --host-unit-test-only be applied, it's not test mapping.
+    If --host-unit-test-only or --smart-testing-local was applied, it doesn't
+    intend to be a test_mapping test.
     If any test mapping options is specified, the atest command must also be
     set to run tests in test mapping files.
 
@@ -464,12 +396,12 @@ def is_test_mapping(args):
         True if the args indicates atest shall run tests in test mapping. False
         otherwise.
     """
-    return (
-        not args.host_unit_test_only and
-        (args.test_mapping or
-        args.include_subdirs or
-        not args.tests or
-        (len(args.tests) == 1 and args.tests[0][0] == ':')))
+    if any((args.host_unit_test_only, args.smart_testing_local)):
+        return False
+    if any((args.test_mapping, args.include_subdirs, not args.tests)):
+        return True
+    # ':postsubmit' implicitly indicates running in test-mapping mode.
+    return all((len(args.tests) == 1, args.tests[0][0] == ':'))
 
 
 @atest_decorator.static_var("cached_has_colors", {})
@@ -499,14 +431,15 @@ def _has_colors(stream):
     return cached_has_colors[stream]
 
 
-def colorize(text, color, highlight=False):
+def colorize(text, color, bp_color=None):
     """ Convert to colorful string with ANSI escape code.
 
     Args:
         text: A string to print.
-        color: ANSI code shift for colorful print. They are defined
-               in constants_default.py.
-        highlight: True to print with highlight.
+        color: Forground(Text) color which is an ANSI code shift for colorful
+               print. They are defined in constants_default.py.
+        bp_color: Backgroud color which is an ANSI code shift for colorful
+                   print.
 
     Returns:
         Colorful string with ANSI escape code.
@@ -515,27 +448,33 @@ def colorize(text, color, highlight=False):
     clr_suff = '\033[0m'
     has_colors = _has_colors(sys.stdout)
     if has_colors:
-        if highlight:
-            ansi_shift = 40 + color
+        background_color = ''
+        if bp_color:
+            # Foreground(Text) ranges from 30-37
+            text_color = 30 + color
+            # Background ranges from 40-47
+            background_color = ';%d' % (40 + bp_color)
         else:
-            ansi_shift = 30 + color
-        clr_str = "%s%dm%s%s" % (clr_pref, ansi_shift, text, clr_suff)
+            text_color = 30 + color
+        clr_str = "%s%d%sm%s%s" % (clr_pref, text_color, background_color,
+                                    text, clr_suff)
     else:
         clr_str = text
     return clr_str
 
 
-def colorful_print(text, color, highlight=False, auto_wrap=True):
+def colorful_print(text, color, bp_color=None, auto_wrap=True):
     """Print out the text with color.
 
     Args:
         text: A string to print.
-        color: ANSI code shift for colorful print. They are defined
-               in constants_default.py.
-        highlight: True to print with highlight.
+        color: Forground(Text) color which is an ANSI code shift for colorful
+               print. They are defined in constants_default.py.
+        bp_color: Backgroud color which is an ANSI code shift for colorful
+                   print.
         auto_wrap: If True, Text wraps while print.
     """
-    output = colorize(text, color, highlight)
+    output = colorize(text, color, bp_color)
     if auto_wrap:
         print(output)
     else:
@@ -554,44 +493,6 @@ def get_terminal_size():
         fallback=(_DEFAULT_TERMINAL_WIDTH,
                   _DEFAULT_TERMINAL_HEIGHT))
     return columns, rows
-
-
-def is_external_run():
-    # TODO(b/133905312): remove this function after aidegen calling
-    #       metrics_base.get_user_type directly.
-    """Check is external run or not.
-
-    Determine the internal user by passing at least one check:
-      - whose git mail domain is from google
-      - whose hostname is from google
-    Otherwise is external user.
-
-    Returns:
-        True if this is an external run, False otherwise.
-    """
-    return metrics_base.get_user_type() == metrics_base.EXTERNAL_USER
-
-
-def print_data_collection_notice():
-    """Print the data collection notice."""
-    anonymous = ''
-    user_type = 'INTERNAL'
-    if metrics_base.get_user_type() == metrics_base.EXTERNAL_USER:
-        anonymous = ' anonymous'
-        user_type = 'EXTERNAL'
-    notice = ('  We collect%s usage statistics in accordance with our Content '
-              'Licenses (%s), Contributor License Agreement (%s), Privacy '
-              'Policy (%s) and Terms of Service (%s).'
-             ) % (anonymous,
-                  constants.CONTENT_LICENSES_URL,
-                  constants.CONTRIBUTOR_AGREEMENT_URL[user_type],
-                  constants.PRIVACY_POLICY_URL,
-                  constants.TERMS_SERVICE_URL
-                 )
-    print(delimiter('=', 18, prenl=1))
-    colorful_print("Notice:", constants.RED)
-    colorful_print("%s" % notice, constants.GREEN)
-    print(delimiter('=', 18, postnl=1))
 
 
 def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
@@ -653,6 +554,9 @@ def _normalize(cmd_list):
     """
     _cmd = ' '.join(cmd_list).split()
     for cmd in _cmd:
+        if cmd.startswith('--skip-all-system-status-check'):
+            _cmd.remove(cmd)
+            continue
         if cmd.startswith('--atest-log-file-path'):
             _cmd.remove(cmd)
             continue
@@ -740,22 +644,19 @@ def check_md5(check_file, missing_ok=False):
           - True if the checksum is consistent with the actual MD5.
           - False otherwise.
     """
-    if not os.path.isfile(check_file):
+    if not Path(check_file).is_file():
         if not missing_ok:
             logging.debug(
                 'Unable to verify: %s not found.', check_file)
         return missing_ok
-    if not is_valid_json_file(check_file):
-        logging.debug(
-            'Unable to verify: %s invalid JSON format.', check_file)
-        return missing_ok
-    with open(check_file, 'r+') as _file:
-        content = json.load(_file)
+    content = load_json_safely(check_file)
+    if content:
         for filename, md5 in content.items():
             if md5sum(filename) != md5:
                 logging.debug('%s has altered.', filename)
                 return False
-    return True
+        return True
+    return False
 
 def save_md5(filenames, save_file):
     """Method equivalent to 'md5sum file1 file2 > /file/to/check'
@@ -859,7 +760,8 @@ def load_test_info_cache(test_reference, cache_root=None):
                 ValueError,
                 TypeError,
                 EOFError,
-                IOError) as err:
+                IOError,
+                ImportError) as err:
             # Won't break anything, just remove the old cache, log this error,
             # and collect the exception by metrics.
             logging.debug('Exception raised: %s', err)
@@ -955,8 +857,18 @@ def find_files(path, file_name=constants.TEST_MAPPING):
     """
     match_files = []
     for root, _, filenames in os.walk(path):
-        for filename in fnmatch.filter(filenames, file_name):
-            match_files.append(os.path.join(root, filename))
+        try:
+            for filename in fnmatch.filter(filenames, file_name):
+                match_files.append(os.path.join(root, filename))
+        except re.error as e:
+            msg = "Unable to locate %s among %s" % (file_name, filenames)
+            logging.debug(msg)
+            logging.debug("Exception: %s", e)
+            metrics.AtestExitEvent(
+                duration=metrics_utils.convert_duration(0),
+                exit_code=ExitCode.COLLECT_ONLY_FILE_NOT_FOUND,
+                stacktrace=msg,
+                logs=str(e))
     return match_files
 
 def extract_zip_text(zip_path):
@@ -1117,68 +1029,144 @@ def has_python_module(module_name):
     """
     return bool(importlib.util.find_spec(module_name))
 
-def is_valid_json_file(path):
-    """Detect if input path exist and content is valid.
+def load_json_safely(jsonfile):
+    """Load the given json file as an object.
 
     Args:
-        path: The json file path.
+        jsonfile: The json file path.
 
     Returns:
-        True if file exist and content is valid, False otherwise.
+        The content of the give json file. Null dict when:
+        1. the given path doesn't exist.
+        2. the given path is not a json or invalid format.
     """
-    if isinstance(path, bytes):
-        path = path.decode('utf-8')
+    if isinstance(jsonfile, bytes):
+        jsonfile = jsonfile.decode('utf-8')
+    if Path(jsonfile).is_file():
+        try:
+            with open(jsonfile, 'r') as cache:
+                return json.load(cache)
+        except json.JSONDecodeError:
+            logging.debug('Exception happened while loading %s.', jsonfile)
+    else:
+        logging.debug('%s: File not found.', jsonfile)
+    return {}
+
+def get_atest_version():
+    """Get atest version.
+
+    Returns:
+        Version string from the VERSION file, e.g. prebuilt
+            2022-11-24_9314547  (<release_date>_<build_id>)
+
+        If VERSION does not exist (src or local built):
+            2022-11-24_5d448c50 (<commit_date>_<commit_id>)
+
+        If the git command fails for unexpected reason:
+            2022-11-24_unknown  (<today_date>_unknown)
+    """
+    atest_dir = Path(__file__).resolve().parent
+    version_file = atest_dir.joinpath('VERSION')
+    if Path(version_file).is_file():
+        return open(version_file).read()
+
+    # Try fetching commit date (%ci) and commit hash (%h).
+    git_cmd = 'git log -1 --pretty=format:"%ci;%h"'
     try:
-        if os.path.isfile(path):
-            with open(path) as json_file:
-                json.load(json_file)
-            return True
-        logging.debug('%s: File not found.', path)
-    except json.JSONDecodeError:
-        logging.debug('Exception happened while loading %s.', path)
-    return False
+        # commit date/hash are only available when running from the source
+        # and the local built.
+        result = subprocess.run(
+            git_cmd, shell=True, check=False, capture_output=True,
+            cwd=Path(
+                os.getenv(constants.ANDROID_BUILD_TOP), '').joinpath(
+                    'tools/asuite/atest'))
+        if result.stderr:
+            raise subprocess.CalledProcessError(
+                returncode=0, cmd=git_cmd)
+        raw_date, commit = result.stdout.decode().split(';')
+        date = datetime.datetime.strptime(raw_date,
+                                          '%Y-%m-%d %H:%M:%S %z').date()
+    # atest_dir doesn't exist will throw FileNotFoundError.
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Use today as the commit date for unexpected conditions.
+        date = datetime.datetime.today().date()
+        commit = 'unknown'
+    return f'{date}_{commit}'
 
-def get_manifest_branch():
-    """Get the manifest branch via repo info command.
+def get_manifest_branch(show_aosp=False):
+    """Get the manifest branch.
+
+         (portal xml)                            (default xml)
+    +--------------------+ _get_include() +-----------------------------+
+    | .repo/manifest.xml |--------------->| .repo/manifests/default.xml |
+    +--------------------+                +---------------+-------------+
+                             <default revision="master" |
+                                      remote="aosp"     | _get_revision()
+                                      sync-j="4"/>      V
+                                                    +--------+
+                                                    | master |
+                                                    +--------+
+
+    Args:
+        show_aosp: A boolean that shows 'aosp' prefix by checking the 'remote'
+                   attribute.
 
     Returns:
-        None if no system environment parameter ANDROID_BUILD_TOP or
-        running 'repo info' command error, otherwise the manifest branch
+        The value of 'revision' of the included xml or default.xml.
+
+        None when no ANDROID_BUILD_TOP or unable to access default.xml.
     """
-    build_top = os.getenv(constants.ANDROID_BUILD_TOP, None)
+    build_top = os.getenv(constants.ANDROID_BUILD_TOP)
     if not build_top:
         return None
-    splitter = ':'
-    env_vars = os.environ.copy()
-    orig_pythonpath = env_vars['PYTHONPATH'].split(splitter)
-    # Command repo imports stdlib "http.client", so adding non-default lib
-    # e.g. googleapiclient, may cause repo command execution error.
-    # The temporary dir is not presumably always /tmp, especially in MacOS.
-    # b/169936306, b/190647636 are the cases we should never ignore.
-    soong_path_re = re.compile(r'.*/Soong.python_.*/')
-    default_python_path = [p for p in orig_pythonpath
-                            if not soong_path_re.match(p)]
-    env_vars['PYTHONPATH'] = splitter.join(default_python_path)
-    proc = subprocess.Popen(f'repo info '
-                            f'-o {constants.ASUITE_REPO_PROJECT_NAME}',
-                            shell=True,
-                            env=env_vars,
-                            cwd=build_top,
-                            universal_newlines=True,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
-    try:
-        cmd_out, err_out = proc.communicate()
-        branch_re = re.compile(r'Manifest branch:\s*(?P<branch>.*)')
-        match = branch_re.match(cmd_out)
-        if match:
-            return match.group('branch')
-        logging.warning('Unable to detect branch name through:\n %s, %s',
-                        cmd_out, err_out)
-    except subprocess.TimeoutExpired:
-        logging.warning('Exception happened while getting branch')
-        proc.kill()
-    return None
+    portal_xml = Path(build_top).joinpath('.repo', 'manifest.xml')
+    default_xml = Path(build_top).joinpath('.repo/manifests', 'default.xml')
+    def _get_revision(xml):
+        try:
+            xml_root = ET.parse(xml).getroot()
+        except (IOError, OSError, ET.ParseError):
+            # TODO(b/274989179) Change back to warning once warning if not going
+            # to be treat as test failure. Or test_get_manifest_branch unit test
+            # could be fix if return None if portal_xml or default_xml not
+            # exist.
+            logging.info('%s could not be read.', xml)
+            return ''
+        default_tags = xml_root.findall('./default')
+        if default_tags:
+            prefix = ''
+            for tag in default_tags:
+                branch = tag.attrib.get('revision')
+                if show_aosp and tag.attrib.get('remote') == 'aosp':
+                    prefix = 'aosp-'
+                return f'{prefix}{branch}'
+        return ''
+    def _get_include(xml):
+        try:
+            xml_root = ET.parse(xml).getroot()
+        except (IOError, OSError, ET.ParseError):
+            # TODO(b/274989179) Change back to warning once warning if not going
+            # to be treat as test failure. Or test_get_manifest_branch unit test
+            # could be fix if return None if portal_xml or default_xml not
+            # exist.
+            logging.info('%s could not be read.', xml)
+            return Path()
+        include_tags = xml_root.findall('./include')
+        if include_tags:
+            for tag in include_tags:
+                name = tag.attrib.get('name')
+                if name:
+                    return Path(build_top).joinpath('.repo/manifests', name)
+        return default_xml
+
+    # 1. Try getting revision from .repo/manifests/default.xml
+    if default_xml.is_file():
+        return _get_revision(default_xml)
+    # 2. Try getting revision from the included xml of .repo/manifest.xml
+    include_xml = _get_include(portal_xml)
+    if include_xml.is_file():
+        return _get_revision(include_xml)
+    # 3. Try getting revision directly from manifest.xml (unlikely to happen)
+    return _get_revision(portal_xml)
 
 def get_build_target():
     """Get the build target form system environment TARGET_PRODUCT."""
@@ -1187,22 +1175,26 @@ def get_build_target():
         os.getenv(constants.TARGET_BUILD_VARIANT, None))
     return build_target
 
-def parse_mainline_modules(test):
-    """Parse test reference into test and mainline modules.
+def build_module_info_target(module_info_target):
+    """Build module-info.json after deleting the original one.
 
     Args:
-        test: An String of test reference.
-
-    Returns:
-        A string of test without mainline modules,
-        A string of mainline modules.
+        module_info_target: the target name that soong is going to build.
     """
-    result = constants.TEST_WITH_MAINLINE_MODULES_RE.match(test)
-    if not result:
-        return test, ""
-    test_wo_mainline_modules = result.group('test')
-    mainline_modules = result.group('mainline_modules')
-    return test_wo_mainline_modules, mainline_modules
+    module_file = 'module-info.json'
+    logging.debug('Generating %s - this is required for '
+                  'initial runs or forced rebuilds.', module_file)
+    build_start = time.time()
+    product_out = os.getenv(constants.ANDROID_PRODUCT_OUT, None)
+    module_info_path = Path(product_out).joinpath('module-info.json')
+    if module_info_path.is_file():
+        os.remove(module_info_path)
+    if not build([module_info_target]):
+        sys.exit(ExitCode.BUILD_FAILURE)
+    build_duration = time.time() - build_start
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.ONLY_BUILD_MODULE_INFO,
+        result=int(build_duration))
 
 def has_wildcard(test_name):
     """ Tell whether the test_name(either a list or string) contains wildcard
@@ -1344,11 +1336,16 @@ def get_config_device(test_config):
         A set include all the device name of the input config.
     """
     devices = set()
-    xml_root = ET.parse(test_config).getroot()
-    device_tags = xml_root.findall('.//device')
-    for tag in device_tags:
-        name = tag.attrib['name'].strip()
-        devices.add(name)
+    try:
+        xml_root = ET.parse(test_config).getroot()
+        device_tags = xml_root.findall('.//device')
+        for tag in device_tags:
+            name = tag.attrib['name'].strip()
+            devices.add(name)
+    except ET.ParseError as e:
+        colorful_print('Config has invalid format.', constants.RED)
+        colorful_print('File %s : %s' % (test_config, str(e)), constants.YELLOW)
+        sys.exit(ExitCode.CONFIG_INVALID_FORMAT)
     return devices
 
 def get_mainline_param(test_config):
@@ -1585,6 +1582,35 @@ def get_verify_key(tests, extra_args):
     test_commands.sort()
     return ' '.join(test_commands)
 
+def gen_runner_cmd_to_file(tests, dry_run_cmd,
+                           result_path=constants.RUNNER_COMMAND_PATH):
+    """Generate test command and save to file.
+
+    Args:
+        tests: A String of input tests.
+        dry_run_cmd: A String of dry run command.
+        result_path: A file path for saving result.
+    Returns:
+        A composed run commands.
+    """
+    normalized_cmd = dry_run_cmd
+    root_path = os.environ.get(constants.ANDROID_BUILD_TOP)
+    if root_path in dry_run_cmd:
+        normalized_cmd = dry_run_cmd.replace(root_path,
+                                             f"${constants.ANDROID_BUILD_TOP}")
+    results = {}
+    if not os.path.isfile(result_path):
+        results[tests] = normalized_cmd
+    else:
+        with open(result_path) as json_file:
+            results = json.load(json_file)
+            if results.get(tests) != normalized_cmd:
+                results[tests] = normalized_cmd
+    with open(result_path, 'w+') as _file:
+        json.dump(results, _file, indent=0)
+    return results.get(tests, '')
+
+
 def handle_test_env_var(input_test, result_path=constants.VERIFY_ENV_PATH,
                         pre_verify=False):
     """Handle the environment variable of input tests.
@@ -1625,21 +1651,22 @@ def handle_test_env_var(input_test, result_path=constants.VERIFY_ENV_PATH,
         raise atest_error.DryRunVerificationError('\n'.join(verify_error))
     return 1
 
-def generate_buildfiles_checksum():
+def generate_buildfiles_checksum(target_dir: Path):
     """ Method that generate md5 checksum of Android.{bp,mk} files.
 
     The checksum of build files are stores in
         $ANDROID_HOST_OUT/indexes/buildfiles.md5
     """
-    if os.path.isfile(constants.LOCATE_CACHE):
-        cmd = (f'locate -d{constants.LOCATE_CACHE} --existing '
-               r'--regex "/Android.(bp|mk)$"')
+    plocate_db = Path(target_dir).joinpath(constants.LOCATE_CACHE)
+    checksum_file = Path(target_dir).joinpath(constants.BUILDFILES_MD5)
+    if plocate_db.is_file():
+        cmd = (f'locate -d{plocate_db} --existing '
+               r'--regex "/Android\.(bp|mk)$"')
         try:
             result = subprocess.check_output(cmd, shell=True).decode('utf-8')
-            save_md5(result.split(), constants.BUILDFILES_MD5)
+            save_md5(result.split(), checksum_file)
         except subprocess.CalledProcessError:
-            logging.error('Failed to generate %s',
-                          constants.BUILDFILES_MD5)
+            logging.error('Failed to generate %s', checksum_file)
 
 def run_multi_proc(func, *args, **kwargs):
     """Start a process with multiprocessing and return Process object.
@@ -1706,7 +1733,7 @@ def get_full_annotation_class_name(module_info, class_name):
     keyword_re = re.compile(
         r'import\s+(?P<fqcn>.*\.{})(|;)$'.format(class_name), re.I)
     build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP, ''))
-    for f in module_info.get('srcs'):
+    for f in module_info.get(constants.MODULE_SRCS, []):
         full_path = build_top.joinpath(f)
         with open(full_path, 'r') as cache:
             for line in cache.readlines():
@@ -1770,3 +1797,312 @@ def get_filter_types(tf_filter_set):
                          tf_filter, FilterType.REGULAR_FILTER.value)
             type_set.add(FilterType.REGULAR_FILTER.value)
     return type_set
+
+def has_index_files():
+    """Determine whether the essential index files are done.
+
+    (b/206886222) checksum may be different even the src is not changed; so
+    the main process needs to wait when the essential index files do not exist.
+
+    Returns:
+        False if one of the index file does not exist; True otherwise.
+    """
+    return all(Path(f).is_file() for f in [
+        constants.CLASS_INDEX,
+        constants.CC_CLASS_INDEX,
+        constants.QCLASS_INDEX,
+        constants.PACKAGE_INDEX])
+
+# pylint: disable=anomalous-backslash-in-string,too-many-branches
+def get_bp_content(filename: Path, module_type: str) -> Dict:
+    """Get essential content info from an Android.bp.
+    By specifying module_type (e.g. 'android_test', 'android_app'), this method
+    can parse the given starting point and grab 'name', 'instrumentation_for'
+    and 'manifest'.
+
+    Returns:
+        A dict of mapping test module and target module; e.g.
+        {
+         'FooUnitTests':
+             {'manifest': 'AndroidManifest.xml', 'target_module': 'Foo'},
+         'Foo':
+             {'manifest': 'AndroidManifest-common.xml', 'target_module': ''}
+        }
+        Null dict if there is no content of the given module_type.
+    """
+    build_file = Path(filename)
+    if not any((build_file.suffix == '.bp', build_file.is_file())):
+        return {}
+    start_from = re.compile(f'^{module_type}\s*\{{')
+    end_with = re.compile(r'^\}$')
+    context_re = re.compile(
+        r'\s*(?P<key>(name|manifest|instrumentation_for))\s*:'
+        r'\s*\"(?P<value>.*)\"\s*,', re.M)
+    with open(build_file, 'r') as cache:
+        data = cache.readlines()
+    content_dict = {}
+    start_recording = False
+    for _line in data:
+        line = _line.strip()
+        if re.match(start_from, line):
+            start_recording = True
+            _dict = {}
+            continue
+        if start_recording:
+            if not re.match(end_with, line):
+                match = re.match(context_re, line)
+                if match:
+                    _dict.update(
+                        {match.group('key'): match.group('value')})
+            else:
+                start_recording = False
+                module_name = _dict.get('name')
+                if module_name:
+                    content_dict.update(
+                        {module_name: {
+                            'manifest': _dict.get(
+                                'manifest', 'AndroidManifest.xml'),
+                            'target_module': _dict.get(
+                                'instrumentation_for', '')}
+                        })
+    return content_dict
+
+def get_manifest_info(manifest: Path) -> Dict[str, Any]:
+    """Get the essential info from the given manifest file.
+    This method cares only three attributes:
+        * package
+        * targetPackage
+        * persistent
+    For an instrumentation test, the result will be like:
+    {
+        'package': 'com.android.foo.tests.unit',
+        'targetPackage': 'com.android.foo',
+        'persistent': False
+    }
+    For a target module of the instrumentation test:
+    {
+        'package': 'com.android.foo',
+        'targetPackage': '',
+        'persistent': True
+    }
+    """
+    mdict = {'package': '', 'target_package': '', 'persistent': False}
+    try:
+        xml_root = ET.parse(manifest).getroot()
+    except (ET.ParseError, FileNotFoundError):
+        return mdict
+    manifest_package_re =  re.compile(r'[a-z][\w]+(\.[\w]+)*')
+    # 1. Must probe 'package' name from the top.
+    for item in xml_root.findall('.'):
+        if 'package' in item.attrib.keys():
+            pkg = item.attrib.get('package')
+            match = manifest_package_re.match(pkg)
+            if match:
+                mdict['package'] = pkg
+                break
+    for item in xml_root.findall('*'):
+        # 2. Probe 'targetPackage' in 'instrumentation' tag.
+        if item.tag == 'instrumentation':
+            for key, value in item.attrib.items():
+                if 'targetPackage' in key:
+                    mdict['target_package'] = value
+                    break
+        # 3. Probe 'persistent' in any tags.
+        for key, value in item.attrib.items():
+            if 'persistent' in key:
+                mdict['persistent'] = value.lower() == 'true'
+                break
+    return mdict
+
+# pylint: disable=broad-except
+def generate_print_result_html(result_file: Path):
+    """Generate a html that collects all log files."""
+    result_file = Path(result_file)
+    search_dir = Path(result_file).parent.joinpath('log')
+    result_html = Path(search_dir, 'test_logs.html')
+    try:
+        logs = sorted(find_files(str(search_dir), file_name='*'))
+        with open(result_html, 'w') as cache:
+            cache.write('<!DOCTYPE html><html><body>')
+            result = load_json_safely(result_file)
+            if result:
+                cache.write(f'<h1>{"atest " + result.get("args")}</h1>')
+                timestamp = datetime.datetime.fromtimestamp(
+                    result_file.stat().st_ctime)
+                cache.write(f'<h2>{timestamp}</h2>')
+            for log in logs:
+                cache.write(f'<p><a href="{urllib.parse.quote(log)}">'
+                            f'{html.escape(Path(log).name)}</a></p>')
+            cache.write('</body></html>')
+        print(f'\nTo access logs, press "ctrl" and click on\n'
+              f'file://{result_html}\n')
+    except Exception as e:
+        logging.debug('Did not generate log html for reason: %s', e)
+
+# pylint: disable=broad-except
+def prompt_suggestions(result_file: Path):
+    """Generate suggestions when detecting keywords in logs."""
+    result_file = Path(result_file)
+    search_dir = Path(result_file).parent.joinpath('log')
+    logs = sorted(find_files(str(search_dir), file_name='*'))
+    for log in logs:
+        for keyword, suggestion in SUGGESTIONS.items():
+            try:
+                with open(log, 'r') as cache:
+                    content = cache.read()
+                    if keyword in content:
+                        colorful_print(
+                            '[Suggestion] ' + suggestion, color=constants.RED)
+                        break
+            # If the given is not a plain text, just ignore it.
+            except Exception:
+                pass
+
+def build_files_integrity_is_ok() -> bool:
+    """Return Whether the integrity of build files is OK."""
+    # 0. Inexistence of the checksum file means a fresh repo sync.
+    if not Path(constants.BUILDFILES_MD5).is_file():
+        return False
+    # 1. Ensure no build files were added/deleted.
+    with open(constants.BUILDFILES_MD5, 'r') as cache:
+        recorded_amount = len(json.load(cache).keys())
+        cmd = (f'locate -d{constants.LOCATE_CACHE} --regex '
+               r'"/Android\.(bp|mk)$" | wc -l')
+        if int(subprocess.getoutput(cmd)) != recorded_amount:
+            return False
+    # 2. Ensure the consistency of all build files.
+    return check_md5(constants.BUILDFILES_MD5, missing_ok=False)
+
+
+def _build_env_profiling() -> BuildEnvProfiler:
+    """Determine the status profile before build.
+
+    The BuildEnvProfiler object can help use determine whether a build is:
+        1. clean build. (empty out/ dir)
+        2. Build files Integrity (Android.bp/Android.mk changes).
+        3. Environment variables consistency.
+        4. New Ninja file generated. (mtime of soong/build.ninja)
+
+    Returns:
+        the BuildProfile object.
+    """
+    out_dir = Path(get_build_out_dir())
+    ninja_file = out_dir.joinpath('soong/build.ninja')
+    mtime = ninja_file.stat().st_mtime if ninja_file.is_file() else 0
+    variables_file = out_dir.joinpath('soong/soong.environment.used.build')
+
+    return BuildEnvProfiler(
+        ninja_file=ninja_file,
+        ninja_file_mtime=mtime,
+        variable_file=variables_file,
+        variable_file_md5=md5sum(variables_file),
+        clean_out=not ninja_file.exists(),
+        build_files_integrity=build_files_integrity_is_ok()
+    )
+
+
+def _send_build_condition_metrics(
+        build_profile: BuildEnvProfiler, cmd: List[str]):
+    """Send build conditions by comparing build env profilers."""
+
+    # when build module-info.json only, 'module-info.json' will be
+    # the last element.
+    m_mod_info_only = 'module-info.json' in cmd.pop()
+
+    def ninja_file_is_changed(env_profiler: BuildEnvProfiler) -> bool:
+        """Determine whether the ninja file had been renewal."""
+        if not env_profiler.ninja_file.is_file():
+            return True
+        return (env_profiler.ninja_file.stat().st_mtime !=
+                env_profiler.ninja_file_mtime)
+
+    def env_var_is_changed(env_profiler: BuildEnvProfiler) -> bool:
+        """Determine whether soong-related variables had changed."""
+        return (md5sum(env_profiler.variable_file) !=
+                env_profiler.variable_file_md5)
+
+    def send_data(detect_type):
+        """A simple wrapper of metrics.LocalDetectEvent."""
+        metrics.LocalDetectEvent(detect_type=detect_type, result=1)
+
+    # Determine the correct detect type before profiling.
+    # (build module-info.json or build dependencies.)
+    clean_out = (DetectType.MODULE_INFO_CLEAN_OUT
+                 if m_mod_info_only else DetectType.BUILD_CLEAN_OUT)
+    ninja_generation = (DetectType.MODULE_INFO_GEN_NINJA
+                        if m_mod_info_only else DetectType.BUILD_GEN_NINJA)
+    bpmk_change = (DetectType.MODULE_INFO_BPMK_CHANGE
+                   if m_mod_info_only else DetectType.BUILD_BPMK_CHANGE)
+    env_change = (DetectType.MODULE_INFO_ENV_CHANGE
+                  if m_mod_info_only else DetectType.BUILD_ENV_CHANGE)
+    src_change = (DetectType.MODULE_INFO_SRC_CHANGE
+                  if m_mod_info_only else DetectType.BUILD_SRC_CHANGE)
+    other = (DetectType.MODULE_INFO_OTHER
+             if m_mod_info_only else DetectType.BUILD_OTHER)
+    incremental =(DetectType.MODULE_INFO_INCREMENTAL
+                  if m_mod_info_only else DetectType.BUILD_INCREMENTAL)
+
+    if build_profile.clean_out:
+        send_data(clean_out)
+    else:
+        send_data(incremental)
+
+    if ninja_file_is_changed(build_profile):
+        send_data(ninja_generation)
+
+    other_condition = True
+    if not build_profile.build_files_integrity:
+        send_data(bpmk_change)
+        other_condition = False
+    if env_var_is_changed(build_profile):
+        send_data(env_change)
+        other_condition = False
+    if bool(get_modified_files(os.getcwd())):
+        send_data(src_change)
+        other_condition = False
+    if other_condition:
+        send_data(other)
+
+
+def get_local_auto_shardable_tests():
+    """Get the auto shardable test names in shardable file.
+
+    The path will be ~/.atest/auto_shard/local_auto_shardable_tests
+
+    Returns:
+        A list of auto shardable test names.
+    """
+    shardable_tests_file = Path(get_misc_dir()).joinpath(
+        '.atest/auto_shard/local_auto_shardable_tests')
+    if not shardable_tests_file.exists():
+        return []
+    return open(shardable_tests_file, 'r').read().split()
+
+def update_shardable_tests(test_name: str, run_time_in_sec: int):
+    """Update local_auto_shardable_test file.
+
+    Strategy:
+        - Determine to add the module by the run time > 10 mins.
+        - local_auto_shardable_test file path :
+            ~/.atest/auto_shard/local_auto_shardable_tests
+        - The file content template is module name per line:
+            <module1>
+            <module2>
+            ...
+    """
+    if run_time_in_sec < 600:
+        return
+    shardable_tests = get_local_auto_shardable_tests()
+    if test_name not in shardable_tests:
+        shardable_tests.append(test_name)
+        logging.info('%s takes %ss (> 600s) to finish. Adding to shardable '
+                    'test list.', test_name, run_time_in_sec)
+
+    if not shardable_tests:
+        logging.info('No shardable tests to run.')
+        return
+    shardable_dir = Path(get_misc_dir()).joinpath('.atest/auto_shard')
+    shardable_dir.mkdir(parents=True, exist_ok=True)
+    shardable_tests_file = shardable_dir.joinpath('local_auto_shardable_tests')
+    with open(shardable_tests_file, 'w') as file:
+        file.write('\n'.join(shardable_tests))

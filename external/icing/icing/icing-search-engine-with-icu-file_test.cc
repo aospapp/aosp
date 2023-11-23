@@ -34,16 +34,9 @@
 namespace icing {
 namespace lib {
 namespace {
+
 using ::icing::lib::portable_equals_proto::EqualsProto;
 using ::testing::Eq;
-
-constexpr PropertyConfigProto::Cardinality::Code CARDINALITY_REQUIRED =
-    PropertyConfigProto::Cardinality::REQUIRED;
-
-constexpr StringIndexingConfig::TokenizerType::Code TOKENIZER_PLAIN =
-    StringIndexingConfig::TokenizerType::PLAIN;
-
-constexpr TermMatchType::Code MATCH_PREFIX = TermMatchType::PREFIX;
 
 std::string GetTestBaseDir() {
   return GetTestTempDir() + "/icing_with_icu_files";
@@ -79,7 +72,7 @@ TEST(IcingSearchEngineWithIcuFileTest, ShouldInitialize) {
           .AddType(SchemaTypeConfigBuilder().SetType("Message").AddProperty(
               PropertyConfigBuilder()
                   .SetName("body")
-                  .SetDataTypeString(MATCH_PREFIX, TOKENIZER_PLAIN)
+                  .SetDataTypeString(TERM_MATCH_PREFIX, TOKENIZER_PLAIN)
                   .SetCardinality(CARDINALITY_REQUIRED)))
           .Build();
   EXPECT_THAT(icing.SetSchema(schema).status().code(), Eq(StatusProto::OK));
@@ -94,7 +87,7 @@ TEST(IcingSearchEngineWithIcuFileTest, ShouldIndexAndSearch) {
           .AddType(SchemaTypeConfigBuilder().SetType("Message").AddProperty(
               PropertyConfigBuilder()
                   .SetName("body")
-                  .SetDataTypeString(MATCH_PREFIX, TOKENIZER_PLAIN)
+                  .SetDataTypeString(TERM_MATCH_PREFIX, TOKENIZER_PLAIN)
                   .SetCardinality(CARDINALITY_REQUIRED)))
           .Build();
   ASSERT_THAT(icing.SetSchema(schema).status().code(), Eq(StatusProto::OK));

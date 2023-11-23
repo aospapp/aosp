@@ -18,6 +18,7 @@ package com.android.car.settings.wifi;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -94,6 +95,42 @@ public class WifiEntryGroupPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_wifiAvailable_notRestricted_available_zoneWrite() {
+        when(mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)).thenReturn(true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_wifiAvailable_notRestricted_available_zoneRead() {
+        when(mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)).thenReturn(true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_wifiAvailable_notRestricted_available_zoneHidden() {
+        when(mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)).thenReturn(true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_wifiAvailable_restrictedByUm_viewing() {
         when(mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)).thenReturn(true);
         EnterpriseTestUtils
@@ -103,6 +140,48 @@ public class WifiEntryGroupPreferenceControllerTest {
         mController.onCreate(mLifecycleOwner);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_wifiAvailable_restrictedByUm_viewing_zoneWrite() {
+        when(mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_wifiAvailable_restrictedByUm_viewing_zoneRead() {
+        when(mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_wifiAvailable_restrictedByUm_viewing_zoneHidden() {
+        when(mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test
@@ -118,6 +197,48 @@ public class WifiEntryGroupPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_wifiAvailable_restrictedByDpm_viewing_zoneWrite() {
+        when(mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_wifiAvailable_restrictedByDpm_viewing_zoneRead() {
+        when(mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_wifiAvailable_restrictedByDpm_viewing_zoneHidden() {
+        when(mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_wifiNotAvailable_unsupportedOnDevice() {
         when(mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)).thenReturn(false);
         PreferenceControllerTestUtil.assignPreference(mController, mPreference);
@@ -125,5 +246,41 @@ public class WifiEntryGroupPreferenceControllerTest {
         mController.onCreate(mLifecycleOwner);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_wifiNotAvailable_unsupportedOnDevice_zoneWrite() {
+        when(mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)).thenReturn(false);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_wifiNotAvailable_unsupportedOnDevice_zoneRead() {
+        when(mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)).thenReturn(false);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_wifiNotAvailable_unsupportedOnDevice_zoneHidden() {
+        when(mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)).thenReturn(false);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
     }
 }

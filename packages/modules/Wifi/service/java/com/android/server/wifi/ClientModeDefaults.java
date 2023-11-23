@@ -18,11 +18,13 @@ package com.android.server.wifi;
 
 import android.annotation.NonNull;
 import android.net.DhcpResultsParcelable;
+import android.net.MacAddress;
 import android.net.Network;
 import android.net.wifi.IWifiConnectedNetworkScorer;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.net.wifi.WifiManager.DeviceMobilityState;
 import android.net.wifi.hotspot2.IProvisioningCallback;
 import android.net.wifi.hotspot2.OsuProvider;
 import android.net.wifi.nl80211.DeviceWiphyCapabilities;
@@ -66,6 +68,10 @@ public interface ClientModeDefaults extends ClientMode {
 
     default void startRoamToNetwork(int networkId, String bssid) { }
 
+    default void onDeviceMobilityStateUpdated(@DeviceMobilityState int newState) { }
+
+    default void setLinkLayerStatsPollingInterval(int newIntervalMs) { }
+
     default boolean setWifiConnectedNetworkScorer(
             IBinder binder, IWifiConnectedNetworkScorer scorer) {
         // don't fail the public API when wifi is off.
@@ -74,11 +80,21 @@ public interface ClientModeDefaults extends ClientMode {
 
     default void clearWifiConnectedNetworkScorer() { }
 
+    /**
+     * Notify the connected network scorer of the user accepting a network switch.
+     */
+    default void onNetworkSwitchAccepted(int targetNetworkId, String targetBssid) { }
+
+    /**
+     * Notify the connected network scorer of the user rejecting a network switch.
+     */
+    default void onNetworkSwitchRejected(int targetNetworkId, String targetBssid) { }
+
     default void resetSimAuthNetworks(@ClientModeImpl.ResetSimReason int resetReason) { }
 
     default void onBluetoothConnectionStateChanged() { }
 
-    default WifiInfo syncRequestConnectionInfo() {
+    default WifiInfo getConnectionInfo() {
         return new WifiInfo();
     }
 
@@ -86,7 +102,7 @@ public interface ClientModeDefaults extends ClientMode {
         return false;
     }
 
-    default Network syncGetCurrentNetwork() {
+    default Network getCurrentNetwork() {
         return null;
     }
 
@@ -99,7 +115,30 @@ public interface ClientModeDefaults extends ClientMode {
         return false;
     }
 
-    default void enableTdls(String remoteMacAddress, boolean enable) { }
+    /** Enable TDLS session with remote MAC address */
+    default boolean enableTdls(String remoteMacAddress, boolean enable) {
+        return false;
+    }
+
+    /** Enable TDLS session with remote IP address */
+    default boolean enableTdlsWithRemoteIpAddress(String remoteIpAddress, boolean enable) {
+        return false;
+    }
+
+    /** Check if a TDLS session can be established */
+    default boolean isTdlsOperationCurrentlyAvailable() {
+        return false;
+    }
+
+    /** The maximum number of TDLS sessions supported by the device */
+    default int getMaxSupportedConcurrentTdlsSessions() {
+        return -1;
+    }
+
+    /** The number of Peer mac addresses configured in the device for establishing a TDLS session */
+    default int getNumberOfEnabledTdlsSessions() {
+        return 0;
+    }
 
     default void dumpIpClient(FileDescriptor fd, PrintWriter pw, String[] args) { }
 
@@ -227,4 +266,14 @@ public interface ClientModeDefaults extends ClientMode {
 
     @Override
     default void updateCapabilities() { }
+
+    @Override
+    default boolean isAffiliatedLinkBssid(MacAddress bssid) {
+        return false;
+    }
+
+    @Override
+    default boolean isMlo() {
+        return false;
+    }
 }

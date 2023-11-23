@@ -56,6 +56,15 @@ class ExtentMap {
     const auto it = map_.find(extent);
     if (it == map_.end()) {
       for (const auto& ext : set_.GetCandidateRange(extent)) {
+        // Sometimes there are operations like
+        // map.AddExtent({0, 5}, 42);
+        // map.Get({2, 1})
+        // If the querying extent is completely covered within the key, we still
+        // consdier this to be a valid query.
+
+        if (ExtentContains(ext, extent)) {
+          return map_.at(ext);
+        }
         if (ExtentRanges::ExtentsOverlap(ext, extent)) {
           LOG(WARNING) << "Looking up a partially intersecting extent isn't "
                           "supported by "

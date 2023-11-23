@@ -33,8 +33,9 @@ enum VendorID : uint32_t
     // Android doesn't have a PCI bus, but all we need is a unique id.
     VENDOR_ID_QUALCOMM = 0x5143,
     VENDOR_ID_SAMSUNG  = 0x144D,
-    VENDOR_ID_VMWARE   = 0x15AD,
     VENDOR_ID_VIVANTE  = 0x9999,
+    VENDOR_ID_VMWARE   = 0x15AD,
+    VENDOR_ID_VIRTIO   = 0x1AF4,
 };
 
 enum AndroidDeviceID : uint32_t
@@ -97,11 +98,6 @@ inline bool IsQualcomm(uint32_t vendorId)
     return vendorId == VENDOR_ID_QUALCOMM;
 }
 
-inline bool IsVMWare(uint32_t vendorId)
-{
-    return vendorId == VENDOR_ID_VMWARE;
-}
-
 inline bool IsSamsung(uint32_t vendorId)
 {
     return vendorId == VENDOR_ID_SAMSUNG;
@@ -110,6 +106,16 @@ inline bool IsSamsung(uint32_t vendorId)
 inline bool IsVivante(uint32_t vendorId)
 {
     return vendorId == VENDOR_ID_VIVANTE;
+}
+
+inline bool IsVMWare(uint32_t vendorId)
+{
+    return vendorId == VENDOR_ID_VMWARE;
+}
+
+inline bool IsVirtIO(uint32_t vendorId)
+{
+    return vendorId == VENDOR_ID_VIRTIO;
 }
 
 inline bool IsNexus5X(uint32_t vendorId, uint32_t deviceId)
@@ -164,8 +170,29 @@ bool IsBroadwell(uint32_t DeviceId);
 bool IsCherryView(uint32_t DeviceId);
 bool IsSkylake(uint32_t DeviceId);
 bool IsBroxton(uint32_t DeviceId);
-bool IsKabylake(uint32_t DeviceId);
+bool IsKabyLake(uint32_t DeviceId);
+bool IsGeminiLake(uint32_t DeviceId);
+bool IsCoffeeLake(uint32_t DeviceId);
 bool Is9thGenIntel(uint32_t DeviceId);
+bool Is11thGenIntel(uint32_t DeviceId);
+bool Is12thGenIntel(uint32_t DeviceId);
+
+struct MajorMinorPatchVersion
+{
+    MajorMinorPatchVersion();
+    MajorMinorPatchVersion(int major, int minor, int patch);
+
+    int majorVersion = 0;
+    int minorVersion = 0;
+    int patchVersion = 0;
+};
+bool operator==(const MajorMinorPatchVersion &a, const MajorMinorPatchVersion &b);
+bool operator!=(const MajorMinorPatchVersion &a, const MajorMinorPatchVersion &b);
+bool operator<(const MajorMinorPatchVersion &a, const MajorMinorPatchVersion &b);
+bool operator>=(const MajorMinorPatchVersion &a, const MajorMinorPatchVersion &b);
+
+using ARMDriverVersion = MajorMinorPatchVersion;
+ARMDriverVersion ParseARMDriverVersion(uint32_t driverVersion);
 
 // Platform helpers
 inline bool IsWindows()
@@ -180,6 +207,15 @@ inline bool IsWindows()
 inline bool IsLinux()
 {
 #if defined(ANGLE_PLATFORM_LINUX)
+    return true;
+#else
+    return false;
+#endif
+}
+
+inline bool IsChromeOS()
+{
+#if defined(ANGLE_PLATFORM_CHROMEOS)
     return true;
 #else
     return false;
@@ -215,7 +251,7 @@ inline bool IsFuchsia()
 
 inline bool IsIOS()
 {
-#if defined(ANGLE_PLATFORM_IOS)
+#if ANGLE_PLATFORM_IOS_FAMILY
     return true;
 #else
     return false;
@@ -225,19 +261,7 @@ inline bool IsIOS()
 bool IsWayland();
 bool IsWin10OrGreater();
 
-struct OSVersion
-{
-    OSVersion();
-    OSVersion(int major, int minor, int patch);
-
-    int majorVersion = 0;
-    int minorVersion = 0;
-    int patchVersion = 0;
-};
-bool operator==(const OSVersion &a, const OSVersion &b);
-bool operator!=(const OSVersion &a, const OSVersion &b);
-bool operator<(const OSVersion &a, const OSVersion &b);
-bool operator>=(const OSVersion &a, const OSVersion &b);
+using OSVersion = MajorMinorPatchVersion;
 
 OSVersion GetMacOSVersion();
 

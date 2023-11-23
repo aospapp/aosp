@@ -22,12 +22,8 @@ python_binary_host {
    },
    libs: ["libprotobuf-python"],
    version: {
-       py2: {
-           enabled: true,
-           embedded_launcher: true,
-       },
        py3: {
-           enabled: false,
+           embedded_launcher: true,
        },
    },
 }

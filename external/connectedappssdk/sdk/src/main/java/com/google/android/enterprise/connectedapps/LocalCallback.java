@@ -15,11 +15,11 @@
  */
 package com.google.android.enterprise.connectedapps;
 
-import android.os.Parcel;
+import android.os.Bundle;
 
 /**
  * Interface used by callbacks used when calling {@link CrossProfileSender#callAsync(long, int,
- * Parcel, LocalCallback, long)}.
+ * Bundle, LocalCallback, Object, long)}.
  */
 public interface LocalCallback {
 
@@ -27,14 +27,14 @@ public interface LocalCallback {
    * Pass a result into the callback.
    *
    * @param methodIdentifier The method being responded to.
-   * @param params The result encoded in a {@link Parcel}. This should not be recycled.
+   * @param params A Bundle containing the result under the key "result".
    */
-  void onResult(int methodIdentifier, Parcel params);
+  void onResult(int methodIdentifier, Bundle params);
 
   /**
    * Pass an exception into the callback.
    *
-   * @param exception The exception encoded in a {@link Parcel}. This should not be recycled.
+   * @param exception A Bundle containing the exception under the key "throwable"
    */
-  void onException(Parcel exception);
+  void onException(Bundle exception);
 }

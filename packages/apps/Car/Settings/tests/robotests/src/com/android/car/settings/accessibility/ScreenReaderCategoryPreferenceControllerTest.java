@@ -17,6 +17,7 @@
 package com.android.car.settings.accessibility;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
 import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -85,9 +86,99 @@ public class ScreenReaderCategoryPreferenceControllerTest {
     }
 
     @Test
+    public void testGetAvailability_screenReaderInstalled_zoneWrite() throws Exception {
+        ResolveInfo resolveInfo = new ResolveInfo();
+        ServiceInfo serviceInfo = new ServiceInfo();
+        resolveInfo.serviceInfo = serviceInfo;
+        serviceInfo.packageName = mScreenReaderComponent.getPackageName();
+        serviceInfo.name = mScreenReaderComponent.getClassName();
+        AccessibilityServiceInfo accessibilityServiceInfo = new AccessibilityServiceInfo(
+                resolveInfo, mContext);
+        mShadowAccessibilityManager.setInstalledAccessibilityServiceList(
+                List.of(accessibilityServiceInfo));
+
+        mPreferenceControllerHelper.getController().setAvailabilityStatusForZone("write");
+        mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
+
+        assertThat(mPreferenceControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
+                AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailability_screenReaderInstalled_zoneRead() throws Exception {
+        ResolveInfo resolveInfo = new ResolveInfo();
+        ServiceInfo serviceInfo = new ServiceInfo();
+        resolveInfo.serviceInfo = serviceInfo;
+        serviceInfo.packageName = mScreenReaderComponent.getPackageName();
+        serviceInfo.name = mScreenReaderComponent.getClassName();
+        AccessibilityServiceInfo accessibilityServiceInfo = new AccessibilityServiceInfo(
+                resolveInfo, mContext);
+        mShadowAccessibilityManager.setInstalledAccessibilityServiceList(
+                List.of(accessibilityServiceInfo));
+
+        mPreferenceControllerHelper.getController().setAvailabilityStatusForZone("read");
+        mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
+
+        assertThat(mPreferenceControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailability_screenReaderInstalled_zoneHidden() throws Exception {
+        ResolveInfo resolveInfo = new ResolveInfo();
+        ServiceInfo serviceInfo = new ServiceInfo();
+        resolveInfo.serviceInfo = serviceInfo;
+        serviceInfo.packageName = mScreenReaderComponent.getPackageName();
+        serviceInfo.name = mScreenReaderComponent.getClassName();
+        AccessibilityServiceInfo accessibilityServiceInfo = new AccessibilityServiceInfo(
+                resolveInfo, mContext);
+        mShadowAccessibilityManager.setInstalledAccessibilityServiceList(
+                List.of(accessibilityServiceInfo));
+
+        mPreferenceControllerHelper.getController().setAvailabilityStatusForZone("hidden");
+        mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
+
+        assertThat(mPreferenceControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void testGetAvailability_screenReaderNotInstalled_isUnavailable() {
         mShadowAccessibilityManager.setInstalledAccessibilityServiceList(List.of());
 
+        mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
+
+        assertThat(mPreferenceControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailability_screenReaderNotInstalled_isUnavailable_zoneWrite() {
+        mShadowAccessibilityManager.setInstalledAccessibilityServiceList(List.of());
+
+        mPreferenceControllerHelper.getController().setAvailabilityStatusForZone("write");
+        mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
+
+        assertThat(mPreferenceControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailability_screenReaderNotInstalled_isUnavailable_zoneRead() {
+        mShadowAccessibilityManager.setInstalledAccessibilityServiceList(List.of());
+
+        mPreferenceControllerHelper.getController().setAvailabilityStatusForZone("read");
+        mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
+
+        assertThat(mPreferenceControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailability_screenReaderNotInstalled_isUnavailable_zoneHidden() {
+        mShadowAccessibilityManager.setInstalledAccessibilityServiceList(List.of());
+
+        mPreferenceControllerHelper.getController().setAvailabilityStatusForZone("hidden");
         mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
 
         assertThat(mPreferenceControllerHelper.getController().getAvailabilityStatus()).isEqualTo(

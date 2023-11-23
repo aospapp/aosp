@@ -17,8 +17,6 @@
     Test Script for 5G MSA mmWave Activation scenarios
 """
 
-import time
-
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts_contrib.test_utils.tel.tel_test_utils import reboot_device
@@ -56,9 +54,10 @@ class Nsa5gMmwActivationTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
 
-        return test_activation_by_condition(self.android_devices[0],
-                                            nr_type='mmwave',
-                                            precond_func=lambda: cycle_airplane_mode(self.android_devices[0]))
+        return test_activation_by_condition(
+            self.android_devices[0],
+            nr_type='mmwave',
+            precond_func=lambda: cycle_airplane_mode(self.android_devices[0]))
 
     @test_tracker_info(uuid="21fb9b5c-40e8-4804-b05b-017395bb2e79")
     @TelephonyBaseTest.tel_test_wrap
@@ -74,9 +73,10 @@ class Nsa5gMmwActivationTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
 
-        return test_activation_by_condition(self.android_devices[0],
-                                            nr_type='mmwave',
-                                            precond_func=lambda: reboot_device(self.android_devices[0]))
+        return test_activation_by_condition(
+            self.android_devices[0],
+            nr_type='mmwave',
+            precond_func=lambda: reboot_device(self.android_devices[0]))
 
     @test_tracker_info(uuid="2cef7ec0-ea74-458f-a98e-143d0be71f31")
     @TelephonyBaseTest.tel_test_wrap
@@ -98,4 +98,3 @@ class Nsa5gMmwActivationTest(TelephonyBaseTest):
                                             nr_type='mmwave')
 
     """ Tests End """
-

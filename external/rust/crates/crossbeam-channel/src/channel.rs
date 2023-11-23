@@ -159,7 +159,7 @@ pub fn bounded<T>(cap: usize) -> (Sender<T>, Receiver<T>) {
 /// let ms = |ms| Duration::from_millis(ms);
 ///
 /// // Returns `true` if `a` and `b` are very close `Instant`s.
-/// let eq = |a, b| a + ms(50) > b && b + ms(50) > a;
+/// let eq = |a, b| a + ms(60) > b && b + ms(60) > a;
 ///
 /// let start = Instant::now();
 /// let r = after(ms(100));
@@ -171,8 +171,11 @@ pub fn bounded<T>(cap: usize) -> (Sender<T>, Receiver<T>) {
 /// assert!(eq(Instant::now(), start + ms(500)));
 /// ```
 pub fn after(duration: Duration) -> Receiver<Instant> {
-    Receiver {
-        flavor: ReceiverFlavor::At(Arc::new(flavors::at::Channel::new_timeout(duration))),
+    match Instant::now().checked_add(duration) {
+        Some(deadline) => Receiver {
+            flavor: ReceiverFlavor::At(Arc::new(flavors::at::Channel::new_deadline(deadline))),
+        },
+        None => never(),
     }
 }
 
@@ -231,6 +234,8 @@ pub fn at(when: Instant) -> Receiver<Instant> {
 /// # Examples
 ///
 /// Using a `never` channel to optionally add a timeout to [`select!`]:
+///
+/// [`select!`]: crate::select!
 ///
 /// ```
 /// use std::thread;
@@ -297,7 +302,7 @@ pub fn never<T>() -> Receiver<T> {
 /// let ms = |ms| Duration::from_millis(ms);
 ///
 /// // Returns `true` if `a` and `b` are very close `Instant`s.
-/// let eq = |a, b| a + ms(50) > b && b + ms(50) > a;
+/// let eq = |a, b| a + ms(65) > b && b + ms(65) > a;
 ///
 /// let start = Instant::now();
 /// let r = tick(ms(100));
@@ -317,8 +322,14 @@ pub fn never<T>() -> Receiver<T> {
 /// assert!(eq(Instant::now(), start + ms(700)));
 /// ```
 pub fn tick(duration: Duration) -> Receiver<Instant> {
-    Receiver {
-        flavor: ReceiverFlavor::Tick(Arc::new(flavors::tick::Channel::new(duration))),
+    match Instant::now().checked_add(duration) {
+        Some(delivery_time) => Receiver {
+            flavor: ReceiverFlavor::Tick(Arc::new(flavors::tick::Channel::new(
+                delivery_time,
+                duration,
+            ))),
+        },
+        None => never(),
     }
 }
 
@@ -471,7 +482,10 @@ impl<T> Sender<T> {
     /// );
     /// ```
     pub fn send_timeout(&self, msg: T, timeout: Duration) -> Result<(), SendTimeoutError<T>> {
-        self.send_deadline(msg, Instant::now() + timeout)
+        match Instant::now().checked_add(timeout) {
+            Some(deadline) => self.send_deadline(msg, deadline),
+            None => self.send(msg).map_err(SendTimeoutError::from),
+        }
     }
 
     /// Waits for a message to be sent into the channel, but only until a given deadline.
@@ -861,7 +875,10 @@ impl<T> Receiver<T> {
     /// );
     /// ```
     pub fn recv_timeout(&self, timeout: Duration) -> Result<T, RecvTimeoutError> {
-        self.recv_deadline(Instant::now() + timeout)
+        match Instant::now().checked_add(timeout) {
+            Some(deadline) => self.recv_deadline(deadline),
+            None => self.recv().map_err(RecvTimeoutError::from),
+        }
     }
 
     /// Waits for a message to be received from the channel, but only before a given deadline.

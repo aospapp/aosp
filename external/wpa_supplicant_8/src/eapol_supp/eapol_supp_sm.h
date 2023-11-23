@@ -255,6 +255,14 @@ struct eapol_ctx {
 			const char *cert_hash);
 
 	/**
+	 * permanent_id_req_denied_cb - Notify that the AT_PERMANENT_ID_REQ
+	 * from the server was denied. This notification happens when the
+	 * peer is in the strict conservative mode.
+	 * @ctx: Callback context (ctx)
+	*/
+	void (*permanent_id_req_denied_cb)(void *ctx);
+
+	/**
 	 * cert_in_cb - Include server certificates in callback
 	 */
 	int cert_in_cb;
@@ -321,6 +329,22 @@ struct eapol_ctx {
 	 * @reason_string: Information to log about the event
 	 */
 	void (*open_ssl_failure_cb)(void *ctx, const char* reason_string);
+
+	/**
+	 * encryption_required - Check whether encryption is required
+	 * @ctx: eapol_ctx from eap_peer_sm_init() call
+	 * Returns: Whether the current session requires encryption
+	 */
+	bool (*encryption_required)(void *ctx);
+
+	/**
+	 * get_certificate_cb - Retrieve a certificate from the certificate store
+	 * @alias: key into the certificate key-value store
+	 * @value: pointer reference - pointer to the retrieved certificate will
+	 *         be stored here on success
+	 * Returns: size of the retrieved certificate or -1 on error
+	 */
+	ssize_t (*get_certificate_cb)(const char* alias, uint8_t** value);
 };
 
 
@@ -337,7 +361,7 @@ int eapol_sm_get_mib(struct eapol_sm *sm, char *buf, size_t buflen);
 void eapol_sm_configure(struct eapol_sm *sm, int heldPeriod, int authPeriod,
 			int startPeriod, int maxStart);
 int eapol_sm_rx_eapol(struct eapol_sm *sm, const u8 *src, const u8 *buf,
-		      size_t len);
+		      size_t len, enum frame_encryption encrypted);
 void eapol_sm_notify_tx_eapol_key(struct eapol_sm *sm);
 void eapol_sm_notify_portEnabled(struct eapol_sm *sm, bool enabled);
 void eapol_sm_notify_portValid(struct eapol_sm *sm, bool valid);
@@ -403,7 +427,8 @@ static inline void eapol_sm_configure(struct eapol_sm *sm, int heldPeriod,
 {
 }
 static inline int eapol_sm_rx_eapol(struct eapol_sm *sm, const u8 *src,
-				    const u8 *buf, size_t len)
+				    const u8 *buf, size_t len,
+				    enum frame_encryption encrypted)
 {
 	return 0;
 }

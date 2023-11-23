@@ -18,7 +18,6 @@
 #include <android-base/test_utils.h>
 #include <gtest/gtest.h>
 
-#include "cmd_inject_impl.h"
 #include "command.h"
 #include "get_test_data.h"
 #include "test_util.h"
@@ -101,20 +100,6 @@ TEST(cmd_inject, output_option) {
   CheckMatchingExpectedData(autofdo_data);
 }
 
-TEST(cmd_inject, branch_to_proto_string) {
-  std::vector<bool> branch;
-  for (size_t i = 0; i < 100; i++) {
-    branch.push_back(i % 2 == 0);
-    std::string s = BranchToProtoString(branch);
-    for (size_t j = 0; j <= i; j++) {
-      bool b = s[j >> 3] & (1 << (j & 7));
-      ASSERT_EQ(b, branch[j]);
-    }
-    std::vector<bool> branch2 = ProtoStringToBranch(s, branch.size());
-    ASSERT_EQ(branch, branch2);
-  }
-}
-
 TEST(cmd_inject, skip_empty_output_file) {
   TemporaryFile tmpfile;
   close(tmpfile.release());
@@ -159,7 +144,7 @@ TEST(cmd_inject, unformatted_trace) {
 
 TEST(cmd_inject, multiple_input_files) {
   std::string data;
-  std::string perf_data = GetTestData(std::string("etm") + OS_PATH_SEPARATOR + "perf.data");
+  std::string perf_data = GetTestData(PERF_DATA_ETM_TEST_LOOP);
   std::string perf_with_unformatted_trace =
       GetTestData(std::string("etm") + OS_PATH_SEPARATOR + "perf_with_unformatted_trace.data");
 
@@ -195,7 +180,6 @@ TEST(cmd_inject, merge_branch_list_files) {
 
 TEST(cmd_inject, report_warning_when_overflow) {
   CapturedStderr capture;
-  capture.Start();
   std::vector<std::unique_ptr<TemporaryFile>> branch_list_files;
   std::vector<std::unique_ptr<TemporaryFile>> input_files;
 
@@ -231,4 +215,12 @@ TEST(cmd_inject, report_warning_when_overflow) {
   capture.Stop();
   ASSERT_NE(capture.str().find(WARNING_MSG), std::string::npos);
   ASSERT_NE(autofdo_data.find("106c->1074:18446744073709551615"), std::string::npos);
+}
+
+TEST(cmd_inject, accept_missing_aux_data) {
+  // Recorded with "-e cs-etm:u --user-buffer-size 64k sleep 1".
+  std::string perf_data = GetTestData("etm/perf_with_missing_aux_data.data");
+  TemporaryFile tmpfile;
+  close(tmpfile.release());
+  ASSERT_TRUE(RunInjectCmd({"--output", "branch-list", "-i", perf_data, "-o", tmpfile.path}));
 }

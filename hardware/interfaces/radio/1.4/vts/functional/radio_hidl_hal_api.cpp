@@ -232,7 +232,8 @@ TEST_P(RadioHidlTest_v1_4, setPreferredNetworkTypeBitmap) {
     EXPECT_EQ(serial, radioRsp_v1_4->rspInfo.serial);
     ALOGI("setPreferredNetworkTypeBitmap, rspInfo.error = %s\n",
           toString(radioRsp_v1_4->rspInfo.error).c_str());
-    EXPECT_EQ(RadioError::NONE, radioRsp_v1_4->rspInfo.error);
+    ASSERT_TRUE(CheckAnyOfErrors(radioRsp_v1_4->rspInfo.error,
+                                 {RadioError::NONE, RadioError::MODE_NOT_SUPPORTED}));
     if (radioRsp_v1_4->rspInfo.error == RadioError::NONE) {
          // give some time for modem to set the value.
         sleep(3);
@@ -334,7 +335,7 @@ TEST_P(RadioHidlTest_v1_4, startNetworkScan_InvalidInterval1) {
     serial = GetRandomSerialNumber();
 
     ::android::hardware::radio::V1_2::NetworkScanRequest request = {
-            .type = ScanType::ONE_SHOT,
+            .type = ScanType::PERIODIC,
             .interval = 4,
             .specifiers = {::GERAN_SPECIFIER_P900, ::GERAN_SPECIFIER_850},
             .maxSearchTime = 60,
@@ -367,7 +368,7 @@ TEST_P(RadioHidlTest_v1_4, startNetworkScan_InvalidInterval2) {
     serial = GetRandomSerialNumber();
 
     ::android::hardware::radio::V1_2::NetworkScanRequest request = {
-            .type = ScanType::ONE_SHOT,
+            .type = ScanType::PERIODIC,
             .interval = 301,
             .specifiers = {::GERAN_SPECIFIER_P900, ::GERAN_SPECIFIER_850},
             .maxSearchTime = 60,

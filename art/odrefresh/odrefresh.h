@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "android-base/result.h"
+#include "base/os.h"
 #include "com_android_apex.h"
 #include "com_android_art.h"
 #include "exec_utils.h"
@@ -38,12 +39,122 @@
 namespace art {
 namespace odrefresh {
 
+class OnDeviceRefresh;
+
+struct BootImages {
+  static constexpr int kMaxCount = 2;
+
+  bool primary_boot_image : 1;
+  bool boot_image_mainline_extension : 1;
+
+  int Count() const;
+
+  OdrMetrics::BcpCompilationType GetTypeForMetrics() const;
+};
+
 struct CompilationOptions {
-  // If not empty, compile the bootclasspath jars for ISAs in the list.
-  std::vector<InstructionSet> compile_boot_classpath_for_isas;
+  // If not empty, generate the boot images for ISAs in the list.
+  std::vector<std::pair<InstructionSet, BootImages>> boot_images_to_generate_for_isas;
 
   // If not empty, compile the system server jars in the list.
   std::set<std::string> system_server_jars_to_compile;
+
+  static CompilationOptions CompileAll(const OnDeviceRefresh& odr);
+
+  int CompilationUnitCount() const;
+};
+
+struct CompilationResult {
+  OdrMetrics::Status status = OdrMetrics::Status::kOK;
+  std::string error_msg;
+  int64_t elapsed_time_ms = 0;
+  std::optional<ExecResult> dex2oat_result;
+
+  static CompilationResult Ok() { return {}; }
+
+  static CompilationResult Dex2oatOk(int64_t elapsed_time_ms, const ExecResult& dex2oat_result) {
+    return {.elapsed_time_ms = elapsed_time_ms, .dex2oat_result = dex2oat_result};
+  }
+
+  static CompilationResult Error(OdrMetrics::Status status, const std::string& error_msg) {
+    return {.status = status, .error_msg = error_msg};
+  }
+
+  static CompilationResult Dex2oatError(const std::string& error_msg,
+                                        int64_t elapsed_time_ms,
+                                        const ExecResult& dex2oat_result) {
+    return {.status = OdrMetrics::Status::kDex2OatError,
+            .error_msg = error_msg,
+            .elapsed_time_ms = elapsed_time_ms,
+            .dex2oat_result = dex2oat_result};
+  }
+
+  bool IsOk() { return status == OdrMetrics::Status::kOK; }
+
+  void Merge(const CompilationResult& other) {
+    // Accumulate the compilation time.
+    elapsed_time_ms += other.elapsed_time_ms;
+
+    // Only keep the first failure.
+    if (status == OdrMetrics::Status::kOK) {
+      status = other.status;
+      error_msg = other.error_msg;
+      dex2oat_result = other.dex2oat_result;
+    }
+  }
+
+ private:
+  CompilationResult() = default;
+};
+
+class PreconditionCheckResult {
+ public:
+  static PreconditionCheckResult NoneOk(OdrMetrics::Trigger trigger) {
+    return PreconditionCheckResult(trigger,
+                                   /*primary_boot_image_ok=*/false,
+                                   /*boot_image_mainline_extension_ok=*/false,
+                                   /*system_server_ok=*/false);
+  }
+  static PreconditionCheckResult BootImageMainlineExtensionNotOk(OdrMetrics::Trigger trigger) {
+    return PreconditionCheckResult(trigger,
+                                   /*primary_boot_image_ok=*/true,
+                                   /*boot_image_mainline_extension_ok=*/false,
+                                   /*system_server_ok=*/false);
+  }
+  static PreconditionCheckResult SystemServerNotOk(OdrMetrics::Trigger trigger) {
+    return PreconditionCheckResult(trigger,
+                                   /*primary_boot_image_ok=*/true,
+                                   /*boot_image_mainline_extension_ok=*/true,
+                                   /*system_server_ok=*/false);
+  }
+  static PreconditionCheckResult AllOk() {
+    return PreconditionCheckResult(/*trigger=*/std::nullopt,
+                                   /*primary_boot_image_ok=*/true,
+                                   /*boot_image_mainline_extension_ok=*/true,
+                                   /*system_server_ok=*/true);
+  }
+  bool IsAllOk() const { return !trigger_.has_value(); }
+  OdrMetrics::Trigger GetTrigger() const { return trigger_.value(); }
+  bool IsPrimaryBootImageOk() const { return primary_boot_image_ok_; }
+  bool IsBootImageMainlineExtensionOk() const { return boot_image_mainline_extension_ok_; }
+  bool IsSystemServerOk() const { return system_server_ok_; }
+
+ private:
+  // Use static factory methods instead.
+  PreconditionCheckResult(std::optional<OdrMetrics::Trigger> trigger,
+                          bool primary_boot_image_ok,
+                          bool boot_image_mainline_extension_ok,
+                          bool system_server_ok)
+      : trigger_(trigger),
+        primary_boot_image_ok_(primary_boot_image_ok),
+        boot_image_mainline_extension_ok_(boot_image_mainline_extension_ok),
+        system_server_ok_(system_server_ok) {}
+
+  // Indicates why the precondition is not okay, or `std::nullopt` if it's okay.
+  std::optional<OdrMetrics::Trigger> trigger_;
+  bool primary_boot_image_ok_;
+  bool boot_image_mainline_extension_ok_;
+  bool system_server_ok_;
 };
 
 class OnDeviceRefresh final {
@@ -70,6 +181,8 @@ class OnDeviceRefresh final {
     return {all_systemserver_jars_.begin(), all_systemserver_jars_.end()};
   }
 
+  const OdrConfig& Config() const { return config_; }
+
  private:
   time_t GetExecutionTimeUsed() const;
 
@@ -81,52 +194,80 @@ class OnDeviceRefresh final {
   std::optional<std::vector<com::android::apex::ApexInfo>> GetApexInfoList() const;
 
   // Reads the ART APEX cache information (if any) found in the output artifact directory.
-  std::optional<com::android::art::CacheInfo> ReadCacheInfo() const;
+  android::base::Result<com::android::art::CacheInfo> ReadCacheInfo() const;
 
   // Writes ART APEX cache information to `kOnDeviceRefreshOdrefreshArtifactDirectory`.
   android::base::Result<void> WriteCacheInfo() const;
 
   std::vector<com::android::art::Component> GenerateBootClasspathComponents() const;
 
-  std::vector<com::android::art::Component> GenerateBootClasspathCompilableComponents() const;
+  std::vector<com::android::art::Component> GenerateDex2oatBootClasspathComponents() const;
 
   std::vector<com::android::art::SystemServerComponent> GenerateSystemServerComponents() const;
 
-  // Returns the symbolic boot image location (without ISA). If `minimal` is true, returns the
-  // symbolic location of the minimal boot image.
-  std::string GetBootImage(bool on_system, bool minimal) const;
+  // Returns the list of BCP jars in the ART module.
+  std::vector<std::string> GetArtBcpJars() const;
 
-  // Returns the real boot image location (with ISA).  If `minimal` is true, returns the
-  // symbolic location of the minimal boot image.
-  std::string GetBootImagePath(bool on_system, bool minimal, const InstructionSet isa) const;
+  // Returns the list of BCP jars for the boot image framework extension.
+  std::vector<std::string> GetFrameworkBcpJars() const;
 
-  // Returns the symbolic boot image extension location (without ISA). Note that this only applies
-  // to boot images on /system.
-  std::string GetSystemBootImageExtension() const;
+  // Returns the list of BCP jars for the boot image mainline extension.
+  std::vector<std::string> GetMainlineBcpJars() const;
 
-  // Returns the real boot image location extension (with ISA). Note that this only applies to boot
-  // images on /system.
-  std::string GetSystemBootImageExtensionPath(const InstructionSet isa) const;
+  // Returns the symbolic primary boot image location (without ISA). If `minimal` is true, returns
+  // the symbolic location of the minimal boot image.
+  std::string GetPrimaryBootImage(bool on_system, bool minimal) const;
+
+  // Returns the real primary boot image location (with ISA).  If `minimal` is true, returns the
+  // real location of the minimal boot image.
+  std::string GetPrimaryBootImagePath(bool on_system, bool minimal, InstructionSet isa) const;
+
+  // Returns the symbolic boot image framework extension location (without ISA). Note that this only
+  // applies to boot images on /system.
+  std::string GetSystemBootImageFrameworkExtension() const;
+
+  // Returns the real boot image framework extension location (with ISA). Note that this only
+  // applies to boot images on /system.
+  std::string GetSystemBootImageFrameworkExtensionPath(InstructionSet isa) const;
+
+  // Returns the symbolic boot image mainline extension location (without ISA).
+  std::string GetBootImageMainlineExtension(bool on_system) const;
+
+  // Returns the real boot image mainline extension location (with ISA).
+  std::string GetBootImageMainlineExtensionPath(bool on_system, InstructionSet isa) const;
+
+  // Returns the best combination of symbolic boot image locations (without ISA) based on file
+  // existence.
+  std::vector<std::string> GetBestBootImages(InstructionSet isa,
+                                             bool include_mainline_extension) const;
 
   std::string GetSystemServerImagePath(bool on_system, const std::string& jar_path) const;
 
   // Removes files that are not in the list.
   android::base::Result<void> CleanupArtifactDirectory(
-      const std::vector<std::string>& artifacts_to_keep) const;
+      OdrMetrics& metrics, const std::vector<std::string>& artifacts_to_keep) const;
 
   // Loads artifacts to memory and writes them back. This is a workaround for old versions of
   // odsign, which encounters "file exists" error when it adds existing artifacts to fs-verity. This
   // function essentially removes existing artifacts from fs-verity to avoid the error.
   android::base::Result<void> RefreshExistingArtifacts() const;
 
-  // Checks whether all boot classpath artifacts are present. Returns true if all are present, false
-  // otherwise.
+  // Returns whether the primary boot image is present.
+  // If `on_system` is true, checks both the primary boot image and the framework extension on
+  // /system.
   // If `minimal` is true, checks the minimal boot image.
   // If `checked_artifacts` is present, adds checked artifacts to `checked_artifacts`.
-  WARN_UNUSED bool BootClasspathArtifactsExist(
+  WARN_UNUSED bool PrimaryBootImageExist(
       bool on_system,
       bool minimal,
-      const InstructionSet isa,
+      InstructionSet isa,
+      /*out*/ std::string* error_msg,
+      /*out*/ std::vector<std::string>* checked_artifacts = nullptr) const;
+
+  // Returns whether the boot image mainline extension exists.
+  WARN_UNUSED bool BootImageMainlineExtensionExist(
+      bool on_system,
+      InstructionSet isa,
       /*out*/ std::string* error_msg,
       /*out*/ std::vector<std::string>* checked_artifacts = nullptr) const;
 
@@ -134,7 +275,7 @@ class OnDeviceRefresh final {
   // order of compilation. Returns true if all are present, false otherwise.
   // Adds the paths to the jars that are missing artifacts in `jars_with_missing_artifacts`.
   // If `checked_artifacts` is present, adds checked artifacts to `checked_artifacts`.
-  WARN_UNUSED bool SystemServerArtifactsExist(
+  bool SystemServerArtifactsExist(
       bool on_system,
       /*out*/ std::string* error_msg,
       /*out*/ std::set<std::string>* jars_missing_artifacts,
@@ -150,51 +291,73 @@ class OnDeviceRefresh final {
   WARN_UNUSED bool CheckSystemPropertiesHaveNotChanged(
       const com::android::art::CacheInfo& cache_info) const;
 
-  // Returns true if boot classpath artifacts on /system are usable if they exist. Note that this
-  // function does not check file existence.
-  WARN_UNUSED bool BootClasspathArtifactsOnSystemUsable(
-      const com::android::apex::ApexInfo& art_apex_info) const;
+  // Returns true if the system image is built with the right userfaultfd GC flag.
+  WARN_UNUSED bool CheckBuildUserfaultFdGc() const;
 
-  // Returns true if system_server artifacts on /system are usable if they exist. Note that this
-  // function does not check file existence.
-  WARN_UNUSED bool SystemServerArtifactsOnSystemUsable(
-      const std::vector<com::android::apex::ApexInfo>& apex_info_list) const;
+  // Returns whether the precondition for using artifacts on /system is met. Note that this function
+  // does not check the artifacts.
+  WARN_UNUSED PreconditionCheckResult
+  CheckPreconditionForSystem(const std::vector<com::android::apex::ApexInfo>& apex_info_list) const;
 
-  // Checks whether all boot classpath artifacts are up to date. Returns true if all are present,
-  // false otherwise.
-  // If `checked_artifacts` is present, adds checked artifacts to `checked_artifacts`.
-  WARN_UNUSED bool CheckBootClasspathArtifactsAreUpToDate(
-      OdrMetrics& metrics,
-      const InstructionSet isa,
-      const com::android::apex::ApexInfo& art_apex_info,
-      const std::optional<com::android::art::CacheInfo>& cache_info,
-      /*out*/ std::vector<std::string>* checked_artifacts) const;
+  // Returns whether the precondition for using artifacts on /data is met. Note that this function
+  // does not check the artifacts.
+  WARN_UNUSED PreconditionCheckResult
+  CheckPreconditionForData(const std::vector<com::android::apex::ApexInfo>& apex_info_list) const;
+
+  // Checks whether all boot classpath artifacts are up to date. Returns the boot images that need
+  // to be (re-)generated. If `checked_artifacts` is present, adds checked artifacts to
+  // `checked_artifacts`.
+  WARN_UNUSED BootImages
+  CheckBootClasspathArtifactsAreUpToDate(OdrMetrics& metrics,
+                                         InstructionSet isa,
+                                         const PreconditionCheckResult& system_result,
+                                         const PreconditionCheckResult& data_result,
+                                         /*out*/ std::vector<std::string>* checked_artifacts) const;
 
   // Checks whether all system_server artifacts are up to date. The artifacts are checked in their
-  // order of compilation. Returns true if all are present, false otherwise.
-  // Adds the paths to the jars that needs to be compiled in `jars_to_compile`.
+  // order of compilation. Returns the paths to the jars that need to be compiled.
   // If `checked_artifacts` is present, adds checked artifacts to `checked_artifacts`.
-  bool CheckSystemServerArtifactsAreUpToDate(
+  WARN_UNUSED std::set<std::string> CheckSystemServerArtifactsAreUpToDate(
       OdrMetrics& metrics,
-      const std::vector<com::android::apex::ApexInfo>& apex_info_list,
-      const std::optional<com::android::art::CacheInfo>& cache_info,
-      /*out*/ std::set<std::string>* jars_to_compile,
+      const PreconditionCheckResult& system_result,
+      const PreconditionCheckResult& data_result,
       /*out*/ std::vector<std::string>* checked_artifacts) const;
 
-  // Compiles boot classpath. If `minimal` is true, only compiles the jars in the ART module.
-  WARN_UNUSED bool CompileBootClasspathArtifacts(const InstructionSet isa,
-                                                 const std::string& staging_dir,
-                                                 OdrMetrics& metrics,
-                                                 const std::function<void()>& on_dex2oat_success,
-                                                 bool minimal,
-                                                 std::string* error_msg) const;
+  WARN_UNUSED CompilationResult
+  RunDex2oat(const std::string& staging_dir,
+             const std::string& debug_message,
+             InstructionSet isa,
+             const std::vector<std::string>& dex_files,
+             const std::vector<std::string>& boot_classpath,
+             const std::vector<std::string>& input_boot_images,
+             const OdrArtifacts& artifacts,
+             const std::vector<std::string>& extra_args,
+             /*inout*/ std::vector<std::unique_ptr<File>>& readonly_files_raii) const;
 
-  WARN_UNUSED bool CompileSystemServerArtifacts(
-      const std::string& staging_dir,
-      OdrMetrics& metrics,
-      const std::set<std::string>& system_server_jars_to_compile,
-      const std::function<void()>& on_dex2oat_success,
-      std::string* error_msg) const;
+  WARN_UNUSED CompilationResult
+  RunDex2oatForBootClasspath(const std::string& staging_dir,
+                             const std::string& debug_name,
+                             InstructionSet isa,
+                             const std::vector<std::string>& dex_files,
+                             const std::vector<std::string>& boot_classpath,
+                             const std::vector<std::string>& input_boot_images,
+                             const std::string& output_path) const;
+
+  WARN_UNUSED CompilationResult
+  CompileBootClasspath(const std::string& staging_dir,
+                       InstructionSet isa,
+                       BootImages boot_images,
+                       const std::function<void()>& on_dex2oat_success) const;
+
+  WARN_UNUSED CompilationResult
+  RunDex2oatForSystemServer(const std::string& staging_dir,
+                            const std::string& dex_file,
+                            const std::vector<std::string>& classloader_context) const;
+
+  WARN_UNUSED CompilationResult
+  CompileSystemServer(const std::string& staging_dir,
+                      const std::set<std::string>& system_server_jars_to_compile,
+                      const std::function<void()>& on_dex2oat_success) const;
 
   // Configuration to use.
   const OdrConfig& config_;
@@ -202,15 +365,15 @@ class OnDeviceRefresh final {
   // Path to cache information file that is used to speed up artifact checking.
   const std::string cache_info_filename_;
 
-  // List of boot classpath components that should be compiled.
-  std::vector<std::string> boot_classpath_compilable_jars_;
+  // The raw list from DEX2OATBOOTCLASSPATH. This is the list of jars that should be compiled into
+  // the primary boot image.
+  std::vector<std::string> dex2oat_boot_classpath_jars_;
+
+  // The raw list from BOOTCLASSPATH. This is the list of all BCP jars.
+  std::vector<std::string> boot_classpath_jars_;
 
   // Set of system_server components in SYSTEMSERVERCLASSPATH that should be compiled.
   std::unordered_set<std::string> systemserver_classpath_jars_;
-
-  // List of all boot classpath components. Used as the dependencies for compiling the
-  // system_server.
-  std::vector<std::string> boot_classpath_jars_;
 
   // List of all system_server components, including those in SYSTEMSERVERCLASSPATH and those in
   // STANDALONE_SYSTEMSERVER_JARS (jars that system_server loads dynamically using separate

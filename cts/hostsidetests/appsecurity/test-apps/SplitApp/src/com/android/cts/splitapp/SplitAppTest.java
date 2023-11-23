@@ -466,7 +466,8 @@ public class SplitAppTest {
             }
         };
         final IntentFilter filter = new IntentFilter("com.android.cts.norestart.BROADCAST");
-        getContext().registerReceiver(r, filter, Context.RECEIVER_VISIBLE_TO_INSTANT_APPS);
+        getContext().registerReceiver(r, filter,
+                Context.RECEIVER_EXPORTED | Context.RECEIVER_VISIBLE_TO_INSTANT_APPS);
         final Intent i = createLaunchIntent();
         getContext().startActivity(i);
         assertTrue(cv.block(2000L));
@@ -492,7 +493,8 @@ public class SplitAppTest {
             }
         };
         final IntentFilter filter = new IntentFilter("com.android.cts.norestart.BROADCAST");
-        getContext().registerReceiver(r, filter, Context.RECEIVER_VISIBLE_TO_INSTANT_APPS);
+        getContext().registerReceiver(r, filter,
+                Context.RECEIVER_EXPORTED | Context.RECEIVER_VISIBLE_TO_INSTANT_APPS);
         final Intent i = createLaunchIntent();
         getContext().startActivity(i);
         assertTrue(cv.block(2000L));

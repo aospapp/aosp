@@ -58,7 +58,6 @@ android_test_helper_app {
         ":CtsBlobStoreTestsAidl"
     ],
     test_suites: [
-        "cts",
         "general-tests"
     ],
     manifest: "helper-app/AndroidManifest.xml",
@@ -78,7 +77,6 @@ android_test_helper_app {
         ":CtsBlobStoreTestsAidl"
     ],
     test_suites: [
-        "cts",
         "general-tests",
     ],
     manifest: "helper-app/AndroidManifest.xml",
@@ -102,7 +100,6 @@ android_test_helper_app {
         ":CtsBlobStoreTestsAidl"
     ],
     test_suites: [
-        "cts",
         "general-tests",
     ],
     manifest: "helper-app/AndroidManifest.xml",

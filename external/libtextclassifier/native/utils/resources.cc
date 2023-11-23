@@ -33,12 +33,26 @@ bool isExactMatch(const flatbuffers::String* left, const std::string& right) {
   return left->str() == right;
 }
 
+std::string NormalizeLanguageCode(const std::string& language_code) {
+  if (language_code == "id") {
+    return "in";
+  } else if (language_code == "iw") {
+    return "he";
+  } else if (language_code == "no") {
+    return "nb";
+  } else if (language_code == "tl") {
+    return "fil";
+  }
+  return language_code;
+}
+
 }  // namespace
 
 int Resources::LocaleMatch(const Locale& locale,
                            const LanguageTag* entry_locale) const {
   int match = LOCALE_NO_MATCH;
-  if (isExactMatch(entry_locale->language(), locale.Language())) {
+  if (isExactMatch(entry_locale->language(),
+                   NormalizeLanguageCode(locale.Language()))) {
     match |= LOCALE_LANGUAGE_MATCH;
   } else if (isWildcardMatch(entry_locale->language(), locale.Language())) {
     match |= LOCALE_LANGUAGE_WILDCARD_MATCH;

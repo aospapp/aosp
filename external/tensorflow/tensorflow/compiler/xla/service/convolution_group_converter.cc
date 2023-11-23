@@ -19,7 +19,6 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
-#include "absl/memory/memory.h"
 #include "tensorflow/compiler/xla/literal.h"
 #include "tensorflow/compiler/xla/literal_util.h"
 #include "tensorflow/compiler/xla/service/dfs_hlo_visitor_with_default.h"
@@ -47,7 +46,7 @@ class ConvolutionVisitor : public DfsHloVisitorWithDefault {
  public:
   // Default visitor action is to do nothing and return OK.
   Status DefaultAction(HloInstruction* /*hlo_instruction*/) override {
-    return Status::OK();
+    return OkStatus();
   }
 
   Status HandleConvolution(HloInstruction* convolution) override;
@@ -56,6 +55,7 @@ class ConvolutionVisitor : public DfsHloVisitorWithDefault {
 
   // Runs the visitor on a computation.
   static bool Run(HloComputation* computation,
+                  std::function<bool(HloInstruction*)> should_expand,
                   std::function<bool(HloInstruction*)> is_cost_viable,
                   bool convert_batch_groups_only, bool filter_expansion);
 
@@ -67,11 +67,13 @@ class ConvolutionVisitor : public DfsHloVisitorWithDefault {
  private:
   explicit ConvolutionVisitor(
       HloComputation* computation,
+      std::function<bool(HloInstruction*)> should_expand,
       std::function<bool(HloInstruction*)> is_cost_viable,
       bool convert_batch_groups_only, bool filter_expansion)
       : computation_(computation),
         filter_expansion_(filter_expansion),
         convert_batch_groups_only_(convert_batch_groups_only),
+        should_expand_(should_expand),
         is_cost_viable_(is_cost_viable) {}
 
   // Current HloComputation instance the ConvolutionVisitor is traversing.
@@ -86,15 +88,16 @@ class ConvolutionVisitor : public DfsHloVisitorWithDefault {
   // Decides whether to convert batch groups or feature groups.
   bool convert_batch_groups_only_;
 
-  // std::function<std::vector<LloValue*>(int64, int64)> chunk_fetcher
+  std::function<bool(HloInstruction*)> should_expand_;
   std::function<bool(HloInstruction*)> is_cost_viable_;
 };
 
 bool ConvolutionVisitor::Run(
     HloComputation* computation,
+    std::function<bool(HloInstruction*)> should_expand,
     std::function<bool(HloInstruction*)> is_cost_viable,
     bool convert_batch_groups_only, bool filter_expansion) {
-  ConvolutionVisitor visitor(computation, is_cost_viable,
+  ConvolutionVisitor visitor(computation, should_expand, is_cost_viable,
                              convert_batch_groups_only, filter_expansion);
   TF_CHECK_OK(computation->Accept(&visitor));
   return visitor.changed_;
@@ -112,8 +115,9 @@ Shape ExpandedFilterShape(const Shape& shape, int64_t group_count,
 
 // Returns a vector with 'group_count' many groups, where the i-th group
 // consists of 'group_size' times the value i.
-std::vector<int32> GetMaskIds(int64_t group_size, int64_t group_count) {
-  std::vector<int32> values;
+std::vector<int32_t> GetMaskIds(int64_t group_size, int64_t group_count) {
+  std::vector<int32_t> values;
+  values.reserve(group_count * group_size);
   for (int i = 0; i < group_count; ++i) {
     for (int j = 0; j < group_size; ++j) {
       values.push_back(i);
@@ -166,30 +170,30 @@ HloInstruction* GetExpandedFilterMask(
         add_instruction) {
   Shape expanded_filter_shape =
       ExpandedFilterShape(filter_shape, group_count, kernel_input_feature_dim);
-  Shape mask_shape = ShapeUtil::MakeShape(
-      S32, AsInt64Slice(expanded_filter_shape.dimensions()));
+  Shape mask_shape =
+      ShapeUtil::MakeShape(S32, expanded_filter_shape.dimensions());
   int64_t output_feature = filter_shape.dimensions(kernel_output_feature_dim);
   int64_t group_size = filter_shape.dimensions(kernel_input_feature_dim);
 
   // Create a 'input_feature' sized linspace and 'output_feature' sized linspace
   // that will be broadcasted into perpendicular dimensions and compared.
-  const std::vector<int32> input_feature_filter_mask =
+  const std::vector<int32_t> input_feature_filter_mask =
       GetMaskIds(group_size, group_count);
-  const std::vector<int32> output_feature_filter_mask =
+  const std::vector<int32_t> output_feature_filter_mask =
       GetMaskIds(output_feature / group_count, group_count);
   auto mask1 = add_instruction(HloInstruction::CreateConstant(
-      LiteralUtil::CreateR1<int32>(input_feature_filter_mask)));
+      LiteralUtil::CreateR1<int32_t>(input_feature_filter_mask)));
   auto broadcasted_mask1 = add_instruction(HloInstruction::CreateBroadcast(
       mask_shape, mask1, {kernel_input_feature_dim}));
   auto mask2 = add_instruction(HloInstruction::CreateConstant(
-      LiteralUtil::CreateR1<int32>(output_feature_filter_mask)));
+      LiteralUtil::CreateR1<int32_t>(output_feature_filter_mask)));
   auto broadcasted_mask2 = add_instruction(HloInstruction::CreateBroadcast(
       mask_shape, mask2, {kernel_output_feature_dim}));
 
   // Compare the broadcasted output feature linspace to the input feature
   // linspace to create a diagonal predicate.
-  Shape predicate_shape = ShapeUtil::MakeShape(
-      PRED, AsInt64Slice(expanded_filter_shape.dimensions()));
+  Shape predicate_shape =
+      ShapeUtil::MakeShape(PRED, expanded_filter_shape.dimensions());
   return add_instruction(HloInstruction::CreateCompare(
       predicate_shape, broadcasted_mask1, broadcasted_mask2,
       ComparisonDirection::kEq));
@@ -203,8 +207,9 @@ Status ConvolutionVisitor::HandleBatchGroupCount(HloInstruction* convolution) {
   auto filter = convolution->mutable_operand(1);
   int64_t batch_group_count = convolution->batch_group_count();
 
-  if (batch_group_count == 1) {
-    return Status::OK();
+  if (batch_group_count == 1 ||
+      (should_expand_ && !should_expand_(convolution))) {
+    return OkStatus();
   }
 
   VLOG(2) << "Dealing with batch_group_count " << batch_group_count
@@ -233,8 +238,8 @@ Status ConvolutionVisitor::HandleBatchGroupCount(HloInstruction* convolution) {
   if (output_feature != batch_group_count || input_batch != batch_group_count) {
     // Insert a spatial dimension to the activation before the input batch
     // dimension to represent the batch group.
-    std::vector<int64> input_sizes(activation->shape().dimensions().begin(),
-                                   activation->shape().dimensions().end());
+    std::vector<int64_t> input_sizes(activation->shape().dimensions().begin(),
+                                     activation->shape().dimensions().end());
     input_sizes[input_batch_dimension] /= batch_group_count;
     input_sizes.insert(input_sizes.begin() + input_batch_dimension,
                        batch_group_count);
@@ -252,8 +257,8 @@ Status ConvolutionVisitor::HandleBatchGroupCount(HloInstruction* convolution) {
 
     // Insert a spatial dimension to the kernel before the output feature
     // dimension to represent the batch group.
-    std::vector<int64> kernel_sizes(filter->shape().dimensions().begin(),
-                                    filter->shape().dimensions().end());
+    std::vector<int64_t> kernel_sizes(filter->shape().dimensions().begin(),
+                                      filter->shape().dimensions().end());
     kernel_sizes[kernel_output_feature_dimension] /= batch_group_count;
     kernel_sizes.insert(kernel_sizes.begin() + kernel_output_feature_dimension,
                         batch_group_count);
@@ -310,7 +315,7 @@ Status ConvolutionVisitor::HandleBatchGroupCount(HloInstruction* convolution) {
         convolution,
         MakeReshapeHlo(convolution->shape(), new_convolution).ValueOrDie()));
     changed_ = true;
-    return Status::OK();
+    return OkStatus();
   }
 
   VLOG(2) << "is_cost_viable_ " << is_cost_viable_(convolution);
@@ -410,7 +415,7 @@ Status ConvolutionVisitor::HandleBatchGroupCount(HloInstruction* convolution) {
     changed_ = true;
   }
 
-  return Status::OK();
+  return OkStatus();
 }
 
 Status ConvolutionVisitor::HandleConvolution(HloInstruction* convolution) {
@@ -423,8 +428,8 @@ Status ConvolutionVisitor::HandleConvolution(HloInstruction* convolution) {
   };
 
   int64_t group_count = convolution->feature_group_count();
-  if (group_count == 1) {
-    return Status::OK();
+  if (group_count == 1 || (should_expand_ && !should_expand_(convolution))) {
+    return OkStatus();
   }
 
   changed_ = true;
@@ -450,7 +455,7 @@ Status ConvolutionVisitor::HandleConvolution(HloInstruction* convolution) {
     // inherently, then no filter expansion is needed.
     if (!filter_expansion_ && depthwise_separable) {
       changed_ = false;
-      return Status::OK();
+      return OkStatus();
     }
     VLOG(2) << "is_cost_viable_ " << is_cost_viable_(convolution);
     // We want to repeat 'filter' in the 'input_feature_dim' dimension
@@ -460,7 +465,7 @@ Status ConvolutionVisitor::HandleConvolution(HloInstruction* convolution) {
           ShapeUtil::DeleteDimension(kernel_input_feature_dim, filter->shape());
       auto reshaped_filter =
           add(HloInstruction::CreateReshape(reshaped_filter_shape, filter));
-      std::vector<int64> broadcast_dims;
+      std::vector<int64_t> broadcast_dims;
       for (int64_t i = 0; i < filter->shape().dimensions_size(); ++i) {
         if (i == kernel_input_feature_dim) {
           continue;
@@ -487,7 +492,7 @@ Status ConvolutionVisitor::HandleConvolution(HloInstruction* convolution) {
     }
     // Add a spatial dimension to emulate a larger output feature dimension
     // to avoid creating a convolution with group_count = 1.
-    std::vector<int64> new_filter_dimension;
+    std::vector<int64_t> new_filter_dimension;
     new_filter_dimension.reserve(filter->shape().rank() + 1);
     const int64_t depthwise_multiplier =
         filter->shape().dimensions(kernel_output_feature_dim) / group_count;
@@ -540,7 +545,7 @@ Status ConvolutionVisitor::HandleConvolution(HloInstruction* convolution) {
 
     // Split the output feature dimension into and output feature of group
     // count and depthwise multipler as an output spatial dimension.
-    std::vector<int64> new_output_dimension;
+    std::vector<int64_t> new_output_dimension;
     new_output_dimension.reserve(convolution->shape().rank() + 1);
     for (int64_t i = 0; i < convolution->shape().rank(); ++i) {
       if (i == dim_numbers.output_feature_dimension()) {
@@ -580,8 +585,8 @@ Status ConvolutionVisitor::HandleConvolution(HloInstruction* convolution) {
   // Insert a spatial dimension to the input before the input feature
   // dimension to represent the feature group.
   HloInstruction* activation = convolution->mutable_operand(0);
-  std::vector<int64> input_sizes(activation->shape().dimensions().begin(),
-                                 activation->shape().dimensions().end());
+  std::vector<int64_t> input_sizes(activation->shape().dimensions().begin(),
+                                   activation->shape().dimensions().end());
   const int64_t input_feature_dimension = dim_numbers.input_feature_dimension();
   input_sizes[input_feature_dimension] /= group_count;
   input_sizes.insert(input_sizes.begin() + input_feature_dimension,
@@ -601,8 +606,8 @@ Status ConvolutionVisitor::HandleConvolution(HloInstruction* convolution) {
 
   // Insert a spatial dimension to the kernel before the output feature
   // dimension to represent the feature group.
-  std::vector<int64> kernel_sizes(filter->shape().dimensions().begin(),
-                                  filter->shape().dimensions().end());
+  std::vector<int64_t> kernel_sizes(filter->shape().dimensions().begin(),
+                                    filter->shape().dimensions().end());
   const int64_t kernel_output_feature_dimension =
       dim_numbers.kernel_output_feature_dimension();
   kernel_sizes[kernel_output_feature_dimension] /= group_count;
@@ -669,12 +674,14 @@ Status ConvolutionVisitor::HandleConvolution(HloInstruction* convolution) {
 
 }  // namespace
 
-StatusOr<bool> ConvolutionGroupConverter::Run(HloModule* module) {
+StatusOr<bool> ConvolutionGroupConverter::Run(
+    HloModule* module,
+    const absl::flat_hash_set<absl::string_view>& execution_threads) {
   XLA_VLOG_LINES(
       2, "ConvolutionGroupConverter::Run(), before:\n" + module->ToString());
   bool changed = false;
-  for (auto* comp : module->MakeNonfusionComputations()) {
-    if (ConvolutionVisitor::Run(comp, is_cost_viable_,
+  for (auto* comp : module->MakeNonfusionComputations(execution_threads)) {
+    if (ConvolutionVisitor::Run(comp, should_expand_, is_cost_viable_,
                                 convert_batch_groups_only_,
                                 filter_expansion_)) {
       changed = true;

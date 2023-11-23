@@ -269,7 +269,7 @@ class PDConsoleDevice(PDDevice):
         """
         # Dualrole mode must be supported
         if self.is_drp() is False:
-            logging.warn('Device not DRP capable, unabled to force disconnect')
+            logging.warning('Device not DRP capable, unabled to force disconnect')
             return False
         # Force state will be the opposite of current connect state
         if self.is_src():
@@ -298,7 +298,7 @@ class PDConsoleDevice(PDDevice):
                 # Restore orignal power role
                 connect = self.pr_swap()
                 if connect == False:
-                    logging.warn('DRP on both devices, 2nd power swap failed')
+                    logging.warning('DRP on both devices, 2nd power swap failed')
                 return connect
 
         # Restore default dualrole mode
@@ -354,7 +354,7 @@ class PDConsoleDevice(PDDevice):
 
         # Determine if Try.SRC feature is supported
         if 'Try.SRC' not in m[0][0]:
-            logging.warn('Try.SRC not supported on this PD device')
+            logging.warning('Try.SRC not supported on this PD device')
             return False
 
         # TrySRC is supported on this PD device, verify setting.
@@ -410,7 +410,7 @@ class PDConsoleDevice(PDDevice):
             pattern = '|'.join((tcpmv1_pattern, tcpmv2_pattern))
             self.utils.send_pd_command_get_output(cmd, [pattern])
         except error.TestFail:
-            logging.warn('HARD RST TX not found')
+            logging.warning('HARD RST TX not found')
             return False
         finally:
             self.utils.disable_pd_console_debug()
@@ -432,10 +432,10 @@ class PDConsoleDevice(PDDevice):
         """
         # Get starting state
         if not self.is_drp():
-            logging.warn('Dualrole Mode not enabled!')
+            logging.warning('Dualrole Mode not enabled!')
             return False
         if self.is_connected() == False:
-            logging.warn('PD contract not established!')
+            logging.warning('PD contract not established!')
             return False
         current_pr = self.utils.get_pd_state(self.port)
         swap_cmd = 'pd %d swap power' % self.port
@@ -444,7 +444,7 @@ class PDConsoleDevice(PDDevice):
         new_pr = self.utils.get_pd_state(self.port)
         logging.info('Power swap: %s -> %s', current_pr, new_pr)
         if self.is_connected() == False:
-            logging.warn('Device not connected following PR swap attempt.')
+            logging.warning('Device not connected following PR swap attempt.')
             return False
         return current_pr != new_pr
 
@@ -539,12 +539,20 @@ class PDTesterDevice(PDConsoleDevice):
         """
         DISC_DELAY = 100
         disc_cmd = 'fakedisconnect %d %d' % (DISC_DELAY, disc_time_sec * 1000)
+        state_exp = '(C%d)\s+[\w]+:?\s(%s)'
+
+        disconnected_tuple = self.utils.get_disconnected_states()
+        disconnected_states = '|'.join(disconnected_tuple)
+        disconnected_exp = state_exp % (self.port, disconnected_states)
+
         src_connected_tuple = self.utils.get_src_connect_states()
         snk_connected_tuple = self.utils.get_snk_connect_states()
-        connected_exp = '|'.join(src_connected_tuple + snk_connected_tuple)
-        reply_exp = ['(.*)(C%d)\s+[\w]+:?\s(%s)' % (self.port, connected_exp)]
-        m = self.utils.send_pd_command_get_output(disc_cmd, reply_exp)
-        return m[0][3]
+        connected_states = '|'.join(src_connected_tuple + snk_connected_tuple)
+        connected_exp = state_exp % (self.port, connected_states)
+
+        m = self.utils.send_pd_command_get_output(disc_cmd, [disconnected_exp,
+            connected_exp])
+        return m[1][2]
 
     def drp_disconnect_connect(self, disc_time_sec):
         """Disconnect/reconnect using PDTester

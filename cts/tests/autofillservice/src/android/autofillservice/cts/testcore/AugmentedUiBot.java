@@ -23,10 +23,10 @@ import static android.autofillservice.cts.testcore.AugmentedTimeouts.AUGMENTED_U
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.autofillservice.cts.R;
-import android.support.test.uiautomator.UiObject2;
 import android.view.autofill.AutofillId;
 
 import androidx.annotation.NonNull;
+import androidx.test.uiautomator.UiObject2;
 
 import com.google.common.base.Preconditions;
 

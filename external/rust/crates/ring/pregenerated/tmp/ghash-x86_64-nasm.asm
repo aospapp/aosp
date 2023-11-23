@@ -5,16 +5,18 @@ default	rel
 %define XMMWORD
 %define YMMWORD
 %define ZMMWORD
+
+%include "ring_core_generated/prefix_symbols_nasm.inc"
 section	.text code align=64
 
-EXTERN	GFp_ia32cap_P
-global	GFp_gcm_init_clmul
+EXTERN	OPENSSL_ia32cap_P
+global	gcm_init_clmul
 
 ALIGN	16
-GFp_gcm_init_clmul:
+gcm_init_clmul:
 
 $L$_init_clmul:
-$L$SEH_begin_GFp_gcm_init_clmul:
+$L$SEH_begin_gcm_init_clmul:
 
 DB	0x48,0x83,0xec,0x18
 DB	0x0f,0x29,0x34,0x24
@@ -169,14 +171,14 @@ DB	102,15,58,15,227,8
 	movdqu	XMMWORD[80+rcx],xmm4
 	movaps	xmm6,XMMWORD[rsp]
 	lea	rsp,[24+rsp]
-$L$SEH_end_GFp_gcm_init_clmul:
+$L$SEH_end_gcm_init_clmul:
 	DB	0F3h,0C3h		;repret
 
 
-global	GFp_gcm_gmult_clmul
+global	gcm_gmult_clmul
 
 ALIGN	16
-GFp_gcm_gmult_clmul:
+gcm_gmult_clmul:
 
 $L$_gmult_clmul:
 	movdqu	xmm0,XMMWORD[rcx]
@@ -226,14 +228,14 @@ DB	102,15,56,0,197
 	DB	0F3h,0C3h		;repret
 
 
-global	GFp_gcm_ghash_clmul
+global	gcm_ghash_clmul
 
 ALIGN	32
-GFp_gcm_ghash_clmul:
+gcm_ghash_clmul:
 
 $L$_ghash_clmul:
 	lea	rax,[((-136))+rsp]
-$L$SEH_begin_GFp_gcm_ghash_clmul:
+$L$SEH_begin_gcm_ghash_clmul:
 
 DB	0x48,0x8d,0x60,0xe0
 DB	0x0f,0x29,0x70,0xe0
@@ -257,7 +259,7 @@ DB	102,65,15,56,0,194
 	jz	NEAR $L$odd_tail
 
 	movdqu	xmm6,XMMWORD[16+rdx]
-	lea	rax,[GFp_ia32cap_P]
+	lea	rax,[OPENSSL_ia32cap_P]
 	mov	eax,DWORD[4+rax]
 	cmp	r9,0x30
 	jb	NEAR $L$skip4x
@@ -634,16 +636,16 @@ DB	102,65,15,56,0,194
 	movaps	xmm14,XMMWORD[128+rsp]
 	movaps	xmm15,XMMWORD[144+rsp]
 	lea	rsp,[168+rsp]
-$L$SEH_end_GFp_gcm_ghash_clmul:
+$L$SEH_end_gcm_ghash_clmul:
 	DB	0F3h,0C3h		;repret
 
 
-global	GFp_gcm_init_avx
+global	gcm_init_avx
 
 ALIGN	32
-GFp_gcm_init_avx:
+gcm_init_avx:
 
-$L$SEH_begin_GFp_gcm_init_avx:
+$L$SEH_begin_gcm_init_avx:
 
 DB	0x48,0x83,0xec,0x18
 DB	0x0f,0x29,0x34,0x24
@@ -750,17 +752,17 @@ $L$init_start_avx:
 	vzeroupper
 	movaps	xmm6,XMMWORD[rsp]
 	lea	rsp,[24+rsp]
-$L$SEH_end_GFp_gcm_init_avx:
+$L$SEH_end_gcm_init_avx:
 	DB	0F3h,0C3h		;repret
 
 
-global	GFp_gcm_ghash_avx
+global	gcm_ghash_avx
 
 ALIGN	32
-GFp_gcm_ghash_avx:
+gcm_ghash_avx:
 
 	lea	rax,[((-136))+rsp]
-$L$SEH_begin_GFp_gcm_ghash_avx:
+$L$SEH_begin_gcm_ghash_avx:
 
 DB	0x48,0x8d,0x60,0xe0
 DB	0x0f,0x29,0x70,0xe0
@@ -1154,7 +1156,7 @@ $L$tail_no_xor_avx:
 	movaps	xmm14,XMMWORD[128+rsp]
 	movaps	xmm15,XMMWORD[144+rsp]
 	lea	rsp,[168+rsp]
-$L$SEH_end_GFp_gcm_ghash_avx:
+$L$SEH_end_gcm_ghash_avx:
 	DB	0F3h,0C3h		;repret
 
 
@@ -1174,27 +1176,27 @@ DB	114,103,62,0
 ALIGN	64
 section	.pdata rdata align=4
 ALIGN	4
-	DD	$L$SEH_begin_GFp_gcm_init_clmul wrt ..imagebase
-	DD	$L$SEH_end_GFp_gcm_init_clmul wrt ..imagebase
-	DD	$L$SEH_info_GFp_gcm_init_clmul wrt ..imagebase
+	DD	$L$SEH_begin_gcm_init_clmul wrt ..imagebase
+	DD	$L$SEH_end_gcm_init_clmul wrt ..imagebase
+	DD	$L$SEH_info_gcm_init_clmul wrt ..imagebase
 
-	DD	$L$SEH_begin_GFp_gcm_ghash_clmul wrt ..imagebase
-	DD	$L$SEH_end_GFp_gcm_ghash_clmul wrt ..imagebase
-	DD	$L$SEH_info_GFp_gcm_ghash_clmul wrt ..imagebase
-	DD	$L$SEH_begin_GFp_gcm_init_avx wrt ..imagebase
-	DD	$L$SEH_end_GFp_gcm_init_avx wrt ..imagebase
-	DD	$L$SEH_info_GFp_gcm_init_clmul wrt ..imagebase
+	DD	$L$SEH_begin_gcm_ghash_clmul wrt ..imagebase
+	DD	$L$SEH_end_gcm_ghash_clmul wrt ..imagebase
+	DD	$L$SEH_info_gcm_ghash_clmul wrt ..imagebase
+	DD	$L$SEH_begin_gcm_init_avx wrt ..imagebase
+	DD	$L$SEH_end_gcm_init_avx wrt ..imagebase
+	DD	$L$SEH_info_gcm_init_clmul wrt ..imagebase
 
-	DD	$L$SEH_begin_GFp_gcm_ghash_avx wrt ..imagebase
-	DD	$L$SEH_end_GFp_gcm_ghash_avx wrt ..imagebase
-	DD	$L$SEH_info_GFp_gcm_ghash_clmul wrt ..imagebase
+	DD	$L$SEH_begin_gcm_ghash_avx wrt ..imagebase
+	DD	$L$SEH_end_gcm_ghash_avx wrt ..imagebase
+	DD	$L$SEH_info_gcm_ghash_clmul wrt ..imagebase
 section	.xdata rdata align=8
 ALIGN	8
-$L$SEH_info_GFp_gcm_init_clmul:
+$L$SEH_info_gcm_init_clmul:
 DB	0x01,0x08,0x03,0x00
 DB	0x08,0x68,0x00,0x00
 DB	0x04,0x22,0x00,0x00
-$L$SEH_info_GFp_gcm_ghash_clmul:
+$L$SEH_info_gcm_ghash_clmul:
 DB	0x01,0x33,0x16,0x00
 DB	0x33,0xf8,0x09,0x00
 DB	0x2e,0xe8,0x08,0x00

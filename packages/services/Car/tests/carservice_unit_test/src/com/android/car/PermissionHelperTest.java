@@ -22,8 +22,8 @@ import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.testng.Assert.expectThrows;
 
 import android.car.test.mocks.AbstractExtendedMockitoTestCase;
 import android.content.Context;
@@ -85,7 +85,7 @@ public final class PermissionHelperTest extends AbstractExtendedMockitoTestCase 
         mockPermission(PERMISSION1, PERMISSION_DENIED);
         mockPermission(PERMISSION2, PERMISSION_DENIED);
 
-        SecurityException exception = expectThrows(SecurityException.class, () -> PermissionHelper
+        SecurityException exception = assertThrows(SecurityException.class, () -> PermissionHelper
                 .checkHasAtLeastOnePermissionGranted(mContext, MESSAGE, PERMISSION1, PERMISSION2));
 
         assertExceptionMessageContains(exception, MESSAGE);
@@ -113,7 +113,7 @@ public final class PermissionHelperTest extends AbstractExtendedMockitoTestCase 
     public void testCheckHasDumpPermissionGranted_notGranted() {
         mockPermission(android.Manifest.permission.DUMP, PERMISSION_DENIED);
 
-        SecurityException exception = expectThrows(SecurityException.class,
+        SecurityException exception = assertThrows(SecurityException.class,
                 () -> PermissionHelper.checkHasDumpPermissionGranted(mContext, MESSAGE));
 
         assertExceptionMessageContains(exception, MESSAGE);

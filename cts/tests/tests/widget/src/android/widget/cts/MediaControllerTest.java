@@ -173,6 +173,7 @@ public class MediaControllerTest {
                 mMediaController::show);
         assertTrue(mMediaController.isShowing());
 
+        PollingCheck.waitFor(500, mMediaController::hasFocus);
         mInstrumentation.sendCharacterSync(KeyEvent.KEYCODE_BACK);
         mInstrumentation.waitForIdleSync();
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActivity.getWindow().getDecorView(),

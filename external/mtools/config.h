@@ -53,7 +53,10 @@
 #define HAVE_HTONS 1
 
 /* Define to 1 if you have the <iconv.h> header file. */
-#define HAVE_ICONV_H 1
+/* #undef HAVE_ICONV_H */
+
+/* Define to 1 if you want to use mock code pages. */
+#define USE_MOCK_CODEPAGES 1
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1

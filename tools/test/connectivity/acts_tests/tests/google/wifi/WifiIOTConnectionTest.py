@@ -60,6 +60,7 @@ class WifiIOTConnectionTest(WifiBaseTest):
     def setup_test(self):
         self.dut.droid.wakeLockAcquireBright()
         self.dut.droid.wakeUpNow()
+        wutils.reset_wifi(self.dut)
 
     def teardown_test(self):
         self.dut.droid.wakeLockRelease()
@@ -165,11 +166,6 @@ class WifiIOTConnectionTest(WifiBaseTest):
                           .format(self.user_params["pdu_wait_time"]))
             time.sleep(self.user_params["pdu_wait_time"])
 
-    def scan_wifi_list(self, network, test_item):
-        wutils.reset_wifi(self.dut)
-        scan_results = self.dut.droid.wifiGetScanResults()
-        return scan_results
-
     def start_packet_capture(self, band, channel):
         """Configure wireless packet capture on pre-defined channels.
 
@@ -197,24 +193,26 @@ class WifiIOTConnectionTest(WifiBaseTest):
             self.dut.log.error('Faild to ping public gateway 8.8.8.8')
             return False
 
-    def connect_to_network_and_ping(self, network, scan_results):
+    def connect_to_network_and_ping(self, network):
         ssid = network[WifiEnums.SSID_KEY]
         connection_pass = 0
         for i in range(self.user_params['iot_connection_iteration']):
             self.dut.log.info('Connection iteration : {}'.format(i + 1))
-            for ap in scan_results:
-                if ap['SSID'] == ssid:
-                    wutils.wifi_connect(self.dut, network, num_of_tries=1,
-                                        check_connectivity=False)
-                    time.sleep(WAIT_BETWEEN_ACTIONS)
-                    self.rssi, self.link_speed, self.freq = self.get_wifi_info()
-                    time.sleep(WAIT_BETWEEN_ACTIONS)
-                    if self.ping_public_gateway_ip():
-                        connection_pass += 1
-                    wutils.wifi_forget_network(self.dut, ssid)
-                    self.dut.log.info("connection_pass: {}"
-                                      .format(connection_pass))
-                    time.sleep(WAIT_BETWEEN_ACTIONS)
+            try:
+                wutils.connect_to_wifi_network(self.dut, network,
+                        num_of_connect_tries=1,
+                        check_connectivity=False)
+                time.sleep(WAIT_BETWEEN_ACTIONS)
+                self.rssi, self.link_speed, self.freq = self.get_wifi_info()
+                time.sleep(WAIT_BETWEEN_ACTIONS)
+                if self.ping_public_gateway_ip():
+                    connection_pass += 1
+                wutils.wifi_forget_network(self.dut, ssid)
+                self.dut.log.info("connection_pass: {}"
+                                    .format(connection_pass))
+                time.sleep(WAIT_BETWEEN_ACTIONS)
+            except:
+                self.dut.log.error("connection_fail")
 
         # Create a dictionary to store data in a json file.
         connection_result = {}
@@ -282,8 +280,5 @@ class WifiIOTConnectionTest(WifiBaseTest):
         if hasattr(self, 'packet_capture'):
             self.start_packet_capture(self.band, self.channel)
 
-        # Scan Wi-Fi SSIDs once.
-        wifi_scan_list = self.scan_wifi_list(network, test_item)
-
         # Connect to Wi-Fi network and ping public gateway for 5 times.
-        self.connect_to_network_and_ping(network, wifi_scan_list)
+        self.connect_to_network_and_ping(network)

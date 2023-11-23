@@ -25,4 +25,5 @@
     <string name="set_wallpaper" msgid="3650915172749345197">"Ezarri horma-papera"</string>
     <string name="new_instance" msgid="1924479866055190730">"Eskatu beste instantzia batean abiarazteko"</string>
     <string name="wallpaper_description" msgid="5885164573334720996">"Pantaila baterako baino gehiagotarako ereduzko horma-papera"</string>
+    <string name="exit" msgid="3648703694102318310">"Irten"</string>
 </resources>

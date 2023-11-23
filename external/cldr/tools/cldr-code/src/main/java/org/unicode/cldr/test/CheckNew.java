@@ -2,11 +2,10 @@ package org.unicode.cldr.test;
 
 import java.util.Date;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.unicode.cldr.test.CheckCLDR.CheckStatus.Subtype;
 import org.unicode.cldr.tool.CldrVersion;
+import org.unicode.cldr.util.AnnotationUtil;
 import org.unicode.cldr.util.CLDRFile;
 import org.unicode.cldr.util.Factory;
 
@@ -31,20 +30,18 @@ public class CheckNew extends FactoryCheckCLDR {
         return this;
     }
 
-    static final Pattern BAD_EMOJI = Pattern.compile("E\\d+(\\.\\d+)?-\\d+");
-
     @Override
     public CheckCLDR handleCheck(String path, String fullPath, String value, Options options,
         List<CheckStatus> result) {
 
         CLDRFile cldrFileToCheck = getCldrFileToCheck();
+        // don't check inherited values
+        // first see if the value is inherited or not
         if (!isRoot
             && value != null
-            && path.startsWith("//ldml/annotations/annotation")
-            && cldrFileToCheck.getUnresolved().getStringValue(path) != null) { // don't check inherited values
-            // first see if the value is inherited or not
-            Matcher matcher = BAD_EMOJI.matcher(value);
-            if (matcher.matches()) {
+            && AnnotationUtil.pathIsAnnotation(path)
+            && cldrFileToCheck.getUnresolved().getStringValue(path) != null) {
+            if (AnnotationUtil.matchesCode(value)) {
                 result.add(new CheckStatus().setCause(this)
                     .setMainType(CheckStatus.errorType)
                     .setSubtype(Subtype.valueMustBeOverridden)
@@ -71,10 +68,12 @@ public class CheckNew extends FactoryCheckCLDR {
         String oldEnglishValue = outdatedPaths.getPreviousEnglish(path);
         if (!OutdatedPaths.NO_VALUE.equals(oldEnglishValue)) {
             CldrVersion birth = outdatedPaths.getEnglishBirth(path);
-            result.add(new CheckStatus().setCause(this).setMainType(CheckStatus.warningType)
-                .setSubtype(Subtype.modifiedEnglishValue)
-                .setMessage("In CLDR {2} the English value for this field changed from “{0}” to “{1}”, but the corresponding value for your locale didn't change.",
-                    oldEnglishValue, englishValue, birth.toString()));
+            if (birth != null) {
+                result.add(new CheckStatus().setCause(this).setMainType(CheckStatus.warningType)
+                    .setSubtype(Subtype.modifiedEnglishValue)
+                    .setMessage("In CLDR {2} the English value for this field changed from “{0}” to “{1}”, but the corresponding value for your locale didn't change.",
+                        oldEnglishValue, englishValue, birth.toString()));
+            }
         }
         return this;
     }

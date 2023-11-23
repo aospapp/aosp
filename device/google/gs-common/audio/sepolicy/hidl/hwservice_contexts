@@ -1,0 +1,2 @@
+# Audio
+vendor.google.whitechapel.audio.audioext::IAudioExt             u:object_r:hal_audio_ext_hwservice:s0

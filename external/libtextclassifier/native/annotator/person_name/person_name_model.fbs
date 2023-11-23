@@ -14,6 +14,8 @@
 // limitations under the License.
 //
 
+include "annotator/model.fbs";
+
 file_identifier "TC2 ";
 
 // Next ID: 2
@@ -26,7 +28,7 @@ table PersonName {
   person_name:string (shared);
 }
 
-// Next ID: 6
+// Next ID: 7
 namespace libtextclassifier3;
 table PersonNameModel {
   // Decides if the person name annotator is enabled.
@@ -52,6 +54,9 @@ table PersonNameModel {
   // upper case character and have at least one lower case character.
   // required
   annotate_capitalized_names_only:bool;
+
+  // Enabled modes.
+  enabled_modes:ModeFlag = ALL;
 }
 
 root_type libtextclassifier3.PersonNameModel;

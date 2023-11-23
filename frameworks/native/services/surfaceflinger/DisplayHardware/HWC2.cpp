@@ -40,6 +40,7 @@ using aidl::android::hardware::graphics::composer3::Color;
 using aidl::android::hardware::graphics::composer3::Composition;
 using AidlCapability = aidl::android::hardware::graphics::composer3::Capability;
 using aidl::android::hardware::graphics::composer3::DisplayCapability;
+using aidl::android::hardware::graphics::composer3::OverlayProperties;
 
 namespace android {
 
@@ -319,18 +320,23 @@ Error Display::getHdrCapabilities(HdrCapabilities* outCapabilities) const
     float maxLuminance = -1.0f;
     float maxAverageLuminance = -1.0f;
     float minLuminance = -1.0f;
-    std::vector<Hwc2::Hdr> types;
-    auto intError = mComposer.getHdrCapabilities(mId, &types,
-            &maxLuminance, &maxAverageLuminance, &minLuminance);
+    std::vector<Hwc2::Hdr> hdrTypes;
+    auto intError = mComposer.getHdrCapabilities(mId, &hdrTypes, &maxLuminance,
+                                                 &maxAverageLuminance, &minLuminance);
     auto error = static_cast<HWC2::Error>(intError);
 
     if (error != Error::NONE) {
         return error;
     }
 
-    *outCapabilities = HdrCapabilities(std::move(types),
-            maxLuminance, maxAverageLuminance, minLuminance);
+    *outCapabilities =
+            HdrCapabilities(std::move(hdrTypes), maxLuminance, maxAverageLuminance, minLuminance);
     return Error::NONE;
+}
+
+Error Display::getOverlaySupport(OverlayProperties* outProperties) const {
+    auto intError = mComposer.getOverlaySupport(outProperties);
+    return static_cast<Error>(intError);
 }
 
 Error Display::getDisplayedContentSamplingAttributes(hal::PixelFormat* outFormat,
@@ -369,7 +375,7 @@ Error Display::getReleaseFences(std::unordered_map<HWC2::Layer*, sp<Fence>>* out
     for (uint32_t element = 0; element < numElements; ++element) {
         auto layer = getLayerById(layerIds[element]);
         if (layer) {
-            sp<Fence> fence(new Fence(fenceFds[element]));
+            sp<Fence> fence(sp<Fence>::make(fenceFds[element]));
             releaseFences.emplace(layer.get(), fence);
         } else {
             ALOGE("getReleaseFences: invalid layer %" PRIu64
@@ -394,7 +400,7 @@ Error Display::present(sp<Fence>* outPresentFence)
         return error;
     }
 
-    *outPresentFence = new Fence(presentFenceFd);
+    *outPresentFence = sp<Fence>::make(presentFenceFd);
     return Error::NONE;
 }
 
@@ -532,7 +538,7 @@ Error Display::presentOrValidate(nsecs_t expectedPresentTime, uint32_t* outNumTy
     }
 
     if (*state == 1) {
-        *outPresentFence = new Fence(presentFenceFd);
+        *outPresentFence = sp<Fence>::make(presentFenceFd);
     }
 
     if (*state == 0) {
@@ -711,6 +717,16 @@ Error Layer::setBuffer(uint32_t slot, const sp<GraphicBuffer>& buffer,
     return static_cast<Error>(intError);
 }
 
+Error Layer::setBufferSlotsToClear(const std::vector<uint32_t>& slotsToClear,
+                                   uint32_t activeBufferSlot) {
+    if (CC_UNLIKELY(!mDisplay)) {
+        return Error::BAD_DISPLAY;
+    }
+    auto intError = mComposer.setLayerBufferSlotsToClear(mDisplay->getId(), mId, slotsToClear,
+                                                         activeBufferSlot);
+    return static_cast<Error>(intError);
+}
+
 Error Layer::setSurfaceDamage(const Region& damage)
 {
     if (CC_UNLIKELY(!mDisplay)) {
@@ -826,25 +842,24 @@ Error Layer::setPerFrameMetadata(const int32_t supportedPerFrameMetadata,
                                    mHdrMetadata.cta8613.maxFrameAverageLightLevel}});
     }
 
-    Error error = static_cast<Error>(
-            mComposer.setLayerPerFrameMetadata(mDisplay->getId(), mId, perFrameMetadatas));
+    const Error error = static_cast<Error>(
+        mComposer.setLayerPerFrameMetadata(mDisplay->getId(), mId, perFrameMetadatas));
+    if (error != Error::NONE) {
+        return error;
+    }
 
+    std::vector<Hwc2::PerFrameMetadataBlob> perFrameMetadataBlobs;
     if (validTypes & HdrMetadata::HDR10PLUS) {
         if (CC_UNLIKELY(mHdrMetadata.hdr10plus.size() == 0)) {
             return Error::BAD_PARAMETER;
         }
 
-        std::vector<Hwc2::PerFrameMetadataBlob> perFrameMetadataBlobs;
         perFrameMetadataBlobs.push_back(
                 {Hwc2::PerFrameMetadataKey::HDR10_PLUS_SEI, mHdrMetadata.hdr10plus});
-        Error setMetadataBlobsError =
-                static_cast<Error>(mComposer.setLayerPerFrameMetadataBlobs(mDisplay->getId(), mId,
-                                                                           perFrameMetadataBlobs));
-        if (error == Error::NONE) {
-            return setMetadataBlobsError;
-        }
     }
-    return error;
+
+    return static_cast<Error>(
+            mComposer.setLayerPerFrameMetadataBlobs(mDisplay->getId(), mId, perFrameMetadataBlobs));
 }
 
 Error Layer::setDisplayFrame(const Rect& frame)

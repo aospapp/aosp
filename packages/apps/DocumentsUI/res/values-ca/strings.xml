@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"No s\'ha pogut desar el document"</string>
     <string name="create_error" msgid="3092144450044861994">"No s\'ha pogut crear la carpeta"</string>
     <string name="query_error" msgid="6625421453613879336">"En aquest moment no es pot carregar el contingut"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"El perfil de treball està en pausa"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Activa"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"Les aplicacions de treball estan en pausa"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"Activa les aplicacions de treball"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"No es poden seleccionar els fitxers de treball"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"L\'administrador de TI no et permet accedir als fitxers de treball des de l\'aplicació personal"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"No es poden seleccionar els fitxers personals"</string>
@@ -125,22 +125,27 @@
     <string name="delete_notification_title" msgid="2512757431856830792">"Suprimint els fitxers"</string>
     <string name="copy_remaining" msgid="5390517377265177727">"Temps restant: <xliff:g id="DURATION">%s</xliff:g>"</string>
     <plurals name="copy_begin" formatted="false" msgid="151184708996738192">
+      <item quantity="many">S\'estan copiant <xliff:g id="COUNT_1">%1$d</xliff:g> elements.</item>
       <item quantity="other">S\'estan copiant <xliff:g id="COUNT_1">%1$d</xliff:g> elements.</item>
       <item quantity="one">S\'està copiant <xliff:g id="COUNT_0">%1$d</xliff:g> element.</item>
     </plurals>
     <plurals name="compress_begin" formatted="false" msgid="3534158317098678895">
+      <item quantity="many">S\'estan comprimint <xliff:g id="COUNT_1">%1$d</xliff:g> fitxers.</item>
       <item quantity="other">S\'estan comprimint <xliff:g id="COUNT_1">%1$d</xliff:g> fitxers.</item>
       <item quantity="one">S\'està comprimint <xliff:g id="COUNT_0">%1$d</xliff:g> fitxer.</item>
     </plurals>
     <plurals name="extract_begin" formatted="false" msgid="1006380679562903749">
+      <item quantity="many">S\'estan extraient <xliff:g id="COUNT_1">%1$d</xliff:g> fitxers.</item>
       <item quantity="other">S\'estan extraient <xliff:g id="COUNT_1">%1$d</xliff:g> fitxers.</item>
       <item quantity="one">S\'està extraient <xliff:g id="COUNT_0">%1$d</xliff:g> fitxer.</item>
     </plurals>
     <plurals name="move_begin" formatted="false" msgid="1464229874265756956">
+      <item quantity="many">S\'estan movent <xliff:g id="COUNT_1">%1$d</xliff:g> elements.</item>
       <item quantity="other">S\'estan movent <xliff:g id="COUNT_1">%1$d</xliff:g> elements.</item>
       <item quantity="one">S\'està movent <xliff:g id="COUNT_0">%1$d</xliff:g> element.</item>
     </plurals>
     <plurals name="deleting" formatted="false" msgid="1729138001178158901">
+      <item quantity="many">S\'estan suprimint <xliff:g id="COUNT_1">%1$d</xliff:g> elements.</item>
       <item quantity="other">S\'estan suprimint <xliff:g id="COUNT_1">%1$d</xliff:g> elements.</item>
       <item quantity="one">S\'està suprimint <xliff:g id="COUNT_0">%1$d</xliff:g> element.</item>
     </plurals>
@@ -152,48 +157,59 @@
     <string name="delete_preparing" msgid="7339349837842802508">"S\'està preparant..."</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
+      <item quantity="many">No s\'han pogut copiar <xliff:g id="COUNT_1">%1$d</xliff:g> elements</item>
       <item quantity="other">No s\'han pogut copiar <xliff:g id="COUNT_1">%1$d</xliff:g> elements</item>
       <item quantity="one">No s\'ha pogut copiar <xliff:g id="COUNT_0">%1$d</xliff:g> element</item>
     </plurals>
     <plurals name="compress_error_notification_title" formatted="false" msgid="3043630066678213644">
+      <item quantity="many">No s\'han pogut comprimir <xliff:g id="COUNT_1">%1$d</xliff:g> fitxers</item>
       <item quantity="other">No s\'han pogut comprimir <xliff:g id="COUNT_1">%1$d</xliff:g> fitxers</item>
       <item quantity="one">No s\'ha pogut comprimir <xliff:g id="COUNT_0">%1$d</xliff:g> fitxer</item>
     </plurals>
     <plurals name="move_error_notification_title" formatted="false" msgid="2185736082411854754">
+      <item quantity="many">No s\'han pogut moure <xliff:g id="COUNT_1">%1$d</xliff:g> elements</item>
       <item quantity="other">No s\'han pogut moure <xliff:g id="COUNT_1">%1$d</xliff:g> elements</item>
       <item quantity="one">No s\'ha pogut moure <xliff:g id="COUNT_0">%1$d</xliff:g> element</item>
     </plurals>
     <plurals name="delete_error_notification_title" formatted="false" msgid="7568122018481625267">
+      <item quantity="many">No s\'han pogut suprimir <xliff:g id="COUNT_1">%1$d</xliff:g> elements</item>
       <item quantity="other">No s\'han pogut suprimir <xliff:g id="COUNT_1">%1$d</xliff:g> elements</item>
       <item quantity="one">No s\'ha pogut suprimir <xliff:g id="COUNT_0">%1$d</xliff:g> element</item>
     </plurals>
     <string name="notification_touch_for_details" msgid="2385563502445129570">"Toca per veure\'n els detalls"</string>
     <string name="close" msgid="905969391788869975">"Tanca"</string>
     <plurals name="copy_failure_alert_content" formatted="false" msgid="5570549471912990536">
+      <item quantity="many">Aquests fitxers no s\'han copiat: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="other">Aquests fitxers no s\'han copiat: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="one">Aquest fitxer no s\'ha copiat: <xliff:g id="LIST_0">%1$s</xliff:g></item>
     </plurals>
     <plurals name="compress_failure_alert_content" formatted="false" msgid="5760632881868842400">
+      <item quantity="many">Aquests fitxers no s\'han comprimit: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="other">Aquests fitxers no s\'han comprimit: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="one">Aquest fitxer no s\'ha comprimit: <xliff:g id="LIST_0">%1$s</xliff:g></item>
     </plurals>
     <plurals name="extract_failure_alert_content" formatted="false" msgid="7572748127571720803">
+      <item quantity="many">Aquests fitxers no s\'han extret: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="other">Aquests fitxers no s\'han extret: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="one">Aquest fitxer no s\'ha extret: <xliff:g id="LIST_0">%1$s</xliff:g></item>
     </plurals>
     <plurals name="move_failure_alert_content" formatted="false" msgid="2747390342670799196">
+      <item quantity="many">Aquests fitxers no s\'han mogut: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="other">Aquests fitxers no s\'han mogut: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="one">Aquest fitxer no s\'ha mogut: <xliff:g id="LIST_0">%1$s</xliff:g></item>
     </plurals>
     <plurals name="delete_failure_alert_content" formatted="false" msgid="6122372614839711711">
+      <item quantity="many">Aquests fitxers no s\'han suprimit: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="other">Aquests fitxers no s\'han suprimit: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="one">Aquest fitxer no s\'ha suprimit: <xliff:g id="LIST_0">%1$s</xliff:g></item>
     </plurals>
     <plurals name="copy_converted_warning_content" formatted="false" msgid="7433742181712126588">
+      <item quantity="many">Aquests fitxers s\'han convertit a un altre format: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="other">Aquests fitxers s\'han convertit a un altre format: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="one">Aquest fitxer s\'ha convertit a un altre format: <xliff:g id="LIST_0">%1$s</xliff:g></item>
     </plurals>
     <plurals name="clipboard_files_clipped" formatted="false" msgid="4847061634862926902">
+      <item quantity="many">S\'han copiat <xliff:g id="COUNT_1">%1$d</xliff:g> elements al porta-retalls.</item>
       <item quantity="other">S\'han copiat <xliff:g id="COUNT_1">%1$d</xliff:g> elements al porta-retalls.</item>
       <item quantity="one">S\'ha copiat <xliff:g id="COUNT_0">%1$d</xliff:g> element al porta-retalls.</item>
     </plurals>
@@ -208,24 +224,29 @@
     <string name="allow" msgid="1275746941353040309">"Permet"</string>
     <string name="deny" msgid="5127201668078153379">"Denega"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
+      <item quantity="many"><xliff:g id="COUNT_1">%1$d</xliff:g> elements seleccionats</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> elements seleccionats</item>
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> element seleccionat</item>
     </plurals>
     <plurals name="elements_dragged" formatted="false" msgid="5932571296037626279">
+      <item quantity="many"><xliff:g id="COUNT_1">%1$d</xliff:g> elements</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> elements</item>
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> element</item>
     </plurals>
     <string name="delete_filename_confirmation_message" msgid="8338069763240613258">"Vols suprimir \"<xliff:g id="NAME">%1$s</xliff:g>\"?"</string>
     <string name="delete_foldername_confirmation_message" msgid="9084085260877704140">"Vols suprimir la carpeta \"<xliff:g id="NAME">%1$s</xliff:g>\" i el seu contingut?"</string>
     <plurals name="delete_files_confirmation_message" formatted="false" msgid="4866664063250034142">
+      <item quantity="many">Vols suprimir <xliff:g id="COUNT_1">%1$d</xliff:g> fitxers?</item>
       <item quantity="other">Vols suprimir <xliff:g id="COUNT_1">%1$d</xliff:g> fitxers?</item>
       <item quantity="one">Vols suprimir <xliff:g id="COUNT_0">%1$d</xliff:g> fitxer?</item>
     </plurals>
     <plurals name="delete_folders_confirmation_message" formatted="false" msgid="1028946402799686388">
+      <item quantity="many">Vols suprimir <xliff:g id="COUNT_1">%1$d</xliff:g> carpetes i el seu contingut?</item>
       <item quantity="other">Vols suprimir <xliff:g id="COUNT_1">%1$d</xliff:g> carpetes i el seu contingut?</item>
       <item quantity="one">Vols suprimir <xliff:g id="COUNT_0">%1$d</xliff:g> carpeta i el seu contingut?</item>
     </plurals>
     <plurals name="delete_items_confirmation_message" formatted="false" msgid="7285090426511028179">
+      <item quantity="many">Vols suprimir <xliff:g id="COUNT_1">%1$d</xliff:g> elements?</item>
       <item quantity="other">Vols suprimir <xliff:g id="COUNT_1">%1$d</xliff:g> elements?</item>
       <item quantity="one">Vols suprimir <xliff:g id="COUNT_0">%1$d</xliff:g> element?</item>
     </plurals>
@@ -239,6 +260,7 @@
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"Vols sobreescriure <xliff:g id="NAME">%1$s</xliff:g>?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"Continua en segon pla"</string>
     <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="many"><xliff:g id="COUNT_1">%1$d</xliff:g> elements seleccionats</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> elements seleccionats</item>
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> element seleccionat</item>
     </plurals>

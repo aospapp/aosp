@@ -44,6 +44,7 @@ class OpKernelContext;
 class Tensor;
 class TensorBuffer;
 class TensorCApi;
+class TensorInterface;
 class TensorCord;
 class TensorDescription;
 class TensorProto;
@@ -94,6 +95,11 @@ class TensorBuffer : public core::RefCounted {
 
   /// \brief Whether this TensorBuffer owns the underlying memory.
   virtual bool OwnsMemory() const { return true; }
+
+  /// \brief The type of the underlying memory.
+  virtual AllocatorMemoryType GetMemoryType() const {
+    return AllocatorMemoryType::kUnknown;
+  }
 
  private:
   void* const data_;
@@ -169,6 +175,15 @@ class Tensor {
   /// IsInitialized() returning True. See the Tensor() documentation
   /// for details.
   explicit Tensor(DataType type);
+
+  /// \brief Initializes a tensor with the input `type` and `shape`, or returns
+  /// an error and leaves `out_tensor` unmodified. This factory method should be
+  /// used instead of the corresponding constructor if calling code cannot
+  /// validate that the `DataType` is valid and supported.
+  ///
+  /// The underlying buffer is allocated using a `CPUAllocator`.
+  static Status BuildTensor(DataType type, const TensorShape& shape,
+                            Tensor* out_tensor);
 
  private:
   // A tag type for selecting the `Tensor` constructor overload that creates a
@@ -269,10 +284,10 @@ class Tensor {
   int dims() const { return shape().dims(); }
 
   /// Convenience accessor for the tensor shape.
-  int64 dim_size(int d) const { return shape().dim_size(d); }
+  int64_t dim_size(int d) const { return shape().dim_size(d); }
 
   /// Convenience accessor for the tensor shape.
-  int64 NumElements() const { return shape().num_elements(); }
+  int64_t NumElements() const { return shape().num_elements(); }
 
   bool IsSameSize(const Tensor& b) const {
     return shape().IsSameSize(b.shape());
@@ -407,7 +422,7 @@ class Tensor {
   }
 
   template <typename T, size_t NDIMS>
-  typename TTypes<T, NDIMS>::Tensor tensor();
+  typename TTypes<T, NDIMS>::Tensor tensor() TF_ATTRIBUTE_NOINLINE;
 
   /// \brief Return the tensor data to an `Eigen::Tensor` with the
   /// same size but a bitwise cast to the specified dtype `T`.
@@ -457,9 +472,7 @@ class Tensor {
   ///
   /// ```
   template <typename T>
-  typename TTypes<T>::Flat flat() {
-    return shaped<T, 1>({NumElements()});
-  }
+  typename TTypes<T>::Flat flat();
 
   template <typename T>
   typename TTypes<T>::UnalignedFlat unaligned_flat() {
@@ -490,7 +503,7 @@ class Tensor {
   typename TTypes<T, NDIMS>::Tensor flat_inner_outer_dims(int64_t begin);
 
   template <typename T, size_t NDIMS>
-  typename TTypes<T, NDIMS>::Tensor shaped(gtl::ArraySlice<int64> new_sizes);
+  typename TTypes<T, NDIMS>::Tensor shaped(gtl::ArraySlice<int64_t> new_sizes);
 
   /// \brief Return the tensor data to an `Eigen::Tensor` with the new
   /// shape specified in `new_sizes` and cast to a new dtype `T`.
@@ -499,11 +512,11 @@ class Tensor {
   /// The allowed bitcast is the only difference from `shaped()`.
   template <typename T, size_t NDIMS>
   typename TTypes<T, NDIMS>::Tensor bit_casted_shaped(
-      gtl::ArraySlice<int64> new_sizes);
+      gtl::ArraySlice<int64_t> new_sizes);
 
   template <typename T, size_t NDIMS>
   typename TTypes<T, NDIMS>::UnalignedTensor unaligned_shaped(
-      gtl::ArraySlice<int64> new_sizes);
+      gtl::ArraySlice<int64_t> new_sizes);
 
   /// \brief Return the Tensor data as a `TensorMap` of fixed size 1:
   /// `TensorMap<TensorFixedSize<T, 1>>`.
@@ -525,7 +538,7 @@ class Tensor {
   }
 
   template <typename T, size_t NDIMS>
-  typename TTypes<T, NDIMS>::ConstTensor tensor() const;
+  typename TTypes<T, NDIMS>::ConstTensor tensor() const TF_ATTRIBUTE_NOINLINE;
 
   /// \brief Return the tensor data to an `Eigen::Tensor` with the
   /// same size but a bitwise cast to the specified dtype `T`.
@@ -546,9 +559,7 @@ class Tensor {
   typename TTypes<T, NDIMS>::ConstTensor reinterpret_last_dimension() const;
 
   template <typename T>
-  typename TTypes<T>::ConstFlat flat() const {
-    return shaped<T, 1>({NumElements()});
-  }
+  typename TTypes<T>::ConstFlat flat() const;
 
   template <typename T>
   typename TTypes<T>::UnalignedConstFlat unaligned_flat() const {
@@ -557,7 +568,7 @@ class Tensor {
 
   template <typename T, size_t NDIMS>
   typename TTypes<T, NDIMS>::ConstTensor shaped(
-      gtl::ArraySlice<int64> new_sizes) const;
+      gtl::ArraySlice<int64_t> new_sizes) const;
 
   /// \brief Return the tensor data to an `Eigen::Tensor` with the new
   /// shape specified in `new_sizes` and cast to a new dtype `T`.
@@ -566,11 +577,11 @@ class Tensor {
   /// The allowed bitcast is the only difference from `shaped()`.
   template <typename T, size_t NDIMS>
   typename TTypes<T, NDIMS>::ConstTensor bit_casted_shaped(
-      gtl::ArraySlice<int64> new_sizes) const;
+      gtl::ArraySlice<int64_t> new_sizes) const;
 
   template <typename T, size_t NDIMS>
   typename TTypes<T, NDIMS>::UnalignedConstTensor unaligned_shaped(
-      gtl::ArraySlice<int64> new_sizes) const;
+      gtl::ArraySlice<int64_t> new_sizes) const;
 
   template <typename T>
   typename TTypes<T>::ConstScalar scalar() const;
@@ -619,7 +630,7 @@ class Tensor {
   void* data() const;
 
   /// Copy the other tensor into this tensor, reshape it and reinterpret the
-  /// buffer's datatype. If Status::OK() is returned, the two tensors now share
+  /// buffer's datatype. If an ok Status is returned, the two tensors now share
   /// the same underlying storage.
   ///
   /// This call requires that the `other` tensor and the given type and shape
@@ -654,6 +665,9 @@ class Tensor {
   // buffer is one.
   bool RefCountIsOne() const;
 
+  // Returns the type of the underlying memory.
+  AllocatorMemoryType GetMemoryType() const { return buf_->GetMemoryType(); }
+
  private:
   void CheckType(DataType expected_dtype) const;
   void CheckTypeAndIsAligned(DataType expected_dtype) const;
@@ -661,10 +675,10 @@ class Tensor {
   void set_dtype(DataType t) { shape_.set_data_type(t); }
 
   // TensorShape's InlineVector.
-  static gtl::InlinedVector<int64, 4> ComputeFlatInnerDims(
-      gtl::ArraySlice<int64> orig, int64_t num_out_dims);
-  static gtl::InlinedVector<int64, 4> ComputeFlatOuterDims(
-      gtl::ArraySlice<int64> orig, int64_t num_out_dims);
+  static gtl::InlinedVector<int64_t, 4> ComputeFlatInnerDims(
+      gtl::ArraySlice<int64_t> orig, int64_t num_out_dims);
+  static gtl::InlinedVector<int64_t, 4> ComputeFlatOuterDims(
+      gtl::ArraySlice<int64_t> orig, int64_t num_out_dims);
 
   TensorShape shape_;
   TensorBuffer* buf_;
@@ -676,6 +690,7 @@ class Tensor {
   friend class VariableOp;            // For access to set_shape.
   friend class AutoReloadVariableOp;  // For access to set_shape.
   friend class TensorTestHelper;      // For access to set_shape.
+  friend class TensorInterface;       // For access to set_shape.
   friend class CastOpBase;            // For access to set_dtype.
   friend class ScopedAllocator;       // For access to buf_.
   friend Status batch_util::CopyElementToSlice(
@@ -723,12 +738,12 @@ class Tensor {
 
   template <size_t NDIMS>
   void FillDimsAndValidateCompatibleShape(
-      gtl::ArraySlice<int64> new_sizes,
+      gtl::ArraySlice<int64_t> new_sizes,
       Eigen::array<Eigen::DenseIndex, NDIMS>* dims) const;
 
   template <typename T, size_t NDIMS>
   void FillDimsAndValidateCompatibleShape(
-      gtl::ArraySlice<int64> new_sizes,
+      gtl::ArraySlice<int64_t> new_sizes,
       Eigen::array<Eigen::DenseIndex, NDIMS>* dims) const;
 };
 
@@ -741,6 +756,7 @@ T* Tensor::base() const {
   return buf_ == nullptr ? nullptr : buf_->base<T>();
 }
 
+// This routine is defined out of line for code-space savings
 template <typename T, size_t NDIMS>
 typename TTypes<T, NDIMS>::Tensor Tensor::tensor() {
   CheckTypeAndIsAligned(DataTypeToEnum<T>::v());
@@ -748,6 +764,7 @@ typename TTypes<T, NDIMS>::Tensor Tensor::tensor() {
                                            shape().AsEigenDSizes<NDIMS>());
 }
 
+// This routine is defined out of line for code-space savings
 template <typename T, size_t NDIMS>
 typename TTypes<T, NDIMS>::ConstTensor Tensor::tensor() const {
   CheckTypeAndIsAligned(DataTypeToEnum<T>::v());
@@ -775,8 +792,9 @@ typename TTypes<T, NDIMS>::Tensor Tensor::reinterpret_last_dimension() {
     return tensor<T, NDIMS>();
   }
   CHECK(IsAligned());
-  CHECK_EQ(NDIMS, dims() - 1);
-  CHECK_EQ(sizeof(T), shape_.dim_sizes()[NDIMS] * DataTypeSize(dtype()));
+  CHECK_EQ(static_cast<int>(NDIMS), dims() - 1);
+  CHECK_EQ(static_cast<int64_t>(sizeof(T)),
+           shape_.dim_sizes()[NDIMS] * DataTypeSize(dtype()));
   Eigen::array<Eigen::DenseIndex, NDIMS> dims;
   for (int d = 0; d < NDIMS; ++d) {
     dims[d] = shape_.dim_sizes()[d];
@@ -791,8 +809,9 @@ typename TTypes<T, NDIMS>::ConstTensor Tensor::reinterpret_last_dimension()
     return tensor<T, NDIMS>();
   }
   CHECK(IsAligned());
-  CHECK_EQ(NDIMS, dims() - 1);
-  CHECK_EQ(sizeof(T), shape_.dim_sizes()[NDIMS] * DataTypeSize(dtype()));
+  CHECK_EQ(static_cast<int>(NDIMS), dims() - 1);
+  CHECK_EQ(static_cast<int64_t>(sizeof(T)),
+           shape_.dim_sizes()[NDIMS] * DataTypeSize(dtype()));
   Eigen::array<Eigen::DenseIndex, NDIMS> dims;
   for (int d = 0; d < NDIMS; ++d) {
     dims[d] = shape_.dim_sizes()[d];
@@ -802,7 +821,7 @@ typename TTypes<T, NDIMS>::ConstTensor Tensor::reinterpret_last_dimension()
 
 template <size_t NDIMS>
 void Tensor::FillDimsAndValidateCompatibleShape(
-    gtl::ArraySlice<int64> new_sizes,
+    gtl::ArraySlice<int64_t> new_sizes,
     Eigen::array<Eigen::DenseIndex, NDIMS>* dims) const {
   CHECK_EQ(NDIMS, new_sizes.size());
   int64_t new_num_elements = 1;
@@ -815,7 +834,7 @@ void Tensor::FillDimsAndValidateCompatibleShape(
 
 template <typename T, size_t NDIMS>
 void Tensor::FillDimsAndValidateCompatibleShape(
-    gtl::ArraySlice<int64> new_sizes,
+    gtl::ArraySlice<int64_t> new_sizes,
     Eigen::array<Eigen::DenseIndex, NDIMS>* dims) const {
   CHECK_EQ(NDIMS, new_sizes.size());
   int64_t new_num_elements = 1;
@@ -825,7 +844,8 @@ void Tensor::FillDimsAndValidateCompatibleShape(
   }
   const int element_size = DataTypeSize(BaseType(dtype()));
   if (element_size > 0) {
-    CHECK_EQ(new_num_elements * sizeof(T), NumElements() * element_size);
+    CHECK_EQ(new_num_elements * static_cast<int64_t>(sizeof(T)),
+             NumElements() * element_size);
   } else {
     // DataTypeSize() returns 0 for some data types. In this case, assume that T
     // has the same size as the buffer type.
@@ -837,9 +857,27 @@ void Tensor::FillDimsAndValidateCompatibleShape(
   }
 }
 
+template <typename T>
+typename TTypes<T>::Flat Tensor::flat() {
+  // Equivalent to 'return shaped<T, 1>({NumElements()});'
+  CheckTypeAndIsAligned(DataTypeToEnum<T>::v());
+  Eigen::array<Eigen::DenseIndex, 1> dims;
+  dims[0] = NumElements();
+  return typename TTypes<T, 1>::Tensor(base<T>(), dims);
+}
+
+template <typename T>
+typename TTypes<T>::ConstFlat Tensor::flat() const {
+  // Equuivalent to 'return shaped<T, 1>({NumElements()});'
+  CheckTypeAndIsAligned(DataTypeToEnum<T>::v());
+  Eigen::array<Eigen::DenseIndex, 1> dims;
+  dims[0] = NumElements();
+  return typename TTypes<T, 1>::ConstTensor(base<T>(), dims);
+}
+
 template <typename T, size_t NDIMS>
 typename TTypes<T, NDIMS>::Tensor Tensor::shaped(
-    gtl::ArraySlice<int64> new_sizes) {
+    gtl::ArraySlice<int64_t> new_sizes) {
   CheckTypeAndIsAligned(DataTypeToEnum<T>::v());
   Eigen::array<Eigen::DenseIndex, NDIMS> dims;
   FillDimsAndValidateCompatibleShape(new_sizes, &dims);
@@ -848,7 +886,7 @@ typename TTypes<T, NDIMS>::Tensor Tensor::shaped(
 
 template <typename T, size_t NDIMS>
 typename TTypes<T, NDIMS>::Tensor Tensor::bit_casted_shaped(
-    gtl::ArraySlice<int64> new_sizes) {
+    gtl::ArraySlice<int64_t> new_sizes) {
   CHECK(IsAligned());
   Eigen::array<Eigen::DenseIndex, NDIMS> dims;
   FillDimsAndValidateCompatibleShape<T>(new_sizes, &dims);
@@ -857,7 +895,7 @@ typename TTypes<T, NDIMS>::Tensor Tensor::bit_casted_shaped(
 
 template <typename T, size_t NDIMS>
 typename TTypes<T, NDIMS>::UnalignedTensor Tensor::unaligned_shaped(
-    gtl::ArraySlice<int64> new_sizes) {
+    gtl::ArraySlice<int64_t> new_sizes) {
   CheckType(DataTypeToEnum<T>::v());
   Eigen::array<Eigen::DenseIndex, NDIMS> dims;
   FillDimsAndValidateCompatibleShape(new_sizes, &dims);
@@ -866,7 +904,7 @@ typename TTypes<T, NDIMS>::UnalignedTensor Tensor::unaligned_shaped(
 
 template <typename T, size_t NDIMS>
 typename TTypes<T, NDIMS>::ConstTensor Tensor::shaped(
-    gtl::ArraySlice<int64> new_sizes) const {
+    gtl::ArraySlice<int64_t> new_sizes) const {
   CheckType(DataTypeToEnum<T>::v());
   CHECK(IsAligned()) << "ptr = " << base<void>();
   Eigen::array<Eigen::DenseIndex, NDIMS> dims;
@@ -876,7 +914,7 @@ typename TTypes<T, NDIMS>::ConstTensor Tensor::shaped(
 
 template <typename T, size_t NDIMS>
 typename TTypes<T, NDIMS>::ConstTensor Tensor::bit_casted_shaped(
-    gtl::ArraySlice<int64> new_sizes) const {
+    gtl::ArraySlice<int64_t> new_sizes) const {
   CHECK(IsAligned());
   Eigen::array<Eigen::DenseIndex, NDIMS> dims;
   FillDimsAndValidateCompatibleShape<T>(new_sizes, &dims);
@@ -885,7 +923,7 @@ typename TTypes<T, NDIMS>::ConstTensor Tensor::bit_casted_shaped(
 
 template <typename T, size_t NDIMS>
 typename TTypes<T, NDIMS>::UnalignedConstTensor Tensor::unaligned_shaped(
-    gtl::ArraySlice<int64> new_sizes) const {
+    gtl::ArraySlice<int64_t> new_sizes) const {
   CheckType(DataTypeToEnum<T>::v());
   Eigen::array<Eigen::DenseIndex, NDIMS> dims;
   FillDimsAndValidateCompatibleShape(new_sizes, &dims);
@@ -922,7 +960,7 @@ typename TTypes<T, NDIMS>::Tensor Tensor::flat_outer_dims() {
 
 template <typename T, size_t NDIMS>
 typename TTypes<T, NDIMS>::Tensor Tensor::flat_inner_outer_dims(int64_t begin) {
-  gtl::InlinedVector<int64, 4> flat_outer =
+  gtl::InlinedVector<int64_t, 4> flat_outer =
       ComputeFlatOuterDims(shape_.dim_sizes(), begin + NDIMS);
   return shaped<T, NDIMS>(ComputeFlatInnerDims(flat_outer, NDIMS));
 }
@@ -940,7 +978,7 @@ typename TTypes<T, NDIMS>::ConstTensor Tensor::flat_outer_dims() const {
 template <typename T, size_t NDIMS>
 typename TTypes<T, NDIMS>::ConstTensor Tensor::flat_inner_outer_dims(
     int64_t begin) const {
-  gtl::InlinedVector<int64, 4> flat_outer =
+  gtl::InlinedVector<int64_t, 4> flat_outer =
       ComputeFlatOuterDims(shape_.dim_sizes(), begin + NDIMS);
   return shaped<T, NDIMS>(ComputeFlatInnerDims(flat_outer, NDIMS));
 }

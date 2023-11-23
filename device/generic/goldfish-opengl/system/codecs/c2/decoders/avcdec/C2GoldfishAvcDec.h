@@ -142,6 +142,10 @@ class C2GoldfishAvcDec : public SimpleC2Component {
         }
     } mBitstreamColorAspects;
 
+    MetaDataColorAspects mSentMetadata = {1, 0, 0, 0};
+
+    void sendMetadata();
+
     // profile
     struct timeval mTimeStart;
     struct timeval mTimeEnd;
@@ -155,6 +159,7 @@ class C2GoldfishAvcDec : public SimpleC2Component {
 
     std::unique_ptr<GoldfishH264Helper> mH264Helper;
 
+    int mId = -1;
     C2_DO_NOT_COPY(C2GoldfishAvcDec);
 };
 

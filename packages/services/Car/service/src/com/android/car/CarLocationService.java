@@ -19,8 +19,8 @@ package com.android.car;
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import android.app.ActivityManager;
+import android.car.ICarPerUserService;
 import android.car.ILocationManagerProxy;
-import android.car.IPerUserCarService;
 import android.car.builtin.util.Slogf;
 import android.car.drivingstate.CarDrivingStateEvent;
 import android.car.drivingstate.ICarDrivingStateChangeListener;
@@ -103,7 +103,7 @@ public class CarLocationService extends BroadcastReceiver implements CarServiceB
 
     private final CarPowerManager mCarPowerManager;
     private final CarDrivingStateService mCarDrivingStateService;
-    private final PerUserCarServiceHelper mPerUserCarServiceHelper;
+    private final CarPerUserServiceHelper mCarPerUserServiceHelper;
     private final CarPowerManagementService mCarPowerManagementService;
 
     @GuardedBy("mLock")
@@ -164,20 +164,20 @@ public class CarLocationService extends BroadcastReceiver implements CarServiceB
     };
 
     // Maintains mILocationManagerProxy for the current foreground user.
-    private final PerUserCarServiceHelper.ServiceCallback mUserServiceCallback =
-            new PerUserCarServiceHelper.ServiceCallback() {
+    private final CarPerUserServiceHelper.ServiceCallback mUserServiceCallback =
+            new CarPerUserServiceHelper.ServiceCallback() {
                 @Override
-                public void onServiceConnected(IPerUserCarService perUserCarService) {
-                    logd("Connected to PerUserCarService");
-                    if (perUserCarService == null) {
-                        logd("IPerUserCarService is null. Cannot get location manager proxy");
+                public void onServiceConnected(ICarPerUserService carPerUserService) {
+                    logd("Connected to CarPerUserService");
+                    if (carPerUserService == null) {
+                        logd("ICarPerUserService is null. Cannot get location manager proxy");
                         return;
                     }
                     synchronized (mLocationManagerProxyLock) {
                         try {
-                            mILocationManagerProxy = perUserCarService.getLocationManagerProxy();
+                            mILocationManagerProxy = carPerUserService.getLocationManagerProxy();
                         } catch (RemoteException e) {
-                            Slogf.e(TAG, "RemoteException from IPerUserCarService", e);
+                            Slogf.e(TAG, "RemoteException from ICarPerUserService", e);
                             return;
                         }
                     }
@@ -191,7 +191,7 @@ public class CarLocationService extends BroadcastReceiver implements CarServiceB
 
                 @Override
                 public void onPreUnbind() {
-                    logd("Before Unbinding from PerUserCarService");
+                    logd("Before Unbinding from CarPerUserService");
                     synchronized (mLocationManagerProxyLock) {
                         mILocationManagerProxy = null;
                     }
@@ -199,7 +199,7 @@ public class CarLocationService extends BroadcastReceiver implements CarServiceB
 
                 @Override
                 public void onServiceDisconnected() {
-                    logd("Disconnected from PerUserCarService");
+                    logd("Disconnected from CarPerUserService");
                     synchronized (mLocationManagerProxyLock) {
                         mILocationManagerProxy = null;
                     }
@@ -237,9 +237,9 @@ public class CarLocationService extends BroadcastReceiver implements CarServiceB
             Slogf.w(TAG, "Cannot find CarPowerManager.");
         }
 
-        mPerUserCarServiceHelper = CarLocalServices.getService(PerUserCarServiceHelper.class);
-        if (mPerUserCarServiceHelper == null) {
-            Slogf.w(TAG, "Cannot find PerUserCarServiceHelper.");
+        mCarPerUserServiceHelper = CarLocalServices.getService(CarPerUserServiceHelper.class);
+        if (mCarPerUserServiceHelper == null) {
+            Slogf.w(TAG, "Cannot find CarPerUserServiceHelper.");
         }
 
         mCarDrivingStateService = CarLocalServices.getService(CarDrivingStateService.class);
@@ -270,8 +270,8 @@ public class CarLocationService extends BroadcastReceiver implements CarServiceB
                     CarLocationService.this);
         }
 
-        if (mPerUserCarServiceHelper != null) {
-            mPerUserCarServiceHelper.registerServiceCallback(mUserServiceCallback);
+        if (mCarPerUserServiceHelper != null) {
+            mCarPerUserServiceHelper.registerServiceCallback(mUserServiceCallback);
         }
 
         synchronized (mLock) {
@@ -296,8 +296,8 @@ public class CarLocationService extends BroadcastReceiver implements CarServiceB
             mCarDrivingStateService.unregisterDrivingStateChangeListener(
                     mICarDrivingStateChangeEventListener);
         }
-        if (mPerUserCarServiceHelper != null) {
-            mPerUserCarServiceHelper.unregisterServiceCallback(mUserServiceCallback);
+        if (mCarPerUserServiceHelper != null) {
+            mCarPerUserServiceHelper.unregisterServiceCallback(mUserServiceCallback);
         }
         if (mCarPowerManagementService != null) {
             mCarPowerManagementService.removePowerPolicyListener(mPowerPolicyListener);
@@ -309,7 +309,7 @@ public class CarLocationService extends BroadcastReceiver implements CarServiceB
     @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     public void dump(IndentingPrintWriter writer) {
         writer.println(TAG);
-        mPerUserCarServiceHelper.dump(writer);
+        mCarPerUserServiceHelper.dump(writer);
         writer.printf("Context: %s\n", mContext);
         writer.printf("MAX_LOCATION_INJECTION_ATTEMPTS: %d\n", MAX_LOCATION_INJECTION_ATTEMPTS);
     }

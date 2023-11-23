@@ -22,6 +22,8 @@ import static com.android.ims.rcs.uce.presence.publish.PublishController.PUBLISH
 import static junit.framework.Assert.assertFalse;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -34,6 +36,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.RemoteCallbackList;
 import android.telephony.ims.RcsUceAdapter;
+import android.telephony.ims.SipDetails;
 import android.telephony.ims.aidl.IImsCapabilityCallback;
 import android.telephony.ims.aidl.IRcsUcePublishStateCallback;
 import android.telephony.ims.feature.RcsFeature.RcsImsCapabilities;
@@ -137,7 +140,7 @@ public class PublishControllerImplTest extends ImsTestBase {
         assertEquals(RcsUceAdapter.PUBLISH_STATE_NOT_PUBLISHED, initState);
 
         publishController.getPublishControllerCallback().updatePublishRequestResult(
-                RcsUceAdapter.PUBLISH_STATE_OK, Instant.now(), null);
+                RcsUceAdapter.PUBLISH_STATE_OK, Instant.now(), null, null);
         Handler handler = publishController.getPublishHandler();
         waitForHandlerAction(handler, 1000);
 
@@ -154,7 +157,7 @@ public class PublishControllerImplTest extends ImsTestBase {
         assertEquals(RcsUceAdapter.PUBLISH_STATE_NOT_PUBLISHED, initState);
 
         publishController.getPublishControllerCallback().updatePublishRequestResult(
-                RcsUceAdapter.PUBLISH_STATE_PUBLISHING, Instant.now(), null);
+                RcsUceAdapter.PUBLISH_STATE_PUBLISHING, Instant.now(), null, null);
         Handler handler = publishController.getPublishHandler();
         waitForHandlerAction(handler, 1000);
 
@@ -223,8 +226,10 @@ public class PublishControllerImplTest extends ImsTestBase {
     public void testPublishUpdated() throws Exception {
         PublishControllerImpl publishController = createPublishController();
         int responseCode = 200;
+        String responsePhrase = "OK";
 
-        publishController.onPublishUpdated(responseCode, "", 0, "");
+        publishController.onPublishUpdated(new SipDetails.Builder(SipDetails.METHOD_PUBLISH)
+                .setSipResponseCode(responseCode, responsePhrase).build());
 
         Handler handler = publishController.getPublishHandler();
         waitForHandlerAction(handler, 1000);
@@ -235,14 +240,64 @@ public class PublishControllerImplTest extends ImsTestBase {
         verify(mPublishProcessor).publishUpdated(captor.capture());
         PublishRequestResponse response = captor.getValue();
         int expectedCode = response.getNetworkRespSipCode().orElse(-1);
+        String expectedPhrase = response.getReasonPhrase().orElse("");
         assertEquals(responseCode, expectedCode);
+        assertEquals(responsePhrase, expectedPhrase);
+        SipDetails details = response.getSipDetails().orElse(null);
+        assertNotNull(details);
+        assertEquals(responseCode, details.getResponseCode());
+        assertEquals(responsePhrase, details.getResponsePhrase());
+    }
+
+    @Test
+    @SmallTest
+    public void testPublishUpdatedWithSipDetails() throws Exception {
+        PublishControllerImpl publishController = createPublishController();
+        int responseCode = 200;
+        String responsePhrase = "OK";
+        int reasonHdrCause = 7;
+        String reasonHdrText = "reasonHeaderText";
+        int cseq = 10;
+        String callId = "TestCallId";
+
+        publishController.onPublishUpdated(new SipDetails.Builder(SipDetails.METHOD_PUBLISH)
+                .setCSeq(cseq).setSipResponseCode(responseCode, responsePhrase).setCallId(callId)
+                .setSipResponseReasonHeader(reasonHdrCause, reasonHdrText).build());
+
+        Handler handler = publishController.getPublishHandler();
+        waitForHandlerAction(handler, 1000);
+
+        ArgumentCaptor<PublishRequestResponse> captor =
+                ArgumentCaptor.forClass(PublishRequestResponse.class);
+
+        verify(mPublishProcessor).publishUpdated(captor.capture());
+        PublishRequestResponse response = captor.getValue();
+        int expectedCode = response.getNetworkRespSipCode().orElse(-1);
+        String expectedPhrase = response.getReasonPhrase().orElse("");
+        int expectedReasonCause = response.getReasonHeaderCause().orElse(-1);
+        String expectedReasonText = response.getReasonHeaderText().orElse("");
+
+        assertEquals(responseCode, expectedCode);
+        assertEquals(responsePhrase, expectedPhrase);
+        assertEquals(reasonHdrCause, expectedReasonCause);
+        assertEquals(reasonHdrText, expectedReasonText);
+
+        SipDetails details = response.getSipDetails().orElse(null);
+        assertNotNull(details);
+        assertEquals(SipDetails.METHOD_PUBLISH, details.getMethod());
+        assertEquals(cseq, details.getCSeq());
+        assertEquals(responseCode, details.getResponseCode());
+        assertEquals(responsePhrase, details.getResponsePhrase());
+        assertEquals(reasonHdrCause, details.getReasonHeaderCause());
+        assertEquals(reasonHdrText, details.getReasonHeaderText());
+        assertEquals(callId, details.getCallId());
     }
 
     @Test
     @SmallTest
     public void testPublishingStateTargetingEnable() throws Exception {
         doReturn(1).when(mPublishStateCallbacks).getRegisteredCallbackCount();
-        Boolean boolObj = new Boolean(true);
+        Boolean boolObj = Boolean.TRUE;
         Object uid1 = (Object)boolObj;
         doReturn(uid1).when(mPublishStateCallbacks).getRegisteredCallbackCookie(anyInt());
 
@@ -282,7 +337,7 @@ public class PublishControllerImplTest extends ImsTestBase {
     @SmallTest
     public void testPublishingStateTargetingDisable() throws Exception {
         doReturn(1).when(mPublishStateCallbacks).getRegisteredCallbackCount();
-        Boolean boolObj = new Boolean(false);
+        Boolean boolObj = Boolean.FALSE;
         Object uid1 = (Object)boolObj;
         doReturn(uid1).when(mPublishStateCallbacks).getRegisteredCallbackCookie(anyInt());
 

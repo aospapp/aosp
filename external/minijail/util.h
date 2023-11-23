@@ -1,5 +1,5 @@
 /* util.h
- * Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+ * Copyright 2012 The ChromiumOS Authors
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  *
@@ -12,6 +12,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <syslog.h>
 #include <unistd.h>
@@ -220,6 +221,24 @@ static inline bool seccomp_default_ret_log(void)
 #endif
 }
 
+static inline bool block_symlinks_in_bindmount_paths(void)
+{
+#if defined(BLOCK_SYMLINKS_IN_BINDMOUNT_PATHS)
+	return true;
+#else
+	return false;
+#endif
+}
+
+static inline bool block_symlinks_in_noninit_mountns_tmp(void)
+{
+#if defined(BLOCK_SYMLINKS_IN_NONINIT_MOUNTNS_TMP)
+	return true;
+#else
+	return false;
+#endif
+}
+
 static inline size_t get_num_syscalls(void)
 {
 	return syscall_table_size;
@@ -235,6 +254,14 @@ int parse_size(size_t *size, const char *sizespec);
 char *strip(char *s);
 
 /*
+ * streq: determine whether two strings are equal.
+ */
+static inline bool streq(const char *s1, const char *s2)
+{
+	return strcmp(s1, s2) == 0;
+}
+
+/*
  * tokenize: locate the next token in @stringp using the @delim
  * @stringp A pointer to the string to scan for tokens
  * @delim   The delimiter to split by
@@ -248,6 +275,13 @@ char *strip(char *s);
 char *tokenize(char **stringp, const char *delim);
 
 char *path_join(const char *external_path, const char *internal_path);
+
+/*
+ * path_is_parent: checks whether @parent is a parent of @child.
+ * Note: this function does not evaluate '.' or '..' nor does it resolve
+ * symlinks.
+ */
+bool path_is_parent(const char *parent, const char *child);
 
 /*
  * consumebytes: consumes @length bytes from a buffer @buf of length @buflength

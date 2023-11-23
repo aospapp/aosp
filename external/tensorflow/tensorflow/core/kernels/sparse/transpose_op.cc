@@ -87,7 +87,7 @@ Status ValidateTransposeInputs(const ConstCSRComponent<T>& input,
         "Input nnz should equal the output values size. Got ", nnz, " vs. ",
         output.values.size());
   }
-  return Status::OK();
+  return OkStatus();
 }
 }  // namespace
 
@@ -150,8 +150,8 @@ Status CSRSparseMatrixTranspose<Device, T>::operator()(
   const int rank = input_matrix.dims();
   Tensor output_dense_shape_t(cpu_allocator(), DT_INT64, TensorShape({rank}));
   const Tensor& input_dense_shape_t = input_matrix.dense_shape();
-  auto input_dense_shape = input_dense_shape_t.vec<int64>();
-  auto output_dense_shape = output_dense_shape_t.vec<int64>();
+  auto input_dense_shape = input_dense_shape_t.vec<int64_t>();
+  auto output_dense_shape = output_dense_shape_t.vec<int64_t>();
   const int64_t batch_size = input_matrix.batch_size();
   if (rank == 3) {
     output_dense_shape(0) = batch_size;
@@ -205,7 +205,7 @@ Status CSRSparseMatrixTranspose<Device, T>::operator()(
     maybe_conj_inplace<Device, T>::run(d, &output_values_t);
   }
 
-  return Status::OK();
+  return OkStatus();
 }
 
 // CPU kernel for transposing a single component of a CSR SparseMatrix.
@@ -246,7 +246,7 @@ struct CSRSparseMatrixTransposeComponent<CPUDevice, T> {
         current_col_count[col_idx] += 1;
       }
     }
-    return Status::OK();
+    return OkStatus();
   }
 };
 
@@ -276,7 +276,7 @@ struct CSRSparseMatrixTransposeComponent<GPUDevice, T> {
         x.col_ind.data() /*csrColInd*/, y->values.data() /*cscVal*/,
         y->col_ind.data() /*cscRowInd*/, y->row_ptr.data() /*cscColPtr*/,
         copyValues);
-    return Status::OK();
+    return OkStatus();
   }
 };
 #endif  // GOOGLE_CUDA || TENSORFLOW_USE_ROCM

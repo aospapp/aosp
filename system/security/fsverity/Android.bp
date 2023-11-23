@@ -32,14 +32,12 @@ python_library_host {
     proto: {
         canonical_path_from_root: false,
     },
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
+}
+
+python_binary_host {
+    name: "fsverity_manifest_generator",
+    srcs: ["fsverity_manifest_generator.py"],
+    libs: ["fsverity_digests_proto_python"],
 }
 
 rust_protobuf {

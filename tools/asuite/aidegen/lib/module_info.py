@@ -34,7 +34,6 @@ from aidegen.lib.singleton import Singleton
 class AidegenModuleInfo(module_info.ModuleInfo, metaclass=Singleton):
     """Class that offers fast/easy lookup for Module related details."""
 
-
     def _load_module_info_file(self, module_file):
         """Loads the module file.
 
@@ -55,7 +54,7 @@ class AidegenModuleInfo(module_info.ModuleInfo, metaclass=Singleton):
             self.mod_info_file_path = Path(file_path)
 
         logging.debug('Loading %s as module-info.', file_path)
-        with open(file_path, encoding='utf8') as json_file:
+        with open(file_path, 'r', encoding='utf8') as json_file:
             mod_info = json.load(json_file)
 
         return module_info_target, mod_info

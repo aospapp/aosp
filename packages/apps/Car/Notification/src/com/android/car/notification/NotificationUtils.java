@@ -25,10 +25,11 @@ import android.content.pm.PackageManager;
 import android.content.res.TypedArray;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Process;
+import android.os.UserHandle;
+import android.os.UserManager;
 import android.service.notification.StatusBarNotification;
 import android.util.Log;
-
-import androidx.annotation.VisibleForTesting;
 
 import com.android.internal.graphics.ColorUtils;
 
@@ -40,15 +41,6 @@ public class NotificationUtils {
     private static final double MIN_LIGHTNESS = 0;
     private static final float MAX_LIGHTNESS = 1;
     private static final float LIGHT_COLOR_LUMINANCE_THRESHOLD = 0.5f;
-
-    /**
-     * Key that system apps can add to the Notification extras to override the default
-     * {@link R.bool.config_useLauncherIcon} behavior. If this is set to false, a small and a large
-     * icon should be specified to be shown properly in the relevant default configuration.
-     */
-    @VisibleForTesting
-    static final String EXTRA_USE_LAUNCHER_ICON =
-            "com.android.car.notification.EXTRA_USE_LAUNCHER_ICON";
 
     private NotificationUtils() {
     }
@@ -168,19 +160,17 @@ public class NotificationUtils {
     }
 
     /**
-     * Returns true if the launcher icon should be used for a given notification.
+     * Returns the current user id for this instance of the notification app/library.
      */
-    public static boolean shouldUseLauncherIcon(Context context, StatusBarNotification sbn) {
-        Bundle notificationExtras = sbn.getNotification().extras;
-        if (notificationExtras == null) {
-            return context.getResources().getBoolean(R.bool.config_useLauncherIcon);
-        }
-
-        if (notificationExtras.containsKey(EXTRA_USE_LAUNCHER_ICON)
-                && isSystemApp(context, sbn)) {
-            return notificationExtras.getBoolean(EXTRA_USE_LAUNCHER_ICON);
-        }
-        return context.getResources().getBoolean(R.bool.config_useLauncherIcon);
+    public static int getCurrentUser(Context context) {
+        UserManager userManager = context.getSystemService(UserManager.class);
+        UserHandle processUser = Process.myUserHandle();
+        boolean isSecondaryUserNotifications =
+                userManager.isVisibleBackgroundUsersSupported()
+                        && !processUser.isSystem()
+                        && processUser.getIdentifier() != ActivityManager.getCurrentUser();
+        return isSecondaryUserNotifications ? processUser.getIdentifier()
+                : ActivityManager.getCurrentUser();
     }
 
     private static boolean isSystemPrivilegedOrPlatformKeyInner(Context context,

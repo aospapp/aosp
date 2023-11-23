@@ -19,10 +19,12 @@ package android.media.misc.cts;
 import static org.junit.Assert.assertEquals;
 
 import android.media.MediaMetrics;
-import android.media.cts.NonMediaMainlineTest;
 import android.os.Bundle;
-import android.os.Process;
+
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.NonMainlineTest;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -30,7 +32,7 @@ import org.junit.runner.RunWith;
  * Tests for MediaMetrics item handling.
  */
 
-@NonMediaMainlineTest
+@NonMainlineTest
 @RunWith(AndroidJUnit4.class)
 public class MediaMetricsTest {
 

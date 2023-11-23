@@ -21,6 +21,7 @@ import android.content.pm.PackageManager;
 import android.database.DataSetObserver;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.util.Log;
 import android.util.Pair;
 import android.view.View;
 
@@ -36,8 +37,11 @@ import java.util.List;
 /**
  * Test class to verify transparency for policies enforced by device/profile owner.
  */
-public class PolicyTransparencyTestListActivity extends PassFailButtons.TestListActivity
+public final class PolicyTransparencyTestListActivity extends PassFailButtons.TestListActivity
         implements View.OnClickListener {
+
+    private static final String TAG = PolicyTransparencyTestListActivity.class.getSimpleName();
+
     public static final String ACTION_CHECK_POLICY_TRANSPARENCY =
             "com.android.cts.verifier.managedprovisioning.action.CHECK_POLICY_TRANSPARENCY";
 
@@ -121,6 +125,9 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
                     + EXTRA_MODE);
         }
         mMode = getIntent().getIntExtra(EXTRA_MODE, MODE_DEVICE_OWNER);
+
+        Log.d(TAG, "onCreate(): mode=" + mMode);
+
         if (mMode != MODE_DEVICE_OWNER && mMode != MODE_MANAGED_PROFILE
                 && mMode != MODE_MANAGED_USER) {
             throw new RuntimeException("Unknown mode " + mMode);
@@ -154,14 +161,18 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
         for (Pair<Intent, Integer> policy : POLICIES) {
             Intent intent = policy.first;
             String test = intent.getStringExtra(PolicyTransparencyTestActivity.EXTRA_TEST);
+            Log.d(TAG, "addTestsToAdapter(): policy=" + policy + ", mode=" + mMode
+                    + ", test=" + test);
             if (!isPolicyValid(test)) {
                 continue;
             }
 
             if (mMode == MODE_MANAGED_PROFILE && !ALSO_VALID_FOR_MANAGED_PROFILE.contains(test)) {
+                Log.d(TAG, "addTestsToAdapter(): skipping " + test + " on managed profile");
                 continue;
             }
             if (mMode == MODE_MANAGED_USER && !ALSO_VALID_FOR_MANAGED_USER.contains(test)) {
+                Log.d(TAG, "addTestsToAdapter(): skipping " + test + " on managed user");
                 continue;
             }
             String title = getString(policy.second);
@@ -170,7 +181,7 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
             intent.putExtra(PolicyTransparencyTestActivity.EXTRA_TEST_ID, testId);
             // This restriction is set per user so current user's DPM should be used instead of
             // device owner's DPM.
-            if (mMode == MODE_DEVICE_OWNER && ALSO_VALID_FOR_MANAGED_USER.contains(test)) {
+            if (mMode == MODE_DEVICE_OWNER || ALSO_VALID_FOR_MANAGED_USER.contains(test)) {
                 intent.putExtra(CommandReceiverActivity.EXTRA_USE_CURRENT_USER_DPM, true);
             }
             adapter.add(TestListItem.newTest(title, testId, intent, null));
@@ -208,7 +219,6 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
 
     private void setSupportMsgButtonClickListeners() {
         findViewById(R.id.short_msg_button).setOnClickListener(this);
-        findViewById(R.id.long_msg_button).setOnClickListener(this);
     }
 
     @Override
@@ -217,11 +227,6 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
             final Intent intent = new Intent(SetSupportMessageActivity.ACTION_SET_SUPPORT_MSG);
             intent.putExtra(SetSupportMessageActivity.EXTRA_SUPPORT_MSG_TYPE,
                     SetSupportMessageActivity.TYPE_SHORT_MSG);
-            startActivity(intent);
-        } else if (view.getId() == R.id.long_msg_button) {
-            final Intent intent = new Intent(SetSupportMessageActivity.ACTION_SET_SUPPORT_MSG);
-            intent.putExtra(SetSupportMessageActivity.EXTRA_SUPPORT_MSG_TYPE,
-                    SetSupportMessageActivity.TYPE_LONG_MSG);
             startActivity(intent);
         }
     }
@@ -237,7 +242,9 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
         final Intent intent = new Intent(CommandReceiverActivity.ACTION_EXECUTE_COMMAND);
         intent.putExtra(CommandReceiverActivity.EXTRA_COMMAND,
                 CommandReceiverActivity.COMMAND_CLEAR_POLICIES);
+        intent.putExtra(CommandReceiverActivity.EXTRA_USE_CURRENT_USER_DPM, true);
         intent.putExtra(PolicyTransparencyTestListActivity.EXTRA_MODE, mMode);
+        Log.d(TAG, "finish(): starting activity using " + intent);
         startActivity(intent);
     }
 }

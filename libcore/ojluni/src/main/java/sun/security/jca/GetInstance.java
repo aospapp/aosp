@@ -75,7 +75,7 @@ public class GetInstance {
     public static Service getService(String type, String algorithm,
             String provider) throws NoSuchAlgorithmException,
             NoSuchProviderException {
-        if ((provider == null) || (provider.length() == 0)) {
+        if (provider == null || provider.isEmpty()) {
             throw new IllegalArgumentException("missing provider");
         }
         Provider p = Providers.getProviderList().getProvider(provider);
@@ -117,7 +117,7 @@ public class GetInstance {
     /**
      * This method exists for compatibility with JCE only. It will be removed
      * once JCE has been changed to use the replacement method.
-     * @deprecated use getServices(List<ServiceId>) instead
+     * @deprecated use {@code getServices(List<ServiceId>)} instead
      */
     @Deprecated
     public static List<Service> getServices(String type,

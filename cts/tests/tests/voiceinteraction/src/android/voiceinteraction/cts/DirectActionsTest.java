@@ -10,7 +10,7 @@
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions andf
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  */
 
@@ -23,6 +23,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.app.DirectAction;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.RemoteCallback;
@@ -88,6 +89,25 @@ public class DirectActionsTest extends AbstractVoiceInteractionTestCase {
 
             String packageName = mActivityControl.getPackageName();
             assertThat(packageName).isEqualTo("android.voiceinteraction.service");
+        } finally {
+            mSessionControl.stopVoiceInteractionSession();
+            mActivityControl.finishActivity();
+        }
+    }
+
+    @AppModeFull(reason = "testPerformDirectAction() is enough")
+    @Test
+    public void testGrantVisibilityOnRequestDirectActions() throws Exception {
+        mActivityControl.startActivity();
+        mSessionControl.startVoiceInteractionSession();
+        try {
+            // Get the actions to set up the VoiceInteractor, which triggers implicit visibility
+            // granting.
+            mSessionControl.getDirectActions();
+
+            // If visibility is granted, then package info is retrieved successfully.
+            PackageInfo packageInfo = mActivityControl.getPackageInfo();
+            assertThat(packageInfo).isNotNull();
         } finally {
             mSessionControl.stopVoiceInteractionSession();
             mActivityControl.finishActivity();
@@ -254,6 +274,12 @@ public class DirectActionsTest extends AbstractVoiceInteractionTestCase {
             final Bundle result = executeRemoteCommand(
                     Utils.DIRECT_ACTIONS_ACTIVITY_CMD_GET_PACKAGE_NAME);
             return result.getString(Utils.DIRECT_ACTIONS_KEY_RESULT);
+        }
+
+        private PackageInfo getPackageInfo() throws Exception {
+            final Bundle result = executeRemoteCommand(
+                    Utils.DIRECT_ACTIONS_ACTIVITY_CMD_GET_PACKAGE_INFO);
+            return (PackageInfo) result.getParcelable(Utils.DIRECT_ACTIONS_KEY_RESULT);
         }
 
         void finishActivity() throws Exception {

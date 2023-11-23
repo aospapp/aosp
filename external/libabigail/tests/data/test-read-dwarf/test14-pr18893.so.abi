@@ -2705,8 +2705,6 @@
       </member-function>
     </class-decl>
   </abi-instr>
-  <abi-instr address-size='64' path='libnurbs/interface/insurfeval.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
-  </abi-instr>
   <abi-instr address-size='64' path='libnurbs/internals/arc.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
     <type-decl name='char' size-in-bits='8' id='type-id-106'/>
     <array-type-def dimensions='1' type-id='type-id-107' size-in-bits='2048' id='type-id-108'>
@@ -5086,8 +5084,6 @@
       </member-function>
     </class-decl>
   </abi-instr>
-  <abi-instr address-size='64' path='libnurbs/internals/arctess.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
-  </abi-instr>
   <abi-instr address-size='64' path='libnurbs/internals/backend.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
     <array-type-def dimensions='2' type-id='type-id-1' size-in-bits='384' id='type-id-138'>
       <subrange length='3' type-id='type-id-3' id='type-id-90'/>
@@ -6594,10 +6590,6 @@
   <abi-instr address-size='64' path='libnurbs/internals/knotvector.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
     <pointer-type-def type-id='type-id-219' size-in-bits='64' id='type-id-83'/>
   </abi-instr>
-  <abi-instr address-size='64' path='libnurbs/internals/mapdesc.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
-  </abi-instr>
-  <abi-instr address-size='64' path='libnurbs/internals/mapdescv.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
-  </abi-instr>
   <abi-instr address-size='64' path='libnurbs/internals/maplist.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
     <class-decl name='Maplist' size-in-bits='2688' visibility='default' filepath='libnurbs/internals/maplist.h' line='46' column='1' id='type-id-63'>
       <data-member access='private' layout-offset-in-bits='0'>
@@ -7600,8 +7592,6 @@
       <subrange length='2' type-id='type-id-3' id='type-id-87'/>
     </array-type-def>
     <pointer-type-def type-id='type-id-157' size-in-bits='64' id='type-id-160'/>
-  </abi-instr>
-  <abi-instr address-size='64' path='libnurbs/internals/quilt.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
   </abi-instr>
   <abi-instr address-size='64' path='libnurbs/internals/slicer.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
     <class-decl name='gridWrap' size-in-bits='384' visibility='default' filepath='libnurbs/nurbtess/gridWrap.h' line='42' column='1' id='type-id-278'>
@@ -8988,22 +8978,6 @@
     <pointer-type-def type-id='type-id-308' size-in-bits='64' id='type-id-309'/>
     <pointer-type-def type-id='type-id-309' size-in-bits='64' id='type-id-310'/>
   </abi-instr>
-  <abi-instr address-size='64' path='libnurbs/nurbtess/monoTriangulation.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
-  </abi-instr>
-  <abi-instr address-size='64' path='libnurbs/nurbtess/polyDBG.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
-  </abi-instr>
-  <abi-instr address-size='64' path='libnurbs/nurbtess/sampleComp.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
-  </abi-instr>
-  <abi-instr address-size='64' path='libnurbs/nurbtess/sampleCompBot.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
-  </abi-instr>
-  <abi-instr address-size='64' path='libnurbs/nurbtess/sampleCompRight.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
-  </abi-instr>
-  <abi-instr address-size='64' path='libnurbs/nurbtess/sampleCompTop.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
-  </abi-instr>
-  <abi-instr address-size='64' path='libnurbs/nurbtess/sampleMonoPoly.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
-  </abi-instr>
-  <abi-instr address-size='64' path='libnurbs/nurbtess/sampledLine.cc' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C_plus_plus'>
-  </abi-instr>
   <abi-instr address-size='64' path='libtess/tess.c' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-T0fsxk/Mesa-8.0.5/src/glu/sgi' language='LANG_C99'>
     <array-type-def dimensions='1' type-id='type-id-311' size-in-bits='25600' id='type-id-312'>
       <subrange length='100' type-id='type-id-3' id='type-id-313'/>
@@ -9019,11 +8993,11 @@
     <array-type-def dimensions='1' type-id='type-id-38' size-in-bits='512' id='type-id-319'>
       <subrange length='8' type-id='type-id-3' id='type-id-320'/>
     </array-type-def>
-    <type-decl name='unnamed-enum-underlying-type-32' is-anonymous='yes' size-in-bits='32' alignment-in-bits='32' id='type-id-12'/>
-    <type-decl name='unsigned long int' size-in-bits='64' id='type-id-3'/>
+    <type-decl name='long unsigned int' size-in-bits='64' id='type-id-3'/>
     <array-type-def dimensions='1' type-id='type-id-3' size-in-bits='1024' id='type-id-321'>
       <subrange length='16' type-id='type-id-3' id='type-id-322'/>
     </array-type-def>
+    <type-decl name='unnamed-enum-underlying-type-32' is-anonymous='yes' size-in-bits='32' alignment-in-bits='32' id='type-id-12'/>
     <typedef-decl name='GLfloat' type-id='type-id-15' filepath='../../../include/GL/gl.h' line='160' column='1' id='type-id-23'/>
     <typedef-decl name='GLUtesselator' type-id='type-id-323' filepath='../../../include/GL/glu.h' line='276' column='1' id='type-id-324'/>
     <typedef-decl name='__jmp_buf' type-id='type-id-319' filepath='/usr/include/bits/setjmp.h' line='32' column='1' id='type-id-325'/>

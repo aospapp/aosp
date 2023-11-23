@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "test/mock/mock_osi_future.h"
 
@@ -50,23 +48,23 @@ struct future_ready future_ready;
 
 // Mocked functions, if any
 void* future_await(future_t* future) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_future::future_await(future);
 }
 future_t* future_new(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_future::future_new();
 }
 future_t* future_new_named(const char* name) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_future::future_new_named(name);
 }
 future_t* future_new_immediate(void* value) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_future::future_new_immediate(value);
 }
 void future_ready(future_t* future, void* value) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_future::future_ready(future, value);
 }
 // Mocked functions complete

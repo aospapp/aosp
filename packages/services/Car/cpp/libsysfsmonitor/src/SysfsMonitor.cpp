@@ -46,6 +46,13 @@ Result<void> SysfsMonitor::init(CallbackFunc callback) {
         return Error() << "Cannot create epoll instance: errno = " << errno;
     }
     mCallback = callback;
+
+    pipe(mPipefd);
+    struct epoll_event eventItem = {};
+    eventItem.events = EPOLLIN;
+    eventItem.data.fd = mPipefd[0];
+    epoll_ctl(mEpollFd, EPOLL_CTL_ADD, mPipefd[0], &eventItem);
+
     return {};
 }
 
@@ -53,14 +60,17 @@ Result<void> SysfsMonitor::release() {
     if (mEpollFd < 0) {
         return Error() << "Epoll instance wasn't created";
     }
-    for (const int32_t fd : mMonitoringFds) {
-        if (epoll_ctl(mEpollFd, EPOLL_CTL_DEL, fd, /*event=*/nullptr)) {
-            ALOGW("Failed to deregister fd(%d) from epoll instance: errno = %d", fd, errno);
-        }
+    // kill the observe loop
+    if (mMonitoringThread.joinable()) {
+        int c = 'q';
+        write(mPipefd[1], &c, 1);
+        mMonitoringThread.join();
     }
     mMonitoringFds.clear();
     mEpollFd.reset();
     mCallback = nullptr;
+    close(mPipefd[0]);
+    close(mPipefd[1]);
     return {};
 }
 
@@ -105,29 +115,31 @@ Result<void> SysfsMonitor::observe() {
         return Error() << "Epoll instance is not initialized";
     }
 
-    struct epoll_event events[EPOLL_MAX_EVENTS];
-    while (true) {
-        int pollResult = epoll_wait(mEpollFd, events, EPOLL_MAX_EVENTS, /*timeout=*/-1);
-        if (pollResult < 0) {
-            ALOGW("Polling sysfs failed, but continue polling: errno = %d", errno);
-            continue;
-        }
-        std::vector<int32_t> fds;
-        for (int i = 0; i < pollResult; i++) {
-            int fd = events[i].data.fd;
-            if (mMonitoringFds.count(fd) == 0) {
+    mMonitoringThread = std::thread([this]() {
+        struct epoll_event events[EPOLL_MAX_EVENTS + 1];  // +1 for the pipe fd to quit this loop
+        while (true) {
+            int pollResult = epoll_wait(mEpollFd, events, EPOLL_MAX_EVENTS + 1, /*timeout=*/-1);
+            if (pollResult < 0) {
+                ALOGW("Polling sysfs failed, but continue polling: errno = %d", errno);
                 continue;
             }
-            if (events[i].events & EPOLLIN) {
-                fds.push_back(fd);
-            } else if (events[i].events & EPOLLERR) {
-                ALOGW("An error occurred when polling fd(%d)", fd);
+            std::vector<int32_t> fds;
+            for (int i = 0; i < pollResult; i++) {
+                int fd = events[i].data.fd;
+                if (fd == mPipefd[0]) {
+                    return;
+                }
+                if (events[i].events & EPOLLIN) {
+                    fds.push_back(fd);
+                } else if (events[i].events & EPOLLERR) {
+                    ALOGW("An error occurred when polling fd(%d)", fd);
+                }
+            }
+            if (mCallback && fds.size() > 0) {
+                mCallback(fds);
             }
         }
-        if (mCallback && fds.size() > 0) {
-            mCallback(fds);
-        }
-    }
+    });
     return {};
 }
 

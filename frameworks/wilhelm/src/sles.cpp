@@ -37,7 +37,7 @@ bool IsInterfaceInitialized(IObject *thiz, unsigned MPH)
     if (0 > (index = clazz->mMPH_to_index[MPH])) {
         return false;
     }
-    assert(MAX_INDEX >= clazz->mInterfaceCount);
+    assert(SLES_MAX_INDEX >= clazz->mInterfaceCount);
     assert(clazz->mInterfaceCount > (unsigned) index);
     switch (thiz->mInterfaceStates[index]) {
     case INTERFACE_EXPOSED:

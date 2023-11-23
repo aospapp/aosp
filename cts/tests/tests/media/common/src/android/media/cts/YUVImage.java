@@ -19,9 +19,6 @@ package android.media.cts;
 import android.graphics.ImageFormat;
 import android.graphics.Point;
 
-import android.media.cts.CodecImage;
-import android.media.cts.CodecUtils;
-
 import java.nio.ByteBuffer;
 
 public class YUVImage extends CodecImage {

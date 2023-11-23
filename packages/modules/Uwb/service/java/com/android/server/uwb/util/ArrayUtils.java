@@ -53,10 +53,21 @@ public class ArrayUtils {
         return array == null || array.length == 0;
     }
 
-    public static short[] toPrimitive(List<Short> list) {
-        short[] array = new short[list.size()];
+    /**
+     * Converts from List of bytes to byte array
+     * @param list
+     * @return byte[]
+     */
+    public static byte[] toPrimitive(List<byte[]> list) {
+        if (list.size() == 0) {
+            return new byte[0];
+        }
+        int byteLen = list.get(0).length;
+        byte[] array = new byte[list.size() * byteLen];
         for (int i = 0; i < list.size(); i++) {
-            array[i] = list.get(i).shortValue();
+            for (int j = 0; j < list.get(i).length; j++) {
+                array[i * byteLen + j] = list.get(i)[j];
+            }
         }
         return array;
     }

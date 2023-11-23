@@ -44,6 +44,14 @@ class MockCodecManager {
   MOCK_METHOD((le_audio::set_configurations::AudioSetConfigurations*),
               GetOffloadCodecConfig,
               (le_audio::types::LeAudioContextType ctx_type), (const));
+  MOCK_METHOD((le_audio::broadcast_offload_config*), GetBroadcastOffloadConfig,
+              (), (const));
+  MOCK_METHOD(
+      (void), UpdateBroadcastConnHandle,
+      (const std::vector<uint16_t>& conn_handle,
+       std::function<void(const ::le_audio::broadcast_offload_config& config)>
+           update_receiver));
+  MOCK_METHOD((int), GetAidlVersionInUsed, (), (const));
 
   MOCK_METHOD((void), Start, ());
   MOCK_METHOD((void), Stop, ());

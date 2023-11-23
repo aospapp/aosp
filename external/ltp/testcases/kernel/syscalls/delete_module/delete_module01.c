@@ -14,9 +14,9 @@
  */
 
 #include <errno.h>
-#include "lapi/syscalls.h"
 #include "tst_test.h"
 #include "tst_module.h"
+#include "lapi/syscalls.h"
 
 #define MODULE_NAME	"dummy_del_mod"
 #define MODULE_NAME_KO	"dummy_del_mod.ko"
@@ -49,6 +49,8 @@ static void cleanup(void)
 
 static struct tst_test test = {
 	.needs_root = 1,
+	/* lockdown requires signed modules */
+	.skip_in_lockdown = 1,
 	.cleanup = cleanup,
 	.test_all = do_delete_module,
 };

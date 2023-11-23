@@ -19,6 +19,10 @@
 #include "arch/instruction_set.h"
 #include "base/compiler_filter.h"
 #include "base/metrics/metrics.h"
+#include "gc/collector/mark_compact.h"
+#include "gc/heap.h"
+#include "gc/space/image_space.h"
+#include "runtime.h"
 #include "statslog_art.h"
 
 #pragma clang diagnostic push
@@ -44,27 +48,49 @@ constexpr std::optional<int32_t> EncodeDatumId(DatumId datum_id) {
     case DatumId::kClassVerificationTotalTime:
       return std::make_optional(
           statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_CLASS_VERIFICATION_TIME_COUNTER_MICROS);
+    case DatumId::kClassVerificationTotalTimeDelta:
+      return std::make_optional(
+          statsd::ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_CLASS_VERIFICATION_TIME_MICROS);
     case DatumId::kJitMethodCompileTotalTime:
       return std::make_optional(
           statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_JIT_METHOD_COMPILE_TIME_MICROS);
+    case DatumId::kJitMethodCompileTotalTimeDelta:
+      return std::make_optional(
+          statsd::ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_JIT_METHOD_COMPILE_TIME_MICROS);
     case DatumId::kClassLoadingTotalTime:
       return std::make_optional(
           statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_CLASS_LOADING_TIME_COUNTER_MICROS);
+    case DatumId::kClassLoadingTotalTimeDelta:
+      return std::make_optional(
+          statsd::ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_CLASS_LOADING_TIME_MICROS);
     case DatumId::kClassVerificationCount:
       return std::make_optional(
           statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_CLASS_VERIFICATION_COUNT);
+    case DatumId::kClassVerificationCountDelta:
+      return std::make_optional(
+          statsd::ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_CLASS_VERIFICATION_COUNT);
     case DatumId::kWorldStopTimeDuringGCAvg:
       return std::make_optional(
           statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_GC_WORLD_STOP_TIME_AVG_MICROS);
     case DatumId::kYoungGcCount:
       return std::make_optional(
           statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_GC_YOUNG_GENERATION_COLLECTION_COUNT);
+    case DatumId::kYoungGcCountDelta:
+      return std::make_optional(
+          statsd::
+              ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_GC_YOUNG_GENERATION_COLLECTION_COUNT);
     case DatumId::kFullGcCount:
       return std::make_optional(
           statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_GC_FULL_HEAP_COLLECTION_COUNT);
+    case DatumId::kFullGcCountDelta:
+      return std::make_optional(
+          statsd::ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_GC_FULL_HEAP_COLLECTION_COUNT);
     case DatumId::kTotalBytesAllocated:
       return std::make_optional(
           statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_GC_TOTAL_BYTES_ALLOCATED);
+    case DatumId::kTotalBytesAllocatedDelta:
+      return std::make_optional(
+          statsd::ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_GC_TOTAL_BYTES_ALLOCATED);
     case DatumId::kYoungGcCollectionTime:
       return std::make_optional(
           statsd::
@@ -83,6 +109,9 @@ constexpr std::optional<int32_t> EncodeDatumId(DatumId datum_id) {
     case DatumId::kJitMethodCompileCount:
       return std::make_optional(
           statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_JIT_METHOD_COMPILE_COUNT);
+    case DatumId::kJitMethodCompileCountDelta:
+      return std::make_optional(
+          statsd::ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_JIT_METHOD_COMPILE_COUNT);
     case DatumId::kYoungGcTracingThroughput:
       return std::make_optional(
           statsd::
@@ -94,6 +123,9 @@ constexpr std::optional<int32_t> EncodeDatumId(DatumId datum_id) {
     case DatumId::kTotalGcCollectionTime:
       return std::make_optional(
           statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_GC_TOTAL_COLLECTION_TIME_MS);
+    case DatumId::kTotalGcCollectionTimeDelta:
+      return std::make_optional(
+          statsd::ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_GC_TOTAL_COLLECTION_TIME_MS);
     case DatumId::kYoungGcThroughputAvg:
       return std::make_optional(
           statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_GC_YOUNG_GENERATION_COLLECTION_THROUGHPUT_AVG_MB_PER_SEC);
@@ -106,6 +138,60 @@ constexpr std::optional<int32_t> EncodeDatumId(DatumId datum_id) {
     case DatumId::kFullGcTracingThroughputAvg:
       return std::make_optional(
           statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_GC_FULL_HEAP_TRACING_THROUGHPUT_AVG_MB_PER_SEC);
+    case DatumId::kGcWorldStopTime:
+      return std::make_optional(
+          statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_GC_WORLD_STOP_TIME_US);
+    case DatumId::kGcWorldStopTimeDelta:
+      return std::make_optional(
+          statsd::ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_GC_WORLD_STOP_TIME_US);
+    case DatumId::kGcWorldStopCount:
+      return std::make_optional(
+          statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_GC_WORLD_STOP_COUNT);
+    case DatumId::kGcWorldStopCountDelta:
+      return std::make_optional(
+          statsd::ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_GC_WORLD_STOP_COUNT);
+    case DatumId::kYoungGcScannedBytes:
+      return std::make_optional(
+          statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_GC_YOUNG_GENERATION_COLLECTION_SCANNED_BYTES);
+    case DatumId::kYoungGcScannedBytesDelta:
+      return std::make_optional(
+          statsd::
+              ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_GC_YOUNG_GENERATION_COLLECTION_SCANNED_BYTES);
+    case DatumId::kYoungGcFreedBytes:
+      return std::make_optional(
+          statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_GC_YOUNG_GENERATION_COLLECTION_FREED_BYTES);
+    case DatumId::kYoungGcFreedBytesDelta:
+      return std::make_optional(
+          statsd::
+              ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_GC_YOUNG_GENERATION_COLLECTION_FREED_BYTES);
+    case DatumId::kYoungGcDuration:
+      return std::make_optional(
+          statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_GC_YOUNG_GENERATION_COLLECTION_DURATION_MS);
+    case DatumId::kYoungGcDurationDelta:
+      return std::make_optional(
+          statsd::
+              ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_GC_YOUNG_GENERATION_COLLECTION_DURATION_MS);
+    case DatumId::kFullGcScannedBytes:
+      return std::make_optional(
+          statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_GC_FULL_HEAP_COLLECTION_SCANNED_BYTES);
+    case DatumId::kFullGcScannedBytesDelta:
+      return std::make_optional(
+          statsd::
+              ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_GC_FULL_HEAP_COLLECTION_SCANNED_BYTES);
+    case DatumId::kFullGcFreedBytes:
+      return std::make_optional(
+          statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_GC_FULL_HEAP_COLLECTION_FREED_BYTES);
+    case DatumId::kFullGcFreedBytesDelta:
+      return std::make_optional(
+          statsd::
+              ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_GC_FULL_HEAP_COLLECTION_FREED_BYTES);
+    case DatumId::kFullGcDuration:
+      return std::make_optional(
+          statsd::ART_DATUM_REPORTED__KIND__ART_DATUM_GC_FULL_HEAP_COLLECTION_DURATION_MS);
+    case DatumId::kFullGcDurationDelta:
+      return std::make_optional(
+          statsd::
+              ART_DATUM_DELTA_REPORTED__KIND__ART_DATUM_DELTA_GC_FULL_HEAP_COLLECTION_DURATION_MS);
   }
 }
 
@@ -185,6 +271,9 @@ constexpr int32_t EncodeCompilationReason(CompilationReason reason) {
       return statsd::ART_DATUM_REPORTED__COMPILATION_REASON__ART_COMPILATION_REASON_CMDLINE;
     case CompilationReason::kVdex:
       return statsd::ART_DATUM_REPORTED__COMPILATION_REASON__ART_COMPILATION_REASON_VDEX;
+    case CompilationReason::kBootAfterMainlineUpdate:
+      return statsd::
+          ART_DATUM_REPORTED__COMPILATION_REASON__ART_COMPILATION_REASON_BOOT_AFTER_MAINLINE_UPDATE;
   }
 }
 
@@ -196,12 +285,59 @@ constexpr int32_t EncodeInstructionSet(InstructionSet isa) {
       return statsd::ART_DATUM_REPORTED__ISA__ART_ISA_ARM;
     case InstructionSet::kArm64:
       return statsd::ART_DATUM_REPORTED__ISA__ART_ISA_ARM64;
+    case InstructionSet::kRiscv64:
+      return statsd::ART_DATUM_REPORTED__ISA__ART_ISA_RISCV64;
     case InstructionSet::kX86:
       return statsd::ART_DATUM_REPORTED__ISA__ART_ISA_X86;
     case InstructionSet::kX86_64:
       return statsd::ART_DATUM_REPORTED__ISA__ART_ISA_X86_64;
     case InstructionSet::kNone:
       return statsd::ART_DATUM_REPORTED__ISA__ART_ISA_UNKNOWN;
+  }
+}
+
+constexpr int32_t EncodeGcCollectorType(gc::CollectorType collector_type) {
+  switch (collector_type) {
+    case gc::CollectorType::kCollectorTypeMS:
+      return statsd::ART_DATUM_REPORTED__GC__ART_GC_COLLECTOR_TYPE_MARK_SWEEP;
+    case gc::CollectorType::kCollectorTypeCMS:
+      return statsd::ART_DATUM_REPORTED__GC__ART_GC_COLLECTOR_TYPE_CONCURRENT_MARK_SWEEP;
+    case gc::CollectorType::kCollectorTypeCMC:
+      return statsd::ART_DATUM_REPORTED__GC__ART_GC_COLLECTOR_TYPE_CONCURRENT_MARK_COMPACT;
+    case gc::CollectorType::kCollectorTypeSS:
+      return statsd::ART_DATUM_REPORTED__GC__ART_GC_COLLECTOR_TYPE_SEMI_SPACE;
+    case gc::kCollectorTypeCC:
+      return statsd::ART_DATUM_REPORTED__GC__ART_GC_COLLECTOR_TYPE_CONCURRENT_COPYING;
+    case gc::kCollectorTypeCCBackground:
+      return statsd::ART_DATUM_REPORTED__GC__ART_GC_COLLECTOR_TYPE_CONCURRENT_COPYING_BACKGROUND;
+    case gc::kCollectorTypeNone:
+    case gc::kCollectorTypeInstrumentation:
+    case gc::kCollectorTypeAddRemoveAppImageSpace:
+    case gc::kCollectorTypeDebugger:
+    case gc::kCollectorTypeHomogeneousSpaceCompact:
+    case gc::kCollectorTypeClassLinker:
+    case gc::kCollectorTypeJitCodeCache:
+    case gc::kCollectorTypeHprof:
+    case gc::kCollectorTypeAddRemoveSystemWeakHolder:
+    case gc::kCollectorTypeGetObjectsAllocated:
+    case gc::kCollectorTypeCriticalSection:
+    case gc::kCollectorTypeHeapTrim:
+      return statsd::ART_DATUM_REPORTED__GC__ART_GC_COLLECTOR_TYPE_UNKNOWN;
+  }
+}
+
+int32_t EncodeUffdMinorFaultSupport() {
+  auto [uffd_supported, minor_fault_supported] = gc::collector::MarkCompact::GetUffdAndMinorFault();
+
+  if (uffd_supported) {
+    if (minor_fault_supported) {
+      return statsd::ART_DATUM_REPORTED__UFFD_SUPPORT__ART_UFFD_SUPPORT_MINOR_FAULT_MODE_SUPPORTED;
+    } else {
+      return statsd::
+          ART_DATUM_REPORTED__UFFD_SUPPORT__ART_UFFD_SUPPORT_MINOR_FAULT_MODE_NOT_SUPPORTED;
+    }
+  } else {
+    return statsd::ART_DATUM_REPORTED__UFFD_SUPPORT__ART_UFFD_SUPPORT_UFFD_NOT_SUPPORTED;
   }
 }
 
@@ -218,22 +354,41 @@ class StatsdBackend : public MetricsBackend {
 
   void ReportCounter(DatumId counter_type, uint64_t value) override {
     std::optional<int32_t> datum_id = EncodeDatumId(counter_type);
-    if (datum_id.has_value()) {
-      statsd::stats_write(
-          statsd::ART_DATUM_REPORTED,
-          session_data_.session_id,
-          session_data_.uid,
-          EncodeCompileFilter(session_data_.compiler_filter),
-          EncodeCompilationReason(session_data_.compilation_reason),
-          current_timestamp_,
-          /*thread_type=*/0,  // TODO: collect and report thread type (0 means UNKNOWN, but that
-                              // constant is not present in all branches)
-          datum_id.value(),
-          static_cast<int64_t>(value),
-          statsd::ART_DATUM_REPORTED__DEX_METADATA_TYPE__ART_DEX_METADATA_TYPE_UNKNOWN,
-          statsd::ART_DATUM_REPORTED__APK_TYPE__ART_APK_TYPE_UNKNOWN,
-          EncodeInstructionSet(kRuntimeISA));
+    if (!datum_id.has_value()) {
+      return;
     }
+
+    int32_t atom;
+    switch (counter_type) {
+#define EVENT_METRIC_CASE(name, ...) case DatumId::k##name:
+      ART_EVENT_METRICS(EVENT_METRIC_CASE)
+#undef EVENT_METRIC_CASE
+      atom = statsd::ART_DATUM_REPORTED;
+      break;
+
+#define VALUE_METRIC_CASE(name, type, ...) case DatumId::k##name:
+      ART_VALUE_METRICS(VALUE_METRIC_CASE)
+#undef VALUE_METRIC_CASE
+      atom = statsd::ART_DATUM_DELTA_REPORTED;
+      break;
+    }
+
+    statsd::stats_write(
+        atom,
+        session_data_.session_id,
+        session_data_.uid,
+        EncodeCompileFilter(session_data_.compiler_filter),
+        EncodeCompilationReason(session_data_.compilation_reason),
+        current_timestamp_,
+        0,  // TODO: collect and report thread type (0 means UNKNOWN, but that
+            // constant is not present in all branches)
+        datum_id.value(),
+        static_cast<int64_t>(value),
+        statsd::ART_DATUM_REPORTED__DEX_METADATA_TYPE__ART_DEX_METADATA_TYPE_UNKNOWN,
+        statsd::ART_DATUM_REPORTED__APK_TYPE__ART_APK_TYPE_UNKNOWN,
+        EncodeInstructionSet(kRuntimeISA),
+        EncodeGcCollectorType(Runtime::Current()->GetHeap()->GetForegroundCollectorType()),
+        EncodeUffdMinorFaultSupport());
   }
 
   void ReportHistogram(DatumId /*histogram_type*/,
@@ -255,6 +410,20 @@ class StatsdBackend : public MetricsBackend {
 }  // namespace
 
 std::unique_ptr<MetricsBackend> CreateStatsdBackend() { return std::make_unique<StatsdBackend>(); }
+
+void ReportDeviceMetrics() {
+  Runtime* runtime = Runtime::Current();
+  int32_t boot_image_status;
+  if (runtime->GetHeap()->HasBootImageSpace() && !runtime->HasImageWithProfile()) {
+    boot_image_status = statsd::ART_DEVICE_DATUM_REPORTED__BOOT_IMAGE_STATUS__STATUS_FULL;
+  } else if (runtime->GetHeap()->HasBootImageSpace() &&
+             runtime->GetHeap()->GetBootImageSpaces()[0]->GetProfileFiles().empty()) {
+    boot_image_status = statsd::ART_DEVICE_DATUM_REPORTED__BOOT_IMAGE_STATUS__STATUS_MINIMAL;
+  } else {
+    boot_image_status = statsd::ART_DEVICE_DATUM_REPORTED__BOOT_IMAGE_STATUS__STATUS_NONE;
+  }
+  statsd::stats_write(statsd::ART_DEVICE_DATUM_REPORTED, boot_image_status);
+}
 
 }  // namespace metrics
 }  // namespace art

@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"不明なモバイルデバイス"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"不明"</string>
+    <string name="not_provided" msgid="6938740494380012614">"未指定"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"機内モード"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"機内モードではBluetoothを使用できません。"</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -108,7 +109,7 @@
     <string name="no_transfers" msgid="740521199933899821">"転送履歴が空です。"</string>
     <string name="transfer_clear_dlg_msg" msgid="586117930961007311">"すべてのアイテムがリストから消去されます。"</string>
     <string name="outbound_noti_title" msgid="2045560896819618979">"Bluetooth共有: 送信したファイル"</string>
-    <string name="inbound_noti_title" msgid="3730993443609581977">"Bluetooth共有: 受信したファイル"</string>
+    <string name="inbound_noti_title" msgid="3730993443609581977">"Bluetooth 共有: 受信したファイル"</string>
     <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{# 件失敗。}other{# 件失敗。}}"</string>
     <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{# 件成功、%1$s}other{# 件成功、%1$s}}"</string>
     <string name="transfer_menu_clear_all" msgid="3014459758656427076">"リストを消去"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Bluetooth オーディオ"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"4 GB を超えるファイルは転送できません"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Bluetooth に接続する"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"機内モードで Bluetooth を ON にする"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Bluetooth を ON にしておくと、次に機内モードになったときも ON のままになります"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth を ON にしておく"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"機内モードでも、デバイスの Bluetooth は ON のままになります。Bluetooth を ON にしたくない場合は OFF にしてください。"</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi と Bluetooth を ON のままにする"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"機内モードでも、デバイスの Wi-Fi と Bluetooth は ON のままになります。Wi-Fi と Bluetooth を ON にしたくない場合は OFF にしてください。"</string>
 </resources>

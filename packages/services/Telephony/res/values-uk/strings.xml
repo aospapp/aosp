@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"Паралельний виклик CDMA на платформі IMS вимкнено"</string>
     <string name="updating_title" msgid="6130548922615719689">"Налаштування викликів"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Налаштування викликів може змінювати лише адміністратор."</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"Налаштування облікового запису телефона може змінювати лише співробітник, який із ним працює, або адміністратор."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Налаштування (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"Помилка налаштування викликів"</string>
     <string name="reading_settings" msgid="1605904432450871183">"Читання налаштувань…"</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"Не можна призупиняти виклики."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"Щоб зателефонувати, під’єднайтеся до бездротової мережі."</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"Щоб мати змогу телефонувати, увімкніть виклики через Wi-Fi."</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"Щоб зателефонувати, вимкніть режим супутника."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"Дані для екстрених випадків"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"Власник"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"Торкніться ще раз, щоб переглянути відомості"</string>
@@ -671,7 +673,7 @@
     <string name="sim_label_emergency_calls" msgid="9078241989421522310">"Екстрені виклики"</string>
     <string name="sim_description_emergency_calls" msgid="5146872803938897296">"Лише екстрені виклики"</string>
     <string name="sim_description_default" msgid="7474671114363724971">"SIM-карта, роз’єм: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
-    <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Спеціальні можливості"</string>
+    <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Доступність"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Виклик Wi-Fi від"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Дзвінок через Wi-Fi"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Під час розшифрування повідомлення сталася помилка."</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"Увімкнено режим польоту"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"Немає доступу до SIM-карти"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"Мобільна мережа недоступна"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"Режим супутника ввімкнено"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"Проблема з номером телефону, який ви набираєте. Код помилки: 1."</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"Не вдалося здійснити виклик. Код помилки: 3."</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"Не вдалося здійснити виклик. Код помилки: 6."</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Скасувати"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"Установити знімну eSIM-карту як карту за умовчанням"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Потужність мобільного радіо"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"Імітація знаходження поза зоною обслуговування (лише складання для налагодження)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Переглянути адресну книгу SIM-карти"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Переглянути фіксовані номери"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"Переглянути службові номери"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"Підключено"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"Заблоковано"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"Невідомо"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"Основний"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"пак."</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"байт"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"дБм"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"Надіслані дані:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"Очікування на повідомлення:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"Номер телефону:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"Виберіть радіодіапазон"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Тип мережі голосових дзвінків:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Тип мережі передавання даних:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Перевизначити тип мережі:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"Статус реєстрації необробленого голосу:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"Статус реєстрації необроблених даних:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"Статус реєстрації необроблених даних WLAN:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Виберіть телефонний код"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Установити потрібний тип мережі:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Надіслати запит ping на ім\'я хосту (www.google.com) через IPv4:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Сигнал Bluetooth заслабкий. Спробуйте переключитися на гучний зв\'язок."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"Сповіщення про якість виклику"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"Облікові записи SIP, що не підтримуються"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"Не можна надсилати повідомлення з особистого додатка"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"У вашій організації можна надсилати повідомлення лише з робочих додатків"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"Скасувати"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"Перейти в робочий профіль"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"Установіть робочий додаток для обміну повідомленнями"</string>
 </resources>

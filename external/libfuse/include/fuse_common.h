@@ -400,6 +400,13 @@ struct fuse_loop_config {
 #define FUSE_CAP_EXPLICIT_INVAL_DATA    (1 << 25)
 
 /**
+ * Indicates that an extended 'struct fuse_setxattr' is used by the kernel
+ * side - extra_flags are passed, which are used (as of now by acl) processing.
+ * For example FUSE_SETXATTR_ACL_KILL_SGID might be set.
+ */
+#define FUSE_CAP_SETXATTR_EXT     (1 << 27)
+
+/**
  * Indicates support for passthrough mode access for read/write operations.
  *
  * If this flag is set in the `capable` field of the `fuse_conn_info`
@@ -409,7 +416,7 @@ struct fuse_loop_config {
  *
  * This feature is disabled by default.
  */
-#define FUSE_CAP_PASSTHROUGH            (1 << 31)
+#define FUSE_CAP_PASSTHROUGH            (1LL << 63)
 
 /**
  * Ioctl flags
@@ -473,7 +480,7 @@ struct fuse_conn_info {
 	/**
 	 * Capability flags that the kernel supports (read-only)
 	 */
-	unsigned capable;
+	uint64_t capable;
 
 	/**
 	 * Capability flags that the filesystem wants to enable.
@@ -481,7 +488,7 @@ struct fuse_conn_info {
 	 * libfuse attempts to initialize this field with
 	 * reasonable default values before calling the init() handler.
 	 */
-	unsigned want;
+	uint64_t want;
 
 	/**
 	 * Maximum number of pending "background" requests. A

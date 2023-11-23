@@ -18,28 +18,24 @@ package android.security.cts;
 
 import static org.junit.Assert.fail;
 
-import android.app.Activity;
+import android.annotation.SuppressLint;
 import android.os.BaseBundle;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.view.AbsSavedState;
 import android.view.View;
-import android.view.View.BaseSavedState;
-import android.annotation.SuppressLint;
+
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
 
-import java.io.InputStream;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.lang.reflect.Field;
 import java.util.Random;
-
-import org.junit.runner.RunWith;
-import org.junit.Test;
-
-import android.security.cts.R;
-import android.platform.test.annotations.AsbSecurityTest;
 
 @RunWith(AndroidJUnit4.class)
 public class AmbiguousBundlesTest extends StsExtraBusinessLogicTestCase {
@@ -601,6 +597,95 @@ public class AmbiguousBundlesTest extends StsExtraBusinessLogicTestCase {
         testAmbiguator(ambiguator);
     }
 
+    /*
+     * b/240138294
+     */
+    @AsbSecurityTest(cveBugId = 240138294)
+    @Test
+    public void test_lazyValueNegativeLength() throws Exception {
+        Ambiguator ambiguator = new Ambiguator() {
+            @Override
+            public Bundle make(Bundle preReSerialize, Bundle postReSerialize) {
+                // Find key that has hash below everything else
+                Random random = new Random(1234);
+                int minHash = 0;
+                for (String s : preReSerialize.keySet()) {
+                    minHash = Math.min(minHash, s.hashCode());
+                }
+                for (String s : postReSerialize.keySet()) {
+                    minHash = Math.min(minHash, s.hashCode());
+                }
+
+                String negativePrefix, positivePrefix;
+                // When read as value, jump back to the start of the header (8 bytes)
+                negativePrefix = getStringEncodingInt(-8);
+                // Size of the malicious bundle before the 'cmd' key
+                positivePrefix = getStringEncodingInt(48);
+
+                String key1, key2, key3;
+                int key1Hash, key2Hash, key3Hash;
+
+                do {
+                    key1 = randomString(random);
+                    // 16 characters total, will be read as type parcelable array when
+                    // read as value
+                    key2 = negativePrefix + randomString(random, 14);
+                    key3 = positivePrefix + randomString(random, 14);
+                    key1Hash = key1.hashCode();
+                    key2Hash = key3.hashCode(); // 2 and 3 are swapped
+                    key3Hash = key2.hashCode();
+                } while (!(key1Hash < key2Hash && key2Hash < key3Hash && key3Hash < minHash));
+
+                // Pad bundles - ensures keys are in right hash order
+                padBundle(postReSerialize, preReSerialize.size() + 2, minHash, random);
+                padBundle(preReSerialize, postReSerialize.size() - 2, minHash, random);
+
+                // Write bundle
+                Parcel parcel = Parcel.obtain();
+
+                int sizePosition = parcel.dataPosition();
+                parcel.writeInt(0);
+                parcel.writeInt(BUNDLE_MAGIC_NATIVE);
+                int startPosition = parcel.dataPosition();
+
+                parcel.writeInt(preReSerialize.size() + 3); // Num key-value pairs
+
+                parcel.writeString(key1); // Key 1
+                parcel.writeString(key2); // Value 1/Key 2
+                parcel.writeInt(VAL_NULL);
+                parcel.writeString(key3);
+                parcel.writeInt(VAL_BUNDLE);
+                parcel.writeBundle(postReSerialize); // Value 3
+
+                // Data from preReSerialize bundle
+                writeBundleSkippingHeaders(parcel, preReSerialize);
+
+                // Fix up bundle size
+                int bundleDataSize = parcel.dataPosition() - startPosition;
+                parcel.setDataPosition(sizePosition);
+                parcel.writeInt(bundleDataSize);
+
+                parcel.setDataPosition(0);
+                Bundle bundle = parcel.readBundle();
+                parcel.recycle();
+                return bundle;
+            }
+
+            private String getStringEncodingInt(int i) {
+                Parcel parcel = Parcel.obtain();
+                parcel.writeInt(2);
+                parcel.writeInt(i);
+                parcel.writeInt(0);
+                parcel.setDataPosition(0);
+                String s = parcel.readString();
+                parcel.recycle();
+                return s;
+            }
+        };
+
+        testAmbiguator(ambiguator);
+    }
+
     private void testAmbiguator(Ambiguator ambiguator) {
         Bundle bundle;
         Bundle verifyMe = new Bundle();
@@ -653,6 +738,7 @@ public class AmbiguousBundlesTest extends StsExtraBusinessLogicTestCase {
         protected static final int PROCSTATS_SPARSE_MAPPING_TABLE_ARRAY_SIZE = 4096;
 
         protected static final int BUNDLE_MAGIC = 0x4C444E42;
+        protected static final int BUNDLE_MAGIC_NATIVE = 0x4C444E44; // 'B' 'N' 'D' 'N'
         protected static final int INNER_BUNDLE_PADDING = 1;
 
         protected Field parcelledDataField;
@@ -711,8 +797,12 @@ public class AmbiguousBundlesTest extends StsExtraBusinessLogicTestCase {
         }
 
         protected static String randomString(Random random) {
+            return randomString(random, 6);
+        }
+
+        protected static String randomString(Random random, int len) {
             StringBuilder b = new StringBuilder();
-            for (int i = 0; i < 6; i++) {
+            for (int i = 0; i < len; i++) {
                 b.append((char)(' ' + random.nextInt('~' - ' ' + 1)));
             }
             return b.toString();

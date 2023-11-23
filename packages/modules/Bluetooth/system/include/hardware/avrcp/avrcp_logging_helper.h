@@ -69,7 +69,10 @@ inline std::ostream& operator<<(std::ostream& os, const Opcode& opcode) {
 inline std::string CommandPduText(const CommandPdu& pdu) {
   switch (pdu) {
     CASE_RETURN_TEXT(CommandPdu::GET_CAPABILITIES);
-    CASE_RETURN_TEXT(CommandPdu::LIST_APPLICATION_SETTING_ATTRIBUTES);
+    CASE_RETURN_TEXT(CommandPdu::LIST_PLAYER_APPLICATION_SETTING_ATTRIBUTES);
+    CASE_RETURN_TEXT(CommandPdu::LIST_PLAYER_APPLICATION_SETTING_VALUES);
+    CASE_RETURN_TEXT(CommandPdu::GET_CURRENT_PLAYER_APPLICATION_SETTING_VALUE);
+    CASE_RETURN_TEXT(CommandPdu::SET_PLAYER_APPLICATION_SETTING_VALUE);
     CASE_RETURN_TEXT(CommandPdu::GET_ELEMENT_ATTRIBUTES);
     CASE_RETURN_TEXT(CommandPdu::GET_PLAY_STATUS);
     CASE_RETURN_TEXT(CommandPdu::REGISTER_NOTIFICATION);
@@ -237,6 +240,49 @@ inline std::string KeyStateText(const KeyState& state) {
 
 inline std::ostream& operator<<(std::ostream& os, const KeyState& dir) {
   return os << KeyStateText(dir);
+}
+
+inline std::string PlayerAttributeText(const PlayerAttribute& attr) {
+  switch (attr) {
+    CASE_RETURN_TEXT(PlayerAttribute::EQUALIZER);
+    CASE_RETURN_TEXT(PlayerAttribute::REPEAT);
+    CASE_RETURN_TEXT(PlayerAttribute::SHUFFLE);
+    CASE_RETURN_TEXT(PlayerAttribute::SCAN);
+  }
+  return "Unknown Player Attribute: " + loghex((uint8_t)attr);
+}
+
+inline std::ostream& operator<<(std::ostream& os, const PlayerAttribute& attr) {
+  return os << PlayerAttributeText(attr);
+}
+
+inline std::string PlayerRepeatValueText(const PlayerRepeatValue& val) {
+  switch (val) {
+    CASE_RETURN_TEXT(PlayerRepeatValue::OFF);
+    CASE_RETURN_TEXT(PlayerRepeatValue::SINGLE);
+    CASE_RETURN_TEXT(PlayerRepeatValue::ALL);
+    CASE_RETURN_TEXT(PlayerRepeatValue::GROUP);
+  }
+  return "Unknown Player Repeat Value: " + loghex((uint8_t)val);
+}
+
+inline std::ostream& operator<<(std::ostream& os,
+                                const PlayerRepeatValue& val) {
+  return os << PlayerRepeatValueText(val);
+}
+
+inline std::string PlayerShuffleValueText(const PlayerShuffleValue& val) {
+  switch (val) {
+    CASE_RETURN_TEXT(PlayerShuffleValue::OFF);
+    CASE_RETURN_TEXT(PlayerShuffleValue::ALL);
+    CASE_RETURN_TEXT(PlayerShuffleValue::GROUP);
+  }
+  return "Unknown Player Shuffle Value: " + loghex((uint8_t)val);
+}
+
+inline std::ostream& operator<<(std::ostream& os,
+                                const PlayerShuffleValue& val) {
+  return os << PlayerShuffleValueText(val);
 }
 
 }  // namespace avrcp

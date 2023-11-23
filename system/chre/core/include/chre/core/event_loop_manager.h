@@ -21,7 +21,9 @@
 #include "chre/core/event_loop.h"
 #include "chre/core/event_loop_common.h"
 #include "chre/core/host_comms_manager.h"
+#include "chre/core/host_endpoint_manager.h"
 #include "chre/core/settings.h"
+#include "chre/core/system_health_monitor.h"
 #include "chre/platform/memory_manager.h"
 #include "chre/platform/mutex.h"
 #include "chre/util/always_false.h"
@@ -104,12 +106,13 @@ class EventLoopManager : public NonCopyable {
    * @param data Arbitrary data to provide to the callback
    * @param callback Function to invoke from within the main CHRE thread
    * @param extraData Additional arbitrary data to provide to the callback
+   * @return If true, the callback was deferred successfully; false otherwise.
    */
-  void deferCallback(SystemCallbackType type, void *data,
+  bool deferCallback(SystemCallbackType type, void *data,
                      SystemEventCallbackFunction *callback,
                      void *extraData = nullptr) {
-    mEventLoop.postSystemEvent(static_cast<uint16_t>(type), data, callback,
-                               extraData);
+    return mEventLoop.postSystemEvent(static_cast<uint16_t>(type), data,
+                                      callback, extraData);
   }
 
   /**
@@ -124,35 +127,40 @@ class EventLoopManager : public NonCopyable {
    *        uint16_t, and can also be useful for debugging
    * @param data Pointer to arbitrary data to provide to the callback
    * @param callback Function to invoke from within the main CHRE thread
+   * @return If true, the callback was deferred successfully; false otherwise.
    */
   template <typename T>
-  void deferCallback(SystemCallbackType type, UniquePtr<T> &&data,
+  bool deferCallback(SystemCallbackType type, UniquePtr<T> &&data,
                      TypedSystemEventCallbackFunction<T> *callback) {
-    auto outerCallback = [](uint16_t type, void *data, void *extraData) {
+    auto outerCallback = [](uint16_t callbackType, void *eventData,
+                            void *extraData) {
       // Re-wrap eventData in UniquePtr so its destructor will get called and
       // the memory will be freed once we leave this scope
-      UniquePtr<T> dataWrapped = UniquePtr<T>(static_cast<T *>(data));
+      UniquePtr<T> dataWrapped = UniquePtr<T>(static_cast<T *>(eventData));
       auto *innerCallback =
           reinterpret_cast<TypedSystemEventCallbackFunction<T> *>(extraData);
-      innerCallback(static_cast<SystemCallbackType>(type),
+      innerCallback(static_cast<SystemCallbackType>(callbackType),
                     std::move(dataWrapped));
     };
     // Pass the "inner" callback (the caller's callback) through to the "outer"
     // callback using the extraData parameter. Note that we're leveraging the
     // C++11 ability to cast a function pointer to void*
-    if (mEventLoop.postSystemEvent(static_cast<uint16_t>(type), data.get(),
-                                   outerCallback,
-                                   reinterpret_cast<void *>(callback))) {
+    bool status = mEventLoop.postSystemEvent(
+        static_cast<uint16_t>(type), data.get(), outerCallback,
+        reinterpret_cast<void *>(callback));
+    if (status) {
       data.release();
     }
+    return status;
   }
 
   //! Override that allows passing a lambda for the callback
   template <typename T, typename LambdaT>
-  void deferCallback(SystemCallbackType type, UniquePtr<T> &&data,
+  bool deferCallback(SystemCallbackType type, UniquePtr<T> &&data,
                      LambdaT callback) {
-    deferCallback(type, std::move(data),
-                  static_cast<TypedSystemEventCallbackFunction<T> *>(callback));
+    return deferCallback(
+        type, std::move(data),
+        static_cast<TypedSystemEventCallbackFunction<T> *>(callback));
   }
 
   //! Disallows passing a null callback, as we don't include a null check in the
@@ -260,6 +268,10 @@ class EventLoopManager : public NonCopyable {
     return mHostCommsManager;
   }
 
+  HostEndpointManager &getHostEndpointManager() {
+    return mHostEndpointManager;
+  }
+
 #ifdef CHRE_SENSORS_SUPPORT_ENABLED
   /**
    * @return Returns a reference to the sensor request manager. This allows
@@ -325,6 +337,10 @@ class EventLoopManager : public NonCopyable {
     return mSettingManager;
   }
 
+  SystemHealthMonitor &getSystemHealthMonitor() {
+    return mSystemHealthMonitor;
+  }
+
   /**
    * Performs second-stage initialization of things that are not necessarily
    * required at construction time but need to be completed prior to executing
@@ -359,6 +375,10 @@ class EventLoopManager : public NonCopyable {
 
   //! Handles communications with the host processor.
   HostCommsManager mHostCommsManager;
+
+  HostEndpointManager mHostEndpointManager;
+
+  SystemHealthMonitor mSystemHealthMonitor;
 
 #ifdef CHRE_SENSORS_SUPPORT_ENABLED
   //! The SensorRequestManager that handles requests for all nanoapps. This

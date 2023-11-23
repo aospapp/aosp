@@ -39,8 +39,14 @@ public:
                                const GuardrailOptions& guardrailOptions);
 
     // Process data pulled on bucket boundary.
-    void onDataPulled(const std::vector<std::shared_ptr<LogEvent>>& data, bool pullSuccess,
+    void onDataPulled(const std::vector<std::shared_ptr<LogEvent>>& allData, PullResult pullResult,
                       int64_t originalPullTimeNs) override;
+
+    // Determine if metric needs to pull
+    bool isPullNeeded() const override {
+        std::lock_guard<std::mutex> lock(mMutex);
+        return mIsActive && (mCondition == ConditionState::kTrue);
+    }
 
     inline MetricType getMetricType() const override {
         return METRIC_TYPE_VALUE;
@@ -66,7 +72,8 @@ private:
         return config.value_metric(configIndex).links();
     }
 
-    void onActiveStateChangedInternalLocked(const int64_t eventTimeNs) override;
+    void onActiveStateChangedInternalLocked(const int64_t eventTimeNs,
+                                            const bool isActive) override;
 
     // Only called when mIsActive and the event is NOT too late.
     void onConditionChangedInternalLocked(const ConditionState oldCondition,
@@ -108,7 +115,7 @@ private:
 
     void appendToFullBucket(const bool isFullBucketReached);
 
-    bool hitFullBucketGuardRailLocked(const MetricDimensionKey& newKey) const;
+    bool hitFullBucketGuardRailLocked(const MetricDimensionKey& newKey);
 
     inline bool canSkipLogEventLocked(
             const MetricDimensionKey& eventKey, const bool condition, const int64_t eventTimeNs,
@@ -129,6 +136,7 @@ private:
     DumpProtoFields getDumpProtoFields() const override;
 
     void writePastBucketAggregateToProto(const int aggIndex, const Value& value,
+                                         const int sampleSize,
                                          ProtoOutputStream* const protoOutput) const override;
 
     // Internal function to calculate the current used bytes.
@@ -140,6 +148,8 @@ private:
     const bool mUseAbsoluteValueOnReset;
 
     const ValueMetric::AggregationType mAggregationType;
+
+    const bool mIncludeSampleSize;
 
     const bool mUseDiff;
 
@@ -203,6 +213,7 @@ private:
                 TestResetBaseOnPullFailAfterConditionChange_EndOfBucket);
     FRIEND_TEST(NumericValueMetricProducerTest, TestResetBaseOnPullFailBeforeConditionChange);
     FRIEND_TEST(NumericValueMetricProducerTest, TestResetBaseOnPullTooLate);
+    FRIEND_TEST(NumericValueMetricProducerTest, TestSampleSize);
     FRIEND_TEST(NumericValueMetricProducerTest, TestSkipZeroDiffOutput);
     FRIEND_TEST(NumericValueMetricProducerTest, TestSkipZeroDiffOutputMultiValue);
     FRIEND_TEST(NumericValueMetricProducerTest, TestSlicedState);

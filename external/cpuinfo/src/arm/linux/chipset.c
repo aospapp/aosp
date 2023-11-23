@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -279,6 +280,82 @@ static bool match_sm(
 		.model = model,
 	};
 	return true;
+}
+
+
+struct special_map_entry {
+	const char* platform;
+	uint16_t model;
+	uint8_t series;
+	char suffix;
+};
+
+static const struct special_map_entry qualcomm_hardware_map_entries[] = {
+		{
+				/* "Kona" -> Qualcomm Kona */
+				.platform = "Kona",
+				.series = cpuinfo_arm_chipset_series_qualcomm_snapdragon,
+				.model = 865,
+		},
+		{
+				/* "Bengal" -> Qualcomm Bengal */
+				.platform = "Bengal",
+				.series = cpuinfo_arm_chipset_series_qualcomm_snapdragon,
+				.model = 662,
+		},
+		{
+				/* "Bengalp" -> Qualcomm Bengalp */
+				.platform = "Bengalp",
+				.series = cpuinfo_arm_chipset_series_qualcomm_snapdragon,
+				.model = 662,
+		},
+		{
+				/* "Lito" -> Qualcomm Lito */
+				.platform = "Lito",
+				.series = cpuinfo_arm_chipset_series_qualcomm_snapdragon,
+				.model = 765,
+				.suffix = 'G'
+		},
+		{
+				/* "Lagoon" -> Qualcomm Lagoon */
+				.platform = "Lagoon",
+				.series = cpuinfo_arm_chipset_series_qualcomm_snapdragon,
+				.model = 0,
+		},
+};
+
+
+int strcicmp(char const *a, char const *b)
+{
+	for (;; a++, b++) {
+		int d = tolower((unsigned char)*a) - tolower((unsigned char)*b);
+		if (d != 0 || !*a)
+			return d;
+	}
+}
+
+static bool match_qualcomm_special(
+		const char* start, const char* end,
+		struct cpuinfo_arm_chipset chipset[restrict static 1])
+{
+	for (size_t i = 0; i < CPUINFO_COUNT_OF(qualcomm_hardware_map_entries); i++) {
+		int length = end - start;
+		if (strcicmp(qualcomm_hardware_map_entries[i].platform, start) == 0 &&
+			qualcomm_hardware_map_entries[i].platform[length] == 0)
+		{
+			*chipset = (struct cpuinfo_arm_chipset) {
+					.vendor = chipset_series_vendor[qualcomm_hardware_map_entries[i].series],
+					.series = (enum cpuinfo_arm_chipset_series) qualcomm_hardware_map_entries[i].series,
+					.model = qualcomm_hardware_map_entries[i].model,
+					.suffix = {
+							[0] = qualcomm_hardware_map_entries[i].suffix,
+					},
+			};
+			return true;
+		}
+	}
+	return false;
+
 }
 
 /**
@@ -1351,7 +1428,7 @@ static bool match_and_parse_sunxi(
 		return false;
 	}
 
-	/* Compare sunXi platform id and number of cores to tabluted values to decode chipset name */
+	/* Compare sunXi platform id and number of cores to tabulated values to decode chipset name */
 	uint32_t model = 0;
 	char suffix = 0;
 	for (size_t i = 0; i < CPUINFO_COUNT_OF(sunxi_map_entries); i++) {
@@ -1751,13 +1828,6 @@ static bool is_tegra(const char* start, const char* end) {
 	/* Check if the string is either "tegra" (length = 5) or "tegra3" (length != 5) and last character is '3' */
 	return (length == 5 || start[5] == '3');
 }
-
-struct special_map_entry {
-	const char* platform;
-	uint16_t model;
-	uint8_t series;
-	char suffix;
-};
 
 static const struct special_map_entry special_hardware_map_entries[] = {
 #if CPUINFO_ARCH_ARM
@@ -2317,6 +2387,14 @@ struct cpuinfo_arm_chipset cpuinfo_arm_linux_decode_chipset_from_proc_cpuinfo_ha
 								(int) hardware_length, hardware);
 							return chipset;
 						}
+
+						if (match_qualcomm_special(pos, hardware_end, &chipset)) {
+							cpuinfo_log_debug(
+									"matched Qualcomm signature in /proc/cpuinfo Hardware string \"%.*s\"",
+									(int) hardware_length, hardware);
+							return chipset;
+						}
+
 					}
 					word_start = false;
 					break;

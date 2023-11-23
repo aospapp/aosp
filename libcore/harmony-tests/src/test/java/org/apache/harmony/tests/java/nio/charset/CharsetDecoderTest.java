@@ -5,7 +5,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,12 +21,15 @@ import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CoderMalfunctionError;
 import java.nio.charset.CoderResult;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.MalformedInputException;
 import java.nio.charset.UnmappableCharacterException;
 
 import junit.framework.TestCase;
+
+import org.junit.Assert;
 
 /**
  * API unit test for java.nio.CharsetDecoder
@@ -286,12 +289,11 @@ public class CharsetDecoderTest extends TestCase {
             assertCharBufferValue(replaceStr, out);
         }
 
-        // RuntimeException
-        try {
-            decoder.decode(getExceptionByteArray());
-            fail("should throw runtime exception");
-        } catch (RuntimeException e) {
-        }
+        // CoderMalfunctionError
+        ByteBuffer inBuffer = getExceptionByteArray();
+        Class<? extends Throwable> throwableClass = inBuffer == null ? NullPointerException.class
+                : CoderMalfunctionError.class;
+        Assert.assertThrows(throwableClass, () -> decoder.decode(inBuffer));
     }
 
     /*
@@ -511,11 +513,9 @@ public class CharsetDecoderTest extends TestCase {
             UnsupportedEncodingException {
         CharBuffer out = CharBuffer.allocate(50);
         decoder.reset();
-        try {
-            decoder.decode(in, out, endOfInput);
-            fail("should throw runtime exception");
-        } catch (RuntimeException e) {
-        }
+        Class<? extends Throwable> throwableClass = in == null ? NullPointerException.class
+                : CoderMalfunctionError.class;
+        Assert.assertThrows(throwableClass, () -> decoder.decode(in, out, endOfInput));
     }
 
     private ByteBuffer readOnly(ByteBuffer b) {

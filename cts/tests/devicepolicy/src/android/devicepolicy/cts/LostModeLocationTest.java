@@ -53,7 +53,7 @@ import org.junit.runner.RunWith;
 import java.util.concurrent.TimeUnit;
 
 @RunWith(BedsteadJUnit4.class)
-public final class LostModeLocationTest {
+public final class LostModeLocationTest { // Not running correctly
 
     private static final double TEST_LATITUDE = 51.5;
     private static final double TEST_LONGITUDE = -0.1;

@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"بلوتوث"</string>
     <string name="unknown_device" msgid="2317679521750821654">"دستگاه ناشناس"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"ناشناس"</string>
+    <string name="not_provided" msgid="6938740494380012614">"ارائه نشده است"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"حالت هواپیما"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"در حالت هواپیما نمی‌توانید از بلوتوث استفاده کنید."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -37,7 +38,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="8612187577686515660">"تأیید"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="3221412098281076974">"هنگام پذیرش یک فایل ورودی از \"<xliff:g id="SENDER">%1$s</xliff:g>\" درنگ پیش آمد"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5381395500920804895">"فایل ورودی"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="2669135531488877921">"<xliff:g id="SENDER">%1$s</xliff:g> آماده ارسال فایل است: <xliff:g id="FILE">%2$s</xliff:g>"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="2669135531488877921">"‏<xliff:g id="SENDER">%1$s</xliff:g> آماده ارسال فایل است: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="8445265771083510696">"اشتراک بلوتوث: در حال دریافت <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="2330252358543000567">"اشتراک بلوتوث: <xliff:g id="FILE">%1$s</xliff:g> دریافت شد"</string>
     <string name="notification_received_fail" msgid="9059153354809379374">"اشتراک بلوتوث: فایل <xliff:g id="FILE">%1$s</xliff:g>دریافت نشد"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"بلوتوث‌ صوتی"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"فایل‌های بزرگ‌تر از ۴ گیگابایت نمی‌توانند منتقل شوند"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"اتصال به بلوتوث"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"بلوتوث در «حالت هواپیما» روشن باشد"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"اگر بلوتوث را روشن نگه دارید، دستگاهتان به‌یاد خواهد داشت تا دفعه بعدی که در «حالت هواپیما» هستید آن را روشن نگه دارد"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"بلوتوث روشن بماند"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"دستگاهتان به‌یاد می‌آورد که بلوتوث را در «حالت هواپیما» روشن نگه دارد. اگر نمی‌خواهید بلوتوث روشن بماند، آن را خاموش کنید."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"‏‫Wi-Fi و بلوتوث روشن بماند"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"‏دستگاهتان به‌یاد می‌آورد که Wi-Fi و بلوتوث را در «حالت هواپیما» روشن نگه دارد. اگر نمی‌خواهید Wi-Fi و بلوتوث روشن بمانند، آن‌ها را خاموش کنید."</string>
 </resources>

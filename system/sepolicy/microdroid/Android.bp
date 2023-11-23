@@ -241,6 +241,11 @@ se_policy_binary {
         ":microdroid_vendor_sepolicy.cil",
     ],
     installable: false,
+
+    // b/259729287. In Microdroid, su is allowed to be in permissive mode.
+    // This is to support fully debuggable VMs on user builds. This is safe
+    // because we don't start adbd at all on non-debuggable VMs.
+    permissive_domains_on_user_builds: ["su"],
 }
 
 genrule {
@@ -273,14 +278,6 @@ prebuilt_etc {
     name: "microdroid_property_contexts",
     filename: "plat_property_contexts",
     src: "system/private/property_contexts",
-    relative_install_path: "selinux",
-    installable: false,
-}
-
-prebuilt_etc {
-    name: "microdroid_service_contexts",
-    filename: "plat_service_contexts",
-    src: "system/private/service_contexts",
     relative_install_path: "selinux",
     installable: false,
 }

@@ -263,11 +263,6 @@ struct RSA_Delete {
     void operator()(RSA* p) { RSA_free(p); }
 };
 
-X509* parse_cert_blob(const hidl_vec<uint8_t>& blob) {
-    const uint8_t* p = blob.data();
-    return d2i_X509(nullptr, &p, blob.size());
-}
-
 bool verify_chain(const hidl_vec<hidl_vec<uint8_t>>& chain, const std::string& msg,
                   const std::string& signature) {
     {
@@ -335,27 +330,6 @@ bool verify_chain(const hidl_vec<hidl_vec<uint8_t>>& chain, const std::string& m
     }
 
     return true;
-}
-
-// Extract attestation record from cert. Returned object is still part of cert; don't free it
-// separately.
-ASN1_OCTET_STRING* get_attestation_record(X509* certificate) {
-    ASN1_OBJECT_Ptr oid(OBJ_txt2obj(kAttestionRecordOid, 1 /* dotted string format */));
-    EXPECT_TRUE(!!oid.get());
-    if (!oid.get()) return nullptr;
-
-    int location = X509_get_ext_by_OBJ(certificate, oid.get(), -1 /* search from beginning */);
-    EXPECT_NE(-1, location) << "Attestation extension not found in certificate";
-    if (location == -1) return nullptr;
-
-    X509_EXTENSION* attest_rec_ext = X509_get_ext(certificate, location);
-    EXPECT_TRUE(!!attest_rec_ext)
-        << "Found attestation extension but couldn't retrieve it?  Probably a BoringSSL bug.";
-    if (!attest_rec_ext) return nullptr;
-
-    ASN1_OCTET_STRING* attest_rec = X509_EXTENSION_get_data(attest_rec_ext);
-    EXPECT_TRUE(!!attest_rec) << "Attestation extension contained no data";
-    return attest_rec;
 }
 
 bool tag_in_list(const KeyParameter& entry) {
@@ -4865,6 +4839,11 @@ TEST_P(VsrRequirementTest, Vsr13Test) {
     int vsr_api_level = get_vsr_api_level();
     if (vsr_api_level < 33) {
         GTEST_SKIP() << "Applies only to VSR API level 33, this device is: " << vsr_api_level;
+    }
+    char soc_model[PROPERTY_VALUE_MAX] = {};
+    property_get("ro.soc.model", soc_model, "");
+    if (!strcmp(soc_model, "SM8550")) {
+        GTEST_SKIP() << "Skip QTI SM8550 chipset, the SOC model of this device is: " << soc_model;
     }
     FAIL() << "VSR 13+ requires KeyMint version 2";
 }

@@ -15,17 +15,12 @@ from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import retry
 
-try:
-    import jsonrpclib
-except ImportError:
-    jsonrpclib = None
-
 
 class RpcServerTracker(object):
     """
-    This class keeps track of all the RPC server connections started on a remote
-    host. The caller can use either |xmlrpc_connect| or |jsonrpc_connect| to
-    start the required type of rpc server on the remote host.
+    This class keeps track of all the RPC server connections started on a
+    remote host. The caller can use either |xmlrpc_connect| to start the
+    required type of rpc server on the remote host.
     The host will cleanup all the open RPC server connections on disconnect.
     """
 
@@ -46,7 +41,7 @@ class RpcServerTracker(object):
     def _setup_port(self, port, command_name, remote_pid=None):
         """Sets up a tunnel process and register it to rpc_server_tracker.
 
-        Chrome OS on the target closes down most external ports for security.
+        ChromeOS on the target closes down most external ports for security.
         We could open the port, but doing that would conflict with security
         tests that check that only expected ports are open.  So, to get to
         the port on the target we use an ssh tunnel.
@@ -209,13 +204,13 @@ class RpcServerTracker(object):
             except Exception as exc:
                 log_lines = []
                 if logfile:
-                    logging.warn('Failed to start XMLRPC server; getting log.')
+                    logging.warning('Failed to start XMLRPC server; getting log.')
                     with tempfile.NamedTemporaryFile() as temp:
                         self._host.get_file(logfile, temp.name)
                         with open(temp.name) as f:
                             log_lines = f.read().rstrip().splitlines()
                 else:
-                    logging.warn('Failed to start XMLRPC server; no log.')
+                    logging.warning('Failed to start XMLRPC server; no log.')
 
                 logging.error(
                         'Failed to start XMLRPC server:  %s.%s: %s.',
@@ -258,38 +253,6 @@ class RpcServerTracker(object):
         logging.info('XMLRPC server started successfully.')
         return proxy
 
-
-    def jsonrpc_connect(self, port):
-        """Creates a jsonrpc proxy connection through an ssh tunnel.
-
-        This method exists to facilitate communication with goofy (which is
-        the default system manager on all factory images) and as such, leaves
-        most of the rpc server sanity checking to the caller. Unlike
-        xmlrpc_connect, this method does not facilitate the creation of a remote
-        jsonrpc server, as the only clients of this code are factory tests,
-        for which the goofy system manager is built in to the image and starts
-        when the target boots.
-
-        One can theoretically create multiple jsonrpc proxies all forwarded
-        to the same remote port, provided the remote port has an rpc server
-        listening. However, in doing so we stand the risk of leaking an
-        existing tunnel process, so we always disconnect any older tunnels
-        we might have through disconnect.
-
-        @param port: port on the remote host that is serving this proxy.
-
-        @return: The client proxy.
-        """
-        if not jsonrpclib:
-            logging.warning('Jsonrpclib could not be imported. Check that '
-                            'site-packages contains jsonrpclib.')
-            return None
-
-        proxy = jsonrpclib.jsonrpc.ServerProxy(self._setup_rpc(port, None))
-
-        logging.info('Established a jsonrpc connection through port %s.', port)
-        return proxy
-
     def disconnect(self, port, pkill=True):
         """Disconnect from an RPC server on the host.
 
@@ -321,8 +284,8 @@ class RpcServerTracker(object):
             # status.
             self._host.run("pkill -f '%s'" % remote_name, ignore_status=True)
             if remote_pid:
-                logging.info('Waiting for RPC server "%s" shutdown',
-                             remote_name)
+                logging.info('Waiting for RPC server "%s" shutdown (%s)',
+                             remote_name, remote_pid)
                 start_time = time.time()
                 while (time.time() - start_time <
                        self._RPC_SHUTDOWN_TIMEOUT_SECONDS):
@@ -330,9 +293,11 @@ class RpcServerTracker(object):
                             "pgrep -f '%s'" % remote_name,
                             ignore_status=True).stdout.split()
                     if not remote_pid in running_processes:
-                        logging.info('Shut down RPC server.')
+                        logging.info('Shut down RPC server %s.', remote_pid)
                         break
                     time.sleep(self._RPC_SHUTDOWN_POLLING_PERIOD_SECONDS)
+                    self._host.run("pkill -9 -f '%s'" % remote_name,
+                                   ignore_status=True)
                 else:
                     raise error.TestError('Failed to shutdown RPC server %s' %
                                           remote_name)
@@ -343,7 +308,7 @@ class RpcServerTracker(object):
 
     def disconnect_all(self):
         """Disconnect all known RPC proxy ports."""
-        for port in self._rpc_proxy_map.keys():
+        for port in list(self._rpc_proxy_map.keys()):
             self.disconnect(port)
 
 

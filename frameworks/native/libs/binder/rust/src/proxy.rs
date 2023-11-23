@@ -22,7 +22,8 @@ use crate::binder::{
 };
 use crate::error::{status_result, Result, StatusCode};
 use crate::parcel::{
-    Parcel, BorrowedParcel, Deserialize, DeserializeArray, DeserializeOption, Serialize, SerializeArray, SerializeOption,
+    BorrowedParcel, Deserialize, DeserializeArray, DeserializeOption, Parcel, Serialize,
+    SerializeArray, SerializeOption,
 };
 use crate::sys;
 
@@ -129,6 +130,14 @@ impl SpIBinder {
     /// Creates a new weak reference to this binder object.
     pub fn downgrade(&mut self) -> WpIBinder {
         WpIBinder::new(self)
+    }
+}
+
+fn interface_cast<T: FromIBinder + ?Sized>(service: Option<SpIBinder>) -> Result<Strong<T>> {
+    if let Some(service) = service {
+        FromIBinder::try_from(service)
+    } else {
+        Err(StatusCode::NAME_NOT_FOUND)
     }
 }
 
@@ -431,10 +440,7 @@ impl SerializeArray for SpIBinder {}
 
 impl Deserialize for SpIBinder {
     fn deserialize(parcel: &BorrowedParcel<'_>) -> Result<SpIBinder> {
-        parcel
-            .read_binder()
-            .transpose()
-            .unwrap_or(Err(StatusCode::UNEXPECTED_NULL))
+        parcel.read_binder().transpose().unwrap_or(Err(StatusCode::UNEXPECTED_NULL))
     }
 }
 
@@ -563,6 +569,9 @@ impl Drop for WpIBinder {
 /// The cookie in this struct represents an Arc<F> for the owned callback.
 /// This struct owns a ref-count of it, and so does every binder that we
 /// have been linked with.
+///
+/// Dropping the `DeathRecipient` will `unlink_to_death` any binders it is
+/// currently linked to.
 #[repr(C)]
 pub struct DeathRecipient {
     recipient: *mut sys::AIBinder_DeathRecipient,
@@ -610,7 +619,10 @@ impl DeathRecipient {
             //
             // All uses of linkToDeath in this file correctly increment the
             // ref-count that this onUnlinked callback will decrement.
-            sys::AIBinder_DeathRecipient_setOnUnlinked(recipient, Some(Self::cookie_decr_refcount::<F>));
+            sys::AIBinder_DeathRecipient_setOnUnlinked(
+                recipient,
+                Some(Self::cookie_decr_refcount::<F>),
+            );
         }
         DeathRecipient {
             recipient,
@@ -776,21 +788,13 @@ pub fn wait_for_service(name: &str) -> Option<SpIBinder> {
 /// Retrieve an existing service for a particular interface, blocking for a few
 /// seconds if it doesn't yet exist.
 pub fn get_interface<T: FromIBinder + ?Sized>(name: &str) -> Result<Strong<T>> {
-    let service = get_service(name);
-    match service {
-        Some(service) => FromIBinder::try_from(service),
-        None => Err(StatusCode::NAME_NOT_FOUND),
-    }
+    interface_cast(get_service(name))
 }
 
 /// Retrieve an existing service for a particular interface, or start it if it
 /// is configured as a dynamic service and isn't yet started.
 pub fn wait_for_interface<T: FromIBinder + ?Sized>(name: &str) -> Result<Strong<T>> {
-    let service = wait_for_service(name);
-    match service {
-        Some(service) => FromIBinder::try_from(service),
-        None => Err(StatusCode::NAME_NOT_FOUND),
-    }
+    interface_cast(wait_for_service(name))
 }
 
 /// Check if a service is declared (e.g. in a VINTF manifest)

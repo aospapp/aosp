@@ -20,19 +20,53 @@ load("//:test_defs.bzl", "GenJavaTests")
 
 package(default_visibility = ["//:src"])
 
+java_library(
+    name = "optional_binding_components",
+    srcs = ["OptionalBindingComponents.java"],
+    javacopts = DOCLINT_HTML_AND_SYNTAX,
+    deps = [
+        "//third_party/java/auto:value",
+        "//:dagger_with_compiler",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+# TODO(b/203233586): Replace with GenJavaTest
 GenJavaTests(
-    name = "jdk8_tests",
-    srcs = glob(["**/*.java"]),
+    name = "OptionalBindingComponentsEmptyTest",
+    srcs = ["OptionalBindingComponentsEmptyTest.java"],
     javacopts = DOCLINT_HTML_AND_SYNTAX,
     test_only_deps = [
-        "//java/dagger/internal/guava:base",
-        "//java/dagger/internal/guava:collect",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
+        ":optional_binding_components",
+        
+        "//third_party/java/guava/base",
+        "//third_party/java/guava/collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
     deps = [
+        "//third_party/java/auto:value",
         "//:dagger_with_compiler",
-        "@google_bazel_common//third_party/java/auto:value",
-        "@google_bazel_common//third_party/java/jsr305_annotations",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+# TODO(b/203233586): Replace with GenJavaTest
+GenJavaTests(
+    name = "OptionalBindingComponentsPresentTest",
+    srcs = ["OptionalBindingComponentsPresentTest.java"],
+    javacopts = DOCLINT_HTML_AND_SYNTAX,
+    test_only_deps = [
+        ":optional_binding_components",
+        
+        "//third_party/java/guava/base",
+        "//third_party/java/guava/collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+    deps = [
+        "//third_party/java/auto:value",
+        "//:dagger_with_compiler",
+        "//third_party/java/jsr305_annotations",
     ],
 )

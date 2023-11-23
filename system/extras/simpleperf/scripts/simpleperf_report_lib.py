@@ -264,6 +264,8 @@ class ReportLib(object):
         self._SetTraceOffCpuModeFunc.restype = ct.c_bool
         self._SetSampleFilterFunc = self._lib.SetSampleFilter
         self._SetSampleFilterFunc.restype = ct.c_bool
+        self._AggregateThreadsFunc = self._lib.AggregateThreads
+        self._AggregateThreadsFunc.restype = ct.c_bool
         self._GetNextSampleFunc = self._lib.GetNextSample
         self._GetNextSampleFunc.restype = ct.POINTER(SampleStruct)
         self._GetEventOfCurrentSampleFunc = self._lib.GetEventOfCurrentSample
@@ -309,6 +311,8 @@ class ReportLib(object):
             self.SetTraceOffCpuMode(options.trace_offcpu)
         if options.sample_filters:
             self.SetSampleFilter(options.sample_filters)
+        if options.aggregate_threads:
+            self.AggregateThreads(options.aggregate_threads)
 
     def SetLogSeverity(self, log_level: str = 'info'):
         """ Set log severity of native lib, can be verbose,debug,info,error,fatal."""
@@ -398,6 +402,18 @@ class ReportLib(object):
         filter_array[:] = [_char_pt(f) for f in filters]
         res: bool = self._SetSampleFilterFunc(self.getInstance(), filter_array, len(filters))
         _check(res, f'Failed to call SetSampleFilter({filters})')
+
+    def AggregateThreads(self, thread_name_regex_list: List[str]):
+        """ Given a list of thread name regex, threads with names matching the same regex are merged
+            into one thread. As a result, samples from different threads (like a thread pool) can be
+            shown in one flamegraph.
+        """
+        regex_array = (ct.c_char_p * len(thread_name_regex_list))()
+        regex_array[:] = [_char_pt(f) for f in thread_name_regex_list]
+        res: bool = self._AggregateThreadsFunc(
+            self.getInstance(),
+            regex_array, len(thread_name_regex_list))
+        _check(res, f'Failed to call AggregateThreads({thread_name_regex_list})')
 
     def GetNextSample(self) -> Optional[SampleStruct]:
         """ Return the next sample. If no more samples, return None. """

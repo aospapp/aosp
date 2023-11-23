@@ -25,9 +25,9 @@ java_library(
     srcs = glob(["*.java"]),
     tags = ["maven:merged"],
     deps = [
-        "//java/dagger/internal/guava:base",
-        "//java/dagger/internal/guava:collect",
-        "//java/dagger/internal/guava:graph",
-        "@google_bazel_common//third_party/java/jsr305_annotations",
+        "//third_party/java/guava/base",
+        "//third_party/java/guava/collect",
+        "//third_party/java/guava/graph",
+        "//third_party/java/jsr305_annotations",
     ],
 )

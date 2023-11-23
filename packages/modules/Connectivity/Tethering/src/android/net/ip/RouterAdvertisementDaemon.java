@@ -88,13 +88,13 @@ public class RouterAdvertisementDaemon {
     private static final int MIN_RTR_ADV_INTERVAL_SEC = 300;
     private static final int MAX_RTR_ADV_INTERVAL_SEC = 600;
     // In general, router, prefix, and DNS lifetimes are all advised to be
-    // greater than or equal to 3 * MAX_RTR_ADV_INTERVAL.  Here, we double
+    // greater than or equal to 3 * MAX_RTR_ADV_INTERVAL.  Here, we quadruple
     // that to allow for multicast packet loss.
     //
     // This MAX_RTR_ADV_INTERVAL_SEC and DEFAULT_LIFETIME are also consistent
     // with the https://tools.ietf.org/html/rfc7772#section-4 discussion of
     // "approximately 7 RAs per hour".
-    private static final int DEFAULT_LIFETIME = 6 * MAX_RTR_ADV_INTERVAL_SEC;
+    private static final int DEFAULT_LIFETIME = 12 * MAX_RTR_ADV_INTERVAL_SEC;
     // From https://tools.ietf.org/html/rfc4861#section-10 .
     private static final int MIN_DELAY_BETWEEN_RAS_SEC = 3;
     // Both initial and final RAs, but also for changes in RA contents.
@@ -129,9 +129,6 @@ public class RouterAdvertisementDaemon {
         // Tethered traffic will have the hop limit properly decremented.
         // Consequently, set the hoplimit greater by one than the upstream
         // unicast hop limit.
-        //
-        // TODO: Dynamically pass down the IPV6_UNICAST_HOPS value from the
-        // upstream interface for more correct behaviour.
         static final byte DEFAULT_HOPLIMIT = 65;
 
         public boolean hasDefaultRoute;

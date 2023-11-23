@@ -37,7 +37,7 @@ class WifiRoamingTest(WifiBaseTest):
 
         self.dut = self.android_devices[0]
         self.dut_client = self.android_devices[1]
-        req_params = ["roaming_attn"]
+        req_params = ["roaming_attn", "sae_roaming_unspported_list"]
         self.unpack_userparams(req_param_names=req_params,)
         self.country_code = wutils.WifiEnums.CountryCode.US
         if hasattr(self, "country_code_file"):
@@ -64,6 +64,9 @@ class WifiRoamingTest(WifiBaseTest):
         self.dut.ed.clear_all_events()
         self.dut.droid.wakeLockAcquireBright()
         self.dut.droid.wakeUpNow()
+        asserts.skip_if("sae" in self.test_name and
+                        self.dut.model in self.sae_roaming_unspported_list,
+                        "%s doesn't support wpa3 roaming." % self.dut.model)
 
     def teardown_test(self):
         super().teardown_test()

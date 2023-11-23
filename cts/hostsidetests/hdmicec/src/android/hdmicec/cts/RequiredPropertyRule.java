@@ -22,12 +22,12 @@ import static org.junit.Assume.assumeTrue;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
-import java.util.Arrays;
-import java.util.List;
-
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Rule class that allows for checking device property value against required values.
@@ -48,7 +48,7 @@ public class RequiredPropertyRule implements TestRule {
         };
     }
 
-    private static String getDevicePropertyValue(BaseHostJUnit4Test test, String propertyName)
+    static String getDevicePropertyValue(BaseHostJUnit4Test test, String propertyName)
         throws Throwable {
         ITestDevice testDevice = test.getDevice();
         // Checks if the device is available.

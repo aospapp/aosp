@@ -17,12 +17,14 @@
 package android.media.cts;
 
 import static org.junit.Assert.fail;
+
 import android.media.AudioFormat;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.util.Log;
+
 import java.io.BufferedInputStream;
 import java.io.Closeable;
 import java.io.IOException;

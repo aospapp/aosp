@@ -1,0 +1,16 @@
+dump_hal(hal_health)
+dump_hal(hal_graphics_composer)
+dump_hal(hal_telephony)
+dump_hal(hal_uwb_vendor)
+
+userdebug_or_eng(`
+  allow dumpstate media_rw_data_file:file append;
+')
+
+allow dumpstate sysfs_scsi_devices_0000:file r_file_perms;
+allow dumpstate persist_file:dir r_dir_perms;
+allow dumpstate modem_efs_file:dir r_dir_perms;
+allow dumpstate modem_userdata_file:dir r_dir_perms;
+allow dumpstate modem_img_file:dir r_dir_perms;
+allow dumpstate fuse:dir search;
+

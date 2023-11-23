@@ -55,38 +55,38 @@ import static android.net.util.DataStallUtils.DEFAULT_DATA_STALL_MIN_EVALUATE_TI
 import static android.net.util.DataStallUtils.DEFAULT_DATA_STALL_VALID_DNS_TIME_THRESHOLD_MS;
 import static android.net.util.DataStallUtils.DEFAULT_DNS_LOG_SIZE;
 import static android.net.util.DataStallUtils.DEFAULT_TCP_POLLING_INTERVAL_MS;
-import static android.net.util.NetworkStackUtils.CAPTIVE_PORTAL_FALLBACK_PROBE_SPECS;
-import static android.net.util.NetworkStackUtils.CAPTIVE_PORTAL_FALLBACK_URL;
-import static android.net.util.NetworkStackUtils.CAPTIVE_PORTAL_HTTPS_URL;
-import static android.net.util.NetworkStackUtils.CAPTIVE_PORTAL_HTTP_URL;
-import static android.net.util.NetworkStackUtils.CAPTIVE_PORTAL_MODE;
-import static android.net.util.NetworkStackUtils.CAPTIVE_PORTAL_MODE_IGNORE;
-import static android.net.util.NetworkStackUtils.CAPTIVE_PORTAL_MODE_PROMPT;
-import static android.net.util.NetworkStackUtils.CAPTIVE_PORTAL_OTHER_FALLBACK_URLS;
-import static android.net.util.NetworkStackUtils.CAPTIVE_PORTAL_OTHER_HTTPS_URLS;
-import static android.net.util.NetworkStackUtils.CAPTIVE_PORTAL_OTHER_HTTP_URLS;
-import static android.net.util.NetworkStackUtils.CAPTIVE_PORTAL_USER_AGENT;
-import static android.net.util.NetworkStackUtils.CAPTIVE_PORTAL_USE_HTTPS;
-import static android.net.util.NetworkStackUtils.DEFAULT_CAPTIVE_PORTAL_DNS_PROBE_TIMEOUT;
-import static android.net.util.NetworkStackUtils.DEFAULT_CAPTIVE_PORTAL_FALLBACK_PROBE_SPECS;
-import static android.net.util.NetworkStackUtils.DEFAULT_CAPTIVE_PORTAL_HTTPS_URLS;
-import static android.net.util.NetworkStackUtils.DEFAULT_CAPTIVE_PORTAL_HTTP_URLS;
-import static android.net.util.NetworkStackUtils.DISMISS_PORTAL_IN_VALIDATED_NETWORK;
-import static android.net.util.NetworkStackUtils.DNS_PROBE_PRIVATE_IP_NO_INTERNET_VERSION;
-import static android.net.util.NetworkStackUtils.TEST_CAPTIVE_PORTAL_HTTPS_URL;
-import static android.net.util.NetworkStackUtils.TEST_CAPTIVE_PORTAL_HTTP_URL;
-import static android.net.util.NetworkStackUtils.TEST_URL_EXPIRATION_TIME;
 import static android.provider.DeviceConfig.NAMESPACE_CONNECTIVITY;
 
+import static com.android.modules.utils.build.SdkLevel.isAtLeastU;
 import static com.android.net.module.util.CollectionUtils.isEmpty;
 import static com.android.net.module.util.ConnectivityUtils.isIPv6ULA;
 import static com.android.net.module.util.DeviceConfigUtils.getResBooleanConfig;
+import static com.android.net.module.util.NetworkStackConstants.TEST_CAPTIVE_PORTAL_HTTPS_URL;
+import static com.android.net.module.util.NetworkStackConstants.TEST_CAPTIVE_PORTAL_HTTP_URL;
+import static com.android.net.module.util.NetworkStackConstants.TEST_URL_EXPIRATION_TIME;
 import static com.android.networkstack.apishim.ConstantsShim.DETECTION_METHOD_DNS_EVENTS;
 import static com.android.networkstack.apishim.ConstantsShim.DETECTION_METHOD_TCP_METRICS;
 import static com.android.networkstack.apishim.ConstantsShim.RECEIVER_NOT_EXPORTED;
 import static com.android.networkstack.apishim.ConstantsShim.TRANSPORT_TEST;
 import static com.android.networkstack.util.DnsUtils.PRIVATE_DNS_PROBE_HOST_SUFFIX;
 import static com.android.networkstack.util.DnsUtils.TYPE_ADDRCONFIG;
+import static com.android.networkstack.util.NetworkStackUtils.CAPTIVE_PORTAL_FALLBACK_PROBE_SPECS;
+import static com.android.networkstack.util.NetworkStackUtils.CAPTIVE_PORTAL_FALLBACK_URL;
+import static com.android.networkstack.util.NetworkStackUtils.CAPTIVE_PORTAL_HTTPS_URL;
+import static com.android.networkstack.util.NetworkStackUtils.CAPTIVE_PORTAL_HTTP_URL;
+import static com.android.networkstack.util.NetworkStackUtils.CAPTIVE_PORTAL_MODE;
+import static com.android.networkstack.util.NetworkStackUtils.CAPTIVE_PORTAL_MODE_IGNORE;
+import static com.android.networkstack.util.NetworkStackUtils.CAPTIVE_PORTAL_MODE_PROMPT;
+import static com.android.networkstack.util.NetworkStackUtils.CAPTIVE_PORTAL_OTHER_FALLBACK_URLS;
+import static com.android.networkstack.util.NetworkStackUtils.CAPTIVE_PORTAL_OTHER_HTTPS_URLS;
+import static com.android.networkstack.util.NetworkStackUtils.CAPTIVE_PORTAL_OTHER_HTTP_URLS;
+import static com.android.networkstack.util.NetworkStackUtils.CAPTIVE_PORTAL_USER_AGENT;
+import static com.android.networkstack.util.NetworkStackUtils.CAPTIVE_PORTAL_USE_HTTPS;
+import static com.android.networkstack.util.NetworkStackUtils.DEFAULT_CAPTIVE_PORTAL_DNS_PROBE_TIMEOUT;
+import static com.android.networkstack.util.NetworkStackUtils.DEFAULT_CAPTIVE_PORTAL_FALLBACK_PROBE_SPECS;
+import static com.android.networkstack.util.NetworkStackUtils.DEFAULT_CAPTIVE_PORTAL_HTTPS_URLS;
+import static com.android.networkstack.util.NetworkStackUtils.DEFAULT_CAPTIVE_PORTAL_HTTP_URLS;
+import static com.android.networkstack.util.NetworkStackUtils.DNS_PROBE_PRIVATE_IP_NO_INTERNET_VERSION;
 
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
@@ -114,11 +114,8 @@ import android.net.metrics.IpConnectivityLog;
 import android.net.metrics.NetworkEvent;
 import android.net.metrics.ValidationProbeEvent;
 import android.net.networkstack.aidl.NetworkMonitorParameters;
-import android.net.shared.NetworkMonitorUtils;
 import android.net.shared.PrivateDnsConfig;
 import android.net.util.DataStallUtils.EvaluationType;
-import android.net.util.NetworkStackUtils;
-import android.net.util.SharedLog;
 import android.net.util.Stopwatch;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
@@ -128,7 +125,6 @@ import android.os.Message;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
-import android.os.SystemProperties;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
 import android.stats.connectivity.ProbeResult;
@@ -160,7 +156,9 @@ import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.net.module.util.DeviceConfigUtils;
+import com.android.net.module.util.NetworkMonitorUtils;
 import com.android.net.module.util.NetworkStackConstants;
+import com.android.net.module.util.SharedLog;
 import com.android.networkstack.NetworkStackNotifier;
 import com.android.networkstack.R;
 import com.android.networkstack.apishim.CaptivePortalDataShimImpl;
@@ -177,6 +175,7 @@ import com.android.networkstack.metrics.DataStallStatsUtils;
 import com.android.networkstack.metrics.NetworkValidationMetrics;
 import com.android.networkstack.netlink.TcpSocketTracker;
 import com.android.networkstack.util.DnsUtils;
+import com.android.networkstack.util.NetworkStackUtils;
 import com.android.server.NetworkStackService.NetworkStackServiceManager;
 
 import org.json.JSONException;
@@ -226,9 +225,7 @@ public class NetworkMonitor extends StateMachine {
     private static final String TAG = NetworkMonitor.class.getSimpleName();
     private static final boolean DBG  = true;
     private static final boolean VDBG = false;
-    // TODO(b/185082309): For flaky test debug only, remove it after fixing.
-    private static final boolean DDBG_STALL = "cf_x86_auto-userdebug".equals(
-            SystemProperties.get("ro.build.flavor", ""));
+    private static final boolean DDBG_STALL = false;
     private static final boolean VDBG_STALL = Log.isLoggable(TAG, Log.DEBUG);
     private static final String DEFAULT_USER_AGENT    = "Mozilla/5.0 (X11; Linux x86_64) "
                                                       + "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -282,7 +279,12 @@ public class NetworkMonitor extends StateMachine {
 
     static {
         // CTC
+        // This is a wrong config, but it may need to be here for a while since the
+        // carrier_list.textpb in OEM side may still wrong.
+        // TODO: Remove this wrong config when the carrier_list.textpb is corrected everywhere.
         sCarrierIdToMccMnc.put(1854, new MccMncOverrideInfo(460, 03));
+        // China telecom.
+        sCarrierIdToMccMnc.put(2237, new MccMncOverrideInfo(460, 03));
     }
 
     /**
@@ -445,6 +447,10 @@ public class NetworkMonitor extends StateMachine {
     private final String mCaptivePortalHttpsUrlFromSetting;
     private final String mCaptivePortalHttpUrlFromSetting;
     @Nullable
+    private final URL mTestCaptivePortalHttpsUrl;
+    @Nullable
+    private final URL mTestCaptivePortalHttpUrl;
+    @Nullable
     private final CaptivePortalProbeSpec[] mCaptivePortalFallbackSpecs;
 
     // The probing URLs may be updated after constructor if system notifies configuration changed.
@@ -470,8 +476,7 @@ public class NetworkMonitor extends StateMachine {
     @NonNull
     private LinkProperties mLinkProperties;
 
-    @VisibleForTesting
-    protected boolean mIsCaptivePortalCheckEnabled;
+    private final boolean mIsCaptivePortalCheckEnabled;
 
     private boolean mUseHttps;
     /**
@@ -571,7 +576,8 @@ public class NetworkMonitor extends StateMachine {
     public NetworkMonitor(Context context, INetworkMonitorCallbacks cb, Network network,
             SharedLog validationLog, @NonNull NetworkStackServiceManager serviceManager) {
         this(context, cb, network, new IpConnectivityLog(), validationLog, serviceManager,
-                Dependencies.DEFAULT, getTcpSocketTrackerOrNull(context, network));
+                Dependencies.DEFAULT, getTcpSocketTrackerOrNull(context, network,
+                        Dependencies.DEFAULT));
     }
 
     @VisibleForTesting
@@ -616,7 +622,10 @@ public class NetworkMonitor extends StateMachine {
                 mDependencies.getSetting(context, CAPTIVE_PORTAL_HTTPS_URL, null);
         mCaptivePortalHttpUrlFromSetting =
                 mDependencies.getSetting(context, CAPTIVE_PORTAL_HTTP_URL, null);
-        mIsCaptivePortalCheckEnabled = getIsCaptivePortalCheckEnabled();
+        mTestCaptivePortalHttpsUrl =
+                getTestUrl(TEST_CAPTIVE_PORTAL_HTTPS_URL, validationLogs, deps);
+        mTestCaptivePortalHttpUrl = getTestUrl(TEST_CAPTIVE_PORTAL_HTTP_URL, validationLogs, deps);
+        mIsCaptivePortalCheckEnabled = getIsCaptivePortalCheckEnabled(context, deps);
         mPrivateIpNoInternetEnabled = getIsPrivateIpNoInternetEnabled();
         mMetricsEnabled = deps.isFeatureEnabled(context, NAMESPACE_CONNECTIVITY,
                 NetworkStackUtils.VALIDATION_METRICS_VERSION, true /* defaultEnabled */);
@@ -630,8 +639,8 @@ public class NetworkMonitor extends StateMachine {
         mDataStallMinEvaluateTime = getDataStallMinEvaluateTime();
         mDataStallValidDnsTimeThreshold = getDataStallValidDnsTimeThreshold();
         mDataStallEvaluationType = getDataStallEvaluationType();
-        mDnsStallDetector = initDnsStallDetectorIfRequired(mDataStallEvaluationType,
-                mConsecutiveDnsTimeoutThreshold);
+        mDnsStallDetector = initDnsStallDetectorIfRequired(mIsCaptivePortalCheckEnabled,
+                mDataStallEvaluationType, mConsecutiveDnsTimeoutThreshold);
         mTcpTracker = tst;
         // Read the configurations of evaluating network bandwidth.
         mEvaluatingBandwidthUrl = getResStringConfig(mContext,
@@ -781,7 +790,14 @@ public class NetworkMonitor extends StateMachine {
     }
 
     private boolean isValidationRequired() {
-        return NetworkMonitorUtils.isValidationRequired(mNetworkAgentConfig, mNetworkCapabilities);
+        final boolean dunValidationRequired = isAtLeastU()
+                || mContext.getResources().getBoolean(R.bool.config_validate_dun_networks);
+        return NetworkMonitorUtils.isValidationRequired(dunValidationRequired,
+                mNetworkAgentConfig.isVpnValidationRequired(), mNetworkCapabilities);
+    }
+
+    private boolean isDataStallDetectionRequired() {
+        return mIsCaptivePortalCheckEnabled && isValidationRequired();
     }
 
     private boolean isPrivateDnsValidationRequired() {
@@ -934,6 +950,9 @@ public class NetworkMonitor extends StateMachine {
                 case CMD_NETWORK_DISCONNECTED:
                     maybeStopCollectionAndSendMetrics();
                     logNetworkEvent(NetworkEvent.NETWORK_DISCONNECTED);
+                    if (mTcpTracker != null) {
+                        mTcpTracker.quit();
+                    }
                     quit();
                     return HANDLED;
                 case CMD_FORCE_REEVALUATION:
@@ -999,7 +1018,7 @@ public class NetworkMonitor extends StateMachine {
                             mUserDoesNotWant = true;
                             mEvaluationState.reportEvaluationResult(
                                     NETWORK_VALIDATION_RESULT_INVALID, null);
-                            // TODO: Should teardown network.
+
                             mUidResponsibleForReeval = 0;
                             transitionTo(mEvaluatingState);
                             break;
@@ -1133,7 +1152,7 @@ public class NetworkMonitor extends StateMachine {
         }
 
         private void initSocketTrackingIfRequired() {
-            if (!isValidationRequired()) return;
+            if (!isDataStallDetectionRequired()) return;
 
             final TcpSocketTracker tst = getTcpSocketTracker();
             if (tst != null) {
@@ -1196,7 +1215,7 @@ public class NetworkMonitor extends StateMachine {
 
     @VisibleForTesting
     void sendTcpPollingEvent() {
-        if (isValidationRequired()) {
+        if (isDataStallDetectionRequired()) {
             sendMessageDelayed(EVENT_POLL_TCPINFO, getTcpPollingInterval());
         }
     }
@@ -1314,10 +1333,7 @@ public class NetworkMonitor extends StateMachine {
         private boolean useRedirectUrlForPortal() {
             // It must match the conditions in CaptivePortalLogin in which the redirect URL is not
             // used to validate that the portal is gone.
-            final boolean aboveQ =
-                    ShimUtils.isReleaseOrDevelopmentApiAbove(Build.VERSION_CODES.Q);
-            return aboveQ && mDependencies.isFeatureEnabled(mContext, NAMESPACE_CONNECTIVITY,
-                    DISMISS_PORTAL_IN_VALIDATED_NETWORK, aboveQ /* defaultEnabled */);
+            return ShimUtils.isReleaseOrDevelopmentApiAbove(Build.VERSION_CODES.Q);
         }
 
         @Override
@@ -1943,10 +1959,11 @@ public class NetworkMonitor extends StateMachine {
         return true;
     }
 
-    private boolean getIsCaptivePortalCheckEnabled() {
+    private static boolean getIsCaptivePortalCheckEnabled(@NonNull Context context,
+            @NonNull Dependencies dependencies) {
         String symbol = CAPTIVE_PORTAL_MODE;
         int defaultValue = CAPTIVE_PORTAL_MODE_PROMPT;
-        int mode = mDependencies.getSetting(mContext, symbol, defaultValue);
+        int mode = dependencies.getSetting(context, symbol, defaultValue);
         return mode != CAPTIVE_PORTAL_MODE_IGNORE;
     }
 
@@ -2064,8 +2081,9 @@ public class NetworkMonitor extends StateMachine {
     }
 
     @Nullable
-    private URL getTestUrl(@NonNull String key) {
-        final String strExpiration = mDependencies.getDeviceConfigProperty(NAMESPACE_CONNECTIVITY,
+    private static URL getTestUrl(@NonNull String key, @NonNull SharedLog log,
+            @NonNull Dependencies deps) {
+        final String strExpiration = deps.getDeviceConfigProperty(NAMESPACE_CONNECTIVITY,
                 TEST_URL_EXPIRATION_TIME, null);
         if (strExpiration == null) return null;
 
@@ -2073,23 +2091,23 @@ public class NetworkMonitor extends StateMachine {
         try {
             expTime = Long.parseUnsignedLong(strExpiration);
         } catch (NumberFormatException e) {
-            loge("Invalid test URL expiration time format", e);
+            log.e("Invalid test URL expiration time format", e);
             return null;
         }
 
         final long now = System.currentTimeMillis();
         if (expTime < now || (expTime - now) > TEST_URL_EXPIRATION_MS) {
-            logw("Skipping test URL with expiration " + expTime + ", now " + now);
+            log.w("Skipping test URL with expiration " + expTime + ", now " + now);
             return null;
         }
 
-        final String strUrl = mDependencies.getDeviceConfigProperty(NAMESPACE_CONNECTIVITY,
+        final String strUrl = deps.getDeviceConfigProperty(NAMESPACE_CONNECTIVITY,
                 key, null /* defaultValue */);
         if (!isValidTestUrl(strUrl)) {
-            logw("Skipping invalid test URL " + strUrl);
+            log.w("Skipping invalid test URL " + strUrl);
             return null;
         }
-        return makeURL(strUrl);
+        return makeURL(strUrl, log);
     }
 
     private String getCaptivePortalServerHttpsUrl(@NonNull Context context) {
@@ -2250,8 +2268,7 @@ public class NetworkMonitor extends StateMachine {
     }
 
     private URL[] makeCaptivePortalHttpsUrls(@NonNull Context context) {
-        final URL testUrl = getTestUrl(TEST_CAPTIVE_PORTAL_HTTPS_URL);
-        if (testUrl != null) return new URL[] { testUrl };
+        if (mTestCaptivePortalHttpsUrl != null) return new URL[] { mTestCaptivePortalHttpsUrl };
 
         final String firstUrl = getCaptivePortalServerHttpsUrl(context);
         try {
@@ -2271,8 +2288,7 @@ public class NetworkMonitor extends StateMachine {
     }
 
     private URL[] makeCaptivePortalHttpUrls(@NonNull Context context) {
-        final URL testUrl = getTestUrl(TEST_CAPTIVE_PORTAL_HTTP_URL);
-        if (testUrl != null) return new URL[] { testUrl };
+        if (mTestCaptivePortalHttpUrl != null) return new URL[] { mTestCaptivePortalHttpUrl };
 
         final String firstUrl = getCaptivePortalServerHttpUrl(context);
         try {
@@ -3170,12 +3186,18 @@ public class NetworkMonitor extends StateMachine {
         }
     }
 
-    private URL makeURL(String url) {
+    @Nullable
+    private URL makeURL(@Nullable String url) {
+        return makeURL(url, mValidationLogs);
+    }
+
+    @Nullable
+    private static URL makeURL(@Nullable String url, @NonNull SharedLog log) {
         if (url != null) {
             try {
                 return new URL(url);
             } catch (MalformedURLException e) {
-                validationLog("Bad URL: " + url);
+                log.w("Bad URL: " + url);
             }
         }
         return null;
@@ -3427,7 +3449,7 @@ public class NetworkMonitor extends StateMachine {
 
     @VisibleForTesting
     protected boolean isDataStall() {
-        if (!isValidationRequired()) {
+        if (!isDataStallDetectionRequired()) {
             return false;
         }
 
@@ -3681,8 +3703,10 @@ public class NetworkMonitor extends StateMachine {
     }
 
     @Nullable
-    private static TcpSocketTracker getTcpSocketTrackerOrNull(Context context, Network network) {
-        return ((Dependencies.DEFAULT.getDeviceConfigPropertyInt(
+    private static TcpSocketTracker getTcpSocketTrackerOrNull(Context context, Network network,
+                Dependencies deps) {
+        return (getIsCaptivePortalCheckEnabled(context, deps)
+                && (deps.getDeviceConfigPropertyInt(
                 NAMESPACE_CONNECTIVITY,
                 CONFIG_DATA_STALL_EVALUATION_TYPE,
                 DEFAULT_DATA_STALL_EVALUATION_TYPES)
@@ -3692,8 +3716,9 @@ public class NetworkMonitor extends StateMachine {
     }
 
     @Nullable
-    private DnsStallDetector initDnsStallDetectorIfRequired(int type, int threshold) {
-        return ((type & DATA_STALL_EVALUATION_TYPE_DNS) != 0)
+    private DnsStallDetector initDnsStallDetectorIfRequired(boolean isCaptivePortalCheckEnabled,
+                int type, int threshold) {
+        return (isCaptivePortalCheckEnabled && (type & DATA_STALL_EVALUATION_TYPE_DNS) != 0)
                 ? new DnsStallDetector(threshold) : null;
     }
 

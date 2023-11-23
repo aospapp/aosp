@@ -44,6 +44,7 @@
 #include <sys/time.h>
 #include <sys/poll.h>
 #include <pthread.h>
+#include <sched.h>
 #include "drm.h"
 
 IGT_TEST_DESCRIPTION("Call read(drm) and see if it behaves.");
@@ -106,7 +107,7 @@ static void test_invalid_buffer(int in)
 
 	alarm(1);
 
-	igt_assert_eq(read(fd, (void *)-1, 4096), -1);
+	igt_assert_eq(read(fd, (void *)-1, 0), -1);
 	igt_assert_eq(errno, EFAULT);
 
 	teardown(fd);
@@ -220,7 +221,7 @@ static void test_short_buffer_wakeup(int in, enum pipe pipe)
 		pthread_mutex_unlock(&w.mutex);
 
 		/* Give each thread a chance to sleep in drm_read() */
-		pthread_yield();
+		sched_yield();
 
 		/* One event should wake all threads as none consume */
 		generate_event(w.fd, pipe);

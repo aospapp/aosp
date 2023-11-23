@@ -17,18 +17,21 @@
 use libc::EIO;
 use std::io;
 
-use super::common::{build_fsverity_digest, merkle_tree_height, FsverityError};
+use super::common::{build_fsverity_digest, merkle_tree_height, FsverityError, SHA256_HASH_SIZE};
 use crate::common::{divide_roundup, CHUNK_SIZE};
-use crate::crypto::{CryptoError, Sha256Hasher};
 use crate::file::{ChunkBuffer, ReadByChunk};
+use openssl::sha::{sha256, Sha256};
 
 const ZEROS: [u8; CHUNK_SIZE as usize] = [0u8; CHUNK_SIZE as usize];
 
-type HashBuffer = [u8; Sha256Hasher::HASH_SIZE];
+type HashBuffer = [u8; SHA256_HASH_SIZE];
 
-fn hash_with_padding(chunk: &[u8], pad_to: usize) -> Result<HashBuffer, CryptoError> {
+fn hash_with_padding(chunk: &[u8], pad_to: usize) -> HashBuffer {
     let padding_size = pad_to - chunk.len();
-    Sha256Hasher::new()?.update(chunk)?.update(&ZEROS[..padding_size])?.finalize()
+    let mut ctx = Sha256::new();
+    ctx.update(chunk);
+    ctx.update(&ZEROS[..padding_size]);
+    ctx.finish()
 }
 
 fn verity_check<T: ReadByChunk>(
@@ -42,7 +45,7 @@ fn verity_check<T: ReadByChunk>(
     // beyond the file size, including empty file.
     assert_ne!(file_size, 0);
 
-    let chunk_hash = hash_with_padding(chunk, CHUNK_SIZE as usize)?;
+    let chunk_hash = hash_with_padding(chunk, CHUNK_SIZE as usize);
 
     // When the file is smaller or equal to CHUNK_SIZE, the root of Merkle tree is defined as the
     // hash of the file content, plus padding.
@@ -55,11 +58,11 @@ fn verity_check<T: ReadByChunk>(
         |actual_hash, result| {
             let (merkle_chunk, hash_offset_in_chunk) = result?;
             let expected_hash =
-                &merkle_chunk[hash_offset_in_chunk..hash_offset_in_chunk + Sha256Hasher::HASH_SIZE];
+                &merkle_chunk[hash_offset_in_chunk..hash_offset_in_chunk + SHA256_HASH_SIZE];
             if actual_hash != expected_hash {
                 return Err(FsverityError::CannotVerify);
             }
-            Ok(hash_with_padding(&merkle_chunk, CHUNK_SIZE as usize)?)
+            Ok(hash_with_padding(&merkle_chunk, CHUNK_SIZE as usize))
         },
     )
 }
@@ -74,7 +77,7 @@ fn fsverity_walk<T: ReadByChunk>(
     file_size: u64,
     merkle_tree: &T,
 ) -> Result<impl Iterator<Item = Result<([u8; 4096], usize), FsverityError>> + '_, FsverityError> {
-    let hashes_per_node = CHUNK_SIZE / Sha256Hasher::HASH_SIZE as u64;
+    let hashes_per_node = CHUNK_SIZE / SHA256_HASH_SIZE as u64;
     debug_assert_eq!(hashes_per_node, 128u64);
     let max_level = merkle_tree_height(file_size).expect("file should not be empty") as u32;
     let root_to_leaf_steps = (0..=max_level)
@@ -85,7 +88,7 @@ fn fsverity_walk<T: ReadByChunk>(
             let leaves_size_per_node = leaves_size_per_hash * hashes_per_node;
             let nodes_at_level = divide_roundup(file_size, leaves_size_per_node);
             let level_size = nodes_at_level * CHUNK_SIZE;
-            let offset_in_level = (chunk_index / leaves_per_hash) * Sha256Hasher::HASH_SIZE as u64;
+            let offset_in_level = (chunk_index / leaves_per_hash) * SHA256_HASH_SIZE as u64;
             (level_size, offset_in_level)
         })
         .scan(0, |level_offset, (level_size, offset_in_level)| {
@@ -135,8 +138,8 @@ impl<F: ReadByChunk, M: ReadByChunk> VerifiedFileReader<F, M> {
                 return Err(FsverityError::InsufficientData(size));
             }
         }
-        let root_hash = Sha256Hasher::new()?.update(&buf[..])?.finalize()?;
-        if expected_digest == build_fsverity_digest(&root_hash, file_size)? {
+        let root_hash = sha256(&buf[..]);
+        if expected_digest == build_fsverity_digest(&root_hash, file_size) {
             // Once verified, use the root_hash for verification going forward.
             Ok(VerifiedFileReader { chunked_file, file_size, merkle_tree, root_hash })
         } else {

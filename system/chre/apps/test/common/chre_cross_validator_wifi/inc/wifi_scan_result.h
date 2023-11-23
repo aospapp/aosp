@@ -19,9 +19,9 @@
 
 #include <cinttypes>
 
-#include <chre.h>
 #include <pb_decode.h>
 
+#include "chre_api/chre.h"
 #include "chre_cross_validation_wifi.nanopb.h"
 
 class WifiScanResult {

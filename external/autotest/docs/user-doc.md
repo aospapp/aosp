@@ -4,15 +4,15 @@
 
 ## Useful documents
 
-[Autotest documentation on GitHub](https://github.com/autotest/autotest/wiki/AutotestApi):
+[Autotest documentation](https://autotest.readthedocs.io/en/latest/index.html):
 This would be a good read if you want to familiarize yourself with the basic
 Autotest concepts.
 
-[Gentoo Portage ebuild/eclass Information](http://www.gentoo.org/proj/en/devrel/handbook/handbook.xml?part=2):
-Getting to know the package build system we use.
+[Gentoo Portage ebuild/eclass Information](https://devmanual.gentoo.org/):
+Guides for getting to know the package build system we use.
 
-[ChromiumOS specific Portage FAQ](http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/portage-build-faq):
-Learning something about the way we use portage.
+[ChromiumOS specific Portage FAQ](https://chromium.googlesource.com/chromiumos/docs/+/HEAD/portage/ebuild_faq.md):
+Learn something about the way we use portage.
 
 ## Autotest and ebuild workflow
 
@@ -244,7 +244,7 @@ When running tests, fundamentally, you want to either:
 ### Running tests on a machine
 
 Autotests are run with a tool called
-[test_that](https://chromium.googlesource.com/chromiumos/third_party/autotest/+/refs/heads/master/docs/test-that.md).
+[test_that](https://chromium.googlesource.com/chromiumos/third_party/autotest/+/refs/heads/main/docs/test-that.md).
 
 ### Running tests in a VM - cros_run_test
 
@@ -253,7 +253,7 @@ the VM using a given image and then calls `test_that`. This is run by builders
 to test using the Smoke suite.
 
 If you want to run your tests in a VM (see
-[here](https://chromium.googlesource.com/chromiumos/docs/+/master/cros_vm.md#Run-an-autotest-in-the-VM)
+[here](https://chromium.googlesource.com/chromiumos/docs/+/main/cros_vm.md#Run-an-autotest-in-the-VM)
 
 -   `cros_run_test` starts up a VM and runs autotests using the port
 -   specified (defaults to 9222).  As an example:
@@ -264,9 +264,7 @@ If you want to run your tests in a VM (see
 
 -   The emulator command line redirects localhost port 9222 to the emulated
     machine's port 22 to allow you to ssh into the emulator. For Chromium OS to
-    actually listen on this port you must append the `--test_image` parameter
-    when you run the `./image_to_vm.sh` script, or perhaps run the
-    `mod_image_for_test.sh` script instead.
+    actually listen on this port you must create & boot a test image.
 -   You can then run tests on the correct ssh port with something like
 
         $ test_that --board=x86-generic localhost:9222 'f:.*platform_BootPerf/control'

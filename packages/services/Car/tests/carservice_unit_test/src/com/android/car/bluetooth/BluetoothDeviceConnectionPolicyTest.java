@@ -21,7 +21,6 @@ import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
@@ -43,30 +42,22 @@ import android.provider.Settings;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
-import androidx.test.filters.RequiresDevice;
 
 import com.android.car.CarDrivingStateService;
 import com.android.car.CarLocalServices;
 import com.android.car.CarPropertyService;
-import com.android.car.systeminterface.SystemInterface;
 
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.invocation.Invocation;
 import org.mockito.invocation.InvocationOnMock;
-import org.mockito.junit.MockitoJUnitRunner;
 import org.mockito.stubbing.Answer;
 
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.stream.Collectors;
 
 /**
  * Unit tests for {@link BluetoothDeviceConnectionPolicy}
@@ -74,8 +65,6 @@ import java.util.stream.Collectors;
  * Run:
  * atest BluetoothDeviceConnectionPolicyTest
  */
-@RequiresDevice
-@RunWith(MockitoJUnitRunner.class)
 public class BluetoothDeviceConnectionPolicyTest extends AbstractExtendedMockitoBluetoothTestCase {
     private static final String TAG = BluetoothDeviceConnectionPolicyTest.class.getSimpleName();
     private static final boolean VERBOSE = false;
@@ -86,7 +75,6 @@ public class BluetoothDeviceConnectionPolicyTest extends AbstractExtendedMockito
     @Mock private BluetoothAdapter mMockBluetoothAdapter;
     @Mock private BluetoothManager mMockBluetoothManager;
     @Mock private CarBluetoothService mMockBluetoothService;
-    @Mock private SystemInterface mMockSystemInterface;
     @Mock private CarPropertyService mMockCarPropertyService;
     @Mock private CarDrivingStateService mMockCarDrivingStateService;
 
@@ -162,13 +150,13 @@ public class BluetoothDeviceConnectionPolicyTest extends AbstractExtendedMockito
                 .thenReturn(new CarPropertyValue<Integer>(VehiclePropertyIds.INFO_DRIVER_SEAT,
                 0 /*areaId*/, new Integer(DRIVER_SEAT)));
 
-        mPolicy = BluetoothDeviceConnectionPolicy.create(mMockContext, mUserId,
+        mPolicy = BluetoothDeviceConnectionPolicy.create(mMockContext, USER_ID,
                 mMockBluetoothService);
         Assert.assertTrue(mPolicy != null);
 
         // Get the seat occupancy listener
-        doNothing().when(mMockCarPropertyService)
-                .registerListener(anyInt(), anyFloat(), mSeatListenerCaptor.capture());
+        when(mMockCarPropertyService.registerListenerSafe(anyInt(), anyFloat(),
+                mSeatListenerCaptor.capture())).thenReturn(true);
     }
 
     @After
@@ -260,16 +248,6 @@ public class BluetoothDeviceConnectionPolicyTest extends AbstractExtendedMockito
     private void setDrivingState(int value) {
         when(mMockCarDrivingStateService.getCurrentDrivingState())
                 .thenReturn(new CarDrivingStateEvent(value, 0 /*timeStamp*/));
-    }
-
-    private int getNumberOfConnectDevicesCalls() {
-        Collection<Invocation> invocations =
-                Mockito.mockingDetails(mMockBluetoothService).getInvocations();
-
-        return invocations.stream()
-                .filter(inv -> "connectDevices".equals(inv.getMethod().getName()))
-                .collect(Collectors.toList())
-                .size();
     }
 
     //--------------------------------------------------------------------------------------------//
@@ -486,7 +464,7 @@ public class BluetoothDeviceConnectionPolicyTest extends AbstractExtendedMockito
                 .thenReturn(null);
 
         BluetoothDeviceConnectionPolicy policyUnderTest = BluetoothDeviceConnectionPolicy.create(
-                mMockContext, mUserId, mMockBluetoothService);
+                mMockContext, USER_ID, mMockBluetoothService);
         Assert.assertTrue(policyUnderTest != null);
     }
 

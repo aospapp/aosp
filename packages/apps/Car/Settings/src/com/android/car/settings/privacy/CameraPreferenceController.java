@@ -19,10 +19,8 @@ package com.android.car.settings.privacy;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.graphics.drawable.Drawable;
 import android.os.SystemProperties;
 
-import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
 import com.android.car.ui.preference.CarUiPreference;
@@ -48,7 +46,7 @@ public class CameraPreferenceController
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         // Shows the camera preference controller if and only if the system has any camera device
         // and the camera service is not disabled.
         boolean hasCamera = mPm.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);

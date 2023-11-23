@@ -21,11 +21,16 @@ import com.google.android.enterprise.connectedapps.ConnectedAppsUtils;
 import com.google.android.enterprise.connectedapps.ConnectionListener;
 import com.google.android.enterprise.connectedapps.CrossProfileSender;
 import com.google.android.enterprise.connectedapps.Permissions;
+import com.google.android.enterprise.connectedapps.ProfileConnectionHolder;
 import com.google.android.enterprise.connectedapps.ProfileConnector;
 import com.google.android.enterprise.connectedapps.annotations.CustomProfileConnector.ProfileType;
 import com.google.android.enterprise.connectedapps.exceptions.UnavailableProfileException;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.concurrent.Executor;
 
 /**
  * A fake {@link ProfileConnector} for use in tests.
@@ -33,7 +38,7 @@ import java.util.Set;
  * <p>This should be extended to make it compatible with a specific {@link ProfileConnector}
  * interface.
  */
-public abstract class AbstractFakeProfileConnector implements ProfileConnector {
+public abstract class AbstractFakeProfileConnector implements FakeProfileConnector {
 
   enum WorkProfileState {
     DOES_NOT_EXIST,
@@ -47,8 +52,11 @@ public abstract class AbstractFakeProfileConnector implements ProfileConnector {
   private WorkProfileState workProfileState = WorkProfileState.DOES_NOT_EXIST;
   private boolean isConnected = false;
   private boolean hasPermissionToMakeCrossProfileCalls = true;
-  private boolean isManuallyManagingConnection = false;
+  private ConnectionHandler connectionHandler = () -> true;
+  private Executor executor = Runnable::run;
 
+  private final Set<Object> connectionHolders = Collections.newSetFromMap(new WeakHashMap<>());
+  private final Map<Object, Set<Object>> connectionHolderAliases = new WeakHashMap<>();
   private final Set<ConnectionListener> connectionListeners = new HashSet<>();
   private final Set<AvailabilityListener> availabilityListeners = new HashSet<>();
 
@@ -151,32 +159,30 @@ public abstract class AbstractFakeProfileConnector implements ProfileConnector {
     notifyAvailabilityChanged();
   }
 
-  /**
-   * Force the connector to be "automatically" connected.
-   *
-   * <p>This call should only be used by the SDK and should not be called in tests. If you want to
-   * connect manually, use {@link #startConnecting()}, or for automatic management just make the
-   * asynchronous call directly.
-   *
-   * @hide
-   */
+  @Override
+  public void setConnectionHandler(ConnectionHandler connectionHandler) {
+    this.connectionHandler = connectionHandler;
+  }
+
+  @Override
+  public void setExecutor(Executor executor) {
+    this.executor = executor;
+  }
+
+  @Override
   public void automaticallyConnect() {
-    if (isAvailable() && !isConnected) {
+    if (hasPermissionToMakeCrossProfileCalls
+        && isAvailable()
+        && !isConnected
+        && connectionHandler.tryConnect()) {
       isConnected = true;
       notifyConnectionChanged();
     }
   }
 
-  /**
-   * Disconnect after an automatic connection.
-   *
-   * <p>In reality, this timeout happens some arbitrary time of no interaction with the other
-   * profile.
-   *
-   * <p>If {@link #isManuallyManagingConnection()} is true, then this will do nothing.
-   */
+  @Override
   public void timeoutConnection() {
-    if (isManuallyManagingConnection) {
+    if (!connectionHolders.isEmpty()) {
       return;
     }
 
@@ -186,37 +192,32 @@ public abstract class AbstractFakeProfileConnector implements ProfileConnector {
     }
   }
 
-  @Override
-  public void startConnecting() {
-    isManuallyManagingConnection = true;
-    automaticallyConnect();
-  }
-
   /**
    * This fake does not enforce the requirement that calls to {@link #connect()} do not occur on the
    * UI Thread.
    */
   @Override
-  public void connect() throws UnavailableProfileException {
-    if (!isAvailable()) {
-      throw new UnavailableProfileException("No profile available");
-    }
-
-    isManuallyManagingConnection = true;
-    automaticallyConnect();
-  }
-
-  /**
-   * Stop manually managing the connection and ensure that the connector is disconnected.
-   */
-  public void disconnect() {
-    stopManualConnectionManagement();
-    timeoutConnection();
+  public ProfileConnectionHolder connect() throws UnavailableProfileException {
+    return connect(CrossProfileSender.MANUAL_MANAGEMENT_CONNECTION_HOLDER);
   }
 
   @Override
-  public void stopManualConnectionManagement() {
-    isManuallyManagingConnection = false;
+  public ProfileConnectionHolder connect(Object connectionHolder)
+      throws UnavailableProfileException {
+    if (!hasPermissionToMakeCrossProfileCalls || !isAvailable()) {
+      throw new UnavailableProfileException("No profile available");
+    }
+
+    connectionHolders.add(connectionHolder);
+    automaticallyConnect();
+
+    return ProfileConnectionHolder.create(this, connectionHolder);
+  }
+
+  /** Stop manually managing the connection and ensure that the connector is disconnected. */
+  public void disconnect() {
+    connectionHolders.clear();
+    timeoutConnection();
   }
 
   /** Unsupported by the fake so always returns {@code null}. */
@@ -226,12 +227,12 @@ public abstract class AbstractFakeProfileConnector implements ProfileConnector {
   }
 
   @Override
-  public void registerConnectionListener(ConnectionListener listener) {
+  public void addConnectionListener(ConnectionListener listener) {
     connectionListeners.add(listener);
   }
 
   @Override
-  public void unregisterConnectionListener(ConnectionListener listener) {
+  public void removeConnectionListener(ConnectionListener listener) {
     connectionListeners.remove(listener);
   }
 
@@ -242,12 +243,12 @@ public abstract class AbstractFakeProfileConnector implements ProfileConnector {
   }
 
   @Override
-  public void registerAvailabilityListener(AvailabilityListener listener) {
+  public void addAvailabilityListener(AvailabilityListener listener) {
     availabilityListeners.add(listener);
   }
 
   @Override
-  public void unregisterAvailabilityListener(AvailabilityListener listener) {
+  public void removeAvailabilityListener(AvailabilityListener listener) {
     availabilityListeners.remove(listener);
   }
 
@@ -274,18 +275,12 @@ public abstract class AbstractFakeProfileConnector implements ProfileConnector {
 
   @Override
   public Permissions permissions() {
-    return new FakePermissions(this);
+    return new FakeCrossProfilePermissions(this);
   }
 
-  /** Not supported by the fake so returns null. */
   @Override
   public Context applicationContext() {
     return applicationContext;
-  }
-
-  @Override
-  public boolean isManuallyManagingConnection() {
-    return isManuallyManagingConnection;
   }
 
   /**
@@ -299,5 +294,46 @@ public abstract class AbstractFakeProfileConnector implements ProfileConnector {
 
   boolean hasPermissionToMakeCrossProfileCalls() {
     return hasPermissionToMakeCrossProfileCalls;
+  }
+
+  @Override
+  public ProfileConnectionHolder addConnectionHolder(Object connectionHolder) {
+    connectionHolders.add(connectionHolder);
+    executor.execute(this::automaticallyConnect);
+
+    return ProfileConnectionHolder.create(this, connectionHolder);
+  }
+
+  @Override
+  public void addConnectionHolderAlias(Object key, Object value) {
+    if (!connectionHolderAliases.containsKey(key)) {
+      connectionHolderAliases.put(key, Collections.newSetFromMap(new WeakHashMap<>()));
+    }
+
+    connectionHolderAliases.get(key).add(value);
+  }
+
+  @Override
+  public void removeConnectionHolder(Object connectionHolder) {
+    if (connectionHolderAliases.containsKey(connectionHolder)) {
+      Set<Object> aliases = connectionHolderAliases.get(connectionHolder);
+      connectionHolderAliases.remove(connectionHolder);
+      for (Object alias : aliases) {
+        removeConnectionHolder(alias);
+      }
+    }
+
+    connectionHolders.remove(connectionHolder);
+  }
+
+  @Override
+  public void clearConnectionHolders() {
+    connectionHolderAliases.clear();
+    connectionHolders.clear();
+  }
+
+  @Override
+  public boolean hasExplicitConnectionHolders() {
+    return !connectionHolders.isEmpty();
   }
 }

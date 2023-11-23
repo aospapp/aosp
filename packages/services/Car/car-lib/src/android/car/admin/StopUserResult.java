@@ -123,7 +123,6 @@ public final class StopUserResult {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return "StopUserResult[" + statusToString(mStatus) + "]";
     }

@@ -20,6 +20,8 @@ import android.content.SharedPreferences;
 import android.os.Handler;
 import android.widget.TextView;
 
+import com.android.internal.annotations.GuardedBy;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.LinkedList;
@@ -31,20 +33,23 @@ public class Watchdog {
     private static final String PREFS_EVENTS_LIST = "events_list";
     private static final String PREFS_EVENTS_LIST_SEPARATOR = "\n";
     // TODO(serikb): Convert TextView to ListView with per row coloring
-    private TextView mView;
-    private LinkedList<String> mEvents;
+    private final TextView mView;
     private Handler mWatchdogHandler;
     private Runnable mRefreshLoop;
-    private SharedPreferences mSharedPrefs;
+    private final SharedPreferences mSharedPrefs;
+
+    private final Object mLock = new Object();
+
+    @GuardedBy("mLock")
+    private final LinkedList<String> mEvents;
 
     public Watchdog(Context context, TextView view) {
         this(
-                context,
                 view,
                 context.getSharedPreferences(PREFS_FILE_NAME, Context.MODE_PRIVATE));
     }
 
-    public Watchdog(Context context, TextView view, SharedPreferences prefs) {
+    public Watchdog(TextView view, SharedPreferences prefs) {
         mView = view;
         mSharedPrefs = prefs;
         mEvents = getEventsFromSharedPrefs(prefs);
@@ -53,18 +58,22 @@ public class Watchdog {
     public void logEvent(String s) {
         Date date = new Date();
         SimpleDateFormat dateFormat = new SimpleDateFormat("[yyyy-MM-dd hh:mm:ss]");
-        mEvents.addFirst(dateFormat.format(date) + " " + s);
-        if (mEvents.size() > 10000) {
-            mEvents.pollLast();
+        synchronized (mLock) {
+            mEvents.addFirst(dateFormat.format(date) + " " + s);
+            if (mEvents.size() > 10000) {
+                mEvents.pollLast();
+            }
+            saveEventsToSharedPrefs(mSharedPrefs, mEvents);
         }
-        saveEventsToSharedPrefs(mSharedPrefs, mEvents);
     }
 
-    public synchronized String getEventsAsText() {
-        return String.join("\n", mEvents);
+    public String getEventsAsText() {
+        synchronized (mLock) {
+            return String.join("\n", mEvents);
+        }
     }
 
-    public synchronized void refresh() {
+    public void refresh() {
         mView.setText(getEventsAsText());
     }
 

@@ -17,14 +17,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
      package="android.server.wm.dndsourceapp"
      android:targetSandboxVersion="2">
+
+    <queries>
+        <package android:name="android.server.wm.cts" />
+    </queries>
+
     <application android:label="CtsDnDSource">
         <activity android:name="android.server.wm.dndsourceapp.DragSource"
              android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
              android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
         </activity>
 
         <provider android:name="android.server.wm.dndsourceapp.DragSourceContentProvider"

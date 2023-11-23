@@ -44,12 +44,7 @@ public class ByodFlowTestHelper {
      * Clean up things. This has to be working even it is called multiple times.
      */
     public void tearDown() {
-        if (!UserManager.isHeadlessSystemUserMode()) {
-            // TODO(b/177554984): figure out how to use it on headless system user mode - right now,
-            // it removes the current user on teardown
-            Log.i(TAG, "tearDown(): not deleting managed profile on headless system user mode");
-            Utils.requestDeleteManagedProfile(mContext);
-        }
+        Utils.requestDeleteManagedProfile(mContext);
         setComponentsEnabledState(PackageManager.COMPONENT_ENABLED_STATE_DEFAULT);
     }
 
@@ -63,7 +58,6 @@ public class ByodFlowTestHelper {
     private void setComponentsEnabledState(final int enabledState) {
         final String[] components = {
                 ByodHelperActivity.class.getName(),
-                WorkStatusTestActivity.class.getName(),
                 PermissionLockdownTestActivity.ACTIVITY_ALIAS,
                 AuthenticationBoundKeyTestActivity.class.getName(),
                 VpnTestActivity.class.getName(),
@@ -74,7 +68,8 @@ public class ByodFlowTestHelper {
                 SetSupportMessageActivity.class.getName(),
                 KeyChainTestActivity.class.getName(),
                 WorkProfileWidgetActivity.class.getName(),
-                LocationCheckerActivity.WORK_ACTIVITY_ALIAS
+                LocationCheckerActivity.WORK_ACTIVITY_ALIAS,
+                ScreenshotCaptureActivity.class.getName()
         };
         for (String component : components) {
             mPackageManager.setComponentEnabledSetting(new ComponentName(mContext, component),

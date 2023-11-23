@@ -95,8 +95,7 @@ extern "C" {
 
 /**
  * Maintains the basic state of a service.
- * This is expected to be included once in the (context) status variable of each
- * service.
+ * This is expected to be included in the state of each service.
  */
 struct ChppServiceState {
   struct ChppAppState *appContext;  // Pointer to app layer context
@@ -114,7 +113,7 @@ struct ChppServiceState {
  * by CHPP_SERVICE_ENABLED_xxxx definitions. This function is automatically
  * called by chppAppInit().
  *
- * @param context Maintains status for each app layer instance.
+ * @param context State of the app layer.
  */
 void chppRegisterCommonServices(struct ChppAppState *context);
 
@@ -123,7 +122,7 @@ void chppRegisterCommonServices(struct ChppAppState *context);
  * enabled by CHPP_SERVICE_ENABLED_xxxx definitions. This function is
  * automatically called by chppAppInit().
  *
- * @param context Maintains status for each app layer instance.
+ * @param context State of the app layer.
  */
 void chppDeregisterCommonServices(struct ChppAppState *context);
 
@@ -137,15 +136,14 @@ void chppDeregisterCommonServices(struct ChppAppState *context);
  * can specified as CHPP_MAX_REGISTERED_SERVICES by the initialization code.
  * Otherwise, a default value will be used.
  *
- * @param appContext Maintains status for each app layer instance.
- * @param serviceContext Maintains status for each service instance.
+ * @param appContext State of the app layer.
+ * @param serviceContext State of the service instance.
+ * @param serviceState State variable of the client.
  * @param newService The service to be registered on this platform.
- *
- * @return Handle number of the registered service.
  */
-uint8_t chppRegisterService(struct ChppAppState *appContext,
-                            void *serviceContext,
-                            const struct ChppService *newService);
+void chppRegisterService(struct ChppAppState *appContext, void *serviceContext,
+                         struct ChppServiceState *serviceState,
+                         const struct ChppService *newService);
 
 /**
  * Allocates a service notification of a specified length.
@@ -156,7 +154,7 @@ uint8_t chppRegisterService(struct ChppAppState *appContext,
  * calling this function directly.
  *
  * @param len Length of the notification (including header) in bytes. Note
- * that the specified length must be at least equal to the lendth of the app
+ * that the specified length must be at least equal to the length of the app
  * layer header.
  *
  * @return Pointer to allocated memory
@@ -165,7 +163,7 @@ struct ChppAppHeader *chppAllocServiceNotification(size_t len);
 
 /**
  * Allocates a service response message of a specified length, populating the
- * (app layer) service response header accorging to the provided client request
+ * (app layer) service response header according to the provided client request
  * (app layer) header.
  *
  * It is expected that for most use cases, the chppAllocServiceResponseFixed()
@@ -174,7 +172,7 @@ struct ChppAppHeader *chppAllocServiceNotification(size_t len);
  *
  * @param requestHeader Client request header.
  * @param len Length of the response message (including header) in bytes. Note
- * that the specified length must be at least equal to the lendth of the app
+ * that the specified length must be at least equal to the length of the app
  * layer header.
  *
  * @return Pointer to allocated memory
@@ -191,8 +189,7 @@ struct ChppAppHeader *chppAllocServiceResponse(
  * This function prints an error message if a duplicate request is received
  * while outstanding request is still pending without a response.
  *
- * @param rRState Maintains the basic state for each request/response
- * functionality of a service.
+ * @param rRStateState State of the current request/response.
  * @param requestHeader Client request header.
  */
 void chppServiceTimestampRequest(struct ChppRequestResponseState *rRState,
@@ -205,16 +202,13 @@ void chppServiceTimestampRequest(struct ChppRequestResponseState *rRState,
  * B) Mark them as fulfilled
  * part of the request/response's ChppRequestResponseState struct.
  *
- * This function prints an error message if a response is attempted without an
- * outstanding request.
- *
  * For most responses, it is expected that chppSendTimestampedResponseOrFail()
  * shall be used to both timestamp and send the response in one shot.
  *
- * @param rRState Maintains the basic state for each request/response
- * functionality of a service.
+ * @param rRState State of the current request/response.
+ * @return The last response time (CHPP_TIME_NONE for the first response).
  */
-void chppServiceTimestampResponse(struct ChppRequestResponseState *rRState);
+uint64_t chppServiceTimestampResponse(struct ChppRequestResponseState *rRState);
 
 /**
  * Timestamps a service response using chppServiceTimestampResponse() and
@@ -222,9 +216,11 @@ void chppServiceTimestampResponse(struct ChppRequestResponseState *rRState);
  *
  * Refer to their respective documentation for details.
  *
+ * This function logs an error message if a response is attempted without an
+ * outstanding request.
+ *
  * @param serviceState State of the service sending the response service.
- * @param rRState Maintains the basic state for each request/response
- * functionality of a service.
+ * @param rRState State of the current request/response.
  * @param buf Datagram payload allocated through chppMalloc. Cannot be null.
  * @param len Datagram length in bytes.
  *

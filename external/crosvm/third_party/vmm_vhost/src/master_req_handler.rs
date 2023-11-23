@@ -1,28 +1,29 @@
 // Copyright (C) 2019-2021 Alibaba Cloud. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-#[cfg(unix)]
+cfg_if::cfg_if! {
+    if #[cfg(unix)] {
+        mod unix;
+    } else if #[cfg(windows)] {
+        mod windows;
+    }
+}
+
 use std::fs::File;
-#[cfg(unix)]
 use std::mem;
-#[cfg(unix)]
-use std::os::unix::io::AsRawFd;
+use std::sync::Arc;
 use std::sync::Mutex;
 
-#[cfg(unix)]
-use super::connection::{socket::Endpoint as SocketEndpoint, EndpointExt};
-use super::message::*;
-use super::HandlerResult;
-#[cfg(unix)]
-use super::{Error, Result};
-#[cfg(unix)]
-use crate::SystemStream;
-#[cfg(unix)]
-use std::sync::Arc;
-
 use base::AsRawDescriptor;
-#[cfg(unix)]
-use base::RawDescriptor;
+use base::SafeDescriptor;
+
+use crate::connection::EndpointExt;
+use crate::message::*;
+use crate::Error;
+use crate::HandlerResult;
+use crate::Result;
+use crate::SlaveReqEndpoint;
+use crate::SystemStream;
 
 /// Define services provided by masters for the slave communication channel.
 ///
@@ -30,7 +31,7 @@ use base::RawDescriptor;
 /// request services from masters. The [VhostUserMasterReqHandler] trait defines services provided
 /// by masters, and it's used both on the master side and slave side.
 /// - on the slave side, a stub forwarder implementing [VhostUserMasterReqHandler] will proxy
-///   service requests to masters. The [SlaveFsCacheReq] is an example stub forwarder.
+///   service requests to masters. The [Slave] is an example stub forwarder.
 /// - on the master side, the [MasterReqHandler] will forward service requests to a handler
 ///   implementing [VhostUserMasterReqHandler].
 ///
@@ -39,10 +40,24 @@ use base::RawDescriptor;
 ///
 /// [VhostUserMasterReqHandler]: trait.VhostUserMasterReqHandler.html
 /// [MasterReqHandler]: struct.MasterReqHandler.html
-/// [SlaveFsCacheReq]: struct.SlaveFsCacheReq.html
+/// [Slave]: struct.Slave.html
 pub trait VhostUserMasterReqHandler {
     /// Handle device configuration change notifications.
     fn handle_config_change(&self) -> HandlerResult<u64> {
+        Err(std::io::Error::from_raw_os_error(libc::ENOSYS))
+    }
+
+    /// Handle shared memory region mapping requests.
+    fn shmem_map(
+        &self,
+        _req: &VhostUserShmemMapMsg,
+        _fd: &dyn AsRawDescriptor,
+    ) -> HandlerResult<u64> {
+        Err(std::io::Error::from_raw_os_error(libc::ENOSYS))
+    }
+
+    /// Handle shared memory region unmapping requests.
+    fn shmem_unmap(&self, _req: &VhostUserShmemUnmapMsg) -> HandlerResult<u64> {
         Err(std::io::Error::from_raw_os_error(libc::ENOSYS))
     }
 
@@ -76,6 +91,15 @@ pub trait VhostUserMasterReqHandler {
 
     // fn handle_iotlb_msg(&mut self, iotlb: VhostUserIotlb);
     // fn handle_vring_host_notifier(&mut self, area: VhostUserVringArea, fd: &dyn AsRawDescriptor);
+
+    /// Handle GPU shared memory region mapping requests.
+    fn gpu_map(
+        &self,
+        _req: &VhostUserGpuMapMsg,
+        _descriptor: &dyn AsRawDescriptor,
+    ) -> HandlerResult<u64> {
+        Err(std::io::Error::from_raw_os_error(libc::ENOSYS))
+    }
 }
 
 /// A helper trait mirroring [VhostUserMasterReqHandler] but without interior mutability.
@@ -84,6 +108,20 @@ pub trait VhostUserMasterReqHandler {
 pub trait VhostUserMasterReqHandlerMut {
     /// Handle device configuration change notifications.
     fn handle_config_change(&mut self) -> HandlerResult<u64> {
+        Err(std::io::Error::from_raw_os_error(libc::ENOSYS))
+    }
+
+    /// Handle shared memory region mapping requests.
+    fn shmem_map(
+        &mut self,
+        _req: &VhostUserShmemMapMsg,
+        _fd: &dyn AsRawDescriptor,
+    ) -> HandlerResult<u64> {
+        Err(std::io::Error::from_raw_os_error(libc::ENOSYS))
+    }
+
+    /// Handle shared memory region unmapping requests.
+    fn shmem_unmap(&mut self, _req: &VhostUserShmemUnmapMsg) -> HandlerResult<u64> {
         Err(std::io::Error::from_raw_os_error(libc::ENOSYS))
     }
 
@@ -117,11 +155,32 @@ pub trait VhostUserMasterReqHandlerMut {
 
     // fn handle_iotlb_msg(&mut self, iotlb: VhostUserIotlb);
     // fn handle_vring_host_notifier(&mut self, area: VhostUserVringArea, fd: RawDescriptor);
+
+    /// Handle GPU shared memory region mapping requests.
+    fn gpu_map(
+        &mut self,
+        _req: &VhostUserGpuMapMsg,
+        _descriptor: &dyn AsRawDescriptor,
+    ) -> HandlerResult<u64> {
+        Err(std::io::Error::from_raw_os_error(libc::ENOSYS))
+    }
 }
 
 impl<S: VhostUserMasterReqHandlerMut> VhostUserMasterReqHandler for Mutex<S> {
     fn handle_config_change(&self) -> HandlerResult<u64> {
         self.lock().unwrap().handle_config_change()
+    }
+
+    fn shmem_map(
+        &self,
+        req: &VhostUserShmemMapMsg,
+        fd: &dyn AsRawDescriptor,
+    ) -> HandlerResult<u64> {
+        self.lock().unwrap().shmem_map(req, fd)
+    }
+
+    fn shmem_unmap(&self, req: &VhostUserShmemUnmapMsg) -> HandlerResult<u64> {
+        self.lock().unwrap().shmem_unmap(req)
     }
 
     fn fs_slave_map(
@@ -147,6 +206,14 @@ impl<S: VhostUserMasterReqHandlerMut> VhostUserMasterReqHandler for Mutex<S> {
     ) -> HandlerResult<u64> {
         self.lock().unwrap().fs_slave_io(fs, fd)
     }
+
+    fn gpu_map(
+        &self,
+        req: &VhostUserGpuMapMsg,
+        descriptor: &dyn AsRawDescriptor,
+    ) -> HandlerResult<u64> {
+        self.lock().unwrap().gpu_map(req, descriptor)
+    }
 }
 
 /// The [MasterReqHandler] acts as a server on the master side, to handle service requests from
@@ -156,57 +223,52 @@ impl<S: VhostUserMasterReqHandlerMut> VhostUserMasterReqHandler for Mutex<S> {
 /// [MasterReqHandler]: struct.MasterReqHandler.html
 /// [VhostUserMasterReqHandler]: trait.VhostUserMasterReqHandler.html
 ///
-/// TODO(b/221882601): we can write a version of this for Windows by switching the socket for a Tube.
-/// The interfaces would need to change so that we fetch a full Tube (which is 2 rds on Windows)
-/// and send it to the device backend (slave) as a message on the master -> slave channel.
-/// (Currently the interface only supports sending a single rd.)
-///
-/// Note that handling requests from slaves is not needed for the initial devices we plan to
-/// support.
-///
 /// Server to handle service requests from slaves from the slave communication channel.
-#[cfg(unix)]
 pub struct MasterReqHandler<S: VhostUserMasterReqHandler> {
     // underlying Unix domain socket for communication
-    sub_sock: SocketEndpoint<SlaveReq>,
-    tx_sock: SystemStream,
+    sub_sock: SlaveReqEndpoint,
+    tx_sock: Option<SystemStream>,
+    // Serializes tx_sock for passing to the backend.
+    serialize_tx: Box<dyn Fn(SystemStream) -> SafeDescriptor + Send>,
     // Protocol feature VHOST_USER_PROTOCOL_F_REPLY_ACK has been negotiated.
     reply_ack_negotiated: bool,
-    // the VirtIO backend device object
+
+    /// the VirtIO backend device object
     backend: Arc<S>,
-    // whether the endpoint has encountered any failure
-    error: Option<i32>,
 }
 
-#[cfg(unix)]
 impl<S: VhostUserMasterReqHandler> MasterReqHandler<S> {
     /// Create a server to handle service requests from slaves on the slave communication channel.
     ///
     /// This opens a pair of connected anonymous sockets to form the slave communication channel.
-    /// The socket fd returned by [Self::get_tx_raw_fd()] should be sent to the slave by
+    /// The socket fd returned by [Self::take_tx_descriptor()] should be sent to the slave by
     /// [VhostUserMaster::set_slave_request_fd()].
     ///
-    /// [Self::get_tx_raw_fd()]: struct.MasterReqHandler.html#method.get_tx_raw_fd
+    /// [Self::take_tx_descriptor()]: struct.MasterReqHandler.html#method.take_tx_descriptor
     /// [VhostUserMaster::set_slave_request_fd()]: trait.VhostUserMaster.html#tymethod.set_slave_request_fd
-    pub fn new(backend: Arc<S>) -> Result<Self> {
-        let (tx, rx) = SystemStream::pair().map_err(Error::SocketError)?;
+    pub fn new(
+        backend: Arc<S>,
+        serialize_tx: Box<dyn Fn(SystemStream) -> SafeDescriptor + Send>,
+    ) -> Result<Self> {
+        let (tx, rx) = SystemStream::pair()?;
 
         Ok(MasterReqHandler {
-            sub_sock: SocketEndpoint::<SlaveReq>::from(rx),
-            tx_sock: tx,
+            sub_sock: SlaveReqEndpoint::from(rx),
+            tx_sock: Some(tx),
+            serialize_tx,
             reply_ack_negotiated: false,
             backend,
-            error: None,
         })
     }
 
-    /// Get the socket fd for the slave to communication with the master.
+    /// Get the descriptor for the slave to communication with the master.
     ///
-    /// The returned fd should be sent to the slave by [VhostUserMaster::set_slave_request_fd()].
+    /// The caller owns the descriptor. The returned descriptor should be sent to the slave by
+    /// [VhostUserMaster::set_slave_request_fd()].
     ///
     /// [VhostUserMaster::set_slave_request_fd()]: trait.VhostUserMaster.html#tymethod.set_slave_request_fd
-    pub fn get_tx_raw_fd(&self) -> RawDescriptor {
-        self.tx_sock.as_raw_fd()
+    pub fn take_tx_descriptor(&mut self) -> SafeDescriptor {
+        (self.serialize_tx)(self.tx_sock.take().expect("tx_sock should have a value"))
     }
 
     /// Set the negotiation state of the `VHOST_USER_PROTOCOL_F_REPLY_ACK` protocol feature.
@@ -218,13 +280,9 @@ impl<S: VhostUserMasterReqHandler> MasterReqHandler<S> {
         self.reply_ack_negotiated = enable;
     }
 
-    /// Mark endpoint as failed or in normal state.
-    pub fn set_failed(&mut self, error: i32) {
-        if error == 0 {
-            self.error = None;
-        } else {
-            self.error = Some(error);
-        }
+    /// Get the underlying backend device
+    pub fn backend(&self) -> Arc<S> {
+        Arc::clone(&self.backend)
     }
 
     /// Main entrance to server slave request from the slave communication channel.
@@ -234,9 +292,6 @@ impl<S: VhostUserMasterReqHandler> MasterReqHandler<S> {
     /// - decide what to do when errer happens
     /// - optional recover from failure
     pub fn handle_request(&mut self) -> Result<u64> {
-        // Return error if the endpoint is already in failed state.
-        self.check_state()?;
-
         // The underlying communication channel is a Unix domain socket in
         // stream mode, and recvmsg() is a little tricky here. To successfully
         // receive attached file descriptors, we need to receive messages and
@@ -270,6 +325,19 @@ impl<S: VhostUserMasterReqHandler> MasterReqHandler<S> {
                     .handle_config_change()
                     .map_err(Error::ReqHandlerError)
             }
+            SlaveReq::SHMEM_MAP => {
+                let msg = self.extract_msg_body::<VhostUserShmemMapMsg>(&hdr, size, &buf)?;
+                // check_attached_files() has validated files
+                self.backend
+                    .shmem_map(&msg, &files.unwrap()[0])
+                    .map_err(Error::ReqHandlerError)
+            }
+            SlaveReq::SHMEM_UNMAP => {
+                let msg = self.extract_msg_body::<VhostUserShmemUnmapMsg>(&hdr, size, &buf)?;
+                self.backend
+                    .shmem_unmap(&msg)
+                    .map_err(Error::ReqHandlerError)
+            }
             SlaveReq::FS_MAP => {
                 let msg = self.extract_msg_body::<VhostUserFSSlaveMsg>(&hdr, size, &buf)?;
                 // check_attached_files() has validated files
@@ -296,19 +364,19 @@ impl<S: VhostUserMasterReqHandler> MasterReqHandler<S> {
                     .fs_slave_io(&msg, &files.unwrap()[0])
                     .map_err(Error::ReqHandlerError)
             }
+            SlaveReq::GPU_MAP => {
+                let msg = self.extract_msg_body::<VhostUserGpuMapMsg>(&hdr, size, &buf)?;
+                // check_attached_files() has validated files
+                self.backend
+                    .gpu_map(&msg, &files.unwrap()[0])
+                    .map_err(Error::ReqHandlerError)
+            }
             _ => Err(Error::InvalidMessage),
         };
 
-        self.send_ack_message(&hdr, &res)?;
+        self.send_reply(&hdr, &res)?;
 
         res
-    }
-
-    fn check_state(&self) -> Result<()> {
-        match self.error {
-            Some(e) => Err(Error::SocketBroken(std::io::Error::from_raw_os_error(e))),
-            None => Ok(()),
-        }
     }
 
     fn check_msg_size(
@@ -333,7 +401,7 @@ impl<S: VhostUserMasterReqHandler> MasterReqHandler<S> {
         files: &Option<Vec<File>>,
     ) -> Result<()> {
         match hdr.get_code() {
-            SlaveReq::FS_MAP | SlaveReq::FS_IO => {
+            SlaveReq::SHMEM_MAP | SlaveReq::FS_MAP | SlaveReq::FS_IO | SlaveReq::GPU_MAP => {
                 // Expect a single file is passed.
                 match files {
                     Some(files) if files.len() == 1 => Ok(()),
@@ -366,7 +434,6 @@ impl<S: VhostUserMasterReqHandler> MasterReqHandler<S> {
         if mem::size_of::<T>() > MAX_MSG_SIZE {
             return Err(Error::InvalidParam);
         }
-        self.check_state()?;
         Ok(VhostUserMsgHeader::new(
             req.get_code(),
             VhostUserHeaderFlag::REPLY.bits(),
@@ -374,17 +441,17 @@ impl<S: VhostUserMasterReqHandler> MasterReqHandler<S> {
         ))
     }
 
-    fn send_ack_message(
-        &mut self,
-        req: &VhostUserMsgHeader<SlaveReq>,
-        res: &Result<u64>,
-    ) -> Result<()> {
-        if self.reply_ack_negotiated && req.is_need_reply() {
+    fn send_reply(&mut self, req: &VhostUserMsgHeader<SlaveReq>, res: &Result<u64>) -> Result<()> {
+        if req.get_code() == SlaveReq::SHMEM_MAP
+            || req.get_code() == SlaveReq::SHMEM_UNMAP
+            || req.get_code() == SlaveReq::GPU_MAP
+            || (self.reply_ack_negotiated && req.is_need_reply())
+        {
             let hdr = self.new_reply_header::<VhostUserU64>(req)?;
             let def_err = libc::EINVAL;
             let val = match res {
                 Ok(n) => *n,
-                Err(e) => match &*e {
+                Err(e) => match e {
                     Error::ReqHandlerError(ioerr) => match ioerr.raw_os_error() {
                         Some(rawerr) => -rawerr as u64,
                         None => -def_err as u64,
@@ -396,117 +463,5 @@ impl<S: VhostUserMasterReqHandler> MasterReqHandler<S> {
             self.sub_sock.send_message(&hdr, &msg, None)?;
         }
         Ok(())
-    }
-}
-
-#[cfg(unix)]
-impl<S: VhostUserMasterReqHandler> AsRawDescriptor for MasterReqHandler<S> {
-    fn as_raw_descriptor(&self) -> RawDescriptor {
-        // TODO(b/221882601): figure out whether this is used for polling. If so, we need theTube's
-        // read notifier here instead.
-        self.sub_sock.as_raw_descriptor()
-    }
-}
-
-#[cfg(unix)]
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use base::{AsRawDescriptor, INVALID_DESCRIPTOR};
-    #[cfg(feature = "device")]
-    use base::{Descriptor, FromRawDescriptor};
-
-    #[cfg(feature = "device")]
-    use crate::SlaveFsCacheReq;
-
-    struct MockMasterReqHandler {}
-
-    impl VhostUserMasterReqHandlerMut for MockMasterReqHandler {
-        /// Handle virtio-fs map file requests from the slave.
-        fn fs_slave_map(
-            &mut self,
-            _fs: &VhostUserFSSlaveMsg,
-            _fd: &dyn AsRawDescriptor,
-        ) -> HandlerResult<u64> {
-            Ok(0)
-        }
-
-        /// Handle virtio-fs unmap file requests from the slave.
-        fn fs_slave_unmap(&mut self, _fs: &VhostUserFSSlaveMsg) -> HandlerResult<u64> {
-            Err(std::io::Error::from_raw_os_error(libc::ENOSYS))
-        }
-    }
-
-    #[test]
-    fn test_new_master_req_handler() {
-        let backend = Arc::new(Mutex::new(MockMasterReqHandler {}));
-        let mut handler = MasterReqHandler::new(backend).unwrap();
-
-        assert!(handler.get_tx_raw_fd() >= 0);
-        assert!(handler.as_raw_descriptor() != INVALID_DESCRIPTOR);
-        handler.check_state().unwrap();
-
-        assert_eq!(handler.error, None);
-        handler.set_failed(libc::EAGAIN);
-        assert_eq!(handler.error, Some(libc::EAGAIN));
-        handler.check_state().unwrap_err();
-    }
-
-    #[cfg(feature = "device")]
-    #[test]
-    fn test_master_slave_req_handler() {
-        let backend = Arc::new(Mutex::new(MockMasterReqHandler {}));
-        let mut handler = MasterReqHandler::new(backend).unwrap();
-
-        let fd = unsafe { libc::dup(handler.get_tx_raw_fd()) };
-        if fd < 0 {
-            panic!("failed to duplicated tx fd!");
-        }
-        let stream = unsafe { SystemStream::from_raw_descriptor(fd) };
-        let fs_cache = SlaveFsCacheReq::from_stream(stream);
-
-        std::thread::spawn(move || {
-            let res = handler.handle_request().unwrap();
-            assert_eq!(res, 0);
-            handler.handle_request().unwrap_err();
-        });
-
-        fs_cache
-            .fs_slave_map(&VhostUserFSSlaveMsg::default(), &Descriptor(fd))
-            .unwrap();
-        // When REPLY_ACK has not been negotiated, the master has no way to detect failure from
-        // slave side.
-        fs_cache
-            .fs_slave_unmap(&VhostUserFSSlaveMsg::default())
-            .unwrap();
-    }
-
-    #[cfg(feature = "device")]
-    #[test]
-    fn test_master_slave_req_handler_with_ack() {
-        let backend = Arc::new(Mutex::new(MockMasterReqHandler {}));
-        let mut handler = MasterReqHandler::new(backend).unwrap();
-        handler.set_reply_ack_flag(true);
-
-        let fd = unsafe { libc::dup(handler.get_tx_raw_fd()) };
-        if fd < 0 {
-            panic!("failed to duplicated tx fd!");
-        }
-        let stream = unsafe { SystemStream::from_raw_descriptor(fd) };
-        let fs_cache = SlaveFsCacheReq::from_stream(stream);
-
-        std::thread::spawn(move || {
-            let res = handler.handle_request().unwrap();
-            assert_eq!(res, 0);
-            handler.handle_request().unwrap_err();
-        });
-
-        fs_cache.set_reply_ack_flag(true);
-        fs_cache
-            .fs_slave_map(&VhostUserFSSlaveMsg::default(), &Descriptor(fd))
-            .unwrap();
-        fs_cache
-            .fs_slave_unmap(&VhostUserFSSlaveMsg::default())
-            .unwrap_err();
     }
 }

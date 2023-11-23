@@ -56,6 +56,10 @@ public class ConstantsShim {
     // Constants defined in android.content.Context
     public static final String NEARBY_SERVICE = "nearby";
 
+    // Constants defined in android.system.OsConstants
+    public static final int IFA_F_MANAGETEMPADDR = 0x100;
+    public static final int IFA_F_NOPREFIXROUTE = 0x200;
+
     /** Compatibility class for {@link CarrierConfigManager}. */
     @RequiresApi(Build.VERSION_CODES.Q)
     /** See {@link CarrierManager#KEY_CARRIER_SUPPORTS_TETHERING_BOOL} */

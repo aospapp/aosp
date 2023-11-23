@@ -81,7 +81,7 @@ pid_t GetServiceDebugPid(const std::string& service) {
 std::map<std::string, std::vector<Hal>> gDeclaredServiceHalMap;
 std::mutex gDeclaredServiceHalMapMutex;
 
-void GetHal(const std::string& service, const FqInstance& instance) {
+void GetHal(const sp<IServiceManager> &manager, const std::string& service, const FqInstance& instance) {
     if (instance.getFqName().string() == IBase::descriptor) {
         return;
     }
@@ -89,6 +89,23 @@ void GetHal(const std::string& service, const FqInstance& instance) {
     sp<IBase> hal = android::hardware::details::getRawServiceInternal(
             instance.getFqName().string(), instance.getInstance(), true /*retry*/,
             false /*getStub*/);
+
+    // Check transport of manifest to support hardware SKU:
+    // Don't add service to gDeclaredServiceHalMap if hal instance is null and
+    // the transport of the declared interface is not present in manifest. Because
+    // manufacturer may disable this hal service in the current hardware SKU,
+    // but enable it in the other hardware SKU.
+    if (hal == nullptr && manager != nullptr) {
+        auto transport = manager->getTransport(instance.getFqName().string(),
+            instance.getInstance());
+        if(transport == IServiceManager::Transport::EMPTY){
+            LOG(WARNING)
+                << "Ignore, because Service '" << service << "' is not running,"
+                << " its interface '" << instance.string() << "' is not present in manifest.";
+            return;
+        }
+    }
+
     // Add to gDeclaredServiceHalMap if getRawServiceInternal() returns (even if
     // the returned HAL is null). getRawServiceInternal() won't return if the
     // HAL is in the VINTF but unable to start.
@@ -235,6 +252,7 @@ TEST_F(VtsHalBaseV1_0TargetTest, ServiceProvidesAndDeclaresTheSameInterfaces) {
     const Result<ServiceInterfacesMap> service_interfaces_map =
             android::init::GetOnDeviceServiceInterfacesMap();
     ASSERT_RESULT_OK(service_interfaces_map);
+    auto service_manager = ::android::hardware::defaultServiceManager();
 
     std::map<std::string, std::set<FqInstance>> hidl_interfaces_map;
 
@@ -253,7 +271,7 @@ TEST_F(VtsHalBaseV1_0TargetTest, ServiceProvidesAndDeclaresTheSameInterfaces) {
                 ASSERT_TRUE(fqInstance.setTo(interface))
                         << "Unable to parse interface: '" << interface << "'";
 
-                std::thread(GetHal, service, fqInstance).detach();
+                std::thread(GetHal, service_manager, service, fqInstance).detach();
                 hidl_interfaces_map[service].insert(fqInstance);
             }
         }

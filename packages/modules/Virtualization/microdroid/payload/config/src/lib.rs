@@ -40,8 +40,13 @@ pub struct VmPayloadConfig {
     pub prefer_staged: bool,
 
     /// Whether to export the tomsbtones (VM crashes) out of VM to host
-    /// This does not have a default & the value is expected to be in json for deserialization
-    pub export_tombstones: bool,
+    /// Default: true for debuggable VMs, false for non-debuggable VMs
+    pub export_tombstones: Option<bool>,
+
+    /// Whether the authfs service should be started in the VM. This enables read or write of host
+    /// files with integrity checking, but not confidentiality.
+    #[serde(default)]
+    pub enable_authfs: bool,
 }
 
 /// OS config
@@ -59,10 +64,11 @@ impl Default for OsConfig {
 
 /// Payload's task can be one of plain executable
 /// or an .so library which can be started via /system/bin/microdroid_launcher
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, Default)]
 pub enum TaskType {
     /// Task's command indicates the path to the executable binary.
     #[serde(rename = "executable")]
+    #[default]
     Executable,
     /// Task's command indicates the .so library in /mnt/apk/lib/{arch}
     #[serde(rename = "microdroid_launcher")]
@@ -80,16 +86,6 @@ pub struct Task {
     /// - For executable task, this is the path to the executable.
     /// - For microdroid_launcher task, this is the name of .so
     pub command: String,
-
-    /// Args to the command
-    #[serde(default)]
-    pub args: Vec<String>,
-}
-
-impl Default for TaskType {
-    fn default() -> TaskType {
-        TaskType::Executable
-    }
 }
 
 /// APEX config

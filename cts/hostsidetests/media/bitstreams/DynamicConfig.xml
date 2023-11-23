@@ -41198,4 +41198,7 @@
   <entry key="vp9/yuv444/8bit/resolution/crowd_96x96p50f32_200kbps.webm">
     <value>mime=video/x-vnd.on2.vp9,size=25612,width=96,height=96,frame-rate=,profile=,level=,bitrate=,package=full</value>
   </entry>
+  <entry key="media_files_url">
+    <value>https://dl.google.com/android/xts/cts/hostsidetests/media/bitstreams/CtsMediaBitstreamsTestCases-1.0.zip</value>
+  </entry>
 </dynamicConfig>

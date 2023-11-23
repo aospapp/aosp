@@ -19,10 +19,12 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/capability.h>
+#include <sys/personality.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 
 #include "clatd.h"
@@ -152,6 +154,34 @@ int main(int argc, char **argv) {
          uplink_interface, plat_prefix ? plat_prefix : "(none)", v4_addr ? v4_addr : "(none)",
          v6_addr ? v6_addr : "(none)");
 
+  {
+    // Compile time detection of 32 vs 64-bit build. (note: C does not have 'constexpr')
+    // Avoid use of preprocessor macros to get compile time syntax checking even on 64-bit.
+    const int user_bits = sizeof(void*) * 8;
+    const bool user32 = (user_bits == 32);
+
+    // Note that on 64-bit all this personality related code simply compile optimizes out.
+    // 32-bit: fetch current personality (see 'man personality': 0xFFFFFFFF means retrieve only)
+    // On Linux fetching personality cannot fail.
+    const int prev_personality = user32 ? personality(0xFFFFFFFFuL) : PER_LINUX;
+    // 32-bit: attempt to get rid of kernel spoofing of 'uts.machine' architecture,
+    // In theory this cannot fail, as PER_LINUX should always be supported.
+    if (user32) (void)personality((prev_personality & ~PER_MASK) | PER_LINUX);
+    // 64-bit: this will compile time evaluate to false.
+    const bool was_linux32 = (prev_personality & PER_MASK) == PER_LINUX32;
+
+    struct utsname uts = {};
+    if (uname(&uts)) exit(1); // only possible error is EFAULT, but 'uts' is on stack
+
+    // sysname is likely 'Linux', release is 'kver', machine is kernel's *true* architecture
+    logmsg(ANDROID_LOG_INFO, "%d-bit userspace on %s kernel %s for %s%s.", user_bits,
+           uts.sysname, uts.release, uts.machine, was_linux32 ? " (was spoofed)" : "");
+
+    // 32-bit: try to return to the 'default' personality
+    // In theory this cannot fail, because it was already previously in use.
+    if (user32) (void)personality(prev_personality);
+  }
+
   // Loop until someone sends us a signal or brings down the tun interface.
   if (signal(SIGTERM, stop_loop) == SIG_ERR) {
     logmsg(ANDROID_LOG_FATAL, "sigterm handler failed: %s", strerror(errno));
@@ -164,8 +194,12 @@ int main(int argc, char **argv) {
 
   if (running) {
     logmsg(ANDROID_LOG_INFO, "Clatd on %s waiting for SIGTERM", uplink_interface);
-    while (running) sleep(60);
-    logmsg(ANDROID_LOG_INFO, "Clatd on %s received SIGTERM", uplink_interface);
+    // let's give higher level java code 15 seconds to kill us,
+    // but eventually terminate anyway, in case system server forgets about us...
+    // sleep() should be interrupted by SIGTERM, the handler should clear running
+    sleep(15);
+    logmsg(ANDROID_LOG_INFO, "Clatd on %s %s SIGTERM", uplink_interface,
+           running ? "timed out waiting for" : "received");
   } else {
     logmsg(ANDROID_LOG_INFO, "Clatd on %s already received SIGTERM", uplink_interface);
   }

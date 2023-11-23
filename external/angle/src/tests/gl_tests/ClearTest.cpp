@@ -6,7 +6,6 @@
 
 #include "test_utils/ANGLETest.h"
 
-#include "platform/FeaturesVk.h"
 #include "test_utils/gl_raii.h"
 #include "util/random_utils.h"
 #include "util/shader_utils.h"
@@ -16,7 +15,7 @@ using namespace angle;
 
 namespace
 {
-class ClearTestBase : public ANGLETest
+class ClearTestBase : public ANGLETest<>
 {
   protected:
     ClearTestBase()
@@ -69,11 +68,35 @@ class ClearTestES3 : public ClearTestBase
                          essl1_shaders::fs::Blue());
         ANGLE_GL_PROGRAM(depthTestProgramFail, essl1_shaders::vs::Passthrough(),
                          essl1_shaders::fs::Red());
-        glEnable(GL_DEPTH_TEST);
+
+        GLboolean hasDepthTest  = GL_FALSE;
+        GLboolean hasDepthWrite = GL_TRUE;
+        GLint prevDepthFunc     = GL_ALWAYS;
+
+        glGetBooleanv(GL_DEPTH_TEST, &hasDepthTest);
+        glGetBooleanv(GL_DEPTH_WRITEMASK, &hasDepthWrite);
+        glGetIntegerv(GL_DEPTH_FUNC, &prevDepthFunc);
+
+        if (!hasDepthTest)
+        {
+            glEnable(GL_DEPTH_TEST);
+        }
+        if (hasDepthWrite)
+        {
+            glDepthMask(GL_FALSE);
+        }
         glDepthFunc(GL_LESS);
         drawQuad(depthTestProgram, essl1_shaders::PositionAttrib(), depthValue * 2 - 1 - 0.01f);
         drawQuad(depthTestProgramFail, essl1_shaders::PositionAttrib(), depthValue * 2 - 1 + 0.01f);
-        glDisable(GL_DEPTH_TEST);
+        if (!hasDepthTest)
+        {
+            glDisable(GL_DEPTH_TEST);
+        }
+        if (hasDepthWrite)
+        {
+            glDepthMask(GL_TRUE);
+        }
+        glDepthFunc(prevDepthFunc);
         ASSERT_GL_NO_ERROR();
 
         EXPECT_PIXEL_COLOR_NEAR(0, 0, GLColor::blue, 1);
@@ -87,10 +110,35 @@ class ClearTestES3 : public ClearTestBase
         // Use another small shader to verify stencil.
         ANGLE_GL_PROGRAM(stencilTestProgram, essl1_shaders::vs::Passthrough(),
                          essl1_shaders::fs::Green());
-        glEnable(GL_STENCIL_TEST);
+        GLboolean hasStencilTest   = GL_FALSE;
+        GLint prevStencilFunc      = GL_ALWAYS;
+        GLint prevStencilValue     = 0xFF;
+        GLint prevStencilRef       = 0xFF;
+        GLint prevStencilFail      = GL_KEEP;
+        GLint prevStencilDepthFail = GL_KEEP;
+        GLint prevStencilDepthPass = GL_KEEP;
+
+        glGetBooleanv(GL_STENCIL_TEST, &hasStencilTest);
+        glGetIntegerv(GL_STENCIL_FUNC, &prevStencilFunc);
+        glGetIntegerv(GL_STENCIL_VALUE_MASK, &prevStencilValue);
+        glGetIntegerv(GL_STENCIL_REF, &prevStencilRef);
+        glGetIntegerv(GL_STENCIL_FAIL, &prevStencilFail);
+        glGetIntegerv(GL_STENCIL_PASS_DEPTH_FAIL, &prevStencilDepthFail);
+        glGetIntegerv(GL_STENCIL_PASS_DEPTH_PASS, &prevStencilDepthPass);
+
+        if (!hasStencilTest)
+        {
+            glEnable(GL_STENCIL_TEST);
+        }
         glStencilFunc(GL_EQUAL, stencilValue, 0xFF);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
         drawQuad(stencilTestProgram, essl1_shaders::PositionAttrib(), 0.0f);
-        glDisable(GL_STENCIL_TEST);
+        if (!hasStencilTest)
+        {
+            glDisable(GL_STENCIL_TEST);
+        }
+        glStencilFunc(prevStencilFunc, prevStencilValue, prevStencilRef);
+        glStencilOp(prevStencilFail, prevStencilDepthFail, prevStencilDepthPass);
         ASSERT_GL_NO_ERROR();
 
         EXPECT_PIXEL_COLOR_NEAR(0, 0, GLColor::green, 1);
@@ -100,7 +148,10 @@ class ClearTestES3 : public ClearTestBase
     }
 };
 
-class ClearTestRGB : public ANGLETest
+class ClearTestES31 : public ClearTestES3
+{};
+
+class ClearTestRGB : public ANGLETest<>
 {
   protected:
     ClearTestRGB()
@@ -209,8 +260,7 @@ std::string MaskedScissoredClearVariationsTestPrint(
     return out.str();
 }
 
-class MaskedScissoredClearTestBase
-    : public ANGLETestWithParam<MaskedScissoredClearVariationsTestParams>
+class MaskedScissoredClearTestBase : public ANGLETest<MaskedScissoredClearVariationsTestParams>
 {
   protected:
     MaskedScissoredClearTestBase()
@@ -1308,10 +1358,6 @@ TEST_P(ClearTestES3, ScissoredClearHeterogeneousAttachments)
 // mistakenly clear every channel (including the masked-out ones)
 TEST_P(ClearTestES3, MaskedClearBufferBug)
 {
-    // TODO(syoussefi): Qualcomm driver crashes in the presence of VK_ATTACHMENT_UNUSED.
-    // http://anglebug.com/3423
-    ANGLE_SKIP_TEST_IF(IsVulkan() && IsAndroid());
-
     unsigned char pixelData[] = {255, 255, 255, 255};
 
     glBindFramebuffer(GL_FRAMEBUFFER, mFBOs[0]);
@@ -1659,9 +1705,6 @@ void MaskedScissoredClearTestBase::maskedScissoredColorDepthStencilClear(
     ParseMaskedScissoredClearVariationsTestParams(params, &clearColor, &clearDepth, &clearStencil,
                                                   &maskColor, &maskDepth, &maskStencil, &scissor);
 
-    // clearDepth && !maskDepth fails on Intel Ubuntu 19.04 Mesa 19.0.2 GL. http://anglebug.com/3614
-    ANGLE_SKIP_TEST_IF(IsLinux() && IsIntel() && IsDesktopOpenGL() && clearDepth && !maskDepth);
-
     // Clear to a random color, 0.9 depth and 0x00 stencil
     Vector4 color1(0.1f, 0.2f, 0.3f, 0.4f);
     GLColor color1RGB(color1);
@@ -1725,8 +1768,9 @@ void MaskedScissoredClearTestBase::maskedScissoredColorDepthStencilClear(
     // using a scissor, the corners should be left to the original color, while the center is
     // possibly changed.  If using a mask, the center (and corners if not scissored), changes to
     // the masked results.
-    GLColor expectedCenterColorRGB =
-        !clearColor ? color1RGB : maskColor ? color2MaskedRGB : color2RGB;
+    GLColor expectedCenterColorRGB = !clearColor ? color1RGB
+                                     : maskColor ? color2MaskedRGB
+                                                 : color2RGB;
     GLColor expectedCornerColorRGB = scissor ? color1RGB : expectedCenterColorRGB;
 
     // Verify second clear color mask worked as expected.
@@ -2819,6 +2863,26 @@ TEST_P(ClearTest, DISABLED_ClearReachesWindow)
     angle::Sleep(2000);
 }
 
+// Tests that masked clear after a no-op framebuffer binding change with an open render pass works.
+TEST_P(ClearTest, DrawThenChangeFBOBindingAndBackThenMaskedClear)
+{
+    ANGLE_GL_PROGRAM(blueProgram, essl1_shaders::vs::Simple(), essl1_shaders::fs::Blue());
+
+    // Draw blue.
+    drawQuad(blueProgram, essl1_shaders::PositionAttrib(), 0.5f);
+
+    // Change framebuffer and back
+    glBindFramebuffer(GL_FRAMEBUFFER, mFBOs[0]);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // Masked clear
+    glColorMask(1, 0, 0, 1);
+    glClearColor(1.0f, 0.5f, 0.5f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::magenta);
+}
+
 // Test that clearing slices of a 3D texture and reading them back works.
 TEST_P(ClearTestES3, ClearAndReadPixels3DTexture)
 {
@@ -2859,15 +2923,557 @@ TEST_P(ClearTestES3, ClearStencilZeroFirstByteMask)
     glClear(GL_STENCIL_BUFFER_BIT);
 }
 
+// Test that mid render pass clear after draw sets the render pass size correctly.
+TEST_P(ClearTestES3, ScissoredDrawThenFullClear)
+{
+    const int w = getWindowWidth();
+    const int h = getWindowHeight();
+
+    // Use viewport to imply scissor on the draw call
+    glViewport(w / 4, h / 4, w / 2, h / 2);
+
+    ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Passthrough(), essl1_shaders::fs::Blue());
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0);
+
+    // Mid-render-pass clear without scissor or viewport change, which covers the whole framebuffer.
+    glClearColor(1, 1, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    EXPECT_PIXEL_RECT_EQ(0, 0, w, h, GLColor::yellow);
+}
+
+// Test that mid render pass clear after masked clear sets the render pass size correctly.
+TEST_P(ClearTestES3, MaskedScissoredClearThenFullClear)
+{
+    const int w = getWindowWidth();
+    const int h = getWindowHeight();
+
+    // Use viewport to imply a small scissor on (non-existing) draw calls.  This is important to
+    // make sure render area that's derived from scissor+viewport for draw calls doesn't
+    // accidentally fix render area derived from scissor for clear calls.
+    glViewport(w / 2, h / 2, 1, 1);
+
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(w / 4, h / 4, w / 2, h / 2);
+    glColorMask(GL_TRUE, GL_FALSE, GL_TRUE, GL_FALSE);
+    glClearColor(0.13, 0.38, 0.87, 0.65);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // Mid-render-pass clear without scissor, which covers the whole framebuffer.
+    glDisable(GL_SCISSOR_TEST);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glClearColor(1, 1, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    EXPECT_PIXEL_RECT_EQ(0, 0, w, h, GLColor::yellow);
+}
+
+// Test that mid render pass masked clear after masked clear sets the render pass size correctly.
+TEST_P(ClearTestES3, MaskedScissoredClearThenFullMaskedClear)
+{
+    const int w = getWindowWidth();
+    const int h = getWindowHeight();
+
+    // Make sure the framebuffer is initialized.
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::black);
+
+    // Use viewport to imply a small scissor on (non-existing) draw calls  This is important to
+    // make sure render area that's derived from scissor+viewport for draw calls doesn't
+    // accidentally fix render area derived from scissor for clear calls.
+    glViewport(w / 2, h / 2, 1, 1);
+
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(w / 4, h / 4, w / 2, h / 2);
+    glColorMask(GL_TRUE, GL_FALSE, GL_TRUE, GL_FALSE);
+    glClearColor(1, 1, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // Mid-render-pass clear without scissor, which covers the whole framebuffer.
+    glDisable(GL_SCISSOR_TEST);
+    glColorMask(GL_FALSE, GL_TRUE, GL_FALSE, GL_TRUE);
+    glClearColor(1, 1, 1, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    EXPECT_PIXEL_RECT_EQ(0, 0, w / 4, h, GLColor::green);
+    EXPECT_PIXEL_RECT_EQ(w / 4, 0, w / 2, h / 4, GLColor::green);
+    EXPECT_PIXEL_RECT_EQ(w / 4, 3 * h / 4, w / 2, h / 4, GLColor::green);
+    EXPECT_PIXEL_RECT_EQ(3 * w / 4, 0, w / 4, h, GLColor::green);
+
+    EXPECT_PIXEL_RECT_EQ(w / 4, h / 4, w / 2, h / 2, GLColor::yellow);
+}
+
+// Test that reclearing color to the same value works.
+TEST_P(ClearTestES3, RepeatedColorClear)
+{
+    glClearColor(1, 1, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::yellow);
+
+    glClear(GL_COLOR_BUFFER_BIT);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::yellow);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that reclearing depth to the same value works.
+TEST_P(ClearTestES3, RepeatedDepthClear)
+{
+    glClearDepthf(0.25f);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    verifyDepth(0.25f, 1);
+
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    verifyDepth(0.25f, 1);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that reclearing stencil to the same value works.
+TEST_P(ClearTestES3, RepeatedStencilClear)
+{
+    glClearStencil(0xE4);
+    glClear(GL_STENCIL_BUFFER_BIT);
+    verifyStencil(0xE4, 1);
+
+    glClear(GL_STENCIL_BUFFER_BIT);
+    verifyStencil(0xE4, 1);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that reclearing color to the same value works if color was written to in between with a draw
+// call.
+TEST_P(ClearTestES3, RepeatedColorClearWithDrawInBetween)
+{
+    glClearColor(1, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+
+    glClear(GL_COLOR_BUFFER_BIT);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    ANGLE_GL_PROGRAM(drawGreen, essl1_shaders::vs::Passthrough(), essl1_shaders::fs::Green());
+    drawQuad(drawGreen, essl1_shaders::PositionAttrib(), 0);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::yellow);
+
+    glClear(GL_COLOR_BUFFER_BIT);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that reclearing depth to the same value works if depth was written to in between with a draw
+// call.
+TEST_P(ClearTestES3, RepeatedDepthClearWithDrawInBetween)
+{
+    glClearDepthf(0.25f);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    ANGLE_GL_PROGRAM(drawGreen, essl1_shaders::vs::Passthrough(), essl1_shaders::fs::Green());
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_ALWAYS);
+    drawQuad(drawGreen, essl1_shaders::PositionAttrib(), 0.75f);
+
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glDepthMask(GL_FALSE);
+    verifyDepth(0.25f, 1);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that reclearing stencil to the same value works if stencil was written to in between with a
+// draw call.
+TEST_P(ClearTestES3, RepeatedStencilClearWithDrawInBetween)
+{
+    glClearStencil(0xE4);
+    glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+    glStencilFunc(GL_ALWAYS, 0x3C, 0xFF);
+    glEnable(GL_STENCIL_TEST);
+
+    glClear(GL_STENCIL_BUFFER_BIT);
+    ANGLE_GL_PROGRAM(drawGreen, essl1_shaders::vs::Passthrough(), essl1_shaders::fs::Green());
+    drawQuad(drawGreen, essl1_shaders::PositionAttrib(), 0.75f);
+
+    glClear(GL_STENCIL_BUFFER_BIT);
+    verifyStencil(0xE4, 1);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that reclearing color to the same value works if color was written to in between with
+// glCopyTexSubImage2D.
+TEST_P(ClearTestES3, RepeatedColorClearWithCopyInBetween)
+{
+    GLTexture color;
+    glBindTexture(GL_TEXTURE_2D, color);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, getWindowWidth(), getWindowHeight());
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    // Clear the texture
+    glClearColor(1, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+
+    // Replace the framebuffer texture
+    GLTexture color2;
+    glBindTexture(GL_TEXTURE_2D, color2);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, getWindowWidth(), getWindowHeight());
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color2, 0);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    // Clear the new texture and copy it to the old texture
+    glClearColor(0, 1, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindTexture(GL_TEXTURE_2D, color);
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, getWindowWidth(), getWindowHeight());
+
+    // Attach the original texture back to the framebuffer and verify the copy.
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+
+    // Clear to the original value and make sure it's applied.
+    glClearColor(1, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that reclearing color to the same value works if color was written to in between with a
+// blit.
+TEST_P(ClearTestES3, RepeatedColorClearWithBlitInBetween)
+{
+    GLTexture color;
+    glBindTexture(GL_TEXTURE_2D, color);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, getWindowWidth(), getWindowHeight());
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    // Clear the texture
+    glClearColor(1, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+
+    // Create another framebuffer as blit src
+    GLTexture color2;
+    glBindTexture(GL_TEXTURE_2D, color2);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, getWindowWidth(), getWindowHeight());
+
+    GLFramebuffer fbo2;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo2);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color2, 0);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    // Clear the new framebuffer and blit it to the old one
+    glClearColor(0, 1, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
+    glBlitFramebuffer(0, 0, getWindowWidth(), getWindowHeight(), 0, 0, getWindowWidth(),
+                      getWindowHeight(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+    // Verify the copy is done correctly.
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+
+    // Clear to the original value and make sure it's applied.
+    glClearColor(1, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that reclearing depth to the same value works if depth was written to in between with a
+// blit.
+TEST_P(ClearTestES3, RepeatedDepthClearWithBlitInBetween)
+{
+    GLTexture color;
+    glBindTexture(GL_TEXTURE_2D, color);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, getWindowWidth(), getWindowHeight());
+
+    GLRenderbuffer depth;
+    glBindRenderbuffer(GL_RENDERBUFFER, depth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, getWindowWidth(),
+                          getWindowHeight());
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    // Clear depth
+    glClearDepthf(0.25f);
+    glClearColor(1, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+    verifyDepth(0.25f, 1);
+
+    // Create another framebuffer as blit src
+    GLRenderbuffer depth2;
+    glBindRenderbuffer(GL_RENDERBUFFER, depth2);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, getWindowWidth(),
+                          getWindowHeight());
+
+    GLFramebuffer fbo2;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo2);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth2);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    // Clear the new framebuffer and blit it to the old one
+    glClearDepthf(0.75f);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
+    glBlitFramebuffer(0, 0, getWindowWidth(), getWindowHeight(), 0, 0, getWindowWidth(),
+                      getWindowHeight(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+    // Verify the copy is done correctly.
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+    verifyDepth(0.75f, 1);
+
+    // Clear to the original value and make sure it's applied.
+    glClearDepthf(0.25f);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    verifyDepth(0.25f, 1);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that reclearing stencil to the same value works if stencil was written to in between with a
+// blit.
+TEST_P(ClearTestES3, RepeatedStencilClearWithBlitInBetween)
+{
+    GLTexture color;
+    glBindTexture(GL_TEXTURE_2D, color);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, getWindowWidth(), getWindowHeight());
+
+    GLRenderbuffer stencil;
+    glBindRenderbuffer(GL_RENDERBUFFER, stencil);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, getWindowWidth(), getWindowHeight());
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, stencil);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    // Clear stencil
+    glClearStencil(0xE4);
+    glClearColor(1, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+    verifyStencil(0xE4, 1);
+
+    // Create another framebuffer as blit src
+    GLRenderbuffer stencil2;
+    glBindRenderbuffer(GL_RENDERBUFFER, stencil2);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, getWindowWidth(), getWindowHeight());
+
+    GLFramebuffer fbo2;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo2);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, stencil2);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    // Clear the new framebuffer and blit it to the old one
+    glClearStencil(0x35);
+    glClear(GL_STENCIL_BUFFER_BIT);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
+    glBlitFramebuffer(0, 0, getWindowWidth(), getWindowHeight(), 0, 0, getWindowWidth(),
+                      getWindowHeight(), GL_STENCIL_BUFFER_BIT, GL_NEAREST);
+
+    // Verify the copy is done correctly.
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+    verifyStencil(0x35, 1);
+
+    // Clear to the original value and make sure it's applied.
+    glClearStencil(0xE4);
+    glClear(GL_STENCIL_BUFFER_BIT);
+    verifyStencil(0xE4, 1);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that reclearing color to the same value works if color was written to in between with a
+// compute shader.
+TEST_P(ClearTestES31, RepeatedColorClearWithDispatchInBetween)
+{
+    GLTexture color;
+    glBindTexture(GL_TEXTURE_2D, color);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, getWindowWidth(), getWindowHeight());
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    // Clear the texture
+    glClearColor(1, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+
+    // Write to the texture with a compute shader.
+    constexpr char kCS[] = R"(#version 310 es
+layout(local_size_x=1, local_size_y=1, local_size_z=1) in;
+layout(rgba8) uniform highp writeonly image2D imageOut;
+void main()
+{
+    imageStore(imageOut, ivec2(gl_GlobalInvocationID.xy), vec4(0, 1, 0, 1));
+})";
+
+    ANGLE_GL_COMPUTE_PROGRAM(program, kCS);
+    glUseProgram(program);
+    glBindImageTexture(0, color, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+
+    glDispatchCompute(getWindowWidth(), getWindowHeight(), 1);
+    EXPECT_GL_NO_ERROR();
+
+    glMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
+
+    // Verify the compute shader overwrites the image correctly.
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+
+    // Clear to the original value and make sure it's applied.
+    glClearColor(1, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that reclearing depth to the same value works if depth is blit after clear, and depth is
+// modified in between with a draw call.
+TEST_P(ClearTestES3, RepeatedDepthClearWithBlitAfterClearAndDrawInBetween)
+{
+    glClearDepthf(0.25f);
+    glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+    // Make sure clear is flushed.
+    GLRenderbuffer depth;
+    glBindRenderbuffer(GL_RENDERBUFFER, depth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8_OES, getWindowWidth(),
+                          getWindowHeight());
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
+    glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_DRAW_FRAMEBUFFER);
+
+    glBlitFramebuffer(0, 0, getWindowWidth(), getWindowHeight(), 0, 0, getWindowWidth(),
+                      getWindowHeight(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+    // Draw to depth, and break the render pass.
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    ANGLE_GL_PROGRAM(drawGreen, essl1_shaders::vs::Passthrough(), essl1_shaders::fs::Green());
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_ALWAYS);
+    drawQuad(drawGreen, essl1_shaders::PositionAttrib(), 0.75f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+
+    // Clear back to the original value
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    // Blit again.
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
+    glBlitFramebuffer(0, 0, getWindowWidth(), getWindowHeight(), 0, 0, getWindowWidth(),
+                      getWindowHeight(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+    // Make sure the cleared value is in destination, not the modified value.
+    GLTexture color;
+    glBindTexture(GL_TEXTURE_2D, color);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, getWindowWidth(), getWindowHeight());
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_READ_FRAMEBUFFER);
+    verifyDepth(0.25f, 1);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that reclearing stencil to the same value works if stencil is blit after clear, and stencil
+// is modified in between with a draw call.
+TEST_P(ClearTestES3, RepeatedStencilClearWithBlitAfterClearAndDrawInBetween)
+{
+    glClearStencil(0xE4);
+    glClear(GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // Make sure clear is flushed.
+    GLRenderbuffer stencil;
+    glBindRenderbuffer(GL_RENDERBUFFER, stencil);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8_OES, getWindowWidth(),
+                          getWindowHeight());
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
+    glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, stencil);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_DRAW_FRAMEBUFFER);
+
+    glBlitFramebuffer(0, 0, getWindowWidth(), getWindowHeight(), 0, 0, getWindowWidth(),
+                      getWindowHeight(), GL_STENCIL_BUFFER_BIT, GL_NEAREST);
+
+    // Draw to stencil, and break the render pass.
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    ANGLE_GL_PROGRAM(drawGreen, essl1_shaders::vs::Passthrough(), essl1_shaders::fs::Green());
+    glEnable(GL_STENCIL_TEST);
+    glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+    glStencilFunc(GL_ALWAYS, 0x3C, 0xFF);
+    drawQuad(drawGreen, essl1_shaders::PositionAttrib(), 0.75f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+
+    // Clear back to the original value
+    glClear(GL_STENCIL_BUFFER_BIT);
+
+    // Blit again.
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
+    glBlitFramebuffer(0, 0, getWindowWidth(), getWindowHeight(), 0, 0, getWindowWidth(),
+                      getWindowHeight(), GL_STENCIL_BUFFER_BIT, GL_NEAREST);
+
+    // Make sure the cleared value is in destination, not the modified value.
+    GLTexture color;
+    glBindTexture(GL_TEXTURE_2D, color);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, getWindowWidth(), getWindowHeight());
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_READ_FRAMEBUFFER);
+    verifyStencil(0xE4, 1);
+
+    ASSERT_GL_NO_ERROR();
+}
+
 #ifdef Bool
 // X11 craziness.
 #    undef Bool
 #endif
 
-ANGLE_INSTANTIATE_TEST_ES2_AND_ES3(ClearTest);
+ANGLE_INSTANTIATE_TEST_ES2_AND_ES3_AND(
+    ClearTest,
+    ES3_VULKAN().enable(Feature::ForceFallbackFormat),
+    ES3_VULKAN().enable(Feature::PreferDrawClearOverVkCmdClearAttachments));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ClearTestES3);
-ANGLE_INSTANTIATE_TEST_ES3(ClearTestES3);
+ANGLE_INSTANTIATE_TEST_ES3_AND(
+    ClearTestES3,
+    ES3_VULKAN().enable(Feature::ForceFallbackFormat),
+    ES3_VULKAN().enable(Feature::PreferDrawClearOverVkCmdClearAttachments));
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ClearTestES31);
+ANGLE_INSTANTIATE_TEST_ES31_AND(
+    ClearTestES31,
+    ES31_VULKAN().enable(Feature::ForceFallbackFormat),
+    ES31_VULKAN().enable(Feature::PreferDrawClearOverVkCmdClearAttachments));
 
 ANGLE_INSTANTIATE_TEST_COMBINE_4(MaskedScissoredClearTest,
                                  MaskedScissoredClearVariationsTestPrint,
@@ -2876,7 +3482,14 @@ ANGLE_INSTANTIATE_TEST_COMBINE_4(MaskedScissoredClearTest,
                                  testing::Range(0, 3),
                                  testing::Bool(),
                                  ANGLE_ALL_TEST_PLATFORMS_ES2,
-                                 ANGLE_ALL_TEST_PLATFORMS_ES3);
+                                 ANGLE_ALL_TEST_PLATFORMS_ES3,
+                                 ES3_VULKAN()
+                                     .disable(Feature::SupportsExtendedDynamicState)
+                                     .disable(Feature::SupportsExtendedDynamicState2)
+                                     .disable(Feature::SupportsLogicOpDynamicState),
+                                 ES3_VULKAN()
+                                     .disable(Feature::SupportsExtendedDynamicState2)
+                                     .disable(Feature::SupportsLogicOpDynamicState));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(VulkanClearTest);
 ANGLE_INSTANTIATE_TEST_COMBINE_4(VulkanClearTest,

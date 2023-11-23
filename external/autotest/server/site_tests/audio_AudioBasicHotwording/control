@@ -13,9 +13,10 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "audio"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:audio_basic"
+ATTRIBUTES = "suite:audio_essential"
 DEPENDENCIES = "audio_box, hotwording"
 JOB_RETRIES = 1
+PY_VERSION = 3
 
 DOC = """
 This test remotely tests hotwording function.

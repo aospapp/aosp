@@ -528,19 +528,16 @@ public abstract class BasicTimeZone extends TimeZone {
      * around a time zone transition.
      *
      * @hide Only a subset of ICU is exposed in Android
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static enum LocalOption {
         /**
          * An input time is always interpreted as local time before
          * a time zone transition.
-         * @hide draft / provisional / internal are hidden on Android
          */
         FORMER(0x04),
         /**
          * An input time is always interpreted as local time after
          * a time zone transition.
-         * @hide draft / provisional / internal are hidden on Android
          */
         LATTER(0x0C),
         /**
@@ -549,7 +546,6 @@ public abstract class BasicTimeZone extends TimeZone {
          * sides of a time zone transition are standard time,
          * or daylight saving time, the local time before the
          * transition is used.
-         * @hide draft / provisional / internal are hidden on Android
          */
         STANDARD_FORMER(0x05),
         /**
@@ -558,7 +554,6 @@ public abstract class BasicTimeZone extends TimeZone {
          * sides of a time zone transition are standard time,
          * or daylight saving time, the local time after the
          * transition is used.
-         * @hide draft / provisional / internal are hidden on Android
          */
         STANDARD_LATTER(0x0D),
         /**
@@ -567,7 +562,6 @@ public abstract class BasicTimeZone extends TimeZone {
          * sides of a time zone transition are standard time,
          * or daylight saving time, the local time before the
          * transition is used.
-         * @hide draft / provisional / internal are hidden on Android
          */
         DAYLIGHT_FORMER(0x07),
         /**
@@ -576,7 +570,6 @@ public abstract class BasicTimeZone extends TimeZone {
          * sides of a time zone transition are standard time,
          * or daylight saving time, the local time after the
          * transition is used.
-         * @hide draft / provisional / internal are hidden on Android
          */
         DAYLIGHT_LATTER(0x0F);
 
@@ -650,7 +643,6 @@ public abstract class BasicTimeZone extends TimeZone {
 
     /**
      * <strong>[icu]</strong> Returns time zone offsets from local wall time.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public void getOffsetFromLocal(long date,
             LocalOption nonExistingTimeOpt, LocalOption duplicatedTimeOpt, int[] offsets) {

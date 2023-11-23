@@ -114,7 +114,7 @@ static bool getStateData(std::vector<StateResidency> *result,
     int32_t nextState = -1;
     auto pred = [](auto a, char const *b) {
         // return true if b matches the header contained in a, ignoring whitespace
-        return (a.header == ::android::base::Trim(std::string(b)));
+        return (a.header == ::android::base::Trim(b));
     };
 
     result->reserve(numStates);
@@ -157,7 +157,7 @@ bool GenericStateResidencyDataProvider::getStateResidencies(
     int32_t nextConfig = -1;
     auto pred = [](auto a, char const *b) {
         // return true if b matches the header contained in a, ignoring whitespace
-        return (a.mHeader == ::android::base::Trim(std::string(b)));
+        return (a.mHeader == ::android::base::Trim(b));
     };
 
     // Search for entity headers until we have found them all or can't find anymore

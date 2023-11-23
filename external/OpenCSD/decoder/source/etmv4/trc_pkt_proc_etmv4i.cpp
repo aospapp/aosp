@@ -522,8 +522,11 @@ void TrcPktProcEtmV4I::iPktTimestamp(const uint8_t lastByte)
     {        
         int idx = 1;
         uint64_t tsVal;
-        int ts_bytes = extractContField64(m_currPacketData, idx, tsVal);
-        int ts_bits = ts_bytes < 7 ? ts_bytes * 7 : 64;
+        int ts_bytes = extractTSField64(m_currPacketData, idx, tsVal);
+        int ts_bits;
+        
+        // if ts_bytes 8 or less, then cont bits on each byte, otherwise full 64 bit value for 9 bytes
+        ts_bits = ts_bytes < 9 ? ts_bytes * 7 : 64;
 
         if(!m_curr_packet.pkt_valid.bits.ts_valid && m_first_trace_info)
             ts_bits = 64;   // after trace info, missing bits are all 0.
@@ -872,7 +875,7 @@ void TrcPktProcEtmV4I::extractAndSetContextInfo(const std::vector<uint8_t> &buff
     // on input, buffer index points at the info byte - always present
     uint8_t infoByte = m_currPacketData[st_idx];
     
-    m_curr_packet.setContextInfo(true, (infoByte & 0x3), (infoByte >> 5) & 0x1, (infoByte >> 4) & 0x1);    
+    m_curr_packet.setContextInfo(true, (infoByte & 0x3), (infoByte >> 5) & 0x1, (infoByte >> 4) & 0x1, (infoByte >> 3) & 0x1);    
 
     // see if there are VMID and CID bytes, and how many.
     int nVMID_bytes = ((infoByte & 0x40) == 0x40) ? (m_config.vmidSize()/8) : 0;
@@ -1247,6 +1250,23 @@ void TrcPktProcEtmV4I::iAtom(const uint8_t lastByte)
     m_process_state = SEND_PKT;
 }
 
+void TrcPktProcEtmV4I::iPktITE(const uint8_t /* lastByte */)
+{
+    uint64_t value;
+    int shift = 0;
+
+    /* packet is always 10 bytes, Header, EL info byte, 8 bytes payload */
+    if (m_currPacketData.size() == 10) {
+        value = 0;
+        for (int i = 2; i < 10; i++) {
+            value |= ((uint64_t)m_currPacketData[i]) << shift;
+            shift += 8;
+        }
+        m_curr_packet.setITE(m_currPacketData[1], value);
+        m_process_state = SEND_PKT;
+    }
+}
+
 // header byte processing is table driven.
 void TrcPktProcEtmV4I::BuildIPacketTable()   
 {
@@ -1303,7 +1323,8 @@ void TrcPktProcEtmV4I::BuildIPacketTable()
     else
         m_i_table[0x07].pptkFn = &TrcPktProcEtmV4I::iPktNoPayload;
 
-    // b00001010, b00001011 ETE TRANS packets 
+    // b00001010, b00001011 ETE TRANS packets
+    // b00001001 - ETE sw instrumentation packet
     if (m_config.MajVersion() >= 0x5)
     {
         m_i_table[0x0A].pkt_type = ETE_PKT_I_TRANS_ST;
@@ -1311,6 +1332,13 @@ void TrcPktProcEtmV4I::BuildIPacketTable()
 
         m_i_table[0x0B].pkt_type = ETE_PKT_I_TRANS_COMMIT;
         m_i_table[0x0B].pptkFn = &TrcPktProcEtmV4I::iPktNoPayload;
+
+        // FEAT_ITE - sw instrumentation packet
+        if (m_config.MinVersion() >= 0x3)
+        {
+            m_i_table[0x09].pkt_type = ETE_PKT_I_ITE;
+            m_i_table[0x09].pptkFn = &TrcPktProcEtmV4I::iPktITE;
+        }
     }
 
     // b0000 110x - cycle count f2
@@ -1653,20 +1681,33 @@ void TrcPktProcEtmV4I::BuildIPacketTable()
     return idx;
 }
 
-unsigned TrcPktProcEtmV4I::extractContField64(const std::vector<uint8_t> &buffer, const unsigned st_idx, uint64_t &value, const unsigned byte_limit /*= 9*/)
+unsigned TrcPktProcEtmV4I::extractTSField64(const std::vector<uint8_t> &buffer, const unsigned st_idx, uint64_t &value)
 {
+    const unsigned max_byte_idx = 8;    /* the 9th byte, index 8, will use full 8 bits for value */
     unsigned idx = 0;
     bool lastByte = false;
     uint8_t byteVal;
+    uint8_t byteValMask = 0x7f;
+    
+    /* init value */
     value = 0;
-    while(!lastByte && (idx < byte_limit))   // max 9 bytes for 64 bit value;
+    while(!lastByte)   // max 9 bytes for 64 bit value;
     {
         if(buffer.size() > (st_idx + idx))
         {
             // each byte has seven bits + cont bit
             byteVal = buffer[(st_idx + idx)];
-            lastByte = (byteVal & 0x80) != 0x80;
-            value |= ((uint64_t)(byteVal & 0x7F)) << (idx * 7);
+
+            /* detect the final byte - which uses full 8 bits as value */
+            if (idx == max_byte_idx)
+            {
+                byteValMask = 0xFF;  /* last byte of 9, no cont bit */
+                lastByte = true;
+            }
+            else 
+                lastByte = (byteVal & 0x80) != 0x80;
+
+            value |= ((uint64_t)(byteVal & byteValMask)) << (idx * 7);
             idx++;
         }
         else
@@ -1674,6 +1715,7 @@ unsigned TrcPktProcEtmV4I::extractContField64(const std::vector<uint8_t> &buffer
             throwBadSequenceError("Invalid 64 bit continuation fields in packet");
         }
     }
+    // index is the count of bytes used here.
     return idx;
 }
 

@@ -87,6 +87,7 @@ public class ConfirmLockLockoutHelper {
     public void onPauseUI() {
         if (mCountDownTimer != null) {
             mCountDownTimer.cancel();
+            mUiController.setErrorText("");
         }
     }
 

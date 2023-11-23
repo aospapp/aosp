@@ -11,7 +11,7 @@ android_library {
     ],
     srcs: ["src/main/java/**/*.java"],
     resource_dirs: ["src/main/res"],
-    min_sdk_version: "27"
+    min_sdk_version: "29"
 }
 
 android_test {
@@ -33,5 +33,5 @@ android_test {
         "truth-prebuilt",
     ],
     manifest: "src/test/AndroidManifest.xml",
-    min_sdk_version: "27"
+    min_sdk_version: "29"
 }

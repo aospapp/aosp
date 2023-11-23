@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/base64
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "base64"
 description: "encodes and decodes base64 as bytes or utf8"
 third_party {
@@ -7,14 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/base64/base64-0.13.0.crate"
+    value: "https://static.crates.io/crates/base64/base64-0.21.0.crate"
   }
-  version: "0.13.0"
-  # Dual-licensed, using the least restrictive per go/thirdpartylicenses#same.
+  version: "0.21.0"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2021
-    month: 6
-    day: 23
+    year: 2023
+    month: 2
+    day: 1
   }
 }

@@ -26,8 +26,8 @@ import com.android.queryable.Queryable;
 public interface BundleQuery<E extends Queryable> extends Query<Bundle> {
 
     /** Queries a {@link Bundle}. */
-    static BundleQuery<BundleQuery> bundle() {
-        return new BundleQueryHelper<>();
+    static BundleQueryHelper.BundleQueryBase bundle() {
+        return new BundleQueryHelper.BundleQueryBase();
     }
 
     /** Queries a given key on the {@link Bundle}. */

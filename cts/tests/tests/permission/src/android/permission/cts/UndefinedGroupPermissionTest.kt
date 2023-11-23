@@ -22,25 +22,28 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Process
-import android.support.test.uiautomator.By
-import android.support.test.uiautomator.UiDevice
-import android.support.test.uiautomator.UiObject2
-import android.support.test.uiautomator.UiObjectNotFoundException
+import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject2
+import androidx.test.uiautomator.UiObjectNotFoundException
 import com.android.compatibility.common.util.SystemUtil
 import com.android.compatibility.common.util.SystemUtil.eventually
-import com.android.compatibility.common.util.UiAutomatorUtils.waitFindObject
+import com.android.compatibility.common.util.UiAutomatorUtils2.waitFindObject
+import java.util.regex.Pattern
 import org.junit.After
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
-import java.util.regex.Pattern
 
 /**
  * Tests that the permissioncontroller behaves normally when an app defines a permission in the
  * android.permission-group.UNDEFINED group
  */
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
 class UndefinedGroupPermissionTest {
     private var mInstrumentation: Instrumentation? = null
     private var mUiDevice: UiDevice? = null
@@ -59,7 +62,7 @@ class UndefinedGroupPermissionTest {
     @Before
     fun setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation()
-        mUiDevice = UiDevice.getInstance(mInstrumentation)
+        mUiDevice = UiDevice.getInstance(mInstrumentation!!)
         mContext = mInstrumentation?.targetContext
         mPm = mContext?.packageManager
         val permissionControllerResources = mContext?.createPackageContext(
@@ -134,7 +137,7 @@ class UndefinedGroupPermissionTest {
     fun findAllowButton(): UiObject2 {
         return if (mContext?.packageManager
                         ?.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE) == true) {
-            waitFindObject(By.text(mAllowButtonText), 2000)
+            waitFindObject(By.text(mAllowButtonText!!), 2000)
         } else {
             waitFindObject(By.res(
                     "com.android.permissioncontroller:id/permission_allow_button"),
@@ -162,7 +165,7 @@ class UndefinedGroupPermissionTest {
             try {
                 if (mContext?.packageManager
                                 ?.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE) == true) {
-                    waitFindObject(By.text(mDenyButtonText), 2000)
+                    waitFindObject(By.text(mDenyButtonText!!), 2000)
                 } else {
                     waitFindObject(By.res("com.android.permissioncontroller:id/grant_dialog"), 2000)
                 }

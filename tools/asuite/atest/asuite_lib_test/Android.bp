@@ -16,27 +16,8 @@
 // also include asuite_metrics and other needed python files, in order to make sure asuite_metrics
 // tests result is accurate, separate them to two different test modules.
 
-// For testing asuite_metrics python2 libs
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
-}
-
-// For testing asuite_metrics python3 libs
-python_test_host {
-    name: "asuite_metrics_lib_tests",
-    main: "asuite_lib_run_tests.py",
-    pkg_path: "asuite_test",
-    srcs: [
-        "asuite_lib_run_tests.py",
-        "asuite_metrics_test.py",
-    ],
-    libs: [
-        "asuite_metrics",
-    ],
-    test_options: {
-        unit_test: true,
-    },
-    defaults: ["atest_lib_default"],
 }
 
 // For testing asuite_cc_client python3 libs
@@ -47,6 +28,7 @@ python_test_host {
     srcs: [
         "asuite_lib_run_tests.py",
         "asuite_cc_client_test.py",
+        "asuite_metrics_test.py",
     ],
     libs: [
         "asuite_cc_client",
@@ -54,5 +36,4 @@ python_test_host {
     test_options: {
         unit_test: true,
     },
-    defaults: ["atest_lib_default"],
 }

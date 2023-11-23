@@ -16,8 +16,12 @@
 
 package com.android.bluetooth.mapclient;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
@@ -25,7 +29,7 @@ import java.util.regex.Pattern;
 
 public final class ObexTime {
 
-    private Date mDate;
+    private Instant mInstant;
 
     public ObexTime(String time) {
         /*
@@ -86,26 +90,41 @@ public final class ObexTime {
                 builder.setTimeZone(tz);
             }
 
-            mDate = builder.build().getTime();
+            mInstant = builder.build().toInstant();
         }
     }
 
     public ObexTime(Date date) {
-        mDate = date;
+        mInstant = date.toInstant();
     }
 
+    public ObexTime(Instant instant) {
+        mInstant = instant;
+    }
+
+    /**
+     * @deprecated Use #{@link #getInstant()} instead.
+     */
+    @Deprecated
     public Date getTime() {
-        return mDate;
+        if (mInstant == null) {
+            return null;
+        }
+        return Date.from(mInstant);
+    }
+
+    public Instant getInstant() {
+        return mInstant;
     }
 
     @Override
     public String toString() {
-        if (mDate == null) {
+        if (mInstant == null) {
             return null;
         }
 
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(mDate);
+        Calendar cal = GregorianCalendar.from(
+                ZonedDateTime.ofInstant(mInstant, ZoneId.systemDefault()));
 
         /* note that months are numbered stating from 0 */
         return String.format(Locale.US, "%04d%02d%02dT%02d%02d%02d", cal.get(Calendar.YEAR),

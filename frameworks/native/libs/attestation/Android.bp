@@ -22,16 +22,15 @@ package {
 
 cc_library_static {
     name: "libattestation",
+    host_supported: true,
     cflags: [
         "-Wall",
         "-Wextra",
         "-Werror",
     ],
     srcs: [
-        "HmacKeyManager.cpp"
+        "HmacKeyManager.cpp",
     ],
-
-    clang: true,
 
     shared_libs: [
         "liblog",

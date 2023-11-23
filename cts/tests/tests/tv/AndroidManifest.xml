@@ -32,6 +32,11 @@
     <application>
         <uses-library android:name="android.test.runner"/>
 
+        <meta-data android:name="android.media.tv.interactive.AppLinkInfo.ClassName"
+             android:value="android.media.tv.cts.TvInputSetupActivityStub" />
+        <meta-data android:name="android.media.tv.interactive.AppLinkInfo.Uri"
+             android:value="https://example.test" />
+
         <activity android:name="android.media.tv.cts.TvInputSetupActivityStub"
              android:exported="true">
             <intent-filter>

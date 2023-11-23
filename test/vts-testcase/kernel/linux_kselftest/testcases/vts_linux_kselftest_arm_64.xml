@@ -11,11 +11,11 @@
      limitations under the License.
 -->
 <!DOCTYPE configuration [
-    <!ENTITY ktest_dir "/data/local/tmp/vts_kernel_tests/DATA/nativetest64/linux-kselftest">
+    <!ENTITY ktest_dir "/data/local/tmp/vts_kernel_kselftest_tests/DATA/nativetest64/linux-kselftest">
 ]>
 <configuration description="Runs vts_linux_kselftest.">
-    <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer">
-    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer" />
+    <target_preparer class="com.android.tradefed.targetprep.StopServicesSetup" />
 
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.KernelTestModuleController" >
         <option name="arch" value="arm64"/>
@@ -23,7 +23,7 @@
 
     <target_preparer class="com.android.tradefed.targetprep.PushFilePreparer">
         <option name="cleanup" value="true" />
-        <option name="push" value="vts_kernel_tests->/data/local/tmp/vts_kernel_tests" />
+        <option name="push" value="vts_kernel_kselftest_tests->/data/local/tmp/vts_kernel_kselftest_tests" />
     </target_preparer>
 
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
@@ -32,12 +32,13 @@
 
     <test class="com.android.tradefed.testtype.binary.KernelTargetTest" >
         <option name="exit-code-skip" value="4" />
-	<option name="test-command-line" key="binderfs_arm_64" value="chmod 755 &ktest_dir;/filesystems/binderfs/binderfs_test; cd &ktest_dir;/filesystems/binderfs; ./binderfs_test" />
+        <option name="skip-binary-check" value="true" />
+        <option name="test-command-line" key="binderfs_arm_64" value="chmod 755 &ktest_dir;/filesystems/binderfs/binderfs_test; cd &ktest_dir;/filesystems/binderfs; ./binderfs_test" />
         <option name="test-command-line" key="breakpoints_breakpoint_test_arm64_arm_64" value="chmod 755 &ktest_dir;/breakpoints/breakpoint_test_arm64; cd &ktest_dir;/breakpoints; ./breakpoint_test_arm64" />
         <option name="test-command-line" key="capabilities_test_execve_arm_64" value="chmod 755 &ktest_dir;/capabilities/test_execve; cd &ktest_dir;/capabilities; ./test_execve" />
-        <option name="test-command-line" key="futex_functional_run.sh_arm_64" value="chmod 755 &ktest_dir;/futex/functional/run.sh; cd &ktest_dir;/futex/functional; ./run.sh" />
+        <option name="test-command-line" key="futex_functional_run.sh_arm_64" value="chmod 755 &ktest_dir;/futex/functional/run.sh; cd &ktest_dir;/futex/functional; USE_COLOR=0 ./run.sh" />
         <option name="test-command-line" key="kcmp_kcmp_test_arm_64" value="chmod 755 &ktest_dir;/kcmp/kcmp_test; cd &ktest_dir;/kcmp; ./kcmp_test" />
-	<option name="test-command-line" key="kvm_pvm_wipe_mem_arm_64" value="chmod 755 &ktest_dir;/kvm/aarch64/pvm_wipe_mem; cd &ktest_dir;/kvm/aarch64; ./pvm_wipe_mem" />
+        <option name="test-command-line" key="kvm_pvm_wipe_mem_arm_64" value="chmod 755 &ktest_dir;/kvm/aarch64/pvm_wipe_mem; cd &ktest_dir;/kvm/aarch64; ./pvm_wipe_mem" />
         <option name="test-command-line" key="net_psock_tpacket_arm_64" value="chmod 755 &ktest_dir;/net/psock_tpacket; cd &ktest_dir;/net; ./psock_tpacket" />
         <option name="test-command-line" key="net_reuseaddr_conflict_arm_64" value="chmod 755 &ktest_dir;/net/reuseaddr_conflict; cd &ktest_dir;/net; ./reuseaddr_conflict" />
         <option name="test-command-line" key="net_socket_arm_64" value="chmod 755 &ktest_dir;/net/socket; cd &ktest_dir;/net; ./socket" />
@@ -55,7 +56,12 @@
         <option name="test-command-line" key="timers_set-timer-lat_arm_64" value="chmod 755 &ktest_dir;/timers/set-timer-lat; cd &ktest_dir;/timers; ./set-timer-lat" />
         <option name="test-command-line" key="timers_threadtest_arm_64" value="chmod 755 &ktest_dir;/timers/threadtest; cd &ktest_dir;/timers; ./threadtest" />
         <option name="test-command-line" key="timers_valid-adjtimex_arm_64" value="chmod 755 &ktest_dir;/timers/valid-adjtimex; cd &ktest_dir;/timers; ./valid-adjtimex" />
-        <option name="test-command-line" key="vDSO_kselftest_vdso_test_arm_64" value="chmod 755 &ktest_dir;/vDSO/kselftest_vdso_test; cd &ktest_dir;/vDSO; ./kselftest_vdso_test" />
+        <option name="test-command-line" key="vDSO_kselftest_vdso_test_abi_arm_64" value="chmod 755 &ktest_dir;/vDSO/kselftest_vdso_test_abi; cd &ktest_dir;/vDSO; ./kselftest_vdso_test_abi" />
+        <option name="test-command-line" key="vDSO_kselftest_vdso_test_clock_getres_arm_64" value="chmod 755 &ktest_dir;/vDSO/kselftest_vdso_test_clock_getres; cd &ktest_dir;/vDSO; ./kselftest_vdso_test_clock_getres" />
+        <option name="test-command-line" key="vDSO_kselftest_vdso_test_getcpu_arm_64" value="chmod 755 &ktest_dir;/vDSO/kselftest_vdso_test_getcpu; cd &ktest_dir;/vDSO; ./kselftest_vdso_test_getcpu" />
+        <option name="test-command-line" key="vDSO_kselftest_vdso_test_gettimeofday_arm_64" value="chmod 755 &ktest_dir;/vDSO/kselftest_vdso_test_gettimeofday; cd &ktest_dir;/vDSO; ./kselftest_vdso_test_gettimeofday" />
+        <option name="test-command-line" key="vm_mremap_dontunmap_arm_64" value="chmod 755 &ktest_dir;/vm/mremap_dontunmap; cd &ktest_dir;/vm; ./mremap_dontunmap" />
+        <option name="test-command-line" key="vm_mremap_test_arm_64" value="chmod 755 &ktest_dir;/vm/mremap_test; cd &ktest_dir;/vm; ./mremap_test" />
         <option name="test-command-line" key="vm_userfaultfd_anon_arm_64" value="chmod 755 &ktest_dir;/vm/userfaultfd; cd &ktest_dir;/vm; ./userfaultfd anon 32 99" />
         <option name="test-command-line" key="vm_userfaultfd_shmem_arm_64" value="chmod 755 &ktest_dir;/vm/userfaultfd; cd &ktest_dir;/vm; ./userfaultfd shmem 32 99" />
     </test>

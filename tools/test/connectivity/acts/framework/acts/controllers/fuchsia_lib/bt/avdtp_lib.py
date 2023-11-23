@@ -18,10 +18,9 @@ from acts.controllers.fuchsia_lib.base_lib import BaseLib
 
 
 class FuchsiaAvdtpLib(BaseLib):
-    def __init__(self, addr, tc, client_id):
-        self.address = addr
-        self.test_counter = tc
-        self.client_id = client_id
+
+    def __init__(self, addr: str) -> None:
+        super().__init__(addr, "avdtp")
 
     def init(self, initiator_delay=None):
         """Initializes the AVDTP service with optional initiator_delay.
@@ -34,12 +33,9 @@ class FuchsiaAvdtpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "avdtp_facade.AvdtpInit"
-
         test_args = {"initiator_delay": initiator_delay}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def getConnectedPeers(self):
         """Gets the AVDTP connected peers.
@@ -49,10 +45,8 @@ class FuchsiaAvdtpLib(BaseLib):
         """
         test_cmd = "avdtp_facade.AvdtpGetConnectedPeers"
         test_args = {}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def setConfiguration(self, peer_id):
         """Sends the AVDTP command to input peer_id: set configuration
@@ -65,10 +59,8 @@ class FuchsiaAvdtpLib(BaseLib):
         """
         test_cmd = "avdtp_facade.AvdtpSetConfiguration"
         test_args = {"identifier": peer_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def getConfiguration(self, peer_id):
         """Sends the AVDTP command to input peer_id: get configuration
@@ -81,10 +73,8 @@ class FuchsiaAvdtpLib(BaseLib):
         """
         test_cmd = "avdtp_facade.AvdtpGetConfiguration"
         test_args = {"identifier": peer_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def getCapabilities(self, peer_id):
         """Sends the AVDTP command to input peer_id: get capabilities
@@ -97,10 +87,8 @@ class FuchsiaAvdtpLib(BaseLib):
         """
         test_cmd = "avdtp_facade.AvdtpGetCapabilities"
         test_args = {"identifier": peer_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def getAllCapabilities(self, peer_id):
         """Sends the AVDTP command to input peer_id: get all capabilities
@@ -113,10 +101,8 @@ class FuchsiaAvdtpLib(BaseLib):
         """
         test_cmd = "avdtp_facade.AvdtpGetAllCapabilities"
         test_args = {"identifier": peer_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def reconfigureStream(self, peer_id):
         """Sends the AVDTP command to input peer_id: reconfigure stream
@@ -129,10 +115,8 @@ class FuchsiaAvdtpLib(BaseLib):
         """
         test_cmd = "avdtp_facade.AvdtpReconfigureStream"
         test_args = {"identifier": peer_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def suspendStream(self, peer_id):
         """Sends the AVDTP command to input peer_id: suspend stream
@@ -144,10 +128,8 @@ class FuchsiaAvdtpLib(BaseLib):
         """
         test_cmd = "avdtp_facade.AvdtpSuspendStream"
         test_args = {"identifier": peer_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def suspendAndReconfigure(self, peer_id):
         """Sends the AVDTP command to input peer_id: suspend and reconfigure
@@ -160,10 +142,8 @@ class FuchsiaAvdtpLib(BaseLib):
         """
         test_cmd = "avdtp_facade.AvdtpSuspendAndReconfigure"
         test_args = {"identifier": peer_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def releaseStream(self, peer_id):
         """Sends the AVDTP command to input peer_id: release stream
@@ -176,10 +156,8 @@ class FuchsiaAvdtpLib(BaseLib):
         """
         test_cmd = "avdtp_facade.AvdtpReleaseStream"
         test_args = {"identifier": peer_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def establishStream(self, peer_id):
         """Sends the AVDTP command to input peer_id: establish stream
@@ -192,10 +170,8 @@ class FuchsiaAvdtpLib(BaseLib):
         """
         test_cmd = "avdtp_facade.AvdtpEstablishStream"
         test_args = {"identifier": peer_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def startStream(self, peer_id):
         """Sends the AVDTP command to input peer_id: start stream
@@ -208,10 +184,8 @@ class FuchsiaAvdtpLib(BaseLib):
         """
         test_cmd = "avdtp_facade.AvdtpStartStream"
         test_args = {"identifier": peer_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def abortStream(self, peer_id):
         """Sends the AVDTP command to input peer_id: abort stream
@@ -227,7 +201,7 @@ class FuchsiaAvdtpLib(BaseLib):
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def establishStream(self, peer_id):
         """Sends the AVDTP command to input peer_id: establish stream
@@ -240,10 +214,8 @@ class FuchsiaAvdtpLib(BaseLib):
         """
         test_cmd = "avdtp_facade.AvdtpEstablishStream"
         test_args = {"identifier": peer_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def removeService(self):
         """Removes the AVDTP service from the Fuchsia device
@@ -253,7 +225,5 @@ class FuchsiaAvdtpLib(BaseLib):
         """
         test_cmd = "avdtp_facade.AvdtpRemoveService"
         test_args = {}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)

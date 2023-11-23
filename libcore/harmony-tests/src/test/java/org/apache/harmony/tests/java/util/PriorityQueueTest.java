@@ -5,7 +5,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -284,9 +284,9 @@ public class PriorityQueueTest extends TestCase {
      */
     public void test_ConstructorLjava_util_Colleciton_null() {
         ArrayList<Object> list = new ArrayList<Object>();
-        list.add(new Float(11));
+        list.add(Float.valueOf(11f));
         list.add(null);
-        list.add(new Integer(10));
+        list.add(Integer.valueOf(10));
         try {
             new PriorityQueue<Object>(list);
             fail("should throw NullPointerException");
@@ -300,8 +300,8 @@ public class PriorityQueueTest extends TestCase {
      */
     public void test_ConstructorLjava_util_Colleciton_non_comparable() {
         ArrayList<Object> list = new ArrayList<Object>();
-        list.add(new Float(11));
-        list.add(new Integer(10));
+        list.add(Float.valueOf(11f));
+        list.add(Integer.valueOf(10));
         try {
             new PriorityQueue<Object>(list);
             fail("should throw ClassCastException");
@@ -445,16 +445,16 @@ public class PriorityQueueTest extends TestCase {
      */
     public void test_offer_Ljava_lang_Object_non_Comparable() {
         PriorityQueue<Object> queue = new PriorityQueue<Object>();
-        queue.offer(new Integer(10));
+        queue.offer(Integer.valueOf(10));
         try {
-            queue.offer(new Float(1.3));
+            queue.offer(Float.valueOf(1.3f));
             fail("should throw ClassCastException");
         } catch (ClassCastException e) {
             // expected
         }
 
         queue = new PriorityQueue<Object>();
-        queue.offer(new Integer(10));
+        queue.offer(Integer.valueOf(10));
         try {
             queue.offer(new Object());
             fail("should throw ClassCastException");
@@ -499,8 +499,8 @@ public class PriorityQueueTest extends TestCase {
             integerQueue.add(array[i]);
         }
         Arrays.sort(array);
-        assertEquals(new Integer(array[0]), integerQueue.peek());
-        assertEquals(new Integer(array[0]), integerQueue.peek());
+        assertEquals(Integer.valueOf(array[0]), integerQueue.peek());
+        assertEquals(Integer.valueOf(array[0]), integerQueue.peek());
     }
 
     /**
@@ -561,16 +561,16 @@ public class PriorityQueueTest extends TestCase {
      */
     public void test_add_Ljava_lang_Object_non_Comparable() {
         PriorityQueue<Object> queue = new PriorityQueue<Object>();
-        queue.add(new Integer(10));
+        queue.add(Integer.valueOf(10));
         try {
-            queue.add(new Float(1.3));
+            queue.add(Float.valueOf(1.3f));
             fail("should throw ClassCastException");
         } catch (ClassCastException e) {
             // expected
         }
 
         queue = new PriorityQueue<Object>();
-        queue.add(new Integer(10));
+        queue.add(Integer.valueOf(10));
         try {
             queue.add(new Object());
             fail("should throw ClassCastException");
@@ -640,7 +640,7 @@ public class PriorityQueueTest extends TestCase {
         Integer[] array = { 2, 45, 7, -12, 9, 23, 17, 1118, 10, 16, 39 };
         List<Integer> list = Arrays.asList(array);
         PriorityQueue<Integer> integerQueue = new PriorityQueue<Integer>(list);
-        assertFalse(integerQueue.remove(new Float(1.3F)));
+        assertFalse(integerQueue.remove(Float.valueOf(1.3F)));
 
         // although argument element type is not compatible with those in queue,
         // but comparator supports it.
@@ -648,9 +648,9 @@ public class PriorityQueueTest extends TestCase {
         PriorityQueue<Integer> integerQueue1 = new PriorityQueue<Integer>(100,
                 comparator);
         integerQueue1.offer(1);
-        assertFalse(integerQueue1.remove(new Float(1.3F)));
+        assertFalse(integerQueue1.remove(Float.valueOf(1.3F)));
 
-        PriorityQueue<Object> queue = new PriorityQueue<Object>();
+        PriorityQueue<Object> queue = new PriorityQueue<Object>(comparator);
         Object o = new Object();
         queue.offer(o);
         assertTrue(queue.remove(o));
@@ -804,25 +804,6 @@ public class PriorityQueueTest extends TestCase {
         SpliteratorTester.runSubSizedTests(list, 16 /* expected size */);
         SpliteratorTester.assertSupportsTrySplit(list);
     }
-
-    public void test_spliterator_CME() throws Exception {
-        PriorityQueue<Integer> list = new PriorityQueue<>();
-        list.add(52);
-
-        Spliterator<Integer> sp = list.spliterator();
-        try {
-            sp.tryAdvance(value -> list.add(value));
-            fail();
-        } catch (ConcurrentModificationException expected) {
-        }
-
-        try {
-            sp.forEachRemaining(value -> list.add(value));
-            fail();
-        } catch (ConcurrentModificationException expected) {
-        }
-    }
-
 
     private static class MockComparator<E> implements Comparator<E> {
 

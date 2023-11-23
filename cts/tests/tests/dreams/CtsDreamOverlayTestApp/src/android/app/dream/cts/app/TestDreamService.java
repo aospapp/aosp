@@ -24,6 +24,7 @@ import android.widget.FrameLayout;
  * the entire window to be blue.
  */
 public class TestDreamService extends DreamService {
+    @Override
     public void onAttachedToWindow() {
         super.onAttachedToWindow();
 
@@ -33,5 +34,10 @@ public class TestDreamService extends DreamService {
         final FrameLayout frameLayout = new FrameLayout(getApplicationContext());
         frameLayout.setBackgroundColor(Color.BLUE);
         setContentView(frameLayout);
+    }
+
+    @Override
+    public void onDreamingStopped() {
+        finish();
     }
 }

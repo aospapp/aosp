@@ -56,6 +56,7 @@
     <dimen name="sud_horizontal_icon_height">32dp</dimen>
 
     <dimen name="sud_glif_alert_dialog_corner_radius">8dp</dimen>
+    <dimen name="sud_glif_alert_dialog_footer_bar_padding_start">8dp</dimen>
     <dimen name="sud_glif_v3_button_corner_radius">4dp</dimen>
     <dimen name="sud_glif_device_default_dialog_corner_radius">28dp</dimen>
     <dimen name="sud_glif_land_header_area_weight">1</dimen>
@@ -152,6 +153,11 @@
     <dimen name="sud_glif_header_title_margin_bottom">2dp</dimen>
     <dimen name="sud_header_container_margin_bottom">0dp</dimen>
 
+    <!-- Account information -->
+    <dimen name="sud_account_name_text_size">14sp</dimen>
+    <dimen name="sud_account_avatar_margin_end">8dp</dimen>
+    <dimen name="sud_account_avatar_max_height">24dp</dimen>
+
     <!-- This value leverages sud_description_glif_margin_top -->
     <dimen name="sud_glif_description_margin_top">3dp</dimen>
     <dimen name="sud_glif_description_margin_bottom">12dp</dimen>
@@ -161,7 +167,7 @@
     <item name="sud_illustration_aspect_ratio" format="float" type="dimen">2.22</item>
 
     <!-- Footer Button-->
-    <dimen name="sud_glif_footer_button_text_size">14dp</dimen>
+    <dimen name="sud_glif_footer_button_text_size">14sp</dimen>
     <dimen name="sud_glif_primary_button_button_margin_start">0dp</dimen>
     <dimen name="sud_glif_secondary_button_button_margin_start">0dp</dimen>
 
@@ -203,7 +209,7 @@
     <!-- Footer Button Material You-->
     <dimen name="sud_footer_bar_button_radius_material_you">20dp</dimen>
     <dimen name="sud_glif_button_min_height_material_you">48dp</dimen>
-    <dimen name="sud_glif_footer_button_text_size_material_you">14dp</dimen>
+    <dimen name="sud_glif_footer_button_text_size_material_you">14sp</dimen>
 
     <dimen name="sud_glif_primary_button_button_margin_start_material_you">0dp</dimen>
 
@@ -304,4 +310,11 @@
     <!-- Set 0dp since we don't want shadow. -->
     <dimen name="sud_icon_uniformity_elevation">0dp</dimen>
 
+    <!-- Embedded Activity -->
+    <dimen name="sud_glif_footer_padding_start_embedded_activity">24dp</dimen>
+    <dimen name="sud_glif_footer_padding_end_embedded_activity">24dp</dimen>
+    <dimen name="sud_glif_margin_start_embedded_activity">24dp</dimen>
+    <dimen name="sud_glif_margin_end_embedded_activity">24dp</dimen>
+    <dimen name="sud_glif_header_title_margin_top_embedded_activity">24dp</dimen>
+    <dimen name="sud_header_title_size_embedded_activity">44sp</dimen>
 </resources>

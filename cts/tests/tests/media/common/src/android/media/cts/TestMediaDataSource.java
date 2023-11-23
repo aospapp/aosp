@@ -17,14 +17,12 @@
 package android.media.cts;
 
 import android.content.res.AssetFileDescriptor;
-import android.media.cts.TestUtils.Monitor;
 import android.media.MediaDataSource;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 
-import java.io.FileInputStream;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 
 /**
  * A MediaDataSource that reads from a byte array for use in tests.

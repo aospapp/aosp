@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -63,22 +63,32 @@ public class BitArray {
         repn = new byte[(length + BITS_PER_UNIT - 1)/BITS_PER_UNIT];
     }
 
+    /**
+     * Creates a BitArray of the specified size, initialized from the
+     * specified byte array. The most significant bit of {@code a[0]} gets
+     * index zero in the BitArray. The array must be large enough to specify
+     * a value for every bit of the BitArray. i.e. {@code 8*a.length <= length}.
+     */
+    public BitArray(int length, byte[] a) throws IllegalArgumentException {
+        this(length, a, 0);
+    }
 
     /**
      * Creates a BitArray of the specified size, initialized from the
-     * specified byte array.  The most significant bit of a[0] gets
-     * index zero in the BitArray.  The array a must be large enough
-     * to specify a value for every bit in the BitArray.  In other words,
-     * 8*a.length <= length.
+     * specified byte array starting at the specified offset.  The most
+     * significant bit of {@code a[ofs]} gets index zero in the BitArray.
+     * The array must be large enough to specify a value for every bit of
+     * the BitArray, i.e. {@code 8*(a.length - ofs) <= length}.
      */
-    public BitArray(int length, byte[] a) throws IllegalArgumentException {
+    public BitArray(int length, byte[] a, int ofs)
+            throws IllegalArgumentException {
 
         if (length < 0) {
             throw new IllegalArgumentException("Negative length for BitArray");
         }
-        if (a.length * BITS_PER_UNIT < length) {
-            throw new IllegalArgumentException("Byte array too short to represent " +
-                                               "bit array of given length");
+        if ((a.length - ofs) * BITS_PER_UNIT < length) {
+            throw new IllegalArgumentException
+                ("Byte array too short to represent " + length + "-bit array");
         }
 
         this.length = length;
@@ -93,7 +103,7 @@ public class BitArray {
           2. zero out extra bits in the last byte
          */
         repn = new byte[repLength];
-        System.arraycopy(a, 0, repn, 0, repLength);
+        System.arraycopy(a, ofs, repn, 0, repLength);
         if (repLength > 0) {
             repn[repLength - 1] &= bitMask;
         }
@@ -241,6 +251,10 @@ public class BitArray {
      *  Returns a string representation of this BitArray.
      */
     public String toString() {
+        if (length == 0) {
+            return "";
+        }
+
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         for (int i = 0; i < repn.length - 1; i++) {
@@ -266,7 +280,7 @@ public class BitArray {
     public BitArray truncate() {
         for (int i=length-1; i>=0; i--) {
             if (get(i)) {
-                return new BitArray(i+1, Arrays.copyOf(repn, (i + BITS_PER_UNIT)/BITS_PER_UNIT));
+                return new BitArray(i+1, repn, 0);
             }
         }
         return new BitArray(1);

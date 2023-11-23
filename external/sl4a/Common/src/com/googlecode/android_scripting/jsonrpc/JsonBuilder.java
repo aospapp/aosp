@@ -1085,7 +1085,7 @@ public class JsonBuilder {
         msg.put("iccId", data.getIccId());
         msg.put("simSlotIndex", data.getSimSlotIndex());
         msg.put("displayName", data.getDisplayName());
-        msg.put("nameSource", data.getNameSource());
+        msg.put("nameSource", data.getDisplayNameSource());
         msg.put("iconTint", data.getIconTint());
         msg.put("number", data.getNumber());
         msg.put("dataRoaming", data.getDataRoaming());

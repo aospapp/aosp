@@ -13,6 +13,9 @@ TEST_TYPE = 'client'
 # TODO(wad) once we have an arm and 32-bit build, we need it in hwqual.
 #SUITE = 'hwqual'
 JOB_RETRIES = 0
+ATTRIBUTES = "suite:memory_qual2"
+EXTENDED_TIMEOUT = 19800 # 5.5 hours
+PY_VERSION = 3
 
 DOC = """
 This test uses rowhammer-test to find memory faults that may lead to violations

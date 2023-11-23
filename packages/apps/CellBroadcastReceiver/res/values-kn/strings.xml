@@ -21,7 +21,7 @@
     <string name="sms_cb_sender_name_default" msgid="972946539768958828">"ವೈರ್‌ಲೆಸ್ ತುರ್ತು ಅಲರ್ಟ್‌ಗಳು"</string>
     <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"ವೈರ್‌ಲೆಸ್ ತುರ್ತು ಅಲರ್ಟ್‌ಗಳು"</string>
     <string name="sms_cb_sender_name_emergency" msgid="2937067842997478965">"ವೈರ್‌ಲೆಸ್ ತುರ್ತು ಅಲರ್ಟ್‌ಗಳು"</string>
-    <string name="sms_cb_sender_name_public_safety" msgid="5230033387708907922">"ಮಾಹಿತಿಯ ಅಧಿಸೂಚನೆ"</string>
+    <string name="sms_cb_sender_name_public_safety" msgid="5230033387708907922">"ಮಾಹಿತಿಯ ನೋಟಿಫಿಕೇಶನ್"</string>
     <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"ಈ ಬಳಕೆದಾರರಿಗೆ ವೈರ್‌ಲೆಸ್ ತುರ್ತು ಅಲರ್ಟ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳು ಲಭ್ಯವಿಲ್ಲ"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"ಸರಿ"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"ಹಿಂದಿನ ಯಾವುದೇ ಎಚ್ಚರಿಕೆಗಳಿಲ್ಲ"</string>

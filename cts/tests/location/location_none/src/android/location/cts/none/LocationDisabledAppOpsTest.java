@@ -34,6 +34,8 @@ import android.os.UserHandle;
 
 import androidx.test.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.ApiTest;
+
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -54,6 +56,11 @@ public class LocationDisabledAppOpsTest {
     }
 
     @Test
+    @ApiTest(apis = {
+            "android.location.LocationManager#setLocationEnabledForUser",
+            "android.app.AppOpsManager#noteOpNoThrow",
+            "android.app.AppOpsManager#checkOpNoThrow",
+    })
     public void testLocationAppOpIsIgnoredForAppsWhenLocationIsDisabled() {
         PackageTagsList ignoreList = mLm.getIgnoreSettingsAllowlist();
 
@@ -79,13 +86,17 @@ public class LocationDisabledAppOpsTest {
                 List<String> bypassedCheckOps = new ArrayList<>();
                 for (PackageInfo pi : pkgs) {
                     ApplicationInfo ai = pi.applicationInfo;
-                    if (ai.uid != Process.SYSTEM_UID) {
+                    int appId = UserHandle.getAppId(ai.uid);
+                    if (appId != Process.SYSTEM_UID) {
                         final int[] mode = {MODE_ALLOWED};
+                        final boolean[] isProvider = {false};
                         runWithShellPermissionIdentity(() -> {
                             mode[0] = mAom.noteOpNoThrow(
                                     OPSTR_FINE_LOCATION, ai.uid, ai.packageName);
+                            isProvider[0] = mLm.isProviderPackage(null, pi.packageName, null);
                         });
-                        if (mode[0] == MODE_ALLOWED && !ignoreList.containsAll(pi.packageName)) {
+                        if (mode[0] == MODE_ALLOWED && !ignoreList.containsAll(pi.packageName)
+                                && !isProvider[0]) {
                             bypassedNoteOps.add(pi.packageName);
                         }
 
@@ -95,10 +106,10 @@ public class LocationDisabledAppOpsTest {
                             mode[0] = mAom
                                     .checkOpNoThrow(OPSTR_FINE_LOCATION, ai.uid, ai.packageName);
                         });
-                        if (mode[0] == MODE_ALLOWED && !ignoreList.includes(pi.packageName)) {
+                        if (mode[0] == MODE_ALLOWED && !ignoreList.includes(pi.packageName)
+                                && !isProvider[0]) {
                             bypassedCheckOps.add(pi.packageName);
                         }
-
                     }
                 }
 

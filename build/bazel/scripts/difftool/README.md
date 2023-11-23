@@ -20,7 +20,7 @@ Use of these tools requires a multistep process:
    ```
 3. Build using the new build system:
    ```
-   $ USE_BAZEL_ANALYSIS=1 m libc
+   $ m --bazel-mode-dev libc
    ```
 4. Collect results to a tmp directory.
    ```

@@ -67,6 +67,7 @@
 
     <style name="Widget.CarUi.SwitchPreference.Switch">
         <item name="android:track">@drawable/car_ui_switch_track</item>
+        <item name="android:thumbTint">@color/car_ui_switch_thumb_color</item>
     </style>
 
     <style name="Widget.CarUi.SeekbarPreference"/>

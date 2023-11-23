@@ -17,22 +17,21 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-cc_binary {
-    name: "android.hardware.atrace@1.0-service.pixel",
-    defaults: ["hidl_defaults"],
-    relative_install_path: "hw",
-    vendor: true,
-    init_rc: ["android.hardware.atrace@1.0-service.pixel.rc"],
-    vintf_fragments: ["android.hardware.atrace@1.0-service.pixel.xml"],
+genrule {
+    name: "atrace_categories.rc.pixel",
+    tool_files: ["generate_rc.py"],
+    out: ["atrace_categories.rc"],
     srcs: [
-        "AtraceDevice.cpp",
-        "service.cpp",
+        "atrace_categories.txt",
     ],
-    shared_libs: [
-        "liblog",
-        "libbase",
-        "libutils",
-        "libhidlbase",
-        "android.hardware.atrace@1.0",
-    ],
+    cmd: "$(location generate_rc.py) $(in) > $(out)",
+}
+
+prebuilt_etc {
+    name: "atrace_categories.txt.pixel",
+    filename: "atrace_categories.txt",
+    init_rc: [":atrace_categories.rc.pixel"],
+    src: "atrace_categories.txt",
+    sub_dir: "atrace",
+    vendor: true,
 }

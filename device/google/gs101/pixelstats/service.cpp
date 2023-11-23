@@ -25,6 +25,7 @@
 using android::hardware::google::pixel::SysfsCollector;
 using android::hardware::google::pixel::UeventListener;
 
+#define BLOCK_STATS_LENGTH 17
 #define UFSHC_PATH(filename) "/dev/sys/block/bootdevice/" #filename
 #define UFS_ERR_PATH(err_type) UFSHC_PATH(err_stats/) #err_type
 const struct SysfsCollector::SysfsPaths sysfs_paths = {
@@ -44,6 +45,8 @@ const struct SysfsCollector::SysfsPaths sysfs_paths = {
         .SpeakerTemperaturePath = "/sys/devices/platform/audiometrics/speaker_temp",
         .SpeakerExcursionPath = "/sys/devices/platform/audiometrics/speaker_excursion",
         .SpeakerHeartBeatPath = "/sys/devices/platform/audiometrics/speaker_heartbeat",
+        .ResumeLatencyMetricsPath = "/sys/kernel/metrics/resume_latency/resume_latency_metrics",
+        .LongIRQMetricsPath = "/sys/kernel/metrics/irq/long_irq_metrics",
         .UFSErrStatsPath = {
             UFS_ERR_PATH(pa_err_count),
             UFS_ERR_PATH(dl_err_count),
@@ -52,12 +55,22 @@ const struct SysfsCollector::SysfsPaths sysfs_paths = {
             UFS_ERR_PATH(dme_err_count),
             UFS_ERR_PATH(fatal_err_count),
             UFS_ERR_PATH(auto_hibern8_err_count)
-        }
+        },
+        .AmsRatePath = "/sys/devices/platform/audiometrics/ams_rate_read_once",
+        .TempResidencyAndResetPaths = {
+            {
+                "/sys/kernel/metrics/thermal/tr_by_group/tmu/stats",
+                "/sys/kernel/metrics/thermal/tr_by_group/tmu/stats_reset"
+            },
+            {
+                "/sys/kernel/metrics/thermal/tr_by_group/spmic/stats",
+                "/sys/kernel/metrics/thermal/tr_by_group/spmic/stats_reset"
+            }
+        },
 };
 
 const struct UeventListener::UeventPaths ueventPaths = {
         .AudioUevent = "/devices/virtual/amcs/amcs",
-        .WirelessChargerPtmcPath = "/sys/class/power_supply/wireless/device/ptmc_id",
         .TypeCPartnerUevent = "PRODUCT_TYPE="};
 
 int main() {

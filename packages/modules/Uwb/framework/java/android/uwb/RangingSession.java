@@ -22,9 +22,14 @@ import android.annotation.NonNull;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.os.Binder;
+import android.os.Build;
 import android.os.PersistableBundle;
 import android.os.RemoteException;
 import android.util.Log;
+
+import androidx.annotation.RequiresApi;
+
+import com.android.modules.utils.build.SdkLevel;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -47,7 +52,7 @@ import java.util.concurrent.Executor;
  */
 @SystemApi
 public final class RangingSession implements AutoCloseable {
-    private static final String TAG = "Uwb.RangingSession";
+    private final String mTag = "Uwb.RangingSession[" + this + "]";
     private final SessionHandle mSessionHandle;
     private final IUwbAdapter mAdapter;
     private final Executor mExecutor;
@@ -101,6 +106,8 @@ public final class RangingSession implements AutoCloseable {
                 REASON_SERVICE_CONNECTION_FAILURE,
                 REASON_SE_NOT_SUPPORTED,
                 REASON_SE_INTERACTION_FAILURE,
+                REASON_INSUFFICIENT_SLOTS_PER_RR,
+                REASON_SYSTEM_REGULATION,
         })
         @interface Reason {}
 
@@ -173,6 +180,17 @@ public final class RangingSession implements AutoCloseable {
          * SE interactions failed.
          */
         int REASON_SE_INTERACTION_FAILURE = 13;
+
+        /**
+         * Indicate insufficient slots per ranging round.
+         */
+        int REASON_INSUFFICIENT_SLOTS_PER_RR = 14;
+
+        /**
+         * Indicate that a system regulation caused the change, such as no allowed UWB channels in
+         * the country.
+         */
+        int REASON_SYSTEM_REGULATION = 15;
 
         /**
          * @hide
@@ -417,6 +435,14 @@ public final class RangingSession implements AutoCloseable {
          * @param parameters protocol specific params for connected service.
          */
         default void onServiceConnected(@NonNull PersistableBundle parameters) {}
+
+        /**
+         * Invoked when a response/status is received for active ranging rounds update.
+         *
+         * @param parameters bundle of ranging rounds update status
+         */
+        @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+        default void onRangingRoundsUpdateDtTagStatus(@NonNull PersistableBundle parameters) {}
     }
 
     /**
@@ -478,6 +504,7 @@ public final class RangingSession implements AutoCloseable {
             throw new IllegalStateException();
         }
 
+        Log.v(mTag, "start - sessionHandle: " + mSessionHandle);
         try {
             mAdapter.startRanging(mSessionHandle, params);
         } catch (RemoteException e) {
@@ -503,6 +530,7 @@ public final class RangingSession implements AutoCloseable {
             throw new IllegalStateException();
         }
 
+        Log.v(mTag, "reconfigure - sessionHandle: " + mSessionHandle);
         try {
             mAdapter.reconfigureRanging(mSessionHandle, params);
         } catch (RemoteException e) {
@@ -535,6 +563,7 @@ public final class RangingSession implements AutoCloseable {
             throw new IllegalStateException();
         }
 
+        Log.v(mTag, "stop - sessionHandle: " + mSessionHandle);
         try {
             mAdapter.stopRanging(mSessionHandle);
         } catch (RemoteException e) {
@@ -569,6 +598,7 @@ public final class RangingSession implements AutoCloseable {
             return;
         }
 
+        Log.v(mTag, "close - sessionHandle: " + mSessionHandle);
         try {
             mAdapter.closeRanging(mSessionHandle);
         } catch (RemoteException e) {
@@ -594,6 +624,7 @@ public final class RangingSession implements AutoCloseable {
             throw new IllegalStateException();
         }
 
+        Log.v(mTag, "addControlee - sessionHandle: " + mSessionHandle);
         try {
             mAdapter.addControlee(mSessionHandle, params);
         } catch (RemoteException e) {
@@ -619,6 +650,7 @@ public final class RangingSession implements AutoCloseable {
             throw new IllegalStateException();
         }
 
+        Log.v(mTag, "removeControlee - sessionHandle: " + mSessionHandle);
         try {
             mAdapter.removeControlee(mSessionHandle, params);
         } catch (RemoteException e) {
@@ -652,6 +684,7 @@ public final class RangingSession implements AutoCloseable {
             throw new IllegalStateException();
         }
 
+        Log.v(mTag, "pause - sessionHandle: " + mSessionHandle);
         try {
             mAdapter.pause(mSessionHandle, params);
         } catch (RemoteException e) {
@@ -680,6 +713,7 @@ public final class RangingSession implements AutoCloseable {
             throw new IllegalStateException();
         }
 
+        Log.v(mTag, "resume - sessionHandle: " + mSessionHandle);
         try {
             mAdapter.resume(mSessionHandle, params);
         } catch (RemoteException e) {
@@ -711,8 +745,54 @@ public final class RangingSession implements AutoCloseable {
             throw new IllegalStateException();
         }
 
+        Log.v(mTag, "sendData - sessionHandle: " + mSessionHandle);
         try {
             mAdapter.sendData(mSessionHandle, remoteDeviceAddress, params, data);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Update active ranging rounds for DT Tag.
+     *
+     * <p> On successfully sending the command,
+     * {@link RangingSession.Callback#onRangingRoundsUpdateDtTagStatus(PersistableBundle)}
+     * is invoked.
+     * @param params Parameters to configure active ranging rounds
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @RequiresPermission(Manifest.permission.UWB_PRIVILEGED)
+    public void updateRangingRoundsDtTag(@NonNull PersistableBundle params) {
+        if (mState != State.ACTIVE && mState != State.IDLE) {
+            throw new IllegalStateException();
+        }
+
+        Log.v(mTag, "onRangingRoundsUpdateDtTag - sessionHandle: " + mSessionHandle);
+        try {
+            mAdapter.updateRangingRoundsDtTag(mSessionHandle, params);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Query max application data size which can be sent by UWBS in one ranging round.
+     *
+     * @throws IllegalStateException, when the ranging session is not in the appropriate state for
+     * this API to be called.
+     * @return max application data size
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @RequiresPermission(Manifest.permission.UWB_PRIVILEGED)
+    public int queryMaxDataSizeBytes() {
+        if (!isOpen()) {
+            throw new IllegalStateException("Ranging session is not open");
+        }
+
+        Log.v(mTag, "QueryMaxDataSizeBytes - sessionHandle: " + mSessionHandle);
+        try {
+            return mAdapter.queryMaxDataSizeBytes(mSessionHandle);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -723,10 +803,11 @@ public final class RangingSession implements AutoCloseable {
      */
     public void onRangingOpened() {
         if (mState == State.CLOSED) {
-            Log.w(TAG, "onRangingOpened invoked for a closed session");
+            Log.w(mTag, "onRangingOpened invoked for a closed session");
             return;
         }
 
+        Log.v(mTag, "onRangingOpened - sessionHandle: " + mSessionHandle);
         mState = State.IDLE;
         executeCallback(() -> mCallback.onOpened(this));
     }
@@ -737,10 +818,11 @@ public final class RangingSession implements AutoCloseable {
     public void onRangingOpenFailed(@Callback.Reason int reason,
             @NonNull PersistableBundle params) {
         if (mState == State.CLOSED) {
-            Log.w(TAG, "onRangingOpenFailed invoked for a closed session");
+            Log.w(mTag, "onRangingOpenFailed invoked for a closed session");
             return;
         }
 
+        Log.v(mTag, "onRangingOpenFailed - sessionHandle: " + mSessionHandle);
         mState = State.CLOSED;
         executeCallback(() -> mCallback.onOpenFailed(reason, params));
     }
@@ -750,10 +832,11 @@ public final class RangingSession implements AutoCloseable {
      */
     public void onRangingStarted(@NonNull PersistableBundle parameters) {
         if (mState == State.CLOSED) {
-            Log.w(TAG, "onRangingStarted invoked for a closed session");
+            Log.w(mTag, "onRangingStarted invoked for a closed session");
             return;
         }
 
+        Log.v(mTag, "onRangingStarted - sessionHandle: " + mSessionHandle);
         mState = State.ACTIVE;
         executeCallback(() -> mCallback.onStarted(parameters));
     }
@@ -764,10 +847,11 @@ public final class RangingSession implements AutoCloseable {
     public void onRangingStartFailed(@Callback.Reason int reason,
             @NonNull PersistableBundle params) {
         if (mState == State.CLOSED) {
-            Log.w(TAG, "onRangingStartFailed invoked for a closed session");
+            Log.w(mTag, "onRangingStartFailed invoked for a closed session");
             return;
         }
 
+        Log.v(mTag, "onRangingStartFailed - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onStartFailed(reason, params));
     }
 
@@ -776,10 +860,11 @@ public final class RangingSession implements AutoCloseable {
      */
     public void onRangingReconfigured(@NonNull PersistableBundle params) {
         if (mState == State.CLOSED) {
-            Log.w(TAG, "onRangingReconfigured invoked for a closed session");
+            Log.w(mTag, "onRangingReconfigured invoked for a closed session");
             return;
         }
 
+        Log.v(mTag, "onRangingReconfigured - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onReconfigured(params));
     }
 
@@ -789,10 +874,11 @@ public final class RangingSession implements AutoCloseable {
     public void onRangingReconfigureFailed(@Callback.Reason int reason,
             @NonNull PersistableBundle params) {
         if (mState == State.CLOSED) {
-            Log.w(TAG, "onRangingReconfigureFailed invoked for a closed session");
+            Log.w(mTag, "onRangingReconfigureFailed invoked for a closed session");
             return;
         }
 
+        Log.v(mTag, "onRangingReconfigureFailed - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onReconfigureFailed(reason, params));
     }
 
@@ -802,10 +888,11 @@ public final class RangingSession implements AutoCloseable {
     public void onRangingStopped(@Callback.Reason int reason,
             @NonNull PersistableBundle params) {
         if (mState == State.CLOSED) {
-            Log.w(TAG, "onRangingStopped invoked for a closed session");
+            Log.w(mTag, "onRangingStopped invoked for a closed session");
             return;
         }
 
+        Log.v(mTag, "onRangingStopped - sessionHandle: " + mSessionHandle);
         mState = State.IDLE;
         executeCallback(() -> mCallback.onStopped(reason, params));
     }
@@ -816,10 +903,11 @@ public final class RangingSession implements AutoCloseable {
     public void onRangingStopFailed(@Callback.Reason int reason,
             @NonNull PersistableBundle params) {
         if (mState == State.CLOSED) {
-            Log.w(TAG, "onRangingStopFailed invoked for a closed session");
+            Log.w(mTag, "onRangingStopFailed invoked for a closed session");
             return;
         }
 
+        Log.v(mTag, "onRangingStopFailed - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onStopFailed(reason, params));
     }
 
@@ -829,6 +917,7 @@ public final class RangingSession implements AutoCloseable {
     public void onRangingClosed(@Callback.Reason int reason,
             @NonNull PersistableBundle parameters) {
         mState = State.CLOSED;
+        Log.v(mTag, "onRangingClosed - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onClosed(reason, parameters));
     }
 
@@ -837,10 +926,11 @@ public final class RangingSession implements AutoCloseable {
      */
     public void onRangingResult(@NonNull RangingReport report) {
         if (!isOpen()) {
-            Log.w(TAG, "onRangingResult invoked for non-open session");
+            Log.w(mTag, "onRangingResult invoked for non-open session");
             return;
         }
 
+        Log.v(mTag, "onRangingResult - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onReportReceived(report));
     }
 
@@ -849,10 +939,11 @@ public final class RangingSession implements AutoCloseable {
      */
     public void onControleeAdded(@NonNull PersistableBundle params) {
         if (!isOpen()) {
-            Log.w(TAG, "onControleeAdded invoked for non-open session");
+            Log.w(mTag, "onControleeAdded invoked for non-open session");
             return;
         }
 
+        Log.v(mTag, "onControleeAdded - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onControleeAdded(params));
     }
 
@@ -862,10 +953,11 @@ public final class RangingSession implements AutoCloseable {
     public void onControleeAddFailed(@Callback.ControleeFailureReason int reason,
             @NonNull PersistableBundle params) {
         if (!isOpen()) {
-            Log.w(TAG, "onControleeAddFailed invoked for non-open session");
+            Log.w(mTag, "onControleeAddFailed invoked for non-open session");
             return;
         }
 
+        Log.v(mTag, "onControleeAddFailed - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onControleeAddFailed(reason, params));
     }
 
@@ -874,10 +966,11 @@ public final class RangingSession implements AutoCloseable {
      */
     public void onControleeRemoved(@NonNull PersistableBundle params) {
         if (!isOpen()) {
-            Log.w(TAG, "onControleeRemoved invoked for non-open session");
+            Log.w(mTag, "onControleeRemoved invoked for non-open session");
             return;
         }
 
+        Log.v(mTag, "onControleeRemoved - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onControleeRemoved(params));
     }
 
@@ -887,10 +980,11 @@ public final class RangingSession implements AutoCloseable {
     public void onControleeRemoveFailed(@Callback.ControleeFailureReason int reason,
             @NonNull PersistableBundle params) {
         if (!isOpen()) {
-            Log.w(TAG, "onControleeRemoveFailed invoked for non-open session");
+            Log.w(mTag, "onControleeRemoveFailed invoked for non-open session");
             return;
         }
 
+        Log.v(mTag, "onControleeRemoveFailed - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onControleeRemoveFailed(reason, params));
     }
 
@@ -899,10 +993,11 @@ public final class RangingSession implements AutoCloseable {
      */
     public void onRangingPaused(@NonNull PersistableBundle params) {
         if (!isOpen()) {
-            Log.w(TAG, "onRangingPaused invoked for non-open session");
+            Log.w(mTag, "onRangingPaused invoked for non-open session");
             return;
         }
 
+        Log.v(mTag, "onRangingPaused - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onPaused(params));
     }
 
@@ -912,10 +1007,11 @@ public final class RangingSession implements AutoCloseable {
     public void onRangingPauseFailed(@Callback.Reason int reason,
             @NonNull PersistableBundle params) {
         if (!isOpen()) {
-            Log.w(TAG, "onRangingPauseFailed invoked for non-open session");
+            Log.w(mTag, "onRangingPauseFailed invoked for non-open session");
             return;
         }
 
+        Log.v(mTag, "onRangingPauseFailed - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onPauseFailed(reason, params));
     }
 
@@ -924,10 +1020,11 @@ public final class RangingSession implements AutoCloseable {
      */
     public void onRangingResumed(@NonNull PersistableBundle params) {
         if (!isOpen()) {
-            Log.w(TAG, "onRangingResumed invoked for non-open session");
+            Log.w(mTag, "onRangingResumed invoked for non-open session");
             return;
         }
 
+        Log.v(mTag, "onRangingResumed - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onResumed(params));
     }
 
@@ -937,10 +1034,11 @@ public final class RangingSession implements AutoCloseable {
     public void onRangingResumeFailed(@Callback.Reason int reason,
             @NonNull PersistableBundle params) {
         if (!isOpen()) {
-            Log.w(TAG, "onRangingResumeFailed invoked for non-open session");
+            Log.w(mTag, "onRangingResumeFailed invoked for non-open session");
             return;
         }
 
+        Log.v(mTag, "onRangingResumeFailed - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onResumeFailed(reason, params));
     }
 
@@ -950,10 +1048,11 @@ public final class RangingSession implements AutoCloseable {
     public void onDataSent(@NonNull UwbAddress remoteDeviceAddress,
             @NonNull PersistableBundle params) {
         if (!isOpen()) {
-            Log.w(TAG, "onDataSent invoked for non-open session");
+            Log.w(mTag, "onDataSent invoked for non-open session");
             return;
         }
 
+        Log.v(mTag, "onDataSent - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onDataSent(remoteDeviceAddress, params));
     }
 
@@ -963,10 +1062,11 @@ public final class RangingSession implements AutoCloseable {
     public void onDataSendFailed(@NonNull UwbAddress remoteDeviceAddress,
             @Callback.DataFailureReason int reason, @NonNull PersistableBundle params) {
         if (!isOpen()) {
-            Log.w(TAG, "onDataSendFailed invoked for non-open session");
+            Log.w(mTag, "onDataSendFailed invoked for non-open session");
             return;
         }
 
+        Log.v(mTag, "onDataSendFailed - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onDataSendFailed(remoteDeviceAddress, reason, params));
     }
 
@@ -976,10 +1076,11 @@ public final class RangingSession implements AutoCloseable {
     public void onDataReceived(@NonNull UwbAddress remoteDeviceAddress,
             @NonNull PersistableBundle params, @NonNull byte[] data) {
         if (!isOpen()) {
-            Log.w(TAG, "onDataReceived invoked for non-open session");
+            Log.w(mTag, "onDataReceived invoked for non-open session");
             return;
         }
 
+        Log.v(mTag, "onDataReceived - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onDataReceived(remoteDeviceAddress, params, data));
     }
 
@@ -989,10 +1090,11 @@ public final class RangingSession implements AutoCloseable {
     public void onDataReceiveFailed(@NonNull UwbAddress remoteDeviceAddress,
             @Callback.DataFailureReason int reason, @NonNull PersistableBundle params) {
         if (!isOpen()) {
-            Log.w(TAG, "onDataReceiveFailed invoked for non-open session");
+            Log.w(mTag, "onDataReceiveFailed invoked for non-open session");
             return;
         }
 
+        Log.v(mTag, "onDataReceiveFailed - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onDataReceiveFailed(remoteDeviceAddress, reason, params));
     }
 
@@ -1001,10 +1103,11 @@ public final class RangingSession implements AutoCloseable {
      */
     public void onServiceDiscovered(@NonNull PersistableBundle params) {
         if (!isOpen()) {
-            Log.w(TAG, "onServiceDiscovered invoked for non-open session");
+            Log.w(mTag, "onServiceDiscovered invoked for non-open session");
             return;
         }
 
+        Log.v(mTag, "onServiceDiscovered - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onServiceDiscovered(params));
     }
 
@@ -1013,11 +1116,27 @@ public final class RangingSession implements AutoCloseable {
      */
     public void onServiceConnected(@NonNull PersistableBundle params) {
         if (!isOpen()) {
-            Log.w(TAG, "onServiceConnected invoked for non-open session");
+            Log.w(mTag, "onServiceConnected invoked for non-open session");
             return;
         }
 
+        Log.v(mTag, "onServiceConnected - sessionHandle: " + mSessionHandle);
         executeCallback(() -> mCallback.onServiceConnected(params));
+    }
+
+    /**
+     * @hide
+     */
+    public void onRangingRoundsUpdateDtTagStatus(@NonNull PersistableBundle params) {
+        if (!isOpen()) {
+            Log.w(mTag, "onDlTDoARangingRoundsUpdateStatus invoked for non-open session");
+            return;
+        }
+
+        Log.v(mTag, "onDlTDoARangingRoundsUpdateStatus - sessionHandle: " + mSessionHandle);
+        if (SdkLevel.isAtLeastU()) {
+            executeCallback(() -> mCallback.onRangingRoundsUpdateDtTagStatus(params));
+        }
     }
 
     /**
@@ -1029,6 +1148,21 @@ public final class RangingSession implements AutoCloseable {
             mExecutor.execute(runnable);
         } finally {
             Binder.restoreCallingIdentity(identity);
+        }
+    }
+
+    /**
+     * Updates the UWB filter engine's pose information. This requires that the call to
+     * {@link UwbManager#openRangingSession} indicated an application pose source.
+     *
+     * @param parameters Parameters representing the session to update, and the pose information.
+     */
+    @RequiresPermission(Manifest.permission.UWB_PRIVILEGED)
+    public void updatePose(@NonNull PersistableBundle parameters) {
+        try {
+            mAdapter.updatePose(mSessionHandle, parameters);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
         }
     }
 }

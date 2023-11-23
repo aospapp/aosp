@@ -25,6 +25,8 @@ import androidx.annotation.Nullable;
 
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.role.utils.PackageUtils;
+import com.android.role.controller.model.Role;
+import com.android.role.controller.model.RoleBehavior;
 
 /**
  * Mixin for {@link RoleBehavior#getConfirmationMessage(Role, String, Context)}

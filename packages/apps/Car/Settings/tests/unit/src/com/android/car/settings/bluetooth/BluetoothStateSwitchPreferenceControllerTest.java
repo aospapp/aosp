@@ -19,6 +19,7 @@ package com.android.car.settings.bluetooth;
 import static android.os.UserManager.DISALLOW_BLUETOOTH;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -42,6 +43,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.android.car.settings.common.ColoredSwitchPreference;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
+import com.android.car.settings.testutils.BluetoothTestUtils;
 import com.android.car.settings.testutils.EnterpriseTestUtils;
 import com.android.car.settings.testutils.TestLifecycleOwner;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
@@ -118,7 +120,7 @@ public class BluetoothStateSwitchPreferenceControllerTest {
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.onStart(mLifecycleOwner);
         mSwitchPreference.setChecked(false);
-        BluetoothAdapter.getDefaultAdapter().disable();
+        BluetoothTestUtils.setBluetoothState(mContext, /* enable= */ false);
 
         mSwitchPreference.performClick();
 
@@ -136,13 +138,47 @@ public class BluetoothStateSwitchPreferenceControllerTest {
     }
 
     @Test
+    public void restrictedByDpm_availabilityIsAvailableForViewing_zoneWrite() {
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mUserManager);
+        EnterpriseTestUtils.mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, true);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void restrictedByDpm_availabilityIsAvailableForViewing_zoneRead() {
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mUserManager);
+        EnterpriseTestUtils.mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, true);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void restrictedByDpm_availabilityIsAvailableForViewing_zoneHidden() {
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mUserManager);
+        EnterpriseTestUtils.mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, true);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void restrictedByDpm_disableSwitchPreference() {
         when(mContext.getSystemService(UserManager.class)).thenReturn(mUserManager);
         EnterpriseTestUtils.mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, true);
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.onStart(mLifecycleOwner);
         mSwitchPreference.setEnabled(true);
-        BluetoothAdapter.getDefaultAdapter().enable();
+        BluetoothTestUtils.setBluetoothState(mContext, /* enable= */ true);
 
         mSwitchPreference.performClick();
 
@@ -155,7 +191,7 @@ public class BluetoothStateSwitchPreferenceControllerTest {
         EnterpriseTestUtils.mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, true);
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.onStart(mLifecycleOwner);
-        BluetoothAdapter.getDefaultAdapter().enable();
+        BluetoothTestUtils.setBluetoothState(mContext, /* enable= */ true);
 
         mSwitchPreference.performClick();
 
@@ -171,7 +207,7 @@ public class BluetoothStateSwitchPreferenceControllerTest {
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.onStart(mLifecycleOwner);
         mSwitchPreference.setChecked(true);
-        BluetoothAdapter.getDefaultAdapter().enable();
+        BluetoothTestUtils.setBluetoothState(mContext, /* enable= */ true);
 
         mSwitchPreference.performClick();
 

@@ -16,10 +16,12 @@
 
 package com.android.tv.settings.device.displaysound;
 
-import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_CLASSIC;
-import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
-import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_VENDOR;
-import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_X;
+import static com.android.tv.settings.device.displaysound.DisplaySoundUtils.getMatchContentDynamicRangeStatus;
+import static com.android.tv.settings.device.displaysound.DisplaySoundUtils.setMatchContentDynamicRangeStatus;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_VENDOR;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_X;
 import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
 
 import android.app.tvsettings.TvSettingsEnums;
@@ -36,13 +38,14 @@ import android.view.Display;
 import androidx.annotation.Keep;
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
+import androidx.preference.SwitchPreference;
 import androidx.preference.TwoStatePreference;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.library.overlay.FlavorUtils;
-import com.android.tv.settings.library.util.SliceUtils;
+import com.android.tv.settings.overlay.FlavorUtils;
 import com.android.tv.settings.util.ResolutionSelectionUtils;
+import com.android.tv.settings.util.SliceUtils;
 import com.android.tv.twopanelsettings.slices.SlicePreference;
 
 import java.util.Objects;
@@ -59,6 +62,7 @@ public class DisplaySoundFragment extends SettingsPreferenceFragment implements
     private static final String KEY_DEFAULT_AUDIO_OUTPUT_SETTINGS_SLICE =
             "default_audio_output_settings";
     private static final String KEY_RESOLUTION_TITLE = "resolution_selection";
+    private static final String KEY_DYNAMIC_RANGE = "match_content_dynamic_range";
 
     private AudioManager mAudioManager;
     private HdmiControlManager mHdmiControlManager;
@@ -112,15 +116,37 @@ public class DisplaySoundFragment extends SettingsPreferenceFragment implements
             updateResolutionTitleDescription(ResolutionSelectionUtils.modeToString(
                     mCurrentMode, getContext()));
         } else {
-            removeResolutionPreference();
+            removePreference(findPreference(KEY_RESOLUTION_TITLE));
+        }
+
+        SwitchPreference dynamicRangePreference = findPreference(KEY_DYNAMIC_RANGE);
+        if (mDisplayManager.getSupportedHdrOutputTypes().length == 0) {
+            removePreference(dynamicRangePreference);
+            return;
+        }
+        // Do not show sidebar info texts in case of 1 panel settings.
+        if (FlavorUtils.getFlavor(getContext()) != FLAVOR_CLASSIC) {
+            createInfoFragments();
         }
     }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mDisplayManager.unregisterDisplayListener(this);
+    }
+
 
     @Override
     public void onResume() {
         super.onResume();
         // Update the subtitle of CEC setting when navigating back to this page.
         updateCecPreference();
+
+        SwitchPreference dynamicRangePreference = findPreference(KEY_DYNAMIC_RANGE);
+        if (dynamicRangePreference != null) {
+            dynamicRangePreference.setChecked(getMatchContentDynamicRangeStatus(mDisplayManager));
+        }
     }
 
     @Override
@@ -129,6 +155,10 @@ public class DisplaySoundFragment extends SettingsPreferenceFragment implements
             final TwoStatePreference soundPref = (TwoStatePreference) preference;
             logToggleInteracted(TvSettingsEnums.DISPLAY_SOUND_SYSTEM_SOUNDS, soundPref.isChecked());
             setSoundEffectsEnabled(soundPref.isChecked());
+        }
+        if (TextUtils.equals(preference.getKey(), KEY_DYNAMIC_RANGE)) {
+            final SwitchPreference dynamicPref = (SwitchPreference) preference;
+            setMatchContentDynamicRangeStatus(mDisplayManager, dynamicPref.isChecked());
         }
         return super.onPreferenceTreeClick(preference);
     }
@@ -207,10 +237,17 @@ public class DisplaySoundFragment extends SettingsPreferenceFragment implements
         }
     }
 
-    private void removeResolutionPreference() {
-        Preference resolutionPreference = findPreference(KEY_RESOLUTION_TITLE);
-        if (resolutionPreference != null) {
-            getPreferenceScreen().removePreference(resolutionPreference);
+    private void removePreference(Preference preference) {
+        if (preference != null) {
+            getPreferenceScreen().removePreference(preference);
+        }
+    }
+
+    private void createInfoFragments() {
+        Preference dynamicRangePref = findPreference(KEY_DYNAMIC_RANGE);
+        if (dynamicRangePref != null) {
+            dynamicRangePref.setFragment(
+                    PreferredDynamicRangeInfo.MatchContentDynamicRangeInfoFragment.class.getName());
         }
     }
 }

@@ -16,7 +16,7 @@
  */
 #pragma once
 
-#include "base/callback.h"
+#include "base/functional/callback.h"
 #include "bind_helpers.h"
 #include "bta/include/bta_groups.h"
 #include "hardware/bt_csis.h"
@@ -47,6 +47,7 @@ class CsisClient {
       bluetooth::Uuid uuid = bluetooth::groups::kGenericContextUuid) = 0;
   virtual void LockGroup(int group_id, bool lock, CsisLockCb cb) = 0;
   virtual std::vector<RawAddress> GetDeviceList(int group_id) = 0;
+  virtual int GetDesiredSize(int group_id) = 0;
 };
 }  // namespace csis
 }  // namespace bluetooth

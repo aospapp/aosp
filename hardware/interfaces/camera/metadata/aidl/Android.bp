@@ -11,6 +11,7 @@ aidl_interface {
     name: "android.hardware.camera.metadata",
     vendor_available: true,
     srcs: ["android/hardware/camera/metadata/*.aidl"],
+    frozen: true,
     stability: "vintf",
     backend: {
         cpp: {
@@ -19,10 +20,8 @@ aidl_interface {
         java: {
             enabled: false,
         },
-        ndk: {
-            vndk: {
-                enabled: true,
-            },
+        rust: {
+            enabled: true,
         },
     },
     versions_with_info: [
@@ -30,6 +29,11 @@ aidl_interface {
             version: "1",
             imports: [],
         },
+        {
+            version: "2",
+            imports: [],
+        },
+
     ],
 
 }

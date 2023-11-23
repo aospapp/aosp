@@ -58,16 +58,13 @@ static const int expected_errno[] = { 0, 0, ENOTDIR, EBADF, 0 };
 
 int myfutimesat(int dirfd, const char *filename, struct timeval *times)
 {
-	return ltp_syscall(__NR_futimesat, dirfd, filename, times);
+	return tst_syscall(__NR_futimesat, dirfd, filename, times);
 }
 
 int main(int ac, char **av)
 {
 	int lc, i;
 	struct timeval times[2];
-
-	if (tst_kvercmp(2, 6, 16) < 0)
-		tst_brkm(TCONF, NULL, "Test must be run with kernel 2.6.16+");
 
 	tst_parse_opts(ac, av, NULL, NULL);
 

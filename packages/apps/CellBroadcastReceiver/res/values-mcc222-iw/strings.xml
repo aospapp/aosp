@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="sms_cb_settings" msgid="8489556780139246683">"אזהרות גלויות לכול"</string>
+    <string name="sms_cb_settings" msgid="8489556780139246683">"אזהרות גלויות לכולם"</string>
     <!-- no translation found for cmas_extreme_alert (8930893242227527613) -->
     <skip />
     <!-- no translation found for cmas_extreme_immediate_observed_alert (3037852378370476280) -->

@@ -25,11 +25,6 @@ def define_tests():
             main_package = 'autotest_lib.client.site_tests.platform_AesThroughput.platform_AesThroughput',
         ),
         test_common.define_test(
-            'platform/AnomalyDetector',
-            suites = ['bvt-perbuild'],
-            main_package = 'autotest_lib.client.site_tests.platform_AnomalyDetector.platform_AnomalyDetector',
-        ),
-        test_common.define_test(
             'platform/BootLockbox',
             suites = [],
             main_package = 'autotest_lib.client.site_tests.platform_BootLockbox.platform_BootLockbox',

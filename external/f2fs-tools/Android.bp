@@ -43,29 +43,21 @@ cc_defaults {
     name: "f2fs-tools-defaults",
     cflags: [
         "-DF2FS_MAJOR_VERSION=1",
-        "-DF2FS_MINOR_VERSION=14",
-        "-DF2FS_TOOLS_VERSION=\"1.14.0\"",
-        "-DF2FS_TOOLS_DATE=\"2020-08-24\"",
+        "-DF2FS_MINOR_VERSION=16",
+        "-DF2FS_TOOLS_VERSION=\"1.16.0\"",
+        "-DF2FS_TOOLS_DATE=\"2023-04-11\"",
         "-DWITH_ANDROID",
         "-Wall",
         "-Werror",
-        "-Wno-format",
         "-Wno-macro-redefined",
         "-Wno-missing-field-initializers",
         "-Wno-pointer-arith",
         "-Wno-sign-compare",
-        "-Wno-unused-function",
-        "-Wno-string-plus-int",
     ],
     local_include_dirs: [
         "include",
         "mkfs",
         "fsck",
-    ],
-    include_dirs: [
-        "external/e2fsprogs/lib/",
-        "external/e2fsprogs/lib/uuid",
-        "system/core/libsparse/include",
     ],
     target: {
         windows: {
@@ -83,6 +75,9 @@ cc_defaults {
         "mkfs/f2fs_format_utils.c",
         "lib/libf2fs_zoned.c",
         "lib/nls_utf8.c",
+    ],
+    static_libs: [
+        "libext2_uuid",
     ],
 }
 
@@ -282,6 +277,8 @@ cc_binary {
     cflags: [
         "--static",
         "-U_FORTIFY_SOURCE",
+	"-Wall",
+	"-Werror",
     ],
     srcs: ["tools/check_f2fs.c"],
     product_specific: true,
@@ -290,7 +287,8 @@ cc_binary {
 cc_defaults {
     name: "tools-defaults",
     cflags: [
-        "-Wno-unused-function",
+	"-Wall",
+	"-Werror",
     ],
     local_include_dirs: [
         "include",
@@ -317,16 +315,6 @@ cc_binary {
     srcs: [
         "tools/f2fscrypt.c",
         "tools/sha512.c",
-    ],
-}
-
-cc_binary {
-    name: "f2fsstat",
-    defaults: [
-        "tools-defaults",
-    ],
-    srcs: [
-        "tools/f2fstat.c",
     ],
 }
 

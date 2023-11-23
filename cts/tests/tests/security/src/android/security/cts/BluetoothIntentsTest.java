@@ -15,14 +15,13 @@
  */
 package android.security.cts;
 
-import static android.os.Process.BLUETOOTH_UID;
-
 import android.content.ComponentName;
 import android.content.Intent;
 import android.platform.test.annotations.AsbSecurityTest;
 
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.bedstead.nene.TestApis;
 import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
 
 import org.junit.Test;
@@ -48,27 +47,27 @@ public class BluetoothIntentsTest extends StsExtraBusinessLogicTestCase {
       genericIntentTest("DECLINE");
   }
 
-  private static final String prefix = "android.btopp.intent.action.";
-  private void genericIntentTest(String action) throws SecurityException {
-    try {
-      Intent should_be_protected_broadcast = new Intent();
+    private static final String PREFIX = "android.btopp.intent.action.";
+    private static final String RECEIVER = "com.android.bluetooth.opp.BluetoothOppReceiver";
 
-      String bluetoothPackageName = getInstrumentation().getContext().getPackageManager()
-          .getPackagesForUid(BLUETOOTH_UID)[0];
-
-      ComponentName oppLauncherComponent = new ComponentName(bluetoothPackageName,
-          "com.android.bluetooth.opp.BluetoothOppReceiver");
-
-      should_be_protected_broadcast.setComponent(oppLauncherComponent);
-      should_be_protected_broadcast.setAction(prefix + action);
+    private void genericIntentTest(String action) throws SecurityException {
+        try {
+            Intent should_be_protected_broadcast = new Intent();
+            ComponentName oppLauncherComponent =
+                    new ComponentName(TestApis.bluetooth().findPackageName(), RECEIVER);
+            should_be_protected_broadcast.setComponent(oppLauncherComponent);
+            should_be_protected_broadcast.setAction(PREFIX + action);
       getInstrumentation().getContext().sendBroadcast(should_be_protected_broadcast);
     }
     catch (SecurityException e) {
       return;
     }
 
-    throw new SecurityException("An " + prefix + action +
-        " intent should not be broadcastable except by the system (declare " +
-        " as protected-broadcast in manifest)");
-  }
+        throw new SecurityException(
+                "An "
+                        + PREFIX
+                        + action
+                        + " intent should not be broadcastable except by the system (declare "
+                        + " as protected-broadcast in manifest)");
+    }
 }

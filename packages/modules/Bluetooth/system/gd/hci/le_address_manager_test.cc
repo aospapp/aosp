@@ -26,20 +26,27 @@ using ::bluetooth::crypto_toolbox::Octet16;
 using ::bluetooth::os::Handler;
 using ::bluetooth::os::Thread;
 
-namespace bluetooth {
-namespace hci {
+namespace {
 
-using packet::kLittleEndian;
-using packet::PacketView;
-using packet::RawBuilder;
+using namespace bluetooth;
 
-PacketView<kLittleEndian> GetPacketView(std::unique_ptr<packet::BasePacketBuilder> packet) {
+packet::PacketView<packet::kLittleEndian> GetPacketView(std::unique_ptr<packet::BasePacketBuilder> packet) {
   auto bytes = std::make_shared<std::vector<uint8_t>>();
-  BitInserter i(*bytes);
+  packet::BitInserter i(*bytes);
   bytes->reserve(packet->size());
   packet->Serialize(i);
   return packet::PacketView<packet::kLittleEndian>(bytes);
 }
+
+}  // namespace
+
+namespace bluetooth {
+namespace hci {
+namespace {
+
+using packet::kLittleEndian;
+using packet::PacketView;
+using packet::RawBuilder;
 
 class TestHciLayer : public HciLayer {
  public:
@@ -50,13 +57,14 @@ class TestHciLayer : public HciLayer {
     command_queue_.push(std::move(command));
     command_complete_callbacks.push_back(std::move(on_complete));
     if (command_promise_ != nullptr) {
-      command_promise_->set_value();
-      command_promise_.reset();
+      std::promise<void>* prom = command_promise_.release();
+      prom->set_value();
+      delete prom;
     }
   }
 
   void SetCommandFuture() {
-    ASSERT_LOG(command_promise_ == nullptr, "Promises, Promises, ... Only one at a time.");
+    ASSERT_EQ(command_promise_, nullptr) << "Promises, Promises, ... Only one at a time.";
     command_promise_ = std::make_unique<std::promise<void>>();
     command_future_ = std::make_unique<std::future<void>>(command_promise_->get_future());
   }
@@ -129,8 +137,9 @@ class RotatorClient : public LeAddressManagerCallback {
     paused = false;
     le_address_manager_->AckResume(this);
     if (resume_promise_ != nullptr) {
-      resume_promise_->set_value();
-      resume_promise_.reset();
+      std::promise<void>* prom = resume_promise_.release();
+      prom->set_value();
+      delete prom;
     }
   }
 
@@ -216,10 +225,11 @@ TEST_F(LeAddressManagerTest, rotator_address_for_single_client) {
       LeAddressManager::AddressPolicy::USE_RESOLVABLE_ADDRESS,
       remote_address,
       irk,
+      false,
       minimum_rotation_time,
       maximum_rotation_time);
 
-  test_hci_layer_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
   le_address_manager_->Register(clients[0].get());
   sync_handler(handler_);
   test_hci_layer_->GetCommand(OpCode::LE_SET_RANDOM_ADDRESS);
@@ -238,10 +248,11 @@ TEST_F(LeAddressManagerTest, rotator_non_resolvable_address_for_single_client) {
       LeAddressManager::AddressPolicy::USE_NON_RESOLVABLE_ADDRESS,
       remote_address,
       irk,
+      false,
       minimum_rotation_time,
       maximum_rotation_time);
 
-  test_hci_layer_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
   le_address_manager_->Register(clients[0].get());
   sync_handler(handler_);
   test_hci_layer_->GetCommand(OpCode::LE_SET_RANDOM_ADDRESS);
@@ -262,6 +273,7 @@ TEST_F(LeAddressManagerTest, DISABLED_rotator_address_for_multiple_clients) {
       LeAddressManager::AddressPolicy::USE_RESOLVABLE_ADDRESS,
       remote_address,
       irk,
+      false,
       minimum_rotation_time,
       maximum_rotation_time);
   le_address_manager_->Register(clients[0].get());
@@ -299,10 +311,11 @@ class LeAddressManagerWithSingleClientTest : public LeAddressManagerTest {
         LeAddressManager::AddressPolicy::USE_RESOLVABLE_ADDRESS,
         remote_address,
         irk,
+        false,
         minimum_rotation_time,
         maximum_rotation_time);
 
-    test_hci_layer_->SetCommandFuture();
+    ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
     le_address_manager_->Register(clients[0].get());
     sync_handler(handler_);
     test_hci_layer_->GetCommand(OpCode::LE_SET_RANDOM_ADDRESS);
@@ -329,7 +342,7 @@ class LeAddressManagerWithSingleClientTest : public LeAddressManagerTest {
 TEST_F(LeAddressManagerWithSingleClientTest, add_device_to_connect_list) {
   Address address;
   Address::FromString("01:02:03:04:05:06", address);
-  test_hci_layer_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
   le_address_manager_->AddDeviceToFilterAcceptList(FilterAcceptListAddressType::RANDOM, address);
   auto packet = test_hci_layer_->GetCommand(OpCode::LE_ADD_DEVICE_TO_FILTER_ACCEPT_LIST);
   auto packet_view = LeAddDeviceToFilterAcceptListView::Create(
@@ -345,12 +358,12 @@ TEST_F(LeAddressManagerWithSingleClientTest, add_device_to_connect_list) {
 TEST_F(LeAddressManagerWithSingleClientTest, remove_device_from_connect_list) {
   Address address;
   Address::FromString("01:02:03:04:05:06", address);
-  test_hci_layer_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
   le_address_manager_->AddDeviceToFilterAcceptList(FilterAcceptListAddressType::RANDOM, address);
   test_hci_layer_->GetCommand(OpCode::LE_ADD_DEVICE_TO_FILTER_ACCEPT_LIST);
   test_hci_layer_->IncomingEvent(LeAddDeviceToFilterAcceptListCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
 
-  test_hci_layer_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
   le_address_manager_->RemoveDeviceFromFilterAcceptList(FilterAcceptListAddressType::RANDOM, address);
   auto packet = test_hci_layer_->GetCommand(OpCode::LE_REMOVE_DEVICE_FROM_FILTER_ACCEPT_LIST);
   auto packet_view = LeRemoveDeviceFromFilterAcceptListView::Create(
@@ -362,87 +375,157 @@ TEST_F(LeAddressManagerWithSingleClientTest, remove_device_from_connect_list) {
   clients[0].get()->WaitForResume();
 }
 
-TEST_F(LeAddressManagerWithSingleClientTest, clear_connect_list) {
+TEST_F(LeAddressManagerWithSingleClientTest, clear_filter_accept_list) {
   Address address;
   Address::FromString("01:02:03:04:05:06", address);
-  test_hci_layer_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
   le_address_manager_->AddDeviceToFilterAcceptList(FilterAcceptListAddressType::RANDOM, address);
   test_hci_layer_->GetCommand(OpCode::LE_ADD_DEVICE_TO_FILTER_ACCEPT_LIST);
   test_hci_layer_->IncomingEvent(LeAddDeviceToFilterAcceptListCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
 
-  test_hci_layer_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
   le_address_manager_->ClearFilterAcceptList();
   test_hci_layer_->GetCommand(OpCode::LE_CLEAR_FILTER_ACCEPT_LIST);
   test_hci_layer_->IncomingEvent(LeClearFilterAcceptListCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
   clients[0].get()->WaitForResume();
 }
 
-TEST_F(LeAddressManagerWithSingleClientTest, add_device_to_resolving_list) {
+// b/260916288
+TEST_F(LeAddressManagerWithSingleClientTest, DISABLED_add_device_to_resolving_list) {
   Address address;
   Address::FromString("01:02:03:04:05:06", address);
   Octet16 peer_irk = {0xec, 0x02, 0x34, 0xa3, 0x57, 0xc8, 0xad, 0x05, 0x34, 0x10, 0x10, 0xa6, 0x0a, 0x39, 0x7d, 0x9b};
   Octet16 local_irk = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10};
-  test_hci_layer_->SetCommandFuture();
+
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
   le_address_manager_->AddDeviceToResolvingList(
       PeerAddressType::RANDOM_DEVICE_OR_IDENTITY_ADDRESS, address, peer_irk, local_irk);
-  auto packet = test_hci_layer_->GetCommand(OpCode::LE_ADD_DEVICE_TO_RESOLVING_LIST);
-  auto packet_view = LeAddDeviceToResolvingListView::Create(LeSecurityCommandView::Create(packet));
-  ASSERT_TRUE(packet_view.IsValid());
-  ASSERT_EQ(PeerAddressType::RANDOM_DEVICE_OR_IDENTITY_ADDRESS, packet_view.GetPeerIdentityAddressType());
-  ASSERT_EQ(address, packet_view.GetPeerIdentityAddress());
-  ASSERT_EQ(peer_irk, packet_view.GetPeerIrk());
-  ASSERT_EQ(local_irk, packet_view.GetLocalIrk());
-
-  test_hci_layer_->IncomingEvent(LeAddDeviceToResolvingListCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
+  {
+    auto packet = test_hci_layer_->GetCommand(OpCode::LE_SET_ADDRESS_RESOLUTION_ENABLE);
+    auto packet_view = LeSetAddressResolutionEnableView::Create(LeSecurityCommandView::Create(packet));
+    ASSERT_TRUE(packet_view.IsValid());
+    ASSERT_EQ(Enable::DISABLED, packet_view.GetAddressResolutionEnable());
+    test_hci_layer_->IncomingEvent(LeSetAddressResolutionEnableCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
+  }
+  {
+    ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
+    auto packet = test_hci_layer_->GetCommand(OpCode::LE_ADD_DEVICE_TO_RESOLVING_LIST);
+    auto packet_view = LeAddDeviceToResolvingListView::Create(LeSecurityCommandView::Create(packet));
+    ASSERT_TRUE(packet_view.IsValid());
+    ASSERT_EQ(PeerAddressType::RANDOM_DEVICE_OR_IDENTITY_ADDRESS, packet_view.GetPeerIdentityAddressType());
+    ASSERT_EQ(address, packet_view.GetPeerIdentityAddress());
+    ASSERT_EQ(peer_irk, packet_view.GetPeerIrk());
+    ASSERT_EQ(local_irk, packet_view.GetLocalIrk());
+    test_hci_layer_->IncomingEvent(LeAddDeviceToResolvingListCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
+  }
+  {
+    ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
+    auto packet = test_hci_layer_->GetCommand(OpCode::LE_SET_ADDRESS_RESOLUTION_ENABLE);
+    auto packet_view = LeSetAddressResolutionEnableView::Create(LeSecurityCommandView::Create(packet));
+    ASSERT_TRUE(packet_view.IsValid());
+    ASSERT_EQ(Enable::ENABLED, packet_view.GetAddressResolutionEnable());
+    test_hci_layer_->IncomingEvent(LeSetAddressResolutionEnableCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
+  }
   clients[0].get()->WaitForResume();
 }
 
-TEST_F(LeAddressManagerWithSingleClientTest, remove_device_from_resolving_list) {
+// b/260916288
+TEST_F(LeAddressManagerWithSingleClientTest, DISABLED_remove_device_from_resolving_list) {
   Address address;
   Address::FromString("01:02:03:04:05:06", address);
   Octet16 peer_irk = {0xec, 0x02, 0x34, 0xa3, 0x57, 0xc8, 0xad, 0x05, 0x34, 0x10, 0x10, 0xa6, 0x0a, 0x39, 0x7d, 0x9b};
   Octet16 local_irk = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10};
-  test_hci_layer_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
   le_address_manager_->AddDeviceToResolvingList(
       PeerAddressType::RANDOM_DEVICE_OR_IDENTITY_ADDRESS, address, peer_irk, local_irk);
+  test_hci_layer_->GetCommand(OpCode::LE_SET_ADDRESS_RESOLUTION_ENABLE);
+  test_hci_layer_->IncomingEvent(LeSetAddressResolutionEnableCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
   test_hci_layer_->GetCommand(OpCode::LE_ADD_DEVICE_TO_RESOLVING_LIST);
   test_hci_layer_->IncomingEvent(LeAddDeviceToResolvingListCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
+  test_hci_layer_->GetCommand(OpCode::LE_SET_ADDRESS_RESOLUTION_ENABLE);
+  test_hci_layer_->IncomingEvent(LeSetAddressResolutionEnableCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
 
-  test_hci_layer_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
   le_address_manager_->RemoveDeviceFromResolvingList(PeerAddressType::RANDOM_DEVICE_OR_IDENTITY_ADDRESS, address);
-  auto packet = test_hci_layer_->GetCommand(OpCode::LE_REMOVE_DEVICE_FROM_RESOLVING_LIST);
-  auto packet_view = LeRemoveDeviceFromResolvingListView::Create(LeSecurityCommandView::Create(packet));
-  ASSERT_TRUE(packet_view.IsValid());
-  ASSERT_EQ(PeerAddressType::RANDOM_DEVICE_OR_IDENTITY_ADDRESS, packet_view.GetPeerIdentityAddressType());
-  ASSERT_EQ(address, packet_view.GetPeerIdentityAddress());
-  test_hci_layer_->IncomingEvent(LeRemoveDeviceFromResolvingListCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
+  {
+    auto packet = test_hci_layer_->GetCommand(OpCode::LE_SET_ADDRESS_RESOLUTION_ENABLE);
+    auto packet_view = LeSetAddressResolutionEnableView::Create(LeSecurityCommandView::Create(packet));
+    ASSERT_TRUE(packet_view.IsValid());
+    ASSERT_EQ(Enable::DISABLED, packet_view.GetAddressResolutionEnable());
+    test_hci_layer_->IncomingEvent(LeSetAddressResolutionEnableCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
+  }
+  {
+    ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
+    auto packet = test_hci_layer_->GetCommand(OpCode::LE_REMOVE_DEVICE_FROM_RESOLVING_LIST);
+    auto packet_view = LeRemoveDeviceFromResolvingListView::Create(LeSecurityCommandView::Create(packet));
+    ASSERT_TRUE(packet_view.IsValid());
+    ASSERT_EQ(PeerAddressType::RANDOM_DEVICE_OR_IDENTITY_ADDRESS, packet_view.GetPeerIdentityAddressType());
+    ASSERT_EQ(address, packet_view.GetPeerIdentityAddress());
+    test_hci_layer_->IncomingEvent(LeRemoveDeviceFromResolvingListCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
+  }
+  {
+    ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
+    auto packet = test_hci_layer_->GetCommand(OpCode::LE_SET_ADDRESS_RESOLUTION_ENABLE);
+    auto packet_view = LeSetAddressResolutionEnableView::Create(LeSecurityCommandView::Create(packet));
+    ASSERT_TRUE(packet_view.IsValid());
+    ASSERT_EQ(Enable::ENABLED, packet_view.GetAddressResolutionEnable());
+    test_hci_layer_->IncomingEvent(LeSetAddressResolutionEnableCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
+  }
   clients[0].get()->WaitForResume();
 }
 
-TEST_F(LeAddressManagerWithSingleClientTest, clear_resolving_list) {
+// b/260916288
+TEST_F(LeAddressManagerWithSingleClientTest, DISABLED_clear_resolving_list) {
   Address address;
   Address::FromString("01:02:03:04:05:06", address);
   Octet16 peer_irk = {0xec, 0x02, 0x34, 0xa3, 0x57, 0xc8, 0xad, 0x05, 0x34, 0x10, 0x10, 0xa6, 0x0a, 0x39, 0x7d, 0x9b};
   Octet16 local_irk = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10};
-  test_hci_layer_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
   le_address_manager_->AddDeviceToResolvingList(
       PeerAddressType::RANDOM_DEVICE_OR_IDENTITY_ADDRESS, address, peer_irk, local_irk);
+  test_hci_layer_->GetCommand(OpCode::LE_SET_ADDRESS_RESOLUTION_ENABLE);
+  test_hci_layer_->IncomingEvent(LeSetAddressResolutionEnableCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
   test_hci_layer_->GetCommand(OpCode::LE_ADD_DEVICE_TO_RESOLVING_LIST);
   test_hci_layer_->IncomingEvent(LeAddDeviceToResolvingListCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
+  test_hci_layer_->GetCommand(OpCode::LE_SET_ADDRESS_RESOLUTION_ENABLE);
+  test_hci_layer_->IncomingEvent(LeSetAddressResolutionEnableCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
 
-  test_hci_layer_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
   le_address_manager_->ClearResolvingList();
-  auto packet = test_hci_layer_->GetCommand(OpCode::LE_CLEAR_RESOLVING_LIST);
-  auto packet_view = LeClearResolvingListView::Create(LeSecurityCommandView::Create(packet));
-  ASSERT_TRUE(packet_view.IsValid());
-  test_hci_layer_->IncomingEvent(LeClearResolvingListCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
+  {
+    auto packet = test_hci_layer_->GetCommand(OpCode::LE_SET_ADDRESS_RESOLUTION_ENABLE);
+    auto packet_view = LeSetAddressResolutionEnableView::Create(LeSecurityCommandView::Create(packet));
+    ASSERT_TRUE(packet_view.IsValid());
+    ASSERT_EQ(Enable::DISABLED, packet_view.GetAddressResolutionEnable());
+    test_hci_layer_->IncomingEvent(LeSetAddressResolutionEnableCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
+  }
+  {
+    ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
+    auto packet = test_hci_layer_->GetCommand(OpCode::LE_CLEAR_RESOLVING_LIST);
+    auto packet_view = LeClearResolvingListView::Create(LeSecurityCommandView::Create(packet));
+    ASSERT_TRUE(packet_view.IsValid());
+    test_hci_layer_->IncomingEvent(LeClearResolvingListCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
+  }
+  {
+    ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
+    auto packet = test_hci_layer_->GetCommand(OpCode::LE_SET_ADDRESS_RESOLUTION_ENABLE);
+    auto packet_view = LeSetAddressResolutionEnableView::Create(LeSecurityCommandView::Create(packet));
+    ASSERT_TRUE(packet_view.IsValid());
+    ASSERT_EQ(Enable::ENABLED, packet_view.GetAddressResolutionEnable());
+    test_hci_layer_->IncomingEvent(LeSetAddressResolutionEnableCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
+  }
+
   clients[0].get()->WaitForResume();
 }
 
 TEST_F(LeAddressManagerWithSingleClientTest, register_during_command_complete) {
   Address address;
   Address::FromString("01:02:03:04:05:06", address);
-  test_hci_layer_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
   le_address_manager_->AddDeviceToFilterAcceptList(FilterAcceptListAddressType::RANDOM, address);
   auto packet = test_hci_layer_->GetCommand(OpCode::LE_ADD_DEVICE_TO_FILTER_ACCEPT_LIST);
   auto packet_view = LeAddDeviceToFilterAcceptListView::Create(
@@ -453,11 +536,12 @@ TEST_F(LeAddressManagerWithSingleClientTest, register_during_command_complete) {
   test_hci_layer_->IncomingEvent(LeAddDeviceToFilterAcceptListCompleteBuilder::Create(0x01, ErrorCode::SUCCESS));
 
   AllocateClients(1);
-  test_hci_layer_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_hci_layer_->SetCommandFuture());
   le_address_manager_->Register(clients[1].get());
   clients[0].get()->WaitForResume();
   clients[1].get()->WaitForResume();
 }
 
+}  // namespace
 }  // namespace hci
 }  // namespace bluetooth

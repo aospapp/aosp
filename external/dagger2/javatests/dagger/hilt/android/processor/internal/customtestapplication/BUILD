@@ -28,9 +28,9 @@ compiler_test(
         "@androidsdk//:platforms/android-30/android.jar",
     ],
     deps = [
-        "@google_bazel_common//third_party/java/compile_testing",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
-        "//javatests/dagger/hilt/android/processor:android_compilers",
+        "//third_party/java/compile_testing",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+        "//java/dagger/hilt/android/testing/compile",
     ],
 )

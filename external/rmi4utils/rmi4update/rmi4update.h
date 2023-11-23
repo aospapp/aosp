@@ -35,6 +35,7 @@ enum v7_status {
 	FLASH_PROGRAMMING_KEY_INCORRECT,
 	BAD_PARTITION_TABLE,
 	CHECKSUM_FAILED,
+	WRITE_PROTECTION = 0x0E,
 	FLASH_HARDWARE_FAILURE = 0x1f,
 };
 
@@ -52,6 +53,7 @@ enum v7_partition_id {
 	DISPLAY_CONFIG_PARTITION,
 	EXTERNAL_TOUCH_AFE_CONFIG_PARTITION,
 	UTILITY_PARAMETER_PARTITION,
+	FIXED_LOCATION_DATA_PARTITION = 0x0E,
 };
 
 enum v7_flash_command {
@@ -62,6 +64,7 @@ enum v7_flash_command {
 	CMD_V7_ERASE,
 	CMD_V7_ERASE_AP,
 	CMD_V7_SENSOR_ID,
+	CMD_V7_SIGNATURE,
 };
 
 enum bl_version {
@@ -69,6 +72,7 @@ enum bl_version {
 	BL_V6 = 6,
 	BL_V7 = 7,
 	BL_V8 = 8,
+	BL_V10 = 10,
 };
 
 struct f34_v7_query_0 {
@@ -128,7 +132,9 @@ struct f34_v7_query_1_7 {
 			unsigned char has_core_config:1;
 			unsigned char has_guest_code:1;
 			unsigned char has_display_config:1;
-			unsigned char f34_query7_b11__15:5;
+			unsigned char f34_query7_b11_13:3;
+			unsigned char has_fld:1;
+			unsigned char f34_query7_b15:1;
 			unsigned char f34_query7_b16__23;
 			unsigned char f34_query7_b24__31;
 		} __attribute__((packed));;
@@ -157,6 +163,11 @@ public:
 			m_firmwareImage(firmwareImage), m_writeBlockWithCmd(true)
 	{
 		m_IsErased = false;
+		m_hasCoreCode = false;
+		m_hasCoreConfig = false;
+		m_hasFlashConfig = false;
+		m_hasFLD = false;
+		m_hasGlobalParameters = false;
 	}
 	int UpdateFirmware(bool force = false, bool performLockdown = false);
 
@@ -171,14 +182,21 @@ private:
 	int WriteBootloaderID();
 	int EnterFlashProgrammingV7();
 	int EraseFirmwareV7();
+	int EraseFlashConfigV10();
+	int EraseCoreCodeV10();
 	int WriteFirmwareV7();
 	int WriteCoreConfigV7();
 	int WriteFlashConfigV7();
+	int WriteFLDV7();
+	int WriteGlobalParametersV7();
 	int EnterFlashProgramming();
 	int WriteBlocks(unsigned char *block, unsigned short count, unsigned char cmd);
 	int WaitForIdle(int timeout_ms, bool readF34OnSucess = true);
 	int GetFirmwareSize() { return m_blockSize * m_fwBlockCount; }
 	int GetConfigSize() { return m_blockSize * m_configBlockCount; }
+	int WriteSignatureV7(enum signature_BLv7 signature_partition, unsigned char* data, int offset);
+	bool IsBLv87();
+	int ReadMSL();
 
 private:
 	RMIDevice & m_device;
@@ -215,6 +233,18 @@ private:
 	unsigned char m_inBLmode;
 	unsigned long m_buildID;
 	unsigned char *m_guestData;
+	bool m_hasCoreCode;
+	bool m_hasCoreConfig;
+	bool m_hasFlashConfig;
+	bool m_hasGlobalParameters;
+	/* BL_V7 end */
+
+	/* BL v8.7 */
+	unsigned short m_MSL;
+	/* BL v8.7 end */
+
+	/* for BL V10 */
+	bool m_hasFLD;
 	/* BL_V7 end */
 
 	unsigned short m_f34StatusAddr;

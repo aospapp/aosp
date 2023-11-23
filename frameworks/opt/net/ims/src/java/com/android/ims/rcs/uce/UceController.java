@@ -18,6 +18,7 @@ package com.android.ims.rcs.uce;
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.content.Context;
 import android.net.Uri;
 import android.os.HandlerThread;
@@ -28,6 +29,7 @@ import android.telephony.ims.RcsContactUceCapability.CapabilityMechanism;
 import android.telephony.ims.RcsUceAdapter;
 import android.telephony.ims.RcsUceAdapter.PublishState;
 import android.telephony.ims.RcsUceAdapter.StackPublishTriggerType;
+import android.telephony.ims.SipDetails;
 import android.telephony.ims.aidl.IOptionsRequestCallback;
 import android.telephony.ims.aidl.IRcsUceControllerCallback;
 import android.telephony.ims.aidl.IRcsUcePublishStateCallback;
@@ -212,7 +214,7 @@ public class UceController {
     private static class CachedCapabilityEvent {
         private Optional<Integer> mRequestPublishCapabilitiesEvent;
         private Optional<Boolean> mUnpublishEvent;
-        private Optional<SomeArgs> mPublishUpdatedEvent;
+        private Optional<SipDetails> mPublishUpdatedEvent;
         private Optional<SomeArgs> mRemoteCapabilityRequestEvent;
 
         public CachedCapabilityEvent() {
@@ -239,14 +241,8 @@ public class UceController {
         /**
          * Cache the publish update event triggered by the ImsService.
          */
-        public synchronized void setOnPublishUpdatedEvent(int reasonCode, String reasonPhrase,
-                int reasonHeaderCause, String reasonHeaderText) {
-            SomeArgs args = SomeArgs.obtain();
-            args.arg1 = reasonCode;
-            args.arg2 = reasonPhrase;
-            args.arg3 = reasonHeaderCause;
-            args.arg4 = reasonHeaderText;
-            mPublishUpdatedEvent = Optional.of(args);
+        public synchronized void setOnPublishUpdatedEvent(SipDetails details) {
+            mPublishUpdatedEvent = Optional.of(details);
         }
 
         /**
@@ -272,7 +268,7 @@ public class UceController {
         }
 
         /** @Return the cached pubilsh update event */
-        public synchronized Optional<SomeArgs> getPublishUpdatedEvent() {
+        public synchronized Optional<SipDetails> getPublishUpdatedEvent() {
             return mPublishUpdatedEvent;
         }
 
@@ -285,7 +281,6 @@ public class UceController {
         public synchronized void clear() {
             mRequestPublishCapabilitiesEvent = Optional.empty();
             mUnpublishEvent = Optional.empty();
-            mPublishUpdatedEvent.ifPresent(args -> args.recycle());
             mPublishUpdatedEvent = Optional.empty();
             mRemoteCapabilityRequestEvent.ifPresent(args -> args.recycle());
             mRemoteCapabilityRequestEvent = Optional.empty();
@@ -489,14 +484,9 @@ public class UceController {
         Optional<Boolean> unpublishEvent = mCachedCapabilityEvent.getUnpublishEvent();
         unpublishEvent.ifPresent(unpublish -> onUnpublish());
 
-        Optional<SomeArgs> publishUpdatedEvent = mCachedCapabilityEvent.getPublishUpdatedEvent();
-        publishUpdatedEvent.ifPresent(args -> {
-            int reasonCode = (Integer) args.arg1;
-            String reasonPhrase = (String) args.arg2;
-            int reasonHeaderCause = (Integer) args.arg3;
-            String reasonHeaderText = (String) args.arg4;
-            onPublishUpdated(reasonCode, reasonPhrase, reasonHeaderCause, reasonHeaderText);
-        });
+        Optional<SipDetails> publishUpdatedEvent = mCachedCapabilityEvent.getPublishUpdatedEvent();
+        publishUpdatedEvent.ifPresent(details ->
+                onPublishUpdated(details));
 
         Optional<SomeArgs> remoteRequest = mCachedCapabilityEvent.getRemoteCapabilityRequestEvent();
         remoteRequest.ifPresent(args -> {
@@ -606,15 +596,12 @@ public class UceController {
                 }
 
                 @Override
-                public void onPublishUpdated(int reasonCode, String reasonPhrase,
-                        int reasonHeaderCause, String reasonHeaderText) {
+                public void onPublishUpdated(@NonNull SipDetails details) {
                     if (isRcsConnecting()) {
-                        mCachedCapabilityEvent.setOnPublishUpdatedEvent(reasonCode, reasonPhrase,
-                                reasonHeaderCause, reasonHeaderText);
+                        mCachedCapabilityEvent.setOnPublishUpdatedEvent(details);
                         return;
                     }
-                    UceController.this.onPublishUpdated(reasonCode, reasonPhrase,
-                            reasonHeaderCause, reasonHeaderText);
+                    UceController.this.onPublishUpdated(details);
                 }
 
                 @Override
@@ -648,14 +635,14 @@ public class UceController {
         if (uriList == null || uriList.isEmpty() || c == null) {
             logw("requestCapabilities: parameter is empty");
             if (c != null) {
-                c.onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L);
+                c.onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L, null);
             }
             return;
         }
 
         if (isUnavailable()) {
             logw("requestCapabilities: controller is unavailable");
-            c.onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L);
+            c.onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L, null);
             return;
         }
 
@@ -668,7 +655,7 @@ public class UceController {
             long retryAfterMillis = deviceStateResult.getRequestRetryAfterMillis();
             logw("requestCapabilities: The device is disallowed, deviceState= " + deviceState +
                     ", errorCode=" + errorCode + ", retryAfterMillis=" + retryAfterMillis);
-            c.onError(errorCode, retryAfterMillis);
+            c.onError(errorCode, retryAfterMillis, null);
             return;
         }
 
@@ -687,14 +674,14 @@ public class UceController {
         if (uri == null || c == null) {
             logw("requestAvailability: parameter is empty");
             if (c != null) {
-                c.onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L);
+                c.onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L, null);
             }
             return;
         }
 
         if (isUnavailable()) {
             logw("requestAvailability: controller is unavailable");
-            c.onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L);
+            c.onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L, null);
             return;
         }
 
@@ -707,7 +694,7 @@ public class UceController {
             long retryAfterMillis = deviceStateResult.getRequestRetryAfterMillis();
             logw("requestAvailability: The device is disallowed, deviceState= " + deviceState +
                     ", errorCode=" + errorCode + ", retryAfterMillis=" + retryAfterMillis);
-            c.onError(errorCode, retryAfterMillis);
+            c.onError(errorCode, retryAfterMillis, null);
             return;
         }
 
@@ -740,11 +727,9 @@ public class UceController {
      * This method is triggered by the ImsService to notify framework that the device's
      * publish status has been changed.
      */
-    public void onPublishUpdated(int reasonCode, String reasonPhrase,
-            int reasonHeaderCause, String reasonHeaderText) {
+    public void onPublishUpdated(@NonNull SipDetails details) {
         logi("onPublishUpdated");
-        mPublishController.onPublishUpdated(reasonCode, reasonPhrase,
-                reasonHeaderCause, reasonHeaderText);
+        mPublishController.onPublishUpdated(details);
     }
 
     /**

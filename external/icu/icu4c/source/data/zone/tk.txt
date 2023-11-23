@@ -255,6 +255,9 @@ tk{
         "America:Chihuahua"{
             ec{"Çihuahua"}
         }
+        "America:Ciudad_Juarez"{
+            ec{"Sýudad-Huares"}
+        }
         "America:Coral_Harbour"{
             ec{"Atikokan"}
         }
@@ -1216,6 +1219,9 @@ tk{
         }
         "Pacific:Johnston"{
             ec{"Jonston"}
+        }
+        "Pacific:Kanton"{
+            ec{"Kanton"}
         }
         "Pacific:Kiritimati"{
             ec{"Kiritimati"}

@@ -13,11 +13,14 @@
 // limitations under the License.
 
 #include "src/guardrail/StatsdStats.h"
-#include "statslog_statsdtest.h"
-#include "tests/statsd_test_util.h"
 
 #include <gtest/gtest.h>
+
 #include <vector>
+
+#include "src/metrics/parsing_utils/metrics_manager_util.h"
+#include "statslog_statsdtest.h"
+#include "tests/statsd_test_util.h"
 
 #ifdef __ANDROID__
 
@@ -35,7 +38,7 @@ TEST(StatsdStatsTest, TestValidConfigAdd) {
     const int matchersCount = 30;
     const int alertsCount = 10;
     stats.noteConfigReceived(key, metricsCount, conditionsCount, matchersCount, alertsCount, {},
-                             true /*valid config*/);
+                             nullopt /*valid config*/);
     vector<uint8_t> output;
     stats.dumpStats(&output, false /*reset stats*/);
 
@@ -51,6 +54,7 @@ TEST(StatsdStatsTest, TestValidConfigAdd) {
     EXPECT_EQ(matchersCount, configReport.matcher_count());
     EXPECT_EQ(alertsCount, configReport.alert_count());
     EXPECT_EQ(true, configReport.is_valid());
+    EXPECT_FALSE(configReport.has_invalid_config_reason());
     EXPECT_FALSE(configReport.has_deletion_time_sec());
 }
 
@@ -61,8 +65,19 @@ TEST(StatsdStatsTest, TestInvalidConfigAdd) {
     const int conditionsCount = 20;
     const int matchersCount = 30;
     const int alertsCount = 10;
+    optional<InvalidConfigReason> invalidConfigReason =
+            InvalidConfigReason(INVALID_CONFIG_REASON_UNKNOWN, 1);
+    invalidConfigReason->stateId = 2;
+    invalidConfigReason->alertId = 3;
+    invalidConfigReason->alarmId = 4;
+    invalidConfigReason->subscriptionId = 5;
+    invalidConfigReason->matcherIds.push_back(6);
+    invalidConfigReason->matcherIds.push_back(7);
+    invalidConfigReason->conditionIds.push_back(8);
+    invalidConfigReason->conditionIds.push_back(9);
+    invalidConfigReason->conditionIds.push_back(10);
     stats.noteConfigReceived(key, metricsCount, conditionsCount, matchersCount, alertsCount, {},
-                             false /*bad config*/);
+                             invalidConfigReason /*bad config*/);
     vector<uint8_t> output;
     stats.dumpStats(&output, false);
 
@@ -73,6 +88,96 @@ TEST(StatsdStatsTest, TestInvalidConfigAdd) {
     const auto& configReport = report.config_stats(0);
     // The invalid config should be put into icebox with a deletion time.
     EXPECT_TRUE(configReport.has_deletion_time_sec());
+    EXPECT_TRUE(configReport.has_invalid_config_reason());
+    EXPECT_EQ(configReport.invalid_config_reason().reason(), INVALID_CONFIG_REASON_UNKNOWN);
+    EXPECT_EQ(configReport.invalid_config_reason().metric_id(), 1);
+    EXPECT_EQ(configReport.invalid_config_reason().state_id(), 2);
+    EXPECT_EQ(configReport.invalid_config_reason().alert_id(), 3);
+    EXPECT_EQ(configReport.invalid_config_reason().alarm_id(), 4);
+    EXPECT_EQ(configReport.invalid_config_reason().subscription_id(), 5);
+    EXPECT_EQ(configReport.invalid_config_reason().matcher_id_size(), 2);
+    EXPECT_EQ(configReport.invalid_config_reason().matcher_id(0), 6);
+    EXPECT_EQ(configReport.invalid_config_reason().matcher_id(1), 7);
+    EXPECT_EQ(configReport.invalid_config_reason().condition_id_size(), 3);
+    EXPECT_EQ(configReport.invalid_config_reason().condition_id(0), 8);
+    EXPECT_EQ(configReport.invalid_config_reason().condition_id(1), 9);
+    EXPECT_EQ(configReport.invalid_config_reason().condition_id(2), 10);
+}
+
+TEST(StatsdStatsTest, TestInvalidConfigMissingMetricId) {
+    StatsdStats stats;
+    ConfigKey key(0, 12345);
+    const int metricsCount = 10;
+    const int conditionsCount = 20;
+    const int matchersCount = 30;
+    const int alertsCount = 10;
+    optional<InvalidConfigReason> invalidConfigReason =
+            InvalidConfigReason(INVALID_CONFIG_REASON_SUBSCRIPTION_SUBSCRIBER_INFO_MISSING);
+    invalidConfigReason->stateId = 1;
+    invalidConfigReason->alertId = 2;
+    invalidConfigReason->alarmId = 3;
+    invalidConfigReason->subscriptionId = 4;
+    invalidConfigReason->matcherIds.push_back(5);
+    invalidConfigReason->conditionIds.push_back(6);
+    invalidConfigReason->conditionIds.push_back(7);
+    stats.noteConfigReceived(key, metricsCount, conditionsCount, matchersCount, alertsCount, {},
+                             invalidConfigReason /*bad config*/);
+    vector<uint8_t> output;
+    stats.dumpStats(&output, false);
+
+    StatsdStatsReport report;
+    bool good = report.ParseFromArray(&output[0], output.size());
+    EXPECT_TRUE(good);
+    ASSERT_EQ(1, report.config_stats_size());
+    const auto& configReport = report.config_stats(0);
+    // The invalid config should be put into icebox with a deletion time.
+    EXPECT_TRUE(configReport.has_deletion_time_sec());
+    EXPECT_TRUE(configReport.has_invalid_config_reason());
+    EXPECT_EQ(configReport.invalid_config_reason().reason(),
+              INVALID_CONFIG_REASON_SUBSCRIPTION_SUBSCRIBER_INFO_MISSING);
+    EXPECT_FALSE(configReport.invalid_config_reason().has_metric_id());
+    EXPECT_EQ(configReport.invalid_config_reason().state_id(), 1);
+    EXPECT_EQ(configReport.invalid_config_reason().alert_id(), 2);
+    EXPECT_EQ(configReport.invalid_config_reason().alarm_id(), 3);
+    EXPECT_EQ(configReport.invalid_config_reason().subscription_id(), 4);
+    EXPECT_EQ(configReport.invalid_config_reason().matcher_id_size(), 1);
+    EXPECT_EQ(configReport.invalid_config_reason().matcher_id(0), 5);
+    EXPECT_EQ(configReport.invalid_config_reason().condition_id_size(), 2);
+    EXPECT_EQ(configReport.invalid_config_reason().condition_id(0), 6);
+    EXPECT_EQ(configReport.invalid_config_reason().condition_id(1), 7);
+}
+
+TEST(StatsdStatsTest, TestInvalidConfigOnlyMetricId) {
+    StatsdStats stats;
+    ConfigKey key(0, 12345);
+    const int metricsCount = 10;
+    const int conditionsCount = 20;
+    const int matchersCount = 30;
+    const int alertsCount = 10;
+    optional<InvalidConfigReason> invalidConfigReason =
+            InvalidConfigReason(INVALID_CONFIG_REASON_METRIC_NOT_IN_PREV_CONFIG, 1);
+    stats.noteConfigReceived(key, metricsCount, conditionsCount, matchersCount, alertsCount, {},
+                             invalidConfigReason /*bad config*/);
+    vector<uint8_t> output;
+    stats.dumpStats(&output, false);
+
+    StatsdStatsReport report;
+    bool good = report.ParseFromArray(&output[0], output.size());
+    EXPECT_TRUE(good);
+    ASSERT_EQ(1, report.config_stats_size());
+    const auto& configReport = report.config_stats(0);
+    // The invalid config should be put into icebox with a deletion time.
+    EXPECT_TRUE(configReport.has_deletion_time_sec());
+    EXPECT_TRUE(configReport.has_invalid_config_reason());
+    EXPECT_EQ(configReport.invalid_config_reason().reason(),
+              INVALID_CONFIG_REASON_METRIC_NOT_IN_PREV_CONFIG);
+    EXPECT_EQ(configReport.invalid_config_reason().metric_id(), 1);
+    EXPECT_FALSE(configReport.invalid_config_reason().has_state_id());
+    EXPECT_FALSE(configReport.invalid_config_reason().has_alert_id());
+    EXPECT_FALSE(configReport.invalid_config_reason().has_alarm_id());
+    EXPECT_FALSE(configReport.invalid_config_reason().has_subscription_id());
+    EXPECT_EQ(configReport.invalid_config_reason().matcher_id_size(), 0);
+    EXPECT_EQ(configReport.invalid_config_reason().condition_id_size(), 0);
 }
 
 TEST(StatsdStatsTest, TestConfigRemove) {
@@ -83,7 +188,7 @@ TEST(StatsdStatsTest, TestConfigRemove) {
     const int matchersCount = 30;
     const int alertsCount = 10;
     stats.noteConfigReceived(key, metricsCount, conditionsCount, matchersCount, alertsCount, {},
-                             true);
+                             nullopt);
     vector<uint8_t> output;
     stats.dumpStats(&output, false);
     StatsdStatsReport report;
@@ -105,7 +210,7 @@ TEST(StatsdStatsTest, TestConfigRemove) {
 TEST(StatsdStatsTest, TestSubStats) {
     StatsdStats stats;
     ConfigKey key(0, 12345);
-    stats.noteConfigReceived(key, 2, 3, 4, 5, {std::make_pair(123, 456)}, true);
+    stats.noteConfigReceived(key, 2, 3, 4, 5, {std::make_pair(123, 456)}, nullopt);
 
     stats.noteMatcherMatched(key, StringToId("matcher1"));
     stats.noteMatcherMatched(key, StringToId("matcher1"));
@@ -222,11 +327,11 @@ TEST(StatsdStatsTest, TestAtomLog) {
     StatsdStats stats;
     time_t now = time(nullptr);
     // old event, we get it from the stats buffer. should be ignored.
-    stats.noteAtomLogged(util::SENSOR_STATE_CHANGED, 1000);
+    stats.noteAtomLogged(util::SENSOR_STATE_CHANGED, 1000, false);
 
-    stats.noteAtomLogged(util::SENSOR_STATE_CHANGED, now + 1);
-    stats.noteAtomLogged(util::SENSOR_STATE_CHANGED, now + 2);
-    stats.noteAtomLogged(util::APP_CRASH_OCCURRED, now + 3);
+    stats.noteAtomLogged(util::SENSOR_STATE_CHANGED, now + 1, false);
+    stats.noteAtomLogged(util::SENSOR_STATE_CHANGED, now + 2, false);
+    stats.noteAtomLogged(util::APP_CRASH_OCCURRED, now + 3, false);
 
     vector<uint8_t> output;
     stats.dumpStats(&output, false);
@@ -245,6 +350,8 @@ TEST(StatsdStatsTest, TestAtomLog) {
         if (atomStats.tag() == util::APP_CRASH_OCCURRED && atomStats.count() == 1) {
             dropboxAtomGood = true;
         }
+        EXPECT_FALSE(atomStats.has_dropped_count());
+        EXPECT_FALSE(atomStats.has_skip_count());
     }
 
     EXPECT_TRUE(dropboxAtomGood);
@@ -257,9 +364,9 @@ TEST(StatsdStatsTest, TestNonPlatformAtomLog) {
     int newAtom1 = StatsdStats::kMaxPushedAtomId + 1;
     int newAtom2 = StatsdStats::kMaxPushedAtomId + 2;
 
-    stats.noteAtomLogged(newAtom1, now + 1);
-    stats.noteAtomLogged(newAtom1, now + 2);
-    stats.noteAtomLogged(newAtom2, now + 3);
+    stats.noteAtomLogged(newAtom1, now + 1, false);
+    stats.noteAtomLogged(newAtom1, now + 2, false);
+    stats.noteAtomLogged(newAtom2, now + 3, false);
 
     vector<uint8_t> output;
     stats.dumpStats(&output, false);
@@ -278,6 +385,8 @@ TEST(StatsdStatsTest, TestNonPlatformAtomLog) {
         if (atomStats.tag() == newAtom2 && atomStats.count() == 1) {
             newAtom2Good = true;
         }
+        EXPECT_FALSE(atomStats.has_dropped_count());
+        EXPECT_FALSE(atomStats.has_skip_count());
     }
 
     EXPECT_TRUE(newAtom1Good);
@@ -372,6 +481,96 @@ TEST(StatsdStatsTest, TestAtomMetricsStats) {
     EXPECT_EQ(1L, atomStats2.max_bucket_boundary_delay_ns());
 }
 
+TEST(StatsdStatsTest, TestRestrictedMetricsStats) {
+    StatsdStats stats;
+    const int64_t metricId = -1234556L;
+    ConfigKey key(0, 12345);
+    stats.noteConfigReceived(key, 2, 3, 4, 5, {}, nullopt);
+    stats.noteRestrictedMetricInsertError(key, metricId);
+    stats.noteRestrictedMetricTableCreationError(key, metricId);
+    stats.noteRestrictedMetricTableDeletionError(key, metricId);
+    stats.noteDeviceInfoTableCreationFailed(key);
+    stats.noteRestrictedMetricFlushLatency(key, metricId, 3000);
+    stats.noteRestrictedMetricFlushLatency(key, metricId, 3001);
+    stats.noteRestrictedMetricCategoryChanged(key, metricId);
+    stats.noteRestrictedConfigFlushLatency(key, 4000);
+    ConfigKey configKeyWithoutError(0, 666);
+    stats.noteConfigReceived(configKeyWithoutError, 2, 3, 4, 5, {}, nullopt);
+    stats.noteDbCorrupted(key);
+    stats.noteDbCorrupted(key);
+    stats.noteRestrictedConfigDbSize(key, 999, 111);
+
+    vector<uint8_t> output;
+    stats.dumpStats(&output, false);
+    StatsdStatsReport report;
+    bool good = report.ParseFromArray(&output[0], output.size());
+    EXPECT_TRUE(good);
+
+    ASSERT_EQ(2, report.config_stats().size());
+    ASSERT_EQ(0, report.config_stats(0).restricted_metric_stats().size());
+    ASSERT_EQ(1, report.config_stats(1).restricted_metric_stats().size());
+    EXPECT_EQ(1, report.config_stats(1).restricted_metric_stats(0).insert_error());
+    EXPECT_EQ(1, report.config_stats(1).restricted_metric_stats(0).table_creation_error());
+    EXPECT_EQ(1, report.config_stats(1).restricted_metric_stats(0).table_deletion_error());
+    EXPECT_EQ(1, report.config_stats(1).restricted_metric_stats(0).category_changed_count());
+    ASSERT_EQ(2, report.config_stats(1).restricted_metric_stats(0).flush_latency_ns().size());
+    EXPECT_EQ(3000, report.config_stats(1).restricted_metric_stats(0).flush_latency_ns(0));
+    EXPECT_EQ(3001, report.config_stats(1).restricted_metric_stats(0).flush_latency_ns(1));
+    ASSERT_EQ(1, report.config_stats(1).restricted_db_size_time_sec().size());
+    EXPECT_EQ(999, report.config_stats(1).restricted_db_size_time_sec(0));
+    ASSERT_EQ(1, report.config_stats(1).restricted_db_size_bytes().size());
+    EXPECT_EQ(111, report.config_stats(1).restricted_db_size_bytes(0));
+    ASSERT_EQ(1, report.config_stats(1).restricted_flush_latency().size());
+    EXPECT_EQ(4000, report.config_stats(1).restricted_flush_latency(0));
+    EXPECT_TRUE(report.config_stats(1).device_info_table_creation_failed());
+    EXPECT_EQ(metricId, report.config_stats(1).restricted_metric_stats(0).restricted_metric_id());
+    EXPECT_EQ(2, report.config_stats(1).restricted_db_corrupted_count());
+}
+
+TEST(StatsdStatsTest, TestRestrictedMetricsQueryStats) {
+    StatsdStats stats;
+    const int32_t callingUid = 100;
+    ConfigKey configKey(0, 12345);
+    const string configPackage = "com.google.android.gm";
+    int64_t beforeNoteMetricSucceed = getWallClockNs();
+    stats.noteQueryRestrictedMetricSucceed(configKey.GetId(), configPackage, configKey.GetUid(),
+                                           callingUid, /*queryLatencyNs=*/5 * NS_PER_SEC);
+    int64_t afterNoteMetricSucceed = getWallClockNs();
+
+    const int64_t configIdWithError = 111;
+    stats.noteQueryRestrictedMetricFailed(configIdWithError, configPackage, std::nullopt,
+                                          callingUid, InvalidQueryReason(AMBIGUOUS_CONFIG_KEY));
+    stats.noteQueryRestrictedMetricFailed(configIdWithError, configPackage, std::nullopt,
+                                          callingUid, InvalidQueryReason(AMBIGUOUS_CONFIG_KEY),
+                                          "error_message");
+
+    vector<uint8_t> output;
+    stats.dumpStats(&output, false);
+    StatsdStatsReport report;
+    bool good = report.ParseFromArray(&output[0], output.size());
+    EXPECT_TRUE(good);
+
+    ASSERT_EQ(3, report.restricted_metric_query_stats().size());
+    EXPECT_EQ(configKey.GetId(), report.restricted_metric_query_stats(0).config_id());
+    EXPECT_EQ(configKey.GetUid(), report.restricted_metric_query_stats(0).config_uid());
+    EXPECT_EQ(callingUid, report.restricted_metric_query_stats(0).calling_uid());
+    EXPECT_EQ(configPackage, report.restricted_metric_query_stats(0).config_package());
+    EXPECT_FALSE(report.restricted_metric_query_stats(0).has_query_error());
+    EXPECT_LT(beforeNoteMetricSucceed,
+              report.restricted_metric_query_stats(0).query_wall_time_ns());
+    EXPECT_GT(afterNoteMetricSucceed, report.restricted_metric_query_stats(0).query_wall_time_ns());
+    EXPECT_EQ(5 * NS_PER_SEC, report.restricted_metric_query_stats(0).query_latency_ns());
+    EXPECT_EQ(configIdWithError, report.restricted_metric_query_stats(1).config_id());
+    EXPECT_EQ(AMBIGUOUS_CONFIG_KEY, report.restricted_metric_query_stats(1).invalid_query_reason());
+    EXPECT_EQ(false, report.restricted_metric_query_stats(1).has_config_uid());
+    EXPECT_FALSE(report.restricted_metric_query_stats(1).has_query_error());
+    EXPECT_FALSE(report.restricted_metric_query_stats(1).has_query_latency_ns());
+    EXPECT_EQ("error_message", report.restricted_metric_query_stats(2).query_error());
+    EXPECT_FALSE(report.restricted_metric_query_stats(2).has_query_latency_ns());
+    EXPECT_NE(report.restricted_metric_query_stats(1).query_wall_time_ns(),
+              report.restricted_metric_query_stats(0).query_wall_time_ns());
+}
+
 TEST(StatsdStatsTest, TestAnomalyMonitor) {
     StatsdStats stats;
     stats.noteRegisteredAnomalyAlarmChanged();
@@ -393,7 +592,7 @@ TEST(StatsdStatsTest, TestTimestampThreshold) {
         timestamps.push_back(i);
     }
     ConfigKey key(0, 12345);
-    stats.noteConfigReceived(key, 2, 3, 4, 5, {}, true);
+    stats.noteConfigReceived(key, 2, 3, 4, 5, {}, nullopt);
 
     for (int i = 0; i < StatsdStats::kMaxTimestampCount; i++) {
         stats.noteDataDropped(key, timestamps[i]);
@@ -512,7 +711,7 @@ TEST(StatsdStatsTest, TestAtomErrorStats) {
         // We must call noteAtomLogged as well because only those pushed atoms
         // that have been logged will have stats printed about them in the
         // proto.
-        stats.noteAtomLogged(pushAtomTag, /*timeSec=*/0);
+        stats.noteAtomLogged(pushAtomTag, /*timeSec=*/0, false);
         stats.noteAtomError(pushAtomTag, /*pull=*/false);
 
         stats.noteAtomError(pullAtomTag, /*pull=*/true);
@@ -528,12 +727,177 @@ TEST(StatsdStatsTest, TestAtomErrorStats) {
     const auto& pushedAtomStats = report.atom_stats(0);
     EXPECT_EQ(pushAtomTag, pushedAtomStats.tag());
     EXPECT_EQ(numErrors, pushedAtomStats.error_count());
+    EXPECT_FALSE(pushedAtomStats.has_dropped_count());
+    EXPECT_FALSE(pushedAtomStats.has_skip_count());
 
     // Check error count = numErrors for pull atom
     ASSERT_EQ(1, report.pulled_atom_stats_size());
     const auto& pulledAtomStats = report.pulled_atom_stats(0);
     EXPECT_EQ(pullAtomTag, pulledAtomStats.atom_id());
     EXPECT_EQ(numErrors, pulledAtomStats.atom_error_count());
+}
+
+TEST(StatsdStatsTest, TestAtomDroppedStats) {
+    StatsdStats stats;
+
+    const int pushAtomTag = 100;
+    const int nonPlatformPushAtomTag = StatsdStats::kMaxPushedAtomId + 100;
+
+    const int numDropped = 10;
+    for (int i = 0; i < numDropped; i++) {
+        stats.noteEventQueueOverflow(/*oldestEventTimestampNs*/ 0, pushAtomTag, false);
+        stats.noteEventQueueOverflow(/*oldestEventTimestampNs*/ 0, nonPlatformPushAtomTag, false);
+    }
+
+    vector<uint8_t> output;
+    stats.dumpStats(&output, true);
+    ASSERT_EQ(0, stats.mPushedAtomDropsStats.size());
+
+    StatsdStatsReport report;
+    EXPECT_TRUE(report.ParseFromArray(&output[0], output.size()));
+
+    // Check dropped_count = numDropped for push atoms
+    ASSERT_EQ(2, report.atom_stats_size());
+
+    const auto& pushedAtomStats = report.atom_stats(0);
+    EXPECT_EQ(pushAtomTag, pushedAtomStats.tag());
+    EXPECT_EQ(numDropped, pushedAtomStats.count());
+    EXPECT_EQ(numDropped, pushedAtomStats.dropped_count());
+    EXPECT_FALSE(pushedAtomStats.has_error_count());
+    EXPECT_FALSE(pushedAtomStats.has_skip_count());
+
+    const auto& nonPlatformPushedAtomStats = report.atom_stats(1);
+    EXPECT_EQ(nonPlatformPushAtomTag, nonPlatformPushedAtomStats.tag());
+    EXPECT_EQ(numDropped, nonPlatformPushedAtomStats.count());
+    EXPECT_EQ(numDropped, nonPlatformPushedAtomStats.dropped_count());
+    EXPECT_FALSE(nonPlatformPushedAtomStats.has_error_count());
+    EXPECT_FALSE(nonPlatformPushedAtomStats.has_skip_count());
+}
+
+TEST(StatsdStatsTest, TestAtomLoggedAndDroppedStats) {
+    StatsdStats stats;
+
+    const int pushAtomTag = 100;
+    const int nonPlatformPushAtomTag = StatsdStats::kMaxPushedAtomId + 100;
+
+    const int numLogged = 10;
+    for (int i = 0; i < numLogged; i++) {
+        stats.noteAtomLogged(pushAtomTag, /*timeSec*/ 0, false);
+        stats.noteAtomLogged(nonPlatformPushAtomTag, /*timeSec*/ 0, false);
+    }
+
+    const int numDropped = 10;
+    for (int i = 0; i < numDropped; i++) {
+        stats.noteEventQueueOverflow(/*oldestEventTimestampNs*/ 0, pushAtomTag, false);
+        stats.noteEventQueueOverflow(/*oldestEventTimestampNs*/ 0, nonPlatformPushAtomTag, false);
+    }
+
+    vector<uint8_t> output;
+    stats.dumpStats(&output, false);
+    StatsdStatsReport report;
+    EXPECT_TRUE(report.ParseFromArray(&output[0], output.size()));
+
+    // Check dropped_count = numDropped for push atoms
+    ASSERT_EQ(2, report.atom_stats_size());
+
+    const auto& pushedAtomStats = report.atom_stats(0);
+    EXPECT_EQ(pushAtomTag, pushedAtomStats.tag());
+    EXPECT_EQ(numLogged + numDropped, pushedAtomStats.count());
+    EXPECT_EQ(numDropped, pushedAtomStats.dropped_count());
+    EXPECT_FALSE(pushedAtomStats.has_error_count());
+    EXPECT_FALSE(pushedAtomStats.has_skip_count());
+
+    const auto& nonPlatformPushedAtomStats = report.atom_stats(1);
+    EXPECT_EQ(nonPlatformPushAtomTag, nonPlatformPushedAtomStats.tag());
+    EXPECT_EQ(numLogged + numDropped, nonPlatformPushedAtomStats.count());
+    EXPECT_EQ(numDropped, nonPlatformPushedAtomStats.dropped_count());
+    EXPECT_FALSE(nonPlatformPushedAtomStats.has_error_count());
+    EXPECT_FALSE(nonPlatformPushedAtomStats.has_skip_count());
+}
+
+TEST(StatsdStatsTest, TestAtomSkippedStats) {
+    StatsdStats stats;
+
+    const int pushAtomTag = 100;
+    const int nonPlatformPushAtomTag = StatsdStats::kMaxPushedAtomId + 100;
+    const int numSkipped = 10;
+
+    for (int i = 0; i < numSkipped; i++) {
+        stats.noteAtomLogged(pushAtomTag, /*timeSec=*/0, /*isSkipped*/ true);
+        stats.noteAtomLogged(nonPlatformPushAtomTag, /*timeSec=*/0, /*isSkipped*/ true);
+    }
+
+    vector<uint8_t> output;
+    stats.dumpStats(&output, false);
+    StatsdStatsReport report;
+    EXPECT_TRUE(report.ParseFromArray(&output[0], output.size()));
+
+    // Check skip_count = numSkipped for push atoms
+    ASSERT_EQ(2, report.atom_stats_size());
+
+    const auto& pushedAtomStats = report.atom_stats(0);
+    EXPECT_EQ(pushAtomTag, pushedAtomStats.tag());
+    EXPECT_EQ(numSkipped, pushedAtomStats.count());
+    EXPECT_EQ(numSkipped, pushedAtomStats.skip_count());
+    EXPECT_FALSE(pushedAtomStats.has_error_count());
+
+    const auto& nonPlatformPushedAtomStats = report.atom_stats(1);
+    EXPECT_EQ(nonPlatformPushAtomTag, nonPlatformPushedAtomStats.tag());
+    EXPECT_EQ(numSkipped, nonPlatformPushedAtomStats.count());
+    EXPECT_EQ(numSkipped, nonPlatformPushedAtomStats.skip_count());
+    EXPECT_FALSE(nonPlatformPushedAtomStats.has_error_count());
+}
+
+TEST(StatsdStatsTest, TestAtomLoggedAndDroppedAndSkippedStats) {
+    StatsdStats stats;
+
+    const int pushAtomTag = 100;
+    const int nonPlatformPushAtomTag = StatsdStats::kMaxPushedAtomId + 100;
+
+    const int numLogged = 10;
+    for (int i = 0; i < numLogged; i++) {
+        stats.noteAtomLogged(pushAtomTag, /*timeSec*/ 0, false);
+        stats.noteAtomLogged(nonPlatformPushAtomTag, /*timeSec*/ 0, false);
+    }
+
+    const int numDropped = 10;
+    for (int i = 0; i < numDropped; i++) {
+        stats.noteEventQueueOverflow(/*oldestEventTimestampNs*/ 0, pushAtomTag, true);
+        stats.noteEventQueueOverflow(/*oldestEventTimestampNs*/ 0, nonPlatformPushAtomTag, true);
+    }
+
+    vector<uint8_t> output;
+    stats.dumpStats(&output, false);
+    StatsdStatsReport report;
+    EXPECT_TRUE(report.ParseFromArray(&output[0], output.size()));
+
+    // Check dropped_count = numDropped for push atoms
+    ASSERT_EQ(2, report.atom_stats_size());
+
+    const auto& pushedAtomStats = report.atom_stats(0);
+    EXPECT_EQ(pushAtomTag, pushedAtomStats.tag());
+    EXPECT_EQ(numLogged + numDropped, pushedAtomStats.count());
+    EXPECT_EQ(numDropped, pushedAtomStats.dropped_count());
+    EXPECT_EQ(numDropped, pushedAtomStats.skip_count());
+    EXPECT_FALSE(pushedAtomStats.has_error_count());
+
+    const auto& nonPlatformPushedAtomStats = report.atom_stats(1);
+    EXPECT_EQ(nonPlatformPushAtomTag, nonPlatformPushedAtomStats.tag());
+    EXPECT_EQ(numLogged + numDropped, nonPlatformPushedAtomStats.count());
+    EXPECT_EQ(numDropped, nonPlatformPushedAtomStats.dropped_count());
+    EXPECT_EQ(numDropped, nonPlatformPushedAtomStats.skip_count());
+    EXPECT_FALSE(nonPlatformPushedAtomStats.has_error_count());
+}
+
+TEST(StatsdStatsTest, TestShardOffsetProvider) {
+    StatsdStats stats;
+    ShardOffsetProvider::getInstance().setShardOffset(15);
+    vector<uint8_t> output;
+    stats.dumpStats(&output, false);
+
+    StatsdStatsReport report;
+    EXPECT_TRUE(report.ParseFromArray(&output[0], output.size()));
+    EXPECT_EQ(report.shard_offset(), 15);
 }
 
 }  // namespace statsd

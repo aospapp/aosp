@@ -232,6 +232,7 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
     @Override
     public void init() {
         Slogf.d(TAG, "CarStorageMonitoringService init()");
+        mOnShutdownReboot.init();
         synchronized (mLock) {
             mUptimeTracker = new UptimeTracker(mUptimeTrackerFile,
                     mConfiguration.uptimeIntervalBetweenUptimeDataWriteMs,

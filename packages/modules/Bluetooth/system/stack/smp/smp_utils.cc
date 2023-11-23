@@ -26,7 +26,6 @@
 #include <string.h>
 
 #include "bt_target.h"
-#include "bt_utils.h"
 #include "btm_ble_api.h"
 #include "device/include/controller.h"
 #include "l2c_api.h"
@@ -40,6 +39,8 @@
 #include "stack/include/btm_log_history.h"
 #include "stack/include/stack_metrics_logging.h"
 #include "types/raw_address.h"
+
+void btm_dev_consolidate_existing_connections(const RawAddress& bd_addr);
 
 #define SMP_PAIRING_REQ_SIZE 7
 #define SMP_CONFIRM_CMD_SIZE (OCTET16_LEN + 1)
@@ -314,22 +315,26 @@ static tSMP_ASSO_MODEL smp_select_association_model_secure_connections(
  * @param buf_len length available to read for p_buf
  */
 void smp_log_metrics(const RawAddress& bd_addr, bool is_outgoing,
-                     const uint8_t* p_buf, size_t buf_len) {
+                     const uint8_t* p_buf, size_t buf_len, bool is_over_br) {
   if (buf_len < 1) {
     LOG(WARNING) << __func__ << ": buffer is too small, size is " << buf_len;
     return;
   }
-  uint8_t cmd;
-  STREAM_TO_UINT8(cmd, p_buf);
+  uint8_t raw_cmd;
+  STREAM_TO_UINT8(raw_cmd, p_buf);
   buf_len--;
   uint8_t failure_reason = 0;
-  if (cmd == SMP_OPCODE_PAIRING_FAILED && buf_len >= 1) {
+  if (raw_cmd == SMP_OPCODE_PAIRING_FAILED && buf_len >= 1) {
     STREAM_TO_UINT8(failure_reason, p_buf);
   }
+  uint16_t metric_cmd =
+      is_over_br ? SMP_METRIC_COMMAND_BR_FLAG : SMP_METRIC_COMMAND_LE_FLAG;
+  metric_cmd |= static_cast<uint16_t>(raw_cmd);
   android::bluetooth::DirectionEnum direction =
       is_outgoing ? android::bluetooth::DirectionEnum::DIRECTION_OUTGOING
                   : android::bluetooth::DirectionEnum::DIRECTION_INCOMING;
-  log_smp_pairing_event(bd_addr, cmd, direction, failure_reason);
+  log_smp_pairing_event(bd_addr, metric_cmd, direction,
+                        static_cast<uint16_t>(failure_reason));
 }
 
 /*******************************************************************************
@@ -350,7 +355,8 @@ bool smp_send_msg_to_L2CAP(const RawAddress& rem_bda, BT_HDR* p_toL2CAP) {
   SMP_TRACE_EVENT("%s", __func__);
 
   smp_log_metrics(rem_bda, true /* outgoing */,
-                  p_toL2CAP->data + p_toL2CAP->offset, p_toL2CAP->len);
+                  p_toL2CAP->data + p_toL2CAP->offset, p_toL2CAP->len,
+                  smp_cb.smp_over_br /* is_over_br */);
 
   l2cap_ret = L2CA_SendFixedChnlData(fixed_cid, rem_bda, p_toL2CAP);
   if (l2cap_ret == L2CAP_DW_FAILED) {
@@ -385,7 +391,7 @@ bool smp_send_cmd(uint8_t cmd_code, tSMP_CB* p_cb) {
 
   LOG_DEBUG("Sending SMP command:%s[0x%x] pairing_bda=%s",
             smp_opcode_text(static_cast<tSMP_OPCODE>(cmd_code)).c_str(),
-            cmd_code, PRIVATE_ADDRESS(p_cb->pairing_bda));
+            cmd_code, ADDRESS_TO_LOGGABLE_CSTR(p_cb->pairing_bda));
 
   if (cmd_code <= (SMP_OPCODE_MAX + 1 /* for SMP_OPCODE_PAIR_COMMITM */) &&
       smp_cmd_build_act[cmd_code] != NULL) {
@@ -964,18 +970,39 @@ void smp_proc_pairing_cmpl(tSMP_CB* p_cb) {
   if (p_cb->status == SMP_SUCCESS) {
     LOG_DEBUG(
         "Pairing process has completed successfully remote:%s sec_level:0x%0x",
-        PRIVATE_ADDRESS(p_cb->pairing_bda), evt_data.cmplt.sec_level);
+        ADDRESS_TO_LOGGABLE_CSTR(p_cb->pairing_bda), evt_data.cmplt.sec_level);
     BTM_LogHistory(kBtmLogTag, pairing_bda, "Pairing success");
   } else {
     LOG_WARN(
         "Pairing process has failed to remote:%s smp_reason:%s sec_level:0x%0x",
-        PRIVATE_ADDRESS(p_cb->pairing_bda),
+        ADDRESS_TO_LOGGABLE_CSTR(p_cb->pairing_bda),
         smp_status_text(evt_data.cmplt.reason).c_str(),
         evt_data.cmplt.sec_level);
     BTM_LogHistory(
         kBtmLogTag, pairing_bda, "Pairing failed",
         base::StringPrintf("reason:%s",
                            smp_status_text(evt_data.cmplt.reason).c_str()));
+  }
+
+  // Log pairing complete event
+  {
+    auto direction =
+        p_cb->flags & SMP_PAIR_FLAGS_WE_STARTED_DD
+            ? android::bluetooth::DirectionEnum::DIRECTION_OUTGOING
+            : android::bluetooth::DirectionEnum::DIRECTION_INCOMING;
+    uint16_t metric_cmd = p_cb->smp_over_br
+                              ? SMP_METRIC_COMMAND_BR_PAIRING_CMPL
+                              : SMP_METRIC_COMMAND_LE_PAIRING_CMPL;
+    uint16_t metric_status = p_cb->status;
+    if (metric_status > SMP_MAX_FAIL_RSN_PER_SPEC) {
+      metric_status |= SMP_METRIC_STATUS_INTERNAL_FLAG;
+    }
+    log_smp_pairing_event(p_cb->pairing_bda, metric_cmd, direction,
+                          metric_status);
+  }
+
+  if (p_cb->status == SMP_SUCCESS && p_cb->smp_over_br) {
+    btm_dev_consolidate_existing_connections(pairing_bda);
   }
 
   smp_reset_control_value(p_cb);

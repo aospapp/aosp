@@ -23,14 +23,16 @@ Test Finder Handler module.
 import inspect
 import logging
 
-import atest_enum
-import constants
+from enum import unique, Enum
 
-from test_finders import cache_finder
-from test_finders import test_finder_base
-from test_finders import suite_plan_finder
-from test_finders import tf_integration_finder
-from test_finders import module_finder
+from atest import constants
+
+from atest.test_finders import cache_finder
+from atest.test_finders import test_finder_base
+from atest.test_finders import test_finder_utils
+from atest.test_finders import suite_plan_finder
+from atest.test_finders import tf_integration_finder
+from atest.test_finders import module_finder
 
 # List of default test finder classes.
 _TEST_FINDERS = {
@@ -40,57 +42,75 @@ _TEST_FINDERS = {
     cache_finder.CacheFinder,
 }
 
-# Explanation of REFERENCE_TYPEs:
-# ----------------------------------
-# 0. MODULE: LOCAL_MODULE or LOCAL_PACKAGE_NAME value in Android.mk/Android.bp.
-# 1. MAINLINE_MODULE: module[mod1.apk+mod2.apex] pattern in TEST_MAPPING files.
-# 2. CLASS: Names which the same with a ClassName.java/kt file.
-# 3. QUALIFIED_CLASS: String like "a.b.c.ClassName".
-# 4. MODULE_CLASS: Combo of MODULE and CLASS as "module:class".
-# 5. PACKAGE: Package in java file. Same as file path to java file.
-# 6. MODULE_PACKAGE: Combo of MODULE and PACKAGE as "module:package".
-# 7. MODULE_FILE_PATH: File path to dir of tests or test itself.
-# 8. INTEGRATION_FILE_PATH: File path to config xml in one of the 4 integration
-#                           config directories.
-# 9. INTEGRATION: xml file name in one of the 4 integration config directories.
-# 10. SUITE: Value of the "run-suite-tag" in xml config file in 4 config dirs.
-#            Same as value of "test-suite-tag" in AndroidTest.xml files.
-# 11. CC_CLASS: Test case in cc file.
-# 12. SUITE_PLAN: Suite name such as cts.
-# 13. SUITE_PLAN_FILE_PATH: File path to config xml in the suite config
-#                           directories.
-# 14. CACHE: A pseudo type that runs cache_finder without finding test in real.
-_REFERENCE_TYPE = atest_enum.AtestEnum(['MODULE', 'MAINLINE_MODULE',
-                                        'CLASS', 'QUALIFIED_CLASS',
-                                        'MODULE_CLASS', 'PACKAGE',
-                                        'MODULE_PACKAGE', 'MODULE_FILE_PATH',
-                                        'INTEGRATION_FILE_PATH', 'INTEGRATION',
-                                        'SUITE', 'CC_CLASS', 'SUITE_PLAN',
-                                        'SUITE_PLAN_FILE_PATH', 'CACHE',
-                                        'CONFIG'])
+@unique
+class FinderMethod(Enum):
+    """An enum object for test finders.
 
-_REF_TYPE_TO_FUNC_MAP = {
-    _REFERENCE_TYPE.MODULE: module_finder.ModuleFinder.find_test_by_module_name,
-    _REFERENCE_TYPE.MAINLINE_MODULE: module_finder.MainlineModuleFinder.find_test_by_module_name,
-    _REFERENCE_TYPE.CLASS: module_finder.ModuleFinder.find_test_by_class_name,
-    _REFERENCE_TYPE.MODULE_CLASS: module_finder.ModuleFinder.find_test_by_module_and_class,
-    _REFERENCE_TYPE.QUALIFIED_CLASS: module_finder.ModuleFinder.find_test_by_class_name,
-    _REFERENCE_TYPE.PACKAGE: module_finder.ModuleFinder.find_test_by_package_name,
-    _REFERENCE_TYPE.MODULE_PACKAGE: module_finder.ModuleFinder.find_test_by_module_and_package,
-    _REFERENCE_TYPE.MODULE_FILE_PATH: module_finder.ModuleFinder.find_test_by_path,
-    _REFERENCE_TYPE.INTEGRATION_FILE_PATH:
-        tf_integration_finder.TFIntegrationFinder.find_int_test_by_path,
-    _REFERENCE_TYPE.INTEGRATION:
-        tf_integration_finder.TFIntegrationFinder.find_test_by_integration_name,
-    _REFERENCE_TYPE.CC_CLASS:
-        module_finder.ModuleFinder.find_test_by_cc_class_name,
-    _REFERENCE_TYPE.SUITE_PLAN:suite_plan_finder.SuitePlanFinder.find_test_by_suite_name,
-    _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH:
-        suite_plan_finder.SuitePlanFinder.find_test_by_suite_path,
-    _REFERENCE_TYPE.CACHE: cache_finder.CacheFinder.find_test_by_cache,
-    _REFERENCE_TYPE.CONFIG: module_finder.ModuleFinder.find_test_by_config_name,
-}
+    Explanation of FinderMethod:
+    0. MODULE: LOCAL_MODULE or LOCAL_PACKAGE_NAME value in Android.mk/Android.bp.
+    1. MAINLINE_MODULE: module[mod1.apk+mod2.apex] pattern in TEST_MAPPING files.
+    2. CLASS: Names which the same with a ClassName.java/kt file.
+    3. QUALIFIED_CLASS: String like "a.b.c.ClassName".
+    4. MODULE_CLASS: Combo of MODULE and CLASS as "module:class".
+    5. PACKAGE: Package in java file. Same as file path to java file.
+    6. MODULE_PACKAGE: Combo of MODULE and PACKAGE as "module:package".
+    7. MODULE_FILE_PATH: File path to dir of tests or test itself.
+    8. INTEGRATION_FILE_PATH: File path to config xml in one of the 4 integration
+                              config directories.
+    9. INTEGRATION: xml file name in one of the 4 integration config directories.
+    10. SUITE: Value of the "run-suite-tag" in xml config file in 4 config dirs.
+               Same as value of "test-suite-tag" in AndroidTest.xml files.
+    11. CC_CLASS: Test case in cc file.
+    12. SUITE_PLAN: Suite name such as cts.
+    13. SUITE_PLAN_FILE_PATH: File path to config xml in the suite config
+                              directories.
+    14. CACHE: A pseudo type that runs cache_finder without finding test in real.
+    15: CONFIG: Find tests by the given AndroidTest.xml file path.
+    """
+    MODULE = ('MODULE',
+              module_finder.ModuleFinder.find_test_by_module_name)
+    MAINLINE_MODULE = (
+        'MAINLINE_MODULE',
+        module_finder.MainlineModuleFinder.find_test_by_module_name)
+    CLASS = ('CLASS', module_finder.ModuleFinder.find_test_by_class_name)
+    MODULE_CLASS = (
+        'MODULE_CLASS',
+        module_finder.ModuleFinder.find_test_by_module_and_class)
+    QUALIFIED_CLASS = (
+        'QUALIFIED_CLASS', module_finder.ModuleFinder.find_test_by_class_name)
+    PACKAGE = ('PACKAGE', module_finder.ModuleFinder.find_test_by_package_name)
+    MODULE_PACKAGE = (
+        'MODULE_PACKAGE',
+        module_finder.ModuleFinder.find_test_by_module_and_package)
+    MODULE_FILE_PATH = (
+        'MODULE_FILE_PATH', module_finder.ModuleFinder.find_test_by_path)
+    INTEGRATION_FILE_PATH = (
+        'INTEGRATION_FILE_PATH',
+        tf_integration_finder.TFIntegrationFinder.find_int_test_by_path)
+    INTEGRATION = (
+        'INTEGRATION',
+        tf_integration_finder.TFIntegrationFinder.find_test_by_integration_name)
+    CC_CLASS = ('CC_CLASS',
+                module_finder.ModuleFinder.find_test_by_cc_class_name)
+    SUITE_PLAN = ('SUITE_PLAN',
+                  suite_plan_finder.SuitePlanFinder.find_test_by_suite_name)
+    SUITE_PLAN_FILE_PATH = (
+        'SUITE_PLAN_FILE_PATH',
+        suite_plan_finder.SuitePlanFinder.find_test_by_suite_path)
+    CACHE = ('CACHE', cache_finder.CacheFinder.find_test_by_cache)
+    CONFIG = ('CONFIG', module_finder.ModuleFinder.find_test_by_config_name)
 
+    def __init__(self, name, method):
+        self._name = name
+        self._method = method
+
+    def get_name(self):
+        """Return finder's name."""
+        return self._name
+
+    def get_method(self):
+        """Return finder's method."""
+        return self._method
 
 def _get_finder_instance_dict(module_info):
     """Return dict of finder instances.
@@ -144,79 +164,81 @@ def _get_test_reference_types(ref):
         A list of possible REFERENCE_TYPEs (ints) for reference string.
     """
     if ref.startswith('.') or '..' in ref:
-        return [_REFERENCE_TYPE.CACHE,
-                _REFERENCE_TYPE.MODULE_FILE_PATH,
-                _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
-                _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH]
+        return [FinderMethod.CACHE,
+                FinderMethod.MODULE_FILE_PATH,
+                FinderMethod.INTEGRATION_FILE_PATH,
+                FinderMethod.SUITE_PLAN_FILE_PATH]
     if '/' in ref:
         if ref.startswith('/'):
-            return [_REFERENCE_TYPE.CACHE,
-                    _REFERENCE_TYPE.MODULE_FILE_PATH,
-                    _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
-                    _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH]
+            return [FinderMethod.CACHE,
+                    FinderMethod.MODULE_FILE_PATH,
+                    FinderMethod.INTEGRATION_FILE_PATH,
+                    FinderMethod.SUITE_PLAN_FILE_PATH]
         if ':' in ref:
-            return [_REFERENCE_TYPE.CACHE,
-                    _REFERENCE_TYPE.MODULE_FILE_PATH,
-                    _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
-                    _REFERENCE_TYPE.INTEGRATION,
-                    _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH,
-                    _REFERENCE_TYPE.MODULE_CLASS]
-        return [_REFERENCE_TYPE.CACHE,
-                _REFERENCE_TYPE.MODULE_FILE_PATH,
-                _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
-                _REFERENCE_TYPE.INTEGRATION,
-                _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH,
-                _REFERENCE_TYPE.CC_CLASS,
+            return [FinderMethod.CACHE,
+                    FinderMethod.MODULE_FILE_PATH,
+                    FinderMethod.INTEGRATION_FILE_PATH,
+                    FinderMethod.INTEGRATION,
+                    FinderMethod.SUITE_PLAN_FILE_PATH,
+                    FinderMethod.MODULE_CLASS]
+        return [FinderMethod.CACHE,
+                FinderMethod.MODULE_FILE_PATH,
+                FinderMethod.INTEGRATION_FILE_PATH,
+                FinderMethod.INTEGRATION,
+                FinderMethod.SUITE_PLAN_FILE_PATH,
+                FinderMethod.CC_CLASS,
                 # TODO: Uncomment in SUITE when it's supported
-                # _REFERENCE_TYPE.SUITE
+                # FinderMethod.SUITE
                 ]
     if constants.TEST_WITH_MAINLINE_MODULES_RE.match(ref):
-        return [_REFERENCE_TYPE.CACHE, _REFERENCE_TYPE.MAINLINE_MODULE]
+        return [FinderMethod.CACHE, FinderMethod.MAINLINE_MODULE]
     if '.' in ref:
         ref_end = ref.rsplit('.', 1)[-1]
         ref_end_is_upper = ref_end[0].isupper()
-    if ':' in ref:
+    # parse_test_reference() will return none empty dictionary if input test
+    # reference match $module:$package_class.
+    if test_finder_utils.parse_test_reference(ref):
         if '.' in ref:
             if ref_end_is_upper:
                 # Module:fully.qualified.Class or Integration:fully.q.Class
-                return [_REFERENCE_TYPE.CACHE,
-                        _REFERENCE_TYPE.MODULE_CLASS,
-                        _REFERENCE_TYPE.INTEGRATION]
+                return [FinderMethod.CACHE,
+                        FinderMethod.MODULE_CLASS,
+                        FinderMethod.INTEGRATION]
             # Module:some.package
-            return [_REFERENCE_TYPE.CACHE, _REFERENCE_TYPE.MODULE_PACKAGE,
-                    _REFERENCE_TYPE.MODULE_CLASS]
+            return [FinderMethod.CACHE, FinderMethod.MODULE_PACKAGE,
+                    FinderMethod.MODULE_CLASS]
         # Module:Class or IntegrationName:Class
-        return [_REFERENCE_TYPE.CACHE,
-                _REFERENCE_TYPE.MODULE_CLASS,
-                _REFERENCE_TYPE.INTEGRATION]
+        return [FinderMethod.CACHE,
+                FinderMethod.MODULE_CLASS,
+                FinderMethod.INTEGRATION]
     if '.' in ref:
         # The string of ref_end possibly includes specific mathods, e.g.
         # foo.java#method, so let ref_end be the first part of splitting '#'.
         if "#" in ref_end:
             ref_end = ref_end.split('#')[0]
         if ref_end in ('java', 'kt', 'bp', 'mk', 'cc', 'cpp'):
-            return [_REFERENCE_TYPE.CACHE, _REFERENCE_TYPE.MODULE_FILE_PATH]
+            return [FinderMethod.CACHE, FinderMethod.MODULE_FILE_PATH]
         if ref_end == 'xml':
-            return [_REFERENCE_TYPE.CACHE,
-                    _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
-                    _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH]
+            return [FinderMethod.CACHE,
+                    FinderMethod.INTEGRATION_FILE_PATH,
+                    FinderMethod.SUITE_PLAN_FILE_PATH]
         # (b/207327349) ref_end_is_upper does not guarantee a classname anymore.
-        return [_REFERENCE_TYPE.MODULE,
-                _REFERENCE_TYPE.CACHE,
-                _REFERENCE_TYPE.QUALIFIED_CLASS,
-                _REFERENCE_TYPE.PACKAGE]
+        return [FinderMethod.CACHE,
+                FinderMethod.MODULE,
+                FinderMethod.QUALIFIED_CLASS,
+                FinderMethod.PACKAGE]
     # Note: We assume that if you're referencing a file in your cwd,
     # that file must have a '.' in its name, i.e. foo.java, foo.xml.
     # If this ever becomes not the case, then we need to include path below.
-    return [_REFERENCE_TYPE.MODULE,
-            _REFERENCE_TYPE.CACHE,
-            _REFERENCE_TYPE.INTEGRATION,
+    return [FinderMethod.CACHE,
+            FinderMethod.MODULE,
+            FinderMethod.INTEGRATION,
             # TODO: Uncomment in SUITE when it's supported
-            # _REFERENCE_TYPE.SUITE,
-            _REFERENCE_TYPE.CONFIG,
-            _REFERENCE_TYPE.SUITE_PLAN,
-            _REFERENCE_TYPE.CLASS,
-            _REFERENCE_TYPE.CC_CLASS]
+            # FinderMethod.SUITE,
+            FinderMethod.CONFIG,
+            FinderMethod.SUITE_PLAN,
+            FinderMethod.CLASS,
+            FinderMethod.CC_CLASS]
 
 
 def _get_registered_find_methods(module_info):
@@ -256,12 +278,12 @@ def _get_default_find_methods(module_info, test):
     find_methods = []
     finder_instance_dict = _get_finder_instance_dict(module_info)
     test_ref_types = _get_test_reference_types(test)
-    logging.debug('Resolved input to possible references: %s', [
-        _REFERENCE_TYPE[t] for t in test_ref_types])
+    logging.debug('Resolved input to possible references: %s', ', '.join([
+        t.get_name() for t in test_ref_types]))
     for test_ref_type in test_ref_types:
-        find_method = _REF_TYPE_TO_FUNC_MAP[test_ref_type]
+        find_method = test_ref_type.get_method()
         finder_instance = finder_instance_dict[inspect._findclass(find_method).NAME]
-        finder_info = _REFERENCE_TYPE[test_ref_type]
+        finder_info = test_ref_type.get_name()
         find_methods.append(test_finder_base.Finder(finder_instance,
                                                     find_method,
                                                     finder_info))

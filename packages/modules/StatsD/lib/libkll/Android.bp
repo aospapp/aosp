@@ -23,6 +23,9 @@ package {
 
 cc_library {
     name: "libkll",
+    host_supported: true,
+    vendor_available: true,
+    double_loadable: true,
     srcs: [
         "compactor_stack.cpp",
         "kll.cpp",
@@ -33,6 +36,7 @@ cc_library {
         "libkll-protos",
     ],
     shared_libs: [
+        "liblog",
         "libprotobuf-cpp-lite",
     ],
     cflags: [
@@ -51,6 +55,10 @@ cc_library {
 
 cc_test {
     name: "libkll_test",
+    host_supported: true,
+    tidy_timeout_srcs: [
+        "tests/sampler_test.cpp",
+    ],
     srcs: [
         "tests/**/*.cpp",
     ],
@@ -61,6 +69,7 @@ cc_test {
         "libkll-protos",
     ],
     shared_libs: [
+        "liblog",
         "libprotobuf-cpp-lite",
     ],
     test_suites: ["general-tests"],

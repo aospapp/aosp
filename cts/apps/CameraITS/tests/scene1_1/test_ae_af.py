@@ -15,6 +15,7 @@
 
 
 import logging
+import math
 import os.path
 from mobly import test_runner
 import numpy as np
@@ -24,15 +25,15 @@ import camera_properties_utils
 import error_util
 import its_session_utils
 
-AWB_GAINS_LENGTH = 4
-AWB_XFORM_LENGTH = 9
-G_CHANNEL = 2
-G_GAIN = 1.0
-G_GAIN_TOL = 0.05
-NAME = os.path.splitext(os.path.basename(__file__))[0]
-THREE_A_STATES = {'AE': [True, False, True],
-                  'AF': [False, True, True],
-                  'FULL_3A': [True, True, True]}  # note no AWB solo
+_AWB_GAINS_LENGTH = 4
+_AWB_XFORM_LENGTH = 9
+_G_CHANNEL = 2
+_G_GAIN = 1.0
+_G_GAIN_TOL = 0.05
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_THREE_A_STATES = {'AE': (True, False, True),
+                   'AF': (False, True, True),
+                   'FULL_3A': (True, True, True)}  # note no AWB solo
 
 
 class SingleATest(its_base_test.ItsBaseTest):
@@ -42,7 +43,7 @@ class SingleATest(its_base_test.ItsBaseTest):
   """
 
   def test_ae_af(self):
-    logging.debug('Starting %s', NAME)
+    logging.debug('Starting %s', _NAME)
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
         camera_id=self.camera_id,
@@ -58,7 +59,7 @@ class SingleATest(its_base_test.ItsBaseTest):
           cam, props, self.scene, self.tablet, self.chart_distance)
 
       # Do AE/AF/3A and evaluate outputs
-      for k, three_a_req in sorted(THREE_A_STATES.items()):
+      for k, three_a_req in sorted(_THREE_A_STATES.items()):
         logging.debug('Trying %s', k)
         try:
           s, e, awb_gains, awb_xform, fd = cam.do_3a(get_results=True,
@@ -85,20 +86,21 @@ class SingleATest(its_base_test.ItsBaseTest):
         else:
           logging.debug('AF fd: None')
         # check AWB values
-        if len(awb_gains) != AWB_GAINS_LENGTH:
+        if len(awb_gains) != _AWB_GAINS_LENGTH:
           raise AssertionError(f'Problem with AWB gains: {awb_gains}')
         for g in awb_gains:
           if np.isnan(g):
             raise AssertionError('Gain in AWB is NaN.')
-        if len(awb_xform) != AWB_XFORM_LENGTH:
+        if len(awb_xform) != _AWB_XFORM_LENGTH:
           raise AssertionError(f'Problem with AWB transform: {awb_xform}')
         for x in awb_xform:
           if np.isnan(x):
             raise AssertionError('Value in AWB transform is NaN.')
-        if not np.isclose(awb_gains[G_CHANNEL], G_GAIN, G_GAIN_TOL):
+        if not math.isclose(
+            awb_gains[_G_CHANNEL], _G_GAIN, rel_tol=_G_GAIN_TOL):
           raise AssertionError(
-              f'AWB G channel mismatch. AWB(G): {awb_gains[G_CHANNEL]}, '
-              f'REF: {G_GAIN}, TOL: {G_GAIN_TOL}')
+              f'AWB G channel mismatch. AWB(G): {awb_gains[_G_CHANNEL]}, '
+              f'REF: {_G_GAIN}, TOL: {_G_GAIN_TOL}')
 
         # check AE values
         if k == 'full_3a' or k == 'ae':

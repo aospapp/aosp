@@ -10,8 +10,9 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:bvt-inline"
+ATTRIBUTES = "suite:bvt-inline, suite:pvs-bvt-inline, suite:satlab-qual-bvt-inline"
 JOB_RETRIES = 2
+PY_VERSION = 3
 
 DOC = """
 This is a test to verify that update_engine correctly checks signatures in the
@@ -34,7 +35,7 @@ If you ever need to replace the test image and payloads, follow these simple
      $ ./build_packages --board=${BOARD}
      $ ./build_image --board=${BOARD} --noenable_rootfs_verification test
 
-     Alternatively, you can use any kind of Chrome OS image you already have or
+     Alternatively, you can use any kind of ChromeOS image you already have or
      downloaded.
 
   2. Reduce the size of Rootfs and Kernel partitions. This is done so these
@@ -52,7 +53,7 @@ If you ever need to replace the test image and payloads, follow these simple
      $ sudo mount /dev/loop1p3 rootfs
      $ sudo mount /dev/loop1p4 kernel
 
-     Now you need a lsb-release file copied from any Chrome OS.
+     Now you need a lsb-release file copied from any ChromeOS.
 
      $ mkdir rootfs/etc && touch cp <lsb-release> rootfs/etc
      $ touch kernel/fake-kernel.bin # Optional

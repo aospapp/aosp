@@ -21,9 +21,16 @@
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsBluetoothTestCases.apk" />
+    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="cmd bluetooth_manager enable" />
+        <option name="run-command" value="cmd bluetooth_manager wait-for-state:STATE_ON" />
+        <option name="teardown-command" value="cmd bluetooth_manager disable" />
+        <option name="teardown-command" value="cmd bluetooth_manager wait-for-state:STATE_OFF" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.bluetooth.cts" />
@@ -33,6 +40,7 @@
     <!-- Only run Cts Tests in MTS if the Bluetooth Mainline module is installed. -->
     <object type="module_controller"
             class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
-        <option name="mainline-module-package-name" value="com.google.android.bluetooth" />
+        <option name="mainline-module-package-name" value="com.android.btservices" />
+        <option name="mainline-module-package-name" value="com.google.android.btservices" />
     </object>
 </configuration>

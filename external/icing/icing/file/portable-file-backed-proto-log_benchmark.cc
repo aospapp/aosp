@@ -33,7 +33,7 @@
 //   icing/file:portable-file-backed-proto-log_benchmark
 //
 //   $ blaze-bin/icing/file/portable-file-backed-proto-log_benchmark
-//   --benchmarks=all
+//   --benchmark_filter=all
 //
 //
 // To build and run on an Android device (must be connected and rooted):
@@ -48,7 +48,7 @@
 //   /data/local/tmp/
 //
 //   $ adb shell /data/local/tmp/portable-file-backed-proto-log-benchmark
-//   --benchmarks=all
+//   --benchmark_filter=all
 
 namespace icing {
 namespace lib {

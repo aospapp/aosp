@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
 load(
     "//pw_build:pigweed.bzl",
     "pw_cc_binary",
@@ -35,24 +36,44 @@ pw_cc_library(
 
 pw_cc_library(
     name = "pw_unit_test",
+    deps = ["@pigweed_config//:pw_unit_test_googletest_backend"],
+)
+
+pw_cc_library(
+    name = "light",
     srcs = [
         "framework.cc",
+        "public/pw_unit_test/internal/framework.h",
     ],
-    hdrs = [
-        "public/pw_unit_test/event_handler.h",
-        "public/pw_unit_test/framework.h",
-        "public_overrides/gtest/gtest.h",
-    ],
+    hdrs = ["public_overrides/gtest/gtest.h"],
     includes = [
         "public",
         "public_overrides",
     ],
     deps = [
         ":config",
+        ":event_handler",
+        "//pw_assert",
         "//pw_polyfill",
         "//pw_preprocessor",
         "//pw_span",
         "//pw_string",
+    ],
+)
+
+pw_cc_library(
+    name = "event_handler",
+    hdrs = ["public/pw_unit_test/event_handler.h"],
+    includes = ["public"],
+)
+
+pw_cc_library(
+    name = "googletest_style_event_handler",
+    srcs = ["googletest_style_event_handler.cc"],
+    hdrs = ["public/pw_unit_test/googletest_style_event_handler.h"],
+    deps = [
+        ":event_handler",
+        "//pw_preprocessor",
     ],
 )
 
@@ -66,8 +87,39 @@ pw_cc_library(
         "public",
     ],
     deps = [
+        ":googletest_style_event_handler",
         "//pw_preprocessor",
-        "//pw_unit_test",
+    ],
+)
+
+pw_cc_library(
+    name = "simple_printing_main",
+    srcs = [
+        "simple_printing_main.cc",
+    ],
+    deps = [
+        ":pw_unit_test",
+        ":simple_printing_event_handler",
+        "//pw_span",
+        "//pw_sys_io",
+    ],
+)
+
+pw_cc_library(
+    name = "printf_event_handler",
+    hdrs = ["public/pw_unit_test/printf_event_handler.h"],
+    deps = [
+        ":googletest_style_event_handler",
+        "//pw_preprocessor",
+    ],
+)
+
+pw_cc_library(
+    name = "printf_main",
+    srcs = ["printf_main.cc"],
+    deps = [
+        ":printf_event_handler",
+        ":pw_unit_test",
     ],
 )
 
@@ -83,8 +135,8 @@ pw_cc_library(
         "public",
     ],
     deps = [
+        ":googletest_style_event_handler",
         "//pw_log",
-        "//pw_unit_test",
     ],
 )
 
@@ -99,23 +151,15 @@ pw_cc_binary(
     ],
 )
 
-pw_cc_library(
-    name = "main",
-    srcs = [
-        "simple_printing_main.cc",
-    ],
-    deps = [
-        ":pw_unit_test",
-        ":simple_printing_event_handler",
-        "//pw_span",
-        "//pw_sys_io",
-    ],
-)
-
 proto_library(
     name = "unit_test_proto",
     srcs = ["pw_unit_test_proto/unit_test.proto"],
-    strip_import_prefix = "//pw_unit_test",
+    strip_import_prefix = "/pw_unit_test",
+)
+
+py_proto_library(
+    name = "unit_test_py_pb2",
+    srcs = ["pw_unit_test_proto/unit_test.proto"],
 )
 
 pw_proto_library(
@@ -126,13 +170,14 @@ pw_proto_library(
 pw_cc_library(
     name = "rpc_service",
     srcs = [
-        "rpc_event_handler.cc",
+        "rpc_light_event_handler.cc",
         "unit_test_service.cc",
     ],
     hdrs = [
-        "public/pw_unit_test/internal/rpc_event_handler.h",
         "public/pw_unit_test/unit_test_service.h",
+        "rpc_light_public/pw_unit_test/internal/rpc_event_handler.h",
     ],
+    includes = ["rpc_light_public"],
     deps = [
         ":pw_unit_test",
         ":unit_test_cc.pwpb",
@@ -156,11 +201,41 @@ pw_cc_library(
     ],
 )
 
+pw_cc_library(
+    name = "static_library_support",
+    srcs = ["static_library_support.cc"],
+    hdrs = ["public/pw_unit_test/static_library_support.h"],
+    includes = ["public"],
+    deps = [":light"],  # This library only works with the light backend
+)
+
+pw_cc_library(
+    name = "tests_in_archive",
+    srcs = [
+        "static_library_archived_tests.cc",
+        "static_library_missing_archived_tests.cc",
+    ],
+    linkstatic = True,
+    visibility = ["//visibility:private"],
+    deps = [":pw_unit_test"],
+)
+
+pw_cc_test(
+    name = "static_library_support_test",
+    srcs = ["static_library_support_test.cc"],
+    deps = [
+        ":static_library_support",
+        ":tests_in_archive",
+        "//pw_assert",
+    ],
+)
+
 pw_cc_test(
     name = "framework_test",
     srcs = ["framework_test.cc"],
     deps = [
         ":pw_unit_test",
+        "//pw_assert",
     ],
 )
 
@@ -174,4 +249,16 @@ filegroup(
     #     "//pw_log",
     #     "//pw_rpc/system_server",
     # ],
+)
+
+# GTest is not yet supported in the Bazel build. This filegroup silences
+# warnings about these files not being included in the Bazel build.
+filegroup(
+    name = "gtest_support",
+    srcs = [
+        "googletest_handler_adapter.cc",
+        "public/pw_unit_test/googletest_handler_adapter.h",
+        "rpc_gtest_event_handler.cc",
+        "rpc_gtest_public/pw_unit_test/internal/rpc_event_handler.h",
+    ],
 )

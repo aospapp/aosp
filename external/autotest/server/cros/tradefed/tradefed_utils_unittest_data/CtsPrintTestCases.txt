@@ -188,9 +188,9 @@
 05-19 13:20:58 D/ModuleListener: ModuleListener.testStarted(android.print.cts.PrinterCapabilitiesTest#testPrinterCapabilityChange)
 05-19 13:22:55 D/ModuleListener: ModuleListener.testEnded(android.print.cts.PrinterCapabilitiesTest#testPrinterCapabilityChange, {})
 05-19 13:22:55 I/ConsoleReporter: [14/48 x86 CtsPrintTestCases chromeos4-row8-rack6-host1:22] android.print.cts.PrinterCapabilitiesTest#testPrinterCapabilityChange pass
-05-19 13:22:55 D/ModuleListener: ModuleListener.testStarted(android.print.cts.PrinterCapabilitiesTest#testSanePrinterCapabilityInfos)
-05-19 13:23:02 D/ModuleListener: ModuleListener.testEnded(android.print.cts.PrinterCapabilitiesTest#testSanePrinterCapabilityInfos, {})
-05-19 13:23:02 I/ConsoleReporter: [15/48 x86 CtsPrintTestCases chromeos4-row8-rack6-host1:22] android.print.cts.PrinterCapabilitiesTest#testSanePrinterCapabilityInfos pass
+05-19 13:22:55 D/ModuleListener: ModuleListener.testStarted(android.print.cts.PrinterCapabilitiesTest#testValidPrinterCapabilityInfos)
+05-19 13:23:02 D/ModuleListener: ModuleListener.testEnded(android.print.cts.PrinterCapabilitiesTest#testValidPrinterCapabilityInfos, {})
+05-19 13:23:02 I/ConsoleReporter: [15/48 x86 CtsPrintTestCases chromeos4-row8-rack6-host1:22] android.print.cts.PrinterCapabilitiesTest#testValidPrinterCapabilityInfos pass
 05-19 13:23:02 D/ModuleListener: ModuleListener.testStarted(android.print.cts.PrintServicesTest#testProgress)
 05-19 13:23:14 D/ModuleListener: ModuleListener.testEnded(android.print.cts.PrintServicesTest#testProgress, {})
 05-19 13:23:14 I/ConsoleReporter: [16/48 x86 CtsPrintTestCases chromeos4-row8-rack6-host1:22] android.print.cts.PrintServicesTest#testProgress pass

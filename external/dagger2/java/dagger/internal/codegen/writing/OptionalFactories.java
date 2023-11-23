@@ -27,7 +27,6 @@ import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static dagger.internal.codegen.base.RequestKinds.requestTypeName;
 import static dagger.internal.codegen.javapoet.AnnotationSpecs.Suppression.RAWTYPES;
 import static dagger.internal.codegen.javapoet.AnnotationSpecs.Suppression.UNCHECKED;
-import static dagger.internal.codegen.javapoet.TypeNames.PROVIDER;
 import static dagger.internal.codegen.javapoet.TypeNames.abstractProducerOf;
 import static dagger.internal.codegen.javapoet.TypeNames.listenableFutureOf;
 import static dagger.internal.codegen.javapoet.TypeNames.providerOf;
@@ -61,9 +60,11 @@ import dagger.internal.codegen.binding.BindingType;
 import dagger.internal.codegen.binding.ContributionBinding;
 import dagger.internal.codegen.binding.FrameworkType;
 import dagger.internal.codegen.javapoet.AnnotationSpecs;
-import dagger.model.RequestKind;
+import dagger.internal.codegen.javapoet.TypeNames;
+import dagger.internal.codegen.writing.ComponentImplementation.ShardImplementation;
 import dagger.producers.Producer;
 import dagger.producers.internal.Producers;
+import dagger.spi.model.RequestKind;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
@@ -74,37 +75,50 @@ import javax.inject.Provider;
 
 /** The nested class and static methods required by the component to implement optional bindings. */
 // TODO(dpb): Name members simply if a component uses only one of Guava or JDK Optional.
-@PerGeneratedFile
 final class OptionalFactories {
-  private final ComponentImplementation componentImplementation;
+  /** Keeps track of the fields, methods, and classes already added to the generated file. */
+  @PerGeneratedFile
+  static final class PerGeneratedFileCache {
+    /**
+     * The factory classes that implement {@code Provider<Optional<T>>} or {@code
+     * Producer<Optional<T>>} for present optional bindings for a given kind of dependency request
+     * within the component.
+     *
+     * <p>The key is the {@code Provider<Optional<T>>} type.
+     */
+    private final Map<PresentFactorySpec, TypeSpec> presentFactoryClasses =
+        new TreeMap<>(
+            Comparator.comparing(PresentFactorySpec::valueKind)
+                .thenComparing(PresentFactorySpec::frameworkType)
+                .thenComparing(PresentFactorySpec::optionalKind));
 
-  @Inject OptionalFactories(@TopLevel ComponentImplementation componentImplementation) {
-    this.componentImplementation = componentImplementation;
+    /**
+     * The static methods that return a {@code Provider<Optional<T>>} that always returns an absent
+     * value.
+     */
+    private final Map<OptionalKind, MethodSpec> absentOptionalProviderMethods = new TreeMap<>();
+
+    /**
+     * The static fields for {@code Provider<Optional<T>>} objects that always return an absent
+     * value.
+     */
+    private final Map<OptionalKind, FieldSpec> absentOptionalProviderFields = new TreeMap<>();
+
+    @Inject
+    PerGeneratedFileCache() {}
   }
 
-  /**
-   * The factory classes that implement {@code Provider<Optional<T>>} or {@code
-   * Producer<Optional<T>>} for present optional bindings for a given kind of dependency request
-   * within the component.
-   *
-   * <p>The key is the {@code Provider<Optional<T>>} type.
-   */
-  private final Map<PresentFactorySpec, TypeSpec> presentFactoryClasses =
-      new TreeMap<>(
-          Comparator.comparing(PresentFactorySpec::valueKind)
-              .thenComparing(PresentFactorySpec::frameworkType)
-              .thenComparing(PresentFactorySpec::optionalKind));
+  private final PerGeneratedFileCache perGeneratedFileCache;
+  private final ShardImplementation rootComponentShard;
 
-  /**
-   * The static methods that return a {@code Provider<Optional<T>>} that always returns an absent
-   * value.
-   */
-  private final Map<OptionalKind, MethodSpec> absentOptionalProviderMethods = new TreeMap<>();
-
-  /**
-   * The static fields for {@code Provider<Optional<T>>} objects that always return an absent value.
-   */
-  private final Map<OptionalKind, FieldSpec> absentOptionalProviderFields = new TreeMap<>();
+  @Inject
+  OptionalFactories(
+      PerGeneratedFileCache perGeneratedFileCache,
+      ComponentImplementation componentImplementation) {
+    this.perGeneratedFileCache = perGeneratedFileCache;
+    this.rootComponentShard =
+        componentImplementation.rootComponentImplementation().getComponentShard();
+  }
 
   /**
    * Returns an expression that calls a static method that returns a {@code Provider<Optional<T>>}
@@ -118,11 +132,11 @@ final class OptionalFactories {
     OptionalKind optionalKind = OptionalType.from(binding.key()).kind();
     return CodeBlock.of(
         "$N()",
-        absentOptionalProviderMethods.computeIfAbsent(
+        perGeneratedFileCache.absentOptionalProviderMethods.computeIfAbsent(
             optionalKind,
             kind -> {
               MethodSpec method = absentOptionalProviderMethod(kind);
-              componentImplementation.addMethod(ABSENT_OPTIONAL_METHOD, method);
+              rootComponentShard.addMethod(ABSENT_OPTIONAL_METHOD, method);
               return method;
             }));
   }
@@ -141,20 +155,20 @@ final class OptionalFactories {
         .returns(providerOf(optionalKind.of(typeVariable)))
         .addJavadoc(
             "Returns a {@link $T} that returns {@code $L}.",
-            Provider.class,
+            TypeNames.PROVIDER,
             optionalKind.absentValueExpression())
         .addCode("$L // safe covariant cast\n", AnnotationSpecs.suppressWarnings(UNCHECKED))
-        .addCode(
-            "$1T provider = ($1T) $2N;",
+        .addStatement(
+            "$1T provider = ($1T) $2N",
             providerOf(optionalKind.of(typeVariable)),
-            absentOptionalProviderFields.computeIfAbsent(
+            perGeneratedFileCache.absentOptionalProviderFields.computeIfAbsent(
                 optionalKind,
                 kind -> {
                   FieldSpec field = absentOptionalProviderField(kind);
-                  componentImplementation.addField(ABSENT_OPTIONAL_FIELD, field);
+                  rootComponentShard.addField(ABSENT_OPTIONAL_FIELD, field);
                   return field;
                 }))
-        .addCode("return provider;")
+        .addStatement("return provider")
         .build();
   }
 
@@ -164,7 +178,7 @@ final class OptionalFactories {
    */
   private FieldSpec absentOptionalProviderField(OptionalKind optionalKind) {
     return FieldSpec.builder(
-            PROVIDER,
+            TypeNames.PROVIDER,
             String.format("ABSENT_%s_PROVIDER", optionalKind.name()),
             PRIVATE,
             STATIC,
@@ -173,7 +187,7 @@ final class OptionalFactories {
         .initializer("$T.create($L)", InstanceFactory.class, optionalKind.absentValueExpression())
         .addJavadoc(
             "A {@link $T} that returns {@code $L}.",
-            Provider.class,
+            TypeNames.PROVIDER,
             optionalKind.absentValueExpression())
         .build();
   }
@@ -258,7 +272,7 @@ final class OptionalFactories {
       return new StringBuilder("Present")
           .append(UPPER_UNDERSCORE.to(UPPER_CAMEL, optionalKind().name()))
           .append(UPPER_UNDERSCORE.to(UPPER_CAMEL, valueKind().toString()))
-          .append(frameworkType().frameworkClass().getSimpleName())
+          .append(frameworkType().frameworkClassName().simpleName())
           .toString();
     }
 
@@ -296,11 +310,11 @@ final class OptionalFactories {
   CodeBlock presentOptionalFactory(ContributionBinding binding, CodeBlock delegateFactory) {
     return CodeBlock.of(
         "$N.of($L)",
-        presentFactoryClasses.computeIfAbsent(
+        perGeneratedFileCache.presentFactoryClasses.computeIfAbsent(
             PresentFactorySpec.of(binding),
             spec -> {
               TypeSpec type = presentOptionalFactoryClass(spec);
-              componentImplementation.addType(PRESENT_FACTORY, type);
+              rootComponentShard.addType(PRESENT_FACTORY, type);
               return type;
             }),
         delegateFactory);

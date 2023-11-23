@@ -27,23 +27,26 @@ import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyInfo;
 import android.security.keystore.KeyProperties;
 import android.test.MoreAsserts;
+import android.text.TextUtils;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.google.common.collect.ObjectArrays;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.Provider;
+import java.security.Provider.Service;
+import java.security.SecureRandom;
 import java.security.Security;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.ECGenParameterSpec;
-import java.security.Provider.Service;
-import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashSet;
@@ -52,11 +55,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
+import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
+import javax.crypto.Mac;
 import javax.crypto.SecretKey;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import javax.crypto.spec.IvParameterSpec;
 
 @RunWith(AndroidJUnit4.class)
 public class KeyGeneratorTest {
@@ -788,6 +791,117 @@ public class KeyGeneratorTest {
             } catch (Throwable e) {
                 throw new RuntimeException("Failed for " + algorithm, e);
             }
+        }
+    }
+
+    @Test
+    public void testUniquenessOfAesKeys() throws Exception {
+        testUniquenessOfAesKeys(false /* useStrongbox */);
+    }
+
+    @Test
+    public void testUniquenessOfAesKeysInStrongBox() throws Exception {
+        TestUtils.assumeStrongBox();
+        testUniquenessOfAesKeys(true /* useStrongbox */);
+    }
+
+    private void testUniquenessOfAesKeys(boolean useStrongbox) throws Exception {
+        assertUniqueAesEncryptionForNKeys("AES/ECB/NoPadding", useStrongbox);
+        assertUniqueAesEncryptionForNKeys("AES/CBC/NoPadding", useStrongbox);
+    }
+
+    private void assertUniqueAesEncryptionForNKeys(String algoTransform, boolean useStrongbox)
+            throws Exception {
+        byte[] randomMsg = new byte[16];
+        SecureRandom.getInstance("SHA1PRNG").nextBytes(randomMsg);
+        byte[][] msgArr = new byte[][]{
+                {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+                {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+                {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+                "16 char message.".getBytes(StandardCharsets.UTF_8),
+                randomMsg
+        };
+        for (byte[] msg : msgArr) {
+            int numberOfKeysToTest = 10;
+            Set results = new HashSet();
+            boolean isCbcMode = algoTransform.contains("CBC");
+            byte[] iv = new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+            for (int i = 0; i < numberOfKeysToTest; i++) {
+                KeyGenerator keyGenerator = getKeyGenerator("AES");
+                keyGenerator.init(getWorkingSpec(KeyProperties.PURPOSE_ENCRYPT)
+                        .setBlockModes(isCbcMode
+                                ? KeyProperties.BLOCK_MODE_CBC : KeyProperties.BLOCK_MODE_ECB)
+                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                        .setRandomizedEncryptionRequired(false)
+                        .setIsStrongBoxBacked(useStrongbox)
+                        .build());
+                SecretKey key = keyGenerator.generateKey();
+                Cipher cipher = Cipher.getInstance(algoTransform,
+                        TestUtils.EXPECTED_CRYPTO_OP_PROVIDER_NAME);
+                if (isCbcMode) {
+                    cipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
+                } else {
+                    cipher.init(Cipher.ENCRYPT_MODE, key);
+                }
+                byte[] cipherText = msg == null ? cipher.doFinal() : cipher.doFinal(msg);
+                // Add generated cipher text to HashSet so that only unique cipher text will be
+                // counted.
+                results.add(new String(cipherText));
+            }
+            // Verify unique cipher text is generated for all different keys
+            assertEquals(TextUtils.formatSimple("%d different cipher text should have been"
+                                + " generated for %d different keys. Failed for message \"%s\".",
+                            numberOfKeysToTest, numberOfKeysToTest, new String(msg)),
+                    numberOfKeysToTest, results.size());
+        }
+    }
+
+    @Test
+    public void testUniquenessOfHmacKeys() throws Exception {
+        testUniquenessOfHmacKeys(false /* useStrongbox */);
+    }
+
+    @Test
+    public void testUniquenessOfHmacKeysInStrongBox() throws Exception {
+        TestUtils.assumeStrongBox();
+        testUniquenessOfHmacKeys(true /* useStrongbox */);
+    }
+
+    private void testUniquenessOfHmacKeys(boolean useStrongbox)
+            throws Exception {
+        int numberOfKeysToTest = 10;
+        byte[] randomMsg = new byte[16];
+        SecureRandom.getInstance("SHA1PRNG").nextBytes(randomMsg);
+        byte[][] msgArr = new byte[][]{
+                {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+                {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+                {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+                "dummymessage1234".getBytes(StandardCharsets.UTF_8),
+                randomMsg,
+                {},
+                null
+        };
+        for (byte[] msg : msgArr) {
+            Set results = new HashSet();
+            for (int i = 0; i < numberOfKeysToTest; i++) {
+                KeyGenerator keyGenerator = getKeyGenerator("HmacSHA256");
+                keyGenerator.init(getWorkingSpec(KeyProperties.PURPOSE_SIGN)
+                        .setIsStrongBoxBacked(useStrongbox)
+                        .build());
+                SecretKey key = keyGenerator.generateKey();
+                Mac mac = Mac.getInstance("HMACSHA256",
+                        TestUtils.EXPECTED_CRYPTO_OP_PROVIDER_NAME);
+                mac.init(key);
+                byte[] macSign = mac.doFinal(msg);
+                // Add generated mac signature to HashSet so that unique signatures will be counted
+                results.add(new String(macSign));
+            }
+            // Verify unique MAC is generated for all different keys
+            assertEquals(TextUtils.formatSimple("%d different MAC should have been generated for "
+                    + "%d different keys.", numberOfKeysToTest, numberOfKeysToTest),
+                    numberOfKeysToTest, results.size());
         }
     }
 

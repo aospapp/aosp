@@ -58,7 +58,11 @@ art_module_cc_defaults {
             cflags: ["-Wno-frame-larger-than="],
         },
         host: {
-            cflags: ["-Wno-frame-larger-than="],
+            cflags: [
+                "-Wno-frame-larger-than=",
+                "-fsanitize-address-use-after-return=never",
+                "-Wno-unused-command-line-argument",
+            ],
         },
     },
 }
@@ -90,6 +94,9 @@ art_module_cc_defaults {
         android_arm64: {
             relative_install_path: "art/arm64",
         },
+        android_riscv64: {
+            relative_install_path: "art/riscv64",
+        },
         android_x86: {
             relative_install_path: "art/x86",
         },
@@ -104,10 +111,10 @@ art_module_cc_defaults {
     ],
 }
 
-// Variant of art_test_defaults that installs the library in a location which
-// will be added to the default namespace, and hence also the com_android_art
-// namespace. That allows the library to have shared_libs dependencies on all
-// ART internal libraries.
+// Variant of art_test_defaults for test libraries that installs them in a
+// location which will be added to the default namespace, and hence also the
+// com_android_art namespace. That allows them to have shared_libs
+// dependencies on all ART internal libraries.
 //
 // Currently this only works for run tests where run-test-jar sets
 // LD_LIBRARY_PATH and NATIVELOADER_DEFAULT_NAMESPACE_LIBS.
@@ -119,6 +126,9 @@ art_cc_defaults {
             relative_install_path: "com.android.art/lib",
         },
         android_arm64: {
+            relative_install_path: "com.android.art/lib64",
+        },
+        android_riscv64: {
             relative_install_path: "com.android.art/lib64",
         },
         android_x86: {
@@ -170,6 +180,21 @@ art_cc_defaults {
     // eventually.
     host_supported: false,
     test_config_template: ":art-gtests-target-standalone-template",
+
+    // Support multilib variants (using different suffix per sub-architecture),
+    // which is needed on build targets with secondary architectures, as the
+    // CTS/MTS/etc test suite packaging logic flattens all test artifacts into a
+    // single `testcases` directory. Also, there is CI testing that expects
+    // 64-bit multilib test suites to work for 32-bit devices (b/233550842).
+    compile_multilib: "both",
+    multilib: {
+        lib32: {
+            suffix: "32",
+        },
+        lib64: {
+            suffix: "64",
+        },
+    },
 }
 
 // Properties common to `art_gtest_defaults` and `art_standalone_gtest_defaults`.
@@ -204,6 +229,10 @@ art_cc_defaults {
         host: {
             shared_libs: [
                 "libziparchive",
+            ],
+            cflags: [
+                "-fsanitize-address-use-after-return=never",
+                "-Wno-unused-command-line-argument",
             ],
         },
     },
@@ -328,6 +357,12 @@ art_cc_defaults {
         "libgtest_isolated",
     ],
     target: {
+        host: {
+            cflags: [
+                "-fsanitize-address-use-after-return=never",
+                "-Wno-unused-command-line-argument",
+            ],
+        },
         android32: {
             cflags: ["-DART_TARGET_NATIVETEST_DIR=/data/nativetest/art"],
         },
@@ -352,6 +387,7 @@ art_cc_defaults {
         // apex_available lists need to be the same for internal libs to avoid
         // stubs, and this depends on libdexfiled and others.
         "com.android.art",
+        "test_broken_com.android.art",
     ],
 }
 
@@ -399,10 +435,15 @@ art_cc_defaults {
     ],
     shared_libs: [
         "libbase",
-        "libbacktrace",
         "liblog",
     ],
     target: {
+        host: {
+            cflags: [
+                "-fsanitize-address-use-after-return=never",
+                "-Wno-unused-command-line-argument",
+            ],
+        },
         darwin: {
             enabled: false,
         },
@@ -413,6 +454,7 @@ art_cc_defaults {
         // apex_available lists need to be the same for internal libs to avoid
         // stubs, and this depends on libdexfiled and others.
         "com.android.art",
+        "test_broken_com.android.art",
     ],
 }
 
@@ -581,7 +623,6 @@ cc_defaults {
     name: "libartagent-defaults",
     defaults: ["art_test_internal_library_defaults"],
     shared_libs: [
-        "libbacktrace",
         "libbase",
         "liblog",
         "libnativehelper",
@@ -671,6 +712,7 @@ art_cc_defaults {
         "991-field-trace-2/field_trace.cc",
         "992-source-data/source_file.cc",
         "993-breakpoints/breakpoints.cc",
+        "993-breakpoints-non-debuggable/onload.cc",
         "996-breakpoint-obsolete/obsolete_breakpoints.cc",
         "1900-track-alloc/alloc.cc",
         "1901-get-bytecodes/bytecodes.cc",
@@ -689,6 +731,7 @@ art_cc_defaults {
         "1932-monitor-events-misc/monitor_misc.cc",
         "1934-jvmti-signal-thread/signal_threads.cc",
         "1939-proxy-frames/local_instance.cc",
+        "1940-ddms-ext/ddm_ext.cc",
         "1941-dispose-stress/dispose_stress.cc",
         "1942-suspend-raw-monitor-exit/native_suspend_monitor.cc",
         "1943-suspend-raw-monitor-wait/native_suspend_monitor.cc",
@@ -709,6 +752,7 @@ art_cc_defaults {
         "2005-pause-all-redefine-multithreaded/pause-all.cc",
         "2009-structural-local-ref/local-ref.cc",
         "2035-structural-native-method/structural-native.cc",
+	"2243-single-step-default/single_step_helper.cc"
     ],
     // Use NDK-compatible headers for ctstiagent.
     header_libs: [
@@ -736,7 +780,7 @@ art_cc_defaults {
         "936-search-onload/search_onload.cc",
         "980-redefine-object/redef_object.cc",
         "983-source-transform-verify/source_transform_art.cc",
-        "1940-ddms-ext/ddm_ext.cc",
+        "993-breakpoints-non-debuggable/native_attach_agent.cc",
         // "1952-pop-frame-jit/pop_frame.cc",
         "1959-redefine-object-instrument/fake_redef_object.cc",
         "1960-obsolete-jit-multithread-native/native_say_hi.cc",
@@ -933,6 +977,7 @@ cc_defaults {
         "800-smali/jni.cc",
         "817-hiddenapi/test_native.cc",
         "909-attach-agent/disallow_debugging.cc",
+        "993-breakpoints-non-debuggable/native_attach_agent.cc",
         "1001-app-image-regions/app_image_regions.cc",
         "1002-notify-startup/startup_interface.cc",
         "1947-breakpoint-redefine-deopt/check_deopt.cc",
@@ -945,14 +990,15 @@ cc_defaults {
         "2037-thread-name-inherit/thread_name_inherit.cc",
         "2040-huge-native-alloc/huge_native_buf.cc",
         "2235-JdkUnsafeTest/unsafe_test.cc",
+	"2262-miranda-methods/jni_invoke.cc",
         "common/runtime_state.cc",
         "common/stack_inspect.cc",
     ],
     shared_libs: [
-        "libbacktrace",
         "libbase",
         "liblog",
         "libnativehelper",
+        "libunwindstack",
     ],
 }
 
@@ -1037,6 +1083,7 @@ java_library {
         "992-source-data/src/art/Test992.java",
         "992-source-data/src/art/Target2.java",
         "993-breakpoints/src/art/Test993.java",
+        "993-breakpoints-non-debuggable/src/art/Test993AttachAgent.java",
         "994-breakpoint-line/src/art/Test994.java",
         "995-breakpoints-throw/src/art/Test995.java",
         "996-breakpoint-obsolete/src/art/Test996.java",
@@ -1075,6 +1122,7 @@ java_library {
         "1936-thread-end-events/src/art/Test1936.java",
         "1937-transform-soft-fail/src/art/Test1937.java",
         "1939-proxy-frames/src/art/Test1939.java",
+        "1940-ddms-ext/src-art/art/Test1940.java",
         "1941-dispose-stress/src/art/Test1941.java",
         "1942-suspend-raw-monitor-exit/src/art/Test1942.java",
         "1943-suspend-raw-monitor-wait/src/art/Test1943.java",
@@ -1121,6 +1169,8 @@ java_library {
         "2007-virtual-structural-finalizable/src-art/art/Test2007.java",
     ],
     sdk_version: "core_platform",
+    // Make sure that this will be added to the sdk snapshot for S.
+    min_sdk_version: "S",
     // Some ART run-tests contain constructs which break ErrorProne checks;
     // disable `errorprone` builds.
     errorprone: {
@@ -1182,6 +1232,7 @@ java_genrule {
         "992-source-data/expected-stdout.txt",
         // Need to avoid using hidden-apis
         "993-breakpoints/expected_cts.txt",
+        "993-breakpoints-non-debuggable/expected_cts.txt",
         "994-breakpoint-line/expected-stdout.txt",
         "995-breakpoints-throw/expected-stdout.txt",
         "996-breakpoint-obsolete/expected-stdout.txt",
@@ -1220,6 +1271,7 @@ java_genrule {
         "1936-thread-end-events/expected-stdout.txt",
         "1937-transform-soft-fail/expected-stdout.txt",
         "1939-proxy-frames/expected-stdout.txt",
+        "1940-ddms-ext/expected-stdout.txt",
         "1941-dispose-stress/expected-stdout.txt",
         "1942-suspend-raw-monitor-exit/expected-stdout.txt",
         "1943-suspend-raw-monitor-wait/expected-stdout.txt",
@@ -1284,6 +1336,8 @@ java_library {
         "expected_cts_outputs_gen",
     ],
     sdk_version: "core_current",
+    // Make sure that this will be added to the sdk snapshot for S.
+    min_sdk_version: "S",
 }
 
 art_cc_test {
@@ -1349,38 +1403,12 @@ csuite_test {
     test_config_template: "csuite-app-compile-launch.xml",
 }
 
-// Install run-test data in the output directory.
-prebuilt_etc_host {
-    name: "art-run-test-host-data",
-    defaults: ["art_module_source_build_prebuilt_defaults"],
-    src: ":art-run-test-host-data-merged",
-    sub_dir: "art",
-    filename: "art-run-test-host-data.zip",
-}
-
-// Install run-test data in the output directory.
-prebuilt_etc_host {
-    name: "art-run-test-jvm-data",
-    defaults: ["art_module_source_build_prebuilt_defaults"],
-    src: ":art-run-test-jvm-data-merged",
-    sub_dir: "art",
-    filename: "art-run-test-jvm-data.zip",
-}
-
-// Install run-test data in the output directory.
-prebuilt_etc_host {
-    name: "art-run-test-target-data",
-    defaults: ["art_module_source_build_prebuilt_defaults"],
-    src: ":art-run-test-target-data-merged",
-    sub_dir: "art",
-    filename: "art-run-test-target-data.zip",
-}
-
 filegroup {
     name: "art-gtest-jars",
     srcs: [
         ":art-gtest-jars-AbstractMethod",
         ":art-gtest-jars-AllFields",
+        ":art-gtest-jars-ArrayClassWithUnresolvedComponent",
         ":art-gtest-jars-DefaultMethods",
         ":art-gtest-jars-ErroneousA",
         ":art-gtest-jars-ErroneousB",
@@ -1427,6 +1455,7 @@ filegroup {
         ":art-gtest-jars-MainStripped",
         ":art-gtest-jars-MainUncompressedAligned",
         ":art-gtest-jars-MultiDexUncompressedAligned",
+        ":art-gtest-jars-SuperWithAccessChecks",
         ":art-gtest-jars-VerifierDeps",
         ":art-gtest-jars-VerifierDepsMulti",
         ":art-gtest-jars-VerifySoftFailDuringClinit",
@@ -1832,6 +1861,20 @@ genrule {
 }
 
 genrule {
+    name: "art-gtest-jars-ArrayClassWithUnresolvedComponent",
+    defaults: ["art-gtest-jars-smali-defaults"],
+    srcs: ["ArrayClassWithUnresolvedComponent/*.smali"],
+    out: ["art-gtest-jars-ArrayClassWithUnresolvedComponent.dex"],
+}
+
+genrule {
+    name: "art-gtest-jars-SuperWithAccessChecks",
+    defaults: ["art-gtest-jars-smali-defaults"],
+    srcs: ["SuperWithAccessChecks/*.smali"],
+    out: ["art-gtest-jars-SuperWithAccessChecks.dex"],
+}
+
+genrule {
     name: "art-gtest-jars-LinkageTest",
     defaults: ["art-gtest-jars-smali-defaults"],
     srcs: ["LinkageTest/*.smali"],
@@ -1853,11 +1896,7 @@ genrule_defaults {
         "art_module_source_build_genrule_defaults",
     ],
     tool_files: [
-        "run-test-build.py",
-        "buildfailures.json",
-        "etc/default-build",
-        "etc/default-run",
-        "etc/default-check",
+        "run_test_build.py",
         ":art-run-test-bootclasspath",
     ],
     tools: [

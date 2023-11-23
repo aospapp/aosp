@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
- * Copyright (c) 1994, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1994, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,9 +27,10 @@
 package java.lang;
 
 import dalvik.annotation.optimization.FastNative;
+import dalvik.annotation.optimization.NeverInline;
 
-import  java.io.*;
-import  java.util.*;
+import java.io.*;
+import java.util.*;
 
 /**
  * The {@code Throwable} class is the superclass of all errors and
@@ -109,7 +110,6 @@ import  java.util.*;
  * {@code String} (the detail message) and a {@code Throwable} (the
  * cause).
  *
- * @author  unascribed
  * @author  Josh Bloch (Added exception chaining and programmatic access to
  *          stack trace in 1.4.)
  * @jls 11.2 Compile-Time Checking of Exceptions
@@ -117,6 +117,7 @@ import  java.util.*;
  */
 public class Throwable implements Serializable {
     /** use serialVersionUID from JDK 1.0.2 for interoperability */
+    @java.io.Serial
     private static final long serialVersionUID = -3042686055658047285L;
 
     /**
@@ -228,8 +229,7 @@ public class Throwable implements Serializable {
     /*
     // Setting this static field introduces an acceptable
     // initialization dependency on a few java.util classes.
-    private static final List<Throwable> SUPPRESSED_SENTINEL =
-        Collections.unmodifiableList(new ArrayList<Throwable>(0));
+    private static final List<Throwable> SUPPRESSED_SENTINEL = Collections.emptyList();
     */
 
     /**
@@ -242,9 +242,10 @@ public class Throwable implements Serializable {
      * @serial
      * @since 1.7
      */
-    // Android-changed: Use empty collection in place of SUPPRESSED_SENTINEL.
-    // private List<Throwable> suppressedExceptions = SUPPRESSED_SENTINEL;
-    private List<Throwable> suppressedExceptions = Collections.emptyList();
+     // Android-changed: Use empty collection in place of SUPPRESSED_SENTINEL.
+     // @SuppressWarnings("serial") // Not statically typed as Serializable
+     // private List<Throwable> suppressedExceptions = SUPPRESSED_SENTINEL;
+     private List<Throwable> suppressedExceptions = Collections.emptyList();
 
     /** Message for trying to suppress a null exception. */
     private static final String NULL_CAUSE_MESSAGE = "Cannot suppress a null exception.";
@@ -481,6 +482,16 @@ public class Throwable implements Serializable {
         return this;
     }
 
+    /*
+     * This is called by readObject of a few exceptions such as
+     * ClassNotFoundException and ExceptionInInitializerError to deserialize
+     * a stream output from an older runtime version where the cause may
+     * have set to null.
+     */
+    final void setCause(Throwable t) {
+        this.cause = t;
+    }
+
     /**
      * Returns a short description of this throwable.
      * The result is the concatenation of:
@@ -621,7 +632,7 @@ public class Throwable implements Serializable {
      *          ... 1 more
      * </pre>
      * Note that the "... n more" notation is used on suppressed exceptions
-     * just at it is used on causes. Unlike causes, suppressed exceptions are
+     * just as it is used on causes. Unlike causes, suppressed exceptions are
      * indented beyond their "containing exceptions."
      *
      * <p>An exception can have both a cause and one or more suppressed
@@ -666,8 +677,7 @@ public class Throwable implements Serializable {
     private void printStackTrace(PrintStreamOrWriter s) {
         // Guard against malicious overrides of Throwable.equals by
         // using a Set with identity equality semantics.
-        Set<Throwable> dejaVu =
-            Collections.newSetFromMap(new IdentityHashMap<Throwable, Boolean>());
+        Set<Throwable> dejaVu = Collections.newSetFromMap(new IdentityHashMap<>());
         dejaVu.add(this);
 
         synchronized (s.lock()) {
@@ -799,6 +809,8 @@ public class Throwable implements Serializable {
      * @return  a reference to this {@code Throwable} instance.
      * @see     java.lang.Throwable#printStackTrace()
      */
+    // Android-changed: Add @NeverInline to keep code size low.
+    @NeverInline
     public synchronized Throwable fillInStackTrace() {
         if (stackTrace != null ||
             backtrace != null /* Out of protocol state */ ) {
@@ -853,10 +865,7 @@ public class Throwable implements Serializable {
         if (stackTrace == libcore.util.EmptyArray.STACK_TRACE_ELEMENT ||
             (stackTrace == null && backtrace != null) /* Out of protocol state */) {
             // BEGIN Android-changed: Use Android-specific nativeGetStackTrace.
-            // int depth = getStackTraceDepth();
-            // stackTrace = new StackTraceElement[depth];
-            // for (int i=0; i < depth; i++)
-            //     stackTrace[i] = getStackTraceElement(i);
+            // stackTrace = StackTraceElement.of(this, depth);
             stackTrace = nativeGetStackTrace(backtrace);
             backtrace = null;
             if (stackTrace == null) {
@@ -943,7 +952,12 @@ public class Throwable implements Serializable {
      * Note that there are no constraints on the value the {@code
      * cause} field can hold; both {@code null} and {@code this} are
      * valid values for the field.
+     *
+     * @param  s the {@code ObjectInputStream} from which data is read
+     * @throws IOException if an I/O error occurs
+     * @throws ClassNotFoundException if a serialized class cannot be loaded
      */
+    @java.io.Serial
     private void readObject(ObjectInputStream s)
         throws IOException, ClassNotFoundException {
         s.defaultReadObject();     // read in all fields
@@ -969,8 +983,7 @@ public class Throwable implements Serializable {
                 for (Throwable t : candidateSuppressedExceptions) {
                     // Enforce constraints on suppressed exceptions in
                     // case of corrupt or malicious stream.
-                    if (t == null)
-                        throw new NullPointerException(NULL_CAUSE_MESSAGE);
+                    Objects.requireNonNull(t, NULL_CAUSE_MESSAGE);
                     if (t == this)
                         throw new IllegalArgumentException(SELF_SUPPRESSION_MESSAGE);
                     suppList.add(t);
@@ -1003,8 +1016,7 @@ public class Throwable implements Serializable {
                     stackTrace = null;
                 } else { // Verify stack trace elements are non-null.
                     for (StackTraceElement ste : candidateStackTrace) {
-                        if (ste == null)
-                            throw new NullPointerException("null StackTraceElement in serial stream.");
+                        Objects.requireNonNull(ste, "null StackTraceElement in serial stream.");
                     }
                     stackTrace = candidateStackTrace;
                 }
@@ -1042,7 +1054,11 @@ public class Throwable implements Serializable {
      * A {@code null} stack trace field is represented in the serial
      * form as a one-element array whose element is equal to {@code
      * new StackTraceElement("", "", null, Integer.MIN_VALUE)}.
+     *
+     * @param  s the {@code ObjectOutputStream} to which data is written
+     * @throws IOException if an I/O error occurs
      */
+    @java.io.Serial
     private synchronized void writeObject(ObjectOutputStream s)
         throws IOException {
         // Ensure that the stackTrace field is initialized to a
@@ -1115,8 +1131,7 @@ public class Throwable implements Serializable {
         if (exception == this)
             throw new IllegalArgumentException(SELF_SUPPRESSION_MESSAGE, exception);
 
-        if (exception == null)
-            throw new NullPointerException(NULL_CAUSE_MESSAGE);
+        Objects.requireNonNull(exception, NULL_CAUSE_MESSAGE);
 
         if (suppressedExceptions == null) // Suppressed exceptions not recorded
             return;

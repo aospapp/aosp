@@ -1,13 +1,14 @@
-# Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2021 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = 'wiley, pstew, quiche'
+AUTHOR = 'arowa'
 NAME = 'network_WiFi_AttenuatedPerf.ht40_ch006'
 ATTRIBUTES = "suite:wifi_atten_perf"
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
 DEPENDENCIES = 'wificell'
+PY_VERSION = 3
 
 DOC = """
 This test uses netperf to measure the maximal receiving and transmitting

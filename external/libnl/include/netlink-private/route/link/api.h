@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * netlink-private/route/link/api.h	Link Modules API
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2013 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -68,6 +62,7 @@ struct rtnl_link_info_ops
 };
 
 extern struct rtnl_link_info_ops *rtnl_link_info_ops_lookup(const char *);
+extern void			rtnl_link_info_ops_get(struct rtnl_link_info_ops *);
 extern void			rtnl_link_info_ops_put(struct rtnl_link_info_ops *);
 extern int			rtnl_link_register_info(struct rtnl_link_info_ops *);
 extern int			rtnl_link_unregister_info(struct rtnl_link_info_ops *);

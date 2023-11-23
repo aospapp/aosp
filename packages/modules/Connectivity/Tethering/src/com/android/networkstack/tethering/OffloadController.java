@@ -26,8 +26,8 @@ import static android.net.NetworkStats.UID_TETHERING;
 import static android.net.netstats.provider.NetworkStatsProvider.QUOTA_UNLIMITED;
 import static android.provider.Settings.Global.TETHER_OFFLOAD_DISABLED;
 
-import static com.android.networkstack.tethering.OffloadHardwareInterface.OFFLOAD_HAL_VERSION_1_0;
-import static com.android.networkstack.tethering.OffloadHardwareInterface.OFFLOAD_HAL_VERSION_1_1;
+import static com.android.networkstack.tethering.OffloadHardwareInterface.OFFLOAD_HAL_VERSION_HIDL_1_0;
+import static com.android.networkstack.tethering.OffloadHardwareInterface.OFFLOAD_HAL_VERSION_HIDL_1_1;
 import static com.android.networkstack.tethering.OffloadHardwareInterface.OFFLOAD_HAL_VERSION_NONE;
 import static com.android.networkstack.tethering.TetheringConfiguration.DEFAULT_TETHER_OFFLOAD_POLL_INTERVAL_MS;
 
@@ -43,7 +43,6 @@ import android.net.NetworkStats;
 import android.net.NetworkStats.Entry;
 import android.net.RouteInfo;
 import android.net.netstats.provider.NetworkStatsProvider;
-import android.net.util.SharedLog;
 import android.os.Handler;
 import android.provider.Settings;
 import android.system.ErrnoException;
@@ -53,9 +52,10 @@ import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.IndentingPrintWriter;
+import com.android.net.module.util.SharedLog;
 import com.android.net.module.util.netlink.ConntrackMessage;
 import com.android.net.module.util.netlink.NetlinkConstants;
-import com.android.net.module.util.netlink.NetlinkSocket;
+import com.android.net.module.util.netlink.NetlinkUtils;
 import com.android.networkstack.tethering.OffloadHardwareInterface.ForwardedStats;
 
 import java.net.Inet4Address;
@@ -98,9 +98,8 @@ public class OffloadController {
     private final OffloadTetheringStatsProvider mStatsProvider;
     private final SharedLog mLog;
     private final HashMap<String, LinkProperties> mDownstreams;
-    private boolean mConfigInitialized;
     @OffloadHardwareInterface.OffloadHalVersion
-    private int mControlHalVersion;
+    private int mOffloadHalVersion;
     private LinkProperties mUpstreamLinkProperties;
     // The complete set of offload-exempt prefixes passed in via Tethering from
     // all upstream and downstream sources.
@@ -205,20 +204,11 @@ public class OffloadController {
             return false;
         }
 
-        if (!mConfigInitialized) {
-            mConfigInitialized = mHwInterface.initOffloadConfig();
-            if (!mConfigInitialized) {
-                mLog.i("tethering offload config not supported");
-                stop();
-                return false;
-            }
-        }
-
-        mControlHalVersion = mHwInterface.initOffloadControl(
+        mOffloadHalVersion = mHwInterface.initOffload(
                 // OffloadHardwareInterface guarantees that these callback
                 // methods are called on the handler passed to it, which is the
                 // same as mHandler, as coordinated by the setup in Tethering.
-                new OffloadHardwareInterface.ControlCallback() {
+                new OffloadHardwareInterface.OffloadHalCallback() {
                     @Override
                     public void onStarted() {
                         if (!started()) return;
@@ -305,11 +295,11 @@ public class OffloadController {
 
         final boolean isStarted = started();
         if (!isStarted) {
-            mLog.i("tethering offload control not supported");
+            mLog.i("tethering offload not supported");
             stop();
         } else {
             mLog.log("tethering offload started, version: "
-                    + OffloadHardwareInterface.halVerToString(mControlHalVersion));
+                    + OffloadHardwareInterface.halVerToString(mOffloadHalVersion));
             mNatUpdateCallbacksReceived = 0;
             mNatUpdateNetlinkErrors = 0;
             maybeSchedulePollingStats();
@@ -325,9 +315,8 @@ public class OffloadController {
         final boolean wasStarted = started();
         updateStatsForCurrentUpstream();
         mUpstreamLinkProperties = null;
-        mHwInterface.stopOffloadControl();
-        mControlHalVersion = OFFLOAD_HAL_VERSION_NONE;
-        mConfigInitialized = false;
+        mHwInterface.stopOffload();
+        mOffloadHalVersion = OFFLOAD_HAL_VERSION_NONE;
         if (mHandler.hasCallbacks(mScheduledPollingTask)) {
             mHandler.removeCallbacks(mScheduledPollingTask);
         }
@@ -335,7 +324,7 @@ public class OffloadController {
     }
 
     private boolean started() {
-        return mConfigInitialized && mControlHalVersion != OFFLOAD_HAL_VERSION_NONE;
+        return mOffloadHalVersion != OFFLOAD_HAL_VERSION_NONE;
     }
 
     @VisibleForTesting
@@ -528,7 +517,7 @@ public class OffloadController {
     }
 
     private boolean useStatsPolling() {
-        return mControlHalVersion == OFFLOAD_HAL_VERSION_1_0;
+        return mOffloadHalVersion == OFFLOAD_HAL_VERSION_HIDL_1_0;
     }
 
     private boolean maybeUpdateDataWarningAndLimit(String iface) {
@@ -540,7 +529,7 @@ public class OffloadController {
 
         final InterfaceQuota quota = mInterfaceQuotas.getOrDefault(iface, InterfaceQuota.MAX_VALUE);
         final boolean ret;
-        if (mControlHalVersion >= OFFLOAD_HAL_VERSION_1_1) {
+        if (mOffloadHalVersion >= OFFLOAD_HAL_VERSION_HIDL_1_1) {
             ret = mHwInterface.setDataWarningAndLimit(iface, quota.warningBytes, quota.limitBytes);
         } else {
             ret = mHwInterface.setDataLimit(iface, quota.limitBytes);
@@ -611,7 +600,7 @@ public class OffloadController {
         for (RouteInfo ri : oldRoutes) {
             if (shouldIgnoreDownstreamRoute(ri)) continue;
             if (!newRoutes.contains(ri)) {
-                mHwInterface.removeDownstreamPrefix(ifname, ri.getDestination().toString());
+                mHwInterface.removeDownstream(ifname, ri.getDestination().toString());
             }
         }
 
@@ -619,7 +608,7 @@ public class OffloadController {
         for (RouteInfo ri : newRoutes) {
             if (shouldIgnoreDownstreamRoute(ri)) continue;
             if (!oldRoutes.contains(ri)) {
-                mHwInterface.addDownstreamPrefix(ifname, ri.getDestination().toString());
+                mHwInterface.addDownstream(ifname, ri.getDestination().toString());
             }
         }
     }
@@ -639,7 +628,7 @@ public class OffloadController {
 
         for (RouteInfo route : lp.getRoutes()) {
             if (shouldIgnoreDownstreamRoute(route)) continue;
-            mHwInterface.removeDownstreamPrefix(ifname, route.getDestination().toString());
+            mHwInterface.removeDownstream(ifname, route.getDestination().toString());
         }
     }
 
@@ -768,11 +757,21 @@ public class OffloadController {
         final boolean isStarted = started();
         pw.println("Offload HALs " + (isStarted ? "started" : "not started"));
         pw.println("Offload Control HAL version: "
-                + OffloadHardwareInterface.halVerToString(mControlHalVersion));
+                + OffloadHardwareInterface.halVerToString(mOffloadHalVersion));
         LinkProperties lp = mUpstreamLinkProperties;
         String upstream = (lp != null) ? lp.getInterfaceName() : null;
         pw.println("Current upstream: " + upstream);
         pw.println("Exempt prefixes: " + mLastLocalPrefixStrs);
+        pw.println("ForwardedStats:");
+        pw.increaseIndent();
+        if (mForwardedStats.isEmpty()) {
+            pw.println("<empty>");
+        } else {
+            for (final Map.Entry<String, ForwardedStats> kv : mForwardedStats.entrySet()) {
+                pw.println(kv.getKey() + ": " + kv.getValue());
+            }
+        }
+        pw.decreaseIndent();
         pw.println("NAT timeout update callbacks received during the "
                 + (isStarted ? "current" : "last")
                 + " offload session: "
@@ -825,7 +824,7 @@ public class OffloadController {
                 proto, src, srcPort, dst, dstPort, timeoutSec);
 
         try {
-            NetlinkSocket.sendOneShotKernelMessage(OsConstants.NETLINK_NETFILTER, msg);
+            NetlinkUtils.sendOneShotKernelMessage(OsConstants.NETLINK_NETFILTER, msg);
         } catch (ErrnoException e) {
             mNatUpdateNetlinkErrors++;
             mLog.e("Error updating NAT conntrack entry >" + natDescription + "<: " + e

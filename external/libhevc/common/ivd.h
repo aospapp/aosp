@@ -67,7 +67,8 @@ typedef enum
     ARCH_X86_SSE42,
     ARCH_X86_AVX2,
     ARCH_MIPS_GENERIC       =   0x200,
-    ARCH_MIPS_32
+    ARCH_MIPS_32,
+    ARCH_RISCV64_GENERIC    =   0x400,
 }IVD_ARCH_T;
 
 /* IVD_SOC_T: SOC Enumeration                               */

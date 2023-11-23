@@ -122,7 +122,7 @@ public class WifiStateSwitchPreferenceController extends
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         if (mIsPowerPolicyOn) {
             return WifiUtil.getAvailabilityStatus(getContext());
         }

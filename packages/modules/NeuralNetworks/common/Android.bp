@@ -228,6 +228,7 @@ cc_library_static {
     defaults: [
         "libneuralnetworks_common_defaults",
     ],
+    min_sdk_version: "30",
 }
 
 cc_library_static {
@@ -362,7 +363,6 @@ cc_library_static {
 cc_defaults {
     name: "NeuralNetworksTest_common",
     defaults: [
-        "neuralnetworks_float16",
         "neuralnetworks_use_latest_utils_hal_aidl",
     ],
     host_supported: true,
@@ -415,6 +415,9 @@ cc_test {
         "libeigen",
         "philox_random_headers",
         "tensorflow_headers",
+    ],
+    test_suites: [
+        "general-tests",
     ],
 }
 

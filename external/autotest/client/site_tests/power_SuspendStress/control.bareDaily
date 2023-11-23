@@ -10,6 +10,8 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+EXTENDED_TIMEOUT = 7500
+PY_VERSION = 3
 
 DOC = """
 Runs 250 iterations (~30mins) of bare suspend/resume cycles without additional

@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"藍牙"</string>
     <string name="unknown_device" msgid="2317679521750821654">"不明裝置"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"未知"</string>
+    <string name="not_provided" msgid="6938740494380012614">"未提供"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"飛行模式"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"裝置處於飛行模式時，無法使用藍牙功能。"</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -118,7 +119,7 @@
     <string name="bluetooth_a2dp_sink_queue_name" msgid="7521243473328258997">"歌曲識別"</string>
     <string name="bluetooth_map_settings_save" msgid="8309113239113961550">"儲存"</string>
     <string name="bluetooth_map_settings_cancel" msgid="3374494364625947793">"取消"</string>
-    <string name="bluetooth_map_settings_intro" msgid="4748160773998753325">"選取您要透過藍牙分享的帳戶。連線時，您仍然必須接受所有帳戶存取要求。"</string>
+    <string name="bluetooth_map_settings_intro" msgid="4748160773998753325">"選取你要透過藍牙分享的帳戶。連線時，你仍然必須接受所有帳戶存取要求。"</string>
     <string name="bluetooth_map_settings_count" msgid="183013143617807702">"剩餘插槽數："</string>
     <string name="bluetooth_map_settings_app_icon" msgid="3501432663809664982">"應用程式圖示"</string>
     <string name="bluetooth_map_settings_title" msgid="4226030082708590023">"藍牙訊息分享設定"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"藍牙音訊"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"無法轉移 4 GB 以上的檔案"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"連接藍牙"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"在飛航模式中保持藍牙開啟"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"如果你不關閉藍牙，下次裝置進入飛行模式時，藍牙將保持開啟"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"保持藍牙連線"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"裝置會記得在飛行模式下保持藍牙開啟。如果你不希望保持開啟，請關閉藍牙。"</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi 和藍牙保持開啟"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"裝置會記得在飛行模式下保持 Wi-Fi 及藍牙開啟。如果你不希望保持開啟，請關閉 Wi-Fi 及藍牙。"</string>
 </resources>

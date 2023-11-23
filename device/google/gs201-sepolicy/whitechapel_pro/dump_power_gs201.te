@@ -1,0 +1,30 @@
+
+pixel_bugreport(dump_power_gs201)
+allow dump_power_gs201 sysfs_acpm_stats:dir r_dir_perms;
+allow dump_power_gs201 sysfs_acpm_stats:file r_file_perms;
+allow dump_power_gs201 sysfs_cpu:file r_file_perms;
+allow dump_power_gs201 vendor_toolbox_exec:file execute_no_trans;
+allow dump_power_gs201 logbuffer_device:chr_file r_file_perms;
+allow dump_power_gs201 mitigation_vendor_data_file:dir r_dir_perms;
+allow dump_power_gs201 sysfs:dir r_dir_perms;
+allow dump_power_gs201 sysfs_batteryinfo:dir r_dir_perms;
+allow dump_power_gs201 sysfs_batteryinfo:file r_file_perms;
+allow dump_power_gs201 sysfs_bcl:dir r_dir_perms;
+allow dump_power_gs201 sysfs_bcl:file r_file_perms;
+allow dump_power_gs201 sysfs_wlc:dir r_dir_perms;
+allow dump_power_gs201 sysfs_wlc:file r_file_perms;
+allow dump_power_gs201 battery_history_device:chr_file r_file_perms;
+allow dump_power_gs201 mitigation_vendor_data_file:file r_file_perms;
+
+userdebug_or_eng(`
+  allow dump_power_gs201 debugfs:dir r_dir_perms;
+  allow dump_power_gs201 vendor_battery_debugfs:dir r_dir_perms;
+  allow dump_power_gs201 vendor_battery_debugfs:file r_file_perms;
+  allow dump_power_gs201 vendor_charger_debugfs:dir r_dir_perms;
+  allow dump_power_gs201 vendor_charger_debugfs:file r_file_perms;
+  allow dump_power_gs201 vendor_pm_genpd_debugfs:file r_file_perms;
+  allow dump_power_gs201 vendor_maxfg_debugfs:dir r_dir_perms;
+  allow dump_power_gs201 vendor_maxfg_debugfs:file r_file_perms;
+  allow dump_power_gs201 vendor_votable_debugfs:dir r_dir_perms;
+  allow dump_power_gs201 vendor_votable_debugfs:file r_file_perms;
+')

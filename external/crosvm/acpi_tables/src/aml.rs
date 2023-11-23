@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -24,6 +24,7 @@ const QWORDPREFIX: u8 = 0x0e;
 const SCOPEOP: u8 = 0x10;
 const BUFFEROP: u8 = 0x11;
 const PACKAGEOP: u8 = 0x12;
+const VARPACKAGEOP: u8 = 0x13;
 const METHODOP: u8 = 0x14;
 const DUALNAMEPREFIX: u8 = 0x2e;
 const MULTINAMEPREFIX: u8 = 0x2f;
@@ -31,11 +32,13 @@ const NAMECHARBASE: u8 = 0x40;
 
 const EXTOPPREFIX: u8 = 0x5b;
 const MUTEXOP: u8 = 0x01;
+const CREATEFIELDOP: u8 = 0x13;
 const ACQUIREOP: u8 = 0x23;
 const RELEASEOP: u8 = 0x27;
 const OPREGIONOP: u8 = 0x80;
 const FIELDOP: u8 = 0x81;
 const DEVICEOP: u8 = 0x82;
+const POWERRESOURCEOP: u8 = 0x84;
 
 const LOCAL0OP: u8 = 0x60;
 const ARG0OP: u8 = 0x68;
@@ -51,14 +54,23 @@ const NANDOP: u8 = 0x7c;
 const OROP: u8 = 0x7d;
 const NOROP: u8 = 0x7e;
 const XOROP: u8 = 0x7f;
+const DEREFOFOP: u8 = 0x83;
 const CONCATRESOP: u8 = 0x84;
 const MODOP: u8 = 0x85;
 const NOTIFYOP: u8 = 0x86;
+const SIZEOFOP: u8 = 0x87;
 const INDEXOP: u8 = 0x88;
 const CREATEDWFIELDOP: u8 = 0x8a;
+const OBJECTTYPEOP: u8 = 0x8e;
+const CREATEQWFIELDOP: u8 = 0x8f;
+const LNOTOP: u8 = 0x92;
 const LEQUALOP: u8 = 0x93;
+const LGREATEROP: u8 = 0x94;
 const LLESSOP: u8 = 0x95;
+const TOBUFFEROP: u8 = 0x96;
+const TOINTEGEROP: u8 = 0x99;
 const TOSTRINGOP: u8 = 0x9c;
+const MIDOP: u8 = 0x9e;
 const IFOP: u8 = 0xa0;
 const ELSEOP: u8 = 0xa1;
 const WHILEOP: u8 = 0xa2;
@@ -163,8 +175,14 @@ pub type Byte = u8;
 
 impl Aml for Byte {
     fn to_aml_bytes(&self, bytes: &mut Vec<u8>) {
-        bytes.push(BYTEPREFIX);
-        bytes.push(*self);
+        match *self {
+            0 => ZERO.to_aml_bytes(bytes),
+            1 => ONE.to_aml_bytes(bytes),
+            _ => {
+                bytes.push(BYTEPREFIX);
+                bytes.push(*self);
+            }
+        }
     }
 }
 
@@ -172,8 +190,12 @@ pub type Word = u16;
 
 impl Aml for Word {
     fn to_aml_bytes(&self, bytes: &mut Vec<u8>) {
-        bytes.push(WORDPREFIX);
-        bytes.append(&mut self.to_le_bytes().to_vec());
+        if *self <= Byte::max_value().into() {
+            (*self as Byte).to_aml_bytes(bytes);
+        } else {
+            bytes.push(WORDPREFIX);
+            bytes.append(&mut self.to_le_bytes().to_vec());
+        }
     }
 }
 
@@ -181,8 +203,12 @@ pub type DWord = u32;
 
 impl Aml for DWord {
     fn to_aml_bytes(&self, bytes: &mut Vec<u8>) {
-        bytes.push(DWORDPREFIX);
-        bytes.append(&mut self.to_le_bytes().to_vec());
+        if *self <= Word::max_value().into() {
+            (*self as Word).to_aml_bytes(bytes);
+        } else {
+            bytes.push(DWORDPREFIX);
+            bytes.append(&mut self.to_le_bytes().to_vec());
+        }
     }
 }
 
@@ -190,8 +216,12 @@ pub type QWord = u64;
 
 impl Aml for QWord {
     fn to_aml_bytes(&self, bytes: &mut Vec<u8>) {
-        bytes.push(QWORDPREFIX);
-        bytes.append(&mut self.to_le_bytes().to_vec());
+        if *self <= DWord::max_value().into() {
+            (*self as DWord).to_aml_bytes(bytes);
+        } else {
+            bytes.push(QWORDPREFIX);
+            bytes.append(&mut self.to_le_bytes().to_vec());
+        }
     }
 }
 
@@ -256,6 +286,35 @@ impl<'a> Package<'a> {
     /// Create Package object:
     pub fn new(children: Vec<&'a dyn Aml>) -> Self {
         Package { children }
+    }
+}
+
+/// Variable Package Term
+pub struct VarPackageTerm<'a> {
+    data: &'a dyn Aml,
+}
+
+impl<'a> Aml for VarPackageTerm<'a> {
+    fn to_aml_bytes(&self, aml: &mut Vec<u8>) {
+        let mut bytes = Vec::new();
+        self.data.to_aml_bytes(&mut bytes);
+
+        let mut pkg_length = create_pkg_length(&bytes, true);
+        pkg_length.reverse();
+        for byte in pkg_length {
+            bytes.insert(0, byte);
+        }
+
+        bytes.insert(0, VARPACKAGEOP);
+
+        aml.append(&mut bytes)
+    }
+}
+
+impl<'a> VarPackageTerm<'a> {
+    /// Create Variable Package Term
+    pub fn new(data: &'a dyn Aml) -> Self {
+        VarPackageTerm { data }
     }
 }
 
@@ -347,23 +406,16 @@ impl Aml for EISAName {
     }
 }
 
-fn create_integer(v: usize, bytes: &mut Vec<u8>) {
-    if v <= u8::max_value().into() {
-        (v as u8).to_aml_bytes(bytes);
-    } else if v <= u16::max_value().into() {
-        (v as u16).to_aml_bytes(bytes);
-    } else if v <= u32::max_value() as usize {
-        (v as u32).to_aml_bytes(bytes);
-    } else {
-        (v as u64).to_aml_bytes(bytes);
-    }
-}
-
 pub type Usize = usize;
 
 impl Aml for Usize {
     fn to_aml_bytes(&self, bytes: &mut Vec<u8>) {
-        create_integer(*self, bytes);
+        #[cfg(target_pointer_width = "16")]
+        (*self as u16).to_aml_bytes(bytes);
+        #[cfg(target_pointer_width = "32")]
+        (*self as u32).to_aml_bytes(bytes);
+        #[cfg(target_pointer_width = "64")]
+        (*self as u64).to_aml_bytes(bytes);
     }
 }
 
@@ -722,6 +774,20 @@ impl<'a> Scope<'a> {
     pub fn new(path: Path, children: Vec<&'a dyn Aml>) -> Self {
         Scope { path, children }
     }
+
+    /// Create raw bytes representing a Scope from its children in raw bytes
+    pub fn raw(path: Path, mut children: Vec<u8>) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        path.to_aml_bytes(&mut bytes);
+        bytes.append(&mut children);
+        let mut pkg_length = create_pkg_length(&bytes, true);
+        pkg_length.reverse();
+        for byte in pkg_length {
+            bytes.insert(0, byte);
+        }
+        bytes.insert(0, SCOPEOP);
+        bytes
+    }
 }
 
 /// Method object with its name, children objects, arguments and serialized character.
@@ -765,26 +831,7 @@ impl<'a> Aml for Method<'a> {
     }
 }
 
-/// Return object with its return value.
-pub struct Return<'a> {
-    value: &'a dyn Aml,
-}
-
-impl<'a> Return<'a> {
-    /// Create Return object
-    pub fn new(value: &'a dyn Aml) -> Self {
-        Return { value }
-    }
-}
-
-impl<'a> Aml for Return<'a> {
-    fn to_aml_bytes(&self, bytes: &mut Vec<u8>) {
-        bytes.push(RETURNOP);
-        self.value.to_aml_bytes(bytes);
-    }
-}
-
-/// FiledAccessType defines the filed accessing types.
+/// FieldAccessType defines the field accessing types.
 #[derive(Clone, Copy)]
 pub enum FieldAccessType {
     Any,
@@ -795,7 +842,14 @@ pub enum FieldAccessType {
     Buffer,
 }
 
-/// FiledUpdateRule defines the rules to update the filed.
+/// FieldLockRule defines the rules whether to use the Global Lock.
+#[derive(Clone, Copy)]
+pub enum FieldLockRule {
+    NoLock = 0,
+    Lock = 1,
+}
+
+/// FieldUpdateRule defines the rules to update the field.
 #[derive(Clone, Copy)]
 pub enum FieldUpdateRule {
     Preserve = 0,
@@ -803,18 +857,19 @@ pub enum FieldUpdateRule {
     WriteAsZeroes = 2,
 }
 
-/// FiledEntry defines the filed entry.
+/// FieldEntry defines the field entry.
 pub enum FieldEntry {
     Named([u8; 4], usize),
     Reserved(usize),
 }
 
-/// Field object with the region name, filed entries, access type and update rules.
+/// Field object with the region name, field entries, access type and update rules.
 pub struct Field {
     path: Path,
 
     fields: Vec<FieldEntry>,
     access_type: FieldAccessType,
+    lock_rule: FieldLockRule,
     update_rule: FieldUpdateRule,
 }
 
@@ -823,12 +878,14 @@ impl Field {
     pub fn new(
         path: Path,
         access_type: FieldAccessType,
+        lock_rule: FieldLockRule,
         update_rule: FieldUpdateRule,
         fields: Vec<FieldEntry>,
     ) -> Self {
         Field {
             path,
             access_type,
+            lock_rule,
             update_rule,
             fields,
         }
@@ -840,7 +897,8 @@ impl Aml for Field {
         let mut bytes = Vec::new();
         self.path.to_aml_bytes(&mut bytes);
 
-        let flags: u8 = self.access_type as u8 | (self.update_rule as u8) << 5;
+        let flags: u8 =
+            self.access_type as u8 | (self.lock_rule as u8) << 4 | (self.update_rule as u8) << 5;
         bytes.push(flags);
 
         for field in self.fields.iter() {
@@ -884,16 +942,16 @@ pub enum OpRegionSpace {
 }
 
 /// OperationRegion object with region name, region space type, its offset and length.
-pub struct OpRegion {
+pub struct OpRegion<'a> {
     path: Path,
     space: OpRegionSpace,
-    offset: usize,
-    length: usize,
+    offset: &'a dyn Aml,
+    length: &'a dyn Aml,
 }
 
-impl OpRegion {
+impl<'a> OpRegion<'a> {
     /// Create OperationRegion object.
-    pub fn new(path: Path, space: OpRegionSpace, offset: usize, length: usize) -> Self {
+    pub fn new(path: Path, space: OpRegionSpace, offset: &'a dyn Aml, length: &'a dyn Aml) -> Self {
         OpRegion {
             path,
             space,
@@ -903,7 +961,7 @@ impl OpRegion {
     }
 }
 
-impl Aml for OpRegion {
+impl<'a> Aml for OpRegion<'a> {
     fn to_aml_bytes(&self, aml: &mut Vec<u8>) {
         let mut bytes = Vec::new();
         self.path.to_aml_bytes(&mut bytes);
@@ -981,47 +1039,40 @@ impl<'a> Aml for Else<'a> {
     }
 }
 
-/// Equal object with its right part and left part, which are both ACPI objects.
-pub struct Equal<'a> {
-    right: &'a dyn Aml,
-    left: &'a dyn Aml,
+macro_rules! compare_op {
+    ($name:ident, $opcode:expr, $invert:expr) => {
+        /// Compare object with its right part and left part, which are both ACPI Object.
+        pub struct $name<'a> {
+            right: &'a dyn Aml,
+            left: &'a dyn Aml,
+        }
+
+        impl<'a> $name<'a> {
+            /// Create the compare object method.
+            pub fn new(left: &'a dyn Aml, right: &'a dyn Aml) -> Self {
+                $name { left, right }
+            }
+        }
+
+        impl<'a> Aml for $name<'a> {
+            fn to_aml_bytes(&self, bytes: &mut Vec<u8>) {
+                if $invert {
+                    bytes.push(LNOTOP);
+                }
+                bytes.push($opcode);
+                self.left.to_aml_bytes(bytes);
+                self.right.to_aml_bytes(bytes);
+            }
+        }
+    };
 }
 
-impl<'a> Equal<'a> {
-    /// Create Equal object.
-    pub fn new(left: &'a dyn Aml, right: &'a dyn Aml) -> Self {
-        Equal { left, right }
-    }
-}
-
-impl<'a> Aml for Equal<'a> {
-    fn to_aml_bytes(&self, bytes: &mut Vec<u8>) {
-        bytes.push(LEQUALOP);
-        self.left.to_aml_bytes(bytes);
-        self.right.to_aml_bytes(bytes);
-    }
-}
-
-/// LessThan object with its right part and left part, which are both ACPI objects.
-pub struct LessThan<'a> {
-    right: &'a dyn Aml,
-    left: &'a dyn Aml,
-}
-
-impl<'a> LessThan<'a> {
-    /// Create LessThan object.
-    pub fn new(left: &'a dyn Aml, right: &'a dyn Aml) -> Self {
-        LessThan { left, right }
-    }
-}
-
-impl<'a> Aml for LessThan<'a> {
-    fn to_aml_bytes(&self, bytes: &mut Vec<u8>) {
-        bytes.push(LLESSOP);
-        self.left.to_aml_bytes(bytes);
-        self.right.to_aml_bytes(bytes);
-    }
-}
+compare_op!(Equal, LEQUALOP, false);
+compare_op!(LessThan, LLESSOP, false);
+compare_op!(GreaterThan, LGREATEROP, false);
+compare_op!(NotEqual, LEQUALOP, true);
+compare_op!(GreaterEqual, LLESSOP, true);
+compare_op!(LessEqual, LGREATEROP, true);
 
 /// Argx object.
 pub struct Arg(pub u8);
@@ -1190,6 +1241,34 @@ impl<'a> Aml for While<'a> {
     }
 }
 
+macro_rules! object_op {
+    ($name:ident, $opcode:expr) => {
+        /// General operation on a object.
+        pub struct $name<'a> {
+            a: &'a dyn Aml,
+        }
+
+        impl<'a> $name<'a> {
+            /// Create the object method.
+            pub fn new(a: &'a dyn Aml) -> Self {
+                $name { a }
+            }
+        }
+
+        impl<'a> Aml for $name<'a> {
+            fn to_aml_bytes(&self, bytes: &mut Vec<u8>) {
+                bytes.push($opcode);
+                self.a.to_aml_bytes(bytes);
+            }
+        }
+    };
+}
+
+object_op!(ObjectType, OBJECTTYPEOP);
+object_op!(SizeOf, SIZEOFOP);
+object_op!(Return, RETURNOP);
+object_op!(DeRefOf, DEREFOFOP);
+
 macro_rules! binary_op {
     ($name:ident, $opcode:expr) => {
         /// General operation object with the operator a/b and a target.
@@ -1233,6 +1312,104 @@ binary_op!(Mod, MODOP);
 binary_op!(Index, INDEXOP);
 binary_op!(ToString, TOSTRINGOP);
 binary_op!(CreateDWordField, CREATEDWFIELDOP);
+binary_op!(CreateQWordField, CREATEQWFIELDOP);
+
+macro_rules! convert_op {
+    ($name:ident, $opcode:expr) => {
+        /// General operation object with the operator a/b and a target.
+        pub struct $name<'a> {
+            a: &'a dyn Aml,
+            target: &'a dyn Aml,
+        }
+
+        impl<'a> $name<'a> {
+            /// Create the object.
+            pub fn new(target: &'a dyn Aml, a: &'a dyn Aml) -> Self {
+                $name { target, a }
+            }
+        }
+
+        impl<'a> Aml for $name<'a> {
+            fn to_aml_bytes(&self, bytes: &mut Vec<u8>) {
+                bytes.push($opcode); /* Op for the binary operator */
+                self.a.to_aml_bytes(bytes);
+                self.target.to_aml_bytes(bytes);
+            }
+        }
+    };
+}
+
+convert_op!(ToBuffer, TOBUFFEROP);
+convert_op!(ToInteger, TOINTEGEROP);
+
+/// Create Field Object.
+pub struct CreateField<'a> {
+    name_string: &'a dyn Aml,
+    source: &'a dyn Aml,
+    bit_index: &'a dyn Aml,
+    bit_num: &'a dyn Aml,
+}
+
+impl<'a> CreateField<'a> {
+    pub fn new(
+        name_string: &'a dyn Aml,
+        source: &'a dyn Aml,
+        bit_index: &'a dyn Aml,
+        bit_num: &'a dyn Aml,
+    ) -> Self {
+        CreateField {
+            name_string,
+            source,
+            bit_index,
+            bit_num,
+        }
+    }
+}
+
+impl<'a> Aml for CreateField<'a> {
+    fn to_aml_bytes(&self, bytes: &mut Vec<u8>) {
+        bytes.push(EXTOPPREFIX);
+        bytes.push(CREATEFIELDOP);
+        self.source.to_aml_bytes(bytes);
+        self.bit_index.to_aml_bytes(bytes);
+        self.bit_num.to_aml_bytes(bytes);
+        self.name_string.to_aml_bytes(bytes);
+    }
+}
+
+/// Mid object with the source, index, length, and result objects.
+pub struct Mid<'a> {
+    source: &'a dyn Aml,
+    index: &'a dyn Aml,
+    length: &'a dyn Aml,
+    result: &'a dyn Aml,
+}
+
+impl<'a> Mid<'a> {
+    pub fn new(
+        source: &'a dyn Aml,
+        index: &'a dyn Aml,
+        length: &'a dyn Aml,
+        result: &'a dyn Aml,
+    ) -> Self {
+        Mid {
+            source,
+            index,
+            length,
+            result,
+        }
+    }
+}
+
+impl<'a> Aml for Mid<'a> {
+    fn to_aml_bytes(&self, bytes: &mut Vec<u8>) {
+        bytes.push(MIDOP);
+        self.source.to_aml_bytes(bytes);
+        self.index.to_aml_bytes(bytes);
+        self.length.to_aml_bytes(bytes);
+        self.result.to_aml_bytes(bytes);
+    }
+}
 
 /// MethodCall object with the method name and parameter objects.
 pub struct MethodCall<'a> {
@@ -1256,19 +1433,48 @@ impl<'a> Aml for MethodCall<'a> {
     }
 }
 
-/// Buffer object with the data in it.
-pub struct Buffer {
-    data: Vec<u8>,
+/// Buffer object with the TermArg in it.
+pub struct BufferTerm<'a> {
+    data: &'a dyn Aml,
 }
 
-impl Buffer {
-    /// Create Buffer object.
-    pub fn new(data: Vec<u8>) -> Self {
-        Buffer { data }
+impl<'a> BufferTerm<'a> {
+    /// Create BufferTerm object.
+    pub fn new(data: &'a dyn Aml) -> Self {
+        BufferTerm { data }
     }
 }
 
-impl Aml for Buffer {
+impl<'a> Aml for BufferTerm<'a> {
+    fn to_aml_bytes(&self, aml: &mut Vec<u8>) {
+        let mut bytes = Vec::new();
+        self.data.to_aml_bytes(&mut bytes);
+
+        let mut pkg_length = create_pkg_length(&bytes, true);
+        pkg_length.reverse();
+        for byte in pkg_length {
+            bytes.insert(0, byte);
+        }
+
+        bytes.insert(0, BUFFEROP);
+
+        aml.append(&mut bytes)
+    }
+}
+
+/// Buffer object with the data in it.
+struct BufferData {
+    data: Vec<u8>,
+}
+
+impl BufferData {
+    /// Create BufferData object.
+    pub fn new(data: Vec<u8>) -> Self {
+        BufferData { data }
+    }
+}
+
+impl Aml for BufferData {
     fn to_aml_bytes(&self, aml: &mut Vec<u8>) {
         let mut bytes = Vec::new();
         self.data.len().to_aml_bytes(&mut bytes);
@@ -1287,7 +1493,7 @@ impl Aml for Buffer {
 }
 
 pub struct Uuid {
-    name: Buffer,
+    name: BufferData,
 }
 
 fn hex2byte(v1: char, v2: char) -> u8 {
@@ -1350,7 +1556,7 @@ impl Uuid {
         data.push(hex2byte(name_vec[34], name_vec[35]));
 
         Uuid {
-            name: Buffer::new(data),
+            name: BufferData::new(data),
         }
     }
 }
@@ -1358,6 +1564,57 @@ impl Uuid {
 impl Aml for Uuid {
     fn to_aml_bytes(&self, bytes: &mut Vec<u8>) {
         self.name.to_aml_bytes(bytes)
+    }
+}
+
+/// Power Resource object. 'children' represents Power Resource method.
+pub struct PowerResource<'a> {
+    name: Path,
+    level: u8,
+    order: u16,
+    children: Vec<&'a dyn Aml>,
+}
+
+impl<'a> PowerResource<'a> {
+    /// Create Power Resouce object
+    pub fn new(name: Path, level: u8, order: u16, children: Vec<&'a dyn Aml>) -> Self {
+        PowerResource {
+            name,
+            level,
+            order,
+            children,
+        }
+    }
+}
+
+impl<'a> Aml for PowerResource<'a> {
+    fn to_aml_bytes(&self, aml: &mut Vec<u8>) {
+        let mut bytes = Vec::new();
+
+        // Add name string
+        self.name.to_aml_bytes(&mut bytes);
+        // Add system level
+        bytes.push(self.level);
+        // Add Resource Order
+        let orders = self.order.to_le_bytes();
+        bytes.push(orders[0]);
+        bytes.push(orders[1]);
+        // Add child data
+        for child in &self.children {
+            child.to_aml_bytes(&mut bytes);
+        }
+
+        // PkgLength
+        let mut pkg_length = create_pkg_length(&bytes, true);
+        pkg_length.reverse();
+        for byte in pkg_length {
+            bytes.insert(0, byte);
+        }
+
+        bytes.insert(0, POWERRESOURCEOP);
+        bytes.insert(0, EXTOPPREFIX);
+
+        aml.append(&mut bytes);
     }
 }
 
@@ -1709,6 +1966,92 @@ mod tests {
         aml.clear();
         0xdeca_fbad_deca_fbadu64.to_aml_bytes(&mut aml);
         assert_eq!(aml, [0x0e, 0xad, 0xfb, 0xca, 0xde, 0xad, 0xfb, 0xca, 0xde]);
+        aml.clear();
+
+        // u8
+        0x00_u8.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x00]);
+        aml.clear();
+        0x01_u8.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x01]);
+        aml.clear();
+        0x86_u8.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x0a, 0x86]);
+        aml.clear();
+
+        // u16
+        0x00_u16.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x00]);
+        aml.clear();
+        0x01_u16.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x01]);
+        aml.clear();
+        0x86_u16.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x0a, 0x86]);
+        aml.clear();
+        0xF00D_u16.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x0b, 0x0d, 0xf0]);
+        aml.clear();
+
+        // u32
+        0x00_u32.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x00]);
+        aml.clear();
+        0x01_u32.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x01]);
+        aml.clear();
+        0x86_u32.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x0a, 0x86]);
+        aml.clear();
+        0xF00D_u32.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x0b, 0x0d, 0xf0]);
+        aml.clear();
+        0xDECAF_u32.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x0c, 0xaf, 0xec, 0x0d, 0x00]);
+        aml.clear();
+
+        // u64
+        0x00_u64.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x00]);
+        aml.clear();
+        0x01_u64.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x01]);
+        aml.clear();
+        0x86_u64.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x0a, 0x86]);
+        aml.clear();
+        0xF00D_u64.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x0b, 0x0d, 0xf0]);
+        aml.clear();
+        0xDECAF_u64.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x0c, 0xaf, 0xec, 0x0d, 0x00]);
+        aml.clear();
+        0xDECAFC0FFEE_u64.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x0e, 0xee, 0xff, 0xc0, 0xaf, 0xec, 0x0d, 0x00, 0x00]);
+        aml.clear();
+
+        // usize
+        0x00_usize.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x00]);
+        aml.clear();
+        0x01_usize.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x01]);
+        aml.clear();
+        0x86_usize.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x0a, 0x86]);
+        aml.clear();
+        0xF00D_usize.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x0b, 0x0d, 0xf0]);
+        aml.clear();
+        0xDECAF_usize.to_aml_bytes(&mut aml);
+        assert_eq!(aml, [0x0c, 0xaf, 0xec, 0x0d, 0x00]);
+        aml.clear();
+        #[cfg(target_pointer_width = "64")]
+        {
+            0xDECAFC0FFEE_usize.to_aml_bytes(&mut aml);
+            assert_eq!(aml, [0x0e, 0xee, 0xff, 0xc0, 0xaf, 0xec, 0x0d, 0x00, 0x00]);
+            aml.clear();
+        }
     }
 
     #[test]
@@ -1776,6 +2119,7 @@ mod tests {
         Field::new(
             "PRST".into(),
             FieldAccessType::Byte,
+            FieldLockRule::NoLock,
             FieldUpdateRule::WriteAsZeroes,
             vec![
                 FieldEntry::Reserved(32),
@@ -1791,7 +2135,7 @@ mod tests {
         assert_eq!(aml, &field_data[..]);
 
         /*
-            Field (PRST, DWordAcc, NoLock, Preserve)
+            Field (PRST, DWordAcc, Lock, Preserve)
             {
                 CSEL,   32,
                 Offset (0x08),
@@ -1800,7 +2144,7 @@ mod tests {
         */
 
         let field_data = [
-            0x5Bu8, 0x81, 0x12, 0x50, 0x52, 0x53, 0x54, 0x03, 0x43, 0x53, 0x45, 0x4C, 0x20, 0x00,
+            0x5Bu8, 0x81, 0x12, 0x50, 0x52, 0x53, 0x54, 0x13, 0x43, 0x53, 0x45, 0x4C, 0x20, 0x00,
             0x20, 0x43, 0x44, 0x41, 0x54, 0x20,
         ];
         aml.clear();
@@ -1808,6 +2152,7 @@ mod tests {
         Field::new(
             "PRST".into(),
             FieldAccessType::DWord,
+            FieldLockRule::Lock,
             FieldUpdateRule::Preserve,
             vec![
                 FieldEntry::Named(*b"CSEL", 32),
@@ -1829,7 +2174,13 @@ mod tests {
         ];
         let mut aml = Vec::new();
 
-        OpRegion::new("PRST".into(), OpRegionSpace::SystemIO, 0xcd8, 0xc).to_aml_bytes(&mut aml);
+        OpRegion::new(
+            "PRST".into(),
+            OpRegionSpace::SystemIO,
+            &0xcd8_usize,
+            &0xc_usize,
+        )
+        .to_aml_bytes(&mut aml);
         assert_eq!(aml, &op_region_data[..]);
     }
 
@@ -2072,7 +2423,7 @@ mod tests {
 
         Name::new(
             "_MAT".into(),
-            &Buffer::new(vec![0x00, 0x08, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00]),
+            &BufferData::new(vec![0x00, 0x08, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00]),
         )
         .to_aml_bytes(&mut aml);
         assert_eq!(aml, &buffer_data[..])

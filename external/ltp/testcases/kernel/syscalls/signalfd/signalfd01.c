@@ -78,7 +78,7 @@ int main(void)
 int signalfd(int fd, const sigset_t * mask, int flags)
 {
 	/* Taken from GLIBC. */
-	return ltp_syscall(__NR_signalfd, fd, mask, SIGSETSIZE);
+	return tst_syscall(__NR_signalfd, fd, mask, SIGSETSIZE);
 }
 #endif
 
@@ -249,8 +249,7 @@ void do_test2(int fd, uint32_t sig)
 		goto out;
 	} else {
 		tst_resm(TFAIL, "got unexpected signal: signal=%d : %s",
-			 fdsi.ssi_signo),
-			 strsignal(fdsi.ssi_signo);
+			 fdsi.ssi_signo, strsignal(fdsi.ssi_signo));
 		goto out;
 	}
 
@@ -262,12 +261,6 @@ int main(int argc, char **argv)
 {
 	int lc;
 	int sfd;
-
-	if ((tst_kvercmp(2, 6, 22)) < 0) {
-		tst_resm(TWARN,
-			 "This test can only run on kernels that are 2.6.22 and higher");
-		exit(0);
-	}
 
 	tst_parse_opts(argc, argv, NULL, NULL);
 

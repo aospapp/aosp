@@ -25,6 +25,7 @@ import android.app.AppOpsManager;
 
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.annotations.Experimental;
+import com.android.bedstead.nene.exceptions.NeneException;
 import com.android.bedstead.nene.packages.Package;
 import com.android.bedstead.nene.permissions.PermissionContext;
 import com.android.bedstead.nene.users.UserReference;
@@ -37,20 +38,23 @@ public final class AppOps {
     private static final AppOpsManager sAppOpsManager =
             TestApis.context().instrumentedContext().getSystemService(AppOpsManager.class);
     private final Package mPackage;
+    private final UserReference mUser;
 
-    public AppOps(Package pkg) {
+    public AppOps(Package pkg, UserReference user) {
         this.mPackage = pkg;
+        this.mUser = user;
+    }
+
+    /** Set an AppOp for the given permission. */
+    @Experimental
+    public void setPermission(String permissionName, AppOpsMode mode) {
+        set(AppOpsManager.permissionToOp(permissionName), mode);
     }
 
     /** Set an AppOp for the given package. */
     public void set(String appOpName, AppOpsMode mode) {
-        set(TestApis.users().instrumented(), appOpName, mode);
-    }
-
-    /** Set an AppOp for the given package. */
-    public void set(UserReference user, String appOpName, AppOpsMode mode) {
         try (PermissionContext p = TestApis.permissions().withPermission(MANAGE_APP_OPS_MODES)) {
-            sAppOpsManager.setMode(appOpName, mPackage.uid(user),
+            sAppOpsManager.setMode(appOpName, mPackage.uid(mUser),
                     mPackage.packageName(), mode.mValue);
         }
     }
@@ -59,8 +63,21 @@ public final class AppOps {
     @TargetApi(Q)
     public AppOpsMode get(String appOpName) {
         Versions.requireMinimumVersion(Q);
+
         return AppOpsMode.forValue(
                 sAppOpsManager.unsafeCheckOpNoThrow(
-                        appOpName, mPackage.uid(), mPackage.packageName()));
+                        maybeConvertPermissionToAppOp(appOpName), mPackage.uid(mUser),
+                        mPackage.packageName()));
+    }
+
+    private String maybeConvertPermissionToAppOp(String permission) {
+        if (permission.contains("android:")) {
+            return permission;
+        }
+        String appOp = AppOpsManager.permissionToOp(permission);
+        if (appOp == null) {
+            throw new NeneException(permission + " is not a valid appOp");
+        }
+        return appOp;
     }
 }

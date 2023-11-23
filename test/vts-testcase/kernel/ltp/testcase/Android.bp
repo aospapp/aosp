@@ -145,6 +145,24 @@ genrule {
 }
 
 sh_test {
+    name: "vts_ltp_test_riscv_64",
+    src: "phony_ltp_test_riscv64.sh",
+    test_suites: ["vts"],
+    test_config: ":ltp_config_riscv_64",
+}
+
+genrule {
+    name: "ltp_config_riscv_64",
+    out: ["vts_ltp_test_riscv_64.xml"],
+    tool_files: [
+        "tools/gen_ltp_config.py",
+        "tools/**/*.py",
+        "tools/template/template.xml",
+    ],
+    cmd: "export ANDROID_BUILD_TOP=$$(pwd) && python3 $(location tools/gen_ltp_config.py) --arch riscv --bitness 64 --low-mem False --hwasan False $(out)",
+}
+
+sh_test {
     name: "vts_ltp_test_x86_64",
     src: "phony_ltp_test_x86_64.sh",
     test_suites: [

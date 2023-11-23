@@ -16,8 +16,10 @@
 ** limitations under the License.
 */
 -->
+<!-- Consider other dimension overrides in values-xxx when adding/changing the value here! -->
 <resources>
     <dimen name="status_bar_height">76dp</dimen>
+    <dimen name="status_bar_height_default">76dp</dimen>
     <dimen name="status_bar_height_landscape">76dp</dimen>
     <dimen name="status_bar_height_portrait">76dp</dimen>
     <dimen name="car_qs_header_system_icons_area_height">76dp</dimen>

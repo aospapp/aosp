@@ -40,8 +40,12 @@ void cxxbridge1$string$clone(rust::String *self,
                              const rust::String &other) noexcept;
 bool cxxbridge1$string$from_utf8(rust::String *self, const char *ptr,
                                  std::size_t len) noexcept;
+void cxxbridge1$string$from_utf8_lossy(rust::String *self, const char *ptr,
+                                       std::size_t len) noexcept;
 bool cxxbridge1$string$from_utf16(rust::String *self, const char16_t *ptr,
                                   std::size_t len) noexcept;
+void cxxbridge1$string$from_utf16_lossy(rust::String *self, const char16_t *ptr,
+                                        std::size_t len) noexcept;
 void cxxbridge1$string$drop(rust::String *self) noexcept;
 const char *cxxbridge1$string$ptr(const rust::String *self) noexcept;
 std::size_t cxxbridge1$string$len(const rust::String *self) noexcept;
@@ -80,6 +84,12 @@ void panic [[noreturn]] (const char *msg) {
 }
 
 template void panic<std::out_of_range> [[noreturn]] (const char *msg);
+
+template <typename T>
+static bool is_aligned(const void *ptr) noexcept {
+  auto iptr = reinterpret_cast<std::uintptr_t>(ptr);
+  return !(iptr % alignof(T));
+}
 
 String::String() noexcept { cxxbridge1$string$new(this); }
 
@@ -121,15 +131,58 @@ String::String(const char *s, std::size_t len) {
 
 String::String(const char16_t *s) {
   assert(s != nullptr);
+  assert(is_aligned<char16_t>(s));
   initString(this, s, std::char_traits<char16_t>::length(s));
 }
 
 String::String(const char16_t *s, std::size_t len) {
   assert(s != nullptr || len == 0);
+  assert(is_aligned<char16_t>(s));
   initString(this,
              s == nullptr && len == 0 ? reinterpret_cast<const char16_t *>(2)
                                       : s,
              len);
+}
+
+struct String::lossy_t {};
+
+String::String(lossy_t, const char *s, std::size_t len) noexcept {
+  cxxbridge1$string$from_utf8_lossy(
+      this, s == nullptr && len == 0 ? reinterpret_cast<const char *>(1) : s,
+      len);
+}
+
+String::String(lossy_t, const char16_t *s, std::size_t len) noexcept {
+  cxxbridge1$string$from_utf16_lossy(
+      this,
+      s == nullptr && len == 0 ? reinterpret_cast<const char16_t *>(2) : s,
+      len);
+}
+
+String String::lossy(const std::string &s) noexcept {
+  return String::lossy(s.data(), s.length());
+}
+
+String String::lossy(const char *s) noexcept {
+  assert(s != nullptr);
+  return String::lossy(s, std::strlen(s));
+}
+
+String String::lossy(const char *s, std::size_t len) noexcept {
+  assert(s != nullptr || len == 0);
+  return String(lossy_t{}, s, len);
+}
+
+String String::lossy(const char16_t *s) noexcept {
+  assert(s != nullptr);
+  assert(is_aligned<char16_t>(s));
+  return String(lossy_t{}, s, std::char_traits<char16_t>::length(s));
+}
+
+String String::lossy(const char16_t *s, std::size_t len) noexcept {
+  assert(s != nullptr || len == 0);
+  assert(is_aligned<char16_t>(s));
+  return String(lossy_t{}, s, len);
 }
 
 String &String::operator=(const String &other) &noexcept {
@@ -453,6 +506,17 @@ union MaybeUninit {
 };
 } // namespace
 
+namespace repr {
+struct PtrLen final {
+  void *ptr;
+  std::size_t len;
+};
+} // namespace repr
+
+extern "C" {
+repr::PtrLen cxxbridge1$exception(const char *, std::size_t len) noexcept;
+}
+
 namespace detail {
 // On some platforms size_t is the same C++ type as one of the sized integer
 // types; on others it is a distinct type. Only in the latter case do we need to
@@ -466,6 +530,23 @@ using isize_if_unique =
     typename std::conditional<std::is_same<rust::isize, int64_t>::value ||
                                   std::is_same<rust::isize, int32_t>::value,
                               struct isize_ignore, rust::isize>::type;
+
+class Fail final {
+  repr::PtrLen &throw$;
+
+public:
+  Fail(repr::PtrLen &throw$) noexcept : throw$(throw$) {}
+  void operator()(const char *) noexcept;
+  void operator()(const std::string &) noexcept;
+};
+
+void Fail::operator()(const char *catch$) noexcept {
+  throw$ = cxxbridge1$exception(catch$, std::strlen(catch$));
+}
+
+void Fail::operator()(const std::string &catch$) noexcept {
+  throw$ = cxxbridge1$exception(catch$.data(), catch$.length());
+}
 } // namespace detail
 
 } // namespace cxxbridge1
@@ -568,7 +649,9 @@ static_assert(sizeof(std::string) <= kMaxExpectedWordsInString * sizeof(void *),
   void cxxbridge1$rust_vec$##RUST_TYPE##$reserve_total(                        \
       rust::Vec<CXX_TYPE> *ptr, std::size_t new_cap) noexcept;                 \
   void cxxbridge1$rust_vec$##RUST_TYPE##$set_len(rust::Vec<CXX_TYPE> *ptr,     \
-                                                 std::size_t len) noexcept;
+                                                 std::size_t len) noexcept;    \
+  void cxxbridge1$rust_vec$##RUST_TYPE##$truncate(rust::Vec<CXX_TYPE> *ptr,    \
+                                                  std::size_t len) noexcept;
 
 #define RUST_VEC_OPS(RUST_TYPE, CXX_TYPE)                                      \
   template <>                                                                  \
@@ -598,6 +681,10 @@ static_assert(sizeof(std::string) <= kMaxExpectedWordsInString * sizeof(void *),
   template <>                                                                  \
   void Vec<CXX_TYPE>::set_len(std::size_t len) noexcept {                      \
     cxxbridge1$rust_vec$##RUST_TYPE##$set_len(this, len);                      \
+  }                                                                            \
+  template <>                                                                  \
+  void Vec<CXX_TYPE>::truncate(std::size_t len) {                              \
+    cxxbridge1$rust_vec$##RUST_TYPE##$truncate(this, len);                     \
   }
 
 #define SHARED_PTR_OPS(RUST_TYPE, CXX_TYPE)                                    \

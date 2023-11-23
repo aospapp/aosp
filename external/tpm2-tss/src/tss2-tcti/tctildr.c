@@ -13,11 +13,13 @@
 #include <inttypes.h>
 #if defined(__linux__)
 #include <linux/limits.h>
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) || defined(__MINGW32__)
 #include <windows.h>
 #include <limits.h>
+
 #ifndef PATH_MAX
 #define PATH_MAX MAX_PATH
+#endif
 
 static char *strndup(const char* s, size_t n)
 {
@@ -34,7 +36,7 @@ static char *strndup(const char* s, size_t n)
     memcpy(dst, s, n);
     return dst;
 }
-#endif
+
 #else
 #include <limits.h>
 #endif

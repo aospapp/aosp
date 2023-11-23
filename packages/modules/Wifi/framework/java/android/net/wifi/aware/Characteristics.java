@@ -42,7 +42,11 @@ public final class Characteristics implements Parcelable {
     /** @hide */
     public static final String KEY_MAX_MATCH_FILTER_LENGTH = "key_max_match_filter_length";
     /** @hide */
-    public static final String KEY_SUPPORTED_CIPHER_SUITES = "key_supported_cipher_suites";
+    public static final String KEY_SUPPORTED_DATA_PATH_CIPHER_SUITES =
+            "key_supported_data_path_cipher_suites";
+    /** @hide */
+    public static final String KEY_SUPPORTED_PAIRING_CIPHER_SUITES =
+            "key_supported_pairing_cipher_suites";
     /** @hide */
     public static final String KEY_IS_INSTANT_COMMUNICATION_MODE_SUPPORTED =
             "key_is_instant_communication_mode_supported";
@@ -54,6 +58,10 @@ public final class Characteristics implements Parcelable {
     public static final String KEY_MAX_SUBSCRIBE_NUMBER = "key_max_subscribe_number";
     /** @hide */
     public static final String KEY_MAX_NDI_NUMBER = "key_max_ndi_number";
+    /** @hide */
+    public static final String KEY_SUPPORT_NAN_PAIRING = "key_support_nan_pairing";
+    /** @hide */
+    public static final String KEY_SUPPORT_SUSPENSION = "key_support_suspension";
 
     private final Bundle mCharacteristics;
 
@@ -160,6 +168,25 @@ public final class Characteristics implements Parcelable {
         return mCharacteristics.getBoolean(KEY_IS_INSTANT_COMMUNICATION_MODE_SUPPORTED);
     }
 
+    /**
+     * Check if the Aware Pairing is supported. The Aware Pairing is defined as per Wi-Fi Alliance
+     * (WFA) Wi-Fi Aware specifications version 4.0 Section 7.6.
+     * @return True if supported, false otherwise.
+     */
+    public boolean isAwarePairingSupported() {
+        return mCharacteristics.getBoolean(KEY_SUPPORT_NAN_PAIRING);
+    }
+
+    /**
+     * Check if Aware Suspension is supported. Aware Suspension is a mechanism of putting an Aware
+     * connection in and out of a low-power mode while preserving the discovery sessions and data
+     * paths.
+     * @return True if supported, false otherwise.
+     */
+    public boolean isSuspensionSupported() {
+        return mCharacteristics.getBoolean(KEY_SUPPORT_SUSPENSION);
+    }
+
     /** @hide */
     @IntDef(flag = true, prefix = { "WIFI_AWARE_CIPHER_SUITE_" }, value = {
             WIFI_AWARE_CIPHER_SUITE_NONE,
@@ -169,7 +196,7 @@ public final class Characteristics implements Parcelable {
             WIFI_AWARE_CIPHER_SUITE_NCS_PK_256,
     })
     @Retention(RetentionPolicy.SOURCE)
-    public @interface WifiAwareCipherSuites {}
+    public @interface WifiAwareDataPathCipherSuites {}
 
     /**
      * Wi-Fi Aware supported open (unencrypted) data-path.
@@ -186,14 +213,32 @@ public final class Characteristics implements Parcelable {
     public static final int WIFI_AWARE_CIPHER_SUITE_NCS_SK_256 = 1 << 1;
 
     /**
-     * Wi-Fi Aware supported cipher suite representing NCS PK 128: 128 bit public-key.
+     * Wi-Fi Aware supported cipher suite representing NCS PK 2WDH 128: 128 bit public-key.
      */
     public static final int WIFI_AWARE_CIPHER_SUITE_NCS_PK_128 = 1 << 2;
 
     /**
-     * Wi-Fi Aware supported cipher suite representing NCS PK 256: 256 bit public-key.
+     * Wi-Fi Aware supported cipher suite representing NCS 2WDH 256: 256 bit public-key.
      */
     public static final int WIFI_AWARE_CIPHER_SUITE_NCS_PK_256 = 1 << 3;
+
+    /**
+     * Wi-Fi Aware supported cipher suite representing NCS PASN 128: 128 bit public-key.
+     */
+    public static final int WIFI_AWARE_CIPHER_SUITE_NCS_PK_PASN_128 = 1 << 4;
+
+    /**
+     * Wi-Fi Aware supported cipher suite representing NCS PASN 256: 256 bit public-key.
+     */
+    public static final int WIFI_AWARE_CIPHER_SUITE_NCS_PK_PASN_256 = 1 << 5;
+
+    /** @hide */
+    @IntDef(flag = true, prefix = { "WIFI_AWARE_CIPHER_SUITE_NCS_PK_PASN_" }, value = {
+            WIFI_AWARE_CIPHER_SUITE_NCS_PK_PASN_128,
+            WIFI_AWARE_CIPHER_SUITE_NCS_PK_PASN_256
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface WifiAwarePairingCipherSuites {}
 
     /**
      * Returns the set of cipher suites supported by the device for use in Wi-Fi Aware data-paths.
@@ -203,8 +248,18 @@ public final class Characteristics implements Parcelable {
      * {@link #WIFI_AWARE_CIPHER_SUITE_NCS_SK_256}, {@link #WIFI_AWARE_CIPHER_SUITE_NCS_PK_128},
      * or {@link #WIFI_AWARE_CIPHER_SUITE_NCS_PK_256}
      */
-    public @WifiAwareCipherSuites int getSupportedCipherSuites() {
-        return mCharacteristics.getInt(KEY_SUPPORTED_CIPHER_SUITES);
+    public @WifiAwareDataPathCipherSuites int getSupportedCipherSuites() {
+        return mCharacteristics.getInt(KEY_SUPPORTED_DATA_PATH_CIPHER_SUITES);
+    }
+
+    /**
+     * Returns the set of cipher suites supported by the device for use in Wi-Fi Aware pairing.
+     *
+     * @return A set of flags from {@link #WIFI_AWARE_CIPHER_SUITE_NCS_PK_PASN_256},
+     * or {@link #WIFI_AWARE_CIPHER_SUITE_NCS_PK_PASN_256}
+     */
+    public @WifiAwarePairingCipherSuites int getSupportedPairingCipherSuites() {
+        return mCharacteristics.getInt(KEY_SUPPORTED_PAIRING_CIPHER_SUITES);
     }
 
     @Override

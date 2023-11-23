@@ -20,6 +20,7 @@
 #include "common/libs/fs/shared_buf.h"
 #include "host/commands/cvd/server.h"
 #include "host/commands/cvd/server_client.h"
+#include "host/commands/cvd/types.h"
 
 namespace cuttlefish {
 namespace {
@@ -51,8 +52,20 @@ std::string FormattedCommand(const cvd::CommandRequest command) {
   for (const auto& [name, val] : command.env()) {
     effective_command << BashEscape(name) << "=" << BashEscape(val) << " ";
   }
-  for (const auto& argument : command.args()) {
-    effective_command << BashEscape(argument) << " ";
+  auto args = cvd_common::ConvertToArgs(command.args());
+  auto selector_args =
+      cvd_common::ConvertToArgs(command.selector_opts().args());
+  if (args.empty()) {
+    return effective_command.str();
+  }
+  const auto& cmd = args.front();
+  cvd_common::Args cmd_args{args.begin() + 1, args.end()};
+  effective_command << BashEscape(cmd) << " ";
+  for (const auto& selector_arg : selector_args) {
+    effective_command << BashEscape(selector_arg) << " ";
+  }
+  for (const auto& cmd_arg : cmd_args) {
+    effective_command << BashEscape(cmd_arg) << " ";
   }
   effective_command.seekp(-1, effective_command.cur);
   effective_command << "`\n";  // Overwrite last space
@@ -61,42 +74,75 @@ std::string FormattedCommand(const cvd::CommandRequest command) {
 
 }  // namespace
 
-CommandSequenceExecutor::CommandSequenceExecutor(
-    CvdCommandHandler& inner_handler)
-    : inner_handler_(inner_handler) {}
+CommandSequenceExecutor::CommandSequenceExecutor() {}
 
-Result<void> CommandSequenceExecutor::Interrupt() {
-  CF_EXPECT(inner_handler_.Interrupt());
+Result<void> CommandSequenceExecutor::LateInject(fruit::Injector<>& injector) {
+  server_handlers_ = injector.getMultibindings<CvdServerHandler>();
   return {};
 }
 
-Result<void> CommandSequenceExecutor::Execute(
+Result<void> CommandSequenceExecutor::Interrupt() {
+  std::unique_lock interrupt_lock(interrupt_mutex_);
+  interrupted_ = true;
+  if (handler_stack_.empty()) {
+    return {};
+  }
+  CF_EXPECT(handler_stack_.back()->Interrupt());
+  return {};
+}
+
+Result<std::vector<cvd::Response>> CommandSequenceExecutor::Execute(
     const std::vector<RequestWithStdio>& requests, SharedFD report) {
   std::unique_lock interrupt_lock(interrupt_mutex_);
-  if (interrupted_) {
-    return CF_ERR("Interrupted");
-  }
+  CF_EXPECT(!interrupted_, "Interrupted");
+
+  std::vector<cvd::Response> responses;
   for (const auto& request : requests) {
     auto& inner_proto = request.Message();
-    CF_EXPECT(inner_proto.has_command_request());
-    auto& command = inner_proto.command_request();
-    std::string str = FormattedCommand(command);
-    CF_EXPECT(WriteAll(report, str) == str.size(), report->StrError());
-
-    interrupt_lock.unlock();
-    auto response = CF_EXPECT(inner_handler_.Handle(request));
-    interrupt_lock.lock();
-    if (interrupted_) {
-      return CF_ERR("Interrupted");
+    if (inner_proto.has_command_request()) {
+      auto& command = inner_proto.command_request();
+      std::string str = FormattedCommand(command);
+      CF_EXPECT(WriteAll(report, str) == str.size(), report->StrError());
     }
+
+    auto handler = CF_EXPECT(RequestHandler(request, server_handlers_));
+    handler_stack_.push_back(handler);
+    interrupt_lock.unlock();
+    auto response = CF_EXPECT(handler->Handle(request));
+    interrupt_lock.lock();
+    handler_stack_.pop_back();
+
+    CF_EXPECT(interrupted_ == false, "Interrupted");
     CF_EXPECT(response.status().code() == cvd::Status::OK,
               "Reason: \"" << response.status().message() << "\"");
 
-    static const char kDoneMsg[] = "Done\n";
-    CF_EXPECT(WriteAll(request.Err(), kDoneMsg) == sizeof(kDoneMsg) - 1,
-              request.Err()->StrError());
+    responses.emplace_back(std::move(response));
   }
-  return {};
+  return {responses};
+}
+
+Result<cvd::Response> CommandSequenceExecutor::ExecuteOne(
+    const RequestWithStdio& request, SharedFD report) {
+  auto response_in_vector = CF_EXPECT(Execute({request}, report));
+  CF_EXPECT_EQ(response_in_vector.size(), 1);
+  return response_in_vector.front();
+}
+
+std::vector<std::string> CommandSequenceExecutor::CmdList() const {
+  std::unordered_set<std::string> subcmds;
+  for (const auto& handler : server_handlers_) {
+    auto&& cmds_list = handler->CmdList();
+    for (const auto& cmd : cmds_list) {
+      subcmds.insert(cmd);
+    }
+  }
+  // duplication removed
+  return std::vector<std::string>{subcmds.begin(), subcmds.end()};
+}
+
+fruit::Component<CommandSequenceExecutor> CommandSequenceExecutorComponent() {
+  return fruit::createComponent()
+      .addMultibinding<LateInjected, CommandSequenceExecutor>();
 }
 
 }  // namespace cuttlefish

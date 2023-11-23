@@ -22,32 +22,10 @@ import com.android.net.module.util.Struct.Type;
 
 /** The key of BpfMap which is used for tethering per-interface limit. */
 public class TetherLimitKey extends Struct {
-    @Field(order = 0, type = Type.U32)
-    public final long ifindex;  // upstream interface index
+    @Field(order = 0, type = Type.S32)
+    public final int ifindex;  // upstream interface index
 
-    public TetherLimitKey(final long ifindex) {
+    public TetherLimitKey(final int ifindex) {
         this.ifindex = ifindex;
-    }
-
-    // TODO: remove equals, hashCode and toString once aosp/1536721 is merged.
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-
-        if (!(obj instanceof TetherLimitKey)) return false;
-
-        final TetherLimitKey that = (TetherLimitKey) obj;
-
-        return ifindex == that.ifindex;
-    }
-
-    @Override
-    public int hashCode() {
-        return Long.hashCode(ifindex);
-    }
-
-    @Override
-    public String toString() {
-        return String.format("ifindex: %d", ifindex);
     }
 }

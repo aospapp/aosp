@@ -48,6 +48,8 @@ extern struct virgl_gbm *gbm;
 int vrend_winsys_init(uint32_t flags, int preferred_fd);
 void vrend_winsys_cleanup(void);
 
+int vrend_winsys_init_external(void *egl_display);
+
 virgl_renderer_gl_context vrend_winsys_create_context(struct virgl_gl_ctx_param *param);
 void vrend_winsys_destroy_context(virgl_renderer_gl_context ctx);
 int vrend_winsys_make_context_current(virgl_renderer_gl_context ctx);

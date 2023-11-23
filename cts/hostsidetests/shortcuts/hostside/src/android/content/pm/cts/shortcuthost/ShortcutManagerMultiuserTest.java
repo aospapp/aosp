@@ -16,6 +16,7 @@
 package android.content.pm.cts.shortcuthost;
 
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.util.RunUtil;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -66,10 +67,10 @@ public class ShortcutManagerMultiuserTest extends BaseShortcutManagerHostTest {
 
         getDevice().startUser(secondUserID, true);
         getDevice().switchUser(secondUserID);
-        Thread.sleep(5000);
+        RunUtil.getDefault().sleep(20000);
         installAppAsUser(TARGET_APK, secondUserID);
         waitForBroadcastIdle();
-        Thread.sleep(5000);
+        RunUtil.getDefault().sleep(20000);
 
         runDeviceTestsAsUser(TARGET_PKG, ".ShortcutManagerSecondaryUserTest", secondUserID);
 

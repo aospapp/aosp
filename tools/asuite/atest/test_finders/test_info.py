@@ -17,9 +17,9 @@ TestInfo class.
 """
 
 from collections import namedtuple
+from typing import Set
 
-import constants
-
+from atest import constants
 
 TestFilterBase = namedtuple('TestFilter', ['class_name', 'methods'])
 
@@ -28,10 +28,11 @@ class TestInfo:
     """Information needed to identify and run a test."""
 
     # pylint: disable=too-many-arguments
+    # TODO: remove all arguments but only test_name, test_runner, build_targets,
+    # data and compatibility_suites.
     def __init__(self, test_name, test_runner, build_targets, data=None,
                  suite=None, module_class=None, install_locations=None,
-                 test_finder='', compatibility_suites=None,
-                 mainline_modules=None, robo_type=None):
+                 test_finder='', compatibility_suites=None):
         """Init for TestInfo.
 
         Args:
@@ -48,20 +49,18 @@ class TestInfo:
             compatibility_suites: A list of compatibility_suites. It's a
                         snippet of compatibility_suites in module_info. e.g.
                         ["device-tests",  "vts10"]
-            mainline_modules: A string of mainline modules.
-                    e.g. 'some1.apk+some2.apex+some3.apks'
-            robo_type: Integer of robolectric types.
-                       0: Not robolectric test
-                       1. Modern robolectric test(Tradefed Runner)
-                       2: Legacy robolectric test(Robolectric Runner)
         """
         self.test_name = test_name
+        self.raw_test_name = test_name
         self.test_runner = test_runner
-        self.build_targets = build_targets
         self.data = data if data else {}
         self.suite = suite
         self.module_class = module_class if module_class else []
-        self.robo_type = robo_type if robo_type else 0
+        # robolectric test types:
+        # 0: Not robolectric test
+        # 1. Modern robolectric test(Tradefed Runner)
+        # 2: Legacy robolectric test(Robolectric Runner)
+        self.robo_type = 0
         self.install_locations = (install_locations if install_locations
                                   else set())
         # True if the TestInfo is built from a test configured in TEST_MAPPING.
@@ -74,21 +73,57 @@ class TestInfo:
                                      if compatibility_suites else [])
         # True if test need to generate aggregate metrics result.
         self.aggregate_metrics_result = False
-        self.mainline_modules = mainline_modules if mainline_modules else ""
+        self.artifacts = set()
+
+        self._build_targets = set(build_targets) if build_targets else set()
+        self._mainline_modules = set()
 
     def __str__(self):
         host_info = (' - runs on host without device required.' if self.host
                      else '')
         return (f'test_name:{self.test_name} - '
+                f'raw_test_name:{self.raw_test_name} - '
                 f'test_runner:{self.test_runner} - '
-                f'build_targets:{self.build_targets} - data:{self.data} - '
+                f'build_targets:{self._build_targets} - data:{self.data} - '
                 f'suite:{self.suite} - module_class:{self.module_class} - '
                 f'install_locations:{self.install_locations}{host_info} - '
                 f'test_finder:{self.test_finder} - '
                 f'compatibility_suites:{self.compatibility_suites} - '
-                f'mainline_modules:{self.mainline_modules} - '
+                f'mainline_modules:{self._mainline_modules} - '
                 f'aggregate_metrics_result:{self.aggregate_metrics_result} - '
-                f'robo_type:{self.robo_type}')
+                f'robo_type:{self.robo_type} - '
+                f'artifacts:{self.artifacts}')
+
+    @property
+    def build_targets(self) -> Set[str]:
+        """Gets all build targets of the test.
+
+        Gets all build targets of the test including mainline
+        modules build targets if it's a mainline test.
+        """
+        return frozenset(self._build_targets)
+
+    def add_build_target(self, target: str):
+        """Sets build targets.
+
+        Args:
+            target: a string of build target name.
+        """
+        self._build_targets.add(target)
+
+    @property
+    def mainline_modules(self) -> Set[str]:
+        """Gets mainline module build targets."""
+        return frozenset(self._mainline_modules)
+
+    def add_mainline_module(self, module: str):
+        """Sets mainline modules.
+
+        Args:
+            module: the build module name of a mainline module.
+        """
+        self._build_targets.add(module)
+        self._mainline_modules.add(module)
 
     def get_supported_exec_mode(self):
         """Get the supported execution mode of the test.
@@ -131,15 +166,16 @@ class TestInfo:
         Search build target's MODULE-IN as the test path.
 
         Return:
-            A list of string of the relative path for test, None if test
-            path information not found.
+            A list of string of the relative path for test(build target
+            formats, e.g., platform_testing-tests-example-native),
+            None if test path information not found.
         """
         test_paths = []
         for build_target in self.build_targets:
             if str(build_target).startswith(constants.MODULES_IN):
                 test_paths.append(
                     str(build_target).replace(
-                        constants.MODULES_IN, '').replace('-', '/'))
+                        constants.MODULES_IN, ''))
         return test_paths if test_paths else None
 
 class TestFilter(TestFilterBase):

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+/*
+ * Copyright (C) 2022 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+-->
+<resources>
+    <!-- When true, the filter engine will alter UWB values to improve accuracy. -->
+    <bool name="enable_filters">true</bool>
+
+    <!-- The size in samples of the sliding window for the AoA filters. Note that this increases
+    latency to about half the window size. -->
+    <integer name="filter_angle_window">1</integer>
+
+    <!-- Enables elevation estimation. Strongly recommended for hardware that doesn't support
+    elevation. This helps produce better predictions from pose changes, and improves the quality
+    of the AoA primer. -->
+    <bool name="enable_primer_est_elevation">false</bool>
+
+    <!-- Enables the AoA conversion primer. This is needed on hardware that does not convert AoA
+    to spherical coordinates, including hardware that does not support elevation.-->
+    <bool name="enable_primer_aoa">false</bool>
+
+    <!-- Selects which pose source will be used by default to anticipate the next UWB measurement.
+    The pose source helps lower latency by shifting the filter states to reflect how the phone has
+    moved.
+    NONE = No pose source.
+    ROTATION_VECTOR = Requires gyro, accel and compass. Very accurate, rotation only.
+    GYRO = Gyro only. Less accurate, Saves a tiny bit of power.
+    SIXDOF = 6DOF sensor. Extremely accurate, accounts for position. Not available on most hardware.
+    DOUBLE_INTEGRATE = Double integration. Under development. Expect very bad motion drift.
+    -->
+    <string name="pose_source_type">NONE</string>
+
+    <!-- Sets the field of view, in degrees. Note that this is in degrees from 0 (straight ahead),
+    which is not the same as how camera FOV is represented.
+    UWB values outside the field of view will be replaced with predicted values based on pose
+    changes. The FOV is circular, so a value of 90 will only provide continuous azimuth values if
+    elevation is zero.
+    If <=0 or >=180, the primer will be disabled, allowing an unlimited field of view. -->
+    <integer name="primer_fov_degrees">0</integer>
+
+    <!-- Enables the back azimuth primer. This is needed on hardware that does not report azimuth
+    values beyond +/-90deg. This primer determines if azimuth values are likely to be coming from
+    behind the phone in three ways:
+    1. The prediction expects the next reading to come from behind the user because the user has
+       rotated away from the signal.
+    2. Predictions based on pose changes inversely correlate with azimuth readings.
+    3. UWB readings show very little relationship to pose changes because of non-line-of-sight
+       conditions.
+    This works best with an FOV primer setting below 90 degrees to ensure that predictions are being
+    used across the 90-degree threshold. -->
+    <bool name="enable_azimuth_mirroring">false</bool>
+</resources>

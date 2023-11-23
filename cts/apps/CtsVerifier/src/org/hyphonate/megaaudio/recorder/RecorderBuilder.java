@@ -15,33 +15,70 @@
  */
 package org.hyphonate.megaaudio.recorder;
 
-import android.media.AudioDeviceInfo;
-
 import org.hyphonate.megaaudio.common.BuilderBase;
 
+/**
+ * Class to construct contrete Recorder objects.
+ */
 public class RecorderBuilder extends BuilderBase {
+    @SuppressWarnings("unused")
+    private static final String TAG = RecorderBuilder.class.getSimpleName();
+    @SuppressWarnings("unused")
+    private static final boolean LOG = false;
 
+    /**
+     * Consumes recorded audio.
+     */
     private AudioSinkProvider mSinkProvider;
 
+    /**
+     * Specified the input preset for the constructed stream.
+     */
     private int mInputPreset = Recorder.INPUT_PRESET_NONE;
 
     public RecorderBuilder() {
-
     }
 
+    //
+    // Recorder-Specific Attributes
+    //
+    /**
+     * Specifies the recorder type
+     * @param type Composed from API Types & API subtypes (defined in BuilderBase)
+     * @return this RecorderBuilder (for cascaded calls)
+     */
     public RecorderBuilder setRecorderType(int type) {
         mType = type;
         return this;
     }
 
+    /**
+     * Specifies the AudioSinkProvider which will allocate an AudioSink subclass object
+     * to consume audio data for this stream.
+     * @param sinkProvider Allocates the AudioSink to receive data from the created stream.
+     * @return this RecorderBuilder (for cascaded calls)
+     */
     public RecorderBuilder setAudioSinkProvider(AudioSinkProvider sinkProvider) {
         mSinkProvider = sinkProvider;
         return this;
     }
 
+    /**
+     *
+     * @param inputPreset The input preset for the created stream. See Recorder.INPUT_PRESET_
+     * constants.
+     * @return this RecorderBuilder (for cascaded calls)
+     */
     public RecorderBuilder setInputPreset(int inputPreset) {
         mInputPreset = inputPreset;
         return this;
+    }
+
+    /**
+     * @return the input preset ID for the created Recorder.
+     */
+    public int getInputPreset() {
+        return mInputPreset;
     }
 
     public Recorder build() throws BadStateException {
@@ -57,12 +94,12 @@ public class RecorderBuilder extends BuilderBase {
                 break;
 
             case TYPE_JAVA:
-                recorder = new JavaRecorder(mSinkProvider);
+                recorder = new JavaRecorder(this, mSinkProvider);
                 break;
 
-            case TYPE_OBOE:{
+            case TYPE_OBOE: {
                 int recorderSubType = mType & SUB_TYPE_MASK;
-                recorder = new OboeRecorder(mSinkProvider, recorderSubType);
+                recorder = new OboeRecorder(this, mSinkProvider, recorderSubType);
             }
             break;
 
@@ -73,7 +110,10 @@ public class RecorderBuilder extends BuilderBase {
         return recorder;
     }
 
+    /**
+     * Exception class used to signal a failure to allocate an API-specific stream in the build()
+     * method.
+     */
     public class BadStateException extends Throwable {
-
     }
 }

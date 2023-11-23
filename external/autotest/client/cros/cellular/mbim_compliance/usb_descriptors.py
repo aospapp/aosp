@@ -1,9 +1,18 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import struct
 from collections import namedtuple
+
+import six
+
+from six.moves import zip
 
 from autotest_lib.client.cros.cellular.mbim_compliance import mbim_errors
 
@@ -103,7 +112,7 @@ class DescriptorMeta(type):
             raise mbim_errors.MBIMComplianceFrameworkError(
                     '%s must define a _FIELDS attribute' % name)
 
-        field_formats, field_names = zip(*attrs['_FIELDS'])
+        field_formats, field_names = list(zip(*attrs['_FIELDS']))
         # USB descriptor data are in the little-endian format.
         data_format = '<' + ''.join(field_formats)
         unpack_length = struct.calcsize(data_format)
@@ -168,14 +177,13 @@ class DescriptorMeta(type):
         return cls
 
 
-class Descriptor(object):
+class Descriptor(six.with_metaclass(DescriptorMeta, object)):
     """
     USB Descriptor base class.
 
     This class should not be instantiated or used directly.
 
     """
-    __metaclass__ = DescriptorMeta
 
 
 class UnknownDescriptor(Descriptor):
@@ -346,7 +354,7 @@ class DescriptorParser(object):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         """
         Returns the next descriptor found in the descriptor data.
 
@@ -382,6 +390,10 @@ class DescriptorParser(object):
         self._descriptor_index += 1
         return descriptor
 
+    def next(self):
+        """Stub for python2, remove once py2 support is not needed."""
+        return self.__next__()
+
 
 def filter_descriptors(descriptor_type, descriptors):
     """
@@ -395,8 +407,7 @@ def filter_descriptors(descriptor_type, descriptors):
     """
     if not descriptors:
         return []
-    return filter(lambda descriptor: isinstance(descriptor, descriptor_type),
-                  descriptors)
+    return [descriptor for descriptor in descriptors if isinstance(descriptor, descriptor_type)]
 
 
 def has_distinct_descriptors(descriptors):
@@ -453,14 +464,13 @@ def filter_interface_descriptors(descriptors, interface_type):
         @returns True if all fields match, False otherwise.
 
         """
-        for key, value in interface_type.iteritems():
+        for key, value in six.iteritems(interface_type):
             if (not hasattr(interface, key) or
                 getattr(interface, key) != value):
                 return False
         return True
 
-    return filter(lambda descriptor: _match_all_fields(descriptor),
-                  descriptors)
+    return [descriptor for descriptor in descriptors if _match_all_fields(descriptor)]
 
 
 def has_bulk_in_and_bulk_out(endpoints):

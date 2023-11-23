@@ -1,5 +1,6 @@
 {
   "git": {
-    "sha1": "4e14680234812020427385521d7d6cad585c4905"
-  }
+    "sha1": "eb9d7be4a4095440171986b41d6ffc9fb3be1d74"
+  },
+  "path_in_vcs": "gdbstub_arch"
 }

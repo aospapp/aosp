@@ -20,6 +20,8 @@ import static android.content.pm.PackageManager.FEATURE_BLUETOOTH;
 import static android.os.UserManager.DISALLOW_BLUETOOTH;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
@@ -65,6 +67,33 @@ public class BluetoothEntryPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_bluetoothAvailable_available_zoneWrite() {
+        Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
+                FEATURE_BLUETOOTH, /* supported= */ true);
+        mController.setAvailabilityStatusForZone("write");
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_bluetoothAvailable_available_zoneRead() {
+        Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
+                FEATURE_BLUETOOTH, /* supported= */ true);
+        mController.setAvailabilityStatusForZone("read");
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_bluetoothAvailable_available_zoneHidden() {
+        Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
+                FEATURE_BLUETOOTH, /* supported= */ true);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_bluetoothAvailable_disallowBluetooth_disabledForUser() {
         Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
                 FEATURE_BLUETOOTH, /* supported= */ true);
@@ -74,9 +103,66 @@ public class BluetoothEntryPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_bluetoothAvailable_disabledForUser_zoneWrite() {
+        Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
+                FEATURE_BLUETOOTH, /* supported= */ true);
+        getShadowUserManager().setUserRestriction(mMyUserHandle, DISALLOW_BLUETOOTH, true);
+        mController.setAvailabilityStatusForZone("write");
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_bluetoothAvailable_disabledForUser_zoneRead() {
+        Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
+                FEATURE_BLUETOOTH, /* supported= */ true);
+        getShadowUserManager().setUserRestriction(mMyUserHandle, DISALLOW_BLUETOOTH, true);
+        mController.setAvailabilityStatusForZone("read");
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_bluetoothAvailable_disabledForUser_zoneHidden() {
+        Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
+                FEATURE_BLUETOOTH, /* supported= */ true);
+        getShadowUserManager().setUserRestriction(mMyUserHandle, DISALLOW_BLUETOOTH, true);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void getAvailabilityStatus_bluetoothNotAvailable_unsupportedOnDevice() {
         Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
                 FEATURE_BLUETOOTH, /* supported= */ false);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_bluetoothNotAvailable_unsupportedOnDevice_zoneWrite() {
+        Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
+                FEATURE_BLUETOOTH, /* supported= */ false);
+        mController.setAvailabilityStatusForZone("write");
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_bluetoothNotAvailable_unsupportedOnDevice_zoneRead() {
+        Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
+                FEATURE_BLUETOOTH, /* supported= */ false);
+        mController.setAvailabilityStatusForZone("read");
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_bluetoothNotAvailable_unsupportedOnDevice_zoneHidden() {
+        Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
+                FEATURE_BLUETOOTH, /* supported= */ false);
+        mController.setAvailabilityStatusForZone("hidden");
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
     }

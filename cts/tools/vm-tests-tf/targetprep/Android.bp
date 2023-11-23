@@ -17,18 +17,12 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-java_test_host {
+java_library_host {
     name: "compatibility-host-vm-targetprep",
     srcs: ["src/**/*.java"],
     libs: [
         "compatibility-host-util",
         "cts-tradefed",
         "tradefed",
-    ],
-
-    // Tag this module as a cts test artifact
-    test_suites: [
-        "cts",
-        "general-tests",
     ],
 }

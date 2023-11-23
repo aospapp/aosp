@@ -17,12 +17,13 @@
 package com.android.car.audio;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertThrows;
 
 import android.car.hardware.power.CarPowerPolicy;
 import android.car.hardware.power.CarPowerPolicyFilter;
@@ -62,12 +63,12 @@ public class CarAudioPowerListenerTest {
     }
 
     @Test
-    public void startListeningForPolicyChanges_withoutPowerService_enablesAudio() {
+    public void startListeningForPolicyChanges_withoutPowerService_doesNothing() {
         CarAudioPowerListener listener = new CarAudioPowerListener(mMockCarAudioService, null);
 
         listener.startListeningForPolicyChanges();
 
-        verify(mMockCarAudioService).setAudioEnabled(true);
+        verify(mMockCarAudioService, never()).setAudioEnabled(true);
     }
 
     @Test
@@ -87,14 +88,14 @@ public class CarAudioPowerListenerTest {
     }
 
     @Test
-    public void startListeningForPolicyChanges_withNullPolicy_enablesAudio() {
+    public void startListeningForPolicyChanges_withNullPolicy_doesNothing() {
         when(mMockCarPowerService.getCurrentPowerPolicy()).thenReturn(null);
         CarAudioPowerListener listener = new CarAudioPowerListener(mMockCarAudioService,
                 mMockCarPowerService);
 
         listener.startListeningForPolicyChanges();
 
-        verify(mMockCarAudioService).setAudioEnabled(true);
+        verify(mMockCarAudioService, never()).setAudioEnabled(true);
     }
 
     @Test
@@ -163,6 +164,44 @@ public class CarAudioPowerListenerTest {
 
         verify(mMockCarAudioService).setAudioEnabled(false);
         verify(mMockCarAudioService, never()).setAudioEnabled(true);
+    }
+
+    @Test
+    public void stopListeningForPolicyChanges_notNullPowerService() {
+        CarAudioPowerListener listener = new CarAudioPowerListener(mMockCarAudioService,
+                mMockCarPowerService);
+        listener.startListeningForPolicyChanges();
+        ArgumentCaptor<ICarPowerPolicyListener> captor = ArgumentCaptor.forClass(
+                ICarPowerPolicyListener.class);
+        verify(mMockCarPowerService).addPowerPolicyListener(any(), captor.capture());
+
+        listener.stopListeningForPolicyChanges();
+
+        verify(mMockCarPowerService).removePowerPolicyListener(captor.getValue());
+    }
+
+    @Test
+    public void isAudioEnabled_withAudioInitiallyEnabled() {
+        withAudioInitiallyEnabled();
+
+        CarAudioPowerListener listener = new CarAudioPowerListener(mMockCarAudioService,
+                mMockCarPowerService);
+        listener.startListeningForPolicyChanges();
+
+        assertWithMessage("Audio enabling status when initially enabled")
+                .that(listener.isAudioEnabled()).isTrue();
+    }
+
+    @Test
+    public void isAudioEnabled_withAudioInitiallyDisabled() {
+        withAudioInitiallyDisabled();
+
+        CarAudioPowerListener listener = new CarAudioPowerListener(mMockCarAudioService,
+                mMockCarPowerService);
+        listener.startListeningForPolicyChanges();
+
+        assertWithMessage("Audio enabling status when initially disabled")
+                .that(listener.isAudioEnabled()).isFalse();
     }
 
     private void withAudioInitiallyEnabled() {

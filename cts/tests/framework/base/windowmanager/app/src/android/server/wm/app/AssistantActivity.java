@@ -30,8 +30,10 @@ import android.app.ActivityOptions;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 
 public class AssistantActivity extends Activity {
+    private static final String TAG = "AssistantActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,6 +88,14 @@ public class AssistantActivity extends Activity {
         final ActivityOptions options = ActivityOptions.makeBasic();
         options.setLaunchActivityType(ACTIVITY_TYPE_ASSISTANT);
         options.setLaunchWindowingMode(WINDOWING_MODE_FULLSCREEN);
-        caller.startActivity(intent, options.toBundle());
+        try {
+            // Launching an activity into the assistant stack could fail and cause a security
+            // exception. Given that the tests that launch this activity check if this succeeded or
+            // not by waiting and asserting the existence of the activity, we shouldn't let the
+            // exception kill the process and subsequent unrelated tests fail too.
+            caller.startActivity(intent, options.toBundle());
+        } catch (SecurityException e) {
+            Log.e(TAG, "Failed to launch activity into assistant stack: " + e);
+        }
     }
 }

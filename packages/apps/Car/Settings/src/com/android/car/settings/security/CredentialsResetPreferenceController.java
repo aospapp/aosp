@@ -58,7 +58,7 @@ public class CredentialsResetPreferenceController extends PreferenceController<P
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         if (EnterpriseUtils.hasUserRestrictionByUm(getContext(), DISALLOW_CONFIG_CREDENTIALS)) {
             return DISABLED_FOR_PROFILE;
         }

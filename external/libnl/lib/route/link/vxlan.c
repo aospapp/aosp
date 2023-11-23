@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/link/vxlan.c	VXLAN Link Info
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2013 Yasunobu Chiba <yasu@dsl.gr.jp>
  */
 
@@ -322,16 +316,12 @@ static void vxlan_dump_details(struct rtnl_link *link, struct nl_dump_params *p)
 
 	if (vxi->ce_mask & VXLAN_ATTR_GROUP) {
 		nl_dump(p, "      group ");
-		if (inet_ntop(AF_INET, &vxi->vxi_group, addr, sizeof(addr)))
-			nl_dump_line(p, "%s\n", addr);
-		else
-			nl_dump_line(p, "%#x\n", ntohs(vxi->vxi_group));
+		nl_dump_line(p, "%s\n",
+			     _nl_inet_ntop(AF_INET, &vxi->vxi_group, addr));
 	} else if (vxi->ce_mask & VXLAN_ATTR_GROUP6) {
 		nl_dump(p, "      group ");
-		if (inet_ntop(AF_INET6, &vxi->vxi_group6, addr, sizeof(addr)))
-			nl_dump_line(p, "%s\n", addr);
-		else
-			nl_dump_line(p, "%#x\n", vxi->vxi_group6);
+		nl_dump_line(p, "%s\n",
+			     _nl_inet_ntop(AF_INET6, &vxi->vxi_group6, addr));
 	}
 
 	if (vxi->ce_mask & VXLAN_ATTR_LINK) {
@@ -350,18 +340,13 @@ static void vxlan_dump_details(struct rtnl_link *link, struct nl_dump_params *p)
 
 	if (vxi->ce_mask & VXLAN_ATTR_LOCAL) {
 		nl_dump(p, "      local ");
-		if (inet_ntop(AF_INET, &vxi->vxi_local, addr, sizeof(addr)))
-			nl_dump_line(p, "%s\n", addr);
-		else
-			nl_dump_line(p, "%#x\n", ntohs(vxi->vxi_local));
+		nl_dump_line(p, "%s\n",
+			     _nl_inet_ntop(AF_INET, &vxi->vxi_local, addr));
 	} else if (vxi->ce_mask & VXLAN_ATTR_LOCAL6) {
 		nl_dump(p, "      local ");
-		if (inet_ntop(AF_INET6, &vxi->vxi_local6, addr, sizeof(addr)))
-			nl_dump_line(p, "%s\n", addr);
-		else
-			nl_dump_line(p, "%#x\n", vxi->vxi_local6);
+		nl_dump_line(p, "%s\n",
+			     _nl_inet_ntop(AF_INET6, &vxi->vxi_local6, addr));
 	}
-
 
 	if (vxi->ce_mask & VXLAN_ATTR_TTL) {
 		nl_dump(p, "      ttl ");
@@ -374,7 +359,7 @@ static void vxlan_dump_details(struct rtnl_link *link, struct nl_dump_params *p)
 	if (vxi->ce_mask & VXLAN_ATTR_TOS) {
 		nl_dump(p, "      tos ");
 		if (vxi->vxi_tos == 1)
-			nl_dump_line(p, "inherit\n", vxi->vxi_tos);
+			nl_dump_line(p, "inherit\n");
 		else
 			nl_dump_line(p, "%#x\n", vxi->vxi_tos);
 	}
@@ -701,12 +686,11 @@ static struct rtnl_link_info_ops vxlan_info_ops = {
 struct rtnl_link *rtnl_link_vxlan_alloc(void)
 {
 	struct rtnl_link *link;
-	int err;
 
 	if (!(link = rtnl_link_alloc()))
 		return NULL;
 
-	if ((err = rtnl_link_set_type(link, "vxlan")) < 0) {
+	if (rtnl_link_set_type(link, "vxlan") < 0) {
 		rtnl_link_put(link);
 		return NULL;
 	}

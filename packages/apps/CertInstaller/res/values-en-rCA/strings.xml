@@ -19,11 +19,11 @@
     <string name="app_name" msgid="9095072584761066851">"Certificate Installer"</string>
     <string name="pick_file_title" msgid="4481949485108233297">"Choose a certificate"</string>
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Extract certificate"</string>
-    <string name="extracting_pkcs12" msgid="1881267738821799771">"Extracting..."</string>
+    <string name="extracting_pkcs12" msgid="1881267738821799771">"Extracting…"</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"Extract from %s"</string>
     <string name="name_credential_dialog_title" msgid="1481964824549786927">"Name this certificate"</string>
     <string name="certificate_name" msgid="8415893401368824792">"Certificate name"</string>
-    <string name="credential_password" msgid="3520176519550993326">"Enter the password to extract the certificates."</string>
+    <string name="credential_password" msgid="3520176519550993326">"Type the password to extract the certificates."</string>
     <string name="credential_info" msgid="2436768402308470397">"The package contains:"</string>
     <string name="p12_description" msgid="4128352087331630024">"Certificates in PKCS12 keystore."</string>
     <string name="one_userkey" msgid="3500697912370644881">"one user key"</string>
@@ -35,22 +35,22 @@
     <string name="password_empty_error" msgid="591713406761723025">"Type the password."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Type a name."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Type a name that contains only letters and numbers."</string>
-    <string name="unable_to_save_cert" msgid="9178604087335389686">"Couldn\'t save the certificate. The credential storage isn\'t enabled or properly initialised."</string>
-    <string name="cert_not_saved" msgid="4037698479662830270">"Failed to install certificate."</string>
+    <string name="unable_to_save_cert" msgid="9178604087335389686">"Couldn\'t save the certificate. The credential storage isn\'t enabled or properly initialized."</string>
+    <string name="cert_not_saved" msgid="4037698479662830270">"The certificate is not installed."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"No certificate to install."</string>
     <string name="invalid_cert" msgid="7704228670980743590">"The certificate is invalid."</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"Private key required to install a certificate"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"Certificate required to install a private key"</string>
     <string name="select_certificate_usage_title" msgid="8853023485944920851">"Choose a certificate type"</string>
     <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"Install CA certificates in Settings"</string>
-    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"This certificate from <xliff:g id="REQUESTING_APP">%1$s</xliff:g> must be installed in Settings. Only install CA certificates from organisations that you trust."</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"This certificate from <xliff:g id="REQUESTING_APP">%1$s</xliff:g> must be installed in Settings. Only install CA certificates from organizations you trust."</string>
     <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"Close"</string>
     <string name="invalid_certificate_title" msgid="6500315398016809635">"Can\'t use this file"</string>
     <string name="invalid_certificate_close_button" msgid="350986774973653102">"Close"</string>
     <string name="invalid_certificate_message" msgid="3508065546083182733">"This file can\'t be used as a <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>"</string>
     <string name="certificate" msgid="8790577925509962529">"Certificate"</string>
     <string name="ca_certificate" msgid="7397198551290322945">"CA certificate"</string>
-    <string name="user_certificate" msgid="514888069820553128">"VPN and app user certificate"</string>
+    <string name="user_certificate" msgid="514888069820553128">"VPN &amp; app user certificate"</string>
     <string name="wifi_certificate" msgid="5356595832360140989">"Wi‑Fi certificate"</string>
     <string name="ca_cert_is_added" msgid="2847081843756291802">"CA certificate installed"</string>
     <string name="user_cert_is_added" msgid="3088794616560630823">"User certificate installed"</string>
@@ -83,9 +83,9 @@
     <string name="install_done" msgid="1522718684172097080">"<xliff:g id="NAME">%1$s</xliff:g> credentials have been added to Wi-Fi saved networks."</string>
     <string name="done_label" msgid="5597425930652904250">"DONE"</string>
     <string name="wifi_installer_detail" msgid="63879632832701669">"Install Wi-Fi credentials to connect to networks available via <xliff:g id="NAME">%1$s</xliff:g>."</string>
-    <string name="wifi_installer_download_error" msgid="5429453090956277692">"Downloaded file has problems and can\'t be installed. Make sure that you have downloaded the file from the correct source."</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"Downloaded file has problems and can\'t be installed. Make sure you downloaded the file from the correct source."</string>
     <string name="wifi_installer_fail" msgid="894483173306576331">"Can\'t install Wi-Fi credentials. Try downloading the file again."</string>
-    <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"Installation cancelled"</string>
+    <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"Installation canceled"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"Can\'t install"</string>
     <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Turn on Wi-Fi and try again."</string>
 </resources>

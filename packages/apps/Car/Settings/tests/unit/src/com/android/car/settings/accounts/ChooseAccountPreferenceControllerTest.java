@@ -62,7 +62,6 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.MockitoSession;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
 
 @RunWith(AndroidJUnit4.class)
@@ -189,13 +188,10 @@ public class ChooseAccountPreferenceControllerTest {
     }
 
     private void initMocks() {
-        mAccountTypeToLabelMap = new HashMap<String, String>() {
-            {
-                put("com.acct1", mContext.getString(R.string.account_type1_label));
-                put("com.acct2", mContext.getString(R.string.account_type2_label));
-                put("com.acct3", mContext.getString(R.string.account_type3_label));
-            }
-        };
+        mAccountTypeToLabelMap = Map.of(
+                "com.acct1", mContext.getString(R.string.account_type1_label),
+                "com.acct2", mContext.getString(R.string.account_type2_label),
+                "com.acct3", mContext.getString(R.string.account_type3_label));
         when(mMockAuthenticatorHelper.getLabelForType(any(), any())).then(invocation -> {
             Object[] args = invocation.getArguments();
             return mAccountTypeToLabelMap.get((String) args[1]);

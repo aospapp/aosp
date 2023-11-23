@@ -49,7 +49,6 @@ cc_binary {
         "libutils",
     ],
 
-    cpp_std: "c++11",
     cflags: [
         "-Wall",
         "-Werror",

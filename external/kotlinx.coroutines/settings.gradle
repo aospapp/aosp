@@ -8,7 +8,7 @@ pluginManagement {
 
         // JMH
         id "net.ltgt.apt" version "0.21"
-        id "me.champeau.gradle.jmh" version "0.5.2"
+        id "me.champeau.gradle.jmh" version "0.5.3"
     }
 
     repositories {
@@ -18,7 +18,6 @@ pluginManagement {
 }
 
 rootProject.name = 'kotlinx.coroutines'
-enableFeaturePreview('GRADLE_METADATA')
 
 def module(String path) {
     int i = path.lastIndexOf('/')
@@ -59,5 +58,3 @@ module('ui/kotlinx-coroutines-swing')
 if (!build_snapshot_train) {
     module('js/example-frontend-js')
 }
-
-module('integration-testing')

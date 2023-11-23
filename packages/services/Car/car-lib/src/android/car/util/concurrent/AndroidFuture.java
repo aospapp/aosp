@@ -244,7 +244,6 @@ public class AndroidFuture<T> extends CompletableFuture<T> implements Parcelable
      * Calls the provided listener, handling any exceptions that may arise.
      */
     // package-private to avoid synthetic method when called from lambda
-    @AddedInOrBefore(majorVersion = 33)
     static <TT> void callListener(
             @NonNull BiConsumer<? super TT, ? super Throwable> listener,
             @Nullable TT res, @Nullable Throwable err) {
@@ -277,7 +276,6 @@ public class AndroidFuture<T> extends CompletableFuture<T> implements Parcelable
         return this;
     }
 
-    @AddedInOrBefore(majorVersion = 33)
     void triggerTimeout() {
         cancelTimeout();
         if (!isDone()) {
@@ -553,7 +551,6 @@ public class AndroidFuture<T> extends CompletableFuture<T> implements Parcelable
     /**
      * Exceptions coming out of {@link #get} are wrapped in {@link ExecutionException}
      */
-    @AddedInOrBefore(majorVersion = 33)
     Throwable unwrapExecutionException(Throwable t) {
         return t instanceof ExecutionException
                 ? t.getCause()

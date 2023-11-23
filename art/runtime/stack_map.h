@@ -20,9 +20,12 @@
 #include <limits>
 
 #include "arch/instruction_set.h"
+#include "base/array_ref.h"
 #include "base/bit_memory_region.h"
 #include "base/bit_table.h"
 #include "base/bit_utils.h"
+#include "base/globals.h"
+#include "base/logging.h"
 #include "base/memory_region.h"
 #include "dex/dex_file_types.h"
 #include "dex_register_location.h"
@@ -360,15 +363,12 @@ class CodeInfo {
     return GetMethodInfoOf(inline_info).GetMethodIndex();
   }
 
+  // Returns the dex registers for `stack_map`, ignoring any inlined dex registers.
   ALWAYS_INLINE DexRegisterMap GetDexRegisterMapOf(StackMap stack_map) const {
-    if (stack_map.HasDexRegisterMap()) {
-      DexRegisterMap map(number_of_dex_registers_, DexRegisterLocation::Invalid());
-      DecodeDexRegisterMap(stack_map.Row(), /* first_dex_register= */ 0, &map);
-      return map;
-    }
-    return DexRegisterMap(0, DexRegisterLocation::None());
+    return GetDexRegisterMapOf(stack_map, /* first= */ 0, number_of_dex_registers_);
   }
 
+  // Returns the dex register map of `inline_info`, and just those registers.
   ALWAYS_INLINE DexRegisterMap GetInlineDexRegisterMapOf(StackMap stack_map,
                                                          InlineInfo inline_info) const {
     if (stack_map.HasDexRegisterMap()) {
@@ -381,6 +381,17 @@ class CodeInfo {
           ? number_of_dex_registers_
           : inline_infos_.GetRow(inline_info.Row() - 1).GetNumberOfDexRegisters();
       uint32_t last = inline_info.GetNumberOfDexRegisters();
+      return GetDexRegisterMapOf(stack_map, first, last);
+    }
+    return DexRegisterMap(0, DexRegisterLocation::None());
+  }
+
+  // Returns the dex register map of `stack_map` in the range the range [first, last).
+  ALWAYS_INLINE DexRegisterMap GetDexRegisterMapOf(StackMap stack_map,
+                                                   uint32_t first,
+                                                   uint32_t last) const {
+    if (stack_map.HasDexRegisterMap()) {
+      DCHECK_LE(first, last);
       DexRegisterMap map(last - first, DexRegisterLocation::Invalid());
       DecodeDexRegisterMap(stack_map.Row(), first, &map);
       return map;
@@ -409,12 +420,39 @@ class CodeInfo {
     return stack_maps_.GetInvalidRow();
   }
 
-  // Searches the stack map list backwards because catch stack maps are stored at the end.
-  StackMap GetCatchStackMapForDexPc(uint32_t dex_pc) const {
+  StackMap GetCatchStackMapForDexPc(ArrayRef<const uint32_t> dex_pcs) const {
+    // Searches the stack map list backwards because catch stack maps are stored at the end.
     for (size_t i = GetNumberOfStackMaps(); i > 0; --i) {
       StackMap stack_map = GetStackMapAt(i - 1);
-      if (stack_map.GetDexPc() == dex_pc && stack_map.GetKind() == StackMap::Kind::Catch) {
-        return stack_map;
+      if (UNLIKELY(stack_map.GetKind() != StackMap::Kind::Catch)) {
+        // Early break since we should have catch stack maps only at the end.
+        if (kIsDebugBuild) {
+          for (size_t j = i - 1; j > 0; --j) {
+            DCHECK(GetStackMapAt(j - 1).GetKind() != StackMap::Kind::Catch);
+          }
+        }
+        break;
+      }
+
+      // Both the handler dex_pc and all of the inline dex_pcs have to match i.e. we want dex_pcs to
+      // be [stack_map_dex_pc, inline_dex_pc_1, ..., inline_dex_pc_n].
+      if (stack_map.GetDexPc() != dex_pcs.front()) {
+        continue;
+      }
+
+      const BitTableRange<InlineInfo>& inline_infos = GetInlineInfosOf(stack_map);
+      if (inline_infos.size() == dex_pcs.size() - 1) {
+        bool matching_dex_pcs = true;
+        for (size_t inline_info_index = 0; inline_info_index < inline_infos.size();
+             ++inline_info_index) {
+          if (inline_infos[inline_info_index].GetDexPc() != dex_pcs[inline_info_index + 1]) {
+            matching_dex_pcs = false;
+            break;
+          }
+        }
+        if (matching_dex_pcs) {
+          return stack_map;
+        }
       }
     }
     return stack_maps_.GetInvalidRow();
@@ -447,6 +485,14 @@ class CodeInfo {
 
   ALWAYS_INLINE static bool IsBaseline(const uint8_t* code_info_data) {
     return (*code_info_data & kIsBaseline) != 0;
+  }
+
+  ALWAYS_INLINE static bool IsDebuggable(const uint8_t* code_info_data) {
+    return (*code_info_data & kIsDebuggable) != 0;
+  }
+
+  uint32_t GetNumberOfDexRegisters() {
+    return number_of_dex_registers_;
   }
 
  private:
@@ -495,11 +541,18 @@ class CodeInfo {
   enum Flags {
     kHasInlineInfo = 1 << 0,
     kIsBaseline = 1 << 1,
+    kIsDebuggable = 1 << 2,
   };
 
   // The CodeInfo starts with sequence of variable-length bit-encoded integers.
+  // (Please see kVarintMax for more details about encoding).
   static constexpr size_t kNumHeaders = 7;
-  uint32_t flags_ = 0;      // Note that the space is limited to three bits.
+  // Note that the space for flags is limited to three bits. We use a custom encoding where we
+  // encode the value inline if it is less than kVarintMax. We want to access flags without
+  // decoding the entire CodeInfo header so the value of flags cannot be more than kVarintMax.
+  // See IsDebuggable / IsBaseline / HasInlineInfo on how we access flags_ without decoding the
+  // header.
+  uint32_t flags_ = 0;
   uint32_t code_size_ = 0;  // The size of native PC range in bytes.
   uint32_t packed_frame_size_ = 0;  // Frame size in kStackAlignment units.
   uint32_t core_spill_mask_ = 0;

@@ -80,6 +80,7 @@ public class DisplaySoundFragmentTest {
         Display display = spy(Display.class);
         doReturn(supportedModes).when(display).getSupportedModes();
         doReturn(systemPreferredMode).when(display).getSystemPreferredDisplayMode();
+        doReturn(new int[]{}).when(mDisplayManager).getSupportedHdrOutputTypes();
         doReturn(display).when(mDisplayManager).getDisplay(Display.DEFAULT_DISPLAY);
 
         DisplaySoundFragment fragment = spy(DisplaySoundFragment.class);

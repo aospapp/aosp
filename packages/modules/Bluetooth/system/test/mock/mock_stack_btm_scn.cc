@@ -19,28 +19,27 @@
  *   Functions generated:3
  */
 
+#include <cstdint>
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <cstdint>
 #include "stack/btm/btm_int_types.h"
 #include "stack/include/rfcdefs.h"
+#include "test/common/mock_functions.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
 #endif
 
 bool BTM_FreeSCN(uint8_t scn) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool BTM_TryAllocateSCN(uint8_t scn) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 uint8_t BTM_AllocateSCN(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }

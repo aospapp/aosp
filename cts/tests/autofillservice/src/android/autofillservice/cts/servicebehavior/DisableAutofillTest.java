@@ -19,6 +19,8 @@ package android.autofillservice.cts.servicebehavior;
 import static android.autofillservice.cts.testcore.Timeouts.ACTIVITY_RESURRECTION;
 import static android.autofillservice.cts.testcore.Timeouts.CALLBACK_NOT_CALLED_TIMEOUT_MS;
 
+import static org.junit.Assume.assumeTrue;
+
 import android.autofillservice.cts.activities.AbstractAutoFillActivity;
 import android.autofillservice.cts.activities.PreSimpleSaveActivity;
 import android.autofillservice.cts.activities.SimpleSaveActivity;
@@ -29,6 +31,7 @@ import android.autofillservice.cts.testcore.Helper;
 import android.autofillservice.cts.testcore.MyAutofillCallback;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.FlakyTest;
 import android.platform.test.annotations.Presubmit;
 import android.service.autofill.FillResponse;
 import android.util.Log;
@@ -37,6 +40,7 @@ import com.android.compatibility.common.util.RetryableException;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -83,7 +87,7 @@ public class DisableAutofillTest extends AutoFillServiceTestCase.ManualActivityL
      * Launches and finishes {@link SimpleSaveActivity}, returning how long it took.
      */
     private long launchSimpleSaveActivity(PostLaunchAction action) throws Exception {
-        Log.v(TAG, "launchPreSimpleSaveActivity(): " + action);
+        Log.v(TAG, "launchSimpleSaveActivity(): " + action);
         sReplier.assertNoUnhandledFillRequests();
 
         if (action == PostLaunchAction.ASSERT_ENABLED_AND_AUTOFILL) {
@@ -175,7 +179,7 @@ public class DisableAutofillTest extends AutoFillServiceTestCase.ManualActivityL
             // Asserts isEnabled() status.
             assertAutofillEnabled(activity, action == PostLaunchAction.ASSERT_ENABLED_AND_AUTOFILL);
         } finally {
-            activity.finish();
+            mUiBot.waitForWindowChange(() -> activity.finish());
         }
         return SystemClock.elapsedRealtime() - before;
     }
@@ -238,6 +242,7 @@ public class DisableAutofillTest extends AutoFillServiceTestCase.ManualActivityL
         launchPreSimpleSaveActivity(PostLaunchAction.ASSERT_ENABLED_AND_AUTOFILL);
     }
 
+    @Ignore("b/275112488")
     @Test
     @AppModeFull(reason = "testDisableApp() is enough")
     public void testDisableAppThenResetServiceToReenableIt() throws Exception {
@@ -261,9 +266,13 @@ public class DisableAutofillTest extends AutoFillServiceTestCase.ManualActivityL
         launchPreSimpleSaveActivity(PostLaunchAction.ASSERT_ENABLED_AND_AUTOFILL);
     }
 
-    @Presubmit
+    @Ignore("b/270482520") // Failing on local devices
     @Test
     public void testDisableActivity() throws Exception {
+        // Disable this test for Automotive until we know why it's failing.
+        // bug: 270482520
+        assumeTrue("Skip Automotive", !Helper.isAutomotive(sContext));
+
         // Set service.
         enableService();
 
@@ -283,6 +292,7 @@ public class DisableAutofillTest extends AutoFillServiceTestCase.ManualActivityL
         launchPreSimpleSaveActivity(PostLaunchAction.ASSERT_ENABLED_AND_AUTOFILL);
     }
 
+    @Ignore("b/270482520") // Find out why this test fails
     @Test
     @AppModeFull(reason = "testDisableActivity() is enough")
     public void testDisableActivityThenWaitToReenableIt() throws Exception {
@@ -312,6 +322,7 @@ public class DisableAutofillTest extends AutoFillServiceTestCase.ManualActivityL
         launchSimpleSaveActivity(PostLaunchAction.ASSERT_ENABLED_AND_AUTOFILL);
     }
 
+    @FlakyTest(bugId = 278560571)
     @Test
     @AppModeFull(reason = "testDisableActivity() is enough")
     public void testDisableActivityThenResetServiceToReenableIt() throws Exception {

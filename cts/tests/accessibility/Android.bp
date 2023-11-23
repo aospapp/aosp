@@ -21,6 +21,7 @@ java_library_static {
     sdk_version: "test_current",
     static_libs: [
         "compatibility-device-util-axt",
+        "sts-device-util",
     ],
     srcs: ["common/src/**/*.java"],
 }
@@ -33,12 +34,14 @@ android_test {
         "ctstestrunner-axt",
         "hamcrest-library",
         "CtsAccessibilityCommon",
+        "CtsAccessibilityServiceUtils",
     ],
     libs: ["android.test.base"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
+        "sts",
     ],
     sdk_version: "test_current",
 }

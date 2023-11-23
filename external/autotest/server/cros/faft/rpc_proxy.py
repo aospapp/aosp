@@ -1,12 +1,13 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import httplib
 import logging
+from six.moves import http_client as httplib
 import socket
 import time
-import xmlrpclib
+from six.moves import xmlrpc_client as xmlrpclib
 
 from autotest_lib.client.cros.faft.config import Config as ClientConfig
 from autotest_lib.server import autotest
@@ -62,8 +63,9 @@ class RPCProxy(object):
 
         @param host: The host object, passed via the test control file.
         """
-        self._client = host
+        self.host = host
         self._faft_client = None
+        self.logfiles = []
 
     def __del__(self):
         self.disconnect()
@@ -97,17 +99,20 @@ class RPCProxy(object):
     def connect(self):
         """Connect the RPC server."""
         # Make sure Autotest dependency is there.
-        autotest.Autotest(self._client).install()
-        self._faft_client = self._client.rpc_server_tracker.xmlrpc_connect(
+        autotest.Autotest(self.host).install()
+        logfile = "%s.%s" % (self._client_config.rpc_logfile, time.time())
+        self.logfiles.append(logfile)
+        self._faft_client = self.host.rpc_server_tracker.xmlrpc_connect(
                 self._client_config.rpc_command,
                 self._client_config.rpc_port,
                 command_name=self._client_config.rpc_command_short,
                 ready_test_name=self._client_config.rpc_ready_call,
                 timeout_seconds=self._client_config.rpc_timeout,
-                logfile="%s.%s" % (self._client_config.rpc_logfile,
-                                   time.time()),
-                server_desc=str(self)
-                )
+                logfile=logfile,
+                server_desc=str(self),
+                request_timeout_seconds=self._client_config.
+                rpc_request_timeout,
+        )
 
     def disconnect(self):
         """Disconnect the RPC server."""
@@ -115,8 +120,8 @@ class RPCProxy(object):
         # so no need to pkill upon disconnect.
         if self._faft_client is not None:
             logging.debug("Closing FAFT RPC server connection.")
-        self._client.rpc_server_tracker.disconnect(
-                self._client_config.rpc_port, pkill=False)
+        self.host.rpc_server_tracker.disconnect(self._client_config.rpc_port,
+                                                pkill=False)
         self._faft_client = None
 
     def quit(self):
@@ -129,23 +134,31 @@ class RPCProxy(object):
                     self._faft_client, self._client_config.rpc_quit_call)
             remote_quit()
             need_pkill = False
-        except (StandardError, httplib.BadStatusLine, xmlrpclib.Error) as e:
-            logging.warn("Error while telling FAFT RPC server to quit: %s", e)
+        except Exception as e:
+            logging.warning("Error while telling FAFT RPC server to quit: %s", e)
             # If we failed to tell the RPC server to quit for some reason,
             # fall back to SIGTERM, because it may not have exited.
             need_pkill = True
 
-        self._client.rpc_server_tracker.disconnect(
-                self._client_config.rpc_port, pkill=need_pkill)
+        self.host.rpc_server_tracker.disconnect(self._client_config.rpc_port,
+                                                pkill=need_pkill)
         self._faft_client = None
+
+    def collect_logfiles(self, dest):
+        """Download all logfiles from the DUT, then delete them."""
+        if self.logfiles:
+            for logfile in self.logfiles:
+                if self.host.run("test -f", args=[logfile],
+                                 ignore_status=True).exit_status == 0:
+                    self.host.get_file(logfile, dest)
+                    self.host.run("rm -f", ignore_status=True, args=[logfile])
+            self.logfiles.clear()
 
     def __repr__(self):
         """Return a description of the proxy object"""
-        return '%s(%s)' % (self.__class__.__name__, self._client)
+        return '%s(%s)' % (self.__class__.__name__, self.host)
 
     def __str__(self):
         """Return a description of the proxy object"""
-        return "<%s '%s:%s'>" % (
-                self.__class__.__name__,
-                self._client.hostname,
-                self._client_config.rpc_port)
+        return "<%s '%s:%s'>" % (self.__class__.__name__, self.host.hostname,
+                                 self._client_config.rpc_port)

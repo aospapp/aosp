@@ -15,12 +15,12 @@
 #include "pw_snapshot/uuid.h"
 
 #include <cstddef>
-#include <span>
 
 #include "pw_bytes/span.h"
 #include "pw_protobuf/decoder.h"
 #include "pw_result/result.h"
 #include "pw_snapshot_metadata_proto/snapshot_metadata.pwpb.h"
+#include "pw_span/span.h"
 #include "pw_status/try.h"
 
 namespace pw::snapshot {
@@ -34,7 +34,7 @@ Result<ConstByteSpan> ReadUuidFromSnapshot(ConstByteSpan snapshot,
   while (decoder.Next().ok()) {
     if (decoder.FieldNumber() ==
         static_cast<uint32_t>(
-            pw::snapshot::SnapshotBasicInfo::Fields::METADATA)) {
+            pw::snapshot::pwpb::SnapshotBasicInfo::Fields::kMetadata)) {
       PW_TRY(decoder.ReadBytes(&metadata));
       break;
     }
@@ -48,7 +48,8 @@ Result<ConstByteSpan> ReadUuidFromSnapshot(ConstByteSpan snapshot,
   ConstByteSpan snapshot_uuid;
   while (decoder.Next().ok()) {
     if (decoder.FieldNumber() ==
-        static_cast<uint32_t>(pw::snapshot::Metadata::Fields::SNAPSHOT_UUID)) {
+        static_cast<uint32_t>(
+            pw::snapshot::pwpb::Metadata::Fields::kSnapshotUuid)) {
       PW_TRY(decoder.ReadBytes(&snapshot_uuid));
       break;
     }

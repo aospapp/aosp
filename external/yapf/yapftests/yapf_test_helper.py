@@ -21,6 +21,7 @@ from yapf.yapflib import blank_line_calculator
 from yapf.yapflib import comment_splicer
 from yapf.yapflib import continuation_splicer
 from yapf.yapflib import identify_container
+from yapf.yapflib import py3compat
 from yapf.yapflib import pytree_unwrapper
 from yapf.yapflib import pytree_utils
 from yapf.yapflib import pytree_visitor
@@ -31,21 +32,26 @@ from yapf.yapflib import subtype_assigner
 
 class YAPFTest(unittest.TestCase):
 
+  def __init__(self, *args):
+    super(YAPFTest, self).__init__(*args)
+    if not py3compat.PY3:
+      self.assertRaisesRegex = self.assertRaisesRegexp
+
   def assertCodeEqual(self, expected_code, code):
     if code != expected_code:
       msg = ['Code format mismatch:', 'Expected:']
       linelen = style.Get('COLUMN_LIMIT')
-      for l in expected_code.splitlines():
-        if len(l) > linelen:
-          msg.append('!> %s' % l)
+      for line in expected_code.splitlines():
+        if len(line) > linelen:
+          msg.append('!> %s' % line)
         else:
-          msg.append(' > %s' % l)
+          msg.append(' > %s' % line)
       msg.append('Actual:')
-      for l in code.splitlines():
-        if len(l) > linelen:
-          msg.append('!> %s' % l)
+      for line in code.splitlines():
+        if len(line) > linelen:
+          msg.append('!> %s' % line)
         else:
-          msg.append(' > %s' % l)
+          msg.append(' > %s' % line)
       msg.append('Diff:')
       msg.extend(
           difflib.unified_diff(
@@ -58,7 +64,7 @@ class YAPFTest(unittest.TestCase):
 
 
 def ParseAndUnwrap(code, dumptree=False):
-  """Produces unwrapped lines from the given code.
+  """Produces logical lines from the given code.
 
   Parses the code into a tree, performs comment splicing and runs the
   unwrapper.
@@ -69,7 +75,7 @@ def ParseAndUnwrap(code, dumptree=False):
               to stderr. Useful for debugging.
 
   Returns:
-    List of unwrapped lines.
+    List of logical lines.
   """
   tree = pytree_utils.ParseCodeToTree(code)
   comment_splicer.SpliceComments(tree)
@@ -82,8 +88,8 @@ def ParseAndUnwrap(code, dumptree=False):
   if dumptree:
     pytree_visitor.DumpPyTree(tree, target_stream=sys.stderr)
 
-  uwlines = pytree_unwrapper.UnwrapPyTree(tree)
-  for uwl in uwlines:
-    uwl.CalculateFormattingInformation()
+  llines = pytree_unwrapper.UnwrapPyTree(tree)
+  for lline in llines:
+    lline.CalculateFormattingInformation()
 
-  return uwlines
+  return llines

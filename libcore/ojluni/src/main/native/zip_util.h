@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1995, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1995, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -33,13 +33,14 @@
 /*
  * Header signatures
  */
-#define LOCSIG 0x04034b50L          /* "PK\003\004" */
-#define EXTSIG 0x08074b50L          /* "PK\007\008" */
-#define CENSIG 0x02014b50L          /* "PK\001\002" */
-#define ENDSIG 0x06054b50L          /* "PK\005\006" */
-
-#define ZIP64_ENDSIG 0x06064b50L    /* "PK\006\006" */
-#define ZIP64_LOCSIG 0x07064b50L    /* "PK\006\007" */
+#define PKZIP_SIGNATURE_AT(p, b2, b3) \
+  (((p)[0] == 'P') & ((p)[1] == 'K') & ((p)[2] == b2) & ((p)[3] == b3))
+#define CENSIG_AT(p)       PKZIP_SIGNATURE_AT(p, 1, 2)
+#define LOCSIG_AT(p)       PKZIP_SIGNATURE_AT(p, 3, 4)
+#define ENDSIG_AT(p)       PKZIP_SIGNATURE_AT(p, 5, 6)
+#define EXTSIG_AT(p)       PKZIP_SIGNATURE_AT(p, 7, 8)
+#define ZIP64_ENDSIG_AT(p) PKZIP_SIGNATURE_AT(p, 6, 6)
+#define ZIP64_LOCSIG_AT(p) PKZIP_SIGNATURE_AT(p, 6, 7)
 
 /*
  * Header sizes including signatures
@@ -243,39 +244,52 @@ typedef struct jzfile {   /* Zip file */
  */
 #define ZIP_ENDCHAIN ((jint)-1)
 
-jzentry * JNICALL
+JNIEXPORT jzentry *
 ZIP_FindEntry(jzfile *zip, char *name, jint *sizeP, jint *nameLenP);
 
-jboolean JNICALL
+JNIEXPORT jboolean
 ZIP_ReadEntry(jzfile *zip, jzentry *entry, unsigned char *buf, char *entrynm);
 
-jzentry * JNICALL
+JNIEXPORT jzentry *
 ZIP_GetNextEntry(jzfile *zip, jint n);
 
-jzfile * JNICALL
-ZIP_Open(const char *name, char **pmsg);
+JNIEXPORT jzfile *
+ZIP_Open(JNIEnv *env, jobject thiz, const char *name, char **pmsg);
 
 jzfile *
-ZIP_Open_Generic(const char *name, char **pmsg, int mode, jlong lastModified);
+ZIP_Open_Generic(JNIEnv *env, jobject thiz, const char *name, char **pmsg, int mode, jlong lastModified);
 
 jzfile *
 ZIP_Get_From_Cache(const char *name, char **pmsg, jlong lastModified);
 
 jzfile *
-ZIP_Put_In_Cache(const char *name, ZFILE zfd, char **pmsg, jlong lastModified);
+ZIP_Put_In_Cache(JNIEnv *env, jobject thiz, const char *name, ZFILE zfd, char **pmsg, jlong lastModified);
 
 jzfile *
-ZIP_Put_In_Cache0(const char *name, ZFILE zfd, char **pmsg, jlong lastModified, jboolean usemmap);
+ZIP_Put_In_Cache0(JNIEnv *env, jobject thiz, const char *name, ZFILE zfd, char **pmsg, jlong lastModified, jboolean usemmap);
 
-void JNICALL
+JNIEXPORT void
 ZIP_Close(jzfile *zip);
 
-jzentry * ZIP_GetEntry(jzfile *zip, char *name, jint ulen);
-void ZIP_Lock(jzfile *zip);
-void ZIP_Unlock(jzfile *zip);
-jint ZIP_Read(jzfile *zip, jzentry *entry, jlong pos, void *buf, jint len);
-void ZIP_FreeEntry(jzfile *zip, jzentry *ze);
+jzentry *
+ZIP_GetEntry(jzfile *zip, char *name, jint ulen);
+void
+ZIP_Lock(jzfile *zip);
+void
+ZIP_Unlock(jzfile *zip);
+jint
+ZIP_Read(jzfile *zip, jzentry *entry, jlong pos, void *buf, jint len);
+void
+ZIP_FreeEntry(jzfile *zip, jzentry *ze);
 jlong ZIP_GetEntryDataOffset(jzfile *zip, jzentry *entry);
 jzentry * ZIP_GetEntry2(jzfile *zip, char *name, jint ulen, jboolean addSlash);
 
+// Android-removed; this method is used outside of java.util.zip and
+// that code is absent from Android.
+/*
+JNIEXPORT jboolean
+ZIP_InflateFully(void *inBuf, jlong inLen, void *outBuf, jlong outLen, char **pmsg);
+*/
+
+jboolean ZIP_OnZipEntryAccess(JNIEnv *env, jobject thiz, const char* entryName, int len, jint flag);
 #endif /* !_ZIP_H_ */

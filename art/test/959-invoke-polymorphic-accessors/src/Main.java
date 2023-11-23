@@ -20,6 +20,8 @@ import java.lang.reflect.Field;
 
 public class Main {
 
+    private static final boolean DALVIK_RUN = "Dalvik".equals(System.getProperty("java.vm.name"));
+
     public static class ValueHolder {
         public boolean m_z = false;
         public byte m_b = 0;
@@ -793,6 +795,10 @@ public class Main {
                 Long z = (Long) h0.invoke(valueHolder);
                 fail();
             } catch (WrongMethodTypeException expected) {}
+            try {
+                int x = (int) h0.invokeExact((ValueHolder) null);
+                fail();
+            } catch (NullPointerException expected) {}
         }
 
         /*package*/ static Number getDoubleAsNumber() {
@@ -822,6 +828,10 @@ public class Main {
               h0.invoke(valueHolder, (Float) null);
               fail();
             } catch (NullPointerException expected) {}
+            try {
+                h0.invoke((ValueHolder) null, Float.valueOf(1.0f));
+                fail();
+              } catch (NullPointerException expected) {}
 
             // Test that type conversion checks work on small field types.
             short temp = (short) s0.invoke(valueHolder, new Byte((byte) 45));
@@ -951,8 +961,10 @@ public class Main {
                 MethodHandles.lookup().unreflectSetter(f).invokeExact(v, 'A');
                 assertEquals('A', (char) MethodHandles.lookup().unreflectGetter(f).invokeExact(v));
             }
-            {
+            if (DALVIK_RUN) {
                 // public static final field test
+                // for JVM it is not possible to get the unreflected setter for a static final
+                // field, see b/242985782
                 Field f = ValueHolder.class.getDeclaredField("s_fi");
                 try {
                     MethodHandles.lookup().unreflectSetter(f);
@@ -1003,8 +1015,10 @@ public class Main {
                     fail();
                 } catch (IllegalAccessException expected) {}
             }
-            {
+            if (DALVIK_RUN) {
                 // private static final field test
+                // for JVM it is not possible to get the unreflected setter for a static final
+                // field, see b/242985782
                 Field f = ValueHolder.class.getDeclaredField("s_fz");  // private static final field
                 try {
                     MethodHandles.lookup().unreflectSetter(f);

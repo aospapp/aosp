@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/netfilter/log_obj.c	Netfilter Log Object
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2008 Thomas Graf <tgraf@suug.ch>
  * Copyright (c) 2007 Philip Craig <philipc@snapgear.com>
  * Copyright (c) 2007 Secure Computing Corporation
@@ -215,9 +208,15 @@ void nfnl_log_unset_flags(struct nfnl_log *log, unsigned int flags)
 	log->log_flag_mask |= flags;
 }
 
+unsigned int nfnl_log_get_flags(const struct nfnl_log *log)
+{
+	return log->log_flags;
+}
+
 static const struct trans_tbl log_flags[] = {
 	__ADD(NFNL_LOG_FLAG_SEQ,	seq),
 	__ADD(NFNL_LOG_FLAG_SEQ_GLOBAL,	seq_global),
+	__ADD(NFNL_LOG_FLAG_CONNTRACK,	conntrack),
 };
 
 char *nfnl_log_flags2str(unsigned int flags, char *buf, size_t len)

@@ -72,6 +72,7 @@ import java.util.concurrent.TimeUnit;
 @RunWith(AndroidJUnit4.class)
 public class PopupMenuTest {
     private Instrumentation mInstrumentation;
+    private CtsTouchUtils mCtsTouchUtils;
     private Activity mActivity;
 
     private Builder mBuilder;
@@ -86,6 +87,7 @@ public class PopupMenuTest {
     @Before
     public void setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mCtsTouchUtils = new CtsTouchUtils(mInstrumentation.getTargetContext());
         mActivity = mActivityRule.getActivity();
 
         // Disable and remove focusability on the first child of our activity so that
@@ -257,7 +259,7 @@ public class PopupMenuTest {
         // wouldn't emulate the user-facing interaction for this test. Also, we don't want to use
         // View.dispatchTouchEvent directly as that would require emulation of two separate
         // sequences as well.
-        CtsTouchUtils.emulateTapOnView(mInstrumentation, mActivityRule, mBuilder.mAnchor, 10, -20);
+        mCtsTouchUtils.emulateTapOnView(mInstrumentation, mActivityRule, mBuilder.mAnchor, 10, -20);
 
         // Verify that the popup menu has been dismissed exactly once
         verify(mBuilder.mOnDismissListener, within(1000)).onDismiss(mPopupMenu);

@@ -35,14 +35,17 @@ Camera3IOStreamBase::Camera3IOStreamBase(int id, camera_stream_type_t type,
         const String8& physicalCameraId,
         const std::unordered_set<int32_t> &sensorPixelModesUsed,
         int setId, bool isMultiResolution, int64_t dynamicRangeProfile, int64_t streamUseCase,
-        bool deviceTimeBaseIsRealtime, int timestampBase) :
+        bool deviceTimeBaseIsRealtime, int timestampBase, int32_t colorSpace) :
         Camera3Stream(id, type,
                 width, height, maxSize, format, dataSpace, rotation,
                 physicalCameraId, sensorPixelModesUsed, setId, isMultiResolution,
-                dynamicRangeProfile, streamUseCase, deviceTimeBaseIsRealtime, timestampBase),
+                dynamicRangeProfile, streamUseCase, deviceTimeBaseIsRealtime, timestampBase,
+                colorSpace),
         mTotalBufferCount(0),
+        mMaxCachedBufferCount(0),
         mHandoutTotalBufferCount(0),
         mHandoutOutputBufferCount(0),
+        mCachedOutputBufferCount(0),
         mFrameCount(0),
         mLastTimestamp(0) {
 
@@ -71,8 +74,7 @@ bool Camera3IOStreamBase::hasOutstandingBuffersLocked() const {
     return false;
 }
 
-void Camera3IOStreamBase::dump(int fd, const Vector<String16> &args) const {
-    (void) args;
+void Camera3IOStreamBase::dump(int fd, [[maybe_unused]] const Vector<String16> &args) const {
     String8 lines;
 
     uint64_t consumerUsage = 0;
@@ -91,12 +93,13 @@ void Camera3IOStreamBase::dump(int fd, const Vector<String16> &args) const {
     }
     lines.appendFormat("      Dynamic Range Profile: 0x%" PRIx64 "\n",
             camera_stream::dynamic_range_profile);
+    lines.appendFormat("      Color Space: %d\n", camera_stream::color_space);
     lines.appendFormat("      Stream use case: %" PRId64 "\n", camera_stream::use_case);
     lines.appendFormat("      Timestamp base: %d\n", getTimestampBase());
     lines.appendFormat("      Frames produced: %d, last timestamp: %" PRId64 " ns\n",
             mFrameCount, mLastTimestamp);
-    lines.appendFormat("      Total buffers: %zu, currently dequeued: %zu\n",
-            mTotalBufferCount, mHandoutTotalBufferCount);
+    lines.appendFormat("      Total buffers: %zu, currently dequeued: %zu, currently cached: %zu\n",
+            mTotalBufferCount, mHandoutTotalBufferCount, mCachedOutputBufferCount);
     write(fd, lines.string(), lines.size());
 
     Camera3Stream::dump(fd, args);
@@ -133,6 +136,14 @@ size_t Camera3IOStreamBase::getHandoutOutputBufferCountLocked() const {
 
 size_t Camera3IOStreamBase::getHandoutInputBufferCountLocked() {
     return (mHandoutTotalBufferCount - mHandoutOutputBufferCount);
+}
+
+size_t Camera3IOStreamBase::getCachedOutputBufferCountLocked() const {
+    return mCachedOutputBufferCount;
+}
+
+size_t Camera3IOStreamBase::getMaxCachedOutputBuffersLocked() const {
+    return mMaxCachedBufferCount;
 }
 
 status_t Camera3IOStreamBase::disconnectLocked() {

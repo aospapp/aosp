@@ -15,15 +15,14 @@
  */
 
 #include <getopt.h>
+#include <inttypes.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-
-#include "libacpi.h"
-#include "libfdt.h"
 
 #include "dt_table.h"
-
+#include "libacpi.h"
+#include "libfdt.h"
 
 struct dump_params {
   const char *img_filename;
@@ -41,6 +40,10 @@ static void *read_fdt_from_image(FILE *img_fp,
   void *fdt = NULL;
 
   fdt = malloc(dt_size);
+  if (fdt == NULL) {
+    fprintf(stderr, "malloc(%" PRIu32 ") failed.\n", dt_size);
+    return NULL;
+  }
 
   fseek(img_fp, dt_offset, SEEK_SET);
   if (fread(fdt, dt_size, 1, img_fp) == 0) {
@@ -189,16 +192,18 @@ static int dump_image_from_fp(FILE *out_fp, FILE *img_fp,
     uint32_t dt_offset = fdt32_to_cpu(entry.dt_offset);
     if (dt_size > 0 && dt_offset > 0) {
       void *fdt = read_fdt_from_image(img_fp, dt_offset, dt_size);
-      output_fdt_info(out_fp, fdt, get_fdt_size);
+      if (fdt) {
+        output_fdt_info(out_fp, fdt, get_fdt_size);
 
-      if (params->out_dtb_filename != NULL) {
-        char filename[256];
-        snprintf(filename, sizeof(filename), "%s.%d",
-                 params->out_dtb_filename, i);
-        write_fdt_to_file(filename, fdt, get_fdt_size);
+        if (params->out_dtb_filename != NULL) {
+          char filename[256];
+          snprintf(filename, sizeof(filename), "%s.%d",
+                   params->out_dtb_filename, i);
+          write_fdt_to_file(filename, fdt, get_fdt_size);
+        }
+
+        free_fdt(fdt);
       }
-
-      free_fdt(fdt);
     }
 
     entry_offset += entry_size;

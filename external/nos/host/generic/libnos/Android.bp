@@ -30,9 +30,17 @@ cc_library {
     ],
     defaults: ["nos_cc_host_supported_defaults"],
     header_libs: ["nos_headers"],
-    shared_libs: ["libnos_datagram"],
     export_include_dirs: ["include"],
-    export_shared_lib_headers: ["libnos_datagram"],
+}
+
+cc_library {
+    name: "libnos_feature",
+    srcs: [
+        "feature.cpp",
+    ],
+    defaults: ["nos_cc_host_supported_defaults"],
+    header_libs: ["nos_headers"],
+    export_include_dirs: ["include"],
 }
 
 // This part of libnos must be linked with the target's implementation of

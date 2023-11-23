@@ -1,4 +1,4 @@
-/* Copyright 2018 The Chromium OS Authors. All rights reserved.
+/* Copyright 2018 The ChromiumOS Authors
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  *
@@ -400,6 +400,20 @@ TEST(path_join, basic) {
   char *path = path_join("a", "b");
   ASSERT_EQ(std::string("a/b"), path);
   free(path);
+}
+
+TEST(path_is_parent, simple) {
+  EXPECT_TRUE(path_is_parent("/dev", "/dev/rtc"));
+  EXPECT_TRUE(path_is_parent("/dev/", "/dev/rtc"));
+  EXPECT_TRUE(path_is_parent("/sys", "/sys/power"));
+  EXPECT_TRUE(path_is_parent("/sys/power", "/sys/power/something"));
+  EXPECT_TRUE(path_is_parent("/sys", "/sys/sys/power"));
+
+  EXPECT_FALSE(path_is_parent("/dev", ""));
+  EXPECT_FALSE(path_is_parent("/dev", "/sys"));
+  EXPECT_FALSE(path_is_parent("/dev", "dev"));
+  EXPECT_FALSE(path_is_parent("/dev", "/sys/dev"));
+  EXPECT_FALSE(path_is_parent("/dev", "/device"));
 }
 
 TEST(getmultiline, basic) {

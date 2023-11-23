@@ -282,7 +282,7 @@ class AtomicSpscQueue : public NonCopyable {
     size_t extractInternal(ElementType *dest, size_t elementsToCopy) {
       if (elementsToCopy > 0) {
         uint32_t headRaw = mQueue.mHead;
-        uint32_t headIndex = headRaw % kCapacity;
+        size_t headIndex = headRaw % kCapacity;
 
         size_t firstCopy = std::min(elementsToCopy, kCapacity - headIndex);
         uninitializedMoveOrCopy(&mQueue.data()[headIndex], firstCopy, dest);

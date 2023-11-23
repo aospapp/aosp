@@ -35,9 +35,9 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Point;
+import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.LocaleList;
 import android.os.RemoteCallback;
 import android.provider.Settings;
@@ -57,7 +57,6 @@ import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.SettingsStateChangerRule;
 import com.android.compatibility.common.util.SettingsStateManager;
-import com.android.compatibility.common.util.SettingsUtils;
 import com.android.compatibility.common.util.StateKeeperRule;
 import com.android.compatibility.common.util.ThrowingRunnable;
 import com.android.compatibility.common.util.Timeout;
@@ -97,9 +96,9 @@ abstract class AssistTestBase {
     private static final Context sContext = getInstrumentation().getTargetContext();
 
     private static final SettingsStateManager sStructureEnabledMgr = new SettingsStateManager(
-            sContext, SettingsUtils.NAMESPACE_SECURE, ASSIST_STRUCTURE_ENABLED);
+            sContext, ASSIST_STRUCTURE_ENABLED);
     private static final SettingsStateManager sScreenshotEnabledMgr = new SettingsStateManager(
-            sContext, SettingsUtils.NAMESPACE_SECURE, ASSIST_SCREENSHOT_ENABLED);
+            sContext, ASSIST_SCREENSHOT_ENABLED);
 
     private final SettingsStateChangerRule mServiceSetterRule = new SettingsStateChangerRule(
             sContext, Settings.Secure.VOICE_INTERACTION_SERVICE,
@@ -341,6 +340,8 @@ abstract class AssistTestBase {
             Display.Mode dMode = mTestActivity.getWindowManager().getDefaultDisplay().getMode();
             mDisplaySize = new Point(dMode.getPhysicalWidth(), dMode.getPhysicalHeight());
         }
+        Rect bounds = mTestActivity.getWindowManager().getMaximumWindowMetrics().getBounds();
+        intent.putExtra(Utils.DISPLAY_AREA_BOUNDS_KEY, bounds);
         intent.putExtra(Utils.DISPLAY_WIDTH_KEY, mDisplaySize.x);
         intent.putExtra(Utils.DISPLAY_HEIGHT_KEY, mDisplaySize.y);
     }

@@ -91,7 +91,7 @@ public class KeyStoreExceptionTest {
     }
 
     @Test
-    public void testRkpFailureServerUnavailable() {
+    public void testOutOfKeysFailureServerUnavailable() {
         KeyStoreException ex = new KeyStoreException(22, "RKP failure",
                 1 /* temporarily unavailable */);
         assertEquals("Error must indicate key exhaustion",
@@ -107,7 +107,7 @@ public class KeyStoreExceptionTest {
     }
 
     @Test
-    public void testRkpFailurePendingConnectivity() {
+    public void testOutOfKeysFailurePendingConnectivity() {
         KeyStoreException ex = new KeyStoreException(22, "RKP failure",
                 3 /* fetching pending connectivity */);
         assertEquals("Error must indicate key exhaustion",
@@ -123,9 +123,67 @@ public class KeyStoreExceptionTest {
     }
 
     @Test
-    public void testRkpFailureDeviceNotRegistered() {
+    public void testOutOfKeysFailureDeviceNotRegistered() {
         KeyStoreException ex = new KeyStoreException(22, "RKP failure",
                 2 /* server refused issuance */);
+        assertEquals("Error must indicate key exhaustion",
+                KeyStoreException.ERROR_ATTESTATION_KEYS_UNAVAILABLE,
+                ex.getNumericErrorCode());
+        assertTrue("Must indicate a system issue",
+                ex.isSystemError());
+        assertFalse("Must indicate a permanent failure",
+                ex.isTransientFailure());
+        assertEquals("Retry policy must be never",
+                KeyStoreException.RETRY_NEVER,
+                ex.getRetryPolicy());
+    }
+
+    @Test
+    public void testRkpFailureDeviceContainPotentiallyVulnerableSoftware() {
+        KeyStoreException ex = new KeyStoreException(23, "RKP failure");
+        assertEquals("Error must indicate key exhaustion",
+                KeyStoreException.ERROR_DEVICE_REQUIRES_UPGRADE_FOR_ATTESTATION,
+                ex.getNumericErrorCode());
+        assertTrue("Must indicate a system issue", ex.isSystemError());
+        assertTrue("Must indicate a non permanent failure", ex.isTransientFailure());
+        assertEquals("Retry policy must be next reboot",
+                KeyStoreException.RETRY_AFTER_NEXT_REBOOT,
+                ex.getRetryPolicy());
+    }
+
+    @Test
+    public void testRkpFailurePendingConnectivity() {
+        KeyStoreException ex = new KeyStoreException(24, "RKP failure");
+        assertEquals("Error must indicate key exhaustion",
+                KeyStoreException.ERROR_ATTESTATION_KEYS_UNAVAILABLE,
+                ex.getNumericErrorCode());
+        assertTrue("Must indicate a system issue",
+                ex.isSystemError());
+        assertTrue("Must indicate a transient failure",
+                ex.isTransientFailure());
+        assertEquals("Retry policy must be when connectivity is resumed",
+                KeyStoreException.RETRY_WHEN_CONNECTIVITY_AVAILABLE,
+                ex.getRetryPolicy());
+    }
+
+    @Test
+    public void testRkpFailureTransient() {
+        KeyStoreException ex = new KeyStoreException(25, "RKP failure");
+        assertEquals("Error must indicate key exhaustion",
+                KeyStoreException.ERROR_ATTESTATION_KEYS_UNAVAILABLE,
+                ex.getNumericErrorCode());
+        assertTrue("Must indicate a system issue",
+                ex.isSystemError());
+        assertTrue("Must indicate a transient failure",
+                ex.isTransientFailure());
+        assertEquals("Retry policy must be with backoff",
+                KeyStoreException.RETRY_WITH_EXPONENTIAL_BACKOFF,
+                ex.getRetryPolicy());
+    }
+
+    @Test
+    public void testRkpFailurePermanent() {
+        KeyStoreException ex = new KeyStoreException(26, "RKP failure");
         assertEquals("Error must indicate key exhaustion",
                 KeyStoreException.ERROR_ATTESTATION_KEYS_UNAVAILABLE,
                 ex.getNumericErrorCode());

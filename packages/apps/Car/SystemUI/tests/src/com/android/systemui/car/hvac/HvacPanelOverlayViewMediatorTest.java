@@ -20,6 +20,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.content.Context;
 import android.content.Intent;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.testing.AndroidTestingRunner;
@@ -29,6 +30,7 @@ import com.android.systemui.SysuiTestCase;
 import com.android.systemui.broadcast.BroadcastDispatcher;
 import com.android.systemui.car.CarSystemUiTest;
 import com.android.systemui.car.systembar.CarSystemBarController;
+import com.android.systemui.settings.UserTracker;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -45,18 +47,23 @@ public class HvacPanelOverlayViewMediatorTest extends SysuiTestCase {
     private HvacPanelOverlayViewMediator mHvacPanelOverlayViewMediator;
 
     @Mock
+    private Context mContext;
+    @Mock
     private CarSystemBarController mCarSystemBarController;
     @Mock
     private HvacPanelOverlayViewController mHvacPanelOverlayViewController;
     @Mock
     private BroadcastDispatcher mBroadcastDispatcher;
+    @Mock
+    private UserTracker mUserTracker;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
 
-        mHvacPanelOverlayViewMediator = new HvacPanelOverlayViewMediator(mCarSystemBarController,
-                mHvacPanelOverlayViewController, mBroadcastDispatcher);
+        mHvacPanelOverlayViewMediator = new HvacPanelOverlayViewMediator(mContext,
+                mCarSystemBarController, mHvacPanelOverlayViewController, mBroadcastDispatcher,
+                mUserTracker);
     }
 
     @Test

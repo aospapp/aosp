@@ -842,7 +842,7 @@ static int parse_command_line_arguments(int argc, char **argv, char *ttyn,
 	char *type_ptr = NULL;	/* stores malloc'd data from get_default_type */
 	char *level_s = NULL;	/* level spec'd by user in argv[] */
 	char *range_ptr = NULL;
-	char *new_con = NULL;
+	const char *new_con = NULL;
 	char *tty_con = NULL;
 	context_t context = NULL;	/* manipulatable form of new_context */
 	const struct option long_options[] = {
@@ -1289,7 +1289,7 @@ int main(int argc, char *argv[])
 	/*
 	 * Step 5:  Execute a new shell with the new context in `new_context'. 
 	 *
-	 * Establish context, namesapce and any options for the new shell
+	 * Establish context, namespace and any options for the new shell
 	 */
 	if (optind < 1)
 		optind = 1;

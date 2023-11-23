@@ -126,7 +126,7 @@ public final class IpSecTransform implements AutoCloseable {
                 checkResultStatus(status);
                 mResourceId = result.resourceId;
                 Log.d(TAG, "Added Transform with Id " + mResourceId);
-                mCloseGuard.open("build");
+                mCloseGuard.open("close");
             } catch (ServiceSpecificException e) {
                 throw IpSecManager.rethrowUncheckedExceptionFromServiceSpecificException(e);
             }

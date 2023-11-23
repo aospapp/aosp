@@ -24,48 +24,41 @@
 namespace chre {
 namespace rpc_service_test {
 
-#ifdef PW_RPC_SERVICE_ENABLED
 pw::Status EchoService::Echo(const pw_rpc_EchoMessage &request,
                              pw_rpc_EchoMessage &response) {
+  RpcServiceManagerSingleton::get()->setPermissionForNextMessage(
+      CHRE_MESSAGE_PERMISSION_NONE);
   memcpy(response.msg, request.msg,
          MIN(ARRAY_SIZE(response.msg), ARRAY_SIZE(request.msg)));
   return pw::OkStatus();
 }
-#endif  // PW_RPC_SERVICE_ENABLED
 
 bool RpcServiceManager::start() {
-  static chreNanoappRpcService sRpcService = {
-      .id = 0xca8f7150a3f05847,
-      .version = 0x01020034,
-  };
+  // Make sure nanoapps support publishing at least
+  // CHRE_MINIMUM_RPC_SERVICE_LIMIT services.
+  RpcServer::Service service{
+      .service = mEchoService, .id = 0xca8f7150a3f05847, .version = 0x01020034};
 
-#ifdef PW_RPC_SERVICE_ENABLED
-  mServer.RegisterService(mEchoService);
-#endif
-  return chrePublishRpcServices(&sRpcService, 1 /* numServices */);
+  bool success = true;
+
+  for (uint64_t i = 0; i < CHRE_MINIMUM_RPC_SERVICE_LIMIT - 1; i++) {
+    struct chreNanoappRpcService chreService = {.id = i, .version = 1};
+    success =
+        success && chrePublishRpcServices(&chreService, 1 /*numServices*/);
+  }
+
+  return success && mServer.registerServices(1 /*numServices*/, &service);
 }
 
 void RpcServiceManager::handleEvent(uint32_t senderInstanceId,
                                     uint16_t eventType, const void *eventData) {
-#ifdef PW_RPC_SERVICE_ENABLED
-  if (eventType == CHRE_EVENT_MESSAGE_FROM_HOST) {
-    auto *hostMessage = static_cast<const chreMessageFromHostData *>(eventData);
-    mOutput.setHostEndpoint(hostMessage->hostEndpoint);
-
-    pw::Status success = mServer.ProcessPacket(
-        std::span(static_cast<const std::byte *>(hostMessage->message),
-                  hostMessage->messageSize),
-        mOutput);
-    LOGI("Parsing packet %d", success == pw::OkStatus());
-  } else
-#else
-  UNUSED_VAR(eventData);
-#endif  // PW_RPC_SERVICE_ENABLED
-  {
-    LOGW("Got unknown event type from senderInstanceId %" PRIu32
-         " and with eventType %" PRIu16,
-         senderInstanceId, eventType);
+  if (!mServer.handleEvent(senderInstanceId, eventType, eventData)) {
+    LOGE("An RPC error occurred");
   }
+}
+
+void RpcServiceManager::setPermissionForNextMessage(uint32_t permission) {
+  mServer.setPermissionForNextMessage(permission);
 }
 
 }  // namespace rpc_service_test

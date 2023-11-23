@@ -29,6 +29,7 @@ android_test_helper_app {
         "ctstestrunner-axt",
         "androidx.test.rules",
         "compatibility-device-util-axt",
+        "Nene",
         "ShortcutManagerTestUtils",
         "testng",
     ],

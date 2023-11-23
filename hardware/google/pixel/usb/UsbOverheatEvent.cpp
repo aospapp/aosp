@@ -18,6 +18,9 @@
 
 #include "include/pixelusb/UsbOverheatEvent.h"
 
+#include <aidl/android/hardware/thermal/IThermal.h>
+#include <android/binder_manager.h>
+#include <thermalutils/ThermalHidlWrapper.h>
 #include <time.h>
 
 namespace android {
@@ -35,7 +38,7 @@ constexpr char kWakeLockPath[] = "/sys/power/wake_lock";
 constexpr char kWakeUnlockPath[] = "/sys/power/wake_unlock";
 
 int addEpollFdWakeUp(const unique_fd &epfd, const unique_fd &fd) {
-    struct epoll_event event;
+    struct epoll_event event {};
     int ret;
 
     event.data.fd = fd;
@@ -88,12 +91,16 @@ UsbOverheatEvent::UsbOverheatEvent(const ZoneInfo &monitored_zone,
         abort();
     }
 
-    epoll_fd_ = move(epollFd);
-    timer_fd_ = move(timerFd);
-    event_fd_ = move(eventFd);
+    epoll_fd_ = std::move(epollFd);
+    timer_fd_ = std::move(timerFd);
+    event_fd_ = std::move(eventFd);
 
     monitor_ = unique_ptr<thread>(new thread(this->monitorThread, this));
     registerListener();
+}
+
+UsbOverheatEvent::~UsbOverheatEvent() {
+    unregisterThermalCallback();
 }
 
 static int wakelock_cnt = 0;
@@ -124,7 +131,7 @@ static void wakeLockRelease() {
 }
 
 void *UsbOverheatEvent::monitorThread(void *param) {
-    UsbOverheatEvent *overheatEvent = (UsbOverheatEvent *)param;
+    auto *overheatEvent = reinterpret_cast<UsbOverheatEvent *>(param);
     struct epoll_event events[kEpollEvents];
     struct itimerspec delay = itimerspec();
 
@@ -180,12 +187,15 @@ void *UsbOverheatEvent::monitorThread(void *param) {
             }
         }
     }
-
-    return NULL;
 }
 
 bool UsbOverheatEvent::registerListener() {
     ALOGV("UsbOverheatEvent::registerListener");
+    const std::lock_guard<std::mutex> lock(thermal_hal_mutex_);
+    if (connectAidlThermalService()) {
+        return true;
+    }
+
     sp<IServiceManager> sm = IServiceManager::getService();
     if (sm == NULL) {
         ALOGE("Hardware service manager is not running");
@@ -193,11 +203,53 @@ bool UsbOverheatEvent::registerListener() {
     }
     Return<bool> result = sm->registerForNotifications(IThermal::descriptor, "", this);
     if (result.isOk()) {
+        ALOGI("Thermal HIDL service connected!");
         return true;
     }
     ALOGE("Failed to register for hardware service manager notifications: %s",
           result.description().c_str());
     return false;
+}
+
+bool UsbOverheatEvent::connectAidlThermalService() {
+    const std::string thermal_instance_name =
+            std::string(::aidl::android::hardware::thermal::IThermal::descriptor) + "/default";
+    if (AServiceManager_isDeclared(thermal_instance_name.c_str())) {
+        auto thermal_aidl_service = ::aidl::android::hardware::thermal::IThermal::fromBinder(
+                ndk::SpAIBinder(AServiceManager_waitForService(thermal_instance_name.c_str())));
+        if (thermal_aidl_service) {
+            thermal_service_ = sp<::aidl::android::hardware::thermal::ThermalHidlWrapper>::make(
+                    thermal_aidl_service);
+            if (thermal_aidl_death_recipient_.get() == nullptr) {
+                thermal_aidl_death_recipient_ = ndk::ScopedAIBinder_DeathRecipient(
+                        AIBinder_DeathRecipient_new(onThermalAidlBinderDied));
+            }
+            auto linked = AIBinder_linkToDeath(thermal_aidl_service->asBinder().get(),
+                                               thermal_aidl_death_recipient_.get(), this);
+            if (linked != STATUS_OK) {
+                ALOGE("Failed to register AIDL thermal death recipient");
+            }
+            is_thermal_callback_registered_ = registerThermalCallback("AIDL");
+            return is_thermal_callback_registered_;
+        } else {
+            ALOGE("Unable to get Thermal AIDL service");
+        }
+    } else {
+        ALOGW("Thermal AIDL service is not declared");
+    }
+    return false;
+}
+
+void UsbOverheatEvent::unregisterThermalCallback() {
+    const std::lock_guard<std::mutex> lock(thermal_hal_mutex_);
+    if (is_thermal_callback_registered_) {
+        ThermalStatus returnStatus;
+        auto ret = thermal_service_->unregisterThermalChangedCallback(
+                this, [&returnStatus](ThermalStatus status) { returnStatus = status; });
+        if (!ret.isOk() || returnStatus.code != ThermalStatusCode::SUCCESS) {
+            ALOGE("Failed to unregister thermal callback");
+        }
+    }
 }
 
 void UsbOverheatEvent::wakeupMonitor() {
@@ -238,7 +290,7 @@ bool UsbOverheatEvent::stopRecording() {
 bool UsbOverheatEvent::getCurrentTemperature(const string &name, float *temp) {
     ThermalStatus thermal_status;
     hidl_vec<Temperature> thermal_temperatures;
-
+    const std::lock_guard<std::mutex> lock(thermal_hal_mutex_);
     if (thermal_service_ == NULL)
         return false;
 
@@ -268,22 +320,27 @@ Return<void> UsbOverheatEvent::onRegistration(const hidl_string & /*fully_qualif
                                               const hidl_string & /*instance_name*/,
                                               bool /*pre_existing*/) {
     ThermalStatus thermal_status;
-
+    const std::lock_guard<std::mutex> lock(thermal_hal_mutex_);
     thermal_service_ = IThermal::getService();
     if (thermal_service_ == NULL) {
-        ALOGE("Unable to get Themal Service");
+        ALOGE("Unable to get Themal HIDL Service");
         return Void();
     }
+    is_thermal_callback_registered_ = registerThermalCallback("HIDL");
+    return Void();
+}
 
+bool UsbOverheatEvent::registerThermalCallback(const string &service_str) {
+    ThermalStatus thermal_status;
     auto ret = thermal_service_->registerThermalChangedCallback(
             this, true, monitored_zone_.type_,
             [&](ThermalStatus status) { thermal_status = status; });
 
     if (!ret.isOk() || thermal_status.code != ThermalStatusCode::SUCCESS) {
-        ALOGE("failed to register thermal changed callback!");
+        ALOGE("Failed to register thermal changed callback using %s client", service_str.c_str());
+        return false;
     }
-
-    return Void();
+    return true;
 }
 
 Return<void> UsbOverheatEvent::notifyThrottling(const Temperature &temperature) {

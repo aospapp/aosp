@@ -1,0 +1,13 @@
+type vcd, domain;
+type vcd_exec, vendor_file_type, exec_type, file_type;
+userdebug_or_eng(`
+  init_daemon_domain(vcd)
+
+  get_prop(vcd, vendor_rild_prop);
+  get_prop(vcd, vendor_persist_config_default_prop);
+
+  allow vcd serial_device:chr_file rw_file_perms;
+  allow vcd radio_device:chr_file rw_file_perms;
+  allow vcd self:tcp_socket { create_socket_perms_no_ioctl listen accept };
+  allow vcd node:tcp_socket node_bind;
+')

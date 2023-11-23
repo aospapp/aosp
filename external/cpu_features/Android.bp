@@ -101,7 +101,7 @@ cc_library {
     arch: {
         arm: {
             srcs: [
-                "src/cpuinfo_arm.c",
+                "src/impl_arm_linux_or_android.c",
             ],
             whole_static_libs: [
                 "libcpu_features-hwcaps",
@@ -109,7 +109,7 @@ cc_library {
         },
         arm64: {
             srcs: [
-                "src/cpuinfo_aarch64.c",
+                "src/impl_aarch64_linux_or_android.c",
             ],
             whole_static_libs: [
                 "libcpu_features-hwcaps",
@@ -120,7 +120,7 @@ cc_library {
         },
         x86: {
             srcs: [
-                "src/cpuinfo_x86.c",
+                "src/impl_x86_linux_or_android.c",
             ],
             cflags: [
                 "-Wno-unused-variable",
@@ -128,7 +128,7 @@ cc_library {
         },
         x86_64: {
             srcs: [
-                "src/cpuinfo_x86.c",
+                "src/impl_x86_linux_or_android.c",
             ],
             cflags: [
                 "-Wno-unused-variable",
@@ -169,6 +169,16 @@ cc_binary {
         arm64: {
             cflags: [
                 "-Wno-unused-function",
+            ],
+        },
+        x86: {
+            cflags: [
+                "-Wno-deprecated-declarations",
+            ],
+        },
+        x86_64: {
+            cflags: [
+                "-Wno-deprecated-declarations",
             ],
         },
     },
@@ -334,26 +344,28 @@ cc_test {
             cflags: [
                 "-DCPU_FEATURES_MOCK_CPUID_X86",
                 "-Wno-unused-variable",
+                "-Wno-deprecated-declarations",
             ],
             srcs: [
                 "test/cpuinfo_x86_test.cc",
-                "src/cpuinfo_x86.c",
+                "src/impl_x86_linux_or_android.c",
             ],
         },
         x86_64: {
             cflags: [
                 "-DCPU_FEATURES_MOCK_CPUID_X86",
                 "-Wno-unused-variable",
+                "-Wno-deprecated-declarations",
             ],
             srcs: [
                 "test/cpuinfo_x86_test.cc",
-                "src/cpuinfo_x86.c",
+                "src/impl_x86_linux_or_android.c",
             ],
         },
         arm: {
             srcs: [
                 "test/cpuinfo_arm_test.cc",
-                "src/cpuinfo_arm.c",
+                "src/impl_arm_linux_or_android.c",
             ],
         },
         arm64: {
@@ -362,7 +374,7 @@ cc_test {
             ],
             srcs: [
                 "test/cpuinfo_aarch64_test.cc",
-                "src/cpuinfo_aarch64.c",
+                "src/impl_aarch64_linux_or_android.c",
             ],
         },
     },

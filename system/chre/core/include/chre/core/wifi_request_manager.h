@@ -20,6 +20,7 @@
 #include "chre/core/api_manager_common.h"
 #include "chre/core/nanoapp.h"
 #include "chre/core/settings.h"
+#include "chre/core/timer_pool.h"
 #include "chre/platform/platform_wifi.h"
 #include "chre/util/buffer.h"
 #include "chre/util/non_copyable.h"
@@ -294,6 +295,10 @@ class WifiRequestManager : public NonCopyable {
   struct PendingRequestBase {
     uint16_t nanoappInstanceId;  //!< ID of the Nanoapp issuing this request
     const void *cookie;          //!< User data supplied by the nanoapp
+
+    PendingRequestBase() = default;
+    PendingRequestBase(uint16_t nanoappInstanceId_, const void *cookie_)
+        : nanoappInstanceId(nanoappInstanceId_), cookie(cookie_) {}
   };
 
   struct PendingRangingRequestBase : public PendingRequestBase {
@@ -328,6 +333,15 @@ class WifiRequestManager : public NonCopyable {
     bool enable;  //!< Requested scan monitor state
   };
 
+  struct PendingScanRequest : public PendingRequestBase {
+    struct chreWifiScanParams scanParams;
+
+    PendingScanRequest(uint16_t nanoappInstanceId_, const void *cookie_,
+                       const struct chreWifiScanParams *scanParams_)
+        : PendingRequestBase(nanoappInstanceId_, cookie_),
+          scanParams(*scanParams_) {}
+  };
+
   //! An internal struct to hold scan request data for logging
   struct WifiScanRequestLog {
     WifiScanRequestLog(Nanoseconds timestampIn, uint16_t instanceIdIn,
@@ -353,6 +367,7 @@ class WifiRequestManager : public NonCopyable {
 
   enum class PendingNanConfigType { UNKNOWN, ENABLE, DISABLE };
 
+  static constexpr size_t kMaxPendingScanRequest = 4;
   static constexpr size_t kMaxScanMonitorStateTransitions = 8;
   static constexpr size_t kMaxPendingRangingRequests = 4;
   static constexpr size_t kMaxPendingNanSubscriptionRequests = 4;
@@ -364,6 +379,11 @@ class WifiRequestManager : public NonCopyable {
   //! Any further requests are queued here.
   ArrayQueue<PendingScanMonitorRequest, kMaxScanMonitorStateTransitions>
       mPendingScanMonitorRequests;
+
+  //! The queue of scan request. Only one asynchronous scan monitor state
+  //! transition can be in flight at one time. Any further requests are queued
+  //! here.
+  ArrayQueue<PendingScanRequest, kMaxPendingScanRequest> mPendingScanRequests;
 
   //! The list of nanoapps who have enabled scan monitoring. This list is
   //! maintained to ensure that nanoapps are always subscribed to wifi scan
@@ -378,17 +398,6 @@ class WifiRequestManager : public NonCopyable {
   //! format that is used is <subscriptionId, nanoappInstanceId>.
   DynamicVector<NanoappNanSubscriptions> mNanoappSubscriptions;
 
-  // TODO: Support multiple requests for active wifi scans.
-  //! The instance ID of the nanoapp that has a pending active scan request. At
-  //! this time, only one nanoapp can have a pending request for an active WiFi
-  //! scan.
-  Optional<uint16_t> mScanRequestingNanoappInstanceId;
-
-  //! The cookie passed in by a nanoapp making an active request for wifi scans.
-  //! Note that this will only be valid if the mScanRequestingNanoappInstanceId
-  //! is set.
-  const void *mScanRequestingNanoappCookie;
-
   //! This is set to true if the results of an active scan request are pending.
   bool mScanRequestResultsArePending = false;
 
@@ -400,9 +409,6 @@ class WifiRequestManager : public NonCopyable {
   bool mNanConfigRequestToHostPending = false;
   PendingNanConfigType mNanConfigRequestToHostPendingType =
       PendingNanConfigType::UNKNOWN;
-
-  //! System time when last scan request was made.
-  Nanoseconds mLastScanRequestTime;
 
   //! Tracks the in-flight ranging request and any others queued up behind it
   ArrayQueue<PendingRangingRequest, kMaxPendingRangingRequests>
@@ -416,8 +422,16 @@ class WifiRequestManager : public NonCopyable {
   static constexpr size_t kNumWifiRequestLogs = 10;
   ArrayQueue<WifiScanRequestLog, kNumWifiRequestLogs> mWifiScanRequestLogs;
 
-  //! Helps ensure we don't get stuck if platform isn't behaving as expected
-  Nanoseconds mRangingResponseTimeout;
+  //! Manages the timer when a ranging request is dispatched to the PAL.
+  TimerHandle mRequestRangingTimeoutHandle;
+
+  //! Manages the timer that starts when a configure scan monitor request is
+  //! dispatched to the PAL.
+  TimerHandle mConfigureScanMonitorTimeoutHandle;
+
+  //! Manages the timer that starts when a configure scan request is dispatched
+  //! to the PAL.
+  TimerHandle mScanRequestTimeoutHandle = CHRE_TIMER_INVALID;
 
   //! System time when the last WiFi scan event was received.
   Milliseconds mLastScanEventTime;
@@ -431,6 +445,14 @@ class WifiRequestManager : public NonCopyable {
    * @return true if the scan monitor is enabled by any nanoapps.
    */
   bool scanMonitorIsEnabled() const;
+
+  /**
+   * Check if a nanoapp already has a pending scan request.
+   *
+   * @param instanceId the instance ID of the nanoapp.
+   * @return true if the nanoapp already has a pending scan request in queue.
+   */
+  bool nanoappHasPendingScanRequest(uint16_t instanceId) const;
 
   /**
    * @param instanceId the instance ID of the nanoapp.
@@ -676,6 +698,21 @@ class WifiRequestManager : public NonCopyable {
   bool postRangingAsyncResult(uint8_t errorCode);
 
   /**
+   * Keep issuing pending configure scan monitor request to the platform in
+   * queued order util a successful dispatch or the queue is empty
+   */
+  void dispatchQueuedConfigureScanMonitorRequests();
+
+  /**
+   * Issues the pending scan requests to the platform in queued order until one
+   * dispatched successfully or the queue is empty.
+   *
+   * @param postAsyncResult if a dispatch failure should post a async result.
+   * @return true if successfully dispatched one request.
+   */
+  bool dispatchQueuedScanRequests(bool postAsyncResult);
+
+  /**
    * Issues the next pending ranging request to the platform.
    *
    * @return Result of PlatformWifi::requestRanging()
@@ -832,6 +869,49 @@ class WifiRequestManager : public NonCopyable {
    * @param enable Indicates if a NAN enable or disable is being requested.
    */
   void sendNanConfiguration(bool enable);
+
+  /**
+   * Invoked on no response for a configure scan monitor request in the expected
+   * window.
+   */
+  void handleConfigureScanMonitorTimeout();
+
+  /**
+   * Sets up the system timer that invokes handleConfigureScanMonitorTimeout
+   * when the PAL does not respond to configure scan monitor request on time.
+   *
+   * @return TimerHandle that can be used later to cancel the timer if the PAL
+   * has responded in the expected time window.
+   */
+  TimerHandle setConfigureScanMonitorTimer();
+
+  /**
+   * Invoked on no response for a ranging request in the expected window.
+   */
+  void handleRangingRequestTimeout();
+
+  /**
+   * Sets up the system timer that invokes handleRangingRequestTimeout when the
+   * PAL does not respond on time.
+   *
+   * @return TimerHandle that can be used later to cancel the timer if the PAL
+   * has responded in the expected time window.
+   */
+  TimerHandle setRangingRequestTimer();
+
+  /**
+   * Invoked on no response for a scan request in the expected window.
+   */
+  void handleScanRequestTimeout();
+
+  /**
+   * Sets up the system timer that invokes handleScanRequestTimeout when the
+   * PAL does not respond on time.
+   *
+   * @return TimerHandle that can be used later to cancel the timer if the PAL
+   * has responded in the expected time window.
+   */
+  TimerHandle setScanRequestTimer();
 };
 
 }  // namespace chre

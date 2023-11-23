@@ -26,4 +26,16 @@ VOID ixheaacd_inv_dit_fft_8pt_armv7(WORD32 *x, WORD32 *real, WORD32 *imag);
 
 VOID ixheaacd_inv_dit_fft_8pt_armv8(WORD32 *x, WORD32 *real, WORD32 *imag);
 
+#define CPLX_MPY_FFT(re, im, a, b, c, d) \
+  do {                                   \
+    re = ((a * c) - (b * d));            \
+    im = ((a * d) + (b * c));            \
+  } while (0)
+
+#define CPLX_MPY_IFFT(re, im, a, b, c, d) \
+  do {                                    \
+    re = ((a * c) + (b * d));             \
+    im = (-(a * d) + (b * c));            \
+  } while (0)
+
 #endif

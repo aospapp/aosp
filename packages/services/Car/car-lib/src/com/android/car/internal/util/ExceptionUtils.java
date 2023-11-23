@@ -24,7 +24,6 @@ import com.android.internal.util.Preconditions;
 import java.io.IOException;
 
 // Copied from frameworks/base
-
 /**
  * Utility methods for proxying richer exceptions across Binder calls.
  *
@@ -44,7 +43,8 @@ public class ExceptionUtils {
     }
 
     /** TODO add javadoc */
-    public static String getCompleteMessage(String msg, Throwable t) {
+    public static String getCompleteMessage(String msg, Throwable throwable) {
+        Throwable t = throwable;
         final StringBuilder builder = new StringBuilder();
         if (msg != null) {
             builder.append(msg).append(": ");
@@ -89,7 +89,8 @@ public class ExceptionUtils {
     /**
      * Gets the root {@link Throwable#getCause() cause} of {@code t}
      */
-    public static @NonNull Throwable getRootCause(@NonNull Throwable t) {
+    public static @NonNull Throwable getRootCause(@NonNull Throwable throwable) {
+        Throwable t = throwable;
         while (t.getCause() != null) t = t.getCause();
         return t;
     }

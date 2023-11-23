@@ -152,7 +152,7 @@ struct RecordHeader {
 
   RecordHeader() : type(0), misc(0), size(0) {}
 
-  explicit RecordHeader(const char* p) {
+  bool Parse(const char* p) {
     auto pheader = reinterpret_cast<const perf_event_header*>(p);
     if (pheader->type < SIMPLE_PERF_RECORD_TYPE_START) {
       type = pheader->type;
@@ -164,6 +164,11 @@ struct RecordHeader {
       misc = 0;
       size = (sheader->size1 << 16) | sheader->size0;
     }
+    if (size < sizeof(perf_event_header)) {
+      LOG(ERROR) << "invalid record";
+      return false;
+    }
+    return true;
   }
 
   void MoveToBinaryFormat(char*& p) const {
@@ -433,7 +438,7 @@ struct AuxRecord : public Record {
     uint64_t aux_offset;
     uint64_t aux_size;
     uint64_t flags;
-  } * data;
+  }* data;
 
   bool Parse(const perf_event_attr& attr, char* p, char* end) override;
   bool Unformatted() const { return data->flags & PERF_AUX_FLAG_CORESIGHT_FORMAT_RAW; }
@@ -514,7 +519,7 @@ struct AuxTraceInfoRecord : public Record {
     uint32_t pmu_type;
     uint64_t snapshot;
     uint64_t info[0];
-  } * data;
+  }* data;
 
   AuxTraceInfoRecord() {}
   AuxTraceInfoRecord(const DataType& data, const std::vector<ETEInfo>& ete_info);
@@ -533,7 +538,7 @@ struct AuxTraceRecord : public Record {
     uint32_t tid;
     uint32_t cpu;
     uint32_t reserved1;
-  } * data;
+  }* data;
   // AuxTraceRecord is followed by aux tracing data with size data->aux_size.
   // The location of aux tracing data in memory or file is kept in location.
   struct AuxDataLocation {
@@ -545,6 +550,7 @@ struct AuxTraceRecord : public Record {
   AuxTraceRecord(uint64_t aux_size, uint64_t offset, uint32_t idx, uint32_t tid, uint32_t cpu);
 
   bool Parse(const perf_event_attr& attr, char* p, char* end) override;
+  uint32_t Cpu() const override { return data->cpu; }
   static size_t Size() { return sizeof(perf_event_header) + sizeof(DataType); }
 
  protected:

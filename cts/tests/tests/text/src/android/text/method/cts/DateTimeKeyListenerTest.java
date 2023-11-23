@@ -30,8 +30,6 @@ import android.view.KeyEvent;
 import androidx.test.filters.MediumTest;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.compatibility.common.util.CtsKeyEventUtil;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -155,12 +153,12 @@ public class DateTimeKeyListenerTest extends KeyListenerTestCase {
         assertEquals(expectedText, mTextView.getText().toString());
 
         // press '1' key.
-        CtsKeyEventUtil.sendString(mInstrumentation, mTextView, "1");
+        sendString(mTextView, "1");
         expectedText += "1";
         assertEquals(expectedText, mTextView.getText().toString());
 
         // press '2' key.
-        CtsKeyEventUtil.sendString(mInstrumentation, mTextView, "2");
+        sendString(mTextView, "2");
         expectedText += "2";
         assertEquals(expectedText, mTextView.getText().toString());
 
@@ -168,28 +166,28 @@ public class DateTimeKeyListenerTest extends KeyListenerTestCase {
         KeyCharacterMap kcm = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
         if ('a' == kcm.getMatch(KeyEvent.KEYCODE_A, DateTimeKeyListener.CHARACTERS)) {
             expectedText += "a";
-            CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mTextView, KeyEvent.KEYCODE_A);
+            sendKeyDownUp(mTextView, KeyEvent.KEYCODE_A);
             assertEquals(expectedText, mTextView.getText().toString());
         }
 
         // press 'p' key if producible
         if ('p' == kcm.getMatch(KeyEvent.KEYCODE_P, DateTimeKeyListener.CHARACTERS)) {
             expectedText += "p";
-            CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mTextView, KeyEvent.KEYCODE_P);
+            sendKeyDownUp(mTextView, KeyEvent.KEYCODE_P);
             assertEquals(expectedText, mTextView.getText().toString());
         }
 
         // press 'm' key if producible
         if ('m' == kcm.getMatch(KeyEvent.KEYCODE_M, DateTimeKeyListener.CHARACTERS)) {
             expectedText += "m";
-            CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mTextView, KeyEvent.KEYCODE_M);
+            sendKeyDownUp(mTextView, KeyEvent.KEYCODE_M);
             assertEquals(expectedText, mTextView.getText().toString());
         }
 
         // press an unaccepted key if it exists.
         int keyCode = TextMethodUtils.getUnacceptedKeyCode(DateTimeKeyListener.CHARACTERS);
         if (-1 != keyCode) {
-            CtsKeyEventUtil.sendKeys(mInstrumentation, mTextView, keyCode);
+            sendKeys(mTextView, keyCode);
             assertEquals(expectedText, mTextView.getText().toString());
         }
 
@@ -197,7 +195,7 @@ public class DateTimeKeyListenerTest extends KeyListenerTestCase {
         setKeyListenerSync(null);
         assertEquals(expectedText, mTextView.getText().toString());
 
-        CtsKeyEventUtil.sendString(mInstrumentation, mTextView, "1");
+        sendString(mTextView, "1");
         assertEquals(expectedText, mTextView.getText().toString());
     }
 

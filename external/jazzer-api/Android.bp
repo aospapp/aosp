@@ -45,10 +45,20 @@ license {
     ],
 }
 
-java_library_host {
+java_library {
     name: "jazzer",
+    host_supported: true,
     srcs: [
         "agent/src/main/java/com/code_intelligence/jazzer/api/*.java",
     ],
     visibility: ["//visibility:public"],
+}
+
+java_binary {
+  name: "jazzer_setup",
+  wrapper: "jazzer_setup.sh",
+  host_supported: true,
+  srcs: [
+    "JazzerSetup.java",
+  ],
 }

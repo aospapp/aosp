@@ -24,7 +24,8 @@ interface IProfCollectd {
     void terminate();
     void trace_once(@utf8InCpp String tag);
     void process();
-    @utf8InCpp String report();
+    /** -1 if there is no usageSetting */
+    @utf8InCpp String report(int usageSetting);
     @utf8InCpp String get_supported_provider();
     void registerProviderStatusCallback(IProviderStatusCallback cb);
 }

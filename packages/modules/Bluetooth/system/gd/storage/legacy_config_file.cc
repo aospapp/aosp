@@ -39,13 +39,17 @@ std::optional<ConfigCache> LegacyConfigFile::Read(size_t temp_devices_capacity) 
     LOG_ERROR("unable to open file '%s', error: %s", path_.c_str(), strerror(errno));
     return std::nullopt;
   }
-  int line_num = 0;
+  [[maybe_unused]] int line_num = 0;
   ConfigCache cache(temp_devices_capacity, Device::kLinkKeyProperties);
   std::string line;
   std::string section(ConfigCache::kDefaultSectionName);
   while (std::getline(config_file, line)) {
     ++line_num;
     line = common::StringTrim(std::move(line));
+    if (line.empty()) {
+      continue;
+    }
+
     if (line.front() == '\0' || line.front() == '#') {
       continue;
     }

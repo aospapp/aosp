@@ -28,6 +28,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.android.permissioncontroller.DumpableLog
 import com.android.permissioncontroller.R
+import com.android.permissioncontroller.permission.utils.PermissionMapping
 import com.android.permissioncontroller.permission.data.SmartAsyncMediatorLiveData
 import com.android.permissioncontroller.permission.data.UserPackageInfosLiveData
 import com.android.permissioncontroller.permission.data.v33.PermissionDecision
@@ -37,7 +38,6 @@ import com.android.permissioncontroller.permission.ui.ManagePermissionsActivity
 import com.android.permissioncontroller.permission.ui.auto.AutoReviewPermissionDecisionsFragment
 import com.android.permissioncontroller.permission.utils.KotlinUtils
 import com.android.permissioncontroller.permission.utils.StringUtils
-import com.android.permissioncontroller.permission.utils.Utils
 import kotlinx.coroutines.Job
 import java.util.concurrent.TimeUnit
 
@@ -88,7 +88,7 @@ class ReviewPermissionDecisionsViewModel(val app: Application, val user: UserHan
                     continue
                 }
                 val grantedGroups: List<String?> = lightPackageInfo.grantedPermissions.map {
-                    Utils.getGroupOfPermission(
+                    PermissionMapping.getGroupOfPermission(
                         app.packageManager.getPermissionInfo(it, /* flags= */ 0))
                 }
                 val currentlyGranted = grantedGroups.contains(recentDecision.permissionGroupName)

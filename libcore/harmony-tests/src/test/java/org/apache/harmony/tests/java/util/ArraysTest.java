@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.apache.harmony.tests.java.util;
 
@@ -88,10 +88,10 @@ public class ArraysTest extends junit.framework.TestCase {
                     "Array and List converted from array do not contain identical elements",
                     convertedList.get(counter) == objectArray[counter]);
         }
-        convertedList.set(50, new Integer(1000));
+        convertedList.set(50, Integer.valueOf(1000));
         assertTrue("set/get did not work on coverted list", convertedList.get(
-                50).equals(new Integer(1000)));
-        convertedList.set(50, new Integer(50));
+                50).equals(Integer.valueOf(1000)));
+        convertedList.set(50, Integer.valueOf(50));
         new Support_UnmodifiableCollectionTest("", convertedList).runTest();
 
         Object[] myArray = (Object[]) (objectArray.clone());
@@ -269,16 +269,16 @@ public class ArraysTest extends junit.framework.TestCase {
                 -1, Arrays.binarySearch(new Object[] {}, new Object()));
         assertEquals(
                 "Binary search succeeded for comparable value in empty array",
-                -1, Arrays.binarySearch(new Object[] {}, new Integer(-1)));
+                -1, Arrays.binarySearch(new Object[] {}, Integer.valueOf(-1)));
         for (int counter = 0; counter < arraySize; counter++)
             assertTrue(
                     "Binary search on Object[] answered incorrect position",
                     Arrays.binarySearch(objectArray, objArray[counter]) == counter);
         assertEquals("Binary search succeeded for value not present in array 1",
-                -1, Arrays.binarySearch(objectArray, new Integer(-1)));
+                -1, Arrays.binarySearch(objectArray, Integer.valueOf(-1)));
         assertTrue(
                 "Binary search succeeded for value not present in array 2",
-                Arrays.binarySearch(objectArray, new Integer(arraySize)) == -(arraySize + 1));
+                Arrays.binarySearch(objectArray, Integer.valueOf(arraySize)) == -(arraySize + 1));
 
         Object object = new Object();
         Object[] objects = new MockComparable[] { new MockComparable() };
@@ -305,9 +305,9 @@ public class ArraysTest extends junit.framework.TestCase {
             objectArray[counter] = objArray[arraySize - counter - 1];
         assertTrue(
                 "Binary search succeeded for value not present in array 1",
-                Arrays.binarySearch(objectArray, new Integer(-1), comp) == -(arraySize + 1));
+                Arrays.binarySearch(objectArray, Integer.valueOf(-1), comp) == -(arraySize + 1));
         assertEquals("Binary search succeeded for value not present in array 2",
-                -1, Arrays.binarySearch(objectArray, new Integer(arraySize), comp));
+                -1, Arrays.binarySearch(objectArray, Integer.valueOf(arraySize), comp));
         for (int counter = 0; counter < arraySize; counter++)
             assertTrue(
                     "Binary search on Object[] with custom comparator answered incorrect position",
@@ -398,26 +398,26 @@ public class ArraysTest extends junit.framework.TestCase {
     }
 
     public void test_Arrays_binaraySearch_Object() {
-        assertEquals(-1, Arrays.binarySearch(new Object[] { new Integer(-1) },
-                0, 0, new Integer(0)));
-        assertEquals(-2, Arrays.binarySearch(new Object[] { new Integer(-1) },
-                1, 1, new Integer(0)));
-        assertEquals(-2, Arrays.binarySearch(new Object[] { new Integer(-1),
-                new Integer(0) }, 1, 1, new Integer(1)));
-        assertEquals(-3, Arrays.binarySearch(new Object[] { new Integer(-1),
-                new Integer(0) }, 2, 2, new Integer(1)));
+        assertEquals(-1, Arrays.binarySearch(new Object[] { Integer.valueOf(-1) },
+                0, 0, Integer.valueOf(0)));
+        assertEquals(-2, Arrays.binarySearch(new Object[] { Integer.valueOf(-1) },
+                1, 1, Integer.valueOf(0)));
+        assertEquals(-2, Arrays.binarySearch(new Object[] { Integer.valueOf(-1),
+                Integer.valueOf(0) }, 1, 1, Integer.valueOf(1)));
+        assertEquals(-3, Arrays.binarySearch(new Object[] { Integer.valueOf(-1),
+                Integer.valueOf(0) }, 2, 2, Integer.valueOf(1)));
     }
 
     public void test_Arrays_binaraySearch_T() {
         ReversedIntegerComparator reversedComparator = new ReversedIntegerComparator();
-        assertEquals(-1, Arrays.binarySearch(new Integer[] { new Integer(-1) },
-                0, 0, new Integer(0), reversedComparator));
-        assertEquals(-2, Arrays.binarySearch(new Integer[] { new Integer(-1) },
-                1, 1, new Integer(0), reversedComparator));
-        assertEquals(-2, Arrays.binarySearch(new Integer[] { new Integer(-1),
-                new Integer(0) }, 1, 1, new Integer(1), reversedComparator));
-        assertEquals(-3, Arrays.binarySearch(new Integer[] { new Integer(-1),
-                new Integer(0) }, 2, 2, new Integer(1), reversedComparator));
+        assertEquals(-1, Arrays.binarySearch(new Integer[] { Integer.valueOf(-1) },
+                0, 0, Integer.valueOf(0), reversedComparator));
+        assertEquals(-2, Arrays.binarySearch(new Integer[] { Integer.valueOf(-1) },
+                1, 1, Integer.valueOf(0), reversedComparator));
+        assertEquals(-2, Arrays.binarySearch(new Integer[] { Integer.valueOf(-1),
+                Integer.valueOf(0) }, 1, 1, Integer.valueOf(1), reversedComparator));
+        assertEquals(-3, Arrays.binarySearch(new Integer[] { Integer.valueOf(-1),
+                Integer.valueOf(0) }, 2, 2, Integer.valueOf(1), reversedComparator));
     }
 
     /**
@@ -1167,21 +1167,21 @@ public class ArraysTest extends junit.framework.TestCase {
         Arrays.sort(specials1);
         Object[] print1 = new Object[specials1.length];
         for (int i = 0; i < specials1.length; i++)
-            print1[i] = new Double(specials1[i]);
+            print1[i] = Double.valueOf(specials1[i]);
         assertTrue("specials sort incorrectly 1: " + Arrays.asList(print1),
                 Arrays.equals(specials1, answer));
 
         Arrays.sort(specials2);
         Object[] print2 = new Object[specials2.length];
         for (int i = 0; i < specials2.length; i++)
-            print2[i] = new Double(specials2[i]);
+            print2[i] = Double.valueOf(specials2[i]);
         assertTrue("specials sort incorrectly 2: " + Arrays.asList(print2),
                 Arrays.equals(specials2, answer));
 
         Arrays.sort(specials3);
         Object[] print3 = new Object[specials3.length];
         for (int i = 0; i < specials3.length; i++)
-            print3[i] = new Double(specials3[i]);
+            print3[i] = Double.valueOf(specials3[i]);
         assertTrue("specials sort incorrectly 3: " + Arrays.asList(print3),
                 Arrays.equals(specials3, answer3));
     }
@@ -1256,14 +1256,14 @@ public class ArraysTest extends junit.framework.TestCase {
         Arrays.sort(specials1);
         Object[] print1 = new Object[specials1.length];
         for (int i = 0; i < specials1.length; i++)
-            print1[i] = new Float(specials1[i]);
+            print1[i] = Float.valueOf(specials1[i]);
         assertTrue("specials sort incorrectly 1: " + Arrays.asList(print1),
                 Arrays.equals(specials1, answer));
 
         Arrays.sort(specials2);
         Object[] print2 = new Object[specials2.length];
         for (int i = 0; i < specials2.length; i++)
-            print2[i] = new Float(specials2[i]);
+            print2[i] = Float.valueOf(specials2[i]);
         assertTrue("specials sort incorrectly 2: " + Arrays.asList(print2),
                 Arrays.equals(specials2, answer));
     }
@@ -1443,7 +1443,7 @@ public class ArraysTest extends junit.framework.TestCase {
                     reversedArray[counter] == objectArray[counter]);
 
         Arrays.fill(reversedArray, 0, reversedArray.length/2, "String");
-        Arrays.fill(reversedArray, reversedArray.length/2, reversedArray.length, new Integer(1));
+        Arrays.fill(reversedArray, reversedArray.length/2, reversedArray.length, Integer.valueOf(1));
 
         try {
             Arrays.sort(reversedArray);
@@ -1499,7 +1499,7 @@ public class ArraysTest extends junit.framework.TestCase {
         }
 
         Arrays.fill(reversedArray, 0, reversedArray.length/2, "String");
-        Arrays.fill(reversedArray, reversedArray.length/2, reversedArray.length, new Integer(1));
+        Arrays.fill(reversedArray, reversedArray.length/2, reversedArray.length, Integer.valueOf(1));
 
         try {
             Arrays.sort(reversedArray, reversedArray.length/4, 3*reversedArray.length/4);
@@ -1537,7 +1537,7 @@ public class ArraysTest extends junit.framework.TestCase {
                     objectArray[counter] == originalArray[counter]);
 
         Arrays.fill(originalArray, 0, originalArray.length/2, "String");
-        Arrays.fill(originalArray, originalArray.length/2, originalArray.length, new Integer(1));
+        Arrays.fill(originalArray, originalArray.length/2, originalArray.length, Integer.valueOf(1));
 
         try {
             Arrays.sort(originalArray, startIndex, endIndex, comp);
@@ -1585,7 +1585,7 @@ public class ArraysTest extends junit.framework.TestCase {
                                     objectArray[counter + 1]) <= 0);
 
         Arrays.fill(objectArray, 0, objectArray.length/2, "String");
-        Arrays.fill(objectArray, objectArray.length/2, objectArray.length, new Integer(1));
+        Arrays.fill(objectArray, objectArray.length/2, objectArray.length, Integer.valueOf(1));
 
         try {
             Arrays.sort(objectArray, comp);
@@ -2308,12 +2308,12 @@ public class ArraysTest extends junit.framework.TestCase {
     public void test_deepEquals$Ljava_lang_ObjectLjava_lang_Object() {
         int[] a1 = { 1, 2, 3 };
         short[] a2 = { 0, 1 };
-        Object[] a3 = { new Integer(1), a2 };
+        Object[] a3 = { Integer.valueOf(1), a2 };
         int[] a4 = { 6, 5, 4 };
 
         int[] b1 = { 1, 2, 3 };
         short[] b2 = { 0, 1 };
-        Object[] b3 = { new Integer(1), b2 };
+        Object[] b3 = { Integer.valueOf(1), b2 };
 
         Object a[] = { a1, a2, a3 };
         Object b[] = { b1, b2, b3 };
@@ -2332,11 +2332,11 @@ public class ArraysTest extends junit.framework.TestCase {
     public void test_deepHashCode$Ljava_lang_Object() {
         int[] a1 = { 1, 2, 3 };
         short[] a2 = { 0, 1 };
-        Object[] a3 = { new Integer(1), a2 };
+        Object[] a3 = { Integer.valueOf(1), a2 };
 
         int[] b1 = { 1, 2, 3 };
         short[] b2 = { 0, 1 };
-        Object[] b3 = { new Integer(1), b2 };
+        Object[] b3 = { Integer.valueOf(1), b2 };
 
         Object a[] = { a1, a2, a3 };
         Object b[] = { b1, b2, b3 };
@@ -2357,7 +2357,7 @@ public class ArraysTest extends junit.framework.TestCase {
         boolean[] boolArr = { true, false, false, true, false };
         List listOfBoolean = new LinkedList();
         for (int i = 0; i < boolArr.length; i++) {
-            listOfBoolean.add(new Boolean(boolArr[i]));
+            listOfBoolean.add(Boolean.valueOf(boolArr[i]));
         }
         listHashCode = listOfBoolean.hashCode();
         arrayHashCode = Arrays.hashCode(boolArr);
@@ -2375,7 +2375,7 @@ public class ArraysTest extends junit.framework.TestCase {
         List listOfInteger = new LinkedList();
 
         for (int i = 0; i < intArr.length; i++) {
-            listOfInteger.add(new Integer(intArr[i]));
+            listOfInteger.add(Integer.valueOf(intArr[i]));
         }
         listHashCode = listOfInteger.hashCode();
         arrayHashCode = Arrays.hashCode(intArr);
@@ -2395,7 +2395,7 @@ public class ArraysTest extends junit.framework.TestCase {
         char[] charArr = { 'a', 'g', 'x', 'c', 'm' };
         List listOfCharacter = new LinkedList();
         for (int i = 0; i < charArr.length; i++) {
-            listOfCharacter.add(new Character(charArr[i]));
+            listOfCharacter.add(Character.valueOf(charArr[i]));
         }
         listHashCode = listOfCharacter.hashCode();
         arrayHashCode = Arrays.hashCode(charArr);
@@ -2412,7 +2412,7 @@ public class ArraysTest extends junit.framework.TestCase {
         byte[] byteArr = { 5, 9, 7, 6, 17 };
         List listOfByte = new LinkedList();
         for (int i = 0; i < byteArr.length; i++) {
-            listOfByte.add(new Byte(byteArr[i]));
+            listOfByte.add(Byte.valueOf(byteArr[i]));
         }
         listHashCode = listOfByte.hashCode();
         arrayHashCode = Arrays.hashCode(byteArr);
@@ -2430,7 +2430,7 @@ public class ArraysTest extends junit.framework.TestCase {
                 6754268100l, 5 };
         List listOfLong = new LinkedList();
         for (int i = 0; i < longArr.length; i++) {
-            listOfLong.add(new Long(longArr[i]));
+            listOfLong.add(Long.valueOf(longArr[i]));
         }
         listHashCode = listOfLong.hashCode();
         arrayHashCode = Arrays.hashCode(longArr);
@@ -2447,7 +2447,7 @@ public class ArraysTest extends junit.framework.TestCase {
         float[] floatArr = { 0.13497f, 0.268934f, 12e-5f, -3e+2f, 10e-4f };
         List listOfFloat = new LinkedList();
         for (int i = 0; i < floatArr.length; i++) {
-            listOfFloat.add(new Float(floatArr[i]));
+            listOfFloat.add(Float.valueOf(floatArr[i]));
         }
         listHashCode = listOfFloat.hashCode();
         arrayHashCode = Arrays.hashCode(floatArr);
@@ -2467,7 +2467,7 @@ public class ArraysTest extends junit.framework.TestCase {
         double[] doubleArr = { 0.134945657, 0.0038754, 11e-150, -30e-300, 10e-4 };
         List listOfDouble = new LinkedList();
         for (int i = 0; i < doubleArr.length; i++) {
-            listOfDouble.add(new Double(doubleArr[i]));
+            listOfDouble.add(Double.valueOf(doubleArr[i]));
         }
         listHashCode = listOfDouble.hashCode();
         arrayHashCode = Arrays.hashCode(doubleArr);
@@ -2484,7 +2484,7 @@ public class ArraysTest extends junit.framework.TestCase {
         short[] shortArr = { 35, 13, 45, 2, 91 };
         List listOfShort = new LinkedList();
         for (int i = 0; i < shortArr.length; i++) {
-            listOfShort.add(new Short(shortArr[i]));
+            listOfShort.add(Short.valueOf(shortArr[i]));
         }
         listHashCode = listOfShort.hashCode();
         arrayHashCode = Arrays.hashCode(shortArr);
@@ -2498,7 +2498,7 @@ public class ArraysTest extends junit.framework.TestCase {
         int listHashCode;
         int arrayHashCode;
 
-        Object[] objectArr = { new Integer(1), new Float(10e-12f), null };
+        Object[] objectArr = { Integer.valueOf(1), Float.valueOf(10e-12f), null };
         List listOfObject = new LinkedList();
         for (int i = 0; i < objectArr.length; i++) {
             listOfObject.add(objectArr[i]);
@@ -2515,7 +2515,7 @@ public class ArraysTest extends junit.framework.TestCase {
     protected void setUp() {
         objArray = new Object[arraySize];
         for (int i = 0; i < objArray.length; i++)
-            objArray[i] = new Integer(i);
+            objArray[i] = Integer.valueOf(i);
 
         booleanArray = new boolean[arraySize];
         byteArray = new byte[arraySize];
@@ -3020,17 +3020,17 @@ public class ArraysTest extends junit.framework.TestCase {
                 -1, Arrays.binarySearch(new Object[] { }, 0, 0, new Object()));
         assertEquals(
                 "Binary search succeeded for comparable value in empty array",
-                -1, Arrays.binarySearch(new Object[] { }, 0, 0, new Integer(-1)));
+                -1, Arrays.binarySearch(new Object[] { }, 0, 0, Integer.valueOf(-1)));
         for (int counter = 0; counter < arraySize; counter++) {
             assertTrue(
                     "Binary search on Object[] answered incorrect position",
                     Arrays.binarySearch(objectArray, counter, arraySize, objArray[counter]) == counter);
         }
         assertEquals("Binary search succeeded for value not present in array 1",
-                -1, Arrays.binarySearch(objectArray, 0, arraySize, new Integer(-1)));
+                -1, Arrays.binarySearch(objectArray, 0, arraySize, Integer.valueOf(-1)));
         assertTrue(
                 "Binary search succeeded for value not present in array 2",
-                Arrays.binarySearch(objectArray, 0, arraySize, new Integer(arraySize)) == -(arraySize + 1));
+                Arrays.binarySearch(objectArray, 0, arraySize, Integer.valueOf(arraySize)) == -(arraySize + 1));
         try {
             Arrays.binarySearch((Object[]) null, 2, 1, (byte) arraySize);
             fail("should throw NullPointerException");
@@ -3094,7 +3094,7 @@ public class ArraysTest extends junit.framework.TestCase {
             objectArray[counter] = objArray[arraySize - counter - 1];
         }
         assertTrue("Binary search succeeded for value not present in array 1",
-                Arrays.binarySearch(objectArray, 0, arraySize, new Integer(-1),
+                Arrays.binarySearch(objectArray, 0, arraySize, Integer.valueOf(-1),
                         comp) == -(arraySize + 1));
         assertEquals(
                 "Binary search succeeded for value not present in array 2", -1,
@@ -5274,7 +5274,7 @@ public class ArraysTest extends junit.framework.TestCase {
     private void test_parallelSort$Ljava_lang_Comparable(int size) {
         Comparable[] sortedArray = new Comparable[size];
         for (int counter = 0; counter < size; counter++)
-            sortedArray[counter] = new Integer(counter);
+            sortedArray[counter] = Integer.valueOf(counter);
         Comparable[] reversedArray = new Comparable[size];
         for (int counter = 0; counter < size; counter++) {
             reversedArray[counter] = sortedArray[size - counter - 1];
@@ -5283,7 +5283,7 @@ public class ArraysTest extends junit.framework.TestCase {
         assertTrue(Arrays.equals(sortedArray, reversedArray));
 
         Arrays.fill(reversedArray, 0, reversedArray.length/2, "String");
-        Arrays.fill(reversedArray, reversedArray.length/2, reversedArray.length, new Integer(1));
+        Arrays.fill(reversedArray, reversedArray.length/2, reversedArray.length, Integer.valueOf(1));
 
         try {
             Arrays.sort(reversedArray);
@@ -5311,10 +5311,10 @@ public class ArraysTest extends junit.framework.TestCase {
         int endIndex = size-100;
         Comparable[] reversedArray = new Comparable[size];
         Comparable[] originalReversedArray = new Comparable[size];
-        Arrays.fill(reversedArray, 0 , startIndex, new Integer(100));
-        Arrays.fill(reversedArray, endIndex, size, new Integer(100));
+        Arrays.fill(reversedArray, 0 , startIndex, Integer.valueOf(100));
+        Arrays.fill(reversedArray, endIndex, size, Integer.valueOf(100));
         for (int counter = startIndex; counter < endIndex; counter++) {
-            reversedArray[counter] = new Integer(size - counter - startIndex - 1);
+            reversedArray[counter] = Integer.valueOf(size - counter - startIndex - 1);
         }
         System.arraycopy(reversedArray, 0, originalReversedArray, 0, size);
 
@@ -5385,7 +5385,7 @@ public class ArraysTest extends junit.framework.TestCase {
     private void test_parallelSort$Ljava_lang_ObjectLjava_util_Comparator(int size) {
         Object[] reversedArray = new Object[size];
         for (int counter = 0; counter < size; counter++)
-            reversedArray[counter] = new Integer(counter);
+            reversedArray[counter] = Integer.valueOf(counter);
         Comparator comparator = new ReversedIntegerComparator();
         Arrays.parallelSort(reversedArray, comparator);
 
@@ -5394,7 +5394,7 @@ public class ArraysTest extends junit.framework.TestCase {
                        (int)(reversedArray[counter]) == (size - counter -1 ));
 
         Arrays.fill(reversedArray, 0, reversedArray.length/2, "String");
-        Arrays.fill(reversedArray, reversedArray.length/2, reversedArray.length, new Integer(1));
+        Arrays.fill(reversedArray, reversedArray.length/2, reversedArray.length, Integer.valueOf(1));
 
         try {
             Arrays.sort(reversedArray, comparator);
@@ -5422,10 +5422,10 @@ public class ArraysTest extends junit.framework.TestCase {
         int endIndex = size-100;
         Integer[] reversedArray = new Integer[size];
         Integer[] originalReversedArray = new Integer[size];
-        Arrays.fill(reversedArray, 0 , startIndex, new Integer(100));
-        Arrays.fill(reversedArray, endIndex, size, new Integer(100));
+        Arrays.fill(reversedArray, 0 , startIndex, Integer.valueOf(100));
+        Arrays.fill(reversedArray, endIndex, size, Integer.valueOf(100));
         for (int counter = startIndex; counter < endIndex; counter++) {
-            reversedArray[counter] = new Integer(counter - startIndex);
+            reversedArray[counter] = Integer.valueOf(counter - startIndex);
         }
         System.arraycopy(reversedArray, 0, originalReversedArray, 0, size);
 

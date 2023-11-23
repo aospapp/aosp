@@ -10,6 +10,8 @@ ANGLE uses git for version control. Helpful documentation can be found at [http:
 
 ### Required First Setup (do this first)
 
+Note: If you are building inside a Chromium checkout [see these instructions instead](https://chromium.googlesource.com/angle/angle/+/HEAD/doc/BuildingAngleForChromiumDevelopment.md).
+
 Required on all platforms:
 
  * [Python 3](https://www.python.org/downloads/) must be available in your path.
@@ -116,7 +118,7 @@ use_goma = true
 To generate the Visual Studio solution in `out/Debug/angle-debug.sln`:
 
 ```
-gn gen out/Debug --sln=angle-debug --ide=vs2022
+gn gen out/Debug --sln=angle-debug --ide=vs2022 --ninja-executable="C:\src\angle\third_party\ninja\ninja.exe"
 ```
 
 In Visual Studio:

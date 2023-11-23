@@ -23,16 +23,16 @@ import android.hardware.radio.RadioManager.BandDescriptor;
 import android.hardware.radio.RadioTuner;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.util.ArrayMap;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.android.car.broadcastradio.support.platform.RadioMetadataExt;
 import com.android.car.radio.util.Log;
+import com.android.internal.annotations.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -43,33 +43,46 @@ import java.util.stream.Collectors;
  *
  * They might eventually get pushed to the framework.
  */
-public class RadioManagerExt {
+public final class RadioManagerExt {
     private static final String TAG = "BcRadioApp.mgrext";
 
     // For now, we open first radio module only.
     private static final int HARDCODED_MODULE_INDEX = 0;
+
+    private static final long SHIFT_FOR_MODULE_ID = 32;
+    private static final long MASK_FOR_LOCAL_ID = 0xFFFFFFFF;
+
+    // This won't be necessary when we push this code to the framework,
+    // as we really need only module references.
+    private static Map<Integer, RadioTuner> sSessions = new ArrayMap<>();
 
     private final Object mLock = new Object();
     private final Context mContext;
 
     private final HandlerThread mCallbackHandlerThread = new HandlerThread("BcRadioApp.cbhandler");
 
-    private final @NonNull RadioManager mRadioManager;
-    private List<RadioManager.ModuleProperties> mModules;
-    private @Nullable List<BandDescriptor> mAmFmRegionConfig;
+    private final RadioManager mRadioManager;
 
-    public RadioManagerExt(@NonNull Context ctx) {
-        mContext = Objects.requireNonNull(ctx);
-        mRadioManager = (RadioManager)ctx.getSystemService(Context.RADIO_SERVICE);
+    @GuardedBy("mLock")
+    private List<RadioManager.ModuleProperties> mModules;
+
+    @GuardedBy("mLock")
+    @Nullable private List<BandDescriptor> mAmFmRegionConfig;
+
+    public RadioManagerExt(Context ctx) {
+        mContext = Objects.requireNonNull(ctx, "Context cannot be null");
+        mRadioManager = ctx.getSystemService(RadioManager.class);
         Objects.requireNonNull(mRadioManager, "RadioManager could not be loaded");
         mCallbackHandlerThread.start();
     }
 
-    /* Select only one region. HAL 2.x moves region selection responsibility from the app to the
-     * Broadcast Radio service, so we won't implement region selection based on bands in the app.
-     */
-    private @Nullable List<BandDescriptor> reduceAmFmBands(@Nullable BandDescriptor[] bands) {
-        if (bands == null || bands.length == 0) return null;
+    // Select only one region. HAL 2.x moves region selection responsibility from the app to the
+    // Broadcast Radio service, so we won't implement region selection based on bands in the app.
+    @Nullable
+    private List<BandDescriptor> reduceAmFmBands(@Nullable BandDescriptor[] bands) {
+        if (bands == null || bands.length == 0) {
+            return null;
+        }
         int region = bands[0].getRegion();
         Log.d(TAG, "Auto-selecting region " + region);
 
@@ -77,25 +90,26 @@ public class RadioManagerExt {
                 collect(Collectors.toList());
     }
 
-    private void initModules() {
-        synchronized (mLock) {
-            if (mModules != null) return;
-
-            mModules = new ArrayList<>();
-            int status = mRadioManager.listModules(mModules);
-            if (status != RadioManager.STATUS_OK) {
-                Log.w(TAG, "Couldn't get radio module list: " + status);
-                return;
-            }
-
-            if (mModules.size() == 0) {
-                Log.i(TAG, "No radio modules on this device");
-                return;
-            }
-
-            RadioManager.ModuleProperties module = mModules.get(HARDCODED_MODULE_INDEX);
-            mAmFmRegionConfig = reduceAmFmBands(module.getBands());
+    @GuardedBy("mLock")
+    private void initModulesLocked() {
+        if (mModules != null) {
+            return;
         }
+
+        mModules = new ArrayList<>();
+        int status = mRadioManager.listModules(mModules);
+        if (status != RadioManager.STATUS_OK) {
+            Log.w(TAG, "Couldn't get radio module list: " + status);
+            return;
+        }
+
+        if (mModules.size() == 0) {
+            Log.i(TAG, "No radio modules on this device");
+            return;
+        }
+
+        RadioManager.ModuleProperties moduleProperties = mModules.get(HARDCODED_MODULE_INDEX);
+        mAmFmRegionConfig = reduceAmFmBands(moduleProperties.getBands());
     }
 
     /**
@@ -105,31 +119,38 @@ public class RadioManagerExt {
      * @param handler The Handler on which the callbacks will be received,
      *        {@code null} for default handler.
      */
-    public @Nullable RadioTunerExt openSession(RadioTuner.Callback callback, Handler handler) {
+    @Nullable
+    public RadioTunerExt openSession(RadioTuner.Callback callback, Handler handler) {
         Log.i(TAG, "Opening broadcast radio session...");
 
-        initModules();
-        if (mModules.size() == 0) return null;
+        RadioManager.ModuleProperties moduleProperties;
+        synchronized (mLock) {
+            initModulesLocked();
+            if (mModules.size() == 0) {
+                return null;
+            }
+            moduleProperties = mModules.get(HARDCODED_MODULE_INDEX);
+        }
 
-        /* We won't need custom default wrapper when we push these proposed extensions to the
-         * framework; this is solely to avoid deadlock on onConfigurationChanged callback versus
-         * waitForInitialization.
-         */
+        // We won't need custom default wrapper when we push these proposed extensions to the
+        // framework; this is solely to avoid deadlock on onConfigurationChanged callback versus
+        // waitForInitialization.
         Handler hwHandler = new Handler(mCallbackHandlerThread.getLooper());
 
-        RadioManager.ModuleProperties module = mModules.get(HARDCODED_MODULE_INDEX);
         TunerCallbackAdapterExt cbExt = new TunerCallbackAdapterExt(callback, handler);
 
         RadioTuner tuner = mRadioManager.openTuner(
-                module.getId(),
-                null,  // BandConfig - let the service automatically select one.
-                true,  // withAudio
+                moduleProperties.getId(),
+                /* config= */ null,
+                /* withAudio= */ true,
                 cbExt, hwHandler);
-        mSessions.put(module.getId(), tuner);
-        if (tuner == null) return null;
-        RadioMetadataExt.setModuleId(module.getId());
+        sSessions.put(moduleProperties.getId(), tuner);
+        if (tuner == null) {
+            return null;
+        }
+        RadioMetadataExt.setModuleId(moduleProperties.getId());
 
-        if (module.isInitializationRequired()) {
+        if (moduleProperties.isInitializationRequired()) {
             if (!cbExt.waitForInitialization()) {
                 Log.w(TAG, "Timed out waiting for tuner initialization");
                 tuner.close();
@@ -140,23 +161,40 @@ public class RadioManagerExt {
         return new RadioTunerExt(mContext, tuner, cbExt);
     }
 
-    public @Nullable List<BandDescriptor> getAmFmRegionConfig() {
-        initModules();
-        return mAmFmRegionConfig;
+    /**
+     * Gets AM/FM region configuration
+     *
+     * @return AM/FM region configuration
+     */
+    @Nullable
+    public List<BandDescriptor> getAmFmRegionConfig() {
+        List<BandDescriptor> amFmRegionConfig;
+        synchronized (mLock) {
+            initModulesLocked();
+            amFmRegionConfig = mAmFmRegionConfig;
+        }
+        return amFmRegionConfig;
     }
 
-    /* This won't be necessary when we push this code to the framework,
-     * as we really need only module references. */
-    private static Map<Integer, RadioTuner> mSessions = new HashMap<>();
+    /**
+     * Gets metadata image
+     *
+     * @param globalId Global id of the metadata image
+     * @return Metadata image
+     */
+    @Nullable
+    public Bitmap getMetadataImage(long globalId) {
+        if (globalId == 0) {
+            return null;
+        }
 
-    public @Nullable Bitmap getMetadataImage(long globalId) {
-        if (globalId == 0) return null;
+        int moduleId = (int) (globalId >>> SHIFT_FOR_MODULE_ID);
+        int localId = (int) (globalId & MASK_FOR_LOCAL_ID);
 
-        int moduleId = (int)(globalId >>> 32);
-        int localId = (int)(globalId & 0xFFFFFFFF);
-
-        RadioTuner tuner = mSessions.get(moduleId);
-        if (tuner == null) return null;
+        RadioTuner tuner = sSessions.get(moduleId);
+        if (tuner == null) {
+            return null;
+        }
 
         return tuner.getMetadataImage(localId);
     }

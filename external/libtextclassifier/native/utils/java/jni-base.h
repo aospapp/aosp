@@ -19,6 +19,7 @@
 
 #include <jni.h>
 
+#include <memory>
 #include <string>
 
 #include "utils/base/statusor.h"

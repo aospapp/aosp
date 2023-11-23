@@ -34,14 +34,13 @@ import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.core.app.ActivityScenario;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.PollingCheck;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -56,6 +55,7 @@ import java.util.concurrent.TimeUnit;
 public abstract class InputTestCase {
     private static final String TAG = "InputTestCase";
     private static final float TOLERANCE = 0.005f;
+    private static final int NUM_MAX_ATTEMPTS_TO_RECEIVE_SINGLE_EVENT = 5;
 
     // Ignore comparing input values for these axes. This is used to prevent breakages caused by
     // OEMs using custom key layouts to remap GAS/BRAKE to RTRIGGER/LTRIGGER (for example,
@@ -67,7 +67,7 @@ public abstract class InputTestCase {
     private final BlockingQueue<InputEvent> mEvents;
     protected final Instrumentation mInstrumentation = InstrumentationRegistry.getInstrumentation();
 
-    private InputListener mInputListener;
+    private final InputListener mInputListener;
     private View mDecorView;
 
     // Stores the name of the currently running test
@@ -83,22 +83,18 @@ public abstract class InputTestCase {
         mInputListener = new InputListener();
     }
 
-    @Rule
-    public ActivityScenarioRule<InputCtsActivity> mActivityRule =
-            new ActivityScenarioRule<>(InputCtsActivity.class);
+    private ActivityScenario<InputCtsActivity> mActivityRule;
 
     @Before
     public void setUp() throws Exception {
         onBeforeLaunchActivity();
-
-        mActivityRule.getScenario().launch(InputCtsActivity.class, getActivityOptions())
+        mActivityRule = ActivityScenario.launch(InputCtsActivity.class, getActivityOptions())
                 .onActivity(activity -> mTestActivity = activity);
         mTestActivity.clearUnhandleKeyCode();
         mTestActivity.setInputCallback(mInputListener);
         mDecorView = mTestActivity.getWindow().getDecorView();
 
         onSetUp();
-
         PollingCheck.waitFor(mTestActivity::hasWindowFocus);
         assertTrue(mCurrentTestCase + ": Activity window must have focus",
                 mTestActivity.hasWindowFocus());
@@ -109,6 +105,9 @@ public abstract class InputTestCase {
     @After
     public void tearDown() throws Exception {
         onTearDown();
+        if (mActivityRule != null) {
+            mActivityRule.close();
+        }
     }
 
     /** Optional setup logic performed before the test activity is launched. */
@@ -127,12 +126,10 @@ public abstract class InputTestCase {
     }
 
     /**
-     * Asserts that the application received a {@link android.view.KeyEvent} with the given
-     * metadata.
+     * Asserts that the application received a {@link KeyEvent} with the given metadata.
      *
-     * If other KeyEvents are received by the application prior to the expected KeyEvent, or no
-     * KeyEvents are received within a reasonable amount of time, then this will throw an
-     * {@link AssertionError}.
+     * If the expected {@link KeyEvent} is not received within a reasonable number of attempts, then
+     * this will throw an {@link AssertionError}.
      *
      * Only action, source, keyCode and metaState are being compared.
      */
@@ -152,6 +149,14 @@ public abstract class InputTestCase {
                 receivedKeyEvent.getMetaState());
     }
 
+    /**
+     * Asserts that the application received a {@link MotionEvent} with the given metadata.
+     *
+     * If the expected {@link MotionEvent} is not received within a reasonable number of attempts,
+     * then this will throw an {@link AssertionError}.
+     *
+     * Only action, source, keyCode and metaState are being compared.
+     */
     private void assertReceivedMotionEvent(@NonNull MotionEvent expectedEvent) {
         MotionEvent event = waitForMotion();
         /*
@@ -250,6 +255,11 @@ public abstract class InputTestCase {
     }
 
     protected void verifyEvents(List<InputEvent> events) {
+        verifyFirstEvents(events);
+        assertNoMoreEvents();
+    }
+
+    private void verifyFirstEvents(List<InputEvent> events) {
         // Make sure we received the expected input events
         if (events.size() == 0) {
             // If no event is expected we need to wait for event until timeout and fail on
@@ -276,7 +286,16 @@ public abstract class InputTestCase {
             }
             fail("Entry " + i + " is neither a KeyEvent nor a MotionEvent: " + event);
         }
-        assertNoMoreEvents();
+    }
+
+    protected void verifyNoKeyEvents() {
+        InputEvent event = waitForEvent();
+        while (event != null) {
+            if (event instanceof KeyEvent) {
+                fail(mCurrentTestCase + " : Received unexpected KeyEvent " + event);
+            }
+            event = waitForEvent();
+        }
     }
 
     private InputEvent waitForEvent() {
@@ -288,10 +307,12 @@ public abstract class InputTestCase {
         }
     }
 
-    // Ignore Motion event received during the 5 seconds timeout period. Return on the first Key
-    // event received.
+    /**
+     * Try polling the events queue till a Key event is received. Ignore Motion events received
+     * during the attempts, and return the first Key event received.
+     */
     private KeyEvent waitForKey() {
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < NUM_MAX_ATTEMPTS_TO_RECEIVE_SINGLE_EVENT; i++) {
             InputEvent event = waitForEvent();
             if (event instanceof KeyEvent) {
                 return (KeyEvent) event;
@@ -300,10 +321,12 @@ public abstract class InputTestCase {
         return null;
     }
 
-    // Ignore Key event received during the 5 seconds timeout period. Return on the first Motion
-    // event received.
+    /**
+     * Try polling the events queue till a Motion event is received. Ignore Key events received
+     * during the attempts, and return the first Motion event received.
+     */
     private MotionEvent waitForMotion() {
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < NUM_MAX_ATTEMPTS_TO_RECEIVE_SINGLE_EVENT; i++) {
             InputEvent event = waitForEvent();
             if (event instanceof MotionEvent) {
                 return (MotionEvent) event;
@@ -384,6 +407,10 @@ public abstract class InputTestCase {
             }
         }
         fail(mCurrentTestCase + ": " + message);
+    }
+
+    void setConsumeGenericMotionEvents(boolean enable) {
+        mTestActivity.setConsumeGenericMotionEvents(enable);
     }
 
     private class InputListener implements InputCallback {

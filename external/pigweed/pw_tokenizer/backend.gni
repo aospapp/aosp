@@ -13,8 +13,9 @@
 # the License.
 
 declare_args() {
-  # Backends for the pw_tokenizer:global_handler and
-  # pw_tokenizer:global_handler_with_payload facades.
-  pw_tokenizer_GLOBAL_HANDLER_BACKEND = ""
+  # This variable is deprecated. It is only used for pw_log_tokenized, and is
+  # provided for backwards compatibility. Set pw_log_tokenized_HANDLER_BACKEND
+  # instead.
+  # TODO(hepler): Remove this variable after migrating projects.
   pw_tokenizer_GLOBAL_HANDLER_WITH_PAYLOAD_BACKEND = ""
 }

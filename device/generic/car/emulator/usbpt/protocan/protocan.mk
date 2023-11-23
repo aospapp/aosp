@@ -17,8 +17,12 @@
 # CAN bus HAL
 PRODUCT_PACKAGES += android.hardware.automotive.can@1.0-service
 PRODUCT_PACKAGES += canhalconfigurator
-PRODUCT_COPY_FILES += device/generic/car/emulator/usbpt/protocan/canbus_config.pb:system/etc/canbus_config.pb
-PRODUCT_PACKAGES_DEBUG += canhalctrl \
+PRODUCT_COPY_FILES += device/generic/car/emulator/usbpt/protocan/canbus_config.pb:$(TARGET_COPY_OUT_VENDOR)/etc/canbus_config.pb
+
+# TODO(b/259994014): Remove CAN packages from here after AAOS baseline is
+# applied to all car emulators
+PRODUCT_PACKAGES_DEBUG += \
+    canhalctrl \
     canhaldump \
     canhalsend
 

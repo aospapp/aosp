@@ -85,8 +85,6 @@
 
         <activity android:name="com.android.cts.deviceandprofileowner.ContentCaptureActivity"/>
 
-        <activity android:name="com.android.cts.deviceandprofileowner.ContentSuggestionsActivity"/>
-
         <activity android:name=".PrintActivity"/>
 
         <activity android:name="com.android.cts.deviceandprofileowner.KeyManagementActivity"

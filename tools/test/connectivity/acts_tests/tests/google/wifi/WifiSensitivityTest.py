@@ -375,18 +375,21 @@ class WifiSensitivityTest(WifiRvrTest, WifiPingTest):
             self.testbed_params['ap_tx_power_offset'][str(
                 testcase_params['channel'])] - ping_result['range'])
 
-    def setup_sensitivity_test(self, testcase_params):
-        # Setup test
-        if testcase_params['traffic_type'].lower() == 'ping':
-            self.setup_ping_test(testcase_params)
-            self.run_sensitivity_test = self.run_ping_test
-            self.process_sensitivity_test_results = (
-                self.process_ping_test_results)
-        else:
-            self.setup_rvr_test(testcase_params)
-            self.run_sensitivity_test = self.run_rvr_test
-            self.process_sensitivity_test_results = (
-                self.process_rvr_test_results)
+    def setup_ping_test(self, testcase_params):
+        """Function that gets devices ready for the test.
+
+        Args:
+            testcase_params: dict containing test-specific parameters
+        """
+        # Configure AP
+        self.setup_ap(testcase_params)
+        # Set attenuator to starting attenuation
+        for attenuator in self.attenuators:
+            attenuator.set_atten(testcase_params['atten_start'],
+                                 strict=False,
+                                 retry=True)
+        # Reset, configure, and connect DUT
+        self.setup_dut(testcase_params)
 
     def setup_ap(self, testcase_params):
         """Sets up the AP and attenuator to compensate for AP chain imbalance.
@@ -586,9 +589,14 @@ class WifiSensitivityTest(WifiRvrTest, WifiPingTest):
         ]
 
         # Prepare devices and run test
-        self.setup_sensitivity_test(testcase_params)
-        result = self.run_sensitivity_test(testcase_params)
-        self.process_sensitivity_test_results(testcase_params, result)
+        if testcase_params['traffic_type'].lower() == 'ping':
+            self.setup_ping_test(testcase_params)
+            result = self.run_ping_test(testcase_params)
+            self.process_ping_test_results(testcase_params, result)
+        else:
+            self.setup_rvr_test(testcase_params)
+            result = self.run_rvr_test(testcase_params)
+            self.process_rvr_test_results(testcase_params, result)
 
         # Post-process results
         self.testclass_results.append(result)
@@ -644,6 +652,7 @@ class WifiSensitivityTest(WifiRvrTest, WifiPingTest):
 
 
 class WifiSensitivity_AllChannels_Test(WifiSensitivityTest):
+
     def __init__(self, controllers):
         super().__init__(controllers)
         self.tests = self.generate_test_cases(
@@ -652,6 +661,7 @@ class WifiSensitivity_AllChannels_Test(WifiSensitivityTest):
 
 
 class WifiSensitivity_SampleChannels_Test(WifiSensitivityTest):
+
     def __init__(self, controllers):
         super().__init__(controllers)
         self.tests = self.generate_test_cases([6, 36, 149],
@@ -660,6 +670,7 @@ class WifiSensitivity_SampleChannels_Test(WifiSensitivityTest):
 
 
 class WifiSensitivity_2GHz_Test(WifiSensitivityTest):
+
     def __init__(self, controllers):
         super().__init__(controllers)
         self.tests = self.generate_test_cases([1, 2, 6, 10, 11], ['VHT20'],
@@ -667,6 +678,7 @@ class WifiSensitivity_2GHz_Test(WifiSensitivityTest):
 
 
 class WifiSensitivity_5GHz_Test(WifiSensitivityTest):
+
     def __init__(self, controllers):
         super().__init__(controllers)
         self.tests = self.generate_test_cases(
@@ -675,6 +687,7 @@ class WifiSensitivity_5GHz_Test(WifiSensitivityTest):
 
 
 class WifiSensitivity_UNII1_Test(WifiSensitivityTest):
+
     def __init__(self, controllers):
         super().__init__(controllers)
         self.tests = self.generate_test_cases([36, 40, 44, 48],
@@ -683,6 +696,7 @@ class WifiSensitivity_UNII1_Test(WifiSensitivityTest):
 
 
 class WifiSensitivity_UNII3_Test(WifiSensitivityTest):
+
     def __init__(self, controllers):
         super().__init__(controllers)
         self.tests = self.generate_test_cases([149, 153, 157, 161],
@@ -698,6 +712,7 @@ class WifiOtaSensitivityTest(WifiSensitivityTest):
     It allows setting orientation and other chamber parameters to study
     performance in varying channel conditions
     """
+
     def __init__(self, controllers):
         base_test.BaseTestClass.__init__(self, controllers)
         self.testcase_metric_logger = (
@@ -911,6 +926,7 @@ class WifiOtaSensitivityTest(WifiSensitivityTest):
 
 
 class WifiOtaSensitivity_TenDegree_Test(WifiOtaSensitivityTest):
+
     def __init__(self, controllers):
         WifiOtaSensitivityTest.__init__(self, controllers)
         requested_channels = [6, 36, 149]
@@ -929,6 +945,7 @@ class WifiOtaSensitivity_TenDegree_Test(WifiOtaSensitivityTest):
 
 
 class WifiOtaSensitivity_PerChain_TenDegree_Test(WifiOtaSensitivityTest):
+
     def __init__(self, controllers):
         WifiOtaSensitivityTest.__init__(self, controllers)
         requested_channels = [6, 36, 149]
@@ -947,6 +964,7 @@ class WifiOtaSensitivity_PerChain_TenDegree_Test(WifiOtaSensitivityTest):
 
 
 class WifiOtaSensitivity_ThirtyDegree_Test(WifiOtaSensitivityTest):
+
     def __init__(self, controllers):
         WifiOtaSensitivityTest.__init__(self, controllers)
         requested_channels = [6, 36, 149]
@@ -971,6 +989,7 @@ class WifiOtaSensitivity_ThirtyDegree_Test(WifiOtaSensitivityTest):
 
 
 class WifiOtaSensitivity_45Degree_Test(WifiOtaSensitivityTest):
+
     def __init__(self, controllers):
         WifiOtaSensitivityTest.__init__(self, controllers)
         requested_rates = [

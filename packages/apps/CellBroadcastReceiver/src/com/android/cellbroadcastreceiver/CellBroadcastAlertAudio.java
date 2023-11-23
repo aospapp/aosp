@@ -19,6 +19,10 @@ package com.android.cellbroadcastreceiver;
 import static android.telephony.PhoneStateListener.LISTEN_NONE;
 
 import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.DBG;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.ERRSRC_CBR;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.ERRTYPE_PLAYFLASH;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.ERRTYPE_PLAYSOUND;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.ERRTYPE_PLAYTTS;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -28,6 +32,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.hardware.camera2.CameraAccessException;
@@ -252,6 +257,8 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                             if (DBG) log("Speaking broadcast text: " + mMessageBody);
 
                             mTts.setAudioAttributes(getAlertAudioAttributes());
+                            // Flush the text to speech queue
+                            mTts.speak("", TextToSpeech.QUEUE_FLUSH, null, null);
                             res = mTts.speak(mMessageBody, 2, null, TTS_UTTERANCE_ID);
                             mIsTextToSpeechSpeaking = true;
                             setState(STATE_SPEAKING);
@@ -410,7 +417,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             }
         }
 
-        if (mEnableAudio || mEnableVibrate) {
+        if ((mEnableAudio || mEnableVibrate) && (mAlertType != AlertType.MUTE)) {
             playAlertTone(mAlertType, mVibrationPattern);
         } else {
             if (DBG) log("No audio/vibrate playing. Stop CellBroadcastAlertAudio service");
@@ -534,7 +541,13 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                         break;
                     case INFO:
                     case AREA:
-                        mMediaPlayer.setDataSource(this, Settings.System.DEFAULT_NOTIFICATION_URI);
+                        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+                            //TODO(b/279183006): remove watch workaround when URI supported.
+                            setDataSourceFromResource(res, mMediaPlayer, R.raw.watch_info);
+                        } else {
+                            mMediaPlayer.setDataSource(this,
+                                    Settings.System.DEFAULT_NOTIFICATION_URI);
+                        }
                         break;
                     case TEST:
                     case DEFAULT:
@@ -566,6 +579,8 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
 
             } catch (Exception ex) {
                 loge("Failed to play alert sound: " + ex);
+                CellBroadcastReceiverMetrics.getInstance().logModuleError(
+                        ERRSRC_CBR, ERRTYPE_PLAYSOUND);
                 // Immediately move into the next state ALERT_SOUND_FINISHED.
                 mHandler.sendMessage(mHandler.obtainMessage(ALERT_SOUND_FINISHED));
             }
@@ -605,6 +620,8 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
         try {
             ids = cameraManager.getCameraIdList();
         } catch (CameraAccessException e) {
+            CellBroadcastReceiverMetrics.getInstance()
+                    .logModuleError(ERRSRC_CBR, ERRTYPE_PLAYFLASH);
             log("Can't get camera id");
             return false;
         }
@@ -619,6 +636,8 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                     success = true;
                 }
             } catch (CameraAccessException e) {
+                CellBroadcastReceiverMetrics.getInstance().logModuleError(
+                        ERRSRC_CBR, ERRTYPE_PLAYFLASH);
                 log("Can't flash. e=" + e);
                 // continue with the next available camera
             }
@@ -672,6 +691,8 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             } catch (IllegalStateException e) {
                 // catch "Unable to retrieve AudioTrack pointer for stop()" exception
                 loge("exception trying to stop text-to-speech");
+                CellBroadcastReceiverMetrics.getInstance()
+                        .logModuleError(ERRSRC_CBR, ERRTYPE_PLAYTTS);
             }
             mIsTextToSpeechSpeaking = false;
         }

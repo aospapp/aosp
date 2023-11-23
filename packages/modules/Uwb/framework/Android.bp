@@ -19,7 +19,6 @@ package {
 java_defaults {
     name: "uwb-module-sdk-version-defaults",
     min_sdk_version: "Tiramisu",
-    target_sdk_version: "Tiramisu",
 }
 
 filegroup {
@@ -41,12 +40,10 @@ filegroup {
 
 filegroup {
     name: "framework-uwb-updatable-sources",
+    defaults: ["framework-sources-module-defaults"],
     srcs: [
         ":framework-uwb-updatable-java-sources",
         ":framework-uwb-updatable-exported-aidl-sources",
-    ],
-    visibility: [
-        "//frameworks/base",
     ],
 }
 
@@ -59,8 +56,10 @@ java_defaults {
     defaults: ["uwb-module-sdk-version-defaults"],
     static_libs : [
         "modules-utils-preconditions",
+        "modules-utils-build",
     ],
     libs: [
+        "androidx.annotation_annotation",
         "unsupportedappusage", // for android.compat.annotation.UnsupportedAppUsage
     ],
     srcs: [
@@ -73,10 +72,8 @@ java_defaults {
 java_library {
     name: "framework-uwb-pre-jarjar",
     defaults: ["framework-uwb-defaults"],
-    sdk_version: "module_Tiramisu",
+    sdk_version: "module_current",
     libs: ["framework-annotations-lib",],
-    // java_api_finder must accompany `srcs` (`srcs` defined in `framework-uwb-defaults`)
-    plugins: ["java_api_finder"],
     installable: false,
 }
 
@@ -96,7 +93,6 @@ java_sdk_library {
     hostdex: true, // for hiddenapi check
 
     impl_library_visibility: [
-        "//cts/tests/uwb:__subpackages__",
         "//external/sl4a/Common:__subpackages__",
         "//packages/modules/Uwb:__subpackages__",
     ],
@@ -106,6 +102,7 @@ java_sdk_library {
     ],
     permitted_packages: [
         "android.uwb",
+        "android.uwb.util",
         // Created by jarjar rules.
         "com.android.x.uwb",
     ],
@@ -117,7 +114,7 @@ java_sdk_library {
 // defaults for tests that need to build against framework-uwb's @hide APIs
 java_defaults {
     name: "framework-uwb-test-defaults",
-    sdk_version: "module_Tiramisu",
+    sdk_version: "module_current",
     libs: [
         "framework-uwb.impl",
     ],
@@ -127,26 +124,16 @@ java_defaults {
     ],
 }
 
-// TODO(b/186585880): Fix all @hide dependencies.
-// defaults for CTS tests that need to build against framework-uwb's @hide APIs
-java_defaults {
-    name: "framework-uwb-cts-defaults",
-    sdk_version: "core_current",
-    libs: [
-        // order matters: classes in framework-uwb are resolved before framework, meaning
-        // @hide APIs in framework-uwb are resolved before @SystemApi stubs in framework
-        "framework-uwb.impl",
-        "framework",
-
-        // if sdk_version="" this gets automatically included, but here we need to add manually.
-        "framework-res",
-    ],
-    defaults_visibility: [
-        "//cts/tests/uwb:__subpackages__"
-    ],
-}
-
 filegroup {
     name: "uwb-jarjar-rules",
     srcs: ["jarjar-rules.txt"],
+}
+
+java_api_contribution {
+    name: "framework-uwb-public-stubs",
+    api_surface: "public",
+    api_file: "api/current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
 }

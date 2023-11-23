@@ -20,12 +20,17 @@
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
 
     <application>
         <activity android:name=".RequestPermission" android:exported="true"
                   android:visibleToInstantApps="true" />
-        <service android:name=".KeepAliveForegroundService" android:exported="true"
-                 android:visibleToInstantApps="true" />
+        <service android:name=".KeepAliveForegroundService"
+                 android:foregroundServiceType="specialUse"
+                 android:exported="true"
+                 android:visibleToInstantApps="true" >
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="cts" />
+        </service>
     </application>
 </manifest>
 

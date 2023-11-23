@@ -16,7 +16,6 @@
 
 from acts.libs.proc import job
 
-import logging
 from acts import error
 
 
@@ -73,8 +72,10 @@ class FastbootProxy():
         if ret == 0 or ignore_status:
             return out
         else:
-            raise FastbootError(
-                cmd=command, stdout=out, stderr=err, ret_code=ret)
+            raise FastbootError(cmd=command,
+                                stdout=out,
+                                stderr=err,
+                                ret_code=ret)
 
     def args(self, *args, **kwargs):
         return job.run(' '.join((self.fastboot_str, ) + args), **kwargs).stdout

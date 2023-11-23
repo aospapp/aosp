@@ -22,8 +22,15 @@ android_app {
 
     srcs: [
         "src/**/*.java",
+        "src/**/*.aidl",
         ":cartelemetryservice-proto-srcs"
     ],
+    aidl: {
+        local_include_dirs: ["src"],
+        include_dirs: [
+            "frameworks/native/aidl/binder",
+        ],
+    },
     platform_apis: true,
     aaptflags: ["--auto-add-overlay"],
     privileged: true,

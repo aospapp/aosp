@@ -26,7 +26,7 @@ import logging
 from autotest_lib.client.common_lib import smogcheck_ina219, smogcheck_pca9555
 
 
-# I2C slave addresses of INA219 module
+# I2C follower addresses of INA219 module
 INA219_BPWR_SLV = 0x40  # Backup Power
 INA219_MPWR_SLV = 0x44  # Main Power
 

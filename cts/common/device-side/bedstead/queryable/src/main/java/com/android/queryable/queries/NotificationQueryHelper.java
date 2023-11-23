@@ -21,6 +21,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
+import com.android.queryable.QueryableBaseWithMatch;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -38,9 +39,28 @@ public final class NotificationQueryHelper<E extends Queryable> implements Notif
     private final transient E mQuery;
     private final StringQueryHelper<E> mChannelId;
 
-    NotificationQueryHelper() {
-        mQuery = (E) this;
-        mChannelId = new StringQueryHelper<>(mQuery);
+    public static final class NotificationQueryBase extends
+            QueryableBaseWithMatch<Notification, NotificationQueryHelper<NotificationQueryBase>> {
+        NotificationQueryBase() {
+            super();
+            setQuery(new NotificationQueryHelper<>(this));
+        }
+
+        NotificationQueryBase(Parcel in) {
+            super(in);
+        }
+
+        public static final Parcelable.Creator<NotificationQueryHelper.NotificationQueryBase> CREATOR =
+                new Parcelable.Creator<>() {
+                    public NotificationQueryHelper.NotificationQueryBase createFromParcel(
+                            Parcel in) {
+                        return new NotificationQueryHelper.NotificationQueryBase(in);
+                    }
+
+                    public NotificationQueryHelper.NotificationQueryBase[] newArray(int size) {
+                        return new NotificationQueryHelper.NotificationQueryBase[size];
+                    }
+                };
     }
 
     public NotificationQueryHelper(E query) {
@@ -56,6 +76,11 @@ public final class NotificationQueryHelper<E extends Queryable> implements Notif
     @Override
     public StringQuery<E> channelId() {
         return mChannelId;
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        return Queryable.isEmptyQuery(mChannelId);
     }
 
     /** {@code true} if all filters are met by {@code value}. */

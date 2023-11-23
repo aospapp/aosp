@@ -1,9 +1,6 @@
 package checkpoint
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -12,17 +9,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 )
-
-// privateKeyForTest returns a ecdsa PrivateKey used in tests only.
-func privateKeyForTest(t *testing.T) *ecdsa.PrivateKey {
-	t.Helper()
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatalf("GenerateKey(): %v", err)
-	}
-
-	return privateKey
-}
 
 func TestInvalidCheckpointFormat(t *testing.T) {
 	tests := []struct {

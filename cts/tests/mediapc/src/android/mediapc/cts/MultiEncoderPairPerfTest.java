@@ -67,7 +67,7 @@ public class MultiEncoderPairPerfTest extends MultiCodecPerfTestBase {
     // Returns the list of params with two hardware (mime - encoder) pairs in both
     // sync and async modes.
     // Parameters {0}_{1}_{2} -- Pair(Mime EncoderName)_Pair(Mime EncoderName)_isAsync
-    @Parameterized.Parameters(name = "{index}({0}_{1}_{2})")
+    @Parameterized.Parameters(name = "{index}_{0}_{1}_{2}")
     public static Collection<Object[]> inputParams() {
         final List<Object[]> argsList = new ArrayList<>();
         ArrayList<Pair<String, String>> mimeTypeEncoderPairs = new ArrayList<>();
@@ -97,7 +97,7 @@ public class MultiEncoderPairPerfTest extends MultiCodecPerfTestBase {
      */
     @LargeTest
     @Test(timeout = CodecTestBase.PER_TEST_TIMEOUT_LARGE_TEST_MS)
-    @CddTest(requirement = "2.2.7.1/5.1/H-1-3,H-1-4")
+    @CddTest(requirements = {"2.2.7.1/5.1/H-1-3", "2.2.7.1/5.1/H-1-4"})
     public void test720p() throws Exception {
         Assume.assumeTrue(Utils.isSPerfClass() || Utils.isRPerfClass() || !Utils.isPerfClass());
 
@@ -115,10 +115,24 @@ public class MultiEncoderPairPerfTest extends MultiCodecPerfTestBase {
      */
     @LargeTest
     @Test(timeout = CodecTestBase.PER_TEST_TIMEOUT_LARGE_TEST_MS)
-    @CddTest(requirement = "2.2.7.1/5.1/H-1-3,H-1-4")
+    @CddTest(requirements = {"2.2.7.1/5.1/H-1-3", "2.2.7.1/5.1/H-1-4"})
     public void test1080p() throws Exception {
         Assume.assumeTrue(Utils.isTPerfClass() || !Utils.isPerfClass());
         testCodec(1080, 1920, 10000000, REQUIRED_MIN_CONCURRENT_INSTANCES);
+    }
+
+    /**
+     * This test calculates the number of 4k 30 fps encoder instances that the given two
+     * (mime - encoder) pairs can support. Assigns the same number of instances to the two pairs
+     * (if max instances are even), or one more to one pair (if odd) and ensures that all the
+     * concurrent sessions succeed in encoding.
+     */
+    @LargeTest
+    @Test(timeout = CodecTestBase.PER_TEST_TIMEOUT_LARGE_TEST_MS)
+    @CddTest(requirements = {"2.2.7.1/5.1/H-1-3", "2.2.7.1/5.1/H-1-4"})
+    public void test4k() throws Exception {
+        Assume.assumeTrue(Utils.isUPerfClass() || !Utils.isPerfClass());
+        testCodec(2160, 3840, 30000000, REQUIRED_MIN_CONCURRENT_INSTANCES);
     }
 
     private void testCodec(int height, int width, int bitrate, int requiredMinInstances)
@@ -127,13 +141,29 @@ public class MultiEncoderPairPerfTest extends MultiCodecPerfTestBase {
         mimeEncoderPairs.add(mFirstPair);
         mimeEncoderPairs.add(mSecondPair);
         int maxInstances = checkAndGetMaxSupportedInstancesForCodecCombinations(height, width,
-                mimeEncoderPairs, requiredMinInstances);
+                mimeEncoderPairs, true, requiredMinInstances);
         double achievedFrameRate = 0.0;
         if (maxInstances >= requiredMinInstances) {
             int secondPairInstances = maxInstances / 2;
             int firstPairInstances = maxInstances - secondPairInstances;
+            int secondPairInstances1080p = 2 * secondPairInstances / 3;
+            int firstPairInstances1080p = 2 * firstPairInstances / 3;
             ExecutorService pool = Executors.newFixedThreadPool(maxInstances);
             List<Encode> testList = new ArrayList<>();
+            if (height > 1080) {
+                for (int i = 0; i < firstPairInstances1080p; i++) {
+                    testList.add(
+                            new Encode(mFirstPair.first, mFirstPair.second, mIsAsync, 1080, 1920,
+                                    30, 10000000));
+                }
+                for (int i = 0; i < secondPairInstances1080p; i++) {
+                    testList.add(
+                            new Encode(mSecondPair.first, mSecondPair.second, mIsAsync, 1080, 1920,
+                                    30, 10000000));
+                }
+                firstPairInstances -= firstPairInstances1080p;
+                secondPairInstances -= secondPairInstances1080p;
+            }
             for (int i = 0; i < firstPairInstances; i++) {
                 testList.add(
                         new Encode(mFirstPair.first, mFirstPair.second, mIsAsync, height, width, 30,
@@ -153,13 +183,18 @@ public class MultiEncoderPairPerfTest extends MultiCodecPerfTestBase {
         PerformanceClassEvaluator.ConcurrentCodecRequirement r5_1__H_1_3;
         PerformanceClassEvaluator.ConcurrentCodecRequirement r5_1__H_1_4;
         // Achieved frame rate is not compared as this test runs in byte buffer mode.
-        if (height >= 1080) {
+        if (height > 1080) {
+            r5_1__H_1_3 = pce.addR5_1__H_1_3_4k();
+            r5_1__H_1_4 = pce.addR5_1__H_1_4_4k();
+            r5_1__H_1_3.setConcurrentInstances(maxInstances);
+            r5_1__H_1_4.setConcurrentFps(achievedFrameRate);
+        } else if (height == 1080) {
             r5_1__H_1_3 = pce.addR5_1__H_1_3_1080p();
             r5_1__H_1_4 = pce.addR5_1__H_1_4_1080p();
             r5_1__H_1_3.setConcurrentInstances(maxInstances);
             r5_1__H_1_4.setConcurrentFps(achievedFrameRate);
         } else {
-            r5_1__H_1_3 = pce.addR5_1__H_1_3_720p(mMime, mMime, height);
+            r5_1__H_1_3 = pce.addR5_1__H_1_3_720p(mFirstPair.first, mSecondPair.first, height);
             r5_1__H_1_4 = pce.addR5_1__H_1_4_720p();
             r5_1__H_1_3.setConcurrentInstances(maxInstances);
             r5_1__H_1_4.setConcurrentFps(achievedFrameRate);

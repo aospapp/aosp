@@ -162,6 +162,9 @@ off_t FileSize(int fd);
 
 bool SendFile(int out_fd, int in_fd, size_t count);
 
+bool FsyncDirectory(const char* dirname);
+bool WriteStringToFileAtomic(const std::string& path, std::string_view content);
+
 // Returns true if the file exists for sure. Returns false if it doesn't exist,
 // or an error occurs.
 bool FileExists(const char* path);

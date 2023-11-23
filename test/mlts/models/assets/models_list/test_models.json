@@ -195,49 +195,6 @@
       ]
     },
     {
-      "name": "ssd_mobilenet_v1_coco_float",
-      "testName": "SSD_MOBILENET_V1_COCO_FLOAT",
-      "baselineSec": 0.182,
-      "inputSize": [1, 300, 300, 3],
-      "dataSize": 4,
-      "inputOutputs": [
-        {
-          "input": "ssd_mobilenet_v1_coco_float/tarmac_float.input",
-          "outputs": [
-            "ssd_mobilenet_v1_coco_float/tarmac_float.output0",
-            "ssd_mobilenet_v1_coco_float/tarmac_float.output1",
-            "ssd_mobilenet_v1_coco_float/tarmac_float.output2"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "ssd_mobilenet_v1_coco_quantized",
-      "testName": "SSD_MOBILENET_V1_COCO_QUANT8",
-      "baselineSec": 0.097,
-      "inputSize": [1, 300, 300, 3],
-      "dataSize": 1,
-      "inputOutputs": [
-        {
-          "input": "ssd_mobilenet_v1_coco_quantized/tarmac.input",
-          "outputs": [
-            "ssd_mobilenet_v1_coco_quantized/tarmac.output0",
-            "ssd_mobilenet_v1_coco_quantized/tarmac.output1",
-            "ssd_mobilenet_v1_coco_quantized/tarmac.output2",
-            "ssd_mobilenet_v1_coco_quantized/tarmac.output3",
-            "ssd_mobilenet_v1_coco_quantized/tarmac.output4",
-            "ssd_mobilenet_v1_coco_quantized/tarmac.output5",
-            "ssd_mobilenet_v1_coco_quantized/tarmac.output6",
-            "ssd_mobilenet_v1_coco_quantized/tarmac.output7",
-            "ssd_mobilenet_v1_coco_quantized/tarmac.output8",
-            "ssd_mobilenet_v1_coco_quantized/tarmac.output9",
-            "ssd_mobilenet_v1_coco_quantized/tarmac.output10",
-            "ssd_mobilenet_v1_coco_quantized/tarmac.output11"
-          ]
-        }
-      ]
-    },
-    {
       "name": "tts_float",
       "testName": "TTS_FLOAT",
       "minSdkVersion": 29,

@@ -117,6 +117,7 @@ impl Driver {
                 let key = config::Key {
                     cert_path: info.cert_path.clone(),
                     max_idle_timeout: info.idle_timeout_ms,
+                    enable_early_data: info.enable_early_data,
                 };
                 let config = self.config_cache.get(&key)?;
                 vacant.insert(

@@ -13,6 +13,10 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+#import <QuartzCore/CALayer.h>
+#import <QuartzCore/CAMetalLayer.h>
+
+
 #include "NativeSubWindow.h"
 #include <Cocoa/Cocoa.h>
 
@@ -32,11 +36,32 @@
 
 @end
 
+@interface EmuGLViewWithMetal : NSView {
+} @end
+
+@implementation EmuGLViewWithMetal
+
+  - (BOOL)isOpaque {
+      return YES;
+  }
+
+  + (Class) layerClass {
+    return [CAMetalLayer class];
+  }
+
+  - (CALayer *)makeBackingLayer {
+    CALayer * layer = [CAMetalLayer layer];
+    return layer;
+  }
+
+@end
+
 EGLNativeWindowType createSubWindow(FBNativeWindowType p_window,
                                     int x,
                                     int y,
                                     int width,
                                     int height,
+                                    float dpr,
                                     SubWindowRepaintCallback repaint_callback,
                                     void* repaint_callback_param,
                                     int hideWindow) {
@@ -50,17 +75,27 @@ EGLNativeWindowType createSubWindow(FBNativeWindowType p_window,
     int cocoa_y = (int)content_rect.size.height - (y + height);
     NSRect contentRect = NSMakeRect(x, cocoa_y, width, height);
 
-    NSView *glView = [[EmuGLView alloc] initWithFrame:contentRect];
-    if (glView) {
-        [glView setWantsBestResolutionOpenGLSurface:YES];
-        [[win contentView] addSubview:glView];
-        [win makeKeyAndOrderFront:nil];
-        if (hideWindow) {
-            [glView setHidden:YES];
-        }
+    NSView *glView = NULL;
+    const char* angle_default_platform = getenv("ANGLE_DEFAULT_PLATFORM");
+    if (angle_default_platform && 0 == strcmp("metal", angle_default_platform)) {
+        glView = [[EmuGLViewWithMetal alloc] initWithFrame:contentRect];
+    } else {
+        glView = [[EmuGLView alloc] initWithFrame:contentRect];
     }
-
-    return (EGLNativeWindowType)glView;
+    if (!glView) {
+        return NULL;
+    }
+    [glView setWantsBestResolutionOpenGLSurface:YES];
+    [glView setWantsLayer:YES];
+    [[win contentView] addSubview:glView];
+    [win makeKeyAndOrderFront:nil];
+    if (hideWindow) {
+        [glView setHidden:YES];
+    }
+    // We cannot use the dpr from [NSScreen mainScreen], which usually
+    // gives the wrong screen at this point.
+    [glView.layer setContentsScale:dpr];
+    return (EGLNativeWindowType)(glView);
 }
 
 void destroySubWindow(EGLNativeWindowType win) {

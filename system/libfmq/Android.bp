@@ -30,7 +30,7 @@ cc_library {
     ],
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth",
+        "com.android.btservices",
         "com.android.media.swcodec",
         "com.android.neuralnetworks",
         "test_com.android.media.swcodec",

@@ -16,6 +16,7 @@
 
 package dagger.internal.codegen.writing;
 
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.squareup.javapoet.ClassName.OBJECT;
@@ -40,13 +41,16 @@ import static dagger.internal.codegen.javapoet.TypeNames.listenableFutureOf;
 import static dagger.internal.codegen.javapoet.TypeNames.producedOf;
 import static dagger.internal.codegen.writing.GwtCompatibility.gwtIncompatibleAnnotation;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PROTECTED;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 
-import com.google.common.collect.FluentIterable;
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XFiler;
+import androidx.room.compiler.processing.XType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -70,21 +74,18 @@ import dagger.internal.codegen.javapoet.AnnotationSpecs;
 import dagger.internal.codegen.javapoet.AnnotationSpecs.Suppression;
 import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.internal.codegen.langmodel.DaggerElements;
-import dagger.model.DependencyRequest;
-import dagger.model.Key;
-import dagger.model.RequestKind;
 import dagger.producers.Producer;
 import dagger.producers.internal.AbstractProducesMethodProducer;
 import dagger.producers.internal.Producers;
+import dagger.spi.model.DependencyRequest;
+import dagger.spi.model.Key;
+import dagger.spi.model.RequestKind;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
-import javax.annotation.processing.Filer;
 import javax.inject.Inject;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.Element;
-import javax.lang.model.type.TypeMirror;
 
 /** Generates {@link Producer} implementations from {@link ProductionBinding} instances. */
 public final class ProducerFactoryGenerator extends SourceFileGenerator<ProductionBinding> {
@@ -93,7 +94,7 @@ public final class ProducerFactoryGenerator extends SourceFileGenerator<Producti
 
   @Inject
   ProducerFactoryGenerator(
-      Filer filer,
+      XFiler filer,
       DaggerElements elements,
       SourceVersion sourceVersion,
       CompilerOptions compilerOptions,
@@ -103,9 +104,8 @@ public final class ProducerFactoryGenerator extends SourceFileGenerator<Producti
     this.keyFactory = keyFactory;
   }
 
-
   @Override
-  public Element originatingElement(ProductionBinding binding) {
+  public XElement originatingElement(ProductionBinding binding) {
     // we only create factories for bindings that have a binding element
     return binding.bindingElement().get();
   }
@@ -116,7 +116,7 @@ public final class ProducerFactoryGenerator extends SourceFileGenerator<Producti
     checkArgument(!binding.unresolved().isPresent());
     checkArgument(binding.bindingElement().isPresent());
 
-    TypeName providedTypeName = TypeName.get(binding.contributedType());
+    TypeName providedTypeName = binding.contributedType().getTypeName();
     TypeName futureTypeName = listenableFutureOf(providedTypeName);
 
     ClassName generatedTypeName = generatedClassNameForBinding(binding);
@@ -137,7 +137,7 @@ public final class ProducerFactoryGenerator extends SourceFileGenerator<Producti
                     factoryBuilder,
                     constructorBuilder,
                     uniqueFieldNames.getUniqueName("module"),
-                    TypeName.get(binding.bindingTypeElement().get().asType())))
+                    binding.bindingTypeElement().get().getType().getTypeName()))
             : Optional.empty();
 
     List<CodeBlock> frameworkFieldAssignments = new ArrayList<>();
@@ -206,7 +206,7 @@ public final class ProducerFactoryGenerator extends SourceFileGenerator<Producti
             .addAnnotation(Override.class)
             .addModifiers(PUBLIC)
             .addParameter(futureTransform.applyArgType(), futureTransform.applyArgName())
-            .addExceptions(getThrownTypeNames(binding.thrownTypes()))
+            .addExceptions(binding.thrownTypes().stream().map(XType::getTypeName).collect(toList()))
             .addCode(
                 getInvocationCodeBlock(
                     binding, providedTypeName, futureTransform.parameterCodeBlocks()));
@@ -295,15 +295,15 @@ public final class ProducerFactoryGenerator extends SourceFileGenerator<Producti
                 "$S",
                 String.format(
                     "%s#%s",
-                    ClassName.get(binding.bindingTypeElement().get()),
-                    binding.bindingElement().get().getSimpleName()))
+                    binding.bindingTypeElement().get().getClassName(),
+                    toJavac(binding.bindingElement().get()).getSimpleName()))
             : CodeBlock.of("$T.class", generatedTypeName);
     return CodeBlock.of("$T.create($L)", PRODUCER_TOKEN, producerTokenArgs);
   }
 
   /** Returns a name of the variable representing this dependency's future. */
   private static String dependencyFutureName(DependencyRequest dependency) {
-    return dependency.requestElement().get().getSimpleName() + "Future";
+    return dependency.requestElement().get().java().getSimpleName() + "Future";
   }
 
   /** Represents the transformation of an input future by a producer method. */
@@ -405,7 +405,7 @@ public final class ProducerFactoryGenerator extends SourceFileGenerator<Producti
 
     @Override
     String applyArgName() {
-      String argName = asyncDependency.requestElement().get().getSimpleName().toString();
+      String argName = asyncDependency.requestElement().get().java().getSimpleName().toString();
       if (argName.equals("module")) {
         return "moduleArg";
       }
@@ -495,7 +495,7 @@ public final class ProducerFactoryGenerator extends SourceFileGenerator<Producti
   }
 
   private static TypeName asyncDependencyType(DependencyRequest dependency) {
-    TypeName keyName = TypeName.get(dependency.key().type());
+    TypeName keyName = TypeName.get(dependency.key().type().java());
     switch (dependency.kind()) {
       case INSTANCE:
         return keyName;
@@ -523,8 +523,8 @@ public final class ProducerFactoryGenerator extends SourceFileGenerator<Producti
             "$L.$L($L)",
             binding.requiresModuleInstance()
                 ? "module"
-                : CodeBlock.of("$T", ClassName.get(binding.bindingTypeElement().get())),
-            binding.bindingElement().get().getSimpleName(),
+                : CodeBlock.of("$T", binding.bindingTypeElement().get().getClassName()),
+            toJavac(binding.bindingElement().get()).getSimpleName(),
             makeParametersCodeBlock(parameterCodeBlocks));
 
     final CodeBlock returnCodeBlock;
@@ -543,16 +543,6 @@ public final class ProducerFactoryGenerator extends SourceFileGenerator<Producti
         throw new AssertionError();
     }
     return CodeBlock.of("return $L;", returnCodeBlock);
-  }
-
-  /**
-   * Converts the list of thrown types into type names.
-   *
-   * @param thrownTypes the list of thrown types.
-   */
-  private FluentIterable<? extends TypeName> getThrownTypeNames(
-      Iterable<? extends TypeMirror> thrownTypes) {
-    return FluentIterable.from(thrownTypes).transform(TypeName::get);
   }
 
   @Override

@@ -16,14 +16,14 @@
 <merge xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:launcher="http://schemas.android.com/apk/res-auto">
 
-    <com.android.launcher3.workprofile.PersonalWorkPagedView
+    <com.android.launcher3.widget.picker.WidgetPagedView
         android:id="@+id/widgets_view_pager"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
         android:layout_below="@id/collapse_handle"
         android:descendantFocusability="afterDescendants"
-        launcher:pageIndicator="@+id/tabs">
+        launcher:pageIndicator="@+id/tabs" >
 
         <com.android.launcher3.widget.picker.WidgetsRecyclerView
             android:id="@+id/primary_widgets_list_view"
@@ -39,16 +39,16 @@
             android:paddingHorizontal="@dimen/widget_list_horizontal_margin"
             android:clipToPadding="false" />
 
-    </com.android.launcher3.workprofile.PersonalWorkPagedView>
+    </com.android.launcher3.widget.picker.WidgetPagedView>
 
     <!-- SearchAndRecommendationsView contains the tab layout as well -->
-    <com.android.launcher3.widget.picker.SearchAndRecommendationsView
+    <com.android.launcher3.views.StickyHeaderLayout
         android:id="@+id/search_and_recommendations_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginHorizontal="@dimen/widget_list_horizontal_margin"
         android:layout_below="@id/collapse_handle"
         android:paddingBottom="0dp"
+        android:clipToOutline="true"
         android:orientation="vertical">
 
         <TextView
@@ -58,7 +58,7 @@
             android:gravity="center_horizontal"
             android:textSize="24sp"
             android:layout_marginTop="24dp"
-            android:textColor="?android:attr/textColorSecondary"
+            android:textColor="?attr/widgetPickerTitleColor"
             android:text="@string/widget_button_text"/>
 
         <FrameLayout
@@ -66,9 +66,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:elevation="0.1dp"
-            android:background="?android:attr/colorBackground"
+            android:paddingHorizontal="@dimen/widget_list_horizontal_margin"
+            android:background="?attr/widgetPickerPrimarySurfaceColor"
             android:paddingBottom="8dp"
-            android:clipToPadding="false">
+            launcher:layout_sticky="true">
             <include layout="@layout/widgets_search_bar" />
         </FrameLayout>
 
@@ -77,7 +78,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:background="@drawable/widgets_recommendation_background"
+            android:layout_marginHorizontal="@dimen/widget_list_horizontal_margin"
+            android:background="@drawable/widgets_surface_background"
             android:paddingVertical="@dimen/recommended_widgets_table_vertical_padding"
             android:visibility="gone" />
 
@@ -88,10 +90,10 @@
             android:gravity="center_horizontal"
             android:orientation="horizontal"
             android:paddingVertical="8dp"
-            android:paddingLeft="@dimen/widget_tabs_horizontal_padding"
-            android:paddingRight="@dimen/widget_tabs_horizontal_padding"
-            android:background="?android:attr/colorBackground"
-            style="@style/TextHeadline">
+            android:paddingHorizontal="@dimen/widget_list_horizontal_margin"
+            android:background="?attr/widgetPickerPrimarySurfaceColor"
+            style="@style/TextHeadline"
+            launcher:layout_sticky="true">
 
             <Button
                 android:id="@+id/tab_personal"
@@ -100,9 +102,9 @@
                 android:layout_marginEnd="@dimen/widget_tabs_button_horizontal_padding"
                 android:layout_marginVertical="@dimen/widget_apps_tabs_vertical_padding"
                 android:layout_weight="1"
-                android:background="@drawable/all_apps_tabs_background"
+                android:background="@drawable/widget_picker_tabs_background"
                 android:text="@string/widgets_full_sheet_personal_tab"
-                android:textColor="@color/all_apps_tab_text"
+                android:textColor="@color/widget_picker_tab_text"
                 android:textSize="14sp"
                 style="?android:attr/borderlessButtonStyle" />
 
@@ -113,12 +115,12 @@
                 android:layout_marginEnd="@dimen/widget_tabs_button_horizontal_padding"
                 android:layout_marginVertical="@dimen/widget_apps_tabs_vertical_padding"
                 android:layout_weight="1"
-                android:background="@drawable/all_apps_tabs_background"
+                android:background="@drawable/widget_picker_tabs_background"
                 android:text="@string/widgets_full_sheet_work_tab"
-                android:textColor="@color/all_apps_tab_text"
+                android:textColor="@color/widget_picker_tab_text"
                 android:textSize="14sp"
                 style="?android:attr/borderlessButtonStyle" />
         </com.android.launcher3.workprofile.PersonalWorkSlidingTabStrip>
 
-    </com.android.launcher3.widget.picker.SearchAndRecommendationsView>
+    </com.android.launcher3.views.StickyHeaderLayout>
 </merge>

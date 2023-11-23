@@ -41,6 +41,12 @@ void *t_calloc(size_t nmemb, size_t size);
 void t_create_file(const char *file, size_t size);
 
 /*
+ * Helper for creating file and write @size byte buf with @pattern value in
+ * the file.
+ */
+void t_create_file_pattern(const char *file, size_t size, char pattern);
+
+/*
  * Helper for creating @buf_num number of iovec
  * with @buf_size bytes buffer of each iovec.
  */
@@ -53,6 +59,12 @@ enum t_setup_ret t_create_ring_params(int depth, struct io_uring *ring,
 				      struct io_uring_params *p);
 enum t_setup_ret t_create_ring(int depth, struct io_uring *ring,
 			       unsigned int flags);
+
+enum t_setup_ret t_register_buffers(struct io_uring *ring,
+				    const struct iovec *iovecs,
+				    unsigned nr_iovecs);
+
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 #ifdef __cplusplus
 }

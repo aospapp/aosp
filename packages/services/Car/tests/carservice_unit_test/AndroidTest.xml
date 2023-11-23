@@ -38,5 +38,7 @@
         <option name="package" value="com.android.car.carservice_unittest" />
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
         <option name="hidden-api-checks" value="false" />
+        <!-- Filtering out SelectTestTests from frameworks-base-testutils -->
+        <option name="exclude-filter" value="com.android.test.filters.SelectTestTests" />
     </test>
 </configuration>

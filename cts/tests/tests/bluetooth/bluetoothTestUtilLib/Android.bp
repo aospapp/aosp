@@ -18,13 +18,12 @@ package {
 
 java_library {
     name: "bluetooth-test-util-lib",
-
+    defaults: ["cts_defaults"],
     static_libs: [
         "junit",
         "compatibility-device-util-axt",
+        "PlatformProperties",
     ],
-
     srcs: ["src/**/*.java"],
-
     sdk_version: "test_current",
 }

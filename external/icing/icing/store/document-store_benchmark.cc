@@ -34,6 +34,7 @@
 #include "icing/proto/document.pb.h"
 #include "icing/proto/persist.pb.h"
 #include "icing/proto/schema.pb.h"
+#include "icing/proto/term.pb.h"
 #include "icing/schema-builder.h"
 #include "icing/schema/schema-store.h"
 #include "icing/store/document-store.h"
@@ -46,7 +47,7 @@
 //    //icing/store:document-store_benchmark
 //
 //    $ blaze-bin/icing/store/document-store_benchmark
-//    --benchmarks=all --benchmark_memory_usage
+//    --benchmark_filter=all --benchmark_memory_usage
 //
 // Run on an Android device:
 //    $ blaze build --copt="-DGOOGLE_COMMANDLINEFLAGS_FULL_API=1"
@@ -57,20 +58,12 @@
 //    /data/local/tmp/
 //
 //    $ adb shell /data/local/tmp/document-store_benchmark
-//    --benchmarks=all
+//    --benchmark_filter=all
 
 namespace icing {
 namespace lib {
 
 namespace {
-
-constexpr PropertyConfigProto::Cardinality::Code CARDINALITY_OPTIONAL =
-    PropertyConfigProto::Cardinality::OPTIONAL;
-
-constexpr StringIndexingConfig::TokenizerType::Code TOKENIZER_PLAIN =
-    StringIndexingConfig::TokenizerType::PLAIN;
-
-constexpr TermMatchType::Code MATCH_EXACT = TermMatchType::EXACT_ONLY;
 
 class DestructibleDirectory {
  public:
@@ -100,17 +93,18 @@ DocumentProto CreateDocument(const std::string namespace_,
 
 SchemaProto CreateSchema() {
   return SchemaBuilder()
-      .AddType(
-          SchemaTypeConfigBuilder()
-              .SetType("email")
-              .AddProperty(PropertyConfigBuilder()
-                               .SetName("subject")
-                               .SetDataTypeString(MATCH_EXACT, TOKENIZER_PLAIN)
-                               .SetCardinality(CARDINALITY_OPTIONAL))
-              .AddProperty(PropertyConfigBuilder()
-                               .SetName("body")
-                               .SetDataTypeString(MATCH_EXACT, TOKENIZER_PLAIN)
-                               .SetCardinality(CARDINALITY_OPTIONAL)))
+      .AddType(SchemaTypeConfigBuilder()
+                   .SetType("email")
+                   .AddProperty(
+                       PropertyConfigBuilder()
+                           .SetName("subject")
+                           .SetDataTypeString(TERM_MATCH_EXACT, TOKENIZER_PLAIN)
+                           .SetCardinality(CARDINALITY_OPTIONAL))
+                   .AddProperty(
+                       PropertyConfigBuilder()
+                           .SetName("body")
+                           .SetDataTypeString(TERM_MATCH_EXACT, TOKENIZER_PLAIN)
+                           .SetCardinality(CARDINALITY_OPTIONAL)))
       .Build();
 }
 
@@ -122,12 +116,25 @@ std::unique_ptr<SchemaStore> CreateSchemaStore(Filesystem filesystem,
   std::unique_ptr<SchemaStore> schema_store =
       SchemaStore::Create(&filesystem, schema_store_dir, clock).ValueOrDie();
 
-  auto set_schema_status = schema_store->SetSchema(CreateSchema());
+  auto set_schema_status = schema_store->SetSchema(
+      CreateSchema(), /*ignore_errors_and_delete_documents=*/false,
+      /*allow_circular_schema_definitions=*/false);
   if (!set_schema_status.ok()) {
     ICING_LOG(ERROR) << set_schema_status.status().error_message();
   }
 
   return schema_store;
+}
+
+libtextclassifier3::StatusOr<DocumentStore::CreateResult> CreateDocumentStore(
+    const Filesystem* filesystem, const std::string& base_dir,
+    const Clock* clock, const SchemaStore* schema_store) {
+  return DocumentStore::Create(
+      filesystem, base_dir, clock, schema_store,
+      /*force_recovery_and_revalidate_documents=*/false,
+      /*namespace_id_fingerprint=*/false,
+      PortableFileBackedProtoLog<DocumentWrapper>::kDeflateCompressionLevel,
+      /*initialize_stats=*/nullptr);
 }
 
 void BM_DoesDocumentExistBenchmark(benchmark::State& state) {
@@ -144,8 +151,8 @@ void BM_DoesDocumentExistBenchmark(benchmark::State& state) {
   filesystem.CreateDirectoryRecursively(document_store_dir.data());
   ICING_ASSERT_OK_AND_ASSIGN(
       DocumentStore::CreateResult create_result,
-      DocumentStore::Create(&filesystem, document_store_dir, &clock,
-                            schema_store.get()));
+      CreateDocumentStore(&filesystem, document_store_dir, &clock,
+                          schema_store.get()));
   std::unique_ptr<DocumentStore> document_store =
       std::move(create_result.document_store);
 
@@ -155,7 +162,8 @@ void BM_DoesDocumentExistBenchmark(benchmark::State& state) {
     // stuff.
     ICING_ASSERT_OK(document_store->Put(
         CreateDocument("namespace", /*uri=*/std::to_string(i))));
-    document_store->Delete("namespace", /*uri=*/std::to_string(i));
+    document_store->Delete("namespace", /*uri=*/std::to_string(i),
+                           clock.GetSystemTimeMilliseconds());
   }
 
   std::default_random_engine random;
@@ -164,7 +172,8 @@ void BM_DoesDocumentExistBenchmark(benchmark::State& state) {
     // Check random document ids to see if they exist. Hopefully to simulate
     // page faulting in different sections of our mmapped derived files.
     int document_id = dist(random);
-    benchmark::DoNotOptimize(document_store->DoesDocumentExist(document_id));
+    benchmark::DoNotOptimize(document_store->GetAliveDocumentFilterData(
+        document_id, clock.GetSystemTimeMilliseconds()));
   }
 }
 BENCHMARK(BM_DoesDocumentExistBenchmark);
@@ -183,8 +192,8 @@ void BM_Put(benchmark::State& state) {
   filesystem.CreateDirectoryRecursively(document_store_dir.data());
   ICING_ASSERT_OK_AND_ASSIGN(
       DocumentStore::CreateResult create_result,
-      DocumentStore::Create(&filesystem, document_store_dir, &clock,
-                            schema_store.get()));
+      CreateDocumentStore(&filesystem, document_store_dir, &clock,
+                          schema_store.get()));
   std::unique_ptr<DocumentStore> document_store =
       std::move(create_result.document_store);
 
@@ -212,8 +221,8 @@ void BM_GetSameDocument(benchmark::State& state) {
   filesystem.CreateDirectoryRecursively(document_store_dir.data());
   ICING_ASSERT_OK_AND_ASSIGN(
       DocumentStore::CreateResult create_result,
-      DocumentStore::Create(&filesystem, document_store_dir, &clock,
-                            schema_store.get()));
+      CreateDocumentStore(&filesystem, document_store_dir, &clock,
+                          schema_store.get()));
   std::unique_ptr<DocumentStore> document_store =
       std::move(create_result.document_store);
 
@@ -239,8 +248,8 @@ void BM_Delete(benchmark::State& state) {
   filesystem.CreateDirectoryRecursively(document_store_dir.data());
   ICING_ASSERT_OK_AND_ASSIGN(
       DocumentStore::CreateResult create_result,
-      DocumentStore::Create(&filesystem, document_store_dir, &clock,
-                            schema_store.get()));
+      CreateDocumentStore(&filesystem, document_store_dir, &clock,
+                          schema_store.get()));
   std::unique_ptr<DocumentStore> document_store =
       std::move(create_result.document_store);
 
@@ -251,7 +260,8 @@ void BM_Delete(benchmark::State& state) {
     ICING_ASSERT_OK(document_store->Put(document));
     state.ResumeTiming();
 
-    benchmark::DoNotOptimize(document_store->Delete("namespace", "uri"));
+    benchmark::DoNotOptimize(document_store->Delete(
+        "namespace", "uri", clock.GetSystemTimeMilliseconds()));
   }
 }
 BENCHMARK(BM_Delete);
@@ -273,8 +283,8 @@ void BM_Create(benchmark::State& state) {
     filesystem.CreateDirectoryRecursively(document_store_dir.data());
     ICING_ASSERT_OK_AND_ASSIGN(
         DocumentStore::CreateResult create_result,
-        DocumentStore::Create(&filesystem, document_store_dir, &clock,
-                              schema_store.get()));
+        CreateDocumentStore(&filesystem, document_store_dir, &clock,
+                            schema_store.get()));
     std::unique_ptr<DocumentStore> document_store =
         std::move(create_result.document_store);
 
@@ -289,7 +299,7 @@ void BM_Create(benchmark::State& state) {
   filesystem.CreateDirectoryRecursively(document_store_dir.data());
 
   for (auto s : state) {
-    benchmark::DoNotOptimize(DocumentStore::Create(
+    benchmark::DoNotOptimize(CreateDocumentStore(
         &filesystem, document_store_dir, &clock, schema_store.get()));
   }
 }
@@ -309,8 +319,8 @@ void BM_ComputeChecksum(benchmark::State& state) {
   filesystem.CreateDirectoryRecursively(document_store_dir.data());
   ICING_ASSERT_OK_AND_ASSIGN(
       DocumentStore::CreateResult create_result,
-      DocumentStore::Create(&filesystem, document_store_dir, &clock,
-                            schema_store.get()));
+      CreateDocumentStore(&filesystem, document_store_dir, &clock,
+                          schema_store.get()));
   std::unique_ptr<DocumentStore> document_store =
       std::move(create_result.document_store);
 

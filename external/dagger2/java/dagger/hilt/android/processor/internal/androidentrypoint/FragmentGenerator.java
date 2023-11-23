@@ -16,10 +16,12 @@
 
 package dagger.hilt.android.processor.internal.androidentrypoint;
 
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 import dagger.hilt.android.processor.internal.AndroidClassNames;
@@ -33,6 +35,11 @@ import javax.lang.model.element.Modifier;
 public final class FragmentGenerator {
   private static final FieldSpec COMPONENT_CONTEXT_FIELD =
       FieldSpec.builder(AndroidClassNames.CONTEXT_WRAPPER, "componentContext")
+          .addModifiers(Modifier.PRIVATE)
+          .build();
+
+  private static final FieldSpec DISABLE_GET_CONTEXT_FIX_FIELD =
+      FieldSpec.builder(TypeName.BOOLEAN, "disableGetContextFix")
           .addModifiers(Modifier.PRIVATE)
           .build();
 
@@ -69,12 +76,13 @@ public final class FragmentGenerator {
             .addMethod(onAttachActivityMethod())
             .addMethod(initializeComponentContextMethod())
             .addMethod(getContextMethod())
-            .addMethod(inflatorMethod());
+            .addMethod(inflatorMethod())
+            .addField(DISABLE_GET_CONTEXT_FIX_FIELD);
 
     Generators.addGeneratedBaseClassJavadoc(builder, AndroidClassNames.ANDROID_ENTRY_POINT);
     Processors.addGeneratedAnnotation(builder, env, getClass());
     Generators.copyLintAnnotations(metadata.element(), builder);
-    Generators.addSuppressAnnotation(builder, "deprecation");
+    Generators.copySuppressAnnotations(metadata.element(), builder);
     Generators.copyConstructors(metadata.baseElement(), builder);
 
     metadata.baseElement().getTypeParameters().stream()
@@ -94,9 +102,10 @@ public final class FragmentGenerator {
 
   // @CallSuper
   // @Override
-  // public void onAttach(Activity activity) {
-  //   super.onAttach(activity);
+  // public void onAttach(Context context) {
+  //   super.onAttach(context);
   //   initializeComponentContext();
+  //   inject();
   // }
   private static MethodSpec onAttachContextMethod() {
     return MethodSpec.methodBuilder("onAttach")
@@ -106,21 +115,29 @@ public final class FragmentGenerator {
         .addParameter(AndroidClassNames.CONTEXT, "context")
         .addStatement("super.onAttach(context)")
         .addStatement("initializeComponentContext()")
+        // The inject method will internally check if injected already
+        .addStatement("inject()")
         .build();
   }
 
   // @CallSuper
   // @Override
+  // @SuppressWarnings("deprecation")
   // public void onAttach(Activity activity) {
   //   super.onAttach(activity);
   //   Preconditions.checkState(
   //       componentContext == null || FragmentComponentManager.findActivity(
   //           componentContext) == activity, "...");
   //   initializeComponentContext();
+  //   inject();
   // }
   private static MethodSpec onAttachActivityMethod() {
     return MethodSpec.methodBuilder("onAttach")
         .addAnnotation(Override.class)
+        .addAnnotation(
+            AnnotationSpec.builder(ClassNames.SUPPRESS_WARNINGS)
+                .addMember("value", "\"deprecation\"")
+                .build())
         .addAnnotation(AndroidClassNames.CALL_SUPER)
         .addAnnotation(AndroidClassNames.MAIN_THREAD)
         .addModifiers(Modifier.PUBLIC)
@@ -135,23 +152,24 @@ public final class FragmentGenerator {
             "onAttach called multiple times with different Context! "
         + "Hilt Fragments should not be retained.")
         .addStatement("initializeComponentContext()")
+        // The inject method will internally check if injected already
+        .addStatement("inject()")
         .build();
   }
 
   // private void initializeComponentContext() {
-  //   // Only inject on the first call to onAttach.
   //   if (componentContext == null) {
   //     // Note: The LayoutInflater provided by this componentContext may be different from super
   //     // Fragment's because we are getting it from base context instead of cloning from super
   //     // Fragment's LayoutInflater.
   //     componentContext = FragmentComponentManager.createContextWrapper(super.getContext(), this);
-  //     inject();
+  //     disableGetContextFix = FragmentGetContextFix.isFragmentGetContextFixDisabled(
+  //         super.getContext());
   //   }
   // }
   private MethodSpec initializeComponentContextMethod() {
-    return MethodSpec.methodBuilder("initializeComponentContext")
+    MethodSpec.Builder builder = MethodSpec.methodBuilder("initializeComponentContext")
         .addModifiers(Modifier.PRIVATE)
-        .addComment("Only inject on the first call to onAttach.")
         .beginControlFlow("if ($N == null)", COMPONENT_CONTEXT_FIELD)
         .addComment(
             "Note: The LayoutInflater provided by this componentContext may be different from"
@@ -160,21 +178,54 @@ public final class FragmentGenerator {
         .addStatement(
             "$N = $T.createContextWrapper(super.getContext(), this)",
             COMPONENT_CONTEXT_FIELD,
-            metadata.componentManager())
-        .addStatement("inject()")
+            metadata.componentManager());
+    if (metadata.allowsOptionalInjection()) {
+      // When optionally injected, since the runtime flag is only available in Hilt, we need to
+      // check that the parent uses Hilt first.
+      builder.beginControlFlow("if (optionalInjectParentUsesHilt(optionalInjectGetParent()))");
+    }
+
+    builder
+        .addStatement("$N = $T.isFragmentGetContextFixDisabled(super.getContext())",
+            DISABLE_GET_CONTEXT_FIX_FIELD,
+            AndroidClassNames.FRAGMENT_GET_CONTEXT_FIX);
+
+    if (metadata.allowsOptionalInjection()) {
+      // If not attached to a Hilt parent, just disable the fix for now since this is the current
+      // default. There's not a good way to flip this at runtime without Hilt, so after we flip
+      // the default we may just have to flip this and hope that the Hilt usage is already enough
+      // coverage as this should be a fairly rare case.
+      builder.nextControlFlow("else")
+          .addStatement("$N = true", DISABLE_GET_CONTEXT_FIX_FIELD)
+          .endControlFlow();
+    }
+
+    return builder
         .endControlFlow()
         .build();
   }
 
   // @Override
   // public Context getContext() {
+  //   if (super.getContext() == null && !disableGetContextFix) {
+  //     return null;
+  //   }
+  //   initializeComponentContext();
   //   return componentContext;
   // }
-  private static MethodSpec getContextMethod() {
+  private MethodSpec getContextMethod() {
     return MethodSpec.methodBuilder("getContext")
         .returns(AndroidClassNames.CONTEXT)
         .addAnnotation(Override.class)
         .addModifiers(Modifier.PUBLIC)
+        // Note that disableGetContext can only be true if componentContext is set, so if it is
+        // true we don't need to check whether componentContext is set or not.
+        .beginControlFlow(
+            "if (super.getContext() == null && !$N)",
+            DISABLE_GET_CONTEXT_FIX_FIELD)
+        .addStatement("return null")
+        .endControlFlow()
+        .addStatement("initializeComponentContext()")
         .addStatement("return $N", COMPONENT_CONTEXT_FIELD)
         .build();
   }
@@ -206,10 +257,19 @@ public final class FragmentGenerator {
   //       this, super.getDefaultViewModelProviderFactory());
   // }
   private MethodSpec getDefaultViewModelProviderFactory() {
-    return MethodSpec.methodBuilder("getDefaultViewModelProviderFactory")
+    MethodSpec.Builder builder = MethodSpec.methodBuilder("getDefaultViewModelProviderFactory")
         .addAnnotation(Override.class)
         .addModifiers(Modifier.PUBLIC)
-        .returns(AndroidClassNames.VIEW_MODEL_PROVIDER_FACTORY)
+        .returns(AndroidClassNames.VIEW_MODEL_PROVIDER_FACTORY);
+
+    if (metadata.allowsOptionalInjection()) {
+      builder
+          .beginControlFlow("if (!optionalInjectParentUsesHilt(optionalInjectGetParent()))")
+          .addStatement("return super.getDefaultViewModelProviderFactory()")
+          .endControlFlow();
+    }
+
+    return builder
         .addStatement(
             "return $T.getFragmentFactory(this, super.getDefaultViewModelProviderFactory())",
             AndroidClassNames.DEFAULT_VIEW_MODEL_FACTORIES)

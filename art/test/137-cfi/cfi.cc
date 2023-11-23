@@ -28,7 +28,7 @@
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
-#include <backtrace/Backtrace.h>
+#include <unwindstack/AndroidUnwinder.h>
 
 #include "base/file_utils.h"
 #include "base/logging.h"
@@ -106,47 +106,55 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_sigstop(JNIEnv*, jclass) {
 
 // Helper to look for a sequence in the stack trace.
 #if __linux__
-static bool CheckStack(Backtrace* bt, const std::vector<std::string>& seq) {
+static bool CheckStack(unwindstack::AndroidUnwinder& unwinder,
+                       unwindstack::AndroidUnwinderData& data,
+                       const std::vector<std::string>& seq) {
   size_t cur_search_index = 0;  // The currently active index in seq.
   CHECK_GT(seq.size(), 0U);
 
-  bool any_empty_name = false;
-  for (size_t i = 0; i < bt->NumFrames(); i++) {
-    const backtrace_frame_data_t* frame = bt->GetFrame(i);
-    if (BacktraceMap::IsValid(frame->map)) {
-      if (cur_search_index < seq.size()) {
-        LOG(INFO) << "Got " << frame->func_name << ", looking for " << seq[cur_search_index];
-        if (frame->func_name.find(seq[cur_search_index]) != std::string::npos) {
-          cur_search_index++;
-        }
+  bool ok = true;
+  for (const unwindstack::FrameData& frame : data.frames) {
+    if (frame.map_info == nullptr) {
+      printf("Error: No map_info for frame #%02zu\n", frame.num);
+      ok = false;
+      continue;
+    }
+    const std::string& function_name = frame.function_name;
+    if (cur_search_index < seq.size()) {
+      LOG(INFO) << "Got " << function_name << ", looking for " << seq[cur_search_index];
+      if (function_name.find(seq[cur_search_index]) != std::string::npos) {
+        cur_search_index++;
       }
     }
-    any_empty_name |= frame->func_name.empty();
-    if (frame->func_name == "main") {
+    if (function_name == "main") {
       break;
     }
+#if !defined(__ANDROID__) && defined(__BIONIC__ )  // host-bionic
+    // TODO(b/182810709): Unwinding is broken on host-bionic so we expect some empty frames.
+#else
+    const std::string& lib_name = frame.map_info->name();
+    if (!kIsTargetBuild && lib_name.find("libc.so") != std::string::npos) {
+      // TODO(b/254626913): Unwinding can fail for libc on host.
+    } else if (function_name.empty()) {
+      printf("Error: No function name for frame #%02zu\n", frame.num);
+      ok = false;
+    }
+#endif
   }
 
   if (cur_search_index < seq.size()) {
-    printf("Cannot find %s in backtrace:\n", seq[cur_search_index].c_str());
-  } else if (any_empty_name) {
-#if defined(__BIONIC__ ) && !defined(__ANDROID__)
-    // TODO(b/182810709): Unwinding is broken on host-bionic so we expect some empty frames.
-    return true;
-#else
-    printf("Missing frames in backtrace:\n");
-#endif
-  } else {
-    return true;
+    printf("Error: Cannot find %s\n", seq[cur_search_index].c_str());
+    ok = false;
   }
 
-  for (Backtrace::const_iterator it = bt->begin(); it != bt->end(); ++it) {
-    if (BacktraceMap::IsValid(it->map)) {
-      printf("  %s\n", Backtrace::FormatFrameData(&*it).c_str());
+  if (!ok) {
+    printf("Backtrace:\n");
+    for (const unwindstack::FrameData& frame : data.frames) {
+      printf("  %s\n", unwinder.FormatFrame(frame).c_str());
     }
   }
 
-  return false;
+  return ok;
 }
 
 static void MoreErrorInfo(pid_t pid, bool sig_quit_on_fail) {
@@ -166,12 +174,10 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_unwindInProcess(JNIEnv*, jclass)
 #if __linux__
   MutexLock mu(Thread::Current(), *GetNativeDebugInfoLock());  // Avoid races with the JIT thread.
 
-  std::unique_ptr<Backtrace> bt(Backtrace::Create(BACKTRACE_CURRENT_PROCESS, GetTid()));
-  if (!bt->Unwind(0, nullptr)) {
+  unwindstack::AndroidLocalUnwinder unwinder;
+  unwindstack::AndroidUnwinderData data;
+  if (!unwinder.Unwind(data)) {
     printf("Cannot unwind in process.\n");
-    return JNI_FALSE;
-  } else if (bt->NumFrames() == 0) {
-    printf("No frames for unwind in process.\n");
     return JNI_FALSE;
   }
 
@@ -186,7 +192,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_unwindInProcess(JNIEnv*, jclass)
       "Main.main"                        // The Java entry method.
   };
 
-  bool result = CheckStack(bt.get(), seq);
+  bool result = CheckStack(unwinder, data, seq);
   if (!kCauseSegfault) {
     return result ? JNI_TRUE : JNI_FALSE;
   } else {
@@ -260,17 +266,13 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_unwindOtherProcess(JNIEnv*, jcla
     return JNI_FALSE;
   }
 
-  std::unique_ptr<Backtrace> bt(Backtrace::Create(pid, BACKTRACE_CURRENT_THREAD));
   bool result = true;
-  if (!bt->Unwind(0, nullptr)) {
+  unwindstack::AndroidRemoteUnwinder unwinder(pid);
+  unwindstack::AndroidUnwinderData data;
+  if (!unwinder.Unwind(data)) {
     printf("Cannot unwind other process.\n");
     result = false;
-  } else if (bt->NumFrames() == 0) {
-    printf("No frames for unwind of other process.\n");
-    result = false;
-  }
-
-  if (result) {
+  } else {
     // See comment in unwindInProcess for non-exact stack matching.
     // "mini-debug-info" does not include parameters to save space.
     std::vector<std::string> seq = {
@@ -280,7 +282,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_unwindOtherProcess(JNIEnv*, jcla
         "Main.main"                         // The Java entry method.
     };
 
-    result = CheckStack(bt.get(), seq);
+    result = CheckStack(unwinder, data, seq);
   }
 
   constexpr bool kSigQuitOnFail = true;

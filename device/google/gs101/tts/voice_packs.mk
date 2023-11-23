@@ -15,19 +15,8 @@
 
 # Voice packs for Text-To-Speech
 PRODUCT_COPY_FILES += \
-	device/google/gs101/tts/ja-jp/ja-jp-x-multi-r29.zvoice:product/tts/google/ja-jp/ja-jp-x-multi-r29.zvoice\
-	device/google/gs101/tts/ja-jp/ja-jp-x-multi-darwinn-wavernn-r29.zvoice:product/tts/google/ja-jp/ja-jp-x-multi-darwinn-wavernn-r29.zvoice\
-	device/google/gs101/tts/ja-jp/ja-jp-x-multi-wavernn-r29.zvoice:product/tts/google/ja-jp/ja-jp-x-multi-wavernn-r29.zvoice\
-	device/google/gs101/tts/fr-fr/fr-fr-x-multi-darwinn-wavernn-r31.zvoice:product/tts/google/fr-fr/fr-fr-x-multi-darwinn-wavernn-r31.zvoice\
-	device/google/gs101/tts/fr-fr/fr-fr-x-multi-r31.zvoice:product/tts/google/fr-fr/fr-fr-x-multi-r31.zvoice\
-	device/google/gs101/tts/fr-fr/fr-fr-x-multi-seanet-r31.zvoice:product/tts/google/fr-fr/fr-fr-x-multi-seanet-r31.zvoice\
-	device/google/gs101/tts/fr-fr/fr-fr-x-multi-wavernn-r31.zvoice:product/tts/google/fr-fr/fr-fr-x-multi-wavernn-r31.zvoice\
-	device/google/gs101/tts/de-de/de-de-x-multi-darwinn-wavernn-r31.zvoice:product/tts/google/de-de/de-de-x-multi-darwinn-wavernn-r31.zvoice\
-	device/google/gs101/tts/de-de/de-de-x-multi-r31.zvoice:product/tts/google/de-de/de-de-x-multi-r31.zvoice\
-	device/google/gs101/tts/de-de/de-de-x-multi-seanet-r31.zvoice:product/tts/google/de-de/de-de-x-multi-seanet-r31.zvoice\
-	device/google/gs101/tts/de-de/de-de-x-multi-wavernn-r31.zvoice:product/tts/google/de-de/de-de-x-multi-wavernn-r31.zvoice\
-	device/google/gs101/tts/it-it/it-it-x-multi-r27.zvoice:product/tts/google/it-it/it-it-x-multi-r27.zvoice\
-	device/google/gs101/tts/es-es/es-es-x-multi-darwinn-wavernn-r31.zvoice:product/tts/google/es-es/es-es-x-multi-darwinn-wavernn-r31.zvoice\
-	device/google/gs101/tts/es-es/es-es-x-multi-r31.zvoice:product/tts/google/es-es/es-es-x-multi-r31.zvoice\
-	device/google/gs101/tts/es-es/es-es-x-multi-seanet-r31.zvoice:product/tts/google/es-es/es-es-x-multi-seanet-r31.zvoice\
-	device/google/gs101/tts/es-es/es-es-x-multi-wavernn-r31.zvoice:product/tts/google/es-es/es-es-x-multi-wavernn-r31.zvoice
+	device/google/gs101/tts/ja-jp/ja-jp-x-multi-r42.zvoice:product/tts/google/ja-jp/ja-jp-x-multi-r42.zvoice\
+	device/google/gs101/tts/fr-fr/fr-fr-x-multi-r44.zvoice:product/tts/google/fr-fr/fr-fr-x-multi-r44.zvoice\
+	device/google/gs101/tts/de-de/de-de-x-multi-r43.zvoice:product/tts/google/de-de/de-de-x-multi-r43.zvoice\
+	device/google/gs101/tts/it-it/it-it-x-multi-r40.zvoice:product/tts/google/it-it/it-it-x-multi-r40.zvoice\
+	device/google/gs101/tts/es-es/es-es-x-multi-r43.zvoice:product/tts/google/es-es/es-es-x-multi-r43.zvoice

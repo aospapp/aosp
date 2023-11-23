@@ -135,6 +135,14 @@ public class TimeZoneFragment extends SettingsPreferenceFragment {
             setSummary((String) zone.get(ZoneGetter.KEY_GMT));
             offset = (Integer) zone.get(ZoneGetter.KEY_OFFSET);
         }
+
+        @Override
+        protected void onClick() {
+            // To avoid deselecting the current timezone, we keep the preference
+            // always checked.
+            mChecked = false;
+            super.onClick();
+        }
     }
 
     private static class ZonePrefComparator implements Comparator<ZonePreference> {

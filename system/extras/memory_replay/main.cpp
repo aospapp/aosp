@@ -78,15 +78,15 @@ static void ProcessDump(const AllocEntry* entries, size_t num_entries, size_t ma
   Pointers pointers(max_allocs);
   Threads threads(&pointers, max_threads);
 
-  NativePrintf("Maximum threads available:   %zu\n", threads.max_threads());
-  NativePrintf("Maximum allocations in dump: %zu\n", max_allocs);
-  NativePrintf("Total pointers available:    %zu\n\n", pointers.max_pointers());
+  dprintf(STDOUT_FILENO, "Maximum threads available:   %zu\n", threads.max_threads());
+  dprintf(STDOUT_FILENO, "Maximum allocations in dump: %zu\n", max_allocs);
+  dprintf(STDOUT_FILENO, "Total pointers available:    %zu\n\n", pointers.max_pointers());
 
   NativePrintInfo("Initial ");
 
   for (size_t i = 0; i < num_entries; i++) {
     if (((i + 1) % 100000) == 0) {
-      NativePrintf("  At line %zu:\n", i + 1);
+      dprintf(STDOUT_FILENO, "  At line %zu:\n", i + 1);
       NativePrintInfo("    ");
     }
     const AllocEntry& entry = entries[i];
@@ -139,7 +139,7 @@ static void ProcessDump(const AllocEntry* entries, size_t num_entries, size_t ma
   char buffer[256];
   uint64_t total_nsecs = threads.total_time_nsecs();
   NativeFormatFloat(buffer, sizeof(buffer), total_nsecs, 1000000000);
-  NativePrintf("Total Allocation/Free Time: %" PRIu64 "ns %ss\n", total_nsecs, buffer);
+  dprintf(STDOUT_FILENO, "Total Allocation/Free Time: %" PRIu64 "ns %ss\n", total_nsecs, buffer);
 }
 
 int main(int argc, char** argv) {
@@ -161,13 +161,13 @@ int main(int argc, char** argv) {
   }
 
 #if defined(__LP64__)
-  NativePrintf("64 bit environment.\n");
+  dprintf(STDOUT_FILENO, "64 bit environment.\n");
 #else
-  NativePrintf("32 bit environment.\n");
+  dprintf(STDOUT_FILENO, "32 bit environment.\n");
 #endif
 
 #if defined(__BIONIC__)
-  NativePrintf("Setting decay time to 1\n");
+  dprintf(STDOUT_FILENO, "Setting decay time to 1\n");
   mallopt(M_DECAY_TIME, 1);
 #endif
 
@@ -180,7 +180,7 @@ int main(int argc, char** argv) {
   size_t num_entries;
   GetUnwindInfo(argv[1], &entries, &num_entries);
 
-  NativePrintf("Processing: %s\n", argv[1]);
+  dprintf(STDOUT_FILENO, "Processing: %s\n", argv[1]);
 
   ProcessDump(entries, num_entries, max_threads);
 

@@ -41,6 +41,12 @@ public class AlertEntry {
     @VisibleForTesting
     protected AlertEntry() {}
 
+    @VisibleForTesting
+    public AlertEntry(StatusBarNotification statusBarNotification, long postTime) {
+        this(statusBarNotification);
+        mPostTime = postTime;
+    }
+
     /**
      * Updates the current post time for the Heads up notification.
      */

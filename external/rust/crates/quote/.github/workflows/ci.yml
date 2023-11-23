@@ -5,8 +5,11 @@ on:
   pull_request:
   schedule: [cron: "40 1 * * *"]
 
+permissions:
+  contents: read
+
 env:
-  RUSTFLAGS: '-Dwarnings'
+  RUSTFLAGS: -Dwarnings
 
 jobs:
   test:
@@ -15,19 +18,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable, beta, 1.36.0]
+        rust: [stable, beta, 1.56.0]
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{matrix.rust}}
+          components: rust-src
       - run: cargo test
 
   nightly:
     name: Rust nightly
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
@@ -38,25 +44,43 @@ jobs:
   msrv:
     name: Rust 1.31.0
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@1.31.0
+        with:
+          components: rust-src
       - run: cargo check
 
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v2
-      - uses: dtolnay/rust-toolchain@clippy
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy, rust-src
       - run: cargo clippy --tests -- -Dclippy::all -Dclippy::pedantic
+
+  miri:
+    name: Miri
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@miri
+      - run: cargo miri test
+        env:
+          MIRIFLAGS: -Zmiri-strict-provenance
 
   outdated:
     name: Outdated
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: dtolnay/install@cargo-outdated
-      - run: cargo outdated --exit-code 1
+      - run: cargo outdated --workspace --exit-code 1

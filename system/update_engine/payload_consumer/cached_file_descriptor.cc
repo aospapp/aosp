@@ -96,4 +96,7 @@ bool CachedFileDescriptorBase::FlushCache() {
   return true;
 }
 
+void UnownedCachedFileDescriptor::SetFD(FileDescriptor* fd) {
+  fd_ = fd;
+}
 }  // namespace chromeos_update_engine

@@ -74,6 +74,9 @@ public strictfp class S2RegionCovererTest extends GeometryTestCase {
     }
   }
 
+  // b/280346791 - commented in Android as this test occasionally takes a long time, probably
+  // due to an upstream bug that generates pathological test geometry cases.
+  /*
   public void testRandomCaps() {
     logger.info("TestRandomCaps");
 
@@ -115,6 +118,7 @@ public strictfp class S2RegionCovererTest extends GeometryTestCase {
       checkCovering(coverer, cap, denormalized, false);
     }
   }
+  */
 
   public void testSimpleCoverings() {
     logger.info("TestSimpleCoverings");

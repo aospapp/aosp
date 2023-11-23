@@ -16,15 +16,20 @@
 
 package android.security.cts;
 
+import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
+
 import android.platform.test.annotations.AsbSecurityTest;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
+import com.android.sts.common.util.TombstoneUtils;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
-import static org.junit.Assert.*;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class Poc20_06 extends SecurityTestCase {
+public class Poc20_06 extends NonRootSecurityTestCase {
 
     /**
      * CVE-2020-3635
@@ -33,13 +38,11 @@ public class Poc20_06 extends SecurityTestCase {
     @AsbSecurityTest(cveBugId = 148817146)
     public void testPocCVE_2020_3635() throws Exception {
         String isApplicable = AdbUtils.runCommandLine("service list", getDevice());
-        if (isApplicable.contains("com.qualcomm.qti.IPerfManager")) {
-            AdbUtils.runCommandLine("logcat -c", getDevice());
+        assumeTrue(isApplicable.contains("com.qualcomm.qti.IPerfManager"));
+        TombstoneUtils.Config config = new TombstoneUtils.Config().setProcessPatterns("perfservice");
+        try (AutoCloseable a = TombstoneUtils.withAssertNoSecurityCrashes(getDevice(), config)) {
             AdbUtils.runCommandLine(
                     "service call vendor.perfservice 4 i32 1 i64 4702394920265069920", getDevice());
-            String logcatOut = AdbUtils.runCommandLine("logcat -d", getDevice());
-            assertNotMatchesMultiLine(
-                    "Fatal signal 11 \\(SIGSEGV\\).*?>>> /system/bin/perfservice <<<", logcatOut);
         }
     }
 
@@ -76,11 +79,11 @@ public class Poc20_06 extends SecurityTestCase {
     @AsbSecurityTest(cveBugId = 152310294)
     public void testPocCVE_2020_3676() throws Exception {
         String isApplicable = AdbUtils.runCommandLine("service list", getDevice());
-        if (isApplicable.contains("com.qualcomm.qti.IPerfManager")) {
-            AdbUtils.runCommandLine("logcat -c", getDevice());
+        assumeTrue(isApplicable.contains("com.qualcomm.qti.IPerfManager"));
+        TombstoneUtils.Config config = new TombstoneUtils.Config().setProcessPatterns("perfservice");
+        try (AutoCloseable a = TombstoneUtils.withAssertNoSecurityCrashes(getDevice(), config)) {
             AdbUtils.runCommandLine(
                     "service call vendor.perfservice 4 i32 2442302356 i64 -2", getDevice());
-            AdbUtils.assertNoCrashes(getDevice(), "perfservice");
         }
     }
 }

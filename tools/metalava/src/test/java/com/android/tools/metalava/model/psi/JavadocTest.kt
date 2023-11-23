@@ -31,7 +31,6 @@ class JavadocTest : DriverTest() {
         extraArguments: Array<String> = emptyArray(),
         docStubs: Boolean = false,
         showAnnotations: Array<String> = emptyArray(),
-        includeSourceRetentionAnnotations: Boolean = true,
         skipEmitPackages: List<String> = listOf("java.lang", "java.util", "java.io"),
         sourceFiles: Array<TestFile>
     ) {
@@ -44,7 +43,6 @@ class JavadocTest : DriverTest() {
             api = api,
             extraArguments = extraArguments,
             docStubs = docStubs,
-            includeSourceRetentionAnnotations = includeSourceRetentionAnnotations,
             skipEmitPackages = skipEmitPackages
         )
     }

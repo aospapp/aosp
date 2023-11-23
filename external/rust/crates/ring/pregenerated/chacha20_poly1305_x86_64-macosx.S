@@ -8,6 +8,7 @@
 #endif
 
 #if defined(__x86_64__) && !defined(OPENSSL_NO_ASM)
+#include "ring_core_generated/prefix_symbols_asm.h"
 .text	
 
 
@@ -218,11 +219,11 @@ L$hash_ad_done:
 
 
 
-.globl	_GFp_chacha20_poly1305_open
-.private_extern _GFp_chacha20_poly1305_open
+.globl	_chacha20_poly1305_open
+.private_extern _chacha20_poly1305_open
 
 .p2align	6
-_GFp_chacha20_poly1305_open:
+_chacha20_poly1305_open:
 
 	pushq	%rbp
 
@@ -250,7 +251,7 @@ _GFp_chacha20_poly1305_open:
 	movq	%r8,0+0+32(%rbp)
 	movq	%rbx,8+0+32(%rbp)
 
-	movl	_GFp_ia32cap_P+8(%rip),%eax
+	movl	_OPENSSL_ia32cap_P+8(%rip),%eax
 	andl	$288,%eax
 	xorl	$288,%eax
 	jz	chacha20_poly1305_open_avx2
@@ -2088,11 +2089,12 @@ L$open_sse_128_xor_hash:
 
 
 
-.globl	_GFp_chacha20_poly1305_seal
-.private_extern _GFp_chacha20_poly1305_seal
+
+.globl	_chacha20_poly1305_seal
+.private_extern _chacha20_poly1305_seal
 
 .p2align	6
-_GFp_chacha20_poly1305_seal:
+_chacha20_poly1305_seal:
 
 	pushq	%rbp
 
@@ -2121,7 +2123,7 @@ _GFp_chacha20_poly1305_seal:
 	movq	%rbx,8+0+32(%rbp)
 	movq	%rdx,%rbx
 
-	movl	_GFp_ia32cap_P+8(%rip),%eax
+	movl	_OPENSSL_ia32cap_P+8(%rip),%eax
 	andl	$288,%eax
 	xorl	$288,%eax
 	jz	chacha20_poly1305_seal_avx2

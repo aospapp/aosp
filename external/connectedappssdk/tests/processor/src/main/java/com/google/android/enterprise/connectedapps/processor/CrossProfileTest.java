@@ -64,9 +64,6 @@ public class CrossProfileTest {
       "@CROSS_PROFILE_ANNOTATION annotations on methods can not specify a connector";
   private static final String METHOD_PARCELABLE_WRAPPERS_ERROR =
       "@CROSS_PROFILE_ANNOTATION annotations on methods can not specify parcelable wrappers";
-  private static final String METHOD_CLASSNAME_ERROR =
-      "@CROSS_PROFILE_ANNOTATION annotations on methods can not specify a profile class name";
-  private static final String INVALID_TIMEOUT_MILLIS = "timeoutMillis must be positive";
   private static final String ASYNC_DECLARED_EXCEPTION_ERROR =
       "Asynchronous methods annotated @CROSS_PROFILE_ANNOTATION cannot declare exceptions";
   private static final String PARCELABLE_WRAPPER_ANNOTATION_ERROR =
@@ -894,53 +891,6 @@ public class CrossProfileTest {
   }
 
   @Test
-  public void crossProfileMethodWithPrimitiveArrayParameterType_hasError() {
-    JavaFileObject notesType =
-        JavaFileObjects.forSourceLines(
-            NOTES_PACKAGE + ".NotesType",
-            "package " + NOTES_PACKAGE + ";",
-            "import " + annotationStrings.crossProfileQualifiedName() + ";",
-            "public final class NotesType {",
-            annotationStrings.crossProfileAsAnnotation(),
-            "  public void refreshNotes(int[] i) {",
-            "  }",
-            "}");
-
-    Compilation compilation =
-        javac()
-            .withProcessors(new Processor())
-            .compile(notesType, annotatedNotesProvider(annotationStrings));
-
-    assertThat(compilation)
-        .hadErrorContaining(formatErrorMessage(UNSUPPORTED_PARAMETER_TYPE_ERROR, annotationStrings))
-        .inFile(notesType);
-  }
-
-  @Test
-  public void crossProfileMethodWithPrimitiveArrayReturnType_hasError() {
-    JavaFileObject notesType =
-        JavaFileObjects.forSourceLines(
-            NOTES_PACKAGE + ".NotesType",
-            "package " + NOTES_PACKAGE + ";",
-            "import " + annotationStrings.crossProfileQualifiedName() + ";",
-            "public final class NotesType {",
-            annotationStrings.crossProfileAsAnnotation(),
-            "  public int[] refreshNotes() {",
-            "    return null;",
-            "  }",
-            "}");
-
-    Compilation compilation =
-        javac()
-            .withProcessors(new Processor())
-            .compile(notesType, annotatedNotesProvider(annotationStrings));
-
-    assertThat(compilation)
-        .hadErrorContaining(formatErrorMessage(UNSUPPORTED_RETURN_TYPE_ERROR, annotationStrings))
-        .inFile(notesType);
-  }
-
-  @Test
   public void crossProfileMethodWithMultiDimensionalArrayParameterType_hasError() {
     JavaFileObject notesType =
         JavaFileObjects.forSourceLines(
@@ -1040,30 +990,6 @@ public class CrossProfileTest {
   }
 
   @Test
-  public void specifyProfileClassNameOnMethodAnnotation_hasError() {
-    JavaFileObject notesType =
-        JavaFileObjects.forSourceLines(
-            NOTES_PACKAGE + ".NotesType",
-            "package " + NOTES_PACKAGE + ";",
-            "import " + annotationStrings.crossProfileQualifiedName() + ";",
-            "public final class NotesType {",
-            annotationStrings.crossProfileAsAnnotation(
-                "profileClassName=\"" + NOTES_PACKAGE + ".ProfileNotes\""),
-            "  public void refreshNotes() {",
-            "  }",
-            "}");
-
-    Compilation compilation =
-        javac()
-            .withProcessors(new Processor())
-            .compile(notesType, annotatedNotesProvider(annotationStrings));
-
-    assertThat(compilation)
-        .hadErrorContaining(formatErrorMessage(METHOD_CLASSNAME_ERROR, annotationStrings))
-        .inFile(notesType);
-  }
-
-  @Test
   public void crossProfileInterface_works() {
     JavaFileObject notesType =
         JavaFileObjects.forSourceLines(
@@ -1090,83 +1016,6 @@ public class CrossProfileTest {
         javac().withProcessors(new Processor()).compile(notesType, providerClass);
 
     assertThat(compilation).succeededWithoutWarnings();
-  }
-
-  @Test
-  public void crossProfile_specifiesValidTimeoutMillisAndAlsoOnType_compiles() {
-    JavaFileObject crossProfileType =
-        JavaFileObjects.forSourceLines(
-            NOTES_PACKAGE + ".NotesType",
-            "package " + NOTES_PACKAGE + ";",
-            "import " + annotationStrings.crossProfileQualifiedName() + ";",
-            annotationStrings.crossProfileAsAnnotation("timeoutMillis=30"),
-            "public final class NotesType {",
-            annotationStrings.crossProfileAsAnnotation("timeoutMillis=10"),
-            "  public void refreshNotes() {",
-            "  }",
-            "}");
-
-    Compilation compilation = javac().withProcessors(new Processor()).compile(crossProfileType);
-
-    assertThat(compilation).succeededWithoutWarnings();
-  }
-
-  @Test
-  public void crossProfile_specifiesValidTimeoutMillis_compiles() {
-    JavaFileObject crossProfileType =
-        JavaFileObjects.forSourceLines(
-            NOTES_PACKAGE + ".NotesType",
-            "package " + NOTES_PACKAGE + ";",
-            "import " + annotationStrings.crossProfileQualifiedName() + ";",
-            "public final class NotesType {",
-            annotationStrings.crossProfileAsAnnotation("timeoutMillis=10"),
-            "  public void refreshNotes() {",
-            "  }",
-            "}");
-
-    Compilation compilation = javac().withProcessors(new Processor()).compile(crossProfileType);
-
-    assertThat(compilation).succeededWithoutWarnings();
-  }
-
-  @Test
-  public void crossProfile_specifiesNegativeTimeoutMillis_hasError() {
-    JavaFileObject crossProfileType =
-        JavaFileObjects.forSourceLines(
-            NOTES_PACKAGE + ".NotesType",
-            "package " + NOTES_PACKAGE + ";",
-            "import " + annotationStrings.crossProfileQualifiedName() + ";",
-            "public final class NotesType {",
-            annotationStrings.crossProfileAsAnnotation("timeoutMillis=-10"),
-            "  public void refreshNotes() {",
-            "  }",
-            "}");
-
-    Compilation compilation = javac().withProcessors(new Processor()).compile(crossProfileType);
-
-    assertThat(compilation)
-        .hadErrorContaining(formatErrorMessage(INVALID_TIMEOUT_MILLIS, annotationStrings))
-        .inFile(crossProfileType);
-  }
-
-  @Test
-  public void crossProfileType_specifiesZeroTimeoutMillis_hasError() {
-    JavaFileObject crossProfileType =
-        JavaFileObjects.forSourceLines(
-            NOTES_PACKAGE + ".NotesType",
-            "package " + NOTES_PACKAGE + ";",
-            "import " + annotationStrings.crossProfileQualifiedName() + ";",
-            "public final class NotesType {",
-            annotationStrings.crossProfileAsAnnotation("timeoutMillis=0"),
-            "  public void refreshNotes() {",
-            "  }",
-            "}");
-
-    Compilation compilation = javac().withProcessors(new Processor()).compile(crossProfileType);
-
-    assertThat(compilation)
-        .hadErrorContaining(formatErrorMessage(INVALID_TIMEOUT_MILLIS, annotationStrings))
-        .inFile(crossProfileType);
   }
 
   @Test

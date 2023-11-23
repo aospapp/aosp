@@ -140,6 +140,12 @@ java_library_host {
     ],
 
     java_version: "1.8",
+
+    errorprone: {
+        javacflags: [
+            "-Xep:ReturnValueIgnored:WARN",
+        ],
+    },
 }
 
 // Build host dependencies.

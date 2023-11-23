@@ -11,8 +11,8 @@ at tools/testing/selftests. The tests cover a broad range of areas but total
 coverage (as of 4.14 anyway) is very spotty. Many of the tests do not apply to
 Android platforms.
 
-As of mid 2018 there are 23 tests in kselftest which run on ARM in VTS.
-Almost all of them get executed in both 32-bit and 64-bit mode. There are many
+As of Jan 2023 there are 31 tests in kselftest which run on ARM in VTS.
+22 of these tests are executed in both 32-bit and 64-bit mode. There are many
 tests which are not enabled because they have dependencies which are not met on
 Android platforms.
 
@@ -42,13 +42,13 @@ Running Kselftest through atest
 You can run Kselftest tests with atest, which handles all the setup and build steps.
 
 To run all 32 bit Kselftest tests:
-* `atest vts_linux_kselftest_arm`
+* `atest -a vts_linux_kselftest_arm_32`
 
 To run all 64 bit Kselftest tests:
-* `atest vts_linux_kselftest_arm_64`
+* `atest -a vts_linux_kselftest_arm_64`
 
 To run a single test:
-* `atest vts_linux_kselftest_arm_64:timers_valid-adjtimex_arm_64`
+* `atest -a vts_linux_kselftest_arm_64:timers_valid-adjtimex_arm_64`
 
 Running Kselftest through VTS
 -----------------------------
@@ -103,8 +103,8 @@ platform and are unsure if they are safe you should run them in emulation, in a
 virtualized environment, or on a dedicated development x86 platform.
 
 To run Kselftest tests for x86 platform, you can do:
-* `atest vts_linux_kselftest_x86`
-* `atest vts_linux_kselftest_x86_64`
+* `atest -a vts_linux_kselftest_x86_32`
+* `atest -a vts_linux_kselftest_x86_64`
 
 Sending Fixes Upstream
 ----------------------

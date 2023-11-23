@@ -26,7 +26,7 @@
     <skip />
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"Receive required monthly tests from the safety alert system"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"National alert"</string>
-    <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"Show an opt-out dialogue after displaying the first alert (other than national alert)."</string>
+    <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"Show an opt-out dialog after displaying the first alert (other than National alert)."</string>
     <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"National alerts"</string>
     <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"National warning messages. Can\'t be turned off."</string>
 </resources>

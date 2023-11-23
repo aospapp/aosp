@@ -98,16 +98,24 @@ binder::Status createSurfaceFromGbp(
         sp<Surface>& surface, const sp<IGraphicBufferProducer>& gbp,
         const String8 &logicalCameraId, const CameraMetadata &physicalCameraMetadata,
         const std::vector<int32_t> &sensorPixelModesUsed,  int64_t dynamicRangeProfile,
-        int64_t streamUseCase, int timestampBase, int mirrorMode);
+        int64_t streamUseCase, int timestampBase, int mirrorMode,
+        int32_t colorSpace);
 
 //check if format is 10-bit output compatible
-bool is10bitCompatibleFormat(int32_t format);
+bool is10bitCompatibleFormat(int32_t format, android_dataspace_t dataSpace);
 
 // check if the dynamic range requires 10-bit output
 bool is10bitDynamicRangeProfile(int64_t dynamicRangeProfile);
 
 // Check if the device supports a given dynamicRangeProfile
 bool isDynamicRangeProfileSupported(int64_t dynamicRangeProfile, const CameraMetadata& staticMeta);
+
+bool deviceReportsColorSpaces(const CameraMetadata& staticMeta);
+
+bool isColorSpaceSupported(int32_t colorSpace, int32_t format, android_dataspace dataSpace,
+        int64_t dynamicRangeProfile, const CameraMetadata& staticMeta);
+
+bool dataSpaceFromColorSpace(android_dataspace *dataSpace, int32_t colorSpace);
 
 bool isStreamUseCaseSupported(int64_t streamUseCase, const CameraMetadata &deviceInfo);
 
@@ -130,7 +138,7 @@ const CameraMetadata &staticInfo, const String8 &cameraId);
 binder::Status
 convertToHALStreamCombination(
     const SessionConfiguration& sessionConfiguration,
-    const String8 &logicalCameraId, const CameraMetadata &deviceInfo,
+    const String8 &logicalCameraId, const CameraMetadata &deviceInfo, bool isCompositeJpegRDisabled,
     metadataGetter getMetadata, const std::vector<std::string> &physicalCameraIds,
     aidl::android::hardware::camera::device::StreamConfiguration &streamConfiguration,
     bool overrideForPerfClass, bool *earlyExit);
@@ -139,7 +147,7 @@ StreamConfigurationPair getStreamConfigurationPair(const CameraMetadata &metadat
 
 status_t checkAndOverrideSensorPixelModesUsed(
         const std::vector<int32_t> &sensorPixelModesUsed, int format, int width, int height,
-        const CameraMetadata &staticInfo, bool flexibleConsumer,
+        const CameraMetadata &staticInfo,
         std::unordered_set<int32_t> *overriddenSensorPixelModesUsed);
 
 bool targetPerfClassPrimaryCamera(

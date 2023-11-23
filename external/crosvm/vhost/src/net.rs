@@ -1,18 +1,22 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use net_util::TapT;
+use std::fs::File;
+use std::fs::OpenOptions;
 use std::marker::PhantomData;
 use std::os::unix::fs::OpenOptionsExt;
-use std::{
-    fs::{File, OpenOptions},
-    path::Path,
-};
+use std::path::Path;
 
-use base::{ioctl_with_ref, AsRawDescriptor, RawDescriptor};
+use base::ioctl_with_ref;
+use base::AsRawDescriptor;
+use base::RawDescriptor;
+use net_util::TapT;
 
-use super::{ioctl_result, Error, Result, Vhost};
+use super::ioctl_result;
+use super::Error;
+use super::Result;
+use super::Vhost;
 
 /// Handle to run VHOST_NET ioctls.
 ///
@@ -59,7 +63,7 @@ where
     }
 
     fn set_backend(&self, queue_index: usize, event: Option<&T>) -> Result<()> {
-        let vring_file = virtio_sys::vhost_vring_file {
+        let vring_file = virtio_sys::vhost::vhost_vring_file {
             index: queue_index as u32,
             fd: event.map_or(-1, |event| event.as_raw_descriptor()),
         };
@@ -89,9 +93,10 @@ impl<T> AsRawDescriptor for Net<T> {
 }
 
 pub mod fakes {
-    use super::*;
     use std::fs::remove_file;
     use std::fs::OpenOptions;
+
+    use super::*;
 
     const TMP_FILE: &str = "/tmp/crosvm_vhost_test_file";
 

@@ -16,14 +16,14 @@
 
 #define LOG_TAG "BluetoothHeadsetServiceJni"
 
+#include <mutex>
+#include <shared_mutex>
+
 #include "com_android_bluetooth.h"
 #include "hardware/bluetooth_headset_callbacks.h"
 #include "hardware/bluetooth_headset_interface.h"
 #include "hardware/bt_hf.h"
-#include "utils/Log.h"
-
-#include <mutex>
-#include <shared_mutex>
+#include "os/log.h"
 
 namespace android {
 
@@ -37,6 +37,7 @@ static jmethodID method_onDialCall;
 static jmethodID method_onSendDtmf;
 static jmethodID method_onNoiseReductionEnable;
 static jmethodID method_onWBS;
+static jmethodID method_onSWB;
 static jmethodID method_onAtChld;
 static jmethodID method_onAtCnum;
 static jmethodID method_onAtCind;
@@ -78,7 +79,7 @@ class JniHeadsetCallbacks : bluetooth::headset::Callbacks {
   void ConnectionStateCallback(
       bluetooth::headset::bthf_connection_state_t state,
       RawAddress* bd_addr) override {
-    ALOGI("%s %d for %s", __func__, state, bd_addr->ToString().c_str());
+    ALOGI("%s %d for %s", __func__, state, ADDRESS_TO_LOGGABLE_CSTR(*bd_addr));
 
     std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
     CallbackEnv sCallbackEnv(__func__);
@@ -93,7 +94,7 @@ class JniHeadsetCallbacks : bluetooth::headset::Callbacks {
 
   void AudioStateCallback(bluetooth::headset::bthf_audio_state_t state,
                           RawAddress* bd_addr) override {
-    ALOGI("%s, %d for %s", __func__, state, bd_addr->ToString().c_str());
+    ALOGI("%s, %d for %s", __func__, state, ADDRESS_TO_LOGGABLE_CSTR(*bd_addr));
 
     std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
     CallbackEnv sCallbackEnv(__func__);
@@ -181,7 +182,6 @@ class JniHeadsetCallbacks : bluetooth::headset::Callbacks {
 
     char null_str[] = "";
     if (!sCallbackEnv.isValidUtf(number)) {
-      android_errorWriteLog(0x534e4554, "109838537");
       ALOGE("%s: number is not a valid UTF string.", __func__);
       number = null_str;
     }
@@ -234,6 +234,19 @@ class JniHeadsetCallbacks : bluetooth::headset::Callbacks {
     if (addr.get() == nullptr) return;
 
     sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onWBS, wbs_config,
+                                 addr.get());
+  }
+
+  void SwbCallback(bluetooth::headset::bthf_swb_config_t swb_config,
+                   RawAddress* bd_addr) override {
+    std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
+    CallbackEnv sCallbackEnv(__func__);
+    if (!sCallbackEnv.valid() || !mCallbacksObj) return;
+
+    ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
+    if (addr.get() == nullptr) return;
+
+    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onSWB, swb_config,
                                  addr.get());
   }
 
@@ -325,7 +338,6 @@ class JniHeadsetCallbacks : bluetooth::headset::Callbacks {
 
     char null_str[] = "";
     if (!sCallbackEnv.isValidUtf(at_string)) {
-      android_errorWriteLog(0x534e4554, "109838537");
       ALOGE("%s: at_string is not a valid UTF string.", __func__);
       at_string = null_str;
     }
@@ -361,7 +373,6 @@ class JniHeadsetCallbacks : bluetooth::headset::Callbacks {
 
     char null_str[] = "";
     if (!sCallbackEnv.isValidUtf(at_string)) {
-      android_errorWriteLog(0x534e4554, "109838537");
       ALOGE("%s: at_string is not a valid UTF string.", __func__);
       at_string = null_str;
     }
@@ -417,6 +428,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
   method_onNoiseReductionEnable =
       env->GetMethodID(clazz, "onNoiseReductionEnable", "(Z[B)V");
   method_onWBS = env->GetMethodID(clazz, "onWBS", "(I[B)V");
+  method_onSWB = env->GetMethodID(clazz, "onSWB", "(I[B)V");
   method_onAtChld = env->GetMethodID(clazz, "onAtChld", "(I[B)V");
   method_onAtCnum = env->GetMethodID(clazz, "onAtCnum", "([B)V");
   method_onAtCind = env->GetMethodID(clazz, "onAtCind", "([B)V");
@@ -515,7 +527,8 @@ static jboolean connectHfpNative(JNIEnv* env, jobject object,
     jniThrowIOException(env, EINVAL);
     return JNI_FALSE;
   }
-  ALOGI("%s: device %s", __func__, ((RawAddress*)addr)->ToString().c_str());
+  ALOGI("%s: device %s", __func__,
+        ADDRESS_TO_LOGGABLE_CSTR(*((RawAddress*)addr)));
   bt_status_t status = sBluetoothHfpInterface->Connect((RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed HF connection, status: %d", status);
@@ -537,7 +550,8 @@ static jboolean disconnectHfpNative(JNIEnv* env, jobject object,
     jniThrowIOException(env, EINVAL);
     return JNI_FALSE;
   }
-  ALOGI("%s: device %s", __func__, ((RawAddress*)addr)->ToString().c_str());
+  ALOGI("%s: device %s", __func__,
+        ADDRESS_TO_LOGGABLE_CSTR(*((RawAddress*)addr)));
   bt_status_t status = sBluetoothHfpInterface->Disconnect((RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed HF disconnection, status: %d", status);
@@ -559,8 +573,10 @@ static jboolean connectAudioNative(JNIEnv* env, jobject object,
     jniThrowIOException(env, EINVAL);
     return JNI_FALSE;
   }
-  ALOGI("%s: device %s", __func__, ((RawAddress*)addr)->ToString().c_str());
-  bt_status_t status = sBluetoothHfpInterface->ConnectAudio((RawAddress*)addr);
+  ALOGI("%s: device %s", __func__,
+        ADDRESS_TO_LOGGABLE_CSTR(*((RawAddress*)addr)));
+  bt_status_t status =
+      sBluetoothHfpInterface->ConnectAudio((RawAddress*)addr, false);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed HF audio connection, status: %d", status);
   }
@@ -581,7 +597,8 @@ static jboolean disconnectAudioNative(JNIEnv* env, jobject object,
     jniThrowIOException(env, EINVAL);
     return JNI_FALSE;
   }
-  ALOGI("%s: device %s", __func__, ((RawAddress*)addr)->ToString().c_str());
+  ALOGI("%s: device %s", __func__,
+        ADDRESS_TO_LOGGABLE_CSTR(*((RawAddress*)addr)));
   bt_status_t status =
       sBluetoothHfpInterface->DisconnectAudio((RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {

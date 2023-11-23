@@ -154,7 +154,7 @@ public final class AppRemoteFileResolver implements IRemoteFileResolver {
         } catch (URISyntaxException e) {
             throw new IllegalStateException(
                     String.format(
-                            "URI template (%s) did not expand to a a valid URI (%s)",
+                            "%s: URI template (%s) did not expand to a a valid URI (%s)",
                             URI_TEMPLATE_OPTION, mUriTemplate, expanded),
                     e);
         }

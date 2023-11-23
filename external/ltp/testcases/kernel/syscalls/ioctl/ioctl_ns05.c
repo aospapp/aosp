@@ -1,25 +1,27 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (c) 2019 Federico Bonfiglio fedebonfi95@gmail.com
+ * Copyright (c) 2019 Federico Bonfiglio <fedebonfi95@gmail.com>
+ * Copyright (c) Linux Test Project, 2019-2022
  */
 
-/*
+/*\
+ * [Description]
+ *
  * Test ioctl_ns with NS_GET_PARENT request.
  *
  * Child cloned with the CLONE_NEWPID flag is created in a new pid namespace.
  * That's checked by comparing its /proc/self/ns/pid symlink and the parent's
  * one. Also child thinks its pid is 1.
- *
  */
+
 #define _GNU_SOURCE
 
 #include <errno.h>
 #include <stdio.h>
-#include <sched.h>
 #include <stdlib.h>
 #include "tst_test.h"
 #include "lapi/ioctl_ns.h"
-#include "lapi/namespaces_constants.h"
+#include "lapi/sched.h"
 
 #define STACK_SIZE (1024 * 1024)
 
@@ -59,10 +61,10 @@ static void run(void)
 	if (pid == -1)
 		tst_brk(TBROK | TERRNO, "ltp_clone failed");
 
-	char child_namespace[20];
+	char child_namespace[30];
 	int my_fd, child_fd, parent_fd;
 
-	sprintf(child_namespace, "/proc/%i/ns/pid", pid);
+	snprintf(child_namespace, sizeof(child_namespace), "/proc/%i/ns/pid", pid);
 	my_fd = SAFE_OPEN("/proc/self/ns/pid", O_RDONLY);
 	child_fd = SAFE_OPEN(child_namespace, O_RDONLY);
 	parent_fd = ioctl(child_fd, NS_GET_PARENT);

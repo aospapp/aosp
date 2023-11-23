@@ -20,11 +20,13 @@
 #include "chre/platform/assert.h"
 #include "chre/platform/fatal_error.h"
 #include "chre/platform/log.h"
+#include "chre/platform/tracing.h"
 #include "chre/util/system/debug_dump.h"
 #include "chre_api/chre/gnss.h"
 #include "chre_api/chre/version.h"
 
 #include <algorithm>
+#include <cstdint>
 
 #if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_5
 #define CHRE_GNSS_MEASUREMENT_BACK_COMPAT_ENABLED
@@ -37,6 +39,14 @@ constexpr size_t Nanoapp::kMaxSizeWakeupBuckets;
 Nanoapp::Nanoapp() {
   // Push first bucket onto wakeup bucket queue
   cycleWakeupBuckets(1);
+}
+
+bool Nanoapp::start() {
+  traceRegisterNanoapp(getInstanceId(), getAppName());
+  mIsInNanoappStart = true;
+  bool success = PlatformNanoapp::start();
+  mIsInNanoappStart = false;
+  return success;
 }
 
 bool Nanoapp::isRegisteredForBroadcastEvent(const Event *event) const {
@@ -123,11 +133,23 @@ void Nanoapp::configureUserSettingEvent(uint8_t setting, bool enable) {
 }
 
 void Nanoapp::processEvent(Event *event) {
+  Nanoseconds eventStartTime = SystemTime::getMonotonicTime();
+  traceNanoappHandleEventStart(getInstanceId(), event->eventType);
   if (event->eventType == CHRE_EVENT_GNSS_DATA) {
     handleGnssMeasurementDataEvent(event);
   } else {
     handleEvent(event->senderInstanceId, event->eventType, event->eventData);
   }
+  traceNanoappHandleEventEnd(getInstanceId());
+  Nanoseconds eventProcessTime =
+      SystemTime::getMonotonicTime() - eventStartTime;
+  if (Milliseconds(eventProcessTime) >= Milliseconds(100)) {
+    LOGE("Nanoapp 0x%" PRIx64 " took %" PRIu64
+         " ms to process event type %" PRIu16,
+         getAppId(), Milliseconds(eventProcessTime).getMilliseconds(),
+         event->eventType);
+  }
+  mEventProcessTime.addValue(Milliseconds(eventProcessTime).getMilliseconds());
 }
 
 void Nanoapp::blameHostWakeup() {
@@ -166,7 +188,11 @@ void Nanoapp::logStateToBuffer(DebugDumpWrapper &debugDump) const {
   debugDump.print("%" PRIu16 " ]", mWakeupBuckets.front());
 
   // Print total wakeups since boot
-  debugDump.print(" totWakeups=%" PRIu32 " ]\n", mNumWakeupsSinceBoot);
+  debugDump.print(" totWakeups=%" PRIu32 " ", mNumWakeupsSinceBoot);
+
+  // Print mean and max event process time
+  debugDump.print("eventProcessTimeMs: mean=%" PRIu64 ", max=%" PRIu64 "\n",
+                  mEventProcessTime.getMean(), mEventProcessTime.getMax());
 }
 
 bool Nanoapp::permitPermissionUse(uint32_t permission) const {
@@ -221,13 +247,43 @@ bool Nanoapp::configureHostEndpointNotifications(uint16_t hostEndpointId,
 
 bool Nanoapp::publishRpcServices(struct chreNanoappRpcService *services,
                                  size_t numServices) {
-  // TODO(b/204426460): Validate this code is only called from nanoappStart().
+  if (!mIsInNanoappStart) {
+    LOGE("publishRpcServices must be called from nanoappStart");
+    return false;
+  }
+
+  const size_t startSize = mRpcServices.size();
+  const size_t endSize = startSize + numServices;
+  if (endSize > kMaxRpcServices) {
+    return false;
+  }
+
+  mRpcServices.reserve(endSize);
+
   bool success = true;
+
   for (size_t i = 0; i < numServices; i++) {
     if (!mRpcServices.push_back(services[i])) {
       LOG_OOM();
       success = false;
+      break;
     }
+  }
+
+  if (success && mRpcServices.size() > 1) {
+    for (size_t i = 0; i < mRpcServices.size() - 1; i++) {
+      for (size_t j = i + 1; j < mRpcServices.size(); j++) {
+        if (mRpcServices[i].id == mRpcServices[j].id) {
+          LOGE("Service id = 0x%016" PRIx64 " can only be published once",
+               mRpcServices[i].id);
+          success = false;
+        }
+      }
+    }
+  }
+
+  if (!success) {
+    mRpcServices.resize(startSize);
   }
 
   return success;

@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.tradefed.util.RunUtil;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -60,7 +61,7 @@ public class RebootReadinessHostTest extends BaseHostJUnit4Test {
         getDevice().executeShellCommand("wm dismiss-keyguard");
 
         // Wait a small amount of time for the metrics to be logged, before querying logcat
-        Thread.sleep(2000);
+        RunUtil.getDefault().sleep(2000);
         String logs = getDevice().executeAdbCommand(
                 "logcat", "-v", "brief", "-d", "RebootReadinessLogger:I", "*:S");
         UnattendedRebootMetricEvent event = null;

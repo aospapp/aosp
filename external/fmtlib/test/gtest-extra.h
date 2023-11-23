@@ -67,14 +67,15 @@ class OutputRedirect {
   fmt::file original_;  // Original file passed to redirector.
   fmt::file read_end_;  // Read end of the pipe where the output is redirected.
 
-  GTEST_DISALLOW_COPY_AND_ASSIGN_(OutputRedirect);
-
   void flush();
   void restore();
 
  public:
   explicit OutputRedirect(FILE* file);
   ~OutputRedirect() FMT_NOEXCEPT;
+
+  OutputRedirect(const OutputRedirect&) = delete;
+  OutputRedirect& operator=(const OutputRedirect&) = delete;
 
   // Restores the original file, reads output from the pipe into a string
   // and returns it.

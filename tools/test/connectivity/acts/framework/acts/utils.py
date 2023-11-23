@@ -36,7 +36,6 @@ import threading
 import traceback
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
-from zeroconf import IPVersion, Zeroconf
 
 from acts import signals
 from acts.controllers.adb_lib.error import AdbError
@@ -48,6 +47,10 @@ MAX_FILENAME_LEN = 255
 
 # All Fuchsia devices use this suffix for link-local mDNS host names.
 FUCHSIA_MDNS_TYPE = '_fuchsia._udp.local.'
+
+# Default max seconds it takes to Duplicate Address Detection to finish before
+# assigning an IPv6 address.
+DAD_TIMEOUT_SEC = 30
 
 
 class ActsUtilsError(Exception):
@@ -536,7 +539,6 @@ def sync_device_time(ad):
 class TimeoutError(Exception):
     """Exception for timeout decorator related errors.
     """
-    pass
 
 
 def _timeout_handler(signum, frame):
@@ -563,6 +565,7 @@ def timeout(sec):
     """
 
     def decorator(func):
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if sec:
@@ -1411,44 +1414,38 @@ def get_interface_ip_addresses(comm_channel, interface):
 
     Returns:
         A list of dictionaries of the the various IP addresses:
-            ipv4_private_local_addresses: Any 192.168, 172.16, 10, or 169.254
-                addresses
-            ipv4_public_addresses: Any IPv4 public addresses
-            ipv6_link_local_addresses: Any fe80:: addresses
-            ipv6_private_local_addresses: Any fd00:: addresses
-            ipv6_public_addresses: Any publicly routable addresses
+            ipv4_private: Any 192.168, 172.16, 10, or 169.254 addresses
+            ipv4_public: Any IPv4 public addresses
+            ipv6_link_local: Any fe80:: addresses
+            ipv6_private_local: Any fd00:: addresses
+            ipv6_public: Any publicly routable addresses
     """
     # Local imports are used here to prevent cyclic dependency.
     from acts.controllers.android_device import AndroidDevice
     from acts.controllers.fuchsia_device import FuchsiaDevice
     from acts.controllers.utils_lib.ssh.connection import SshConnection
-    ipv4_private_local_addresses = []
-    ipv4_public_addresses = []
-    ipv6_link_local_addresses = []
-    ipv6_private_local_addresses = []
-    ipv6_public_addresses = []
+
     is_local = comm_channel == job
     if type(comm_channel) is AndroidDevice:
-        all_interfaces_and_addresses = comm_channel.adb.shell(
-            'ip -o addr | awk \'!/^[0-9]*: ?lo|link\/ether/ {gsub("/", " "); '
-            'print $2" "$4}\'')
-        ifconfig_output = comm_channel.adb.shell('ifconfig %s' % interface)
+        addrs = comm_channel.adb.shell(
+            f'ip -o addr show {interface} | awk \'{{gsub("/", " "); print $4}}\''
+        ).splitlines()
     elif (type(comm_channel) is SshConnection or is_local):
-        all_interfaces_and_addresses = comm_channel.run(
-            'ip -o addr | awk \'!/^[0-9]*: ?lo|link\/ether/ {gsub("/", " "); '
-            'print $2" "$4}\'').stdout
-        ifconfig_output = comm_channel.run('ifconfig %s' % interface).stdout
+        addrs = comm_channel.run(
+            f'ip -o addr show {interface} | awk \'{{gsub("/", " "); print $4}}\''
+        ).stdout.splitlines()
     elif type(comm_channel) is FuchsiaDevice:
-        all_interfaces_and_addresses = []
-        interfaces = comm_channel.netstack_lib.netstackListInterfaces()
-        if interfaces.get('error') is not None:
-            raise ActsUtilsError('Failed with {}'.format(
-                interfaces.get('error')))
+        interfaces = comm_channel.sl4f.netstack_lib.netstackListInterfaces()
+        err = interfaces.get('error')
+        if err is not None:
+            raise ActsUtilsError(f'Failed get_interface_ip_addresses: {err}')
+        addrs = []
         for item in interfaces.get('result'):
+            if item['name'] != interface:
+                continue
             for ipv4_address in item['ipv4_addresses']:
                 ipv4_address = '.'.join(map(str, ipv4_address))
-                all_interfaces_and_addresses.append(
-                    '%s %s' % (item['name'], ipv4_address))
+                addrs.append(ipv4_address)
             for ipv6_address in item['ipv6_addresses']:
                 converted_ipv6_address = []
                 for octet in ipv6_address:
@@ -1457,22 +1454,21 @@ def get_interface_ip_addresses(comm_channel, interface):
                 ipv6_address = (':'.join(
                     ipv6_address[i:i + 4]
                     for i in range(0, len(ipv6_address), 4)))
-                all_interfaces_and_addresses.append(
-                    '%s %s' %
-                    (item['name'], str(ipaddress.ip_address(ipv6_address))))
-        all_interfaces_and_addresses = '\n'.join(all_interfaces_and_addresses)
-        ifconfig_output = all_interfaces_and_addresses
+                addrs.append(str(ipaddress.ip_address(ipv6_address)))
     else:
         raise ValueError('Unsupported method to send command to device.')
 
-    for interface_line in all_interfaces_and_addresses.split('\n'):
-        if interface != interface_line.split()[0]:
-            continue
-        on_device_ip = ipaddress.ip_address(interface_line.split()[1])
+    ipv4_private_local_addresses = []
+    ipv4_public_addresses = []
+    ipv6_link_local_addresses = []
+    ipv6_private_local_addresses = []
+    ipv6_public_addresses = []
+
+    for addr in addrs:
+        on_device_ip = ipaddress.ip_address(addr)
         if on_device_ip.version == 4:
             if on_device_ip.is_private:
-                if str(on_device_ip) in ifconfig_output:
-                    ipv4_private_local_addresses.append(str(on_device_ip))
+                ipv4_private_local_addresses.append(str(on_device_ip))
             elif on_device_ip.is_global or (
                     # Carrier private doesn't have a property, so we check if
                     # all other values are left unset.
@@ -1481,18 +1477,15 @@ def get_interface_ip_addresses(comm_channel, interface):
                     and not on_device_ip.is_link_local
                     and not on_device_ip.is_loopback
                     and not on_device_ip.is_multicast):
-                if str(on_device_ip) in ifconfig_output:
-                    ipv4_public_addresses.append(str(on_device_ip))
+                ipv4_public_addresses.append(str(on_device_ip))
         elif on_device_ip.version == 6:
             if on_device_ip.is_link_local:
-                if str(on_device_ip) in ifconfig_output:
-                    ipv6_link_local_addresses.append(str(on_device_ip))
+                ipv6_link_local_addresses.append(str(on_device_ip))
             elif on_device_ip.is_private:
-                if str(on_device_ip) in ifconfig_output:
-                    ipv6_private_local_addresses.append(str(on_device_ip))
+                ipv6_private_local_addresses.append(str(on_device_ip))
             elif on_device_ip.is_global:
-                if str(on_device_ip) in ifconfig_output:
-                    ipv6_public_addresses.append(str(on_device_ip))
+                ipv6_public_addresses.append(str(on_device_ip))
+
     return {
         'ipv4_private': ipv4_private_local_addresses,
         'ipv4_public': ipv4_public_addresses,
@@ -1500,6 +1493,62 @@ def get_interface_ip_addresses(comm_channel, interface):
         'ipv6_private_local': ipv6_private_local_addresses,
         'ipv6_public': ipv6_public_addresses
     }
+
+
+class AddressTimeout(signals.TestError):
+    pass
+
+
+class MultipleAddresses(signals.TestError):
+    pass
+
+
+def get_addr(comm_channel,
+             interface,
+             addr_type='ipv4_private',
+             timeout_sec=None):
+    """Get the requested type of IP address for an interface; if an address is
+    not available, retry until the timeout has been reached.
+
+    Args:
+        addr_type: Type of address to get as defined by the return value of
+            utils.get_interface_ip_addresses.
+        timeout_sec: Seconds to wait to acquire an address if there isn't one
+            already available. If fetching an IPv4 address, the default is 3
+            seconds. If IPv6, the default is 30 seconds for Duplicate Address
+            Detection.
+
+    Returns:
+        A string containing the requested address.
+
+    Raises:
+        TestAbortClass: timeout_sec is None and invalid addr_type
+        AddressTimeout: No address is available after timeout_sec
+        MultipleAddresses: Several addresses are available
+    """
+    if not timeout_sec:
+        if 'ipv4' in addr_type:
+            timeout_sec = 3
+        elif 'ipv6' in addr_type:
+            timeout_sec = DAD_TIMEOUT_SEC
+        else:
+            raise signals.TestAbortClass(f'Unknown addr_type "{addr_type}"')
+
+    start = time.time()
+    elapsed = 0
+
+    while elapsed <= timeout_sec:
+        ip_addrs = get_interface_ip_addresses(comm_channel,
+                                              interface)[addr_type]
+        if len(ip_addrs) > 1:
+            raise MultipleAddresses(
+                f'Expected only one "{addr_type}" address, got {ip_addrs}')
+        elif len(ip_addrs) == 1:
+            return ip_addrs[0]
+        elapsed = time.time() - start
+
+    raise AddressTimeout(
+        f'No available "{addr_type}" address after {timeout_sec}s')
 
 
 def get_interface_based_on_ip(comm_channel, desired_ip_address):
@@ -1525,8 +1574,8 @@ def get_interface_based_on_ip(comm_channel, desired_ip_address):
 
 
 def renew_linux_ip_address(comm_channel, interface):
-    comm_channel.run('sudo ifconfig %s down' % interface)
-    comm_channel.run('sudo ifconfig %s up' % interface)
+    comm_channel.run('sudo ip link set %s down' % interface)
+    comm_channel.run('sudo ip link set %s up' % interface)
     comm_channel.run('sudo dhclient -r %s' % interface)
     comm_channel.run('sudo dhclient %s' % interface)
 
@@ -1771,50 +1820,64 @@ def get_fuchsia_mdns_ipv6_address(device_mdns_name):
     Returns:
         string, IPv6 link-local address
     """
+    from zeroconf import IPVersion, Zeroconf
+
     if not device_mdns_name:
         return None
 
-    interfaces = psutil.net_if_addrs()
-    for interface in interfaces:
-        for addr in interfaces[interface]:
-            address = addr.address.split('%')[0]
-            if addr.family == socket.AF_INET6 and ipaddress.ip_address(
-                    address).is_link_local and address != 'fe80::1':
-                logging.info('Sending mDNS query for device "%s" using "%s"' %
-                             (device_mdns_name, addr.address))
-                try:
-                    zeroconf = Zeroconf(ip_version=IPVersion.V6Only,
-                                        interfaces=[address])
-                except RuntimeError as e:
-                    if 'No adapter found for IP address' in e.args[0]:
-                        # Most likely, a device went offline and its control
-                        # interface was deleted. This is acceptable since the
-                        # device that went offline isn't guaranteed to be the
-                        # device we're searching for.
-                        logging.warning('No adapter found for "%s"' % address)
-                        continue
-                    raise
+    def mdns_query(interface, address):
+        logging.info(
+            f'Sending mDNS query for device "{device_mdns_name}" using "{address}"'
+        )
+        try:
+            zeroconf = Zeroconf(ip_version=IPVersion.V6Only,
+                                interfaces=[address])
+        except RuntimeError as e:
+            if 'No adapter found for IP address' in e.args[0]:
+                # Most likely, a device went offline and its control
+                # interface was deleted. This is acceptable since the
+                # device that went offline isn't guaranteed to be the
+                # device we're searching for.
+                logging.warning('No adapter found for "%s"' % address)
+                return None
+            raise
 
-                device_records = zeroconf.get_service_info(
-                    FUCHSIA_MDNS_TYPE,
-                    device_mdns_name + '.' + FUCHSIA_MDNS_TYPE)
+        device_records = zeroconf.get_service_info(
+            FUCHSIA_MDNS_TYPE, device_mdns_name + '.' + FUCHSIA_MDNS_TYPE)
 
-                if device_records:
-                    for device_address in device_records.parsed_addresses():
-                        device_ip_address = ipaddress.ip_address(
-                            device_address)
-                        scoped_address = '%s%%%s' % (device_address, interface)
-                        if (device_ip_address.version == 6
-                                and device_ip_address.is_link_local
-                                and can_ping(job, dest_ip=scoped_address)):
-                            logging.info('Found device "%s" at "%s"' %
-                                         (device_mdns_name, scoped_address))
-                            zeroconf.close()
-                            del zeroconf
-                            return scoped_address
+        if device_records:
+            for device_address in device_records.parsed_addresses():
+                device_ip_address = ipaddress.ip_address(device_address)
+                scoped_address = '%s%%%s' % (device_address, interface)
+                if (device_ip_address.version == 6
+                        and device_ip_address.is_link_local
+                        and can_ping(job, dest_ip=scoped_address)):
+                    logging.info('Found device "%s" at "%s"' %
+                                 (device_mdns_name, scoped_address))
+                    zeroconf.close()
+                    del zeroconf
+                    return scoped_address
 
-                zeroconf.close()
-                del zeroconf
+        zeroconf.close()
+        del zeroconf
+        return None
+
+    with ThreadPoolExecutor() as executor:
+        futures = []
+
+        interfaces = psutil.net_if_addrs()
+        for interface in interfaces:
+            for addr in interfaces[interface]:
+                address = addr.address.split('%')[0]
+                if addr.family == socket.AF_INET6 and ipaddress.ip_address(
+                        address).is_link_local and address != 'fe80::1':
+                    futures.append(
+                        executor.submit(mdns_query, interface, address))
+
+        for future in futures:
+            addr = future.result()
+            if addr:
+                return addr
 
     logging.error('Unable to find IP address for device "%s"' %
                   device_mdns_name)

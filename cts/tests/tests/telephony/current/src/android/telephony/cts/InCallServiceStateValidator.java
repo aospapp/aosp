@@ -17,6 +17,7 @@
 package android.telephony.cts;
 
 import android.content.Intent;
+import android.os.Bundle;
 import android.telecom.Call;
 import android.telecom.InCallService;
 import android.util.Log;
@@ -48,6 +49,7 @@ public class InCallServiceStateValidator  extends InCallService {
         public void onCallRemoved(Call call, int numCalls) {};
         public void onCallStateChanged(Call call, int state) {};
         public void onChildrenChanged(Call call, List<Call> children) {};
+        public void onConnectionEvent(Call call, String event, Bundle extras) {};
 
         public InCallServiceStateValidator getService() {
             if (mService == null) {
@@ -103,6 +105,14 @@ public class InCallServiceStateValidator  extends InCallService {
             super.onChildrenChanged(call, children);
             if (getCallbacks() != null) {
                 getCallbacks().onChildrenChanged(call, children);
+            }
+        }
+
+        @Override
+        public void onConnectionEvent(Call call, String event, Bundle extras) {
+            super.onConnectionEvent(call, event, extras);
+            if (getCallbacks() != null) {
+                getCallbacks().onConnectionEvent(call, event, extras);
             }
         }
     };

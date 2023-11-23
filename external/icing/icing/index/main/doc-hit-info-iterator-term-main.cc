@@ -20,12 +20,13 @@
 #include "icing/text_classifier/lib3/utils/base/status.h"
 #include "icing/absl_ports/canonical_errors.h"
 #include "icing/absl_ports/str_cat.h"
+#include "icing/file/posting_list/posting-list-identifier.h"
 #include "icing/index/hit/doc-hit-info.h"
-#include "icing/index/main/posting-list-accessor.h"
-#include "icing/index/main/posting-list-identifier.h"
+#include "icing/index/main/posting-list-hit-accessor.h"
 #include "icing/legacy/core/icing-string-util.h"
 #include "icing/schema/section.h"
 #include "icing/store/document-id.h"
+#include "icing/util/logging.h"
 #include "icing/util/status-macros.h"
 
 namespace icing {
@@ -34,9 +35,9 @@ namespace lib {
 namespace {
 
 std::string SectionIdMaskToString(SectionIdMask section_id_mask) {
-  std::string mask(kMaxSectionId + 1, '0');
+  std::string mask(kTotalNumSections, '0');
   for (SectionId i = kMaxSectionId; i >= 0; --i) {
-    if (section_id_mask & (1U << i)) {
+    if (section_id_mask & (UINT64_C(1) << i)) {
       mask[kMaxSectionId - i] = '1';
     }
   }
@@ -46,8 +47,9 @@ std::string SectionIdMaskToString(SectionIdMask section_id_mask) {
 }  // namespace
 
 libtextclassifier3::Status DocHitInfoIteratorTermMain::Advance() {
-  if (posting_list_accessor_ == nullptr ||
-      cached_doc_hit_infos_idx_ == (cached_doc_hit_infos_.size() - 2)) {
+  ++cached_doc_hit_infos_idx_;
+  while (posting_list_accessor_ == nullptr ||
+         (!all_pages_consumed_ && cached_doc_hit_info_count() == 1)) {
     // If we haven't retrieved any hits before or we've already returned all but
     // the last cached hit, then go get some more!
     // We hold back the last cached hit because it could have more hits on the
@@ -64,8 +66,6 @@ libtextclassifier3::Status DocHitInfoIteratorTermMain::Advance() {
       return absl_ports::ResourceExhaustedError(
           "No more DocHitInfos in iterator");
     }
-  } else {
-    ++cached_doc_hit_infos_idx_;
   }
   if (cached_doc_hit_infos_idx_ == -1 ||
       cached_doc_hit_infos_idx_ >= cached_doc_hit_infos_.size()) {
@@ -79,6 +79,14 @@ libtextclassifier3::Status DocHitInfoIteratorTermMain::Advance() {
   doc_hit_info_ = cached_doc_hit_infos_.at(cached_doc_hit_infos_idx_);
   hit_intersect_section_ids_mask_ = doc_hit_info_.hit_section_ids_mask();
   return libtextclassifier3::Status::OK;
+}
+
+libtextclassifier3::StatusOr<DocHitInfoIterator::TrimmedNode>
+DocHitInfoIteratorTermMain::TrimRightMostNode() && {
+  // Leaf iterator should trim itself.
+  DocHitInfoIterator::TrimmedNode node = {nullptr, term_, term_start_index_,
+                                          unnormalized_term_length_};
+  return node;
 }
 
 libtextclassifier3::Status DocHitInfoIteratorTermMainExact::RetrieveMoreHits() {
@@ -100,11 +108,15 @@ libtextclassifier3::Status DocHitInfoIteratorTermMainExact::RetrieveMoreHits() {
 
   ICING_ASSIGN_OR_RETURN(std::vector<Hit> hits,
                          posting_list_accessor_->GetNextHitsBatch());
+  if (hits.empty()) {
+    all_pages_consumed_ = true;
+  }
   ++num_blocks_inspected_;
   cached_doc_hit_infos_.reserve(hits.size() + 1);
+  cached_hit_term_frequency_.reserve(hits.size() + 1);
   for (const Hit& hit : hits) {
     // Check sections.
-    if (((1u << hit.section_id()) & section_restrict_mask_) == 0) {
+    if (((UINT64_C(1) << hit.section_id()) & section_restrict_mask_) == 0) {
       continue;
     }
     // We want exact hits, skip prefix-only hits.
@@ -114,9 +126,10 @@ libtextclassifier3::Status DocHitInfoIteratorTermMainExact::RetrieveMoreHits() {
     if (cached_doc_hit_infos_.empty() ||
         hit.document_id() != cached_doc_hit_infos_.back().document_id()) {
       cached_doc_hit_infos_.push_back(DocHitInfo(hit.document_id()));
+      cached_hit_term_frequency_.push_back(Hit::TermFrequencyArray());
     }
-    cached_doc_hit_infos_.back().UpdateSection(hit.section_id(),
-                                               hit.term_frequency());
+    cached_doc_hit_infos_.back().UpdateSection(hit.section_id());
+    cached_hit_term_frequency_.back()[hit.section_id()] = hit.term_frequency();
   }
   return libtextclassifier3::Status::OK;
 }
@@ -142,18 +155,23 @@ DocHitInfoIteratorTermMainPrefix::RetrieveMoreHits() {
 
   ++num_blocks_inspected_;
   if (posting_list_accessor_ == nullptr) {
-    ICING_ASSIGN_OR_RETURN(
-        MainIndex::GetPrefixAccessorResult result,
-        main_index_->GetAccessorForPrefixTerm(term_));
+    ICING_ASSIGN_OR_RETURN(MainIndex::GetPrefixAccessorResult result,
+                           main_index_->GetAccessorForPrefixTerm(term_));
     posting_list_accessor_ = std::move(result.accessor);
     exact_ = result.exact;
   }
   ICING_ASSIGN_OR_RETURN(std::vector<Hit> hits,
                          posting_list_accessor_->GetNextHitsBatch());
+  if (hits.empty()) {
+    all_pages_consumed_ = true;
+  }
   cached_doc_hit_infos_.reserve(hits.size());
+  if (need_hit_term_frequency_) {
+    cached_hit_term_frequency_.reserve(hits.size());
+  }
   for (const Hit& hit : hits) {
     // Check sections.
-    if (((1u << hit.section_id()) & section_restrict_mask_) == 0) {
+    if (((UINT64_C(1) << hit.section_id()) & section_restrict_mask_) == 0) {
       continue;
     }
     // If we only want hits from prefix sections.
@@ -163,9 +181,15 @@ DocHitInfoIteratorTermMainPrefix::RetrieveMoreHits() {
     if (cached_doc_hit_infos_.empty() ||
         hit.document_id() != cached_doc_hit_infos_.back().document_id()) {
       cached_doc_hit_infos_.push_back(DocHitInfo(hit.document_id()));
+      if (need_hit_term_frequency_) {
+        cached_hit_term_frequency_.push_back(Hit::TermFrequencyArray());
+      }
     }
-    cached_doc_hit_infos_.back().UpdateSection(hit.section_id(),
-                                               hit.term_frequency());
+    cached_doc_hit_infos_.back().UpdateSection(hit.section_id());
+    if (need_hit_term_frequency_) {
+      cached_hit_term_frequency_.back()[hit.section_id()] =
+          hit.term_frequency();
+    }
   }
   return libtextclassifier3::Status::OK;
 }

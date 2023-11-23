@@ -1,21 +1,19 @@
 /* This program is copyright (c) 2009-2018 by Roderick W. Smith. It is distributed
   under the terms of the GNU GPL version 2, as detailed in the COPYING file. */
 
-#include <stdint.h>
-#include <stdlib.h>
-#ifdef USE_UTF16
-#include <unicode/ustream.h>
-#else
-#define UnicodeString string
-#endif
-#include <string>
-#include "support.h"
-#include "guid.h"
-
 #ifndef __PARTITION_TYPES
 #define __PARTITION_TYPES
 
-using namespace std;
+#include <stdint.h>
+#include <stdlib.h>
+#include <string>
+#include "support.h"
+#include "guid.h"
+#ifdef USE_UTF16
+#include <unicode/ustream.h>
+#else
+#define UnicodeString std::string
+#endif
 
 // A partition type
 struct AType {
@@ -24,7 +22,7 @@ struct AType {
    // codes required by GPT
    uint16_t MBRType;
    GUIDData GUIDType;
-   string name;
+   std::string name;
    int display; // 1 to show to users as available type, 0 not to
    AType* next;
 }; // struct AType
@@ -36,6 +34,9 @@ protected:
    static AType* lastType; // Pointer to last entry in the list
    void AddAllTypes(void);
 public:
+   // PartType with GUID "00000000-0000-0000-0000-000000000000"
+   static const PartType unusedPartType;
+
    PartType(void);
    PartType(const PartType & orig);
    PartType(const GUIDData & orig);
@@ -45,7 +46,7 @@ public:
    int AddType(uint16_t mbrType, const char * guidData, const char * name, int toDisplay = 1);
 
    // New assignment operators....
-   PartType & operator=(const string & orig);
+   PartType & operator=(const std::string & orig);
    PartType & operator=(const char * orig);
 
    // Assignment operators based on base class....
@@ -55,7 +56,7 @@ public:
    PartType & operator=(uint16_t ID); // Use MBR type code times 0x0100 to assign GUID
 
    // Retrieve transformed GUID data based on type code matches
-   string TypeName(void) const;
+   std::string TypeName(void) const;
    UnicodeString UTypeName(void) const;
    uint16_t GetHexType() const;
 

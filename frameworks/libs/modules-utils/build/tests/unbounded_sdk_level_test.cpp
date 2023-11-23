@@ -66,22 +66,25 @@ TEST_F(UnboundedSdkLevelTest, IntegerVersionsTest) {
 
 TEST_F(UnboundedSdkLevelTest, CodenameVersionsTest) {
   if ("REL" == device_codename_) {
-    GTEST_SKIP();
+    EXPECT_FALSE(IsAtLeast("Aaa"));
+    EXPECT_TRUE(IsAtMost("Aaa"));
+  } else {
+    EXPECT_TRUE(IsAtLeast("R"));
+    EXPECT_TRUE(IsAtLeast("S"));
+    EXPECT_TRUE(IsAtLeast("Sv2"));
+    EXPECT_TRUE(IsAtLeast("Tiramisu"));
+
+    EXPECT_FALSE(IsAtLeast("Aaa"));
+    EXPECT_FALSE(IsAtLeast("Zzz"));
+
+    EXPECT_FALSE(IsAtMost("R"));
+    EXPECT_FALSE(IsAtMost("S"));
+    EXPECT_FALSE(IsAtMost("Sv2"));
+    EXPECT_TRUE(IsAtMost("Tiramisu"));
+
+    EXPECT_TRUE(IsAtMost("Aaa"));
+    EXPECT_TRUE(IsAtMost("Zzz"));
   }
-
-  EXPECT_TRUE(IsAtLeast("R"));
-  EXPECT_TRUE(IsAtLeast("S"));
-  EXPECT_TRUE(IsAtLeast("Sv2"));
-  EXPECT_TRUE(IsAtLeast("Tiramisu"));
-
-  EXPECT_FALSE(IsAtLeast("Zzz"));
-
-  EXPECT_FALSE(IsAtMost("R"));
-  EXPECT_FALSE(IsAtMost("S"));
-  EXPECT_FALSE(IsAtMost("Sv2"));
-  EXPECT_TRUE(IsAtMost("Tiramisu"));
-
-  EXPECT_TRUE(IsAtMost("Zzz"));
 }
 
 TEST_F(UnboundedSdkLevelTest, NoStlTest) {
@@ -105,6 +108,18 @@ TEST_F(UnboundedSdkLevelDeathTest, IsAtLeast_CurrentVersionDeathTest) {
 
 TEST_F(UnboundedSdkLevelDeathTest, IsAtMost_CurrentVersionDeathTest) {
   EXPECT_DEATH(IsAtMost("current"), "");
+}
+
+TEST_F(UnboundedSdkLevelDeathTest, IsAtLeast_ReleaseVersionDeathTest) {
+  if ("REL" == device_codename_) {
+    EXPECT_DEATH(IsAtLeast("Q"), "");
+  }
+}
+
+TEST_F(UnboundedSdkLevelDeathTest, IsAtMost_ReleaseVersionDeathTest) {
+  if ("REL" == device_codename_) {
+    EXPECT_DEATH(IsAtMost("Q"), "");
+  }
 }
 
 } // namespace unbounded

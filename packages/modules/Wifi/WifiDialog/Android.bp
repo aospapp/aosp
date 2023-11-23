@@ -18,6 +18,7 @@ package {
 
 android_app {
     name: "WifiDialog",
+    package_name: "com.android.wifi.dialog",
     defaults: ["wifi-module-sdk-version-defaults"],
     certificate: ":com.android.wifi.dialog.certificate",
 
@@ -27,14 +28,16 @@ android_app {
     static_libs: [
         "androidx.appcompat_appcompat",
     ],
-    resource_dirs: [],
     srcs: ["src/**/*.java"],
     sdk_version: "module_current",
 
     apex_available: [
         "com.android.wifi",
         "test_com.android.wifi",
-    ]
+    ],
+    optimize: {
+        shrink_resources: true,
+    },
 }
 
 android_app_certificate {

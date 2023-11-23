@@ -21,6 +21,8 @@
 #include <cstdarg>
 #include <memory>
 
+#include "gd/os/log_tags.h"
+
 namespace {
 #define SYSLOG_IDENT "btadapterd"
 
@@ -28,15 +30,16 @@ const char kSyslogIdent[] = SYSLOG_IDENT;
 
 // Map LOG_TAG_* to syslog mappings
 const int kTagMap[] = {
-    /*LOG_TAG_VERBOSE=*/LOG_DEBUG,
-    /*LOG_TAG_DEBUG=*/LOG_DEBUG,
-    /*LOG_TAG_INFO=*/LOG_INFO,
-    /*LOG_TAG_WARN=*/LOG_WARNING,
-    /*LOG_TAG_ERROR=*/LOG_ERR,
     /*LOG_TAG_FATAL=*/LOG_CRIT,
+    /*LOG_TAG_ERROR=*/LOG_ERR,
+    /*LOG_TAG_WARN=*/LOG_WARNING,
+    /*LOG_TAG_NOTICE=*/LOG_NOTICE,
+    /*LOG_TAG_INFO=*/LOG_INFO,
+    /*LOG_TAG_DEBUG=*/LOG_DEBUG,
+    /*LOG_TAG_VERBOSE=*/LOG_DEBUG,
 };
 
-static_assert(sizeof(kTagMap) / sizeof(kTagMap[0]) == LOG_TAG_FATAL + 1);
+static_assert(sizeof(kTagMap) / sizeof(kTagMap[0]) == LOG_TAG_VERBOSE + 1);
 
 class SyslogWrapper {
  public:
@@ -59,7 +62,7 @@ void write_syslog(int tag, const char* format, ...) {
 
   // I don't expect to see incorrect tags but making the check anyway so we
   // don't go out of bounds in the array above.
-  tag = tag <= LOG_TAG_FATAL ? tag : LOG_TAG_ERROR;
+  tag = tag <= LOG_TAG_VERBOSE ? tag : LOG_TAG_ERROR;
   int level = kTagMap[tag];
 
   va_list args;

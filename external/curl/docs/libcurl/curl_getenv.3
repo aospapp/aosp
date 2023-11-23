@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -18,16 +18,18 @@
 .\" * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 .\" * KIND, either express or implied.
 .\" *
+.\" * SPDX-License-Identifier: curl
+.\" *
 .\" **************************************************************************
-.TH curl_getenv 3 "October 31, 2021" "libcurl 7.80.0" "libcurl Manual"
-
+.TH curl_getenv 3 "30 April 2004" "libcurl 7.12" "libcurl Manual"
 .SH NAME
 curl_getenv - return value for environment name
 .SH SYNOPSIS
-.B #include <curl/curl.h>
-.sp
-.BI "char *curl_getenv(const char *" name ");"
-.ad
+.nf
+#include <curl/curl.h>
+
+char *curl_getenv(const char *name);
+.fi
 .SH DESCRIPTION
 curl_getenv() is a portable wrapper for the getenv() function, meant to
 emulate its behavior and provide an identical interface for all operating
@@ -43,9 +45,7 @@ You must \fIcurl_free(3)\fP the returned string when you are done with it.
   }
 .fi
 .SH AVAILABILITY
-This function will be removed from the public libcurl API in a near future. It
-will instead be made "available" by source code access only, and then as
-curlx_getenv().
+Always
 .SH RETURN VALUE
 A pointer to a null-terminated string or NULL if it failed to find the
 specified name.

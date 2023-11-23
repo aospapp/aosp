@@ -32,10 +32,8 @@ namespace lib {
 namespace {
 
 using ::testing::ElementsAre;
-using ::testing::ElementsAreArray;
 using ::testing::Eq;
 using ::testing::IsEmpty;
-using ::testing::SizeIs;
 
 TEST(CreateAndIteratorTest, And) {
   // Basic test that we can create a working And iterator. Further testing of
@@ -173,6 +171,123 @@ TEST(DocHitInfoIteratorAndTest, AdvanceNestedIterators) {
   EXPECT_THAT(GetDocumentIds(outer_iter.get()), ElementsAre(10, 6, 2));
 }
 
+TEST(DocHitInfoIteratorAndTest, TrimAndIterator) {
+  std::vector<DocHitInfo> left_vector = {DocHitInfo(3), DocHitInfo(2)};
+  std::vector<DocHitInfo> right_vector = {DocHitInfo(1), DocHitInfo(0)};
+
+  std::unique_ptr<DocHitInfoIterator> left_iter =
+      std::make_unique<DocHitInfoIteratorDummy>(left_vector);
+  std::unique_ptr<DocHitInfoIterator> right_iter =
+      std::make_unique<DocHitInfoIteratorDummy>(right_vector, "term", 10);
+
+  std::unique_ptr<DocHitInfoIterator> iter =
+      std::make_unique<DocHitInfoIteratorAnd>(std::move(left_iter),
+                                              std::move(right_iter));
+
+  ICING_ASSERT_OK_AND_ASSIGN(DocHitInfoIterator::TrimmedNode trimmed_node,
+                             std::move(*iter).TrimRightMostNode());
+  EXPECT_THAT(trimmed_node.term_, Eq("term"));
+  EXPECT_THAT(trimmed_node.term_start_index_, Eq(10));
+  EXPECT_THAT(GetDocumentIds(trimmed_node.iterator_.get()), ElementsAre(3, 2));
+}
+
+TEST(DocHitInfoIteratorAndTest, TrimAndIterator_TwoLayer) {
+  // Build an interator tree like:
+  //
+  //            AND
+  //          /     \
+  //     first         AND
+  //        |        /      \
+  //    {0, 1}    second  third
+  //                 |      |
+  //                {1}    {0}
+  std::vector<DocHitInfo> first_vector = {DocHitInfo(1), DocHitInfo(0)};
+  std::vector<DocHitInfo> second_vector = {DocHitInfo(1)};
+  std::vector<DocHitInfo> third_vector = {DocHitInfo(0)};
+
+  std::unique_ptr<DocHitInfoIterator> first_iter =
+      std::make_unique<DocHitInfoIteratorDummy>(first_vector);
+  std::unique_ptr<DocHitInfoIterator> second_iter =
+      std::make_unique<DocHitInfoIteratorDummy>(second_vector);
+  std::unique_ptr<DocHitInfoIterator> third_iter =
+      std::make_unique<DocHitInfoIteratorDummy>(third_vector, "term", 10);
+
+  std::unique_ptr<DocHitInfoIterator> nested_iter =
+      std::make_unique<DocHitInfoIteratorAnd>(std::move(second_iter),
+                                              std::move(third_iter));
+  std::unique_ptr<DocHitInfoIterator> iter =
+      std::make_unique<DocHitInfoIteratorAnd>(std::move(first_iter),
+                                              std::move(nested_iter));
+
+  // The third_iter is trimmed.
+  //          AND
+  //      /        \
+  //    first    second
+  //      |         |
+  //   {0, 1}       {1}
+  ICING_ASSERT_OK_AND_ASSIGN(DocHitInfoIterator::TrimmedNode trimmed_node,
+                             std::move(*iter).TrimRightMostNode());
+  EXPECT_THAT(GetDocumentIds(trimmed_node.iterator_.get()), ElementsAre(1));
+  EXPECT_THAT(trimmed_node.term_, Eq("term"));
+  EXPECT_THAT(trimmed_node.term_start_index_, Eq(10));
+}
+
+TEST(DocHitInfoIteratorAndNaryTest, TrimAndNaryIterator) {
+  std::vector<DocHitInfo> first_vector = {DocHitInfo(2), DocHitInfo(1),
+                                          DocHitInfo(0)};
+  std::vector<DocHitInfo> second_vector = {DocHitInfo(2), DocHitInfo(1)};
+  std::vector<DocHitInfo> third_vector = {DocHitInfo(2)};
+
+  std::vector<std::unique_ptr<DocHitInfoIterator>> iterators;
+  iterators.push_back(std::make_unique<DocHitInfoIteratorDummy>(first_vector));
+  iterators.push_back(std::make_unique<DocHitInfoIteratorDummy>(second_vector));
+  iterators.push_back(
+      std::make_unique<DocHitInfoIteratorDummy>(third_vector, "term", 10));
+
+  std::unique_ptr<DocHitInfoIterator> iter =
+      std::make_unique<DocHitInfoIteratorAndNary>(std::move(iterators));
+
+  // The third iterator is trimmed
+  ICING_ASSERT_OK_AND_ASSIGN(DocHitInfoIterator::TrimmedNode trimmed_node,
+                             std::move(*iter).TrimRightMostNode());
+  EXPECT_THAT(trimmed_node.term_, Eq("term"));
+  EXPECT_THAT(trimmed_node.term_start_index_, Eq(10));
+  EXPECT_THAT(GetDocumentIds(trimmed_node.iterator_.get()), ElementsAre(2, 1));
+}
+
+TEST(DocHitInfoIteratorAndNaryTest, TrimAndNaryIterator_TwoLayer) {
+  std::vector<DocHitInfo> first_vector = {DocHitInfo(3), DocHitInfo(2),
+                                          DocHitInfo(1), DocHitInfo(0)};
+  std::vector<DocHitInfo> second_vector = {DocHitInfo(2), DocHitInfo(1),
+                                           DocHitInfo(0)};
+  std::vector<DocHitInfo> third_vector = {DocHitInfo(1), DocHitInfo(0)};
+  std::vector<DocHitInfo> forth_vector = {DocHitInfo(0)};
+
+  // Build nested iterator
+  std::unique_ptr<DocHitInfoIterator> third_iter =
+      std::make_unique<DocHitInfoIteratorDummy>(third_vector);
+  std::unique_ptr<DocHitInfoIterator> forth_iter =
+      std::make_unique<DocHitInfoIteratorDummy>(forth_vector, "term", 10);
+  std::unique_ptr<DocHitInfoIterator> nested_iter =
+      std::make_unique<DocHitInfoIteratorAnd>(std::move(third_iter),
+                                              std::move(forth_iter));
+
+  // Build outer iterator
+  std::vector<std::unique_ptr<DocHitInfoIterator>> iterators;
+  iterators.push_back(std::make_unique<DocHitInfoIteratorDummy>(first_vector));
+  iterators.push_back(std::make_unique<DocHitInfoIteratorDummy>(second_vector));
+  iterators.push_back(std::move(nested_iter));
+  std::unique_ptr<DocHitInfoIterator> iter =
+      std::make_unique<DocHitInfoIteratorAndNary>(std::move(iterators));
+
+  // The forth iterator is trimmed.
+  ICING_ASSERT_OK_AND_ASSIGN(DocHitInfoIterator::TrimmedNode trimmed_node,
+                             std::move(*iter).TrimRightMostNode());
+  EXPECT_THAT(trimmed_node.term_, Eq("term"));
+  EXPECT_THAT(trimmed_node.term_start_index_, Eq(10));
+  EXPECT_THAT(GetDocumentIds(trimmed_node.iterator_.get()), ElementsAre(1, 0));
+}
+
 TEST(DocHitInfoIteratorAndTest, SectionIdMask) {
   // Arbitrary section ids for the documents in the DocHitInfoIterators.
   // Created to test correct section_id_mask behavior.
@@ -202,25 +317,26 @@ TEST(DocHitInfoIteratorAndTest, PopulateMatchedTermsStats) {
   {
     // Arbitrary section ids for the documents in the DocHitInfoIterators.
     // Created to test correct section_id_mask behavior.
-    SectionIdMask section_id_mask1 = 0b01010101;  // hits in sections 0, 2, 4, 6
-    std::array<Hit::TermFrequency, kMaxSectionId> term_frequencies1{
-        1, 0, 2, 0, 3, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0};
-    SectionIdMask section_id_mask2 = 0b00000110;  // hits in sections 1, 2
-    std::array<Hit::TermFrequency, kMaxSectionId> term_frequencies2{
-        0, 2, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-    DocHitInfo doc_hit_info1 = DocHitInfo(4);
+    DocHitInfoTermFrequencyPair doc_hit_info1 = DocHitInfo(4);
     doc_hit_info1.UpdateSection(/*section_id=*/0, /*hit_term_frequency=*/1);
     doc_hit_info1.UpdateSection(/*section_id=*/2, /*hit_term_frequency=*/2);
     doc_hit_info1.UpdateSection(/*section_id=*/4, /*hit_term_frequency=*/3);
     doc_hit_info1.UpdateSection(/*section_id=*/6, /*hit_term_frequency=*/4);
 
-    DocHitInfo doc_hit_info2 = DocHitInfo(4);
+    SectionIdMask section_id_mask1 = 0b01010101;  // hits in sections 0, 2, 4, 6
+    std::unordered_map<SectionId, Hit::TermFrequency>
+        expected_section_ids_tf_map1 = {{0, 1}, {2, 2}, {4, 3}, {6, 4}};
+
+    DocHitInfoTermFrequencyPair doc_hit_info2 = DocHitInfo(4);
     doc_hit_info2.UpdateSection(/*section_id=*/1, /*hit_term_frequency=*/2);
     doc_hit_info2.UpdateSection(/*section_id=*/2, /*hit_term_frequency=*/6);
 
-    std::vector<DocHitInfo> first_vector = {doc_hit_info1};
-    std::vector<DocHitInfo> second_vector = {doc_hit_info2};
+    SectionIdMask section_id_mask2 = 0b00000110;  // hits in sections 1, 2
+    std::unordered_map<SectionId, Hit::TermFrequency>
+        expected_section_ids_tf_map2 = {{1, 2}, {2, 6}};
+
+    std::vector<DocHitInfoTermFrequencyPair> first_vector = {doc_hit_info1};
+    std::vector<DocHitInfoTermFrequencyPair> second_vector = {doc_hit_info2};
 
     auto first_iter =
         std::make_unique<DocHitInfoIteratorDummy>(first_vector, "hi");
@@ -240,31 +356,27 @@ TEST(DocHitInfoIteratorAndTest, PopulateMatchedTermsStats) {
     EXPECT_THAT(and_iter.doc_hit_info().document_id(), Eq(4));
 
     and_iter.PopulateMatchedTermsStats(&matched_terms_stats);
-    ASSERT_THAT(matched_terms_stats, SizeIs(2));  // 2 terms
-    EXPECT_EQ(matched_terms_stats.at(0).term, "hi");
-    EXPECT_EQ(matched_terms_stats.at(1).term, "hello");
-    EXPECT_THAT(matched_terms_stats.at(0).term_frequencies,
-                ElementsAreArray(term_frequencies1));
-    EXPECT_EQ(matched_terms_stats.at(0).section_ids_mask, section_id_mask1);
-    EXPECT_THAT(matched_terms_stats.at(1).term_frequencies,
-                ElementsAreArray(term_frequencies2));
-    EXPECT_EQ(matched_terms_stats.at(1).section_ids_mask, section_id_mask2);
+    EXPECT_THAT(
+        matched_terms_stats,
+        ElementsAre(
+            EqualsTermMatchInfo("hi", expected_section_ids_tf_map1),
+            EqualsTermMatchInfo("hello", expected_section_ids_tf_map2)));
 
     EXPECT_FALSE(and_iter.Advance().ok());
   }
   {
     // Arbitrary section ids for the documents in the DocHitInfoIterators.
     // Created to test correct section_id_mask behavior.
-    SectionIdMask section_id_mask1 = 0b00000101;  // hits in sections 0, 2
-    std::array<Hit::TermFrequency, kMaxSectionId> term_frequencies1{
-        1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-    DocHitInfo doc_hit_info1 = DocHitInfo(4);
+    DocHitInfoTermFrequencyPair doc_hit_info1 = DocHitInfo(4);
     doc_hit_info1.UpdateSection(/*section_id=*/0, /*hit_term_frequency=*/1);
     doc_hit_info1.UpdateSection(/*section_id=*/2, /*hit_term_frequency=*/2);
 
-    std::vector<DocHitInfo> first_vector = {doc_hit_info1};
-    std::vector<DocHitInfo> second_vector = {doc_hit_info1};
+    SectionIdMask section_id_mask1 = 0b00000101;  // hits in sections 0, 2
+    std::unordered_map<SectionId, Hit::TermFrequency>
+        expected_section_ids_tf_map1 = {{0, 1}, {2, 2}};
+
+    std::vector<DocHitInfoTermFrequencyPair> first_vector = {doc_hit_info1};
+    std::vector<DocHitInfoTermFrequencyPair> second_vector = {doc_hit_info1};
 
     auto first_iter =
         std::make_unique<DocHitInfoIteratorDummy>(first_vector, "hi");
@@ -284,26 +396,23 @@ TEST(DocHitInfoIteratorAndTest, PopulateMatchedTermsStats) {
     EXPECT_THAT(and_iter.doc_hit_info().document_id(), Eq(4));
 
     and_iter.PopulateMatchedTermsStats(&matched_terms_stats);
-    ASSERT_THAT(matched_terms_stats, SizeIs(1));  // 1 term
-    EXPECT_EQ(matched_terms_stats.at(0).term, "hi");
-    EXPECT_THAT(matched_terms_stats.at(0).term_frequencies,
-                ElementsAreArray(term_frequencies1));
-    EXPECT_EQ(matched_terms_stats.at(0).section_ids_mask, section_id_mask1);
+    EXPECT_THAT(matched_terms_stats, ElementsAre(EqualsTermMatchInfo(
+                                         "hi", expected_section_ids_tf_map1)));
 
     EXPECT_FALSE(and_iter.Advance().ok());
   }
 }
 
 TEST(DocHitInfoIteratorAndTest, PopulateMatchedTermsStats_NoMatchingDocument) {
-  DocHitInfo doc_hit_info1 = DocHitInfo(4);
+  DocHitInfoTermFrequencyPair doc_hit_info1 = DocHitInfo(4);
   doc_hit_info1.UpdateSection(/*section_id=*/0, /*hit_term_frequency=*/1);
 
-  DocHitInfo doc_hit_info2 = DocHitInfo(5);
+  DocHitInfoTermFrequencyPair doc_hit_info2 = DocHitInfo(5);
   doc_hit_info2.UpdateSection(/*section_id=*/1, /*hit_term_frequency=*/2);
   doc_hit_info2.UpdateSection(/*section_id=*/2, /*hit_term_frequency=*/6);
 
-  std::vector<DocHitInfo> first_vector = {doc_hit_info1};
-  std::vector<DocHitInfo> second_vector = {doc_hit_info2};
+  std::vector<DocHitInfoTermFrequencyPair> first_vector = {doc_hit_info1};
+  std::vector<DocHitInfoTermFrequencyPair> second_vector = {doc_hit_info2};
 
   auto first_iter =
       std::make_unique<DocHitInfoIteratorDummy>(first_vector, "hi");
@@ -470,47 +579,45 @@ TEST(DocHitInfoIteratorAndNaryTest, PopulateMatchedTermsStats) {
   // Arbitrary section ids/term frequencies for the documents in the
   // DocHitInfoIterators.
   // For term "hi", document 10 and 8
-  SectionIdMask section_id_mask1_hi = 0b01000101;  // hits in sections 0, 2, 6
-  std::array<Hit::TermFrequency, kMaxSectionId> term_frequencies1_hi{
-      1, 0, 2, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0};
-  DocHitInfo doc_hit_info1_hi = DocHitInfo(10);
+  DocHitInfoTermFrequencyPair doc_hit_info1_hi = DocHitInfo(10);
   doc_hit_info1_hi.UpdateSection(/*section_id=*/0, /*hit_term_frequency=*/1);
   doc_hit_info1_hi.UpdateSection(/*section_id=*/2, /*hit_term_frequency=*/2);
   doc_hit_info1_hi.UpdateSection(/*section_id=*/6, /*hit_term_frequency=*/4);
+  std::unordered_map<SectionId, Hit::TermFrequency>
+      expected_section_ids_tf_map1_hi = {{0, 1}, {2, 2}, {6, 4}};
 
-  DocHitInfo doc_hit_info2_hi = DocHitInfo(8);
+  DocHitInfoTermFrequencyPair doc_hit_info2_hi = DocHitInfo(8);
   doc_hit_info2_hi.UpdateSection(/*section_id=*/1, /*hit_term_frequency=*/2);
   doc_hit_info2_hi.UpdateSection(/*section_id=*/2, /*hit_term_frequency=*/6);
 
   // For term "hello", document 10 and 9
-  SectionIdMask section_id_mask1_hello = 0b00001001;  // hits in sections 0, 3
-  std::array<Hit::TermFrequency, kMaxSectionId> term_frequencies1_hello{
-      2, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-  DocHitInfo doc_hit_info1_hello = DocHitInfo(10);
+  DocHitInfoTermFrequencyPair doc_hit_info1_hello = DocHitInfo(10);
   doc_hit_info1_hello.UpdateSection(/*section_id=*/0, /*hit_term_frequency=*/2);
   doc_hit_info1_hello.UpdateSection(/*section_id=*/3, /*hit_term_frequency=*/3);
+  std::unordered_map<SectionId, Hit::TermFrequency>
+      expected_section_ids_tf_map1_hello = {{0, 2}, {3, 3}};
 
-  DocHitInfo doc_hit_info2_hello = DocHitInfo(9);
+  DocHitInfoTermFrequencyPair doc_hit_info2_hello = DocHitInfo(9);
   doc_hit_info2_hello.UpdateSection(/*section_id=*/2, /*hit_term_frequency=*/3);
   doc_hit_info2_hello.UpdateSection(/*section_id=*/3, /*hit_term_frequency=*/2);
 
   // For term "ciao", document 10 and 9
-  SectionIdMask section_id_mask1_ciao = 0b00000011;  // hits in sections 0, 1
-  std::array<Hit::TermFrequency, kMaxSectionId> term_frequencies1_ciao{
-      2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-  DocHitInfo doc_hit_info1_ciao = DocHitInfo(10);
+  DocHitInfoTermFrequencyPair doc_hit_info1_ciao = DocHitInfo(10);
   doc_hit_info1_ciao.UpdateSection(/*section_id=*/0, /*hit_term_frequency=*/2);
   doc_hit_info1_ciao.UpdateSection(/*section_id=*/1, /*hit_term_frequency=*/3);
+  std::unordered_map<SectionId, Hit::TermFrequency>
+      expected_section_ids_tf_map1_ciao = {{0, 2}, {1, 3}};
 
-  DocHitInfo doc_hit_info2_ciao = DocHitInfo(9);
+  DocHitInfoTermFrequencyPair doc_hit_info2_ciao = DocHitInfo(9);
   doc_hit_info2_ciao.UpdateSection(/*section_id=*/3, /*hit_term_frequency=*/3);
   doc_hit_info2_ciao.UpdateSection(/*section_id=*/4, /*hit_term_frequency=*/2);
 
-  std::vector<DocHitInfo> first_vector = {doc_hit_info1_hi, doc_hit_info2_hi};
-  std::vector<DocHitInfo> second_vector = {doc_hit_info1_hello,
-                                           doc_hit_info2_hello};
-  std::vector<DocHitInfo> third_vector = {doc_hit_info1_ciao,
-                                          doc_hit_info2_ciao};
+  std::vector<DocHitInfoTermFrequencyPair> first_vector = {doc_hit_info1_hi,
+                                                           doc_hit_info2_hi};
+  std::vector<DocHitInfoTermFrequencyPair> second_vector = {
+      doc_hit_info1_hello, doc_hit_info2_hello};
+  std::vector<DocHitInfoTermFrequencyPair> third_vector = {doc_hit_info1_ciao,
+                                                           doc_hit_info2_ciao};
 
   auto first_iter =
       std::make_unique<DocHitInfoIteratorDummy>(first_vector, "hi");
@@ -533,19 +640,12 @@ TEST(DocHitInfoIteratorAndNaryTest, PopulateMatchedTermsStats) {
   EXPECT_THAT(and_iter.doc_hit_info().document_id(), Eq(10));
 
   and_iter.PopulateMatchedTermsStats(&matched_terms_stats);
-  ASSERT_THAT(matched_terms_stats, SizeIs(3));  // 3 terms
-  EXPECT_EQ(matched_terms_stats.at(0).term, "hi");
-  EXPECT_THAT(matched_terms_stats.at(0).term_frequencies,
-              ElementsAreArray(term_frequencies1_hi));
-  EXPECT_EQ(matched_terms_stats.at(0).section_ids_mask, section_id_mask1_hi);
-  EXPECT_EQ(matched_terms_stats.at(1).term, "hello");
-  EXPECT_THAT(matched_terms_stats.at(1).term_frequencies,
-              ElementsAreArray(term_frequencies1_hello));
-  EXPECT_EQ(matched_terms_stats.at(1).section_ids_mask, section_id_mask1_hello);
-  EXPECT_EQ(matched_terms_stats.at(2).term, "ciao");
-  EXPECT_THAT(matched_terms_stats.at(2).term_frequencies,
-              ElementsAreArray(term_frequencies1_ciao));
-  EXPECT_EQ(matched_terms_stats.at(2).section_ids_mask, section_id_mask1_ciao);
+  EXPECT_THAT(
+      matched_terms_stats,
+      ElementsAre(
+          EqualsTermMatchInfo("hi", expected_section_ids_tf_map1_hi),
+          EqualsTermMatchInfo("hello", expected_section_ids_tf_map1_hello),
+          EqualsTermMatchInfo("ciao", expected_section_ids_tf_map1_ciao)));
 
   EXPECT_FALSE(and_iter.Advance().ok());
 }

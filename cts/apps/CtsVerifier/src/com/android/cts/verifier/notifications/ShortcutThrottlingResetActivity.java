@@ -80,7 +80,7 @@ public class ShortcutThrottlingResetActivity extends InteractiveVerifierActivity
         // Generate an unique reply action and register the reply receiver.
         mReplyAction = "reply_" + new SecureRandom().nextLong();
         final IntentFilter replyFilter = new IntentFilter(mReplyAction);
-        registerReceiver(mReplyReceiver, replyFilter);
+        registerReceiver(mReplyReceiver, replyFilter, Context.RECEIVER_EXPORTED);
     }
 
     @Override

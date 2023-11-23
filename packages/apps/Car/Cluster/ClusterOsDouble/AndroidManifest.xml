@@ -13,9 +13,10 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.car.cluster.osdouble">
+    package="com.android.car.cluster.osdouble"
+    android:sharedUserId="android.uid.system">
+    <!-- system uid is required to access the local private display -->
 
     <!-- Required to show car sensor data -->
     <uses-permission android:name="android.car.permission.CAR_SPEED"/>

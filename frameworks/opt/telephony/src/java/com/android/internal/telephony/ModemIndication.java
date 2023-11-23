@@ -16,6 +16,8 @@
 
 package com.android.internal.telephony;
 
+import static android.telephony.TelephonyManager.HAL_SERVICE_MODEM;
+
 import static com.android.internal.telephony.RILConstants.RIL_UNSOL_HARDWARE_CONFIG_CHANGED;
 import static com.android.internal.telephony.RILConstants.RIL_UNSOL_MODEM_RESTART;
 import static com.android.internal.telephony.RILConstants.RIL_UNSOL_RADIO_CAPABILITY;
@@ -44,11 +46,11 @@ public class ModemIndication extends IRadioModemIndication.Stub {
      */
     public void hardwareConfigChanged(int indicationType,
             android.hardware.radio.modem.HardwareConfig[] configs) {
-        mRil.processIndication(RIL.MODEM_SERVICE, indicationType);
+        mRil.processIndication(HAL_SERVICE_MODEM, indicationType);
 
         ArrayList<HardwareConfig> response = RILUtils.convertHalHardwareConfigList(configs);
 
-        if (RIL.RILJ_LOGD) mRil.unsljLogRet(RIL_UNSOL_HARDWARE_CONFIG_CHANGED, response);
+        if (mRil.isLogOrTrace()) mRil.unsljLogRet(RIL_UNSOL_HARDWARE_CONFIG_CHANGED, response);
 
         mRil.mHardwareConfigChangeRegistrants.notifyRegistrants(
                 new AsyncResult(null, response, null));
@@ -62,9 +64,9 @@ public class ModemIndication extends IRadioModemIndication.Stub {
      *        restart" that explains the cause of the modem restart
      */
     public void modemReset(int indicationType, String reason) {
-        mRil.processIndication(RIL.MODEM_SERVICE, indicationType);
+        mRil.processIndication(HAL_SERVICE_MODEM, indicationType);
 
-        if (RIL.RILJ_LOGD) mRil.unsljLogRet(RIL_UNSOL_MODEM_RESTART, reason);
+        if (mRil.isLogOrTrace()) mRil.unsljLogRet(RIL_UNSOL_MODEM_RESTART, reason);
 
         mRil.writeMetricsModemRestartEvent(reason);
         mRil.mModemResetRegistrants.notifyRegistrants(new AsyncResult(null, reason, null));
@@ -78,11 +80,11 @@ public class ModemIndication extends IRadioModemIndication.Stub {
      */
     public void radioCapabilityIndication(int indicationType,
             android.hardware.radio.modem.RadioCapability radioCapability) {
-        mRil.processIndication(RIL.MODEM_SERVICE, indicationType);
+        mRil.processIndication(HAL_SERVICE_MODEM, indicationType);
 
         RadioCapability response = RILUtils.convertHalRadioCapability(radioCapability, mRil);
 
-        if (RIL.RILJ_LOGD) mRil.unsljLogRet(RIL_UNSOL_RADIO_CAPABILITY, response);
+        if (mRil.isLogOrTrace()) mRil.unsljLogRet(RIL_UNSOL_RADIO_CAPABILITY, response);
 
         mRil.mPhoneRadioCapabilityChangedRegistrants.notifyRegistrants(
                 new AsyncResult(null, response, null));
@@ -94,12 +96,12 @@ public class ModemIndication extends IRadioModemIndication.Stub {
      * @param radioState Current radio state
      */
     public void radioStateChanged(int indicationType, int radioState) {
-        mRil.processIndication(RIL.MODEM_SERVICE, indicationType);
+        mRil.processIndication(HAL_SERVICE_MODEM, indicationType);
 
         int state = RILUtils.convertHalRadioState(radioState);
-        if (RIL.RILJ_LOGD) {
-            mRil.unsljLogMore(RIL_UNSOL_RESPONSE_RADIO_STATE_CHANGED, "radioStateChanged: "
-                    + state);
+        if (mRil.isLogOrTrace()) {
+            mRil.unsljLogMore(
+                    RIL_UNSOL_RESPONSE_RADIO_STATE_CHANGED, "radioStateChanged: " + state);
         }
 
         mRil.setRadioState(state, false /* forceNotifyRegistrants */);
@@ -110,9 +112,9 @@ public class ModemIndication extends IRadioModemIndication.Stub {
      * @param indicationType Type of radio indication
      */
     public void rilConnected(int indicationType) {
-        mRil.processIndication(RIL.MODEM_SERVICE, indicationType);
+        mRil.processIndication(HAL_SERVICE_MODEM, indicationType);
 
-        if (RIL.RILJ_LOGD) mRil.unsljLog(RIL_UNSOL_RIL_CONNECTED);
+        if (mRil.isLogOrTrace()) mRil.unsljLog(RIL_UNSOL_RIL_CONNECTED);
 
         // Initial conditions
         mRil.setRadioPower(false, null);

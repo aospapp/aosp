@@ -1130,6 +1130,48 @@ Certificate:
         Log.e(TAG, name + ": dumping " + data.length + " bytes\n" + fmt.toString());
     }
 
+    // Convert EC P256 public key to DER format binary format
+    public static byte[] convertP256PublicKeyToDERFormat(ECPoint w) {
+        byte[] ret = new byte[64];
+
+        // Each coordinate may be encoded in 33*, 32, or fewer bytes.
+        //
+        //  * : it can be 33 bytes because toByteArray() guarantees "The array will contain the
+        //      minimum number of bytes required to represent this BigInteger, including at
+        //      least one sign bit, which is (ceil((this.bitLength() + 1)/8))" which means that
+        //      the MSB is always 0x00. This is taken care of by calling calling
+        //      stripLeadingZeroes().
+        //
+        // We need the encoding to be exactly 32 bytes since according to RFC 5480 section 2.2
+        // and SEC 1: Elliptic Curve Cryptography section 2.3.3 the encoding is 0x04 | X | Y
+        // where X and Y are encoded in exactly 32 byte, big endian integer values each.
+        //
+        byte[] xBytes = stripLeadingZeroes(w.getAffineX().toByteArray());
+        if (xBytes.length > 32) {
+            throw new RuntimeException("xBytes is " + xBytes.length + " which is unexpected");
+        }
+        int numLeadingZeroBytes = 32 - xBytes.length;
+        for (int n = 0; n < numLeadingZeroBytes; n++) {
+            ret[n] = 0x00;
+        }
+        for (int n = 0; n < xBytes.length; n++) {
+            ret[numLeadingZeroBytes + n] = xBytes[n];
+        }
+
+        byte[] yBytes = stripLeadingZeroes(w.getAffineY().toByteArray());
+        if (yBytes.length > 32) {
+            throw new RuntimeException("yBytes is " + yBytes.length + " which is unexpected");
+        }
+        numLeadingZeroBytes = 32 - yBytes.length;
+        for (int n = 0; n < numLeadingZeroBytes; n++) {
+            ret[32 + n] = 0x00;
+        }
+        for (int n = 0; n < yBytes.length; n++) {
+            ret[32 + numLeadingZeroBytes + n] = yBytes[n];
+        }
+
+        return ret;
+    }
 
     // This returns a SessionTranscript which satisfy the requirement
     // that the uncompressed X and Y coordinates of the public key for the
@@ -1141,14 +1183,11 @@ Certificate:
         // encoded DeviceEngagement
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try {
-            ECPoint w = ((ECPublicKey) ephemeralKeyPair.getPublic()).getW();
-            // X and Y are always positive so for interop we remove any leading zeroes
-            // inserted by the BigInteger encoder.
-            byte[] x = stripLeadingZeroes(w.getAffineX().toByteArray());
-            byte[] y = stripLeadingZeroes(w.getAffineY().toByteArray());
             baos.write(new byte[]{42});
-            baos.write(x);
-            baos.write(y);
+
+            ECPoint w = ((ECPublicKey) ephemeralKeyPair.getPublic()).getW();
+            baos.write(convertP256PublicKeyToDERFormat(w));
+
             baos.write(new byte[]{43, 44});
         } catch (IOException e) {
             e.printStackTrace();

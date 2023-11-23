@@ -63,9 +63,10 @@ public final class HalfSheetPairingProgressHandler extends PairingProgressHandle
     public void onPairingStarted() {
         super.onPairingStarted();
         // Half sheet is not in the foreground reshow half sheet, also avoid showing HalfSheet on TV
-        if (!mFastPairHalfSheetManager.getHalfSheetForegroundState()) {
+        if (!mFastPairHalfSheetManager.getHalfSheetForeground()) {
             mFastPairHalfSheetManager.showPairingHalfSheet(mItemResurface);
         }
+        mFastPairHalfSheetManager.reportActivelyPairing();
         mFastPairHalfSheetManager.disableDismissRunnable();
     }
 

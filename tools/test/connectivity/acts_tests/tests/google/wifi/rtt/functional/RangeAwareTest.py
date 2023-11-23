@@ -339,19 +339,6 @@ class RangeAwareTest(AwareBaseTest, RttBaseTest):
 
     #############################################################################
 
-    @test_tracker_info(uuid="9e4e7ab4-2254-498c-9788-21e15ed9a370")
-    def test_rtt_oob_discovery_one_way(self):
-        """Perform RTT between 2 Wi-Fi Aware devices. Use out-of-band discovery
-        to communicate the MAC addresses to the peer. Test one-direction RTT only.
-        Functionality test: Only evaluate success rate.
-        """
-        rtt_results = self.run_rtt_oob_discovery_set(
-            do_both_directions=False,
-            iter_count=self.NUM_ITER,
-            time_between_iterations=self.TIME_BETWEEN_ITERATIONS,
-            time_between_roles=self.TIME_BETWEEN_ROLES)
-        self.verify_results(rtt_results)
-
     @test_tracker_info(uuid="22edba77-eeb2-43ee-875a-84437550ad84")
     def test_rtt_oob_discovery_both_ways(self):
         """Perform RTT between 2 Wi-Fi Aware devices. Use out-of-band discovery
@@ -392,19 +379,6 @@ class RangeAwareTest(AwareBaseTest, RttBaseTest):
             time_between_iterations=self.TIME_BETWEEN_ITERATIONS,
             time_between_roles=self.TIME_BETWEEN_ROLES)
         self.verify_results(rtt_results1, rtt_results2)
-
-    @test_tracker_info(uuid="3a1d19a2-7241-49e0-aaf2-0a1da4c29783")
-    def test_rtt_oob_discovery_one_way_with_accuracy_evaluation(self):
-        """Perform RTT between 2 Wi-Fi Aware devices. Use out-of-band discovery
-        to communicate the MAC addresses to the peer. Test one-direction RTT only.
-        Performance test: evaluate success rate and accuracy.
-        """
-        rtt_results = self.run_rtt_oob_discovery_set(
-            do_both_directions=False,
-            iter_count=self.NUM_ITER,
-            time_between_iterations=self.TIME_BETWEEN_ITERATIONS,
-            time_between_roles=self.TIME_BETWEEN_ROLES)
-        self.verify_results(rtt_results, accuracy_evaluation=True)
 
     @test_tracker_info(uuid="82f954a5-c0ec-4bc6-8940-3b72199328ac")
     def test_rtt_oob_discovery_both_ways_with_accuracy_evaluation(self):

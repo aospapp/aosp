@@ -15,7 +15,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <span>
 #include <type_traits>
 
 #include "pw_containers/vector.h"
@@ -24,6 +23,7 @@
 #include "pw_kvs/internal/key_descriptor.h"
 #include "pw_kvs/internal/sectors.h"
 #include "pw_kvs/key.h"
+#include "pw_span/span.h"
 
 namespace pw {
 namespace kvs {
@@ -47,19 +47,23 @@ class EntryMetadata {
   uint32_t first_address() const { return addresses_[0]; }
 
   // All addresses for this entry, including redundant entries, if any.
-  const std::span<Address>& addresses() const { return addresses_; }
+  const span<Address>& addresses() const { return addresses_; }
 
   // True if the KeyDesctiptor's transaction ID is newer than the specified ID.
   bool IsNewerThan(uint32_t other_transaction_id) const {
-    // TODO: Consider handling rollover.
+    // TODO(hepler): Consider handling rollover.
     return transaction_id() > other_transaction_id;
   }
 
   // Adds a new address to the entry metadata. MUST NOT be called more times
   // than allowed by the redundancy.
   void AddNewAddress(Address address) {
-    addresses_[addresses_.size()] = address;
-    addresses_ = std::span<Address>(addresses_.begin(), addresses_.size() + 1);
+    // Each descriptor is given sufficient space in an EntryCache's address
+    // buffer to meet the redundancy requirements of an EntryCache. This object
+    // isn't aware of required redundancy, so there's no strict checking that
+    // this contract is respected.
+    addresses_ = span<Address>(addresses_.begin(), addresses_.size() + 1);
+    addresses_[addresses_.size() - 1] = address;
   }
 
   // Remove an address from the entry metadata.
@@ -72,12 +76,11 @@ class EntryMetadata {
  private:
   friend class EntryCache;
 
-  constexpr EntryMetadata(KeyDescriptor& descriptor,
-                          std::span<Address> addresses)
+  constexpr EntryMetadata(KeyDescriptor& descriptor, span<Address> addresses)
       : descriptor_(&descriptor), addresses_(addresses) {}
 
   KeyDescriptor* descriptor_;
-  std::span<Address> addresses_;
+  span<Address> addresses_;
 };
 
 // Tracks entry metadata. Combines KeyDescriptors and with their associated
@@ -97,7 +100,12 @@ class EntryCache {
       ++metadata_.descriptor_;
       return *this;
     }
-    Iterator& operator++(int) { return operator++(); }
+
+    Iterator operator++(int) {
+      Iterator original = *this;
+      operator++();
+      return original;
+    }
 
     // Updates the internal EntryMetadata object.
     value_type& operator*() const {
@@ -183,6 +191,10 @@ class EntryCache {
                                 Address address,
                                 size_t sector_size_bytes) const;
 
+  // Removes an existing entry from the cache. Returns an iterator to the
+  // next entry so that iteration can continue.
+  iterator RemoveEntry(iterator& entry_it);
+
   // Returns a pointer to an array of redundancy() addresses for temporary use.
   // This is used by the KeyValueStore to track reserved addresses when finding
   // space for a new entry.
@@ -218,8 +230,8 @@ class EntryCache {
   // address slot available.
   void AddAddressIfRoom(size_t descriptor_index, Address address) const;
 
-  // Returns a std::span of the valid addresses for the descriptor.
-  std::span<Address> addresses(size_t descriptor_index) const;
+  // Returns a span of the valid addresses for the descriptor.
+  span<Address> addresses(size_t descriptor_index) const;
 
   Address* first_address(size_t descriptor_index) const {
     return &addresses_[descriptor_index * redundancy_];

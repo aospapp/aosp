@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
+#include <base/functional/callback.h>
+#include <stddef.h>
+
 #include <map>
 #include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <base/callback.h>
-#include <stddef.h>
 
 #include "bt_target.h"
 #include "btu.h"
 #include "hcimsgs.h"
 #include "stack/include/acl_hci_link_interface.h"
 #include "stack/include/bt_octets.h"
+#include "test/common/mock_functions.h"
 #include "types/raw_address.h"
 
 namespace test {
@@ -46,10 +45,10 @@ namespace mock = test::mock::hcic_hcicmds;
 
 namespace {
 void btsnd_hcic_disconnect(uint16_t handle, uint8_t reason) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void btsnd_hcic_switch_role(const RawAddress& bd_addr, uint8_t role) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 }  // namespace
 

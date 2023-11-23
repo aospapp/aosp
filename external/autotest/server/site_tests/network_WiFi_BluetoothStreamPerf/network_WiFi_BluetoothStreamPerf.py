@@ -1,29 +1,36 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 import logging
+import threading
 import time
 
-
-from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros.network import ping_runner
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
-from autotest_lib.client.cros.chameleon import chameleon_audio_helper
-from autotest_lib.client.cros.chameleon import chameleon_audio_ids
-from autotest_lib.server.cros.audio import audio_test
-from autotest_lib.server.cros.multimedia import remote_facade_factory
 from autotest_lib.server.cros.network import netperf_runner
 from autotest_lib.server.cros.network import netperf_session
 from autotest_lib.server.cros.network import wifi_cell_test_base
 
+from autotest_lib.server.cros.bluetooth.bluetooth_adapter_quick_tests import \
+     BluetoothAdapterQuickTests
+from autotest_lib.server.cros.bluetooth.bluetooth_adapter_audio_tests import (
+        BluetoothAdapterAudioTests)
+from autotest_lib.client.cros.bluetooth.bluetooth_audio_test_data import A2DP
 
-class network_WiFi_BluetoothStreamPerf(wifi_cell_test_base.WiFiCellTestBase):
+
+class network_WiFi_BluetoothStreamPerf(wifi_cell_test_base.WiFiCellTestBase,
+                                       BluetoothAdapterQuickTests,
+                                       BluetoothAdapterAudioTests):
     """Test maximal achievable bandwidth on several channels per band.
 
     Conducts a performance test for a set of specified router configurations
     and reports results as keyval pairs.
 
     """
+
+    test_wrapper = BluetoothAdapterQuickTests.quick_test_test_decorator
+    batch_wrapper = BluetoothAdapterQuickTests.quick_test_batch_decorator
 
     version = 1
 
@@ -59,7 +66,10 @@ class network_WiFi_BluetoothStreamPerf(wifi_cell_test_base.WiFiCellTestBase):
 
         """
         get_ping_config = lambda period: ping_runner.PingConfig(
-                self.context.get_wifi_addr(), interval=1, count=period)
+                self.context.get_wifi_addr(),
+                interval=1,
+                count=period,
+                source_iface=self.context.client.wifi_if)
 
         logging.info('testing config %s, ap_config %s, BT:%s',
                      config.tag, ap_config_tag, bt_tag)
@@ -107,33 +117,26 @@ class network_WiFi_BluetoothStreamPerf(wifi_cell_test_base.WiFiCellTestBase):
             { '_'.join(['ping', test_str]): result_ping.avg_latency })
         logging.info('Ping statistics with %s: %r', bt_tag, result_ping)
 
+    def pair_audio_device(self, device):
+        """Pair an audio device pre-test to simplify later re-connection"""
+        self.test_device_set_discoverable(device, True)
+        self.test_discover_device(device.address)
+        self.test_pairing(device.address, device.pin, trusted=True)
+        device.SetTrustedByRemoteAddress(self.bluetooth_facade.address)
+        self.test_disconnection_by_adapter(device.address)
 
+    def do_audio_test(self, device):
+        """Run the body of the audio test"""
+        self.test_a2dp_sinewaves(device, A2DP, 60)
 
-    def run_once(self, host):
+    @test_wrapper('Coex tests', devices={'BLUETOOTH_AUDIO': 1})
+    def coex_test(self):
         """Test body."""
         start_time = time.time()
 
-        # Setup Bluetooth widgets and their binder, but do not yet connect.
-        audio_test.audio_test_requirement()
-        factory = remote_facade_factory.RemoteFacadeFactory(
-                host, results_dir=self.resultsdir)
-        chameleon_board = host.btpeer
-        if chameleon_board is None:
-            raise error.TestNAError("Bluetooth peer is not present")
-
-        chameleon_board.setup_and_reset(self.outputdir)
-        widget_factory = chameleon_audio_helper.AudioWidgetFactory(
-                factory, host)
-        source = widget_factory.create_widget(
-            chameleon_audio_ids.CrosIds.BLUETOOTH_HEADPHONE)
-        bluetooth_widget = widget_factory.create_widget(
-            chameleon_audio_ids.PeripheralIds.BLUETOOTH_DATA_RX)
-        binder = widget_factory.create_binder(
-                source, bluetooth_widget)
-        audio_test_file = 'http://commondatastorage.googleapis.com/' \
-                          'chromiumos-test-assets-public/audio_test/' \
-                          'chameleon/Headphone/test_256_16.mp3'
-
+        device = self.devices['BLUETOOTH_AUDIO'][0]
+        self.initialize_bluetooth_audio(device, A2DP)
+        self.pair_audio_device(device)
 
         for ap_config in self._ap_configs:
             # Set up the router and associate the client with it.
@@ -154,14 +157,21 @@ class network_WiFi_BluetoothStreamPerf(wifi_cell_test_base.WiFiCellTestBase):
             for config in self.NETPERF_CONFIGS:
                 self.base_through = 0
                 self.test_one(session, config, ap_config_tag, 'BT_disconnected')
-                with chameleon_audio_helper.bind_widgets(binder):
-                    self.test_one(session, config, ap_config_tag,
-                                  'BT_connected_but_not_streaming')
-                    logging.info('Playing an audio test file')
-                    browser_facade = factory.create_browser_facade()
-                    browser_facade.new_tab(audio_test_file)
-                    self.test_one(session, config, ap_config_tag,
-                                  'BT_streaming_audiofile')
+
+                self.test_connection_by_device(device)
+                self.test_one(session, config, ap_config_tag,
+                              'BT_connected_but_not_streaming')
+
+                # Start playing audio in background
+                audio_thread = threading.Thread(target=self.do_audio_test,
+                                                args=(device, ))
+                audio_thread.start()
+                self.test_one(session, config, ap_config_tag,
+                              'BT_streaming_audiofile')
+
+                # Wait for audio thread to complete
+                audio_thread.join()
+                self.test_disconnection_by_adapter(device.address)
                 self.test_one(session, config, ap_config_tag,
                               'BT_disconnected_again')
 
@@ -169,6 +179,23 @@ class network_WiFi_BluetoothStreamPerf(wifi_cell_test_base.WiFiCellTestBase):
             self.context.client.shill.disconnect(self.context.router.get_ssid())
             self.context.router.deconfig()
 
+        self.cleanup_bluetooth_audio(device, A2DP)
         end_time = time.time()
         logging.info('Running time %0.1f seconds.', end_time - start_time)
 
+    @batch_wrapper('Coex batch')
+    def coex_health_batch_run(self, num_iterations=1, test_name=None):
+        """Run the bluetooth coex health test batch or a specific given test.
+
+        @param num_iterations: how many iterations to run
+        @param test_name: specific test to run otherwise None to run the
+                whole batch
+        """
+        self.coex_test()
+
+    def run_once(self, host, test_name=None):
+        self.host = host
+
+        self.quick_test_init(host, use_btpeer=True)
+        self.coex_health_batch_run(test_name=test_name)
+        self.quick_test_cleanup()

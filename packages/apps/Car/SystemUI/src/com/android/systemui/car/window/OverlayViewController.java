@@ -28,6 +28,7 @@ import androidx.annotation.IdRes;
 import androidx.annotation.MainThread;
 
 import com.android.car.ui.FocusArea;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
 
@@ -176,20 +177,23 @@ public class OverlayViewController {
     /**
      * Sets whether this view allows rotary focus. This should be set to {@code true} for the
      * topmost layer in the overlay window and {@code false} for the others.
+     *
+     * @return true if the rotary focus allowed state has changed.
      */
-    public void setAllowRotaryFocus(boolean allowRotaryFocus) {
-        if (!isInflated()) {
-            return;
-        }
-
-        if (!(mLayout instanceof ViewGroup)) {
-            return;
+    public boolean setAllowRotaryFocus(boolean allowRotaryFocus) {
+        if (!isInflated() || !(mLayout instanceof ViewGroup)) {
+            return false;
         }
 
         ViewGroup viewGroup = (ViewGroup) mLayout;
-        viewGroup.setDescendantFocusability(allowRotaryFocus
+        int newFocusability = allowRotaryFocus
                 ? ViewGroup.FOCUS_BEFORE_DESCENDANTS
-                : ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+                : ViewGroup.FOCUS_BLOCK_DESCENDANTS;
+        if (viewGroup.getDescendantFocusability() == newFocusability) {
+            return false;
+        }
+        viewGroup.setDescendantFocusability(newFocusability);
+        return true;
     }
 
     /**
@@ -318,5 +322,10 @@ public class OverlayViewController {
      */
     public void removePanelViewStateListener(OverlayViewStateListener listener) {
         mViewStateListeners.remove(listener);
+    }
+
+    @VisibleForTesting
+    public void setLayout(View layout) {
+        mLayout = layout;
     }
 }

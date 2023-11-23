@@ -47,6 +47,8 @@ import org.unicode.cldr.util.SupplementalDataInfo.BasicLanguageData.Type;
 import org.unicode.cldr.util.SupplementalDataInfo.NumberingSystemInfo.NumberingSystemType;
 import org.unicode.cldr.util.SupplementalDataInfo.PluralInfo.Count;
 import org.unicode.cldr.util.Validity.Status;
+import org.unicode.cldr.util.personname.PersonNameFormatter;
+import org.unicode.cldr.util.personname.PersonNameFormatter.Order;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -60,13 +62,16 @@ import com.ibm.icu.impl.Relation;
 import com.ibm.icu.impl.Row;
 import com.ibm.icu.impl.Row.R2;
 import com.ibm.icu.impl.Row.R4;
+import com.ibm.icu.impl.number.DecimalQuantity;
+import com.ibm.icu.impl.number.DecimalQuantity_DualStorageBCD;
 import com.ibm.icu.text.DateFormat;
 import com.ibm.icu.text.MessageFormat;
 import com.ibm.icu.text.NumberFormat;
 import com.ibm.icu.text.PluralRules;
+import com.ibm.icu.text.PluralRules.DecimalQuantitySamples;
+import com.ibm.icu.text.PluralRules.DecimalQuantitySamplesRange;
 import com.ibm.icu.text.PluralRules.FixedDecimal;
-import com.ibm.icu.text.PluralRules.FixedDecimalRange;
-import com.ibm.icu.text.PluralRules.FixedDecimalSamples;
+import com.ibm.icu.text.PluralRules.Operand;
 import com.ibm.icu.text.PluralRules.SampleType;
 import com.ibm.icu.text.SimpleDateFormat;
 import com.ibm.icu.text.UnicodeSet;
@@ -112,6 +117,14 @@ public class SupplementalDataInfo {
      * weekData/firstDay, weekData/minDays, weekData/weekendEnd, weekData/weekendStart]
      */
     // TODO: verify that we get everything by writing the files solely from the API, and verifying identity.
+
+    public enum UnitIdComponentType {
+        prefix, base, suffix, per, and, power;
+        public String toShortId() {
+            return name().substring(0,1).toUpperCase();
+        }
+    }
+
 
     /**
      * Official status of languages
@@ -833,7 +846,7 @@ public class SupplementalDataInfo {
             }
         }
 
-        static void fixEU(Collection<CoverageLevelInfo> targets, SupplementalDataInfo info) {
+        public static void fixEU(Collection<CoverageLevelInfo> targets, SupplementalDataInfo info) {
             Set<String> euCountries = info.getContained("EU");
             for (CoverageLevelInfo item : targets) {
                 if (item.inTerritorySet != null
@@ -943,8 +956,12 @@ public class SupplementalDataInfo {
 
     private final UnitPreferences unitPreferences = new UnitPreferences();
 
+    private Map<String, UnitIdComponentType> unitIdComponentType = new TreeMap<>();
+
     public Map<String, GrammarInfo> grammarLocaleToTargetToFeatureToValues = new TreeMap<>();
     public Map<String, GrammarDerivation> localeToGrammarDerivation = new TreeMap<>();
+
+    public Multimap<PersonNameFormatter.Order, String> personNameOrder = TreeMultimap.create();
 
     public enum MeasurementType {
         measurementSystem, paperSize
@@ -1181,6 +1198,8 @@ public class SupplementalDataInfo {
         rationalParser.freeze();
         unitPreferences.freeze();
 
+        unitIdComponentType = CldrUtility.protectCollection(unitIdComponentType);
+
         timeData = CldrUtility.protectCollection(timeData);
 
         validityInfo = CldrUtility.protectCollection(validityInfo);
@@ -1190,6 +1209,7 @@ public class SupplementalDataInfo {
 
         grammarLocaleToTargetToFeatureToValues = CldrUtility.protectCollection(grammarLocaleToTargetToFeatureToValues);
         localeToGrammarDerivation = CldrUtility.protectCollection(localeToGrammarDerivation);
+        personNameOrder = CldrUtility.protectCollection(personNameOrder);
 
         ImmutableSet.Builder<String> newScripts = ImmutableSet.<String> builder();
         Map<Validity.Status, Set<String>> scripts = Validity.getInstance().getStatusToCodes(LstrType.script);
@@ -1326,6 +1346,10 @@ public class SupplementalDataInfo {
                     if (handleMeasurementData(level2, parts)) {
                         return;
                     }
+                } else if (level1.equals("unitIdComponents")) {
+                    if (handleUnitUnitIdComponents(parts)) {
+                        return;
+                    }
                 } else if (level1.equals("unitConstants")) {
                     if (handleUnitConstants(parts)) {
                         return;
@@ -1354,6 +1378,10 @@ public class SupplementalDataInfo {
                     if (handleGrammaticalData(value, parts)) {
                         return;
                     }
+                } else if (level1.contentEquals("personNamesDefaults")) {
+                    if (handlePersonNamesDefaults(value, parts)) {
+                        return;
+                    }
                 }
 
                 // capture elements we didn't look at, since we should cover everything.
@@ -1368,6 +1396,23 @@ public class SupplementalDataInfo {
                 throw (IllegalArgumentException) new IllegalArgumentException("Exception while processing path: "
                     + path + ",\tvalue: " + value).initCause(e);
             }
+        }
+
+        private boolean handlePersonNamesDefaults(String value, XPathParts parts) {
+            personNameOrder.putAll(Order.valueOf(parts.getAttributeValue(-1, "order")), split_space.split(value));
+            return true;
+        }
+
+        private boolean handleUnitUnitIdComponents(XPathParts parts) {
+            //      <unitIdComponent type="prefix" values="arc british dessert fluid light nautical"/>
+            UnitIdComponentType type = UnitIdComponentType.valueOf(parts.getAttributeValue(-1, "type"));
+            for (String value : split_space.split(parts.getAttributeValue(-1, "values"))) {
+                UnitIdComponentType old = unitIdComponentType.put(value, type);
+                if (old != null) {
+                    throw new IllegalArgumentException("Duplicate component: " + value);
+                }
+            }
+            return true;
         }
 
         private boolean handleGrammaticalData(String value, XPathParts parts) {
@@ -1825,7 +1870,7 @@ public class SupplementalDataInfo {
                         String cleaned = SubdivisionNames.isOldSubdivisionCode(item)
                             ? replacement.replace("-", "").toLowerCase(Locale.ROOT)
                                 : item;
-                            builder.add(cleaned);
+                        builder.add(cleaned);
                     }
                     replacementList = ImmutableList.copyOf(builder);
                 }
@@ -2639,6 +2684,47 @@ public class SupplementalDataInfo {
         return Level.OPTIONAL.getLevel(); // If no match then return highest possible value
     }
 
+    // The following is for mapping language to the explicit script and region codes in
+    // the locale IDs for CLDR locales. We don't need to worry about the unmarked default
+    // script or region since they are already supplied by the <languageData>.
+    private Map<String, BasicLanguageData> doMapLanguagesToScriptsRegion() {
+        Map<String, BasicLanguageData> langToScriptsRegions = new TreeMap<>();
+        org.unicode.cldr.util.Factory factory = CLDRConfig.getInstance().getCldrFactory();
+        for (CLDRLocale locale : factory.getAvailableCLDRLocales()) {
+            String language = locale.getLanguage();
+            if (language.length() == 0 || language.equals("root")) {
+                continue;
+            }
+            BasicLanguageData scriptsAndRegions = langToScriptsRegions.get(language);
+            if (scriptsAndRegions == null) {
+                scriptsAndRegions = new BasicLanguageData();
+                langToScriptsRegions.put(language, scriptsAndRegions);
+            }
+            String script = locale.getScript();
+            if (script.length() > 0) {
+                scriptsAndRegions.addScript(script);
+            }
+            String region = locale.getCountry();
+            if (region.length() > 0 && region.length() < 3) { // per CLDR TC, do not want 001, 419 etc.
+                scriptsAndRegions.addTerritory(region);
+            }
+        }
+        for (String language: langToScriptsRegions.keySet()) {
+            BasicLanguageData scriptsAndRegions = langToScriptsRegions.get(language);
+            langToScriptsRegions.put(language, scriptsAndRegions.freeze());
+        }
+        return Collections.unmodifiableMap(langToScriptsRegions);
+    }
+
+    private static Map<String, BasicLanguageData> languageToScriptsAndRegions = null;
+
+    private synchronized Map<String, BasicLanguageData> getLanguageToScriptsAndRegions() {
+        if (languageToScriptsAndRegions == null) {
+            languageToScriptsAndRegions = doMapLanguagesToScriptsRegion();
+        }
+        return languageToScriptsAndRegions;
+    }
+
     public CoverageVariableInfo getCoverageVariableInfo(String targetLanguage) {
         CoverageVariableInfo cvi;
         if (localeSpecificVariables.containsKey(targetLanguage)) {
@@ -2668,6 +2754,13 @@ public class SupplementalDataInfo {
                     targetScripts.addAll(addScripts);
                 }
             }
+            Map<String, BasicLanguageData> languageToScriptsAndRegions = getLanguageToScriptsAndRegions();
+            if (languageToScriptsAndRegions != null) {
+                BasicLanguageData scriptsAndRegions = languageToScriptsAndRegions.get(language);
+                if (scriptsAndRegions != null) {
+                    targetScripts.addAll(scriptsAndRegions.getScripts());
+                }
+            }
         } catch (Exception e) {
             // fall through
         }
@@ -2688,6 +2781,13 @@ public class SupplementalDataInfo {
                 Set<String> addTerritories = bl.territories;
                 if (addTerritories != null && bl.getType() != BasicLanguageData.Type.secondary) {
                     targetTerritories.addAll(addTerritories);
+                }
+            }
+            Map<String, BasicLanguageData> languageToScriptsAndRegions = getLanguageToScriptsAndRegions();
+            if (languageToScriptsAndRegions != null) {
+                BasicLanguageData scriptsAndRegions = languageToScriptsAndRegions.get(language);
+                if (scriptsAndRegions != null) {
+                    targetTerritories.addAll(scriptsAndRegions.getTerritories());
                 }
             }
         } catch (Exception e) {
@@ -2778,7 +2878,7 @@ public class SupplementalDataInfo {
         return parentLocales.values();
     }
 
-    private final static class ApprovalRequirementMatcher {
+    public final static class ApprovalRequirementMatcher {
         @Override
         public String toString() {
             return locales + " / " + xpathMatcher + " = " + requiredVotes;
@@ -2787,7 +2887,7 @@ public class SupplementalDataInfo {
         ApprovalRequirementMatcher(String xpath) {
             XPathParts parts = XPathParts.getFrozenInstance(xpath);
             if (parts.containsElement("approvalRequirement")) {
-                requiredVotes = Integer.parseInt(parts.getAttributeValue(-1, "votes"));
+                requiredVotes = getRequiredVotes(parts);
                 String localeAttrib = parts.getAttributeValue(-1, "locales");
                 if (localeAttrib == null || localeAttrib.equals(STAR) || localeAttrib.isEmpty()) {
                     locales = null; // no locale listed == '*'
@@ -2817,6 +2917,22 @@ public class SupplementalDataInfo {
                 }
             } else {
                 throw new RuntimeException("Unknown approval requirement: " + xpath);
+            }
+        }
+
+        static int getRequiredVotes(XPathParts parts) {
+            String votesStr = parts.getAttributeValue(-1, "votes");
+            if (votesStr.charAt(0) == '=') {
+                votesStr = votesStr.substring(1);
+                if (votesStr.equals("HIGH_BAR")) {
+                    return VoteResolver.HIGH_BAR;
+                } else if (votesStr.equals("LOWER_BAR")) {
+                    return VoteResolver.LOWER_BAR;
+                }
+                final VoteResolver.Level l = VoteResolver.Level.valueOf(votesStr);
+                return l.getVotes(Organization.guest); // use non-TC vote count
+            } else {
+                return Integer.parseInt(votesStr);
             }
         }
 
@@ -3611,7 +3727,7 @@ public class SupplementalDataInfo {
             return Count.valueOf(pluralRules.select(exampleCount));
         }
 
-        public Count getCount(PluralRules.FixedDecimal exampleCount) {
+        public Count getCount(DecimalQuantity exampleCount) {
             return Count.valueOf(pluralRules.select(exampleCount));
         }
 
@@ -3707,18 +3823,18 @@ public class SupplementalDataInfo {
             MIN, MAX
         }
 
-        public static final FixedDecimal NEGATIVE_INFINITY = new FixedDecimal(Double.NEGATIVE_INFINITY, 0, 0);
-        public static final FixedDecimal POSITIVE_INFINITY = new FixedDecimal(Double.POSITIVE_INFINITY, 0, 0);
+        public static final DecimalQuantity NEGATIVE_INFINITY = new DecimalQuantity_DualStorageBCD(Double.NEGATIVE_INFINITY);
+        public static final DecimalQuantity POSITIVE_INFINITY = new DecimalQuantity_DualStorageBCD(Double.POSITIVE_INFINITY);
 
-        static double doubleValue(FixedDecimal a) {
-            return a.doubleValue();
+        static double doubleValue(DecimalQuantity a) {
+            return a.toDouble();
         }
 
-        public boolean rangeExists(Count s, Count e, Output<FixedDecimal> minSample, Output<FixedDecimal> maxSample) {
+        public boolean rangeExists(Count s, Count e, Output<DecimalQuantity> minSample, Output<DecimalQuantity> maxSample) {
             if (!getCounts().contains(s) || !getCounts().contains(e)) {
                 return false;
             }
-            FixedDecimal temp;
+            DecimalQuantity temp;
             minSample.value = getLeastIn(s, SampleType.INTEGER, NEGATIVE_INFINITY, POSITIVE_INFINITY);
             temp = getLeastIn(s, SampleType.DECIMAL, NEGATIVE_INFINITY, POSITIVE_INFINITY);
             if (lessOrFewerDecimals(temp, minSample.value)) {
@@ -3735,13 +3851,14 @@ public class SupplementalDataInfo {
             }
             // see if we can get a better range, with not such a large end range
 
-            FixedDecimal lowestMax = new FixedDecimal(doubleValue(minSample.value) + 0.00001, 5);
+            DecimalQuantity lowestMax = new DecimalQuantity_DualStorageBCD(minSample.value.toBigDecimal().add(new java.math.BigDecimal("0.00001")));
+            lowestMax.setMinFraction(5);
             SampleType bestType = getCounts(SampleType.INTEGER).contains(e) ? SampleType.INTEGER : SampleType.DECIMAL;
             temp = getLeastIn(e, bestType, lowestMax, POSITIVE_INFINITY);
             if (lessOrFewerDecimals(temp, maxSample.value)) {
                 maxSample.value = temp;
             }
-            if (maxSample.value.getSource() > 100000) {
+            if (maxSample.value.toDouble() > 100000) {
                 temp = getLeastIn(e, bestType, lowestMax, POSITIVE_INFINITY);
                 if (lessOrFewerDecimals(temp, maxSample.value)) {
                     maxSample.value = temp;
@@ -3751,29 +3868,29 @@ public class SupplementalDataInfo {
             return true;
         }
 
-        public boolean greaterOrFewerDecimals(FixedDecimal a, FixedDecimal b) {
+        public boolean greaterOrFewerDecimals(DecimalQuantity a, DecimalQuantity b) {
             return doubleValue(a) > doubleValue(b)
-                || doubleValue(b) == doubleValue(a) && b.getDecimalDigits() > a.getDecimalDigits();
+                || doubleValue(b) == doubleValue(a) && b.getPluralOperand(Operand.f) > a.getPluralOperand(Operand.f);
         }
 
-        public boolean lessOrFewerDecimals(FixedDecimal a, FixedDecimal b) {
+        public boolean lessOrFewerDecimals(DecimalQuantity a, DecimalQuantity b) {
             return doubleValue(a) < doubleValue(b)
-                || doubleValue(b) == doubleValue(a) && b.getDecimalDigits() > a.getDecimalDigits();
+                || doubleValue(b) == doubleValue(a) && b.getPluralOperand(Operand.f) > a.getPluralOperand(Operand.f);
         }
 
-        private FixedDecimal getLeastIn(Count s, SampleType sampleType, FixedDecimal min, FixedDecimal max) {
-            FixedDecimal result = POSITIVE_INFINITY;
-            FixedDecimalSamples sSamples1 = pluralRules.getDecimalSamples(s.toString(), sampleType);
+        private DecimalQuantity getLeastIn(Count s, SampleType sampleType, DecimalQuantity min, DecimalQuantity max) {
+            DecimalQuantity result = POSITIVE_INFINITY;
+            DecimalQuantitySamples sSamples1 = pluralRules.getDecimalSamples(s.toString(), sampleType);
             if (sSamples1 != null) {
-                for (FixedDecimalRange x : sSamples1.samples) {
+                for (DecimalQuantitySamplesRange x : sSamples1.samples) {
                     // overlap in ranges??
                     if (doubleValue(x.start) > doubleValue(max)
                         || doubleValue(x.end) < doubleValue(min)) {
                         continue; // no, continue
                     }
                     // get restricted range
-                    FixedDecimal minOverlap = greaterOrFewerDecimals(min, x.start) ? max : x.start;
-                    //FixedDecimal maxOverlap = lessOrFewerDecimals(max, x.end) ? max : x.end;
+                    DecimalQuantity minOverlap = greaterOrFewerDecimals(min, x.start) ? max : x.start;
+                    //DecimalQuantity maxOverlap = lessOrFewerDecimals(max, x.end) ? max : x.end;
 
                     // replace if better
                     if (lessOrFewerDecimals(minOverlap, result)) {
@@ -3784,19 +3901,19 @@ public class SupplementalDataInfo {
             return result;
         }
 
-        private FixedDecimal getGreatestIn(Count s, SampleType sampleType, FixedDecimal min, FixedDecimal max) {
-            FixedDecimal result = NEGATIVE_INFINITY;
-            FixedDecimalSamples sSamples1 = pluralRules.getDecimalSamples(s.toString(), sampleType);
+        private DecimalQuantity getGreatestIn(Count s, SampleType sampleType, DecimalQuantity min, DecimalQuantity max) {
+            DecimalQuantity result = NEGATIVE_INFINITY;
+            DecimalQuantitySamples sSamples1 = pluralRules.getDecimalSamples(s.toString(), sampleType);
             if (sSamples1 != null) {
-                for (FixedDecimalRange x : sSamples1.samples) {
+                for (DecimalQuantitySamplesRange x : sSamples1.getSamples()) {
                     // overlap in ranges??
                     if (doubleValue(x.start) > doubleValue(max)
                         || doubleValue(x.end) < doubleValue(min)) {
                         continue; // no, continue
                     }
                     // get restricted range
-                    //FixedDecimal minOverlap = greaterOrFewerDecimals(min, x.start) ? max : x.start;
-                    FixedDecimal maxOverlap = lessOrFewerDecimals(max, x.end) ? max : x.end;
+                    //DecimalQuantity minOverlap = greaterOrFewerDecimals(min, x.start) ? max : x.start;
+                    DecimalQuantity maxOverlap = lessOrFewerDecimals(max, x.end) ? max : x.end;
 
                     // replace if better
                     if (greaterOrFewerDecimals(maxOverlap, result)) {
@@ -3807,17 +3924,17 @@ public class SupplementalDataInfo {
             return result;
         }
 
-        public static FixedDecimal getNonZeroSampleIfPossible(FixedDecimalSamples exampleList) {
-            Set<FixedDecimalRange> sampleSet = exampleList.getSamples();
-            FixedDecimal sampleDecimal = null;
+        public static DecimalQuantity getNonZeroSampleIfPossible(DecimalQuantitySamples exampleList) {
+            Set<DecimalQuantitySamplesRange> sampleSet = exampleList.getSamples();
+            DecimalQuantity sampleDecimal = null;
             // skip 0 if possible
-            for (FixedDecimalRange range : sampleSet) {
+            for (DecimalQuantitySamplesRange range : sampleSet) {
                 sampleDecimal = range.start;
-                if (sampleDecimal.getSource() != 0.0) {
+                if (sampleDecimal.toDouble() != 0.0) {
                     break;
                 }
                 sampleDecimal = range.end;
-                if (sampleDecimal.getSource() != 0.0) {
+                if (sampleDecimal.toDouble() != 0.0) {
                     break;
                 }
             }
@@ -3896,6 +4013,26 @@ public class SupplementalDataInfo {
             locale = LocaleIDParser.getSimpleParent(locale);
         }
         return null;
+    }
+
+    /**
+     * CLDR equivalent of com.ibm.icu.text.PluralRules.forLocale()
+     * @param loc
+     * @param type
+     * @return an ICU PluralRules, from CLDR data
+     */
+    public PluralRules getPluralRules(ULocale loc, PluralRules.PluralType type) {
+        return getPluralRules(loc.getBaseName(), type);
+    }
+
+    /**
+     * CLDR equivalent of com.ibm.icu.text.PluralRules.forLocale()
+     * @param loc
+     * @param type
+     * @return an ICU PluralRules, from CLDR data
+     */
+    public PluralRules getPluralRules(String loc, PluralRules.PluralType type) {
+        return getPlurals(PluralType.fromStandardType(type), loc).getPluralRules();
     }
 
     public DayPeriodInfo getDayPeriods(DayPeriodInfo.Type type, String locale) {
@@ -4511,6 +4648,11 @@ public class SupplementalDataInfo {
         return unitPreferences;
     }
 
+    public UnitIdComponentType getUnitIdComponentType(String component) {
+        UnitIdComponentType result = unitIdComponentType.get(component);
+        return result == null ? UnitIdComponentType.base : result;
+    }
+
     /**
      * Locales that have grammar info
      */
@@ -4577,5 +4719,9 @@ public class SupplementalDataInfo {
             }
         }
         return null;
+    }
+
+    public Multimap<Order, String> getPersonNameOrder() {
+        return personNameOrder;
     }
 }

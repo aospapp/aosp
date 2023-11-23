@@ -17,7 +17,10 @@ LOCAL_PATH := $(call my-dir)
 
 # simpleperf_script.zip (for release in ndk)
 # ============================================================
-SIMPLEPERF_SCRIPT_LIST := \
+SIMPLEPERF_SCRIPT_FILE_LIST := \
+    $(call all-named-files-under,*.proto,.)
+
+SIMPLEPERF_SCRIPT_DIR_LIST := \
     app_api \
     doc \
     demo \
@@ -25,13 +28,15 @@ SIMPLEPERF_SCRIPT_LIST := \
     scripts \
     testdata
 
-SIMPLEPERF_SCRIPT_LIST := $(addprefix -D $(LOCAL_PATH)/,$(SIMPLEPERF_SCRIPT_LIST))
+SIMPLEPERF_SCRIPT_FILE_LIST := $(addprefix -f $(LOCAL_PATH)/,$(SIMPLEPERF_SCRIPT_FILE_LIST))
+SIMPLEPERF_SCRIPT_DIR_LIST := $(addprefix -D $(LOCAL_PATH)/,$(SIMPLEPERF_SCRIPT_DIR_LIST))
 
 SIMPLEPERF_SCRIPT_PATH := \
     $(call intermediates-dir-for,PACKAGING,simplerperf_script,HOST)/simpleperf_script.zip
 
 $(SIMPLEPERF_SCRIPT_PATH) : $(SOONG_ZIP)
-	$(hide) $(SOONG_ZIP) -d -o $@ -C system/extras/simpleperf $(SIMPLEPERF_SCRIPT_LIST)
+	$(hide) $(SOONG_ZIP) -d -o $@ -C system/extras/simpleperf $(SIMPLEPERF_SCRIPT_FILE_LIST) \
+    $(SIMPLEPERF_SCRIPT_DIR_LIST)
 
 $(call declare-1p-target,$(SIMPLEPERF_SCRIPT_PATH),system/extras)
 

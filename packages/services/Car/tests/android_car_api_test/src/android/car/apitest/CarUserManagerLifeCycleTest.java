@@ -15,7 +15,6 @@
  */
 package android.car.apitest;
 
-import static android.car.test.util.UserTestingHelper.setMaxSupportedUsers;
 import static android.car.user.CarUserManager.USER_LIFECYCLE_EVENT_TYPE_STARTING;
 import static android.car.user.CarUserManager.USER_LIFECYCLE_EVENT_TYPE_STOPPED;
 import static android.car.user.CarUserManager.USER_LIFECYCLE_EVENT_TYPE_STOPPING;
@@ -26,13 +25,8 @@ import static android.car.user.CarUserManager.USER_LIFECYCLE_EVENT_TYPE_UNLOCKIN
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import android.annotation.UserIdInt;
-import android.app.ActivityManager;
-import android.app.IActivityManager;
 import android.car.testapi.BlockingUserLifecycleListener;
 import android.car.user.CarUserManager.UserLifecycleEvent;
-import android.os.RemoteException;
-import android.os.UserManager;
 import android.util.Log;
 
 import org.junit.AfterClass;
@@ -49,11 +43,9 @@ public final class CarUserManagerLifeCycleTest extends CarMultiUserTestBase {
 
     private static final String TAG = CarUserManagerLifeCycleTest.class.getSimpleName();
 
-    private static final int PIN = 2345;
-
     private static final int SWITCH_TIMEOUT_MS = 70_000;
     // A large stop timeout is required as sometimes stop user broadcast takes a significantly
-    // long time to complete. This happen when there are multiple users starting/stopping in
+    // long time to complete. This happens when there are multiple users starting/stopping in
     // background which is the case in this test class.
     private static final int STOP_TIMEOUT_MS = 600_000;
 
@@ -63,26 +55,14 @@ public final class CarUserManagerLifeCycleTest extends CarMultiUserTestBase {
      */
     private static final boolean TEST_STOP_EVENTS = true;
 
-    private static final int sMaxNumberUsersBefore = UserManager.getMaxSupportedUsers();
-    private static boolean sChangedMaxNumberUsers;
-
     @BeforeClass
-    public static void setupMaxNumberOfUsers() {
-        int requiredUsers = 3; // system user, current user, 1 extra user
-        if (sMaxNumberUsersBefore < requiredUsers) {
-            sChangedMaxNumberUsers = true;
-            Log.i(TAG, "Increasing maximing number of users from " + sMaxNumberUsersBefore + " to "
-                    + requiredUsers);
-            setMaxSupportedUsers(requiredUsers);
-        }
+    public static void setUp() {
+        setupMaxNumberOfUsers(3); // system user, current user, 1 extra user
     }
 
     @AfterClass
-    public static void restoreMaxNumberOfUsers() {
-        if (sChangedMaxNumberUsers) {
-            Log.i(TAG, "Restoring maximum number of users to " + sMaxNumberUsersBefore);
-            setMaxSupportedUsers(sMaxNumberUsersBefore);
-        }
+    public static void cleanUp() {
+        restoreMaxNumberOfUsers();
     }
 
     @Test(timeout = 600_000)
@@ -115,7 +95,7 @@ public final class CarUserManagerLifeCycleTest extends CarMultiUserTestBase {
         List<UserLifecycleEvent> startEvents  = startListener.waitForEvents();
         Log.d(TAG, "Received start events: " + startEvents);
 
-        // Make sure listener callback was executed in the proper threaqd
+        // Make sure listener callback was executed in the proper thread
         assertWithMessage("executed on executor").that(executedRef.get()).isTrue();
 
         // Assert user ids
@@ -177,11 +157,5 @@ public final class CarUserManagerLifeCycleTest extends CarMultiUserTestBase {
 
         Log.d(TAG, "unregistering stop listener: " + stopListener);
         mCarUserManager.removeListener(stopListener);
-    }
-
-    private static void forceStopUser(@UserIdInt int userId) throws RemoteException {
-        Log.i(TAG, "Force-stopping user " + userId);
-        IActivityManager am = ActivityManager.getService();
-        am.stopUser(userId, /* force=*/ true, /* listener= */ null);
     }
 }

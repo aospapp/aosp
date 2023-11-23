@@ -1880,6 +1880,14 @@ int phNxpNciHal_core_initialized(uint16_t core_init_rsp_params_len,
       // if the last command is deactivate to idle and RF status is also idle ,
       // no need to execute the command .
       {
+        if (p_core_init_rsp_params[35] > (core_init_rsp_params_len - 36)) {
+          if (buffer) {
+            free(buffer);
+            buffer = NULL;
+          }
+          android_errorWriteLog(0x534e4554, "231445184");
+          return NFCSTATUS_FAILED;
+        }
         tmp_len = p_core_init_rsp_params[35];
 
         /* Check for NXP ext before sending write */
@@ -2600,6 +2608,10 @@ int phNxpNciHal_ioctl(long arg, void* p_data) {
   }
   switch (arg) {
     case HAL_NFC_IOCTL_SPI_DWP_SYNC: {
+      if (pInpOutData->inp.data.nciCmd.cmd_len > MAX_IOCTL_TRANSCEIVE_CMD_LEN) {
+        android_errorWriteLog(0x534e4554, "238083126");
+        return -1;
+      }
       ret = phNxpNciHal_send_ese_hal_cmd(pInpOutData->inp.data.nciCmd.cmd_len,
                                          pInpOutData->inp.data.nciCmd.p_cmd);
       pInpOutData->out.data.nciRsp.rsp_len = nxpncihal_ctrl.rx_ese_data_len;

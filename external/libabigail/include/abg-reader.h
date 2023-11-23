@@ -26,6 +26,8 @@ namespace xml_reader
 
 using namespace abigail::ir;
 
+class read_context;
+
 translation_unit_sptr
 read_translation_unit_from_file(const std::string&	file_path,
 				environment*		env);
@@ -38,7 +40,8 @@ translation_unit_sptr
 read_translation_unit_from_istream(std::istream*	in,
 				   environment*	env);
 
-class read_context;
+translation_unit_sptr
+read_translation_unit(read_context&);
 
 /// A convenience typedef for a shared pointer to read_context.
 typedef shared_ptr<read_context> read_context_sptr;
@@ -81,6 +84,14 @@ add_read_context_suppressions(read_context& ctxt,
 void
 consider_types_not_reachable_from_public_interfaces(read_context& ctxt,
 						    bool flag);
+
+#ifdef WITH_SHOW_TYPE_USE_IN_ABILINT
+vector<type_base_sptr>*
+get_types_from_type_id(read_context&, const string&);
+
+unordered_map<type_or_decl_base*, vector<type_or_decl_base*>>*
+get_artifact_used_by_relation_map(read_context&);
+#endif
 }//end xml_reader
 
 #ifdef WITH_DEBUG_SELF_COMPARISON

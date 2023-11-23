@@ -14,13 +14,14 @@
 
 package android.systemui.cts;
 
+import android.app.Activity;
 import android.app.Dialog;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.drawable.Icon;
-import android.provider.Settings;
 import android.service.quicksettings.Tile;
 import android.service.quicksettings.TileService;
 import android.util.Log;
@@ -36,8 +37,16 @@ public class TestTileService extends TileService {
 
     public static final String SHOW_DIALOG = "android.sysui.testtile.action.SHOW_DIALOG";
     public static final String START_ACTIVITY = "android.sysui.testtile.action.START_ACTIVITY";
+    public static final String START_ACTIVITY_WITH_PENDING_INTENT =
+            "android.sysui.testtile.action.START_ACTIVITY_WITH_PENDING_INTENT";
+    public static final String SET_PENDING_INTENT =
+            "android.sysui.testtile.action.SET_PENDING_INTENT";
+    public static final String SET_NULL_PENDING_INTENT =
+            "android.sysui.testtile.action.SET_NULL_PENDING_INTENT";
 
     public static final String TEST_PREFIX = "TileTest_";
+
+    private PendingIntent mPendingIntent;
 
     @Override
     public void onCreate() {
@@ -70,14 +79,18 @@ public class TestTileService extends TileService {
         Log.i(TAG, TEST_PREFIX + "onStartListening");
         IntentFilter filter = new IntentFilter(SHOW_DIALOG);
         filter.addAction(START_ACTIVITY);
-        registerReceiver(mReceiver, filter);
+        filter.addAction(START_ACTIVITY_WITH_PENDING_INTENT);
+        filter.addAction(SET_PENDING_INTENT);
+        filter.addAction(SET_NULL_PENDING_INTENT);
+        registerReceiver(mReceiver, filter, Context.RECEIVER_EXPORTED);
 
         // Set up some initial good state.
-        super.getQsTile().setLabel(TAG);
-        super.getQsTile().setContentDescription("CTS Test Tile");
-        super.getQsTile().setIcon(Icon.createWithResource(this, android.R.drawable.ic_secure));
-        super.getQsTile().setState(Tile.STATE_ACTIVE);
-        super.getQsTile().updateTile();
+        Tile tile = getQsTile();
+        tile.setLabel(TAG);
+        tile.setContentDescription("CTS Test Tile");
+        tile.setIcon(Icon.createWithResource(this, android.R.drawable.ic_secure));
+        tile.setState(Tile.STATE_ACTIVE);
+        tile.updateTile();
     }
 
     @Override
@@ -102,8 +115,32 @@ public class TestTileService extends TileService {
     }
 
     private void handleStartActivity() {
-        super.startActivityAndCollapse(new Intent(Settings.ACTION_SETTINGS)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        Log.i(TAG, TEST_PREFIX + "handleStartActivity");
+        try {
+            super.startActivityAndCollapse(new Intent(this, TestActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (UnsupportedOperationException e) {
+            Log.i(TAG, TEST_PREFIX + "UnsupportedOperationException");
+        }
+    }
+
+    private void handleStartActivityWithPendingIntent() {
+        Log.i(TAG, TEST_PREFIX + "handleStartActivityWithPendingIntent");
+        super.startActivityAndCollapse(getValidPendingIntent());
+    }
+
+    private void handleSetPendingIntent(boolean isValid) {
+        Log.i(TAG, TEST_PREFIX + "handleSetPendingIntent");
+        super.getQsTile().setActivityLaunchForClick(isValid ? getValidPendingIntent() : null);
+        super.getQsTile().updateTile();
+    }
+
+    private PendingIntent getValidPendingIntent() {
+        if (mPendingIntent == null) {
+            mPendingIntent = PendingIntent.getActivity(this, 0,
+                    new Intent(this, TestActivity.class), PendingIntent.FLAG_IMMUTABLE);
+        }
+        return mPendingIntent;
     }
 
     private void handleShowDialog() {
@@ -114,6 +151,21 @@ public class TestTileService extends TileService {
             super.showDialog(dialog);
         } catch (Exception e) {
             Log.i(TAG, TEST_PREFIX + "onWindowAddFailed", e);
+        }
+    }
+
+    public static class TestActivity extends Activity {
+        private static final String TAG = "TestTileService";
+
+        @Override
+        public void onResume() {
+            super.onResume();
+            Log.i(TAG, TEST_PREFIX + "TestActivity#onResume");
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+            }
+            finish();
         }
     }
 
@@ -145,8 +197,14 @@ public class TestTileService extends TileService {
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction().equals(SHOW_DIALOG)) {
                 handleShowDialog();
-            } else {
+            } else if (intent.getAction().equals(START_ACTIVITY)) {
                 handleStartActivity();
+            } else if (intent.getAction().equals(START_ACTIVITY_WITH_PENDING_INTENT)) {
+                handleStartActivityWithPendingIntent();
+            } else if (intent.getAction().equals(SET_PENDING_INTENT)) {
+                handleSetPendingIntent(true);
+            } else if (intent.getAction().equals(SET_NULL_PENDING_INTENT)) {
+                handleSetPendingIntent(false);
             }
         }
     };

@@ -37,12 +37,12 @@ public class ReadElf implements AutoCloseable {
     private static final int EI_DATA = 5;
 
     private static final int EM_386 = 3;
-    private static final int EM_MIPS = 8;
     private static final int EM_ARM = 40;
     private static final int EM_X86_64 = 62;
     // http://en.wikipedia.org/wiki/Qualcomm_Hexagon
     private static final int EM_QDSP6 = 164;
     private static final int EM_AARCH64 = 183;
+    private static final int EM_RISCV = 243;
 
     private static final int ELFCLASS32 = 1;
     private static final int ELFCLASS64 = 2;
@@ -251,17 +251,17 @@ public class ReadElf implements AutoCloseable {
         int e_machine = readHalf();
         if (e_machine != EM_386 && e_machine != EM_X86_64 &&
                 e_machine != EM_AARCH64 && e_machine != EM_ARM &&
-                e_machine != EM_MIPS &&
-                e_machine != EM_QDSP6) {
+                e_machine != EM_RISCV && e_machine != EM_QDSP6) {
             throw new IOException("Invalid ELF e_machine: " + e_machine + ": " + mPath);
         }
 
         // AbiTest relies on us rejecting any unsupported combinations.
         if ((e_machine == EM_386 && elfClass != ELFCLASS32) ||
-                (e_machine == EM_X86_64 && elfClass != ELFCLASS64) ||
                 (e_machine == EM_AARCH64 && elfClass != ELFCLASS64) ||
                 (e_machine == EM_ARM && elfClass != ELFCLASS32) ||
-                (e_machine == EM_QDSP6 && elfClass != ELFCLASS32)) {
+                (e_machine == EM_QDSP6 && elfClass != ELFCLASS32) ||
+                (e_machine == EM_RISCV && elfClass != ELFCLASS64) ||
+                (e_machine == EM_X86_64 && elfClass != ELFCLASS64)) {
             throw new IOException("Invalid e_machine/EI_CLASS ELF combination: " +
                     e_machine + "/" + elfClass + ": " + mPath);
         }

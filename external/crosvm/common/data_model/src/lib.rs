@@ -1,10 +1,39 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 use std::io;
-use std::mem::{size_of, MaybeUninit};
-use std::slice::{from_raw_parts, from_raw_parts_mut};
+use std::mem::size_of;
+use std::mem::MaybeUninit;
+use std::slice::from_raw_parts;
+use std::slice::from_raw_parts_mut;
+
+use zerocopy::AsBytes;
+use zerocopy::FromBytes;
+use zerocopy::LayoutVerified;
+
+pub fn zerocopy_from_reader<R: io::Read, T: FromBytes>(mut read: R) -> io::Result<T> {
+    // Allocate on the stack via `MaybeUninit` to ensure proper alignment.
+    let mut out = MaybeUninit::zeroed();
+
+    // Safe because the pointer is valid and points to `size_of::<T>()` bytes of zeroes,
+    // which is a properly initialized value for `u8`.
+    let buf = unsafe { from_raw_parts_mut(out.as_mut_ptr() as *mut u8, size_of::<T>()) };
+    read.read_exact(buf)?;
+
+    // Safe because any bit pattern is considered a valid value for `T`.
+    Ok(unsafe { out.assume_init() })
+}
+
+pub fn zerocopy_from_mut_slice<T: FromBytes + AsBytes>(data: &mut [u8]) -> Option<&mut T> {
+    let lv: LayoutVerified<&mut [u8], T> = LayoutVerified::new(data)?;
+    Some(lv.into_mut())
+}
+
+pub fn zerocopy_from_slice<T: FromBytes>(data: &[u8]) -> Option<&T> {
+    let lv: LayoutVerified<&[u8], T> = LayoutVerified::new(data)?;
+    Some(lv.into_ref())
+}
 
 /// Types for which it is safe to initialize from raw data.
 ///
@@ -44,6 +73,16 @@ pub unsafe trait DataInit: Copy + Send + Sync {
             ([], [mid], []) => Some(mid),
             _ => None,
         }
+    }
+
+    /// Copies the value of `Self` from the beginning of a slice of raw data.
+    ///
+    /// This will return `None` if the length of data is less than the size of `Self`, or if the
+    /// data is not aligned for the type of `Self`.
+    fn read_from_prefix(data: &[u8]) -> Option<Self> {
+        data.get(0..size_of::<Self>())
+            .and_then(|slice| Self::from_slice(slice))
+            .copied()
     }
 
     /// Converts a mutable slice of raw data into a mutable reference of `Self`.
@@ -184,7 +223,11 @@ pub mod volatile_memory;
 pub use crate::volatile_memory::*;
 
 mod flexible_array;
-pub use flexible_array::{vec_with_array_field, FlexibleArray, FlexibleArrayWrapper};
+pub use flexible_array::vec_with_array_field;
+pub use flexible_array::FlexibleArray;
+pub use flexible_array::FlexibleArrayWrapper;
 
 mod sys;
-pub use sys::{create_iobuf, IoBuf, IoBufMut};
+pub use sys::create_iobuf;
+pub use sys::IoBuf;
+pub use sys::IoBufMut;

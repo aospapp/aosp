@@ -29,13 +29,14 @@ import java.lang.annotation.Target;
  * Mark that a test method should run on a device which has no secondary user that is not the
  * instrumented user.
  *
- * <p>Your test configuration may be configured so that this test is only run on a device which
- * has no secondary user that is not the current user. Otherwise, you can use {@code Devicestate}
- * to ensure that the device enters the correct state for the method.
+ * <p>Your test configuration may be configured so that this test is only run on a device which has
+ * no secondary user that is not the current user. Otherwise, you can use {@code Devicestate} to
+ * ensure that the device enters the correct state for the method.
  */
 @Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @EnsureHasNoUserAnnotation("android.os.usertype.full.SECONDARY")
+@RequireRunNotOnSecondaryUser
 public @interface EnsureHasNoSecondaryUser {
     /**
      * Weight sets the order that annotations will be resolved.

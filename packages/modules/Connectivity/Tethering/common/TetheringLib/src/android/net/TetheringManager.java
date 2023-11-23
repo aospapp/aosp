@@ -1273,8 +1273,10 @@ public class TetheringManager {
 
         @Override
         public int hashCode() {
-            return Objects.hash(mTetherableBluetoothRegexs, mTetherableUsbRegexs,
-                    mTetherableWifiRegexs);
+            return Objects.hash(
+                    Arrays.hashCode(mTetherableBluetoothRegexs),
+                    Arrays.hashCode(mTetherableUsbRegexs),
+                    Arrays.hashCode(mTetherableWifiRegexs));
         }
 
         @Override

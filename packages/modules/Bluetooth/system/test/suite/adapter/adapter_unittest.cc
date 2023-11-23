@@ -176,13 +176,11 @@ TEST_F(BluetoothTest, AdapterCleanupDuringDiscovery) {
   EXPECT_EQ(GetState(), BT_STATE_OFF)
       << "Test should be run with Adapter disabled";
 
-  bt_callbacks_t* bt_callbacks =
-      bluetooth::hal::BluetoothInterface::Get()->GetHALCallbacks();
-  ASSERT_TRUE(bt_callbacks != nullptr);
+  bt_callbacks_t* callbacks = bt_callbacks();
+  ASSERT_TRUE(callbacks != nullptr);
 
   for (int i = 0; i < kTestRepeatCount; ++i) {
-    bt_interface()->init(bt_callbacks, false, false, 0, nullptr, false,
-                         nullptr);
+    bt_interface()->init(callbacks, false, false, 0, nullptr, false, nullptr);
     EXPECT_EQ(bt_interface()->enable(), BT_STATUS_SUCCESS);
     semaphore_wait(adapter_state_changed_callback_sem_);
     EXPECT_EQ(GetState(), BT_STATE_ON) << "Adapter did not turn on.";

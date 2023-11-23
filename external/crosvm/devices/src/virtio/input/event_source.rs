@@ -1,17 +1,24 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use super::constants::*;
-use super::evdev::{grab_evdev, ungrab_evdev};
-use super::InputError;
-use super::Result;
-use base::{warn, AsRawDescriptor, RawDescriptor};
-use data_model::DataInit;
-use linux_input_sys::{input_event, virtio_input_event, InputEventDecoder};
 use std::collections::VecDeque;
 use std::io::Read;
 use std::io::Write;
+
+use base::warn;
+use base::AsRawDescriptor;
+use base::RawDescriptor;
+use linux_input_sys::input_event;
+use linux_input_sys::virtio_input_event;
+use linux_input_sys::InputEventDecoder;
+use zerocopy::AsBytes;
+
+use super::constants::*;
+use super::evdev::grab_evdev;
+use super::evdev::ungrab_evdev;
+use super::InputError;
+use super::Result;
 
 /// Encapsulates a socket or device node into an abstract event source, providing a common
 /// interface.
@@ -107,9 +114,9 @@ where
             let event_bytes = match encoding {
                 EventType::InputEvent => {
                     evt = input_event::from_virtio_input_event(vio_evt);
-                    evt.as_slice()
+                    evt.as_bytes()
                 }
-                EventType::VirtioInputEvent => vio_evt.as_slice(),
+                EventType::VirtioInputEvent => vio_evt.as_bytes(),
             };
             self.source
                 .write_all(event_bytes)
@@ -240,12 +247,17 @@ where
 #[cfg(test)]
 mod tests {
     use std::cmp::min;
-    use std::io::{Read, Write};
+    use std::io::Read;
+    use std::io::Write;
 
-    use data_model::{DataInit, Le16, SLe32};
+    use data_model::Le16;
+    use data_model::SLe32;
     use linux_input_sys::InputEventDecoder;
+    use zerocopy::AsBytes;
 
-    use crate::virtio::input::event_source::{input_event, virtio_input_event, EventSourceImpl};
+    use crate::virtio::input::event_source::input_event;
+    use crate::virtio::input::event_source::virtio_input_event;
+    use crate::virtio::input::event_source::EventSourceImpl;
 
     struct SourceMock {
         events: Vec<u8>,
@@ -255,7 +267,7 @@ mod tests {
         fn new(evts: &[input_event]) -> SourceMock {
             let mut events: Vec<u8> = vec![];
             for evt in evts {
-                for byte in evt.as_slice() {
+                for byte in evt.as_bytes() {
                     events.push(*byte);
                 }
             }

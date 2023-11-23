@@ -14,7 +14,7 @@
 #   limitations under the License.
 
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
-from WifiWpa3OweTest import WifiWpa3OweTest
+from ..WifiWpa3OweTest import WifiWpa3OweTest
 
 
 class WifiWpa311axTest(WifiWpa3OweTest):

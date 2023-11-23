@@ -34,7 +34,6 @@
 #include "Controllers.h"
 #include "FirewallController.h"
 #include "NetdConstants.h"
-#include "bpf/BpfUtils.h"
 
 using android::base::Join;
 using android::base::StringAppendF;

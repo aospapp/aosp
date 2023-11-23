@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"ਯੋਜਨਾਬੰਦੀ ਸੇਵਾ ਨਾਲ ਜੋੜੋ"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"ਹੋਲਡਰ ਨੂੰ ਯੋਜਨਾਬੰਦੀ ਸੇਵਾ ਦੇ ਉੱਚ-ਪੱਧਰ ਦੇ ਇੰਟਰਫੇਸ ਨਾਲ ਜੋੜਨ ਦਿੰਦਾ ਹੈ। ਇਹ ਆਮ ਐਪਾਂ ਲਈ ਕਦੇ ਵੀ ਲੋੜੀਂਦਾ ਨਹੀਂ ਹੋਣਾ ਚਾਹੀਦਾ।"</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"VMS ਕਲਾਇੰਟ ਸੇਵਾ"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"VMS ਕਲਾਇੰਟਾਂ ਨਾਲ ਜੋੜੋ"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"ਇੰਸਟਰੂਮੈਂਟ ਕਲੱਸਟਰ ਰੈਂਡਰਿੰਗ"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"ਇੰਸਟਰੂਮੈਂਟ ਕਲੱਸਟਰ ਡਾਟਾ ਪ੍ਰਾਪਤ ਕਰੋ"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"ਕਾਰ ਇਨਪੁੱਟ ਸਰਵਿਸ"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"ਇਨਪੁੱਟ ਇਵੈਂਟਾਂ ਦੀ ਸੰਭਾਲ"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"ਤੁਸੀਂ ਇਹ ਵਿਸ਼ੇਸ਼ਤਾ ਗੱਡੀ ਚਲਾਉਂਦੇ ਸਮੇਂ ਨਹੀਂ ਵਰਤ ਸਕਦੇ"</string>
     <string name="exit_button_message" msgid="5375678491245394542">"ਸੁਰੱਖਿਅਤ ਐਪ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਨਾਲ ਮੁੜ ਤੋਂ ਸ਼ੁਰੂ ਕਰਨ ਲਈ, <xliff:g id="EXIT_BUTTON">%s</xliff:g> ਚੁਣੋ।"</string>
     <string name="exit_button" msgid="3491899413031549265">"ਪਿੱਛੇ"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"ਤੁਹਾਡਾ ਡੀਵਾਈਸ ਮਿਟਾਇਆ ਜਾਏਗਾ"</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"ਪ੍ਰਸ਼ਾਸਕ ਐਪ ਵਰਤੀ ਨਹੀਂ ਜਾ ਸਕਦੀ। ਹੁਣ ਤੁਹਾਡੇ ਡੀਵਾਈਸ ਦਾ ਡਾਟਾ ਮਿਟਾਇਆ ਜਾਵੇਗਾ।\n\nਜੇ ਤੁਹਾਡੇ ਕੋਲ ਸਵਾਲ ਹਨ, ਤਾਂ ਆਪਣੀ ਸੰਸਥਾ ਦੇ ਪ੍ਰਸ਼ਾਸਕ ਨੂੰ ਸੰਪਰਕ ਕਰੋ।"</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> ਐਪ ਤੁਹਾਡੇ ਸਿਸਟਮ ਦੀ ਕਾਰਗੁਜ਼ਾਰੀ \'ਤੇ ਪ੍ਰਭਾਵ ਪਾ ਰਹੀ ਹੈ"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"ਸਿਸਟਮ ਦੀ ਕਾਰਗੁਜ਼ਾਰੀ ਨੂੰ ਬਿਹਤਰ ਬਣਾਉਣ ਲਈ ਐਪ ਨੂੰ ਬੰਦ ਕਰੋ। ਤੁਸੀਂ ਐਪ ਨੂੰ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਦੁਬਾਰਾ ਚਾਲੂ ਕਰ ਸਕਦੇ ਹੋ।"</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"ਐਪ ਨੂੰ ਵਰਤਦੇ ਰਹਿਣ ਲਈ ਐਪ ਨੂੰ ਤਰਜੀਹ ਦਿਓ।"</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"ਸਿਸਟਮ ਦੀ ਕਾਰਗੁਜ਼ਾਰੀ ਨੂੰ ਬਿਹਤਰ ਬਣਾਉਣ ਲਈ ਐਪ ਨੂੰ ਅਣਸਥਾਪਤ ਕਰੋ।"</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"ਐਪ ਨੂੰ ਬੰਦ ਕਰੋ"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"ਇਸ ਐਪ ਨੂੰ ਬੈਕਗ੍ਰਾਊਂਡ ਵਿੱਚ ਚੱਲਣ ਤੋਂ ਰੋਕਿਆ ਗਿਆ ਹੈ। ਬੈਕਗ੍ਰਾਊਂਡ ਵਰਤੋਂ ਨੂੰ ਜਾਰੀ ਰੱਖਣ ਲਈ ਐਪ ਨੂੰ ਤਰਜੀਹ ਦਿਓ।"</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"ਬੰਦ ਕਰੋ"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"ਐਪ ਨੂੰ ਤਰਜੀਹ ਦਿਓ"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"ਐਪ ਅਣਸਥਾਪਤ ਕਰੋ"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> ਐਪ ਨੂੰ ਬੰਦ ਕਰ ਦਿੱਤਾ ਗਿਆ ਹੈ। ਤੁਸੀਂ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਜਾ ਕੇ ਇਸਨੂੰ ਦੁਬਾਰਾ ਚਾਲੂ ਕਰ ਸਕਦੇ ਹੋ।"</string>
 </resources>

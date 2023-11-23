@@ -17,6 +17,7 @@
 package com.android.systemui.car.window;
 
 import com.android.systemui.car.hvac.AutoDismissHvacPanelOverlayViewMediator;
+import com.android.systemui.car.loading.LoadingViewMediator;
 
 import dagger.Binds;
 import dagger.Module;
@@ -33,4 +34,11 @@ public abstract class ExtendedOverlayWindowModule {
     @ClassKey(AutoDismissHvacPanelOverlayViewMediator.class)
     public abstract OverlayViewMediator bindAutoDismissHvacPanelViewMediator(
             AutoDismissHvacPanelOverlayViewMediator overlayViewsMediator);
+
+    /** Injects LoadingViewMediator. */
+    @Binds
+    @IntoMap
+    @ClassKey(LoadingViewMediator.class)
+    public abstract OverlayViewMediator bindLoadingViewMediator(
+            LoadingViewMediator overlayViewsMediator);
 }

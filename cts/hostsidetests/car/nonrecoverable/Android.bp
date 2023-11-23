@@ -33,6 +33,8 @@ java_test_host {
     test_suites: [
         "cts",
         "general-tests",
+        "automotive-tests",
+        "automotive-general-tests",
     ],
     static_libs: [
         "car-cts-host-util",

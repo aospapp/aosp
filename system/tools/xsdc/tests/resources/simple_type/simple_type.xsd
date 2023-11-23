@@ -33,8 +33,10 @@
                 <xs:element name="yesOrNo" type="enumType" maxOccurs="2"/>
                 <xs:element name="example1" type="xs:boolean"/>
                 <xs:element name="example2" type="xs:boolean"/>
+                <xs:element name="optional-int-list" maxOccurs="1" type="ints"/>
             </xs:sequence>
             <xs:attribute name="example3" type="xs:boolean"/>
+            <xs:attribute name="value" type="xs:boolean"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="multi-choice">
@@ -55,4 +57,5 @@
             </xs:choice>
         </xs:complexType>
     </xs:element>
+    <xs:element name="percent" type="percent" />
 </xs:schema>

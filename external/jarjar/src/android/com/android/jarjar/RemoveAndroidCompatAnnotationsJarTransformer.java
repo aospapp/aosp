@@ -33,6 +33,8 @@ import java.util.function.Supplier;
  */
 public final class RemoveAndroidCompatAnnotationsJarTransformer extends JarTransformer {
 
+    private static int ASM_VERSION = Opcodes.ASM9;
+
     private static final Set<String> REMOVE_ANNOTATIONS = Set.of(
             "Landroid/compat/annotation/UnsupportedAppUsage;");
 
@@ -51,7 +53,7 @@ public final class RemoveAndroidCompatAnnotationsJarTransformer extends JarTrans
         private boolean isClassRemapped;
 
         AnnotationRemover(ClassVisitor cv) {
-            super(Opcodes.ASM7, cv);
+            super(ASM_VERSION, cv);
         }
 
         @Override
@@ -74,7 +76,7 @@ public final class RemoveAndroidCompatAnnotationsJarTransformer extends JarTrans
                 Object value) {
             FieldVisitor superVisitor =
                     super.visitField(access, name, descriptor, signature, value);
-            return new FieldVisitor(Opcodes.ASM7, superVisitor) {
+            return new FieldVisitor(ASM_VERSION, superVisitor) {
                 @Override
                 public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
                     return visitAnnotationCommon(descriptor,
@@ -89,7 +91,7 @@ public final class RemoveAndroidCompatAnnotationsJarTransformer extends JarTrans
                 String signature, String[] exceptions) {
             MethodVisitor superVisitor =
                     super.visitMethod(access, name, descriptor, signature, exceptions);
-            return new MethodVisitor(Opcodes.ASM7, superVisitor) {
+            return new MethodVisitor(ASM_VERSION, superVisitor) {
                 @Override
                 public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
                     return visitAnnotationCommon(descriptor,

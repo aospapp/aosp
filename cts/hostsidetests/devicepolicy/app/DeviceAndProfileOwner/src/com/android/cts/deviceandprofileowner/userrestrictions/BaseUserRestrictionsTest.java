@@ -77,7 +77,8 @@ public abstract class BaseUserRestrictionsTest extends BaseDeviceAdminTest {
             UserManager.DISALLOW_WIFI_TETHERING,
             UserManager.DISALLOW_SHARING_ADMIN_CONFIGURED_WIFI,
             UserManager.DISALLOW_WIFI_DIRECT,
-            UserManager.DISALLOW_ADD_WIFI_CONFIG
+            UserManager.DISALLOW_ADD_WIFI_CONFIG,
+            UserManager.DISALLOW_CELLULAR_2G,
     };
 
     /**
@@ -94,7 +95,6 @@ public abstract class BaseUserRestrictionsTest extends BaseDeviceAdminTest {
             UserManager.DISALLOW_MOUNT_PHYSICAL_MEDIA,
             UserManager.DISALLOW_SMS,
             UserManager.DISALLOW_FUN,
-            UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY,
             UserManager.DISALLOW_SAFE_BOOT,
             UserManager.DISALLOW_CREATE_WINDOWS,
             UserManager.DISALLOW_BLUETOOTH,
@@ -200,8 +200,7 @@ public abstract class BaseUserRestrictionsTest extends BaseDeviceAdminTest {
             mDevicePolicyManager.addUserRestriction(ADMIN_RECEIVER_COMPONENT, restriction);
             fail("Restriction=" + restriction);
         } catch (SecurityException e) {
-            assertTrue("Restriction=" + restriction + " Message was: " + e.getMessage(),
-                    e.getMessage().contains("cannot set user restriction"));
+            // SecurityException expected
         }
 
         // Shouldn't have changed.
@@ -213,8 +212,7 @@ public abstract class BaseUserRestrictionsTest extends BaseDeviceAdminTest {
             mDevicePolicyManager.clearUserRestriction(ADMIN_RECEIVER_COMPONENT, restriction);
             fail("Restriction=" + restriction);
         } catch (SecurityException e) {
-            assertTrue("Restriction=" + restriction + " Message was: " + e.getMessage(),
-                    e.getMessage().contains("cannot set user restriction"));
+            // SecurityException expected
         }
 
         // Shouldn't have changed.

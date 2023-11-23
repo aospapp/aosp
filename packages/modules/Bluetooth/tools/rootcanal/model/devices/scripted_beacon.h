@@ -46,9 +46,9 @@ class ScriptedBeacon : public Beacon {
     return "scripted_beacon " + config_file_;
   }
 
-  void TimerTick() override;
-
-  void IncomingPacket(model::packets::LinkLayerPacketView packet_view) override;
+  void Tick() override;
+  void ReceiveLinkLayerPacket(model::packets::LinkLayerPacketView packet_view,
+                              Phy::Type type, int8_t rssi) override;
 
  private:
   static bool registered_;
@@ -61,14 +61,9 @@ class ScriptedBeacon : public Beacon {
     std::chrono::steady_clock::time_point ad_time;
   };
 
-  void populate_event(PlaybackEvent* event,
-                      PlaybackEvent::PlaybackEventType type);
-
   void get_next_advertisement();
 
-  void set_state(
-      android::bluetooth::rootcanal::model::devices::ScriptedBeaconBleAdProto::
-          PlaybackEvent::PlaybackEventType type);
+  void set_state(PlaybackEvent::PlaybackEventType state);
 
   Advertisement next_ad_{};
   int packet_num_{0};

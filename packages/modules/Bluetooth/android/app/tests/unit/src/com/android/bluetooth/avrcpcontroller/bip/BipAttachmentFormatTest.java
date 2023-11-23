@@ -48,7 +48,7 @@ public class BipAttachmentFormatTest {
 
     private void testParse(String contentType, String charset, String name, String size,
             String created, String modified, Date expectedCreated, boolean isCreatedUtc,
-                Date expectedModified, boolean isModifiedUtc) {
+            Date expectedModified, boolean isModifiedUtc) {
         int expectedSize = (size != null ? Integer.parseInt(size) : -1);
         BipAttachmentFormat attachment = new BipAttachmentFormat(contentType, charset, name,
                 size, created, modified);
@@ -190,21 +190,21 @@ public class BipAttachmentFormatTest {
         BipAttachmentFormat attachment = null;
 
         String expected = "<attachment content-type=\"text/plain\" charset=\"ISO-8859-1\""
-                          + " name=\"thisisatextfile.txt\" size=\"2048\""
-                          + " created=\"19900101T123456\" modified=\"19900101T123456\" />";
+                + " name=\"thisisatextfile.txt\" size=\"2048\""
+                + " created=\"19900101T123456\" modified=\"19900101T123456\" />";
 
         String expectedUtc = "<attachment content-type=\"text/plain\" charset=\"ISO-8859-1\""
-                          + " name=\"thisisatextfile.txt\" size=\"2048\""
-                          + " created=\"19900101T123456Z\" modified=\"19900101T123456Z\" />";
+                + " name=\"thisisatextfile.txt\" size=\"2048\""
+                + " created=\"19900101T123456Z\" modified=\"19900101T123456Z\" />";
 
         String expectedNoDates = "<attachment content-type=\"text/plain\" charset=\"ISO-8859-1\""
-                          + " name=\"thisisatextfile.txt\" size=\"2048\" />";
+                + " name=\"thisisatextfile.txt\" size=\"2048\" />";
 
         String expectedNoSizeNoDates = "<attachment content-type=\"text/plain\""
-                          + " charset=\"ISO-8859-1\" name=\"thisisatextfile.txt\" />";
+                + " charset=\"ISO-8859-1\" name=\"thisisatextfile.txt\" />";
 
         String expectedNoCharsetNoDates = "<attachment content-type=\"text/plain\""
-                          + " name=\"thisisatextfile.txt\" size=\"2048\" />";
+                + " name=\"thisisatextfile.txt\" size=\"2048\" />";
 
         String expectedRequiredOnly = "<attachment content-type=\"text/plain\""
                 + " name=\"thisisatextfile.txt\" />";
@@ -288,5 +288,32 @@ public class BipAttachmentFormatTest {
         attachment = new BipAttachmentFormat("text/plain", null, "thisisatextfile.txt", -1, null,
                 null);
         Assert.assertEquals(expectedRequiredOnly, attachment.toString());
+    }
+
+    @Test
+    public void testEquals_withSameInstance() {
+        BipAttachmentFormat attachment = new BipAttachmentFormat("text/plain", null,
+                "thisisatextfile.txt", -1, null, null);
+
+        Assert.assertTrue(attachment.equals(attachment));
+    }
+
+    @Test
+    public void testEquals_withDifferentClass() {
+        BipAttachmentFormat attachment = new BipAttachmentFormat("text/plain", null,
+                "thisisatextfile.txt", -1, null, null);
+        String notAttachment = "notAttachment";
+
+        Assert.assertFalse(attachment.equals(notAttachment));
+    }
+
+    @Test
+    public void testEquals_withSameInfo() {
+        BipAttachmentFormat attachment = new BipAttachmentFormat("text/plain", null,
+                "thisisatextfile.txt", -1, null, null);
+        BipAttachmentFormat attachmentEqual = new BipAttachmentFormat("text/plain", null,
+                "thisisatextfile.txt", -1, null, null);
+
+        Assert.assertTrue(attachment.equals(attachmentEqual));
     }
 }

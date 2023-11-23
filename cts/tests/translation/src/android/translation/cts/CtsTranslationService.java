@@ -64,8 +64,11 @@ public class CtsTranslationService extends TranslationService {
     private final Handler mHandler;
 
     private final CountDownLatch mSessionDestroyedLatch = new CountDownLatch(1);
+    private CountDownLatch mSessionCreatedLatch;
 
     private TranslationContext mTranslationContext;
+
+    private int mLastSessionId;
 
     /**
      * Timeout for Translation cts.
@@ -94,6 +97,7 @@ public class CtsTranslationService extends TranslationService {
             sServiceWatcher.mService = this;
             sServiceWatcher.mConnected.countDown();
         }
+        mSessionCreatedLatch = new CountDownLatch(1);
     }
 
     @Override
@@ -105,14 +109,37 @@ public class CtsTranslationService extends TranslationService {
             sServiceWatcher.mDisconnected.countDown();
             sServiceWatcher = null;
         }
+        mSessionCreatedLatch = null;
+    }
+
+    public void initSessionCreatedLatch() {
+        mSessionCreatedLatch = new CountDownLatch(1);
+    }
+
+    public void waitForSessionCreated() throws Exception {
+        if (mSessionCreatedLatch == null) {
+            throw new AssertionError("Session Latch doesn't set.");
+        }
+        try {
+            boolean reachZeroResult = mSessionCreatedLatch.await(5_000, TimeUnit.MILLISECONDS);
+            if (!reachZeroResult) {
+                throw new AssertionError("Session does not create.");
+            }
+        } finally {
+            mSessionCreatedLatch = null;
+        }
     }
 
     @Override
     public void onCreateTranslationSession(@NonNull TranslationContext translationContext,
             int sessionId, @NonNull Consumer<Boolean> callback) {
-        Log.v(TAG, "onCreateTranslationSession");
+        Log.v(TAG, "onCreateTranslationSession, sessionId: " + sessionId);
         mTranslationContext = translationContext;
+        mLastSessionId = sessionId;
         callback.accept(true);
+        if (mSessionCreatedLatch != null) {
+            mSessionCreatedLatch.countDown();
+        }
     }
 
     @Override
@@ -151,6 +178,10 @@ public class CtsTranslationService extends TranslationService {
         }
         sServiceWatcher = new ServiceWatcher();
         return sServiceWatcher;
+    }
+
+    int getLastSessionId() {
+        return mLastSessionId;
     }
 
     TranslationContext getTranslationContext() {

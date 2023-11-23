@@ -79,12 +79,12 @@ typedef enum acamera_metadata_section_start {
 typedef enum acamera_metadata_tag {
     % for sec in find_all_sections(metadata):
 <%
-      entries = remove_synthetic_or_fwk_only(find_unique_entries(sec))
+      entries = remove_hal_non_visible(find_unique_entries(sec))
       skip_sec = all(e.applied_ndk_visible == "false" for e in entries)
       if skip_sec:
         continue
 %>\
-      % for idx,entry in enumerate(remove_synthetic_or_fwk_only(find_unique_entries(sec))):
+      % for idx,entry in enumerate(remove_hal_non_visible(find_unique_entries(sec))):
         % if entry.applied_ndk_visible == "true":
           % if entry.deprecated:
     ${ndk(entry.name) + " = " | csym,ljust(60)}// Deprecated! DO NOT USE
@@ -134,7 +134,7 @@ ${entry.applied_ndk_details | ndkdoc(metadata)}\
  */
 
 % for sec in find_all_sections(metadata):
-  % for entry in filter_ndk_visible(remove_synthetic_or_fwk_only(find_unique_entries(sec))):
+  % for entry in filter_ndk_visible(remove_hal_non_visible(find_unique_entries(sec))):
     % if entry.enum:
 // ${ndk(entry.name) | csym}
 typedef enum acamera_metadata_enum_${csym(ndk(entry.name)).lower()} {

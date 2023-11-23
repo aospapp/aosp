@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -35,6 +36,14 @@ class DLCUtil(object):
         @param run_func: The function to use to run commands on the client.
                          Defaults for use by client tests, but can be
                          overwritten to run remotely from a server test.
+
+        """
+        self.set_run(run_func)
+
+    def set_run(self, run_func):
+        """Initializes the run function if it has been changed.
+
+        @param run_func: See __init__.
 
         """
         self._run = run_func
@@ -141,4 +150,4 @@ class DLCUtil(object):
         @return True if the DLC is installed, False if it's not.
 
         """
-        return dlc_id in self.list().keys()
+        return dlc_id in self.list()

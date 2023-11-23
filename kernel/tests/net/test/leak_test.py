@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2016 The Android Open Source Project
 #
@@ -43,7 +43,7 @@ class LeakTest(net_test.NetworkTest):
     # testing for a bug where the kernel returns garbage, it's probably safer
     # to call the syscall directly.
     data, addr = csocket.Recvfrom(s, 4096)
-    self.assertEqual("", data)
+    self.assertEqual(b"", data)
     self.assertEqual(None, addr)
 
 
@@ -72,6 +72,7 @@ class ForceSocketBufferOptionTest(net_test.NetworkTest):
     bogusval = 2 ** 31 - val
     s.setsockopt(SOL_SOCKET, force_option, bogusval)
     self.assertLessEqual(minbuf, s.getsockopt(SOL_SOCKET, option))
+    s.close()
 
   def testRcvBufForce(self):
     self.CheckForceSocketBufferOption(SO_RCVBUF, self.SO_RCVBUFFORCE)

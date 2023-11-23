@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_Fingerprint.SoftwareWriteProtect"
 PURPOSE = """
 Verify that software write protect cannot be disabled when hardware write
@@ -20,6 +20,7 @@ TEST_CLASS = "firmware"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING, fingerprint"
 JOB_RETRIES = 0
+PY_VERSION = 3
 
 DOC = """
 Reboots to RO, attempts to disable software write protect while hardware write

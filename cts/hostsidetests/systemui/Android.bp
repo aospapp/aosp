@@ -38,7 +38,7 @@ java_test_host {
         "general-tests",
     ],
     data: [
-        ":CtsSystemUiDeviceApp",
+        ":CtsSystemUiDeviceApp33",
     ],
     per_testcase_directory: true,
 }

@@ -135,7 +135,7 @@
     <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g> amaran belum dibaca"</string>
     <string name="notification_multiple_title" msgid="1523638925739947855">"Amaran baharu"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"Tunjukkan dialog tarik diri selepas memaparkan makluman yang pertama (selain Makluman Presiden)."</string>
-    <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Tunjukkan dialog pilih tidak ikut serta"</string>
+    <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Tunjukkan dialog tarik diri"</string>
     <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"Pada masa ini, anda menerima makluman kecemasan secara wayarles. Adakah anda mahu terus menerima makluman kecemasan secara wayarles?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Ya"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Tidak"</string>

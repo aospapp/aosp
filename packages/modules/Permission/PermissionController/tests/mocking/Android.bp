@@ -46,10 +46,11 @@ android_test {
     libs: [
         "android.test.base",
         "android.test.runner",
+        "safety-center-annotations",
     ],
 
     static_libs: [
-        "iconloader",
+        "iconloader_sc_mainline_prod",
         "com.google.android.material_material",
         "androidx.transition_transition",
         "androidx-constraintlayout_constraintlayout",
@@ -85,6 +86,8 @@ android_test {
         "SettingsLibFooterPreference",
         "SettingsLibSelectorWithWidgetPreference",
         "SettingsLibTwoTargetPreference",
+        "SettingsLibActivityEmbedding",
+        "SettingsLibIllustrationPreference",
         "androidx.annotation_annotation",
         "permissioncontroller-statsd",
         // The PermissionController build file includes android.car-stubs in its libs dependency
@@ -104,6 +107,12 @@ android_test {
         "libprotobuf-java-lite",
         "SettingsLibUtils",
         "modules-utils-build_system",
+        "safety-center-internal-data",
+        "safety-center-pending-intents",
+        "safety-center-resources-lib",
+        "safety-label",
+        "role-controller",
+        "lottie",
 
         "androidx.test.rules",
         "androidx.test.ext.truth",
@@ -111,6 +120,11 @@ android_test {
         "kotlinx_coroutines_test",
         "mockito-target-extended-minus-junit4",
     ],
+
+    proto: {
+        type: "lite",
+        include_dirs: ["packages/modules/Permission/PermissionController/src/com/android/permissioncontroller"],
+    },
 
     jni_libs: [
         "libdexmakerjvmtiagent",

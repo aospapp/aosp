@@ -27,6 +27,7 @@ C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\MSVC\14.
 """
 
 import os
+import itertools
 import subprocess
 import sys
 
@@ -34,7 +35,6 @@ import sys
 def ver_to_tuple(ver_str):
   """Turns '10.1.2' into [10,1,2] so it can be compared using > """
   parts = [int(x) for x in ver_str.split('.')]
-  assert (len(parts) == 4)
   return parts
 
 
@@ -63,9 +63,12 @@ def main():
     filt = lambda x: os.path.exists(os.path.join(x, 'ucrt', 'x64', 'ucrt.lib'))
     out[1] = find_max_subdir(lib_base, filt)
 
-  for version in ['BuildTools', 'Community', 'Professional']:
-    msvc_base = ('C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\'
-                 '{}\\VC\\Tools\\MSVC').format(version)
+  for try_dir in itertools.product(
+      ['2022', '2021', '2020', '2019'],
+      ['BuildTools', 'Community', 'Professional', 'Enterprise', 'Preview'],
+      ['Program Files', 'Program Files (x86)']):
+    msvc_base = (f'C:\\{try_dir[2]}\\Microsoft Visual Studio\\'
+                f'{try_dir[0]}\\{try_dir[1]}\\VC\\Tools\\MSVC')
     if os.path.exists(msvc_base):
       filt = lambda x: os.path.exists(
           os.path.join(x, 'lib', 'x64', 'libcmt.lib'))

@@ -5,7 +5,7 @@
   <parent>
     <groupId>com.google.guava</groupId>
     <artifactId>guava-parent</artifactId>
-    <version>31.0.1-android</version>
+    <version>31.1-android</version>
   </parent>
   <artifactId>guava-testlib</artifactId>
   <name>Guava Testing Library</name>
@@ -17,10 +17,6 @@
     <dependency>
       <groupId>com.google.code.findbugs</groupId>
       <artifactId>jsr305</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.checkerframework</groupId>
-      <artifactId>checker-compat-qual</artifactId>
     </dependency>
     <dependency>
       <groupId>com.google.errorprone</groupId>

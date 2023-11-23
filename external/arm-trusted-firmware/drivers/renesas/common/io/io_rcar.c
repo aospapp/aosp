@@ -151,6 +151,9 @@ int32_t rcar_get_certificate(const int32_t name, uint32_t *cert)
 	return -EINVAL;
 }
 
+#define MFISBTSTSR			(0xE6260604U)
+#define MFISBTSTSR_BOOT_PARTITION	(0x00000010U)
+
 static int32_t file_to_offset(const int32_t name, uintptr_t *offset,
 			      uint32_t *cert, uint32_t *no_load,
 			      uintptr_t *partition)
@@ -169,6 +172,9 @@ static int32_t file_to_offset(const int32_t name, uintptr_t *offset,
 		}
 
 		*offset = rcar_image_header[addr];
+
+		if (mmio_read_32(MFISBTSTSR) & MFISBTSTSR_BOOT_PARTITION)
+			*offset += 0x800000;
 		*cert = RCAR_CERT_SIZE;
 		*cert *= RCAR_ATTR_GET_CERTOFF(name_offset[i].attr);
 		*cert += RCAR_SDRAM_certESS;
@@ -374,7 +380,7 @@ static int32_t load_bl33x(void)
 
 static int32_t rcar_dev_init(io_dev_info_t *dev_info, const uintptr_t name)
 {
-	uint64_t header[64] __aligned(FLASH_TRANS_SIZE_UNIT) = {0UL};
+	static uint64_t header[64] __aligned(FLASH_TRANS_SIZE_UNIT) = {0UL};
 	uintptr_t handle;
 	ssize_t offset;
 	uint32_t i;
@@ -417,14 +423,16 @@ static int32_t rcar_dev_init(io_dev_info_t *dev_info, const uintptr_t name)
 		WARN("Firmware Image Package header failed to seek\n");
 		goto error;
 	}
-#if RCAR_BL2_DCACHE == 1
-	inv_dcache_range((uint64_t) header, sizeof(header));
-#endif
+
 	rc = io_read(handle, (uintptr_t) &header, sizeof(header), &cnt);
 	if (rc != IO_SUCCESS) {
 		WARN("Firmware Image Package header failed to read\n");
 		goto error;
 	}
+
+#if RCAR_BL2_DCACHE == 1
+	inv_dcache_range((uint64_t) header, sizeof(header));
+#endif
 
 	rcar_image_number = header[0];
 	for (i = 0; i < rcar_image_number + 2; i++) {
@@ -434,6 +442,7 @@ static int32_t rcar_dev_init(io_dev_info_t *dev_info, const uintptr_t name)
 
 	if (rcar_image_number == 0 || rcar_image_number > RCAR_MAX_BL3X_IMAGE) {
 		WARN("Firmware Image Package header check failed.\n");
+		rc = IO_FAIL;
 		goto error;
 	}
 
@@ -442,16 +451,18 @@ static int32_t rcar_dev_init(io_dev_info_t *dev_info, const uintptr_t name)
 		WARN("Firmware Image Package header failed to seek cert\n");
 		goto error;
 	}
-#if RCAR_BL2_DCACHE == 1
-	inv_dcache_range(RCAR_SDRAM_certESS,
-			 RCAR_CERT_SIZE * (2 + rcar_image_number));
-#endif
+
 	rc = io_read(handle, RCAR_SDRAM_certESS,
 		     RCAR_CERT_SIZE * (2 + rcar_image_number), &cnt);
 	if (rc != IO_SUCCESS) {
 		WARN("cert file read error.\n");
 		goto error;
 	}
+
+#if RCAR_BL2_DCACHE == 1
+	inv_dcache_range(RCAR_SDRAM_certESS,
+			 RCAR_CERT_SIZE * (2 + rcar_image_number));
+#endif
 
 	rcar_cert_load = RCAR_CERT_LOAD;
 error:

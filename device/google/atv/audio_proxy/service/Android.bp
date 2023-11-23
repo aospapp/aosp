@@ -41,6 +41,7 @@ cc_defaults {
 
   srcs: [
     "AudioProxyImpl.cpp",
+    "AudioUtil.cpp",
     "BusOutputStream.cpp",
     "BusStreamProvider.cpp",
     "DeviceImpl.cpp",
@@ -53,7 +54,7 @@ cc_defaults {
   ],
 
   shared_libs: [
-    "device.google.atv.audio_proxy-aidl-V1-ndk",
+    "device.google.atv.audio_proxy-aidl-V3-ndk",
     "libbase",
     "libbinder_ndk",
     "libhidlbase",

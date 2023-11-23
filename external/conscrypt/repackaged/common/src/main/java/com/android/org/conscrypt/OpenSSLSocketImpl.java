@@ -177,7 +177,8 @@ public abstract class OpenSSLSocketImpl extends AbstractConscryptSocket {
     @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @Override
     @Deprecated
-    public final byte[] getAlpnSelectedProtocol() {
+    public final byte[]
+    getAlpnSelectedProtocol() {
         return SSLUtils.toProtocolBytes(getApplicationProtocol());
     }
 

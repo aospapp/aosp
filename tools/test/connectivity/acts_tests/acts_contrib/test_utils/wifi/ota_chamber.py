@@ -16,6 +16,7 @@
 
 import contextlib
 import io
+import requests
 import serial
 import time
 from acts import logger
@@ -52,6 +53,7 @@ class OtaChamber(object):
     Base class provides functions whose implementation is shared by all
     chambers.
     """
+
     def reset_chamber(self):
         """Resets the chamber to its zero/home state."""
         raise NotImplementedError
@@ -83,6 +85,7 @@ class OtaChamber(object):
 
 class MockChamber(OtaChamber):
     """Class that implements mock chamber for test development and debug."""
+
     def __init__(self, config):
         self.config = config.copy()
         self.device_id = self.config['device_id']
@@ -120,6 +123,7 @@ class MockChamber(OtaChamber):
 
 class OctoboxChamber(OtaChamber):
     """Class that implements Octobox chamber."""
+
     def __init__(self, config):
         self.config = config.copy()
         self.device_id = self.config['device_id']
@@ -129,7 +133,9 @@ class OctoboxChamber(OtaChamber):
         utils.exe_cmd('sudo {} -d {} -i 0'.format(self.TURNTABLE_FILE_PATH,
                                                   self.device_id))
         self.current_mode = None
-        self.SUPPORTED_BANDS = ['2.4GHz', 'UNII-1', 'UNII-2', 'UNII-3', '6GHz']
+        self.SUPPORTED_BANDS = [
+            '2.4GHz', 'UNII-1', 'UNII-2', 'UNII-3', 'UNII-4', '6GHz'
+        ]
 
     def set_orientation(self, orientation):
         self.log.info('Setting orientation to {} degrees.'.format(orientation))
@@ -142,12 +148,49 @@ class OctoboxChamber(OtaChamber):
         self.set_orientation(0)
 
 
+class OctoboxChamberV2(OtaChamber):
+    """Class that implements Octobox chamber."""
+
+    def __init__(self, config):
+        self.config = config.copy()
+        self.address = config['ip_address']
+        self.data = requests.get("http://{}/api/turntable".format(
+            self.address))
+        self.vel_target = '10000'
+        self.current_mode = None
+        self.SUPPORTED_BANDS = [
+            '2.4GHz', 'UNII-1', 'UNII-2', 'UNII-3', 'UNII-4', '6GHz'
+        ]
+        self.log = logger.create_tagged_trace_logger('OtaChamber|{}'.format(
+            self.address))
+
+    def set_orientation(self, orientation):
+        self.log.info('Setting orientation to {} degrees.'.format(orientation))
+        if orientation > 720:
+            raise ValueError('Orientation may not exceed 720.')
+        set_position_submission = {
+            "action": "pos",
+            "enable": "1",
+            "pos_target": orientation,
+            "vel_target": self.vel_target
+        }
+        result = requests.post("http://{}/api/turntable".format(self.address),
+                               json=set_position_submission)
+        self.log.debug(result)
+
+    def reset_chamber(self):
+        self.log.info('Resetting chamber to home state')
+        self.set_orientation(0)
+
+
 class ChamberAutoConnect(object):
+
     def __init__(self, chamber, chamber_config):
         self._chamber = chamber
         self._config = chamber_config
 
     def __getattr__(self, item):
+
         def chamber_call(*args, **kwargs):
             self._chamber.connect(self._config['ip_address'],
                                   self._config['username'],
@@ -159,6 +202,7 @@ class ChamberAutoConnect(object):
 
 class BluetestChamber(OtaChamber):
     """Class that implements Octobox chamber."""
+
     def __init__(self, config):
         import flow
         self.config = config.copy()
@@ -167,7 +211,9 @@ class BluetestChamber(OtaChamber):
         self.chamber = ChamberAutoConnect(flow.Flow(), self.config)
         self.stirrer_ids = [0, 1, 2]
         self.current_mode = None
-        self.SUPPORTED_BANDS = ['2.4GHz', 'UNII-1', 'UNII-2', 'UNII-3']
+        self.SUPPORTED_BANDS = [
+            '2.4GHz', 'UNII-1', 'UNII-2', 'UNII-3', 'UNII-4', '6GHz'
+        ]
 
     # Capture print output decorator
     @staticmethod
@@ -248,6 +294,7 @@ class BluetestChamber(OtaChamber):
 
 class EInstrumentChamber(OtaChamber):
     """Class that implements Einstrument Chamber."""
+
     def __init__(self, config):
         self.config = config.copy()
         self.device_id = self.config['device_id']

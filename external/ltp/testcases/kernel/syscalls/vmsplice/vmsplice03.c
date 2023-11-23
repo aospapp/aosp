@@ -27,7 +27,7 @@ static void vmsplice_test(void)
 	memset(iov->iov_base, 0, iov->iov_len);
 
 	SAFE_PIPE(pipes);
-	SAFE_WRITE(1, pipes[1], buffer, TEST_BLOCK_SIZE);
+	SAFE_WRITE(SAFE_WRITE_ALL, pipes[1], buffer, TEST_BLOCK_SIZE);
 	written = vmsplice(pipes[0], iov, 1, 0);
 
 	if (written < 0)
@@ -62,7 +62,6 @@ static void setup(void)
 static struct tst_test test = {
 	.setup = setup,
 	.test_all = vmsplice_test,
-	.min_kver = "2.6.23",
 	.bufs = (struct tst_buffers []) {
 		{&iov, .iov_sizes = (int[]){TEST_BLOCK_SIZE, -1}},
 		{}

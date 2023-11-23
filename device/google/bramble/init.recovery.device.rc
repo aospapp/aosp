@@ -3,6 +3,7 @@ on fs
     symlink /dev/block/platform/soc/${ro.boot.bootdevice} /dev/block/bootdevice
 
 on init
+    wait /sys/devices/platform/soc/a600000.ssusb/a600000.dwc3/driver 10
     setprop sys.usb.configfs 1
     # Don't lose recovery logs- keep warm reset for coming out of recovery.
     write /sys/module/msm_poweroff/parameters/warm_reset 1

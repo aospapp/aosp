@@ -26,12 +26,12 @@ namespace le_audio {
 namespace client_parser {
 namespace pacs {
 
-TEST(LeAudioClientParserTest, testParsePacInvalidLength) {
+TEST(LeAudioClientParserTest, testParsePacsInvalidLength) {
   std::vector<struct types::acs_ac_record> pac_recs;
 
   const uint8_t invalid_num_records[] = {0x01};
   ASSERT_FALSE(
-      ParsePac(pac_recs, sizeof(invalid_num_records), invalid_num_records));
+      ParsePacs(pac_recs, sizeof(invalid_num_records), invalid_num_records));
 
   const uint8_t no_caps_len[] = {
       // Num records
@@ -43,7 +43,7 @@ TEST(LeAudioClientParserTest, testParsePacInvalidLength) {
       0x04,
       0x05,
   };
-  ASSERT_FALSE(ParsePac(pac_recs, sizeof(no_caps_len), no_caps_len));
+  ASSERT_FALSE(ParsePacs(pac_recs, sizeof(no_caps_len), no_caps_len));
 
   const uint8_t no_metalen[] = {
       // Num records
@@ -57,17 +57,17 @@ TEST(LeAudioClientParserTest, testParsePacInvalidLength) {
       // Codec Spec. Caps. Len
       0x00,
   };
-  ASSERT_FALSE(ParsePac(pac_recs, sizeof(no_metalen), no_metalen));
+  ASSERT_FALSE(ParsePacs(pac_recs, sizeof(no_metalen), no_metalen));
 }
 
-TEST(LeAudioClientParserTest, testParsePacEmpty) {
+TEST(LeAudioClientParserTest, testParsePacsEmpty) {
   std::vector<struct types::acs_ac_record> pac_recs;
   const uint8_t value[] = {0x00};
 
-  ASSERT_TRUE(ParsePac(pac_recs, sizeof(value), value));
+  ASSERT_TRUE(ParsePacs(pac_recs, sizeof(value), value));
 }
 
-TEST(LeAudioClientParserTest, testParsePacEmptyCapsEmptyMeta) {
+TEST(LeAudioClientParserTest, testParsePacsEmptyCapsEmptyMeta) {
   std::vector<struct types::acs_ac_record> pac_recs;
 
   const uint8_t value[] = {
@@ -84,7 +84,7 @@ TEST(LeAudioClientParserTest, testParsePacEmptyCapsEmptyMeta) {
       // Metadata Length
       0x00,
   };
-  ASSERT_TRUE(ParsePac(pac_recs, sizeof(value), value));
+  ASSERT_TRUE(ParsePacs(pac_recs, sizeof(value), value));
 
   ASSERT_EQ(pac_recs.size(), 1u);
   ASSERT_EQ(pac_recs[0].codec_id.coding_format, 0x01u);
@@ -92,7 +92,7 @@ TEST(LeAudioClientParserTest, testParsePacEmptyCapsEmptyMeta) {
   ASSERT_EQ(pac_recs[0].codec_id.vendor_codec_id, 0x0405u);
 }
 
-TEST(LeAudioClientParserTest, testParsePacInvalidCapsLen) {
+TEST(LeAudioClientParserTest, testParsePacsInvalidCapsLen) {
   std::vector<struct types::acs_ac_record> pac_recs;
 
   const uint8_t bad_capslem[] = {
@@ -117,7 +117,7 @@ TEST(LeAudioClientParserTest, testParsePacInvalidCapsLen) {
       // Metadata Length
       0x00,
   };
-  ASSERT_FALSE(ParsePac(pac_recs, sizeof(bad_capslem), bad_capslem));
+  ASSERT_FALSE(ParsePacs(pac_recs, sizeof(bad_capslem), bad_capslem));
 
   std::vector<struct types::acs_ac_record> pac_recs2;
 
@@ -143,10 +143,10 @@ TEST(LeAudioClientParserTest, testParsePacInvalidCapsLen) {
       // Metadata Length
       0x00,
   };
-  ASSERT_FALSE(ParsePac(pac_recs2, sizeof(bad_capslen2), bad_capslen2));
+  ASSERT_FALSE(ParsePacs(pac_recs2, sizeof(bad_capslen2), bad_capslen2));
 }
 
-TEST(LeAudioClientParserTest, testParsePacInvalidCapsLtvLen) {
+TEST(LeAudioClientParserTest, testParsePacsInvalidCapsLtvLen) {
   std::vector<struct types::acs_ac_record> pac_recs;
 
   const uint8_t bad_ltv_len[] = {
@@ -171,7 +171,7 @@ TEST(LeAudioClientParserTest, testParsePacInvalidCapsLtvLen) {
       // Metadata Length
       0x00,
   };
-  ASSERT_FALSE(ParsePac(pac_recs, sizeof(bad_ltv_len), bad_ltv_len));
+  ASSERT_FALSE(ParsePacs(pac_recs, sizeof(bad_ltv_len), bad_ltv_len));
 
   const uint8_t bad_ltv_len2[] = {
       // Num records
@@ -195,10 +195,10 @@ TEST(LeAudioClientParserTest, testParsePacInvalidCapsLtvLen) {
       // Metadata Length
       0x00,
   };
-  ASSERT_FALSE(ParsePac(pac_recs, sizeof(bad_ltv_len2), bad_ltv_len2));
+  ASSERT_FALSE(ParsePacs(pac_recs, sizeof(bad_ltv_len2), bad_ltv_len2));
 }
 
-TEST(LeAudioClientParserTest, testParsePacNullLtv) {
+TEST(LeAudioClientParserTest, testParsePacsNullLtv) {
   std::vector<struct types::acs_ac_record> pac_recs;
 
   const uint8_t value[] = {
@@ -226,7 +226,7 @@ TEST(LeAudioClientParserTest, testParsePacNullLtv) {
       // Metadata Length
       0x00,
   };
-  ASSERT_TRUE(ParsePac(pac_recs, sizeof(value), value));
+  ASSERT_TRUE(ParsePacs(pac_recs, sizeof(value), value));
 
   ASSERT_EQ(pac_recs.size(), 1u);
   ASSERT_EQ(pac_recs[0].codec_id.coding_format, 0x01u);
@@ -246,7 +246,7 @@ TEST(LeAudioClientParserTest, testParsePacNullLtv) {
   ASSERT_EQ(codec_spec_caps[0x04u].size(), 0u);
 }
 
-TEST(LeAudioClientParserTest, testParsePacEmptyMeta) {
+TEST(LeAudioClientParserTest, testParsePacsEmptyMeta) {
   std::vector<struct types::acs_ac_record> pac_recs;
 
   const uint8_t value[] = {
@@ -271,7 +271,7 @@ TEST(LeAudioClientParserTest, testParsePacEmptyMeta) {
       // Metadata Length
       0x00,
   };
-  ASSERT_TRUE(ParsePac(pac_recs, sizeof(value), value));
+  ASSERT_TRUE(ParsePacs(pac_recs, sizeof(value), value));
 
   ASSERT_EQ(pac_recs.size(), 1u);
   ASSERT_EQ(pac_recs[0].codec_id.coding_format, 0x01u);
@@ -289,7 +289,7 @@ TEST(LeAudioClientParserTest, testParsePacEmptyMeta) {
   ASSERT_EQ(codec_spec_caps[0x03u][1], 0x05u);
 }
 
-TEST(LeAudioClientParserTest, testParsePacInvalidMetaLength) {
+TEST(LeAudioClientParserTest, testParsePacsInvalidMetaLength) {
   std::vector<struct types::acs_ac_record> pac_recs;
 
   const uint8_t value[] = {
@@ -315,10 +315,10 @@ TEST(LeAudioClientParserTest, testParsePacInvalidMetaLength) {
       0x01,  // [0].value[0]
       0x00,  // [0].value[1]
   };
-  ASSERT_FALSE(ParsePac(pac_recs, sizeof(value), value));
+  ASSERT_FALSE(ParsePacs(pac_recs, sizeof(value), value));
 }
 
-TEST(LeAudioClientParserTest, testParsePacValidMeta) {
+TEST(LeAudioClientParserTest, testParsePacsValidMeta) {
   std::vector<struct types::acs_ac_record> pac_recs;
 
   const uint8_t value[] = {
@@ -344,7 +344,7 @@ TEST(LeAudioClientParserTest, testParsePacValidMeta) {
       0x01,  // [0].value[0]
       0x00,  // [0].value[1]
   };
-  ASSERT_TRUE(ParsePac(pac_recs, sizeof(value), value));
+  ASSERT_TRUE(ParsePacs(pac_recs, sizeof(value), value));
 
   ASSERT_EQ(pac_recs.size(), 1u);
   ASSERT_EQ(pac_recs[0].codec_id.coding_format, 0x01u);
@@ -368,7 +368,7 @@ TEST(LeAudioClientParserTest, testParsePacValidMeta) {
   ASSERT_EQ(pac_recs[0].metadata[3], 0x00u);
 }
 
-TEST(LeAudioClientParserTest, testParsePacInvalidNumRecords) {
+TEST(LeAudioClientParserTest, testParsePacsInvalidNumRecords) {
   std::vector<struct types::acs_ac_record> pac_recs;
 
   const uint8_t value[] = {
@@ -394,10 +394,10 @@ TEST(LeAudioClientParserTest, testParsePacInvalidNumRecords) {
       0x01,  // [0].value[0]
       0x00,  // [0].value[1]
   };
-  ASSERT_FALSE(ParsePac(pac_recs, sizeof(value), value));
+  ASSERT_FALSE(ParsePacs(pac_recs, sizeof(value), value));
 }
 
-TEST(LeAudioClientParserTest, testParsePacMultipleRecords) {
+TEST(LeAudioClientParserTest, testParsePacsMultipleRecords) {
   std::vector<struct types::acs_ac_record> pac_recs;
 
   const uint8_t value[] = {
@@ -444,7 +444,7 @@ TEST(LeAudioClientParserTest, testParsePacMultipleRecords) {
       0x11,  // [0].value[0]
       0x10,  // [0].value[1]
   };
-  ASSERT_TRUE(ParsePac(pac_recs, sizeof(value), value));
+  ASSERT_TRUE(ParsePacs(pac_recs, sizeof(value), value));
   ASSERT_EQ(pac_recs.size(), 3u);
 
   // Verify 1st record
@@ -530,8 +530,8 @@ TEST(LeAudioClientParserTest, testParseAvailableAudioContextsInvalidLength) {
   };
 
   ParseAvailableAudioContexts(avail_contexts, sizeof(value1), value1);
-  ASSERT_EQ(avail_contexts.snk_avail_cont, 0u);
-  ASSERT_EQ(avail_contexts.src_avail_cont, 0u);
+  ASSERT_EQ(avail_contexts.snk_avail_cont.value(), 0u);
+  ASSERT_EQ(avail_contexts.src_avail_cont.value(), 0u);
 }
 
 TEST(LeAudioClientParserTest, testParseAvailableAudioContexts) {
@@ -546,8 +546,8 @@ TEST(LeAudioClientParserTest, testParseAvailableAudioContexts) {
   };
 
   ParseAvailableAudioContexts(avail_contexts, sizeof(value1), value1);
-  ASSERT_EQ(avail_contexts.snk_avail_cont, 0x0201u);
-  ASSERT_EQ(avail_contexts.src_avail_cont, 0x0403u);
+  ASSERT_EQ(avail_contexts.snk_avail_cont.value(), 0x0201u);
+  ASSERT_EQ(avail_contexts.src_avail_cont.value(), 0x0403u);
 }
 
 TEST(LeAudioClientParserTest, testParseSupportedAudioContextsInvalidLength) {
@@ -559,8 +559,8 @@ TEST(LeAudioClientParserTest, testParseSupportedAudioContextsInvalidLength) {
   };
 
   ParseSupportedAudioContexts(supp_contexts, sizeof(value1), value1);
-  ASSERT_EQ(supp_contexts.snk_supp_cont, 0u);
-  ASSERT_EQ(supp_contexts.src_supp_cont, 0u);
+  ASSERT_EQ(supp_contexts.snk_supp_cont.value(), 0u);
+  ASSERT_EQ(supp_contexts.src_supp_cont.value(), 0u);
 }
 
 TEST(LeAudioClientParserTest, testParseSupportedAudioContexts) {
@@ -575,8 +575,8 @@ TEST(LeAudioClientParserTest, testParseSupportedAudioContexts) {
   };
 
   ParseSupportedAudioContexts(supp_contexts, sizeof(value1), value1);
-  ASSERT_EQ(supp_contexts.snk_supp_cont, 0x0201u);
-  ASSERT_EQ(supp_contexts.src_supp_cont, 0x0403u);
+  ASSERT_EQ(supp_contexts.snk_supp_cont.value(), 0x0201u);
+  ASSERT_EQ(supp_contexts.src_supp_cont.value(), 0x0403u);
 }
 
 }  // namespace pacs
@@ -1030,6 +1030,70 @@ TEST(LeAudioClientParserTest, testParseAseCtpNotification) {
   ASSERT_EQ(ntf.entries[1].ase_id, 0x03u);
   ASSERT_EQ(ntf.entries[1].response_code, 0x02u);
   ASSERT_EQ(ntf.entries[1].reason, 0x03);
+}
+
+TEST(LeAudioClientParserTest, testParseAseCtpNotificationConfigurationIssue) {
+  ctp_ntf ntf;
+  const uint8_t value1[] = {
+      // Opcode
+      0x01,
+      // Number of ASEs
+      0x02,
+      // ASE ID
+      0x01,
+      // Response Code
+      0x07,
+      // Reason
+      0x01,
+      // ASE ID
+      0x03,
+      // Response Code
+      0x05,
+      // Reason
+      0x05,
+  };
+  ParseAseCtpNotification(ntf, sizeof(value1), value1);
+
+  ASSERT_EQ(ntf.op, 0x01u);
+  ASSERT_EQ(ntf.entries.size(), 2u);
+  ASSERT_EQ(ntf.entries[0].ase_id, 0x01u);
+  ASSERT_EQ(ntf.entries[0].response_code, 0x07u);
+  ASSERT_EQ(ntf.entries[0].reason, 0x01);
+  ASSERT_EQ(ntf.entries[1].ase_id, 0x03u);
+  ASSERT_EQ(ntf.entries[1].response_code, 0x05u);
+  ASSERT_EQ(ntf.entries[1].reason, 0x05);
+}
+
+TEST(LeAudioClientParserTest, testParseAseCtpNotificationMetadataIssue) {
+  ctp_ntf ntf;
+  const uint8_t value1[] = {
+      // Opcode
+      0x01,
+      // Number of ASEs
+      0x02,
+      // ASE ID
+      0x01,
+      // Response Code
+      0x0A,
+      // Reason
+      0x01,
+      // ASE ID
+      0x03,
+      // Response Code
+      0x0D,
+      // Reason
+      0xFF,
+  };
+  ParseAseCtpNotification(ntf, sizeof(value1), value1);
+
+  ASSERT_EQ(ntf.op, 0x01u);
+  ASSERT_EQ(ntf.entries.size(), 2u);
+  ASSERT_EQ(ntf.entries[0].ase_id, 0x01u);
+  ASSERT_EQ(ntf.entries[0].response_code, 0x0Au);
+  ASSERT_EQ(ntf.entries[0].reason, 0x01);
+  ASSERT_EQ(ntf.entries[1].ase_id, 0x03u);
+  ASSERT_EQ(ntf.entries[1].response_code, 0x0Du);
+  ASSERT_EQ(ntf.entries[1].reason, 0xFF);
 }
 
 TEST(LeAudioClientParserTest, testPrepareAseCtpCodecConfigEmpty) {
@@ -1644,6 +1708,26 @@ TEST(LeAudioClientParserTest, testPrepareAseCtpReleaseMultiple) {
 }
 
 }  // namespace ascs
+
+namespace tmap {
+
+TEST(LeAudioClientParserTest, testParseTmapRoleValid) {
+  std::bitset<16> role;
+  const uint8_t value[] = {0x3F, 0x00};
+
+  ASSERT_TRUE(ParseTmapRole(role, 2, value));
+
+  ASSERT_EQ(role, 0x003F);  // All possible TMAP roles
+}
+
+TEST(LeAudioClientParserTest, testParseTmapRoleInvalidLen) {
+  std::bitset<16> role;
+  const uint8_t value[] = {0x00, 0x3F};
+
+  ASSERT_FALSE(ParseTmapRole(role, 3, value));
+}
+
+}  // namespace tmap
 
 }  // namespace client_parser
 }  // namespace le_audio

@@ -12,5 +12,3 @@ of processes and the system:
   - override the maximum number of consoles for console
     allocation
   - override the maximum number of keymaps
-
-  

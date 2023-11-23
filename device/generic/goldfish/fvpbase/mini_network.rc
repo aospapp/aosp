@@ -16,4 +16,5 @@
 
 service mini_network /system/bin/mini_network.sh
     class core
+    user root
     oneshot

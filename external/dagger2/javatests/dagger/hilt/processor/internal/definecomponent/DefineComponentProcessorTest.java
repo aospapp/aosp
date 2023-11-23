@@ -22,7 +22,6 @@ import static com.google.testing.compile.Compiler.javac;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
-import dagger.hilt.processor.internal.GeneratedImport;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -67,9 +66,6 @@ public final class DefineComponentProcessorTest {
             "dagger.hilt.processor.internal.definecomponent.codegen._test_FooComponent",
             "package dagger.hilt.processor.internal.definecomponent.codegen;",
             "",
-            "import dagger.hilt.internal.definecomponent.DefineComponentClasses;",
-            GeneratedImport.IMPORT_GENERATED_ANNOTATION,
-            "",
             "@DefineComponentClasses(component = \"test.FooComponent\")",
             "@Generated(\"" + DefineComponentProcessor.class.getName() + "\")",
             "public class _test_FooComponent {}");
@@ -79,9 +75,6 @@ public final class DefineComponentProcessorTest {
             "dagger.hilt.processor.internal.definecomponent.codegen._test_FooComponentBuilder",
             "package dagger.hilt.processor.internal.definecomponent.codegen;",
             "",
-            "import dagger.hilt.internal.definecomponent.DefineComponentClasses;",
-            GeneratedImport.IMPORT_GENERATED_ANNOTATION,
-            "",
             "@DefineComponentClasses(builder = \"test.FooComponentBuilder\")",
             "@Generated(\"" + DefineComponentProcessor.class.getName() + "\")",
             "public class _test_FooComponentBuilder {}");
@@ -90,10 +83,10 @@ public final class DefineComponentProcessorTest {
     assertThat(compilation).succeeded();
     assertThat(compilation)
         .generatedSourceFile(sourceName(componentOutput))
-        .hasSourceEquivalentTo(componentOutput);
+        .containsElementsIn(componentOutput);
     assertThat(compilation)
         .generatedSourceFile(sourceName(builderOutput))
-        .hasSourceEquivalentTo(builderOutput);
+        .containsElementsIn(builderOutput);
   }
 
   private static String sourceName(JavaFileObject fileObject) {

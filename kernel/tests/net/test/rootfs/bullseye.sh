@@ -24,7 +24,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 
 setup_static_networking
 
-update_apt_sources bullseye
+update_apt_sources bullseye ""
 
 # Disable the root password
 passwd -d root

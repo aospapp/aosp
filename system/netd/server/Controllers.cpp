@@ -131,7 +131,7 @@ std::set<std::string> Controllers::findExistingChildChains(const IptablesTarget 
     std::string command = StringPrintf("*%s\n-S %s\nCOMMIT\n", table, parentChain);
     std::string output;
     if (Controllers::execIptablesRestoreWithOutput(target, command, &output) == -1) {
-        ALOGE("Error listing chain %s in table %s\n", parentChain, table);
+        ALOGE("Error listing chain %s in table %s", parentChain, table);
         return existing;
     }
 

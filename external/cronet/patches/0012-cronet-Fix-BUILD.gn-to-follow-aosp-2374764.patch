@@ -1,0 +1,29 @@
+From 7a871369b2d797e001b6baa8faa250ad161dc8e6 Mon Sep 17 00:00:00 2001
+From: Motomu Utsumi <motomuman@google.com>
+Date: Thu, 12 Jan 2023 14:59:53 +0900
+Subject: [PATCH] cronet: Fix BUILD.gn to follow aosp/2374764
+
+aosp/2374764 moved ApiVersion.template file.
+This CL update the BUILD.gn to use the updated path
+
+Test: gn gen
+---
+ components/cronet/android/BUILD.gn | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/components/cronet/android/BUILD.gn b/components/cronet/android/BUILD.gn
+index d6053130db515..0179f7a762686 100644
+--- a/components/cronet/android/BUILD.gn
++++ b/components/cronet/android/BUILD.gn
+@@ -103,7 +103,7 @@ _interface_api_level = read_file("interface_api_version.txt", "value")
+ 
+ process_version("interface_api_version") {
+   process_only = true
+-  template_file = "api/src/org/chromium/net/ApiVersion.template"
++  template_file = "api/src/android/net/http/ApiVersion.template"
+   sources = [
+     "//chrome/VERSION",
+     lastchange_file,
+-- 
+2.39.0.314.g84b9a713c41-goog
+

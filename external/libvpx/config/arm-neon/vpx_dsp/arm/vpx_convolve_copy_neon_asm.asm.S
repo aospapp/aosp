@@ -1,6 +1,6 @@
 @ This file was created from a .asm file
 @  using the ads2gas.pl script.
-	.syntax unified
+.syntax unified
 @
 @  Copyright (c) 2013 The WebM project authors. All Rights Reserved.
 @
@@ -11,17 +11,16 @@
 @  be found in the AUTHORS file in the root of the source tree.
 @
 
-    .global vpx_convolve_copy_neon 
-	.type vpx_convolve_copy_neon, function
-   .arm
-   .eabi_attribute 24, 1 @Tag_ABI_align_needed
-   .eabi_attribute 25, 1 @Tag_ABI_align_preserved
+    .global vpx_convolve_copy_neon
+    .type vpx_convolve_copy_neon, function
+    .arm
+    .eabi_attribute 24, 1 @Tag_ABI_align_needed
+    .eabi_attribute 25, 1 @Tag_ABI_align_preserved
 
-.text
-.p2align 2
+    .text
+    .p2align 2
 
-_vpx_convolve_copy_neon:
-	vpx_convolve_copy_neon: @ PROC
+vpx_convolve_copy_neon: @ PROC
     push                {r4-r5, lr}
     ldrd                r4, r5, [sp, #32]
 
@@ -85,6 +84,6 @@ copy4:
     subs                r5, r5, #1
     bgt                 copy4
     pop                 {r4-r5, pc}
-	.size vpx_convolve_copy_neon, .-vpx_convolve_copy_neon    @ ENDP
+.size vpx_convolve_copy_neon, .-vpx_convolve_copy_neon    @ ENDP
 
-	.section	.note.GNU-stack,"",%progbits
+    .section .note.GNU-stack,"",%progbits

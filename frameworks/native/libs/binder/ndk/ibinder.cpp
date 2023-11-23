@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
+#include <android-base/logging.h>
 #include <android/binder_ibinder.h>
 #include <android/binder_ibinder_platform.h>
-#include <android/binder_libbinder.h>
-#include "ibinder_internal.h"
-
 #include <android/binder_stability.h>
 #include <android/binder_status.h>
-#include "parcel_internal.h"
-#include "status_internal.h"
-
-#include <android-base/logging.h>
 #include <binder/IPCThreadState.h>
 #include <binder/IResultReceiver.h>
 #include <private/android_filesystem_config.h>
+
+#include "ibinder_internal.h"
+#include "parcel_internal.h"
+#include "status_internal.h"
 
 using DeathRecipient = ::android::IBinder::DeathRecipient;
 
@@ -36,6 +34,7 @@ using ::android::IResultReceiver;
 using ::android::Parcel;
 using ::android::sp;
 using ::android::status_t;
+using ::android::statusToString;
 using ::android::String16;
 using ::android::String8;
 using ::android::wp;
@@ -63,6 +62,9 @@ struct Value {
     wp<ABpBinder> binder;
 };
 void clean(const void* id, void* obj, void* cookie) {
+    // be weary of leaks!
+    // LOG(INFO) << "Deleting an ABpBinder";
+
     CHECK(id == kId) << id << " " << obj << " " << cookie;
 
     delete static_cast<Value*>(obj);
@@ -73,12 +75,48 @@ void clean(const void* id, void* obj, void* cookie) {
 AIBinder::AIBinder(const AIBinder_Class* clazz) : mClazz(clazz) {}
 AIBinder::~AIBinder() {}
 
-std::optional<bool> AIBinder::associateClassInternal(const AIBinder_Class* clazz,
-                                                     const String16& newDescriptor, bool set) {
+// b/175635923 libcxx causes "implicit-conversion" with a string with invalid char
+static std::string SanitizeString(const String16& str) {
+    std::string sanitized{String8(str)};
+    for (auto& c : sanitized) {
+        if (!isprint(c)) {
+            c = '?';
+        }
+    }
+    return sanitized;
+}
+
+bool AIBinder::associateClass(const AIBinder_Class* clazz) {
+    if (clazz == nullptr) return false;
+
+    // If mClazz is non-null, this must have been called and cached
+    // already. So, we can safely call this first. Due to the implementation
+    // of getInterfaceDescriptor (at time of writing), two simultaneous calls
+    // may lead to extra binder transactions, but this is expected to be
+    // exceedingly rare. Once we have a binder, when we get it again later,
+    // we won't make another binder transaction here.
+    const String16& descriptor = getBinder()->getInterfaceDescriptor();
+    const String16& newDescriptor = clazz->getInterfaceDescriptor();
+
     std::lock_guard<std::mutex> lock(mClazzMutex);
     if (mClazz == clazz) return true;
 
-    if (mClazz != nullptr) {
+    // If this is an ABpBinder, the first class object becomes the canonical one. The implication
+    // of this is that no API can require a proxy information to get information on how to behave.
+    // from the class itself - which should only store the interface descriptor. The functionality
+    // should be implemented by adding AIBinder_* APIs to set values on binders themselves, by
+    // setting things on AIBinder_Class which get transferred along with the binder, so that they
+    // can be read along with the BpBinder, or by modifying APIs directly (e.g. an option in
+    // onTransact).
+    //
+    // While this check is required to support linkernamespaces, one downside of it is that
+    // you may parcel code to communicate between things in the same process. However, comms
+    // between linkernamespaces like this already happen for cross-language calls like Java<->C++
+    // or Rust<->Java, and there are good stability guarantees here. This interacts with
+    // binder Stability checks exactly like any other in-process call. The stability is known
+    // to the IBinder object, so that it doesn't matter if a class object comes from
+    // a different stability level.
+    if (mClazz != nullptr && !asABpBinder()) {
         const String16& currentDescriptor = mClazz->getInterfaceDescriptor();
         if (newDescriptor == currentDescriptor) {
             LOG(ERROR) << __func__ << ": Class descriptors '" << currentDescriptor
@@ -95,37 +133,10 @@ std::optional<bool> AIBinder::associateClassInternal(const AIBinder_Class* clazz
         return false;
     }
 
-    if (set) {
-        // if this is a local object, it's not one known to libbinder_ndk
-        mClazz = clazz;
-        return true;
-    }
-
-    return {};
-}
-
-// b/175635923 libcxx causes "implicit-conversion" with a string with invalid char
-static std::string SanitizeString(const String16& str) {
-    std::string sanitized{String8(str)};
-    for (auto& c : sanitized) {
-        if (!isprint(c)) {
-            c = '?';
-        }
-    }
-    return sanitized;
-}
-
-bool AIBinder::associateClass(const AIBinder_Class* clazz) {
-    if (clazz == nullptr) return false;
-
-    const String16& newDescriptor = clazz->getInterfaceDescriptor();
-
-    auto result = associateClassInternal(clazz, newDescriptor, false);
-    if (result.has_value()) return *result;
-
-    CHECK(asABpBinder() != nullptr);  // ABBinder always has a descriptor
-
-    const String16& descriptor = getBinder()->getInterfaceDescriptor();
+    // This will always be an O(n) comparison, but it's expected to be extremely rare.
+    // since it's an error condition. Do the comparison after we take the lock and
+    // check the pointer equality fast path. By always taking the lock, it's also
+    // more flake-proof. However, the check is not dependent on the lock.
     if (descriptor != newDescriptor) {
         if (getBinder()->isBinderAlive()) {
             LOG(ERROR) << __func__ << ": Expecting binder to have class '" << newDescriptor
@@ -133,12 +144,20 @@ bool AIBinder::associateClass(const AIBinder_Class* clazz) {
         } else {
             // b/155793159
             LOG(ERROR) << __func__ << ": Cannot associate class '" << newDescriptor
-                       << "' to dead binder.";
+                       << "' to dead binder with cached descriptor '" << SanitizeString(descriptor)
+                       << "'.";
         }
         return false;
     }
 
-    return associateClassInternal(clazz, newDescriptor, true).value();
+    // A local binder being set for the first time OR
+    // ignoring a proxy binder which is set multiple time, by considering the first
+    // associated class as the canonical one.
+    if (mClazz == nullptr) {
+        mClazz = clazz;
+    }
+
+    return true;
 }
 
 ABBinder::ABBinder(const AIBinder_Class* clazz, void* userData)
@@ -237,25 +256,10 @@ status_t ABBinder::onTransact(transaction_code_t code, const Parcel& data, Parce
 }
 
 ABpBinder::ABpBinder(const ::android::sp<::android::IBinder>& binder)
-    : AIBinder(nullptr /*clazz*/), BpRefBase(binder) {
+    : AIBinder(nullptr /*clazz*/), mRemote(binder) {
     CHECK(binder != nullptr);
 }
 ABpBinder::~ABpBinder() {}
-
-void ABpBinder::onLastStrongRef(const void* id) {
-    // Since ABpBinder is OBJECT_LIFETIME_WEAK, we must remove this weak reference in order for
-    // the ABpBinder to be deleted. Even though we have no more references on the ABpBinder
-    // (BpRefBase), the remote object may still exist (for instance, if we
-    // receive it from another process, before the ABpBinder is attached).
-
-    ABpBinderTag::Value* value =
-            static_cast<ABpBinderTag::Value*>(remote()->findObject(ABpBinderTag::kId));
-    CHECK_NE(nullptr, value) << "ABpBinder must always be attached";
-
-    remote()->withLock([&]() { value->binder = nullptr; });
-
-    BpRefBase::onLastStrongRef(id);
-}
 
 sp<AIBinder> ABpBinder::lookupOrCreateFromBinder(const ::android::sp<::android::IBinder>& binder) {
     if (binder == nullptr) {
@@ -337,6 +341,10 @@ bool AIBinder_Weak_lt(const AIBinder_Weak* lhs, const AIBinder_Weak* rhs) {
     return lhs->binder < rhs->binder;
 }
 
+// WARNING: When multiple classes exist with the same interface descriptor in different
+// linkernamespaces, the first one to be associated with mClazz becomes the canonical one
+// and the only requirement on this is that the interface descriptors match. If this
+// is an ABpBinder, no other state can be referenced from mClazz.
 AIBinder_Class::AIBinder_Class(const char* interfaceDescriptor, AIBinder_Class_onCreate onCreate,
                                AIBinder_Class_onDestroy onDestroy,
                                AIBinder_Class_onTransact onTransact)
@@ -458,7 +466,8 @@ binder_status_t AIBinder_DeathRecipient::unlinkToDeath(const sp<IBinder>& binder
             status_t status = binder->unlinkToDeath(recipient, cookie, 0 /*flags*/);
             if (status != ::android::OK) {
                 LOG(ERROR) << __func__
-                           << ": removed reference to death recipient but unlink failed.";
+                           << ": removed reference to death recipient but unlink failed: "
+                           << statusToString(status);
             }
             return PruneStatusT(status);
         }
@@ -539,7 +548,8 @@ binder_status_t AIBinder_dump(AIBinder* binder, int fd, const char** args, uint3
 binder_status_t AIBinder_linkToDeath(AIBinder* binder, AIBinder_DeathRecipient* recipient,
                                      void* cookie) {
     if (binder == nullptr || recipient == nullptr) {
-        LOG(ERROR) << __func__ << ": Must provide binder and recipient.";
+        LOG(ERROR) << __func__ << ": Must provide binder (" << binder << ") and recipient ("
+                   << recipient << ")";
         return STATUS_UNEXPECTED_NULL;
     }
 
@@ -550,7 +560,8 @@ binder_status_t AIBinder_linkToDeath(AIBinder* binder, AIBinder_DeathRecipient* 
 binder_status_t AIBinder_unlinkToDeath(AIBinder* binder, AIBinder_DeathRecipient* recipient,
                                        void* cookie) {
     if (binder == nullptr || recipient == nullptr) {
-        LOG(ERROR) << __func__ << ": Must provide binder and recipient.";
+        LOG(ERROR) << __func__ << ": Must provide binder (" << binder << ") and recipient ("
+                   << recipient << ")";
         return STATUS_UNEXPECTED_NULL;
     }
 
@@ -625,7 +636,8 @@ void* AIBinder_getUserData(AIBinder* binder) {
 
 binder_status_t AIBinder_prepareTransaction(AIBinder* binder, AParcel** in) {
     if (binder == nullptr || in == nullptr) {
-        LOG(ERROR) << __func__ << ": requires non-null parameters.";
+        LOG(ERROR) << __func__ << ": requires non-null parameters binder (" << binder
+                   << ") and in (" << in << ").";
         return STATUS_UNEXPECTED_NULL;
     }
     const AIBinder_Class* clazz = binder->getClass();
@@ -640,6 +652,10 @@ binder_status_t AIBinder_prepareTransaction(AIBinder* binder, AParcel** in) {
     (*in)->get()->markForBinder(binder->getBinder());
 
     status_t status = android::OK;
+
+    // note - this is the only read of a value in clazz, and it comes with a warning
+    // on the API itself. Do not copy this design. Instead, attach data in a new
+    // version of the prepareTransaction function.
     if (clazz->writeHeader) {
         status = (*in)->get()->writeInterfaceToken(clazz->getInterfaceDescriptor());
     }
@@ -671,7 +687,9 @@ binder_status_t AIBinder_transact(AIBinder* binder, transaction_code_t code, APa
     AutoParcelDestroyer forIn(in, DestroyParcel);
 
     if (!isUserCommand(code)) {
-        LOG(ERROR) << __func__ << ": Only user-defined transactions can be made from the NDK.";
+        LOG(ERROR) << __func__
+                   << ": Only user-defined transactions can be made from the NDK, but requested: "
+                   << code;
         return STATUS_UNKNOWN_TRANSACTION;
     }
 
@@ -682,7 +700,8 @@ binder_status_t AIBinder_transact(AIBinder* binder, transaction_code_t code, APa
     }
 
     if (binder == nullptr || *in == nullptr || out == nullptr) {
-        LOG(ERROR) << __func__ << ": requires non-null parameters.";
+        LOG(ERROR) << __func__ << ": requires non-null parameters binder (" << binder << "), in ("
+                   << in << "), and out (" << out << ").";
         return STATUS_UNEXPECTED_NULL;
     }
 
@@ -783,17 +802,6 @@ void AIBinder_setRequestingSid(AIBinder* binder, bool requestingSid) {
 
 const char* AIBinder_getCallingSid() {
     return ::android::IPCThreadState::self()->getCallingSid();
-}
-
-android::sp<android::IBinder> AIBinder_toPlatformBinder(AIBinder* binder) {
-    if (binder == nullptr) return nullptr;
-    return binder->getBinder();
-}
-
-AIBinder* AIBinder_fromPlatformBinder(const android::sp<android::IBinder>& binder) {
-    sp<AIBinder> ndkBinder = ABpBinder::lookupOrCreateFromBinder(binder);
-    AIBinder_incStrong(ndkBinder.get());
-    return ndkBinder.get();
 }
 
 void AIBinder_setMinSchedulerPolicy(AIBinder* binder, int policy, int priority) {

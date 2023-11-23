@@ -20,17 +20,18 @@ import static org.junit.Assume.assumeNoException;
 
 import android.platform.test.annotations.AsbSecurityTest;
 
-import com.android.compatibility.common.util.CrashUtils;
-import com.android.compatibility.common.util.CrashUtils.Config.BacktraceFilterPattern;
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
+import com.android.sts.common.util.TombstoneUtils;
+import com.android.sts.common.util.TombstoneUtils.Config.BacktraceFilterPattern;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.regex.Pattern;
 
-import org.junit.runner.RunWith;
-import org.junit.Test;
-
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2022_20147 extends SecurityTestCase {
+public class CVE_2022_20147 extends NonRootSecurityTestCase {
     /**
      * b/221216105
      * Vulnerability Behaviour: SIGSEGV in self
@@ -44,11 +45,11 @@ public class CVE_2022_20147 extends SecurityTestCase {
             AdbUtils.assumeHasNfc(getDevice());
             assumeIsSupportedNfcDevice(getDevice());
             pocPusher.only64();
-            String signals[] = { CrashUtils.SIGSEGV };
+            String signals[] = { TombstoneUtils.Signals.SIGSEGV };
             String binaryName = "CVE-2022-20147";
             AdbUtils.pocConfig testConfig = new AdbUtils.pocConfig(binaryName,
                     getDevice());
-            testConfig.config = new CrashUtils.Config()
+            testConfig.config = new TombstoneUtils.Config()
                     .setProcessPatterns(Pattern.compile(binaryName))
                     .setBacktraceIncludes(new BacktraceFilterPattern(
                             "libnfc-nci", "nfa_dm_check_set_config"));

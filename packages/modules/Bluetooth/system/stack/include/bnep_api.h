@@ -198,7 +198,7 @@ typedef struct {
  *                  BNEP_FAILURE        if connection state callback is missing
  *
  ******************************************************************************/
-extern tBNEP_RESULT BNEP_Register(tBNEP_REGISTER* p_reg_info);
+tBNEP_RESULT BNEP_Register(tBNEP_REGISTER* p_reg_info);
 
 /*******************************************************************************
  *
@@ -213,7 +213,7 @@ extern tBNEP_RESULT BNEP_Register(tBNEP_REGISTER* p_reg_info);
  * Returns          void
  *
  ******************************************************************************/
-extern void BNEP_Deregister(void);
+void BNEP_Deregister(void);
 
 /*******************************************************************************
  *
@@ -231,10 +231,10 @@ extern void BNEP_Deregister(void);
  *                  BNEP_NO_RESOURCES           if no resources
  *
  ******************************************************************************/
-extern tBNEP_RESULT BNEP_Connect(const RawAddress& p_rem_bda,
-                                 const bluetooth::Uuid& src_uuid,
-                                 const bluetooth::Uuid& dst_uuid,
-                                 uint16_t* p_handle, uint32_t mx_chan_id);
+tBNEP_RESULT BNEP_Connect(const RawAddress& p_rem_bda,
+                          const bluetooth::Uuid& src_uuid,
+                          const bluetooth::Uuid& dst_uuid, uint16_t* p_handle,
+                          uint32_t mx_chan_id);
 
 /*******************************************************************************
  *
@@ -251,7 +251,7 @@ extern tBNEP_RESULT BNEP_Connect(const RawAddress& p_rem_bda,
  *                  BNEP_WRONG_STATE            if the responce is not expected
  *
  ******************************************************************************/
-extern tBNEP_RESULT BNEP_ConnectResp(uint16_t handle, tBNEP_RESULT resp);
+tBNEP_RESULT BNEP_ConnectResp(uint16_t handle, tBNEP_RESULT resp);
 
 /*******************************************************************************
  *
@@ -265,7 +265,7 @@ extern tBNEP_RESULT BNEP_ConnectResp(uint16_t handle, tBNEP_RESULT resp);
  *                  BNEP_WRONG_HANDLE           if no connection is not found
  *
  ******************************************************************************/
-extern tBNEP_RESULT BNEP_Disconnect(uint16_t handle);
+tBNEP_RESULT BNEP_Disconnect(uint16_t handle);
 
 /*******************************************************************************
  *
@@ -290,11 +290,9 @@ extern tBNEP_RESULT BNEP_Disconnect(uint16_t handle);
  *                  BNEP_SUCCESS            - If written successfully
  *
  ******************************************************************************/
-extern tBNEP_RESULT BNEP_WriteBuf(uint16_t handle,
-                                  const RawAddress& p_dest_addr, BT_HDR* p_buf,
-                                  uint16_t protocol,
-                                  const RawAddress* p_src_addr,
-                                  bool fw_ext_present);
+tBNEP_RESULT BNEP_WriteBuf(uint16_t handle, const RawAddress& p_dest_addr,
+                           BT_HDR* p_buf, uint16_t protocol,
+                           const RawAddress* p_src_addr, bool fw_ext_present);
 
 /*******************************************************************************
  *
@@ -320,10 +318,9 @@ extern tBNEP_RESULT BNEP_WriteBuf(uint16_t handle,
  *                  BNEP_SUCCESS            - If written successfully
  *
  ******************************************************************************/
-extern tBNEP_RESULT BNEP_Write(uint16_t handle, const RawAddress& p_dest_addr,
-                               uint8_t* p_data, uint16_t len, uint16_t protocol,
-                               const RawAddress* p_src_addr,
-                               bool fw_ext_present);
+tBNEP_RESULT BNEP_Write(uint16_t handle, const RawAddress& p_dest_addr,
+                        uint8_t* p_data, uint16_t len, uint16_t protocol,
+                        const RawAddress* p_src_addr, bool fw_ext_present);
 
 /*******************************************************************************
  *
@@ -344,10 +341,9 @@ extern tBNEP_RESULT BNEP_Write(uint16_t handle, const RawAddress& p_dest_addr,
  *                  BNEP_SUCCESS                - if request sent successfully
  *
  ******************************************************************************/
-extern tBNEP_RESULT BNEP_SetProtocolFilters(uint16_t handle,
-                                            uint16_t num_filters,
-                                            uint16_t* p_start_array,
-                                            uint16_t* p_end_array);
+tBNEP_RESULT BNEP_SetProtocolFilters(uint16_t handle, uint16_t num_filters,
+                                     uint16_t* p_start_array,
+                                     uint16_t* p_end_array);
 
 /*******************************************************************************
  *
@@ -371,10 +367,9 @@ extern tBNEP_RESULT BNEP_SetProtocolFilters(uint16_t handle,
  *                  BNEP_SUCCESS                - if request sent successfully
  *
  ******************************************************************************/
-extern tBNEP_RESULT BNEP_SetMulticastFilters(uint16_t handle,
-                                             uint16_t num_filters,
-                                             uint8_t* p_start_array,
-                                             uint8_t* p_end_array);
+tBNEP_RESULT BNEP_SetMulticastFilters(uint16_t handle, uint16_t num_filters,
+                                      uint8_t* p_start_array,
+                                      uint8_t* p_end_array);
 
 /*******************************************************************************
  *
@@ -386,7 +381,7 @@ extern tBNEP_RESULT BNEP_SetMulticastFilters(uint16_t handle,
  * Returns          the new (current) trace level
  *
  ******************************************************************************/
-extern uint8_t BNEP_SetTraceLevel(uint8_t new_level);
+uint8_t BNEP_SetTraceLevel(uint8_t new_level);
 
 /*******************************************************************************
  *
@@ -399,6 +394,6 @@ extern uint8_t BNEP_SetTraceLevel(uint8_t new_level);
  * Returns          void
  *
  ******************************************************************************/
-extern void BNEP_Init(void);
+void BNEP_Init(void);
 
 #endif

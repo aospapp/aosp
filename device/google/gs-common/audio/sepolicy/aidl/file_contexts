@@ -1,0 +1,2 @@
+# Audio Hal AIDL Service for Aoc
+/vendor/bin/hw/android\.hardware\.audio\.service-aidl\.aoc                  u:object_r:hal_audio_default_exec:s0

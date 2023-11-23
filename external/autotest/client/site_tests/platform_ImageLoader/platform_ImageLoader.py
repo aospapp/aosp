@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -5,7 +6,6 @@
 import dbus
 import os
 import shutil
-import subprocess
 import utils
 
 from autotest_lib.client.common_lib import error

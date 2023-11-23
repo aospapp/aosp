@@ -18,6 +18,7 @@
 #include <unordered_map>
 
 #include "icing/text_classifier/lib3/utils/base/statusor.h"
+#include "icing/proto/scoring.pb.h"
 #include "icing/schema/schema-store.h"
 #include "icing/store/document-store.h"
 

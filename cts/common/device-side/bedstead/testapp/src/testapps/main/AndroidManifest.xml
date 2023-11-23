@@ -18,8 +18,8 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.bedstead.testapp.testapps">
-    <uses-sdk android:minSdkVersion="27" />
+    <uses-sdk android:minSdkVersion="29" />
     <application>
-        <service android:name="com.google.android.enterprise.connectedapps.CrossProfileConnector_Service" android:exported="true" />
+        <service android:name="com.android.bedstead.testapp.TestAppConnector_Service" android:exported="true" />
     </application>
 </manifest>

@@ -16,6 +16,13 @@
 
 package android.mediav2.cts;
 
+import static android.mediav2.common.cts.CodecTestBase.hasDecoder;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
+
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.media.MediaCodec;
@@ -23,6 +30,8 @@ import android.media.MediaCodecInfo;
 import android.media.MediaDataSource;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.mediav2.common.cts.CodecDecoderTestBase;
+import android.mediav2.common.cts.CodecTestBase;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.os.PersistableBundle;
@@ -32,6 +41,8 @@ import android.webkit.cts.CtsTestServer;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.Preconditions;
 
 import org.apache.http.Header;
 import org.apache.http.HttpRequest;
@@ -63,12 +74,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.zip.CRC32;
-
-import static android.mediav2.cts.CodecTestBase.hasDecoder;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeTrue;
 
 class TestMediaDataSource extends MediaDataSource {
     private static final String LOG_TAG = TestMediaDataSource.class.getSimpleName();
@@ -175,7 +180,7 @@ public class ExtractorTest {
     static private final List<String> codecListSupp =
             Arrays.asList(MediaFormat.MIMETYPE_VIDEO_AV1, MediaFormat.MIMETYPE_AUDIO_AC3,
                     MediaFormat.MIMETYPE_AUDIO_AC4, MediaFormat.MIMETYPE_AUDIO_EAC3);
-    private static String mInpPrefix = WorkDir.getMediaDirString();
+    private static final String MEDIA_DIR = WorkDir.getMediaDirString();
     private static String extSel;
 
     static {
@@ -184,19 +189,20 @@ public class ExtractorTest {
         extSel = (null == args.getString(EXT_SEL_KEY)) ? defSel : args.getString(EXT_SEL_KEY);
     }
 
-    static private boolean shouldRunTest(String mime) {
+    private static boolean shouldRunTest(String mediaType) {
         boolean result = false;
-        if ((extSel.contains("mp4") && codecListforTypeMp4.contains(mime)) ||
-                (extSel.contains("webm") && codecListforTypeWebm.contains(mime)) ||
-                (extSel.contains("3gp") && codecListforType3gp.contains(mime)) ||
-                (extSel.contains("mkv") && codecListforTypeMkv.contains(mime)) ||
-                (extSel.contains("ogg") && codecListforTypeOgg.contains(mime)) ||
-                (extSel.contains("ts") && codecListforTypeTs.contains(mime)) ||
-                (extSel.contains("ps") && codecListforTypePs.contains(mime)) ||
-                (extSel.contains("raw") && codecListforTypeRaw.contains(mime)) ||
-                (extSel.contains("wav") && codecListforTypeWav.contains(mime)) ||
-                (extSel.contains("supp") && codecListSupp.contains(mime)))
+        if ((extSel.contains("mp4") && codecListforTypeMp4.contains(mediaType))
+                || (extSel.contains("webm") && codecListforTypeWebm.contains(mediaType))
+                || (extSel.contains("3gp") && codecListforType3gp.contains(mediaType))
+                || (extSel.contains("mkv") && codecListforTypeMkv.contains(mediaType))
+                || (extSel.contains("ogg") && codecListforTypeOgg.contains(mediaType))
+                || (extSel.contains("ts") && codecListforTypeTs.contains(mediaType))
+                || (extSel.contains("ps") && codecListforTypePs.contains(mediaType))
+                || (extSel.contains("raw") && codecListforTypeRaw.contains(mediaType))
+                || (extSel.contains("wav") && codecListforTypeWav.contains(mediaType))
+                || (extSel.contains("supp") && codecListSupp.contains(mediaType))) {
             result = true;
+        }
         return result;
     }
 
@@ -219,7 +225,7 @@ public class ExtractorTest {
     }
 
     static boolean isCSDIdentical(MediaFormat refFormat, MediaFormat testFormat) {
-        String mime = refFormat.getString(MediaFormat.KEY_MIME);
+        String mediaType = refFormat.getString(MediaFormat.KEY_MIME);
         for (int i = 0; ; i++) {
             String csdKey = "csd-" + i;
             boolean refHasCSD = refFormat.containsKey(csdKey);
@@ -232,7 +238,7 @@ public class ExtractorTest {
                 return false;
             }
             if (refHasCSD) {
-                Log.v(LOG_TAG, mime + " has " + csdKey);
+                Log.v(LOG_TAG, mediaType + " has " + csdKey);
                 ByteBuffer r = refFormat.getByteBuffer(csdKey);
                 ByteBuffer t = testFormat.getByteBuffer(csdKey);
                 if (!r.equals(t)) {
@@ -247,10 +253,10 @@ public class ExtractorTest {
     }
 
     static boolean isFormatSimilar(MediaFormat refFormat, MediaFormat testFormat) {
-        String refMime = refFormat.getString(MediaFormat.KEY_MIME);
-        String testMime = testFormat.getString(MediaFormat.KEY_MIME);
+        String refMediaType = refFormat.getString(MediaFormat.KEY_MIME);
+        String testMediaType = testFormat.getString(MediaFormat.KEY_MIME);
 
-        if (!refMime.equals(testMime)) return false;
+        if (!refMediaType.equals(testMediaType)) return false;
         if (refFormat.getLong(MediaFormat.KEY_DURATION) !=
                     testFormat.getLong(MediaFormat.KEY_DURATION)) {
             Log.w(LOG_TAG, "Duration mismatches ref / test = " +
@@ -260,12 +266,12 @@ public class ExtractorTest {
 //            return false;
         }
         if (!isCSDIdentical(refFormat, testFormat)) return false;
-        if (refMime.startsWith("audio/")) {
+        if (refMediaType.startsWith("audio/")) {
             if (refFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT) !=
                         testFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)) return false;
             if (refFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE) !=
                         testFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)) return false;
-        } else if (refMime.startsWith("video/")) {
+        } else if (refMediaType.startsWith("video/")) {
             if (refFormat.getInteger(MediaFormat.KEY_WIDTH) !=
                         testFormat.getInteger(MediaFormat.KEY_WIDTH)) return false;
             if (refFormat.getInteger(MediaFormat.KEY_HEIGHT) !=
@@ -275,15 +281,15 @@ public class ExtractorTest {
     }
 
     private static boolean isMediaSimilar(MediaExtractor refExtractor, MediaExtractor testExtractor,
-            String mime, int sampleLimit) {
+            String mediaType, int sampleLimit) {
         ByteBuffer refBuffer = ByteBuffer.allocate(MAX_SAMPLE_SIZE);
         ByteBuffer testBuffer = ByteBuffer.allocate(MAX_SAMPLE_SIZE);
 
         int noOfTracksMatched = 0;
         for (int refTrackID = 0; refTrackID < refExtractor.getTrackCount(); refTrackID++) {
             MediaFormat refFormat = refExtractor.getTrackFormat(refTrackID);
-            String refMime = refFormat.getString(MediaFormat.KEY_MIME);
-            if (mime != null && !refMime.equals(mime)) {
+            String refMediaType = refFormat.getString(MediaFormat.KEY_MIME);
+            if (mediaType != null && !refMediaType.equals(mediaType)) {
                 continue;
             }
             for (int testTrackID = 0; testTrackID < testExtractor.getTrackCount(); testTrackID++) {
@@ -305,13 +311,14 @@ public class ExtractorTest {
                     if (!isSampleInfoValidAndIdentical(refSampleInfo, testSampleInfo)) {
                         if (ENABLE_LOGS) {
                             Log.d(LOG_TAG,
-                                    " Mime: " + refMime + " mismatch for sample: " + frameCount);
-                            Log.d(LOG_TAG, " flags exp/got: " +
-                                    refSampleInfo.flags + '/' + testSampleInfo.flags);
-                            Log.d(LOG_TAG, " size exp/got: " +
-                                    refSampleInfo.size + '/' + testSampleInfo.size);
-                            Log.d(LOG_TAG, " ts exp/got: " + refSampleInfo.presentationTimeUs +
-                                    '/' + testSampleInfo.presentationTimeUs);
+                                    " Mediatype: " + refMediaType + " mismatch for sample: "
+                                            + frameCount);
+                            Log.d(LOG_TAG, " flags exp/got: " + refSampleInfo.flags + '/'
+                                    + testSampleInfo.flags);
+                            Log.d(LOG_TAG, " size exp/got: " + refSampleInfo.size + '/'
+                                    + testSampleInfo.size);
+                            Log.d(LOG_TAG, " ts exp/got: " + refSampleInfo.presentationTimeUs
+                                    + '/' + testSampleInfo.presentationTimeUs);
                         }
                         areTracksIdentical = false;
                         break;
@@ -319,8 +326,8 @@ public class ExtractorTest {
                     int refSz = refExtractor.readSampleData(refBuffer, 0);
                     if (refSz != refSampleInfo.size) {
                         if (ENABLE_LOGS) {
-                            Log.d(LOG_TAG, "Mime: " + refMime + " Size exp/got: " +
-                                    refSampleInfo.size + '/' + refSz);
+                            Log.d(LOG_TAG, "Mediatype: " + refMediaType + " Size exp/got: "
+                                    + refSampleInfo.size + '/' + refSz);
                         }
                         areTracksIdentical = false;
                         break;
@@ -328,8 +335,8 @@ public class ExtractorTest {
                     int testSz = testExtractor.readSampleData(testBuffer, 0);
                     if (testSz != testSampleInfo.size) {
                         if (ENABLE_LOGS) {
-                            Log.d(LOG_TAG, "Mime: " + refMime + " Size exp/got: " +
-                                    testSampleInfo.size + '/' + testSz);
+                            Log.d(LOG_TAG, "Mediatype: " + refMediaType + " Size exp/got: "
+                                    + testSampleInfo.size + '/' + testSz);
                         }
                         areTracksIdentical = false;
                         break;
@@ -337,8 +344,8 @@ public class ExtractorTest {
                     int trackIndex = refExtractor.getSampleTrackIndex();
                     if (trackIndex != refTrackID) {
                         if (ENABLE_LOGS) {
-                            Log.d(LOG_TAG, "Mime: " + refMime +
-                                    " TrackID exp/got: " + refTrackID + '/' + trackIndex);
+                            Log.d(LOG_TAG, "Mediatype: " + refMediaType + " TrackID exp/got: "
+                                    + refTrackID + '/' + trackIndex);
                         }
                         areTracksIdentical = false;
                         break;
@@ -346,15 +353,16 @@ public class ExtractorTest {
                     trackIndex = testExtractor.getSampleTrackIndex();
                     if (trackIndex != testTrackID) {
                         if (ENABLE_LOGS) {
-                            Log.d(LOG_TAG, "Mime: " + refMime +
-                                    " TrackID exp/got: " + testTrackID + '/' + trackIndex);
+                            Log.d(LOG_TAG, "Mediatype: " + refMediaType + " TrackID exp/got: "
+                                    + testTrackID + '/' + trackIndex);
                         }
                         areTracksIdentical = false;
                         break;
                     }
                     if (!testBuffer.equals(refBuffer)) {
                         if (ENABLE_LOGS) {
-                            Log.d(LOG_TAG, "Mime: " + refMime + " sample data is not identical");
+                            Log.d(LOG_TAG,
+                                    "Mediatype: " + refMediaType + " sample data is not identical");
                         }
                         areTracksIdentical = false;
                         break;
@@ -363,7 +371,8 @@ public class ExtractorTest {
                     boolean haveTestSamples = testExtractor.advance();
                     if (haveRefSamples != haveTestSamples) {
                         if (ENABLE_LOGS) {
-                            Log.d(LOG_TAG, "Mime: " + refMime + " Mismatch in sampleCount");
+                            Log.d(LOG_TAG, "Mediatype: " + refMediaType + " Mismatch "
+                                    + "in sampleCount");
                         }
                         areTracksIdentical = false;
                         break;
@@ -371,23 +380,26 @@ public class ExtractorTest {
 
                     if (!haveRefSamples && !isExtractorOKonEOS(refExtractor)) {
                         if (ENABLE_LOGS) {
-                            Log.d(LOG_TAG, "Mime: " + refMime + " calls post advance() are not OK");
+                            Log.d(LOG_TAG,
+                                    "Mediatype: " + refMediaType
+                                            + " calls post advance() are not OK");
                         }
                         areTracksIdentical = false;
                         break;
                     }
                     if (!haveTestSamples && !isExtractorOKonEOS(testExtractor)) {
                         if (ENABLE_LOGS) {
-                            Log.d(LOG_TAG, "Mime: " + refMime + " calls post advance() are not OK");
+                            Log.d(LOG_TAG,
+                                    "Mediatype: " + refMediaType
+                                            + " calls post advance() are not OK");
                         }
                         areTracksIdentical = false;
                         break;
                     }
                     if (ENABLE_LOGS) {
-                        Log.v(LOG_TAG, "Mime: " + refMime + " Sample: " + frameCount +
-                                " flags: " + refSampleInfo.flags +
-                                " size: " + refSampleInfo.size +
-                                " ts: " + refSampleInfo.presentationTimeUs);
+                        Log.v(LOG_TAG, "Mediatype: " + refMediaType + " Sample: " + frameCount
+                                + " flags: " + refSampleInfo.flags + " size: " + refSampleInfo.size
+                                + " ts: " + refSampleInfo.presentationTimeUs);
                     }
                     if (!haveRefSamples || frameCount >= sampleLimit) {
                         break;
@@ -400,32 +412,32 @@ public class ExtractorTest {
                     break;
                 }
             }
-            if (mime != null && noOfTracksMatched > 0) break;
+            if (mediaType != null && noOfTracksMatched > 0) break;
         }
-        if (mime == null) {
+        if (mediaType == null) {
             return noOfTracksMatched == refExtractor.getTrackCount();
         } else {
             return noOfTracksMatched > 0;
         }
     }
 
-    private static long readAllData(MediaExtractor extractor, String mime, int sampleLimit) {
+    private static long readAllData(MediaExtractor extractor, String mediaType, int sampleLimit) {
         CRC32 checksum = new CRC32();
         ByteBuffer buffer = ByteBuffer.allocate(MAX_SAMPLE_SIZE);
         int tracksSelected = 0;
         for (int trackID = 0; trackID < extractor.getTrackCount(); trackID++) {
             MediaFormat format = extractor.getTrackFormat(trackID);
-            String srcMime = format.getString(MediaFormat.KEY_MIME);
-            if (mime != null && !srcMime.equals(mime)) {
+            String srcMediaType = format.getString(MediaFormat.KEY_MIME);
+            if (mediaType != null && !srcMediaType.equals(mediaType)) {
                 continue;
             }
             extractor.selectTrack(trackID);
             tracksSelected++;
-            if (srcMime.startsWith("audio/")) {
+            if (srcMediaType.startsWith("audio/")) {
                 buffer.putInt(0);
                 buffer.putInt(format.getInteger(MediaFormat.KEY_SAMPLE_RATE));
                 buffer.putInt(format.getInteger(MediaFormat.KEY_CHANNEL_COUNT));
-            } else if (srcMime.startsWith("video/")) {
+            } else if (srcMediaType.startsWith("video/")) {
                 buffer.putInt(1);
                 buffer.putInt(format.getInteger(MediaFormat.KEY_WIDTH));
                 buffer.putInt(format.getInteger(MediaFormat.KEY_HEIGHT));
@@ -471,7 +483,7 @@ public class ExtractorTest {
         return checksum.getValue();
     }
 
-    private static native long nativeReadAllData(String srcPath, String mime, int sampleLimit,
+    private static native long nativeReadAllData(String srcPath, String mediaType, int sampleLimit,
             String[] keys, String[] values, boolean isSrcUrl);
 
     /**
@@ -483,8 +495,8 @@ public class ExtractorTest {
         @Rule
         public TestName testName = new TestName();
 
-        private static final String mInpMedia = "ForBiggerEscapes.mp4";
-        private static final String mResString = "raw/forbiggerescapes";
+        private static final String INPUT_MEDIA = "ForBiggerEscapes.mp4";
+        private static final String RES_STRING = "raw/forbiggerescapes";
         private CtsTestServer mWebServer;
         private String mInpMediaUrl;
         private MediaExtractor mRefExtractor;
@@ -496,12 +508,12 @@ public class ExtractorTest {
         @Before
         public void setUp() throws IOException {
             mRefExtractor = new MediaExtractor();
-            Preconditions.assertTestFileExists(mInpPrefix + mInpMedia);
-            mRefExtractor.setDataSource(mInpPrefix + mInpMedia);
+            Preconditions.assertTestFileExists(MEDIA_DIR + INPUT_MEDIA);
+            mRefExtractor.setDataSource(MEDIA_DIR + INPUT_MEDIA);
             try {
                 Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
                 mWebServer = new CtsTestServer(context);
-                mInpMediaUrl = mWebServer.getAssetUrl(mResString);
+                mInpMediaUrl = mWebServer.getAssetUrl(RES_STRING);
             } catch (Exception e) {
                 fail(e.getMessage());
             }
@@ -519,17 +531,17 @@ public class ExtractorTest {
             PersistableBundle bundle = refExtractor.getMetrics();
             int refNumTracks = bundle.getInt(MediaExtractor.MetricsConstants.TRACKS);
             String refFormat = bundle.getString(MediaExtractor.MetricsConstants.FORMAT);
-            String refMime = bundle.getString(MediaExtractor.MetricsConstants.MIME_TYPE);
+            String refMediaType = bundle.getString(MediaExtractor.MetricsConstants.MIME_TYPE);
             bundle = testExtractor.getMetrics();
             int testNumTracks = bundle.getInt(MediaExtractor.MetricsConstants.TRACKS);
             String testFormat = bundle.getString(MediaExtractor.MetricsConstants.FORMAT);
-            String testMime = bundle.getString(MediaExtractor.MetricsConstants.MIME_TYPE);
+            String testMediaType = bundle.getString(MediaExtractor.MetricsConstants.MIME_TYPE);
             boolean result = testNumTracks == refNumTracks && testFormat.equals(refFormat) &&
-                    testMime.equals(refMime);
+                    testMediaType.equals(refMediaType);
             if (ENABLE_LOGS) {
                 Log.d(LOG_TAG, " NumTracks exp/got: " + refNumTracks + '/' + testNumTracks);
                 Log.d(LOG_TAG, " Format exp/got: " + refFormat + '/' + testFormat);
-                Log.d(LOG_TAG, " Mime exp/got: " + refMime + '/' + testMime);
+                Log.d(LOG_TAG, " Mediatype exp/got: " + refMediaType + '/' + testMediaType);
             }
             return result;
         }
@@ -579,8 +591,8 @@ public class ExtractorTest {
 
         @Test
         public void testAssetFD() throws IOException {
-            Preconditions.assertTestFileExists(mInpPrefix + mInpMedia);
-            File inpFile = new File(mInpPrefix + mInpMedia);
+            Preconditions.assertTestFileExists(MEDIA_DIR + INPUT_MEDIA);
+            File inpFile = new File(MEDIA_DIR + INPUT_MEDIA);
             MediaExtractor testExtractor = new MediaExtractor();
             try (ParcelFileDescriptor parcelFD = ParcelFileDescriptor
                     .open(inpFile, ParcelFileDescriptor.MODE_READ_ONLY);
@@ -599,8 +611,8 @@ public class ExtractorTest {
 
         @Test
         public void testFileDescriptor() throws IOException {
-            Preconditions.assertTestFileExists(mInpPrefix + mInpMedia);
-            File inpFile = new File(mInpPrefix + mInpMedia);
+            Preconditions.assertTestFileExists(MEDIA_DIR + INPUT_MEDIA);
+            File inpFile = new File(MEDIA_DIR + INPUT_MEDIA);
             MediaExtractor testExtractor = new MediaExtractor();
             try (FileInputStream fInp = new FileInputStream(inpFile)) {
                 testExtractor.setDataSource(fInp.getFD());
@@ -612,7 +624,7 @@ public class ExtractorTest {
                 fail("setDataSource failed: " + testName.getMethodName());
             }
             long sdkChecksum = readAllData(testExtractor, null, Integer.MAX_VALUE);
-            long ndkChecksum = nativeReadAllData(mInpPrefix + mInpMedia, "",
+            long ndkChecksum = nativeReadAllData(MEDIA_DIR + INPUT_MEDIA, "",
                     Integer.MAX_VALUE, null, null, false);
             testExtractor.release();
             assertEquals("SDK and NDK checksums mismatch", sdkChecksum, ndkChecksum);
@@ -620,8 +632,8 @@ public class ExtractorTest {
 
         @Test
         public void testFileDescriptorLenOffset() throws IOException {
-            Preconditions.assertTestFileExists(mInpPrefix + mInpMedia);
-            File inpFile = new File(mInpPrefix + mInpMedia);
+            Preconditions.assertTestFileExists(MEDIA_DIR + INPUT_MEDIA);
+            File inpFile = new File(MEDIA_DIR + INPUT_MEDIA);
             File outFile = File.createTempFile("temp", ".out");
             byte[] garbageAppend = "PrefixGarbage".getBytes();
             try (FileInputStream fInp = new FileInputStream(inpFile);
@@ -651,9 +663,9 @@ public class ExtractorTest {
 
         @Test
         public void testMediaDataSource() throws Exception {
-            Preconditions.assertTestFileExists(mInpPrefix + mInpMedia);
+            Preconditions.assertTestFileExists(MEDIA_DIR + INPUT_MEDIA);
             TestMediaDataSource dataSource =
-                    TestMediaDataSource.fromString(mInpPrefix + mInpMedia, false, false);
+                    TestMediaDataSource.fromString(MEDIA_DIR + INPUT_MEDIA, false, false);
             MediaExtractor testExtractor = new MediaExtractor();
             testExtractor.setDataSource(dataSource);
             assertTrue(testExtractor.getCachedDuration() < 0);
@@ -669,7 +681,7 @@ public class ExtractorTest {
         @Test
         public void testContextUri() throws IOException {
             Context context = InstrumentationRegistry.getInstrumentation().getContext();
-            String path = "android.resource://android.mediav2.cts/" + mResString;
+            String path = "android.resource://android.mediav2.cts/" + RES_STRING;
             MediaExtractor testExtractor = new MediaExtractor();
             testExtractor.setDataSource(context, Uri.parse(path), null);
             assertTrue(testExtractor.getCachedDuration() < 0);
@@ -684,7 +696,7 @@ public class ExtractorTest {
         private void checkExtractorOkForUrlDS(Map<String, String> headers) throws Exception {
             MediaExtractor testExtractor = new MediaExtractor();
             testExtractor.setDataSource(mInpMediaUrl, headers);
-            HttpRequest req = mWebServer.getLastRequest(mResString);
+            HttpRequest req = mWebServer.getLastAssetRequest(RES_STRING);
             if (headers != null) {
                 for (String key : headers.keySet()) {
                     String value = headers.get(key);
@@ -745,9 +757,9 @@ public class ExtractorTest {
 
         @Test
         public void testDataSourceNative() {
-            Preconditions.assertTestFileExists(mInpPrefix + mInpMedia);
+            Preconditions.assertTestFileExists(MEDIA_DIR + INPUT_MEDIA);
             assertTrue(testName.getMethodName() + " failed ",
-                    nativeTestDataSource(mInpPrefix + mInpMedia, mInpMediaUrl));
+                    nativeTestDataSource(MEDIA_DIR + INPUT_MEDIA, mInpMediaUrl));
         }
     }
 
@@ -757,10 +769,10 @@ public class ExtractorTest {
     @RunWith(Parameterized.class)
     public static class FunctionalityTest {
         private static final int MAX_SEEK_POINTS = 7;
-        private static final long mSeed = 0x12b9b0a1;
-        private final Random mRandNum = new Random(mSeed);
+        private static final long SEED = 0x12b9b0a1;
+        private final Random mRandNum = new Random(SEED);
         private String[] mSrcFiles;
-        private String mMime;
+        private String mMediaType;
 
         static {
             System.loadLibrary("ctsmediav2extractor_jni");
@@ -769,7 +781,7 @@ public class ExtractorTest {
         @Rule
         public TestName testName = new TestName();
 
-        @Parameterized.Parameters(name = "{index}({0})")
+        @Parameterized.Parameters(name = "{index}_{0}")
         public static Collection<Object[]> input() {
             return Arrays.asList(new Object[][]{
                     {MediaFormat.MIMETYPE_VIDEO_MPEG2, new String[]{
@@ -847,18 +859,18 @@ public class ExtractorTest {
             });
         }
 
-        private native boolean nativeTestExtract(String srcPath, String refPath, String mime);
+        private native boolean nativeTestExtract(String srcPath, String refPath, String mediaType);
 
-        private native boolean nativeTestSeek(String srcPath, String mime);
+        private native boolean nativeTestSeek(String srcPath, String mediaType);
 
-        private native boolean nativeTestSeekFlakiness(String srcPath, String mime);
+        private native boolean nativeTestSeekFlakiness(String srcPath, String mediaType);
 
-        private native boolean nativeTestSeekToZero(String srcPath, String mime);
+        private native boolean nativeTestSeekToZero(String srcPath, String mediaType);
 
         private native boolean nativeTestFileFormat(String srcPath);
 
-        public FunctionalityTest(String mime, String[] srcFiles) {
-            mMime = mime;
+        public FunctionalityTest(String mediaType, String[] srcFiles) {
+            mMediaType = mediaType;
             mSrcFiles = srcFiles;
         }
 
@@ -875,16 +887,16 @@ public class ExtractorTest {
             }
         }
 
-        private ArrayList<MediaCodec.BufferInfo> getSeekablePoints(String srcFile, String mime)
+        private ArrayList<MediaCodec.BufferInfo> getSeekablePoints(String srcFile, String mediaType)
                 throws IOException {
             ArrayList<MediaCodec.BufferInfo> bookmarks = null;
-            if (mime == null) return null;
+            if (mediaType == null) return null;
             MediaExtractor extractor = new MediaExtractor();
-            Preconditions.assertTestFileExists(mInpPrefix + srcFile);
-            extractor.setDataSource(mInpPrefix + srcFile);
+            Preconditions.assertTestFileExists(MEDIA_DIR + srcFile);
+            extractor.setDataSource(MEDIA_DIR + srcFile);
             for (int trackID = 0; trackID < extractor.getTrackCount(); trackID++) {
                 MediaFormat format = extractor.getTrackFormat(trackID);
-                if (!mime.equals(format.getString(MediaFormat.KEY_MIME))) continue;
+                if (!mediaType.equals(format.getString(MediaFormat.KEY_MIME))) continue;
                 extractor.selectTrack(trackID);
                 bookmarks = new ArrayList<>();
                 do {
@@ -903,18 +915,18 @@ public class ExtractorTest {
             return bookmarks;
         }
 
-        private ArrayList<SeekTestParams> generateSeekTestArgs(String srcFile, String mime,
+        private ArrayList<SeekTestParams> generateSeekTestArgs(String srcFile, String mediaType,
                 boolean isRandom) throws IOException {
             ArrayList<SeekTestParams> testArgs = new ArrayList<>();
-            if (mime == null) return null;
-            Preconditions.assertTestFileExists(mInpPrefix + srcFile);
+            if (mediaType == null) return null;
+            Preconditions.assertTestFileExists(MEDIA_DIR + srcFile);
             if (isRandom) {
                 MediaExtractor extractor = new MediaExtractor();
-                extractor.setDataSource(mInpPrefix + srcFile);
+                extractor.setDataSource(MEDIA_DIR + srcFile);
                 final long maxEstDuration = 4000000;
                 for (int trackID = 0; trackID < extractor.getTrackCount(); trackID++) {
                     MediaFormat format = extractor.getTrackFormat(trackID);
-                    if (!mime.equals(format.getString(MediaFormat.KEY_MIME))) continue;
+                    if (!mediaType.equals(format.getString(MediaFormat.KEY_MIME))) continue;
                     extractor.selectTrack(trackID);
                     for (int i = 0; i < MAX_SEEK_POINTS; i++) {
                         long pts = (long) (mRandNum.nextDouble() * maxEstDuration);
@@ -932,7 +944,7 @@ public class ExtractorTest {
                 }
                 extractor.release();
             } else {
-                ArrayList<MediaCodec.BufferInfo> bookmarks = getSeekablePoints(srcFile, mime);
+                ArrayList<MediaCodec.BufferInfo> bookmarks = getSeekablePoints(srcFile, mediaType);
                 if (bookmarks == null) return null;
                 int size = bookmarks.size();
                 int[] indices;
@@ -987,15 +999,15 @@ public class ExtractorTest {
             return testArgs;
         }
 
-        int checkSeekPoints(String srcFile, String mime,
+        int checkSeekPoints(String srcFile, String mediaType,
                 ArrayList<SeekTestParams> seekTestArgs) throws IOException {
             int errCnt = 0;
-            Preconditions.assertTestFileExists(mInpPrefix + srcFile);
+            Preconditions.assertTestFileExists(MEDIA_DIR + srcFile);
             MediaExtractor extractor = new MediaExtractor();
-            extractor.setDataSource(mInpPrefix + srcFile);
+            extractor.setDataSource(MEDIA_DIR + srcFile);
             for (int trackID = 0; trackID < extractor.getTrackCount(); trackID++) {
                 MediaFormat format = extractor.getTrackFormat(trackID);
-                if (!format.getString(MediaFormat.KEY_MIME).equals(mime)) continue;
+                if (!format.getString(MediaFormat.KEY_MIME).equals(mediaType)) continue;
                 extractor.selectTrack(trackID);
                 MediaCodec.BufferInfo received = new MediaCodec.BufferInfo();
                 for (SeekTestParams arg : seekTestArgs) {
@@ -1024,8 +1036,8 @@ public class ExtractorTest {
 
         private boolean isFileSeekable(String srcFile) throws IOException {
             MediaExtractor ext = new MediaExtractor();
-            Preconditions.assertTestFileExists(mInpPrefix + srcFile);
-            ext.setDataSource(mInpPrefix + srcFile);
+            Preconditions.assertTestFileExists(MEDIA_DIR + srcFile);
+            ext.setDataSource(MEDIA_DIR + srcFile);
             String format = ext.getMetrics().getString(MediaExtractor.MetricsConstants.FORMAT);
             ext.release();
             // MPEG2TS and MPEG2PS files are non-seekable
@@ -1036,47 +1048,47 @@ public class ExtractorTest {
         /**
          * Audio, Video codecs support a variety of file-types/container formats. For example,
          * Vorbis supports OGG, MP4, WEBM and MKV. H.263 supports 3GPP, WEBM and MKV. For every
-         * mime, a list of test vectors are provided one for each container) but underlying
-         * elementary stream is the same for all. The streams of a mime are extracted and
+         * mediaType, a list of test vectors are provided one for each container) but underlying
+         * elementary stream is the same for all. The streams of a mediaType are extracted and
          * compared with each other for similarity.
          */
         @LargeTest
         @Test
         public void testExtract() throws IOException {
-            assumeTrue(shouldRunTest(mMime));
-            Preconditions.assertTestFileExists(mInpPrefix + mSrcFiles[0]);
+            assumeTrue(shouldRunTest(mMediaType));
+            Preconditions.assertTestFileExists(MEDIA_DIR + mSrcFiles[0]);
             MediaExtractor refExtractor = new MediaExtractor();
-            refExtractor.setDataSource(mInpPrefix + mSrcFiles[0]);
-            long sdkChecksum = readAllData(refExtractor, mMime, Integer.MAX_VALUE);
-            long ndkChecksum = nativeReadAllData(mInpPrefix + mSrcFiles[0], mMime,
+            refExtractor.setDataSource(MEDIA_DIR + mSrcFiles[0]);
+            long sdkChecksum = readAllData(refExtractor, mMediaType, Integer.MAX_VALUE);
+            long ndkChecksum = nativeReadAllData(MEDIA_DIR + mSrcFiles[0], mMediaType,
                     Integer.MAX_VALUE, null, null, false);
             assertEquals("SDK and NDK checksums mismatch", sdkChecksum, ndkChecksum);
             if (mSrcFiles.length == 1) {
                 refExtractor.release();
                 return;
             }
-            assumeTrue("TODO(b/146925481)", !mMime.equals(MediaFormat.MIMETYPE_AUDIO_VORBIS));
-            assumeTrue("TODO(b/146925481)", !mMime.equals(MediaFormat.MIMETYPE_AUDIO_OPUS));
-            assumeTrue("TODO(b/146925481)", !mMime.equals(MediaFormat.MIMETYPE_AUDIO_MPEG));
-            assumeTrue("TODO(b/146925481)", !mMime.equals(MediaFormat.MIMETYPE_AUDIO_AAC));
+            assumeTrue("TODO(b/146925481)", !mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_VORBIS));
+            assumeTrue("TODO(b/146925481)", !mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_OPUS));
+            assumeTrue("TODO(b/146925481)", !mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_MPEG));
+            assumeTrue("TODO(b/146925481)", !mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_AAC));
             boolean isOk = true;
             for (int i = 1; i < mSrcFiles.length && isOk; i++) {
                 MediaExtractor testExtractor = new MediaExtractor();
-                Preconditions.assertTestFileExists(mInpPrefix + mSrcFiles[i]);
-                testExtractor.setDataSource(mInpPrefix + mSrcFiles[i]);
-                if (!isMediaSimilar(refExtractor, testExtractor, mMime, Integer.MAX_VALUE)) {
+                Preconditions.assertTestFileExists(MEDIA_DIR + mSrcFiles[i]);
+                testExtractor.setDataSource(MEDIA_DIR + mSrcFiles[i]);
+                if (!isMediaSimilar(refExtractor, testExtractor, mMediaType, Integer.MAX_VALUE)) {
                     if (ENABLE_LOGS) {
                         Log.d(LOG_TAG, "Files: " + mSrcFiles[0] + ", " + mSrcFiles[i] +
                                 " are different from extractor perspective");
                     }
-                    if (!codecListSupp.contains(mMime)) {
+                    if (!codecListSupp.contains(mMediaType)) {
                         isOk = false;
                     }
                 }
                 testExtractor.release();
             }
             refExtractor.release();
-            assertTrue(testName.getMethodName() + " failed for mime: " + mMime, isOk);
+            assertTrue(testName.getMethodName() + " failed for Mediatype: " + mMediaType, isOk);
         }
 
         /**
@@ -1087,28 +1099,29 @@ public class ExtractorTest {
         @Test
         @Ignore("TODO(b/146420831)")
         public void testSeek() throws IOException {
-            assumeTrue(shouldRunTest(mMime) && !mMime.equals(MediaFormat.MIMETYPE_AUDIO_RAW));
+            assumeTrue(shouldRunTest(mMediaType)
+                    && !mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_RAW));
             boolean isOk = true;
             for (String srcFile : mSrcFiles) {
                 if (!isFileSeekable(srcFile)) continue;
                 ArrayList<SeekTestParams> seekTestArgs =
-                        generateSeekTestArgs(srcFile, mMime, false);
-                assertTrue("Mime is null.", seekTestArgs != null);
+                        generateSeekTestArgs(srcFile, mMediaType, false);
+                assertTrue("mediaType is null.", seekTestArgs != null);
                 assertTrue("No sync samples found.", !seekTestArgs.isEmpty());
                 Collections.shuffle(seekTestArgs, mRandNum);
-                int seekAccErrCnt = checkSeekPoints(srcFile, mMime, seekTestArgs);
+                int seekAccErrCnt = checkSeekPoints(srcFile, mMediaType, seekTestArgs);
                 if (seekAccErrCnt != 0) {
                     if (ENABLE_LOGS) {
                         Log.d(LOG_TAG, "For " + srcFile + " seek chose inaccurate Sync point in: " +
                                 seekAccErrCnt + "/" + seekTestArgs.size());
                     }
-                    if (!codecListSupp.contains(mMime)) {
+                    if (!codecListSupp.contains(mMediaType)) {
                         isOk = false;
                         break;
                     }
                 }
             }
-            assertTrue(testName.getMethodName() + " failed for mime: " + mMime, isOk);
+            assertTrue(testName.getMethodName() + " failed for mediaType: " + mMediaType, isOk);
         }
 
         /**
@@ -1117,27 +1130,28 @@ public class ExtractorTest {
         @LargeTest
         @Test
         public void testSeekFlakiness() throws IOException {
-            assumeTrue(shouldRunTest(mMime));
+            assumeTrue(shouldRunTest(mMediaType));
             boolean isOk = true;
             for (String srcFile : mSrcFiles) {
                 if (!isFileSeekable(srcFile)) continue;
-                ArrayList<SeekTestParams> seekTestArgs = generateSeekTestArgs(srcFile, mMime, true);
-                assertTrue("Mime is null.", seekTestArgs != null);
+                ArrayList<SeekTestParams> seekTestArgs =
+                        generateSeekTestArgs(srcFile, mMediaType, true);
+                assertTrue("mediaType is null.", seekTestArgs != null);
                 assertTrue("No samples found.", !seekTestArgs.isEmpty());
                 Collections.shuffle(seekTestArgs, mRandNum);
-                int flakyErrCnt = checkSeekPoints(srcFile, mMime, seekTestArgs);
+                int flakyErrCnt = checkSeekPoints(srcFile, mMediaType, seekTestArgs);
                 if (flakyErrCnt != 0) {
                     if (ENABLE_LOGS) {
                         Log.d(LOG_TAG,
                                 "No. of Samples where seek showed flakiness is: " + flakyErrCnt);
                     }
-                    if (!codecListSupp.contains(mMime)) {
+                    if (!codecListSupp.contains(mMediaType)) {
                         isOk = false;
                         break;
                     }
                 }
             }
-            assertTrue(testName.getMethodName() + " failed for mime: " + mMime, isOk);
+            assertTrue(testName.getMethodName() + " failed for Mediatype: " + mMediaType, isOk);
         }
 
         /**
@@ -1147,22 +1161,22 @@ public class ExtractorTest {
         @SmallTest
         @Test
         public void testSeekToZero() throws IOException {
-            assumeTrue(shouldRunTest(mMime));
-            assumeTrue("TODO(b/146925481)", !mMime.equals(MediaFormat.MIMETYPE_AUDIO_VORBIS));
-            assumeTrue("TODO(b/146925481)", !mMime.equals(MediaFormat.MIMETYPE_AUDIO_MPEG));
-            assumeTrue("TODO(b/146925481)", !mMime.equals(MediaFormat.MIMETYPE_AUDIO_AAC));
+            assumeTrue(shouldRunTest(mMediaType));
+            assumeTrue("TODO(b/146925481)", !mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_VORBIS));
+            assumeTrue("TODO(b/146925481)", !mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_MPEG));
+            assumeTrue("TODO(b/146925481)", !mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_AAC));
             boolean isOk = true;
             for (String srcFile : mSrcFiles) {
                 if (!isFileSeekable(srcFile)) continue;
                 MediaExtractor extractor = new MediaExtractor();
-                Preconditions.assertTestFileExists(mInpPrefix + srcFile);
-                extractor.setDataSource(mInpPrefix + srcFile);
+                Preconditions.assertTestFileExists(MEDIA_DIR + srcFile);
+                extractor.setDataSource(MEDIA_DIR + srcFile);
                 MediaCodec.BufferInfo sampleInfoAtZero = new MediaCodec.BufferInfo();
                 MediaCodec.BufferInfo currInfo = new MediaCodec.BufferInfo();
                 final long randomSeekPts = 1 << 20;
                 for (int trackID = 0; trackID < extractor.getTrackCount(); trackID++) {
                     MediaFormat format = extractor.getTrackFormat(trackID);
-                    if (!mMime.equals(format.getString(MediaFormat.KEY_MIME))) continue;
+                    if (!mMediaType.equals(format.getString(MediaFormat.KEY_MIME))) continue;
                     extractor.selectTrack(trackID);
                     sampleInfoAtZero.set(0, (int) extractor.getSampleSize(),
                             extractor.getSampleTime(), extractor.getSampleFlags());
@@ -1171,7 +1185,7 @@ public class ExtractorTest {
                     currInfo.set(0, (int) extractor.getSampleSize(),
                             extractor.getSampleTime(), extractor.getSampleFlags());
                     if (!isSampleInfoIdentical(sampleInfoAtZero, currInfo)) {
-                        if (!codecListSupp.contains(mMime)) {
+                        if (!codecListSupp.contains(mMediaType)) {
                             if (ENABLE_LOGS) {
                                 Log.d(LOG_TAG, "seen mismatch seekTo(0, SEEK_TO_CLOSEST_SYNC)");
                                 Log.d(LOG_TAG, " flags exp/got: " + sampleInfoAtZero.flags + '/' +
@@ -1190,7 +1204,7 @@ public class ExtractorTest {
                     currInfo.set(0, (int) extractor.getSampleSize(),
                             extractor.getSampleTime(), extractor.getSampleFlags());
                     if (!isSampleInfoIdentical(sampleInfoAtZero, currInfo)) {
-                        if (!codecListSupp.contains(mMime)) {
+                        if (!codecListSupp.contains(mMediaType)) {
                             if (ENABLE_LOGS) {
                                 Log.d(LOG_TAG, "seen mismatch seekTo(-1, SEEK_TO_CLOSEST_SYNC)");
                                 Log.d(LOG_TAG, " flags exp/got: " + sampleInfoAtZero.flags + '/' +
@@ -1209,23 +1223,23 @@ public class ExtractorTest {
                 }
                 extractor.release();
             }
-            assertTrue(testName.getMethodName() + " failed for mime: " + mMime, isOk);
+            assertTrue(testName.getMethodName() + " failed for Mediatype: " + mMediaType, isOk);
         }
 
         @SmallTest
         @Test
         public void testMetrics() throws IOException {
-            assumeTrue(shouldRunTest(mMime));
+            assumeTrue(shouldRunTest(mMediaType));
             for (String srcFile : mSrcFiles) {
                 MediaExtractor extractor = new MediaExtractor();
-                Preconditions.assertTestFileExists(mInpPrefix + srcFile);
-                extractor.setDataSource(mInpPrefix + srcFile);
+                Preconditions.assertTestFileExists(MEDIA_DIR + srcFile);
+                extractor.setDataSource(MEDIA_DIR + srcFile);
                 PersistableBundle bundle = extractor.getMetrics();
                 int numTracks = bundle.getInt(MediaExtractor.MetricsConstants.TRACKS);
                 String format = bundle.getString(MediaExtractor.MetricsConstants.FORMAT);
-                String mime = bundle.getString(MediaExtractor.MetricsConstants.MIME_TYPE);
+                String mediaType = bundle.getString(MediaExtractor.MetricsConstants.MIME_TYPE);
                 assertTrue(numTracks == extractor.getTrackCount() && format != null &&
-                        mime != null);
+                        mediaType != null);
                 extractor.release();
             }
         }
@@ -1233,100 +1247,101 @@ public class ExtractorTest {
         @LargeTest
         @Test
         public void testExtractNative() {
-            assumeTrue(shouldRunTest(mMime));
+            assumeTrue(shouldRunTest(mMediaType));
             if (mSrcFiles.length == 1) return;
-            assumeTrue("TODO(b/146925481)", !mMime.equals(MediaFormat.MIMETYPE_AUDIO_VORBIS));
-            assumeTrue("TODO(b/146925481)", !mMime.equals(MediaFormat.MIMETYPE_AUDIO_OPUS));
-            assumeTrue("TODO(b/146925481)", !mMime.equals(MediaFormat.MIMETYPE_AUDIO_MPEG));
-            assumeTrue("TODO(b/146925481)", !mMime.equals(MediaFormat.MIMETYPE_AUDIO_AAC));
+            assumeTrue("TODO(b/146925481)", !mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_VORBIS));
+            assumeTrue("TODO(b/146925481)", !mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_OPUS));
+            assumeTrue("TODO(b/146925481)", !mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_MPEG));
+            assumeTrue("TODO(b/146925481)", !mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_AAC));
             boolean isOk = true;
-            Preconditions.assertTestFileExists(mInpPrefix + mSrcFiles[0]);
+            Preconditions.assertTestFileExists(MEDIA_DIR + mSrcFiles[0]);
             for (int i = 1; i < mSrcFiles.length; i++) {
-                Preconditions.assertTestFileExists(mInpPrefix + mSrcFiles[i]);
-                if (!nativeTestExtract(mInpPrefix + mSrcFiles[0], mInpPrefix + mSrcFiles[i],
-                        mMime)) {
+                Preconditions.assertTestFileExists(MEDIA_DIR + mSrcFiles[i]);
+                if (!nativeTestExtract(MEDIA_DIR + mSrcFiles[0], MEDIA_DIR + mSrcFiles[i],
+                        mMediaType)) {
                     Log.d(LOG_TAG, "Files: " + mSrcFiles[0] + ", " + mSrcFiles[i] +
                             " are different from extractor perpsective");
-                    if (!codecListSupp.contains(mMime)) {
+                    if (!codecListSupp.contains(mMediaType)) {
                         isOk = false;
                         break;
                     }
                 }
             }
-            assertTrue(testName.getMethodName() + " failed for mime: " + mMime, isOk);
+            assertTrue(testName.getMethodName() + " failed for Mediatype: " + mMediaType, isOk);
         }
 
         @LargeTest
         @Test
         @Ignore("TODO(b/146420831)")
         public void testSeekNative() throws IOException {
-            assumeTrue(shouldRunTest(mMime) && !mMime.equals(MediaFormat.MIMETYPE_AUDIO_RAW));
+            assumeTrue(shouldRunTest(mMediaType)
+                    && !mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_RAW));
             boolean isOk = true;
             for (String srcFile : mSrcFiles) {
-                Preconditions.assertTestFileExists(mInpPrefix + srcFile);
+                Preconditions.assertTestFileExists(MEDIA_DIR + srcFile);
                 if (!isFileSeekable(srcFile)) continue;
-                if (!nativeTestSeek(mInpPrefix + srcFile, mMime)) {
-                    if (!codecListSupp.contains(mMime)) {
+                if (!nativeTestSeek(MEDIA_DIR + srcFile, mMediaType)) {
+                    if (!codecListSupp.contains(mMediaType)) {
                         isOk = false;
                         break;
                     }
                 }
             }
-            assertTrue(testName.getMethodName() + " failed for mime: " + mMime, isOk);
+            assertTrue(testName.getMethodName() + " failed for Mediatype: " + mMediaType, isOk);
         }
 
         @LargeTest
         @Test
         public void testSeekFlakinessNative() throws IOException {
-            assumeTrue(shouldRunTest(mMime));
+            assumeTrue(shouldRunTest(mMediaType));
             boolean isOk = true;
             for (String srcFile : mSrcFiles) {
-                Preconditions.assertTestFileExists(mInpPrefix + srcFile);
+                Preconditions.assertTestFileExists(MEDIA_DIR + srcFile);
                 if (!isFileSeekable(srcFile)) continue;
-                if (!nativeTestSeekFlakiness(mInpPrefix + srcFile, mMime)) {
-                    if (!codecListSupp.contains(mMime)) {
+                if (!nativeTestSeekFlakiness(MEDIA_DIR + srcFile, mMediaType)) {
+                    if (!codecListSupp.contains(mMediaType)) {
                         isOk = false;
                         break;
                     }
                 }
             }
-            assertTrue(testName.getMethodName() + " failed for mime: " + mMime, isOk);
+            assertTrue(testName.getMethodName() + " failed for Mediatype: " + mMediaType, isOk);
         }
 
         @SmallTest
         @Test
         public void testSeekToZeroNative() throws IOException {
-            assumeTrue(shouldRunTest(mMime));
-            assumeTrue("TODO(b/146925481)", !mMime.equals(MediaFormat.MIMETYPE_AUDIO_VORBIS));
-            assumeTrue("TODO(b/146925481)", !mMime.equals(MediaFormat.MIMETYPE_AUDIO_MPEG));
-            assumeTrue("TODO(b/146925481)", !mMime.equals(MediaFormat.MIMETYPE_AUDIO_AAC));
+            assumeTrue(shouldRunTest(mMediaType));
+            assumeTrue("TODO(b/146925481)", !mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_VORBIS));
+            assumeTrue("TODO(b/146925481)", !mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_MPEG));
+            assumeTrue("TODO(b/146925481)", !mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_AAC));
             boolean isOk = true;
             for (String srcFile : mSrcFiles) {
-                Preconditions.assertTestFileExists(mInpPrefix + srcFile);
+                Preconditions.assertTestFileExists(MEDIA_DIR + srcFile);
                 if (!isFileSeekable(srcFile)) continue;
-                if (!nativeTestSeekToZero(mInpPrefix + srcFile, mMime)) {
-                    if (!codecListSupp.contains(mMime)) {
+                if (!nativeTestSeekToZero(MEDIA_DIR + srcFile, mMediaType)) {
+                    if (!codecListSupp.contains(mMediaType)) {
                         isOk = false;
                         break;
                     }
                 }
             }
-            assertTrue(testName.getMethodName() + " failed for mime: " + mMime, isOk);
+            assertTrue(testName.getMethodName() + " failed for Mediatype: " + mMediaType, isOk);
         }
 
         @SmallTest
         @Test
         public void testFileFormatNative() {
-            assumeTrue(shouldRunTest(mMime));
+            assumeTrue(shouldRunTest(mMediaType));
             boolean isOk = true;
             for (String srcFile : mSrcFiles) {
-                Preconditions.assertTestFileExists(mInpPrefix + srcFile);
-                if (!nativeTestFileFormat(mInpPrefix + srcFile)) {
+                Preconditions.assertTestFileExists(MEDIA_DIR + srcFile);
+                if (!nativeTestFileFormat(MEDIA_DIR + srcFile)) {
                     isOk = false;
                     break;
                 }
             }
-            assertTrue(testName.getMethodName() + " failed for mime: " + mMime, isOk);
+            assertTrue(testName.getMethodName() + " failed for Mediatype: " + mMediaType, isOk);
         }
     }
 
@@ -1336,17 +1351,17 @@ public class ExtractorTest {
      */
     @RunWith(Parameterized.class)
     public static class FusedExtractorDecoderTest {
-        private final String mMime;
+        private final String mMediaType;
         private final String mRefFile;
         private final String mTestFile;
 
-        public FusedExtractorDecoderTest(String mime, String refFile, String testFile) {
-            mMime = mime;
+        public FusedExtractorDecoderTest(String mediaType, String refFile, String testFile) {
+            mMediaType = mediaType;
             mRefFile = refFile;
             mTestFile = testFile;
         }
 
-        @Parameterized.Parameters(name = "{index}({0})")
+        @Parameterized.Parameters(name = "{index}_{0}")
         public static Collection<Object[]> input() {
             return Arrays.asList(new Object[][]{
                     {MediaFormat.MIMETYPE_AUDIO_FLAC,
@@ -1361,21 +1376,21 @@ public class ExtractorTest {
         @Test
         public void testExtractDecodeAndValidate() throws IOException, InterruptedException {
             MediaExtractor testExtractor = new MediaExtractor();
-            testExtractor.setDataSource(mInpPrefix + mTestFile);
+            testExtractor.setDataSource(MEDIA_DIR + mTestFile);
             MediaFormat format = testExtractor.getTrackFormat(0);
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            if (mime.equals(MediaFormat.MIMETYPE_AUDIO_RAW)) {
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            if (mediaType.equals(MediaFormat.MIMETYPE_AUDIO_RAW)) {
                 ArrayList<String> listOfDecoders =
-                        CodecTestBase.selectCodecs(mMime, null, null, false);
-                assertTrue("no suitable codecs found for mime: " + mMime,
+                        CodecTestBase.selectCodecs(mMediaType, null, null, false);
+                assertTrue("no suitable codecs found for Mediatype: " + mMediaType,
                         !listOfDecoders.isEmpty());
                 CodecDecoderTestBase cdtb =
-                        new CodecDecoderTestBase(listOfDecoders.get(0), mMime, mRefFile);
-                cdtb.decodeToMemory(mRefFile, listOfDecoders.get(0), 0,
+                        new CodecDecoderTestBase(listOfDecoders.get(0), mMediaType, mRefFile,
+                                "invalid");
+                cdtb.decodeToMemory(MEDIA_DIR + mRefFile, listOfDecoders.get(0), 0,
                         MediaExtractor.SEEK_TO_CLOSEST_SYNC, Integer.MAX_VALUE);
                 String log = String.format("test file: %s, ref file: %s:: ", mTestFile, mRefFile);
-                assertTrue(log + "no output received", 0 != cdtb.mOutputCount);
-                final ByteBuffer refBuffer = cdtb.mOutputBuff.getBuffer();
+                final ByteBuffer refBuffer = cdtb.getOutputManager().getBuffer();
 
                 testExtractor.selectTrack(0);
                 ByteBuffer testBuffer = ByteBuffer.allocate(refBuffer.limit());
@@ -1389,17 +1404,17 @@ public class ExtractorTest {
                 testBuffer.rewind();
                 assertEquals(log + "Output mismatch", 0, refBuffer.compareTo(testBuffer));
                 assertTrue(log + "Output formats mismatch",
-                        cdtb.isFormatSimilar(cdtb.mOutFormat, format));
-            } else if (mime.equals(mMime)) {
+                        cdtb.isFormatSimilar(cdtb.getOutputFormat(), format));
+            } else if (mediaType.equals(mMediaType)) {
                 MediaExtractor refExtractor = new MediaExtractor();
-                refExtractor.setDataSource(mInpPrefix + mRefFile);
-                if (!isMediaSimilar(refExtractor, testExtractor, mMime, Integer.MAX_VALUE)) {
+                refExtractor.setDataSource(MEDIA_DIR + mRefFile);
+                if (!isMediaSimilar(refExtractor, testExtractor, mMediaType, Integer.MAX_VALUE)) {
                     fail("Files: " + mRefFile + ", " + mTestFile +
                             " are different from extractor perspective");
                 }
                 refExtractor.release();
             } else {
-                fail("unexpected mime: " + mime);
+                fail("unexpected Mediatype: " + mediaType);
             }
             testExtractor.release();
         }
@@ -1410,17 +1425,17 @@ public class ExtractorTest {
      */
     @RunWith(Parameterized.class)
     public static class ValidateKeyValuePairs {
-        private static final String mInpPrefix = WorkDir.getMediaDirString();
-        private final String mMime;
+        private static final String MEDIA_DIR = WorkDir.getMediaDirString();
+        private final String mMediaType;
         private final String[] mInpFiles;
         private final int mProfile;
         private final int mLevel;
         private final int mWR;
         private final int mHCh;
 
-        public ValidateKeyValuePairs(String mime, String[] inpFiles, int profile, int level, int wr,
-                int hCh) {
-            mMime = mime;
+        public ValidateKeyValuePairs(String mediaType, String[] inpFiles, int profile, int level,
+                int wr, int hCh) {
+            mMediaType = mediaType;
             mInpFiles = inpFiles;
             mProfile = profile;
             mLevel = level;
@@ -1428,9 +1443,9 @@ public class ExtractorTest {
             mHCh = hCh;
         }
 
-        @Parameterized.Parameters(name = "{index}({0})")
+        @Parameterized.Parameters(name = "{index}_{0}")
         public static Collection<Object[]> input() {
-            // mime, clips, profile, level, width/sample rate, height/channel count
+            // mediaType, clips, profile, level, width/sample rate, height/channel count
             List<Object[]> exhaustiveArgsList = new ArrayList<>();
 
             if (hasDecoder(MediaFormat.MIMETYPE_VIDEO_MPEG2)) {
@@ -1603,18 +1618,18 @@ public class ExtractorTest {
             for (String file : mInpFiles) {
                 MediaFormat format = null;
                 MediaExtractor extractor = new MediaExtractor();
-                Preconditions.assertTestFileExists(mInpPrefix + file);
-                extractor.setDataSource(mInpPrefix + file);
+                Preconditions.assertTestFileExists(MEDIA_DIR + file);
+                extractor.setDataSource(MEDIA_DIR + file);
                 for (int trackID = 0; trackID < extractor.getTrackCount(); trackID++) {
                     MediaFormat fmt = extractor.getTrackFormat(trackID);
-                    if (mMime.equalsIgnoreCase(fmt.getString(MediaFormat.KEY_MIME))) {
+                    if (mMediaType.equalsIgnoreCase(fmt.getString(MediaFormat.KEY_MIME))) {
                         format = fmt;
                         break;
                     }
                 }
                 extractor.release();
                 assertTrue("missing track format from file " +  file, format != null);
-                if (mMime.equals(MediaFormat.MIMETYPE_AUDIO_AAC)) {
+                if (mMediaType.equals(MediaFormat.MIMETYPE_AUDIO_AAC)) {
                     assertTrue("neither KEY_AAC_PROFILE nor KEY_PROFILE found in file " + file,
                             format.containsKey(MediaFormat.KEY_AAC_PROFILE) ||
                             format.containsKey(MediaFormat.KEY_PROFILE));
@@ -1633,14 +1648,14 @@ public class ExtractorTest {
                     int level = format.getInteger(MediaFormat.KEY_LEVEL, -1);
                     assertEquals("mismatched KEY_LEVEL in file " + file, mLevel, level);
                 }
-                if (mMime.startsWith("audio/")) {
+                if (mMediaType.startsWith("audio/")) {
                     int sample_rate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE, -1);
                     assertEquals("mismatched KEY_SAMPLE_RATE in file " + file,
                                  mWR, sample_rate);
                     int channel_count = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT, -1);
                     assertEquals("mismatched KEY_CHANNEL_COUNT in file " + file,
                                  mHCh, channel_count);
-                } else if (mMime.startsWith("video/")) {
+                } else if (mMediaType.startsWith("video/")) {
                     int width = format.getInteger(MediaFormat.KEY_WIDTH, -1);
                     assertEquals("mismatched KEY_WIDTH in file " + file, mWR, width);
                     int height = format.getInteger(MediaFormat.KEY_HEIGHT, -1);
@@ -1746,15 +1761,15 @@ public class ExtractorTest {
         @LargeTest
         @Test
         public void testPresentationTimeStampsMatch() throws IOException {
-            try (FileInputStream file = new FileInputStream(mInpPrefix + mPTSListFile);
+            try (FileInputStream file = new FileInputStream(MEDIA_DIR + mPTSListFile);
                  InputStreamReader input = new InputStreamReader(file);
                  Reader txtRdr = new BufferedReader(input)) {
                 StreamTokenizer strTok = new StreamTokenizer(txtRdr);
                 strTok.parseNumbers();
 
                 MediaExtractor extractor = new MediaExtractor();
-                Preconditions.assertTestFileExists(mInpPrefix + mRefFile);
-                extractor.setDataSource(mInpPrefix + mRefFile);
+                Preconditions.assertTestFileExists(MEDIA_DIR + mRefFile);
+                extractor.setDataSource(MEDIA_DIR + mRefFile);
                 assertTrue(mTrackIndex < extractor.getTrackCount());
                 extractor.selectTrack(mTrackIndex);
                 while (true) {

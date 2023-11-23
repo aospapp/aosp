@@ -17,7 +17,10 @@
 package android.net;
 
 import static android.annotation.SystemApi.Client.MODULE_LIBRARIES;
+import static android.net.NetworkStats.DEFAULT_NETWORK_NO;
 import static android.net.NetworkStats.IFACE_ALL;
+import static android.net.NetworkStats.METERED_NO;
+import static android.net.NetworkStats.ROAMING_NO;
 import static android.net.NetworkStats.SET_DEFAULT;
 import static android.net.NetworkStats.TAG_NONE;
 import static android.net.NetworkStats.UID_ALL;
@@ -529,7 +532,8 @@ public final class NetworkStatsHistory implements Parcelable {
     @Deprecated
     public void recordData(long start, long end, long rxBytes, long txBytes) {
         recordData(start, end, new NetworkStats.Entry(
-                IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, rxBytes, 0L, txBytes, 0L, 0L));
+                IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
+                DEFAULT_NETWORK_NO, rxBytes, 0L, txBytes, 0L, 0L));
     }
 
     /**
@@ -611,7 +615,8 @@ public final class NetworkStatsHistory implements Parcelable {
      */
     public void recordHistory(NetworkStatsHistory input, long start, long end) {
         final NetworkStats.Entry entry = new NetworkStats.Entry(
-                IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, 0L, 0L, 0L, 0L, 0L);
+                IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
+                DEFAULT_NETWORK_NO, 0L, 0L, 0L, 0L, 0L);
         for (int i = 0; i < input.bucketCount; i++) {
             final long bucketStart = input.bucketStart[i];
             final long bucketEnd = bucketStart + input.bucketDuration;
@@ -854,7 +859,8 @@ public final class NetworkStatsHistory implements Parcelable {
         ensureBuckets(start, end);
 
         final NetworkStats.Entry entry = new NetworkStats.Entry(
-                IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, 0L, 0L, 0L, 0L, 0L);
+                IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
+                DEFAULT_NETWORK_NO, 0L, 0L, 0L, 0L, 0L);
         while (rxBytes > 1024 || rxPackets > 128 || txBytes > 1024 || txPackets > 128
                 || operations > 32) {
             final long curStart = randomLong(r, start, end);

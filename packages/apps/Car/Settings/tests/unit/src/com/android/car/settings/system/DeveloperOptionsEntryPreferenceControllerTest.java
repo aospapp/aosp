@@ -113,10 +113,58 @@ public class DeveloperOptionsEntryPreferenceControllerTest {
     }
 
     @Test
+    public void testGetAvailabilityStatus_devOptionsEnabled_isAvailable_zoneWrite() {
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        setDeveloperOptionsEnabled(true);
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_devOptionsEnabled_isAvailable_zoneRead() {
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        setDeveloperOptionsEnabled(true);
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_devOptionsEnabled_isAvailable_zoneHidden() {
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        setDeveloperOptionsEnabled(true);
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_devOptionsDisabled_isUnavailable() {
         setDeveloperOptionsEnabled(false);
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(
                 CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_devOptionsDisabled_isUnavailable_zoneWrite() {
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        setDeveloperOptionsEnabled(false);
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_devOptionsDisabled_isUnavailable_zoneRead() {
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        setDeveloperOptionsEnabled(false);
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_devOptionsDisabled_isUnavailable_zoneHidden() {
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        setDeveloperOptionsEnabled(false);
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test
@@ -129,12 +177,72 @@ public class DeveloperOptionsEntryPreferenceControllerTest {
     }
 
     @Test
-    public void testGetAvailabilityStatus_devOptionsEnabled_restrictedByDpm_availableForViewing() {
+    public void testGetAvailabilityStatus_devOptionsEnabled_isUnavailable_zoneWrite() {
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        setDeveloperOptionsEnabled(true);
+        mockUserRestrictionSetByUm(true);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_devOptionsEnabled_isUnavailable_zoneRead() {
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        setDeveloperOptionsEnabled(true);
+        mockUserRestrictionSetByUm(true);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_devOptionsEnabled_isUnavailable_zoneHidden() {
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        setDeveloperOptionsEnabled(true);
+        mockUserRestrictionSetByUm(true);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_devOptionsEnabled_availableForViewing() {
         setDeveloperOptionsEnabled(true);
         mockUserRestrictionSetByDpm(true);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(
                 AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_devOptionsEnabled_availableForViewing_zoneWrite() {
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        setDeveloperOptionsEnabled(true);
+        mockUserRestrictionSetByDpm(true);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_devOptionsEnabled_availableForViewing_zoneRead() {
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        setDeveloperOptionsEnabled(true);
+        mockUserRestrictionSetByDpm(true);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_devOptionsEnabled_availableForViewing_zoneHidden() {
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        setDeveloperOptionsEnabled(true);
+        mockUserRestrictionSetByDpm(true);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

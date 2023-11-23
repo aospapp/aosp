@@ -29,7 +29,7 @@
 
 class CodecEncoderSurfaceTest {
   private:
-    const char* mMime;
+    const char* mMediaType;
     ANativeWindow* mWindow;
     AMediaExtractor* mExtractor;
     AMediaFormat* mDecFormat;
@@ -47,23 +47,23 @@ class CodecEncoderSurfaceTest {
     int mDecInputCount;
     int mDecOutputCount;
     int mEncOutputCount;
-    int mEncBitrate;
-    int mEncFramerate;
     int mMaxBFrames;
     int mLatency;
     bool mReviseLatency;
     int mMuxTrackID;
 
     OutputManager* mOutputBuff;
-    OutputManager mRefBuff;
-    OutputManager mTestBuff;
+    OutputManager* mRefBuff;
+    OutputManager* mTestBuff;
     bool mSaveToMem;
 
-    bool setUpExtractor(const char* srcPath, int colorFormat);
+    std::string mErrorLogs;
+    std::string mTestEnv;
+
+    bool setUpExtractor(const char* srcFile, int colorFormat);
     void deleteExtractor();
-    bool configureCodec(bool isAsync, bool signalEOSWithLastFrame);
+    bool configureCodec(bool isAsync, bool signalEOSWithLastFrame, bool usePersistentSurface);
     void resetContext(bool isAsync, bool signalEOSWithLastFrame);
-    void setUpEncoderFormat();
     bool enqueueDecoderInput(size_t bufferIndex);
     bool dequeueDecoderOutput(size_t bufferIndex, AMediaCodecBufferInfo* bufferInfo);
     bool dequeueEncoderOutput(size_t bufferIndex, AMediaCodecBufferInfo* info);
@@ -75,27 +75,38 @@ class CodecEncoderSurfaceTest {
     bool hasSeenError() { return mAsyncHandleDecoder.getError() || mAsyncHandleEncoder.getError(); }
 
   public:
-    CodecEncoderSurfaceTest(const char* mime, int bitrate, int framerate);
+    std::string getErrorMsg() {
+        return mTestEnv +
+                "###################       Error Details         #####################\n" +
+                mErrorLogs;
+    }
+    CodecEncoderSurfaceTest(const char* mediaType, const char* cfgParams, const char* separator);
     ~CodecEncoderSurfaceTest();
 
     bool testSimpleEncode(const char* encoder, const char* decoder, const char* srcPath,
-                          const char* muxOutPath, int colorFormat);
+                          const char* muxOutPath, int colorFormat, bool usePersistentSurface);
 };
 
-CodecEncoderSurfaceTest::CodecEncoderSurfaceTest(const char* mime, int bitrate, int framerate)
-    : mMime{mime}, mEncBitrate{bitrate}, mEncFramerate{framerate} {
+CodecEncoderSurfaceTest::CodecEncoderSurfaceTest(const char* mediaType, const char* cfgParams,
+                                                 const char* separator)
+    : mMediaType{mediaType} {
     mWindow = nullptr;
     mExtractor = nullptr;
     mDecFormat = nullptr;
-    mEncFormat = nullptr;
+    mEncFormat = deSerializeMediaFormat(cfgParams, separator);
     mMuxer = nullptr;
     mDecoder = nullptr;
     mEncoder = nullptr;
     resetContext(false, false);
     mMaxBFrames = 0;
+    if (mEncFormat != nullptr) {
+        AMediaFormat_getInt32(mEncFormat, TBD_AMEDIACODEC_PARAMETER_KEY_MAX_B_FRAMES, &mMaxBFrames);
+    }
     mLatency = mMaxBFrames;
     mReviseLatency = false;
     mMuxTrackID = -1;
+    mRefBuff = new OutputManager();
+    mTestBuff = new OutputManager(mRefBuff->getSharedErrorLogs());
 }
 
 CodecEncoderSurfaceTest::~CodecEncoderSurfaceTest() {
@@ -120,6 +131,8 @@ CodecEncoderSurfaceTest::~CodecEncoderSurfaceTest() {
         AMediaCodec_delete(mEncoder);
         mEncoder = nullptr;
     }
+    delete mRefBuff;
+    delete mTestBuff;
 }
 
 bool CodecEncoderSurfaceTest::setUpExtractor(const char* srcFile, int colorFormat) {
@@ -136,12 +149,11 @@ bool CodecEncoderSurfaceTest::setUpExtractor(const char* srcFile, int colorForma
             for (size_t trackID = 0; trackID < AMediaExtractor_getTrackCount(mExtractor);
                  trackID++) {
                 AMediaFormat* currFormat = AMediaExtractor_getTrackFormat(mExtractor, trackID);
-                const char* mime = nullptr;
-                AMediaFormat_getString(currFormat, AMEDIAFORMAT_KEY_MIME, &mime);
-                if (mime && strncmp(mime, "video/", strlen("video/")) == 0) {
+                const char* mediaType = nullptr;
+                AMediaFormat_getString(currFormat, AMEDIAFORMAT_KEY_MIME, &mediaType);
+                if (mediaType && strncmp(mediaType, "video/", strlen("video/")) == 0) {
                     AMediaExtractor_selectTrack(mExtractor, trackID);
-                    AMediaFormat_setInt32(currFormat, AMEDIAFORMAT_KEY_COLOR_FORMAT,
-                                          colorFormat);
+                    AMediaFormat_setInt32(currFormat, AMEDIAFORMAT_KEY_COLOR_FORMAT, colorFormat);
                     mDecFormat = currFormat;
                     break;
                 }
@@ -164,22 +176,69 @@ void CodecEncoderSurfaceTest::deleteExtractor() {
     }
 }
 
-bool CodecEncoderSurfaceTest::configureCodec(bool isAsync, bool signalEOSWithLastFrame) {
+bool CodecEncoderSurfaceTest::configureCodec(bool isAsync, bool signalEOSWithLastFrame,
+                                             bool usePersistentSurface) {
+    RETURN_IF_NULL(mEncFormat,
+                   std::string{"encountered error during deserialization of media format"})
     resetContext(isAsync, signalEOSWithLastFrame);
-    CHECK_STATUS(mAsyncHandleEncoder.setCallBack(mEncoder, isAsync),
-                 "AMediaCodec_setAsyncNotifyCallback failed");
-    CHECK_STATUS(AMediaCodec_configure(mEncoder, mEncFormat, nullptr, nullptr,
-                                       AMEDIACODEC_CONFIGURE_FLAG_ENCODE),
-                 "AMediaCodec_configure failed");
+    mTestEnv = "###################      Test Environment       #####################\n";
+    {
+        char* name = nullptr;
+        media_status_t val = AMediaCodec_getName(mEncoder, &name);
+        if (AMEDIA_OK != val) {
+            mErrorLogs = StringFormat("%s with error %d \n", "AMediaCodec_getName failed", val);
+            return false;
+        }
+        if (!name) {
+            mErrorLogs = std::string{"AMediaCodec_getName returned null"};
+            return false;
+        }
+        mTestEnv.append(StringFormat("Component name %s \n", name));
+        AMediaCodec_releaseName(mEncoder, name);
+    }
+    {
+        char* name = nullptr;
+        media_status_t val = AMediaCodec_getName(mDecoder, &name);
+        if (AMEDIA_OK != val) {
+            mErrorLogs = StringFormat("%s with error %d \n", "AMediaCodec_getName failed", val);
+            return false;
+        }
+        if (!name) {
+            mErrorLogs = std::string{"AMediaCodec_getName returned null"};
+            return false;
+        }
+        mTestEnv.append(StringFormat("Decoder Component name %s \n", name));
+        AMediaCodec_releaseName(mDecoder, name);
+    }
+    mTestEnv += StringFormat("Format under test :- %s \n", AMediaFormat_toString(mEncFormat));
+    mTestEnv += StringFormat("Format of Decoder input :- %s \n", AMediaFormat_toString(mDecFormat));
+    mTestEnv += StringFormat("Encoder and Decoder are operating in :- %s mode \n",
+                             (isAsync ? "asynchronous" : "synchronous"));
+    mTestEnv += StringFormat("Components received input eos :- %s \n",
+                             (signalEOSWithLastFrame ? "with full buffer" : "with empty buffer"));
+    RETURN_IF_FAIL(mAsyncHandleEncoder.setCallBack(mEncoder, isAsync),
+                   "AMediaCodec_setAsyncNotifyCallback failed")
+    RETURN_IF_FAIL(AMediaCodec_configure(mEncoder, mEncFormat, nullptr, nullptr,
+                                         AMEDIACODEC_CONFIGURE_FLAG_ENCODE),
+                   "AMediaCodec_configure failed")
     AMediaFormat* inpFormat = AMediaCodec_getInputFormat(mEncoder);
     mReviseLatency = AMediaFormat_getInt32(inpFormat, AMEDIAFORMAT_KEY_LATENCY, &mLatency);
     AMediaFormat_delete(inpFormat);
-    CHECK_STATUS(AMediaCodec_createInputSurface(mEncoder, &mWindow),
-                 "AMediaCodec_createInputSurface failed");
-    CHECK_STATUS(mAsyncHandleDecoder.setCallBack(mDecoder, isAsync),
-                 "AMediaCodec_setAsyncNotifyCallback failed");
-    CHECK_STATUS(AMediaCodec_configure(mDecoder, mDecFormat, mWindow, nullptr, 0),
-                 "AMediaCodec_configure failed");
+
+    if (usePersistentSurface) {
+        RETURN_IF_FAIL(AMediaCodec_createPersistentInputSurface(&mWindow),
+                       "AMediaCodec_createPersistentInputSurface failed")
+        RETURN_IF_FAIL(AMediaCodec_setInputSurface(mEncoder,
+                                                   reinterpret_cast<ANativeWindow*>(mWindow)),
+                       "AMediaCodec_setInputSurface failed")
+    } else {
+        RETURN_IF_FAIL(AMediaCodec_createInputSurface(mEncoder, &mWindow),
+                       "AMediaCodec_createInputSurface failed")
+    }
+    RETURN_IF_FAIL(mAsyncHandleDecoder.setCallBack(mDecoder, isAsync),
+                   "AMediaCodec_setAsyncNotifyCallback failed")
+    RETURN_IF_FAIL(AMediaCodec_configure(mDecoder, mDecFormat, mWindow, nullptr, 0),
+                   "AMediaCodec_configure failed")
     return !hasSeenError();
 }
 
@@ -196,27 +255,11 @@ void CodecEncoderSurfaceTest::resetContext(bool isAsync, bool signalEOSWithLastF
     mEncOutputCount = 0;
 }
 
-void CodecEncoderSurfaceTest::setUpEncoderFormat() {
-    if (mEncFormat) AMediaFormat_delete(mEncFormat);
-    mEncFormat = AMediaFormat_new();
-    int width, height;
-    AMediaFormat_getInt32(mDecFormat, AMEDIAFORMAT_KEY_WIDTH, &width);
-    AMediaFormat_getInt32(mDecFormat, AMEDIAFORMAT_KEY_HEIGHT, &height);
-    AMediaFormat_setString(mEncFormat, AMEDIAFORMAT_KEY_MIME, mMime);
-    AMediaFormat_setInt32(mEncFormat, AMEDIAFORMAT_KEY_WIDTH, width);
-    AMediaFormat_setInt32(mEncFormat, AMEDIAFORMAT_KEY_HEIGHT, height);
-    AMediaFormat_setInt32(mEncFormat, AMEDIAFORMAT_KEY_BIT_RATE, mEncBitrate);
-    AMediaFormat_setInt32(mEncFormat, AMEDIAFORMAT_KEY_FRAME_RATE, mEncFramerate);
-    AMediaFormat_setInt32(mEncFormat, TBD_AMEDIACODEC_PARAMETER_KEY_MAX_B_FRAMES, mMaxBFrames);
-    AMediaFormat_setInt32(mEncFormat, AMEDIAFORMAT_KEY_COLOR_FORMAT, COLOR_FormatSurface);
-    AMediaFormat_setFloat(mEncFormat, AMEDIAFORMAT_KEY_I_FRAME_INTERVAL, 1.0F);
-}
-
 bool CodecEncoderSurfaceTest::enqueueDecoderEOS(size_t bufferIndex) {
     if (!hasSeenError() && !mSawDecInputEOS) {
-        CHECK_STATUS(AMediaCodec_queueInputBuffer(mDecoder, bufferIndex, 0, 0, 0,
-                                                  AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM),
-                     "Queued Decoder End of Stream Failed");
+        RETURN_IF_FAIL(AMediaCodec_queueInputBuffer(mDecoder, bufferIndex, 0, 0, 0,
+                                                    AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM),
+                       "Queued Decoder End of Stream Failed")
         mSawDecInputEOS = true;
         ALOGV("Queued Decoder End of Stream");
     }
@@ -230,26 +273,20 @@ bool CodecEncoderSurfaceTest::enqueueDecoderInput(size_t bufferIndex) {
         uint32_t flags = 0;
         size_t bufSize = 0;
         uint8_t* buf = AMediaCodec_getInputBuffer(mDecoder, bufferIndex, &bufSize);
-        if (buf == nullptr) {
-            ALOGE("AMediaCodec_getInputBuffer failed");
-            return false;
-        }
+        RETURN_IF_NULL(buf, std::string{"AMediaCodec_getInputBuffer failed"})
         ssize_t size = AMediaExtractor_getSampleSize(mExtractor);
         int64_t pts = AMediaExtractor_getSampleTime(mExtractor);
-        if (size > bufSize) {
-            ALOGE("extractor sample size exceeds codec input buffer size %zu %zu", size, bufSize);
-            return false;
-        }
-        if (size != AMediaExtractor_readSampleData(mExtractor, buf, bufSize)) {
-            ALOGE("AMediaExtractor_readSampleData failed");
-            return false;
-        }
+        RETURN_IF_TRUE(size > bufSize,
+                       StringFormat("extractor sample size exceeds codec input buffer size %zu %zu",
+                                    size, bufSize))
+        RETURN_IF_TRUE(size != AMediaExtractor_readSampleData(mExtractor, buf, bufSize),
+                       std::string{"AMediaExtractor_readSampleData failed"})
         if (!AMediaExtractor_advance(mExtractor) && mSignalEOSWithLastFrame) {
             flags |= AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM;
             mSawDecInputEOS = true;
         }
-        CHECK_STATUS(AMediaCodec_queueInputBuffer(mDecoder, bufferIndex, 0, size, pts, flags),
-                     "AMediaCodec_queueInputBuffer failed");
+        RETURN_IF_FAIL(AMediaCodec_queueInputBuffer(mDecoder, bufferIndex, 0, size, pts, flags),
+                       "AMediaCodec_queueInputBuffer failed")
         ALOGV("input: id: %zu  size: %zu  pts: %" PRId64 "  flags: %d", bufferIndex, size, pts,
               flags);
         if (size > 0) {
@@ -270,8 +307,8 @@ bool CodecEncoderSurfaceTest::dequeueDecoderOutput(size_t bufferIndex,
     }
     ALOGV("output: id: %zu  size: %d  pts: %" PRId64 "  flags: %d", bufferIndex, bufferInfo->size,
           bufferInfo->presentationTimeUs, bufferInfo->flags);
-    CHECK_STATUS(AMediaCodec_releaseOutputBuffer(mDecoder, bufferIndex, mWindow != nullptr),
-                 "AMediaCodec_releaseOutputBuffer failed");
+    RETURN_IF_FAIL(AMediaCodec_releaseOutputBuffer(mDecoder, bufferIndex, mWindow != nullptr),
+                   "AMediaCodec_releaseOutputBuffer failed")
     return !hasSeenError();
 }
 
@@ -289,10 +326,10 @@ bool CodecEncoderSurfaceTest::dequeueEncoderOutput(size_t bufferIndex,
         if (mMuxer != nullptr) {
             if (mMuxTrackID == -1) {
                 mMuxTrackID = AMediaMuxer_addTrack(mMuxer, AMediaCodec_getOutputFormat(mEncoder));
-                CHECK_STATUS(AMediaMuxer_start(mMuxer), "AMediaMuxer_start failed");
+                RETURN_IF_FAIL(AMediaMuxer_start(mMuxer), "AMediaMuxer_start failed")
             }
-            CHECK_STATUS(AMediaMuxer_writeSampleData(mMuxer, mMuxTrackID, buf, info),
-                         "AMediaMuxer_writeSampleData failed");
+            RETURN_IF_FAIL(AMediaMuxer_writeSampleData(mMuxer, mMuxTrackID, buf, info),
+                           "AMediaMuxer_writeSampleData failed")
         }
         if ((info->flags & AMEDIACODEC_BUFFER_FLAG_CODEC_CONFIG) == 0) {
             mOutputBuff->saveOutPTS(info->presentationTimeUs);
@@ -301,8 +338,8 @@ bool CodecEncoderSurfaceTest::dequeueEncoderOutput(size_t bufferIndex,
     }
     ALOGV("output: id: %zu  size: %d  pts: %" PRId64 "  flags: %d", bufferIndex, info->size,
           info->presentationTimeUs, info->flags);
-    CHECK_STATUS(AMediaCodec_releaseOutputBuffer(mEncoder, bufferIndex, false),
-                 "AMediaCodec_releaseOutputBuffer failed");
+    RETURN_IF_FAIL(AMediaCodec_releaseOutputBuffer(mEncoder, bufferIndex, false),
+                   "AMediaCodec_releaseOutputBuffer failed")
     return !hasSeenError();
 }
 
@@ -324,7 +361,7 @@ bool CodecEncoderSurfaceTest::tryEncoderOutput(long timeOutUs) {
                 } else {
                     if (retry > kRetryLimit) return false;
                     usleep(kQDeQTimeOutUs);
-                    retry ++;
+                    retry++;
                 }
             }
             callbackObject element = mAsyncHandleEncoder.getOutput();
@@ -345,7 +382,9 @@ bool CodecEncoderSurfaceTest::tryEncoderOutput(long timeOutUs) {
             } else if (bufferID == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
             } else if (bufferID == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
             } else {
-                ALOGE("unexpected return value from *_dequeueOutputBuffer: %d", bufferID);
+                mErrorLogs.append(
+                        StringFormat("unexpected return value from *_dequeueOutputBuffer: %d",
+                                     bufferID));
                 return false;
             }
         }
@@ -390,7 +429,9 @@ bool CodecEncoderSurfaceTest::queueEOS() {
             } else if (oBufferID == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
             } else if (oBufferID == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
             } else {
-                ALOGE("unexpected return value from *_dequeueOutputBuffer: %zd", oBufferID);
+                mErrorLogs.append(
+                        StringFormat("unexpected return value from *_dequeueOutputBuffer: %d",
+                                     oBufferID));
                 return false;
             }
             ssize_t iBufferId = AMediaCodec_dequeueInputBuffer(mDecoder, kQDeQTimeOutUs);
@@ -398,7 +439,9 @@ bool CodecEncoderSurfaceTest::queueEOS() {
                 if (!enqueueDecoderEOS(iBufferId)) return false;
             } else if (iBufferId == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
             } else {
-                ALOGE("unexpected return value from *_dequeueInputBuffer: %zd", iBufferId);
+                mErrorLogs.append(
+                        StringFormat("unexpected return value from *_dequeueInputBuffer: %zd",
+                                     iBufferId));
                 return false;
             }
         }
@@ -429,7 +472,9 @@ bool CodecEncoderSurfaceTest::queueEOS() {
                 } else if (oBufferID == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
                 } else if (oBufferID == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
                 } else {
-                    ALOGE("unexpected return value from *_dequeueOutputBuffer: %zd", oBufferID);
+                    mErrorLogs.append(
+                            StringFormat("unexpected return value from *_dequeueOutputBuffer: %d",
+                                         oBufferID));
                     return false;
                 }
             }
@@ -476,7 +521,9 @@ bool CodecEncoderSurfaceTest::doWork(int frameLimit) {
             } else if (oBufferID == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
             } else if (oBufferID == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
             } else {
-                ALOGE("unexpected return value from *_dequeueOutputBuffer: %zd", oBufferID);
+                mErrorLogs.append(
+                        StringFormat("unexpected return value from *_dequeueOutputBuffer: %zd",
+                                     oBufferID));
                 return false;
             }
             ssize_t iBufferId = AMediaCodec_dequeueInputBuffer(mDecoder, kQDeQTimeOutUs);
@@ -485,7 +532,9 @@ bool CodecEncoderSurfaceTest::doWork(int frameLimit) {
                 frameCnt++;
             } else if (iBufferId == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
             } else {
-                ALOGE("unexpected return value from *_dequeueInputBuffer: %zd", iBufferId);
+                mErrorLogs.append(
+                        StringFormat("unexpected return value from *_dequeueInputBuffer: %zd",
+                                     iBufferId));
                 return false;
             }
             if (mSawDecOutputEOS) AMediaCodec_signalEndOfInputStream(mEncoder);
@@ -499,24 +548,18 @@ bool CodecEncoderSurfaceTest::doWork(int frameLimit) {
 
 bool CodecEncoderSurfaceTest::testSimpleEncode(const char* encoder, const char* decoder,
                                                const char* srcPath, const char* muxOutPath,
-                                               int colorFormat) {
-    bool isPass = true;
-    if (!setUpExtractor(srcPath, colorFormat)) {
-        ALOGE("setUpExtractor failed");
-        return false;
-    }
-    setUpEncoderFormat();
-    bool muxOutput = true;
+                                               int colorFormat, bool usePersistentSurface) {
+    RETURN_IF_FALSE(setUpExtractor(srcPath, colorFormat), std::string{"setUpExtractor failed"})
+    bool muxOutput = muxOutPath != nullptr;
 
     /* TODO(b/149027258) */
     if (true) mSaveToMem = false;
     else mSaveToMem = true;
-    auto ref = &mRefBuff;
-    auto test = &mTestBuff;
+    auto ref = mRefBuff;
+    auto test = mTestBuff;
     int loopCounter = 0;
     const bool boolStates[]{true, false};
     for (bool isAsync : boolStates) {
-        if (!isPass) break;
         AMediaExtractor_seekTo(mExtractor, 0, AMEDIAEXTRACTOR_SEEK_CLOSEST_SYNC);
         mOutputBuff = loopCounter == 0 ? ref : test;
         mOutputBuff->reset();
@@ -526,17 +569,13 @@ bool CodecEncoderSurfaceTest::testSimpleEncode(const char* encoder, const char* 
          * once and use it for all iterations and delete before exiting */
         mEncoder = AMediaCodec_createCodecByName(encoder);
         mDecoder = AMediaCodec_createCodecByName(decoder);
-        if (!mDecoder || !mEncoder) {
-            ALOGE("unable to create media codec by name %s or %s", encoder, decoder);
-            isPass = false;
-            continue;
-        }
-
+        RETURN_IF_NULL(mDecoder, StringFormat("unable to create media codec by name %s", decoder))
+        RETURN_IF_NULL(mEncoder, StringFormat("unable to create media codec by name %s", encoder))
         FILE* ofp = nullptr;
         if (muxOutput && loopCounter == 0) {
             int muxerFormat = 0;
-            if (!strcmp(mMime, AMEDIA_MIMETYPE_VIDEO_VP8) ||
-                !strcmp(mMime, AMEDIA_MIMETYPE_VIDEO_VP9)) {
+            if (!strcmp(mMediaType, AMEDIA_MIMETYPE_VIDEO_VP8) ||
+                !strcmp(mMediaType, AMEDIA_MIMETYPE_VIDEO_VP9)) {
                 muxerFormat = OUTPUT_FORMAT_WEBM;
             } else {
                 muxerFormat = OUTPUT_FORMAT_MPEG_4;
@@ -546,87 +585,108 @@ bool CodecEncoderSurfaceTest::testSimpleEncode(const char* encoder, const char* 
                 mMuxer = AMediaMuxer_new(fileno(ofp), (OutputFormat)muxerFormat);
             }
         }
-        if (!configureCodec(mIsCodecInAsyncMode, mSignalEOSWithLastFrame)) return false;
-        CHECK_STATUS(AMediaCodec_start(mEncoder), "AMediaCodec_start failed");
-        CHECK_STATUS(AMediaCodec_start(mDecoder), "AMediaCodec_start failed");
+        if (!configureCodec(isAsync, false, usePersistentSurface)) return false;
+        RETURN_IF_FAIL(AMediaCodec_start(mEncoder), "Encoder AMediaCodec_start failed")
+        RETURN_IF_FAIL(AMediaCodec_start(mDecoder), "Decoder AMediaCodec_start failed")
         if (!doWork(INT32_MAX)) return false;
         if (!queueEOS()) return false;
         if (!waitForAllEncoderOutputs()) return false;
         if (muxOutput) {
             if (mMuxer != nullptr) {
-                CHECK_STATUS(AMediaMuxer_stop(mMuxer), "AMediaMuxer_stop failed");
+                RETURN_IF_FAIL(AMediaMuxer_stop(mMuxer), "AMediaMuxer_stop failed")
                 mMuxTrackID = -1;
-                CHECK_STATUS(AMediaMuxer_delete(mMuxer), "AMediaMuxer_delete failed");
+                RETURN_IF_FAIL(AMediaMuxer_delete(mMuxer), "AMediaMuxer_delete failed")
                 mMuxer = nullptr;
             }
             if (ofp) fclose(ofp);
         }
-        CHECK_STATUS(AMediaCodec_stop(mDecoder), "AMediaCodec_stop failed");
-        CHECK_STATUS(AMediaCodec_stop(mEncoder), "AMediaCodec_stop failed");
-        char log[1000];
-        snprintf(log, sizeof(log), "format: %s \n codec: %s, file: %s, mode: %s:: ",
-                 AMediaFormat_toString(mEncFormat), encoder, srcPath, (isAsync ? "async" : "sync"));
-        CHECK_ERR((hasSeenError()), log, "has seen error", isPass);
-        CHECK_ERR((0 == mDecInputCount), log, "no input sent", isPass);
-        CHECK_ERR((0 == mDecOutputCount), log, "no decoder output received", isPass);
-        CHECK_ERR((0 == mEncOutputCount), log, "no encoder output received", isPass);
-        CHECK_ERR((mDecInputCount != mDecOutputCount), log, "decoder input count != output count",
-                  isPass);
+        RETURN_IF_FAIL(AMediaCodec_stop(mDecoder), "AMediaCodec_stop failed for Decoder")
+        RETURN_IF_FAIL(AMediaCodec_stop(mEncoder), "AMediaCodec_stop failed for Encoder")
+        RETURN_IF_TRUE(mAsyncHandleDecoder.getError(),
+                       std::string{"Decoder has encountered error in async mode. \n"}.append(
+                               mAsyncHandleDecoder.getErrorMsg()))
+        RETURN_IF_TRUE(mAsyncHandleEncoder.getError(),
+                       std::string{"Encoder has encountered error in async mode. \n"}.append(
+                               mAsyncHandleEncoder.getErrorMsg()))
+        RETURN_IF_TRUE((0 == mDecInputCount), std::string{"Decoder has not received any input \n"})
+        RETURN_IF_TRUE((0 == mDecOutputCount), std::string{"Decoder has not sent any output \n"})
+        RETURN_IF_TRUE((0 == mEncOutputCount), std::string{"Encoder has not sent any output \n"})
+        RETURN_IF_TRUE((mDecInputCount != mDecOutputCount),
+                       StringFormat("Decoder output count is not equal to decoder input count\n "
+                                    "Input count : %s, Output count : %s\n",
+                                    mDecInputCount, mDecOutputCount))
         /* TODO(b/153127506)
          *  Currently disabling all encoder output checks. Added checks only for encoder timeStamp
          *  is in increasing order or not.
          *  Once issue is fixed remove increasing timestamp check and enable encoder checks.
          */
-        /*CHECK_ERR((mEncOutputCount != mDecOutputCount), log,
-                  "encoder output count != decoder output count", isPass);
-        CHECK_ERR((loopCounter != 0 && !ref->equals(test)), log, "output is flaky", isPass);
-        CHECK_ERR((loopCounter == 0 && !ref->isOutPtsListIdenticalToInpPtsList(mMaxBFrames != 0)),
-                  log, "input pts list and output pts list are not identical", isPass);*/
-        CHECK_ERR(loopCounter == 0 && (!ref->isPtsStrictlyIncreasing(INT32_MIN)), log,
-                  "Ref pts is not strictly increasing", isPass);
-        CHECK_ERR(loopCounter != 0 && (!test->isPtsStrictlyIncreasing(INT32_MIN)), log,
-                  "Test pts is not strictly increasing", isPass);
-
+        /*RETURN_IF_TRUE((mEncOutputCount != mDecOutputCount),
+                       StringFormat("Encoder output count is not equal to decoder input count\n "
+                                    "Input count : %s, Output count : %s\n",
+                                    mDecInputCount, mEncOutputCount))
+        RETURN_IF_TRUE((loopCounter != 0 && !ref->equals(test)),
+                       std::string{"Encoder output is not consistent across runs \n"}.append(
+                               test->getErrorMsg()))
+        RETURN_IF_TRUE((loopCounter == 0 &&
+                        !mOutputBuff->isOutPtsListIdenticalToInpPtsList(mMaxBFrames != 0)),
+                       std::string{"Input pts list and Output pts list are not identical \n"}
+                               .append(ref->getErrorMsg()))*/
         loopCounter++;
         ANativeWindow_release(mWindow);
         mWindow = nullptr;
-        CHECK_STATUS(AMediaCodec_delete(mEncoder), "AMediaCodec_delete failed");
+        RETURN_IF_FAIL(AMediaCodec_delete(mEncoder), "AMediaCodec_delete failed for encoder")
         mEncoder = nullptr;
-        CHECK_STATUS(AMediaCodec_delete(mDecoder), "AMediaCodec_delete failed");
+        RETURN_IF_FAIL(AMediaCodec_delete(mDecoder), "AMediaCodec_delete failed for decoder")
         mDecoder = nullptr;
     }
-    return isPass;
+    return true;
 }
 
 static jboolean nativeTestSimpleEncode(JNIEnv* env, jobject, jstring jEncoder, jstring jDecoder,
-                                       jstring jMime, jstring jtestFile, jstring jmuxFile,
-                                       jint jBitrate, jint jFramerate, jint jColorFormat) {
+                                       jstring jMediaType, jstring jtestFile, jstring jmuxFile,
+                                       jint jColorFormat, jboolean jUsePersistentSurface,
+                                       jstring jCfgParams, jstring jSeparator, jobject jRetMsg) {
     const char* cEncoder = env->GetStringUTFChars(jEncoder, nullptr);
     const char* cDecoder = env->GetStringUTFChars(jDecoder, nullptr);
-    const char* cMime = env->GetStringUTFChars(jMime, nullptr);
+    const char* cMediaType = env->GetStringUTFChars(jMediaType, nullptr);
     const char* cTestFile = env->GetStringUTFChars(jtestFile, nullptr);
-    const char* cMuxFile = env->GetStringUTFChars(jmuxFile, nullptr);
-    auto codecEncoderSurfaceTest =
-            new CodecEncoderSurfaceTest(cMime, (int)jBitrate, (int)jFramerate);
-    bool isPass =
-            codecEncoderSurfaceTest->testSimpleEncode(cEncoder, cDecoder, cTestFile, cMuxFile,
-                                                      jColorFormat);
+    const char* cMuxFile = jmuxFile ? env->GetStringUTFChars(jmuxFile, nullptr) : nullptr;
+    const char* cCfgParams = env->GetStringUTFChars(jCfgParams, nullptr);
+    const char* cSeparator = env->GetStringUTFChars(jSeparator, nullptr);
+    auto codecEncoderSurfaceTest = new CodecEncoderSurfaceTest(cMediaType, cCfgParams, cSeparator);
+    bool isPass = codecEncoderSurfaceTest->testSimpleEncode(cEncoder, cDecoder, cTestFile, cMuxFile,
+                                                            jColorFormat, jUsePersistentSurface);
+    std::string msg = isPass ? std::string{} : codecEncoderSurfaceTest->getErrorMsg();
     delete codecEncoderSurfaceTest;
+    jclass clazz = env->GetObjectClass(jRetMsg);
+    jmethodID mId =
+            env->GetMethodID(clazz, "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;");
+    env->CallObjectMethod(jRetMsg, mId, env->NewStringUTF(msg.c_str()));
     env->ReleaseStringUTFChars(jEncoder, cEncoder);
     env->ReleaseStringUTFChars(jDecoder, cDecoder);
-    env->ReleaseStringUTFChars(jMime, cMime);
+    env->ReleaseStringUTFChars(jMediaType, cMediaType);
     env->ReleaseStringUTFChars(jtestFile, cTestFile);
-    env->ReleaseStringUTFChars(jmuxFile, cMuxFile);
-    return static_cast<jboolean>(isPass);
+    if (cMuxFile) env->ReleaseStringUTFChars(jmuxFile, cMuxFile);
+    env->ReleaseStringUTFChars(jCfgParams, cCfgParams);
+    env->ReleaseStringUTFChars(jSeparator, cSeparator);
+
+    return isPass;
 }
 
 int registerAndroidMediaV2CtsEncoderSurfaceTest(JNIEnv* env) {
     const JNINativeMethod methodTable[] = {
             {"nativeTestSimpleEncode",
-             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/"
-             "String;III)Z",
+             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;"
+             "Ljava/lang/String;IZLjava/lang/String;Ljava/lang/String;Ljava/lang/StringBuilder;)Z",
              (void*)nativeTestSimpleEncode},
     };
     jclass c = env->FindClass("android/mediav2/cts/CodecEncoderSurfaceTest");
     return env->RegisterNatives(c, methodTable, sizeof(methodTable) / sizeof(JNINativeMethod));
+}
+
+extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
+    JNIEnv* env;
+    if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) return JNI_ERR;
+    if (registerAndroidMediaV2CtsEncoderSurfaceTest(env) != JNI_OK) return JNI_ERR;
+    return JNI_VERSION_1_6;
 }

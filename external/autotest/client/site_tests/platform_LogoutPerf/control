@@ -9,6 +9,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "login"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This test measures the time elapsed for signing out from a logged on

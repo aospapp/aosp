@@ -29,13 +29,13 @@ android_test {
     static_libs: [
         "compatibility-device-util-axt",
         "androidx.test.rules",
-        "wrap_debug_lib"
+        "wrap_debug_lib",
+        "cts_tests_tests_wrap_src",
     ],
     libs: [
         "android.test.runner.stubs",
         "android.test.base.stubs",
     ],
-    srcs: [":cts_tests_tests_wrap_src"],
     test_suites: [
         "cts",
         "general-tests",

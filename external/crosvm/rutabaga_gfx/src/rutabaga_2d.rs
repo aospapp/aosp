@@ -1,14 +1,18 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 //! rutabaga_2d: Handles 2D virtio-gpu hypercalls.
 
-use std::cmp::{max, min, Ordering};
+use std::cmp::max;
+use std::cmp::min;
+use std::cmp::Ordering;
 
 use data_model::*;
 
-use crate::rutabaga_core::{Rutabaga2DInfo, RutabagaComponent, RutabagaResource};
+use crate::rutabaga_core::Rutabaga2DInfo;
+use crate::rutabaga_core::RutabagaComponent;
+use crate::rutabaga_core::RutabagaResource;
 use crate::rutabaga_utils::*;
 
 /// Transfers a resource from potentially many chunked src VolatileSlices to a dst VolatileSlice.
@@ -174,6 +178,7 @@ impl RutabagaComponent for Rutabaga2D {
             info_3d: None,
             vulkan_info: None,
             backing_iovecs: None,
+            component_mask: 1 << (RutabagaComponentType::Rutabaga2D as u8),
         })
     }
 

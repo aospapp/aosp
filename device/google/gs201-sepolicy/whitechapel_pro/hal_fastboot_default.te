@@ -1,0 +1,24 @@
+binder_use(hal_fastboot_default)
+
+# For get-off-mode charge state
+allow hal_fastboot_default devinfo_block_device:blk_file { open read };
+allow hal_fastboot_default kmsg_device:chr_file { open write };
+
+# For dev/block/by-name dir
+allow hal_fastboot_default block_device:dir r_dir_perms;
+
+allow hal_fastboot_default tmpfs:dir rw_dir_perms;
+allow hal_fastboot_default rootfs:dir r_dir_perms;
+
+# For set-brightness
+allow hal_fastboot_default sysfs_leds:dir search;
+allow hal_fastboot_default sysfs_leds:file rw_file_perms;
+allow hal_fastboot_default sysfs_leds:lnk_file read;
+
+#for fastboot -w (wiping device)
+allow hal_fastboot_default citadel_device:chr_file { rw_file_perms };
+allow hal_fastboot_default proc_bootconfig:file { rw_file_perms };
+allow hal_fastboot_default proc_cmdline:file { rw_file_perms };
+allow hal_fastboot_default st54spi_device:chr_file { rw_file_perms };
+allow hal_fastboot_default metadata_block_device:blk_file { rw_file_perms };
+allowxperm hal_fastboot_default metadata_block_device:blk_file ioctl { BLKSECDISCARD BLKDISCARD };

@@ -1,5 +1,0 @@
-# b/180550063
-dontaudit hal_neuralnetworks_armnn system_data_file:dir { search };
-dontaudit hal_neuralnetworks_armnn system_data_file:dir { search };
-# b/190563897
-dontaudit hal_neuralnetworks_armnn default_prop:file read;

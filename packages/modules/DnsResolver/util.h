@@ -55,7 +55,19 @@ inline uint64_t getApiLevel() {
     return std::max(buildVersionSdk + !!buildVersionPreviewSdk, firstApiLevel);
 }
 
+// It's the identical strategy as frameworks/base/core/java/android/os/Build.java did.
+// There's also equivalent C++ code in system/core/init/property_service.cpp
+// (and it is CTS tested in BuildTest.java)
+inline bool isDebuggable() {
+    return android::base::GetBoolProperty("ro.debuggable", false);
+}
+
 inline bool isDoHEnabled() {
     static bool isAtLeastT = android::modules::sdklevel::IsAtLeastT();
     return android::net::Experiments::getInstance()->getFlag("doh", isAtLeastT ? 1 : 0);
+}
+
+inline bool isAtLeastU() {
+    const static bool isAtLeastU = android::modules::sdklevel::IsAtLeastU();
+    return isAtLeastU;
 }

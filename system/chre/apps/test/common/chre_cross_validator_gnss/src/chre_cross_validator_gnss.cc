@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <chre.h>
 #include <cinttypes>
 
+#include "chre_api/chre.h"
 namespace chre {
 
 extern "C" void nanoappHandleEvent(uint32_t senderInstanceId,

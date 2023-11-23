@@ -18,6 +18,7 @@ package com.android.server.wifi;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.os.Looper;
@@ -327,12 +328,21 @@ public class WaitingStateTest {
         sm.resetTestFlags();
 
         // execute commands - nothing should be run
-        sm.sendMessage(50);
-        sm.sendMessage(70);
-        sm.sendMessage(60);
+        Message msg50 = sm.obtainMessage(50);
+        Message msg70 = sm.obtainMessage(70);
+        Message msg60 = sm.obtainMessage(60);
+        assertFalse(WaitingState.wasMessageInWaitingState(msg50));
+        assertFalse(WaitingState.wasMessageInWaitingState(msg70));
+        assertFalse(WaitingState.wasMessageInWaitingState(msg60));
+        sm.sendMessage(msg50);
+        sm.sendMessage(msg70);
+        sm.sendMessage(msg60);
         mTestLooper.dispatchAll();
         assertTrue("Nothing run in Acontainer", sm.Acontainer.commandList.isEmpty());
         assertTrue("Nothing run in A", sm.A.commandList.isEmpty());
+        assertTrue(WaitingState.wasMessageInWaitingState(msg50));
+        assertTrue(WaitingState.wasMessageInWaitingState(msg70));
+        assertTrue(WaitingState.wasMessageInWaitingState(msg60));
         sm.resetTestFlags();
 
         // transition back to A

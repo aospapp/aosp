@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "apexd"
-
 #include "apex_database.h"
 #include "apex_constants.h"
 #include "apex_file.h"

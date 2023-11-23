@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+PY_VERSION = 3
 NAME = 'graphics_GLAPICheck'
 AUTHOR = 'chromeos-gfx'
 PURPOSE = 'Verify correctness of OpenGL/GLES.'
@@ -13,7 +14,7 @@ This test will fail if:
   - EGL version is less than 1.3
   - If GL extensions don't include needed extensions
 """
-ATTRIBUTES = "suite:bvt-perbuild, suite:graphics, suite:graphics_per-day, suite:graphics_system, suite:hwqual"
+ATTRIBUTES = "suite:bvt-perbuild, suite:graphics, suite:graphics_per-day, suite:graphics_system, suite:hwqual, suite:pvs-graphics"
 TIME='SHORT'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = "graphics"

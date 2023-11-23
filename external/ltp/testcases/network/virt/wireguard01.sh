@@ -8,11 +8,9 @@ TST_CLEANUP=cleanup
 TST_TESTFUNC=test
 TST_CNT=3
 
-. wireguard_lib.sh
-
 setup()
 {
-	if [ -n "$LTP_NETNS" -a "$VIRT_PERF_THRESHOLD" -lt 700 ]; then
+	if tst_net_use_netns && [ "$VIRT_PERF_THRESHOLD" -lt 700 ]; then
 		tst_res TINFO "Adjust threshold for veth (no encap/encrypt)"
 		VIRT_PERF_THRESHOLD=700
 	fi
@@ -53,4 +51,5 @@ test3()
 	virt_compare_netperf "fail"
 }
 
+. wireguard_lib.sh
 tst_run

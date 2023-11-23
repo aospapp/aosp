@@ -16,14 +16,27 @@
 package com.android.car.audio;
 
 import static android.car.media.CarAudioManager.PRIMARY_AUDIO_ZONE;
+import static android.media.AudioAttributes.USAGE_ALARM;
+import static android.media.AudioAttributes.USAGE_ANNOUNCEMENT;
+import static android.media.AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE;
+import static android.media.AudioAttributes.USAGE_ASSISTANCE_SONIFICATION;
+import static android.media.AudioAttributes.USAGE_ASSISTANT;
+import static android.media.AudioAttributes.USAGE_EMERGENCY;
+import static android.media.AudioAttributes.USAGE_MEDIA;
+import static android.media.AudioAttributes.USAGE_NOTIFICATION;
+import static android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE;
+import static android.media.AudioAttributes.USAGE_VEHICLE_STATUS;
+import static android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION;
 import static android.media.AudioDeviceInfo.TYPE_BUILTIN_MIC;
 import static android.media.AudioDeviceInfo.TYPE_FM_TUNER;
 
+import static com.android.car.audio.CarAudioService.CAR_DEFAULT_AUDIO_ATTRIBUTE;
+
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
-import static org.testng.Assert.expectThrows;
 
 import android.annotation.XmlRes;
 import android.content.Context;
@@ -53,6 +66,46 @@ import java.util.stream.IntStream;
 
 @RunWith(AndroidJUnit4.class)
 public class CarAudioZonesHelperLegacyTest {
+
+    private static final int INVALID_BUS = -1;
+
+    private static final CarAudioContext TEST_CAR_AUDIO_CONTEXT =
+            new CarAudioContext(CarAudioContext.getAllContextsInfo(),
+                    /* useCoreAudioRouting= */ false);
+    private static final @CarAudioContext.AudioContext int TEST_MEDIA_CONTEXT =
+            TEST_CAR_AUDIO_CONTEXT.getContextForAudioAttribute(
+                    CarAudioContext.getAudioAttributeFromUsage(USAGE_MEDIA));
+    private static final @CarAudioContext.AudioContext int TEST_ALARM_CONTEXT =
+            TEST_CAR_AUDIO_CONTEXT.getContextForAudioAttribute(
+                    CarAudioContext.getAudioAttributeFromUsage(USAGE_ALARM));
+    private static final @CarAudioContext.AudioContext int TEST_CALL_CONTEXT =
+            TEST_CAR_AUDIO_CONTEXT.getContextForAudioAttribute(
+                    CarAudioContext.getAudioAttributeFromUsage(USAGE_VOICE_COMMUNICATION));
+    private static final @CarAudioContext.AudioContext int TEST_CALL_RING_CONTEXT =
+            TEST_CAR_AUDIO_CONTEXT.getContextForAudioAttribute(
+                    CarAudioContext.getAudioAttributeFromUsage(USAGE_NOTIFICATION_RINGTONE));
+    private static final @CarAudioContext.AudioContext int TEST_EMERGENCY_CONTEXT =
+            TEST_CAR_AUDIO_CONTEXT.getContextForAudioAttribute(
+                    CarAudioContext.getAudioAttributeFromUsage(USAGE_EMERGENCY));
+    private static final @CarAudioContext.AudioContext int TEST_NAVIGATION_CONTEXT =
+            TEST_CAR_AUDIO_CONTEXT.getContextForAudioAttribute(CarAudioContext
+                    .getAudioAttributeFromUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE));
+    private static final @CarAudioContext.AudioContext int TEST_NOTIFICATION_CONTEXT =
+            TEST_CAR_AUDIO_CONTEXT.getContextForAudioAttribute(CarAudioContext
+                    .getAudioAttributeFromUsage(USAGE_NOTIFICATION));
+    private static final @CarAudioContext.AudioContext int TEST_ANNOUNCEMENT_CONTEXT =
+            TEST_CAR_AUDIO_CONTEXT.getContextForAudioAttribute(CarAudioContext
+                    .getAudioAttributeFromUsage(USAGE_ANNOUNCEMENT));
+    private static final @CarAudioContext.AudioContext int TEST_SYSTEM_SOUND_CONTEXT =
+            TEST_CAR_AUDIO_CONTEXT.getContextForAudioAttribute(CarAudioContext
+                    .getAudioAttributeFromUsage(USAGE_ASSISTANCE_SONIFICATION));
+    private static final @CarAudioContext.AudioContext int TEST_VEHICLE_STATUS_CONTEXT =
+            TEST_CAR_AUDIO_CONTEXT.getContextForAudioAttribute(CarAudioContext
+                    .getAudioAttributeFromUsage(USAGE_VEHICLE_STATUS));
+    private static final @CarAudioContext.AudioContext int TEST_ASSISTANT_CONTEXT =
+            TEST_CAR_AUDIO_CONTEXT.getContextForAudioAttribute(CarAudioContext
+                    .getAudioAttributeFromUsage(USAGE_ASSISTANT));
+
     @Rule
     public final MockitoRule rule = MockitoJUnit.rule();
 
@@ -61,7 +114,6 @@ public class CarAudioZonesHelperLegacyTest {
     @Mock
     private CarAudioSettings mMockCarAudioSettings;
 
-    private static final int INVALID_BUS = -1;
     private final Context mContext = ApplicationProvider.getApplicationContext();
     private final @XmlRes int mCarVolumeGroups = R.xml.test_car_volume_groups;
 
@@ -69,10 +121,10 @@ public class CarAudioZonesHelperLegacyTest {
     public void constructor_checksForNoDuplicateBusNumbers() {
         List<CarAudioDeviceInfo> carAudioDeviceInfos = getCarAudioDeviceInfoWithDuplicateBuses();
 
-        RuntimeException exception = expectThrows(RuntimeException.class,
-                () -> new CarAudioZonesHelperLegacy(mContext, mCarVolumeGroups,
-                        carAudioDeviceInfos, mMockAudioControlWrapper, mMockCarAudioSettings,
-                        getInputDevices()));
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> new CarAudioZonesHelperLegacy(mContext, TEST_CAR_AUDIO_CONTEXT,
+                        mCarVolumeGroups, carAudioDeviceInfos, mMockAudioControlWrapper,
+                        mMockCarAudioSettings, getInputDevices()));
 
         assertThat(exception).hasMessageThat().contains("Two addresses map to same bus number:");
     }
@@ -83,9 +135,9 @@ public class CarAudioZonesHelperLegacyTest {
 
         when(mMockAudioControlWrapper.getBusForContext(anyInt())).thenReturn(INVALID_BUS);
 
-        RuntimeException exception = expectThrows(RuntimeException.class,
-                () -> new CarAudioZonesHelperLegacy(mContext, mCarVolumeGroups,
-                        carAudioDeviceInfos, mMockAudioControlWrapper,
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> new CarAudioZonesHelperLegacy(mContext, TEST_CAR_AUDIO_CONTEXT,
+                        mCarVolumeGroups, carAudioDeviceInfos, mMockAudioControlWrapper,
                         mMockCarAudioSettings, getInputDevices()));
 
         assertThat(exception).hasMessageThat()
@@ -98,9 +150,9 @@ public class CarAudioZonesHelperLegacyTest {
 
         when(mMockAudioControlWrapper.getBusForContext(anyInt())).thenReturn(INVALID_BUS);
 
-        NullPointerException exception = expectThrows(NullPointerException.class,
-                () -> new CarAudioZonesHelperLegacy(mContext, mCarVolumeGroups,
-                        carAudioDeviceInfos, mMockAudioControlWrapper,
+        NullPointerException exception = assertThrows(NullPointerException.class,
+                () -> new CarAudioZonesHelperLegacy(mContext, TEST_CAR_AUDIO_CONTEXT,
+                        mCarVolumeGroups, carAudioDeviceInfos, mMockAudioControlWrapper,
                         mMockCarAudioSettings, null));
 
         assertThat(exception).hasMessageThat().contains("Input Devices");
@@ -112,9 +164,9 @@ public class CarAudioZonesHelperLegacyTest {
 
         when(mMockAudioControlWrapper.getBusForContext(anyInt())).thenReturn(INVALID_BUS);
 
-        NullPointerException exception = expectThrows(NullPointerException.class,
-                () -> new CarAudioZonesHelperLegacy(null, mCarVolumeGroups,
-                        carAudioDeviceInfos, mMockAudioControlWrapper,
+        NullPointerException exception = assertThrows(NullPointerException.class,
+                () -> new CarAudioZonesHelperLegacy(null, TEST_CAR_AUDIO_CONTEXT,
+                        mCarVolumeGroups, carAudioDeviceInfos, mMockAudioControlWrapper,
                         mMockCarAudioSettings, getInputDevices()));
 
         assertThat(exception).hasMessageThat().contains("Context");
@@ -124,9 +176,9 @@ public class CarAudioZonesHelperLegacyTest {
     public void constructor_throwsIfNullCarAudioDeviceInfo() throws Exception {
         when(mMockAudioControlWrapper.getBusForContext(anyInt())).thenReturn(INVALID_BUS);
 
-        NullPointerException exception = expectThrows(NullPointerException.class,
-                () -> new CarAudioZonesHelperLegacy(mContext, mCarVolumeGroups,
-                        null, mMockAudioControlWrapper,
+        NullPointerException exception = assertThrows(NullPointerException.class,
+                () -> new CarAudioZonesHelperLegacy(mContext, TEST_CAR_AUDIO_CONTEXT,
+                        mCarVolumeGroups, null, mMockAudioControlWrapper,
                         mMockCarAudioSettings, getInputDevices()));
 
         assertThat(exception).hasMessageThat().contains("Car Audio Device Info");
@@ -138,9 +190,9 @@ public class CarAudioZonesHelperLegacyTest {
 
         when(mMockAudioControlWrapper.getBusForContext(anyInt())).thenReturn(INVALID_BUS);
 
-        NullPointerException exception = expectThrows(NullPointerException.class,
-                () -> new CarAudioZonesHelperLegacy(mContext, mCarVolumeGroups,
-                        carAudioDeviceInfos, null,
+        NullPointerException exception = assertThrows(NullPointerException.class,
+                () -> new CarAudioZonesHelperLegacy(mContext, TEST_CAR_AUDIO_CONTEXT,
+                        mCarVolumeGroups, carAudioDeviceInfos, null,
                         mMockCarAudioSettings, getInputDevices()));
 
         assertThat(exception).hasMessageThat().contains("Car Audio Control");
@@ -152,9 +204,23 @@ public class CarAudioZonesHelperLegacyTest {
 
         when(mMockAudioControlWrapper.getBusForContext(anyInt())).thenReturn(INVALID_BUS);
 
-        NullPointerException exception = expectThrows(NullPointerException.class,
-                () -> new CarAudioZonesHelperLegacy(mContext, mCarVolumeGroups,
-                        carAudioDeviceInfos, mMockAudioControlWrapper,
+        NullPointerException exception = assertThrows(NullPointerException.class,
+                () -> new CarAudioZonesHelperLegacy(mContext, null,
+                        mCarVolumeGroups, carAudioDeviceInfos, mMockAudioControlWrapper,
+                        mMockCarAudioSettings, getInputDevices()));
+
+        assertThat(exception).hasMessageThat().contains("Car audio context");
+    }
+
+    @Test
+    public void constructor_throwsIfNullCarAudioContexts() throws Exception {
+        List<CarAudioDeviceInfo> carAudioDeviceInfos = getValidCarAudioDeviceInfos();
+
+        when(mMockAudioControlWrapper.getBusForContext(anyInt())).thenReturn(INVALID_BUS);
+
+        NullPointerException exception = assertThrows(NullPointerException.class,
+                () -> new CarAudioZonesHelperLegacy(mContext, TEST_CAR_AUDIO_CONTEXT,
+                        mCarVolumeGroups, carAudioDeviceInfos, mMockAudioControlWrapper,
                         null, getInputDevices()));
 
         assertThat(exception).hasMessageThat().contains("Car Audio Settings");
@@ -165,9 +231,9 @@ public class CarAudioZonesHelperLegacyTest {
         List<CarAudioDeviceInfo> carAudioDeviceInfos = getValidCarAudioDeviceInfos();
         when(mMockAudioControlWrapper.getBusForContext(anyInt())).thenReturn(1);
 
-        CarAudioZonesHelperLegacy helper = new CarAudioZonesHelperLegacy(mContext, mCarVolumeGroups,
-                carAudioDeviceInfos, mMockAudioControlWrapper,
-                mMockCarAudioSettings, getInputDevices());
+        CarAudioZonesHelperLegacy helper = new CarAudioZonesHelperLegacy(mContext,
+                TEST_CAR_AUDIO_CONTEXT, mCarVolumeGroups, carAudioDeviceInfos,
+                mMockAudioControlWrapper, mMockCarAudioSettings, getInputDevices());
 
         SparseArray<CarAudioZone> zones = helper.loadAudioZones();
 
@@ -180,12 +246,12 @@ public class CarAudioZonesHelperLegacyTest {
 
         when(mMockAudioControlWrapper.getBusForContext(anyInt())).thenReturn(1);
 
-        CarAudioZonesHelperLegacy helper = new CarAudioZonesHelperLegacy(mContext, mCarVolumeGroups,
-                carAudioDeviceInfos, mMockAudioControlWrapper,
-                mMockCarAudioSettings, getInputDevices());
+        CarAudioZonesHelperLegacy helper = new CarAudioZonesHelperLegacy(mContext,
+                TEST_CAR_AUDIO_CONTEXT, mCarVolumeGroups, carAudioDeviceInfos,
+                mMockAudioControlWrapper, mMockCarAudioSettings, getInputDevices());
 
         SparseArray<CarAudioZone> zones = helper.loadAudioZones();
-        CarVolumeGroup[] volumeGroups = zones.get(0).getVolumeGroups();
+        CarVolumeGroup[] volumeGroups = zones.get(0).getCurrentVolumeGroups();
         assertThat(volumeGroups).hasLength(2);
     }
 
@@ -195,9 +261,9 @@ public class CarAudioZonesHelperLegacyTest {
 
         when(mMockAudioControlWrapper.getBusForContext(anyInt())).thenReturn(1);
 
-        CarAudioZonesHelperLegacy helper = new CarAudioZonesHelperLegacy(mContext, mCarVolumeGroups,
-                carAudioDeviceInfos, mMockAudioControlWrapper,
-                mMockCarAudioSettings, getInputDevices());
+        CarAudioZonesHelperLegacy helper = new CarAudioZonesHelperLegacy(mContext,
+                TEST_CAR_AUDIO_CONTEXT, mCarVolumeGroups, carAudioDeviceInfos,
+                mMockAudioControlWrapper, mMockCarAudioSettings, getInputDevices());
 
         SparseArray<CarAudioZone> zones = helper.loadAudioZones();
         CarAudioZone primaryZone = zones.get(PRIMARY_AUDIO_ZONE);
@@ -210,9 +276,9 @@ public class CarAudioZonesHelperLegacyTest {
 
         when(mMockAudioControlWrapper.getBusForContext(anyInt())).thenReturn(1);
 
-        CarAudioZonesHelperLegacy helper = new CarAudioZonesHelperLegacy(mContext, mCarVolumeGroups,
-                carAudioDeviceInfos, mMockAudioControlWrapper,
-                mMockCarAudioSettings, getInputDevices());
+        CarAudioZonesHelperLegacy helper = new CarAudioZonesHelperLegacy(mContext,
+                TEST_CAR_AUDIO_CONTEXT, mCarVolumeGroups, carAudioDeviceInfos,
+                mMockAudioControlWrapper, mMockCarAudioSettings, getInputDevices());
 
         SparseArray<CarAudioZone> zones = helper.loadAudioZones();
         CarAudioZone primaryZone = zones.get(PRIMARY_AUDIO_ZONE);
@@ -226,26 +292,28 @@ public class CarAudioZonesHelperLegacyTest {
         List<CarAudioDeviceInfo> carAudioDeviceInfos = getValidCarAudioDeviceInfos();
 
         when(mMockAudioControlWrapper.getBusForContext(anyInt())).thenReturn(2);
-        when(mMockAudioControlWrapper.getBusForContext(CarAudioContext.MUSIC)).thenReturn(1);
+        when(mMockAudioControlWrapper.getBusForContext(TEST_MEDIA_CONTEXT)).thenReturn(1);
 
-        CarAudioZonesHelperLegacy helper = new CarAudioZonesHelperLegacy(mContext, mCarVolumeGroups,
-                carAudioDeviceInfos, mMockAudioControlWrapper,
-                mMockCarAudioSettings, getInputDevices());
+        CarAudioZonesHelperLegacy helper = new CarAudioZonesHelperLegacy(mContext,
+                TEST_CAR_AUDIO_CONTEXT, mCarVolumeGroups, carAudioDeviceInfos,
+                mMockAudioControlWrapper, mMockCarAudioSettings, getInputDevices());
 
         SparseArray<CarAudioZone> zones = helper.loadAudioZones();
 
-        CarVolumeGroup[] volumeGroups = zones.get(0).getVolumeGroups();
+        CarVolumeGroup[] volumeGroups = zones.get(0).getCurrentVolumeGroups();
         CarVolumeGroup mediaVolumeGroup = volumeGroups[0];
         List<Integer> contexts = IntStream.of(mediaVolumeGroup.getContexts()).boxed().collect(
                 Collectors.toList());
-        assertThat(contexts).contains(CarAudioContext.MUSIC);
+        assertThat(contexts).contains(TEST_MEDIA_CONTEXT);
 
         CarVolumeGroup secondVolumeGroup = volumeGroups[1];
         List<Integer> secondContexts = IntStream.of(secondVolumeGroup.getContexts()).boxed()
                 .collect(Collectors.toList());
-        assertThat(secondContexts).containsAtLeast(CarAudioContext.NAVIGATION,
-                CarAudioContext.VOICE_COMMAND, CarAudioContext.CALL_RING, CarAudioContext.CALL,
-                CarAudioContext.ALARM, CarAudioContext.NOTIFICATION, CarAudioContext.SYSTEM_SOUND);
+        assertThat(secondContexts).containsAtLeast(TEST_NAVIGATION_CONTEXT,
+                TEST_ASSISTANT_CONTEXT, TEST_CALL_RING_CONTEXT,
+                TEST_CALL_CONTEXT,
+                TEST_ALARM_CONTEXT, TEST_NOTIFICATION_CONTEXT,
+                TEST_SYSTEM_SOUND_CONTEXT);
 
     }
 
@@ -253,22 +321,22 @@ public class CarAudioZonesHelperLegacyTest {
     public void loadAudioZones_associatesNonLegacyContextsWithMediaBus() throws Exception {
         List<CarAudioDeviceInfo> carAudioDeviceInfos = getValidCarAudioDeviceInfos();
         when(mMockAudioControlWrapper.getBusForContext(anyInt())).thenReturn(2);
-        when(mMockAudioControlWrapper.getBusForContext(CarAudioService.DEFAULT_AUDIO_CONTEXT))
-                .thenReturn(1);
+        when(mMockAudioControlWrapper.getBusForContext(TEST_CAR_AUDIO_CONTEXT
+                .getContextForAudioAttribute(CAR_DEFAULT_AUDIO_ATTRIBUTE))).thenReturn(1);
 
-        CarAudioZonesHelperLegacy helper = new CarAudioZonesHelperLegacy(mContext, mCarVolumeGroups,
-                carAudioDeviceInfos, mMockAudioControlWrapper,
-                mMockCarAudioSettings, getInputDevices());
+        CarAudioZonesHelperLegacy helper = new CarAudioZonesHelperLegacy(mContext,
+                TEST_CAR_AUDIO_CONTEXT, mCarVolumeGroups, carAudioDeviceInfos,
+                mMockAudioControlWrapper, mMockCarAudioSettings, getInputDevices());
 
         SparseArray<CarAudioZone> zones = helper.loadAudioZones();
 
-        CarVolumeGroup[] volumeGroups = zones.get(0).getVolumeGroups();
+        CarVolumeGroup[] volumeGroups = zones.get(0).getCurrentVolumeGroups();
         CarVolumeGroup mediaVolumeGroup = volumeGroups[0];
         List<Integer> contexts = IntStream.of(mediaVolumeGroup.getContexts()).boxed().collect(
                 Collectors.toList());
-        assertThat(contexts).containsAtLeast(CarAudioService.DEFAULT_AUDIO_CONTEXT,
-                CarAudioContext.EMERGENCY, CarAudioContext.VEHICLE_STATUS,
-                CarAudioContext.ANNOUNCEMENT);
+        assertThat(contexts).containsAtLeast(TEST_CAR_AUDIO_CONTEXT.getContextForAudioAttribute(
+                CAR_DEFAULT_AUDIO_ATTRIBUTE),
+                TEST_EMERGENCY_CONTEXT, TEST_VEHICLE_STATUS_CONTEXT, TEST_ANNOUNCEMENT_CONTEXT);
     }
 
     private List<CarAudioDeviceInfo> getCarAudioDeviceInfoWithDuplicateBuses() {

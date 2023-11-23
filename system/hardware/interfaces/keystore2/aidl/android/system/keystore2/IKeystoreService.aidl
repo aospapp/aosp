@@ -62,7 +62,7 @@ interface IKeystoreService {
      *
      * ## Error conditions
      * `ResponseCode::KEY_NOT_FOUND` if the key did not exist.
-     * `ResponseCode::PERMISSION_DENIED` if the caller does not possess the `UPDATE` permission
+     * `ResponseCode::PERMISSION_DENIED` if the caller does not possess the `GET_INFO` permission
      *                 for the specified key.
      *
      * @param key Describes the key entry that is to be loaded.
@@ -110,6 +110,9 @@ interface IKeystoreService {
 
     /**
      * List all entries accessible by the caller in the given `domain` and `nspace`.
+     * If the number of entries accessible by the caller is greater than could fit in one Binder
+     * transaction, a truncated list may be returned. Use `listEntriesBatched` in this case to
+     * list all entries in batches.
      *
      * Callers must have the `GET_INFO` permission for the requested namespace to list all the
      * entries.
@@ -130,6 +133,7 @@ interface IKeystoreService {
      * Note: `namespace` is a keyword in C++, the underscore disambiguates.
      *
      * @return List of KeyDescriptors.
+     * @deprecated use listEntriesBatched instead.
      */
     KeyDescriptor[] listEntries(in Domain domain, in long nspace);
 
@@ -188,4 +192,58 @@ interface IKeystoreService {
      *               for the designated key.
      */
     void ungrant(in KeyDescriptor key, in int granteeUid);
+
+    /**
+     * Get the number of entries accessible to the caller in the given `domain` and `nspace`.
+     *
+     * Callers must have the `GET_INFO` permission for the requested namespace determine the number
+     * of entries.
+     *
+     * ## Error conditions
+     * `ResponseCode::INVALID_ARGUMENT` if `domain` is other than `Domain::APP` or `Domain::SELINUX`
+     * `ResponseCode::PERMISSION_DENIED` if the caller does not have the permission `GET_INFO`
+     *               For the requested namespace.
+     *
+     * @param domain If `Domain::APP` is passed, returns all keys associated with the caller's UID
+     *               and the namespace parameter is ignored.
+     *               If `Domain::SELINUX` is passed, returns all keys associated with the given
+     *               namespace.
+     *
+     * @param nspace The SELinux keystore2_key namespace if `domain` is `Domain::SELINUX`,
+     *               ignored otherwise.
+     *
+     * @return Number of entries.
+     */
+    int getNumberOfEntries(in Domain domain, in long nspace);
+
+    /**
+     * List all entries accessible by the caller in the given `domain` and
+     * `nspace`, starting with the first entry greater than `startingPastAlias`.
+     * If the number of entries accessible by the caller is greater than could fit in one Binder
+     * transaction, a truncated list will be returned.
+     *
+     * See the `listEntries` variant above for calling permissions and documentation of the
+     * `domain` and `nspace` parameters.
+     *
+     * Notes:
+     * Consistency: The order of entries returned by this method is stable across calls.
+     * If entries have been deleted or added to Keystore between calls to
+     * this method, then some entries may be missing from the combined listing.
+     *
+     * Length of returned list: If Keystore estimates that the returned list would exceed
+     * the Binder transaction size limit, it will return a smaller number of entries than
+     * are available. Subsequent calls to this method need to be made with different
+     * starting points.
+     *
+     * @param domain See `listEntries`
+     *
+     * @param nspace See `listEntries`
+     *
+     * @param startingPastAlias Only return aliases lexicographically bigger than this value.
+     *
+     * @return List of KeyDescriptors.
+     */
+    KeyDescriptor[] listEntriesBatched(in Domain domain, in long nspace,
+            in @nullable String startingPastAlias);
+
 }

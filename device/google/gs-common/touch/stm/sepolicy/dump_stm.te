@@ -1,0 +1,8 @@
+pixel_bugreport(dump_stm)
+
+allow dump_stm proc_touch:file rw_file_perms;
+allow dump_stm sysfs_touch:dir search;
+allow dump_stm sysfs_touch:file rw_file_perms;
+allow dump_stm vendor_toolbox_exec:file execute_no_trans;
+
+get_prop(dump_stm vendor_touch_dump_path_prop)

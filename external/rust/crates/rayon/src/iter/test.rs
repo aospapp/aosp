@@ -117,13 +117,10 @@ fn fold_map_reduce() {
     let r1 = (0_i32..32)
         .into_par_iter()
         .with_max_len(1)
-        .fold(
-            || vec![],
-            |mut v, e| {
-                v.push(e);
-                v
-            },
-        )
+        .fold(Vec::new, |mut v, e| {
+            v.push(e);
+            v
+        })
         .map(|v| vec![v])
         .reduce_with(|mut v_a, v_b| {
             v_a.extend(v_b);
@@ -394,7 +391,7 @@ fn check_slice_mut_indexed() {
 #[test]
 fn check_vec_indexed() {
     let a = vec![1, 2, 3];
-    is_indexed(a.clone().into_par_iter());
+    is_indexed(a.into_par_iter());
 }
 
 #[test]
@@ -471,6 +468,7 @@ fn check_cmp_gt_to_seq() {
 }
 
 #[test]
+#[cfg_attr(any(target_os = "emscripten", target_family = "wasm"), ignore)]
 fn check_cmp_short_circuit() {
     // We only use a single thread in order to make the short-circuit behavior deterministic.
     let pool = ThreadPoolBuilder::new().num_threads(1).build().unwrap();
@@ -500,6 +498,7 @@ fn check_cmp_short_circuit() {
 }
 
 #[test]
+#[cfg_attr(any(target_os = "emscripten", target_family = "wasm"), ignore)]
 fn check_partial_cmp_short_circuit() {
     // We only use a single thread to make the short-circuit behavior deterministic.
     let pool = ThreadPoolBuilder::new().num_threads(1).build().unwrap();
@@ -529,6 +528,7 @@ fn check_partial_cmp_short_circuit() {
 }
 
 #[test]
+#[cfg_attr(any(target_os = "emscripten", target_family = "wasm"), ignore)]
 fn check_partial_cmp_nan_short_circuit() {
     // We only use a single thread to make the short-circuit behavior deterministic.
     let pool = ThreadPoolBuilder::new().num_threads(1).build().unwrap();
@@ -1371,10 +1371,10 @@ fn check_find_is_present() {
     let counter = AtomicUsize::new(0);
     let value: Option<i32> = (0_i32..2048).into_par_iter().find_any(|&p| {
         counter.fetch_add(1, Ordering::SeqCst);
-        p >= 1024 && p < 1096
+        (1024..1096).contains(&p)
     });
     let q = value.unwrap();
-    assert!(q >= 1024 && q < 1096);
+    assert!((1024..1096).contains(&q));
     assert!(counter.load(Ordering::SeqCst) < 2048); // should not have visited every single one
 }
 
@@ -1892,7 +1892,7 @@ fn check_either() {
 
     // try an indexed iterator
     let left: E = Either::Left(v.clone().into_par_iter());
-    assert!(left.enumerate().eq(v.clone().into_par_iter().enumerate()));
+    assert!(left.enumerate().eq(v.into_par_iter().enumerate()));
 }
 
 #[test]
@@ -2063,7 +2063,7 @@ fn check_chunks_len() {
     assert_eq!(4, (0..8).into_par_iter().chunks(2).len());
     assert_eq!(3, (0..9).into_par_iter().chunks(3).len());
     assert_eq!(3, (0..8).into_par_iter().chunks(3).len());
-    assert_eq!(1, (&[1]).par_iter().chunks(3).len());
+    assert_eq!(1, [1].par_iter().chunks(3).len());
     assert_eq!(0, (0..0).into_par_iter().chunks(3).len());
 }
 

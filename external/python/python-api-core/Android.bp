@@ -39,12 +39,4 @@ python_library {
         "google/api_core/operations_v1/transports/*.py",
         "google/api_core/*.py",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
 }

@@ -15,20 +15,19 @@
 #include <CoreAudio/CoreAudio.h>
 #include <mach/semaphore.h>
 
+#include <atomic>
 #include <memory>
 
+#include "absl/strings/string_view.h"
 #include "modules/audio_device/audio_device_generic.h"
 #include "modules/audio_device/mac/audio_mixer_manager_mac.h"
 #include "rtc_base/event.h"
 #include "rtc_base/logging.h"
+#include "rtc_base/platform_thread.h"
 #include "rtc_base/synchronization/mutex.h"
 #include "rtc_base/thread_annotations.h"
 
 struct PaUtilRingBuffer;
-
-namespace rtc {
-class PlatformThread;
-}  // namespace rtc
 
 namespace webrtc {
 
@@ -113,31 +112,36 @@ class AudioDeviceMac : public AudioDeviceGeneric {
   virtual bool MicrophoneIsInitialized() const;
 
   // Speaker volume controls
-  virtual int32_t SpeakerVolumeIsAvailable(bool& available);
+  virtual int32_t SpeakerVolumeIsAvailable(bool& available)
+      RTC_LOCKS_EXCLUDED(mutex_);
   virtual int32_t SetSpeakerVolume(uint32_t volume);
   virtual int32_t SpeakerVolume(uint32_t& volume) const;
   virtual int32_t MaxSpeakerVolume(uint32_t& maxVolume) const;
   virtual int32_t MinSpeakerVolume(uint32_t& minVolume) const;
 
   // Microphone volume controls
-  virtual int32_t MicrophoneVolumeIsAvailable(bool& available);
+  virtual int32_t MicrophoneVolumeIsAvailable(bool& available)
+      RTC_LOCKS_EXCLUDED(mutex_);
   virtual int32_t SetMicrophoneVolume(uint32_t volume);
   virtual int32_t MicrophoneVolume(uint32_t& volume) const;
   virtual int32_t MaxMicrophoneVolume(uint32_t& maxVolume) const;
   virtual int32_t MinMicrophoneVolume(uint32_t& minVolume) const;
 
   // Microphone mute control
-  virtual int32_t MicrophoneMuteIsAvailable(bool& available);
+  virtual int32_t MicrophoneMuteIsAvailable(bool& available)
+      RTC_LOCKS_EXCLUDED(mutex_);
   virtual int32_t SetMicrophoneMute(bool enable);
   virtual int32_t MicrophoneMute(bool& enabled) const;
 
   // Speaker mute control
-  virtual int32_t SpeakerMuteIsAvailable(bool& available);
+  virtual int32_t SpeakerMuteIsAvailable(bool& available)
+      RTC_LOCKS_EXCLUDED(mutex_);
   virtual int32_t SetSpeakerMute(bool enable);
   virtual int32_t SpeakerMute(bool& enabled) const;
 
   // Stereo support
-  virtual int32_t StereoPlayoutIsAvailable(bool& available);
+  virtual int32_t StereoPlayoutIsAvailable(bool& available)
+      RTC_LOCKS_EXCLUDED(mutex_);
   virtual int32_t SetStereoPlayout(bool enable);
   virtual int32_t StereoPlayout(bool& enabled) const;
   virtual int32_t StereoRecordingIsAvailable(bool& available);
@@ -154,23 +158,29 @@ class AudioDeviceMac : public AudioDeviceGeneric {
   int32_t InitSpeakerLocked() RTC_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   int32_t InitMicrophoneLocked() RTC_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  virtual int32_t MicrophoneIsAvailable(bool& available);
-  virtual int32_t SpeakerIsAvailable(bool& available);
+  virtual int32_t MicrophoneIsAvailable(bool& available)
+      RTC_LOCKS_EXCLUDED(mutex_);
+  virtual int32_t MicrophoneIsAvailableLocked(bool& available)
+      RTC_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  virtual int32_t SpeakerIsAvailable(bool& available)
+      RTC_LOCKS_EXCLUDED(mutex_);
+  virtual int32_t SpeakerIsAvailableLocked(bool& available)
+      RTC_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   static void AtomicSet32(int32_t* theValue, int32_t newValue);
   static int32_t AtomicGet32(int32_t* theValue);
 
-  static void logCAMsg(const rtc::LoggingSeverity sev,
+  static void logCAMsg(rtc::LoggingSeverity sev,
                        const char* msg,
                        const char* err);
 
-  int32_t GetNumberDevices(const AudioObjectPropertyScope scope,
+  int32_t GetNumberDevices(AudioObjectPropertyScope scope,
                            AudioDeviceID scopedDeviceIds[],
-                           const uint32_t deviceListLength);
+                           uint32_t deviceListLength);
 
-  int32_t GetDeviceName(const AudioObjectPropertyScope scope,
-                        const uint16_t index,
-                        char* name);
+  int32_t GetDeviceName(AudioObjectPropertyScope scope,
+                        uint16_t index,
+                        rtc::ArrayView<char> name);
 
   int32_t InitDevice(uint16_t userDeviceIndex,
                      AudioDeviceID& deviceId,
@@ -260,13 +270,11 @@ class AudioDeviceMac : public AudioDeviceGeneric {
   rtc::Event _stopEventRec;
   rtc::Event _stopEvent;
 
-  // TODO(pbos): Replace with direct members, just start/stop, no need to
-  // recreate the thread.
   // Only valid/running between calls to StartRecording and StopRecording.
-  std::unique_ptr<rtc::PlatformThread> capture_worker_thread_;
+  rtc::PlatformThread capture_worker_thread_;
 
   // Only valid/running between calls to StartPlayout and StopPlayout.
-  std::unique_ptr<rtc::PlatformThread> render_worker_thread_;
+  rtc::PlatformThread render_worker_thread_;
 
   AudioMixerManagerMac _mixerManager;
 
@@ -297,8 +305,8 @@ class AudioDeviceMac : public AudioDeviceGeneric {
   bool _playIsInitialized;
 
   // Atomically set varaibles
-  int32_t _renderDeviceIsAlive;
-  int32_t _captureDeviceIsAlive;
+  std::atomic<int32_t> _renderDeviceIsAlive;
+  std::atomic<int32_t> _captureDeviceIsAlive;
 
   bool _twoDevices;
   bool _doStop;  // For play if not shared device or play+rec if shared device
@@ -318,8 +326,8 @@ class AudioDeviceMac : public AudioDeviceGeneric {
   uint32_t _renderLatencyUs;
 
   // Atomically set variables
-  mutable int32_t _captureDelayUs;
-  mutable int32_t _renderDelayUs;
+  mutable std::atomic<int32_t> _captureDelayUs;
+  mutable std::atomic<int32_t> _renderDelayUs;
 
   int32_t _renderDelayOffsetSamples;
 

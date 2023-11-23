@@ -38,6 +38,8 @@ import android.content.pm.PackageManager;
 import android.platform.test.annotations.Presubmit;
 import android.view.WindowInsets;
 
+import com.android.cts.mockime.MockIme;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.InOrder;
@@ -49,6 +51,7 @@ import org.mockito.InOrder;
  *     atest CtsWindowManagerDeviceTestCases:WindowInsetsAnimationImeTests
  */
 @Presubmit
+@android.server.wm.annotation.Group2
 public class WindowInsetsAnimationImeTests extends WindowInsetsAnimationTestBase {
 
     private static final int KEYBOARD_HEIGHT = 600;
@@ -68,6 +71,12 @@ public class WindowInsetsAnimationImeTests extends WindowInsetsAnimationTestBase
 
     private void initActivity(boolean useFloating) {
         MockImeHelper.createManagedMockImeSession(this, KEYBOARD_HEIGHT, useFloating);
+
+        // The existing IME will be replaced by MockIME. Wait for the new IME window.
+        mWmState.waitFor("MockIme must be ready.", wms -> {
+            final WindowManagerState.WindowState ime = wms.getInputMethodWindowState();
+            return ime != null && ime.getPackageName().equals(MockIme.class.getPackageName());
+        });
 
         mActivity = startActivityInWindowingMode(TestActivity.class, WINDOWING_MODE_FULLSCREEN);
         mRootView = mActivity.getWindow().getDecorView();
@@ -160,7 +169,8 @@ public class WindowInsetsAnimationImeTests extends WindowInsetsAnimationTestBase
 
         waitForOrFail("Waiting until animation done", () -> mActivity.mCallback.animationDone);
         commonAnimationAssertions(mActivity, before, true /* show */, ime());
-        mActivity.mCallback.animationDone = false;
+
+        mActivity.resetAnimationDone();
 
         before = mActivity.mLastWindowInsets;
 

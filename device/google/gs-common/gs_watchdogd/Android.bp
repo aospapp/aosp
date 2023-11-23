@@ -1,0 +1,20 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+cc_binary {
+    name: "gs_watchdogd",
+    recovery_available: true,
+    system_ext_specific: true,
+    init_rc: ["init.gs_watchdogd.rc"],
+    srcs: ["gs_watchdogd.cpp"],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+    shared_libs: ["libbase"],
+    sanitize: {
+        misc_undefined: ["signed-integer-overflow"],
+    },
+}

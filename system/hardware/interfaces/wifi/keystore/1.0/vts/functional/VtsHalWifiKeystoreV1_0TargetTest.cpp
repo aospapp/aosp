@@ -496,6 +496,7 @@ TEST_P(WifiKeystoreHalTest, GetPublicKey_success) {
     EXPECT_EQ(result, true);
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(WifiKeystoreHalTest);
 INSTANTIATE_TEST_SUITE_P(
     PerInstance, WifiKeystoreHalTest,
     testing::ValuesIn(android::hardware::getAllHalInstanceNames(IKeystore::descriptor)),

@@ -47,6 +47,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -55,9 +56,19 @@ public class HttpClient {
     private static final String TAG = "ServiceEntitlement";
 
     private HttpURLConnection mConnection;
+    private boolean mSaveHistory;
+    private ArrayList<String> mHistory;
+
+    public HttpClient(boolean saveHistory) {
+        mSaveHistory = saveHistory;
+        mHistory = new ArrayList<>();
+    }
 
     @WorkerThread
     public HttpResponse request(HttpRequest request) throws ServiceEntitlementException {
+        if (mSaveHistory) {
+            mHistory.add(request.toString());
+        }
         logPii("HttpClient.request url: " + request.url());
         createConnection(request);
         logPii("HttpClient.request headers (partial): " + mConnection.getRequestProperties());
@@ -73,16 +84,36 @@ public class HttpClient {
             }
             mConnection.connect(); // This is to trigger SocketTimeoutException early
             HttpResponse response = getHttpResponse(mConnection);
-            Log.d(TAG, "HttpClient.response : " + response);
+            Log.d(TAG, "HttpClient.response : " + response.toShortDebugString());
+            if (mSaveHistory) {
+                mHistory.add(response.toString());
+            }
             return response;
         } catch (IOException ioe) {
             throw new ServiceEntitlementException(
                     ERROR_HTTP_STATUS_NOT_SUCCESS,
-                    StreamUtils.inputStreamToStringSafe(mConnection.getErrorStream()),
+                    "Connection error stream: "
+                            + StreamUtils.inputStreamToStringSafe(mConnection.getErrorStream())
+                            + " IOException: "
+                            + ioe.toString(),
                     ioe);
         } finally {
             closeConnection();
         }
+    }
+
+    /**
+     * Retrieves the history of past HTTP request and responses.
+     */
+    public List<String> getHistory() {
+        return mHistory;
+    }
+
+    /**
+     * Clears the history of past HTTP request and responses.
+     */
+    public void clearHistory() {
+        mHistory.clear();
     }
 
     private void createConnection(HttpRequest request) throws ServiceEntitlementException {

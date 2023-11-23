@@ -22,14 +22,22 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.app.admin.DeviceAdminReceiver;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
 import com.android.queryable.info.DeviceAdminReceiverInfo;
 
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
-public class DeviceAdminReceiverInfoTest {
+@RunWith(BedsteadJUnit4.class)
+public final class DeviceAdminReceiverInfoTest {
+
+    @ClassRule
+    @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
 
     private static final Class<? extends DeviceAdminReceiver> TEST_DEVICE_ADMIN_RECEIVER_CLASS =
             DeviceAdminReceiver.class;

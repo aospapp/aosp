@@ -37,6 +37,7 @@ import android.service.autofill.UserData;
 import android.util.Log;
 import android.util.Pair;
 import android.view.autofill.AutofillId;
+import android.view.autofill.AutofillManager;
 import android.view.autofill.AutofillValue;
 import android.widget.RemoteViews;
 
@@ -58,7 +59,7 @@ import java.util.regex.Pattern;
  * <p>Typical usage:
  *
  * <pre class="prettyprint">
- * InstrumentedAutoFillService.setFillResponse(new CannedFillResponse.Builder()
+ * InstrumentedAutoFillService.getReplier().addResponse(new CannedFillResponse.Builder()
  *               .addDataset(new CannedDataset.Builder("dataset_name")
  *                   .setField("resource_id1", AutofillValue.forText("value1"))
  *                   .setField("resource_id2", AutofillValue.forText("value2"))
@@ -102,6 +103,10 @@ public final class CannedFillResponse {
     private final int[] mCancelIds;
     private final String[] mDialogTriggerIds;
     private final RemoteViews mDialogHeaderPresentation;
+    private final int mIconResourceId;
+    private final int mServiceDisplayNameResourceId;
+    private final boolean mShowFillDialogIcon;
+    private final boolean mShowSaveDialogIcon;
 
 
     private CannedFillResponse(Builder builder) {
@@ -137,6 +142,10 @@ public final class CannedFillResponse {
         mCancelIds = builder.mCancelIds;
         mDialogTriggerIds = builder.mDialogTriggerIds;
         mDialogHeaderPresentation = builder.mDialogHeaderPresentation;
+        mIconResourceId = builder.mIconResourceId;
+        mServiceDisplayNameResourceId = builder.mServiceDisplayNameResourceId;
+        mShowFillDialogIcon = builder.mShowFillDialogIcon;
+        mShowSaveDialogIcon = builder.mShowSaveDialogIcon;
     }
 
     /**
@@ -178,12 +187,63 @@ public final class CannedFillResponse {
      */
     public FillResponse asFillResponse(@Nullable List<FillContext> contexts,
             @NonNull Function<String, ViewNode> nodeResolver) {
+        return asFillResponseWithAutofillId(contexts, (id)-> {
+            ViewNode node = nodeResolver.apply(id);
+            if (node == null) {
+                throw new AssertionError("No node with resource id " + id);
+            }
+            return node.getAutofillId();
+        });
+    }
+
+    public FillResponse asFillResponseWithAutofillId(@Nullable List<FillContext> contexts,
+            @NonNull Function<String, AutofillId> autofillIdResolver) {
+        return asFillResponseWithAutofillId(contexts, autofillIdResolver,
+            (cannedDataset) -> {
+                return cannedDataset.asDatasetWithAutofillIdResolver(autofillIdResolver);
+            });
+    }
+
+    private Function<String, AutofillId> getAutofillIdResolver(
+             @NonNull Function<String, ViewNode> nodeResolver) {
+        return (id) -> {
+            ViewNode node = nodeResolver.apply(id);
+            if (node == null) {
+                throw new AssertionError("No node with resource id " + id);
+            }
+            return node.getAutofillId();
+        };
+    }
+
+    public FillResponse asPccFillResponse(@Nullable List<FillContext> contexts,
+            @NonNull Function<String, ViewNode> nodeResolver) {
+        final Function<String, AutofillId> autofillPccResolver =
+                (id)-> {
+                    ViewNode node = nodeResolver.apply(id);
+                    if (node == null) {
+                        return null;
+                    }
+                    return node.getAutofillId();
+                };
+        return asFillResponseWithAutofillId(
+                contexts,
+                autofillPccResolver,
+                (cannedDataset) -> cannedDataset.asDatasetForPcc(autofillPccResolver));
+    }
+
+    /**
+     * Creates a new response, replacing the dataset field ids by the real ids from the assist
+     * structure.
+     */
+    public FillResponse asFillResponseWithAutofillId(@Nullable List<FillContext> contexts,
+            @NonNull Function<String, AutofillId> autofillIdResolver,
+            Function<CannedDataset, Dataset> cannedDatasetToDataset) {
         final FillResponse.Builder builder = new FillResponse.Builder()
                 .setFlags(mFillResponseFlags);
         if (mDatasets != null) {
             for (CannedDataset cannedDataset : mDatasets) {
-                final Dataset dataset = cannedDataset.asDataset(nodeResolver);
-                assertWithMessage("Cannot create datase").that(dataset).isNotNull();
+                final Dataset dataset = cannedDatasetToDataset.apply(cannedDataset);
+                assertWithMessage("Cannot create dataset").that(dataset).isNotNull();
                 builder.addDataset(dataset);
             }
         }
@@ -196,13 +256,14 @@ public final class CannedFillResponse {
                 saveInfoBuilder = mRequiredSavableIds == null || mRequiredSavableIds.length == 0
                         ? new SaveInfo.Builder(mSaveType)
                             : new SaveInfo.Builder(mSaveType,
-                                    getAutofillIds(nodeResolver, mRequiredSavableIds));
+                                    getAutofillIds(autofillIdResolver, mRequiredSavableIds));
             }
 
             saveInfoBuilder.setFlags(mSaveInfoFlags);
 
             if (mOptionalSavableIds != null) {
-                saveInfoBuilder.setOptionalIds(getAutofillIds(nodeResolver, mOptionalSavableIds));
+                saveInfoBuilder.setOptionalIds(
+                        getAutofillIds(autofillIdResolver, mOptionalSavableIds));
             }
             if (mSaveDescription != null) {
                 saveInfoBuilder.setDescription(mSaveDescription);
@@ -224,7 +285,7 @@ public final class CannedFillResponse {
         if (saveInfoBuilder != null) {
             // TODO: merge decorator and visitor
             if (mSaveInfoDecorator != null) {
-                mSaveInfoDecorator.decorate(saveInfoBuilder, nodeResolver);
+                mSaveInfoDecorator.decorate(saveInfoBuilder, autofillIdResolver);
             }
             if (mSaveInfoVisitor != null) {
                 Log.d(TAG, "Visiting saveInfo " + saveInfoBuilder);
@@ -235,10 +296,10 @@ public final class CannedFillResponse {
             builder.setSaveInfo(saveInfo);
         }
         if (mIgnoredIds != null) {
-            builder.setIgnoredIds(getAutofillIds(nodeResolver, mIgnoredIds));
+            builder.setIgnoredIds(getAutofillIds(autofillIdResolver, mIgnoredIds));
         }
         if (mAuthenticationIds != null) {
-            builder.setAuthentication(getAutofillIds(nodeResolver, mAuthenticationIds),
+            builder.setAuthentication(getAutofillIds(autofillIdResolver, mAuthenticationIds),
                     mAuthentication, mPresentation, mInlinePresentation);
         }
         if (mDisableDuration > 0) {
@@ -253,7 +314,7 @@ public final class CannedFillResponse {
             builder.setFieldClassificationIds(fieldIds);
         } else if (mFieldClassificationIds != null) {
             builder.setFieldClassificationIds(
-                    getAutofillIds(nodeResolver, mFieldClassificationIds));
+                    getAutofillIds(autofillIdResolver, mFieldClassificationIds));
         }
         if (mExtras != null) {
             builder.setClientState(mExtras);
@@ -274,11 +335,16 @@ public final class CannedFillResponse {
         builder.setPresentationCancelIds(mCancelIds);
         if (mDialogTriggerIds != null) {
             builder.setFillDialogTriggerIds(
-                    getAutofillIds(nodeResolver, mDialogTriggerIds));
+                    getAutofillIds(autofillIdResolver, mDialogTriggerIds));
         }
         if (mDialogHeaderPresentation != null) {
             builder.setDialogHeader(mDialogHeaderPresentation);
         }
+
+        builder.setIconResourceId(mIconResourceId);
+        builder.setServiceDisplayNameResourceId(mServiceDisplayNameResourceId);
+        builder.setShowFillDialogIcon(mShowFillDialogIcon);
+        builder.setShowSaveDialogIcon(mShowSaveDialogIcon);
 
         final FillResponse response = builder.build();
         Log.v(TAG, "Response: " + response);
@@ -356,6 +422,10 @@ public final class CannedFillResponse {
         private int[] mCancelIds;
         private String[] mDialogTriggerIds;
         private RemoteViews mDialogHeaderPresentation;
+        private int mIconResourceId;
+        private int mServiceDisplayNameResourceId;
+        private boolean mShowFillDialogIcon = true;
+        private boolean mShowSaveDialogIcon = true;
 
 
         public Builder(ResponseType type) {
@@ -372,12 +442,40 @@ public final class CannedFillResponse {
             return this;
         }
 
+        public Builder setIconResourceId(int id) {
+            mIconResourceId = id;
+            return this;
+        }
+
+        public Builder setServiceDisplayNameResourceId(int id) {
+            mServiceDisplayNameResourceId = id;
+            return this;
+        }
+
+        public Builder setShowFillDialogIcon(boolean show) {
+            mShowFillDialogIcon = show;
+            return this;
+        }
+
+        public Builder setShowSaveDialogIcon(boolean show) {
+            mShowSaveDialogIcon = show;
+            return this;
+        }
+
         /**
          * Sets the required savable ids based on their {@code resourceId}.
          */
         public Builder setRequiredSavableIds(int type, String... ids) {
             mSaveType = type;
             mRequiredSavableIds = ids;
+            return this;
+        }
+
+        /**
+         * Sets the valid Save types, for when PCC Detection is enabled
+         */
+        public Builder setSaveTypes(int type) {
+            mSaveType = type;
             return this;
         }
 
@@ -647,7 +745,95 @@ public final class CannedFillResponse {
         /**
          * Creates a new dataset, replacing the field ids by the real ids from the assist structure.
          */
-        public Dataset asDataset(Function<String, ViewNode> nodeResolver) {
+        public Dataset asDatasetWithNodeResolver(Function<String, ViewNode> nodeResolver) {
+            return asDatasetWithAutofillIdResolver((id) -> {
+                ViewNode node = nodeResolver.apply(id);
+                if (node == null) {
+                    throw new AssertionError("No node with resource id " + id);
+                }
+                return node.getAutofillId();
+            });
+        }
+
+        public Dataset asDatasetForPcc(Function<String, AutofillId> autofillIdResolver) {
+            final Presentations.Builder presentationsBuilder = new Presentations.Builder();
+            if (mPresentation != null) {
+                presentationsBuilder.setMenuPresentation(mPresentation);
+            }
+            if (mDialogPresentation != null) {
+                presentationsBuilder.setDialogPresentation(mDialogPresentation);
+            }
+            if (mInlinePresentation != null) {
+                presentationsBuilder.setInlinePresentation(mInlinePresentation);
+            }
+            if (mInlineTooltipPresentation != null) {
+                presentationsBuilder.setInlineTooltipPresentation(mInlineTooltipPresentation);
+            }
+
+            Presentations presentations = null;
+            try {
+                presentations = presentationsBuilder.build();
+            } catch (IllegalStateException e) {
+                // No presentation in presentationsBuilder, do nothing.
+            }
+            final Dataset.Builder builder = presentations != null
+                    ? new Dataset.Builder(presentations)
+                    : new Dataset.Builder();
+            if (mFieldValues != null) {
+                for (Map.Entry<String, AutofillValue> entry : mFieldValues.entrySet()) {
+                    final Field.Builder fieldBuilder = new Field.Builder();
+                    final AutofillValue value = entry.getValue();
+                    final String id = entry.getKey();
+                    if (value != null) {
+                        fieldBuilder.setValue(value);
+                    }
+                    final Presentations.Builder fieldPresentationsBuilder =
+                            new Presentations.Builder();
+                    final RemoteViews presentation = mFieldPresentations.get(id);
+                    if (presentation != null) {
+                        fieldPresentationsBuilder.setMenuPresentation(presentation);
+                    }
+                    final RemoteViews dialogPresentation = mFieldDialogPresentations.get(id);
+                    if (dialogPresentation != null) {
+                        fieldPresentationsBuilder.setDialogPresentation(dialogPresentation);
+                    }
+                    final InlinePresentation inlinePresentation = mFieldInlinePresentations.get(id);
+                    if (inlinePresentation != null) {
+                        fieldPresentationsBuilder.setInlinePresentation(inlinePresentation);
+                    }
+                    final InlinePresentation tooltipPresentation =
+                            mFieldInlineTooltipPresentations.get(id);
+                    if (tooltipPresentation != null) {
+                        fieldPresentationsBuilder.setInlineTooltipPresentation(tooltipPresentation);
+                    }
+                    try {
+                        fieldBuilder.setPresentations(fieldPresentationsBuilder.build());
+                    } catch (IllegalStateException e) {
+                        // no presentation in fieldPresentationsBuilder, nothing
+                    }
+                    final Pair<Boolean, Pattern> filter = mFieldFilters.get(id);
+                    if (filter != null) {
+                        fieldBuilder.setFilter(filter.second);
+                    }
+
+                    final AutofillId autofillId = autofillIdResolver.apply(id);
+                    if (autofillId == null) {
+                        // Treat the id as autofill hints
+                        builder.setField(id, fieldBuilder.build());
+                    } else {
+                        builder.setField(autofillId, fieldBuilder.build());
+                    }
+                }
+            }
+            builder.setId(mId).setAuthentication(mAuthentication);
+            return builder.build();
+        }
+
+        /**
+         * Creates a new dataset, replacing the field ids by the real ids from the assist structure.
+         */
+        public Dataset asDatasetWithAutofillIdResolver(
+                Function<String, AutofillId> autofillIdResolver) {
             final Presentations.Builder presentationsBuilder = new Presentations.Builder();
             if (mPresentation != null) {
                 presentationsBuilder.setMenuPresentation(mPresentation);
@@ -675,11 +861,11 @@ public final class CannedFillResponse {
             if (mFieldValues != null) {
                 for (Map.Entry<String, AutofillValue> entry : mFieldValues.entrySet()) {
                     final String id = entry.getKey();
-                    final ViewNode node = nodeResolver.apply(id);
-                    if (node == null) {
+
+                    final AutofillId autofillId = autofillIdResolver.apply(id);
+                    if (autofillId == null) {
                         throw new AssertionError("No node with resource id " + id);
                     }
-                    final AutofillId autofillId = node.getAutofillId();
                     final Field.Builder fieldBuilder = new Field.Builder();
                     final AutofillValue value = entry.getValue();
                     if (value != null) {
@@ -769,6 +955,14 @@ public final class CannedFillResponse {
              */
             public Builder setField(String id, String text) {
                 return setField(id, AutofillValue.forText(text));
+            }
+
+            /**
+             * Sets the canned value of a text field applicable for all hints.
+             * This is applicable to PCC related datasets entry only.
+             */
+            public Builder setField(String text) {
+                return setField(AutofillManager.ANY_HINT, AutofillValue.forText(text));
             }
 
             /**
@@ -1013,6 +1207,6 @@ public final class CannedFillResponse {
     }
 
     public interface SaveInfoDecorator {
-        void decorate(SaveInfo.Builder builder, Function<String, ViewNode> nodeResolver);
+        void decorate(SaveInfo.Builder builder, Function<String, AutofillId> nodeResolver);
     }
 }

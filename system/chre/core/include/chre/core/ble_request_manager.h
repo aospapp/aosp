@@ -22,6 +22,7 @@
 #include "chre/core/nanoapp.h"
 #include "chre/core/settings.h"
 #include "chre/platform/platform_ble.h"
+#include "chre/util/array_queue.h"
 #include "chre/util/non_copyable.h"
 #include "chre/util/system/debug_dump.h"
 #include "chre/util/time.h"
@@ -79,6 +80,36 @@ class BleRequestManager : public NonCopyable {
    */
   bool stopScanAsync(Nanoapp *nanoapp);
 
+#ifdef CHRE_BLE_READ_RSSI_SUPPORT_ENABLED
+  /**
+   * Requests to read the RSSI of a peer device on the given LE connection
+   * handle.
+   *
+   * If the request is accepted, the response will be delivered in a
+   * CHRE_EVENT_BLE_RSSI_READ event with the same cookie.
+   *
+   * The request may be rejected if resources are not available to service the
+   * request (such as if too many outstanding requests already exist). If so,
+   * the client may retry later.
+   *
+   * Note that the connectionHandle is valid only while the connection remains
+   * active. If a peer device disconnects then reconnects, the handle may
+   * change. BluetoothGatt#getAclHandle() can be used from the Android framework
+   * to get the latest handle upon reconnection.
+   *
+   * @param connectionHandle
+   * @param cookie An opaque value that will be included in the chreAsyncResult
+   *               embedded in the response to this request.
+   * @return True if the request has been accepted and dispatched to the
+   *         controller. False otherwise.
+   *
+   * @since v1.8
+   *
+   */
+  bool readRssiAsync(Nanoapp *nanoapp, uint16_t connectionHandle,
+                     const void *cookie);
+#endif
+
   /**
    * Disables active scan for a nanoapp (no-op if no active scan).
    *
@@ -128,6 +159,29 @@ class BleRequestManager : public NonCopyable {
    */
   void handleRequestStateResyncCallback();
 
+#ifdef CHRE_BLE_READ_RSSI_SUPPORT_ENABLED
+  /**
+   * Handles a readRssi response from the BLE PAL.
+   *
+   * @param errorCode error code from enum chreError, with CHRE_ERROR_NONE
+   *        indicating a successful response.
+   * @param connectionHandle the handle upon which the RSSI was read
+   * @param rssi the RSSI read, if successful
+   */
+  void handleReadRssi(uint8_t errorCode, uint16_t connectionHandle,
+                      int8_t rssi);
+#endif
+
+  /**
+   * Retrieves the current scan status.
+   *
+   * @param status A non-null pointer to where the scan status will be
+   *               populated.
+   *
+   * @return True if the status was obtained successfully.
+   */
+  bool getScanStatus(struct chreBleScanStatus *status);
+
   /**
    * Invoked when the host notifies CHRE that ble access has been
    * disabled via the user settings.
@@ -167,6 +221,20 @@ class BleRequestManager : public NonCopyable {
 
   // True if a setting change request is pending to be processed.
   bool mSettingChangePending;
+
+#ifdef CHRE_BLE_READ_RSSI_SUPPORT_ENABLED
+  // A pending request from a nanoapp
+  struct BleReadRssiRequest {
+    uint16_t instanceId;
+    uint16_t connectionHandle;
+    const void *cookie;
+  };
+
+  // RSSI requests that have been accepted by the framework. The first entry (if
+  // present) has been dispatched to the PAL, and subsequent entries are queued.
+  static constexpr size_t kMaxPendingRssiRequests = 2;
+  ArrayQueue<BleReadRssiRequest, kMaxPendingRssiRequests> mPendingRssiRequests;
+#endif
 
   // Struct to hold ble request data for logging
   struct BleRequestLog {
@@ -357,6 +425,55 @@ class BleRequestManager : public NonCopyable {
    * @return True if the given advertisement type is valid
    */
   static bool isValidAdType(uint8_t adType);
+
+#ifdef CHRE_BLE_READ_RSSI_SUPPORT_ENABLED
+  /**
+   * Handles a readRssi response from the BLE PAL.
+   * Runs in the context of the CHRE thread.
+   *
+   * @param errorCode error code from enum chreError, with CHRE_ERROR_NONE
+   *        indicating a successful response.
+   * @param connectionHandle the handle upon which the RSSI was read
+   * @param rssi the RSSI read, if successful
+   */
+  void handleReadRssiSync(uint8_t errorCode, uint16_t connectionHandle,
+                          int8_t rssi);
+
+  /**
+   * Posts a CHRE_EVENT_BLE_RSSI_READ event for the first request in
+   * mPendingRssiRequests with the specified errorCode and RSSI, and dequeues it
+   * from the queue.
+   *
+   * It is assumed that a pending request exists. Note that this does not
+   * dispatch the next request in the queue.
+   *
+   * @param errorCode the errorCode to include in the event
+   * @param rssi the RSSI to include in the event
+   */
+  void resolvePendingRssiRequest(uint8_t errorCode, int8_t rssi);
+
+  /**
+   * Dispatches the next RSSI request in the queue, if one exists. Must only
+   * be called if no request is presently outstanding (i.e. right after the
+   * previous request completes, or when no previous request existed).
+   *
+   * If the request fails synchronously, it will be dequeued and the failure
+   * event CHRE_EVENT_BLE_RSSI_READ will be sent. It will then try to
+   * dispatch the next request in the queue until either a request succeeds,
+   * or the queue is depleted.
+   */
+  void dispatchNextRssiRequestIfAny();
+
+  /**
+   * Checks BLE settings and, if enabled, issues a request to the PAL to read
+   * RSSI. Returns CHRE_ERROR_FUNCTION_DISABLED if BLE is disabled and
+   * CHRE_ERROR if the PAL returns an error.
+   *
+   * @param connectionHandle
+   * @return uint8_t the error code, with CHRE_ERROR_NONE indicating success
+   */
+  uint8_t readRssi(uint16_t connectionHandle);
+#endif
 
   /**
    * @return true if BLE setting is enabled.

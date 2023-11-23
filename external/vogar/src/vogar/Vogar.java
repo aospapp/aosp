@@ -221,6 +221,12 @@ public final class Vogar {
     @Option(names = {"--sdk-version"})
     Integer sdkVersion = 28;
 
+    @Option(names = {"--serial-dexing"})
+    boolean serialDexing = false;
+
+    @Option(names = {"--verbose-dex-stats"})
+    boolean verboseDexStats = false;
+
     @VisibleForTesting public Vogar() {}
 
     private void printUsage() {
@@ -254,7 +260,7 @@ public final class Vogar {
         System.out.println("      DEFAULT: default (or N/A), X32: 32-bit, X64: 64-bit");
         System.out.println("      Default is: " + variant);
         System.out.println();
-        System.out.println("  --toolchain <DX|D8|JAVAC>: Which toolchain to use.");
+        System.out.println("  --toolchain <D8|JAVAC>: Which toolchain to use.");
         System.out.println("      Default depends on --mode value (currently "
                 + modeId.defaultToolchain() + " for --mode=" + modeId + ")");
         System.out.println();
@@ -326,6 +332,17 @@ public final class Vogar {
                 + RunnerType.JUNIT.name().toLowerCase());
         System.out.println();
         System.out.println("  --verbose: turn on persistent verbose output.");
+        System.out.println();
+        System.out.println("  --serial-dexing: disallow Vogar spawn multiple simultaneous dex tasks");
+        System.out.println("      Enabling this is useful when there is a memory constraint;");
+        System.out.println("      and each dex task could easily consume around 1.5G of memory.");
+        System.out.println("      Default is: " + serialDexing);
+        System.out.println();
+        System.out.println("  --verbose-dex-stats: print verbose stats of used resources by dex tasks");
+        System.out.println("      Enabling this wraps each dex task in '/usr/bin/time -v' call");
+        System.out.println("      and adds its output to the stdout log. Useful to get a sense of");
+        System.out.println("      resource usage such as RSS memory, CPU usage and wall-clock time.");
+        System.out.println("      Default is: " + verboseDexStats);
         System.out.println();
         System.out.println("  --check-jni: enable CheckJNI mode.");
         System.out.println("      See http://developer.android.com/training/articles/perf-jni.html.");
@@ -666,7 +683,7 @@ public final class Vogar {
         AndroidSdk androidSdk = null;
         if (modeId.requiresAndroidSdk()) {
             androidSdk = AndroidSdk.createAndroidSdk(console, mkdir, modeId, language,
-                    !actionFiles.isEmpty());
+                    !actionFiles.isEmpty(), serialDexing, verboseDexStats);
         }
 
         if (runnerType == null) {

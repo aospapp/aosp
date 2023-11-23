@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright 2015 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -79,7 +79,7 @@ lxc.install_packages(['atop'], ['acora'])
 
 TEST_SCRIPT_CONTENT_TS_MON = """
 # Test ts_mon metrics can be set up.
-from chromite.lib import ts_mon_config
+from autotest_lib.utils.frozen_chromite.lib import ts_mon_config
 ts_mon_config.SetupTsMonGlobalState('some_test', suppress_exception=False)
 """
 
@@ -95,7 +95,6 @@ FAKE_TS_MON_CONFIG_CONTENT = '''
     {
         "credentials":"/tmp/service_account_prodx_mon.json",
         "endpoint":"https://xxx.googleapis.com/v1:insert",
-        "use_new_proto": true
     }'''
 
 FAKE_SERVICE_ACCOUNT_CRED_JSON = '''
@@ -174,7 +173,7 @@ AUTOSERV_COMMAND = (('/usr/bin/python -u /usr/local/autotest/server/autoserv '
 # Content of the test control file.
 TEST_CONTROL_CONTENT = """
 def run(machine):
-    job.run_test('dummy_PassServer',
+    job.run_test('stub_PassServer',
                  host=hosts.create_host(machine))
 
 parallel_simple(run, machines)

@@ -19,6 +19,7 @@ package com.android.bluetooth;
 import com.android.bluetooth.map.BluetoothMapUtils;
 
 import java.io.UnsupportedEncodingException;
+import java.util.Objects;
 
 /**
  * Class to represent a 128bit value using two long member variables.
@@ -40,11 +41,13 @@ public class SignedLongLong implements Comparable<SignedLongLong> {
      * Create a SignedLongLong from a Hex-String without "0x" prefix
      * @param value the hex-string
      * @return the created object
-     * @throws UnsupportedEncodingException
+     * @throws UnsupportedEncodingException if "US-ASCII" charset is not supported,
+     * @throws NullPointerException if the string {@code value} is null,
+     * @throws NumberFormatException if the string {@code value} contains invalid characters.
      */
     public static SignedLongLong fromString(String value) throws UnsupportedEncodingException {
         String lsbStr, msbStr;
-        long lsb = 0, msb = 0;
+        long msb = 0;
 
         lsbStr = msbStr = null;
         if (value == null) {
@@ -62,7 +65,7 @@ public class SignedLongLong implements Comparable<SignedLongLong> {
             msbStr = value.substring(0, valueLength - 16);
             msb = BluetoothMapUtils.getLongFromString(msbStr);
         }
-        lsb = BluetoothMapUtils.getLongFromString(lsbStr);
+        long lsb = BluetoothMapUtils.getLongFromString(lsbStr);
         return new SignedLongLong(lsb, msb);
     }
 
@@ -104,7 +107,7 @@ public class SignedLongLong implements Comparable<SignedLongLong> {
         if (obj == null) {
             return false;
         }
-        if (getClass() != obj.getClass()) {
+        if (!(obj instanceof SignedLongLong)) {
             return false;
         }
         SignedLongLong other = (SignedLongLong) obj;
@@ -115,6 +118,11 @@ public class SignedLongLong implements Comparable<SignedLongLong> {
             return false;
         }
         return true;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mLeastSigBits, mMostSigBits);
     }
 
     public long getMostSignificantBits() {

@@ -23,8 +23,11 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.util.CommandResult;
 
+import com.google.common.truth.Truth;
+
 import org.junit.runner.RunWith;
 
+import java.io.File;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -43,36 +46,43 @@ public class MediaHostTest extends ApexE2EBaseHostTest {
                     + ", version\\((\\d+)\\), path\\((.+)\\), supports: (.*)");
     private static final int DEFAULT_EXTRACTOR_PLUGIN_COUNT = 10;
     private static final String MEDIA_APEX_PATH = "/apex/com.android.media";
+    // NOTE: This size cap is strict as this artifact is pinned to memory on
+    // various devices running Q, R, and S. Until such devices no longer receive
+    // mainline media updates, please avoid increasing. See also b/214499288.
+    private static final int UPDATABLE_MEDIA_JAR_SIZE_CAP = 800000;
 
     @Override
-    public void additionalCheck() {
+    public void additionalCheck() throws DeviceNotAvailableException {
         checkMediaExtractor();
+        checkUpdatableMediaJarSize();
     }
 
-    private void checkMediaExtractor() {
-        try {
-            CommandResult commandResult =
-                    getDevice().executeShellV2Command("dumpsys media.extractor");
-            assertEquals(0, (int) commandResult.getExitCode());
+    private void checkMediaExtractor() throws DeviceNotAvailableException {
+        CommandResult commandResult =
+                getDevice().executeShellV2Command("dumpsys media.extractor");
+        assertEquals(0, (int) commandResult.getExitCode());
 
-            String outputString = commandResult.getStdout();
-            Scanner in = new Scanner(outputString);
-            int extractorCount = 0;
-            while (in.hasNextLine()) {
-                String line = in.nextLine();
-                Matcher m = EXTRACTOR_PLUGIN_REGEX.matcher(line);
-                if (m.matches()) {
-                    assertTrue("Plugin path does not start with " + MEDIA_APEX_PATH
-                            + ". dumpsys output: " + line,
-                            m.group(5).startsWith(MEDIA_APEX_PATH));
-                    extractorCount++;
-                }
+        String outputString = commandResult.getStdout();
+        Scanner in = new Scanner(outputString);
+        int extractorCount = 0;
+        while (in.hasNextLine()) {
+            String line = in.nextLine();
+            Matcher m = EXTRACTOR_PLUGIN_REGEX.matcher(line);
+            if (m.matches()) {
+                assertTrue("Plugin path does not start with " + MEDIA_APEX_PATH
+                        + ". dumpsys output: " + line,
+                        m.group(5).startsWith(MEDIA_APEX_PATH));
+                extractorCount++;
             }
-            assertTrue("Failed to find enough plug-ins. expected: " + DEFAULT_EXTRACTOR_PLUGIN_COUNT
-                    + " actual: " + extractorCount + " dumpsys output: " + outputString,
-                    DEFAULT_EXTRACTOR_PLUGIN_COUNT <= extractorCount);
-        } catch (DeviceNotAvailableException e) {
-            throw new AssertionError("Unable to run dumpsys", e);
         }
+        assertTrue("Failed to find enough plug-ins. expected: " + DEFAULT_EXTRACTOR_PLUGIN_COUNT
+                + " actual: " + extractorCount + " dumpsys output: " + outputString,
+                DEFAULT_EXTRACTOR_PLUGIN_COUNT <= extractorCount);
+    }
+
+    private void checkUpdatableMediaJarSize() throws DeviceNotAvailableException {
+        File updatableMediaJar = getDevice().pullFile(
+                MEDIA_APEX_PATH + "/javalib/updatable-media.jar");
+        Truth.assertThat(updatableMediaJar.length()).isAtMost(UPDATABLE_MEDIA_JAR_SIZE_CAP);
     }
 }

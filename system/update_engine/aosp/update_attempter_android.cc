@@ -21,6 +21,7 @@
 #include <memory>
 #include <ostream>
 #include <utility>
+#include <vector>
 
 #include <android-base/properties.h>
 #include <android-base/unique_fd.h>
@@ -33,25 +34,28 @@
 #include <log/log_safetynet.h>
 
 #include "update_engine/aosp/cleanup_previous_update_action.h"
+#include "update_engine/common/clock.h"
 #include "update_engine/common/constants.h"
 #include "update_engine/common/daemon_state_interface.h"
 #include "update_engine/common/download_action.h"
+#include "update_engine/common/error_code.h"
 #include "update_engine/common/error_code_utils.h"
 #include "update_engine/common/file_fetcher.h"
 #include "update_engine/common/metrics_reporter_interface.h"
 #include "update_engine/common/network_selector.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/metrics_utils.h"
-#include "update_engine/payload_consumer/certificate_parser_interface.h"
 #include "update_engine/payload_consumer/delta_performer.h"
 #include "update_engine/payload_consumer/file_descriptor.h"
 #include "update_engine/payload_consumer/file_descriptor_utils.h"
 #include "update_engine/payload_consumer/filesystem_verifier_action.h"
+#include "update_engine/payload_consumer/partition_writer.h"
 #include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_consumer/payload_metadata.h"
 #include "update_engine/payload_consumer/payload_verifier.h"
 #include "update_engine/payload_consumer/postinstall_runner_action.h"
 #include "update_engine/update_boot_flags_action.h"
+#include "update_engine/update_status.h"
 #include "update_engine/update_status_utils.h"
 
 #ifndef _UE_SIDELOAD
@@ -141,7 +145,9 @@ UpdateAttempterAndroid::UpdateAttempterAndroid(
       hardware_(hardware),
       apex_handler_android_(std::move(apex_handler)),
       processor_(new ActionProcessor()),
-      clock_(new Clock()) {
+      clock_(new Clock()),
+      metric_bytes_downloaded_(kPrefsCurrentBytesDownloaded, prefs_),
+      metric_total_bytes_downloaded_(kPrefsTotalBytesDownloaded, prefs_) {
   metrics_reporter_ = metrics::CreateMetricsReporter(
       boot_control_->GetDynamicPartitionControl(), &install_plan_);
   network_selector_ = network::CreateNetworkSelector();
@@ -263,16 +269,9 @@ bool UpdateAttempterAndroid::ApplyPayload(
   install_plan_.is_resume = !payload_id.empty() &&
                             DeltaPerformer::CanResumeUpdate(prefs_, payload_id);
   if (!install_plan_.is_resume) {
-    // No need to reset dynamic_partititon_metadata_updated. If previous calls
-    // to AllocateSpaceForPayload uses the same payload_id, reuse preallocated
-    // space. Otherwise, DeltaPerformer re-allocates space when the payload is
-    // applied.
-    if (!DeltaPerformer::ResetUpdateProgress(
-            prefs_,
-            false /* quick */,
-            true /* skip_dynamic_partititon_metadata_updated */)) {
-      LOG(WARNING) << "Unable to reset the update progress.";
-    }
+    boot_control_->GetDynamicPartitionControl()->Cleanup();
+    boot_control_->GetDynamicPartitionControl()->ResetUpdate(prefs_);
+
     if (!prefs_->SetString(kPrefsUpdateCheckResponseHash, payload_id)) {
       LOG(WARNING) << "Unable to save the update check response hash.";
     }
@@ -282,6 +281,11 @@ bool UpdateAttempterAndroid::ApplyPayload(
 
   install_plan_.powerwash_required =
       GetHeaderAsBool(headers[kPayloadPropertyPowerwash], false);
+
+  if (!IsProductionBuild()) {
+    install_plan_.disable_vabc =
+        GetHeaderAsBool(headers[kPayloadDisableVABC], false);
+  }
 
   install_plan_.switch_slot_on_reboot =
       GetHeaderAsBool(headers[kPayloadPropertySwitchSlotOnReboot], true);
@@ -326,9 +330,14 @@ bool UpdateAttempterAndroid::ApplyPayload(
   } else {
 #ifdef _UE_SIDELOAD
     LOG(FATAL) << "Unsupported sideload URI: " << payload_url;
+    return false;  // NOLINT, unreached but analyzer might not know.
+                   // Suppress warnings about null 'fetcher' after this.
 #else
-    LibcurlHttpFetcher* libcurl_fetcher =
-        new LibcurlHttpFetcher(&proxy_resolver_, hardware_);
+    LibcurlHttpFetcher* libcurl_fetcher = new LibcurlHttpFetcher(hardware_);
+    if (!headers[kPayloadDownloadRetry].empty()) {
+      libcurl_fetcher->set_max_retry_count(
+          atoi(headers[kPayloadDownloadRetry].c_str()));
+    }
     libcurl_fetcher->set_server_to_check(ServerToCheck::kDownload);
     fetcher = libcurl_fetcher;
 #endif  // _UE_SIDELOAD
@@ -338,6 +347,21 @@ bool UpdateAttempterAndroid::ApplyPayload(
     fetcher->SetHeader("Authorization", headers[kPayloadPropertyAuthorization]);
   if (!headers[kPayloadPropertyUserAgent].empty())
     fetcher->SetHeader("User-Agent", headers[kPayloadPropertyUserAgent]);
+
+  if (!headers[kPayloadPropertyNetworkProxy].empty()) {
+    LOG(INFO) << "Using proxy url from payload headers: "
+              << headers[kPayloadPropertyNetworkProxy];
+    fetcher->SetProxies({headers[kPayloadPropertyNetworkProxy]});
+  }
+  if (!headers[kPayloadVABCNone].empty()) {
+    install_plan_.vabc_none = true;
+  }
+  if (!headers[kPayloadEnableThreading].empty()) {
+    install_plan_.enable_threading = true;
+  }
+  if (!headers[kPayloadBatchedWrites].empty()) {
+    install_plan_.batched_writes = true;
+  }
 
   BuildUpdateActions(fetcher);
 
@@ -404,6 +428,13 @@ bool UpdateAttempterAndroid::ResetStatus(brillo::ErrorPtr* error) {
     return LogAndSetError(
         error, FROM_HERE, "Already processing an update, cancel it first.");
   }
+  if (status_ != UpdateStatus::IDLE &&
+      status_ != UpdateStatus::UPDATED_NEED_REBOOT) {
+    return LogAndSetError(error,
+                          FROM_HERE,
+                          "Status reset not allowed in this state, please "
+                          "cancel on going OTA first.");
+  }
 
   if (apex_handler_android_ != nullptr) {
     LOG(INFO) << "Cleaning up reserved space for compressed APEX (if any)";
@@ -419,30 +450,18 @@ bool UpdateAttempterAndroid::ResetStatus(brillo::ErrorPtr* error) {
                           "Failed to reset the status because "
                           "ClearUpdateCompletedMarker() failed");
   }
-
+  if (status_ == UpdateStatus::UPDATED_NEED_REBOOT) {
+    if (!resetShouldSwitchSlotOnReboot(error)) {
+      LOG(INFO) << "Failed to reset slot switch.";
+      return false;
+    }
+    LOG(INFO) << "Slot switch reset successful";
+  }
   if (!boot_control_->GetDynamicPartitionControl()->ResetUpdate(prefs_)) {
     LOG(WARNING) << "Failed to reset snapshots. UpdateStatus is IDLE but"
-                  << "space might not be freed.";
+                 << "space might not be freed.";
   }
-  switch (status_) {
-    case UpdateStatus::IDLE: {
-      return true;
-    }
-
-    case UpdateStatus::UPDATED_NEED_REBOOT: {
-      const bool ret_value = resetShouldSwitchSlotOnReboot(error);
-      if (ret_value) {
-        LOG(INFO) << "Reset status successful";
-      }
-      return ret_value;
-    }
-
-    default:
-      return LogAndSetError(
-          error,
-          FROM_HERE,
-          "Reset not allowed in this state. Cancel the ongoing update first");
-  }
+  return true;
 }
 
 bool UpdateAttempterAndroid::VerifyPayloadParseManifest(
@@ -461,7 +480,7 @@ bool UpdateAttempterAndroid::VerifyPayloadParseManifest(
         FROM_HERE,
         "Failed to read payload header from " + metadata_filename);
   }
-  ErrorCode errorcode;
+  ErrorCode errorcode{};
   PayloadMetadata payload_metadata;
   if (payload_metadata.ParsePayloadHeader(metadata, &errorcode) !=
       MetadataParseResult::kSuccess) {
@@ -520,7 +539,7 @@ bool UpdateAttempterAndroid::VerifyPayloadApplicable(
       VerifyPayloadParseManifest(metadata_filename, &manifest, error));
 
   FileDescriptorPtr fd(new EintrSafeFileDescriptor);
-  ErrorCode errorcode;
+  ErrorCode errorcode{};
 
   BootControlInterface::Slot current_slot = GetCurrentSlot();
   for (const PartitionUpdate& partition : manifest.partitions()) {
@@ -562,7 +581,9 @@ bool UpdateAttempterAndroid::VerifyPayloadApplicable(
 void UpdateAttempterAndroid::ProcessingDone(const ActionProcessor* processor,
                                             ErrorCode code) {
   LOG(INFO) << "Processing Done.";
-
+  metric_bytes_downloaded_.Flush(true);
+  metric_total_bytes_downloaded_.Flush(true);
+  last_error_ = code;
   if (status_ == UpdateStatus::CLEANUP_PREVIOUS_UPDATE) {
     TerminateUpdateAndNotify(code);
     return;
@@ -659,14 +680,8 @@ void UpdateAttempterAndroid::BytesReceived(uint64_t bytes_progressed,
   }
 
   // Update the bytes downloaded in prefs.
-  int64_t current_bytes_downloaded =
-      metrics_utils::GetPersistedValue(kPrefsCurrentBytesDownloaded, prefs_);
-  int64_t total_bytes_downloaded =
-      metrics_utils::GetPersistedValue(kPrefsTotalBytesDownloaded, prefs_);
-  prefs_->SetInt64(kPrefsCurrentBytesDownloaded,
-                   current_bytes_downloaded + bytes_progressed);
-  prefs_->SetInt64(kPrefsTotalBytesDownloaded,
-                   total_bytes_downloaded + bytes_progressed);
+  metric_bytes_downloaded_ += bytes_progressed;
+  metric_total_bytes_downloaded_ += bytes_progressed;
 }
 
 bool UpdateAttempterAndroid::ShouldCancel(ErrorCode* cancel_reason) {
@@ -746,7 +761,7 @@ void UpdateAttempterAndroid::TerminateUpdateAndNotify(ErrorCode error_code) {
     prefs_->Delete(kPrefsPayloadAttemptNumber);
     metrics_utils::SetSystemUpdatedMarker(clock_.get(), prefs_);
     // Clear the total bytes downloaded if and only if the update succeeds.
-    prefs_->SetInt64(kPrefsTotalBytesDownloaded, 0);
+    metric_total_bytes_downloaded_.Delete();
   }
 }
 
@@ -806,9 +821,10 @@ void UpdateAttempterAndroid::BuildUpdateActions(HttpFetcher* fetcher) {
 }
 
 bool UpdateAttempterAndroid::WriteUpdateCompletedMarker() {
-  LOG(INFO) << "Writing update complete marker.";
   string boot_id;
   TEST_AND_RETURN_FALSE(utils::GetBootId(&boot_id));
+  LOG(INFO) << "Writing update complete marker, slot "
+            << boot_control_->GetCurrentSlot() << ", boot id: " << boot_id;
   TEST_AND_RETURN_FALSE(
       prefs_->SetString(kPrefsUpdateCompletedOnBootId, boot_id));
   TEST_AND_RETURN_FALSE(
@@ -823,7 +839,7 @@ bool UpdateAttempterAndroid::ClearUpdateCompletedMarker() {
   return true;
 }
 
-bool UpdateAttempterAndroid::UpdateCompletedOnThisBoot() {
+bool UpdateAttempterAndroid::UpdateCompletedOnThisBoot() const {
   // In case of an update_engine restart without a reboot, we stored the boot_id
   // when the update was completed by setting a pref, so we can check whether
   // the last update was on this boot or a previous one.
@@ -874,8 +890,7 @@ void UpdateAttempterAndroid::CollectAndReportUpdateMetricsOnUpdateFinished(
       attempt_result,
       error_code);
 
-  int64_t current_bytes_downloaded =
-      metrics_utils::GetPersistedValue(kPrefsCurrentBytesDownloaded, prefs_);
+  int64_t current_bytes_downloaded = metric_bytes_downloaded_.get();
   metrics_reporter_->ReportUpdateAttemptDownloadMetrics(
       current_bytes_downloaded,
       0,
@@ -892,8 +907,7 @@ void UpdateAttempterAndroid::CollectAndReportUpdateMetricsOnUpdateFinished(
     // For android metrics, we only care about the total bytes downloaded
     // for all sources; for now we assume the only download source is
     // HttpsServer.
-    int64_t total_bytes_downloaded =
-        metrics_utils::GetPersistedValue(kPrefsTotalBytesDownloaded, prefs_);
+    int64_t total_bytes_downloaded = metric_total_bytes_downloaded_.get();
     int64_t num_bytes_downloaded[kNumDownloadSources] = {};
     num_bytes_downloaded[DownloadSource::kDownloadSourceHttpsServer] =
         total_bytes_downloaded;
@@ -933,7 +947,9 @@ bool UpdateAttempterAndroid::OTARebootSucceeded() const {
       prefs_->GetString(kPrefsPreviousVersion, &previous_version));
   if (previous_slot != current_slot) {
     LOG(INFO) << "Detected a slot switch, OTA succeeded, device updated from "
-              << previous_version << " to " << current_version;
+              << previous_version << " to " << current_version
+              << ", previous slot: " << previous_slot
+              << " current slot: " << current_slot;
     if (previous_version == current_version) {
       LOG(INFO) << "Previous version is the same as current version, this is "
                    "possibly a self-OTA.";
@@ -955,7 +971,8 @@ OTAResult UpdateAttempterAndroid::GetOTAUpdateResult() const {
   // We only set |kPrefsSystemUpdatedMarker| if slot is actually switched, so
   // existence of this pref is sufficient indicator. Given that we have to
   // delete this pref after checking it. This is done in
-  // |DeltaPerformer::ResetUpdateProgress|
+  // |DeltaPerformer::ResetUpdateProgress| and
+  // |UpdateAttempterAndroid::UpdateStateAfterReboot|
   auto slot_switch_attempted = prefs_->Exists(kPrefsUpdateCompletedOnBootId);
   auto system_rebooted = DidSystemReboot(prefs_);
   auto ota_successful = OTARebootSucceeded();
@@ -985,6 +1002,11 @@ void UpdateAttempterAndroid::UpdateStateAfterReboot(const OTAResult result) {
   string current_boot_id;
   TEST_AND_RETURN(utils::GetBootId(&current_boot_id));
   prefs_->SetString(kPrefsBootId, current_boot_id);
+  std::string slot_switch_indicator;
+  prefs_->GetString(kPrefsUpdateCompletedOnBootId, &slot_switch_indicator);
+  if (slot_switch_indicator != current_boot_id) {
+    ClearUpdateCompletedMarker();
+  }
 
   // If there's no record of previous version (e.g. due to a data wipe), we
   // save the info of current boot and skip the metrics report.
@@ -1056,7 +1078,7 @@ void UpdateAttempterAndroid::UpdatePrefsOnUpdateStart(bool is_resume) {
 
 void UpdateAttempterAndroid::ClearMetricsPrefs() {
   CHECK(prefs_);
-  prefs_->Delete(kPrefsCurrentBytesDownloaded);
+  metric_bytes_downloaded_.Delete();
   prefs_->Delete(kPrefsNumReboots);
   prefs_->Delete(kPrefsSystemUpdatedMarker);
   prefs_->Delete(kPrefsUpdateTimestampStart);
@@ -1162,15 +1184,6 @@ bool UpdateAttempterAndroid::setShouldSwitchSlotOnReboot(
   TEST_AND_RETURN_FALSE(
       VerifyPayloadParseManifest(metadata_filename, &manifest, error));
 
-  if (!boot_control_->GetDynamicPartitionControl()->PreparePartitionsForUpdate(
-          GetCurrentSlot(),
-          GetTargetSlot(),
-          manifest,
-          false /* should update */,
-          nullptr)) {
-    return LogAndSetError(
-        error, FROM_HERE, "Failed to PreparePartitionsForUpdate");
-  }
   InstallPlan install_plan_;
   install_plan_.source_slot = GetCurrentSlot();
   install_plan_.target_slot = GetTargetSlot();
@@ -1183,34 +1196,51 @@ bool UpdateAttempterAndroid::setShouldSwitchSlotOnReboot(
   CHECK_NE(install_plan_.source_slot, UINT32_MAX);
   CHECK_NE(install_plan_.target_slot, UINT32_MAX);
 
-  ErrorCode error_code;
-  if (!install_plan_.ParsePartitions(manifest.partitions(),
-                                     boot_control_,
-                                     manifest.block_size(),
-                                     &error_code)) {
-    return LogAndSetError(error,
-                          FROM_HERE,
-                          "Failed to LoadPartitionsFromSlots " +
-                              utils::ErrorCodeToString(error_code));
-  }
-
   auto install_plan_action = std::make_unique<InstallPlanAction>(install_plan_);
-  auto filesystem_verifier_action = std::make_unique<FilesystemVerifierAction>(
-      boot_control_->GetDynamicPartitionControl());
   auto postinstall_runner_action =
       std::make_unique<PostinstallRunnerAction>(boot_control_, hardware_);
   SetStatusAndNotify(UpdateStatus::VERIFYING);
-  filesystem_verifier_action->set_delegate(this);
   postinstall_runner_action->set_delegate(this);
 
-  // Bond them together. We have to use the leaf-types when calling
-  // BondActions().
-  BondActions(install_plan_action.get(), filesystem_verifier_action.get());
-  BondActions(filesystem_verifier_action.get(),
-              postinstall_runner_action.get());
+  // If last error code is kUpdatedButNotActive, we know that we reached this
+  // state by calling applyPayload() with switch_slot=false. That applyPayload()
+  // call would have already performed filesystem verification, therefore, we
+  // can safely skip the verification to save time.
+  if (last_error_ == ErrorCode::kUpdatedButNotActive) {
+    BondActions(install_plan_action.get(), postinstall_runner_action.get());
+    processor_->EnqueueAction(std::move(install_plan_action));
+  } else {
+    if (!boot_control_->GetDynamicPartitionControl()
+             ->PreparePartitionsForUpdate(GetCurrentSlot(),
+                                          GetTargetSlot(),
+                                          manifest,
+                                          false /* should update */,
+                                          nullptr)) {
+      return LogAndSetError(
+          error, FROM_HERE, "Failed to PreparePartitionsForUpdate");
+    }
+    ErrorCode error_code{};
+    if (!install_plan_.ParsePartitions(manifest.partitions(),
+                                       boot_control_,
+                                       manifest.block_size(),
+                                       &error_code)) {
+      return LogAndSetError(error,
+                            FROM_HERE,
+                            "Failed to LoadPartitionsFromSlots " +
+                                utils::ErrorCodeToString(error_code));
+    }
 
-  processor_->EnqueueAction(std::move(install_plan_action));
-  processor_->EnqueueAction(std::move(filesystem_verifier_action));
+    auto filesystem_verifier_action =
+        std::make_unique<FilesystemVerifierAction>(
+            boot_control_->GetDynamicPartitionControl());
+    filesystem_verifier_action->set_delegate(this);
+    BondActions(install_plan_action.get(), filesystem_verifier_action.get());
+    BondActions(filesystem_verifier_action.get(),
+                postinstall_runner_action.get());
+    processor_->EnqueueAction(std::move(install_plan_action));
+    processor_->EnqueueAction(std::move(filesystem_verifier_action));
+  }
+
   processor_->EnqueueAction(std::move(postinstall_runner_action));
   ScheduleProcessingStart();
   return true;
@@ -1222,6 +1252,7 @@ bool UpdateAttempterAndroid::resetShouldSwitchSlotOnReboot(
     return LogAndSetError(
         error, FROM_HERE, "Already processing an update, cancel it first.");
   }
+  TEST_AND_RETURN_FALSE(ClearUpdateCompletedMarker());
   // Update the boot flags so the current slot has higher priority.
   if (!boot_control_->SetActiveBootSlot(GetCurrentSlot())) {
     return LogAndSetError(error, FROM_HERE, "Failed to SetActiveBootSlot");
@@ -1286,6 +1317,15 @@ void UpdateAttempterAndroid::RemoveCleanupPreviousUpdateCallback(
                      [&](const auto& e) { return e.get() == callback; });
   cleanup_previous_update_callbacks_.erase(
       end_it, cleanup_previous_update_callbacks_.end());
+}
+
+bool UpdateAttempterAndroid::IsProductionBuild() {
+  if (android::base::GetProperty("ro.build.type", "") != "userdebug" ||
+      android::base::GetProperty("ro.build.tags", "") == "release-keys" ||
+      android::base::GetProperty("ro.boot.verifiedbootstate", "") == "green") {
+    return true;
+  }
+  return false;
 }
 
 }  // namespace chromeos_update_engine

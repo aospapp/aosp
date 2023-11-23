@@ -83,6 +83,10 @@ enum UpstreamType {
     UT_TEST = 12;
     // Indicates upstream using DUN capability + Cellular transport.
     UT_DUN_CELLULAR = 13;
+    // Indicates upstream using for local only.
+    UT_LOCAL_ONLY = 14;
+    // Indicates upstream without any available transport.
+    UT_NO_NETWORK = 15;
 }
 
 enum UserType {

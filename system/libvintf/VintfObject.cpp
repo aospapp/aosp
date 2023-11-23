@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include "VintfObject.h"
 
 #include <dirent.h>
@@ -29,6 +28,7 @@
 #include <android-base/strings.h>
 #include <hidl/metadata.h>
 
+#include "Apex.h"
 #include "CompatibilityMatrix.h"
 #include "VintfObjectUtils.h"
 #include "constants-private.h"
@@ -71,6 +71,10 @@ static std::unique_ptr<PropertyFetcher> createDefaultPropertyFetcher() {
     return propertyFetcher;
 }
 
+static std::unique_ptr<ApexInterface> createDefaultApex() {
+    return std::make_unique<details::Apex>();
+}
+
 std::shared_ptr<VintfObject> VintfObject::GetInstance() {
     static details::LockedSharedPtr<VintfObject> sInstance{};
     std::unique_lock<std::mutex> lock(sInstance.mutex);
@@ -85,6 +89,19 @@ std::shared_ptr<const HalManifest> VintfObject::GetDeviceHalManifest() {
 }
 
 std::shared_ptr<const HalManifest> VintfObject::getDeviceHalManifest() {
+    // Check if any updates to the APEX data, if so rebuild the manifest
+    {
+        std::lock_guard<std::mutex> lock(mDeviceManifest.mutex);
+        if (mDeviceManifest.fetchedOnce) {
+            if (isApexReady() && getApex()->HasUpdate(getFileSystem().get())) {
+                LOG(INFO) << __func__ << ": Reloading VINTF information.";
+                mDeviceManifest.object = nullptr;
+                mDeviceManifest.fetchedOnce = false;
+                // TODO(b/242070736): only APEX data needs to be updated
+            }
+        }
+    }
+
     return Get(__func__, &mDeviceManifest,
                std::bind(&VintfObject::fetchDeviceHalManifest, this, _1, _2));
 }
@@ -229,6 +246,46 @@ status_t VintfObject::addDirectoryManifests(const std::string& directory, HalMan
     return OK;
 }
 
+// Create device HalManifest
+// 1. Create manifest based on /vendor /odm data
+// 2. Add any APEX data
+status_t VintfObject::fetchDeviceHalManifest(HalManifest* out, std::string* error) {
+    auto status = fetchDeviceHalManifestMinusApex(out, error);
+    if (status != OK) {
+        return status;
+    }
+    return fetchDeviceHalManifestApex(out, error);
+}
+
+// Fetch fragments from apexes originated from /vendor.
+// For now, we don't have /odm apexes.
+status_t VintfObject::fetchDeviceHalManifestApex(HalManifest* out, std::string* error) {
+    status_t status = OK;
+    if (!isApexReady()) {
+        return OK;
+    }
+    // Create HalManifest for all APEX HALs so that the apex defined attribute can
+    // be set.
+    HalManifest apexManifest;
+    std::vector<std::string> dirs;
+    status = getApex()->DeviceVintfDirs(getFileSystem().get(), &dirs, error);
+    if (status != OK) {
+        return status;
+    }
+    for (const auto& dir : dirs) {
+        status = addDirectoryManifests(dir, &apexManifest, false, error);
+        if (status != OK) {
+            return status;
+        }
+    }
+
+    // Add APEX HALs to out
+    if (!out->addAllHals(&apexManifest, error)) {
+        return UNKNOWN_ERROR;
+    }
+    return OK;
+}
+
 // Priority for loading vendor manifest:
 // 1. Vendor manifest + device fragments + ODM manifest (optional) + odm fragments
 // 2. Vendor manifest + device fragments
@@ -237,7 +294,7 @@ status_t VintfObject::addDirectoryManifests(const std::string& directory, HalMan
 // where:
 // A + B means unioning <hal> tags from A and B. If B declares an override, then this takes priority
 // over A.
-status_t VintfObject::fetchDeviceHalManifest(HalManifest* out, std::string* error) {
+status_t VintfObject::fetchDeviceHalManifestMinusApex(HalManifest* out, std::string* error) {
     HalManifest vendorManifest;
     status_t vendorStatus = fetchVendorHalManifest(&vendorManifest, error);
     if (vendorStatus != OK && vendorStatus != NAME_NOT_FOUND) {
@@ -310,6 +367,10 @@ status_t VintfObject::fetchVendorHalManifest(HalManifest* out, std::string* erro
     return NAME_NOT_FOUND;
 }
 
+std::string getOdmProductManifestFile(const std::string& dir, const ::std::string& sku) {
+    return sku.empty() ? "" : dir + "manifest_"s + sku + ".xml";
+}
+
 // "out" is written to iff return status is OK.
 // Priority:
 // 1. if {sku} is defined, /odm/etc/vintf/manifest_{sku}.xml
@@ -320,13 +381,12 @@ status_t VintfObject::fetchVendorHalManifest(HalManifest* out, std::string* erro
 // {sku} is the value of ro.boot.product.hardware.sku
 status_t VintfObject::fetchOdmHalManifest(HalManifest* out, std::string* error) {
     status_t status;
-
     std::string productModel;
     productModel = getPropertyFetcher()->getProperty("ro.boot.product.hardware.sku", "");
 
-    if (!productModel.empty()) {
-        status =
-            fetchOneHalManifest(kOdmVintfDir + "manifest_"s + productModel + ".xml", out, error);
+    const std::string productFile = getOdmProductManifestFile(kOdmVintfDir, productModel);
+    if (!productFile.empty()) {
+        status = fetchOneHalManifest(productFile, out, error);
         if (status == OK || status != NAME_NOT_FOUND) {
             return status;
         }
@@ -337,9 +397,10 @@ status_t VintfObject::fetchOdmHalManifest(HalManifest* out, std::string* error) 
         return status;
     }
 
-    if (!productModel.empty()) {
-        status = fetchOneHalManifest(kOdmLegacyVintfDir + "manifest_"s + productModel + ".xml", out,
-                                     error);
+    const std::string productLegacyFile =
+        getOdmProductManifestFile(kOdmLegacyVintfDir, productModel);
+    if (!productLegacyFile.empty()) {
+        status = fetchOneHalManifest(productLegacyFile, out, error);
         if (status == OK || status != NAME_NOT_FOUND) {
             return status;
         }
@@ -433,24 +494,41 @@ status_t VintfObject::fetchFrameworkHalManifest(HalManifest* out, std::string* e
     return OK;
 }
 
+// If deviceManifestLevel is not in the range [minLevel, maxLevel] of a HAL, remove the HAL,
+// where:
+//    minLevel = hal.getMinLevel(); if unspecified, -infinity
+//    maxLevel = hal.getMaxLevel(); if unspecified, +infinity
+//    deviceManifestLevel = deviceManifest->level(); if unspecified, -infinity
+// That is, if device manifest has no level, it is treated as an infinitely old device.
 void VintfObject::filterHalsByDeviceManifestLevel(HalManifest* out) {
     auto deviceManifest = getDeviceHalManifest();
+    Level deviceManifestLevel =
+        deviceManifest != nullptr ? deviceManifest->level() : Level::UNSPECIFIED;
+
     if (deviceManifest == nullptr) {
         LOG(WARNING) << "Cannot fetch device manifest to determine target FCM version to "
-                        "filter framework manifest HALs.";
-        return;
-    }
-    Level deviceManifestLevel = deviceManifest->level();
-    if (deviceManifestLevel == Level::UNSPECIFIED) {
+                        "filter framework manifest HALs properly. Treating as infinitely old "
+                        "device.";
+    } else if (deviceManifestLevel == Level::UNSPECIFIED) {
         LOG(WARNING)
-            << "Not filtering framework manifest HALs because target FCM version is unspecified.";
-        return;
+            << "Cannot filter framework manifest HALs properly because target FCM version is "
+               "unspecified in the device manifest. Treating as infinitely old device.";
     }
+
     out->removeHalsIf([deviceManifestLevel](const ManifestHal& hal) {
-        if (hal.getMaxLevel() == Level::UNSPECIFIED) {
-            return false;
+        if (hal.getMaxLevel() != Level::UNSPECIFIED) {
+            if (deviceManifestLevel != Level::UNSPECIFIED &&
+                hal.getMaxLevel() < deviceManifestLevel) {
+                return true;
+            }
         }
-        return hal.getMaxLevel() < deviceManifestLevel;
+        if (hal.getMinLevel() != Level::UNSPECIFIED) {
+            if (deviceManifestLevel == Level::UNSPECIFIED ||
+                hal.getMinLevel() > deviceManifestLevel) {
+                return true;
+            }
+        }
+        return false;
     });
 }
 
@@ -644,21 +722,25 @@ int32_t VintfObject::checkCompatibility(std::string* error, CheckFlags::Type fla
 
 namespace details {
 
-std::vector<std::string> dumpFileList() {
-    return {
+std::vector<std::string> dumpFileList(const std::string& sku) {
+    std::vector<std::string> list = {
         // clang-format off
         kSystemVintfDir,
         kVendorVintfDir,
         kOdmVintfDir,
         kProductVintfDir,
         kSystemExtVintfDir,
-        kOdmLegacyVintfDir,
+        kOdmLegacyManifest,
         kVendorLegacyManifest,
         kVendorLegacyMatrix,
         kSystemLegacyManifest,
         kSystemLegacyMatrix,
         // clang-format on
     };
+    if (!sku.empty()) {
+        list.push_back(getOdmProductManifestFile(kOdmLegacyVintfDir, sku));
+    }
+    return list;
 }
 
 }  // namespace details
@@ -766,12 +848,12 @@ android::base::Result<std::vector<FqInstance>> VintfObject::GetListedInstanceInh
         return {};
     }
 
-    const FQName& fqName = fqInstance.getFqName();
+    const auto& fqName = fqInstance.getFqNameString();
 
     std::vector<FqInstance> ret;
     ret.push_back(fqInstance);
 
-    auto childRange = childrenMap.equal_range(fqName.string());
+    auto childRange = childrenMap.equal_range(fqName);
     for (auto it = childRange.first; it != childRange.second; ++it) {
         const auto& childFqNameString = it->second;
         FQName childFqName;
@@ -779,7 +861,9 @@ android::base::Result<std::vector<FqInstance>> VintfObject::GetListedInstanceInh
             return android::base::Error() << "Cannot parse " << childFqNameString << " as FQName";
         }
         FqInstance childFqInstance;
-        if (!childFqInstance.setTo(childFqName, fqInstance.getInstance())) {
+        if (!childFqInstance.setTo(childFqName.package(), childFqName.getPackageMajorVersion(),
+                                   childFqName.getPackageMinorVersion(),
+                                   childFqName.getInterfaceName(), fqInstance.getInstance())) {
             return android::base::Error() << "Cannot merge " << childFqName.string() << "/"
                                           << fqInstance.getInstance() << " as FqInstance";
             continue;
@@ -959,6 +1043,18 @@ const std::unique_ptr<ObjectFactory<RuntimeInfo>>& VintfObject::getRuntimeInfoFa
     return mRuntimeInfoFactory;
 }
 
+const std::unique_ptr<ApexInterface>& VintfObject::getApex() {
+    return mApex;
+}
+
+bool VintfObject::isApexReady() {
+    if constexpr (kIsTarget) {
+        return getPropertyFetcher()->getBoolProperty("apex.all.ready", false);
+    } else {
+        return true;
+    }
+}
+
 android::base::Result<bool> VintfObject::hasFrameworkCompatibilityMatrixExtensions() {
     std::vector<CompatibilityMatrix> matrixFragments;
     std::string error;
@@ -1050,13 +1146,16 @@ std::set<std::string> HidlMetadataToPackagesAndVersions(
 }
 
 // android.hardware.foo
-std::set<std::string> AidlMetadataToPackages(
+// All non-vintf stable interfaces are filtered out.
+std::set<std::string> AidlMetadataToVintfPackages(
     const std::vector<AidlInterfaceMetadata>& aidlMetadata,
     const std::function<bool(const std::string&)>& shouldCheck) {
     std::set<std::string> ret;
     for (const auto& item : aidlMetadata) {
-        for (const auto& type : item.types) {
-            InsertIf(StripAidlType(type), shouldCheck, &ret);
+        if (item.stability == "vintf") {
+            for (const auto& type : item.types) {
+                InsertIf(StripAidlType(type), shouldCheck, &ret);
+            }
         }
     }
     return ret;
@@ -1074,11 +1173,15 @@ std::set<std::string> HidlMetadataToNames(const std::vector<HidlInterfaceMetadat
 
 // android.hardware.foo.IFoo
 // Note that UDTs are not filtered out, so there might be non-interface types.
-std::set<std::string> AidlMetadataToNames(const std::vector<AidlInterfaceMetadata>& aidlMetadata) {
+// All non-vintf stable interfaces are filtered out.
+std::set<std::string> AidlMetadataToVintfNames(
+    const std::vector<AidlInterfaceMetadata>& aidlMetadata) {
     std::set<std::string> ret;
     for (const auto& item : aidlMetadata) {
-        for (const auto& type : item.types) {
-            ret.insert(type);
+        if (item.stability == "vintf") {
+            for (const auto& type : item.types) {
+                ret.insert(type);
+            }
         }
     }
     return ret;
@@ -1118,16 +1221,17 @@ android::base::Result<void> VintfObject::checkMissingHalsInMatrices(
     if (!matrixFragments.ok()) return matrixFragments.error();
 
     // Filter aidlMetadata and hidlMetadata with shouldCheck.
-    auto allAidlPackages = AidlMetadataToPackages(aidlMetadata, shouldCheck);
+    auto allAidlVintfPackages = AidlMetadataToVintfPackages(aidlMetadata, shouldCheck);
     auto allHidlPackagesAndVersions = HidlMetadataToPackagesAndVersions(hidlMetadata, shouldCheck);
 
-    // Filter out instances in allAidlMetadata and allHidlMetadata that are in the matrices.
+    // Filter out instances in allAidlVintfPackages and allHidlPackagesAndVersions that are
+    // in the matrices.
     std::vector<std::string> errors;
     for (const auto& matrix : matrixFragments.value()) {
         matrix.forEachInstance([&](const MatrixInstance& matrixInstance) {
             switch (matrixInstance.format()) {
                 case HalFormat::AIDL: {
-                    allAidlPackages.erase(matrixInstance.package());
+                    allAidlVintfPackages.erase(matrixInstance.package());
                     return true;  // continue to next instance
                 }
                 case HalFormat::HIDL: {
@@ -1155,10 +1259,10 @@ android::base::Result<void> VintfObject::checkMissingHalsInMatrices(
             "The following HIDL packages are not found in any compatibility matrix fragments:\t\n" +
             android::base::Join(allHidlPackagesAndVersions, "\t\n"));
     }
-    if (!allAidlPackages.empty()) {
+    if (!allAidlVintfPackages.empty()) {
         errors.push_back(
             "The following AIDL packages are not found in any compatibility matrix fragments:\t\n" +
-            android::base::Join(allAidlPackages, "\t\n"));
+            android::base::Join(allAidlVintfPackages, "\t\n"));
     }
 
     if (!errors.empty()) {
@@ -1174,7 +1278,7 @@ android::base::Result<void> VintfObject::checkMatrixHalsHasDefinition(
     auto matrixFragments = getAllFrameworkMatrixLevels();
     if (!matrixFragments.ok()) return matrixFragments.error();
 
-    auto allAidlNames = AidlMetadataToNames(aidlMetadata);
+    auto allAidlVintfNames = AidlMetadataToVintfNames(aidlMetadata);
     auto allHidlNames = HidlMetadataToNames(hidlMetadata);
     std::set<std::string> badAidlInterfaces;
     std::set<std::string> badHidlInterfaces;
@@ -1192,7 +1296,7 @@ android::base::Result<void> VintfObject::checkMatrixHalsHasDefinition(
                 case HalFormat::AIDL: {
                     auto matrixInterface =
                         toAidlFqnameString(matrixInstance.package(), matrixInstance.interface());
-                    if (allAidlNames.find(matrixInterface) == allAidlNames.end()) {
+                    if (allAidlVintfNames.find(matrixInterface) == allAidlVintfNames.end()) {
                         errors.push_back(
                             "AIDL interface " + matrixInterface + " is referenced in " +
                             matrix.fileName() +
@@ -1230,6 +1334,28 @@ android::base::Result<void> VintfObject::checkMatrixHalsHasDefinition(
     return {};
 }
 
+android::base::Result<KernelVersion> VintfObject::getLatestMinLtsAtFcmVersion(Level fcmVersion) {
+    auto allFcms = getAllFrameworkMatrixLevels();
+    if (!allFcms.ok()) return allFcms.error();
+
+    // Get the max of latestKernelMinLts for all FCM fragments at |fcmVersion|.
+    // Usually there's only one such fragment.
+    KernelVersion foundLatestMinLts;
+    for (const auto& fcm : *allFcms) {
+        if (fcm.level() != fcmVersion) {
+            continue;
+        }
+        // Note: this says "minLts", but "Latest" indicates that it is a max value.
+        auto thisLatestMinLts = fcm.getLatestKernelMinLts();
+        if (foundLatestMinLts < thisLatestMinLts) foundLatestMinLts = thisLatestMinLts;
+    }
+    if (foundLatestMinLts != KernelVersion{}) {
+        return foundLatestMinLts;
+    }
+    return android::base::Error(-NAME_NOT_FOUND)
+           << "Can't find compatibility matrix fragment for level " << fcmVersion;
+}
+
 // make_unique does not work because VintfObject constructor is private.
 VintfObject::Builder::Builder()
     : VintfObjectBuilder(std::unique_ptr<VintfObject>(new VintfObject())) {}
@@ -1254,11 +1380,17 @@ VintfObjectBuilder& VintfObjectBuilder::setPropertyFetcher(std::unique_ptr<Prope
     return *this;
 }
 
+VintfObjectBuilder& VintfObjectBuilder::setApex(std::unique_ptr<ApexInterface>&& a) {
+    mObject->mApex = std::move(a);
+    return *this;
+}
+
 std::unique_ptr<VintfObject> VintfObjectBuilder::buildInternal() {
     if (!mObject->mFileSystem) mObject->mFileSystem = createDefaultFileSystem();
     if (!mObject->mRuntimeInfoFactory)
         mObject->mRuntimeInfoFactory = std::make_unique<ObjectFactory<RuntimeInfo>>();
     if (!mObject->mPropertyFetcher) mObject->mPropertyFetcher = createDefaultPropertyFetcher();
+    if (!mObject->mApex) mObject->mApex = createDefaultApex();
     return std::move(mObject);
 }
 

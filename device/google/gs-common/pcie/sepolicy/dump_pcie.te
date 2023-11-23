@@ -1,0 +1,7 @@
+pixel_bugreport(dump_pcie)
+
+allow dump_pcie pcie_log_device:chr_file r_file_perms;
+allow dump_pcie vendor_toolbox_exec:file execute_no_trans;
+
+allow dump_pcie sysfs:dir r_dir_perms;
+allow dump_pcie sysfs_pcie:file r_file_perms;

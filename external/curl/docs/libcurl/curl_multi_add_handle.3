@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -18,16 +18,18 @@
 .\" * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 .\" * KIND, either express or implied.
 .\" *
+.\" * SPDX-License-Identifier: curl
+.\" *
 .\" **************************************************************************
-.TH curl_multi_add_handle 3 "October 31, 2021" "libcurl 7.80.0" "libcurl Manual"
-
+.TH curl_multi_add_handle 3 "4 March 2002" "libcurl 7.9.5" "libcurl Manual"
 .SH NAME
 curl_multi_add_handle - add an easy handle to a multi session
 .SH SYNOPSIS
+.nf
 #include <curl/curl.h>
 
 CURLMcode curl_multi_add_handle(CURLM *multi_handle, CURL *easy_handle);
-.ad
+.fi
 .SH DESCRIPTION
 Adds a standard easy handle to the multi stack. This function call will make
 this \fImulti_handle\fP control the specified \fIeasy_handle\fP.
@@ -75,7 +77,7 @@ first the easy handle and then the multi handle:
   curl_multi_add_handle(multi_handle, http_handle2);
 .fi
 .SH AVAILABILITY
-ADded in 7.9.6
+Added in 7.9.6
 .SH RETURN VALUE
 CURLMcode type, general libcurl multi interface error code.
 .SH "SEE ALSO"

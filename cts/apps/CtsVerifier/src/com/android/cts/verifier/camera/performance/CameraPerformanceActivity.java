@@ -268,7 +268,9 @@ public class CameraPerformanceActivity extends DialogTestListActivity {
         } catch (IllegalStateException e) {
             // This is expected in case there was no prior instrumentation.
         }
-        InstrumentationRegistry.registerInstance(mCameraInstrumentation, new Bundle());
+        Bundle bundle = new Bundle();
+        bundle.putByte("has-activity", (byte) 1);
+        InstrumentationRegistry.registerInstance(mCameraInstrumentation, bundle);
 
         mExecutorService = Executors.newSingleThreadExecutor();
     }

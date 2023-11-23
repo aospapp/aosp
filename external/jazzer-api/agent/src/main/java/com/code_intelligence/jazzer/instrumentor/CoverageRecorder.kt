@@ -15,18 +15,17 @@
 package com.code_intelligence.jazzer.instrumentor
 
 import com.code_intelligence.jazzer.runtime.CoverageMap
-import com.code_intelligence.jazzer.third_party.jacoco.core.analysis.CoverageBuilder
-import com.code_intelligence.jazzer.third_party.jacoco.core.data.ExecutionData
-import com.code_intelligence.jazzer.third_party.jacoco.core.data.ExecutionDataReader
-import com.code_intelligence.jazzer.third_party.jacoco.core.data.ExecutionDataStore
-import com.code_intelligence.jazzer.third_party.jacoco.core.data.ExecutionDataWriter
-import com.code_intelligence.jazzer.third_party.jacoco.core.data.SessionInfo
-import com.code_intelligence.jazzer.third_party.jacoco.core.data.SessionInfoStore
-import com.code_intelligence.jazzer.third_party.jacoco.core.internal.data.CRC64
+import com.code_intelligence.jazzer.third_party.org.jacoco.core.analysis.CoverageBuilder
+import com.code_intelligence.jazzer.third_party.org.jacoco.core.data.ExecutionData
+import com.code_intelligence.jazzer.third_party.org.jacoco.core.data.ExecutionDataStore
+import com.code_intelligence.jazzer.third_party.org.jacoco.core.data.ExecutionDataWriter
+import com.code_intelligence.jazzer.third_party.org.jacoco.core.data.SessionInfo
+import com.code_intelligence.jazzer.third_party.org.jacoco.core.internal.data.CRC64
 import com.code_intelligence.jazzer.utils.ClassNameGlobber
 import io.github.classgraph.ClassGraph
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
+import java.io.OutputStream
 import java.time.Instant
 import java.util.UUID
 
@@ -52,26 +51,26 @@ object CoverageRecorder {
     }
 
     /**
-     * Manually records coverage IDs based on the current state of [CoverageMap.mem].
+     * Manually records coverage IDs based on the current state of [CoverageMap].
      * Should be called after static initializers have run.
      */
     @JvmStatic
     fun updateCoveredIdsWithCoverageMap() {
-        val mem = CoverageMap.mem
-        val size = mem.capacity()
-        additionalCoverage.addAll((0 until size).filter { mem[it] > 0 })
+        additionalCoverage.addAll(CoverageMap.getCoveredIds())
     }
 
+    /**
+     * [dumpCoverageReport] dumps a human-readable coverage report of files using any [coveredIds] to [dumpFileName].
+     */
     @JvmStatic
-    fun replayCoveredIds() {
-        val mem = CoverageMap.mem
-        for (coverageId in additionalCoverage) {
-            mem.put(coverageId, 1)
+    fun dumpCoverageReport(coveredIds: IntArray, dumpFileName: String) {
+        File(dumpFileName).bufferedWriter().use { writer ->
+            writer.write(computeFileCoverage(coveredIds))
         }
     }
 
-    @JvmStatic
-    fun computeFileCoverage(coveredIds: IntArray): String {
+    private fun computeFileCoverage(coveredIds: IntArray): String {
+        fun Double.format(digits: Int) = "%.${digits}f".format(this)
         val coverage = analyzeCoverage(coveredIds.toSet()) ?: return "No classes were instrumented"
         return coverage.sourceFiles.joinToString(
             "\n",
@@ -109,21 +108,42 @@ object CoverageRecorder {
         }
     }
 
-    private fun Double.format(digits: Int) = "%.${digits}f".format(this)
+    /**
+     * [dumpJacocoCoverage] dumps the JaCoCo coverage of files using any [coveredIds] to [dumpFileName].
+     * JaCoCo only exports coverage for files containing at least one coverage data point. The dump
+     * can be used by the JaCoCo report command to create reports also including not covered files.
+     */
+    @JvmStatic
+    fun dumpJacocoCoverage(coveredIds: IntArray, dumpFileName: String) {
+        FileOutputStream(dumpFileName).use { outStream ->
+            dumpJacocoCoverage(coveredIds, outStream)
+        }
+    }
 
-    fun dumpJacocoCoverage(coveredIds: Set<Int>): ByteArray? {
+    /**
+     * [dumpJacocoCoverage] dumps the JaCoCo coverage of files using any [coveredIds] to [outStream].
+     */
+    @JvmStatic
+    fun dumpJacocoCoverage(coveredIds: IntArray, outStream: OutputStream) {
+        // Return if no class has been instrumented.
+        val startTimestamp = startTimestamp ?: return
+
         // Update the list of covered IDs with the coverage information for the current run.
         updateCoveredIdsWithCoverageMap()
 
         val dumpTimestamp = Instant.now()
-        val outStream = ByteArrayOutputStream()
         val outWriter = ExecutionDataWriter(outStream)
-        // Return null if no class has been instrumented.
-        val startTimestamp = startTimestamp ?: return null
         outWriter.visitSessionInfo(
             SessionInfo(UUID.randomUUID().toString(), startTimestamp.epochSecond, dumpTimestamp.epochSecond)
         )
+        analyzeJacocoCoverage(coveredIds.toSet()).accept(outWriter)
+    }
 
+    /**
+     * Build up a JaCoCo [ExecutionDataStore] based on [coveredIds] containing the internally gathered coverage information.
+     */
+    private fun analyzeJacocoCoverage(coveredIds: Set<Int>): ExecutionDataStore {
+        val executionDataStore = ExecutionDataStore()
         val sortedCoveredIds = (additionalCoverage + coveredIds).sorted().toIntArray()
         for ((internalClassName, info) in instrumentedClassInfo) {
             // Determine the subarray of coverage IDs in sortedCoveredIds that contains the IDs generated while
@@ -153,32 +173,27 @@ object CoverageRecorder {
                 .forEach { classLocalEdgeId ->
                     probes[classLocalEdgeId] = true
                 }
-            outWriter.visitClassExecution(ExecutionData(info.classId, internalClassName, probes))
+            executionDataStore.visitClassExecution(ExecutionData(info.classId, internalClassName, probes))
         }
-        return outStream.toByteArray()
+        return executionDataStore
     }
 
+    /**
+     * Create a [CoverageBuilder] containing all classes matching the include/exclude pattern and their coverage statistics.
+     */
     fun analyzeCoverage(coveredIds: Set<Int>): CoverageBuilder? {
         return try {
             val coverage = CoverageBuilder()
             analyzeAllUncoveredClasses(coverage)
-            val rawExecutionData = dumpJacocoCoverage(coveredIds) ?: return null
-            val executionDataStore = ExecutionDataStore()
-            val sessionInfoStore = SessionInfoStore()
-            ByteArrayInputStream(rawExecutionData).use { stream ->
-                ExecutionDataReader(stream).run {
-                    setExecutionDataVisitor(executionDataStore)
-                    setSessionInfoVisitor(sessionInfoStore)
-                    read()
-                }
-            }
+            val executionDataStore = analyzeJacocoCoverage(coveredIds)
             for ((internalClassName, info) in instrumentedClassInfo) {
-                EdgeCoverageInstrumentor(0).analyze(
-                    executionDataStore,
-                    coverage,
-                    info.bytecode,
-                    internalClassName
-                )
+                EdgeCoverageInstrumentor(ClassInstrumentor.defaultEdgeCoverageStrategy, ClassInstrumentor.defaultCoverageMap, 0)
+                    .analyze(
+                        executionDataStore,
+                        coverage,
+                        info.bytecode,
+                        internalClassName
+                    )
             }
             coverage
         } catch (e: Exception) {
@@ -198,7 +213,6 @@ object CoverageRecorder {
             .asSequence()
             .map { it.replace('/', '.') }
             .toSet()
-        val emptyExecutionDataStore = ExecutionDataStore()
         ClassGraph()
             .enableClassInfo()
             .ignoreClassVisibility()
@@ -209,13 +223,16 @@ object CoverageRecorder {
                 "jaz",
             )
             .scan().use { result ->
+                // ExecutionDataStore is used to look up existing coverage during analysis of the class files,
+                // no entries are added during that. Passing in an empty store is fine for uncovered files.
+                val emptyExecutionDataStore = ExecutionDataStore()
                 result.allClasses
                     .asSequence()
                     .filter { classInfo -> classNameGlobber.includes(classInfo.name) }
                     .filterNot { classInfo -> classInfo.name in coveredClassNames }
                     .forEach { classInfo ->
                         classInfo.resource.use { resource ->
-                            EdgeCoverageInstrumentor(0).analyze(
+                            EdgeCoverageInstrumentor(ClassInstrumentor.defaultEdgeCoverageStrategy, ClassInstrumentor.defaultCoverageMap, 0).analyze(
                                 emptyExecutionDataStore,
                                 coverage,
                                 resource.load(),

@@ -40,8 +40,6 @@ import com.android.settingslib.bluetooth.CachedBluetoothDevice;
  * default preference sort ordering is used (see {@link #compareTo(Preference)}.
  */
 public class BluetoothDevicePreference extends MultiActionPreference {
-    private static final String BLUETOOTH_SHOW_DEVICES_WITHOUT_NAMES_PROPERTY =
-            "persist.bluetooth.showdeviceswithoutnames";
 
     private final CachedBluetoothDevice mCachedDevice;
     private final boolean mShowDevicesWithoutNames;
@@ -60,7 +58,7 @@ public class BluetoothDevicePreference extends MultiActionPreference {
         mCachedDevice = cachedDevice;
         mShowDisconnectedStateSubtitle = showDisconnectedStateSubtitle;
         mShowDevicesWithoutNames = SystemProperties.getBoolean(
-                BLUETOOTH_SHOW_DEVICES_WITHOUT_NAMES_PROPERTY, false);
+                BluetoothUtils.BLUETOOTH_SHOW_DEVICES_WITHOUT_NAMES_PROPERTY, false);
     }
 
     @Override

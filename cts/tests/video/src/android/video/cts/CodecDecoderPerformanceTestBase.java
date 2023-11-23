@@ -16,6 +16,9 @@
 
 package android.video.cts;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
@@ -25,9 +28,6 @@ import androidx.test.rule.ActivityTestRule;
 import org.junit.Rule;
 
 import java.io.IOException;
-
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 class CodecDecoderPerformanceTestBase extends CodecPerformanceTestBase {
     private static final String LOG_TAG = CodecDecoderPerformanceTestBase.class.getSimpleName();

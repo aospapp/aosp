@@ -51,11 +51,12 @@ public class PmkCacheManager {
      *
      * @param macAddress the interface MAC address to connect to the network.
      * @param networkId the network ID of the WifiConfiguration associates with the network.
+     * @param bssid BSSID of the access point to which the station is associated
      * @param expirationTimeInSec the expiration time of the PMK cache since boot.
      * @param serializedEntry the opaque data of the PMK cache.
      * @return true when PMK cache is added; otherwise, false.
      */
-    public boolean add(MacAddress macAddress, int networkId,
+    public boolean add(MacAddress macAddress, int networkId, MacAddress bssid,
             long expirationTimeInSec, ArrayList<Byte> serializedEntry) {
         if (WifiConfiguration.INVALID_NETWORK_ID == networkId) return false;
         if (macAddress == null) {
@@ -73,21 +74,38 @@ public class PmkCacheManager {
         }
 
         PmkCacheStoreData newStoreData =
-                new PmkCacheStoreData(macAddress, serializedEntry, expirationTimeInSec);
+                new PmkCacheStoreData(macAddress, bssid, serializedEntry, expirationTimeInSec);
         List<PmkCacheStoreData> pmkDataList = mPmkCacheEntries.get(networkId);
         if (pmkDataList == null) {
             pmkDataList = new ArrayList<>();
             mPmkCacheEntries.put(networkId, pmkDataList);
         } else {
-            PmkCacheStoreData existStoreData = pmkDataList.stream()
-                    .filter(storeData -> Objects.equals(storeData, newStoreData))
-                    .findAny()
-                    .orElse(null);
-            if (null != existStoreData) {
-                if (mVerboseLoggingEnabled) {
-                    Log.d(TAG, "PMK entry exists, skip it.");
+            if (bssid != null) {
+                // Remove the stored PMK cache if the PMK cache is changed for an existing BSSID.
+                PmkCacheStoreData existStoreData = pmkDataList.stream()
+                        .filter(storeData -> Objects.equals(storeData.bssid, bssid))
+                        .findAny()
+                        .orElse(null);
+                if (null != existStoreData) {
+                    if (Objects.equals(existStoreData, newStoreData)) {
+                        if (mVerboseLoggingEnabled) {
+                            Log.d(TAG, "PMK entry exists for the BSSID, skip it.");
+                        }
+                        return true;
+                    }
+                    pmkDataList.remove(existStoreData);
                 }
-                return true;
+            } else {
+                PmkCacheStoreData existStoreData = pmkDataList.stream()
+                        .filter(storeData -> Objects.equals(storeData, newStoreData))
+                        .findAny()
+                        .orElse(null);
+                if (null != existStoreData) {
+                    if (mVerboseLoggingEnabled) {
+                        Log.d(TAG, "PMK entry exists, skip it.");
+                    }
+                    return true;
+                }
             }
         }
 
@@ -160,8 +178,6 @@ public class PmkCacheManager {
 
     /**
      * Enable/Disable verbose logging.
-     *
-     * @param verboseEnabled Verbose flag set in overlay XML.
      */
     public void enableVerboseLogging(boolean verboseEnabled) {
         mVerboseLoggingEnabled = verboseEnabled;
@@ -214,11 +230,14 @@ public class PmkCacheManager {
     private static class PmkCacheStoreData {
 
         public MacAddress macAddress;
+        public MacAddress bssid;
         public ArrayList<Byte> data;
         public long expirationTimeInSec;
 
-        PmkCacheStoreData(MacAddress macAddr, ArrayList<Byte> serializedData, long timeInSec) {
+        PmkCacheStoreData(MacAddress macAddr, MacAddress bssAddr, ArrayList<Byte> serializedData,
+                long timeInSec) {
             macAddress = macAddr;
+            bssid = bssAddr;
             data = serializedData;
             expirationTimeInSec = timeInSec;
         }
@@ -240,12 +259,13 @@ public class PmkCacheManager {
             PmkCacheStoreData storeData = (PmkCacheStoreData) o;
             return expirationTimeInSec == storeData.expirationTimeInSec
                     && Objects.equals(macAddress, storeData.macAddress)
-                    && Objects.equals(data, storeData.data);
+                    && Objects.equals(data, storeData.data)
+                    && Objects.equals(bssid, storeData.bssid);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(macAddress, data, expirationTimeInSec);
+            return Objects.hash(macAddress, data, expirationTimeInSec, bssid);
         }
     }
 }

@@ -44,6 +44,8 @@ var (
 	bootImageConfigRawKey  = android.NewOnceKey("bootImageConfigRaw")
 	artBootImageName       = "art"
 	frameworkBootImageName = "boot"
+	mainlineBootImageName  = "mainline"
+	bootImageStem          = "boot"
 )
 
 func genBootImageConfigRaw(ctx android.PathContext) map[string]*bootImageConfig {
@@ -51,36 +53,50 @@ func genBootImageConfigRaw(ctx android.PathContext) map[string]*bootImageConfig 
 		global := dexpreopt.GetGlobalConfig(ctx)
 
 		artModules := global.ArtApexJars
-		frameworkModules := global.BootJars.RemoveList(artModules)
+		frameworkModules := global.BootJars // This includes `artModules`.
+		mainlineBcpModules := global.ApexBootJars
+		frameworkSubdir := "system/framework"
 
 		// ART config for the primary boot image in the ART apex.
 		// It includes the Core Libraries.
 		artCfg := bootImageConfig{
 			name:                     artBootImageName,
-			stem:                     "boot",
-			installDirOnHost:         "apex/art_boot_images/javalib",
-			installDirOnDevice:       "system/framework",
+			stem:                     bootImageStem,
+			installDir:               "apex/art_boot_images/javalib",
 			profileInstallPathInApex: "etc/boot-image.prof",
 			modules:                  artModules,
 			preloadedClassesFile:     "art/build/boot/preloaded-classes",
+			compilerFilter:           "speed-profile",
+			singleImage:              false,
 		}
 
 		// Framework config for the boot image extension.
 		// It includes framework libraries and depends on the ART config.
-		frameworkSubdir := "system/framework"
 		frameworkCfg := bootImageConfig{
-			extends:              &artCfg,
 			name:                 frameworkBootImageName,
-			stem:                 "boot",
-			installDirOnHost:     frameworkSubdir,
-			installDirOnDevice:   frameworkSubdir,
+			stem:                 bootImageStem,
+			installDir:           frameworkSubdir,
 			modules:              frameworkModules,
 			preloadedClassesFile: "frameworks/base/config/preloaded-classes",
+			compilerFilter:       "speed-profile",
+			singleImage:          false,
+			profileImports:       []*bootImageConfig{&artCfg},
+		}
+
+		mainlineCfg := bootImageConfig{
+			extends:        &frameworkCfg,
+			name:           mainlineBootImageName,
+			stem:           bootImageStem,
+			installDir:     frameworkSubdir,
+			modules:        mainlineBcpModules,
+			compilerFilter: "verify",
+			singleImage:    true,
 		}
 
 		return map[string]*bootImageConfig{
 			artBootImageName:       &artCfg,
 			frameworkBootImageName: &frameworkCfg,
+			mainlineBootImageName:  &mainlineCfg,
 		}
 	}).(map[string]*bootImageConfig)
 }
@@ -89,13 +105,11 @@ func genBootImageConfigRaw(ctx android.PathContext) map[string]*bootImageConfig 
 func genBootImageConfigs(ctx android.PathContext) map[string]*bootImageConfig {
 	return ctx.Config().Once(bootImageConfigKey, func() interface{} {
 		targets := dexpreoptTargets(ctx)
-		deviceDir := android.PathForOutput(ctx, ctx.Config().DeviceName())
+		archType := ctx.Config().Targets[android.Android][0].Arch.ArchType
+		deviceDir := android.PathForOutput(ctx, toDexpreoptDirName(archType))
 
 		configs := genBootImageConfigRaw(ctx)
-		artCfg := configs[artBootImageName]
-		frameworkCfg := configs[frameworkBootImageName]
 
-		// common to all configs
 		for _, c := range configs {
 			c.dir = deviceDir.Join(ctx, "dex_"+c.name+"jars")
 			c.symbolsDir = deviceDir.Join(ctx, "dex_"+c.name+"jars_unstripped")
@@ -115,12 +129,12 @@ func genBootImageConfigs(ctx android.PathContext) map[string]*bootImageConfig {
 			// Create target-specific variants.
 			for _, target := range targets {
 				arch := target.Arch.ArchType
-				imageDir := c.dir.Join(ctx, target.Os.String(), c.installDirOnHost, arch.String())
+				imageDir := c.dir.Join(ctx, target.Os.String(), c.installDir, arch.String())
 				variant := &bootImageVariant{
 					bootImageConfig:   c,
 					target:            target,
 					imagePathOnHost:   imageDir.Join(ctx, imageName),
-					imagePathOnDevice: filepath.Join("/", c.installDirOnDevice, arch.String(), imageName),
+					imagePathOnDevice: filepath.Join("/", c.installDir, arch.String(), imageName),
 					imagesDeps:        c.moduleFiles(ctx, imageDir, ".art", ".oat", ".vdex"),
 					dexLocations:      c.modules.DevicePaths(ctx.Config(), target.Os),
 				}
@@ -131,16 +145,40 @@ func genBootImageConfigs(ctx android.PathContext) map[string]*bootImageConfig {
 			c.zip = c.dir.Join(ctx, c.name+".zip")
 		}
 
-		// specific to the framework config
-		frameworkCfg.dexPathsDeps = append(artCfg.dexPathsDeps, frameworkCfg.dexPathsDeps...)
-		for i := range targets {
-			frameworkCfg.variants[i].primaryImages = artCfg.variants[i].imagePathOnHost
-			frameworkCfg.variants[i].primaryImagesDeps = artCfg.variants[i].imagesDeps.Paths()
-			frameworkCfg.variants[i].dexLocationsDeps = append(artCfg.variants[i].dexLocations, frameworkCfg.variants[i].dexLocationsDeps...)
+		visited := make(map[string]bool)
+		for _, c := range configs {
+			calculateDepsRecursive(c, targets, visited)
 		}
 
 		return configs
 	}).(map[string]*bootImageConfig)
+}
+
+// calculateDepsRecursive calculates the dependencies of the given boot image config and all its
+// ancestors, if they are not visited.
+// The boot images are supposed to form a tree, where the root is the primary boot image. We do not
+// expect loops (e.g., A extends B, B extends C, C extends A), and we let them crash soong with a
+// stack overflow.
+// Note that a boot image config only has a pointer to the parent, not to children. Therefore, we
+// first go up through the parent chain, and then go back down to visit every code along the path.
+// `visited` is a map where a key is a boot image name and the value indicates whether the boot
+// image config is visited. The boot image names are guaranteed to be unique because they come from
+// `genBootImageConfigRaw` above, which also returns a map and would fail in the first place if the
+// names were not unique.
+func calculateDepsRecursive(c *bootImageConfig, targets []android.Target, visited map[string]bool) {
+	if c.extends == nil || visited[c.name] {
+		return
+	}
+	if c.extends.extends != nil {
+		calculateDepsRecursive(c.extends, targets, visited)
+	}
+	visited[c.name] = true
+	c.dexPathsDeps = android.Concat(c.extends.dexPathsDeps, c.dexPathsDeps)
+	for i := range targets {
+		c.variants[i].baseImages = android.Concat(c.extends.variants[i].baseImages, android.OutputPaths{c.extends.variants[i].imagePathOnHost})
+		c.variants[i].baseImagesDeps = android.Concat(c.extends.variants[i].baseImagesDeps, c.extends.variants[i].imagesDeps.Paths())
+		c.variants[i].dexLocationsDeps = android.Concat(c.extends.variants[i].dexLocationsDeps, c.variants[i].dexLocationsDeps)
+	}
 }
 
 func artBootImageConfig(ctx android.PathContext) *bootImageConfig {
@@ -149,6 +187,10 @@ func artBootImageConfig(ctx android.PathContext) *bootImageConfig {
 
 func defaultBootImageConfig(ctx android.PathContext) *bootImageConfig {
 	return genBootImageConfigs(ctx)[frameworkBootImageName]
+}
+
+func mainlineBootImageConfig(ctx android.PathContext) *bootImageConfig {
+	return genBootImageConfigs(ctx)[mainlineBootImageName]
 }
 
 // Apex boot config allows to access build/install paths of apex boot jars without going
@@ -176,8 +218,8 @@ var updatableBootConfigKey = android.NewOnceKey("apexBootConfig")
 func GetApexBootConfig(ctx android.PathContext) apexBootConfig {
 	return ctx.Config().Once(updatableBootConfigKey, func() interface{} {
 		apexBootJars := dexpreopt.GetGlobalConfig(ctx).ApexBootJars
-
-		dir := android.PathForOutput(ctx, ctx.Config().DeviceName(), "apex_bootjars")
+		archType := ctx.Config().Targets[android.Android][0].Arch.ArchType
+		dir := android.PathForOutput(ctx, toDexpreoptDirName(archType), "apex_bootjars")
 		dexPaths := apexBootJars.BuildPaths(ctx, dir)
 		dexPathsByModuleName := apexBootJars.BuildPathsByModule(ctx, dir)
 
@@ -216,4 +258,8 @@ func init() {
 
 func dexpreoptConfigMakevars(ctx android.MakeVarsContext) {
 	ctx.Strict("DEXPREOPT_BOOT_JARS_MODULES", strings.Join(defaultBootImageConfig(ctx).modules.CopyOfApexJarPairs(), ":"))
+}
+
+func toDexpreoptDirName(arch android.ArchType) string {
+	return "dexpreopt_" + arch.String()
 }

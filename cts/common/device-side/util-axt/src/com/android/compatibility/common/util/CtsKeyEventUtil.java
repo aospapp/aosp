@@ -17,6 +17,7 @@
 package com.android.compatibility.common.util;
 
 import android.app.Instrumentation;
+import android.content.Context;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Log;
@@ -27,6 +28,7 @@ import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 
 import java.lang.reflect.Field;
+import java.util.Objects;
 
 /**
  * Utility class to send KeyEvents bypassing the IME. The code is similar to functions in
@@ -36,7 +38,15 @@ import java.lang.reflect.Field;
  */
 public final class CtsKeyEventUtil {
 
-    private CtsKeyEventUtil() {}
+    private final UserHelper mUserHelper;
+
+    public CtsKeyEventUtil(Context context) {
+        this(new UserHelper(Objects.requireNonNull(context)));
+    }
+
+    public CtsKeyEventUtil(UserHelper userHelper) {
+        mUserHelper = Objects.requireNonNull(userHelper);
+    }
 
     /**
      * Sends the key events corresponding to the text to the app being instrumented.
@@ -45,7 +55,7 @@ public final class CtsKeyEventUtil {
      * @param targetView View to find the ViewRootImpl and dispatch.
      * @param text The text to be sent. Null value returns immediately.
      */
-    public static void sendString(final Instrumentation instrumentation, final View targetView,
+    public void sendString(final Instrumentation instrumentation, final View targetView,
             final String text) {
         if (text == null) {
             return;
@@ -74,7 +84,7 @@ public final class CtsKeyEventUtil {
      * @param targetView View to find the ViewRootImpl and dispatch.
      * @param keys The series of key codes.
      */
-    public static void sendKeys(final Instrumentation instrumentation, final View targetView,
+    public void sendKeys(final Instrumentation instrumentation, final View targetView,
             final int...keys) {
         final int count = keys.length;
 
@@ -100,7 +110,7 @@ public final class CtsKeyEventUtil {
      * @param targetView View to find the ViewRootImpl and dispatch.
      * @param keysSequence The sequence of keys.
      */
-    public static void sendKeys(final Instrumentation instrumentation, final View targetView,
+    public void sendKeys(final Instrumentation instrumentation, final View targetView,
             final String keysSequence) {
         final String[] keys = keysSequence.split(" ");
         final int count = keys.length;
@@ -150,7 +160,7 @@ public final class CtsKeyEventUtil {
      * @param targetView View to find the ViewRootImpl and dispatch.
      * @param key The integer keycode for the event to be sent.
      */
-    public static void sendKeyDownUp(final Instrumentation instrumentation, final View targetView,
+    public void sendKeyDownUp(final Instrumentation instrumentation, final View targetView,
             final int key) {
         sendKey(instrumentation, targetView, new KeyEvent(KeyEvent.ACTION_DOWN, key),
                 false /* waitForIdle */);
@@ -164,14 +174,16 @@ public final class CtsKeyEventUtil {
      * @param targetView View to find the ViewRootImpl and dispatch.
      * @param event KeyEvent to be send.
      */
-    public static void sendKey(final Instrumentation instrumentation, final View targetView,
+    public void sendKey(final Instrumentation instrumentation, final View targetView,
             final KeyEvent event) {
         sendKey(instrumentation, targetView, event, true /* waitForIdle */);
     }
 
-    private static void sendKey(final Instrumentation instrumentation, final View targetView,
+    private void sendKey(final Instrumentation instrumentation, final View targetView,
             final KeyEvent event, boolean waitForIdle) {
         validateNotAppThread();
+
+        mUserHelper.injectDisplayIdIfNeeded(event);
 
         long downTime = event.getDownTime();
         long eventTime = event.getEventTime();
@@ -212,7 +224,7 @@ public final class CtsKeyEventUtil {
      * @param keyCodeToSend The integer keycode for the event to be sent.
      * @param modifierKeyCodeToHold The integer keycode of the modifier to be held.
      */
-    public static void sendKeyWhileHoldingModifier(final Instrumentation instrumentation,
+    public void sendKeyWhileHoldingModifier(final Instrumentation instrumentation,
             final View targetView, final int keyCodeToSend,
             final int modifierKeyCodeToHold) {
         final int metaState = getMetaStateForModifierKeyCode(modifierKeyCodeToHold);

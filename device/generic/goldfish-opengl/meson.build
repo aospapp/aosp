@@ -3,7 +3,8 @@
 
 project('gfxstream', 'cpp', 'c',
          version : '0.0.1',
-         license : 'MIT OR Apache-2.0')
+         license : 'MIT OR Apache-2.0',
+         default_options : ['cpp_std=gnu++17'])
 
 cc = meson.get_compiler('cpp')
 prog_python = import('python').find_installation('python3')
@@ -36,6 +37,8 @@ cpp_args += '-DGOLDFISH_NO_GL'
 cpp_args += '-DPAGE_SIZE=4096'
 # This should just be called NO_TRACE eventually
 cpp_args += '-DFUCHSIA_NO_TRACE'
+# Include the gfxstream private VkStructureType definitions
+cpp_args += '-DVK_GFXSTREAM_STRUCTURE_TYPE_EXT'
 
 #===============#
 # Dependencies  #
@@ -57,7 +60,9 @@ inc_system = include_directories('system/include')
 # Subdirectories #
 #================#
 
+subdir('third-party')
 subdir('fuchsia')
-subdir('android-emu/android/base')
+subdir('platform')
+subdir('android-emu/aemu/base')
 subdir('shared')
 subdir('system')

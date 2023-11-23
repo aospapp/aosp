@@ -25,10 +25,12 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.Instrumentation;
+import android.app.UiAutomation;
 import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
 import android.content.res.Resources.Theme;
@@ -36,8 +38,9 @@ import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.view.ContextThemeWrapper;
 import android.view.Gravity;
-import android.view.KeyEvent;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityManager;
 import android.widget.ArrayAdapter;
 import android.widget.Spinner;
 import android.widget.cts.util.TestUtils;
@@ -64,10 +67,13 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class SpinnerTest {
     private Instrumentation mInstrumentation;
+    private CtsTouchUtils mCtsTouchUtils;
+    private UiAutomation mUiAutomation;
     private Activity mActivity;
     private Spinner mSpinnerDialogMode;
     private Spinner mSpinnerDropdownMode;
     private static final int SPINNER_HAS_FOCUS_DELAY_MS = 500;
+    private static final int DEFAULT_TIMEOUT_MILLIS = 5000;
 
     @Rule
     public ActivityTestRule<SpinnerCtsActivity> mActivityRule =
@@ -76,6 +82,11 @@ public class SpinnerTest {
     @Before
     public void setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mCtsTouchUtils = new CtsTouchUtils(mInstrumentation.getTargetContext());
+        mUiAutomation = mInstrumentation.getUiAutomation();
+        AccessibilityServiceInfo info = mUiAutomation.getServiceInfo();
+        info.flags |= AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+        mUiAutomation.setServiceInfo(info);
         mActivity = mActivityRule.getActivity();
         mSpinnerDialogMode = (Spinner) mActivity.findViewById(R.id.spinner_dialog_mode);
         mSpinnerDropdownMode = (Spinner) mActivity.findViewById(R.id.spinner_dropdown_mode);
@@ -143,12 +154,17 @@ public class SpinnerTest {
                 popupTheme);
     }
 
-    private void verifyGetBaseline(Spinner spinner) throws Throwable {
-        assertEquals(-1, spinner.getBaseline());
-
+    private ArrayAdapter<CharSequence> getTestAdapter() {
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(mActivity,
                 R.array.string, android.R.layout.simple_spinner_item);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        return adapter;
+    }
+
+    private void verifyGetBaseline(Spinner spinner) throws Throwable {
+        assertEquals(-1, spinner.getBaseline());
+
+        ArrayAdapter<CharSequence> adapter = getTestAdapter();
         mActivityRule.runOnUiThread(() -> {
             spinner.setAdapter(adapter);
             assertTrue(spinner.getBaseline() > 0);
@@ -217,11 +233,48 @@ public class SpinnerTest {
         assertFalse(dialog.isShowing());
     }
 
+    private void verifyOnClickAccessibility(Spinner spinner) throws Exception {
+        ArrayAdapter<CharSequence> adapter = getTestAdapter();
+
+        // Initialization. Expecting a TYPE_VIEW_SELECTED event when setting selection.
+        mInstrumentation.getUiAutomation().executeAndWaitForEvent(
+                () -> mActivity.runOnUiThread(()-> {
+                    spinner.setAdapter(adapter);
+                    spinner.setSelection(2);
+                }),
+                event -> event.getEventType() == AccessibilityEvent.TYPE_VIEW_SELECTED,
+                DEFAULT_TIMEOUT_MILLIS
+        );
+
+        // Clicking to expand popup. Expecting a window to be added.
+        mInstrumentation.getUiAutomation().executeAndWaitForEvent(
+                () -> mActivity.runOnUiThread(() -> spinner.performClick()),
+                event -> event.getWindowChanges() == AccessibilityEvent.WINDOWS_CHANGE_ADDED,
+                DEFAULT_TIMEOUT_MILLIS
+        );
+
+        // Simulating an item selection.
+        // This should close the popup and then send TYPE_VIEW_SELECTED.
+        mInstrumentation.getUiAutomation().executeAndWaitForEvent(
+                () -> mActivity.runOnUiThread(() -> spinner.onClick(1)),
+                event -> event.getEventType() == AccessibilityEvent.TYPE_VIEW_SELECTED,
+                DEFAULT_TIMEOUT_MILLIS
+        );
+    }
+
     @UiThreadTest
     @Test
     public void testOnClick() {
         verifyOnClick(mSpinnerDialogMode);
         verifyOnClick(mSpinnerDropdownMode);
+    }
+
+    @Test
+    public void testOnClickAccessibility() throws Throwable {
+        AccessibilityManager accessibilityManager = AccessibilityManager.getInstance(mActivity);
+        PollingCheck.waitFor(DEFAULT_TIMEOUT_MILLIS, () -> accessibilityManager.isEnabled());
+        verifyOnClickAccessibility(mSpinnerDropdownMode);
+        verifyOnClickAccessibility(mSpinnerDialogMode);
     }
 
     private void verifyAccessPrompt(Spinner spinner) throws Throwable {
@@ -285,9 +338,7 @@ public class SpinnerTest {
         // Note that here we're using a custom layout for the spinner's selected item
         // that doesn't span the whole width of the parent. That way we're exercising the
         // relevant path in spinner's layout pass that handles the currently set gravity
-        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(mActivity,
-                R.array.string, R.layout.simple_spinner_item_layout);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<CharSequence> adapter = getTestAdapter();
         mActivityRule.runOnUiThread(() -> spinner.setAdapter(adapter));
 
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, spinner, () -> {
@@ -320,9 +371,7 @@ public class SpinnerTest {
 
     @Test
     public void testDropDownMetricsDropdownMode() throws Throwable {
-        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(mActivity,
-                R.array.string, android.R.layout.simple_spinner_item);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<CharSequence> adapter = getTestAdapter();
         mActivityRule.runOnUiThread(() -> mSpinnerDropdownMode.setAdapter(adapter));
 
         final Resources res = mActivity.getResources();
@@ -339,7 +388,8 @@ public class SpinnerTest {
         });
 
         // Use instrumentation to emulate a tap on the spinner to bring down its popup
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mSpinnerDropdownMode);
+        mCtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule,
+                mSpinnerDropdownMode);
         // Verify that we're showing the popup
         PollingCheck.waitFor(() -> mSpinnerDropdownMode.isPopupShowing());
 
@@ -353,9 +403,7 @@ public class SpinnerTest {
 
     @Test
     public void testDropDownMetricsDialogMode() throws Throwable {
-        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(mActivity,
-                R.array.string, android.R.layout.simple_spinner_item);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<CharSequence> adapter = getTestAdapter();
         mActivityRule.runOnUiThread(() -> mSpinnerDialogMode.setAdapter(adapter));
 
         final Resources res = mActivity.getResources();
@@ -373,7 +421,7 @@ public class SpinnerTest {
         });
 
         // Use instrumentation to emulate a tap on the spinner to bring down its popup
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, null, mSpinnerDialogMode);
+        mCtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, null, mSpinnerDialogMode);
         // Verify that we're showing the popup
         PollingCheck.waitFor(() -> mSpinnerDialogMode.isPopupShowing());
 
@@ -385,9 +433,7 @@ public class SpinnerTest {
 
     @Test
     public void testDropDownBackgroundDropdownMode() throws Throwable {
-        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(mActivity,
-                R.array.string, android.R.layout.simple_spinner_item);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<CharSequence> adapter = getTestAdapter();
         mActivityRule.runOnUiThread(() -> mSpinnerDropdownMode.setAdapter(adapter));
 
         // Set blue background on the popup
@@ -395,7 +441,8 @@ public class SpinnerTest {
                 mSpinnerDropdownMode.setPopupBackgroundResource(R.drawable.blue_fill));
 
         // Use instrumentation to emulate a tap on the spinner to bring down its popup
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mSpinnerDropdownMode);
+        mCtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule,
+                mSpinnerDropdownMode);
         // Verify that we're showing the popup
         PollingCheck.waitFor(() -> mSpinnerDropdownMode.isPopupShowing());
         // And test its fill
@@ -403,41 +450,11 @@ public class SpinnerTest {
         TestUtils.assertAllPixelsOfColor("Drop down should be blue", dropDownBackground,
                 dropDownBackground.getBounds().width(), dropDownBackground.getBounds().height(),
                 false, Color.BLUE, 1, true);
-        waitForHasFocusMS(SPINNER_HAS_FOCUS_DELAY_MS);
-        // Dismiss the popup with the emulated back key
-        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
-        // Verify that we're not showing the popup
-        PollingCheck.waitFor(() -> !mSpinnerDropdownMode.isPopupShowing());
-
-        // Set yellow background on the popup
-        mActivityRule.runOnUiThread(() ->
-                mSpinnerDropdownMode.setPopupBackgroundDrawable(
-                        mActivity.getDrawable(R.drawable.yellow_fill)));
-
-        // Use instrumentation to emulate a tap on the spinner to bring down its popup
-        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mSpinnerDropdownMode, () -> {
-            mSpinnerDropdownMode.performClick();
-        });
-        // Verify that we're showing the popup
-        PollingCheck.waitFor(() -> mSpinnerDropdownMode.isPopupShowing());
-        // And test its fill
-        dropDownBackground = mSpinnerDropdownMode.getPopupBackground();
-        TestUtils.assertAllPixelsOfColor("Drop down should be yellow", dropDownBackground,
-                dropDownBackground.getBounds().width(), dropDownBackground.getBounds().height(),
-                false, Color.YELLOW, 1, true);
-
-        waitForHasFocusMS(SPINNER_HAS_FOCUS_DELAY_MS);
-        // Dismiss the popup with the emulated escape key
-        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_ESCAPE);
-        // Verify that we're not showing the popup
-        PollingCheck.waitFor(() -> !mSpinnerDropdownMode.isPopupShowing());
     }
 
     @Test
     public void testDropDownBackgroundDialogMode() throws Throwable {
-        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(mActivity,
-                R.array.string, android.R.layout.simple_spinner_item);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<CharSequence> adapter = getTestAdapter();
         mActivityRule.runOnUiThread(() -> mSpinnerDialogMode.setAdapter(adapter));
 
         // Set blue background on the popup
@@ -445,43 +462,10 @@ public class SpinnerTest {
                 mSpinnerDialogMode.setPopupBackgroundResource(R.drawable.blue_fill));
 
         // Use instrumentation to emulate a tap on the spinner to bring down its popup
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, null, mSpinnerDialogMode);
+        mCtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, null, mSpinnerDialogMode);
         // Verify that we're showing the popup
         PollingCheck.waitFor(() -> mSpinnerDialogMode.isPopupShowing());
         // And test that getPopupBackground returns null
         assertNull(mSpinnerDialogMode.getPopupBackground());
-
-        // Dismiss the popup with the emulated back key
-        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
-        // Verify that we're not showing the popup
-        PollingCheck.waitFor(() -> !mSpinnerDialogMode.isPopupShowing());
-
-        // Set yellow background on the popup
-        mActivityRule.runOnUiThread(() ->
-                mSpinnerDialogMode.setPopupBackgroundDrawable(
-                        mActivity.getDrawable(R.drawable.yellow_fill)));
-
-        // Use instrumentation to emulate a tap on the spinner to bring down its popup
-        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mSpinnerDialogMode, () -> {
-            mSpinnerDialogMode.performClick();
-        });
-        // Verify that we're showing the popup
-        PollingCheck.waitFor(() -> mSpinnerDialogMode.isPopupShowing());
-        // And test that getPopupBackground returns null
-        assertNull(mSpinnerDialogMode.getPopupBackground());
-
-        // Use emulated escape key to close popup
-        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_ESCAPE);
-        // Verify that we're not showing the popup
-        PollingCheck.waitFor(() -> !mSpinnerDropdownMode.isPopupShowing());
-    }
-
-    private void waitForHasFocusMS(int milliseconds) {
-        try {
-            Thread.sleep(milliseconds);
-        } catch (InterruptedException e) {
-            fail("unexpected InterruptedException : "+ e);
-        }
-
     }
 }

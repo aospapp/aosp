@@ -44,11 +44,7 @@ public class Listeners<ClientType extends com.android.car.Listeners.IListener> {
         @Override
         public boolean equals(Object o) {
             //TODO(egranata): is this truly necessary?
-            if (o instanceof ClientWithRate &&
-                mClient == ((ClientWithRate) o).mClient) {
-                return true;
-            }
-            return false;
+            return (o instanceof ClientWithRate) && mClient == ((ClientWithRate) o).mClient;
         }
 
         @Override

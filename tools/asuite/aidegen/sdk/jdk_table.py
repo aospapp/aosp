@@ -17,7 +17,7 @@
 """Configs the jdk.table.xml.
 
 In order to enable the feature "Attach debugger to Android process" in Android
-Studio or IntelliJ, AIDEGen needs the JDK and Android SDK been set-up. The class
+Studio or IntelliJ, AIDEGen needs the JDK and Android SDK been set up. The class
 JDKTableXML parses the jdk.table.xml to find the existing JDK and Android SDK
 information. If they do not exist, AIDEGen will create them.
 
@@ -44,7 +44,7 @@ from aidegen.lib import xml_util
 from aidegen.sdk import android_sdk
 
 
-class JDKTableXML():
+class JDKTableXML:
     """Configs jdk.table.xml for IntelliJ and Android Studio.
 
     Attributes:
@@ -70,7 +70,7 @@ class JDKTableXML():
     _ADDITIONAL = 'additional'
     _ANDROID_SDK = 'Android SDK'
     _JAVA_SDK = 'JavaSDK'
-    _JDK_VERSION = 'JDK18'
+    _JDK_VERSION = 'JDK17'
     _APPLICATION = 'application'
     _COMPONENT = 'component'
     _PROJECTJDKTABLE = 'ProjectJdkTable'
@@ -162,11 +162,11 @@ class JDKTableXML():
             return True
         return False
 
-    def _check_jdk18_in_xml(self):
-        """Checks if the JDK18 is already set in jdk.table.xml.
+    def _check_jdk17_in_xml(self):
+        """Checks if the JDK17 is already set in jdk.table.xml.
 
         Returns:
-            Boolean: True if the JDK18 exists else False.
+            Boolean: True if the JDK17 exists else False.
         """
         for jdk in self._xml.iter(self._JDK):
             _name = jdk.find(self._NAME)
@@ -185,7 +185,7 @@ class JDKTableXML():
         and platform version.
         1. Check if the Android SDK path is valid.
         2. Check if the platform version exists in the Android SDK.
-        The Android SDK version can be used to generate enble_debugger module
+        The Android SDK version can be used to generate enable_debugger module
         when condition 1 and 2 are true.
 
         Returns:
@@ -230,7 +230,7 @@ class JDKTableXML():
 
     def _generate_jdk_config_string(self):
         """Generates the default JDK configuration."""
-        if self._check_jdk18_in_xml():
+        if self._check_jdk17_in_xml():
             return
         self._append_config(self._jdk_content.format(JDKpath=self._jdk_path))
         self._modify_config = True
@@ -244,6 +244,7 @@ class JDKTableXML():
             #                    abandoning the sdk_config.py.
             self._append_config(templates.ANDROID_SDK_XML.format(
                 ANDROID_SDK_PATH=self._sdk.android_sdk_path,
+                FOLDER_NAME=self._sdk.max_folder_name,
                 CODE_NAME=self._sdk.max_code_name))
             self._android_sdk_version = self._ANDROID_SDK_VERSION.format(
                 CODE_NAME=self._sdk.max_code_name)
@@ -257,10 +258,10 @@ class JDKTableXML():
     def config_jdk_table_xml(self):
         """Configures the jdk.table.xml.
 
-        1. Generate the JDK18 configuration if it does not exist.
+        1. Generate the JDK17 configuration if it does not exist.
         2. Generate the Android SDK configuration if it does not exist and
            save the Android SDK path.
-        3. Update the jdk.table.xml if AIDEGen needs to append JDK18 or
+        3. Update the jdk.table.xml if AIDEGen needs to append JDK17 or
            Android SDK configuration.
 
         Returns:

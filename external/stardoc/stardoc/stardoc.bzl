@@ -32,7 +32,7 @@ def _stardoc_impl(ctx):
     ])
     stardoc_args = ctx.actions.args()
     stardoc_args.add("--input=" + str(ctx.file.input.owner))
-    stardoc_args.add("--workspace_name=" + ctx.label.workspace_name)
+    stardoc_args.add("--workspace_name=" + ctx.workspace_name)
     stardoc_args.add_all(
         ctx.attr.symbol_names,
         format_each = "--symbols=%s",
@@ -53,6 +53,7 @@ def _stardoc_impl(ctx):
         omit_if_empty = True,
         uniquify = True,
     )
+
     # Needed in case some files are referenced across local repository
     # namespace. For example, consider a file under a nested local repository @bar
     # rooted under ./foo/bar/WORKSPACE. Consider a stardoc target 'lib_doc' under
@@ -61,7 +62,8 @@ def _stardoc_impl(ctx):
     # actual build is taking place in the root repository, thus the source file
     # is present under external/bar/lib.bzl.
     stardoc_args.add(
-        "--dep_roots=external/" + ctx.label.workspace_name)
+        "--dep_roots=external/" + ctx.workspace_name,
+    )
     stardoc_args.add_all(ctx.attr.semantic_flags)
     stardoc = ctx.executable.stardoc
 
@@ -120,7 +122,7 @@ This rule is an experimental replacement for the existing skylark_doc rule.
             allow_single_file = [".bzl"],
         ),
         "deps": attr.label_list(
-            doc = "A list of skylark_library dependencies which the input depends on.",
+            doc = "A list of bzl_library dependencies which the input depends on.",
             providers = [StarlarkLibraryInfo],
         ),
         "format": attr.string(
@@ -156,14 +158,14 @@ For example, if `//foo:bar.bzl` does not build except when a user would specify
             doc = "The location of the stardoc tool.",
             allow_files = True,
             default = Label("//stardoc:stardoc"),
-            cfg = "host",
+            cfg = "exec",
             executable = True,
         ),
         "renderer": attr.label(
             doc = "The location of the renderer tool.",
             allow_files = True,
             default = Label("//stardoc:renderer"),
-            cfg = "host",
+            cfg = "exec",
             executable = True,
         ),
         "aspect_template": attr.label(
@@ -189,7 +191,7 @@ For example, if `//foo:bar.bzl` does not build except when a user would specify
         "rule_template": attr.label(
             doc = "The input file template for generating documentation of rules.",
             allow_single_file = [".vm"],
-            default =Label("//stardoc:templates/markdown_tables/rule.vm"),
+            default = Label("//stardoc:templates/markdown_tables/rule.vm"),
         ),
     },
 )

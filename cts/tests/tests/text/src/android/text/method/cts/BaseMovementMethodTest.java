@@ -28,6 +28,7 @@ import android.app.Activity;
 import android.app.Instrumentation;
 import android.os.SystemClock;
 import android.text.Spannable;
+import android.text.SpannableString;
 import android.text.method.BaseMovementMethod;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -40,10 +41,12 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.MediumTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.ApiTest;
 import com.android.compatibility.common.util.WidgetTestUtils;
 
 import org.junit.Before;
@@ -178,9 +181,76 @@ public class BaseMovementMethodTest {
         event.recycle();
     }
 
+    private static class MockMovementMethod extends BaseMovementMethod {
+        public int previousParagraphCallCount = 0;
+        public int nextParagraphCallCount = 0;
+
+        @Override
+        public boolean previousParagraph(TextView widget, Spannable buffer) {
+            previousParagraphCallCount++;
+            return true;
+        }
+
+        @Override
+        public boolean nextParagraph(TextView widget, Spannable buffer) {
+            nextParagraphCallCount++;
+            return true;
+        }
+    }
+
+    @Test
+    @UiThreadTest
+    @ApiTest(apis = "android.text.method.BaseMovementMethod#previousParagraph")
+    public void testCallPreviousParagraph() throws Throwable {
+        mTextView = createTextView();
+        SpannableString spannable = new SpannableString(mTextView.getText());
+        mMovementMethod.previousParagraph(mTextView, spannable);
+    }
+
+    @Test
+    @UiThreadTest
+    @ApiTest(apis = "android.text.method.BaseMovementMethod#nextParagraph")
+    public void testCallNextParagraph() throws Throwable {
+        mTextView = createTextView();
+        SpannableString spannable = new SpannableString(mTextView.getText());
+        mMovementMethod.nextParagraph(mTextView, spannable);
+    }
+
+    @Test
+    @UiThreadTest
+    @ApiTest(apis = "android.text.method.BaseMovementMethod#previousParagraph")
+    public void previousParagraphCall() {
+        TextView view = createTextView();
+        SpannableString spannable = new SpannableString(view.getText());
+        MockMovementMethod method = new MockMovementMethod();
+        long downTime = SystemClock.uptimeMillis();
+        KeyEvent event = new KeyEvent(
+                downTime, downTime, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_UP, 0,
+                KeyEvent.META_CTRL_LEFT_ON | KeyEvent.META_CTRL_ON);
+
+        method.onKeyDown(view, spannable, event.getKeyCode(), event);
+        assertEquals(1, method.previousParagraphCallCount);
+    }
+
+    @Test
+    @UiThreadTest
+    @ApiTest(apis = "android.text.method.BaseMovementMethod#nextParagraph")
+    public void nextParagraphCall() {
+        TextView view = createTextView();
+        SpannableString spannable = new SpannableString(view.getText());
+        MockMovementMethod method = new MockMovementMethod();
+        long downTime = SystemClock.uptimeMillis();
+        KeyEvent event = new KeyEvent(
+                downTime, downTime, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_DOWN, 0,
+                KeyEvent.META_CTRL_LEFT_ON | KeyEvent.META_CTRL_ON);
+
+        method.onKeyDown(view, spannable, event.getKeyCode(), event);
+        assertEquals(1, method.nextParagraphCallCount);
+    }
     private TextView createTextView() {
         final TextView textView = new TextViewNoIme(mActivityRule.getActivity());
         textView.setFocusable(true);
+        textView.setEllipsize(null);
         textView.setMovementMethod(mMovementMethod);
         textView.setTextDirection(View.TEXT_DIRECTION_LTR);
         return textView;

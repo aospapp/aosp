@@ -104,12 +104,13 @@ public final class CarWatchdogClient {
         try {
             notRespondAfterInSec = Integer.parseInt(tokens[1]);
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("time for \"not responding after\" is not number");
+            throw new IllegalArgumentException("time for \"not responding after\" is not number",
+                    e);
         }
         try {
             inactiveMainAfterInSec = Integer.parseInt(tokens[2]);
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("time for \"inactive main after\" is not number");
+            throw new IllegalArgumentException("time for \"inactive main after\" is not number", e);
         }
         boolean verbose = false;
         if (paramCount == 4) {

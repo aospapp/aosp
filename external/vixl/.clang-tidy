@@ -28,6 +28,5 @@
 Checks:          '-clang-analyzer-security.insecureAPI.rand,google-*,-google-readability-todo,-google-readability-function-size,-google-build-using-namespace,-google-explicit-constructor,-google-readability-braces-around-statements,-google-readability-namespace-comments,-google-readability-casting'
 HeaderFilterRegex: '\.h$'
 AnalyzeTemporaryDtors: false
-CheckOptions:
 ...
 

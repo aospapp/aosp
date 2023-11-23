@@ -52,6 +52,8 @@ import android.widget.Toast;
 
 import com.android.bluetooth.R;
 
+import com.google.common.annotations.VisibleForTesting;
+
 /**
  * Handle all transfer related dialogs: -Ongoing transfer -Receiving one file
  * dialog -Sending one file dialog -sending multiple files dialog -Complete
@@ -83,7 +85,8 @@ public class BluetoothOppTransferActivity extends AlertActivity
 
     private TextView mLine1View, mLine2View, mLine3View, mLine5View;
 
-    private int mWhichDialog;
+    @VisibleForTesting
+    int mWhichDialog;
 
     private BluetoothAdapter mAdapter;
 

@@ -24,7 +24,8 @@ android_test {
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
         "mockito-target-minus-junit4",
-        "cts-wm-util"
+        "cts-wm-util",
+        "cts_window_jetpack_utils",
     ],
     srcs: ["src/**/*.java"],
     // Tag this module as a cts test artifact

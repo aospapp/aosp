@@ -34,8 +34,8 @@
 package android.automotive.watchdog.internal;
 @Backing(type="int")
 enum ComponentType {
-  UNKNOWN = 0,
-  SYSTEM = 1,
-  VENDOR = 2,
-  THIRD_PARTY = 3,
+  UNKNOWN,
+  SYSTEM,
+  VENDOR,
+  THIRD_PARTY,
 }

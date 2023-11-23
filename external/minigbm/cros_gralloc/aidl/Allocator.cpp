@@ -16,7 +16,7 @@
 #include "cros_gralloc/gralloc4/CrosGralloc4Utils.h"
 
 using aidl::android::hardware::common::NativeHandle;
-using BufferDescriptorInfo =
+using BufferDescriptorInfoV4 =
         android::hardware::graphics::mapper::V4_0::IMapper::BufferDescriptorInfo;
 
 namespace aidl::android::hardware::graphics::allocator::impl {
@@ -78,7 +78,7 @@ ndk::ScopedAStatus Allocator::allocate(const std::vector<uint8_t>& descriptor, i
         return ToBinderStatus(AllocationError::NO_RESOURCES);
     }
 
-    BufferDescriptorInfo description;
+    BufferDescriptorInfoV4 description;
 
     int ret = ::android::gralloc4::decodeBufferDescriptorInfo(descriptor, &description);
     if (ret) {
@@ -109,7 +109,7 @@ ndk::ScopedAStatus Allocator::allocate(const std::vector<uint8_t>& descriptor, i
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus Allocator::allocate(const BufferDescriptorInfo& descriptor, int32_t* outStride,
+ndk::ScopedAStatus Allocator::allocate(const BufferDescriptorInfoV4& descriptor, int32_t* outStride,
                                        native_handle_t** outHandle) {
     if (!mDriver) {
         ALOGE("Failed to allocate. Driver is uninitialized.\n");
@@ -151,6 +151,85 @@ ndk::ScopedAStatus Allocator::allocate(const BufferDescriptorInfo& descriptor, i
     *outStride = static_cast<int32_t>(crosHandle->pixel_stride);
     *outHandle = handle;
 
+    return ndk::ScopedAStatus::ok();
+}
+
+static BufferDescriptorInfoV4 convertAidlToIMapperV4Descriptor(const BufferDescriptorInfo& info) {
+    return BufferDescriptorInfoV4 {
+        .name{reinterpret_cast<const char*>(info.name.data())},
+        .width = static_cast<uint32_t>(info.width),
+        .height = static_cast<uint32_t>(info.height),
+        .layerCount = static_cast<uint32_t>(info.layerCount),
+        .format = static_cast<::android::hardware::graphics::common::V1_2::PixelFormat>(info.format),
+        .usage = static_cast<uint64_t>(info.usage),
+        .reservedSize = 0,
+    };
+}
+
+ndk::ScopedAStatus Allocator::allocate2(const BufferDescriptorInfo& descriptor, int32_t count,
+                            allocator::AllocationResult* outResult) {
+    if (!mDriver) {
+        ALOGE("Failed to allocate. Driver is uninitialized.\n");
+        return ToBinderStatus(AllocationError::NO_RESOURCES);
+    }
+
+    if (!descriptor.additionalOptions.empty()) {
+        return ToBinderStatus(AllocationError::UNSUPPORTED);
+    }
+
+    BufferDescriptorInfoV4 descriptionV4 = convertAidlToIMapperV4Descriptor(descriptor);
+
+    std::vector<native_handle_t*> handles;
+    handles.resize(count, nullptr);
+
+    for (int32_t i = 0; i < count; i++) {
+        ndk::ScopedAStatus status = allocate(descriptionV4, &outResult->stride, &handles[i]);
+        if (!status.isOk()) {
+            for (int32_t j = 0; j < i; j++) {
+                releaseBufferAndHandle(handles[j]);
+            }
+            return status;
+        }
+    }
+
+    outResult->buffers.resize(count);
+    for (int32_t i = 0; i < count; i++) {
+        auto handle = handles[i];
+        outResult->buffers[i] = ::android::dupToAidl(handle);
+        releaseBufferAndHandle(handle);
+    }
+
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus Allocator::isSupported(const BufferDescriptorInfo& descriptor,
+                            bool* outResult) {
+    if (!mDriver) {
+        ALOGE("Failed to allocate. Driver is uninitialized.\n");
+        return ToBinderStatus(AllocationError::NO_RESOURCES);
+    }
+
+    if (!descriptor.additionalOptions.empty()) {
+        *outResult = false;
+        return ndk::ScopedAStatus::ok();
+    }
+
+    struct cros_gralloc_buffer_descriptor crosDescriptor;
+    if (convertToCrosDescriptor(convertAidlToIMapperV4Descriptor(descriptor), &crosDescriptor)) {
+        // Failing to convert the descriptor means the layer count, pixel format, or usage is
+        // unsupported, thus isSupported() = false
+        *outResult = false;
+        return ndk::ScopedAStatus::ok();
+    }
+
+    crosDescriptor.reserved_region_size += sizeof(CrosGralloc4Metadata);
+
+    *outResult = mDriver->is_supported(&crosDescriptor);
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus Allocator::getIMapperLibrarySuffix(std::string* outResult) {
+    *outResult = "minigbm";
     return ndk::ScopedAStatus::ok();
 }
 

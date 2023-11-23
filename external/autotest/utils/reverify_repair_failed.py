@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 """
 Send all Repair Failed hosts that the user running this script has access to
@@ -7,6 +7,10 @@ back into Verifying.  (Only hosts ACL accessable to the user)
 Suggested use: Run this as an occasional cron job to re-check if Repair Failed
 hosts have overcome whatever issue caused the failure and are useful again.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import optparse, os, sys
 
@@ -29,11 +33,11 @@ def main():
     # The old RPC interface didn't return anything.
     # A more recent one returns a list of hostnames to make this message useful.
     if hostnames:
-        print 'The following Repair Failed hosts on', options.server,
-        print 'will be reverified:'
-        print ' '.join(hostnames)
+        print('The following Repair Failed hosts on', options.server, end=' ')
+        print('will be reverified:')
+        print(' '.join(hostnames))
     else:
-        print 'Repair Failed hosts on', options.server, 'will be reverified.'
+        print('Repair Failed hosts on', options.server, 'will be reverified.')
 
 
 if __name__ == '__main__':

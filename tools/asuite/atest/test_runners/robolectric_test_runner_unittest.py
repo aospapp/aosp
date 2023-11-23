@@ -19,16 +19,15 @@
 # pylint: disable=line-too-long
 
 import json
-import platform
 import subprocess
 import tempfile
 import unittest
 
 from unittest import mock
 
-from test_finders import test_info
-from test_runners import event_handler
-from test_runners import robolectric_test_runner
+from atest.test_finders import test_info
+from atest.test_runners import event_handler
+from atest.test_runners import robolectric_test_runner
 
 # pylint: disable=protected-access
 class RobolectricTestRunnerUnittests(unittest.TestCase):
@@ -67,15 +66,20 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
         """Test _exec_with_robo_polling method."""
         event_name = 'TEST_STARTED'
         event_data = {'className':'SomeClass', 'testName':'SomeTestName'}
-
         json_event_data = json.dumps(event_data)
-        data = '%s %s\n\n' %(event_name, json_event_data)
-        event_file = tempfile.NamedTemporaryFile(delete=True)
-        subprocess.call("echo '%s' -n >> %s" %(data, event_file.name), shell=True)
-        robo_proc = subprocess.Popen("sleep %s" %str(self.polling_time * 2), shell=True)
-        self.suite_tr. _exec_with_robo_polling(event_file, robo_proc, mock_pe)
-        calls = [mock.call.process_event(event_name, event_data)]
-        mock_pe.assert_has_calls(calls)
+        data = f'{event_name} {json_event_data}\n\n'
+        with tempfile.NamedTemporaryFile() as event_file:
+            subprocess.run(f"echo '{data}' -n >> {event_file.name}",
+                           shell=True, check=True)
+            robo_proc = subprocess.Popen(
+                f'sleep {str(self.polling_time * 2)}',
+                shell=True
+            )
+
+            self.suite_tr._exec_with_robo_polling(event_file, robo_proc, mock_pe)
+            calls = [mock.call.process_event(event_name, event_data)]
+
+            mock_pe.assert_has_calls(calls)
 
     @mock.patch.object(event_handler.EventHandler, 'process_event')
     def test_exec_with_robo_polling_with_partial_info(self, mock_pe):
@@ -83,21 +87,21 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
         event_name = 'TEST_STARTED'
         event1 = '{"className":"SomeClass","test'
         event2 = 'Name":"SomeTestName"}\n\n'
-        data1 = '%s %s'%(event_name, event1)
+        data1 = f'{event_name} {event1}'
         data2 = event2
-        event_file = tempfile.NamedTemporaryFile(delete=True)
-        subprocess.Popen("echo -n '%s' >> %s" %(data1, event_file.name), shell=True)
-        robo_proc = subprocess.Popen("echo '%s' >> %s && sleep %s"
-                                     %(data2,
-                                       event_file.name,
-                                       str(self.polling_time*5)),
-                                     shell=True)
-        self.suite_tr. _exec_with_robo_polling(event_file, robo_proc, mock_pe)
-        calls = [mock.call.process_event(event_name,
-                                         json.loads(event1 + event2))]
-        # (b/147569951) subprocessing 'echo'  behaves differently between
-        # linux/darwin. Ensure it is not called in MacOS.
-        if platform.system() == 'Linux':
+        with tempfile.NamedTemporaryFile() as event_file:
+            subprocess.run(f"echo -n '{data1}' >> {event_file.name}",
+                           shell=True, check=True)
+            robo_proc = subprocess.Popen(
+                f"echo '{data2}' >> {event_file.name} && "
+                f"sleep {str(self.polling_time * 5)}",
+                shell=True
+            )
+
+            self.suite_tr._exec_with_robo_polling(event_file, robo_proc, mock_pe)
+            calls = [mock.call.process_event(event_name,
+                                             json.loads(event1 + event2))]
+
             mock_pe.assert_has_calls(calls)
 
     @mock.patch.object(event_handler.EventHandler, 'process_event')

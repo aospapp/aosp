@@ -18,4 +18,9 @@
 <resources>
     <item name="linear_layout_horizontal_display_options_max" format="float" type="dimen">4.35
     </item>
+
+    <declare-styleable name="SaturationAlphaTintDrawableWrapper">
+        <attr name="android:tint" />
+        <attr name="android:alpha" />
+    </declare-styleable>
 </resources>

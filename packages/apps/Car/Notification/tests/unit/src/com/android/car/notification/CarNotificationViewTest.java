@@ -19,8 +19,11 @@ package com.android.car.notification;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.app.Notification;
 import android.content.Context;
@@ -35,8 +38,11 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
 
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.car.notification.template.GroupNotificationViewHolder;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -191,13 +197,13 @@ public class CarNotificationViewTest {
     }
 
     @Test
-    public void setNotifications_empty_listViewIsGone() {
+    public void setNotifications_empty_listViewStaysVisible() {
         List<NotificationGroup> notifications = new ArrayList<>();
 
         mCarNotificationView.setNotifications(notifications);
 
         assertThat(mCarNotificationView.findViewById(R.id.notifications).getVisibility())
-                .isEqualTo(View.GONE);
+                .isEqualTo(View.VISIBLE);
     }
 
     @Test
@@ -260,6 +266,36 @@ public class CarNotificationViewTest {
 
         assertThat(mCarNotificationView.getNotifications().toString())
                 .isEqualTo(List.of(notDismissible).toString());
+    }
+
+    @Test
+    public void resetState_collapseGroupForAllGroupsCalled() {
+        CarNotificationViewAdapter mockAdapter = mock(CarNotificationViewAdapter.class);
+        when(mockAdapter.getItemCount()).thenReturn(3);
+        GroupNotificationViewHolder mockGroupNotificationViewHolder1 = mock(
+                GroupNotificationViewHolder.class);
+        GroupNotificationViewHolder mockGroupNotificationViewHolder2 = mock(
+                GroupNotificationViewHolder.class);
+        when(mockGroupNotificationViewHolder1.getItemViewType()).thenReturn(
+                NotificationViewType.GROUP);
+        when(mockGroupNotificationViewHolder2.getItemViewType()).thenReturn(
+                NotificationViewType.GROUP);
+        RecyclerView mockListView = mock(RecyclerView.class);
+        when(mockListView.findViewHolderForAdapterPosition(0)).thenReturn(
+                mock(RecyclerView.ViewHolder.class));
+        when(mockListView.findViewHolderForAdapterPosition(1)).thenReturn(
+                mockGroupNotificationViewHolder1);
+        when(mockListView.findViewHolderForAdapterPosition(2)).thenReturn(
+                mockGroupNotificationViewHolder2);
+        mCarNotificationView.setAdapter(mockAdapter);
+        mCarNotificationView.setListView(mockListView);
+
+        mCarNotificationView.resetState();
+
+        verify(mockAdapter, times(1)).collapseAllGroups();
+        // only call resetNotifications on GroupNotificationViewHolders
+        verify(mockGroupNotificationViewHolder1, times(1)).collapseGroup();
+        verify(mockGroupNotificationViewHolder2, times(1)).collapseGroup();
     }
 
     private NotificationGroup getNotificationGroup(boolean isDismissible) {

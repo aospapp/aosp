@@ -16,6 +16,7 @@
 package android.os.cts.batterysaving;
 
 import static com.android.compatibility.common.util.BatteryUtils.enableBatterySaver;
+import static com.android.compatibility.common.util.BatteryUtils.resetBatterySaver;
 import static com.android.compatibility.common.util.BatteryUtils.runDumpsysBatteryUnplug;
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
@@ -38,7 +39,6 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.BatteryUtils;
 import com.android.compatibility.common.util.DeviceConfigStateHelper;
-import com.android.compatibility.common.util.SettingsUtils;
 
 import org.junit.After;
 import org.junit.Before;
@@ -64,10 +64,11 @@ public class BatterySaverTest extends BatterySavingTestBase {
     }
 
     @After
-    public void tearDown() {
+    public void tearDown() throws Exception {
         mDeviceConfigStateHelper.restoreOriginalValues();
-        SettingsUtils.delete(SettingsUtils.NAMESPACE_GLOBAL, "battery_saver_constants");
+        sGlobalSettings.delete("battery_saver_constants");
         runShellCommand("cmd uimode night " + mInitialNightMode);
+        resetBatterySaver();
     }
 
     /**
@@ -135,7 +136,7 @@ public class BatterySaverTest extends BatterySavingTestBase {
         try {
             runDumpsysBatteryUnplug();
 
-            SettingsUtils.set(SettingsUtils.NAMESPACE_GLOBAL, "battery_saver_constants",
+            sGlobalSettings.set("battery_saver_constants",
                     "location_mode=" + PowerManager.LOCATION_MODE_ALL_DISABLED_WHEN_SCREEN_OFF
                             + ",enable_night_mode=true");
 
@@ -195,7 +196,7 @@ public class BatterySaverTest extends BatterySavingTestBase {
         enableBatterySaver(true);
         final PowerManager powerManager = BatteryUtils.getPowerManager();
 
-        SettingsUtils.set(SettingsUtils.NAMESPACE_GLOBAL, "battery_saver_constants",
+        sGlobalSettings.set("battery_saver_constants",
                 "location_mode=" + PowerManager.LOCATION_MODE_THROTTLE_REQUESTS_WHEN_SCREEN_OFF
                         + ",enable_night_mode=true");
         assertTrue(powerManager.isPowerSaveMode());
@@ -257,7 +258,7 @@ public class BatterySaverTest extends BatterySavingTestBase {
                         (getContext().getResources().getConfiguration().uiMode
                                 & Configuration.UI_MODE_NIGHT_MASK));
 
-        SettingsUtils.set(SettingsUtils.NAMESPACE_GLOBAL, "battery_saver_constants",
+        sGlobalSettings.set("battery_saver_constants",
                 "location_mode=" + PowerManager.LOCATION_MODE_FOREGROUND_ONLY
                         + ",enable_night_mode=false");
         waitUntil("UI mode didn't change to " + Configuration.UI_MODE_NIGHT_NO,
@@ -269,7 +270,7 @@ public class BatterySaverTest extends BatterySavingTestBase {
                 () -> PowerManager.LOCATION_MODE_FOREGROUND_ONLY ==
                         powerManager.getLocationPowerSaveMode());
 
-        SettingsUtils.delete(SettingsUtils.NAMESPACE_GLOBAL, "battery_saver_constants");
+        sGlobalSettings.delete("battery_saver_constants");
         waitUntil("UI mode didn't change to " + Configuration.UI_MODE_NIGHT_YES,
                 () -> Configuration.UI_MODE_NIGHT_YES ==
                         (getContext().getResources().getConfiguration().uiMode

@@ -19,6 +19,8 @@ package com.android.server.wifi;
 import android.annotation.NonNull;
 import android.net.wifi.WifiSsid;
 
+import java.util.BitSet;
+
 /** Data class to hold information for a {@link WifiMonitor#NETWORK_CONNECTION_EVENT}. */
 public class NetworkConnectionEventInfo {
     public final int networkId;
@@ -27,13 +29,15 @@ public class NetworkConnectionEventInfo {
     @NonNull
     public final String bssid;
     public final boolean isFilsConnection;
+    public final BitSet keyMgmtMask;
 
     public NetworkConnectionEventInfo(int networkId, WifiSsid wifiSsid, String bssid,
-            boolean isFilsConnection) {
+            boolean isFilsConnection, BitSet keyMgmtMask) {
         this.networkId = networkId;
         this.wifiSsid = wifiSsid;
         this.bssid = bssid;
         this.isFilsConnection = isFilsConnection;
+        this.keyMgmtMask = keyMgmtMask;
     }
 
     @Override
@@ -43,6 +47,7 @@ public class NetworkConnectionEventInfo {
                 + ", wifiSsid=" + wifiSsid
                 + ", bssid='" + bssid + '\''
                 + ", isFilsConnection=" + isFilsConnection
+                + ", keyMgmtMask=" + keyMgmtMask
                 + '}';
     }
 }

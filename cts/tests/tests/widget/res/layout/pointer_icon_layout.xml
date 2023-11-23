@@ -38,6 +38,11 @@
         android:layout_width="match_parent"
         android:layout_height="20dp"/>
 
+    <View
+        android:id="@+id/empty_view"
+        android:layout_width="match_parent"
+        android:layout_height="20dp"/>
+
     <TabHost
         android:id="@android:id/tabhost"
         android:layout_width="match_parent"

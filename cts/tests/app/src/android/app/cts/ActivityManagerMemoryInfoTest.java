@@ -35,20 +35,23 @@ public class ActivityManagerMemoryInfoTest extends AndroidTestCase {
     }
 
     public void testWriteToParcel() throws Exception {
-        final long AVAILMEM = 1000l;
-        mMemory.availMem = AVAILMEM;
-        final long THRESHOLD = 500l;
-        mMemory.threshold = THRESHOLD;
-        final boolean LOWMEMORY = true;
-        mMemory.lowMemory = LOWMEMORY;
+        final long advertisedMem = 200000L;
+        mMemory.advertisedMem = advertisedMem;
+        final long availMem = 1000L;
+        mMemory.availMem = availMem;
+        final long threshold = 500L;
+        mMemory.threshold = threshold;
+        final boolean lowMemory = true;
+        mMemory.lowMemory = lowMemory;
         Parcel parcel = Parcel.obtain();
         mMemory.writeToParcel(parcel, 0);
         parcel.setDataPosition(0);
         ActivityManager.MemoryInfo values =
             ActivityManager.MemoryInfo.CREATOR.createFromParcel(parcel);
-        assertEquals(AVAILMEM, values.availMem);
-        assertEquals(THRESHOLD, values.threshold);
-        assertEquals(LOWMEMORY, values.lowMemory);
+        assertEquals(advertisedMem, values.advertisedMem);
+        assertEquals(availMem, values.availMem);
+        assertEquals(threshold, values.threshold);
+        assertEquals(lowMemory, values.lowMemory);
 
         // test null condition.
         try {
@@ -60,20 +63,23 @@ public class ActivityManagerMemoryInfoTest extends AndroidTestCase {
     }
 
     public void testReadFromParcel() throws Exception {
-        final long AVAILMEM = 1000l;
-        mMemory.availMem = AVAILMEM;
-        final long THRESHOLD = 500l;
-        mMemory.threshold = THRESHOLD;
-        final boolean LOWMEMORY = true;
-        mMemory.lowMemory = LOWMEMORY;
+        final long advertisedMem = 200000L;
+        mMemory.advertisedMem = advertisedMem;
+        final long availMem = 1000L;
+        mMemory.availMem = availMem;
+        final long threshold = 500L;
+        mMemory.threshold = threshold;
+        final boolean lowMemory = true;
+        mMemory.lowMemory = lowMemory;
         Parcel parcel = Parcel.obtain();
         mMemory.writeToParcel(parcel, 0);
         parcel.setDataPosition(0);
         ActivityManager.MemoryInfo result = new ActivityManager.MemoryInfo();
         result.readFromParcel(parcel);
-        assertEquals(AVAILMEM, result.availMem);
-        assertEquals(THRESHOLD, result.threshold);
-        assertEquals(LOWMEMORY, result.lowMemory);
+        assertEquals(advertisedMem, result.advertisedMem);
+        assertEquals(availMem, result.availMem);
+        assertEquals(threshold, result.threshold);
+        assertEquals(lowMemory, result.lowMemory);
 
         // test null condition.
         result = new ActivityManager.MemoryInfo();

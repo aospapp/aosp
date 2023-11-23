@@ -20,67 +20,63 @@ import static dagger.internal.codegen.validation.BindingElementValidator.AllowsM
 import static dagger.internal.codegen.validation.BindingElementValidator.AllowsScoping.ALLOWS_SCOPING;
 import static dagger.internal.codegen.validation.BindingMethodValidator.Abstractness.MUST_BE_ABSTRACT;
 import static dagger.internal.codegen.validation.BindingMethodValidator.ExceptionSuperclass.NO_EXCEPTIONS;
-import static dagger.internal.codegen.validation.TypeHierarchyValidator.validateTypeHierarchy;
+import static dagger.internal.codegen.xprocessing.XTypes.isPrimitive;
 
-import com.google.auto.common.MoreTypes;
+import androidx.room.compiler.processing.XMethodElement;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XVariableElement;
 import com.google.common.collect.ImmutableSet;
-import dagger.Binds;
-import dagger.Module;
 import dagger.internal.codegen.base.ContributionType;
+import dagger.internal.codegen.base.DaggerSuperficialValidation;
 import dagger.internal.codegen.base.SetType;
 import dagger.internal.codegen.binding.BindsTypeChecker;
 import dagger.internal.codegen.binding.InjectionAnnotations;
-import dagger.internal.codegen.kotlin.KotlinMetadataUtil;
-import dagger.internal.codegen.langmodel.DaggerElements;
+import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.internal.codegen.langmodel.DaggerTypes;
-import dagger.producers.ProducerModule;
 import javax.inject.Inject;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.TypeMirror;
 
-/** A validator for {@link Binds} methods. */
+/** A validator for {@link dagger.Binds} methods. */
 final class BindsMethodValidator extends BindingMethodValidator {
-  private final DaggerTypes types;
   private final BindsTypeChecker bindsTypeChecker;
+  private final DaggerSuperficialValidation superficialValidation;
 
   @Inject
   BindsMethodValidator(
-      DaggerElements elements,
       DaggerTypes types,
-      KotlinMetadataUtil kotlinMetadataUtil,
       BindsTypeChecker bindsTypeChecker,
       DependencyRequestValidator dependencyRequestValidator,
+      DaggerSuperficialValidation superficialValidation,
       InjectionAnnotations injectionAnnotations) {
     super(
-        elements,
         types,
-        kotlinMetadataUtil,
-        Binds.class,
-        ImmutableSet.of(Module.class, ProducerModule.class),
+        TypeNames.BINDS,
+        ImmutableSet.of(TypeNames.MODULE, TypeNames.PRODUCER_MODULE),
         dependencyRequestValidator,
         MUST_BE_ABSTRACT,
         NO_EXCEPTIONS,
         ALLOWS_MULTIBINDINGS,
         ALLOWS_SCOPING,
         injectionAnnotations);
-    this.types = types;
     this.bindsTypeChecker = bindsTypeChecker;
+    this.superficialValidation = superficialValidation;
   }
 
   @Override
-  protected ElementValidator elementValidator(ExecutableElement element) {
-    return new Validator(element);
+  protected ElementValidator elementValidator(XMethodElement method) {
+    return new Validator(method);
   }
 
   private class Validator extends MethodValidator {
-    Validator(ExecutableElement element) {
-      super(element);
+    private final XMethodElement method;
+
+    Validator(XMethodElement method) {
+      super(method);
+      this.method = method;
     }
 
     @Override
     protected void checkParameters() {
-      if (element.getParameters().size() != 1) {
+      if (method.getParameters().size() != 1) {
         report.addError(
             bindingMethods(
                 "must have exactly one parameter, whose type is assignable to the return type"));
@@ -90,24 +86,24 @@ final class BindsMethodValidator extends BindingMethodValidator {
     }
 
     @Override
-    protected void checkParameter(VariableElement parameter) {
+    protected void checkParameter(XVariableElement parameter) {
       super.checkParameter(parameter);
-      TypeMirror leftHandSide = boxIfNecessary(element.getReturnType());
-      TypeMirror rightHandSide = parameter.asType();
-      ContributionType contributionType = ContributionType.fromBindingElement(element);
-      if (contributionType.equals(ContributionType.SET_VALUES) && !SetType.isSet(leftHandSide)) {
+      XType returnType = boxIfNecessary(method.getReturnType());
+      XType parameterType = parameter.getType();
+      ContributionType contributionType = ContributionType.fromBindingElement(method);
+      if (contributionType.equals(ContributionType.SET_VALUES) && !SetType.isSet(returnType)) {
         report.addError(
             "@Binds @ElementsIntoSet methods must return a Set and take a Set parameter");
       }
 
-      if (!bindsTypeChecker.isAssignable(rightHandSide, leftHandSide, contributionType)) {
+      if (!bindsTypeChecker.isAssignable(parameterType, returnType, contributionType)) {
         // Validate the type hierarchy of both sides to make sure they're both valid.
         // If one of the types isn't valid it means we need to delay validation to the next round.
         // Note: BasicAnnotationProcessor only performs superficial validation on the referenced
         // types within the module. Thus, we're guaranteed that the types in the @Binds method are
         // valid, but it says nothing about their supertypes, which are needed for isAssignable.
-        validateTypeHierarchy(leftHandSide, types);
-        validateTypeHierarchy(rightHandSide, types);
+        superficialValidation.validateTypeHierarchyOf("return type", method, returnType);
+        superficialValidation.validateTypeHierarchyOf("parameter", parameter, parameterType);
         // TODO(ronshapiro): clarify this error message for @ElementsIntoSet cases, where the
         // right-hand-side might not be assignable to the left-hand-side, but still compatible with
         // Set.addAll(Collection<? extends E>)
@@ -115,11 +111,8 @@ final class BindsMethodValidator extends BindingMethodValidator {
       }
     }
 
-    private TypeMirror boxIfNecessary(TypeMirror maybePrimitive) {
-      if (maybePrimitive.getKind().isPrimitive()) {
-        return types.boxedClass(MoreTypes.asPrimitiveType(maybePrimitive)).asType();
-      }
-      return maybePrimitive;
+    private XType boxIfNecessary(XType maybePrimitive) {
+      return isPrimitive(maybePrimitive) ? maybePrimitive.boxed() : maybePrimitive;
     }
   }
 }

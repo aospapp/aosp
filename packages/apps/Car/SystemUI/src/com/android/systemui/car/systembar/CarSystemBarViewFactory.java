@@ -30,6 +30,7 @@ import com.android.systemui.car.statusicon.ui.QuickControlsEntryPointsController
 import com.android.systemui.car.statusicon.ui.ReadOnlyIconsController;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.flags.FeatureFlags;
+import com.android.systemui.settings.UserTracker;
 
 import javax.inject.Inject;
 
@@ -60,6 +61,7 @@ public class CarSystemBarViewFactory {
     private final FeatureFlags mFeatureFlags;
     private final QuickControlsEntryPointsController mQuickControlsEntryPointsController;
     private final ReadOnlyIconsController mReadOnlyIconsController;
+    private final UserTracker mUserTracker;
 
     /** Type of navigation bar to be created. */
     private enum Type {
@@ -78,12 +80,14 @@ public class CarSystemBarViewFactory {
             Context context,
             FeatureFlags featureFlags,
             QuickControlsEntryPointsController quickControlsEntryPointsController,
-            ReadOnlyIconsController readOnlyIconsController
+            ReadOnlyIconsController readOnlyIconsController,
+            UserTracker userTracker
     ) {
         mContext = context;
         mFeatureFlags = featureFlags;
         mQuickControlsEntryPointsController = quickControlsEntryPointsController;
         mReadOnlyIconsController = readOnlyIconsController;
+        mUserTracker = userTracker;
     }
 
     /** Gets the top window. */
@@ -162,6 +166,7 @@ public class CarSystemBarViewFactory {
         view.setupHvacButton();
         view.setupQuickControlsEntryPoints(mQuickControlsEntryPointsController, isSetUp);
         view.setupReadOnlyIcons(mReadOnlyIconsController);
+        view.setupSystemBarButtons(mUserTracker);
 
         // Include a FocusParkingView at the beginning. The rotary controller "parks" the focus here
         // when the user navigates to another window. This is also used to prevent wrap-around.
@@ -169,5 +174,25 @@ public class CarSystemBarViewFactory {
 
         mCachedViewMap.put(type, view);
         return mCachedViewMap.get(type);
+    }
+
+    /** Gets the selected Quick Controls class name. */
+    protected String getSelectedQuickControlsClassName() {
+        return mQuickControlsEntryPointsController.getClassNameOfSelectedView();
+    }
+
+    /** Calls onClick for the given Quick Controls class name. */
+    protected void callQuickControlsOnClickFromClassName(String clsName) {
+        View statusIconView = mQuickControlsEntryPointsController.getViewFromClassName(clsName);
+        if (statusIconView != null) {
+            statusIconView.callOnClick();
+        }
+    }
+
+    /** Resets the cached Views. */
+    protected void resetCache() {
+        mQuickControlsEntryPointsController.resetCache();
+        mReadOnlyIconsController.resetCache();
+        mCachedViewMap.clear();
     }
 }

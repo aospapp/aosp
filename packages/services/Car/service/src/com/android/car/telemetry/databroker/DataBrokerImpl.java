@@ -46,10 +46,12 @@ import android.util.SparseIntArray;
 
 import com.android.car.CarLog;
 import com.android.car.CarServiceUtils;
+import com.android.car.internal.LargeParcelable;
 import com.android.car.telemetry.CarTelemetryService;
 import com.android.car.telemetry.ResultStore;
 import com.android.car.telemetry.publisher.AbstractPublisher;
 import com.android.car.telemetry.publisher.PublisherFactory;
+import com.android.car.telemetry.scriptexecutorinterface.BundleList;
 import com.android.car.telemetry.scriptexecutorinterface.IScriptExecutor;
 import com.android.car.telemetry.scriptexecutorinterface.IScriptExecutorListener;
 import com.android.car.telemetry.util.IoUtils;
@@ -83,7 +85,6 @@ public class DataBrokerImpl implements DataBroker {
     /** Maximum wait time for a script to finish. */
     private static final long MAX_SCRIPT_EXECUTION_TIME_MILLIS = 30_000L; // 30 seconds
 
-    // TODO(b/216134347): Find a better way to find the package.
     private static final String[] SCRIPT_EXECUTOR_PACKAGE_CANDIDATES =
             {"com.android.car.scriptexecutor", "com.google.android.car.scriptexecutor"};
     private static final String SCRIPT_EXECUTOR_CLASS =
@@ -466,6 +467,14 @@ public class DataBrokerImpl implements DataBroker {
         mPublisherCountArray.append(
                 task.getPublisherType(),
                 mPublisherCountArray.get(task.getPublisherType()) - 1);
+
+        if (task.bypassScriptExecutor()) {
+            // delegate to DataBrokerListener to handle storing data and scheduling next task
+            mDataBrokerListener.onMetricsReport(task.getMetricsConfig().getName(),
+                    task.getData(), /* state= */ null);
+            return;
+        }
+
         // update current config name because a script is currently running
         mCurrentMetricsConfigName = task.getMetricsConfig().getName();
         mScriptExecutionTraceLog.traceBegin(
@@ -479,6 +488,14 @@ public class DataBrokerImpl implements DataBroker {
                             mCurrentMetricsConfigName);
                 }
                 invokeScriptForLargeInput(task);
+            } else if (task.isBundleList()) {
+                if (DEBUG) {
+                    Slogf.d(CarLog.TAG_TELEMETRY,
+                            "Running with bundle list func %s of %s in ScriptExecutor.",
+                            task.getHandlerName(),
+                            mCurrentMetricsConfigName);
+                }
+                invokeScriptForBundleList(task);
             } else {
                 if (DEBUG) {
                     Slogf.d(CarLog.TAG_TELEMETRY, "Running func %s of %s in ScriptExecutor.",
@@ -539,6 +556,30 @@ public class DataBrokerImpl implements DataBroker {
         try (OutputStream outputStream = new ParcelFileDescriptor.AutoCloseOutputStream(writeFd)) {
             task.getData().writeToStream(outputStream);
         }
+    }
+
+    /**
+     * Sends bundle list with LargeParcelable mechanism.
+     *
+     * @param task containing all the necessary parameters for ScriptExecutor API.
+     * @throws RemoteException if ScriptExecutor failed.
+     */
+    private void invokeScriptForBundleList(@NonNull ScriptExecutionTask task)
+            throws RemoteException {
+        BundleList bl = new BundleList();
+        bl.bundles = task.getBundleList();
+        bl = (BundleList) LargeParcelable.toLargeParcelable(
+                bl, () -> {
+                    BundleList bundleList = new BundleList();
+                    bundleList.bundles = new ArrayList<>();
+                    return bundleList;
+                });
+        mScriptExecutor.invokeScriptForBundleList(
+                task.getMetricsConfig().getScript(),
+                task.getHandlerName(),
+                bl,
+                mResultStore.getInterimResult(mCurrentMetricsConfigName),
+                mScriptExecutorListener);
     }
 
     private TelemetryError buildTelemetryError(

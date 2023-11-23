@@ -78,8 +78,8 @@ class RandomShuffleQueue : public TypedQueue<std::vector<Tensor> > {
                                              Tensor* out_tensor);
 
   const int32 min_after_dequeue_;
-  const int64 original_seed_;
-  const int64 original_seed2_;
+  const int64_t original_seed_;
+  const int64_t original_seed2_;
 
   random::PhiloxRandom parent_generator_ TF_GUARDED_BY(mu_);
   random::SingleSampleAdapter<random::PhiloxRandom> generator_
@@ -112,7 +112,7 @@ Status RandomShuffleQueue::Initialize() {
   for (int i = 0; i < num_components(); ++i) {
     queues_[i].reserve(min_after_dequeue_);
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 void RandomShuffleQueue::DequeueLocked(OpKernelContext* ctx, Tuple* tuple) {
@@ -175,7 +175,7 @@ Status RandomShuffleQueue::GetElementComponentFromBatch(const Tuple& tuple,
       ctx->allocate_temp(tuple[component].dtype(), element_shape, out_tensor));
   TF_RETURN_IF_ERROR(
       batch_util::CopySliceToElement(tuple[component], out_tensor, index));
-  return Status::OK();
+  return OkStatus();
 }
 
 void RandomShuffleQueue::TryEnqueueMany(const Tuple& tuple,
@@ -468,7 +468,7 @@ Status RandomShuffleQueue::MatchesNodeDef(const NodeDef& node_def) {
   TF_RETURN_IF_ERROR(MatchesNodeDefTypes(node_def));
   TF_RETURN_IF_ERROR(MatchesNodeDefShapes(node_def));
 
-  return Status::OK();
+  return OkStatus();
 }
 
 // Defines a RandomShuffleQueueOp, which produces a Queue (specifically, one
@@ -504,8 +504,8 @@ class RandomShuffleQueueOp : public TypedQueueOp {
   }
 
   int32 min_after_dequeue_;
-  int64 seed_;
-  int64 seed2_;
+  int64_t seed_;
+  int64_t seed2_;
   std::vector<TensorShape> component_shapes_;
 
   TF_DISALLOW_COPY_AND_ASSIGN(RandomShuffleQueueOp);

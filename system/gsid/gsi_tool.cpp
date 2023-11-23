@@ -35,6 +35,7 @@
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
 #include <android/gsi/IGsiService.h>
+#include <binder/ProcessState.h>
 #include <cutils/android_reboot.h>
 #include <libgsi/libgsi.h>
 #include <libgsi/libgsid.h>
@@ -714,6 +715,8 @@ static int usage(int /* argc */, char* argv[]) {
 int main(int argc, char** argv) {
     android::base::InitLogging(argv, android::base::StderrLogger, android::base::DefaultAborter);
 
+    // Start a threadpool to service waitForService() callbacks.
+    android::ProcessState::self()->startThreadPool();
     android::sp<IGsiService> service = GetGsiService();
     if (!service) {
         return EX_SOFTWARE;

@@ -33,7 +33,7 @@
         android:key="@string/pk_bluetooth_device_profiles"
         android:title="@string/bluetooth_profiles"
         settings:controller="com.android.car.settings.bluetooth.BluetoothDeviceProfilesPreferenceController"/>
-    <Preference
+    <com.android.car.ui.preference.CarUiFooterPreference
         android:icon="@drawable/ic_settings_about"
         android:key="@string/pk_bluetooth_device_address"
         android:selectable="false"

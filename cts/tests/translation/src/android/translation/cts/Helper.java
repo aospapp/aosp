@@ -65,6 +65,8 @@ public final class Helper {
     public static final String EXTRA_PACKAGE_NAME = "package_name";
     public static final String EXTRA_CALL_COUNT = "call_count";
 
+    public static final int COMMAND_CREATE_TRANSLATOR = 1;
+
     public static final String CUSTOM_TRANSLATION_ID_MY_TAG = "myTag";
     public static final String LOCAL_TEST_FILES_DIR = "/sdcard/CtsTranslationTestCases";
     public static final int TEMP_SERVICE_DURATION_MS = 30_000;

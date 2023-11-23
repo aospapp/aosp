@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"CDMA call waiting under IMS off"</string>
     <string name="updating_title" msgid="6130548922615719689">"Call settings"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Call settings can only be changed by the admin user."</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"Phone account settings can only be changed by the admin or work user."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Settings (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"Call settings error"</string>
     <string name="reading_settings" msgid="1605904432450871183">"Reading settings…"</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"Can\'t hold calls."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"Connect to a wireless network to make a call."</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"Enable Wi-Fi calling to make a call."</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"Disable satellite mode to make a call."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"Emergency information"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"Owner"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"Tap again to view info"</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"Aeroplane mode is on"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"Can\'t access SIM card"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"Mobile network not available"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"Satellite mode is on"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"Issue with phone number you are trying to dial. Error code 1."</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"Couldn\'t complete call. Error code 3."</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"Couldn\'t complete call. Error code 6."</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Cancel"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"Set removable eSIM as default"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Mobile radio power"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"Simulate out of service (debug build only)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"View SIM address book"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"View fixed dialling numbers"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"View service dialling numbers"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"Connected"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"Suspended"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"Unknown"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"Primary"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pkts"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"bytes"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"Data sent"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"Message waiting:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"Phone number:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"Select radio band"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Voice network type:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Data network type:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Override network type:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"Voice raw registration state:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"Data raw registration state:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"WLAN data raw registration state:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Select phone index"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Set preferred network type:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Ping hostname(www.google.com) IPv4:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Your Bluetooth signal is weak. Try switching to speakerphone."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"Call quality notification"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"Deprecated SIP accounts"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"Can\'t message from a personal app"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"Your organisation only allows you to send messages from work apps"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"Cancel"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"Switch to work profile"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"Install a work messages app"</string>
 </resources>

@@ -35,6 +35,10 @@ pub type Elf64_Xword = u64;
 
 pub type iconv_t = *mut ::c_void;
 
+// It's an alias over "struct __kvm_t". However, its fields aren't supposed to be used directly,
+// making the type definition system dependent. Better not bind it exactly.
+pub type kvm_t = ::c_void;
+
 cfg_if! {
     if #[cfg(target_pointer_width = "64")] {
         type Elf_Addr = Elf64_Addr;
@@ -94,6 +98,12 @@ s! {
         pub imr_multiaddr: in_addr,
         pub imr_address: in_addr,
         pub imr_ifindex: ::c_int,
+    }
+
+    pub struct ip_mreq_source {
+        pub imr_multiaddr: in_addr,
+        pub imr_sourceaddr: in_addr,
+        pub imr_interface: in_addr,
     }
 
     pub struct glob_t {
@@ -366,6 +376,10 @@ s! {
         pub seq: ::c_ushort,
         pub key: ::key_t,
     }
+
+    pub struct eui64 {
+        pub octet: [u8; EUI64_LEN],
+    }
 }
 
 s_no_extra_traits! {
@@ -616,6 +630,7 @@ pub const MAP_FAILED: *mut ::c_void = !0 as *mut ::c_void;
 pub const MCL_CURRENT: ::c_int = 0x0001;
 pub const MCL_FUTURE: ::c_int = 0x0002;
 
+pub const MNT_EXPUBLIC: ::c_int = 0x20000000;
 pub const MNT_NOATIME: ::c_int = 0x10000000;
 pub const MNT_NOCLUSTERR: ::c_int = 0x40000000;
 pub const MNT_NOCLUSTERW: ::c_int = 0x80000000;
@@ -963,6 +978,11 @@ pub const IPV6_PKTINFO: ::c_int = 46;
 pub const IPV6_HOPLIMIT: ::c_int = 47;
 pub const IPV6_RECVTCLASS: ::c_int = 57;
 pub const IPV6_TCLASS: ::c_int = 61;
+pub const IPV6_DONTFRAG: ::c_int = 62;
+pub const IP_ADD_SOURCE_MEMBERSHIP: ::c_int = 70;
+pub const IP_DROP_SOURCE_MEMBERSHIP: ::c_int = 71;
+pub const IP_BLOCK_SOURCE: ::c_int = 72;
+pub const IP_UNBLOCK_SOURCE: ::c_int = 73;
 
 pub const TCP_NOPUSH: ::c_int = 4;
 pub const TCP_NOOPT: ::c_int = 8;
@@ -1314,6 +1334,8 @@ pub const ONLRET: ::tcflag_t = 0x40;
 
 pub const CMGROUP_MAX: usize = 16;
 
+pub const EUI64_LEN: usize = 8;
+
 // https://github.com/freebsd/freebsd/blob/master/sys/net/bpf.h
 pub const BPF_ALIGNMENT: usize = SIZEOF_LONG;
 
@@ -1594,6 +1616,16 @@ extern "C" {
     pub fn pthread_barrier_wait(barrier: *mut pthread_barrier_t) -> ::c_int;
     pub fn pthread_get_name_np(tid: ::pthread_t, name: *mut ::c_char, len: ::size_t);
     pub fn pthread_set_name_np(tid: ::pthread_t, name: *const ::c_char);
+    pub fn pthread_setschedparam(
+        native: ::pthread_t,
+        policy: ::c_int,
+        param: *const sched_param,
+    ) -> ::c_int;
+    pub fn pthread_getschedparam(
+        native: ::pthread_t,
+        policy: *mut ::c_int,
+        param: *mut sched_param,
+    ) -> ::c_int;
     pub fn ptrace(request: ::c_int, pid: ::pid_t, addr: *mut ::c_char, data: ::c_int) -> ::c_int;
     pub fn utrace(addr: *const ::c_void, len: ::size_t) -> ::c_int;
     pub fn pututxline(ut: *const utmpx) -> *mut utmpx;
@@ -1695,6 +1727,13 @@ extern "C" {
     pub fn memset_s(s: *mut ::c_void, smax: ::size_t, c: ::c_int, n: ::size_t) -> ::c_int;
     pub fn gethostid() -> ::c_long;
     pub fn sethostid(hostid: ::c_long);
+
+    pub fn eui64_aton(a: *const ::c_char, e: *mut eui64) -> ::c_int;
+    pub fn eui64_ntoa(id: *const eui64, a: *mut ::c_char, len: ::size_t) -> ::c_int;
+    pub fn eui64_ntohost(hostname: *mut ::c_char, len: ::size_t, id: *const eui64) -> ::c_int;
+    pub fn eui64_hostton(hostname: *const ::c_char, id: *mut eui64) -> ::c_int;
+
+    pub fn eaccess(path: *const ::c_char, mode: ::c_int) -> ::c_int;
 }
 
 #[link(name = "rt")]
@@ -1767,6 +1806,44 @@ extern "C" {
         len: ::size_t,
         fd: ::c_int,
     ) -> ::c_int;
+}
+
+#[link(name = "kvm")]
+extern "C" {
+    pub fn kvm_open(
+        execfile: *const ::c_char,
+        corefile: *const ::c_char,
+        swapfile: *const ::c_char,
+        flags: ::c_int,
+        errstr: *const ::c_char,
+    ) -> *mut ::kvm_t;
+    pub fn kvm_close(kd: *mut ::kvm_t) -> ::c_int;
+    pub fn kvm_getprocs(
+        kd: *mut ::kvm_t,
+        op: ::c_int,
+        arg: ::c_int,
+        cnt: *mut ::c_int,
+    ) -> *mut ::kinfo_proc;
+    pub fn kvm_getloadavg(kd: *mut kvm_t, loadavg: *mut ::c_double, nelem: ::c_int) -> ::c_int;
+    pub fn kvm_openfiles(
+        execfile: *const ::c_char,
+        corefile: *const ::c_char,
+        swapfile: *const ::c_char,
+        flags: ::c_int,
+        errbuf: *mut ::c_char,
+    ) -> *mut ::kvm_t;
+    pub fn kvm_read(
+        kd: *mut ::kvm_t,
+        addr: ::c_ulong,
+        buf: *mut ::c_void,
+        nbytes: ::size_t,
+    ) -> ::ssize_t;
+    pub fn kvm_write(
+        kd: *mut ::kvm_t,
+        addr: ::c_ulong,
+        buf: *const ::c_void,
+        nbytes: ::size_t,
+    ) -> ::ssize_t;
 }
 
 cfg_if! {

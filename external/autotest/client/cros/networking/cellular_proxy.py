@@ -1,10 +1,10 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import dbus
 import logging
-import time
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.cros.networking import shill_proxy
@@ -61,7 +61,10 @@ class CellularProxy(shill_proxy.ShillProxy):
                 service found.
 
         """
-        return self.find_object('Service', {'Type': self.TECHNOLOGY_CELLULAR})
+        return self.find_object('Service', {
+                'Type': self.TECHNOLOGY_CELLULAR,
+                'Connectable': True
+        })
 
 
     def wait_for_cellular_service_object(
@@ -123,7 +126,7 @@ class CellularProxy(shill_proxy.ShillProxy):
         """
         logging.info('Resetting modem')
         # Obtain identifying information about the modem.
-        properties = modem.GetProperties(utf8_strings=True)
+        properties = modem.GetProperties()
         # NOTE: Using the Model ID means that this will break if we have two
         # identical cellular modems in a DUT. Fortunately, we only support one
         # modem at a time.
@@ -141,45 +144,43 @@ class CellularProxy(shill_proxy.ShillProxy):
         if not manufacturer:
             raise shill_proxy.ShillProxyError(
                     'Failed to get the manufacturer for the modem.')
-        if "QUALCOMM" in manufacturer:
-            logging.info(
-                    'Qualcomm modem found. Bypassing modem reset (b/168113309)'
-            )
-            new_modem = modem
-        else:
-            modem.Reset()
 
-            # (1) Wait for the old modem to disappear
-            utils.poll_for_condition(lambda: self._is_old_modem_gone(
-                    old_modem_path, old_modem_mm_object),
-                                     exception=shill_proxy.
-                                     ShillProxyTimeoutError(
-                                             'Old modem disappeared'),
-                                     timeout=60)
+        # On Qualcomm modems, rebooting the modem causes ModemManager to also
+        # restart, because when the Qrtr services are removed, qc-netmgr
+        # restarts ModemManager.
+        mm_rebooted = "QUALCOMM" in manufacturer
+        modem.Reset()
 
-            # (2) Wait for the device to reappear
-            if not expect_device:
-                return None, None
-            # The timeout here should be sufficient for our slowest modem to
-            # reappear.
-            new_modem = utils.poll_for_condition(
-                    lambda: self._get_reappeared_modem(model_id,
-                                                       old_modem_mm_object),
-                    exception=shill_proxy.ShillProxyTimeoutError(
-                            'The modem reappeared after reset.'),
-                    timeout=60)
+        # (1) Wait for the old modem to disappear
+        utils.poll_for_condition(lambda: self._is_old_modem_gone(
+                old_modem_path, old_modem_mm_object),
+                                 exception=shill_proxy.ShillProxyTimeoutError(
+                                         'Old modem disappeared'),
+                                 timeout=60)
 
-            # (3) Check powered state of the device
-            if not expect_powered:
-                return new_modem, None
-            success, _, _ = self.wait_for_property_in(
-                    new_modem,
-                    self.DEVICE_PROPERTY_POWERED, [self.VALUE_POWERED_ON],
-                    timeout_seconds=10)
-            if not success:
-                raise shill_proxy.ShillProxyError(
-                        'After modem reset, new modem failed to enter powered '
-                        'state.')
+        # (2) Wait for the device to reappear
+        if not expect_device:
+            return None, None
+        # The timeout here should be sufficient for our slowest modem to
+        # reappear.
+        new_modem = utils.poll_for_condition(
+                lambda: self._get_reappeared_modem(
+                        model_id, old_modem_mm_object, mm_rebooted),
+                exception=shill_proxy.ShillProxyTimeoutError(
+                        'The modem reappeared after reset.'),
+                timeout=60)
+
+        # (3) Check powered state of the device
+        if not expect_powered:
+            return new_modem, None
+        success, _, _ = self.wait_for_property_in(new_modem,
+                                                  self.DEVICE_PROPERTY_POWERED,
+                                                  [self.VALUE_POWERED_ON],
+                                                  timeout_seconds=15)
+        if not success:
+            raise shill_proxy.ShillProxyError(
+                    'After modem reset, new modem failed to enter powered '
+                    'state.')
 
         # (4) Check that service reappears
         if not expect_service:
@@ -248,12 +249,15 @@ class CellularProxy(shill_proxy.ShillProxy):
             return False
 
 
-    def _get_reappeared_modem(self, model_id, old_modem_mm_object):
-        """Check that a vanished modem reappers.
+    def _get_reappeared_modem(self, model_id, old_modem_mm_object, mm_reboot):
+        """Check that a vanished modem reappeers.
 
         @param model_id: The model ID reported by the vanished modem.
         @param old_modem_mm_object: The previously reported modemmanager object
                 path for this modem.
+        @param mm_reboot: indicates when modemmanager was rebooted.
+                When modemmanager reboots, the previous modem object name has
+                no importance.
 
         @return The reappeared DBus object, if any. None otherwise.
 
@@ -263,9 +267,11 @@ class CellularProxy(shill_proxy.ShillProxy):
         device = self.find_cellular_device_object()
         if not device:
             return None
-        properties = device.GetProperties(utf8_strings=True)
+        properties = device.GetProperties()
         if (model_id == properties.get(self.DEVICE_PROPERTY_MODEL_ID) and
-            (old_modem_mm_object !=
-             properties.get(self.DEVICE_PROPERTY_DBUS_OBJECT))):
+            (mm_reboot or
+             (old_modem_mm_object != properties.get(
+                     self.DEVICE_PROPERTY_DBUS_OBJECT)
+              and '/' in properties.get(self.DEVICE_PROPERTY_DBUS_OBJECT)))):
             return device
         return None

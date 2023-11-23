@@ -32,6 +32,7 @@ android_test {
     certificate: "platform",
 
     min_sdk_version: "33",
+    target_sdk_version: "34",
 
     // When built explicitly put it in the data partition
 
@@ -46,10 +47,12 @@ android_test {
         "android.car.cluster.navigation",
         "android.car.testapi",
         "android.car.test.utils",
+        "com.android.car.test.lib",
         "androidx.test.runner",
+// TODO(b/236153976): comment back once guava is supported
+//      "guava-android-testlib",
         "compatibility-device-util-axt",
         "platform-test-annotations",
-        "testng",
         "truth-prebuilt",
     ],
 
@@ -59,5 +62,16 @@ android_test {
         "android.test.base",
     ],
 
-    test_suites: ["general-tests"],
+    // mockito-target-inline dependency
+    jni_libs: [
+        "libdexmakerjvmtiagent",
+        "libstaticjvmtiagent",
+        "libcarservicejni",
+    ],
+
+    test_suites: [
+        "general-tests",
+        "automotive-tests",
+        "automotive-general-tests",
+    ],
 }

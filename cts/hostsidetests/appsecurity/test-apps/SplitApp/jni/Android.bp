@@ -47,6 +47,11 @@ cc_defaults {
                 "-D__ANDROID_ARCH__=\"x86_64\"",
             ],
         },
+        android_riscv64: {
+            cflags: [
+                "-D__ANDROID_ARCH__=\"riscv64\"",
+            ],
+        },
     },
     sdk_version: "current",
 }

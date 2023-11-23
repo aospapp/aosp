@@ -201,6 +201,58 @@ cc_defaults {
     ],
 }
 
+cc_defaults {
+    name: "NeuralNetworksTest_v2_static_defaults",
+    defaults: ["NeuralNetworksTest_static_defaults"],
+    srcs: [
+        "TestCompatibilityLayer.cpp",
+    ],
+    exclude_srcs: [
+        "PreparedModelCallback.cpp",
+        "TestCompilationCaching.cpp",
+        "TestCompliance.cpp",
+        "TestControlFlow.cpp",
+        "TestExecution.cpp",
+        "TestExtensions.cpp",
+        "TestFailingDriver.cpp",
+        "TestFree.cpp",
+        "TestGenerated.cpp",
+        "TestIntrospectionControl.cpp",
+        "TestMemory.cpp",
+        "TestMemoryDomain.cpp",
+        "TestMemoryInternal.cpp",
+        "TestOperandExtraParams.cpp",
+        "TestPartitioning.cpp",
+        "TestPartitioningRandom.cpp",
+        "TestRemoveDefaultArguments.cpp",
+        "TestServerFlag.cpp",
+        "TestTelemetry.cpp",
+        "TestTrivialModel.cpp",
+        "TestUnknownDimensions.cpp",
+        "TestUnspecifiedDimensions.cpp",
+        "TestUpdatability.cpp",
+        "TestValidateModel.cpp",
+        "TestValidateOperations.cpp",
+        "TestValidation.cpp",
+        "fibonacci_extension/FibonacciDriver.cpp",
+        "fibonacci_extension/FibonacciExtensionTest.cpp",
+    ],
+
+    include_dirs: [
+        "external/flatbuffers/include",
+        "external/tensorflow",
+    ],
+
+    static_libs: [
+        "libflatbuffers-cpp",
+        "libneuralnetworks_v2_static_experimental",
+        "libtflite_static",
+    ],
+    exclude_static_libs: [
+        "libneuralnetworks_static",
+    ],
+}
+
 cc_test {
     name: "NeuralNetworksTest_static",
     defaults: ["NeuralNetworksTest_static_defaults"],
@@ -230,6 +282,41 @@ cc_test {
     static_libs: [
         "libneuralnetworks_common_experimental",
         "libneuralnetworks_static_experimental",
+        "neuralnetworks_types_experimental",
+    ],
+    cflags: ["-DNN_EXPERIMENTAL_FEATURE"],
+    test_options: {
+        unit_test: false,
+    },
+}
+
+cc_test {
+    name: "NeuralNetworksTest_v2_static",
+    defaults: ["NeuralNetworksTest_v2_static_defaults"],
+    test_suites: [
+        "general-tests",
+    ],
+    target: {
+        android: {
+            test_config: "AndroidTest_NeuralNetworksTest_v2_static.xml",
+            srcs: ["TestStatsdTelemetry.cpp"],
+        },
+        host: {
+            cflags: [
+                "-D__ANDROID_API__=10000",
+            ],
+        },
+    },
+    whole_static_libs: [
+        "neuralnetworks_generated_experimental_example",
+    ],
+    exclude_static_libs: [
+        "libneuralnetworks_common",
+        "neuralnetworks_types",
+        "server_configurable_flags",
+    ],
+    static_libs: [
+        "libneuralnetworks_common_experimental",
         "neuralnetworks_types_experimental",
     ],
     cflags: ["-DNN_EXPERIMENTAL_FEATURE"],
@@ -417,7 +504,6 @@ cc_test {
 cc_library_static {
     name: "CtsNNAPITests_static",
     host_supported: true,
-    defaults: ["neuralnetworks_float16"],
     srcs: [
         ":libneuralnetworks_generated_test_harness_for_cts",
         "CtsMain.cpp",
@@ -506,7 +592,6 @@ cc_library_static {
 
 cc_defaults {
     name: "neuralnetworks_generated_defaults",
-    defaults: ["neuralnetworks_float16"],
     tidy: false, // generated files are too big to run with clang-tidy
     host_supported: true,
     vendor_available: true,
@@ -552,7 +637,6 @@ cc_library_static {
 cc_library_static {
     name: "neuralnetworks_generated_V1_3_cts_only_example",
     host_supported: true,
-    defaults: ["neuralnetworks_float16"],
     tidy: false, // generated files are too big to run with clang-tidy
     srcs: ["generated/spec_V1_3_cts_only/*.example.cpp"],
     static_libs: ["libneuralnetworks_generated_test_harness"],
@@ -568,7 +652,6 @@ cc_library_static {
 cc_library_static {
     name: "NeuralNetworksTest_random_graph",
     host_supported: true,
-    defaults: ["neuralnetworks_float16"],
     srcs: [
         ":libneuralnetworks_generated_test_harness_for_cts",
         "GeneratedTestUtils.cpp",

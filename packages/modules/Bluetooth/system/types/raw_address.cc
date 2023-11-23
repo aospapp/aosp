@@ -38,10 +38,23 @@ RawAddress::RawAddress(const std::array<uint8_t, kLength> mac) {
   std::copy(mac.begin(), mac.end(), address);
 }
 
-std::string RawAddress::ToString() const {
+std::string RawAddress::ToString() const { return ToColonSepHexString(); }
+
+std::string RawAddress::ToColonSepHexString() const {
   return base::StringPrintf("%02x:%02x:%02x:%02x:%02x:%02x", address[0],
                             address[1], address[2], address[3], address[4],
                             address[5]);
+}
+
+std::string RawAddress::ToStringForLogging() const {
+  return ToColonSepHexString();
+}
+
+std::string RawAddress::ToRedactedStringForLogging() const {
+  if (*this == RawAddress::kAny || *this == RawAddress::kEmpty) {
+    return ToStringForLogging();
+  }
+  return base::StringPrintf("xx:xx:xx:xx:%02x:%02x", address[4], address[5]);
 }
 
 std::array<uint8_t, RawAddress::kLength> RawAddress::ToArray() const {

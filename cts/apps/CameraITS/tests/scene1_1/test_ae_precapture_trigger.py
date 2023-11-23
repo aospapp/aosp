@@ -24,18 +24,18 @@ import capture_request_utils
 import its_session_utils
 import target_exposure_utils
 
-AE_INACTIVE = 0
-AE_SEARCHING = 1
-AE_CONVERGED = 2
-AE_LOCKED = 3  # not used in this test
-AE_FLASHREQUIRED = 4  # not used in this test
-AE_PRECAPTURE = 5
-FRAMES_AE_DISABLED = 5
-FRAMES_PER_ITERATION = 8
-ITERATIONS_TO_CONVERGE = 5
-NAME = os.path.splitext(os.path.basename(__file__))[0]
-START_AE_PRECAP_TRIG = 1
-STOP_AE_PRECAP_TRIG = 0
+_AE_INACTIVE = 0
+_AE_SEARCHING = 1
+_AE_CONVERGED = 2
+_AE_LOCKED = 3  # not used in this test
+_AE_FLASHREQUIRED = 4  # not used in this test
+_AE_PRECAPTURE = 5
+_FRAMES_AE_DISABLED = 5
+_FRAMES_PER_ITERATION = 8
+_ITERATIONS_TO_CONVERGE = 5
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_START_AE_PRECAP_TRIG = 1
+_STOP_AE_PRECAP_TRIG = 0
 
 
 class AePrecaptureTest(its_base_test.ItsBaseTest):
@@ -43,11 +43,11 @@ class AePrecaptureTest(its_base_test.ItsBaseTest):
   """
 
   def test_ae_precapture(self):
-    logging.debug('Starting %s', NAME)
-    logging.debug('AE_INACTIVE: %d', AE_INACTIVE)
-    logging.debug('AE_SEARCHING: %d', AE_SEARCHING)
-    logging.debug('AE_CONVERGED: %d', AE_CONVERGED)
-    logging.debug('AE_PRECAPTURE: %d', AE_PRECAPTURE)
+    logging.debug('Starting %s', _NAME)
+    logging.debug('AE_INACTIVE: %d', _AE_INACTIVE)
+    logging.debug('AE_SEARCHING: %d', _AE_SEARCHING)
+    logging.debug('AE_CONVERGED: %d', _AE_CONVERGED)
+    logging.debug('AE_PRECAPTURE: %d', _AE_PRECAPTURE)
 
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
@@ -75,56 +75,56 @@ class AePrecaptureTest(its_base_test.ItsBaseTest):
       e, s = target_exposure_utils.get_target_exposure_combos(
           self.log_path, cam)['midExposureTime']
       manual_req = capture_request_utils.manual_capture_request(s, e)
-      manual_req['android.control.aeMode'] = AE_INACTIVE
-      manual_reqs += [manual_req] * (FRAMES_AE_DISABLED-1)
+      manual_req['android.control.aeMode'] = _AE_INACTIVE
+      manual_reqs += [manual_req] * (_FRAMES_AE_DISABLED-1)
       precap_req = capture_request_utils.manual_capture_request(s, e)
-      precap_req['android.control.aeMode'] = AE_INACTIVE
-      precap_req['android.control.aePrecaptureTrigger'] = START_AE_PRECAP_TRIG
+      precap_req['android.control.aeMode'] = _AE_INACTIVE
+      precap_req['android.control.aePrecaptureTrigger'] = _START_AE_PRECAP_TRIG
       manual_reqs.append(precap_req)
       caps = cam.do_capture(manual_reqs, fmt)
       for i, cap in enumerate(caps):
         state = cap['metadata']['android.control.aeState']
-        msg = 'AE state after manual request %d: %d' % (i, state)
+        msg = f'AE state after manual request {i}: {state}'
         logging.debug('%s', msg)
-        if state != AE_INACTIVE:
-          raise AssertionError(f'{msg} AE_INACTIVE: {AE_INACTIVE}')
+        if state != _AE_INACTIVE:
+          raise AssertionError(f'{msg} AE_INACTIVE: {_AE_INACTIVE}')
 
       # Capture auto request and verify the AE state: no trigger.
       logging.debug('Auto capture')
       auto_req = capture_request_utils.auto_capture_request()
-      auto_req['android.control.aeMode'] = AE_SEARCHING
+      auto_req['android.control.aeMode'] = _AE_SEARCHING
       cap = cam.do_capture(auto_req, fmt)
       state = cap['metadata']['android.control.aeState']
-      msg = 'AE state after auto request: %d' % state
+      msg = f'AE state after auto request: {state}'
       logging.debug('%s', msg)
-      if state not in [AE_SEARCHING, AE_CONVERGED]:
-        raise AssertionError(f'{msg} AE_SEARCHING: {AE_SEARCHING}, '
-                             f'AE_CONVERGED: {AE_CONVERGED}')
+      if state not in [_AE_SEARCHING, _AE_CONVERGED]:
+        raise AssertionError(f'{msg} AE_SEARCHING: {_AE_SEARCHING}, '
+                             f'AE_CONVERGED: {_AE_CONVERGED}')
 
       # Capture auto request with a precapture trigger.
       logging.debug('Auto capture with precapture trigger')
-      auto_req['android.control.aePrecaptureTrigger'] = START_AE_PRECAP_TRIG
+      auto_req['android.control.aePrecaptureTrigger'] = _START_AE_PRECAP_TRIG
       cap = cam.do_capture(auto_req, fmt)
       state = cap['metadata']['android.control.aeState']
-      msg = 'AE state after auto request with precapture trigger: %d' % state
+      msg = f'AE state after auto request with precapture trigger: {state}'
       logging.debug('%s', msg)
-      if state not in [AE_SEARCHING, AE_CONVERGED, AE_PRECAPTURE]:
-        raise AssertionError(f'{msg} AE_SEARCHING: {AE_SEARCHING}, '
-                             f'AE_CONVERGED: {AE_CONVERGED}, '
-                             f'AE_PRECAPTURE: {AE_PRECAPTURE}')
+      if state not in [_AE_SEARCHING, _AE_CONVERGED, _AE_PRECAPTURE]:
+        raise AssertionError(f'{msg} AE_SEARCHING: {_AE_SEARCHING}, '
+                             f'AE_CONVERGED: {_AE_CONVERGED}, '
+                             f'AE_PRECAPTURE: {_AE_PRECAPTURE}')
 
       # Capture some more auto requests, and AE should converge.
       logging.debug('Additional auto captures')
-      auto_req['android.control.aePrecaptureTrigger'] = STOP_AE_PRECAP_TRIG
-      for _ in range(ITERATIONS_TO_CONVERGE):
-        caps = cam.do_capture([auto_req] * FRAMES_PER_ITERATION, fmt)
+      auto_req['android.control.aePrecaptureTrigger'] = _STOP_AE_PRECAP_TRIG
+      for _ in range(_ITERATIONS_TO_CONVERGE):
+        caps = cam.do_capture([auto_req] * _FRAMES_PER_ITERATION, fmt)
         state = caps[-1]['metadata']['android.control.aeState']
-        msg = 'AE state after auto request: %d' % state
+        msg = f'AE state after auto request: {state}'
         logging.debug('%s', msg)
-        if state == AE_CONVERGED:
+        if state == _AE_CONVERGED:
           return
-      if state != AE_CONVERGED:
-        raise AssertionError(f'{msg}  AE_CONVERGED: {AE_CONVERGED}')
+      if state != _AE_CONVERGED:
+        raise AssertionError(f'{msg}  AE_CONVERGED: {_AE_CONVERGED}')
 
 if __name__ == '__main__':
   test_runner.main()

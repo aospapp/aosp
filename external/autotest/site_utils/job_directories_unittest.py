@@ -6,13 +6,14 @@ from __future__ import print_function
 
 import contextlib
 import datetime
-import mox
 import os
 import shutil
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import common
+
 from autotest_lib.site_utils import job_directories
 from autotest_lib.client.common_lib import time_utils
 
@@ -81,8 +82,7 @@ class GetJobIDOrTaskID(unittest.TestCase):
         )
 
 
-
-class JobDirectorySubclassTests(mox.MoxTestBase):
+class JobDirectorySubclassTests(unittest.TestCase):
     """Test specific to RegularJobDirectory and SpecialJobDirectory.
 
     This provides coverage for the implementation in both
@@ -92,8 +92,9 @@ class JobDirectorySubclassTests(mox.MoxTestBase):
 
     def setUp(self):
         super(JobDirectorySubclassTests, self).setUp()
-        self.mox.StubOutWithMock(job_directories, '_AFE')
-
+        patcher = patch.object(job_directories, '_AFE')
+        self._mock = patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_regular_job_fields(self):
         """Test the constructor for `RegularJobDirectory`.
@@ -107,7 +108,6 @@ class JobDirectorySubclassTests(mox.MoxTestBase):
         self.assertEqual(job.dirname, resultsdir)
         self.assertEqual(job._id, '118')
 
-
     def test_special_job_fields(self):
         """Test the constructor for `SpecialJobDirectory`.
 
@@ -120,7 +120,6 @@ class JobDirectorySubclassTests(mox.MoxTestBase):
         job = job_directories.SpecialJobDirectory(resultsdir)
         self.assertEqual(job.dirname, resultsdir)
         self.assertEqual(job._id, '118')
-
 
     def _check_finished_job(self, jobtime, hqetimes, expected):
         """Mock and test behavior of a finished job.
@@ -138,17 +137,16 @@ class JobDirectorySubclassTests(mox.MoxTestBase):
 
         """
         job = job_directories.RegularJobDirectory('118-fubar')
-        job_directories._AFE.get_jobs(
-                id=job._id, finished=True).AndReturn(
-                        [_MockJob(jobtime)])
-        job_directories._AFE.get_host_queue_entries(
-                finished_on__isnull=False,
-                job_id=job._id).AndReturn(
-                        [_MockHostQueueEntry(t) for t in hqetimes])
-        self.mox.ReplayAll()
-        self.assertEqual(expected, job.get_timestamp_if_finished())
-        self.mox.VerifyAll()
+        self._mock.get_jobs.return_value = [_MockJob(jobtime)]
 
+        self._mock.get_host_queue_entries.return_value = ([
+                _MockHostQueueEntry(t) for t in hqetimes
+        ])
+
+        self.assertEqual(expected, job.get_timestamp_if_finished())
+        self._mock.get_jobs.assert_called_with(id=job._id, finished=True)
+        self._mock.get_host_queue_entries.assert_called_with(
+                finished_on__isnull=False, job_id=job._id)
 
     def test_finished_regular_job(self):
         """Test getting the timestamp for a finished regular job.
@@ -163,7 +161,6 @@ class JobDirectorySubclassTests(mox.MoxTestBase):
         self._check_finished_job(created_timestamp,
                                  [hqe_timestamp],
                                  hqe_timestamp)
-
 
     def test_finished_regular_job_multiple_hqes(self):
         """Test getting the timestamp for a regular job with multiple hqes.
@@ -185,12 +182,10 @@ class JobDirectorySubclassTests(mox.MoxTestBase):
         self._check_finished_job(created_timestamp,
                                  hqe_list,
                                  newer_hqe_timestamp)
-        self.mox.ResetAll()
         hqe_list.reverse()
         self._check_finished_job(created_timestamp,
                                  hqe_list,
                                  newer_hqe_timestamp)
-
 
     def test_finished_regular_job_null_finished_times(self):
         """Test getting the timestamp for an aborted regular job.
@@ -204,7 +199,6 @@ class JobDirectorySubclassTests(mox.MoxTestBase):
         timestamp = make_timestamp(0, True)
         self._check_finished_job(timestamp, [], timestamp)
 
-
     def test_unfinished_regular_job(self):
         """Test getting the timestamp for an unfinished regular job.
 
@@ -214,12 +208,9 @@ class JobDirectorySubclassTests(mox.MoxTestBase):
 
         """
         job = job_directories.RegularJobDirectory('118-fubar')
-        job_directories._AFE.get_jobs(
-                id=job._id, finished=True).AndReturn([])
-        self.mox.ReplayAll()
+        self._mock.get_jobs.return_value = []
         self.assertIsNone(job.get_timestamp_if_finished())
-        self.mox.VerifyAll()
-
+        self._mock.get_jobs.assert_called_with(id=job._id, finished=True)
 
     def test_finished_special_job(self):
         """Test getting the timestamp for a finished special job.
@@ -232,14 +223,13 @@ class JobDirectorySubclassTests(mox.MoxTestBase):
         job = job_directories.SpecialJobDirectory(
                 'hosts/host1/118-reset')
         timestamp = make_timestamp(0, True)
-        job_directories._AFE.get_special_tasks(
-                id=job._id, is_complete=True).AndReturn(
-                    [_MockSpecialTask(timestamp)])
-        self.mox.ReplayAll()
+        self._mock.get_special_tasks.return_value = ([
+                _MockSpecialTask(timestamp)
+        ])
         self.assertEqual(timestamp,
                          job.get_timestamp_if_finished())
-        self.mox.VerifyAll()
-
+        self._mock.get_special_tasks.assert_called_with(id=job._id,
+                                                        is_complete=True)
 
     def test_unfinished_special_job(self):
         """Test getting the timestamp for an unfinished special job.
@@ -251,11 +241,10 @@ class JobDirectorySubclassTests(mox.MoxTestBase):
         """
         job = job_directories.SpecialJobDirectory(
                 'hosts/host1/118-reset')
-        job_directories._AFE.get_special_tasks(
-                id=job._id, is_complete=True).AndReturn([])
-        self.mox.ReplayAll()
+        self._mock.get_special_tasks.return_value = []
         self.assertIsNone(job.get_timestamp_if_finished())
-        self.mox.VerifyAll()
+        self._mock.get_special_tasks.assert_called_with(id=job._id,
+                                                        is_complete=True)
 
 
 class JobExpirationTests(unittest.TestCase):
@@ -267,7 +256,6 @@ class JobExpirationTests(unittest.TestCase):
         self.assertTrue(
             job_directories.is_job_expired(
                 _TEST_EXPIRATION_AGE, timestamp))
-
 
     def test_alive(self):
         """Test detection of a job that's not expired."""

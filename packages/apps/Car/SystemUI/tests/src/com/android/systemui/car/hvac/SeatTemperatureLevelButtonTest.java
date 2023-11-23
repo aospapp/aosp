@@ -21,7 +21,9 @@ import static android.car.VehiclePropertyIds.HVAC_SEAT_TEMPERATURE;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
+import android.car.hardware.property.AreaIdConfig;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
@@ -52,6 +54,10 @@ public class SeatTemperatureLevelButtonTest extends SysuiTestCase {
     @Mock
     private HvacPropertySetter mHvacPropertySetter;
     @Mock
+    private CarPropertyConfig mCarPropertyConfig;
+    @Mock
+    private AreaIdConfig mAreaIdConfig;
+    @Mock
     private CarPropertyValue mCarPropertyValue;
 
     @Before
@@ -61,6 +67,9 @@ public class SeatTemperatureLevelButtonTest extends SysuiTestCase {
                 R.layout.seat_heat_level_button_test, /* root= */ null);
         mSeatTemperatureLevelButton = testView.findViewById(R.id.seat_heat_button);
         mSeatTemperatureLevelButton.setHvacPropertySetter(mHvacPropertySetter);
+        when(mCarPropertyConfig.getAreaIdConfig(AREA_ID)).thenReturn(mAreaIdConfig);
+        when(mAreaIdConfig.getMaxValue()).thenReturn(3);
+        mSeatTemperatureLevelButton.setConfigInfo(mCarPropertyConfig);
     }
 
     @Test

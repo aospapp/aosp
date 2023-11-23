@@ -17,7 +17,9 @@
 package com.android.bedstead.harrier.policies;
 
 import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIED_BY_DEVICE_OWNER;
+import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIED_BY_ORGANIZATION_OWNED_PROFILE_OWNER_PROFILE;
 import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIES_TO_OWN_USER;
+import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.CANNOT_BE_APPLIED_BY_ROLE_HOLDER;
 
 import com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy;
 
@@ -28,7 +30,7 @@ import com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy;
  * DevicePolicyManager#setDelegatedScopes(ComponentName, String, List)} with scope {@code
  * DevicePolicyManager#DELEGATION_SECURITY_LOGGING}.
  */
-// TODO(b/198774281): COPE profile POs can call this too, but we need to add the flag.
-@EnterprisePolicy(dpc = {APPLIED_BY_DEVICE_OWNER | APPLIES_TO_OWN_USER})
+@EnterprisePolicy(dpc = {APPLIED_BY_DEVICE_OWNER | APPLIED_BY_ORGANIZATION_OWNED_PROFILE_OWNER_PROFILE | APPLIES_TO_OWN_USER
+        | CANNOT_BE_APPLIED_BY_ROLE_HOLDER})
 public final class SecurityLoggingDelegation {
 }

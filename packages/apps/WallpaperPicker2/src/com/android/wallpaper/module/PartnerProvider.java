@@ -33,9 +33,14 @@ public interface PartnerProvider {
             "com.android.launcher3.action.PARTNER_CUSTOMIZATION";
 
     /**
-     * The resource ID in the partner APK for its list of wallpapers.
+     * The resource ID in the partner APK for an xml describing collections and wallpapers.
      */
     String WALLPAPER_RES_ID = "wallpapers";
+
+    /**
+     * The resource ID in the partner APK for its list of wallpapers in legacy string-array format.
+     */
+    String LEGACY_WALLPAPER_RES_ID = "partner_wallpapers";
 
     /**
      * Directory for system wallpapers in legacy versions of the partner APK.

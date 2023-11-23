@@ -10,10 +10,11 @@
 
 #if !defined(OPENSSL_NO_ASM)
 #if defined(__aarch64__)
-#include <GFp/arm_arch.h>
+#include "ring_core_generated/prefix_symbols_asm.h"
+#include <ring-core/arm_arch.h>
 
 
-.hidden	GFp_armcap_P
+.hidden	OPENSSL_armcap_P
 
 .section	.rodata
 
@@ -27,21 +28,21 @@
 
 .text
 
-.globl	GFp_ChaCha20_ctr32
-.hidden	GFp_ChaCha20_ctr32
-.type	GFp_ChaCha20_ctr32,%function
+.globl	ChaCha20_ctr32
+.hidden	ChaCha20_ctr32
+.type	ChaCha20_ctr32,%function
 .align	5
-GFp_ChaCha20_ctr32:
+ChaCha20_ctr32:
 	AARCH64_VALID_CALL_TARGET
 	cbz	x2,.Labort
 #if __has_feature(hwaddress_sanitizer) && __clang_major__ >= 10
-	adrp	x5,:pg_hi21_nc:GFp_armcap_P
+	adrp	x5,:pg_hi21_nc:OPENSSL_armcap_P
 #else
-	adrp	x5,GFp_armcap_P
+	adrp	x5,OPENSSL_armcap_P
 #endif
 	cmp	x2,#192
 	b.lo	.Lshort
-	ldr	w17,[x5,:lo12:GFp_armcap_P]
+	ldr	w17,[x5,:lo12:OPENSSL_armcap_P]
 	tst	w17,#ARMV7_NEON
 	b.ne	ChaCha20_neon
 
@@ -318,7 +319,7 @@ GFp_ChaCha20_ctr32:
 	ldp	x29,x30,[sp],#96
 	AARCH64_VALIDATE_LINK_REGISTER
 	ret
-.size	GFp_ChaCha20_ctr32,.-GFp_ChaCha20_ctr32
+.size	ChaCha20_ctr32,.-ChaCha20_ctr32
 
 .type	ChaCha20_neon,%function
 .align	5

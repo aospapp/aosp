@@ -9,40 +9,21 @@
     },
     {
       "path": "external/rust/crates/vulkano"
-    }
-  ],
-  "presubmit": [
-    {
-      "name": "ZipFuseTest"
     },
     {
-      "name": "authfs_device_test_src_lib"
+      "path": "packages/modules/Virtualization/authfs"
     },
     {
-      "name": "keystore2_test"
+      "path": "packages/modules/Virtualization/virtualizationmanager"
     },
     {
-      "name": "legacykeystore_test"
+      "path": "packages/modules/Virtualization/zipfuse"
     },
     {
-      "name": "virtualizationservice_device_test"
-    }
-  ],
-  "presubmit-rust": [
-    {
-      "name": "ZipFuseTest"
+      "path": "system/security/keystore2"
     },
     {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "legacykeystore_test"
-    },
-    {
-      "name": "virtualizationservice_device_test"
+      "path": "system/security/keystore2/legacykeystore"
     }
   ]
 }

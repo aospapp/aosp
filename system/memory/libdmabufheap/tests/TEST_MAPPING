@@ -4,7 +4,7 @@
       "name": "dmabufheap-unit-tests"
     }
   ],
-  "hwasan-postsubmit": [
+  "hwasan-presubmit": [
     {
       "name": "dmabufheap-unit-tests"
     }

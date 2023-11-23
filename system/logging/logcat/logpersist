@@ -173,6 +173,10 @@ esac
 
 if [ X"${log_tag}" != X"`getprop ${log_tag_property}`" ] ||
    [ X"${logd_logpersistd}" != X"`getprop ${property}`" ]; then
-  echo "WARNING: killing Settings application to pull in new values" >&2
-  am force-stop com.android.settings
+  if command -v am >/dev/null; then
+    echo "WARNING: killing Settings application to pull in new values" >&2
+    am force-stop com.android.settings
+  else
+    echo "WARNING: could not kill Settings application to pull in new values: am command not found" >&2
+  fi
 fi

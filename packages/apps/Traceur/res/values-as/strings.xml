@@ -2,8 +2,11 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="system_tracing" msgid="4719188511746319848">"ছিষ্টেম ট্ৰে\'চ কৰা কাৰ্য"</string>
-    <string name="record_system_activity" msgid="4339462312915377825">"ছিষ্টেমৰ কাৰ্যকলাপ ৰেকৰ্ড কৰক আৰু ইয়াৰ প্ৰদৰ্শন আৰু উন্নত কৰিবলৈ পিছত ইয়াৰ বিশ্লেষণ কৰক"</string>
+    <string name="record_system_activity" msgid="4339462312915377825">"ছিষ্টেমৰ কাৰ্যকলাপ ৰেকৰ্ড কৰক আৰু ইয়াৰ প্ৰদৰ্শন আৰু উন্নত কৰিবলৈ পাছত ইয়াৰ বিশ্লেষণ কৰক"</string>
     <string name="record_trace" msgid="6416875085186661845">"ট্ৰে\'চ ৰেকৰ্ড কৰক"</string>
+    <string name="record_trace_summary" msgid="6705357754827849292">"\"ট্ৰে’চৰ ছেটিঙ\"ত ছেট কৰা কনফিগাৰেশ্বন ব্যৱহাৰ কৰি এটা ছিষ্টেমৰ ট্ৰে’চ কেপচাৰ কৰে"</string>
+    <string name="record_stack_samples" msgid="3498368637185702335">"CPUৰ প্ৰ’ফাইল ৰেকৰ্ড কৰক"</string>
+    <string name="record_stack_samples_summary" msgid="7827953921526410478">"\"cpu\" শিতান পৰীক্ষা কৰি ট্ৰে’চসমূহতো কলষ্টেকৰ নমুনা সংগ্ৰহ সক্ষম কৰিব পাৰি"</string>
     <string name="start_new_trace" msgid="8177130420802170353">"নতুন ট্ৰে’চ আৰম্ভ কৰক"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"ডিবাগ কৰিবলগীয়া এপ্লিকেশ্বনসমূহ ট্ৰে\'চ কৰক"</string>
     <string name="categories" msgid="2280163673538611008">"শ্ৰেণী"</string>
@@ -17,7 +20,9 @@
     <string name="show_quick_settings_tile" msgid="4971147332635291585">"দ্ৰুত ছেটিঙৰ টাইল দেখুৱাওক"</string>
     <string name="saving_trace" msgid="1468692734770800541">"ট্ৰে\'চ ছেভ কৰি থকা হৈছে"</string>
     <string name="trace_saved" msgid="5869970594780992309">"ট্ৰে\'চ ছেভ কৰা হ’ল"</string>
-    <string name="tap_to_share" msgid="6766732404489536899">"আপোনাৰ ট্ৰে\'চ শ্বেয়াৰ কৰিবলৈ টিপক"</string>
+    <string name="saving_stack_samples" msgid="8174915522390525221">"ষ্টেকৰ নমুনা ছেভ কৰি থকা হৈছে"</string>
+    <string name="stack_samples_saved" msgid="8863295751647724616">"ষ্টেকৰ নমুনা ছেভ কৰা হৈছে"</string>
+    <string name="tap_to_share" msgid="4440713575852187545">"অপোনাৰ ৰেকৰ্ডিং শ্বেয়াৰ কৰিবলৈ টিপক"</string>
     <string name="attaching_to_report" msgid="2629202947947275886">"বাগ ৰিপ’ৰ্টৰ সৈতে ট্ৰে’চ সংলগ্ন কৰি থকা হৈছে"</string>
     <string name="attached_to_report" msgid="5806905349184608870">"বাগ ৰিপ’ৰ্টৰ সৈতে ট্ৰে’চ সংলগ্ন কৰা হ’ল"</string>
     <string name="attached_to_report_summary" msgid="7665675771190391355">"BetterBug খুলিবলৈ টিপক"</string>
@@ -25,18 +30,19 @@
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"ট্ৰে\'চৰ কিছুমান শ্ৰেণী অনুপলব্ধ:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"ট্ৰে\'চ ৰেকৰ্ড কৰি থকা হৈছে"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"ট্ৰে\'চ কৰা কাৰ্য বন্ধ কৰিবলৈ টিপক"</string>
-    <string name="clear_saved_traces" msgid="4809195654452260944">"ছেভ কৰা ট্ৰে\'চসমূহ মচক"</string>
-    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"এমাহৰ পাছত ট্ৰে’চসমূহ মচি পেলোৱা হয়"</string>
-    <string name="clear_saved_traces_question" msgid="2184026613055303818">"ছেভ কৰা ট্ৰে\'চসমূহ মচেনে?"</string>
-    <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"/ডেটা/স্থানীয়/ট্ৰে\'চসমূহ-ৰ পৰা আটাইবোৰ ট্ৰে\'চ মচা হ\'ব"</string>
+    <string name="stack_samples_are_being_recorded" msgid="8669254939248349583">"ষ্টেকৰ নমুনা ৰেকৰ্ড কৰি থকা হৈছে"</string>
+    <string name="tap_to_stop_stack_sampling" msgid="5911317684139059415">"ষ্টেকৰ ছেম্পলিং বন্ধ কৰিবলৈ টিপক"</string>
+    <string name="clear_saved_files" msgid="9156079311231446825">"ছেভ কৰা ফাইলসমূহ মচক"</string>
+    <string name="clear_saved_files_summary" msgid="109751867417553670">"এমাহৰ পাছত ৰেকৰ্ডিংসমূহ মচি পেলোৱা হয়"</string>
+    <string name="clear_saved_files_question" msgid="8586686617760838834">"ছেভ কৰা ফাইলসমূহ মচিবনে?"</string>
+    <string name="all_recordings_will_be_deleted" msgid="7731693738485947891">"আটাইবোৰ ৰেকৰ্ডিং /ডেটা/স্থানীয়/ট্ৰে’চৰ পৰা মচা হ’ব"</string>
     <string name="clear" msgid="5484761795406948056">"মচক"</string>
     <string name="system_traces_storage_title" msgid="8294090839883366871">"ছিষ্টেম ট্ৰেচ"</string>
     <string name="keywords" msgid="736547007949049535">"ছিষ্ট্ৰেচ, ট্ৰেচ, প্ৰদৰ্শন"</string>
-    <string name="share_trace" msgid="4528525067822044385">"ট্রে\'চ শ্বেয়াৰ কৰিবনে?"</string>
+    <string name="share_file" msgid="1982029143280382271">"ফাইল শ্বেয়াৰ কৰিবনে?"</string>
     <string name="system_trace_sensitive_data" msgid="3069389866696009549">"ছিষ্টেমে ট্রে\'চ কৰা ফাইলত ছিষ্টেম আৰু এপৰ সংবেদনশীল ডেটা (যেনে- এপে ব্যৱহাৰ কৰা ডেটা) থাকিব পাৰে। আপুনি বিশ্বাস কৰা ব্যক্তি আৰু এপৰ সৈতেহে ছিষ্টেম ট্রে\'চ শ্বেয়াৰ কৰক।"</string>
     <string name="share" msgid="8443979083706282338">"শ্বেয়াৰ কৰক"</string>
     <string name="dont_show_again" msgid="6662492041164390600">"পুনৰাই নেদেখুৱাব"</string>
-    <string name="use_perfetto_beta" msgid="2725630143916520160">"Perfetto (বিটা) ব্যৱহাৰ কৰক"</string>
     <string name="long_traces" msgid="5110949471775966329">"দীঘল ট্ৰে\'চ"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"ডিভাইচ ষ্ট’ৰেজত নিয়মীয়াকৈ ছেভ কৰা হৈছে"</string>
     <string name="long_traces_summary_betterbug" msgid="445546400875135624">"ডিভাইচৰ ষ্ট’ৰেজত অবিৰতভাৱে ছেভ কৰা হয় (বাগ ৰিপ’ৰ্টত স্বয়ংক্ৰিয়ভাৱে সংলগ্ন কৰা নহ’ব)"</string>
@@ -58,9 +64,12 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"১৬৩৮৪ কে.বি."</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"৩২৭৬৮ কে.বি."</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"৬৫৫৩৬ কে.বি."</string>
-    <string name="stop_on_bugreport" msgid="2045328149107284734">"বাগ ৰিপ’ৰ্টৰ বাবে ট্ৰে’চ কৰাটো বন্ধ কৰক"</string>
-    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"এটা বাগ ৰিপ’ৰ্ট আৰম্ভ কৰিলে সক্ৰিয় ট্ৰে’চৰ ৰেকৰ্ডিংসমূহৰ অন্ত পেলায়"</string>
-    <string name="attach_to_bug_report" msgid="2953745117960948415">"বাগ ৰিপ’টত ট্ৰে’চ সংলগ্ন কৰক"</string>
-    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"যেতিয়া এটা বাগ ৰিপ’ৰ্ট সংগ্ৰহ কৰা হয়, চলি থকা ট্ৰে’চ BetterBugলৈ স্বয়ংক্ৰিয়ভাৱে পঠিয়াওক"</string>
-    <string name="link_to_traces" msgid="6569969595898995517">"ট্ৰেচ ফাইল চাওক"</string>
+    <string name="stop_on_bugreport" msgid="4591832600597126422">"বাগ ৰিপ’ৰ্টৰ বাবে ৰেকৰ্ড কৰাটো বন্ধ কৰক"</string>
+    <string name="stop_on_bugreport_summary" msgid="1601834864982891381">"এটা বাগ ৰিপ’ৰ্ট আৰম্ভ কৰিলে সক্ৰিয় ৰেকৰ্ডিংসমূহৰ অন্ত পৰে"</string>
+    <string name="attach_to_bug_report" msgid="5388986830016247490">"বাগ ৰিপ’ৰ্টত ৰেকৰ্ডিংসমূহ সংলগ্ন কৰক"</string>
+    <string name="attach_to_bug_report_summary" msgid="4213730623971240002">"যেতিয়া এটা বাগ ৰিপ’ৰ্ট সংগ্ৰহ কৰা হয়, চলি থকা ৰেকৰ্ডিংসমূহ BetterBugলৈ স্বয়ংক্ৰিয়ভাৱে পঠিয়াওক"</string>
+    <string name="link_to_traces" msgid="1404687523304348490">"ছেভ কৰা ফাইলসমূহ চাওক"</string>
+    <string name="pref_category_trace_settings" msgid="6507535407023329628">"ট্ৰে’চৰ ছেটিং"</string>
+    <string name="pref_category_saved_files" msgid="1477491400970413291">"ছেভ কৰি থোৱা ফাইল"</string>
+    <string name="pref_category_misc" msgid="6217624054980014683">"সানমিহলি"</string>
 </resources>

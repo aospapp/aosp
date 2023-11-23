@@ -166,7 +166,7 @@ public final class CompatChangesTest {
                 () -> CompatChanges.putPackageOverrides(OVERRIDE_PACKAGE,
                         Collections.singletonMap(CTS_SYSTEM_API_OVERRIDABLE_CHANGEID,
                                 new PackageOverride.Builder().setEnabled(true).build())));
-        assertThat(e).hasMessageThat().contains("Cannot override compat change");
+        assertThat(e).hasMessageThat().contains("Access denied");
     }
 
     @Test
@@ -226,7 +226,7 @@ public final class CompatChangesTest {
         SecurityException e = assertThrows(SecurityException.class,
                 () -> CompatChanges.removePackageOverrides(OVERRIDE_PACKAGE,
                         Collections.singleton(CTS_SYSTEM_API_OVERRIDABLE_CHANGEID)));
-        assertThat(e).hasMessageThat().contains("Cannot override compat change");
+        assertThat(e).hasMessageThat().contains("Access denied");
     }
 
     @Test

@@ -16,17 +16,7 @@
  * Call sendfile with offset = -1.
  */
 
-#include <stdio.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/stat.h>
 #include <sys/sendfile.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/mman.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
 #include "tst_test.h"
 
 static int in_fd;
@@ -49,7 +39,8 @@ static void run(void)
 	off_t offset = -1;
 
 	TST_EXP_FAIL(sendfile(out_fd, in_fd, &offset, 1), EINVAL,
-		     "sendfile(out, in, &offset, ..) with offset=%ld", offset);
+		     "sendfile(out, in, &offset, ..) with offset=%lld",
+		     (long long int)offset);
 }
 
 static struct tst_test test = {

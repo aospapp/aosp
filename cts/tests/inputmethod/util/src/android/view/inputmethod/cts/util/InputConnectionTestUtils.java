@@ -16,8 +16,14 @@
 
 package android.view.inputmethod.cts.util;
 
+import android.text.Editable;
 import android.text.Selection;
 import android.text.SpannableStringBuilder;
+import android.view.View;
+import android.view.inputmethod.BaseInputConnection;
+
+import androidx.annotation.NonNull;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 public final class InputConnectionTestUtils {
 
@@ -74,5 +80,49 @@ public final class InputConnectionTestUtils {
         }
         Selection.setSelection(builder, selectionStart, selectionEnd);
         return builder;
+    }
+
+    /**
+     * A utility method to create an instance of {@link BaseInputConnection}.
+     *
+     * @return {@link BaseInputConnection} instantiated in the full editor mode with {@code
+     *     editable}.
+     */
+    public static BaseInputConnection createBaseInputConnection() {
+        final View view = new View(InstrumentationRegistry.getInstrumentation().getTargetContext());
+        return new BaseInputConnection(view, true);
+    }
+
+    /**
+     * A utility method to create an instance of {@link BaseInputConnection} from {@link Editable}.
+     *
+     * @param editable the initial text.
+     * @return {@link BaseInputConnection} instantiated in the full editor mode with {@code
+     *     editable}.
+     */
+    public static BaseInputConnection createBaseInputConnection(@NonNull Editable editable) {
+        final View view = new View(InstrumentationRegistry.getInstrumentation().getTargetContext());
+        return new BaseInputConnection(view, true) {
+            @Override
+            public Editable getEditable() {
+                return editable;
+            }
+        };
+    }
+
+    /**
+     * A utility method to create an instance of {@link BaseInputConnection} in the full editor mode
+     * with an initial text and selection range.
+     *
+     * @param source the initial text.
+     * @return {@link BaseInputConnection} instantiated in the full editor mode with {@code source}
+     *     and selection range from {@code selectionStart} to {@code selectionEnd}
+     */
+    public static BaseInputConnection createBaseInputConnectionWithSelection(CharSequence source) {
+        final int selectionStart = Selection.getSelectionStart(source);
+        final int selectionEnd = Selection.getSelectionEnd(source);
+        final Editable editable = Editable.Factory.getInstance().newEditable(source);
+        Selection.setSelection(editable, selectionStart, selectionEnd);
+        return createBaseInputConnection(editable);
     }
 }

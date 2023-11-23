@@ -564,6 +564,16 @@ public class TestMinMax {
     return x;
   }
 
+  /// CHECK-START: int TestMinMax.minmax3(int) select_generator (after)
+  /// CHECK-DAG: <<Par:i\d+>>  ParameterValue
+  /// CHECK-DAG: <<P100:i\d+>> IntConstant 100
+  /// CHECK-DAG: <<M100:i\d+>> IntConstant -100
+  /// CHECK-DAG: <<Cnd1:z\d+>> LessThanOrEqual [<<Par>>,<<P100>>]
+  /// CHECK-DAG: <<Cnd2:z\d+>> GreaterThanOrEqual [<<Par>>,<<M100>>]
+  /// CHECK-DAG: <<Sel1:i\d+>> Select [<<M100>>,<<Par>>,<<Cnd2>>]
+  /// CHECK-DAG: <<Sel2:i\d+>> Select [<<P100>>,<<Sel1>>,<<Cnd1>>]
+  /// CHECK-DAG:               Return [<<Sel2>>]
+
   /// CHECK-START: int TestMinMax.minmax3(int) instruction_simplifier$after_gvn (after)
   /// CHECK-DAG: <<Par:i\d+>>  ParameterValue
   /// CHECK-DAG: <<P100:i\d+>> IntConstant 100
@@ -577,6 +587,16 @@ public class TestMinMax {
   public static int minmax3(int x) {
     return (x > 100) ? 100 : ((x < -100) ? -100 : x);
   }
+
+  /// CHECK-START: int TestMinMax.minmax4(int) select_generator (after)
+  /// CHECK-DAG: <<Par:i\d+>>  ParameterValue
+  /// CHECK-DAG: <<P100:i\d+>> IntConstant 100
+  /// CHECK-DAG: <<M100:i\d+>> IntConstant -100
+  /// CHECK-DAG: <<Cnd1:z\d+>> GreaterThanOrEqual [<<Par>>,<<M100>>]
+  /// CHECK-DAG: <<Cnd2:z\d+>> LessThanOrEqual [<<Par>>,<<P100>>]
+  /// CHECK-DAG: <<Sel1:i\d+>> Select [<<P100>>,<<Par>>,<<Cnd2>>]
+  /// CHECK-DAG: <<Sel2:i\d+>> Select [<<M100>>,<<Sel1>>,<<Cnd1>>]
+  /// CHECK-DAG:               Return [<<Sel2>>]
 
   /// CHECK-START: int TestMinMax.minmax4(int) instruction_simplifier$after_gvn (after)
   /// CHECK-DAG: <<Par:i\d+>>  ParameterValue

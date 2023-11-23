@@ -15,6 +15,7 @@
  */
 
 #include <algorithm>
+#include <utility>
 
 #include <gtest/gtest.h>
 
@@ -79,7 +80,7 @@ class KeyBlobTest : public ::testing::TestWithParam<AuthEncryptedBlobFormat>,
 
     keymaster_error_t Decrypt() {
         auto result =
-            DecryptKey(move(deserialized_key_), hidden_, secure_deletion_data_, master_key_);
+            DecryptKey(std::move(deserialized_key_), hidden_, secure_deletion_data_, master_key_);
         if (!result) return result.error();
         decrypted_plaintext_ = std::move(*result);
         return KM_ERROR_OK;

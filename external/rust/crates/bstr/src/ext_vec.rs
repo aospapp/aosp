@@ -1,16 +1,21 @@
-use std::borrow::Cow;
-use std::error;
-use std::ffi::{OsStr, OsString};
-use std::fmt;
-use std::iter;
-use std::ops;
-use std::path::{Path, PathBuf};
-use std::ptr;
-use std::str;
-use std::vec;
+use core::fmt;
+use core::iter;
+use core::ops;
+use core::ptr;
 
-use crate::ext_slice::ByteSlice;
-use crate::utf8::{self, Utf8Error};
+use alloc::{borrow::Cow, string::String, vec, vec::Vec};
+
+#[cfg(feature = "std")]
+use std::{
+    error,
+    ffi::{OsStr, OsString},
+    path::{Path, PathBuf},
+};
+
+use crate::{
+    ext_slice::ByteSlice,
+    utf8::{self, Utf8Error},
+};
 
 /// Concatenate the elements given by the iterator together into a single
 /// `Vec<u8>`.
@@ -99,8 +104,10 @@ impl ByteVec for Vec<u8> {
 
 /// Ensure that callers cannot implement `ByteSlice` by making an
 /// umplementable trait its super trait.
-pub trait Sealed {}
-impl Sealed for Vec<u8> {}
+mod private {
+    pub trait Sealed {}
+}
+impl private::Sealed for Vec<u8> {}
 
 /// A trait that extends `Vec<u8>` with string oriented methods.
 ///
@@ -114,7 +121,9 @@ impl Sealed for Vec<u8> {}
 /// let s = Vec::from_slice(b"abc"); // NOT ByteVec::from_slice("...")
 /// assert_eq!(s, B("abc"));
 /// ```
-pub trait ByteVec: Sealed {
+///
+/// This trait is sealed and cannot be implemented outside of `bstr`.
+pub trait ByteVec: private::Sealed {
     /// A method for accessing the raw vector bytes of this type. This is
     /// always a no-op and callers shouldn't care about it. This only exists
     /// for making the extension trait work.
@@ -154,8 +163,9 @@ pub trait ByteVec: Sealed {
 
     /// Create a new byte string from an owned OS string.
     ///
-    /// On Unix, this always succeeds and is zero cost. On non-Unix systems,
-    /// this returns the original OS string if it is not valid UTF-8.
+    /// When the underlying bytes of OS strings are accessible, then this
+    /// always succeeds and is zero cost. Otherwise, this returns the given
+    /// `OsString` if it is not valid UTF-8.
     ///
     /// # Examples
     ///
@@ -171,6 +181,7 @@ pub trait ByteVec: Sealed {
     /// assert_eq!(bs, B("foo"));
     /// ```
     #[inline]
+    #[cfg(feature = "std")]
     fn from_os_string(os_str: OsString) -> Result<Vec<u8>, OsString> {
         #[cfg(unix)]
         #[inline]
@@ -191,10 +202,11 @@ pub trait ByteVec: Sealed {
 
     /// Lossily create a new byte string from an OS string slice.
     ///
-    /// On Unix, this always succeeds, is zero cost and always returns a slice.
-    /// On non-Unix systems, this does a UTF-8 check. If the given OS string
-    /// slice is not valid UTF-8, then it is lossily decoded into valid UTF-8
-    /// (with invalid bytes replaced by the Unicode replacement codepoint).
+    /// When the underlying bytes of OS strings are accessible, then this is
+    /// zero cost and always returns a slice. Otherwise, a UTF-8 check is
+    /// performed and if the given OS string is not valid UTF-8, then it is
+    /// lossily decoded into valid UTF-8 (with invalid bytes replaced by the
+    /// Unicode replacement codepoint).
     ///
     /// # Examples
     ///
@@ -210,6 +222,7 @@ pub trait ByteVec: Sealed {
     /// assert_eq!(bs, B("foo"));
     /// ```
     #[inline]
+    #[cfg(feature = "std")]
     fn from_os_str_lossy<'a>(os_str: &'a OsStr) -> Cow<'a, [u8]> {
         #[cfg(unix)]
         #[inline]
@@ -233,8 +246,9 @@ pub trait ByteVec: Sealed {
 
     /// Create a new byte string from an owned file path.
     ///
-    /// On Unix, this always succeeds and is zero cost. On non-Unix systems,
-    /// this returns the original path if it is not valid UTF-8.
+    /// When the underlying bytes of paths are accessible, then this always
+    /// succeeds and is zero cost. Otherwise, this returns the given `PathBuf`
+    /// if it is not valid UTF-8.
     ///
     /// # Examples
     ///
@@ -250,16 +264,18 @@ pub trait ByteVec: Sealed {
     /// assert_eq!(bs, B("foo"));
     /// ```
     #[inline]
+    #[cfg(feature = "std")]
     fn from_path_buf(path: PathBuf) -> Result<Vec<u8>, PathBuf> {
         Vec::from_os_string(path.into_os_string()).map_err(PathBuf::from)
     }
 
     /// Lossily create a new byte string from a file path.
     ///
-    /// On Unix, this always succeeds, is zero cost and always returns a slice.
-    /// On non-Unix systems, this does a UTF-8 check. If the given path is not
-    /// valid UTF-8, then it is lossily decoded into valid UTF-8 (with invalid
-    /// bytes replaced by the Unicode replacement codepoint).
+    /// When the underlying bytes of paths are accessible, then this is
+    /// zero cost and always returns a slice. Otherwise, a UTF-8 check is
+    /// performed and if the given path is not valid UTF-8, then it is lossily
+    /// decoded into valid UTF-8 (with invalid bytes replaced by the Unicode
+    /// replacement codepoint).
     ///
     /// # Examples
     ///
@@ -275,6 +291,7 @@ pub trait ByteVec: Sealed {
     /// assert_eq!(bs, B("foo"));
     /// ```
     #[inline]
+    #[cfg(feature = "std")]
     fn from_path_lossy<'a>(path: &'a Path) -> Cow<'a, [u8]> {
         Vec::from_os_str_lossy(path.as_os_str())
     }
@@ -363,12 +380,10 @@ pub trait ByteVec: Sealed {
     /// ```
     /// use bstr::ByteVec;
     ///
-    /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let bytes = Vec::from("hello");
-    /// let string = bytes.into_string()?;
+    /// let string = bytes.into_string().unwrap();
     ///
     /// assert_eq!("hello", string);
-    /// # Ok(()) }; example().unwrap()
     /// ```
     ///
     /// If this byte string is not valid UTF-8, then an error will be returned.
@@ -469,8 +484,9 @@ pub trait ByteVec: Sealed {
 
     /// Converts this byte string into an OS string, in place.
     ///
-    /// On Unix, this always succeeds and is zero cost. On non-Unix systems,
-    /// this returns the original byte string if it is not valid UTF-8.
+    /// When OS strings can be constructed from arbitrary byte sequences, this
+    /// always succeeds and is zero cost. Otherwise, if this byte string is not
+    /// valid UTF-8, then an error (with the original byte string) is returned.
     ///
     /// # Examples
     ///
@@ -485,14 +501,15 @@ pub trait ByteVec: Sealed {
     /// let os_str = bs.into_os_string().expect("should be valid UTF-8");
     /// assert_eq!(os_str, OsStr::new("foo"));
     /// ```
+    #[cfg(feature = "std")]
     #[inline]
-    fn into_os_string(self) -> Result<OsString, Vec<u8>>
+    fn into_os_string(self) -> Result<OsString, FromUtf8Error>
     where
         Self: Sized,
     {
         #[cfg(unix)]
         #[inline]
-        fn imp(v: Vec<u8>) -> Result<OsString, Vec<u8>> {
+        fn imp(v: Vec<u8>) -> Result<OsString, FromUtf8Error> {
             use std::os::unix::ffi::OsStringExt;
 
             Ok(OsString::from_vec(v))
@@ -500,11 +517,8 @@ pub trait ByteVec: Sealed {
 
         #[cfg(not(unix))]
         #[inline]
-        fn imp(v: Vec<u8>) -> Result<OsString, Vec<u8>> {
-            match v.into_string() {
-                Ok(s) => Ok(OsString::from(s)),
-                Err(err) => Err(err.into_vec()),
-            }
+        fn imp(v: Vec<u8>) -> Result<OsString, FromUtf8Error> {
+            v.into_string().map(OsString::from)
         }
 
         imp(self.into_vec())
@@ -512,13 +526,13 @@ pub trait ByteVec: Sealed {
 
     /// Lossily converts this byte string into an OS string, in place.
     ///
-    /// On Unix, this always succeeds and is zero cost. On non-Unix systems,
-    /// this will perform a UTF-8 check and lossily convert this byte string
-    /// into valid UTF-8 using the Unicode replacement codepoint.
+    /// When OS strings can be constructed from arbitrary byte sequences, this
+    /// is zero cost and always returns a slice. Otherwise, this will perform a
+    /// UTF-8 check and lossily convert this byte string into valid UTF-8 using
+    /// the Unicode replacement codepoint.
     ///
-    /// Note that this can prevent the correct roundtripping of file paths on
-    /// non-Unix systems such as Windows, where file paths are an arbitrary
-    /// sequence of 16-bit integers.
+    /// Note that this can prevent the correct roundtripping of file paths when
+    /// the representation of `OsString` is opaque.
     ///
     /// # Examples
     ///
@@ -532,6 +546,7 @@ pub trait ByteVec: Sealed {
     /// assert_eq!(os_str.to_string_lossy(), "foo\u{FFFD}bar");
     /// ```
     #[inline]
+    #[cfg(feature = "std")]
     fn into_os_string_lossy(self) -> OsString
     where
         Self: Sized,
@@ -555,8 +570,9 @@ pub trait ByteVec: Sealed {
 
     /// Converts this byte string into an owned file path, in place.
     ///
-    /// On Unix, this always succeeds and is zero cost. On non-Unix systems,
-    /// this returns the original byte string if it is not valid UTF-8.
+    /// When paths can be constructed from arbitrary byte sequences, this
+    /// always succeeds and is zero cost. Otherwise, if this byte string is not
+    /// valid UTF-8, then an error (with the original byte string) is returned.
     ///
     /// # Examples
     ///
@@ -569,8 +585,9 @@ pub trait ByteVec: Sealed {
     /// let path = bs.into_path_buf().expect("should be valid UTF-8");
     /// assert_eq!(path.as_os_str(), "foo");
     /// ```
+    #[cfg(feature = "std")]
     #[inline]
-    fn into_path_buf(self) -> Result<PathBuf, Vec<u8>>
+    fn into_path_buf(self) -> Result<PathBuf, FromUtf8Error>
     where
         Self: Sized,
     {
@@ -579,13 +596,13 @@ pub trait ByteVec: Sealed {
 
     /// Lossily converts this byte string into an owned file path, in place.
     ///
-    /// On Unix, this always succeeds and is zero cost. On non-Unix systems,
-    /// this will perform a UTF-8 check and lossily convert this byte string
-    /// into valid UTF-8 using the Unicode replacement codepoint.
+    /// When paths can be constructed from arbitrary byte sequences, this is
+    /// zero cost and always returns a slice. Otherwise, this will perform a
+    /// UTF-8 check and lossily convert this byte string into valid UTF-8 using
+    /// the Unicode replacement codepoint.
     ///
-    /// Note that this can prevent the correct roundtripping of file paths on
-    /// non-Unix systems such as Windows, where file paths are an arbitrary
-    /// sequence of 16-bit integers.
+    /// Note that this can prevent the correct roundtripping of file paths when
+    /// the representation of `PathBuf` is opaque.
     ///
     /// # Examples
     ///
@@ -599,6 +616,7 @@ pub trait ByteVec: Sealed {
     /// assert_eq!(path.to_string_lossy(), "foo\u{FFFD}bar");
     /// ```
     #[inline]
+    #[cfg(feature = "std")]
     fn into_path_buf_lossy(self) -> PathBuf
     where
         Self: Sized,
@@ -1029,6 +1047,7 @@ impl FromUtf8Error {
     }
 }
 
+#[cfg(feature = "std")]
 impl error::Error for FromUtf8Error {
     #[inline]
     fn description(&self) -> &str {
@@ -1043,7 +1062,7 @@ impl fmt::Display for FromUtf8Error {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod tests {
     use crate::ext_vec::ByteVec;
 

@@ -6,6 +6,7 @@ import ast
 import logging
 import re
 import time
+from xml.parsers import expat
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import ec
@@ -175,7 +176,7 @@ class ChromeConsole(object):
             return False
         return result is not None
 
-    def send_command_get_output(self, command, regexp_list):
+    def send_command_get_output(self, command, regexp_list, retries=1):
         """Send command through UART and wait for response.
 
         This function waits for response message matching regular expressions.
@@ -204,12 +205,19 @@ class ChromeConsole(object):
             raise error.TestError('Arugment regexp_list is not a list: %s' %
                                   str(regexp_list))
 
-        self.set_uart_regexp(str(regexp_list))
-        self._servo.set_nocheck(self.uart_cmd, command)
-        rv = ast.literal_eval(self._servo.get(self.uart_cmd))
-        self.clear_uart_regex()
-
-        return rv
+        while retries > 0:
+            retries -= 1
+            try:
+                self.set_uart_regexp(str(regexp_list))
+                self._servo.set_nocheck(self.uart_cmd, command)
+                return ast.literal_eval(self._servo.get(self.uart_cmd))
+            except (servo.UnresponsiveConsoleError,
+                    servo.ResponsiveConsoleError, expat.ExpatError) as e:
+                if retries <= 0:
+                    raise
+                logging.warning('Failed to send EC cmd. %s', e)
+            finally:
+                self.clear_uart_regex()
 
 
     def is_dfp(self, port=0):
@@ -223,14 +231,20 @@ class ChromeConsole(object):
           False: if EC is not DFP
         """
         is_dfp = None
+        ret = None
         try:
-            # After reboot, EC should be UFP, but workaround in servod
-            # can perform PD Data Swap in workaroud so check that
-            ret = self.send_command_get_output("pd %d state" % port, ["DFP"])
+            ret = self.send_command_get_output("pd %d state" % port,
+                                               ["DFP.*Flag"])
             is_dfp = True
         except Exception as e:
-            # EC is UFP
             is_dfp = False
+
+        # For TCPMv1, after disconnecting a device the data state remains
+        # the same, so even when pd state shows DPF, make sure the device is
+        # not disconnected
+        if is_dfp:
+            if "DRP_AUTO_TOGGLE" in ret[0] or "DISCONNECTED" in ret[0]:
+                is_dfp = False
 
         return is_dfp
 
@@ -242,6 +256,9 @@ class ChromeEC(ChromeConsole):
     provides many interfaces to set and get its behavior via console commands.
     This class is to abstract these interfaces.
     """
+
+    # The dict to cache the battery information
+    BATTERY_INFO = {}
 
     def __init__(self, servo, name="ec_uart"):
         super(ChromeEC, self).__init__(servo, name)
@@ -378,10 +395,12 @@ class ChromeEC(ChromeConsole):
            Additionally, can be used to verify if EC console is available.
         """
         self.send_command("chan 0")
-        expected_output = ["Chip:\s+([^\r\n]*)\r\n",
-                           "RO:\s+([^\r\n]*)\r\n",
-                           "RW_?[AB]?:\s+([^\r\n]*)\r\n",
-                           "Build:\s+([^\r\n]*)\r\n"]
+        # Use "[ \t]" here and not \s because sometimes the version is blank,
+        # i.e. 'RO:   \r\n' which matches RO:\s+
+        expected_output = [
+                "Chip:[ \t]+([^\r\n]*)\r\n", "RO:[ \t]+([^\r\n]*)\r\n",
+                "RW_?[AB]?:[ \t]+([^\r\n]*)\r\n", "Build:[ \t]+([^\r\n]*)\r\n"
+        ]
         l = self.send_command_get_output("version", expected_output)
         self.send_command("chan 0xffffffff")
         return l
@@ -425,12 +444,116 @@ class ChromeEC(ChromeConsole):
         try:
             result = self.send_command_get_output('feat', [regexp])
         except servo.ResponsiveConsoleError as e:
-            logging.warn("feat command is not available: %s", str(e))
+            logging.warning("feat command is not available: %s", str(e))
             return False
 
         feat_bitmap = int(result[0][1], 16)
 
         return ((1 << (feat_id - feat_start)) & feat_bitmap) != 0
+
+    def update_battery_info(self):
+        """Get the battery info we care for this test."""
+        # The battery parameters we care for this test. The order must match
+        # the output of EC battery command.
+        battery_params = [
+                'V', 'V-desired', 'I', 'I-desired', 'Charging', 'Remaining'
+        ]
+        regex_str_list = []
+
+        for p in battery_params:
+            if p == 'Remaining':
+                regex_str_list.append(p + ':\s+(\d+)\s+')
+            elif p == 'Charging':
+                regex_str_list.append(p + r':\s+(Not Allowed|Allowed)\s+')
+            else:
+                regex_str_list.append(p +
+                                      r':\s+0x[0-9a-f]*\s+=\s+([0-9-]+)\s+')
+
+        # For unknown reasons, servod doesn't always capture the ec
+        # command output. It doesn't happen often, but retry if it does.
+        retries = 3
+        while retries > 0:
+            retries -= 1
+            try:
+                battery_regex_match = self.send_command_get_output(
+                        'battery', regex_str_list)
+                break
+            except (servo.UnresponsiveConsoleError,
+                    servo.ResponsiveConsoleError) as e:
+                if retries <= 0:
+                    raise
+                logging.warning('Failed to get battery status. %s', e)
+        else:
+            battery_regex_match = self.send_command_get_output(
+                    'battery', regex_str_list)
+
+        for i in range(len(battery_params)):
+            if battery_params[i] == 'Charging':
+                self.BATTERY_INFO[
+                        battery_params[i]] = battery_regex_match[i][1]
+            else:
+                self.BATTERY_INFO[battery_params[i]] = int(
+                        battery_regex_match[i][1])
+        logging.debug('Battery info: %s', self.BATTERY_INFO)
+
+    def get_battery_desired_voltage(self, print_result=True):
+        """Get battery desired voltage value."""
+        if not self.BATTERY_INFO:
+            self.update_battery_info()
+        if print_result:
+            logging.info('Battery desired voltage = %d mV',
+                         self.BATTERY_INFO['V-desired'])
+        return self.BATTERY_INFO['V-desired']
+
+    def get_battery_desired_current(self, print_result=True):
+        """Get battery desired current value."""
+        if not self.BATTERY_INFO:
+            self.update_battery_info()
+        if print_result:
+            logging.info('Battery desired current = %d mA',
+                         self.BATTERY_INFO['I-desired'])
+        return self.BATTERY_INFO['I-desired']
+
+    def get_battery_actual_voltage(self, print_result=True):
+        """Get the actual voltage from charger to battery."""
+        if not self.BATTERY_INFO:
+            self.update_battery_info()
+        if print_result:
+            logging.info('Battery actual voltage = %d mV',
+                         self.BATTERY_INFO['V'])
+        return self.BATTERY_INFO['V']
+
+    def get_battery_actual_current(self, print_result=True):
+        """Get the actual current from charger to battery."""
+        if not self.BATTERY_INFO:
+            self.update_battery_info()
+        if print_result:
+            logging.info('Battery actual current = %d mA',
+                         self.BATTERY_INFO['I'])
+        return self.BATTERY_INFO['I']
+
+    def get_battery_remaining(self, print_result=True):
+        """Get battery charge remaining in mAh."""
+        if not self.BATTERY_INFO:
+            self.update_battery_info()
+        if print_result:
+            logging.info("Battery charge remaining = %d mAh",
+                         self.BATTERY_INFO['Remaining'])
+        return self.BATTERY_INFO['Remaining']
+
+    def get_battery_charging_allowed(self, print_result=True):
+        """Get the battery charging state.
+
+        Returns True if charging is allowed.
+        """
+        if not self.BATTERY_INFO:
+            self.update_battery_info()
+        if print_result:
+            logging.info("Battery charging = %s",
+                         self.BATTERY_INFO['Charging'])
+        if self.BATTERY_INFO['Charging'] == 'Allowed':
+            return True
+        return False
 
 
 class ChromeUSBPD(ChromeEC):

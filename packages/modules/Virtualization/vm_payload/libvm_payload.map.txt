@@ -1,0 +1,12 @@
+LIBVM_PAYLOAD {
+  global:
+    AVmPayload_notifyPayloadReady;       # systemapi
+    AVmPayload_runVsockRpcServer;        # systemapi
+    AVmPayload_getVmInstanceSecret;      # systemapi
+    AVmPayload_getDiceAttestationChain;  # systemapi
+    AVmPayload_getDiceAttestationCdi;    # systemapi
+    AVmPayload_getApkContentsPath;       # systemapi
+    AVmPayload_getEncryptedStoragePath;  # systemapi
+  local:
+    *;
+};

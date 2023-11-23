@@ -17,9 +17,9 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="2008319089248760277">"ਵਾਇਰਲੈੱਸ ਐਮਰਜੈਂਸੀ ਸੁਚੇਤਨਾਵਾਂ"</string>
-    <string name="sms_cb_settings" msgid="9021266457863671070">"ਵਾਇਰਲੈੱਸ ਸੰਕਟਕਾਲੀਨ ਸੁਚੇਤਨਾਵਾਂ"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"ਵਾਇਰਲੈੱਸ ਐਮਰਜੈਂਸੀ ਸੁਚੇਤਨਾਵਾਂ"</string>
     <string name="sms_cb_sender_name_default" msgid="972946539768958828">"ਵਾਇਰਲੈੱਸ ਐਮਰਜੈਂਸੀ ਸੁਚੇਤਨਾਵਾਂ"</string>
-    <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"ਵਾਇਰਲੈੱਸ ਸੰਕਟਕਾਲੀਨ ਸੁਚੇਤਨਾਵਾਂ"</string>
+    <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"ਵਾਇਰਲੈੱਸ ਐਮਰਜੈਂਸੀ ਸੁਚੇਤਨਾਵਾਂ"</string>
     <string name="sms_cb_sender_name_emergency" msgid="2937067842997478965">"ਵਾਇਰਲੈੱਸ ਐਮਰਜੈਂਸੀ ਸੁਚੇਤਨਾਵਾਂ"</string>
     <string name="sms_cb_sender_name_public_safety" msgid="5230033387708907922">"ਜਾਣਕਾਰੀ ਵਾਲੀ ਸੂਚਨਾ"</string>
     <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"ਇਸ ਵਰਤੋਂਕਾਰ ਲਈ ਵਾਇਰਲੈੱਸ ਸੰਕਟਕਾਲੀਨ ਸੁਚੇਤਨਾ ਦੀਆਂ ਸੈਟਿੰਗਾਂ ਉਪਲਬਧ ਨਹੀਂ ਹਨ"</string>

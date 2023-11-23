@@ -19,8 +19,9 @@ package android.car.user;
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
 
 import android.annotation.IntDef;
+import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.TestApi;
+import android.annotation.SystemApi;
 import android.car.annotation.AddedInOrBefore;
 import android.os.Parcelable;
 import android.os.UserManager;
@@ -40,12 +41,13 @@ import java.lang.annotation.RetentionPolicy;
         genToString = true,
         genHiddenConstructor = true,
         genHiddenConstDefs = true)
-@TestApi
+@SystemApi
 public final class UserSwitchResult implements Parcelable, OperationResult {
 
     /**
      * When user switch is successful for both HAL and Android.
      */
+    @Status
     @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_SUCCESSFUL = CommonResults.STATUS_SUCCESSFUL;
 
@@ -53,12 +55,14 @@ public final class UserSwitchResult implements Parcelable, OperationResult {
      * When user switch is only successful for Hal but not for Android. Hal user switch rollover
      * message have been sent.
      */
+    @Status
     @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_ANDROID_FAILURE = CommonResults.STATUS_ANDROID_FAILURE;
 
     /**
      * When user switch fails for HAL. User switch for Android is not called.
      */
+    @Status
     @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_HAL_FAILURE = CommonResults.STATUS_HAL_FAILURE;
 
@@ -66,6 +70,7 @@ public final class UserSwitchResult implements Parcelable, OperationResult {
      * When user switch fails for HAL for some internal error. User switch for Android is not
      * called.
      */
+    @Status
     @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_HAL_INTERNAL_FAILURE = CommonResults.STATUS_HAL_INTERNAL_FAILURE;
 
@@ -73,12 +78,14 @@ public final class UserSwitchResult implements Parcelable, OperationResult {
      * When given parameters or environment states are invalid for switching user. HAL or Android
      * user switch is not requested.
      */
+    @Status
     @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_INVALID_REQUEST = CommonResults.STATUS_INVALID_REQUEST;
 
     /**
      * When user switch fails because of driving safety UX restrictions.
      */
+    @Status
     @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_UX_RESTRICTION_FAILURE =
             CommonResults.STATUS_UX_RESTRICTION_FAILURE;
@@ -86,6 +93,7 @@ public final class UserSwitchResult implements Parcelable, OperationResult {
     /**
      * When target user is same as current user.
      */
+    @Status
     @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_OK_USER_ALREADY_IN_FOREGROUND =
             CommonResults.LAST_COMMON_STATUS + 1;
@@ -93,6 +101,7 @@ public final class UserSwitchResult implements Parcelable, OperationResult {
     /**
      * When another user switch request for the same target user is in process.
      */
+    @Status
     @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_TARGET_USER_ALREADY_BEING_SWITCHED_TO =
             CommonResults.LAST_COMMON_STATUS + 2;
@@ -101,6 +110,7 @@ public final class UserSwitchResult implements Parcelable, OperationResult {
      * When another user switch request for a new different target user is received. Previous
      * request is abandoned.
      */
+    @Status
     @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_TARGET_USER_ABANDONED_DUE_TO_A_NEW_REQUEST =
             CommonResults.LAST_COMMON_STATUS + 3;
@@ -108,6 +118,7 @@ public final class UserSwitchResult implements Parcelable, OperationResult {
     /**
      * When switching users is currently not allowed for the user this process is running under.
      */
+    @Status
     @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_NOT_SWITCHABLE =
             CommonResults.LAST_COMMON_STATUS + 4;
@@ -115,6 +126,7 @@ public final class UserSwitchResult implements Parcelable, OperationResult {
     /**
      * When logout was called but the current user was not switched by a device admin.
      */
+    @Status
     @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_NOT_LOGGED_IN =
             CommonResults.LAST_COMMON_STATUS + 5;
@@ -144,8 +156,6 @@ public final class UserSwitchResult implements Parcelable, OperationResult {
      *
      * @return {@code USER_OPERATION_ERROR_} constants defined by {@link UserManager}, or
      * {@code null} when the {@link #getStatus() status} is not {@link #STATUS_ANDROID_FAILURE}.
-     *
-     * @hide
      */
     @Nullable
     private final Integer mAndroidFailureStatus;
@@ -184,6 +194,7 @@ public final class UserSwitchResult implements Parcelable, OperationResult {
     //
     // To regenerate run:
     // $ codegen $ANDROID_BUILD_TOP/packages/services/Car/car-lib/src/android/car/user/UserSwitchResult.java
+    // Added AddedInOrBefore or ApiRequirement Annotation manually
     //
     // To exclude the generated code from IntelliJ auto-formatting enable (one-time):
     //   Settings > Editor > Code Style > Formatter Control
@@ -208,9 +219,10 @@ public final class UserSwitchResult implements Parcelable, OperationResult {
     @DataClass.Generated.Member
     public @interface Status {}
 
-    /** @hide */
     @DataClass.Generated.Member
     @AddedInOrBefore(majorVersion = 33)
+    @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
+    @NonNull
     public static String statusToString(@Status int value) {
         switch (value) {
             case STATUS_SUCCESSFUL:
@@ -332,7 +344,6 @@ public final class UserSwitchResult implements Parcelable, OperationResult {
      *
      * @return {@code USER_OPERATION_ERROR_} constants defined by {@link UserManager}, or
      * {@code null} when the {@link #getStatus() status} is not {@link #STATUS_ANDROID_FAILURE}.
-     * @hide
      */
     @DataClass.Generated.Member
     @AddedInOrBefore(majorVersion = 33)
@@ -351,7 +362,6 @@ public final class UserSwitchResult implements Parcelable, OperationResult {
 
     @Override
     @DataClass.Generated.Member
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         // You can override field toString logic by defining methods like:
         // String fieldNameToString() { ... }
@@ -441,10 +451,10 @@ public final class UserSwitchResult implements Parcelable, OperationResult {
     };
 
     @DataClass.Generated(
-            time = 1643074560926L,
+            time = 1673057752058L,
             codegenVersion = "1.0.23",
             sourceFile = "packages/services/Car/car-lib/src/android/car/user/UserSwitchResult.java",
-            inputSignatures = "public static final  int STATUS_SUCCESSFUL\npublic static final  int STATUS_ANDROID_FAILURE\npublic static final  int STATUS_HAL_FAILURE\npublic static final  int STATUS_HAL_INTERNAL_FAILURE\npublic static final  int STATUS_INVALID_REQUEST\npublic static final  int STATUS_UX_RESTRICTION_FAILURE\npublic static final  int STATUS_OK_USER_ALREADY_IN_FOREGROUND\npublic static final  int STATUS_TARGET_USER_ALREADY_BEING_SWITCHED_TO\npublic static final  int STATUS_TARGET_USER_ABANDONED_DUE_TO_A_NEW_REQUEST\npublic static final  int STATUS_NOT_SWITCHABLE\npublic static final  int STATUS_NOT_LOGGED_IN\nprivate final @android.car.user.UserSwitchResult.Status int mStatus\nprivate final @android.annotation.Nullable java.lang.Integer mAndroidFailureStatus\nprivate final @android.annotation.Nullable java.lang.String mErrorMessage\npublic @java.lang.Override boolean isSuccess()\npublic @java.lang.Override @com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport int describeContents()\nclass UserSwitchResult extends java.lang.Object implements [android.os.Parcelable, android.car.user.OperationResult]\n@com.android.car.internal.util.DataClass(genToString=true, genHiddenConstructor=true, genHiddenConstDefs=true)")
+            inputSignatures = "public static final @android.car.user.UserSwitchResult.Status @android.car.annotation.AddedInOrBefore int STATUS_SUCCESSFUL\npublic static final @android.car.user.UserSwitchResult.Status @android.car.annotation.AddedInOrBefore int STATUS_ANDROID_FAILURE\npublic static final @android.car.user.UserSwitchResult.Status @android.car.annotation.AddedInOrBefore int STATUS_HAL_FAILURE\npublic static final @android.car.user.UserSwitchResult.Status @android.car.annotation.AddedInOrBefore int STATUS_HAL_INTERNAL_FAILURE\npublic static final @android.car.user.UserSwitchResult.Status @android.car.annotation.AddedInOrBefore int STATUS_INVALID_REQUEST\npublic static final @android.car.user.UserSwitchResult.Status @android.car.annotation.AddedInOrBefore int STATUS_UX_RESTRICTION_FAILURE\npublic static final @android.car.user.UserSwitchResult.Status @android.car.annotation.AddedInOrBefore int STATUS_OK_USER_ALREADY_IN_FOREGROUND\npublic static final @android.car.user.UserSwitchResult.Status @android.car.annotation.AddedInOrBefore int STATUS_TARGET_USER_ALREADY_BEING_SWITCHED_TO\npublic static final @android.car.user.UserSwitchResult.Status @android.car.annotation.AddedInOrBefore int STATUS_TARGET_USER_ABANDONED_DUE_TO_A_NEW_REQUEST\npublic static final @android.car.user.UserSwitchResult.Status @android.car.annotation.AddedInOrBefore int STATUS_NOT_SWITCHABLE\npublic static final @android.car.user.UserSwitchResult.Status @android.car.annotation.AddedInOrBefore int STATUS_NOT_LOGGED_IN\nprivate final @android.car.user.UserSwitchResult.Status int mStatus\nprivate final @android.annotation.Nullable java.lang.Integer mAndroidFailureStatus\nprivate final @android.annotation.Nullable java.lang.String mErrorMessage\npublic @java.lang.Override @android.car.annotation.AddedInOrBefore boolean isSuccess()\npublic @java.lang.Override @com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport @android.car.annotation.AddedInOrBefore int describeContents()\nclass UserSwitchResult extends java.lang.Object implements [android.os.Parcelable, android.car.user.OperationResult]\n@com.android.car.internal.util.DataClass(genToString=true, genHiddenConstructor=true, genHiddenConstDefs=true)")
     @Deprecated
     private void __metadata() {}
 

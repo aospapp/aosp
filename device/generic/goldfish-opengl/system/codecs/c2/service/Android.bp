@@ -22,6 +22,7 @@ cc_binary {
     ],
 
     init_rc: ["android.hardware.media.c2@1.0-service-goldfish.rc"],
+    vintf_fragments: ["android.hardware.media.c2@1.0-service-goldfish.xml"],
 
     shared_libs: [
         "libgoldfish_codec2_store",

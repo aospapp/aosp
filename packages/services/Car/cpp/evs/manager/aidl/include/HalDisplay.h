@@ -17,16 +17,14 @@
 #ifndef CPP_EVS_MANAGER_AIDL_INCLUDE_HALDISPLAY_H
 #define CPP_EVS_MANAGER_AIDL_INCLUDE_HALDISPLAY_H
 
+#include "Constants.h"
+
 #include <aidl/android/hardware/automotive/evs/BnEvsDisplay.h>
 #include <aidl/android/hardware/automotive/evs/BufferDesc.h>
 #include <aidl/android/hardware/automotive/evs/DisplayDesc.h>
 #include <aidl/android/hardware/automotive/evs/DisplayState.h>
 
-#include <limits>
-
 namespace aidl::android::automotive::evs::implementation {
-
-inline constexpr int32_t kInvalidDisplayId = std::numeric_limits<int32_t>::min();
 
 namespace aidlevs = ::aidl::android::hardware::automotive::evs;
 
@@ -40,7 +38,7 @@ public:
     ::ndk::ScopedAStatus setDisplayState(aidlevs::DisplayState state) override;
 
     explicit HalDisplay(std::shared_ptr<aidlevs::IEvsDisplay> display,
-                        int32_t port = kInvalidDisplayId);
+                        int32_t port = kDisplayIdUnavailable);
     virtual ~HalDisplay();
 
     inline void shutdown();

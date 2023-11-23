@@ -26,8 +26,8 @@ import java.util.Set;
 /**
  * Contains information about an individual change detected by an {@link ObserverCallback}.
  *
- * <p>This class reports information about document changes, i.e. when documents were added, updated
- * or removed.
+ * <p>This class reports information about document changes, that is, when documents were added,
+ * updated or removed.
  *
  * <p>Changes are grouped by package, database, schema type and namespace. Each unique combination
  * of these items will generate a unique {@link DocumentChangeInfo}.
@@ -106,8 +106,14 @@ public final class DocumentChangeInfo {
 
     @Override
     public boolean equals(@Nullable Object o) {
-        if (this == o) return true;
-        if (!(o instanceof DocumentChangeInfo)) return false;
+        if (this == o) {
+            return true;
+        }
+
+        if (!(o instanceof DocumentChangeInfo)) {
+            return false;
+        }
+
         DocumentChangeInfo that = (DocumentChangeInfo) o;
         return mPackageName.equals(that.mPackageName)
                 && mDatabase.equals(that.mDatabase)

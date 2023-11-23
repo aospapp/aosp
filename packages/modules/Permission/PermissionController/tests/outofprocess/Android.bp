@@ -51,6 +51,7 @@ android_test {
 
     proto: {
         type: "lite",
+        include_dirs: ["packages/modules/Permission/PermissionController/src/com/android/permissioncontroller"],
     },
 
     test_suites: [

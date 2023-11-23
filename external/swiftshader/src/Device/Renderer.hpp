@@ -74,20 +74,18 @@ struct DrawData
 	PixelProcessor::Factor factor;
 	unsigned int occlusion[MaxClusterCount];  // Number of pixels passing depth test
 
-	float4 WxF;
-	float4 HxF;
-	float4 X0xF;
-	float4 Y0xF;
-	float4 halfPixelX;
-	float4 halfPixelY;
-	float viewportHeight;
+	float WxF;
+	float HxF;
+	float X0xF;
+	float Y0xF;
+	float halfPixelX;
+	float halfPixelY;
 	float depthRange;
 	float depthNear;
 	float minimumResolvableDepthDifference;
 	float constantDepthBias;
 	float slopeDepthBias;
 	float depthBiasClamp;
-	bool depthClipEnable;
 
 	unsigned int *colorBuffer[MAX_COLOR_BUFFERS];
 	int colorPitchB[MAX_COLOR_BUFFERS];
@@ -104,12 +102,14 @@ struct DrawData
 	int scissorY0;
 	int scissorY1;
 
-	float4 a2c0;
-	float4 a2c1;
-	float4 a2c2;
-	float4 a2c3;
+	float a2c0;
+	float a2c1;
+	float a2c2;
+	float a2c3;
 
 	vk::Pipeline::PushConstantStorage pushConstants;
+
+	bool rasterizerDiscard;
 };
 
 struct DrawCall
@@ -154,11 +154,13 @@ struct DrawCall
 	VkLineRasterizationModeEXT lineRasterizationMode;
 
 	bool depthClipEnable;
+	bool depthClipNegativeOneToOne;
 
 	VertexProcessor::RoutineType vertexRoutine;
 	SetupProcessor::RoutineType setupRoutine;
 	PixelProcessor::RoutineType pixelRoutine;
-	bool containsImageWrite;
+	bool preRasterizationContainsImageWrite;
+	bool fragmentContainsImageWrite;
 
 	SetupFunction setupPrimitives;
 	SetupProcessor::State setupState;
@@ -167,7 +169,8 @@ struct DrawCall
 	vk::ImageView *depthBuffer;
 	vk::ImageView *stencilBuffer;
 	vk::DescriptorSet::Array descriptorSetObjects;
-	const vk::PipelineLayout *pipelineLayout;
+	const vk::PipelineLayout *preRasterizationPipelineLayout;
+	const vk::PipelineLayout *fragmentPipelineLayout;
 	sw::CountedEvent *events;
 
 	vk::Query *occlusionQuery;
@@ -207,7 +210,7 @@ public:
 
 	void draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState &dynamicState, unsigned int count, int baseVertex,
 	          CountedEvent *events, int instanceID, int layer, void *indexBuffer, const VkRect2D &renderArea,
-	          vk::Pipeline::PushConstantStorage const &pushConstants, bool update = true);
+	          const vk::Pipeline::PushConstantStorage &pushConstants, bool update = true);
 
 	void addQuery(vk::Query *query);
 	void removeQuery(vk::Query *query);

@@ -17,6 +17,7 @@ TEST_TYPE = "server"
 #ATTRIBUTES = "suite:chameleon_audio_unstable"
 DEPENDENCIES = "audio_box"
 JOB_RETRIES = 2
+PY_VERSION = 3
 
 DOC = """
 This test remotely tests internal_mic audio function against DUT after suspend.

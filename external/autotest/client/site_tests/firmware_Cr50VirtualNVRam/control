@@ -7,6 +7,7 @@ NAME = "firmware_Cr50VirtualNVRam"
 PURPOSE = "Test vNVRAM functionality in cr50"
 TIME = "SHORT"
 TEST_TYPE = "Client"
+PY_VERSION = 3
 
 DOC = """
 Verifies basic read functionality for vNVRAM indices, and checks

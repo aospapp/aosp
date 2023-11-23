@@ -1,0 +1,71 @@
+/*
+ * Copyright (C) 2023 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto2";
+
+package android.os.statsd.wear.media;
+
+import "frameworks/proto_logging/stats/atom_field_options.proto";
+import "frameworks/proto_logging/stats/atoms.proto";
+import "frameworks/proto_logging/stats/enums/wear/media/enums.proto";
+
+option java_package = "com.android.os.wear.media";
+option java_multiple_files = true;
+
+// This file contains extension atoms related to wear media session.
+
+extend Atom {
+  optional MediaActionReported media_action_reported = 608
+      [(module) = "wearmedia"];
+
+  optional MediaControlsLaunched media_controls_launched = 609
+      [(module) = "wearmedia"];
+}
+
+message MediaActionReported {
+  // Depicts the action performed on the Media. Values : (PLAY, PAUSE,
+  // SKIP_NEXT, SKIP_PREV,RESUME,VOLUME_INCREASE, VOLUME_DECREASE)
+  optional com.google.android.wearable.media.sessions.MediaAction action = 1;
+
+  // Package name of the app that the user used to perform the action (eg: UMO
+  // or a 3p media app)
+  optional int32 media_controls_package_uid = 2;
+
+  // Package name of the app that owns the media session. (This app is on the
+  // paired phone, and not on the watch, hence cannot use uid)
+  optional string media_player_package_name = 3;
+
+  // Depicts is the media session being referred is remote or local.
+  optional bool is_remote_session = 4;
+}
+
+message MediaControlsLaunched {
+  // Package name of the app that the user used to perform the action (eg: UMO
+  // or a 3p media app)
+
+  optional int32 media_controls_package_uid = 1;
+
+  // Package name of the app that owns the media session. (This app is on the
+  // paired phone, and not on the watch, hence cannot use uid)
+
+  optional string media_player_package_name = 2;
+
+  // Depicts where these controls were launched from. Values
+  // (ONGOING_ACTIVITY/LAUNCHER/AUTO_LAUNCH/RECENT_APPS)
+
+  optional com.google.android.wearable.media.sessions.LaunchSource
+      launch_source = 3;
+}

@@ -341,7 +341,7 @@ Only the three quirks included above are recognized at this point:
             <Limit name="block-size" value="8x8" />
             <Limit name="block-count" range="1-14400" />
             <Limit name="blocks-per-second" range="1-432000" />
-            <Limit name="bitrate" range="1-2000000" />
+            <Limit name="bitrate" range="1-3000000" />
        </MediaCodec>
        <MediaCodec name="c2.android.avc.decoder" type="video/avc" update="true">
             <!-- profiles and levels:  ProfileHigh : Level51 -->

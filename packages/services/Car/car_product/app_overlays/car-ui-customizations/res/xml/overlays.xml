@@ -37,6 +37,7 @@
     <item target="attr/layout_goneMarginTop" value="@attr/layout_goneMarginTop"/>
     <item target="attr/state_ux_restricted" value="@attr/state_ux_restricted"/>
 
+    <item target="bool/car_ui_preference_two_action_switch_widget_focusable" value="@bool/car_ui_preference_two_action_switch_widget_focusable" />
     <item target="bool/car_ui_toolbar_logo_fills_nav_icon_space" value="@bool/car_ui_toolbar_logo_fills_nav_icon_space" />
     <item target="bool/car_ui_toolbar_menuitem_individual_click_listeners" value="@bool/car_ui_toolbar_menuitem_individual_click_listeners" />
     <item target="bool/car_ui_toolbar_nav_icon_reserve_space" value="@bool/car_ui_toolbar_nav_icon_reserve_space" />
@@ -63,6 +64,9 @@
     <item target="id/car_ui_second_action_container" value="@id/car_ui_second_action_container" />
     <item target="id/car_ui_secondary_action" value="@id/car_ui_secondary_action" />
     <item target="id/car_ui_secondary_action_concrete" value="@id/car_ui_secondary_action_concrete" />
+    <item target="id/car_ui_link" value="@id/car_ui_link" />
+    <item target="id/car_ui_preference_container_without_widget" value="@id/car_ui_preference_container_without_widget" />
+    <item target="id/action_widget_container" value="@id/action_widget_container" />
     <item target="id/car_ui_toolbar_background" value="@id/car_ui_toolbar_background" />
     <item target="id/car_ui_toolbar_logo" value="@id/car_ui_toolbar_logo" />
     <item target="id/car_ui_toolbar_menu_item_icon_container" value="@id/car_ui_toolbar_menu_item_icon_container"/>
@@ -87,9 +91,17 @@
 
     <item target="layout/car_ui_alert_dialog_list" value="@layout/car_ui_alert_dialog_list"/>
     <item target="layout/car_ui_base_layout_toolbar" value="@layout/car_ui_base_layout_toolbar"/>
+    <item target="layout/car_ui_preference" value="@layout/car_ui_preference"/>
+    <item target="layout/car_ui_preference_category" value="@layout/car_ui_preference_category"/>
+    <item target="layout/car_ui_preference_footer" value="@layout/car_ui_preference_footer"/>
+    <item target="layout/car_ui_preference_primary_switch" value="@layout/car_ui_preference_primary_switch"/>
+    <item target="layout/car_ui_preference_two_action_icon" value="@layout/car_ui_preference_two_action_icon"/>
     <item target="layout/car_ui_preference_two_action_switch" value="@layout/car_ui_preference_two_action_switch"/>
+    <item target="layout/car_ui_preference_two_action_text" value="@layout/car_ui_preference_two_action_text"/>
+    <item target="layout/car_ui_preference_two_action_text_borderless" value="@layout/car_ui_preference_two_action_text_borderless"/>
     <item target="layout/car_ui_preference_widget_switch" value="@layout/car_ui_preference_widget_switch"/>
     <item target="layout/car_ui_preference_widget_seekbar" value="@layout/car_ui_preference_widget_seekbar"/>
+    <item target="layout/car_ui_two_action_preference" value="@layout/car_ui_two_action_preference"/>
     <item target="layout/car_ui_toolbar_menu_item_primary" value="@layout/car_ui_toolbar_menu_item_primary"/>
     <item target="layout/car_ui_toolbar_menu_item" value="@layout/car_ui_toolbar_menu_item"/>
     <item target="layout/car_ui_toolbar_two_row" value="@layout/car_ui_toolbar_two_row"/>

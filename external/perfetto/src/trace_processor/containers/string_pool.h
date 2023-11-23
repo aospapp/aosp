@@ -21,11 +21,11 @@
 #include <stdint.h>
 
 #include <limits>
+#include <optional>
 #include <vector>
 
 #include "perfetto/ext/base/flat_hash_map.h"
 #include "perfetto/ext/base/hash.h"
-#include "perfetto/ext/base/optional.h"
 #include "perfetto/ext/base/paged_memory.h"
 #include "perfetto/protozero/proto_utils.h"
 #include "src/trace_processor/containers/null_term_string_view.h"
@@ -132,7 +132,7 @@ class StringPool {
     return *id;
   }
 
-  base::Optional<Id> GetId(base::StringView str) const {
+  std::optional<Id> GetId(base::StringView str) const {
     if (str.data() == nullptr)
       return Id::Null();
 
@@ -142,7 +142,7 @@ class StringPool {
       PERFETTO_DCHECK(Get(*id) == str);
       return *id;
     }
-    return base::nullopt;
+    return std::nullopt;
   }
 
   NullTermStringView Get(Id id) const {
@@ -297,7 +297,7 @@ class StringPool {
                     base::AlreadyHashed<StringHash>,
                     base::LinearProbe,
                     /*AppendOnly=*/true>
-      string_index_{/*initial_capacity=*/1024u * 1024u};
+      string_index_{/*initial_capacity=*/4096u};
 };
 
 }  // namespace trace_processor

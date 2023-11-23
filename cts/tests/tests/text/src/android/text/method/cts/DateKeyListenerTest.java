@@ -29,8 +29,6 @@ import android.view.KeyEvent;
 import androidx.test.filters.MediumTest;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.compatibility.common.util.CtsKeyEventUtil;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -151,26 +149,26 @@ public class DateKeyListenerTest extends KeyListenerTestCase {
         assertEquals("", mTextView.getText().toString());
 
         // press '1' key.
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mTextView, KeyEvent.KEYCODE_1);
+        sendKeys(mTextView, KeyEvent.KEYCODE_1);
         assertEquals("1", mTextView.getText().toString());
 
         // press '2' key.
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mTextView, KeyEvent.KEYCODE_2);
+        sendKeys(mTextView, KeyEvent.KEYCODE_2);
         assertEquals("12", mTextView.getText().toString());
 
         // press an unaccepted key if it exists.
         int keyCode = TextMethodUtils.getUnacceptedKeyCode(DateKeyListener.CHARACTERS);
         if (-1 != keyCode) {
-            CtsKeyEventUtil.sendKeys(mInstrumentation, mTextView, keyCode);
+            sendKeys(mTextView, keyCode);
             assertEquals("12", mTextView.getText().toString());
         }
 
         // press '-' key.
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mTextView, KeyEvent.KEYCODE_MINUS);
+        sendKeys(mTextView, KeyEvent.KEYCODE_MINUS);
         assertEquals("12-", mTextView.getText().toString());
 
         // press '/' key.
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mTextView, KeyEvent.KEYCODE_SLASH);
+        sendKeys(mTextView, KeyEvent.KEYCODE_SLASH);
         assertEquals("12-/", mTextView.getText().toString());
 
         // remove DateKeyListener
@@ -178,7 +176,7 @@ public class DateKeyListenerTest extends KeyListenerTestCase {
         assertEquals("12-/", mTextView.getText().toString());
 
         // press '/' key, it will not be accepted.
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mTextView, KeyEvent.KEYCODE_SLASH);
+        sendKeys(mTextView, KeyEvent.KEYCODE_SLASH);
         assertEquals("12-/", mTextView.getText().toString());
     }
 

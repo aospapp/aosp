@@ -22,6 +22,8 @@ import android.util.Log;
 import androidx.annotation.VisibleForTesting;
 import androidx.test.InstrumentationRegistry;
 
+import com.google.common.collect.Lists;
+
 import org.junit.runner.Description;
 import org.junit.runner.notification.Failure;
 
@@ -44,6 +46,9 @@ import java.util.List;
  * evaluation order would be {@code Collector1#testStarted()}, {@code Collector2#testStarted()},
  * {@code @Test}, {@code Collector1#testFinished()}, {@code Collector1#testFinished()}.
  *
+ * <p>The above FIFO ordering of listeners can be changed to LIFO if the {@code
+ * test-metric-collectors-fifo-order} option is set to {@code false}.
+ *
  * <p>For {@code Microbenchmark}s, this rule can be dynamically injected either inside or outside
  * hardcoded rules (see {@code Microbenchmark})'s JavaDoc).
  *
@@ -52,10 +57,13 @@ import java.util.List;
  */
 public class TestMetricRule extends TestWatcher {
     @VisibleForTesting static final String METRIC_COLLECTORS_OPTION = "test-metric-collectors";
+    @VisibleForTesting static final String FIFO_ORDER_OPTION = "test-metric-collectors-fifo-order";
     @VisibleForTesting static final String METRIC_COLLECTORS_PACKAGE = "android.device.collectors";
 
     protected List<BaseMetricListener> mMetricListeners = new ArrayList<>();
-
+    // Listeners invoked when finishing or failing a test. Will be a view on mMetricListeners.
+    protected List<BaseMetricListener> mFinishingListeners;
+    protected boolean mFifoOrder = true;
     private final String mLogTag;
 
     public TestMetricRule() {
@@ -68,6 +76,7 @@ public class TestMetricRule extends TestWatcher {
                 args,
                 InstrumentationRegistry.getInstrumentation(),
                 METRIC_COLLECTORS_OPTION,
+                FIFO_ORDER_OPTION,
                 TestMetricRule.class.getSimpleName());
     }
 
@@ -79,8 +88,11 @@ public class TestMetricRule extends TestWatcher {
             Bundle args,
             Instrumentation instrumentation,
             String collectorsOptionName,
+            String fifoOrderOptionName,
             String logTag) {
         mLogTag = logTag;
+        mFifoOrder =
+                Boolean.parseBoolean(args.getString(fifoOrderOptionName, String.valueOf(true)));
         List<String> listenerNames =
                 Arrays.asList(args.getString(collectorsOptionName, "").split(","));
         for (String listenerName : listenerNames) {
@@ -131,6 +143,7 @@ public class TestMetricRule extends TestWatcher {
         for (BaseMetricListener listener : mMetricListeners) {
             listener.setInstrumentation(instrumentation);
         }
+        mFinishingListeners = mFifoOrder ? mMetricListeners : Lists.reverse(mMetricListeners);
     }
 
     @Override
@@ -154,7 +167,7 @@ public class TestMetricRule extends TestWatcher {
 
     @Override
     protected void finished(Description description) {
-        for (BaseMetricListener listener : mMetricListeners) {
+        for (BaseMetricListener listener : mFinishingListeners) {
             try {
                 listener.testFinished(description);
             } catch (Exception e) {
@@ -166,7 +179,7 @@ public class TestMetricRule extends TestWatcher {
                         e);
             }
         }
-        for (BaseMetricListener listener : mMetricListeners) {
+        for (BaseMetricListener listener : mFinishingListeners) {
             listener.cleanUp();
         }
     }
@@ -174,7 +187,7 @@ public class TestMetricRule extends TestWatcher {
     @Override
     protected void failed(Throwable t, Description description) {
         Failure failure = new Failure(description, t);
-        for (BaseMetricListener listener : mMetricListeners) {
+        for (BaseMetricListener listener : mFinishingListeners) {
             try {
                 listener.testFailure(failure);
             } catch (Exception e) {

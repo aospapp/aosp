@@ -24,6 +24,7 @@ public class HorizontalScrollViewCtsActivity extends Activity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setTheme(R.style.HorizontalScrollViewCtsActivityTheme);
         setContentView(R.layout.horizontal_scrollview);
     }
 }

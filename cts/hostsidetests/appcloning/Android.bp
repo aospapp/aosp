@@ -19,14 +19,13 @@ package {
 java_test_host {
     name: "CtsAppCloningHostTest",
     srcs: [
-        "hostside/src/**/AppCloningHostTest.java",
-        "hostside/src/**/BaseHostTestCase.java",
-        "hostside/src/**/AppCloningBaseHostTest.java",
+        "hostside/src/**/*.java",
     ],
     libs: [
         "cts-tradefed",
         "tradefed",
         "testng",
+        "compatibility-host-util",
     ],
     static_libs: ["modules-utils-build-testing"],
     // tag this module as a cts test artifact
@@ -38,5 +37,12 @@ java_test_host {
     test_config: "AndroidTestAppCloning.xml",
     data: [
         ":CtsAppCloningTestApp",
+        ":CtsAppCloningIntentRedirectionCloneProfileApp",
+        ":CtsAppCloningIntentRedirectionOwnerProfileApp",
+        ":CtsIntentRedirectionTestApp",
+        ":CtsAppCloningNotLaunchableCloneProfileApp",
+        ":CtsAppCloningLaunchableCloneProfileApp",
+        ":CtsManagedProfileOwnerApp",
+        ":CtsAppCloningStorageStatsApp",
     ],
 }

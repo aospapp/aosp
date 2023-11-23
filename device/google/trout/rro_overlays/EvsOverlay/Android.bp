@@ -4,6 +4,8 @@ package {
 
 runtime_resource_overlay {
     name: "TroutEvsOverlay",
+    resource_dirs: ["res"],
+    manifest: "AndroidManifest.xml",
     sdk_version: "current",
     product_specific: true
 }

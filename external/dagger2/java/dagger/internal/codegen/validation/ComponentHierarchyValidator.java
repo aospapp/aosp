@@ -21,13 +21,13 @@ import static com.google.common.base.Predicates.and;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static dagger.internal.codegen.base.Scopes.getReadableSource;
-import static dagger.internal.codegen.base.Scopes.uniqueScopeOf;
 import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSet;
+import static dagger.internal.codegen.xprocessing.XElements.getSimpleName;
 
-import com.google.auto.common.MoreTypes;
+import androidx.room.compiler.processing.XExecutableParameterElement;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -37,32 +37,35 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import dagger.internal.codegen.base.ModuleKind;
 import dagger.internal.codegen.binding.ComponentDescriptor;
 import dagger.internal.codegen.binding.ComponentDescriptor.ComponentMethodDescriptor;
+import dagger.internal.codegen.binding.InjectionAnnotations;
 import dagger.internal.codegen.binding.ModuleDescriptor;
-import dagger.internal.codegen.binding.ModuleKind;
 import dagger.internal.codegen.compileroption.CompilerOptions;
-import dagger.model.Scope;
+import dagger.spi.model.Scope;
 import java.util.Collection;
 import java.util.Formatter;
 import java.util.Map;
+import java.util.Optional;
 import javax.inject.Inject;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
 
 /** Validates the relationships between parent components and subcomponents. */
 final class ComponentHierarchyValidator {
   private static final Joiner COMMA_SEPARATED_JOINER = Joiner.on(", ");
+
   private final CompilerOptions compilerOptions;
+  private final InjectionAnnotations injectionAnnotations;
 
   @Inject
-  ComponentHierarchyValidator(CompilerOptions compilerOptions) {
+  ComponentHierarchyValidator(
+      CompilerOptions compilerOptions, InjectionAnnotations injectionAnnotations) {
     this.compilerOptions = compilerOptions;
+    this.injectionAnnotations = injectionAnnotations;
   }
 
-  ValidationReport<TypeElement> validate(ComponentDescriptor componentDescriptor) {
-    ValidationReport.Builder<TypeElement> report =
-        ValidationReport.about(componentDescriptor.typeElement());
+  ValidationReport validate(ComponentDescriptor componentDescriptor) {
+    ValidationReport.Builder report = ValidationReport.about(componentDescriptor.typeElement());
     validateSubcomponentMethods(
         report,
         componentDescriptor,
@@ -78,9 +81,9 @@ final class ComponentHierarchyValidator {
   }
 
   private void validateSubcomponentMethods(
-      ValidationReport.Builder<?> report,
+      ValidationReport.Builder report,
       ComponentDescriptor componentDescriptor,
-      ImmutableMap<TypeElement, TypeElement> existingModuleToOwners) {
+      ImmutableMap<XTypeElement, XTypeElement> existingModuleToOwners) {
     componentDescriptor
         .childComponentsDeclaredByFactoryMethods()
         .forEach(
@@ -97,7 +100,7 @@ final class ComponentHierarchyValidator {
               validateSubcomponentMethods(
                   report,
                   childComponent,
-                  new ImmutableMap.Builder<TypeElement, TypeElement>()
+                  new ImmutableMap.Builder<XTypeElement, XTypeElement>()
                       .putAll(existingModuleToOwners)
                       .putAll(
                           Maps.toMap(
@@ -109,21 +112,21 @@ final class ComponentHierarchyValidator {
   }
 
   private void validateFactoryMethodParameters(
-      ValidationReport.Builder<?> report,
+      ValidationReport.Builder report,
       ComponentMethodDescriptor subcomponentMethodDescriptor,
-      ImmutableMap<TypeElement, TypeElement> existingModuleToOwners) {
-    for (VariableElement factoryMethodParameter :
+      ImmutableMap<XTypeElement, XTypeElement> existingModuleToOwners) {
+    for (XExecutableParameterElement factoryMethodParameter :
         subcomponentMethodDescriptor.methodElement().getParameters()) {
-      TypeElement moduleType = MoreTypes.asTypeElement(factoryMethodParameter.asType());
-      TypeElement originatingComponent = existingModuleToOwners.get(moduleType);
-      if (originatingComponent != null) {
+      XTypeElement moduleType = factoryMethodParameter.getType().getTypeElement();
+      if (existingModuleToOwners.containsKey(moduleType)) {
         /* Factory method tries to pass a module that is already present in the parent.
          * This is an error. */
         report.addError(
             String.format(
                 "%s is present in %s. A subcomponent cannot use an instance of a "
                     + "module that differs from its parent.",
-                moduleType.getSimpleName(), originatingComponent.getQualifiedName()),
+                getSimpleName(moduleType),
+                existingModuleToOwners.get(moduleType).getQualifiedName()),
             factoryMethodParameter);
       }
     }
@@ -133,7 +136,7 @@ final class ComponentHierarchyValidator {
    * Checks that components do not have any scopes that are also applied on any of their ancestors.
    */
   private void validateScopeHierarchy(
-      ValidationReport.Builder<TypeElement> report,
+      ValidationReport.Builder report,
       ComponentDescriptor subject,
       SetMultimap<ComponentDescriptor, Scope> scopesByComponent) {
     scopesByComponent.putAll(subject, subject.scopes());
@@ -172,7 +175,7 @@ final class ComponentHierarchyValidator {
   }
 
   private void validateProductionModuleUniqueness(
-      ValidationReport.Builder<TypeElement> report,
+      ValidationReport.Builder report,
       ComponentDescriptor componentDescriptor,
       SetMultimap<ComponentDescriptor, ModuleDescriptor> producerModulesByComponent) {
     ImmutableSet<ModuleDescriptor> producerModules =
@@ -209,7 +212,7 @@ final class ComponentHierarchyValidator {
   }
 
   private void validateRepeatedScopedDeclarations(
-      ValidationReport.Builder<TypeElement> report,
+      ValidationReport.Builder report,
       ComponentDescriptor component,
       // TODO(ronshapiro): optimize ModuleDescriptor.hashCode()/equals. Otherwise this could be
       // quite costly
@@ -264,10 +267,10 @@ final class ComponentHierarchyValidator {
   }
 
   private ImmutableSet<Scope> moduleScopes(ModuleDescriptor module) {
-    return FluentIterable.concat(module.allBindingDeclarations())
-        .transform(declaration -> uniqueScopeOf(declaration.bindingElement().get()))
+    return module.allBindingDeclarations().stream()
+        .map(declaration -> injectionAnnotations.getScope(declaration.bindingElement().get()))
         .filter(scope -> scope.isPresent() && !scope.get().isReusable())
-        .transform(scope -> scope.get())
-        .toSet();
+        .map(Optional::get)
+        .collect(toImmutableSet());
   }
 }

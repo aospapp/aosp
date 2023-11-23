@@ -13,11 +13,23 @@
 # the License.
 
 include($ENV{PW_ROOT}/pw_build/pigweed.cmake)
+include($ENV{PW_ROOT}/pw_sys_io/backend.cmake)
 
-pw_add_facade(pw_sys_io
+pw_add_facade(pw_sys_io INTERFACE
+  BACKEND
+    pw_sys_io_BACKEND
+  HEADERS
+    public/pw_sys_io/sys_io.h
+  PUBLIC_INCLUDES
+    public
+  PUBLIC_DEPS
+    pw_bytes
+    pw_status
+)
+
+pw_add_library(pw_sys_io.default_putget_bytes STATIC
   SOURCES
     sys_io.cc
   PUBLIC_DEPS
-    pw_span
-    pw_status
+    pw_sys_io.facade
 )

@@ -72,11 +72,14 @@ func NewRustBinary(hod android.HostOrDeviceSupported) (*Module, *binaryDecorator
 func (binary *binaryDecorator) compilerFlags(ctx ModuleContext, flags Flags) Flags {
 	flags = binary.baseCompiler.compilerFlags(ctx, flags)
 
+	if ctx.Os().Linux() {
+		flags.LinkFlags = append(flags.LinkFlags, "-Wl,--gc-sections")
+	}
+
 	if ctx.toolchain().Bionic() {
 		// no-undefined-version breaks dylib compilation since __rust_*alloc* functions aren't defined,
 		// but we can apply this to binaries.
 		flags.LinkFlags = append(flags.LinkFlags,
-			"-Wl,--gc-sections",
 			"-Wl,-z,nocopyreloc",
 			"-Wl,--no-undefined-version")
 
@@ -106,7 +109,7 @@ func (binary *binaryDecorator) compilerDeps(ctx DepsContext, deps Deps) Deps {
 		if static {
 			deps.CrtBegin = []string{"libc_musl_crtbegin_static"}
 		} else {
-			deps.CrtBegin = []string{"libc_musl_crtbegin_dynamic", "musl_linker_script"}
+			deps.CrtBegin = []string{"libc_musl_crtbegin_dynamic"}
 		}
 		deps.CrtEnd = []string{"libc_musl_crtend"}
 	}
@@ -128,15 +131,15 @@ func (binary *binaryDecorator) preferRlib() bool {
 	return Bool(binary.baseCompiler.Properties.Prefer_rlib) || Bool(binary.Properties.Static_executable)
 }
 
-func (binary *binaryDecorator) compile(ctx ModuleContext, flags Flags, deps PathDeps) android.Path {
+func (binary *binaryDecorator) compile(ctx ModuleContext, flags Flags, deps PathDeps) buildOutput {
 	fileName := binary.getStem(ctx) + ctx.toolchain().ExecutableSuffix()
 	srcPath, _ := srcPathFromModuleSrcs(ctx, binary.baseCompiler.Properties.Srcs)
 	outputFile := android.PathForModuleOut(ctx, fileName)
-	ret := outputFile
+	ret := buildOutput{outputFile: outputFile}
 
 	flags.RustFlags = append(flags.RustFlags, deps.depFlags...)
 	flags.LinkFlags = append(flags.LinkFlags, deps.depLinkFlags...)
-	flags.LinkFlags = append(flags.LinkFlags, deps.linkObjects...)
+	flags.LinkFlags = append(flags.LinkFlags, deps.linkObjects.Strings()...)
 
 	if binary.stripper.NeedsStrip(ctx) {
 		strippedOutputFile := outputFile
@@ -147,8 +150,7 @@ func (binary *binaryDecorator) compile(ctx ModuleContext, flags Flags, deps Path
 	}
 	binary.baseCompiler.unstrippedOutputFile = outputFile
 
-	TransformSrcToBinary(ctx, srcPath, deps, flags, outputFile)
-
+	ret.kytheFile = TransformSrcToBinary(ctx, srcPath, deps, flags, outputFile).kytheFile
 	return ret
 }
 

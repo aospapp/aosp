@@ -312,6 +312,15 @@ table TriggeringPreconditions {
   min_reply_score_threshold:float = 0;
 }
 
+// This proto handles model outputs that are concepts, such as emoji concept
+// suggestion models. Each concept maps to a list of candidates. One of
+// the candidates is chosen randomly as the final suggestion.
+namespace libtextclassifier3;
+table ActionConceptToSuggestion {
+  concept_name:string (shared);
+  candidates:[string];
+}
+
 namespace libtextclassifier3;
 table ActionSuggestionSpec {
   // Type of the action suggestion.
@@ -331,6 +340,10 @@ table ActionSuggestionSpec {
 
   entity_data:ActionsEntityData;
   response_text_blocklist:[string];
+
+  // If provided, map the response as concept to one of the corresponding
+  // candidates.
+  concept_mappings:[ActionConceptToSuggestion];
 }
 
 // Options to specify triggering behaviour per action class.

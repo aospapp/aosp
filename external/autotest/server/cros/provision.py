@@ -66,9 +66,9 @@ def get_version_label_prefix(image):
     to, and returns the corresponding version label prefix.
 
     Known version label prefixes are:
-      * `CROS_VERSION_PREFIX` for Chrome OS version strings.
+      * `CROS_VERSION_PREFIX` for ChromeOS version strings.
         These images have names like `cave-release/R57-9030.0.0`.
-      * `CROS_ANDROID_VERSION_PREFIX` for Chrome OS Android version strings.
+      * `CROS_ANDROID_VERSION_PREFIX` for ChromeOS Android version strings.
         These images have names like `git_nyc-arc/cheets_x86-user/3512523`.
 
     @param image: The image name to be parsed.
@@ -257,7 +257,7 @@ class _SpecialTaskAction(object):
 
 class Verify(_SpecialTaskAction):
     """
-    Tests to verify that the DUT is in a sane, known good state that we can run
+    Tests to verify that the DUT is in a known good state that we can run
     tests on.  Failure to verify leads to running Repair.
     """
 
@@ -272,7 +272,7 @@ class Verify(_SpecialTaskAction):
         # Another way to do this is to remove rpm dependency from tests' control
         # file. That will involve changes on multiple control files. This one
         # line change here is a simple temporary fix.
-        'rpm': actionables.TestActionable('dummy_PassServer'),
+        'rpm': actionables.TestActionable('stub_PassServer'),
     }
 
     name = 'verify'
@@ -328,7 +328,7 @@ class Provision(_SpecialTaskAction):
 class Cleanup(_SpecialTaskAction):
     """
     Cleanup runs after a test fails to try and remove artifacts of tests and
-    ensure the DUT will be in a sane state for the next test run.
+    ensure the DUT will be in a good state for the next test run.
     """
 
     _actions = {

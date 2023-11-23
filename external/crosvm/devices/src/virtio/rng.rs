@@ -1,35 +1,47 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::fs::File;
 use std::io;
-use std::thread;
+use std::io::Write;
 
-use base::{error, warn, AsRawDescriptor, Event, PollToken, RawDescriptor, WaitContext};
+use anyhow::anyhow;
+use base::error;
+use base::warn;
+use base::Event;
+use base::EventToken;
+use base::RawDescriptor;
+use base::WaitContext;
+use base::WorkerThread;
+use rand::rngs::OsRng;
+use rand::RngCore;
 use remain::sorted;
 use thiserror::Error;
 use vm_memory::GuestMemory;
 
-use super::{Interrupt, Queue, SignalableInterrupt, VirtioDevice, Writer, TYPE_RNG};
+use super::DeviceType;
+use super::Interrupt;
+use super::Queue;
+use super::SignalableInterrupt;
+use super::VirtioDevice;
+use super::VirtioDeviceSaved;
+use crate::virtio::virtio_device::Error as VirtioError;
+use crate::virtio::Writer;
+use crate::Suspendable;
 
 const QUEUE_SIZE: u16 = 256;
 const QUEUE_SIZES: &[u16] = &[QUEUE_SIZE];
 
 #[sorted]
 #[derive(Error, Debug)]
-pub enum RngError {
-    /// Can't access /dev/urandom
-    #[error("failed to access /dev/urandom: {0}")]
-    AccessingRandomDev(io::Error),
-}
+pub enum RngError {}
 pub type Result<T> = std::result::Result<T, RngError>;
 
 struct Worker {
     interrupt: Interrupt,
     queue: Queue,
+    queue_evt: Event,
     mem: GuestMemory,
-    random_file: File,
 }
 
 impl Worker {
@@ -39,27 +51,38 @@ impl Worker {
         let mut needs_interrupt = false;
         while let Some(avail_desc) = queue.pop(&self.mem) {
             let index = avail_desc.index;
-            let random_file = &mut self.random_file;
-            let written = match Writer::new(self.mem.clone(), avail_desc)
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
-                .and_then(|mut writer| writer.write_from(random_file, std::usize::MAX))
-            {
-                Ok(n) => n,
+
+            let writer_or_err = Writer::new(self.mem.clone(), avail_desc)
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e));
+            let written_size = match writer_or_err {
+                Ok(mut writer) => {
+                    let avail_bytes = writer.available_bytes();
+
+                    let mut rand_bytes = vec![0u8; avail_bytes];
+                    OsRng.fill_bytes(&mut rand_bytes);
+
+                    match writer.write_all(&rand_bytes) {
+                        Ok(_) => rand_bytes.len(),
+                        Err(e) => {
+                            warn!("Failed to write random data to the guest: {}", e);
+                            0usize
+                        }
+                    }
+                }
                 Err(e) => {
                     warn!("Failed to write random data to the guest: {}", e);
-                    0
+                    0usize
                 }
             };
-
-            queue.add_used(&self.mem, index, written as u32);
+            queue.add_used(&self.mem, index, written_size as u32);
             needs_interrupt = true;
         }
 
         needs_interrupt
     }
 
-    fn run(&mut self, queue_evt: Event, kill_evt: Event) {
-        #[derive(PollToken)]
+    fn run(mut self, kill_evt: Event) -> anyhow::Result<VirtioDeviceSaved> {
+        #[derive(EventToken)]
         enum Token {
             QueueAvailable,
             InterruptResample,
@@ -67,13 +90,12 @@ impl Worker {
         }
 
         let wait_ctx: WaitContext<Token> = match WaitContext::build_with(&[
-            (&queue_evt, Token::QueueAvailable),
+            (&self.queue_evt, Token::QueueAvailable),
             (&kill_evt, Token::Kill),
         ]) {
             Ok(pc) => pc,
             Err(e) => {
-                error!("failed creating WaitContext: {}", e);
-                return;
+                return Err(anyhow!("failed creating WaitContext: {}", e));
             }
         };
         if let Some(resample_evt) = self.interrupt.get_resample_evt() {
@@ -81,8 +103,7 @@ impl Worker {
                 .add(resample_evt, Token::InterruptResample)
                 .is_err()
             {
-                error!("failed adding resample event to WaitContext.");
-                return;
+                return Err(anyhow!("failed adding resample event to WaitContext."));
             }
         }
 
@@ -99,7 +120,7 @@ impl Worker {
             for event in events.iter().filter(|e| e.is_readable) {
                 match event.token {
                     Token::QueueAvailable => {
-                        if let Err(e) = queue_evt.read() {
+                        if let Err(e) = self.queue_evt.wait() {
                             error!("failed reading queue Event: {}", e);
                             break 'wait;
                         }
@@ -115,56 +136,35 @@ impl Worker {
                 self.queue.trigger_interrupt(&self.mem, &self.interrupt);
             }
         }
+        Ok(VirtioDeviceSaved {
+            queues: vec![self.queue],
+        })
     }
 }
 
 /// Virtio device for exposing entropy to the guest OS through virtio.
 pub struct Rng {
-    kill_evt: Option<Event>,
-    worker_thread: Option<thread::JoinHandle<Worker>>,
-    random_file: Option<File>,
+    worker_thread: Option<WorkerThread<anyhow::Result<VirtioDeviceSaved>>>,
     virtio_features: u64,
 }
 
 impl Rng {
     /// Create a new virtio rng device that gets random data from /dev/urandom.
     pub fn new(virtio_features: u64) -> Result<Rng> {
-        let random_file = File::open("/dev/urandom").map_err(RngError::AccessingRandomDev)?;
         Ok(Rng {
-            kill_evt: None,
             worker_thread: None,
-            random_file: Some(random_file),
             virtio_features,
         })
     }
 }
 
-impl Drop for Rng {
-    fn drop(&mut self) {
-        if let Some(kill_evt) = self.kill_evt.take() {
-            // Ignore the result because there is nothing we can do about it.
-            let _ = kill_evt.write(1);
-        }
-
-        if let Some(worker_thread) = self.worker_thread.take() {
-            let _ = worker_thread.join();
-        }
-    }
-}
-
 impl VirtioDevice for Rng {
     fn keep_rds(&self) -> Vec<RawDescriptor> {
-        let mut keep_rds = Vec::new();
-
-        if let Some(random_file) = &self.random_file {
-            keep_rds.push(random_file.as_raw_descriptor());
-        }
-
-        keep_rds
+        Vec::new()
     }
 
-    fn device_type(&self) -> u32 {
-        TYPE_RNG
+    fn device_type(&self) -> DeviceType {
+        DeviceType::Rng
     }
 
     fn queue_max_sizes(&self) -> &[u16] {
@@ -179,71 +179,45 @@ impl VirtioDevice for Rng {
         &mut self,
         mem: GuestMemory,
         interrupt: Interrupt,
-        mut queues: Vec<Queue>,
-        mut queue_evts: Vec<Event>,
-    ) {
-        if queues.len() != 1 || queue_evts.len() != 1 {
-            return;
+        mut queues: Vec<(Queue, Event)>,
+    ) -> anyhow::Result<()> {
+        if queues.len() != 1 {
+            return Err(anyhow!("expected 1 queue, got {}", queues.len()));
         }
 
-        let (self_kill_evt, kill_evt) = match Event::new().and_then(|e| Ok((e.try_clone()?, e))) {
-            Ok(v) => v,
-            Err(e) => {
-                error!("failed to create kill Event pair: {}", e);
-                return;
-            }
-        };
-        self.kill_evt = Some(self_kill_evt);
+        let (queue, queue_evt) = queues.remove(0);
 
-        let queue = queues.remove(0);
+        self.worker_thread = Some(WorkerThread::start("v_rng", move |kill_evt| {
+            let worker = Worker {
+                interrupt,
+                queue,
+                queue_evt,
+                mem,
+            };
+            worker.run(kill_evt)
+        }));
 
-        if let Some(random_file) = self.random_file.take() {
-            let worker_result =
-                thread::Builder::new()
-                    .name("virtio_rng".to_string())
-                    .spawn(move || {
-                        let mut worker = Worker {
-                            interrupt,
-                            queue,
-                            mem,
-                            random_file,
-                        };
-                        worker.run(queue_evts.remove(0), kill_evt);
-                        worker
-                    });
-
-            match worker_result {
-                Err(e) => {
-                    error!("failed to spawn virtio_rng worker: {}", e);
-                    return;
-                }
-                Ok(join_handle) => {
-                    self.worker_thread = Some(join_handle);
-                }
-            }
-        }
+        Ok(())
     }
 
     fn reset(&mut self) -> bool {
-        if let Some(kill_evt) = self.kill_evt.take() {
-            if kill_evt.write(1).is_err() {
-                error!("{}: failed to notify the kill event", self.debug_label());
+        if let Some(worker_thread) = self.worker_thread.take() {
+            if let Err(e) = worker_thread.stop() {
+                error!("rng worker failed: {:#}", e);
                 return false;
             }
-        }
-
-        if let Some(worker_thread) = self.worker_thread.take() {
-            match worker_thread.join() {
-                Err(_) => {
-                    error!("{}: failed to get back resources", self.debug_label());
-                    return false;
-                }
-                Ok(worker) => {
-                    self.random_file = Some(worker.random_file);
-                    return true;
-                }
-            }
+            return true;
         }
         false
     }
+
+    fn stop(&mut self) -> std::result::Result<Option<VirtioDeviceSaved>, VirtioError> {
+        if let Some(worker_thread) = self.worker_thread.take() {
+            let state = worker_thread.stop().map_err(VirtioError::InThreadFailure)?;
+            return Ok(Some(state));
+        }
+        Ok(None)
+    }
 }
+
+impl Suspendable for Rng {}

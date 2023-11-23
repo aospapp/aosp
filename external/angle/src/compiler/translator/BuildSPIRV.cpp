@@ -349,6 +349,22 @@ spv::ExecutionMode GetTessEvalOrderingExecutionMode(TLayoutTessEvaluationType or
             return {};
     }
 }
+
+void WriteInterpolationDecoration(spv::Decoration decoration,
+                                  spirv::IdRef id,
+                                  uint32_t fieldIndex,
+                                  spirv::Blob *decorationsBlob)
+{
+    if (fieldIndex != std::numeric_limits<uint32_t>::max())
+    {
+        spirv::WriteMemberDecorate(decorationsBlob, id, spirv::LiteralInteger(fieldIndex),
+                                   decoration, {});
+    }
+    else
+    {
+        spirv::WriteDecorate(decorationsBlob, id, decoration, {});
+    }
+}
 }  // anonymous namespace
 
 void SpirvTypeSpec::inferDefaults(const TType &type, TCompiler *compiler)
@@ -479,7 +495,7 @@ void SpirvTypeSpec::onVectorComponentSelection()
 }
 
 SPIRVBuilder::SPIRVBuilder(TCompiler *compiler,
-                           ShCompileOptions compileOptions,
+                           const ShCompileOptions &compileOptions,
                            ShHashFunction64 hashFunction,
                            NameMap &nameMap)
     : mCompiler(compiler),
@@ -505,6 +521,8 @@ SPIRVBuilder::SPIRVBuilder(TCompiler *compiler,
     {
         addCapability(spv::CapabilityTessellation);
     }
+
+    mExtInstImportIdStd = getNewId({});
 }
 
 spirv::IdRef SPIRVBuilder::getNewId(const SpirvDecorations &decorations)
@@ -537,6 +555,10 @@ SpirvType SPIRVBuilder::getSpirvType(const TType &type, const SpirvTypeSpec &typ
         // WEBGL video textures too.
         case EbtSamplerVideoWEBGL:
             spirvType.type = EbtSampler2D;
+            break;
+        // yuvCscStandardEXT is just a uint under the hood.
+        case EbtYuvCscStandardEXT:
+            spirvType.type = EbtUInt;
             break;
         default:
             break;
@@ -661,7 +683,7 @@ spirv::IdRef SPIRVBuilder::getFunctionTypeId(spirv::IdRef returnTypeId,
 
 SpirvDecorations SPIRVBuilder::getDecorations(const TType &type)
 {
-    const bool enablePrecision = (mCompileOptions & SH_IGNORE_PRECISION_QUALIFIERS) == 0;
+    const bool enablePrecision = !mCompileOptions.ignorePrecisionQualifiers;
     const TPrecision precision = type.getPrecision();
 
     SpirvDecorations decorations;
@@ -692,10 +714,13 @@ SpirvDecorations SPIRVBuilder::getArithmeticDecorations(const TType &type,
     // > relaxed precision.
     // > ...
     //
-    // Here, we remove RelaxedPrecision from such problematic instructions.
+    // findLSB() and bitCount() are in a similar situation.  Here, we remove RelaxedPrecision from
+    // such problematic instructions.
     switch (op)
     {
         case EOpFindMSB:
+        case EOpFindLSB:
+        case EOpBitCount:
             // Currently getDecorations() only adds RelaxedPrecision, so removing the
             // RelaxedPrecision decoration is simply done by clearing the vector.
             ASSERT(decorations.empty() ||
@@ -717,10 +742,7 @@ SpirvDecorations SPIRVBuilder::getArithmeticDecorations(const TType &type,
 
 spirv::IdRef SPIRVBuilder::getExtInstImportIdStd()
 {
-    if (!mExtInstImportIdStd.valid())
-    {
-        mExtInstImportIdStd = getNewId({});
-    }
+    ASSERT(mExtInstImportIdStd.valid());
     return mExtInstImportIdStd;
 }
 
@@ -1671,8 +1693,7 @@ void SPIRVBuilder::addCapability(spv::Capability capability)
 
 void SPIRVBuilder::addExecutionMode(spv::ExecutionMode executionMode)
 {
-    ASSERT(static_cast<size_t>(executionMode) < mExecutionModes.size());
-    mExecutionModes.set(executionMode);
+    mExecutionModes.insert(executionMode);
 }
 
 void SPIRVBuilder::addExtension(SPIRVExtensions extension)
@@ -1727,19 +1748,21 @@ void SPIRVBuilder::writePerVertexBuiltIns(const TType &type, spirv::IdRef typeId
 void SPIRVBuilder::writeInterfaceVariableDecorations(const TType &type, spirv::IdRef variableId)
 {
     const TLayoutQualifier &layoutQualifier = type.getLayoutQualifier();
-
-    const bool isVarying = IsVarying(type.getQualifier());
+    const bool isVarying                    = IsVarying(type.getQualifier());
     const bool needsSetBinding =
-        IsSampler(type.getBasicType()) ||
-        (type.isInterfaceBlock() &&
-         (type.getQualifier() == EvqUniform || type.getQualifier() == EvqBuffer)) ||
-        IsImage(type.getBasicType()) || IsSubpassInputType(type.getBasicType());
+        !layoutQualifier.pushConstant &&
+        (IsSampler(type.getBasicType()) ||
+         (type.isInterfaceBlock() &&
+          (type.getQualifier() == EvqUniform || type.getQualifier() == EvqBuffer)) ||
+         IsImage(type.getBasicType()) || IsSubpassInputType(type.getBasicType()));
     const bool needsLocation = type.getQualifier() == EvqAttribute ||
                                type.getQualifier() == EvqVertexIn ||
                                type.getQualifier() == EvqFragmentOut || isVarying;
     const bool needsInputAttachmentIndex = IsSubpassInputType(type.getBasicType());
     const bool needsBlendIndex =
         type.getQualifier() == EvqFragmentOut && layoutQualifier.index >= 0;
+    const bool needsYuvDecorate = mCompileOptions.addVulkanYUVLayoutQualifier &&
+                                  type.getQualifier() == EvqFragmentOut && layoutQualifier.yuv;
 
     // If the resource declaration requires set & binding, add the DescriptorSet and Binding
     // decorations.
@@ -1773,6 +1796,14 @@ void SPIRVBuilder::writeInterfaceVariableDecorations(const TType &type, spirv::I
     if (needsBlendIndex)
     {
         spirv::WriteDecorate(&mSpirvDecorations, variableId, spv::DecorationIndex,
+                             {spirv::LiteralInteger(layoutQualifier.index)});
+    }
+
+    if (needsYuvDecorate)
+    {
+        // WIP in spec
+        const spv::Decoration yuvDecorate = static_cast<spv::Decoration>(6088);
+        spirv::WriteDecorate(&mSpirvDecorations, variableId, yuvDecorate,
                              {spirv::LiteralInteger(layoutQualifier.index)});
     }
 
@@ -1954,6 +1985,38 @@ void SPIRVBuilder::writeMemberDecorations(const SpirvType &type, spirv::IdRef ty
                                        {});
         }
 
+        // Add memory qualifier decorations to buffer members
+        if (fieldType.getMemoryQualifier().coherent)
+        {
+            spirv::WriteMemberDecorate(&mSpirvDecorations, typeId,
+                                       spirv::LiteralInteger(fieldIndex), spv::DecorationCoherent,
+                                       {});
+        }
+        if (fieldType.getMemoryQualifier().readonly)
+        {
+            spirv::WriteMemberDecorate(&mSpirvDecorations, typeId,
+                                       spirv::LiteralInteger(fieldIndex),
+                                       spv::DecorationNonWritable, {});
+        }
+        if (fieldType.getMemoryQualifier().writeonly)
+        {
+            spirv::WriteMemberDecorate(&mSpirvDecorations, typeId,
+                                       spirv::LiteralInteger(fieldIndex),
+                                       spv::DecorationNonReadable, {});
+        }
+        if (fieldType.getMemoryQualifier().restrictQualifier)
+        {
+            spirv::WriteMemberDecorate(&mSpirvDecorations, typeId,
+                                       spirv::LiteralInteger(fieldIndex), spv::DecorationRestrict,
+                                       {});
+        }
+        if (fieldType.getMemoryQualifier().volatileQualifier)
+        {
+            spirv::WriteMemberDecorate(&mSpirvDecorations, typeId,
+                                       spirv::LiteralInteger(fieldIndex), spv::DecorationVolatile,
+                                       {});
+        }
+
         // Add matrix decorations if any.
         if (fieldType.isMatrix())
         {
@@ -1991,8 +2054,6 @@ void SPIRVBuilder::writeInterpolationDecoration(TQualifier qualifier,
                                                 spirv::IdRef id,
                                                 uint32_t fieldIndex)
 {
-    spv::Decoration decoration = spv::DecorationMax;
-
     switch (qualifier)
     {
         case EvqSmooth:
@@ -2004,40 +2065,50 @@ void SPIRVBuilder::writeInterpolationDecoration(TQualifier qualifier,
         case EvqFlat:
         case EvqFlatOut:
         case EvqFlatIn:
-            decoration = spv::DecorationFlat;
-            break;
+            WriteInterpolationDecoration(spv::DecorationFlat, id, fieldIndex, &mSpirvDecorations);
+            return;
 
         case EvqNoPerspective:
         case EvqNoPerspectiveOut:
         case EvqNoPerspectiveIn:
-            decoration = spv::DecorationNoPerspective;
-            break;
+            WriteInterpolationDecoration(spv::DecorationNoPerspective, id, fieldIndex,
+                                         &mSpirvDecorations);
+            return;
 
         case EvqCentroid:
         case EvqCentroidOut:
         case EvqCentroidIn:
-            decoration = spv::DecorationCentroid;
-            break;
+            WriteInterpolationDecoration(spv::DecorationCentroid, id, fieldIndex,
+                                         &mSpirvDecorations);
+            return;
 
         case EvqSample:
         case EvqSampleOut:
         case EvqSampleIn:
-            decoration = spv::DecorationSample;
+            WriteInterpolationDecoration(spv::DecorationSample, id, fieldIndex, &mSpirvDecorations);
             addCapability(spv::CapabilitySampleRateShading);
-            break;
+            return;
+
+        case EvqNoPerspectiveCentroid:
+        case EvqNoPerspectiveCentroidOut:
+        case EvqNoPerspectiveCentroidIn:
+            WriteInterpolationDecoration(spv::DecorationNoPerspective, id, fieldIndex,
+                                         &mSpirvDecorations);
+            WriteInterpolationDecoration(spv::DecorationCentroid, id, fieldIndex,
+                                         &mSpirvDecorations);
+            return;
+
+        case EvqNoPerspectiveSample:
+        case EvqNoPerspectiveSampleOut:
+        case EvqNoPerspectiveSampleIn:
+            WriteInterpolationDecoration(spv::DecorationNoPerspective, id, fieldIndex,
+                                         &mSpirvDecorations);
+            WriteInterpolationDecoration(spv::DecorationSample, id, fieldIndex, &mSpirvDecorations);
+            addCapability(spv::CapabilitySampleRateShading);
+            return;
 
         default:
             return;
-    }
-
-    if (fieldIndex != std::numeric_limits<uint32_t>::max())
-    {
-        spirv::WriteMemberDecorate(&mSpirvDecorations, id, spirv::LiteralInteger(fieldIndex),
-                                   decoration, {});
-    }
-    else
-    {
-        spirv::WriteDecorate(&mSpirvDecorations, id, decoration, {});
     }
 }
 
@@ -2106,10 +2177,7 @@ spirv::Blob SPIRVBuilder::getSpirv()
     writeExtensions(&result);
 
     // - OpExtInstImport
-    if (mExtInstImportIdStd.valid())
-    {
-        spirv::WriteExtInstImport(&result, mExtInstImportIdStd, "GLSL.std.450");
-    }
+    spirv::WriteExtInstImport(&result, getExtInstImportIdStd(), "GLSL.std.450");
 
     // - OpMemoryModel
     spirv::WriteMemoryModel(&result, spv::AddressingModelLogical, spv::MemoryModelGLSL450);
@@ -2157,8 +2225,7 @@ void SPIRVBuilder::writeExecutionModes(spirv::Blob *blob)
         case gl::ShaderType::Fragment:
             spirv::WriteExecutionMode(blob, mEntryPointId, spv::ExecutionModeOriginUpperLeft, {});
 
-            if (mCompiler->isEarlyFragmentTestsSpecified() ||
-                mCompiler->isEarlyFragmentTestsOptimized())
+            if (mCompiler->isEarlyFragmentTestsSpecified())
             {
                 spirv::WriteExecutionMode(blob, mEntryPointId, spv::ExecutionModeEarlyFragmentTests,
                                           {});
@@ -2227,10 +2294,9 @@ void SPIRVBuilder::writeExecutionModes(spirv::Blob *blob)
     }
 
     // Add any execution modes that were added due to built-ins used in the shader.
-    for (size_t executionMode : mExecutionModes)
+    for (spv::ExecutionMode executionMode : mExecutionModes)
     {
-        spirv::WriteExecutionMode(blob, mEntryPointId,
-                                  static_cast<spv::ExecutionMode>(executionMode), {});
+        spirv::WriteExecutionMode(blob, mEntryPointId, executionMode, {});
     }
 }
 
@@ -2242,6 +2308,9 @@ void SPIRVBuilder::writeExtensions(spirv::Blob *blob)
         {
             case SPIRVExtensions::MultiviewOVR:
                 spirv::WriteExtension(blob, "SPV_KHR_multiview");
+                break;
+            case SPIRVExtensions::FragmentShaderInterlockARB:
+                spirv::WriteExtension(blob, "SPV_EXT_fragment_shader_interlock");
                 break;
             default:
                 UNREACHABLE();
@@ -2257,6 +2326,9 @@ void SPIRVBuilder::writeSourceExtensions(spirv::Blob *blob)
         {
             case SPIRVExtensions::MultiviewOVR:
                 spirv::WriteSourceExtension(blob, "GL_OVR_multiview");
+                break;
+            case SPIRVExtensions::FragmentShaderInterlockARB:
+                spirv::WriteSourceExtension(blob, "GL_ARB_fragment_shader_interlock");
                 break;
             default:
                 UNREACHABLE();

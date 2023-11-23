@@ -51,6 +51,7 @@ wpa_supplicant_get_scan_results(struct wpa_supplicant *wpa_s,
 				struct scan_info *info, int new_scan);
 int wpa_supplicant_update_scan_results(struct wpa_supplicant *wpa_s);
 const u8 * wpa_scan_get_ie(const struct wpa_scan_res *res, u8 ie);
+const u8 * wpa_scan_get_ml_ie(const struct wpa_scan_res *res, u8 type);
 const u8 * wpa_scan_get_vendor_ie(const struct wpa_scan_res *res,
 				  u32 vendor_type);
 const u8 * wpa_scan_get_vendor_ie_beacon(const struct wpa_scan_res *res,
@@ -91,6 +92,7 @@ void wpa_supplicant_set_default_scan_ies(struct wpa_supplicant *wpa_s);
 int wpa_add_scan_freqs_list(struct wpa_supplicant *wpa_s,
 			    enum hostapd_hw_mode band,
 			    struct wpa_driver_scan_params *params,
-			    bool is_6ghz);
+			    bool is_6ghz, bool only_6ghz_psc,
+			    bool exclude_radar);
 
 #endif /* SCAN_H */

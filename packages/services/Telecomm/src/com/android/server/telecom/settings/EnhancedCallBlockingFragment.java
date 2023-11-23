@@ -45,6 +45,7 @@ public class EnhancedCallBlockingFragment extends PreferenceFragment
     private static final String BLOCK_UNAVAILABLE_NUMBERS_KEY =
             "block_unavailable_calls_setting";
     private boolean mIsCombiningRestrictedAndUnknownOption = false;
+    private boolean mIsCombiningUnavailableAndUnknownOption = false;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -94,10 +95,16 @@ public class EnhancedCallBlockingFragment extends PreferenceFragment
                         R.bool.combine_options_to_block_restricted_and_unknown_callers);
         if (mIsCombiningRestrictedAndUnknownOption) {
             Preference restricted_pref = findPreference(BLOCK_RESTRICTED_NUMBERS_KEY);
-            Preference unavailable_pref = findPreference(BLOCK_UNAVAILABLE_NUMBERS_KEY);
             screen.removePreference(restricted_pref);
-            screen.removePreference(unavailable_pref);
             Log.i(this, "onCreate: removed block restricted preference.");
+        }
+
+        mIsCombiningUnavailableAndUnknownOption = getResources().getBoolean(
+                R.bool.combine_options_to_block_unavailable_and_unknown_callers);
+        if (mIsCombiningUnavailableAndUnknownOption) {
+            Preference unavailable_pref = findPreference(BLOCK_UNAVAILABLE_NUMBERS_KEY);
+            screen.removePreference(unavailable_pref);
+            Log.i(this, "onCreate: removed block unavailable preference.");
         }
     }
 
@@ -136,14 +143,20 @@ public class EnhancedCallBlockingFragment extends PreferenceFragment
 
     @Override
     public boolean onPreferenceChange(Preference preference, Object objValue) {
-        if (mIsCombiningRestrictedAndUnknownOption
-                && preference.getKey().equals(BLOCK_UNKNOWN_NUMBERS_KEY)) {
-            Log.i(this, "onPreferenceChange: changing %s and %s to %b",
-                    preference.getKey(), BLOCK_RESTRICTED_NUMBERS_KEY, (boolean) objValue);
-            BlockedNumbersUtil.setEnhancedBlockSetting(getActivity(), BLOCK_RESTRICTED_NUMBERS_KEY,
-                    (boolean) objValue);
-            BlockedNumbersUtil.setEnhancedBlockSetting(getActivity(),
-                    BLOCK_UNAVAILABLE_NUMBERS_KEY, (boolean) objValue);
+        if (preference.getKey().equals(BLOCK_UNKNOWN_NUMBERS_KEY)) {
+            if (mIsCombiningRestrictedAndUnknownOption) {
+                Log.i(this, "onPreferenceChange: changing %s and %s to %b",
+                        preference.getKey(), BLOCK_RESTRICTED_NUMBERS_KEY, (boolean) objValue);
+                BlockedNumbersUtil.setEnhancedBlockSetting(getActivity(),
+                        BLOCK_RESTRICTED_NUMBERS_KEY, (boolean) objValue);
+            }
+
+            if (mIsCombiningUnavailableAndUnknownOption) {
+                Log.i(this, "onPreferenceChange: changing %s and %s to %b",
+                        preference.getKey(), BLOCK_UNAVAILABLE_NUMBERS_KEY, (boolean) objValue);
+                BlockedNumbersUtil.setEnhancedBlockSetting(getActivity(),
+                        BLOCK_UNAVAILABLE_NUMBERS_KEY, (boolean) objValue);
+            }
         }
         BlockedNumbersUtil.setEnhancedBlockSetting(getActivity(), preference.getKey(),
                 (boolean) objValue);

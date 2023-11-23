@@ -35,7 +35,7 @@ public class KernelTargetTest extends ExecutableTargetTest {
     @Option(name = "ignore-binary-check", description = "Ignore the binary check in findBinary().")
     private boolean mIgnoreBinaryCheck = false;
     @Option(name = "exit-code-skip", description = "Exit code for skipped tests.")
-    private int mExitCodeSkip = 32;
+    private Integer mExitCodeSkip = null;
 
     @Override
     public String findBinary(String binary) throws DeviceNotAvailableException {
@@ -53,7 +53,7 @@ public class KernelTargetTest extends ExecutableTargetTest {
      */
     protected void checkCommandResult(
             CommandResult result, ITestInvocationListener listener, TestDescription description) {
-        if (result.getExitCode() == mExitCodeSkip) {
+        if (mExitCodeSkip != null && result.getExitCode().equals(mExitCodeSkip)) {
             listener.testIgnored(description);
         } else {
             super.checkCommandResult(result, listener, description);

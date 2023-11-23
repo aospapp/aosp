@@ -86,7 +86,7 @@ public class InternalProviderClassTest {
         .generatedSourceFile(NOTES_PACKAGE + ".Profile_NotesProvider_Internal")
         .contentsAsUtf8String()
         .contains(
-            "public Parcel call(Context context, long crossProfileTypeIdentifier, int"
+            "public Bundle call(Context context, long crossProfileTypeIdentifier, int"
                 + " methodIdentifier,");
   }
 

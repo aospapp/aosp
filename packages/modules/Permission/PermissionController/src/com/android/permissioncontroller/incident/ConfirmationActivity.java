@@ -180,7 +180,6 @@ public class ConfirmationActivity extends Activity implements OnClickListener, O
             final int height = res.getDimensionPixelSize(R.dimen.incident_image_height);
 
             for (int i = 0; i < imagesSize; i++) {
-                final Drawable drawable = images.get(i);
                 final ImageView imageView = new ImageView(this);
                 imageView.setImageDrawable(images.get(i));
                 imageView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
@@ -256,4 +255,3 @@ public class ConfirmationActivity extends Activity implements OnClickListener, O
         finish();
     }
 }
-

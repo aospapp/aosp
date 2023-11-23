@@ -18,15 +18,13 @@ package android.mediapc.cts.common;
 
 import android.util.Log;
 
-import androidx.test.platform.app.InstrumentationRegistry;
-
-import com.android.compatibility.common.util.DeviceReportLog;
+import com.android.compatibility.common.util.ReportLog;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -113,7 +111,7 @@ public abstract class Requirement {
     /**
      * @return whether or not the requirement meets the device's specified performance class
      */
-    public boolean writeLogAndCheck(String testName) {
+    public boolean writeLogAndCheck(ReportLog log, String testName) {
         if (this.id == RequirementConstants.RTBD) {
             // skip upload on any requirement without a specified id
             Log.i(this.TAG, testName + "has requirement without set requirement id and test " +
@@ -123,7 +121,6 @@ public abstract class Requirement {
 
         int perfClass = this.computePerformanceClass();
 
-        DeviceReportLog log = new DeviceReportLog(RequirementConstants.REPORT_LOG_NAME, this.id);
         log.addValue(RequirementConstants.TN_FIELD_NAME, testName, ResultType.NEUTRAL,
             ResultUnit.NONE);
         for (RequiredMeasurement rm: this.mRequiredMeasurements.values()) {
@@ -131,7 +128,6 @@ public abstract class Requirement {
         }
         log.addValue(RequirementConstants.PC_FIELD_NAME, perfClass, ResultType.NEUTRAL,
             ResultUnit.NONE);
-        log.submit(InstrumentationRegistry.getInstrumentation());
 
         return this.checkPerformanceClass(Utils.getPerfClass());
     }

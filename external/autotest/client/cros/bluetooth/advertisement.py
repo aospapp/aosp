@@ -2,7 +2,6 @@
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """Construction of an Advertisement object from an advertisement data
 dictionary.
 
@@ -13,30 +12,60 @@ bluez project.
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-import dbus
-import dbus.mainloop.glib
-import dbus.service
+from gi.repository import GLib
+
+# TODO(b/215715213) - Wait until ebuild runs as python3 to remove this try
+try:
+    import pydbus
+except:
+    pydbus = {}
+
 import logging
 
-
-DBUS_PROP_IFACE = 'org.freedesktop.DBus.Properties'
 LE_ADVERTISEMENT_IFACE = 'org.bluez.LEAdvertisement1'
 
 
-class Advertisement(dbus.service.Object):
-    """An advertisement object."""
+def InvalidArgsException():
+    return GLib.gerror_new_literal(0, 'org.freedesktop.DBus.Error.InvalidArgs',
+                                   0)
 
+
+class Advertisement:
+    """An advertisement object."""
     def __init__(self, bus, advertisement_data):
         """Construction of an Advertisement object.
 
         @param bus: a dbus system bus.
         @param advertisement_data: advertisement data dictionary.
-
         """
-        self.bus = bus
         self._get_advertising_data(advertisement_data)
-        super(Advertisement, self).__init__(self.bus, self.path)
 
+        # Register self on bus and hold object for unregister
+        self.obj = bus.register_object(self.path, self, None)
+
+    # D-Bus service definition (required by pydbus).
+    dbus = """
+    <node>
+        <interface name="org.bluez.LEAdvertisement1">
+            <method name="Release" />
+        </interface>
+        <interface name="org.freedesktop.DBus.Properties">
+            <method name="Set">
+                <arg type="s" name="interface" direction="in" />
+                <arg type="s" name="prop" direction="in" />
+                <arg type="v" name="value" direction="in" />
+            </method>
+            <method name="GetAll">
+                <arg type="s" name="interface" direction="in" />
+                <arg type="a{sv}" name="properties" direction="out" />
+            </method>
+        </interface>
+    </node>
+    """
+
+    def unregister(self):
+        """Unregister self from bus."""
+        self.obj.unregister()
 
     def _get_advertising_data(self, advertisement_data):
         """Get advertising data from the advertisement_data dictionary.
@@ -63,20 +92,26 @@ class Advertisement(dbus.service.Object):
         #     device_properties in src/third_party/bluez/src/device.c
         # For explanation about signature types, refer to
         #     https://dbus.freedesktop.org/doc/dbus-specification.html
-        self.manufacturer_data = dbus.Dictionary({}, signature='qv')
+        self.manufacturer_data = {}  # Signature = a{qv}
         manufacturer_data = advertisement_data.get('ManufacturerData', {})
         for key, value in manufacturer_data.items():
-            self.manufacturer_data[int(key, 16)] = dbus.Array(value,
-                                                              signature='y')
+            self.manufacturer_data[int(key, 16)] = GLib.Variant('ay', value)
 
-        self.service_data = dbus.Dictionary({}, signature='sv')
+        self.service_data = {}  # Signature = a{sv}
         service_data = advertisement_data.get('ServiceData', {})
         for uuid, data in service_data.items():
-            self.service_data[uuid] = dbus.Array(data, signature='y')
+            self.service_data[uuid] = GLib.Variant('ay', data)
 
         self.include_tx_power = advertisement_data.get('IncludeTxPower')
 
+        self.discoverable = advertisement_data.get('Discoverable')
+
         self.scan_response = advertisement_data.get('ScanResponseData')
+
+        self.min_interval = advertisement_data.get('MinInterval')
+        self.max_interval = advertisement_data.get('MaxInterval')
+
+        self.tx_power = advertisement_data.get('TxPower')
 
     def get_path(self):
         """Get the dbus object path of the advertisement.
@@ -84,11 +119,20 @@ class Advertisement(dbus.service.Object):
         @returns: the advertisement object path.
 
         """
-        return dbus.ObjectPath(self.path)
+        return self.path
 
+    def Set(self, interface, prop, value):
+        """Called when bluetoothd Sets a property on our advertising object
 
-    @dbus.service.method(DBUS_PROP_IFACE, in_signature='s',
-                         out_signature='a{sv}')
+        @param interface: String interface, i.e. org.bluez.LEAdvertisement1
+        @param prop: String name of the property being set
+        @param value: Value of the property being set
+        """
+        logging.info('Setting prop {} value to {}'.format(prop, value))
+
+        if prop == 'TxPower':
+            self.tx_power = value
+
     def GetAll(self, interface):
         """Get the properties dictionary of the advertisement.
 
@@ -101,82 +145,93 @@ class Advertisement(dbus.service.Object):
             raise InvalidArgsException()
 
         properties = dict()
-        properties['Type'] = dbus.String(self.type)
+        properties['Type'] = GLib.Variant('s', self.type)
 
         if self.service_uuids is not None:
-            properties['ServiceUUIDs'] = dbus.Array(self.service_uuids,
-                                                    signature='s')
+            properties['ServiceUUIDs'] = GLib.Variant('as', self.service_uuids)
         if self.solicit_uuids is not None:
-            properties['SolicitUUIDs'] = dbus.Array(self.solicit_uuids,
-                                                    signature='s')
+            properties['SolicitUUIDs'] = GLib.Variant('as', self.solicit_uuids)
         if self.manufacturer_data is not None:
-            properties['ManufacturerData'] = dbus.Dictionary(
-                self.manufacturer_data, signature='qv')
+            properties['ManufacturerData'] = GLib.Variant(
+                    'a{qv}', self.manufacturer_data)
 
         if self.service_data is not None:
-            properties['ServiceData'] = dbus.Dictionary(self.service_data,
-                                                        signature='sv')
+            properties['ServiceData'] = GLib.Variant('a{sv}',
+                                                     self.service_data)
+        if self.discoverable is not None:
+            properties['Discoverable'] = GLib.Variant('b', self.discoverable)
+
         if self.include_tx_power is not None:
-            properties['IncludeTxPower'] = dbus.Boolean(self.include_tx_power)
+            properties['IncludeTxPower'] = GLib.Variant(
+                    'b', self.include_tx_power)
 
         # Note here: Scan response data is an int (tag) -> array (value) mapping
         # but autotest's xmlrpc server can only accept string keys. For this
         # reason, the scan response key is encoded as a hex string, and then
         # re-mapped here before the advertisement is registered.
         if self.scan_response is not None:
-            scan_rsp = dbus.Dictionary({}, signature='yv')
+            scan_rsp = {}
             for key, value in self.scan_response.items():
-                scan_rsp[int(key, 16)] = dbus.Array(value, signature='y')
+                scan_rsp[int(key, 16)] = GLib.Variant('ay', value)
 
-            properties['ScanResponseData'] = scan_rsp
+            properties['ScanResponseData'] = GLib.Variant('a{yv}', scan_rsp)
+
+        if self.min_interval is not None:
+            properties['MinInterval'] = GLib.Variant('u', self.min_interval)
+
+        if self.max_interval is not None:
+            properties['MaxInterval'] = GLib.Variant('u', self.max_interval)
+
+        if self.tx_power is not None:
+            properties['TxPower'] = GLib.Variant('n', self.tx_power)
 
         return properties
 
-
-    @dbus.service.method(LE_ADVERTISEMENT_IFACE, in_signature='',
-                         out_signature='')
     def Release(self):
         """The method callback at release."""
         logging.info('%s: Advertisement Release() called.', self.path)
 
 
-def example_advertisement():
+def example_advertisement(bus):
     """A demo example of creating an Advertisement object.
 
+    @param bus: a dbus system bus.
     @returns: the Advertisement object.
 
     """
     ADVERTISEMENT_DATA = {
-        'Path': '/org/bluez/test/advertisement1',
+            'Path': '/org/bluez/test/advertisement1',
 
-        # Could be 'central' or 'peripheral'.
-        'Type': 'peripheral',
+            # Could be 'central' or 'peripheral'.
+            'Type': 'peripheral',
 
-        # Refer to the specification for a list of service assgined numbers:
-        # https://www.bluetooth.com/specifications/gatt/services
-        # e.g., 180D represents "Heart Reate" service, and
-        #       180F "Battery Service".
-        'ServiceUUIDs': ['180D', '180F'],
+            # Refer to the specification for a list of service assigned numbers:
+            # https://www.bluetooth.com/specifications/gatt/services
+            # e.g., 180D represents "Heart Reate" service, and
+            #       180F "Battery Service".
+            'ServiceUUIDs': ['180D', '180F'],
 
-        # Service solicitation UUIDs.
-        'SolicitUUIDs': [],
+            # Service solicitation UUIDs.
+            'SolicitUUIDs': [],
 
-        # Two bytes of manufacturer id followed by manufacturer specific data.
-        'ManufacturerData': {'0xff00': [0xa1, 0xa2, 0xa3, 0xa4, 0xa5]},
+            # Two bytes of manufacturer id followed by manufacturer specific data.
+            'ManufacturerData': {
+                    '0xff00': [0xa1, 0xa2, 0xa3, 0xa4, 0xa5]
+            },
 
-        # service UUID followed by additional service data.
-        'ServiceData': {'9999': [0x10, 0x20, 0x30, 0x40, 0x50]},
+            # service UUID followed by additional service data.
+            'ServiceData': {
+                    '9999': [0x10, 0x20, 0x30, 0x40, 0x50]
+            },
 
-        # Does it include transmit power level?
-        'IncludeTxPower': True}
+            # Does it include transmit power level?
+            'IncludeTxPower': True
+    }
 
     return Advertisement(bus, ADVERTISEMENT_DATA)
 
 
 if __name__ == '__main__':
-    # It is required to set the mainloop before creating the system bus object.
-    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-    bus = dbus.SystemBus()
-
-    adv = example_advertisement()
+    bus = pydbus.SystemBus()
+    adv = example_advertisement(bus)
     print(adv.GetAll(LE_ADVERTISEMENT_IFACE))

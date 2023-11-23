@@ -18,10 +18,12 @@ package com.android.ims.rcs.uce.request;
 
 import static android.telephony.ims.stub.RcsCapabilityExchangeImplBase.COMMAND_CODE_GENERIC_FAILURE;
 
+import android.annotation.Nullable;
 import android.net.Uri;
 import android.os.RemoteException;
 import android.telephony.ims.RcsContactUceCapability;
 import android.telephony.ims.RcsUceAdapter;
+import android.telephony.ims.SipDetails;
 import android.telephony.ims.aidl.IRcsUceControllerCallback;
 
 import com.android.ims.rcs.uce.UceDeviceState.DeviceStateResult;
@@ -111,21 +113,25 @@ public class SubscribeRequestCoordinator extends UceRequestCoordinator {
     private static final RequestResultCreator sNetworkRespErrorCreator = (taskId, response,
             requestMgrCallback) -> {
         DeviceStateResult deviceState = requestMgrCallback.getDeviceState();
+        SipDetails details = response.getSipDetails().orElse(null);
         if (deviceState.isRequestForbidden()) {
             int errorCode = deviceState.getErrorCode().orElse(RcsUceAdapter.ERROR_FORBIDDEN);
             long retryAfter = deviceState.getRequestRetryAfterMillis();
-            return RequestResult.createFailedResult(taskId, errorCode, retryAfter);
+            return RequestResult.createFailedResult(taskId, errorCode, retryAfter, details);
         } else {
             int errorCode = CapabilityRequestResponse.getCapabilityErrorFromSipCode(response);
             long retryAfter = response.getRetryAfterMillis();
-            return RequestResult.createFailedResult(taskId, errorCode, retryAfter);
+            return RequestResult.createFailedResult(taskId, errorCode, retryAfter, details);
         }
     };
 
     // The RequestResult creator of the network response is not 200 OK, however, we can to treat
     // it as a successful result and finish the request
     private static final RequestResultCreator sNetworkRespSuccessfulCreator = (taskId, response,
-            requestMgrCallback) -> RequestResult.createSuccessResult(taskId);
+            requestMgrCallback) -> {
+        SipDetails detail = response.getSipDetails().orElse(null);
+        return RequestResult.createSuccessResult(taskId, detail);
+    };
 
     // The RequestResult creator of the request terminated.
     private static final RequestResultCreator sTerminatedCreator = (taskId, response,
@@ -134,6 +140,7 @@ public class SubscribeRequestCoordinator extends UceRequestCoordinator {
         TerminatedResult terminatedResult = SubscriptionTerminatedHelper.getAnalysisResult(
                 response.getTerminatedReason(), response.getRetryAfterMillis(),
                 response.haveAllRequestCapsUpdatedBeenReceived());
+        SipDetails details = response.getSipDetails().orElse(null);
         if (terminatedResult.getErrorCode().isPresent()) {
             // If the terminated error code is present, it means that the request is failed.
             int errorCode = terminatedResult.getErrorCode().get();
@@ -143,9 +150,9 @@ public class SubscribeRequestCoordinator extends UceRequestCoordinator {
             // If the network response is failed or the retryAfter is not 0, this request is failed.
             long retryAfterMillis = response.getRetryAfterMillis();
             int errorCode = CapabilityRequestResponse.getCapabilityErrorFromSipCode(response);
-            return RequestResult.createFailedResult(taskId, errorCode, retryAfterMillis);
+            return RequestResult.createFailedResult(taskId, errorCode, retryAfterMillis, details);
         } else {
-            return RequestResult.createSuccessResult(taskId);
+            return RequestResult.createSuccessResult(taskId, details);
         }
     };
 
@@ -297,7 +304,9 @@ public class SubscribeRequestCoordinator extends UceRequestCoordinator {
             // Trigger capabilities updated callback if there is any.
             List<RcsContactUceCapability> updatedCapList = response.getUpdatedContactCapability();
             if (!updatedCapList.isEmpty()) {
-                mRequestManagerCallback.saveCapabilities(updatedCapList);
+                if (response.isNotFound()) {
+                    mRequestManagerCallback.saveCapabilities(updatedCapList);
+                }
                 triggerCapabilitiesReceivedCallback(updatedCapList);
                 response.removeUpdatedCapabilities(updatedCapList);
             }
@@ -538,14 +547,23 @@ public class SubscribeRequestCoordinator extends UceRequestCoordinator {
                         .max(Comparator.comparingLong(result ->
                                 result.getRetryMillis().orElse(-1L)));
 
+            Optional<RequestResult> optDebugInfoResult = mFinishedRequests.values().stream()
+                    .filter(result -> !result.getSipDetails().isEmpty())
+                    .findFirst();
+
+            SipDetails details = null;
+            if (optDebugInfoResult.isPresent()) {
+                RequestResult result = optDebugInfoResult.get();
+                details = result.getSipDetails().orElse(null);
+            }
             // Trigger the callback
             if (optRequestResult.isPresent()) {
                 RequestResult result = optRequestResult.get();
                 int errorCode = result.getErrorCode().orElse(DEFAULT_ERROR_CODE);
                 long retryAfter = result.getRetryMillis().orElse(0L);
-                triggerErrorCallback(errorCode, retryAfter);
+                triggerErrorCallback(errorCode, retryAfter, details);
             } else {
-                triggerCompletedCallback();
+                triggerCompletedCallback(details);
             }
 
             // Notify UceRequestManager to remove this instance from the collection.
@@ -572,10 +590,10 @@ public class SubscribeRequestCoordinator extends UceRequestCoordinator {
     /**
      * Trigger the onComplete callback to notify the request is completed.
      */
-    private void triggerCompletedCallback() {
+    private void triggerCompletedCallback(@Nullable SipDetails details) {
         try {
             logd("triggerCompletedCallback");
-            mCapabilitiesCallback.onComplete();
+            mCapabilitiesCallback.onComplete(details);
         } catch (RemoteException e) {
             logw("triggerCompletedCallback exception: " + e);
         } finally {
@@ -586,10 +604,11 @@ public class SubscribeRequestCoordinator extends UceRequestCoordinator {
     /**
      * Trigger the onError callback to notify the request is failed.
      */
-    private void triggerErrorCallback(int errorCode, long retryAfterMillis) {
+    private void triggerErrorCallback(int errorCode, long retryAfterMillis,
+            @Nullable SipDetails details) {
         try {
             logd("triggerErrorCallback: errorCode=" + errorCode + ", retry=" + retryAfterMillis);
-            mCapabilitiesCallback.onError(errorCode, retryAfterMillis);
+            mCapabilitiesCallback.onError(errorCode, retryAfterMillis, details);
         } catch (RemoteException e) {
             logw("triggerErrorCallback exception: " + e);
         } finally {

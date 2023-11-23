@@ -66,7 +66,7 @@ import org.mockito.quality.Strictness;
 import java.util.Collections;
 
 @RunWith(AndroidJUnit4.class)
-public class PrioritizeAppPerformancePreferenceControllerTest {
+public final class PrioritizeAppPerformancePreferenceControllerTest {
     private static final String TEST_PKG_NAME = "test.package.name";
     private static final int TEST_UID = 10012345;
     private static final int TEST_USER_ID = 100;

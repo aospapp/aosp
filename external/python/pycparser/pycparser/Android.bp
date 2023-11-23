@@ -30,13 +30,5 @@ python_library {
     data: [
         "_c_ast.cfg",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     pkg_path: "pycparser",
 }

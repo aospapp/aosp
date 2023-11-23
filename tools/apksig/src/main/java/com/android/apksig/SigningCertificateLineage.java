@@ -112,6 +112,16 @@ public class SigningCertificateLineage {
         mSigningLineage = list;
     }
 
+    /**
+     * Creates a {@code SigningCertificateLineage} with a single signer in the lineage.
+     */
+    private static SigningCertificateLineage createSigningLineage(int minSdkVersion,
+            SignerConfig signer, SignerCapabilities capabilities) {
+        SigningCertificateLineage signingCertificateLineage = new SigningCertificateLineage(
+                minSdkVersion, new ArrayList<>());
+        return signingCertificateLineage.spawnFirstDescendant(signer, capabilities);
+    }
+
     private static SigningCertificateLineage createSigningLineage(
             int minSdkVersion, SignerConfig parent, SignerCapabilities parentCapabilities,
             SignerConfig child, SignerCapabilities childCapabilities)
@@ -183,13 +193,36 @@ public class SigningCertificateLineage {
     }
 
     /**
-     * Extracts a Signing Certificate Lineage from the proof-of-rotation attribute in the V3
-     * signature block of the provided APK DataSource.
+     * Extracts a Signing Certificate Lineage from the proof-of-rotation attribute in the V3 and
+     * V3.1 signature blocks of the provided APK DataSource.
      *
-     * @throws IllegalArgumentException if the provided APK does not contain a V3 signature block,
-     * or if the V3 signature block does not contain a valid lineage.
+     * @throws IllegalArgumentException if the provided APK does not contain a V3 nor V3.1
+     * signature block, or if the V3 and V3.1 signature blocks do not contain a valid lineage.
      */
+
     public static SigningCertificateLineage readFromApkDataSource(DataSource apk)
+            throws IOException, ApkFormatException {
+        return readFromApkDataSource(apk, /* readV31Lineage= */ true,  /* readV3Lineage= */true);
+    }
+
+    /**
+     * Extracts a Signing Certificate Lineage from the proof-of-rotation attribute in the V3.1
+     * signature blocks of the provided APK DataSource.
+     *
+     * @throws IllegalArgumentException if the provided APK does not contain a V3.1 signature block,
+     * or if the V3.1 signature block does not contain a valid lineage.
+     */
+
+    public static SigningCertificateLineage readV31FromApkDataSource(DataSource apk)
+            throws IOException, ApkFormatException {
+            return readFromApkDataSource(apk, /* readV31Lineage= */ true,
+                        /* readV3Lineage= */ false);
+    }
+
+    private static SigningCertificateLineage readFromApkDataSource(
+            DataSource apk,
+            boolean readV31Lineage,
+            boolean readV3Lineage)
             throws IOException, ApkFormatException {
         ApkUtils.ZipSections zipSections;
         try {
@@ -199,29 +232,41 @@ public class SigningCertificateLineage {
         }
 
         List<SignatureInfo> signatureInfoList = new ArrayList<>();
-        try {
-            ApkSigningBlockUtils.Result result = new ApkSigningBlockUtils.Result(
+        if (readV31Lineage) {
+            try {
+                ApkSigningBlockUtils.Result result = new ApkSigningBlockUtils.Result(
                     ApkSigningBlockUtils.VERSION_APK_SIGNATURE_SCHEME_V31);
-            signatureInfoList.add(
+                signatureInfoList.add(
                     ApkSigningBlockUtils.findSignature(apk, zipSections,
-                            V3SchemeConstants.APK_SIGNATURE_SCHEME_V31_BLOCK_ID, result));
+                        V3SchemeConstants.APK_SIGNATURE_SCHEME_V31_BLOCK_ID, result));
+            } catch (ApkSigningBlockUtils.SignatureNotFoundException ignored) {
+                // This could be expected if there's only a V3 signature block.
+            }
         }
-        catch (ApkSigningBlockUtils.SignatureNotFoundException ignored) {
-            // This could be expected if there's only a V3 signature block.
-        }
-        try {
-            ApkSigningBlockUtils.Result result = new ApkSigningBlockUtils.Result(
+        if (readV3Lineage) {
+            try {
+                ApkSigningBlockUtils.Result result = new ApkSigningBlockUtils.Result(
                     ApkSigningBlockUtils.VERSION_APK_SIGNATURE_SCHEME_V3);
-            signatureInfoList.add(
+                signatureInfoList.add(
                     ApkSigningBlockUtils.findSignature(apk, zipSections,
-                            V3SchemeConstants.APK_SIGNATURE_SCHEME_V3_BLOCK_ID, result));
-        }
-        catch (ApkSigningBlockUtils.SignatureNotFoundException ignored) {
-            // This could be expected if the provided APK is not signed with the v3 signature scheme
+                        V3SchemeConstants.APK_SIGNATURE_SCHEME_V3_BLOCK_ID, result));
+            } catch (ApkSigningBlockUtils.SignatureNotFoundException ignored) {
+                // This could be expected if the provided APK is not signed with the V3 signature
+                // scheme
+            }
         }
         if (signatureInfoList.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "The provided APK does not contain a valid V3 signature block.");
+            String message;
+            if (readV31Lineage && readV3Lineage) {
+                message = "The provided APK does not contain a valid V3 nor V3.1 signature block.";
+            } else if (readV31Lineage) {
+                message = "The provided APK does not contain a valid V3.1 signature block.";
+            } else if (readV3Lineage) {
+                message = "The provided APK does not contain a valid V3 signature block.";
+            } else {
+                message = "No signature blocks were requested.";
+            }
+            throw new IllegalArgumentException(message);
         }
 
         List<SigningCertificateLineage> lineages = new ArrayList<>(1);
@@ -598,11 +643,23 @@ public class SigningCertificateLineage {
         if (config == null) {
             throw new NullPointerException("config == null");
         }
+        updateSignerCapabilities(config.getCertificate(), capabilities);
+    }
 
-        X509Certificate cert = config.getCertificate();
+    /**
+     * Updates the {@code capabilities} for the signer with the provided {@code certificate} in the
+     * lineage. Only those capabilities that have been modified through the setXX methods will be
+     * updated for the signer to prevent unset default values from being applied.
+     */
+    public void updateSignerCapabilities(X509Certificate certificate,
+            SignerCapabilities capabilities) {
+        if (certificate == null) {
+            throw new NullPointerException("config == null");
+        }
+
         for (int i = 0; i < mSigningLineage.size(); i++) {
             SigningCertificateNode lineageNode = mSigningLineage.get(i);
-            if (lineageNode.signingCert.equals(cert)) {
+            if (lineageNode.signingCert.equals(certificate)) {
                 int flags = lineageNode.flags;
                 SignerCapabilities newCapabilities = new SignerCapabilities.Builder(
                         flags).setCallerConfiguredCapabilities(capabilities).build();
@@ -612,7 +669,7 @@ public class SigningCertificateLineage {
         }
 
         // the provided signer config was not found in the lineage
-        throw new IllegalArgumentException("Certificate (" + cert.getSubjectDN()
+        throw new IllegalArgumentException("Certificate (" + certificate.getSubjectDN()
                 + ") not found in the SigningCertificateLineage");
     }
 
@@ -656,13 +713,28 @@ public class SigningCertificateLineage {
         return false;
     }
 
+    /**
+     * Returns whether the provided {@code cert} is the latest signing certificate in the lineage.
+     *
+     * <p>This method will only compare the provided {@code cert} against the latest signing
+     * certificate in the lineage; if a certificate that is not in the lineage is provided, this
+     * method will return false.
+     */
+    public boolean isCertificateLatestInLineage(X509Certificate cert) {
+        if (cert == null) {
+            throw new NullPointerException("cert == null");
+        }
+
+        return mSigningLineage.get(mSigningLineage.size() - 1).signingCert.equals(cert);
+    }
+
     private static int calculateDefaultFlags() {
         return PAST_CERT_INSTALLED_DATA | PAST_CERT_PERMISSION
                 | PAST_CERT_SHARED_USER_ID | PAST_CERT_AUTH;
     }
 
     /**
-     * Returns a new SigingCertificateLineage which terminates at the node corresponding to the
+     * Returns a new SigningCertificateLineage which terminates at the node corresponding to the
      * given certificate.  This is useful in the event of rotating to a new signing algorithm that
      * is only supported on some platform versions.  It enables a v3 signature to be generated using
      * this signing certificate and the shortened proof-of-rotation record from this sub lineage in
@@ -689,50 +761,168 @@ public class SigningCertificateLineage {
     }
 
     /**
-     * Consolidates all of the lineages found in an APK into one lineage, which is the longest one.
-     * In so doing, it also checks that all of the smaller lineages are contained in the largest,
-     * and that they properly cover the desired platform ranges.
+     * Consolidates all of the lineages found in an APK into one lineage. In so doing, it also
+     * checks that all of the lineages are contained in one common lineage.
      *
      * An APK may contain multiple lineages, one for each signer, which correspond to different
      * supported platform versions.  In this event, the lineage(s) from the earlier platform
-     * version(s) need to be present in the most recent (longest) one to make sure that when a
-     * platform version changes.
+     * version(s) should be present in the most recent, either directly or via a sublineage
+     * that would allow the earlier lineages to merge with the most recent.
      *
      * <note> This does not verify that the largest lineage corresponds to the most recent supported
-     * platform version.  That check requires is performed during v3 verification. </note>
+     * platform version.  That check is performed during v3 verification. </note>
      */
     public static SigningCertificateLineage consolidateLineages(
             List<SigningCertificateLineage> lineages) {
         if (lineages == null || lineages.isEmpty()) {
             return null;
         }
-        int largestIndex = 0;
-        int maxSize = 0;
+        SigningCertificateLineage consolidatedLineage = lineages.get(0);
+        for (int i = 1; i < lineages.size(); i++) {
+            consolidatedLineage = consolidatedLineage.mergeLineageWith(lineages.get(i));
+        }
+        return consolidatedLineage;
+    }
 
-        // determine the longest chain
-        for (int i = 0; i < lineages.size(); i++) {
-            int curSize = lineages.get(i).size();
-            if (curSize > maxSize) {
-                largestIndex = i;
-                maxSize = curSize;
-            }
+    /**
+     * Merges this lineage with the provided {@code otherLineage}.
+     *
+     * <p>The merged lineage does not currently handle merging capabilities of common signers and
+     * should only be used to determine the full signing history of a collection of lineages.
+     */
+    public SigningCertificateLineage mergeLineageWith(SigningCertificateLineage otherLineage) {
+        // Determine the ancestor and descendant lineages; if the original signer is in the other
+        // lineage, then it is considered a descendant.
+        SigningCertificateLineage ancestorLineage;
+        SigningCertificateLineage descendantLineage;
+        X509Certificate signerCert = mSigningLineage.get(0).signingCert;
+        if (otherLineage.isCertificateInLineage(signerCert)) {
+            descendantLineage = this;
+            ancestorLineage = otherLineage;
+        } else {
+            descendantLineage = otherLineage;
+            ancestorLineage = this;
         }
 
-        List<SigningCertificateNode> largestList = lineages.get(largestIndex).mSigningLineage;
-        // make sure all other lineages fit into this one, with the same capabilities
-        for (int i = 0; i < lineages.size(); i++) {
-            if (i == largestIndex) {
-                continue;
+        int ancestorIndex = 0;
+        int descendantIndex = 0;
+        SigningCertificateNode ancestorNode;
+        SigningCertificateNode descendantNode = descendantLineage.mSigningLineage.get(
+                descendantIndex++);
+        List<SigningCertificateNode> mergedLineage = new ArrayList<>();
+        // Iterate through the ancestor lineage and add the current node to the resulting lineage
+        // until the first node of the descendant is found.
+        while (ancestorIndex < ancestorLineage.size()) {
+            ancestorNode = ancestorLineage.mSigningLineage.get(ancestorIndex++);
+            if (ancestorNode.signingCert.equals(descendantNode.signingCert)) {
+                break;
             }
-            List<SigningCertificateNode> underTest = lineages.get(i).mSigningLineage;
-            if (!underTest.equals(largestList.subList(0, underTest.size()))) {
-                throw new IllegalArgumentException("Inconsistent SigningCertificateLineages. "
-                        + "Not all lineages are subsets of each other.");
+            mergedLineage.add(ancestorNode);
+        }
+        // If all of the nodes in the ancestor lineage have been added to the merged lineage, then
+        // there is no overlap between this and the provided lineage.
+        if (ancestorIndex == mergedLineage.size()) {
+            throw new IllegalArgumentException(
+                    "The provided lineage is not a descendant or an ancestor of this lineage");
+        }
+        // The descendant lineage's first node was in the ancestor's lineage above; add it to the
+        // merged lineage.
+        mergedLineage.add(descendantNode);
+        while (ancestorIndex < ancestorLineage.size()
+                && descendantIndex < descendantLineage.size()) {
+            ancestorNode = ancestorLineage.mSigningLineage.get(ancestorIndex++);
+            descendantNode = descendantLineage.mSigningLineage.get(descendantIndex++);
+            if (!ancestorNode.signingCert.equals(descendantNode.signingCert)) {
+                throw new IllegalArgumentException(
+                        "The provided lineage diverges from this lineage");
             }
+            mergedLineage.add(descendantNode);
+        }
+        // At this point, one or both of the lineages have been exhausted and all signers to this
+        // point were a match between the two lineages; add any remaining elements from either
+        // lineage to the merged lineage.
+        while (ancestorIndex < ancestorLineage.size()) {
+            mergedLineage.add(ancestorLineage.mSigningLineage.get(ancestorIndex++));
+        }
+        while (descendantIndex < descendantLineage.size()) {
+            mergedLineage.add(descendantLineage.mSigningLineage.get(descendantIndex++));
+        }
+        return new SigningCertificateLineage(Math.min(mMinSdkVersion, otherLineage.mMinSdkVersion),
+                mergedLineage);
+    }
+
+    /**
+     * Checks whether given lineages are compatible. Returns {@code true} if an installed APK with
+     * the oldLineage could be updated with an APK with the newLineage.
+     */
+    public static boolean checkLineagesCompatibility(
+        SigningCertificateLineage oldLineage, SigningCertificateLineage newLineage) {
+
+        final ArrayList<X509Certificate> oldCertificates = oldLineage == null ?
+                new ArrayList<X509Certificate>()
+                : new ArrayList(oldLineage.getCertificatesInLineage());
+        final ArrayList<X509Certificate> newCertificates = newLineage == null ?
+                new ArrayList<X509Certificate>()
+                : new ArrayList(newLineage.getCertificatesInLineage());
+
+        if (oldCertificates.isEmpty()) {
+            return true;
+        }
+        if (newCertificates.isEmpty()) {
+            return false;
         }
 
-        // if we've made it this far, they all check out, so just return the largest
-        return lineages.get(largestIndex);
+        // Both lineages contain exactly the same certificates or the new lineage extends
+        // the old one. The capabilities of particular certificates may have changed though but it
+        // does not matter in terms of current compatibility.
+        if (newCertificates.size() >= oldCertificates.size()
+                && newCertificates.subList(0, oldCertificates.size()).equals(oldCertificates)) {
+            return true;
+        }
+
+        ArrayList<X509Certificate> newCertificatesArray = new ArrayList(newCertificates);
+        ArrayList<X509Certificate> oldCertificatesArray = new ArrayList(oldCertificates);
+
+        int lastOldCertIndexInNew = newCertificatesArray.lastIndexOf(
+                    oldCertificatesArray.get(oldCertificatesArray.size()-1));
+
+        // The new lineage trims some nodes from the beginning of the old lineage and possibly
+        // extends it at the end. The new lineage must contain the old signing certificate and
+        // the nodes up until the node with signing certificate must be in the same order.
+        // Good example 1:
+        //    old: A -> B -> C
+        //    new: B -> C -> D
+        // Good example 2:
+        //    old: A -> B -> C
+        //    new: C
+        // Bad example 1:
+        //    old: A -> B -> C
+        //    new: A -> C
+        // Bad example 1:
+        //    old: A -> B
+        //    new: C -> B
+        if (lastOldCertIndexInNew >= 0) {
+            return newCertificatesArray.subList(0, lastOldCertIndexInNew+1).equals(
+                    oldCertificatesArray.subList(
+                            oldCertificates.size()-1-lastOldCertIndexInNew,
+                            oldCertificatesArray.size()));
+        }
+
+
+        // The new lineage can be shorter than the old one only if the last certificate of the new
+        // lineage exists in the old lineage and has a rollback capability there.
+        // Good example:
+        //    old: A -> B_withRollbackCapability -> C
+        //    new: A -> B
+        // Bad example 1:
+        //    old: A -> B -> C
+        //    new: A -> B
+        // Bad example 2:
+        //    old: A -> B_withRollbackCapability -> C
+        //    new: A -> B -> D
+        return  oldCertificates.subList(0, newCertificates.size()).equals(newCertificates)
+                && oldLineage.getSignerCapabilities(
+                        oldCertificates.get(newCertificates.size()-1)).hasRollback();
     }
 
     /**
@@ -769,8 +959,17 @@ public class SigningCertificateLineage {
          * Returns {@code true} if the capabilities of this object match those of the provided
          * object.
          */
-        public boolean equals(SignerCapabilities other) {
-            return this.mFlags == other.mFlags;
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof SignerCapabilities)) return false;
+
+            return this.mFlags == ((SignerCapabilities) other).mFlags;
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * mFlags;
         }
 
         /**
@@ -1040,6 +1239,21 @@ public class SigningCertificateLineage {
         }
 
         /**
+         * Constructs a new {@code Builder} that is intended to create a {@code
+         * SigningCertificateLineage} with a single signer in the signing history.
+         *
+         * @param originalSignerConfig first signer in this lineage
+         */
+        public Builder(SignerConfig originalSignerConfig) {
+            if (originalSignerConfig == null) {
+                throw new NullPointerException("Can't pass null SignerConfigs when constructing a "
+                        + "new SigningCertificateLineage");
+            }
+            mOriginalSignerConfig = originalSignerConfig;
+            mNewSignerConfig = null;
+        }
+
+        /**
          * Sets the minimum Android platform version (API Level) on which this lineage is expected
          * to validate.  It is possible that newer signers in the lineage may not be recognized on
          * the given platform, but as long as an older signer is, the lineage can still be used to
@@ -1092,6 +1306,11 @@ public class SigningCertificateLineage {
 
             if (mOriginalCapabilities == null) {
                 mOriginalCapabilities = new SignerCapabilities.Builder().build();
+            }
+
+            if (mNewSignerConfig == null) {
+                return createSigningLineage(mMinSdkVersion, mOriginalSignerConfig,
+                        mOriginalCapabilities);
             }
 
             if (mNewCapabilities == null) {

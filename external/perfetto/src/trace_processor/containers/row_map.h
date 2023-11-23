@@ -20,10 +20,11 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
+#include <variant>
 #include <vector>
 
 #include "perfetto/base/logging.h"
-#include "perfetto/ext/base/optional.h"
 #include "src/trace_processor/containers/bit_vector.h"
 #include "src/trace_processor/containers/bit_vector_iterators.h"
 
@@ -73,55 +74,24 @@ namespace trace_processor {
 // more efficient than a BitVector; in this case, we will make a best effort
 // switch to it but the cases where this happens is not precisely defined.
 class RowMap {
- private:
-  // We need to declare these iterator classes before RowMap::Iterator as it
-  // depends on them. However, we don't want to make these public so keep them
-  // under a special private section.
-
-  // Iterator for ranged mode of RowMap.
-  // This class should act as a drop-in replacement for
-  // BitVector::SetBitsIterator.
-  class RangeIterator {
-   public:
-    RangeIterator(const RowMap* rm) : rm_(rm), index_(rm->start_index_) {}
-
-    void Next() { ++index_; }
-
-    operator bool() const { return index_ < rm_->end_index_; }
-
-    uint32_t index() const { return index_; }
-
-    uint32_t ordinal() const { return index_ - rm_->start_index_; }
-
-   private:
-    const RowMap* rm_ = nullptr;
-    uint32_t index_ = 0;
-  };
-
-  // Iterator for index vector mode of RowMap.
-  // This class should act as a drop-in replacement for
-  // BitVector::SetBitsIterator.
-  class IndexVectorIterator {
-   public:
-    IndexVectorIterator(const RowMap* rm) : rm_(rm) {}
-
-    void Next() { ++ordinal_; }
-
-    operator bool() const { return ordinal_ < rm_->index_vector_.size(); }
-
-    uint32_t index() const { return rm_->index_vector_[ordinal_]; }
-
-    uint32_t ordinal() const { return ordinal_; }
-
-   private:
-    const RowMap* rm_ = nullptr;
-    uint32_t ordinal_ = 0;
-  };
-
  public:
-  // Input type.
   using InputRow = uint32_t;
   using OutputIndex = uint32_t;
+  using IndexVector = std::vector<OutputIndex>;
+
+  struct Range {
+    Range(OutputIndex start_index, OutputIndex end_index)
+        : start(start_index), end(end_index) {}
+    Range() : start(0), end(0) {}
+
+    OutputIndex start = 0;  // This is an inclusive index.
+    OutputIndex end = 0;    // This is an exclusive index.
+
+    uint32_t size() const {
+      PERFETTO_DCHECK(end >= start);
+      return end - start;
+    }
+  };
 
   // Allows efficient iteration over the rows of a RowMap.
   //
@@ -130,87 +100,72 @@ class RowMap {
   // of the RowMap on every method call.
   class Iterator {
    public:
-    Iterator(const RowMap* rm) : rm_(rm) {
-      switch (rm->mode_) {
-        case Mode::kRange:
-          range_it_.reset(new RangeIterator(rm));
-          break;
-        case Mode::kBitVector:
-          set_bits_it_.reset(
-              new BitVector::SetBitsIterator(rm->bit_vector_.IterateSetBits()));
-          break;
-        case Mode::kIndexVector:
-          iv_it_.reset(new IndexVectorIterator(rm));
-          break;
-      }
-    }
+    explicit Iterator(const RowMap* rm);
 
     Iterator(Iterator&&) noexcept = default;
     Iterator& operator=(Iterator&&) = default;
 
     // Forwards the iterator to the next row of the RowMap.
     void Next() {
-      switch (rm_->mode_) {
-        case Mode::kRange:
-          range_it_->Next();
-          break;
-        case Mode::kBitVector:
-          set_bits_it_->Next();
-          break;
-        case Mode::kIndexVector:
-          iv_it_->Next();
-          break;
+      if (std::get_if<Range>(&rm_->data_)) {
+        ++ordinal_;
+      } else if (std::get_if<BitVector>(&rm_->data_)) {
+        set_bits_it_->Next();
+      } else if (std::get_if<IndexVector>(&rm_->data_)) {
+        ++ordinal_;
       }
     }
 
     // Returns if the iterator is still valid.
     operator bool() const {
-      switch (rm_->mode_) {
-        case Mode::kRange:
-          return *range_it_;
-        case Mode::kBitVector:
-          return *set_bits_it_;
-        case Mode::kIndexVector:
-          return *iv_it_;
+      if (auto* range = std::get_if<Range>(&rm_->data_)) {
+        return ordinal_ < range->end;
       }
-      PERFETTO_FATAL("For GCC");
+      if (std::get_if<BitVector>(&rm_->data_)) {
+        return bool(*set_bits_it_);
+      }
+      if (auto* vec = std::get_if<IndexVector>(&rm_->data_)) {
+        return ordinal_ < vec->size();
+      }
+      PERFETTO_FATAL("Didn't match any variant type.");
     }
 
     // Returns the index pointed to by this iterator.
     OutputIndex index() const {
-      switch (rm_->mode_) {
-        case Mode::kRange:
-          return range_it_->index();
-        case Mode::kBitVector:
-          return set_bits_it_->index();
-        case Mode::kIndexVector:
-          return iv_it_->index();
+      if (std::get_if<Range>(&rm_->data_)) {
+        return ordinal_;
       }
-      PERFETTO_FATAL("For GCC");
+      if (std::get_if<BitVector>(&rm_->data_)) {
+        return set_bits_it_->index();
+      }
+      if (auto* vec = std::get_if<IndexVector>(&rm_->data_)) {
+        return (*vec)[ordinal_];
+      }
+      PERFETTO_FATAL("Didn't match any variant type.");
     }
 
     // Returns the row of the index the iterator points to.
     InputRow row() const {
-      switch (rm_->mode_) {
-        case Mode::kRange:
-          return range_it_->ordinal();
-        case Mode::kBitVector:
-          return set_bits_it_->ordinal();
-        case Mode::kIndexVector:
-          return iv_it_->ordinal();
+      if (auto* range = std::get_if<Range>(&rm_->data_)) {
+        return ordinal_ - range->start;
       }
-      PERFETTO_FATAL("For GCC");
+      if (std::get_if<BitVector>(&rm_->data_)) {
+        return set_bits_it_->ordinal();
+      }
+      if (std::get_if<IndexVector>(&rm_->data_)) {
+        return ordinal_;
+      }
+      PERFETTO_FATAL("Didn't match any variant type.");
     }
 
    private:
     Iterator(const Iterator&) = delete;
     Iterator& operator=(const Iterator&) = delete;
 
-    // Only one of the below will be non-null depending on the mode of the
-    // RowMap.
-    std::unique_ptr<RangeIterator> range_it_;
+    // Ordinal will not be used for BitVector based RowMap.
+    uint32_t ordinal_ = 0;
+    // Not nullptr for BitVector based RowMap.
     std::unique_ptr<BitVector::SetBitsIterator> set_bits_it_;
-    std::unique_ptr<IndexVectorIterator> iv_it_;
 
     const RowMap* rm_ = nullptr;
   };
@@ -228,15 +183,21 @@ class RowMap {
 
   // Creates a RowMap containing the range of indices between |start| and |end|
   // i.e. all indices between |start| (inclusive) and |end| (exclusive).
-  explicit RowMap(OutputIndex start,
-                  OutputIndex end,
-                  OptimizeFor optimize_for = OptimizeFor::kMemory);
+  RowMap(OutputIndex start,
+         OutputIndex end,
+         OptimizeFor optimize_for = OptimizeFor::kMemory);
 
   // Creates a RowMap backed by a BitVector.
-  explicit RowMap(BitVector bit_vector);
+  explicit RowMap(BitVector);
 
   // Creates a RowMap backed by an std::vector<uint32_t>.
-  explicit RowMap(std::vector<OutputIndex> vec);
+  explicit RowMap(IndexVector);
+
+  RowMap(const RowMap&) noexcept = delete;
+  RowMap& operator=(const RowMap&) = delete;
+
+  RowMap(RowMap&&) noexcept = default;
+  RowMap& operator=(RowMap&&) = default;
 
   // Creates a RowMap containing just |index|.
   // By default this will be implemented using a range.
@@ -253,15 +214,16 @@ class RowMap {
   // Returns the size of the RowMap; that is the number of indices in the
   // RowMap.
   uint32_t size() const {
-    switch (mode_) {
-      case Mode::kRange:
-        return end_index_ - start_index_;
-      case Mode::kBitVector:
-        return bit_vector_.GetNumBitsSet();
-      case Mode::kIndexVector:
-        return static_cast<uint32_t>(index_vector_.size());
+    if (auto* range = std::get_if<Range>(&data_)) {
+      return range->size();
     }
-    PERFETTO_FATAL("For GCC");
+    if (auto* bv = std::get_if<BitVector>(&data_)) {
+      return bv->CountSetBits();
+    }
+    if (auto* vec = std::get_if<IndexVector>(&data_)) {
+      return static_cast<uint32_t>(vec->size());
+    }
+    NoVariantMatched();
   }
 
   // Returns whether this rowmap is empty.
@@ -269,57 +231,51 @@ class RowMap {
 
   // Returns the index at the given |row|.
   OutputIndex Get(InputRow row) const {
-    PERFETTO_DCHECK(row < size());
-    switch (mode_) {
-      case Mode::kRange:
-        return GetRange(row);
-      case Mode::kBitVector:
-        return GetBitVector(row);
-      case Mode::kIndexVector:
-        return GetIndexVector(row);
+    if (auto* range = std::get_if<Range>(&data_)) {
+      return GetRange(*range, row);
     }
-    PERFETTO_FATAL("For GCC");
+    if (auto* bv = std::get_if<BitVector>(&data_)) {
+      return GetBitVector(*bv, row);
+    }
+    if (auto* vec = std::get_if<IndexVector>(&data_)) {
+      return GetIndexVector(*vec, row);
+    }
+    NoVariantMatched();
   }
 
   // Returns whether the RowMap contains the given index.
   bool Contains(OutputIndex index) const {
-    switch (mode_) {
-      case Mode::kRange: {
-        return index >= start_index_ && index < end_index_;
-      }
-      case Mode::kBitVector: {
-        return index < bit_vector_.size() && bit_vector_.IsSet(index);
-      }
-      case Mode::kIndexVector: {
-        auto it = std::find(index_vector_.begin(), index_vector_.end(), index);
-        return it != index_vector_.end();
-      }
+    if (auto* range = std::get_if<Range>(&data_)) {
+      return index >= range->start && index < range->end;
     }
-    PERFETTO_FATAL("For GCC");
+    if (auto* bv = std::get_if<BitVector>(&data_)) {
+      return index < bv->size() && bv->IsSet(index);
+    }
+    if (auto* vec = std::get_if<IndexVector>(&data_)) {
+      return std::find(vec->begin(), vec->end(), index) != vec->end();
+    }
+    NoVariantMatched();
   }
 
   // Returns the first row of the given |index| in the RowMap.
-  base::Optional<InputRow> RowOf(OutputIndex index) const {
-    switch (mode_) {
-      case Mode::kRange: {
-        if (index < start_index_ || index >= end_index_)
-          return base::nullopt;
-        return index - start_index_;
-      }
-      case Mode::kBitVector: {
-        return index < bit_vector_.size() && bit_vector_.IsSet(index)
-                   ? base::make_optional(bit_vector_.GetNumBitsSet(index))
-                   : base::nullopt;
-      }
-      case Mode::kIndexVector: {
-        auto it = std::find(index_vector_.begin(), index_vector_.end(), index);
-        return it != index_vector_.end()
-                   ? base::make_optional(static_cast<InputRow>(
-                         std::distance(index_vector_.begin(), it)))
-                   : base::nullopt;
-      }
+  std::optional<InputRow> RowOf(OutputIndex index) const {
+    if (auto* range = std::get_if<Range>(&data_)) {
+      if (index < range->start || index >= range->end)
+        return std::nullopt;
+      return index - range->start;
     }
-    PERFETTO_FATAL("For GCC");
+    if (auto* bv = std::get_if<BitVector>(&data_)) {
+      return index < bv->size() && bv->IsSet(index)
+                 ? std::make_optional(bv->CountSetBits(index))
+                 : std::nullopt;
+    }
+    if (auto* vec = std::get_if<IndexVector>(&data_)) {
+      auto it = std::find(vec->begin(), vec->end(), index);
+      return it != vec->end() ? std::make_optional(static_cast<InputRow>(
+                                    std::distance(vec->begin(), it)))
+                              : std::nullopt;
+    }
+    NoVariantMatched();
   }
 
   // Performs an ordered insert of the index into the current RowMap
@@ -337,34 +293,36 @@ class RowMap {
   // the RowMap is in range or BitVector mode but is a required condition for
   // IndexVector mode.
   void Insert(OutputIndex index) {
-    switch (mode_) {
-      case Mode::kRange:
-        if (index == end_index_) {
-          // Fast path: if we're just appending to the end of the range, we can
-          // stay in range mode and just bump the end index.
-          end_index_++;
-        } else {
-          // Slow path: the insert is somewhere else other than the end. This
-          // means we need to switch to using a BitVector instead.
-          bit_vector_.Resize(start_index_, false);
-          bit_vector_.Resize(end_index_, true);
-          *this = RowMap(std::move(bit_vector_));
-
-          InsertIntoBitVector(index);
-        }
-        break;
-      case Mode::kBitVector:
-        InsertIntoBitVector(index);
-        break;
-      case Mode::kIndexVector: {
-        PERFETTO_DCHECK(
-            std::is_sorted(index_vector_.begin(), index_vector_.end()));
-        auto it =
-            std::upper_bound(index_vector_.begin(), index_vector_.end(), index);
-        index_vector_.insert(it, index);
-        break;
+    if (auto* range = std::get_if<Range>(&data_)) {
+      if (index == range->end) {
+        // Fast path: if we're just appending to the end
+        // of the range, we can stay in range mode and
+        // just bump the end index.
+        range->end++;
+        return;
       }
+
+      // Slow path: the insert is somewhere else other
+      // than the end. This means we need to switch to
+      // using a BitVector instead.
+      BitVector bv;
+      bv.Resize(range->start, false);
+      bv.Resize(range->end, true);
+      InsertIntoBitVector(bv, index);
+      data_ = std::move(bv);
+      return;
     }
+    if (auto* bv = std::get_if<BitVector>(&data_)) {
+      InsertIntoBitVector(*bv, index);
+      return;
+    }
+    if (auto* vec = std::get_if<IndexVector>(&data_)) {
+      PERFETTO_DCHECK(std::is_sorted(vec->begin(), vec->end()));
+      auto it = std::upper_bound(vec->begin(), vec->end(), index);
+      vec->insert(it, index);
+      return;
+    }
+    NoVariantMatched();
   }
 
   // Updates this RowMap by 'picking' the indices given by |picker|.
@@ -397,211 +355,108 @@ class RowMap {
     return SelectRowsSlow(selector);
   }
 
-  // Intersects |other| with |this| writing the result into |this|.
-  // By "intersect", we mean to keep only the indices present in both RowMaps.
-  // The order of the preserved indices will be the same as |this|.
+  // Intersects the range [start_index, end_index) with |this| writing the
+  // result into |this|. By "intersect", we mean to keep only the indices
+  // present in both this RowMap and in the Range [start_index, end_index). The
+  // order of the preserved indices will be the same as |this|.
   //
   // Conceptually, we are performing the following algorithm:
   // for (idx : this)
-  //   if (!other.Contains(idx))
-  //     Remove(idx)
-  void Intersect(const RowMap& other) {
-    if (mode_ == Mode::kRange && other.mode_ == Mode::kRange) {
-      // If both RowMaps have ranges, we can just take the smallest intersection
-      // of them as the new RowMap.
-      // We have this as an explicit fast path as this is very common for
-      // constraints on id and sorted columns to satisfy this condition.
-      start_index_ = std::max(start_index_, other.start_index_);
-      end_index_ =
-          std::max(start_index_, std::min(end_index_, other.end_index_));
-      return;
-    }
+  //   if (start_index <= idx && idx < end_index)
+  //     continue;
+  //   Remove(idx)
+  void Intersect(const RowMap& second);
 
-    // TODO(lalitm): improve efficiency of this if we end up needing it.
-    Filter([&other](uint32_t row) { return other.Contains(row); });
-  }
-
-  // Filters the current RowMap into the RowMap given by |out| based on the
-  // return value of |p(idx)|.
-  //
-  // Precondition: |out| should be sorted by the indices inside it (this is
-  // required to keep this method efficient). This is automatically true if the
-  // mode is out is Range or BitVector but needs to be enforced if the mode is
-  // IndexVector.
-  //
-  // Specifically, the setup for each of the variables is as follows:
-  //  this: contains the RowMap indices which will be looked up and passed to
-  //        p to filter.
-  //  out : contains indicies into |this| and will be filtered down to only
-  //        contain indicies where p returns true.
-  //  p   : takes an index given by |this| and returns whether the index should
-  //        be retained in |out|.
-  //
-  // Concretely, the algorithm being invoked looks like (but more efficient
-  // based on the mode of |this| and |out|):
-  // for (idx : out)
-  //   this_idx = (*this)[idx]
-  //   if (!p(this_idx))
-  //     out->Remove(idx)
-  template <typename Predicate>
-  void FilterInto(RowMap* out, Predicate p) const {
-    PERFETTO_DCHECK(size() >= out->size());
-
-    if (out->empty()) {
-      // If the output RowMap is empty, we don't need to do anything.
-      return;
-    }
-
-    if (out->size() == 1) {
-      // If the output RowMap has a single entry, just lookup that entry and see
-      // if we should keep it.
-      if (!p(Get(out->Get(0))))
-        *out = RowMap();
-      return;
-    }
-
-    // TODO(lalitm): investigate whether we should have another fast path for
-    // cases where |out| has only a few entries so we can scan |out| instead of
-    // scanning |this|.
-
-    // Ideally, we'd always just scan |out| and keep the indices in |this| which
-    // meet |p|. However, if |this| is a BitVector, we end up needing expensive
-    // |IndexOfNthSet| calls (as we need to convert the row to an index before
-    // passing it to |p|).
-    switch (mode_) {
-      case Mode::kRange: {
-        auto ip = [this, p](uint32_t row) { return p(GetRange(row)); };
-        out->Filter(ip);
-        break;
-      }
-      case Mode::kBitVector: {
-        FilterIntoScanSelfBv(out, p);
-        break;
-      }
-      case Mode::kIndexVector: {
-        auto ip = [this, p](uint32_t row) { return p(GetIndexVector(row)); };
-        out->Filter(ip);
-        break;
-      }
+  // Intersects this RowMap with |index|. If this RowMap contained |index|, then
+  // it will *only* contain |index|. Otherwise, it will be empty.
+  void IntersectExact(OutputIndex index) {
+    if (Contains(index)) {
+      *this = RowMap(index, index + 1);
+    } else {
+      Clear();
     }
   }
+
+  // Clears this RowMap by resetting it to a newly constructed state.
+  void Clear() { *this = RowMap(); }
 
   template <typename Comparator = bool(uint32_t, uint32_t)>
-  void StableSort(std::vector<uint32_t>* out, Comparator c) const {
-    switch (mode_) {
-      case Mode::kRange:
-        std::stable_sort(out->begin(), out->end(),
-                         [this, c](uint32_t a, uint32_t b) {
-                           return c(GetRange(a), GetRange(b));
-                         });
-        break;
-      case Mode::kBitVector:
-        std::stable_sort(out->begin(), out->end(),
-                         [this, c](uint32_t a, uint32_t b) {
-                           return c(GetBitVector(a), GetBitVector(b));
-                         });
-        break;
-      case Mode::kIndexVector:
-        std::stable_sort(out->begin(), out->end(),
-                         [this, c](uint32_t a, uint32_t b) {
-                           return c(GetIndexVector(a), GetIndexVector(b));
-                         });
-        break;
+  void StableSort(IndexVector* out, Comparator c) const {
+    if (auto* range = std::get_if<Range>(&data_)) {
+      std::stable_sort(out->begin(), out->end(),
+                       [range, c](uint32_t a, uint32_t b) {
+                         return c(GetRange(*range, a), GetRange(*range, b));
+                       });
+      return;
     }
+    if (auto* bv = std::get_if<BitVector>(&data_)) {
+      std::stable_sort(out->begin(), out->end(),
+                       [&bv, c](uint32_t a, uint32_t b) {
+                         return c(GetBitVector(*bv, a), GetBitVector(*bv, b));
+                       });
+      return;
+    }
+    if (auto* vec = std::get_if<IndexVector>(&data_)) {
+      std::stable_sort(
+          out->begin(), out->end(), [vec, c](uint32_t a, uint32_t b) {
+            return c(GetIndexVector(*vec, a), GetIndexVector(*vec, b));
+          });
+      return;
+    }
+    NoVariantMatched();
+  }
+
+  // Filters the indices in |out| by keeping those which meet |p|.
+  template <typename Predicate = bool(OutputIndex)>
+  void Filter(Predicate p) {
+    if (auto* range = std::get_if<Range>(&data_)) {
+      data_ = FilterRange(p, *range);
+      return;
+    }
+    if (auto* bv = std::get_if<BitVector>(&data_)) {
+      for (auto it = bv->IterateSetBits(); it; it.Next()) {
+        if (!p(it.index()))
+          it.Clear();
+      }
+      return;
+    }
+    if (auto* vec = std::get_if<IndexVector>(&data_)) {
+      auto ret = std::remove_if(vec->begin(), vec->end(),
+                                [p](uint32_t i) { return !p(i); });
+      vec->erase(ret, vec->end());
+      return;
+    }
+    NoVariantMatched();
   }
 
   // Returns the iterator over the rows in this RowMap.
   Iterator IterateRows() const { return Iterator(this); }
 
   // Returns if the RowMap is internally represented using a range.
-  bool IsRange() const { return mode_ == Mode::kRange; }
+  bool IsRange() const { return std::holds_alternative<Range>(data_); }
+
+  // Returns if the RowMap is internally represented using a BitVector.
+  bool IsBitVector() const { return std::holds_alternative<BitVector>(data_); }
+
+  // Returns if the RowMap is internally represented using an index vector.
+  bool IsIndexVector() const {
+    return std::holds_alternative<IndexVector>(data_);
+  }
 
  private:
-  enum class Mode {
-    kRange,
-    kBitVector,
-    kIndexVector,
-  };
+  using Variant = std::variant<Range, BitVector, IndexVector>;
 
-  // Filters the indices in |out| by keeping those which meet |p|.
-  template <typename Predicate>
-  void Filter(Predicate p) {
-    switch (mode_) {
-      case Mode::kRange:
-        FilterRange(p);
-        break;
-      case Mode::kBitVector: {
-        for (auto it = bit_vector_.IterateSetBits(); it; it.Next()) {
-          if (!p(it.index()))
-            it.Clear();
-        }
-        break;
-      }
-      case Mode::kIndexVector: {
-        auto ret = std::remove_if(index_vector_.begin(), index_vector_.end(),
-                                  [p](uint32_t i) { return !p(i); });
-        index_vector_.erase(ret, index_vector_.end());
-        break;
-      }
-    }
-  }
+  explicit RowMap(Range);
 
-  // Filters the current RowMap into |out| by performing a full scan on |this|
-  // where |this| is a BitVector.
-  // See |FilterInto| for a full breakdown of the semantics of this function.
-  template <typename Predicate>
-  void FilterIntoScanSelfBv(RowMap* out, Predicate p) const {
-    auto it = bit_vector_.IterateSetBits();
-    switch (out->mode_) {
-      case Mode::kRange: {
-        // TODO(lalitm): investigate whether we can reuse the data inside
-        // out->bit_vector_ at some point.
-        BitVector bv(out->end_index_, false);
-        for (auto out_it = bv.IterateAllBits(); it; it.Next(), out_it.Next()) {
-          uint32_t ordinal = it.ordinal();
-          if (ordinal < out->start_index_)
-            continue;
-          if (ordinal >= out->end_index_)
-            break;
+  explicit RowMap(Variant);
 
-          if (p(it.index())) {
-            out_it.Set();
-          }
-        }
-        *out = RowMap(std::move(bv));
-        break;
-      }
-      case Mode::kBitVector: {
-        auto out_it = out->bit_vector_.IterateAllBits();
-        for (; out_it; it.Next(), out_it.Next()) {
-          PERFETTO_DCHECK(it);
-          if (out_it.IsSet() && !p(it.index()))
-            out_it.Clear();
-        }
-        break;
-      }
-      case Mode::kIndexVector: {
-        PERFETTO_DCHECK(std::is_sorted(out->index_vector_.begin(),
-                                       out->index_vector_.end()));
-        auto fn = [&p, &it](uint32_t i) {
-          while (it.ordinal() < i) {
-            it.Next();
-            PERFETTO_DCHECK(it);
-          }
-          PERFETTO_DCHECK(it.ordinal() == i);
-          return !p(it.index());
-        };
-        auto iv_it = std::remove_if(out->index_vector_.begin(),
-                                    out->index_vector_.end(), fn);
-        out->index_vector_.erase(iv_it, out->index_vector_.end());
-        break;
-      }
-    }
-  }
+  // TODO(lalitm): remove this when the coupling between RowMap and
+  // ColumnStorage Selector is broken (after filtering is moved out of here).
+  friend class ColumnStorageOverlay;
 
   template <typename Predicate>
-  void FilterRange(Predicate p) {
-    uint32_t count = end_index_ - start_index_;
+  Variant FilterRange(Predicate p, Range r) {
+    uint32_t count = r.size();
 
     // Optimization: if we are only going to scan a few indices, it's not
     // worth the haslle of working with a BitVector.
@@ -610,7 +465,7 @@ class RowMap {
 
     // Optimization: weif the cost of a BitVector is more than the highest
     // possible cost an index vector could have, use the index vector.
-    uint32_t bit_vector_cost = BitVector::ApproxBytesCost(end_index_);
+    uint32_t bit_vector_cost = BitVector::ApproxBytesCost(r.end);
     uint32_t index_vector_cost_ub = sizeof(uint32_t) * count;
 
     // If either of the conditions hold which make it better to use an
@@ -620,7 +475,7 @@ class RowMap {
         optimize_for_ == OptimizeFor::kLookupSpeed) {
       // Try and strike a good balance between not making the vector too
       // big and good performance.
-      std::vector<uint32_t> iv(std::min(kSmallRangeLimit, count));
+      IndexVector iv(std::min(kSmallRangeLimit, count));
 
       uint32_t out_i = 0;
       for (uint32_t i = 0; i < count; ++i) {
@@ -630,8 +485,8 @@ class RowMap {
 
         // We keep this branch free by always writing the index but only
         // incrementing the out index if the return value is true.
-        bool value = p(i + start_index_);
-        iv[out_i] = i + start_index_;
+        bool value = p(i + r.start);
+        iv[out_i] = i + r.start;
         out_i += value;
       }
 
@@ -639,50 +494,44 @@ class RowMap {
       iv.resize(out_i);
       iv.shrink_to_fit();
 
-      *this = RowMap(std::move(iv));
-      return;
+      return std::move(iv);
     }
 
     // Otherwise, create a bitvector which spans the full range using
     // |p| as the filler for the bits between start and end.
-    *this = RowMap(BitVector::Range(start_index_, end_index_, p));
+    return BitVector::Range(r.start, r.end, p);
   }
 
-  void InsertIntoBitVector(uint32_t row) {
-    PERFETTO_DCHECK(mode_ == Mode::kBitVector);
-
-    if (row >= bit_vector_.size())
-      bit_vector_.Resize(row + 1, false);
-    bit_vector_.Set(row);
+  PERFETTO_ALWAYS_INLINE static OutputIndex GetRange(Range r, InputRow row) {
+    return r.start + row;
   }
-
-  PERFETTO_ALWAYS_INLINE OutputIndex GetRange(InputRow row) const {
-    PERFETTO_DCHECK(mode_ == Mode::kRange);
-    return start_index_ + row;
+  PERFETTO_ALWAYS_INLINE static OutputIndex GetBitVector(const BitVector& bv,
+                                                         uint32_t row) {
+    return bv.IndexOfNthSet(row);
   }
-  PERFETTO_ALWAYS_INLINE OutputIndex GetBitVector(uint32_t row) const {
-    PERFETTO_DCHECK(mode_ == Mode::kBitVector);
-    return bit_vector_.IndexOfNthSet(row);
-  }
-  PERFETTO_ALWAYS_INLINE OutputIndex GetIndexVector(uint32_t row) const {
-    PERFETTO_DCHECK(mode_ == Mode::kIndexVector);
-    return index_vector_[row];
+  PERFETTO_ALWAYS_INLINE static OutputIndex GetIndexVector(
+      const IndexVector& vec,
+      uint32_t row) {
+    return vec[row];
   }
 
   RowMap SelectRowsSlow(const RowMap& selector) const;
 
-  Mode mode_ = Mode::kRange;
+  static void InsertIntoBitVector(BitVector& bv, OutputIndex row) {
+    if (row == bv.size()) {
+      bv.AppendTrue();
+      return;
+    }
+    if (row > bv.size())
+      bv.Resize(row + 1, false);
+    bv.Set(row);
+  }
 
-  // Only valid when |mode_| == Mode::kRange.
-  OutputIndex start_index_ = 0;  // This is an inclusive index.
-  OutputIndex end_index_ = 0;    // This is an exclusive index.
+  PERFETTO_NORETURN void NoVariantMatched() const {
+    PERFETTO_FATAL("Didn't match any variant type.");
+  }
 
-  // Only valid when |mode_| == Mode::kBitVector.
-  BitVector bit_vector_;
-
-  // Only valid when |mode_| == Mode::kIndexVector.
-  std::vector<OutputIndex> index_vector_;
-
+  Variant data_;
   OptimizeFor optimize_for_ = OptimizeFor::kMemory;
 };
 

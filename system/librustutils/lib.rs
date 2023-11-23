@@ -14,5 +14,6 @@
 
 //! Android rust utilities.
 
+pub mod sockets;
 pub mod system_properties;
 pub mod users;

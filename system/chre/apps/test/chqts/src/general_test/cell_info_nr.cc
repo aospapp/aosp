@@ -17,6 +17,10 @@
 
 #include <cinttypes>
 
+#include <chre/util/nanoapp/log.h>
+
+#define LOG_TAG "[CellInfoNr]"
+
 namespace general_test {
 namespace {
 constexpr int32_t kInvalid = INT32_MAX;
@@ -32,8 +36,7 @@ bool CellInfoNr::validateIdentity(const struct chreWwanCellIdentityNr &identity,
     sendFatalFailureInt32("Invalid NR Mobile Network Code: %d", identity.mnc);
   } else if (!isBoundedInt64(chreWwanUnpackNrNci(&identity), 0, 68719476735,
                              INT64_MAX)) {
-    chreLog(CHRE_LOG_ERROR, "Invalid NR Cell Identity: %" PRId64,
-            chreWwanUnpackNrNci(&identity));
+    LOGE("Invalid NR Cell Identity: %" PRId64, chreWwanUnpackNrNci(&identity));
     sendFatalFailure("Invalid NR Cell Identity");
   } else if (!isBoundedInt32(identity.pci, 0, 1007, kInvalid,
                              false /* invalidAllowed*/)) {

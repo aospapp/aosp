@@ -4,15 +4,5 @@
     {
       "path": "external/rust/crates/lru-cache"
     }
-  ],
-  "presubmit": [
-    {
-      "name": "linked-hash-map_test_tests_test"
-    }
-  ],
-  "presubmit-rust": [
-    {
-      "name": "linked-hash-map_test_tests_test"
-    }
   ]
 }

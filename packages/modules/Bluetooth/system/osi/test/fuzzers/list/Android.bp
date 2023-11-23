@@ -15,7 +15,8 @@ cc_fuzz {
         "fuzz_list.cc",
     ],
     static_libs: [
-        "libosi",
+        "libchrome",
         "liblog",
+        "libosi",
     ],
 }

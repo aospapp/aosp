@@ -16,29 +16,41 @@
 
 package android.media.audio.cts;
 
+import android.util.Log;
+
+import java.util.function.BooleanSupplier;
+
 /**
  * Helper class to simplify the handling of spurious wakeups in Object.wait()
  */
 final class SafeWaitObject {
-    private boolean mQuit = false;
-
-    public void safeNotify() {
+    /**
+     * Causes the current thread to wait until this object is notified and stopWaiting returns true,
+     * or a specified amount of time has elapsed.
+     * Unlike Object.wait(), it will not throw an InterruptedException, and will instead retry
+     * waiting until the deadline expires.
+     *
+     * @see Object#wait()
+     * @param timeoutMs The maximum time to wait in milliseconds.
+     * @param stopWaiting Predicate which returns false if the waiting should be continued
+     * @return false if the predicate stopWaiting still evaluates to false after the timeout expired
+     *         , otherwise true.
+     */
+    public boolean waitFor(long timeoutMs, BooleanSupplier stopWaiting) {
+        final long deadline = System.currentTimeMillis() + timeoutMs;
         synchronized (this) {
-            mQuit = true;
-            this.notify();
-        }
-    }
-
-    public void safeWait(long millis) throws InterruptedException {
-        final long timeOutTime = java.lang.System.currentTimeMillis() + millis;
-        synchronized (this) {
-            while (!mQuit) {
-                final long timeToWait = timeOutTime - java.lang.System.currentTimeMillis();
+            while (!stopWaiting.getAsBoolean()) {
+                final long timeToWait = deadline - System.currentTimeMillis();
                 if (timeToWait < 0) {
-                    break;
+                    return false;
                 }
-                this.wait(timeToWait);
+                try {
+                    this.wait(timeToWait);
+                } catch (InterruptedException e) {
+                    Log.v("SafeWaitObject", "waiting interrupted, resuming");
+                }
             }
         }
+        return true;
     }
 }

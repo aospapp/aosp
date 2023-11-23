@@ -149,6 +149,9 @@ class Annotator {
   // Initializes the contact engine with the given config.
   bool InitializeContactEngine(const std::string& serialized_config);
 
+  // Cleans up the resources associated with the contact engine.
+  void CleanUpContactEngine();
+
   // Initializes the installed app engine with the given config.
   bool InitializeInstalledAppEngine(const std::string& serialized_config);
 

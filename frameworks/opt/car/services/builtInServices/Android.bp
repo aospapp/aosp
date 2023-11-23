@@ -15,13 +15,21 @@ java_sdk_library {
     ],
     static_libs: [
         "android.car.watchdoglib",
-        "android.automotive.watchdog.internal-V1-java",
+        "android.automotive.watchdog.internal-V3-java",
+        "mu_imms-prebuilt",
     ],
     api_lint: {
         enabled: true,
     },
 
-    min_sdk_version: "33",
+    stub_only_libs: [
+        "framework-annotations-lib",
+    ],
+
+    droiddoc_options: [
+       "--include-annotations --pass-through-annotation android.annotation.RequiresApi"
+    ],
+
     apex_available: [
         "//apex_available:platform",
         "com.android.car.framework"

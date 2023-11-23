@@ -12,13 +12,13 @@ from autotest_lib.client.common_lib.cros import tpm_utils
 class firmware_Cr50InvalidateRW(test.test):
     """
     Verify the inactive Cr50 header on the first login after cryptohome
-    restarts.
+    starts.
 
     There are two special cases this test covers: logging in after the TPM
     owner is cleared and logging in as guest.
 
     After the tpm owner is cleared, corrupting the header will be done on
-    the second login. During guest login the owner wont be cleared.
+    the first non-guest login. During guest login the owner wont be cleared.
     """
     version = 1
 
@@ -94,7 +94,7 @@ class firmware_Cr50InvalidateRW(test.test):
             that isn't corrupt_login or if an attepmt to corrupt the header
             fails.
         """
-        for i in xrange(self.LOGIN_ATTEMPTS):
+        for i in range(self.LOGIN_ATTEMPTS):
             attempt = i + 1
 
             self.login(use_guest)
@@ -129,6 +129,10 @@ class firmware_Cr50InvalidateRW(test.test):
         logging.info('Clearing the TPM owner')
         tpm_utils.ClearTPMOwnerRequest(self.host, wait_for_ready=True)
 
+    def take_tpm_owner(self):
+        """Take the tpm owner."""
+        logging.info('Taking the TPM owner')
+        self.host.run('tpm_manager_client take_ownership')
 
     def after_run_once(self):
         """Print the run information after each successful run"""
@@ -137,21 +141,10 @@ class firmware_Cr50InvalidateRW(test.test):
 
     def run_once(self, host):
         """Login to validate ChromeOS corrupts the inactive header"""
-        # After clearing the tpm owner the header will be corrupted on the
-        # second login
+        # The header is corrupted on the first non-guest login after clearing
+        # the tpm owner
         self.clear_tpm_owner()
-        self.login_and_verify(corrupt_login=2)
+        self.take_tpm_owner()
 
-        # The header is corrupted on the first login after cryptohome is reset
-        self.restart_cryptohome()
-        self.login_and_verify(corrupt_login=1)
-
-        # Cryptohome is reset after reboot
-        self.host.reboot()
-        self.login_and_verify(corrupt_login=1)
-
-        # The header is not corrupted after guest login, but will be corrupted
-        # on the first login after that.
-        self.restart_cryptohome()
         self.login_and_verify(use_guest=True)
         self.login_and_verify(corrupt_login=1)

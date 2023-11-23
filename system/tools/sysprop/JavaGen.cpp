@@ -54,6 +54,7 @@ import java.util.stream.Collectors;
 
 constexpr const char* kJavaParsersAndFormatters =
     R"s(private static Boolean tryParseBoolean(String str) {
+    if (str == null) return null;
     switch (str.toLowerCase(Locale.US)) {
         case "1":
         case "true":

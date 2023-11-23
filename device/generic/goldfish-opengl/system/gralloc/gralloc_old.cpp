@@ -1,39 +1,39 @@
 /*
-* Copyright (C) 2011 The Android Open Source Project
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
-#include <string.h>
-#include <pthread.h>
-#include <limits.h>
+ * Copyright (C) 2011 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <cutils/ashmem.h>
-#include <unistd.h>
-#include <errno.h>
 #include <dlfcn.h>
-#include <sys/mman.h>
-#include <hardware/gralloc.h>
-
+#include <errno.h>
 #include <gralloc_cb_bp.h>
-#include "gralloc_common.h"
+#include <hardware/gralloc.h>
+#include <limits.h>
+#include <pthread.h>
+#include <qemu_pipe_bp.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
-#include "goldfish_dma.h"
-#include "goldfish_address_space.h"
 #include "FormatConversions.h"
 #include "HostConnection.h"
 #include "ProcessPipe.h"
 #include "ThreadInfo.h"
+#include "aemu/base/threads/AndroidThread.h"
 #include "glUtils.h"
-#include <qemu_pipe_bp.h>
+#include "goldfish_address_space.h"
+#include "goldfish_dma.h"
+#include "gralloc_common.h"
 
 #if PLATFORM_SDK_VERSION < 26
 #include <cutils/log.h>
@@ -79,44 +79,65 @@ static const bool isHidlGralloc = true;
 static const bool isHidlGralloc = false;
 #endif
 
+using android::base::guest::getCurrentThreadId;
+
 const uint32_t CB_HANDLE_MAGIC_OLD = CB_HANDLE_MAGIC_BASE | 0x1;
+const int kBufferFdIndex = 0;
+const int kHostHandleRefCountIndex = 1;
 
 struct cb_handle_old_t : public cb_handle_t {
     cb_handle_old_t(int p_fd, int p_ashmemSize, int p_usage,
                     int p_width, int p_height,
                     int p_format, int p_glFormat, int p_glType)
-            : cb_handle_t(p_fd,
-                          QEMU_PIPE_INVALID_HANDLE,
-                          CB_HANDLE_MAGIC_OLD,
+            : cb_handle_t(CB_HANDLE_MAGIC_OLD,
                           0,
-                          p_usage,
-                          p_width,
-                          p_height,
                           p_format,
-                          p_glFormat,
-                          p_glType,
+                          p_width,
                           p_ashmemSize,
-                          NULL,
                           ~uint64_t(0)),
+              usage(p_usage),
+              width(p_width),
+              height(p_height),
+              glFormat(p_glFormat),
+              glType(p_glType),
               ashmemBasePid(0),
-              mappedPid(0) {
+              mappedPid(0),
+              bufferPtrLo(0),
+              bufferPtrHi(0),
+              lockedLeft(0),
+              lockedTop(0),
+              lockedWidth(0),
+              lockedHeight(0) {
+        fds[kBufferFdIndex] = p_fd;
+        numFds = 1;
         numInts = CB_HANDLE_NUM_INTS(numFds);
     }
 
     bool hasRefcountPipe() const {
-        return qemu_pipe_valid(hostHandleRefCountFd);
+        return qemu_pipe_valid(fds[kHostHandleRefCountIndex]);
     }
 
     void setRefcountPipeFd(QEMU_PIPE_HANDLE fd) {
         if (qemu_pipe_valid(fd)) {
             numFds++;
         }
-        hostHandleRefCountFd = fd;
+        fds[kHostHandleRefCountIndex] = fd;
         numInts = CB_HANDLE_NUM_INTS(numFds);
     }
 
     bool canBePosted() const {
         return (0 != (usage & GRALLOC_USAGE_HW_FB));
+    }
+
+    void* getBufferPtr() const {
+        const uint64_t addr = (uint64_t(bufferPtrHi) << 32) | bufferPtrLo;
+        return reinterpret_cast<void*>(static_cast<uintptr_t>(addr));
+    }
+
+    void setBufferPtr(void* ptr) {
+        const uint64_t addr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(ptr));
+        bufferPtrLo = uint32_t(addr);
+        bufferPtrHi = uint32_t(addr >> 32);
     }
 
     bool isValid() const {
@@ -137,8 +158,19 @@ struct cb_handle_old_t : public cb_handle_t {
         return from(const_cast<void*>(p));
     }
 
+    uint32_t usage;         // usage bits the buffer was created with
+    uint32_t width;         // buffer width
+    uint32_t height;        // buffer height
+    uint32_t glFormat;      // OpenGL format enum used for host h/w color buffer
+    uint32_t glType;        // OpenGL type enum used when uploading to host
     int32_t ashmemBasePid;      // process id which mapped the ashmem region
     int32_t mappedPid;          // process id which succeeded gralloc_register call
+    uint32_t bufferPtrLo;
+    uint32_t bufferPtrHi;
+    uint32_t lockedLeft;    // region of buffer locked for s/w write
+    uint32_t lockedTop;
+    uint32_t lockedWidth;
+    uint32_t lockedHeight;
 };
 
 int32_t* getOpenCountPtr(const cb_handle_old_t* cb) {
@@ -422,12 +454,13 @@ static bool put_ashmem_region(ExtendedRCEncoderContext *rcEnc, cb_handle_old_t *
 
 static int map_buffer(cb_handle_old_t *cb, void **vaddr)
 {
-    if (cb->bufferFd < 0) {
+    const int bufferFd = cb->fds[kBufferFdIndex];
+    if (bufferFd < 0) {
         return -EINVAL;
     }
 
     void *addr = mmap(0, cb->bufferSize, PROT_READ | PROT_WRITE,
-                      MAP_SHARED, cb->bufferFd, 0);
+                      MAP_SHARED, bufferFd, 0);
     if (addr == MAP_FAILED) {
         ALOGE("%s: failed to map ashmem region!", __FUNCTION__);
         return -errno;
@@ -819,8 +852,8 @@ static int gralloc_alloc(alloc_device_t* dev,
         }
     }
 
-    D("gralloc_alloc format=%d, ashmem_size=%d, stride=%d, tid %d\n", format,
-      ashmem_size, stride, getCurrentThreadId());
+    D("gralloc_alloc format=%d, ashmem_size=%d, stride=%d, tid %lu\n", format, ashmem_size, stride,
+      getCurrentThreadId());
 
     //
     // Allocate space in ashmem if needed
@@ -961,17 +994,18 @@ static int gralloc_free(alloc_device_t* dev,
     //
     // detach and unmap ashmem area if present
     //
-    if (cb->bufferFd > 0) {
+    const int bufferFd = cb->fds[kBufferFdIndex];
+    if (bufferFd > 0) {
         if (cb->bufferSize > 0 && cb->getBufferPtr()) {
             D("%s: unmapped %p", __FUNCTION__, cb->getBufferPtr());
             munmap(cb->getBufferPtr(), cb->bufferSize);
             put_gralloc_region(rcEnc, cb->bufferSize);
         }
-        close(cb->bufferFd);
+        close(bufferFd);
     }
 
-    if(qemu_pipe_valid(cb->hostHandleRefCountFd)) {
-        qemu_pipe_close(cb->hostHandleRefCountFd);
+    if(qemu_pipe_valid(cb->fds[kHostHandleRefCountIndex])) {
+        qemu_pipe_close(cb->fds[kHostHandleRefCountIndex]);
     }
     D("%s: done", __FUNCTION__);
     // remove it from the allocated list

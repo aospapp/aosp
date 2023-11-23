@@ -37,4 +37,6 @@ java_library_host {
         "android/src/**/*.java",
         "src/main/**/*.java",
     ],
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
 }

@@ -26,13 +26,16 @@
 #include <future>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_set>
 
 #include "btif/include/btif_hh.h"
+#include "common/interfaces/ILoggable.h"
 #include "device/include/controller.h"
 #include "gd/common/bidi_queue.h"
 #include "gd/common/bind.h"
+#include "gd/common/init_flags.h"
 #include "gd/common/strings.h"
 #include "gd/common/sync_map_count.h"
 #include "gd/hci/acl_manager.h"
@@ -61,6 +64,7 @@
 #include "stack/include/bt_hdr.h"
 #include "stack/include/btm_api.h"
 #include "stack/include/btm_status.h"
+#include "stack/include/gatt_api.h"
 #include "stack/include/pan_api.h"
 #include "stack/include/sec_hci_link_interface.h"
 #include "stack/l2cap/l2c_int.h"
@@ -74,18 +78,29 @@ bt_status_t do_in_main_thread(const base::Location& from_here,
 
 using namespace bluetooth;
 
-class ConnectAddressWithType {
+class ConnectAddressWithType : public bluetooth::common::IRedactableLoggable {
  public:
   explicit ConnectAddressWithType(hci::AddressWithType address_with_type)
       : address_(address_with_type.GetAddress()),
         type_(address_with_type.ToFilterAcceptListAddressType()) {}
 
+  // TODO: remove this method
   std::string const ToString() const {
     std::stringstream ss;
-    ss << address_ << "[" << FilterAcceptListAddressTypeText(type_) << "]";
+    ss << address_.ToString() << "[" << FilterAcceptListAddressTypeText(type_)
+       << "]";
     return ss.str();
   }
 
+  std::string ToStringForLogging() const override {
+    return ToString();
+  }
+  std::string ToRedactedStringForLogging() const override {
+    std::stringstream ss;
+    ss << address_.ToRedactedStringForLogging() << "["
+       << FilterAcceptListAddressTypeText(type_) << "]";
+    return ss.str();
+  }
   bool operator==(const ConnectAddressWithType& rhs) const {
     return address_ == rhs.address_ && type_ == rhs.type_;
   }
@@ -116,6 +131,9 @@ struct hash<ConnectAddressWithType> {
 
 namespace {
 
+constexpr uint32_t kRunicBjarkan = 0x0016D2;
+constexpr uint32_t kRunicHagall = 0x0016BC;
+
 using HciHandle = uint16_t;
 using PageNumber = uint8_t;
 
@@ -128,6 +146,17 @@ using SendDataUpwards = void (*const)(BT_HDR*);
 using OnDisconnect = std::function<void(HciHandle, hci::ErrorCode reason)>;
 
 constexpr char kConnectionDescriptorTimeFormat[] = "%Y-%m-%d %H:%M:%S";
+
+constexpr unsigned MillisPerSecond = 1000;
+std::string EpochMillisToString(long long time_ms) {
+  time_t time_sec = time_ms / MillisPerSecond;
+  struct tm tm;
+  localtime_r(&time_sec, &tm);
+  std::string s = common::StringFormatTime(kConnectionDescriptorTimeFormat, tm);
+  return base::StringPrintf(
+      "%s.%03u", s.c_str(),
+      static_cast<unsigned int>(time_ms % MillisPerSecond));
+}
 
 inline bool IsRpa(const hci::AddressWithType address_with_type) {
   return address_with_type.GetAddressType() ==
@@ -148,7 +177,7 @@ class ShadowAcceptlist {
     if (!acceptlist_set_.insert(ConnectAddressWithType(address_with_type))
              .second) {
       LOG_WARN("Attempted to add duplicate le address to acceptlist:%s",
-               PRIVATE_ADDRESS(address_with_type));
+               ADDRESS_TO_LOGGABLE_CSTR(address_with_type));
     }
     return true;
   }
@@ -157,7 +186,7 @@ class ShadowAcceptlist {
     auto iter = acceptlist_set_.find(ConnectAddressWithType(address_with_type));
     if (iter == acceptlist_set_.end()) {
       LOG_WARN("Unknown device being removed from acceptlist:%s",
-               PRIVATE_ADDRESS(address_with_type));
+               ADDRESS_TO_LOGGABLE_CSTR(address_with_type));
       return false;
     }
     acceptlist_set_.erase(ConnectAddressWithType(*iter));
@@ -173,6 +202,8 @@ class ShadowAcceptlist {
   }
 
   void Clear() { acceptlist_set_.clear(); }
+
+  uint8_t GetMaxSize() const { return max_acceptlist_size_; }
 
  private:
   uint8_t max_acceptlist_size_{0};
@@ -192,7 +223,7 @@ class ShadowAddressResolutionList {
     }
     if (!address_resolution_set_.insert(address_with_type).second) {
       LOG_WARN("Attempted to add duplicate le address to address_resolution:%s",
-               PRIVATE_ADDRESS(address_with_type));
+               ADDRESS_TO_LOGGABLE_CSTR(address_with_type));
     }
     return true;
   }
@@ -201,7 +232,7 @@ class ShadowAddressResolutionList {
     auto iter = address_resolution_set_.find(address_with_type);
     if (iter == address_resolution_set_.end()) {
       LOG_WARN("Unknown device being removed from address_resolution:%s",
-               PRIVATE_ADDRESS(address_with_type));
+               ADDRESS_TO_LOGGABLE_CSTR(address_with_type));
       return false;
     }
     address_resolution_set_.erase(iter);
@@ -220,6 +251,8 @@ class ShadowAddressResolutionList {
   size_t Size() const { return address_resolution_set_.size(); }
 
   void Clear() { address_resolution_set_.clear(); }
+
+  uint8_t GetMaxSize() const { return max_address_resolution_size_; }
 
  private:
   uint8_t max_address_resolution_size_{0};
@@ -269,7 +302,7 @@ struct ClassicConnectionDescriptor : public ConnectionDescriptor {
                              is_locally_initiated, disconnect_reason),
         remote_address_(remote_address) {}
   virtual std::string GetPrivateRemoteAddress() const {
-    return PRIVATE_ADDRESS(remote_address_);
+    return ADDRESS_TO_LOGGABLE_CSTR(remote_address_);
   }
 };
 
@@ -283,7 +316,7 @@ struct LeConnectionDescriptor : public ConnectionDescriptor {
                              is_locally_initiated, disconnect_reason),
         remote_address_with_type_(remote_address_with_type) {}
   std::string GetPrivateRemoteAddress() const {
-    return PRIVATE_ADDRESS(remote_address_with_type_);
+    return ADDRESS_TO_LOGGABLE_CSTR(remote_address_with_type_);
   }
 };
 
@@ -715,12 +748,32 @@ class LeShimAclConnection
     connection_->RegisterCallbacks(this, handler_);
   }
 
+  void LeSubrateRequest(uint16_t subrate_min, uint16_t subrate_max,
+                        uint16_t max_latency, uint16_t cont_num,
+                        uint16_t sup_tout) {
+    connection_->LeSubrateRequest(subrate_min, subrate_max, max_latency,
+                                  cont_num, sup_tout);
+  }
+
   void ReadRemoteControllerInformation() override {
     // TODO Issue LeReadRemoteFeatures Command
   }
 
   bluetooth::hci::AddressWithType GetLocalAddressWithType() {
     return connection_->GetLocalAddress();
+  }
+
+  std::optional<uint8_t> GetAdvertisingSetConnectedTo() {
+    return std::visit(
+        [](auto&& data) {
+          using T = std::decay_t<decltype(data)>;
+          if constexpr (std::is_same_v<T, hci::acl_manager::DataAsPeripheral>) {
+            return data.advertising_set_id;
+          } else {
+            return std::optional<uint8_t>{};
+          }
+        },
+        connection_->GetRoleSpecificData());
   }
 
   void OnConnectionUpdate(hci::ErrorCode hci_status,
@@ -735,6 +788,14 @@ class LeShimAclConnection
                           uint16_t max_rx_octets, uint16_t max_rx_time) {
     TRY_POSTING_ON_MAIN(interface_.on_data_length_change, handle_,
                         max_tx_octets, max_tx_time, max_rx_octets, max_rx_time);
+  }
+  void OnLeSubrateChange(hci::ErrorCode hci_status, uint16_t subrate_factor,
+                         uint16_t peripheral_latency,
+                         uint16_t continuation_number,
+                         uint16_t supervision_timeout) {
+    TRY_POSTING_ON_MAIN(interface_.on_le_subrate_change, handle_,
+                        subrate_factor, peripheral_latency, continuation_number,
+                        supervision_timeout, ToLegacyHciErrorCode(hci_status));
   }
 
   void OnReadRemoteVersionInformationComplete(hci::ErrorCode hci_status,
@@ -753,13 +814,15 @@ class LeShimAclConnection
 
   void OnPhyUpdate(hci::ErrorCode hci_status, uint8_t tx_phy,
                    uint8_t rx_phy) override {
-    TRY_POSTING_ON_MAIN(interface_.on_phy_update,
-                        ToLegacyHciErrorCode(hci_status), handle_, tx_phy,
-                        rx_phy);
-  }
-
-  void OnLocalAddressUpdate(hci::AddressWithType address_with_type) override {
-    connection_->UpdateLocalAddress(address_with_type);
+    if (common::init_flags::pass_phy_update_callback_is_enabled()) {
+      TRY_POSTING_ON_MAIN(
+          interface_.on_phy_update,
+          static_cast<tGATT_STATUS>(ToLegacyHciErrorCode(hci_status)), handle_,
+          tx_phy, rx_phy);
+    } else {
+      LOG_WARN("Not posting OnPhyUpdate callback since it is disabled: (tx:%x, rx:%x, status:%s)",
+               tx_phy, rx_phy, hci::ErrorCodeText(hci_status).c_str());
+    }
   }
 
   void OnDisconnection(hci::ErrorCode reason) {
@@ -832,12 +895,61 @@ struct shim::legacy::Acl::impl {
     handle_to_le_connection_map_[handle]->EnqueuePacket(std::move(packet));
   }
 
+  void DisconnectClassicConnections(std::promise<void> promise) {
+    LOG_INFO("Disconnect gd acl shim classic connections");
+    std::vector<HciHandle> disconnect_handles;
+    for (auto& connection : handle_to_classic_connection_map_) {
+      disconnect_classic(connection.first, HCI_ERR_REMOTE_POWER_OFF,
+                         "Suspend disconnect");
+      disconnect_handles.push_back(connection.first);
+    }
+
+    // Since this is a suspend disconnect, we immediately also call
+    // |OnClassicSuspendInitiatedDisconnect| without waiting for it to happen.
+    // We want the stack to clean up ahead of the link layer (since we will mask
+    // away that event). The reason we do this in a separate loop is that this
+    // will also remove the handle from the connection map.
+    for (auto& handle : disconnect_handles) {
+      auto found = handle_to_classic_connection_map_.find(handle);
+      if (found != handle_to_classic_connection_map_.end()) {
+        GetAclManager()->OnClassicSuspendInitiatedDisconnect(
+            found->first, hci::ErrorCode::CONNECTION_TERMINATED_BY_LOCAL_HOST);
+      }
+    }
+
+    promise.set_value();
+  }
+
   void ShutdownClassicConnections(std::promise<void> promise) {
     LOG_INFO("Shutdown gd acl shim classic connections");
     for (auto& connection : handle_to_classic_connection_map_) {
       connection.second->Shutdown();
     }
     handle_to_classic_connection_map_.clear();
+    promise.set_value();
+  }
+
+  void DisconnectLeConnections(std::promise<void> promise) {
+    LOG_INFO("Disconnect gd acl shim le connections");
+    std::vector<HciHandle> disconnect_handles;
+    for (auto& connection : handle_to_le_connection_map_) {
+      disconnect_le(connection.first, HCI_ERR_REMOTE_POWER_OFF,
+                    "Suspend disconnect");
+      disconnect_handles.push_back(connection.first);
+    }
+
+    // Since this is a suspend disconnect, we immediately also call
+    // |OnLeSuspendInitiatedDisconnect| without waiting for it to happen. We
+    // want the stack to clean up ahead of the link layer (since we will mask
+    // away that event). The reason we do this in a separate loop is that this
+    // will also remove the handle from the connection map.
+    for (auto& handle : disconnect_handles) {
+      auto found = handle_to_le_connection_map_.find(handle);
+      if (found != handle_to_le_connection_map_.end()) {
+        GetAclManager()->OnLeSuspendInitiatedDisconnect(
+            found->first, hci::ErrorCode::CONNECTION_TERMINATED_BY_LOCAL_HOST);
+      }
+    }
     promise.set_value();
   }
 
@@ -902,6 +1014,21 @@ struct shim::legacy::Acl::impl {
         maximum_latency, minimum_remote_timeout, minimum_local_timeout);
   }
 
+  void LeSetDefaultSubrate(uint16_t subrate_min, uint16_t subrate_max,
+                           uint16_t max_latency, uint16_t cont_num,
+                           uint16_t sup_tout) {
+    GetAclManager()->LeSetDefaultSubrate(subrate_min, subrate_max, max_latency,
+                                         cont_num, sup_tout);
+  }
+
+  void LeSubrateRequest(HciHandle handle, uint16_t subrate_min,
+                        uint16_t subrate_max, uint16_t max_latency,
+                        uint16_t cont_num, uint16_t sup_tout) {
+    ASSERT_LOG(IsLeAcl(handle), "handle %d is not a LE connection", handle);
+    handle_to_le_connection_map_[handle]->LeSubrateRequest(
+        subrate_min, subrate_max, max_latency, cont_num, sup_tout);
+  }
+
   void SetConnectionEncryption(HciHandle handle, hci::Enable enable) {
     ASSERT_LOG(IsClassicAcl(handle), "handle %d is not a classic connection",
                handle);
@@ -916,7 +1043,7 @@ struct shim::legacy::Acl::impl {
       connection->second->InitiateDisconnect(
           ToDisconnectReasonFromLegacy(reason));
       LOG_DEBUG("Disconnection initiated classic remote:%s handle:%hu",
-                PRIVATE_ADDRESS(remote_address), handle);
+                ADDRESS_TO_LOGGABLE_CSTR(remote_address), handle);
       BTM_LogHistory(kBtmLogTag, ToRawAddress(remote_address),
                      "Disconnection initiated",
                      base::StringPrintf("classic reason:%s comment:%s",
@@ -934,11 +1061,13 @@ struct shim::legacy::Acl::impl {
     if (connection != handle_to_le_connection_map_.end()) {
       auto remote_address_with_type =
           connection->second->GetRemoteAddressWithType();
-      GetAclManager()->RemoveFromBackgroundList(remote_address_with_type);
+      if (!common::init_flags::use_unified_connection_manager_is_enabled()) {
+        GetAclManager()->RemoveFromBackgroundList(remote_address_with_type);
+      }
       connection->second->InitiateDisconnect(
           ToDisconnectReasonFromLegacy(reason));
       LOG_DEBUG("Disconnection initiated le remote:%s handle:%hu",
-                PRIVATE_ADDRESS(remote_address_with_type), handle);
+                ADDRESS_TO_LOGGABLE_CSTR(remote_address_with_type), handle);
       BTM_LogHistory(kBtmLogTag,
                      ToLegacyAddressWithType(remote_address_with_type),
                      "Disconnection initiated",
@@ -963,7 +1092,7 @@ struct shim::legacy::Acl::impl {
     promise.set_value(true);
     GetAclManager()->CreateLeConnection(address_with_type, is_direct);
     LOG_DEBUG("Allow Le connection from remote:%s",
-              PRIVATE_ADDRESS(address_with_type));
+              ADDRESS_TO_LOGGABLE_CSTR(address_with_type));
     BTM_LogHistory(kBtmLogTag, ToLegacyAddressWithType(address_with_type),
                    "Allow connection from", "Le");
   }
@@ -971,10 +1100,9 @@ struct shim::legacy::Acl::impl {
   void ignore_le_connection_from(
       const hci::AddressWithType& address_with_type) {
     shadow_acceptlist_.Remove(address_with_type);
-    GetAclManager()->CancelLeConnectAndRemoveFromBackgroundList(
-        address_with_type);
+    GetAclManager()->CancelLeConnect(address_with_type);
     LOG_DEBUG("Ignore Le connection from remote:%s",
-              PRIVATE_ADDRESS(address_with_type));
+              ADDRESS_TO_LOGGABLE_CSTR(address_with_type));
     BTM_LogHistory(kBtmLogTag, ToLegacyAddressWithType(address_with_type),
                    "Ignore connection from", "Le");
   }
@@ -985,6 +1113,10 @@ struct shim::legacy::Acl::impl {
     GetAclManager()->ClearFilterAcceptList();
     shadow_acceptlist_.Clear();
     LOG_DEBUG("Cleared entire Le address acceptlist count:%zu", count);
+  }
+
+  void le_rand(LeRandCallback cb ) {
+    controller_get_interface()->le_rand(cb);
   }
 
   void AddToAddressResolution(const hci::AddressWithType& address_with_type,
@@ -1006,7 +1138,7 @@ struct shim::legacy::Acl::impl {
     // TODO This should really be removed upon successful removal
     if (!shadow_address_resolution_list_.Remove(address_with_type)) {
       LOG_WARN("Unable to remove from Le Address Resolution list device:%s",
-               PRIVATE_ADDRESS(address_with_type));
+               ADDRESS_TO_LOGGABLE_CSTR(address_with_type));
     }
     GetAclManager()->RemoveDeviceFromResolvingList(address_with_type);
   }
@@ -1017,6 +1149,10 @@ struct shim::legacy::Acl::impl {
     shadow_address_resolution_list_.Clear();
   }
 
+  void SetSystemSuspendState(bool suspended) {
+    GetAclManager()->SetSystemSuspendState(suspended);
+  }
+
   void DumpConnectionHistory() const {
     std::vector<std::string> history =
         connection_history_.ReadElementsAsString();
@@ -1025,10 +1161,9 @@ struct shim::legacy::Acl::impl {
     }
     const auto acceptlist = shadow_acceptlist_.GetCopy();
     LOG_DEBUG("Shadow le accept list  size:%-3zu controller_max_size:%hhu",
-              acceptlist.size(),
-              controller_get_interface()->get_ble_acceptlist_size());
+              acceptlist.size(), shadow_acceptlist_.GetMaxSize());
     for (auto& entry : acceptlist) {
-      LOG_DEBUG("acceptlist:%s", entry.ToString().c_str());
+      LOG_DEBUG("acceptlist:%s", ADDRESS_TO_LOGGABLE_CSTR(entry));
     }
   }
 
@@ -1057,21 +1192,20 @@ struct shim::legacy::Acl::impl {
     LOG_DUMPSYS(fd,
                 "Shadow le accept list              size:%-3zu "
                 "controller_max_size:%hhu",
-                acceptlist.size(),
-                controller_get_interface()->get_ble_acceptlist_size());
+                acceptlist.size(), shadow_acceptlist_.GetMaxSize());
     unsigned cnt = 0;
     for (auto& entry : acceptlist) {
-      LOG_DUMPSYS(fd, "  %03u %s", ++cnt, entry.ToString().c_str());
+      LOG_DUMPSYS(fd, "  %03u %s", ++cnt, ADDRESS_TO_LOGGABLE_CSTR(entry));
     }
     auto address_resolution_list = shadow_address_resolution_list_.GetCopy();
     LOG_DUMPSYS(fd,
                 "Shadow le address resolution list  size:%-3zu "
                 "controller_max_size:%hhu",
                 address_resolution_list.size(),
-                controller_get_interface()->get_ble_resolving_list_max_size());
+                shadow_address_resolution_list_.GetMaxSize());
     cnt = 0;
     for (auto& entry : address_resolution_list) {
-      LOG_DUMPSYS(fd, "  %03u %s", ++cnt, entry.ToString().c_str());
+      LOG_DUMPSYS(fd, "  %03u %s", ++cnt, ADDRESS_TO_LOGGABLE_CSTR(entry));
     }
   }
 #undef DUMPSYS_TAG
@@ -1105,14 +1239,16 @@ void DumpsysAcl(int fd) {
 
   LOG_DUMPSYS_TITLE(fd, DUMPSYS_TAG);
 
-  shim::Stack::GetInstance()->GetAcl()->DumpConnectionHistory(fd);
+  if (shim::Stack::GetInstance()->IsRunning()) {
+    shim::Stack::GetInstance()->GetAcl()->DumpConnectionHistory(fd);
+  }
 
   for (int i = 0; i < MAX_L2CAP_LINKS; i++) {
     const tACL_CONN& link = acl_cb.acl_db[i];
     if (!link.in_use) continue;
 
     LOG_DUMPSYS(fd, "remote_addr:%s handle:0x%04x transport:%s",
-                link.remote_addr.ToString().c_str(), link.hci_handle,
+                ADDRESS_TO_LOGGABLE_CSTR(link.remote_addr), link.hci_handle,
                 bt_transport_text(link.transport).c_str());
     LOG_DUMPSYS(fd, "    link_up_issued:%5s",
                 (link.link_up_issued) ? "true" : "false");
@@ -1144,11 +1280,8 @@ void DumpsysAcl(int fd) {
                   bd_features_text(link.peer_le_features).c_str());
 
       LOG_DUMPSYS(fd, "    [le] active_remote_addr:%s[%s]",
-                  link.active_remote_addr.ToString().c_str(),
+                  ADDRESS_TO_LOGGABLE_CSTR(link.active_remote_addr),
                   AddressTypeText(link.active_remote_addr_type).c_str());
-      LOG_DUMPSYS(fd, "    [le] conn_addr:%s[%s]",
-                  link.conn_addr.ToString().c_str(),
-                  AddressTypeText(link.conn_addr_type).c_str());
     }
   }
 }
@@ -1156,34 +1289,6 @@ void DumpsysAcl(int fd) {
 
 using Record = common::TimestampedEntry<std::string>;
 const std::string kTimeFormat("%Y-%m-%d %H:%M:%S");
-
-#define DUMPSYS_TAG "shim::legacy::hid"
-extern btif_hh_cb_t btif_hh_cb;
-
-void DumpsysHid(int fd) {
-  LOG_DUMPSYS_TITLE(fd, DUMPSYS_TAG);
-  LOG_DUMPSYS(fd, "status:%s num_devices:%u",
-              btif_hh_status_text(btif_hh_cb.status).c_str(),
-              btif_hh_cb.device_num);
-  LOG_DUMPSYS(fd, "status:%s", btif_hh_status_text(btif_hh_cb.status).c_str());
-  for (unsigned i = 0; i < BTIF_HH_MAX_HID; i++) {
-    const btif_hh_device_t* p_dev = &btif_hh_cb.devices[i];
-    if (p_dev->bd_addr != RawAddress::kEmpty) {
-      LOG_DUMPSYS(fd, "  %u: addr:%s fd:%d state:%s ready:%s thread_id:%d", i,
-                  PRIVATE_ADDRESS(p_dev->bd_addr), p_dev->fd,
-                  bthh_connection_state_text(p_dev->dev_status).c_str(),
-                  (p_dev->ready_for_data) ? ("T") : ("F"),
-                  static_cast<int>(p_dev->hh_poll_thread_id));
-    }
-  }
-  for (unsigned i = 0; i < BTIF_HH_MAX_ADDED_DEV; i++) {
-    const btif_hh_added_device_t* p_dev = &btif_hh_cb.added_devices[i];
-    if (p_dev->bd_addr != RawAddress::kEmpty) {
-      LOG_DUMPSYS(fd, "  %u: addr:%s", i, PRIVATE_ADDRESS(p_dev->bd_addr));
-    }
-  }
-}
-#undef DUMPSYS_TAG
 
 #define DUMPSYS_TAG "shim::legacy::btm"
 void DumpsysBtm(int fd) {
@@ -1218,15 +1323,53 @@ void DumpsysRecord(int fd) {
        node = list_next(node)) {
     tBTM_SEC_DEV_REC* p_dev_rec =
         static_cast<tBTM_SEC_DEV_REC*>(list_node(node));
+    // TODO: handle in tBTM_SEC_DEV_REC.ToString
     LOG_DUMPSYS(fd, "%03u %s", ++cnt, p_dev_rec->ToString().c_str());
   }
 }
 #undef DUMPSYS_TAG
 
+#define DUMPSYS_TAG "shim::legacy::stack"
+void DumpsysNeighbor(int fd) {
+  LOG_DUMPSYS(fd, "Stack information %lc%lc", kRunicBjarkan, kRunicHagall);
+  if (btm_cb.neighbor.classic_inquiry.start_time_ms == 0) {
+    LOG_DUMPSYS(fd, "Classic inquiry:disabled");
+  } else {
+    LOG_DUMPSYS(fd, "Classic inquiry:enabled duration_s:%.3f results:%lu",
+                (timestamper_in_milliseconds.GetTimestamp() -
+                 btm_cb.neighbor.classic_inquiry.start_time_ms) /
+                    1000.0,
+                btm_cb.neighbor.classic_inquiry.results);
+  }
+  if (btm_cb.neighbor.le_scan.start_time_ms == 0) {
+    LOG_DUMPSYS(fd, "Le scan:disabled");
+  } else {
+    LOG_DUMPSYS(fd, "Le scan:enabled duration_s:%.3f results:%lu",
+                (timestamper_in_milliseconds.GetTimestamp() -
+                 btm_cb.neighbor.le_scan.start_time_ms) /
+                    1000.0,
+                btm_cb.neighbor.le_scan.results);
+  }
+  const auto copy = btm_cb.neighbor.inquiry_history_->Pull();
+  LOG_DUMPSYS(fd, "Last %zu inquiry scans:", copy.size());
+  for (const auto& it : copy) {
+    LOG_DUMPSYS(fd,
+                "  %s - %s duration_ms:%-5llu num_resp:%-2u"
+                " std:%-2u rssi:%-2u ext:%-2u %12s",
+                EpochMillisToString(it.entry.start_time_ms).c_str(),
+                EpochMillisToString(it.timestamp).c_str(),
+                it.timestamp - it.entry.start_time_ms, it.entry.num_resp,
+                it.entry.resp_type[BTM_INQ_RESULT_STANDARD],
+                it.entry.resp_type[BTM_INQ_RESULT_WITH_RSSI],
+                it.entry.resp_type[BTM_INQ_RESULT_EXTENDED],
+                btm_inquiry_cmpl_status_text(it.entry.status).c_str());
+  }
+}
+#undef DUMPSYS_TAG
+
 void shim::legacy::Acl::Dump(int fd) const {
-  PAN_Dumpsys(fd);
-  DumpsysHid(fd);
   DumpsysRecord(fd);
+  DumpsysNeighbor(fd);
   DumpsysAcl(fd);
   DumpsysL2cap(fd);
   DumpsysBtm(fd);
@@ -1277,7 +1420,7 @@ bool shim::legacy::Acl::CheckForOrphanedAclConnections() const {
     for (const auto& connection : pimpl_->handle_to_classic_connection_map_) {
       LOG_ERROR("  Orphaned classic ACL handle:0x%04x bd_addr:%s created:%s",
                 connection.second->Handle(),
-                PRIVATE_ADDRESS(connection.second->GetRemoteAddress()),
+                ADDRESS_TO_LOGGABLE_CSTR(connection.second->GetRemoteAddress()),
                 common::StringFormatTimeWithMilliseconds(
                     kConnectionDescriptorTimeFormat,
                     connection.second->GetCreationTime())
@@ -1291,7 +1434,7 @@ bool shim::legacy::Acl::CheckForOrphanedAclConnections() const {
     for (const auto& connection : pimpl_->handle_to_le_connection_map_) {
       LOG_ERROR("  Orphaned le ACL handle:0x%04x bd_addr:%s created:%s",
                 connection.second->Handle(),
-                PRIVATE_ADDRESS(connection.second->GetRemoteAddressWithType()),
+                ADDRESS_TO_LOGGABLE_CSTR(connection.second->GetRemoteAddressWithType()),
                 common::StringFormatTimeWithMilliseconds(
                     kConnectionDescriptorTimeFormat,
                     connection.second->GetCreationTime())
@@ -1328,7 +1471,7 @@ void shim::legacy::Acl::WriteData(HciHandle handle,
 void shim::legacy::Acl::CreateClassicConnection(const hci::Address& address) {
   GetAclManager()->CreateConnection(address);
   LOG_DEBUG("Connection initiated for classic to remote:%s",
-            PRIVATE_ADDRESS(address));
+            ADDRESS_TO_LOGGABLE_CSTR(address));
   BTM_LogHistory(kBtmLogTag, ToRawAddress(address), "Initiated connection",
                  "classic");
 }
@@ -1336,7 +1479,7 @@ void shim::legacy::Acl::CreateClassicConnection(const hci::Address& address) {
 void shim::legacy::Acl::CancelClassicConnection(const hci::Address& address) {
   GetAclManager()->CancelConnect(address);
   LOG_DEBUG("Connection cancelled for classic to remote:%s",
-            PRIVATE_ADDRESS(address));
+            ADDRESS_TO_LOGGABLE_CSTR(address));
   BTM_LogHistory(kBtmLogTag, ToRawAddress(address), "Cancelled connection",
                  "classic");
 }
@@ -1345,7 +1488,7 @@ void shim::legacy::Acl::AcceptLeConnectionFrom(
     const hci::AddressWithType& address_with_type, bool is_direct,
     std::promise<bool> promise) {
   LOG_DEBUG("AcceptLeConnectionFrom %s",
-            PRIVATE_ADDRESS(address_with_type.GetAddress()));
+            ADDRESS_TO_LOGGABLE_CSTR(address_with_type.GetAddress()));
   handler_->CallOn(pimpl_.get(), &Acl::impl::accept_le_connection_from,
                    address_with_type, is_direct, std::move(promise));
 }
@@ -1353,7 +1496,7 @@ void shim::legacy::Acl::AcceptLeConnectionFrom(
 void shim::legacy::Acl::IgnoreLeConnectionFrom(
     const hci::AddressWithType& address_with_type) {
   LOG_DEBUG("IgnoreLeConnectionFrom %s",
-            PRIVATE_ADDRESS(address_with_type.GetAddress()));
+            ADDRESS_TO_LOGGABLE_CSTR(address_with_type.GetAddress()));
   handler_->CallOn(pimpl_.get(), &Acl::impl::ignore_le_connection_from,
                    address_with_type);
 }
@@ -1374,7 +1517,7 @@ void shim::legacy::Acl::OnClassicLinkDisconnected(HciHandle handle,
                       ToLegacyHciErrorCode(hci::ErrorCode::SUCCESS), handle,
                       ToLegacyHciErrorCode(reason));
   LOG_DEBUG("Disconnected classic link remote:%s handle:%hu reason:%s",
-            PRIVATE_ADDRESS(remote_address), handle,
+            ADDRESS_TO_LOGGABLE_CSTR(remote_address), handle,
             ErrorCodeText(reason).c_str());
   BTM_LogHistory(
       kBtmLogTag, ToRawAddress(remote_address), "Disconnected",
@@ -1398,6 +1541,18 @@ bluetooth::hci::AddressWithType shim::legacy::Acl::GetConnectionLocalAddress(
   return address_with_type;
 }
 
+std::optional<uint8_t> shim::legacy::Acl::GetAdvertisingSetConnectedTo(
+    const RawAddress& remote_bda) {
+  auto remote_address = ToGdAddress(remote_bda);
+  for (auto& [handle, connection] : pimpl_->handle_to_le_connection_map_) {
+    if (connection->GetRemoteAddressWithType().GetAddress() == remote_address) {
+      return connection->GetAdvertisingSetConnectedTo();
+    }
+  }
+  LOG_WARN("address not found!");
+  return {};
+}
+
 void shim::legacy::Acl::OnLeLinkDisconnected(HciHandle handle,
                                              hci::ErrorCode reason) {
   hci::AddressWithType remote_address_with_type =
@@ -1414,7 +1569,7 @@ void shim::legacy::Acl::OnLeLinkDisconnected(HciHandle handle,
                       ToLegacyHciErrorCode(hci::ErrorCode::SUCCESS), handle,
                       ToLegacyHciErrorCode(reason));
   LOG_DEBUG("Disconnected le link remote:%s handle:%hu reason:%s",
-            PRIVATE_ADDRESS(remote_address_with_type), handle,
+            ADDRESS_TO_LOGGABLE_CSTR(remote_address_with_type), handle,
             ErrorCodeText(reason).c_str());
   BTM_LogHistory(
       kBtmLogTag, ToLegacyAddressWithType(remote_address_with_type),
@@ -1446,9 +1601,9 @@ void shim::legacy::Acl::OnConnectSuccess(
       ->ReadRemoteControllerInformation();
 
   TRY_POSTING_ON_MAIN(acl_interface_.connection.classic.on_connected, bd_addr,
-                      handle, false);
+                      handle, false, locally_initiated);
   LOG_DEBUG("Connection successful classic remote:%s handle:%hu initiator:%s",
-            PRIVATE_ADDRESS(remote_address), handle,
+            ADDRESS_TO_LOGGABLE_CSTR(remote_address), handle,
             (locally_initiated) ? "local" : "remote");
   BTM_LogHistory(kBtmLogTag, ToRawAddress(remote_address),
                  "Connection successful",
@@ -1456,13 +1611,28 @@ void shim::legacy::Acl::OnConnectSuccess(
                                      : "classic Remote initiated");
 }
 
+void shim::legacy::Acl::OnConnectRequest(hci::Address address,
+                                         hci::ClassOfDevice cod) {
+  const RawAddress bd_addr = ToRawAddress(address);
+
+  types::ClassOfDevice legacy_cod;
+  legacy_cod.FromOctets(cod.data());
+
+  TRY_POSTING_ON_MAIN(acl_interface_.connection.classic.on_connect_request,
+                      bd_addr, legacy_cod);
+  LOG_DEBUG("Received connect request remote:%s",
+            ADDRESS_TO_LOGGABLE_CSTR(address));
+  BTM_LogHistory(kBtmLogTag, ToRawAddress(address), "Connection request");
+}
+
 void shim::legacy::Acl::OnConnectFail(hci::Address address,
-                                      hci::ErrorCode reason) {
+                                      hci::ErrorCode reason,
+                                      bool locally_initiated) {
   const RawAddress bd_addr = ToRawAddress(address);
   TRY_POSTING_ON_MAIN(acl_interface_.connection.classic.on_failed, bd_addr,
-                      ToLegacyHciErrorCode(reason));
+                      ToLegacyHciErrorCode(reason), locally_initiated);
   LOG_WARN("Connection failed classic remote:%s reason:%s",
-           PRIVATE_ADDRESS(address), hci::ErrorCodeText(reason).c_str());
+           ADDRESS_TO_LOGGABLE_CSTR(address), hci::ErrorCodeText(reason).c_str());
   BTM_LogHistory(kBtmLogTag, ToRawAddress(address), "Connection failed",
                  base::StringPrintf("classic reason:%s",
                                     hci::ErrorCodeText(reason).c_str()));
@@ -1477,7 +1647,7 @@ void shim::legacy::Acl::HACK_OnEscoConnectRequest(hci::Address address,
   TRY_POSTING_ON_MAIN(acl_interface_.connection.sco.on_esco_connect_request,
                       bd_addr, legacy_cod);
   LOG_DEBUG("Received ESCO connect request remote:%s",
-            PRIVATE_ADDRESS(address));
+            ADDRESS_TO_LOGGABLE_CSTR(address));
   BTM_LogHistory(kBtmLogTag, ToRawAddress(address), "ESCO Connection request");
 }
 
@@ -1489,7 +1659,7 @@ void shim::legacy::Acl::HACK_OnScoConnectRequest(hci::Address address,
 
   TRY_POSTING_ON_MAIN(acl_interface_.connection.sco.on_sco_connect_request,
                       bd_addr, legacy_cod);
-  LOG_DEBUG("Received SCO connect request remote:%s", PRIVATE_ADDRESS(address));
+  LOG_DEBUG("Received SCO connect request remote:%s", ADDRESS_TO_LOGGABLE_CSTR(address));
   BTM_LogHistory(kBtmLogTag, ToRawAddress(address), "SCO Connection request");
 }
 
@@ -1517,6 +1687,19 @@ void shim::legacy::Acl::OnLeConnectSuccess(
   tBLE_ADDR_TYPE peer_addr_type =
       (tBLE_ADDR_TYPE)connection->peer_address_with_type_.GetAddressType();
 
+  auto can_read_discoverable_characteristics = std::visit(
+      [&](auto&& data) {
+        using T = std::decay_t<decltype(data)>;
+        if constexpr (std::is_same_v<T, hci::acl_manager::DataAsPeripheral>) {
+          return data.connected_to_discoverable;
+        } else {
+          // if we are the central, the peer can always see discoverable
+          // characteristics
+          return true;
+        }
+      },
+      connection->GetRoleSpecificData());
+
   pimpl_->handle_to_le_connection_map_.emplace(
       handle, std::make_unique<LeShimAclConnection>(
                   acl_interface_.on_send_data_upwards,
@@ -1531,12 +1714,12 @@ void shim::legacy::Acl::OnLeConnectSuccess(
 
   if (IsRpa(address_with_type)) {
     LOG_DEBUG("Connection address is rpa:%s identity_addr:%s",
-              PRIVATE_ADDRESS(address_with_type),
-              PRIVATE_ADDRESS(peer_address_with_type));
+              ADDRESS_TO_LOGGABLE_CSTR(address_with_type),
+              ADDRESS_TO_LOGGABLE_CSTR(peer_address_with_type));
     pimpl_->shadow_acceptlist_.Remove(peer_address_with_type);
   } else {
     LOG_DEBUG("Connection address is not rpa addr:%s",
-              PRIVATE_ADDRESS(address_with_type));
+              ADDRESS_TO_LOGGABLE_CSTR(address_with_type));
     pimpl_->shadow_acceptlist_.Remove(address_with_type);
   }
 
@@ -1556,13 +1739,14 @@ void shim::legacy::Acl::OnLeConnectSuccess(
   tBLE_BD_ADDR legacy_address_with_type =
       ToLegacyAddressWithType(address_with_type);
 
-  TRY_POSTING_ON_MAIN(
-      acl_interface_.connection.le.on_connected, legacy_address_with_type,
-      handle, ToLegacyRole(connection_role), conn_interval, conn_latency,
-      conn_timeout, local_rpa, peer_rpa, peer_addr_type);
+  TRY_POSTING_ON_MAIN(acl_interface_.connection.le.on_connected,
+                      legacy_address_with_type, handle,
+                      ToLegacyRole(connection_role), conn_interval,
+                      conn_latency, conn_timeout, local_rpa, peer_rpa,
+                      peer_addr_type, can_read_discoverable_characteristics);
 
   LOG_DEBUG("Connection successful le remote:%s handle:%hu initiator:%s",
-            PRIVATE_ADDRESS(address_with_type), handle,
+            ADDRESS_TO_LOGGABLE_CSTR(address_with_type), handle,
             (locally_initiated) ? "local" : "remote");
   BTM_LogHistory(kBtmLogTag, ToLegacyAddressWithType(address_with_type),
                  "Connection successful", "Le");
@@ -1577,12 +1761,12 @@ void shim::legacy::Acl::OnLeConnectFail(hci::AddressWithType address_with_type,
   bool enhanced = true; /* TODO logging metrics only */
   tHCI_STATUS status = ToLegacyHciErrorCode(reason);
 
-  pimpl_->shadow_acceptlist_.Remove(address_with_type);
-
   TRY_POSTING_ON_MAIN(acl_interface_.connection.le.on_failed,
                       legacy_address_with_type, handle, enhanced, status);
+
+  pimpl_->shadow_acceptlist_.Remove(address_with_type);
   LOG_WARN("Connection failed le remote:%s",
-           PRIVATE_ADDRESS(address_with_type));
+           ADDRESS_TO_LOGGABLE_CSTR(address_with_type));
   BTM_LogHistory(
       kBtmLogTag, ToLegacyAddressWithType(address_with_type),
       "Connection failed",
@@ -1631,8 +1815,44 @@ bool shim::legacy::Acl::SniffSubrating(uint16_t hci_handle,
   return false;
 }
 
+void shim::legacy::Acl::LeSetDefaultSubrate(uint16_t subrate_min,
+                                            uint16_t subrate_max,
+                                            uint16_t max_latency,
+                                            uint16_t cont_num,
+                                            uint16_t sup_tout) {
+  handler_->CallOn(pimpl_.get(), &Acl::impl::LeSetDefaultSubrate, subrate_min,
+                   subrate_max, max_latency, cont_num, sup_tout);
+}
+
+void shim::legacy::Acl::LeSubrateRequest(uint16_t hci_handle,
+                                         uint16_t subrate_min,
+                                         uint16_t subrate_max,
+                                         uint16_t max_latency,
+                                         uint16_t cont_num, uint16_t sup_tout) {
+  handler_->CallOn(pimpl_.get(), &Acl::impl::LeSubrateRequest, hci_handle,
+                   subrate_min, subrate_max, max_latency, cont_num, sup_tout);
+}
+
 void shim::legacy::Acl::DumpConnectionHistory(int fd) const {
   pimpl_->DumpConnectionHistory(fd);
+}
+
+void shim::legacy::Acl::DisconnectAllForSuspend() {
+  if (CheckForOrphanedAclConnections()) {
+    std::promise<void> disconnect_promise;
+    auto disconnect_future = disconnect_promise.get_future();
+    handler_->CallOn(pimpl_.get(), &Acl::impl::DisconnectClassicConnections,
+                     std::move(disconnect_promise));
+    disconnect_future.wait();
+
+    disconnect_promise = std::promise<void>();
+
+    disconnect_future = disconnect_promise.get_future();
+    handler_->CallOn(pimpl_.get(), &Acl::impl::DisconnectLeConnections,
+                     std::move(disconnect_promise));
+    disconnect_future.wait();
+    LOG_WARN("Disconnected open ACL connections");
+  }
 }
 
 void shim::legacy::Acl::Shutdown() {
@@ -1675,8 +1895,12 @@ void shim::legacy::Acl::FinalShutdown() {
   LOG_INFO("Unregistered and cleared any orphaned ACL connections");
 }
 
-void shim::legacy::Acl::ClearAcceptList() {
+void shim::legacy::Acl::ClearFilterAcceptList() {
   handler_->CallOn(pimpl_.get(), &Acl::impl::clear_acceptlist);
+}
+
+void shim::legacy::Acl::LeRand(LeRandCallback cb) {
+  handler_->CallOn(pimpl_.get(), &Acl::impl::le_rand, cb);
 }
 
 void shim::legacy::Acl::AddToAddressResolution(
@@ -1695,4 +1919,8 @@ void shim::legacy::Acl::RemoveFromAddressResolution(
 
 void shim::legacy::Acl::ClearAddressResolution() {
   handler_->CallOn(pimpl_.get(), &Acl::impl::ClearResolvingList);
+}
+
+void shim::legacy::Acl::SetSystemSuspendState(bool suspended) {
+  handler_->CallOn(pimpl_.get(), &Acl::impl::SetSystemSuspendState, suspended);
 }

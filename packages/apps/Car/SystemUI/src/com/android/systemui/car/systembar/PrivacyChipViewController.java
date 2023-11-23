@@ -27,6 +27,7 @@ import androidx.annotation.IdRes;
 import androidx.annotation.NonNull;
 
 import com.android.systemui.car.privacy.PrivacyChip;
+import com.android.systemui.car.privacy.SensorInfoUpdateListener;
 import com.android.systemui.car.privacy.SensorQcPanel;
 import com.android.systemui.privacy.OngoingPrivacyChip;
 import com.android.systemui.privacy.PrivacyItem;
@@ -45,6 +46,7 @@ public abstract class PrivacyChipViewController implements SensorQcPanel.SensorI
     private Context mContext;
     private PrivacyChip mPrivacyChip;
     private Runnable mQsTileNotifyUpdateRunnable;
+    private SensorInfoUpdateListener mSensorInfoUpdateListener;
     private final SensorPrivacyManager.OnSensorPrivacyChangedListener
             mOnSensorPrivacyChangedListener = (sensor, sensorPrivacyEnabled) -> {
         if (mContext == null) {
@@ -57,6 +59,9 @@ public abstract class PrivacyChipViewController implements SensorQcPanel.SensorI
             // the sensor (such as microphone or camera) has been toggled off.
             mPrivacyChip.setSensorEnabled(/* enabled= */ !sensorPrivacyEnabled);
             mQsTileNotifyUpdateRunnable.run();
+            if (mSensorInfoUpdateListener != null) {
+                mSensorInfoUpdateListener.onSensorInfoUpdate();
+            }
         });
     };
     private boolean mAllIndicatorsEnabled;
@@ -136,6 +141,11 @@ public abstract class PrivacyChipViewController implements SensorQcPanel.SensorI
         mQsTileNotifyUpdateRunnable = runnable;
     }
 
+    @Override
+    public void setSensorInfoUpdateListener(SensorInfoUpdateListener listener) {
+        mSensorInfoUpdateListener = listener;
+    }
+
     protected abstract @SensorPrivacyManager.Sensors.Sensor int getChipSensor();
 
     protected abstract PrivacyType getChipPrivacyType();
@@ -186,10 +196,12 @@ public abstract class PrivacyChipViewController implements SensorQcPanel.SensorI
             mPrivacyChip.setOnClickListener(null);
         }
 
+        mIsPrivacyChipVisible = false;
         mPrivacyItemController.removeCallback(mPicCallback);
         mSensorPrivacyManager.removeSensorPrivacyListener(getChipSensor(),
                 mOnSensorPrivacyChangedListener);
         mPrivacyChip = null;
+        mSensorInfoUpdateListener = null;
     }
 
     private void setChipVisibility(boolean chipVisible) {

@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="missing_rename_error" msgid="9098952207447981103">"คุณต้องเปลี่ยนชื่อนี้"</string>
     <string name="add_folder_name_error" msgid="6014615052491406810">"คุณต้องป้อนชื่อโฟลเดอร์"</string>
-    <string name="files_label" msgid="771781190045103748">"ไฟล์"</string>
+    <string name="files_label" msgid="771781190045103748">"Files"</string>
     <string name="downloads_label" msgid="5462789470049501103">"ดาวน์โหลด"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
     <skip />
@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"การบันทึกเอกสารล้มเหลว"</string>
     <string name="create_error" msgid="3092144450044861994">"การสร้างโฟลเดอร์ล้มเหลว"</string>
     <string name="query_error" msgid="6625421453613879336">"โหลดเนื้อหาไม่ได้ในขณะนี้"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"โปรไฟล์งานหยุดชั่วคราว"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"เปิด"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"แอปงานหยุดชั่วคราว"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"เปิดแอปงาน"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"เลือกไฟล์งานไม่ได้"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"ผู้ดูแลระบบไอทีไม่อนุญาตให้เข้าถึงไฟล์งานจากแอปส่วนตัว"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"เลือกไฟล์ส่วนตัวไม่ได้"</string>

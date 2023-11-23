@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "stack/include/bt_hdr.h"
 #include "test/mock/mock_main_bte.h"
@@ -53,11 +51,11 @@ struct bte_main_hci_send bte_main_hci_send;
 
 // Mocked functions, if any
 void bte_main_init(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::main_bte::bte_main_init();
 }
 void bte_main_hci_send(BT_HDR* p_msg, uint16_t event) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::main_bte::bte_main_hci_send(p_msg, event);
 }
 

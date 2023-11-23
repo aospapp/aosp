@@ -946,6 +946,8 @@ public class WifiConfigStore {
                     mAtomicFile.failWrite(out);
                 }
                 throw e;
+            } catch (NullPointerException e) {
+                Log.wtf(TAG, "Possible concurrent modify on mWriteData", e);
             }
             // Reset the pending write data after write.
             mWriteData = null;
@@ -1026,9 +1028,8 @@ public class WifiConfigStore {
          * sections (for migration purposes), then override this method.
          * @return a set of section headers
          */
-        default HashSet<String> getSectionsToParse() {
-            //
-            return new HashSet<String>() {{ add(getName()); }};
+        default Set<String> getSectionsToParse() {
+            return Set.of(getName());
         }
 
         /**

@@ -66,7 +66,7 @@ def _capture_frames(cam, log_path, debug):
     awb_state = md['android.control.awbState']
     fd_str = 'infinity'
     if fd != 0.0:
-      fd_str = '%.2fcm' % (_M_TO_CM/fd)
+      fd_str = f'{_M_TO_CM/fd:.2f}cm'
     img = image_processing_utils.convert_capture_to_rgb_image(cap)
     patch = image_processing_utils.get_image_patch(
         img, _PATCH_X, _PATCH_Y, _PATCH_W, _PATCH_H)
@@ -78,7 +78,7 @@ def _capture_frames(cam, log_path, debug):
     cap_3a_state_list.append([ae_state, af_state, awb_state])
     if debug:
       image_processing_utils.write_image(
-          img, '%s_%d.jpg' % (os.path.join(log_path, _NAME), i))
+          img, f'{os.path.join(log_path, _NAME)}_{i}.jpg')
   return cap_3a_state_list
 
 

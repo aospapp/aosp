@@ -40,8 +40,8 @@ abstract class BaseDeviceAdminAddPreferenceController<P extends Preference>
     }
 
     @Override
-    protected int getAvailabilityStatus() {
-        int superStatus = super.getAvailabilityStatus();
+    protected int getDefaultAvailabilityStatus() {
+        int superStatus = super.getDefaultAvailabilityStatus();
         if (superStatus != AVAILABLE) return superStatus;
 
         return mDeviceAdminInfo == null ? CONDITIONALLY_UNAVAILABLE : AVAILABLE;

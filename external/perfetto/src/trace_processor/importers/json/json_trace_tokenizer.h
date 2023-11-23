@@ -20,7 +20,6 @@
 #include <stdint.h>
 
 #include "src/trace_processor/importers/common/chunked_trace_reader.h"
-#include "src/trace_processor/importers/json/json_utils.h"
 #include "src/trace_processor/importers/systrace/systrace_line_tokenizer.h"
 #include "src/trace_processor/storage/trace_storage.h"
 
@@ -78,9 +77,9 @@ ReadKeyRes ReadOneJsonKey(const char* start,
 // which have arrays as JSON values because current users of this method
 // do not require this.
 // Visible for testing.
-util::Status ExtractValueForJsonKey(base::StringView dict,
+base::Status ExtractValueForJsonKey(base::StringView dict,
                                     const std::string& key,
-                                    base::Optional<std::string>* value);
+                                    std::optional<std::string>* value);
 
 enum class ReadSystemLineRes {
   kFoundLine,
@@ -101,7 +100,7 @@ class JsonTraceTokenizer : public ChunkedTraceReader {
   ~JsonTraceTokenizer() override;
 
   // ChunkedTraceReader implementation.
-  util::Status Parse(TraceBlobView) override;
+  base::Status Parse(TraceBlobView) override;
   void NotifyEndOfFile() override;
 
  private:
@@ -125,22 +124,30 @@ class JsonTraceTokenizer : public ChunkedTraceReader {
 
     // This indicates we are inside the systemTraceEvents string.
     // This position is only valid when the |format_| == |kOuterDictionary|.
-    kSystemTraceEventsString,
-
-    // This indicates we are waiting for the entire metadata dictionary to be
-    // available.
-    kWaitingForMetadataDictionary,
+    kInsideSystemTraceEventsString,
 
     // This indicates where are inside the traceEvents array.
-    kTraceEventsArray,
+    kInsideTraceEventsArray,
 
     // This indicates we cannot parse any more data in the trace.
     kEof,
   };
 
-  util::Status ParseInternal(const char* start,
+  base::Status ParseInternal(const char* start,
                              const char* end,
-                             const char** next);
+                             const char** out);
+
+  base::Status HandleTraceEvent(const char* start,
+                                const char* end,
+                                const char** out);
+
+  base::Status HandleDictionaryKey(const char* start,
+                                   const char* end,
+                                   const char** out);
+
+  base::Status HandleSystemTraceEvent(const char* start,
+                                      const char* end,
+                                      const char** out);
 
   TraceProcessorContext* const context_;
 

@@ -1,0 +1,15 @@
+# dmd servcie
+type hal_vendor_oem_hwservice, hwservice_manager_type;
+
+# GRIL service
+type hal_radioext_hwservice, hwservice_manager_type;
+
+# WLC
+type hal_wlc_hwservice, hwservice_manager_type;
+
+# rild service
+type hal_exynos_rild_hwservice, hwservice_manager_type;
+
+# Fingerprint
+type hal_fingerprint_ext_hwservice, hwservice_manager_type;
+

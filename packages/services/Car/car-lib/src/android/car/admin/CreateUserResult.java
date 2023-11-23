@@ -19,7 +19,6 @@ package android.car.admin;
 import android.annotation.IntDef;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
-import android.annotation.TestApi;
 import android.car.annotation.AddedInOrBefore;
 import android.car.user.UserCreationResult;
 import android.os.UserHandle;
@@ -37,7 +36,6 @@ import java.lang.annotation.RetentionPolicy;
  * @hide
  */
 @SystemApi
-@TestApi
 public final class CreateUserResult {
 
     private static final String TAG = CreateUserResult.class.getSimpleName();
@@ -147,7 +145,6 @@ public final class CreateUserResult {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         StringBuilder string = new StringBuilder("CreateUserResult[")
                 .append(statusToString(mStatus));

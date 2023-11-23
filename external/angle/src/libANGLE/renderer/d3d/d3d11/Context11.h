@@ -13,6 +13,7 @@
 #include <stack>
 #include "libANGLE/renderer/ContextImpl.h"
 #include "libANGLE/renderer/d3d/ContextD3D.h"
+#include "libANGLE/renderer/d3d/d3d11/ResourceManager11.h"
 
 namespace rx
 {
@@ -218,6 +219,8 @@ class Context11 : public ContextD3D, public MultisampleTextureInitializer
     angle::Result syncState(const gl::Context *context,
                             const gl::State::DirtyBits &dirtyBits,
                             const gl::State::DirtyBits &bitMask,
+                            const gl::State::ExtendedDirtyBits &extendedDirtyBits,
+                            const gl::State::ExtendedDirtyBits &extendedBitMask,
                             gl::Command command) override;
 
     // Disjoint timer queries
@@ -232,8 +235,10 @@ class Context11 : public ContextD3D, public MultisampleTextureInitializer
     const gl::TextureCapsMap &getNativeTextureCaps() const override;
     const gl::Extensions &getNativeExtensions() const override;
     const gl::Limitations &getNativeLimitations() const override;
+    const ShPixelLocalStorageOptions &getNativePixelLocalStorageOptions() const override;
 
     Renderer11 *getRenderer() const { return mRenderer; }
+    angle::ImageLoadContext getImageLoadContext() const;
 
     angle::Result dispatchCompute(const gl::Context *context,
                                   GLuint numGroupsX,
@@ -260,6 +265,12 @@ class Context11 : public ContextD3D, public MultisampleTextureInitializer
                       const char *function,
                       unsigned int line) override;
 
+    void setGPUDisjoint();
+    angle::Result checkDisjointQuery();
+    HRESULT checkDisjointQueryStatus();
+    UINT64 getDisjointFrequency();
+    void setDisjointFrequency(UINT64 frequency);
+
   private:
     angle::Result drawElementsImpl(const gl::Context *context,
                                    gl::PrimitiveMode mode,
@@ -275,6 +286,10 @@ class Context11 : public ContextD3D, public MultisampleTextureInitializer
     Renderer11 *mRenderer;
     IncompleteTextureSet mIncompleteTextures;
     std::stack<std::string> mMarkerStack;
+    d3d11::Query mDisjointQuery;
+    bool mDisjointQueryStarted;
+    bool mDisjoint;
+    UINT64 mFrequency;
 };
 }  // namespace rx
 

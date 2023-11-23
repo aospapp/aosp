@@ -1,10 +1,17 @@
 #pragma once
 
+#include <array>
+#include <cassert>
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
+#include <type_traits>
+#include <utility>
+#include <variant>
 #include <vector>
+#include <android/binder_enums.h>
+#include <android/binder_ibinder.h>
 #include <android/binder_ibinder_platform.h>
 #include <android/binder_interface_utils.h>
 #include <android/binder_parcel_platform.h>
@@ -12,6 +19,8 @@
 #include <android/binder_to_string.h>
 #include <aidl/android/aidl/tests/BackendType.h>
 #include <aidl/android/aidl/tests/ByteEnum.h>
+#include <aidl/android/aidl/tests/CircularParcelable.h>
+#include <aidl/android/aidl/tests/ICircular.h>
 #include <aidl/android/aidl/tests/INamedCallback.h>
 #include <aidl/android/aidl/tests/INewName.h>
 #include <aidl/android/aidl/tests/IOldName.h>
@@ -26,12 +35,31 @@
 #include <android/binder_stability.h>
 #endif  // BINDER_STABILITY_SUPPORT
 
+#ifndef __BIONIC__
+#define __assert2(a,b,c,d) ((void)0)
+#endif
+
+namespace aidl::android::aidl::tests {
+class CircularParcelable;
+class ICircular;
+class INamedCallback;
+class INewName;
+class IOldName;
+class RecursiveList;
+class StructuredParcelable;
+}  // namespace aidl::android::aidl::tests
+namespace aidl::android::aidl::tests::extension {
+class ExtendableParcelable;
+}  // namespace aidl::android::aidl::tests::extension
 namespace aidl {
 namespace android {
 namespace aidl {
 namespace tests {
+class ITestServiceDelegator;
+
 class ITestService : public ::ndk::ICInterface {
 public:
+  typedef ITestServiceDelegator DefaultDelegator;
   static const char* descriptor;
   ITestService();
   virtual ~ITestService();
@@ -77,6 +105,179 @@ public:
     typedef std::false_type fixed_size;
     static const char* descriptor;
 
+    class IFooDelegator;
+
+    class IFoo : public ::ndk::ICInterface {
+    public:
+      typedef IFooDelegator DefaultDelegator;
+      static const char* descriptor;
+      IFoo();
+      virtual ~IFoo();
+
+
+      static std::shared_ptr<IFoo> fromBinder(const ::ndk::SpAIBinder& binder);
+      static binder_status_t writeToParcel(AParcel* parcel, const std::shared_ptr<IFoo>& instance);
+      static binder_status_t readFromParcel(const AParcel* parcel, std::shared_ptr<IFoo>* instance);
+      static bool setDefaultImpl(const std::shared_ptr<IFoo>& impl);
+      static const std::shared_ptr<IFoo>& getDefaultImpl();
+    private:
+      static std::shared_ptr<IFoo> default_impl;
+    };
+    class IFooDefault : public IFoo {
+    public:
+      ::ndk::SpAIBinder asBinder() override;
+      bool isRemote() override;
+    };
+    class BpFoo : public ::ndk::BpCInterface<IFoo> {
+    public:
+      explicit BpFoo(const ::ndk::SpAIBinder& binder);
+      virtual ~BpFoo();
+
+    };
+    class BnFoo : public ::ndk::BnCInterface<IFoo> {
+    public:
+      BnFoo();
+      virtual ~BnFoo();
+    protected:
+      ::ndk::SpAIBinder createBinder() override;
+    private:
+    };
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    class HasDeprecated {
+    public:
+      typedef std::false_type fixed_size;
+      static const char* descriptor;
+
+      int32_t __attribute__((deprecated("field"))) deprecated = 0;
+
+      binder_status_t readFromParcel(const AParcel* parcel);
+      binder_status_t writeToParcel(AParcel* parcel) const;
+
+      inline bool operator!=(const HasDeprecated& rhs) const {
+        return std::tie(deprecated) != std::tie(rhs.deprecated);
+      }
+      inline bool operator<(const HasDeprecated& rhs) const {
+        return std::tie(deprecated) < std::tie(rhs.deprecated);
+      }
+      inline bool operator<=(const HasDeprecated& rhs) const {
+        return std::tie(deprecated) <= std::tie(rhs.deprecated);
+      }
+      inline bool operator==(const HasDeprecated& rhs) const {
+        return std::tie(deprecated) == std::tie(rhs.deprecated);
+      }
+      inline bool operator>(const HasDeprecated& rhs) const {
+        return std::tie(deprecated) > std::tie(rhs.deprecated);
+      }
+      inline bool operator>=(const HasDeprecated& rhs) const {
+        return std::tie(deprecated) >= std::tie(rhs.deprecated);
+      }
+
+      static const ::ndk::parcelable_stability_t _aidl_stability = ::ndk::STABILITY_LOCAL;
+      inline std::string toString() const {
+        std::ostringstream os;
+        os << "HasDeprecated{";
+        os << "deprecated: " << ::android::internal::ToString(deprecated);
+        os << "}";
+        return os.str();
+      }
+    };
+    #pragma clang diagnostic pop
+    class UsingHasDeprecated {
+    public:
+      typedef std::false_type fixed_size;
+      static const char* descriptor;
+
+      enum class Tag : int32_t {
+        n = 0,
+        m = 1,
+      };
+
+      // Expose tag symbols for legacy code
+      static const inline Tag n = Tag::n;
+      static const inline Tag m = Tag::m;
+
+      template<typename _Tp>
+      static constexpr bool _not_self = !std::is_same_v<std::remove_cv_t<std::remove_reference_t<_Tp>>, UsingHasDeprecated>;
+
+      UsingHasDeprecated() : _value(std::in_place_index<static_cast<size_t>(n)>, int32_t(0)) { }
+
+      template <typename _Tp, typename = std::enable_if_t<_not_self<_Tp>>>
+      // NOLINTNEXTLINE(google-explicit-constructor)
+      constexpr UsingHasDeprecated(_Tp&& _arg)
+          : _value(std::forward<_Tp>(_arg)) {}
+
+      template <size_t _Np, typename... _Tp>
+      constexpr explicit UsingHasDeprecated(std::in_place_index_t<_Np>, _Tp&&... _args)
+          : _value(std::in_place_index<_Np>, std::forward<_Tp>(_args)...) {}
+
+      template <Tag _tag, typename... _Tp>
+      static UsingHasDeprecated make(_Tp&&... _args) {
+        return UsingHasDeprecated(std::in_place_index<static_cast<size_t>(_tag)>, std::forward<_Tp>(_args)...);
+      }
+
+      template <Tag _tag, typename _Tp, typename... _Up>
+      static UsingHasDeprecated make(std::initializer_list<_Tp> _il, _Up&&... _args) {
+        return UsingHasDeprecated(std::in_place_index<static_cast<size_t>(_tag)>, std::move(_il), std::forward<_Up>(_args)...);
+      }
+
+      Tag getTag() const {
+        return static_cast<Tag>(_value.index());
+      }
+
+      template <Tag _tag>
+      const auto& get() const {
+        if (getTag() != _tag) { __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "bad access: a wrong tag"); }
+        return std::get<static_cast<size_t>(_tag)>(_value);
+      }
+
+      template <Tag _tag>
+      auto& get() {
+        if (getTag() != _tag) { __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "bad access: a wrong tag"); }
+        return std::get<static_cast<size_t>(_tag)>(_value);
+      }
+
+      template <Tag _tag, typename... _Tp>
+      void set(_Tp&&... _args) {
+        _value.emplace<static_cast<size_t>(_tag)>(std::forward<_Tp>(_args)...);
+      }
+
+      binder_status_t readFromParcel(const AParcel* _parcel);
+      binder_status_t writeToParcel(AParcel* _parcel) const;
+
+      inline bool operator!=(const UsingHasDeprecated& rhs) const {
+        return _value != rhs._value;
+      }
+      inline bool operator<(const UsingHasDeprecated& rhs) const {
+        return _value < rhs._value;
+      }
+      inline bool operator<=(const UsingHasDeprecated& rhs) const {
+        return _value <= rhs._value;
+      }
+      inline bool operator==(const UsingHasDeprecated& rhs) const {
+        return _value == rhs._value;
+      }
+      inline bool operator>(const UsingHasDeprecated& rhs) const {
+        return _value > rhs._value;
+      }
+      inline bool operator>=(const UsingHasDeprecated& rhs) const {
+        return _value >= rhs._value;
+      }
+
+      static const ::ndk::parcelable_stability_t _aidl_stability = ::ndk::STABILITY_LOCAL;
+      inline std::string toString() const {
+        std::ostringstream os;
+        os << "UsingHasDeprecated{";
+        switch (getTag()) {
+        case n: os << "n: " << ::android::internal::ToString(get<n>()); break;
+        case m: os << "m: " << ::android::internal::ToString(get<m>()); break;
+        }
+        os << "}";
+        return os.str();
+      }
+    private:
+      std::variant<int32_t, ::aidl::android::aidl::tests::ITestService::CompilerChecks::HasDeprecated> _value;
+    };
     ::ndk::SpAIBinder binder;
     ::ndk::SpAIBinder nullable_binder;
     std::vector<::ndk::SpAIBinder> binder_array;
@@ -160,6 +361,22 @@ public:
   enum : int64_t { LONG_TEST_CONSTANT = 1099511627776L };
   static const char* STRING_TEST_CONSTANT;
   static const char* STRING_TEST_CONSTANT2;
+  static constexpr float FLOAT_TEST_CONSTANT = 1.000000f;
+  static constexpr float FLOAT_TEST_CONSTANT2 = -1.000000f;
+  static constexpr float FLOAT_TEST_CONSTANT3 = 1.000000f;
+  static constexpr float FLOAT_TEST_CONSTANT4 = 2.200000f;
+  static constexpr float FLOAT_TEST_CONSTANT5 = -2.200000f;
+  static constexpr float FLOAT_TEST_CONSTANT6 = -0.000000f;
+  static constexpr float FLOAT_TEST_CONSTANT7 = 0.000000f;
+  static constexpr double DOUBLE_TEST_CONSTANT = 1.000000;
+  static constexpr double DOUBLE_TEST_CONSTANT2 = -1.000000;
+  static constexpr double DOUBLE_TEST_CONSTANT3 = 1.000000;
+  static constexpr double DOUBLE_TEST_CONSTANT4 = 2.200000;
+  static constexpr double DOUBLE_TEST_CONSTANT5 = -2.200000;
+  static constexpr double DOUBLE_TEST_CONSTANT6 = -0.000000;
+  static constexpr double DOUBLE_TEST_CONSTANT7 = 0.000000;
+  static constexpr double DOUBLE_TEST_CONSTANT8 = 1.100000;
+  static constexpr double DOUBLE_TEST_CONSTANT9 = -1.100000;
   static const char* STRING_TEST_CONSTANT_UTF8;
   enum : int32_t { A1 = 1 };
   enum : int32_t { A2 = 1 };
@@ -244,46 +461,48 @@ public:
   static constexpr uint32_t TRANSACTION_ReverseIntEnum = FIRST_CALL_TRANSACTION + 23;
   static constexpr uint32_t TRANSACTION_ReverseLongEnum = FIRST_CALL_TRANSACTION + 24;
   static constexpr uint32_t TRANSACTION_GetOtherTestService = FIRST_CALL_TRANSACTION + 25;
-  static constexpr uint32_t TRANSACTION_VerifyName = FIRST_CALL_TRANSACTION + 26;
-  static constexpr uint32_t TRANSACTION_GetInterfaceArray = FIRST_CALL_TRANSACTION + 27;
-  static constexpr uint32_t TRANSACTION_VerifyNamesWithInterfaceArray = FIRST_CALL_TRANSACTION + 28;
-  static constexpr uint32_t TRANSACTION_GetNullableInterfaceArray = FIRST_CALL_TRANSACTION + 29;
-  static constexpr uint32_t TRANSACTION_VerifyNamesWithNullableInterfaceArray = FIRST_CALL_TRANSACTION + 30;
-  static constexpr uint32_t TRANSACTION_GetInterfaceList = FIRST_CALL_TRANSACTION + 31;
-  static constexpr uint32_t TRANSACTION_VerifyNamesWithInterfaceList = FIRST_CALL_TRANSACTION + 32;
-  static constexpr uint32_t TRANSACTION_ReverseStringList = FIRST_CALL_TRANSACTION + 33;
-  static constexpr uint32_t TRANSACTION_RepeatParcelFileDescriptor = FIRST_CALL_TRANSACTION + 34;
-  static constexpr uint32_t TRANSACTION_ReverseParcelFileDescriptorArray = FIRST_CALL_TRANSACTION + 35;
-  static constexpr uint32_t TRANSACTION_ThrowServiceException = FIRST_CALL_TRANSACTION + 36;
-  static constexpr uint32_t TRANSACTION_RepeatNullableIntArray = FIRST_CALL_TRANSACTION + 37;
-  static constexpr uint32_t TRANSACTION_RepeatNullableByteEnumArray = FIRST_CALL_TRANSACTION + 38;
-  static constexpr uint32_t TRANSACTION_RepeatNullableIntEnumArray = FIRST_CALL_TRANSACTION + 39;
-  static constexpr uint32_t TRANSACTION_RepeatNullableLongEnumArray = FIRST_CALL_TRANSACTION + 40;
-  static constexpr uint32_t TRANSACTION_RepeatNullableString = FIRST_CALL_TRANSACTION + 41;
-  static constexpr uint32_t TRANSACTION_RepeatNullableStringList = FIRST_CALL_TRANSACTION + 42;
-  static constexpr uint32_t TRANSACTION_RepeatNullableParcelable = FIRST_CALL_TRANSACTION + 43;
-  static constexpr uint32_t TRANSACTION_RepeatNullableParcelableArray = FIRST_CALL_TRANSACTION + 44;
-  static constexpr uint32_t TRANSACTION_RepeatNullableParcelableList = FIRST_CALL_TRANSACTION + 45;
-  static constexpr uint32_t TRANSACTION_TakesAnIBinder = FIRST_CALL_TRANSACTION + 46;
-  static constexpr uint32_t TRANSACTION_TakesANullableIBinder = FIRST_CALL_TRANSACTION + 47;
-  static constexpr uint32_t TRANSACTION_TakesAnIBinderList = FIRST_CALL_TRANSACTION + 48;
-  static constexpr uint32_t TRANSACTION_TakesANullableIBinderList = FIRST_CALL_TRANSACTION + 49;
-  static constexpr uint32_t TRANSACTION_RepeatUtf8CppString = FIRST_CALL_TRANSACTION + 50;
-  static constexpr uint32_t TRANSACTION_RepeatNullableUtf8CppString = FIRST_CALL_TRANSACTION + 51;
-  static constexpr uint32_t TRANSACTION_ReverseUtf8CppString = FIRST_CALL_TRANSACTION + 52;
-  static constexpr uint32_t TRANSACTION_ReverseNullableUtf8CppString = FIRST_CALL_TRANSACTION + 53;
-  static constexpr uint32_t TRANSACTION_ReverseUtf8CppStringList = FIRST_CALL_TRANSACTION + 54;
-  static constexpr uint32_t TRANSACTION_GetCallback = FIRST_CALL_TRANSACTION + 55;
-  static constexpr uint32_t TRANSACTION_FillOutStructuredParcelable = FIRST_CALL_TRANSACTION + 56;
-  static constexpr uint32_t TRANSACTION_RepeatExtendableParcelable = FIRST_CALL_TRANSACTION + 57;
-  static constexpr uint32_t TRANSACTION_ReverseList = FIRST_CALL_TRANSACTION + 58;
-  static constexpr uint32_t TRANSACTION_ReverseIBinderArray = FIRST_CALL_TRANSACTION + 59;
-  static constexpr uint32_t TRANSACTION_ReverseNullableIBinderArray = FIRST_CALL_TRANSACTION + 60;
-  static constexpr uint32_t TRANSACTION_GetOldNameInterface = FIRST_CALL_TRANSACTION + 61;
-  static constexpr uint32_t TRANSACTION_GetNewNameInterface = FIRST_CALL_TRANSACTION + 62;
-  static constexpr uint32_t TRANSACTION_GetUnionTags = FIRST_CALL_TRANSACTION + 63;
-  static constexpr uint32_t TRANSACTION_GetCppJavaTests = FIRST_CALL_TRANSACTION + 64;
-  static constexpr uint32_t TRANSACTION_getBackendType = FIRST_CALL_TRANSACTION + 65;
+  static constexpr uint32_t TRANSACTION_SetOtherTestService = FIRST_CALL_TRANSACTION + 26;
+  static constexpr uint32_t TRANSACTION_VerifyName = FIRST_CALL_TRANSACTION + 27;
+  static constexpr uint32_t TRANSACTION_GetInterfaceArray = FIRST_CALL_TRANSACTION + 28;
+  static constexpr uint32_t TRANSACTION_VerifyNamesWithInterfaceArray = FIRST_CALL_TRANSACTION + 29;
+  static constexpr uint32_t TRANSACTION_GetNullableInterfaceArray = FIRST_CALL_TRANSACTION + 30;
+  static constexpr uint32_t TRANSACTION_VerifyNamesWithNullableInterfaceArray = FIRST_CALL_TRANSACTION + 31;
+  static constexpr uint32_t TRANSACTION_GetInterfaceList = FIRST_CALL_TRANSACTION + 32;
+  static constexpr uint32_t TRANSACTION_VerifyNamesWithInterfaceList = FIRST_CALL_TRANSACTION + 33;
+  static constexpr uint32_t TRANSACTION_ReverseStringList = FIRST_CALL_TRANSACTION + 34;
+  static constexpr uint32_t TRANSACTION_RepeatParcelFileDescriptor = FIRST_CALL_TRANSACTION + 35;
+  static constexpr uint32_t TRANSACTION_ReverseParcelFileDescriptorArray = FIRST_CALL_TRANSACTION + 36;
+  static constexpr uint32_t TRANSACTION_ThrowServiceException = FIRST_CALL_TRANSACTION + 37;
+  static constexpr uint32_t TRANSACTION_RepeatNullableIntArray = FIRST_CALL_TRANSACTION + 38;
+  static constexpr uint32_t TRANSACTION_RepeatNullableByteEnumArray = FIRST_CALL_TRANSACTION + 39;
+  static constexpr uint32_t TRANSACTION_RepeatNullableIntEnumArray = FIRST_CALL_TRANSACTION + 40;
+  static constexpr uint32_t TRANSACTION_RepeatNullableLongEnumArray = FIRST_CALL_TRANSACTION + 41;
+  static constexpr uint32_t TRANSACTION_RepeatNullableString = FIRST_CALL_TRANSACTION + 42;
+  static constexpr uint32_t TRANSACTION_RepeatNullableStringList = FIRST_CALL_TRANSACTION + 43;
+  static constexpr uint32_t TRANSACTION_RepeatNullableParcelable = FIRST_CALL_TRANSACTION + 44;
+  static constexpr uint32_t TRANSACTION_RepeatNullableParcelableArray = FIRST_CALL_TRANSACTION + 45;
+  static constexpr uint32_t TRANSACTION_RepeatNullableParcelableList = FIRST_CALL_TRANSACTION + 46;
+  static constexpr uint32_t TRANSACTION_TakesAnIBinder = FIRST_CALL_TRANSACTION + 47;
+  static constexpr uint32_t TRANSACTION_TakesANullableIBinder = FIRST_CALL_TRANSACTION + 48;
+  static constexpr uint32_t TRANSACTION_TakesAnIBinderList = FIRST_CALL_TRANSACTION + 49;
+  static constexpr uint32_t TRANSACTION_TakesANullableIBinderList = FIRST_CALL_TRANSACTION + 50;
+  static constexpr uint32_t TRANSACTION_RepeatUtf8CppString = FIRST_CALL_TRANSACTION + 51;
+  static constexpr uint32_t TRANSACTION_RepeatNullableUtf8CppString = FIRST_CALL_TRANSACTION + 52;
+  static constexpr uint32_t TRANSACTION_ReverseUtf8CppString = FIRST_CALL_TRANSACTION + 53;
+  static constexpr uint32_t TRANSACTION_ReverseNullableUtf8CppString = FIRST_CALL_TRANSACTION + 54;
+  static constexpr uint32_t TRANSACTION_ReverseUtf8CppStringList = FIRST_CALL_TRANSACTION + 55;
+  static constexpr uint32_t TRANSACTION_GetCallback = FIRST_CALL_TRANSACTION + 56;
+  static constexpr uint32_t TRANSACTION_FillOutStructuredParcelable = FIRST_CALL_TRANSACTION + 57;
+  static constexpr uint32_t TRANSACTION_RepeatExtendableParcelable = FIRST_CALL_TRANSACTION + 58;
+  static constexpr uint32_t TRANSACTION_ReverseList = FIRST_CALL_TRANSACTION + 59;
+  static constexpr uint32_t TRANSACTION_ReverseIBinderArray = FIRST_CALL_TRANSACTION + 60;
+  static constexpr uint32_t TRANSACTION_ReverseNullableIBinderArray = FIRST_CALL_TRANSACTION + 61;
+  static constexpr uint32_t TRANSACTION_GetOldNameInterface = FIRST_CALL_TRANSACTION + 62;
+  static constexpr uint32_t TRANSACTION_GetNewNameInterface = FIRST_CALL_TRANSACTION + 63;
+  static constexpr uint32_t TRANSACTION_GetUnionTags = FIRST_CALL_TRANSACTION + 64;
+  static constexpr uint32_t TRANSACTION_GetCppJavaTests = FIRST_CALL_TRANSACTION + 65;
+  static constexpr uint32_t TRANSACTION_getBackendType = FIRST_CALL_TRANSACTION + 66;
+  static constexpr uint32_t TRANSACTION_GetCircular = FIRST_CALL_TRANSACTION + 67;
 
   static std::shared_ptr<ITestService> fromBinder(const ::ndk::SpAIBinder& binder);
   static binder_status_t writeToParcel(AParcel* parcel, const std::shared_ptr<ITestService>& instance);
@@ -316,6 +535,7 @@ public:
   virtual ::ndk::ScopedAStatus ReverseIntEnum(const std::vector<::aidl::android::aidl::tests::IntEnum>& in_input, std::vector<::aidl::android::aidl::tests::IntEnum>* out_repeated, std::vector<::aidl::android::aidl::tests::IntEnum>* _aidl_return) = 0;
   virtual ::ndk::ScopedAStatus ReverseLongEnum(const std::vector<::aidl::android::aidl::tests::LongEnum>& in_input, std::vector<::aidl::android::aidl::tests::LongEnum>* out_repeated, std::vector<::aidl::android::aidl::tests::LongEnum>* _aidl_return) = 0;
   virtual ::ndk::ScopedAStatus GetOtherTestService(const std::string& in_name, std::shared_ptr<::aidl::android::aidl::tests::INamedCallback>* _aidl_return) = 0;
+  virtual ::ndk::ScopedAStatus SetOtherTestService(const std::string& in_name, const std::shared_ptr<::aidl::android::aidl::tests::INamedCallback>& in_service, bool* _aidl_return) = 0;
   virtual ::ndk::ScopedAStatus VerifyName(const std::shared_ptr<::aidl::android::aidl::tests::INamedCallback>& in_service, const std::string& in_name, bool* _aidl_return) = 0;
   virtual ::ndk::ScopedAStatus GetInterfaceArray(const std::vector<std::string>& in_names, std::vector<std::shared_ptr<::aidl::android::aidl::tests::INamedCallback>>* _aidl_return) = 0;
   virtual ::ndk::ScopedAStatus VerifyNamesWithInterfaceArray(const std::vector<std::shared_ptr<::aidl::android::aidl::tests::INamedCallback>>& in_services, const std::vector<std::string>& in_names, bool* _aidl_return) = 0;
@@ -356,6 +576,7 @@ public:
   virtual ::ndk::ScopedAStatus GetUnionTags(const std::vector<::aidl::android::aidl::tests::Union>& in_input, std::vector<::aidl::android::aidl::tests::Union::Tag>* _aidl_return) = 0;
   virtual ::ndk::ScopedAStatus GetCppJavaTests(::ndk::SpAIBinder* _aidl_return) = 0;
   virtual ::ndk::ScopedAStatus getBackendType(::aidl::android::aidl::tests::BackendType* _aidl_return) = 0;
+  virtual ::ndk::ScopedAStatus GetCircular(::aidl::android::aidl::tests::CircularParcelable* out_cp, std::shared_ptr<::aidl::android::aidl::tests::ICircular>* _aidl_return) = 0;
 private:
   static std::shared_ptr<ITestService> default_impl;
 };
@@ -387,6 +608,7 @@ public:
   ::ndk::ScopedAStatus ReverseIntEnum(const std::vector<::aidl::android::aidl::tests::IntEnum>& in_input, std::vector<::aidl::android::aidl::tests::IntEnum>* out_repeated, std::vector<::aidl::android::aidl::tests::IntEnum>* _aidl_return) override;
   ::ndk::ScopedAStatus ReverseLongEnum(const std::vector<::aidl::android::aidl::tests::LongEnum>& in_input, std::vector<::aidl::android::aidl::tests::LongEnum>* out_repeated, std::vector<::aidl::android::aidl::tests::LongEnum>* _aidl_return) override;
   ::ndk::ScopedAStatus GetOtherTestService(const std::string& in_name, std::shared_ptr<::aidl::android::aidl::tests::INamedCallback>* _aidl_return) override;
+  ::ndk::ScopedAStatus SetOtherTestService(const std::string& in_name, const std::shared_ptr<::aidl::android::aidl::tests::INamedCallback>& in_service, bool* _aidl_return) override;
   ::ndk::ScopedAStatus VerifyName(const std::shared_ptr<::aidl::android::aidl::tests::INamedCallback>& in_service, const std::string& in_name, bool* _aidl_return) override;
   ::ndk::ScopedAStatus GetInterfaceArray(const std::vector<std::string>& in_names, std::vector<std::shared_ptr<::aidl::android::aidl::tests::INamedCallback>>* _aidl_return) override;
   ::ndk::ScopedAStatus VerifyNamesWithInterfaceArray(const std::vector<std::shared_ptr<::aidl::android::aidl::tests::INamedCallback>>& in_services, const std::vector<std::string>& in_names, bool* _aidl_return) override;
@@ -427,6 +649,7 @@ public:
   ::ndk::ScopedAStatus GetUnionTags(const std::vector<::aidl::android::aidl::tests::Union>& in_input, std::vector<::aidl::android::aidl::tests::Union::Tag>* _aidl_return) override;
   ::ndk::ScopedAStatus GetCppJavaTests(::ndk::SpAIBinder* _aidl_return) override;
   ::ndk::ScopedAStatus getBackendType(::aidl::android::aidl::tests::BackendType* _aidl_return) override;
+  ::ndk::ScopedAStatus GetCircular(::aidl::android::aidl::tests::CircularParcelable* out_cp, std::shared_ptr<::aidl::android::aidl::tests::ICircular>* _aidl_return) override;
   ::ndk::SpAIBinder asBinder() override;
   bool isRemote() override;
 };
@@ -434,3 +657,33 @@ public:
 }  // namespace aidl
 }  // namespace android
 }  // namespace aidl
+namespace aidl {
+namespace android {
+namespace aidl {
+namespace tests {
+[[nodiscard]] static inline std::string toString(ITestService::CompilerChecks::UsingHasDeprecated::Tag val) {
+  switch(val) {
+  case ITestService::CompilerChecks::UsingHasDeprecated::Tag::n:
+    return "n";
+  case ITestService::CompilerChecks::UsingHasDeprecated::Tag::m:
+    return "m";
+  default:
+    return std::to_string(static_cast<int32_t>(val));
+  }
+}
+}  // namespace tests
+}  // namespace aidl
+}  // namespace android
+}  // namespace aidl
+namespace ndk {
+namespace internal {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wc++17-extensions"
+template <>
+constexpr inline std::array<aidl::android::aidl::tests::ITestService::CompilerChecks::UsingHasDeprecated::Tag, 2> enum_values<aidl::android::aidl::tests::ITestService::CompilerChecks::UsingHasDeprecated::Tag> = {
+  aidl::android::aidl::tests::ITestService::CompilerChecks::UsingHasDeprecated::Tag::n,
+  aidl::android::aidl::tests::ITestService::CompilerChecks::UsingHasDeprecated::Tag::m,
+};
+#pragma clang diagnostic pop
+}  // namespace internal
+}  // namespace ndk

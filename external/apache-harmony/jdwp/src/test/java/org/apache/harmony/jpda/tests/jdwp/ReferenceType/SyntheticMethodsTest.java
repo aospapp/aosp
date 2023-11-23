@@ -37,6 +37,20 @@ public class SyntheticMethodsTest extends JDWPSyncTestCase {
         return SyntheticMembersDebuggee.class.getName();
     }
 
+    private boolean doesDebuggeeClassUseNestAnnotation() {
+        // If the nest group annotations are used in SyntheticMembersDebuggee, then its nest group
+        // will contain at least one other member (SyntheticMembersDebuggee.InnerClass). Without the
+        // annotations, the group would only have SyntheticMembersDebuggee.
+        Class debuggee = SyntheticMembersDebuggee.class;
+        Class[] members = debuggee.getNestMembers();
+        for (Class member : members) {
+            if (member != debuggee) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * This testcase exercises ReferenceType.Methods command.
      *
@@ -109,7 +123,12 @@ public class SyntheticMethodsTest extends JDWPSyncTestCase {
         }
         assertAllDataRead(methodsReply);
 
-        assertTrue("Did not find any synthetic method", foundSyntheticMethod);
+        if (doesDebuggeeClassUseNestAnnotation()) {
+            assertFalse("Found synthetic methods when nest group information is available",
+                    foundSyntheticMethod);
+        } else {
+            assertTrue("Did not find any synthetic method", foundSyntheticMethod);
+        }
 
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
         logWriter.println("==> " + thisTestName + " for " + commandName + ": FINISH");

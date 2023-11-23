@@ -62,7 +62,7 @@ public class SarManager {
      * TODO(b/144250387): Migrate to public API
      */
     private static final String STREAM_DEVICES_CHANGED_ACTION =
-            "android.media.stream_devices_changed_action";
+            "android.media.STREAM_DEVICES_CHANGED_ACTION";
     private static final String EXTRA_VOLUME_STREAM_TYPE = "android.media.EXTRA_VOLUME_STREAM_TYPE";
     private static final String EXTRA_VOLUME_STREAM_DEVICES =
             "android.media.EXTRA_VOLUME_STREAM_DEVICES";

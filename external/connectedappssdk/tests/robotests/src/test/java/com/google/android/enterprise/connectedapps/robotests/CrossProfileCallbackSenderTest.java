@@ -24,7 +24,7 @@ import com.google.android.enterprise.connectedapps.internal.Bundler;
 import com.google.android.enterprise.connectedapps.testapp.Profile_TestStringCallbackListener_Receiver;
 import com.google.android.enterprise.connectedapps.testapp.Profile_TestStringCallbackListener_Sender;
 import com.google.android.enterprise.connectedapps.testapp.TestStringCallbackListener;
-import com.google.android.enterprise.connectedapps.testapp.types.ProfileTestCrossProfileType_Bundler;
+import com.google.android.enterprise.connectedapps.testapp.types.TestCrossProfileType_Bundler;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
@@ -44,7 +44,7 @@ public class CrossProfileCallbackSenderTest {
   private final TestExceptionCallbackListener exceptionCallback =
       new TestExceptionCallbackListener();
   private final TestStringCallbackListenerImpl callback = new TestStringCallbackListenerImpl();
-  private final Bundler bundler = new ProfileTestCrossProfileType_Bundler();
+  private final Bundler bundler = new TestCrossProfileType_Bundler();
   private final Profile_TestStringCallbackListener_Sender sender =
       new Profile_TestStringCallbackListener_Sender(callback, exceptionCallback, bundler);
   private final Profile_TestStringCallbackListener_Receiver receiver =

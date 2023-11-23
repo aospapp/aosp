@@ -5,7 +5,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -173,7 +173,7 @@ public class ScannerTest extends TestCase {
 
         // Bogus test : Depends on the order in which expections are thrown.
         try {
-            s = new Scanner(tmpFile, null);
+            s = new Scanner(tmpFile, (String) null);
             fail();
         } catch (IllegalArgumentException expected) {
         }
@@ -191,7 +191,7 @@ public class ScannerTest extends TestCase {
 
         // Scanner(File = null, Charset = null)
         try {
-            s = new Scanner((File) null, null);
+            s = new Scanner((File) null, (String) null);
             fail();
         } catch (NullPointerException expected) {
         }
@@ -213,7 +213,7 @@ public class ScannerTest extends TestCase {
         // Scanner(File, Charset = null)
         try {
             File f = File.createTempFile("test", ".tmp");
-            s = new Scanner(f, null);
+            s = new Scanner(f, (String) null);
             fail();
         } catch (IllegalArgumentException expected) {
         }
@@ -260,7 +260,7 @@ public class ScannerTest extends TestCase {
 
         // Exception order test.
         try {
-            s = new Scanner(nonExistentFilePath, null);
+            s = new Scanner(nonExistentFilePath, (String) null);
             fail();
         } catch (NullPointerException expected) {
         }
@@ -273,7 +273,7 @@ public class ScannerTest extends TestCase {
         }
 
         // Scanner(Path = null, Charset = null)
-        try (Scanner s = new Scanner((Path) null, null)) {
+        try (Scanner s = new Scanner((Path) null, (String) null)) {
             fail();
         } catch (NullPointerException expected) {
         }
@@ -291,7 +291,7 @@ public class ScannerTest extends TestCase {
         }
 
         // Scanner(Path, Charset = null)
-        try (Scanner s = new Scanner(existentFilePath, null)) {
+        try (Scanner s = new Scanner(existentFilePath, (String) null)) {
             fail();
         } catch (NullPointerException expected) {
         }
@@ -327,11 +327,11 @@ public class ScannerTest extends TestCase {
         try {
             s = new Scanner((PipedInputStream) null, "invalid charset");
             fail();
-        } catch (NullPointerException expected) {
+        } catch (NullPointerException | IllegalArgumentException expected) {
         }
 
         try {
-            s = new Scanner(new PipedInputStream(), null);
+            s = new Scanner(new PipedInputStream(), (String) null);
             fail();
         } catch (NullPointerException expected) {
         }
@@ -423,7 +423,7 @@ public class ScannerTest extends TestCase {
 
         // Scanner(ReadableByteChannel = null, Charset = null)
         try {
-            s = new Scanner((ReadableByteChannel) null, null);
+            s = new Scanner((ReadableByteChannel) null, (String) null);
             fail();
         } catch (NullPointerException expected) {
         }
@@ -437,7 +437,7 @@ public class ScannerTest extends TestCase {
 
         // Scanner(ReadableByteChannel, Charset = null)
         try {
-            s = new Scanner(fc, null);
+            s = new Scanner(fc, (String) null);
             fail();
         } catch (IllegalArgumentException expected) {
         }

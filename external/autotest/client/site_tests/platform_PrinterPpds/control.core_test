@@ -16,6 +16,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 ATTRIBUTES = "suite:bvt-perbuild"
 JOB_RETRIES = 0
+PY_VERSION = 3
 
 DOC = """
 This test runs the following procedure for PPD files from ppds_core directory:

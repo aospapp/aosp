@@ -156,7 +156,7 @@ public class P2pConnectionProcedure extends BroadcastReceiver {
                         listener.onConnectionOpen(mNetwork, mInfo);
                     }
                 }
-            } else if (mInvited) {
+            } else if (mInvited && !network.isConnectedOrConnecting()) {
                 // Only signal connection closure if we reached the invitation phase
                 for (P2pConnectionListener listener : mListeners) {
                     listener.onConnectionClosed();

@@ -359,18 +359,22 @@ public class BluetoothRouteTransitionTests extends TelecomTestCase {
 
         switch (mParams.expectedBluetoothInteraction) {
             case NONE:
-                verify(mDeviceManager, never()).connectAudio(nullable(String.class));
+                verify(mDeviceManager, never()).connectAudio(nullable(String.class),
+                    any(boolean.class));
                 break;
             case CONNECT:
-                verify(mDeviceManager).connectAudio(mParams.expectedConnectionDevice.getAddress());
+                verify(mDeviceManager).connectAudio(mParams.expectedConnectionDevice.getAddress(),
+                    false);
                 verify(mDeviceManager, never()).disconnectAudio();
                 break;
             case CONNECT_SWITCH_DEVICE:
                 verify(mDeviceManager).disconnectAudio();
-                verify(mDeviceManager).connectAudio(mParams.expectedConnectionDevice.getAddress());
+                verify(mDeviceManager).connectAudio(mParams.expectedConnectionDevice.getAddress(),
+                    true);
             break;
             case DISCONNECT:
-                verify(mDeviceManager, never()).connectAudio(nullable(String.class));
+                verify(mDeviceManager, never()).connectAudio(nullable(String.class),
+                    any(boolean.class));
                 verify(mDeviceManager).disconnectAudio();
                 break;
         }
@@ -402,7 +406,8 @@ public class BluetoothRouteTransitionTests extends TelecomTestCase {
         when(mDeviceManager.getBluetoothHeadset()).thenReturn(mBluetoothHeadset);
         when(mDeviceManager.getBluetoothHearingAid()).thenReturn(mBluetoothHearingAid);
         when(mDeviceManager.getLeAudioService()).thenReturn(mBluetoothLeAudio);
-        when(mDeviceManager.connectAudio(nullable(String.class))).thenReturn(true);
+        when(mDeviceManager.connectAudio(nullable(String.class), any(boolean.class)))
+            .thenReturn(true);
         when(mTimeoutsAdapter.getRetryBluetoothConnectAudioBackoffMillis(
                 nullable(ContentResolver.class))).thenReturn(100000L);
         when(mTimeoutsAdapter.getBluetoothPendingTimeoutMillis(

@@ -16,14 +16,15 @@
 
 package com.android.car.settings.qc;
 
-import static android.car.media.CarAudioManager.PRIMARY_AUDIO_ZONE;
-
 import static com.android.car.settings.qc.BaseVolumeSlider.QC_VOLUME_SELF_CHANGE;
 
-import android.car.Car;
 import android.car.media.CarAudioManager;
 import android.content.Context;
 import android.net.Uri;
+
+import androidx.annotation.VisibleForTesting;
+
+import com.android.car.settings.CarSettingsApplication;
 
 import java.io.IOException;
 
@@ -33,8 +34,7 @@ import java.io.IOException;
  */
 public abstract class BaseVolumeSliderWorker<E extends BaseVolumeSlider>
         extends SettingsQCBackgroundWorker<E> {
-    private final Car mCar;
-    private CarAudioManager mCarAudioManager;
+    private final Context mContext;
 
     private final CarAudioManager.CarVolumeCallback mVolumeChangeCallback =
             new CarAudioManager.CarVolumeCallback() {
@@ -61,44 +61,60 @@ public abstract class BaseVolumeSliderWorker<E extends BaseVolumeSlider>
 
     public BaseVolumeSliderWorker(Context context, Uri uri) {
         super(context, uri);
-        mCar = Car.createCar(getContext());
-        mCarAudioManager = (CarAudioManager) mCar.getCarManager(Car.AUDIO_SERVICE);
+        mContext = context;
     }
 
     protected abstract int[] getUsages();
 
     @Override
     protected void onQCItemSubscribe() {
-        if (mCarAudioManager != null) {
-            mCarAudioManager.registerCarVolumeCallback(mVolumeChangeCallback);
+        CarAudioManager carAudioManager = getCarAudioManager();
+        if (carAudioManager != null) {
+            carAudioManager.registerCarVolumeCallback(mVolumeChangeCallback);
         }
     }
 
     @Override
     protected void onQCItemUnsubscribe() {
-        if (mCarAudioManager != null) {
-            mCarAudioManager.unregisterCarVolumeCallback(mVolumeChangeCallback);
+        CarAudioManager carAudioManager = getCarAudioManager();
+        if (carAudioManager != null) {
+            carAudioManager.unregisterCarVolumeCallback(mVolumeChangeCallback);
         }
     }
 
     @Override
     public void close() throws IOException {
-        mCar.disconnect();
-        mCarAudioManager = null;
+    }
+
+    @VisibleForTesting
+    CarAudioManager.CarVolumeCallback getVolumeChangeCallback() {
+        return mVolumeChangeCallback;
     }
 
     private void updateVolumeAndMute(int zoneId, int groupId) {
-        // Settings only handles primary zone changes
-        if (zoneId != PRIMARY_AUDIO_ZONE) {
+        // Settings only handles my audio zone changes
+        if (zoneId != getMyAudioZoneId()) {
             return;
         }
-        if (mCarAudioManager != null) {
+        CarAudioManager carAudioManager = getCarAudioManager();
+        if (carAudioManager != null) {
             for (int usage : getUsages()) {
-                if (mCarAudioManager.getVolumeGroupIdForUsage(usage) == groupId) {
+                if (carAudioManager
+                        .getVolumeGroupIdForUsage(getMyAudioZoneId(), usage) == groupId) {
                     notifyQCItemChange();
                     break;
                 }
             }
         }
+    }
+
+    private int getMyAudioZoneId() {
+        return ((CarSettingsApplication) mContext.getApplicationContext())
+                .getMyAudioZoneId();
+    }
+
+    private CarAudioManager getCarAudioManager() {
+        return ((CarSettingsApplication) mContext.getApplicationContext())
+                .getCarAudioManager();
     }
 }

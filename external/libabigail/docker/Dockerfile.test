@@ -1,0 +1,28 @@
+FROM ghcr.io/woodard/libabigail-fedora-base
+
+# docker build -f docker/Dockerfile.test -t test .
+
+RUN dnf install -y \
+    file \
+    diffutils \
+    lbzip2 \
+    elfutils-libs
+
+WORKDIR /code
+COPY . /code
+
+RUN mkdir -p build && \
+    autoreconf -i && \
+    cd build && \
+    CXXFLAGS="-g3 -fvar-tracking-assignments \
+    -gstatement-frontiers -gvariable-location-views -grecord-gcc-switches -pipe -Wall \
+    -Werror=format-security -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -Wp,-D_GLIBCXX_ASSERTIONS \
+    -fstack-protector-strong -fstack-clash-protection -fcf-protection \
+    -fasynchronous-unwind-tables -O2" CFLAGS="-g3 -fvar-tracking-assignments \
+    -gstatement-frontiers -gvariable-location-views -grecord-gcc-switches -pipe -Wall \
+    -Werror=format-security -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -Wp,-D_GLIBCXX_ASSERTIONS \
+    -fstack-protector-strong -fstack-clash-protection -fcf-protection \
+    -fasynchronous-unwind-tables -O2" LDFLAGS="-Wl,--no-undefined" \
+    ../configure --prefix=/opt/libabigail --enable-rpm=yes && \
+    make -j4 && \
+    make check ENABLE_SLOW_TEST=yes || (cat tests/test-suite.log && exit 1)

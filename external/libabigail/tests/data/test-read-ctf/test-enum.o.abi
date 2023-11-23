@@ -16,9 +16,7 @@
       <enumerator name='IENUMSAMPLE_2' value='-9'/>
       <enumerator name='IENUMSAMPLE_3' value='-8'/>
     </enum-decl>
-    <type-decl name='int' size-in-bits='32' alignment-in-bits='32' id='type-id-4'/>
-    <type-decl name='unsigned int' size-in-bits='32' alignment-in-bits='32' id='type-id-5'/>
-    <var-decl name='foo' type-id='type-id-2' mangled-name='foo' visibility='default'/>
-    <var-decl name='bar' type-id='type-id-3' mangled-name='bar' visibility='default'/>
+    <var-decl name='foo' type-id='type-id-2' mangled-name='foo' visibility='default' elf-symbol-id='foo'/>
+    <var-decl name='bar' type-id='type-id-3' mangled-name='bar' visibility='default' elf-symbol-id='bar'/>
   </abi-instr>
 </abi-corpus>

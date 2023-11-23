@@ -58,7 +58,7 @@ const VersionRange& MatrixInstance::versionRange() const {
     return mRange;
 }
 
-const std::string& MatrixInstance::interface() const {
+std::string MatrixInstance::interface() const {
     return mFqInstance.getInterface();
 }
 

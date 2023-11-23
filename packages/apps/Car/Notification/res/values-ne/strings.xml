@@ -49,4 +49,11 @@
     <string name="see_more_message" msgid="6343183827924395955">"थप हेर्नुहोस्"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"नयाँ म्यासेज"</string>
     <string name="manage_text" msgid="4225197445283791757">"व्यवस्थापन गर्नुहोस्"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"नेभिगेसन"</string>
+    <string name="category_call" msgid="2249490790700877973">"कल गर्नुहोस्"</string>
+    <string name="category_message" msgid="451360226248504859">"msg"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"सावधानीसम्बन्धी सूचनाहरू रोक्ने"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"पछिल्लो अवस्थाका बारेमा जानकार रहनुहोस्"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"सवारी साधन चलाउँदा ध्यान दिनुहोस्"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"केही नयाँ सूचनाहरू \"सूचना केन्द्र\" मा सेभ गरिन्छन्"</string>
 </resources>

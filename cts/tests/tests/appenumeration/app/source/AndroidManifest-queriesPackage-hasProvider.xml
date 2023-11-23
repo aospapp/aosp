@@ -20,6 +20,7 @@
 
     <queries>
         <package android:name="android.appenumeration.noapi" />
+        <package android:name="com.android.cts.norestart" />
     </queries>
 
     <application>

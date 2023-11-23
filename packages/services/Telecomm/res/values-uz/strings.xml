@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"Favqulodda chaqiruv amalga oshirilayotgani uchun <xliff:g id="CALLER">%s</xliff:g> bilan suhbatingiz tugatildi."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"Favqulodda chaqiruv amalga oshirilayotgani uchun joriy chaqiruvingiz to‘xtatildi."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"Orqa fondagi chaqiruv"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> ilovasi chaqiruvni orqa fonga joyladi. Bu ilova ovozli chaqiruvga kirishi yoki unda audio ijro etishi mumkin."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> chaqiruvni fonda qayta ishlamoqda. Bu ilova ovozli chaqiruvga kirishi yoki unda audio ijro etishi mumkin."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> javob bermayapti"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"Chaqiruv qurilmangizga avvaldan o‘rnatilgan ilova orqali amalga oshirildi"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"Qo‘ng‘iroq ovozi o‘chirildi."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Orqa fondagi chaqiruvlar"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Tugatilgan chaqiruvlar"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Ishdan chiqqan telefon ilovalari"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"Chaqiruv translatsiyasi"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"Bu qo‘ng‘iroqni amalga oshirsangiz, <xliff:g id="OTHER_APP">%1$s</xliff:g> qo‘ng‘irog‘i tugatiladi."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Telefon qilish usulini tanlang"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"Chaqiruv <xliff:g id="OTHER_APP">%1$s</xliff:g> orqali qayta uzatilsin"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Telecom dasturchisi menyusi"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Favqulodda chaqiruv vaqtida boshqa chaqiruvlarni qabul qilish imkonsiz."</string>
     <string name="cancel" msgid="6733466216239934756">"Bekor qilish"</string>
+    <string name="back" msgid="6915955601805550206">"Orqaga"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"Quloq karnaychasi"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"Bluetooth"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"Simli garnitura"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"Karnay"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"Tashqi"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"Noaniq"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"Audio translatsiyani boshqa qurilmaga olish"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"Tugatish"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"Shu yerga olish"</string>
 </resources>

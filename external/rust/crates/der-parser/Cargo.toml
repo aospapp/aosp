@@ -12,7 +12,7 @@
 [package]
 edition = "2018"
 name = "der-parser"
-version = "6.0.0"
+version = "6.0.1"
 authors = ["Pierre Chifflier <chifflier@wzdftpd.net>"]
 include = ["LICENSE-*", "CHANGELOG.md", "README.md", "UPGRADING.md", ".gitignore", "Cargo.toml", "bench/*.rs", "src/*.rs", "src/ber/*.rs", "src/der/*.rs", "tests/*.rs", "der-oid-macro/Cargo.toml", "der-oid-macro/src/*.rs"]
 description = "Parser/encoder for ASN.1 BER/DER data"
@@ -52,7 +52,7 @@ version = "4.0"
 version = "0.3"
 
 [dev-dependencies.pretty_assertions]
-version = "0.7"
+version = "1.0"
 
 [dev-dependencies.test-case]
 version = "1.0"

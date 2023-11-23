@@ -14,16 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""Trace parser for android_fs traces."""
+"""Trace parser for f2fs traces."""
 
 import collections
 import re
 
-# ex) bt_stack_manage-21277   [000] ....  5879.043608: android_fs_datawrite_start: entry_name /misc/bluedroid/bt_config.bak.new, offset 0, bytes 408, cmdline bt_stack_manage, pid 21277, i_size 0, ino 9103
-RE_WRITE_START = r".+-([0-9]+).*\s+([0-9]+\.[0-9]+):\s+android_fs_datawrite_start:\sentry_name\s(\S+)\,\soffset\s([0-9]+)\,\sbytes\s([0-9]+)\,\scmdline\s(\S+)\,\spid\s([0-9]+)\,\si_size\s([0-9]+)\,\sino\s([0-9]+)"
+# ex) bt_stack_manage-21277   [000] ....  5879.043608: f2fs_datawrite_start: entry_name /misc/bluedroid/bt_config.bak.new, offset 0, bytes 408, cmdline bt_stack_manage, pid 21277, i_size 0, ino 9103
+RE_WRITE_START = r".+-([0-9]+).*\s+([0-9]+\.[0-9]+):\s+f2fs_datawrite_start:\sentry_name\s(\S+)\,\soffset\s([0-9]+)\,\sbytes\s([0-9]+)\,\scmdline\s(\S+)\,\spid\s([0-9]+)\,\si_size\s([0-9]+)\,\sino\s([0-9]+)"
 
-# ex)        dumpsys-21321   [001] ....  5877.599324: android_fs_dataread_start: entry_name /system/lib64/libbinder.so, offset 311296, bytes 4096, cmdline dumpsys, pid 21321, i_size 848848, ino 2397
-RE_READ_START = r".+-([0-9]+).*\s+([0-9]+\.[0-9]+):\s+android_fs_dataread_start:\sentry_name\s(\S+)\,\soffset\s([0-9]+)\,\sbytes\s([0-9]+)\,\scmdline\s(\S+)\,\spid\s([0-9]+)\,\si_size\s([0-9]+)\,\sino\s([0-9]+)"
+# ex)        dumpsys-21321   [001] ....  5877.599324: f2fs_dataread_start: entry_name /system/lib64/libbinder.so, offset 311296, bytes 4096, cmdline dumpsys, pid 21321, i_size 848848, ino 2397
+RE_READ_START = r".+-([0-9]+).*\s+([0-9]+\.[0-9]+):\s+f2fs_dataread_start:\sentry_name\s(\S+)\,\soffset\s([0-9]+)\,\sbytes\s([0-9]+)\,\scmdline\s(\S+)\,\spid\s([0-9]+)\,\si_size\s([0-9]+)\,\sino\s([0-9]+)"
 
 MIN_PID_BYTES = 1024 * 1024  # 1 MiB
 SMALL_FILE_BYTES = 1024  # 1 KiB

@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"প্ৰজেক্‌শ্বন সেৱাৰ সৈতে সংযুক্ত হ’ব"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"এটা প্ৰজেক্‌শ্বন সেৱাৰ শীৰ্ষ স্তৰৰ ইণ্টাৰফে’চৰ সৈতে সংযুক্ত হ’বলৈ ধাৰকক অনুমতি দিয়ে। সাধাৰণ এপ্‌সমূহৰ বাবে কেতিয়াও প্ৰয়োজন হ’ব নালাগে।"</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"VMS ক্লায়েণ্ট সেৱা"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"VMS ক্লায়েণ্টৰ সৈতে সংযুক্ত হ’ব পাৰে"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"ইনষ্ট্ৰুমেণ্ট ক্লাষ্টাৰ ৰেণ্ডাৰ কৰি থকা হৈছে"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"ইনষ্ট্ৰুমেণ্ট ক্লাষ্টাৰৰ ডেটা পায়"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"গাড়ীৰ ইনপুট সেৱা"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"ইনপুট ইভেণ্ট নিয়ন্ত্ৰণ কৰিব"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"আপুনি গাড়ী চলাই থকাৰ সময়ত এই সুবিধাটো ব্যৱহাৰ কৰিব নোৱাৰে"</string>
     <string name="exit_button_message" msgid="5375678491245394542">"সুৰক্ষিত এপ্ সুবিধাসহ আকৌ আৰম্ভ কৰিবলৈ <xliff:g id="EXIT_BUTTON">%s</xliff:g> বাছনি কৰক।"</string>
     <string name="exit_button" msgid="3491899413031549265">"উভতি যাওক"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"আপোনাৰ ডিভাইচৰ ডেটা মচা হ\'ব"</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"এই প্ৰশাসক এপ্‌টো ব্যৱহাৰ কৰিব নোৱাৰি। এতিয়া আপোনাৰ ডিভাইচটোৰ ডেটা মচা হ’ব।\n\nআপোনাৰ কিবা প্ৰশ্ন থাকিলে আপোনাৰ প্ৰতিষ্ঠানৰ প্ৰশাসকৰ সৈতে যোগাযোগ কৰক।"</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g>এ আপোনাৰ ছিষ্টেমৰ কাৰ্যদক্ষতাত প্ৰভাৱ পেলাইছে"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"ছিষ্টেমৰ কাৰ্যদক্ষতা উন্নত কৰিবলৈ এপ্ অক্ষম কৰক। আপুনি ছেটিঙত পুনৰ এপ্‌টো সক্ষম কৰিব পাৰে।"</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"এপ্‌টো ব্যৱহাৰ কৰি থাকিবলৈ এপক অগ্ৰাধিকাৰ দিয়ক।"</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"ছিষ্টেমৰ কাৰ্যদক্ষতা উন্নত কৰিবলৈ এপ্ আনইনষ্টল কৰক।"</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"এপ্ অক্ষম কৰক"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"এই এপ্‌টোক নেপথ্যত চলাত বাধা আৰোপ কৰা হৈছে। নেপথ্য়ত ব্যৱহাৰ হৈ থকাটো অব্যাহত ৰাখিবলৈ এপক অগ্ৰাধিকাৰ দিয়ক।"</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"বন্ধ কৰক"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"এপক অগ্ৰাধিকাৰ দিয়ক"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"এপ্ আনইনষ্টল কৰক"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g>ক অক্ষম কৰা হৈছে। আপুনি এইটো ছেটিঙত পুনৰ সক্ষম কৰিব পাৰে।"</string>
 </resources>

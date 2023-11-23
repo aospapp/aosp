@@ -16,27 +16,25 @@
 
 package com.android.cts.verifier.audio;
 
+import static com.android.cts.verifier.TestListActivity.sCurrentDisplayMode;
+import static com.android.cts.verifier.TestListAdapter.setTestNameSuffix;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-
 import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
-
 import android.os.Bundle;
 import android.os.Handler;
-
 import android.util.Log;
-
 import android.widget.TextView;
 
 import com.android.compatibility.common.util.CddTest;
-import com.android.compatibility.common.util.ReportLog;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
-
+import com.android.cts.verifier.CtsVerifierReportLog;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;  // needed to access resource in CTSVerifier project namespace.
 
@@ -131,6 +129,61 @@ public class USBAudioPeripheralNotificationsTest extends PassFailButtons.Activit
         }
     }
 
+    @Override
+    public boolean requiresReportLog() {
+        return true;
+    }
+
+    @Override
+    public String getReportFileName() {
+        return PassFailButtons.AUDIO_TESTS_REPORT_LOG_NAME;
+    }
+
+    @Override
+    public final String getReportSectionName() {
+        return setTestNameSuffix(sCurrentDisplayMode, SECTION_USBDEVICENOTIFICATIONS);
+    }
+
+    // ReportLog Schema
+    private static final String SECTION_USBDEVICENOTIFICATIONS =
+            "usb_audio_peripheral_notifications_activity";
+
+    private static final String KEY_HEADSET_IN = "headset_in_received";
+    private static final String KEY_HEADSET_OUT = "headset_out_received";
+    private static final String KEY_DEVICE_IN = "device_in_received";
+    private static final String KEY_DEVICE_OUT = "device_out_received";
+
+    @Override
+    public void recordTestResults() {
+        CtsVerifierReportLog reportLog = getReportLog();
+
+        reportLog.addValue(
+                KEY_HEADSET_IN,
+                mUsbHeadsetInReceived,
+                ResultType.NEUTRAL,
+                ResultUnit.NONE);
+
+        reportLog.addValue(
+                KEY_HEADSET_OUT,
+                mUsbHeadsetOutReceived,
+                ResultType.NEUTRAL,
+                ResultUnit.NONE);
+
+        reportLog.addValue(
+                KEY_DEVICE_IN,
+                mUsbDeviceInReceived,
+                ResultType.NEUTRAL,
+                ResultUnit.NONE);
+
+        reportLog.addValue(
+                KEY_DEVICE_OUT,
+                mUsbDeviceOutReceived,
+                ResultType.NEUTRAL,
+                ResultUnit.NONE);
+
+        reportLog.submit();
+    }
+
     private void reportPlugIntent(Intent intent) {
         // [ 7.8 .2.2/H-2-1] MUST broadcast Intent ACTION_HEADSET_PLUG with "microphone" extra
         // set to 0 when the USB audio terminal types 0x0302 is detected.
@@ -160,12 +213,6 @@ public class USBAudioPeripheralNotificationsTest extends PassFailButtons.Activit
             mHeadsetPlugMessage.setText(sb.toString());
         }
 
-        getReportLog().addValue(
-                "ACTION_HEADSET_PLUG Intent Received. State: ",
-                state,
-                ResultType.NEUTRAL,
-                ResultUnit.NONE);
-
         getPassButton().setEnabled(calculatePass());
     }
 
@@ -173,9 +220,10 @@ public class USBAudioPeripheralNotificationsTest extends PassFailButtons.Activit
     // Test Status
     //
     private boolean calculatePass() {
-        return mUsbHeadsetInReceived && mUsbHeadsetOutReceived &&
-                mUsbDeviceInReceived && mUsbDeviceOutReceived &&
-                mPlugIntentReceived;
+        return isReportLogOkToPass()
+                && mUsbHeadsetInReceived && mUsbHeadsetOutReceived
+                && mUsbDeviceInReceived && mUsbDeviceOutReceived
+                && mPlugIntentReceived;
     }
 
     //
@@ -192,21 +240,11 @@ public class USBAudioPeripheralNotificationsTest extends PassFailButtons.Activit
                     // and role isSource() if the USB audio terminal type field is 0x0402.
                     mUsbHeadsetInReceived = true;
                     mUsbHeadsetInInfo = devInfo;
-                    getReportLog().addValue(
-                            "USB Headset connected - INPUT",
-                            0,
-                            ResultType.NEUTRAL,
-                            ResultUnit.NONE);
                 } else if (devInfo.isSink()) {
                     // [ 7.8 .2.2/H-4-2] MUST list a device of type AudioDeviceInfo.TYPE_USB_HEADSET
                     // and role isSink() if the USB audio terminal type field is 0x0402.
                     mUsbHeadsetOutReceived = true;
                     mUsbHeadsetOutInfo = devInfo;
-                    getReportLog().addValue(
-                            "USB Headset connected - OUTPUT",
-                            0,
-                            ResultType.NEUTRAL,
-                            ResultUnit.NONE);
                 }
             } else if (devInfo.getType() == AudioDeviceInfo.TYPE_USB_DEVICE) {
                 if (devInfo.isSource()) {
@@ -214,21 +252,11 @@ public class USBAudioPeripheralNotificationsTest extends PassFailButtons.Activit
                     // and role isSource() if the USB audio terminal type field is 0x604.
                     mUsbDeviceInReceived = true;
                     mUsbDeviceInInfo = devInfo;
-                    getReportLog().addValue(
-                            "USB Device connected - INPUT",
-                            0,
-                            ResultType.NEUTRAL,
-                            ResultUnit.NONE);
                 } else if (devInfo.isSink()) {
                     // [ 7.8 .2.2/H-4-4] MUST list a device of type AudioDeviceInfo.TYPE_USB_DEVICE
                     // and role isSink() if the USB audio terminal type field is 0x603.
                     mUsbDeviceOutReceived = true;
                     mUsbDeviceOutInfo = devInfo;
-                    getReportLog().addValue(
-                            "USB Headset connected - OUTPUT",
-                            0,
-                            ResultType.NEUTRAL,
-                            ResultUnit.NONE);
                 }
             }
 

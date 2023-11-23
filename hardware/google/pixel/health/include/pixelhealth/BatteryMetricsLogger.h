@@ -23,12 +23,13 @@
 #include <android-base/logging.h>
 #include <android-base/strings.h>
 #include <batteryservice/BatteryService.h>
-#include <hardware/google/pixel/pixelstats/pixelatoms.pb.h>
 #include <math.h>
 #include <time.h>
 #include <utils/Timers.h>
 
 #include <string>
+
+#include "pixelatoms_defs.h"
 
 namespace hardware {
 namespace google {
@@ -36,7 +37,8 @@ namespace pixel {
 namespace health {
 
 using aidl::android::frameworks::stats::IStats;
-using android::hardware::google::pixel::PixelAtoms::VendorBatteryHealthSnapshot;
+
+using hardware::google::pixel::PixelAtoms::VendorBatteryHealthSnapshot;
 
 class BatteryMetricsLogger {
   public:

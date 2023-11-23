@@ -19,12 +19,18 @@ package com.android.car.hal;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.car.diagnostic.CarDiagnosticEvent;
+import android.car.diagnostic.CarDiagnosticManager;
+import android.car.hardware.CarSensorManager;
 import android.hardware.automotive.vehicle.VehiclePropConfig;
 import android.hardware.automotive.vehicle.VehicleProperty;
 import android.os.ServiceSpecificException;
@@ -47,6 +53,9 @@ public class DiagnosticHalServiceTest {
     private static final int TEST_INT32_VALUE = 2;
     private static final float TEST_FLOAT_VALUE = 3.0f;
     private static final String TEST_STRING = "1234";
+    private static final float MIN_SAMPLE_RATE = 1f;
+    private static final float MAX_SAMPLE_RATE = 20f;
+    private static final int INVALID_SENSOR_TYPE = -1;
 
     @Mock
     private VehicleHal mVehicle;
@@ -54,7 +63,10 @@ public class DiagnosticHalServiceTest {
     private DiagnosticHalService.DiagnosticListener mListener;
 
     private DiagnosticHalService mService;
-    private final HalPropValueBuilder mPropValueBuilder = new HalPropValueBuilder(/*aidl=*/true);
+    private final HalPropValueBuilder mPropValueBuilder = new HalPropValueBuilder(/* aidl= */ true);
+
+    private VehiclePropConfig mFreezeFrameConfig;
+    private VehiclePropConfig mLiveFrameConfig;
 
     @Before
     public void setUp() {
@@ -67,16 +79,31 @@ public class DiagnosticHalServiceTest {
         freezeFrameConfig.prop = VehicleProperty.OBD2_FREEZE_FRAME;
         // 8 custom int sensors and 1 custom float sensors.
         freezeFrameConfig.configArray = new int[]{8, 1};
+        freezeFrameConfig.minSampleRate = MIN_SAMPLE_RATE;
+        freezeFrameConfig.maxSampleRate = MAX_SAMPLE_RATE;
+        mFreezeFrameConfig = freezeFrameConfig;
 
         VehiclePropConfig liveFrameConfig = new VehiclePropConfig();
         liveFrameConfig.configString = new String();
         liveFrameConfig.prop = VehicleProperty.OBD2_LIVE_FRAME;
         // 8 custom int sensors and 1 custom float sensors.
         liveFrameConfig.configArray = new int[]{8, 1};
+        liveFrameConfig.minSampleRate = MIN_SAMPLE_RATE;
+        liveFrameConfig.maxSampleRate = MAX_SAMPLE_RATE;
+        mLiveFrameConfig = liveFrameConfig;
+
+        VehiclePropConfig freezeFrameInfoConfig = new VehiclePropConfig();
+        freezeFrameInfoConfig.prop = VehicleProperty.OBD2_FREEZE_FRAME_INFO;
+
+        VehiclePropConfig freezeFrameClearConfig = new VehiclePropConfig();
+        freezeFrameClearConfig.configArray = new int[]{1};
+        freezeFrameClearConfig.prop = VehicleProperty.OBD2_FREEZE_FRAME_CLEAR;
 
         mService.takeProperties(new ArrayList<HalPropConfig>(Arrays.asList(
                 new AidlHalPropConfig(freezeFrameConfig),
-                new AidlHalPropConfig(liveFrameConfig))));
+                new AidlHalPropConfig(liveFrameConfig),
+                new AidlHalPropConfig(freezeFrameInfoConfig),
+                new AidlHalPropConfig(freezeFrameClearConfig))));
     }
 
     private HalPropValue getTestFreezeFrame() {
@@ -130,17 +157,171 @@ public class DiagnosticHalServiceTest {
     }
 
     @Test
+    public void testGetSupportedDiagnosticProperties() {
+        int[] props = mService.getSupportedDiagnosticProperties();
+
+        assertThat(props).asList().containsExactly(CarDiagnosticManager.FRAME_TYPE_LIVE,
+                CarDiagnosticManager.FRAME_TYPE_FREEZE);
+    }
+
+    private void verifyRequestDiagnosticStartRate(int sensorRate, float expectRate) {
+        clearInvocations(mVehicle);
+
+        assertThat(mService.requestDiagnosticStart(CarDiagnosticManager.FRAME_TYPE_LIVE,
+                sensorRate)).isTrue();
+
+        verify(mVehicle).subscribeProperty(mService, VehicleProperty.OBD2_LIVE_FRAME, expectRate);
+    }
+
+    @Test
+    public void testRequestDiagnosticStartRateFastest() {
+        verifyRequestDiagnosticStartRate(CarSensorManager.SENSOR_RATE_FASTEST, 10f);
+    }
+
+    @Test
+    public void testRequestDiagnosticStartRateFast() {
+        verifyRequestDiagnosticStartRate(CarSensorManager.SENSOR_RATE_FAST, 10f);
+    }
+
+    @Test
+    public void testRequestDiagnosticStartRateUI() {
+        verifyRequestDiagnosticStartRate(CarSensorManager.SENSOR_RATE_UI, 5f);
+    }
+
+    @Test
+    public void testRequestDiagnosticStartRateDefault() {
+        verifyRequestDiagnosticStartRate(CarSensorManager.SENSOR_RATE_NORMAL, 1f);
+    }
+
+    @Test
+    public void testRequestDiagnosticStartRateFitToMinRate() {
+        mLiveFrameConfig.minSampleRate = 2f;
+        mService.takeProperties(new ArrayList<HalPropConfig>(Arrays.asList(
+                new AidlHalPropConfig(mFreezeFrameConfig),
+                new AidlHalPropConfig(mLiveFrameConfig))));
+
+        verifyRequestDiagnosticStartRate(CarSensorManager.SENSOR_RATE_NORMAL, 2f);
+    }
+
+
+    @Test
+    public void testRequestDiagnosticStartRateFitToMaxRate() {
+        mLiveFrameConfig.maxSampleRate = 2f;
+        mService.takeProperties(new ArrayList<HalPropConfig>(Arrays.asList(
+                new AidlHalPropConfig(mFreezeFrameConfig),
+                new AidlHalPropConfig(mLiveFrameConfig))));
+
+        verifyRequestDiagnosticStartRate(CarSensorManager.SENSOR_RATE_FAST, 2f);
+    }
+
+    @Test
+    public void testRequestDiagnosticStartFreezeFrame() {
+        assertThat(mService.requestDiagnosticStart(CarDiagnosticManager.FRAME_TYPE_FREEZE,
+                CarSensorManager.SENSOR_RATE_FAST)).isTrue();
+
+        verify(mVehicle).subscribeProperty(mService, VehicleProperty.OBD2_FREEZE_FRAME, 10f);
+    }
+
+    @Test
+    public void testRequestDiagnosticStartInvalidSensorType() {
+        assertThat(mService.requestDiagnosticStart(INVALID_SENSOR_TYPE,
+                CarSensorManager.SENSOR_RATE_FAST)).isFalse();
+    }
+
+    @Test
+    public void testRequestDiagnosticStopLiveFrame() {
+        mService.requestDiagnosticStop(CarDiagnosticManager.FRAME_TYPE_LIVE);
+
+        verify(mVehicle).unsubscribeProperty(mService, VehicleProperty.OBD2_LIVE_FRAME);
+    }
+
+    @Test
+    public void testRequestDiagnosticStopFreezeFrame() {
+        mService.requestDiagnosticStop(CarDiagnosticManager.FRAME_TYPE_FREEZE);
+
+        verify(mVehicle).unsubscribeProperty(mService, VehicleProperty.OBD2_FREEZE_FRAME);
+    }
+
+    @Test
+    public void testRequestDiagnosticStopInvalidSensorType() {
+        mService.requestDiagnosticStop(INVALID_SENSOR_TYPE);
+
+        verify(mVehicle, never()).unsubscribeProperty(any(), anyInt());
+    }
+
+    @Test
+    public void testGetCurrentDiagnosticValueFreezeFrame() {
+        HalPropValue propValue = mock(HalPropValue.class);
+        when(mVehicle.get(VehicleProperty.OBD2_FREEZE_FRAME)).thenReturn(propValue);
+
+        HalPropValue gotValue = mService.getCurrentDiagnosticValue(
+                CarDiagnosticManager.FRAME_TYPE_FREEZE);
+
+        assertThat(gotValue).isEqualTo(propValue);
+    }
+
+    @Test
+    public void testGetCurrentDiagnosticValueLiveFrame() {
+        HalPropValue propValue = mock(HalPropValue.class);
+        when(mVehicle.get(VehicleProperty.OBD2_LIVE_FRAME)).thenReturn(propValue);
+
+        HalPropValue gotValue = mService.getCurrentDiagnosticValue(
+                CarDiagnosticManager.FRAME_TYPE_LIVE);
+
+        assertThat(gotValue).isEqualTo(propValue);
+    }
+
+    @Test
+    public void testGetCurrentDiagnosticValueInvalidSensorType() {
+        HalPropValue gotValue = mService.getCurrentDiagnosticValue(-1);
+
+        assertThat(gotValue).isNull();
+    }
+
+    @Test
+    public void testGetCurrentDiagnosticValueServiceSpecificException() {
+        when(mVehicle.get(VehicleProperty.OBD2_LIVE_FRAME)).thenThrow(
+                new ServiceSpecificException(0));
+
+        HalPropValue gotValue = mService.getCurrentDiagnosticValue(
+                CarDiagnosticManager.FRAME_TYPE_LIVE);
+
+        assertThat(gotValue).isNull();
+    }
+
+    @Test
+    public void testGetCurrentDiagnosticValueIllegalArgumentException() {
+        when(mVehicle.get(VehicleProperty.OBD2_LIVE_FRAME)).thenThrow(
+                new IllegalArgumentException());
+
+        HalPropValue gotValue = mService.getCurrentDiagnosticValue(
+                CarDiagnosticManager.FRAME_TYPE_LIVE);
+
+        assertThat(gotValue).isNull();
+    }
+
+    @Test
     public void testOnHalEvents() {
         // Check the argument when called because the events would be cleared after the call.
         doAnswer((invocation) -> {
             Object[] args = invocation.getArguments();
-            assertThat(args[0]).isEqualTo(new LinkedList<CarDiagnosticEvent>(Arrays.asList(
-                    getTestFreezeEvent(), getTestLiveEvent())));
+            assertThat(args[0]).isEqualTo(new LinkedList<CarDiagnosticEvent>(
+                    Arrays.asList(getTestFreezeEvent(), getTestLiveEvent())));
             return null;
         }).when(mListener).onDiagnosticEvents(any());
 
         mService.onHalEvents(new ArrayList<HalPropValue>(Arrays.asList(
                 getTestFreezeFrame(), getTestLiveFrame())));
+    }
+
+    @Test
+    public void testSetGetDiagnosticListener() {
+        DiagnosticHalService.DiagnosticListener listener =
+                mock(DiagnosticHalService.DiagnosticListener.class);
+
+        mService.setDiagnosticListener(listener);
+
+        assertThat(mService.getDiagnosticListener()).isEqualTo(listener);
     }
 
     @Test

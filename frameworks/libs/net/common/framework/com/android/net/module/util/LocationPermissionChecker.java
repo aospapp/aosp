@@ -30,6 +30,8 @@ import android.os.Build;
 import android.os.UserHandle;
 import android.util.Log;
 
+import androidx.annotation.RequiresApi;
+
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.lang.annotation.Retention;
@@ -41,6 +43,7 @@ import java.lang.annotation.RetentionPolicy;
  *
  * @hide
  */
+@RequiresApi(Build.VERSION_CODES.R)
 public class LocationPermissionChecker {
 
     private static final String TAG = "LocationPermissionChecker";

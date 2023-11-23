@@ -115,6 +115,7 @@ public class ProvisioningConfigurationTest {
                 new String("android-dhcp-11").getBytes());
         config.mIPv4ProvisioningMode = PROV_IPV4_DHCP;
         config.mIPv6ProvisioningMode = PROV_IPV6_SLAAC;
+        config.mUniqueEui64AddressesOnly = false;
         return config;
     }
 
@@ -122,6 +123,7 @@ public class ProvisioningConfigurationTest {
         final ProvisioningConfigurationParcelable p = new ProvisioningConfigurationParcelable();
         p.enableIPv4 = true;
         p.enableIPv6 = true;
+        p.uniqueEui64AddressesOnly = false;
         p.usingMultinetworkPolicyTracker = true;
         p.usingIpReachabilityMonitor = true;
         p.requestedPreDhcpActionMs = 42;
@@ -151,7 +153,7 @@ public class ProvisioningConfigurationTest {
     public void setUp() {
         mConfig = makeTestProvisioningConfiguration();
         // Any added field must be included in equals() to be tested properly
-        assertFieldCountEquals(16, ProvisioningConfiguration.class);
+        assertFieldCountEquals(17, ProvisioningConfiguration.class);
     }
 
     @Test
@@ -282,7 +284,8 @@ public class ProvisioningConfigurationTest {
         assertNotEqualsAfterChange(c -> c.mIPv4ProvisioningMode = PROV_IPV4_STATIC);
         assertNotEqualsAfterChange(c -> c.mIPv6ProvisioningMode = PROV_IPV6_DISABLED);
         assertNotEqualsAfterChange(c -> c.mIPv6ProvisioningMode = PROV_IPV6_LINKLOCAL);
-        assertFieldCountEquals(16, ProvisioningConfiguration.class);
+        assertNotEqualsAfterChange(c -> c.mUniqueEui64AddressesOnly = true);
+        assertFieldCountEquals(17, ProvisioningConfiguration.class);
     }
 
     private void assertNotEqualsAfterChange(Consumer<ProvisioningConfiguration> mutator) {
@@ -315,7 +318,7 @@ public class ProvisioningConfigurationTest {
             + DhcpOption.class.getName()
             + "{type: 60,"
             + " value: [97, 110, 100, 114, 111, 105, 100, 45, 100, 104, 99, 112, 45, 49, 49]}],"
-            + " ipv4ProvisioningMode: 2, ipv6ProvisioningMode: 1}";
+            + " ipv4ProvisioningMode: 2, ipv6ProvisioningMode: 1, uniqueEui64AddressesOnly: false}";
 
     @Test
     public void testParcelableToString() {

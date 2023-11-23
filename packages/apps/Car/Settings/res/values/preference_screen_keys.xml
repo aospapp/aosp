@@ -79,6 +79,7 @@
     <string name="psk_network_and_internet" translatable="false">network_and_internet_screen</string>
     <string name="psk_notification_access" translatable="false">notification_access_screen</string>
     <string name="psk_notifications" translatable="false">notifications_screen</string>
+    <string name="psk_performance_impact_apps_settings" translatable="false">performance_impact_apps_settings_screen</string>
     <string name="psk_preferred_engine" translatable="false">preferred_engine_screen</string>
     <string name="psk_premium_sms_access" translatable="false">premium_sms_access_screen</string>
     <string name="psk_privacy_settings" translatable="false">privacy_settings_screen</string>

@@ -11,9 +11,11 @@
 #ifndef RTC_BASE_NETWORK_MONITOR_H_
 #define RTC_BASE_NETWORK_MONITOR_H_
 
+#include <functional>
+#include <utility>
+
+#include "absl/strings/string_view.h"
 #include "rtc_base/network_constants.h"
-#include "rtc_base/third_party/sigslot/sigslot.h"
-#include "rtc_base/thread.h"
 
 namespace rtc {
 
@@ -27,10 +29,22 @@ enum class NetworkBindingResult {
   NETWORK_CHANGED = -4
 };
 
+// NetworkPreference property set by operating system/firmware that has
+// information about connection strength to e.g WIFI router or CELL base towers.
+// GENERATED_JAVA_ENUM_PACKAGE: org.webrtc
+enum class NetworkPreference {
+  NEUTRAL = 0,
+  NOT_PREFERRED = -1,
+};
+
+const char* NetworkPreferenceToString(NetworkPreference preference);
+
+// This interface is set onto a socket server,
+// where only the ip address is known at the time of binding.
 class NetworkBinderInterface {
  public:
-  // Binds a socket to the network that is attached to |address| so that all
-  // packets on the socket |socket_fd| will be sent via that network.
+  // Binds a socket to the network that is attached to `address` so that all
+  // packets on the socket `socket_fd` will be sent via that network.
   // This is needed because some operating systems (like Android) require a
   // special bind call to put packets on a non-default network interface.
   virtual NetworkBindingResult BindSocketToNetwork(
@@ -40,7 +54,7 @@ class NetworkBinderInterface {
 };
 
 /*
- * Receives network-change events via |OnNetworksChanged| and signals the
+ * Receives network-change events via `OnNetworksChanged` and signals the
  * networks changed event.
  *
  * Threading consideration:
@@ -53,69 +67,71 @@ class NetworkBinderInterface {
  *
  * Memory consideration:
  * NetworkMonitor is owned by the caller (NetworkManager). The global network
- * monitor factory is owned by the factory itself but needs to be released from
- * the factory creator.
+ * monitor factory is owned by the PeerConnectionFactory.
  */
 // Generic network monitor interface. It starts and stops monitoring network
 // changes, and fires the SignalNetworksChanged event when networks change.
 class NetworkMonitorInterface {
  public:
+  struct InterfaceInfo {
+    // The type of adapter if known.
+    AdapterType adapter_type;
+
+    // Is ADAPTER_TYPE_UNKNOWN unless adapter_type == ADAPTER_TYPE_VPN.
+    AdapterType underlying_type_for_vpn = ADAPTER_TYPE_UNKNOWN;
+
+    // The OS/firmware specific preference of this interface.
+    NetworkPreference network_preference = NetworkPreference::NEUTRAL;
+
+    // Is this interface available to use? WebRTC shouldn't attempt to use it if
+    // this returns false.
+    //
+    // It's possible for this status to change, in which case
+    // SignalNetworksChanged will be fired.
+    //
+    // The specific use case this was added for was a phone with two SIM
+    // cards, where attempting to use all interfaces returned from getifaddrs
+    // caused the connection to be dropped.
+    bool available = true;
+  };
+
   NetworkMonitorInterface();
   virtual ~NetworkMonitorInterface();
-
-  sigslot::signal0<> SignalNetworksChanged;
 
   virtual void Start() = 0;
   virtual void Stop() = 0;
 
-  // Implementations should call this method on the base when networks change,
-  // and the base will fire SignalNetworksChanged on the right thread.
-  virtual void OnNetworksChanged() = 0;
+  // Get information about an interface.
+  // If the interface is not known, the return struct will have set
+  // `adapter_type` to ADAPTER_TYPE_UNKNOWN and `available` to false.
+  virtual InterfaceInfo GetInterfaceInfo(absl::string_view interface_name) = 0;
 
-  virtual AdapterType GetAdapterType(const std::string& interface_name) = 0;
-  virtual AdapterType GetVpnUnderlyingAdapterType(
-      const std::string& interface_name) = 0;
-};
+  // Does `this` NetworkMonitorInterface implement BindSocketToNetwork?
+  // Only Android returns true.
+  virtual bool SupportsBindSocketToNetwork() const { return false; }
 
-class NetworkMonitorBase : public NetworkMonitorInterface,
-                           public MessageHandler,
-                           public sigslot::has_slots<> {
- public:
-  NetworkMonitorBase();
-  ~NetworkMonitorBase() override;
+  // Bind a socket to an interface specified by ip address and/or interface
+  // name. Only implemented on Android.
+  virtual NetworkBindingResult BindSocketToNetwork(
+      int socket_fd,
+      const IPAddress& address,
+      absl::string_view interface_name) {
+    return NetworkBindingResult::NOT_IMPLEMENTED;
+  }
 
-  void OnNetworksChanged() override;
-
-  void OnMessage(Message* msg) override;
-
-  AdapterType GetVpnUnderlyingAdapterType(
-      const std::string& interface_name) override;
+  void SetNetworksChangedCallback(std::function<void()> callback) {
+    networks_changed_callback_ = std::move(callback);
+  }
 
  protected:
-  Thread* worker_thread() { return worker_thread_; }
+  void InvokeNetworksChangedCallback() {
+    if (networks_changed_callback_) {
+      networks_changed_callback_();
+    }
+  }
 
  private:
-  Thread* worker_thread_;
-};
-
-/*
- * NetworkMonitorFactory creates NetworkMonitors.
- */
-class NetworkMonitorFactory {
- public:
-  // This is not thread-safe; it should be called once (or once per audio/video
-  // call) during the call initialization.
-  static void SetFactory(NetworkMonitorFactory* factory);
-
-  static void ReleaseFactory(NetworkMonitorFactory* factory);
-  static NetworkMonitorFactory* GetFactory();
-
-  virtual NetworkMonitorInterface* CreateNetworkMonitor() = 0;
-
-  virtual ~NetworkMonitorFactory();
-
- protected:
-  NetworkMonitorFactory();
+  std::function<void()> networks_changed_callback_;
 };
 
 }  // namespace rtc

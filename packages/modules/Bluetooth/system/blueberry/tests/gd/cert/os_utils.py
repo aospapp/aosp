@@ -77,7 +77,6 @@ def make_ports_available(ports: Container[int], timeout_seconds=10):
         logging.warning("Freeing port %d used by %s" % (conn.laddr.port, str(conn)))
         if not conn.pid:
             logging.error("Failed to kill process occupying port %d due to lack of pid" % conn.laddr.port)
-            success = False
             continue
         logging.warning("Killing pid %d that is using port port %d" % (conn.pid, conn.laddr.port))
         if conn.pid in killed_pids:

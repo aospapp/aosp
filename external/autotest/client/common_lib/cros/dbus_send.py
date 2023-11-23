@@ -1,6 +1,11 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import collections
 import dbus
@@ -8,6 +13,7 @@ import logging
 import pipes
 import re
 import shlex
+import six
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
@@ -37,7 +43,7 @@ def _build_token_stream(headerless_dbus_send_output):
 
 
 def _parse_value(token_stream):
-    """Turn a stream of tokens from dbus-send output into native python types.
+    """Turn a stream of tokens from dbus-send output into builtin python types.
 
     @param token_stream: output from _build_token_stream() above.
 
@@ -155,7 +161,7 @@ def _dbus2string(raw_arg):
         else:
             return 'boolean:false'
 
-    for prim_type, prefix in int_map.iteritems():
+    for prim_type, prefix in six.iteritems(int_map):
         if isinstance(raw_arg, prim_type):
             return prefix + str(raw_arg)
 

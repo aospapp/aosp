@@ -1,8 +1,5 @@
 typeattribute shell coredomain;
 
-# allow shell input injection
-allow shell uhid_device:chr_file rw_file_perms;
-
 # Perform SELinux access checks, needed for CTS
 selinux_check_access(shell)
 selinux_check_context(shell)
@@ -35,6 +32,7 @@ allow shell dev_type:blk_file getattr;
 dontaudit shell sysfs:dir r_dir_perms;
 
 # Test tool tries to read various service status properties.
+get_prop(shell, boot_status_prop)
 get_prop(shell, init_service_status_prop)
 get_prop(shell, init_service_status_private_prop)
 

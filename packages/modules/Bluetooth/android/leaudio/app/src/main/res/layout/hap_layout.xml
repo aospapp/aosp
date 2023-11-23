@@ -159,7 +159,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Precious group preset" />
+            android:text="Previous group preset" />
 
         <Button
             android:id="@+id/hap_next_group_preset_button"
@@ -167,6 +167,13 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Next group preset" />
+
+        <Button
+            android:id="@+id/hap_set_active_preset_for_group_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Set group active" />
 
     </LinearLayout>
 </LinearLayout>

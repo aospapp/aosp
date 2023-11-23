@@ -50,6 +50,11 @@ char kTransactionLogStruct[] = R"(struct TransactionLog {
 };
 )";
 
+bool HasDeprecatedField(const AidlParcelable& parcelable) {
+  return std::any_of(parcelable.GetFields().begin(), parcelable.GetFields().end(),
+                     [](const auto& field) { return field->IsDeprecated(); });
+}
+
 string ClassName(const AidlDefinedType& defined_type, ClassNames type) {
   string base_name = defined_type.GetName();
   if (base_name.length() >= 2 && base_name[0] == 'I' && isupper(base_name[1])) {
@@ -93,6 +98,31 @@ std::string HeaderFile(const AidlDefinedType& defined_type, ClassNames class_typ
   vector<string> paths = toplevel->GetSplitPackage();
   paths.push_back(ClassName(*toplevel, class_type));
   return Join(paths, separator) + ".h";
+}
+
+// Ensures that output_file is  <out_dir>/<packagename>/<typename>.cpp
+bool ValidateOutputFilePath(const string& output_file, const Options& options,
+                            const AidlDefinedType& defined_type) {
+  const auto& out_dir =
+      !options.OutputDir().empty() ? options.OutputDir() : options.OutputHeaderDir();
+  if (output_file.empty() || !android::base::StartsWith(output_file, out_dir)) {
+    // If output_file is not set (which happens in the unit tests) or is outside of out_dir, we can
+    // help but accepting it, because the path is what the user has requested.
+    return true;
+  }
+
+  string canonical_name = defined_type.GetCanonicalName();
+  std::replace(canonical_name.begin(), canonical_name.end(), '.', OS_PATH_SEPARATOR);
+  const string expected = out_dir + canonical_name + ".cpp";
+  if (expected != output_file) {
+    AIDL_ERROR(defined_type) << "Output file is expected to be at " << expected << ", but is "
+                             << output_file << ".\n If this is an Android platform "
+                             << "build, consider providing the input AIDL files using a filegroup "
+                             << "with `path:\"<base>\"` so that the AIDL files are located at "
+                             << "<base>/<packagename>/<typename>.aidl.";
+    return false;
+  }
+  return true;
 }
 
 void EnterNamespace(CodeWriter& out, const AidlDefinedType& defined_type) {
@@ -425,16 +455,9 @@ void GenerateToString(CodeWriter& out, const AidlUnionDecl& parcelable) {
   out << "os << \"" + parcelable.GetName() + "{\";\n";
   out << "switch (getTag()) {\n";
   for (const auto& f : parcelable.GetFields()) {
-    if (f->IsDeprecated()) {
-      out << "#pragma clang diagnostic push\n";
-      out << "#pragma clang diagnostic ignored \"-Wdeprecated-declarations\"\n";
-    }
     const string tag = f->GetName();
     out << "case " << tag << ": os << \"" << tag << ": \" << "
         << "::android::internal::ToString(get<" + tag + ">()); break;\n";
-    if (f->IsDeprecated()) {
-      out << "#pragma clang diagnostic pop\n";
-    }
   }
   out << "}\n";
   out << "os << \"}\";\n";
@@ -658,10 +681,6 @@ void UnionWriter::ReadFromParcel(CodeWriter& out, const ParcelWriterContext& ctx
   read_var(tag, *tag_type);
   out << fmt::format("switch (static_cast<Tag>({})) {{\n", tag);
   for (const auto& variable : decl.GetFields()) {
-    if (variable->IsDeprecated()) {
-      out << "#pragma clang diagnostic push\n";
-      out << "#pragma clang diagnostic ignored \"-Wdeprecated-declarations\"\n";
-    }
     out << fmt::format("case {}: {{\n", variable->GetName());
     out.Indent();
     const auto& type = variable->GetType();
@@ -681,9 +700,6 @@ void UnionWriter::ReadFromParcel(CodeWriter& out, const ParcelWriterContext& ctx
     out << "}\n";
     out << fmt::format("return {}; }}\n", ctx.status_ok);
     out.Dedent();
-    if (variable->IsDeprecated()) {
-      out << "#pragma clang diagnostic pop\n";
-    }
   }
   out << "}\n";
   out << fmt::format("return {};\n", ctx.status_bad);
@@ -789,6 +805,60 @@ std::string CppConstantValueDecorator(
     cpp_type_name = "::aidl" + cpp_type_name;
   }
   return cpp_type_name + "::" + value.substr(value.find_last_of('.') + 1);
+}
+
+// Collect all forward declarations for the type's interface header.
+// Nested types are visited as well via VisitTopDown.
+void GenerateForwardDecls(CodeWriter& out, const AidlDefinedType& root_type, bool is_ndk) {
+  struct Visitor : AidlVisitor {
+    using PackagePath = std::vector<std::string>;
+    struct ClassDeclInfo {
+      std::string template_decl;
+    };
+    std::map<PackagePath, std::map<std::string, ClassDeclInfo>> classes;
+    // Collect class names for each interface or parcelable type
+    void Visit(const AidlTypeSpecifier& type) override {
+      const auto defined_type = type.GetDefinedType();
+      if (defined_type && !defined_type->GetParentType()) {
+        // Forward declarations are not supported for nested types
+        auto package = defined_type->GetSplitPackage();
+        if (defined_type->AsInterface() != nullptr) {
+          auto name = ClassName(*defined_type, ClassNames::INTERFACE);
+          classes[package][std::move(name)] = ClassDeclInfo();
+        } else if (auto* p = defined_type->AsStructuredParcelable(); p != nullptr) {
+          auto name = defined_type->GetName();
+          ClassDeclInfo info;
+          info.template_decl = TemplateDecl(*p);
+          classes[package][std::move(name)] = std::move(info);
+        }
+      }
+    }
+  } v;
+  VisitTopDown(v, root_type);
+
+  if (v.classes.empty()) {
+    return;
+  }
+
+  for (const auto& it : v.classes) {
+    auto package = it.first;
+    auto& classes = it.second;
+
+    if (is_ndk) {
+      package.insert(package.begin(), "aidl");
+    }
+
+    std::string namespace_name = Join(package, "::");
+    if (!namespace_name.empty()) {
+      out << "namespace " << namespace_name << " {\n";
+    }
+    for (const auto& [name, info] : classes) {
+      out << info.template_decl << "class " << name << ";\n";
+    }
+    if (!namespace_name.empty()) {
+      out << "}  // namespace " << namespace_name << "\n";
+    }
+  }
 }
 }  // namespace cpp
 }  // namespace aidl

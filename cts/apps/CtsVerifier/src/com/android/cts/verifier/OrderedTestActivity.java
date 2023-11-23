@@ -30,8 +30,8 @@ public abstract class OrderedTestActivity extends PassFailButtons.Activity {
     private Test[] mTests;
     private int mTestIndex;
 
-    private Button mNextButton;
-    private TextView mInstructions;
+    protected Button mNextButton;
+    protected TextView mInstructions;
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

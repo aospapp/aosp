@@ -22,4 +22,5 @@ interface IBitmapService {
     int getAllocationSize(in BitmapWrapper bitmap);
     boolean didReceiveBitmap(in BitmapWrapper bitmap);
     boolean ping();
+    void exit();
 }

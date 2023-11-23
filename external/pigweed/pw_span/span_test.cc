@@ -21,15 +21,20 @@
 // In order to minimize changes from the original, this file does NOT fully
 // adhere to Pigweed's style guide.
 
+// NOLINTBEGIN(modernize-unary-static-assert)
+
+#include "pw_span/span.h"
+
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <memory>
-#include <span>
 #include <string>
 #include <type_traits>
 #include <vector>
 
 #include "gtest/gtest.h"
+#include "pw_polyfill/standard.h"
 
 // Pigweed: gMock matchers are not yet supported.
 #if 0
@@ -38,8 +43,7 @@ using ::testing::Eq;
 using ::testing::Pointwise;
 #endif  // 0
 
-namespace std {
-
+namespace pw {
 namespace {
 
 // constexpr implementation of std::equal's 4 argument overload.
@@ -57,6 +61,8 @@ constexpr bool constexpr_equal(InputIterator1 first1,
 }
 
 }  // namespace
+
+#ifdef __cpp_deduction_guides
 
 TEST(SpanTest, DeductionGuides_MutableArray) {
   char array[] = {'a', 'b', 'c', 'd', '\0'};
@@ -102,7 +108,7 @@ TEST(SpanTest, DeductionGuides_ConstStdArray) {
 
 TEST(SpanTest, DeductionGuides_MutableContainerWithConstElements) {
   std::string_view string("Hello");
-  auto the_span = span(string);
+  auto the_span = span<const char>(string);
   static_assert(the_span.extent == dynamic_extent);
 
   EXPECT_STREQ("Hello", the_span.data());
@@ -119,6 +125,8 @@ TEST(SpanTest, DeductionGuides_MutableContainerWithMutableElements) {
   EXPECT_STREQ(the_span.data(), string.data());
   EXPECT_STREQ("Hallo", the_span.data());
 }
+
+#endif  // __cpp_deduction_guides
 
 class MutableStringView {
  public:
@@ -138,12 +146,14 @@ class MutableStringView {
   char& operator[](size_type index) const { return data_[index]; }
   pointer data() const { return data_.data(); }
   size_type size() const { return data_.size(); }
-  iterator begin() const { return data_.begin(); }
-  iterator end() const { return data_.end(); }
+  iterator begin() const { return data_.data(); }
+  iterator end() const { return data_.data() + size(); }
 
  private:
   span<char> data_;
 };
+
+#ifdef __cpp_deduction_guides
 
 TEST(SpanTest, DeductionGuides_ConstContainerWithMutableElements) {
   char data[] = "54321";
@@ -206,6 +216,8 @@ TEST(SpanTest, DeductionGuides_FromConstReference) {
   EXPECT_EQ(string, the_span.data());
 }
 
+#endif  // __cpp_deduction_guides
+
 TEST(SpanTest, DefaultConstructor) {
   span<int> dynamic_span;
   EXPECT_EQ(nullptr, dynamic_span.data());
@@ -217,7 +229,7 @@ TEST(SpanTest, DefaultConstructor) {
 }
 
 TEST(SpanTest, ConstructFromDataAndSize) {
-  constexpr span<int> empty_span(nullptr, 0);
+  constexpr span<int> empty_span(static_cast<int*>(nullptr), 0);
   EXPECT_TRUE(empty_span.empty());
   EXPECT_EQ(nullptr, empty_span.data());
 
@@ -239,7 +251,8 @@ TEST(SpanTest, ConstructFromDataAndSize) {
 }
 
 TEST(SpanTest, ConstructFromPointerPair) {
-  constexpr span<int> empty_span(nullptr, nullptr);
+  constexpr span<int> empty_span(static_cast<int*>(nullptr),
+                                 static_cast<int*>(nullptr));
   EXPECT_TRUE(empty_span.empty());
   EXPECT_EQ(nullptr, empty_span.data());
 
@@ -423,6 +436,8 @@ TEST(SpanTest, ConstructFromStdArray) {
     EXPECT_EQ(array[i], static_span[i]);
 }
 
+#if PW_CXX_STANDARD_IS_SUPPORTED(17)
+
 TEST(SpanTest, ConstructFromInitializerList) {
   std::initializer_list<int> il = {1, 1, 2, 3, 5, 8};
 
@@ -465,6 +480,8 @@ TEST(SpanTest, ConstructFromStdString) {
   for (size_t i = 0; i < static_span.size(); ++i)
     EXPECT_EQ(str[i], static_span[i]);
 }
+
+#endif  // PW_CXX_STANDARD_IS_SUPPORTED(17)
 
 TEST(SpanTest, ConstructFromConstContainer) {
   const std::vector<int> vector = {1, 1, 2, 3, 5, 8};
@@ -1601,9 +1618,11 @@ TEST(SpanTest, Sort) {
 TEST(SpanTest, SpanExtentConversions) {
   // Statically checks that various conversions between spans of dynamic and
   // static extent are possible or not.
-  static_assert(
-      !std::is_constructible<span<int, 0>, span<int>>::value,
-      "Error: static span should not be constructible from dynamic span");
+
+  // This test fails with the real C++20 std::span, so skip it.
+  // static_assert(
+  //     !std::is_constructible<span<int, 0>, span<int>>::value,
+  //     "Error: static span should not be constructible from dynamic span");
 
   static_assert(!std::is_constructible<span<int, 2>, span<int, 1>>::value,
                 "Error: static span should not be constructible from static "
@@ -1629,4 +1648,6 @@ TEST(SpanTest, IteratorConversions) {
                 "Error: const iterator should not be convertible to iterator");
 }
 
-}  // namespace std
+// NOLINTEND(modernize-unary-static-assert)
+
+}  // namespace pw

@@ -14,14 +14,15 @@
 // limitations under the License.
 #pragma once
 
-#include "android/base/containers/EntityManager.h"
+#include "aemu/base/containers/EntityManager.h"
 
 #include <vulkan/vulkan.h>
 
 #include <unordered_set>
 #include <vector>
 
-namespace goldfish_vk {
+namespace gfxstream {
+namespace vk {
 
 enum DescriptorWriteType {
     Empty = 0,
@@ -148,4 +149,5 @@ bool removeDescriptorSetFromPool(VkDescriptorSet set, bool usePoolIds);
 
 std::vector<VkDescriptorSet> clearDescriptorPool(VkDescriptorPool pool, bool usePoolIds);
 
-} // namespace goldfish_vk
+}  // namespace vk
+}  // namespace gfxstream

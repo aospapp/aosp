@@ -24,6 +24,7 @@
 
 #include <media/HeadTrackingProcessor.h>
 #include <media/SensorPoseProvider.h>
+#include <media/VectorRecorder.h>
 
 namespace android {
 
@@ -113,21 +114,42 @@ class SpatializerPoseController : private media::SensorPoseProvider::Listener {
      */
     void waitUntilCalculated();
 
+    // convert fields to a printable string
+    std::string toString(unsigned level) const;
+
   private:
-    mutable std::mutex mMutex;
+    mutable std::timed_mutex mMutex;
     Listener* const mListener;
     const std::chrono::microseconds mSensorPeriod;
-    // Order matters for the following two members to ensure correct destruction.
     std::unique_ptr<media::HeadTrackingProcessor> mProcessor;
-    std::unique_ptr<media::SensorPoseProvider> mPoseProvider;
     int32_t mHeadSensor = media::SensorPoseProvider::INVALID_HANDLE;
     int32_t mScreenSensor = media::SensorPoseProvider::INVALID_HANDLE;
     std::optional<media::HeadTrackingMode> mActualMode;
-    std::thread mThread;
-    std::condition_variable mCondVar;
+    std::condition_variable_any mCondVar;
     bool mShouldCalculate = true;
     bool mShouldExit = false;
     bool mCalculated = false;
+
+    media::VectorRecorder mHeadSensorRecorder{
+        8 /* vectorSize */, std::chrono::seconds(1), 10 /* maxLogLine */,
+        { 3, 6, 7 } /* delimiterIdx */};
+    media::VectorRecorder mHeadSensorDurableRecorder{
+        8 /* vectorSize */, std::chrono::minutes(1), 10 /* maxLogLine */,
+        { 3, 6, 7 } /* delimiterIdx */};
+
+    media::VectorRecorder mScreenSensorRecorder{
+        4 /* vectorSize */, std::chrono::seconds(1), 10 /* maxLogLine */,
+        { 3 } /* delimiterIdx */};
+    media::VectorRecorder mScreenSensorDurableRecorder{
+        4 /* vectorSize */, std::chrono::minutes(1), 10 /* maxLogLine */,
+        { 3 } /* delimiterIdx */};
+
+    // Next to last variable as releasing this stops the callbacks
+    std::unique_ptr<media::SensorPoseProvider> mPoseProvider;
+
+    // It's important that mThread is the last variable in this class
+    // since we starts mThread in initializer list
+    std::thread mThread;
 
     void onPose(int64_t timestamp, int32_t sensor, const media::Pose3f& pose,
                 const std::optional<media::Twist3f>& twist, bool isNewReference) override;

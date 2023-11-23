@@ -52,6 +52,8 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 /**
  * MMS HTTP client for sending and downloading MMS messages
  */
@@ -452,6 +454,21 @@ public class MmsHttpClient {
         return sb.toString();
     }
 
+    private static String getPhoneNumberForMacroLine1(TelephonyManager telephonyManager,
+        Context context, int subId) {
+        String phoneNo = telephonyManager.getLine1Number();
+        if (TextUtils.isEmpty(phoneNo)) {
+            SubscriptionManager subscriptionManager = context.getSystemService(
+                SubscriptionManager.class);
+            if (subscriptionManager != null) {
+                phoneNo = subscriptionManager.getPhoneNumber(subId);
+            } else {
+                LogUtil.e("subscriptionManager is null");
+            }
+        }
+        return phoneNo;
+    }
+
     /*
      * Macro names
      */
@@ -471,15 +488,16 @@ public class MmsHttpClient {
      * @param subId     The subscription ID used to get line number, etc.
      * @return The value of the defined macro
      */
-    private static String getMacroValue(Context context, String macro, Bundle mmsConfig,
-            int subId) {
+    @VisibleForTesting
+    public static String getMacroValue(Context context, String macro, Bundle mmsConfig,
+        int subId) {
         final TelephonyManager telephonyManager = ((TelephonyManager) context.getSystemService(
             Context.TELEPHONY_SERVICE)).createForSubscriptionId(subId);
         if (MACRO_LINE1.equals(macro)) {
-            return telephonyManager.getLine1Number();
+            return getPhoneNumberForMacroLine1(telephonyManager, context, subId);
         } else if (MACRO_LINE1NOCOUNTRYCODE.equals(macro)) {
             return PhoneUtils.getNationalNumber(telephonyManager,
-                telephonyManager.getLine1Number());
+                getPhoneNumberForMacroLine1(telephonyManager, context, subId));
         } else if (MACRO_NAI.equals(macro)) {
             return getNai(telephonyManager, mmsConfig);
         }

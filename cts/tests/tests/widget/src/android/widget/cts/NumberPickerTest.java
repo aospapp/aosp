@@ -16,6 +16,8 @@
 
 package android.widget.cts;
 
+import static android.server.wm.CtsWindowInfoUtils.waitForWindowOnTop;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -33,6 +35,8 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
 
 import android.app.Instrumentation;
+import android.app.Service;
+import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.content.res.Resources;
@@ -43,6 +47,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityManager;
 import android.widget.EditText;
 import android.widget.NumberPicker;
 
@@ -55,6 +60,7 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsKeyEventUtil;
 import com.android.compatibility.common.util.CtsTouchUtils;
+import com.android.compatibility.common.util.UserHelper;
 
 import junit.framework.Assert;
 
@@ -78,6 +84,9 @@ public class NumberPickerTest {
     private static final String[] NUMBER_NAMES5 = {"One", "Two", "Three", "Four", "Five"};
 
     private Instrumentation mInstrumentation;
+    private UserHelper mUserHelper;
+    private CtsTouchUtils mCtsTouchUtils;
+    private CtsKeyEventUtil mCtsKeyEventUtil;
     private NumberPickerCtsActivity mActivity;
     private NumberPicker mNumberPicker;
     @Mock
@@ -88,12 +97,17 @@ public class NumberPickerTest {
             new ActivityTestRule<>(NumberPickerCtsActivity.class);
 
     @Before
-    public void setup() {
+    public void setup() throws Throwable {
         MockitoAnnotations.initMocks(this);
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
-        // Create a UiAutomation, which will enable accessibility and allow us to test a11y events.
+        Context targetContext = mInstrumentation.getTargetContext();
+        mCtsTouchUtils = new CtsTouchUtils(targetContext);
+        mCtsKeyEventUtil = new CtsKeyEventUtil(targetContext);
+        mUserHelper = new UserHelper(targetContext);
+        // Create a UiAutomation, which will enable accessibility and allow us to test ally events.
         mInstrumentation.getUiAutomation();
         mActivity = mActivityRule.getActivity();
+        assertTrue("Window did not become visible", waitForWindowOnTop(mActivity.getWindow()));
         mNumberPicker = (NumberPicker) mActivity.findViewById(R.id.number_picker);
     }
 
@@ -296,6 +310,8 @@ public class NumberPickerTest {
         final NumberPicker.OnValueChangeListener mockValueChangeListener =
                 mock(NumberPicker.OnValueChangeListener.class);
 
+        waitForAccessibilityEnabled();
+
         mInstrumentation.runOnMainSync(() -> {
             mNumberPicker.setMinValue(20);
             mNumberPicker.setMaxValue(22);
@@ -372,11 +388,11 @@ public class NumberPickerTest {
                     + mNumberPicker.getWidth() / 2;
             int numberPickerStartY = numberPickerLocationOnScreen[1] + 1;
 
-            CtsTouchUtils.emulateDragGesture(mInstrumentation, mActivityRule,
+            mCtsTouchUtils.emulateDragGesture(mInstrumentation, mActivityRule,
                     numberPickerMiddleX,
                     numberPickerStartY,
                     0,
-                    screenHeight - numberPickerStartY); // drag down to the bottom of the screen.
+                    mNumberPicker.getHeight()); // drag down to the bottom of the screen.
 
             Assert.assertTrue("Expected to get to IDLE state within 5 seconds",
                     latch.await(5, TimeUnit.SECONDS));
@@ -406,6 +422,8 @@ public class NumberPickerTest {
 
     @Test
     public void testInteractionWithSwipeUp() throws Throwable {
+        waitForAccessibilityEnabled();
+
         mActivityRule.runOnUiThread(() -> {
             mNumberPicker.setMinValue(10);
             mNumberPicker.setMaxValue(12);
@@ -440,11 +458,11 @@ public class NumberPickerTest {
             int numberPickerMiddleX =
                     numberPickerLocationOnScreen[0] + mNumberPicker.getWidth() / 2;
             int numberPickerEndY = numberPickerLocationOnScreen[1] + mNumberPicker.getHeight() - 1;
-            CtsTouchUtils.emulateDragGesture(mInstrumentation, mActivityRule,
+            mCtsTouchUtils.emulateDragGesture(mInstrumentation, mActivityRule,
                     numberPickerMiddleX,
                     numberPickerEndY,
                     0,
-                    -(numberPickerEndY)); // drag up to the top of the screen.
+                    -(mNumberPicker.getHeight())); // drag up to the top of the screen.
             Assert.assertTrue("Expected to get to IDLE state within 5 seconds",
                     latch.await(5, TimeUnit.SECONDS));
         } catch (Throwable t) {
@@ -544,10 +562,11 @@ public class NumberPickerTest {
         // Phase 1. Check enter key
         MotionEvent event = MotionEvent.obtain(System.currentTimeMillis(),
                 System.currentTimeMillis(), MotionEvent.ACTION_DOWN, x, y, 0);
+        mUserHelper.injectDisplayIdIfNeeded(event);
         mInstrumentation.sendPointerSync(event);
 
         // Send enter key to call removeAllCallbacks including longpressed
-        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mNumberPicker, KeyEvent.KEYCODE_ENTER);
+        mCtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mNumberPicker, KeyEvent.KEYCODE_ENTER);
         reset(mockValueChangeListener);
 
         // Wait a second to check if value is changed or not.
@@ -556,15 +575,17 @@ public class NumberPickerTest {
 
         event = MotionEvent.obtain(System.currentTimeMillis(), System.currentTimeMillis(),
                 MotionEvent.ACTION_UP, x, y, 0);
+        mUserHelper.injectDisplayIdIfNeeded(event);
         mInstrumentation.sendPointerSync(event);
 
         // Phase 2. Check numpad enter key
         event = MotionEvent.obtain(System.currentTimeMillis(), System.currentTimeMillis(),
                 MotionEvent.ACTION_DOWN, x, y, 0);
+        mUserHelper.injectDisplayIdIfNeeded(event);
         mInstrumentation.sendPointerSync(event);
 
         // Send numpad enter key. we expect it works like enter key.
-        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mNumberPicker,
+        mCtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mNumberPicker,
                 KeyEvent.KEYCODE_NUMPAD_ENTER);
         reset(mockValueChangeListener);
 
@@ -574,6 +595,37 @@ public class NumberPickerTest {
 
         event = MotionEvent.obtain(System.currentTimeMillis(), System.currentTimeMillis(),
                 MotionEvent.ACTION_UP, x, y, 0);
+        mUserHelper.injectDisplayIdIfNeeded(event);
         mInstrumentation.sendPointerSync(event);
+    }
+
+    private void waitForAccessibilityEnabled() {
+        AccessibilityManager manager =
+                (AccessibilityManager) mInstrumentation.getContext().getSystemService(
+                        Service.ACCESSIBILITY_SERVICE);
+        if (manager.isEnabled()) {
+            return;
+        }
+
+        Object waitObject = new Object();
+        AccessibilityManager.AccessibilityStateChangeListener listener = (boolean enabled) -> {
+            synchronized (waitObject) {
+                if (enabled) {
+                    waitObject.notify();
+                }
+            }
+        };
+        manager.addAccessibilityStateChangeListener(listener);
+        // Wait a maximum of 5 seconds for accessibility to be enabled.
+        try {
+            synchronized (waitObject) {
+                if (!manager.isEnabled()) {
+                    waitObject.wait(5000);
+                }
+            }
+        } catch (InterruptedException e) {
+        }
+        manager.removeAccessibilityStateChangeListener(listener);
+        assertTrue(manager.isEnabled());
     }
 }

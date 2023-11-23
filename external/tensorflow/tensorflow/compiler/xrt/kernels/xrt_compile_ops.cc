@@ -89,7 +89,7 @@ Status GenerateXlaDeviceAssignment(
       (*device_assignment)(r, c) = coords.value(3);
     }
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 class XRTCompileOp : public OpKernel {
@@ -115,7 +115,7 @@ Status CompilationCacheKey(const xrt::XLAComputation& computation,
       SerializeToBufferDeterministic(computation, serialized.get(), size));
   uint64 fingerprint = Fingerprint64(absl::string_view(serialized.get(), size));
   *key = absl::StrCat(fingerprint);
-  return Status::OK();
+  return OkStatus();
 }
 
 XRTCompileOp::XRTCompileOp(OpKernelConstruction* ctx) : OpKernel(ctx) {}
@@ -182,7 +182,7 @@ Status XRTCompileOp::Compile(OpKernelContext* ctx,
       client->Compile(computation, argument_layout_ptrs, build_options));
   TF_RET_CHECK(executables.size() == 1);
   *program = std::move(executables[0]);
-  return Status::OK();
+  return OkStatus();
 }
 
 void XRTCompileOp::Compute(OpKernelContext* ctx) {
@@ -210,7 +210,7 @@ void XRTCompileOp::Compute(OpKernelContext* ctx) {
   auto cache_or = XRTGenericDeviceAccessor::GetOrCreateCompilationCache(
       ctx, /*max_number_of_entries=*/0);
   OP_REQUIRES_OK(ctx, cache_or.status());
-  auto cache = cache_or.ConsumeValueOrDie();
+  auto cache = std::move(cache_or).value();
 
   int64_t uid;
   OP_REQUIRES_OK(
@@ -223,7 +223,7 @@ void XRTCompileOp::Compute(OpKernelContext* ctx) {
   OP_REQUIRES_OK(ctx, cache->Lookup(uid, &entry));
 
   Tensor handle_output(DT_INT64, TensorShape({}));
-  handle_output.scalar<int64>()() = uid;
+  handle_output.scalar<int64_t>()() = uid;
   ctx->set_output(0, handle_output);
 
   xla::LocalExecutable* executable = entry->get().get_executable();
@@ -265,10 +265,10 @@ void XRTReleaseCompilationRefOp::Compute(OpKernelContext* ctx) {
   auto cache_or = XRTGenericDeviceAccessor::GetOrCreateCompilationCache(
       ctx, /*max_number_of_entries=*/0);
   OP_REQUIRES_OK(ctx, cache_or.status());
-  auto cache = cache_or.ConsumeValueOrDie();
+  auto cache = std::move(cache_or).value();
 
   const Tensor& keys_tensor = ctx->input(0);
-  auto flat_keys = keys_tensor.flat<int64>();
+  auto flat_keys = keys_tensor.flat<int64_t>();
   for (int64_t i = 0; i < flat_keys.size(); ++i) {
     int64_t key = flat_keys(i);
     OP_REQUIRES_OK(ctx, cache->Release(key));

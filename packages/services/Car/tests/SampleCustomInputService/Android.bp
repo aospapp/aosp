@@ -88,4 +88,8 @@ android_test {
     aaptflags: [
         "--extra-packages com.android.car.custominput.sample",
     ],
+    test_suites: [
+        "automotive-tests",
+        "automotive-general-tests",
+    ],
 }

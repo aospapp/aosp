@@ -1,0 +1,46 @@
+allow vendor_init bootdevice_sysdev:file create_file_perms;
+
+set_prop(vendor_init, vendor_ssrdump_prop)
+set_prop(vendor_init, vendor_carrier_prop)
+set_prop(vendor_init, vendor_cbd_prop)
+get_prop(vendor_init, vendor_battery_profile_prop)
+set_prop(vendor_init, vendor_camera_prop)
+set_prop(vendor_init, vendor_device_prop)
+set_prop(vendor_init, vendor_modem_prop)
+set_prop(vendor_init, vendor_usb_config_prop)
+set_prop(vendor_init, vendor_rild_prop)
+set_prop(vendor_init, logpersistd_logging_prop)
+set_prop(vendor_init, vendor_logger_prop)
+
+allow vendor_init proc_dirty:file w_file_perms;
+allow vendor_init proc_sched:file w_file_perms;
+
+# NFC vendor property
+set_prop(vendor_init, vendor_nfc_prop)
+# SecureElement vendor property
+set_prop(vendor_init, vendor_secure_element_prop)
+allow vendor_init sysfs_st33spi:file w_file_perms;
+
+# Fingerprint property
+set_prop(vendor_init, vendor_fingerprint_prop)
+
+allow vendor_init modem_img_file:filesystem { getattr };
+
+# Battery
+set_prop(vendor_init, vendor_battery_defender_prop)
+
+# Display
+set_prop(vendor_init, vendor_display_prop)
+
+# MM
+allow vendor_init proc_watermark_scale_factor:file w_file_perms;
+
+# Trusty storage FS ready
+get_prop(vendor_init, vendor_trusty_storage_prop)
+allow vendor_init tee_data_file:lnk_file read;
+
+# Mali
+set_prop(vendor_init, vendor_arm_runtime_option_prop)
+
+# ArmNN
+set_prop(vendor_init, vendor_armnn_config_prop)

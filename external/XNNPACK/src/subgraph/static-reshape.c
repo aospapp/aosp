@@ -3,6 +3,7 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
+#include <assert.h>
 #include <math.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -10,15 +11,18 @@
 
 #include <xnnpack.h>
 #include <xnnpack/log.h>
+#include <xnnpack/operator.h>
 #include <xnnpack/params.h>
 #include <xnnpack/subgraph.h>
+#include <xnnpack/subgraph-validation.h>
 
 
 static enum xnn_status create_copy_operator(
   const struct xnn_node* node,
   const struct xnn_value* values,
   size_t num_values,
-  struct xnn_operator_data* opdata)
+  struct xnn_operator_data* opdata,
+  const struct xnn_caches* caches)
 {
   assert(node->num_inputs == 1);
   const uint32_t input_id = node->inputs[0];
@@ -37,14 +41,14 @@ static enum xnn_status create_copy_operator(
       status = xnn_create_copy_nc_x16(
         1 /* channels */, 1 /* input stride */, 1 /* output stride */,
         node->flags,
-        &opdata->operator_object);
+        &opdata->operator_objects[0]);
       break;
 #endif  // !defined(XNN_NO_F16_OPERATORS)
     case xnn_compute_type_fp32:
       status = xnn_create_copy_nc_x32(
         1 /* channels */, 1 /* input stride */, 1 /* output stride */,
         node->flags,
-        &opdata->operator_object);
+        &opdata->operator_objects[0]);
       break;
 #ifndef XNN_NO_QS8_OPERATORS
     case xnn_compute_type_qs8:
@@ -56,7 +60,7 @@ static enum xnn_status create_copy_operator(
       status = xnn_create_copy_nc_x8(
         1 /* channels */, 1 /* input stride */, 1 /* output stride */,
         node->flags,
-        &opdata->operator_object);
+        &opdata->operator_objects[0]);
       break;
 #endif  // !defined(XNN_NO_QS8_OPERATORS) || !defined(XNN_NO_QU8_OPERATORS)
     default:
@@ -92,11 +96,11 @@ static enum xnn_status setup_copy_operator(
   void* output_data = output_blob->data;
   assert(output_data != NULL);
 
-  switch (opdata->operator_object->type) {
+  switch (opdata->operator_objects[0]->type) {
 #if !defined(XNN_NO_QS8_OPERATORS) || !defined(XNN_NO_QU8_OPERATORS)
     case xnn_operator_type_copy_nc_x8:
       return xnn_setup_copy_nc_x8(
-        opdata->operator_object,
+        opdata->operator_objects[0],
         opdata->batch_size,
         input_data,
         output_data,
@@ -106,7 +110,7 @@ static enum xnn_status setup_copy_operator(
 #ifndef XNN_NO_F16_OPERATORS
     case xnn_operator_type_copy_nc_x16:
       return xnn_setup_copy_nc_x16(
-        opdata->operator_object,
+        opdata->operator_objects[0],
         opdata->batch_size,
         input_data,
         output_data,
@@ -115,7 +119,7 @@ static enum xnn_status setup_copy_operator(
 #endif  // !defined(XNN_NO_F16_OPERATORS)
     case xnn_operator_type_copy_nc_x32:
       return xnn_setup_copy_nc_x32(
-        opdata->operator_object,
+        opdata->operator_objects[0],
         opdata->batch_size,
         input_data,
         output_data,
@@ -134,25 +138,20 @@ enum xnn_status xnn_define_static_reshape(
   uint32_t output_id,
   uint32_t flags)
 {
-  if ((xnn_params.init_flags & XNN_INIT_FLAG_XNNPACK) == 0) {
-    xnn_log_error("failed to define %s operator: XNNPACK is not initialized",
-      xnn_node_type_to_string(xnn_node_type_static_reshape));
-    return xnn_status_uninitialized;
+  enum xnn_status status;
+  if ((status = xnn_subgraph_check_xnnpack_initialized(xnn_node_type_static_reshape)) != xnn_status_success) {
+    return status;
   }
 
-  if (input_id >= subgraph->num_values) {
-    xnn_log_error(
-      "failed to define %s operator with input ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_static_reshape), input_id);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_input_node_id(xnn_node_type_static_reshape, input_id, subgraph->num_values);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   const struct xnn_value* input_value = &subgraph->values[input_id];
-  if (input_value->type != xnn_value_type_dense_tensor) {
-    xnn_log_error(
-      "failed to define %s operator with input ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
-      xnn_node_type_to_string(xnn_node_type_static_reshape), input_id, input_value->type);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_input_type_dense(xnn_node_type_static_reshape, input_id, input_value);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   switch (input_value->datatype) {
@@ -172,19 +171,27 @@ enum xnn_status xnn_define_static_reshape(
       return xnn_status_invalid_parameter;
   }
 
-  if (output_id >= subgraph->num_values) {
-    xnn_log_error(
-      "failed to define %s operator with output ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_static_reshape), output_id);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_output_node_id(xnn_node_type_static_reshape, output_id, subgraph->num_values);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   const struct xnn_value* output_value = &subgraph->values[output_id];
-  if (output_value->type != xnn_value_type_dense_tensor) {
+  status = xnn_subgraph_check_output_type_dense(xnn_node_type_static_reshape, output_id, output_value);
+  if (status != xnn_status_success) {
+    return status;
+  }
+
+  const size_t num_input_elements = xnn_shape_multiply_all_dims(&input_value->shape);
+  const size_t num_output_elements = xnn_shape_multiply_all_dims(&output_value->shape);
+
+  if (num_input_elements != num_output_elements) {
     xnn_log_error(
-      "failed to define %s operator with output ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
-      xnn_node_type_to_string(xnn_node_type_static_reshape), output_id, output_value->type);
-    return xnn_status_invalid_parameter;
+        "failed to define %s operator with input ID #%" PRIu32 " and output ID #%" PRIu32
+        ": number of input elements, %zu, does not match number of output elements %zu",
+        xnn_node_type_to_string(xnn_node_type_static_reshape), input_id, output_id, num_input_elements,
+        num_output_elements);
+      return xnn_status_invalid_parameter;
   }
 
   enum xnn_compute_type compute_type = xnn_compute_type_invalid;
@@ -210,14 +217,9 @@ enum xnn_status xnn_define_static_reshape(
       return xnn_status_invalid_parameter;
   }
 
-  if (input_value->datatype != output_value->datatype) {
-    xnn_log_error(
-      "failed to define %s operator with input ID #%" PRIu32 " and output ID #%" PRIu32
-      ": mismatching datatypes across input (%s) and output (%s)",
-      xnn_node_type_to_string(xnn_node_type_static_reshape), input_id, output_id,
-      xnn_datatype_to_string(input_value->datatype),
-      xnn_datatype_to_string(output_value->datatype));
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_datatype_matches(xnn_node_type_static_reshape, input_id, input_value, output_id, output_value);
+  if (status != xnn_status_success) {
+    return status;
   }
 
 #if !defined(XNN_NO_QU8_OPERATORS) || !defined(XNN_NO_QS8_OPERATORS)

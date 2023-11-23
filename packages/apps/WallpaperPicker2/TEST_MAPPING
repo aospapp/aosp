@@ -1,0 +1,28 @@
+{
+  "presubmit": [
+    {
+      "name": "WallpaperPicker2Tests",
+      "options": [
+        {
+          "exclude-annotation": "org.junit.Ignore"
+        }
+      ]
+    },
+    {
+      "name": "ThemePickerTests",
+      "options": [
+        {
+          "exclude-annotation": "org.junit.Ignore"
+        }
+      ]
+    },
+    {
+      "name": "WallpaperPickerGoogleTests",
+      "options": [
+        {
+          "exclude-annotation": "org.junit.Ignore"
+        }
+      ]
+    }
+  ]
+}

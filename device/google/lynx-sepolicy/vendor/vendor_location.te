@@ -1,0 +1,20 @@
+# loc_launcher service
+# which launches various other services supporting Wifi-RTT (LOWI) vendor_location
+type vendor_location, domain;
+type vendor_location_exec, exec_type, vendor_file_type, file_type;
+init_daemon_domain(vendor_location)
+
+# execute permission for vendor_location daemons in /vendor/bin/
+domain_auto_trans(vendor_location, lowi_server_exec, lowi_server)
+
+# /dev/socket/vendor_location
+allow vendor_location vendor_location_socket:{sock_file lnk_file} create_file_perms;
+allow vendor_location vendor_location_socket:dir rw_dir_perms;
+
+# /sys/devices/soc0/soc_id
+allow vendor_location vendor_location_sysfs:file create_file_perms;
+
+# /dev/socket/location/mq/*
+allow vendor_location lowi_server:unix_dgram_socket {sendto read write};
+allow vendor_location hal_wifi_default:unix_dgram_socket {sendto read write};
+allow vendor_location hal_wifi_ext:unix_dgram_socket {sendto read write};

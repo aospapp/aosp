@@ -28,12 +28,15 @@ import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
-import androidx.preference.SwitchPreference;
 import androidx.preference.TwoStatePreference;
 
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
+import com.android.tv.settings.widget.SwitchWithSoundPreference;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Fragment for managing which apps are granted PIP access
@@ -110,16 +113,14 @@ public class PictureInPicture extends SettingsPreferenceFragment
     @Override
     public Preference bindPreference(@NonNull Preference preference,
             ApplicationsState.AppEntry entry) {
-        final TwoStatePreference switchPref = (SwitchPreference) preference;
+        final TwoStatePreference switchPref = (SwitchWithSoundPreference) preference;
         switchPref.setTitle(entry.label);
         switchPref.setKey(entry.info.packageName);
         switchPref.setIcon(entry.icon);
         switchPref.setChecked((Boolean) entry.extraInfo);
         switchPref.setOnPreferenceChangeListener((pref, newValue) -> {
-            mAppOpsManager.setMode(AppOpsManager.OP_PICTURE_IN_PICTURE,
-                    entry.info.uid,
-                    entry.info.packageName,
-                    (Boolean) newValue ? AppOpsManager.MODE_ALLOWED : AppOpsManager.MODE_ERRORED);
+            findEntriesUsingPackageName(entry.info.packageName)
+                    .forEach(packageEntry -> setPiPMode(entry, (Boolean) newValue));
             return true;
         });
         switchPref.setSummaryOn(R.string.app_permission_summary_allowed);
@@ -127,10 +128,23 @@ public class PictureInPicture extends SettingsPreferenceFragment
         return switchPref;
     }
 
+    private void setPiPMode(ApplicationsState.AppEntry entry, boolean newValue) {
+        mAppOpsManager.setMode(AppOpsManager.OP_PICTURE_IN_PICTURE,
+                entry.info.uid,
+                entry.info.packageName,
+                newValue ? AppOpsManager.MODE_ALLOWED : AppOpsManager.MODE_ERRORED);
+    }
+
+    private List<ApplicationsState.AppEntry> findEntriesUsingPackageName(String packageName) {
+        return mManageApplicationsController.getApps().stream()
+                .filter(entry -> entry.info.packageName.equals(packageName))
+                .collect(Collectors.toList());
+    }
+
     @NonNull
     @Override
     public Preference createAppPreference() {
-        return new SwitchPreference(getPreferenceManager().getContext());
+        return new SwitchWithSoundPreference(getPreferenceManager().getContext());
     }
 
     @NonNull

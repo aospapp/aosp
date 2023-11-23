@@ -15,6 +15,10 @@ You can find additional definitions in the `Arm Glossary`_.
    AArch64
       64-bit execution state of the ARMv8 ISA
 
+   AMU
+      Activity Monitor Unit, a hardware monitoring unit introduced by FEAT_AMUv1
+      that exposes CPU core runtime metrics as a set of counter registers.
+
    API
       Application Programming Interface
 
@@ -60,8 +64,8 @@ You can find additional definitions in the `Arm Glossary`_.
    FDT
       Flattened Device Tree
 
-   FFA
-      Firmware Framework for A-class processors
+   FF-A
+      Firmware Framework for Arm A-profile
 
    FIP
       Firmware Image Package
@@ -87,6 +91,10 @@ You can find additional definitions in the `Arm Glossary`_.
 
    MPAM
       Memory Partitioning And Monitoring. An optional Armv8.4 extension.
+
+   MPMM
+     Maximum Power Mitigation Mechanism, an optional power management mechanism
+     supported by some Arm Armv9-A cores.
 
    MPIDR
       Multiprocessor Affinity Register

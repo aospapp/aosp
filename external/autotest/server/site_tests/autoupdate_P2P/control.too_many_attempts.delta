@@ -9,25 +9,19 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:au-perbuild"
-SYNC_COUNT = 2
+ATTRIBUTES = "suite:au-p2p"
+PY_VERSION = 3
 DOC = """
 This tests autoupdate between two devices via peer to peer is disabled when
 they have tried more than 10 times.
 
 """
 
-from autotest_lib.server import utils as server_utils
+def run(machine):
+    host = hosts.create_host(machine)
+    companions = hosts.create_companion_hosts(companion_hosts)
+    job.run_test('autoupdate_P2P', host=host, companions=companions,
+                 too_many_attempts=True)
 
-def run(ntuple):
-    host_list = []
-    for machine in ntuple:
-        host_list.append(hosts.create_host(machine))
-    job.run_test('autoupdate_P2P', hosts=host_list, too_many_attempts=True)
+job.parallel_simple(run, machines)
 
-ntuples, failures = server_utils.form_ntuples_from_machines(machines,
-                                                            SYNC_COUNT)
-
-# Use log=False in parallel_simple to avoid an exception in setting up
-# the incremental parser when SYNC_COUNT > 1.
-job.parallel_simple(run, ntuples, log=False)

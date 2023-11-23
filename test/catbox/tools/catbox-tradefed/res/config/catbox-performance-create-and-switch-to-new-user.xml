@@ -19,7 +19,6 @@
 
   <!-- Clear pre-created users -->
   <option name="compatibility:test-arg" value="com.android.tradefed.targetprep.RunCommandTargetPreparer:run-command:setprop fw.max_users 15" />
-  <option name="compatibility:test-arg" value="com.android.tradefed.targetprep.RunCommandTargetPreparer:run-command:setprop android.car.number_pre_created_users 0" />
   <option name="compatibility:test-arg" value="com.android.tradefed.targetprep.RunCommandTargetPreparer:run-command:stop" />
   <option name="compatibility:test-arg" value="com.android.tradefed.targetprep.RunCommandTargetPreparer:run-command:start" />
   <option name="compatibility:test-arg" value="com.android.tradefed.targetprep.RunCommandTargetPreparer:delay-after-commands:120000" />

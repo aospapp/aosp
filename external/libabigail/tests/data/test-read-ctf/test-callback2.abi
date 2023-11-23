@@ -11,7 +11,7 @@
     <type-decl name='int' size-in-bits='32' alignment-in-bits='32' id='type-id-3'/>
     <pointer-type-def type-id='type-id-4' size-in-bits='64' alignment-in-bits='64' id='type-id-2'/>
     <pointer-type-def type-id='type-id-1' size-in-bits='64' alignment-in-bits='64' id='type-id-5'/>
-    <var-decl name='s0' type-id='type-id-5' mangled-name='s0' visibility='default'/>
+    <var-decl name='s0' type-id='type-id-5' mangled-name='s0' visibility='default' elf-symbol-id='s0'/>
     <function-type size-in-bits='64' alignment-in-bits='8' id='type-id-4'>
       <parameter type-id='type-id-5'/>
       <return type-id='type-id-3'/>

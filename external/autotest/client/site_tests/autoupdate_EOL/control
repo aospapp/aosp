@@ -10,6 +10,7 @@ TEST_TYPE = "client"
 ATTRIBUTES = "suite:au-perbuild"
 PURPOSE = "Tests End of Life (EOL) / Autoupdate Expiration (AUE)"
 TIME = "SHORT"
+PY_VERSION = 3
 
 DOC = """
 This test will check that the DUT behaves correctly in an end of life scenario.

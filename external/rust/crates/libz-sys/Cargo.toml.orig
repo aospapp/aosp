@@ -1,17 +1,23 @@
 [package]
 name = "libz-sys"
-version = "1.1.3"
+version = "1.1.8"
 authors = ["Alex Crichton <alex@alexcrichton.com>", "Josh Triplett <josh@joshtriplett.org>"]
 links = "z"
-build = "build.rs"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/rust-lang/libz-sys"
-documentation = "https://docs.rs/libz-sys"
-description = """
-Low-level bindings to the system libz library (also known as zlib).
-"""
+description = "Low-level bindings to the system libz library (also known as zlib)."
 categories = ["compression", "external-ffi-bindings"]
 keywords = ["zlib", "zlib-ng"]
+edition = "2018"
+
+exclude = [
+    "/.github",
+    "/.gitmodules",
+    "/Cargo-zng.toml",
+    "/cargo-zng",
+    "/ci",
+    "/systest"
+]
 
 [workspace]
 members = ["systest"]

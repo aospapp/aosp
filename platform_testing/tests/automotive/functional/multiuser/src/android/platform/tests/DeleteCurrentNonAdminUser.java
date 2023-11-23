@@ -18,19 +18,18 @@ package android.platform.tests;
 
 import static junit.framework.Assert.assertTrue;
 
-import android.os.SystemClock;
 import android.content.pm.UserInfo;
-import android.platform.helpers.AutoConfigConstants;
-import android.platform.helpers.AutoUtility;
+import android.os.SystemClock;
 import android.platform.helpers.HelperAccessor;
-import android.platform.helpers.IAutoUserHelper;
 import android.platform.helpers.IAutoSettingHelper;
+import android.platform.helpers.IAutoUserHelper;
 import android.platform.helpers.MultiUserHelper;
+import android.platform.helpers.SettingsConstants;
 import android.platform.scenario.multiuser.MultiUserConstants;
+
 import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.After;
-import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -53,11 +52,6 @@ public class DeleteCurrentNonAdminUser {
         mSettingHelper = new HelperAccessor<>(IAutoSettingHelper.class);
     }
 
-    @BeforeClass
-    public static void exitSuw() {
-        AutoUtility.exitSuw();
-    }
-
     @After
     public void goBackToHomeScreen() {
         mSettingHelper.get().goBackToSettingsScreen();
@@ -74,7 +68,7 @@ public class DeleteCurrentNonAdminUser {
             mTargetUserId, MultiUserConstants.WAIT_FOR_IDLE_TIME_MS);
         UserInfo newUser = mMultiUserHelper.getCurrentForegroundUserInfo();
         // user deleted self
-        mSettingHelper.get().openSetting(AutoConfigConstants.PROFILE_ACCOUNT_SETTINGS);
+        mSettingHelper.get().openSetting(SettingsConstants.PROFILE_ACCOUNT_SETTINGS);
         mUsersHelper.get().deleteCurrentUser();
         // goes to guest user, switch back to initial user
         mMultiUserHelper.switchAndWaitForStable(

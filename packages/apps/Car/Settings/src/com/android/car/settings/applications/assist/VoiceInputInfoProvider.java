@@ -154,7 +154,7 @@ public class VoiceInputInfoProvider {
     /**
      * Base object used to represent {@link VoiceInteractionInfo} and {@link VoiceRecognitionInfo}.
      */
-    abstract static class VoiceInputInfo implements Comparable {
+    abstract static class VoiceInputInfo implements Comparable<VoiceInputInfo> {
         private final Context mContext;
         private final ServiceInfo mServiceInfo;
 
@@ -172,8 +172,8 @@ public class VoiceInputInfoProvider {
         }
 
         @Override
-        public int compareTo(Object o) {
-            return getTag().toString().compareTo(((VoiceInputInfo) o).getTag().toString());
+        public int compareTo(VoiceInputInfo o) {
+            return getTag().toString().compareTo(o.getTag().toString());
         }
 
         /**

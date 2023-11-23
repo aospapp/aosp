@@ -16,6 +16,8 @@
 
 package android.uwb;
 
+import static android.uwb.UwbManager.MESSAGE_TYPE_COMMAND;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertThrows;
@@ -47,6 +49,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 
 /**
  * Test of {@link UwbManager}.
@@ -67,6 +70,7 @@ public class UwbManagerTest {
     private static final PersistableBundle PARAMS = new PersistableBundle();
     private static final PersistableBundle PARAMS2 = new PersistableBundle();
     private static final byte[] PAYLOAD = new byte[] {0x0, 0x1};
+    private static final int MT = 1;
     private static final int GID = 9;
     private static final int OID = 1;
     private static final int UID = 343453;
@@ -244,12 +248,41 @@ public class UwbManagerTest {
 
     @Test
     public void testSendVendorUciMessage() throws Exception {
-        when(mIUwbAdapter.sendVendorUciMessage(GID, OID, PAYLOAD))
+        when(mIUwbAdapter.sendVendorUciMessage(MESSAGE_TYPE_COMMAND, GID, OID, PAYLOAD))
                 .thenReturn(UwbManager.SEND_VENDOR_UCI_SUCCESS);
         assertThat(mUwbManager.sendVendorUciMessage(GID, OID, PAYLOAD))
                 .isEqualTo(UwbManager.SEND_VENDOR_UCI_SUCCESS);
-        doThrow(new RemoteException()).when(mIUwbAdapter).sendVendorUciMessage(GID, OID, PAYLOAD);
+        doThrow(new RemoteException()).when(mIUwbAdapter).sendVendorUciMessage(MESSAGE_TYPE_COMMAND,
+                GID, OID, PAYLOAD);
         assertThrows(
                 RuntimeException.class, () -> mUwbManager.sendVendorUciMessage(GID, OID, PAYLOAD));
+    }
+
+    @Test
+    public void testSendVendorUciMessageWithMessageType() throws Exception {
+        when(mIUwbAdapter.sendVendorUciMessage(MT, GID, OID, PAYLOAD))
+                .thenReturn(UwbManager.SEND_VENDOR_UCI_SUCCESS);
+        assertThat(mUwbManager.sendVendorUciMessage(MT, GID, OID, PAYLOAD))
+                .isEqualTo(UwbManager.SEND_VENDOR_UCI_SUCCESS);
+        doThrow(new RemoteException()).when(mIUwbAdapter).sendVendorUciMessage(MT, GID, OID,
+                PAYLOAD);
+        assertThrows(
+                RuntimeException.class, () -> mUwbManager.sendVendorUciMessage(MT, GID, OID,
+                        PAYLOAD));
+    }
+
+    @Test
+    public void testGetUwbActivityEnergyInfoAsync() throws Exception {
+        Consumer<UwbActivityEnergyInfo> listener = mock(Consumer.class);
+        // null Executor
+        assertThrows(NullPointerException.class,
+                () -> mUwbManager.getUwbActivityEnergyInfoAsync(null, listener));
+        // null listener
+        assertThrows(NullPointerException.class,
+                () -> mUwbManager.getUwbActivityEnergyInfoAsync(EXECUTOR, null));
+
+        mUwbManager.getUwbActivityEnergyInfoAsync(EXECUTOR, listener);
+        verify(mIUwbAdapter).getUwbActivityEnergyInfoAsync(
+                any(IOnUwbActivityEnergyInfoListener.Stub.class));
     }
 }

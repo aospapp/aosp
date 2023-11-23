@@ -14,7 +14,7 @@ sysroot = os.environ.get('SYSROOT')
 extra_path = ([os.path.join(sysroot, 'usr/local/factory/py_pkg')]
               if sysroot else [])
 
-# Try to import cros, or just create a dummy module if it doesn't
+# Try to import cros, or just create a stub module if it doesn't
 # exist.
 try:
     import cros

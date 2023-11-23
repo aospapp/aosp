@@ -166,8 +166,10 @@ public class SelfManagedCallListAdapter extends BaseAdapter {
                 SelfManagedConnection.EXTRA_PHONE_ACCOUNT_HANDLE);
         if (phoneAccountHandle.getId().equals(SelfManagedCallList.SELF_MANAGED_ACCOUNT_1)) {
             result.setBackgroundColor(result.getContext().getColor(R.color.test_call_a_color));
-        } else {
+        } else if (phoneAccountHandle.getId().equals(SelfManagedCallList.SELF_MANAGED_ACCOUNT_2)) {
             result.setBackgroundColor(result.getContext().getColor(R.color.test_call_b_color));
+        } else {
+            result.setBackgroundColor(result.getContext().getColor(R.color.test_call_c_color));
         }
 
         CallAudioState audioState = connection.getCallAudioState();

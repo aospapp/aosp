@@ -30,8 +30,10 @@ import java.util.List;
  * @hide
  */
 public interface Attributable {
+    /** @hide */
     void setAttributionSource(@NonNull AttributionSource attributionSource);
 
+    /** @hide */
     static @Nullable <T extends Attributable> T setAttributionSource(
             @Nullable T attributable,
             @NonNull AttributionSource attributionSource) {
@@ -41,6 +43,7 @@ public interface Attributable {
         return attributable;
     }
 
+    /** @hide */
     static @Nullable <T extends Attributable> List<T> setAttributionSource(
             @Nullable List<T> attributableList,
             @NonNull AttributionSource attributionSource) {

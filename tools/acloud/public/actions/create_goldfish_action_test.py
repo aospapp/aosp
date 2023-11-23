@@ -62,6 +62,7 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
             return_value=self.build_client)
         self.compute_client = mock.MagicMock()
         self.compute_client.openwrt = False
+        self.compute_client.gce_hostname = None
         self.Patch(
             goldfish_compute_client,
             "GoldfishComputeClient",
@@ -144,6 +145,7 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
             build_id=self.BUILD_ID,
             emulator_branch=self.EMULATOR_BRANCH,
             emulator_build_id=self.EMULATOR_BUILD_ID,
+            emulator_build_target=self.EMULATOR_BUILD_TARGET,
             kernel_branch=self.KERNEL_BRANCH,
             kernel_build_id=self.KERNEL_BUILD_ID,
             kernel_build_target=self.KERNEL_BUILD_TARGET,
@@ -201,6 +203,7 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
             build_id=self.BUILD_ID,
             emulator_branch=self.EMULATOR_BRANCH,
             emulator_build_id=self.EMULATOR_BUILD_ID,
+            emulator_build_target=self.EMULATOR_BUILD_TARGET,
             kernel_branch=self.KERNEL_BRANCH,
             kernel_build_id=self.KERNEL_BUILD_ID,
             kernel_build_target=self.KERNEL_BUILD_TARGET,
@@ -266,6 +269,7 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
             build_id=self.BUILD_ID,
             emulator_branch=self.EMULATOR_BRANCH,
             emulator_build_id=self.EMULATOR_BUILD_ID,
+            emulator_build_target=self.EMULATOR_BUILD_TARGET,
             kernel_branch=self.KERNEL_BRANCH,
             kernel_build_id=self.KERNEL_BUILD_ID,
             kernel_build_target=self.KERNEL_BUILD_TARGET,
@@ -321,6 +325,7 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
             build_id=self.BUILD_ID,
             emulator_branch=self.EMULATOR_BRANCH,
             emulator_build_id=self.EMULATOR_BUILD_ID,
+            emulator_build_target=self.EMULATOR_BUILD_TARGET,
             kernel_branch=self.KERNEL_BRANCH,
             kernel_build_id=self.KERNEL_BUILD_ID,
             kernel_build_target=self.KERNEL_BUILD_TARGET,
@@ -379,6 +384,7 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
             build_id=self.BUILD_ID,
             emulator_branch=self.EMULATOR_BRANCH,
             emulator_build_id=self.EMULATOR_BUILD_ID,
+            emulator_build_target=self.EMULATOR_BUILD_TARGET,
             kernel_branch=self.KERNEL_BRANCH,
             kernel_build_id=self.KERNEL_BUILD_ID,
             kernel_build_target=self.KERNEL_BUILD_TARGET,
@@ -434,6 +440,7 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
             build_id=self.BUILD_ID,
             emulator_branch=self.EMULATOR_BRANCH,
             emulator_build_id=self.EMULATOR_BUILD_ID,
+            emulator_build_target=self.EMULATOR_BUILD_TARGET,
             kernel_branch=self.KERNEL_BRANCH,
             kernel_build_id=self.KERNEL_BUILD_ID,
             kernel_build_target=self.KERNEL_BUILD_TARGET,

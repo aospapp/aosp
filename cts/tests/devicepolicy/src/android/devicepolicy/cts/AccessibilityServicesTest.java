@@ -16,16 +16,19 @@
 
 package android.devicepolicy.cts;
 
-import static com.android.bedstead.nene.permissions.CommonPermissions.QUERY_ADMIN_POLICY;
-
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
-import android.app.admin.DevicePolicyManager;
+import static org.testng.Assert.assertThrows;
+
+import android.util.Log;
 
 import com.android.bedstead.harrier.BedsteadJUnit4;
 import com.android.bedstead.harrier.DeviceState;
-import com.android.bedstead.harrier.annotations.EnsureHasPermission;
+import com.android.bedstead.harrier.annotations.AfterClass;
 import com.android.bedstead.harrier.annotations.Postsubmit;
+import com.android.bedstead.harrier.annotations.enterprise.CanSetPolicyTest;
+import com.android.bedstead.harrier.annotations.enterprise.CannotSetPolicyTest;
 import com.android.bedstead.harrier.annotations.enterprise.PolicyAppliesTest;
 import com.android.bedstead.harrier.policies.PermittedAccessibilityServices;
 import com.android.bedstead.nene.TestApis;
@@ -34,13 +37,11 @@ import com.android.bedstead.nene.packages.Package;
 
 import com.google.common.collect.ImmutableList;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.runner.RunWith;
 
-import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -50,96 +51,133 @@ public class AccessibilityServicesTest {
     @ClassRule @Rule
     public static final DeviceState sDeviceState = new DeviceState();
 
-    private static final DevicePolicyManager sDevicePolicyManager =
-            TestApis.context().instrumentedContext().getSystemService(DevicePolicyManager.class);
-
-    private static final Set<String> SYSTEM_ACCESSIBILITY_SERVICE_PACKAGES =
-            TestApis.accessibility().installedAccessibilityServices().stream()
+    private static Set<Package> systemAccessibilityServicePackages() {
+            return TestApis.accessibility().installedAccessibilityServices().stream()
                     .map(AccessibilityService::pkg)
                     .filter(Package::hasSystemFlag)
-                    .map(Package::packageName)
                     .collect(Collectors.toSet());
+    }
 
-    private static final String ACCESSIBILITY_SERVICE_PACKAGE_NAME = "pkg";
+    private static final Package ACCESSIBILITY_SERVICE_PACKAGE = TestApis.packages().find("pkg");
 
     @Before
     public void setUp() {
         // We can only proceed with the test if no non-system services are enabled
-        sDeviceState.dpc().devicePolicyManager().setPermittedAccessibilityServices(
-                sDeviceState.dpc().componentName(), /* packageNames= */ null);
+        try {
+            sDeviceState.dpc().devicePolicyManager().setPermittedAccessibilityServices(
+                    sDeviceState.dpc().componentName(), /* packageNames= */ null);
+        } catch (Exception expected) {
+
+        }
         assertThat(TestApis.accessibility().enabledAccessibilityServices().stream()
                 .map(i -> i.pkg())
                 .filter(p -> !p.hasSystemFlag())
                 .collect(Collectors.toSet())).isEmpty();
     }
 
-    @After
-    public void resetPermittedAccessibilityServices() {
-        sDeviceState.dpc().devicePolicyManager().setPermittedAccessibilityServices(
-                sDeviceState.dpc().componentName(), /* packageNames= */ null);
+    @AfterClass // Already cleared in @Before
+    public static void resetPermittedAccessibilityServices() {
+        try {
+            sDeviceState.dpc().devicePolicyManager().setPermittedAccessibilityServices(
+                    sDeviceState.dpc().componentName(), /* packageNames= */ null);
+        } catch (Exception ignore) {
+            // Expected in some cases
+        }
     }
 
-    @PolicyAppliesTest(policy = PermittedAccessibilityServices.class)
-    @EnsureHasPermission(QUERY_ADMIN_POLICY)
+    @CanSetPolicyTest(policy = PermittedAccessibilityServices.class)
     @Postsubmit(reason = "new test")
-    public void setPermittedAccessibilityServices_nullPackageName_allServicesArePermitted() {
-        sDeviceState.dpc().devicePolicyManager().setPermittedAccessibilityServices(
+    public void setPermittedAccessibilityServices_checkWithDpc_returnsNull() {
+        boolean result = sDeviceState.dpc().devicePolicyManager().setPermittedAccessibilityServices(
                 sDeviceState.dpc().componentName(), /* packageNames= */ null);
 
+        assertThat(result).isTrue();
         assertThat(sDeviceState.dpc().devicePolicyManager()
                 .getPermittedAccessibilityServices(sDeviceState.dpc().componentName()))
                 .isNull();
-        assertThat(sDevicePolicyManager.getPermittedAccessibilityServices(
-                TestApis.users().instrumented().id())).isNull();
     }
 
     @PolicyAppliesTest(policy = PermittedAccessibilityServices.class)
-    @EnsureHasPermission(value = QUERY_ADMIN_POLICY)
     @Postsubmit(reason = "new test")
-    public void setPermittedAccessibilityServices_emptyList_onlyPermitsSystemServices() {
-        sDeviceState.dpc().devicePolicyManager().setPermittedAccessibilityServices(
+    public void setPermittedAccessibilityServices_nullPackageNames_allServicesArePermitted() {
+        boolean result = sDeviceState.dpc().devicePolicyManager().setPermittedAccessibilityServices(
+                sDeviceState.dpc().componentName(), /* packageNames= */ null);
+
+        assertThat(result).isTrue();
+        assertThat(TestApis.devicePolicy().getPermittedAccessibilityServices()).isNull();
+    }
+
+    @CanSetPolicyTest(policy = PermittedAccessibilityServices.class)
+    @Postsubmit(reason = "new test")
+    public void setPermittedAccessibilityServices_emptyList_checkWithDpc_isEmptyList() {
+        boolean result = sDeviceState.dpc().devicePolicyManager().setPermittedAccessibilityServices(
                 sDeviceState.dpc().componentName(), /* packageNames= */ ImmutableList.of());
 
+        assertThat(result).isTrue();
+
+        assertThat(sDeviceState.dpc().devicePolicyManager()
+                .getPermittedAccessibilityServices(sDeviceState.dpc().componentName())).isEmpty();
+    }
+
+    @PolicyAppliesTest(policy = PermittedAccessibilityServices.class)
+    @Postsubmit(reason = "new test")
+    public void setPermittedAccessibilityServices_emptyList_onlyPermitsSystemServices() {
+        boolean result = sDeviceState.dpc().devicePolicyManager().setPermittedAccessibilityServices(
+                sDeviceState.dpc().componentName(), /* packageNames= */ ImmutableList.of());
+
+        assertThat(result).isTrue();
+
+        assertWithMessage(
+                "Expected permitted services to only include system packages("
+                        + systemAccessibilityServicePackages() + ")")
+                .that(TestApis.devicePolicy().getPermittedAccessibilityServices())
+                .containsExactlyElementsIn(systemAccessibilityServicePackages());
+    }
+
+    @CanSetPolicyTest(policy = PermittedAccessibilityServices.class)
+    @Postsubmit(reason = "new test")
+    public void setPermittedAccessibilityServices_includeNonSystemApp_checkWithDpc_returnsOnlyNonSystemApp() {
+        boolean result = sDeviceState.dpc().devicePolicyManager().setPermittedAccessibilityServices(
+                sDeviceState.dpc().componentName(),
+                ImmutableList.of(ACCESSIBILITY_SERVICE_PACKAGE.packageName()));
+
+        assertThat(result).isTrue();
         assertThat(sDeviceState.dpc().devicePolicyManager()
                 .getPermittedAccessibilityServices(sDeviceState.dpc().componentName()))
-                .isEmpty();
-        // Move it into a set to avoid duplicates
-        Set<String> permittedServices = new HashSet<>(
-                sDevicePolicyManager.getPermittedAccessibilityServices(
-                        TestApis.users().instrumented().id()));
-        assertThat(permittedServices)
-                .containsExactlyElementsIn(SYSTEM_ACCESSIBILITY_SERVICE_PACKAGES);
+                .containsExactly(ACCESSIBILITY_SERVICE_PACKAGE.packageName());
     }
 
     @PolicyAppliesTest(policy = PermittedAccessibilityServices.class)
-    @EnsureHasPermission(value = QUERY_ADMIN_POLICY)
     @Postsubmit(reason = "new test")
     public void setPermittedAccessibilityServices_includeNonSystemApp_permitsNonSystemApp() {
-        sDeviceState.dpc().devicePolicyManager().setPermittedAccessibilityServices(
+        boolean result = sDeviceState.dpc().devicePolicyManager().setPermittedAccessibilityServices(
                 sDeviceState.dpc().componentName(),
-                ImmutableList.of(ACCESSIBILITY_SERVICE_PACKAGE_NAME));
+                ImmutableList.of(ACCESSIBILITY_SERVICE_PACKAGE.packageName()));
 
-        assertThat(sDeviceState.dpc().devicePolicyManager().getPermittedAccessibilityServices(
-                sDeviceState.dpc().componentName())).containsExactly(
-                        ACCESSIBILITY_SERVICE_PACKAGE_NAME);
-        assertThat(sDevicePolicyManager.getPermittedAccessibilityServices(
-                TestApis.users().instrumented().id()))
-                .contains(ACCESSIBILITY_SERVICE_PACKAGE_NAME);
+        assertThat(result).isTrue();
+        assertThat(TestApis.devicePolicy().getPermittedAccessibilityServices())
+                .contains(ACCESSIBILITY_SERVICE_PACKAGE);
     }
 
     @PolicyAppliesTest(policy = PermittedAccessibilityServices.class)
-    @EnsureHasPermission(QUERY_ADMIN_POLICY)
     @Postsubmit(reason = "new test")
     public void setPermittedAccessibilityServices_includeNonSystemApp_stillPermitsSystemApps() {
-        sDeviceState.dpc().devicePolicyManager().setPermittedAccessibilityServices(
+        boolean result = sDeviceState.dpc().devicePolicyManager().setPermittedAccessibilityServices(
                 sDeviceState.dpc().componentName(),
-                ImmutableList.of(ACCESSIBILITY_SERVICE_PACKAGE_NAME));
+                ImmutableList.of(ACCESSIBILITY_SERVICE_PACKAGE.packageName()));
 
-        assertThat(sDeviceState.dpc().devicePolicyManager().getPermittedAccessibilityServices(
-                sDeviceState.dpc().componentName())).containsExactly(
-                        ACCESSIBILITY_SERVICE_PACKAGE_NAME);
-        assertThat(sDevicePolicyManager.getPermittedAccessibilityServices(
-                TestApis.users().instrumented().id()))
-                .containsAtLeastElementsIn(SYSTEM_ACCESSIBILITY_SERVICE_PACKAGES);
+        assertThat(result).isTrue();
+        assertThat(TestApis.devicePolicy().getPermittedAccessibilityServices())
+                .containsAtLeastElementsIn(systemAccessibilityServicePackages());
     }
+
+    @CannotSetPolicyTest(policy = PermittedAccessibilityServices.class, includeNonDeviceAdminStates = false)
+    @Postsubmit(reason = "new test")
+    public void setPermittedAccessibilityServices_notPermitted_throwsSecurityException() {
+        assertThrows(SecurityException.class, () ->
+                sDeviceState.dpc().devicePolicyManager().setPermittedAccessibilityServices(
+                        sDeviceState.dpc().componentName(), null));
+    }
+
+    // TODO: Add @PolicyDoesNotApplyTest
 }

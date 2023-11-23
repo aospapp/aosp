@@ -16,10 +16,10 @@
 
 package com.android.bedstead.harrier.annotations.meta;
 
-import static com.android.bedstead.harrier.OptionalBoolean.ANY;
-import static com.android.bedstead.harrier.OptionalBoolean.TRUE;
+import static com.android.bedstead.nene.types.OptionalBoolean.ANY;
+import static com.android.bedstead.nene.types.OptionalBoolean.TRUE;
 
-import com.android.bedstead.harrier.OptionalBoolean;
+import com.android.bedstead.nene.types.OptionalBoolean;
 
 import java.lang.annotation.Target;
 

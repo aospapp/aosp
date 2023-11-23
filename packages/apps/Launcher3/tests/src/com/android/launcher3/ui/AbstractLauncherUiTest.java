@@ -61,9 +61,9 @@ import com.android.launcher3.tapl.LauncherInstrumentation;
 import com.android.launcher3.tapl.LauncherInstrumentation.ContainerType;
 import com.android.launcher3.tapl.TestHelpers;
 import com.android.launcher3.testcomponent.TestCommandReceiver;
-import com.android.launcher3.testing.TestProtocol;
+import com.android.launcher3.testing.shared.TestProtocol;
 import com.android.launcher3.util.LooperExecutor;
-import com.android.launcher3.util.PackageManagerHelper;
+import com.android.launcher3.util.SimpleBroadcastReceiver;
 import com.android.launcher3.util.Wait;
 import com.android.launcher3.util.WidgetUtils;
 import com.android.launcher3.util.rule.FailureWatcher;
@@ -72,6 +72,7 @@ import com.android.launcher3.util.rule.SamplerRule;
 import com.android.launcher3.util.rule.ScreenRecordRule;
 import com.android.launcher3.util.rule.ShellCommandRule;
 import com.android.launcher3.util.rule.TestStabilityRule;
+import com.android.launcher3.util.rule.ViewCaptureRule;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -106,6 +107,8 @@ public abstract class AbstractLauncherUiTest {
 
     private static boolean sDumpWasGenerated = false;
     private static boolean sActivityLeakReported = false;
+    private static boolean sSeenKeygard = false;
+
     private static final String SYSTEMUI_PACKAGE = "com.android.systemui";
 
     protected LooperExecutor mMainThreadExecutor = MAIN_EXECUTOR;
@@ -151,6 +154,8 @@ public abstract class AbstractLauncherUiTest {
                     device.executeShellCommand(
                             "am dumpheap " + device.getLauncherPackageName() + " " + fileName);
                 }
+                Log.d(TAG, "Saved leak dump, the leak is still present: "
+                        + !launcher.noLeakedActivities());
                 sDumpWasGenerated = true;
                 result = "saved memory dump as an artifact";
             } catch (Throwable e) {
@@ -194,15 +199,10 @@ public abstract class AbstractLauncherUiTest {
 
     protected void clearPackageData(String pkg) throws IOException, InterruptedException {
         final CountDownLatch count = new CountDownLatch(2);
-        final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                count.countDown();
-            }
-        };
-        mTargetContext.registerReceiver(broadcastReceiver,
-                PackageManagerHelper.getPackageFilter(pkg,
-                        Intent.ACTION_PACKAGE_RESTARTED, Intent.ACTION_PACKAGE_DATA_CLEARED));
+        final SimpleBroadcastReceiver broadcastReceiver =
+                new SimpleBroadcastReceiver(i -> count.countDown());
+        broadcastReceiver.registerPkgActions(mTargetContext, pkg,
+                        Intent.ACTION_PACKAGE_RESTARTED, Intent.ACTION_PACKAGE_DATA_CLEARED);
 
         mDevice.executeShellCommand("pm clear " + pkg);
         assertTrue(pkg + " didn't restart", count.await(10, TimeUnit.SECONDS));
@@ -216,14 +216,15 @@ public abstract class AbstractLauncherUiTest {
     }
 
     protected TestRule getRulesInsideActivityMonitor() {
+        final ViewCaptureRule viewCaptureRule = new ViewCaptureRule();
         final RuleChain inner = RuleChain
                 .outerRule(new PortraitLandscapeRunner(this))
-                .around(new FailureWatcher(mDevice, mLauncher));
+                .around(viewCaptureRule)
+                .around(new FailureWatcher(mDevice, mLauncher, viewCaptureRule.getViewCapture()));
 
         return TestHelpers.isInLauncherProcess()
-                ? RuleChain.outerRule(ShellCommandRule.setDefaultLauncher())
-                .around(inner) :
-                inner;
+                ? RuleChain.outerRule(ShellCommandRule.setDefaultLauncher()).around(inner)
+                : inner;
     }
 
     @Rule
@@ -240,9 +241,8 @@ public abstract class AbstractLauncherUiTest {
     @Before
     public void setUp() throws Exception {
         mLauncher.onTestStart();
-        Assert.assertTrue("Keyguard is visible, which is likely caused by a crash in SysUI",
-                TestHelpers.wait(
-                        Until.gone(By.res(SYSTEMUI_PACKAGE, "keyguard_status_view")), 60000));
+
+        verifyKeyguardInvisible();
 
         final String launcherPackageName = mDevice.getLauncherPackageName();
         try {
@@ -275,6 +275,20 @@ public abstract class AbstractLauncherUiTest {
         }
     }
 
+    private static void verifyKeyguardInvisible() {
+        final boolean keyguardAlreadyVisible = sSeenKeygard;
+
+        sSeenKeygard = sSeenKeygard
+                || !TestHelpers.wait(
+                Until.gone(By.res(SYSTEMUI_PACKAGE, "keyguard_status_view")), 60000);
+
+        Assert.assertFalse(
+                "Keyguard is visible, which is likely caused by a crash in SysUI, seeing keyguard"
+                        + " for the first time = "
+                        + !keyguardAlreadyVisible,
+                sSeenKeygard);
+    }
+
     @After
     public void verifyLauncherState() {
         try {
@@ -297,7 +311,7 @@ public abstract class AbstractLauncherUiTest {
     /**
      * Removes all icons from homescreen and hotseat.
      */
-    public void clearHomescreen() throws Throwable {
+    public void clearHomescreen() {
         LauncherSettings.Settings.call(mTargetContext.getContentResolver(),
                 LauncherSettings.Settings.METHOD_CREATE_EMPTY_DB);
         LauncherSettings.Settings.call(mTargetContext.getContentResolver(),
@@ -319,7 +333,7 @@ public abstract class AbstractLauncherUiTest {
     /**
      * Adds {@param item} on the homescreen on the 0th screen
      */
-    protected void addItemToScreen(ItemInfo item) {
+    public void addItemToScreen(ItemInfo item) {
         WidgetUtils.addItemToScreen(item, mTargetContext);
         resetLoaderState();
 
@@ -392,6 +406,7 @@ public abstract class AbstractLauncherUiTest {
     // flakiness.
     protected void waitForLauncherCondition(
             String message, Function<Launcher, Boolean> condition, long timeout) {
+        verifyKeyguardInvisible();
         if (!TestHelpers.isInLauncherProcess()) return;
         Wait.atMost(message, () -> getFromLauncher(condition), timeout, mLauncher);
     }
@@ -437,7 +452,8 @@ public abstract class AbstractLauncherUiTest {
         private Intent mIntent;
 
         public BlockingBroadcastReceiver(String action) {
-            mTargetContext.registerReceiver(this, new IntentFilter(action));
+            mTargetContext.registerReceiver(this, new IntentFilter(action),
+                    Context.RECEIVER_EXPORTED/*UNAUDITED*/);
         }
 
         @Override
@@ -474,6 +490,16 @@ public abstract class AbstractLauncherUiTest {
         intent.setComponent(new ComponentName(packageName,
                 "com.android.launcher3.tests.Activity" + activityNumber));
         startIntent(intent, By.pkg(packageName).text("TestActivity" + activityNumber),
+                false /* newTask */);
+    }
+
+    public static void startImeTestActivity() {
+        final String packageName = getAppPackageName();
+        final Intent intent = getInstrumentation().getContext().getPackageManager().
+                getLaunchIntentForPackage(packageName);
+        intent.setComponent(new ComponentName(packageName,
+                "com.android.launcher3.testcomponent.ImeTestActivity"));
+        startIntent(intent, By.pkg(packageName).text("ImeTestActivity"),
                 false /* newTask */);
     }
 
@@ -525,7 +551,7 @@ public abstract class AbstractLauncherUiTest {
     }
 
     protected int getAllAppsScroll(Launcher launcher) {
-        return launcher.getAppsView().getActiveRecyclerView().getCurrentScrollY();
+        return launcher.getAppsView().getActiveRecyclerView().computeVerticalScrollOffset();
     }
 
     private void checkLauncherIntegrity(
@@ -563,10 +589,13 @@ public abstract class AbstractLauncherUiTest {
                     break;
                 }
                 case OVERVIEW: {
-                    checkLauncherStateInOverview(launcher, expectedContainerType, isStarted,
-                            isResumed);
-                    assertTrue(TestProtocol.stateOrdinalToString(ordinal),
-                            ordinal == TestProtocol.OVERVIEW_STATE_ORDINAL);
+                    verifyOverviewState(launcher, expectedContainerType, isStarted, isResumed,
+                            ordinal, TestProtocol.OVERVIEW_STATE_ORDINAL);
+                    break;
+                }
+                case SPLIT_SCREEN_SELECT: {
+                    verifyOverviewState(launcher, expectedContainerType, isStarted, isResumed,
+                            ordinal, TestProtocol.OVERVIEW_SPLIT_SELECT_ORDINAL);
                     break;
                 }
                 case TASKBAR_ALL_APPS:
@@ -632,5 +661,9 @@ public abstract class AbstractLauncherUiTest {
         return homeAppIcon;
     }
 
-
+    private void verifyOverviewState(Launcher launcher, ContainerType expectedContainerType,
+            boolean isStarted, boolean isResumed, int ordinal, int expectedOrdinal) {
+        checkLauncherStateInOverview(launcher, expectedContainerType, isStarted, isResumed);
+        assertEquals(TestProtocol.stateOrdinalToString(ordinal), ordinal, expectedOrdinal);
+    }
 }

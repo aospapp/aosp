@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="no_upstream_notification_title" msgid="5030042590486713460">"ઇન્ટરનેટ શેર કરવાની સુવિધામાં ઇન્ટરનેટ નથી"</string>
-    <string name="no_upstream_notification_message" msgid="3843613362272973447">"ડિવાઇસ કનેક્ટ કરી શકાતા નથી"</string>
-    <string name="no_upstream_notification_disable_button" msgid="6385491461813507624">"ઇન્ટરનેટ શેર કરવાની સુવિધા બંધ કરો"</string>
-    <string name="upstream_roaming_notification_title" msgid="3015912166812283303">"હૉટસ્પૉટ અથવા ઇન્ટરનેટ શેર કરવાની સુવિધા ચાલુ છે"</string>
-    <string name="upstream_roaming_notification_message" msgid="6724434706748439902">"રોમિંગમાં વધારાના શુલ્ક લાગી શકે છે"</string>
+    <string name="no_upstream_notification_title" msgid="3584617491053416666">"ઇન્ટરનેટ શેર કરવાની સુવિધામાં ઇન્ટરનેટ નથી"</string>
+    <string name="no_upstream_notification_message" msgid="5626323795587558017">"ડિવાઇસ કનેક્ટ કરી શકાતા નથી"</string>
+    <string name="no_upstream_notification_disable_button" msgid="868677179945695858">"ઇન્ટરનેટ શેર કરવાની સુવિધા બંધ કરો"</string>
+    <string name="upstream_roaming_notification_title" msgid="2870229486619751829">"હૉટસ્પૉટ અથવા ઇન્ટરનેટ શેર કરવાની સુવિધા ચાલુ છે"</string>
+    <string name="upstream_roaming_notification_message" msgid="5229740963392849544">"રોમિંગ દરમિયાન વધારાના શુલ્ક લાગુ થઈ શકે છે"</string>
 </resources>

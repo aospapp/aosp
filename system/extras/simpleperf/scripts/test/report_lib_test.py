@@ -16,7 +16,7 @@
 
 import os
 import tempfile
-from typing import List, Set
+from typing import Dict, List, Optional, Set
 
 from simpleperf_report_lib import ReportLib
 from . test_utils import TestBase, TestHelper
@@ -311,3 +311,24 @@ class TestReportLib(TestBase):
             self.assertIn(31881, threads)
             self.assertNotIn(31850, threads)
         os.unlink(filter_file.name)
+
+    def test_aggregate_threads(self):
+        """ Test using ReportLib.AggregateThreads(). """
+        def get_thread_names(aggregate_regex_list: Optional[List[str]]) -> Dict[str, int]:
+            self.report_lib.Close()
+            self.report_lib = ReportLib()
+            self.report_lib.SetRecordFile(TestHelper.testdata_path('perf_display_bitmaps.data'))
+            if aggregate_regex_list:
+                self.report_lib.AggregateThreads(aggregate_regex_list)
+            thread_names = {}
+            while self.report_lib.GetNextSample():
+                sample = self.report_lib.GetCurrentSample()
+                thread_names[sample.thread_comm] = thread_names.get(sample.thread_comm, 0) + 1
+            return thread_names
+        thread_names = get_thread_names(None)
+        self.assertEqual(thread_names['AsyncTask #3'], 6)
+        self.assertEqual(thread_names['AsyncTask #4'], 13)
+        thread_names = get_thread_names(['AsyncTask.*'])
+        self.assertEqual(thread_names['AsyncTask.*'], 19)
+        self.assertNotIn('AsyncTask #3', thread_names)
+        self.assertNotIn('AsyncTask #4', thread_names)

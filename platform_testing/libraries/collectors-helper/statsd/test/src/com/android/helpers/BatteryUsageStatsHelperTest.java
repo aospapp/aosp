@@ -15,18 +15,19 @@
  */
 package com.android.helpers;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.Map;
 import java.util.regex.Pattern;
-
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertEquals;
 
 /**
  * Android Unit tests for {@link BatteryUsageStatsHelperTest}.
@@ -35,6 +36,7 @@ import static org.junit.Assert.assertEquals;
  * "adb shell su 0 setenforce 0" atest
  * CollectorsHelperTest:com.android.helpers.BatteryUsageStatsHelperTest
  */
+@Ignore("b/222159838, the metrics aren't consistently reported.")
 @RunWith(AndroidJUnit4.class)
 public class BatteryUsageStatsHelperTest {
 

@@ -55,9 +55,12 @@ android_app {
         "guava",
         "android.car.cluster.navigation",
         "car-experimental-api-static-lib",
+        "concurrent.hotword.lib",
     ],
 
-    libs: ["android.car"],
+    libs: [
+        "android.car"
+    ],
 
     required: ["allowed_privapp_com.google.android.car.kitchensink"],
 

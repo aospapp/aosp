@@ -16,49 +16,45 @@
 
 package android.car.cts;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assume.assumeTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.car.CarNotConnectedException;
-import android.content.pm.PackageManager;
-import android.platform.test.annotations.RequiresDevice;
+import android.car.test.ApiCheckerRule.Builder;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.compatibility.common.util.RequiredFeatureRule;
-
-import org.junit.Before;
-import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
-public class ExceptionsTest {
-    @ClassRule
-    public static final RequiredFeatureRule sRequiredFeatureRule = new RequiredFeatureRule(
-            PackageManager.FEATURE_AUTOMOTIVE);
+public class ExceptionsTest extends AbstractCarLessTestCase {
 
     private static final String MESSAGE = "Oops!";
     private static final Exception CAUSE = new RuntimeException();
 
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        builder.disableAnnotationsCheck();
+    }
+
     @Test
     public void testCarNotConnectedException() {
         CarNotConnectedException exception = new CarNotConnectedException();
-        assertNull(exception.getMessage());
-        assertNull(exception.getCause());
+        assertThat(exception.getMessage()).isNull();
+        assertThat(exception.getCause()).isNull();
 
         exception = new CarNotConnectedException(MESSAGE);
-        assertEquals(MESSAGE, exception.getMessage());
-        assertNull(exception.getCause());
+        assertThat(exception.getMessage()).isEqualTo(MESSAGE);
+        assertThat(exception.getCause()).isNull();
 
         exception = new CarNotConnectedException(MESSAGE, CAUSE);
-        assertEquals(MESSAGE, exception.getMessage());
-        assertEquals(CAUSE, exception.getCause());
+        assertThat(exception.getMessage()).isEqualTo(MESSAGE);
+        assertThat(exception.getCause()).isSameInstanceAs(CAUSE);
 
         exception = new CarNotConnectedException(CAUSE);
-        assertEquals(CAUSE, exception.getCause());
+        assertThat(exception.getCause()).isSameInstanceAs(CAUSE);
     }
 }

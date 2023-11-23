@@ -45,10 +45,9 @@ var policyConfOrder = []string{
 	"mls",
 	"policy_capabilities",
 	"te_macros",
-	"attributes",
 	"ioctl_defines",
 	"ioctl_macros",
-	"*.te",
+	"attributes|*.te",
 	"roles_decl",
 	"roles",
 	"users",
@@ -198,7 +197,10 @@ func (c *policyConf) mlsCats() int {
 
 func findPolicyConfOrder(name string) int {
 	for idx, pattern := range policyConfOrder {
-		if pattern == name || (pattern == "*.te" && strings.HasSuffix(name, ".te")) {
+		// We could use regexp but it seems like an overkill
+		if pattern == "attributes|*.te" && (name == "attributes" || strings.HasSuffix(name, ".te")) {
+			return idx
+		} else if pattern == name {
 			return idx
 		}
 	}
@@ -285,6 +287,10 @@ type policyCilProperties struct {
 	// Policy file to be compiled to cil file.
 	Src *string `android:"path"`
 
+	// If true, the input policy file is a binary policy that will be decompiled to a cil file.
+	// Defaults to false.
+	Decompile_binary *bool
+
 	// Additional cil files to be added in the end of the output. This is to support workarounds
 	// which are not supported by the policy language.
 	Additional_cil_files []string `android:"path"`
@@ -336,17 +342,15 @@ func (c *policyCil) stem() string {
 func (c *policyCil) compileConfToCil(ctx android.ModuleContext, conf android.Path) android.OutputPath {
 	cil := android.PathForModuleOut(ctx, c.stem()).OutputPath
 	rule := android.NewRuleBuilder(pctx, ctx)
-	rule.Command().BuiltTool("checkpolicy").
+	checkpolicyCmd := rule.Command().BuiltTool("checkpolicy").
 		Flag("-C"). // Write CIL
 		Flag("-M"). // Enable MLS
 		FlagWithArg("-c ", strconv.Itoa(PolicyVers)).
 		FlagWithOutput("-o ", cil).
 		Input(conf)
 
-	if len(c.properties.Additional_cil_files) > 0 {
-		rule.Command().Text("cat").
-			Inputs(android.PathsForModuleSrc(ctx, c.properties.Additional_cil_files)).
-			Text(">> ").Output(cil)
+	if proptools.Bool(c.properties.Decompile_binary) {
+		checkpolicyCmd.Flag("-b") // Read binary
 	}
 
 	if len(c.properties.Filter_out) > 0 {
@@ -355,6 +359,12 @@ func (c *policyCil) compileConfToCil(ctx android.ModuleContext, conf android.Pat
 			Flag("-f").
 			Inputs(android.PathsForModuleSrc(ctx, c.properties.Filter_out)).
 			FlagWithOutput("-t ", cil)
+	}
+
+	if len(c.properties.Additional_cil_files) > 0 {
+		rule.Command().Text("cat").
+			Inputs(android.PathsForModuleSrc(ctx, c.properties.Additional_cil_files)).
+			Text(">> ").Output(cil)
 	}
 
 	if proptools.Bool(c.properties.Remove_line_marker) {
@@ -446,6 +456,9 @@ type policyBinaryProperties struct {
 
 	// Whether this module is directly installable to one of the partitions. Default is true
 	Installable *bool
+
+	// List of domains that are allowed to be in permissive mode on user builds.
+	Permissive_domains_on_user_builds []string
 }
 
 type policyBinary struct {
@@ -502,11 +515,19 @@ func (c *policyBinary) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	// permissive check is performed only in user build (not debuggable).
 	if !ctx.Config().Debuggable() {
 		permissiveDomains := android.PathForModuleOut(ctx, c.stem()+"_permissive")
-		rule.Command().BuiltTool("sepolicy-analyze").
+		cmd := rule.Command().BuiltTool("sepolicy-analyze").
 			Input(bin).
-			Text("permissive").
-			Text(" > ").
-			Output(permissiveDomains)
+			Text("permissive")
+		// Filter-out domains listed in permissive_domains_on_user_builds
+		allowedDomains := c.properties.Permissive_domains_on_user_builds
+		if len(allowedDomains) != 0 {
+			cmd.Text("| { grep -Fxv")
+			for _, d := range allowedDomains {
+				cmd.FlagWithArg("-e ", proptools.ShellEscape(d))
+			}
+			cmd.Text(" || true; }") // no match doesn't fail the cmd
+		}
+		cmd.Text(" > ").Output(permissiveDomains)
 		rule.Temporary(permissiveDomains)
 
 		msg := `==========\n` +

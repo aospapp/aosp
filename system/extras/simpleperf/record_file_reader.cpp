@@ -18,7 +18,9 @@
 
 #include <fcntl.h>
 #include <string.h>
+
 #include <set>
+#include <string_view>
 #include <vector>
 
 #include <android-base/logging.h>
@@ -58,6 +60,7 @@ static const std::map<int, std::string> feature_name_map = {
     {FEAT_DEBUG_UNWIND, "debug_unwind"},
     {FEAT_DEBUG_UNWIND_FILE, "debug_unwind_file"},
     {FEAT_FILE2, "file2"},
+    {FEAT_ETM_BRANCH_LIST, "etm_branch_list"},
 };
 
 std::string GetFeatureName(int feature_id) {
@@ -133,10 +136,14 @@ bool RecordFileReader::ReadHeader() {
   return true;
 }
 
-bool RecordFileReader::CheckSectionDesc(const SectionDesc& desc, uint64_t min_offset) {
+bool RecordFileReader::CheckSectionDesc(const SectionDesc& desc, uint64_t min_offset,
+                                        uint64_t alignment) {
   uint64_t desc_end;
   if (desc.offset < min_offset || __builtin_add_overflow(desc.offset, desc.size, &desc_end) ||
       desc_end > file_size_) {
+    return false;
+  }
+  if (desc.size % alignment != 0) {
     return false;
   }
   return true;
@@ -145,6 +152,10 @@ bool RecordFileReader::CheckSectionDesc(const SectionDesc& desc, uint64_t min_of
 bool RecordFileReader::ReadAttrSection() {
   size_t attr_count = header_.attrs.size / header_.attr_size;
   if (header_.attr_size != sizeof(FileAttr)) {
+    if (header_.attr_size <= sizeof(SectionDesc)) {
+      LOG(ERROR) << "invalid attr section in " << filename_;
+      return false;
+    }
     LOG(DEBUG) << "attr size (" << header_.attr_size << ") in " << filename_
                << " doesn't match expected size (" << sizeof(FileAttr) << ")";
   }
@@ -156,42 +167,42 @@ bool RecordFileReader::ReadAttrSection() {
     PLOG(ERROR) << "fseek() failed";
     return false;
   }
+  event_attrs_.resize(attr_count);
+  std::vector<SectionDesc> id_sections(attr_count);
+  size_t attr_size_in_file = header_.attr_size - sizeof(SectionDesc);
   for (size_t i = 0; i < attr_count; ++i) {
     std::vector<char> buf(header_.attr_size);
     if (!Read(buf.data(), buf.size())) {
       return false;
     }
-    // The size of perf_event_attr is changing between different linux kernel versions.
-    // Make sure we copy correct data to memory.
-    FileAttr attr;
-    memset(&attr, 0, sizeof(attr));
-    size_t section_desc_size = sizeof(attr.ids);
-    size_t perf_event_attr_size = header_.attr_size - section_desc_size;
-    memcpy(&attr.attr, &buf[0], std::min(sizeof(attr.attr), perf_event_attr_size));
-    memcpy(&attr.ids, &buf[perf_event_attr_size], section_desc_size);
-    if (!CheckSectionDesc(attr.ids, 0)) {
+    // The struct perf_event_attr is defined in a Linux header file. It can be extended in newer
+    // kernel versions with more fields and a bigger size. To disable these extensions, set their
+    // values to zero. So to copy perf_event_attr from file to memory safely, ensure the copy
+    // doesn't overflow the file or memory, and set the values of any extra fields in memory to
+    // zero.
+    if (attr_size_in_file >= sizeof(perf_event_attr)) {
+      memcpy(&event_attrs_[i].attr, &buf[0], sizeof(perf_event_attr));
+    } else {
+      memset(&event_attrs_[i].attr, 0, sizeof(perf_event_attr));
+      memcpy(&event_attrs_[i].attr, &buf[0], attr_size_in_file);
+    }
+    memcpy(&id_sections[i], &buf[attr_size_in_file], sizeof(SectionDesc));
+    if (!CheckSectionDesc(id_sections[i], 0, sizeof(uint64_t))) {
       LOG(ERROR) << "invalid attr section in " << filename_;
       return false;
     }
-    file_attrs_.push_back(attr);
   }
-  if (file_attrs_.size() > 1) {
-    std::vector<perf_event_attr> attrs;
-    for (const auto& file_attr : file_attrs_) {
-      attrs.push_back(file_attr.attr);
-    }
-    if (!GetCommonEventIdPositionsForAttrs(attrs, &event_id_pos_in_sample_records_,
+  if (event_attrs_.size() > 1) {
+    if (!GetCommonEventIdPositionsForAttrs(event_attrs_, &event_id_pos_in_sample_records_,
                                            &event_id_reverse_pos_in_non_sample_records_)) {
       return false;
     }
   }
-  for (size_t i = 0; i < file_attrs_.size(); ++i) {
-    std::vector<uint64_t> ids;
-    if (!ReadIdsForAttr(file_attrs_[i], &ids)) {
+  for (size_t i = 0; i < attr_count; ++i) {
+    if (!ReadIdSection(id_sections[i], &event_attrs_[i].ids)) {
       return false;
     }
-    event_ids_for_file_attrs_.push_back(ids);
-    for (auto id : ids) {
+    for (auto id : event_attrs_[i].ids) {
       event_id_to_attr_map_[id] = i;
     }
   }
@@ -227,14 +238,14 @@ bool RecordFileReader::ReadFeatureSectionDescriptors() {
   return true;
 }
 
-bool RecordFileReader::ReadIdsForAttr(const FileAttr& attr, std::vector<uint64_t>* ids) {
-  size_t id_count = attr.ids.size / sizeof(uint64_t);
-  if (fseek(record_fp_, attr.ids.offset, SEEK_SET) != 0) {
+bool RecordFileReader::ReadIdSection(const SectionDesc& section, std::vector<uint64_t>* ids) {
+  size_t id_count = section.size / sizeof(uint64_t);
+  if (fseek(record_fp_, section.offset, SEEK_SET) != 0) {
     PLOG(ERROR) << "fseek() failed";
     return false;
   }
   ids->resize(id_count);
-  if (!Read(ids->data(), attr.ids.size)) {
+  if (!Read(ids->data(), section.size)) {
     return false;
   }
   return true;
@@ -289,36 +300,37 @@ bool RecordFileReader::ReadRecord(std::unique_ptr<Record>& record) {
 
 std::unique_ptr<Record> RecordFileReader::ReadRecord() {
   char header_buf[Record::header_size()];
-  if (!Read(header_buf, Record::header_size())) {
+  RecordHeader header;
+  if (!Read(header_buf, Record::header_size()) || !header.Parse(header_buf)) {
     return nullptr;
   }
-  RecordHeader header(header_buf);
   std::unique_ptr<char[]> p;
   if (header.type == SIMPLE_PERF_RECORD_SPLIT) {
     // Read until meeting a RECORD_SPLIT_END record.
     std::vector<char> buf;
-    size_t cur_size = 0;
-    char header_buf[Record::header_size()];
     while (header.type == SIMPLE_PERF_RECORD_SPLIT) {
-      size_t bytes_to_read = header.size - Record::header_size();
-      buf.resize(cur_size + bytes_to_read);
-      if (!Read(&buf[cur_size], bytes_to_read)) {
+      size_t add_size = header.size - Record::header_size();
+      size_t old_size = buf.size();
+      buf.resize(old_size + add_size);
+      if (!Read(&buf[old_size], add_size)) {
         return nullptr;
       }
-      cur_size += bytes_to_read;
       read_record_size_ += header.size;
-      if (!Read(header_buf, Record::header_size())) {
+      if (!Read(header_buf, Record::header_size()) || !header.Parse(header_buf)) {
         return nullptr;
       }
-      header = RecordHeader(header_buf);
     }
     if (header.type != SIMPLE_PERF_RECORD_SPLIT_END) {
       LOG(ERROR) << "SPLIT records are not followed by a SPLIT_END record.";
       return nullptr;
     }
     read_record_size_ += header.size;
-    header = RecordHeader(buf.data());
-    p.reset(new char[header.size]);
+    if (buf.size() < Record::header_size() || !header.Parse(buf.data()) ||
+        header.size != buf.size()) {
+      LOG(ERROR) << "invalid record merged from SPLIT records";
+      return nullptr;
+    }
+    p.reset(new char[buf.size()]);
     memcpy(p.get(), buf.data(), buf.size());
   } else {
     p.reset(new char[header.size]);
@@ -331,8 +343,8 @@ std::unique_ptr<Record> RecordFileReader::ReadRecord() {
     read_record_size_ += header.size;
   }
 
-  const perf_event_attr* attr = &file_attrs_[0].attr;
-  if (file_attrs_.size() > 1 && header.type < PERF_RECORD_USER_DEFINED_TYPE_START) {
+  const perf_event_attr* attr = &event_attrs_[0].attr;
+  if (event_attrs_.size() > 1 && header.type < PERF_RECORD_USER_DEFINED_TYPE_START) {
     bool has_event_id = false;
     uint64_t event_id;
     if (header.type == PERF_RECORD_SAMPLE) {
@@ -350,7 +362,7 @@ std::unique_ptr<Record> RecordFileReader::ReadRecord() {
     if (has_event_id) {
       auto it = event_id_to_attr_map_.find(event_id);
       if (it != event_id_to_attr_map_.end()) {
-        attr = &file_attrs_[it->second].attr;
+        attr = &event_attrs_[it->second].attr;
       }
     }
   }
@@ -390,8 +402,9 @@ bool RecordFileReader::ReadAtOffset(uint64_t offset, void* buf, size_t len) {
 
 void RecordFileReader::ProcessEventIdRecord(const EventIdRecord& r) {
   for (size_t i = 0; i < r.count; ++i) {
-    event_ids_for_file_attrs_[r.data[i].attr_id].push_back(r.data[i].event_id);
-    event_id_to_attr_map_[r.data[i].event_id] = r.data[i].attr_id;
+    const auto& data = r.data[i];
+    event_attrs_[data.attr_id].ids.push_back(data.event_id);
+    event_id_to_attr_map_[data.event_id] = data.attr_id;
   }
 }
 
@@ -440,22 +453,25 @@ bool RecordFileReader::ReadFeatureSection(int feature, std::string* data) {
 std::vector<std::string> RecordFileReader::ReadCmdlineFeature() {
   std::vector<char> buf;
   if (!ReadFeatureSection(FEAT_CMDLINE, &buf)) {
-    return std::vector<std::string>();
+    return {};
   }
-  const char* p = buf.data();
-  const char* end = buf.data() + buf.size();
+  BinaryReader reader(buf.data(), buf.size());
   std::vector<std::string> cmdline;
-  uint32_t arg_count;
-  MoveFromBinaryFormat(arg_count, p);
-  CHECK_LE(p, end);
-  for (size_t i = 0; i < arg_count; ++i) {
-    uint32_t len;
-    MoveFromBinaryFormat(len, p);
-    CHECK_LE(p + len, end);
-    cmdline.push_back(p);
-    p += len;
+
+  uint32_t arg_count = 0;
+  reader.Read(arg_count);
+  for (size_t i = 0; i < arg_count && !reader.error; ++i) {
+    uint32_t aligned_len;
+    reader.Read(aligned_len);
+    cmdline.emplace_back(reader.ReadString());
+    uint32_t len = cmdline.back().size() + 1;
+    if (aligned_len != Align(len, 64)) {
+      reader.error = true;
+      break;
+    }
+    reader.Move(aligned_len - len);
   }
-  return cmdline;
+  return reader.error ? std::vector<std::string>() : cmdline;
 }
 
 std::vector<BuildIdRecord> RecordFileReader::ReadBuildIdFeature() {
@@ -466,16 +482,16 @@ std::vector<BuildIdRecord> RecordFileReader::ReadBuildIdFeature() {
   const char* p = buf.data();
   const char* end = buf.data() + buf.size();
   std::vector<BuildIdRecord> result;
-  while (p < end) {
+  while (p + sizeof(perf_event_header) < end) {
     auto header = reinterpret_cast<const perf_event_header*>(p);
-    if (p + header->size > end) {
+    if ((header->size <= sizeof(perf_event_header)) || (header->size > end - p)) {
       return {};
     }
     std::unique_ptr<char[]> binary(new char[header->size]);
     memcpy(binary.get(), p, header->size);
     p += header->size;
     BuildIdRecord record;
-    if (!record.Parse(file_attrs_[0].attr, binary.get(), binary.get() + header->size)) {
+    if (!record.Parse(event_attrs_[0].attr, binary.get(), binary.get() + header->size)) {
       return {};
     }
     binary.release();
@@ -492,12 +508,11 @@ std::string RecordFileReader::ReadFeatureString(int feature) {
   if (!ReadFeatureSection(feature, &buf)) {
     return std::string();
   }
-  const char* p = buf.data();
-  const char* end = buf.data() + buf.size();
-  uint32_t len;
-  MoveFromBinaryFormat(len, p);
-  CHECK_LE(p + len, end);
-  return p;
+  BinaryReader reader(buf.data(), buf.size());
+  uint32_t len = 0;
+  reader.Read(len);
+  std::string s = reader.ReadString();
+  return reader.error ? "" : s;
 }
 
 std::vector<uint64_t> RecordFileReader::ReadAuxTraceFeature() {
@@ -505,144 +520,163 @@ std::vector<uint64_t> RecordFileReader::ReadAuxTraceFeature() {
   if (!ReadFeatureSection(FEAT_AUXTRACE, &buf)) {
     return {};
   }
-  std::vector<uint64_t> auxtrace_offset;
-  const char* p = buf.data();
-  const char* end = buf.data() + buf.size();
-  if (buf.size() / sizeof(uint64_t) % 2 == 1) {
-    // Recording files generated by linux perf contain an extra uint64 field. Skip it here.
-    p += sizeof(uint64_t);
+  BinaryReader reader(buf.data(), buf.size());
+  if (reader.LeftSize() % sizeof(uint64_t) != 0) {
+    return {};
   }
-  while (p < end) {
+  if (reader.LeftSize() / sizeof(uint64_t) % 2 == 1) {
+    // Recording files generated by linux perf contain an extra uint64 field. Skip it here.
+    reader.Move(sizeof(uint64_t));
+  }
+
+  std::vector<uint64_t> auxtrace_offset;
+  while (!reader.error && reader.LeftSize() > 0u) {
     uint64_t offset;
     uint64_t size;
-    MoveFromBinaryFormat(offset, p);
+    reader.Read(offset);
+    reader.Read(size);
     auxtrace_offset.push_back(offset);
-    MoveFromBinaryFormat(size, p);
-    CHECK_EQ(size, AuxTraceRecord::Size());
+    if (size != AuxTraceRecord::Size()) {
+      reader.error = true;
+    }
   }
-  return auxtrace_offset;
+  return reader.error ? std::vector<uint64_t>() : auxtrace_offset;
 }
 
-bool RecordFileReader::ReadFileFeature(size_t& read_pos, FileFeature* file) {
-  file->Clear();
-  if (HasFeature(FEAT_FILE)) {
-    return ReadFileV1Feature(read_pos, file);
-  }
-  if (HasFeature(FEAT_FILE2)) {
-    return ReadFileV2Feature(read_pos, file);
-  }
-  return false;
-}
+bool RecordFileReader::ReadFileFeature(uint64_t& read_pos, FileFeature& file, bool& error) {
+  file.Clear();
+  error = false;
 
-bool RecordFileReader::ReadFileV1Feature(size_t& read_pos, FileFeature* file) {
-  auto it = feature_section_descriptors_.find(FEAT_FILE);
-  if (it == feature_section_descriptors_.end()) {
+  bool use_v1 = false;
+  PerfFileFormat::SectionDesc desc;
+  if (auto it = feature_section_descriptors_.find(FEAT_FILE);
+      it != feature_section_descriptors_.end()) {
+    use_v1 = true;
+    desc = it->second;
+  } else if (auto it = feature_section_descriptors_.find(FEAT_FILE2);
+             it != feature_section_descriptors_.end()) {
+    desc = it->second;
+  } else {
     return false;
   }
-  if (read_pos >= it->second.size) {
+
+  if (read_pos >= desc.size) {
     return false;
   }
   if (read_pos == 0) {
-    if (fseek(record_fp_, it->second.offset, SEEK_SET) != 0) {
+    if (fseek(record_fp_, desc.offset, SEEK_SET) != 0) {
       PLOG(ERROR) << "fseek() failed";
+      error = true;
       return false;
     }
   }
-  uint32_t size;
-  if (!Read(&size, 4)) {
+
+  bool result = false;
+  if (use_v1) {
+    result = ReadFileV1Feature(read_pos, desc.size - read_pos, file);
+  } else {
+    result = ReadFileV2Feature(read_pos, desc.size - read_pos, file);
+  }
+  if (!result) {
+    LOG(ERROR) << "failed to read file feature section";
+    error = true;
+  }
+  return result;
+}
+
+bool RecordFileReader::ReadFileV1Feature(uint64_t& read_pos, uint64_t max_size, FileFeature& file) {
+  uint32_t size = 0;
+  if (max_size < 4 || !Read(&size, 4) || max_size - 4 < size) {
     return false;
   }
+  read_pos += 4;
   std::vector<char> buf(size);
   if (!Read(buf.data(), size)) {
     return false;
   }
-  read_pos += 4 + size;
-  const char* p = buf.data();
-  file->path = p;
-  p += file->path.size() + 1;
-  uint32_t file_type;
-  MoveFromBinaryFormat(file_type, p);
+  read_pos += size;
+  BinaryReader reader(buf.data(), buf.size());
+  file.path = reader.ReadString();
+  uint32_t file_type = 0;
+  reader.Read(file_type);
   if (file_type > DSO_UNKNOWN_FILE) {
-    LOG(ERROR) << "unknown file type for " << file->path
+    LOG(ERROR) << "unknown file type for " << file.path
                << " in file feature section: " << file_type;
     return false;
   }
-  file->type = static_cast<DsoType>(file_type);
-  MoveFromBinaryFormat(file->min_vaddr, p);
-  uint32_t symbol_count;
-  MoveFromBinaryFormat(symbol_count, p);
-  file->symbols.reserve(symbol_count);
-  for (uint32_t i = 0; i < symbol_count; ++i) {
-    uint64_t start_vaddr;
-    uint32_t len;
-    MoveFromBinaryFormat(start_vaddr, p);
-    MoveFromBinaryFormat(len, p);
-    std::string name = p;
-    p += name.size() + 1;
-    file->symbols.emplace_back(name, start_vaddr, len);
-  }
-  if (file->type == DSO_DEX_FILE) {
-    uint32_t offset_count;
-    MoveFromBinaryFormat(offset_count, p);
-    file->dex_file_offsets.resize(offset_count);
-    MoveFromBinaryFormat(file->dex_file_offsets.data(), offset_count, p);
-  }
-  file->file_offset_of_min_vaddr = std::numeric_limits<uint64_t>::max();
-  if ((file->type == DSO_ELF_FILE || file->type == DSO_KERNEL_MODULE) &&
-      static_cast<size_t>(p - buf.data()) < size) {
-    MoveFromBinaryFormat(file->file_offset_of_min_vaddr, p);
-  }
-  CHECK_EQ(size, static_cast<size_t>(p - buf.data()))
-      << "file " << file->path << ", type " << file->type;
-  return true;
-}
-
-bool RecordFileReader::ReadFileV2Feature(size_t& read_pos, FileFeature* file) {
-  auto it = feature_section_descriptors_.find(FEAT_FILE2);
-  if (it == feature_section_descriptors_.end()) {
+  file.type = static_cast<DsoType>(file_type);
+  reader.Read(file.min_vaddr);
+  uint32_t symbol_count = 0;
+  reader.Read(symbol_count);
+  if (symbol_count > size) {
     return false;
   }
-  if (read_pos >= it->second.size) {
-    return false;
+  file.symbols.reserve(symbol_count);
+  while (symbol_count-- > 0) {
+    uint64_t start_vaddr = 0;
+    uint32_t len = 0;
+    reader.Read(start_vaddr);
+    reader.Read(len);
+    std::string name = reader.ReadString();
+    file.symbols.emplace_back(name, start_vaddr, len);
   }
-  if (read_pos == 0) {
-    if (fseek(record_fp_, it->second.offset, SEEK_SET) != 0) {
-      PLOG(ERROR) << "fseek() failed";
+  if (file.type == DSO_DEX_FILE) {
+    uint32_t offset_count = 0;
+    reader.Read(offset_count);
+    if (offset_count > size) {
       return false;
     }
+    file.dex_file_offsets.resize(offset_count);
+    reader.Read(file.dex_file_offsets.data(), offset_count);
   }
+  file.file_offset_of_min_vaddr = std::numeric_limits<uint64_t>::max();
+  if ((file.type == DSO_ELF_FILE || file.type == DSO_KERNEL_MODULE) && !reader.error &&
+      reader.LeftSize() > 0) {
+    reader.Read(file.file_offset_of_min_vaddr);
+  }
+  return !reader.error && reader.LeftSize() == 0;
+}
+
+bool RecordFileReader::ReadFileV2Feature(uint64_t& read_pos, uint64_t max_size, FileFeature& file) {
   uint32_t size;
-  if (!Read(&size, 4)) {
+  if (max_size < 4 || !Read(&size, 4) || max_size - 4 < size) {
     return false;
   }
-  read_pos += 4 + size;
+  read_pos += 4;
   std::string s(size, '\0');
   if (!Read(s.data(), size)) {
     return false;
   }
+  read_pos += size;
   proto::FileFeature proto_file;
   if (!proto_file.ParseFromString(s)) {
     return false;
   }
-  file->path = proto_file.path();
-  file->type = static_cast<DsoType>(proto_file.type());
-  file->min_vaddr = proto_file.min_vaddr();
-  file->symbols.reserve(proto_file.symbol_size());
+  file.path = proto_file.path();
+  file.type = static_cast<DsoType>(proto_file.type());
+  file.min_vaddr = proto_file.min_vaddr();
+  file.symbols.reserve(proto_file.symbol_size());
   for (size_t i = 0; i < proto_file.symbol_size(); i++) {
     const auto& proto_symbol = proto_file.symbol(i);
-    file->symbols.emplace_back(proto_symbol.name(), proto_symbol.vaddr(), proto_symbol.len());
+    file.symbols.emplace_back(proto_symbol.name(), proto_symbol.vaddr(), proto_symbol.len());
   }
-  if (file->type == DSO_DEX_FILE) {
-    CHECK(proto_file.has_dex_file());
+  if (file.type == DSO_DEX_FILE) {
+    if (!proto_file.has_dex_file()) {
+      return false;
+    }
     const auto& dex_file_offsets = proto_file.dex_file().dex_file_offset();
-    file->dex_file_offsets.insert(file->dex_file_offsets.end(), dex_file_offsets.begin(),
-                                  dex_file_offsets.end());
-  } else if (file->type == DSO_ELF_FILE) {
-    CHECK(proto_file.has_elf_file());
-    file->file_offset_of_min_vaddr = proto_file.elf_file().file_offset_of_min_vaddr();
-  } else if (file->type == DSO_KERNEL_MODULE) {
-    CHECK(proto_file.has_kernel_module());
-    file->file_offset_of_min_vaddr = proto_file.kernel_module().memory_offset_of_min_vaddr();
+    file.dex_file_offsets.insert(file.dex_file_offsets.end(), dex_file_offsets.begin(),
+                                 dex_file_offsets.end());
+  } else if (file.type == DSO_ELF_FILE) {
+    if (!proto_file.has_elf_file()) {
+      return false;
+    }
+    file.file_offset_of_min_vaddr = proto_file.elf_file().file_offset_of_min_vaddr();
+  } else if (file.type == DSO_KERNEL_MODULE) {
+    if (!proto_file.has_kernel_module()) {
+      return false;
+    }
+    file.file_offset_of_min_vaddr = proto_file.kernel_module().memory_offset_of_min_vaddr();
   }
   return true;
 }
@@ -653,14 +687,24 @@ bool RecordFileReader::ReadMetaInfoFeature() {
     if (!ReadFeatureSection(FEAT_META_INFO, &buf)) {
       return false;
     }
-    const char* p = buf.data();
-    const char* end = buf.data() + buf.size();
-    while (p < end) {
-      const char* key = p;
-      const char* value = key + strlen(key) + 1;
-      CHECK(value < end);
-      meta_info_[p] = value;
-      p = value + strlen(value) + 1;
+    std::string_view s(buf.data(), buf.size());
+    size_t key_start = 0;
+    while (key_start < s.size()) {
+      // Parse a C-string for key.
+      size_t key_end = s.find('\0', key_start);
+      if (key_end == key_start || key_end == s.npos) {
+        LOG(ERROR) << "invalid meta info in " << filename_;
+        return false;
+      }
+      // Parse a C-string for value.
+      size_t value_start = key_end + 1;
+      size_t value_end = s.find('\0', value_start);
+      if (value_end == value_start || value_end == s.npos) {
+        LOG(ERROR) << "invalid meta info in " << filename_;
+        return false;
+      }
+      meta_info_[&s[key_start]] = &s[value_start];
+      key_start = value_end + 1;
     }
   }
   return true;
@@ -691,7 +735,7 @@ std::optional<DebugUnwindFeature> RecordFileReader::ReadDebugUnwindFeature() {
   return std::nullopt;
 }
 
-void RecordFileReader::LoadBuildIdAndFileFeatures(ThreadTree& thread_tree) {
+bool RecordFileReader::LoadBuildIdAndFileFeatures(ThreadTree& thread_tree) {
   std::vector<BuildIdRecord> records = ReadBuildIdFeature();
   std::vector<std::pair<std::string, BuildId>> build_ids;
   for (auto& r : records) {
@@ -699,22 +743,34 @@ void RecordFileReader::LoadBuildIdAndFileFeatures(ThreadTree& thread_tree) {
   }
   Dso::SetBuildIds(build_ids);
 
-  if (HasFeature(PerfFileFormat::FEAT_FILE) || HasFeature(PerfFileFormat::FEAT_FILE2)) {
-    FileFeature file_feature;
-    size_t read_pos = 0;
-    while (ReadFileFeature(read_pos, &file_feature)) {
-      thread_tree.AddDsoInfo(file_feature);
+  FileFeature file_feature;
+  uint64_t read_pos = 0;
+  bool error = false;
+  while (ReadFileFeature(read_pos, file_feature, error)) {
+    if (!thread_tree.AddDsoInfo(file_feature)) {
+      return false;
     }
   }
+  return !error;
 }
 
-bool RecordFileReader::ReadAuxData(uint32_t cpu, uint64_t aux_offset, void* buf, size_t size) {
+bool RecordFileReader::ReadAuxData(uint32_t cpu, uint64_t aux_offset, size_t size,
+                                   std::vector<uint8_t>& buf, bool& error) {
+  error = false;
   long saved_pos = ftell(record_fp_);
   if (saved_pos == -1) {
     PLOG(ERROR) << "ftell() failed";
+    error = true;
+    return false;
+  }
+  OverflowResult aux_end = SafeAdd(aux_offset, size);
+  if (aux_end.overflow) {
+    LOG(ERROR) << "aux_end overflow";
+    error = true;
     return false;
   }
   if (aux_data_location_.empty() && !BuildAuxDataLocation()) {
+    error = true;
     return false;
   }
   AuxDataLocation* location = nullptr;
@@ -726,21 +782,27 @@ bool RecordFileReader::ReadAuxData(uint32_t cpu, uint64_t aux_offset, void* buf,
     auto location_it = std::upper_bound(it->second.begin(), it->second.end(), aux_offset, comp);
     if (location_it != it->second.begin()) {
       --location_it;
-      if (location_it->aux_offset + location_it->aux_size >= aux_offset + size) {
+      if (location_it->aux_offset + location_it->aux_size >= aux_end.value) {
         location = &*location_it;
       }
     }
   }
   if (location == nullptr) {
-    LOG(ERROR) << "failed to find file offset of aux data: cpu " << cpu << ", aux_offset "
-               << aux_offset << ", size " << size;
+    // ETM data can be dropped when recording if the userspace buffer is full. This isn't an error.
+    LOG(INFO) << "aux data is missing: cpu " << cpu << ", aux_offset " << aux_offset << ", size "
+              << size << ". Probably the data is lost when recording.";
     return false;
   }
-  if (!ReadAtOffset(aux_offset - location->aux_offset + location->file_offset, buf, size)) {
+  if (buf.size() < size) {
+    buf.resize(size);
+  }
+  if (!ReadAtOffset(aux_offset - location->aux_offset + location->file_offset, buf.data(), size)) {
+    error = true;
     return false;
   }
   if (fseek(record_fp_, saved_pos, SEEK_SET) != 0) {
     PLOG(ERROR) << "fseek() failed";
+    error = true;
     return false;
   }
   return true;
@@ -748,21 +810,36 @@ bool RecordFileReader::ReadAuxData(uint32_t cpu, uint64_t aux_offset, void* buf,
 
 bool RecordFileReader::BuildAuxDataLocation() {
   std::vector<uint64_t> auxtrace_offset = ReadAuxTraceFeature();
-  if (auxtrace_offset.empty()) {
-    LOG(ERROR) << "failed to read auxtrace feature section";
-    return false;
-  }
   std::unique_ptr<char[]> buf(new char[AuxTraceRecord::Size()]);
   for (auto offset : auxtrace_offset) {
     if (!ReadAtOffset(offset, buf.get(), AuxTraceRecord::Size())) {
       return false;
     }
     AuxTraceRecord auxtrace;
-    if (!auxtrace.Parse(file_attrs_[0].attr, buf.get(), buf.get() + AuxTraceRecord::Size())) {
+    if (!auxtrace.Parse(event_attrs_[0].attr, buf.get(), buf.get() + AuxTraceRecord::Size())) {
       return false;
     }
-    aux_data_location_[auxtrace.data->cpu].emplace_back(
-        auxtrace.data->offset, auxtrace.data->aux_size, offset + auxtrace.size());
+    AuxDataLocation location(auxtrace.data->offset, auxtrace.data->aux_size,
+                             offset + auxtrace.size());
+    OverflowResult aux_end = SafeAdd(location.aux_offset, location.aux_size);
+    OverflowResult file_end = SafeAdd(location.file_offset, location.aux_size);
+    if (aux_end.overflow || file_end.overflow || file_end.value > file_size_) {
+      LOG(ERROR) << "invalid auxtrace feature section";
+      return false;
+    }
+    auto location_it = aux_data_location_.find(auxtrace.data->cpu);
+    if (location_it != aux_data_location_.end()) {
+      const AuxDataLocation& prev_location = location_it->second.back();
+      uint64_t prev_aux_end = prev_location.aux_offset + prev_location.aux_size;
+      // The AuxTraceRecords should be sorted by aux_offset for each cpu.
+      if (prev_aux_end > location.aux_offset) {
+        LOG(ERROR) << "invalid auxtrace feature section";
+        return false;
+      }
+      location_it->second.emplace_back(location);
+    } else {
+      aux_data_location_[auxtrace.data->cpu].emplace_back(location);
+    }
   }
   return true;
 }

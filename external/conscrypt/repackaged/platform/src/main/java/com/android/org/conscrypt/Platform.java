@@ -19,6 +19,7 @@ package com.android.org.conscrypt;
 
 import static android.system.OsConstants.SOL_SOCKET;
 import static android.system.OsConstants.SO_SNDTIMEO;
+import static com.android.org.conscrypt.metrics.Source.SOURCE_MAINLINE;
 
 import android.system.ErrnoException;
 import android.system.Os;
@@ -131,7 +132,11 @@ final class Platform {
         try {
             Os.setsockoptTimeval(s.getFileDescriptor$(), SOL_SOCKET, SO_SNDTIMEO, tv);
         } catch (ErrnoException errnoException) {
-            throw errnoException.rethrowAsSocketException();
+            // Equivalent to errnoException.rethrowAsSocketException() but that causes
+            // lint issues on AOSP.
+            SocketException exception = new SocketException(errnoException.getMessage());
+            exception.addSuppressed(errnoException);
+            throw exception;
         }
     }
 
@@ -550,13 +555,13 @@ final class Platform {
     }
 
     static void countTlsHandshake(
-            boolean success, String protocol, String cipherSuite, long duration) {
+            boolean success, String protocol, String cipherSuite, long durationLong) {
         Protocol proto = Protocol.forName(protocol);
         CipherSuite suite = CipherSuite.forName(cipherSuite);
-        int dur = (int) duration;
+        int duration = (int) durationLong;
 
         ConscryptStatsLog.write(ConscryptStatsLog.TLS_HANDSHAKE_REPORTED, success, proto.getId(),
-                suite.getId(), dur);
+                suite.getId(), duration, SOURCE_MAINLINE);
     }
 
     public static boolean isJavaxCertificateSupported() {

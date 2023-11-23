@@ -23,8 +23,7 @@ import androidx.preference.Preference;
 
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.tv.settings.R;
-import com.android.tv.settings.library.enterprise.EnterprisePrivacyFeatureProvider;
-import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 import java.util.HashMap;
 import java.util.Locale;

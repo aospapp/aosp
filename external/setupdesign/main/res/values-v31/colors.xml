@@ -15,7 +15,8 @@
     limitations under the License.
 -->
 
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@color/sud_system_accent*,@color/sud_system_neutral*">
   <!-- Default color for BC -->
 
   <color name="sud_color_accent_glif_v3_dark">#ff669df6</color>
@@ -45,6 +46,19 @@
 
 
   <color name="sud_system_accent2_100">@android:color/system_accent2_100</color>
+
+  <color name="sud_system_accent2_200">@android:color/system_accent2_200</color>
+
+  <color name="sud_system_accent2_600">@android:color/system_accent2_600</color>
+
+
+
+  <color name="sud_system_accent3_100">@android:color/system_accent3_100</color>
+
+  <color name="sud_system_accent3_200">@android:color/system_accent3_200</color>
+
+  <color name="sud_system_accent3_600">@android:color/system_accent3_600</color>
+
 
 
 

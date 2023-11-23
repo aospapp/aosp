@@ -103,7 +103,9 @@ class PeriodicSyncManager {
         "Invalid address type %s",
         AddressTypeText(address_type).c_str());
     periodic_syncs_.emplace_back(request);
-    LOG_DEBUG("address = %s, sid = %d", request.address_with_type.ToString().c_str(), request.advertiser_sid);
+    LOG_DEBUG("address = %s, sid = %d",
+              ADDRESS_TO_LOGGABLE_CSTR(request.address_with_type),
+              request.advertiser_sid);
     pending_sync_requests_.emplace_back(
         request.advertiser_sid, request.address_with_type, skip, sync_timeout, handler_);
     HandleNextRequest();
@@ -272,13 +274,19 @@ class PeriodicSyncManager {
     }
 
     auto address_with_type = AddressWithType(event_view.GetAdvertiserAddress(), event_view.GetAdvertiserAddressType());
-
-    auto temp_address_type = address_with_type.GetAddressType();
-    // If the create sync command uses 0x01, Random or Random ID, the result can be 0x01, 0x02, or 0x03,
-    // because a Random Address, if it is an RPA, can be resolved to either Public Identity or Random Identity.
-    if (temp_address_type != AddressType::PUBLIC_DEVICE_ADDRESS) {
-      temp_address_type = AddressType::RANDOM_DEVICE_ADDRESS;
+    auto peer_address_type = address_with_type.GetAddressType();
+    AddressType temp_address_type;
+    switch (peer_address_type) {
+      case AddressType::PUBLIC_DEVICE_ADDRESS:
+      case AddressType::PUBLIC_IDENTITY_ADDRESS:
+        temp_address_type = AddressType::PUBLIC_DEVICE_ADDRESS;
+        break;
+      case AddressType::RANDOM_DEVICE_ADDRESS:
+      case AddressType::RANDOM_IDENTITY_ADDRESS:
+        temp_address_type = AddressType::RANDOM_DEVICE_ADDRESS;
+        break;
     }
+
     auto periodic_sync = GetSyncFromAddressWithTypeAndSid(
         AddressWithType(event_view.GetAdvertiserAddress(), temp_address_type), event_view.GetAdvertisingSid());
     if (periodic_sync == periodic_syncs_.end()) {
@@ -356,7 +364,7 @@ class PeriodicSyncManager {
         event_view.GetSyncHandle(),
         event_view.GetAdvertisingSid(),
         (uint8_t)event_view.GetAdvertiserAddressType(),
-        event_view.GetAdvertiserAddress().ToString().c_str(),
+        ADDRESS_TO_LOGGABLE_CSTR(event_view.GetAdvertiserAddress()),
         advertiser_phy,
         event_view.GetPeriodicAdvertisingInterval(),
         (uint8_t)event_view.GetAdvertiserClockAccuracy());
@@ -378,7 +386,7 @@ class PeriodicSyncManager {
         "%s: sync timeout SID=%04X, bd_addr=%s",
         __func__,
         request.advertiser_sid,
-        request.address_with_type.ToString().c_str());
+        ADDRESS_TO_LOGGABLE_CSTR(request.address_with_type));
     uint8_t adv_sid = request.advertiser_sid;
     AddressWithType address_with_type = request.address_with_type;
     auto sync = GetSyncFromAddressWithTypeAndSid(address_with_type, adv_sid);
@@ -389,6 +397,29 @@ class PeriodicSyncManager {
     callbacks_->OnPeriodicSyncStarted(
         sync->request_id, status, 0, sync->advertiser_sid, request.address_with_type, 0, 0);
     RemoveSyncRequest(sync);
+  }
+
+  void HandleLeBigInfoAdvertisingReport(LeBigInfoAdvertisingReportView event_view) {
+    ASSERT(event_view.IsValid());
+    LOG_DEBUG(
+        "[PAST]:sync_handle %u, num_bises = %u, nse = %u,"
+        "iso_interval = %d, bn = %u, pto = %u, irc = %u, max_pdu = %u "
+        "sdu_interval = %d, max_sdu = %u, phy = %u, framing = %u, encryption  = "
+        "%u",
+        event_view.GetSyncHandle(), event_view.GetNumBis(), event_view.GetNse(),
+        event_view.GetIsoInterval(), event_view.GetBn(), event_view.GetPto(), event_view.GetIrc(),
+        event_view.GetMaxPdu(), event_view.GetSduInterval(), event_view.GetMaxSdu(),
+        static_cast<uint32_t>(event_view.GetPhy()), static_cast<uint32_t>(event_view.GetFraming()),
+        static_cast<uint32_t>(event_view.GetEncryption()));
+
+    uint16_t sync_handle = event_view.GetSyncHandle();
+    auto periodic_sync = GetEstablishedSyncFromHandle(sync_handle);
+    if (periodic_sync == periodic_syncs_.end()) {
+      LOG_ERROR("[PSync]: index not found for handle %u", sync_handle);
+      return;
+    }
+    LOG_DEBUG("%s", "[PSync]: invoking callback");
+    callbacks_->OnBigInfoReport(sync_handle, event_view.GetEncryption() == Enable::ENABLED ? true : false);
   }
 
  private:
@@ -445,11 +476,13 @@ class PeriodicSyncManager {
   }
 
   void HandleStartSyncRequest(uint8_t sid, const AddressWithType& address_with_type, uint16_t skip, uint16_t timeout) {
-    auto options = static_cast<PeriodicAdvertisingOptions>(0);
-    auto sync_cte_type = static_cast<PeriodicSyncCteType>(
+    PeriodicAdvertisingOptions options;
+    auto sync_cte_type =
         static_cast<uint8_t>(PeriodicSyncCteType::AVOID_AOA_CONSTANT_TONE_EXTENSION) |
-        static_cast<uint8_t>(PeriodicSyncCteType::AVOID_AOD_CONSTANT_TONE_EXTENSION_WITH_ONE_US_SLOTS) |
-        static_cast<uint8_t>(PeriodicSyncCteType::AVOID_AOD_CONSTANT_TONE_EXTENSION_WITH_TWO_US_SLOTS));
+        static_cast<uint8_t>(
+            PeriodicSyncCteType::AVOID_AOD_CONSTANT_TONE_EXTENSION_WITH_ONE_US_SLOTS) |
+        static_cast<uint8_t>(
+            PeriodicSyncCteType::AVOID_AOD_CONSTANT_TONE_EXTENSION_WITH_TWO_US_SLOTS);
     auto sync = GetSyncFromAddressWithTypeAndSid(address_with_type, sid);
     sync->sync_state = PERIODIC_SYNC_STATE_PENDING;
     AdvertisingAddressType advertisingAddressType =
@@ -469,7 +502,7 @@ class PeriodicSyncManager {
     LOG_INFO(
         "executing sync request SID=%04X, bd_addr=%s",
         request.advertiser_sid,
-        request.address_with_type.ToString().c_str());
+        ADDRESS_TO_LOGGABLE_CSTR(request.address_with_type));
     if (request.busy) {
       LOG_INFO("Request is already busy");
       return;
@@ -499,7 +532,7 @@ class PeriodicSyncManager {
         LOG_INFO(
             "removing connection request SID=%04X, bd_addr=%s, busy=%d",
             it->advertiser_sid,
-            it->address_with_type.GetAddress().ToString().c_str(),
+            ADDRESS_TO_LOGGABLE_CSTR(it->address_with_type),
             it->busy);
         it = pending_sync_requests_.erase(it);
       } else {

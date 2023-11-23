@@ -30,7 +30,7 @@ class ComposerCommandEngine {
   public:
       ComposerCommandEngine(IComposerHal* hal, IResourceManager* resources)
             : mHal(hal), mResources(resources) {}
-      bool init();
+      int32_t init();
 
       int32_t execute(const std::vector<DisplayCommand>& commands,
                       std::vector<CommandResultPayload>* result);

@@ -17,7 +17,7 @@
  *
  ******************************************************************************/
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/location.h>
 #include <base/logging.h>
 #include <base/memory/weak_ptr.h>
@@ -46,7 +46,7 @@ using RegisterCb =
 using IdTxPowerStatusCb = base::Callback<void(
     uint8_t /* inst_id */, int8_t /* tx_power */, uint8_t /* status */)>;
 using SetEnableData = BleAdvertiserHciInterface::SetEnableData;
-extern void btm_gen_resolvable_private_addr(
+void btm_gen_resolvable_private_addr(
     base::Callback<void(const RawAddress& rpa)> cb);
 
 constexpr int ADV_DATA_LEN_MAX = 251;
@@ -71,6 +71,7 @@ struct AdvertisingInstance {
   MultiAdvCb timeout_cb;
   bool address_update_required;
   bool periodic_enabled;
+  bool periodic_include_adi;
   uint32_t advertising_interval;  // 1 unit is 0.625 ms
 
   /* When true, advertising set is enabled, or last scheduled call to "LE Set
@@ -100,6 +101,7 @@ struct AdvertisingInstance {
         own_address(RawAddress::kEmpty),
         address_update_required(false),
         periodic_enabled(false),
+        periodic_include_adi(false),
         enable_status(false) {
     adv_raddr_timer = alarm_new_periodic("btm_ble.adv_raddr_timer");
   }
@@ -552,7 +554,8 @@ class BleAdvertisingManagerImpl
               return;
             }
 
-            c->self->SetPeriodicAdvertisingEnable(c->inst_id, true, Bind(
+            c->self->SetPeriodicAdvertisingEnable(c->inst_id, c->periodic_params.enable,
+                                                  c->periodic_params.include_adi, Bind(
               [](c_type c, uint8_t status) {
                 if (!c->self) {
                   LOG(INFO) << "Stack was shut down";
@@ -838,8 +841,8 @@ class BleAdvertisingManagerImpl
                    base::Unretained(GetHciInterface())));
   }
 
-  void SetPeriodicAdvertisingEnable(uint8_t inst_id, uint8_t enable,
-                                    MultiAdvCb cb) override {
+  void SetPeriodicAdvertisingEnable(uint8_t inst_id, bool enable,
+                                    bool include_adi, MultiAdvCb cb) override {
     VLOG(1) << __func__ << " inst_id: " << +inst_id << ", enable: " << +enable;
 
     AdvertisingInstance* p_inst = &adv_inst[inst_id];
@@ -850,19 +853,22 @@ class BleAdvertisingManagerImpl
     }
 
     MultiAdvCb enable_cb = Bind(
-        [](AdvertisingInstance* p_inst, uint8_t enable, MultiAdvCb cb,
-           uint8_t status) {
+        [](AdvertisingInstance* p_inst, bool enable, bool include_adi,
+           MultiAdvCb cb, uint8_t status) {
           VLOG(1) << "periodc adv enable cb: inst_id: " << +p_inst->inst_id
-                  << ", enable: " << +enable << ", status: " << std::hex
-                  << +status;
-          if (!status) p_inst->periodic_enabled = enable;
+                  << ", enable: " << enable << ", include_adi: " << include_adi
+                  << ", status: " << std::hex << +status;
+          if (!status) {
+            p_inst->periodic_enabled = enable;
+            p_inst->periodic_include_adi = include_adi;
+          }
 
           cb.Run(status);
         },
-        p_inst, enable, std::move(cb));
+        p_inst, enable, include_adi, std::move(cb));
 
-    GetHciInterface()->SetPeriodicAdvertisingEnable(enable, inst_id,
-                                                    std::move(enable_cb));
+    GetHciInterface()->SetPeriodicAdvertisingEnable(
+        enable, include_adi, inst_id, std::move(enable_cb));
   }
 
   void Unregister(uint8_t inst_id) override {
@@ -881,7 +887,8 @@ class BleAdvertisingManagerImpl
 
     if (p_inst->periodic_enabled) {
       p_inst->periodic_enabled = false;
-      GetHciInterface()->SetPeriodicAdvertisingEnable(false, inst_id,
+      p_inst->periodic_include_adi = false;
+      GetHciInterface()->SetPeriodicAdvertisingEnable(false, false, inst_id,
                                                       base::DoNothing());
     }
 
@@ -969,11 +976,6 @@ class BleAdvertisingManagerImpl
 
       p_inst->timeout_cb.Run(status);
       return;
-    }
-
-    if (BTM_BleLocalPrivacyEnabled() &&
-        advertising_handle <= BTM_BLE_MULTI_ADV_MAX) {
-      btm_acl_update_conn_addr(connection_handle, p_inst->own_address);
     }
 
     VLOG(1) << "reneabling advertising";

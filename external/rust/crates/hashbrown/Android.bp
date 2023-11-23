@@ -37,21 +37,101 @@ license {
     ],
 }
 
-rust_library {
-    name: "libhashbrown",
-    // has rustc warnings
+rust_test {
+    name: "hashbrown_test_src_lib",
     host_supported: true,
     crate_name: "hashbrown",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.11.2",
+    cargo_pkg_version: "0.12.3",
     srcs: ["src/lib.rs"],
-    edition: "2018",
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
+    edition: "2021",
     features: [
         "ahash",
         "default",
         "inline-more",
+        "raw",
+    ],
+    rustlibs: [
+        "libahash",
+        "libfnv",
+        "liblazy_static",
+        "librand",
+        "librayon",
+        "libserde_test",
+    ],
+}
+
+rust_defaults {
+    name: "hashbrown_test_defaults",
+    crate_name: "hashbrown",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.12.3",
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    edition: "2021",
+    features: [
+        "ahash",
+        "default",
+        "inline-more",
+        "raw",
+    ],
+    rustlibs: [
+        "libahash",
+        "libfnv",
+        "libhashbrown",
+        "liblazy_static",
+        "librand",
+        "librayon",
+        "libserde_test",
+    ],
+}
+
+rust_test {
+    name: "hashbrown_test_tests_hasher",
+    defaults: ["hashbrown_test_defaults"],
+    host_supported: true,
+    srcs: ["tests/hasher.rs"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
+rust_test {
+    name: "hashbrown_test_tests_set",
+    defaults: ["hashbrown_test_defaults"],
+    host_supported: true,
+    srcs: ["tests/set.rs"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
+rust_library {
+    name: "libhashbrown",
+    host_supported: true,
+    crate_name: "hashbrown",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.12.3",
+    srcs: ["src/lib.rs"],
+    edition: "2021",
+    features: [
+        "ahash",
+        "default",
+        "inline-more",
+        "raw",
     ],
     rustlibs: [
         "libahash",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }

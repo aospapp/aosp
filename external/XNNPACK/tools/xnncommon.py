@@ -30,12 +30,22 @@ _ARCH_TO_MACRO_MAP = {
   "wasmrelaxedsimd": "XNN_ARCH_WASMRELAXEDSIMD",
 }
 
+# Mapping from ISA extension to macro guarding build-time enabled/disabled
+# status for the ISA. Only ISAs that can be enabled/disabled have an entry.
+_ISA_TO_MACRO_MAP = {
+  "neonfp16arith": "XNN_ENABLE_ARM_FP16",
+  "neonbf16": "XNN_ENABLE_ARM_BF16",
+  "neondot": "XNN_ENABLE_ARM_DOTPROD",
+}
+
 _ISA_TO_ARCH_MAP = {
+  "armsimd32": ["aarch32"],
   "neon": ["aarch32", "aarch64"],
   "neonfp16": ["aarch32", "aarch64"],
   "neonfma": ["aarch32", "aarch64"],
   "neonv8": ["aarch32", "aarch64"],
   "neonfp16arith": ["aarch32", "aarch64"],
+  "neonbf16": ["aarch32", "aarch64"],
   "neondot": ["aarch32", "aarch64"],
   "sse": ["x86-32", "x86-64"],
   "sse2": ["x86-32", "x86-64"],
@@ -55,11 +65,13 @@ _ISA_TO_ARCH_MAP = {
 }
 
 _ISA_TO_CHECK_MAP = {
+  "armsimd32": "TEST_REQUIRES_ARM_SIMD32",
   "neon": "TEST_REQUIRES_ARM_NEON",
   "neonfp16": "TEST_REQUIRES_ARM_NEON_FP16",
   "neonfma": "TEST_REQUIRES_ARM_NEON_FMA",
   "neonv8": "TEST_REQUIRES_ARM_NEON_V8",
   "neonfp16arith": "TEST_REQUIRES_ARM_NEON_FP16_ARITH",
+  "neonbf16": "TEST_REQUIRES_ARM_NEON_BF16",
   "neondot": "TEST_REQUIRES_ARM_NEON_DOT",
   "sse": "TEST_REQUIRES_X86_SSE",
   "sse2": "TEST_REQUIRES_X86_SSE2",
@@ -108,6 +120,11 @@ def postprocess_test_case(test_case, arch, isa, assembly=False, jit=False):
   test_case = _remove_duplicate_newlines(test_case)
   if arch:
     guard = " || ".join(arch_to_macro(a, isa) for a in arch)
+    if isa in _ISA_TO_MACRO_MAP:
+      if len(arch) > 1:
+        guard = "%s && (%s)" % (_ISA_TO_MACRO_MAP[isa], guard)
+      else:
+        guard = "%s && %s" % (_ISA_TO_MACRO_MAP[isa], guard)
     if assembly:
       guard += " && XNN_ENABLE_ASSEMBLY"
     if jit:

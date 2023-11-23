@@ -21,7 +21,6 @@
 #include "avrc_api.h"
 #include "avrc_defs.h"
 #include "avrc_int.h"
-#include "bt_utils.h"
 #include "osi/include/allocator.h"
 #include "osi/include/osi.h"
 #include "stack/include/bt_hdr.h"
@@ -907,7 +906,7 @@ static tAVRC_STS avrc_bld_get_folder_items_rsp(tAVRC_GET_ITEMS_RSP* p_rsp,
   uint8_t *p_data, *p_start;
   uint8_t *p_len, xx;
   uint16_t len;
-  uint16_t item_len;
+  size_t item_len;
   uint8_t *p_item_len, yy;
   tAVRC_ITEM_PLAYER* p_player;
   tAVRC_ITEM_FOLDER* p_folder;
@@ -928,6 +927,15 @@ static tAVRC_STS avrc_bld_get_folder_items_rsp(tAVRC_GET_ITEMS_RSP* p_rsp,
   p = (uint8_t*)(p_pkt + 1);
   BE_STREAM_TO_UINT16(mtu, p);
   if (len_left > mtu) len_left = mtu;
+
+  // according to spec
+  // Version 5.3 | Vol 3, Part A, Chapter 5
+  // MTU may be controlled by the peer
+  if (len_left < p_pkt->offset  + p_pkt->len) {
+    AVRC_TRACE_ERROR("memory not enough (len_left=%d)", len_left);
+    return AVRC_STS_INTERNAL_ERR;
+  }
+
   len_left = len_left - p_pkt->offset - p_pkt->len;
 
   /* get the existing length, if any, and also the num attributes */
@@ -944,6 +952,12 @@ static tAVRC_STS avrc_bld_get_folder_items_rsp(tAVRC_GET_ITEMS_RSP* p_rsp,
     item_count = 0;
     p_data += 2;
     len = 5;
+
+    if (len_left < 5) {
+      AVRC_TRACE_ERROR("memory not enough (len_left=%d)", len_left);
+      return AVRC_STS_INTERNAL_ERR;
+    }
+
     len_left -= 5;
   } else {
     p_data = p_start + p_pkt->len;
@@ -1036,8 +1050,8 @@ static tAVRC_STS avrc_bld_get_folder_items_rsp(tAVRC_GET_ITEMS_RSP* p_rsp,
         p_attr = p_media->p_attr_list;
         for (yy = 0; yy < p_media->attr_count; yy++) {
           /* len required: 4 + 2 + 2 + str_len */
-          const uint16_t attribute_len = p_attr[yy].name.str_len + 8;
-          if (item_len_left < attribute_len || !p_attr[yy].name.p_str ||
+          const size_t attribute_len = p_attr[yy].name.str_len + 8;
+          if (attribute_len_left < attribute_len || !p_attr[yy].name.p_str ||
               AVRC_IS_VALID_MEDIA_ATTRIBUTE(p_attr[yy].attr_id)) {
             if (attribute_len_left < attribute_len && item_count > 0) {
               multi_items_add_fail = true;

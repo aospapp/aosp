@@ -16,22 +16,27 @@
 
 package dagger.internal.codegen.componentgenerator;
 
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.squareup.javapoet.MethodSpec.constructorBuilder;
-import static dagger.internal.codegen.binding.ComponentCreatorKind.BUILDER;
-import static dagger.internal.codegen.componentgenerator.ComponentGenerator.componentName;
+import static dagger.internal.codegen.base.ComponentCreatorKind.BUILDER;
 import static dagger.internal.codegen.javapoet.TypeSpecs.addSupertype;
 import static dagger.internal.codegen.langmodel.Accessibility.isElementAccessibleFrom;
-import static javax.lang.model.element.Modifier.ABSTRACT;
+import static dagger.internal.codegen.writing.ComponentNames.getRootComponentClassName;
+import static dagger.internal.codegen.xprocessing.XElements.getSimpleName;
+import static dagger.internal.codegen.xprocessing.XTypeElements.getAllUnimplementedMethods;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 
-import com.google.auto.common.MoreTypes;
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XFiler;
+import androidx.room.compiler.processing.XMethodElement;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -39,25 +44,19 @@ import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
-import dagger.BindsInstance;
+import dagger.internal.codegen.base.ComponentCreatorKind;
 import dagger.internal.codegen.base.SourceFileGenerator;
 import dagger.internal.codegen.binding.ComponentCreatorDescriptor;
-import dagger.internal.codegen.binding.ComponentCreatorKind;
 import dagger.internal.codegen.binding.ComponentDescriptor;
 import dagger.internal.codegen.binding.ComponentRequirement;
-import dagger.internal.codegen.kotlin.KotlinMetadataUtil;
+import dagger.internal.codegen.binding.MethodSignature;
+import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.internal.codegen.langmodel.DaggerElements;
-import dagger.internal.codegen.langmodel.DaggerTypes;
-import dagger.producers.internal.CancellationListener;
+import dagger.internal.codegen.xprocessing.MethodSpecs;
 import java.util.Set;
 import java.util.stream.Stream;
-import javax.annotation.processing.Filer;
 import javax.inject.Inject;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
 
 /**
  * A component generator that emits only API, without any actual implementation.
@@ -73,40 +72,28 @@ import javax.lang.model.type.DeclaredType;
  * normal step. Method bodies are omitted as Turbine ignores them entirely.
  */
 final class ComponentHjarGenerator extends SourceFileGenerator<ComponentDescriptor> {
-  private final DaggerElements elements;
-  private final DaggerTypes types;
-  private final KotlinMetadataUtil metadataUtil;
-
   @Inject
-  ComponentHjarGenerator(
-      Filer filer,
-      DaggerElements elements,
-      DaggerTypes types,
-      SourceVersion sourceVersion,
-      KotlinMetadataUtil metadataUtil) {
+  ComponentHjarGenerator(XFiler filer, DaggerElements elements, SourceVersion sourceVersion) {
     super(filer, elements, sourceVersion);
-    this.elements = elements;
-    this.types = types;
-    this.metadataUtil = metadataUtil;
   }
 
   @Override
-  public Element originatingElement(ComponentDescriptor input) {
+  public XElement originatingElement(ComponentDescriptor input) {
     return input.typeElement();
   }
 
   @Override
   public ImmutableList<TypeSpec.Builder> topLevelTypes(ComponentDescriptor componentDescriptor) {
-    ClassName generatedTypeName = componentName(componentDescriptor.typeElement());
+    ClassName generatedTypeName = getRootComponentClassName(componentDescriptor);
     TypeSpec.Builder generatedComponent =
         TypeSpec.classBuilder(generatedTypeName)
             .addModifiers(FINAL)
             .addMethod(privateConstructor());
-    if (componentDescriptor.typeElement().getModifiers().contains(PUBLIC)) {
+    if (componentDescriptor.typeElement().isPublic()) {
       generatedComponent.addModifiers(PUBLIC);
     }
 
-    TypeElement componentElement = componentDescriptor.typeElement();
+    XTypeElement componentElement = componentDescriptor.typeElement();
     addSupertype(generatedComponent, componentElement);
 
     TypeName builderMethodReturnType;
@@ -114,7 +101,7 @@ final class ComponentHjarGenerator extends SourceFileGenerator<ComponentDescript
     boolean noArgFactoryMethod;
     if (componentDescriptor.creatorDescriptor().isPresent()) {
       ComponentCreatorDescriptor creatorDescriptor = componentDescriptor.creatorDescriptor().get();
-      builderMethodReturnType = ClassName.get(creatorDescriptor.typeElement());
+      builderMethodReturnType = creatorDescriptor.typeElement().getClassName();
       creatorKind = creatorDescriptor.kind();
       noArgFactoryMethod = creatorDescriptor.factoryParameters().isEmpty();
     } else {
@@ -122,7 +109,7 @@ final class ComponentHjarGenerator extends SourceFileGenerator<ComponentDescript
           TypeSpec.classBuilder("Builder")
               .addModifiers(STATIC, FINAL)
               .addMethod(privateConstructor());
-      if (componentDescriptor.typeElement().getModifiers().contains(PUBLIC)) {
+      if (componentDescriptor.typeElement().isPublic()) {
         builder.addModifiers(PUBLIC);
       }
 
@@ -142,21 +129,18 @@ final class ComponentHjarGenerator extends SourceFileGenerator<ComponentDescript
     if (noArgFactoryMethod
         && !hasBindsInstanceMethods(componentDescriptor)
         && componentRequirements(componentDescriptor)
-            .noneMatch(
-                requirement -> requirement.requiresAPassedInstance(elements, metadataUtil))) {
+            .noneMatch(ComponentRequirement::requiresAPassedInstance)) {
       generatedComponent.addMethod(createMethod(componentDescriptor));
     }
 
-    DeclaredType componentType = MoreTypes.asDeclared(componentElement.asType());
+    XType componentType = componentElement.getType();
     // TODO(ronshapiro): unify with ComponentImplementationBuilder
     Set<MethodSignature> methodSignatures =
         Sets.newHashSetWithExpectedSize(componentDescriptor.componentMethods().size());
     componentDescriptor.componentMethods().stream()
         .filter(
-            method -> {
-              return methodSignatures.add(
-                  MethodSignature.forComponentMethod(method, componentType, types));
-            })
+            method ->
+                methodSignatures.add(MethodSignature.forComponentMethod(method, componentType)))
         .forEach(
             method ->
                 generatedComponent.addMethod(
@@ -164,16 +148,15 @@ final class ComponentHjarGenerator extends SourceFileGenerator<ComponentDescript
 
     if (componentDescriptor.isProduction()) {
       generatedComponent
-          .addSuperinterface(ClassName.get(CancellationListener.class))
+          .addSuperinterface(TypeNames.CANCELLATION_LISTENER)
           .addMethod(onProducerFutureCancelledMethod());
     }
 
     return ImmutableList.of(generatedComponent);
   }
 
-  private MethodSpec emptyComponentMethod(TypeElement typeElement, ExecutableElement baseMethod) {
-    return MethodSpec.overriding(baseMethod, MoreTypes.asDeclared(typeElement.asType()), types)
-        .build();
+  private MethodSpec emptyComponentMethod(XTypeElement typeElement, XMethodElement baseMethod) {
+    return MethodSpecs.overriding(baseMethod, typeElement.getType()).build();
   }
 
   private static MethodSpec privateConstructor() {
@@ -194,40 +177,32 @@ final class ComponentHjarGenerator extends SourceFileGenerator<ComponentDescript
         component.modules().stream()
             .filter(
                 module ->
-                    !module.moduleElement().getModifiers().contains(ABSTRACT)
+                    !module.moduleElement().isAbstract()
                         && isElementAccessibleFrom(
                             module.moduleElement(),
-                            ClassName.get(component.typeElement()).packageName()))
-            .map(module -> ComponentRequirement.forModule(module.moduleElement().asType())));
+                            component.typeElement().getClassName().packageName()))
+            .map(module -> ComponentRequirement.forModule(module.moduleElement().getType())));
   }
 
   private boolean hasBindsInstanceMethods(ComponentDescriptor componentDescriptor) {
     return componentDescriptor.creatorDescriptor().isPresent()
-        && elements
-            .getUnimplementedMethods(componentDescriptor.creatorDescriptor().get().typeElement())
+        && getAllUnimplementedMethods(componentDescriptor.creatorDescriptor().get().typeElement())
             .stream()
             .anyMatch(method -> isBindsInstance(method));
   }
 
-  private static boolean isBindsInstance(ExecutableElement method) {
-    if (isAnnotationPresent(method, BindsInstance.class)) {
-      return true;
-    }
-
-    if (method.getParameters().size() == 1) {
-      return isAnnotationPresent(method.getParameters().get(0), BindsInstance.class);
-    }
-
-    return false;
+  private static boolean isBindsInstance(XMethodElement method) {
+    return method.hasAnnotation(TypeNames.BINDS_INSTANCE)
+        || (method.getParameters().size() == 1
+            && getOnlyElement(method.getParameters()).hasAnnotation(TypeNames.BINDS_INSTANCE));
   }
 
   private static MethodSpec builderSetterMethod(
-      TypeElement componentRequirement, ClassName builderClass) {
-    String simpleName =
-        UPPER_CAMEL.to(LOWER_CAMEL, componentRequirement.getSimpleName().toString());
+      XTypeElement componentRequirement, ClassName builderClass) {
+    String simpleName = UPPER_CAMEL.to(LOWER_CAMEL, getSimpleName(componentRequirement));
     return MethodSpec.methodBuilder(simpleName)
         .addModifiers(PUBLIC)
-        .addParameter(ClassName.get(componentRequirement), simpleName)
+        .addParameter(componentRequirement.getClassName(), simpleName)
         .returns(builderClass)
         .build();
   }
@@ -235,7 +210,7 @@ final class ComponentHjarGenerator extends SourceFileGenerator<ComponentDescript
   private static MethodSpec builderBuildMethod(ComponentDescriptor component) {
     return MethodSpec.methodBuilder("build")
         .addModifiers(PUBLIC)
-        .returns(ClassName.get(component.typeElement()))
+        .returns(component.typeElement().getClassName())
         .build();
   }
 
@@ -250,7 +225,7 @@ final class ComponentHjarGenerator extends SourceFileGenerator<ComponentDescript
   private static MethodSpec createMethod(ComponentDescriptor componentDescriptor) {
     return MethodSpec.methodBuilder("create")
         .addModifiers(PUBLIC, STATIC)
-        .returns(ClassName.get(componentDescriptor.typeElement()))
+        .returns(componentDescriptor.typeElement().getClassName())
         .build();
   }
 

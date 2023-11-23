@@ -32,7 +32,7 @@
     <string name="app_label" msgid="3863159788297913185">"အရေးပေါ်သတိပေးချက်များ"</string>
     <string name="sms_cb_settings" msgid="4187131985831792308">"အရေးပေါ်သတိပေးချက်များ"</string>
     <string name="enable_alerts_master_toggle_summary" msgid="805446672915814777">"အရေးပေါ်သတိပေးချက် အကြောင်းကြားချက်များကို လက်ခံသည်"</string>
-    <string name="enable_alert_speech_summary" msgid="5021926525240750702">"အရေးပေါ်သတိပေးချက် မက်ဆေ့ဂျ်များ ပြောကြားရန် စာသားမှ စကားပြောသို့ကို အသုံးပြုသည်"</string>
+    <string name="enable_alert_speech_summary" msgid="5021926525240750702">"အရေးပေါ်သတိပေးချက် မက်ဆေ့ဂျ်များ ပြောကြားရန် စာ-မှ-စကား ကို အသုံးပြုသည်"</string>
     <string name="cmas_opt_out_dialog_text" msgid="1972978578760513449">"လောလောဆယ်တွင် အရေးပေါ်သတိပေးချက်များကို ရရှိနေသည်။ အရေးပေါ်သတိပေးချက်များကို ဆက်လက်ရယူလိုပါသလား။"</string>
     <string name="emergency_alert_settings_title_watches" msgid="5299419351642118203">"အရေးပေါ်သတိပေးချက်များ"</string>
     <string name="notification_cb_settings_changed_text" msgid="6861845802821634203">"အရေးပေါ်သတိပေးချက် ဆက်တင်များကို ကြည့်ရန် တို့ပါ"</string>

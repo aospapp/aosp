@@ -1,11 +1,13 @@
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "power_Display.fast"
 PURPOSE = "Measure display power usage."
+
 CRITERIA = "This test is a benchmark."
 TIME = "SHORT"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This test makes sure that power_Display works.

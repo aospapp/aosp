@@ -31,13 +31,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.provider.DeviceConfig;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.Until;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.Until;
 
 import com.android.server.clipboard.ClipboardService;
 
@@ -79,7 +79,9 @@ public class ClipboardAutoClearTest {
 
     @After
     public void cleanUp() {
-        mClipboardManager.clearPrimaryClip();
+        if (mClipboardManager != null) {
+            mClipboardManager.clearPrimaryClip();
+        }
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
                 .dropShellPermissionIdentity();
     }

@@ -33,9 +33,9 @@ import android.os.Handler;
 import android.os.HandlerExecutor;
 import android.os.HandlerThread;
 import android.platform.test.annotations.AppModeFull;
-import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.SparseArray;
+
 import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 
@@ -48,6 +48,9 @@ public class EasyConnectStatusCallbackTest extends WifiJUnit3TestBase {
     private static final String TEST_SSID = "\"testSsid\"";
     private static final String TEST_PASSPHRASE = "\"testPassword\"";
     private static final int TEST_WAIT_DURATION_MS = 22_000; // Long delay is necessary, see below
+    // Supplicant retries the Tx frame 5 times and may set 10 seconds wait time for scheduling
+    // the Tx frames(5*10 seconds + overhead)
+    private static final int TEST_TX_FRAME_RESPONSE_WAIT_TIME_MS = 55_000;
     private WifiManager mWifiManager;
     private static final String TEST_DPP_URI =
             "DPP:C:81/1,117/40;I:Easy_Connect_Demo;M:000102030405;"
@@ -129,6 +132,20 @@ public class EasyConnectStatusCallbackTest extends WifiJUnit3TestBase {
     };
 
     /**
+     * Cleanup the DPP resources in WiFi stack.
+     *
+     * Caller should set the wait if the test doesn’t receive a
+     * response(success or failure) from the WiFi stack. This is for the
+     * stop/abort Easy Connect operation call to reach the stack and execute.
+     */
+    private void cleanupEasyConnectSession(boolean wait) throws Exception {
+        mWifiManager.stopEasyConnectSession();
+        if (wait) {
+            Thread.sleep(2000);
+        }
+    }
+
+    /**
      * Tests {@link android.net.wifi.EasyConnectStatusCallback} class.
      *
      * Since Easy Connect requires 2 devices, start Easy Connect session and expect an error.
@@ -157,12 +174,12 @@ public class EasyConnectStatusCallbackTest extends WifiJUnit3TestBase {
                         EASY_CONNECT_NETWORK_ROLE_STA, mExecutor, mEasyConnectStatusCallback);
                 // Note: A long delay is necessary because there is no enrollee, and the system
                 // tries to discover it. We will wait for a timeout error to occur.
-                mLock.wait(TEST_WAIT_DURATION_MS);
+                mLock.wait(TEST_TX_FRAME_RESPONSE_WAIT_TIME_MS);
             }
             mWifiManager.removeNetwork(networkId);
+            cleanupEasyConnectSession(mOnFailureCallback ? false : true);
             assertTrue(mOnFailureCallback);
             assertEquals(EASY_CONNECT_EVENT_FAILURE_TIMEOUT, mErrorCode);
-            mWifiManager.stopEasyConnectSession();
         } finally {
             uiAutomation.dropShellPermissionIdentity();
         }
@@ -190,11 +207,11 @@ public class EasyConnectStatusCallbackTest extends WifiJUnit3TestBase {
                         mEasyConnectStatusCallback);
                 // Note: A long delay is necessary because there is no configurator, and the system
                 // tries to discover it. We will wait for a timeout error to occur.
-                mLock.wait(TEST_WAIT_DURATION_MS);
+                mLock.wait(TEST_TX_FRAME_RESPONSE_WAIT_TIME_MS);
             }
+            cleanupEasyConnectSession(mOnFailureCallback ? false : true);
             assertTrue(mOnFailureCallback);
             assertEquals(EASY_CONNECT_EVENT_FAILURE_TIMEOUT, mErrorCode);
-            mWifiManager.stopEasyConnectSession();
         } finally {
             uiAutomation.dropShellPermissionIdentity();
         }
@@ -229,8 +246,8 @@ public class EasyConnectStatusCallbackTest extends WifiJUnit3TestBase {
                 // provide the generated URI.
                 mLock.wait(TEST_WAIT_DURATION_MS);
             }
+            cleanupEasyConnectSession(true);
             assertTrue(mOnBootstrapUriGeneratedCallback);
-            mWifiManager.stopEasyConnectSession();
         } finally {
             uiAutomation.dropShellPermissionIdentity();
         }

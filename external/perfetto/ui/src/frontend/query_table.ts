@@ -13,25 +13,60 @@
 // limitations under the License.
 
 
-import * as m from 'mithril';
+import m from 'mithril';
+import {BigintMath} from '../base/bigint_math';
 
 import {Actions} from '../common/actions';
 import {QueryResponse} from '../common/queries';
-import {Row} from '../common/query_result';
-import {fromNs} from '../common/time';
+import {ColumnType, Row} from '../common/query_result';
+import {TPTime, tpTimeFromNanos} from '../common/time';
+import {TPDuration} from '../common/time';
 
-import {queryResponseToClipboard} from './clipboard';
+import {Anchor} from './anchor';
+import {copyToClipboard, queryResponseToClipboard} from './clipboard';
+import {downloadData} from './download_utils';
 import {globals} from './globals';
 import {Panel} from './panel';
 import {Router} from './router';
 import {
-  horizontalScrollAndZoomToRange,
-  verticalScrollToTrack
+  focusHorizontalRange,
+  verticalScrollToTrack,
 } from './scroll_helper';
+import {Button} from './widgets/button';
 
 interface QueryTableRowAttrs {
   row: Row;
   columns: string[];
+}
+
+// Convert column value to number if it's a bigint or a number, otherwise throw
+function colToTimestamp(colValue: ColumnType): TPTime {
+  if (typeof colValue === 'bigint') {
+    return colValue;
+  } else if (typeof colValue === 'number') {
+    return tpTimeFromNanos(colValue);
+  } else {
+    throw Error('Value is not a number or a bigint');
+  }
+}
+
+function colToNumber(colValue: ColumnType): number {
+  if (typeof colValue === 'bigint') {
+    return Number(colValue);
+  } else if (typeof colValue === 'number') {
+    return colValue;
+  } else {
+    throw Error('Value is not a number or a bigint');
+  }
+}
+
+function colToDuration(colValue: ColumnType): TPDuration {
+  return colToTimestamp(colValue);
+}
+
+function clampDurationLower(
+    dur: TPDuration, lowerClamp: TPDuration): TPDuration {
+  return BigintMath.max(dur, lowerClamp);
 }
 
 class QueryTableRow implements m.ClassComponent<QueryTableRowAttrs> {
@@ -51,20 +86,21 @@ class QueryTableRow implements m.ClassComponent<QueryTableRowAttrs> {
     // the slice.
     event.stopPropagation();
 
-    const sliceStart = fromNs(row.ts as number);
+    const sliceStart = colToTimestamp(row.ts);
     // row.dur can be negative. Clamp to 1ns.
-    const sliceDur = fromNs(Math.max(row.dur as number, 1));
+    const sliceDur = clampDurationLower(colToDuration(row.dur), 1n);
     const sliceEnd = sliceStart + sliceDur;
-    const trackId = row.track_id as number;
+    const trackId = colToNumber(row.track_id);
     const uiTrackId = globals.state.uiTrackIdByTraceTrackId[trackId];
     if (uiTrackId === undefined) return;
     verticalScrollToTrack(uiTrackId, true);
-    horizontalScrollAndZoomToRange(sliceStart, sliceEnd);
+    focusHorizontalRange(sliceStart, sliceEnd);
+
     let sliceId: number|undefined;
     if (row.type?.toString().includes('slice')) {
-      sliceId = row.id as number | undefined;
+      sliceId = colToNumber(row.id);
     } else {
-      sliceId = row.slice_id as number | undefined;
+      sliceId = colToNumber(row.slice_id);
     }
     if (sliceId !== undefined) {
       globals.makeSelection(
@@ -79,7 +115,20 @@ class QueryTableRow implements m.ClassComponent<QueryTableRowAttrs> {
     const cells = [];
     const {row, columns} = vnode.attrs;
     for (const col of columns) {
-      cells.push(m('td', row[col]));
+      const value = row[col];
+      if (value instanceof Uint8Array) {
+        cells.push(
+            m('td',
+              m(Anchor,
+                {
+                  onclick: () => downloadData(`${col}.blob`, value),
+                },
+                `Blob (${value.length} bytes)`)));
+      } else if (typeof value === 'bigint') {
+        cells.push(m('td', value.toString()));
+      } else {
+        cells.push(m('td', value));
+      }
     }
     const containsSliceLocation =
         QueryTableRow.columnsContainsSliceLocation(columns);
@@ -93,72 +142,97 @@ class QueryTableRow implements m.ClassComponent<QueryTableRowAttrs> {
     return m(
         'tr',
         {
-          onclick: maybeOnClick,
+          'onclick': maybeOnClick,
           // TODO(altimin): Consider improving the logic here (e.g. delay?) to
           // account for cases when dblclick fires late.
-          ondblclick: maybeOnDblClick,
-          'clickable': containsSliceLocation
+          'ondblclick': maybeOnDblClick,
+          'clickable': containsSliceLocation,
         },
         cells);
   }
 }
 
-interface QueryTableAttrs {
-  queryId: string;
+interface QueryTableContentAttrs {
+  resp: QueryResponse;
 }
 
-export class QueryTable extends Panel<QueryTableAttrs> {
+class QueryTableContent implements m.ClassComponent<QueryTableContentAttrs> {
   private previousResponse?: QueryResponse;
 
-  onbeforeupdate(vnode: m.CVnode<QueryTableAttrs>) {
-    const {queryId} = vnode.attrs;
-    const resp = globals.queryResults.get(queryId) as QueryResponse;
-    const res = resp !== this.previousResponse;
-    return res;
+  onbeforeupdate(vnode: m.CVnode<QueryTableContentAttrs>) {
+    return vnode.attrs.resp !== this.previousResponse;
   }
 
-  view(vnode: m.CVnode<QueryTableAttrs>) {
-    const {queryId} = vnode.attrs;
-    const resp = globals.queryResults.get(queryId) as QueryResponse;
-    if (resp === undefined) {
-      return m('');
-    }
+  view(vnode: m.CVnode<QueryTableContentAttrs>) {
+    const resp = vnode.attrs.resp;
     this.previousResponse = resp;
     const cols = [];
     for (const col of resp.columns) {
       cols.push(m('td', col));
     }
-    const header = m('tr', cols);
+    const tableHeader = m('tr', cols);
 
-    const rows = [];
-    for (let i = 0; i < resp.rows.length; i++) {
-      rows.push(m(QueryTableRow, {row: resp.rows[i], columns: resp.columns}));
+    const rows =
+        resp.rows.map((row) => m(QueryTableRow, {row, columns: resp.columns}));
+
+    if (resp.error) {
+      return m('.query-error', `SQL error: ${resp.error}`);
+    } else {
+      return m(
+          '.query-table-container.x-scrollable',
+          m('table.query-table', m('thead', tableHeader), m('tbody', rows)));
     }
+  }
+}
 
-    const headers = [
-      m(
-          'header.overview',
-          `Query result - ${Math.round(resp.durationMs)} ms`,
-          m('span.code', resp.query),
-          resp.error ? null :
-                       m('button.query-ctrl',
-                         {
-                           onclick: () => {
-                             queryResponseToClipboard(resp);
-                           },
-                         },
-                         'Copy as .tsv'),
-          m('button.query-ctrl',
-            {
-              onclick: () => {
-                globals.queryResults.delete(queryId);
-                globals.rafScheduler.scheduleFullRedraw();
-              }
-            },
-            'Close'),
-          ),
+interface QueryTableAttrs {
+  query: string;
+  onClose: () => void;
+  resp?: QueryResponse;
+  contextButtons?: m.Child[];
+}
+
+export class QueryTable extends Panel<QueryTableAttrs> {
+  view(vnode: m.CVnode<QueryTableAttrs>) {
+    const resp = vnode.attrs.resp;
+
+    const header: m.Child[] = [
+      m('span',
+        resp ? `Query result - ${Math.round(resp.durationMs)} ms` :
+               `Query - running`),
+      m('span.code.text-select', vnode.attrs.query),
+      m('span.spacer'),
+      ...(vnode.attrs.contextButtons ?? []),
+      m(Button, {
+        label: 'Copy query',
+        minimal: true,
+        onclick: () => {
+          copyToClipboard(vnode.attrs.query);
+        },
+      }),
     ];
+    if (resp) {
+      if (resp.error === undefined) {
+        header.push(m(Button, {
+          label: 'Copy result (.tsv)',
+          minimal: true,
+          onclick: () => {
+            queryResponseToClipboard(resp);
+          },
+        }));
+      }
+    }
+    header.push(m(Button, {
+      label: 'Close',
+      minimal: true,
+      onclick: () => vnode.attrs.onClose(),
+    }));
 
+    const headers = [m('header.overview', ...header)];
+
+    if (resp === undefined) {
+      return m('div', ...headers);
+    }
 
     if (resp.statementWithOutputCount > 1) {
       headers.push(
@@ -168,13 +242,7 @@ export class QueryTable extends Panel<QueryTableAttrs> {
                 `statement are displayed in the table below.`));
     }
 
-    return m(
-        'div',
-        ...headers,
-        resp.error ?
-            m('.query-error', `SQL error: ${resp.error}`) :
-            m('.query-table-container.x-scrollable',
-              m('table.query-table', m('thead', header), m('tbody', rows))));
+    return m('div', ...headers, m(QueryTableContent, {resp}));
   }
 
   renderCanvas() {}

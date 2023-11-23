@@ -41,7 +41,10 @@ license {
 
 cc_defaults {
     name: "libfuse_default_flags",
-    local_include_dirs: ["include/", "lib/"],
+    local_include_dirs: [
+        "include/",
+        "lib/",
+    ],
     cflags: [
         "-D_FILE_OFFSET_BITS=64",
         "-DFUSERMOUNT_DIR=\"/system/bin\"",
@@ -56,7 +59,6 @@ cc_defaults {
         "-Wno-unused-variable",
     ],
 
-    clang: true,
     sdk_version: "current",
     min_sdk_version: "30",
 
@@ -70,7 +72,10 @@ cc_library {
         "libfuse_default_flags",
     ],
 
-    export_include_dirs: ["include", "lib"],
+    export_include_dirs: [
+        "include",
+        "lib",
+    ],
 
     version_script: "lib/fuse_versionscript",
 

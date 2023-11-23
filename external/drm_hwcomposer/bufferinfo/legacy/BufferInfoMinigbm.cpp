@@ -43,10 +43,13 @@ struct cros_gralloc0_buffer_info {
   int stride[4];
 };
 
-int BufferInfoMinigbm::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
+auto BufferInfoMinigbm::GetBoInfo(buffer_handle_t handle)
+    -> std::optional<BufferInfo> {
   if (handle == nullptr) {
-    return -EINVAL;
+    return {};
   }
+
+  BufferInfo bi{};
 
   uint32_t width{};
   uint32_t height{};
@@ -55,7 +58,7 @@ int BufferInfoMinigbm::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
     ALOGE(
         "CROS_GRALLOC_DRM_GET_DIMENSIONS operation has failed. "
         "Please ensure you are using the latest minigbm.");
-    return -EINVAL;
+    return {};
   }
 
   int32_t droid_format{};
@@ -64,7 +67,7 @@ int BufferInfoMinigbm::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
     ALOGE(
         "CROS_GRALLOC_DRM_GET_FORMAT operation has failed. "
         "Please ensure you are using the latest minigbm.");
-    return -EINVAL;
+    return {};
   }
 
   uint32_t usage{};
@@ -73,7 +76,7 @@ int BufferInfoMinigbm::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
     ALOGE(
         "CROS_GRALLOC_DRM_GET_USAGE operation has failed. "
         "Please ensure you are using the latest minigbm.");
-    return -EINVAL;
+    return {};
   }
 
   struct cros_gralloc0_buffer_info info {};
@@ -82,25 +85,22 @@ int BufferInfoMinigbm::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
     ALOGE(
         "CROS_GRALLOC_DRM_GET_BUFFER_INFO operation has failed. "
         "Please ensure you are using the latest minigbm.");
-    return -EINVAL;
+    return {};
   }
 
-  bo->width = width;
-  bo->height = height;
+  bi.width = width;
+  bi.height = height;
 
-  bo->hal_format = droid_format;
-
-  bo->format = info.drm_fourcc;
-  bo->usage = usage;
+  bi.format = info.drm_fourcc;
 
   for (int i = 0; i < info.num_fds; i++) {
-    bo->modifiers[i] = info.modifier;
-    bo->prime_fds[i] = info.fds[i];
-    bo->pitches[i] = info.stride[i];
-    bo->offsets[i] = info.offset[i];
+    bi.modifiers[i] = info.modifier;
+    bi.prime_fds[i] = info.fds[i];
+    bi.pitches[i] = info.stride[i];
+    bi.offsets[i] = info.offset[i];
   }
 
-  return 0;
+  return bi;
 }
 
 constexpr char cros_gralloc_module_name[] = "CrOS Gralloc";

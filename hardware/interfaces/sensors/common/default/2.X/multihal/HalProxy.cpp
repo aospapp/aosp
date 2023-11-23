@@ -82,8 +82,11 @@ int64_t msFromNs(int64_t nanos) {
 }
 
 HalProxy::HalProxy() {
-    const char* kMultiHalConfigFile = "/vendor/etc/sensors/hals.conf";
-    initializeSubHalListFromConfigFile(kMultiHalConfigFile);
+    static const std::string kMultiHalConfigFiles[] = {"/vendor/etc/sensors/hals.conf",
+                                                       "/odm/etc/sensors/hals.conf"};
+    for (const std::string& configFile : kMultiHalConfigFiles) {
+        initializeSubHalListFromConfigFile(configFile.c_str());
+    }
     init();
 }
 
@@ -348,7 +351,7 @@ Return<void> HalProxy::configDirectReport(int32_t sensorHandle, int32_t channelH
     return Return<void>();
 }
 
-Return<void> HalProxy::debug(const hidl_handle& fd, const hidl_vec<hidl_string>& /*args*/) {
+Return<void> HalProxy::debug(const hidl_handle& fd, const hidl_vec<hidl_string>& args) {
     if (fd.getNativeHandle() == nullptr || fd->numFds < 1) {
         ALOGE("%s: missing fd for writing", __FUNCTION__);
         return Void();
@@ -382,7 +385,7 @@ Return<void> HalProxy::debug(const hidl_handle& fd, const hidl_vec<hidl_string>&
         stream << "  Name: " << subHal->getName() << std::endl;
         stream << "  Debug dump: " << std::endl;
         android::base::WriteStringToFd(stream.str(), writeFd);
-        subHal->debug(fd, {});
+        subHal->debug(fd, args);
         stream.str("");
         stream << std::endl;
     }

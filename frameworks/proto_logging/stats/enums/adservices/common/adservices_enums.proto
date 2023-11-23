@@ -1,0 +1,329 @@
+/*
+ * Copyright (C) 2023 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto2";
+package android.adservices;
+
+// Recommended setup in go/java-proto-names
+option java_outer_classname = "AdservicesProtoEnums";
+option java_multiple_files = true;
+
+/**
+ * Type of the classifier used for classifying apps.
+ */
+enum ClassifierType {
+  /** Unknown classifier option. */
+  UNKNOWN_CLASSIFIER = 0;
+  /** Only on-device classification. */
+  ON_DEVICE_CLASSIFIER = 1;
+  /** Only Precomputed classification. */
+  PRECOMPUTED_CLASSIFIER = 2;
+  /** Precomputed classification values are preferred over on-device classification values. */
+  PRECOMPUTED_THEN_ON_DEVICE_CLASSIFIER = 3;
+}
+
+/**
+ * On Device classifier status.
+ */
+enum OnDeviceClassifierStatus {
+  ON_DEVICE_CLASSIFIER_STATUS_UNSPECIFIED = 0;
+  ON_DEVICE_CLASSIFIER_STATUS_NOT_INVOKED = 1;
+  ON_DEVICE_CLASSIFIER_STATUS_SUCCESS = 2;
+  ON_DEVICE_CLASSIFIER_STATUS_FAILURE = 3;
+}
+
+/**
+ * Precomputed classifier status.
+ */
+enum PrecomputedClassifierStatus {
+  PRECOMPUTED_CLASSIFIER_STATUS_UNSPECIFIED = 0;
+  PRECOMPUTED_CLASSIFIER_STATUS_NOT_INVOKED = 1;
+  PRECOMPUTED_CLASSIFIER_STATUS_SUCCESS = 2;
+  PRECOMPUTED_CLASSIFIER_STATUS_FAILURE = 3;
+}
+
+/**
+ * Attribution types.
+ */
+enum AttributionType {
+  UNKNOWN = 0;
+  APP_APP = 1;
+  APP_WEB = 2;
+  WEB_APP = 3;
+  WEB_WEB = 4;
+}
+
+/**
+ * Enum representing an error/exception.  These errors can be common to all
+ * PPAPIs or specific to a particular API. We will group enums in blocks of
+ * 1000 like this below:
+ * - Common errors: 1-1000
+ * - Topics errors: 1001-2000
+ * - Measurement errors: 2001-3000
+ * - Fledge errors: 3001-4000
+ * - UX errors: 4001-5000
+ */
+enum ErrorCode {
+  // Common Errors: 1-1000
+  ERROR_CODE_UNSPECIFIED = 0;
+  DATABASE_READ_EXCEPTION = 1;
+  DATABASE_WRITE_EXCEPTION = 2;
+  API_REMOTE_EXCEPTION = 3;
+
+  // Error occurred when unable to send result to the callback.
+  API_CALLBACK_ERROR = 4;
+
+  // Error occurred when failed to call the callback on Rate Limit Reached.
+  RATE_LIMIT_CALLBACK_FAILURE = 5;
+
+  // Error occurred when calling package name is not found.
+  PACKAGE_NAME_NOT_FOUND_EXCEPTION = 6;
+
+  // Shared pref update failure.
+  SHARED_PREF_UPDATE_FAILURE = 7;
+
+  // Shared pref reset failure.
+  SHARED_PREF_RESET_FAILURE = 8;
+
+  // Topics errors: 1001-2000
+  // Remote exception when calling get topics.
+  GET_TOPICS_REMOTE_EXCEPTION = 1001;
+
+  // Topics API is disabled.
+  TOPICS_API_DISABLED = 1002;
+
+  // SQLException occurred when failed to persist classified Topics.
+  TOPICS_PERSIST_CLASSIFIED_TOPICS_FAILURE = 1003;
+
+  // SQLException occurred when failed to persist Top Topics.
+  TOPICS_PERSIST_TOP_TOPICS_FAILURE = 1004;
+
+  // SQLException occurred when failed to record App-Sdk usage history.
+  TOPICS_RECORD_APP_SDK_USAGE_FAILURE = 1005;
+
+  // SQLException occurred when failed to record App Only usage history.
+  TOPICS_RECORD_APP_USAGE_FAILURE = 1006;
+
+  // SQLException occurred when failed to record can learn topic.
+  TOPICS_RECORD_CAN_LEARN_TOPICS_FAILURE = 1007;
+
+  // SQLException occurred when failed to record returned topic.
+  TOPICS_RECORD_RETURNED_TOPICS_FAILURE = 1008;
+
+  // SQLException occurred when failed to record returned topic.
+  TOPICS_RECORD_BLOCKED_TOPICS_FAILURE = 1009;
+
+  // SQLException occurred when failed to remove blocked topic.
+  TOPICS_DELETE_BLOCKED_TOPICS_FAILURE = 1010;
+
+  // SQLException occurred when failed to delete old epochs.
+  TOPICS_DELETE_OLD_EPOCH_FAILURE = 1011;
+
+  // SQLException occurred when failed to delete a column in table
+  TOPICS_DELETE_COLUMN_FAILURE = 1012;
+
+  // SQLException occurred when failed to persist topic contributors.
+  TOPICS_PERSIST_TOPICS_CONTRIBUTORS_FAILURE = 1013;
+
+  // SQLException occurred when failed to delete all entries from table.
+  TOPICS_DELETE_ALL_ENTRIES_IN_TABLE_FAILURE = 1014;
+
+  // Exception occurred when classify call failed.
+  TOPICS_ON_DEVICE_CLASSIFY_FAILURE = 1015;
+
+  // Exception occurred ML model did not return a topic id.
+  TOPICS_ON_DEVICE_NUMBER_FORMAT_EXCEPTION = 1016;
+
+  // Exception occurred when failed to load ML model.
+  TOPICS_LOAD_ML_MODEL_FAILURE = 1017;
+
+  // Exception occurred when unable to retrieve topics id to topics name.
+  TOPICS_ID_TO_NAME_LIST_READ_FAILURE = 1018;
+
+  // Exception occurred when unable to read classifier asset file.
+  TOPICS_READ_CLASSIFIER_ASSET_FILE_FAILURE = 1019;
+
+  // NoSuchAlgorithmException occurred when unable to find correct message.
+  // digest algorithm.
+  TOPICS_MESSAGE_DIGEST_ALGORITHM_NOT_FOUND = 1020;
+
+  // Error occurred when failed to find downloaded classifier model file.
+  DOWNLOADED_CLASSIFIER_MODEL_FILE_NOT_FOUND = 1021;
+
+  // No downloaded or bundled classifier model available.
+  NO_CLASSIFIER_MODEL_AVAILABLE = 1022;
+
+  // Error occurred when failed to read labels file.
+  READ_LABELS_FILE_FAILURE = 1023;
+
+  // Error occurred when failed to read precomuted labels.
+  READ_PRECOMUTRED_LABELS_FAILURE = 1024;
+
+  // Error occurred when failed to read top apps file.
+  READ_TOP_APPS_FILE_FAILURE = 1025;
+
+  // Error occurred when saving a topic not in labels file.
+  INVALID_TOPIC_ID = 1026;
+
+  // Error occurred when failed to read precomuted app topics list.
+  READ_PRECOMUTRED_APP_TOPICS_LIST_FAILURE = 1027;
+
+  // Error occurred when failed to read bundled metadata file.
+  READ_BUNDLED_METADATA_FILE_FAILURE = 1028;
+
+  // Error occurred when reading redundant metadata property.
+  CLASSIFIER_METADATA_REDUNDANT_PROPERTY= 1029;
+
+  // Error occurred when reading redundant metadata asset.
+  CLASSIFIER_METADATA_REDUNDANT_ASSET = 1030;
+
+  // Error occurred when parsing metadata json missing property or asset_name.
+  CLASSIFIER_METADATA_MISSING_PROPERTY_OR_ASSET_NAME = 1031;
+
+  // Error occurred when failed to read classifier assets metadata file.
+  READ_CLASSIFIER_ASSETS_METADATA_FAILURE = 1032;
+
+  // Error occurred when failed to load downloaded file by file Id.
+  DOWNLOADED_CLASSIFIER_MODEL_FILE_LOAD_FAILURE = 1033;
+
+  // RuntimeException occurred when use invalid type of blocked topics
+  // source of truth.
+  TOPICS_INVALID_BLOCKED_TOPICS_SOURCE_OF_TRUTH = 1034;
+
+  // RuntimeException occurred when unable to remove the blocked topic.
+  TOPICS_REMOVE_BLOCKED_TOPIC_FAILURE = 1035;
+
+  // RuntimeException occurred when unable to get all blocked topics.
+  TOPICS_GET_BLOCKED_TOPIC_FAILURE = 1036;
+
+  // RuntimeException occurred when unable to clear all blocked topics
+  // in system server.
+  TOPICS_CLEAR_ALL_BLOCKED_TOPICS_IN_SYSTEM_SERVER_FAILURE = 1037;
+
+  // Error occurred when unable to handle JobService.
+  TOPICS_HANDLE_JOB_SERVICE_FAILURE = 1038;
+
+  // Error occurred when unable to fetch job scheduler.
+  TOPICS_FETCH_JOB_SCHEDULER_FAILURE = 1039;
+
+  // Measurement errors: 2001-3000
+  // Error eccurred when inserting enrollment data to DB.
+  ENROLLMENT_DATA_INSERT_ERROR = 2001;
+
+  // UX errors: 4001-5000
+  CONSENT_REVOKED_ERROR = 4001;
+
+  // Error occurred when failed to get downloaded OTA file URI.
+  DOWNLOADED_OTA_FILE_ERROR = 4002;
+
+  // Exception while trying to add ResourcesProvider.
+  RESOURCES_PROVIDER_ADD_ERROR = 4003;
+
+  // Exception occurred when unable to load MDD file group
+  LOAD_MDD_FILE_GROUP_FAILURE = 4004;
+
+  // Dismiss notification error
+  DISMISS_NOTIFICATION_FAILURE = 4005;
+
+  // Datastore exception while get content
+  DATASTORE_EXCEPTION_WHILE_GET_CONTENT = 4006;
+
+  // Datastore exception while recording notification
+  DATASTORE_EXCEPTION_WHILE_RECORDING_NOTIFICATION = 4007;
+
+  // Datastore exception while recording default consent.
+  DATASTORE_EXCEPTION_WHILE_RECORDING_DEFAULT_CONSENT = 4008;
+
+  // Exception while recording manual consent interaction
+  DATASTORE_EXCEPTION_WHILE_RECORDING_MANUAL_CONSENT_INTERACTION = 4009;
+
+  // Exception while saving privacy sandbox feature.
+  PRIVACY_SANDBOX_SAVE_FAILURE = 4010;
+
+  // Error message indicating invalid consent source of truth.
+  INVALID_CONSENT_SOURCE_OF_TRUTH = 4011;
+
+  // Error message while calling get consent.
+  ERROR_WHILE_GET_CONSENT = 4012;
+
+  // App search consent data migration failure.
+  APP_SEARCH_DATA_MIGRATION_FAILURE = 4013;
+
+  // Ad services entry point failure.
+  AD_SERVICES_ENTRY_POINT_FAILURE = 4014;
+}
+
+/**
+ * Adservices API names.
+ */
+enum PpapiName {
+  PPAPI_NAME_UNSPECIFIED = 0;
+  TOPICS = 1;
+  MEASUREMENT = 2;
+  FLEDGE = 3;
+  AD_ID = 4;
+  APP_SET_ID = 5;
+  UX = 6;
+}
+
+/**
+ * Type of the result code that implies different execution results of Adservices background jobs.
+ */
+enum ExecutionResultCode {
+  /** Unspecified result code. */
+  UNSPECIFIED_CODE = 0;
+
+  /** Successful execution. */
+  SUCCESSFUL = 1;
+
+  /** Failed execution with retrying the job. */
+  FAILED_WITH_RETRY = 2;
+
+  /** Failed execution without retrying the job. */
+  FAILED_WITHOUT_RETRY = 3;
+
+  /** OnJobStop() is invoked with retrying the job. */
+  ONSTOP_CALLED_WITH_RETRY = 4;
+
+  /** OnJobStop() is invoked without retrying the job. */
+  ONSTOP_CALLED_WITHOUT_RETRY = 5;
+
+  /**
+   * The execution is halted by system or device for unknown reason, leaving
+   * a not finished execution.
+   */
+  HALTED_FOR_UNKNOWN_REASON = 6;
+
+  /** Skipped execution due to a job scheduled in ExtServices running on T+. */
+  SKIP_FOR_EXTSERVICES_JOB_ON_TPLUS = 7;
+
+  /** Skipped execution due to kill switch is on. */
+  SKIP_FOR_KILL_SWITCH_ON = 8;
+
+  /** Skipped execution due to user consent is revoked. */
+  SKIP_FOR_USER_CONSENT_REVOKED = 9;
+}
+
+// Region of the user who interacted with AdServicesSettings UI.
+enum AdServiceSettingRegion {
+  // fallback when getDeviceRegion call failed.
+  REGION_UNSPECIFIED = 0;
+  // European Union user (based on isoCountryInfo).
+  EU = 1;
+  // Non-European Union user (based on isoCountryInfo).
+  ROW = 2;
+}
+

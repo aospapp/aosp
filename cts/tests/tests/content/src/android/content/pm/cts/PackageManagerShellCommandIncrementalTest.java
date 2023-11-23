@@ -16,7 +16,7 @@
 
 package android.content.pm.cts;
 
-import static android.Manifest.permission.WRITE_DEVICE_CONFIG;
+import static android.Manifest.permission.WRITE_ALLOWLISTED_DEVICE_CONFIG;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -29,6 +29,7 @@ import android.app.UiAutomation;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.cts.util.AbandonAllPackageSessionsRule;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.os.Process;
@@ -62,6 +63,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -129,6 +131,9 @@ public class PackageManagerShellCommandIncrementalTest {
     private static final boolean CHECK_BASE_APK_DIGESTION = false;
 
     private static final long EXPECTED_READ_TIME = 1000L;
+
+    @Rule
+    public AbandonAllPackageSessionsRule mAbandonSessionsRule = new AbandonAllPackageSessionsRule();
 
     private IncrementalInstallSession mSession = null;
     private String mPackageVerifier = null;
@@ -1168,7 +1173,7 @@ public class PackageManagerShellCommandIncrementalTest {
         return new File(getCodePath(TEST_APP_PACKAGE), splitName);
     }
 
-    private String parsePackageDump(String packageName, String prefix) throws IOException {
+    static String parsePackageDump(String packageName, String prefix) throws IOException {
         final String commandResult = executeShellCommand("pm dump " + packageName);
         final int prefixLength = prefix.length();
         Optional<String> maybeSplits = Arrays.stream(commandResult.split("\\r?\\n"))
@@ -1343,7 +1348,7 @@ public class PackageManagerShellCommandIncrementalTest {
     }
 
     static void setDeviceProperty(String name, String value) {
-        getUiAutomation().adoptShellPermissionIdentity(WRITE_DEVICE_CONFIG);
+        getUiAutomation().adoptShellPermissionIdentity(WRITE_ALLOWLISTED_DEVICE_CONFIG);
         try {
             DeviceConfig.setProperty(DeviceConfig.NAMESPACE_PACKAGE_MANAGER_SERVICE, name, value,
                     false);

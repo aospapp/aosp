@@ -19,6 +19,7 @@
         android:sharedUserId="android.uid.system" >
 
     <uses-permission android:name="android.car.permission.CONTROL_CAR_CLIMATE" />
+    <uses-permission android:name="android.car.permission.CAR_TEST_SERVICE" />
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="com.android.car.vehiclehal.test"

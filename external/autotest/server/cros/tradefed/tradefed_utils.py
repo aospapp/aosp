@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -26,19 +27,23 @@ def lock(filename):
     # has very poor temporal granularity (timeout/10), which is unsuitable for
     # our needs. See /usr/lib64/python2.7/site-packages/lockfile/
     attempts = 0
+    total_wait_seconds = 0
     while not filelock.i_am_locking():
         try:
             attempts += 1
             logging.info('Waiting for cache lock...')
+            # Cap the wait by 2 minutes. Setting too long wait makes long-lived
+            # tasks to have less chance to obtain the lock, leading to failures.
             # We must not use a random integer as the filelock implementations
             # may underflow an integer division.
-            filelock.acquire(random.uniform(0.0, pow(2.0, attempts)))
+            wait = min(120.0, random.uniform(0.0, pow(2.0, attempts)))
+            total_wait_seconds += wait
+            filelock.acquire(wait)
         except (lockfile.AlreadyLocked, lockfile.LockTimeout):
             # Our goal is to wait long enough to be sure something very bad
-            # happened to the locking thread. 11 attempts is between 15 and
-            # 30 minutes.
-            if attempts > 11:
-                # Normally we should aqcuire the lock immediately. Once we
+            # happened to the locking thread. Wait 2 hours at maximum
+            if total_wait_seconds >= 7200:
+                # Normally we should acquire the lock immediately. Once we
                 # wait on the order of 10 minutes either the dev server IO is
                 # overloaded or a lock didn't get cleaned up. Take one for the
                 # team, break the lock and report a failure. This should fix
@@ -144,13 +149,14 @@ def parse_tradefed_testresults_xml(test_result_xml_path, waivers=None):
             logging.info('Waived failure for %s %d time(s)',
                          testname, fail_count)
         logging.info('>> Total waived = %s', waived)
-        return waived, True
+        return waived
 
     except Exception as e:
-        logging.warning(
-            'Exception raised in '
-            '|tradefed_utils.parse_tradefed_result_xml|: {'
-            '0}'.format(e))
+        logging.warning('Exception raised in '
+                        '|tradefed_utils.parse_tradefed_testresults_xml|: {'
+                        '0}'.format(e))
+        return []
+
 
 def parse_tradefed_result(result, waivers=None):
     """Check the result from the tradefed output.
@@ -274,6 +280,8 @@ def get_perf_metrics_from_test_result_xml(result_path, resultsdir):
                     test_name = test.get('name')
                     for metric in test.iter('Metric'):
                         score_type = metric.get('score_type')
+                        if score_type == None:
+                            continue
                         if score_type not in ['higher_better', 'lower_better']:
                             logging.warning(
                                 'Unsupported score_type in %s/%s/%s',

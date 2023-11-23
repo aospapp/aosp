@@ -157,6 +157,39 @@ public class LogUtil {
         return 0;
     }
 
+    /**
+     * Logs the message as DEBUG and returns the number of bytes written.
+     *
+     * @deprecated This method is an overload for safety; please use {@link #d(Throwable, String,
+     *     Object...)} instead.
+     */
+    @Deprecated
+    public static int d(String msg, Throwable tr) {
+        return d(tr, msg);
+    }
+
+    /**
+     * Logs the message as WARNING and returns the number of bytes written.
+     *
+     * @deprecated This method is an overload for safety; please use {@link #w(Throwable, String,
+     *     Object...)} instead.
+     */
+    @Deprecated
+    public static int w(String msg, Throwable tr) {
+        return w(tr, msg);
+    }
+
+    /**
+     * Logs the message as ERROR and returns the number of bytes written.
+     *
+     * @deprecated This method is an overload for safety; please use {@link #e(Throwable, String)}
+     *     or {@link #e(Throwable, String, Object...)} instead.
+     */
+    @Deprecated
+    public static int e(String msg, Throwable tr) {
+        return e(tr, msg);
+    }
+
     private static String format(String format, Object... args) {
         return String.format(Locale.US, format, args);
     }

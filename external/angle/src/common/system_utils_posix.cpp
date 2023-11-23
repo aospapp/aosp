@@ -46,6 +46,17 @@ std::string GetModulePath(void *moduleOrSymbol)
         return "";
     }
 
+#ifdef ANGLE_PLATFORM_LINUX
+    // Chrome changes process title on Linux that causes dladdr returns wrong module
+    // file name for executable binary, so return GetExecutablePath() if dli_fname
+    // doesn't exist.
+    struct stat buf;
+    if (stat(dlInfo.dli_fname, &buf) != 0)
+    {
+        return GetExecutablePath();
+    }
+#endif
+
     return dlInfo.dli_fname;
 }
 
@@ -186,7 +197,7 @@ void *OpenSystemLibraryWithExtensionAndGetError(const char *libraryName,
     std::string directory;
     if (searchType == SearchType::ModuleDir)
     {
-#if ANGLE_PLATFORM_IOS
+#if ANGLE_PLATFORM_IOS_FAMILY
         // On iOS, shared libraries must be loaded from within the app bundle.
         directory = GetExecutableDirectory() + "/Frameworks/";
 #elif ANGLE_PLATFORM_FUCHSIA
@@ -205,11 +216,6 @@ void *OpenSystemLibraryWithExtensionAndGetError(const char *libraryName,
     }
 
     std::string fullPath = directory + libraryName;
-#if ANGLE_PLATFORM_IOS
-    // On iOS, dlopen needs a suffix on the framework name to work.
-    fullPath = fullPath + "/" + libraryName;
-#endif
-
     return OpenPosixLibrary(fullPath, extraFlags, errorOut);
 }
 
@@ -277,6 +283,47 @@ std::string GetRootDirectory()
     return "/";
 }
 
+Optional<std::string> GetTempDirectory()
+{
+    const char *tmp = getenv("TMPDIR");
+    if (tmp != nullptr)
+    {
+        return std::string(tmp);
+    }
+
+#if defined(ANGLE_PLATFORM_ANDROID)
+    // Not used right now in the ANGLE test runner.
+    // return PathService::Get(DIR_CACHE, path);
+    return Optional<std::string>::Invalid();
+#else
+    return std::string("/tmp");
+#endif
+}
+
+Optional<std::string> CreateTemporaryFileInDirectory(const std::string &directory)
+{
+    return CreateTemporaryFileInDirectoryWithExtension(directory, std::string());
+}
+
+Optional<std::string> CreateTemporaryFileInDirectoryWithExtension(const std::string &directory,
+                                                                  const std::string &extension)
+{
+    std::string tempFileTemplate = directory + "/.angle.XXXXXX" + extension;
+
+    char tempFile[1000];
+    strcpy(tempFile, tempFileTemplate.c_str());
+
+    int fd = mkstemps(tempFile, static_cast<int>(extension.size()));
+    close(fd);
+
+    if (fd != -1)
+    {
+        return std::string(tempFile);
+    }
+
+    return Optional<std::string>::Invalid();
+}
+
 double GetCurrentProcessCpuTime()
 {
 #ifdef ANGLE_PLATFORM_FUCHSIA
@@ -292,7 +339,7 @@ double GetCurrentProcessCpuTime()
     // underneath that has higher resolution.
     struct rusage usage;
     getrusage(RUSAGE_SELF, &usage);
-    double userTime = usage.ru_utime.tv_sec + usage.ru_utime.tv_usec * 1e-6;
+    double userTime   = usage.ru_utime.tv_sec + usage.ru_utime.tv_usec * 1e-6;
     double systemTime = usage.ru_stime.tv_sec + usage.ru_stime.tv_usec * 1e-6;
     return userTime + systemTime;
 #endif

@@ -97,6 +97,7 @@ void GLClientState::init() {
     m_dispatchIndirectBuffer = 0;
     m_drawIndirectBuffer = 0;
     m_shaderStorageBuffer = 0;
+    m_textureBuffer = 0;
 
     m_transformFeedbackActive = false;
     m_transformFeedbackUnpaused = false;
@@ -774,6 +775,8 @@ void GLClientState::unBindBuffer(GLuint id) {
         m_drawIndirectBuffer = 0;
     if (m_shaderStorageBuffer == id)
         m_shaderStorageBuffer = 0;
+    if (m_textureBuffer == id)
+        m_textureBuffer = 0;
 
     sClearIndexedBufferBinding(id, m_indexedTransformFeedbackBuffers);
     sClearIndexedBufferBinding(id, m_indexedUniformBuffers);
@@ -823,6 +826,9 @@ int GLClientState::bindBuffer(GLenum target, GLuint id)
         break;
     case GL_SHADER_STORAGE_BUFFER:
         m_shaderStorageBuffer = id;
+        break;
+    case GL_TEXTURE_BUFFER_OES:
+        m_textureBuffer = id;
         break;
     default:
         err = -1;
@@ -883,7 +889,7 @@ int GLClientState::getMaxIndexedBufferBindings(GLenum target) const {
 }
 
 bool GLClientState::isNonIndexedBindNoOp(GLenum target, GLuint buffer) {
-    if (buffer != !getLastEncodedBufferBind(target)) return false;
+    if (buffer != getLastEncodedBufferBind(target)) return false;
 
     int idOrError = getBuffer(target);
     if (idOrError < 0) {
@@ -1008,6 +1014,9 @@ int GLClientState::getBuffer(GLenum target) {
             break;
         case GL_SHADER_STORAGE_BUFFER:
             ret = m_shaderStorageBuffer;
+            break;
+        case GL_TEXTURE_BUFFER_OES:
+            ret = m_textureBuffer;
             break;
         default:
             ret = -1;
@@ -1477,6 +1486,9 @@ GLenum GLClientState::bindTexture(GLenum target, GLuint texture,
     case GL_TEXTURE_2D_MULTISAMPLE:
         m_tex.activeUnit->texture[TEXTURE_2D_MULTISAMPLE] = texture;
         break;
+    case GL_TEXTURE_BUFFER_OES:
+        m_tex.activeUnit->texture[TEXTURE_BUFFER] = texture;
+        break;
     }
 
     if (firstUse) {
@@ -1760,6 +1772,8 @@ GLuint GLClientState::getBoundTexture(GLenum target) const
         return m_tex.activeUnit->texture[TEXTURE_3D];
     case GL_TEXTURE_2D_MULTISAMPLE:
         return m_tex.activeUnit->texture[TEXTURE_2D_MULTISAMPLE];
+    case GL_TEXTURE_BUFFER_OES:
+        return m_tex.activeUnit->texture[TEXTURE_BUFFER];
     default:
         return 0;
     }
@@ -2354,10 +2368,10 @@ int GLClientState::getMaxDrawBuffers() const {
 
 void GLClientState::validateUniform(bool isFloat, bool isUnsigned, GLint columns, GLint rows, GLint location, GLsizei count, GLenum* err) {
     UNIFORM_VALIDATION_ERR_COND(!m_currentProgram && !m_currentShaderProgram, GL_INVALID_OPERATION);
-    if (-1 == location) return; \
-    auto info = currentUniformValidationInfo.get_const(location); \
-    UNIFORM_VALIDATION_ERR_COND(!info || !info->valid, GL_INVALID_OPERATION); \
-    UNIFORM_VALIDATION_ERR_COND(columns != info->columns || rows != info->rows, GL_INVALID_OPERATION); \
+    if (-1 == location) return;
+    auto info = currentUniformValidationInfo.get_const(location);
+    UNIFORM_VALIDATION_ERR_COND(!info || !info->valid, GL_INVALID_OPERATION);
+    UNIFORM_VALIDATION_ERR_COND(columns != info->columns || rows != info->rows, GL_INVALID_OPERATION);
     UNIFORM_VALIDATION_ERR_COND(count > 1 && !info->isArray, GL_INVALID_OPERATION);
     if (isFloat) {
         UNIFORM_VALIDATION_ERR_COND(UNIFORM_VALIDATION_TYPE_VIOLATION_FOR_FLOATS, GL_INVALID_OPERATION);

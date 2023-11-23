@@ -28,6 +28,9 @@
 namespace {
 
 static inline llvm::StringRef getUnsuffixedStructName(const llvm::StructType *T) {
+  if (!T) {
+      abort();  // exit?
+  }
 #ifdef _DEBUG
   // Bug: 22926131
   // When building with assertions enabled, LLVM cannot read the name of a

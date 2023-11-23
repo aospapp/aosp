@@ -16,40 +16,42 @@
 
 package dagger.internal.codegen.base;
 
-import static com.google.auto.common.AnnotationMirrors.getAnnotationValue;
-import static com.google.auto.common.MoreTypes.asTypeElement;
 import static com.google.common.base.Preconditions.checkArgument;
-import static dagger.internal.codegen.base.MoreAnnotationValues.asAnnotationValues;
 import static dagger.internal.codegen.extension.DaggerStreams.toImmutableList;
-import static dagger.internal.codegen.langmodel.DaggerElements.getAnyAnnotation;
+import static dagger.internal.codegen.xprocessing.XAnnotations.getClassName;
+import static dagger.internal.codegen.xprocessing.XElements.getAnyAnnotation;
 
-import com.google.auto.common.MoreTypes;
+import androidx.room.compiler.processing.XAnnotation;
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import dagger.Module;
-import dagger.producers.ProducerModule;
-import java.lang.annotation.Annotation;
+import com.squareup.javapoet.ClassName;
+import dagger.internal.codegen.javapoet.TypeNames;
 import java.util.Optional;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.AnnotationValue;
-import javax.lang.model.element.TypeElement;
 
 /** A {@code @Module} or {@code @ProducerModule} annotation. */
 @AutoValue
 public abstract class ModuleAnnotation {
-  private static final ImmutableSet<Class<? extends Annotation>> MODULE_ANNOTATIONS =
-      ImmutableSet.of(Module.class, ProducerModule.class);
+  private static final ImmutableSet<ClassName> MODULE_ANNOTATIONS =
+      ImmutableSet.of(TypeNames.MODULE, TypeNames.PRODUCER_MODULE);
+
+  private XAnnotation annotation;
 
   /** The annotation itself. */
-  // This does not use AnnotationMirrors.equivalence() because we want the actual annotation
-  // instance.
-  public abstract AnnotationMirror annotation();
+  public final XAnnotation annotation() {
+    return annotation;
+  }
+
+  /** Returns the {@link ClassName} name of the annotation. */
+  public abstract ClassName className();
 
   /** The simple name of the annotation. */
-  public String annotationName() {
-    return annotation().getAnnotationType().asElement().getSimpleName().toString();
+  public String simpleName() {
+    return className().simpleName();
   }
 
   /**
@@ -58,17 +60,10 @@ public abstract class ModuleAnnotation {
    * @throws IllegalArgumentException if any of the values are error types
    */
   @Memoized
-  public ImmutableList<TypeElement> includes() {
-    return includesAsAnnotationValues().stream()
-        .map(MoreAnnotationValues::asType)
-        .map(MoreTypes::asTypeElement)
+  public ImmutableList<XTypeElement> includes() {
+    return annotation.getAsTypeList("includes").stream()
+        .map(XType::getTypeElement)
         .collect(toImmutableList());
-  }
-
-  /** The values specified in the {@code includes} attribute. */
-  @Memoized
-  public ImmutableList<AnnotationValue> includesAsAnnotationValues() {
-    return asAnnotationValues(getAnnotationValue(annotation(), "includes"));
   }
 
   /**
@@ -77,51 +72,43 @@ public abstract class ModuleAnnotation {
    * @throws IllegalArgumentException if any of the values are error types
    */
   @Memoized
-  public ImmutableList<TypeElement> subcomponents() {
-    return subcomponentsAsAnnotationValues().stream()
-        .map(MoreAnnotationValues::asType)
-        .map(MoreTypes::asTypeElement)
+  public ImmutableList<XTypeElement> subcomponents() {
+    return annotation.getAsTypeList("subcomponents").stream()
+        .map(XType::getTypeElement)
         .collect(toImmutableList());
   }
 
-  /** The values specified in the {@code subcomponents} attribute. */
-  @Memoized
-  public ImmutableList<AnnotationValue> subcomponentsAsAnnotationValues() {
-    return asAnnotationValues(getAnnotationValue(annotation(), "subcomponents"));
-  }
-
   /** Returns {@code true} if the argument is a {@code @Module} or {@code @ProducerModule}. */
-  public static boolean isModuleAnnotation(AnnotationMirror annotation) {
-    return MODULE_ANNOTATIONS.stream()
-        .map(Class::getCanonicalName)
-        .anyMatch(asTypeElement(annotation.getAnnotationType()).getQualifiedName()::contentEquals);
+  public static boolean isModuleAnnotation(XAnnotation annotation) {
+    return MODULE_ANNOTATIONS.contains(getClassName(annotation));
   }
 
   /** The module annotation types. */
-  public static ImmutableSet<Class<? extends Annotation>> moduleAnnotations() {
+  public static ImmutableSet<ClassName> moduleAnnotations() {
     return MODULE_ANNOTATIONS;
   }
 
-  /**
-   * Creates an object that represents a {@code @Module} or {@code @ProducerModule}.
-   *
-   * @throws IllegalArgumentException if {@link #isModuleAnnotation(AnnotationMirror)} returns
-   *     {@code false}
-   */
-  public static ModuleAnnotation moduleAnnotation(AnnotationMirror annotation) {
+  private static ModuleAnnotation create(XAnnotation annotation) {
     checkArgument(
         isModuleAnnotation(annotation),
         "%s is not a Module or ProducerModule annotation",
         annotation);
-    return new AutoValue_ModuleAnnotation(annotation);
+    ModuleAnnotation moduleAnnotation = new AutoValue_ModuleAnnotation(getClassName(annotation));
+    moduleAnnotation.annotation = annotation;
+    return moduleAnnotation;
   }
 
   /**
    * Returns an object representing the {@code @Module} or {@code @ProducerModule} annotation if one
    * annotates {@code typeElement}.
    */
-  public static Optional<ModuleAnnotation> moduleAnnotation(TypeElement typeElement) {
-    return getAnyAnnotation(typeElement, Module.class, ProducerModule.class)
-        .map(ModuleAnnotation::moduleAnnotation);
+  public static Optional<ModuleAnnotation> moduleAnnotation(
+      XElement element, DaggerSuperficialValidation superficialValidation) {
+    return getAnyAnnotation(element, TypeNames.MODULE, TypeNames.PRODUCER_MODULE)
+        .map(
+            annotation -> {
+              superficialValidation.validateAnnotationOf(element, annotation);
+              return create(annotation);
+            });
   }
 }

@@ -24,32 +24,62 @@ import com.android.server.appsearch.icing.proto.StatusProto;
 
 import org.junit.Test;
 
+// NOTE: The tests in this class are based on the underlying assumption that
+// time_optimize_threshold > min_time_optimize_threshold. This ensures that setting
+// timeSinceLastOptimize to time_optimize_threshold-1 does not make it lesser than
+// min_time_optimize_threshold (otherwise shouldOptimize() would return false for test cases that
+// check byteThreshold and docCountThreshold).
 public class FrameworkOptimizeStrategyTest {
     AppSearchConfig mAppSearchConfig = new FakeAppSearchConfig();
     FrameworkOptimizeStrategy mFrameworkOptimizeStrategy =
             new FrameworkOptimizeStrategy(mAppSearchConfig);
 
     @Test
+    public void testTimeOptimizeThreshold_isGreaterThan_minTimeOptimizeThreshold() {
+        assertThat(mAppSearchConfig.getCachedTimeOptimizeThresholdMs())
+                .isGreaterThan(mAppSearchConfig.getCachedMinTimeOptimizeThresholdMs());
+    }
+
+    @Test
+    public void testShouldNotOptimize_underAllThresholds() {
+        GetOptimizeInfoResultProto optimizeInfo =
+                GetOptimizeInfoResultProto.newBuilder()
+                        .setTimeSinceLastOptimizeMs(
+                                mAppSearchConfig.getCachedTimeOptimizeThresholdMs()-1)
+                        .setEstimatedOptimizableBytes(
+                                mAppSearchConfig.getCachedBytesOptimizeThreshold()-1)
+                        .setOptimizableDocs(
+                                mAppSearchConfig.getCachedDocCountOptimizeThreshold()-1)
+                        .setStatus(StatusProto.newBuilder().setCode(StatusProto.Code.OK).build())
+                        .build();
+        assertThat(mFrameworkOptimizeStrategy.shouldOptimize(optimizeInfo)).isFalse();
+    }
+
+    @Test
     public void testShouldOptimize_byteThreshold() {
         GetOptimizeInfoResultProto optimizeInfo =
                 GetOptimizeInfoResultProto.newBuilder()
-                        .setTimeSinceLastOptimizeMs(0)
+                        .setTimeSinceLastOptimizeMs(
+                                mAppSearchConfig.getCachedTimeOptimizeThresholdMs()-1)
                         .setEstimatedOptimizableBytes(
                                 mAppSearchConfig.getCachedBytesOptimizeThreshold())
-                        .setOptimizableDocs(0)
+                        .setOptimizableDocs(
+                                mAppSearchConfig.getCachedDocCountOptimizeThreshold()-1)
                         .setStatus(StatusProto.newBuilder().setCode(StatusProto.Code.OK).build())
                         .build();
         assertThat(mFrameworkOptimizeStrategy.shouldOptimize(optimizeInfo)).isTrue();
     }
 
     @Test
-    public void testShouldNotOptimize_timeThreshold() {
+    public void testShouldOptimize_timeThreshold() {
         GetOptimizeInfoResultProto optimizeInfo =
                 GetOptimizeInfoResultProto.newBuilder()
                         .setTimeSinceLastOptimizeMs(
                                 mAppSearchConfig.getCachedTimeOptimizeThresholdMs())
-                        .setEstimatedOptimizableBytes(0)
-                        .setOptimizableDocs(0)
+                        .setEstimatedOptimizableBytes(
+                                mAppSearchConfig.getCachedBytesOptimizeThreshold()-1)
+                        .setOptimizableDocs(
+                                mAppSearchConfig.getCachedDocCountOptimizeThreshold()-1)
                         .setStatus(StatusProto.newBuilder().setCode(StatusProto.Code.OK).build())
                         .build();
         assertThat(mFrameworkOptimizeStrategy.shouldOptimize(optimizeInfo)).isTrue();
@@ -59,12 +89,29 @@ public class FrameworkOptimizeStrategyTest {
     public void testShouldOptimize_docCountThreshold() {
         GetOptimizeInfoResultProto optimizeInfo =
                 GetOptimizeInfoResultProto.newBuilder()
-                        .setTimeSinceLastOptimizeMs(0)
-                        .setEstimatedOptimizableBytes(0)
+                        .setTimeSinceLastOptimizeMs(
+                                mAppSearchConfig.getCachedTimeOptimizeThresholdMs()-1)
+                        .setEstimatedOptimizableBytes(
+                                mAppSearchConfig.getCachedBytesOptimizeThreshold()-1)
                         .setOptimizableDocs(
                                 mAppSearchConfig.getCachedDocCountOptimizeThreshold())
                         .setStatus(StatusProto.newBuilder().setCode(StatusProto.Code.OK).build())
                         .build();
         assertThat(mFrameworkOptimizeStrategy.shouldOptimize(optimizeInfo)).isTrue();
+    }
+
+    @Test
+    public void testShouldNotOptimize_underMinTimeThreshold() {
+        GetOptimizeInfoResultProto optimizeInfo =
+                GetOptimizeInfoResultProto.newBuilder()
+                        .setTimeSinceLastOptimizeMs(
+                                mAppSearchConfig.getCachedMinTimeOptimizeThresholdMs()-1)
+                        .setEstimatedOptimizableBytes(
+                                mAppSearchConfig.getCachedBytesOptimizeThreshold())
+                        .setOptimizableDocs(
+                                mAppSearchConfig.getCachedDocCountOptimizeThreshold())
+                        .setStatus(StatusProto.newBuilder().setCode(StatusProto.Code.OK).build())
+                        .build();
+        assertThat(mFrameworkOptimizeStrategy.shouldOptimize(optimizeInfo)).isFalse();
     }
 }

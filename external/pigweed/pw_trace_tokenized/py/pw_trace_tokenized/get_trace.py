@@ -26,16 +26,17 @@ python pw_trace_tokenized/py/pw_trace_tokenized/get_trace.py -s localhost:33000
 # pylint: enable=line-too-long
 
 import argparse
-import logging
 import glob
+import logging
 from pathlib import Path
+import socket
 import sys
 from typing import Collection, Iterable, Iterator
-import serial  # type: ignore
+
+import serial
 from pw_tokenizer import database
 from pw_trace import trace
 from pw_hdlc.rpc import HdlcRpcClient, default_channels
-from pw_hdlc.rpc_console import SocketClientImpl
 from pw_trace_tokenized import trace_tokenized
 
 _LOG = logging.getLogger('pw_trace_tokenizer')
@@ -46,15 +47,40 @@ SOCKET_PORT = 33000
 MKFIFO_MODE = 0o666
 
 
+class SocketClientImpl:
+    def __init__(self, config: str):
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        socket_server = ''
+        socket_port = 0
+
+        if config == 'default':
+            socket_server = SOCKET_SERVER
+            socket_port = SOCKET_PORT
+        else:
+            socket_server, socket_port_str = config.split(':')
+            socket_port = int(socket_port_str)
+        self.socket.connect((socket_server, socket_port))
+
+    def write(self, data: bytes):
+        self.socket.sendall(data)
+
+    def read(self, num_bytes: int = PW_RPC_MAX_PACKET_SIZE):
+        return self.socket.recv(num_bytes)
+
+
 def _expand_globs(globs: Iterable[str]) -> Iterator[Path]:
     for pattern in globs:
         for file in glob.glob(pattern, recursive=True):
             yield Path(file)
 
 
-def get_hdlc_rpc_client(device: str, baudrate: int,
-                        proto_globs: Collection[str], socket_addr: str,
-                        **kwargs):
+def get_hdlc_rpc_client(
+    device: str,
+    baudrate: int,
+    proto_globs: Collection[str],
+    socket_addr: str,
+    **kwargs,
+):
     """Get the HdlcRpcClient based on arguments."""
     del kwargs  # ignore
     if not proto_globs:
@@ -63,13 +89,17 @@ def get_hdlc_rpc_client(device: str, baudrate: int,
     protos = list(_expand_globs(proto_globs))
 
     if not protos:
-        _LOG.critical('No .proto files were found with %s',
-                      ', '.join(proto_globs))
+        _LOG.critical(
+            'No .proto files were found with %s', ', '.join(proto_globs)
+        )
         _LOG.critical('At least one .proto file is required')
         return 1
 
-    _LOG.debug('Found %d .proto files found with %s', len(protos),
-               ', '.join(proto_globs))
+    _LOG.debug(
+        'Found %d .proto files found with %s',
+        len(protos),
+        ', '.join(proto_globs),
+    )
 
     # TODO(rgoliver): When pw has a generalized transport for RPC this should
     # use it so it isn't specific to HDLC
@@ -106,48 +136,66 @@ def _parse_args():
 
     parser = argparse.ArgumentParser(
         description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter)
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-d', '--device', help='the serial port to use')
-    parser.add_argument('-b',
-                        '--baudrate',
-                        type=int,
-                        default=115200,
-                        help='the baud rate to use')
-    group.add_argument('-s',
-                       '--socket-addr',
-                       type=str,
-                       help='use socket to connect to server, type default for\
-            localhost:33000, or manually input the server address:port')
-    parser.add_argument('-o',
-                        '--trace_output',
-                        dest='trace_output_file',
-                        help=('The json file to which to write the output.'))
+    parser.add_argument(
+        '-b',
+        '--baudrate',
+        type=int,
+        default=115200,
+        help='the baud rate to use',
+    )
+    group.add_argument(
+        '-s',
+        '--socket-addr',
+        type=str,
+        help='use socket to connect to server, type default for\
+            localhost:33000, or manually input the server address:port',
+    )
+    parser.add_argument(
+        '-o',
+        '--trace_output',
+        dest='trace_output_file',
+        help=('The json file to which to write the output.'),
+    )
     parser.add_argument(
         '-t',
         '--trace_token_database',
-        help='Databases (ELF, binary, or CSV) to use to lookup trace tokens.')
-    parser.add_argument('proto_globs',
-                        nargs='+',
-                        help='glob pattern for .proto files')
+        help='Databases (ELF, binary, or CSV) to use to lookup trace tokens.',
+    )
+    parser.add_argument(
+        'proto_globs', nargs='+', help='glob pattern for .proto files'
+    )
     parser.add_argument(
         '-f',
         '--ticks_per_second',
         type=int,
         dest='ticks_per_second',
         default=1000,
-        help=('The clock rate of the trace events (Default 1000).'))
+        help=('The clock rate of the trace events (Default 1000).'),
+    )
+    parser.add_argument(
+        '--time_offset',
+        type=int,
+        dest='time_offset',
+        default=0,
+        help=('Time offset (us) of the trace events (Default 0).'),
+    )
     return parser.parse_args()
 
 
 def _main(args):
-    token_database = \
-        database.load_token_database(args.trace_token_database, domain="trace")
+    token_database = database.load_token_database(
+        args.trace_token_database, domain="trace"
+    )
     _LOG.info(database.database_summary(token_database))
     client = get_hdlc_rpc_client(**vars(args))
     data = get_trace_data_from_device(client)
-    events = trace_tokenized.get_trace_events([token_database], data,
-                                              args.ticks_per_second)
+    events = trace_tokenized.get_trace_events(
+        [token_database], data, args.ticks_per_second, args.time_offset
+    )
     json_lines = trace.generate_trace_json(events)
     trace_tokenized.save_trace_file(json_lines, args.trace_output_file)
 

@@ -44,8 +44,7 @@ int LooperWrapper::pollAll(int timeoutMillis) {
     return mLooper->pollAll(timeoutMillis);
 }
 
-void LooperWrapper::sendMessage(const sp<MessageHandler>& handler,
-                                   const Message& message) {
+void LooperWrapper::sendMessage(const sp<MessageHandler>& handler, const Message& message) {
     if (mLooper == nullptr) {
         LOG(WARNING) << __FUNCTION__ << ": Looper is invalid.";
         return;
@@ -54,9 +53,8 @@ void LooperWrapper::sendMessage(const sp<MessageHandler>& handler,
     return mLooper->sendMessage(handler, message);
 }
 
-void LooperWrapper::sendMessageAtTime(nsecs_t uptime,
-                                         const sp<MessageHandler>& handler,
-                                         const Message& message) {
+void LooperWrapper::sendMessageAtTime(nsecs_t uptime, const sp<MessageHandler>& handler,
+                                      const Message& message) {
     if (mLooper == nullptr) {
         LOG(WARNING) << __FUNCTION__ << ": Looper is invalid.";
         return;
@@ -74,9 +72,8 @@ void LooperWrapper::removeMessages(const sp<MessageHandler>& handler) {
     return mLooper->removeMessages(handler);
 }
 
-} // namespace implementation
-} // namespace V1_1
-} // namespace evs
-} // namespace automotive
-} // namespace android
-
+}  // namespace implementation
+}  // namespace V1_1
+}  // namespace evs
+}  // namespace automotive
+}  // namespace android

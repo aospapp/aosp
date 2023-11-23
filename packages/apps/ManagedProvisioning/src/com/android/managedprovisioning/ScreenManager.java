@@ -28,6 +28,7 @@ import static com.android.managedprovisioning.ManagedProvisioningScreens.PRE_PRO
 import static com.android.managedprovisioning.ManagedProvisioningScreens.PRE_PROVISIONING_VIA_NFC;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.PROVISIONING;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.RESET_AND_RETURN_DEVICE;
+import static com.android.managedprovisioning.ManagedProvisioningScreens.RESET_DEVICE;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.RETRY_LAUNCH;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.TERMS;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.WEB;
@@ -49,6 +50,7 @@ import com.android.managedprovisioning.provisioning.FinancedDeviceLandingActivit
 import com.android.managedprovisioning.provisioning.LandingActivity;
 import com.android.managedprovisioning.provisioning.ProvisioningActivity;
 import com.android.managedprovisioning.provisioning.ResetAndReturnDeviceActivity;
+import com.android.managedprovisioning.provisioning.ResetDeviceActivity;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -104,6 +106,7 @@ public final class ScreenManager {
         map.put(PROVISIONING, ProvisioningActivity.class);
         map.put(ADMIN_INTEGRATED_PREPARE, AdminIntegratedFlowPrepareActivity.class);
         map.put(RESET_AND_RETURN_DEVICE, ResetAndReturnDeviceActivity.class);
+        map.put(RESET_DEVICE, ResetDeviceActivity.class);
         map.put(WEB, WebActivity.class);
         map.put(ENCRYPT, EncryptDeviceActivity.class);
         map.put(POST_ENCRYPT, PostEncryptionActivity.class);

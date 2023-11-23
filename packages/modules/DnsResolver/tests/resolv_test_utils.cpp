@@ -206,6 +206,12 @@ void SetMdnsRoute() {
             "proto",         "static", "scope", "host",  "src",         "127.0.0.1",
     };
     EXPECT_EQ(0, ForkAndRun(args));
+
+    const std::vector<std::string> args_v6 = {
+            "system/bin/ip", "-6", "route", "add",    "local", "ff02::fb",
+            "dev",           "lo", "proto", "static", "src",   "::1",
+    };
+    EXPECT_EQ(0, ForkAndRun(args_v6));
 }
 
 void RemoveMdnsRoute() {
@@ -214,4 +220,10 @@ void RemoveMdnsRoute() {
             "proto",         "static", "scope", "host",  "src",         "127.0.0.1",
     };
     EXPECT_EQ(0, ForkAndRun(args));
+
+    const std::vector<std::string> args_v6 = {
+            "system/bin/ip", "-6", "route", "del",    "local", "ff02::fb",
+            "dev",           "lo", "proto", "static", "src",   "::1",
+    };
+    EXPECT_EQ(0, ForkAndRun(args_v6));
 }

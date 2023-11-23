@@ -147,7 +147,7 @@ public class UceControllerTest extends ImsTestBase {
         List<Uri> uriList = new ArrayList<>();
         uceController.requestCapabilities(uriList, mCapabilitiesCallback);
 
-        verify(mCapabilitiesCallback).onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L);
+        verify(mCapabilitiesCallback).onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L, null);
         verify(mTaskManager, never()).sendCapabilityRequest(any(), eq(false), any());
     }
 
@@ -164,7 +164,7 @@ public class UceControllerTest extends ImsTestBase {
         uriList.add(Uri.fromParts("sip", "test", null));
         uceController.requestCapabilities(uriList, mCapabilitiesCallback);
 
-        verify(mCapabilitiesCallback).onError(RcsUceAdapter.ERROR_FORBIDDEN, 0L);
+        verify(mCapabilitiesCallback).onError(RcsUceAdapter.ERROR_FORBIDDEN, 0L, null);
         verify(mTaskManager, never()).sendCapabilityRequest(any(), eq(false), any());
     }
 
@@ -194,7 +194,7 @@ public class UceControllerTest extends ImsTestBase {
         Uri contact = Uri.fromParts("sip", "test", null);
         uceController.requestAvailability(contact, mCapabilitiesCallback);
 
-        verify(mCapabilitiesCallback).onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L);
+        verify(mCapabilitiesCallback).onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L, null);
         verify(mTaskManager, never()).sendAvailabilityRequest(any(), any());
     }
 
@@ -210,7 +210,7 @@ public class UceControllerTest extends ImsTestBase {
         Uri contact = Uri.fromParts("sip", "test", null);
         uceController.requestAvailability(contact, mCapabilitiesCallback);
 
-        verify(mCapabilitiesCallback).onError(RcsUceAdapter.ERROR_FORBIDDEN, 0L);
+        verify(mCapabilitiesCallback).onError(RcsUceAdapter.ERROR_FORBIDDEN, 0L, null);
         verify(mTaskManager, never()).sendCapabilityRequest(any(), eq(false), any());
     }
 

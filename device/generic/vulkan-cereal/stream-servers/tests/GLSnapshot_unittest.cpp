@@ -17,7 +17,9 @@
 
 #include <gtest/gtest.h>
 
-namespace emugl {
+namespace gfxstream {
+namespace gl {
+namespace {
 
 TEST_F(SnapshotTest, InitDestroy) {}
 
@@ -78,4 +80,6 @@ INSTANTIATE_TEST_SUITE_P(GLES2SnapshotHints,
                          SnapshotGlMipmapHintTest,
                          ::testing::ValuesIn(kGLES2GenerateMipmapHints));
 
-}  // namespace emugl
+}  // namespace
+}  // namespace gl
+}  // namespace gfxstream

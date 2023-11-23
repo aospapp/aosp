@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -88,4 +89,3 @@ class hardware_DiskSize(test.test):
         if (gb < min_gb):
             raise error.TestError("DiskSize %.3f GB below minimum (%.3f GB)" \
                 % (gb, min_gb))
-

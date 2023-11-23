@@ -8,6 +8,13 @@ For terms of use, see http://www.unicode.org/copyright.html
 
 <supplementalData>
     <version number="$Revision$"/>
+    <unitIdComponents>
+    	<unitIdComponent type="prefix" values="arc british dessert fluid light nautical xxx x curr"/>
+		<unitIdComponent type="suffix" values="force imperial luminosity mass metric person radius scandinavian troy unit us"/>
+		<unitIdComponent type="power" values="square cubic pow2 pow3 pow4 pow5 pow6 pow7 pow8 pow9 pow10 pow11 pow12 pow13 pow14 pow15"/>
+		<unitIdComponent type="and" values="and"/>
+		<unitIdComponent type="per" values="per"/>
+    </unitIdComponents>
     <unitConstants>
         <unitConstant constant="lb_to_kg" value="0.45359237"/>
         <unitConstant constant="ft_to_m" value="0.3048"/>
@@ -18,6 +25,9 @@ For terms of use, see http://www.unicode.org/copyright.html
         <unitConstant constant="gal_imp_to_m3" value="0.00454609"/>
         <unitConstant constant="glucose_molar_mass" value="180.1557" description="derivation from the mean atomic weights according to STANDARD ATOMIC WEIGHTS 2019 on https://ciaaw.org/atomic-weights.htm"/>
         <unitConstant constant="item_per_mole" value="6.02214076E+23"/>
+        <unitConstant constant="speed_of_light_meters_per_second" value="299792458"/>
+        <unitConstant constant="sec_per_julian_year" value="31557600"/>
+        <unitConstant constant="meters_per_AU" value="149597870700" description="https://www.iau.org/public/themes/measuring/"/> 
         
         
         <unitConstant constant="gravity" value="9.80665"/>
@@ -113,7 +123,7 @@ For terms of use, see http://www.unicode.org/copyright.html
         <convertUnit source='kilogram' baseUnit='kilogram' systems="metric si"/>
         <convertUnit source='stone' baseUnit='kilogram' factor='lb_to_kg*14' systems="uksystem"/>
         <convertUnit source='ton' baseUnit='kilogram' factor='lb_to_kg*2000' systems="ussystem uksystem"/>
-        <convertUnit source='metric-ton' baseUnit='kilogram' factor='1000' systems="metric"/>
+        <convertUnit source='tonne' baseUnit='kilogram' factor='1000' systems="metric"/>
         <convertUnit source='earth-mass' baseUnit='kilogram' factor='5.9722E+24'/>
         <convertUnit source='solar-mass' baseUnit='kilogram' factor='1.98847E+30'/>
         
@@ -159,26 +169,27 @@ For terms of use, see http://www.unicode.org/copyright.html
         <convertUnit source='100-kilometer' baseUnit='meter' factor='100000' systems="metric"/>
         <convertUnit source='earth-radius' baseUnit='meter' factor='6.3781E6'/>
         <convertUnit source='solar-radius' baseUnit='meter' factor='695700000'/>
-        <convertUnit source='astronomical-unit' baseUnit='meter' factor='149597900000'/>
-        <convertUnit source='light-year' baseUnit='meter' factor='9460730000000000'/>
-        <convertUnit source='parsec' baseUnit='meter' factor='30856780000000000'/>
+        <convertUnit source='astronomical-unit' baseUnit='meter' factor='meters_per_AU'/>
+        <convertUnit source='light-year' baseUnit='meter' factor='speed_of_light_meters_per_second*sec_per_julian_year'/>
+        <convertUnit source='parsec' baseUnit='meter' factor='meters_per_AU*60*60*180/PI'/> <!-- https://www.iau.org/public/themes/measuring/ distance where 1 AU subtends 1 arcsecond -->
         
         <!-- time -->
-        <convertUnit source='second' baseUnit='second' systems="si metric ussystem uksystem"/>
-        <convertUnit source='minute' baseUnit='second' factor='60' systems="metric ussystem uksystem"/>
-        <convertUnit source='hour' baseUnit='second' factor='3600' systems="metric ussystem uksystem"/>
-        <convertUnit source='day' baseUnit='second' factor='86400' systems="metric ussystem uksystem"/>
-        <convertUnit source='day-person' baseUnit='second' factor='86400' systems="metric ussystem uksystem"/>
-        <convertUnit source='week' baseUnit='second' factor='604800'/>
+        <convertUnit source='second' baseUnit='second' systems="si metric"/>
+        <convertUnit source='minute' baseUnit='second' factor='60' systems="metric"/>
+        <convertUnit source='hour' baseUnit='second' factor='3600' systems="metric"/>
+        <convertUnit source='day' baseUnit='second' factor='86400' systems="metric"/>
+        <convertUnit source='day-person' baseUnit='second' factor='86400'/>
+        <convertUnit source='week' baseUnit='second' factor='604800' systems="metric"/>
         <convertUnit source='week-person' baseUnit='second' factor='604800'/>
         
         <!-- year-duration -->
-        <convertUnit source='month' baseUnit='year' factor='1/12'/>
+        <convertUnit source='month' baseUnit='year' factor='1/12' systems="metric"/>
         <convertUnit source='month-person' baseUnit='year' factor='1/12'/>
-        <convertUnit source='year' baseUnit='year'/>
+        <convertUnit source='quarter' baseUnit='year' factor='1/4' systems="metric"/>
+        <convertUnit source='year' baseUnit='year' systems="metric"/>
         <convertUnit source='year-person' baseUnit='year'/>
-        <convertUnit source='decade' baseUnit='year' factor='10'/>
-        <convertUnit source='century' baseUnit='year' factor='100'/>
+        <convertUnit source='decade' baseUnit='year' factor='10' systems="metric"/>
+        <convertUnit source='century' baseUnit='year' factor='100' systems="metric"/>
         
         <!-- electric-current -->
         <convertUnit source='ampere' baseUnit='ampere' systems="metric si"/>
@@ -189,34 +200,34 @@ For terms of use, see http://www.unicode.org/copyright.html
         <convertUnit source='celsius' baseUnit='kelvin' offset='273.15' systems="metric"/>
         
         <!-- angle -->
-        <convertUnit source='arc-second' baseUnit='revolution' factor='1/360*60*60'/>
-        <convertUnit source='arc-minute' baseUnit='revolution' factor='1/360*60'/>
-        <convertUnit source='degree' baseUnit='revolution' factor='1/360'/>
+        <convertUnit source='arc-second' baseUnit='revolution' factor='1/360*60*60' systems="metric"/>
+        <convertUnit source='arc-minute' baseUnit='revolution' factor='1/360*60' systems="metric"/>
+        <convertUnit source='degree' baseUnit='revolution' factor='1/360' systems="metric"/>
         <convertUnit source='radian' baseUnit='revolution' factor='1/2*PI' systems="metric si"/>
-        <convertUnit source='revolution' baseUnit='revolution'/>
+        <convertUnit source='revolution' baseUnit='revolution' systems="metric"/>
         
         <!-- substance-amount -->
-        <convertUnit source='item' baseUnit='item'/>
+        <convertUnit source='item' baseUnit='item' systems="metric"/>
         <convertUnit source='mole' baseUnit='item' factor='item_per_mole' systems="metric si"/>
         
         <!-- portion -->
-        <convertUnit source='permillion' baseUnit='portion' factor='1/1000000'/>
-        <convertUnit source='permyriad' baseUnit='portion' factor='1/10000'/>
-        <convertUnit source='permille' baseUnit='portion' factor='1/1000'/>
-        <convertUnit source='percent' baseUnit='portion' factor='1/100'/>
+        <convertUnit source='permillion' baseUnit='portion' factor='1/1000000' systems="metric"/>
+        <convertUnit source='permyriad' baseUnit='portion' factor='1/10000' systems="metric"/>
+        <convertUnit source='permille' baseUnit='portion' factor='1/1000' systems="metric"/>
+        <convertUnit source='percent' baseUnit='portion' factor='1/100' systems="metric"/>
         <convertUnit source='karat' baseUnit='portion' factor='1/24'/>
         <convertUnit source='portion' baseUnit='portion'/>
         
         <!-- digital -->
-        <convertUnit source='bit' baseUnit='bit'/>
-        <convertUnit source='byte' baseUnit='bit' factor='8'/>
+        <convertUnit source='bit' baseUnit='bit' systems="metric"/>
+        <convertUnit source='byte' baseUnit='bit' factor='8' systems="metric"/>
         
         <!-- graphics -->
         <convertUnit source='dot' baseUnit='pixel'/>
-        <convertUnit source='pixel' baseUnit='pixel'/>
+        <convertUnit source='pixel' baseUnit='pixel' systems="metric"/>
         
         <!-- typewidth -->
-        <convertUnit source='em' baseUnit='em'/>
+        <convertUnit source='em' baseUnit='em' systems="metric"/>
         
         <!-- frequency -->
         <convertUnit source='hertz' baseUnit='revolution-per-second' systems="metric si"/>
@@ -385,7 +396,7 @@ For terms of use, see http://www.unicode.org/copyright.html
             <unitPreference regions="GB US">foot</unitPreference>
         </unitPreferences>
         <unitPreferences category="mass" usage="default">
-            <unitPreference regions="001">metric-ton</unitPreference>
+            <unitPreference regions="001">tonne</unitPreference>
             <unitPreference regions="001">kilogram</unitPreference>
             <unitPreference regions="001">gram</unitPreference>
             <unitPreference regions="001">milligram</unitPreference>
@@ -491,6 +502,7 @@ For terms of use, see http://www.unicode.org/copyright.html
             <unitAlias type="pound-foot" replacement="pound-force-foot" reason="deprecated"/>
             <unitAlias type="pound-per-square-inch" replacement="pound-force-per-square-inch" reason="deprecated"/>
             <unitAlias type="milligram-per-deciliter" replacement="milligram-ofglucose-per-deciliter" reason="deprecated"/>
+            <unitAlias type="metric-ton" replacement="tonne" reason="deprecated"/>
             <usageAlias type="music-track" replacement="media" reason="deprecated"/>
             <usageAlias type="tv-program" replacement="media" reason="deprecated"/>
        </alias>

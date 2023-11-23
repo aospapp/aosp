@@ -5,11 +5,13 @@
   ],
   "dependency-blocklist": [
     "docmatic",
+    "rstest",
     "simple_logger"
   ],
   "device": true,
   "run": true,
   "test-blocklist": [
+    "tests/datatypes.rs",
     "tests/failures.rs",
     "tests/migrated.rs",
     "tests/round_trip.rs",

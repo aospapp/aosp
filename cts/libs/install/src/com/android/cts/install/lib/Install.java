@@ -20,13 +20,16 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Intent;
 import android.content.pm.PackageInstaller;
+import android.os.Build;
 import android.text.TextUtils;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.SystemUtil;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Builder class for installing test apps and creating install sessions.
@@ -48,6 +51,9 @@ public class Install {
     private int mInstallFlags = 0;
     private boolean mBypassAllowedApexUpdateCheck = true;
     private boolean mBypassStagedInstallerCheck = true;
+    private long mTimeoutMillis = TimeUnit.MINUTES.toMillis(5);
+
+    private boolean mDisableVerifier = true;
 
     private Install(boolean isMultiPackage, TestApp... testApps) {
         mIsMultiPackage = isMultiPackage;
@@ -175,6 +181,23 @@ public class Install {
     }
 
     /**
+     * Sets the installation timeout. {@link #commit()} will fail if install doesn't
+     * complete within the timeout. The default is 5 minutes.
+     */
+    public Install setTimeout(long timeoutMillis) {
+        mTimeoutMillis = timeoutMillis;
+        return this;
+    }
+
+    /**
+     * Enable verifier for testing purpose. The default is to disable the verifier.
+     */
+    public Install enableVerifier() {
+        mDisableVerifier = false;
+        return this;
+    }
+
+    /**
      * Commits the install.
      *
      * @return the session id of the install session, if the session is successful.
@@ -186,7 +209,10 @@ public class Install {
                      InstallUtils.openPackageInstallerSession(sessionId)) {
             LocalIntentSender sender = new LocalIntentSender();
             session.commit(sender.getIntentSender());
-            Intent result = sender.getResult();
+            Intent result = sender.pollResult(mTimeoutMillis, TimeUnit.MILLISECONDS);
+            if (result == null) {
+                throw new AssertionError("Install timeout, sessionId=" + sessionId);
+            }
             InstallUtils.assertStatusSuccess(result);
             return sessionId;
         }
@@ -231,6 +257,11 @@ public class Install {
         if (isApex && mBypassAllowedApexUpdateCheck) {
             SystemUtil.runShellCommandForNoOutput("pm bypass-allowed-apex-update-check true");
         }
+        if (mDisableVerifier && ApiLevelUtil.isAfter(Build.VERSION_CODES.TIRAMISU)) {
+            // This command is only available in U and later
+            SystemUtil.runShellCommandForNoOutput("pm disable-verification-for-uid "
+                    + android.os.Process.myUid());
+        }
         try {
             PackageInstaller.SessionParams params =
                     new PackageInstaller.SessionParams(mSessionMode);
@@ -251,7 +282,12 @@ public class Install {
             if (mInstallFlags != 0) {
                 InstallUtils.mutateInstallFlags(params, mInstallFlags);
             }
-            return InstallUtils.getPackageInstaller().createSession(params);
+            PackageInstaller installer = InstallUtils.getPackageInstaller();
+            if (installer == null) {
+                // installer may be null, eg. instant app
+                throw new IllegalStateException("PackageInstaller not found");
+            }
+            return installer.createSession(params);
         } finally {
             if ((mIsStaged || isApex) && mBypassStagedInstallerCheck) {
                 SystemUtil.runShellCommandForNoOutput("pm bypass-staged-installer-check false");

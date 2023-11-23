@@ -23,6 +23,9 @@
 #include <aaudio/AAudio.h>
 #include <gtest/gtest.h>
 
+constexpr int kNumFrames = 256;
+constexpr int64_t kMillisPerNanos = 1000000;
+
 void tryOpeningStream(aaudio_direction_t direction, aaudio_performance_mode_t performanceMode) {
     AAudioStreamBuilder *builder = nullptr;
     ASSERT_EQ(AAUDIO_OK, AAudio_createStreamBuilder(&builder));
@@ -36,6 +39,20 @@ void tryOpeningStream(aaudio_direction_t direction, aaudio_performance_mode_t pe
     ASSERT_EQ(direction, AAudioStream_getDirection(stream));
 
     ASSERT_EQ(AAUDIO_OK, AAudioStream_requestStart(stream));
+
+    int channelCount = AAudioStream_getChannelCount(stream);
+    ASSERT_GT(channelCount, 0);
+
+    std::unique_ptr<float[]> buffer(new float[kNumFrames * channelCount]);
+
+    if (direction == AAUDIO_DIRECTION_INPUT) {
+        ASSERT_EQ(kNumFrames,
+                  AAudioStream_read(stream, buffer.get(), kNumFrames, 500 * kMillisPerNanos));
+    } else {
+        ASSERT_EQ(kNumFrames,
+                  AAudioStream_write(stream, buffer.get(), kNumFrames, 500 * kMillisPerNanos));
+    }
+
     ASSERT_EQ(AAUDIO_OK, AAudioStream_requestStop(stream));
 
     // Cleanup

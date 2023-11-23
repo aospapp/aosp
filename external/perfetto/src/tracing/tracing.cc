@@ -34,37 +34,51 @@ std::mutex& InitializedMutex() {
   static base::NoDestructor<std::mutex> initialized_mutex;
   return initialized_mutex.ref();
 }
-}
+}  // namespace
 
 // static
 void Tracing::InitializeInternal(const TracingInitArgs& args) {
   std::unique_lock<std::mutex> lock(InitializedMutex());
-  static TracingInitArgs init_args;
-  if (g_was_initialized) {
-    if (!(init_args == args)) {
-      PERFETTO_ELOG(
-          "Tracing::Initialize() called more than once with different args. "
-          "This is not supported, only the first call will have effect.");
-      PERFETTO_DCHECK(false);
+  // If it's the first time Initialize is called, set some global params.
+  if (!g_was_initialized) {
+    // Make sure the headers and implementation files agree on the build config.
+    PERFETTO_CHECK(args.dcheck_is_on_ == PERFETTO_DCHECK_IS_ON());
+    if (args.log_message_callback) {
+      base::SetLogMessageCallback(args.log_message_callback);
     }
-    return;
+
+    if (args.use_monotonic_clock) {
+      PERFETTO_CHECK(!args.use_monotonic_raw_clock);
+      internal::TrackEventInternal::SetClockId(
+          protos::pbzero::BUILTIN_CLOCK_MONOTONIC);
+    } else if (args.use_monotonic_raw_clock) {
+      internal::TrackEventInternal::SetClockId(
+          protos::pbzero::BUILTIN_CLOCK_MONOTONIC_RAW);
+    }
+
+    if (args.disallow_merging_with_system_tracks) {
+      internal::TrackEventInternal::SetDisallowMergingWithSystemTracks(true);
+    }
   }
 
-  // Make sure the headers and implementation files agree on the build config.
-  PERFETTO_CHECK(args.dcheck_is_on_ == PERFETTO_DCHECK_IS_ON());
-  if (args.log_message_callback) {
-    base::SetLogMessageCallback(args.log_message_callback);
-  }
   internal::TracingMuxerImpl::InitializeInstance(args);
   internal::TrackRegistry::InitializeInstance();
   g_was_initialized = true;
-  init_args = args;
 }
 
 // static
 bool Tracing::IsInitialized() {
   std::unique_lock<std::mutex> lock(InitializedMutex());
   return g_was_initialized;
+}
+
+// static
+void Tracing::Shutdown() {
+  std::unique_lock<std::mutex> lock(InitializedMutex());
+  if (!g_was_initialized)
+    return;
+  internal::TracingMuxerImpl::Shutdown();
+  g_was_initialized = false;
 }
 
 // static
@@ -79,10 +93,36 @@ void Tracing::ResetForTesting() {
 }
 
 //  static
-std::unique_ptr<TracingSession> Tracing::NewTrace(BackendType backend) {
+std::unique_ptr<TracingSession> Tracing::NewTraceInternal(
+    BackendType backend,
+    TracingConsumerBackend* (*system_backend_factory)()) {
   return static_cast<internal::TracingMuxerImpl*>(internal::TracingMuxer::Get())
-      ->CreateTracingSession(backend);
+      ->CreateTracingSession(backend, system_backend_factory);
 }
+
+//  static
+std::unique_ptr<StartupTracingSession> Tracing::SetupStartupTracing(
+    const TraceConfig& config,
+    Tracing::SetupStartupTracingOpts opts) {
+  return static_cast<internal::TracingMuxerImpl*>(internal::TracingMuxer::Get())
+      ->CreateStartupTracingSession(config, std::move(opts));
+}
+
+//  static
+std::unique_ptr<StartupTracingSession> Tracing::SetupStartupTracingBlocking(
+    const TraceConfig& config,
+    Tracing::SetupStartupTracingOpts opts) {
+  return static_cast<internal::TracingMuxerImpl*>(internal::TracingMuxer::Get())
+      ->CreateStartupTracingSessionBlocking(config, std::move(opts));
+}
+
+//  static
+void Tracing::ActivateTriggers(const std::vector<std::string>& triggers,
+                               uint32_t ttl_ms) {
+  internal::TracingMuxer::Get()->ActivateTriggers(triggers, ttl_ms);
+}
+
+TracingSession::~TracingSession() = default;
 
 // Can be called from any thread.
 bool TracingSession::FlushBlocking(uint32_t timeout_ms) {
@@ -166,5 +206,7 @@ TracingSession::QueryServiceStateBlocking() {
   }
   return result;
 }
+
+StartupTracingSession::~StartupTracingSession() = default;
 
 }  // namespace perfetto

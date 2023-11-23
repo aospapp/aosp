@@ -25,7 +25,10 @@ _subprocess_supported =
     is_linux || is_chromeos || is_android || is_mac || is_win
 
 perfetto_component("base") {
-  deps = [ "../../gn:default_deps" ]
+  deps = [
+    "../../gn:base_platform",
+    "../../gn:default_deps",
+  ]
   public_deps = [
     "../../include/perfetto/base",
     "../../include/perfetto/ext/base",
@@ -50,10 +53,10 @@ perfetto_component("base") {
     "string_view.cc",
     "temp_file.cc",
     "thread_checker.cc",
+    "thread_utils.cc",
     "time.cc",
     "utils.cc",
     "uuid.cc",
-    "version.cc",
     "virtual_destructors.cc",
     "waitable_event.cc",
     "watchdog_posix.cc",
@@ -77,6 +80,25 @@ perfetto_component("base") {
   if (enable_perfetto_stderr_crash_dump) {
     deps += [ ":debug_crash_stack_trace" ]
   }
+}
+
+# This target needs to be named as such because it's exposed directly in Bazel
+# and Android.bp.
+perfetto_component("perfetto_base_default_platform") {
+  deps = [
+    "../../gn:default_deps",
+    "../../include/perfetto/ext/base",
+  ]
+  sources = [ "default_platform.cc" ]
+}
+
+perfetto_component("version") {
+  deps = [
+    ":base",
+    "../../gn:default_deps",
+  ]
+  public_deps = [ "../../include/perfetto/ext/base:version" ]
+  sources = [ "version.cc" ]
 
   if (enable_perfetto_version_gen) {
     deps += [ ":version_gen_h" ]
@@ -169,13 +191,14 @@ perfetto_unittest_source_set("unittests") {
     "flat_hash_map_unittest.cc",
     "flat_set_unittest.cc",
     "getopt_compat_unittest.cc",
+    "hash_unittest.cc",
     "logging_unittest.cc",
     "no_destructor_unittest.cc",
-    "optional_unittest.cc",
     "paged_memory_unittest.cc",
     "periodic_task_unittest.cc",
     "scoped_file_unittest.cc",
     "small_vector_unittest.cc",
+    "status_or_unittest.cc",
     "string_splitter_unittest.cc",
     "string_utils_unittest.cc",
     "string_view_unittest.cc",
@@ -210,8 +233,10 @@ perfetto_unittest_source_set("unittests") {
     if (is_linux || is_android) {
       sources += [ "watchdog_unittest.cc" ]
     }
-    sources += [ "unix_socket_unittest.cc" ]
-    deps += [ ":unix_socket" ]
+    if (!is_win) {
+      sources += [ "unix_socket_unittest.cc" ]
+      deps += [ ":unix_socket" ]
+    }
   }
 }
 

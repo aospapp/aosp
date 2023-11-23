@@ -7,6 +7,20 @@
 
 #include "vkr_command_buffer_gen.h"
 
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#endif
+
+#define VKR_CMD_CALL(cmd_name, args, ...)                                                \
+   do {                                                                                  \
+      struct vkr_command_buffer *_cmd =                                                  \
+         vkr_command_buffer_from_handle(args->commandBuffer);                            \
+      struct vn_device_proc_table *_vk = &_cmd->device->proc_table;                      \
+                                                                                         \
+      vn_replace_vk##cmd_name##_args_handle(args);                                       \
+      _vk->cmd_name(args->commandBuffer, ##__VA_ARGS__);                                 \
+   } while (0)
+
 static void
 vkr_dispatch_vkCreateCommandPool(struct vn_dispatch_context *dispatch,
                                  struct vn_command_vkCreateCommandPool *args)
@@ -28,8 +42,7 @@ vkr_dispatch_vkDestroyCommandPool(struct vn_dispatch_context *dispatch,
    if (!pool)
       return;
 
-   vkr_context_remove_objects(ctx, &pool->command_buffers);
-
+   vkr_command_pool_release(ctx, pool);
    vkr_command_pool_destroy_and_remove(ctx, args);
 }
 
@@ -37,16 +50,22 @@ static void
 vkr_dispatch_vkResetCommandPool(UNUSED struct vn_dispatch_context *dispatch,
                                 struct vn_command_vkResetCommandPool *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkResetCommandPool_args_handle(args);
-   args->ret = vkResetCommandPool(args->device, args->commandPool, args->flags);
+   args->ret = vk->ResetCommandPool(args->device, args->commandPool, args->flags);
 }
 
 static void
 vkr_dispatch_vkTrimCommandPool(UNUSED struct vn_dispatch_context *dispatch,
                                struct vn_command_vkTrimCommandPool *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkTrimCommandPool_args_handle(args);
-   vkTrimCommandPool(args->device, args->commandPool, args->flags);
+   vk->TrimCommandPool(args->device, args->commandPool, args->flags);
 }
 
 static void
@@ -91,262 +110,276 @@ static void
 vkr_dispatch_vkResetCommandBuffer(UNUSED struct vn_dispatch_context *dispatch,
                                   struct vn_command_vkResetCommandBuffer *args)
 {
+   struct vkr_command_buffer *cmd = vkr_command_buffer_from_handle(args->commandBuffer);
+   struct vn_device_proc_table *vk = &cmd->device->proc_table;
+
    vn_replace_vkResetCommandBuffer_args_handle(args);
-   args->ret = vkResetCommandBuffer(args->commandBuffer, args->flags);
+   args->ret = vk->ResetCommandBuffer(args->commandBuffer, args->flags);
 }
 
 static void
 vkr_dispatch_vkBeginCommandBuffer(UNUSED struct vn_dispatch_context *dispatch,
                                   struct vn_command_vkBeginCommandBuffer *args)
 {
+   struct vkr_command_buffer *cmd = vkr_command_buffer_from_handle(args->commandBuffer);
+   struct vn_device_proc_table *vk = &cmd->device->proc_table;
+
    vn_replace_vkBeginCommandBuffer_args_handle(args);
-   args->ret = vkBeginCommandBuffer(args->commandBuffer, args->pBeginInfo);
+   args->ret = vk->BeginCommandBuffer(args->commandBuffer, args->pBeginInfo);
 }
 
 static void
 vkr_dispatch_vkEndCommandBuffer(UNUSED struct vn_dispatch_context *dispatch,
                                 struct vn_command_vkEndCommandBuffer *args)
 {
+   struct vkr_command_buffer *cmd = vkr_command_buffer_from_handle(args->commandBuffer);
+   struct vn_device_proc_table *vk = &cmd->device->proc_table;
+
    vn_replace_vkEndCommandBuffer_args_handle(args);
-   args->ret = vkEndCommandBuffer(args->commandBuffer);
+   args->ret = vk->EndCommandBuffer(args->commandBuffer);
 }
 
 static void
 vkr_dispatch_vkCmdBindPipeline(UNUSED struct vn_dispatch_context *dispatch,
                                struct vn_command_vkCmdBindPipeline *args)
 {
-   vn_replace_vkCmdBindPipeline_args_handle(args);
-   vkCmdBindPipeline(args->commandBuffer, args->pipelineBindPoint, args->pipeline);
+   VKR_CMD_CALL(CmdBindPipeline, args, args->pipelineBindPoint, args->pipeline);
 }
 
 static void
 vkr_dispatch_vkCmdSetViewport(UNUSED struct vn_dispatch_context *dispatch,
                               struct vn_command_vkCmdSetViewport *args)
 {
-   vn_replace_vkCmdSetViewport_args_handle(args);
-   vkCmdSetViewport(args->commandBuffer, args->firstViewport, args->viewportCount,
-                    args->pViewports);
+   VKR_CMD_CALL(CmdSetViewport, args, args->firstViewport, args->viewportCount,
+                args->pViewports);
 }
 
 static void
 vkr_dispatch_vkCmdSetScissor(UNUSED struct vn_dispatch_context *dispatch,
                              struct vn_command_vkCmdSetScissor *args)
 {
-   vn_replace_vkCmdSetScissor_args_handle(args);
-   vkCmdSetScissor(args->commandBuffer, args->firstScissor, args->scissorCount,
-                   args->pScissors);
+   VKR_CMD_CALL(CmdSetScissor, args, args->firstScissor, args->scissorCount,
+                args->pScissors);
 }
 
 static void
 vkr_dispatch_vkCmdSetLineWidth(UNUSED struct vn_dispatch_context *dispatch,
                                struct vn_command_vkCmdSetLineWidth *args)
 {
-   vn_replace_vkCmdSetLineWidth_args_handle(args);
-   vkCmdSetLineWidth(args->commandBuffer, args->lineWidth);
+   VKR_CMD_CALL(CmdSetLineWidth, args, args->lineWidth);
 }
 
 static void
 vkr_dispatch_vkCmdSetDepthBias(UNUSED struct vn_dispatch_context *dispatch,
                                struct vn_command_vkCmdSetDepthBias *args)
 {
-   vn_replace_vkCmdSetDepthBias_args_handle(args);
-   vkCmdSetDepthBias(args->commandBuffer, args->depthBiasConstantFactor,
-                     args->depthBiasClamp, args->depthBiasSlopeFactor);
+   VKR_CMD_CALL(CmdSetDepthBias, args, args->depthBiasConstantFactor,
+                args->depthBiasClamp, args->depthBiasSlopeFactor);
 }
 
 static void
 vkr_dispatch_vkCmdSetBlendConstants(UNUSED struct vn_dispatch_context *dispatch,
                                     struct vn_command_vkCmdSetBlendConstants *args)
 {
-   vn_replace_vkCmdSetBlendConstants_args_handle(args);
-   vkCmdSetBlendConstants(args->commandBuffer, args->blendConstants);
+   VKR_CMD_CALL(CmdSetBlendConstants, args, args->blendConstants);
 }
 
 static void
 vkr_dispatch_vkCmdSetDepthBounds(UNUSED struct vn_dispatch_context *dispatch,
                                  struct vn_command_vkCmdSetDepthBounds *args)
 {
-   vn_replace_vkCmdSetDepthBounds_args_handle(args);
-   vkCmdSetDepthBounds(args->commandBuffer, args->minDepthBounds, args->maxDepthBounds);
+   VKR_CMD_CALL(CmdSetDepthBounds, args, args->minDepthBounds, args->maxDepthBounds);
 }
 
 static void
 vkr_dispatch_vkCmdSetStencilCompareMask(UNUSED struct vn_dispatch_context *dispatch,
                                         struct vn_command_vkCmdSetStencilCompareMask *args)
 {
-   vn_replace_vkCmdSetStencilCompareMask_args_handle(args);
-   vkCmdSetStencilCompareMask(args->commandBuffer, args->faceMask, args->compareMask);
+   VKR_CMD_CALL(CmdSetStencilCompareMask, args, args->faceMask, args->compareMask);
 }
 
 static void
 vkr_dispatch_vkCmdSetStencilWriteMask(UNUSED struct vn_dispatch_context *dispatch,
                                       struct vn_command_vkCmdSetStencilWriteMask *args)
 {
-   vn_replace_vkCmdSetStencilWriteMask_args_handle(args);
-   vkCmdSetStencilWriteMask(args->commandBuffer, args->faceMask, args->writeMask);
+   VKR_CMD_CALL(CmdSetStencilWriteMask, args, args->faceMask, args->writeMask);
 }
 
 static void
 vkr_dispatch_vkCmdSetStencilReference(UNUSED struct vn_dispatch_context *dispatch,
                                       struct vn_command_vkCmdSetStencilReference *args)
 {
-   vn_replace_vkCmdSetStencilReference_args_handle(args);
-   vkCmdSetStencilReference(args->commandBuffer, args->faceMask, args->reference);
+   VKR_CMD_CALL(CmdSetStencilReference, args, args->faceMask, args->reference);
 }
 
 static void
 vkr_dispatch_vkCmdBindDescriptorSets(UNUSED struct vn_dispatch_context *dispatch,
                                      struct vn_command_vkCmdBindDescriptorSets *args)
 {
-   vn_replace_vkCmdBindDescriptorSets_args_handle(args);
-   vkCmdBindDescriptorSets(args->commandBuffer, args->pipelineBindPoint, args->layout,
-                           args->firstSet, args->descriptorSetCount,
-                           args->pDescriptorSets, args->dynamicOffsetCount,
-                           args->pDynamicOffsets);
+   VKR_CMD_CALL(CmdBindDescriptorSets, args, args->pipelineBindPoint, args->layout,
+                args->firstSet, args->descriptorSetCount, args->pDescriptorSets,
+                args->dynamicOffsetCount, args->pDynamicOffsets);
 }
 
 static void
 vkr_dispatch_vkCmdBindIndexBuffer(UNUSED struct vn_dispatch_context *dispatch,
                                   struct vn_command_vkCmdBindIndexBuffer *args)
 {
-   vn_replace_vkCmdBindIndexBuffer_args_handle(args);
-   vkCmdBindIndexBuffer(args->commandBuffer, args->buffer, args->offset, args->indexType);
+   VKR_CMD_CALL(CmdBindIndexBuffer, args, args->buffer, args->offset, args->indexType);
 }
 
 static void
 vkr_dispatch_vkCmdBindVertexBuffers(UNUSED struct vn_dispatch_context *dispatch,
                                     struct vn_command_vkCmdBindVertexBuffers *args)
 {
-   vn_replace_vkCmdBindVertexBuffers_args_handle(args);
-   vkCmdBindVertexBuffers(args->commandBuffer, args->firstBinding, args->bindingCount,
-                          args->pBuffers, args->pOffsets);
+   VKR_CMD_CALL(CmdBindVertexBuffers, args, args->firstBinding, args->bindingCount,
+                args->pBuffers, args->pOffsets);
 }
 
 static void
 vkr_dispatch_vkCmdDraw(UNUSED struct vn_dispatch_context *dispatch,
                        struct vn_command_vkCmdDraw *args)
 {
-   vn_replace_vkCmdDraw_args_handle(args);
-   vkCmdDraw(args->commandBuffer, args->vertexCount, args->instanceCount,
-             args->firstVertex, args->firstInstance);
+   VKR_CMD_CALL(CmdDraw, args, args->vertexCount, args->instanceCount, args->firstVertex,
+                args->firstInstance);
 }
 
 static void
 vkr_dispatch_vkCmdDrawIndexed(UNUSED struct vn_dispatch_context *dispatch,
                               struct vn_command_vkCmdDrawIndexed *args)
 {
-   vn_replace_vkCmdDrawIndexed_args_handle(args);
-   vkCmdDrawIndexed(args->commandBuffer, args->indexCount, args->instanceCount,
-                    args->firstIndex, args->vertexOffset, args->firstInstance);
+   VKR_CMD_CALL(CmdDrawIndexed, args, args->indexCount, args->instanceCount,
+                args->firstIndex, args->vertexOffset, args->firstInstance);
 }
 
 static void
 vkr_dispatch_vkCmdDrawIndirect(UNUSED struct vn_dispatch_context *dispatch,
                                struct vn_command_vkCmdDrawIndirect *args)
 {
-   vn_replace_vkCmdDrawIndirect_args_handle(args);
-   vkCmdDrawIndirect(args->commandBuffer, args->buffer, args->offset, args->drawCount,
-                     args->stride);
+   VKR_CMD_CALL(CmdDrawIndirect, args, args->buffer, args->offset, args->drawCount,
+                args->stride);
 }
 
 static void
 vkr_dispatch_vkCmdDrawIndexedIndirect(UNUSED struct vn_dispatch_context *dispatch,
                                       struct vn_command_vkCmdDrawIndexedIndirect *args)
 {
-   vn_replace_vkCmdDrawIndexedIndirect_args_handle(args);
-   vkCmdDrawIndexedIndirect(args->commandBuffer, args->buffer, args->offset,
-                            args->drawCount, args->stride);
+   VKR_CMD_CALL(CmdDrawIndexedIndirect, args, args->buffer, args->offset, args->drawCount,
+                args->stride);
 }
 
 static void
 vkr_dispatch_vkCmdDispatch(UNUSED struct vn_dispatch_context *dispatch,
                            struct vn_command_vkCmdDispatch *args)
 {
-   vn_replace_vkCmdDispatch_args_handle(args);
-   vkCmdDispatch(args->commandBuffer, args->groupCountX, args->groupCountY,
-                 args->groupCountZ);
+   VKR_CMD_CALL(CmdDispatch, args, args->groupCountX, args->groupCountY,
+                args->groupCountZ);
 }
 
 static void
 vkr_dispatch_vkCmdDispatchIndirect(UNUSED struct vn_dispatch_context *dispatch,
                                    struct vn_command_vkCmdDispatchIndirect *args)
 {
-   vn_replace_vkCmdDispatchIndirect_args_handle(args);
-   vkCmdDispatchIndirect(args->commandBuffer, args->buffer, args->offset);
+   VKR_CMD_CALL(CmdDispatchIndirect, args, args->buffer, args->offset);
 }
 
 static void
 vkr_dispatch_vkCmdCopyBuffer(UNUSED struct vn_dispatch_context *dispatch,
                              struct vn_command_vkCmdCopyBuffer *args)
 {
-   vn_replace_vkCmdCopyBuffer_args_handle(args);
-   vkCmdCopyBuffer(args->commandBuffer, args->srcBuffer, args->dstBuffer,
-                   args->regionCount, args->pRegions);
+   VKR_CMD_CALL(CmdCopyBuffer, args, args->srcBuffer, args->dstBuffer, args->regionCount,
+                args->pRegions);
+}
+
+static void
+vkr_dispatch_vkCmdCopyBuffer2(UNUSED struct vn_dispatch_context *dispatch,
+                              struct vn_command_vkCmdCopyBuffer2 *args)
+{
+   VKR_CMD_CALL(CmdCopyBuffer2, args, args->pCopyBufferInfo);
 }
 
 static void
 vkr_dispatch_vkCmdCopyImage(UNUSED struct vn_dispatch_context *dispatch,
                             struct vn_command_vkCmdCopyImage *args)
 {
-   vn_replace_vkCmdCopyImage_args_handle(args);
-   vkCmdCopyImage(args->commandBuffer, args->srcImage, args->srcImageLayout,
-                  args->dstImage, args->dstImageLayout, args->regionCount,
-                  args->pRegions);
+   VKR_CMD_CALL(CmdCopyImage, args, args->srcImage, args->srcImageLayout, args->dstImage,
+                args->dstImageLayout, args->regionCount, args->pRegions);
+}
+
+static void
+vkr_dispatch_vkCmdCopyImage2(UNUSED struct vn_dispatch_context *dispatch,
+                             struct vn_command_vkCmdCopyImage2 *args)
+{
+   VKR_CMD_CALL(CmdCopyImage2, args, args->pCopyImageInfo);
 }
 
 static void
 vkr_dispatch_vkCmdBlitImage(UNUSED struct vn_dispatch_context *dispatch,
                             struct vn_command_vkCmdBlitImage *args)
 {
-   vn_replace_vkCmdBlitImage_args_handle(args);
-   vkCmdBlitImage(args->commandBuffer, args->srcImage, args->srcImageLayout,
-                  args->dstImage, args->dstImageLayout, args->regionCount, args->pRegions,
-                  args->filter);
+   VKR_CMD_CALL(CmdBlitImage, args, args->srcImage, args->srcImageLayout, args->dstImage,
+                args->dstImageLayout, args->regionCount, args->pRegions, args->filter);
+}
+
+static void
+vkr_dispatch_vkCmdBlitImage2(UNUSED struct vn_dispatch_context *dispatch,
+                             struct vn_command_vkCmdBlitImage2 *args)
+{
+   VKR_CMD_CALL(CmdBlitImage2, args, args->pBlitImageInfo);
 }
 
 static void
 vkr_dispatch_vkCmdCopyBufferToImage(UNUSED struct vn_dispatch_context *dispatch,
                                     struct vn_command_vkCmdCopyBufferToImage *args)
 {
-   vn_replace_vkCmdCopyBufferToImage_args_handle(args);
-   vkCmdCopyBufferToImage(args->commandBuffer, args->srcBuffer, args->dstImage,
-                          args->dstImageLayout, args->regionCount, args->pRegions);
+   VKR_CMD_CALL(CmdCopyBufferToImage, args, args->srcBuffer, args->dstImage,
+                args->dstImageLayout, args->regionCount, args->pRegions);
+}
+
+static void
+vkr_dispatch_vkCmdCopyBufferToImage2(UNUSED struct vn_dispatch_context *dispatch,
+                                     struct vn_command_vkCmdCopyBufferToImage2 *args)
+{
+   VKR_CMD_CALL(CmdCopyBufferToImage2, args, args->pCopyBufferToImageInfo);
 }
 
 static void
 vkr_dispatch_vkCmdCopyImageToBuffer(UNUSED struct vn_dispatch_context *dispatch,
                                     struct vn_command_vkCmdCopyImageToBuffer *args)
 {
-   vn_replace_vkCmdCopyImageToBuffer_args_handle(args);
-   vkCmdCopyImageToBuffer(args->commandBuffer, args->srcImage, args->srcImageLayout,
-                          args->dstBuffer, args->regionCount, args->pRegions);
+   VKR_CMD_CALL(CmdCopyImageToBuffer, args, args->srcImage, args->srcImageLayout,
+                args->dstBuffer, args->regionCount, args->pRegions);
+}
+
+static void
+vkr_dispatch_vkCmdCopyImageToBuffer2(UNUSED struct vn_dispatch_context *dispatch,
+                                     struct vn_command_vkCmdCopyImageToBuffer2 *args)
+{
+   VKR_CMD_CALL(CmdCopyImageToBuffer2, args, args->pCopyImageToBufferInfo);
 }
 
 static void
 vkr_dispatch_vkCmdUpdateBuffer(UNUSED struct vn_dispatch_context *dispatch,
                                struct vn_command_vkCmdUpdateBuffer *args)
 {
-   vn_replace_vkCmdUpdateBuffer_args_handle(args);
-   vkCmdUpdateBuffer(args->commandBuffer, args->dstBuffer, args->dstOffset,
-                     args->dataSize, args->pData);
+   VKR_CMD_CALL(CmdUpdateBuffer, args, args->dstBuffer, args->dstOffset, args->dataSize,
+                args->pData);
 }
 
 static void
 vkr_dispatch_vkCmdFillBuffer(UNUSED struct vn_dispatch_context *dispatch,
                              struct vn_command_vkCmdFillBuffer *args)
 {
-   vn_replace_vkCmdFillBuffer_args_handle(args);
-   vkCmdFillBuffer(args->commandBuffer, args->dstBuffer, args->dstOffset, args->size,
-                   args->data);
+   VKR_CMD_CALL(CmdFillBuffer, args, args->dstBuffer, args->dstOffset, args->size,
+                args->data);
 }
 
 static void
 vkr_dispatch_vkCmdClearColorImage(UNUSED struct vn_dispatch_context *dispatch,
                                   struct vn_command_vkCmdClearColorImage *args)
 {
-   vn_replace_vkCmdClearColorImage_args_handle(args);
-   vkCmdClearColorImage(args->commandBuffer, args->image, args->imageLayout, args->pColor,
-                        args->rangeCount, args->pRanges);
+   VKR_CMD_CALL(CmdClearColorImage, args, args->image, args->imageLayout, args->pColor,
+                args->rangeCount, args->pRanges);
 }
 
 static void
@@ -354,216 +387,187 @@ vkr_dispatch_vkCmdClearDepthStencilImage(
    UNUSED struct vn_dispatch_context *dispatch,
    struct vn_command_vkCmdClearDepthStencilImage *args)
 {
-   vn_replace_vkCmdClearDepthStencilImage_args_handle(args);
-   vkCmdClearDepthStencilImage(args->commandBuffer, args->image, args->imageLayout,
-                               args->pDepthStencil, args->rangeCount, args->pRanges);
+   VKR_CMD_CALL(CmdClearDepthStencilImage, args, args->image, args->imageLayout,
+                args->pDepthStencil, args->rangeCount, args->pRanges);
 }
 
 static void
 vkr_dispatch_vkCmdClearAttachments(UNUSED struct vn_dispatch_context *dispatch,
                                    struct vn_command_vkCmdClearAttachments *args)
 {
-   vn_replace_vkCmdClearAttachments_args_handle(args);
-   vkCmdClearAttachments(args->commandBuffer, args->attachmentCount, args->pAttachments,
-                         args->rectCount, args->pRects);
+   VKR_CMD_CALL(CmdClearAttachments, args, args->attachmentCount, args->pAttachments,
+                args->rectCount, args->pRects);
 }
 
 static void
 vkr_dispatch_vkCmdResolveImage(UNUSED struct vn_dispatch_context *dispatch,
                                struct vn_command_vkCmdResolveImage *args)
 {
-   vn_replace_vkCmdResolveImage_args_handle(args);
-   vkCmdResolveImage(args->commandBuffer, args->srcImage, args->srcImageLayout,
-                     args->dstImage, args->dstImageLayout, args->regionCount,
-                     args->pRegions);
+   VKR_CMD_CALL(CmdResolveImage, args, args->srcImage, args->srcImageLayout,
+                args->dstImage, args->dstImageLayout, args->regionCount, args->pRegions);
+}
+
+static void
+vkr_dispatch_vkCmdResolveImage2(UNUSED struct vn_dispatch_context *dispatch,
+                                struct vn_command_vkCmdResolveImage2 *args)
+{
+   VKR_CMD_CALL(CmdResolveImage2, args, args->pResolveImageInfo);
 }
 
 static void
 vkr_dispatch_vkCmdSetEvent(UNUSED struct vn_dispatch_context *dispatch,
                            struct vn_command_vkCmdSetEvent *args)
 {
-   vn_replace_vkCmdSetEvent_args_handle(args);
-   vkCmdSetEvent(args->commandBuffer, args->event, args->stageMask);
+   VKR_CMD_CALL(CmdSetEvent, args, args->event, args->stageMask);
 }
 
 static void
 vkr_dispatch_vkCmdResetEvent(UNUSED struct vn_dispatch_context *dispatch,
                              struct vn_command_vkCmdResetEvent *args)
 {
-   vn_replace_vkCmdResetEvent_args_handle(args);
-   vkCmdResetEvent(args->commandBuffer, args->event, args->stageMask);
+   VKR_CMD_CALL(CmdResetEvent, args, args->event, args->stageMask);
 }
 
 static void
 vkr_dispatch_vkCmdWaitEvents(UNUSED struct vn_dispatch_context *dispatch,
                              struct vn_command_vkCmdWaitEvents *args)
 {
-   vn_replace_vkCmdWaitEvents_args_handle(args);
-   vkCmdWaitEvents(args->commandBuffer, args->eventCount, args->pEvents,
-                   args->srcStageMask, args->dstStageMask, args->memoryBarrierCount,
-                   args->pMemoryBarriers, args->bufferMemoryBarrierCount,
-                   args->pBufferMemoryBarriers, args->imageMemoryBarrierCount,
-                   args->pImageMemoryBarriers);
+   VKR_CMD_CALL(CmdWaitEvents, args, args->eventCount, args->pEvents, args->srcStageMask,
+                args->dstStageMask, args->memoryBarrierCount, args->pMemoryBarriers,
+                args->bufferMemoryBarrierCount, args->pBufferMemoryBarriers,
+                args->imageMemoryBarrierCount, args->pImageMemoryBarriers);
 }
 
 static void
 vkr_dispatch_vkCmdPipelineBarrier(UNUSED struct vn_dispatch_context *dispatch,
                                   struct vn_command_vkCmdPipelineBarrier *args)
 {
-   vn_replace_vkCmdPipelineBarrier_args_handle(args);
-   vkCmdPipelineBarrier(args->commandBuffer, args->srcStageMask, args->dstStageMask,
-                        args->dependencyFlags, args->memoryBarrierCount,
-                        args->pMemoryBarriers, args->bufferMemoryBarrierCount,
-                        args->pBufferMemoryBarriers, args->imageMemoryBarrierCount,
-                        args->pImageMemoryBarriers);
+   VKR_CMD_CALL(CmdPipelineBarrier, args, args->srcStageMask, args->dstStageMask,
+                args->dependencyFlags, args->memoryBarrierCount, args->pMemoryBarriers,
+                args->bufferMemoryBarrierCount, args->pBufferMemoryBarriers,
+                args->imageMemoryBarrierCount, args->pImageMemoryBarriers);
 }
 
 static void
 vkr_dispatch_vkCmdBeginQuery(UNUSED struct vn_dispatch_context *dispatch,
                              struct vn_command_vkCmdBeginQuery *args)
 {
-   vn_replace_vkCmdBeginQuery_args_handle(args);
-   vkCmdBeginQuery(args->commandBuffer, args->queryPool, args->query, args->flags);
+   VKR_CMD_CALL(CmdBeginQuery, args, args->queryPool, args->query, args->flags);
 }
 
 static void
 vkr_dispatch_vkCmdEndQuery(UNUSED struct vn_dispatch_context *dispatch,
                            struct vn_command_vkCmdEndQuery *args)
 {
-   vn_replace_vkCmdEndQuery_args_handle(args);
-   vkCmdEndQuery(args->commandBuffer, args->queryPool, args->query);
+   VKR_CMD_CALL(CmdEndQuery, args, args->queryPool, args->query);
 }
 
 static void
 vkr_dispatch_vkCmdResetQueryPool(UNUSED struct vn_dispatch_context *dispatch,
                                  struct vn_command_vkCmdResetQueryPool *args)
 {
-   vn_replace_vkCmdResetQueryPool_args_handle(args);
-   vkCmdResetQueryPool(args->commandBuffer, args->queryPool, args->firstQuery,
-                       args->queryCount);
+   VKR_CMD_CALL(CmdResetQueryPool, args, args->queryPool, args->firstQuery,
+                args->queryCount);
 }
 
 static void
 vkr_dispatch_vkCmdWriteTimestamp(UNUSED struct vn_dispatch_context *dispatch,
                                  struct vn_command_vkCmdWriteTimestamp *args)
 {
-   vn_replace_vkCmdWriteTimestamp_args_handle(args);
-   vkCmdWriteTimestamp(args->commandBuffer, args->pipelineStage, args->queryPool,
-                       args->query);
+   VKR_CMD_CALL(CmdWriteTimestamp, args, args->pipelineStage, args->queryPool,
+                args->query);
 }
 
 static void
 vkr_dispatch_vkCmdCopyQueryPoolResults(UNUSED struct vn_dispatch_context *dispatch,
                                        struct vn_command_vkCmdCopyQueryPoolResults *args)
 {
-   vn_replace_vkCmdCopyQueryPoolResults_args_handle(args);
-   vkCmdCopyQueryPoolResults(args->commandBuffer, args->queryPool, args->firstQuery,
-                             args->queryCount, args->dstBuffer, args->dstOffset,
-                             args->stride, args->flags);
+   VKR_CMD_CALL(CmdCopyQueryPoolResults, args, args->queryPool, args->firstQuery,
+                args->queryCount, args->dstBuffer, args->dstOffset, args->stride,
+                args->flags);
 }
 
 static void
 vkr_dispatch_vkCmdPushConstants(UNUSED struct vn_dispatch_context *dispatch,
                                 struct vn_command_vkCmdPushConstants *args)
 {
-   vn_replace_vkCmdPushConstants_args_handle(args);
-   vkCmdPushConstants(args->commandBuffer, args->layout, args->stageFlags, args->offset,
-                      args->size, args->pValues);
+   VKR_CMD_CALL(CmdPushConstants, args, args->layout, args->stageFlags, args->offset,
+                args->size, args->pValues);
 }
 
 static void
 vkr_dispatch_vkCmdBeginRenderPass(UNUSED struct vn_dispatch_context *dispatch,
                                   struct vn_command_vkCmdBeginRenderPass *args)
 {
-   vn_replace_vkCmdBeginRenderPass_args_handle(args);
-   vkCmdBeginRenderPass(args->commandBuffer, args->pRenderPassBegin, args->contents);
+   VKR_CMD_CALL(CmdBeginRenderPass, args, args->pRenderPassBegin, args->contents);
 }
 
 static void
 vkr_dispatch_vkCmdNextSubpass(UNUSED struct vn_dispatch_context *dispatch,
                               struct vn_command_vkCmdNextSubpass *args)
 {
-   vn_replace_vkCmdNextSubpass_args_handle(args);
-   vkCmdNextSubpass(args->commandBuffer, args->contents);
+   VKR_CMD_CALL(CmdNextSubpass, args, args->contents);
 }
 
 static void
 vkr_dispatch_vkCmdEndRenderPass(UNUSED struct vn_dispatch_context *dispatch,
                                 struct vn_command_vkCmdEndRenderPass *args)
 {
-   vn_replace_vkCmdEndRenderPass_args_handle(args);
-   vkCmdEndRenderPass(args->commandBuffer);
+   VKR_CMD_CALL(CmdEndRenderPass, args);
 }
 
 static void
 vkr_dispatch_vkCmdExecuteCommands(UNUSED struct vn_dispatch_context *dispatch,
                                   struct vn_command_vkCmdExecuteCommands *args)
 {
-   vn_replace_vkCmdExecuteCommands_args_handle(args);
-   vkCmdExecuteCommands(args->commandBuffer, args->commandBufferCount,
-                        args->pCommandBuffers);
+   VKR_CMD_CALL(CmdExecuteCommands, args, args->commandBufferCount,
+                args->pCommandBuffers);
 }
 
 static void
 vkr_dispatch_vkCmdSetDeviceMask(UNUSED struct vn_dispatch_context *dispatch,
                                 struct vn_command_vkCmdSetDeviceMask *args)
 {
-   vn_replace_vkCmdSetDeviceMask_args_handle(args);
-   vkCmdSetDeviceMask(args->commandBuffer, args->deviceMask);
+   VKR_CMD_CALL(CmdSetDeviceMask, args, args->deviceMask);
 }
 
 static void
 vkr_dispatch_vkCmdDispatchBase(UNUSED struct vn_dispatch_context *dispatch,
                                struct vn_command_vkCmdDispatchBase *args)
 {
-   vn_replace_vkCmdDispatchBase_args_handle(args);
-   vkCmdDispatchBase(args->commandBuffer, args->baseGroupX, args->baseGroupY,
-                     args->baseGroupZ, args->groupCountX, args->groupCountY,
-                     args->groupCountZ);
+   VKR_CMD_CALL(CmdDispatchBase, args, args->baseGroupX, args->baseGroupY,
+                args->baseGroupZ, args->groupCountX, args->groupCountY,
+                args->groupCountZ);
 }
 
 static void
 vkr_dispatch_vkCmdBeginRenderPass2(UNUSED struct vn_dispatch_context *dispatch,
                                    struct vn_command_vkCmdBeginRenderPass2 *args)
 {
-   struct vkr_command_buffer *cmd = vkr_command_buffer_from_handle(args->commandBuffer);
-
-   vn_replace_vkCmdBeginRenderPass2_args_handle(args);
-   cmd->device->CmdBeginRenderPass2(args->commandBuffer, args->pRenderPassBegin,
-                                    args->pSubpassBeginInfo);
+   VKR_CMD_CALL(CmdBeginRenderPass2, args, args->pRenderPassBegin,
+                args->pSubpassBeginInfo);
 }
 
 static void
 vkr_dispatch_vkCmdNextSubpass2(UNUSED struct vn_dispatch_context *dispatch,
                                struct vn_command_vkCmdNextSubpass2 *args)
 {
-   struct vkr_command_buffer *cmd = vkr_command_buffer_from_handle(args->commandBuffer);
-
-   vn_replace_vkCmdNextSubpass2_args_handle(args);
-   cmd->device->CmdNextSubpass2(args->commandBuffer, args->pSubpassBeginInfo,
-                                args->pSubpassEndInfo);
+   VKR_CMD_CALL(CmdNextSubpass2, args, args->pSubpassBeginInfo, args->pSubpassEndInfo);
 }
 
 static void
 vkr_dispatch_vkCmdEndRenderPass2(UNUSED struct vn_dispatch_context *dispatch,
                                  struct vn_command_vkCmdEndRenderPass2 *args)
 {
-   struct vkr_command_buffer *cmd = vkr_command_buffer_from_handle(args->commandBuffer);
-
-   vn_replace_vkCmdEndRenderPass2_args_handle(args);
-   cmd->device->CmdEndRenderPass2(args->commandBuffer, args->pSubpassEndInfo);
+   VKR_CMD_CALL(CmdEndRenderPass2, args, args->pSubpassEndInfo);
 }
 
 static void
 vkr_dispatch_vkCmdDrawIndirectCount(UNUSED struct vn_dispatch_context *dispatch,
                                     struct vn_command_vkCmdDrawIndirectCount *args)
 {
-   struct vkr_command_buffer *cmd = vkr_command_buffer_from_handle(args->commandBuffer);
-
-   vn_replace_vkCmdDrawIndirectCount_args_handle(args);
-   cmd->device->CmdDrawIndirectCount(args->commandBuffer, args->buffer, args->offset,
-                                     args->countBuffer, args->countBufferOffset,
-                                     args->maxDrawCount, args->stride);
+   VKR_CMD_CALL(CmdDrawIndirectCount, args, args->buffer, args->offset, args->countBuffer,
+                args->countBufferOffset, args->maxDrawCount, args->stride);
 }
 
 static void
@@ -571,12 +575,17 @@ vkr_dispatch_vkCmdDrawIndexedIndirectCount(
    UNUSED struct vn_dispatch_context *dispatch,
    struct vn_command_vkCmdDrawIndexedIndirectCount *args)
 {
-   struct vkr_command_buffer *cmd = vkr_command_buffer_from_handle(args->commandBuffer);
+   VKR_CMD_CALL(CmdDrawIndexedIndirectCount, args, args->buffer, args->offset,
+                args->countBuffer, args->countBufferOffset, args->maxDrawCount,
+                args->stride);
+}
 
-   vn_replace_vkCmdDrawIndexedIndirectCount_args_handle(args);
-   cmd->device->CmdDrawIndexedIndirectCount(
-      args->commandBuffer, args->buffer, args->offset, args->countBuffer,
-      args->countBufferOffset, args->maxDrawCount, args->stride);
+static void
+vkr_dispatch_vkCmdSetLineStippleEXT(UNUSED struct vn_dispatch_context *dispatch,
+                                    struct vn_command_vkCmdSetLineStippleEXT *args)
+{
+   VKR_CMD_CALL(CmdSetLineStippleEXT, args, args->lineStippleFactor,
+                args->lineStipplePattern);
 }
 
 static void
@@ -584,12 +593,8 @@ vkr_dispatch_vkCmdBindTransformFeedbackBuffersEXT(
    UNUSED struct vn_dispatch_context *dispatch,
    struct vn_command_vkCmdBindTransformFeedbackBuffersEXT *args)
 {
-   struct vkr_command_buffer *cmd = vkr_command_buffer_from_handle(args->commandBuffer);
-
-   vn_replace_vkCmdBindTransformFeedbackBuffersEXT_args_handle(args);
-   cmd->device->cmd_bind_transform_feedback_buffers(
-      args->commandBuffer, args->firstBinding, args->bindingCount, args->pBuffers,
-      args->pOffsets, args->pSizes);
+   VKR_CMD_CALL(CmdBindTransformFeedbackBuffersEXT, args, args->firstBinding,
+                args->bindingCount, args->pBuffers, args->pOffsets, args->pSizes);
 }
 
 static void
@@ -597,12 +602,9 @@ vkr_dispatch_vkCmdBeginTransformFeedbackEXT(
    UNUSED struct vn_dispatch_context *dispatch,
    struct vn_command_vkCmdBeginTransformFeedbackEXT *args)
 {
-   struct vkr_command_buffer *cmd = vkr_command_buffer_from_handle(args->commandBuffer);
-
-   vn_replace_vkCmdBeginTransformFeedbackEXT_args_handle(args);
-   cmd->device->cmd_begin_transform_feedback(
-      args->commandBuffer, args->firstCounterBuffer, args->counterBufferCount,
-      args->pCounterBuffers, args->pCounterBufferOffsets);
+   VKR_CMD_CALL(CmdBeginTransformFeedbackEXT, args, args->firstCounterBuffer,
+                args->counterBufferCount, args->pCounterBuffers,
+                args->pCounterBufferOffsets);
 }
 
 static void
@@ -610,34 +612,24 @@ vkr_dispatch_vkCmdEndTransformFeedbackEXT(
    UNUSED struct vn_dispatch_context *dispatch,
    struct vn_command_vkCmdEndTransformFeedbackEXT *args)
 {
-   struct vkr_command_buffer *cmd = vkr_command_buffer_from_handle(args->commandBuffer);
-
-   vn_replace_vkCmdEndTransformFeedbackEXT_args_handle(args);
-   cmd->device->cmd_end_transform_feedback(
-      args->commandBuffer, args->firstCounterBuffer, args->counterBufferCount,
-      args->pCounterBuffers, args->pCounterBufferOffsets);
+   VKR_CMD_CALL(CmdEndTransformFeedbackEXT, args, args->firstCounterBuffer,
+                args->counterBufferCount, args->pCounterBuffers,
+                args->pCounterBufferOffsets);
 }
 
 static void
 vkr_dispatch_vkCmdBeginQueryIndexedEXT(UNUSED struct vn_dispatch_context *dispatch,
                                        struct vn_command_vkCmdBeginQueryIndexedEXT *args)
 {
-   struct vkr_command_buffer *cmd = vkr_command_buffer_from_handle(args->commandBuffer);
-
-   vn_replace_vkCmdBeginQueryIndexedEXT_args_handle(args);
-   cmd->device->cmd_begin_query_indexed(args->commandBuffer, args->queryPool, args->query,
-                                        args->flags, args->index);
+   VKR_CMD_CALL(CmdBeginQueryIndexedEXT, args, args->queryPool, args->query, args->flags,
+                args->index);
 }
 
 static void
 vkr_dispatch_vkCmdEndQueryIndexedEXT(UNUSED struct vn_dispatch_context *dispatch,
                                      struct vn_command_vkCmdEndQueryIndexedEXT *args)
 {
-   struct vkr_command_buffer *cmd = vkr_command_buffer_from_handle(args->commandBuffer);
-
-   vn_replace_vkCmdEndQueryIndexedEXT_args_handle(args);
-   cmd->device->cmd_end_query_indexed(args->commandBuffer, args->queryPool, args->query,
-                                      args->index);
+   VKR_CMD_CALL(CmdEndQueryIndexedEXT, args, args->queryPool, args->query, args->index);
 }
 
 static void
@@ -645,12 +637,225 @@ vkr_dispatch_vkCmdDrawIndirectByteCountEXT(
    UNUSED struct vn_dispatch_context *dispatch,
    struct vn_command_vkCmdDrawIndirectByteCountEXT *args)
 {
-   struct vkr_command_buffer *cmd = vkr_command_buffer_from_handle(args->commandBuffer);
+   VKR_CMD_CALL(CmdDrawIndirectByteCountEXT, args, args->instanceCount,
+                args->firstInstance, args->counterBuffer, args->counterBufferOffset,
+                args->counterOffset, args->vertexStride);
+}
 
-   vn_replace_vkCmdDrawIndirectByteCountEXT_args_handle(args);
-   cmd->device->cmd_draw_indirect_byte_count(
-      args->commandBuffer, args->instanceCount, args->firstInstance, args->counterBuffer,
-      args->counterBufferOffset, args->counterOffset, args->vertexStride);
+static void
+vkr_dispatch_vkCmdBindVertexBuffers2(UNUSED struct vn_dispatch_context *dispatch,
+                                     struct vn_command_vkCmdBindVertexBuffers2 *args)
+{
+   VKR_CMD_CALL(CmdBindVertexBuffers2, args, args->firstBinding, args->bindingCount,
+                args->pBuffers, args->pOffsets, args->pSizes, args->pStrides);
+}
+
+static void
+vkr_dispatch_vkCmdSetCullMode(UNUSED struct vn_dispatch_context *dispatch,
+                              struct vn_command_vkCmdSetCullMode *args)
+{
+   VKR_CMD_CALL(CmdSetCullMode, args, args->cullMode);
+}
+
+static void
+vkr_dispatch_vkCmdSetDepthBoundsTestEnable(
+   UNUSED struct vn_dispatch_context *dispatch,
+   struct vn_command_vkCmdSetDepthBoundsTestEnable *args)
+{
+   VKR_CMD_CALL(CmdSetDepthBoundsTestEnable, args, args->depthBoundsTestEnable);
+}
+
+static void
+vkr_dispatch_vkCmdSetDepthCompareOp(UNUSED struct vn_dispatch_context *dispatch,
+                                    struct vn_command_vkCmdSetDepthCompareOp *args)
+{
+   VKR_CMD_CALL(CmdSetDepthCompareOp, args, args->depthCompareOp);
+}
+
+static void
+vkr_dispatch_vkCmdSetDepthTestEnable(UNUSED struct vn_dispatch_context *dispatch,
+                                     struct vn_command_vkCmdSetDepthTestEnable *args)
+{
+   VKR_CMD_CALL(CmdSetDepthTestEnable, args, args->depthTestEnable);
+}
+
+static void
+vkr_dispatch_vkCmdSetDepthWriteEnable(UNUSED struct vn_dispatch_context *dispatch,
+                                      struct vn_command_vkCmdSetDepthWriteEnable *args)
+{
+   VKR_CMD_CALL(CmdSetDepthWriteEnable, args, args->depthWriteEnable);
+}
+
+static void
+vkr_dispatch_vkCmdSetFrontFace(UNUSED struct vn_dispatch_context *dispatch,
+                               struct vn_command_vkCmdSetFrontFace *args)
+{
+   VKR_CMD_CALL(CmdSetFrontFace, args, args->frontFace);
+}
+
+static void
+vkr_dispatch_vkCmdSetPrimitiveTopology(UNUSED struct vn_dispatch_context *dispatch,
+                                       struct vn_command_vkCmdSetPrimitiveTopology *args)
+{
+   VKR_CMD_CALL(CmdSetPrimitiveTopology, args, args->primitiveTopology);
+}
+
+static void
+vkr_dispatch_vkCmdSetScissorWithCount(UNUSED struct vn_dispatch_context *dispatch,
+                                      struct vn_command_vkCmdSetScissorWithCount *args)
+{
+   VKR_CMD_CALL(CmdSetScissorWithCount, args, args->scissorCount, args->pScissors);
+}
+
+static void
+vkr_dispatch_vkCmdSetStencilOp(UNUSED struct vn_dispatch_context *dispatch,
+                               struct vn_command_vkCmdSetStencilOp *args)
+{
+   VKR_CMD_CALL(CmdSetStencilOp, args, args->faceMask, args->failOp, args->passOp,
+                args->depthFailOp, args->compareOp);
+}
+
+static void
+vkr_dispatch_vkCmdSetStencilTestEnable(UNUSED struct vn_dispatch_context *dispatch,
+                                       struct vn_command_vkCmdSetStencilTestEnable *args)
+{
+   VKR_CMD_CALL(CmdSetStencilTestEnable, args, args->stencilTestEnable);
+}
+
+static void
+vkr_dispatch_vkCmdSetViewportWithCount(UNUSED struct vn_dispatch_context *dispatch,
+                                       struct vn_command_vkCmdSetViewportWithCount *args)
+{
+   VKR_CMD_CALL(CmdSetViewportWithCount, args, args->viewportCount, args->pViewports);
+}
+
+static void
+vkr_dispatch_vkCmdSetDepthBiasEnable(UNUSED struct vn_dispatch_context *dispatch,
+                                     struct vn_command_vkCmdSetDepthBiasEnable *args)
+{
+   VKR_CMD_CALL(CmdSetDepthBiasEnable, args, args->depthBiasEnable);
+}
+
+static void
+vkr_dispatch_vkCmdSetLogicOpEXT(UNUSED struct vn_dispatch_context *dispatch,
+                                struct vn_command_vkCmdSetLogicOpEXT *args)
+{
+   VKR_CMD_CALL(CmdSetLogicOpEXT, args, args->logicOp);
+}
+
+static void
+vkr_dispatch_vkCmdSetPatchControlPointsEXT(
+   UNUSED struct vn_dispatch_context *dispatch,
+   struct vn_command_vkCmdSetPatchControlPointsEXT *args)
+{
+   VKR_CMD_CALL(CmdSetPatchControlPointsEXT, args, args->patchControlPoints);
+}
+
+static void
+vkr_dispatch_vkCmdSetPrimitiveRestartEnable(
+   UNUSED struct vn_dispatch_context *dispatch,
+   struct vn_command_vkCmdSetPrimitiveRestartEnable *args)
+{
+   VKR_CMD_CALL(CmdSetPrimitiveRestartEnable, args, args->primitiveRestartEnable);
+}
+
+static void
+vkr_dispatch_vkCmdSetRasterizerDiscardEnable(
+   UNUSED struct vn_dispatch_context *dispatch,
+   struct vn_command_vkCmdSetRasterizerDiscardEnable *args)
+{
+   VKR_CMD_CALL(CmdSetRasterizerDiscardEnable, args, args->rasterizerDiscardEnable);
+}
+
+static void
+vkr_dispatch_vkCmdBeginConditionalRenderingEXT(
+   UNUSED struct vn_dispatch_context *dispatch,
+   struct vn_command_vkCmdBeginConditionalRenderingEXT *args)
+{
+   VKR_CMD_CALL(CmdBeginConditionalRenderingEXT, args, args->pConditionalRenderingBegin);
+}
+
+static void
+vkr_dispatch_vkCmdEndConditionalRenderingEXT(
+   UNUSED struct vn_dispatch_context *dispatch,
+   struct vn_command_vkCmdEndConditionalRenderingEXT *args)
+{
+   VKR_CMD_CALL(CmdEndConditionalRenderingEXT, args);
+}
+
+static void
+vkr_dispatch_vkCmdBeginRendering(UNUSED struct vn_dispatch_context *ctx,
+                                 struct vn_command_vkCmdBeginRendering *args)
+{
+   VKR_CMD_CALL(CmdBeginRendering, args, args->pRenderingInfo);
+}
+
+static void
+vkr_dispatch_vkCmdEndRendering(UNUSED struct vn_dispatch_context *ctx,
+                               struct vn_command_vkCmdEndRendering *args)
+{
+   VKR_CMD_CALL(CmdEndRendering, args);
+}
+
+static void
+vkr_dispatch_vkCmdPipelineBarrier2(UNUSED struct vn_dispatch_context *ctx,
+                                   struct vn_command_vkCmdPipelineBarrier2 *args)
+{
+   VKR_CMD_CALL(CmdPipelineBarrier2, args, args->pDependencyInfo);
+}
+
+static void
+vkr_dispatch_vkCmdResetEvent2(UNUSED struct vn_dispatch_context *ctx,
+                              struct vn_command_vkCmdResetEvent2 *args)
+{
+   VKR_CMD_CALL(CmdResetEvent2, args, args->event, args->stageMask);
+}
+
+static void
+vkr_dispatch_vkCmdSetEvent2(UNUSED struct vn_dispatch_context *ctx,
+                            struct vn_command_vkCmdSetEvent2 *args)
+{
+   VKR_CMD_CALL(CmdSetEvent2, args, args->event, args->pDependencyInfo);
+}
+
+static void
+vkr_dispatch_vkCmdWaitEvents2(UNUSED struct vn_dispatch_context *ctx,
+                              struct vn_command_vkCmdWaitEvents2 *args)
+{
+   VKR_CMD_CALL(CmdWaitEvents2, args, args->eventCount, args->pEvents,
+                args->pDependencyInfos);
+}
+
+static void
+vkr_dispatch_vkCmdWriteTimestamp2(UNUSED struct vn_dispatch_context *ctx,
+                                  struct vn_command_vkCmdWriteTimestamp2 *args)
+{
+   VKR_CMD_CALL(CmdWriteTimestamp2, args, args->stage, args->queryPool, args->query);
+}
+
+static void
+vkr_dispatch_vkCmdDrawMultiEXT(UNUSED struct vn_dispatch_context *dispatch,
+                               struct vn_command_vkCmdDrawMultiEXT *args)
+{
+   VKR_CMD_CALL(CmdDrawMultiEXT, args, args->drawCount, args->pVertexInfo,
+                args->instanceCount, args->firstInstance, args->stride);
+}
+
+static void
+vkr_dispatch_vkCmdDrawMultiIndexedEXT(UNUSED struct vn_dispatch_context *dispatch,
+                                      struct vn_command_vkCmdDrawMultiIndexedEXT *args)
+{
+   VKR_CMD_CALL(CmdDrawMultiIndexedEXT, args, args->drawCount, args->pIndexInfo,
+                args->instanceCount, args->firstInstance, args->stride,
+                args->pVertexOffset);
+}
+
+static void
+vkr_dispatch_vkCmdPushDescriptorSetKHR(UNUSED struct vn_dispatch_context *dispatch,
+                                       struct vn_command_vkCmdPushDescriptorSetKHR *args)
+{
+   VKR_CMD_CALL(CmdPushDescriptorSetKHR, args, args->pipelineBindPoint, args->layout,
+                args->set, args->descriptorWriteCount, args->pDescriptorWrites);
 }
 
 void
@@ -696,10 +901,15 @@ vkr_context_init_command_buffer_dispatch(struct vkr_context *ctx)
    dispatch->dispatch_vkCmdDispatch = vkr_dispatch_vkCmdDispatch;
    dispatch->dispatch_vkCmdDispatchIndirect = vkr_dispatch_vkCmdDispatchIndirect;
    dispatch->dispatch_vkCmdCopyBuffer = vkr_dispatch_vkCmdCopyBuffer;
+   dispatch->dispatch_vkCmdCopyBuffer2 = vkr_dispatch_vkCmdCopyBuffer2;
    dispatch->dispatch_vkCmdCopyImage = vkr_dispatch_vkCmdCopyImage;
+   dispatch->dispatch_vkCmdCopyImage2 = vkr_dispatch_vkCmdCopyImage2;
    dispatch->dispatch_vkCmdBlitImage = vkr_dispatch_vkCmdBlitImage;
+   dispatch->dispatch_vkCmdBlitImage2 = vkr_dispatch_vkCmdBlitImage2;
    dispatch->dispatch_vkCmdCopyBufferToImage = vkr_dispatch_vkCmdCopyBufferToImage;
+   dispatch->dispatch_vkCmdCopyBufferToImage2 = vkr_dispatch_vkCmdCopyBufferToImage2;
    dispatch->dispatch_vkCmdCopyImageToBuffer = vkr_dispatch_vkCmdCopyImageToBuffer;
+   dispatch->dispatch_vkCmdCopyImageToBuffer2 = vkr_dispatch_vkCmdCopyImageToBuffer2;
    dispatch->dispatch_vkCmdUpdateBuffer = vkr_dispatch_vkCmdUpdateBuffer;
    dispatch->dispatch_vkCmdFillBuffer = vkr_dispatch_vkCmdFillBuffer;
    dispatch->dispatch_vkCmdClearColorImage = vkr_dispatch_vkCmdClearColorImage;
@@ -707,6 +917,7 @@ vkr_context_init_command_buffer_dispatch(struct vkr_context *ctx)
       vkr_dispatch_vkCmdClearDepthStencilImage;
    dispatch->dispatch_vkCmdClearAttachments = vkr_dispatch_vkCmdClearAttachments;
    dispatch->dispatch_vkCmdResolveImage = vkr_dispatch_vkCmdResolveImage;
+   dispatch->dispatch_vkCmdResolveImage2 = vkr_dispatch_vkCmdResolveImage2;
    dispatch->dispatch_vkCmdSetEvent = vkr_dispatch_vkCmdSetEvent;
    dispatch->dispatch_vkCmdResetEvent = vkr_dispatch_vkCmdResetEvent;
    dispatch->dispatch_vkCmdWaitEvents = vkr_dispatch_vkCmdWaitEvents;
@@ -730,6 +941,8 @@ vkr_context_init_command_buffer_dispatch(struct vkr_context *ctx)
    dispatch->dispatch_vkCmdDrawIndexedIndirectCount =
       vkr_dispatch_vkCmdDrawIndexedIndirectCount;
 
+   dispatch->dispatch_vkCmdSetLineStippleEXT = vkr_dispatch_vkCmdSetLineStippleEXT;
+
    dispatch->dispatch_vkCmdBindTransformFeedbackBuffersEXT =
       vkr_dispatch_vkCmdBindTransformFeedbackBuffersEXT;
    dispatch->dispatch_vkCmdBeginTransformFeedbackEXT =
@@ -740,4 +953,53 @@ vkr_context_init_command_buffer_dispatch(struct vkr_context *ctx)
    dispatch->dispatch_vkCmdEndQueryIndexedEXT = vkr_dispatch_vkCmdEndQueryIndexedEXT;
    dispatch->dispatch_vkCmdDrawIndirectByteCountEXT =
       vkr_dispatch_vkCmdDrawIndirectByteCountEXT;
+
+   dispatch->dispatch_vkCmdBindVertexBuffers2 = vkr_dispatch_vkCmdBindVertexBuffers2;
+   dispatch->dispatch_vkCmdSetCullMode = vkr_dispatch_vkCmdSetCullMode;
+   dispatch->dispatch_vkCmdSetDepthBoundsTestEnable =
+      vkr_dispatch_vkCmdSetDepthBoundsTestEnable;
+   dispatch->dispatch_vkCmdSetDepthCompareOp = vkr_dispatch_vkCmdSetDepthCompareOp;
+   dispatch->dispatch_vkCmdSetDepthTestEnable = vkr_dispatch_vkCmdSetDepthTestEnable;
+   dispatch->dispatch_vkCmdSetDepthWriteEnable = vkr_dispatch_vkCmdSetDepthWriteEnable;
+   dispatch->dispatch_vkCmdSetFrontFace = vkr_dispatch_vkCmdSetFrontFace;
+   dispatch->dispatch_vkCmdSetPrimitiveTopology = vkr_dispatch_vkCmdSetPrimitiveTopology;
+   dispatch->dispatch_vkCmdSetScissorWithCount = vkr_dispatch_vkCmdSetScissorWithCount;
+   dispatch->dispatch_vkCmdSetStencilOp = vkr_dispatch_vkCmdSetStencilOp;
+   dispatch->dispatch_vkCmdSetStencilTestEnable = vkr_dispatch_vkCmdSetStencilTestEnable;
+   dispatch->dispatch_vkCmdSetViewportWithCount = vkr_dispatch_vkCmdSetViewportWithCount;
+
+   /* VK_KHR_dynamic_rendering */
+   dispatch->dispatch_vkCmdBeginRendering = vkr_dispatch_vkCmdBeginRendering;
+   dispatch->dispatch_vkCmdEndRendering = vkr_dispatch_vkCmdEndRendering;
+
+   /* VK_KHR_synchronization2 */
+   dispatch->dispatch_vkCmdPipelineBarrier2 = vkr_dispatch_vkCmdPipelineBarrier2;
+   dispatch->dispatch_vkCmdResetEvent2 = vkr_dispatch_vkCmdResetEvent2;
+   dispatch->dispatch_vkCmdSetEvent2 = vkr_dispatch_vkCmdSetEvent2;
+   dispatch->dispatch_vkCmdWaitEvents2 = vkr_dispatch_vkCmdWaitEvents2;
+   dispatch->dispatch_vkCmdWriteTimestamp2 = vkr_dispatch_vkCmdWriteTimestamp2;
+
+   /* VK_EXT_extended_dynamic_state2 */
+   dispatch->dispatch_vkCmdSetRasterizerDiscardEnable =
+      vkr_dispatch_vkCmdSetRasterizerDiscardEnable;
+   dispatch->dispatch_vkCmdSetPrimitiveRestartEnable =
+      vkr_dispatch_vkCmdSetPrimitiveRestartEnable;
+   dispatch->dispatch_vkCmdSetPatchControlPointsEXT =
+      vkr_dispatch_vkCmdSetPatchControlPointsEXT;
+   dispatch->dispatch_vkCmdSetLogicOpEXT = vkr_dispatch_vkCmdSetLogicOpEXT;
+   dispatch->dispatch_vkCmdSetDepthBiasEnable = vkr_dispatch_vkCmdSetDepthBiasEnable;
+
+   /* VK_EXT_conditional_rendering */
+   dispatch->dispatch_vkCmdBeginConditionalRenderingEXT =
+      vkr_dispatch_vkCmdBeginConditionalRenderingEXT;
+   dispatch->dispatch_vkCmdEndConditionalRenderingEXT =
+      vkr_dispatch_vkCmdEndConditionalRenderingEXT;
+
+   /* VK_EXT_multi_draw */
+   dispatch->dispatch_vkCmdDrawMultiEXT = vkr_dispatch_vkCmdDrawMultiEXT;
+   dispatch->dispatch_vkCmdDrawMultiIndexedEXT = vkr_dispatch_vkCmdDrawMultiIndexedEXT;
+
+   /* VK_KHR_push_descriptor */
+   dispatch->dispatch_vkCmdPushDescriptorSetKHR = vkr_dispatch_vkCmdPushDescriptorSetKHR;
+   dispatch->dispatch_vkCmdPushDescriptorSetWithTemplateKHR = NULL;
 }

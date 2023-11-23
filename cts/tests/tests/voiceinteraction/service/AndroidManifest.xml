@@ -18,18 +18,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.voiceinteraction.service">
 
-    <application android:label="Voice service">
+    <application android:label="Voice service" android:debuggable="true">
       <uses-library android:name="android.test.runner" />
-      <service android:name="android.voiceinteraction.service.NoOpVoiceInteractionService"
-              android:label="NoOpVoiceInteractionService has recognition"
-              android:permission="android.permission.BIND_VOICE_INTERACTION"
-              android:exported="true">
-          <meta-data android:name="android.voice_interaction"
-                     android:resource="@xml/has_recognition_interaction_service" />
-          <intent-filter>
-              <action android:name="android.service.voice.VoiceInteractionService" />
-          </intent-filter>
-      </service>
       <service android:name=".MainInteractionService"
               android:label="CTS test voice interaction service"
               android:permission="android.permission.BIND_VOICE_INTERACTION"
@@ -76,23 +66,28 @@
           </intent-filter>
           <meta-data android:name="android.speech" android:resource="@xml/recognition_service" />
       </service>
-        <service android:name=".BasicVoiceInteractionService"
-            android:label="CTS test Basic voice interaction service"
-            android:permission="android.permission.BIND_VOICE_INTERACTION"
-            android:process=":interactor"
-            android:exported="true"
-            android:visibleToInstantApps="true">
-            <meta-data android:name="android.voice_interaction"
-                android:resource="@xml/interaction_service_with_hotword" />
-            <intent-filter>
-                <action android:name="android.service.voice.VoiceInteractionService" />
-            </intent-filter>
-        </service>
-        <service android:name=".MainHotwordDetectionService"
-            android:permission="android.permission.BIND_HOTWORD_DETECTION_SERVICE"
-            android:isolatedProcess="true"
-            android:exported="true">
-        </service>
+      <service android:name=".MainHotwordDetectionService"
+              android:permission="android.permission.BIND_HOTWORD_DETECTION_SERVICE"
+              android:isolatedProcess="true"
+              android:exported="true">
+      </service>
+      <service android:name=".ProxyVoiceInteractionService"
+              android:label="CTS test proxy voice interaction service with binder interface"
+              android:permission="android.permission.BIND_VOICE_INTERACTION"
+              android:process=":interactor"
+              android:exported="true"
+              android:visibleToInstantApps="true">
+          <meta-data android:name="android.voice_interaction"
+                  android:resource="@xml/interaction_service_with_hotword" />
+          <intent-filter>
+              <action android:name="android.service.voice.VoiceInteractionService" />
+          </intent-filter>
+      </service>
+      <service android:name=".VoiceInteractionServiceBindingHelper"
+              android:label="CTS helper service to bind to another voice interaction service"
+              android:process=":interactor"
+              android:exported="true">
+      </service>
     </application>
 </manifest>
 

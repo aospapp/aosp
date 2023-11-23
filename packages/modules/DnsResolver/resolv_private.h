@@ -107,8 +107,10 @@ struct ResState {
         copy.pid = pid;
         copy.search_domains = search_domains;
         copy.nsaddrs = nsaddrs;
+        copy.udpsocks_ts = udpsocks_ts;
         copy.ndots = ndots;
         copy.mark = mark;
+        copy.tcp_nssock_ts = tcp_nssock_ts;
         copy.flags = flags;
         copy.event = (dnsEvent == nullptr) ? event : dnsEvent;
         copy.netcontext_flags = netcontext_flags;
@@ -134,10 +136,12 @@ struct ResState {
     pid_t pid;                                  // pid of the app that sent the DNS lookup
     std::vector<std::string> search_domains{};  // domains to search
     std::vector<android::netdutils::IPSockAddr> nsaddrs;
+    std::array<timespec, MAXNS> udpsocks_ts;    // The creation time of the UDP sockets
     android::base::unique_fd udpsocks[MAXNS];   // UDP sockets to nameservers
     unsigned ndots : 4 = 1;                     // threshold for initial abs. query
     unsigned mark;                              // Socket mark to be used by all DNS query sockets
     android::base::unique_fd tcp_nssock;        // TCP socket (but why not one per nameserver?)
+    timespec tcp_nssock_ts = {};                // The creation time of the TCP socket
     uint32_t flags = 0;                         // See RES_F_* defines below
     android::net::NetworkDnsEventReported* event;
     uint32_t netcontext_flags;
@@ -156,7 +160,7 @@ struct ResState {
  * Error code extending h_errno codes defined in bionic/libc/include/netdb.h.
  *
  * This error code, including legacy h_errno, is returned from res_nquery(), res_nsearch(),
- * res_nquerydomain(), res_queryN(), res_searchN() and res_querydomainN() for DNS metrics.
+ * res_nquerydomain(), res_queryN_parallel(), res_searchN() and res_querydomainN() for DNS metrics.
  *
  * TODO: Consider mapping legacy and extended h_errno into a unified resolver error code mapping.
  */

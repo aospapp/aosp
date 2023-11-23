@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
+<!-- 
   ~ Copyright (C) 2021 The Android Open Source Project
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,80 +13,81 @@
   ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
-  -->
+   -->
+
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="battery_not_available" msgid="4363239544686724984">"לא זמינה"</string>
-    <string name="battery_level_critical" msgid="5923330432434405521">"קריטית"</string>
-    <string name="battery_level_low" msgid="3732072669162559152">"נמוכה"</string>
-    <string name="battery_level_good" msgid="4981454057830724794">"טובה"</string>
-    <string name="settings_bt_confirm_update" msgid="6129230380492578493">"אישור לעדכון השלט רחוק"</string>
-    <string name="settings_bt_update_summary" msgid="1407162346756478508">"במהלך העדכון, ייתכן שהשלט הרחוק יתנתק לזמן קצר."</string>
-    <string name="settings_continue" msgid="7439781146866165114">"המשך"</string>
-    <string name="settings_cancel" msgid="3939686184230439505">"ביטול"</string>
-    <string name="settings_bt_update" msgid="966832530402103023">"עדכון שלט רחוק"</string>
-    <string name="settings_bt_update_software_available" msgid="3120140118110089670">"תוכנה חדשה זמינה"</string>
-    <string name="settings_bt_update_available" msgid="7871859692542595220">"יש עדכון זמין"</string>
-    <string name="settings_bt_update_not_necessary" msgid="1272127906146895359">"השלט הרחוק מעודכן"</string>
-    <string name="settings_bt_update_failed" msgid="9099155837532638335">"עדכון השלט הרחוק נכשל"</string>
-    <string name="settings_bt_update_error" msgid="2552121342045814857">"נתקלנו בבעיה בעדכון השלט הרחוק. יש לנסות שוב."</string>
-    <string name="settings_bt_update_please_wait" msgid="7215892536971160069">"יש להמתין"</string>
-    <string name="settings_bt_update_needs_repair" msgid="1096426599808505928">"יש להתאים שוב את השלט רחוק"</string>
-    <string name="settings_enabled" msgid="4164674211291175678">"מופעל"</string>
-    <string name="settings_disabled" msgid="4626695692196357413">"מושבת"</string>
-    <string name="settings_remote_battery_level_label" msgid="8649612732948142737">"רמת הטעינה של הסוללה"</string>
-    <string name="settings_remote_battery_level_percentage_label" msgid="1771717432090516984">%1$d%%</string>
-    <string name="settings_remote_firmware_label" msgid="8924845692887005455">"קושחה"</string>
-    <string name="settings_remote_serial_number_label" msgid="407950420697944948">"כתובת Bluetooth"</string>
-    <string name="settings_bt_battery_low" msgid="4487348957313624256">"עליך להחליף את הסוללה"</string>
-    <string name="settings_bt_battery_low_warning" msgid="5660789688799457747">"הסוללה חלשה"</string>
-    <string name="connected_devices_pref_title" msgid="2617255292554345723">"מכשירים מחוברים"</string>
-    <string name="connected_devices_slice_pref_title" msgid="8716252057083688885">"מכשירי שלט רחוק ואביזרים"</string>
-    <string name="settings_notif_update_title" msgid="5463118574346079495">"עדכון השלט רחוק"</string>
-    <string name="settings_notif_update_text" msgid="5466918316361570215">"אפשר להתחיל בהתקנה"</string>
-    <string name="settings_notif_update_action" msgid="5970935876855410574">"עדכון"</string>
-    <string name="settings_notif_update_dismiss" msgid="6614203755972578657">"סגירה"</string>
-    <string name="settings_notif_low_battery_title" msgid="8363515608568792551">"סוללת השלט חלשה"</string>
-    <string name="settings_notif_low_battery_text" msgid="5036367259620134537">"כדאי להחליף את הסוללה בקרוב"</string>
-    <string name="settings_notif_critical_battery_title" msgid="2932744213624091546">"סוללת השלט כמעט מרוקנת"</string>
-    <string name="settings_notif_critical_battery_text" msgid="7611153628893734902">"כדאי להחליף את הסוללה בקרוב"</string>
-    <string name="settings_notif_depleted_battery_title" msgid="2571917420776818173">"סוללת השלט ריקה"</string>
-    <string name="settings_notif_depleted_battery_text" msgid="2398532528486464044">"יש להחליף את הסוללה כדי להשתמש בשלט"</string>
-    <string name="settings_choices_yes" msgid="2846918703851679454">"כן"</string>
-    <string name="settings_choices_no" msgid="1069494287551959027">"לא"</string>
-    <string name="settings_bt_disconnect" msgid="3926883493314648711">"התנתקות מ-%1$s"</string>
-    <string name="settings_bt_connect" msgid="7488569500103145573">"חיבור אל %1$s"</string>
-    <string name="settings_bt_forget" msgid="7862641043281426278">"לשכוח את %1$s"</string>
-    <string name="settings_bt_rename" msgid="296394594397921021">"שינוי שם למכשיר המחובר"</string>
-    <string name="settings_hdmi_cec" msgid="7227878981727034559">"HDMI-CEC"</string>
-    <string name="settings_enable_hdmi_cec" msgid="2522493967942490013">"הפעלת HDMI-CEC"</string>
-    <string name="settings_cec_explain" msgid="911626255223049913">"בעזרת HDMI-CEC אפשר לשלוט, וגם להפעיל ולכבות באופן אוטומטי, מכשירים אחרים שמופעלת בהם התכונה HDMI-CEC, באמצעות שלט רחוק אחד.\n\nהערה: יש לוודא שהתכונה HDMI-CEC מופעלת בטלוויזיה ובמכשירי HDMI אחרים. ל-HDMI-CEC יש שמות שונים אצל יצרנים שונים, לדוגמה:"</string>
-    <string name="settings_cec_feature_names" msgid="8470424063788054136">"Samsung: Anynet+\nLG: SimpLink\nSony: BRAVIA Sync\nPhilips: EasyLink\nSharp: Aquos Link"</string>
-    <string name="settings_axel" msgid="859248404436889205">"הגדרת הלחצנים בשלט הרחוק"</string>
-    <string name="settings_axel_description" msgid="6033294262165949416">"שליטה בעוצמת הקול, בהפעלה, בקלט של טלוויזיות, ברסיברים ובמקרני קול."</string>
-    <string name="settings_remote_battery_level" msgid="457729442110109776">"רמת הטעינה של הסוללה: %1$s"</string>
-    <string name="settings_known_devices_category" msgid="1540063892581931395">"אביזרים"</string>
-    <string name="settings_official_remote_category" msgid="5188969235127184097">"שלט רחוק"</string>
-    <string name="settings_devices_connected" msgid="6877350530040954951">"מחובר"</string>
-    <string name="settings_devices_paired" msgid="2621291277619909987">"מכשירים שחוברו בעבר"</string>
-    <string name="settings_pair_remote" msgid="6703692816294828667">"התאמת השלט הרחוק או האביזר"</string>
-    <string name="bluetooth_disconnect" msgid="6750118548623705193">"ניתוק"</string>
-    <string name="bluetooth_connect" msgid="4809187070439789397">"חיבור"</string>
-    <string name="bluetooth_rename" msgid="3866030281590534078">"שינוי שם"</string>
-    <string name="bluetooth_forget" msgid="2304557507840517178">"אפשר לשכוח"</string>
-    <string name="bluetooth_connected_status" msgid="2445751338303462640">"מחובר"</string>
-    <string name="bluetooth_disconnected_status" msgid="8217553843170356254">"מנותק"</string>
-    <string name="settings_devices_control" msgid="5315752605677221119">"בקרת מכשיר"</string>
-    <string name="settings_bt_pair_title" msgid="7666400883358524553">"חיבור של מכשיר חדש"</string>
-    <string name="pair_device_description" msgid="7955553499324666950">"לפני חיבור של מכשירי Bluetooth חדשים, יש לוודא שהם במצב התאמה. כדי לחבר את %1$s, יש ללחוץ לחיצה ארוכה על %2$s + %3$s למשך 3 שניות."</string>
-    <string name="pair_device_device_name" msgid="580032998745434834">"שלט רחוק ל-Android TV"</string>
-    <string name="settings_bt_available_devices" msgid="6645182819584578819">"מכשירים זמינים"</string>
-    <string name="settings_bt_empty_text" msgid="8332085133838257843">"האפליקציה מחפשת מכשירים…"</string>
-    <string name="settings_bt_pair_status_error" msgid="1795732485043154388">"שגיאה"</string>
-    <string name="settings_bt_pair_status_connecting" msgid="4157328222685537069">"ההתחברות מתבצעת…"</string>
-    <string name="settings_bt_pair_status_done" msgid="3574182448076062786">"מחובר"</string>
-    <string name="settings_bt_pair_status_cancelled" msgid="8669857835593073002">"בוטל"</string>
-    <string name="settings_bt_pair_toast_fail" msgid="6775531736952071145">"הניסיון לחבר את %1$s נכשל"</string>
-    <string name="settings_bt_pair_toast_connected" msgid="4892704875054315689">"%1$s מחובר"</string>
-    <string name="settings_bt_pair_toast_disconnected" msgid="3661543481090697131">"%1$s מנותק"</string>
+    <string name="battery_not_available" msgid="5120583262792310269">"לא רלוונטי"</string>
+    <string name="battery_level_critical" msgid="1217236822824234202">"קריטית"</string>
+    <string name="battery_level_low" msgid="8156936236696805171">"חלשה"</string>
+    <string name="battery_level_good" msgid="529772292250195778">"טובה"</string>
+    <string name="settings_bt_confirm_update" msgid="7490528407190318108">"אישור לעדכון השלט רחוק"</string>
+    <string name="settings_bt_update_summary" msgid="137113561617823800">"במהלך העדכון, ייתכן שהשלט הרחוק יתנתק לזמן קצר."</string>
+    <string name="settings_continue" msgid="5640776697820481568">"המשך"</string>
+    <string name="settings_cancel" msgid="1284029950430684039">"ביטול"</string>
+    <string name="settings_bt_update" msgid="8210371540974244481">"עדכון שלט רחוק"</string>
+    <string name="settings_bt_update_software_available" msgid="7002004529854458452">"תוכנה חדשה זמינה"</string>
+    <string name="settings_bt_update_available" msgid="414405852666517260">"עדכון זמין"</string>
+    <string name="settings_bt_update_not_necessary" msgid="6906777343269759565">"השלט הרחוק מעודכן"</string>
+    <string name="settings_bt_update_failed" msgid="2593228509570726064">"עדכון השלט הרחוק נכשל"</string>
+    <string name="settings_bt_update_error" msgid="6267154862961568780">"נתקלנו בבעיה בעדכון השלט הרחוק. אפשר לנסות שוב."</string>
+    <string name="settings_bt_update_please_wait" msgid="8029641271132945499">"יש להמתין"</string>
+    <string name="settings_bt_update_needs_repair" msgid="1310917691218455907">"יש להתאים שוב את השלט רחוק"</string>
+    <string name="settings_enabled" msgid="431464375814187683">"מופעל"</string>
+    <string name="settings_disabled" msgid="1459717258643130682">"מושבת"</string>
+    <string name="settings_remote_battery_level_label" msgid="3644348379742819020">"רמת הטעינה של הסוללה"</string>
+    <string name="settings_remote_battery_level_percentage_label" msgid="7301487906665476276">"‎%1$d%%‎"</string>
+    <string name="settings_remote_firmware_label" msgid="2132403094910284670">"קושחה"</string>
+    <string name="settings_remote_serial_number_label" msgid="7591347399882767241">"כתובת Bluetooth"</string>
+    <string name="settings_bt_battery_low" msgid="3547517382697124858">"עליך להחליף את הסוללה"</string>
+    <string name="settings_bt_battery_low_warning" msgid="721091326401791089">"הסוללה חלשה"</string>
+    <string name="connected_devices_pref_title" msgid="8985364841073196008">"מכשירים מחוברים"</string>
+    <string name="connected_devices_slice_pref_title" msgid="8637777961277201747">"מכשירי שלט רחוק ואביזרים"</string>
+    <string name="settings_notif_update_title" msgid="4767043003900594863">"עדכון השלט רחוק"</string>
+    <string name="settings_notif_update_text" msgid="1092279154776177720">"אפשר להתחיל בהתקנה"</string>
+    <string name="settings_notif_update_action" msgid="7614942170621338703">"עדכון"</string>
+    <string name="settings_notif_update_dismiss" msgid="2492993446930472109">"סגירה"</string>
+    <string name="settings_notif_low_battery_title" msgid="4638332702264612574">"סוללת השלט חלשה"</string>
+    <string name="settings_notif_low_battery_text" msgid="4371868286738256938">"כדאי להחליף את הסוללה בקרוב"</string>
+    <string name="settings_notif_critical_battery_title" msgid="2790514511512220266">"סוללת השלט כמעט מרוקנת"</string>
+    <string name="settings_notif_critical_battery_text" msgid="7540676820061160224">"כדאי להחליף את הסוללה בקרוב"</string>
+    <string name="settings_notif_depleted_battery_title" msgid="5564074017335214430">"סוללת השלט ריקה"</string>
+    <string name="settings_notif_depleted_battery_text" msgid="5656927974233544784">"יש להחליף את הסוללה כדי להשתמש בשלט"</string>
+    <string name="settings_choices_yes" msgid="791981754037655968">"כן"</string>
+    <string name="settings_choices_no" msgid="8559979491355839764">"לא"</string>
+    <string name="settings_bt_disconnect" msgid="887583681642627405">"התנתקות מ-%1$s"</string>
+    <string name="settings_bt_connect" msgid="486902469425565740">"חיבור אל %1$s"</string>
+    <string name="settings_bt_forget" msgid="1032095001156402398">"לשכוח את %1$s"</string>
+    <string name="settings_bt_rename" msgid="477643459806883336">"שינוי שם למכשיר המחובר"</string>
+    <string name="settings_hdmi_cec" msgid="7945299353290226128">"HDMI-CEC"</string>
+    <string name="settings_enable_hdmi_cec" msgid="3955194037299390473">"הפעלת HDMI-CEC"</string>
+    <string name="settings_cec_explain" msgid="282126756909187653">"בעזרת HDMI-CEC אפשר לשלוט, וגם להפעיל ולכבות באופן אוטומטי, מכשירים אחרים שמופעלת בהם התכונה HDMI-CEC, באמצעות שלט רחוק אחד.\n\nהערה: יש לוודא שהתכונה HDMI-CEC מופעלת בטלוויזיה ובמכשירי HDMI אחרים. ל-HDMI-CEC יש שמות שונים אצל יצרנים שונים, לדוגמה:"</string>
+    <string name="settings_cec_feature_names" msgid="3250254903330955270">"Samsung:‎ Anynet+\nLG:‎ SimpLink\nSony:‎ BRAVIA Sync\nPhilips:‎ EasyLink\nSharp:‎ Aquos Link"</string>
+    <string name="settings_axel" msgid="8253298947221430993">"הגדרת הלחצנים בשלט הרחוק"</string>
+    <string name="settings_axel_description" msgid="5432968671905160994">"שליטה בעוצמת הקול, בהפעלה, בקלט של טלוויזיות, ברסיברים ובמקרני קול"</string>
+    <string name="settings_remote_battery_level" msgid="1817513765913707505">"רמת הטעינה של הסוללה: %1$s"</string>
+    <string name="settings_known_devices_category" msgid="2307810690946536753">"אביזרים"</string>
+    <string name="settings_official_remote_category" msgid="1373956695709331265">"שלט רחוק"</string>
+    <string name="settings_devices_connected" msgid="3256213134907921013">"מחובר"</string>
+    <string name="settings_devices_paired" msgid="4460141776955368574">"מכשירים שחוברו בעבר"</string>
+    <string name="settings_pair_remote" msgid="7566753084479902759">"התאמת השלט הרחוק או האביזר"</string>
+    <string name="bluetooth_disconnect" msgid="1385608885917484057">"ניתוק"</string>
+    <string name="bluetooth_connect" msgid="6283971929092004620">"התחברות"</string>
+    <string name="bluetooth_rename" msgid="4433577238394058486">"שינוי השם"</string>
+    <string name="bluetooth_forget" msgid="4933552074497360964">"לשכוח את המכשיר"</string>
+    <string name="bluetooth_connected_status" msgid="8391804274846835227">"מחובר"</string>
+    <string name="bluetooth_disconnected_status" msgid="972515438988962457">"מנותק"</string>
+    <string name="settings_devices_control" msgid="1862490057009510077">"בקרת מכשיר"</string>
+    <string name="settings_bt_pair_title" msgid="1205942796805671508">"חיבור של מכשיר חדש"</string>
+    <string name="pair_device_description" msgid="5145574754576245361">"לפני חיבור של מכשירי Bluetooth חדשים, יש לוודא שהם במצב התאמה. כדי לחבר את %1$s, צריך ללחוץ לחיצה ארוכה על %2$s ועל %3$s למשך 3 שניות."</string>
+    <string name="pair_device_device_name" msgid="4004194247588260613">"שלט רחוק ל-Android TV"</string>
+    <string name="settings_bt_available_devices" msgid="6237789711837183219">"מכשירים זמינים"</string>
+    <string name="settings_bt_empty_text" msgid="6228875847390369960">"מתבצע חיפוש מכשירים…"</string>
+    <string name="settings_bt_pair_status_error" msgid="4153213506048075994">"שגיאה"</string>
+    <string name="settings_bt_pair_status_connecting" msgid="1438458595123669762">"בתהליך התחברות…"</string>
+    <string name="settings_bt_pair_status_done" msgid="6151867483707947194">"ההתאמה בוצעה"</string>
+    <string name="settings_bt_pair_status_cancelled" msgid="5247663100749067089">"בוטלה"</string>
+    <string name="settings_bt_pair_toast_fail" msgid="8025560978364284117">"הניסיון לחבר את %1$s נכשל"</string>
+    <string name="settings_bt_pair_toast_connected" msgid="3073130641004809067">"%1$s מחובר"</string>
+    <string name="settings_bt_pair_toast_disconnected" msgid="2046165143924352053">"%1$s מנותק"</string>
 </resources>

@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Непознати уређај"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Непознато"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Није наведено"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Режим рада у авиону"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Не можете да користите Bluetooth у режиму рада у авиону."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Bluetooth аудио"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Не могу да се преносе датотеке веће од 4 GB"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Повежи са Bluetooth-ом"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth је укључен у режиму рада у авиону"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Ако одлучите да не искључујете Bluetooth, уређај ће запамтити да га не искључује следећи пут када будете у режиму рада у авиону"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth се не искључује"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Уређај памти да не треба да искључује Bluetooth у режиму рада у авиону. Искључите Bluetooth ако не желите да остане укључен."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"WiFi и Bluetooth остају укључени"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Уређај памти да не треба да искључује WiFi и Bluetooth у режиму рада у авиону. Искључите WiFi и Bluetooth ако не желите да остану укључени."</string>
 </resources>

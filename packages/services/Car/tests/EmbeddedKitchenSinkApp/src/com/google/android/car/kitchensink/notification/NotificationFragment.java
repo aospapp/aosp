@@ -41,11 +41,11 @@ public class NotificationFragment extends Fragment {
     private static final String IMPORTANCE_LOW_ID = "importance_low";
     private static final String IMPORTANCE_MIN_ID = "importance_min";
     private static final String IMPORTANCE_NONE_ID = "importance_none";
-    private int mCurrentNotificationId = 0;
+    private int mCurrentNotificationId;
+    private int mCurrentGroupNotificationCount;
     private NotificationManager mManager;
     private Context mContext;
     private Handler mHandler = new Handler();
-    private int mCount = 0;
     private HashMap<Integer, Runnable> mUpdateRunnables = new HashMap<>();
 
     @Override
@@ -96,9 +96,11 @@ public class NotificationFragment extends Fragment {
         initMessagingStyleButtonForDiffPerson(view);
         initMessagingStyleButtonForSamePerson(view);
         initMessagingStyleButtonForLongMessageSamePerson(view);
+        initMessagingStyleButtonForMessageSameGroup(view);
         initMessagingStyleButtonWithMuteAction(view);
         initTestMessagesButton(view);
         initProgressButton(view);
+        initProgressColorizedButton(view);
         initNavigationButton(view);
         initMediaButton(view);
         initCallButton(view);
@@ -107,6 +109,15 @@ public class NotificationFragment extends Fragment {
         initCustomizableMessageButton(view);
 
         return view;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        View view = getView();
+        if (view != null) {
+            view.post(() -> view.scrollTo(0, view.findViewById(R.id.fragment_top).getTop()));
+        }
     }
 
     private PendingIntent createServiceIntent(int notificationId, String action) {
@@ -280,7 +291,7 @@ public class NotificationFragment extends Fragment {
 
             MessagingStyle messagingStyle =
                     new MessagingStyle(personList.get(0))
-                            .setConversationTitle("Customizable Group chat");
+                            .setConversationTitle("Customizable Group chat: " + id);
             if (personList.size() > 1) {
                 messagingStyle.setGroupConversation(true);
             }
@@ -395,6 +406,62 @@ public class NotificationFragment extends Fragment {
         });
     }
 
+    private void initMessagingStyleButtonForMessageSameGroup(View view) {
+        int numOfPeople = 3;
+        Person user = new Person.Builder()
+                .setName("User")
+                .setIcon(IconCompat.createWithResource(view.getContext(), R.drawable.avatar1))
+                .build();
+
+        MessagingStyle messagingStyle =
+                new MessagingStyle(user)
+                        .setConversationTitle("Same group chat")
+                        .setGroupConversation(true);
+
+        List<Person> personList = new ArrayList<>();
+        for (int i = 1; i <= numOfPeople; i++) {
+            personList.add(new Person.Builder()
+                    .setName("Person " + i)
+                    .setIcon(IconCompat.createWithResource(view.getContext(),
+                            i % 2 == 1 ? R.drawable.avatar1 : R.drawable.avatar2))
+                    .build());
+        }
+
+        view.findViewById(R.id.category_message_same_group_button).setOnClickListener(v -> {
+            mCurrentGroupNotificationCount++;
+            PendingIntent replyIntent = createServiceIntent(123456, "reply");
+            PendingIntent markAsReadIntent = createServiceIntent(123456, "read");
+            Person person = personList.get(mCurrentGroupNotificationCount % numOfPeople);
+            String messageText =
+                    person.getName() + "'s " + mCurrentGroupNotificationCount + " message";
+            messagingStyle.addMessage(
+                    new MessagingStyle.Message(messageText, System.currentTimeMillis(), person));
+
+            NotificationCompat.Builder notification = new NotificationCompat
+                    .Builder(mContext, IMPORTANCE_HIGH_ID)
+                    .setContentTitle("Same Group chat (Title)")
+                    .setContentText("Same Group chat (Text)")
+                    .setShowWhen(true)
+                    .setCategory(Notification.CATEGORY_MESSAGE)
+                    .setSmallIcon(R.drawable.car_ic_mode)
+                    .setStyle(messagingStyle)
+                    .setAutoCancel(true)
+                    .addAction(
+                            new Action.Builder(R.drawable.ic_check_box, "read", markAsReadIntent)
+                                    .setSemanticAction(Action.SEMANTIC_ACTION_MARK_AS_READ)
+                                    .setShowsUserInterface(false)
+                                    .build())
+                    .addAction(
+                            new Action.Builder(R.drawable.ic_check_box, "reply", replyIntent)
+                                    .setSemanticAction(Action.SEMANTIC_ACTION_REPLY)
+                                    .setShowsUserInterface(false)
+                                    .addRemoteInput(new RemoteInput.Builder("input").build())
+                                    .build());
+
+            mManager.notify(123456, notification.build());
+        });
+    }
+
     private void initMessagingStyleButtonForSamePerson(View view) {
         view.findViewById(R.id.category_message_same_person_button).setOnClickListener(v -> {
             int id = mCurrentNotificationId++;
@@ -442,7 +509,6 @@ public class NotificationFragment extends Fragment {
 
             PendingIntent replyIntent = createServiceIntent(id, "reply");
             PendingIntent markAsReadIntent = createServiceIntent(id, "read");
-
 
 
             Person person = new Person.Builder().setName("John Doe").build();
@@ -592,42 +658,72 @@ public class NotificationFragment extends Fragment {
             Notification notification = new Notification
                     .Builder(mContext, IMPORTANCE_DEFAULT_ID)
                     .setContentTitle("Progress")
-                    .setOngoing(true)
+                    .setOngoing(/* ongoing= */ true)
                     .setContentText(
                             "Doesn't show heads-up; Importance Default; Groups; Ongoing (cannot "
                                     + "be dismissed)")
-                    .setProgress(100, 0, false)
+                    .setProgress(/* max= */ 100, /* progress= */ 0, /* indeterminate= */ false)
+                    .setContentInfo("0%")
+                    .setSmallIcon(R.drawable.car_ic_mode)
+                    .build();
+            mManager.notify(id, notification);
+
+            int progress = 0;
+            Runnable runnable = getProgressNotifUpdateRunnable(id, progress, /* isColorized= */
+                    false);
+            mUpdateRunnables.put(id, runnable);
+            mHandler.post(runnable);
+        });
+    }
+
+    private void initProgressColorizedButton(View view) {
+        view.findViewById(R.id.progress_button_colorized).setOnClickListener(v -> {
+            int id = mCurrentNotificationId++;
+
+            Notification notification = new Notification
+                    .Builder(mContext, IMPORTANCE_DEFAULT_ID)
+                    .setContentTitle("Progress (Colorized)")
+                    .setOngoing(/* ongoing= */ true)
+                    .setContentText(
+                            "Doesn't show heads-up; Importance Default; Groups; Ongoing (cannot "
+                                    + "be dismissed)")
+                    .setProgress(/* max= */ 100, /* progress= */ 0, /* indeterminate= */ false)
                     .setColor(mContext.getColor(android.R.color.holo_purple))
                     .setContentInfo("0%")
                     .setSmallIcon(R.drawable.car_ic_mode)
                     .build();
             mManager.notify(id, notification);
 
-            Runnable runnable = new Runnable() {
-                int mProgress = 0;
-
-                @Override
-                public void run() {
-                    Notification updateNotification = new Notification
-                            .Builder(mContext, IMPORTANCE_DEFAULT_ID)
-                            .setContentTitle("Progress")
-                            .setContentText("Doesn't show heads-up; Importance Default; Groups")
-                            .setProgress(100, mProgress, false)
-                            .setOngoing(true)
-                            .setColor(mContext.getColor(android.R.color.holo_purple))
-                            .setContentInfo(mProgress + "%")
-                            .setSmallIcon(R.drawable.car_ic_mode)
-                            .build();
-                    mManager.notify(id, updateNotification);
-                    mProgress += 5;
-                    if (mProgress <= 100) {
-                        mHandler.postDelayed(this, 1000);
-                    }
-                }
-            };
+            int progress = 0;
+            Runnable runnable = getProgressNotifUpdateRunnable(id, progress, /* isColorized= */
+                    true);
             mUpdateRunnables.put(id, runnable);
             mHandler.post(runnable);
         });
+    }
+
+    private Runnable getProgressNotifUpdateRunnable(int id, int progress, boolean isColorized) {
+        Runnable runnable = () -> {
+            Notification.Builder builder = new Notification
+                    .Builder(mContext, IMPORTANCE_DEFAULT_ID)
+                    .setContentTitle("Progress")
+                    .setContentText("Doesn't show heads-up; Importance Default; Groups")
+                    .setProgress(/* max= */ 100, progress, /* indeterminate= */ false)
+                    .setOngoing(/* ongoing= */ true)
+                    .setContentInfo(progress + "%")
+                    .setSmallIcon(R.drawable.car_ic_mode);
+            if (isColorized) {
+                builder.setColor(mContext.getColor(android.R.color.holo_purple));
+            }
+            Notification updateNotification = builder.build();
+            mManager.notify(id, updateNotification);
+            if (progress + 5 <= 100) {
+                mHandler.postDelayed(getProgressNotifUpdateRunnable(id, progress + 5, isColorized),
+                        /* delayMillis= */ 1000);
+            }
+        };
+        mUpdateRunnables.put(id, runnable);
+        return runnable;
     }
 
     private void initNavigationButton(View view) {

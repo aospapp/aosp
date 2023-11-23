@@ -19,7 +19,9 @@
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user_on_secondary_display" />
     <option name="config-descriptor:metadata" key="parameter" value="all_foldable_states" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -59,9 +61,11 @@
             See b/188105339 for detais.
         -->
         <option name="run-command" value="sleep 1" />
-        <option name="run-command" value="ime enable com.android.cts.testime/.TestIme" />
-        <option name="run-command" value="ime set com.android.cts.testime/.TestIme" />
-        <option name="teardown-command" value="ime reset" />
+        <option name="test-user-token" value="%TEST_USER%"/>
+        <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS com.android.cts.mockime"/>
+        <option name="run-command" value="ime enable --user %TEST_USER% com.android.cts.testime/.TestIme" />
+        <option name="run-command" value="ime set --user %TEST_USER% com.android.cts.testime/.TestIme" />
+        <option name="teardown-command" value="ime reset --user %TEST_USER%" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >

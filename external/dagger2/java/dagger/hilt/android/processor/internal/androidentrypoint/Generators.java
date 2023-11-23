@@ -18,9 +18,14 @@ package dagger.hilt.android.processor.internal.androidentrypoint;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.extension.DaggerCollectors.toOptional;
+import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSet;
+import static java.util.stream.Collectors.joining;
 import static javax.lang.model.element.Modifier.PRIVATE;
 
+import com.google.auto.common.AnnotationMirrors;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -30,6 +35,7 @@ import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import dagger.hilt.android.processor.internal.AndroidClassNames;
+import dagger.hilt.android.processor.internal.androidentrypoint.AndroidEntryPointMetadata.AndroidType;
 import dagger.hilt.processor.internal.ClassNames;
 import dagger.hilt.processor.internal.Processors;
 import java.util.List;
@@ -45,6 +51,11 @@ import javax.lang.model.util.ElementFilter;
 
 /** Helper class for writing Hilt generators. */
 final class Generators {
+  private static final ImmutableMap<ClassName, String> SUPPRESS_ANNOTATION_PROPERTY_NAME =
+      ImmutableMap.<ClassName, String>builder()
+          .put(ClassNames.SUPPRESS_WARNINGS, "value")
+          .put(ClassNames.KOTLIN_SUPPRESS, "names")
+          .build();
 
   static void addGeneratedBaseClassJavadoc(TypeSpec.Builder builder, ClassName annotation) {
     builder.addJavadoc("A generated base class to be extended by the @$T annotated class. If using"
@@ -123,15 +134,14 @@ final class Generators {
   private static MethodSpec copyConstructor(ExecutableElement constructor, CodeBlock body) {
     List<ParameterSpec> params =
         constructor.getParameters().stream()
-            .map(parameter -> getParameterSpecWithNullable(parameter))
+            .map(Generators::getParameterSpecWithNullable)
             .collect(Collectors.toList());
 
     final MethodSpec.Builder builder =
         MethodSpec.constructorBuilder()
             .addParameters(params)
             .addStatement(
-                "super($L)",
-                params.stream().map(param -> param.name).collect(Collectors.joining(", ")))
+                "super($L)", params.stream().map(param -> param.name).collect(joining(", ")))
             .addCode(body);
 
     constructor.getAnnotationMirrors().stream()
@@ -141,6 +151,27 @@ final class Generators {
         .ifPresent(builder::addAnnotation);
 
     return builder.build();
+  }
+
+  /** Copies SuppressWarnings annotations from the annotated element to the generated element. */
+  static void copySuppressAnnotations(Element element, TypeSpec.Builder builder) {
+    ImmutableSet<String> suppressValues =
+        SUPPRESS_ANNOTATION_PROPERTY_NAME.keySet().stream()
+            .filter(annotation -> Processors.hasAnnotation(element, annotation))
+            .map(
+                annotation ->
+                    AnnotationMirrors.getAnnotationValue(
+                        Processors.getAnnotationMirror(element, annotation),
+                        SUPPRESS_ANNOTATION_PROPERTY_NAME.get(annotation)))
+            .flatMap(value -> Processors.getStringArrayAnnotationValue(value).stream())
+            .collect(toImmutableSet());
+
+    if (!suppressValues.isEmpty()) {
+      // Replace kotlin Suppress with java SuppressWarnings, as the generated file is java.
+      AnnotationSpec.Builder annotation = AnnotationSpec.builder(ClassNames.SUPPRESS_WARNINGS);
+      suppressValues.forEach(value -> annotation.addMember("value", "$S", value));
+      builder.addAnnotation(annotation.build());
+    }
   }
 
   /**
@@ -186,7 +217,7 @@ final class Generators {
         addComponentManagerMethods(metadata, builder);
         // fall through
       case BROADCAST_RECEIVER:
-        addInjectMethod(metadata, builder);
+        addInjectAndMaybeOptionalInjectMethod(metadata, builder);
         break;
       default:
         throw new AssertionError();
@@ -293,7 +324,7 @@ final class Generators {
   //     injected = true;
   //   }
   // }
-  private static void addInjectMethod(
+  private static void addInjectAndMaybeOptionalInjectMethod(
       AndroidEntryPointMetadata metadata, TypeSpec.Builder typeSpecBuilder) {
     MethodSpec.Builder methodSpecBuilder = MethodSpec.methodBuilder("inject")
         .addModifiers(Modifier.PROTECTED);
@@ -301,22 +332,44 @@ final class Generators {
     // Check if the parent is a Hilt type. If it isn't or if it is but it
     // wasn't injected by hilt, then return.
     // Object parent = ...depends on type...
-    // if (!(parent instanceof GeneratedComponentManager)
-    //     || ((parent instanceof InjectedByHilt) &&
-    //         !((InjectedByHilt) parent).wasInjectedByHilt())) {
+    // if (!optionalInjectParentUsesHilt()) {
     //   return;
     //
     if (metadata.allowsOptionalInjection()) {
+      CodeBlock parentCodeBlock;
+      if (metadata.androidType() != AndroidType.BROADCAST_RECEIVER) {
+        parentCodeBlock = CodeBlock.of("optionalInjectGetParent()");
+
+        // Also, add the optionalInjectGetParent method we just used. This is a separate method so
+        // other parts of the code when dealing with @OptionalInject. BroadcastReceiver can't have
+        // this method since the context is only accessible as a parameter to receive()/inject().
+        typeSpecBuilder.addMethod(MethodSpec.methodBuilder("optionalInjectGetParent")
+            .addModifiers(Modifier.PRIVATE)
+            .returns(TypeName.OBJECT)
+            .addStatement("return $L", getParentCodeBlock(metadata))
+            .build());
+      } else {
+        // For BroadcastReceiver, use the "context" field that is on the stack.
+        parentCodeBlock = CodeBlock.of(
+            "$T.getApplication(context.getApplicationContext())", ClassNames.CONTEXTS);
+      }
+
       methodSpecBuilder
-          .addStatement("$T parent = $L", ClassNames.OBJECT, getParentCodeBlock(metadata))
-          .beginControlFlow(
-              "if (!(parent instanceof $T) "
-              + "|| ((parent instanceof $T) && !(($T) parent).wasInjectedByHilt()))",
+          .beginControlFlow("if (!optionalInjectParentUsesHilt($L))", parentCodeBlock)
+          .addStatement("return")
+          .endControlFlow();
+
+      // Add the optionalInjectParentUsesHilt used above.
+      typeSpecBuilder.addMethod(MethodSpec.methodBuilder("optionalInjectParentUsesHilt")
+          .addModifiers(Modifier.PRIVATE)
+          .addParameter(TypeName.OBJECT, "parent")
+          .returns(TypeName.BOOLEAN)
+          .addStatement("return (parent instanceof $T) "
+              + "&& (!(parent instanceof $T) || (($T) parent).wasInjectedByHilt())",
               ClassNames.GENERATED_COMPONENT_MANAGER,
               AndroidClassNames.INJECTED_BY_HILT,
               AndroidClassNames.INJECTED_BY_HILT)
-          .addStatement("return")
-          .endControlFlow();
+          .build());
     }
 
     // Only add @Override if an ancestor extends a generated Hilt class.
@@ -393,15 +446,16 @@ final class Generators {
     switch (metadata.androidType()) {
       case ACTIVITY:
       case SERVICE:
-        return CodeBlock.of("getApplicationContext()");
+        return CodeBlock.of("$T.getApplication(getApplicationContext())", ClassNames.CONTEXTS);
       case FRAGMENT:
         return CodeBlock.of("getHost()");
       case VIEW:
         return CodeBlock.of(
             "$L.maybeGetParentComponentManager()", componentManagerCallBlock(metadata));
       case BROADCAST_RECEIVER:
-        // Broadcast receivers receive a "context" parameter
-        return CodeBlock.of("context.getApplicationContext()");
+        // Broadcast receivers receive a "context" parameter that make it so this code block
+        // isn't really usable anywhere
+        throw new AssertionError("BroadcastReceiver types should not get here");
       default:
         throw new AssertionError();
     }
@@ -474,19 +528,6 @@ final class Generators {
         .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
         .initializer("new $T()", TypeName.OBJECT)
         .build();
-  }
-
-  /**
-   * Adds the SupressWarnings to supress a warning in the generated code.
-   *
-   * @param keys the string keys of the warnings to suppress, e.g. 'deprecation', 'unchecked', etc.
-   */
-  public static void addSuppressAnnotation(TypeSpec.Builder builder, String... keys) {
-    AnnotationSpec.Builder annotationBuilder = AnnotationSpec.builder(SuppressWarnings.class);
-    for (String key : keys) {
-      annotationBuilder.addMember("value", "$S", key);
-    }
-    builder.addAnnotation(annotationBuilder.build());
   }
 
   private Generators() {}

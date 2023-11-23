@@ -1,11 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) Crackerjack Project., 2007
+ * Ported from Crackerjack to LTP by Masatake YAMATO <yamato@redhat.com>
  * Copyright (c) 2011-2017 Cyril Hrubis <chrubis@suse.cz>
  */
 
-/* Porting from Crackerjack to LTP is done
-   by Masatake YAMATO <yamato@redhat.com> */
+/*\
+ * [Description]
+ *
+ * Test io_submit() invoked via libaio:
+ *
+ * - io_submit fails and returns -EINVAL if ctx is invalid.
+ * - io_submit fails and returns -EINVAL if nr is invalid.
+ * - io_submit fails and returns -EFAULT if iocbpp pointer is invalid.
+ * - io_submit fails and returns -EBADF if fd is invalid.
+ * - io_submit succeeds and returns the number of iocbs submitted.
+ * - io_submit succeeds and returns 0 if nr is zero.
+ */
 
 #include <errno.h>
 #include <string.h>
@@ -68,9 +79,11 @@ static void setup(void)
 {
 	TEST(io_setup(1, &ctx));
 	if (TST_RET == -ENOSYS)
-		tst_brk(TCONF | TRERRNO, "io_setup(): AIO not supported by kernel");
-	else if (TST_RET)
-		tst_brk(TBROK | TRERRNO, "io_setup() failed");
+		tst_brk(TCONF, "io_setup(): AIO not supported by kernel");
+	else if (TST_RET) {
+		tst_brk(TBROK, "io_setup() returned %ld(%s)",
+			TST_RET, tst_strerrno(-TST_RET));
+	}
 
 	io_prep_pread(&inv_fd_iocb, -1, buf, sizeof(buf), 0);
 
@@ -103,13 +116,19 @@ static const char *errno_name(int err)
 static void verify_io_submit(unsigned int n)
 {
 	struct tcase *t = &tcases[n];
-	int ret;
+	struct io_event evbuf;
+	struct timespec timeout = { .tv_sec = 1 };
+	int i, ret;
 
 	ret = io_submit(*t->ctx, t->nr, t->iocbs);
 
 	if (ret == t->exp_errno) {
 		tst_res(TPASS, "io_submit() with %s failed with %s",
 			t->desc, errno_name(t->exp_errno));
+
+		for (i = 0; i < ret; i++)
+			io_getevents(*t->ctx, 1, 1, &evbuf, &timeout);
+
 		return;
 	}
 

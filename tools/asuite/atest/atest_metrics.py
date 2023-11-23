@@ -17,8 +17,8 @@
 """Simple Metrics Functions"""
 
 
-import constants
-import asuite_metrics
+from atest import constants
+from atest import asuite_metrics
 
 
 #pylint: disable=broad-except

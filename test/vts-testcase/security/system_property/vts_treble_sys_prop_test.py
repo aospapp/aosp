@@ -145,7 +145,8 @@ class VtsTrebleSysPropTest(unittest.TestCase):
 
     # This exception is allowed only for the devices launched before S
     _VENDOR_OR_ODM_NAMESPACES_WHITELIST = [
-            "persist.camera."
+            "persist.camera.",
+            "persist.dumpstate.verbose_logging.enabled",
     ]
 
     _VENDOR_TYPE_PREFIX = "vendor_"

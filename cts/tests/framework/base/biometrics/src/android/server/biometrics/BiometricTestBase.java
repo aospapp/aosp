@@ -51,13 +51,13 @@ import android.server.wm.ActivityManagerTestBase;
 import android.server.wm.TestJournalProvider.TestJournal;
 import android.server.wm.UiDeviceUtils;
 import android.server.wm.WindowManagerState;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObject2;
 
 import com.android.server.biometrics.nano.BiometricServiceStateProto;
 
@@ -523,6 +523,12 @@ abstract class BiometricTestBase extends ActivityManagerTestBase implements Test
         mInstrumentation.waitForIdleSync();
         Utils.waitForBusySensor(sensorId, this::getSensorStates);
 
+        //Wait for enrollment operation in biometrics sensor to be complete before
+        //retrieving enrollment results. The operation takes a little time especically
+        //on Cutterfish where multiple biometric operations must be completed during
+        //the enrollent
+        //TODO(b/217275524)
+        Thread.sleep(200);
         session.finishEnroll(userId);
         mInstrumentation.waitForIdleSync();
         Utils.waitForIdleService(this::getSensorStates);

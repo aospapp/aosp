@@ -17,10 +17,12 @@
 package android.server.wm;
 
 import static android.server.wm.ComponentNameUtils.getActivityName;
+import static android.server.wm.ShellCommandHelper.executeShellCommand;
+import static android.server.wm.ShellCommandHelper.executeShellCommandAndGetStdout;
 import static android.server.wm.profileable.Components.PROFILEABLE_APP_ACTIVITY;
 import static android.server.wm.profileable.Components.ProfileableAppActivity.COMMAND_WAIT_FOR_PROFILE_OUTPUT;
-import static android.server.wm.profileable.Components.ProfileableAppActivity.OUTPUT_FILE_PATH;
 import static android.server.wm.profileable.Components.ProfileableAppActivity.OUTPUT_DIR;
+import static android.server.wm.profileable.Components.ProfileableAppActivity.OUTPUT_FILE_PATH;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -181,7 +183,7 @@ public class AmProfileTests extends ActivityManagerTestBase {
         // This is a hack. The am service has to write to /data/local/tmp because it doesn't have
         // access to the sdcard. The test cannot read from /data/local/tmp. This allows us to
         // scan the content to validate what is needed for this test.
-        final String firstLine = executeShellCommand("head -1 " + OUTPUT_FILE_PATH);
+        final String firstLine = executeShellCommandAndGetStdout("head -1 " + OUTPUT_FILE_PATH);
 
         final String expectedFirstWord = streaming ? FIRST_WORD_STREAMING : FIRST_WORD_NO_STREAMING;
         assertThat(

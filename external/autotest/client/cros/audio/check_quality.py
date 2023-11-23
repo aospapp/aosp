@@ -1,5 +1,5 @@
-#!/usr/bin/python2
-
+#!/usr/bin/env python3
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -443,7 +443,7 @@ def read_audio_file(args):
         rate = wavefile.rate
     elif args.filename.endswith('.raw'):
         binary = None
-        with open(args.filename, 'r') as f:
+        with open(args.filename, 'rb') as f:
             binary = f.read()
 
         raw_data = audio_data.AudioRawData(

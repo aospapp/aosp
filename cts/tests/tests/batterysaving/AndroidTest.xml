@@ -20,6 +20,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
 
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <!-- Disable keyguard -->
@@ -39,6 +40,7 @@
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="am set-standby-bucket android.os.cts.batterysaving.app_target_api_25      10" />
         <option name="run-command" value="am set-standby-bucket android.os.cts.batterysaving.app_target_api_current 10" />
+        <option name="run-command" value="settings put global device_config_sync_disabled 0" />
         <option name="run-command" value="cmd thermalservice override-status 0" />
         <option name="teardown-command" value="cmd thermalservice reset" />
     </target_preparer>

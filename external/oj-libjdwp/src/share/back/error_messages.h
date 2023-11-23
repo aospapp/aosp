@@ -26,6 +26,9 @@
 #ifndef JDWP_ERROR_MESSAGES_H
 #define JDWP_ERROR_MESSAGES_H
 
+#include "JDWP.h"
+#include "jvmti.h"
+
 /* It is assumed that ALL strings are UTF-8 safe on entry */
 #define TTY_MESSAGE(args) ( tty_message args )
 #define ERROR_MESSAGE(args) ( \

@@ -22,30 +22,32 @@
 
 using namespace compos_key;
 
-const std::vector<uint8_t> secret = {1, 2, 3};
-const std::vector<uint8_t> other_secret = {3, 2, 3};
+constexpr Seed seed = {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16,
+                       17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32};
+constexpr Seed other_seed = {3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2,
+                             3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2};
 const std::vector<uint8_t> data = {42, 180, 65, 0};
 
 struct ComposKeyTest : public testing::Test {
     Ed25519KeyPair key_pair;
 
     void SetUp() override {
-        auto key_pair = deriveKeyFromSecret(secret.data(), secret.size());
+        auto key_pair = keyFromSeed(seed);
         ASSERT_TRUE(key_pair.ok()) << key_pair.error();
         this->key_pair = *key_pair;
     }
 };
 
-TEST_F(ComposKeyTest, SameSecretSameKey) {
-    auto other_key_pair = deriveKeyFromSecret(secret.data(), secret.size());
+TEST_F(ComposKeyTest, SameSeedSameKey) {
+    auto other_key_pair = keyFromSeed(seed);
     ASSERT_TRUE(other_key_pair.ok()) << other_key_pair.error();
 
     ASSERT_EQ(key_pair.private_key, other_key_pair->private_key);
     ASSERT_EQ(key_pair.public_key, other_key_pair->public_key);
 }
 
-TEST_F(ComposKeyTest, DifferentSecretDifferentKey) {
-    auto other_key_pair = deriveKeyFromSecret(other_secret.data(), other_secret.size());
+TEST_F(ComposKeyTest, DifferentSeedDifferentKey) {
+    auto other_key_pair = keyFromSeed(other_seed);
     ASSERT_TRUE(other_key_pair.ok()) << other_key_pair.error();
 
     ASSERT_NE(key_pair.private_key, other_key_pair->private_key);
@@ -84,7 +86,7 @@ TEST_F(ComposKeyTest, WrongDataDoesNotVerify) {
 TEST_F(ComposKeyTest, WrongKeyDoesNotVerify) {
     auto signature = sign(key_pair.private_key, data.data(), data.size());
 
-    auto other_key_pair = deriveKeyFromSecret(other_secret.data(), other_secret.size());
+    auto other_key_pair = keyFromSeed(other_seed);
     ASSERT_TRUE(other_key_pair.ok()) << other_key_pair.error();
 
     bool verified = verify(other_key_pair->public_key, *signature, data.data(), data.size());

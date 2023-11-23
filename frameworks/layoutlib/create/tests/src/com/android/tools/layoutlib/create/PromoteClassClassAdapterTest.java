@@ -23,7 +23,7 @@ import org.objectweb.asm.Opcodes;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.Set;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.StringJoiner;
@@ -122,12 +122,9 @@ public class PromoteClassClassAdapterTest {
         LoggingClassVisitor log = new LoggingClassVisitor();
 
         String rootClass = PromoteClassClassAdapterTest.class.getName();
-        PromoteClassClassAdapter adapter = new PromoteClassClassAdapter(log, new HashSet<String>() {
-            {
-                add(rootClass + "$PrivateClass");
-                add(rootClass + "$ClassWithPrivateInnerClass$InnerPrivateClass");
-            }
-        });
+        PromoteClassClassAdapter adapter = new PromoteClassClassAdapter(log, Set.of(
+                rootClass + "$PrivateClass",
+                rootClass + "$ClassWithPrivateInnerClass$InnerPrivateClass"));
         reader.accept(adapter, 0);
         assertTrue(log.mLog.contains(
                 "[visitInnerClass] - " +
@@ -155,14 +152,10 @@ public class PromoteClassClassAdapterTest {
         ClassReader reader = new ClassReader(PackageProtectedClass.class.getName());
         LoggingClassVisitor log = new LoggingClassVisitor();
 
-        PromoteClassClassAdapter adapter = new PromoteClassClassAdapter(log, new HashSet<String>() {
-            {
-                add(PackageProtectedClass.class.getName());
-            }
-        });
-
+        PromoteClassClassAdapter adapter = new PromoteClassClassAdapter(log, Set.of(
+                PackageProtectedClass.class.getName()));
         reader.accept(adapter, 0);
-        assertTrue(log.mLog.contains("[visit] - version=55, access=[public], " +
+        assertTrue(log.mLog.contains("[visit] - version=61, access=[public], " +
                 "name=com/android/tools/layoutlib/create/PackageProtectedClass, signature=null, " +
                 "superName=java/lang/Object, interfaces=[]"));
 

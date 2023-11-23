@@ -29,7 +29,7 @@
     <string name="next" msgid="1004321437324424398">"Next"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Setting up work profile…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Your IT admin can monitor and manage settings, corporate access, apps, permissions, data and network activity associated with this profile, as well as your call history and contact search history. Contact your IT admin for more information and to find out more about your organisation\'s privacy policies."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Your IT admin has the ability to monitor and manage settings, corporate access, apps, permissions and data associated with this device, including your network activity, as well as your device\'s location, call history and contact search history.<xliff:g id="LINE_BREAK">
+    <string name="admin_has_ability_to_monitor_device" msgid="7786186939607332934">"Your IT admin has the ability to monitor and manage settings, corporate access, apps, permissions and data associated with this <xliff:g id="DEVICE_NAME">%1$s</xliff:g>, including your network activity, as well as your device\'s location, call history and contact search history.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Contact your IT admin for more information, including your organisation\'s privacy policies."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"To use theft-protection features, you must have a password-protected screen lock for your device."</string>
@@ -50,8 +50,8 @@
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"If you continue, all apps and data in this profile will be deleted."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Delete"</string>
     <string name="cancel_delete_profile" msgid="5155447537894046036">"Cancel"</string>
-    <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"To set up your work profile, your device needs to be encrypted. This may take some time."</string>
-    <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"To set up this device, it needs to be encrypted first. This may take some time."</string>
+    <string name="encrypt_device_text_for_profile_owner_setup" msgid="6865483664167134470">"To set up your work profile, your <xliff:g id="DEVICE_NAME">%1$s</xliff:g> needs to be encrypted. This may take some time."</string>
+    <string name="encrypt_device_text_for_device_owner_setup" msgid="230099563510460941">"To set up this <xliff:g id="DEVICE_NAME">%1$s</xliff:g>, it needs to be encrypted first. This may take some time."</string>
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"Encrypt this device?"</string>
     <string name="encrypt" msgid="1749320161747489212">"Encrypt"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"Encryption complete"</string>
@@ -59,7 +59,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Couldn\'t set up your work profile. Contact your IT department or try again later."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Can\'t add work profile"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Can\'t replace or remove work profile"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"A work profile can’t be added to this device. If you have questions, contact your IT admin."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4866281518235832928">"A work profile can’t be added to this <xliff:g id="DEVICE_NAME">%1$s</xliff:g>. If you have questions, contact your IT admin."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Change device launcher"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"This launcher app can\'t be used by your work profile"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Cancel"</string>
@@ -67,9 +67,9 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"User Setup Incomplete"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"User of work device"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Setting up work device…"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"This device doesn\'t allow encryption, which is needed for setup. For help, contact your IT admin."</string>
-    <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Stop setup &amp; reset device?"</string>
-    <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"This will reset your device and take you back to the first screen"</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="410347019947997299">"This <xliff:g id="DEVICE_NAME">%1$s</xliff:g> doesn\'t allow encryption, which is needed for setup. For help, contact your IT admin."</string>
+    <string name="stop_setup_reset_device_question" msgid="2323844935990001069">"Stop setup &amp; reset <xliff:g id="DEVICE_NAME">%1$s</xliff:g>?"</string>
+    <string name="this_will_reset_take_back_first_screen" msgid="5881727570968119259">"This will reset your <xliff:g id="DEVICE_NAME">%1$s</xliff:g> and take you back to the first screen"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"Stop setting up and delete your device\'s data?"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"Cancel"</string>
     <string name="device_owner_error_ok" msgid="2002250763093787051">"OK"</string>
@@ -79,10 +79,10 @@
     <string name="something_went_wrong" msgid="3593223774041784329">"Something went wrong"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Couldn\'t set up device. For help, contact your IT admin."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Contact your IT admin for help"</string>
-    <string name="reset_device" msgid="5483853913241939262">"Reset this device and try setting it up again"</string>
-    <string name="device_already_set_up" msgid="507881934487140294">"Device is already set up"</string>
+    <string name="reset_device" msgid="265029891515486543">"Reset this <xliff:g id="DEVICE_NAME">%1$s</xliff:g> and try setting it up again"</string>
+    <string name="device_already_set_up" msgid="2916285974248611835">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> is already set up"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Couldn\'t connect to Wi-Fi"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Your device has reset protection turned on. For help, contact your IT admin."</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="5922267426079555686">"Your <xliff:g id="DEVICE_NAME">%1$s</xliff:g> has reset protection turned on. For help, contact your IT admin."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"Erasing"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"Please wait..."</string>
     <string name="error_hash_mismatch" msgid="1145488923243178454">"Couldn\'t use the admin app due to a checksum error. For help, contact your IT admin."</string>
@@ -114,7 +114,7 @@
     <string name="your_organization_beginning" msgid="5952561489910967255">"Your organisation"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"your organisation"</string>
     <string name="view_terms" msgid="7230493092383341605">"View terms"</string>
-    <string name="accept_and_continue" msgid="1632679734918410653">"Accept &amp; continue"</string>
+    <string name="accept_and_continue" msgid="1632679734918410653">"Accept and continue"</string>
     <string name="back" msgid="6455622465896147127">"Back"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"Set up your device"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"Change the way that you work"</string>
@@ -128,9 +128,9 @@
     <string name="comp_profile_benefits_description" msgid="379837075456998273">"By using a work profile, you can keep your work apps in one place"</string>
     <string name="setup_profile_encryption" msgid="5241291404536277038">"Set up your profile. Encryption"</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"Set up your profile. Showing progress"</string>
-    <string name="setup_device" msgid="6725265673245816366">"Set up your device"</string>
-    <string name="setup_device_encryption" msgid="7852944465414197103">"Set up your device. Encryption"</string>
-    <string name="setup_device_progress" msgid="7035335208571175393">"Set up your device. Showing progress"</string>
+    <string name="setup_device" msgid="1679201701102889156">"Set up your <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
+    <string name="setup_device_encryption" msgid="2628196093806001835">"Set up your <xliff:g id="DEVICE_NAME">%1$s</xliff:g>. Encryption"</string>
+    <string name="setup_device_progress" msgid="8792474713196537598">"Set up your <xliff:g id="DEVICE_NAME">%1$s</xliff:g>. Showing progress"</string>
     <string name="learn_more_label" msgid="2723716758654655009">"Learn more button"</string>
     <string name="mdm_icon_label" msgid="3399134595549660561">"<xliff:g id="ICON_LABEL">%1$s</xliff:g> icon"</string>
     <string name="section_heading" msgid="3924666803774291908">"<xliff:g id="SECTION_HEADING">%1$s</xliff:g> section heading."</string>
@@ -158,7 +158,7 @@
     <string name="brand_screen_header" msgid="8865808542690116648">"This device belongs to your organisation"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"The following app will be used to manage and monitor this phone"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Your account is managed"</string>
-    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Your IT admin uses mobile device management to enforce security policies"</string>
+    <string name="account_management_disclaimer_subheader" msgid="8991450067243733878">"Your IT admin uses mobile management to enforce security policies"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Getting ready for work setup…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Let\'s set up your work profile"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Work apps are kept in your work profile"</string>
@@ -168,32 +168,35 @@
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Work apps are kept in your work profile. You can pause your work apps when you’ve finished for the day. The data in your work profile is visible to your IT admin."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Let\'s set up your work device"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Keep your work apps at your fingertips"</string>
-    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"This device isn\'t private"</string>
-    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Your IT admin may be able to see your data and activity on this device."</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="142633978260399682">"This <xliff:g id="DEVICE_NAME">%1$s</xliff:g> isn\'t private"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="3981784440341141618">"Your IT admin may be able to see your data and activity on this <xliff:g id="DEVICE_NAME">%1$s</xliff:g>."</string>
     <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Your activity &amp; data"</string>
     <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"App permissions"</string>
-    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"Your IT admin can set permissions for apps on this device, such as microphone, camera and location permissions."</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="1973320148595109400">"Your IT admin can set permissions for apps on this <xliff:g id="DEVICE_NAME">%1$s</xliff:g>, such as microphone, camera and location permissions."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Setting up your device…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Use this device to easily access your work apps. This device isn\'t private, so your IT admin may be able to see your data and activity."</string>
-    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Use this device to easily access your work apps. This device isn’t private, so your IT admin may be able to see your activity and data. Your IT admin can also set permissions for apps on this device, such as microphone, camera and location permissions."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="2532673962822596806">"Use this <xliff:g id="DEVICE_NAME_0">%1$s</xliff:g> to easily access your work apps. This <xliff:g id="DEVICE_NAME_1">%1$s</xliff:g> isn\'t private, so your IT admin may be able to see your data and activity."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="3487964472228264628">"Use this <xliff:g id="DEVICE_NAME_0">%1$s</xliff:g> to easily access your work apps. This <xliff:g id="DEVICE_NAME_1">%1$s</xliff:g> isn’t private, so your IT admin may be able to see your activity and data. Your IT admin can also set permissions for apps on this device, such as microphone, camera and location permissions."</string>
     <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Return this device to your IT admin"</string>
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Go back to the previous screen, or reset this device and return it to your IT admin."</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Cancel setup"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Reset &amp; return device"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_header" msgid="7938653381656306039">"Device can\'t be set up"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_subheader" msgid="5158035482490079567">"This device can\'t be enrolled into fully managed mode. Factory reset your device and contact your IT admin."</string>
+    <string name="fully_managed_device_reset_button" msgid="5957116315144904542">"Factory reset"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Work apps are kept in your work profile and managed by your IT admin"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Personal apps are separate and hidden from work apps"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Your IT admin can control this device and block certain apps"</string>
-    <string name="cope_provisioning_summary" msgid="993014104601034878">"Work apps are kept in your work profile and managed by your IT admin. Personal apps are separate and hidden from work apps. Your IT admin can control this device and block certain apps."</string>
+    <string name="cope_provisioning_summary" msgid="4993405755138454918">"Work apps are kept in your work profile and managed by your IT admin. Personal apps are separate and hidden from work apps. Your IT admin can control this <xliff:g id="DEVICE_NAME">%1$s</xliff:g> and block certain apps."</string>
     <string name="just_a_sec" msgid="6244676028626237220">"Just a sec…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Privacy reminder"</string>
-    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Your IT admin may be able to see your data and activity on this device"</string>
-    <string name="financed_device_screen_header" msgid="6875169548352717124">"This device is provided by <xliff:g id="CREDITOR_NAME">%s</xliff:g>"</string>
-    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Make payments for this device"</string>
-    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> can install the <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> app so that you can make payments for this device."</string>
-    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"This device can be restricted"</string>
-    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> can restrict access to this device if you don\'t make payments."</string>
-    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Can\'t set up device. Contact your IT admin and reference \'Invalid checksum\'."</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2107315052054483060">"Your IT admin may be able to see your data and activity on this <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
+    <string name="financed_device_screen_header" msgid="5934940812896302344">"This <xliff:g id="DEVICE_NAME">%1$s</xliff:g> is provided by <xliff:g id="CREDITOR_NAME">%2$s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_title" msgid="743966229235451097">"Make payments for this <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_description" msgid="7391276584735956742">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> can install the <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> app so that you can make payments for this <xliff:g id="DEVICE_NAME">%3$s</xliff:g>."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="4248650736543742083">"This <xliff:g id="DEVICE_NAME">%1$s</xliff:g> can be restricted"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="1539908048861880628">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> can restrict access to this <xliff:g id="DEVICE_NAME">%2$s</xliff:g> if you don\'t make payments."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="5098975629103567172">"Can\'t set up <xliff:g id="DEVICE_NAME">%1$s</xliff:g>. Contact your IT admin and reference \'Invalid checksum\'."</string>
     <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Try again later or ask your IT admin for help"</string>
-    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Can\'t set up device. Contact your IT admin and reference \'Missing or corrupted components\'."</string>
+    <string name="error_role_holder_package_invalid" msgid="8159929740916126242">"Can\'t set up <xliff:g id="DEVICE_NAME">%1$s</xliff:g>. Contact your IT admin and reference \'Missing or corrupted components\'."</string>
     <string name="setting_up" msgid="1478847967385506664">"Setting up…"</string>
 </resources>

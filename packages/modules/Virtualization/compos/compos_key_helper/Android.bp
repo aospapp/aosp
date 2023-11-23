@@ -24,10 +24,12 @@ cc_binary {
     defaults: ["compos_key_defaults"],
     srcs: ["compos_key_main.cpp"],
 
-    static_libs: ["libcompos_key"],
+    header_libs: ["vm_payload_restricted_headers"],
+    static_libs: [
+        "libcompos_key",
+    ],
     shared_libs: [
-        "android.hardware.security.dice-V1-ndk",
-        "android.security.dice-ndk",
+        "libvm_payload#current",
         "libbinder_ndk",
     ],
 }

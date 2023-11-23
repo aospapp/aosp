@@ -21,6 +21,7 @@ import android.annotation.NonNull;
 import android.app.appsearch.AppSearchResult;
 import android.app.appsearch.RemoveByDocumentIdRequest;
 import android.app.appsearch.SearchSpec;
+import android.app.appsearch.annotation.CanIgnoreReturnValue;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -138,6 +139,7 @@ public final class RemoveStats {
         }
 
         /** Sets the status code. */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder setStatusCode(@AppSearchResult.ResultCode int statusCode) {
             mStatusCode = statusCode;
@@ -145,6 +147,7 @@ public final class RemoveStats {
         }
 
         /** Sets total latency in millis. */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder setTotalLatencyMillis(int totalLatencyMillis) {
             mTotalLatencyMillis = totalLatencyMillis;
@@ -152,6 +155,7 @@ public final class RemoveStats {
         }
 
         /** Sets native latency in millis. */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder setNativeLatencyMillis(int nativeLatencyMillis) {
             mNativeLatencyMillis = nativeLatencyMillis;
@@ -159,6 +163,7 @@ public final class RemoveStats {
         }
 
         /** Sets delete type for this call. */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder setDeleteType(@DeleteType int nativeDeleteType) {
             mNativeDeleteType = nativeDeleteType;
@@ -166,6 +171,7 @@ public final class RemoveStats {
         }
 
         /** Sets how many documents get deleted for this call. */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder setDeletedDocumentCount(int nativeNumDocumentsDeleted) {
             mNativeNumDocumentsDeleted = nativeNumDocumentsDeleted;

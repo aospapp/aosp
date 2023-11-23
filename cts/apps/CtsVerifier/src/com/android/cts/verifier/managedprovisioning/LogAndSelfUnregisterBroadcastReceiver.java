@@ -37,7 +37,8 @@ public final class LogAndSelfUnregisterBroadcastReceiver extends BroadcastReceiv
     public static void register(Context context, String action) {
         context.getApplicationContext().registerReceiver(
                 new LogAndSelfUnregisterBroadcastReceiver(),
-                new IntentFilter(action));
+                new IntentFilter(action),
+                Context.RECEIVER_EXPORTED);
     }
 
     @Override

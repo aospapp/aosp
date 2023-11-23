@@ -1,0 +1,120 @@
+From b3185f1f6bc49ed8d728be472c9ef04248adf348 Mon Sep 17 00:00:00 2001
+From: Edward Liaw <edliaw@google.com>
+Date: Tue, 19 Apr 2022 23:12:41 +0000
+Subject: [PATCH 14/24] seccomp bpf
+
+Disable further incompatible seccomp subtests.
+
+(cherry picked from commit 95b95a72b438f8efc105091f6122d0e99fd880b0)
+Bug: 147676645
+---
+ tools/testing/selftests/seccomp/seccomp_bpf.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/tools/testing/selftests/seccomp/seccomp_bpf.c b/tools/testing/selftests/seccomp/seccomp_bpf.c
+index 65b81fa4aaca8..b575afa3bbb33 100644
+--- a/tools/testing/selftests/seccomp/seccomp_bpf.c
++++ b/tools/testing/selftests/seccomp/seccomp_bpf.c
+@@ -13,12 +13,14 @@
+  * we need to use the kernel's siginfo.h file and trick glibc
+  * into accepting it.
+  */
++#if defined(__GLIBC_PREREQ)
+ #if !__GLIBC_PREREQ(2, 26)
+ # include <asm/siginfo.h>
+ # define __have_siginfo_t 1
+ # define __have_sigval_t 1
+ # define __have_sigevent_t 1
+ #endif
++#endif
+ 
+ #include <errno.h>
+ #include <linux/filter.h>
+@@ -565,6 +567,8 @@ TEST(empty_prog)
+ 	EXPECT_EQ(EINVAL, errno);
+ }
+ 
++/* b/147676645 */
++#if 0
+ TEST(log_all)
+ {
+ 	struct sock_filter filter[] = {
+@@ -586,6 +590,7 @@ TEST(log_all)
+ 	/* getppid() should succeed and be logged (no check for logging) */
+ 	EXPECT_EQ(parent, syscall(__NR_getppid));
+ }
++#endif
+ 
+ TEST_SIGNAL(unknown_ret_is_kill_inside, SIGSYS)
+ {
+@@ -848,6 +853,8 @@ void kill_thread_or_group(struct __test_metadata *_metadata,
+ 	exit(42);
+ }
+ 
++/* b/147676645 */
++#if 0
+ TEST(KILL_thread)
+ {
+ 	int status;
+@@ -866,6 +873,7 @@ TEST(KILL_thread)
+ 	ASSERT_TRUE(WIFEXITED(status));
+ 	ASSERT_EQ(42, WEXITSTATUS(status));
+ }
++#endif
+ 
+ TEST(KILL_process)
+ {
+@@ -1434,6 +1442,8 @@ TEST_F(precedence, trace_is_fourth_in_any_order)
+ 	EXPECT_EQ(-1, syscall(__NR_getpid));
+ }
+ 
++/* b/147676645 */
++#if 0
+ TEST_F(precedence, log_is_fifth)
+ {
+ 	pid_t mypid, parent;
+@@ -1453,6 +1463,7 @@ TEST_F(precedence, log_is_fifth)
+ 	/* Should also work just fine */
+ 	EXPECT_EQ(mypid, syscall(__NR_getpid));
+ }
++#endif
+ 
+ TEST_F(precedence, log_is_fifth_in_any_order)
+ {
+@@ -2372,6 +2383,8 @@ TEST(seccomp_syscall_mode_lock)
+ 	}
+ }
+ 
++/* b/147676645 */
++#if 0
+ /*
+  * Test detection of known and unknown filter flags. Userspace needs to be able
+  * to check if a filter flag is supported by the current kernel and a good way
+@@ -2462,6 +2475,7 @@ TEST(detect_seccomp_filter_flags)
+ 		       flag);
+ 	}
+ }
++#endif
+ 
+ TEST(TSYNC_first)
+ {
+@@ -3159,6 +3173,8 @@ TEST(syscall_restart)
+ 		_metadata->passed = 0;
+ }
+ 
++/* b/147676645 */
++#if 0
+ TEST_SIGNAL(filter_flag_log, SIGSYS)
+ {
+ 	struct sock_filter allow_filter[] = {
+@@ -3320,6 +3336,7 @@ TEST(get_metadata)
+ skip:
+ 	ASSERT_EQ(0, kill(pid, SIGKILL));
+ }
++#endif
+ 
+ static int user_notif_syscall(int nr, unsigned int flags)
+ {
+-- 
+2.36.0.550.gb090851708-goog
+

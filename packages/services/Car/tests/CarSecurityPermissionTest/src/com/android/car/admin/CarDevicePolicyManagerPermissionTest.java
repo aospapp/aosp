@@ -23,7 +23,7 @@ import static android.car.Car.createCar;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.testng.Assert.expectThrows;
+import static org.junit.Assert.assertThrows;
 
 import android.app.Instrumentation;
 import android.car.Car;
@@ -61,7 +61,7 @@ public final class CarDevicePolicyManagerPermissionTest {
 
     @Test
     public void testRemoveUserPermission() throws Exception {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mManager.removeUser(UserHandle.of(100)));
         assertThat(e.getMessage()).contains(CREATE_USERS);
         assertThat(e.getMessage()).contains(MANAGE_USERS);
@@ -69,7 +69,7 @@ public final class CarDevicePolicyManagerPermissionTest {
 
     @Test
     public void testCreateUserPermission() throws Exception {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mManager.createUser("DaUser", CarDevicePolicyManager.USER_TYPE_REGULAR));
         assertThat(e.getMessage()).contains(CREATE_USERS);
         assertThat(e.getMessage()).contains(MANAGE_USERS);
@@ -77,7 +77,7 @@ public final class CarDevicePolicyManagerPermissionTest {
 
     @Test
     public void testStartUserInBackgroundPermission() throws Exception {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mManager.startUserInBackground(UserHandle.of(100)));
         assertThat(e.getMessage()).contains(CREATE_USERS);
         assertThat(e.getMessage()).contains(MANAGE_USERS);
@@ -85,7 +85,7 @@ public final class CarDevicePolicyManagerPermissionTest {
 
     @Test
     public void testStopUserPermission() throws Exception {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mManager.stopUser(UserHandle.of(100)));
         assertThat(e.getMessage()).contains(CREATE_USERS);
         assertThat(e.getMessage()).contains(MANAGE_USERS);

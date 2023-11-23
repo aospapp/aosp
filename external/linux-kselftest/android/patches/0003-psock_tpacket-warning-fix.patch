@@ -1,0 +1,27 @@
+From 461e19ec1bd6f9ff6761574f9a292442ecc7b6f9 Mon Sep 17 00:00:00 2001
+From: Edward Liaw <edliaw@google.com>
+Date: Tue, 19 Apr 2022 22:49:19 +0000
+Subject: [PATCH 03/24] psock_tpacket: warning fix
+
+Fix compilation warning
+
+(cherry picked from commit c33d1f8c4b98fa6aa24c67d484d31b58c0651933)
+---
+ tools/testing/selftests/net/psock_tpacket.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/tools/testing/selftests/net/psock_tpacket.c b/tools/testing/selftests/net/psock_tpacket.c
+index e5a4c53076d2a..4d5f317ab42c3 100644
+--- a/tools/testing/selftests/net/psock_tpacket.c
++++ b/tools/testing/selftests/net/psock_tpacket.c
+@@ -365,6 +365,7 @@ static inline void *get_next_frame(struct ring *ring, int n)
+ 		return f0 + (n * ring->req3.tp_frame_size);
+ 	default:
+ 		bug_on(1);
++		return NULL;
+ 	}
+ }
+ 
+-- 
+2.36.0.550.gb090851708-goog
+

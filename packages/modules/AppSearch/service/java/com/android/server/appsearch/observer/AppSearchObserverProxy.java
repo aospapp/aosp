@@ -17,6 +17,7 @@
 package com.android.server.appsearch.observer;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.app.appsearch.aidl.IAppSearchObserverProxy;
 import android.app.appsearch.observer.DocumentChangeInfo;
 import android.app.appsearch.observer.ObserverCallback;
@@ -80,7 +81,7 @@ public class AppSearchObserverProxy implements ObserverCallback {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         if (this == o) return true;
         if (!(o instanceof AppSearchObserverProxy)) return false;
         AppSearchObserverProxy that = (AppSearchObserverProxy) o;

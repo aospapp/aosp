@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-#include <keymaster/contexts/soft_keymaster_context.h>
 #include <keymaster/legacy_support/rsa_keymaster1_key.h>
 
+#include <utility>
+
+#include <keymaster/contexts/soft_keymaster_context.h>
 #include <keymaster/km_openssl/openssl_utils.h>
 #include <keymaster/logger.h>
 
@@ -121,10 +123,11 @@ keymaster_error_t RsaKeymaster1KeyFactory::LoadKey(KeymasterKeyBlob&& key_materi
     if (!rsa.get()) return error;
 
     key->reset(new (std::nothrow)
-                   RsaKeymaster1Key(rsa.release(), move(hw_enforced), move(sw_enforced), this));
+                   RsaKeymaster1Key(rsa.release(), std::move(hw_enforced), std::move(sw_enforced),
+                                    this));
     if (!(*key)) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
-    (*key)->key_material() = move(key_material);
+    (*key)->key_material() = std::move(key_material);
     return KM_ERROR_OK;
 }
 

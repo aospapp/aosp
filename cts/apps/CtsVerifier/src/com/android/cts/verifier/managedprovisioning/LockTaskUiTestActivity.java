@@ -40,10 +40,11 @@ import android.content.pm.PackageManager;
 import android.database.DataSetObserver;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.Toast;
+
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.android.cts.verifier.ArrayTestListAdapter;
 import com.android.cts.verifier.IntentDrivenTestActivity.ButtonInfo;
@@ -126,7 +127,8 @@ public class LockTaskUiTestActivity extends PassFailButtons.TestListActivity {
     }
 
     private void addTestsToAdapter(final ArrayTestListAdapter adapter) {
-        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
+                && !getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEVISION)) {
             adapter.add(createSetLockTaskFeaturesTest(
                     TEST_ID_DEFAULT,
                     LOCK_TASK_FEATURE_NONE,
@@ -140,7 +142,8 @@ public class LockTaskUiTestActivity extends PassFailButtons.TestListActivity {
                     R.string.device_owner_lock_task_ui_system_info_test_info));
         }
 
-        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
+                && !getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEVISION)) {
             adapter.add(createSetLockTaskFeaturesTest(
                     TEST_ID_NOTIFICATIONS,
                     LOCK_TASK_FEATURE_HOME | LOCK_TASK_FEATURE_NOTIFICATIONS,
@@ -148,7 +151,8 @@ public class LockTaskUiTestActivity extends PassFailButtons.TestListActivity {
                     R.string.device_owner_lock_task_ui_notifications_test_info));
         }
 
-        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
+                && !getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEVISION)) {
             adapter.add(createSetLockTaskFeaturesTest(
                     TEST_ID_HOME,
                     LOCK_TASK_FEATURE_HOME,
@@ -156,7 +160,8 @@ public class LockTaskUiTestActivity extends PassFailButtons.TestListActivity {
                     R.string.device_owner_lock_task_ui_home_test_info));
         }
 
-        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
+                && !getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEVISION)) {
             adapter.add(createSetLockTaskFeaturesTest(
                     TEST_ID_RECENTS,
                     LOCK_TASK_FEATURE_HOME | LOCK_TASK_FEATURE_OVERVIEW,
@@ -164,7 +169,8 @@ public class LockTaskUiTestActivity extends PassFailButtons.TestListActivity {
                     R.string.device_owner_lock_task_ui_recents_test_info));
         }
 
-        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
+                && !getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEVISION)) {
             adapter.add(createSetLockTaskFeaturesTest(
                     TEST_ID_GLOBAL_ACTIONS,
                     LOCK_TASK_FEATURE_GLOBAL_ACTIONS,
@@ -172,7 +178,10 @@ public class LockTaskUiTestActivity extends PassFailButtons.TestListActivity {
                     R.string.device_owner_lock_task_ui_global_actions_test_info));
         }
 
+        // Disabled due to b/240590557. Will be re-enabled for Android 14+.
+        /*
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
+                && !getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEVISION)
                 && getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_SECURE_LOCK_SCREEN)) {
             adapter.add(createSetLockTaskFeaturesTest(
@@ -181,6 +190,7 @@ public class LockTaskUiTestActivity extends PassFailButtons.TestListActivity {
                     R.string.device_owner_lock_task_ui_keyguard_test,
                     R.string.device_owner_lock_task_ui_keyguard_test_info));
         }
+        */
 
         final Intent stopLockTaskIntent = new Intent(this, LockTaskUiTestActivity.class);
         stopLockTaskIntent.setAction(ACTION_STOP_LOCK_TASK);

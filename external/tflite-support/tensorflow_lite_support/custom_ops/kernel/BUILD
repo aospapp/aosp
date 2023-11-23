@@ -144,3 +144,83 @@ py_test(
         "@absl_py//absl/testing:parameterized",
     ],
 )
+
+cc_library(
+    name = "unsorted_segment",
+    srcs = ["unsorted_segment.cc"],
+    hdrs = ["unsorted_segment.h"],
+    deps = [
+        "@org_tensorflow//tensorflow/lite/c:common",
+        "@org_tensorflow//tensorflow/lite/kernels:kernel_util",
+        "@org_tensorflow//tensorflow/lite/kernels/internal:reference_base",
+        "@org_tensorflow//tensorflow/lite/kernels/internal:tensor",
+    ],
+)
+
+cc_test(
+    name = "unsorted_segment_prod_test",
+    size = "small",
+    srcs = [
+        "unsorted_segment_prod_test.cc",
+        "unsorted_segment_test.cc",
+        "unsorted_segment_test.h",
+    ],
+    deps = [
+        "@com_google_googletest//:gtest_main",
+        "@org_tensorflow//tensorflow/lite/c:common",
+        "@org_tensorflow//tensorflow/lite/kernels:test_main",
+        "@org_tensorflow//tensorflow/lite/kernels:test_util",
+        "@org_tensorflow//tensorflow/lite/schema:schema_fbs",
+    ],
+)
+
+cc_test(
+    name = "unsorted_segment_max_test",
+    size = "small",
+    srcs = [
+        "unsorted_segment_max_test.cc",
+        "unsorted_segment_test.cc",
+        "unsorted_segment_test.h",
+    ],
+    deps = [
+        "@com_google_googletest//:gtest_main",
+        "@org_tensorflow//tensorflow/lite/c:common",
+        "@org_tensorflow//tensorflow/lite/kernels:test_main",
+        "@org_tensorflow//tensorflow/lite/kernels:test_util",
+        "@org_tensorflow//tensorflow/lite/schema:schema_fbs",
+    ],
+)
+
+cc_test(
+    name = "unsorted_segment_sum_test",
+    size = "small",
+    srcs = [
+        "unsorted_segment_sum_test.cc",
+        "unsorted_segment_test.cc",
+        "unsorted_segment_test.h",
+    ],
+    deps = [
+        "@com_google_googletest//:gtest_main",
+        "@org_tensorflow//tensorflow/lite/c:common",
+        "@org_tensorflow//tensorflow/lite/kernels:test_main",
+        "@org_tensorflow//tensorflow/lite/kernels:test_util",
+        "@org_tensorflow//tensorflow/lite/schema:schema_fbs",
+    ],
+)
+
+cc_test(
+    name = "unsorted_segment_min_test",
+    size = "small",
+    srcs = [
+        "unsorted_segment_sum_test.cc",
+        "unsorted_segment_test.cc",
+        "unsorted_segment_test.h",
+    ],
+    deps = [
+        "@com_google_googletest//:gtest_main",
+        "@org_tensorflow//tensorflow/lite/c:common",
+        "@org_tensorflow//tensorflow/lite/kernels:test_main",
+        "@org_tensorflow//tensorflow/lite/kernels:test_util",
+        "@org_tensorflow//tensorflow/lite/schema:schema_fbs",
+    ],
+)

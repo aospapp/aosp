@@ -27,8 +27,8 @@ from acts.controllers.access_point import setup_ap, AccessPoint
 from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.ap_lib import hostapd_security
 from acts.controllers.ap_lib.hostapd_utils import generate_random_password
+from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
-from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 
 CONNECTIVITY_MODE_LOCAL = 'local_only'
 CONNECTIVITY_MODE_UNRESTRICTED = 'unrestricted'
@@ -129,10 +129,9 @@ def get_soft_ap_params_from_config_or_default(config):
 
 class StressTestIterationFailure(Exception):
     """Used to differentiate a subtest failure from an actual exception"""
-    pass
 
 
-class SoftApTest(AbstractDeviceWlanDeviceBaseTest):
+class SoftApTest(WifiBaseTest):
     """Tests for Fuchsia SoftAP
 
     Testbed requirement:
@@ -145,6 +144,7 @@ class SoftApTest(AbstractDeviceWlanDeviceBaseTest):
         tests), a physical AP (whirlwind) is also required. Those tests will be
         skipped if physical AP is not present.
     """
+
     def setup_class(self):
         self.soft_ap_test_params = self.user_params.get(
             'soft_ap_test_params', {})
@@ -234,7 +234,7 @@ class SoftApTest(AbstractDeviceWlanDeviceBaseTest):
 
         self.log.info('Starting SoftAP on DUT with settings: %s' % settings)
 
-        response = self.dut.device.wlan_ap_policy_lib.wlanStartAccessPoint(
+        response = self.dut.device.sl4f.wlan_ap_policy_lib.wlanStartAccessPoint(
             ssid, security_type, password, connectivity_mode, operating_band)
         if response.get('error'):
             raise EnvironmentError('SL4F: Failed to setup SoftAP. Err: %s' %
@@ -256,7 +256,7 @@ class SoftApTest(AbstractDeviceWlanDeviceBaseTest):
         security_type = settings['security_type']
         password = settings.get('password', '')
 
-        response = self.dut.device.wlan_ap_policy_lib.wlanStopAccessPoint(
+        response = self.dut.device.sl4f.wlan_ap_policy_lib.wlanStopAccessPoint(
             ssid, security_type, password)
         if response.get('error'):
             raise EnvironmentError('SL4F: Failed to stop SoftAP. Err: %s' %
@@ -268,7 +268,8 @@ class SoftApTest(AbstractDeviceWlanDeviceBaseTest):
         Raises:
             EnvironmentError, if StopAllAps call fails.
         """
-        response = self.dut.device.wlan_ap_policy_lib.wlanStopAllAccessPoint()
+        response = self.dut.device.sl4f.wlan_ap_policy_lib.wlanStopAllAccessPoint(
+        )
         if response.get('error'):
             raise EnvironmentError(
                 'SL4F: Failed to stop all SoftAPs. Err: %s' %

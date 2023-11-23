@@ -25,6 +25,7 @@
 #include <vector>
 #include <variant>
 
+#include "base/macros.h"
 #include "base/indenter.h"
 #include "base/malloc_arena_pool.h"
 #include "base/scoped_arena_allocator.h"
@@ -46,7 +47,7 @@
 #include "ssa_builder.h"
 #include "ssa_liveness_analysis.h"
 
-namespace art {
+namespace art HIDDEN {
 
 #define NUM_INSTRUCTIONS(...)  \
   (sizeof((uint16_t[]) {__VA_ARGS__}) /sizeof(uint16_t))
@@ -240,13 +241,14 @@ class OptimizingUnitTestHelper {
 
     // Create the dex file based on the fake data. Call the constructor so that we can use virtual
     // functions. Don't use the arena for the StandardDexFile otherwise the dex location leaks.
-    dex_files_.emplace_back(new StandardDexFile(
-        dex_data,
-        sizeof(StandardDexFile::Header),
-        "no_location",
-        /*location_checksum*/ 0,
-        /*oat_dex_file*/ nullptr,
-        /*container*/ nullptr));
+    auto container =
+        std::make_shared<MemoryDexFileContainer>(dex_data, sizeof(StandardDexFile::Header));
+    dex_files_.emplace_back(new StandardDexFile(dex_data,
+                                                sizeof(StandardDexFile::Header),
+                                                "no_location",
+                                                /*location_checksum*/ 0,
+                                                /*oat_dex_file*/ nullptr,
+                                                std::move(container)));
 
     graph_ = new (allocator) HGraph(
         allocator,
@@ -260,9 +262,10 @@ class OptimizingUnitTestHelper {
 
   // Create a control-flow graph from Dex instructions.
   HGraph* CreateCFG(const std::vector<uint16_t>& data,
-                    DataType::Type return_type = DataType::Type::kInt32,
-                    VariableSizedHandleScope* handles = nullptr) {
-    HGraph* graph = CreateGraph(handles);
+                    DataType::Type return_type = DataType::Type::kInt32) {
+    ScopedObjectAccess soa(Thread::Current());
+    VariableSizedHandleScope handles(soa.Self());
+    HGraph* graph = CreateGraph(&handles);
 
     // The code item data might not aligned to 4 bytes, copy it to ensure that.
     const size_t code_item_size = data.size() * sizeof(data.front());
@@ -278,7 +281,7 @@ class OptimizingUnitTestHelper {
               /* class_linker= */ nullptr,
               graph->GetDexFile(),
               code_item,
-              /* class_def_index= */ DexFile::kDexNoIndex16,
+              /* class_def_idx= */ DexFile::kDexNoIndex16,
               /* method_idx= */ dex::kDexNoIndex,
               /* access_flags= */ 0u,
               /* verified_method= */ nullptr,
@@ -320,23 +323,8 @@ class OptimizingUnitTestHelper {
   // Run GraphChecker with all checks.
   //
   // Return: the status whether the run is successful.
-  bool CheckGraph(HGraph* graph, std::ostream& oss = std::cerr) {
-    return CheckGraph(graph, /*check_ref_type_info=*/true, oss);
-  }
-
   bool CheckGraph(std::ostream& oss = std::cerr) {
     return CheckGraph(graph_, oss);
-  }
-
-  // Run GraphChecker with all checks except reference type information checks.
-  //
-  // Return: the status whether the run is successful.
-  bool CheckGraphSkipRefTypeInfoChecks(HGraph* graph, std::ostream& oss = std::cerr) {
-    return CheckGraph(graph, /*check_ref_type_info=*/false, oss);
-  }
-
-  bool CheckGraphSkipRefTypeInfoChecks(std::ostream& oss = std::cerr) {
-    return CheckGraphSkipRefTypeInfoChecks(graph_, oss);
   }
 
   HEnvironment* ManuallyBuildEnvFor(HInstruction* instruction,
@@ -473,7 +461,8 @@ class OptimizingUnitTestHelper {
                               HInvokeStaticOrDirect::DispatchInfo{},
                               InvokeType::kStatic,
                               /* resolved_method_reference= */ method_reference,
-                              HInvokeStaticOrDirect::ClinitCheckRequirement::kNone);
+                              HInvokeStaticOrDirect::ClinitCheckRequirement::kNone,
+                              !graph_->IsDebuggable());
     for (auto [ins, idx] : ZipCount(MakeIterationRange(args))) {
       res->SetRawInputAt(idx, ins);
     }
@@ -531,9 +520,8 @@ class OptimizingUnitTestHelper {
   }
 
  protected:
-  bool CheckGraph(HGraph* graph, bool check_ref_type_info, std::ostream& oss) {
+  bool CheckGraph(HGraph* graph, std::ostream& oss) {
     GraphChecker checker(graph);
-    checker.SetRefTypeInfoCheckEnabled(check_ref_type_info);
     checker.Run();
     checker.Dump(oss);
     return checker.IsValid();
@@ -559,7 +547,7 @@ class OptimizingUnitTestHelper {
 class OptimizingUnitTest : public CommonArtTest, public OptimizingUnitTestHelper {};
 
 // Naive string diff data type.
-typedef std::list<std::pair<std::string, std::string>> diff_t;
+using diff_t = std::list<std::pair<std::string, std::string>>;
 
 // An alias for the empty string used to make it clear that a line is
 // removed in a diff.
@@ -586,7 +574,7 @@ inline std::ostream& operator<<(std::ostream& oss, const AdjacencyListGraph& alg
   return alg.Dump(oss);
 }
 
-class PatternMatchGraphVisitor : public HGraphVisitor {
+class PatternMatchGraphVisitor final : public HGraphVisitor {
  private:
   struct HandlerWrapper {
    public:

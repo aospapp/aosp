@@ -29,7 +29,7 @@
 #include <libdm/dm.h>
 #include <liblp/builder.h>
 #include <liblp/liblp.h>
-#include <statslog.h>
+#include <statslog_ue.h>
 
 #include "update_engine/common/constants.h"
 #include "update_engine/payload_consumer/install_plan.h"
@@ -132,8 +132,8 @@ void MetricsReporterAndroid::ReportUpdateAttemptMetrics(
   bool vab_compression_used =
       dynamic_partition_control_->UpdateUsesSnapshotCompression();
 
-  android::util::stats_write(
-      android::util::UPDATE_ENGINE_UPDATE_ATTEMPT_REPORTED,
+  statsd::stats_write(
+      statsd::UPDATE_ENGINE_UPDATE_ATTEMPT_REPORTED,
       attempt_number,
       GetStatsdEnumValue(static_cast<int32_t>(payload_type)),
       duration.InMinutes(),
@@ -177,17 +177,16 @@ void MetricsReporterAndroid::ReportSuccessfulUpdateMetrics(
     total_bytes_downloaded += num_bytes_downloaded[i] / kNumBytesInOneMiB;
   }
 
-  android::util::stats_write(
-      android::util::UPDATE_ENGINE_SUCCESSFUL_UPDATE_REPORTED,
-      static_cast<int32_t>(attempt_count),
-      GetStatsdEnumValue(static_cast<int32_t>(payload_type)),
-      static_cast<int32_t>(payload_size_mib),
-      static_cast<int32_t>(total_bytes_downloaded),
-      static_cast<int32_t>(download_overhead_percentage),
-      static_cast<int32_t>(total_duration.InMinutes()),
-      static_cast<int32_t>(reboot_count),
-      IsHashTreeEnabled(install_plan_),
-      IsFECEnabled(install_plan_));
+  statsd::stats_write(statsd::UPDATE_ENGINE_SUCCESSFUL_UPDATE_REPORTED,
+                      static_cast<int32_t>(attempt_count),
+                      GetStatsdEnumValue(static_cast<int32_t>(payload_type)),
+                      static_cast<int32_t>(payload_size_mib),
+                      static_cast<int32_t>(total_bytes_downloaded),
+                      static_cast<int32_t>(download_overhead_percentage),
+                      static_cast<int32_t>(total_duration.InMinutes()),
+                      static_cast<int32_t>(reboot_count),
+                      IsHashTreeEnabled(install_plan_),
+                      IsFECEnabled(install_plan_));
 }
 
 void MetricsReporterAndroid::ReportAbnormallyTerminatedUpdateAttemptMetrics() {

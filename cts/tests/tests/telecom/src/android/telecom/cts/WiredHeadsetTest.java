@@ -26,16 +26,27 @@ import android.telecom.Connection;
  */
 public class WiredHeadsetTest extends BaseTelecomTestWithMockServices {
 
+    // TODO(b/272362532): Figure out a way to mock out audio routing in CTS; this class depends on a
+    // wired headset being attached to operate as expected.
+    // We do this here instead of renaming the tests because the CTS test runner complains that the
+    // class has no tests.
+    private static final boolean DISABLE_TESTS = true;
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        if (mShouldTestTelecom) {
+        if (mShouldTestTelecom && !DISABLE_TESTS) {
             setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
         }
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
+    }
+
     public void testIncomingCallShortPress_acceptsCall() throws Exception {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || DISABLE_TESTS) {
             return;
         }
 
@@ -52,7 +63,7 @@ public class WiredHeadsetTest extends BaseTelecomTestWithMockServices {
     }
 
     public void testIncomingCallLongPress_rejectsCall() throws Exception {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || DISABLE_TESTS) {
             return;
         }
 
@@ -69,7 +80,7 @@ public class WiredHeadsetTest extends BaseTelecomTestWithMockServices {
     }
 
     public void testInCallLongPress_togglesMute() throws Exception {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || DISABLE_TESTS) {
             return;
         }
 
@@ -91,7 +102,7 @@ public class WiredHeadsetTest extends BaseTelecomTestWithMockServices {
     }
 
     public void testInCallShortPress_hangupCall() throws Exception {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || DISABLE_TESTS) {
             return;
         }
 

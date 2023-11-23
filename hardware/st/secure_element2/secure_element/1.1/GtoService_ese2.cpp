@@ -38,7 +38,7 @@ int main() {
     return -1;
   }
 
-  ALOGD("Gemalto Secure Element Service is ready");
+  ALOGD("Thales Secure Element Service is ready");
   joinRpcThreadpool();
   return 1;
 }

@@ -41,7 +41,7 @@ public:
                   const bool stopAll) override;
     void noteStopAll(const int64_t eventTime) override;
 
-    void onSlicedConditionMayChange(bool overallCondition, const int64_t timestamp) override;
+    void onSlicedConditionMayChange(const int64_t timestamp) override;
     void onConditionChanged(bool condition, const int64_t timestamp) override;
 
     void onStateChanged(const int64_t timestamp, const int32_t atomId,
@@ -49,6 +49,7 @@ public:
 
     bool flushCurrentBucket(
             const int64_t& eventTimeNs, const optional<UploadThreshold>& uploadThreshold,
+            const int64_t globalConditionTrueNs,
             std::unordered_map<MetricDimensionKey, std::vector<DurationBucket>>* output) override;
     bool flushIfNeeded(
             int64_t timestampNs, const optional<UploadThreshold>& uploadThreshold,

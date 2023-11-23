@@ -35,5 +35,4 @@ android_test {
     optimize: {
         enabled: false,
     },
-    test_suites: ["device-tests"],
 }

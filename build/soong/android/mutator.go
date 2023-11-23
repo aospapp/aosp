@@ -15,12 +15,9 @@
 package android
 
 import (
-	"reflect"
-
 	"android/soong/bazel"
 
 	"github.com/google/blueprint"
-	"github.com/google/blueprint/proptools"
 )
 
 // Phases:
@@ -34,22 +31,33 @@ import (
 
 // RegisterMutatorsForBazelConversion is a alternate registration pipeline for bp2build. Exported for testing.
 func RegisterMutatorsForBazelConversion(ctx *Context, preArchMutators []RegisterMutatorFunc) {
+	bp2buildMutators := append(preArchMutators, registerBp2buildConversionMutator)
+	registerMutatorsForBazelConversion(ctx, bp2buildMutators)
+}
+
+// RegisterMutatorsForApiBazelConversion is an alternate registration pipeline for api_bp2build
+// This pipeline restricts generation of Bazel targets to Soong modules that contribute APIs
+func RegisterMutatorsForApiBazelConversion(ctx *Context, preArchMutators []RegisterMutatorFunc) {
+	bp2buildMutators := append(preArchMutators, registerApiBp2buildConversionMutator)
+	registerMutatorsForBazelConversion(ctx, bp2buildMutators)
+}
+
+func registerMutatorsForBazelConversion(ctx *Context, bp2buildMutators []RegisterMutatorFunc) {
 	mctx := &registerMutatorsContext{
 		bazelConversionMode: true,
 	}
 
-	bp2buildMutators := append([]RegisterMutatorFunc{
+	allMutators := append([]RegisterMutatorFunc{
 		RegisterNamespaceMutator,
 		RegisterDefaultsPreArchMutators,
 		// TODO(b/165114590): this is required to resolve deps that are only prebuilts, but we should
 		// evaluate the impact on conversion.
 		RegisterPrebuiltsPreArchMutators,
 	},
-		preArchMutators...)
-	bp2buildMutators = append(bp2buildMutators, registerBp2buildConversionMutator)
+		bp2buildMutators...)
 
 	// Register bp2build mutators
-	for _, f := range bp2buildMutators {
+	for _, f := range allMutators {
 		f(mctx)
 	}
 
@@ -96,6 +104,7 @@ type RegisterMutatorsContext interface {
 	TopDown(name string, m TopDownMutator) MutatorHandle
 	BottomUp(name string, m BottomUpMutator) MutatorHandle
 	BottomUpBlueprint(name string, m blueprint.BottomUpMutator) MutatorHandle
+	Transition(name string, m TransitionMutator)
 }
 
 type RegisterMutatorFunc func(RegisterMutatorsContext)
@@ -235,9 +244,6 @@ type BaseMutatorContext interface {
 	// Rename all variants of a module.  The new name is not visible to calls to ModuleName,
 	// AddDependency or OtherModuleName until after this mutator pass is complete.
 	Rename(name string)
-
-	// BazelConversionMode returns whether this mutator is being run as part of Bazel Conversion.
-	BazelConversionMode() bool
 }
 
 type TopDownMutator func(TopDownMutatorContext)
@@ -262,6 +268,11 @@ type TopDownMutatorContext interface {
 	// platforms, as dictated by a given bool attribute: the target will not be buildable in
 	// any platform for which this bool attribute is false.
 	CreateBazelTargetModuleWithRestrictions(bazel.BazelTargetModuleProperties, CommonAttributes, interface{}, bazel.BoolAttribute)
+
+	// CreateBazelTargetAliasInDir creates an alias definition in `dir` directory.
+	// This function can be used to create alias definitions in a directory that is different
+	// from the directory of the visited Soong module.
+	CreateBazelTargetAliasInDir(dir string, name string, actual bazel.Label)
 }
 
 type topDownMutatorContext struct {
@@ -403,7 +414,7 @@ func bottomUpMutatorContextFactory(ctx blueprint.BottomUpMutatorContext, a Modul
 
 	return &bottomUpMutatorContext{
 		bp:                ctx,
-		baseModuleContext: a.base().baseModuleContextFactory(ctx),
+		baseModuleContext: moduleContext,
 		finalPhase:        finalPhase,
 	}
 }
@@ -425,6 +436,182 @@ func (x *registerMutatorsContext) BottomUpBlueprint(name string, m blueprint.Bot
 	mutator := &mutator{name: name, bottomUpMutator: m}
 	x.mutators = append(x.mutators, mutator)
 	return mutator
+}
+
+type IncomingTransitionContext interface {
+	// Module returns the target of the dependency edge for which the transition
+	// is being computed
+	Module() Module
+
+	// Config returns the configuration for the build.
+	Config() Config
+}
+
+type OutgoingTransitionContext interface {
+	// Module returns the target of the dependency edge for which the transition
+	// is being computed
+	Module() Module
+
+	// DepTag() Returns the dependency tag through which this dependency is
+	// reached
+	DepTag() blueprint.DependencyTag
+}
+
+// Transition mutators implement a top-down mechanism where a module tells its
+// direct dependencies what variation they should be built in but the dependency
+// has the final say.
+//
+// When implementing a transition mutator, one needs to implement four methods:
+//   - Split() that tells what variations a module has by itself
+//   - OutgoingTransition() where a module tells what it wants from its
+//     dependency
+//   - IncomingTransition() where a module has the final say about its own
+//     variation
+//   - Mutate() that changes the state of a module depending on its variation
+//
+// That the effective variation of module B when depended on by module A is the
+// composition the outgoing transition of module A and the incoming transition
+// of module B.
+//
+// the outgoing transition should not take the properties of the dependency into
+// account, only those of the module that depends on it. For this reason, the
+// dependency is not even passed into it as an argument. Likewise, the incoming
+// transition should not take the properties of the depending module into
+// account and is thus not informed about it. This makes for a nice
+// decomposition of the decision logic.
+//
+// A given transition mutator only affects its own variation; other variations
+// stay unchanged along the dependency edges.
+//
+// Soong makes sure that all modules are created in the desired variations and
+// that dependency edges are set up correctly. This ensures that "missing
+// variation" errors do not happen and allows for more flexible changes in the
+// value of the variation among dependency edges (as oppposed to bottom-up
+// mutators where if module A in variation X depends on module B and module B
+// has that variation X, A must depend on variation X of B)
+//
+// The limited power of the context objects passed to individual mutators
+// methods also makes it more difficult to shoot oneself in the foot. Complete
+// safety is not guaranteed because no one prevents individual transition
+// mutators from mutating modules in illegal ways and for e.g. Split() or
+// Mutate() to run their own visitations of the transitive dependency of the
+// module and both of these are bad ideas, but it's better than no guardrails at
+// all.
+//
+// This model is pretty close to Bazel's configuration transitions. The mapping
+// between concepts in Soong and Bazel is as follows:
+//   - Module == configured target
+//   - Variant == configuration
+//   - Variation name == configuration flag
+//   - Variation == configuration flag value
+//   - Outgoing transition == attribute transition
+//   - Incoming transition == rule transition
+//
+// The Split() method does not have a Bazel equivalent and Bazel split
+// transitions do not have a Soong equivalent.
+//
+// Mutate() does not make sense in Bazel due to the different models of the
+// two systems: when creating new variations, Soong clones the old module and
+// thus some way is needed to change it state whereas Bazel creates each
+// configuration of a given configured target anew.
+type TransitionMutator interface {
+	// Split returns the set of variations that should be created for a module no
+	// matter who depends on it. Used when Make depends on a particular variation
+	// or when the module knows its variations just based on information given to
+	// it in the Blueprint file. This method should not mutate the module it is
+	// called on.
+	Split(ctx BaseModuleContext) []string
+
+	// Called on a module to determine which variation it wants from its direct
+	// dependencies. The dependency itself can override this decision. This method
+	// should not mutate the module itself.
+	OutgoingTransition(ctx OutgoingTransitionContext, sourceVariation string) string
+
+	// Called on a module to determine which variation it should be in based on
+	// the variation modules that depend on it want. This gives the module a final
+	// say about its own variations. This method should not mutate the module
+	// itself.
+	IncomingTransition(ctx IncomingTransitionContext, incomingVariation string) string
+
+	// Called after a module was split into multiple variations on each variation.
+	// It should not split the module any further but adding new dependencies is
+	// fine. Unlike all the other methods on TransitionMutator, this method is
+	// allowed to mutate the module.
+	Mutate(ctx BottomUpMutatorContext, variation string)
+}
+
+type androidTransitionMutator struct {
+	finalPhase          bool
+	bazelConversionMode bool
+	mutator             TransitionMutator
+}
+
+func (a *androidTransitionMutator) Split(ctx blueprint.BaseModuleContext) []string {
+	if m, ok := ctx.Module().(Module); ok {
+		moduleContext := m.base().baseModuleContextFactory(ctx)
+		moduleContext.bazelConversionMode = a.bazelConversionMode
+		return a.mutator.Split(&moduleContext)
+	} else {
+		return []string{""}
+	}
+}
+
+type outgoingTransitionContextImpl struct {
+	bp blueprint.OutgoingTransitionContext
+}
+
+func (c *outgoingTransitionContextImpl) Module() Module {
+	return c.bp.Module().(Module)
+}
+
+func (c *outgoingTransitionContextImpl) DepTag() blueprint.DependencyTag {
+	return c.bp.DepTag()
+}
+
+func (a *androidTransitionMutator) OutgoingTransition(ctx blueprint.OutgoingTransitionContext, sourceVariation string) string {
+	if _, ok := ctx.Module().(Module); ok {
+		return a.mutator.OutgoingTransition(&outgoingTransitionContextImpl{bp: ctx}, sourceVariation)
+	} else {
+		return ""
+	}
+}
+
+type incomingTransitionContextImpl struct {
+	bp blueprint.IncomingTransitionContext
+}
+
+func (c *incomingTransitionContextImpl) Module() Module {
+	return c.bp.Module().(Module)
+}
+
+func (c *incomingTransitionContextImpl) Config() Config {
+	return c.bp.Config().(Config)
+}
+
+func (a *androidTransitionMutator) IncomingTransition(ctx blueprint.IncomingTransitionContext, incomingVariation string) string {
+	if _, ok := ctx.Module().(Module); ok {
+		return a.mutator.IncomingTransition(&incomingTransitionContextImpl{bp: ctx}, incomingVariation)
+	} else {
+		return ""
+	}
+}
+
+func (a *androidTransitionMutator) Mutate(ctx blueprint.BottomUpMutatorContext, variation string) {
+	if am, ok := ctx.Module().(Module); ok {
+		a.mutator.Mutate(bottomUpMutatorContextFactory(ctx, am, a.finalPhase, a.bazelConversionMode), variation)
+	}
+}
+
+func (x *registerMutatorsContext) Transition(name string, m TransitionMutator) {
+	atm := &androidTransitionMutator{
+		finalPhase:          x.finalPhase,
+		bazelConversionMode: x.bazelConversionMode,
+		mutator:             m,
+	}
+	mutator := &mutator{
+		name:              name,
+		transitionMutator: atm}
+	x.mutators = append(x.mutators, mutator)
 }
 
 func (x *registerMutatorsContext) mutatorName(name string) string {
@@ -462,6 +649,8 @@ func (mutator *mutator) register(ctx *Context) {
 		handle = blueprintCtx.RegisterBottomUpMutator(mutator.name, mutator.bottomUpMutator)
 	} else if mutator.topDownMutator != nil {
 		handle = blueprintCtx.RegisterTopDownMutator(mutator.name, mutator.topDownMutator)
+	} else if mutator.transitionMutator != nil {
+		blueprintCtx.RegisterTransitionMutator(mutator.name, mutator.transitionMutator)
 	}
 	if mutator.parallel {
 		handle.Parallel()
@@ -521,6 +710,67 @@ func (t *topDownMutatorContext) CreateBazelTargetModuleWithRestrictions(
 	t.createBazelTargetModule(bazelProps, commonAttrs, attrs, enabledProperty)
 }
 
+var (
+	bazelAliasModuleProperties = bazel.BazelTargetModuleProperties{
+		Rule_class: "alias",
+	}
+)
+
+type bazelAliasAttributes struct {
+	Actual *bazel.LabelAttribute
+}
+
+func (t *topDownMutatorContext) CreateBazelTargetAliasInDir(
+	dir string,
+	name string,
+	actual bazel.Label) {
+	mod := t.Module()
+	attrs := &bazelAliasAttributes{
+		Actual: bazel.MakeLabelAttribute(actual.Label),
+	}
+	info := bp2buildInfo{
+		Dir:             dir,
+		BazelProps:      bazelAliasModuleProperties,
+		CommonAttrs:     CommonAttributes{Name: name},
+		ConstraintAttrs: constraintAttributes{},
+		Attrs:           attrs,
+	}
+	mod.base().addBp2buildInfo(info)
+}
+
+// ApexAvailableTags converts the apex_available property value of an ApexModule
+// module and returns it as a list of keyed tags.
+func ApexAvailableTags(mod Module) bazel.StringListAttribute {
+	attr := bazel.StringListAttribute{}
+	// Transform specific attributes into tags.
+	if am, ok := mod.(ApexModule); ok {
+		// TODO(b/218841706): hidl_interface has the apex_available prop, but it's
+		// defined directly as a prop and not via ApexModule, so this doesn't
+		// pick those props up.
+		apexAvailable := am.apexModuleBase().ApexAvailable()
+		// If a user does not specify apex_available in Android.bp, then soong provides a default.
+		// To avoid verbosity of BUILD files, remove this default from user-facing BUILD files.
+		if len(am.apexModuleBase().ApexProperties.Apex_available) == 0 {
+			apexAvailable = []string{}
+		}
+		attr.Value = ConvertApexAvailableToTags(apexAvailable)
+	}
+	return attr
+}
+
+func ConvertApexAvailableToTags(apexAvailable []string) []string {
+	if len(apexAvailable) == 0 {
+		// We need nil specifically to make bp2build not add the tags property at all,
+		// instead of adding it with an empty list
+		return nil
+	}
+	result := make([]string, 0, len(apexAvailable))
+	for _, a := range apexAvailable {
+		result = append(result, "apex_available="+a)
+	}
+	return result
+}
+
 func (t *topDownMutatorContext) createBazelTargetModule(
 	bazelProps bazel.BazelTargetModuleProperties,
 	commonAttrs CommonAttributes,
@@ -553,29 +803,16 @@ func (t *topDownMutatorContext) Rename(name string) {
 	t.Module().base().commonProperties.DebugName = name
 }
 
+func (t *topDownMutatorContext) createModule(factory blueprint.ModuleFactory, name string, props ...interface{}) blueprint.Module {
+	return t.bp.CreateModule(factory, name, props...)
+}
+
 func (t *topDownMutatorContext) CreateModule(factory ModuleFactory, props ...interface{}) Module {
-	inherited := []interface{}{&t.Module().base().commonProperties}
-	module := t.bp.CreateModule(ModuleFactoryAdaptor(factory), append(inherited, props...)...).(Module)
-
-	if t.Module().base().variableProperties != nil && module.base().variableProperties != nil {
-		src := t.Module().base().variableProperties
-		dst := []interface{}{
-			module.base().variableProperties,
-			// Put an empty copy of the src properties into dst so that properties in src that are not in dst
-			// don't cause a "failed to find property to extend" error.
-			proptools.CloneEmptyProperties(reflect.ValueOf(src)).Interface(),
-		}
-		err := proptools.AppendMatchingProperties(dst, src, nil)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	return module
+	return createModule(t, factory, "_topDownMutatorModule", props...)
 }
 
 func (t *topDownMutatorContext) createModuleWithoutInheritance(factory ModuleFactory, props ...interface{}) Module {
-	module := t.bp.CreateModule(ModuleFactoryAdaptor(factory), props...).(Module)
+	module := t.bp.CreateModule(ModuleFactoryAdaptor(factory), "", props...).(Module)
 	return module
 }
 
@@ -642,28 +879,11 @@ func (b *bottomUpMutatorContext) SetDefaultDependencyVariation(variation *string
 
 func (b *bottomUpMutatorContext) AddVariationDependencies(variations []blueprint.Variation, tag blueprint.DependencyTag,
 	names ...string) []blueprint.Module {
-	if b.bazelConversionMode {
-		_, noSelfDeps := RemoveFromList(b.ModuleName(), names)
-		if len(noSelfDeps) == 0 {
-			return []blueprint.Module(nil)
-		}
-		// In Bazel conversion mode, mutators should not have created any variants. So, when adding a
-		// dependency, the variations would not exist and the dependency could not be added, by
-		// specifying no variations, we will allow adding the dependency to succeed.
-		return b.bp.AddFarVariationDependencies(nil, tag, noSelfDeps...)
-	}
-
 	return b.bp.AddVariationDependencies(variations, tag, names...)
 }
 
 func (b *bottomUpMutatorContext) AddFarVariationDependencies(variations []blueprint.Variation,
 	tag blueprint.DependencyTag, names ...string) []blueprint.Module {
-	if b.bazelConversionMode {
-		// In Bazel conversion mode, mutators should not have created any variants. So, when adding a
-		// dependency, the variations would not exist and the dependency could not be added, by
-		// specifying no variations, we will allow adding the dependency to succeed.
-		return b.bp.AddFarVariationDependencies(nil, tag, names...)
-	}
 
 	return b.bp.AddFarVariationDependencies(variations, tag, names...)
 }

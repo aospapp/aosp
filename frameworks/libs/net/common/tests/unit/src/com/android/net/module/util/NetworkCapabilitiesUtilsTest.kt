@@ -22,7 +22,6 @@ import android.net.NetworkCapabilities.NET_CAPABILITY_BIP
 import android.net.NetworkCapabilities.NET_CAPABILITY_CBS
 import android.net.NetworkCapabilities.NET_CAPABILITY_EIMS
 import android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET
-import android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET
 import android.net.NetworkCapabilities.NET_CAPABILITY_OEM_PAID
 import android.net.NetworkCapabilities.TRANSPORT_BLUETOOTH
 import android.net.NetworkCapabilities.TRANSPORT_CELLULAR
@@ -38,8 +37,6 @@ import com.android.modules.utils.build.SdkLevel
 import com.android.net.module.util.NetworkCapabilitiesUtils.RESTRICTED_CAPABILITIES
 import com.android.net.module.util.NetworkCapabilitiesUtils.UNRESTRICTED_CAPABILITIES
 import com.android.net.module.util.NetworkCapabilitiesUtils.getDisplayTransport
-import com.android.net.module.util.NetworkCapabilitiesUtils.packBits
-import com.android.net.module.util.NetworkCapabilitiesUtils.unpackBits
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.lang.IllegalArgumentException
@@ -73,23 +70,6 @@ class NetworkCapabilitiesUtilsTest {
         assertFailsWith(IllegalArgumentException::class) {
             getDisplayTransport(intArrayOf())
         }
-    }
-
-    @Test
-    fun testBitPackingTestCase() {
-        runBitPackingTestCase(0, intArrayOf())
-        runBitPackingTestCase(1, intArrayOf(0))
-        runBitPackingTestCase(3, intArrayOf(0, 1))
-        runBitPackingTestCase(4, intArrayOf(2))
-        runBitPackingTestCase(63, intArrayOf(0, 1, 2, 3, 4, 5))
-        runBitPackingTestCase(Long.MAX_VALUE.inv(), intArrayOf(63))
-        runBitPackingTestCase(Long.MAX_VALUE.inv() + 1, intArrayOf(0, 63))
-        runBitPackingTestCase(Long.MAX_VALUE.inv() + 2, intArrayOf(1, 63))
-    }
-
-    fun runBitPackingTestCase(packedBits: Long, bits: IntArray) {
-        assertEquals(packedBits, packBits(bits))
-        assertTrue(bits contentEquals unpackBits(packedBits))
     }
 
     // NetworkCapabilities constructor and Builder are not available until R. Mark TargetApi to

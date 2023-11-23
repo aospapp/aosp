@@ -88,8 +88,8 @@ public class Version implements Comparable<Version> {
     }
 
     public String toVersionString() {
-        String major = String.valueOf(mMajorVersion);
-        String minor = String.valueOf(mMinorVersion);
+        String major = String.format("%01d", mMajorVersion);
+        String minor = String.format("%02d", mMinorVersion);
         return major + "." + minor;
     }
 

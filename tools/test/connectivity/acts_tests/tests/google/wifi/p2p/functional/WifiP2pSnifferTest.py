@@ -17,7 +17,6 @@
 import acts_contrib.test_utils.wifi.wifi_test_utils as wutils
 import acts.utils
 import time
-import re
 
 from acts import asserts
 from acts import utils
@@ -42,6 +41,7 @@ class WifiP2pSnifferTest(WifiP2pBaseTest):
     * At least two Android devices
     * An access point as sniffer
     """
+
     def __init__(self, controllers):
         WifiP2pBaseTest.__init__(self, controllers)
 
@@ -81,6 +81,7 @@ class WifiP2pSnifferTest(WifiP2pBaseTest):
         wutils.verify_mac_not_found_in_pcap(self.dut2, self.dut2_mac, packets)
 
     """Test Cases"""
+
     @test_tracker_info(uuid="d04e62dc-e1ef-4cea-86e6-39f0dd08fb6b")
     def test_p2p_discovery_sniffer(self):
         """Verify the p2p discovery functionality

@@ -222,7 +222,6 @@ public final class OccupantAwarenessDetection implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return "OccupantAwarenessDetection{"
                 + "role="  + role

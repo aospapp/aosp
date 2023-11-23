@@ -17,8 +17,9 @@
 <resources>
     <!-- Dimensions for the customization option tiles -->
     <dimen name="option_tile_width">79dp</dimen>
-    <dimen name="option_tile_grid_padding_horizontal">8dp</dimen>
+    <dimen name="option_tile_linear_padding_horizontal">8dp</dimen>
 
-    <dimen name="component_color_chip_small_size_default">30dp</dimen>
+    <dimen name="component_color_chip_small_radius_default">30dp</dimen>
+    <dimen name="component_color_chip_small_diameter_default">60dp</dimen>
     <dimen name="color_seed_chip_margin">15dp</dimen>
 </resources>

@@ -53,6 +53,7 @@ public class ZoomButtonTest {
     private static long NANOS_IN_MILLI = 1000000;
 
     private Instrumentation mInstrumentation;
+    private CtsTouchUtils mCtsTouchUtils;
     private ZoomButton mZoomButton;
     private Activity mActivity;
 
@@ -63,6 +64,7 @@ public class ZoomButtonTest {
     @Before
     public void setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mCtsTouchUtils = new CtsTouchUtils(mInstrumentation.getTargetContext());
         mActivity = mActivityRule.getActivity();
         mZoomButton = (ZoomButton) mActivity.findViewById(R.id.zoombutton_test);
     }
@@ -147,8 +149,8 @@ public class ZoomButtonTest {
             final long startTime = System.nanoTime();
             // Emulate long click
             long longPressWait = ViewConfiguration.getLongPressTimeout() + zoomSpeed + 200;
-            CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mActivityRule, mZoomButton,
-                    longPressWait);
+            mCtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mActivityRule,
+                    mZoomButton, longPressWait);
 
             final Long callbackFirstInvocationTime = zoomClickListener.getTimeOfFirstClick();
             assertNotNull("Expecting at least one callback", callbackFirstInvocationTime);

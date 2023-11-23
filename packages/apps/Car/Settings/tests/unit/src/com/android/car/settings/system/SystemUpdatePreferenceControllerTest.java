@@ -17,6 +17,8 @@
 package com.android.car.settings.system;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -113,10 +115,64 @@ public class SystemUpdatePreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_adminUser_available_zoneWrite() {
+        when(mMockUserManager.isAdminUser()).thenReturn(true);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_available_zoneRead() {
+        when(mMockUserManager.isAdminUser()).thenReturn(true);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_available_zoneHidden() {
+        when(mMockUserManager.isAdminUser()).thenReturn(true);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_nonAdminUser_disabledForUser() {
         when(mMockUserManager.isAdminUser()).thenReturn(false);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_nonAdminUser_disabledForUser_zoneWrite() {
+        when(mMockUserManager.isAdminUser()).thenReturn(false);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_nonAdminUser_disabledForUser_zoneRead() {
+        when(mMockUserManager.isAdminUser()).thenReturn(false);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_nonAdminUser_disabledForUser_zoneHidden() {
+        when(mMockUserManager.isAdminUser()).thenReturn(false);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
     }
 
     @Test

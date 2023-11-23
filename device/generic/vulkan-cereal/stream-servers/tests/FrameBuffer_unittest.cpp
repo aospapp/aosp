@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "base/PathUtils.h"
-#include "base/StdioStream.h"
-#include "base/GLObjectCounter.h"
-#include "base/System.h"
-#include "base/testing/TestSystem.h"
-#include "host-common/AndroidAgentFactory.h"
+#include "aemu/base/files/PathUtils.h"
+#include "aemu/base/files/StdioStream.h"
+#include "aemu/base/GLObjectCounter.h"
+#include "aemu/base/system/System.h"
+#include "aemu/base/testing/TestSystem.h"
+#include "host-common/GraphicsAgentFactory.h"
 #include "host-common/multi_display_agent.h"
-#include "host-common/testing/MockAndroidAgentFactory.h"
+#include "host-common/testing/MockGraphicsAgentFactory.h"
 #include "host-common/window_agent.h"
 #include "host-common/MultiDisplay.h"
+#include "host-common/opengl/misc.h"
 #include "snapshot/TextureLoader.h"
 #include "snapshot/TextureSaver.h"
 
@@ -33,7 +34,7 @@
 #include <memory>
 
 #ifdef _MSC_VER
-#include "base/msvc.h"
+#include "aemu/base/msvc.h"
 #else
 #include <sys/time.h>
 #endif
@@ -42,11 +43,17 @@
 #include "X11TestingSupport.h"
 #endif
 
+namespace gfxstream {
+namespace {
+
 using android::base::StdioStream;
 using android::snapshot::TextureLoader;
 using android::snapshot::TextureSaver;
-
-namespace emugl {
+using gl::EGLDispatch;
+using gl::EmulatedEglConfigList;
+using gl::GLESApi_3_0;
+using gl::LazyLoadedEGLDispatch;
+using gl::LazyLoadedGLESv2Dispatch;
 
 class FrameBufferTest : public ::testing::Test {
 public:
@@ -55,8 +62,8 @@ public:
 protected:
 
     static void SetUpTestSuite() {
-        android::emulation::injectConsoleAgents(
-                android::emulation::MockAndroidConsoleFactory());
+        android::emulation::injectGraphicsAgents(
+                android::emulation::MockGraphicsAgentFactory());
     }
 
     static void TearDownTestSuite() { }
@@ -64,14 +71,13 @@ protected:
     virtual void SetUp() override {
         // setupStandaloneLibrarySearchPaths();
         emugl::setGLObjectCounter(android::base::GLObjectCounter::get());
-        emugl::set_emugl_window_operations(*getConsoleAgents()->emu);
-        emugl::set_emugl_multi_display_operations(*getConsoleAgents()->multi_display);
+        emugl::set_emugl_window_operations(*getGraphicsAgents()->emu);
+        emugl::set_emugl_multi_display_operations(*getGraphicsAgents()->multi_display);
         const EGLDispatch* egl = LazyLoadedEGLDispatch::get();
         ASSERT_NE(nullptr, egl);
         ASSERT_NE(nullptr, LazyLoadedGLESv2Dispatch::get());
 
-        // bool useHostGpu = shouldUseHostGpu();
-        bool useHostGpu = false;
+        bool useHostGpu = shouldUseHostGpu();
         mWindow = createOrGetTestWindow(mXOffset, mYOffset, mWidth, mHeight);
         mUseSubWindow = mWindow != nullptr;
 
@@ -105,6 +111,7 @@ protected:
         EXPECT_EQ(EGL_SUCCESS, egl->eglGetError());
 
         mRenderThreadInfo = new RenderThreadInfo();
+        mRenderThreadInfo->initGl();
 
         // Snapshots
         mTestSystem.getTempRoot()->makeSubDir("Snapshots");
@@ -115,9 +122,8 @@ protected:
     }
 
     virtual void TearDown() override {
-        if (mFb) {
-            delete mFb;  // destructor calls finalize
-        }
+        FrameBuffer::finalize();
+        mFb = nullptr;
 
         delete mRenderThreadInfo;
         EXPECT_EQ(EGL_SUCCESS, LazyLoadedEGLDispatch::get()->eglGetError())
@@ -359,13 +365,13 @@ TEST_F(FrameBufferTest, CreateOpenUpdateCloseColorBuffer_FormatChange) {
     EXPECT_NE(0, handle);
     EXPECT_EQ(0, mFb->openColorBuffer(handle));
 
-    TestTexture forUpdate = createTestPatternRGB888(mWidth, mHeight);
-    mFb->updateColorBuffer(handle, 0, 0, mWidth, mHeight, GL_RGB, GL_UNSIGNED_BYTE, forUpdate.data());
+    TestTexture forUpdate = createTestPatternRGBA8888(mWidth, mHeight);
+    mFb->updateColorBuffer(handle, 0, 0, mWidth, mHeight, GL_RGBA, GL_UNSIGNED_BYTE, forUpdate.data());
 
-    TestTexture forRead = createTestTextureRGB888SingleColor(mWidth, mHeight, 0.0f, 0.0f, 0.0f);
-    mFb->readColorBuffer(handle, 0, 0, mWidth, mHeight, GL_RGB, GL_UNSIGNED_BYTE, forRead.data());
+    TestTexture forRead = createTestTextureRGBA8888SingleColor(mWidth, mHeight, 0.0f, 0.0f, 0.0f, 0.0f);
+    mFb->readColorBuffer(handle, 0, 0, mWidth, mHeight, GL_RGBA, GL_UNSIGNED_BYTE, forRead.data());
 
-    EXPECT_TRUE(ImageMatches(mWidth, mHeight, 3, mWidth, forUpdate.data(),
+    EXPECT_TRUE(ImageMatches(mWidth, mHeight, 4, mWidth, forUpdate.data(),
                              forRead.data()));
 
     mFb->closeColorBuffer(handle);
@@ -373,33 +379,33 @@ TEST_F(FrameBufferTest, CreateOpenUpdateCloseColorBuffer_FormatChange) {
 
 // Tests obtaining EGL configs from FrameBuffer.
 TEST_F(FrameBufferTest, Configs) {
-    const FbConfigList* configs = mFb->getConfigs();
+    const EmulatedEglConfigList* configs = mFb->getConfigs();
     EXPECT_GE(configs->size(), 0);
 }
 
 // Tests creating GL context from FrameBuffer.
-TEST_F(FrameBufferTest, CreateRenderContext) {
-    HandleType handle = mFb->createRenderContext(0, 0, GLESApi_3_0);
+TEST_F(FrameBufferTest, CreateEmulatedEglContext) {
+    HandleType handle = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
     EXPECT_NE(0, handle);
 }
 
 // Tests creating window surface from FrameBuffer.
-TEST_F(FrameBufferTest, CreateWindowSurface) {
-    HandleType handle = mFb->createWindowSurface(0, mWidth, mHeight);
+TEST_F(FrameBufferTest, CreateEmulatedEglWindowSurface) {
+    HandleType handle = mFb->createEmulatedEglWindowSurface(0, mWidth, mHeight);
     EXPECT_NE(0, handle);
 }
 
 // Tests eglMakeCurrent from FrameBuffer.
-TEST_F(FrameBufferTest, CreateBindRenderContext) {
-    HandleType context = mFb->createRenderContext(0, 0, GLESApi_3_0);
-    HandleType surface = mFb->createWindowSurface(0, mWidth, mHeight);
+TEST_F(FrameBufferTest, CreateBindEmulatedEglContext) {
+    HandleType context = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
+    HandleType surface = mFb->createEmulatedEglWindowSurface(0, mWidth, mHeight);
     EXPECT_TRUE(mFb->bindContext(context, surface, surface));
 }
 
 // A basic blit test that simulates what the guest system does in one pass
 // of draw + eglSwapBuffers:
 // 1. Draws in OpenGL with glClear.
-// 2. Calls flushWindowSurfaceColorBuffer(), which is the "backing operation" of
+// 2. Calls flushEmulatedEglWindowSurfaceColorBuffer(), which is the "backing operation" of
 // ANativeWindow::queueBuffer in the guest.
 // 3. Calls post() with the resulting color buffer, the backing operation of fb device "post"
 // in the guest.
@@ -408,11 +414,11 @@ TEST_F(FrameBufferTest, BasicBlit) {
 
     HandleType colorBuffer =
         mFb->createColorBuffer(mWidth, mHeight, GL_RGBA, FRAMEWORK_FORMAT_GL_COMPATIBLE);
-    HandleType context = mFb->createRenderContext(0, 0, GLESApi_3_0);
-    HandleType surface = mFb->createWindowSurface(0, mWidth, mHeight);
+    HandleType context = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
+    HandleType surface = mFb->createEmulatedEglWindowSurface(0, mWidth, mHeight);
 
     EXPECT_TRUE(mFb->bindContext(context, surface, surface));
-    EXPECT_TRUE(mFb->setWindowSurfaceColorBuffer(surface, colorBuffer));
+    EXPECT_TRUE(mFb->setEmulatedEglWindowSurfaceColorBuffer(surface, colorBuffer));
 
     float colors[3][4] = {
         { 1.0f, 0.0f, 0.0f, 1.0f},
@@ -425,7 +431,7 @@ TEST_F(FrameBufferTest, BasicBlit) {
 
         gl->glClearColor(color[0], color[1], color[2], color[3]);
         gl->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        mFb->flushWindowSurfaceColorBuffer(surface);
+        mFb->flushEmulatedEglWindowSurfaceColorBuffer(surface);
 
         TestTexture targetBuffer =
             createTestTextureRGBA8888SingleColor(
@@ -453,7 +459,7 @@ TEST_F(FrameBufferTest, BasicBlit) {
     EXPECT_TRUE(mFb->bindContext(0, 0, 0));
     mFb->closeColorBuffer(colorBuffer);
     mFb->closeColorBuffer(colorBuffer);
-    mFb->DestroyWindowSurface(surface);
+    mFb->destroyEmulatedEglWindowSurface(surface);
 }
 
 // Tests that snapshot works with an empty FrameBuffer.
@@ -466,8 +472,8 @@ TEST_F(FrameBufferTest, SnapshotSmokeTest) {
 // color in between save and load. If this fails, it means failure to restore a
 // number of different states from GL contexts.
 TEST_F(FrameBufferTest, SnapshotPreserveColorClear) {
-    HandleType context = mFb->createRenderContext(0, 0, GLESApi_3_0);
-    HandleType surface = mFb->createWindowSurface(0, mWidth, mHeight);
+    HandleType context = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
+    HandleType surface = mFb->createEmulatedEglWindowSurface(0, mWidth, mHeight);
     EXPECT_TRUE(mFb->bindContext(context, surface, surface));
 
     auto gl = LazyLoadedGLESv2Dispatch::get();
@@ -539,36 +545,15 @@ TEST_F(FrameBufferTest, SnapshotFastBlitRestore) {
     EXPECT_TRUE(mFb->isFastBlitSupported());
 
     mFb->lock();
-    EXPECT_EQ(mFb->isFastBlitSupported(),
-              mFb->getColorBuffer_locked(handle)->isFastBlitSupported());
+    EXPECT_EQ(mFb->isFastBlitSupported(), mFb->findColorBuffer(handle)->glOpIsFastBlitSupported());
     mFb->unlock();
 
     saveSnapshot();
     loadSnapshot();
 
     mFb->lock();
-    EXPECT_EQ(mFb->isFastBlitSupported(),
-              mFb->getColorBuffer_locked(handle)->isFastBlitSupported());
+    EXPECT_EQ(mFb->isFastBlitSupported(), mFb->findColorBuffer(handle)->glOpIsFastBlitSupported());
     mFb->unlock();
-
-    mFb->closeColorBuffer(handle);
-}
-
-// Tests the API to completely replace a ColorBuffer.
-TEST_F(FrameBufferTest, ReplaceContentsTest) {
-    HandleType handle =
-        mFb->createColorBuffer(mWidth, mHeight, GL_RGBA, FRAMEWORK_FORMAT_GL_COMPATIBLE);
-
-    EXPECT_NE(0, handle);
-    EXPECT_EQ(0, mFb->openColorBuffer(handle));
-
-    TestTexture forUpdate = createTestPatternRGBA8888(mWidth, mHeight);
-    mFb->replaceColorBufferContents(handle, forUpdate.data(), mWidth * mHeight * 4);
-
-    TestTexture forRead = createTestTextureRGBA8888SingleColor(mWidth, mHeight, 0.0f, 0.0f, 0.0f, 0.0f);
-    mFb->readColorBuffer(handle, 0, 0, mWidth, mHeight, GL_RGBA, GL_UNSIGNED_BYTE, forRead.data());
-
-    EXPECT_TRUE(ImageMatches(mWidth, mHeight, 4, mWidth, forUpdate.data(), forRead.data()));
 
     mFb->closeColorBuffer(handle);
 }
@@ -579,11 +564,11 @@ static constexpr uint32_t kDrawCallLimit = 50000;
 TEST_F(FrameBufferTest, DrawCallRate) {
     HandleType colorBuffer =
         mFb->createColorBuffer(mWidth, mHeight, GL_RGBA, FRAMEWORK_FORMAT_GL_COMPATIBLE);
-    HandleType context = mFb->createRenderContext(0, 0, GLESApi_3_0);
-    HandleType surface = mFb->createWindowSurface(0, mWidth, mHeight);
+    HandleType context = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
+    HandleType surface = mFb->createEmulatedEglWindowSurface(0, mWidth, mHeight);
 
     EXPECT_TRUE(mFb->bindContext(context, surface, surface));
-    EXPECT_TRUE(mFb->setWindowSurfaceColorBuffer(surface, colorBuffer));
+    EXPECT_TRUE(mFb->setEmulatedEglWindowSurfaceColorBuffer(surface, colorBuffer));
 
     auto gl = LazyLoadedGLESv2Dispatch::get();
 
@@ -696,18 +681,18 @@ fprintf(stderr, "%s: transform loc %d\n", __func__, transformLoc);
     EXPECT_TRUE(mFb->bindContext(0, 0, 0));
     mFb->closeColorBuffer(colorBuffer);
     mFb->closeColorBuffer(colorBuffer);
-    mFb->DestroyWindowSurface(surface);
+    mFb->destroyEmulatedEglWindowSurface(surface);
 }
 
 // Tests rate of draw calls with only the host driver and no translator.
 TEST_F(FrameBufferTest, HostDrawCallRate) {
     HandleType colorBuffer =
         mFb->createColorBuffer(mWidth, mHeight, GL_RGBA, FRAMEWORK_FORMAT_GL_COMPATIBLE);
-    HandleType context = mFb->createRenderContext(0, 0, GLESApi_3_0);
-    HandleType surface = mFb->createWindowSurface(0, mWidth, mHeight);
+    HandleType context = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
+    HandleType surface = mFb->createEmulatedEglWindowSurface(0, mWidth, mHeight);
 
     EXPECT_TRUE(mFb->bindContext(context, surface, surface));
-    EXPECT_TRUE(mFb->setWindowSurfaceColorBuffer(surface, colorBuffer));
+    EXPECT_TRUE(mFb->setEmulatedEglWindowSurfaceColorBuffer(surface, colorBuffer));
 
     auto gl = LazyLoadedGLESv2Dispatch::get();
 
@@ -733,7 +718,7 @@ TEST_F(FrameBufferTest, HostDrawCallRate) {
     EXPECT_TRUE(mFb->bindContext(0, 0, 0));
     mFb->closeColorBuffer(colorBuffer);
     mFb->closeColorBuffer(colorBuffer);
-    mFb->DestroyWindowSurface(surface);
+    mFb->destroyEmulatedEglWindowSurface(surface);
 }
 
 // Tests Vulkan interop query.
@@ -836,8 +821,8 @@ TEST_F(FrameBufferTest, SetMultiDisplayPosition) {
 TEST_F(FrameBufferTest, ComposeMultiDisplay) {
     LazyLoadedGLESv2Dispatch::get();
 
-    HandleType context = mFb->createRenderContext(0, 0, GLESApi_3_0);
-    HandleType surface = mFb->createWindowSurface(0, mWidth, mHeight);
+    HandleType context = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
+    HandleType surface = mFb->createEmulatedEglWindowSurface(0, mWidth, mHeight);
     EXPECT_TRUE(mFb->bindContext(context, surface, surface));
 
     HandleType cb0 =
@@ -890,10 +875,10 @@ TEST_F(FrameBufferTest, ComposeMultiDisplay) {
     mFb->destroyDisplay(ids[0]);
     mFb->destroyDisplay(ids[1]);
     mFb->destroyDisplay(ids[2]);
-    mFb->DestroyWindowSurface(surface);
+    mFb->destroyEmulatedEglWindowSurface(surface);
 }
 
-#ifdef __linux__
+#ifdef GFXSTREAM_HAS_X11
 // Tests basic pixmap import. Can we import a native pixmap and successfully
 // upload and read back some color?
 TEST_F(FrameBufferTest, PixmapImport_Basic) {
@@ -918,7 +903,7 @@ TEST_F(FrameBufferTest, PixmapImport_Basic) {
     EXPECT_EQ(0, mFb->openColorBuffer(cb));
     mFb->updateColorBuffer(cb, 0, 0, kWidth, kHeight, GL_RGBA, GL_UNSIGNED_BYTE, forUpdate.data());
 
-    EXPECT_TRUE(mFb->platformImportResource(cb, RESOURCE_TYPE_EGL_NATIVE_PIXMAP, pixmap));
+    EXPECT_TRUE(mFb->platformImportResource(cb, RESOURCE_TYPE_EGL_NATIVE_PIXMAP|RESOURCE_USE_PRESERVE, pixmap));
 
     TestTexture forRead = createTestTextureRGBA8888SingleColor(kWidth, kHeight, 0.0f, 0.0f, 0.0f, 0.0f);
     mFb->readColorBuffer(cb, 0, 0, kWidth, kHeight, GL_RGBA, GL_UNSIGNED_BYTE, forRead.data());
@@ -951,11 +936,11 @@ TEST_F(FrameBufferTest, PixmapImport_Blit) {
 
     EXPECT_TRUE(mFb->platformImportResource(colorBuffer, RESOURCE_TYPE_EGL_NATIVE_PIXMAP, pixmap));
 
-    HandleType context = mFb->createRenderContext(0, 0, GLESApi_3_0);
-    HandleType surface = mFb->createWindowSurface(0, mWidth, mHeight);
+    HandleType context = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
+    HandleType surface = mFb->createEmulatedEglWindowSurface(0, mWidth, mHeight);
 
     EXPECT_TRUE(mFb->bindContext(context, surface, surface));
-    EXPECT_TRUE(mFb->setWindowSurfaceColorBuffer(surface, colorBuffer));
+    EXPECT_TRUE(mFb->setEmulatedEglWindowSurfaceColorBuffer(surface, colorBuffer));
 
     float colors[3][4] = {
         { 1.0f, 0.0f, 0.0f, 1.0f},
@@ -968,7 +953,7 @@ TEST_F(FrameBufferTest, PixmapImport_Blit) {
 
         gl->glClearColor(color[0], color[1], color[2], color[3]);
         gl->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        mFb->flushWindowSurfaceColorBuffer(surface);
+        mFb->flushEmulatedEglWindowSurfaceColorBuffer(surface);
 
         TestTexture targetBuffer =
             createTestTextureRGBA8888SingleColor(
@@ -996,9 +981,11 @@ TEST_F(FrameBufferTest, PixmapImport_Blit) {
     EXPECT_TRUE(mFb->bindContext(0, 0, 0));
     mFb->closeColorBuffer(colorBuffer);
     mFb->closeColorBuffer(colorBuffer);
-    mFb->DestroyWindowSurface(surface);
+    mFb->destroyEmulatedEglWindowSurface(surface);
 
     freeNativePixmap(pixmap);
 }
 #endif
-}  // namespace emugl
+
+}  // namespace
+}  // namespace gfxstream

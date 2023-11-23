@@ -139,6 +139,7 @@ message SetPeriodicDataRequest {
 message EnablePeriodicAdvertisingRequest {
   int32 advertiser_id = 1;
   bool enable = 2;
+  bool include_adi = 3;
 }
 
 message GetOwnAddressRequest {

@@ -39,26 +39,6 @@ from datetime import datetime
 
 import adb
 
-def requires_root(func):
-    def wrapper(self, *args):
-        if self.device.get_prop('ro.debuggable') != '1':
-            raise unittest.SkipTest('requires rootable build')
-
-        was_root = self.device.shell(['id', '-un'])[0].strip() == 'root'
-        if not was_root:
-            self.device.root()
-            self.device.wait()
-
-        try:
-            func(self, *args)
-        finally:
-            if not was_root:
-                self.device.unroot()
-                self.device.wait()
-
-    return wrapper
-
-
 def requires_non_root(func):
     def wrapper(self, *args):
         was_root = self.device.shell(['id', '-un'])[0].strip() == 'root'
@@ -629,7 +609,6 @@ class ArgumentEscapingTest(DeviceTest):
             os.remove(tf.name)
 
 
-@unittest.skip("b/172372960: temporarily disabled due to flakiness")
 class RootUnrootTest(DeviceTest):
     def _test_root(self):
         message = self.device.root()
@@ -680,14 +659,15 @@ class SystemPropertiesTest(DeviceTest):
     def test_get_prop(self):
         self.assertEqual(self.device.get_prop('init.svc.adbd'), 'running')
 
-    @requires_root
     def test_set_prop(self):
-        prop_name = 'foo.bar'
+        # debug.* prop does not require root privileges
+        prop_name = 'debug.foo'
         self.device.shell(['setprop', prop_name, '""'])
 
-        self.device.set_prop(prop_name, 'qux')
+        val = random.random()
+        self.device.set_prop(prop_name, str(val))
         self.assertEqual(
-            self.device.shell(['getprop', prop_name])[0].strip(), 'qux')
+            self.device.shell(['getprop', prop_name])[0].strip(), str(val))
 
 
 def compute_md5(string):
@@ -965,7 +945,7 @@ class FileOperationsTest:
             Disabled because this broken on the adbd side as well: b/141943968
             """
             with tempfile.NamedTemporaryFile() as tmp_file:
-                tmp_file.write('\0' * 1024 * 1024)
+                tmp_file.write(b'\0' * 1024 * 1024)
                 tmp_file.flush()
                 remote_path = '/' + self.DEVICE_TEMP_DIR + '/test_push_multiple_slash_root'
                 self.device.shell(['rm', '-rf', remote_path])
@@ -1330,6 +1310,7 @@ class FileOperationsTest:
 
             for file_size in [8, 1024 * 1024]:
                 try:
+                    host_dir = tempfile.mkdtemp()
                     device_dir = posixpath.join(self.DEVICE_TEMP_DIR, 'push_dry_run')
                     device_file = posixpath.join(device_dir, 'file')
 
@@ -1337,7 +1318,6 @@ class FileOperationsTest:
                     self.device.shell(['mkdir', '-p', device_dir])
                     self.device.shell(['echo', 'foo', '>', device_file])
 
-                    host_dir = tempfile.mkdtemp()
                     host_file = posixpath.join(host_dir, 'file')
 
                     with open(host_file, "w") as f:
@@ -1576,7 +1556,6 @@ class SocketTest(DeviceTest):
 
 
 class FramebufferTest(DeviceTest):
-    @requires_root
     def test_framebuffer(self):
         """Test that we get something from the framebuffer service."""
         output = subprocess.check_output(self.device.adb_cmd + ["raw", "framebuffer:"])

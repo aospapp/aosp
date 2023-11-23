@@ -33,28 +33,18 @@
 #include <fs_mgr.h>
 #include <liblp/liblp.h>
 
-#include "update_engine/aosp/boot_control_android.h"
 #include "update_engine/aosp/daemon_state_android.h"
 #include "update_engine/common/constants.h"
 #include "update_engine/common/fake_boot_control.h"
 #include "update_engine/common/fake_clock.h"
 #include "update_engine/common/fake_hardware.h"
 #include "update_engine/common/fake_prefs.h"
-#include "update_engine/common/hash_calculator.h"
 #include "update_engine/common/mock_action_processor.h"
 #include "update_engine/common/mock_metrics_reporter.h"
-#include "update_engine/common/prefs.h"
-#include "update_engine/common/test_utils.h"
-#include "update_engine/common/testing_constants.h"
 #include "update_engine/common/utils.h"
+#include "update_engine/metrics_utils.h"
 #include "update_engine/payload_consumer/install_plan.h"
-#include "update_engine/payload_consumer/payload_constants.h"
-#include "update_engine/payload_generator/delta_diff_generator.h"
-#include "update_engine/payload_generator/extent_ranges.h"
-#include "update_engine/payload_generator/payload_file.h"
-#include "update_engine/payload_generator/payload_signer.h"
 #include "update_engine/update_metadata.pb.h"
-#include "update_engine/update_status_utils.h"
 
 using base::Time;
 using base::TimeDelta;

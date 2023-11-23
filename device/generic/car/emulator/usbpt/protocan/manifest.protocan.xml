@@ -5,10 +5,6 @@
         <impl level="generic"></impl>
         <version>1.0</version>
         <interface>
-            <name>ICanController</name>
-            <instance>socketcan</instance>
-        </interface>
-        <interface>
             <name>ICanBus</name>
             <instance>BCAN</instance>
             <instance>CCAN</instance>

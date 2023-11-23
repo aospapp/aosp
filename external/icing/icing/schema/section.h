@@ -28,19 +28,25 @@ namespace icing {
 namespace lib {
 
 using SectionId = int8_t;
-// 4 bits for 16 values. NOTE: Increasing this value means that SectionIdMask
-// must increase from an int16_t to an int32_t
-inline constexpr int kSectionIdBits = 4;
-inline constexpr SectionId kInvalidSectionId = (1 << kSectionIdBits);
-inline constexpr SectionId kMaxSectionId = kInvalidSectionId - 1;
+// 6 bits for 64 values.
+inline constexpr int kSectionIdBits = 6;
+inline constexpr SectionId kTotalNumSections = (1 << kSectionIdBits);
+inline constexpr SectionId kInvalidSectionId = kTotalNumSections;
+inline constexpr SectionId kMaxSectionId = kTotalNumSections - 1;
+// Prior versions of Icing only supported 16 indexed properties.
+inline constexpr SectionId kOldTotalNumSections = 16;
 inline constexpr SectionId kMinSectionId = 0;
 constexpr bool IsSectionIdValid(SectionId section_id) {
   return section_id >= kMinSectionId && section_id <= kMaxSectionId;
 }
 
-using SectionIdMask = int16_t;
+using SectionIdMask = int64_t;
 inline constexpr SectionIdMask kSectionIdMaskAll = ~SectionIdMask{0};
 inline constexpr SectionIdMask kSectionIdMaskNone = SectionIdMask{0};
+
+static_assert(kSectionIdBits < 8 * sizeof(SectionId),
+              "Cannot exhaust all bits of SectionId since it is a signed "
+              "integer and the most significant bit should be preserved.");
 
 static_assert(
     kMaxSectionId < 8 * sizeof(SectionIdMask),
@@ -54,11 +60,14 @@ struct SectionMetadata {
   // A unique id of property within a type config
   SectionId id;
 
-  // How strings should be tokenized. It is invalid for a section to have
-  // tokenizer == 'NONE'.
+  // Indexable data type of this section. E.g. STRING, INT64.
+  PropertyConfigProto::DataType::Code data_type;
+
+  // How strings should be tokenized. It is invalid for a string section
+  // (data_type == 'STRING') to have tokenizer == 'NONE'.
   StringIndexingConfig::TokenizerType::Code tokenizer;
 
-  // How tokens in this section should be matched.
+  // How tokens in a string section should be matched.
   //
   // TermMatchType::UNKNOWN:
   //   Terms will not match anything
@@ -70,30 +79,71 @@ struct SectionMetadata {
   //   Terms will be only stored as an exact match, "fool" only matches "fool"
   TermMatchType::Code term_match_type = TermMatchType::UNKNOWN;
 
-  SectionMetadata(SectionId id_in, TermMatchType::Code term_match_type_in,
-                  StringIndexingConfig::TokenizerType::Code tokenizer,
-                  std::string&& path_in)
+  // How tokens in a numeric section should be matched.
+  //
+  // NumericMatchType::UNKNOWN:
+  //   Contents will not match anything. It is invalid for a numeric section
+  //   (data_type == 'INT64') to have numeric_match_type == 'UNKNOWN'.
+  //
+  // NumericMatchType::RANGE:
+  //   Contents will be matched by a range query.
+  IntegerIndexingConfig::NumericMatchType::Code numeric_match_type;
+
+  explicit SectionMetadata(
+      SectionId id_in, PropertyConfigProto::DataType::Code data_type_in,
+      StringIndexingConfig::TokenizerType::Code tokenizer,
+      TermMatchType::Code term_match_type_in,
+      IntegerIndexingConfig::NumericMatchType::Code numeric_match_type_in,
+      std::string&& path_in)
       : path(std::move(path_in)),
         id(id_in),
+        data_type(data_type_in),
         tokenizer(tokenizer),
-        term_match_type(term_match_type_in) {}
+        term_match_type(term_match_type_in),
+        numeric_match_type(numeric_match_type_in) {}
+
+  SectionMetadata(const SectionMetadata& other) = default;
+  SectionMetadata& operator=(const SectionMetadata& other) = default;
+
+  SectionMetadata(SectionMetadata&& other) = default;
+  SectionMetadata& operator=(SectionMetadata&& other) = default;
 
   bool operator==(const SectionMetadata& rhs) const {
-    return path == rhs.path && id == rhs.id && tokenizer == rhs.tokenizer &&
-           term_match_type == rhs.term_match_type;
+    return path == rhs.path && id == rhs.id && data_type == rhs.data_type &&
+           tokenizer == rhs.tokenizer &&
+           term_match_type == rhs.term_match_type &&
+           numeric_match_type == rhs.numeric_match_type;
   }
 };
 
 // Section is an icing internal concept similar to document property but with
 // extra metadata. The content can be a value or the combination of repeated
-// values of a property.
+// values of a property, and the type of content is specified by template.
+//
+// Current supported types:
+// - std::string_view (PropertyConfigProto::DataType::STRING)
+// - int64_t (PropertyConfigProto::DataType::INT64)
+template <typename T>
 struct Section {
   SectionMetadata metadata;
-  std::vector<std::string_view> content;
+  std::vector<T> content;
 
-  Section(SectionMetadata&& metadata_in,
-          std::vector<std::string_view>&& content_in)
+  explicit Section(SectionMetadata&& metadata_in, std::vector<T>&& content_in)
       : metadata(std::move(metadata_in)), content(std::move(content_in)) {}
+
+  PropertyConfigProto::DataType::Code data_type() const {
+    return metadata.data_type;
+  }
+};
+
+// Groups of different type sections. Callers can access sections with types
+// they want and avoid going through non-desired ones.
+//
+// REQUIRES: lifecycle of the property must be longer than this object, since we
+//   use std::string_view for extracting its string_values.
+struct SectionGroup {
+  std::vector<Section<std::string_view>> string_sections;
+  std::vector<Section<int64_t>> integer_sections;
 };
 
 }  // namespace lib

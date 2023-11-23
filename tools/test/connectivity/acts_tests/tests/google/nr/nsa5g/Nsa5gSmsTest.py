@@ -17,8 +17,6 @@
     Test Script for 5G SMS scenarios
 """
 
-import time
-
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
@@ -53,8 +51,8 @@ class Nsa5gSmsTest(TelephonyBaseTest):
     def teardown_test(self):
         ensure_phones_idle(self.log, self.android_devices)
 
-
     """ Tests Begin """
+
     @test_tracker_info(uuid="4a64a262-7433-4a7f-b5c6-a36ff60aeaa2")
     @TelephonyBaseTest.tel_test_wrap
     def test_5g_nsa_sms_mo_mt(self):
@@ -68,12 +66,11 @@ class Nsa5gSmsTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        return message_test(
-            self.log,
-            self.android_devices[0],
-            self.android_devices[1],
-            mo_rat='5g',
-            mt_rat='5g')
+        return message_test(self.log,
+                            self.android_devices[0],
+                            self.android_devices[1],
+                            mo_rat='5g',
+                            mt_rat='5g')
 
     @test_tracker_info(uuid="52b16764-0c9e-45c0-910f-a39d17c7cf7e")
     @TelephonyBaseTest.tel_test_wrap
@@ -88,12 +85,11 @@ class Nsa5gSmsTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        return message_test(
-            self.log,
-            self.android_devices[0],
-            self.android_devices[1],
-            mo_rat='5g',
-            mt_rat='default')
+        return message_test(self.log,
+                            self.android_devices[0],
+                            self.android_devices[1],
+                            mo_rat='5g',
+                            mt_rat='default')
 
     @test_tracker_info(uuid="e9b2494a-0e40-449c-b877-1e4ddc78c536")
     @TelephonyBaseTest.tel_test_wrap
@@ -108,12 +104,11 @@ class Nsa5gSmsTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        return message_test(
-            self.log,
-            self.android_devices[1],
-            self.android_devices[0],
-            mo_rat='default',
-            mt_rat='5g')
+        return message_test(self.log,
+                            self.android_devices[1],
+                            self.android_devices[0],
+                            mo_rat='default',
+                            mt_rat='5g')
 
     @test_tracker_info(uuid="2ce809d4-cbf6-4233-81ad-43f91107b201")
     @TelephonyBaseTest.tel_test_wrap
@@ -129,12 +124,11 @@ class Nsa5gSmsTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        return message_test(
-            self.log,
-            self.android_devices[0],
-            self.android_devices[1],
-            mo_rat='5g_volte',
-            mt_rat='5g_volte')
+        return message_test(self.log,
+                            self.android_devices[0],
+                            self.android_devices[1],
+                            mo_rat='5g_volte',
+                            mt_rat='5g_volte')
 
     @test_tracker_info(uuid="e51f3dbb-bb16-4400-b2be-f9422f511087")
     @TelephonyBaseTest.tel_test_wrap
@@ -150,12 +144,11 @@ class Nsa5gSmsTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        return message_test(
-            self.log,
-            self.android_devices[0],
-            self.android_devices[1],
-            mo_rat='5g_volte',
-            mt_rat='default')
+        return message_test(self.log,
+                            self.android_devices[0],
+                            self.android_devices[1],
+                            mo_rat='5g_volte',
+                            mt_rat='default')
 
     @test_tracker_info(uuid="5217d427-04a2-4b2b-9ed8-28951e71fc21")
     @TelephonyBaseTest.tel_test_wrap
@@ -171,12 +164,11 @@ class Nsa5gSmsTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        return message_test(
-            self.log,
-            self.android_devices[1],
-            self.android_devices[0],
-            mo_rat='default',
-            mt_rat='5g_volte')
+        return message_test(self.log,
+                            self.android_devices[1],
+                            self.android_devices[0],
+                            mo_rat='default',
+                            mt_rat='5g_volte')
 
     @test_tracker_info(uuid="49bfb4b3-a6ec-45d4-ad96-09282fb07d1d")
     @TelephonyBaseTest.tel_test_wrap
@@ -192,13 +184,12 @@ class Nsa5gSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        return message_test(
-            self.log,
-            self.android_devices[0],
-            self.android_devices[1],
-            mo_rat='5g_volte',
-            mt_rat='5g_volte',
-            msg_in_call=True)
+        return message_test(self.log,
+                            self.android_devices[0],
+                            self.android_devices[1],
+                            mo_rat='5g_volte',
+                            mt_rat='5g_volte',
+                            msg_in_call=True)
 
     @test_tracker_info(uuid="3d5c8f60-1eaa-4f4a-b539-c529fa36db91")
     @TelephonyBaseTest.tel_test_wrap
@@ -214,13 +205,12 @@ class Nsa5gSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        return message_test(
-            self.log,
-            self.android_devices[0],
-            self.android_devices[1],
-            mo_rat='5g_volte',
-            mt_rat='default',
-            msg_in_call=True)
+        return message_test(self.log,
+                            self.android_devices[0],
+                            self.android_devices[1],
+                            mo_rat='5g_volte',
+                            mt_rat='default',
+                            msg_in_call=True)
 
     @test_tracker_info(uuid="c71813f3-bb04-4115-8519-e23046349689")
     @TelephonyBaseTest.tel_test_wrap
@@ -236,13 +226,12 @@ class Nsa5gSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        return message_test(
-            self.log,
-            self.android_devices[1],
-            self.android_devices[0],
-            mo_rat='default',
-            mt_rat='5g_volte',
-            msg_in_call=True)
+        return message_test(self.log,
+                            self.android_devices[1],
+                            self.android_devices[0],
+                            mo_rat='default',
+                            mt_rat='5g_volte',
+                            msg_in_call=True)
 
     @test_tracker_info(uuid="1f914d5c-ac24-4794-9fcb-cb28e483d69a")
     @TelephonyBaseTest.tel_test_wrap
@@ -258,17 +247,19 @@ class Nsa5gSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        apm_mode = [toggle_airplane_mode(self.log, ad, False) for ad in self.android_devices]
-        return message_test(
-            self.log,
-            self.android_devices[0],
-            self.android_devices[1],
-            mo_rat='5g_wfc',
-            mt_rat='5g_wfc',
-            is_airplane_mode=True,
-            wfc_mode=WFC_MODE_CELLULAR_PREFERRED,
-            wifi_ssid=self.wifi_network_ssid,
-            wifi_pwd=self.wifi_network_pass)
+        apm_mode = [
+            toggle_airplane_mode(self.log, ad, False)
+            for ad in self.android_devices
+        ]
+        return message_test(self.log,
+                            self.android_devices[0],
+                            self.android_devices[1],
+                            mo_rat='5g_wfc',
+                            mt_rat='5g_wfc',
+                            is_airplane_mode=True,
+                            wfc_mode=WFC_MODE_CELLULAR_PREFERRED,
+                            wifi_ssid=self.wifi_network_ssid,
+                            wifi_pwd=self.wifi_network_pass)
 
     @test_tracker_info(uuid="2d375f20-a785-42e0-b5a1-968d19bc693d")
     @TelephonyBaseTest.tel_test_wrap
@@ -284,17 +275,19 @@ class Nsa5gSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        apm_mode = [toggle_airplane_mode(self.log, ad, False) for ad in self.android_devices]
-        return message_test(
-            self.log,
-            self.android_devices[0],
-            self.android_devices[1],
-            mo_rat='5g_wfc',
-            mt_rat='general',
-            is_airplane_mode=True,
-            wfc_mode=WFC_MODE_CELLULAR_PREFERRED,
-            wifi_ssid=self.wifi_network_ssid,
-            wifi_pwd=self.wifi_network_pass)
+        apm_mode = [
+            toggle_airplane_mode(self.log, ad, False)
+            for ad in self.android_devices
+        ]
+        return message_test(self.log,
+                            self.android_devices[0],
+                            self.android_devices[1],
+                            mo_rat='5g_wfc',
+                            mt_rat='general',
+                            is_airplane_mode=True,
+                            wfc_mode=WFC_MODE_CELLULAR_PREFERRED,
+                            wifi_ssid=self.wifi_network_ssid,
+                            wifi_pwd=self.wifi_network_pass)
 
     @test_tracker_info(uuid="db8b2b5b-bf9e-4a99-9fdb-dbd028567705")
     @TelephonyBaseTest.tel_test_wrap
@@ -310,17 +303,19 @@ class Nsa5gSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        apm_mode = [toggle_airplane_mode(self.log, ad, False) for ad in self.android_devices]
-        return message_test(
-            self.log,
-            self.android_devices[1],
-            self.android_devices[0],
-            mo_rat='general',
-            mt_rat='5g_wfc',
-            is_airplane_mode=True,
-            wfc_mode=WFC_MODE_CELLULAR_PREFERRED,
-            wifi_ssid=self.wifi_network_ssid,
-            wifi_pwd=self.wifi_network_pass)
+        apm_mode = [
+            toggle_airplane_mode(self.log, ad, False)
+            for ad in self.android_devices
+        ]
+        return message_test(self.log,
+                            self.android_devices[1],
+                            self.android_devices[0],
+                            mo_rat='general',
+                            mt_rat='5g_wfc',
+                            is_airplane_mode=True,
+                            wfc_mode=WFC_MODE_CELLULAR_PREFERRED,
+                            wifi_ssid=self.wifi_network_ssid,
+                            wifi_pwd=self.wifi_network_pass)
 
     @test_tracker_info(uuid="7274be32-b9dd-4ce3-83d1-f32ab14ce05e")
     @TelephonyBaseTest.tel_test_wrap
@@ -336,16 +331,18 @@ class Nsa5gSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        apm_mode = [toggle_airplane_mode(self.log, ad, False) for ad in self.android_devices]
-        return message_test(
-            self.log,
-            self.android_devices[0],
-            self.android_devices[1],
-            mo_rat='5g_wfc',
-            mt_rat='5g_wfc',
-            wfc_mode=WFC_MODE_WIFI_PREFERRED,
-            wifi_ssid=self.wifi_network_ssid,
-            wifi_pwd=self.wifi_network_pass)
+        apm_mode = [
+            toggle_airplane_mode(self.log, ad, False)
+            for ad in self.android_devices
+        ]
+        return message_test(self.log,
+                            self.android_devices[0],
+                            self.android_devices[1],
+                            mo_rat='5g_wfc',
+                            mt_rat='5g_wfc',
+                            wfc_mode=WFC_MODE_WIFI_PREFERRED,
+                            wifi_ssid=self.wifi_network_ssid,
+                            wifi_pwd=self.wifi_network_pass)
 
     @test_tracker_info(uuid="5997a618-efee-478f-8fa9-6cf8ba9cfc58")
     @TelephonyBaseTest.tel_test_wrap
@@ -362,16 +359,18 @@ class Nsa5gSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        apm_mode = [toggle_airplane_mode(self.log, ad, False) for ad in self.android_devices]
-        return message_test(
-            self.log,
-            self.android_devices[0],
-            self.android_devices[1],
-            mo_rat='5g_wfc',
-            mt_rat='general',
-            wfc_mode=WFC_MODE_WIFI_PREFERRED,
-            wifi_ssid=self.wifi_network_ssid,
-            wifi_pwd=self.wifi_network_pass)
+        apm_mode = [
+            toggle_airplane_mode(self.log, ad, False)
+            for ad in self.android_devices
+        ]
+        return message_test(self.log,
+                            self.android_devices[0],
+                            self.android_devices[1],
+                            mo_rat='5g_wfc',
+                            mt_rat='general',
+                            wfc_mode=WFC_MODE_WIFI_PREFERRED,
+                            wifi_ssid=self.wifi_network_ssid,
+                            wifi_pwd=self.wifi_network_pass)
 
     @test_tracker_info(uuid="352ca023-2cd1-4b08-877c-20c5d50cc265")
     @TelephonyBaseTest.tel_test_wrap
@@ -388,16 +387,18 @@ class Nsa5gSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        apm_mode = [toggle_airplane_mode(self.log, ad, False) for ad in self.android_devices]
-        return message_test(
-            self.log,
-            self.android_devices[1],
-            self.android_devices[0],
-            mo_rat='general',
-            mt_rat='5g_wfc',
-            wfc_mode=WFC_MODE_WIFI_PREFERRED,
-            wifi_ssid=self.wifi_network_ssid,
-            wifi_pwd=self.wifi_network_pass)
+        apm_mode = [
+            toggle_airplane_mode(self.log, ad, False)
+            for ad in self.android_devices
+        ]
+        return message_test(self.log,
+                            self.android_devices[1],
+                            self.android_devices[0],
+                            mo_rat='general',
+                            mt_rat='5g_wfc',
+                            wfc_mode=WFC_MODE_WIFI_PREFERRED,
+                            wifi_ssid=self.wifi_network_ssid,
+                            wifi_pwd=self.wifi_network_pass)
 
     @test_tracker_info(uuid="2d1787f2-d6fe-4b41-b389-2a8f817594e4")
     @TelephonyBaseTest.tel_test_wrap
@@ -413,18 +414,20 @@ class Nsa5gSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        apm_mode = [toggle_airplane_mode(self.log, ad, False) for ad in self.android_devices]
-        return message_test(
-            self.log,
-            self.android_devices[0],
-            self.android_devices[1],
-            mo_rat='5g_wfc',
-            mt_rat='5g_wfc',
-            msg_in_call=True,
-            is_airplane_mode=True,
-            wfc_mode=WFC_MODE_WIFI_PREFERRED,
-            wifi_ssid=self.wifi_network_ssid,
-            wifi_pwd=self.wifi_network_pass)
+        apm_mode = [
+            toggle_airplane_mode(self.log, ad, False)
+            for ad in self.android_devices
+        ]
+        return message_test(self.log,
+                            self.android_devices[0],
+                            self.android_devices[1],
+                            mo_rat='5g_wfc',
+                            mt_rat='5g_wfc',
+                            msg_in_call=True,
+                            is_airplane_mode=True,
+                            wfc_mode=WFC_MODE_WIFI_PREFERRED,
+                            wifi_ssid=self.wifi_network_ssid,
+                            wifi_pwd=self.wifi_network_pass)
 
     @test_tracker_info(uuid="784062e8-02a4-49ce-8fc1-5359ab40bbdd")
     @TelephonyBaseTest.tel_test_wrap
@@ -439,13 +442,12 @@ class Nsa5gSmsTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        return message_test(
-            self.log,
-            self.android_devices[0],
-            self.android_devices[1],
-            mo_rat='5g',
-            mt_rat='5g',
-            long_msg=True)
+        return message_test(self.log,
+                            self.android_devices[0],
+                            self.android_devices[1],
+                            mo_rat='5g',
+                            mt_rat='5g',
+                            long_msg=True)
 
     @test_tracker_info(uuid="45dbd61a-6a90-473e-9cfa-03e2408d5f15")
     @TelephonyBaseTest.tel_test_wrap
@@ -462,13 +464,12 @@ class Nsa5gSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        return message_test(
-            self.log,
-            self.android_devices[0],
-            self.android_devices[1],
-            mo_rat='5g_csfb',
-            mt_rat='5g_csfb',
-            msg_in_call=True)
+        return message_test(self.log,
+                            self.android_devices[0],
+                            self.android_devices[1],
+                            mo_rat='5g_csfb',
+                            mt_rat='5g_csfb',
+                            msg_in_call=True)
 
     @test_tracker_info(uuid="709d5322-3da3-4c77-9180-281bc54ad78e")
     @TelephonyBaseTest.tel_test_wrap
@@ -485,18 +486,20 @@ class Nsa5gSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        apm_mode = [toggle_airplane_mode(self.log, ad, False) for ad in self.android_devices]
-        return message_test(
-            self.log,
-            self.android_devices[0],
-            self.android_devices[1],
-            mo_rat='5g_wfc',
-            mt_rat='default',
-            msg_in_call=True,
-            is_airplane_mode=True,
-            wfc_mode=WFC_MODE_WIFI_PREFERRED,
-            wifi_ssid=self.wifi_network_ssid,
-            wifi_pwd=self.wifi_network_pass)
+        apm_mode = [
+            toggle_airplane_mode(self.log, ad, False)
+            for ad in self.android_devices
+        ]
+        return message_test(self.log,
+                            self.android_devices[0],
+                            self.android_devices[1],
+                            mo_rat='5g_wfc',
+                            mt_rat='default',
+                            msg_in_call=True,
+                            is_airplane_mode=True,
+                            wfc_mode=WFC_MODE_WIFI_PREFERRED,
+                            wifi_ssid=self.wifi_network_ssid,
+                            wifi_pwd=self.wifi_network_pass)
 
     @test_tracker_info(uuid="6af38572-bbf7-4c11-8f0c-ab2f9b25ac49")
     @TelephonyBaseTest.tel_test_wrap
@@ -513,18 +516,20 @@ class Nsa5gSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        apm_mode = [toggle_airplane_mode(self.log, ad, False) for ad in self.android_devices]
-        return message_test(
-            self.log,
-            self.android_devices[1],
-            self.android_devices[0],
-            mo_rat='default',
-            mt_rat='5g_wfc',
-            msg_in_call=True,
-            is_airplane_mode=True,
-            wfc_mode=WFC_MODE_WIFI_PREFERRED,
-            wifi_ssid=self.wifi_network_ssid,
-            wifi_pwd=self.wifi_network_pass)
+        apm_mode = [
+            toggle_airplane_mode(self.log, ad, False)
+            for ad in self.android_devices
+        ]
+        return message_test(self.log,
+                            self.android_devices[1],
+                            self.android_devices[0],
+                            mo_rat='default',
+                            mt_rat='5g_wfc',
+                            msg_in_call=True,
+                            is_airplane_mode=True,
+                            wfc_mode=WFC_MODE_WIFI_PREFERRED,
+                            wifi_ssid=self.wifi_network_ssid,
+                            wifi_pwd=self.wifi_network_pass)
 
     @test_tracker_info(uuid="1437adb8-dfb0-49fb-8ecc-b456f60d7f64")
     @TelephonyBaseTest.tel_test_wrap
@@ -540,13 +545,12 @@ class Nsa5gSmsTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        return message_test(
-            self.log,
-            self.android_devices[0],
-            self.android_devices[1],
-            mo_rat='5g',
-            mt_rat='default',
-            long_msg=True)
+        return message_test(self.log,
+                            self.android_devices[0],
+                            self.android_devices[1],
+                            mo_rat='5g',
+                            mt_rat='default',
+                            long_msg=True)
 
     @test_tracker_info(uuid="d34a4840-d1fa-46f1-885b-f67456225f50")
     @TelephonyBaseTest.tel_test_wrap
@@ -562,13 +566,12 @@ class Nsa5gSmsTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        return message_test(
-            self.log,
-            self.android_devices[1],
-            self.android_devices[0],
-            mo_rat='default',
-            mt_rat='5g',
-            long_msg=True)
+        return message_test(self.log,
+                            self.android_devices[1],
+                            self.android_devices[0],
+                            mo_rat='default',
+                            mt_rat='5g',
+                            long_msg=True)
 
     @test_tracker_info(uuid="84e40f15-1d02-44b0-8103-f25f73dae7a1")
     @TelephonyBaseTest.tel_test_wrap
@@ -585,13 +588,12 @@ class Nsa5gSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        return message_test(
-            self.log,
-            self.android_devices[0],
-            self.android_devices[1],
-            mo_rat='5g_csfb',
-            mt_rat='default',
-            msg_in_call=True)
+        return message_test(self.log,
+                            self.android_devices[0],
+                            self.android_devices[1],
+                            mo_rat='5g_csfb',
+                            mt_rat='default',
+                            msg_in_call=True)
 
     @test_tracker_info(uuid="259ccd94-2d70-450e-adf4-949889096cce")
     @TelephonyBaseTest.tel_test_wrap
@@ -608,13 +610,12 @@ class Nsa5gSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        return message_test(
-            self.log,
-            self.android_devices[1],
-            self.android_devices[0],
-            mo_rat='default',
-            mt_rat='5g_csfb',
-            msg_in_call=True)
+        return message_test(self.log,
+                            self.android_devices[1],
+                            self.android_devices[0],
+                            mo_rat='default',
+                            mt_rat='5g_csfb',
+                            msg_in_call=True)
 
     @test_tracker_info(uuid="303d5c2f-15bd-4608-96b8-37d16341004e")
     @TelephonyBaseTest.tel_test_wrap
@@ -651,12 +652,13 @@ class Nsa5gSmsTest(TelephonyBaseTest):
         if not active_file_download_task(self.log, cell_2):
             return False
         download_task = active_file_download_task(self.log, cell_2, "10MB")
-        message_task = (message_test, (self.log, cell_2, cell_1,
-                                        '5g', 'volte', 'sms'))
+        message_task = (message_test, (self.log, cell_2, cell_1, '5g', 'volte',
+                                       'sms'))
         results = run_multithread_func(self.log, [download_task, message_task])
 
         if ((results[0]) & (results[1])):
-            self.log.info("PASS - MO SMS test validated over active data transfer")
+            self.log.info(
+                "PASS - MO SMS test validated over active data transfer")
         elif ((results[0] == False) & (results[1] == True)):
             self.log.error("FAIL - Data Transfer failed")
         elif ((results[0] == True) & (results[1] == False)):
@@ -702,12 +704,13 @@ class Nsa5gSmsTest(TelephonyBaseTest):
             return False
 
         download_task = active_file_download_task(self.log, cell_2, "10MB")
-        message_task = (message_test, (self.log, cell_1, cell_2,
-                                        'volte', '5g', 'sms'))
+        message_task = (message_test, (self.log, cell_1, cell_2, 'volte', '5g',
+                                       'sms'))
         results = run_multithread_func(self.log, [download_task, message_task])
 
         if ((results[0]) & (results[1])):
-            self.log.info("PASS - MT SMS test validated over active data transfer")
+            self.log.info(
+                "PASS - MT SMS test validated over active data transfer")
         elif ((results[0] == False) & (results[1] == True)):
             self.log.error("FAIL - Data Transfer failed")
         elif ((results[0] == True) & (results[1] == False)):

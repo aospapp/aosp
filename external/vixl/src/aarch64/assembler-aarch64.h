@@ -2105,6 +2105,13 @@ class Assembler : public vixl::internal::AssemblerBase {
     MoveWide(rd, imm, shift, MOVZ);
   }
 
+  // Move immediate, aliases for movz, movn, orr.
+  void mov(const Register& rd, uint64_t imm) {
+    if (!OneInstrMoveImmediateHelper(this, rd, imm)) {
+      VIXL_UNIMPLEMENTED();
+    }
+  }
+
   // Misc instructions.
 
   // Monitor debug-mode breakpoint.
@@ -3360,6 +3367,21 @@ class Assembler : public vixl::internal::AssemblerBase {
   // Unsigned dot product [Armv8.2].
   void udot(const VRegister& vd, const VRegister& vn, const VRegister& vm);
 
+  // Dot Product with unsigned and signed integers (vector).
+  void usdot(const VRegister& vd, const VRegister& vn, const VRegister& vm);
+
+  // Dot product with signed and unsigned integers (vector, by element).
+  void sudot(const VRegister& vd,
+             const VRegister& vn,
+             const VRegister& vm,
+             int vm_index);
+
+  // Dot product with unsigned and signed integers (vector, by element).
+  void usdot(const VRegister& vd,
+             const VRegister& vn,
+             const VRegister& vm,
+             int vm_index);
+
   // Signed saturating rounding doubling multiply subtract returning high half
   // [Armv8.1].
   void sqrdmlsh(const VRegister& vd, const VRegister& vn, const VRegister& vm);
@@ -3585,6 +3607,15 @@ class Assembler : public vixl::internal::AssemblerBase {
              const VRegister& vn,
              const VRegister& vm,
              int rot);
+
+  // Signed 8-bit integer matrix multiply-accumulate (vector).
+  void smmla(const VRegister& vd, const VRegister& vn, const VRegister& vm);
+
+  // Unsigned and signed 8-bit integer matrix multiply-accumulate (vector).
+  void usmmla(const VRegister& vd, const VRegister& vn, const VRegister& vm);
+
+  // Unsigned 8-bit integer matrix multiply-accumulate (vector).
+  void ummla(const VRegister& vd, const VRegister& vn, const VRegister& vm);
 
   // Scalable Vector Extensions.
 
@@ -4584,6 +4615,26 @@ class Assembler : public vixl::internal::AssemblerBase {
               const PRegisterZ& pg,
               const SVEMemOperand& addr);
 
+  // Contiguous load and replicate thirty-two bytes.
+  void ld1rob(const ZRegister& zt,
+              const PRegisterZ& pg,
+              const SVEMemOperand& addr);
+
+  // Contiguous load and replicate sixteen halfwords.
+  void ld1roh(const ZRegister& zt,
+              const PRegisterZ& pg,
+              const SVEMemOperand& addr);
+
+  // Contiguous load and replicate eight words.
+  void ld1row(const ZRegister& zt,
+              const PRegisterZ& pg,
+              const SVEMemOperand& addr);
+
+  // Contiguous load and replicate four doublewords.
+  void ld1rod(const ZRegister& zt,
+              const PRegisterZ& pg,
+              const SVEMemOperand& addr);
+
   // Load and broadcast signed byte to vector.
   void ld1rsb(const ZRegister& zt,
               const PRegisterZ& pg,
@@ -5266,6 +5317,12 @@ class Assembler : public vixl::internal::AssemblerBase {
               const ZRegister& zn,
               const ZRegister& zm);
 
+  // Splice two vectors under predicate control (constructive).
+  void splice_con(const ZRegister& zd,
+                  const PRegister& pg,
+                  const ZRegister& zn,
+                  const ZRegister& zm);
+
   // Signed saturating add vectors (unpredicated).
   void sqadd(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
 
@@ -5820,6 +5877,1030 @@ class Assembler : public vixl::internal::AssemblerBase {
   // Interleave elements from two half vectors.
   void zip2(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
 
+  // Add with carry long (bottom).
+  void adclb(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Add with carry long (top).
+  void adclt(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Add narrow high part (bottom).
+  void addhnb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Add narrow high part (top).
+  void addhnt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Add pairwise.
+  void addp(const ZRegister& zd,
+            const PRegisterM& pg,
+            const ZRegister& zn,
+            const ZRegister& zm);
+
+  // Bitwise clear and exclusive OR.
+  void bcax(const ZRegister& zd,
+            const ZRegister& zn,
+            const ZRegister& zm,
+            const ZRegister& zk);
+
+  // Scatter lower bits into positions selected by bitmask.
+  void bdep(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Gather lower bits from positions selected by bitmask.
+  void bext(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Group bits to right or left as selected by bitmask.
+  void bgrp(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Bitwise select.
+  void bsl(const ZRegister& zd,
+           const ZRegister& zn,
+           const ZRegister& zm,
+           const ZRegister& zk);
+
+  // Bitwise select with first input inverted.
+  void bsl1n(const ZRegister& zd,
+             const ZRegister& zn,
+             const ZRegister& zm,
+             const ZRegister& zk);
+
+  // Bitwise select with second input inverted.
+  void bsl2n(const ZRegister& zd,
+             const ZRegister& zn,
+             const ZRegister& zm,
+             const ZRegister& zk);
+
+  // Complex integer add with rotate.
+  void cadd(const ZRegister& zd,
+            const ZRegister& zn,
+            const ZRegister& zm,
+            int rot);
+
+  // Complex integer dot product (indexed).
+  void cdot(const ZRegister& zda,
+            const ZRegister& zn,
+            const ZRegister& zm,
+            int index,
+            int rot);
+
+  // Complex integer dot product.
+  void cdot(const ZRegister& zda,
+            const ZRegister& zn,
+            const ZRegister& zm,
+            int rot);
+
+  // Complex integer multiply-add with rotate (indexed).
+  void cmla(const ZRegister& zda,
+            const ZRegister& zn,
+            const ZRegister& zm,
+            int index,
+            int rot);
+
+  // Complex integer multiply-add with rotate.
+  void cmla(const ZRegister& zda,
+            const ZRegister& zn,
+            const ZRegister& zm,
+            int rot);
+
+  // Bitwise exclusive OR of three vectors.
+  void eor3(const ZRegister& zd,
+            const ZRegister& zn,
+            const ZRegister& zm,
+            const ZRegister& zk);
+
+  // Interleaving exclusive OR (bottom, top).
+  void eorbt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Interleaving exclusive OR (top, bottom).
+  void eortb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Floating-point add pairwise.
+  void faddp(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Floating-point up convert long (top, predicated).
+  void fcvtlt(const ZRegister& zd, const PRegisterM& pg, const ZRegister& zn);
+
+  // Floating-point down convert and narrow (top, predicated).
+  void fcvtnt(const ZRegister& zd, const PRegisterM& pg, const ZRegister& zn);
+
+  // Floating-point down convert, rounding to odd (predicated).
+  void fcvtx(const ZRegister& zd, const PRegisterM& pg, const ZRegister& zn);
+
+  // Floating-point down convert, rounding to odd (top, predicated).
+  void fcvtxnt(const ZRegister& zd, const PRegisterM& pg, const ZRegister& zn);
+
+  // Floating-point base 2 logarithm as integer.
+  void flogb(const ZRegister& zd, const PRegisterM& pg, const ZRegister& zn);
+
+  // Floating-point maximum number pairwise.
+  void fmaxnmp(const ZRegister& zd,
+               const PRegisterM& pg,
+               const ZRegister& zn,
+               const ZRegister& zm);
+
+  // Floating-point maximum pairwise.
+  void fmaxp(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Floating-point minimum number pairwise.
+  void fminnmp(const ZRegister& zd,
+               const PRegisterM& pg,
+               const ZRegister& zn,
+               const ZRegister& zm);
+
+  // Floating-point minimum pairwise.
+  void fminp(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Half-precision floating-point multiply-add long to single-precision
+  // (bottom).
+  void fmlalb(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Half-precision floating-point multiply-add long to single-precision
+  // (top).
+  void fmlalt(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Half-precision floating-point multiply-subtract long from
+  // single-precision (bottom).
+  void fmlslb(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Half-precision floating-point multiply-subtract long from
+  // single-precision (top, indexed).
+  void fmlslt(const ZRegister& zda,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+
+  // Half-precision floating-point multiply-add long to single-precision
+  // (bottom, indexed).
+  void fmlalb(const ZRegister& zda,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+
+  // Half-precision floating-point multiply-add long to single-precision
+  // (top, indexed).
+  void fmlalt(const ZRegister& zda,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+
+  // Half-precision floating-point multiply-subtract long from
+  // single-precision (bottom, indexed).
+  void fmlslb(const ZRegister& zda,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+
+  // Half-precision floating-point multiply-subtract long from
+  // single-precision (top).
+  void fmlslt(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Count matching elements in vector.
+  void histcnt(const ZRegister& zd,
+               const PRegisterZ& pg,
+               const ZRegister& zn,
+               const ZRegister& zm);
+
+  // Count matching elements in vector segments.
+  void histseg(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Gather load non-temporal signed bytes.
+  void ldnt1sb(const ZRegister& zt,
+               const PRegisterZ& pg,
+               const SVEMemOperand& addr);
+
+  // Gather load non-temporal signed halfwords.
+  void ldnt1sh(const ZRegister& zt,
+               const PRegisterZ& pg,
+               const SVEMemOperand& addr);
+
+  // Gather load non-temporal signed words.
+  void ldnt1sw(const ZRegister& zt,
+               const PRegisterZ& pg,
+               const SVEMemOperand& addr);
+
+  // Detect any matching elements, setting the condition flags.
+  void match(const PRegisterWithLaneSize& pd,
+             const PRegisterZ& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Multiply-add to accumulator (indexed).
+  void mla(const ZRegister& zda,
+           const ZRegister& zn,
+           const ZRegister& zm,
+           int index);
+
+  // Multiply-subtract from accumulator (indexed).
+  void mls(const ZRegister& zda,
+           const ZRegister& zn,
+           const ZRegister& zm,
+           int index);
+
+  // Multiply (indexed).
+  void mul(const ZRegister& zd,
+           const ZRegister& zn,
+           const ZRegister& zm,
+           int index);
+
+  // Multiply vectors (unpredicated).
+  void mul(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Bitwise inverted select.
+  void nbsl(const ZRegister& zd,
+            const ZRegister& zn,
+            const ZRegister& zm,
+            const ZRegister& zk);
+
+  // Detect no matching elements, setting the condition flags.
+  void nmatch(const PRegisterWithLaneSize& pd,
+              const PRegisterZ& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+
+  // Polynomial multiply vectors (unpredicated).
+  void pmul(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Polynomial multiply long (bottom).
+  void pmullb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Polynomial multiply long (top).
+  void pmullt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Rounding add narrow high part (bottom).
+  void raddhnb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Rounding add narrow high part (top).
+  void raddhnt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Rounding shift right narrow by immediate (bottom).
+  void rshrnb(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Rounding shift right narrow by immediate (top).
+  void rshrnt(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Rounding subtract narrow high part (bottom).
+  void rsubhnb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Rounding subtract narrow high part (top).
+  void rsubhnt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed absolute difference and accumulate.
+  void saba(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed absolute difference and accumulate long (bottom).
+  void sabalb(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed absolute difference and accumulate long (top).
+  void sabalt(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed absolute difference long (bottom).
+  void sabdlb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed absolute difference long (top).
+  void sabdlt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed add and accumulate long pairwise.
+  void sadalp(const ZRegister& zda, const PRegisterM& pg, const ZRegister& zn);
+
+  // Signed add long (bottom).
+  void saddlb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed add long (bottom + top).
+  void saddlbt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed add long (top).
+  void saddlt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed add wide (bottom).
+  void saddwb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed add wide (top).
+  void saddwt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Subtract with carry long (bottom).
+  void sbclb(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Subtract with carry long (top).
+  void sbclt(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed halving addition.
+  void shadd(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Shift right narrow by immediate (bottom).
+  void shrnb(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Shift right narrow by immediate (top).
+  void shrnt(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Signed halving subtract.
+  void shsub(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Signed halving subtract reversed vectors.
+  void shsubr(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+
+  // Shift left and insert (immediate).
+  void sli(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Signed maximum pairwise.
+  void smaxp(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Signed minimum pairwise.
+  void sminp(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Signed multiply-add long to accumulator (bottom, indexed).
+  void smlalb(const ZRegister& zda,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+
+  // Signed multiply-add long to accumulator (bottom).
+  void smlalb(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed multiply-add long to accumulator (top, indexed).
+  void smlalt(const ZRegister& zda,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+
+  // Signed multiply-add long to accumulator (top).
+  void smlalt(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed multiply-subtract long from accumulator (bottom, indexed).
+  void smlslb(const ZRegister& zda,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+
+  // Signed multiply-subtract long from accumulator (bottom).
+  void smlslb(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed multiply-subtract long from accumulator (top, indexed).
+  void smlslt(const ZRegister& zda,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+
+  // Signed multiply-subtract long from accumulator (top).
+  void smlslt(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed multiply returning high half (unpredicated).
+  void smulh(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed multiply long (bottom, indexed).
+  void smullb(const ZRegister& zd,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+
+  // Signed multiply long (bottom).
+  void smullb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed multiply long (top, indexed).
+  void smullt(const ZRegister& zd,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+
+  // Signed multiply long (top).
+  void smullt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed saturating absolute value.
+  void sqabs(const ZRegister& zd, const PRegisterM& pg, const ZRegister& zn);
+
+  // Signed saturating addition (predicated).
+  void sqadd(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Saturating complex integer add with rotate.
+  void sqcadd(const ZRegister& zd,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int rot);
+
+  // Signed saturating doubling multiply-add long to accumulator (bottom,
+  // indexed).
+  void sqdmlalb(const ZRegister& zda,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index);
+
+  // Signed saturating doubling multiply-add long to accumulator (bottom).
+  void sqdmlalb(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed saturating doubling multiply-add long to accumulator (bottom x
+  // top).
+  void sqdmlalbt(const ZRegister& zda,
+                 const ZRegister& zn,
+                 const ZRegister& zm);
+
+  // Signed saturating doubling multiply-add long to accumulator (top,
+  // indexed).
+  void sqdmlalt(const ZRegister& zda,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index);
+
+  // Signed saturating doubling multiply-add long to accumulator (top).
+  void sqdmlalt(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed saturating doubling multiply-subtract long from accumulator
+  // (bottom, indexed).
+  void sqdmlslb(const ZRegister& zda,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index);
+
+  // Signed saturating doubling multiply-subtract long from accumulator
+  // (bottom).
+  void sqdmlslb(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed saturating doubling multiply-subtract long from accumulator
+  // (bottom x top).
+  void sqdmlslbt(const ZRegister& zda,
+                 const ZRegister& zn,
+                 const ZRegister& zm);
+
+  // Signed saturating doubling multiply-subtract long from accumulator
+  // (top, indexed).
+  void sqdmlslt(const ZRegister& zda,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index);
+
+  // Signed saturating doubling multiply-subtract long from accumulator
+  // (top).
+  void sqdmlslt(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed saturating doubling multiply high (indexed).
+  void sqdmulh(const ZRegister& zd,
+               const ZRegister& zn,
+               const ZRegister& zm,
+               int index);
+
+  // Signed saturating doubling multiply high (unpredicated).
+  void sqdmulh(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed saturating doubling multiply long (bottom, indexed).
+  void sqdmullb(const ZRegister& zd,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index);
+
+  // Signed saturating doubling multiply long (bottom).
+  void sqdmullb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed saturating doubling multiply long (top, indexed).
+  void sqdmullt(const ZRegister& zd,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index);
+
+  // Signed saturating doubling multiply long (top).
+  void sqdmullt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed saturating negate.
+  void sqneg(const ZRegister& zd, const PRegisterM& pg, const ZRegister& zn);
+
+  // Saturating rounding doubling complex integer multiply-add high with
+  // rotate (indexed).
+  void sqrdcmlah(const ZRegister& zda,
+                 const ZRegister& zn,
+                 const ZRegister& zm,
+                 int index,
+                 int rot);
+
+  // Saturating rounding doubling complex integer multiply-add high with
+  // rotate.
+  void sqrdcmlah(const ZRegister& zda,
+                 const ZRegister& zn,
+                 const ZRegister& zm,
+                 int rot);
+
+  // Signed saturating rounding doubling multiply-add high to accumulator
+  // (indexed).
+  void sqrdmlah(const ZRegister& zda,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index);
+
+  // Signed saturating rounding doubling multiply-add high to accumulator
+  // (unpredicated).
+  void sqrdmlah(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed saturating rounding doubling multiply-subtract high from
+  // accumulator (indexed).
+  void sqrdmlsh(const ZRegister& zda,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index);
+
+  // Signed saturating rounding doubling multiply-subtract high from
+  // accumulator (unpredicated).
+  void sqrdmlsh(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed saturating rounding doubling multiply high (indexed).
+  void sqrdmulh(const ZRegister& zd,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index);
+
+  // Signed saturating rounding doubling multiply high (unpredicated).
+  void sqrdmulh(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed saturating rounding shift left by vector (predicated).
+  void sqrshl(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+
+  // Signed saturating rounding shift left reversed vectors (predicated).
+  void sqrshlr(const ZRegister& zd,
+               const PRegisterM& pg,
+               const ZRegister& zn,
+               const ZRegister& zm);
+
+  // Signed saturating rounding shift right narrow by immediate (bottom).
+  void sqrshrnb(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Signed saturating rounding shift right narrow by immediate (top).
+  void sqrshrnt(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Signed saturating rounding shift right unsigned narrow by immediate
+  // (bottom).
+  void sqrshrunb(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Signed saturating rounding shift right unsigned narrow by immediate
+  // (top).
+  void sqrshrunt(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Signed saturating shift left by immediate.
+  void sqshl(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             int shift);
+
+  // Signed saturating shift left by vector (predicated).
+  void sqshl(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Signed saturating shift left reversed vectors (predicated).
+  void sqshlr(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+
+  // Signed saturating shift left unsigned by immediate.
+  void sqshlu(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              int shift);
+
+  // Signed saturating shift right narrow by immediate (bottom).
+  void sqshrnb(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Signed saturating shift right narrow by immediate (top).
+  void sqshrnt(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Signed saturating shift right unsigned narrow by immediate (bottom).
+  void sqshrunb(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Signed saturating shift right unsigned narrow by immediate (top).
+  void sqshrunt(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Signed saturating subtraction (predicated).
+  void sqsub(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Signed saturating subtraction reversed vectors (predicated).
+  void sqsubr(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+
+  // Signed saturating extract narrow (bottom).
+  void sqxtnb(const ZRegister& zd, const ZRegister& zn);
+
+  // Signed saturating extract narrow (top).
+  void sqxtnt(const ZRegister& zd, const ZRegister& zn);
+
+  // Signed saturating unsigned extract narrow (bottom).
+  void sqxtunb(const ZRegister& zd, const ZRegister& zn);
+
+  // Signed saturating unsigned extract narrow (top).
+  void sqxtunt(const ZRegister& zd, const ZRegister& zn);
+
+  // Signed rounding halving addition.
+  void srhadd(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+
+  // Shift right and insert (immediate).
+  void sri(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Signed rounding shift left by vector (predicated).
+  void srshl(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Signed rounding shift left reversed vectors (predicated).
+  void srshlr(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+
+  // Signed rounding shift right by immediate.
+  void srshr(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             int shift);
+
+  // Signed rounding shift right and accumulate (immediate).
+  void srsra(const ZRegister& zda, const ZRegister& zn, int shift);
+
+  // Signed shift left long by immediate (bottom).
+  void sshllb(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Signed shift left long by immediate (top).
+  void sshllt(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Signed shift right and accumulate (immediate).
+  void ssra(const ZRegister& zda, const ZRegister& zn, int shift);
+
+  // Signed subtract long (bottom).
+  void ssublb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed subtract long (bottom - top).
+  void ssublbt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed subtract long (top).
+  void ssublt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed subtract long (top - bottom).
+  void ssubltb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed subtract wide (bottom).
+  void ssubwb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed subtract wide (top).
+  void ssubwt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Subtract narrow high part (bottom).
+  void subhnb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Subtract narrow high part (top).
+  void subhnt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed saturating addition of unsigned value.
+  void suqadd(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+
+  // Programmable table lookup in one or two vector table (zeroing).
+  void tbl(const ZRegister& zd,
+           const ZRegister& zn1,
+           const ZRegister& zn2,
+           const ZRegister& zm);
+
+  // Programmable table lookup in single vector table (merging).
+  void tbx(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned absolute difference and accumulate.
+  void uaba(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned absolute difference and accumulate long (bottom).
+  void uabalb(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned absolute difference and accumulate long (top).
+  void uabalt(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned absolute difference long (bottom).
+  void uabdlb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned absolute difference long (top).
+  void uabdlt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned add and accumulate long pairwise.
+  void uadalp(const ZRegister& zda, const PRegisterM& pg, const ZRegister& zn);
+
+  // Unsigned add long (bottom).
+  void uaddlb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned add long (top).
+  void uaddlt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned add wide (bottom).
+  void uaddwb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned add wide (top).
+  void uaddwt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned halving addition.
+  void uhadd(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Unsigned halving subtract.
+  void uhsub(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Unsigned halving subtract reversed vectors.
+  void uhsubr(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+
+  // Unsigned maximum pairwise.
+  void umaxp(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Unsigned minimum pairwise.
+  void uminp(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Unsigned multiply-add long to accumulator (bottom, indexed).
+  void umlalb(const ZRegister& zda,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+
+  // Unsigned multiply-add long to accumulator (bottom).
+  void umlalb(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned multiply-add long to accumulator (top, indexed).
+  void umlalt(const ZRegister& zda,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+
+  // Unsigned multiply-add long to accumulator (top).
+  void umlalt(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned multiply-subtract long from accumulator (bottom, indexed).
+  void umlslb(const ZRegister& zda,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+
+  // Unsigned multiply-subtract long from accumulator (bottom).
+  void umlslb(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned multiply-subtract long from accumulator (top, indexed).
+  void umlslt(const ZRegister& zda,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+
+  // Unsigned multiply-subtract long from accumulator (top).
+  void umlslt(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned multiply returning high half (unpredicated).
+  void umulh(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned multiply long (bottom, indexed).
+  void umullb(const ZRegister& zd,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+
+  // Unsigned multiply long (bottom).
+  void umullb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned multiply long (top, indexed).
+  void umullt(const ZRegister& zd,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+
+  // Unsigned multiply long (top).
+  void umullt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned saturating addition (predicated).
+  void uqadd(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Unsigned saturating rounding shift left by vector (predicated).
+  void uqrshl(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+
+  // Unsigned saturating rounding shift left reversed vectors (predicated).
+  void uqrshlr(const ZRegister& zd,
+               const PRegisterM& pg,
+               const ZRegister& zn,
+               const ZRegister& zm);
+
+  // Unsigned saturating rounding shift right narrow by immediate (bottom).
+  void uqrshrnb(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Unsigned saturating rounding shift right narrow by immediate (top).
+  void uqrshrnt(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Unsigned saturating shift left by immediate.
+  void uqshl(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             int shift);
+
+  // Unsigned saturating shift left by vector (predicated).
+  void uqshl(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Unsigned saturating shift left reversed vectors (predicated).
+  void uqshlr(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+
+  // Unsigned saturating shift right narrow by immediate (bottom).
+  void uqshrnb(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Unsigned saturating shift right narrow by immediate (top).
+  void uqshrnt(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Unsigned saturating subtraction (predicated).
+  void uqsub(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Unsigned saturating subtraction reversed vectors (predicated).
+  void uqsubr(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+
+  // Unsigned saturating extract narrow (bottom).
+  void uqxtnb(const ZRegister& zd, const ZRegister& zn);
+
+  // Unsigned saturating extract narrow (top).
+  void uqxtnt(const ZRegister& zd, const ZRegister& zn);
+
+  // Unsigned reciprocal estimate (predicated).
+  void urecpe(const ZRegister& zd, const PRegisterM& pg, const ZRegister& zn);
+
+  // Unsigned rounding halving addition.
+  void urhadd(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+
+  // Unsigned rounding shift left by vector (predicated).
+  void urshl(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+
+  // Unsigned rounding shift left reversed vectors (predicated).
+  void urshlr(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+
+  // Unsigned rounding shift right by immediate.
+  void urshr(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             int shift);
+
+  // Unsigned reciprocal square root estimate (predicated).
+  void ursqrte(const ZRegister& zd, const PRegisterM& pg, const ZRegister& zn);
+
+  // Unsigned rounding shift right and accumulate (immediate).
+  void ursra(const ZRegister& zda, const ZRegister& zn, int shift);
+
+  // Unsigned shift left long by immediate (bottom).
+  void ushllb(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Unsigned shift left long by immediate (top).
+  void ushllt(const ZRegister& zd, const ZRegister& zn, int shift);
+
+  // Unsigned saturating addition of signed value.
+  void usqadd(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+
+  // Unsigned shift right and accumulate (immediate).
+  void usra(const ZRegister& zda, const ZRegister& zn, int shift);
+
+  // Unsigned subtract long (bottom).
+  void usublb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned subtract long (top).
+  void usublt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned subtract wide (bottom).
+  void usubwb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned subtract wide (top).
+  void usubwt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm);
+
+  // While decrementing signed scalar greater than or equal to scalar.
+  void whilege(const PRegisterWithLaneSize& pd,
+               const Register& rn,
+               const Register& rm);
+
+  // While decrementing signed scalar greater than scalar.
+  void whilegt(const PRegisterWithLaneSize& pd,
+               const Register& rn,
+               const Register& rm);
+
+  // While decrementing unsigned scalar higher than scalar.
+  void whilehi(const PRegisterWithLaneSize& pd,
+               const Register& rn,
+               const Register& rm);
+
+  // While decrementing unsigned scalar higher or same as scalar.
+  void whilehs(const PRegisterWithLaneSize& pd,
+               const Register& rn,
+               const Register& rm);
+
+  // While free of read-after-write conflicts.
+  void whilerw(const PRegisterWithLaneSize& pd,
+               const Register& rn,
+               const Register& rm);
+
+  // While free of write-after-read/write conflicts.
+  void whilewr(const PRegisterWithLaneSize& pd,
+               const Register& rn,
+               const Register& rm);
+
+  // Bitwise exclusive OR and rotate right by immediate.
+  void xar(const ZRegister& zd,
+           const ZRegister& zn,
+           const ZRegister& zm,
+           int shift);
+
+  // Floating-point matrix multiply-accumulate.
+  void fmmla(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Signed integer matrix multiply-accumulate.
+  void smmla(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned by signed integer matrix multiply-accumulate.
+  void usmmla(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned integer matrix multiply-accumulate.
+  void ummla(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned by signed integer dot product.
+  void usdot(const ZRegister& zda, const ZRegister& zn, const ZRegister& zm);
+
+  // Unsigned by signed integer indexed dot product.
+  void usdot(const ZRegister& zda,
+             const ZRegister& zn,
+             const ZRegister& zm,
+             int index);
+
+  // Signed by unsigned integer indexed dot product.
+  void sudot(const ZRegister& zda,
+             const ZRegister& zn,
+             const ZRegister& zm,
+             int index);
+
   // Emit generic instructions.
 
   // Emit raw instructions into the instruction stream.
@@ -5850,6 +6931,9 @@ class Assembler : public vixl::internal::AssemblerBase {
   }
 
   // Code generation helpers.
+  static bool OneInstrMoveImmediateHelper(Assembler* assm,
+                                          const Register& dst,
+                                          uint64_t imm);
 
   // Register encoding.
   template <int hibit, int lobit>
@@ -5983,11 +7067,11 @@ class Assembler : public vixl::internal::AssemblerBase {
   static Instr ImmTestBranchBit(unsigned bit_pos) {
     VIXL_ASSERT(IsUint6(bit_pos));
     // Subtract five from the shift offset, as we need bit 5 from bit_pos.
-    unsigned b5 = bit_pos << (ImmTestBranchBit5_offset - 5);
-    unsigned b40 = bit_pos << ImmTestBranchBit40_offset;
-    b5 &= ImmTestBranchBit5_mask;
-    b40 &= ImmTestBranchBit40_mask;
-    return b5 | b40;
+    unsigned bit5 = bit_pos << (ImmTestBranchBit5_offset - 5);
+    unsigned bit40 = bit_pos << ImmTestBranchBit40_offset;
+    bit5 &= ImmTestBranchBit5_mask;
+    bit40 &= ImmTestBranchBit40_mask;
+    return bit5 | bit40;
   }
 
   // Data Processing encoding.
@@ -6660,6 +7744,16 @@ class Assembler : public vixl::internal::AssemblerBase {
                              Instr immoffset_op,
                              int imm_divisor = 1);
 
+  void SVELd1VecScaHelper(const ZRegister& zt,
+                          const PRegister& pg,
+                          const SVEMemOperand& addr,
+                          uint32_t msize,
+                          bool is_signed);
+  void SVESt1VecScaHelper(const ZRegister& zt,
+                          const PRegister& pg,
+                          const SVEMemOperand& addr,
+                          uint32_t msize);
+
   void Prefetch(PrefetchOperation op,
                 const MemOperand& addr,
                 LoadStoreScalingOption option = PreferScaledOffset);
@@ -6724,27 +7818,30 @@ class Assembler : public vixl::internal::AssemblerBase {
                                        int pattern,
                                        int multiplier);
 
-  Instr EncodeSVEShiftImmediate(Shift shift_op,
-                                int shift,
-                                int lane_size_in_bits);
+  Instr EncodeSVEShiftLeftImmediate(int shift, int lane_size_in_bits);
+
+  Instr EncodeSVEShiftRightImmediate(int shift, int lane_size_in_bits);
 
   void SVEBitwiseShiftImmediate(const ZRegister& zd,
                                 const ZRegister& zn,
                                 Instr encoded_imm,
-                                SVEBitwiseShiftUnpredicatedOp op);
+                                Instr op);
 
   void SVEBitwiseShiftImmediatePred(const ZRegister& zdn,
                                     const PRegisterM& pg,
                                     Instr encoded_imm,
-                                    SVEBitwiseShiftByImm_PredicatedOp op);
+                                    Instr op);
 
-  Instr SVEFPMulIndexHelper(unsigned lane_size_in_bytes_log2,
-                            const ZRegister& zm,
-                            int index,
-                            Instr op_h,
-                            Instr op_s,
-                            Instr op_d);
+  Instr SVEMulIndexHelper(unsigned lane_size_in_bytes_log2,
+                          const ZRegister& zm,
+                          int index,
+                          Instr op_h,
+                          Instr op_s,
+                          Instr op_d);
 
+  Instr SVEMulLongIndexHelper(const ZRegister& zm, int index);
+
+  Instr SVEMulComplexIndexHelper(const ZRegister& zm, int index);
 
   void SVEContiguousPrefetchScalarPlusScalarHelper(PrefetchOperation prfop,
                                                    const PRegister& pg,

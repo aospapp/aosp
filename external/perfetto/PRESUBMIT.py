@@ -17,6 +17,8 @@ import itertools
 import subprocess
 import time
 
+USE_PYTHON3 = True
+
 
 def RunAndReportIfLong(func, *args, **kargs):
   start = time.time()
@@ -39,10 +41,11 @@ def CheckChange(input, output):
         files_to_check='.*',
         files_to_skip=[
             'Android[.]bp',
+            "buildtools/grpc/BUILD.gn",
             '.*[.]json$',
             '.*[.]sql$',
             '.*[.]out$',
-            'test/trace_processor/.*/index$',
+            'test/trace_processor/.*/tests.*$',
             '(.*/)?BUILD$',
             'WORKSPACE',
             '.*/Makefile$',
@@ -74,8 +77,10 @@ def CheckChange(input, output):
   results += RunAndReportIfLong(CheckMergedTraceConfigProto, input, output)
   results += RunAndReportIfLong(CheckProtoEventList, input, output)
   results += RunAndReportIfLong(CheckBannedCpp, input, output)
+  results += RunAndReportIfLong(CheckSqlModules, input, output)
   results += RunAndReportIfLong(CheckSqlMetrics, input, output)
   results += RunAndReportIfLong(CheckTestData, input, output)
+  results += RunAndReportIfLong(CheckAmalgamatedPythonTools, input, output)
   return results
 
 
@@ -239,7 +244,7 @@ def CheckMergedTraceConfigProto(input_api, output_api):
 # Prevent removing or changing lines in event_list.
 def CheckProtoEventList(input_api, output_api):
   for f in input_api.AffectedFiles():
-    if f.LocalPath() != 'tools/ftrace_proto_gen/event_list':
+    if f.LocalPath() != 'src/tools/ftrace_proto_gen/event_list':
       continue
     if any((not new_line.startswith('removed')) and new_line != old_line
            for old_line, new_line in zip(f.OldContents(), f.NewContents())):
@@ -257,6 +262,20 @@ def CheckProtoComments(input_api, output_api):
   def file_filter(x):
     return input_api.FilterSourceFile(
         x, files_to_check=['protos/perfetto/.*[.]proto$', tool])
+
+  if not input_api.AffectedSourceFiles(file_filter):
+    return []
+  if subprocess.call([tool]):
+    return [output_api.PresubmitError(tool + ' failed')]
+  return []
+
+
+def CheckSqlModules(input_api, output_api):
+  tool = 'tools/check_sql_modules.py'
+
+  def file_filter(x):
+    return input_api.FilterSourceFile(
+        x, files_to_check=['src/trace_processor/stdlib/.*[.]sql$', tool])
 
   if not input_api.AffectedSourceFiles(file_filter):
     return []
@@ -284,8 +303,28 @@ def CheckTestData(input_api, output_api):
   if subprocess.call([tool, 'status', '--quiet']):
     return [
         output_api.PresubmitError(
-            '//test/data is out of sync. Run ' + tool + ' status for more. \n' +
-            'If you rebaselined UI tests or added a new test trace, run: \n' +
-            'tools/test_data upload')
+            '//test/data is out of sync. Run ' + tool + ' status for more. \n'
+            'If you rebaselined UI tests or added a new test trace, run:'
+            '`tools/test_data upload`. Otherwise run `tools/install-build-deps`'
+            ' or `tools/test_data download --overwrite` to sync local test_data'
+        )
+    ]
+  return []
+
+
+def CheckAmalgamatedPythonTools(input_api, output_api):
+  tool = 'tools/gen_amalgamated_python_tools'
+
+  # If no GN files were modified, bail out.
+  def build_file_filter(x):
+    return input_api.FilterSourceFile(x, files_to_check=('python/.*$', tool))
+
+  if not input_api.AffectedSourceFiles(build_file_filter):
+    return []
+  if subprocess.call([tool, '--check-only']):
+    return [
+        output_api.PresubmitError(
+            'amalgamated python tools/ are out of date. ' + 'Run ' + tool +
+            ' to update them.')
     ]
   return []

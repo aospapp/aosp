@@ -30,6 +30,7 @@ import static org.junit.Assert.fail;
 import android.net.MacAddress;
 import android.os.Build;
 import android.system.ErrnoException;
+import android.system.Os;
 import android.system.OsConstants;
 import android.util.ArrayMap;
 
@@ -42,6 +43,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.File;
 import java.net.InetAddress;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -96,7 +98,7 @@ public final class BpfMapTest {
         assertTrue(mTestMap.isEmpty());
     }
 
-    private TetherDownstream6Key createTetherDownstream6Key(long iif, String mac,
+    private TetherDownstream6Key createTetherDownstream6Key(int iif, String mac,
             String address) throws Exception {
         final MacAddress dstMac = MacAddress.fromString(mac);
         final InetAddress ipv6Address = InetAddress.getByName(address);
@@ -392,5 +394,35 @@ public final class BpfMapTest {
         } catch (ErrnoException expected) {
             assertEquals(OsConstants.ENOENT, expected.errno);
         }
+    }
+
+    private static int getNumOpenFds() {
+        return new File("/proc/" + Os.getpid() + "/fd").listFiles().length;
+    }
+
+    @Test
+    public void testNoFdLeaks() throws Exception {
+        // Due to #setUp has called #initTestMap to open map and BpfMap is using persistent fd
+        // cache, expect that the fd amount is not increased in the iterations.
+        // See the comment of BpfMap#close.
+        final int iterations = 1000;
+        final int before = getNumOpenFds();
+        for (int i = 0; i < iterations; i++) {
+            try (BpfMap<TetherDownstream6Key, Tether6Value> map = new BpfMap<>(
+                TETHER_DOWNSTREAM6_FS_PATH, BpfMap.BPF_F_RDWR,
+                TetherDownstream6Key.class, Tether6Value.class)) {
+                // do nothing
+            }
+        }
+        final int after = getNumOpenFds();
+
+        // Check that the number of open fds is the same as before.
+        // If this exact match becomes flaky, we probably need to distinguish that fd is belong
+        // to "bpf-map".
+        // ex:
+        // $ adb shell ls -all /proc/16196/fd
+        // [..] network_stack 64 2022-07-26 22:01:02.300002956 +0800 749 -> anon_inode:bpf-map
+        // [..] network_stack 64 2022-07-26 22:01:02.188002956 +0800 75 -> anon_inode:[eventfd]
+        assertEquals("Fd leak after " + iterations + " iterations: ", before, after);
     }
 }

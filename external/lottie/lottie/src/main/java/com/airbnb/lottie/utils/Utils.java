@@ -34,12 +34,38 @@ import javax.net.ssl.SSLException;
 public final class Utils {
   public static final int SECOND_IN_NANOS = 1000000000;
 
-  private static final PathMeasure pathMeasure = new PathMeasure();
-  private static final Path tempPath = new Path();
-  private static final Path tempPath2 = new Path();
-  private static final float[] points = new float[4];
+  /**
+   * Wrap in Local Thread is necessary for prevent race condition in multi-threaded mode
+   */
+  private static final ThreadLocal<PathMeasure> threadLocalPathMeasure = new ThreadLocal<PathMeasure>() {
+    @Override
+    protected PathMeasure initialValue() {
+      return new PathMeasure();
+    }
+  };
+
+  private static final ThreadLocal<Path> threadLocalTempPath = new ThreadLocal<Path>() {
+    @Override
+    protected Path initialValue() {
+      return new Path();
+    }
+  };
+
+  private static final ThreadLocal<Path> threadLocalTempPath2 = new ThreadLocal<Path>() {
+    @Override
+    protected Path initialValue() {
+      return new Path();
+    }
+  };
+
+  private static final ThreadLocal<float[]> threadLocalPoints = new ThreadLocal<float[]>() {
+    @Override
+    protected float[] initialValue() {
+      return new float[4];
+    }
+  };
+
   private static final float INV_SQRT_2 = (float) (Math.sqrt(2) / 2.0);
-  private static float dpScale = -1;
 
   private Utils() {
   }
@@ -66,11 +92,14 @@ public final class Utils {
       } catch (RuntimeException rethrown) {
         throw rethrown;
       } catch (Exception ignored) {
+        // Ignore.
       }
     }
   }
 
   public static float getScale(Matrix matrix) {
+    final float[] points = threadLocalPoints.get();
+
     points[0] = 0;
     points[1] = 0;
     // Use 1/sqrt(2) so that the hypotenuse is of length 1.
@@ -84,16 +113,15 @@ public final class Utils {
   }
 
   public static boolean hasZeroScaleAxis(Matrix matrix) {
+    final float[] points = threadLocalPoints.get();
+
     points[0] = 0;
     points[1] = 0;
     // Random numbers. The only way these should map to the same thing as 0,0 is if the scale is 0.
     points[2] = 37394.729378f;
     points[3] = 39575.2343807f;
     matrix.mapPoints(points);
-    if (points[0] == points[2] || points[1] == points[3]) {
-      return true;
-    }
-    return false;
+    return points[0] == points[2] || points[1] == points[3];
   }
 
   public static void applyTrimPathIfNeeded(Path path, @Nullable TrimPathContent trimPath) {
@@ -109,6 +137,10 @@ public final class Utils {
   public static void applyTrimPathIfNeeded(
       Path path, float startValue, float endValue, float offsetValue) {
     L.beginSection("applyTrimPathIfNeeded");
+    final PathMeasure pathMeasure = threadLocalPathMeasure.get();
+    final Path tempPath = threadLocalTempPath.get();
+    final Path tempPath2 = threadLocalTempPath2.get();
+
     pathMeasure.setPath(path, false);
 
     float length = pathMeasure.getLength();
@@ -217,20 +249,17 @@ public final class Utils {
   }
 
   public static float dpScale() {
-    if (dpScale == -1) {
-      dpScale = Resources.getSystem().getDisplayMetrics().density;
-    }
-    return dpScale;
+    return Resources.getSystem().getDisplayMetrics().density;
   }
 
   public static float getAnimationScale(Context context) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
       return Settings.Global.getFloat(context.getContentResolver(),
-              Settings.Global.ANIMATOR_DURATION_SCALE, 1.0f);
+          Settings.Global.ANIMATOR_DURATION_SCALE, 1.0f);
     } else {
       //noinspection deprecation
       return Settings.System.getFloat(context.getContentResolver(),
-              Settings.System.ANIMATOR_DURATION_SCALE, 1.0f);
+          Settings.System.ANIMATOR_DURATION_SCALE, 1.0f);
     }
   }
 
@@ -276,6 +305,7 @@ public final class Utils {
   /**
    * For testing purposes only. DO NOT USE IN PRODUCTION.
    */
+  @SuppressWarnings("unused")
   public static Bitmap renderPath(Path path) {
     RectF bounds = new RectF();
     path.computeBounds(bounds, false);

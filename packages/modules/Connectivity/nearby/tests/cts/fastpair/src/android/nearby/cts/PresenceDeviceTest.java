@@ -45,7 +45,7 @@ public class PresenceDeviceTest {
     private static final int RSSI = -40;
     private static final int MEDIUM = NearbyDevice.Medium.BLE;
     private static final String DEVICE_NAME = "testDevice";
-    private static final int KEY = 1234;
+    private static final int KEY = 3;
     private static final byte[] VALUE = new byte[]{1, 1, 1, 1};
     private static final byte[] SALT = new byte[]{2, 3};
     private static final byte[] SECRET_ID = new byte[]{11, 13};
@@ -103,5 +103,25 @@ public class PresenceDeviceTest {
         assertThat(parcelDevice.getRssi()).isEqualTo(RSSI);
         assertThat(parcelDevice.getMediums()).containsExactly(MEDIUM);
         assertThat(parcelDevice.getName()).isEqualTo(DEVICE_NAME);
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void describeContents() {
+        PresenceDevice device =
+                new PresenceDevice.Builder(DEVICE_ID, SALT, SECRET_ID, ENCRYPTED_IDENTITY)
+                        .addExtendedProperty(new DataElement(KEY, VALUE))
+                        .setRssi(RSSI)
+                        .addMedium(MEDIUM)
+                        .setName(DEVICE_NAME)
+                        .build();
+        assertThat(device.describeContents()).isEqualTo(0);
+    }
+
+    @Test
+    public void testCreatorNewArray() {
+        PresenceDevice[] devices =
+                PresenceDevice.CREATOR.newArray(2);
+        assertThat(devices.length).isEqualTo(2);
     }
 }

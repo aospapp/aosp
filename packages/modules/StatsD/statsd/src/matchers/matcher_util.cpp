@@ -16,9 +16,12 @@
 #define STATSD_DEBUG false  // STOPSHIP if true
 #include "Log.h"
 
-#include "src/statsd_config.pb.h"
-#include "matchers/AtomMatchingTracker.h"
 #include "matchers/matcher_util.h"
+
+#include <fnmatch.h>
+
+#include "matchers/AtomMatchingTracker.h"
+#include "src/statsd_config.pb.h"
 #include "stats_util.h"
 
 using std::set;
@@ -93,6 +96,33 @@ bool tryMatchString(const sp<UidMap>& uidMap, const FieldValue& fieldValue,
         return packageNames.find(str_match) != packageNames.end();
     } else if (fieldValue.mValue.getType() == STRING) {
         return fieldValue.mValue.str_value == str_match;
+    }
+    return false;
+}
+
+bool tryMatchWildcardString(const sp<UidMap>& uidMap, const FieldValue& fieldValue,
+                            const string& wildcardPattern) {
+    if (isAttributionUidField(fieldValue) || isUidField(fieldValue)) {
+        int uid = fieldValue.mValue.int_value;
+        // TODO(b/236886985): replace aid/uid mapping with efficient bidirectional container
+        // AidToUidMapping will never have uids above 10000
+        if (uid < 10000) {
+            for (auto aidIt = UidMap::sAidToUidMapping.begin();
+                 aidIt != UidMap::sAidToUidMapping.end(); ++aidIt) {
+                if ((int)aidIt->second == uid) {
+                    // Assumes there is only one aid mapping for each uid
+                    return fnmatch(wildcardPattern.c_str(), aidIt->first.c_str(), 0) == 0;
+                }
+            }
+        }
+        std::set<string> packageNames = uidMap->getAppNamesFromUid(uid, true /* normalize*/);
+        for (const auto& packageName : packageNames) {
+            if (fnmatch(wildcardPattern.c_str(), packageName.c_str(), 0) == 0) {
+                return true;
+            }
+        }
+    } else if (fieldValue.mValue.getType() == STRING) {
+        return fnmatch(wildcardPattern.c_str(), fieldValue.mValue.str_value.c_str(), 0) == 0;
     }
     return false;
 }
@@ -237,13 +267,18 @@ bool matchesSimple(const sp<UidMap>& uidMap, const FieldValueMatcher& matcher,
         case FieldValueMatcher::ValueMatcherCase::kNeqAnyString: {
             const auto& str_list = matcher.neq_any_string();
             for (int i = start; i < end; i++) {
+                bool notEqAll = true;
                 for (const auto& str : str_list.str_value()) {
                     if (tryMatchString(uidMap, values[i], str)) {
-                        return false;
+                        notEqAll = false;
+                        break;
                     }
                 }
+                if (notEqAll) {
+                    return true;
+                }
             }
-            return true;
+            return false;
         }
         case FieldValueMatcher::ValueMatcherCase::kEqAnyString: {
             const auto& str_list = matcher.eq_any_string();
@@ -252,6 +287,41 @@ bool matchesSimple(const sp<UidMap>& uidMap, const FieldValueMatcher& matcher,
                     if (tryMatchString(uidMap, values[i], str)) {
                         return true;
                     }
+                }
+            }
+            return false;
+        }
+        case FieldValueMatcher::ValueMatcherCase::kEqWildcardString: {
+            for (int i = start; i < end; i++) {
+                if (tryMatchWildcardString(uidMap, values[i], matcher.eq_wildcard_string())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        case FieldValueMatcher::ValueMatcherCase::kEqAnyWildcardString: {
+            const auto& str_list = matcher.eq_any_wildcard_string();
+            for (int i = start; i < end; i++) {
+                for (const auto& str : str_list.str_value()) {
+                    if (tryMatchWildcardString(uidMap, values[i], str)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+        case FieldValueMatcher::ValueMatcherCase::kNeqAnyWildcardString: {
+            const auto& str_list = matcher.neq_any_wildcard_string();
+            for (int i = start; i < end; i++) {
+                bool notEqAll = true;
+                for (const auto& str : str_list.str_value()) {
+                    if (tryMatchWildcardString(uidMap, values[i], str)) {
+                        notEqAll = false;
+                        break;
+                    }
+                }
+                if (notEqAll) {
+                    return true;
                 }
             }
             return false;
@@ -265,6 +335,46 @@ bool matchesSimple(const sp<UidMap>& uidMap, const FieldValueMatcher& matcher,
                 // eq_int covers both int and long.
                 if (values[i].mValue.getType() == LONG &&
                     (matcher.eq_int() == values[i].mValue.long_value)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        case FieldValueMatcher::ValueMatcherCase::kEqAnyInt: {
+            const auto& int_list = matcher.eq_any_int();
+            for (int i = start; i < end; i++) {
+                for (const int int_value : int_list.int_value()) {
+                    if (values[i].mValue.getType() == INT &&
+                        (int_value == values[i].mValue.int_value)) {
+                        return true;
+                    }
+                    // eq_any_int covers both int and long.
+                    if (values[i].mValue.getType() == LONG &&
+                        (int_value == values[i].mValue.long_value)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+        case FieldValueMatcher::ValueMatcherCase::kNeqAnyInt: {
+            const auto& int_list = matcher.neq_any_int();
+            for (int i = start; i < end; i++) {
+                bool notEqAll = true;
+                for (const int int_value : int_list.int_value()) {
+                    if (values[i].mValue.getType() == INT &&
+                        (int_value == values[i].mValue.int_value)) {
+                        notEqAll = false;
+                        break;
+                    }
+                    // neq_any_int covers both int and long.
+                    if (values[i].mValue.getType() == LONG &&
+                        (int_value == values[i].mValue.long_value)) {
+                        notEqAll = false;
+                        break;
+                    }
+                }
+                if (notEqAll) {
                     return true;
                 }
             }

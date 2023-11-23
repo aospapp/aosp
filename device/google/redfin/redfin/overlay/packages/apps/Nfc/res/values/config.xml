@@ -24,4 +24,15 @@
     <item>GTT9Q</item>
     <item>G5NZ6</item>
   </string-array>
+  <bool name="tag_intent_app_pref_supported">true</bool>
+  <!-- NFC Antenna Location API -->
+  <integer name="device_width">70</integer>
+  <integer name="device_height">140</integer>
+  <bool name="device_foldable">false</bool>
+  <integer-array name="antenna_x">
+    <item>39</item>
+  </integer-array>
+  <integer-array name="antenna_y">
+    <item>74</item>
+  </integer-array>
 </resources>

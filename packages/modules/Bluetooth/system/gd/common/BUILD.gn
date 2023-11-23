@@ -16,7 +16,7 @@
 
 source_set("BluetoothCommonSources") {
   sources = [
-    "init_flags.cc",
+    "audit_log.cc",
     "metric_id_manager.cc",
     "stop_watch.cc",
     "strings.cc",

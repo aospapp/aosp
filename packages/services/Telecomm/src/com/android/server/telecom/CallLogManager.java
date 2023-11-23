@@ -324,7 +324,7 @@ public final class CallLogManager extends CallsManagerListenerBase {
         }
 
         PhoneAccount phoneAccount = mPhoneAccountRegistrar.getPhoneAccountUnchecked(accountHandle);
-        UserHandle initiatingUser = call.getInitiatingUser();
+        UserHandle initiatingUser = call.getAssociatedUser();
         if (phoneAccount != null &&
                 phoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_MULTI_USER)) {
             if (initiatingUser != null &&
@@ -386,7 +386,12 @@ public final class CallLogManager extends CallsManagerListenerBase {
         if (okayToLog) {
             AddCallArgs args = new AddCallArgs(mContext, paramBuilder.build(),
                     logCallCompletedListener);
+            Log.addEvent(call, LogUtils.Events.LOG_CALL, "number=" + Log.piiHandle(logNumber)
+                    + ",postDial=" + Log.piiHandle(call.getPostDialDigits()) + ",pres="
+                    + call.getHandlePresentation());
             logCallAsync(args);
+        } else {
+            Log.addEvent(call, LogUtils.Events.SKIP_CALL_LOG);
         }
     }
 

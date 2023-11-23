@@ -243,7 +243,7 @@ class LangIdImpl {
   // Returns language code for a softmax label.  See comments for languages_
   // field.  If label is out of range, returns LangId::kUnknownLanguageCode.
   std::string GetLanguageForSoftmaxLabel(int label) const {
-    if ((label >= 0) && (label < languages_.size())) {
+    if ((label >= 0) && (static_cast<size_t>(label) < languages_.size())) {
       return languages_[label];
     } else {
       SAFTM_LOG(ERROR) << "Softmax label " << label << " outside range [0, "

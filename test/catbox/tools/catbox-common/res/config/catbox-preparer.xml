@@ -68,7 +68,9 @@
   <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher" />
 
   <!-- Target Preparers - Run Shell Commands -->
-  <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer" />
+  <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+    <option name="run-command" value="am start -n com.google.android.car.setupwizard/.ExitActivity" />
+  </target_preparer>
 
   <!-- Target Preparers - Set Properties -->
   <target_preparer class="com.android.catbox.targetpreparer.SetDevicePropertyPreparer" />

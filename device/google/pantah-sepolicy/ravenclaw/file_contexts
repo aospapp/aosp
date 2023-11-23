@@ -1,0 +1,4 @@
+# Bluetooth
+/dev/ttySAC18                       u:object_r:hci_attach_dev:s0
+/dev/logbuffer_btlpm                u:object_r:logbuffer_device:s0
+/dev/logbuffer_tty18                u:object_r:logbuffer_device:s0

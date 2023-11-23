@@ -31,7 +31,6 @@ cc_defaults {
         // We have to use static lib here because either one of them might not
         // exist as a shared library.
         "android.hardware.automotive.vehicle@2.0",
-        "android.hardware.automotive.vehicle-V1-ndk",
         "libmath",
     ],
     shared_libs: [
@@ -41,6 +40,7 @@ cc_defaults {
         "libutils",
     ],
     defaults: [
+        "VehicleHalInterfaceDefaults",
         "android-automotive-large-parcelable-defaults",
     ],
 }

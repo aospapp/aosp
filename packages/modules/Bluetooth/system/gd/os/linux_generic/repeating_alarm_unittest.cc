@@ -20,12 +20,14 @@
 
 #include "common/bind.h"
 #include "gtest/gtest.h"
+#include "os/fake_timer/fake_timerfd.h"
 
 namespace bluetooth {
 namespace os {
 namespace {
 
-constexpr int error_ms = 20;
+using fake_timer::fake_timerfd_advance;
+using fake_timer::fake_timerfd_reset;
 
 class RepeatingAlarmTest : public ::testing::Test {
  protected:
@@ -40,6 +42,7 @@ class RepeatingAlarmTest : public ::testing::Test {
     handler_->Clear();
     delete handler_;
     delete thread_;
+    fake_timerfd_reset();
   }
 
   void VerifyMultipleDelayedTasks(int scheduled_tasks, int task_length_ms, int interval_between_tasks_ms) {
@@ -58,6 +61,7 @@ class RepeatingAlarmTest : public ::testing::Test {
             task_length_ms,
             interval_between_tasks_ms),
         std::chrono::milliseconds(interval_between_tasks_ms));
+    fake_timer_advance(interval_between_tasks_ms * scheduled_tasks);
     future.get();
     alarm_->Cancel();
   }
@@ -70,13 +74,13 @@ class RepeatingAlarmTest : public ::testing::Test {
       int task_length_ms,
       int interval_between_tasks_ms) {
     *counter = *counter + 1;
-    auto time_now = std::chrono::steady_clock::now();
-    auto time_delta = time_now - start_time;
     if (*counter == scheduled_tasks) {
       promise->set_value();
     }
-    ASSERT_NEAR(time_delta.count(), interval_between_tasks_ms * 1000000 * *counter, error_ms * 1000000);
-    std::this_thread::sleep_for(std::chrono::milliseconds(task_length_ms));
+  }
+
+  void fake_timer_advance(uint64_t ms) {
+    handler_->Post(common::BindOnce(fake_timerfd_advance, ms));
   }
 
   RepeatingAlarm* alarm_;
@@ -95,15 +99,13 @@ TEST_F(RepeatingAlarmTest, cancel_while_not_armed) {
 TEST_F(RepeatingAlarmTest, schedule) {
   std::promise<void> promise;
   auto future = promise.get_future();
-  auto before = std::chrono::steady_clock::now();
   int period_ms = 10;
   alarm_->Schedule(
       common::Bind(&std::promise<void>::set_value, common::Unretained(&promise)), std::chrono::milliseconds(period_ms));
+  fake_timer_advance(period_ms);
   future.get();
   alarm_->Cancel();
-  auto after = std::chrono::steady_clock::now();
-  auto duration = after - before;
-  ASSERT_NEAR(duration.count(), period_ms * 1000000, error_ms * 1000000);
+  ASSERT_FALSE(future.valid());
 }
 
 TEST_F(RepeatingAlarmTest, cancel_alarm) {
@@ -124,6 +126,7 @@ TEST_F(RepeatingAlarmTest, schedule_while_alarm_armed) {
   auto future = promise.get_future();
   alarm_->Schedule(
       common::Bind(&std::promise<void>::set_value, common::Unretained(&promise)), std::chrono::milliseconds(10));
+  fake_timer_advance(10);
   future.get();
   alarm_->Cancel();
 }

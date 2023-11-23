@@ -60,9 +60,7 @@ class SilentModeHandlerPeer {
 public:
     explicit SilentModeHandlerPeer(SilentModeHandler* handler) : mHandler(handler) {}
 
-    ~SilentModeHandlerPeer() {
-        mHandler->stopMonitoringSilentModeHwState(/*shouldWaitThread=*/true);
-    }
+    ~SilentModeHandlerPeer() { mHandler->stopMonitoringSilentModeHwState(); }
 
     void init() {
         mHandler->mSilentModeHwStateFilename = mFileSilentModeHwState.path;

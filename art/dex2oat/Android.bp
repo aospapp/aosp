@@ -29,6 +29,9 @@ art_cc_defaults {
     host_supported: true,
     srcs: [
         "dex/quick_compiler_callbacks.cc",
+        "dex/verification_results.cc",
+        "driver/compiled_method.cc",
+        "driver/compiled_method_storage.cc",
         "driver/compiler_driver.cc",
         "linker/code_info_table_deduper.cc",
         "linker/elf_writer.cc",
@@ -37,6 +40,7 @@ art_cc_defaults {
         "linker/multi_oat_relative_patcher.cc",
         "linker/oat_writer.cc",
         "linker/relative_patcher.cc",
+        "utils/swap_space.cc",
     ],
 
     codegen: {
@@ -106,6 +110,9 @@ art_cc_library_static {
         "libartpalette",
         "libprofile",
     ],
+    static_libs: [
+        "libelffile",
+    ],
     apex_available: [
         "com.android.art",
         "com.android.art.debug",
@@ -156,6 +163,9 @@ art_cc_library_static {
         "libartd",
         "libartpalette",
         "libprofiled",
+    ],
+    static_libs: [
+        "libelffiled",
     ],
     apex_available: [
         "com.android.art.debug",
@@ -242,6 +252,12 @@ cc_defaults {
                 profile_file: "art/dex2oat_arm_arm64.profdata",
             },
         },
+        android_riscv64: {
+            pgo: {
+                enable_profile_use: false,
+                profile_file: "",
+            },
+        },
         android_x86_64: {
             pgo: {
                 profile_file: "art/dex2oat_x86_x86_64.profdata",
@@ -296,6 +312,7 @@ art_cc_binary {
             ],
             static_libs: [
                 "libart-dex2oat",
+                "libelffile",
             ],
             lto: {
                 thin: true,
@@ -320,6 +337,7 @@ art_cc_binary {
     apex_available: [
         "com.android.art",
         "com.android.art.debug",
+        "test_broken_com.android.art",
     ],
 }
 
@@ -355,6 +373,7 @@ art_cc_binary {
             ],
             static_libs: [
                 "libartd-dex2oat",
+                "libelffiled",
             ],
         },
         host: {
@@ -459,6 +478,7 @@ art_cc_defaults {
     name: "art_dex2oat_tests_defaults",
     data: [
         ":art-gtest-jars-AbstractMethod",
+        ":art-gtest-jars-ArrayClassWithUnresolvedComponent",
         ":art-gtest-jars-DefaultMethods",
         ":art-gtest-jars-Dex2oatVdexPublicSdkDex",
         ":art-gtest-jars-Dex2oatVdexTestDex",
@@ -473,12 +493,14 @@ art_cc_defaults {
         ":art-gtest-jars-ManyMethods",
         ":art-gtest-jars-MultiDex",
         ":art-gtest-jars-MultiDexModifiedSecondary",
+        ":art-gtest-jars-MultiDexUncompressedAligned",
         ":art-gtest-jars-MyClassNatives",
         ":art-gtest-jars-Nested",
         ":art-gtest-jars-ProfileTestMultiDex",
         ":art-gtest-jars-StaticLeafMethods",
         ":art-gtest-jars-Statics",
         ":art-gtest-jars-StringLiterals",
+        ":art-gtest-jars-SuperWithAccessChecks",
         ":art-gtest-jars-VerifierDeps",
         ":art-gtest-jars-VerifierDepsMulti",
         ":art-gtest-jars-VerifySoftFailDuringClinit",
@@ -493,6 +515,7 @@ art_cc_defaults {
         "dex2oat_test.cc",
         "dex2oat_vdex_test.cc",
         "dex2oat_image_test.cc",
+        "driver/compiled_method_storage_test.cc",
         "driver/compiler_driver_test.cc",
         "linker/code_info_table_deduper_test.cc",
         "linker/elf_writer_test.cc",
@@ -502,6 +525,7 @@ art_cc_defaults {
         "linker/multi_oat_relative_patcher_test.cc",
         "linker/oat_writer_test.cc",
         "verifier_deps_test.cc",
+        "utils/swap_space_test.cc",
     ],
     target: {
         host: {
@@ -532,6 +556,9 @@ art_cc_defaults {
         },
     },
 
+    static_libs: [
+        "libziparchive",
+    ],
     shared_libs: [
         "libartpalette",
         "libbase",
@@ -539,7 +566,7 @@ art_cc_defaults {
         "liblz4", // libart(d)-dex2oat dependency; must be repeated here since it's a static lib.
         "liblog",
         "libsigchain",
-        "libziparchive",
+        "libz", // libziparchive dependency; must be repeated here since it's a static lib.
     ],
 }
 
@@ -553,13 +580,15 @@ art_cc_test {
     ],
     shared_libs: [
         "libartbased",
-        "libartd-compiler",
         "libartd-dexlayout",
+        "liblzma",
         "libprofiled",
     ],
     static_libs: [
-        "libartd-dex2oat-gtest",
+        "libartd-compiler",
         "libartd-dex2oat",
+        "libartd-dex2oat-gtest",
+        "libelffiled",
         "libvixld",
     ],
 }
@@ -573,14 +602,16 @@ art_cc_test {
     ],
     data: [":generate-boot-image"],
     shared_libs: [
-        "libartbase",
-        "libart-compiler",
         "libart-dexlayout",
+        "libartbase",
+        "liblzma",
         "libprofile",
     ],
     static_libs: [
-        "libart-dex2oat-gtest",
+        "libart-compiler",
         "libart-dex2oat",
+        "libart-dex2oat-gtest",
+        "libelffile",
         "libvixl",
     ],
     test_config: "art_standalone_dex2oat_tests.xml",
@@ -596,8 +627,15 @@ art_cc_test {
         ":art-gtest-jars-MainStripped",
         ":art-gtest-jars-MultiDex",
         ":art-gtest-jars-MultiDexModifiedSecondary",
+        ":art-gtest-jars-MultiDexUncompressedAligned",
         ":art-gtest-jars-Nested",
         ":generate-boot-image",
+    ],
+    shared_libs: [
+        "libz", // libziparchive dependency; must be repeated here since it's a static lib.
+    ],
+    static_libs: [
+        "libziparchive",
     ],
     test_config: "art_standalone_dex2oat_cts_tests.xml",
     test_suites: ["cts"],

@@ -20,4 +20,8 @@ if [ $# != 3 ]; then
   echo "Usage: hash_gen.sh <api_path> <latest-version> <hash_file_path>"
   exit 1
 fi
+
+# This adds a new hash to the file if one already exists.
+# We can have multiple hashes in a hash file so we can still identify previous
+# iterations of this interfaces that were released.
 (cd $1 && find ./ -name "*.aidl" -print0 | LC_ALL=C sort -z | xargs -0 sha1sum && echo $2) | sha1sum | cut -d " " -f 1 >> $3

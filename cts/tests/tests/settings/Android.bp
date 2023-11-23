@@ -1,4 +1,3 @@
-
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
@@ -17,20 +16,15 @@ android_test {
     static_libs: [
         "androidx.slice_slice-core",
         "androidx.slice_slice-view",
-        "androidx.test.core",
+        "androidx.window_window",
+        "compatibility-common-util-devicesidelib",
+        "compatibility-device-util-axt",
         "ctstestrunner-axt",
         "junit",
-        "kotlin-stdlib",
         "truth-prebuilt",
-        "ctsWindowExtLib",
     ],
 
     srcs: ["src/**/*.java"],
 
     sdk_version: "test_current",
-}
-
-android_library_import {
-    name: "ctsWindowExtLib",
-    aars: ["libs/cts_window_ext_lib.aar"],
 }

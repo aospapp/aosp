@@ -14,7 +14,7 @@ namespace angle
 constexpr GLColor kLinearColor(64, 127, 191, 255);
 constexpr GLColor kNonlinearColor(13, 54, 133, 255);
 
-class SRGBTextureTest : public ANGLETest
+class SRGBTextureTest : public ANGLETest<>
 {
   protected:
     SRGBTextureTest()
@@ -623,6 +623,29 @@ TEST_P(SRGBTextureTestES3, GenerateMipmaps)
         constexpr double tolerence = 7.0;
         EXPECT_COLOR_NEAR(srgbaReadback[i], rgbaReadback[i], tolerence);
     }
+}
+
+// Test that generated mip levels are correct for solid color textures
+TEST_P(SRGBTextureTestES3, GenerateMipmapsSolid)
+{
+    GLColor color(7, 7, 7, 7);
+
+    std::array<GLColor, 4 * 4> buf;
+    std::fill(buf.begin(), buf.end(), color);
+
+    GLTexture tex;
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf.data());
+    glGenerateMipmap(GL_TEXTURE_2D);
+    ASSERT_GL_NO_ERROR();
+
+    GLFramebuffer fb;
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fb);
+    glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 1);
+    ASSERT_GL_NO_ERROR();
+
+    EXPECT_PIXEL_COLOR_NEAR(0, 0, color, 1);
 }
 
 ANGLE_INSTANTIATE_TEST_ES2_AND_ES3(SRGBTextureTest);

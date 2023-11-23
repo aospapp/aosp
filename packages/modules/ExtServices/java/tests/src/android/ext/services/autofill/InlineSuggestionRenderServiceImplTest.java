@@ -142,7 +142,9 @@ public class InlineSuggestionRenderServiceImplTest {
 
     private static PendingIntent createAttribution() {
         PendingIntent pendingIntent = PendingIntent.getActivity(
-                ApplicationProvider.getApplicationContext(), 0, new Intent(),
+                ApplicationProvider.getApplicationContext(), 0,
+                new Intent()
+                        .setPackage(ApplicationProvider.getApplicationContext().getPackageName()),
                 PendingIntent.FLAG_MUTABLE);
         return pendingIntent;
     }

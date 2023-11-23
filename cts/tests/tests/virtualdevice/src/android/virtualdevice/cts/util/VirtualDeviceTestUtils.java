@@ -54,8 +54,12 @@ public final class VirtualDeviceTestUtils {
     }
 
     public static Bundle createActivityOptions(VirtualDisplay virtualDisplay) {
+        return createActivityOptions(virtualDisplay.getDisplay().getDisplayId());
+    }
+
+    public static Bundle createActivityOptions(int displayId) {
         return ActivityOptions.makeBasic()
-                .setLaunchDisplayId(virtualDisplay.getDisplay().getDisplayId())
+                .setLaunchDisplayId(displayId)
                 .toBundle();
     }
 

@@ -27,6 +27,7 @@ java_library_host {
     static_libs: [
         "compatibility-tradefed",
     ],
+    visibility: [":__subpackages__"],
 }
 
 tradefed_binary_host {
@@ -34,7 +35,7 @@ tradefed_binary_host {
     wrapper: "etc/vts-tradefed",
     short_name: "VTS",
     full_name: "Vendor Test Suite",
-    version: "13_r1",
+    version: "14_r1",
     static_libs: [
         "cts-tradefed-harness",
         "vts-core-tradefed-harness",

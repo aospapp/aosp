@@ -49,14 +49,14 @@ void *t_calloc(size_t nmemb, size_t size)
 /*
  * Helper for creating file and write @size byte buf with 0xaa value in the file.
  */
-void t_create_file(const char *file, size_t size)
+static void __t_create_file(const char *file, size_t size, char pattern)
 {
 	ssize_t ret;
 	char *buf;
 	int fd; 
 
 	buf = t_malloc(size);
-	memset(buf, 0xaa, size);
+	memset(buf, pattern, size);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);
 	assert(fd >= 0);
@@ -66,6 +66,16 @@ void t_create_file(const char *file, size_t size)
 	close(fd);
 	free(buf);
 	assert(ret == size);
+}
+
+void t_create_file(const char *file, size_t size)
+{
+	__t_create_file(file, size, 0xaa);
+}
+
+void t_create_file_pattern(const char *file, size_t size, char pattern)
+{
+	__t_create_file(file, size, pattern);
 }
 
 /*
@@ -113,4 +123,23 @@ enum t_setup_ret t_create_ring(int depth, struct io_uring *ring,
 
 	p.flags = flags;
 	return t_create_ring_params(depth, ring, &p);
+}
+
+enum t_setup_ret t_register_buffers(struct io_uring *ring,
+				    const struct iovec *iovecs,
+				    unsigned nr_iovecs)
+{
+	int ret;
+
+	ret = io_uring_register_buffers(ring, iovecs, nr_iovecs);
+	if (!ret)
+		return T_SETUP_OK;
+
+	if ((ret == -EPERM || ret == -ENOMEM) && geteuid()) {
+		fprintf(stdout, "too large non-root buffer registration, skip\n");
+		return T_SETUP_SKIP;
+	}
+
+	fprintf(stderr, "buffer register failed: %s\n", strerror(-ret));
+	return ret;
 }

@@ -408,6 +408,8 @@ IH264E_ERROR_T ih264e_entropy(process_ctxt_t *ps_proc)
         s_sei.u1_sei_ccv_params_present_flag = 0;
         s_sei.s_sei_ccv_params =
                     ps_codec->as_inp_list[ps_codec->i4_poc % MAX_NUM_BFRAMES].s_sei_ccv;
+        s_sei.u1_sei_sii_params_present_flag = ps_codec->s_cfg.s_sei.u1_sei_sii_params_present_flag;
+        s_sei.s_sei_sii_params = ps_codec->s_cfg.s_sei.s_sei_sii_params;
 
         if((1 == ps_sps->i1_vui_parameters_present_flag) &&
            (1 == ps_codec->s_cfg.s_vui.u1_video_signal_type_present_flag) &&
@@ -425,7 +427,8 @@ IH264E_ERROR_T ih264e_entropy(process_ctxt_t *ps_proc)
         if((1 == s_sei.u1_sei_mdcv_params_present_flag && u4_insert_per_idr) ||
            (1 == s_sei.u1_sei_cll_params_present_flag && u4_insert_per_idr) ||
            (1 == s_sei.u1_sei_ave_params_present_flag && u4_insert_per_idr) ||
-           (1 == s_sei.u1_sei_ccv_params_present_flag))
+           (1 == s_sei.u1_sei_ccv_params_present_flag) ||
+           (1 == s_sei.u1_sei_sii_params_present_flag))
         {
             ps_entropy->i4_error_code =
                     ih264e_generate_sei(ps_bitstrm, &s_sei, u4_insert_per_idr);
@@ -1260,6 +1263,7 @@ IH264E_ERROR_T ih264e_init_proc_ctxt(process_ctxt_t *ps_proc)
     convert_uv_only = 1;
     if (u4_pad_bottom_sz || u4_pad_right_sz ||
         ps_codec->s_cfg.e_inp_color_fmt == IV_YUV_422ILE ||
+        ps_codec->s_cfg.u4_enable_quality_metrics & QUALITY_MASK_PSNR ||
         ps_proc->i4_mb_y == (ps_proc->i4_ht_mbs - 1))
     {
         if (ps_proc->i4_mb_y == ps_proc->i4_ht_mbs - 1)
@@ -1279,6 +1283,7 @@ IH264E_ERROR_T ih264e_init_proc_ctxt(process_ctxt_t *ps_proc)
     if (ps_codec->s_cfg.e_inp_color_fmt == IV_YUV_422ILE ||
         ps_codec->s_cfg.e_inp_color_fmt == IV_YUV_420P ||
         ps_proc->i4_mb_y == (ps_proc->i4_ht_mbs - 1) ||
+        ps_codec->s_cfg.u4_enable_quality_metrics & QUALITY_MASK_PSNR ||
         u4_pad_bottom_sz || u4_pad_right_sz)
     {
         if ((ps_codec->s_cfg.e_inp_color_fmt == IV_YUV_420SP_UV) ||
@@ -1329,7 +1334,7 @@ IH264E_ERROR_T ih264e_init_proc_ctxt(process_ctxt_t *ps_proc)
                     num_rows = MB_SIZE - u4_pad_bottom_sz;
                 for (i = 0; i < num_rows; i++)
                 {
-                    memcpy(pu1_dst, pu1_src, ps_codec->s_cfg.u4_wd);
+                    memcpy(pu1_dst, pu1_src, ps_codec->s_cfg.u4_disp_wd);
                     pu1_src += ps_proc->s_inp_buf.s_raw_buf.au4_strd[0];
                     pu1_dst += ps_proc->i4_src_strd;
                 }
@@ -1346,7 +1351,7 @@ IH264E_ERROR_T ih264e_init_proc_ctxt(process_ctxt_t *ps_proc)
                     num_rows = BLK8x8SIZE;
                 for (i = 0; i < num_rows; i++)
                 {
-                    memcpy(pu1_dst, pu1_src, ps_codec->s_cfg.u4_wd);
+                    memcpy(pu1_dst, pu1_src, ps_codec->s_cfg.u4_disp_wd);
                     pu1_src += ps_proc->s_inp_buf.s_raw_buf.au4_strd[1];
                     pu1_dst += ps_proc->i4_src_chroma_strd;
                 }
@@ -1417,7 +1422,7 @@ IH264E_ERROR_T ih264e_init_proc_ctxt(process_ctxt_t *ps_proc)
                         ps_proc->s_inp_buf.s_raw_buf.au4_strd[0] * (i4_mb_y * MB_SIZE) -
                         ps_proc->s_inp_buf.s_raw_buf.au4_strd[0];
         UWORD8 *pu1_dst = ps_proc->pu1_src_buf_luma - ps_proc->i4_src_strd;
-        memcpy(pu1_dst, pu1_src, ps_codec->s_cfg.u4_wd);
+        memcpy(pu1_dst, pu1_src, ps_codec->s_cfg.u4_disp_wd);
         if (u4_pad_right_sz && (ps_proc->i4_mb_x == 0)) {
             pu1_dst += ps_codec->s_cfg.u4_disp_wd;
             memset(pu1_dst, pu1_dst[-1], u4_pad_right_sz);
@@ -2070,7 +2075,8 @@ WORD32 ih264e_process(process_ctxt_t *ps_proc)
      *   2. dump recon for bit stream sanity check
      */
     ps_proc->u4_compute_recon = ps_codec->u4_is_curr_frm_ref ||
-                                ps_codec->s_cfg.u4_enable_recon;
+                                ps_codec->s_cfg.u4_enable_recon ||
+                                ps_codec->s_cfg.u4_enable_quality_metrics & QUALITY_MASK_PSNR;
 
     /* Encode 'n' macroblocks,
      * 'n' being the number of mbs dictated by current proc ctxt */

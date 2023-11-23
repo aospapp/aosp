@@ -19,9 +19,12 @@ package android.hardware.input.cts.tests;
 import static org.junit.Assume.assumeTrue;
 
 import android.hardware.cts.R;
+import android.view.InputDevice;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
+
+import com.android.cts.kernelinfo.KernelInfo;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -36,10 +39,11 @@ public class SonyDualSenseUsbTest extends InputHidTestCase {
     }
 
     @Override
-    public void setUp() throws Exception {
-        // Do not run this test for kernel versions 4.19 and below
-        assumeTrue(isKernelVersionGreaterThan("4.19"));
-        super.setUp();
+    protected int getAdditionalSources() {
+        if (KernelInfo.hasConfig("CONFIG_HID_PLAYSTATION")) {
+            return InputDevice.SOURCE_MOUSE | InputDevice.SOURCE_SENSOR;
+        }
+        return 0;
     }
 
     @Test
@@ -54,6 +58,8 @@ public class SonyDualSenseUsbTest extends InputHidTestCase {
 
     @Test
     public void testVibrator() throws Exception {
+        assumeTrue(KernelInfo.hasConfig("CONFIG_HID_PLAYSTATION"));
         testInputVibratorEvents(R.raw.sony_dualsense_usb_vibratortests);
+        // hid-generic does not support vibration for this device
     }
 }

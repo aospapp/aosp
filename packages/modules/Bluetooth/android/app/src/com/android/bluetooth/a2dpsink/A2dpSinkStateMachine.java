@@ -50,7 +50,7 @@ public class A2dpSinkStateMachine extends StateMachine {
     //200->299 Events from Native
     static final int STACK_EVENT = 200;
 
-    static final int CONNECT_TIMEOUT_MS = 5000;
+    static final int CONNECT_TIMEOUT_MS = 10000;
 
     protected final BluetoothDevice mDevice;
     protected final byte[] mDeviceAddress;
@@ -130,7 +130,7 @@ public class A2dpSinkStateMachine extends StateMachine {
      * @param sb output string
      */
     public void dump(StringBuilder sb) {
-        ProfileService.println(sb, "mDevice: " + mDevice.getAddress() + "("
+        ProfileService.println(sb, "mDevice: " + mDevice + "("
                 + Utils.getName(mDevice) + ") " + this.toString());
     }
 
@@ -310,6 +310,7 @@ public class A2dpSinkStateMachine extends StateMachine {
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, mDevice);
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
         mMostRecentState = currentState;
-        mService.sendBroadcast(intent, BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
+        Utils.sendBroadcast(mService, intent, BLUETOOTH_CONNECT,
+                Utils.getTempAllowlistBroadcastOptions());
     }
 }

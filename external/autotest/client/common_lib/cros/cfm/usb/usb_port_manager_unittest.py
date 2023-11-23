@@ -1,6 +1,6 @@
-import mock
+import os
 import unittest
-import os.path
+from unittest import mock
 
 from autotest_lib.client.common_lib.cros.cfm.usb import usb_port_manager
 

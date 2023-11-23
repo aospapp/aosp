@@ -120,7 +120,7 @@ public class UserProvisioningStateHelper {
 
         if (newState != null) {
             setUserProvisioningState(newState, mMyUserId);
-            maybeSetHeadlessSystemUserProvisioningState(newState);
+            maybeSetHeadlessSystemUserProvisioningState(params, newState);
         }
         if (newProfileState != null) {
             setUserProvisioningState(newProfileState, managedProfileUserId);
@@ -146,7 +146,7 @@ public class UserProvisioningStateHelper {
             setUserProvisioningState(STATE_USER_PROFILE_FINALIZED, mMyUserId);
         } else {
             setUserProvisioningState(STATE_USER_SETUP_FINALIZED, mMyUserId);
-            maybeSetHeadlessSystemUserProvisioningState(STATE_USER_SETUP_FINALIZED);
+            maybeSetHeadlessSystemUserProvisioningState(params, STATE_USER_SETUP_FINALIZED);
         }
     }
 
@@ -180,7 +180,10 @@ public class UserProvisioningStateHelper {
         mDevicePolicyManager.setUserProvisioningState(state, userId);
     }
 
-    private void maybeSetHeadlessSystemUserProvisioningState(int newState) {
+    private void maybeSetHeadlessSystemUserProvisioningState(ProvisioningParams params, int newState) {
+        if (params.provisioningAction.equals(ACTION_PROVISION_MANAGED_PROFILE)) {
+            return; // No special headless logic for managed profiles
+        }
         if (mUtils.isHeadlessSystemUserMode() && mMyUserId != UserHandle.USER_SYSTEM) {
             // Headless system user's DO has to be set on system user and therefore system
             // user has to be marked the same as the calling user.

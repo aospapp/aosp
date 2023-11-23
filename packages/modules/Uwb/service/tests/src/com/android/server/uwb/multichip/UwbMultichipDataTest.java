@@ -40,12 +40,6 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -57,12 +51,7 @@ import java.util.List;
 public class UwbMultichipDataTest {
     @Rule
     public TemporaryFolder mTempFolder = TemporaryFolder.builder().build();
-    private static final String ASSETS_DIR = "assets/";
     private static final String NONEXISTENT_CONFIG_FILE = "doesNotExist.xml";
-    private static final String ONE_CHIP_CONFIG_FILE = "singleChipConfig.xml";
-    private static final String TWO_CHIP_CONFIG_FILE = "twoChipConfig.xml";
-    private static final String NO_POSITION_CONFIG_FILE = "noPositionConfig.xml";
-
     @Mock
     private Context mMockContext;
     @Mock
@@ -103,6 +92,10 @@ public class UwbMultichipDataTest {
         assertThat(chipInfo.getPositionX()).isEqualTo(0.0);
         assertThat(chipInfo.getPositionY()).isEqualTo(0.0);
         assertThat(chipInfo.getPositionZ()).isEqualTo(0.0);
+
+        List<String> chipIds = mUwbMultichipData.getChipIds();
+        assertThat(chipIds).hasSize(1);
+        assertThat(chipIds.get(0)).isEqualTo(mUwbMultichipData.getDefaultChipId());
     }
 
     @Test
@@ -119,14 +112,18 @@ public class UwbMultichipDataTest {
         assertThat(chipInfo.getPositionX()).isEqualTo(0.0);
         assertThat(chipInfo.getPositionY()).isEqualTo(0.0);
         assertThat(chipInfo.getPositionZ()).isEqualTo(0.0);
+
+        List<String> chipIds = mUwbMultichipData.getChipIds();
+        assertThat(chipIds).hasSize(1);
+        assertThat(chipIds.get(0)).isEqualTo(mUwbMultichipData.getDefaultChipId());
     }
 
     @Test
     public void testInitializeMultiChipOneChipConfig() throws Exception {
         when(mMockResources.getBoolean(R.bool.config_isMultichip)).thenReturn(true);
-        when(mMockResources.getString(R.string.config_multichipConfigPath))
-                .thenReturn(createFileFromResource(ONE_CHIP_CONFIG_FILE)
-                        .getCanonicalPath());
+        when(mMockResources.getString(R.string.config_multichipConfigPath)).thenReturn(
+                MultichipConfigFileCreator.createOneChipFileFromResource(mTempFolder,
+                        getClass()).getCanonicalPath());
 
         mUwbMultichipData.initialize();
 
@@ -137,14 +134,18 @@ public class UwbMultichipDataTest {
         assertThat(chipInfo.getPositionX()).isEqualTo(1.0);
         assertThat(chipInfo.getPositionY()).isEqualTo(2.0);
         assertThat(chipInfo.getPositionZ()).isEqualTo(3.0);
+
+        List<String> chipIds = mUwbMultichipData.getChipIds();
+        assertThat(chipIds).hasSize(1);
+        assertThat(chipIds.get(0)).isEqualTo("chipIdString");
     }
 
     @Test
     public void testInitializeMultiChipNoPosition() throws Exception {
         when(mMockResources.getBoolean(R.bool.config_isMultichip)).thenReturn(true);
-        when(mMockResources.getString(R.string.config_multichipConfigPath))
-                .thenReturn(createFileFromResource(NO_POSITION_CONFIG_FILE)
-                        .getCanonicalPath());
+        when(mMockResources.getString(R.string.config_multichipConfigPath)).thenReturn(
+                MultichipConfigFileCreator.createNoPositionFileFromResource(mTempFolder,
+                        getClass()).getCanonicalPath());
 
         mUwbMultichipData.initialize();
 
@@ -155,14 +156,18 @@ public class UwbMultichipDataTest {
         assertThat(chipInfo.getPositionX()).isEqualTo(0.0);
         assertThat(chipInfo.getPositionY()).isEqualTo(0.0);
         assertThat(chipInfo.getPositionZ()).isEqualTo(0.0);
+
+        List<String> chipIds = mUwbMultichipData.getChipIds();
+        assertThat(chipIds).hasSize(1);
+        assertThat(chipIds.get(0)).isEqualTo("chipIdString");
     }
 
     @Test
     public void testInitializeMultiChipTwoChipConfig() throws Exception {
         when(mMockResources.getBoolean(R.bool.config_isMultichip)).thenReturn(true);
-        when(mMockResources.getString(R.string.config_multichipConfigPath))
-                .thenReturn(createFileFromResource(TWO_CHIP_CONFIG_FILE)
-                        .getCanonicalPath());
+        when(mMockResources.getString(R.string.config_multichipConfigPath)).thenReturn(
+                MultichipConfigFileCreator.createTwoChipFileFromResource(mTempFolder,
+                        getClass()).getCanonicalPath());
 
         mUwbMultichipData.initialize();
 
@@ -180,24 +185,12 @@ public class UwbMultichipDataTest {
         assertThat(chipInfo.getPositionX()).isEqualTo(4.0);
         assertThat(chipInfo.getPositionY()).isEqualTo(5.0);
         assertThat(chipInfo.getPositionZ()).isEqualTo(6.0);
-    }
 
-    private File createFileFromResource(String configFile) throws Exception {
-        InputStream in = getClass().getClassLoader().getResourceAsStream(ASSETS_DIR + configFile);
-        File file = mTempFolder.newFile(configFile);
 
-        BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-        FileOutputStream out = new FileOutputStream(file);
-
-        String line;
-
-        while ((line = reader.readLine()) != null) {
-            out.write(line.getBytes(StandardCharsets.UTF_8));
-        }
-
-        out.flush();
-        out.close();
-        return file;
+        List<String> chipIds = mUwbMultichipData.getChipIds();
+        assertThat(chipIds).hasSize(2);
+        assertThat(chipIds.get(0)).isEqualTo("chipIdString1");
+        assertThat(chipIds.get(1)).isEqualTo("chipIdString2");
     }
 
 }

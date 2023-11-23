@@ -242,14 +242,13 @@ bool BTM_IsBleConnection(uint16_t hci_handle);
 
 const RawAddress acl_address_from_handle(uint16_t hci_handle);
 
-void btm_ble_refresh_local_resolvable_private_addr(
-    const RawAddress& pseudo_addr, const RawAddress& local_rpa);
-
 void btm_cont_rswitch_from_handle(uint16_t hci_handle);
 
 uint8_t acl_link_role_from_handle(uint16_t handle);
 
 void acl_set_disconnect_reason(tHCI_STATUS acl_disc_reason);
+
+void acl_set_locally_initiated(bool is_locally_initiated);
 
 bool acl_is_role_switch_allowed();
 
@@ -262,8 +261,6 @@ tBTM_STATUS btm_read_power_mode_state(const RawAddress& remote_bda,
                                       tBTM_PM_STATE* pmState);
 
 void btm_acl_notif_conn_collision(const RawAddress& bda);
-
-void btm_acl_update_conn_addr(uint16_t conn_handle, const RawAddress& address);
 
 void btm_configure_data_path(uint8_t direction, uint8_t path_id,
                              std::vector<uint8_t> vendor_config);
@@ -292,6 +289,9 @@ bool BTM_ReadPowerMode(const RawAddress& remote_bda, tBTM_PM_MODE* p_mode);
 void btm_acl_created(const RawAddress& bda, uint16_t hci_handle,
                      tHCI_ROLE link_role, tBT_TRANSPORT transport);
 
+void btm_acl_create_failed(const RawAddress& bda, tBT_TRANSPORT transport,
+                           tHCI_STATUS reason);
+
 void btm_acl_removed(uint16_t handle);
 
 void acl_disconnect_from_handle(uint16_t handle, tHCI_STATUS reason,
@@ -300,6 +300,9 @@ void acl_disconnect_after_role_switch(uint16_t conn_handle, tHCI_STATUS reason,
                                       std::string comment);
 
 bool acl_peer_supports_sniff_subrating(const RawAddress& remote_bda);
+bool acl_peer_supports_ble_connection_subrating(const RawAddress& remote_bda);
+bool acl_peer_supports_ble_connection_subrating_host(
+    const RawAddress& remote_bda);
 
 void btm_acl_set_paging(bool value);
 
@@ -309,8 +312,9 @@ uint8_t btm_handle_to_acl_index(uint16_t hci_handle);
 
 tHCI_REASON btm_get_acl_disc_reason_code(void);
 
-extern tBTM_STATUS btm_remove_acl(const RawAddress& bd_addr,
-                                  tBT_TRANSPORT transport);
+bool btm_is_acl_locally_initiated(void);
+
+tBTM_STATUS btm_remove_acl(const RawAddress& bd_addr, tBT_TRANSPORT transport);
 
 void btm_acl_device_down(void);
 void btm_acl_update_inquiry_status(uint8_t status);
@@ -318,3 +322,5 @@ void btm_acl_update_inquiry_status(uint8_t status);
 void ACL_RegisterClient(struct acl_client_callback_s* callbacks);
 void ACL_UnregisterClient(struct acl_client_callback_s* callbacks);
 bool ACL_SupportTransparentSynchronousData(const RawAddress& bd_addr);
+void btm_acl_consolidate(const RawAddress& identity_addr,
+                         const RawAddress& rpa);

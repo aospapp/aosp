@@ -9,7 +9,8 @@ java_library {
     min_sdk_version: "29",
     apex_available: [
         "//apex_available:platform",
-        "com.android.tethering"
+        "com.android.tethering",
+        "com.android.wifi"
     ],
     visibility: [
         "//packages/modules/Connectivity:__subpackages__",
@@ -17,6 +18,7 @@ java_library {
         "//frameworks/base/packages:__subpackages__",
         "//frameworks/libs/net/client-libs/tests:__subpackages__",
         "//frameworks/libs/net/common:__subpackages__",
+        "//packages/modules/Wifi/service:__subpackages__"
     ],
     libs: ["androidx.annotation_annotation"],
     static_libs: [

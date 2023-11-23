@@ -29,11 +29,9 @@ java_test_host {
     libs: [
         "compatibility-host-util",
         "cts-tradefed",
-        "dexlib2-no-guava-no-cli",
         "tradefed",
     ],
     static_libs: [
-        "compat-classpaths-testing",
         "modules-utils-build-testing",
         "hamcrest-library",
     ],

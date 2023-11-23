@@ -31,6 +31,21 @@ cc_defaults {
         "liblog",
         "libutils",
     ],
+    tidy: true,
+    tidy_checks: [
+        "-*",
+        "clang-analyzer-*",
+        "google-*",
+        "cert*",
+        "misc*",
+        "performance*",
+        "-google-readability*",
+        "-misc-const-correctness",
+        "-misc-non-private-member-variables-in-classes",
+    ],
+    tidy_flags: [
+        "-header-filter=hardware/google/pixel/vibrator*",
+    ],
 }
 
 cc_defaults {

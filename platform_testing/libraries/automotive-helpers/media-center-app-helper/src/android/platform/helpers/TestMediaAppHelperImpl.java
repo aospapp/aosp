@@ -17,13 +17,15 @@
 package android.platform.helpers;
 
 import android.app.Instrumentation;
-import android.os.SystemClock;
 import android.platform.helpers.exceptions.UnknownUiException;
-import android.support.test.uiautomator.UiObject2;
+
+import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.UiObject2;
 
 import java.util.List;
 
-public class TestMediaAppHelperImpl extends AbstractAutoStandardAppHelper
+/** Helper class for Test Media app for MediaCenter test */
+public class TestMediaAppHelperImpl extends AbstractStandardAppHelper
         implements IAutoTestMediaAppHelper {
     // Wait Time
     private static final int SHORT_RESPONSE_WAIT_MS = 1000;
@@ -32,56 +34,93 @@ public class TestMediaAppHelperImpl extends AbstractAutoStandardAppHelper
         super(instr);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void exit() {
+        getSpectatioUiUtil().pressHome();
+        getSpectatioUiUtil().wait1Second();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getLauncherName() {
+        throw new UnsupportedOperationException("Operation not supported.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void dismissInitialDialogs() {
+        // Nothing to dismiss
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getPackage() {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void open() {
+        // Nothing to open
+    }
+
     /**
      * {@inheritDoc}
      */
     @Override
     public void loadMediaInLocalMediaTestApp() {
         // Open Account type
-        clickAndWait(
-                AutoConfigConstants.TEST_MEDIA_ACCOUNT_TYPE, "Account Type");
+        clickAndWait(AutomotiveConfigConstants.TEST_MEDIA_ACCOUNT_TYPE, "Account Type");
         // Select Paid Account type
-        clickAndWait(
-                AutoConfigConstants.TEST_MEDIA_ACCOUNT_TYPE_PAID, "Account Type: Paid");
+        clickAndWait(AutomotiveConfigConstants.TEST_MEDIA_ACCOUNT_TYPE_PAID, "Account Type: Paid");
         // open Root node type
-        clickAndWait(
-                AutoConfigConstants.TEST_MEDIA_ROOT_NODE_TYPE, "Root node type");
+        clickAndWait(AutomotiveConfigConstants.TEST_MEDIA_ROOT_NODE_TYPE, "Root node type");
         // select Browsable content
-        clickAndWait(AutoConfigConstants.TEST_MEDIA_ROOT_NODE_TYPE_BROWSABLE,
-                "Browsable Content");
+        clickAndWait(
+                AutomotiveConfigConstants.TEST_MEDIA_ROOT_NODE_TYPE_BROWSABLE, "Browsable Content");
         // close settings
-        clickAndWait(AutoConfigConstants.TEST_MEDIA_APP_CLOSE_SETTING, "Close Settings");
+        clickAndWait(AutomotiveConfigConstants.TEST_MEDIA_APP_CLOSE_SETTING, "Close Settings");
         selectSongInTestMediaApp();
     }
 
     private void selectSongInTestMediaApp() {
-        List<UiObject2> songList = findUiObjects(getResourceFromConfig(
-                AutoConfigConstants.MEDIA_CENTER,
-                AutoConfigConstants.MEDIA_APP,
-                AutoConfigConstants.MEDIA_SONGS_LIST));
-        if (songList.size() == 0) {
-            throw new UnknownUiException("Unable to find Songs in the Test Media App.");
-        }
-        clickAndWaitForIdleScreen(songList.get(1));
-        SystemClock.sleep(SHORT_RESPONSE_WAIT_MS);
+        BySelector songListSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.MEDIA_SONGS_LIST);
+
+        List<UiObject2> songList = getSpectatioUiUtil().findUiObjects(songListSelector);
+        validateUiObject(songList, AutomotiveConfigConstants.MEDIA_SONGS_LIST);
+        getSpectatioUiUtil().clickAndWait(songList.get(1));
+        getSpectatioUiUtil().wait1Second();
+
         // minimize songs
-        UiObject2 goBackToSongsList = findUiObject(getResourceFromConfig(
-                AutoConfigConstants.MEDIA_CENTER,
-                AutoConfigConstants.MEDIA_APP,
-                AutoConfigConstants.MEDIA_APP_NAVIGATION_ICON));
-        clickAndWaitForIdleScreen(goBackToSongsList);
-        SystemClock.sleep(SHORT_RESPONSE_WAIT_MS);
+        BySelector goBackToSongsListSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.MEDIA_APP_NAVIGATION_ICON);
+        UiObject2 goBackToSongsList = getSpectatioUiUtil().findUiObject(goBackToSongsListSelector);
+        validateUiObject(goBackToSongsList, AutomotiveConfigConstants.MEDIA_APP_NAVIGATION_ICON);
+        getSpectatioUiUtil().wait1Second();
     }
 
     private void clickAndWait(String autoConfigConstants, String fieldName) {
-        UiObject2 mediaTestAppField = findUiObject(getResourceFromConfig(
-                AutoConfigConstants.MEDIA_CENTER,
-                AutoConfigConstants.TEST_MEDIA_APP,
-                autoConfigConstants));
-        if (mediaTestAppField == null) {
-            throw new UnknownUiException("Unable to find Test Media App field: " + fieldName);
+        BySelector mediaTestAppFieldSelector = getUiElementFromConfig(autoConfigConstants);
+        UiObject2 mediaTestAppField = getSpectatioUiUtil().findUiObject(mediaTestAppFieldSelector);
+
+        validateUiObject(mediaTestAppField, String.format("Test Media App field: %s " + fieldName));
+        getSpectatioUiUtil().clickAndWait(mediaTestAppField);
+        getSpectatioUiUtil().wait1Second();
+    }
+
+    private void validateUiObject(UiObject2 uiObject, String action) {
+        if (uiObject == null) {
+            throw new UnknownUiException(
+                    String.format("Unable to find UI Element for %s.", action));
         }
-        clickAndWaitForIdleScreen(mediaTestAppField);
-        SystemClock.sleep(SHORT_RESPONSE_WAIT_MS);
+    }
+
+    private void validateUiObject(List<UiObject2> uiObjects, String action) {
+        if (uiObjects == null) {
+            throw new UnknownUiException(
+                    String.format("Unable to find UI Element for %s.", action));
+        }
     }
 }

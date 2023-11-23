@@ -4,13 +4,7 @@ build --enable_platform_specific_config
 build -c opt
 
 # C/C++
-# Only relevant for tests and their dependencies. Everything that external
-# repositories can reference must build without this, e.g., by using a
-# transition.
-build:linux --cxxopt='-std=c++17'
-build:macos --cxxopt='-std=c++17'
-build:windows --cxxopt='/std:c++17'
-build --repo_env=CC=clang
+common --repo_env=CC=clang
 build --incompatible_enable_cc_toolchain_resolution
 # Requires a relatively modern clang.
 build:ci --features=layering_check
@@ -31,16 +25,34 @@ run:windows --noincompatible_strict_action_env
 
 # Toolchain
 # Since the toolchain is conditional on OS and architecture, set it on the particular GitHub Action.
+build:toolchain --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 build:toolchain --//third_party:toolchain
 
+# Forward debug variables to tests
+test --test_env=JAZZER_AUTOFUZZ_DEBUG
+test --test_env=JAZZER_REFLECTION_DEBUG
+
 # CI tests (not using the toolchain to test OSS-Fuzz & local compatibility)
+test:ci --test_env=JAZZER_CI=1
 build:ci --bes_results_url=https://app.buildbuddy.io/invocation/
-build:ci --bes_backend=grpcs://cloud.buildbuddy.io
-build:ci --remote_cache=grpcs://cloud.buildbuddy.io
+build:ci --bes_backend=grpcs://remote.buildbuddy.io
+build:ci --remote_cache=grpcs://remote.buildbuddy.io
 build:ci --remote_timeout=3600
 
 # Maven publishing (local only, requires GPG signature)
 build:maven --config=toolchain
 build:maven --stamp
 build:maven --define "maven_repo=https://oss.sonatype.org/service/local/staging/deploy/maven2"
-build:maven --java_runtime_version=localjdk_8
+build:maven --java_runtime_version=local_jdk_8
+
+# Generic coverage configuration taken from https://github.com/fmeum/rules_jni
+coverage --combined_report=lcov
+coverage --experimental_use_llvm_covmap
+coverage --experimental_generate_llvm_lcov
+coverage --repo_env=CC=clang
+coverage --repo_env=BAZEL_USE_LLVM_NATIVE_COVERAGE=1
+coverage --repo_env=GCOV=llvm-profdata
+
+# Instrument all source files of non-test targets matching at least one of these regexes.
+coverage --instrumentation_filter=^//agent/src/main[:/],^//driver:,^//sanitizers/src/main[:/]
+coverage --test_tag_filters=-no-coverage

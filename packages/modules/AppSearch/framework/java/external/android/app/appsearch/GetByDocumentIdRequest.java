@@ -17,6 +17,7 @@
 package android.app.appsearch;
 
 import android.annotation.NonNull;
+import android.app.appsearch.annotation.CanIgnoreReturnValue;
 import android.util.ArrayMap;
 import android.util.ArraySet;
 
@@ -90,6 +91,27 @@ public final class GetByDocumentIdRequest {
      *
      * <p>If the map is empty, then all properties will be retrieved for all results.
      *
+     * <p>Calling this function repeatedly is inefficient. Prefer to retain the Map returned by this
+     * function, rather than calling it multiple times.
+     */
+    @NonNull
+    public Map<String, List<PropertyPath>> getProjectionPaths() {
+        Map<String, List<PropertyPath>> copy = new ArrayMap<>(mTypePropertyPathsMap.size());
+        for (Map.Entry<String, List<String>> entry : mTypePropertyPathsMap.entrySet()) {
+            List<PropertyPath> propertyPathList = new ArrayList<>(entry.getValue().size());
+            for (String p : entry.getValue()) {
+                propertyPathList.add(new PropertyPath(p));
+            }
+            copy.put(entry.getKey(), propertyPathList);
+        }
+        return copy;
+    }
+
+    /**
+     * Returns a map from schema type to property paths to be used for projection.
+     *
+     * <p>If the map is empty, then all properties will be retrieved for all results.
+     *
      * <p>A more efficient version of {@link #getProjections}, but it returns a modifiable map. This
      * is not meant to be unhidden and should only be used by internal classes.
      *
@@ -113,6 +135,7 @@ public final class GetByDocumentIdRequest {
         }
 
         /** Adds one or more document IDs to the request. */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder addIds(@NonNull String... ids) {
             Objects.requireNonNull(ids);
@@ -121,6 +144,7 @@ public final class GetByDocumentIdRequest {
         }
 
         /** Adds a collection of IDs to the request. */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder addIds(@NonNull Collection<String> ids) {
             Objects.requireNonNull(ids);
@@ -143,8 +167,9 @@ public final class GetByDocumentIdRequest {
          * apply to all results, excepting any types that have their own, specific property paths
          * set.
          *
-         * @see SearchSpec.Builder#addProjection
+         * @see SearchSpec.Builder#addProjectionPaths
          */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder addProjection(
                 @NonNull String schemaType, @NonNull Collection<String> propertyPaths) {
@@ -158,6 +183,35 @@ public final class GetByDocumentIdRequest {
             }
             mProjectionTypePropertyPaths.put(schemaType, propertyPathsList);
             return this;
+        }
+
+        /**
+         * Adds property paths for the specified type to be used for projection. If property paths
+         * are added for a type, then only the properties referred to will be retrieved for results
+         * of that type. If a property path that is specified isn't present in a result, it will be
+         * ignored for that result. Property paths cannot be null.
+         *
+         * <p>If no property paths are added for a particular type, then all properties of results
+         * of that type will be retrieved.
+         *
+         * <p>If property path is added for the {@link
+         * GetByDocumentIdRequest#PROJECTION_SCHEMA_TYPE_WILDCARD}, then those property paths will
+         * apply to all results, excepting any types that have their own, specific property paths
+         * set.
+         *
+         * @see SearchSpec.Builder#addProjectionPaths
+         */
+        @CanIgnoreReturnValue
+        @NonNull
+        public Builder addProjectionPaths(
+                @NonNull String schemaType, @NonNull Collection<PropertyPath> propertyPaths) {
+            Objects.requireNonNull(schemaType);
+            Objects.requireNonNull(propertyPaths);
+            List<String> propertyPathsList = new ArrayList<>(propertyPaths.size());
+            for (PropertyPath propertyPath : propertyPaths) {
+                propertyPathsList.add(propertyPath.toString());
+            }
+            return addProjection(schemaType, propertyPathsList);
         }
 
         /** Builds a new {@link GetByDocumentIdRequest}. */

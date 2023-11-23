@@ -19,6 +19,7 @@ package com.android.server.appsearch.stats;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.appsearch.exceptions.AppSearchException;
+import android.app.appsearch.stats.SchemaMigrationStats;
 import android.content.Context;
 import android.os.Process;
 import android.os.SystemClock;
@@ -37,11 +38,15 @@ import com.android.server.appsearch.external.localstorage.stats.PutDocumentStats
 import com.android.server.appsearch.external.localstorage.stats.RemoveStats;
 import com.android.server.appsearch.external.localstorage.stats.SearchStats;
 import com.android.server.appsearch.external.localstorage.stats.SetSchemaStats;
+import com.android.server.appsearch.util.ApiCallRecord;
 import com.android.server.appsearch.util.PackageUtil;
 
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
@@ -97,6 +102,14 @@ public final class PlatformLogger implements AppSearchLogger {
     private long mLastPushTimeMillisLocked = 0;
 
     /**
+     * Record the last n API calls used by dumpsys to print debugging information about the
+     * sequence of the API calls, where n is specified by
+     * {@link AppSearchConfig#getCachedApiCallStatsLimit()}.
+     */
+    @GuardedBy("mLock")
+    private ArrayDeque<ApiCallRecord> mLastNCalls = new ArrayDeque<>();
+
+    /**
      * Helper class to hold platform specific stats for statsd.
      */
     static final class ExtraStats {
@@ -129,6 +142,11 @@ public final class PlatformLogger implements AppSearchLogger {
     public void logStats(@NonNull CallStats stats) {
         Objects.requireNonNull(stats);
         synchronized (mLock) {
+            if (mConfig.getCachedApiCallStatsLimit() > 0) {
+                addStatsToQueueLocked(new ApiCallRecord(stats));
+            } else {
+                mLastNCalls.clear();
+            }
             if (shouldLogForTypeLocked(stats.getCallType())) {
                 logStatsImplLocked(stats);
             }
@@ -175,6 +193,13 @@ public final class PlatformLogger implements AppSearchLogger {
     public void logStats(@NonNull OptimizeStats stats) {
         Objects.requireNonNull(stats);
         synchronized (mLock) {
+            if (mConfig.getCachedApiCallStatsLimit() > 0) {
+                // Unlike most other API calls, Optimize does not produce a CallStats, so we
+                // record OptimizeStats in the queue.
+                addStatsToQueueLocked(new ApiCallRecord(stats));
+            } else {
+                mLastNCalls.clear();
+            }
             if (shouldLogForTypeLocked(CallStats.CALL_TYPE_OPTIMIZE)) {
                 logStatsImplLocked(stats);
             }
@@ -183,7 +208,22 @@ public final class PlatformLogger implements AppSearchLogger {
 
     @Override
     public void logStats(@NonNull SetSchemaStats stats) {
-        // TODO(b/173532925): Log stats
+        Objects.requireNonNull(stats);
+        synchronized (mLock) {
+            if (shouldLogForTypeLocked(CallStats.CALL_TYPE_SET_SCHEMA)) {
+                logStatsImplLocked(stats);
+            }
+        }
+    }
+
+    @Override
+    public void logStats(@NonNull SchemaMigrationStats stats) {
+        Objects.requireNonNull(stats);
+        synchronized (mLock) {
+            if (shouldLogForTypeLocked(CallStats.CALL_TYPE_SCHEMA_MIGRATION)) {
+                logStatsImplLocked(stats);
+            }
+        }
     }
 
     /**
@@ -198,6 +238,17 @@ public final class PlatformLogger implements AppSearchLogger {
         synchronized (mLock) {
             Integer uid = mPackageUidCacheLocked.remove(packageName);
             return uid != null ? uid : Process.INVALID_UID;
+        }
+    }
+
+    /**
+     * Return a copy of the recorded {@link ApiCallRecord}.
+     */
+    @NonNull
+    public List<ApiCallRecord> getLastCalledApis() {
+        synchronized (mLock) {
+            trimExcessStatsQueueLocked();
+            return new ArrayList<>(mLastNCalls);
         }
     }
 
@@ -231,6 +282,90 @@ public final class PlatformLogger implements AppSearchLogger {
                     stats.getNumOperationsSucceeded(),
                     stats.getNumOperationsFailed(),
                     numReportedCalls);
+        } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
+            // TODO(b/184204720) report hashing error to statsd
+            //  We need to set a special value(e.g. 0xFFFFFFFF) for the hashing of the database,
+            //  so in the dashboard we know there is some error for hashing.
+            //
+            // Something is wrong while calculating the hash code for database
+            // this shouldn't happen since we always use "MD5" and "UTF-8"
+            if (database != null) {
+                Log.e(TAG, "Error calculating hash code for database " + database, e);
+            }
+        }
+    }
+
+    @GuardedBy("mLock")
+    private void logStatsImplLocked(@NonNull SetSchemaStats stats) {
+        mLastPushTimeMillisLocked = SystemClock.elapsedRealtime();
+        ExtraStats extraStats = createExtraStatsLocked(stats.getPackageName(),
+                CallStats.CALL_TYPE_SET_SCHEMA);
+        String database = stats.getDatabase();
+        try {
+            int hashCodeForDatabase = calculateHashCodeMd5(database);
+            // ignore close exception
+            AppSearchStatsLog.write(AppSearchStatsLog.APP_SEARCH_SET_SCHEMA_STATS_REPORTED,
+                    extraStats.mSamplingInterval,
+                    extraStats.mSkippedSampleCount,
+                    extraStats.mPackageUid,
+                    hashCodeForDatabase,
+                    stats.getStatusCode(),
+                    stats.getTotalLatencyMillis(),
+                    stats.getNewTypeCount(),
+                    stats.getDeletedTypeCount(),
+                    stats.getCompatibleTypeChangeCount(),
+                    stats.getIndexIncompatibleTypeChangeCount(),
+                    stats.getBackwardsIncompatibleTypeChangeCount(),
+                    stats.getVerifyIncomingCallLatencyMillis(),
+                    stats.getExecutorAcquisitionLatencyMillis(),
+                    stats.getRebuildFromBundleLatencyMillis(),
+                    stats.getJavaLockAcquisitionLatencyMillis(),
+                    stats.getRewriteSchemaLatencyMillis(),
+                    stats.getTotalNativeLatencyMillis(),
+                    stats.getVisibilitySettingLatencyMillis(),
+                    stats.getDispatchChangeNotificationsLatencyMillis(),
+                    stats.getOptimizeLatencyMillis(),
+                    stats.isPackageObserved(),
+                    stats.getGetOldSchemaLatencyMillis(),
+                    stats.getGetObserverLatencyMillis(),
+                    stats.getPreparingChangeNotificationLatencyMillis(),
+                    stats.getSchemaMigrationCallType());
+        } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
+            // TODO(b/184204720) report hashing error to statsd
+            //  We need to set a special value(e.g. 0xFFFFFFFF) for the hashing of the database,
+            //  so in the dashboard we know there is some error for hashing.
+            //
+            // Something is wrong while calculating the hash code for database
+            // this shouldn't happen since we always use "MD5" and "UTF-8"
+            if (database != null) {
+                Log.e(TAG, "Error calculating hash code for database " + database, e);
+            }
+        }
+    }
+
+    @GuardedBy("mLock")
+    private void logStatsImplLocked(@NonNull SchemaMigrationStats stats) {
+        mLastPushTimeMillisLocked = SystemClock.elapsedRealtime();
+        ExtraStats extraStats = createExtraStatsLocked(stats.getPackageName(),
+                CallStats.CALL_TYPE_SCHEMA_MIGRATION);
+        String database = stats.getDatabase();
+        try {
+            int hashCodeForDatabase = calculateHashCodeMd5(database);
+            // ignore close exception
+            AppSearchStatsLog.write(AppSearchStatsLog.APP_SEARCH_SET_SCHEMA_STATS_REPORTED,
+                    extraStats.mSamplingInterval,
+                    extraStats.mSkippedSampleCount,
+                    extraStats.mPackageUid,
+                    hashCodeForDatabase,
+                    stats.getTotalLatencyMillis(),
+                    stats.getGetSchemaLatencyMillis(),
+                    stats.getQueryAndTransformLatencyMillis(),
+                    stats.getFirstSetSchemaLatencyMillis(),
+                    stats.getSecondSetSchemaLatencyMillis(),
+                    stats.getSaveDocumentLatencyMillis(),
+                    stats.getTotalNeedMigratedDocumentCount(),
+                    stats.getTotalSuccessMigratedDocumentCount(),
+                    stats.getMigrationFailureCount());
         } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
             // TODO(b/184204720) report hashing error to statsd
             //  We need to set a special value(e.g. 0xFFFFFFFF) for the hashing of the database,
@@ -313,7 +448,15 @@ public final class PlatformLogger implements AppSearchLogger {
                     stats.getScoringLatencyMillis(),
                     stats.getRankingLatencyMillis(),
                     stats.getDocumentRetrievingLatencyMillis(),
-                    stats.getResultWithSnippetsCount());
+                    stats.getResultWithSnippetsCount(),
+                    stats.getJavaLockAcquisitionLatencyMillis(),
+                    stats.getAclCheckLatencyMillis(),
+                    stats.getNativeLockAcquisitionLatencyMillis(),
+                    stats.getJavaToNativeJniLatencyMillis(),
+                    stats.getNativeToJavaJniLatencyMillis(),
+                    stats.getJoinType(),
+                    stats.getNumJoinedResultsCurrentPage(),
+                    stats.getJoinLatencyMillis());
         } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
             // TODO(b/184204720) report hashing error to statsd
             //  We need to set a special value(e.g. 0xFFFFFFFF) for the hashing of the database,
@@ -374,6 +517,35 @@ public final class PlatformLogger implements AppSearchLogger {
                 stats.getStorageSizeBeforeBytes(),
                 stats.getStorageSizeAfterBytes(),
                 stats.getTimeSinceLastOptimizeMillis());
+    }
+
+    /**
+     * This method will drop the earliest stats in the queue when the number of calls is at the
+     * capacity specified by {@link AppSearchConfig#getCachedApiCallStatsLimit()}.
+     */
+    @GuardedBy("mLock")
+    private void trimExcessStatsQueueLocked() {
+        final int n = mConfig.getCachedApiCallStatsLimit();
+        if (n <= 0) {
+            mLastNCalls.clear();
+            return;
+        }
+        while (mLastNCalls.size() > n) {
+            mLastNCalls.removeFirst();
+        }
+    }
+
+    /**
+     * Record {@link ApiCallRecord} to {@link #mLastNCalls} for dumpsys.
+     *
+     * <p> This method will automatically drop the earliest stats when the number of calls is at the
+     * capacity specified by {@link AppSearchConfig#getCachedApiCallStatsLimit()}.
+     */
+    @GuardedBy("mLock")
+    @VisibleForTesting
+    void addStatsToQueueLocked(@NonNull ApiCallRecord stats) {
+        mLastNCalls.addLast(stats);
+        trimExcessStatsQueueLocked();
     }
 
     /**
@@ -528,6 +700,21 @@ public final class PlatformLogger implements AppSearchLogger {
             case CallStats.CALL_TYPE_REMOVE_DOCUMENT_BY_ID:
             case CallStats.CALL_TYPE_FLUSH:
             case CallStats.CALL_TYPE_REMOVE_DOCUMENT_BY_SEARCH:
+            case CallStats.CALL_TYPE_GLOBAL_GET_DOCUMENT_BY_ID:
+            case CallStats.CALL_TYPE_GLOBAL_GET_SCHEMA:
+            case CallStats.CALL_TYPE_GET_SCHEMA:
+            case CallStats.CALL_TYPE_GET_NAMESPACES:
+            case CallStats.CALL_TYPE_GET_NEXT_PAGE:
+            case CallStats.CALL_TYPE_INVALIDATE_NEXT_PAGE_TOKEN:
+            case CallStats.CALL_TYPE_WRITE_SEARCH_RESULTS_TO_FILE:
+            case CallStats.CALL_TYPE_PUT_DOCUMENTS_FROM_FILE:
+            case CallStats.CALL_TYPE_SEARCH_SUGGESTION:
+            case CallStats.CALL_TYPE_REPORT_SYSTEM_USAGE:
+            case CallStats.CALL_TYPE_REPORT_USAGE:
+            case CallStats.CALL_TYPE_GET_STORAGE_INFO:
+            case CallStats.CALL_TYPE_REGISTER_OBSERVER_CALLBACK:
+            case CallStats.CALL_TYPE_UNREGISTER_OBSERVER_CALLBACK:
+            case CallStats.CALL_TYPE_GLOBAL_GET_NEXT_PAGE:
                 // TODO(b/173532925) Some of them above will have dedicated sampling ratio config
             default:
                 return mConfig.getCachedSamplingIntervalDefault();

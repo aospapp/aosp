@@ -29,6 +29,7 @@ android_library {
         "androidx.cardview_cardview",
         "androidx-constraintlayout_constraintlayout",
         "androidx.exifinterface_exifinterface",
+	"androidx.lifecycle_lifecycle-livedata-ktx",
         "androidx.lifecycle_lifecycle-runtime-ktx",
         "androidx.recyclerview_recyclerview",
         "androidx.slice_slice-view",
@@ -43,6 +44,7 @@ android_library {
         "SettingsLibCollapsingToolbarBaseActivity",
         "subsampling-scale-image-view",
         "SystemUISharedLib",
+        "SystemUICustomizationLib",
         "volley",
         "SettingsLibActivityEmbedding",
     ],
@@ -61,7 +63,7 @@ android_library {
 
     visibility: [
         ":__subpackages__",
-        "//packages/apps/ThemePicker",
+        "//packages/apps/ThemePicker:__subpackages__",
         "//vendor:__subpackages__",
     ],
 }
@@ -71,6 +73,16 @@ filegroup {
     srcs: [
         "src/**/*.java",
         "src/**/*.kt",
+    ],
+}
+
+// If these targets are included in WallpaperPicker2_defaults directly instead of in a filegroup,
+// the tests can't find them.
+filegroup {
+    name: "WallpaperPicker2_src_overrides",
+    srcs: [
+        "src_override/**/*.java",
+        "src_override/**/*.kt",
     ],
 }
 
@@ -97,18 +109,13 @@ java_defaults {
     name: "WallpaperPicker2_defaults",
 
     static_libs: [
-        "renderscript_toolkit",
         "wallpaper-common-deps",
-    ],
-
-    jni_libs: [
-        "librenderscript-toolkit",
+        "monet",
     ],
 
     srcs: [
         ":WallpaperPicker2_srcs",
-        "src_override/**/*.java",
-        "src_override/**/*.kt",
+        ":WallpaperPicker2_src_overrides",
     ],
     resource_zips: [":WallpaperPicker2_res"],
 
@@ -123,8 +130,6 @@ java_defaults {
     system_ext_specific: true,
 
     use_embedded_native_libs: true,
-
-    manifest: "AndroidManifest.xml",
 }
 
 //
@@ -134,6 +139,7 @@ android_app {
     name: "WallpaperPicker2",
 
     defaults: ["WallpaperPicker2_defaults"],
+    manifest: ":WallpaperPicker2_Manifest",
 
     platform_apis: true,
 }

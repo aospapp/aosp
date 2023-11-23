@@ -30,15 +30,100 @@ vn_replace_VkDescriptorPoolSize_handle(VkDescriptorPoolSize *val)
     /* skip val->descriptorCount */
 }
 
-/* struct VkDescriptorPoolCreateInfo chain */
+/* struct VkDescriptorPoolInlineUniformBlockCreateInfo chain */
 
 static inline void *
-vn_decode_VkDescriptorPoolCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
+vn_decode_VkDescriptorPoolInlineUniformBlockCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
 {
     /* no known/supported struct */
     if (vn_decode_simple_pointer(dec))
         vn_cs_decoder_set_fatal(dec);
     return NULL;
+}
+
+static inline void
+vn_decode_VkDescriptorPoolInlineUniformBlockCreateInfo_self_temp(struct vn_cs_decoder *dec, VkDescriptorPoolInlineUniformBlockCreateInfo *val)
+{
+    /* skip val->{sType,pNext} */
+    vn_decode_uint32_t(dec, &val->maxInlineUniformBlockBindings);
+}
+
+static inline void
+vn_decode_VkDescriptorPoolInlineUniformBlockCreateInfo_temp(struct vn_cs_decoder *dec, VkDescriptorPoolInlineUniformBlockCreateInfo *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_INLINE_UNIFORM_BLOCK_CREATE_INFO)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkDescriptorPoolInlineUniformBlockCreateInfo_pnext_temp(dec);
+    vn_decode_VkDescriptorPoolInlineUniformBlockCreateInfo_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkDescriptorPoolInlineUniformBlockCreateInfo_handle_self(VkDescriptorPoolInlineUniformBlockCreateInfo *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    /* skip val->maxInlineUniformBlockBindings */
+}
+
+static inline void
+vn_replace_VkDescriptorPoolInlineUniformBlockCreateInfo_handle(VkDescriptorPoolInlineUniformBlockCreateInfo *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_INLINE_UNIFORM_BLOCK_CREATE_INFO:
+            vn_replace_VkDescriptorPoolInlineUniformBlockCreateInfo_handle_self((VkDescriptorPoolInlineUniformBlockCreateInfo *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
+}
+
+/* struct VkDescriptorPoolCreateInfo chain */
+
+static inline void *
+vn_decode_VkDescriptorPoolCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
+{
+    VkBaseOutStructure *pnext;
+    VkStructureType stype;
+
+    if (!vn_decode_simple_pointer(dec))
+        return NULL;
+
+    vn_decode_VkStructureType(dec, &stype);
+    switch ((int32_t)stype) {
+    case VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_INLINE_UNIFORM_BLOCK_CREATE_INFO:
+        pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkDescriptorPoolInlineUniformBlockCreateInfo));
+        if (pnext) {
+            pnext->sType = stype;
+            pnext->pNext = vn_decode_VkDescriptorPoolCreateInfo_pnext_temp(dec);
+            vn_decode_VkDescriptorPoolInlineUniformBlockCreateInfo_self_temp(dec, (VkDescriptorPoolInlineUniformBlockCreateInfo *)pnext);
+        }
+        break;
+    case VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_EXT:
+        pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkMutableDescriptorTypeCreateInfoEXT));
+        if (pnext) {
+            pnext->sType = stype;
+            pnext->pNext = vn_decode_VkDescriptorPoolCreateInfo_pnext_temp(dec);
+            vn_decode_VkMutableDescriptorTypeCreateInfoEXT_self_temp(dec, (VkMutableDescriptorTypeCreateInfoEXT *)pnext);
+        }
+        break;
+    default:
+        /* unexpected struct */
+        pnext = NULL;
+        vn_cs_decoder_set_fatal(dec);
+        break;
+    }
+
+    return pnext;
 }
 
 static inline void
@@ -96,6 +181,12 @@ vn_replace_VkDescriptorPoolCreateInfo_handle(VkDescriptorPoolCreateInfo *val)
         switch ((int32_t)pnext->sType) {
         case VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO:
             vn_replace_VkDescriptorPoolCreateInfo_handle_self((VkDescriptorPoolCreateInfo *)pnext);
+            break;
+        case VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_INLINE_UNIFORM_BLOCK_CREATE_INFO:
+            vn_replace_VkDescriptorPoolInlineUniformBlockCreateInfo_handle_self((VkDescriptorPoolInlineUniformBlockCreateInfo *)pnext);
+            break;
+        case VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_EXT:
+            vn_replace_VkMutableDescriptorTypeCreateInfoEXT_handle_self((VkMutableDescriptorTypeCreateInfoEXT *)pnext);
             break;
         default:
             /* ignore unknown/unsupported struct */

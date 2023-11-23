@@ -80,7 +80,10 @@ class JetstreamHost(cros_host.CrosHost):
         self.wait_up(timeout=RESET_TIMEOUT_SECONDS)
 
         # Stop service ap-update-manager to prevent rebooting during autoupdate.
-        self.run('sudo stop ap-update-manager', ignore_status=False)
+        # Jetstream has migrated job control from upstart to process manager,
+        # issue commands on both paths for backward compatibility.
+        self.run('sudo stop ap-update-manager', ignore_status=True)
+        self.run('sudo ap-pm-cli stop ap-update-manager', ignore_status=True)
 
     def prepare_for_update(self):
         """Prepare the host for an update."""

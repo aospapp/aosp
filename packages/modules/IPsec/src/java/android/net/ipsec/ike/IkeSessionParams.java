@@ -103,7 +103,11 @@ public final class IkeSessionParams {
         IKE_OPTION_EAP_ONLY_AUTH,
         IKE_OPTION_MOBIKE,
         IKE_OPTION_FORCE_PORT_4500,
-        IKE_OPTION_INITIAL_CONTACT
+        IKE_OPTION_INITIAL_CONTACT,
+        IKE_OPTION_REKEY_MOBILITY,
+        IKE_OPTION_AUTOMATIC_ADDRESS_FAMILY_SELECTION,
+        IKE_OPTION_AUTOMATIC_NATT_KEEPALIVES,
+        IKE_OPTION_AUTOMATIC_KEEPALIVE_ON_OFF
     })
     public @interface IkeOption {}
 
@@ -212,8 +216,137 @@ public final class IkeSessionParams {
      */
     @SystemApi public static final int IKE_OPTION_REKEY_MOBILITY = 5;
 
+    /**
+     * If set, IKE Session will automatically select address families.
+     *
+     * <p>IP address families often have different performance characteristics on any given network.
+     * For example, IPv6 ESP may not be hardware-accelerated by middleboxes, or completely
+     * black-holed. This option allows the IKE session to automatically select based on the IP
+     * address family it perceives as the most likely to work well.
+     *
+     * @hide
+     */
+    public static final int IKE_OPTION_AUTOMATIC_ADDRESS_FAMILY_SELECTION = 6;
+
+    /**
+     * If set, the IKE session will select the NATT keepalive timers automatically.
+     *
+     * <p>NATT keepalive timers will be selected and adjusted based on the underlying network
+     * configurations, and updated as underlying network configurations change.
+     *
+     * @hide
+     */
+    public static final int IKE_OPTION_AUTOMATIC_NATT_KEEPALIVES = 7;
+
+    /**
+     * If set, the IKE session will start the NATT keepalive with a power optimization flag.
+     *
+     * <p>IKE session will start the keepalive with {@link SocketKeepalive#FLAG_AUTOMATIC_ON_OFF}.
+     * The system will automatically disable keepalives when no TCP connections are open on the
+     * network that is associated with the IKE session.
+     *
+     * <p>For callers relying on long-lived UDP port mappings through the IPsec layer, this flag
+     * should never be used since the keepalive may be stopped unexpectedly.
+     *
+     * <p>This option applies to only hardware keepalive. When keepalive switches to software
+     * keepalive because of errors on hardware keepalive, this option may be ignored.
+     *
+     * @hide
+     */
+    // TODO(b/269200616): Move software keepalive mechanism to other place with the required
+    //  permission to get TCP socket status via netlink commands to also get benefit from this
+    //  option.
+    @SystemApi
+    public static final int IKE_OPTION_AUTOMATIC_KEEPALIVE_ON_OFF = 8;
+
     private static final int MIN_IKE_OPTION = IKE_OPTION_ACCEPT_ANY_REMOTE_ID;
-    private static final int MAX_IKE_OPTION = IKE_OPTION_REKEY_MOBILITY;
+    private static final int MAX_IKE_OPTION = IKE_OPTION_AUTOMATIC_KEEPALIVE_ON_OFF;
+
+    /**
+     * Automatically choose the IP version for ESP packets.
+     * @hide
+     */
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+    public static final int ESP_IP_VERSION_AUTO = 0;
+
+    /**
+     * Use IPv4 for ESP packets.
+     * @hide
+     */
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+    public static final int ESP_IP_VERSION_IPV4 = 4;
+
+    /**
+     * Use IPv6 for ESP packets.
+     * @hide
+     */
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+    public static final int ESP_IP_VERSION_IPV6 = 6;
+
+    // IP version to store in mEspIpVersion.
+    /** @hide */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({
+            ESP_IP_VERSION_AUTO,
+            ESP_IP_VERSION_IPV4,
+            ESP_IP_VERSION_IPV6,
+    })
+    public @interface EspIpVersion {}
+
+    /**
+     * Automatically choose the encapsulation type for ESP packets.
+     * @hide
+     */
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+    public static final int ESP_ENCAP_TYPE_AUTO = 0;
+
+    /**
+     * Do not encapsulate ESP packets in transport layer protocol.
+     *
+     * Under this encapsulation type, the IKE Session will send NAT detection only when it is
+     * performing mobility update from an environment with a NAT, as an attempt to stop using
+     * UDP encapsulation for the ESP packets. If IKE Session still detects a NAT in this case,
+     * the IKE Session will be terminated.
+     *
+     * @hide
+     */
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+    public static final int ESP_ENCAP_TYPE_NONE = -1;
+
+    /**
+     * Encapsulate ESP packets in UDP.
+     *
+     * Under this encapsulation type, the IKE Session will send NAT detection and fake a local
+     * NAT. In this case the IKE Session will always encapsulate ESP packets in UDP as long as
+     * the server also supports NAT traversal.
+     *
+     * @hide
+     */
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+    public static final int ESP_ENCAP_TYPE_UDP = 17;
+
+    // Encap type to store in mEspEncapType.
+    /** @hide */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({
+            ESP_ENCAP_TYPE_AUTO,
+            ESP_ENCAP_TYPE_NONE,
+            ESP_ENCAP_TYPE_UDP,
+    })
+    public @interface EspEncapType {}
+
+    /**
+     * Automatically choose the keepalive interval.
+     *
+     * This constant can be passed to
+     * {@link com.android.internal.net.ipsec.ike.IkeSessionStateMachine#setNetwork} to signify
+     * that the keepalive delay should be deduced automatically from the underlying network.
+     *
+     * @see #getNattKeepAliveDelaySeconds
+     * @hide
+     */
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+    public static final int NATT_KEEPALIVE_INTERVAL_AUTO = -1;
 
     /** @hide */
     @VisibleForTesting static final int IKE_HARD_LIFETIME_SEC_MINIMUM = 300; // 5 minutes
@@ -237,11 +370,13 @@ public final class IkeSessionParams {
     @VisibleForTesting static final int IKE_DPD_DELAY_SEC_MAX = 1800; // 30 minutes
     /** @hide */
     @VisibleForTesting static final int IKE_DPD_DELAY_SEC_DEFAULT = 120; // 2 minutes
+    /** @hide */
+    public static final int IKE_DPD_DELAY_SEC_DISABLED = Integer.MAX_VALUE;
 
     /** @hide */
-    @VisibleForTesting static final int IKE_NATT_KEEPALIVE_DELAY_SEC_MIN = 10;
+    @VisibleForTesting public static final int IKE_NATT_KEEPALIVE_DELAY_SEC_MIN = 10;
     /** @hide */
-    @VisibleForTesting static final int IKE_NATT_KEEPALIVE_DELAY_SEC_MAX = 3600;
+    @VisibleForTesting public static final int IKE_NATT_KEEPALIVE_DELAY_SEC_MAX = 3600;
     /** @hide */
     @VisibleForTesting static final int IKE_NATT_KEEPALIVE_DELAY_SEC_DEFAULT = 10;
 
@@ -279,6 +414,8 @@ public final class IkeSessionParams {
     private static final String NATT_KEEPALIVE_DELAY_SEC_KEY = "mNattKeepaliveDelaySec";
     private static final String DSCP_KEY = "mDscp";
     private static final String IS_IKE_FRAGMENT_SUPPORTED_KEY = "mIsIkeFragmentationSupported";
+    private static final String IP_VERSION_KEY = "mIpVersion";
+    private static final String ENCAP_TYPE_KEY = "mEncapType";
 
     @NonNull private final String mServerHostname;
 
@@ -315,6 +452,8 @@ public final class IkeSessionParams {
     private final int mDpdDelaySec;
     private final int mNattKeepaliveDelaySec;
     private final int mDscp;
+    @EspIpVersion private final int mIpVersion;
+    @EspEncapType private final int mEncapType;
 
     private final boolean mIsIkeFragmentationSupported;
 
@@ -336,6 +475,8 @@ public final class IkeSessionParams {
             int dpdDelaySec,
             int nattKeepaliveDelaySec,
             int dscp,
+            @EspIpVersion int espIpVersion,
+            @EspEncapType int espEncapType,
             boolean isIkeFragmentationSupported) {
         mServerHostname = serverHostname;
         mDefaultOrConfiguredNetwork = defaultOrConfiguredNetwork;
@@ -363,6 +504,9 @@ public final class IkeSessionParams {
         mDpdDelaySec = dpdDelaySec;
         mNattKeepaliveDelaySec = nattKeepaliveDelaySec;
         mDscp = dscp;
+
+        mIpVersion = espIpVersion;
+        mEncapType = espEncapType;
 
         mIsIkeFragmentationSupported = isIkeFragmentationSupported;
     }
@@ -433,6 +577,9 @@ public final class IkeSessionParams {
         builder.setDpdDelaySeconds(in.getInt(DPD_DELAY_SEC_KEY));
         builder.setNattKeepAliveDelaySeconds(in.getInt(NATT_KEEPALIVE_DELAY_SEC_KEY));
 
+        builder.setIpVersion(in.getInt(IP_VERSION_KEY));
+        builder.setEncapType(in.getInt(ENCAP_TYPE_KEY));
+
         // Fragmentation policy is not configurable. IkeSessionParams will always be constructed to
         // support fragmentation.
         if (!in.getBoolean(IS_IKE_FRAGMENT_SUPPORTED_KEY)) {
@@ -480,6 +627,8 @@ public final class IkeSessionParams {
         result.putInt(NATT_KEEPALIVE_DELAY_SEC_KEY, mNattKeepaliveDelaySec);
         result.putInt(DSCP_KEY, mDscp);
         result.putBoolean(IS_IKE_FRAGMENT_SUPPORTED_KEY, mIsIkeFragmentationSupported);
+        result.putInt(IP_VERSION_KEY, mIpVersion);
+        result.putInt(ENCAP_TYPE_KEY, mEncapType);
 
         return result;
     }
@@ -620,6 +769,24 @@ public final class IkeSessionParams {
     }
 
     /**
+     * Retrieves the IP version.
+     * @hide
+     */
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+    @EspIpVersion public int getIpVersion() {
+        return mIpVersion;
+    }
+
+    /**
+     * Retrieves the encap type.
+     * @hide
+     */
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+    @EspEncapType public int getEncapType() {
+        return mEncapType;
+    }
+
+    /**
      * Retrieves the relative retransmission timeout list in milliseconds
      *
      * <p>@see {@link Builder#setRetransmissionTimeoutsMillis(int[])}
@@ -645,7 +812,12 @@ public final class IkeSessionParams {
         return (ikeOptionsRecord & getOptionBitValue(ikeOption)) != 0;
     }
 
-    /** Checks if the given IKE Session negotiation option is set */
+    /**
+     * Checks if the given IKE Session negotiation option is set
+     *
+     * @param ikeOption the option to check.
+     * @throws IllegalArgumentException if the provided option is invalid.
+     */
     public boolean hasIkeOption(@IkeOption int ikeOption) {
         return hasIkeOption(mIkeOptions, ikeOption);
     }
@@ -701,7 +873,9 @@ public final class IkeSessionParams {
                 mDpdDelaySec,
                 mNattKeepaliveDelaySec,
                 mDscp,
-                mIsIkeFragmentationSupported);
+                mIsIkeFragmentationSupported,
+                mIpVersion,
+                mEncapType);
     }
 
     /** @hide */
@@ -729,7 +903,9 @@ public final class IkeSessionParams {
                 && mDpdDelaySec == other.mDpdDelaySec
                 && mNattKeepaliveDelaySec == other.mNattKeepaliveDelaySec
                 && mDscp == other.mDscp
-                && mIsIkeFragmentationSupported == other.mIsIkeFragmentationSupported;
+                && mIsIkeFragmentationSupported == other.mIsIkeFragmentationSupported
+                && mIpVersion == other.mIpVersion
+                && mEncapType == other.mEncapType;
     }
 
     /**
@@ -1271,8 +1447,10 @@ public final class IkeSessionParams {
         private int mDpdDelaySec = IKE_DPD_DELAY_SEC_DEFAULT;
         private int mNattKeepaliveDelaySec = IKE_NATT_KEEPALIVE_DELAY_SEC_DEFAULT;
         private int mDscp = DSCP_DEFAULT;
-
         private final boolean mIsIkeFragmentationSupported = true;
+
+        @EspIpVersion private int mIpVersion = ESP_IP_VERSION_AUTO;
+        @EspEncapType private int mEncapType = ESP_ENCAP_TYPE_AUTO;
 
         /**
          * Construct Builder
@@ -1338,6 +1516,8 @@ public final class IkeSessionParams {
             mDpdDelaySec = ikeSessionParams.getDpdDelaySeconds();
             mNattKeepaliveDelaySec = ikeSessionParams.getNattKeepAliveDelaySeconds();
             mDscp = ikeSessionParams.getDscp();
+            mIpVersion = ikeSessionParams.getIpVersion();
+            mEncapType = ikeSessionParams.getEncapType();
 
             mIkeOptions = ikeSessionParams.mIkeOptions;
 
@@ -1720,15 +1900,16 @@ public final class IkeSessionParams {
          *
          * @param dpdDelaySeconds number of seconds after which IKE SA will initiate DPD if no
          *     inbound cryptographically protected IKE message was received. Defaults to 120
-         *     seconds. MUST be a value from 20 seconds to 1800 seconds, inclusive.
+         *     seconds. MUST be a value greater than or equal to than 20 seconds. Setting the value
+         *     to {@link java.lang.Integer#MAX_VALUE} will disable DPD.
          * @return Builder this, to facilitate chaining.
          */
+        // TODO: b/240206579 Align the @IntRange with the implementation.
         @NonNull
         public Builder setDpdDelaySeconds(
                 @IntRange(from = IKE_DPD_DELAY_SEC_MIN, to = IKE_DPD_DELAY_SEC_MAX)
                         int dpdDelaySeconds) {
-            if (dpdDelaySeconds < IKE_DPD_DELAY_SEC_MIN
-                    || dpdDelaySeconds > IKE_DPD_DELAY_SEC_MAX) {
+            if (dpdDelaySeconds < IKE_DPD_DELAY_SEC_MIN) {
                 throw new IllegalArgumentException("Invalid DPD delay value");
             }
             mDpdDelaySec = dpdDelaySeconds;
@@ -1783,6 +1964,44 @@ public final class IkeSessionParams {
                 throw new IllegalArgumentException("Invalid DSCP value");
             }
             mDscp = dscp;
+            return this;
+        }
+
+        /**
+         * Sets the IP version to use for ESP packets.
+         *
+         * @param ipVersion the IP version to use.
+         * @return the {@code Builder} to facilitate chaining.
+         * @hide
+         */
+        @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+        @NonNull
+        public Builder setIpVersion(@EspIpVersion int ipVersion) {
+            if (ESP_IP_VERSION_AUTO != ipVersion
+                    && ESP_IP_VERSION_IPV4 != ipVersion
+                    && ESP_IP_VERSION_IPV6 != ipVersion) {
+                throw new IllegalArgumentException("Invalid IP version : " + ipVersion);
+            }
+            mIpVersion = ipVersion;
+            return this;
+        }
+
+        /**
+         * Sets the encapsulation type to use for ESP packets.
+         *
+         * @param encapType the IP version to use.
+         * @return the {@code Builder} to facilitate chaining.
+         * @hide
+         */
+        @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+        @NonNull
+        public Builder setEncapType(@EspEncapType int encapType) {
+            if (ESP_ENCAP_TYPE_AUTO != encapType
+                    && ESP_ENCAP_TYPE_NONE != encapType
+                    && ESP_ENCAP_TYPE_UDP != encapType) {
+                throw new IllegalArgumentException("Invalid encap type : " + encapType);
+            }
+            mEncapType = encapType;
             return this;
         }
 
@@ -1847,6 +2066,7 @@ public final class IkeSessionParams {
          *
          * @param ikeOption the option to be enabled.
          * @return Builder this, to facilitate chaining.
+         * @throws IllegalArgumentException if the provided option is invalid.
          */
         // Use #hasIkeOption instead of @getIkeOptions because #hasIkeOption allows callers to check
         // the presence of one IKE option more easily
@@ -1879,6 +2099,7 @@ public final class IkeSessionParams {
          *
          * @param ikeOption the option to be disabled.
          * @return Builder this, to facilitate chaining.
+         * @throws IllegalArgumentException if the provided option is invalid.
          */
         // Use #removeIkeOption instead of #clearIkeOption because "clear" sounds indicating
         // clearing all enabled IKE options
@@ -1955,6 +2176,12 @@ public final class IkeSessionParams {
                                 + " method is digital-signature-based");
             }
 
+            if ((mIpVersion == ESP_IP_VERSION_IPV4 && mEncapType == ESP_ENCAP_TYPE_NONE)
+                    || (mIpVersion == ESP_IP_VERSION_IPV6 && mEncapType == ESP_ENCAP_TYPE_UDP)) {
+                throw new UnsupportedOperationException("Sending packets with IPv4 ESP or IPv6 UDP"
+                        + " are not supported");
+            }
+
             return new IkeSessionParams(
                     mServerHostname,
                     defaultOrConfiguredNetwork,
@@ -1973,6 +2200,8 @@ public final class IkeSessionParams {
                     mDpdDelaySec,
                     mNattKeepaliveDelaySec,
                     mDscp,
+                    mIpVersion,
+                    mEncapType,
                     mIsIkeFragmentationSupported);
         }
 

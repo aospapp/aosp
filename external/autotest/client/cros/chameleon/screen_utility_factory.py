@@ -57,7 +57,7 @@ class ScreenUtilityFactory(object):
 
 
     def create_cros_screen_capturer(self, internal_screen=False):
-        """Creates an Chrome OS screen capturer.
+        """Creates an ChromeOS screen capturer.
 
         @param internal_screen: True to compare the internal screen on CrOS.
         """

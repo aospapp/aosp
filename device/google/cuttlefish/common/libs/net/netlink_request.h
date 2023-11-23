@@ -16,12 +16,15 @@
 #ifndef COMMON_LIBS_NET_NETLINK_REQUEST_H_
 #define COMMON_LIBS_NET_NETLINK_REQUEST_H_
 
-#include <linux/netlink.h>
 #include <stddef.h>
 
+#include <linux/netlink.h>
+
 #include <array>
-#include <memory>
+#include <cstdint>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace cuttlefish {
@@ -62,7 +65,7 @@ class NetlinkRequest {
   void AddMacAddress(const std::array<unsigned char, 6>& address);
 
   // Creates new list.
-  // List mimmic recursive structures in a flat, contiuous representation.
+  // List mimmic recursive structures in a flat, continuous representation.
   // Each call to PushList() should have a corresponding call to PopList
   // indicating end of sub-attribute list.
   void PushList(uint16_t type);

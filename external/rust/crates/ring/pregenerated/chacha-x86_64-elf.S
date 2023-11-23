@@ -8,10 +8,11 @@
 #endif
 
 #if defined(__x86_64__) && !defined(OPENSSL_NO_ASM)
+#include "ring_core_generated/prefix_symbols_asm.h"
 .text	
 
-.extern	GFp_ia32cap_P
-.hidden GFp_ia32cap_P
+.extern	OPENSSL_ia32cap_P
+.hidden OPENSSL_ia32cap_P
 
 .align	64
 .Lzero:
@@ -42,15 +43,15 @@
 .Lsixteen:
 .long	16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16
 .byte	67,104,97,67,104,97,50,48,32,102,111,114,32,120,56,54,95,54,52,44,32,67,82,89,80,84,79,71,65,77,83,32,98,121,32,60,97,112,112,114,111,64,111,112,101,110,115,115,108,46,111,114,103,62,0
-.globl	GFp_ChaCha20_ctr32
-.hidden GFp_ChaCha20_ctr32
-.type	GFp_ChaCha20_ctr32,@function
+.globl	ChaCha20_ctr32
+.hidden ChaCha20_ctr32
+.type	ChaCha20_ctr32,@function
 .align	64
-GFp_ChaCha20_ctr32:
+ChaCha20_ctr32:
 .cfi_startproc	
 	cmpq	$0,%rdx
 	je	.Lno_data
-	movq	GFp_ia32cap_P+4(%rip),%r10
+	movq	OPENSSL_ia32cap_P+4(%rip),%r10
 	testl	$512,%r10d
 	jnz	.LChaCha20_ssse3
 
@@ -330,7 +331,7 @@ GFp_ChaCha20_ctr32:
 .Lno_data:
 	.byte	0xf3,0xc3
 .cfi_endproc	
-.size	GFp_ChaCha20_ctr32,.-GFp_ChaCha20_ctr32
+.size	ChaCha20_ctr32,.-ChaCha20_ctr32
 .type	ChaCha20_ssse3,@function
 .align	32
 ChaCha20_ssse3:

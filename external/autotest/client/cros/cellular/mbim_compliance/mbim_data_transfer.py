@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,15 +7,22 @@ MBIM Data transfer module is responsible for generating valid MBIM NTB frames
 from  IP packets and for extracting IP packets from received MBIM NTB frames.
 
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import array
 import struct
 from collections import namedtuple
 
-from autotest_lib.client.cros.cellular.mbim_compliance import mbim_constants
-from autotest_lib.client.cros.cellular.mbim_compliance \
-        import mbim_data_channel
-from autotest_lib.client.cros.cellular.mbim_compliance import mbim_errors
+import six
 
+from six.moves import range
+from six.moves import zip
+
+from autotest_lib.client.cros.cellular.mbim_compliance import mbim_constants
+from autotest_lib.client.cros.cellular.mbim_compliance import mbim_data_channel
+from autotest_lib.client.cros.cellular.mbim_compliance import mbim_errors
 
 NTH_SIGNATURE_32 = 0x686D636E  # "ncmh"
 NDP_SIGNATURE_IPS_32 = 0x00737069  # "ips0"
@@ -190,9 +198,10 @@ class MBIMNtb(object):
         @returns offset to place the next payload at.
 
         """
-        next_payload_offset = (
-                (((current_offset + (ntb_divisor - 1)) / ntb_divisor) *
-                 ntb_divisor) + ntb_payload_remainder)
+        next_payload_offset = (((
+                (current_offset +
+                 (ntb_divisor - 1)) // ntb_divisor) * ntb_divisor) +
+                               ntb_payload_remainder)
         return next_payload_offset
 
 
@@ -324,8 +333,8 @@ class MBIMNtb(object):
         # Read the NDP header to find the number of packets in the entry
         self.ndp = self._ndp_class(raw_data=raw_ntb_frame[ndp_offset:])
         num_ndp_entries = (
-               (self.ndp.length - self._ndp_class.get_struct_len()) /
-               self._ndp_entry_class.get_struct_len())
+                (self.ndp.length - self._ndp_class.get_struct_len()) //
+                self._ndp_entry_class.get_struct_len())
         ndp_entries_offset = ndp_offset + self._ndp_class.get_struct_len()
         self.payload = []
         self.ndp_entries = []
@@ -383,7 +392,7 @@ def header_class_new(cls, **kwargs):
             mbim_errors.log_and_raise(
                     mbim_errors.MBIMComplianceDataTransferError,
                     'Unexpected fields (%s) in %s' % (
-                            kwargs.keys(), cls.__name__))
+                            list(kwargs.keys()), cls.__name__))
     obj = super(cls, cls).__new__(cls, *field_values)
     return obj
 
@@ -407,7 +416,7 @@ class MBIMNtbHeadersMeta(type):
             mbim_errors.log_and_raise(
                     mbim_errors.MBIMComplianceDataTransfer,
                     '%s header must have some fields defined' % name)
-        _, field_names = zip(*fields)
+        _, field_names = list(zip(*fields))
         attrs['__new__'] = header_class_new
         header_class = namedtuple(name, field_names)
         # Prepend the class created via namedtuple to |bases| in order to
@@ -418,7 +427,7 @@ class MBIMNtbHeadersMeta(type):
         return cls
 
 
-class MBIMNtbHeaders(object):
+class MBIMNtbHeaders(six.with_metaclass(MBIMNtbHeadersMeta, object)):
     """
     Base class for all NTB headers.
 
@@ -430,7 +439,6 @@ class MBIMNtbHeaders(object):
         For ex: reserved fields
 
     """
-    __metaclass__ = MBIMNtbHeadersMeta
 
     @classmethod
     def get_fields(cls):
@@ -451,7 +459,7 @@ class MBIMNtbHeaders(object):
         @returns The field names of the header structure.
 
         """
-        _, field_names = zip(*cls.get_fields())
+        _, field_names = list(zip(*cls.get_fields()))
         return field_names
 
 
@@ -463,7 +471,7 @@ class MBIMNtbHeaders(object):
         @returns The format of fields of the header structure.
 
         """
-        field_formats, _ = zip(*cls.get_fields())
+        field_formats, _ = list(zip(*cls.get_fields()))
         return field_formats
 
 
@@ -548,4 +556,3 @@ class NdpEntry32(MBIMNtbHeaders):
     """ The class for MBIM NTH32 objects. """
     _FIELDS = (('I', 'datagram_index'),
                ('I', 'datagram_length'))
-

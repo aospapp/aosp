@@ -15,10 +15,10 @@
 
 #include <array>
 #include <cstddef>
-#include <span>
 
 #include "pw_bytes/span.h"
 #include "pw_result/result.h"
+#include "pw_span/span.h"
 #include "pw_stream/seek.h"
 #include "pw_stream/stream.h"
 
@@ -62,8 +62,8 @@ class MemoryWriter : public SeekableWriter {
 
   size_t capacity() const { return dest_.size(); }
 
-  const std::byte* begin() const { return dest_.begin(); }
-  const std::byte* end() const { return dest_.begin() + position_; }
+  const std::byte* begin() const { return dest_.data(); }
+  const std::byte* end() const { return dest_.data() + position_; }
 
  private:
   size_t ConservativeLimit(LimitType type) const override {
@@ -80,7 +80,7 @@ class MemoryWriter : public SeekableWriter {
     return CalculateSeek(offset, origin, dest_.size(), position_);
   }
 
-  size_t DoTell() const final { return position_; }
+  size_t DoTell() final { return position_; }
 
   ByteSpan dest_;
   size_t position_ = 0;
@@ -113,7 +113,7 @@ class MemoryReader final : public SeekableReader {
     return CalculateSeek(offset, origin, source_.size(), position_);
   }
 
-  size_t DoTell() const override { return position_; }
+  size_t DoTell() override { return position_; }
 
   // Implementation for reading data from this stream.
   //

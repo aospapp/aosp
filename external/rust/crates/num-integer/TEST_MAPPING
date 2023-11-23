@@ -6,21 +6,18 @@
     },
     {
       "path": "external/rust/crates/oid-registry"
+    },
+    {
+      "path": "packages/modules/Virtualization/authfs"
+    },
+    {
+      "path": "packages/modules/Virtualization/virtualizationmanager"
+    },
+    {
+      "path": "packages/modules/Virtualization/zipfuse"
     }
   ],
   "presubmit": [
-    {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "libcert_request_validator_tests"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
     {
       "name": "num-integer_test_src_lib"
     },
@@ -32,18 +29,6 @@
     }
   ],
   "presubmit-rust": [
-    {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "libcert_request_validator_tests"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
     {
       "name": "num-integer_test_src_lib"
     },

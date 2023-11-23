@@ -1,0 +1,4 @@
+# Battery Mitigation
+vendor.brownout.mitigation.ready           u:object_r:vendor_mitigation_ready_prop:s0
+vendor.brownout_reason                     u:object_r:vendor_brownout_reason_prop:s0
+vendor.brownout.br.feasible                u:object_r:vendor_brownout_br_feasible_prop:s0

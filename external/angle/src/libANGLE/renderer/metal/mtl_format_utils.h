@@ -29,8 +29,6 @@ namespace mtl
 {
 class ContextDevice;
 
-LoadFunctionMap GetLoadFunctionsMap(GLenum internalFormat, angle::FormatID angleFormat);
-
 struct FormatBase
 {
     inline bool operator==(const FormatBase &rhs) const
@@ -135,9 +133,7 @@ class FormatTable final : angle::NonCopyable
 
     angle::Result initialize(const DisplayMtl *display);
 
-    void generateTextureCaps(const DisplayMtl *display,
-                             gl::TextureCapsMap *capsMapOut,
-                             std::vector<GLenum> *compressedFormatsOut);
+    void generateTextureCaps(const DisplayMtl *display, gl::TextureCapsMap *capsMapOut);
 
     const Format &getPixelFormat(angle::FormatID angleFormatId) const;
     const FormatCaps &getNativeFormatCaps(MTLPixelFormat mtlFormat) const;

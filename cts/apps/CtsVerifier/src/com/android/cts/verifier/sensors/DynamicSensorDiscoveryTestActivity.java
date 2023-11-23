@@ -20,6 +20,7 @@ import com.android.cts.verifier.R;
 import com.android.cts.verifier.sensors.base.SensorCtsVerifierTestActivity;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventCallback;
@@ -45,6 +46,7 @@ public class DynamicSensorDiscoveryTestActivity extends SensorCtsVerifierTestAct
     private final static int EVENT_TIMEOUT_SEC = 30;
     private SensorManager mSensorManager;
     private boolean mFeatureSupported = false;
+    private boolean mHasDynamicHeadTracker = false;
     private boolean mSensorConnected = false;
     private boolean mSensorDisconnected = false;
     private Integer mSensorId;
@@ -62,9 +64,13 @@ public class DynamicSensorDiscoveryTestActivity extends SensorCtsVerifierTestAct
             return;
         }
         mFeatureSupported = mSensorManager.isDynamicSensorDiscoverySupported();
+        mHasDynamicHeadTracker =
+            getPackageManager()
+                .hasSystemFeature(PackageManager.FEATURE_SENSOR_DYNAMIC_HEAD_TRACKER);
 
         try {
             featureSupportedOrSkip();
+            headTrackerSensorNotExistOrSkip();
         } catch (SensorTestStateNotSupportedException e) {
             // This device doesn't support dynamic sensors.  So we won't
             // be running any of the tests, and really don't want to
@@ -83,6 +89,7 @@ public class DynamicSensorDiscoveryTestActivity extends SensorCtsVerifierTestAct
 
     @SuppressWarnings("unused")
     public String test0_OnConnect() {
+        headTrackerSensorNotExistOrSkip();
         featureSupportedOrSkip();
 
         showUserMessage(String.format("Please connect an external sensor to device in %d seconds.",
@@ -96,6 +103,7 @@ public class DynamicSensorDiscoveryTestActivity extends SensorCtsVerifierTestAct
 
     @SuppressWarnings("unused")
     public String test1_DynamicSensorList() {
+        headTrackerSensorNotExistOrSkip();
         featureSupportedOrSkip();
         sensorConnectedOrSkip();
 
@@ -113,6 +121,7 @@ public class DynamicSensorDiscoveryTestActivity extends SensorCtsVerifierTestAct
 
     @SuppressWarnings("unused")
     public String test2_SensorOperation() {
+        headTrackerSensorNotExistOrSkip();
         featureSupportedOrSkip();
         sensorConnectedOrSkip();
 
@@ -125,6 +134,7 @@ public class DynamicSensorDiscoveryTestActivity extends SensorCtsVerifierTestAct
 
     @SuppressWarnings("unused")
     public String test3_OnDisconnect() {
+        headTrackerSensorNotExistOrSkip();
         featureSupportedOrSkip();
         sensorConnectedOrSkip();
 
@@ -137,6 +147,7 @@ public class DynamicSensorDiscoveryTestActivity extends SensorCtsVerifierTestAct
 
     @SuppressWarnings("unused")
     public String test4_OnReconnect() {
+        headTrackerSensorNotExistOrSkip();
         featureSupportedOrSkip();
         sensorConnectedOrSkip();
         sensorDisconnectedOrSkip();
@@ -298,6 +309,13 @@ public class DynamicSensorDiscoveryTestActivity extends SensorCtsVerifierTestAct
         if (!mFeatureSupported) {
             throw new SensorTestStateNotSupportedException(
                     "Dynamic sensor discovery not supported, skip.");
+        }
+    }
+
+    private void headTrackerSensorNotExistOrSkip() {
+        if (mHasDynamicHeadTracker) {
+            throw new SensorTestStateNotSupportedException(
+                    "Head tracker sensor exists, skip manual tests.");
         }
     }
 

@@ -52,7 +52,8 @@ typedef uint8_t(tBTM_PIN_CALLBACK)(const RawAddress& bd_addr,
 typedef uint8_t(tBTM_LINK_KEY_CALLBACK)(const RawAddress& bd_addr,
                                         DEV_CLASS dev_class,
                                         tBTM_BD_NAME bd_name,
-                                        const LinkKey& key, uint8_t key_type);
+                                        const LinkKey& key, uint8_t key_type,
+                                        bool is_ctkd);
 
 /* Remote Name Resolved.  Parameters are
  *              BD Address of remote

@@ -96,6 +96,9 @@ struct NanConfigurationRequestBuilder;
 struct NanConfigurationUpdate;
 struct NanConfigurationUpdateBuilder;
 
+struct DebugConfiguration;
+struct DebugConfigurationBuilder;
+
 struct HostAddress;
 
 struct MessageContainer;
@@ -203,11 +206,12 @@ enum class ChreMessage : uint8_t {
   BatchedMetricLog = 25,
   NanConfigurationRequest = 26,
   NanConfigurationUpdate = 27,
+  DebugConfiguration = 28,
   MIN = NONE,
-  MAX = NanConfigurationUpdate
+  MAX = DebugConfiguration
 };
 
-inline const ChreMessage (&EnumValuesChreMessage())[28] {
+inline const ChreMessage (&EnumValuesChreMessage())[29] {
   static const ChreMessage values[] = {
     ChreMessage::NONE,
     ChreMessage::NanoappMessage,
@@ -236,13 +240,14 @@ inline const ChreMessage (&EnumValuesChreMessage())[28] {
     ChreMessage::MetricLog,
     ChreMessage::BatchedMetricLog,
     ChreMessage::NanConfigurationRequest,
-    ChreMessage::NanConfigurationUpdate
+    ChreMessage::NanConfigurationUpdate,
+    ChreMessage::DebugConfiguration
   };
   return values;
 }
 
 inline const char * const *EnumNamesChreMessage() {
-  static const char * const names[29] = {
+  static const char * const names[30] = {
     "NONE",
     "NanoappMessage",
     "HubInfoRequest",
@@ -271,13 +276,14 @@ inline const char * const *EnumNamesChreMessage() {
     "BatchedMetricLog",
     "NanConfigurationRequest",
     "NanConfigurationUpdate",
+    "DebugConfiguration",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameChreMessage(ChreMessage e) {
-  if (flatbuffers::IsOutRange(e, ChreMessage::NONE, ChreMessage::NanConfigurationUpdate)) return "";
+  if (flatbuffers::IsOutRange(e, ChreMessage::NONE, ChreMessage::DebugConfiguration)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesChreMessage()[index];
 }
@@ -392,6 +398,10 @@ template<> struct ChreMessageTraits<chre::fbs::NanConfigurationRequest> {
 
 template<> struct ChreMessageTraits<chre::fbs::NanConfigurationUpdate> {
   static const ChreMessage enum_value = ChreMessage::NanConfigurationUpdate;
+};
+
+template<> struct ChreMessageTraits<chre::fbs::DebugConfiguration> {
+  static const ChreMessage enum_value = ChreMessage::DebugConfiguration;
 };
 
 bool VerifyChreMessage(flatbuffers::Verifier &verifier, const void *obj, ChreMessage type);
@@ -2346,6 +2356,48 @@ inline flatbuffers::Offset<NanConfigurationUpdate> CreateNanConfigurationUpdate(
   return builder_.Finish();
 }
 
+struct DebugConfiguration FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef DebugConfigurationBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_HEALTH_MONITOR_FAILURE_CRASH = 4
+  };
+  bool health_monitor_failure_crash() const {
+    return GetField<uint8_t>(VT_HEALTH_MONITOR_FAILURE_CRASH, 0) != 0;
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_HEALTH_MONITOR_FAILURE_CRASH) &&
+           verifier.EndTable();
+  }
+};
+
+struct DebugConfigurationBuilder {
+  typedef DebugConfiguration Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_health_monitor_failure_crash(bool health_monitor_failure_crash) {
+    fbb_.AddElement<uint8_t>(DebugConfiguration::VT_HEALTH_MONITOR_FAILURE_CRASH, static_cast<uint8_t>(health_monitor_failure_crash), 0);
+  }
+  explicit DebugConfigurationBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  DebugConfigurationBuilder &operator=(const DebugConfigurationBuilder &);
+  flatbuffers::Offset<DebugConfiguration> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<DebugConfiguration>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<DebugConfiguration> CreateDebugConfiguration(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    bool health_monitor_failure_crash = false) {
+  DebugConfigurationBuilder builder_(_fbb);
+  builder_.add_health_monitor_failure_crash(health_monitor_failure_crash);
+  return builder_.Finish();
+}
+
 /// The top-level container that encapsulates all possible messages. Note that
 /// per FlatBuffers requirements, we can't use a union as the top-level
 /// structure (root type), so we must wrap it in a table.
@@ -2443,6 +2495,9 @@ struct MessageContainer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   const chre::fbs::NanConfigurationUpdate *message_as_NanConfigurationUpdate() const {
     return message_type() == chre::fbs::ChreMessage::NanConfigurationUpdate ? static_cast<const chre::fbs::NanConfigurationUpdate *>(message()) : nullptr;
+  }
+  const chre::fbs::DebugConfiguration *message_as_DebugConfiguration() const {
+    return message_type() == chre::fbs::ChreMessage::DebugConfiguration ? static_cast<const chre::fbs::DebugConfiguration *>(message()) : nullptr;
   }
   /// The originating or destination client ID on the host side, used to direct
   /// responses only to the client that sent the request. Although initially
@@ -2569,6 +2624,10 @@ template<> inline const chre::fbs::NanConfigurationRequest *MessageContainer::me
 
 template<> inline const chre::fbs::NanConfigurationUpdate *MessageContainer::message_as<chre::fbs::NanConfigurationUpdate>() const {
   return message_as_NanConfigurationUpdate();
+}
+
+template<> inline const chre::fbs::DebugConfiguration *MessageContainer::message_as<chre::fbs::DebugConfiguration>() const {
+  return message_as_DebugConfiguration();
 }
 
 struct MessageContainerBuilder {
@@ -2721,6 +2780,10 @@ inline bool VerifyChreMessage(flatbuffers::Verifier &verifier, const void *obj, 
     }
     case ChreMessage::NanConfigurationUpdate: {
       auto ptr = reinterpret_cast<const chre::fbs::NanConfigurationUpdate *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ChreMessage::DebugConfiguration: {
+      auto ptr = reinterpret_cast<const chre::fbs::DebugConfiguration *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

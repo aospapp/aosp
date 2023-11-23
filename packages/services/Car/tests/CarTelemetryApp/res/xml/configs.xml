@@ -53,22 +53,6 @@ fields (refer to telemetry proto for each type's fields). -->
     </subscribers>
   </config>
   <config
-      name="ethernet_with_session_metrics_config"
-      version="1"
-      script_name="conn_sessions">
-    <subscribers>
-      <subscriber
-          handler="onConnectivityDataWithSession"
-          priority="1">
-        <publisher
-            type="connectivity">
-          <transport>TRANSPORT_ETHERNET</transport>
-          <oem_type>OEM_NONE</oem_type>
-        </publisher>
-      </subscriber>
-    </subscribers>
-  </config>
-  <config
       name="cellular_with_session_metrics_config"
       version="1"
       script_name="conn_sessions">
@@ -79,6 +63,22 @@ fields (refer to telemetry proto for each type's fields). -->
         <publisher
             type="connectivity">
           <transport>TRANSPORT_CELLULAR</transport>
+          <oem_type>OEM_NONE</oem_type>
+        </publisher>
+      </subscriber>
+    </subscribers>
+  </config>
+  <config
+      name="ethernet_with_session_metrics_config"
+      version="1"
+      script_name="conn_sessions">
+    <subscribers>
+      <subscriber
+          handler="onConnectivityDataWithSession"
+          priority="1">
+        <publisher
+            type="connectivity">
+          <transport>TRANSPORT_ETHERNET</transport>
           <oem_type>OEM_NONE</oem_type>
         </publisher>
       </subscriber>

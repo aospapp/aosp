@@ -28,21 +28,36 @@ java_test_host {
         "truth-host-prebuilt",
     ],
     static_libs: [
-        "compatibility-host-util-axt"
+        "compatibility-host-util-axt",
     ],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
+    // All APKs required by the tests
     data: [
-        ":CtsStaticSharedLibProviderApp1",
-        ":CtsStaticSharedLibProviderApp2",
         ":CtsDeviceOsTestApp",
+        ":CtsHostEnvironmentTestApp",
+        ":CtsHostPowerManagerTestApp",
         ":CtsHostProcfsTestApp",
         ":CtsInattentiveSleepTestApp",
-        ":CtsHostEnvironmentTestApp",
+        ":CtsStaticSharedLibConsumerApp1",
+        ":CtsStaticSharedLibConsumerApp1BadCertDigest",
+        ":CtsStaticSharedLibConsumerApp2",
+        ":CtsStaticSharedLibConsumerApp3",
+        ":CtsStaticSharedLibProviderApp1",
+        ":CtsStaticSharedLibProviderApp2",
+        ":CtsStaticSharedLibProviderApp3",
+        ":CtsStaticSharedLibProviderApp4",
+        ":CtsStaticSharedLibProviderApp5",
+        ":CtsStaticSharedLibProviderApp6",
+        ":CtsStaticSharedLibProviderApp7",
+        ":CtsStaticSharedLibProviderRecursive",
         ":CtsStaticSharedLibTestApp",
+        ":CtsStaticSharedNativeLibConsumer",
+        ":CtsStaticSharedNativeLibProvider",
+        ":CtsStaticSharedNativeLibProvider1",
     ],
     per_testcase_directory: true,
 }

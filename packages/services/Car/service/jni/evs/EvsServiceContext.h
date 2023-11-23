@@ -18,6 +18,8 @@
 
 #include "EvsCallbackThread.h"
 #include "EvsServiceCallback.h"
+#include "IEvsServiceFactory.h"
+#include "LinkUnlinkToDeathBase.h"
 #include "StreamHandler.h"
 
 #include <aidl/android/hardware/automotive/evs/BufferDesc.h>
@@ -31,13 +33,41 @@
 
 namespace android::automotive::evs {
 
+class ProdServiceFactory final : public IEvsServiceFactory {
+public:
+    explicit ProdServiceFactory(const char* serviceName) : mServiceName(serviceName) {}
+    ~ProdServiceFactory() = default;
+
+    bool init() override;
+    aidl::android::hardware::automotive::evs::IEvsEnumerator* getService() override {
+        return mService.get();
+    }
+    void clear() override { mService.reset(); }
+
+private:
+    std::string mServiceName;
+    std::shared_ptr<aidl::android::hardware::automotive::evs::IEvsEnumerator> mService;
+};
+
+class ProdLinkUnlinkToDeath final : public LinkUnlinkToDeathBase {
+public:
+    binder_status_t linkToDeath(AIBinder* binder, AIBinder_DeathRecipient* recipient,
+                                void* cookie) override;
+    binder_status_t unlinkToDeath(AIBinder* binder) override;
+    void* getCookie() override;
+};
+
 /*
  * This class wraps around HIDL transactions to the Extended View System service
  * and the video stream managements.
  */
 class EvsServiceContext final : public EvsServiceCallback {
 public:
-    EvsServiceContext(JavaVM* vm, jclass clazz);
+    static EvsServiceContext* create(JavaVM* vm, jclass clazz);
+    static EvsServiceContext* create(JavaVM* vm, jclass clazz,
+                                     std::unique_ptr<IEvsServiceFactory> serviceFactory,
+                                     std::unique_ptr<LinkUnlinkToDeathBase> linkUnlinkImpl);
+
     virtual ~EvsServiceContext();
 
     /*
@@ -51,6 +81,11 @@ public:
      *         true otherwise.
      */
     bool initialize(JNIEnv* env, jobject thiz) ACQUIRE(mLock);
+
+    /*
+     * Deinitialize the service context and releases the resources.
+     */
+    void deinitialize() ACQUIRE(mLock);
 
     /*
      * Requests to open a target camera device.
@@ -89,7 +124,7 @@ public:
      */
     bool isAvailable() ACQUIRE(mLock) {
         std::lock_guard<std::mutex> lock(mLock);
-        return mService != nullptr;
+        return mServiceFactory != nullptr && mServiceFactory->getService() != nullptr;
     }
 
     /*
@@ -106,7 +141,16 @@ public:
     void onNewEvent(const ::aidl::android::hardware::automotive::evs::EvsEventDesc&) override;
     bool onNewFrame(const ::aidl::android::hardware::automotive::evs::BufferDesc&) override;
 
+    /*
+     * Triggers a binder died callback.
+     */
+    void triggerBinderDied();
+
 private:
+    EvsServiceContext(JavaVM* vm, JNIEnv* env, jclass clazz,
+                      std::unique_ptr<IEvsServiceFactory> serviceFactory,
+                      std::unique_ptr<LinkUnlinkToDeathBase> linkUnlinkImpl);
+
     // Death recipient callback that is called when IEvsEnumerator service dies.
     // The cookie is a pointer to a EvsServiceContext object.
     static void onEvsServiceBinderDied(void* cookie);
@@ -118,9 +162,11 @@ private:
     // A mutex to protect shared resources
     mutable std::mutex mLock;
 
-    // Extended View System Enumerator service handle
-    std::shared_ptr<::aidl::android::hardware::automotive::evs::IEvsEnumerator> mService
-            GUARDED_BY(mLock);
+    // A proxy to manage the Extended View System service.
+    std::unique_ptr<IEvsServiceFactory> mServiceFactory GUARDED_BY(mLock);
+
+    // A proxy to manage the binder death recipient.
+    std::unique_ptr<LinkUnlinkToDeathBase> mLinkUnlinkImpl GUARDED_BY(mLock);
 
     // A camera device opened for the rearview service
     std::shared_ptr<::aidl::android::hardware::automotive::evs::IEvsCamera> mCamera
@@ -132,9 +178,6 @@ private:
     // Extended View System display handle.  This would not be used but held by
     // us to prevent other EVS clients from using EvsDisplay.
     std::shared_ptr<::aidl::android::hardware::automotive::evs::IEvsDisplay> mDisplay;
-
-    // A death recipient of Extended View System service
-    ::ndk::ScopedAIBinder_DeathRecipient mDeathRecipient GUARDED_BY(mLock);
 
     // Java VM
     JavaVM* mVm;
@@ -160,10 +203,11 @@ private:
     std::set<int> mBufferRecords GUARDED_BY(mLock);
 
     // A name of the camera device currently in use.
-    std::string_view mCameraIdInUse;
+    std::string mCameraIdInUse;
 
     // List of available camera devices
-    std::vector<::aidl::android::hardware::automotive::evs::CameraDesc> mCameraList;
+    std::vector<::aidl::android::hardware::automotive::evs::CameraDesc> mCameraList
+            GUARDED_BY(mLock);
 
     // Service name for EVS enumerator
     static const char* kServiceName;

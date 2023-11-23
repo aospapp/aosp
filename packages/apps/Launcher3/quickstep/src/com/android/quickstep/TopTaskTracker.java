@@ -18,11 +18,15 @@ package com.android.quickstep;
 import static android.app.ActivityTaskManager.INVALID_TASK_ID;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_ASSISTANT;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_HOME;
+import static android.app.WindowConfiguration.ACTIVITY_TYPE_RECENTS;
+import static android.app.WindowConfiguration.WINDOWING_MODE_FREEFORM;
 import static android.content.Intent.ACTION_CHOOSER;
 import static android.content.Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS;
+import static android.view.Display.DEFAULT_DISPLAY;
 
 import static com.android.launcher3.util.SplitConfigurationOptions.STAGE_POSITION_TOP_OR_LEFT;
 
+import android.annotation.UserIdInt;
 import android.app.ActivityManager.RunningTaskInfo;
 import android.content.Context;
 
@@ -31,9 +35,9 @@ import androidx.annotation.UiThread;
 
 import com.android.launcher3.util.MainThreadInitializedObject;
 import com.android.launcher3.util.SplitConfigurationOptions;
+import com.android.launcher3.util.SplitConfigurationOptions.SplitStageInfo;
 import com.android.launcher3.util.SplitConfigurationOptions.StagePosition;
 import com.android.launcher3.util.SplitConfigurationOptions.StageType;
-import com.android.launcher3.util.SplitConfigurationOptions.StagedSplitTaskPosition;
 import com.android.launcher3.util.TraceHelper;
 import com.android.systemui.shared.recents.model.Task;
 import com.android.systemui.shared.recents.model.Task.TaskKey;
@@ -63,8 +67,9 @@ public class TopTaskTracker extends ISplitScreenListener.Stub implements TaskSta
     // Ordered list with first item being the most recent task.
     private final LinkedList<RunningTaskInfo> mOrderedTaskList = new LinkedList<>();
 
-    private final StagedSplitTaskPosition mMainStagePosition = new StagedSplitTaskPosition();
-    private final StagedSplitTaskPosition mSideStagePosition = new StagedSplitTaskPosition();
+
+    private final SplitStageInfo mMainStagePosition = new SplitStageInfo();
+    private final SplitStageInfo mSideStagePosition = new SplitStageInfo();
     private int mPinnedTaskId = INVALID_TASK_ID;
 
     private TopTaskTracker(Context context) {
@@ -84,6 +89,19 @@ public class TopTaskTracker extends ISplitScreenListener.Stub implements TaskSta
     public void onTaskMovedToFront(RunningTaskInfo taskInfo) {
         mOrderedTaskList.removeIf(rto -> rto.taskId == taskInfo.taskId);
         mOrderedTaskList.addFirst(taskInfo);
+
+        // Keep the home display's top running task in the first while adding a non-home
+        // display's task to the list, to avoid showing non-home display's task upon going to
+        // Recents animation.
+        if (taskInfo.displayId != DEFAULT_DISPLAY) {
+            final RunningTaskInfo topTaskOnHomeDisplay = mOrderedTaskList.stream()
+                    .filter(rto -> rto.displayId == DEFAULT_DISPLAY).findFirst().orElse(null);
+            if (topTaskOnHomeDisplay != null) {
+                mOrderedTaskList.removeIf(rto -> rto.taskId == topTaskOnHomeDisplay.taskId);
+                mOrderedTaskList.addFirst(topTaskOnHomeDisplay);
+            }
+        }
+
         if (mOrderedTaskList.size() >= HISTORY_SIZE) {
             // If we grow in size, remove the last taskInfo which is not part of the split task.
             Iterator<RunningTaskInfo> itr = mOrderedTaskList.descendingIterator();
@@ -110,20 +128,13 @@ public class TopTaskTracker extends ISplitScreenListener.Stub implements TaskSta
 
     @Override
     public void onTaskStageChanged(int taskId, @StageType int stage, boolean visible) {
-        // If task is not visible but we are tracking it, stop tracking it
-        if (!visible) {
+        // If a task is not visible anymore or has been moved to undefined, stop tracking it.
+        if (!visible || stage == SplitConfigurationOptions.STAGE_TYPE_UNDEFINED) {
             if (mMainStagePosition.taskId == taskId) {
-                resetTaskId(mMainStagePosition);
+                mMainStagePosition.taskId = INVALID_TASK_ID;
             } else if (mSideStagePosition.taskId == taskId) {
-                resetTaskId(mSideStagePosition);
+                mSideStagePosition.taskId = INVALID_TASK_ID;
             } // else it's an un-tracked child
-            return;
-        }
-
-        // If stage has moved to undefined, stop tracking the task
-        if (stage == SplitConfigurationOptions.STAGE_TYPE_UNDEFINED) {
-            resetTaskId(taskId == mMainStagePosition.taskId
-                    ? mMainStagePosition : mSideStagePosition);
             return;
         }
 
@@ -142,10 +153,6 @@ public class TopTaskTracker extends ISplitScreenListener.Stub implements TaskSta
     @Override
     public void onActivityUnpinned() {
         mPinnedTaskId = INVALID_TASK_ID;
-    }
-
-    private void resetTaskId(StagedSplitTaskPosition taskPosition) {
-        taskPosition.taskId = INVALID_TASK_ID;
     }
 
     /**
@@ -238,6 +245,20 @@ public class TopTaskTracker extends ISplitScreenListener.Stub implements TaskSta
                     .getActivityType() == ACTIVITY_TYPE_HOME;
         }
 
+        public boolean isRecentsTask() {
+            return mTopTask != null && mTopTask.configuration.windowConfiguration
+                    .getActivityType() == ACTIVITY_TYPE_RECENTS;
+        }
+
+        /**
+         * Returns {@code true} if this task windowing mode is set to {@link
+         * android.app.WindowConfiguration#WINDOWING_MODE_FREEFORM}
+         */
+        public boolean isFreeformTask() {
+            return mTopTask != null && mTopTask.configuration.windowConfiguration.getWindowingMode()
+                    == WINDOWING_MODE_FREEFORM;
+        }
+
         /**
          * Returns {@link Task} array which can be used as a placeholder until the true object
          * is loaded by the model
@@ -266,6 +287,20 @@ public class TopTaskTracker extends ISplitScreenListener.Stub implements TaskSta
                 });
             }
             return result;
+        }
+
+        @UserIdInt
+        @Nullable
+        public Integer getUserId() {
+            return mTopTask == null ? null : mTopTask.userId;
+        }
+
+        @Nullable
+        public String getPackageName() {
+            if (mTopTask == null || mTopTask.baseActivity == null) {
+                return null;
+            }
+            return mTopTask.baseActivity.getPackageName();
         }
     }
 }

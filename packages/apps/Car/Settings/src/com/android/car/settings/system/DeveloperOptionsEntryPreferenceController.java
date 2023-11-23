@@ -50,7 +50,7 @@ public class DeveloperOptionsEntryPreferenceController
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         if (DevelopmentSettingsUtil.isDevelopmentSettingsEnabled(getContext(),
                 getContext().getSystemService(UserManager.class))) {
             return AVAILABLE;

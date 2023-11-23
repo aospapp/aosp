@@ -28,6 +28,7 @@ int reserve_new_block(struct f2fs_sb_info *sbi, block_t *to,
 	u64 blkaddr, offset;
 	u64 old_blkaddr = *to;
 	bool is_node = IS_NODESEG(type);
+	int left = 0;
 
 	if (old_blkaddr == NULL_ADDR) {
 		if (c.func == FSCK) {
@@ -56,7 +57,19 @@ int reserve_new_block(struct f2fs_sb_info *sbi, block_t *to,
 
 	blkaddr = SM_I(sbi)->main_blkaddr;
 
-	if (find_next_free_block(sbi, &blkaddr, 0, type, false)) {
+	if (sbi->raw_super->feature & cpu_to_le32(F2FS_FEATURE_RO)) {
+		if (IS_NODESEG(type)) {
+			type = CURSEG_HOT_NODE;
+			blkaddr = __end_block_addr(sbi);
+			left = 1;
+		} else if (IS_DATASEG(type)) {
+			type = CURSEG_HOT_DATA;
+			blkaddr = SM_I(sbi)->main_blkaddr;
+			left = 0;
+		}
+	}
+
+	if (find_next_free_block(sbi, &blkaddr, left, type, false)) {
 		ERR_MSG("Can't find free block");
 		ASSERT(0);
 	}
@@ -537,7 +550,6 @@ static void update_largest_extent(struct f2fs_sb_info *sbi, nid_t ino)
 		cur_blk += count;
 		dn.ofs_in_node += count;
 		remained_blkentries -= count;
-		ASSERT(remained_blkentries >= 0);
 	}
 
 exit:
@@ -555,7 +567,7 @@ exit:
 
 int f2fs_build_file(struct f2fs_sb_info *sbi, struct dentry *de)
 {
-	int fd, n;
+	int fd, n = -1;
 	pgoff_t off = 0;
 	u8 buffer[BLOCK_SZ];
 	struct node_info ni;

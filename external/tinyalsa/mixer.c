@@ -388,7 +388,7 @@ struct mixer_ctl *mixer_get_ctl_by_name(struct mixer *mixer, const char *name)
     unsigned int n;
     int hw_ctl_count;
 
-    if (!mixer)
+    if (!mixer || !name)
         return NULL;
 
     hw_ctl_count = mixer_grp_get_count(mixer->hw_grp);

@@ -376,7 +376,8 @@ public class CustomInputEventListenerTest {
             KeyEvent actual = actualEvents.get(i);
             assertThat(actual.getAction()).isEqualTo(events[i].getAction());
             assertThat(actual.getKeyCode()).isEqualTo(events[i].getKeyCode());
-            assertThat(actual.getDisplayId()).isEqualTo(Display.DEFAULT_DISPLAY);
+            // Make sure display id was not explicitly set
+            assertThat(actual.getDisplayId()).isEqualTo(Display.INVALID_DISPLAY);
         }
     }
 }

@@ -189,16 +189,28 @@ public class ModuleFactoryGeneratorTest {
   }
 
   @Test public void validatesIncludedModules() {
-    JavaFileObject module = JavaFileObjects.forSourceLines("test.Parent",
-        "package test;",
-        "",
-        "import dagger.Module;",
-        "",
-        "@Module(includes = Void.class)",
-        "class TestModule {}");
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.Parent",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "",
+            "@Module(",
+            "    includes = {",
+            "        Void.class,",
+            "        String.class,",
+            "    }",
+            ")",
+            "class TestModule {}");
 
     Compilation compilation = daggerCompiler().compile(module);
     assertThat(compilation).failed();
+    // In java 11, errors reported on individual items in an annotation value's list will show up
+    // as separate errors to the user on the associated lines reported. However, in java 8, errors
+    // reported on individual items in an annotation value's list will show up as a single error
+    // (which ever is reported first) on the list itself, rather than on the items reported.
+    assertThat(compilation).hadErrorCount(1);
     assertThat(compilation)
         .hadErrorContaining(
             "java.lang.Void is listed as a module, but is not annotated with @Module");
@@ -224,8 +236,12 @@ public class ModuleFactoryGeneratorTest {
             "",
             GeneratedLines.generatedImports(
                 "import dagger.internal.Factory;",
-                "import dagger.internal.Preconditions;"),
+                "import dagger.internal.Preconditions;",
+                "import dagger.internal.QualifierMetadata;",
+                "import dagger.internal.ScopeMetadata;"),
             "",
+            "@ScopeMetadata",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class TestModule_ProvideStringFactory implements Factory<String> {",
             "  private final TestModule module;",
@@ -270,8 +286,13 @@ public class ModuleFactoryGeneratorTest {
             "TestModule_ProvideStringFactory",
             "package test;",
             "",
-            GeneratedLines.generatedImports("import dagger.internal.Factory;"),
+            GeneratedLines.generatedImports(
+                "import dagger.internal.Factory;",
+                "import dagger.internal.QualifierMetadata;",
+                "import dagger.internal.ScopeMetadata;"),
             "",
+            "@ScopeMetadata",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class TestModule_ProvideStringFactory implements Factory<String> {",
             "  private final TestModule module;",
@@ -315,8 +336,13 @@ public class ModuleFactoryGeneratorTest {
             "TestModule_ProvideStringFactory",
             "package test;",
             "",
-            GeneratedLines.generatedImports("import dagger.internal.Factory;"),
+            GeneratedLines.generatedImports(
+                "import dagger.internal.Factory;",
+                "import dagger.internal.QualifierMetadata;",
+                "import dagger.internal.ScopeMetadata;"),
             "",
+            "@ScopeMetadata",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class TestModule_ProvideStringFactory implements Factory<String> {",
             "  private final TestModule module;",
@@ -388,9 +414,16 @@ public class ModuleFactoryGeneratorTest {
                 "import dagger.MembersInjector;",
                 "import dagger.internal.Factory;",
                 "import dagger.internal.Preconditions;",
+                "import dagger.internal.QualifierMetadata;",
+                "import dagger.internal.ScopeMetadata;",
                 "import java.util.List;",
                 "import javax.inject.Provider;"),
             "",
+            "@ScopeMetadata",
+            "@QualifierMetadata({",
+            "    \"test.QualifierA\",",
+            "    \"test.QualifierB\"",
+            "})",
             GeneratedLines.generatedAnnotations(),
             "public final class TestModule_ProvideObjectsFactory",
             "    implements Factory<List<Object>> {",
@@ -459,8 +492,12 @@ public class ModuleFactoryGeneratorTest {
             "",
             GeneratedLines.generatedImports(
                 "import dagger.internal.Factory;",
-                "import dagger.internal.Preconditions;"),
+                "import dagger.internal.Preconditions;",
+                "import dagger.internal.QualifierMetadata;",
+                "import dagger.internal.ScopeMetadata;"),
             "",
+            "@ScopeMetadata",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class TestModule_ProvideStringFactory implements Factory<String> {",
             "  private final TestModule module;",
@@ -512,8 +549,12 @@ public class ModuleFactoryGeneratorTest {
             GeneratedLines.generatedImports(
                 "import dagger.internal.Factory;",
                 "import dagger.internal.Preconditions;",
+                "import dagger.internal.QualifierMetadata;",
+                "import dagger.internal.ScopeMetadata;",
                 "import java.util.List;"),
             "",
+            "@ScopeMetadata",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class TestModule_ProvideWildcardListFactory implements "
                 + "Factory<List<List<?>>> {",
@@ -565,8 +606,12 @@ public class ModuleFactoryGeneratorTest {
             GeneratedLines.generatedImports(
                 "import dagger.internal.Factory;",
                 "import dagger.internal.Preconditions;",
+                "import dagger.internal.QualifierMetadata;",
+                "import dagger.internal.ScopeMetadata;",
                 "import java.util.Set;"),
             "",
+            "@ScopeMetadata",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class TestModule_ProvideStringsFactory implements Factory<Set<String>> {",
             "  private final TestModule module;",
@@ -876,9 +921,13 @@ public class ModuleFactoryGeneratorTest {
             GeneratedLines.generatedImports(
                 "import dagger.internal.Factory;",
                 "import dagger.internal.Preconditions;",
+                "import dagger.internal.QualifierMetadata;",
+                "import dagger.internal.ScopeMetadata;",
                 "import java.util.List;",
                 "import javax.inject.Provider;"),
             "",
+            "@ScopeMetadata",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class ParentModule_ProvideListBFactory<A extends CharSequence,",
             "    B, C extends Number & Comparable<C>> implements Factory<List<B>> {",
@@ -915,8 +964,12 @@ public class ModuleFactoryGeneratorTest {
             GeneratedLines.generatedImports(
                 "import dagger.internal.Factory;",
                 "import dagger.internal.Preconditions;",
+                "import dagger.internal.QualifierMetadata;",
+                "import dagger.internal.ScopeMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@ScopeMetadata",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class ParentModule_ProvideBElementFactory<A extends CharSequence,",
             "    B, C extends Number & Comparable<C>> implements Factory<B> {",
@@ -954,8 +1007,12 @@ public class ModuleFactoryGeneratorTest {
             GeneratedLines.generatedImports(
                 "import dagger.internal.Factory;",
                 "import dagger.internal.Preconditions;",
+                "import dagger.internal.QualifierMetadata;",
+                "import dagger.internal.ScopeMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@ScopeMetadata",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class ParentModule_ProvideBEntryFactory<A extends CharSequence,",
             "    B, C extends Number & Comparable<C>> implements Factory<B>> {",
@@ -992,8 +1049,12 @@ public class ModuleFactoryGeneratorTest {
             "",
             GeneratedLines.generatedImports(
                 "import dagger.internal.Factory;",
-                "import dagger.internal.Preconditions;"),
+                "import dagger.internal.Preconditions;",
+                "import dagger.internal.QualifierMetadata;",
+                "import dagger.internal.ScopeMetadata;"),
             "",
+            "@ScopeMetadata",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class ChildNumberModule_ProvideNumberFactory",
             "    implements Factory<Number> {",
@@ -1024,8 +1085,12 @@ public class ModuleFactoryGeneratorTest {
             "",
             GeneratedLines.generatedImports(
                 "import dagger.internal.Factory;",
-                "import dagger.internal.Preconditions;"),
+                "import dagger.internal.Preconditions;",
+                "import dagger.internal.QualifierMetadata;",
+                "import dagger.internal.ScopeMetadata;"),
             "",
+            "@ScopeMetadata",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class ChildIntegerModule_ProvideIntegerFactory",
             "    implements Factory<Integer> {",
@@ -1098,8 +1163,12 @@ public class ModuleFactoryGeneratorTest {
             GeneratedLines.generatedImports(
                 "import dagger.internal.Factory;",
                 "import dagger.internal.Preconditions;",
+                "import dagger.internal.QualifierMetadata;",
+                "import dagger.internal.ScopeMetadata;",
                 "import java.util.Map;"),
             "",
+            "@ScopeMetadata",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class ParameterizedModule_ProvideMapStringNumberFactory",
             "    implements Factory<Map<String, Number>> {",
@@ -1130,8 +1199,12 @@ public class ModuleFactoryGeneratorTest {
             "",
             GeneratedLines.generatedImports(
                 "import dagger.internal.Factory;",
-                "import dagger.internal.Preconditions;"),
+                "import dagger.internal.Preconditions;",
+                "import dagger.internal.QualifierMetadata;",
+                "import dagger.internal.ScopeMetadata;"),
             "",
+            "@ScopeMetadata",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class ParameterizedModule_ProvideNonGenericTypeFactory",
             "    implements Factory<Object> {",
@@ -1163,8 +1236,12 @@ public class ModuleFactoryGeneratorTest {
             GeneratedLines.generatedImports(
                 "import dagger.internal.Factory;",
                 "import dagger.internal.Preconditions;",
+                "import dagger.internal.QualifierMetadata;",
+                "import dagger.internal.ScopeMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@ScopeMetadata",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class ParameterizedModule_ProvideNonGenericTypeWithDepsFactory",
             "    implements Factory<String> {",
@@ -1402,6 +1479,8 @@ public class ModuleFactoryGeneratorTest {
                 "test.TestModule_GetFactory",
                 "package test;",
                 "",
+                "@ScopeMetadata",
+                "@QualifierMetadata",
                 GeneratedLines.generatedAnnotations(),
                 "public final class TestModule_GetFactory implements Factory<Integer> {",
                 "  @Override",
@@ -1425,6 +1504,8 @@ public class ModuleFactoryGeneratorTest {
                 "test.TestModule_CreateFactory",
                 "package test;",
                 "",
+                "@ScopeMetadata",
+                "@QualifierMetadata",
                 GeneratedLines.generatedAnnotations(),
                 "public final class TestModule_CreateFactory implements Factory<Boolean> {",
                 "  @Override",
@@ -1440,6 +1521,202 @@ public class ModuleFactoryGeneratorTest {
                 "    return TestModule.create();",
                 "  }",
                 "}"));
+  }
+
+  @Test
+  public void testScopedMetadataOnStaticProvides() {
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.ScopedBinding",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import javax.inject.Singleton;",
+            "",
+            "@Module",
+            "interface MyModule {",
+            "  @NonScope",
+            "  @Singleton",
+            "  @Provides",
+            "  static String provideString() {",
+            "    return \"\";",
+            "  }",
+            "}");
+    JavaFileObject nonScope =
+        JavaFileObjects.forSourceLines(
+            "test.NonScope",
+            "package test;",
+            "",
+            "@interface NonScope {}");
+    Compilation compilation = daggerCompiler().compile(module, nonScope);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.MyModule_ProvideStringFactory")
+        .containsElementsIn(
+            JavaFileObjects.forSourceLines(
+                "test.MyModule_ProvideStringFactory",
+                "package test;",
+                "",
+                "@ScopeMetadata(\"javax.inject.Singleton\")",
+                "@QualifierMetadata",
+                GeneratedLines.generatedAnnotations(),
+                "public final class MyModule_ProvideStringFactory implements Factory<String> {}"));
+  }
+
+  @Test
+  public void testScopedMetadataOnNonStaticProvides() {
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.ScopedBinding",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import javax.inject.Singleton;",
+            "",
+            "@Module",
+            "class MyModule {",
+            "  @NonScope",
+            "  @Singleton",
+            "  @Provides",
+            "  String provideString() {",
+            "    return \"\";",
+            "  }",
+            "}");
+    JavaFileObject nonScope =
+        JavaFileObjects.forSourceLines(
+            "test.NonScope",
+            "package test;",
+            "",
+            "@interface NonScope {}");
+    Compilation compilation = daggerCompiler().compile(module, nonScope);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.MyModule_ProvideStringFactory")
+        .containsElementsIn(
+            JavaFileObjects.forSourceLines(
+                "test.MyModule_ProvideStringFactory",
+                "package test;",
+                "",
+                "@ScopeMetadata(\"javax.inject.Singleton\")",
+                "@QualifierMetadata",
+                GeneratedLines.generatedAnnotations(),
+                "public final class MyModule_ProvideStringFactory implements Factory<String> {}"));
+  }
+
+  @Test
+  public void testScopeMetadataWithCustomScope() {
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.ScopedBinding",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import javax.inject.Singleton;",
+            "",
+            "@Module",
+            "interface MyModule {",
+            "  @NonScope(\"someValue\")",
+            "  @CustomScope(\"someOtherValue\")",
+            "  @Provides",
+            "  static String provideString() {",
+            "    return \"\";",
+            "  }",
+            "}");
+    JavaFileObject customScope =
+        JavaFileObjects.forSourceLines(
+            "test.CustomScope",
+            "package test;",
+            "",
+            "import javax.inject.Scope;",
+            "",
+            "@Scope",
+            "@interface CustomScope {",
+            "  String value();",
+            "}");
+    JavaFileObject nonScope =
+        JavaFileObjects.forSourceLines(
+            "test.NonScope",
+            "package test;",
+            "",
+            "@interface NonScope {",
+            "  String value();",
+            "}");
+    Compilation compilation = daggerCompiler().compile(module, customScope, nonScope);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.MyModule_ProvideStringFactory")
+        .containsElementsIn(
+            JavaFileObjects.forSourceLines(
+                "test.MyModule_ProvideStringFactory",
+                "package test;",
+                "",
+                "@ScopeMetadata(\"test.CustomScope\")",
+                "@QualifierMetadata",
+                GeneratedLines.generatedAnnotations(),
+                "public final class MyModule_ProvideStringFactory implements Factory<String> {}"));
+  }
+
+  @Test
+  public void testQualifierMetadataOnProvides() {
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.ScopedBinding",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import javax.inject.Singleton;",
+            "",
+            "@Module",
+            "interface MyModule {",
+            "  @Provides",
+            "  @NonQualifier",
+            "  @MethodQualifier",
+            "  static String provideString(@NonQualifier @ParamQualifier int i) {",
+            "    return \"\";",
+            "  }",
+            "}");
+    JavaFileObject methodQualifier =
+        JavaFileObjects.forSourceLines(
+            "test.MethodQualifier",
+            "package test;",
+            "",
+            "import javax.inject.Qualifier;",
+            "",
+            "@Qualifier",
+            "@interface MethodQualifier {}");
+    JavaFileObject paramQualifier =
+        JavaFileObjects.forSourceLines(
+            "test.ParamQualifier",
+            "package test;",
+            "",
+            "import javax.inject.Qualifier;",
+            "",
+            "@Qualifier",
+            "@interface ParamQualifier {}");
+    JavaFileObject nonQualifier =
+        JavaFileObjects.forSourceLines(
+            "test.NonQualifier",
+            "package test;",
+            "",
+            "@interface NonQualifier {}");
+    Compilation compilation =
+        daggerCompiler().compile(module, methodQualifier, paramQualifier, nonQualifier);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.MyModule_ProvideStringFactory")
+        .containsElementsIn(
+            JavaFileObjects.forSourceLines(
+                "test.MyModule_ProvideStringFactory",
+                "package test;",
+                "",
+                "@ScopeMetadata",
+                "@QualifierMetadata({\"test.MethodQualifier\", \"test.ParamQualifier\"})",
+                GeneratedLines.generatedAnnotations(),
+                "public final class MyModule_ProvideStringFactory implements Factory<String> {}"));
   }
 
   private static final String BINDS_METHOD = "@Binds abstract Foo bindFoo(FooImpl impl);";

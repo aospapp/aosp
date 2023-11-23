@@ -20,7 +20,6 @@ import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.MediumTest
 import androidx.test.platform.app.InstrumentationRegistry
-
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -64,6 +63,31 @@ class GoldenImagePathManagerTest {
 
         val pc2 = getSimplePathConfig()
         val pcResolvedRelativePath2 = pc2.resolveRelativePath(context)
-        assertThat(pcResolvedRelativePath2).isEqualTo("cuttlefish/")
+        assertThat(pcResolvedRelativePath2).startsWith("cuttlefish")
+    }
+
+    @Test
+    fun emulatedDevicePathConfigTest() {
+        val context = InstrumentationRegistry.getInstrumentation().context
+
+        val pc1 =
+            getEmulatedDevicePathConfig(
+                DeviceEmulationSpec(
+                    DisplaySpec("phone", width = 100, height = 200, densityDpi = 180),
+                    isDarkTheme = false,
+                    isLandscape = false,
+                )
+            )
+        assertThat(pc1.resolveRelativePath(context)).isEqualTo("phone/light_portrait_")
+
+        val pc2 =
+            getEmulatedDevicePathConfig(
+                DeviceEmulationSpec(
+                    DisplaySpec("tablet", width = 100, height = 200, densityDpi = 180),
+                    isDarkTheme = true,
+                    isLandscape = true,
+                )
+            )
+        assertThat(pc2.resolveRelativePath(context)).isEqualTo("tablet/dark_landscape_")
     }
 }

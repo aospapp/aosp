@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2015 The Android Open Source Project
 #
@@ -32,7 +32,7 @@ TCP_WINDOW = 14400
 PTB_MTU = 1280
 
 PING_IDENT = 0xff19
-PING_PAYLOAD = "foobarbaz"
+PING_PAYLOAD = b"foobarbaz"
 PING_SEQ = 3
 PING_TOS = 0x83
 
@@ -107,7 +107,7 @@ def SYNACK(version, srcaddr, dstaddr, packet):
                     ack=original.seq + 1, seq=None,
                     flags=TCP_SYN | TCP_ACK, window=None))
 
-def ACK(version, srcaddr, dstaddr, packet, payload=""):
+def ACK(version, srcaddr, dstaddr, packet, payload=b""):
   ip = _GetIpLayer(version)
   original = packet.getlayer("TCP")
   was_syn_or_fin = (original.flags & (TCP_SYN | TCP_FIN)) != 0
@@ -156,7 +156,7 @@ def ICMPPacketTooBig(version, srcaddr, dstaddr, packet):
   if version == 4:
     desc = "ICMPv4 fragmentation needed"
     pkt = (scapy.IP(src=srcaddr, dst=dstaddr, proto=1) /
-           scapy.ICMPerror(type=3, code=4) / str(packet)[:64])
+           scapy.ICMPerror(type=3, code=4) / bytes(packet)[:64])
     # Only newer versions of scapy understand that since RFC 1191, the last two
     # bytes of a fragmentation needed ICMP error contain the MTU.
     if hasattr(scapy.ICMP, "nexthopmtu"):
@@ -167,7 +167,7 @@ def ICMPPacketTooBig(version, srcaddr, dstaddr, packet):
   else:
     return ("ICMPv6 Packet Too Big",
             scapy.IPv6(src=srcaddr, dst=dstaddr) /
-            scapy.ICMPv6PacketTooBig(mtu=PTB_MTU) / str(packet)[:1232])
+            scapy.ICMPv6PacketTooBig(mtu=PTB_MTU) / bytes(packet)[:1232])
 
 def ICMPEcho(version, srcaddr, dstaddr):
   ip = _GetIpLayer(version)
@@ -184,15 +184,13 @@ def ICMPReply(version, srcaddr, dstaddr, packet):
   icmp = {4: icmpv4_reply, 6: scapy.ICMPv6EchoReply}[version]
   packet = (ip(src=srcaddr, dst=dstaddr) /
             icmp(id=PING_IDENT, seq=PING_SEQ) / PING_PAYLOAD)
-  # IPv6 only started copying the tclass to echo replies in 3.14.
-  if version == 4 or net_test.LINUX_VERSION >= (3, 14):
-    _SetPacketTos(packet, PING_TOS)
+  _SetPacketTos(packet, PING_TOS)
   return ("ICMPv%d echo reply" % version, packet)
 
 def NS(srcaddr, tgtaddr, srcmac):
   solicited = inet_pton(AF_INET6, tgtaddr)
-  last3bytes = tuple([ord(b) for b in solicited[-3:]])
-  solicited = "ff02::1:ff%02x:%02x%02x" % last3bytes
+  last3bytes = tuple([net_test.ByteToHex(b) for b in solicited[-3:]])
+  solicited = "ff02::1:ff%s:%s%s" % last3bytes
   packet = (scapy.IPv6(src=srcaddr, dst=solicited) /
             scapy.ICMPv6ND_NS(tgt=tgtaddr) /
             scapy.ICMPv6NDOptSrcLLAddr(lladdr=srcmac))
@@ -203,4 +201,3 @@ def NA(srcaddr, dstaddr, srcmac):
             scapy.ICMPv6ND_NA(tgt=srcaddr, R=0, S=1, O=1) /
             scapy.ICMPv6NDOptDstLLAddr(lladdr=srcmac))
   return ("ICMPv6 NA", packet)
-

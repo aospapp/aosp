@@ -22,6 +22,7 @@ import android.app.appsearch.AppSearchSchema;
 import android.app.appsearch.AppSearchSchema.PropertyConfig;
 import android.app.appsearch.AppSearchSchema.StringPropertyConfig;
 import android.app.appsearch.GenericDocument;
+import android.app.appsearch.annotation.CanIgnoreReturnValue;
 
 /**
  * Encapsulates a {@link GenericDocument} that represent an email.
@@ -165,36 +166,42 @@ public class AppSearchEmail extends GenericDocument {
         }
 
         /** Sets the from address of {@link AppSearchEmail} */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder setFrom(@NonNull String from) {
             return setPropertyString(KEY_FROM, from);
         }
 
         /** Sets the destination address of {@link AppSearchEmail} */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder setTo(@NonNull String... to) {
             return setPropertyString(KEY_TO, to);
         }
 
         /** Sets the CC list of {@link AppSearchEmail} */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder setCc(@NonNull String... cc) {
             return setPropertyString(KEY_CC, cc);
         }
 
         /** Sets the BCC list of {@link AppSearchEmail} */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder setBcc(@NonNull String... bcc) {
             return setPropertyString(KEY_BCC, bcc);
         }
 
         /** Sets the subject of {@link AppSearchEmail} */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder setSubject(@NonNull String subject) {
             return setPropertyString(KEY_SUBJECT, subject);
         }
 
         /** Sets the body of {@link AppSearchEmail} */
+        @CanIgnoreReturnValue
         @NonNull
         public Builder setBody(@NonNull String body) {
             return setPropertyString(KEY_BODY, body);

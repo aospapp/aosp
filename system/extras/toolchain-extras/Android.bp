@@ -82,6 +82,10 @@ cc_defaults {
 cc_library_static {
     name: "libprofile-clang-extras",
     defaults: ["libprofile-clang-platform-defaults"],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
 }
 
 cc_library_static {

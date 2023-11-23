@@ -73,4 +73,8 @@
     <!-- When set, Telecom will attempt to bind to the {@link CallDiagnosticService} implementation
          defined by the app with this package name. -->
     <string name="call_diagnostic_service_package_name"></string>
+
+    <!-- When true, the options in the call blocking settings to block unavailable and unknown
+     callers are combined into a single toggle. -->
+    <bool name="combine_options_to_block_unavailable_and_unknown_callers">true</bool>
 </resources>

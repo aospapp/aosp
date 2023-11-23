@@ -36,7 +36,7 @@ cc_test {
     shared_libs: [
         "libft2",
         "libharfbuzz_ng",
-        "libandroidicu",
+        "libicu",
         "liblog",
         "libutils",
         "libz",
@@ -79,9 +79,5 @@ cc_test {
         "WordBreakerTests.cpp",
     ],
 
-    cflags: [
-        "-Werror",
-        "-Wall",
-        "-Wextra",
-    ],
+    defaults: ["libminikin_defaults"],
 }

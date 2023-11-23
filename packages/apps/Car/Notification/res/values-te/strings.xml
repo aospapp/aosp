@@ -28,7 +28,7 @@
     <string name="toast_message_sent_success" msgid="1159956191974273064">"మెసేజ్‌ విజయవంతంగా పంపబడింది."</string>
     <string name="notification_service_label" msgid="7512186049723777468">"కార్ నోటిఫికేషన్ వినే కేంద్రం"</string>
     <string name="notifications" msgid="2865534625906329283">"నోటిఫికేషన్ కేంద్రం"</string>
-    <string name="clear_all" msgid="1845314281571237722">"అన్నీ తీసివేయి"</string>
+    <string name="clear_all" msgid="1845314281571237722">"అన్నీ తీసివేయండి"</string>
     <string name="ellipsized_string" msgid="6993649229498857557">"…"</string>
     <string name="show_more" msgid="7291378544926443344">"మరిన్ని చూపు"</string>
     <string name="notification_header" msgid="324550431063568049">"నోటిఫికేషన్‌లు"</string>
@@ -48,5 +48,12 @@
     </plurals>
     <string name="see_more_message" msgid="6343183827924395955">"మరిన్ని చూడండి"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"కొత్త మెసేజ్"</string>
-    <string name="manage_text" msgid="4225197445283791757">"మేనేజ్ చేయి"</string>
+    <string name="manage_text" msgid="4225197445283791757">"మేనేజ్ చేయండి"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"నావిగేషన్"</string>
+    <string name="category_call" msgid="2249490790700877973">"కాల్ చేయండి"</string>
+    <string name="category_message" msgid="451360226248504859">"మెసేజ్"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"సురక్షిత నడక కోసం ఆధారమైనది"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"తాజా విశేషాలు ఎప్పటికప్పుడు తెలుసుకోండి"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"డ్రైవింగ్‌పై ఫోకస్ చేయండి"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"కొన్ని కొత్త నోటిఫికేషన్‌లు నోటిఫికేషన్ సెంటర్‌లో సేవ్ చేయబడ్డాయి"</string>
 </resources>

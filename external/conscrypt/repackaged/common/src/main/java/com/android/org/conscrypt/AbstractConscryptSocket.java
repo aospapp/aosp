@@ -705,7 +705,8 @@ abstract class AbstractConscryptSocket extends SSLSocket {
     UnsupportedAppUsage(maxTargetSdk = dalvik.annotation.compat.VersionCodes.Q,
             publicAlternatives = "Use {@code javax.net.ssl.SSLSocket#getApplicationProtocol()}.")
     @Deprecated
-    abstract byte[] getAlpnSelectedProtocol();
+    abstract byte[]
+    getAlpnSelectedProtocol();
 
     /**
      * Sets the list of ALPN protocols. This method internally converts the protocols to their
@@ -719,7 +720,8 @@ abstract class AbstractConscryptSocket extends SSLSocket {
             publicAlternatives =
                     "Use {@code javax.net.ssl.SSLParameters#setApplicationProtocols(java.lang.String[])}.")
     @Deprecated
-    abstract void setAlpnProtocols(String[] alpnProtocols);
+    abstract void
+    setAlpnProtocols(String[] alpnProtocols);
 
     /**
      * Alternate version of {@link #setAlpnProtocols(String[])} that directly sets the list of
@@ -734,7 +736,8 @@ abstract class AbstractConscryptSocket extends SSLSocket {
             publicAlternatives =
                     "Use {@code javax.net.ssl.SSLParameters#setApplicationProtocols(java.lang.String[])}.")
     @Deprecated
-    abstract void setAlpnProtocols(byte[] alpnProtocols);
+    abstract void
+    setAlpnProtocols(byte[] alpnProtocols);
 
     /**
      * Sets the list of ALPN protocols.
@@ -746,7 +749,8 @@ abstract class AbstractConscryptSocket extends SSLSocket {
             publicAlternatives =
                     "Use {@code javax.net.ssl.SSLParameters#setApplicationProtocols(java.lang.String[])}.")
     @SuppressWarnings("MissingOverride") // For compiling pre Java 9.
-    abstract void setApplicationProtocols(String[] protocols);
+    abstract void
+    setApplicationProtocols(String[] protocols);
 
     /**
      * Returns the list of supported ALPN protocols.
@@ -756,7 +760,8 @@ abstract class AbstractConscryptSocket extends SSLSocket {
             publicAlternatives =
                     "Use {@code javax.net.ssl.SSLParameters#getApplicationProtocols()}.")
     @SuppressWarnings("MissingOverride") // For compiling pre Java 9.
-    abstract String[] getApplicationProtocols();
+    abstract String[]
+    getApplicationProtocols();
 
     @SuppressWarnings("MissingOverride") // For compiling pre Java 9.
     public abstract String getApplicationProtocol();

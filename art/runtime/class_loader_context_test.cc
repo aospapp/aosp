@@ -18,8 +18,13 @@
 
 #include <gtest/gtest.h>
 
+#include <filesystem>
+#include <fstream>
+
+#include "android-base/stringprintf.h"
 #include "android-base/strings.h"
 #include "art_field-inl.h"
+#include "art_method-alloc-inl.h"
 #include "base/dchecked_vector.h"
 #include "base/stl_util.h"
 #include "class_linker.h"
@@ -36,12 +41,29 @@
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
 #include "thread.h"
-#include "well_known_classes.h"
+#include "well_known_classes-inl.h"
 
 namespace art {
 
 class ClassLoaderContextTest : public CommonRuntimeTest {
  public:
+  ClassLoaderContextTest() {
+    use_boot_image_ = true;  // Make the Runtime creation cheaper.
+  }
+
+  void SetUp() override {
+    CommonRuntimeTest::SetUp();
+    scratch_dir_ = std::make_unique<ScratchDir>();
+    scratch_path_ = scratch_dir_->GetPath();
+    // Remove the trailing '/';
+    scratch_path_.resize(scratch_path_.length() - 1);
+  }
+
+  void TearDown() override {
+    scratch_dir_.reset();
+    CommonRuntimeTest::TearDown();
+  }
+
   void VerifyContextSize(ClassLoaderContext* context, size_t expected_size) {
     ASSERT_TRUE(context != nullptr);
     ASSERT_EQ(expected_size, context->GetParentChainSize());
@@ -219,14 +241,14 @@ class ClassLoaderContextTest : public CommonRuntimeTest {
     ASSERT_FALSE(context->owns_the_dex_files_);
   }
 
-  void VerifyClassLoaderDexFiles(ScopedObjectAccess& soa,
+  void VerifyClassLoaderDexFiles(Thread* self,
                                  Handle<mirror::ClassLoader> class_loader,
-                                 jclass type,
+                                 ObjPtr<mirror::Class> type,
                                  std::vector<const DexFile*>& expected_dex_files)
       REQUIRES_SHARED(Locks::mutator_lock_) {
-    ASSERT_TRUE(class_loader->GetClass() == soa.Decode<mirror::Class>(type));
+    ASSERT_TRUE(class_loader->GetClass() == type);
 
-    std::vector<const DexFile*> class_loader_dex_files = GetDexFiles(soa, class_loader);
+    std::vector<const DexFile*> class_loader_dex_files = GetDexFiles(self, class_loader);
     ASSERT_EQ(expected_dex_files.size(), class_loader_dex_files.size());
 
     for (size_t i = 0; i < expected_dex_files.size(); i++) {
@@ -339,6 +361,9 @@ class ClassLoaderContextTest : public CommonRuntimeTest {
     *out = in.substr(start_position);
     return true;
   }
+
+  std::unique_ptr<ScratchDir> scratch_dir_;
+  std::string scratch_path_;
 
  private:
   void VerifyClassLoaderInfo(ClassLoaderContext* context,
@@ -653,10 +678,9 @@ TEST_F(ClassLoaderContextTest, CreateClassLoader) {
   Handle<mirror::ClassLoader> class_loader = hs.NewHandle(
       soa.Decode<mirror::ClassLoader>(jclass_loader));
 
-  ASSERT_TRUE(class_loader->GetClass() ==
-      soa.Decode<mirror::Class>(WellKnownClasses::dalvik_system_PathClassLoader));
+  ASSERT_TRUE(class_loader->GetClass() == WellKnownClasses::dalvik_system_PathClassLoader);
   ASSERT_TRUE(class_loader->GetParent()->GetClass() ==
-      soa.Decode<mirror::Class>(WellKnownClasses::java_lang_BootClassLoader));
+      WellKnownClasses::java_lang_BootClassLoader);
 
   // For the first class loader the class path dex files must come first and then the
   // compilation sources.
@@ -665,9 +689,9 @@ TEST_F(ClassLoaderContextTest, CreateClassLoader) {
     expected_classpath.push_back(dex);
   }
 
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             expected_classpath);
 }
 
@@ -690,12 +714,12 @@ TEST_F(ClassLoaderContextTest, CreateClassLoaderWithEmptyContext) {
       soa.Decode<mirror::ClassLoader>(jclass_loader));
 
   // An empty context should create a single PathClassLoader with only the compilation sources.
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             compilation_sources_raw);
   ASSERT_TRUE(class_loader->GetParent()->GetClass() ==
-      soa.Decode<mirror::Class>(WellKnownClasses::java_lang_BootClassLoader));
+      WellKnownClasses::java_lang_BootClassLoader);
 }
 
 TEST_F(ClassLoaderContextTest, CreateClassLoaderWithComplexChain) {
@@ -741,31 +765,31 @@ TEST_F(ClassLoaderContextTest, CreateClassLoaderWithComplexChain) {
   for (auto& dex : compilation_sources_raw) {
     class_loader_1_dex_files.push_back(dex);
   }
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_1,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             class_loader_1_dex_files);
 
   // Verify the second class loader
   Handle<mirror::ClassLoader> class_loader_2 = hs.NewHandle(class_loader_1->GetParent());
   std::vector<const DexFile*> class_loader_2_dex_files =
       MakeNonOwningPointerVector(classpath_dex_c);
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_2,
-                            WellKnownClasses::dalvik_system_DelegateLastClassLoader,
+                            WellKnownClasses::dalvik_system_DelegateLastClassLoader.Get(),
                             class_loader_2_dex_files);
 
   // Verify the third class loader
   Handle<mirror::ClassLoader> class_loader_3 = hs.NewHandle(class_loader_2->GetParent());
   std::vector<const DexFile*> class_loader_3_dex_files =
       MakeNonOwningPointerVector(classpath_dex_d);
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_3,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             class_loader_3_dex_files);
   // The last class loader should have the BootClassLoader as a parent.
   ASSERT_TRUE(class_loader_3->GetParent()->GetClass() ==
-      soa.Decode<mirror::Class>(WellKnownClasses::java_lang_BootClassLoader));
+      WellKnownClasses::java_lang_BootClassLoader);
 }
 
 TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSharedLibraries) {
@@ -809,14 +833,13 @@ TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSharedLibraries) {
   for (auto& dex : compilation_sources_raw) {
     class_loader_1_dex_files.push_back(dex);
   }
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_1,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             class_loader_1_dex_files);
 
   // Verify the shared libraries.
-  ArtField* field =
-      jni::DecodeArtField(WellKnownClasses::dalvik_system_BaseDexClassLoader_sharedLibraryLoaders);
+  ArtField* field = WellKnownClasses::dalvik_system_BaseDexClassLoader_sharedLibraryLoaders;
   ObjPtr<mirror::Object> raw_shared_libraries = field->GetObject(class_loader_1.Get());
   ASSERT_TRUE(raw_shared_libraries != nullptr);
 
@@ -828,9 +851,9 @@ TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSharedLibraries) {
   Handle<mirror::ClassLoader> class_loader_2 = hs.NewHandle(shared_libraries->Get(0));
   std::vector<const DexFile*> class_loader_2_dex_files =
       MakeNonOwningPointerVector(classpath_dex_c);
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_2,
-                            WellKnownClasses::dalvik_system_DelegateLastClassLoader,
+                            WellKnownClasses::dalvik_system_DelegateLastClassLoader.Get(),
                             class_loader_2_dex_files);
   raw_shared_libraries = field->GetObject(class_loader_2.Get());
   ASSERT_TRUE(raw_shared_libraries == nullptr);
@@ -839,20 +862,20 @@ TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSharedLibraries) {
   Handle<mirror::ClassLoader> class_loader_3 = hs.NewHandle(shared_libraries->Get(1));
   std::vector<const DexFile*> class_loader_3_dex_files =
       MakeNonOwningPointerVector(classpath_dex_d);
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_3,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             class_loader_3_dex_files);
   raw_shared_libraries = field->GetObject(class_loader_3.Get());
   ASSERT_TRUE(raw_shared_libraries == nullptr);
 
   // All class loaders should have the BootClassLoader as a parent.
   ASSERT_TRUE(class_loader_1->GetParent()->GetClass() ==
-      soa.Decode<mirror::Class>(WellKnownClasses::java_lang_BootClassLoader));
+      WellKnownClasses::java_lang_BootClassLoader);
   ASSERT_TRUE(class_loader_2->GetParent()->GetClass() ==
-      soa.Decode<mirror::Class>(WellKnownClasses::java_lang_BootClassLoader));
+      WellKnownClasses::java_lang_BootClassLoader);
   ASSERT_TRUE(class_loader_3->GetParent()->GetClass() ==
-      soa.Decode<mirror::Class>(WellKnownClasses::java_lang_BootClassLoader));
+      WellKnownClasses::java_lang_BootClassLoader);
 }
 
 TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSharedLibrariesInParentToo) {
@@ -894,14 +917,13 @@ TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSharedLibrariesInParentToo) 
   for (auto& dex : compilation_sources_raw) {
     class_loader_1_dex_files.push_back(dex);
   }
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_1,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             class_loader_1_dex_files);
 
   // Verify its shared library.
-  ArtField* field =
-      jni::DecodeArtField(WellKnownClasses::dalvik_system_BaseDexClassLoader_sharedLibraryLoaders);
+  ArtField* field = WellKnownClasses::dalvik_system_BaseDexClassLoader_sharedLibraryLoaders;
   ObjPtr<mirror::Object> raw_shared_libraries = field->GetObject(class_loader_1.Get());
   ASSERT_TRUE(raw_shared_libraries != nullptr);
 
@@ -912,9 +934,9 @@ TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSharedLibrariesInParentToo) 
   Handle<mirror::ClassLoader> class_loader_2 = hs.NewHandle(shared_libraries->Get(0));
   std::vector<const DexFile*> class_loader_2_dex_files =
       MakeNonOwningPointerVector(classpath_dex_b);
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_2,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             class_loader_2_dex_files);
   raw_shared_libraries = field->GetObject(class_loader_2.Get());
   ASSERT_TRUE(raw_shared_libraries == nullptr);
@@ -923,9 +945,9 @@ TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSharedLibrariesInParentToo) 
   Handle<mirror::ClassLoader> class_loader_3 = hs.NewHandle(class_loader_1->GetParent());
   std::vector<const DexFile*> class_loader_3_dex_files =
       MakeNonOwningPointerVector(classpath_dex_c);
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_3,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             class_loader_3_dex_files);
 
   // Verify its shared library.
@@ -939,20 +961,20 @@ TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSharedLibrariesInParentToo) 
   Handle<mirror::ClassLoader> class_loader_4 = hs.NewHandle(shared_libraries_2->Get(0));
   std::vector<const DexFile*> class_loader_4_dex_files =
       MakeNonOwningPointerVector(classpath_dex_d);
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_4,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             class_loader_4_dex_files);
   raw_shared_libraries = field->GetObject(class_loader_4.Get());
   ASSERT_TRUE(raw_shared_libraries == nullptr);
 
   // Class loaders should have the BootClassLoader as a parent.
   ASSERT_TRUE(class_loader_2->GetParent()->GetClass() ==
-      soa.Decode<mirror::Class>(WellKnownClasses::java_lang_BootClassLoader));
+      WellKnownClasses::java_lang_BootClassLoader);
   ASSERT_TRUE(class_loader_3->GetParent()->GetClass() ==
-      soa.Decode<mirror::Class>(WellKnownClasses::java_lang_BootClassLoader));
+      WellKnownClasses::java_lang_BootClassLoader);
   ASSERT_TRUE(class_loader_4->GetParent()->GetClass() ==
-      soa.Decode<mirror::Class>(WellKnownClasses::java_lang_BootClassLoader));
+      WellKnownClasses::java_lang_BootClassLoader);
 }
 
 TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSharedLibrariesDependencies) {
@@ -994,14 +1016,13 @@ TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSharedLibrariesDependencies)
   for (auto& dex : compilation_sources_raw) {
     class_loader_1_dex_files.push_back(dex);
   }
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_1,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             class_loader_1_dex_files);
 
   // Verify its shared library.
-  ArtField* field =
-      jni::DecodeArtField(WellKnownClasses::dalvik_system_BaseDexClassLoader_sharedLibraryLoaders);
+  ArtField* field = WellKnownClasses::dalvik_system_BaseDexClassLoader_sharedLibraryLoaders;
   ObjPtr<mirror::Object> raw_shared_libraries = field->GetObject(class_loader_1.Get());
   ASSERT_TRUE(raw_shared_libraries != nullptr);
 
@@ -1012,9 +1033,9 @@ TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSharedLibrariesDependencies)
   Handle<mirror::ClassLoader> class_loader_2 = hs.NewHandle(shared_libraries->Get(0));
   std::vector<const DexFile*> class_loader_2_dex_files =
       MakeNonOwningPointerVector(classpath_dex_b);
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_2,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             class_loader_2_dex_files);
 
   // Verify the shared library dependency of the shared library.
@@ -1028,9 +1049,9 @@ TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSharedLibrariesDependencies)
   Handle<mirror::ClassLoader> class_loader_3 = hs.NewHandle(shared_libraries_2->Get(0));
   std::vector<const DexFile*> class_loader_3_dex_files =
       MakeNonOwningPointerVector(classpath_dex_c);
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_3,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             class_loader_3_dex_files);
   raw_shared_libraries = field->GetObject(class_loader_3.Get());
   ASSERT_TRUE(raw_shared_libraries == nullptr);
@@ -1039,20 +1060,20 @@ TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSharedLibrariesDependencies)
   Handle<mirror::ClassLoader> class_loader_4 = hs.NewHandle(class_loader_1->GetParent());
   std::vector<const DexFile*> class_loader_4_dex_files =
       MakeNonOwningPointerVector(classpath_dex_d);
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_4,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             class_loader_4_dex_files);
   raw_shared_libraries = field->GetObject(class_loader_4.Get());
   ASSERT_TRUE(raw_shared_libraries == nullptr);
 
   // Class loaders should have the BootClassLoader as a parent.
   ASSERT_TRUE(class_loader_2->GetParent()->GetClass() ==
-      soa.Decode<mirror::Class>(WellKnownClasses::java_lang_BootClassLoader));
+      WellKnownClasses::java_lang_BootClassLoader);
   ASSERT_TRUE(class_loader_3->GetParent()->GetClass() ==
-      soa.Decode<mirror::Class>(WellKnownClasses::java_lang_BootClassLoader));
+      WellKnownClasses::java_lang_BootClassLoader);
   ASSERT_TRUE(class_loader_4->GetParent()->GetClass() ==
-      soa.Decode<mirror::Class>(WellKnownClasses::java_lang_BootClassLoader));
+      WellKnownClasses::java_lang_BootClassLoader);
 }
 
 TEST_F(ClassLoaderContextTest, RemoveSourceLocations) {
@@ -1109,14 +1130,13 @@ TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSameSharedLibraries) {
   for (auto& dex : compilation_sources_raw) {
     class_loader_1_dex_files.push_back(dex);
   }
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_1,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             class_loader_1_dex_files);
 
   // Verify its shared library.
-  ArtField* field =
-      jni::DecodeArtField(WellKnownClasses::dalvik_system_BaseDexClassLoader_sharedLibraryLoaders);
+  ArtField* field = WellKnownClasses::dalvik_system_BaseDexClassLoader_sharedLibraryLoaders;
   ObjPtr<mirror::Object> raw_shared_libraries = field->GetObject(class_loader_1.Get());
   ASSERT_TRUE(raw_shared_libraries != nullptr);
 
@@ -1127,18 +1147,18 @@ TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSameSharedLibraries) {
   Handle<mirror::ClassLoader> class_loader_2 = hs.NewHandle(shared_libraries->Get(0));
   std::vector<const DexFile*> class_loader_2_dex_files =
       MakeNonOwningPointerVector(classpath_dex_b);
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_2,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             class_loader_2_dex_files);
 
   // Verify the parent.
   Handle<mirror::ClassLoader> class_loader_3 = hs.NewHandle(class_loader_1->GetParent());
   std::vector<const DexFile*> class_loader_3_dex_files =
       MakeNonOwningPointerVector(classpath_dex_c);
-  VerifyClassLoaderDexFiles(soa,
+  VerifyClassLoaderDexFiles(soa.Self(),
                             class_loader_3,
-                            WellKnownClasses::dalvik_system_PathClassLoader,
+                            WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                             class_loader_3_dex_files);
 
   // Verify its shared library is the same as the child.
@@ -1151,9 +1171,9 @@ TEST_F(ClassLoaderContextTest, CreateClassLoaderWithSameSharedLibraries) {
 
   // Class loaders should have the BootClassLoader as a parent.
   ASSERT_TRUE(class_loader_2->GetParent()->GetClass() ==
-      soa.Decode<mirror::Class>(WellKnownClasses::java_lang_BootClassLoader));
+      WellKnownClasses::java_lang_BootClassLoader);
   ASSERT_TRUE(class_loader_3->GetParent()->GetClass() ==
-      soa.Decode<mirror::Class>(WellKnownClasses::java_lang_BootClassLoader));
+      WellKnownClasses::java_lang_BootClassLoader);
 }
 
 TEST_F(ClassLoaderContextTest, EncodeInOatFile) {
@@ -1343,13 +1363,14 @@ TEST_F(ClassLoaderContextTest, EncodeContextsForSingleDex) {
 
 static jobject CreateForeignClassLoader() {
   ScopedObjectAccess soa(Thread::Current());
-  JNIEnv* env = soa.Env();
 
   // We cannot instantiate a ClassLoader directly, so instead we allocate an Object to represent
   // our foreign ClassLoader (this works because the runtime does proper instanceof checks before
   // operating on this object.
-  jmethodID ctor = env->GetMethodID(WellKnownClasses::java_lang_Object, "<init>", "()V");
-  return env->NewObject(WellKnownClasses::java_lang_Object, ctor);
+  ArtMethod* ctor =
+      GetClassRoot<mirror::Object>()->FindClassMethod("<init>", "()V", kRuntimePointerSize);
+  CHECK(ctor != nullptr);
+  return soa.AddLocalReference<jobject>(ctor->NewObject<>(soa.Self()));
 }
 
 TEST_F(ClassLoaderContextTest, EncodeContextsForUnsupportedBase) {
@@ -1597,6 +1618,28 @@ TEST_F(ClassLoaderContextTest, VerifyClassLoaderContextMatchWithIMCSL) {
   VerifyClassLoaderSharedLibraryIMC(context.get(), 0, 1, "<unknown>:<unknown>");
 
   ASSERT_EQ(context->VerifyClassLoaderContextMatch(context_spec),
+            ClassLoaderContext::VerificationResult::kVerifies);
+}
+
+TEST_F(ClassLoaderContextTest, VerifyClassLoaderContextMatchAfterResolvingSymlinks) {
+  {
+    std::ofstream ofs(scratch_path_ + "/foo.jar");
+    ASSERT_TRUE(ofs);
+  }
+  std::filesystem::create_directory_symlink(scratch_path_, scratch_path_ + "/bar");
+
+  std::string context_spec =
+      android::base::StringPrintf("PCL[%s/foo.jar*123:%s/foo.jar!classes2.dex*456]",
+                                  scratch_path_.c_str(),
+                                  scratch_path_.c_str());
+  std::unique_ptr<ClassLoaderContext> context = ParseContextWithChecksums(context_spec);
+  PretendContextOpenedDexFilesForChecksums(context.get());
+
+  std::string context_spec_with_symlinks =
+      android::base::StringPrintf("PCL[%s/bar/foo.jar*123:%s/bar/foo.jar!classes2.dex*456]",
+                                  scratch_path_.c_str(),
+                                  scratch_path_.c_str());
+  ASSERT_EQ(context->VerifyClassLoaderContextMatch(context_spec_with_symlinks),
             ClassLoaderContext::VerificationResult::kVerifies);
 }
 

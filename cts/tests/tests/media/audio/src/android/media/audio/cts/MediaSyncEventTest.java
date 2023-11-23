@@ -20,28 +20,33 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import android.content.Context;
 import android.content.pm.PackageManager;
-import android.media.cts.AudioHelper;
-import android.media.cts.NonMediaMainlineTest;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
+import android.media.AudioTimestamp;
 import android.media.AudioTrack;
 import android.media.MediaSyncEvent;
+import android.media.cts.AudioHelper;
 import android.os.Parcel;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.DeviceReportLog;
+import com.android.compatibility.common.util.NonMainlineTest;
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 @RunWith(AndroidJUnit4.class)
 public class MediaSyncEventTest {
     private final static String TAG = "MediaSyncEventTest";
+    private static final String REPORT_LOG_NAME = "CtsMediaAudioTestCases";
 
     @Test
     public void testSynchronizedRecord() throws Exception {
@@ -118,7 +123,28 @@ public class MediaSyncEventTest {
             record.startRecording(event);
             assertEquals(TEST_NAME,
                     AudioRecord.RECORDSTATE_RECORDING, record.getRecordingState());
-            long startTime = System.currentTimeMillis();
+
+            // We anchor start time here after issuing the play() and startRecording().
+            // It is possible that the track has already started playing a few ms.
+            final long nanosToMillis = 1000 * 1000;
+            final long startTimeNs = System.nanoTime();
+            final long startTimeMs = startTimeNs / nanosToMillis;
+            Log.d(TEST_NAME, "startTimeMs: " + startTimeMs);
+
+            // Establish when playback actually started
+            long playbackStartLatencyMs = 0;
+            final AudioTimestamp timestamp = new AudioTimestamp();
+            final int pollGranularityMs = 10;
+            for (int i = 0; i < PLAYBACK_TIME_IN_MS / pollGranularityMs; ++i) {
+                // sample in the middle of playback to get a better estimate of start latency.
+                if (track.getTimestamp(timestamp) && timestamp.framePosition > frameCount / 2) {
+                    playbackStartLatencyMs = (timestamp.nanoTime - startTimeNs) / nanosToMillis
+                            - timestamp.framePosition * 1000 / PLAYBACK_SAMPLE_RATE;
+                    break;
+                }
+                Thread.sleep(pollGranularityMs);
+            }
+            Log.d(TEST_NAME, "playbackStartLatencyMs: " + playbackStartLatencyMs);
 
             // 5. get record data.
             // For our tests, we could set test duration by timed sleep or by # frames received.
@@ -135,7 +161,7 @@ public class MediaSyncEventTest {
             final int BUFFER_SAMPLES = BUFFER_FRAMES * numChannels;
 
             // After starting, there is no guarantee when the first frame of data is read.
-            long firstSampleTime = 0;
+            long firstSampleReadTimeMs   = 0;
             int samplesRead = 0;
 
             // For 16 bit data, use shorts
@@ -148,29 +174,55 @@ public class MediaSyncEventTest {
                 int ret = record.read(shortData, 0, amount);
                 assertEquals(TEST_NAME, amount, ret);
                 if (samplesRead == 0 && ret > 0) {
-                    firstSampleTime = System.currentTimeMillis();
+                    firstSampleReadTimeMs = System.nanoTime() / nanosToMillis;
+                    Log.d(TEST_NAME, "firstSampleReadTimeMs: " + firstSampleReadTimeMs);
                 }
                 samplesRead += ret;
                 // validity check: elapsed time cannot be more than a second
                 // than what we expect.
-                assertTrue(System.currentTimeMillis() - startTime <=
-                        PLAYBACK_TIME_IN_MS + RECORD_TIME_IN_MS + 1000);
+                assertTrue(TEST_NAME + " exceeds one second past expectation of "
+                        + (PLAYBACK_TIME_IN_MS + RECORD_TIME_IN_MS) + " ms",
+                        System.nanoTime() / nanosToMillis - startTimeMs
+                        <= PLAYBACK_TIME_IN_MS + RECORD_TIME_IN_MS + 1000);
             }
 
             // 6. We've read all the frames, now check the timing.
-            final long endTime = System.currentTimeMillis();
-            //Log.d(TEST_NAME, "first sample time " + (firstSampleTime - startTime)
-            //        + " test time " + (endTime - firstSampleTime));
-            //
-            // Verify recording starts within 400 ms of AudioTrack completion (typical 180ms)
-            // Verify recording completes within 50 ms of expected test time (typical 20ms)
-            assertEquals(TEST_NAME, PLAYBACK_TIME_IN_MS, firstSampleTime - startTime,
-                    isLowLatencyDevice() ? 200 : 800);
-            assertEquals(TEST_NAME, RECORD_TIME_IN_MS, endTime - firstSampleTime,
-                    isLowLatencyDevice()? 50 : 400);
+            final long endTimeMs = System.nanoTime() / nanosToMillis;
+            Log.d(TEST_NAME, "endTimeMs : " + endTimeMs);
 
+            // Stop the test.  All the data is received.
             record.stop();
-            assertEquals(TEST_NAME, AudioRecord.RECORDSTATE_STOPPED, record.getRecordingState());
+
+            // Verify recording starts shortly after AudioTrack completion (typical diff 180ms)
+            final long recordStartAfterPlaybackMs =
+                    firstSampleReadTimeMs - startTimeMs - PLAYBACK_TIME_IN_MS;
+            final long recordStartToleranceMs = isLowLatencyDevice() ? 200 : 800;
+            Log.d(TEST_NAME, "recordStartAfterPlaybackMs: " + recordStartAfterPlaybackMs
+                    + " recordStartToleranceMs: " + recordStartToleranceMs);
+
+            // Verify recording time matches the expected time (typical diff 20ms)
+            final long recordTimeMs = endTimeMs - firstSampleReadTimeMs;
+            final long recordTimeToleranceMs = isLowLatencyDevice() ? 50 : 400;
+            Log.d(TEST_NAME, "recordTimeMs: " + recordTimeMs
+                    + " expectedRecordTimeMs: " + RECORD_TIME_IN_MS
+                    + " recordTimeToleranceMs: " + recordTimeToleranceMs);
+
+            // Report the values here.
+            final DeviceReportLog log = new DeviceReportLog(REPORT_LOG_NAME,
+                    "media_sync_event_test" /* reportName */);
+            log.setSummary("record_start_after_playback_ms",
+                    recordStartAfterPlaybackMs, ResultType.LOWER_BETTER, ResultUnit.MS);
+            log.submit(InstrumentationRegistry.getInstrumentation());
+
+            // Assert after logging to ensure statistics are recorded.
+            assertEquals(TEST_NAME + " record start time after playback, limit("
+                    + recordStartToleranceMs + ") ", 0 /* expected */,
+                    recordStartAfterPlaybackMs, recordStartToleranceMs);
+            assertEquals(TEST_NAME + " record total time, limit("
+                    + recordTimeToleranceMs + ") ", RECORD_TIME_IN_MS,
+                    recordTimeMs, recordTimeToleranceMs);
+            assertEquals(TEST_NAME + " record state: ",
+                    AudioRecord.RECORDSTATE_STOPPED, record.getRecordingState());
         } finally {
             if (record != null) {
                 record.release();

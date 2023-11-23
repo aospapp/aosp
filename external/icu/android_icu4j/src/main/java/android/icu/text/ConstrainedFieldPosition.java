@@ -197,7 +197,7 @@ public class ConstrainedFieldPosition {
      * Gets the field for the current position.
      *
      * The return value is well-defined and non-null only after
-     * FormattedValue#nextPosition returns TRUE.
+     * FormattedValue#nextPosition returns true.
      *
      * @return The field saved in the instance. See above for null conditions.
      */
@@ -208,7 +208,7 @@ public class ConstrainedFieldPosition {
     /**
      * Gets the INCLUSIVE start index for the current position.
      *
-     * The return value is well-defined only after FormattedValue#nextPosition returns TRUE.
+     * The return value is well-defined only after FormattedValue#nextPosition returns true.
      *
      * @return The start index saved in the instance.
      */
@@ -219,7 +219,7 @@ public class ConstrainedFieldPosition {
     /**
      * Gets the EXCLUSIVE end index stored for the current position.
      *
-     * The return value is well-defined only after FormattedValue#nextPosition returns TRUE.
+     * The return value is well-defined only after FormattedValue#nextPosition returns true.
      *
      * @return The end index saved in the instance.
      */
@@ -230,7 +230,7 @@ public class ConstrainedFieldPosition {
     /**
      * Gets the value associated with the current field position. The field value is often not set.
      *
-     * The return value is well-defined only after FormattedValue#nextPosition returns TRUE.
+     * The return value is well-defined only after FormattedValue#nextPosition returns true.
      *
      * @return The value for the current position. Might be null.
      */

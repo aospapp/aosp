@@ -23,42 +23,48 @@ import static androidx.heifwriter.HeifWriter.INPUT_MODE_SURFACE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
-import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
+import android.media.cts.InputSurface;
 import android.opengl.GLES20;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
-import android.media.cts.InputSurface;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
-import android.test.AndroidTestCase;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.heifwriter.HeifWriter;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.FlakyTest;
 import androidx.test.filters.SmallTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.MediaUtils;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.Closeable;
 import java.io.File;
@@ -75,7 +81,8 @@ import java.util.Arrays;
 @SmallTest
 @RequiresDevice
 @AppModeFull(reason = "Instant apps cannot access the SD card")
-public class HeifWriterTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class HeifWriterTest {
     private static final String TAG = HeifWriterTest.class.getSimpleName();
     private static final boolean DEBUG = false;
     private static final boolean DUMP_OUTPUT = false;
@@ -116,7 +123,11 @@ public class HeifWriterTest extends AndroidTestCase {
     private Handler mHandler;
     private int mInputIndex;
 
-    @Override
+    private Context getContext() {
+        return InstrumentationRegistry.getInstrumentation().getContext();
+    }
+
+    @Before
     public void setUp() throws Exception {
         for (int i = 0; i < IMAGE_RESOURCES.length; ++i) {
             String outputPath = new File(Environment.getExternalStorageDirectory(),
@@ -140,7 +151,7 @@ public class HeifWriterTest extends AndroidTestCase {
         mHandler = new Handler(handlerThread.getLooper());
     }
 
-    @Override
+    @After
     public void tearDown() throws Exception {
         for (int i = 0; i < IMAGE_RESOURCES.length; ++i) {
             String imageFilePath =
@@ -153,51 +164,60 @@ public class HeifWriterTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInputBuffer_NoGrid_NoHandler() throws Throwable {
         TestConfig.Builder builder = new TestConfig.Builder(INPUT_MODE_BUFFER, false, false);
         doTestForVariousNumberImages(builder);
     }
 
+    @Test
     public void testInputBuffer_Grid_NoHandler() throws Throwable {
         TestConfig.Builder builder = new TestConfig.Builder(INPUT_MODE_BUFFER, true, false);
         doTestForVariousNumberImages(builder);
     }
 
+    @Test
     public void testInputBuffer_NoGrid_Handler() throws Throwable {
         TestConfig.Builder builder = new TestConfig.Builder(INPUT_MODE_BUFFER, false, true);
         doTestForVariousNumberImages(builder);
     }
 
+    @Test
     public void testInputBuffer_Grid_Handler() throws Throwable {
         TestConfig.Builder builder = new TestConfig.Builder(INPUT_MODE_BUFFER, true, true);
         doTestForVariousNumberImages(builder);
     }
 
     // TODO: b/186001256
+    @Test
     @FlakyTest
     public void testInputSurface_NoGrid_NoHandler() throws Throwable {
         TestConfig.Builder builder = new TestConfig.Builder(INPUT_MODE_SURFACE, false, false);
         doTestForVariousNumberImages(builder);
     }
 
+    @Test
     @FlakyTest
     public void testInputSurface_Grid_NoHandler() throws Throwable {
         TestConfig.Builder builder = new TestConfig.Builder(INPUT_MODE_SURFACE, true, false);
         doTestForVariousNumberImages(builder);
     }
 
+    @Test
     @FlakyTest
     public void testInputSurface_NoGrid_Handler() throws Throwable {
         TestConfig.Builder builder = new TestConfig.Builder(INPUT_MODE_SURFACE, false, true);
         doTestForVariousNumberImages(builder);
     }
 
+    @Test
     @FlakyTest
     public void testInputSurface_Grid_Handler() throws Throwable {
         TestConfig.Builder builder = new TestConfig.Builder(INPUT_MODE_SURFACE, true, true);
         doTestForVariousNumberImages(builder);
     }
 
+    @Test
     public void testInputBitmap_NoGrid_NoHandler() throws Throwable {
         TestConfig.Builder builder = new TestConfig.Builder(INPUT_MODE_BITMAP, false, false);
         for (int i = 0; i < IMAGE_RESOURCES.length; ++i) {
@@ -207,6 +227,7 @@ public class HeifWriterTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInputBitmap_Grid_NoHandler() throws Throwable {
         TestConfig.Builder builder = new TestConfig.Builder(INPUT_MODE_BITMAP, true, false);
         for (int i = 0; i < IMAGE_RESOURCES.length; ++i) {
@@ -216,6 +237,7 @@ public class HeifWriterTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInputBitmap_NoGrid_Handler() throws Throwable {
         TestConfig.Builder builder = new TestConfig.Builder(INPUT_MODE_BITMAP, false, true);
         for (int i = 0; i < IMAGE_RESOURCES.length; ++i) {
@@ -225,6 +247,7 @@ public class HeifWriterTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testInputBitmap_Grid_Handler() throws Throwable {
         TestConfig.Builder builder = new TestConfig.Builder(INPUT_MODE_BITMAP, true, true);
         for (int i = 0; i < IMAGE_RESOURCES.length; ++i) {
@@ -244,6 +267,7 @@ public class HeifWriterTest extends AndroidTestCase {
      * {@link MediaFormat#MIMETYPE_IMAGE_ANDROID_HEIC} encoder.
      */
     @CddTest(requirement="5.1.4/C-1-1")
+    @Test
     public void testHeicFallbackAvailable() throws Throwable {
         if (!MediaUtils.hasEncoder(MediaFormat.MIMETYPE_IMAGE_ANDROID_HEIC)) {
             MediaUtils.skipTest("HEIC full-frame image encoder is not supported on this device");

@@ -18,16 +18,16 @@ filegroup {
         "btm_api.cc",
         "config.cc",
         "controller.cc",
+        "distance_measurement_manager.cc",
         "dumpsys.cc",
         "entry.cc",
         "hci_layer.cc",
         "l2c_api.cc",
         "le_advertising_manager.cc",
         "le_scanning_manager.cc",
-        "link_policy.cc",
         "metric_id_api.cc",
         "metrics_api.cc",
         "shim.cc",
         "stack.cc",
-    ]
+    ],
 }

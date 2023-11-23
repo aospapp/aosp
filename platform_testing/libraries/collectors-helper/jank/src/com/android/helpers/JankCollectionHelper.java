@@ -42,6 +42,10 @@ public class JankCollectionHelper implements ICollectorHelper<Double> {
 
     // Prefix for all output metrics that come from the gfxinfo dump.
     @VisibleForTesting static final String GFXINFO_METRICS_PREFIX = "gfxinfo";
+
+    @VisibleForTesting
+    static final String FAILED_PACKAGES_COUNT_METRIC =
+            GFXINFO_METRICS_PREFIX + "_failed_packages_count";
     // Shell dump commands to get and reset the tracked gfxinfo metrics.
     @VisibleForTesting static final String GFXINFO_COMMAND_GET = "dumpsys gfxinfo %s";
     @VisibleForTesting static final String GFXINFO_COMMAND_RESET = GFXINFO_COMMAND_GET + " reset";
@@ -224,31 +228,24 @@ public class JankCollectionHelper implements ICollectorHelper<Double> {
     @Override
     public Map<String, Double> getMetrics() {
         Map<String, Double> result = new HashMap<>();
+        int failedPackagesCount = 0;
         if (mTrackedPackages.isEmpty()) {
             result.putAll(getGfxInfoMetrics());
+            // No need to update failed packages count here -- we get info for whatever is available
+            // so there are no "failed" packages.
         } else {
-            int exceptionCount = 0;
-            Exception lastException = null;
             for (String pkg : mTrackedPackages) {
                 try {
                     result.putAll(getGfxInfoMetrics(pkg));
                 } catch (Exception e) {
+                    // We log exceptions but continue so that we don't lose information on processes
+                    // that were collected successfully.
                     Log.e(LOG_TAG, "Encountered exception getting gfxinfo.", e);
-                    lastException = e;
-                    exceptionCount++;
+                    failedPackagesCount += 1;
                 }
             }
-            // Throw exceptions after to ensure all failures are reported. The metrics will still
-            // not be collected at this point, but it will possibly make the issue cause clearer.
-            if (exceptionCount > 1) {
-                throw new RuntimeException(
-                        "Multiple exceptions were encountered getting gfxinfo. Reporting the last"
-                                + " one only; others are visible in logs.",
-                        lastException);
-            } else if (exceptionCount == 1) {
-                throw new RuntimeException("Encountered exception getting gfxinfo.", lastException);
-            }
         }
+        result.put(FAILED_PACKAGES_COUNT_METRIC, Double.valueOf(failedPackagesCount));
         return result;
     }
 

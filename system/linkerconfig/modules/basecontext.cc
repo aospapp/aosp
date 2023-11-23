@@ -22,12 +22,23 @@ namespace modules {
 BaseContext::BaseContext() : strict_(false) {
 }
 
-void BaseContext::AddApexModule(ApexInfo apex_module) {
-  apex_modules_.push_back(std::move(apex_module));
+void BaseContext::SetApexModules(std::vector<ApexInfo>&& apex_modules) {
+  apex_modules_ = std::move(apex_modules);
+
+  for (const auto& apex_module : apex_modules_) {
+    for (const auto& lib : apex_module.provide_libs) {
+      apex_module_map_.emplace(lib, std::cref<ApexInfo>(apex_module));
+    }
+  }
 }
 
 const std::vector<ApexInfo>& BaseContext::GetApexModules() const {
   return apex_modules_;
+}
+
+const std::unordered_map<std::string, std::reference_wrapper<const ApexInfo>>&
+BaseContext::GetApexModuleMap() const {
+  return apex_module_map_;
 }
 
 void BaseContext::SetStrictMode(bool strict) {
@@ -36,6 +47,14 @@ void BaseContext::SetStrictMode(bool strict) {
 
 bool BaseContext::IsStrictMode() const {
   return strict_;
+}
+
+void BaseContext::SetTargetApex(const std::string& target_apex) {
+  target_apex_ = target_apex;
+}
+
+const std::string& BaseContext::GetTargetApex() const {
+  return target_apex_;
 }
 
 Namespace BaseContext::BuildApexNamespace(const ApexInfo& apex_info,

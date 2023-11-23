@@ -1,0 +1,11 @@
+{
+  "dependencies": true,
+  "device": true,
+  "features": "",
+  "no-host": "true",
+  "patch": "patches/Android.bp.patch",
+  "run": true,
+  "tests": true,
+  "vendor-available": false,
+  "product-available": false
+}

@@ -46,7 +46,7 @@ public class ServiceDisabledForSureTest
 
     @BeforeClass
     public static void resetService() {
-        disableAutofillService(sContext);
+        disableAutofillService();
     }
 
     @Override
@@ -75,10 +75,10 @@ public class ServiceDisabledForSureTest
         final AutofillManager afm = mActivity.getAutofillManager();
         Helper.assertAutofillEnabled(afm, false);
 
-        enableAutofillService(mContext, SERVICE_NAME);
+        enableAutofillService(SERVICE_NAME);
         Helper.assertAutofillEnabled(afm, true);
 
-        disableAutofillService(mContext);
+        disableAutofillService();
         Helper.assertAutofillEnabled(afm, false);
     }
 }

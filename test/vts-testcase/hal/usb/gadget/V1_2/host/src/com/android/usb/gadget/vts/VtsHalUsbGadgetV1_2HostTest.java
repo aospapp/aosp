@@ -28,6 +28,7 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.testtype.junit4.BeforeClassWithInfo;
+import com.android.tradefed.util.RunUtil;
 import com.google.common.base.Strings;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
@@ -69,7 +70,7 @@ public final class VtsHalUsbGadgetV1_2HostTest extends BaseHostJUnit4Test {
                 testInfo.getDevice()
                         .executeShellCommand(String.format("lshal | grep \"%s\"", HAL_SERVICE))
                         .trim();
-        mHasService = !Strings.isNullOrEmpty(serviceFound);
+        mHasService = !Strings.isNullOrEmpty(serviceFound) && serviceFound.contains(HAL_SERVICE);
 
         if (mHasService) {
             mUsb = (IUsbNative) Native.loadLibrary("usb-1.0", IUsbNative.class);
@@ -126,7 +127,7 @@ public final class VtsHalUsbGadgetV1_2HostTest extends BaseHostJUnit4Test {
         CLog.i("testAndroidNcm on device [%s]", deviceSerialNumber);
 
         mDevice.executeShellCommand("svc usb setFunctions ncm");
-        Thread.sleep(CONN_TIMEOUT);
+        RunUtil.getDefault().sleep(CONN_TIMEOUT);
         Assert.assertTrue("NCM not present", checkProtocol(2, 13, 0));
     }
 

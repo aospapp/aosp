@@ -51,6 +51,7 @@ public final class BluetoothUtilsGetProfileNameTest {
         return Arrays.asList(
             new Object[][] {
                 {BluetoothProfile.PAN, "PAN"},
+                {BluetoothProfile.A2DP, "A2DP Source"},
                 {BluetoothProfile.A2DP_SINK, "A2DP Sink"},
                 {BluetoothProfile.AVRCP_CONTROLLER, "AVRCP Controller"},
                 {BluetoothProfile.HEADSET_CLIENT, "HFP Client"},

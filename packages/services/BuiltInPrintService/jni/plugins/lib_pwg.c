@@ -319,12 +319,14 @@ static int _print_swath(pcl_job_info_t *job_info, char *rgb_pixels, int start_ro
  * Allocate and fill a blank page of PackBits data. Writes size into buffer_size. The buffer
  * must be free'd by the caller.
  */
-unsigned char *_generate_blank_data(int pixel_width, int pixel_height, uint8 monochrome, size_t *buffer_size) {
+unsigned char *_generate_blank_data(int pixel_width, int pixel_height,
+                                    uint8 monochrome, size_t *buffer_size) {
     if (pixel_width == 0 || pixel_height == 0) return NULL;
 
     /* PWG Raster's PackBits-like algorithm allows for a maximum of:
      * 256 repeating rows and is encoded using a single octet containing (count - 1)
-     * 128 repeating color value and is run length encoded using a single octet containing (count - 1)
+     * 128 repeating color value and is run length encoded using a single octet
+     * containing (count - 1)
      */
     int rows_full = pixel_height / 256;
     int columns_full = pixel_width / 128;
@@ -371,8 +373,9 @@ static int _end_page(pcl_job_info_t *job_info, int page_number) {
 
         size_t buffer_size;
         unsigned char *buffer;
-        _start_page(job_info, header_pwg.cupsWidth, header_pwg.cupsHeight);
-        buffer = _generate_blank_data(header_pwg.cupsWidth, header_pwg.cupsHeight, job_info->monochrome, &buffer_size);
+        _start_page(job_info, job_info->pixel_width, job_info->pixel_height);
+        buffer = _generate_blank_data(job_info->pixel_width, job_info->pixel_height,
+                                      job_info->monochrome, &buffer_size);
         if (buffer == NULL) {
             return ERROR;
         } else {

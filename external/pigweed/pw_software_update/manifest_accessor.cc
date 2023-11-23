@@ -23,13 +23,13 @@ ManifestAccessor ManifestAccessor::FromBundle(protobuf::Message bundle) {
   protobuf::Message targets_metadata =
       bundle
           .AsStringToMessageMap(static_cast<uint32_t>(
-              UpdateBundle::Fields::TARGETS_METADATA))[kTopLevelTargetsName]
+              UpdateBundle::Fields::kTargetsMetadata))[kTopLevelTargetsName]
           .AsMessage(static_cast<uint32_t>(
-              SignedTargetsMetadata::Fields::SERIALIZED_TARGETS_METADATA));
+              SignedTargetsMetadata::Fields::kSerializedTargetsMetadata));
 
   protobuf::Bytes user_manifest =
       bundle.AsStringToBytesMap(static_cast<uint32_t>(
-          UpdateBundle::Fields::TARGET_PAYLOADS))[kUserManifestTargetFileName];
+          UpdateBundle::Fields::kTargetPayloads))[kUserManifestTargetFileName];
 
   return ManifestAccessor(targets_metadata, user_manifest);
 }
@@ -37,10 +37,10 @@ ManifestAccessor ManifestAccessor::FromBundle(protobuf::Message bundle) {
 ManifestAccessor ManifestAccessor::FromManifest(protobuf::Message manifest) {
   protobuf::Message targets_metadata =
       manifest.AsStringToMessageMap(static_cast<uint32_t>(
-          Manifest::Fields::TARGETS_METADATA))[kTopLevelTargetsName];
+          Manifest::Fields::kTargetsMetadata))[kTopLevelTargetsName];
 
   protobuf::Bytes user_manifest =
-      manifest.AsBytes(static_cast<uint32_t>(Manifest::Fields::USER_MANIFEST));
+      manifest.AsBytes(static_cast<uint32_t>(Manifest::Fields::kUserManifest));
 
   return ManifestAccessor(targets_metadata, user_manifest);
 }
@@ -48,28 +48,27 @@ ManifestAccessor ManifestAccessor::FromManifest(protobuf::Message manifest) {
 protobuf::RepeatedMessages ManifestAccessor::GetTargetFiles() {
   PW_TRY(status());
   return targets_metadata_.AsRepeatedMessages(
-      static_cast<uint32_t>(TargetsMetadata::Fields::TARGET_FILES));
+      static_cast<uint32_t>(TargetsMetadata::Fields::kTargetFiles));
 }
 
 protobuf::Uint32 ManifestAccessor::GetVersion() {
   PW_TRY(status());
   return targets_metadata_
       .AsMessage(
-          static_cast<uint32_t>(TargetsMetadata::Fields::COMMON_METADATA))
-      .AsUint32(static_cast<uint32_t>(CommonMetadata::Fields::VERSION));
+          static_cast<uint32_t>(TargetsMetadata::Fields::kCommonMetadata))
+      .AsUint32(static_cast<uint32_t>(CommonMetadata::Fields::kVersion));
 }
 
 Status ManifestAccessor::Export(stream::Writer& writer) {
   PW_TRY(status());
 
   // Write out the targets metadata map.
-  stream::MemoryReader name_reader(
-      std::as_bytes(std::span(kTopLevelTargetsName)));
+  stream::MemoryReader name_reader(as_bytes(span(kTopLevelTargetsName)));
   stream::IntervalReader metadata_reader =
       targets_metadata_.ToBytes().GetBytesReader();
   std::byte stream_pipe_buffer[WRITE_MANIFEST_STREAM_PIPE_BUFFER_SIZE];
   PW_TRY(protobuf::WriteProtoStringToBytesMapEntry(
-      static_cast<uint32_t>(Manifest::Fields::TARGETS_METADATA),
+      static_cast<uint32_t>(Manifest::Fields::kTargetsMetadata),
       name_reader,
       kTopLevelTargetsName.size(),
       metadata_reader,
@@ -82,7 +81,7 @@ Status ManifestAccessor::Export(stream::Writer& writer) {
   if (user_manifest_reader.ok()) {
     protobuf::StreamEncoder encoder(writer, {});
     PW_TRY(encoder.WriteBytesFromStream(
-        static_cast<uint32_t>(Manifest::Fields::USER_MANIFEST),
+        static_cast<uint32_t>(Manifest::Fields::kUserManifest),
         user_manifest_reader,
         user_manifest_reader.interval_size(),
         stream_pipe_buffer));
@@ -118,7 +117,7 @@ protobuf::Message ManifestAccessor::GetTargetFile(std::string_view name) {
 
   for (protobuf::Message target_file : GetTargetFiles()) {
     protobuf::String target_name = target_file.AsString(
-        static_cast<uint32_t>(TargetFile::Fields::FILE_NAME));
+        static_cast<uint32_t>(TargetFile::Fields::kFileName));
     Result<bool> compare_result = target_name.Equal(name);
     PW_TRY(compare_result.status());
     if (compare_result.value()) {

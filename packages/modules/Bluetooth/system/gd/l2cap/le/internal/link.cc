@@ -102,8 +102,20 @@ void Link::OnLeReadRemoteFeaturesComplete(hci::ErrorCode hci_status, uint64_t fe
 
 void Link::OnPhyUpdate(hci::ErrorCode hci_status, uint8_t tx_phy, uint8_t rx_phy) {}
 
-void Link::OnLocalAddressUpdate(hci::AddressWithType address_with_type) {
-  acl_connection_->UpdateLocalAddress(address_with_type);
+void Link::OnLeSubrateChange(
+    hci::ErrorCode hci_status,
+    uint16_t subrate_factor,
+    uint16_t peripheral_latency,
+    uint16_t continuation_number,
+    uint16_t supervision_timeout) {
+  LOG_INFO(
+      "hci_status: %s, subrate_factor: %#hx, peripheral_latency: %#hx, continuation_number: %#hx, "
+      "supervision_timeout: %#hx",
+      ErrorCodeText(hci_status).c_str(),
+      subrate_factor,
+      peripheral_latency,
+      continuation_number,
+      supervision_timeout);
 }
 
 void Link::Disconnect() {

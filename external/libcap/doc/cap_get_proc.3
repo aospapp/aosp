@@ -1,49 +1,42 @@
-.TH CAP_GET_PROC 3 "2019-12-21" "" "Linux Programmer's Manual"
+.TH CAP_GET_PROC 3 "2021-03-06" "" "Linux Programmer's Manual"
 .SH NAME
 cap_get_proc, cap_set_proc, capgetp, cap_get_bound, cap_drop_bound, \
 cap_get_ambient, cap_set_ambient, cap_reset_ambient, \
 cap_get_secbits, cap_set_secbits, cap_get_mode, cap_set_mode, \
-cap_mode_name, cap_get_pid, cap_setuid, cap_setgroups \
+cap_mode_name, cap_get_pid, cap_setuid, cap_prctl, cap_prctlw, cap_setgroups \
 \- capability manipulation on processes
 .SH SYNOPSIS
-.B #include <sys/capability.h>
-.sp
-.B "cap_t cap_get_proc(void);"
-.sp
-.BI "int cap_set_proc(cap_t " cap_p );
-.sp
-.BI "int cap_get_bound(cap_value_t " cap );
-.sp
-.BI "CAP_IS_SUPPORTED(cap_value_t " cap );
-.sp
-.BI "int cap_drop_bound(cap_value_t " cap );
-.sp
-.BI "int cap_get_ambient(cap_value_t " cap );
-.sp
-.BI "int cap_set_ambient(cap_value_t " cap ", cap_flag_value_t " value );
-.sp
-.B int cap_reset_ambient(void);
-.sp
-.BI CAP_AMBIENT_SUPPORTED();
-.sp
-.B "unsigned cap_get_secbits(void);"
-.sp
-.BI "int cap_set_secbits(unsigned " bits );
-.sp
-.B "cap_mode_t cap_get_mode(void);"
-.sp
-.BI "const char *cap_mode_name(cap_mode_t " mode );
-.sp
-.BI "int cap_set_mode(cap_mode_t " mode );
-.sp
-.B #include <sys/types.h>
-.sp
-.BI "cap_t cap_get_pid(pid_t " pid );
-.sp
-.BI "int cap_setuid(uid_t " uid );
-.sp
-.BI "int cap_setgroups(gid_t " gid ", size_t " ngroups ", const gid_t " \
-groups );
+.nf
+#include <sys/capability.h>
+
+cap_t cap_get_proc(void);
+int cap_set_proc(cap_t cap_p);
+
+int cap_get_bound(cap_value_t cap);
+CAP_IS_SUPPORTED(cap_value_t cap);
+
+int cap_drop_bound(cap_value_t cap);
+int cap_get_ambient(cap_value_t cap);
+int cap_set_ambient(cap_value_t cap, cap_flag_value_t value);
+int cap_reset_ambient(void);
+CAP_AMBIENT_SUPPORTED();
+
+unsigned cap_get_secbits(void);
+int cap_set_secbits(unsigned bits);
+cap_mode_t cap_get_mode(void);
+const char *cap_mode_name(cap_mode_t mode);
+int cap_prctl(long int pr_cmd, long int arg1, long int arg2,
+	      long int arg3, long int arg4, long int arg5);
+int cap_prctlw(long int pr_cmd, long int arg1, long int arg2,
+	       long int arg3, long int arg4, long int arg5);
+int cap_set_mode(cap_mode_t mode);
+
+#include <sys/types.h>
+
+cap_t cap_get_pid(pid_t pid);
+int cap_setuid(uid_t uid);
+int cap_setgroups(gid_t gid, size_t ngroups, const gid_t groups);
+.fi
 .sp
 Link with \fI\-lcap\fP.
 .SH DESCRIPTION
@@ -172,6 +165,12 @@ identifies as
 Supported modes are:
 .BR CAP_MODE_NOPRIV ", " CAP_MODE_PURE1E_INIT " and " CAP_MODE_PURE1E .
 .PP
+.BR cap_prctl ()
+can be used to read state via the \fBprctl\fI()\fP system call.
+.PP
+.BR cap_prctlw ()
+can be used to write state via the \fBprctl\fI()\fP system call.
+.PP
 .BR cap_set_mode ()
 can be used to set the desired mode. The permitted capability
 .B CAP_SETPCAP
@@ -250,7 +249,10 @@ or,
 .sp
 When linked this way, due to linker magic, libcap uses
 .BR psx_syscall "(3) and " psx_syscall6 (3)
-to perform state setting system calls.
+to perform state setting system calls. Notably, this also ensures that
+.BI cap_prctlw ()
+can be used to ensure process control bits are shared over all threads
+of a single process.
 .SS capgetp() and capsetp()
 The library also supports the deprecated functions:
 .PP
@@ -269,7 +271,7 @@ is deprecated; you should use
 .BR cap_get_pid ().
 .PP
 .BR capsetp ()
-attempts to set the capabilities of the calling porcess or of
+attempts to set the capabilities of the calling process or of
 some other process(es),
 .IR pid .
 Note that setting capabilities of another process is only possible on older

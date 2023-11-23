@@ -33,7 +33,12 @@ android_test {
         "libextservices_jni",
         "libstaticjvmtiagent",
     ],
-    test_suites: ["general-tests", "mts-extservices"],
+    test_suites: [
+        "general-tests",
+        "mts-extservices",
+        "automotive-tests",
+        "automotive-general-tests",
+    ],
     min_sdk_version: "30",
     sdk_version: "test_current",
     compile_multilib: "both",

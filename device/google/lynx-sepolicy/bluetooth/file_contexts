@@ -1,0 +1,10 @@
+# Bluetooth HAL service
+/vendor/bin/hw/android\.hardware\.bluetooth@1\.0-service-qti  u:object_r:hal_bluetooth_default_exec:s0
+
+# Bluetooth Vendor nodes
+/dev/btpower                                    u:object_r:bt_device:s0
+/dev/ttySAC18                                   u:object_r:hci_attach_dev:s0
+
+# Bluetooth Debuggable HAL nodes
+/dev/logbuffer_btpower                          u:object_r:logbuffer_device:s0
+/dev/logbuffer_tty18                            u:object_r:logbuffer_device:s0

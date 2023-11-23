@@ -1,0 +1,2 @@
+type pcie_log_device, dev_type;
+type sysfs_pcie, sysfs_type, fs_type;

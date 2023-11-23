@@ -41,6 +41,8 @@ namespace spvtools {
 namespace opt {
 
 void IRContext::BuildInvalidAnalyses(IRContext::Analysis set) {
+  set = Analysis(set & ~valid_analyses_);
+
   if (set & kAnalysisDefUse) {
     BuildDefUseManager();
   }
@@ -922,6 +924,19 @@ bool IRContext::ProcessCallTreeFromRoots(ProcessFunction& pfn,
     }
   }
   return modified;
+}
+
+void IRContext::CollectCallTreeFromRoots(unsigned entryId,
+                                         std::unordered_set<uint32_t>* funcs) {
+  std::queue<uint32_t> roots;
+  roots.push(entryId);
+  while (!roots.empty()) {
+    const uint32_t fi = roots.front();
+    roots.pop();
+    funcs->insert(fi);
+    Function* fn = GetFunction(fi);
+    AddCalls(fn, &roots);
+  }
 }
 
 void IRContext::EmitErrorMessage(std::string message, Instruction* inst) {

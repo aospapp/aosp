@@ -16,7 +16,7 @@
 
 package android.hardware.devicestate.cts;
 
-import static android.hardware.devicestate.cts.DeviceStateUtils.runWithControlDeviceStatePermission;
+import static android.server.wm.DeviceStateUtils.runWithControlDeviceStatePermission;
 
 import android.hardware.devicestate.DeviceStateManager;
 import android.hardware.devicestate.DeviceStateRequest;
@@ -34,12 +34,15 @@ public final class DeviceStateRequestSession implements AutoCloseable {
     @NonNull
     private final DeviceStateRequest mRequest;
     @NonNull
-    private DeviceStateRequest.Callback mCallback;
+    private final DeviceStateRequest.Callback mCallback;
+    private final boolean mIsBaseStateRequest;
 
     public DeviceStateRequestSession(@NonNull DeviceStateManager manager,
-            @NonNull DeviceStateRequest request, @NonNull DeviceStateRequest.Callback callback) {
+            @NonNull DeviceStateRequest request, boolean isBaseStateRequest,
+            @NonNull DeviceStateRequest.Callback callback) {
         mDeviceStateManager = manager;
         mRequest = request;
+        mIsBaseStateRequest = isBaseStateRequest;
         mCallback = callback;
 
         submitRequest(request);
@@ -47,8 +50,14 @@ public final class DeviceStateRequestSession implements AutoCloseable {
 
     private void submitRequest(@NonNull DeviceStateRequest request) {
         try {
-            runWithControlDeviceStatePermission(() ->
-                    mDeviceStateManager.requestState(mRequest, Runnable::run, mCallback));
+            if (mIsBaseStateRequest) {
+                runWithControlDeviceStatePermission(() ->
+                        mDeviceStateManager.requestBaseStateOverride(mRequest, Runnable::run,
+                                mCallback));
+            } else {
+                runWithControlDeviceStatePermission(() ->
+                        mDeviceStateManager.requestState(mRequest, Runnable::run, mCallback));
+            }
         } catch (Throwable t) {
             throw new RuntimeException(t);
         }
@@ -57,7 +66,11 @@ public final class DeviceStateRequestSession implements AutoCloseable {
     @Override
     public void close() {
         try {
-            runWithControlDeviceStatePermission(mDeviceStateManager::cancelStateRequest);
+            if (mIsBaseStateRequest) {
+                runWithControlDeviceStatePermission(mDeviceStateManager::cancelBaseStateOverride);
+            } else {
+                runWithControlDeviceStatePermission(mDeviceStateManager::cancelStateRequest);
+            }
         } catch (Throwable t) {
             throw new RuntimeException(t);
         }

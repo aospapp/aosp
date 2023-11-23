@@ -8,6 +8,9 @@ from autotest_lib.client.common_lib import error, smogcheck_tpm, smogcheck_util
 
 
 class hardware_TPMtspi(test.test):
+    """
+    C libtspi functionality to Python for TPM testing.
+    """
     version = 1
 
     def setup(self):
@@ -21,7 +24,7 @@ class hardware_TPMtspi(test.test):
         """
         try:
             return smogcheck_tpm.TpmController()
-        except smogcheck_tpm.SmogcheckError, e:
+        except smogcheck_tpm.SmogcheckError as e:
             raise error.TestFail('Error creating a TpmController: %s', e)
 
     def run_once(self):
@@ -60,7 +63,7 @@ class hardware_TPMtspi(test.test):
             # TODO(tgao): uncomment to enable.
             #self.tpm_obj.setTpmClearable('force')
 
-        except smogcheck_tpm.SmogcheckError, e:
+        except smogcheck_tpm.SmogcheckError as e:
             raise error.TestFail('Error: %r' % e)
         finally:
             # Close TPM context

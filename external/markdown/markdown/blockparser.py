@@ -1,16 +1,38 @@
+"""
+Python Markdown
 
-import markdown
+A Python implementation of John Gruber's Markdown.
+
+Documentation: https://python-markdown.github.io/
+GitHub: https://github.com/Python-Markdown/markdown/
+PyPI: https://pypi.org/project/Markdown/
+
+Started by Manfred Stienstra (http://www.dwerg.net/).
+Maintained for a few years by Yuri Takhteyev (http://www.freewisdom.org).
+Currently maintained by Waylan Limberg (https://github.com/waylan),
+Dmitry Shachnev (https://github.com/mitya57) and Isaac Muse (https://github.com/facelessuser).
+
+Copyright 2007-2018 The Python Markdown Project (v. 1.7 and later)
+Copyright 2004, 2005, 2006 Yuri Takhteyev (v. 0.2-1.6b)
+Copyright 2004 Manfred Stienstra (the original version)
+
+License: BSD (see LICENSE.md for details).
+"""
+
+import xml.etree.ElementTree as etree
+from . import util
+
 
 class State(list):
-    """ Track the current and nested state of the parser. 
-    
-    This utility class is used to track the state of the BlockParser and 
+    """ Track the current and nested state of the parser.
+
+    This utility class is used to track the state of the BlockParser and
     support multiple levels if nesting. It's just a simple API wrapped around
     a list. Each time a state is set, that state is appended to the end of the
     list. Each time a state is reset, that state is removed from the end of
     the list.
 
-    Therefore, each time a state is set for a nested block, that state must be 
+    Therefore, each time a state is set for a nested block, that state must be
     reset when we back out of that level of nesting or the state could be
     corrupted.
 
@@ -34,62 +56,64 @@ class State(list):
         else:
             return False
 
+
 class BlockParser:
-    """ Parse Markdown blocks into an ElementTree object. 
-    
+    """ Parse Markdown blocks into an ElementTree object.
+
     A wrapper class that stitches the various BlockProcessors together,
     looping through them and creating an ElementTree object.
     """
 
-    def __init__(self):
-        self.blockprocessors = markdown.odict.OrderedDict()
+    def __init__(self, md):
+        self.blockprocessors = util.Registry()
         self.state = State()
+        self.md = md
 
     def parseDocument(self, lines):
-        """ Parse a markdown document into an ElementTree. 
-        
-        Given a list of lines, an ElementTree object (not just a parent Element)
-        is created and the root element is passed to the parser as the parent.
-        The ElementTree object is returned.
-        
+        """ Parse a markdown document into an ElementTree.
+
+        Given a list of lines, an ElementTree object (not just a parent
+        Element) is created and the root element is passed to the parser
+        as the parent. The ElementTree object is returned.
+
         This should only be called on an entire document, not pieces.
 
         """
         # Create a ElementTree from the lines
-        self.root = markdown.etree.Element(markdown.DOC_TAG)
+        self.root = etree.Element(self.md.doc_tag)
         self.parseChunk(self.root, '\n'.join(lines))
-        return markdown.etree.ElementTree(self.root)
+        return etree.ElementTree(self.root)
 
     def parseChunk(self, parent, text):
-        """ Parse a chunk of markdown text and attach to given etree node. 
-        
+        """ Parse a chunk of markdown text and attach to given etree node.
+
         While the ``text`` argument is generally assumed to contain multiple
         blocks which will be split on blank lines, it could contain only one
         block. Generally, this method would be called by extensions when
-        block parsing is required. 
-        
-        The ``parent`` etree Element passed in is altered in place. 
+        block parsing is required.
+
+        The ``parent`` etree Element passed in is altered in place.
         Nothing is returned.
 
         """
         self.parseBlocks(parent, text.split('\n\n'))
 
     def parseBlocks(self, parent, blocks):
-        """ Process blocks of markdown text and attach to given etree node. 
-        
+        """ Process blocks of markdown text and attach to given etree node.
+
         Given a list of ``blocks``, each blockprocessor is stepped through
         until there are no blocks left. While an extension could potentially
-        call this method directly, it's generally expected to be used internally.
+        call this method directly, it's generally expected to be used
+        internally.
 
-        This is a public method as an extension may need to add/alter additional
-        BlockProcessors which call this method to recursively parse a nested
-        block.
+        This is a public method as an extension may need to add/alter
+        additional BlockProcessors which call this method to recursively
+        parse a nested block.
 
         """
         while blocks:
-           for processor in self.blockprocessors.values():
-               if processor.test(parent, blocks[0]):
-                   processor.run(parent, blocks)
-                   break
-
-
+            for processor in self.blockprocessors:
+                if processor.test(parent, blocks[0]):
+                    if processor.run(parent, blocks) is not False:
+                        # run returns True or None
+                        break

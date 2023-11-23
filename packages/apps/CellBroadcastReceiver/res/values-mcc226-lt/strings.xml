@@ -16,8 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="enable_public_safety_messages_title" msgid="2315613513862198922">"Oranžinis įspėjimas"</string>
-    <string name="public_safety_message" msgid="2115576467671679192">"Rumunijos įspėjimas: oranžinis įspėjimas"</string>
+    <string name="enable_public_safety_messages_title" msgid="2475018227538267649">"Įspėjimas apie dingusį vaiką"</string>
+    <string name="public_safety_message" msgid="5242662040426167782">"Rumunijos įspėjimas: įspėjimas apie dingusį vaiką"</string>
     <string name="cmas_presidential_level_alert" msgid="8476571012670281437">"Rumunijos įspėjimas: prezidento paskelbtas įspėj."</string>
     <string name="cmas_extreme_alert" msgid="1713701020039340032">"Rumunijos įspėjimas: ekstremalus įspėjimas"</string>
     <string name="cmas_extreme_immediate_observed_alert" msgid="9008972835754333116">"Rumunijos įspėjimas: ekstremalus įspėjimas"</string>

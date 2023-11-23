@@ -1,0 +1,10 @@
+allow charger_vendor mnt_vendor_file:dir search;
+allow charger_vendor sysfs_batteryinfo:file w_file_perms;
+allow charger_vendor persist_file:dir search;
+allow charger_vendor persist_battery_file:dir search;
+allow charger_vendor persist_battery_file:file rw_file_perms;
+allow charger_vendor sysfs_scsi_devices_0000:file r_file_perms;
+allow charger_vendor sysfs_thermal:file w_file_perms;
+allow charger_vendor sysfs_thermal:lnk_file read;
+allow charger_vendor thermal_link_device:dir search;
+set_prop(charger_vendor, vendor_battery_defender_prop)

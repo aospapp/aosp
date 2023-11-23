@@ -17,11 +17,10 @@
 import logging
 import os
 
+import cv2
 from mobly import test_runner
 import numpy as np
 
-
-import cv2
 import its_base_test
 import camera_properties_utils
 import capture_request_utils
@@ -29,16 +28,16 @@ import image_processing_utils
 import its_session_utils
 import opencv_processing_utils
 
-CHART_ORIENTATIONS = ['nominal', 'flip', 'mirror', 'rotate']
-NAME = os.path.splitext(os.path.basename(__file__))[0]
-PATCH_H = 0.5  # center 50%
-PATCH_W = 0.5
-PATCH_X = 0.5 - PATCH_W/2
-PATCH_Y = 0.5 - PATCH_H/2
-VGA_W, VGA_H = 640, 480
+_CHART_ORIENTATIONS = ['nominal', 'flip', 'mirror', 'rotate']
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_PATCH_H = 0.5  # center 50%
+_PATCH_W = 0.5
+_PATCH_X = 0.5 - _PATCH_W/2
+_PATCH_Y = 0.5 - _PATCH_H/2
+_VGA_W, _VGA_H = 640, 480
 
 
-def test_flip_mirror_impl(cam, props, fmt, chart, debug, log_path):
+def test_flip_mirror_impl(cam, props, fmt, chart, debug, name_with_log_path):
 
   """Return if image is flipped or mirrored.
 
@@ -48,7 +47,7 @@ def test_flip_mirror_impl(cam, props, fmt, chart, debug, log_path):
    fmt : dict,Capture format.
    chart: Object with chart properties.
    debug: boolean,whether to run test in debug mode or not.
-   log_path: log_path to save the captured image.
+   name_with_log_path: file with log_path to save the captured image.
 
   Returns:
     boolean: True if flipped, False if not
@@ -74,27 +73,25 @@ def test_flip_mirror_impl(cam, props, fmt, chart, debug, log_path):
 
   # save full images if in debug
   if debug:
-    image_processing_utils.write_image(
-        template[:, :, np.newaxis] / 255.0,
-        '%s_template.jpg' % os.path.join(log_path, NAME))
+    image_processing_utils.write_image(template[:, :, np.newaxis] / 255.0,
+                                       f'{name_with_log_path}_template.jpg')
 
   # save patch
-  image_processing_utils.write_image(
-      patch[:, :, np.newaxis] / 255.0,
-      '%s_scene_patch.jpg' % os.path.join(log_path, NAME))
+  image_processing_utils.write_image(patch[:, :, np.newaxis] / 255.0,
+                                     f'{name_with_log_path}_scene_patch.jpg')
 
   # crop center areas and strip off any extra rows/columns
   template = image_processing_utils.get_image_patch(
-      template, PATCH_X, PATCH_Y, PATCH_W, PATCH_H)
+      template, _PATCH_X, _PATCH_Y, _PATCH_W, _PATCH_H)
   patch = image_processing_utils.get_image_patch(
-      patch, PATCH_X, PATCH_Y, PATCH_W, PATCH_H)
+      patch, _PATCH_X, _PATCH_Y, _PATCH_W, _PATCH_H)
   patch = patch[0:min(patch.shape[0], template.shape[0]),
                 0:min(patch.shape[1], template.shape[1])]
   comp_chart = patch
 
   # determine optimum orientation
   opts = []
-  for orientation in CHART_ORIENTATIONS:
+  for orientation in _CHART_ORIENTATIONS:
     if orientation == 'flip':
       comp_chart = np.flipud(patch)
     elif orientation == 'mirror':
@@ -104,15 +101,14 @@ def test_flip_mirror_impl(cam, props, fmt, chart, debug, log_path):
     correlation = cv2.matchTemplate(comp_chart, template, cv2.TM_CCOEFF)
     _, opt_val, _, _ = cv2.minMaxLoc(correlation)
     if debug:
-      cv2.imwrite('%s_%s.jpg' % (os.path.join(log_path, NAME), orientation),
-                  comp_chart)
+      cv2.imwrite(f'{name_with_log_path}_{orientation}.jpg', comp_chart)
     logging.debug('%s correlation value: %d', orientation, opt_val)
     opts.append(opt_val)
 
   # determine if 'nominal' or 'rotated' is best orientation
   if not (opts[0] == max(opts) or opts[3] == max(opts)):
     raise AssertionError(
-        f'Optimum orientation is {CHART_ORIENTATIONS[np.argmax(opts)]}')
+        f'Optimum orientation is {_CHART_ORIENTATIONS[np.argmax(opts)]}')
   # print warning if rotated
   if opts[3] == max(opts):
     logging.warning('Image is rotated 180 degrees. Tablet might be rotated.')
@@ -124,7 +120,7 @@ class FlipMirrorTest(its_base_test.ItsBaseTest):
   def test_flip_mirror(self):
     """Test if image is properly oriented."""
 
-    logging.debug('Starting %s', NAME)
+    logging.debug('Starting %s', _NAME)
 
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
@@ -133,6 +129,7 @@ class FlipMirrorTest(its_base_test.ItsBaseTest):
       props = cam.get_camera_properties()
       props = cam.override_with_hidden_physical_camera_props(props)
       debug = self.debug_mode
+      name_with_log_path = os.path.join(self.log_path, _NAME)
 
       # check SKIP conditions
       camera_properties_utils.skip_unless(
@@ -143,11 +140,12 @@ class FlipMirrorTest(its_base_test.ItsBaseTest):
           cam, props, self.scene, self.tablet, self.chart_distance)
 
       # initialize chart class and locate chart in scene
-      chart = opencv_processing_utils.Chart(cam, props, self.log_path)
-      fmt = {'format': 'yuv', 'width': VGA_W, 'height': VGA_H}
+      chart = opencv_processing_utils.Chart(
+          cam, props, self.log_path, distance=self.chart_distance)
+      fmt = {'format': 'yuv', 'width': _VGA_W, 'height': _VGA_H}
 
       # test that image is not flipped, mirrored, or rotated
-      test_flip_mirror_impl(cam, props, fmt, chart, debug, self.log_path)
+      test_flip_mirror_impl(cam, props, fmt, chart, debug, name_with_log_path)
 
 
 if __name__ == '__main__':

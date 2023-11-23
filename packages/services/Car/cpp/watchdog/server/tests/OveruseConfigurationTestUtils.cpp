@@ -20,14 +20,15 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
-using ::android::automotive::watchdog::internal::ApplicationCategoryType;
-using ::android::automotive::watchdog::internal::ComponentType;
-using ::android::automotive::watchdog::internal::IoOveruseAlertThreshold;
-using ::android::automotive::watchdog::internal::IoOveruseConfiguration;
-using ::android::automotive::watchdog::internal::PackageMetadata;
-using ::android::automotive::watchdog::internal::PerStateIoOveruseThreshold;
-using ::android::automotive::watchdog::internal::ResourceOveruseConfiguration;
-using ::android::automotive::watchdog::internal::ResourceSpecificConfiguration;
+using ::aidl::android::automotive::watchdog::PerStateBytes;
+using ::aidl::android::automotive::watchdog::internal::ApplicationCategoryType;
+using ::aidl::android::automotive::watchdog::internal::ComponentType;
+using ::aidl::android::automotive::watchdog::internal::IoOveruseAlertThreshold;
+using ::aidl::android::automotive::watchdog::internal::IoOveruseConfiguration;
+using ::aidl::android::automotive::watchdog::internal::PackageMetadata;
+using ::aidl::android::automotive::watchdog::internal::PerStateIoOveruseThreshold;
+using ::aidl::android::automotive::watchdog::internal::ResourceOveruseConfiguration;
+using ::aidl::android::automotive::watchdog::internal::ResourceSpecificConfiguration;
 using ::testing::AllOf;
 using ::testing::ExplainMatchResult;
 using ::testing::Field;

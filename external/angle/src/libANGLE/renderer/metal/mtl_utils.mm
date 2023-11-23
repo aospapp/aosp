@@ -14,12 +14,14 @@
 #include <TargetConditionals.h>
 
 #include "common/MemoryBuffer.h"
+#include "common/string_utils.h"
 #include "common/system_utils.h"
-#include "gpu_info_util/SystemInfo.h"
+#include "gpu_info_util/SystemInfo_internal.h"
 #include "libANGLE/renderer/metal/ContextMtl.h"
 #include "libANGLE/renderer/metal/DisplayMtl.h"
 #include "libANGLE/renderer/metal/RenderTargetMtl.h"
 #include "libANGLE/renderer/metal/mtl_render_utils.h"
+#include "libANGLE/renderer/metal/process.h"
 
 // Compiler can turn on programmatical frame capture in release build by defining
 // ANGLE_METAL_FRAME_CAPTURE flag.
@@ -32,7 +34,7 @@
 namespace rx
 {
 
-ANGLE_MTL_UNUSED
+ANGLE_APPLE_UNUSED
 bool IsFrameCaptureEnabled()
 {
 #if !ANGLE_METAL_FRAME_CAPTURE_ENABLED
@@ -48,11 +50,11 @@ bool IsFrameCaptureEnabled()
 #endif
 }
 
-ANGLE_MTL_UNUSED
+ANGLE_APPLE_UNUSED
 std::string GetMetalCaptureFile()
 {
 #if !ANGLE_METAL_FRAME_CAPTURE_ENABLED
-    return "";
+    return {};
 #else
     auto var                   = std::getenv("ANGLE_METAL_FRAME_CAPTURE_FILE");
     const std::string filePath = var ? var : "";
@@ -61,7 +63,7 @@ std::string GetMetalCaptureFile()
 #endif
 }
 
-ANGLE_MTL_UNUSED
+ANGLE_APPLE_UNUSED
 size_t MaxAllowedFrameCapture()
 {
 #if !ANGLE_METAL_FRAME_CAPTURE_ENABLED
@@ -74,7 +76,7 @@ size_t MaxAllowedFrameCapture()
 #endif
 }
 
-ANGLE_MTL_UNUSED
+ANGLE_APPLE_UNUSED
 size_t MinAllowedFrameCapture()
 {
 #if !ANGLE_METAL_FRAME_CAPTURE_ENABLED
@@ -87,7 +89,7 @@ size_t MinAllowedFrameCapture()
 #endif
 }
 
-ANGLE_MTL_UNUSED
+ANGLE_APPLE_UNUSED
 bool FrameCaptureDeviceScope()
 {
 #if !ANGLE_METAL_FRAME_CAPTURE_ENABLED
@@ -100,10 +102,10 @@ bool FrameCaptureDeviceScope()
 #endif
 }
 
-ANGLE_MTL_UNUSED
+ANGLE_APPLE_UNUSED
 std::atomic<size_t> gFrameCaptured(0);
 
-ANGLE_MTL_UNUSED
+ANGLE_APPLE_UNUSED
 void StartFrameCapture(id<MTLDevice> metalDevice, id<MTLCommandQueue> metalCmdQueue)
 {
 #if ANGLE_METAL_FRAME_CAPTURE_ENABLED
@@ -160,16 +162,16 @@ void StartFrameCapture(id<MTLDevice> metalDevice, id<MTLCommandQueue> metalCmdQu
     else
 #    endif  // __MAC_10_15
         if (ANGLE_APPLE_AVAILABLE_XCI(10.15, 13.0, 13))
-    {
-        auto captureDescriptor = mtl::adoptObjCObj([[MTLCaptureDescriptor alloc] init]);
-        captureDescriptor.get().captureObject = metalDevice;
-
-        NSError *error;
-        if (![captureManager startCaptureWithDescriptor:captureDescriptor.get() error:&error])
         {
-            NSLog(@"Failed to start capture, error %@", error);
+            auto captureDescriptor = mtl::adoptObjCObj([[MTLCaptureDescriptor alloc] init]);
+            captureDescriptor.get().captureObject = metalDevice;
+
+            NSError *error;
+            if (![captureManager startCaptureWithDescriptor:captureDescriptor.get() error:&error])
+            {
+                NSLog(@"Failed to start capture, error %@", error);
+            }
         }
-    }
 #endif  // ANGLE_METAL_FRAME_CAPTURE_ENABLED
 }
 
@@ -344,6 +346,47 @@ static angle::Result InitializeCompressedTextureContents(const gl::Context *cont
     return angle::Result::Continue;
 }
 
+}  // namespace
+
+bool PreferStagedTextureUploads(const gl::Context *context,
+                                const TextureRef &texture,
+                                const Format &textureObjFormat)
+{
+    // The simulator MUST upload all textures as staged.
+    if (TARGET_OS_SIMULATOR)
+    {
+        return true;
+    }
+
+    ContextMtl *contextMtl             = mtl::GetImpl(context);
+    const angle::FeaturesMtl &features = contextMtl->getDisplay()->getFeatures();
+
+    const gl::InternalFormat &intendedInternalFormat = textureObjFormat.intendedInternalFormat();
+    if (intendedInternalFormat.compressed || textureObjFormat.actualAngleFormat().isBlock)
+    {
+        return false;
+    }
+
+    if (intendedInternalFormat.isLUMA())
+    {
+        return false;
+    }
+
+    if (features.disableStagedInitializationOfPackedTextureFormats.enabled)
+    {
+        switch (intendedInternalFormat.sizedInternalFormat)
+        {
+            case GL_RGB9_E5:
+            case GL_R11F_G11F_B10F:
+                return false;
+
+            default:
+                break;
+        }
+    }
+
+    return (texture->hasIOSurface() && features.uploadDataToIosurfacesWithStagingBuffers.enabled) ||
+           features.alwaysPreferStagedTextureUploads.enabled;
 }
 
 angle::Result InitializeTextureContents(const gl::Context *context,
@@ -358,10 +401,7 @@ angle::Result InitializeTextureContents(const gl::Context *context,
 
     const gl::InternalFormat &intendedInternalFormat = textureObjFormat.intendedInternalFormat();
 
-    bool forceGPUInitialization = false;
-#if TARGET_OS_SIMULATOR
-    forceGPUInitialization = true;
-#endif  // TARGET_OS_SIMULATOR
+    bool preferGPUInitialization = PreferStagedTextureUploads(context, texture, textureObjFormat);
 
     // This function is called in many places to initialize the content of a texture.
     // So it's better we do the initial check here instead of let the callers do it themselves:
@@ -385,7 +425,7 @@ angle::Result InitializeTextureContents(const gl::Context *context,
                                                    startDepth);
     }
     else if (texture->isCPUAccessible() && index.getType() != gl::TextureType::_2DMultisample &&
-             index.getType() != gl::TextureType::_2DMultisampleArray && !forceGPUInitialization)
+             index.getType() != gl::TextureType::_2DMultisampleArray && !preferGPUInitialization)
     {
         const angle::Format &dstFormat = angle::Format::Get(textureObjFormat.actualFormatId);
         const size_t dstRowPitch       = dstFormat.pixelBytes * size.width;
@@ -785,7 +825,7 @@ static MTLLanguageVersion GetUserSetOrHighestMSLVersion(const MTLLanguageVersion
 AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
     const mtl::ContextDevice &metalDevice,
     const std::string &source,
-    NSDictionary<NSString *, NSObject *> *substitutionMacros,
+    const std::map<std::string, std::string> &substitutionMacros,
     bool enableFastMath,
     AutoObjCPtr<NSError *> *error)
 {
@@ -797,14 +837,14 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(const mtl::ContextDevice &metalD
                                                 const std::string &source,
                                                 AutoObjCPtr<NSError *> *error)
 {
-    return CreateShaderLibrary(metalDevice, source.c_str(), source.size(), @{}, true, error);
+    return CreateShaderLibrary(metalDevice, source.c_str(), source.size(), {}, true, error);
 }
 
 AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
     const mtl::ContextDevice &metalDevice,
     const char *source,
     size_t sourceLen,
-    NSDictionary<NSString *, NSObject *> *substitutionMacros,
+    const std::map<std::string, std::string> &substitutionMacros,
     bool enableFastMath,
     AutoObjCPtr<NSError *> *errorOut)
 {
@@ -826,9 +866,19 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
         options.fastMathEnabled = false;
 #endif
         options.fastMathEnabled &= enableFastMath;
-        options.languageVersion    = GetUserSetOrHighestMSLVersion(options.languageVersion);
-        options.preprocessorMacros = substitutionMacros;
-        auto library               = metalDevice.newLibraryWithSource(nsSource, options, &nsError);
+        options.languageVersion = GetUserSetOrHighestMSLVersion(options.languageVersion);
+
+        if (!substitutionMacros.empty())
+        {
+            auto macroDict = [NSMutableDictionary dictionary];
+            for (const auto &macro : substitutionMacros)
+            {
+                [macroDict setObject:@(macro.second.c_str()) forKey:@(macro.first.c_str())];
+            }
+            options.preprocessorMacros = macroDict;
+        }
+
+        auto library = metalDevice.newLibraryWithSource(nsSource, options, &nsError);
         if (angle::GetEnvironmentVar(kANGLEPrintMSLEnv)[0] == '1')
         {
             NSLog(@"%@\n", nsSource);
@@ -838,6 +888,77 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
 
         return library;
     }
+}
+
+std::string CompileShaderLibraryToFile(const std::string &source,
+                                       const std::map<std::string, std::string> &macros,
+                                       bool enableFastMath)
+{
+    auto tmpDir = angle::GetTempDirectory();
+    if (!tmpDir.valid())
+    {
+        FATAL() << "angle::GetTempDirectory() failed";
+    }
+    // NOTE: metal/metallib seem to require extensions, otherwise they interpret the files
+    // differently.
+    auto metalFileName =
+        angle::CreateTemporaryFileInDirectoryWithExtension(tmpDir.value(), ".metal");
+    auto airFileName = angle::CreateTemporaryFileInDirectoryWithExtension(tmpDir.value(), ".air");
+    auto metallibFileName =
+        angle::CreateTemporaryFileInDirectoryWithExtension(tmpDir.value(), ".metallib");
+    if (!metalFileName.valid() || !airFileName.valid() || !metallibFileName.valid())
+    {
+        FATAL() << "Unable to generate temporary files for compiling metal";
+    }
+    // Save the source.
+    {
+        angle::SaveFileHelper saveFileHelper(metalFileName.value());
+        saveFileHelper << source;
+    }
+
+    // metal -> air
+    std::vector<std::string> metalToAirArgv{"/usr/bin/xcrun",
+                                            "/usr/bin/xcrun",
+                                            "-sdk",
+                                            "macosx",
+                                            "metal",
+                                            "-std=macos-metal2.0",
+                                            "-mmacosx-version-min=10.13",
+                                            "-c",
+                                            metalFileName.value(),
+                                            "-o",
+                                            airFileName.value()};
+    // Macros are passed using `-D key=value`.
+    for (const auto &macro : macros)
+    {
+        metalToAirArgv.push_back("-D");
+        // TODO: not sure if this needs to escape strings or what (for example, might
+        // a space cause problems)?
+        metalToAirArgv.push_back(macro.first + "=" + macro.second);
+    }
+    // TODO: is this right, not sure if enableFastMath is same as -ffast-math.
+    if (enableFastMath)
+    {
+        metalToAirArgv.push_back("-ffast-math");
+    }
+    Process metalToAirProcess(metalToAirArgv);
+    int exitCode = -1;
+    if (!metalToAirProcess.DidLaunch() || !metalToAirProcess.WaitForExit(exitCode) || exitCode != 0)
+    {
+        FATAL() << "Generating air file failed";
+    }
+
+    // air -> metallib
+    const std::vector<std::string> airToMetallibArgv{
+        "xcrun",    "/usr/bin/xcrun",    "-sdk", "macosx",
+        "metallib", airFileName.value(), "-o",   metallibFileName.value()};
+    Process air_to_metallib_process(airToMetallibArgv);
+    if (!air_to_metallib_process.DidLaunch() || !air_to_metallib_process.WaitForExit(exitCode) ||
+        exitCode != 0)
+    {
+        FATAL() << "Ggenerating metallib file failed";
+    }
+    return metallibFileName.value();
 }
 
 AutoObjCPtr<id<MTLLibrary>> CreateShaderLibraryFromBinary(id<MTLDevice> metalDevice,
@@ -855,7 +976,7 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibraryFromBinary(id<MTLDevice> metalDev
 
         auto library = [metalDevice newLibraryWithData:shaderSourceData error:&nsError];
 
-        [shaderSourceData ANGLE_MTL_AUTORELEASE];
+        dispatch_release(shaderSourceData);
 
         *errorOut = std::move(nsError);
 
@@ -917,15 +1038,16 @@ MTLSamplerAddressMode GetSamplerAddressMode(GLenum wrap)
 {
     switch (wrap)
     {
+        case GL_CLAMP_TO_EDGE:
+            return MTLSamplerAddressModeClampToEdge;
+#if !ANGLE_PLATFORM_WATCHOS
+        case GL_MIRROR_CLAMP_TO_EDGE_EXT:
+            return MTLSamplerAddressModeMirrorClampToEdge;
+#endif
         case GL_REPEAT:
             return MTLSamplerAddressModeRepeat;
         case GL_MIRRORED_REPEAT:
             return MTLSamplerAddressModeMirrorRepeat;
-        case GL_CLAMP_TO_BORDER:
-            // ES doesn't have border support
-            return MTLSamplerAddressModeClampToEdge;
-        case GL_CLAMP_TO_EDGE:
-            return MTLSamplerAddressModeClampToEdge;
         default:
             UNIMPLEMENTED();
             return MTLSamplerAddressModeClampToEdge;
@@ -942,30 +1064,38 @@ MTLBlendFactor GetBlendFactor(GLenum factor)
             return MTLBlendFactorOne;
         case GL_SRC_COLOR:
             return MTLBlendFactorSourceColor;
-        case GL_DST_COLOR:
-            return MTLBlendFactorDestinationColor;
         case GL_ONE_MINUS_SRC_COLOR:
             return MTLBlendFactorOneMinusSourceColor;
         case GL_SRC_ALPHA:
             return MTLBlendFactorSourceAlpha;
         case GL_ONE_MINUS_SRC_ALPHA:
             return MTLBlendFactorOneMinusSourceAlpha;
+        case GL_DST_COLOR:
+            return MTLBlendFactorDestinationColor;
+        case GL_ONE_MINUS_DST_COLOR:
+            return MTLBlendFactorOneMinusDestinationColor;
         case GL_DST_ALPHA:
             return MTLBlendFactorDestinationAlpha;
         case GL_ONE_MINUS_DST_ALPHA:
             return MTLBlendFactorOneMinusDestinationAlpha;
-        case GL_ONE_MINUS_DST_COLOR:
-            return MTLBlendFactorOneMinusDestinationColor;
         case GL_SRC_ALPHA_SATURATE:
             return MTLBlendFactorSourceAlphaSaturated;
         case GL_CONSTANT_COLOR:
             return MTLBlendFactorBlendColor;
-        case GL_CONSTANT_ALPHA:
-            return MTLBlendFactorBlendAlpha;
         case GL_ONE_MINUS_CONSTANT_COLOR:
             return MTLBlendFactorOneMinusBlendColor;
+        case GL_CONSTANT_ALPHA:
+            return MTLBlendFactorBlendAlpha;
         case GL_ONE_MINUS_CONSTANT_ALPHA:
             return MTLBlendFactorOneMinusBlendAlpha;
+        case GL_SRC1_COLOR_EXT:
+            return MTLBlendFactorSource1Color;
+        case GL_ONE_MINUS_SRC1_COLOR_EXT:
+            return MTLBlendFactorOneMinusSource1Color;
+        case GL_SRC1_ALPHA_EXT:
+            return MTLBlendFactorSource1Alpha;
+        case GL_ONE_MINUS_SRC1_ALPHA_EXT:
+            return MTLBlendFactorOneMinusSource1Alpha;
         default:
             UNREACHABLE();
             return MTLBlendFactorZero;
@@ -1044,7 +1174,7 @@ MTLStencilOperation GetStencilOp(GLenum op)
     }
 }
 
-MTLWinding GetFontfaceWinding(GLenum frontFaceMode, bool invert)
+MTLWinding GetFrontfaceWinding(GLenum frontFaceMode, bool invert)
 {
     switch (frontFaceMode)
     {
@@ -1350,16 +1480,20 @@ bool SupportsMacGPUFamily(id<MTLDevice> device, uint8_t macFamily)
         switch (macFamily)
         {
 #        if TARGET_OS_MACCATALYST
+            ANGLE_APPLE_ALLOW_DEPRECATED_BEGIN
             case 1:
                 family = MTLGPUFamilyMacCatalyst1;
                 break;
             case 2:
                 family = MTLGPUFamilyMacCatalyst2;
                 break;
+                ANGLE_APPLE_ALLOW_DEPRECATED_END
 #        else   // TARGET_OS_MACCATALYST
+            ANGLE_APPLE_ALLOW_DEPRECATED_BEGIN
             case 1:
                 family = MTLGPUFamilyMac1;
                 break;
+                ANGLE_APPLE_ALLOW_DEPRECATED_END
             case 2:
                 family = MTLGPUFamilyMac2;
                 break;
@@ -1378,6 +1512,8 @@ bool SupportsMacGPUFamily(id<MTLDevice> device, uint8_t macFamily)
     UNREACHABLE();
     return false;
 #    else
+
+    ANGLE_APPLE_ALLOW_DEPRECATED_BEGIN
     MTLFeatureSet featureSet;
     switch (macFamily)
     {
@@ -1393,6 +1529,7 @@ bool SupportsMacGPUFamily(id<MTLDevice> device, uint8_t macFamily)
             return false;
     }
     return [device supportsFeatureSet:featureSet];
+    ANGLE_APPLE_ALLOW_DEPRECATED_END
 #    endif  // TARGET_OS_MACCATALYST
 #else       // #if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 
@@ -1472,7 +1609,9 @@ NSUInteger ComputeTotalSizeUsedForMTLRenderPipelineDescriptor(
     const mtl::ContextDevice &device)
 {
     NSUInteger currentRenderTargetSize = 0;
-    bool isMsaa                        = descriptor.sampleCount > 1;
+    ANGLE_APPLE_ALLOW_DEPRECATED_BEGIN
+    bool isMsaa = descriptor.sampleCount > 1;
+    ANGLE_APPLE_ALLOW_DEPRECATED_END
     for (NSUInteger i = 0; i < GetMaxNumberOfRenderTargetsForDevice(device); i++)
     {
         MTLRenderPipelineColorAttachmentDescriptor *color = descriptor.colorAttachments[i];

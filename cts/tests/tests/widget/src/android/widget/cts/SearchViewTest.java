@@ -44,6 +44,7 @@ import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsKeyEventUtil;
+import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.WidgetTestUtils;
 
 import org.junit.Before;
@@ -60,6 +61,7 @@ public class SearchViewTest {
     private Activity mActivity;
     private SearchView mSearchView;
     private Instrumentation mInstrumentation;
+    private CtsKeyEventUtil mCtsKeyEventUtil;
 
     @Rule
     public ActivityTestRule<SearchViewCtsActivity> mActivityRule =
@@ -68,8 +70,11 @@ public class SearchViewTest {
     @Before
     public void setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mCtsKeyEventUtil = new CtsKeyEventUtil(mInstrumentation.getTargetContext());
         mActivity = mActivityRule.getActivity();
         mSearchView = (SearchView) mActivity.findViewById(R.id.search_view);
+
+        PollingCheck.waitFor(() -> mActivity.hasWindowFocus());
     }
 
     @UiThreadTest
@@ -295,7 +300,7 @@ public class SearchViewTest {
         });
         mInstrumentation.waitForIdleSync();
 
-        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mSearchView, KeyEvent.KEYCODE_ENTER);
+        mCtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mSearchView, KeyEvent.KEYCODE_ENTER);
 
         verify(mockQueryTextListener, times(1)).onQueryTextChange("alpha");
         verify(mockQueryTextListener, atLeastOnce()).onQueryTextSubmit("alpha");
@@ -306,7 +311,8 @@ public class SearchViewTest {
         });
         mInstrumentation.waitForIdleSync();
 
-        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mSearchView, KeyEvent.KEYCODE_NUMPAD_ENTER);
+        mCtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mSearchView,
+                KeyEvent.KEYCODE_NUMPAD_ENTER);
 
         verify(mockQueryTextListener, times(1)).onQueryTextChange("beta");
         verify(mockQueryTextListener, atLeastOnce()).onQueryTextSubmit("beta");

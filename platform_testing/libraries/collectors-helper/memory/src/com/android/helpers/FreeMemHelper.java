@@ -55,7 +55,7 @@ public class FreeMemHelper implements ICollectorHelper<Long> {
     private static final String LINE_SEPARATOR = "\\n";
     private static final String MEM_AVAILABLE_PATTERN = "^MemAvailable.*";
     private static final String MEM_FREE_PATTERN = "^MemFree.*";
-    private static final Pattern CACHE_PROC_START_PATTERN = Pattern.compile(".*: Cached$");
+    private static final Pattern CACHE_PROC_START_PATTERN = Pattern.compile(".*: Cached\\s*$");
     private static final Pattern PID_PATTERN = Pattern.compile("^.*pid(?<processid> [0-9]*).*$");
     private static final String DUMPSYS_PROCESS = "dumpsys meminfo %s";
     private static final String MEM_TOTAL = "^\\s+TOTAL\\s+.*";

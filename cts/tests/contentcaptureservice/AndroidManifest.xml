@@ -135,6 +135,19 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".PartialNotImportantActivity"
+                  android:label="PartialNotImportant"
+                  android:taskAffinity=".PartialNotImportantActivity"
+                  android:theme="@android:style/Theme.NoTitleBar"
+                  android:exported="true">
+            <intent-filter>
+                <!-- This intent filter is not really needed by CTS, but it makes easier to launch
+                                         this app during CTS development... -->
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
         <receiver android:name=".SelfDestructReceiver"
              android:exported="true"
              android:process="android.contentcapture.cts.outside"/>

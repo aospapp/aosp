@@ -17,6 +17,8 @@
 #ifndef SYSTEM_KEYMASTER_KEY_H_
 #define SYSTEM_KEYMASTER_KEY_H_
 
+#include <utility>
+
 #include <assert.h>
 
 #include <hardware/keymaster_defs.h>
@@ -53,9 +55,9 @@ class Key {
     // Methods to move data out of the key.  These could be overloads of the methods above, with ref
     // qualifiers, but naming them differently makes it harder to accidentally make a temporary copy
     // when we mean to move.
-    AuthorizationSet&& hw_enforced_move() { return move(hw_enforced_); }
-    AuthorizationSet&& sw_enforced_move() { return move(sw_enforced_); }
-    KeymasterKeyBlob&& key_material_move() { return move(key_material_); }
+    AuthorizationSet&& hw_enforced_move() { return std::move(hw_enforced_); }
+    AuthorizationSet&& sw_enforced_move() { return std::move(sw_enforced_); }
+    KeymasterKeyBlob&& key_material_move() { return std::move(key_material_); }
 
     const KeyFactory* key_factory() const { return key_factory_; }
     const KeyFactory*& key_factory() { return key_factory_; }
@@ -66,7 +68,7 @@ class Key {
   protected:
     Key(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
         const KeyFactory* key_factory)
-        : hw_enforced_(move(hw_enforced)), sw_enforced_(move(sw_enforced)),
+        : hw_enforced_(std::move(hw_enforced)), sw_enforced_(std::move(sw_enforced)),
           key_factory_(key_factory) {}
 
   protected:

@@ -9,11 +9,18 @@ include ../Make.Rules
 CAPLIBNAME=$(LIBTITLE).so
 STACAPLIBNAME=$(LIBTITLE).a
 #
-PSXLIBNAME=libpsx.so
-STAPSXLIBNAME=libpsx.a
+PSXTITLE=libpsx
+PSXLIBNAME=$(PSXTITLE).so
+STAPSXLIBNAME=$(PSXTITLE).a
 
 CAPFILES=cap_alloc cap_proc cap_extint cap_flag cap_text cap_file
+CAPMAGICOBJ=cap_magic.o
 PSXFILES=../psx/psx
+PSXMAGICOBJ=psx_magic.o
+
+# The linker magic needed to build a dynamic library as independently
+# executable
+MAGIC=-Wl,-e,__so_start
 
 INCLS=libcap.h cap_names.h $(INCS)
 GPERF_OUTPUT = _caps_output.gperf
@@ -37,9 +44,9 @@ ifeq ($(SHARED),yes)
 endif
 endif
 
-pcs: libcap.pc
+pcs: $(LIBTITLE).pc
 ifeq ($(PTHREADS),yes)
-	$(MAKE) libpsx.pc
+	$(MAKE) $(PSXTITLE).pc
 endif
 
 ifeq ($(BUILD_GPERF),yes)
@@ -47,7 +54,7 @@ USE_GPERF_OUTPUT = $(GPERF_OUTPUT)
 INCLUDE_GPERF_OUTPUT = -DINCLUDE_GPERF_OUTPUT='"$(GPERF_OUTPUT)"'
 endif
 
-libcap.pc: libcap.pc.in
+$(LIBTITLE).pc: $(LIBTITLE).pc.in
 	sed -e 's,@prefix@,$(prefix),' \
 		-e 's,@exec_prefix@,$(exec_prefix),' \
 		-e 's,@libdir@,$(LIBDIR),' \
@@ -56,7 +63,7 @@ libcap.pc: libcap.pc.in
 		-e 's,@deps@,$(DEPS),' \
 		$< >$@
 
-libpsx.pc: libpsx.pc.in
+$(PSXTITLE).pc: $(PSXTITLE).pc.in
 	sed -e 's,@prefix@,$(prefix),' \
 		-e 's,@exec_prefix@,$(exec_prefix),' \
 		-e 's,@libdir@,$(LIBDIR),' \
@@ -93,13 +100,26 @@ $(STAPSXLIBNAME): $(PSXOBJS) include/sys/psx_syscall.h
 	$(RANLIB) $@
 
 ifeq ($(SHARED),yes)
-$(CAPLIBNAME) $(MAJCAPLIBNAME) $(MINCAPLIBNAME): $(CAPOBJS)
-	$(LD) $(CFLAGS) $(LDFLAGS) -Wl,-soname,$(MAJCAPLIBNAME) -o $(MINCAPLIBNAME) $^
+
+empty: empty.c
+	$(CC) -o $@ $<
+
+loader.txt: empty
+	$(OBJCOPY) --dump-section .interp=$@ $<
+
+cap_magic.o: execable.h execable.c loader.txt
+	$(CC) $(CFLAGS) $(IPATH) -DLIBRARY_VERSION=\"$(LIBTITLE)-$(VERSION).$(MINOR)\" -DSHARED_LOADER=\"$(shell cat loader.txt)\" -c execable.c -o $@
+
+$(CAPLIBNAME) $(MAJCAPLIBNAME) $(MINCAPLIBNAME): $(CAPOBJS) $(CAPMAGICOBJ)
+	$(LD) $(CFLAGS) $(LDFLAGS) -Wl,-soname,$(MAJCAPLIBNAME) -o $(MINCAPLIBNAME) $^ $(MAGIC)
 	ln -sf $(MINCAPLIBNAME) $(MAJCAPLIBNAME)
 	ln -sf $(MAJCAPLIBNAME) $(CAPLIBNAME)
 
-$(PSXLIBNAME) $(MAJPSXLIBNAME) $(MINPSXLIBNAME): $(PSXOBJS) include/sys/psx_syscall.h
-	$(LD) $(CFLAGS) $(LDFLAGS) -Wl,-soname,$(MAJPSXLIBNAME) -o $(MINPSXLIBNAME) $(PSXOBJS) $(PSXLINKFLAGS)
+psx_magic.o: execable.h execable.c loader.txt
+	$(CC) $(CFLAGS) $(IPATH) -DLIBRARY_VERSION=\"$(PSXTITLE)-$(VERSION).$(MINOR)\" -DSHARED_LOADER=\"$(shell cat loader.txt)\" -c execable.c -o $@
+
+$(PSXLIBNAME) $(MAJPSXLIBNAME) $(MINPSXLIBNAME): $(PSXOBJS) include/sys/psx_syscall.h $(PSXMAGICOBJ)
+	$(LD) $(CFLAGS) $(LDFLAGS) -Wl,-soname,$(MAJPSXLIBNAME) -o $(MINPSXLIBNAME) $(PSXOBJS) $(PSXMAGICOBJ) $(MAGIC) $(PSXLINKFLAGS)
 	ln -sf $(MINPSXLIBNAME) $(MAJPSXLIBNAME)
 	ln -sf $(MAJPSXLIBNAME) $(PSXLIBNAME)
 endif
@@ -110,11 +130,23 @@ endif
 cap_text.o: cap_text.c $(USE_GPERF_OUTPUT) $(INCLS)
 	$(CC) $(CFLAGS) $(IPATH) $(INCLUDE_GPERF_OUTPUT) -c $< -o $@
 
-cap_test: cap_test.c libcap.h
-	$(CC) $(CFLAGS) $(IPATH) $< -o $@
+cap_test: cap_test.c libcap.h $(CAPOBJS)
+	$(CC) $(CFLAGS) $(IPATH) $< $(CAPOBJS) -o $@
+
+libcapsotest: $(CAPLIBNAME)
+	./$(CAPLIBNAME)
+
+libpsxsotest: $(PSXLIBNAME)
+	./$(PSXLIBNAME)
 
 test: cap_test
 	./cap_test
+ifeq ($(SHARED),yes)
+	$(MAKE) libcapsotest
+ifeq ($(PTHREADS),yes)
+	$(MAKE) libpsxsotest
+endif
+endif
 
 install: install-static
 ifeq ($(SHARED),yes)
@@ -163,17 +195,17 @@ ifeq ($(FAKEROOT),)
 	-/sbin/ldconfig
 endif
 
-install-common-cap: install-common libcap.pc
+install-common-cap: install-common $(LIBTITLE).pc
 	install -m 0644 include/sys/capability.h $(FAKEROOT)$(INCDIR)/sys
-	install -m 0644 libcap.pc $(FAKEROOT)$(PKGCONFIGDIR)/libcap.pc
+	install -m 0644 $(LIBTITLE).pc $(FAKEROOT)$(PKGCONFIGDIR)/$(LIBTITLE).pc
 
 include/sys/psx_syscall.h: ../psx/psx_syscall.h
 	rm -f $@
 	ln -s ../../../psx/psx_syscall.h $@
 
-install-common-psx: install-common libpsx.pc include/sys/psx_syscall.h
+install-common-psx: install-common $(PSXTITLE).pc include/sys/psx_syscall.h
 	install -m 0644 include/sys/psx_syscall.h $(FAKEROOT)$(INCDIR)/sys
-	install -m 0644 libpsx.pc $(FAKEROOT)$(PKGCONFIGDIR)/libpsx.pc
+	install -m 0644 $(PSXTITLE).pc $(FAKEROOT)$(PKGCONFIGDIR)/$(PSXTITLE).pc
 
 install-common:
 	mkdir -p -m 0755 $(FAKEROOT)$(INCDIR)/sys
@@ -182,8 +214,9 @@ install-common:
 
 clean:
 	$(LOCALCLEAN)
-	rm -f $(CAPOBJS) $(CAPLIBNAME)* $(STACAPLIBNAME) libcap.pc
-	rm -f $(PSXOBJS) $(PSXLIBNAME)* $(STAPSXLIBNAME) libpsx.pc
+	rm -f $(CAPOBJS) $(CAPLIBNAME)* $(STACAPLIBNAME) $(LIBTITLE).pc
+	rm -f $(PSXOBJS) $(PSXLIBNAME)* $(STAPSXLIBNAME) $(PSXTITLE).pc
 	rm -f cap_names.h cap_names.list.h _makenames $(GPERF_OUTPUT) cap_test
 	rm -f include/sys/psx_syscall.h
+	rm -f $(CAPMAGICOBJ) $(PSXMAGICOBJ) empty loader.txt
 	cd include/sys && $(LOCALCLEAN)

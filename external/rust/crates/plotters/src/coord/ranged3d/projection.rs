@@ -92,6 +92,7 @@ impl ProjectionMatrix {
         ])
     }
     /// Returns the matrix which rotates the coordinate
+    #[allow(clippy::many_single_char_names)]
     pub fn rotate(x: f64, y: f64, z: f64) -> Self {
         let (c, b, a) = (x, y, z);
         ProjectionMatrix([
@@ -141,15 +142,18 @@ impl ProjectionMatrix {
 /// The helper struct to build a projection matrix
 #[derive(Copy, Clone)]
 pub struct ProjectionMatrixBuilder {
+    /// Specifies the yaw of the 3D coordinate system
     pub yaw: f64,
+    /// Specifies the pitch of the 3D coordinate system
     pub pitch: f64,
+    /// Specifies the scale of the 3D coordinate system
     pub scale: f64,
     pivot_before: (i32, i32, i32),
     pivot_after: (i32, i32),
 }
 
-impl ProjectionMatrixBuilder {
-    pub fn new() -> Self {
+impl Default for ProjectionMatrixBuilder {
+    fn default() -> Self {
         Self {
             yaw: 0.5,
             pitch: 0.15,
@@ -157,6 +161,13 @@ impl ProjectionMatrixBuilder {
             pivot_after: (0, 0),
             pivot_before: (0, 0, 0),
         }
+    }
+}
+
+impl ProjectionMatrixBuilder {
+    /// Creates a new, default projection matrix builder object.
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Set the pivot point, which means the 3D coordinate "before" should be mapped into

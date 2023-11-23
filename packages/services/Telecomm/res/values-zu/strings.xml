@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"Ikholi eya ku-<xliff:g id="CALLER">%s</xliff:g> inqanyuliwe ngenxa yekholi yesimo esiphuthumayo efakwayo."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"Ikholi yakho inqanyuliwe ngenxa yekholi yesimo esiphuthumayo eyenziwe."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"Ikholi engemuva"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> yenze ikholi ngemuva. Kungenzeka ukuthi lolu hlelo lokusebenza lufinyelela futhi ludlala okulalelwayo ngaphezu kwekholi."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"I-<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> icubungula ikholi ngemuva. Kungenzeka ukuthi le app ifinyelela futhi idlala okulalelwayo ngaphezu kwekholi."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> iyeke ukuphendula"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"Ikholi yakho isebenzise uhlelo lokusebenza lefoni elize nedivayisi yakho"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"Ikholu ithulisiwe"</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Amakholi angemuva"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Amakholi anqanyuliwe"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Izinhlelo zokusebenza ezikhubazekile zefoni"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"Ukusakaza ikholi"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"Ukwenza le kholi kuzoqeda enye ikholi yakho ye-<xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Khetha ukuthi uyibeka kanjani le kholi"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"Qondisa kabusha ikholi usebenzisa i-<xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Imenyu yonjiniyela we-Telecom"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Amakholi awakwazi ukuthathwa ngesikhathi ukukholi yesimo esiphuthumayo."</string>
     <string name="cancel" msgid="6733466216239934756">"Khansela"</string>
+    <string name="back" msgid="6915955601805550206">"Emuva"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"Isipikha sendlebe"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"I-Bluetooth"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"I-headset enentambo"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"Isipikha"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"Okungaphandle"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"Akwaziwa"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"Sakaza umsindo kwenye idivayisi"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"Beka phansi"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"Shintsha lapha"</string>
 </resources>

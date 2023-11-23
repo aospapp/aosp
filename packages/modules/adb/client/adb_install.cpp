@@ -39,6 +39,7 @@
 #include "commandline.h"
 #include "fastdeploy.h"
 #include "incremental.h"
+#include "sysdeps.h"
 
 using namespace std::literals;
 
@@ -855,7 +856,8 @@ int install_multi_package(int argc, const char** argv) {
         session_ids.push_back(session_id);
 
         // Support splitAPKs by allowing the notation split1.apk:split2.apk:split3.apk as argument.
-        std::vector<std::string> splits = android::base::Split(file, ":");
+        // The character used as separator is OS-dependent, see ENV_PATH_SEPARATOR_STR.
+        std::vector<std::string> splits = android::base::Split(file, ENV_PATH_SEPARATOR_STR);
 
         for (const std::string& split : splits) {
             struct stat sb;

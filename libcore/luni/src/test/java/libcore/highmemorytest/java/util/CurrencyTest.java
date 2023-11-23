@@ -22,6 +22,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Currency;
 import java.util.Locale;
 
@@ -42,6 +45,14 @@ public class CurrencyTest {
 
     @Test
     public void test_currencyCodeIcuConsistency() {
+        // java.util.Currency.getCurrency is time-sensitive. And Croatia doesn't use Euro until
+        // 2023/1/1. https://unicode-org.atlassian.net/browse/CLDR-16061
+        // We skip the test until Feb 2023.
+        if ("HR".equals(locale.getCountry()) &&
+                LocalDateTime.of(2023, 2, 1, 0, 0).atZone(ZoneId.of("GMT")).toInstant()
+                        .isAfter(Instant.now())) {
+            return;
+        }
         Currency javaCurrency = getCurrency(locale);
         if (javaCurrency == null) {
             return;

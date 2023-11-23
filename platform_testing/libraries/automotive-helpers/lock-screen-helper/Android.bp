@@ -20,15 +20,13 @@ package {
 
 java_library {
     name: "automotive-lock-screen-helper",
-    libs: [
-        "ub-uiautomator",
-        "app-helpers-auto-interfaces",
-    ],
+
     static_libs: [
-        "androidx.test.runner",
+        "spectatio-lib",
+        "app-helpers-auto-interfaces",
+        "automotive-config-lib",
         "android-support-annotations",
         "automotive-settings-app-helper",
-        "automotive-standard-app-helper",
     ],
     srcs: ["src/**/*.java"],
     sdk_version: "test_current",

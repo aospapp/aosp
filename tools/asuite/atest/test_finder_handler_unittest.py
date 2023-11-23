@@ -17,24 +17,21 @@
 """Unittests for test_finder_handler."""
 
 # pylint: disable=line-too-long
-
+# pylint: disable=protected-access
 import unittest
 
 from unittest import mock
 
-import atest_error
-import test_finder_handler
+from atest import atest_error
+from atest import test_finder_handler
+from atest.test_finder_handler import FinderMethod as REF_TYPE
+from atest.test_finders import test_info
+from atest.test_finders import test_finder_base
 
-from test_finders import test_info
-from test_finders import test_finder_base
-
-#pylint: disable=protected-access
-REF_TYPE = test_finder_handler._REFERENCE_TYPE
 
 _EXAMPLE_FINDER_A = 'EXAMPLE_A'
 
 
-#pylint: disable=no-self-use
 @test_finder_base.find_method_register
 class ExampleFinderA(test_finder_base.TestFinderBase):
     """Example finder class A."""
@@ -75,15 +72,15 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         self.maxDiff = None
         self.empty_mod_info = None
         # We want to control the finders we return.
-        mock.patch('test_finder_handler._get_test_finders',
+        mock.patch('atest.test_finder_handler._get_test_finders',
                    lambda: _TEST_FINDERS_PATCH).start()
         # Since we're going to be comparing instance objects, we'll need to keep
         # track of the objects so they align.
-        mock.patch('test_finder_handler._get_finder_instance_dict',
+        mock.patch('atest.test_finder_handler._get_finder_instance_dict',
                    lambda x: _FINDER_INSTANCES).start()
         # We want to mock out the default find methods to make sure we got all
         # the methods we expect.
-        mock.patch('test_finder_handler._get_default_find_methods',
+        mock.patch('atest.test_finder_handler._get_default_find_methods',
                    lambda x, y: [test_finder_base.Finder(
                        _FINDER_INSTANCES[_EXAMPLE_FINDER_A],
                        ExampleFinderA.unregistered_find_method_from_example_finder,
@@ -97,36 +94,36 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         """Test _get_test_reference_types parses reference types correctly."""
         self.assertEqual(
             test_finder_handler._get_test_reference_types('ModuleOrClassName'),
-            [REF_TYPE.MODULE, REF_TYPE.CACHE, REF_TYPE.INTEGRATION,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.INTEGRATION,
              REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
              REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('Module_or_Class_name'),
-            [REF_TYPE.MODULE, REF_TYPE.CACHE, REF_TYPE.INTEGRATION,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.INTEGRATION,
              REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
              REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('SuiteName'),
-            [REF_TYPE.MODULE, REF_TYPE.CACHE, REF_TYPE.INTEGRATION,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.INTEGRATION,
              REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
              REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('Suite-Name'),
-            [REF_TYPE.MODULE, REF_TYPE.CACHE, REF_TYPE.INTEGRATION,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.INTEGRATION,
              REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
              REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('some.package'),
-            [REF_TYPE.MODULE, REF_TYPE.CACHE,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE,
              REF_TYPE.QUALIFIED_CLASS, REF_TYPE.PACKAGE]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('fully.q.Class'),
-            [REF_TYPE.MODULE, REF_TYPE.CACHE,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE,
              REF_TYPE.QUALIFIED_CLASS, REF_TYPE.PACKAGE]
         )
         self.assertEqual(

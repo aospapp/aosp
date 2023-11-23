@@ -44,156 +44,6 @@ license {
 
 cc_defaults { name: "selinux_policy_version", cflags: ["-DSEPOLICY_VERSION=30"], }
 
-se_filegroup {
-    name: "28.0.board.compat.map",
-    srcs: [
-        "compat/28.0/28.0.cil",
-    ],
-}
-
-se_filegroup {
-    name: "29.0.board.compat.map",
-    srcs: [
-        "compat/29.0/29.0.cil",
-    ],
-}
-
-se_filegroup {
-    name: "30.0.board.compat.map",
-    srcs: [
-        "compat/30.0/30.0.cil",
-    ],
-}
-
-se_filegroup {
-    name: "31.0.board.compat.map",
-    srcs: [
-        "compat/31.0/31.0.cil",
-    ],
-}
-
-se_filegroup {
-    name: "32.0.board.compat.map",
-    srcs: [
-        "compat/32.0/32.0.cil",
-    ],
-}
-
-se_filegroup {
-    name: "28.0.board.compat.cil",
-    srcs: [
-        "compat/28.0/28.0.compat.cil",
-    ],
-}
-
-se_filegroup {
-    name: "29.0.board.compat.cil",
-    srcs: [
-        "compat/29.0/29.0.compat.cil",
-    ],
-}
-
-se_filegroup {
-    name: "30.0.board.compat.cil",
-    srcs: [
-        "compat/30.0/30.0.compat.cil",
-    ],
-}
-
-se_filegroup {
-    name: "31.0.board.compat.cil",
-    srcs: [
-        "compat/31.0/31.0.compat.cil",
-    ],
-}
-
-se_filegroup {
-    name: "32.0.board.compat.cil",
-    srcs: [
-        "compat/32.0/32.0.compat.cil",
-    ],
-}
-
-se_filegroup {
-    name: "28.0.board.ignore.map",
-    srcs: [
-        "compat/28.0/28.0.ignore.cil",
-    ],
-}
-
-se_filegroup {
-    name: "29.0.board.ignore.map",
-    srcs: [
-        "compat/29.0/29.0.ignore.cil",
-    ],
-}
-
-se_filegroup {
-    name: "30.0.board.ignore.map",
-    srcs: [
-        "compat/30.0/30.0.ignore.cil",
-    ],
-}
-
-se_filegroup {
-    name: "31.0.board.ignore.map",
-    srcs: [
-        "compat/31.0/31.0.ignore.cil",
-    ],
-}
-
-se_filegroup {
-    name: "32.0.board.ignore.map",
-    srcs: [
-        "compat/32.0/32.0.ignore.cil",
-    ],
-}
-
-se_build_files {
-    name: "file_contexts_files",
-    srcs: ["file_contexts"],
-}
-
-se_build_files {
-    name: "file_contexts_asan_files",
-    srcs: ["file_contexts_asan"],
-}
-
-se_build_files {
-    name: "file_contexts_overlayfs_files",
-    srcs: ["file_contexts_overlayfs"],
-}
-
-se_build_files {
-    name: "hwservice_contexts_files",
-    srcs: ["hwservice_contexts"],
-}
-
-se_build_files {
-    name: "property_contexts_files",
-    srcs: ["property_contexts"],
-}
-
-se_build_files {
-    name: "service_contexts_files",
-    srcs: ["service_contexts"],
-}
-
-se_build_files {
-    name: "keystore2_key_contexts_files",
-    srcs: ["keystore2_key_contexts"],
-}
-
-se_build_files {
-    name: "seapp_contexts_files",
-    srcs: ["seapp_contexts"],
-}
-
-se_build_files {
-    name: "vndservice_contexts_files",
-    srcs: ["vndservice_contexts"],
-}
-
 // For vts_treble_sys_prop_test
 filegroup {
     name: "private_property_contexts",
@@ -365,6 +215,22 @@ se_policy_cil {
     filter_out: [":plat_sepolicy.cil"],
     installable: false,
     stem: "apex_sepolicy.cil",
+}
+
+se_policy_cil {
+    name: "decompiled_sepolicy-without_apex.cil",
+    src: ":precompiled_sepolicy-without_apex",
+    decompile_binary: true,
+}
+
+se_policy_cil {
+    name: "apex_sepolicy-33.decompiled.cil",
+    src: ":precompiled_sepolicy",
+    decompile_binary: true,
+    filter_out: [":decompiled_sepolicy-without_apex.cil"],
+    additional_cil_files: ["com.android.sepolicy/33/definitions/definitions.cil"],
+    secilc_check: false,
+    stem: "apex_sepolicy.decompiled.cil",
 }
 
 // userdebug_plat_policy.conf - the userdebug version plat_sepolicy.cil
@@ -875,6 +741,50 @@ precompiled_se_policy_binary {
     },
 }
 
+precompiled_se_policy_binary {
+    name: "precompiled_sepolicy-without_apex",
+    srcs: [
+        ":plat_sepolicy.cil",
+        ":plat_pub_versioned.cil",
+        ":system_ext_sepolicy.cil",
+        ":product_sepolicy.cil",
+        ":vendor_sepolicy.cil",
+        ":odm_sepolicy.cil",
+    ],
+    soong_config_variables: {
+        BOARD_USES_ODMIMAGE: {
+            device_specific: true,
+            conditions_default: {
+                vendor: true,
+            },
+        },
+        IS_TARGET_MIXED_SEPOLICY: {
+            ignore_neverallow: true,
+        },
+        MIXED_SEPOLICY_VERSION: {
+            srcs: [
+                ":plat_%s.cil",
+                ":system_ext_%s.cil",
+                ":product_%s.cil",
+            ],
+            conditions_default: {
+                srcs: [
+                    ":plat_mapping_file",
+                    ":system_ext_mapping_file",
+                    ":product_mapping_file",
+                ],
+            },
+        },
+    },
+    required: [
+        "sepolicy_neverallows",
+        "sepolicy_neverallows_vendor",
+    ],
+    dist: {
+        targets: ["base-sepolicy-files-for-mapping"],
+    },
+}
+
 // policy for recovery
 se_policy_conf {
     name: "recovery_sepolicy.conf",
@@ -1055,27 +965,27 @@ se_policy_cil {
 }
 
 // bug_map - Bug tracking information for selinux denials loaded by auditd.
-se_filegroup {
+se_build_files {
     name: "bug_map_files",
     srcs: ["bug_map"],
 }
 
 se_bug_map {
     name: "plat_bug_map",
-    srcs: [":bug_map_files"],
+    srcs: [":bug_map_files{.plat_private}"],
     stem: "bug_map",
 }
 
 se_bug_map {
     name: "system_ext_bug_map",
-    srcs: [":bug_map_files"],
+    srcs: [":bug_map_files{.system_ext_private}"],
     stem: "bug_map",
     system_ext_specific: true,
 }
 
 se_bug_map {
     name: "vendor_bug_map",
-    srcs: [":bug_map_files"],
+    srcs: [":bug_map_files{.vendor}", ":bug_map_files{.plat_vendor_for_vendor}"],
     // Legacy file name of the vendor partition bug_map.
     stem: "selinux_denial_metadata",
     vendor: true,

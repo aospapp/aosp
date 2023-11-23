@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -175,7 +176,7 @@ class DescriptorTestCase(unittest.TestCase):
                                       0x02, 0x00, 0x02, 0x00])
         parser = DescriptorParser(descriptor_data)
 
-        descriptor = parser.next()
+        descriptor = next(parser)
         self.assertIsInstance(descriptor, ConfigurationDescriptor)
         self.assertIsInstance(descriptor, Descriptor)
         self.assertEquals(9, descriptor.bLength)
@@ -190,7 +191,7 @@ class DescriptorTestCase(unittest.TestCase):
                                      0xa0, 0xfa]),
                          descriptor.data)
 
-        descriptor = parser.next()
+        descriptor = next(parser)
         self.assertIsInstance(descriptor, InterfaceAssociationDescriptor)
         self.assertIsInstance(descriptor, Descriptor)
         self.assertEquals(8, descriptor.bLength)
@@ -205,7 +206,7 @@ class DescriptorTestCase(unittest.TestCase):
                                      0x00]),
                          descriptor.data)
 
-        descriptor = parser.next()
+        descriptor = next(parser)
         self.assertIsInstance(descriptor, InterfaceDescriptor)
         self.assertIsInstance(descriptor, Descriptor)
         self.assertEquals(9, descriptor.bLength)
@@ -221,7 +222,7 @@ class DescriptorTestCase(unittest.TestCase):
                                      0x00, 0x05]),
                          descriptor.data)
 
-        descriptor = parser.next()
+        descriptor = next(parser)
         self.assertIsInstance(descriptor, HeaderFunctionalDescriptor)
         self.assertIsInstance(descriptor, FunctionalDescriptor)
         self.assertIsInstance(descriptor, Descriptor)
@@ -232,7 +233,7 @@ class DescriptorTestCase(unittest.TestCase):
         self.assertEqual(array('B', [0x05, 0x24, 0x00, 0x20, 0x01]),
                          descriptor.data)
 
-        descriptor = parser.next()
+        descriptor = next(parser)
         self.assertIsInstance(descriptor, MBIMFunctionalDescriptor)
         self.assertIsInstance(descriptor, FunctionalDescriptor)
         self.assertIsInstance(descriptor, Descriptor)
@@ -249,7 +250,7 @@ class DescriptorTestCase(unittest.TestCase):
                                      0x20, 0x80, 0x96, 0x05, 0x00]),
                          descriptor.data)
 
-        descriptor = parser.next()
+        descriptor = next(parser)
         self.assertIsInstance(descriptor, MBIMExtendedFunctionalDescriptor)
         self.assertIsInstance(descriptor, FunctionalDescriptor)
         self.assertIsInstance(descriptor, Descriptor)
@@ -263,7 +264,7 @@ class DescriptorTestCase(unittest.TestCase):
                                      0x05]),
                          descriptor.data)
 
-        descriptor = parser.next()
+        descriptor = next(parser)
         self.assertIsInstance(descriptor, UnionFunctionalDescriptor)
         self.assertIsInstance(descriptor, FunctionalDescriptor)
         self.assertIsInstance(descriptor, Descriptor)
@@ -275,7 +276,7 @@ class DescriptorTestCase(unittest.TestCase):
         self.assertEqual(array('B', [0x05, 0x24, 0x06, 0x00, 0x01]),
                          descriptor.data)
 
-        descriptor = parser.next()
+        descriptor = next(parser)
         self.assertIsInstance(descriptor, EndpointDescriptor)
         self.assertIsInstance(descriptor, Descriptor)
         self.assertEquals(7, descriptor.bLength)
@@ -287,7 +288,7 @@ class DescriptorTestCase(unittest.TestCase):
         self.assertEqual(array('B', [0x07, 0x05, 0x81, 0x03, 0x40, 0x00, 0x05]),
                          descriptor.data)
 
-        descriptor = parser.next()
+        descriptor = next(parser)
         self.assertIsInstance(descriptor, InterfaceDescriptor)
         self.assertIsInstance(descriptor, Descriptor)
         self.assertEquals(9, descriptor.bLength)
@@ -303,7 +304,7 @@ class DescriptorTestCase(unittest.TestCase):
                                      0x02, 0x06]),
                          descriptor.data)
 
-        descriptor = parser.next()
+        descriptor = next(parser)
         self.assertIsInstance(descriptor, InterfaceDescriptor)
         self.assertIsInstance(descriptor, Descriptor)
         self.assertEquals(9, descriptor.bLength)
@@ -319,7 +320,7 @@ class DescriptorTestCase(unittest.TestCase):
                                      0x02, 0x07]),
                          descriptor.data)
 
-        descriptor = parser.next()
+        descriptor = next(parser)
         self.assertIsInstance(descriptor, EndpointDescriptor)
         self.assertIsInstance(descriptor, Descriptor)
         self.assertEquals(7, descriptor.bLength)
@@ -331,7 +332,7 @@ class DescriptorTestCase(unittest.TestCase):
         self.assertEqual(array('B', [0x07, 0x05, 0x82, 0x02, 0x00, 0x02, 0x00]),
                          descriptor.data)
 
-        descriptor = parser.next()
+        descriptor = next(parser)
         self.assertIsInstance(descriptor, EndpointDescriptor)
         self.assertIsInstance(descriptor, Descriptor)
         self.assertEquals(7, descriptor.bLength)
@@ -344,7 +345,7 @@ class DescriptorTestCase(unittest.TestCase):
                          descriptor.data)
 
         with self.assertRaises(StopIteration):
-            descriptor = parser.next()
+            descriptor = next(parser)
 
 
 if __name__ == '__main__':

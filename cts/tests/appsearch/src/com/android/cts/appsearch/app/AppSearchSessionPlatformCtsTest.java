@@ -70,7 +70,7 @@ public class AppSearchSessionPlatformCtsTest {
     }
 
     private void cleanup() throws Exception {
-        mDb.setSchema(new SetSchemaRequest.Builder().setForceOverride(true).build()).get();
+        mDb.setSchemaAsync(new SetSchemaRequest.Builder().setForceOverride(true).build()).get();
     }
 
     @Test
@@ -86,7 +86,7 @@ public class AppSearchSessionPlatformCtsTest {
         StorageStats beforeStatsForUid = storageStatsManager.queryStatsForUid(UUID_DEFAULT, uid);
 
         // Schema registration.
-        mDb.setSchema(new SetSchemaRequest.Builder().addSchemas(AppSearchEmail.SCHEMA).build())
+        mDb.setSchemaAsync(new SetSchemaRequest.Builder().addSchemas(AppSearchEmail.SCHEMA).build())
                 .get();
         AppSearchEmail email =
                 new AppSearchEmail.Builder("namespace", "uri1")
@@ -100,7 +100,7 @@ public class AppSearchSessionPlatformCtsTest {
         for (int i = 0; i < 30; i++) {
             emails.add(email);
         }
-        mDb.put(new PutDocumentsRequest.Builder().addGenericDocuments(emails).build()).get();
+        mDb.putAsync(new PutDocumentsRequest.Builder().addGenericDocuments(emails).build()).get();
 
         StorageStats afterStatsForPkg =
                 storageStatsManager.queryStatsForPackage(UUID_DEFAULT, packageName, user);
@@ -124,7 +124,7 @@ public class AppSearchSessionPlatformCtsTest {
         StorageStats beforeStatsForUid = storageStatsManager.queryStatsForUid(UUID_DEFAULT, uid);
 
         // Schema registration.
-        mDb.setSchema(new SetSchemaRequest.Builder().addSchemas(AppSearchEmail.SCHEMA).build())
+        mDb.setSchemaAsync(new SetSchemaRequest.Builder().addSchemas(AppSearchEmail.SCHEMA).build())
                 .get();
 
         StorageStats afterStatsForPkg =
@@ -149,7 +149,7 @@ public class AppSearchSessionPlatformCtsTest {
                         .setShouldIndexNestedProperties(true)
                         .build())
                 .build();
-        mDb.setSchema(new SetSchemaRequest.Builder()
+        mDb.setSchemaAsync(new SetSchemaRequest.Builder()
                 .addSchemas(schema, AppSearchEmail.SCHEMA).build()).get();
 
         // Index a document
@@ -158,7 +158,7 @@ public class AppSearchSessionPlatformCtsTest {
                 .setPropertyDocument("document")
                 .build();
 
-        AppSearchBatchResult<String, Void> result = checkIsBatchResultSuccess(mDb.put(
+        AppSearchBatchResult<String, Void> result = checkIsBatchResultSuccess(mDb.putAsync(
                 new PutDocumentsRequest.Builder().addGenericDocuments(document).build()));
         assertThat(result.getSuccesses()).containsExactly("id1", null);
         assertThat(result.getFailures()).isEmpty();

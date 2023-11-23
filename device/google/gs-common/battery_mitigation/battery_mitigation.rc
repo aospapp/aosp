@@ -1,0 +1,96 @@
+on property:vendor.thermal.link_ready=1
+    mkdir /data/vendor/mitigation 0755 system system
+    chown system system /data/vendor/mitigation
+    start vendor.battery_mitigation
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,uvlo,pmic,if && property:sys.boot.reason=reboot,uvlo,pmic,if
+    setprop vendor.brownout_reason "uvlo,pmic,if"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,pmic,if && property:sys.boot.reason=reboot,ocp,pmic,if
+    setprop vendor.brownout_reason "ocp,pmic,if"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,uvlo,pmic,main && property:sys.boot.reason=reboot,uvlo,pmic,main
+    setprop vendor.brownout_reason "uvlo,pmic,main"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,uvlo,pmic,sub && property:sys.boot.reason=reboot,uvlo,pmic,sub
+    setprop vendor.brownout_reason "uvlo,pmic,sub"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK1M && property:sys.boot.reason=reboot,ocp,buck1m
+    setprop vendor.brownout_reason "ocp,buck1m"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK2M && property:sys.boot.reason=reboot,ocp,buck2m
+    setprop vendor.brownout_reason "ocp,buck2m"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK3M && property:sys.boot.reason=reboot,ocp,buck3m
+    setprop vendor.brownout_reason "ocp,buck3m"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK4M && property:sys.boot.reason=reboot,ocp,buck4m
+    setprop vendor.brownout_reason "ocp,buck4m"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK5M && property:sys.boot.reason=reboot,ocp,buck5m
+    setprop vendor.brownout_reason "ocp,buck5m"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK6M && property:sys.boot.reason=reboot,ocp,buck6m
+    setprop vendor.brownout_reason "ocp,buck6m"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK7M && property:sys.boot.reason=reboot,ocp,buck7m
+    setprop vendor.brownout_reason "ocp,buck7m"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK8M && property:sys.boot.reason=reboot,ocp,buck8m
+    setprop vendor.brownout_reason "ocp,buck8m"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK9M && property:sys.boot.reason=reboot,ocp,buck9m
+    setprop vendor.brownout_reason "ocp,buck9m"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK10M && property:sys.boot.reason=reboot,ocp,buck10m
+    setprop vendor.brownout_reason "ocp,buck10m"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK1S && property:sys.boot.reason=reboot,ocp,buck1s
+    setprop vendor.brownout_reason "ocp,buck1s"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK2S && property:sys.boot.reason=reboot,ocp,buck2s
+    setprop vendor.brownout_reason "ocp,buck2s"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK3S && property:sys.boot.reason=reboot,ocp,buck3s
+    setprop vendor.brownout_reason "ocp,buck3s"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK4S && property:sys.boot.reason=reboot,ocp,buck4s
+    setprop vendor.brownout_reason "ocp,buck4s"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK5S && property:sys.boot.reason=reboot,ocp,buck5s
+    setprop vendor.brownout_reason "ocp,buck5s"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK6S && property:sys.boot.reason=reboot,ocp,buck6s
+    setprop vendor.brownout_reason "ocp,buck6s"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK7S && property:sys.boot.reason=reboot,ocp,buck7s
+    setprop vendor.brownout_reason "ocp,buck7s"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK8S && property:sys.boot.reason=reboot,ocp,buck8s
+    setprop vendor.brownout_reason "ocp,buck8s"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK9S && property:sys.boot.reason=reboot,ocp,buck9s
+    setprop vendor.brownout_reason "ocp,buck9s"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCK10S && property:sys.boot.reason=reboot,ocp,buck10s
+    setprop vendor.brownout_reason "ocp,buck10s"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCKDS && property:sys.boot.reason=reboot,ocp,buckds
+    setprop vendor.brownout_reason "ocp,buckds"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCKAS && property:sys.boot.reason=reboot,ocp,buckas
+    setprop vendor.brownout_reason "ocp,buckas"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCKCS && property:sys.boot.reason=reboot,ocp,buckcs
+    setprop vendor.brownout_reason "ocp,buckcs"
+
+on property:vendor.thermal.link_ready=1 && property:ro.boot.bootreason=reboot,ocp,BUCKBS && property:sys.boot.reason=reboot,ocp,buckbs
+    setprop vendor.brownout_reason "ocp,buckbs"
+
+on property:vendor.brownout.br.feasible=1
+    chown system system data/vendor/mitigation/lastmeal.txt
+
+service vendor.battery_mitigation /vendor/bin/hw/battery_mitigation
+    user system
+    group system
+    capabilities WAKE_ALARM BLOCK_SUSPEND

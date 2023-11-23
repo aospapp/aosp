@@ -29,6 +29,7 @@
 #include "base/array_ref.h"
 #include "base/intrusive_forward_list.h"
 #include "base/iteration_range.h"
+#include "base/macros.h"
 #include "base/mutex.h"
 #include "base/quasi_atomic.h"
 #include "base/stl_util.h"
@@ -51,7 +52,7 @@
 #include "mirror/method_type.h"
 #include "offsets.h"
 
-namespace art {
+namespace art HIDDEN {
 
 class ArenaStack;
 class CodeGenerator;
@@ -406,6 +407,7 @@ class HGraph : public ArenaObject<kArenaAllocGraph> {
         has_loops_(false),
         has_irreducible_loops_(false),
         has_direct_critical_native_call_(false),
+        has_always_throwing_invokes_(false),
         dead_reference_safe_(dead_reference_safe),
         debuggable_(debuggable),
         current_instruction_id_(start_instruction_id),
@@ -485,9 +487,11 @@ class HGraph : public ArenaObject<kArenaAllocGraph> {
   // Update the loop and try membership of `block`, which was spawned from `reference`.
   // In case `reference` is a back edge, `replace_if_back_edge` notifies whether `block`
   // should be the new back edge.
+  // `has_more_specific_try_catch_info` will be set to true when inlining a try catch.
   void UpdateLoopAndTryInformationOfNewBlock(HBasicBlock* block,
                                              HBasicBlock* reference,
-                                             bool replace_if_back_edge);
+                                             bool replace_if_back_edge,
+                                             bool has_more_specific_try_catch_info = false);
 
   // Need to add a couple of blocks to test if the loop body is entered and
   // put deoptimization instructions, etc.
@@ -510,6 +514,11 @@ class HGraph : public ArenaObject<kArenaAllocGraph> {
   HBasicBlock* SplitEdge(HBasicBlock* block, HBasicBlock* successor);
 
   void SplitCriticalEdge(HBasicBlock* block, HBasicBlock* successor);
+
+  // Splits the edge between `block` and `successor` and then updates the graph's RPO to keep
+  // consistency without recomputing the whole graph.
+  HBasicBlock* SplitEdgeAndUpdateRPO(HBasicBlock* block, HBasicBlock* successor);
+
   void OrderLoopHeaderPredecessors(HBasicBlock* header);
 
   // Transform a loop into a format with a single preheader.
@@ -678,6 +687,13 @@ class HGraph : public ArenaObject<kArenaAllocGraph> {
     return cha_single_implementation_list_;
   }
 
+  // In case of OSR we intend to use SuspendChecks as an entry point to the
+  // function; for debuggable graphs we might deoptimize to interpreter from
+  // SuspendChecks. In these cases we should always generate code for them.
+  bool SuspendChecksAreAllowedToNoOp() const {
+    return !IsDebuggable() && !IsCompilingOsr();
+  }
+
   void AddCHASingleImplementationDependency(ArtMethod* method) {
     cha_single_implementation_list_.insert(method);
   }
@@ -704,6 +720,9 @@ class HGraph : public ArenaObject<kArenaAllocGraph> {
   bool HasDirectCriticalNativeCall() const { return has_direct_critical_native_call_; }
   void SetHasDirectCriticalNativeCall(bool value) { has_direct_critical_native_call_ = value; }
 
+  bool HasAlwaysThrowingInvokes() const { return has_always_throwing_invokes_; }
+  void SetHasAlwaysThrowingInvokes(bool value) { has_always_throwing_invokes_ = value; }
+
   ArtMethod* GetArtMethod() const { return art_method_; }
   void SetArtMethod(ArtMethod* method) { art_method_ = method; }
 
@@ -719,12 +738,12 @@ class HGraph : public ArenaObject<kArenaAllocGraph> {
     return ReferenceTypeInfo::Create(handle_cache_.GetObjectClassHandle(), /* is_exact= */ false);
   }
 
-  uint32_t GetNumberOfCHAGuards() { return number_of_cha_guards_; }
+  uint32_t GetNumberOfCHAGuards() const { return number_of_cha_guards_; }
   void SetNumberOfCHAGuards(uint32_t num) { number_of_cha_guards_ = num; }
   void IncrementNumberOfCHAGuards() { number_of_cha_guards_++; }
 
  private:
-  void RemoveInstructionsAsUsersFromDeadBlocks(const ArenaBitVector& visited) const;
+  void RemoveDeadBlocksInstructionsAsUsersAndDisconnect(const ArenaBitVector& visited) const;
   void RemoveDeadBlocks(const ArenaBitVector& visited);
 
   template <class InstructionType, typename ValueType>
@@ -792,14 +811,11 @@ class HGraph : public ArenaObject<kArenaAllocGraph> {
   size_t temporaries_vreg_slots_;
 
   // Flag whether there are bounds checks in the graph. We can skip
-  // BCE if it's false. It's only best effort to keep it up to date in
-  // the presence of code elimination so there might be false positives.
+  // BCE if it's false.
   bool has_bounds_checks_;
 
   // Flag whether there are try/catch blocks in the graph. We will skip
-  // try/catch-related passes if it's false. It's only best effort to keep
-  // it up to date in the presence of code elimination so there might be
-  // false positives.
+  // try/catch-related passes if it's false.
   bool has_try_catch_;
 
   // Flag whether there are any HMonitorOperation in the graph. If yes this will mandate
@@ -812,19 +828,18 @@ class HGraph : public ArenaObject<kArenaAllocGraph> {
   bool has_simd_;
 
   // Flag whether there are any loops in the graph. We can skip loop
-  // optimization if it's false. It's only best effort to keep it up
-  // to date in the presence of code elimination so there might be false
-  // positives.
+  // optimization if it's false.
   bool has_loops_;
 
-  // Flag whether there are any irreducible loops in the graph. It's only
-  // best effort to keep it up to date in the presence of code elimination
-  // so there might be false positives.
+  // Flag whether there are any irreducible loops in the graph.
   bool has_irreducible_loops_;
 
   // Flag whether there are any direct calls to native code registered
   // for @CriticalNative methods.
   bool has_direct_critical_native_call_;
+
+  // Flag whether the graph contains invokes that always throw.
+  bool has_always_throwing_invokes_;
 
   // Is the code known to be robust against eliminating dead references
   // and the effects of early finalization? If false, dead reference variables
@@ -1291,7 +1306,7 @@ class HBasicBlock : public ArenaObject<kArenaAllocBasicBlock> {
   // graph, create a Goto at the end of the former block and will create an edge
   // between the blocks. It will not, however, update the reverse post order or
   // loop and try/catch information.
-  HBasicBlock* SplitBefore(HInstruction* cursor);
+  HBasicBlock* SplitBefore(HInstruction* cursor, bool require_graph_not_in_ssa_form = true);
 
   // Split the block into two blocks just before `cursor`. Returns the newly
   // created block. Note that this method just updates raw block information,
@@ -1331,6 +1346,20 @@ class HBasicBlock : public ArenaObject<kArenaAllocBasicBlock> {
   // The block must not dominate any other block. Predecessors and successors
   // are safely updated.
   void DisconnectAndDelete();
+
+  // Disconnects `this` from all its successors and updates their phis, if the successors have them.
+  // If `visited` is provided, it will use the information to know if a successor is reachable and
+  // skip updating those phis.
+  void DisconnectFromSuccessors(const ArenaBitVector* visited = nullptr);
+
+  // Removes the catch phi uses of the instructions in `this`, and then remove the instruction
+  // itself. If `building_dominator_tree` is true, it will not remove the instruction as user, since
+  // we do it in a previous step. This is a special case for building up the dominator tree: we want
+  // to eliminate uses before inputs but we don't have domination information, so we remove all
+  // connections from input/uses first before removing any instruction.
+  // This method assumes the instructions have been removed from all users with the exception of
+  // catch phis because of missing exceptional edges in the graph.
+  void RemoveCatchPhiUsesAndInstruction(bool building_dominator_tree);
 
   void AddInstruction(HInstruction* instruction);
   // Insert `instruction` before/after an existing instruction `cursor`.
@@ -1540,10 +1569,10 @@ class HLoopInformationOutwardIterator : public ValueObject {
   M(Min, BinaryOperation)                                               \
   M(MonitorOperation, Instruction)                                      \
   M(Mul, BinaryOperation)                                               \
-  M(NativeDebugInfo, Instruction)                                       \
   M(Neg, UnaryOperation)                                                \
   M(NewArray, Instruction)                                              \
   M(NewInstance, Instruction)                                           \
+  M(Nop, Instruction)                                                   \
   M(Not, UnaryOperation)                                                \
   M(NotEqual, Condition)                                                \
   M(NullConstant, Instruction)                                          \
@@ -2348,7 +2377,10 @@ class HInstruction : public ArenaObject<kArenaAllocInstruction> {
     return GetType() == DataType::Type::kReference;
   }
 
+  // Sets the ReferenceTypeInfo. The RTI must be valid.
   void SetReferenceTypeInfo(ReferenceTypeInfo rti);
+  // Same as above, but we only set it if it's valid. Otherwise, we don't change the current RTI.
+  void SetReferenceTypeInfoIfValid(ReferenceTypeInfo rti);
 
   ReferenceTypeInfo GetReferenceTypeInfo() const {
     DCHECK_EQ(GetType(), DataType::Type::kReference);
@@ -2408,7 +2440,7 @@ class HInstruction : public ArenaObject<kArenaAllocInstruction> {
         !CanThrow() &&
         !IsSuspendCheck() &&
         !IsControlFlow() &&
-        !IsNativeDebugInfo() &&
+        !IsNop() &&
         !IsParameterValue() &&
         // If we added an explicit barrier then we should keep it.
         !IsMemoryBarrier() &&
@@ -2419,9 +2451,12 @@ class HInstruction : public ArenaObject<kArenaAllocInstruction> {
     return IsRemovable() && !HasUses();
   }
 
-  // Does this instruction strictly dominate `other_instruction`?
-  // Returns false if this instruction and `other_instruction` are the same.
-  // Aborts if this instruction and `other_instruction` are both phis.
+  // Does this instruction dominate `other_instruction`?
+  // Aborts if this instruction and `other_instruction` are different phis.
+  bool Dominates(HInstruction* other_instruction) const;
+
+  // Same but with `strictly dominates` i.e. returns false if this instruction and
+  // `other_instruction` are the same.
   bool StrictlyDominates(HInstruction* other_instruction) const;
 
   int GetId() const { return id_; }
@@ -2486,7 +2521,9 @@ class HInstruction : public ArenaObject<kArenaAllocInstruction> {
   void SetLocations(LocationSummary* locations) { locations_ = locations; }
 
   void ReplaceWith(HInstruction* instruction);
-  void ReplaceUsesDominatedBy(HInstruction* dominator, HInstruction* replacement);
+  void ReplaceUsesDominatedBy(HInstruction* dominator,
+                              HInstruction* replacement,
+                              bool strictly_dominated = true);
   void ReplaceEnvUsesDominatedBy(HInstruction* dominator, HInstruction* replacement);
   void ReplaceInput(HInstruction* replacement, size_t index);
 
@@ -3730,7 +3767,7 @@ class HClassTableGet final : public HExpression<1> {
   static constexpr size_t kNumberOfClassTableGetPackedBits = kFieldTableKind + kFieldTableKindSize;
   static_assert(kNumberOfClassTableGetPackedBits <= kMaxNumberOfPackedBits,
                 "Too many packed fields.");
-  using TableKindField = BitField<TableKind, kFieldTableKind, kFieldTableKind>;
+  using TableKindField = BitField<TableKind, kFieldTableKind, kFieldTableKindSize>;
 
   // The index of the ArtMethod in the table.
   const size_t index_;
@@ -4700,7 +4737,7 @@ class HInvoke : public HVariableInputSizeInstruction {
 
   void SetAlwaysThrows(bool always_throws) { SetPackedFlag<kFlagAlwaysThrows>(always_throws); }
 
-  bool AlwaysThrows() const override { return GetPackedFlag<kFlagAlwaysThrows>(); }
+  bool AlwaysThrows() const override final { return GetPackedFlag<kFlagAlwaysThrows>(); }
 
   bool CanBeMoved() const override { return IsIntrinsic() && !DoesAnyWrite(); }
 
@@ -4719,7 +4756,7 @@ class HInvoke : public HVariableInputSizeInstruction {
   bool IsIntrinsic() const { return intrinsic_ != Intrinsics::kNone; }
 
   ArtMethod* GetResolvedMethod() const { return resolved_method_; }
-  void SetResolvedMethod(ArtMethod* method);
+  void SetResolvedMethod(ArtMethod* method, bool enable_intrinsic_opt);
 
   MethodReference GetMethodReference() const { return method_reference_; }
 
@@ -4748,7 +4785,8 @@ class HInvoke : public HVariableInputSizeInstruction {
           MethodReference method_reference,
           ArtMethod* resolved_method,
           MethodReference resolved_method_reference,
-          InvokeType invoke_type)
+          InvokeType invoke_type,
+          bool enable_intrinsic_opt)
     : HVariableInputSizeInstruction(
           kind,
           return_type,
@@ -4764,7 +4802,7 @@ class HInvoke : public HVariableInputSizeInstruction {
       intrinsic_optimizations_(0) {
     SetPackedField<InvokeTypeField>(invoke_type);
     SetPackedFlag<kFlagCanThrow>(true);
-    SetResolvedMethod(resolved_method);
+    SetResolvedMethod(resolved_method, enable_intrinsic_opt);
   }
 
   DEFAULT_COPY_CONSTRUCTOR(Invoke);
@@ -4797,7 +4835,8 @@ class HInvokeUnresolved final : public HInvoke {
                 method_reference,
                 nullptr,
                 MethodReference(nullptr, 0u),
-                invoke_type) {
+                invoke_type,
+                /* enable_intrinsic_opt= */ false) {
   }
 
   bool IsClonable() const override { return true; }
@@ -4820,7 +4859,8 @@ class HInvokePolymorphic final : public HInvoke {
                      // to pass intrinsic information to the HInvokePolymorphic node.
                      ArtMethod* resolved_method,
                      MethodReference resolved_method_reference,
-                     dex::ProtoIndex proto_idx)
+                     dex::ProtoIndex proto_idx,
+                     bool enable_intrinsic_opt)
       : HInvoke(kInvokePolymorphic,
                 allocator,
                 number_of_arguments,
@@ -4830,7 +4870,8 @@ class HInvokePolymorphic final : public HInvoke {
                 method_reference,
                 resolved_method,
                 resolved_method_reference,
-                kPolymorphic),
+                kPolymorphic,
+                enable_intrinsic_opt),
         proto_idx_(proto_idx) {
   }
 
@@ -4852,7 +4893,8 @@ class HInvokeCustom final : public HInvoke {
                 uint32_t call_site_index,
                 DataType::Type return_type,
                 uint32_t dex_pc,
-                MethodReference method_reference)
+                MethodReference method_reference,
+                bool enable_intrinsic_opt)
       : HInvoke(kInvokeCustom,
                 allocator,
                 number_of_arguments,
@@ -4862,7 +4904,8 @@ class HInvokeCustom final : public HInvoke {
                 method_reference,
                 /* resolved_method= */ nullptr,
                 MethodReference(nullptr, 0u),
-                kStatic),
+                kStatic,
+                enable_intrinsic_opt),
       call_site_index_(call_site_index) {
   }
 
@@ -4909,7 +4952,8 @@ class HInvokeStaticOrDirect final : public HInvoke {
                         DispatchInfo dispatch_info,
                         InvokeType invoke_type,
                         MethodReference resolved_method_reference,
-                        ClinitCheckRequirement clinit_check_requirement)
+                        ClinitCheckRequirement clinit_check_requirement,
+                        bool enable_intrinsic_opt)
       : HInvoke(kInvokeStaticOrDirect,
                 allocator,
                 number_of_arguments,
@@ -4922,7 +4966,8 @@ class HInvokeStaticOrDirect final : public HInvoke {
                 method_reference,
                 resolved_method,
                 resolved_method_reference,
-                invoke_type),
+                invoke_type,
+                enable_intrinsic_opt),
         dispatch_info_(dispatch_info) {
     SetPackedField<ClinitCheckRequirementField>(clinit_check_requirement);
   }
@@ -5134,7 +5179,8 @@ class HInvokeVirtual final : public HInvoke {
                  MethodReference method_reference,
                  ArtMethod* resolved_method,
                  MethodReference resolved_method_reference,
-                 uint32_t vtable_index)
+                 uint32_t vtable_index,
+                 bool enable_intrinsic_opt)
       : HInvoke(kInvokeVirtual,
                 allocator,
                 number_of_arguments,
@@ -5144,7 +5190,8 @@ class HInvokeVirtual final : public HInvoke {
                 method_reference,
                 resolved_method,
                 resolved_method_reference,
-                kVirtual),
+                kVirtual,
+                enable_intrinsic_opt),
         vtable_index_(vtable_index) {
   }
 
@@ -5196,7 +5243,8 @@ class HInvokeInterface final : public HInvoke {
                    ArtMethod* resolved_method,
                    MethodReference resolved_method_reference,
                    uint32_t imt_index,
-                   MethodLoadKind load_kind)
+                   MethodLoadKind load_kind,
+                   bool enable_intrinsic_opt)
       : HInvoke(kInvokeInterface,
                 allocator,
                 number_of_arguments + (NeedsCurrentMethod(load_kind) ? 1 : 0),
@@ -5206,7 +5254,8 @@ class HInvokeInterface final : public HInvoke {
                 method_reference,
                 resolved_method,
                 resolved_method_reference,
-                kInterface),
+                kInterface,
+                enable_intrinsic_opt),
         imt_index_(imt_index),
         hidden_argument_load_kind_(load_kind) {
   }
@@ -5321,7 +5370,7 @@ class HNewArray final : public HExpression<2> {
       kFieldComponentSizeShift + kFieldComponentSizeShiftSize;
   static_assert(kNumberOfNewArrayPackedBits <= kMaxNumberOfPackedBits, "Too many packed fields.");
   using ComponentSizeShiftField =
-      BitField<size_t, kFieldComponentSizeShift, kFieldComponentSizeShift>;
+      BitField<size_t, kFieldComponentSizeShift, kFieldComponentSizeShiftSize>;
 };
 
 class HAdd final : public HBinaryOperation {
@@ -6362,6 +6411,27 @@ class HPredicatedInstanceFieldGet final : public HExpression<2> {
   const FieldInfo field_info_;
 };
 
+enum class WriteBarrierKind {
+  // Emit the write barrier, with a runtime optimization which checks if the value that it is being
+  // set is null.
+  kEmitWithNullCheck,
+  // Emit the write barrier, without the runtime null check optimization. This could be set because:
+  //  A) It is a write barrier for an ArraySet (which does the optimization with the type check, so
+  //  it never does the optimization at the write barrier stage)
+  //  B) We know that the input can't be null
+  //  C) This write barrier is actually several write barriers coalesced into one. Potentially we
+  //  could ask if every value is null for a runtime optimization at the cost of compile time / code
+  //  size. At the time of writing it was deemed not worth the effort.
+  kEmitNoNullCheck,
+  // Skip emitting the write barrier. This could be set because:
+  //  A) The write barrier is not needed (e.g. it is not a reference, or the value is the null
+  //  constant)
+  //  B) This write barrier was coalesced into another one so there's no need to emit it.
+  kDontEmit,
+  kLast = kDontEmit
+};
+std::ostream& operator<<(std::ostream& os, WriteBarrierKind rhs);
+
 class HInstanceFieldSet final : public HExpression<2> {
  public:
   HInstanceFieldSet(HInstruction* object,
@@ -6386,6 +6456,7 @@ class HInstanceFieldSet final : public HExpression<2> {
                     dex_file) {
     SetPackedFlag<kFlagValueCanBeNull>(true);
     SetPackedFlag<kFlagIsPredicatedSet>(false);
+    SetPackedField<WriteBarrierKindField>(WriteBarrierKind::kEmitWithNullCheck);
     SetRawInputAt(0, object);
     SetRawInputAt(1, value);
   }
@@ -6406,6 +6477,12 @@ class HInstanceFieldSet final : public HExpression<2> {
   void ClearValueCanBeNull() { SetPackedFlag<kFlagValueCanBeNull>(false); }
   bool GetIsPredicatedSet() const { return GetPackedFlag<kFlagIsPredicatedSet>(); }
   void SetIsPredicatedSet(bool value = true) { SetPackedFlag<kFlagIsPredicatedSet>(value); }
+  WriteBarrierKind GetWriteBarrierKind() { return GetPackedField<WriteBarrierKindField>(); }
+  void SetWriteBarrierKind(WriteBarrierKind kind) {
+    DCHECK(kind != WriteBarrierKind::kEmitWithNullCheck)
+        << "We shouldn't go back to the original value.";
+    SetPackedField<WriteBarrierKindField>(kind);
+  }
 
   DECLARE_INSTRUCTION(InstanceFieldSet);
 
@@ -6415,11 +6492,17 @@ class HInstanceFieldSet final : public HExpression<2> {
  private:
   static constexpr size_t kFlagValueCanBeNull = kNumberOfGenericPackedBits;
   static constexpr size_t kFlagIsPredicatedSet = kFlagValueCanBeNull + 1;
-  static constexpr size_t kNumberOfInstanceFieldSetPackedBits = kFlagIsPredicatedSet + 1;
+  static constexpr size_t kWriteBarrierKind = kFlagIsPredicatedSet + 1;
+  static constexpr size_t kWriteBarrierKindSize =
+      MinimumBitsToStore(static_cast<size_t>(WriteBarrierKind::kLast));
+  static constexpr size_t kNumberOfInstanceFieldSetPackedBits =
+      kWriteBarrierKind + kWriteBarrierKindSize;
   static_assert(kNumberOfInstanceFieldSetPackedBits <= kMaxNumberOfPackedBits,
                 "Too many packed fields.");
 
   const FieldInfo field_info_;
+  using WriteBarrierKindField =
+      BitField<WriteBarrierKind, kWriteBarrierKind, kWriteBarrierKindSize>;
 };
 
 class HArrayGet final : public HExpression<2> {
@@ -6540,6 +6623,8 @@ class HArraySet final : public HExpression<3> {
     SetPackedFlag<kFlagNeedsTypeCheck>(value->GetType() == DataType::Type::kReference);
     SetPackedFlag<kFlagValueCanBeNull>(true);
     SetPackedFlag<kFlagStaticTypeOfArrayIsObjectArray>(false);
+    // ArraySets never do the null check optimization at the write barrier stage.
+    SetPackedField<WriteBarrierKindField>(WriteBarrierKind::kEmitNoNullCheck);
     SetRawInputAt(0, array);
     SetRawInputAt(1, index);
     SetRawInputAt(2, value);
@@ -6560,8 +6645,10 @@ class HArraySet final : public HExpression<3> {
     return false;
   }
 
-  void ClearNeedsTypeCheck() {
+  void ClearTypeCheck() {
     SetPackedFlag<kFlagNeedsTypeCheck>(false);
+    // Clear the `CanTriggerGC` flag too as we can only trigger a GC when doing a type check.
+    SetSideEffects(GetSideEffects().Exclusion(SideEffects::CanTriggerGC()));
   }
 
   void ClearValueCanBeNull() {
@@ -6610,6 +6697,16 @@ class HArraySet final : public HExpression<3> {
                                                       : SideEffects::None();
   }
 
+  WriteBarrierKind GetWriteBarrierKind() { return GetPackedField<WriteBarrierKindField>(); }
+
+  void SetWriteBarrierKind(WriteBarrierKind kind) {
+    DCHECK(kind != WriteBarrierKind::kEmitNoNullCheck)
+        << "We shouldn't go back to the original value.";
+    DCHECK(kind != WriteBarrierKind::kEmitWithNullCheck)
+        << "We never do the null check optimization for ArraySets.";
+    SetPackedField<WriteBarrierKindField>(kind);
+  }
+
   DECLARE_INSTRUCTION(ArraySet);
 
  protected:
@@ -6625,11 +6722,16 @@ class HArraySet final : public HExpression<3> {
   // Cached information for the reference_type_info_ so that codegen
   // does not need to inspect the static type.
   static constexpr size_t kFlagStaticTypeOfArrayIsObjectArray = kFlagValueCanBeNull + 1;
-  static constexpr size_t kNumberOfArraySetPackedBits =
-      kFlagStaticTypeOfArrayIsObjectArray + 1;
+  static constexpr size_t kWriteBarrierKind = kFlagStaticTypeOfArrayIsObjectArray + 1;
+  static constexpr size_t kWriteBarrierKindSize =
+      MinimumBitsToStore(static_cast<size_t>(WriteBarrierKind::kLast));
+  static constexpr size_t kNumberOfArraySetPackedBits = kWriteBarrierKind + kWriteBarrierKindSize;
   static_assert(kNumberOfArraySetPackedBits <= kMaxNumberOfPackedBits, "Too many packed fields.");
   using ExpectedComponentTypeField =
       BitField<DataType::Type, kFieldExpectedComponentType, kFieldExpectedComponentTypeSize>;
+
+  using WriteBarrierKindField =
+      BitField<WriteBarrierKind, kWriteBarrierKind, kWriteBarrierKindSize>;
 };
 
 class HArrayLength final : public HExpression<1> {
@@ -6714,9 +6816,10 @@ class HBoundsCheck final : public HExpression<2> {
 
 class HSuspendCheck final : public HExpression<0> {
  public:
-  explicit HSuspendCheck(uint32_t dex_pc = kNoDexPc)
+  explicit HSuspendCheck(uint32_t dex_pc = kNoDexPc, bool is_no_op = false)
       : HExpression(kSuspendCheck, SideEffects::CanTriggerGC(), dex_pc),
         slow_path_(nullptr) {
+    SetPackedFlag<kFlagIsNoOp>(is_no_op);
   }
 
   bool IsClonable() const override { return true; }
@@ -6724,6 +6827,10 @@ class HSuspendCheck final : public HExpression<0> {
   bool NeedsEnvironment() const override {
     return true;
   }
+
+  void SetIsNoOp(bool is_no_op) { SetPackedFlag<kFlagIsNoOp>(is_no_op); }
+  bool IsNoOp() const { return GetPackedFlag<kFlagIsNoOp>(); }
+
 
   void SetSlowPath(SlowPathCode* slow_path) { slow_path_ = slow_path; }
   SlowPathCode* GetSlowPath() const { return slow_path_; }
@@ -6733,28 +6840,42 @@ class HSuspendCheck final : public HExpression<0> {
  protected:
   DEFAULT_COPY_CONSTRUCTOR(SuspendCheck);
 
+  // True if the HSuspendCheck should not emit any code during codegen. It is
+  // not possible to simply remove this instruction to disable codegen, as
+  // other optimizations (e.g: CHAGuardVisitor::HoistGuard) depend on
+  // HSuspendCheck being present in every loop.
+  static constexpr size_t kFlagIsNoOp = kNumberOfGenericPackedBits;
+  static constexpr size_t kNumberOfSuspendCheckPackedBits = kFlagIsNoOp + 1;
+  static_assert(kNumberOfSuspendCheckPackedBits <= HInstruction::kMaxNumberOfPackedBits,
+                "Too many packed fields.");
+
  private:
   // Only used for code generation, in order to share the same slow path between back edges
   // of a same loop.
   SlowPathCode* slow_path_;
 };
 
-// Pseudo-instruction which provides the native debugger with mapping information.
-// It ensures that we can generate line number and local variables at this point.
-class HNativeDebugInfo : public HExpression<0> {
+// Pseudo-instruction which doesn't generate any code.
+// If `emit_environment` is true, it can be used to generate an environment. It is used, for
+// example, to provide the native debugger with mapping information. It ensures that we can generate
+// line number and local variables at this point.
+class HNop : public HExpression<0> {
  public:
-  explicit HNativeDebugInfo(uint32_t dex_pc)
-      : HExpression<0>(kNativeDebugInfo, SideEffects::None(), dex_pc) {
+  explicit HNop(uint32_t dex_pc, bool needs_environment)
+      : HExpression<0>(kNop, SideEffects::None(), dex_pc), needs_environment_(needs_environment) {
   }
 
   bool NeedsEnvironment() const override {
-    return true;
+    return needs_environment_;
   }
 
-  DECLARE_INSTRUCTION(NativeDebugInfo);
+  DECLARE_INSTRUCTION(Nop);
 
  protected:
-  DEFAULT_COPY_CONSTRUCTOR(NativeDebugInfo);
+  DEFAULT_COPY_CONSTRUCTOR(Nop);
+
+ private:
+  bool needs_environment_;
 };
 
 /**
@@ -7222,6 +7343,10 @@ class HLoadMethodHandle final : public HInstruction {
     return SideEffects::CanTriggerGC();
   }
 
+  bool CanThrow() const override { return true; }
+
+  bool NeedsEnvironment() const override { return true; }
+
   DECLARE_INSTRUCTION(LoadMethodHandle);
 
  protected:
@@ -7265,6 +7390,10 @@ class HLoadMethodType final : public HInstruction {
   static SideEffects SideEffectsForArchRuntimeCalls() {
     return SideEffects::CanTriggerGC();
   }
+
+  bool CanThrow() const override { return true; }
+
+  bool NeedsEnvironment() const override { return true; }
 
   DECLARE_INSTRUCTION(LoadMethodType);
 
@@ -7400,6 +7529,7 @@ class HStaticFieldSet final : public HExpression<2> {
                     declaring_class_def_index,
                     dex_file) {
     SetPackedFlag<kFlagValueCanBeNull>(true);
+    SetPackedField<WriteBarrierKindField>(WriteBarrierKind::kEmitWithNullCheck);
     SetRawInputAt(0, cls);
     SetRawInputAt(1, value);
   }
@@ -7415,6 +7545,13 @@ class HStaticFieldSet final : public HExpression<2> {
   bool GetValueCanBeNull() const { return GetPackedFlag<kFlagValueCanBeNull>(); }
   void ClearValueCanBeNull() { SetPackedFlag<kFlagValueCanBeNull>(false); }
 
+  WriteBarrierKind GetWriteBarrierKind() { return GetPackedField<WriteBarrierKindField>(); }
+  void SetWriteBarrierKind(WriteBarrierKind kind) {
+    DCHECK(kind != WriteBarrierKind::kEmitWithNullCheck)
+        << "We shouldn't go back to the original value.";
+    SetPackedField<WriteBarrierKindField>(kind);
+  }
+
   DECLARE_INSTRUCTION(StaticFieldSet);
 
  protected:
@@ -7422,25 +7559,34 @@ class HStaticFieldSet final : public HExpression<2> {
 
  private:
   static constexpr size_t kFlagValueCanBeNull = kNumberOfGenericPackedBits;
-  static constexpr size_t kNumberOfStaticFieldSetPackedBits = kFlagValueCanBeNull + 1;
+  static constexpr size_t kWriteBarrierKind = kFlagValueCanBeNull + 1;
+  static constexpr size_t kWriteBarrierKindSize =
+      MinimumBitsToStore(static_cast<size_t>(WriteBarrierKind::kLast));
+  static constexpr size_t kNumberOfStaticFieldSetPackedBits =
+      kWriteBarrierKind + kWriteBarrierKindSize;
   static_assert(kNumberOfStaticFieldSetPackedBits <= kMaxNumberOfPackedBits,
                 "Too many packed fields.");
 
   const FieldInfo field_info_;
+  using WriteBarrierKindField =
+      BitField<WriteBarrierKind, kWriteBarrierKind, kWriteBarrierKindSize>;
 };
 
 class HStringBuilderAppend final : public HVariableInputSizeInstruction {
  public:
   HStringBuilderAppend(HIntConstant* format,
                        uint32_t number_of_arguments,
+                       bool has_fp_args,
                        ArenaAllocator* allocator,
                        uint32_t dex_pc)
       : HVariableInputSizeInstruction(
             kStringBuilderAppend,
             DataType::Type::kReference,
-            // The runtime call may read memory from inputs. It never writes outside
-            // of the newly allocated result object (or newly allocated helper objects).
-            SideEffects::AllReads().Union(SideEffects::CanTriggerGC()),
+            SideEffects::CanTriggerGC().Union(
+                // The runtime call may read memory from inputs. It never writes outside
+                // of the newly allocated result object or newly allocated helper objects,
+                // except for float/double arguments where we reuse thread-local helper objects.
+                has_fp_args ? SideEffects::AllWritesAndReads() : SideEffects::AllReads()),
             dex_pc,
             allocator,
             number_of_arguments + /* format */ 1u,
@@ -8393,7 +8539,7 @@ class HIntermediateAddress final : public HExpression<2> {
 #include "nodes_x86.h"
 #endif
 
-namespace art {
+namespace art HIDDEN {
 
 class OptimizingCompilerStats;
 
@@ -8457,7 +8603,7 @@ HInstruction* ReplaceInstrOrPhiByClone(HInstruction* instr);
 // Create a clone for each clonable instructions/phis and replace the original with the clone.
 //
 // Used for testing individual instruction cloner.
-class CloneAndReplaceInstructionVisitor : public HGraphDelegateVisitor {
+class CloneAndReplaceInstructionVisitor final : public HGraphDelegateVisitor {
  public:
   explicit CloneAndReplaceInstructionVisitor(HGraph* graph)
       : HGraphDelegateVisitor(graph), instr_replaced_by_clones_count_(0) {}

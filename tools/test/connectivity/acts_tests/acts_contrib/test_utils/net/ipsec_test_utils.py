@@ -15,23 +15,22 @@
 
 import binascii
 import os
-import random
 import re
-import threading
-import time
 
 from acts_contrib.test_utils.net import connectivity_const as cconst
 from acts import asserts
 
 PKTS = 5
 
+
 def make_key(len_bits):
     asserts.assert_true(
         len_bits % 8 == 0, "Unexpected key length. Should be a multiple "
         "of 8, got %s" % len_bits)
-    return binascii.hexlify(os.urandom(int(len_bits/8))).decode()
+    return binascii.hexlify(os.urandom(int(len_bits / 8))).decode()
 
-def allocate_spis(ad, ip_a, ip_b, in_spi = None, out_spi = None):
+
+def allocate_spis(ad, ip_a, ip_b, in_spi=None, out_spi=None):
     """ Allocate in and out SPIs for android device
 
     Args:
@@ -55,6 +54,7 @@ def allocate_spis(ad, ip_a, ip_b, in_spi = None, out_spi = None):
     asserts.assert_true(in_spi and out_spi, "Failed to allocate SPIs")
     return [in_spi_key, out_spi_key]
 
+
 def release_spis(ad, spis):
     """ Destroy SPIs
 
@@ -66,6 +66,7 @@ def release_spis(ad, spis):
         ad.droid.ipSecReleaseSecurityParameterIndex(spi_key)
         spi = ad.droid.ipSecGetSecurityParameterIndex(spi_key)
         asserts.assert_true(not spi, "Failed to release SPI")
+
 
 def create_transport_mode_transforms(ad,
                                      spis,
@@ -92,16 +93,17 @@ def create_transport_mode_transforms(ad,
       List of In and Out Transforms
     """
     in_transform = ad.droid.ipSecCreateTransportModeTransform(
-        crypt_algo, crypt_key, auth_algo, auth_key, trunc_bit, spis[0],
-        ip_b, udp_encap_sock)
+        crypt_algo, crypt_key, auth_algo, auth_key, trunc_bit, spis[0], ip_b,
+        udp_encap_sock)
     ad.log.info("In Transform: %s" % in_transform)
     out_transform = ad.droid.ipSecCreateTransportModeTransform(
-        crypt_algo, crypt_key, auth_algo, auth_key, trunc_bit, spis[1],
-        ip_a, udp_encap_sock)
+        crypt_algo, crypt_key, auth_algo, auth_key, trunc_bit, spis[1], ip_a,
+        udp_encap_sock)
     ad.log.info("Out Transform: %s" % out_transform)
     asserts.assert_true(in_transform and out_transform,
                         "Failed to create transforms")
     return [in_transform, out_transform]
+
 
 def destroy_transport_mode_transforms(ad, transforms):
     """ Destroy transforms on the device
@@ -115,6 +117,7 @@ def destroy_transport_mode_transforms(ad, transforms):
         status = ad.droid.ipSecGetTransformStatus(transform)
         ad.log.info("Transform status: %s" % status)
         asserts.assert_true(not status, "Failed to destroy transform")
+
 
 def apply_transport_mode_transforms_file_descriptors(ad, fd, transforms):
     """ Apply transpot mode transform to FileDescriptor object
@@ -135,6 +138,7 @@ def apply_transport_mode_transforms_file_descriptors(ad, fd, transforms):
     ip_xfrm_policy = ad.adb.shell("ip -s xfrm policy")
     ad.log.info("XFRM POLICY:\n%s\n" % ip_xfrm_policy)
 
+
 def remove_transport_mode_transforms_file_descriptors(ad, fd):
     """ Remove transport mode transform from FileDescriptor object
 
@@ -144,6 +148,7 @@ def remove_transport_mode_transforms_file_descriptors(ad, fd):
     """
     status = ad.droid.ipSecRemoveTransportModeTransformsFileDescriptor(fd)
     asserts.assert_true(status, "Failed to remove transform")
+
 
 def apply_transport_mode_transforms_datagram_socket(ad, socket, transforms):
     """ Apply transport mode transform to DatagramSocket object
@@ -163,6 +168,7 @@ def apply_transport_mode_transforms_datagram_socket(ad, socket, transforms):
     ip_xfrm_state = ad.adb.shell("ip -s xfrm state")
     ad.log.info("XFRM STATE:\n%s\n" % ip_xfrm_state)
 
+
 def remove_transport_mode_transforms_datagram_socket(ad, socket):
     """ Remove transport mode transform from DatagramSocket object
 
@@ -172,6 +178,7 @@ def remove_transport_mode_transforms_datagram_socket(ad, socket):
     """
     status = ad.droid.ipSecRemoveTransportModeTransformsDatagramSocket(socket)
     asserts.assert_true(status, "Failed to remove transform")
+
 
 def apply_transport_mode_transforms_socket(ad, socket, transforms):
     """ Apply transport mode transform to Socket object
@@ -191,6 +198,7 @@ def apply_transport_mode_transforms_socket(ad, socket, transforms):
     ip_xfrm_state = ad.adb.shell("ip -s xfrm state")
     ad.log.info("XFRM STATE:\n%s\n" % ip_xfrm_state)
 
+
 def remove_transport_mode_transforms_socket(ad, socket):
     """ Remove transport mode transform from Socket object
 
@@ -200,6 +208,7 @@ def remove_transport_mode_transforms_socket(ad, socket):
     """
     status = ad.droid.ipSecRemoveTransportModeTransformsSocket(socket)
     asserts.assert_true(status, "Failed to remove transform")
+
 
 def verify_esp_packets(ads):
     """ Verify that encrypted ESP packets are sent
@@ -218,21 +227,26 @@ def verify_esp_packets(ads):
                 break
         asserts.assert_true(esp_pkts, "Could not find ESP pkts")
 
+
 def generate_random_crypt_auth_combo():
     """ Generate every possible combination of crypt and auth keys,
         auth algo, trunc bits supported by IpSecManager
     """
     crypt_key_length = [128, 192, 256]
-    auth_method_key = { cconst.AUTH_HMAC_MD5 : 128,
-                        cconst.AUTH_HMAC_SHA1 : 160,
-                        cconst.AUTH_HMAC_SHA256 : 256,
-                        cconst.AUTH_HMAC_SHA384 : 384,
-                        cconst.AUTH_HMAC_SHA512 : 512 }
-    auth_method_trunc = { cconst.AUTH_HMAC_MD5 : list(range(96, 136, 8)),
-                          cconst.AUTH_HMAC_SHA1 : list(range(96, 168, 8)),
-                          cconst.AUTH_HMAC_SHA256 : list(range(96, 264, 8)),
-                          cconst.AUTH_HMAC_SHA384 : list(range(192, 392, 8)),
-                          cconst.AUTH_HMAC_SHA512 : list(range(256, 520, 8)) }
+    auth_method_key = {
+        cconst.AUTH_HMAC_MD5: 128,
+        cconst.AUTH_HMAC_SHA1: 160,
+        cconst.AUTH_HMAC_SHA256: 256,
+        cconst.AUTH_HMAC_SHA384: 384,
+        cconst.AUTH_HMAC_SHA512: 512
+    }
+    auth_method_trunc = {
+        cconst.AUTH_HMAC_MD5: list(range(96, 136, 8)),
+        cconst.AUTH_HMAC_SHA1: list(range(96, 168, 8)),
+        cconst.AUTH_HMAC_SHA256: list(range(96, 264, 8)),
+        cconst.AUTH_HMAC_SHA384: list(range(192, 392, 8)),
+        cconst.AUTH_HMAC_SHA512: list(range(256, 520, 8))
+    }
     return_list = []
     for c in crypt_key_length:
         for k in auth_method_key.keys():

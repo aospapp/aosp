@@ -14,6 +14,9 @@ limitations under the License.
 ==============================================================================*/
 #include "tensorflow/lite/delegates/nnapi/acceleration_test_util.h"
 
+#include <optional>
+#include <string>
+
 #include "tensorflow/lite/kernels/acceleration_test_util_internal.h"
 
 namespace tflite {

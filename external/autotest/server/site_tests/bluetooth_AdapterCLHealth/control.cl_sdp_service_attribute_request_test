@@ -9,6 +9,7 @@ TIME = 'SHORT'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'Server'
 DEPENDENCIES = 'bluetooth, working_bluetooth_btpeer:1'
+PY_VERSION = 3
 DOC = """
 Verify the correct behaviour of the device when searching for attributes of
 services.

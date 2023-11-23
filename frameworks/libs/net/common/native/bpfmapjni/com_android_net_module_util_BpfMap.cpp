@@ -25,15 +25,34 @@
 #define BPF_FD_JUST_USE_INT
 #include "BpfSyscallWrappers.h"
 
+#include "bpf/KernelUtils.h"
+
 namespace android {
 
 static jint com_android_net_module_util_BpfMap_nativeBpfFdGet(JNIEnv *env, jclass clazz,
-        jstring path, jint mode) {
+        jstring path, jint mode, jint keySize, jint valueSize) {
     ScopedUtfChars pathname(env, path);
 
     jint fd = bpf::bpfFdGet(pathname.c_str(), static_cast<unsigned>(mode));
 
-    if (fd < 0) jniThrowErrnoException(env, "nativeBpfFdGet", errno);
+    if (fd < 0) {
+        jniThrowErrnoException(env, "nativeBpfFdGet", errno);
+        return -1;
+    }
+
+    if (bpf::isAtLeastKernelVersion(4, 14, 0)) {
+        // These likely fail with -1 and set errno to EINVAL on <4.14
+        if (bpf::bpfGetFdKeySize(fd) != keySize) {
+            close(fd);
+            jniThrowErrnoException(env, "nativeBpfFdGet KeySize", EBADFD);
+            return -1;
+        }
+        if (bpf::bpfGetFdValueSize(fd) != valueSize) {
+            close(fd);
+            jniThrowErrnoException(env, "nativeBpfFdGet ValueSize", EBADFD);
+            return -1;
+        }
+    }
 
     return fd;
 }
@@ -103,7 +122,7 @@ static jboolean com_android_net_module_util_BpfMap_nativeFindMapEntry(JNIEnv *en
  */
 static const JNINativeMethod gMethods[] = {
     /* name, signature, funcPtr */
-    { "nativeBpfFdGet", "(Ljava/lang/String;I)I",
+    { "nativeBpfFdGet", "(Ljava/lang/String;III)I",
         (void*) com_android_net_module_util_BpfMap_nativeBpfFdGet },
     { "nativeWriteToMapEntry", "(I[B[BI)V",
         (void*) com_android_net_module_util_BpfMap_nativeWriteToMapEntry },

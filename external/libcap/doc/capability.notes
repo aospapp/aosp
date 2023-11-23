@@ -22,7 +22,7 @@ the name 'system' who's account is locked with a '*' password. This
 user can be made the owner of all of the system directories on your
 system and critical system binaries too.
 
-Why is this a good idea? In a simple case, the CAP_FUSER capabilty is
+Why is this a good idea? In a simple case, the CAP_FUSER capability is
 required for the superuser to delete files owned by a non-root user in
 a 'sticky-bit' protected non-root owned directory. Thus, the sticky
 bit can help you protect the /lib/ directory from an compromized

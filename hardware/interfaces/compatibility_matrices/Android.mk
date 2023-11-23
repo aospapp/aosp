@@ -98,11 +98,11 @@ include $(BUILD_FRAMEWORK_COMPATIBILITY_MATRIX)
 endif # DEVICE_PRODUCT_COMPATIBILITY_MATRIX_FILE
 
 my_system_matrix_deps := \
-    framework_compatibility_matrix.3.xml \
     framework_compatibility_matrix.4.xml \
     framework_compatibility_matrix.5.xml \
     framework_compatibility_matrix.6.xml \
     framework_compatibility_matrix.7.xml \
+    framework_compatibility_matrix.8.xml \
     framework_compatibility_matrix.device.xml \
 
 my_framework_matrix_deps += \

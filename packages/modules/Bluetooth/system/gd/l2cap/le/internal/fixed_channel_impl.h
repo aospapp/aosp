@@ -17,6 +17,7 @@
 #pragma once
 
 #include "common/bidi_queue.h"
+#include "common/interfaces/ILoggable.h"
 #include "hci/acl_manager/le_acl_connection.h"
 #include "l2cap/cid.h"
 #include "l2cap/internal/channel_impl.h"
@@ -24,7 +25,6 @@
 #include "l2cap/le/link_options.h"
 #include "os/handler.h"
 #include "os/log.h"
-
 namespace bluetooth {
 namespace l2cap {
 namespace le {
@@ -32,7 +32,8 @@ namespace internal {
 
 class Link;
 
-class FixedChannelImpl : public l2cap::internal::ChannelImpl {
+class FixedChannelImpl : public l2cap::internal::ChannelImpl,
+                         public bluetooth::common::IRedactableLoggable {
  public:
   FixedChannelImpl(Cid cid, Link* link, os::Handler* l2cap_handler);
 
@@ -67,6 +68,18 @@ class FixedChannelImpl : public l2cap::internal::ChannelImpl {
   virtual std::string ToString() {
     std::ostringstream ss;
     ss << "Device " << device_ << " Cid 0x" << std::hex << cid_;
+    return ss.str();
+  }
+
+  std::string ToStringForLogging() const override {
+    std::ostringstream ss;
+    ss << "Device " << device_.ToStringForLogging() << " Cid 0x" << std::hex << cid_;
+    return ss.str();
+  }
+
+  std::string ToRedactedStringForLogging() const override {
+    std::ostringstream ss;
+    ss << "Device " << device_.ToRedactedStringForLogging() << " Cid 0x" << std::hex << cid_;
     return ss.str();
   }
 

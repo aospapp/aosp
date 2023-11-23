@@ -22,6 +22,7 @@
 
 #include "lang_id/common/lite_base/logging.h"
 #include "lang_id/common/math/checksum.h"
+#include "absl/strings/string_view.h"
 
 namespace libtextclassifier3 {
 namespace saft_fbs {
@@ -64,7 +65,7 @@ const Model *GetVerifiedModelFromBytes(const char *data, size_t num_bytes) {
   return model;
 }
 
-const ModelInput *GetInputByName(const Model *model, const std::string &name) {
+const ModelInput *GetInputByName(const Model *model, absl::string_view name) {
   if (model == nullptr) {
     SAFTM_LOG(ERROR) << "GetInputByName called with model == nullptr";
     return nullptr;

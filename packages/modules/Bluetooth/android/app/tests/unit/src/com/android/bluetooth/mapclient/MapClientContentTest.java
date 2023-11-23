@@ -16,6 +16,8 @@
 
 package com.android.bluetooth.mapclient;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doThrow;
@@ -29,6 +31,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothMapClient;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
@@ -53,6 +56,7 @@ import com.android.vcard.VCardProperty;
 
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -82,6 +86,8 @@ public class MapClientContentTest {
     private Long mTestMessage1Timestamp = 1234L;
     private String mTestMessage1Handle = "0001";
     private String mTestMessage2Handle = "0002";
+    private static final boolean MESSAGE_SEEN = true;
+    private static final boolean MESSAGE_NOT_SEEN = false;
 
 
     private VCardEntry mOriginator;
@@ -116,6 +122,10 @@ public class MapClientContentTest {
         MockitoAnnotations.initMocks(this);
         mTargetContext = InstrumentationRegistry.getTargetContext();
 
+        // Do not run test if there is no telephony feature (no support for sms)
+        PackageManager packageManager = mTargetContext.getPackageManager();
+        Assume.assumeTrue(packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY));
+
         mMockSmsContentProvider = Mockito.spy(new FakeContentProvider(mTargetContext));
 
         mMockMmsContentProvider = Mockito.spy(new FakeContentProvider(mTargetContext));
@@ -138,7 +148,6 @@ public class MapClientContentTest {
         when(mMockSubscriptionManager.getActiveSubscriptionInfoList())
                 .thenReturn(Arrays.asList(mMockSubscription));
         createTestMessages();
-
     }
 
     @After
@@ -162,7 +171,8 @@ public class MapClientContentTest {
     @Test
     public void testCleanDirtyDatabase() {
         mMapClientContent = new MapClientContent(mMockContext, mCallbacks, mTestDevice);
-        mMapClientContent.storeMessage(mTestMessage1, mTestMessage1Handle, mTestMessage1Timestamp);
+        mMapClientContent.storeMessage(mTestMessage1, mTestMessage1Handle, mTestMessage1Timestamp,
+                MESSAGE_SEEN);
         verify(mMockSubscriptionManager).addSubscriptionInfoRecord(any(), any(), anyInt(),
                 eq(SubscriptionManager.SUBSCRIPTION_TYPE_REMOTE_SIM));
         Assert.assertEquals(1, mMockSmsContentProvider.mContentValues.size());
@@ -176,12 +186,14 @@ public class MapClientContentTest {
     @Test
     public void testStoreTwoSMS() {
         mMapClientContent = new MapClientContent(mMockContext, mCallbacks, mTestDevice);
-        mMapClientContent.storeMessage(mTestMessage1, mTestMessage1Handle, mTestMessage1Timestamp);
+        mMapClientContent.storeMessage(mTestMessage1, mTestMessage1Handle, mTestMessage1Timestamp,
+                MESSAGE_SEEN);
         verify(mMockSubscriptionManager).addSubscriptionInfoRecord(any(), any(), anyInt(),
                 eq(SubscriptionManager.SUBSCRIPTION_TYPE_REMOTE_SIM));
         Assert.assertEquals(1, mMockSmsContentProvider.mContentValues.size());
 
-        mMapClientContent.storeMessage(mTestMessage1, mTestMessage1Handle, mTestMessage1Timestamp);
+        mMapClientContent.storeMessage(mTestMessage1, mTestMessage1Handle, mTestMessage1Timestamp,
+                MESSAGE_SEEN);
         Assert.assertEquals(2, mMockSmsContentProvider.mContentValues.size());
         Assert.assertEquals(0, mMockMmsContentProvider.mContentValues.size());
 
@@ -196,12 +208,14 @@ public class MapClientContentTest {
     @Test
     public void testStoreTwoMMS() {
         mMapClientContent = new MapClientContent(mMockContext, mCallbacks, mTestDevice);
-        mMapClientContent.storeMessage(mTestMessage2, mTestMessage1Handle, mTestMessage1Timestamp);
+        mMapClientContent.storeMessage(mTestMessage2, mTestMessage1Handle, mTestMessage1Timestamp,
+        MESSAGE_SEEN);
         verify(mMockSubscriptionManager).addSubscriptionInfoRecord(any(), any(), anyInt(),
                 eq(SubscriptionManager.SUBSCRIPTION_TYPE_REMOTE_SIM));
         Assert.assertEquals(1, mMockMmsContentProvider.mContentValues.size());
 
-        mMapClientContent.storeMessage(mTestMessage2, mTestMessage1Handle, mTestMessage1Timestamp);
+        mMapClientContent.storeMessage(mTestMessage2, mTestMessage1Handle, mTestMessage1Timestamp,
+                MESSAGE_SEEN);
         Assert.assertEquals(2, mMockMmsContentProvider.mContentValues.size());
 
         mMapClientContent.cleanUp();
@@ -214,12 +228,14 @@ public class MapClientContentTest {
     @Test
     public void testStoreOneSMSOneMMS() {
         mMapClientContent = new MapClientContent(mMockContext, mCallbacks, mTestDevice);
-        mMapClientContent.storeMessage(mTestMessage2, mTestMessage1Handle, mTestMessage1Timestamp);
+        mMapClientContent.storeMessage(mTestMessage2, mTestMessage1Handle, mTestMessage1Timestamp,
+                MESSAGE_SEEN);
         verify(mMockSubscriptionManager).addSubscriptionInfoRecord(any(), any(), anyInt(),
                 eq(SubscriptionManager.SUBSCRIPTION_TYPE_REMOTE_SIM));
         Assert.assertEquals(1, mMockMmsContentProvider.mContentValues.size());
 
-        mMapClientContent.storeMessage(mTestMessage2, mTestMessage2Handle, mTestMessage1Timestamp);
+        mMapClientContent.storeMessage(mTestMessage2, mTestMessage2Handle, mTestMessage1Timestamp,
+                MESSAGE_SEEN);
         Assert.assertEquals(2, mMockMmsContentProvider.mContentValues.size());
 
         mMapClientContent.cleanUp();
@@ -232,12 +248,14 @@ public class MapClientContentTest {
     @Test
     public void testReadStatusChanged() {
         mMapClientContent = new MapClientContent(mMockContext, mCallbacks, mTestDevice);
-        mMapClientContent.storeMessage(mTestMessage2, mTestMessage1Handle, mTestMessage1Timestamp);
+        mMapClientContent.storeMessage(mTestMessage2, mTestMessage1Handle, mTestMessage1Timestamp,
+                MESSAGE_SEEN);
         verify(mMockSubscriptionManager).addSubscriptionInfoRecord(any(), any(), anyInt(),
                 eq(SubscriptionManager.SUBSCRIPTION_TYPE_REMOTE_SIM));
         Assert.assertEquals(1, mMockMmsContentProvider.mContentValues.size());
 
-        mMapClientContent.storeMessage(mTestMessage2, mTestMessage1Handle, mTestMessage1Timestamp);
+        mMapClientContent.storeMessage(mTestMessage2, mTestMessage1Handle, mTestMessage1Timestamp,
+                MESSAGE_SEEN);
         Assert.assertEquals(2, mMockMmsContentProvider.mContentValues.size());
 
         mMapClientContent.markRead(mTestMessage1Handle);
@@ -256,12 +274,81 @@ public class MapClientContentTest {
     @Test
     public void testLocalReadStatusChanged() {
         mMapClientContent = new MapClientContent(mMockContext, mCallbacks, mTestDevice);
-        mMapClientContent.storeMessage(mTestMessage2, mTestMessage1Handle, mTestMessage1Timestamp);
+        mMapClientContent.storeMessage(mTestMessage2, mTestMessage1Handle, mTestMessage1Timestamp,
+            MESSAGE_SEEN);
         Assert.assertEquals(1, mMockMmsContentProvider.mContentValues.size());
         mMapClientContent.mContentObserver.onChange(false);
         verify(mCallbacks).onMessageStatusChanged(eq(mTestMessage1Handle),
                 eq(BluetoothMapClient.READ));
     }
+
+    /**
+     * Test if seen status is set to true in database for SMS
+     */
+     @Test
+     public void testStoreSmsMessageWithSeenTrue_smsWrittenWithSeenTrue() {
+        mMapClientContent = new MapClientContent(mMockContext, mCallbacks, mTestDevice);
+        mMapClientContent.storeMessage(mTestMessage1, mTestMessage1Handle, mTestMessage1Timestamp,
+                MESSAGE_SEEN);
+        assertThat(mMockSmsContentProvider.mContentValues.size()).isEqualTo(1);
+
+        ContentValues storedSMS =
+                (ContentValues) mMockSmsContentProvider.mContentValues.values().toArray()[0];
+
+        assertThat(storedSMS.get(Sms.SEEN)).isEqualTo(MESSAGE_SEEN);
+
+     }
+
+      /**
+     * Test if seen status is set to false in database for SMS
+     */
+     @Test
+     public void testStoreSmsMessageWithSeenFalse_smsWrittenWithSeenFalse() {
+        mMapClientContent = new MapClientContent(mMockContext, mCallbacks, mTestDevice);
+        mMapClientContent.storeMessage(mTestMessage1, mTestMessage1Handle, mTestMessage1Timestamp,
+                MESSAGE_NOT_SEEN);
+        assertThat(mMockSmsContentProvider.mContentValues.size()).isEqualTo(1);
+
+        ContentValues storedSMS =
+                (ContentValues) mMockSmsContentProvider.mContentValues.values().toArray()[0];
+
+        assertThat(storedSMS.get(Sms.SEEN)).isEqualTo(MESSAGE_NOT_SEEN);
+
+     }
+
+     /**
+     * Test if seen status is set to true in database for MMS
+     */
+     @Test
+     public void testStoreMmsMessageWithSeenTrue_mmsWrittenWithSeenTrue() {
+        mMapClientContent = new MapClientContent(mMockContext, mCallbacks, mTestDevice);
+        mMapClientContent.storeMessage(mTestMessage2, mTestMessage1Handle, mTestMessage1Timestamp,
+                MESSAGE_SEEN);
+        assertThat(mMockMmsContentProvider.mContentValues.size()).isEqualTo(1);
+
+        ContentValues storedMMS =
+                (ContentValues) mMockMmsContentProvider.mContentValues.values().toArray()[0];
+
+        assertThat(storedMMS.get(Mms.SEEN)).isEqualTo(MESSAGE_SEEN);
+
+     }
+
+     /**
+     * Test if seen status is set to false in database for MMS
+     */
+     @Test
+     public void testStoreMmsMessageWithSeenFalse_mmsWrittenWithSeenFalse() {
+        mMapClientContent = new MapClientContent(mMockContext, mCallbacks, mTestDevice);
+        mMapClientContent.storeMessage(mTestMessage2, mTestMessage1Handle, mTestMessage1Timestamp,
+                MESSAGE_NOT_SEEN);
+        assertThat(mMockMmsContentProvider.mContentValues.size()).isEqualTo(1);
+
+        ContentValues storedMMS =
+                (ContentValues) mMockMmsContentProvider.mContentValues.values().toArray()[0];
+
+        assertThat(storedMMS.get(Mms.SEEN)).isEqualTo(MESSAGE_NOT_SEEN);
+
+     }
 
     /**
      * Test remote message deleted
@@ -272,7 +359,8 @@ public class MapClientContentTest {
     @Test
     public void testMessageDeleted() {
         mMapClientContent = new MapClientContent(mMockContext, mCallbacks, mTestDevice);
-        mMapClientContent.storeMessage(mTestMessage1, mTestMessage1Handle, mTestMessage1Timestamp);
+        mMapClientContent.storeMessage(mTestMessage1, mTestMessage1Handle, mTestMessage1Timestamp,
+                MESSAGE_SEEN);
         verify(mMockSubscriptionManager).addSubscriptionInfoRecord(any(), any(), anyInt(),
                 eq(SubscriptionManager.SUBSCRIPTION_TYPE_REMOTE_SIM));
         Assert.assertEquals(1, mMockSmsContentProvider.mContentValues.size());
@@ -294,7 +382,8 @@ public class MapClientContentTest {
     @Test
     public void testLocalMessageDeleted() {
         mMapClientContent = new MapClientContent(mMockContext, mCallbacks, mTestDevice);
-        mMapClientContent.storeMessage(mTestMessage1, mTestMessage1Handle, mTestMessage1Timestamp);
+        mMapClientContent.storeMessage(mTestMessage1, mTestMessage1Handle, mTestMessage1Timestamp,
+                MESSAGE_SEEN);
         verify(mMockSubscriptionManager).addSubscriptionInfoRecord(any(), any(), anyInt(),
                 eq(SubscriptionManager.SUBSCRIPTION_TYPE_REMOTE_SIM));
         Assert.assertEquals(1, mMockSmsContentProvider.mContentValues.size());
@@ -305,17 +394,24 @@ public class MapClientContentTest {
     }
 
     /**
-     * Test parse own phone number Attempt to parse your phone number from a received SMS message
-     * and fail Receive an MMS message and successfully parse your phone number
+     * Preconditions:
+     * - Create new {@link MapClientContent}, own phone number not initialized yet.
+     *
+     * Actions:
+     * - Invoke {@link MapClientContent#setRemoteDeviceOwnNumber} with a non-null number.
+     *
+     * Outcome:
+     * - {@link MapClientContent#mPhoneNumber} should now store the number.
      */
     @Test
-    public void testParseNumber() {
+    public void testSetRemoteDeviceOwnNumber() {
+        String testNumber = "5551212";
+
         mMapClientContent = new MapClientContent(mMockContext, mCallbacks, mTestDevice);
-        Assert.assertNull(mMapClientContent.mPhoneNumber);
-        mMapClientContent.storeMessage(mTestMessage1, mTestMessage1Handle, mTestMessage1Timestamp);
-        Assert.assertNull(mMapClientContent.mPhoneNumber);
-        mMapClientContent.storeMessage(mTestMessage2, mTestMessage1Handle, mTestMessage1Timestamp);
-        Assert.assertEquals("5551212", mMapClientContent.mPhoneNumber);
+        assertThat(mMapClientContent.mPhoneNumber).isNull();
+
+        mMapClientContent.setRemoteDeviceOwnNumber(testNumber);
+        assertThat(mMapClientContent.mPhoneNumber).isEqualTo(testNumber);
     }
 
     /**
@@ -328,13 +424,15 @@ public class MapClientContentTest {
         mTestMessage1.setBodyContent("HelloWorld");
         mTestMessage1.setType(Bmessage.Type.SMS_GSM);
         mTestMessage1.setFolder("telecom/msg/sent");
-        mMapClientContent.storeMessage(mTestMessage1, mTestMessage1Handle, mTestMessage1Timestamp);
+        mMapClientContent.storeMessage(mTestMessage1, mTestMessage1Handle, mTestMessage1Timestamp,
+                MESSAGE_SEEN);
 
         mTestMessage2 = new Bmessage();
         mTestMessage2.setBodyContent("HelloWorld");
         mTestMessage2.setType(Bmessage.Type.MMS);
         mTestMessage2.setFolder("telecom/msg/inbox");
-        mMapClientContent.storeMessage(mTestMessage2, mTestMessage2Handle, mTestMessage1Timestamp);
+        mMapClientContent.storeMessage(mTestMessage2, mTestMessage2Handle, mTestMessage1Timestamp,
+                MESSAGE_SEEN);
     }
 
     /**
@@ -362,6 +460,17 @@ public class MapClientContentTest {
         MapClientContent.clearAllContent(mMockContext);
         verify(mMockSubscriptionManager).removeSubscriptionInfoRecord(any(),
                 eq(SubscriptionManager.SUBSCRIPTION_TYPE_REMOTE_SIM));
+    }
+
+    /**
+     * Test to validate that cleaning content does not crash when no subscription are available.
+     */
+    @Test
+    public void testCleanUpWithNoSubscriptions() {
+        when(mMockSubscriptionManager.getActiveSubscriptionInfoList())
+                .thenReturn(null);
+
+        MapClientContent.clearAllContent(mMockContext);
     }
 
     void createTestMessages() {

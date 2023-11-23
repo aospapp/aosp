@@ -182,7 +182,8 @@ VkDescriptorSetLayout new_from_host_u64_VkDescriptorSetLayout(uint64_t underlyin
 
 } // extern "C"
 
-namespace goldfish_vk {
+namespace gfxstream {
+namespace vk {
 
 void appendObject(struct goldfish_vk_object_list** begin, void* val) {
     D("for %p", val);
@@ -261,4 +262,5 @@ void forAllObjects(struct goldfish_vk_object_list* begin, std::function<void(voi
     }
 }
 
-} // namespace goldfish_vk
+}  // namespace vk
+}  // namespace gfxstream

@@ -48,7 +48,6 @@
 #include <processgroup/sched_policy.h>
 #include <utils/threads.h>
 
-#include "ChattyLogBuffer.h"
 #include "CommandListener.h"
 #include "LogAudit.h"
 #include "LogBuffer.h"
@@ -237,7 +236,6 @@ int main(int argc, char* argv[]) {
 
     std::string buffer_type = GetProperty("logd.buffer_type", "serialized");
 
-    // Partial (required for chatty) or full logging statistics.
     LogStatistics log_statistics(GetBoolPropertyEngSvelteDefault("logd.statistics"),
                                  buffer_type == "serialized");
 
@@ -247,14 +245,12 @@ int main(int argc, char* argv[]) {
 
     // LogBuffer is the object which is responsible for holding all log entries.
     LogBuffer* log_buffer = nullptr;
-    if (buffer_type == "chatty") {
-        log_buffer = new ChattyLogBuffer(&reader_list, &log_tags, &prune_list, &log_statistics);
-    } else if (buffer_type == "serialized") {
+    if (buffer_type == "serialized") {
         log_buffer = new SerializedLogBuffer(&reader_list, &log_tags, &log_statistics);
     } else if (buffer_type == "simple") {
         log_buffer = new SimpleLogBuffer(&reader_list, &log_tags, &log_statistics);
     } else {
-        LOG(FATAL) << "buffer_type must be one of 'chatty', 'serialized', or 'simple'";
+        LOG(FATAL) << "buffer_type must be one of 'serialized' or 'simple'";
     }
 
     // LogReader listens on /dev/socket/logdr. When a client

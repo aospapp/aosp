@@ -49,6 +49,13 @@
               <category android:name="android.intent.category.VOICE"/>
           </intent-filter>
         </activity>
-
+        <activity android:name=".TestVisibleActivity"
+                  android:label="Test visible activity"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.TestVisibleActivity"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

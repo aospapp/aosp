@@ -24,9 +24,10 @@
 #include <chrono>
 #include <deque>
 #include <functional>
+#include <map>
 #include <mutex>
 #include <optional>
-#include <unordered_map>
+#include <set>
 #include <variant>
 
 #include <android-base/thread_annotations.h>
@@ -56,7 +57,6 @@ struct fdevent final {
     uint64_t id;
 
     unique_fd fd;
-    int force_eof = 0;
 
     uint16_t state = 0;
     std::optional<std::chrono::milliseconds> timeout;
@@ -108,11 +108,11 @@ struct fdevent_context {
     // terminate_loop_ to determine whether to stop.
     virtual void Loop() = 0;
 
-    // Assert that the caller is either running on the context's main thread, or that there is no
-    // active main thread.
-    void CheckMainThread();
+    // Assert that the caller is executing in the context of the execution
+    // thread that invoked Loop().
+    void CheckLooperThread() const;
 
-    // Queue an operation to be run on the main thread.
+    // Queue an operation to be run on the looper thread.
     void Run(std::function<void()> fn);
 
     // Test-only functionality:
@@ -123,16 +123,17 @@ struct fdevent_context {
     // Interrupt the run loop.
     virtual void Interrupt() = 0;
 
-    std::optional<uint64_t> main_thread_id_ = std::nullopt;
+    std::optional<uint64_t> looper_thread_id_ = std::nullopt;
     std::atomic<bool> terminate_loop_ = false;
 
-  protected:
-    std::unordered_map<int, fdevent> installed_fdevents_;
+    std::map<int, fdevent> installed_fdevents_;
 
   private:
     uint64_t fdevent_id_ = 0;
     std::mutex run_queue_mutex_;
     std::deque<std::function<void()>> run_queue_ GUARDED_BY(run_queue_mutex_);
+
+    std::set<fdevent*> fdevent_set_;
 };
 
 // Backwards compatibility shims that forward to the global fdevent_context.
@@ -147,10 +148,14 @@ void fdevent_add(fdevent *fde, unsigned events);
 void fdevent_del(fdevent *fde, unsigned events);
 void fdevent_set_timeout(fdevent* fde, std::optional<std::chrono::milliseconds> timeout);
 void fdevent_loop();
-void check_main_thread();
 
-// Queue an operation to run on the main thread.
-void fdevent_run_on_main_thread(std::function<void()> fn);
+// Delegates to the member function that checks for the initialization
+// of Loop() so that fdevent_context requests can be serially processed
+// by the global instance robustly.
+void fdevent_check_looper();
+
+// Queue an operation to run on the looper event thread.
+void fdevent_run_on_looper(std::function<void()> fn);
 
 // The following functions are used only for tests.
 void fdevent_terminate_loop();

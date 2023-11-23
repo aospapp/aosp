@@ -12,9 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import collections
 import copy
-import ipaddress
 
 _ROUTER_DNS = '8.8.8.8, 4.4.4.4'
 

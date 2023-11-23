@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+@file:Suppress("DEPRECATION")
+
 package com.android.permissioncontroller.permission.ui.television
 
 import android.app.Application
@@ -102,7 +104,7 @@ class TvUnusedAppsFragment : SettingsWithHeader(),
     }
 
     private fun createNoUnusedAppsPreference(): Preference {
-        val preference = Preference(context)
+        val preference = Preference(requireContext())
         preference.title = getString(R.string.zero_unused_apps)
         preference.key = UNUSED_PREFERENCE_KEY
         preference.isSelectable = false

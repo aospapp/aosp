@@ -126,6 +126,22 @@ hevc_result_t MediaHevcDecoder::decodeFrame(uint8_t *img, size_t szBytes,
     return res;
 }
 
+void MediaHevcDecoder::sendMetadata(MetaDataColorAspects *ptr) {
+    DDD("send metadata to host %p", ptr);
+    if (!mHasAddressSpaceMemory) {
+        ALOGE("%s no address space memory", __func__);
+        return;
+    }
+    MetaDataColorAspects& meta = *ptr;
+    auto transport = GoldfishMediaTransport::getInstance();
+    transport->writeParam((uint64_t)mHostHandle, 0, mAddressOffSet);
+    transport->writeParam(meta.type, 1, mAddressOffSet);
+    transport->writeParam(meta.primaries, 2, mAddressOffSet);
+    transport->writeParam(meta.range, 3, mAddressOffSet);
+    transport->writeParam(meta.transfer, 4, mAddressOffSet);
+    transport->sendOperation(MediaCodecType::HevcCodec, MediaOperation::SendMetadata, mAddressOffSet);
+}
+
 void MediaHevcDecoder::flush() {
     if (!mHasAddressSpaceMemory) {
         ALOGE("%s no address space memory", __func__);

@@ -19,7 +19,6 @@ from importlib import import_module
 import logging
 import os
 import sys
-import sysconfig
 import unittest
 
 
@@ -37,17 +36,6 @@ logger = logging.getLogger(ACLOUD_LOGGER)
 logger.setLevel(logging.CRITICAL)
 logger.addHandler(logging.FileHandler("/dev/null"))
 
-if sys.version_info.major == 3:
-    sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['purelib']))
-
-# (b/219847353) Move googleapiclient to the last position of sys.path when
-#  existed.
-for lib in sys.path:
-    if 'googleapiclient' in lib:
-        sys.path.remove(lib)
-        sys.path.append(lib)
-        break
-
 
 def GetTestModules():
     """Return list of testable modules.
@@ -60,10 +48,11 @@ def GetTestModules():
         List of strings (the testable module import path).
     """
     testable_modules = []
-    base_path = os.path.dirname(os.path.realpath(__file__))
+    package = os.path.dirname(os.path.realpath(__file__))
+    base_path = os.path.dirname(package)
 
     # Get list of all python files that end in _test.py (except for __file__).
-    for dirpath, _, files in os.walk(base_path):
+    for dirpath, _, files in os.walk(package):
         for f in files:
             if f.endswith("_test.py") and f != os.path.basename(__file__):
                 # Now transform it into a relative import path.

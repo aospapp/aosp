@@ -5,16 +5,19 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/limits.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/inotify.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include "cgroup_util.h"
+#include "../clone3/clone3_selftests.h"
 
 static ssize_t read_text(const char *path, char *buf, size_t max_len)
 {
@@ -105,7 +108,7 @@ int cg_read_strcmp(const char *cgroup, const char *control,
 
 	/* Handle the case of comparing against empty string */
 	if (!expected)
-		size = 32;
+		return -1;
 	else
 		size = strlen(expected) + 1;
 
@@ -218,7 +221,7 @@ int cg_find_unified_root(char *root, size_t len)
 
 int cg_create(const char *cgroup)
 {
-	return mkdir(cgroup, 0644);
+	return mkdir(cgroup, 0755);
 }
 
 int cg_wait_for_proc_count(const char *cgroup, int count)
@@ -250,6 +253,10 @@ int cg_killall(const char *cgroup)
 {
 	char buf[PAGE_SIZE];
 	char *ptr = buf;
+
+	/* If cgroup.kill exists use it. */
+	if (!cg_write(cgroup, "cgroup.kill", "1"))
+		return 0;
 
 	if (cg_read(cgroup, "cgroup.procs", buf, sizeof(buf)))
 		return -1;
@@ -331,11 +338,111 @@ int cg_run(const char *cgroup,
 	}
 }
 
+pid_t clone_into_cgroup(int cgroup_fd)
+{
+#ifdef CLONE_ARGS_SIZE_VER2
+	pid_t pid;
+
+	struct __clone_args args = {
+		.flags = CLONE_INTO_CGROUP,
+		.exit_signal = SIGCHLD,
+		.cgroup = cgroup_fd,
+	};
+
+	pid = sys_clone3(&args, sizeof(struct __clone_args));
+	/*
+	 * Verify that this is a genuine test failure:
+	 * ENOSYS -> clone3() not available
+	 * E2BIG  -> CLONE_INTO_CGROUP not available
+	 */
+	if (pid < 0 && (errno == ENOSYS || errno == E2BIG))
+		goto pretend_enosys;
+
+	return pid;
+
+pretend_enosys:
+#endif
+	errno = ENOSYS;
+	return -ENOSYS;
+}
+
+int clone_reap(pid_t pid, int options)
+{
+	int ret;
+	siginfo_t info = {
+		.si_signo = 0,
+	};
+
+again:
+	ret = waitid(P_PID, pid, &info, options | __WALL | __WNOTHREAD);
+	if (ret < 0) {
+		if (errno == EINTR)
+			goto again;
+		return -1;
+	}
+
+	if (options & WEXITED) {
+		if (WIFEXITED(info.si_status))
+			return WEXITSTATUS(info.si_status);
+	}
+
+	if (options & WSTOPPED) {
+		if (WIFSTOPPED(info.si_status))
+			return WSTOPSIG(info.si_status);
+	}
+
+	if (options & WCONTINUED) {
+		if (WIFCONTINUED(info.si_status))
+			return 0;
+	}
+
+	return -1;
+}
+
+int dirfd_open_opath(const char *dir)
+{
+	return open(dir, O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW | O_PATH);
+}
+
+#define close_prot_errno(fd)                                                   \
+	if (fd >= 0) {                                                         \
+		int _e_ = errno;                                               \
+		close(fd);                                                     \
+		errno = _e_;                                                   \
+	}
+
+static int clone_into_cgroup_run_nowait(const char *cgroup,
+					int (*fn)(const char *cgroup, void *arg),
+					void *arg)
+{
+	int cgroup_fd;
+	pid_t pid;
+
+	cgroup_fd =  dirfd_open_opath(cgroup);
+	if (cgroup_fd < 0)
+		return -1;
+
+	pid = clone_into_cgroup(cgroup_fd);
+	close_prot_errno(cgroup_fd);
+	if (pid == 0)
+		exit(fn(cgroup, arg));
+
+	return pid;
+}
+
 int cg_run_nowait(const char *cgroup,
 		  int (*fn)(const char *cgroup, void *arg),
 		  void *arg)
 {
 	int pid;
+
+	pid = clone_into_cgroup_run_nowait(cgroup, fn, arg);
+	if (pid > 0)
+		return pid;
+
+	/* Genuine test failure. */
+	if (pid < 0 && errno != ENOSYS)
+		return -1;
 
 	pid = fork();
 	if (pid == 0) {
@@ -449,4 +556,74 @@ int proc_read_strstr(int pid, bool thread, const char *item, const char *needle)
 		return -1;
 
 	return strstr(buf, needle) ? 0 : -1;
+}
+
+int clone_into_cgroup_run_wait(const char *cgroup)
+{
+	int cgroup_fd;
+	pid_t pid;
+
+	cgroup_fd =  dirfd_open_opath(cgroup);
+	if (cgroup_fd < 0)
+		return -1;
+
+	pid = clone_into_cgroup(cgroup_fd);
+	close_prot_errno(cgroup_fd);
+	if (pid < 0)
+		return -1;
+
+	if (pid == 0)
+		exit(EXIT_SUCCESS);
+
+	/*
+	 * We don't care whether this fails. We only care whether the initial
+	 * clone succeeded.
+	 */
+	(void)clone_reap(pid, WEXITED);
+	return 0;
+}
+
+int cg_prepare_for_wait(const char *cgroup)
+{
+	int fd, ret = -1;
+
+	fd = inotify_init1(0);
+	if (fd == -1)
+		return fd;
+
+	ret = inotify_add_watch(fd, cg_control(cgroup, "cgroup.events"),
+				IN_MODIFY);
+	if (ret == -1) {
+		close(fd);
+		fd = -1;
+	}
+
+	return fd;
+}
+
+int cg_wait_for(int fd)
+{
+	int ret = -1;
+	struct pollfd fds = {
+		.fd = fd,
+		.events = POLLIN,
+	};
+
+	while (true) {
+		ret = poll(&fds, 1, 10000);
+
+		if (ret == -1) {
+			if (errno == EINTR)
+				continue;
+
+			break;
+		}
+
+		if (ret > 0 && fds.revents & POLLIN) {
+			ret = 0;
+			break;
+		}
+	}
+
+	return ret;
 }

@@ -17,10 +17,12 @@
 #ifndef ANDROID_HWC_DISPLAYFINDER_H
 #define ANDROID_HWC_DISPLAYFINDER_H
 
+#include <optional>
 #include <vector>
 
 #include "Common.h"
 #include "DisplayConfig.h"
+#include "DrmClient.h"
 
 namespace aidl::android::hardware::graphics::composer3::impl {
 
@@ -31,7 +33,8 @@ struct DisplayMultiConfigs {
   std::vector<DisplayConfig> configs;
 };
 
-HWC3::Error findDisplays(std::vector<DisplayMultiConfigs>& displays);
+HWC3::Error findDisplays(const DrmClient* drm,
+                         std::vector<DisplayMultiConfigs>* outDisplays);
 
 }  // namespace aidl::android::hardware::graphics::composer3::impl
 

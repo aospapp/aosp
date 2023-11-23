@@ -17,6 +17,9 @@ package com.android.car.bugreport;
 
 import static com.android.car.bugreport.BugReportService.MAX_PROGRESS_VALUE;
 
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toList;
+
 import android.Manifest;
 import android.app.Activity;
 import android.car.Car;
@@ -31,6 +34,9 @@ import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecList;
+import android.media.MediaFormat;
 import android.media.MediaRecorder;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -47,6 +53,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.io.ByteStreams;
 
 import java.io.File;
@@ -54,7 +62,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.Objects;
 import java.util.Random;
@@ -80,14 +87,22 @@ public class BugReportActivity extends Activity {
             "com.android.car.bugreport.action.ADD_AUDIO";
 
     private static final int VOICE_MESSAGE_MAX_DURATION_MILLIS = 60 * 1000;
-    private static final int AUDIO_PERMISSIONS_REQUEST_ID = 1;
+    private static final int PERMISSIONS_REQUEST_ID = 1;
+    private static final ImmutableSortedSet<String> REQUIRED_PERMISSIONS = ImmutableSortedSet.of(
+            Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS);
 
     private static final String EXTRA_BUGREPORT_ID = "bugreport-id";
+
+    private static final String AUDIO_FILE_EXTENSION_WAV = "wav";
+    private static final String AUDIO_FILE_EXTENSION_3GPP = "3gp";
 
     /**
      * NOTE: mRecorder related messages are cleared when the activity finishes.
      */
     private final Handler mHandler = new Handler(Looper.getMainLooper());
+
+    private final String mAudioFormat = isCodecSupported(MediaFormat.MIMETYPE_AUDIO_AMR_WB)
+            ? MediaFormat.MIMETYPE_AUDIO_AMR_WB : MediaFormat.MIMETYPE_AUDIO_AAC;
 
     /** Look up string length, e.g. [ABCDEF]. */
     static final int LOOKUP_STRING_LENGTH = 6;
@@ -274,7 +289,7 @@ public class BugReportActivity extends Activity {
         if (mIsNewBugReport) {
             mSubmitButton.setText(R.string.bugreport_dialog_submit);
         } else {
-            mSubmitButton.setText(mConfig.getAutoUpload()
+            mSubmitButton.setText(mConfig.isAutoUpload()
                     ? R.string.bugreport_dialog_upload : R.string.bugreport_dialog_save);
         }
     }
@@ -359,6 +374,13 @@ public class BugReportActivity extends Activity {
         }
     }
 
+    private String getAudioFileExtension() {
+        if (mAudioFormat.equals(MediaFormat.MIMETYPE_AUDIO_AMR_WB)) {
+            return AUDIO_FILE_EXTENSION_WAV;
+        }
+        return AUDIO_FILE_EXTENSION_3GPP;
+    }
+
     private void addAudioToExistingBugReport(int bugreportId) {
         MetaBugReport bug = BugStorageUtils.findBugReport(this, bugreportId).orElseThrow(
                 () -> new RuntimeException("Failed to find bug report with id " + bugreportId));
@@ -370,19 +392,20 @@ public class BugReportActivity extends Activity {
         }
         File audioFile;
         try {
-            audioFile = File.createTempFile("audio", "mp3", getCacheDir());
+            audioFile = File.createTempFile("audio", "." + getAudioFileExtension(), getCacheDir());
         } catch (IOException e) {
-            throw new RuntimeException("failed to create temp audio file");
+            throw new RuntimeException("failed to create temp audio file", e);
         }
         startAudioMessageRecording(/* isNewBugReport= */ false, bug, audioFile);
     }
 
     private void createNewBugReportWithAudioMessage() {
+        String audioFileSuffix = "-message." + getAudioFileExtension();
         MetaBugReport bug = createBugReport(this, MetaBugReport.TYPE_AUDIO_FIRST);
         startAudioMessageRecording(
                 /* isNewBugReport= */ true,
                 bug,
-                FileUtils.getFileWithSuffix(this, bug.getTimestamp(), "-message.3gp"));
+                FileUtils.getFileWithSuffix(this, bug.getTimestamp(), audioFileSuffix));
     }
 
     /** Shows a dialog UI and starts recording audio message. */
@@ -412,11 +435,22 @@ public class BugReportActivity extends Activity {
                     mMetaBugReport.getTimestamp()));
         }
 
-        if (!hasRecordPermissions()) {
-            requestRecordPermissions();
-        } else {
+        ImmutableList<String> missingPermissions = findMissingPermissions();
+        if (missingPermissions.isEmpty()) {
             startRecordingWithPermission();
+        } else {
+            requestPermissions(missingPermissions.toArray(new String[missingPermissions.size()]),
+                    PERMISSIONS_REQUEST_ID);
         }
+    }
+
+    /**
+     * Finds required permissions not granted.
+     */
+    private ImmutableList<String> findMissingPermissions() {
+        return REQUIRED_PERMISSIONS.stream().filter(permission -> checkSelfPermission(permission)
+                != PackageManager.PERMISSION_GRANTED).collect(
+                collectingAndThen(toList(), ImmutableList::copyOf));
     }
 
     /**
@@ -491,37 +525,26 @@ public class BugReportActivity extends Activity {
         finish();
     }
 
-    private void requestRecordPermissions() {
-        requestPermissions(
-                new String[]{Manifest.permission.RECORD_AUDIO}, AUDIO_PERMISSIONS_REQUEST_ID);
-    }
-
-    private boolean hasRecordPermissions() {
-        return checkSelfPermission(Manifest.permission.RECORD_AUDIO)
-                == PackageManager.PERMISSION_GRANTED;
-    }
-
     @Override
     public void onRequestPermissionsResult(
             int requestCode, String[] permissions, int[] grantResults) {
-        if (requestCode != AUDIO_PERMISSIONS_REQUEST_ID) {
+        if (requestCode != PERMISSIONS_REQUEST_ID) {
             return;
         }
-        for (int i = 0; i < grantResults.length; i++) {
-            if (Manifest.permission.RECORD_AUDIO.equals(permissions[i])
-                    && grantResults[i] == PackageManager.PERMISSION_GRANTED) {
-                // Start recording from UI thread, otherwise when MediaRecord#start() fails,
-                // stack trace gets confusing.
-                mHandler.post(this::startRecordingWithPermission);
-                return;
-            }
+
+        ImmutableList<String> missingPermissions = findMissingPermissions();
+        if (missingPermissions.isEmpty()) {
+            // Start recording from UI thread, otherwise when MediaRecord#start() fails,
+            // stack trace gets confusing.
+            mHandler.post(this::startRecordingWithPermission);
+        } else {
+            handleMissingPermissions(missingPermissions);
         }
-        handleNoPermission(permissions);
     }
 
-    private void handleNoPermission(String[] permissions) {
+    private void handleMissingPermissions(ImmutableList missingPermissions) {
         String text = this.getText(R.string.toast_permissions_denied) + " : "
-                + Arrays.toString(permissions);
+                + String.join(", ", missingPermissions);
         Log.w(TAG, text);
         Toast.makeText(this, text, Toast.LENGTH_LONG).show();
         if (mMetaBugReport == null) {
@@ -538,11 +561,47 @@ public class BugReportActivity extends Activity {
         finish();
     }
 
+    private boolean isCodecSupported(String codec) {
+        MediaCodecList codecList = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+        for (MediaCodecInfo codecInfo : codecList.getCodecInfos()) {
+            if (!codecInfo.isEncoder()) {
+                continue;
+            }
+            for (String mimeType : codecInfo.getSupportedTypes()) {
+                if (mimeType.equalsIgnoreCase(codec)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private MediaRecorder createMediaRecorder() {
+        MediaRecorder mediaRecorder = new MediaRecorder();
+        mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+        if (mAudioFormat.equals(MediaFormat.MIMETYPE_AUDIO_AMR_WB)) {
+            Log.i(TAG, "Audio encoding is selected to AMR_WB");
+            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.AMR_WB);
+            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_WB);
+        } else {
+            Log.i(TAG, "Audio encoding is selected to AAC");
+            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+        }
+        mediaRecorder.setAudioSamplingRate(16000);
+        mediaRecorder.setOnInfoListener((MediaRecorder recorder, int what, int extra) ->
+                Log.i(TAG, "OnMediaRecorderInfo: what=" + what + ", extra=" + extra));
+        mediaRecorder.setOnErrorListener((MediaRecorder recorder, int what, int extra) ->
+                Log.i(TAG, "OnMediaRecorderError: what=" + what + ", extra=" + extra));
+        mediaRecorder.setOutputFile(mAudioFile);
+        return mediaRecorder;
+    }
+
     private void startRecordingWithPermission() {
         Log.i(TAG, "Started voice recording, and saving audio to " + mAudioFile);
 
         mLastAudioFocusRequest = new AudioFocusRequest.Builder(
-                        AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
                 .setOnAudioFocusChangeListener(focusChange ->
                         Log.d(TAG, "AudioManager focus change " + focusChange))
                 .setAudioAttributes(new AudioAttributes.Builder()
@@ -557,15 +616,7 @@ public class BugReportActivity extends Activity {
         Log.d(TAG,
                 "AudioFocus granted " + (focusGranted == AudioManager.AUDIOFOCUS_REQUEST_GRANTED));
 
-        mRecorder = new MediaRecorder();
-        mRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-        mRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
-        mRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-        mRecorder.setOnInfoListener((MediaRecorder recorder, int what, int extra) ->
-                Log.i(TAG, "OnMediaRecorderInfo: what=" + what + ", extra=" + extra));
-        mRecorder.setOnErrorListener((MediaRecorder recorder, int what, int extra) ->
-                Log.i(TAG, "OnMediaRecorderError: what=" + what + ", extra=" + extra));
-        mRecorder.setOutputFile(mAudioFile);
+        mRecorder = createMediaRecorder();
 
         try {
             mRecorder.prepare();
@@ -620,7 +671,7 @@ public class BugReportActivity extends Activity {
      * Creates a {@link MetaBugReport} and saves it in a local sqlite database.
      *
      * @param context an Android context.
-     * @param type bug report type, {@link MetaBugReport.BugReportType}.
+     * @param type    bug report type, {@link MetaBugReport.BugReportType}.
      */
     static MetaBugReport createBugReport(Context context, int type) {
         String timestamp = MetaBugReport.toBugReportTimestamp(new Date());
@@ -694,8 +745,11 @@ public class BugReportActivity extends Activity {
 
         @Override
         protected Void doInBackground(Void... voids) {
+            String audioFileExtension = mAudioFile.getName().substring(
+                    mAudioFile.getName().lastIndexOf(".") + 1);
+            String audioTimestamp = MetaBugReport.toBugReportTimestamp(new Date());
             String audioFileName = FileUtils.getAudioFileName(
-                    MetaBugReport.toBugReportTimestamp(new Date()), mOriginalBug);
+                    audioTimestamp, mOriginalBug, audioFileExtension);
             MetaBugReport bug = BugStorageUtils.update(mContext,
                     mOriginalBug.toBuilder().setAudioFileName(audioFileName).build());
             try (OutputStream out = BugStorageUtils.openAudioMessageFileToWrite(mContext, bug);
@@ -709,7 +763,7 @@ public class BugReportActivity extends Activity {
                 Log.e(TAG, "Failed to write audio to bug report", e);
                 return null;
             }
-            if (mConfig.getAutoUpload()) {
+            if (mConfig.isAutoUpload()) {
                 BugStorageUtils.setBugReportStatus(mContext, bug,
                         com.android.car.bugreport.Status.STATUS_UPLOAD_PENDING, "");
             } else {

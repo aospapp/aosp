@@ -29,7 +29,7 @@ namespace functor {
 
 Status SparseTensorToCSRSparseMatrixCPUFunctor::operator()(
     const int64_t batch_size, const int num_rows,
-    TTypes<int64>::ConstMatrix indices, TTypes<int32>::Vec batch_ptr,
+    TTypes<int64_t>::ConstMatrix indices, TTypes<int32>::Vec batch_ptr,
     TTypes<int32>::Vec csr_row_ptr, TTypes<int32>::Vec csr_col_ind) {
   // Validate inputs.
   if (batch_ptr.size() != batch_size + 1) {
@@ -99,7 +99,7 @@ Status SparseTensorToCSRSparseMatrixCPUFunctor::operator()(
     std::partial_sum(row_ptr_batch, row_ptr_batch + num_rows + 1,
                      row_ptr_batch);
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 }  // namespace functor

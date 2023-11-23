@@ -22,8 +22,10 @@
  *
  ******************************************************************************/
 
+#include <base/functional/callback.h>
 #include <base/logging.h>
 #include <base/strings/stringprintf.h>
+#include <frameworks/proto_logging/stats/enums/bluetooth/enums.pb.h>
 #include <string.h>
 
 #include "bta/include/bta_api.h"
@@ -39,6 +41,7 @@
 #include "stack/include/acl_api.h"
 #include "stack/include/bt_hdr.h"
 #include "stack/include/btm_api.h"  // BTM_LogHistory
+#include "stack/include/stack_metrics_logging.h"
 #include "types/raw_address.h"
 
 namespace {
@@ -78,6 +81,7 @@ static const tL2CAP_APPL_INFO hst_reg_info = {
     .pL2CA_CreditBasedConnectInd_Cb = nullptr,
     .pL2CA_CreditBasedConnectCfm_Cb = nullptr,
     .pL2CA_CreditBasedReconfigCompleted_Cb = nullptr,
+    .pL2CA_CreditBasedCollisionInd_Cb = nullptr,
 };
 static void hidh_try_repage(uint8_t dhandle);
 
@@ -104,6 +108,9 @@ tHID_STATUS hidh_conn_reg(void) {
                       nullptr, HID_HOST_MTU, 0,
                       BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT)) {
     HIDH_TRACE_ERROR("HID-Host Control Registration failed");
+    log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum::
+                            HIDH_ERR_L2CAP_FAILED_AT_REGISTER_CONTROL,
+                        1);
     return (HID_ERR_L2CAP_FAILED);
   }
   if (!L2CA_Register2(HID_PSM_INTERRUPT, hst_reg_info, false /* enable_snoop */,
@@ -111,6 +118,9 @@ tHID_STATUS hidh_conn_reg(void) {
                       BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT)) {
     L2CA_Deregister(HID_PSM_CONTROL);
     HIDH_TRACE_ERROR("HID-Host Interrupt Registration failed");
+    log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum::
+                            HIDH_ERR_L2CAP_FAILED_AT_REGISTER_INTERRUPT,
+                        1);
     return (HID_ERR_L2CAP_FAILED);
   }
 
@@ -542,6 +552,9 @@ static void hidh_l2cif_disconnect_ind(uint16_t l2cap_cid, bool ack_needed) {
           (disc_res == HCI_ERR_PAIRING_WITH_UNIT_KEY_NOT_SUPPORTED) ||
           (disc_res == HCI_ERR_ENCRY_MODE_NOT_ACCEPTABLE) ||
           (disc_res == HCI_ERR_REPEATED_ATTEMPTS)) {
+        log_counter_metrics(
+            android::bluetooth::CodePathCounterKeyEnum::HIDH_ERR_AUTH_FAILED,
+            1);
         hid_close_evt_reason = HID_ERR_AUTH_FAILED;
       }
 
@@ -655,7 +668,6 @@ static void hidh_l2cif_data_ind(uint16_t l2cap_cid, BT_HDR* p_msg) {
     HIDH_TRACE_WARNING("Rcvd L2CAP data, invalid length %d, should be >= 1",
                        p_msg->len);
     osi_free(p_msg);
-    android_errorWriteLog(0x534e4554, "80493272");
     return;
   }
 
@@ -738,11 +750,17 @@ tHID_STATUS hidh_conn_snd_data(uint8_t dhandle, uint8_t trans_type,
   if (!BTM_IsAclConnectionUp(hh_cb.devices[dhandle].addr,
                              BT_TRANSPORT_BR_EDR)) {
     osi_free(buf);
+    log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum::
+                            HIDH_ERR_NO_CONNECTION_AT_SEND_DATA,
+                        1);
     return HID_ERR_NO_CONNECTION;
   }
 
   if (p_hcon->conn_flags & HID_CONN_FLAGS_CONGESTED) {
     osi_free(buf);
+    log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum::
+                            HIDH_ERR_CONGESTED_AT_FLAG_CHECK,
+                        1);
     return HID_ERR_CONGESTED;
   }
 
@@ -762,6 +780,9 @@ tHID_STATUS hidh_conn_snd_data(uint8_t dhandle, uint8_t trans_type,
       buf_size = HID_INTERRUPT_BUF_SIZE;
       break;
     default:
+      log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum::
+                              HIDH_ERR_INVALID_PARAM_AT_SEND_DATA,
+                          1);
       return (HID_ERR_INVALID_PARAM);
   }
 
@@ -819,8 +840,12 @@ tHID_STATUS hidh_conn_snd_data(uint8_t dhandle, uint8_t trans_type,
 
     /* Send the buffer through L2CAP */
     if ((p_hcon->conn_flags & HID_CONN_FLAGS_CONGESTED) ||
-        (!L2CA_DataWrite(cid, p_buf)))
+        (!L2CA_DataWrite(cid, p_buf))) {
+      log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum::
+                              HIDH_ERR_CONGESTED_AT_SEND_DATA,
+                          1);
       return (HID_ERR_CONGESTED);
+    }
 
     if (data_size)
       trans_type = HID_TRANS_DATAC;
@@ -846,8 +871,12 @@ tHID_STATUS hidh_conn_snd_data(uint8_t dhandle, uint8_t trans_type,
 tHID_STATUS hidh_conn_initiate(uint8_t dhandle) {
   tHID_HOST_DEV_CTB* p_dev = &hh_cb.devices[dhandle];
 
-  if (p_dev->conn.conn_state != HID_CONN_STATE_UNUSED)
+  if (p_dev->conn.conn_state != HID_CONN_STATE_UNUSED) {
+    log_counter_metrics(
+        android::bluetooth::CodePathCounterKeyEnum::HIDH_ERR_CONN_IN_PROCESS,
+        1);
     return (HID_ERR_CONN_IN_PROCESS);
+  }
 
   p_dev->conn.ctrl_cid = 0;
   p_dev->conn.intr_cid = 0;
@@ -865,6 +894,9 @@ tHID_STATUS hidh_conn_initiate(uint8_t dhandle) {
     HIDH_TRACE_WARNING("HID-Host Originate failed");
     hh_cb.callback(dhandle, hh_cb.devices[dhandle].addr, HID_HDEV_EVT_CLOSE,
                    HID_ERR_L2CAP_FAILED, NULL);
+    log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum::
+                            HIDH_ERR_L2CAP_FAILED_AT_INITIATE,
+                        1);
   } else {
     /* Transition to the next appropriate state, waiting for connection confirm
      * on control channel. */

@@ -31,7 +31,7 @@
 
 #include "aidl_language.h"
 #include "aidl_to_cpp.h"
-#include "code_writer.h"
+
 #include "logging.h"
 #include "os.h"
 
@@ -67,11 +67,12 @@ const char kAndroidStatusBadValue[] = "::android::BAD_VALUE";
 const char kBinderStatusLiteral[] = "::android::binder::Status";
 const char kIBinderHeader[] = "binder/IBinder.h";
 const char kIInterfaceHeader[] = "binder/IInterface.h";
+const char kBinderDelegateHeader[] = "binder/Delegate.h";
 const char kParcelHeader[] = "binder/Parcel.h";
 const char kStabilityHeader[] = "binder/Stability.h";
 const char kStatusHeader[] = "binder/Status.h";
 const char kString16Header[] = "utils/String16.h";
-const char kTraceHeader[] = "utils/Trace.h";
+const char kTraceHeader[] = "binder/Trace.h";
 const char kStrongPointerHeader[] = "utils/StrongPointer.h";
 const char kAndroidBaseMacrosHeader[] = "android-base/macros.h";
 
@@ -190,8 +191,9 @@ void GenerateClientTransaction(CodeWriter& out, const AidlTypenames& typenames,
   out.Write("%s %s;\n", kBinderStatusLiteral, kStatusVarName);
 
   if (options.GenTraces()) {
-    out.Write("::android::ScopedTrace %s(ATRACE_TAG_AIDL, \"AIDL::cpp::%s::%s::cppClient\");\n",
-              kTraceVarName, interface.GetName().c_str(), method.GetName().c_str());
+    out.Write(
+        "::android::binder::ScopedTrace %s(ATRACE_TAG_AIDL, \"AIDL::cpp::%s::%s::cppClient\");\n",
+        kTraceVarName, interface.GetName().c_str(), method.GetName().c_str());
   }
 
   if (options.GenLog()) {
@@ -434,6 +436,10 @@ void GenerateConstantDeclarations(CodeWriter& out, const AidlDefinedType& type,
       out << "static const " << cpp_type << "& " << constant->GetName() << "()";
       GenerateDeprecated(out, *constant);
       out << ";\n";
+    } else if (type.Signature() == "float" || type.Signature() == "double") {
+      out << "static constexpr " << cpp_type << " " << constant->GetName();
+      GenerateDeprecated(out, *constant);
+      out << " = " << constant->ValueString(ConstantValueDecorator) << ";\n";
     } else {
       out << "enum : " << cpp_type << " { " << constant->GetName();
       GenerateDeprecated(out, *constant);
@@ -465,8 +471,9 @@ void GenerateServerTransaction(CodeWriter& out, const AidlInterface& interface,
   out.Write("}\n");
 
   if (options.GenTraces()) {
-    out.Write("::android::ScopedTrace %s(ATRACE_TAG_AIDL, \"AIDL::cpp::%s::%s::cppServer\");\n",
-              kTraceVarName, interface.GetName().c_str(), method.GetName().c_str());
+    out.Write(
+        "::android::binder::ScopedTrace %s(ATRACE_TAG_AIDL, \"AIDL::cpp::%s::%s::cppServer\");\n",
+        kTraceVarName, interface.GetName().c_str(), method.GetName().c_str());
   }
 
   if (interface.EnforceExpression() || method.GetType().EnforceExpression()) {
@@ -774,6 +781,42 @@ void GenerateClientHeader(CodeWriter& out, const AidlInterface& interface,
   LeaveNamespace(out, interface);
 }
 
+// Some interfaces are declared in .aidl files, but defined elsewhere.
+// These interfaces can not have Delegators and need to be avoided.
+// TODO(b/242920522) These should all be defined in .aidl files.
+bool isKnownUndefinedInterface(const std::string& canonicalName) {
+  static const auto* kKnownUndefinedInterfaces = new std::set<std::string>{
+      "android.hardware.ICamera", "android.hardware.ICameraClient",
+      "android.IOMXNode",         "android.IMediaExtractor",
+      "android.IDataSource",
+  };
+  return kKnownUndefinedInterfaces->find(canonicalName) != kKnownUndefinedInterfaces->end();
+};
+
+bool isDelegateable(const AidlTypeSpecifier& type) {
+  return type.GetDefinedType() && type.GetDefinedType()->AsInterface() &&
+         !isKnownUndefinedInterface(type.GetDefinedType()->GetCanonicalName()) && !type.IsArray();
+}
+
+void wrapDelegate(CodeWriter& out, const std::string& argName, const AidlTypeSpecifier& type,
+                  bool in) {
+  const std::string argRef = in ? argName : "*" + argName;
+  const std::string targetArgName = in ? "_" + argName : argName;
+  const std::string targetArgRef = in ? targetArgName : "*" + targetArgName;
+  // input binders need local variables for each arg to pass to the delegate
+  // because the parameters are const
+  if (in) {
+    out << "::android::sp<::" << Join(type.GetSplitName(), "::") << "Delegator> " << targetArgName
+        << ";\n";
+  }
+  out << "if (" << argRef << ") {\n";
+  out.Indent();
+  out << targetArgRef << " = ::android::sp<::" << Join(type.GetSplitName(), "::")
+      << "Delegator>::cast(delegate(" << argRef << "));\n";
+  out.Dedent();
+  out << "}\n";
+}
+
 void GenerateServerClassDecl(CodeWriter& out, const AidlInterface& interface,
                              const AidlTypenames& typenames, const Options& options) {
   const string bn_name = ClassName(interface, ClassNames::SERVER);
@@ -813,9 +856,10 @@ void GenerateServerClassDecl(CodeWriter& out, const AidlInterface& interface,
   out << " " << d_name << " : public " << bn_name << " {\n";
   out << "public:\n";
   out.Indent();
-  out << "explicit " << d_name << "(" << StringPrintf("::android::sp<%s> &impl", iface.c_str())
-      << ") " << StringPrintf(": %s(impl)", kDelegateImplVarName) << " {}\n\n";
-
+  out << "explicit " << d_name << "("
+      << StringPrintf("const ::android::sp<%s> &impl", iface.c_str()) << ") "
+      << StringPrintf(": %s(impl)", kDelegateImplVarName) << " {}\n\n";
+  out << "::android::sp<" << iface << "> getImpl() { return " << kDelegateImplVarName << "; }\n";
   for (const auto& method : interface.GetMethods()) {
     if (method->IsUserDefined()) {
       GenerateMethodDecl(out, typenames, *method, /*clazz=*/"");
@@ -823,19 +867,52 @@ void GenerateServerClassDecl(CodeWriter& out, const AidlInterface& interface,
       GenerateDeprecated(out, *method);
 
       std::vector<std::string> args;
+
+      // arg name, type
+      std::vector<pair<const std::string, const AidlTypeSpecifier&>> outBinders;
+      std::vector<pair<const std::string, const AidlTypeSpecifier&>> inBinders;
       for (const auto& arg : method->GetArguments()) {
-        if (IsNonCopyableType(arg->GetType(), typenames)) {
-          args.push_back(StringPrintf("std::move(%s)", arg->GetName().c_str()));
+        if (isDelegateable(arg->GetType())) {
+          if (arg->IsOut()) {
+            outBinders.push_back({arg->GetName(), arg->GetType()});
+          } else if (arg->IsIn()) {
+            inBinders.push_back({arg->GetName(), arg->GetType()});
+          } else {
+            AIDL_FATAL(*arg) << "inout interface?";
+          }
+          AIDL_FATAL_IF(!arg->IsIn() && !arg->IsOut(), *arg) << "Not in or out?";
+          args.push_back("_" + arg->GetName());
         } else {
-          args.push_back(arg->GetName());
+          if (IsNonCopyableType(arg->GetType(), typenames)) {
+            args.push_back(StringPrintf("std::move(%s)", arg->GetName().c_str()));
+          } else {
+            args.push_back(arg->GetName());
+          }
         }
       }
       if (method->GetType().GetName() != "void") {
+        if (isDelegateable(method->GetType())) {
+          outBinders.push_back({kReturnVarName, method->GetType()});
+        }
         args.push_back(kReturnVarName);
       }
-      out << " {\n"
-          << "  return " << kDelegateImplVarName << "->" << method->GetName() << "("
-          << base::Join(args, ", ") << ");\n";
+      out << " {\n";
+      out.Indent();
+      for (const auto binder : inBinders) {
+        wrapDelegate(out, binder.first, binder.second, true);
+      }
+      if (outBinders.empty()) {
+        out << "return " << kDelegateImplVarName << "->" << method->GetName() << "("
+            << base::Join(args, ", ") << ");\n";
+      } else {
+        out << "auto _status = " << kDelegateImplVarName << "->" << method->GetName() << "("
+            << base::Join(args, ", ") << ");\n";
+        for (const auto& binder : outBinders) {
+          wrapDelegate(out, binder.first, binder.second, false);
+        }
+        out << "return _status;\n";
+      }
+      out.Dedent();
       out << "}\n";
     } else if (method->GetName() == kGetInterfaceVersion && options.Version()) {
       out << "int32_t " << kGetInterfaceVersion << "()"
@@ -862,6 +939,43 @@ void GenerateServerClassDecl(CodeWriter& out, const AidlInterface& interface,
   out << "};  // class " << d_name << "\n";
 }
 
+// Collect all includes for the type's server header. Nested types are visited as well via
+// VisitTopDown.
+void GenerateServerHeaderIncludes(CodeWriter& out, const AidlDefinedType& defined_type,
+                                  const AidlTypenames& typenames, const Options& options) {
+  struct Visitor : AidlVisitor {
+    const AidlTypenames& typenames;
+    const Options& options;
+    std::set<std::string> includes;
+    Visitor(const AidlTypenames& typenames, const Options& options)
+        : typenames(typenames), options(options) {}
+
+    // Collect includes for each type reference
+    void Visit(const AidlTypeSpecifier& type) override {
+      // Add Bn* header files for types used in this header. The *Delegator
+      // definitions require them.
+      const auto defined_type = type.GetDefinedType();
+      if (defined_type && defined_type->AsInterface()) {
+        if (!isKnownUndefinedInterface(defined_type->GetCanonicalName())) {
+          includes.insert(HeaderFile(*defined_type, ClassNames::SERVER, /*use_os_sep=*/false));
+        }
+      }
+    }
+
+    // Collect implementation-specific includes for each type definition
+    void Visit(const AidlInterface& iface) override {
+      includes.insert(HeaderFile(iface, ClassNames::SERVER, false));
+    }
+  } v(typenames, options);
+  VisitTopDown(v, defined_type);
+
+  v.includes.insert(kBinderDelegateHeader);
+  for (const auto& path : v.includes) {
+    out << "#include <" << path << ">\n";
+  }
+  out << "\n";
+}
+
 void GenerateServerHeader(CodeWriter& out, const AidlInterface& interface,
                           const AidlTypenames& typenames, const Options& options) {
   out << "#pragma once\n\n";
@@ -871,6 +985,7 @@ void GenerateServerHeader(CodeWriter& out, const AidlInterface& interface,
     out << "#include <functional>\n";  // for std::function
     out << "#include <android/binder_to_string.h>\n";
   }
+  GenerateServerHeaderIncludes(out, interface, typenames, options);
   out << "\n";
   EnterNamespace(out, interface);
   GenerateServerClassDecl(out, interface, typenames, options);
@@ -889,12 +1004,13 @@ void GenerateNestedTypeDecls(CodeWriter& out, const AidlDefinedType& type,
 void GenerateInterfaceClassDecl(CodeWriter& out, const AidlInterface& interface,
                                 const AidlTypenames& typenames, const Options& options) {
   const string i_name = ClassName(interface, ClassNames::INTERFACE);
-
+  out << "class " << ClassName(interface, ClassNames::DELEGATOR_IMPL) << ";\n\n";
   out << "class";
   GenerateDeprecated(out, interface);
   out << " " << i_name << " : public ::android::IInterface {\n";
   out << "public:\n";
   out.Indent();
+  out << "typedef " << ClassName(interface, ClassNames::DELEGATOR_IMPL) << " DefaultDelegator;\n";
   out << "DECLARE_META_INTERFACE(" << ClassName(interface, ClassNames::BASE) << ")\n";
   if (options.Version() > 0) {
     out << "const int32_t VERSION = " << std::to_string(options.Version()) << ";\n";
@@ -980,7 +1096,7 @@ void GenerateReadFromParcel(CodeWriter& out, const AidlStructuredParcelable& par
   out << "}\n";
   out << "if (_aidl_parcelable_raw_size < 4) return ::android::BAD_VALUE;\n";
   out << "size_t _aidl_parcelable_size = static_cast<size_t>(_aidl_parcelable_raw_size);\n";
-  out << "if (_aidl_start_pos > SIZE_MAX - _aidl_parcelable_size) return ::android::BAD_VALUE;\n";
+  out << "if (_aidl_start_pos > INT32_MAX - _aidl_parcelable_size) return ::android::BAD_VALUE;\n";
   for (const auto& variable : parcel.GetFields()) {
     string method = ParcelReadMethodOf(variable->GetType(), typenames);
     string arg = ParcelReadCastOf(variable->GetType(), typenames, "&" + variable->GetName());
@@ -1089,6 +1205,7 @@ void GenerateParcelClassDecl(CodeWriter& out, const ParcelableType& parcel,
                              const AidlTypenames& typenames, const Options& options) {
   const string clazz = parcel.GetName();
 
+  ClangDiagnosticIgnoreDeprecated guard(out, HasDeprecatedField(parcel));
   out << TemplateDecl(parcel);
   out << "class";
   GenerateDeprecated(out, parcel);
@@ -1111,8 +1228,8 @@ void GenerateParcelClassDecl(CodeWriter& out, const ParcelableType& parcel,
 
   const string canonical_name = parcel.GetCanonicalName();
   out << "static const ::android::String16& getParcelableDescriptor() {\n"
-      << "  static const ::android::StaticString16 DESCIPTOR (u\"" << canonical_name << "\");\n"
-      << "  return DESCIPTOR;\n"
+      << "  static const ::android::StaticString16 DESCRIPTOR (u\"" << canonical_name << "\");\n"
+      << "  return DESCRIPTOR;\n"
       << "}\n";
 
   GenerateToString(out, parcel);
@@ -1143,21 +1260,24 @@ void GenerateParcelSource(CodeWriter& out, const T& parcel, const AidlTypenames&
   EnterNamespace(out, parcel);
   GenerateConstantDefinitions(out, parcel, typenames, TemplateDecl(parcel), q_name);
 
-  out << TemplateDecl(parcel);
-  out << "::android::status_t " << q_name << "::readFromParcel(const ::android::Parcel* "
-      << kParcelVarName << ") {\n";
-  out.Indent();
-  GenerateReadFromParcel(out, parcel, typenames);
-  out.Dedent();
-  out << "}\n";
+  {
+    ClangDiagnosticIgnoreDeprecated guard(out, HasDeprecatedField(parcel));
+    out << TemplateDecl(parcel);
+    out << "::android::status_t " << q_name << "::readFromParcel(const ::android::Parcel* "
+        << kParcelVarName << ") {\n";
+    out.Indent();
+    GenerateReadFromParcel(out, parcel, typenames);
+    out.Dedent();
+    out << "}\n";
 
-  out << TemplateDecl(parcel);
-  out << "::android::status_t " << q_name << "::writeToParcel(::android::Parcel* " << kParcelVarName
-      << ") const {\n";
-  out.Indent();
-  GenerateWriteToParcel(out, parcel, typenames);
-  out.Dedent();
-  out << "}\n";
+    out << TemplateDecl(parcel);
+    out << "::android::status_t " << q_name << "::writeToParcel(::android::Parcel* "
+        << kParcelVarName << ") const {\n";
+    out.Indent();
+    GenerateWriteToParcel(out, parcel, typenames);
+    out.Dedent();
+    out << "}\n";
+  }
   LeaveNamespace(out, parcel);
 }
 
@@ -1185,31 +1305,6 @@ void GenerateClassDecl(CodeWriter& out, const AidlDefinedType& defined_type,
 }  // namespace internals
 
 using namespace internals;
-
-// Ensures that output_file is  <out_dir>/<packagename>/<typename>.cpp
-bool ValidateOutputFilePath(const string& output_file, const Options& options,
-                            const AidlDefinedType& defined_type) {
-  const auto& out_dir =
-      !options.OutputDir().empty() ? options.OutputDir() : options.OutputHeaderDir();
-  if (output_file.empty() || !android::base::StartsWith(output_file, out_dir)) {
-    // If output_file is not set (which happens in the unit tests) or is outside of out_dir, we can
-    // help but accepting it, because the path is what the user has requested.
-    return true;
-  }
-
-  string canonical_name = defined_type.GetCanonicalName();
-  std::replace(canonical_name.begin(), canonical_name.end(), '.', OS_PATH_SEPARATOR);
-  const string expected = out_dir + canonical_name + ".cpp";
-  if (expected != output_file) {
-    AIDL_ERROR(defined_type) << "Output file is expected to be at " << expected << ", but is "
-                             << output_file << ".\n If this is an Android platform "
-                             << "build, consider providing the input AIDL files using a filegroup "
-                             << "with `path:\"<base>\"` so that the AIDL files are located at "
-                             << "<base>/<packagename>/<typename>.aidl.";
-    return false;
-  }
-  return true;
-}
 
 // Collect all includes for the type's header. Nested types are visited as well via VisitTopDown.
 void GenerateHeaderIncludes(CodeWriter& out, const AidlDefinedType& defined_type,
@@ -1239,6 +1334,7 @@ void GenerateHeaderIncludes(CodeWriter& out, const AidlDefinedType& defined_type
 
       // For a nested interface, client/server classes are declared the same header as well.
       if (iface.GetParentType()) {
+        includes.insert(kBinderDelegateHeader);  // Delegate.h
         // client/server class provides logFunc when gen_log is on
         if (options.GenLog()) {
           includes.insert("functional");                  // std::function for logFunc
@@ -1330,6 +1426,7 @@ void GenerateHeader(CodeWriter& out, const AidlDefinedType& defined_type,
   }
   out << "#pragma once\n\n";
   GenerateHeaderIncludes(out, defined_type, typenames, options);
+  GenerateForwardDecls(out, defined_type, false);
   EnterNamespace(out, defined_type);
   // Each class decl contains its own nested types' class decls
   GenerateClassDecl(out, defined_type, typenames, options);

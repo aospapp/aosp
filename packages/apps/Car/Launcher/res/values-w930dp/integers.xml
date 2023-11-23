@@ -15,6 +15,7 @@ limitations under the License.
 -->
 <resources>
     <!-- Columns -->
-    <integer name="car_app_selector_column_number">4</integer>
+    <integer name="car_app_selector_column_number">5</integer>
+    <integer name="car_app_selector_row_number">3</integer>
 </resources>
 

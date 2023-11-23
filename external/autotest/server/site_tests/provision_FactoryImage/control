@@ -13,6 +13,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Install"
 TEST_CLASS = "provision"
 TEST_TYPE = "server"
+PY_VERSION = 3
 
 DOC = """
 This test installs a specified factory image onto a servo-connected DUT.

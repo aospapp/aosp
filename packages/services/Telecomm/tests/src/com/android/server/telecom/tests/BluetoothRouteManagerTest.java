@@ -48,6 +48,7 @@ import java.util.stream.Stream;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.reset;
@@ -245,6 +246,7 @@ public class BluetoothRouteManagerTest extends TelecomTestCase {
     }
 
     private void verifyConnectionAttempt(BluetoothDevice device, int numTimes) {
-        verify(mDeviceManager, times(numTimes)).connectAudio(device.getAddress());
+        verify(mDeviceManager, times(numTimes)).connectAudio(eq(device.getAddress()),
+            anyBoolean());
     }
 }

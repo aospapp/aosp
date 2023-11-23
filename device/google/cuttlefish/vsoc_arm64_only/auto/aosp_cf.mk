@@ -31,6 +31,7 @@ PRODUCT_ENFORCE_ARTIFACT_PATH_REQUIREMENTS := false
 # All components inherited here go to system_ext image
 #
 $(call inherit-product, $(SRC_TARGET_DIR)/product/base_system_ext.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/product/telephony_system_ext.mk)
 
 #
 # All components inherited here go to product image
@@ -40,16 +41,11 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_product.mk)
 #
 # All components inherited here go to vendor image
 #
-LOCAL_DISABLE_OMX := true
 $(call inherit-product, device/google/cuttlefish/shared/auto/device_vendor.mk)
-
-# TODO(b/205788876) remove this when openwrt has an image for arm.
-PRODUCT_ENFORCE_MAC80211_HWSIM := false
 
 #
 # Special settings for the target
 #
-$(call inherit-product, device/google/cuttlefish/vsoc_arm64/kernel.mk)
 $(call inherit-product, device/google/cuttlefish/vsoc_arm64/bootloader.mk)
 
 # Exclude features that are not available on AOSP devices.

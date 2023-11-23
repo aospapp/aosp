@@ -26,17 +26,14 @@ import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.role.RoleProto;
-import com.android.role.RoleServiceDumpProto;
-import com.android.role.RoleUserStateProto;
 import com.android.tradefed.config.Option;
-import com.android.tradefed.device.CollectingByteOutputReceiver;
 import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.tradefed.util.RunUtil;
 
 import com.google.common.base.Strings;
 import com.google.common.io.ByteStreams;
@@ -57,7 +54,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -142,6 +138,7 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     protected static final int FLAG_GUEST = 0x00000004;
     protected static final int FLAG_EPHEMERAL = 0x00000100;
     protected static final int FLAG_MANAGED_PROFILE = 0x00000020;
+    protected static final int FLAG_INITIALIZED = 0x00000010;
 
     /** Default password to use in tests. */
     protected static final String TEST_PASSWORD = "1234";
@@ -170,7 +167,6 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
 
     protected CompatibilityBuildHelper mBuildHelper;
     private String mPackageVerifier;
-    private HashSet<String> mAvailableFeatures;
 
     /** Packages installed as part of the tests */
     private Set<String> mFixedPackages;
@@ -188,11 +184,15 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     private boolean mSupportsMultiUser;
 
     /** Users we shouldn't delete in the tests */
-    private ArrayList<Integer> mFixedUsers;
+    private final ArrayList<Integer> mFixedUsers = new ArrayList<>();
 
     protected boolean mHasAttestation;
 
     private static final String VERIFY_CREDENTIAL_CONFIRMATION = "Lock credential verified";
+
+    public boolean skipDeviceAdminFeatureCheck() {
+        return mSkipDeviceAdminFeatureCheck;
+    }
 
     @Rule
     public final DeviceAdminFeaturesCheckerRule mFeaturesCheckerRule =
@@ -201,11 +201,6 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     @Before
     public void setUp() throws Exception {
         assertNotNull(getBuild());  // ensure build has been set before test is run.
-
-        if (!mSkipDeviceAdminFeatureCheck) {
-            // TODO(b/177965931): STOPSHIP must integrate mSkipDeviceAdminFeatureCheck into
-            // DeviceAdminFeaturesCheckerRule
-        }
 
         mSupportsMultiUser = getMaxNumberOfUsersSupported() > 1;
         mFixedPackages = getDevice().getInstalledPackageNames();
@@ -225,15 +220,13 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
                 "settings get global verifier_verify_adb_installs");
         getDevice().executeShellCommand("settings put global verifier_verify_adb_installs 0");
 
-        mFixedUsers = new ArrayList<>();
-
         // Set the value of initial user ID calls in {@link #setUp}.
         if(mSupportsMultiUser) {
             mInitialUserId = getDevice().getCurrentUser();
         }
 
         if (!isHeadlessSystemUserMode()) {
-            mDeviceOwnerUserId = mPrimaryUserId = getPrimaryUser();
+            mDeviceOwnerUserId = mPrimaryUserId = getMainUser();
         } else {
             // For headless system user, all tests will be executed on current user
             // and therefore, initial user is set as primary user for test purpose.
@@ -295,7 +288,7 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
             if (System.nanoTime() > deadline) {
                 fail(message);
             }
-            Thread.sleep(1000);
+            RunUtil.getDefault().sleep(1000);
         }
     }
 
@@ -439,7 +432,7 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
         while (getDevice().getCurrentUser() != userId && (--retries) >= 0) {
             // am switch-user can be ignored if a previous user-switching operation
             // is still in progress. In this case, sleep a bit and then retry
-            Thread.sleep(USER_SWITCH_WAIT);
+            RunUtil.getDefault().sleep(USER_SWITCH_WAIT);
             executeShellCommand("am switch-user " + userId);
         }
         assertTrue("Failed to switch user after multiple retries", getDevice().getCurrentUser() == userId);
@@ -534,11 +527,11 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
             CLog.d("stopping and removing user " + userId);
             getDevice().executeShellCommand(stopUserCommand);
             // TODO: Remove both sleeps and USER_REMOVE_WAIT constant when b/114057686 is fixed.
-            Thread.sleep(USER_REMOVE_WAIT);
+            RunUtil.getDefault().sleep(USER_REMOVE_WAIT);
             // Ephemeral users may have already been removed after being stopped.
             if (listUsers().contains(userId)) {
                 assertTrue("Couldn't remove user", getDevice().removeUser(userId));
-                Thread.sleep(USER_REMOVE_WAIT);
+                RunUtil.getDefault().sleep(USER_REMOVE_WAIT);
             }
         }
     }
@@ -747,6 +740,8 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     }
 
     protected final void assumeSupportsMultiUser() throws DeviceNotAvailableException {
+        // setup isn't always called before this method
+        mSupportsMultiUser = getMaxNumberOfUsersSupported() > 1;
         assumeTrue("device doesn't support multiple users", mSupportsMultiUser);
     }
 
@@ -823,8 +818,15 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
         return commandOutput;
     }
 
-    protected int getPrimaryUser() throws DeviceNotAvailableException {
-        return getDevice().getPrimaryUserId();
+    protected int getMainUser() throws DeviceNotAvailableException {
+        Integer user = getDevice().getMainUserId();
+        if (user == null) {
+            user = getDevice().getPrimaryUserId();
+            if (user == null) {
+                user = 0;
+            }
+        }
+        return user;
     }
 
     protected int getCurrentUser() throws DeviceNotAvailableException {
@@ -985,13 +987,19 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
                 String[] tokens = line.split("\\{|\\}");
                 String componentName = tokens[1];
                 // Skip to user id line.
-                i += 4;
-                line = lines[i].trim();
-                // Line is User ID: <N>
-                tokens = line.split(":");
-                int userId = Integer.parseInt(tokens[1].trim());
-                CLog.w("Cleaning up device owner " + userId + " " + componentName);
-                removeAdmin(componentName, userId);
+                for (int j = i + 1; j < lines.length; ++j) {
+                    line = lines[j].trim();
+                    // Line is User ID: <N>
+                    if (line.contains("User ID:")) {
+                        tokens = line.split(":");
+                        int userId = Integer.parseInt(tokens[1].trim());
+                        CLog.w("Cleaning up device owner " + userId + " " + componentName);
+                        removeAdmin(componentName, userId);
+                        return;
+                    }
+                }
+                throw new RuntimeException(
+                        "Error finding a user id for this device owner in dumpsys.");
             }
         }
     }
@@ -1033,7 +1041,7 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
             long timeoutMillis) throws Exception {
         long epoch = System.currentTimeMillis();
         while (System.currentTimeMillis() - epoch <= timeoutMillis) {
-            Thread.sleep(WAIT_SAMPLE_INTERVAL_MILLIS);
+            RunUtil.getDefault().sleep(WAIT_SAMPLE_INTERVAL_MILLIS);
             if (successCondition.check()) {
                 return;
             }
@@ -1204,31 +1212,8 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     }
 
     protected String getDefaultLauncher() throws Exception {
-        final CollectingByteOutputReceiver receiver = new CollectingByteOutputReceiver();
-        getDevice().executeShellCommand("dumpsys role --proto", receiver);
-
-        RoleUserStateProto roleState = null;
-        final RoleServiceDumpProto dumpProto =
-                RoleServiceDumpProto.parser().parseFrom(receiver.getOutput());
-        for (RoleUserStateProto userState : dumpProto.getUserStatesList()) {
-            if (getDevice().getCurrentUser() == userState.getUserId()) {
-                roleState = userState;
-                break;
-            }
-        }
-
-        if (roleState != null) {
-            final List<RoleProto> roles = roleState.getRolesList();
-            // Iterate through the roles until we find the Home role
-            for (RoleProto roleProto : roles) {
-                if ("android.app.role.HOME".equals(roleProto.getName())) {
-                    assertEquals(1, roleProto.getHoldersList().size());
-                    return roleProto.getHoldersList().get(0);
-                }
-            }
-        }
-
-        throw new Exception("Default launcher not found");
+        return getDevice().executeShellCommand("cmd role get-role-holders --user "
+                + getDevice().getCurrentUser() + " android.app.role.HOME").trim();
     }
 
     void assumeIsDeviceAb() throws DeviceNotAvailableException {
@@ -1236,17 +1221,13 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
         assumeTrue("not device AB", "true".equalsIgnoreCase(result));
     }
 
-    // TODO (b/174775905) remove after exposing the check from ITestDevice.
     boolean isHeadlessSystemUserMode() throws DeviceNotAvailableException {
         return isHeadlessSystemUserMode(getDevice());
     }
 
-    // TODO (b/174775905) remove after exposing the check from ITestDevice.
     public static boolean isHeadlessSystemUserMode(ITestDevice device)
             throws DeviceNotAvailableException {
-        final String result = device
-                .executeShellCommand("getprop ro.fw.mu.headless_system_user").trim();
-        return "true".equalsIgnoreCase(result);
+        return device.isHeadlessSystemUserMode();
     }
 
     protected void assumeHeadlessSystemUserMode(String reason)
@@ -1387,7 +1368,7 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
 
     void sleep(int timeMs) throws InterruptedException {
         CLog.d("Sleeping %d ms", timeMs);
-        Thread.sleep(timeMs);
+        RunUtil.getDefault().sleep(timeMs);
     }
 
     private boolean isSmsCapable() throws Exception {

@@ -16,6 +16,8 @@
 
 package com.android.cts.customizationapp;
 
+import static android.Manifest.permission.READ_WALLPAPER_INTERNAL;
+
 import android.app.WallpaperManager;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -23,6 +25,7 @@ import android.os.UserManager;
 import android.test.AndroidTestCase;
 
 import com.android.compatibility.common.util.BitmapUtils;
+import com.android.compatibility.common.util.SystemUtil;
 import com.android.cts.customizationapp.R;
 
 /**
@@ -36,7 +39,7 @@ public class CustomizationTest extends AndroidTestCase {
 
     public void testSetWallpaper_disallowed() throws Exception {
         final WallpaperManager wallpaperManager = WallpaperManager.getInstance(mContext);
-        final Bitmap originalWallpaper = BitmapUtils.getWallpaperBitmap(mContext);
+        final Bitmap originalWallpaper = getWallpaperBitmapWithPermission();
         final Bitmap referenceWallpaper = BitmapUtils.generateRandomBitmap(97, 73);
         final UserManager userManager =
                 (UserManager) mContext.getSystemService(Context.USER_SERVICE);
@@ -45,19 +48,24 @@ public class CustomizationTest extends AndroidTestCase {
         // Checking setBitmap() method.
         wallpaperManager.setBitmap(referenceWallpaper);
         Thread.sleep(WAITING_TIME_MS);
-        Bitmap newWallpaper = BitmapUtils.getWallpaperBitmap(mContext);
+        Bitmap newWallpaper = getWallpaperBitmapWithPermission();
         assertTrue(BitmapUtils.compareBitmaps(newWallpaper, originalWallpaper));
 
         // Checking setStream() method.
         wallpaperManager.setStream(BitmapUtils.bitmapToInputStream(referenceWallpaper));
         Thread.sleep(WAITING_TIME_MS);
-        newWallpaper = BitmapUtils.getWallpaperBitmap(mContext);
+        newWallpaper = getWallpaperBitmapWithPermission();
         assertTrue(BitmapUtils.compareBitmaps(newWallpaper, originalWallpaper));
 
         // Checking setResource() method.
         wallpaperManager.setResource(R.raw.wallpaper);
         Thread.sleep(WAITING_TIME_MS);
-        newWallpaper = BitmapUtils.getWallpaperBitmap(mContext);
+        newWallpaper = getWallpaperBitmapWithPermission();
         assertTrue(BitmapUtils.compareBitmaps(newWallpaper, originalWallpaper));
+    }
+
+    private Bitmap getWallpaperBitmapWithPermission() {
+        return SystemUtil.runWithShellPermissionIdentity(
+                () -> BitmapUtils.getWallpaperBitmap(mContext), READ_WALLPAPER_INTERNAL);
     }
 }

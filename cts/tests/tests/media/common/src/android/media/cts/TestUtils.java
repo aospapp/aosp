@@ -187,6 +187,21 @@ public final class TestUtils {
             return true;
         }
         // MTS mode, just the codecs that live in the modules
+        if (isMainlineCodec(name)) {
+            return true;
+        }
+        Log.d(TAG, "Test mode MTS does not test codec " + name);
+        return false;
+    }
+
+    /*
+     * Report whether this codec is a google-supplied codec that lives within the
+     * mainline modules.
+     *
+     * @param name    the name of a codec
+     * @return {@code} true if the codec is one that lives within the mainline boundaries
+     */
+    public static boolean isMainlineCodec(String name) {
         if (name.startsWith("c2.android.")) {
             return true;
         }

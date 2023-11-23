@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The Android Open Source Project
+ * Copyright (C) 2023 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,18 @@
 package android.platform.helpers;
 
 import android.app.Instrumentation;
-import android.os.SystemClock;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.BySelector;
-import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.Until;
+import android.platform.helpers.exceptions.UnknownUiException;
 
-public class LockScreenHelperImpl extends AbstractAutoStandardAppHelper
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.UiObject2;
+
+/** Helper class for functional test for LockScreen test */
+public class LockScreenHelperImpl extends AbstractStandardAppHelper
         implements IAutoLockScreenHelper {
-    private static final int DEFAULT_WAIT_TIME = 5000;
-    private static final int THREE_SECOND_WAIT_TIME = 3000;
 
+    private static final int DEFAULT_WAIT_TIME = 5000;
+    private static final int KEY_ENTER = 66;
     private static final String UNLOCK_BY = "input text %s";
 
     private HelperAccessor<IAutoSecuritySettingsHelper> mSecuritySettingsHelper;
@@ -41,8 +42,23 @@ public class LockScreenHelperImpl extends AbstractAutoStandardAppHelper
 
     /** {@inheritDoc} */
     @Override
+    public void dismissInitialDialogs() {
+        // Nothing to dismiss
+    }
+    /** {@inheritDoc} */
+    @Override
     public String getPackage() {
-        return getApplicationConfig(AutoConfigConstants.LOCK_SCREEN_PACKAGE);
+        return getPackageFromConfig(AutomotiveConfigConstants.LOCK_SCREEN_PACKAGE);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getLauncherName() {
+        throw new UnsupportedOperationException("Operation not supported.");
+    }
+
+    protected void pressEnter() {
+        getSpectatioUiUtil().pressKeyCode(KEY_ENTER);
     }
 
     @Override
@@ -52,12 +68,14 @@ public class LockScreenHelperImpl extends AbstractAutoStandardAppHelper
         } else {
             mSecuritySettingsHelper.get().setLockByPassword(credential);
         }
-        pressPowerButton();
+        getSpectatioUiUtil().pressPower();
+        getSpectatioUiUtil().wait5Seconds();
     }
 
     @Override
     public void unlockScreenBy(LockType lockType, String credential) {
-        pressPowerButton();
+        getSpectatioUiUtil().pressPower();
+        getSpectatioUiUtil().wait5Seconds();
         if (lockType == LockType.PIN) {
             unlockByPin(credential);
         } else {
@@ -66,29 +84,26 @@ public class LockScreenHelperImpl extends AbstractAutoStandardAppHelper
     }
 
     private void unlockByPassword(String password) {
-        executeShellCommand(String.format(UNLOCK_BY, password));
-        SystemClock.sleep(THREE_SECOND_WAIT_TIME);
+        getSpectatioUiUtil().executeShellCommand(String.format(UNLOCK_BY, password));
+        getSpectatioUiUtil().wait5Seconds();
         pressEnter();
-        AutoUtility.exitSuw();
-        mSettingHelper.get().openSetting(AutoConfigConstants.SECURITY_SETTINGS);
+        mSettingHelper.get().openSetting(SettingsConstants.SECURITY_SETTINGS);
     }
 
     private void unlockByPin(String pin) {
         selectPinOnPinPad(pin);
-        UiObject2 enter_button =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.LOCK_SCREEN,
-                                AutoConfigConstants.LOCK_SCREEN_VIEW,
-                                AutoConfigConstants.ENTER_KEY));
-        clickAndWaitForIdleScreen(enter_button);
-        UiObject2 pinPad =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.LOCK_SCREEN,
-                                AutoConfigConstants.LOCK_SCREEN_VIEW,
-                                AutoConfigConstants.PIN_PAD));
-        SystemClock.sleep(THREE_SECOND_WAIT_TIME);
+        BySelector enterButtonSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.LOCK_SCREEN_ENTER_KEY);
+        UiObject2 enter_button = getSpectatioUiUtil().findUiObject(enterButtonSelector);
+        validateUiObject(enter_button, AutomotiveConfigConstants.LOCK_SCREEN_ENTER_KEY);
+        getSpectatioUiUtil().clickAndWait(enter_button);
+        getSpectatioUiUtil().waitForIdle();
+        BySelector pinPadSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.LOCK_SCREEN_PIN_PAD);
+        UiObject2 pinPad = getSpectatioUiUtil().findUiObject(pinPadSelector);
+        if (pinPad != null) {
+            throw new UnknownUiException("Unable to Unlock by Pin.");
+        }
     }
 
     private void selectPinOnPinPad(String pin) {
@@ -98,10 +113,17 @@ public class LockScreenHelperImpl extends AbstractAutoStandardAppHelper
             String resourceId = "key" + c;
             BySelector number_selector =
                     By.res(
-                            getApplicationConfig(AutoConfigConstants.LOCK_SCREEN_PACKAGE),
+                            getPackageFromConfig(AutomotiveConfigConstants.LOCK_SCREEN_PACKAGE),
                             resourceId);
-            UiObject2 number = mDevice.wait(Until.findObject(number_selector), DEFAULT_WAIT_TIME);
+            UiObject2 number = getSpectatioUiUtil().findUiObject(number_selector);
             number.click();
+        }
+    }
+
+    private void validateUiObject(UiObject2 uiObject, String action) {
+        if (uiObject == null) {
+            throw new UnknownUiException(
+                    String.format("Unable to find UI Element for %s.", action));
         }
     }
 }

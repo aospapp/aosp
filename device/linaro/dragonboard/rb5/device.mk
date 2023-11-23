@@ -25,7 +25,7 @@ PRODUCT_COPY_FILES := \
     $(LOCAL_PATH)/mixer_paths.xml:$(TARGET_COPY_OUT_VENDOR)/etc/mixer_paths.xml \
 
 # Build generic Audio HAL
-PRODUCT_PACKAGES := audio.primary.rb5
+PRODUCT_PACKAGES += audio.primary.rb5
 
 # BootControl HAL
 PRODUCT_PACKAGES += \

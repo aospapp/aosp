@@ -41,12 +41,4 @@ python_library {
         "google/auth/transport/*.py",
         "google/oauth2/*.py",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
 }

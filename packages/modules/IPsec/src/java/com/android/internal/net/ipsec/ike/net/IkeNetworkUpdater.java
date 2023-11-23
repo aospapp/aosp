@@ -16,7 +16,9 @@
 
 package com.android.internal.net.ipsec.ike.net;
 
+import android.net.LinkProperties;
 import android.net.Network;
+import android.net.NetworkCapabilities;
 
 /** IkeNetworkUpdater is an interface for updating the underlying Network for an IKE Session. */
 public interface IkeNetworkUpdater {
@@ -26,9 +28,25 @@ public interface IkeNetworkUpdater {
      * <p>This may also be invoked if the LinkProperties for the specified Network drop the previous
      * local address for the IKE Session.
      *
+     * <p>Handling onUnderlyingNetworkUpdated will require mobility ability.
+     *
      * @param network The Network to be used for the underlying Network
+     * @param linkProperties The LinkProperties of this Network
+     * @param networkCapabilities The NetworkCapabilities of this Network
      */
-    void onUnderlyingNetworkUpdated(Network network);
+    void onUnderlyingNetworkUpdated(
+            Network network,
+            LinkProperties linkProperties,
+            NetworkCapabilities networkCapabilities);
+
+    /**
+     * Notify the IkeNetworkUpdater of the NetworkCapabilities change of the underlying network
+     *
+     * <p>Handling onCapabilitiesUpdated does not require mobility ability.
+     *
+     * @param networkCapabilities The updated NetworkCapabilities
+     */
+    void onCapabilitiesUpdated(NetworkCapabilities networkCapabilities);
 
     /** Notify the IkeNetworkUpdater that the underlying Network died. */
     void onUnderlyingNetworkDied();

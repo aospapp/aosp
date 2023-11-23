@@ -7,7 +7,6 @@ import kotlin.math.sign
 import com.google.flatbuffers.*
 
 @Suppress("unused")
-@ExperimentalUnsignedTypes
 class Referrable : Table() {
 
     fun __init(_i: Int, _bb: ByteBuffer)  {
@@ -37,7 +36,7 @@ class Referrable : Table() {
         return (val_1 - val_2).sign
     }
     companion object {
-        fun validateVersion() = Constants.FLATBUFFERS_1_12_0()
+        fun validateVersion() = Constants.FLATBUFFERS_2_0_0()
         fun getRootAsReferrable(_bb: ByteBuffer): Referrable = getRootAsReferrable(_bb, Referrable())
         fun getRootAsReferrable(_bb: ByteBuffer, obj: Referrable): Referrable {
             _bb.order(ByteOrder.LITTLE_ENDIAN)
@@ -49,7 +48,10 @@ class Referrable : Table() {
             return endReferrable(builder)
         }
         fun startReferrable(builder: FlatBufferBuilder) = builder.startTable(1)
-        fun addId(builder: FlatBufferBuilder, id: ULong) = builder.addLong(0, id.toLong(), 0)
+        fun addId(builder: FlatBufferBuilder, id: ULong)  {
+            builder.addLong(id.toLong())
+            builder.slot(0)
+        }
         fun endReferrable(builder: FlatBufferBuilder) : Int {
             val o = builder.endTable()
             return o

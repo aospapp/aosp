@@ -13,4 +13,6 @@
     <string name="localPhoneName" msgid="9119254982537191352">"Моето име"</string>
     <string name="defaultnumber" msgid="5348816189286607406">"000000"</string>
     <string name="pbap_notification_group" msgid="4215789331721465381">"Споделување контакти преку Bluetooth"</string>
+    <string name="phonebook_advance_feature_support" msgid="8129553051734505128">"Напредната функција за телефонски именик е поддржана"</string>
+    <string name="repair_for_adv_phonebook_feature" msgid="3489797973131684927">"Повторно спарување за напредната функција за телефонски именик"</string>
 </resources>

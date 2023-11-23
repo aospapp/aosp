@@ -74,7 +74,7 @@ public class WebViewHostSideMultipleProfileTest extends BaseHostJUnit4Test {
     }
 
     @Test
-    public void testSecondProfile() throws DeviceNotAvailableException, TargetSetupError {
+    public void testSecondaryUser() throws DeviceNotAvailableException, TargetSetupError {
         Assume.assumeTrue(isMultiUsersSupported());
 
         mUserId = createUser(SECONDARY_USER_NAME + System.currentTimeMillis(), false);
@@ -124,8 +124,8 @@ public class WebViewHostSideMultipleProfileTest extends BaseHostJUnit4Test {
             throws DeviceNotAvailableException {
         String command = isManaged ?
                 "pm create-user --profileOf %d --managed %s" :
-                "pm create-user --profileOf %d %s";
-        command = String.format(command, mDevice.getPrimaryUserId(), profileName);
+                "pm create-user %s";
+        command = String.format(command, mDevice.getMainUserId(), profileName);
 
         CommandResult output = mDevice.executeShellV2Command(command);
         if (CommandStatus.SUCCESS.equals(output.getStatus())) {

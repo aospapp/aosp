@@ -1,11 +1,11 @@
 drops {
   android_build_drop {
-    build_id: "8715030"
+    build_id: "8874763"
     target: "kernel_floral_debug_locking"
     source_file: "usf_dlkm.ko"
   }
   dest_file: "debug_locking/usf_dlkm.ko"
-  version: "Linux version 4.14.276-g8ae7b4ca8564-ab8715030 (android-build@abfarm-east4-044) (Android (7284624, based on r416183b) clang version 12.0.5 (https://android.googlesource.com/toolchain/llvm-project c935d99d7cf2016289302412d708641d52d2f7ee), LLD 12.0.5 (/buildbot/src/android/llvm-toolchain/out/llvm-project/lld c935d99d7cf2016289302412d708641d52d2f7ee)) #1 SMP PREEMPT Mon Jun 13 10:05:49 UTC 2022"
+  version: "Linux version 4.14.285-g5f00bf266851-ab8874763 (android-build@abfarm-2004-0498) (Android (7284624, based on r416183b) clang version 12.0.5 (https://android.googlesource.com/toolchain/llvm-project c935d99d7cf2016289302412d708641d52d2f7ee), LLD 12.0.5 (/buildbot/src/android/llvm-toolchain/out/llvm-project/lld c935d99d7cf2016289302412d708641d52d2f7ee)) #1 SMP PREEMPT Wed Jul 27 08:03:28 UTC 2022"
   version_group: "kernel-and-modules"
   git_project: "device/google/coral-kernel"
 }

@@ -50,7 +50,7 @@ def aidl_enum_name(entry):
 #include <aidl/android/hardware/camera/metadata/CameraMetadataSectionStart.h>
 #include <aidl/android/hardware/camera/metadata/CameraMetadataTag.h>
 % for sec in find_all_sections(metadata):
-  % for entry in remove_synthetic_or_fwk_only(find_unique_entries(sec)):
+  % for entry in remove_hal_non_visible(find_unique_entries(sec)):
     % if entry.enum:
 #include <aidl/android/hardware/camera/metadata/${aidl_enum_name(entry)}.h>
     % endif
@@ -74,13 +74,13 @@ static_assert(static_cast<int>(VENDOR_SECTION_START)
         == static_cast<int>(${aidl_camera_metadata_section_start("VENDOR_SECTION_START")}));
 
 % for sec in find_all_sections(metadata):
-  % for idx,entry in enumerate(remove_synthetic_or_fwk_only(find_unique_entries(sec))):
+  % for idx,entry in enumerate(remove_hal_non_visible(find_unique_entries(sec))):
 static_assert(static_cast<int>(${csym(entry.name)})
         == static_cast<int>(${aidl_camera_metadata_tag(csym(entry.name))}));
   % endfor
 % endfor
 % for sec in find_all_sections(metadata):
-  % for entry in remove_synthetic_or_fwk_only(find_unique_entries(sec)):
+  % for entry in remove_hal_non_visible(find_unique_entries(sec)):
     % if entry.enum:
 
       % for val in aidl_enum_values(entry):

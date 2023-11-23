@@ -54,8 +54,8 @@ public class OldAndroidTreeMapTest extends TestCase {
             if (val > maxVal) {
                 maxVal = val;
             }
-            tm.put(new Integer(val), "V:" + val);
-            hm.put(new Integer(val), "V:" + val);
+            tm.put(Integer.valueOf(val), "V:" + val);
+            hm.put(Integer.valueOf(val), "V:" + val);
 
             if (SPEW) System.out.println("tm = " + tm);
 
@@ -73,7 +73,7 @@ public class OldAndroidTreeMapTest extends TestCase {
 
         // Check for equality
         for (int val = 0; val < 1000; val++) {
-            Integer vv = new Integer(val);
+            Integer vv = Integer.valueOf(val);
             String tms = tm.get(vv);
             String hms = hm.get(vv);
             assertEquals(tms, hms);
@@ -83,8 +83,8 @@ public class OldAndroidTreeMapTest extends TestCase {
             int val = mRandom.nextInt(1000);
             if (SPEW) System.out.println("Removing val = " + val);
 
-            String tms = tm.remove(new Integer(val));
-            String hms = hm.remove(new Integer(val));
+            String tms = tm.remove(Integer.valueOf(val));
+            String hms = hm.remove(Integer.valueOf(val));
 
             if (SPEW) System.out.println("tm = " + tm);
 
@@ -94,7 +94,7 @@ public class OldAndroidTreeMapTest extends TestCase {
 
         // Check for equality
         for (int val = 0; val < 1000; val++) {
-            Integer vv = new Integer(val);
+            Integer vv = Integer.valueOf(val);
             String tms = tm.get(vv);
             String hms = hm.get(vv);
             assertEquals(tms, hms);

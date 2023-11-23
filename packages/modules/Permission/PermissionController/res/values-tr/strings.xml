@@ -23,6 +23,8 @@
     <string name="back" msgid="6249950659061523680">"Geri"</string>
     <string name="available" msgid="6007778121920339498">"İzin verildi"</string>
     <string name="blocked" msgid="9195547604866033708">"Engellendi"</string>
+    <string name="on" msgid="280241003226755921">"Açık"</string>
+    <string name="off" msgid="1438489226422866263">"Kapalı"</string>
     <string name="uninstall_or_disable" msgid="4496612999740858933">"Kaldır veya devre dışı bırak"</string>
     <string name="app_not_found_dlg_title" msgid="6029482906093859756">"Uygulama bulunamadı"</string>
     <string name="grant_dialog_button_deny" msgid="88262611492697192">"İzin verme"</string>
@@ -30,6 +32,11 @@
     <string name="grant_dialog_button_no_upgrade" msgid="8344732743633736625">"“Uygulama kullanılırken” tut"</string>
     <string name="grant_dialog_button_no_upgrade_one_time" msgid="5125892775684968694">"\"Yalnızca bu defa\" sakla"</string>
     <string name="grant_dialog_button_more_info" msgid="213350268561945193">"Daha fazla bilgi"</string>
+    <string name="grant_dialog_button_allow_all" msgid="5939066403732409516">"Tümüne izin ver"</string>
+    <string name="grant_dialog_button_always_allow_all" msgid="1719900027660252167">"Tümüne her zaman izin ver"</string>
+    <string name="grant_dialog_button_allow_selected_photos" msgid="5497042471576153842">"Fotoğraf ve video seçin"</string>
+    <string name="grant_dialog_button_allow_more_selected_photos" msgid="5145657877588697709">"Daha fazla seçin"</string>
+    <string name="grant_dialog_button_dont_select_more" msgid="6643552729129461268">"Başka seçilmesin"</string>
     <string name="grant_dialog_button_deny_anyway" msgid="7225905870668915151">"Yine de izin verme"</string>
     <string name="grant_dialog_button_dismiss" msgid="1930399742250226393">"Kapat"</string>
     <string name="current_permission_template" msgid="7452035392573329375">"<xliff:g id="CURRENT_PERMISSION_INDEX">%1$s</xliff:g> / <xliff:g id="PERMISSION_COUNT">%2$s</xliff:g>"</string>
@@ -74,7 +81,7 @@
     <string name="storage_supergroup_warning_allow" msgid="103093462784523190">"Bu uygulama Android\'in daha eski bir sürümü için tasarlandı. Bu izni verirseniz uygulama tüm depolama alanına (fotoğraf, video, müzik, ses ve diğer dosyalar dahil) erişebilir."</string>
     <string name="storage_supergroup_warning_deny" msgid="6420765672683284347">"Bu uygulama Android\'in daha eski bir sürümü için tasarlandı. Bu izni vermezseniz uygulamanın tüm depolama alanına erişimi (fotoğraf, video, müzik, ses ve diğer dosyalar dahil) reddedilir."</string>
     <string name="default_permission_description" msgid="4624464917726285203">"bilinmeyen bir işlem gerçekleştirme"</string>
-    <string name="app_permissions_group_summary" msgid="8788419008958284002">"<xliff:g id="COUNT_0">%1$d</xliff:g> / <xliff:g id="COUNT_1">%2$d</xliff:g> uygulamaya izin veriliyor"</string>
+    <string name="app_permissions_group_summary" msgid="8788419008958284002">"<xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="COUNT_1">%2$d</xliff:g> uygulamaya izin veriliyor"</string>
     <string name="app_permissions_group_summary2" msgid="4329922444840521150">"<xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="COUNT_1">%2$d</xliff:g> uygulamaya izin veriliyor"</string>
     <string name="menu_show_system" msgid="4254021607027872504">"Sistemi göster"</string>
     <string name="menu_hide_system" msgid="3855390843744028465">"Sisteme ait olanları gizle"</string>
@@ -107,9 +114,6 @@
     <string name="all_permissions" msgid="6911125611996872522">"Tüm izinler"</string>
     <string name="other_permissions" msgid="2901186127193849594">"Diğer uygulama özellikleri"</string>
     <string name="permission_request_title" msgid="8790310151025020126">"İzin isteği"</string>
-    <string name="screen_overlay_title" msgid="6977038513913222078">"Ekran yer paylaşımı tespit edildi"</string>
-    <string name="screen_overlay_message" msgid="5622563069757142102">"Bu izin ayarını değiştirmek için ilk olarak Ayarlar &gt; Uygulamalar\'dan ekran yer paylaşımını kapatmanız gerekir"</string>
-    <string name="screen_overlay_button" msgid="4655005928054025250">"Ayarları aç"</string>
     <string name="wear_not_allowed_dlg_title" msgid="1429467891296932713">"Android Wear"</string>
     <string name="wear_not_allowed_dlg_text" msgid="512340555334769098">"Yükleme/Yüklemeyi Kaldırma işlemleri Wear\'da desteklenmiyor."</string>
     <string name="permission_review_title_template_install" msgid="1284337937156289081">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; uygulamasının nelere erişmesine izin vereceğinizi seçin"</string>
@@ -130,21 +134,20 @@
     <string name="permission_group_usage_subtitle_7d" msgid="1465828402260324654">"<xliff:g id="PERMGROUP">%1$s</xliff:g> izin grubunuzun, son 7 gün içinde uygulamalar tarafından kullanımının zaman çizelgesi"</string>
     <string name="permission_usage_access_dialog_subtitle" msgid="4171772805196955753">"Bu uygulamanın <xliff:g id="PERMGROUP">%1$s</xliff:g> izninizi kullandığı zaman"</string>
     <string name="permission_usage_access_dialog_learn_more" msgid="7121468469493184613">"Daha fazla bilgi"</string>
+    <string name="learn_more_content_description" msgid="8673699744544502539">"<xliff:g id="PERMGROUP">%1$s</xliff:g> hakkında daha fazla bilgi"</string>
     <string name="manage_permission_summary" msgid="4117555482684114317">"Uygulamaların <xliff:g id="PERMGROUP">%1$s</xliff:g> bilgilerinize erişimini kontrol edin"</string>
     <string name="auto_permission_usage_timeline_summary" msgid="2713135806453218703">"<xliff:g id="ACCESS_TIME">%1$s</xliff:g> • <xliff:g id="SUMMARY_TEXT">%2$s</xliff:g>"</string>
     <string name="history_preference_subtext_2" msgid="1521763591164293683">"<xliff:g id="APP_NAME">%1$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%2$s</xliff:g>"</string>
     <string name="history_preference_subtext_3" msgid="758761785983094351">"<xliff:g id="ATTRIBUTION_NAME">%1$s</xliff:g> • <xliff:g id="APP_NAME">%2$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%3$s</xliff:g>"</string>
-    <string name="duration_used_days" msgid="8293010131040301793">"{count,plural, =1{1 gün}other{# gün}}"</string>
-    <string name="duration_used_hours" msgid="1128716208752263576">"{count,plural, =1{1 saat}other{# saat}}"</string>
-    <string name="duration_used_minutes" msgid="5335824115042576567">"{count,plural, =1{1 dk.}other{# dk.}}"</string>
-    <string name="duration_used_seconds" msgid="6543746449171675028">"{count,plural, =1{1 sn.}other{# sn.}}"</string>
+    <string name="duration_used_days" msgid="8238355545812998877">"{count,plural, =1{# gün}other{# gün}}"</string>
+    <string name="duration_used_hours" msgid="4983814806123370332">"{count,plural, =1{# saat}other{# saat}}"</string>
+    <string name="duration_used_minutes" msgid="1701379522897227819">"{count,plural, =1{# dk.}other{# dk.}}"</string>
+    <string name="duration_used_seconds" msgid="4067390990568727715">"{count,plural, =1{# sn.}other{# sn.}}"</string>
     <string name="permission_usage_any_permission" msgid="6358023078298106997">"Tüm izinler"</string>
     <string name="permission_usage_any_time" msgid="3802087027301631827">"Tüm zamanlar"</string>
-    <string name="permission_usage_last_7_days" msgid="7386221251886130065">"Son 7 gün"</string>
-    <string name="permission_usage_last_day" msgid="1512880889737305115">"Son 24 saat"</string>
-    <string name="permission_usage_last_hour" msgid="3866005205535400264">"Son 1 saat"</string>
-    <string name="permission_usage_last_15_minutes" msgid="9077554653436200702">"Son 15 dakika"</string>
-    <string name="permission_usage_last_minute" msgid="7297055967335176238">"Son 1 dakika"</string>
+    <string name="permission_usage_last_n_days" msgid="7882626467375714145">"{count,plural, =1{Son # gün}other{Son # gün}}"</string>
+    <string name="permission_usage_last_n_hours" msgid="8490466053680267858">"{count,plural, =1{Son # saat}other{Son # saat}}"</string>
+    <string name="permission_usage_last_n_minutes" msgid="7817864229878281983">"{count,plural, =1{Son # dakika}other{Son # dakika}}"</string>
     <string name="no_permission_usages" msgid="9119517454177289331">"İzin kullanılmadı"</string>
     <string name="permission_usage_list_title_any_time" msgid="8718257027381592407">"Herhangi bir zamanda gerçekleşen en son erişim"</string>
     <string name="permission_usage_list_title_last_7_days" msgid="9048542342670890615">"Son 7 gün içindeki en son erişimler"</string>
@@ -158,8 +161,8 @@
     <string name="permission_usage_bar_chart_title_last_hour" msgid="6571647509660009185">"Son 1 saat içinde gerçekleşen izin kullanımı"</string>
     <string name="permission_usage_bar_chart_title_last_15_minutes" msgid="2743143675412824819">"Son 15 dakika içinde gerçekleştirilen izin kullanımı"</string>
     <string name="permission_usage_bar_chart_title_last_minute" msgid="820450867183487607">"Son 1 dakika içinde gerçekleşen izin kullanımı"</string>
-    <string name="permission_usage_preference_summary_not_used_24h" msgid="3087783232178611025">"Son 24 saat içinde kullanılmadı"</string>
-    <string name="permission_usage_preference_summary_not_used_7d" msgid="4592301300810120096">"Son 7 gün içinde kullanılmadı"</string>
+    <string name="permission_usage_preference_summary_not_used_in_past_n_days" msgid="4771868094611359651">"{count,plural, =1{Son # gün içinde kullanılmadı}other{Son # gün içinde kullanılmadı}}"</string>
+    <string name="permission_usage_preference_summary_not_used_in_past_n_hours" msgid="3828973177433435742">"{count,plural, =1{Son # saat içinde kullanılmadı}other{Son # saat içinde kullanılmadı}}"</string>
     <string name="permission_usage_preference_label" msgid="8343167938128676378">"{count,plural, =1{1 uygulama tarafından kullanıldı}other{# uygulama tarafından kullanıldı}}"</string>
     <string name="permission_usage_view_details" msgid="6675335735468752787">"Tümünü Kontrol Paneli\'nde göster"</string>
     <string name="app_permission_usage_filter_label" msgid="7182861154638631550">"Filtre ölçütü: <xliff:g id="PERM">%1$s</xliff:g>"</string>
@@ -185,6 +188,7 @@
     <string name="app_permission_button_allow_media_only" msgid="2834282724426046154">"Yalnızca medyaya erişim izni ver"</string>
     <string name="app_permission_button_allow_always" msgid="4573292371734011171">"Her zaman izin ver"</string>
     <string name="app_permission_button_allow_foreground" msgid="1991570451498943207">"Yalnızca uygulama kullanılırken izin ver"</string>
+    <string name="app_permission_button_always_allow_all" msgid="4905699259378428855">"Tümüne her zaman izin ver"</string>
     <string name="app_permission_button_ask" msgid="3342950658789427">"Her zaman sor"</string>
     <string name="app_permission_button_deny" msgid="6016454069832050300">"İzin verme"</string>
     <string name="precise_image_description" msgid="6349638632303619872">"Tam konum"</string>
@@ -211,14 +215,13 @@
     <string name="auto_revocable_permissions_two" msgid="4874067408752041716">"<xliff:g id="PERM_0">%1$s</xliff:g> ve <xliff:g id="PERM_1">%2$s</xliff:g> izinleri kaldırılacak."</string>
     <string name="auto_revocable_permissions_many" msgid="1521807896206032992">"Kaldırılacak izinler: <xliff:g id="PERMS">%1$s</xliff:g>."</string>
     <string name="auto_manage_title" msgid="7693181026874842935">"İzinleri otomatik olarak yönetin"</string>
-    <string name="off" msgid="1438489226422866263">"Kapalı"</string>
     <string name="auto_revoked_app_summary_one" msgid="7093213590301252970">"<xliff:g id="PERMISSION_NAME">%s</xliff:g> izni kaldırıldı"</string>
     <string name="auto_revoked_app_summary_two" msgid="1910545340763709389">"<xliff:g id="PERMISSION_NAME_0">%1$s</xliff:g> ve <xliff:g id="PERMISSION_NAME_1">%2$s</xliff:g> izni kaldırıldı"</string>
     <string name="auto_revoked_app_summary_many" msgid="5930976230827378798">"<xliff:g id="PERMISSION_NAME">%1$s</xliff:g> izni ve diğer <xliff:g id="NUMBER">%2$s</xliff:g> izin kaldırıldı"</string>
     <string name="unused_apps_page_title" msgid="6986983535677572559">"Kullanılmayan uygulamalar"</string>
     <string name="unused_apps_page_summary" msgid="1867593913217272155">"Uygulama birkaç ay kullanılmazsa:\n\n• Verilerinizi korumak için izinler kaldırılır\n• Pilden tasarruf etmek için bildirimler durdurulur\n• Yer açmak için geçici dosyalar kaldırılır\n\nİzinleri ve bildirimleri yeniden etkinleştirmek için uygulamayı açın."</string>
-    <string name="unused_apps_page_tv_summary" msgid="3685907153054355671">"Uygulama birkaç ay kullanılmazsa:\n\n• Verilerinizi korumak için izinler kaldırılır\n• Yer açmak için geçici dosyalar kaldırılır\n\nİzinleri yeniden etkinleştirmek için uygulamayı açın."</string>
-    <string name="last_opened_category_title" msgid="7871347400611202595">"En son <xliff:g id="NUMBER">%s</xliff:g> aydan fazla bir süre önce açıldı"</string>
+    <string name="unused_apps_page_tv_summary" msgid="2624911608663778308">"Uygulama bir ay kullanılmazsa:\n\n• Verilerinizi korumak için izinler kaldırılır\n• Yer açmak için geçici dosyalar kaldırılır\n\nİzinleri yeniden etkinleştirmek için uygulamayı açın."</string>
+    <string name="last_opened_category_title" msgid="8796557894614236128">"{count,plural, =1{En son # aydan uzun bir süre önce açıldı}other{En son # aydan uzun bir süre önce açıldı}}"</string>
     <string name="last_opened_summary" msgid="5248984030024968808">"Uygulama en son <xliff:g id="DATE">%s</xliff:g> tarihinde açıldı"</string>
     <string name="last_opened_summary_short" msgid="1646067226191176825">"En son <xliff:g id="DATE">%s</xliff:g> tarihinde açıldı"</string>
     <string name="app_permission_footer_special_file_access" msgid="1884202176147657788">"Tüm dosyaların yönetilmesine izin verirseniz bu uygulama, bu cihazdaki ortak depolama alanında veya bu cihaza bağlı depolama cihazlarında bulunan tüm dosyalara erişebilir, bunları değiştirebilir ve silebilir. Uygulama, size sormadan dosyalara erişebilir."</string>
@@ -249,11 +252,11 @@
     <string name="allowed_storage_full" msgid="5356699280625693530">"Tüm dosyaları yönetme izni verilenler"</string>
     <string name="ask_header" msgid="2633816846459944376">"Her zaman sorulacaklar"</string>
     <string name="denied_header" msgid="903209608358177654">"İzin verilmeyenler"</string>
-    <string name="storage_footer_hyperlink_text" msgid="8873343987957834810">"Tüm dosyalara erişebilen daha fazla uygulama görün"</string>
+    <string name="storage_footer_hyperlink_text" msgid="8873343987957834810">"Tüm dosyalara erişebilen diğer uygulamaları görün"</string>
     <string name="days" msgid="609563020985571393">"{count,plural, =1{1 gün}other{# gün}}"</string>
-    <string name="hours" msgid="3447767892295843282">"{count,plural, =1{1 saat}other{# saat}}"</string>
-    <string name="minutes" msgid="4408293038068503157">"{count,plural, =1{1 dakika}other{# dakika}}"</string>
-    <string name="seconds" msgid="5397771912131132690">"{count,plural, =1{1 saniye}other{# saniye}}"</string>
+    <string name="hours" msgid="7302866489666950038">"{count,plural, =1{# saat}other{# saat}}"</string>
+    <string name="minutes" msgid="4868414855445375753">"{count,plural, =1{# dakika}other{# dakika}}"</string>
+    <string name="seconds" msgid="5893958182059842734">"{count,plural, =1{# saniye}other{# saniye}}"</string>
     <string name="permission_reminders" msgid="6528257957664832636">"İzin hatırlatıcılar"</string>
     <string name="auto_revoke_permission_reminder_notification_title_one" msgid="6690347469376854137">"1 kullanılmayan uygulama"</string>
     <string name="auto_revoke_permission_reminder_notification_title_many" msgid="6062217713645069960">"<xliff:g id="NUMBER_OF_APPS">%s</xliff:g> kullanılmayan uygulama"</string>
@@ -262,6 +265,9 @@
     <string name="auto_revoke_permission_notification_content" msgid="5125990886047799375">"Bazı uygulamalar birkaç aydır kullanılmadı. İncelemek için dokunun."</string>
     <string name="unused_apps_notification_title" msgid="4314832015894238019">"{count,plural, =1{# kullanılmayan uygulama}other{# kullanılmayan uygulama}}"</string>
     <string name="unused_apps_notification_content" msgid="9195026773244581246">"İzinler ve geçici dosyalar kaldırıldı, bildirimler durduruldu. İncelemek için dokunun."</string>
+    <string name="unused_apps_safety_center_card_title" msgid="5638409355530099149">"İzinleri kaldırılan uygulamaları inceleyin"</string>
+    <string name="unused_apps_safety_center_card_content" msgid="1088557243627427820">"Bir süredir kullanmadığınız uygulamalardaki izinler ile geçici dosyalar kaldırıldı ve bildirimler durduruldu."</string>
+    <string name="unused_apps_safety_center_action_title" msgid="8865914432518993194">"Uygulamaları inceleyin"</string>
     <string name="post_drive_permission_decision_reminder_title" msgid="1290697371418139976">"Son izinleri kontrol edin"</string>
     <string name="post_drive_permission_decision_reminder_summary_1_app_1_permission" msgid="670521503734140711">"Sürüş sırasında <xliff:g id="APP">%1$s</xliff:g> uygulamasına <xliff:g id="PERMISSION">%2$s</xliff:g> erişim izni verdiniz"</string>
     <string name="post_drive_permission_decision_reminder_summary_1_app_2_permissions" msgid="671791184670801301">"Sürüş sırasında <xliff:g id="APP">%1$s</xliff:g> uygulamasına <xliff:g id="PERMISSION_1">%2$s</xliff:g> ve <xliff:g id="PERMISSION_2">%3$s</xliff:g> erişim izni verdiniz"</string>
@@ -276,6 +282,19 @@
     <string name="auto_revoke_preference_summary" msgid="5517958331781391481">"İzinler gizliliğinizi korumak için kaldırıldı"</string>
     <string name="background_location_access_reminder_notification_title" msgid="1140797924301941262">"<xliff:g id="APP_NAME">%s</xliff:g>, arka planda konumunuza erişti"</string>
     <string name="background_location_access_reminder_notification_content" msgid="7787084707336546245">"Bu uygulama, konumunuza her zaman erişebilir. Değiştirmek için dokunun."</string>
+    <string name="notification_listener_reminder_notification_title" msgid="3747210460187479091">"Bildirim erişimine sahip olan uygulamayı inceleyin"</string>
+    <string name="notification_listener_reminder_notification_content" msgid="831476101108863427">"<xliff:g id="APP_NAME">%s</xliff:g>, bildirimlerinizdeki içerikleri kapatabilir, bu içeriklerle ilgili işlem yapabilir ve bunlara erişebilir"</string>
+    <string name="notification_listener_warning_card_content" msgid="7840973324284115893">"Bu uygulama, bildirimlerinizdeki içerikleri kapatabilir, bu içeriklerle ilgili işlem yapabilir ve bunlara erişebilir. Bazı uygulamaların istenen şekilde çalışabilmeleri için bu erişime ihtiyaçları vardır."</string>
+    <string name="notification_listener_remove_access_button_label" msgid="7101898782417817097">"Erişimi kaldırın"</string>
+    <string name="notification_listener_review_app_button_label" msgid="3433073281029143924">"Diğer seçenekleri göster"</string>
+    <string name="notification_listener_remove_access_success_label" msgid="2477611529875633107">"Erişim kaldırıldı"</string>
+    <string name="accessibility_access_reminder_notification_title" msgid="2971317234668807566">"Tam cihaz erişimine sahip olan uygulamayı inceleyin"</string>
+    <string name="accessibility_access_reminder_notification_content" msgid="7389454158175306720">"<xliff:g id="APP_NAME">%s</xliff:g>, ekranınızı görüntüleyebilir ve cihazınızda işlem gerçekleştirebilir. Erişilebilirlik uygulamaları, istenen şekilde çalışmak için bu tür bir erişime ihtiyaç duyar."</string>
+    <string name="accessibility_access_warning_card_content" msgid="4370327190293217358">"Bu uygulama, ekranınızı görüntüleyebilir ve cihazınızda işlem gerçekleştirebilir. Erişilebilirlik uygulamaları, istenen şekilde çalışmak için bu tür bir erişime ihtiyaç duyar. Yine de ilgili uygulamayı kontrol edip güvenilir olduğundan emin olun."</string>
+    <string name="accessibility_remove_access_button_label" msgid="44145801526711640">"Erişimi kaldırın"</string>
+    <string name="accessibility_show_all_apps_button_label" msgid="960067249326392280">"Tam erişime sahip olan uygulamaları görüntüleyin"</string>
+    <string name="accessibility_remove_access_success_label" msgid="4380995302917014670">"Erişim kaldırıldı"</string>
+    <string name="safety_center_notification_app_label" msgid="2457720616141926534">"Android Sistemi"</string>
     <string name="auto_revoke_after_notification_title" msgid="5417761027669887431">"Uygulama izinleri gizliliği korumak için kaldırıldı"</string>
     <string name="auto_revoke_after_notification_content_one" msgid="6804038707453662753">"<xliff:g id="APP_NAME">%s</xliff:g> birkaç aydır kullanılmadı. İncelemek için dokunun."</string>
     <string name="auto_revoke_after_notification_content_two" msgid="9108709764831425172">"<xliff:g id="APP_NAME">%s</xliff:g> ve 1 diğer uygulama birkaç aydır kullanılmadı. İncelemek için dokunun."</string>
@@ -378,6 +397,10 @@
     <string name="role_watch_description" msgid="267003778693177779">"<xliff:g id="APP_NAME">%1$s</xliff:g> adlı uygulamanın bildirimlerinizle etkileşimde bulunup Telefon, SMS, Kişiler ve Takvim izinlerinize erişmesine izin verilir."</string>
     <string name="role_app_streaming_description" msgid="7341638576226183992">"<xliff:g id="APP_NAME">%1$s</xliff:g> adlı uygulamanın bildirimlerinizle etkileşimde bulunup uygulamalarınızı bağlı cihazda canlı oynatmasına izin verilecek."</string>
     <string name="role_companion_device_computer_description" msgid="416099879217066377">"Bu hizmet, telefonunuzdaki fotoğraf, medya ve bildirimleri diğer cihazlarla paylaşır."</string>
+    <string name="role_notes_label" msgid="7451627001058089536">"Varsayılan not uygulaması"</string>
+    <string name="role_notes_short_label" msgid="8796604147546125285">"Notlar uygulaması"</string>
+    <string name="role_notes_description" msgid="8496852798616883551">"Cihazınızda not almanıza olanak tanıyan uygulamalar"</string>
+    <string name="role_notes_search_keywords" msgid="7710756695666744631">"notlar"</string>
     <string name="request_role_current_default" msgid="738722892438247184">"Mevcut varsayılan"</string>
     <string name="request_role_dont_ask_again" msgid="3556017886029520306">"Tekrar sorma"</string>
     <string name="request_role_set_as_default" msgid="4253949643984172880">"Varsayılan olarak ayarla"</string>
@@ -452,6 +475,7 @@
     <string name="permgrouprequest_storage_pre_q" msgid="168130651144569428">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; için cihazdaki &lt;b&gt;fotoğraf, video, müzik, ses vb. dosyalara&lt;/b&gt; erişim verilsin mi?"</string>
     <string name="permgrouprequest_read_media_aural" msgid="2593365397347577812">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; uygulamasının bu cihazda müzik ve ses dosyalarına erişmesine izin verilsin mi?"</string>
     <string name="permgrouprequest_read_media_visual" msgid="5548780620779729975">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; uygulamasının bu cihazdaki fotoğraf ve videolara erişmesine izin verilsin mi?"</string>
+    <string name="permgrouprequest_more_photos" msgid="128933814654231321">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; uygulamasının bu cihazdaki diğer fotoğraf ve videolara erişmesine izin verilsin mi?"</string>
     <string name="permgrouprequest_microphone" msgid="2825208549114811299">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; uygulamasının ses kaydetmesine izin verilsin mi?"</string>
     <string name="permgrouprequestdetail_microphone" msgid="8510456971528228861">"Bu uygulama, yalnızca kullanıldığı sırada ses kaydedebilir"</string>
     <string name="permgroupbackgroundrequest_microphone" msgid="8874462606796368183">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; uygulamasının ses kaydetmesine izin verilsin mi?"</string>
@@ -474,8 +498,8 @@
     <string name="permgroupupgraderequest_sensors" msgid="7576527638411370468">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; uygulamasının kullanımdayken vücut sensörü verilerine erişme izni sürdürülsün mü?"</string>
     <string name="permgrouprequest_notifications" msgid="6396739062335106181">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; uygulamasının size bildirim göndermesine izin verilsin mi?"</string>
     <string name="auto_granted_permissions" msgid="6009452264824455892">"Kontrol edilen izinler"</string>
-    <string name="auto_granted_location_permission_notification_title" msgid="1438871159268985993">"Konuma erişilebilir"</string>
-    <string name="auto_granted_permission_notification_body" msgid="6919835973190443695">"BT yöneticiniz, <xliff:g id="APP_NAME">%s</xliff:g> uygulamasının konumunuza erişmesine izin veriyor"</string>
+    <string name="auto_granted_location_permission_notification_title" msgid="7570818224669050377">"<xliff:g id="APP_NAME">%1$s</xliff:g> konuma erişebiliyor"</string>
+    <string name="auto_granted_permission_notification_body" msgid="5040234389205471318">"Kuruluşunuz <xliff:g id="APP_NAME">%1$s</xliff:g> uygulamasının konumunuza erişmesine izin veriyor"</string>
     <string name="other_permissions_label" msgid="8986184335503271992">"Diğer izinler"</string>
     <string name="not_used_permissions_label" msgid="3939839426115141264">"Sistem tarafından kullanılan izinler"</string>
     <string name="not_used_permissions_description" msgid="7595514824169388718">"Yalnızca sistem uygulamaları tarafından kullanılan izinler."</string>
@@ -496,17 +520,28 @@
     <string name="blocked_sensor_summary" msgid="4443707628305027375">"Uygulamalar ve hizmetler için"</string>
     <string name="blocked_mic_summary" msgid="8960466941528458347">"Mikrofon verileri, bir acil durum numarasını aradığınızda paylaşılmaya devam edilebilir."</string>
     <string name="blocked_sensor_button_label" msgid="6742092634984289658">"Değiştir"</string>
-    <string name="safety_center_dashboard_page_title" msgid="7514620345152008005">"Güvenlik ve Gizlilik"</string>
-    <string name="safety_center_rescan_button" msgid="8047036829052958144">"Tara"</string>
+    <string name="safety_center_dashboard_page_title" msgid="2810774008694315854">"Güvenlik ve gizlilik"</string>
+    <string name="safety_center_rescan_button" msgid="4517514567809409596">"Cihaz taraması yap"</string>
     <string name="safety_center_issue_card_dismiss_button" msgid="5113965506144222402">"Kapat"</string>
+    <string name="safety_center_issue_card_dismiss_confirmation_title" msgid="2734809473425036382">"Bu uyarı kapatılsın mı?"</string>
+    <string name="safety_center_issue_card_dismiss_confirmation_message" msgid="3775418736671093563">"Daha fazla korumaya sahip olmak için güvenlik ve gizlilik ayarlarınızı istediğiniz zaman gözden geçirin."</string>
+    <string name="safety_center_issue_card_confirm_dismiss_button" msgid="5884137843083634556">"Kapat"</string>
+    <string name="safety_center_issue_card_cancel_dismiss_button" msgid="2874578798877712346">"İptal"</string>
+    <string name="safety_center_entries_category_title" msgid="34356964062813115">"Ayarlar"</string>
+    <string name="safety_status_preference_title_and_summary_content_description" msgid="3511373256505058464">"Güvenlik ve gizlilik durumu. <xliff:g id="OVERALL_SAFETY_STATUS">%1$s</xliff:g>. <xliff:g id="SUMMARY_OF_DEVICE_STATUS">%2$s</xliff:g>"</string>
     <string name="security_settings" msgid="3808106921175271317">"Güvenlik Ayarları"</string>
-    <string name="sensor_permissions_qs" msgid="4365989229426201877">"Sensör İzinleri"</string>
-    <string name="privacy_controls_qs" msgid="471793881466080745">"Gizlilik Denetimleri"</string>
+    <string name="sensor_permissions_qs" msgid="1022267900031317472">"İzinler"</string>
+    <string name="safety_privacy_qs_tile_title" msgid="727301867710374052">"Güvenlik ve gizlilik"</string>
+    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"Durumu denetle"</string>
+    <string name="privacy_controls_qs" msgid="5780144882040591169">"Gizlilik kontrolleriniz"</string>
+    <string name="security_settings_button_label_qs" msgid="8280343822465962330">"Diğer ayarlar"</string>
+    <string name="camera_toggle_label_qs" msgid="3880261453066157285">"Kamera erişimi"</string>
+    <string name="microphone_toggle_label_qs" msgid="8132912469813396552">"Mikrofon erişimi"</string>
     <string name="permissions_removed_qs" msgid="8957319130625294572">"İzin kaldırıldı"</string>
-    <string name="camera_usage_qs" msgid="7943349178368641820">"Daha fazla kamera kullanımı göster"</string>
-    <string name="microphone_usage_qs" msgid="2393193350541830472">"Daha fazla mikrofon kullanımı göster"</string>
-    <string name="remove_camera_qs" msgid="8209716677879809162">"Kamera iznini kaldır"</string>
-    <string name="remove_microphone_qs" msgid="2893536836641560183">"Mikrofon iznini kaldır"</string>
+    <string name="camera_usage_qs" msgid="4394233566086665994">"Son kamera kullanımını göster"</string>
+    <string name="microphone_usage_qs" msgid="8527666682168170417">"Son mikrofon kullanımını göster"</string>
+    <string name="remove_camera_qs" msgid="3649996161066883350">"Bu uygulamanın iznini kaldır"</string>
+    <string name="remove_microphone_qs" msgid="1276551965129953198">"Bu uygulamanın iznini kaldır"</string>
     <string name="manage_service_qs" msgid="7862555549364153805">"Hizmeti yönet"</string>
     <string name="manage_permissions_qs" msgid="3780541819763475434">"İzinleri yönetin"</string>
     <string name="active_call_usage_qs" msgid="8559974395932523391">"Telefon aramasında kullanılıyor"</string>
@@ -517,8 +552,6 @@
     <string name="recent_app_usage_1_qs" msgid="261450184773310741">"En son <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g>) tarafından kullanıldı"</string>
     <string name="active_app_usage_2_qs" msgid="6107866785243565283">"<xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>) tarafından kullanılıyor"</string>
     <string name="recent_app_usage_2_qs" msgid="3591205954235694403">"En son <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>) tarafından kullanıldı"</string>
-    <string name="safety_privacy_qs_tile_title" msgid="5431148204168066203">"Güvenlik ve Gizlilik"</string>
-    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"Durumu denetle"</string>
     <string name="media_confirm_dialog_positive_button" msgid="9020793594051526399">"Onayla"</string>
     <string name="media_confirm_dialog_negative_button" msgid="226987376924861785">"Geri"</string>
     <string name="media_confirm_dialog_title_a_to_p_aural_allow" msgid="8560601114044699903">"Diğer dosyalara erişime de izin verilir"</string>
@@ -537,4 +570,53 @@
     <string name="media_confirm_dialog_message_q_to_s_aural_deny" msgid="6832087393653561911">"Bu uygulamada Android\'in en son sürümü desteklenmiyor. Bu uygulama müzik ve ses dosyalarına erişemezse fotoğraflara ve videolara da erişmesine izin verilmez."</string>
     <string name="media_confirm_dialog_message_q_to_s_visual_allow" msgid="3504335060843147760">"Bu uygulamada Android\'in en son sürümü desteklenmiyor. Bu uygulama fotoğraflara ve videolara erişebilirse müzik ve ses dosyalarına da erişmesine izin verilir."</string>
     <string name="media_confirm_dialog_message_q_to_s_visual_deny" msgid="2145973462806481992">"Bu uygulamada Android\'in en son sürümü desteklenmiyor. Bu uygulama müzik ve ses dosyalarına erişemezse fotoğraflara ve videolara da erişmesine izin verilmez."</string>
+    <string name="safety_center_background_location_access_notification_title" msgid="8933610618810588237">"Arka planda konum erişimine sahip olan uygulamayı inceleyin"</string>
+    <string name="safety_center_background_location_access_reminder_notification_content" msgid="4066560182507301022">"<xliff:g id="APP_NAME">%s</xliff:g>, uygulama kapalıyken bile konumunuza her zaman erişebilir"</string>
+    <string name="safety_center_background_location_access_reminder_title" msgid="5477847038103863843">"Arka planda konum erişimine sahip olan uygulamayı inceleyin"</string>
+    <string name="safety_center_background_location_access_reminder_summary" msgid="7431657777510537658">"Bu uygulama kapalı olduğunda bile her zaman konumunuza erişebilir.\n\nBazı güvenlik ve acil durum uygulamalarının doğru şekilde çalışabilmesi için arka planda konum bilginize erişmesi gerekir."</string>
+    <string name="safety_center_background_location_access_revoked" msgid="6972274943343442213">"Erişim değiştirildi"</string>
+    <string name="safety_center_view_recent_location_access" msgid="3524391299490678243">"Son konum kullanımını göster"</string>
+    <string name="privacy_controls_title" msgid="7605929972256835199">"Gizlilik denetimleri"</string>
+    <string name="camera_toggle_title" msgid="1251201397431837666">"Kamera erişimi"</string>
+    <string name="mic_toggle_title" msgid="2649991093496110162">"Mikrofon erişimi"</string>
+    <string name="perm_toggle_description" msgid="7801326363741451379">"Uygulamalar ve hizmetler için"</string>
+    <string name="mic_toggle_description" msgid="9163104307990677157">"Uygulamalar ve hizmetler için. Bu ayar kapalıyken bir acil durum numarasını aradığınızda mikrofon verileri paylaşılmaya devam edilebilir."</string>
+    <string name="location_settings_subtitle" msgid="2328360561197430695">"Konum erişimi olan uygulama ve hizmetlere göz atın."</string>
+    <string name="show_clip_access_notification_title" msgid="5168467637351109096">"Panoya erişimi göster"</string>
+    <string name="show_clip_access_notification_summary" msgid="3532020182782112687">"Uygulamalar kopyaladığınız metne, resimlere veya diğer içeriklere eriştiğinde mesaj gösterilsin"</string>
+    <string name="show_password_title" msgid="2877269286984684659">"Şifreleri göster"</string>
+    <string name="show_password_summary" msgid="1110166488865981610">"Yazarken karakterleri kısa süreliğine göster"</string>
+    <string name="permission_rationale_message_location" msgid="2153841534298068414">"Bu uygulama, konum verilerini üçüncü taraflarla paylaşabileceğini belirtti"</string>
+    <string name="permission_rationale_location_title" msgid="2404797182678793506">"Veri paylaşımı ve konum"</string>
+    <string name="permission_rationale_data_sharing_source_title" msgid="6874604543125814316">"Veri paylaşımı bilgilerinin kaynağı"</string>
+    <string name="permission_rationale_data_sharing_device_manufacturer_message" msgid="7569261218145653185">"Geliştirici, bu cihazın üreticisine bu uygulamanın veri paylaşım yöntemleri hakkında bilgi sağladı. Geliştirici bu bilgiyi zaman içinde güncelleyebilir."</string>
+    <string name="permission_rationale_data_sharing_source_message" msgid="8330794595417986883">"Geliştirici, "<annotation id="link"><annotation id="install_source" example="App Store">"%1$s"</annotation></annotation>" uygulama mağazasına bu uygulamanın veri paylaşımı yöntemleri hakkında bilgi sağladı. Geliştirici bu bilgiyi zaman içinde güncelleyebilir."</string>
+    <string name="permission_rationale_location_purpose_title" msgid="5115877143670012618">"Bu uygulama, konum verilerini paylaşabilir:"</string>
+    <string name="permission_rationale_permission_data_sharing_varies_title" msgid="9103718980919908316">"Veri paylaşımı değişir"</string>
+    <string name="permission_rationale_data_sharing_varies_message" msgid="4224469559084489222">"Veri uygulamaları; uygulama sürümünüz, kullanımınız, bölgeniz ve yaşınıza göre değişiklik gösterebilir. "<annotation id="link">"Veri paylaşımı hakkında daha fazla bilgi"</annotation></string>
+    <string name="permission_rationale_data_sharing_varies_message_without_link" msgid="4912763761399025094">"Veri uygulamaları; uygulama sürümünüz, kullanımınız, bölgeniz ve yaşınıza göre değişiklik gösterebilir."</string>
+    <string name="permission_rationale_location_settings_title" msgid="7204145004850190953">"Konum verileriniz"</string>
+    <string name="permission_rationale_permission_settings_message" msgid="631286040979660267">"Bu uygulamanın erişimini "<annotation id="link">"gizlilik ayarlarından"</annotation>" değiştirebilirsiniz"</string>
+    <string name="permission_rationale_purpose_app_functionality" msgid="8397736681065841405">"Uygulama işlevselliği"</string>
+    <string name="permission_rationale_purpose_analytics" msgid="2070800501189620712">"Analizler"</string>
+    <string name="permission_rationale_purpose_developer_communications" msgid="6453047018892062374">"Geliştirici iletişimleri"</string>
+    <string name="permission_rationale_purpose_advertising" msgid="7156966429245180236">"Reklam veya pazarlama"</string>
+    <string name="permission_rationale_purpose_fraud_prevention_security" msgid="4262104770357031902">"Sahtekarlığı önleme, güvenlik ve kanunlara uygunluk"</string>
+    <string name="permission_rationale_purpose_personalization" msgid="1589973273682238708">"Kişiselleştirme"</string>
+    <string name="permission_rationale_purpose_account_management" msgid="2985772421946688879">"Hesap yönetimi"</string>
+    <string name="app_permission_rationale_message" msgid="8511466916077100713">"Veri güvenliği"</string>
+    <string name="app_location_permission_rationale_title" msgid="925420340572401350">"Konum verileri paylaşılabilir"</string>
+    <string name="app_location_permission_rationale_subtitle" msgid="6986985722752868692">"Bu uygulama, konum verilerinizi üçüncü taraflarla paylaşabileceğini belirtti"</string>
+    <string name="data_sharing_updates_title" msgid="7996933386875213859">"Konum için veri paylaşımı güncellemeleri"</string>
+    <string name="data_sharing_updates_summary" msgid="764113985772233889">"Konum verilerinizi paylaşma şekillerini değiştiren uygulamaları inceleyin"</string>
+    <string name="data_sharing_updates_subtitle" msgid="6311537708950632329">"Bu uygulamalar, konum verilerinizi paylaşma şekillerini değiştirdi. Daha önce paylaşmadıkları konum verilerinizi paylaşmaya başlamış olabilecekleri gibi reklam ya da pazarlama için paylaşmaya başlamış da olabilirler."</string>
+    <string name="data_sharing_updates_footer_message" msgid="1582711655172892107">"Bu uygulamaların geliştiricileri, bir uygulama mağazasına veri paylaşımı yöntemleri hakkında bilgi ekledi. Zaman içinde bu bilgileri güncelleyebilirler.\n\nVeri paylaşımı yöntemleri uygulama sürümüne, kullanıma, bölgeye ve yaşa göre değişebilir."</string>
+    <string name="learn_about_data_sharing" msgid="4200480587079488045">"Veri paylaşımı hakkında bilgi"</string>
+    <string name="shares_location_with_third_parties" msgid="2278051743742057767">"Konum verileriniz artık üçüncü taraflarla paylaşılıyor"</string>
+    <string name="shares_location_with_third_parties_for_advertising" msgid="1918588064014480513">"Konum verileriniz artık reklam ve pazarlama amacıyla üçüncü taraflarla paylaşılıyor"</string>
+    <string name="updated_in_last_days" msgid="8371811947153042322">"{count,plural, =0{Son 1 günde güncellendi}=1{Son 1 günde güncellendi}other{Son # günde güncellendi}}"</string>
+    <string name="no_updates_at_this_time" msgid="9031085635689982935">"Şu an için güncelleme yok"</string>
+    <string name="safety_label_changes_notification_title" msgid="4479955083472203839">"Veri paylaşımı güncellemeleri"</string>
+    <string name="safety_label_changes_notification_desc" msgid="7808764283266234675">"Bazı uygulamalar, konum verilerinizi paylaşma şeklini değiştirdi"</string>
+    <string name="safety_label_changes_gear_description" msgid="2655887555599138509">"Ayarlar"</string>
 </resources>

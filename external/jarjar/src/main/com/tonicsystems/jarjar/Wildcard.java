@@ -27,14 +27,18 @@ class Wildcard
     private static Pattern star  = Pattern.compile("\\*");
     private static Pattern estar = Pattern.compile("\\+\\??\\)\\Z");
     private static Pattern dollar = Pattern.compile("\\$");
+    // Apart from stars and dollar signs, wildcards are plain-text full matches
+    private static Pattern plainTextPrefixPattern = Pattern.compile("^[^*$]*");
 
     private final Pattern pattern;
+    private final String plainTextPrefix;
+    private final int ruleIndex;
     private final int count;
     private final ArrayList<Object> parts = new ArrayList<Object>(16); // kept for debugging
     private final String[] strings;
     private final int[] refs;
 
-    public Wildcard(String pattern, String result) {
+    public Wildcard(String pattern, String result, int ruleIndex) {
         if (pattern.equals("**"))
             throw new IllegalArgumentException("'**' is not a valid pattern");
         if (!checkIdentifierChars(pattern, "/*"))
@@ -47,6 +51,13 @@ class Wildcard
         regex = replaceAllLiteral(star, regex, "([^/]+)");
         regex = replaceAllLiteral(estar, regex, "*)");
         regex = replaceAllLiteral(dollar, regex, "\\$");
+        Matcher prefixMatcher = plainTextPrefixPattern.matcher(pattern);
+        // prefixMatcher will always match, but may match an empty string
+        if (!prefixMatcher.find()) {
+            throw new IllegalArgumentException(plainTextPrefixPattern + " not found in " + pattern);
+        }
+        this.plainTextPrefix = prefixMatcher.group();
+        this.ruleIndex = ruleIndex;
         this.pattern = Pattern.compile("\\A" + regex + "\\Z");
         this.count = this.pattern.matcher("foo").groupCount();
 
@@ -93,6 +104,14 @@ class Wildcard
         if (count < max)
             throw new IllegalArgumentException("Result includes impossible placeholder \"@" + max + "\": " + result);
         // System.err.println(this);
+    }
+
+    public String getPlainTextPrefix() {
+        return plainTextPrefix;
+    }
+
+    public int getRuleIndex() {
+        return ruleIndex;
     }
 
     public boolean matches(String value) {

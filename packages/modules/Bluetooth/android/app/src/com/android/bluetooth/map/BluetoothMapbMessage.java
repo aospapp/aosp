@@ -19,6 +19,7 @@ import android.telephony.PhoneNumberUtils;
 import android.util.Log;
 
 import com.android.bluetooth.map.BluetoothMapUtils.TYPE;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -49,10 +50,8 @@ public abstract class BluetoothMapbMessage {
     private String mFolder = null;
 
     /* BBODY attributes */
-    private long mPartId = INVALID_VALUE;
     protected String mEncoding = null;
     protected String mCharset = null;
-    private String mLanguage = null;
 
     private int mBMsgLength = INVALID_VALUE;
 
@@ -237,11 +236,8 @@ public abstract class BluetoothMapbMessage {
         /**
          * Parse a vCard from a BMgsReader, where a line containing "BEGIN:VCARD"
          * have just been read.
-         * @param reader
-         * @param envLevel
-         * @return
          */
-        public static VCard parseVcard(BMsgReader reader, int envLevel) {
+        static VCard parseVcard(BMsgReader reader, int envLevel) {
             String formattedName = null;
             String name = null;
             ArrayList<String> phoneNumbers = null;
@@ -323,7 +319,8 @@ public abstract class BluetoothMapbMessage {
 
     ;
 
-    private static class BMsgReader {
+    @VisibleForTesting
+    static class BMsgReader {
         InputStream mInStream;
 
         BMsgReader(InputStream is) {
@@ -422,10 +419,8 @@ public abstract class BluetoothMapbMessage {
 
         /**
          * Same as expect(String), but with two strings.
-         * @param subString
-         * @param subString2
-         * @throws IllegalArgumentException
-         * If one or all of the strings are not found.
+         *
+         * @throws IllegalArgumentException If one of the strings are not found.
          */
         public void expect(String subString, String subString2) throws IllegalArgumentException {
             String line = getLine();
@@ -486,7 +481,6 @@ public abstract class BluetoothMapbMessage {
     public static BluetoothMapbMessage parse(InputStream bMsgStream, int appParamCharset)
             throws IllegalArgumentException {
         BMsgReader reader;
-        String line = "";
         BluetoothMapbMessage newBMsg = null;
         boolean status = false;
         boolean statusFound = false;
@@ -531,6 +525,7 @@ public abstract class BluetoothMapbMessage {
                     try {
                         outStream.close();
                     } catch (IOException e) {
+                        Log.w(TAG, e);
                     }
                 }
             }
@@ -565,7 +560,7 @@ public abstract class BluetoothMapbMessage {
         reader.expect("BEGIN:BMSG");
         reader.expect("VERSION");
 
-        line = reader.getLineEnforce();
+        String line = reader.getLineEnforce();
         // Parse the properties - which end with either a VCARD or a BENV
         while (!line.contains("BEGIN:VCARD") && !line.contains("BEGIN:BENV")) {
             if (line.contains("STATUS")) {
@@ -714,7 +709,7 @@ public abstract class BluetoothMapbMessage {
                 String[] arg = line.split(":");
                 if (arg != null && arg.length == 2) {
                     try {
-                        mPartId = Long.parseLong(arg[1].trim());
+                        Long unusedId = Long.parseLong(arg[1].trim());
                     } catch (NumberFormatException e) {
                         throw new IllegalArgumentException("Wrong value in 'PARTID': " + arg[1]);
                     }
@@ -740,7 +735,7 @@ public abstract class BluetoothMapbMessage {
             } else if (line.contains("LANGUAGE:")) {
                 String[] arg = line.split(":");
                 if (arg != null && arg.length == 2) {
-                    mLanguage = arg[1].trim();
+                    String unusedLanguage = arg[1].trim();
                     // If needed validation will be done when the value is used
                 } else {
                     throw new IllegalArgumentException("Missing value for 'LANGUAGE': " + line);
@@ -785,8 +780,7 @@ public abstract class BluetoothMapbMessage {
                 // The MAP spec says that all END:MSG strings in the body
                 // of the message must be escaped upon encoding and the
                 // escape removed upon decoding
-                data.replaceAll("([/]*)/END\\:MSG", "$1END:MSG");
-                data.trim();
+                data = data.replaceAll("([/]*)/END\\:MSG", "$1END:MSG").trim();
 
                 parseMsgPart(data);
             }
@@ -796,7 +790,6 @@ public abstract class BluetoothMapbMessage {
 
     /**
      * Parse the 'message' part of <bmessage-body-content>"
-     * @param msgPart
      */
     public abstract void parseMsgPart(String msgPart);
 
@@ -859,8 +852,6 @@ public abstract class BluetoothMapbMessage {
      * Add a version 3.0 vCard with a formatted name
      * @param name e.g. Bonde;Casper
      * @param formattedName e.g. "Casper Bonde"
-     * @param phoneNumbers
-     * @param emailAddresses
      */
     public void addOriginator(String name, String formattedName, String[] phoneNumbers,
             String[] emailAddresses, String[] btUids, String[] btUcis) {
@@ -883,8 +874,6 @@ public abstract class BluetoothMapbMessage {
     /** Add a version 2.1 vCard with only a name.
      *
      * @param name e.g. Bonde;Casper
-     * @param phoneNumbers
-     * @param emailAddresses
      */
     public void addOriginator(String name, String[] phoneNumbers, String[] emailAddresses) {
         if (mOriginator == null) {
@@ -964,9 +953,8 @@ public abstract class BluetoothMapbMessage {
         if (D) {
             Log.d(TAG, "Decoding binary data: START:" + data + ":END");
         }
-        for (int i = 0, j = 0, n = out.length; i < n; i++) {
-            value = data.substring(j++, ++j);
-            // same as data.substring(2*i, 2*i+1+1) - substring() uses end-1 for last index
+        for (int i = 0, j = 0, n = out.length; i < n; i++, j += 2) {
+            value = data.substring(j, j + 2);
             out[i] = (byte) (Integer.valueOf(value, 16) & 0xff);
         }
         if (D) {

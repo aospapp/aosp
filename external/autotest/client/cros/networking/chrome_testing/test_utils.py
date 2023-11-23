@@ -84,8 +84,10 @@ def check_ui_property(chrome_networking_test_context,
             timeout)
 
 
-def simple_network_sanity_check(
-        network, expected_name, expected_type, check_name_prefix=True):
+def simple_network_check(network,
+                         expected_name,
+                         expected_type,
+                         check_name_prefix=True):
     """
     Simple check to ensure that the network type and name match the expected
     values.

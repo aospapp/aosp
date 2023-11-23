@@ -16,7 +16,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.cts.permissiondeclareappcompat">
 
-    <application>
+    <application android:testOnly="true">
         <!--
              This provider doesn't specify an android:exported line. Because we specify
              LOCAL_SDK_VERSION:=16 in Android.mk, we preserve the old behavior of defaulting

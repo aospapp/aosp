@@ -16,10 +16,6 @@
 
 package com.android.internal.telephony.metrics;
 
-import static com.android.internal.telephony.TelephonyStatsLog.DATA_CALL_SESSION__DEACTIVATE_REASON__DEACTIVATE_REASON_HANDOVER;
-import static com.android.internal.telephony.TelephonyStatsLog.DATA_CALL_SESSION__DEACTIVATE_REASON__DEACTIVATE_REASON_NORMAL;
-import static com.android.internal.telephony.TelephonyStatsLog.DATA_CALL_SESSION__DEACTIVATE_REASON__DEACTIVATE_REASON_RADIO_OFF;
-import static com.android.internal.telephony.TelephonyStatsLog.DATA_CALL_SESSION__DEACTIVATE_REASON__DEACTIVATE_REASON_UNKNOWN;
 import static com.android.internal.telephony.TelephonyStatsLog.DATA_CALL_SESSION__IP_TYPE__APN_PROTOCOL_IPV4;
 
 import android.annotation.Nullable;
@@ -29,18 +25,22 @@ import android.telephony.Annotation.DataFailureCause;
 import android.telephony.Annotation.NetworkType;
 import android.telephony.DataFailCause;
 import android.telephony.ServiceState;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.telephony.data.ApnSetting;
 import android.telephony.data.ApnSetting.ProtocolType;
 import android.telephony.data.DataCallResponse;
 import android.telephony.data.DataService;
-import android.telephony.data.DataService.DeactivateDataReason;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.ServiceStateTracker;
-import com.android.internal.telephony.SubscriptionController;
+import com.android.internal.telephony.data.DataNetwork;
 import com.android.internal.telephony.nano.PersistAtomsProto.DataCallSession;
+import com.android.internal.telephony.subscription.SubscriptionInfoInternal;
+import com.android.internal.telephony.subscription.SubscriptionManagerService;
 import com.android.telephony.Rlog;
 
 import java.util.Arrays;
@@ -49,7 +49,6 @@ import java.util.Random;
 /** Collects data call change events per DataConnection for the pulled atom. */
 public class DataCallSessionStats {
     private static final String TAG = DataCallSessionStats.class.getSimpleName();
-    private static final int SIZE_LIMIT_HANDOVER_FAILURE_CAUSES = 15;
 
     private final Phone mPhone;
     private long mStartTime;
@@ -59,6 +58,8 @@ public class DataCallSessionStats {
             PhoneFactory.getMetricsCollector().getAtomsStorage();
 
     private static final Random RANDOM = new Random();
+
+    public static final int SIZE_LIMIT_HANDOVER_FAILURES = 15;
 
     public DataCallSessionStats(Phone phone) {
         mPhone = phone;
@@ -78,14 +79,14 @@ public class DataCallSessionStats {
      * @param currentRat The data call current Network Type
      * @param apnTypeBitmask APN type bitmask
      * @param protocol Data connection protocol
-     * @param failureCause failure cause as per android.telephony.DataFailCause
+     * @param failureCause The raw failure cause from modem/IWLAN data service.
      */
     public synchronized void onSetupDataCallResponse(
             @Nullable DataCallResponse response,
             @NetworkType int currentRat,
             @ApnType int apnTypeBitmask,
             @ProtocolType int protocol,
-            @DataFailureCause int failureCause) {
+            int failureCause) {
         // there should've been a call to onSetupDataCall to initiate the atom,
         // so this method is being called out of order -> no metric will be logged
         if (mDataCallSession == null) {
@@ -122,33 +123,17 @@ public class DataCallSessionStats {
     /**
      * Updates the dataCall atom when data call is deactivated.
      *
-     * @param reason Deactivate reason
+     * @param reason Tear down reason
      */
-    public synchronized void setDeactivateDataCallReason(@DeactivateDataReason int reason) {
+    public synchronized void setDeactivateDataCallReason(@DataNetwork.TearDownReason int reason) {
         // there should've been another call to initiate the atom,
         // so this method is being called out of order -> no metric will be logged
         if (mDataCallSession == null) {
             loge("setDeactivateDataCallReason: no DataCallSession atom has been initiated.");
             return;
         }
-        switch (reason) {
-            case DataService.REQUEST_REASON_NORMAL:
-                mDataCallSession.deactivateReason =
-                        DATA_CALL_SESSION__DEACTIVATE_REASON__DEACTIVATE_REASON_NORMAL;
-                break;
-            case DataService.REQUEST_REASON_SHUTDOWN:
-                mDataCallSession.deactivateReason =
-                        DATA_CALL_SESSION__DEACTIVATE_REASON__DEACTIVATE_REASON_RADIO_OFF;
-                break;
-            case DataService.REQUEST_REASON_HANDOVER:
-                mDataCallSession.deactivateReason =
-                        DATA_CALL_SESSION__DEACTIVATE_REASON__DEACTIVATE_REASON_HANDOVER;
-                break;
-            default:
-                mDataCallSession.deactivateReason =
-                        DATA_CALL_SESSION__DEACTIVATE_REASON__DEACTIVATE_REASON_UNKNOWN;
-                break;
-        }
+        // Skip the pre-U enum. See enum DataDeactivateReasonEnum in enums.proto
+        mDataCallSession.deactivateReason = reason + DataService.REQUEST_REASON_HANDOVER + 1;
     }
 
     /**
@@ -175,17 +160,30 @@ public class DataCallSessionStats {
      *
      * @param failureCause failure cause as per android.telephony.DataFailCause
      */
-    public synchronized void onHandoverFailure(@DataFailureCause int failureCause) {
+    public synchronized void onHandoverFailure(@DataFailureCause int failureCause,
+            @NetworkType int sourceRat, @NetworkType int targetRat) {
         if (mDataCallSession != null
                 && mDataCallSession.handoverFailureCauses.length
-                < SIZE_LIMIT_HANDOVER_FAILURE_CAUSES) {
+                < SIZE_LIMIT_HANDOVER_FAILURES) {
+
             int[] failureCauses = mDataCallSession.handoverFailureCauses;
-            for (int cause : failureCauses) {
-                if (failureCause == cause) return;
+            int[] handoverFailureRats = mDataCallSession.handoverFailureRat;
+            int failureDirection = sourceRat | (targetRat << 16);
+
+            for (int i = 0; i < failureCauses.length; i++) {
+                if (failureCauses[i] == failureCause
+                        && handoverFailureRats[i] == failureDirection) {
+                    return;
+                }
             }
+
             mDataCallSession.handoverFailureCauses = Arrays.copyOf(
                     failureCauses, failureCauses.length + 1);
             mDataCallSession.handoverFailureCauses[failureCauses.length] = failureCause;
+
+            mDataCallSession.handoverFailureRat = Arrays.copyOf(handoverFailureRats,
+                    handoverFailureRats.length + 1);
+            mDataCallSession.handoverFailureRat[handoverFailureRats.length] = failureDirection;
         }
     }
 
@@ -209,12 +207,22 @@ public class DataCallSessionStats {
         }
     }
 
+    /** Stores the current unmetered network types information in permanent storage. */
+    public void onUnmeteredUpdate(@NetworkType int networkType) {
+        mAtomsStorage
+                .addUnmeteredNetworks(
+                        mPhone.getPhoneId(),
+                        mPhone.getCarrierId(),
+                        TelephonyManager.getBitMaskForNetworkType(networkType));
+    }
+
     /**
      * Take a snapshot of the on-going data call segment to add to the atom storage.
      *
      * Note the following fields are reset after the snapshot:
      * - rat switch count
      * - handover failure causes
+     * - handover failure rats
      */
     public synchronized void conclude() {
         if (mDataCallSession != null) {
@@ -224,6 +232,7 @@ public class DataCallSessionStats {
             mStartTime = nowMillis;
             mDataCallSession.ratSwitchCount = 0L;
             mDataCallSession.handoverFailureCauses = new int[0];
+            mDataCallSession.handoverFailureRat = new int[0];
             mAtomsStorage.addDataCallSession(call);
         }
     }
@@ -232,6 +241,16 @@ public class DataCallSessionStats {
     private void endDataCallSession() {
         mDataCallSession.oosAtEnd = getIsOos();
         mDataCallSession.ongoing = false;
+        // set if this data call is established for internet on the non-Dds
+        SubscriptionInfo subInfo = SubscriptionManagerService.getInstance()
+                .getSubscriptionInfo(mPhone.getSubId());
+        if (mPhone.getSubId() != SubscriptionManager.getDefaultDataSubscriptionId()
+                && ((mDataCallSession.apnTypeBitmask & ApnSetting.TYPE_DEFAULT)
+                == ApnSetting.TYPE_DEFAULT)
+                && subInfo != null && !subInfo.isOpportunistic()) {
+            mDataCallSession.isNonDds = true;
+        }
+
         // store for the data call list event, after DataCall is disconnected and entered into
         // inactive mode
         PhoneFactory.getMetricsCollector().unregisterOngoingDataCallStat(this);
@@ -265,6 +284,9 @@ public class DataCallSessionStats {
         copy.bandAtEnd = call.bandAtEnd;
         copy.handoverFailureCauses = Arrays.copyOf(call.handoverFailureCauses,
                 call.handoverFailureCauses.length);
+        copy.handoverFailureRat = Arrays.copyOf(call.handoverFailureRat,
+                call.handoverFailureRat.length);
+        copy.isNonDds = call.isNonDds;
         return copy;
     }
 
@@ -284,10 +306,12 @@ public class DataCallSessionStats {
         proto.setupFailed = false;
         proto.failureCause = DataFailCause.NONE;
         proto.suggestedRetryMillis = 0;
-        proto.deactivateReason = DATA_CALL_SESSION__DEACTIVATE_REASON__DEACTIVATE_REASON_UNKNOWN;
+        proto.deactivateReason = DataNetwork.TEAR_DOWN_REASON_NONE;
         proto.durationMinutes = 0;
         proto.ongoing = true;
         proto.handoverFailureCauses = new int[0];
+        proto.handoverFailureRat = new int[0];
+        proto.isNonDds = false;
         return proto;
     }
 
@@ -295,12 +319,13 @@ public class DataCallSessionStats {
         ServiceStateTracker serviceStateTracker = mPhone.getServiceStateTracker();
         ServiceState serviceState =
                 serviceStateTracker != null ? serviceStateTracker.getServiceState() : null;
-        return serviceState != null ? serviceState.getRoaming() : false;
+        return serviceState != null && serviceState.getRoaming();
     }
 
     private boolean getIsOpportunistic() {
-        SubscriptionController subController = SubscriptionController.getInstance();
-        return subController != null ? subController.isOpportunistic(mPhone.getSubId()) : false;
+        SubscriptionInfoInternal subInfo = SubscriptionManagerService.getInstance()
+                .getSubscriptionInfoInternal(mPhone.getSubId());
+        return subInfo != null && subInfo.isOpportunistic();
     }
 
     private boolean getIsOos() {
@@ -308,8 +333,7 @@ public class DataCallSessionStats {
         ServiceState serviceState =
                 serviceStateTracker != null ? serviceStateTracker.getServiceState() : null;
         return serviceState != null
-                ? serviceState.getDataRegistrationState() == ServiceState.STATE_OUT_OF_SERVICE
-                : false;
+                && serviceState.getDataRegistrationState() == ServiceState.STATE_OUT_OF_SERVICE;
     }
 
     private void logi(String format, Object... args) {

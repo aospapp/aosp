@@ -87,7 +87,8 @@
      * when the SP has already been decremented by FRAME_SIZE_SAVE_EVERYTHING
      * and saving registers x29 and LR is handled elsewhere.
      */
-.macro SETUP_SAVE_EVERYTHING_FRAME_DECREMENTED_SP_SKIP_X29_LR runtime_method_offset = RUNTIME_SAVE_EVERYTHING_METHOD_OFFSET
+.macro SETUP_SAVE_EVERYTHING_FRAME_DECREMENTED_SP_SKIP_X29_LR \
+        runtime_method_offset = RUNTIME_SAVE_EVERYTHING_METHOD_OFFSET
     // Ugly compile-time check, but we only have the preprocessor.
 #if (FRAME_SIZE_SAVE_EVERYTHING != 512)
 #error "FRAME_SIZE_SAVE_EVERYTHING(ARM64) size not as expected."
@@ -194,26 +195,56 @@
     RESTORE_SAVE_EVERYTHING_FRAME_KEEP_X0
 .endm
 
-.macro RETURN_IF_RESULT_IS_ZERO
-    cbnz x0, 1f                // result non-zero branch over
-    ret                        // return
-1:
+.macro RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+    ldr x1, [xSELF, # THREAD_EXCEPTION_OFFSET]  // Get exception field.
+    cbnz x1, 1f
+    DEOPT_OR_RETURN x1                         // Check if deopt is required
+1:                                             // deliver exception on current thread
+    DELIVER_PENDING_EXCEPTION
 .endm
 
-.macro RETURN_IF_RESULT_IS_NON_ZERO
-    cbz x0, 1f                 // result zero branch over
-    ret                        // return
-1:
+.macro DEOPT_OR_RETURN temp, is_ref = 0
+  ldr \temp, [xSELF, #THREAD_DEOPT_CHECK_REQUIRED_OFFSET]
+  cbnz \temp, 2f
+  ret
+2:
+  SETUP_SAVE_EVERYTHING_FRAME
+  mov x2, \is_ref                   // pass if result is a reference
+  mov x1, x0                        // pass the result
+  mov x0, xSELF                     // Thread::Current
+  bl artDeoptimizeIfNeeded
+  CFI_REMEMBER_STATE
+  RESTORE_SAVE_EVERYTHING_FRAME
+  REFRESH_MARKING_REGISTER
+  ret
+  CFI_RESTORE_STATE_AND_DEF_CFA sp, FRAME_SIZE_SAVE_EVERYTHING
 .endm
 
-// Same as above with x1. This is helpful in stubs that want to avoid clobbering another register.
-.macro RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-    RETURN_OR_DELIVER_PENDING_EXCEPTION_REG x1
+.macro DEOPT_OR_RESTORE_SAVE_EVERYTHING_FRAME_AND_RETURN_X0 temp, is_ref
+  ldr \temp, [xSELF, #THREAD_DEOPT_CHECK_REQUIRED_OFFSET]
+  cbnz \temp, 2f
+  CFI_REMEMBER_STATE
+  RESTORE_SAVE_EVERYTHING_FRAME_KEEP_X0
+  REFRESH_MARKING_REGISTER
+  ret
+  CFI_RESTORE_STATE_AND_DEF_CFA sp, FRAME_SIZE_SAVE_EVERYTHING
+2:
+  str x0, [sp, #SAVE_EVERYTHING_FRAME_X0_OFFSET] // update result in the frame
+  mov x2, \is_ref                                // pass if result is a reference
+  mov x1, x0                                     // pass the result
+  mov x0, xSELF                                  // Thread::Current
+  bl artDeoptimizeIfNeeded
+  CFI_REMEMBER_STATE
+  RESTORE_SAVE_EVERYTHING_FRAME
+  REFRESH_MARKING_REGISTER
+  ret
+  CFI_RESTORE_STATE_AND_DEF_CFA sp, FRAME_SIZE_SAVE_EVERYTHING
 .endm
+
 
 .macro RETURN_IF_W0_IS_ZERO_OR_DELIVER
     cbnz w0, 1f                // result non-zero branch over
-    ret                        // return
+    DEOPT_OR_RETURN x1
 1:
     DELIVER_PENDING_EXCEPTION
 .endm
@@ -267,7 +298,8 @@ ONE_ARG_RUNTIME_EXCEPTION art_quick_deliver_exception, artDeliverExceptionFromCo
     /*
      * Called by managed code to create and deliver a NullPointerException.
      */
-NO_ARG_RUNTIME_EXCEPTION_SAVE_EVERYTHING art_quick_throw_null_pointer_exception, artThrowNullPointerExceptionFromCode
+NO_ARG_RUNTIME_EXCEPTION_SAVE_EVERYTHING \
+        art_quick_throw_null_pointer_exception, artThrowNullPointerExceptionFromCode
 
     /*
      * Call installed by a signal handler to create and deliver a NullPointerException.
@@ -303,7 +335,8 @@ TWO_ARG_RUNTIME_EXCEPTION_SAVE_EVERYTHING art_quick_throw_array_bounds, artThrow
      * Called by managed code to create and deliver a StringIndexOutOfBoundsException
      * as if thrown from a call to String.charAt(). Arg1 holds index, arg2 holds limit.
      */
-TWO_ARG_RUNTIME_EXCEPTION_SAVE_EVERYTHING art_quick_throw_string_bounds, artThrowStringBoundsFromCode
+TWO_ARG_RUNTIME_EXCEPTION_SAVE_EVERYTHING \
+        art_quick_throw_string_bounds, artThrowStringBoundsFromCode
 
     /*
      * Called by managed code to create and deliver a StackOverflowError.
@@ -352,12 +385,17 @@ ENTRY \c_name
 END \c_name
 .endm
 
-INVOKE_TRAMPOLINE art_quick_invoke_interface_trampoline_with_access_check, artInvokeInterfaceTrampolineWithAccessCheck
+INVOKE_TRAMPOLINE art_quick_invoke_interface_trampoline_with_access_check, \
+                  artInvokeInterfaceTrampolineWithAccessCheck
 
-INVOKE_TRAMPOLINE art_quick_invoke_static_trampoline_with_access_check, artInvokeStaticTrampolineWithAccessCheck
-INVOKE_TRAMPOLINE art_quick_invoke_direct_trampoline_with_access_check, artInvokeDirectTrampolineWithAccessCheck
-INVOKE_TRAMPOLINE art_quick_invoke_super_trampoline_with_access_check, artInvokeSuperTrampolineWithAccessCheck
-INVOKE_TRAMPOLINE art_quick_invoke_virtual_trampoline_with_access_check, artInvokeVirtualTrampolineWithAccessCheck
+INVOKE_TRAMPOLINE art_quick_invoke_static_trampoline_with_access_check, \
+                  artInvokeStaticTrampolineWithAccessCheck
+INVOKE_TRAMPOLINE art_quick_invoke_direct_trampoline_with_access_check, \
+                  artInvokeDirectTrampolineWithAccessCheck
+INVOKE_TRAMPOLINE art_quick_invoke_super_trampoline_with_access_check, \
+                  artInvokeSuperTrampolineWithAccessCheck
+INVOKE_TRAMPOLINE art_quick_invoke_virtual_trampoline_with_access_check, \
+                  artInvokeVirtualTrampolineWithAccessCheck
 
 
 .macro INVOKE_STUB_CREATE_FRAME
@@ -387,12 +425,12 @@ SAVE_SIZE=8*8   // x4, x5, <padding>, x19, x20, x21, FP, LR saved.
 
     // Copy parameters into the stack. Use numeric label as this is a macro and Clang's assembler
     // does not have unique-id variables.
-1:
     cbz w2, 2f
+1:
     sub w2, w2, #4      // Need 65536 bytes of range.
     ldr w10, [x1, x2]
     str w10, [x9, x2]
-    b 1b
+    cbnz w2, 1b
 
 2:
     // Store null into ArtMethod* at bottom of frame.
@@ -454,6 +492,134 @@ SAVE_SIZE=8*8   // x4, x5, <padding>, x19, x20, x21, FP, LR saved.
 .endm
 
 
+// Macro for loading an argument into a register.
+//  label - the base name of the label of the load routine,
+//  reg - the register to load,
+//  args - pointer to current argument, incremented by size,
+//  size - the size of the register - 4 or 8 bytes,
+//  nh4_reg - the register to fill with the address of the next handler for 4-byte values,
+//  nh4_l - the base name of the label of the next handler for 4-byte values,
+//  nh8_reg - the register to fill with the address of the next handler for 8-byte values,
+//  nh8_l - the base name of the label of the next handler for 8-byte values,
+//  cont - the base name of the label for continuing the shorty processing loop,
+//  suffix - suffix added to all labels to make labels unique for different users.
+.macro INVOKE_STUB_LOAD_REG label, reg, args, size, nh4_reg, nh4_l, nh8_reg, nh8_l, cont, suffix
+\label\suffix:
+    ldr \reg, [\args], #\size
+    adr \nh4_reg, \nh4_l\suffix
+    adr \nh8_reg, \nh8_l\suffix
+    b \cont\suffix
+.endm
+
+// Macro for skipping an argument that does not fit into argument registers.
+//  label - the base name of the label of the skip routine,
+//  args - pointer to current argument, incremented by size,
+//  size - the size of the argument - 4 or 8 bytes,
+//  cont - the base name of the label for continuing the shorty processing loop,
+//  suffix - suffix added to all labels to make labels unique for different users.
+.macro INVOKE_STUB_SKIP_ARG label, args, size, cont, suffix
+\label\suffix:
+    add \args, \args, #\size
+    b \cont\suffix
+.endm
+
+// Fill registers x/w1 to x/w7 and s/d0 to s/d7 with parameters.
+// Parse the passed shorty to determine which register to load.
+//  x5 - shorty,
+//  x9 - points to arguments on the stack,
+//  suffix - suffix added to all labels to make labels unique for different users.
+.macro INVOKE_STUB_LOAD_ALL_ARGS suffix
+    add x10, x5, #1                 // Load shorty address, plus one to skip the return type.
+
+    // Load this (if instance method) and addresses for routines that load WXSD registers.
+    .ifc \suffix, _instance
+        ldr w1, [x9], #4            // Load "this" parameter, and increment arg pointer.
+        adr x11, .Lload_w2\suffix
+        adr x12, .Lload_x2\suffix
+    .else
+        adr x11, .Lload_w1\suffix
+        adr x12, .Lload_x1\suffix
+    .endif
+    adr  x13, .Lload_s0\suffix
+    adr  x14, .Lload_d0\suffix
+
+    // Loop to fill registers.
+.Lfill_regs\suffix:
+    ldrb w17, [x10], #1             // Load next character in signature, and increment.
+    cbz w17, .Lcall_method\suffix   // Exit at end of signature. Shorty 0 terminated.
+
+    cmp w17, #'J'                   // Is this a long?
+    beq .Lload_long\suffix
+
+    cmp  w17, #'F'                  // Is this a float?
+    beq .Lload_float\suffix
+
+    cmp w17, #'D'                   // Is this a double?
+    beq .Lload_double\suffix
+
+    // Everything else uses a 4-byte GPR.
+    br x11
+
+.Lload_long\suffix:
+    br x12
+
+.Lload_float\suffix:
+    br x13
+
+.Lload_double\suffix:
+    br x14
+
+// Handlers for loading other args (not float/double/long) into W registers.
+    .ifnc \suffix, _instance
+        INVOKE_STUB_LOAD_REG \
+            .Lload_w1, w1, x9, 4, x11, .Lload_w2, x12, .Lload_x2, .Lfill_regs, \suffix
+    .endif
+    INVOKE_STUB_LOAD_REG .Lload_w2, w2, x9, 4, x11, .Lload_w3, x12, .Lload_x3, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_w3, w3, x9, 4, x11, .Lload_w4, x12, .Lload_x4, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_w4, w4, x9, 4, x11, .Lload_w5, x12, .Lload_x5, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_w5, w5, x9, 4, x11, .Lload_w6, x12, .Lload_x6, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_w6, w6, x9, 4, x11, .Lload_w7, x12, .Lload_x7, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_w7, w7, x9, 4, x11, .Lskip4, x12, .Lskip8, .Lfill_regs, \suffix
+
+// Handlers for loading longs into X registers.
+    .ifnc \suffix, _instance
+        INVOKE_STUB_LOAD_REG \
+            .Lload_x1, x1, x9, 8, x11, .Lload_w2, x12, .Lload_x2, .Lfill_regs, \suffix
+    .endif
+    INVOKE_STUB_LOAD_REG .Lload_x2, x2, x9, 8, x11, .Lload_w3, x12, .Lload_x3, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_x3, x3, x9, 8, x11, .Lload_w4, x12, .Lload_x4, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_x4, x4, x9, 8, x11, .Lload_w5, x12, .Lload_x5, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_x5, x5, x9, 8, x11, .Lload_w6, x12, .Lload_x6, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_x6, x6, x9, 8, x11, .Lload_w7, x12, .Lload_x7, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_x7, x7, x9, 8, x11, .Lskip4, x12, .Lskip8, .Lfill_regs, \suffix
+
+// Handlers for loading singles into S registers.
+    INVOKE_STUB_LOAD_REG .Lload_s0, s0, x9, 4, x13, .Lload_s1, x14, .Lload_d1, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_s1, s1, x9, 4, x13, .Lload_s2, x14, .Lload_d2, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_s2, s2, x9, 4, x13, .Lload_s3, x14, .Lload_d3, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_s3, s3, x9, 4, x13, .Lload_s4, x14, .Lload_d4, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_s4, s4, x9, 4, x13, .Lload_s5, x14, .Lload_d5, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_s5, s5, x9, 4, x13, .Lload_s6, x14, .Lload_d6, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_s6, s6, x9, 4, x13, .Lload_s7, x14, .Lload_d7, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_s7, s7, x9, 4, x13, .Lskip4, x14, .Lskip8, .Lfill_regs, \suffix
+
+// Handlers for loading doubles into D registers.
+    INVOKE_STUB_LOAD_REG .Lload_d0, d0, x9, 8, x13, .Lload_s1, x14, .Lload_d1, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_d1, d1, x9, 8, x13, .Lload_s2, x14, .Lload_d2, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_d2, d2, x9, 8, x13, .Lload_s3, x14, .Lload_d3, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_d3, d3, x9, 8, x13, .Lload_s4, x14, .Lload_d4, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_d4, d4, x9, 8, x13, .Lload_s5, x14, .Lload_d5, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_d5, d5, x9, 8, x13, .Lload_s6, x14, .Lload_d6, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_d6, d6, x9, 8, x13, .Lload_s7, x14, .Lload_d7, .Lfill_regs, \suffix
+    INVOKE_STUB_LOAD_REG .Lload_d7, d7, x9, 8, x13, .Lskip4, x14, .Lskip8, .Lfill_regs, \suffix
+
+// Handlers for skipping arguments that do not fit into registers.
+    INVOKE_STUB_SKIP_ARG .Lskip4, x9, 4, .Lfill_regs, \suffix
+    INVOKE_STUB_SKIP_ARG .Lskip8, x9, 8, .Lfill_regs, \suffix
+
+.Lcall_method\suffix:
+.endm
+
 /*
  *  extern"C" void art_quick_invoke_stub(ArtMethod *method,   x0
  *                                       uint32_t  *args,     x1
@@ -496,126 +662,11 @@ ENTRY art_quick_invoke_stub
     // Spill registers as per AACPS64 calling convention.
     INVOKE_STUB_CREATE_FRAME
 
-    // Fill registers x/w1 to x/w7 and s/d0 to s/d7 with parameters.
-    // Parse the passed shorty to determine which register to load.
-    // Load addresses for routines that load WXSD registers.
-    adr  x11, .LstoreW2
-    adr  x12, .LstoreX2
-    adr  x13, .LstoreS0
-    adr  x14, .LstoreD0
+    // Load args into registers.
+    INVOKE_STUB_LOAD_ALL_ARGS _instance
 
-    // Initialize routine offsets to 0 for integers and floats.
-    // x8 for integers, x15 for floating point.
-    mov x8, #0
-    mov x15, #0
-
-    add x10, x5, #1         // Load shorty address, plus one to skip return value.
-    ldr w1, [x9],#4         // Load "this" parameter, and increment arg pointer.
-
-    // Loop to fill registers.
-.LfillRegisters:
-    ldrb w17, [x10], #1       // Load next character in signature, and increment.
-    cbz w17, .LcallFunction   // Exit at end of signature. Shorty 0 terminated.
-
-    cmp  w17, #'F' // is this a float?
-    bne .LisDouble
-
-    cmp x15, # 8*12         // Skip this load if all registers full.
-    beq .Ladvance4
-
-    add x17, x13, x15       // Calculate subroutine to jump to.
-    br  x17
-
-.LisDouble:
-    cmp w17, #'D'           // is this a double?
-    bne .LisLong
-
-    cmp x15, # 8*12         // Skip this load if all registers full.
-    beq .Ladvance8
-
-    add x17, x14, x15       // Calculate subroutine to jump to.
-    br x17
-
-.LisLong:
-    cmp w17, #'J'           // is this a long?
-    bne .LisOther
-
-    cmp x8, # 6*12          // Skip this load if all registers full.
-    beq .Ladvance8
-
-    add x17, x12, x8        // Calculate subroutine to jump to.
-    br x17
-
-.LisOther:                  // Everything else takes one vReg.
-    cmp x8, # 6*12          // Skip this load if all registers full.
-    beq .Ladvance4
-
-    add x17, x11, x8        // Calculate subroutine to jump to.
-    br x17
-
-.Ladvance4:
-    add x9, x9, #4
-    b .LfillRegisters
-
-.Ladvance8:
-    add x9, x9, #8
-    b .LfillRegisters
-
-// Macro for loading a parameter into a register.
-//  counter - the register with offset into these tables
-//  size - the size of the register - 4 or 8 bytes.
-//  register - the name of the register to be loaded.
-.macro LOADREG counter size register return
-    ldr \register , [x9], #\size
-    add \counter, \counter, 12
-    b \return
-.endm
-
-// Store ints.
-.LstoreW2:
-    LOADREG x8 4 w2 .LfillRegisters
-    LOADREG x8 4 w3 .LfillRegisters
-    LOADREG x8 4 w4 .LfillRegisters
-    LOADREG x8 4 w5 .LfillRegisters
-    LOADREG x8 4 w6 .LfillRegisters
-    LOADREG x8 4 w7 .LfillRegisters
-
-// Store longs.
-.LstoreX2:
-    LOADREG x8 8 x2 .LfillRegisters
-    LOADREG x8 8 x3 .LfillRegisters
-    LOADREG x8 8 x4 .LfillRegisters
-    LOADREG x8 8 x5 .LfillRegisters
-    LOADREG x8 8 x6 .LfillRegisters
-    LOADREG x8 8 x7 .LfillRegisters
-
-// Store singles.
-.LstoreS0:
-    LOADREG x15 4 s0 .LfillRegisters
-    LOADREG x15 4 s1 .LfillRegisters
-    LOADREG x15 4 s2 .LfillRegisters
-    LOADREG x15 4 s3 .LfillRegisters
-    LOADREG x15 4 s4 .LfillRegisters
-    LOADREG x15 4 s5 .LfillRegisters
-    LOADREG x15 4 s6 .LfillRegisters
-    LOADREG x15 4 s7 .LfillRegisters
-
-// Store doubles.
-.LstoreD0:
-    LOADREG x15 8 d0 .LfillRegisters
-    LOADREG x15 8 d1 .LfillRegisters
-    LOADREG x15 8 d2 .LfillRegisters
-    LOADREG x15 8 d3 .LfillRegisters
-    LOADREG x15 8 d4 .LfillRegisters
-    LOADREG x15 8 d5 .LfillRegisters
-    LOADREG x15 8 d6 .LfillRegisters
-    LOADREG x15 8 d7 .LfillRegisters
-
-
-.LcallFunction:
-
+    // Call the method and return.
     INVOKE_STUB_CALL_AND_RETURN
-
 END art_quick_invoke_stub
 
 /*  extern"C"
@@ -630,117 +681,11 @@ ENTRY art_quick_invoke_static_stub
     // Spill registers as per AACPS64 calling convention.
     INVOKE_STUB_CREATE_FRAME
 
-    // Fill registers x/w1 to x/w7 and s/d0 to s/d7 with parameters.
-    // Parse the passed shorty to determine which register to load.
-    // Load addresses for routines that load WXSD registers.
-    adr  x11, .LstoreW1_2
-    adr  x12, .LstoreX1_2
-    adr  x13, .LstoreS0_2
-    adr  x14, .LstoreD0_2
+    // Load args into registers.
+    INVOKE_STUB_LOAD_ALL_ARGS _static
 
-    // Initialize routine offsets to 0 for integers and floats.
-    // x8 for integers, x15 for floating point.
-    mov x8, #0
-    mov x15, #0
-
-    add x10, x5, #1     // Load shorty address, plus one to skip return value.
-
-    // Loop to fill registers.
-.LfillRegisters2:
-    ldrb w17, [x10], #1         // Load next character in signature, and increment.
-    cbz w17, .LcallFunction2    // Exit at end of signature. Shorty 0 terminated.
-
-    cmp  w17, #'F'          // is this a float?
-    bne .LisDouble2
-
-    cmp x15, # 8*12         // Skip this load if all registers full.
-    beq .Ladvance4_2
-
-    add x17, x13, x15       // Calculate subroutine to jump to.
-    br  x17
-
-.LisDouble2:
-    cmp w17, #'D'           // is this a double?
-    bne .LisLong2
-
-    cmp x15, # 8*12         // Skip this load if all registers full.
-    beq .Ladvance8_2
-
-    add x17, x14, x15       // Calculate subroutine to jump to.
-    br x17
-
-.LisLong2:
-    cmp w17, #'J'           // is this a long?
-    bne .LisOther2
-
-    cmp x8, # 7*12          // Skip this load if all registers full.
-    beq .Ladvance8_2
-
-    add x17, x12, x8        // Calculate subroutine to jump to.
-    br x17
-
-.LisOther2:                 // Everything else takes one vReg.
-    cmp x8, # 7*12          // Skip this load if all registers full.
-    beq .Ladvance4_2
-
-    add x17, x11, x8        // Calculate subroutine to jump to.
-    br x17
-
-.Ladvance4_2:
-    add x9, x9, #4
-    b .LfillRegisters2
-
-.Ladvance8_2:
-    add x9, x9, #8
-    b .LfillRegisters2
-
-// Store ints.
-.LstoreW1_2:
-    LOADREG x8 4 w1 .LfillRegisters2
-    LOADREG x8 4 w2 .LfillRegisters2
-    LOADREG x8 4 w3 .LfillRegisters2
-    LOADREG x8 4 w4 .LfillRegisters2
-    LOADREG x8 4 w5 .LfillRegisters2
-    LOADREG x8 4 w6 .LfillRegisters2
-    LOADREG x8 4 w7 .LfillRegisters2
-
-// Store longs.
-.LstoreX1_2:
-    LOADREG x8 8 x1 .LfillRegisters2
-    LOADREG x8 8 x2 .LfillRegisters2
-    LOADREG x8 8 x3 .LfillRegisters2
-    LOADREG x8 8 x4 .LfillRegisters2
-    LOADREG x8 8 x5 .LfillRegisters2
-    LOADREG x8 8 x6 .LfillRegisters2
-    LOADREG x8 8 x7 .LfillRegisters2
-
-// Store singles.
-.LstoreS0_2:
-    LOADREG x15 4 s0 .LfillRegisters2
-    LOADREG x15 4 s1 .LfillRegisters2
-    LOADREG x15 4 s2 .LfillRegisters2
-    LOADREG x15 4 s3 .LfillRegisters2
-    LOADREG x15 4 s4 .LfillRegisters2
-    LOADREG x15 4 s5 .LfillRegisters2
-    LOADREG x15 4 s6 .LfillRegisters2
-    LOADREG x15 4 s7 .LfillRegisters2
-
-// Store doubles.
-.LstoreD0_2:
-    LOADREG x15 8 d0 .LfillRegisters2
-    LOADREG x15 8 d1 .LfillRegisters2
-    LOADREG x15 8 d2 .LfillRegisters2
-    LOADREG x15 8 d3 .LfillRegisters2
-    LOADREG x15 8 d4 .LfillRegisters2
-    LOADREG x15 8 d5 .LfillRegisters2
-    LOADREG x15 8 d6 .LfillRegisters2
-    LOADREG x15 8 d7 .LfillRegisters2
-
-
-.LcallFunction2:
-
+    // Call the method and return.
     INVOKE_STUB_CALL_AND_RETURN
-
 END art_quick_invoke_static_stub
 
 
@@ -774,7 +719,7 @@ ENTRY art_quick_osr_stub
     str xzr, [sp]                         // Store null for ArtMethod* slot
     // Branch to stub.
     bl .Losr_entry
-    .cfi_remember_state
+    CFI_REMEMBER_STATE
     DECREASE_FRAME 16
 
     // Restore saved registers including value address and shorty address.
@@ -959,7 +904,7 @@ ENTRY art_quick_check_instance_of
     cbz x0, .Lthrow_class_cast_exception
 
     // Restore and return
-    .cfi_remember_state
+    CFI_REMEMBER_STATE
     RESTORE_TWO_REGS_DECREASE_FRAME x0, x1, 32
     ret
     CFI_RESTORE_STATE_AND_DEF_CFA sp, 32
@@ -999,25 +944,30 @@ END art_quick_check_instance_of
     .cfi_restore \xReg2
 .endm
 
-    /*
-     * Macro to insert read barrier, only used in art_quick_aput_obj.
-     * xDest, wDest and xObj are registers, offset is a defined literal such as
-     * MIRROR_OBJECT_CLASS_OFFSET. Dest needs both x and w versions of the same register to handle
-     * name mismatch between instructions. This macro uses the lower 32b of register when possible.
-     * TODO: When read barrier has a fast path, add heap unpoisoning support for the fast path.
-     */
-.macro READ_BARRIER xDest, wDest, xObj, xTemp, wTemp, offset, number
+    // Helper macros for `art_quick_aput_obj`.
 #ifdef USE_READ_BARRIER
-# ifdef USE_BAKER_READ_BARRIER
-    ldr \wTemp, [\xObj, #MIRROR_OBJECT_LOCK_WORD_OFFSET]
-    tbnz \wTemp, #LOCK_WORD_READ_BARRIER_STATE_SHIFT, .Lrb_slowpath\number
+#ifdef USE_BAKER_READ_BARRIER
+.macro BAKER_RB_CHECK_GRAY_BIT_AND_LOAD wDest, xObj, offset, gray_slow_path_label
+    ldr wIP0, [\xObj, #MIRROR_OBJECT_LOCK_WORD_OFFSET]
+    tbnz wIP0, #LOCK_WORD_READ_BARRIER_STATE_SHIFT, \gray_slow_path_label
     // False dependency to avoid needing load/load fence.
-    add \xObj, \xObj, \xTemp, lsr #32
-    ldr \wDest, [\xObj, #\offset]   // Heap reference = 32b. This also zero-extends to \xDest.
+    add \xObj, \xObj, xIP0, lsr #32
+    ldr \wDest, [\xObj, #\offset]                      // Heap reference = 32b; zero-extends to xN.
     UNPOISON_HEAP_REF \wDest
-    b .Lrb_exit\number
-# endif  // USE_BAKER_READ_BARRIER
-.Lrb_slowpath\number:
+.endm
+
+.macro BAKER_RB_LOAD_AND_MARK wDest, xObj, offset, mark_function
+    ldr \wDest, [\xObj, #\offset]                      // Heap reference = 32b; zero-extends to xN.
+    UNPOISON_HEAP_REF \wDest
+    // Save LR in a register preserved by `art_quick_read_barrier_mark_regNN`
+    // and unused by the `art_quick_aput_obj`.
+    mov x5, lr
+    bl \mark_function
+    mov lr, x5                                         // Restore LR.
+.endm
+#else  // USE_BAKER_READ_BARRIER
+    .extern artReadBarrierSlow
+.macro READ_BARRIER_SLOW xDest, wDest, xObj, offset
     // Store registers used in art_quick_aput_obj (x0-x4, LR), stack is 16B aligned.
     SAVE_TWO_REGS_INCREASE_FRAME x0, x1, 48
     SAVE_TWO_REGS x2, x3, 16
@@ -1042,41 +992,44 @@ END art_quick_check_instance_of
     POP_REG_NE x4, 32, \xDest
     RESTORE_REG xLR, 40
     DECREASE_FRAME 48
-.Lrb_exit\number:
-#else
-    ldr \wDest, [\xObj, #\offset]   // Heap reference = 32b. This also zero-extends to \xDest.
-    UNPOISON_HEAP_REF \wDest
-#endif  // USE_READ_BARRIER
 .endm
+#endif // USE_BAKER_READ_BARRIER
+#endif  // USE_READ_BARRIER
 
-#ifdef USE_READ_BARRIER
-    .extern artReadBarrierSlow
-#endif
 ENTRY art_quick_aput_obj
-    cbz x2, .Ldo_aput_null
-    READ_BARRIER x3, w3, x0, x3, w3, MIRROR_OBJECT_CLASS_OFFSET, 0  // Heap reference = 32b
-                                                                    // This also zero-extends to x3
-    READ_BARRIER x3, w3, x3, x4, w4, MIRROR_CLASS_COMPONENT_TYPE_OFFSET, 1 // Heap reference = 32b
-    // This also zero-extends to x3
-    READ_BARRIER x4, w4, x2, x4, w4, MIRROR_OBJECT_CLASS_OFFSET, 2  // Heap reference = 32b
-                                                                    // This also zero-extends to x4
+    cbz x2, .Laput_obj_null
+#if defined(USE_READ_BARRIER) && !defined(USE_BAKER_READ_BARRIER)
+    READ_BARRIER_SLOW x3, w3, x0, MIRROR_OBJECT_CLASS_OFFSET
+    READ_BARRIER_SLOW x3, w3, x3, MIRROR_CLASS_COMPONENT_TYPE_OFFSET
+    READ_BARRIER_SLOW x4, w4, x2, MIRROR_OBJECT_CLASS_OFFSET
+#else  // !defined(USE_READ_BARRIER) || defined(USE_BAKER_READ_BARRIER)
+#ifdef USE_READ_BARRIER
+    cbnz wMR, .Laput_obj_gc_marking
+#endif  // USE_READ_BARRIER
+    ldr w3, [x0, #MIRROR_OBJECT_CLASS_OFFSET]          // Heap reference = 32b; zero-extends to x3.
+    UNPOISON_HEAP_REF w3
+    ldr w3, [x3, #MIRROR_CLASS_COMPONENT_TYPE_OFFSET]  // Heap reference = 32b; zero-extends to x3.
+    UNPOISON_HEAP_REF w3
+    ldr w4, [x2, #MIRROR_OBJECT_CLASS_OFFSET]          // Heap reference = 32b; zero-extends to x4.
+    UNPOISON_HEAP_REF w4
+#endif  // !defined(USE_READ_BARRIER) || defined(USE_BAKER_READ_BARRIER)
     cmp w3, w4  // value's type == array's component type - trivial assignability
-    bne .Lcheck_assignability
-.Ldo_aput:
+    bne .Laput_obj_check_assignability
+.Laput_obj_store:
     add x3, x0, #MIRROR_OBJECT_ARRAY_DATA_OFFSET
-                                                         // "Compress" = do nothing
     POISON_HEAP_REF w2
-    str w2, [x3, x1, lsl #2]                             // Heap reference = 32b
+    str w2, [x3, x1, lsl #2]                           // Heap reference = 32b.
     ldr x3, [xSELF, #THREAD_CARD_TABLE_OFFSET]
     lsr x0, x0, #CARD_TABLE_CARD_SHIFT
     strb w3, [x3, x0]
     ret
-.Ldo_aput_null:
+
+.Laput_obj_null:
     add x3, x0, #MIRROR_OBJECT_ARRAY_DATA_OFFSET
-                                                         // "Compress" = do nothing
-    str w2, [x3, x1, lsl #2]                             // Heap reference = 32b
+    str w2, [x3, x1, lsl #2]                           // Heap reference = 32b.
     ret
-.Lcheck_assignability:
+
+.Laput_obj_check_assignability:
     // Store arguments and link register
     SAVE_TWO_REGS_INCREASE_FRAME x0, x1, 32
     SAVE_TWO_REGS x2, xLR, 16
@@ -1087,31 +1040,64 @@ ENTRY art_quick_aput_obj
     bl artIsAssignableFromCode
 
     // Check for exception
-    cbz x0, .Lthrow_array_store_exception
+    cbz x0, .Laput_obj_throw_array_store_exception
 
     // Restore
-    .cfi_remember_state
+    CFI_REMEMBER_STATE
     RESTORE_TWO_REGS x2, xLR, 16
     RESTORE_TWO_REGS_DECREASE_FRAME x0, x1, 32
 
     add x3, x0, #MIRROR_OBJECT_ARRAY_DATA_OFFSET
-                                                          // "Compress" = do nothing
     POISON_HEAP_REF w2
-    str w2, [x3, x1, lsl #2]                              // Heap reference = 32b
+    str w2, [x3, x1, lsl #2]                           // Heap reference = 32b.
     ldr x3, [xSELF, #THREAD_CARD_TABLE_OFFSET]
     lsr x0, x0, #CARD_TABLE_CARD_SHIFT
     strb w3, [x3, x0]
     ret
     CFI_RESTORE_STATE_AND_DEF_CFA sp, 32
-.Lthrow_array_store_exception:
+
+.Laput_obj_throw_array_store_exception:
     RESTORE_TWO_REGS x2, xLR, 16
     RESTORE_TWO_REGS_DECREASE_FRAME x0, x1, 32
 
+#if defined(USE_READ_BARRIER) && defined(USE_BAKER_READ_BARRIER)
+    CFI_REMEMBER_STATE
+#endif  // defined(USE_READ_BARRIER) && defined(USE_BAKER_READ_BARRIER)
     SETUP_SAVE_ALL_CALLEE_SAVES_FRAME
     mov x1, x2                      // Pass value.
     mov x2, xSELF                   // Pass Thread::Current.
     bl artThrowArrayStoreException  // (Object*, Object*, Thread*).
-    brk 0                           // Unreached.
+    brk 0                           // Unreachable.
+
+#if defined(USE_READ_BARRIER) && defined(USE_BAKER_READ_BARRIER)
+    CFI_RESTORE_STATE_AND_DEF_CFA sp, 0
+.Laput_obj_gc_marking:
+    BAKER_RB_CHECK_GRAY_BIT_AND_LOAD \
+        w3, x0, MIRROR_OBJECT_CLASS_OFFSET, .Laput_obj_mark_array_class
+.Laput_obj_mark_array_class_continue:
+    BAKER_RB_CHECK_GRAY_BIT_AND_LOAD \
+        w3, x3, MIRROR_CLASS_COMPONENT_TYPE_OFFSET, .Laput_obj_mark_array_element
+.Laput_obj_mark_array_element_continue:
+    BAKER_RB_CHECK_GRAY_BIT_AND_LOAD \
+        w4, x2, MIRROR_OBJECT_CLASS_OFFSET, .Laput_obj_mark_object_class
+.Laput_obj_mark_object_class_continue:
+    cmp w3, w4  // value's type == array's component type - trivial assignability
+    bne .Laput_obj_check_assignability
+    b   .Laput_obj_store
+
+.Laput_obj_mark_array_class:
+    BAKER_RB_LOAD_AND_MARK w3, x0, MIRROR_OBJECT_CLASS_OFFSET, art_quick_read_barrier_mark_reg03
+    b .Laput_obj_mark_array_class_continue
+
+.Laput_obj_mark_array_element:
+    BAKER_RB_LOAD_AND_MARK \
+        w3, x3, MIRROR_CLASS_COMPONENT_TYPE_OFFSET, art_quick_read_barrier_mark_reg03
+    b .Laput_obj_mark_array_element_continue
+
+.Laput_obj_mark_object_class:
+    BAKER_RB_LOAD_AND_MARK w4, x2, MIRROR_OBJECT_CLASS_OFFSET, art_quick_read_barrier_mark_reg04
+    b .Laput_obj_mark_object_class_continue
+#endif  // defined(USE_READ_BARRIER) && defined(USE_BAKER_READ_BARRIER)
 END art_quick_aput_obj
 
 // Macro to facilitate adding new allocation entrypoints.
@@ -1207,48 +1193,50 @@ END \name
      * Macro for resolution and initialization of indexed DEX file
      * constants such as classes and strings.
      */
-.macro ONE_ARG_SAVE_EVERYTHING_DOWNCALL name, entrypoint, runtime_method_offset = RUNTIME_SAVE_EVERYTHING_METHOD_OFFSET
+.macro ONE_ARG_SAVE_EVERYTHING_DOWNCALL \
+        name, entrypoint, runtime_method_offset = RUNTIME_SAVE_EVERYTHING_METHOD_OFFSET
     .extern \entrypoint
 ENTRY \name
     SETUP_SAVE_EVERYTHING_FRAME \runtime_method_offset       // save everything for stack crawl
     mov   x1, xSELF                   // pass Thread::Current
     bl    \entrypoint                 // (int32_t index, Thread* self)
     cbz   w0, 1f                      // If result is null, deliver the OOME.
-    .cfi_remember_state
-    RESTORE_SAVE_EVERYTHING_FRAME_KEEP_X0
-    REFRESH_MARKING_REGISTER
-    ret                        // return
-    CFI_RESTORE_STATE_AND_DEF_CFA sp, FRAME_SIZE_SAVE_EVERYTHING
+    DEOPT_OR_RESTORE_SAVE_EVERYTHING_FRAME_AND_RETURN_X0 x1, /* is_ref= */ 1
 1:
     DELIVER_PENDING_EXCEPTION_FRAME_READY
 END \name
 .endm
 
 .macro ONE_ARG_SAVE_EVERYTHING_DOWNCALL_FOR_CLINIT name, entrypoint
-    ONE_ARG_SAVE_EVERYTHING_DOWNCALL \name, \entrypoint, RUNTIME_SAVE_EVERYTHING_FOR_CLINIT_METHOD_OFFSET
+    ONE_ARG_SAVE_EVERYTHING_DOWNCALL \
+            \name, \entrypoint, RUNTIME_SAVE_EVERYTHING_FOR_CLINIT_METHOD_OFFSET
 .endm
 
-.macro RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
-    cbz w0, 1f                 // result zero branch over
-    ret                        // return
+.macro RETURN_IF_RESULT_IS_NON_ZERO_OR_DEOPT_OR_DELIVER
+    cbz w0, 1f                       // result zero branch over
+    DEOPT_OR_RETURN x1, /*is_ref=*/1 // check for deopt or return
 1:
     DELIVER_PENDING_EXCEPTION
 .endm
+
 
     /*
      * Entry from managed code that calls artHandleFillArrayDataFromCode and delivers exception on
      * failure.
      */
-TWO_ARG_REF_DOWNCALL art_quick_handle_fill_data, artHandleFillArrayDataFromCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+TWO_ARG_REF_DOWNCALL \
+        art_quick_handle_fill_data, artHandleFillArrayDataFromCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
 
     /*
      * Entry from managed code when uninitialized static storage, this stub will run the class
      * initializer and deliver the exception on error. On success the static storage base is
      * returned.
      */
-ONE_ARG_SAVE_EVERYTHING_DOWNCALL_FOR_CLINIT art_quick_initialize_static_storage, artInitializeStaticStorageFromCode
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL_FOR_CLINIT \
+        art_quick_initialize_static_storage, artInitializeStaticStorageFromCode
 ONE_ARG_SAVE_EVERYTHING_DOWNCALL_FOR_CLINIT art_quick_resolve_type, artResolveTypeFromCode
-ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_resolve_type_and_verify_access, artResolveTypeAndVerifyAccessFromCode
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL \
+        art_quick_resolve_type_and_verify_access, artResolveTypeAndVerifyAccessFromCode
 ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_resolve_method_handle, artResolveMethodHandleFromCode
 ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_resolve_method_type, artResolveMethodTypeFromCode
 ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_resolve_string, artResolveStringFromCode
@@ -1256,33 +1244,71 @@ ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_resolve_string, artResolveStringFromC
 // Note: Functions `art{Get,Set}<Kind>{Static,Instance}FromCompiledCode` are
 // defined with a macro in runtime/entrypoints/quick/quick_field_entrypoints.cc.
 
-ONE_ARG_REF_DOWNCALL art_quick_get_boolean_static, artGetBooleanStaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-ONE_ARG_REF_DOWNCALL art_quick_get_byte_static, artGetByteStaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-ONE_ARG_REF_DOWNCALL art_quick_get_char_static, artGetCharStaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-ONE_ARG_REF_DOWNCALL art_quick_get_short_static, artGetShortStaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-ONE_ARG_REF_DOWNCALL art_quick_get32_static, artGet32StaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-ONE_ARG_REF_DOWNCALL art_quick_get64_static, artGet64StaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-ONE_ARG_REF_DOWNCALL art_quick_get_obj_static, artGetObjStaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
+ONE_ARG_REF_DOWNCALL art_quick_get_boolean_static, \
+                     artGetBooleanStaticFromCompiledCode, \
+                     RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+ONE_ARG_REF_DOWNCALL art_quick_get_byte_static, \
+                     artGetByteStaticFromCompiledCode, \
+                     RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+ONE_ARG_REF_DOWNCALL art_quick_get_char_static, \
+                     artGetCharStaticFromCompiledCode, \
+                     RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+ONE_ARG_REF_DOWNCALL art_quick_get_short_static, \
+                     artGetShortStaticFromCompiledCode, \
+                     RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+ONE_ARG_REF_DOWNCALL art_quick_get32_static, \
+                     artGet32StaticFromCompiledCode, \
+                     RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+ONE_ARG_REF_DOWNCALL art_quick_get64_static, \
+                     artGet64StaticFromCompiledCode, \
+                     RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+ONE_ARG_REF_DOWNCALL art_quick_get_obj_static, \
+                     artGetObjStaticFromCompiledCode, \
+                     RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
 
-TWO_ARG_REF_DOWNCALL art_quick_get_boolean_instance, artGetBooleanInstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-TWO_ARG_REF_DOWNCALL art_quick_get_byte_instance, artGetByteInstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-TWO_ARG_REF_DOWNCALL art_quick_get_char_instance, artGetCharInstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-TWO_ARG_REF_DOWNCALL art_quick_get_short_instance, artGetShortInstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-TWO_ARG_REF_DOWNCALL art_quick_get32_instance, artGet32InstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-TWO_ARG_REF_DOWNCALL art_quick_get64_instance, artGet64InstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-TWO_ARG_REF_DOWNCALL art_quick_get_obj_instance, artGetObjInstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
+TWO_ARG_REF_DOWNCALL art_quick_get_boolean_instance, \
+                     artGetBooleanInstanceFromCompiledCode, \
+                     RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+TWO_ARG_REF_DOWNCALL art_quick_get_byte_instance, \
+                     artGetByteInstanceFromCompiledCode, \
+                     RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+TWO_ARG_REF_DOWNCALL art_quick_get_char_instance, \
+                     artGetCharInstanceFromCompiledCode, \
+                     RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+TWO_ARG_REF_DOWNCALL art_quick_get_short_instance, \
+                     artGetShortInstanceFromCompiledCode, \
+                     RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+TWO_ARG_REF_DOWNCALL art_quick_get32_instance, \
+                     artGet32InstanceFromCompiledCode, \
+                     RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+TWO_ARG_REF_DOWNCALL art_quick_get64_instance, \
+                     artGet64InstanceFromCompiledCode, \
+                     RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+TWO_ARG_REF_DOWNCALL art_quick_get_obj_instance, \
+                     artGetObjInstanceFromCompiledCode, \
+                     RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
 
-TWO_ARG_REF_DOWNCALL art_quick_set8_static, artSet8StaticFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
-TWO_ARG_REF_DOWNCALL art_quick_set16_static, artSet16StaticFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
-TWO_ARG_REF_DOWNCALL art_quick_set32_static, artSet32StaticFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
-TWO_ARG_REF_DOWNCALL art_quick_set64_static, artSet64StaticFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
-TWO_ARG_REF_DOWNCALL art_quick_set_obj_static, artSetObjStaticFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+TWO_ARG_REF_DOWNCALL \
+    art_quick_set8_static, artSet8StaticFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+TWO_ARG_REF_DOWNCALL \
+    art_quick_set16_static, artSet16StaticFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+TWO_ARG_REF_DOWNCALL \
+    art_quick_set32_static, artSet32StaticFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+TWO_ARG_REF_DOWNCALL \
+    art_quick_set64_static, artSet64StaticFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+TWO_ARG_REF_DOWNCALL \
+    art_quick_set_obj_static, artSetObjStaticFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
 
-THREE_ARG_REF_DOWNCALL art_quick_set8_instance, artSet8InstanceFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
-THREE_ARG_REF_DOWNCALL art_quick_set16_instance, artSet16InstanceFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
-THREE_ARG_REF_DOWNCALL art_quick_set32_instance, artSet32InstanceFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
-THREE_ARG_REF_DOWNCALL art_quick_set64_instance, artSet64InstanceFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
-THREE_ARG_REF_DOWNCALL art_quick_set_obj_instance, artSetObjInstanceFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+THREE_ARG_REF_DOWNCALL \
+    art_quick_set8_instance, artSet8InstanceFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+THREE_ARG_REF_DOWNCALL \
+    art_quick_set16_instance, artSet16InstanceFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+THREE_ARG_REF_DOWNCALL \
+    art_quick_set32_instance, artSet32InstanceFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+THREE_ARG_REF_DOWNCALL \
+    art_quick_set64_instance, artSet64InstanceFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+THREE_ARG_REF_DOWNCALL \
+    art_quick_set_obj_instance, artSetObjInstanceFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
 
 // Generate the allocation entrypoints for each allocator.
 GENERATE_ALLOC_ENTRYPOINTS_FOR_NON_TLAB_ALLOCATORS
@@ -1410,12 +1436,14 @@ ENTRY \c_name
     bl     \cxx_name
     RESTORE_SAVE_REFS_ONLY_FRAME
     REFRESH_MARKING_REGISTER
-    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DEOPT_OR_DELIVER
 END \c_name
 .endm
 
-ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_resolved_rosalloc, artAllocObjectFromCodeResolvedRosAlloc, /* isInitialized */ 0
-ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_initialized_rosalloc, artAllocObjectFromCodeInitializedRosAlloc, /* isInitialized */ 1
+ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_resolved_rosalloc, \
+                                artAllocObjectFromCodeResolvedRosAlloc, /* isInitialized */ 0
+ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_initialized_rosalloc, \
+                                artAllocObjectFromCodeInitializedRosAlloc, /* isInitialized */ 1
 
 // If isInitialized=1 then the compiler assumes the object's class has already been initialized.
 // If isInitialized=0 the compiler can only assume it's been at least resolved.
@@ -1439,10 +1467,6 @@ ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_initialized_rosalloc, art
     str    x5, [xSELF, #THREAD_LOCAL_OBJECTS_OFFSET]
     POISON_HEAP_REF w0
     str    w0, [x4, #MIRROR_OBJECT_CLASS_OFFSET]              // Store the class pointer.
-                                                              // Fence. This is "ish" not "ishst" so
-                                                              // that the code after this allocation
-                                                              // site will see the right values in
-                                                              // the fields of the class.
     mov    x0, x4
     // No barrier. The class is already observably initialized (otherwise the fast
     // path size check above would fail) and new-instance allocations are protected
@@ -1465,16 +1489,25 @@ ENTRY \name
     bl     \entrypoint                         // (mirror::Class*, Thread*)
     RESTORE_SAVE_REFS_ONLY_FRAME
     REFRESH_MARKING_REGISTER
-    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DEOPT_OR_DELIVER
 END \name
 .endm
 
-GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_resolved_region_tlab, artAllocObjectFromCodeResolvedRegionTLAB, /* isInitialized */ 0
-GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_initialized_region_tlab, artAllocObjectFromCodeInitializedRegionTLAB, /* isInitialized */ 1
-GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_resolved_tlab, artAllocObjectFromCodeResolvedTLAB, /* isInitialized */ 0
-GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_initialized_tlab, artAllocObjectFromCodeInitializedTLAB, /* isInitialized */ 1
+GENERATE_ALLOC_OBJECT_RESOLVED_TLAB \
+    art_quick_alloc_object_resolved_region_tlab, \
+    artAllocObjectFromCodeResolvedRegionTLAB, /* isInitialized */ 0
+GENERATE_ALLOC_OBJECT_RESOLVED_TLAB \
+    art_quick_alloc_object_initialized_region_tlab, \
+    artAllocObjectFromCodeInitializedRegionTLAB, /* isInitialized */ 1
+GENERATE_ALLOC_OBJECT_RESOLVED_TLAB \
+    art_quick_alloc_object_resolved_tlab, \
+    artAllocObjectFromCodeResolvedTLAB, /* isInitialized */ 0
+GENERATE_ALLOC_OBJECT_RESOLVED_TLAB \
+    art_quick_alloc_object_initialized_tlab, \
+    artAllocObjectFromCodeInitializedTLAB, /* isInitialized */ 1
 
-.macro ALLOC_ARRAY_TLAB_FAST_PATH_RESOLVED_WITH_SIZE slowPathLabel, xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
+.macro ALLOC_ARRAY_TLAB_FAST_PATH_RESOLVED_WITH_SIZE \
+    slowPathLabel, xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
     and    \xTemp1, \xTemp1, #OBJECT_ALIGNMENT_MASK_TOGGLED64 // Apply alignment mask
                                                               // (addr + 7) & ~7. The mask must
                                                               // be 64 bits to keep high bits in
@@ -1510,7 +1543,6 @@ GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_initialized_tlab, art
     POISON_HEAP_REF \wClass
     str    \wClass, [x0, #MIRROR_OBJECT_CLASS_OFFSET]         // Store the class pointer.
     str    \wCount, [x0, #MIRROR_ARRAY_LENGTH_OFFSET]         // Store the array length.
-                                                              // Fence.
 // new-array is special. The class is loaded and immediately goes to the Initialized state
 // before it is published. Therefore the only fence needed is for the publication of the object.
 // See ClassLinker::CreateArrayClass() for more details.
@@ -1529,7 +1561,8 @@ ENTRY \name
     // x2-x7: free.
     mov    x3, x0
     \size_setup x3, w3, x1, w1, x4, w4, x5, w5, x6, w6
-    ALLOC_ARRAY_TLAB_FAST_PATH_RESOLVED_WITH_SIZE .Lslow_path\name, x3, w3, x1, w1, x4, w4, x5, w5, x6, w6
+    ALLOC_ARRAY_TLAB_FAST_PATH_RESOLVED_WITH_SIZE \
+        .Lslow_path\name, x3, w3, x1, w1, x4, w4, x5, w5, x6, w6
 .Lslow_path\name:
     // x0: mirror::Class* klass
     // x1: int32_t component_count
@@ -1539,11 +1572,12 @@ ENTRY \name
     bl     \entrypoint
     RESTORE_SAVE_REFS_ONLY_FRAME
     REFRESH_MARKING_REGISTER
-    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DEOPT_OR_DELIVER
 END \name
 .endm
 
-.macro COMPUTE_ARRAY_SIZE_UNKNOWN xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
+.macro COMPUTE_ARRAY_SIZE_UNKNOWN \
+        xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
     // Array classes are never finalizable or uninitialized, no need to check.
     ldr    \wTemp0, [\xClass, #MIRROR_CLASS_COMPONENT_TYPE_OFFSET] // Load component type
     UNPOISON_HEAP_REF \wTemp0
@@ -1566,24 +1600,28 @@ END \name
     add    \xTemp1, \xTemp1, \xTemp0
 .endm
 
-.macro COMPUTE_ARRAY_SIZE_8 xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
+.macro COMPUTE_ARRAY_SIZE_8 \
+        xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
     // Add array data offset and alignment.
     add    \xTemp1, \xCount, #(MIRROR_INT_ARRAY_DATA_OFFSET + OBJECT_ALIGNMENT_MASK)
 .endm
 
-.macro COMPUTE_ARRAY_SIZE_16 xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
+.macro COMPUTE_ARRAY_SIZE_16 \
+        xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
     lsl    \xTemp1, \xCount, #1
     // Add array data offset and alignment.
     add    \xTemp1, \xTemp1, #(MIRROR_INT_ARRAY_DATA_OFFSET + OBJECT_ALIGNMENT_MASK)
 .endm
 
-.macro COMPUTE_ARRAY_SIZE_32 xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
+.macro COMPUTE_ARRAY_SIZE_32 \
+        xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
     lsl    \xTemp1, \xCount, #2
     // Add array data offset and alignment.
     add    \xTemp1, \xTemp1, #(MIRROR_INT_ARRAY_DATA_OFFSET + OBJECT_ALIGNMENT_MASK)
 .endm
 
-.macro COMPUTE_ARRAY_SIZE_64 xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
+.macro COMPUTE_ARRAY_SIZE_64 \
+        xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
     lsl    \xTemp1, \xCount, #3
     // Add array data offset and alignment.
     add    \xTemp1, \xTemp1, #(MIRROR_WIDE_ARRAY_DATA_OFFSET + OBJECT_ALIGNMENT_MASK)
@@ -1591,16 +1629,36 @@ END \name
 
 // TODO(ngeoffray): art_quick_alloc_array_resolved_region_tlab is not used for arm64, remove
 // the entrypoint once all backends have been updated to use the size variants.
-GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_UNKNOWN
-GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved8_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_8
-GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved16_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_16
-GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved32_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_32
-GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved64_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_64
-GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_UNKNOWN
-GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved8_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_8
-GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved16_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_16
-GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved32_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_32
-GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved64_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_64
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved_region_tlab, \
+                          artAllocArrayFromCodeResolvedRegionTLAB, \
+                          COMPUTE_ARRAY_SIZE_UNKNOWN
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved8_region_tlab, \
+                          artAllocArrayFromCodeResolvedRegionTLAB, \
+                          COMPUTE_ARRAY_SIZE_8
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved16_region_tlab, \
+                          artAllocArrayFromCodeResolvedRegionTLAB, \
+                          COMPUTE_ARRAY_SIZE_16
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved32_region_tlab, \
+                          artAllocArrayFromCodeResolvedRegionTLAB, \
+                          COMPUTE_ARRAY_SIZE_32
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved64_region_tlab, \
+                          artAllocArrayFromCodeResolvedRegionTLAB, \
+                          COMPUTE_ARRAY_SIZE_64
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved_tlab, \
+                          artAllocArrayFromCodeResolvedTLAB, \
+                          COMPUTE_ARRAY_SIZE_UNKNOWN
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved8_tlab, \
+                          artAllocArrayFromCodeResolvedTLAB, \
+                          COMPUTE_ARRAY_SIZE_8
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved16_tlab, \
+                          artAllocArrayFromCodeResolvedTLAB, \
+                          COMPUTE_ARRAY_SIZE_16
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved32_tlab, \
+                          artAllocArrayFromCodeResolvedTLAB, \
+                          COMPUTE_ARRAY_SIZE_32
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved64_tlab, \
+                          artAllocArrayFromCodeResolvedTLAB, \
+                          COMPUTE_ARRAY_SIZE_64
 
     /*
      * Called by managed code when the thread has been asked to suspend.
@@ -1645,7 +1703,7 @@ ENTRY art_quick_proxy_invoke_handler
     bl      artQuickProxyInvokeHandler  // (Method* proxy method, receiver, Thread*, SP)
     ldr     x2, [xSELF, THREAD_EXCEPTION_OFFSET]
     cbnz    x2, .Lexception_in_proxy    // success if no exception is pending
-    .cfi_remember_state
+    CFI_REMEMBER_STATE
     RESTORE_SAVE_REFS_AND_ARGS_FRAME    // Restore frame
     REFRESH_MARKING_REGISTER
     fmov    d0, x0                      // Store result in d0 in case it was float or double
@@ -1694,7 +1752,7 @@ ENTRY art_quick_resolution_trampoline
     mov x3, sp
     bl artQuickResolutionTrampoline  // (called, receiver, Thread*, SP)
     cbz x0, 1f
-    .cfi_remember_state
+    CFI_REMEMBER_STATE
     mov xIP0, x0            // Remember returned code pointer in xIP0.
     ldr x0, [sp, #0]        // artQuickResolutionTrampoline puts called method in *SP.
     RESTORE_SAVE_REFS_AND_ARGS_FRAME
@@ -1743,8 +1801,7 @@ END art_quick_resolution_trampoline
  * | Method*           | <- X0 (Managed frame similar to SaveRefsAndArgs.)
  * #-------------------#
  * | local ref cookie  | // 4B
- * | padding           | // 0B or 4B to align handle scope on 8B address
- * | handle scope      | // Size depends on number of references; multiple of 4B.
+ * | padding           | // 0B or 4B to align stack args on 8B address
  * #-------------------#
  * | JNI Stack Args    | // Empty if all args fit into registers x0-x7, d0-d7.
  * #-------------------#    <--- SP on native call (1)
@@ -1766,24 +1823,20 @@ END art_quick_resolution_trampoline
 ENTRY art_quick_generic_jni_trampoline
     SETUP_SAVE_REFS_AND_ARGS_FRAME_WITH_METHOD_IN_X0
 
-    // Save SP , so we can have static CFI info.
+    // Save SP, so we can have static CFI info.
     mov x28, sp
     .cfi_def_cfa_register x28
 
-    // This looks the same, but is different: this will be updated to point to the bottom
-    // of the frame when the handle scope is inserted.
-    mov xFP, sp
-
-    mov xIP0, #5120
+    mov xIP0, #GENERIC_JNI_TRAMPOLINE_RESERVED_AREA
     sub sp, sp, xIP0
 
     // prepare for artQuickGenericJniTrampoline call
     // (Thread*, managed_sp, reserved_area)
     //    x0         x1            x2   <= C calling convention
-    //  xSELF       xFP            sp   <= where they are
+    //  xSELF       x28            sp   <= where they are
 
     mov x0, xSELF   // Thread*
-    mov x1, xFP     // SP for the managed frame.
+    mov x1, x28     // SP for the managed frame.
     mov x2, sp      // reserved area for arguments and other saved data (up to managed frame)
     bl artQuickGenericJniTrampoline  // (Thread*, sp)
 
@@ -1834,11 +1887,32 @@ ENTRY art_quick_generic_jni_trampoline
 
     // Tear down the alloca.
     mov sp, x28
-    .cfi_remember_state
-    .cfi_def_cfa_register sp
+
+    LOAD_RUNTIME_INSTANCE x1
+    ldrb w1, [x1, #RUN_EXIT_HOOKS_OFFSET_FROM_RUNTIME_INSTANCE]
+    cbnz w1, .Lcall_method_exit_hook
+.Lcall_method_exit_hook_done:
 
     // Tear down the callee-save frame.
-    RESTORE_SAVE_REFS_AND_ARGS_FRAME
+    CFI_REMEMBER_STATE
+    .cfi_def_cfa_register sp
+    // Restore callee-saves and LR as in `RESTORE_SAVE_REFS_AND_ARGS_FRAME`
+    // but do not restore argument registers.
+    // Note: Likewise, we could avoid restoring X20 in the case of Baker
+    // read barriers, as it is overwritten by REFRESH_MARKING_REGISTER
+    // later; but it's not worth handling this special case.
+#if (FRAME_SIZE_SAVE_REFS_AND_ARGS != 224)
+#error "FRAME_SIZE_SAVE_REFS_AND_ARGS(ARM64) size not as expected."
+#endif
+    RESTORE_REG x20, 136
+    RESTORE_TWO_REGS x21, x22, 144
+    RESTORE_TWO_REGS x23, x24, 160
+    RESTORE_TWO_REGS x25, x26, 176
+    RESTORE_TWO_REGS x27, x28, 192
+    RESTORE_TWO_REGS x29, xLR, 208
+    // Remove the frame.
+    DECREASE_FRAME FRAME_SIZE_SAVE_REFS_AND_ARGS
+
     REFRESH_MARKING_REGISTER
 
     // store into fpr, for when it's a fpr return...
@@ -1847,6 +1921,13 @@ ENTRY art_quick_generic_jni_trampoline
 
     // Undo the unwinding information from above since it doesn't apply below.
     CFI_RESTORE_STATE_AND_DEF_CFA x28, FRAME_SIZE_SAVE_REFS_AND_ARGS
+
+.Lcall_method_exit_hook:
+    fmov d0, x0
+    mov x4, FRAME_SIZE_SAVE_REFS_AND_ARGS
+    bl art_quick_method_exit_hook
+    b .Lcall_method_exit_hook_done
+
 .Lexception_in_native:
     // Move to x1 then sp to please assembler.
     ldr x1, [xSELF, # THREAD_TOP_QUICK_FRAME_OFFSET]
@@ -1888,77 +1969,6 @@ END art_quick_to_interpreter_bridge
  * Called to attempt to execute an obsolete method.
  */
 ONE_ARG_RUNTIME_EXCEPTION art_invoke_obsolete_method_stub, artInvokeObsoleteMethod
-
-
-//
-// Instrumentation-related stubs
-//
-    .extern artInstrumentationMethodEntryFromCode
-ENTRY art_quick_instrumentation_entry
-    SETUP_SAVE_REFS_AND_ARGS_FRAME
-
-    mov   x20, x0             // Preserve method reference in a callee-save.
-
-    mov   x2, xSELF
-    mov   x3, sp  // Pass SP
-    bl    artInstrumentationMethodEntryFromCode  // (Method*, Object*, Thread*, SP)
-
-    mov   xIP0, x0            // x0 = result of call.
-    mov   x0, x20             // Reload method reference.
-
-    RESTORE_SAVE_REFS_AND_ARGS_FRAME  // Note: will restore xSELF
-    REFRESH_MARKING_REGISTER
-    cbz   xIP0, 1f            // Deliver the pending exception if method is null.
-    adr   xLR, art_quick_instrumentation_exit
-    br    xIP0                // Tail-call method with lr set to art_quick_instrumentation_exit.
-
-1:
-    DELIVER_PENDING_EXCEPTION
-END art_quick_instrumentation_entry
-
-    .extern artInstrumentationMethodExitFromCode
-ENTRY art_quick_instrumentation_exit
-    mov   xLR, #0             // Clobber LR for later checks.
-    SETUP_SAVE_EVERYTHING_FRAME
-
-    add   x3, sp, #16         // Pass floating-point result pointer, in kSaveEverything frame.
-    add   x2, sp, #272        // Pass integer result pointer, in kSaveEverything frame.
-    mov   x1, sp              // Pass SP.
-    mov   x0, xSELF           // Pass Thread.
-    bl   artInstrumentationMethodExitFromCode    // (Thread*, SP, gpr_res*, fpr_res*)
-
-    cbz   x0, .Ldo_deliver_instrumentation_exception
-    .cfi_remember_state
-                              // Handle error
-    cbnz  x1, .Ldeoptimize
-    // Normal return.
-    str   x0, [sp, #FRAME_SIZE_SAVE_EVERYTHING - 8]
-                              // Set return pc.
-    RESTORE_SAVE_EVERYTHING_FRAME
-    REFRESH_MARKING_REGISTER
-    br    lr
-.Ldo_deliver_instrumentation_exception:
-    CFI_RESTORE_STATE_AND_DEF_CFA sp, FRAME_SIZE_SAVE_EVERYTHING
-    DELIVER_PENDING_EXCEPTION_FRAME_READY
-.Ldeoptimize:
-    str   x1, [sp, #FRAME_SIZE_SAVE_EVERYTHING - 8]
-                              // Set return pc.
-    RESTORE_SAVE_EVERYTHING_FRAME
-    // Jump to art_quick_deoptimize.
-    b     art_quick_deoptimize
-END art_quick_instrumentation_exit
-
-    /*
-     * Instrumentation has requested that we deoptimize into the interpreter. The deoptimization
-     * will long jump to the upcall with a special exception of -1.
-     */
-    .extern artDeoptimize
-ENTRY art_quick_deoptimize
-    SETUP_SAVE_EVERYTHING_FRAME
-    mov    x0, xSELF          // Pass thread.
-    bl     artDeoptimize      // (Thread*)
-    brk 0
-END art_quick_deoptimize
 
     /*
      * Compiled code has requested that we deoptimize into the interpreter. The deoptimization
@@ -2102,7 +2112,7 @@ ENTRY art_quick_string_builder_append
     bl     artStringBuilderAppend       // (uint32_t, const unit32_t*, Thread*)
     RESTORE_SAVE_REFS_ONLY_FRAME
     REFRESH_MARKING_REGISTER
-    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DEOPT_OR_DELIVER
 END art_quick_string_builder_append
 
     /*
@@ -2111,15 +2121,10 @@ END art_quick_string_builder_append
      * `wreg` (corresponding to X register `xreg`), saving and restoring
      * all caller-save registers.
      *
-     * If `wreg` is different from `w0`, the generated function follows a
-     * non-standard runtime calling convention:
-     * - register `wreg` is used to pass the (sole) argument of this
-     *   function (instead of W0);
-     * - register `wreg` is used to return the result of this function
-     *   (instead of W0);
-     * - W0 is treated like a normal (non-argument) caller-save register;
-     * - everything else is the same as in the standard runtime calling
-     *   convention (e.g. standard callee-save registers are preserved).
+     * The generated function follows a non-standard runtime calling convention:
+     * - register `reg` (which may be different from W0) is used to pass the (sole) argument,
+     * - register `reg` (which may be different from W0) is used to return the result,
+     * - all other registers are callee-save (the values they hold are preserved).
      */
 .macro READ_BARRIER_MARK_REG name, wreg, xreg
 ENTRY \name
@@ -2598,7 +2603,8 @@ ENTRY art_quick_method_entry_hook
 
     ldr x0, [sp, #FRAME_SIZE_SAVE_EVERYTHING] // pass ArtMethod*
     mov x1, xSELF                             // pass Thread::Current
-    bl  artMethodEntryHook                    // (ArtMethod*, Thread*)
+    mov x2, sp                                // pass SP
+    bl  artMethodEntryHook                    // (ArtMethod*, Thread*, SP)
 
     RESTORE_SAVE_EVERYTHING_FRAME             // Note: will restore xSELF
     REFRESH_MARKING_REGISTER
@@ -2609,21 +2615,16 @@ END art_quick_method_entry_hook
 ENTRY art_quick_method_exit_hook
     SETUP_SAVE_EVERYTHING_FRAME
 
+    // frame_size is passed from JITed code in x4
     add x3, sp, #16                           // floating-point result ptr in kSaveEverything frame
     add x2, sp, #272                          // integer result ptr in kSaveEverything frame
-    ldr x1, [sp, #FRAME_SIZE_SAVE_EVERYTHING] // ArtMethod*
+    add x1, sp, #FRAME_SIZE_SAVE_EVERYTHING   // ArtMethod**
     mov x0, xSELF                             // Thread::Current
-    bl  artMethodExitHook                     // (Thread*, ArtMethod*, gpr_res*, fpr_res*)
-
-    .cfi_remember_state
-    cbnz x0, .Ldo_deliver_instrumentation_exception_exit // Handle exception
+    bl  artMethodExitHook                     // (Thread*, ArtMethod**, gpr_res*, fpr_res*,
+                                              // frame_size)
 
     // Normal return.
     RESTORE_SAVE_EVERYTHING_FRAME
     REFRESH_MARKING_REGISTER
     ret
-.Ldo_deliver_instrumentation_exception_exit:
-    CFI_RESTORE_STATE_AND_DEF_CFA sp, FRAME_SIZE_SAVE_EVERYTHING
-    DELIVER_PENDING_EXCEPTION_FRAME_READY
 END art_quick_method_exit_hook
-

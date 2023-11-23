@@ -39,7 +39,7 @@ java_library {
         "androidx.legacy_legacy-support-v4",
         "mockito-target-minus-junit4",
         "compatibility-device-util-axt",
-        "ub-uiautomator",
+        "androidx.test.uiautomator_uiautomator",
     ],
     sdk_version: "test_current",
 }

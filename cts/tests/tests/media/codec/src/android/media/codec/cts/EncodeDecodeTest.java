@@ -16,6 +16,11 @@
 
 package android.media.codec.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
+
 import android.graphics.ImageFormat;
 import android.media.Image;
 import android.media.MediaCodec;
@@ -30,14 +35,22 @@ import android.media.cts.OutputSurface;
 import android.media.cts.SdkMediaCodec;
 import android.media.cts.TestArgs;
 import android.opengl.GLES20;
+import android.os.Build;
+import android.platform.test.annotations.PlatinumTest;
 import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
 import android.util.Log;
 
-import androidx.test.filters.FlakyTest;
 import androidx.test.filters.SmallTest;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.ApiTest;
 import com.android.compatibility.common.util.MediaUtils;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -48,16 +61,6 @@ import java.util.Collection;
 import java.util.List;
 
 import javax.microedition.khronos.opengles.GL10;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeTrue;
 
 /**
  * Generates a series of video frames, encodes them, decodes them, and tests for significant
@@ -74,14 +77,16 @@ import static org.junit.Assume.assumeTrue;
 @Presubmit
 @SmallTest
 @RequiresDevice
-// TODO: b/186001256
-@FlakyTest
+@PlatinumTest(focusArea = "media")
 @RunWith(Parameterized.class)
 public class EncodeDecodeTest {
     private static final String TAG = "EncodeDecodeTest";
     private static final boolean VERBOSE = false;           // lots of logging
     private static final boolean DEBUG_SAVE_FILE = false;   // save copy of encoded movie
     private static final String DEBUG_FILE_NAME_BASE = "/sdcard/test.";
+    //TODO(b/248315681) Remove codenameEquals() check once devices return correct version for U
+    private static final boolean IS_AFTER_T = ApiLevelUtil.isAfter(Build.VERSION_CODES.TIRAMISU)
+            || ApiLevelUtil.codenameEquals("UpsideDownCake");
 
     // parameters for the encoder
     private static final int FRAME_RATE = 15;               // 15fps
@@ -176,7 +181,7 @@ public class EncodeDecodeTest {
         assumeTrue(MediaUtils.supports(mDecoderName, format));
     }
 
-    @Parameterized.Parameters(name = "{index}({0}:{1})")
+    @Parameterized.Parameters(name = "{index}_{0}_{1}")
     public static Collection<Object[]> input() {
         final List<Object[]> exhaustiveArgsList = Arrays.asList(new Object[][]{
                 // Mime, width, height, bit-rate, allow bt601, allow bt709
@@ -283,6 +288,11 @@ public class EncodeDecodeTest {
          */
         public static void runTest(EncodeDecodeTest obj, boolean persisent, boolean useNdk)
                 throws Throwable {
+            // Few cuttlefish specific color conversion issues were fixed after Android T.
+            if (MediaUtils.onCuttlefish()) {
+                assumeTrue("Color conversion related tests are not valid on cuttlefish releases "
+                        + "through android T", IS_AFTER_T);
+            }
             SurfaceToSurfaceWrapper wrapper =
                     new SurfaceToSurfaceWrapper(obj, persisent, useNdk);
             Thread th = new Thread(wrapper, "codec test");
@@ -698,7 +708,7 @@ public class EncodeDecodeTest {
                     if (VERBOSE) Log.d(TAG, "decoder output format changed: " +
                             decoderOutputFormat);
                 } else if (decoderStatus < 0) {
-                    fail("unexpected result from deocder.dequeueOutputBuffer: " + decoderStatus);
+                    fail("unexpected result from decoder.dequeueOutputBuffer: " + decoderStatus);
                 } else {  // decoderStatus >= 0
                     if (!toSurface) {
                         ByteBuffer outputFrame = decoderOutputBuffers[decoderStatus];
@@ -853,7 +863,7 @@ public class EncodeDecodeTest {
                     if (VERBOSE) Log.d(TAG, "decoder output format changed: " +
                             decoderOutputFormat);
                 } else if (decoderStatus < 0) {
-                    fail("unexpected result from deocder.dequeueOutputBuffer: " + decoderStatus);
+                    fail("unexpected result from decoder.dequeueOutputBuffer: " + decoderStatus);
                 } else {  // decoderStatus >= 0
                     if (VERBOSE) Log.d(TAG, "surface decoder given buffer " + decoderStatus +
                             " (size=" + info.size + ")");
@@ -1258,6 +1268,11 @@ public class EncodeDecodeTest {
      * a series of byte[] buffers and decoded into ByteBuffers.  The output is checked for
      * validity.
      */
+    @ApiTest(apis = {"android.media.MediaCodecInfo.CodecCapabilities#COLOR_FormatYUV420Planar",
+            "android.media.MediaCodecInfo.CodecCapabilities#COLOR_FormatYUV420PackedPlanar",
+            "android.media.MediaCodecInfo.CodecCapabilities#COLOR_FormatYUV420SemiPlanar",
+            "android.media.MediaCodecInfo.CodecCapabilities#COLOR_FormatYUV420PackedSemiPlanar",
+            "android.media.MediaCodecInfo.CodecCapabilities#COLOR_TI_FormatYUV420PackedSemiPlanar"})
     @Test
     public void testEncodeDecodeVideoFromBufferToBuffer() throws Exception {
         encodeDecodeVideoFromBuffer(false);
@@ -1275,6 +1290,16 @@ public class EncodeDecodeTest {
      * the test thread, so we have to hand control off to a new thread for the duration of
      * the test.
      */
+    @ApiTest(apis = {"android.media.MediaCodecInfo.CodecCapabilities#COLOR_FormatYUV420Planar",
+            "android.media.MediaCodecInfo.CodecCapabilities#COLOR_FormatYUV420PackedPlanar",
+            "android.media.MediaCodecInfo.CodecCapabilities#COLOR_FormatYUV420SemiPlanar",
+            "android.media.MediaCodecInfo.CodecCapabilities#COLOR_FormatYUV420PackedSemiPlanar",
+            "android.media.MediaCodecInfo.CodecCapabilities#COLOR_TI_FormatYUV420PackedSemiPlanar",
+            "android.media.MediaCodecInfo.CodecCapabilities#COLOR_FormatSurface",
+            "android.opengl.GLES20#glReadPixels",
+            "android.media.MediaFormat#KEY_COLOR_RANGE",
+            "android.media.MediaFormat#KEY_COLOR_STANDARD",
+            "android.media.MediaFormat#KEY_COLOR_TRANSFER"})
     @Test
     public void testEncodeDecodeVideoFromBufferToSurface() throws Throwable {
         BufferToSurfaceWrapper.runTest(this);
@@ -1284,11 +1309,22 @@ public class EncodeDecodeTest {
      * Tests streaming of AVC through the encoder and decoder.  Data is provided through
      * a Surface and decoded onto a Surface.  The output is checked for validity.
      */
+    @ApiTest(apis = {"android.media.MediaCodec#createInputSurface",
+            "android.media.MediaCodecInfo.CodecCapabilities#COLOR_FormatSurface",
+            "android.opengl.GLES20#glReadPixels",
+            "android.media.MediaFormat#KEY_COLOR_RANGE",
+            "android.media.MediaFormat#KEY_COLOR_STANDARD",
+            "android.media.MediaFormat#KEY_COLOR_TRANSFER"})
     @Test
     public void testEncodeDecodeVideoFromSurfaceToSurface() throws Throwable {
         SurfaceToSurfaceWrapper.runTest(this, false, false);
     }
-
+    @ApiTest(apis = {"AMediaCodec_createInputSurface",
+            "android.media.MediaCodecInfo.CodecCapabilities#COLOR_FormatSurface",
+            "android.opengl.GLES20#glReadPixels",
+            "android.media.MediaFormat#KEY_COLOR_RANGE",
+            "android.media.MediaFormat#KEY_COLOR_STANDARD",
+            "android.media.MediaFormat#KEY_COLOR_TRANSFER"})
     @Test
     public void testEncodeDecodeVideoFromSurfaceToSurfaceNdk() throws Throwable {
         SurfaceToSurfaceWrapper.runTest(this, false, USE_NDK);
@@ -1298,11 +1334,25 @@ public class EncodeDecodeTest {
      * Tests streaming of video through the encoder and decoder.  Data is provided through
      * a PersistentSurface and decoded onto a Surface.  The output is checked for validity.
      */
+    @ApiTest(apis = {"android.media.MediaCodec#createPersistentInputSurface",
+            "android.media.MediaCodec#setInputSurface",
+            "android.media.MediaCodecInfo.CodecCapabilities#COLOR_FormatSurface",
+            "android.opengl.GLES20#glReadPixels",
+            "android.media.MediaFormat#KEY_COLOR_RANGE",
+            "android.media.MediaFormat#KEY_COLOR_STANDARD",
+            "android.media.MediaFormat#KEY_COLOR_TRANSFER"})
     @Test
     public void testEncodeDecodeVideoFromSurfaceToPersistentSurface() throws Throwable {
         SurfaceToSurfaceWrapper.runTest(this, true, false);
     }
 
+    @ApiTest(apis = {"AMediaCodec_createPersistentInputSurface",
+            "AMediaCodec_setInputSurface",
+            "android.media.MediaCodecInfo.CodecCapabilities#COLOR_FormatSurface",
+            "android.opengl.GLES20#glReadPixels",
+            "android.media.MediaFormat#KEY_COLOR_RANGE",
+            "android.media.MediaFormat#KEY_COLOR_STANDARD",
+            "android.media.MediaFormat#KEY_COLOR_TRANSFER"})
     @Test
     public void testEncodeDecodeVideoFromSurfaceToPersistentSurfaceNdk() throws Throwable {
         SurfaceToSurfaceWrapper.runTest(this, true, USE_NDK);

@@ -18,6 +18,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.app.usage.cts" android:targetSandboxVersion="2">
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
 
     <!-- We can't have the test framework turn off the keyguard, because that will
          prevent us from testing interactions with it.
@@ -32,6 +33,16 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.ACCESS_BROADCAST_RESPONSE_STATS" />
+
+    <queries>
+        <package android:name="android.app.usage.cts.test1" />
+        <package android:name="android.app.usage.cts.test2" />
+        <package android:name="android.app.usage.cts.test3" />
+        <package android:name="android.app.usage.cts.test4" />
+        <package android:name="android.app.usage.cts.testapi32" />
+        <package android:name="android.app.usage.cts.test.assist" />
+        <package android:name="android.app.usage.cts.test.exactalarm" />
+    </queries>
 
     <application android:usesCleartextTraffic="true"
             android:networkSecurityConfig="@xml/network_security_config"
@@ -55,7 +66,10 @@
             android:taskAffinity="android.app.usage.cts.other_task"/>
         <activity android:name=".FragmentTestActivity" />
         <activity android:name=".TaskRootActivity" />
-        <service android:name=".TestService" />
+        <service android:name=".TestService"
+                 android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="cts" />
+        </service>
         <service android:name=".TestJob"
             android:exported="true"
             android:permission="android.permission.BIND_JOB_SERVICE"

@@ -1,18 +1,18 @@
 #![forbid(unsafe_code)]
 #![rustfmt::skip]
 #[derive(Debug, Clone, PartialEq)]
-pub enum EnumUnion {
+pub enum r#EnumUnion {
   IntEnum(crate::mangled::_7_android_4_aidl_5_tests_7_IntEnum),
   LongEnum(crate::mangled::_7_android_4_aidl_5_tests_8_LongEnum),
   #[deprecated = "do not use this"]
   DeprecatedField(i32),
 }
-impl Default for EnumUnion {
+impl Default for r#EnumUnion {
   fn default() -> Self {
     Self::IntEnum(crate::mangled::_7_android_4_aidl_5_tests_7_IntEnum::FOO)
   }
 }
-impl binder::Parcelable for EnumUnion {
+impl binder::Parcelable for r#EnumUnion {
   fn write_to_parcel(&self, parcel: &mut binder::binder_impl::BorrowedParcel) -> std::result::Result<(), binder::StatusCode> {
     match self {
       Self::IntEnum(v) => {
@@ -53,24 +53,24 @@ impl binder::Parcelable for EnumUnion {
     }
   }
 }
-binder::impl_serialize_for_parcelable!(EnumUnion);
-binder::impl_deserialize_for_parcelable!(EnumUnion);
-impl binder::binder_impl::ParcelableMetadata for EnumUnion {
+binder::impl_serialize_for_parcelable!(r#EnumUnion);
+binder::impl_deserialize_for_parcelable!(r#EnumUnion);
+impl binder::binder_impl::ParcelableMetadata for r#EnumUnion {
   fn get_descriptor() -> &'static str { "android.aidl.tests.unions.EnumUnion" }
 }
-pub mod Tag {
+pub mod r#Tag {
   #![allow(non_upper_case_globals)]
   use binder::declare_binder_enum;
   declare_binder_enum! {
-    Tag : [i32; 3] {
-      intEnum = 0,
-      longEnum = 1,
+    r#Tag : [i32; 3] {
+      r#intEnum = 0,
+      r#longEnum = 1,
       #[deprecated = "do not use this"]
-      deprecatedField = 2,
+      r#deprecatedField = 2,
     }
   }
 }
 pub(crate) mod mangled {
- pub use super::EnumUnion as _7_android_4_aidl_5_tests_6_unions_9_EnumUnion;
- pub use super::Tag::Tag as _7_android_4_aidl_5_tests_6_unions_9_EnumUnion_3_Tag;
+ pub use super::r#EnumUnion as _7_android_4_aidl_5_tests_6_unions_9_EnumUnion;
+ pub use super::r#Tag::r#Tag as _7_android_4_aidl_5_tests_6_unions_9_EnumUnion_3_Tag;
 }

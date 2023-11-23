@@ -18,10 +18,12 @@ package com.android.cts.host.blob;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.device.TestDeviceOptions;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.testtype.junit4.DeviceTestRunOptions;
 import com.android.tradefed.util.Pair;
+import com.android.tradefed.util.RunUtil;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -51,6 +53,12 @@ abstract class BaseBlobStoreHostTest extends BaseHostJUnit4Test {
 
     protected static final String KEY_ALLOW_PUBLIC = "public";
     protected static final String KEY_ALLOW_SAME_SIGNATURE = "same_signature";
+
+    private static final long REBOOT_TIMEOUT_MS = 3 * 60 * 1000;
+    private static final long ONLINE_TIMEOUT_MS = 3 * 60 * 1000;
+
+    private static final String PROPERTY_USERSPACE_REBOOT_IS_SUPPORTED =
+            "init.userspace_reboot.is_supported";
 
     protected void runDeviceTest(String testPkg, String testClass, String testMethod)
             throws Exception {
@@ -91,8 +99,26 @@ abstract class BaseBlobStoreHostTest extends BaseHostJUnit4Test {
     }
 
     protected void rebootAndWaitUntilReady() throws Exception {
-        // TODO: use rebootUserspace()
-        getDevice().reboot(); // reboot() waits for device available
+        TestDeviceOptions options = getDevice().getOptions();
+        final long prevRebootTimeoutMs = options.getRebootTimeout();
+        final long prevOnlineTimeoutMs = options.getOnlineTimeout();
+        updateDeviceOptions(options, REBOOT_TIMEOUT_MS, ONLINE_TIMEOUT_MS);
+        try {
+            if (getDevice().getBooleanProperty(PROPERTY_USERSPACE_REBOOT_IS_SUPPORTED, false)) {
+                getDevice().rebootUserspace();
+            } else {
+                getDevice().reboot(); // reboot() waits for device to be available
+            }
+        } finally {
+            updateDeviceOptions(options, prevRebootTimeoutMs, prevOnlineTimeoutMs);
+        }
+    }
+
+    private void updateDeviceOptions(TestDeviceOptions options,
+            long rebootTimeoutMs, long onlineTimeoutMs) throws Exception {
+        options.setRebootTimeout((int) rebootTimeoutMs);
+        options.setOnlineTimeout(onlineTimeoutMs);
+        getDevice().setOptions(options);
     }
 
     protected static boolean isMultiUserSupported(ITestDevice device) throws Exception {
@@ -135,6 +161,22 @@ abstract class BaseBlobStoreHostTest extends BaseHostJUnit4Test {
         final String cmd = String.format("cmd role add-role-holder "
                 + "--user %d android.app.role.ASSISTANT %s", userId, pkgName);
         runCommand(cmd);
+        // Wait for the role holder to be changed.
+        int checkRoleHolderRetries = 20;
+        while (checkRoleHolderRetries-- > 0) {
+            if (Arrays.stream(getAssistRoleHolders(userId)).anyMatch(pkgName::equals)) {
+                break;
+            }
+            // Wait and try again.
+            RunUtil.getDefault().sleep(5000);
+        }
+    }
+
+    private String[] getAssistRoleHolders(int userId) throws Exception {
+        final String cmd = String.format("cmd role get-role-holders "
+                + "--user %d android.app.role.ASSISTANT", userId);
+        final String output = runCommand(cmd).trim();
+        return output.split(";");
     }
 
     protected void removeAssistRoleHolder(String pkgName, int userId) throws Exception {

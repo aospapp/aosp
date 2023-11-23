@@ -57,7 +57,12 @@ public class NfcPreferredPaymentTest {
 
     private boolean supportsHardware() {
         final PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
-        return pm.hasSystemFeature(PackageManager.FEATURE_NFC);
+        boolean existAnyReqFeature =
+                pm.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)
+                || pm.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION_NFCF)
+                || pm.hasSystemFeature(PackageManager.FEATURE_NFC_OFF_HOST_CARD_EMULATION_ESE)
+                || pm.hasSystemFeature(PackageManager.FEATURE_NFC_OFF_HOST_CARD_EMULATION_UICC);
+        return existAnyReqFeature;
     }
 
     @Before

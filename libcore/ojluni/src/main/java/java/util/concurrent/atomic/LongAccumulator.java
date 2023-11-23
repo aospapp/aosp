@@ -82,6 +82,7 @@ import java.util.function.LongBinaryOperator;
 public class LongAccumulator extends Striped64 implements Serializable {
     private static final long serialVersionUID = 7249069246863182397L;
 
+    @SuppressWarnings("serial") // Not statically typed as Serializable
     private final LongBinaryOperator function;
     private final long identity;
 
@@ -107,14 +108,15 @@ public class LongAccumulator extends Striped64 implements Serializable {
         if ((cs = cells) != null
             || ((r = function.applyAsLong(b = base, x)) != b
                 && !casBase(b, r))) {
+            int index = getProbe();
             boolean uncontended = true;
             if (cs == null
                 || (m = cs.length - 1) < 0
-                || (c = cs[getProbe() & m]) == null
+                || (c = cs[index & m]) == null
                 || !(uncontended =
                      (r = function.applyAsLong(v = c.value, x)) == v
                      || c.cas(v, r)))
-                longAccumulate(x, function, uncontended);
+                longAccumulate(x, function, uncontended, index);
         }
     }
 
@@ -239,6 +241,7 @@ public class LongAccumulator extends Striped64 implements Serializable {
          * The function used for updates.
          * @serial
          */
+        @SuppressWarnings("serial") // Not statically typed as Serializable
         private final LongBinaryOperator function;
 
         /**
@@ -271,7 +274,7 @@ public class LongAccumulator extends Striped64 implements Serializable {
 
     /**
      * Returns a
-     * <a href="../../../../serialized-form.html#java.util.concurrent.atomic.LongAccumulator.SerializationProxy">
+     * <a href="{@docRoot}/serialized-form.html#java.util.concurrent.atomic.LongAccumulator.SerializationProxy">
      * SerializationProxy</a>
      * representing the state of this instance.
      *

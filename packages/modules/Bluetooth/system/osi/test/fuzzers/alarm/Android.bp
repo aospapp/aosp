@@ -15,16 +15,17 @@ cc_fuzz {
         "fuzz_alarm.cc",
     ],
     shared_libs: [
+        "libcrypto",
+        "libcutils",
         "liblog",
         "libprotobuf-cpp-lite",
-        "libcutils",
-        "libcrypto",
     ],
     static_libs: [
         "libbt-common",
         "libbt-protos-lite",
+        "libchrome",
         "libgmock",
         "libosi",
     ],
-    cflags: [ "-Wno-unused-function" ],
+    cflags: ["-Wno-unused-function"],
 }

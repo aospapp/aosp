@@ -32,14 +32,28 @@ extern tBTM_CB btm_cb;
  *
  ******************************************************************************/
 uint8_t BTM_AllocateSCN(void) {
-  uint8_t x;
   BTM_TRACE_DEBUG("BTM_AllocateSCN");
 
   // stack reserves scn 1 for HFP, HSP we still do the correct way
-  for (x = 1; x < PORT_MAX_RFC_PORTS; x++) {
+  for (uint8_t x = btm_cb.btm_available_index; x < PORT_MAX_RFC_PORTS; x++) {
     if (!btm_cb.btm_scn[x]) {
       btm_cb.btm_scn[x] = true;
+      btm_cb.btm_available_index = (x + 1);
       return (x + 1);
+    }
+  }
+
+  // In order to avoid OOB, btm_available_index must be less than or equal to
+  // PORT_MAX_RFC_PORTS
+  btm_cb.btm_available_index =
+      std::min(btm_cb.btm_available_index, (uint8_t)PORT_MAX_RFC_PORTS);
+
+  // If there's no empty SCN from _last_index to BTM_MAX_SCN.
+  for (uint8_t y = 1; y < btm_cb.btm_available_index; y++) {
+    if (!btm_cb.btm_scn[y]) {
+      btm_cb.btm_scn[y] = true;
+      btm_cb.btm_available_index = (y + 1);
+      return (y + 1);
     }
   }
 

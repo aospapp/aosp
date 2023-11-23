@@ -28,6 +28,7 @@ import java.util.regex.Pattern;
 
 import org.unicode.cldr.util.CLDRFile.DraftStatus;
 import org.unicode.cldr.util.XPathParts.Comments;
+import org.xml.sax.Locator;
 
 import com.google.common.collect.Iterators;
 import com.ibm.icu.impl.Utility;
@@ -53,6 +54,105 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
     private LinkedHashMap<String, List<String>> reverseAliasCache;
     protected boolean locked;
     transient String[] fixedPath = new String[1];
+
+    /**
+     * This class represents a source location of an XPath.
+     * @see com.ibm.icu.dev.test.TestFmwk.SourceLocation
+     */
+    public static class SourceLocation {
+        final static String FILE_PREFIX = "file://";
+        private String system;
+        private int line;
+        private int column;
+
+        /**
+         * Initialize from an XML Locator
+         * @param locator
+         */
+        public SourceLocation(Locator locator) {
+            this(locator.getSystemId(),
+                locator.getLineNumber(),
+                locator.getColumnNumber());
+        }
+
+        public SourceLocation(String system, int line, int column) {
+            this.system = system.intern();
+            this.line = line;
+            this.column = column;
+        }
+
+        public String getSystem() {
+            // Trim prefix lazily.
+            if (system.startsWith(FILE_PREFIX)) {
+                return system.substring(FILE_PREFIX.length());
+            } else {
+                return system;
+            }
+        }
+
+        public int getLine() {
+            return line;
+        }
+
+        public int getColumn() {
+            return column;
+        }
+
+        /**
+         * The toString() format is suitable for printing to the command line
+         * and has the format 'file:line:column: '
+         */
+        @Override
+        public String toString() {
+            return toString(null);
+        }
+
+
+        /**
+         * The toString() format is suitable for printing to the command line
+         * and has the format 'file:line:column: '
+         * A good leading base path might be CLDRPaths.BASE_DIRECTORY
+         * @param basePath path to trim
+         */
+        public String toString(final String basePath) {
+            return getSystem(basePath) + ":" + getLine() + ":" + getColumn() + ": ";
+        }
+
+        /**
+         * Format location suitable for GitHub annotations, skips leading base bath
+         * A good leading base path might be CLDRPaths.BASE_DIRECTORY
+         * @param basePath path to trim
+         * @return
+         */
+        public String forGitHub(String basePath) {
+            return "file=" + getSystem(basePath) + ",line=" + getLine() + ",col=" + getColumn();
+        }
+
+
+        /**
+         * Format location suitable for GitHub annotations
+         */
+        public String forGitHub() {
+            return forGitHub(null);
+        }
+
+        /**
+         * as with getSystem(), but skips the leading base path if identical.
+         * A good leading path might be CLDRPaths.BASE_DIRECTORY
+         * @param basePath path to trim
+         */
+        public String getSystem(String basePath) {
+            String path = getSystem();
+            if (basePath != null && !basePath.isEmpty() && path.startsWith(basePath)) {
+                path = path.substring(basePath.length());
+                // Handle case where the path did NOT start with a slash
+                if (path.startsWith("/") && !basePath.endsWith("/")) {
+                    path = path.substring(1); // skip leading /
+                }
+            }
+            return path;
+        }
+    }
 
     /*
      * For testing, make it possible to disable multiple caches:
@@ -118,7 +218,8 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
             if (newValue.equals(oldValue)) {
                 continue;
             }
-            putValueAtPath(otherSource.getFullPathAtDPath(path), newValue);
+            String fullPath = putValueAtPath(otherSource.getFullPathAtDPath(path), newValue);
+            addSourceLocation(fullPath, otherSource.getSourceLocation(fullPath));
         }
     }
 
@@ -732,6 +833,18 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
             return result;
         }
 
+        @Override
+        public SourceLocation getSourceLocation(String xpath) {
+            SourceLocation result = null;
+            final String dPath = CLDRFile.getDistinguishingXPath(xpath, null);
+            // getCachedFullStatus wants a dPath
+            AliasLocation fullStatus = getCachedFullStatus(dPath, true /* skipInheritanceMarker */);
+            if (fullStatus != null) {
+                result = getSource(fullStatus).getSourceLocation(xpath); // getSourceLocation wants fullpath
+            }
+            return result;
+        }
+
         public XMLSource getSource(AliasLocation fullStatus) {
             XMLSource source = sources.get(fullStatus.localeWhereFound);
             return source == null ? constructedItems : source;
@@ -1295,6 +1408,7 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
             { "jpan", "numbers" },
             { "jpanfin", "numbers" },
             { "kali", "numbers" },
+            { "kawi", "numbers" },
             { "khmr", "numbers" },
             { "knda", "numbers" },
             { "lana", "numbers" },
@@ -1318,6 +1432,7 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
             { "mymr", "numbers" },
             { "mymrshan", "numbers" },
             { "mymrtlng", "numbers" },
+            { "nagm", "numbers" },
             { "nkoo", "numbers" },
             { "normal", "lb" },
             { "olck", "numbers" },
@@ -1399,6 +1514,7 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
                 "de_AT", "de_CH",
                 "en_AU", "en_CA", "en_GB", "en_US", "es_419", "es_ES", "es_MX",
                 "fa_AF", "fr_CA", "fr_CH", "frc",
+                "hi_Latn",
                 "lou",
                 "nds_NL", "nl_BE",
                 "pt_BR", "pt_PT",
@@ -1416,6 +1532,7 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
 
             addFallbackCode(CLDRFile.LANGUAGE_NAME, "ckb", "ckb", "menu");
             addFallbackCode(CLDRFile.LANGUAGE_NAME, "ckb", "ckb", "variant");
+            addFallbackCode(CLDRFile.LANGUAGE_NAME, "hi_Latn", "hi_Latn", "variant");
             addFallbackCode(CLDRFile.LANGUAGE_NAME, "yue", "yue", "menu");
             addFallbackCode(CLDRFile.LANGUAGE_NAME, "zh", "zh", "menu");
             addFallbackCode(CLDRFile.LANGUAGE_NAME, "zh_Hans", "zh", "long");
@@ -1437,6 +1554,12 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
             addFallbackCode(CLDRFile.TERRITORY_NAME, "FK", "FK", "variant");
             addFallbackCode(CLDRFile.TERRITORY_NAME, "TL", "TL", "variant");
             addFallbackCode(CLDRFile.TERRITORY_NAME, "SZ", "SZ", "variant");
+
+            // new alternate name
+
+            addFallbackCode(CLDRFile.TERRITORY_NAME, "NZ", "NZ", "variant");
+            addFallbackCode(CLDRFile.TERRITORY_NAME, "TR", "TR", "variant");
+
 
             addFallbackCode(CLDRFile.TERRITORY_NAME, "XA", "XA");
             addFallbackCode(CLDRFile.TERRITORY_NAME, "XB", "XB");
@@ -1764,5 +1887,26 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
             }
         }
         return false;
+    }
+
+    /**
+     * Add a SourceLocation to this full XPath.
+     * Base implementation does nothing.
+     * @param currentFullXPath
+     * @param location
+     * @return
+     */
+    public XMLSource addSourceLocation(String currentFullXPath, SourceLocation location) {
+        return this;
+    }
+
+    /**
+     * Get the SourceLocation for a specific XPath.
+     * Base implementation always returns null.
+     * @param fullXPath
+     * @return
+     */
+    public SourceLocation getSourceLocation(String fullXPath) {
+        return null;
     }
 }

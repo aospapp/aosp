@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"اتصال به سرویس انتقال محتوا"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"به برنامه اجازه می‌دهد که به واسط سطح بالای سرویس انتقال محتوا متصل شود. هرگز نباید برای برنامه‌های معمولی مورد نیاز باشد."</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"سرویس کارخواه VMS"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"اتصال به کارخواهان VMS"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"پرداز داشبورد"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"دریافت داده‌های داشبورد"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"سرویس ورودی خودرو"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"مدیریت رویدادهای ورودی"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"هنگام رانندگی نمی‌توانید از این ویژگی استفاده کنید"</string>
     <string name="exit_button_message" msgid="5375678491245394542">"برای شروع مجدد با ویژگی‌های برنامه امن، <xliff:g id="EXIT_BUTTON">%s</xliff:g> را انتخاب کنید."</string>
     <string name="exit_button" msgid="3491899413031549265">"برگشت"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"دستگاهتان پاک خواهد شد"</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"نمی‌توان از برنامه سرپرست سیستم استفاده کرد. دستگاه شما در این لحظه پاک می‌شود.\n\nاگر سؤالی دارید، با سرپرست سیستم سازمانتان تماس بگیرید."</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> عملکرد سیستم را تحت‌تأثیر قرار داده است"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"برای بهبود عملکرد سیستم، برنامه را غیرفعال کنید. در «تنظیمات» می‌توانید برنامه را دوباره فعال کنید."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"برای ادامه استفاده از برنامه، برنامه را اولویت‌بندی کنید."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"برای بهبود عملکرد سیستم، برنامه را حذف نصب کنید."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"غیرفعال کردن برنامه"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"از اجرای این برنامه در پس‌زمینه جلوگیری شده است. برای اینکه برنامه بتواند همچنان در پس‌زمینه اجرا شود، آن را در اولویت قرار دهید."</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"بستن"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"الویت‌بندی برنامه"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"حذف نصب برنامه"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> غیرفعال شد. در «تنظیمات» می‌توانید آن را دوباره فعال کنید."</string>
 </resources>

@@ -18,9 +18,6 @@
 
 namespace keymaster {
 
-using std::forward;
-using std::move;
-
 /*
  * Array Manipulation functions.  This set of templated inline functions provides some nice tools
  * for operating on c-style arrays.  C-style arrays actually do have a defined size associated with

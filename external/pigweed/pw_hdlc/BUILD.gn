@@ -14,6 +14,7 @@
 
 import("//build_overrides/pigweed.gni")
 
+import("$dir_pw_bloat/bloat.gni")
 import("$dir_pw_build/python.gni")
 import("$dir_pw_build/target_types.gni")
 import("$dir_pw_docgen/docs.gni")
@@ -26,6 +27,7 @@ config("default_config") {
 group("pw_hdlc") {
   public_deps = [
     ":decoder",
+    ":encoded_size",
     ":encoder",
   ]
 }
@@ -37,6 +39,17 @@ pw_source_set("common") {
   visibility = [ ":*" ]
 }
 
+pw_source_set("encoded_size") {
+  public_configs = [ ":default_config" ]
+  public = [ "public/pw_hdlc/encoded_size.h" ]
+  public_deps = [
+    ":common",
+    "$dir_pw_bytes",
+    "$dir_pw_span",
+    "$dir_pw_varint",
+  ]
+}
+
 pw_source_set("decoder") {
   public_configs = [ ":default_config" ]
   public = [ "public/pw_hdlc/decoder.h" ]
@@ -46,6 +59,7 @@ pw_source_set("decoder") {
     dir_pw_bytes,
     dir_pw_checksum,
     dir_pw_result,
+    dir_pw_span,
     dir_pw_status,
   ]
   deps = [ dir_pw_log ]
@@ -63,9 +77,11 @@ pw_source_set("encoder") {
     ":common",
     dir_pw_bytes,
     dir_pw_checksum,
+    dir_pw_span,
     dir_pw_status,
     dir_pw_stream,
   ]
+  deps = [ ":encoded_size" ]
   friend = [ ":*" ]
 }
 
@@ -75,6 +91,7 @@ pw_source_set("rpc_channel_output") {
   public_deps = [
     ":pw_hdlc",
     "$dir_pw_rpc:server",
+    dir_pw_span,
   ]
 }
 
@@ -103,11 +120,29 @@ pw_source_set("packet_parser") {
   ]
 }
 
+# A backend for pw_rpc's `system_server` that sends and receives HDLC-framed RPC
+# packets over pw_sys_io.
+#
+# Warning: This system server is polling and blocking, so it's not
+# production-ready. This exists for simplifying initial bringup/testing, and
+# should not be used in any performance-sensitive application.
+pw_source_set("hdlc_sys_io_system_server") {
+  deps = [
+    "$dir_pw_hdlc:pw_rpc",
+    "$dir_pw_hdlc:rpc_channel_output",
+    "$dir_pw_rpc/system_server:facade",
+    "$dir_pw_stream:sys_io_stream",
+    dir_pw_log,
+  ]
+  sources = [ "hdlc_sys_io_system_server.cc" ]
+}
+
 pw_test_group("tests") {
   tests = [
     ":encoder_test",
     ":decoder_test",
     ":rpc_channel_test",
+    ":encoded_size_test",
     ":wire_packet_parser_test",
   ]
   group_deps = [
@@ -115,6 +150,17 @@ pw_test_group("tests") {
     "$dir_pw_status:tests",
     "$dir_pw_stream:tests",
   ]
+}
+
+pw_test("encoded_size_test") {
+  deps = [
+    ":pw_hdlc",
+    "$dir_pw_bytes",
+    "$dir_pw_result",
+    "$dir_pw_stream",
+    "$dir_pw_varint",
+  ]
+  sources = [ "encoded_size_test.cc" ]
 }
 
 pw_test("encoder_test") {
@@ -156,6 +202,23 @@ pw_test("wire_packet_parser_test") {
   sources = [ "wire_packet_parser_test.cc" ]
 }
 
+pw_size_diff("size_report") {
+  title = "HDLC sizes"
+
+  binaries = [
+    {
+      target = "size_report:full"
+      base = "size_report:base"
+      label = "HDLC encode and decode"
+    },
+    {
+      target = "size_report:full_crc"
+      base = "size_report:base_crc"
+      label = "HDLC encode and decode, ignoring CRC and varint"
+    },
+  ]
+}
+
 pw_doc_group("docs") {
   sources = [
     "docs.rst",
@@ -165,4 +228,5 @@ pw_doc_group("docs") {
     "py/pw_hdlc/decode.py",
     "py/pw_hdlc/encode.py",
   ]
+  report_deps = [ ":size_report" ]
 }

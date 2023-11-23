@@ -72,7 +72,13 @@ java_library {
     installable: true,
     hostdex: true,
     errorprone: {
-        javacflags: ["-Xep:MissingOverride:OFF"],
+        javacflags: [
+            "-Xep:MissingOverride:OFF",
+            "-Xep:LockOnBoxedPrimitive:WARN",
+        ],
+    },
+    lint: {
+        warning_checks: ["SuspiciousIndentation"],
     },
 
     sdk_version: "none",

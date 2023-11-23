@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Hindi kilalang device"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Hindi alam"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Hindi Ibinigay"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Airplane mode"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Hindi mo magagamit ang Bluetooth sa Airplane mode."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -41,7 +42,7 @@
     <string name="notification_receiving" msgid="8445265771083510696">"Pagbahagi sa Bluetooth: Tinatanggap ang <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="2330252358543000567">"Pagbahagi sa Bluetooth: Natanggap ang <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received_fail" msgid="9059153354809379374">"Pagbahagi sa Bluetooth: Hindi natanggap ang file na <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="notification_sending" msgid="8269912843286868700">"Pagbahagi sa Bluetooth: Ipinapadala ang <xliff:g id="FILE">%1$s</xliff:g>"</string>
+    <string name="notification_sending" msgid="8269912843286868700">"Pagbabahagi sa Bluetooth: Ipinapadala ang <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_sent" msgid="2685202778935769332">"Pagbahagi sa Bluetooth: Ipinadala ang <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_sent_complete" msgid="6293391081175517098">"100% kumpleto"</string>
     <string name="notification_sent_fail" msgid="7449832660578001579">"Pagbahagi sa Bluetooth: Hindi naipadala ang file na <xliff:g id="FILE">%1$s</xliff:g>"</string>
@@ -108,7 +109,7 @@
     <string name="no_transfers" msgid="740521199933899821">"Walang laman ang history ng paglilipat."</string>
     <string name="transfer_clear_dlg_msg" msgid="586117930961007311">"Iki-clear ang lahat ng mga item mula sa listahan."</string>
     <string name="outbound_noti_title" msgid="2045560896819618979">"Bluetooth share: Mga naipadalang file"</string>
-    <string name="inbound_noti_title" msgid="3730993443609581977">"Bluetooth share: Mga natanggap na file"</string>
+    <string name="inbound_noti_title" msgid="3730993443609581977">"Pagbabahagi sa Bluetooth: Mga natanggap na file"</string>
     <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{# ang hindi matagumpay.}one{# ang hindi matagumpay.}other{# ang hindi matagumpay.}}"</string>
     <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{# ang matagumpay, %1$s}one{# ang matagumpay, %1$s}other{# ang matagumpay, %1$s}}"</string>
     <string name="transfer_menu_clear_all" msgid="3014459758656427076">"I-clear ang listahan"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Bluetooth Audio"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Hindi maililipat ang mga file na mas malaki sa 4GB"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Kumonekta sa Bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Naka-on ang Bluetooth sa airplane mode"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Kung papanatilihin mong naka-on ang Bluetooth, tatandaan ng iyong device na panatilihin itong naka-on sa susunod na nasa airplane mode ka"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Mananatiling naka-on ang Bluetooth"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Tinatandaan ng iyong device na panatilihing naka-on ang Bluetooth habang nasa airplane mode. I-off ang Bluetooth kung ayaw mo itong manatiling naka-on."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Mananatiling naka-on ang Wi-Fi at Bluetooth"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Tinatandaan ng iyong device na panatilihing naka-on ang Wi-Fi at Bluetooth habang nasa airplane mode. I-off ang Wi-Fi at Bluetooth kung ayaw mong manatiling naka-on ang mga ito."</string>
 </resources>

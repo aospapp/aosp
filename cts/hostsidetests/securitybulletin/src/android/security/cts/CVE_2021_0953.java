@@ -19,13 +19,13 @@ package android.security.cts;
 import android.platform.test.annotations.AsbSecurityTest;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import com.android.sts.common.tradefed.testtype.StsExtraBusinessLogicHostTestBase;
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2021_0953 extends StsExtraBusinessLogicHostTestBase {
+public class CVE_2021_0953 extends NonRootSecurityTestCase {
 
     @AsbSecurityTest(cveBugId = 184046278)
     @Test

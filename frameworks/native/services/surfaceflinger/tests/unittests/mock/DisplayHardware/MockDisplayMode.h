@@ -33,4 +33,29 @@ inline DisplayModePtr createDisplayMode(
             .build();
 }
 
+inline DisplayModePtr createDisplayMode(PhysicalDisplayId displayId, DisplayModeId modeId,
+                                        Fps refreshRate) {
+    return createDisplayMode(modeId, refreshRate, {}, {}, displayId);
+}
+
+inline DisplayModePtr cloneForDisplay(PhysicalDisplayId displayId, const DisplayModePtr& modePtr) {
+    return DisplayMode::Builder(modePtr->getHwcId())
+            .setId(modePtr->getId())
+            .setPhysicalDisplayId(displayId)
+            .setVsyncPeriod(modePtr->getVsyncPeriod())
+            .setGroup(modePtr->getGroup())
+            .setResolution(modePtr->getResolution())
+            .build();
+}
+
+inline DisplayModes cloneForDisplay(PhysicalDisplayId displayId, const DisplayModes& modes) {
+    DisplayModes clones;
+
+    for (const auto& [id, modePtr] : modes) {
+        clones.try_emplace(id, cloneForDisplay(displayId, modePtr));
+    }
+
+    return clones;
+}
+
 } // namespace android::mock

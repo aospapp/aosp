@@ -204,6 +204,7 @@ class TestResultsReport {
      * @param TestResultHistoryCollection The raw test history collection.
      * @return A list containing test result histories per test.
      */
+    @SuppressWarnings("ReturnValueIgnored")
     private List<TestResultHistory> getTestResultHistories(
         TestResultHistoryCollection historyCollection) {
         // Get non-terminal prefixes.

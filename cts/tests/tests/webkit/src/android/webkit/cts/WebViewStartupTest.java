@@ -16,20 +16,29 @@
 
 package android.webkit.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
-import android.test.InstrumentationTestCase;
 import android.webkit.WebView;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.NullWebViewUtils;
 
 import com.google.common.util.concurrent.SettableFuture;
+
+import org.junit.Assume;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test class testing different aspects of WebView loading.
@@ -41,7 +50,9 @@ import com.google.common.util.concurrent.SettableFuture;
  * <p>Tests in this class are moved from {@link com.android.cts.webkit.WebViewHostSideStartupTest},
  * see http://b/72376996 for the migration of these tests.
  */
-public class WebViewStartupTest extends InstrumentationTestCase {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class WebViewStartupTest {
     private static final String TEST_PROCESS_DATA_DIR_SUFFIX = "WebViewStartupTestDir";
     private static final long TEST_TIMEOUT_MS = 3000;
 
@@ -94,7 +105,10 @@ public class WebViewStartupTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testGetCurrentWebViewPackageOnUiThread() throws Throwable {
+        // runCurrentWebViewPackageTest handles the case where WebView is not supported on device,
+        // so we don't need to check NullWebViewUtils.
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
         try (TestProcessClient process = TestProcessClient.createProcessA(context)) {
             process.run(TestGetCurrentWebViewPackageOnUiThread.class);
@@ -109,7 +123,10 @@ public class WebViewStartupTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testGetCurrentWebViewPackageOnBackgroundThread() throws Throwable {
+        // runCurrentWebViewPackageTest handles the case where WebView is not supported on device,
+        // so we don't need to check NullWebViewUtils.
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
         try (TestProcessClient process = TestProcessClient.createProcessA(context)) {
             process.run(TestGetCurrentWebViewPackageOnBackgroundThread.class);
@@ -128,10 +145,9 @@ public class WebViewStartupTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testGetWebViewLooperOnUiThread() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
+        Assume.assumeTrue("WebView is not available", NullWebViewUtils.isWebViewAvailable());
 
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
         try (TestProcessClient process = TestProcessClient.createProcessA(context)) {
@@ -160,10 +176,9 @@ public class WebViewStartupTest extends InstrumentationTestCase {
      * Ensure that a WebView created on the UI thread returns that thread as its creator thread.
      * This ensures WebView.getWebViewLooper() is not implemented as 'return Looper.myLooper();'.
      */
+    @Test
     public void testGetWebViewLooperCreatedOnUiThreadFromInstrThread() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
+        Assume.assumeTrue("WebView is not available", NullWebViewUtils.isWebViewAvailable());
 
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
         try (TestProcessClient process = TestProcessClient.createProcessA(context)) {
@@ -203,11 +218,10 @@ public class WebViewStartupTest extends InstrumentationTestCase {
      * thread. This ensures WebView.getWebViewLooper() is not bound to the UI thread regardless of
      * the thread it is created on..
      */
+    @Test
     public void testGetWebViewLooperCreatedOnBackgroundThreadFromInstThread()
             throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
+        Assume.assumeTrue("WebView is not available", NullWebViewUtils.isWebViewAvailable());
 
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
         try (TestProcessClient process = TestProcessClient.createProcessA(context)) {

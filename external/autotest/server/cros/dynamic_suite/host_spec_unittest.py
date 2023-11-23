@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -6,7 +6,6 @@
 
 """Unit tests for server/cros/dynamic_suite/host_spec.py."""
 
-import mox
 import unittest
 
 import common
@@ -15,7 +14,7 @@ from autotest_lib.server.cros.dynamic_suite import host_spec
 from autotest_lib.server.cros.dynamic_suite.fakes import FakeHost
 
 
-class HostSpecTest(mox.MoxTestBase):
+class HostSpecTest(unittest.TestCase):
     """Unit tests for dynamic_suite.host_spec module.
 
     @var _BOARD: fake board to reimage
@@ -54,7 +53,7 @@ class HostSpecTest(mox.MoxTestBase):
         self.assertFalse(self._SPECS[2].is_trivial)
 
 
-class HostGroupTest(mox.MoxTestBase):
+class HostGroupTest(unittest.TestCase):
     """Unit tests for dynamic_suite.host_spec.HostGroup derived classes.
     """
 

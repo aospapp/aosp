@@ -84,4 +84,4 @@ $(intermediates)/glsl/ir_expression_operation_strings.h: $(prebuilt_intermediate
 
 $(intermediates)/glsl/float64_glsl.h: $(MESA_TOP)/src/util/xxd.py
 	@mkdir -p $(dir $@)
-	$(hide) $(MESA_PYTHON2) $< $(MESA_TOP)/src/compiler/glsl/float64.glsl $@ -n float64_source > $@
+	$(hide) $(MESA_PYTHON3) $< $(MESA_TOP)/src/compiler/glsl/float64.glsl $@ -n float64_source > $@

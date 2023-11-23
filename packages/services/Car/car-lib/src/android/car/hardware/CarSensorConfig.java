@@ -100,14 +100,6 @@ public class CarSensorConfig implements Parcelable {
         mConfig = b.deepCopy();
     }
 
-    private void checkType(int type) {
-        if (mType == type) {
-            return;
-        }
-        throw new UnsupportedOperationException(String.format(
-                "Invalid sensor type: expected %d, got %d", type, mType));
-    }
-
     /** @hide */
     @AddedInOrBefore(majorVersion = 33)
     public Bundle getBundle() {
@@ -132,7 +124,6 @@ public class CarSensorConfig implements Parcelable {
 
     /** @hide */
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append(getClass().getName() + "[");

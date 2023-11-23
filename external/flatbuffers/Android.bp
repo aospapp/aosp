@@ -55,10 +55,12 @@ cc_library_headers {
     vendor_available: true,
     host_supported: true,
     sdk_version: "current",
+    min_sdk_version: "apex_inherit",
     apex_available: [
         "com.android.neuralnetworks",
         "test_com.android.neuralnetworks",
         "com.android.extservices",
+        "com.android.adservices",
         "//apex_available:platform",
     ],
 }
@@ -94,14 +96,20 @@ java_library {
     name: "flatbuffers-java",
     srcs: ["java/**/*.java"],
     sdk_version: "current",
+    min_sdk_version: "30",
 
     java_version: "1.8",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.ondevicepersonalization",
+    ],
 }
 
 cc_library {
     name: "libflatbuffers-cpp",
     export_include_dirs: ["include"],
-    cpp_std: "c++17",
+    sdk_version: "current",
+    stl: "libc++_static",
     host_supported: true,
     vendor_available: true,
     local_include_dirs: [
@@ -117,7 +125,8 @@ cc_library {
     ],
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth",
+        "com.android.btservices",
+        "com.android.extservices",
     ],
     min_sdk_version: "30",
 }

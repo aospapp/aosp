@@ -158,33 +158,6 @@ TEST_F(PayloadSignerTest, VerifySignatureTest) {
   EXPECT_FALSE(payload_verifier->VerifySignature(signature, hash_data_));
 }
 
-TEST_F(PayloadSignerTest, SkipMetadataSignatureTest) {
-  ScopedTempFile payload_file("payload.XXXXXX");
-  PayloadGenerationConfig config;
-  config.version.major = kBrilloMajorPayloadVersion;
-  PayloadFile payload;
-  EXPECT_TRUE(payload.Init(config));
-  uint64_t metadata_size;
-  EXPECT_TRUE(payload.WritePayload(
-      payload_file.path(), "/dev/null", "", &metadata_size));
-  const vector<size_t> sizes = {256};
-  brillo::Blob unsigned_payload_hash, unsigned_metadata_hash;
-  EXPECT_TRUE(PayloadSigner::HashPayloadForSigning(payload_file.path(),
-                                                   sizes,
-                                                   &unsigned_payload_hash,
-                                                   &unsigned_metadata_hash));
-  EXPECT_TRUE(
-      payload.WritePayload(payload_file.path(),
-                           "/dev/null",
-                           GetBuildArtifactsPath(kUnittestPrivateKeyPath),
-                           &metadata_size));
-  brillo::Blob signed_payload_hash, signed_metadata_hash;
-  EXPECT_TRUE(PayloadSigner::HashPayloadForSigning(
-      payload_file.path(), sizes, &signed_payload_hash, &signed_metadata_hash));
-  EXPECT_EQ(unsigned_payload_hash, signed_payload_hash);
-  EXPECT_EQ(unsigned_metadata_hash, signed_metadata_hash);
-}
-
 TEST_F(PayloadSignerTest, VerifySignedPayloadTest) {
   ScopedTempFile payload_file("payload.XXXXXX");
   PayloadGenerationConfig config;

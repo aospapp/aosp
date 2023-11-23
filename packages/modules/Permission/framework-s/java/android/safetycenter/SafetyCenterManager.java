@@ -21,6 +21,7 @@ import static android.Manifest.permission.READ_SAFETY_CENTER_STATUS;
 import static android.Manifest.permission.SEND_SAFETY_CENTER_UPDATE;
 import static android.annotation.SdkConstant.SdkConstantType.BROADCAST_INTENT_ACTION;
 import static android.os.Build.VERSION_CODES.TIRAMISU;
+import static android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,6 +33,7 @@ import android.annotation.RequiresPermission;
 import android.annotation.SdkConstant;
 import android.annotation.SystemApi;
 import android.annotation.SystemService;
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Binder;
@@ -42,9 +44,11 @@ import android.util.ArrayMap;
 import androidx.annotation.RequiresApi;
 
 import com.android.internal.annotations.GuardedBy;
+import com.android.modules.utils.build.SdkLevel;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
@@ -195,10 +199,19 @@ public final class SafetyCenterManager {
      * disambiguate personal profile vs. managed profiles issues).
      *
      * <p>This extra can be used in conjunction with {@link #EXTRA_SAFETY_SOURCE_ISSUE_ID} and
-     * {@link #EXTRA_SAFETY_SOURCE_ID}. Otherwise, no redirection will occur.
+     * {@link #EXTRA_SAFETY_SOURCE_ID}. Otherwise, the device's primary user will be used.
      */
     public static final String EXTRA_SAFETY_SOURCE_USER_HANDLE =
             "android.safetycenter.extra.SAFETY_SOURCE_USER_HANDLE";
+
+    /**
+     * Used as a {@code String} extra field in {@link Intent#ACTION_SAFETY_CENTER} intents to
+     * specify the ID for a group of safety sources. If applicable, this will redirect to the
+     * group's corresponding subpage in the UI.
+     */
+    @RequiresApi(UPSIDE_DOWN_CAKE)
+    public static final String EXTRA_SAFETY_SOURCES_GROUP_ID =
+            "android.safetycenter.extra.SAFETY_SOURCES_GROUP_ID";
 
     /**
      * Used as an int value for {@link #EXTRA_REFRESH_SAFETY_SOURCES_REQUEST_TYPE} to indicate that
@@ -214,7 +227,7 @@ public final class SafetyCenterManager {
 
     /**
      * Used as an int value for {@link #EXTRA_REFRESH_SAFETY_SOURCES_REQUEST_TYPE} to indicate that
-     * upon receiving a broadcasts with intent action {@link #ACTION_REFRESH_SAFETY_SOURCES}, the
+     * upon receiving a broadcast with intent action {@link #ACTION_REFRESH_SAFETY_SOURCES}, the
      * safety source should provide data relating to their safety state to Safety Center.
      *
      * <p>If the source already has its safety data cached, it may provide it without triggering a
@@ -255,6 +268,10 @@ public final class SafetyCenterManager {
     /** Indicates a generic reason for Safety Center refresh. */
     public static final int REFRESH_REASON_OTHER = 600;
 
+    /** Indicates a periodic background refresh. */
+    @RequiresApi(UPSIDE_DOWN_CAKE)
+    public static final int REFRESH_REASON_PERIODIC = 700;
+
     /**
      * The reason for requesting a refresh of {@link SafetySourceData} from safety sources.
      *
@@ -268,9 +285,11 @@ public final class SafetyCenterManager {
                 REFRESH_REASON_DEVICE_REBOOT,
                 REFRESH_REASON_DEVICE_LOCALE_CHANGE,
                 REFRESH_REASON_SAFETY_CENTER_ENABLED,
-                REFRESH_REASON_OTHER
+                REFRESH_REASON_OTHER,
+                REFRESH_REASON_PERIODIC
             })
     @Retention(RetentionPolicy.SOURCE)
+    @TargetApi(UPSIDE_DOWN_CAKE)
     public @interface RefreshReason {}
 
     /** Listener for changes to {@link SafetyCenterData}. */
@@ -429,6 +448,42 @@ public final class SafetyCenterManager {
         }
     }
 
+    /**
+     * Requests a specific subset of safety sources to set their latest {@link SafetySourceData} for
+     * Safety Center.
+     *
+     * <p>This API sends a broadcast to safety sources with action {@link
+     * #ACTION_REFRESH_SAFETY_SOURCES} and {@link #EXTRA_REFRESH_SAFETY_SOURCE_IDS} to specify the
+     * IDs of safety sources being requested for data by Safety Center.
+     *
+     * <p>This API is an overload of {@link #refreshSafetySources(int)} and is used to request data
+     * from safety sources that are part of a subpage in the Safety Center UI.
+     *
+     * @see #refreshSafetySources(int)
+     * @param refreshReason the reason for the refresh
+     * @param safetySourceIds list of IDs for the safety sources being refreshed
+     * @throws UnsupportedOperationException if accessed from a version lower than {@link
+     *     UPSIDE_DOWN_CAKE}
+     */
+    @RequiresPermission(MANAGE_SAFETY_CENTER)
+    @RequiresApi(UPSIDE_DOWN_CAKE)
+    public void refreshSafetySources(
+            @RefreshReason int refreshReason, @NonNull List<String> safetySourceIds) {
+        if (!SdkLevel.isAtLeastU()) {
+            throw new UnsupportedOperationException(
+                    "Method not supported for versions lower than UPSIDE_DOWN_CAKE");
+        }
+
+        requireNonNull(safetySourceIds, "safetySourceIds cannot be null");
+
+        try {
+            mService.refreshSpecificSafetySources(
+                    refreshReason, mContext.getUser().getIdentifier(), safetySourceIds);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
     /** Returns the current {@link SafetyCenterConfig}, if available. */
     @RequiresPermission(MANAGE_SAFETY_CENTER)
     @Nullable
@@ -448,7 +503,8 @@ public final class SafetyCenterManager {
     @NonNull
     public SafetyCenterData getSafetyCenterData() {
         try {
-            return mService.getSafetyCenterData(mContext.getUser().getIdentifier());
+            return mService.getSafetyCenterData(
+                    mContext.getPackageName(), mContext.getUser().getIdentifier());
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -472,7 +528,7 @@ public final class SafetyCenterManager {
             ListenerDelegate delegate = new ListenerDelegate(executor, listener);
             try {
                 mService.addOnSafetyCenterDataChangedListener(
-                        delegate, mContext.getUser().getIdentifier());
+                        delegate, mContext.getPackageName(), mContext.getUser().getIdentifier());
             } catch (RemoteException e) {
                 throw e.rethrowFromSystemServer();
             }
@@ -506,8 +562,7 @@ public final class SafetyCenterManager {
     }
 
     /**
-     * Dismiss a Safety Center issue and prevent it from appearing in the Safety Center or affecting
-     * the overall safety status.
+     * Dismiss a Safety Center issue and prevent it from affecting the overall safety status.
      *
      * @param safetyCenterIssueId the target issue ID returned by {@link SafetyCenterIssue#getId()}
      */

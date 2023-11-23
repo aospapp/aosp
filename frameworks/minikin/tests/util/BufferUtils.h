@@ -46,14 +46,6 @@ std::vector<uint8_t> writeToBuffer(const T& t) {
     return buffer;
 }
 
-template <class T, auto arg>
-std::vector<uint8_t> writeToBuffer(const T& t) {
-    std::vector<uint8_t> buffer = allocateBuffer<T, arg>(t);
-    BufferWriter writer(buffer.data());
-    t.template writeTo<arg>(&writer);
-    return buffer;
-}
-
 }  // namespace minikin
 
 #endif  // MINIKIN_TEST_BUFFER_UTILS_H

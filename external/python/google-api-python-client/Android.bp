@@ -52,14 +52,6 @@ python_library {
         "googleapiclient/discovery_cache/*.py",
         "apiclient/*.py",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     libs: [
         "py-httplib2",
         "py-oauth2client",

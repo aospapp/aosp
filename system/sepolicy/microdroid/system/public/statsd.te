@@ -1,7 +1,6 @@
 type statsd, domain;
 
 type statsd_exec, system_file_type, exec_type, file_type;
-binder_use(statsd)
 
 # Allow statsd to scan through /proc/pid for all processes.
 r_dir_file(statsd, domain)
@@ -14,10 +13,6 @@ allow statsd devpts:chr_file { getattr ioctl read write };
 allow statsd shell_exec:file rx_file_perms;
 allow statsd system_file:file execute_no_trans;
 allow statsd toolbox_exec:file rx_file_perms;
-
-# Allow logd access.
-read_logd(statsd)
-control_logd(statsd)
 
 # Allow 'adb shell cmd' to upload configs and download output.
 allow statsd adbd:fd use;

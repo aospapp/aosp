@@ -1,0 +1,96 @@
+{
+  "testCases": [
+    {
+      "name": "No aggregate encryption keys in datastore.",
+      "input": {
+        "aggregate_encryption_keys": []
+      },
+      "output": {
+        "aggregate_encryption_keys": [
+          {
+            "id": "ignored",
+            "keyId": "38b1d571-f924-4dc0-abe1-e2bac9b6a6be",
+            "publicKey": "/amqBgfDOvHAIuatDyoHxhfHaMoYA4BDxZxwtWBRQhc=",
+            "expiry": 1654285612892
+          },
+          {
+            "id": "ignored",
+            "keyId": "e52dbbda-4e3a-4380-a7c8-14db3e08ef33",
+            "publicKey": "dU3hTbFy1RgCddQIQIZjoVNPJ3KScryj8BSREFr9yW8=",
+            "expiry": 1654285612892
+          }
+        ]
+      }
+    },
+    {
+      "name": "Non-expired aggregate encryption keys in datastore.",
+      "input": {
+        "aggregate_encryption_keys": [
+          {
+            "id": "ignored_1",
+            "keyId": "38b1d571-f924-4dc0-abe1-e2bac9b6a6be",
+            "publicKey": "/amqBgfDOvHAIuatDyoHxhfHaMoYA4BDxZxwtWBRQhc=",
+            "expiry": 1654285612892
+          },
+          {
+            "id": "ignored_2",
+            "keyId": "e52dbbda-4e3a-4380-a7c8-14db3e08ef33",
+            "publicKey": "dU3hTbFy1RgCddQIQIZjoVNPJ3KScryj8BSREFr9yW8=",
+            "expiry": 1654285612892
+          }
+        ]
+      },
+      "output": {
+        "aggregate_encryption_keys": [
+          {
+            "id": "ignored_1",
+            "keyId": "38b1d571-f924-4dc0-abe1-e2bac9b6a6be",
+            "publicKey": "/amqBgfDOvHAIuatDyoHxhfHaMoYA4BDxZxwtWBRQhc=",
+            "expiry": 1654285612892
+          },
+          {
+            "id": "ignored_2",
+            "keyId": "e52dbbda-4e3a-4380-a7c8-14db3e08ef33",
+            "publicKey": "dU3hTbFy1RgCddQIQIZjoVNPJ3KScryj8BSREFr9yW8=",
+            "expiry": 1654285612892
+          }
+        ]
+      }
+    },
+    {
+      "name": "Expired encryption keys in datastore.",
+      "input": {
+        "aggregate_encryption_keys": [
+          {
+            "id": "ignored_1",
+            "keyId": "expired-key1-4dc0-abe1-e2bac9b6a6be",
+            "publicKey": "/AMQBGFDOVHAIUATDYOHXHFHAMOYA4BDXZXWTWBRQHC=",
+            "expiry": 1653681612891
+          },
+          {
+            "id": "ignored_2",
+            "keyId": "expired-key2-4380-a7c8-14db3e08ef33",
+            "publicKey": "DU3HTBFY1RGCDDQIQIZJOVNPJ3KSCRYJ8BSREFR9YW8=",
+            "expiry": 1653681612891
+          }
+        ]
+      },
+      "output": {
+        "aggregate_encryption_keys": [
+          {
+            "id": "ignored_1",
+            "keyId": "38b1d571-f924-4dc0-abe1-e2bac9b6a6be",
+            "publicKey": "/amqBgfDOvHAIuatDyoHxhfHaMoYA4BDxZxwtWBRQhc=",
+            "expiry": 1654285612892
+          },
+          {
+            "id": "ignored_2",
+            "keyId": "e52dbbda-4e3a-4380-a7c8-14db3e08ef33",
+            "publicKey": "dU3hTbFy1RgCddQIQIZjoVNPJ3KScryj8BSREFr9yW8=",
+            "expiry": 1654285612892
+          }
+        ]
+      }
+    }
+  ]
+}

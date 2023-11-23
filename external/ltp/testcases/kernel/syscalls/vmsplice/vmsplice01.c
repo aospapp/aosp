@@ -11,7 +11,6 @@
 #include <string.h>
 #include <signal.h>
 #include <sys/types.h>
-#include <fcntl.h>
 #include <sys/poll.h>
 
 #include "tst_test.h"
@@ -122,5 +121,4 @@ static struct tst_test test = {
 		"nfs",
 		NULL
 	},
-	.min_kver = "2.6.17",
 };

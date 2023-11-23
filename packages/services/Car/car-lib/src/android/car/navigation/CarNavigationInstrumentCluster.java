@@ -200,7 +200,6 @@ public final class CarNavigationInstrumentCluster implements Parcelable {
 
     /** Converts to string for debug purpose */
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return CarNavigationInstrumentCluster.class.getSimpleName() + "{ "
                 + "minIntervalMillis: " + mMinIntervalMillis + ", "

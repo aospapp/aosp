@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2010-2018, 2021 NXP
+ *  Copyright 2010-2018, 2021-2022 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -91,6 +91,7 @@
 #define CLK_FREQ_38_4MHZ 5
 #define CLK_FREQ_52MHZ 6
 #define CLK_FREQ_32MHZ 7
+#define CLK_FREQ_48MHZ 8
 
 static const uint8_t PN557_SET_CONFIG_CMD_PLL_13MHZ[] = {
     0x20, 0x02, 0x0C, 0x01, 0xA0, 0x20, 0x08, 0x08,
@@ -139,6 +140,14 @@ static const uint8_t PN557_SET_CONFIG_CMD_PLL_38_4MHZ[] = {
 static const uint8_t PN557_SET_CONFIG_CMD_DPLL_38_4MHZ[] = {
     0x20, 0x02, 0x0C, 0x01, 0xA0, 0x26, 0x08, 0x88,
     0x01, 0xE2, 0x82, 0xF0, 0x00, 0xA2, 0x01};
+
+static const uint8_t PN557_SET_CONFIG_CMD_PLL_48MHZ[] = {
+    0x20, 0x02, 0x0C, 0x01, 0xA0, 0x20, 0x08, 0x38,
+    0x51, 0xD3, 0x82, 0x58, 0xE1, 0xE0, 0x02};
+
+static const uint8_t PN557_SET_CONFIG_CMD_DPLL_48MHZ[] = {
+    0x20, 0x02, 0x0C, 0x01, 0xA0, 0x26, 0x08, 0x38,
+    0x41, 0xD3, 0x82, 0x88, 0x01, 0xE2, 0x02};
 /* Set to one of CLK_FREQ_<value> */
 #define NXP_SYS_CLK_FREQ_SEL CLK_FREQ_19_2MHZ
 

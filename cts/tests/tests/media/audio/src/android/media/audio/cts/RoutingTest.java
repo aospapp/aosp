@@ -18,8 +18,6 @@ package android.media.audio.cts;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.content.res.AssetFileDescriptor;
-
 import android.media.AudioAttributes;
 import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
@@ -27,35 +25,25 @@ import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.AudioRouting;
 import android.media.AudioTrack;
-import android.media.MediaPlayer;
 import android.media.MediaFormat;
+import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.media.audio.cts.R;
 import android.media.cts.DeviceUtils;
-import android.media.cts.TestUtils.Monitor;
-
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.os.ParcelFileDescriptor;
-import android.os.PowerManager;
-
 import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
-
 import android.util.Log;
 
 import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.File;
-import java.lang.Runnable;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -808,7 +796,7 @@ public class RoutingTest extends AndroidTestCase {
     }
 
     private MediaRecorder allocMediaRecorder() throws Exception {
-        final String outputPath = new File(Environment.getExternalStorageDirectory(),
+        final String outputPath = new File(mContext.getExternalFilesDir(null),
             "record.out").getAbsolutePath();
         mOutFile = new File(outputPath);
         MediaRecorder mediaRecorder = new MediaRecorder();

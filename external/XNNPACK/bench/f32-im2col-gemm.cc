@@ -13,18 +13,22 @@
 #include <benchmark/benchmark.h>
 #include "bench/conv.h"
 #include "bench/utils.h"
-#include <xnnpack/AlignedAllocator.h>
+
+#include <xnnpack.h>
+#include <xnnpack/aligned-allocator.h>
 #include <xnnpack/common.h>
 #include <xnnpack/gemm.h>
 #include <xnnpack/im2col.h>
+#include <xnnpack/math.h>
+#include <xnnpack/microfnptr.h>
+#include <xnnpack/microparams-init.h>
 #include <xnnpack/pack.h>
-#include <xnnpack/params-init.h>
-#include <xnnpack/params.h>
 
 
 static void Im2ColGEMMBenchmark(benchmark::State& state,
   xnn_f32_gemm_minmax_ukernel_function f32_gemm,
   uint32_t mr, uint32_t nr, uint32_t kr, uint32_t sr,
+  xnn_init_f32_minmax_params_fn init_params,
   benchmark::utils::IsaCheckFunction isa_check = nullptr)
 {
   if (isa_check && !isa_check(state)) {
@@ -58,7 +62,7 @@ static void Im2ColGEMMBenchmark(benchmark::State& state,
   const size_t nc_stride = benchmark::utils::RoundUp<size_t>(group_output_channels, nr);
   const size_t kc_stride = benchmark::utils::RoundUp<size_t>(group_input_channels, kr);
 
-  std::vector<float> a(input_height * input_width * group_input_channels);
+  std::vector<float> a(input_height * input_width * group_input_channels + XNN_EXTRA_BYTES / sizeof(float));
   std::generate(a.begin(), a.end(), std::ref(f32rng));
   std::vector<float> k(group_output_channels * kernel_height * kernel_width * group_input_channels);
   std::generate(k.begin(), k.end(), std::ref(f32rng));
@@ -85,8 +89,8 @@ static void Im2ColGEMMBenchmark(benchmark::State& state,
   std::fill(c.begin(), c.end(), std::nanf(""));
 
   xnn_f32_minmax_params params;
-  xnn_init_f32_minmax_params(
-    &params, -std::numeric_limits<float>::infinity(), +std::numeric_limits<float>::infinity());
+  init_params(&params,
+    -std::numeric_limits<float>::infinity(), +std::numeric_limits<float>::infinity());
 
   size_t buffer_index = 0;
   for (auto _ : state) {
@@ -139,7 +143,8 @@ static void Im2ColGEMMBenchmark(benchmark::State& state,
 
 #if XNN_ARCH_ARM64 && XNN_ENABLE_ASSEMBLY
   static void f32_gemm_4x8__aarch64_neonfma_prfm_cortex_a75(benchmark::State& state, const char* net) {
-    Im2ColGEMMBenchmark(state, xnn_f32_gemm_minmax_ukernel_4x8__aarch64_neonfma_prfm_cortex_a75, 4, 8, 1, 1);
+    Im2ColGEMMBenchmark(state, xnn_f32_gemm_minmax_ukernel_4x8__aarch64_neonfma_prfm_cortex_a75, 4, 8, 1, 1,
+      xnn_init_f32_minmax_scalar_params);
   }
 
   BENCHMARK_CONV(f32_gemm_4x8__aarch64_neonfma_prfm_cortex_a75)
@@ -147,11 +152,13 @@ static void Im2ColGEMMBenchmark(benchmark::State& state,
 
 
 static void f32_gemm_2x4__scalar(benchmark::State& state, const char* net) {
-  Im2ColGEMMBenchmark(state, xnn_f32_gemm_minmax_ukernel_2x4__scalar, 2, 4, 1, 1);
+  Im2ColGEMMBenchmark(state, xnn_f32_gemm_minmax_ukernel_2x4__scalar, 2, 4, 1, 1,
+    xnn_init_f32_minmax_scalar_params);
 }
 
 static void f32_gemm_4x4__scalar(benchmark::State& state, const char* net) {
-  Im2ColGEMMBenchmark(state, xnn_f32_gemm_minmax_ukernel_4x4__scalar, 4, 4, 1, 1);
+  Im2ColGEMMBenchmark(state, xnn_f32_gemm_minmax_ukernel_4x4__scalar, 4, 4, 1, 1,
+    xnn_init_f32_minmax_scalar_params);
 }
 
 BENCHMARK_CONV(f32_gemm_2x4__scalar)

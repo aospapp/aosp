@@ -62,7 +62,7 @@ struct DmaBuffer {
     void SetName(const std::string& name) { name_ = name; }
     void SetExporter(const std::string& exporter) { exporter_ = exporter; }
     void SetCount(uint64_t count) { count_ = count; }
-    uint64_t Pss(pid_t pid) const { return maprefs_.count(pid) > 0 ? size_ / maprefs_.size() : 0; }
+    uint64_t Pss() const { return size_ / pids_.size(); }
 
     bool operator==(const DmaBuffer& rhs) {
         return (inode_ == rhs.inode()) && (size_ == rhs.size()) && (name_ == rhs.name()) &&
@@ -87,13 +87,6 @@ struct DmaBuffer {
         pids_.insert(pid);
     }
 };
-
-// Read and return current dma buf objects from
-// DEBUGFS/dma_buf/bufinfo. The references to each dma buffer are not
-// populated here and will return an empty vector.
-// Returns false if something went wrong with the function, true otherwise.
-bool ReadDmaBufInfo(std::vector<DmaBuffer>* dmabufs,
-                    const std::string& path = "/sys/kernel/debug/dma_buf/bufinfo");
 
 // Read and return dmabuf objects for a given process without the help
 // of DEBUGFS
@@ -130,7 +123,7 @@ bool ReadDmaBufPss(int pid, uint64_t* pss, const std::string& procfs_path = "/pr
 // Writes DmaBuffer info into an existing vector (which will be cleared first.)
 // Will include all DmaBuffers, whether thay are retained or mapped.
 // Returns true on success, otherwise false.
-bool ReadDmaBufs(std::vector<DmaBuffer>* bufs);
+bool ReadProcfsDmaBufs(std::vector<DmaBuffer>* bufs);
 
 }  // namespace dmabufinfo
 }  // namespace android

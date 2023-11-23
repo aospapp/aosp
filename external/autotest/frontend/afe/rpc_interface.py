@@ -40,37 +40,29 @@ import os
 import sys
 import warnings
 
+import six
+from autotest_lib.client.common_lib import (control_data, error, global_config,
+                                            priorities)
+from autotest_lib.client.common_lib.cros import dev_server
+from autotest_lib.frontend.afe import control_file as control_file_lib
+from autotest_lib.frontend.afe import (model_attributes, model_logic, models,
+                                       rpc_utils)
+from autotest_lib.frontend.tko import models as tko_models
+from autotest_lib.frontend.tko import rpc_interface as tko_rpc_interface
+from autotest_lib.server import frontend, utils
+from autotest_lib.server.cros import provision
+from autotest_lib.server.cros.dynamic_suite import (constants,
+                                                    control_file_getter,
+                                                    suite_common, tools)
+from autotest_lib.server.cros.dynamic_suite.suite import Suite
+from autotest_lib.server.lib import status_history
+from autotest_lib.site_utils import job_history, stable_version_utils
 from django.db import connection as db_connection
 from django.db import transaction
 from django.db.models import Count
 from django.db.utils import DatabaseError
 
 import common
-from autotest_lib.client.common_lib import control_data
-from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib import priorities
-from autotest_lib.client.common_lib.cros import dev_server
-from autotest_lib.frontend.afe import control_file as control_file_lib
-from autotest_lib.frontend.afe import model_attributes
-from autotest_lib.frontend.afe import model_logic
-from autotest_lib.frontend.afe import models
-from autotest_lib.frontend.afe import rpc_utils
-from autotest_lib.frontend.tko import models as tko_models
-from autotest_lib.frontend.tko import rpc_interface as tko_rpc_interface
-from autotest_lib.server import frontend
-from autotest_lib.server import utils
-from autotest_lib.server.cros import provision
-from autotest_lib.server.cros.dynamic_suite import constants
-from autotest_lib.server.cros.dynamic_suite import control_file_getter
-from autotest_lib.server.cros.dynamic_suite import suite_common
-from autotest_lib.server.cros.dynamic_suite import tools
-from autotest_lib.server.cros.dynamic_suite.suite import Suite
-from autotest_lib.server.lib import status_history
-from autotest_lib.site_utils import job_history
-from autotest_lib.site_utils import server_manager_utils
-from autotest_lib.site_utils import stable_version_utils
-
 
 _CONFIG = global_config.global_config
 
@@ -164,9 +156,9 @@ def add_label(name, ignore_exception_if_exists=False, **kwargs):
             # If the exception is raised not because of duplicated
             # "name", then raise the original exception.
             if label is None:
-                raise exc_info[0], exc_info[1], exc_info[2]
+                six.reraise(exc_info[0], exc_info[1], exc_info[2])
         else:
-            raise exc_info[0], exc_info[1], exc_info[2]
+            six.reraise(exc_info[0], exc_info[1], exc_info[2])
     return label.id
 
 
@@ -213,7 +205,7 @@ def _create_label_everywhere(id, hosts):
         # This matches the type checks in smart_get, which is a hack
         # in and off itself. The aim here is to create any non-existent
         # label, which we cannot do if the 'id' specified isn't a label name.
-        if isinstance(id, basestring):
+        if isinstance(id, six.string_types):
             label = models.Label.smart_get(add_label(id))
         else:
             raise ValueError('Label id (%s) does not exist. Please specify '
@@ -1327,7 +1319,7 @@ def _get_image_for_job(job, hostless):
         builds = None
         if isinstance(value, dict):
             builds = value
-        elif isinstance(value, basestring):
+        elif isinstance(value, six.string_types):
             builds = ast.literal_eval(value)
         if builds:
             image = builds.get('cros-version')
@@ -2123,9 +2115,9 @@ def _assign_board_to_shard_precheck(labels):
     @returns: A list of label models that ready to be added to shard.
     """
     if not labels:
-      # allow creation of label-less shards (labels='' would otherwise fail the
-      # checks below)
-      return []
+        # allow creation of label-less shards (labels='' would otherwise fail the
+        # checks below)
+        return []
     labels = labels.split(',')
     label_models = []
     for label in labels:
@@ -2265,12 +2257,7 @@ def get_servers(hostname=None, role=None, status=None):
     @raises error.RPCException: If server database is not used.
     @return: A list of server names for servers with matching role and status.
     """
-    if not server_manager_utils.use_server_db():
-        raise error.RPCException('Server database is not enabled. Please try '
-                                 'retrieve servers from global config.')
-    servers = server_manager_utils.get_servers(hostname=hostname, role=role,
-                                               status=status)
-    return [s.get_details() for s in servers]
+    raise DeprecationWarning("server_manager_utils has been removed.")
 
 
 @rpc_utils.route_rpc_to_main

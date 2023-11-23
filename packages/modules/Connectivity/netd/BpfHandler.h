@@ -16,11 +16,9 @@
 
 #pragma once
 
-#include <mutex>
-
 #include <netdutils/Status.h>
 #include "bpf/BpfMap.h"
-#include "bpf_shared.h"
+#include "netd.h"
 
 using android::bpf::BpfMap;
 using android::bpf::BpfMapRO;
@@ -65,8 +63,6 @@ class BpfHandler {
     BpfMapRO<StatsKey, StatsValue> mStatsMapB;
     BpfMapRO<uint32_t, uint32_t> mConfigurationMap;
     BpfMap<uint32_t, uint8_t> mUidPermissionMap;
-
-    std::mutex mMutex;
 
     // The limit on the number of stats entries a uid can have in the per uid stats map. BpfHandler
     // will block that specific uid from tagging new sockets after the limit is reached.

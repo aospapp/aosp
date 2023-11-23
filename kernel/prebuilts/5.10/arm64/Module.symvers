@@ -13,7 +13,7 @@
   
     
       
-        <script rel="import" href="/public_builds/elements/artifact_page/artifact_page_bin_out/artifact_page_bin.js?c=444366875809460187"></script>
+        <script rel="import" href="/public_builds/elements/artifact_page/artifact_page_bin_out/artifact_page_bin.js?c=447126880411785162"></script>
       
 
     
@@ -41,7 +41,7 @@
         window.removeEventListener('load', onChange);
         window.removeEventListener('dom-change', onChange);
         window.removeEventListener('HTMLImportsLoaded', onChange);
-        var data = {"CacheBust":"444366875809460187","Debug":false,"JsImport":true,"PageElement":"artifact-page","PageID":"artifact_page","Public":true,"RootDir":"artifact_page"};
+        var data = {"CacheBust":"447126880411785162","Debug":false,"JsImport":true,"PageElement":"artifact-page","PageID":"artifact_page","Public":true,"RootDir":"artifact_page"};
 
 		var elementsScript = document.createElement('script');
 		var baseUrl = data['Public'] ? "/public_builds" : "/builds";
@@ -54,7 +54,7 @@
   
 
         
-  var JSVariables = {"artifacts":[],"authed":true,"branchName":"aosp_kernel-common-android13-5.10-2022-06","buildId":"8732768","forceLogin":false,"idToken":null,"releaseCandidateName":"","targetName":"kernel_aarch64"};
+  var JSVariables = {"artifacts":[],"authed":true,"branchName":"aosp_kernel-common-android13-5.10-2022-10","buildId":"9177961","forceLogin":false,"idToken":null,"releaseCandidateName":"","targetName":"kernel_aarch64"};
 
   new Promise(function(res) { window.addEventListener('state-ready', function(){ return res()})}).then(function() {
     const stateProvider = document.querySelector('#state');
@@ -84,7 +84,7 @@
   <script type="text/javascript" src="//www.gstatic.com/feedback/api.js" async></script>
   <script>
     (function() {
-      var data = {"ProductId":"5093044","ProductVersion":"444366875809460187"};
+      var data = {"ProductId":"5093044","ProductVersion":"447126880411785162"};
 
     function showFeedback() {
       userfeedback.api.startFeedback({

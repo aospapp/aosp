@@ -1,5 +1,5 @@
-libchrome (930012-1) bullseye; urgency=low
+libchrome (1094370-1) bullseye; urgency=low
 
-  * Upgrade to BASE_VER = 930012
+  * Upgrade to BASE_VER = 1094370
 
- -- Abhishek Pandit-Subedi <abhishekpandit@chromium.org> Fri, 11 Feb 2022 14:56:00 +0000
+ -- Abhishek Pandit-Subedi <abhishekpandit@chromium.org> Fri, 13 Feb 2023 14:56:00 +0000

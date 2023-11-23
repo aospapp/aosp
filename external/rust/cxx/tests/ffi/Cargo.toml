@@ -1,6 +1,7 @@
 [package]
 name = "cxx-test-suite"
 version = "0.0.0"
+authors = ["David Tolnay <dtolnay@gmail.com>"]
 edition = "2018"
 publish = false
 
@@ -8,7 +9,7 @@ publish = false
 path = "lib.rs"
 
 [dependencies]
-cxx = { path = "../.." }
+cxx = { path = "../..", default-features = false }
 
 [build-dependencies]
 cxx-build = { path = "../../gen/build" }

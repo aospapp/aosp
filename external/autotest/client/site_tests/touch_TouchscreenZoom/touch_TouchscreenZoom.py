@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -65,7 +66,7 @@ class touch_TouchscreenZoom(touch_playback_test_base.touch_playback_test_base):
     def run_once(self):
         """Entry point of this test."""
         if not self._is_testable():
-            return
+            raise error.TestNAError('Missing input data for this board name.')
 
         # Log in and start test.
         with chrome.Chrome(init_network_controller=True) as cr:

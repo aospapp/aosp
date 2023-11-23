@@ -108,10 +108,33 @@ java_defaults {
 
     defaults_visibility: ["//visibility:private"],
 
-    // Collates API usages from each module for further analysis.
-    plugins: ["java_api_finder"],
-
     dist_group: "android",
+}
+
+// Defaults for the java_sdk_libraries of non-updatable modules.
+// java_sdk_libraries using these defaults should also add themselves to the
+// non_updatable_modules list in frameworks/base/api/api.go
+java_defaults {
+    name: "non-updatable-framework-module-defaults",
+    defaults: ["framework-module-common-defaults"],
+
+    system: {
+        enabled: true,
+        sdk_version: "module_current",
+    },
+    module_lib: {
+        enabled: true,
+        sdk_version: "module_current",
+    },
+    // Non-updatable modules are allowed to provide @TestApi
+    test: {
+        enabled: true,
+        sdk_version: "module_current",
+    },
+
+    defaults_visibility: [
+        "//packages/modules/Virtualization:__subpackages__",
+    ],
 }
 
 // Defaults for mainline module provided java_sdk_library instances.
@@ -128,6 +151,12 @@ java_defaults {
         enabled: true,
         sdk_version: "module_current",
     },
+
+    // Disallow disabling the NewApi lint check.
+    lint: {
+        strict_updatability_linting: true,
+    },
+
     defaults_visibility: [
         ":__subpackages__",
         "//frameworks/base/apex:__subpackages__",
@@ -149,6 +178,12 @@ java_defaults {
         enabled: true,
         sdk_version: "system_server_current",
     },
+
+    // Disallow disabling the NewApi lint check.
+    lint: {
+        strict_updatability_linting: true,
+    },
+
     defaults_visibility: [
         ":__subpackages__",
         "//art/libartservice:__subpackages__",
@@ -192,26 +227,95 @@ java_defaults {
     },
 }
 
+filegroup_defaults {
+    name: "framework-sources-module-defaults",
+    visibility: [
+        "//frameworks/base",
+        "//frameworks/base/api",
+    ],
+    defaults_visibility: ["//visibility:public"],
+}
+
 // These apex_defaults serve as a common place to add properties which should
 // affect all mainline modules.
+
+APEX_LOWEST_MIN_SDK_VERSION = "30"
+DCLA_MIN_SDK_VERSION = "31"
+
 apex_defaults {
-    name: "q-launched-apex-module",
-    min_sdk_version: "29",
+    name: "any-launched-apex-modules",
     updatable: true,
     defaults_visibility: ["//visibility:public"],
+}
+
+apex_defaults {
+    name: "q-launched-apex-module",
+    defaults: ["any-launched-apex-modules"],
+    min_sdk_version: APEX_LOWEST_MIN_SDK_VERSION,
+    defaults_visibility: ["//visibility:public"],
+}
+
+soong_config_module_type_import {
+    from: "system/apex/Android.bp",
+    module_types: [
+        "library_linking_strategy_apex_defaults",
+        "library_linking_strategy_cc_defaults",
+    ],
+}
+
+library_linking_strategy_apex_defaults {
+    name: "q-launched-dcla-enabled-apex-module",
+    defaults_visibility: [
+         "//external/conscrypt/apex",
+         "//packages/modules/DnsResolver/apex",
+         "//frameworks/av/apex"
+    ],
+    defaults: ["q-launched-apex-module"],
+    soong_config_variables: {
+        library_linking_strategy: {
+            // Use the Q min_sdk_version
+            prefer_static: {},
+            // Override the Q min_sdk_version to min_sdk_version that supports dcla
+            conditions_default: {
+                min_sdk_version: DCLA_MIN_SDK_VERSION,
+            },
+        },
+    },
 }
 
 apex_defaults {
     name: "r-launched-apex-module",
+    defaults: ["any-launched-apex-modules"],
     min_sdk_version: "30",
-    updatable: true,
     defaults_visibility: ["//visibility:public"],
+}
+
+library_linking_strategy_apex_defaults {
+    name: "r-launched-dcla-enabled-apex-module",
+    defaults_visibility: [
+         "//packages/modules/adb:__subpackages__",
+         "//packages/modules/Connectivity/Tethering/apex",
+    ],
+    defaults: ["r-launched-apex-module"],
+    soong_config_variables: {
+        library_linking_strategy: {
+            // Use the R min_sdk_version
+            prefer_static: {},
+            // Override the R min_sdk_version to min_sdk_version that supports dcla
+            conditions_default: {
+                min_sdk_version: DCLA_MIN_SDK_VERSION,
+            },
+        },
+    },
 }
 
 apex_defaults {
     name: "s-launched-apex-module",
+    defaults: ["any-launched-apex-modules"],
     min_sdk_version: "31",
-    updatable: true,
+    // Indicates that pre-installed version of this apex can be compressed.
+    // Whether it actually will be compressed is controlled on per-device basis.
+    compressible:true,
     defaults_visibility: [
         "//art:__subpackages__",
         "//packages/modules:__subpackages__",
@@ -220,7 +324,36 @@ apex_defaults {
 
 apex_defaults {
     name: "t-launched-apex-module",
+    defaults: ["any-launched-apex-modules"],
     min_sdk_version: "Tiramisu",
-    updatable: true,
+    // Indicates that pre-installed version of this apex can be compressed.
+    // Whether it actually will be compressed is controlled on per-device basis.
+    compressible: true,
     defaults_visibility: ["//packages/modules:__subpackages__"],
+}
+
+
+apex_defaults {
+    name: "u-launched-apex-module",
+    defaults: ["any-launched-apex-modules"],
+    min_sdk_version: "UpsideDownCake",
+    // Indicates that pre-installed version of this apex can be compressed.
+    // Whether it actually will be compressed is controlled on per-device basis.
+    compressible: true,
+    defaults_visibility: ["//packages/modules:__subpackages__"],
+}
+
+library_linking_strategy_cc_defaults {
+    name: "apex-lowest-min-sdk-version",
+    defaults_visibility: [
+         "//system/core/libutils",
+    ],
+    min_sdk_version: APEX_LOWEST_MIN_SDK_VERSION,
+    soong_config_variables: {
+        library_linking_strategy: {
+            prefer_static: {
+                min_sdk_version: "apex_inherit",
+            },
+        },
+    },
 }

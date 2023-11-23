@@ -28,6 +28,7 @@ import static com.android.managedprovisioning.ManagedProvisioningScreens.PRE_PRO
 import static com.android.managedprovisioning.ManagedProvisioningScreens.PRE_PROVISIONING_VIA_NFC;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.PROVISIONING;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.RESET_AND_RETURN_DEVICE;
+import static com.android.managedprovisioning.ManagedProvisioningScreens.RESET_DEVICE;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.RETRY_LAUNCH;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.TERMS;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.WEB;
@@ -60,6 +61,7 @@ import com.android.managedprovisioning.provisioning.FinancedDeviceLandingActivit
 import com.android.managedprovisioning.provisioning.LandingActivity;
 import com.android.managedprovisioning.provisioning.ProvisioningActivity;
 import com.android.managedprovisioning.provisioning.ResetAndReturnDeviceActivity;
+import com.android.managedprovisioning.provisioning.ResetDeviceActivity;
 
 import org.junit.Test;
 
@@ -74,7 +76,7 @@ import java.util.stream.Collectors;
 
 @SmallTest
 public final class ScreenManagerTest {
-    private static final int EXPECTED_NUMBER_OF_SCREENS = 15;
+    private static final int EXPECTED_NUMBER_OF_SCREENS = 16;
     private static final Map<ManagedProvisioningScreens, Class<? extends Activity>>
             TEST_SCREEN_TO_ACTIVITY_MAP = createTestScreenToActivityMap();
     private static final Map<ManagedProvisioningScreens, Class<? extends Activity>>
@@ -107,6 +109,8 @@ public final class ScreenManagerTest {
                 .isEqualTo(AdminIntegratedFlowPrepareActivity.class);
         assertThat(screenManager.getActivityClassForScreen(RESET_AND_RETURN_DEVICE))
                 .isEqualTo(ResetAndReturnDeviceActivity.class);
+        assertThat(screenManager.getActivityClassForScreen(RESET_DEVICE))
+                .isEqualTo(ResetDeviceActivity.class);
         assertThat(screenManager.getActivityClassForScreen(WEB))
                 .isEqualTo(WebActivity.class);
         assertThat(screenManager.getActivityClassForScreen(ENCRYPT))
@@ -207,6 +211,7 @@ public final class ScreenManagerTest {
         map.put(PROVISIONING, Activity.class);
         map.put(ADMIN_INTEGRATED_PREPARE, Activity.class);
         map.put(RESET_AND_RETURN_DEVICE, Activity.class);
+        map.put(RESET_DEVICE, Activity.class);
         map.put(WEB, Activity.class);
         map.put(ENCRYPT, Activity.class);
         map.put(POST_ENCRYPT, Activity.class);

@@ -12,25 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as m from 'mithril';
+import m from 'mithril';
 
 import {assertExists} from '../base/logging';
 import {Actions} from '../common/actions';
+import {HighPrecisionTimeSpan} from '../common/high_precision_time';
 import {
   LogBounds,
   LogBoundsKey,
   LogEntries,
-  LogEntriesKey
+  LogEntriesKey,
 } from '../common/logs';
-import {formatTimestamp} from '../common/time';
-import {TimeSpan} from '../common/time';
+import {formatTPTime, TPTime} from '../common/time';
 
+import {SELECTED_LOG_ROWS_COLOR} from './css_constants';
 import {globals} from './globals';
+import {LOG_PRIORITIES, LogsFilters} from './logs_filters';
 import {Panel} from './panel';
 
 const ROW_H = 20;
-
-const PRIO_TO_LETTER = ['-', '-', 'V', 'D', 'I', 'W', 'E', 'F'];
 
 export class LogPanel extends Panel<{}> {
   private scrollContainer?: HTMLElement;
@@ -49,13 +49,12 @@ export class LogPanel extends Panel<{}> {
     this.visibleRowCount = Math.ceil(scrollContainer.clientHeight / ROW_H);
 
     if (this.visibleRowOffset !== prevOffset ||
-        this.visibleRowCount !== prevCount)
-       {
-        globals.dispatch(Actions.updateLogsPagination({
-          offset: this.visibleRowOffset,
-          count: this.visibleRowCount,
-        }));
-      }
+        this.visibleRowCount !== prevCount) {
+      globals.dispatch(Actions.updateLogsPagination({
+        offset: this.visibleRowOffset,
+        count: this.visibleRowCount,
+      }));
+    }
   }
 
   oncreate({dom}: m.CVnodeDOM) {
@@ -63,12 +62,16 @@ export class LogPanel extends Panel<{}> {
         dom.parentElement!.parentElement!.parentElement as HTMLElement);
     this.scrollContainer.addEventListener(
         'scroll', this.onScroll.bind(this), {passive: true});
+    // TODO(stevegolton): Type assersions are a source of bugs.
+    // Let's try to find another way of doing this.
     this.bounds = globals.trackDataStore.get(LogBoundsKey) as LogBounds;
     this.entries = globals.trackDataStore.get(LogEntriesKey) as LogEntries;
     this.recomputeVisibleRowsAndUpdate();
   }
 
-  onupdate(_: m.CVnodeDOM) {
+  onbeforeupdate(_: m.CVnodeDOM) {
+    // TODO(stevegolton): Type assersions are a source of bugs.
+    // Let's try to find another way of doing this.
     this.bounds = globals.trackDataStore.get(LogBoundsKey) as LogBounds;
     this.entries = globals.trackDataStore.get(LogEntriesKey) as LogEntries;
     this.recomputeVisibleRowsAndUpdate();
@@ -80,12 +83,12 @@ export class LogPanel extends Panel<{}> {
     globals.rafScheduler.scheduleFullRedraw();
   }
 
-  onRowOver(ts: number) {
-    globals.dispatch(Actions.setHoveredLogsTimestamp({ts}));
+  onRowOver(ts: TPTime) {
+    globals.dispatch(Actions.setHoverCursorTimestamp({ts}));
   }
 
   onRowOut() {
-    globals.dispatch(Actions.setHoveredLogsTimestamp({ts: -1}));
+    globals.dispatch(Actions.setHoverCursorTimestamp({ts: -1n}));
   }
 
   private totalRows():
@@ -93,46 +96,72 @@ export class LogPanel extends Panel<{}> {
     if (!this.bounds) {
       return {isStale: false, total: 0, offset: 0, count: 0};
     }
-    const {total, startTs, endTs, firstRowTs, lastRowTs} = this.bounds;
+    const {
+      totalVisibleLogs,
+      firstVisibleLogTs,
+      lastVisibleLogTs,
+    } = this.bounds;
     const vis = globals.frontendLocalState.visibleWindowTime;
-    const leftSpan = new TimeSpan(startTs, firstRowTs);
-    const rightSpan = new TimeSpan(lastRowTs, endTs);
 
-    const isStaleLeft = !leftSpan.isInBounds(vis.start);
-    const isStaleRight = !rightSpan.isInBounds(vis.end);
-    const isStale = isStaleLeft || isStaleRight;
-    const offset = Math.min(this.visibleRowOffset, total);
-    const visCount = Math.min(total, this.visibleRowCount);
-    return {isStale, total, count: visCount, offset};
+    const visibleLogSpan =
+        new HighPrecisionTimeSpan(firstVisibleLogTs, lastVisibleLogTs);
+    const isStale = !vis.contains(visibleLogSpan);
+    const offset = Math.min(this.visibleRowOffset, totalVisibleLogs);
+    const visCount = Math.min(totalVisibleLogs - offset, this.visibleRowCount);
+    return {isStale, total: totalVisibleLogs, count: visCount, offset};
   }
 
   view(_: m.CVnode<{}>) {
     const {isStale, total, offset, count} = this.totalRows();
 
+    const hasProcessNames = this.entries &&
+        this.entries.processName.filter((name) => name).length > 0;
+
     const rows: m.Children = [];
+    rows.push(
+        m(`.row`,
+          m('.cell.row-header', 'Timestamp'),
+          m('.cell.row-header', 'Level'),
+          m('.cell.row-header', 'Tag'),
+          hasProcessNames ? m('.cell.with-process.row-header', 'Process name') :
+                            undefined,
+          hasProcessNames ? m('.cell.with-process.row-header', 'Message') :
+                            m('.cell.no-process.row-header', 'Message'),
+          m('br')));
     if (this.entries) {
       const offset = this.entries.offset;
       const timestamps = this.entries.timestamps;
       const priorities = this.entries.priorities;
       const tags = this.entries.tags;
       const messages = this.entries.messages;
+      const processNames = this.entries.processName;
       for (let i = 0; i < this.entries.timestamps.length; i++) {
-        const priorityLetter = PRIO_TO_LETTER[priorities[i]];
+        const priorityLetter = LOG_PRIORITIES[priorities[i]][0];
         const ts = timestamps[i];
         const prioClass = priorityLetter || '';
+        const style: {top: string, backgroundColor?: string} = {
+          // 1.5 is for the width of the header
+          top: `${(offset + i + 1.5) * ROW_H}px`,
+        };
+        if (this.entries.isHighlighted[i]) {
+          style.backgroundColor = SELECTED_LOG_ROWS_COLOR;
+        }
+
         rows.push(
             m(`.row.${prioClass}`,
               {
                 'class': isStale ? 'stale' : '',
-                style: {top: `${(offset + i) * ROW_H}px`},
-                onmouseover: this.onRowOver.bind(this, ts / 1e9),
-                onmouseout: this.onRowOut.bind(this),
+                style,
+                'onmouseover': this.onRowOver.bind(this, ts),
+                'onmouseout': this.onRowOut.bind(this),
               },
-              m('.cell',
-                formatTimestamp(ts / 1e9 - globals.state.traceTime.startSec)),
+              m('.cell', formatTPTime(ts - globals.state.traceTime.start)),
               m('.cell', priorityLetter || '?'),
               m('.cell', tags[i]),
-              m('.cell', messages[i]),
+              hasProcessNames ? m('.cell.with-process', processNames[i]) :
+                                undefined,
+              hasProcessNames ? m('.cell.with-process', messages[i]) :
+                                m('.cell.no-process', messages[i]),
               m('br')));
       }
     }
@@ -143,7 +172,11 @@ export class LogPanel extends Panel<{}> {
           {
             'class': isStale ? 'stale' : '',
           },
-          `Logs rows [${offset}, ${offset + count}] / ${total}`),
+          [
+            m('.log-rows-label',
+              `Logs rows [${offset}, ${offset + count}] / ${total}`),
+            m(LogsFilters),
+          ]),
         m('.rows', {style: {height: `${total * ROW_H}px`}}, rows));
   }
 

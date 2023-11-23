@@ -4,6 +4,9 @@
     <string name="system_tracing" msgid="4719188511746319848">"ການຕິດຕາມລະບົບ"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"ບັນທຶກການເຄື່ອນໄຫວລະບົບ ແລະ ວິເຄາະມັນໃນພາຍຫຼັງເພື່ອປັບປຸງປະສິດທິພາບ"</string>
     <string name="record_trace" msgid="6416875085186661845">"ບັນທຶກການຕິດຕາມ"</string>
+    <string name="record_trace_summary" msgid="6705357754827849292">"ບັນທຶກພາບການຕິດຕາມຂອງລະບົບໂດຍການໃຊ້ການຕັ້ງຄ່າທີ່ຕັ້ງໄວ້ໃນ \"ການຕັ້ງຄ່າການຕິດຕາມ\""</string>
+    <string name="record_stack_samples" msgid="3498368637185702335">"ບັນທຶກໂປຣໄຟລ໌ CPU"</string>
+    <string name="record_stack_samples_summary" msgid="7827953921526410478">"ນອກຈາກນີ້, ຍັງເປີດການນຳໃຊ້ການສຸ່ມຕົວຢ່າງສະແຕັກການເອີ້ນໃຊ້ໃນການຕິດຕາມໂດຍການເລືອກໝວດໝູ່ \"CPU\""</string>
     <string name="start_new_trace" msgid="8177130420802170353">"ເລີ່ມການຕິດຕາມໃໝ່"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"ຕິດຕາມແອັບພລິເຄຊັນທີ່ດີບັກໄດ້."</string>
     <string name="categories" msgid="2280163673538611008">"ໝວດໝູ່"</string>
@@ -17,7 +20,9 @@
     <string name="show_quick_settings_tile" msgid="4971147332635291585">"ສະແດງໄທລ໌ການຕັ້ງຄ່າດ່ວນ"</string>
     <string name="saving_trace" msgid="1468692734770800541">"ກຳລັງບັນທຶກການຕິດຕາມ"</string>
     <string name="trace_saved" msgid="5869970594780992309">"ບັນທຶກການຕິດຕາມຂອງທ່ານແລ້ວ"</string>
-    <string name="tap_to_share" msgid="6766732404489536899">"ແຕະເພື່ອແບ່ງປັນການຕິດຕາມຂອງທ່ານ"</string>
+    <string name="saving_stack_samples" msgid="8174915522390525221">"ກຳລັງບັນທຶກຕົວຢ່າງສະແຕັກ"</string>
+    <string name="stack_samples_saved" msgid="8863295751647724616">"ບັນທຶກຕົວຢ່າງສະແຕັກແລ້ວ"</string>
+    <string name="tap_to_share" msgid="4440713575852187545">"ແຕະເພື່ອແບ່ງປັນການບັນທຶກຂອງທ່ານ"</string>
     <string name="attaching_to_report" msgid="2629202947947275886">"ກຳລັງແນບການຕິດຕາມໃສ່ລາຍງານຂໍ້ຜິດພາດ"</string>
     <string name="attached_to_report" msgid="5806905349184608870">"ແນບການຕິດຕາມໃສ່ລາຍງານຂໍ້ຜິດພາດແລ້ວ"</string>
     <string name="attached_to_report_summary" msgid="7665675771190391355">"ແຕະເພື່ອເປີດ BetterBug"</string>
@@ -25,18 +30,19 @@
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"ບໍ່ສາມາດໃຊ້ໝວດໝູ່ການຕິດຕາມບາງຢ່າງໄດ້:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"Trace is being recorded"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"Tap to stop tracing"</string>
-    <string name="clear_saved_traces" msgid="4809195654452260944">"Clear saved traces"</string>
-    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"ຂໍ້ມູນການຕິດຕາມຈະຖືກລຶບລ້າງຫຼັງຈາກໜຶ່ງເດືອນ"</string>
-    <string name="clear_saved_traces_question" msgid="2184026613055303818">"ລຶບລ້າງການຕິດຕາມທີ່ບັນທຶກໄວ້"</string>
-    <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"ການຕິດຕາມທັງໝົດຈະຖືກລຶບອອກຈາກ /data/local/traces"</string>
+    <string name="stack_samples_are_being_recorded" msgid="8669254939248349583">"ກຳລັງບັນທຶກຕົວຢ່າງສະແຕັກ"</string>
+    <string name="tap_to_stop_stack_sampling" msgid="5911317684139059415">"ແຕະເພື່ອຢຸດການສຸ່ມຕົວຢ່າງສະແຕັກ"</string>
+    <string name="clear_saved_files" msgid="9156079311231446825">"ລຶບລ້າງໄຟລ໌ທີ່ບັນທຶກໄວ້"</string>
+    <string name="clear_saved_files_summary" msgid="109751867417553670">"ລະບົບຈະລຶບລ້າງການບັນທຶກຫຼັງຈາກຜ່ານໄປ 1 ເດືອນ"</string>
+    <string name="clear_saved_files_question" msgid="8586686617760838834">"ລຶບລ້າງໄຟລ໌ທີ່ບັນທຶກໄວ້ບໍ?"</string>
+    <string name="all_recordings_will_be_deleted" msgid="7731693738485947891">"ລະບົບຈະລຶບການບັນທຶກທັງໝົດອອກຈາກ /data/local/traces"</string>
     <string name="clear" msgid="5484761795406948056">"ລຶບ"</string>
     <string name="system_traces_storage_title" msgid="8294090839883366871">"ການຕິດຕາມລະບົບ"</string>
     <string name="keywords" msgid="736547007949049535">"systrace, ຕິດຕາມ, ປະສິດທິພາບ"</string>
-    <string name="share_trace" msgid="4528525067822044385">"ແບ່ງປັນການຕິດຕາມບໍ?"</string>
+    <string name="share_file" msgid="1982029143280382271">"ແບ່ງປັນໄຟລ໌ບໍ?"</string>
     <string name="system_trace_sensitive_data" msgid="3069389866696009549">"ໄຟລ໌ການຕິດຕາມລະບົບອາດມີຂໍ້ມູນແອັບ ແລະ ຂໍ້ມູນລະບົບທີ່ອ່ອນໄຫວ (ເຊັ່ນ: ການນຳໃຊ້ແອັບ). ທ່ານຄວນແບ່ງປັນການຕິດຕາມລະບົບໃຫ້ກັບຄົນ ແລະ ແອັບທີ່ທ່ານເຊື່ອຖືເທົ່ານັ້ນ."</string>
     <string name="share" msgid="8443979083706282338">"ແບ່ງປັນ"</string>
     <string name="dont_show_again" msgid="6662492041164390600">"ບໍ່ຕ້ອງສະແດງອີກ"</string>
-    <string name="use_perfetto_beta" msgid="2725630143916520160">"ໃຊ້ Perfetto (ເບຕ້າ)"</string>
     <string name="long_traces" msgid="5110949471775966329">"ການຕິດຕາມຍາວ"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"ບັນທຶກໄປໃສ່ບ່ອນຈັດເກັບຂໍ້ມູນອຸປະກອນຢ່າງຕໍ່ເນື່ອງ"</string>
     <string name="long_traces_summary_betterbug" msgid="445546400875135624">"ບັນທຶກໄປໃສ່ບ່ອນຈັດເກັບຂໍ້ມູນອຸປະກອນຢ່າງຕໍ່ເນື່ອງ (ຈະບໍ່ຖືກແນບໄປໃສ່ລາຍງານຂໍ້ຜິດພາດໂດຍອັດຕະໂນມັດ)"</string>
@@ -58,9 +64,12 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16384 KB"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32768 KB"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65536 KB"</string>
-    <string name="stop_on_bugreport" msgid="2045328149107284734">"ຢຸດການຕິດຕາມສຳລັບລາຍງານຂໍ້ຜິດພາດ"</string>
-    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"ສິ້ນສຸດການບັນທຶກການຕິດຕາມທີ່ເຄື່ອນໄຫວຢູ່ເມື່ອເລີ່ມລາຍງານຂໍ້ຜິດພາດ"</string>
-    <string name="attach_to_bug_report" msgid="2953745117960948415">"ແນບການຕິດຕາມເພື່ອລາຍງານຂໍ້ຜິດພາດ"</string>
-    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"ສົ່ງການຕິດຕາມທີ່ດຳເນີນຢູ່ໄປໃຫ້ BetterBug ອັດຕະໂນມັດໃນເວລາເກັບກຳລາຍງານຂໍ້ຜິດພາດ"</string>
-    <string name="link_to_traces" msgid="6569969595898995517">"ເບິ່ງໄຟລ໌ການຕິດຕາມ"</string>
+    <string name="stop_on_bugreport" msgid="4591832600597126422">"ຢຸດການບັນທຶກສຳລັບລາຍງານຂໍ້ຜິດພາດ"</string>
+    <string name="stop_on_bugreport_summary" msgid="1601834864982891381">"ສິ້ນສຸດການບັນທຶກທີ່ກຳລັງດຳເນີນການເມື່ອເລີ່ມລາຍງານຂໍ້ຜິດພາດ"</string>
+    <string name="attach_to_bug_report" msgid="5388986830016247490">"ແນບການບັນທຶກໃນລາຍງານຂໍ້ຜິດພາດ"</string>
+    <string name="attach_to_bug_report_summary" msgid="4213730623971240002">"ສົ່ງການບັນທຶກທີ່ກຳລັງດຳເນີນຢູ່ໄປໃຫ້ BetterBug ໂດຍອັດຕະໂນມັດເມື່ອເກັບກຳລາຍງານຂໍ້ຜິດພາດ"</string>
+    <string name="link_to_traces" msgid="1404687523304348490">"ເບິ່ງໄຟລ໌ທີ່ບັນທຶກໄວ້"</string>
+    <string name="pref_category_trace_settings" msgid="6507535407023329628">"ຕິດຕາມການຕັ້ງຄ່າ"</string>
+    <string name="pref_category_saved_files" msgid="1477491400970413291">"ໄຟລ໌ທີ່ບັນທຶກໄວ້"</string>
+    <string name="pref_category_misc" msgid="6217624054980014683">"ອື່ນໆ"</string>
 </resources>

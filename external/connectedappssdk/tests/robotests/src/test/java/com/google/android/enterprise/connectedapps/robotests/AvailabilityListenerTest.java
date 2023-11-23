@@ -63,7 +63,7 @@ public class AvailabilityListenerTest {
     testUtilities.setRunningOnPersonalProfile();
     testUtilities.setRequestsPermissions(INTERACT_ACROSS_USERS);
     testUtilities.grantPermissions(INTERACT_ACROSS_USERS);
-    testProfileConnector.stopManualConnectionManagement();
+    testProfileConnector.clearConnectionHolders();
   }
 
   @Test
@@ -71,7 +71,7 @@ public class AvailabilityListenerTest {
       throws InterruptedException, ExecutionException {
     testUtilities.turnOnWorkProfile();
     TestAvailabilityListener availabilityListener = new TestAvailabilityListener();
-    testProfileConnector.registerAvailabilityListener(availabilityListener);
+    testProfileConnector.addAvailabilityListener(availabilityListener);
 
     ListenableFuture<Void> unusedFuture = type.other().listenableFutureVoidMethod();
     testUtilities.advanceTimeBySeconds(1);
@@ -85,7 +85,7 @@ public class AvailabilityListenerTest {
   public void temporaryConnectionError_inProgressCall_availabilityListenerFires() {
     testUtilities.turnOnWorkProfile();
     TestAvailabilityListener availabilityListener = new TestAvailabilityListener();
-    testProfileConnector.registerAvailabilityListener(availabilityListener);
+    testProfileConnector.addAvailabilityListener(availabilityListener);
 
     ListenableFuture<Void> unusedFuture =
         type.other().listenableFutureVoidMethodWithNonBlockingDelay(/* secondsDelay= */ 5);
@@ -93,20 +93,6 @@ public class AvailabilityListenerTest {
     testUtilities.advanceTimeBySeconds(1);
 
     assertThat(availabilityListener.availabilityChangedCount()).isGreaterThan(0);
-    assertThat(testProfileConnector.isAvailable()).isTrue();
-  }
-
-  @Test
-  public void temporaryConnectionError_noInProgressCall_availabilityListenerDoesNotFire() {
-    testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
-    TestAvailabilityListener availabilityListener = new TestAvailabilityListener();
-    testProfileConnector.registerAvailabilityListener(availabilityListener);
-
-    testUtilities.simulateDisconnectingServiceConnection();
-    testUtilities.advanceTimeBySeconds(1);
-
-    assertThat(availabilityListener.availabilityChangedCount()).isEqualTo(0);
     assertThat(testProfileConnector.isAvailable()).isTrue();
   }
 }

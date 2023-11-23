@@ -23,7 +23,7 @@
     <include name="mts-dnsresolver-tests-list-user" />
     <include name="mts-ipsec-tests-list" />
     <include name="mts-media-tests-list" />
-    <include name="mts-network-tests-list" />
+    <include name="mts-network-tests-list-user" />
     <include name="mts-neuralnetworks-tests-list" />
     <include name="mts-permission-tests-list" />
     <include name="mts-preload-verify-tests-list" />

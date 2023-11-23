@@ -21,7 +21,7 @@ enum MessageAttribute {
 // It represents a point in time independent of any time zone
 // or calendar, represented as seconds and fractions of seconds at
 // nanosecond resolution.
-// Clone from https://github.com/google/protobuf/blob/master/src/google/protobuf/timestamp.proto.
+// Clone from https://github.com/google/protobuf/blob/master/src/google/protobuf/timestamp.proto. //nocheck
 message Timestamp {
   optional int64 seconds = 1;
   // Non-negative fractions of a second at nanosecond resolution.

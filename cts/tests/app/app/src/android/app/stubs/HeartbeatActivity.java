@@ -17,7 +17,6 @@
 package android.app.stubs;
 
 import android.app.Activity;
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -41,14 +40,7 @@ public class HeartbeatActivity extends Activity {
 
     private IHeartbeat mHeartbeat;
     private ServiceConnection mConnection;
-
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            Log.d(TAG, "Receiving the finish of heartbeat");
-            Process.killProcess(Process.myPid());
-        }
-    };
+    private final HeartbeatReceiver mReceiver = new HeartbeatReceiver();
 
     private final ICallback.Stub mCallback = new ICallback.Stub() {
         @Override

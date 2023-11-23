@@ -225,6 +225,22 @@ open class TextClassItem(
         innerClasses.add(cls)
     }
 
+    fun isCompatible(cls: TextClassItem): Boolean {
+        if (this === cls) {
+            return true
+        }
+        if (fullName != cls.fullName) {
+            return false
+        }
+
+        return modifiers.toString() == cls.modifiers.toString() &&
+            isInterface == cls.isInterface &&
+            isEnum == cls.isEnum &&
+            isAnnotation == cls.isAnnotation &&
+            superClass == cls.superClass &&
+            allInterfaces().toSet() == cls.allInterfaces().toSet()
+    }
+
     override fun filteredSuperClassType(predicate: Predicate<Item>): TypeItem? {
         // No filtering in signature files: we assume signature APIs
         // have already been filtered and all items should match.
@@ -258,6 +274,10 @@ open class TextClassItem(
 
     override fun mapTypeVariables(target: ClassItem): Map<String, String> {
         return emptyMap()
+    }
+
+    override fun createDefaultConstructor(): ConstructorItem {
+        return TextConstructorItem.createDefaultConstructor(codebase, this, position)
     }
 
     companion object {
@@ -303,6 +323,106 @@ open class TextClassItem(
             }
 
             return qualifiedName.substring(qualifiedName.lastIndexOf('.') + 1)
+        }
+
+        private fun hasEqualTypeVar(
+            type1: TypeItem,
+            class1: ClassItem,
+            type2: TypeItem,
+            class2: ClassItem
+        ): Boolean {
+
+            // Given a type and its containing class,
+            // find the interface types that contains the type.
+            // For instance, for a method that looks like:
+            // class SomeClass implements InterfaceA<some.return.Type>, InterfaceB<some.return.Type>
+            //     Type foo()
+            // this function will return [InterfaceA, InterfaceB] when Type and SomeClass
+            // are passed as inputs.
+            val typeContainingInterfaces = {
+                t: TypeItem, cl: ClassItem ->
+                val interfaceTypes = cl.interfaceTypes()
+                    .plus(cl.toType())
+                    .plus(cl.superClassType())
+                    .filterNotNull()
+                interfaceTypes.filter {
+                    val typeArgs = it.typeArguments(simplified = true)
+                    t.toString() in typeArgs ||
+                        t.toElementType() in typeArgs ||
+                        t.asClass()?.superClass()?.qualifiedName() in typeArgs
+                }
+            }
+
+            val typeContainingInterfaces1 = typeContainingInterfaces(type1, class1)
+            val typeContainingInterfaces2 = typeContainingInterfaces(type2, class2)
+
+            if (typeContainingInterfaces1.isEmpty() || typeContainingInterfaces2.isEmpty()) {
+                return false
+            }
+
+            val interfaceTypesAreCovariant = {
+                t1: TypeItem, t2: TypeItem ->
+                t1.toErasedTypeString() == t2.toErasedTypeString() ||
+                    t1.asClass()?.superClass()?.qualifiedName() == t2.asClass()?.qualifiedName() ||
+                    t2.asClass()?.superClass()?.qualifiedName() == t1.asClass()?.qualifiedName()
+            }
+
+            // Check if the return type containing interfaces of the two methods have an intersection.
+            return typeContainingInterfaces1.any {
+                typeInterface1 ->
+                typeContainingInterfaces2.any {
+                    typeInterface2 ->
+                    interfaceTypesAreCovariant(typeInterface1, typeInterface2)
+                }
+            }
+        }
+
+        private fun hasEqualTypeBounds(method1: MethodItem, method2: MethodItem): Boolean {
+            val typeInTypeParams = {
+                t: TypeItem, m: MethodItem ->
+                t in m.typeParameterList().typeParameters().map { it.toType() }
+            }
+
+            val getTypeBounds = {
+                t: TypeItem, m: MethodItem ->
+                m.typeParameterList().typeParameters().single { it.toType() == t }.typeBounds().toSet()
+            }
+
+            val returnType1 = method1.returnType()
+            val returnType2 = method2.returnType()
+
+            // The following two methods are considered equal:
+            // method public <A extends some.package.SomeClass> A foo (Class<A>);
+            // method public <T extends some.package.SomeClass> T foo (Class<T>);
+            // This can be verified by converting return types to bounds ([some.package.SomeClass])
+            // and compare equivalence.
+            return typeInTypeParams(returnType1, method1) && typeInTypeParams(returnType2, method2) &&
+                getTypeBounds(returnType1, method1) == getTypeBounds(returnType2, method2)
+        }
+
+        /**
+         * Compares two [MethodItem]s and determines if the two methods have equal return types.
+         * The two methods' return types are considered equal even if the two are not identical,
+         * but are compatible in compiler level. For instance, return types in a same hierarchy tree
+         * are considered equal.
+         *
+         * @param method1 first [MethodItem] to compare the return type
+         * @param method2 second [MethodItem] to compare the return type
+         * @return a [Boolean] value representing if the two methods' return types are equal
+         */
+        fun hasEqualReturnType(method1: MethodItem, method2: MethodItem): Boolean {
+            val returnType1 = method1.returnType()
+            val returnType2 = method2.returnType()
+            val class1 = method1.containingClass()
+            val class2 = method2.containingClass()
+
+            if (returnType1 == returnType2) return true
+
+            if (hasEqualTypeVar(returnType1, class1, returnType2, class2)) return true
+
+            if (hasEqualTypeBounds(method1, method2)) return true
+
+            return false
         }
     }
 }

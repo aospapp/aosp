@@ -37,26 +37,29 @@ namespace connection_manager {
 using tAPP_ID = uint8_t;
 
 /* for background connection */
-extern bool background_connect_add(tAPP_ID app_id, const RawAddress& address);
-extern bool background_connect_remove(tAPP_ID app_id,
-                                      const RawAddress& address);
-extern bool remove_unconditional(const RawAddress& address);
+bool background_connect_targeted_announcement_add(tAPP_ID app_id,
+                                                  const RawAddress& address);
+bool background_connect_add(tAPP_ID app_id, const RawAddress& address);
+bool background_connect_remove(tAPP_ID app_id, const RawAddress& address);
+bool remove_unconditional(const RawAddress& address);
 
-extern void reset(bool after_reset);
+void reset(bool after_reset);
 
-extern void on_app_deregistered(tAPP_ID app_id);
-extern void on_connection_complete(const RawAddress& address);
+void on_app_deregistered(tAPP_ID app_id);
+void on_connection_complete(const RawAddress& address);
 
-extern std::set<tAPP_ID> get_apps_connecting_to(const RawAddress& remote_bda);
+std::set<tAPP_ID> get_apps_connecting_to(const RawAddress& remote_bda);
 
-extern bool direct_connect_add(tAPP_ID app_id, const RawAddress& address);
-extern bool direct_connect_remove(tAPP_ID app_id, const RawAddress& address);
+bool direct_connect_add(tAPP_ID app_id, const RawAddress& address);
+bool direct_connect_remove(tAPP_ID app_id, const RawAddress& address);
 
-extern void dump(int fd);
+void dump(int fd);
 
 /* This callback will be executed when direct connect attempt fails due to
  * timeout. It must be implemented by users of connection_manager */
-extern void on_connection_timed_out(uint8_t app_id, const RawAddress& address);
-extern void on_connection_timed_out_from_shim(const RawAddress& address);
+void on_connection_timed_out(uint8_t app_id, const RawAddress& address);
+void on_connection_timed_out_from_shim(const RawAddress& address);
+
+bool is_background_connection(const RawAddress& address);
 
 }  // namespace connection_manager

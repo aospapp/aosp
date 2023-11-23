@@ -43,6 +43,7 @@ import com.android.launcher3.R;
 import com.android.launcher3.ShortcutAndWidgetContainer;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.anim.PropertyResetListener;
+import com.android.launcher3.celllayout.CellLayoutLayoutParams;
 import com.android.launcher3.util.Themes;
 import com.android.launcher3.views.BaseDragLayer;
 
@@ -167,9 +168,11 @@ public class FolderAnimationManager {
         final int paddingOffsetY = (int) (mContent.getPaddingTop() * initialScale);
 
         int initialX = folderIconPos.left + mFolder.getPaddingLeft()
-                + mPreviewBackground.getOffsetX() - paddingOffsetX - previewItemOffsetX;
+                + Math.round(mPreviewBackground.getOffsetX() * scaleRelativeToDragLayer)
+                - paddingOffsetX - previewItemOffsetX;
         int initialY = folderIconPos.top + mFolder.getPaddingTop()
-                + mPreviewBackground.getOffsetY() - paddingOffsetY;
+                + Math.round(mPreviewBackground.getOffsetY() * scaleRelativeToDragLayer)
+                - paddingOffsetY;
         final float xDistance = initialX - lp.x;
         final float yDistance = initialY - lp.y;
 
@@ -215,6 +218,7 @@ public class FolderAnimationManager {
         final int footerStartDelay;
         if (isLargeFolder()) {
             if (mIsOpening) {
+                mFolder.mFooter.setAlpha(0);
                 footerAlphaDuration = LARGE_FOLDER_FOOTER_DURATION;
                 footerStartDelay = mDuration - footerAlphaDuration;
             } else {
@@ -232,9 +236,9 @@ public class FolderAnimationManager {
                 mFolder, startRect, endRect, finalRadius, !mIsOpening));
 
         // Create reveal animator for the folder content (capture the top 4 icons 2x2)
-        int width = mDeviceProfile.folderCellLayoutBorderSpacePx.x
+        int width = mDeviceProfile.folderCellLayoutBorderSpacePx
                 + mDeviceProfile.folderCellWidthPx * 2;
-        int height = mDeviceProfile.folderCellLayoutBorderSpacePx.y
+        int height = mDeviceProfile.folderCellLayoutBorderSpacePx
                 + mDeviceProfile.folderCellHeightPx * 2;
         int page = mIsOpening ? mContent.getCurrentPage() : mContent.getDestinationPage();
         int left = mContent.getPaddingLeft() + page * lp.width;
@@ -261,23 +265,41 @@ public class FolderAnimationManager {
         Animator z = getAnimator(mFolder, View.TRANSLATION_Z, -mFolder.getElevation(), 0);
         play(a, z, mIsOpening ? midDuration : 0, midDuration);
 
-        // Store clip variables
-        CellLayout cellLayout = mContent.getCurrentCellLayout();
-        boolean folderClipChildren = mFolder.getClipChildren();
-        boolean folderClipToPadding = mFolder.getClipToPadding();
-        boolean contentClipChildren = mContent.getClipChildren();
-        boolean contentClipToPadding = mContent.getClipToPadding();
-        boolean cellLayoutClipChildren = cellLayout.getClipChildren();
-        boolean cellLayoutClipPadding = cellLayout.getClipToPadding();
-
-        mFolder.setClipChildren(false);
-        mFolder.setClipToPadding(false);
-        mContent.setClipChildren(false);
-        mContent.setClipToPadding(false);
-        cellLayout.setClipChildren(false);
-        cellLayout.setClipToPadding(false);
-
+        // Store clip variables.
+        // Because {@link #onAnimationStart} and {@link #onAnimationEnd} callbacks are sent to
+        // message queue and executed on separate frame, we should save states in
+        // {@link #onAnimationStart} instead of before creating animator, so that cancelling
+        // animation A and restarting animation B allows A to reset states in
+        // {@link #onAnimationEnd} before B reads new UI state from {@link #onAnimationStart}.
         a.addListener(new AnimatorListenerAdapter() {
+            private CellLayout mCellLayout;
+
+            private boolean mFolderClipChildren;
+            private boolean mFolderClipToPadding;
+            private boolean mContentClipChildren;
+            private boolean mContentClipToPadding;
+            private boolean mCellLayoutClipChildren;
+            private boolean mCellLayoutClipPadding;
+
+            @Override
+            public void onAnimationStart(Animator animator) {
+                super.onAnimationStart(animator);
+                mCellLayout = mContent.getCurrentCellLayout();
+                mFolderClipChildren = mFolder.getClipChildren();
+                mFolderClipToPadding = mFolder.getClipToPadding();
+                mContentClipChildren = mContent.getClipChildren();
+                mContentClipToPadding = mContent.getClipToPadding();
+                mCellLayoutClipChildren = mCellLayout.getClipChildren();
+                mCellLayoutClipPadding = mCellLayout.getClipToPadding();
+
+                mFolder.setClipChildren(false);
+                mFolder.setClipToPadding(false);
+                mContent.setClipChildren(false);
+                mContent.setClipToPadding(false);
+                mCellLayout.setClipChildren(false);
+                mCellLayout.setClipToPadding(false);
+            }
+
             @Override
             public void onAnimationEnd(Animator animation) {
                 super.onAnimationEnd(animation);
@@ -291,13 +313,12 @@ public class FolderAnimationManager {
                 mFolder.mFooter.setTranslationX(0f);
                 mFolder.mFolderName.setAlpha(1f);
 
-                mFolder.setClipChildren(folderClipChildren);
-                mFolder.setClipToPadding(folderClipToPadding);
-                mContent.setClipChildren(contentClipChildren);
-                mContent.setClipToPadding(contentClipToPadding);
-                cellLayout.setClipChildren(cellLayoutClipChildren);
-                cellLayout.setClipToPadding(cellLayoutClipPadding);
-
+                mFolder.setClipChildren(mFolderClipChildren);
+                mFolder.setClipToPadding(mFolderClipToPadding);
+                mContent.setClipChildren(mContentClipChildren);
+                mContent.setClipToPadding(mContentClipToPadding);
+                mCellLayout.setClipChildren(mCellLayoutClipChildren);
+                mCellLayout.setClipToPadding(mCellLayoutClipPadding);
             }
         });
 
@@ -311,7 +332,7 @@ public class FolderAnimationManager {
         addPreviewItemAnimators(a, initialScale / scaleRelativeToDragLayer,
                 // Background can have a scaled radius in drag and drop mode, so we need to add the
                 // difference to keep the preview items centered.
-                previewItemOffsetX + radiusDiff, radiusDiff);
+                (int) (previewItemOffsetX / scaleRelativeToDragLayer) + radiusDiff, radiusDiff);
         return a;
     }
 
@@ -341,7 +362,7 @@ public class FolderAnimationManager {
         ShortcutAndWidgetContainer cwc = mContent.getPageAt(0).getShortcutsAndWidgets();
         for (int i = 0; i < numItemsInPreview; ++i) {
             final BubbleTextView btv = itemsInPreview.get(i);
-            CellLayout.LayoutParams btvLp = (CellLayout.LayoutParams) btv.getLayoutParams();
+            CellLayoutLayoutParams btvLp = (CellLayoutLayoutParams) btv.getLayoutParams();
 
             // Calculate the final values in the LayoutParams.
             btvLp.isLockedToGrid = true;

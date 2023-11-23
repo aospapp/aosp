@@ -21,10 +21,17 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
+import android.content.Context;
+import android.keystore.cts.util.ImportedKey;
+import android.keystore.cts.util.TestUtils;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
+import android.security.keystore.KeyProtection;
 
+import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.ApiTest;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -57,6 +64,10 @@ public class Curve25519Test {
         } catch (KeyStoreException e) {
             // Skipped
         }
+    }
+
+    private Context getContext() {
+        return InstrumentationRegistry.getInstrumentation().getTargetContext();
     }
 
     @Test
@@ -95,6 +106,44 @@ public class Curve25519Test {
         KeyAgreement firstKa = KeyAgreement.getInstance("XDH");
         firstKa.init(secondKeyPair.getPrivate());
         firstKa.doPhase(firstKeyPair.getPublic(), true);
+        byte[] firstSecret = firstKa.generateSecret();
+
+        // Both secrets being equal means the key agreement was successful.
+        assertThat(Arrays.compare(firstSecret, secondSecret)).isEqualTo(0);
+    }
+
+    @Test
+    @ApiTest(apis = {"java.security.KeyStore#setEntry", "javax.crypto.KeyAgreement#doPhase"})
+    public void x25519KeyImportAndAgreementTest() throws Exception {
+        final String alias = "import-x25519";
+        deleteEntry(alias);
+
+        KeyProtection importParams = new KeyProtection.Builder(KeyProperties.PURPOSE_AGREE_KEY)
+                .build();
+        ImportedKey importedKey = TestUtils.importIntoAndroidKeyStore(
+                    alias,
+                    getContext(),
+                    R.raw.ec_key8_x25519,
+                    R.raw.ec_key8_x25519_cert,
+                    importParams);
+
+        assertThat(importedKey).isNotNull();
+        //Second key generate from AndroidOpenSSL
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("XDH");
+        KeyPair secondKeyPair = kpg.generateKeyPair();
+
+        // Attempt a key agreement with the private key from the first key pair and the public
+        // key from the second key pair.
+        KeyAgreement secondKa = KeyAgreement.getInstance("XDH");
+        secondKa.init(importedKey.getKeystoreBackedKeyPair().getPrivate());
+        secondKa.doPhase(secondKeyPair.getPublic(), true);
+        byte[] secondSecret = secondKa.generateSecret();
+
+        // Attempt a key agreement "the other way around": using the private key from the second
+        // key pair and the public key from the first key pair.
+        KeyAgreement firstKa = KeyAgreement.getInstance("XDH");
+        firstKa.init(secondKeyPair.getPrivate());
+        firstKa.doPhase(importedKey.getKeystoreBackedKeyPair().getPublic(), true);
         byte[] firstSecret = firstKa.generateSecret();
 
         // Both secrets being equal means the key agreement was successful.

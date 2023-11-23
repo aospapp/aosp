@@ -17,8 +17,6 @@
 Test the HFP profile for calling and connection management.
 """
 
-import time
-
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts_contrib.test_utils.bt.BluetoothCarHfpBaseTest import BluetoothCarHfpBaseTest

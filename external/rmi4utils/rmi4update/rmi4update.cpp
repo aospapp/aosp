@@ -61,6 +61,7 @@
 #define RMI_F34_ERASE_WAIT_MS (5 * 1000)
 #define RMI_F34_ERASE_V8_WAIT_MS (10000)
 #define RMI_F34_IDLE_WAIT_MS 500
+#define RMI_F34_PARTITION_READ_WAIT_MS 20
 
 /* Most recent device status event */
 #define RMI_F01_STATUS_CODE(status)		((status) & 0x0f)
@@ -96,13 +97,22 @@ int RMI4Update::UpdateFirmware(bool force, bool performLockdown)
 	long long int duration_us = 0;
 	int rc;
 	const unsigned char eraseAll = RMI_F34_ERASE_ALL;
+
+	// Clear all interrupts before parsing to avoid unexpected interrupts.
+	m_device.ToggleInterruptMask(false);
 	rc = FindUpdateFunctions();
-	if (rc != UPDATE_SUCCESS)
+	if (rc != UPDATE_SUCCESS) {
+		m_device.ToggleInterruptMask(true);
 		return rc;
+	}
 
 	rc = m_device.QueryBasicProperties();
-	if (rc < 0)
-		return UPDATE_FAIL_QUERY_BASIC_PROPERTIES;
+	if (rc < 0) {
+		m_device.ToggleInterruptMask(true);
+		return UPDATE_FAIL_QUERY_BASIC_PROPERTIES; 
+	}
+	// Restore the interrupts
+	m_device.ToggleInterruptMask(true);
 
 	if (!force && m_firmwareImage.HasIO()) {
 		if (m_firmwareImage.GetFirmwareID() <= m_device.GetFirmwareID()) {
@@ -115,6 +125,14 @@ int RMI4Update::UpdateFirmware(bool force, bool performLockdown)
 
 	fprintf(stdout, "Device Properties:\n");
 	m_device.PrintProperties();
+	if (m_device.GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD) {
+		rc = m_firmwareImage.VerifyImageProductID(m_device.GetProductID());
+		if (rc != UPDATE_SUCCESS)
+			return rc;
+	} else {
+		fprintf(stdout, "not touchpad, skip checking product ID\n");
+	}
+	
 
 	rc = DisableNonessentialInterupts();
 	if (rc != UPDATE_SUCCESS)
@@ -123,9 +141,13 @@ int RMI4Update::UpdateFirmware(bool force, bool performLockdown)
 	rc = ReadF34Queries();
 	if (rc != UPDATE_SUCCESS)
 		return rc;
-	rc = m_firmwareImage.VerifyImageMatchesDevice(GetFirmwareSize(), GetConfigSize());
-	if (rc != UPDATE_SUCCESS)
-		return rc;
+
+	if (m_bootloaderID[1] < 10) {
+		// Checking size alignment for the device prior to BL v10.
+		rc = m_firmwareImage.VerifyImageMatchesDevice(GetFirmwareSize(), GetConfigSize());
+		if (rc != UPDATE_SUCCESS)
+			return rc;
+	} 
 
 	if (m_f34.GetFunctionVersion() == 0x02) {
 		fprintf(stdout, "Enable Flash V7+...\n");
@@ -136,45 +158,135 @@ int RMI4Update::UpdateFirmware(bool force, bool performLockdown)
 		}
 		fprintf(stdout, "Enable Flash done V7+...\n");
 
-		if (!m_IsErased){
-			fprintf(stdout, "Erasing FW V7+...\n");
-			rc = EraseFirmwareV7();
+		if (IsBLv87()) {
+			if (m_firmwareImage.IsImageHasFirmwareVersion()) {
+				rc = ReadMSL();
+				if (rc != UPDATE_SUCCESS) {
+					fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+					goto reset;
+				}
+				fprintf(stdout, "MSL : 0x%x\n", m_MSL);
+				if (m_MSL > m_firmwareImage.GetFirmwareVersion()) {
+					fprintf(stdout, "MSL checking failed. device(0x%x) > image(0x%x)\n", 
+						m_MSL, m_firmwareImage.GetFirmwareVersion());
+					rc = UPDATE_FAIL_MSL_CHECKING;
+					goto reset;
+				} else {
+					fprintf(stdout, "Passing MSL checking\n");
+				}
+			}
+		}
+
+		if (m_bootloaderID[1] >= 10) {
+			fprintf(stdout, "Writing FLD V10...\n");
+			rc = WriteFLDV7();
 			if (rc != UPDATE_SUCCESS) {
 				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
 				goto reset;
 			}
-			fprintf(stdout, "Erasing FW done V7+...\n");
-		}
-		if(m_bootloaderID[1] == 8){
+			fprintf(stdout, "Writing FLD done V10...\n");
+
+			fprintf(stdout, "Erasing Flash Config V10...\n");
+			rc = EraseFlashConfigV10();
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				goto reset;
+			}
+			fprintf(stdout, "Erasing Flash Config done V10...\n");
+
 			if (m_firmwareImage.GetFlashConfigData()) {
-				fprintf(stdout, "Writing flash configuration V8...\n");
+				fprintf(stdout, "Writing flash configuration V10...\n");
 				rc = WriteFlashConfigV7();
 				if (rc != UPDATE_SUCCESS) {
 					fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
 					goto reset;
 				}
-				fprintf(stdout, "Writing flash config done V8...\n");
+				fprintf(stdout, "Writing flash config done V10...\n");
 			}
-		}
-		if (m_firmwareImage.GetFirmwareData()) {
-			fprintf(stdout, "Writing firmware V7+...\n");
-			rc = WriteFirmwareV7();
+
+			fprintf(stdout, "Erasing Core Code V10...\n");
+			rc = EraseCoreCodeV10();
 			if (rc != UPDATE_SUCCESS) {
 				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
 				goto reset;
 			}
-			fprintf(stdout, "Writing firmware done V7+...\n");
-		}
-		if (m_firmwareImage.GetConfigData()) {
-			fprintf(stdout, "Writing core configuration V7+...\n");
-			rc = WriteCoreConfigV7();
-			if (rc != UPDATE_SUCCESS) {
-				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+			fprintf(stdout, "Erasing Core Code done V10...\n");
+
+			if (m_firmwareImage.GetFirmwareData()) {
+				fprintf(stdout, "Writing Core Code V10...\n");
+				rc = WriteFirmwareV7();
+				if (rc != UPDATE_SUCCESS) {
+					fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+					goto reset;
+				}
+				fprintf(stdout, "Writing Core Code done V10...\n");
+			}
+
+			if (m_firmwareImage.GetConfigData()) {
+				fprintf(stdout, "Writing Core Config V10...\n");
+				rc = WriteCoreConfigV7();
+				if (rc != UPDATE_SUCCESS) {
+					fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+					goto reset;
+				}
+				fprintf(stdout, "Writing Core Config done V10...\n");
 				goto reset;
 			}
-			fprintf(stdout, "Writing core config done V7+...\n");
-			goto reset;
+			
+			if (m_firmwareImage.GetGlobalParametersSize() && m_hasGlobalParameters) {
+				fprintf(stdout, "Writing Global Parameters V10...\n");
+				rc = WriteGlobalParametersV7();
+				if (rc != UPDATE_SUCCESS) {
+					fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+					goto reset;
+				}
+				fprintf(stdout, "Writing Global Parameters done V10...\n");
+				goto reset;	
+			}
+
+
+		} else {
+			if (!m_IsErased){
+				fprintf(stdout, "Erasing FW V7+...\n");
+				rc = EraseFirmwareV7();
+				if (rc != UPDATE_SUCCESS) {
+					fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+					goto reset;
+				}
+				fprintf(stdout, "Erasing FW done V7+...\n");
+			}
+			if(m_bootloaderID[1] == 8){
+				if (m_firmwareImage.GetFlashConfigData()) {
+					fprintf(stdout, "Writing flash configuration V8...\n");
+					rc = WriteFlashConfigV7();
+					if (rc != UPDATE_SUCCESS) {
+						fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+						goto reset;
+					}
+					fprintf(stdout, "Writing flash config done V8...\n");
+				}
+			}
+			if (m_firmwareImage.GetFirmwareData()) {
+				fprintf(stdout, "Writing firmware V7+...\n");
+				rc = WriteFirmwareV7();
+				if (rc != UPDATE_SUCCESS) {
+					fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+					goto reset;
+				}
+				fprintf(stdout, "Writing firmware done V7+...\n");
+			}
+			if (m_firmwareImage.GetConfigData()) {
+				fprintf(stdout, "Writing core configuration V7+...\n");
+				rc = WriteCoreConfigV7();
+				if (rc != UPDATE_SUCCESS) {
+					fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+					goto reset;
+				}
+				fprintf(stdout, "Writing core config done V7+...\n");
+				goto reset;
+			}
 		}
+		
 		
 	} else {
 		rc = EnterFlashProgramming();
@@ -262,6 +374,9 @@ int RMI4Update::UpdateFirmware(bool force, bool performLockdown)
 reset:
 	m_device.Reset();
 rebind:
+	if (m_bootloaderID[1] >= 10) {
+		Sleep(5000);
+	}
 	m_device.RebindDriver();
 	if(!m_device.CheckABSEvent())
 	{
@@ -384,6 +499,17 @@ int RMI4Update::ReadFlashConfig()
 		if (rc != sizeof(cmd_buf))
 			return UPDATE_FAIL_WRITE_FLASH_COMMAND;
 
+		if(m_device.GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD)  {
+			// Sleep 20 ms and wait for attention for touchpad only.
+			Sleep(20);
+			rc = WaitForIdle(RMI_F34_PARTITION_READ_WAIT_MS, false);
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+			}
+			fprintf(stdout, "Got attention\n");
+		}
+
 		//Wait for completion
 		do {
 			Sleep(20);
@@ -495,6 +621,17 @@ int RMI4Update::ReadF34QueriesV7()
 	idStr[1] = m_bootloaderID[1];
 	idStr[2] = 0;
 
+	m_hasCoreCode = query_1_7.has_core_code;
+	m_hasCoreConfig = query_1_7.has_core_config;
+	m_hasFlashConfig = query_1_7.has_flash_config;
+	m_hasFLD = query_1_7.has_fld;
+	m_hasGlobalParameters = query_1_7.has_global_parameters;
+
+	fprintf(stdout, "F34 has CoreCode: %d\n", m_hasCoreCode);
+	fprintf(stdout, "F34 has CoreConfig: %d\n", m_hasCoreConfig);
+	fprintf(stdout, "F34 has FlashConfig: %d\n", m_hasFlashConfig);
+	fprintf(stdout, "F34 has FLD: %d\n", m_hasFLD);
+
 	fprintf(stdout, "F34 bootloader id: %s (%#04x %#04x)\n", idStr, m_bootloaderID[0],
 		m_bootloaderID[1]);
 	fprintf(stdout, "F34 has config id: %d\n", m_hasConfigID);
@@ -504,7 +641,12 @@ int RMI4Update::ReadF34QueriesV7()
 	fprintf(stdout, "F34 payload length:%d\n", m_payloadLength);
 	fprintf(stdout, "F34 build id:      %lu\n", m_buildID);
 
-	return ReadFlashConfig();
+	if ((m_device.GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD) && (m_bootloaderID[1] == 10)) {
+		// FW size would be different from the one in image file in bootloader v10,
+		// we use size parsing in image file instead.
+		return UPDATE_SUCCESS;
+	} else 
+		return ReadFlashConfig();
 }
 
 int RMI4Update::ReadF34Queries()
@@ -653,10 +795,16 @@ int RMI4Update::WriteFirmwareV7()
 	unsigned short max_write_size;
 	unsigned short dataAddr = m_f34.GetDataBase();
 
+	if (m_bootloaderID[1] == 10) {
+		m_fwBlockCount = m_firmwareImage.GetFirmwareSize() / m_blockSize;
+	}
+
 	/* calculate the count */
 	partition_id = CORE_CODE_PARTITION;
+
 	remain_block = (m_fwBlockCount % m_payloadLength);
 	transaction_count = (m_fwBlockCount / m_payloadLength);
+	
 	if (remain_block > 0)
 		transaction_count++;
 
@@ -718,13 +866,16 @@ int RMI4Update::WriteFirmwareV7()
 			free(data_temp);
 		} while (left_bytes);
 
-		// Sleep 100 ms and wait for attention.
-		Sleep(100);
-		rc = WaitForIdle(RMI_F34_IDLE_WAIT_MS, false);
-		if (rc != UPDATE_SUCCESS) {
-			fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
-			return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+		if(m_device.GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD)  {
+			// Sleep 100 ms and wait for attention for touchpad only.
+			Sleep(100);
+			rc = WaitForIdle(RMI_F34_IDLE_WAIT_MS, false);
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+			}
 		}
+		
 
 		//Wait for completion
 		do {
@@ -743,6 +894,18 @@ int RMI4Update::WriteFirmwareV7()
 		}
 
 	}
+
+	if(m_device.GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD)  {
+		if (m_firmwareImage.GetSignatureInfo()[BLv7_CORE_CODE].bExisted) {
+			// Write signature.
+			rc = WriteSignatureV7(BLv7_CORE_CODE, m_firmwareImage.GetFirmwareData(), offset);
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				return rc;	
+			}
+		}
+	}
+
 	return UPDATE_SUCCESS;
 }
 
@@ -763,11 +926,16 @@ int RMI4Update::WriteCoreConfigV7()
 	int i;
 	int retry = 0;
 	unsigned char *data_temp;
+	if (m_bootloaderID[1] == 10) {
+		m_configBlockCount = m_firmwareImage.GetConfigSize() / m_blockSize;
+	}
 
 	/* calculate the count */
 	partition_id = CORE_CONFIG_PARTITION;
+	
 	remain_block = (m_configBlockCount % m_payloadLength);
 	transaction_count = (m_configBlockCount / m_payloadLength);
+
 	if (remain_block > 0)
 		transaction_count++;
 
@@ -829,11 +997,13 @@ int RMI4Update::WriteCoreConfigV7()
 			free(data_temp);
 		} while (left_bytes);
 
-		// Wait for attention.
-		rc = WaitForIdle(RMI_F34_IDLE_WAIT_MS, false);
-		if (rc != UPDATE_SUCCESS) {
-			fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
-			return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+		if(m_device.GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD)  {
+			// Wait for attention for touchpad only.
+			rc = WaitForIdle(RMI_F34_IDLE_WAIT_MS, false);
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+			}
 		}
 
 		//Wait for completion
@@ -852,6 +1022,18 @@ int RMI4Update::WriteCoreConfigV7()
 		}
 
 	}
+
+	if(m_device.GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD)  {
+		if (m_firmwareImage.GetSignatureInfo()[BLv7_CORE_CONFIG].bExisted) {
+			// Write signature.
+			rc = WriteSignatureV7(BLv7_CORE_CONFIG, m_firmwareImage.GetConfigData(), offset);
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				return rc;	
+			}
+		}
+	}
+
 	return UPDATE_SUCCESS;
 }
 
@@ -943,17 +1125,23 @@ int RMI4Update::WriteFlashConfigV7()
 			free(data_temp);
 		} while (left_bytes);
 
-		// Wair for attention.
-		rc = WaitForIdle(RMI_F34_IDLE_WAIT_MS, false);
-		if (rc != UPDATE_SUCCESS) {
-			fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
-			return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+		if(m_device.GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD)  {
+			// Wair for attention for touchpad only.
+			rc = WaitForIdle(RMI_F34_IDLE_WAIT_MS, false);
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+			}
 		}
 
 		//Wait for completion
 		do {
 			Sleep(20);
 			rmi4update_poll();
+			if (IsBLv87()) {
+				if (m_flashStatus == WRITE_PROTECTION)
+					return UPDATE_FAIL_WRITE_PROTECTED;
+			}
 			if (m_flashStatus == SUCCESS){
 				break;
 			}
@@ -966,6 +1154,394 @@ int RMI4Update::WriteFlashConfigV7()
 		}
 
 	}
+
+	if(m_device.GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD)  {
+		if (m_firmwareImage.GetSignatureInfo()[BLv7_FLASH_CONFIG].bExisted) {
+			// Write signature.
+			rc = WriteSignatureV7(BLv7_FLASH_CONFIG, m_firmwareImage.GetFlashConfigData(), offset);
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				return rc;	
+			}
+		}
+	}
+
+	return UPDATE_SUCCESS;
+}
+
+int RMI4Update::WriteFLDV7()
+{
+	int transaction_count, remain_block;
+	int transfer_leng = 0;
+	int offset = 0;
+	unsigned char trans_leng_buf[2];
+	unsigned char cmd_buf[1];
+	unsigned char off[2] = {0, 0};
+	unsigned char partition_id;
+	int i;
+	int retry = 0;
+	unsigned char *data_temp;
+	int rc;
+	unsigned short left_bytes;
+	unsigned short write_size;
+	unsigned short max_write_size;
+	unsigned short dataAddr = m_f34.GetDataBase();
+	unsigned short fldBlockCount = m_firmwareImage.GetFLDSize() / m_blockSize;
+
+	if (m_bootloaderID[1] < 10) {
+		// Not support writing FLD before bootloader v10
+		return UPDATE_SUCCESS;
+	}
+
+	/* calculate the count */
+	partition_id = FIXED_LOCATION_DATA_PARTITION;
+	
+	remain_block = (fldBlockCount % m_payloadLength);
+	transaction_count = (fldBlockCount / m_payloadLength);
+	
+	if (remain_block > 0)
+		transaction_count++;
+
+	/* set partition id for bootloader 7 */
+	rc = m_device.Write(dataAddr + 1, &partition_id, sizeof(partition_id));
+	if (rc != sizeof(partition_id))
+		return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+	rc = m_device.Write(dataAddr + 2, off, sizeof(off));
+	if (rc != sizeof(off))
+		return UPDATE_FAIL_WRITE_INITIAL_ZEROS;
+
+	for (i = 0; i < transaction_count; i++)
+	{
+		if ((i == (transaction_count -1)) && (remain_block > 0))
+			transfer_leng = remain_block;
+		else
+			transfer_leng = m_payloadLength;
+
+		// Set Transfer Length
+		trans_leng_buf[0] = (unsigned char)(transfer_leng & 0xFF);
+		trans_leng_buf[1] = (unsigned char)((transfer_leng & 0xFF00) >> 8);
+
+		rc = m_device.Write(dataAddr + 3, trans_leng_buf, sizeof(trans_leng_buf));
+		if (rc != sizeof(trans_leng_buf))
+			return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+		// Set Command to Write
+		cmd_buf[0] = (unsigned char)CMD_V7_WRITE;
+		rc = m_device.Write(dataAddr + 4, cmd_buf, sizeof(cmd_buf));
+		if (rc != sizeof(cmd_buf))
+			return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+		max_write_size = 16;
+		if (max_write_size >= transfer_leng * m_blockSize)
+			max_write_size = transfer_leng * m_blockSize;
+		else if (max_write_size > m_blockSize)
+			max_write_size -= max_write_size % m_blockSize;
+		else
+			max_write_size = m_blockSize;
+
+		left_bytes = transfer_leng * m_blockSize;
+		do {
+			if (left_bytes / max_write_size)
+				write_size = max_write_size;
+			else
+				write_size = left_bytes;
+
+			data_temp = (unsigned char *) malloc(sizeof(unsigned char) * write_size);
+			memcpy(data_temp, m_firmwareImage.GetFLDData() + offset, sizeof(char) * write_size);
+			rc = m_device.Write(dataAddr + 5, data_temp, sizeof(char) * write_size);
+			if (rc != ((ssize_t)sizeof(char) * write_size)) {
+				fprintf(stdout, "err write_size = %d; rc = %d\n", write_size, rc);
+				return UPDATE_FAIL_READ_F34_QUERIES;
+			}
+
+			offset += write_size;
+			left_bytes -= write_size;
+			free(data_temp);
+		} while (left_bytes);
+
+		if(m_device.GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD)  {
+			// Sleep 100 ms and wait for attention for touchpad only.
+			Sleep(100);
+			rc = WaitForIdle(RMI_F34_IDLE_WAIT_MS, false);
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+			}
+		}
+		
+
+		//Wait for completion
+		do {
+			Sleep(20);
+			rmi4update_poll();
+			if (IsBLv87()) {
+				if (m_flashStatus == WRITE_PROTECTION)
+					return UPDATE_FAIL_WRITE_PROTECTED;
+			}
+			if (m_flashStatus == SUCCESS){
+				break;
+
+			}
+			retry++;
+		} while(retry < 20);
+
+		if (m_flashStatus != SUCCESS) {
+			fprintf(stdout, "err flash_status = %d\n", m_flashStatus);
+			return UPDATE_FAIL_WRITE_F01_CONTROL_0;
+		}
+
+	}
+
+	if(m_device.GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD)  {
+		if (m_firmwareImage.GetSignatureInfo()[BLv7_FLD].bExisted) {
+			// Write signature.
+			rc = WriteSignatureV7(BLv7_FLD, m_firmwareImage.GetFLDData(), offset);
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				return rc;	
+			}
+		}
+	}
+
+	return UPDATE_SUCCESS;
+}
+
+int RMI4Update::WriteGlobalParametersV7()
+{
+	int transaction_count, remain_block;
+	int transfer_leng = 0;
+	int offset = 0;
+	unsigned char trans_leng_buf[2];
+	unsigned char cmd_buf[1];
+	unsigned char off[2] = {0, 0};
+	unsigned char partition_id;
+	int i;
+	int retry = 0;
+	unsigned char *data_temp;
+	int rc;
+	unsigned short left_bytes;
+	unsigned short write_size;
+	unsigned short max_write_size;
+	unsigned short dataAddr = m_f34.GetDataBase();
+	unsigned short glpBlockCount = m_firmwareImage.GetGlobalParametersSize() / m_blockSize;
+
+	/* calculate the count */
+	partition_id = GLOBAL_PARAMETERS_PARTITION;
+	
+	remain_block = (glpBlockCount % m_payloadLength);
+	transaction_count = (glpBlockCount / m_payloadLength);
+	
+	if (remain_block > 0)
+		transaction_count++;
+
+	/* set partition id for bootloader 7 */
+	rc = m_device.Write(dataAddr + 1, &partition_id, sizeof(partition_id));
+	if (rc != sizeof(partition_id))
+		return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+	rc = m_device.Write(dataAddr + 2, off, sizeof(off));
+	if (rc != sizeof(off))
+		return UPDATE_FAIL_WRITE_INITIAL_ZEROS;
+
+	for (i = 0; i < transaction_count; i++)
+	{
+		if ((i == (transaction_count -1)) && (remain_block > 0))
+			transfer_leng = remain_block;
+		else
+			transfer_leng = m_payloadLength;
+
+		// Set Transfer Length
+		trans_leng_buf[0] = (unsigned char)(transfer_leng & 0xFF);
+		trans_leng_buf[1] = (unsigned char)((transfer_leng & 0xFF00) >> 8);
+
+		rc = m_device.Write(dataAddr + 3, trans_leng_buf, sizeof(trans_leng_buf));
+		if (rc != sizeof(trans_leng_buf))
+			return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+		// Set Command to Write
+		cmd_buf[0] = (unsigned char)CMD_V7_WRITE;
+		rc = m_device.Write(dataAddr + 4, cmd_buf, sizeof(cmd_buf));
+		if (rc != sizeof(cmd_buf))
+			return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+		max_write_size = 16;
+		if (max_write_size >= transfer_leng * m_blockSize)
+			max_write_size = transfer_leng * m_blockSize;
+		else if (max_write_size > m_blockSize)
+			max_write_size -= max_write_size % m_blockSize;
+		else
+			max_write_size = m_blockSize;
+
+		left_bytes = transfer_leng * m_blockSize;
+		do {
+			if (left_bytes / max_write_size)
+				write_size = max_write_size;
+			else
+				write_size = left_bytes;
+
+			data_temp = (unsigned char *) malloc(sizeof(unsigned char) * write_size);
+			memcpy(data_temp, m_firmwareImage.GetFLDData() + offset, sizeof(char) * write_size);
+			rc = m_device.Write(dataAddr + 5, data_temp, sizeof(char) * write_size);
+			if (rc != ((ssize_t)sizeof(char) * write_size)) {
+				fprintf(stdout, "err write_size = %d; rc = %d\n", write_size, rc);
+				return UPDATE_FAIL_READ_F34_QUERIES;
+			}
+
+			offset += write_size;
+			left_bytes -= write_size;
+			free(data_temp);
+		} while (left_bytes);
+
+		if(m_device.GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD)  {
+			// Sleep 100 ms and wait for attention for touchpad only.
+			Sleep(100);
+			rc = WaitForIdle(RMI_F34_IDLE_WAIT_MS, false);
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+			}
+		}
+		
+
+		//Wait for completion
+		do {
+			Sleep(20);
+			rmi4update_poll();
+			if (m_flashStatus == SUCCESS){
+				break;
+
+			}
+			retry++;
+		} while(retry < 20);
+
+		if (m_flashStatus != SUCCESS) {
+			fprintf(stdout, "err flash_status = %d\n", m_flashStatus);
+			return UPDATE_FAIL_WRITE_F01_CONTROL_0;
+		}
+
+	}
+
+	return UPDATE_SUCCESS;
+}
+
+int RMI4Update::EraseFlashConfigV10()
+{
+	unsigned char erase_cmd[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+	int retry = 0;
+	int rc;
+
+	/* set partition id for bootloader 10 */
+	erase_cmd[0] = FLASH_CONFIG_PARTITION;
+	/* write bootloader id */
+	erase_cmd[6] = m_bootloaderID[0];
+	erase_cmd[7] = m_bootloaderID[1];
+	erase_cmd[5] = (unsigned char)CMD_V7_ERASE;
+	
+	fprintf(stdout, "Erase command : ");
+	for(int i = 0 ;i<8;i++){
+		fprintf(stdout, "%d ", erase_cmd[i]);
+	}
+	fprintf(stdout, "\n");
+
+	rmi4update_poll();
+	if (!m_inBLmode)
+		return UPDATE_FAIL_DEVICE_NOT_IN_BOOTLOADER;
+	
+	// For BL8 device, we need hold 1 seconds after querying
+	// F34 status to avoid not get attention by following giving 
+	// erase command.
+	Sleep(1000);
+
+	rc = m_device.Write(m_f34.GetDataBase() + 1, erase_cmd, sizeof(erase_cmd));
+	if (rc != sizeof(erase_cmd))
+		return UPDATE_FAIL_WRITE_F01_CONTROL_0;
+
+	Sleep(100);
+
+	//Wait from ATTN
+	rc = WaitForIdle(RMI_F34_ERASE_V8_WAIT_MS, false);
+	if (rc != UPDATE_SUCCESS) {
+		fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+		return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+	}
+
+	do {
+		Sleep(20);
+		rmi4update_poll();
+		if (IsBLv87()) {
+			if (m_flashStatus == WRITE_PROTECTION)
+				return UPDATE_FAIL_WRITE_PROTECTED;
+		}
+		if (m_flashStatus == SUCCESS){
+			break;
+		}
+		retry++;
+	} while(retry < 20);
+
+	if (m_flashStatus != SUCCESS) {
+		fprintf(stdout, "err flash_status = %d\n", m_flashStatus);
+		return UPDATE_FAIL_WRITE_F01_CONTROL_0;
+	}
+
+	return UPDATE_SUCCESS;
+}
+
+int RMI4Update::EraseCoreCodeV10()
+{
+	unsigned char erase_cmd[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+	int retry = 0;
+	int rc;
+
+	/* set partition id for bootloader 10 */
+	erase_cmd[0] = CORE_CODE_PARTITION;
+	/* write bootloader id */
+	erase_cmd[6] = m_bootloaderID[0];
+	erase_cmd[7] = m_bootloaderID[1];
+	erase_cmd[5] = (unsigned char)CMD_V7_ERASE_AP;
+	
+	fprintf(stdout, "Erase command : ");
+	for(int i = 0 ;i<8;i++){
+		fprintf(stdout, "%d ", erase_cmd[i]);
+	}
+	fprintf(stdout, "\n");
+
+	rmi4update_poll();
+	if (!m_inBLmode)
+		return UPDATE_FAIL_DEVICE_NOT_IN_BOOTLOADER;
+	
+	// For BL8 device, we need hold 1 seconds after querying
+	// F34 status to avoid not get attention by following giving 
+	// erase command.
+	Sleep(1000);
+
+	rc = m_device.Write(m_f34.GetDataBase() + 1, erase_cmd, sizeof(erase_cmd));
+	if (rc != sizeof(erase_cmd))
+		return UPDATE_FAIL_WRITE_F01_CONTROL_0;
+
+	Sleep(100);
+
+	//Wait from ATTN
+	rc = WaitForIdle(RMI_F34_ERASE_V8_WAIT_MS, false);
+	if (rc != UPDATE_SUCCESS) {
+		fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+		return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+	}
+
+	do {
+		Sleep(20);
+		rmi4update_poll();
+		if (m_flashStatus == SUCCESS){
+			break;
+		}
+		retry++;
+	} while(retry < 20);
+
+	if (m_flashStatus != SUCCESS) {
+		fprintf(stdout, "err flash_status = %d\n", m_flashStatus);
+		return UPDATE_FAIL_WRITE_F01_CONTROL_0;
+	}
+
 	return UPDATE_SUCCESS;
 }
 
@@ -1012,16 +1588,22 @@ int RMI4Update::EraseFirmwareV7()
 
 	//Wait from ATTN
 	if(m_bootloaderID[1] == 8){
-		// Wait for attention for BL8 device.
-		rc = WaitForIdle(RMI_F34_ERASE_V8_WAIT_MS, false);
-		if (rc != UPDATE_SUCCESS) {
-			fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
-			return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+		if(m_device.GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD)  {
+			// Wait for attention for BL8 touchpad.
+			rc = WaitForIdle(RMI_F34_ERASE_V8_WAIT_MS, false);
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+			}
 		}
 	}
 	do {
 		Sleep(20);
 		rmi4update_poll();
+		if (IsBLv87()) {
+			if (m_flashStatus == WRITE_PROTECTION)
+				return UPDATE_FAIL_WRITE_PROTECTED;
+		}
 		if (m_flashStatus == SUCCESS){
 			break;
 		}
@@ -1050,13 +1632,15 @@ int RMI4Update::EraseFirmwareV7()
 		if (rc != sizeof(erase_cmd))
 			return UPDATE_FAIL_WRITE_F01_CONTROL_0;
 
-		//Wait from ATTN
-		Sleep(100);
+		if(m_device.GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD)  {
+			//Wait from ATTN for touchpad only.
+			Sleep(100);
 
-		rc = WaitForIdle(RMI_F34_ERASE_WAIT_MS, true);
-		if (rc != UPDATE_SUCCESS) {
-			fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
-			return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+			rc = WaitForIdle(RMI_F34_ERASE_WAIT_MS, true);
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+			}
 		}
 
 
@@ -1103,10 +1687,12 @@ int RMI4Update::EnterFlashProgrammingV7()
 		if (rc != sizeof(EnterCmd))
 			return UPDATE_FAIL_WRITE_F01_CONTROL_0;
 
-		rc = WaitForIdle(RMI_F34_ENABLE_WAIT_MS, false);
-		if (rc != UPDATE_SUCCESS) {
-			fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
-			return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+		if(m_device.GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD)  {
+			rc = WaitForIdle(RMI_F34_ENABLE_WAIT_MS, false);
+			if (rc != UPDATE_SUCCESS) {
+				fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+				return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+			}
 		}
 
 		//Wait from ATTN
@@ -1130,7 +1716,7 @@ int RMI4Update::EnterFlashProgrammingV7()
 		rmi4update_poll();
 		if (!m_inBLmode)
 			return UPDATE_FAIL_DEVICE_NOT_IN_BOOTLOADER;
-
+			
 	} else
 		fprintf(stdout, "Already in BL mode, skip...\n");
 
@@ -1174,14 +1760,20 @@ int RMI4Update::EnterFlashProgramming()
 	if (rc != 1)
 		return UPDATE_FAIL_ENABLE_FLASH_PROGRAMMING;
 
-	Sleep(RMI_F34_ENABLE_WAIT_MS);
+	
 	if(m_device.GetDeviceType() != RMI_DEVICE_TYPE_TOUCHPAD) {
 		fprintf(stdout, "not TouchPad, rebind driver here\n");
+		Sleep(RMI_F34_ENABLE_WAIT_MS);
 		m_device.RebindDriver();
+		rc = WaitForIdle(0);
+		if (rc != UPDATE_SUCCESS)
+			return UPDATE_FAIL_NOT_IN_IDLE_STATE;
+	} else {
+		// For TouchPad
+		rc = WaitForIdle(RMI_F34_ENABLE_WAIT_MS);
+		if (rc != UPDATE_SUCCESS)
+			return UPDATE_FAIL_NOT_IN_IDLE_STATE;
 	}
-	rc = WaitForIdle(0);
-	if (rc != UPDATE_SUCCESS)
-		return UPDATE_FAIL_NOT_IN_IDLE_STATE;
 
 	if (!m_programEnabled)
 		return UPDATE_FAIL_PROGRAMMING_NOT_ENABLED;
@@ -1276,6 +1868,93 @@ int RMI4Update::WriteBlocks(unsigned char *block, unsigned short count, unsigned
 	return UPDATE_SUCCESS;
 }
 
+int RMI4Update::WriteSignatureV7(enum signature_BLv7 signature_partition, unsigned char* data, int offset)
+{
+	fprintf(stdout, "Write Signature...\n");
+	int rc;
+	unsigned char off[2] = {0, 0};
+	unsigned char cmd_buf[1];
+	unsigned short dataAddr = m_f34.GetDataBase();
+	int transfer_leng = 0;
+	signature_info signature = m_firmwareImage.GetSignatureInfo()[signature_partition];
+	unsigned char trans_leng_buf[2];
+	unsigned short left_bytes;
+	unsigned short write_size;
+	unsigned short max_write_size;
+	unsigned char *data_temp;
+	int retry = 0;
+	rc = m_device.Write(dataAddr + 2, off, sizeof(off));
+	if (rc != sizeof(off))
+		return UPDATE_FAIL_WRITE_INITIAL_ZEROS;
+
+	// Set Transfer Length
+	transfer_leng = signature.size / m_blockSize;
+	trans_leng_buf[0] = (unsigned char)(transfer_leng & 0xFF);
+	trans_leng_buf[1] = (unsigned char)((transfer_leng & 0xFF00) >> 8);
+
+	rc = m_device.Write(dataAddr + 3, trans_leng_buf, sizeof(trans_leng_buf));
+	if (rc != sizeof(trans_leng_buf))
+		return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+	// Set Command to Signature
+	cmd_buf[0] = (unsigned char)CMD_V7_SIGNATURE;
+	rc = m_device.Write(dataAddr + 4, cmd_buf, sizeof(cmd_buf));
+	if (rc != sizeof(cmd_buf))
+		return UPDATE_FAIL_WRITE_FLASH_COMMAND;
+
+	max_write_size = 16;
+	if (max_write_size >= transfer_leng * m_blockSize)
+		max_write_size = transfer_leng * m_blockSize;
+	else if (max_write_size > m_blockSize)
+		max_write_size -= max_write_size % m_blockSize;
+	else
+		max_write_size = m_blockSize;
+
+	left_bytes = transfer_leng * m_blockSize;
+
+	do {
+		if (left_bytes / max_write_size)
+			write_size = max_write_size;
+		else
+			write_size = left_bytes;
+
+		data_temp = (unsigned char *) malloc(sizeof(unsigned char) * write_size);
+		memcpy(data_temp, data + offset, sizeof(char) * write_size);
+		rc = m_device.Write(dataAddr + 5, data_temp, sizeof(char) * write_size);
+		if (rc != ((ssize_t)sizeof(char) * write_size)) {
+			fprintf(stdout, "err write_size = %d; rc = %d\n", write_size, rc);
+			return UPDATE_FAIL_WRITE_BLOCK;
+		}
+
+		offset += write_size;
+		left_bytes -= write_size;
+		free(data_temp);
+	} while (left_bytes);
+
+	// Wair for attention for touchpad only.
+	rc = WaitForIdle(RMI_F34_IDLE_WAIT_MS, false);
+	if (rc != UPDATE_SUCCESS) {
+		fprintf(stderr, "%s: %s\n", __func__, update_err_to_string(rc));
+		return UPDATE_FAIL_TIMEOUT_WAITING_FOR_ATTN;
+	}
+	
+	//Wait for completion
+	do {
+		Sleep(20);
+		rmi4update_poll();
+		if (m_flashStatus == SUCCESS){
+			break;
+		}
+		retry++;
+	} while(retry < 20);
+
+	if (m_flashStatus != SUCCESS) {
+		fprintf(stdout, "err flash_status = %d\n", m_flashStatus);
+		return UPDATE_FAIL_WRITE_F01_CONTROL_0;
+	}
+	return UPDATE_SUCCESS;
+}
+
 /*
  * This is a limited implementation of WaitForIdle which assumes WaitForAttention is supported
  * this will be true for HID, but other protocols will need to revert polling. Polling
@@ -1326,5 +2005,30 @@ int RMI4Update::WaitForIdle(int timeout_ms, bool readF34OnSucess)
 		return UPDATE_FAIL_NOT_IN_IDLE_STATE;
 	}
 
+	return UPDATE_SUCCESS;
+}
+
+bool RMI4Update::IsBLv87()
+{
+	if ((m_bootloaderID[1] >= 10) ||
+		((m_bootloaderID[1] == 8) && (m_bootloaderID[0] >= 7))){
+		return true;
+	} else 
+		return false;
+}
+
+int RMI4Update::ReadMSL()
+{
+	int rc;
+	unsigned char idStr[3];
+	unsigned short query9Addr = m_f34.GetQueryBase() + 9;
+	unsigned char offset;
+	unsigned char MSL[2];
+
+	rc = m_device.Read(query9Addr, MSL, sizeof(MSL));
+	if (rc != sizeof(MSL))
+		return UPDATE_FAIL_READ_F34_QUERIES;
+
+	m_MSL = MSL[0] << 8 | MSL[1];
 	return UPDATE_SUCCESS;
 }

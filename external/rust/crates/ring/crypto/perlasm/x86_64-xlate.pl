@@ -1151,6 +1151,8 @@ default	rel
 %define XMMWORD
 %define YMMWORD
 %define ZMMWORD
+
+%include "ring_core_generated/prefix_symbols_nasm.inc"
 ___
 } elsif ($masm) {
     print <<___;
@@ -1167,6 +1169,7 @@ if ($gas) {
 #endif
 
 #if defined(__x86_64__) && !defined(OPENSSL_NO_ASM)
+#include "ring_core_generated/prefix_symbols_asm.h"
 ___
 }
 
@@ -1257,7 +1260,7 @@ print "#endif\n"			if ($gas);
 # See https://www.airs.com/blog/archives/518.
 print ".section\t.note.GNU-stack,\"\",\@progbits\n" if ($elf);
 
-close STDOUT or die "error closing STDOUT";
+close STDOUT;
 
 #################################################
 # Cross-reference x86_64 ABI "card"

@@ -23,6 +23,7 @@ import static org.junit.Assert.assertTrue;
 
 import android.net.wifi.EAPConstants;
 import android.net.wifi.FakeKeys;
+import android.net.wifi.WifiEnterpriseConfig;
 import android.os.Parcel;
 
 import androidx.test.filters.SmallTest;
@@ -632,5 +633,42 @@ public class CredentialTest {
                 MessageDigest.getInstance("SHA-256").digest(FakeKeys.CA_CERT0.getEncoded()));
 
         assertNotEquals(certCred1.getUniqueId(), certCred2.getUniqueId());
+    }
+
+    /**
+     * Verify setMinimumTlsVersion sunny cases.
+     */
+    @Test
+    public void testSetMinimumTlsVersionWithValidValues() throws Exception {
+        Credential cred = new Credential();
+        for (int i = WifiEnterpriseConfig.TLS_VERSION_MIN;
+                i <= WifiEnterpriseConfig.TLS_VERSION_MAX; i++) {
+            cred.setMinimumTlsVersion(i);
+            assertEquals(i, cred.getMinimumTlsVersion());
+        }
+    }
+
+    /**
+     * Verify that setMinimumTlsVersion() raises IllegalArgumentException when
+     * an invalid TLS version is set.
+     *
+     * @throws IllegalArgumentException
+     */
+    @Test (expected = IllegalArgumentException.class)
+    public void testSetMinimumTlsVersionWithVersionLargerThanMaxVersion() throws Exception {
+        Credential cred = new Credential();
+        cred.setMinimumTlsVersion(WifiEnterpriseConfig.TLS_VERSION_MAX + 1);
+    }
+
+    /**
+     * Verify that setMinimumTlsVersion() raises IllegalArgumentException when
+     * an invalid TLS version is set.
+     *
+     * @throws IllegalArgumentException
+     */
+    @Test (expected = IllegalArgumentException.class)
+    public void testSetMinimumTlsVersionWithVersionSmallerThanMinVersion() throws Exception {
+        Credential cred = new Credential();
+        cred.setMinimumTlsVersion(WifiEnterpriseConfig.TLS_VERSION_MIN - 1);
     }
 }

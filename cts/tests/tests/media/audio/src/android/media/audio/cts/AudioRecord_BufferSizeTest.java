@@ -20,17 +20,16 @@ import android.content.pm.PackageManager;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder.AudioSource;
-import android.media.cts.NonMediaMainlineTest;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
 import com.android.compatibility.common.util.CddTest;
-import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.NonMainlineTest;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 public class AudioRecord_BufferSizeTest extends AndroidTestCase {
 
     private static final String TAG = AudioRecord_BufferSizeTest.class.getSimpleName();

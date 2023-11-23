@@ -53,6 +53,29 @@ cc_binary {
     ],
 }
 
+cc_binary {
+    name: "fsverity_multilib",
+    defaults: [
+        "fsverity_default_flags",
+    ],
+    host_supported: true,
+    shared_libs: ["libfsverity"],
+    srcs: [
+        "programs/cmd_*.c",
+        "programs/fsverity.c",
+        "programs/utils.c",
+    ],
+    compile_multilib: "both",
+    multilib: {
+        lib32: {
+            suffix: "32",
+        },
+        lib64: {
+            suffix: "64",
+        },
+    },
+}
+
 cc_library {
     name: "libfsverity",
     defaults: [

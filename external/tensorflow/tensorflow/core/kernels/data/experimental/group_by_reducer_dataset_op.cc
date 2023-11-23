@@ -98,7 +98,7 @@ class GroupByReducerDatasetOp : public UnaryDatasetOpKernel {
 
     std::unique_ptr<IteratorBase> MakeIteratorInternal(
         const string& prefix) const override {
-      return absl::make_unique<Iterator>(
+      return std::make_unique<Iterator>(
           Iterator::Params{this, strings::StrCat(prefix, "::GroupByReducer")});
     }
 
@@ -191,7 +191,7 @@ class GroupByReducerDatasetOp : public UnaryDatasetOpKernel {
            {"Tfinalize_func_other_arguments",
             finalize_func_other_arguments_types_attr}},
           output));
-      return Status::OK();
+      return OkStatus();
     }
 
    private:
@@ -211,7 +211,7 @@ class GroupByReducerDatasetOp : public UnaryDatasetOpKernel {
             ctx, &instantiated_reduce_func_));
         TF_RETURN_IF_ERROR(dataset()->captured_finalize_func_->Instantiate(
             ctx, &instantiated_finalize_func_));
-        return Status::OK();
+        return OkStatus();
       }
 
       Status GetNextInternal(IteratorContext* ctx,
@@ -238,7 +238,7 @@ class GroupByReducerDatasetOp : public UnaryDatasetOpKernel {
               return errors::InvalidArgument(
                   "`key_func` must return a scalar int64.");
             }
-            const int64_t key = key_func_output[0].scalar<int64>()();
+            const int64_t key = key_func_output[0].scalar<int64_t>()();
 
             if (states_.find(key) == states_.end()) {
               // Run the init function to create the initial state.
@@ -272,12 +272,12 @@ class GroupByReducerDatasetOp : public UnaryDatasetOpKernel {
 
         if (keys_index_ == keys_.size()) {
           *end_of_sequence = true;
-          return Status::OK();
+          return OkStatus();
         }
         TF_RETURN_IF_ERROR(instantiated_finalize_func_->RunWithBorrowedArgs(
             ctx, states_[keys_[keys_index_++]], out_tensors, model_node()));
         *end_of_sequence = false;
-        return Status::OK();
+        return OkStatus();
       }
 
      protected:
@@ -341,7 +341,7 @@ class GroupByReducerDatasetOp : public UnaryDatasetOpKernel {
           }
         }
 
-        return Status::OK();
+        return OkStatus();
       }
 
       Status RestoreInternal(IteratorContext* ctx,
@@ -398,16 +398,16 @@ class GroupByReducerDatasetOp : public UnaryDatasetOpKernel {
           }
         }
 
-        return Status::OK();
+        return OkStatus();
       }
 
      private:
       mutex mu_;
       std::unique_ptr<IteratorBase> input_impl_ TF_GUARDED_BY(mu_);
       bool end_of_input_ TF_GUARDED_BY(mu_) = false;
-      std::map<int64, std::vector<Tensor>> states_ TF_GUARDED_BY(mu_);
-      std::vector<int64> keys_ TF_GUARDED_BY(mu_);
-      int64 keys_index_ TF_GUARDED_BY(mu_) = 0;
+      std::map<int64_t, std::vector<Tensor>> states_ TF_GUARDED_BY(mu_);
+      std::vector<int64_t> keys_ TF_GUARDED_BY(mu_);
+      int64_t keys_index_ TF_GUARDED_BY(mu_) = 0;
       std::unique_ptr<InstantiatedCapturedFunction> instantiated_key_func_;
       std::unique_ptr<InstantiatedCapturedFunction> instantiated_init_func_;
       std::unique_ptr<InstantiatedCapturedFunction> instantiated_reduce_func_;

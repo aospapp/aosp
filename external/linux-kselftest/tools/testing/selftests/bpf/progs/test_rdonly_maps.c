@@ -3,9 +3,9 @@
 
 #include <linux/ptrace.h>
 #include <linux/bpf.h>
-#include "bpf_helpers.h"
+#include <bpf/bpf_helpers.h>
 
-static volatile const struct {
+const struct {
 	unsigned a[4];
 	/*
 	 * if the struct's size is multiple of 16, compiler will put it into
@@ -15,11 +15,11 @@ static volatile const struct {
 	char _y;
 } rdonly_values = { .a = {2, 3, 4, 5} };
 
-static volatile struct {
+struct {
 	unsigned did_run;
 	unsigned iters;
 	unsigned sum;
-} res;
+} res = {};
 
 SEC("raw_tracepoint/sys_enter:skip_loop")
 int skip_loop(struct pt_regs *ctx)

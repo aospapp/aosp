@@ -6,9 +6,7 @@
 #include <linux/if_ether.h>
 #include <linux/ip.h>
 #include <linux/pkt_cls.h>
-#include "bpf_helpers.h"
-
-int _version SEC("version") = 1;
+#include <bpf/bpf_helpers.h>
 
 struct {
 	__uint(type, MAP_TYPE);
@@ -26,7 +24,7 @@ struct {
 	__uint(value_size, sizeof(__u32));
 } map_out SEC(".maps");
 
-SEC("test")
+SEC("tc")
 int _test(struct __sk_buff *skb)
 {
 	void *data_end = (void *)(long)skb->data_end;

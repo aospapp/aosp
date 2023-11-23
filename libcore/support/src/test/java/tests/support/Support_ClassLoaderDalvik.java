@@ -15,10 +15,10 @@
  */
 package tests.support;
 
+import dalvik.system.DexClassLoader;
+
 import java.io.File;
 import java.net.URL;
-
-import dalvik.system.DexClassLoader;
 
 /**
  * Implementation for Dalvik. Uses the DexClassLoader, so we can write
@@ -38,6 +38,7 @@ class Support_ClassLoaderDalvik extends Support_ClassLoader {
 
     @Override
     public ClassLoader getClassLoader(URL url, ClassLoader parent) {
+        new File(url.getPath()).setReadOnly();
         return new DexClassLoader(url.getPath(), tmp.getAbsolutePath(),
                 null, parent);
     }

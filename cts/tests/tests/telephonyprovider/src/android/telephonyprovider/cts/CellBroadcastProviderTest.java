@@ -16,7 +16,7 @@
 
 package android.telephonyprovider.cts;
 
-import static android.telephonyprovider.cts.DefaultSmsAppHelper.hasTelephony;
+import static android.telephony.cts.util.DefaultSmsAppHelper.hasTelephony;
 
 import android.content.ContentResolver;
 import android.provider.Telephony;

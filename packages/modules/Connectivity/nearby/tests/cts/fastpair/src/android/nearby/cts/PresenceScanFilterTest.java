@@ -48,9 +48,8 @@ public class PresenceScanFilterTest {
     private static final byte[] PUBLIC_KEY = new byte[]{1, 1, 2, 2};
     private static final byte[] ENCRYPTED_METADATA = new byte[]{1, 2, 3, 4, 5};
     private static final byte[] METADATA_ENCRYPTION_KEY_TAG = new byte[]{1, 1, 3, 4, 5};
-    private static final int KEY = 1234;
+    private static final int KEY = 3;
     private static final byte[] VALUE = new byte[]{1, 1, 1, 1};
-
 
     private PublicCredential mPublicCredential =
             new PublicCredential.Builder(SECRETE_ID, AUTHENTICITY_KEY, PUBLIC_KEY,
@@ -90,5 +89,21 @@ public class PresenceScanFilterTest {
         assertThat(parcelFilter.getType()).isEqualTo(ScanRequest.SCAN_TYPE_NEARBY_PRESENCE);
         assertThat(parcelFilter.getMaxPathLoss()).isEqualTo(RSSI);
         assertThat(parcelFilter.getPresenceActions()).containsExactly(ACTION);
+        assertThat(parcelFilter.getExtendedProperties().get(0).getKey()).isEqualTo(KEY);
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void describeContents() {
+        PresenceScanFilter filter = mBuilder.build();
+        assertThat(filter.describeContents()).isEqualTo(0);
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void testCreatorNewArray() {
+        PresenceScanFilter[] filters =
+                PresenceScanFilter.CREATOR.newArray(2);
+        assertThat(filters.length).isEqualTo(2);
     }
 }

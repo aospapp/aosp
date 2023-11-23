@@ -48,7 +48,8 @@ public class ContentCaptureActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mReceiver = new ContentCaptureActivityReceiver();
-        registerReceiver(mReceiver, new IntentFilter(ContentCaptureActivityReceiver.ACTION));
+        registerReceiver(mReceiver, new IntentFilter(ContentCaptureActivityReceiver.ACTION),
+                Context.RECEIVER_EXPORTED);
 
         final Intent launchIntent = new Intent();
         launchIntent.setComponent(

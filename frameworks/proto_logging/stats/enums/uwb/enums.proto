@@ -48,6 +48,22 @@ enum Status {
     PROVISION_FAILED = 8;
 }
 
+// UWB ranging session status codes
+enum RangingStatus {
+    RANGING_STATUS_UNKNOWN = 0;
+    RANGING_SUCCESS = 1;
+    RANGING_GENERAL_FAILURE = 2;
+    RANGING_REJECTED = 3;
+    RANGING_BAD_PARAMS = 4;
+    TX_FAILED = 5;
+    RX_PHY_DEC_FAILED = 6;
+    RX_PHY_TOA_FAILED = 7;
+    RX_PHY_STS_FAILED = 8;
+    RX_MAC_DEC_FAILED = 9;
+    RX_MAC_IE_DEC_FAILED = 10;
+    RX_MAC_IE_MISSING = 11;
+}
+
 // UWB session duration buckets
 enum DurationBucket {
     DURATION_UNKNOWN = 0;
@@ -75,4 +91,13 @@ enum Nlos {
     NLOS_UNKNOWN = 0;
     NLOS = 1;
     LOS = 2;
+}
+
+// UWB ranging measurement types
+enum RangingType {
+    TYPE_UNKNOWN = 0;
+    ONE_WAY = 1;
+    TWO_WAY = 2;
+    DL_TDOA = 3;
+    OWR_AOA = 4;
 }

@@ -18,7 +18,6 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:title="@string/match_content_frame_rate_title">
 
-    <!-- TODO(b/172050661): add the sidebar help text. -->
     <PreferenceCategory
         android:key="match_content_frame_rate_option">
         <com.android.tv.settings.RadioPreference

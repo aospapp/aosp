@@ -1,31 +1,48 @@
+/*
+ * Copyright (C) 2022 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.android.bluetooth.sap;
 
-import android.hardware.radio.V1_0.ISap;
-import android.hardware.radio.V1_0.ISapCallback;
+import android.hardware.radio.sap.ISap;
+import android.hardware.radio.sap.ISapCallback;
 import android.os.Handler;
-import android.os.HwBinder;
+import android.os.IBinder;
 import android.os.Message;
 import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.util.Log;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
+import com.android.modules.utils.build.SdkLevel;
+
 import java.util.concurrent.atomic.AtomicLong;
 
-public class SapRilReceiver {
+/**
+ * SapRiilReceiver is the AIDL implementation of ISapRilReceiver
+ */
+public class SapRilReceiver implements ISapRilReceiver {
     private static final String TAG = "SapRilReceiver";
     public static final boolean DEBUG = true;
     public static final boolean VERBOSE = true;
 
-    private static final String SERVICE_NAME_RIL_BT = "slot1";
-    // match with constant in ril.cpp - as in RIL.java
-    private static final int SOCKET_OPEN_RETRY_MILLIS = 4 * 1000;
+    // todo: add support for slot2 and slot3
+    private static final String HAL_INSTANCE_NAME = ISap.DESCRIPTOR + "/slot1";
 
     SapCallback mSapCallback;
     volatile ISap mSapProxy = null;
-    Object mSapProxyLock = new Object();
+    final Object mSapProxyLock = new Object();
     final AtomicLong mSapProxyCookie = new AtomicLong(0);
     final SapProxyDeathRecipient mSapProxyDeathRecipient;
 
@@ -35,15 +52,129 @@ public class SapRilReceiver {
     public static final int RIL_MAX_COMMAND_BYTES = (8 * 1024);
     public byte[] buffer = new byte[RIL_MAX_COMMAND_BYTES];
 
-    final class SapProxyDeathRecipient implements HwBinder.DeathRecipient {
+    /**
+     * TRANSFER_APDU_REQ from SAP 1.1 spec 5.1.6
+     *
+     * @param serial  Id to match req-resp. Resp must include same serial.
+     * @param type    APDU command type
+     * @param command CommandAPDU/CommandAPDU7816 parameter depending on type
+     */
+    @Override
+    public void apduReq(int serial, int type, byte[] command) throws android.os.RemoteException {
+        mSapProxy.apduReq(serial, type, command);
+    }
+
+    /**
+     * CONNECT_REQ from SAP 1.1 spec 5.1.1
+     *
+     * @param serial          Id to match req-resp. Resp must include same serial.
+     * @param maxMsgSizeBytes MaxMsgSize to be used for SIM Access Profile connection
+     */
+    @Override
+    public void connectReq(int serial, int maxMsgSizeBytes) throws android.os.RemoteException {
+        mSapProxy.connectReq(serial, maxMsgSizeBytes);
+    }
+
+    /**
+     * DISCONNECT_REQ from SAP 1.1 spec 5.1.3
+     *
+     * @param serial Id to match req-resp. Resp must include same serial.
+     */
+    @Override
+    public void disconnectReq(int serial) throws android.os.RemoteException {
+        mSapProxy.disconnectReq(serial);
+    }
+
+    /**
+     * POWER_SIM_OFF_REQ and POWER_SIM_ON_REQ from SAP 1.1 spec 5.1.10 + 5.1.12
+     *
+     * @param serial  Id to match req-resp. Resp must include same serial.
+     * @param powerOn true for on, false for off
+     */
+    @Override
+    public void powerReq(int serial, boolean powerOn) throws android.os.RemoteException {
+        mSapProxy.powerReq(serial, powerOn);
+    }
+
+    /**
+     * RESET_SIM_REQ from SAP 1.1 spec 5.1.14
+     *
+     * @param serial Id to match req-resp. Resp must include same serial.
+     */
+    @Override
+    public void resetSimReq(int serial) throws android.os.RemoteException {
+        mSapProxy.resetSimReq(serial);
+    }
+
+    /**
+     * Set callback that has response and unsolicited indication functions
+     *
+     * @param sapCallback Object containing response and unosolicited indication callbacks
+     */
+    @Override
+    public void setCallback(android.hardware.radio.sap.ISapCallback sapCallback)
+            throws android.os.RemoteException {
+        Log.e(TAG, "setCallback should never be called");
+    }
+
+    /**
+     * SET_TRANSPORT_PROTOCOL_REQ from SAP 1.1 spec 5.1.20
+     *
+     * @param serial           Id to match req-resp. Resp must include same serial.
+     * @param transferProtocol Transport Protocol
+     */
+    @Override
+    public void setTransferProtocolReq(int serial, int transferProtocol)
+            throws android.os.RemoteException {
+        mSapProxy.setTransferProtocolReq(serial, transferProtocol);
+    }
+
+    /**
+     * TRANSFER_ATR_REQ from SAP 1.1 spec 5.1.8
+     *
+     * @param serial Id to match req-resp. Resp must include same serial.
+     */
+    @Override
+    public void transferAtrReq(int serial) throws android.os.RemoteException {
+        mSapProxy.transferAtrReq(serial);
+    }
+
+    /**
+     * TRANSFER_CARD_READER_STATUS_REQ from SAP 1.1 spec 5.1.17
+     *
+     * @param serial Id to match req-resp. Resp must include same serial.
+     */
+    @Override
+    public void transferCardReaderStatusReq(int serial) throws android.os.RemoteException {
+        mSapProxy.transferCardReaderStatusReq(serial);
+    }
+
+    @Override
+    public int getInterfaceVersion() {
+        Log.e(TAG, "getInterfaceVersion should never be called");
+        return 0;
+    }
+
+    @Override
+    public String getInterfaceHash() {
+        Log.e(TAG, "getInterfaceHash should never be called");
+        return "";
+    }
+
+    @Override
+    public android.os.IBinder asBinder() {
+        Log.e(TAG, "asBinder should never be called");
+        return null;
+    }
+
+    final class SapProxyDeathRecipient implements IBinder.DeathRecipient {
         @Override
-        public void serviceDied(long cookie) {
+        public void binderDied() {
             // Deal with service going away
             Log.d(TAG, "serviceDied");
             // todo: temp hack to send delayed message so that rild is back up by then
-            // mSapHandler.sendMessage(mSapHandler.obtainMessage(EVENT_SAP_PROXY_DEAD, cookie));
             mSapServerMsgHandler.sendMessageDelayed(
-                    mSapServerMsgHandler.obtainMessage(SapServer.SAP_PROXY_DEAD, cookie),
+                    mSapServerMsgHandler.obtainMessage(SapServer.SAP_PROXY_DEAD, (long) 0),
                     SapServer.ISAP_GET_SERVICE_DELAY_MILLIS);
         }
     }
@@ -100,25 +231,25 @@ public class SapRilReceiver {
         }
 
         @Override
-        public void apduResponse(int token, int resultCode, ArrayList<Byte> apduRsp) {
+        public void apduResponse(int token, int resultCode, byte[] apduRsp) {
             Log.d(TAG, "apduResponse: token " + token);
             SapService.notifyUpdateWakeLock(mSapServiceHandler);
             SapMessage sapMessage = new SapMessage(SapMessage.ID_TRANSFER_APDU_RESP);
             sapMessage.setResultCode(resultCode);
             if (resultCode == SapMessage.RESULT_OK) {
-                sapMessage.setApduResp(arrayListToPrimitiveArray(apduRsp));
+                sapMessage.setApduResp(apduRsp);
             }
             removeOngoingReqAndSendMessage(token, sapMessage);
         }
 
         @Override
-        public void transferAtrResponse(int token, int resultCode, ArrayList<Byte> atr) {
+        public void transferAtrResponse(int token, int resultCode, byte[] atr) {
             Log.d(TAG, "transferAtrResponse: token " + token + " resultCode " + resultCode);
             SapService.notifyUpdateWakeLock(mSapServiceHandler);
             SapMessage sapMessage = new SapMessage(SapMessage.ID_TRANSFER_ATR_RESP);
             sapMessage.setResultCode(resultCode);
             if (resultCode == SapMessage.RESULT_OK) {
-                sapMessage.setAtr(arrayListToPrimitiveArray(atr));
+                sapMessage.setAtr(atr);
             }
             removeOngoingReqAndSendMessage(token, sapMessage);
         }
@@ -195,20 +326,39 @@ public class SapRilReceiver {
             sapMessage.setResultCode(resultCode);
             removeOngoingReqAndSendMessage(token, sapMessage);
         }
-    }
 
-    public static byte[] arrayListToPrimitiveArray(List<Byte> bytes) {
-        byte[] ret = new byte[bytes.size()];
-        for (int i = 0; i < ret.length; i++) {
-            ret[i] = bytes.get(i);
+        @Override
+        public String getInterfaceHash() {
+            return ISapCallback.HASH;
         }
-        return ret;
+
+        @Override
+        public int getInterfaceVersion() {
+            return ISapCallback.VERSION;
+        }
     }
 
+    @Override
     public Object getSapProxyLock() {
         return mSapProxyLock;
     }
 
+    @Override
+    public boolean isProxyValid() {
+        // Only call when synchronized with getSapProxyLock
+        return mSapProxy != null;
+    }
+
+    /**
+     * Check if AIDL is supported
+     */
+    public static boolean isAidlSupported() {
+        return SdkLevel.isAtLeastU() && ServiceManager.isDeclared(HAL_INSTANCE_NAME);
+    }
+
+    /**
+     * Obtain a valid sapProxy
+     */
     public ISap getSapProxy() {
         synchronized (mSapProxyLock) {
             if (mSapProxy != null) {
@@ -216,10 +366,11 @@ public class SapRilReceiver {
             }
 
             try {
-                mSapProxy = ISap.getService(SERVICE_NAME_RIL_BT);
+                IBinder service = ServiceManager.waitForDeclaredService(HAL_INSTANCE_NAME);
+                mSapProxy = ISap.Stub.asInterface(service);
                 if (mSapProxy != null) {
-                    mSapProxy.linkToDeath(mSapProxyDeathRecipient,
-                            mSapProxyCookie.incrementAndGet());
+                    service.linkToDeath(mSapProxyDeathRecipient,
+                            /* flags= */ 0);
                     mSapProxy.setCallback(mSapCallback);
                 } else {
                     Log.e(TAG, "getSapProxy: mSapProxy == null");
@@ -240,16 +391,17 @@ public class SapRilReceiver {
         }
     }
 
+    @Override
     public void resetSapProxy() {
         synchronized (mSapProxyLock) {
             if (DEBUG) Log.d(TAG, "resetSapProxy :" + mSapProxy);
-            try {
-                if (mSapProxy != null) {
-                    mSapProxy.unlinkToDeath(mSapProxyDeathRecipient);
-                }
-            } catch (RemoteException | RuntimeException e) {
-                Log.e(TAG, "resetSapProxy: exception: " + e);
+            if (mSapProxy == null) {
+                return;
             }
+            if (mSapProxy.asBinder() == null) {
+                Log.e(TAG, "asdf asBinder is null");
+            }
+            mSapProxy.asBinder().unlinkToDeath(mSapProxyDeathRecipient, /* flags= */ 0);
             mSapProxy = null;
         }
     }
@@ -264,79 +416,26 @@ public class SapRilReceiver {
         }
     }
 
-    /**
-     * Notify SapServer that this class is ready for shutdown.
-     */
-    void notifyShutdown() {
+    @Override
+    public void notifyShutdown() {
         if (DEBUG) {
             Log.i(TAG, "notifyShutdown()");
         }
-        // If we are already shutdown, don't bother sending a notification.
         synchronized (mSapProxyLock) {
+            // If we are already shutdown, don't bother sending a notification.
             if (mSapProxy != null) {
                 sendShutdownMessage();
             }
+            resetSapProxy();
+
+            // todo: rild should be back up since the message was sent with a delay. this is
+            // a hack.
+            getSapProxy();
         }
     }
 
-    /**
-     * Read the message into buffer
-     * @param is
-     * @param buffer
-     * @return the length of the message
-     * @throws IOException
-     */
-    private static int readMessage(InputStream is, byte[] buffer) throws IOException {
-        int countRead;
-        int offset;
-        int remaining;
-        int messageLength;
-
-        // Read in the length of the message
-        offset = 0;
-        remaining = 4;
-        do {
-            countRead = is.read(buffer, offset, remaining);
-
-            if (countRead < 0) {
-                Log.e(TAG, "Hit EOS reading message length");
-                return -1;
-            }
-
-            offset += countRead;
-            remaining -= countRead;
-        } while (remaining > 0);
-
-        messageLength =
-                ((buffer[0] & 0xff) << 24) | ((buffer[1] & 0xff) << 16) | ((buffer[2] & 0xff) << 8)
-                        | (buffer[3] & 0xff);
-        if (VERBOSE) {
-            Log.e(TAG, "Message length found to be: " + messageLength);
-        }
-        // Read the message
-        offset = 0;
-        remaining = messageLength;
-        do {
-            countRead = is.read(buffer, offset, remaining);
-
-            if (countRead < 0) {
-                Log.e(TAG,
-                        "Hit EOS reading message.  messageLength=" + messageLength + " remaining="
-                                + remaining);
-                return -1;
-            }
-
-            offset += countRead;
-            remaining -= countRead;
-        } while (remaining > 0);
-
-        return messageLength;
-    }
-
-    /**
-     * Notify SapServer that the RIL socket is connected
-     */
-    void sendRilConnectMessage() {
+    @Override
+    public void sendRilConnectMessage() {
         if (mSapServerMsgHandler != null) {
             mSapServerMsgHandler.sendEmptyMessage(SapServer.SAP_MSG_RIL_CONNECT);
         }
@@ -344,6 +443,7 @@ public class SapRilReceiver {
 
     /**
      * Send reply (solicited) message from the RIL to the Sap Server Handler Thread
+     *
      * @param sapMsg The message to send
      */
     private void sendClientMessage(SapMessage sapMsg) {
@@ -362,6 +462,7 @@ public class SapRilReceiver {
 
     /**
      * Send indication (unsolicited) message from RIL to the Sap Server Handler Thread
+     *
      * @param sapMsg The message to send
      */
     private void sendRilIndMessage(SapMessage sapMsg) {
@@ -369,4 +470,7 @@ public class SapRilReceiver {
         mSapServerMsgHandler.sendMessage(newMsg);
     }
 
+    AtomicLong getSapProxyCookie() {
+        return mSapProxyCookie;
+    }
 }

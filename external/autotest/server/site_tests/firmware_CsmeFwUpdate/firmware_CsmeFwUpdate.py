@@ -4,7 +4,7 @@
 
 import logging, re
 import os
-import xmlrpclib
+import six
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
@@ -27,6 +27,8 @@ class firmware_CsmeFwUpdate(FirmwareTest):
     # Region to use for flashrom wp-region commands
     WP_REGION = 'WP_RO'
     MODE = 'recovery'
+    CBFSTOOL = 'cbfstool'
+    CMPTOOL = 'cmp'
 
     def initialize(self, host, cmdline_args, dev_mode = False):
         # Parse arguments from command line
@@ -54,7 +56,8 @@ class firmware_CsmeFwUpdate(FirmwareTest):
                         "shellball bios for downgrade")
 
         self.backup_firmware()
-        self.switcher.setup_mode('dev' if dev_mode else 'normal')
+        self.switcher.setup_mode('dev' if dev_mode else 'normal',
+                                 allow_gbb_force=True)
 
         # Save write protect configuration and enable it
         logging.info("Enabling Write protection")
@@ -80,7 +83,7 @@ class firmware_CsmeFwUpdate(FirmwareTest):
             if self.is_firmware_saved() and self.restore_required:
                 logging.info("Restoring Original Image")
                 self.restore_firmware()
-        except (EnvironmentError, xmlrpclib.Fault,
+        except (EnvironmentError, six.moves.xmlrpc_client.Fault,
                 error.AutoservError, error.TestBaseException):
             logging.error("Problem restoring firmware:", exc_info=True)
 
@@ -92,7 +95,7 @@ class firmware_CsmeFwUpdate(FirmwareTest):
                         self._orig_sw_wp['start'],
                         self._orig_sw_wp['length'],
                         self._orig_sw_wp['enabled'])
-        except (EnvironmentError, xmlrpclib.Fault,
+        except (EnvironmentError, six.moves.xmlrpc_client.Fault,
                 error.AutoservError, error.TestBaseException):
             logging.error("Problem restoring software write-protect:",
                           exc_info = True)
@@ -113,18 +116,18 @@ class firmware_CsmeFwUpdate(FirmwareTest):
         # Dump the current spi bios to file
         self.spi_bios = self.ORIGINAL_BIOS
         logging.info("Copying current bios image to %s for upgrade " \
-                     "test" % self.spi_bios)
+                     "test", self.spi_bios)
         self.faft_client.bios.dump_whole(self.spi_bios)
 
         # Get the downgrade bios image from user or from shellball
         self.downgrade_bios = self.DOWNGRADE_BIOS
         if self.bios_input:
             logging.info("Copying user given bios image to %s for downgrade " \
-                    "test" % self.downgrade_bios)
+                    "test", self.downgrade_bios)
             self._client.send_file(self.bios_input, self.downgrade_bios)
         else:
             logging.info("Copying bios image from update shellball to %s " \
-                    "for downgrade test" % self.downgrade_bios)
+                    "for downgrade test", self.downgrade_bios)
             self.faft_client.updater.extract_shellball()
             cbfs_work_dir = self.faft_client.updater.cbfs_setup_work_dir()
             shellball_bios = os.path.join(cbfs_work_dir,
@@ -142,7 +145,7 @@ class firmware_CsmeFwUpdate(FirmwareTest):
         """
         # Check if ME_RW_A is present in the image
         logging.info("Checking if seperate CBFS is used for CSE RW in " \
-                     "image : %s" % image_path)
+                     "image : %s", image_path)
         command = "futility dump_fmap -F %s | grep ME_RW_A" % image_path
         output = self.faft_client.system.run_shell_command_get_output(
                     command, True)
@@ -160,19 +163,19 @@ class firmware_CsmeFwUpdate(FirmwareTest):
         @returns True if present else False
 
         """
-        # Check if me_rw.metadata present FW_MAIN region
-        logging.info("Checking if me_rw.metadata file " \
-                     "present in image : %s" % image_path )
+        # Check if me_rw.version present FW_MAIN region
+        logging.info("Checking if me_rw.version file " \
+                     "present in image : %s", image_path )
         command = "cbfstool %s print -r FW_MAIN_A " \
-                            "| grep me_rw.metadata" % image_path
+                            "| grep me_rw.version" % image_path
         output = self.faft_client.system.run_shell_command_get_output(
                     command, True)
         if output:
             available = True
-            logging.info("me_rw.metadata present in image")
+            logging.info("me_rw.version present in image")
         else:
             available = False
-            logging.info("me_rw.metadata not present in image")
+            logging.info("me_rw.version not present in image")
 
         return available
 
@@ -181,23 +184,19 @@ class firmware_CsmeFwUpdate(FirmwareTest):
         Extract me_rw version from given me_rw blob. Version is first 8
         bytes in the blob
 
-        @param me_blob: me_rw blob (old fmap) or me_rw_metadata blob
+        @param me_blob: me_rw blob (old fmap) or me_rw.version blob
         @param version_offset: version filed offset in the blob
         @returns the CSME RW version string
 
         """
         ver_res = ""
         logging.info("Extracting version field from ME blob")
-        command = ("hexdump -n 8 -s %s %s | cut -c 9- |sed 's/ //g' |" \
-                   "sed 's/.\{4\}/&./g;s/ $//' | head -c19" % ( \
-                    str(int(version_offset)), me_blob))
+
+        command = ("hexdump -C %s |  cut -c 9- | cut -d'|' -f 2"%me_blob )
         output = self.faft_client.system.run_shell_command_get_output(
                     command, True)
-        for each_word in output[0].split("."):
-            version = (int(each_word, 16))
-            ver_res = "".join((ver_res, "".join((str(version),"."))))
-        ver_res = ver_res[:-1]
-        logging.info("Version : %s" % ver_res)
+        ver_res = output[0].strip(".")
+        logging.info("Version : %s", ver_res)
         return ver_res
 
     def get_image_fwmain_me_rw_version(self,
@@ -212,8 +211,8 @@ class firmware_CsmeFwUpdate(FirmwareTest):
         @returns the CSME RW version string
 
         """
-        # Extract me_rw.metadata and check version.
-        cbfs_name = "me_rw.metadata"
+        # Extract me_rw.version and check version.
+        cbfs_name = "me_rw.version"
         temp_dir = self.faft_client.system.create_temp_dir()
         me_blob = os.path.join(temp_dir, cbfs_name)
 
@@ -271,9 +270,8 @@ class firmware_CsmeFwUpdate(FirmwareTest):
         logging.info("Expected mainfw_act    : %s\n" \
                      "Current mainfw_act     : %s\n" \
                      "Expected ME RW Version : %s\n" \
-                     "Current ME RW Version  : %s\n" % (
-                          expected_slot, main_fw_act,
-                          expected_version, me_version))
+                     "Current ME RW Version  : %s\n",
+                      expected_slot, main_fw_act, expected_version, me_version)
 
         if (expected_version not in me_version) or \
                  (expected_slot not in main_fw_act):
@@ -281,13 +279,140 @@ class firmware_CsmeFwUpdate(FirmwareTest):
         else:
             return True
 
+    def cmp_local_files(self,
+                        local_filename_1,
+                        local_filename_2):
+        """
+        Compare two local files
+
+        @param local_filename_1: Path to first local file to compare
+        @param local_filename_2: Path to second local file to compare
+
+        @returns "None" if files are identical, or
+                 string response from "cmp" command if files differ.
+        """
+        compare_cmd = ('%s %s %s' %
+                       (self.CMPTOOL, local_filename_1, local_filename_2))
+        try:
+            return self.faft_client.system.run_shell_command_get_output(
+                        compare_cmd, True)
+        except error.CmdError:
+            # already logged by run_shell_command()
+            return None
+
+    def cbfs_read(self,
+                  filename,
+                  extension,
+                  region='ME_RW_A',
+                  local_filename=None,
+                  arch=None,
+                  bios=None):
+        """
+        Reads an arbitrary file from cbfs.
+
+        @param filename: Filename in cbfs, including extension
+        @param extension: Extension of the file, including '.'
+        @param region: region (the default is just 'ME_RW_A')
+        @param local_filename: Path to use on the DUT, overriding the default in
+                           the cbfs work dir.
+        @param arch: Specific machine architecture to extract (default unset)
+        @param bios: Image from which the cbfs file to be read
+        @return: The full path of the read file, or None
+        """
+        if bios is None:
+            bios = os.path.join(self._cbfs_work_path, self._bios_path)
+
+        cbfs_filename = filename + extension
+        if local_filename is None:
+            local_filename = os.path.join(self._cbfs_work_path,
+                                          filename + extension)
+
+        extract_cmd = ('%s %s extract -r %s -n %s%s -f %s' %
+                       (self.CBFSTOOL, bios, region, filename,
+                        extension, local_filename))
+        if arch:
+            extract_cmd += ' -m %s' % arch
+
+        try:
+            self.faft_client.system.run_shell_command(extract_cmd)
+            return os.path.abspath(local_filename)
+        except error.CmdError:
+            # already logged by run_shell_command()
+            return None
+
+    def abort_if_me_rw_blobs_identical(self,
+                                       downgrade_bios,
+                                       spi_bios):
+        """
+        Determine if the CSME RW blob in the downgrade bios image is
+        different from the CSME RW blob in the spi bios image.
+
+        @param downgrade_bios: Downgrade bios path
+        @param spi_bios: Bios from spi flash path
+        @returns "None" if CSME RW blobs are identical, or
+                 string response from "diff" command if blobs differ.
+        """
+        # Extract me_rw blobs
+        cbfs_name = "me_rw"
+        downgrade_name = "me_rw"
+        spi_me_a_name = "me_rw_spi_a"
+        spi_me_b_name = "me_rw_spi_b"
+        temp_dir = self.faft_client.system.create_temp_dir()
+        downgrade_me_blob = os.path.join(temp_dir, downgrade_name)
+        spi_me_a_blob = os.path.join(temp_dir, spi_me_a_name)
+        spi_me_b_blob = os.path.join(temp_dir, spi_me_b_name)
+
+        downgrade_rw_path = self.cbfs_read(cbfs_name, '','ME_RW_A',
+                                           downgrade_me_blob, 'x86',
+                                           downgrade_bios)
+        if downgrade_rw_path is None:
+            self.faft_client.system.remove_dir(temp_dir)
+            raise error.TestError("Failed to read %s me_rw blob from " \
+                                  "the downgrade bios %s" % (downgrade_me_blob,
+                                                             downgrade_bios))
+
+        spi_rw_a_path = self.cbfs_read(cbfs_name, '','ME_RW_A', spi_me_a_blob,
+                                       'x86', spi_bios)
+        if spi_rw_a_path is None:
+            self.faft_client.system.remove_dir(temp_dir)
+            raise error.TestError("Failed to read %s me_rw_a blob from " \
+                                  "the downgrade bios %s" % (spi_me_a_blob,
+                                                             spi_bios))
+
+        spi_rw_b_path = self.cbfs_read(cbfs_name, '','ME_RW_B', spi_me_b_blob,
+                                       'x86', spi_bios)
+        if spi_rw_b_path is None:
+            self.faft_client.system.remove_dir(temp_dir)
+            raise error.TestError("Failed to read %s me_rw_b blob from " \
+                                  "the spi bios %s" % (spi_me_b_blob, spi_bios))
+
+        # Are the blobs different?
+        diff_a = self.cmp_local_files(downgrade_rw_path, spi_rw_a_path)
+        diff_b = self.cmp_local_files(downgrade_rw_path, spi_rw_b_path)
+        if diff_a and diff_b:
+            logging.info("CSME RW version is same, but downgrade me_rw " \
+                         "differs from both me_rw blobs in spi flash.")
+        elif diff_a:
+            logging.info("CSME RW version is same, but downgrade me_rw and " \
+                         "FW_MAIN_A me_rw differ.")
+        elif diff_b:
+            logging.info("CSME RW version is same, but downgrade me_rw and " \
+                         "FW_MAIN_B me_rw differ.")
+        else:
+            # Blobs are the same
+            self.faft_client.system.remove_dir(temp_dir)
+            raise error.TestNAError("CSME RW blobs are the same in downgrade " \
+                                    "and spi bios. Test skipped.")
+
+        self.faft_client.system.remove_dir(temp_dir)
+
     def prepare_shellball(self, bios_image, append = None):
         """Prepare a shellball with the given bios image.
 
         @param bios_image: bios image with shellball to be created
         @param append: string to be updated with shellball name
         """
-        logging.info("Preparing shellball with %s" % bios_image)
+        logging.info("Preparing shellball with %s", bios_image)
         self.faft_client.updater.reset_shellball()
         # Copy the given bois to shellball
         extract_dir = self.faft_client.updater.get_work_path()
@@ -315,8 +440,9 @@ class firmware_CsmeFwUpdate(FirmwareTest):
         options = ['--host_only', '--wp=1']
         logging.info("Updating RW firmware using " \
                      "chromeos_firmwareupdate")
-        logging.info("Update command : chromeos_firmwareupdate-%s --mode=%s "
-                     " %s" % (append,self.MODE,' '.join(options)))
+        logging.info(
+                "Update command : chromeos_firmwareupdate-%s --mode=%s "
+                " %s", append, self.MODE, ' '.join(options))
         result = self.run_chromeos_firmwareupdate(
                 self.MODE, append, options, ignore_status = True)
 
@@ -330,26 +456,27 @@ class firmware_CsmeFwUpdate(FirmwareTest):
                                       "failed (rc=%s)" % result.exit_status)
 
     def run_once(self):
-        if not self.faft_config.intel_cse_lite:
-            raise error.TestNAError("CSELite feature not supported " \
-                                    "on this device. Test Skipped")
+        if not ('x86' in self.faft_config.ec_capability):
+            raise error.TestNAError("The firmware_CsmeFwUpdate test is only " \
+                                    "applicable to Intel platforms. Skipping " \
+                                    "test.")
 
         # Read current bios from SPI and create a backup copy
         self.read_current_bios_and_save()
 
+        if not self.check_if_me_blob_exist_in_image(self.spi_bios):
+            raise error.TestNAError("The me_rw blob is not present in the " \
+                                    "current bios.  Skipping test.")
+
         # Check fmap scheme of the bios read from SPI
         spi_bios_fmap_ver = self.check_fmap_format(self.spi_bios)
-
-        if not self.check_if_me_blob_exist_in_image(self.spi_bios):
-            raise error.TestError("Test setup issue : me_rw blob is not " \
-                                "present in the current bios.!")
 
         # Check fmap scheme of the default bios in shellball
         downgrade_bios_fmap = self.check_fmap_format(self.downgrade_bios)
 
         # Check if me_rw blob is present in FW_MAIN
         if not self.check_if_me_blob_exist_in_image(self.downgrade_bios):
-            raise error.TestError("Test setup issue : me_rw blob is not " \
+            raise error.TestNAError("Test setup issue : me_rw blob is not " \
                                     "present in downgrade bios.")
 
         # Check if both of the bios versions use same fmap structure for me_rw
@@ -369,14 +496,15 @@ class firmware_CsmeFwUpdate(FirmwareTest):
 
         logging.info("Active CSME RW Version                 : %s\n" \
                      "FW main CSME RW Version SPI Image      : %s\n" \
-                     "FW main CSME RW Version downgrade Image: %s\n" % (
+                     "FW main CSME RW Version downgrade Image: %s\n",
                      active_csme_rw_version, spi_me_version,
-                     downgrade_me_version ))
+                     downgrade_me_version)
 
         # Abort if downgrade me_rw version is same as spi me_rw version
         if (spi_me_version in downgrade_me_version):
-            raise error.TestError("Test setup issue : CSME RW version is " \
-                                    "same in both of the images.")
+            # Version is the same, abort test if blob content is the same
+            self.abort_if_me_rw_blobs_identical(self.downgrade_bios,
+                                                self.spi_bios)
 
         for slot in ["A", "B"]:
             operation = "downgrade"
@@ -384,12 +512,12 @@ class firmware_CsmeFwUpdate(FirmwareTest):
             self.prepare_shellball(self.downgrade_bios, operation)
 
             logging.info("Downgrading RW section. Downgrade ME " \
-                        "Version: %s" % downgrade_me_version)
+                        "Version: %s", downgrade_me_version)
             # Run firmware updater downgrade the bios RW
             self.run_shellball(operation)
 
             # Set fw_try_next to slot and reboot to trigger csme update
-            logging.info("Setting fw_try_next to %s: " % slot)
+            logging.info("Setting fw_try_next to %s: ", slot)
             self.faft_client.system.set_fw_try_next(slot)
             self.switcher.mode_aware_reboot(reboot_type = 'cold')
 
@@ -398,19 +526,19 @@ class firmware_CsmeFwUpdate(FirmwareTest):
                 raise error.TestError("CSME RW Downgrade using "
                                     "FW_MAIN_%s is Failed!" % slot)
             logging.info("CSME RW Downgrade using FW_MAIN_%s is "
-                        "successful" % slot)
+                         "successful", slot)
 
             operation = "upgrade"
             # Create a shellball with the original spi bios
             self.prepare_shellball(self.spi_bios, operation)
 
             logging.info("Upgrading RW Section. Upgrade ME " \
-                        "Version: %s" % spi_me_version)
+                        "Version: %s", spi_me_version)
             # Run firmware updater and update RW section with shellball
             self.run_shellball(operation)
 
             # Set fw_try_next to slot and reboot to trigger csme update
-            logging.info("Setting fw_try_next to %s: " % slot)
+            logging.info("Setting fw_try_next to %s: ", slot)
             self.faft_client.system.set_fw_try_next(slot)
             self.switcher.mode_aware_reboot(reboot_type = 'cold')
 
@@ -419,4 +547,4 @@ class firmware_CsmeFwUpdate(FirmwareTest):
                 raise error.TestError("CSME RW Upgrade using "
                                     "FW_MAIN_%s is Failed!" % slot)
             logging.info("CSME RW Upgrade using FW_MAIN_%s is "
-                        "successful" % slot)
+                         "successful", slot)

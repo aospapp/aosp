@@ -120,6 +120,18 @@ std::vector<std::string> SplitString(const std::string& text,
   return output;
 }
 
+std::string TrimWhitespace(const std::string& str) {
+  std::string whitespaces = "\t\n ";
+
+  size_t front_idx = str.find_first_not_of(whitespaces);
+  std::string front_trimmed =
+      front_idx == std::string::npos ? "" : str.substr(front_idx);
+
+  size_t end_idx = front_trimmed.find_last_not_of(whitespaces);
+  return end_idx == std::string::npos ? ""
+                                      : front_trimmed.substr(0, end_idx + 1);
+}
+
 std::string StripPrefix(const std::string& str, const std::string& prefix) {
   return StartsWith(str, prefix) ? str.substr(prefix.size()) : str;
 }
@@ -231,6 +243,29 @@ size_t SprintfTrunc(char* dst, size_t dst_size, const char* fmt, ...) {
   PERFETTO_DCHECK(res < dst_size);
   PERFETTO_DCHECK(dst[res] == '\0');
   return res;
+}
+
+std::optional<LineWithOffset> FindLineWithOffset(base::StringView str,
+                                                 uint32_t offset) {
+  static constexpr char kNewLine = '\n';
+  uint32_t line_offset = 0;
+  uint32_t line_count = 1;
+  for (uint32_t i = 0; i < str.size(); ++i) {
+    if (str.at(i) == kNewLine) {
+      line_offset = i + 1;
+      line_count++;
+      continue;
+    }
+    if (i == offset) {
+      size_t end_offset = str.find(kNewLine, i);
+      if (end_offset == std::string::npos) {
+        end_offset = str.size();
+      }
+      base::StringView line = str.substr(line_offset, end_offset - line_offset);
+      return LineWithOffset{line, offset - line_offset, line_count};
+    }
+  }
+  return std::nullopt;
 }
 
 }  // namespace base

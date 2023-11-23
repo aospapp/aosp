@@ -16,7 +16,7 @@
 
 #include "test/common/jni_thread.h"
 
-#include <base/callback.h>
+#include <base/functional/callback.h>
 
 #include <map>
 

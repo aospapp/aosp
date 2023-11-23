@@ -158,15 +158,18 @@ static void btif_test_discovery_complete_cback(
   LOG_INFO("%s: status=%d", __func__, status);
 }
 
-static tGATT_CBACK btif_test_callbacks = {btif_test_connect_cback,
-                                          btif_test_command_complete_cback,
-                                          btif_test_discovery_result_cback,
-                                          btif_test_discovery_complete_cback,
-                                          NULL,
-                                          NULL,
-                                          NULL,
-                                          NULL,
-                                          NULL};
+static tGATT_CBACK btif_test_callbacks = {
+    btif_test_connect_cback,
+    btif_test_command_complete_cback,
+    btif_test_discovery_result_cback,
+    btif_test_discovery_complete_cback,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+};
 
 /*******************************************************************************
  * Implementation
@@ -195,14 +198,14 @@ bt_status_t btif_gattc_test_command_impl(int command,
     case 0x02: /* Connect */
     {
       LOG_INFO("%s: CONNECT - device=%s (dev_type=%d, addr_type=%d)", __func__,
-               params->bda1->ToString().c_str(), params->u1, params->u2);
+               ADDRESS_TO_LOGGABLE_CSTR(*params->bda1), params->u1, params->u2);
 
       if (params->u1 == BT_DEVICE_TYPE_BLE)
         BTM_SecAddBleDevice(*params->bda1, BT_DEVICE_TYPE_BLE,
                             static_cast<tBLE_ADDR_TYPE>(params->u2));
 
-      if (!GATT_Connect(test_cb.gatt_if, *params->bda1, true, BT_TRANSPORT_LE,
-                        false)) {
+      if (!GATT_Connect(test_cb.gatt_if, *params->bda1,
+                        BTM_BLE_DIRECT_CONNECTION, BT_TRANSPORT_LE, false)) {
         LOG_ERROR("%s: GATT_Connect failed!", __func__);
       }
       break;

@@ -14,9 +14,12 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import time
+
 from acts import signals
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.loggers.telephony_metric_logger import TelephonyMetricLogger
+from acts_contrib.test_utils.tel.tel_defines import SimSlotInfo
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts_contrib.test_utils.tel.tel_defines import CAPABILITY_CONFERENCE
 from acts_contrib.test_utils.tel.tel_dsds_utils import erase_call_forwarding
@@ -27,12 +30,29 @@ from acts_contrib.test_utils.tel.tel_ss_utils import set_call_waiting
 from acts_contrib.test_utils.tel.tel_subscription_utils import get_outgoing_voice_sub_id
 from acts_contrib.test_utils.tel.tel_test_utils import get_capability_for_subscription
 
+_WAIT_TIME_FOR_MEP_ENABLE_INTERVAL = 60
+_WAIT_TIME_FOR_MEP_ENABLE = 180
+
 
 class Nsa5gDSDSSupplementaryServiceTest(TelephonyBaseTest):
     def setup_class(self):
         TelephonyBaseTest.setup_class(self)
         self.message_lengths = (50, 160, 180)
         self.tel_logger = TelephonyMetricLogger.for_test_case()
+        if getattr(self.android_devices[0], 'mep', False):
+            start_time = time.monotonic()
+            timeout = start_time + _WAIT_TIME_FOR_MEP_ENABLE
+            while time.monotonic() < timeout:
+                mep_logs = self.android_devices[0].search_logcat(
+                    "UNSOL_SIM_SLOT_STATUS_CHANGED")
+                if mep_logs:
+                    for mep_log in mep_logs:
+                        if "num_ports=2" in mep_log["log_message"]:
+                            break
+                time.sleep(_WAIT_TIME_FOR_MEP_ENABLE_INTERVAL)
+            else:
+                self.log.warning("Couldn't found MEP enabled logs.")
+
         erase_call_forwarding(self.log, self.android_devices[0])
         if not get_capability_for_subscription(
             self.android_devices[0],
@@ -76,6 +96,7 @@ class Nsa5gDSDSSupplementaryServiceTest(TelephonyBaseTest):
             0,
             None,
             0,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             callee_rat=["5g_volte", "5g_volte"],
             call_forwarding_type="unconditional")
 
@@ -106,6 +127,7 @@ class Nsa5gDSDSSupplementaryServiceTest(TelephonyBaseTest):
             1,
             None,
             0,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             callee_rat=["5g_volte", "5g_volte"],
             call_forwarding_type="unconditional")
 
@@ -137,6 +159,7 @@ class Nsa5gDSDSSupplementaryServiceTest(TelephonyBaseTest):
             0,
             None,
             1,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             callee_rat=["5g_volte", "5g_volte"],
             call_forwarding_type="unconditional")
 
@@ -167,6 +190,7 @@ class Nsa5gDSDSSupplementaryServiceTest(TelephonyBaseTest):
             1,
             None,
             1,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             callee_rat=["5g_volte", "5g_volte"],
             call_forwarding_type="unconditional")
 
@@ -198,6 +222,7 @@ class Nsa5gDSDSSupplementaryServiceTest(TelephonyBaseTest):
             0,
             None,
             0,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             callee_rat=["5g_volte", "volte"],
             call_forwarding_type="unconditional")
 
@@ -228,6 +253,7 @@ class Nsa5gDSDSSupplementaryServiceTest(TelephonyBaseTest):
             1,
             None,
             0,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             callee_rat=["5g_volte", "volte"],
             call_forwarding_type="unconditional")
 
@@ -259,6 +285,7 @@ class Nsa5gDSDSSupplementaryServiceTest(TelephonyBaseTest):
             0,
             None,
             1,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             callee_rat=["5g_volte", "volte"],
             call_forwarding_type="unconditional")
 
@@ -289,6 +316,7 @@ class Nsa5gDSDSSupplementaryServiceTest(TelephonyBaseTest):
             1,
             None,
             1,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             callee_rat=["5g_volte", "volte"],
             call_forwarding_type="unconditional")
 
@@ -319,6 +347,7 @@ class Nsa5gDSDSSupplementaryServiceTest(TelephonyBaseTest):
             0,
             None,
             0,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             callee_rat=["volte", "5g_volte"],
             call_forwarding_type="unconditional")
 
@@ -349,6 +378,7 @@ class Nsa5gDSDSSupplementaryServiceTest(TelephonyBaseTest):
             1,
             None,
             0,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             callee_rat=["volte", "5g_volte"],
             call_forwarding_type="unconditional")
 
@@ -379,6 +409,7 @@ class Nsa5gDSDSSupplementaryServiceTest(TelephonyBaseTest):
             0,
             None,
             1,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             callee_rat=["volte", "5g_volte"],
             call_forwarding_type="unconditional")
 
@@ -409,6 +440,7 @@ class Nsa5gDSDSSupplementaryServiceTest(TelephonyBaseTest):
             1,
             None,
             1,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             callee_rat=["volte", "5g_volte"],
             call_forwarding_type="unconditional")
 
@@ -1005,7 +1037,7 @@ class Nsa5gDSDSSupplementaryServiceTest(TelephonyBaseTest):
             1,
             host_rat=["5g_volte", "volte"],
             merge=False, disable_cw=False):
-        	result = False
+            result = False
         if not msim_call_voice_conf(
             self.log,
             self.tel_logger,
@@ -1017,7 +1049,7 @@ class Nsa5gDSDSSupplementaryServiceTest(TelephonyBaseTest):
             host_rat=["5g_volte", "volte"],
             merge=False,
             disable_cw=True):
-        	result = False
+            result = False
         return result
 
     @TelephonyBaseTest.tel_test_wrap

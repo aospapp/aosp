@@ -1,5 +1,6 @@
 {
   "git": {
-    "sha1": "0e2a930eac3586ab52498413310c45af6c67d830"
-  }
+    "sha1": "721382b00b5dadd81954ed66764d547e2f1bb7a3"
+  },
+  "path_in_vcs": "crossbeam-deque"
 }

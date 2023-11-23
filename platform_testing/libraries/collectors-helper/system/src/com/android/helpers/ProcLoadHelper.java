@@ -36,6 +36,7 @@ public class ProcLoadHelper implements ICollectorHelper<Double> {
     private static final String LOG_TAG = ProcLoadHelper.class.getSimpleName();
     private static final String LOAD_CMD = "cat /proc/loadavg";
     public static final String LAST_MINUTE_LOAD_METRIC_KEY = "proc_loadavg_last_minute";
+    public static final String PROC_LOAD_WAIT_TIME_METRIC_KEY = "proc_load_wait_time_msecs";
 
     private static final Pattern LOAD_OUTPUT_PATTERN = Pattern.compile(
             "(?<LASTMINUTELOAD>.*)\\s.*\\s.*\\s.*\\s.*");
@@ -46,6 +47,7 @@ public class ProcLoadHelper implements ICollectorHelper<Double> {
     private long mProcLoadIntervalInMs = 500;
     private double mRecentLoad = 0;
     private UiDevice mDevice;
+    private double mTotalWaitTime = 0;
 
     /** Wait untill the proc/load reaches below the threshold or timeout expires */
     @Override
@@ -66,6 +68,8 @@ public class ProcLoadHelper implements ICollectorHelper<Double> {
                         ? mProcLoadIntervalInMs : remainingWaitTime;
                 Log.d(LOG_TAG, String.format("Waiting for %s msecs", currWaitTime));
                 SystemClock.sleep(currWaitTime);
+                mTotalWaitTime += currWaitTime;
+                Log.d(LOG_TAG, String.format("Waited for %s msecs", mTotalWaitTime));
                 remainingWaitTime = remainingWaitTime - mProcLoadIntervalInMs;
             }
         }
@@ -80,6 +84,7 @@ public class ProcLoadHelper implements ICollectorHelper<Double> {
         Log.i(LOG_TAG, String.format("proc/loadavg in last minute before test is : %s",
                 mRecentLoad));
         result.put(LAST_MINUTE_LOAD_METRIC_KEY, mRecentLoad);
+        result.put(PROC_LOAD_WAIT_TIME_METRIC_KEY, mTotalWaitTime);
         return result;
     }
 

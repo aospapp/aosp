@@ -32,7 +32,7 @@ import com.android.bedstead.nene.utils.Poll;
 @Experimental
 public class Activity<E> {
 
-    private static final String TAG =  "BedsteadActivityWrapper";
+    private static final String TAG = "BedsteadActivity";
 
     /*
      * Note that methods in this class must not rely on the activity existing within the current

@@ -39,6 +39,9 @@ enum {
 	HWSIM_CMD_GET_RADIO,
 	HWSIM_CMD_ADD_MAC_ADDR,
 	HWSIM_CMD_DEL_MAC_ADDR,
+	HWSIM_CMD_START_PMSR,
+	HWSIM_CMD_ABORT_PMSR,
+	HWSIM_CMD_REPORT_PMSR,
 	__HWSIM_CMD_MAX,
 };
 #define HWSIM_CMD_MAX (_HWSIM_CMD_MAX - 1)
@@ -78,6 +81,16 @@ enum {
  * @HWSIM_ATTR_RADIO_NAME: Name of radio, e.g. phy666
  * @HWSIM_ATTR_NO_VIF:  Do not create vif (wlanX) when creating radio.
  * @HWSIM_ATTR_FREQ: Frequency at which packet is transmitted or received.
+ * @HWSIM_ATTR_TX_INFO_FLAGS: additional flags for corresponding
+ *	rates of %HWSIM_ATTR_TX_INFO
+ * @HWSIM_ATTR_PERM_ADDR: permanent mac address of new radio
+ * @HWSIM_ATTR_IFTYPE_SUPPORT: u32 attribute of supported interface types bits
+ * @HWSIM_ATTR_CIPHER_SUPPORT: u32 array of supported cipher types
+ * @HWSIM_ATTR_MLO_SUPPORT: claim MLO support (exact parameters TBD) for
+ *	the new radio
+ * @HWSIM_ATTR_PMSR_SUPPORT: claim peer measurement support
+ * @HWSIM_ATTR_PMSR_REQUEST: peer measurement request
+ * @HWSIM_ATTR_PMSR_RESULT: peer measurement result
  * @__HWSIM_ATTR_MAX: enum limit
  */
 
@@ -104,6 +117,14 @@ enum {
 	HWSIM_ATTR_NO_VIF,
 	HWSIM_ATTR_FREQ,
 	HWSIM_ATTR_PAD,
+	HWSIM_ATTR_TX_INFO_FLAGS,
+	HWSIM_ATTR_PERM_ADDR,
+	HWSIM_ATTR_IFTYPE_SUPPORT,
+	HWSIM_ATTR_CIPHER_SUPPORT,
+	HWSIM_ATTR_MLO_SUPPORT,
+	HWSIM_ATTR_PMSR_SUPPORT,
+	HWSIM_ATTR_PMSR_REQUEST,
+	HWSIM_ATTR_PMSR_RESULT,
 	__HWSIM_ATTR_MAX,
 };
 #define HWSIM_ATTR_MAX (__HWSIM_ATTR_MAX - 1)
@@ -147,6 +168,7 @@ struct wqueue {
 
 struct addr {
 	u8 addr[ETH_ALEN];
+	uint16_t count;
 };
 
 struct station {
@@ -154,6 +176,8 @@ struct station {
 	u8 addr[ETH_ALEN];		/* virtual interface mac address */
 	u8 hwaddr[ETH_ALEN];		/* hardware address of hwsim radio */
 	double x, y;			/* position of the station [m] */
+	char *lci;			/* LCI */
+	char *civicloc;			/* CIVIC */
 	double dir_x, dir_y;		/* direction of the station [meter per MOVE_INTERVAL] */
 	int tx_power;			/* transmission power [dBm] */
 	struct wqueue queues[IEEE80211_NUM_ACS];
@@ -190,9 +214,10 @@ struct client {
 
 struct wmediumd {
 	int timerfd;
+	int msq_id;
 
 	struct nl_sock *sock;
-	struct usfstl_loop_entry nl_loop;
+	struct usfstl_loop_entry nl_loop, grpc_loop;
 
 	struct usfstl_sched_ctrl *ctrl;
 
@@ -281,5 +306,15 @@ int w_logf(struct wmediumd *ctx, u8 level, const char *format, ...);
 int w_flogf(struct wmediumd *ctx, u8 level, FILE *stream, const char *format, ...);
 int index_to_rate(size_t index, u32 freq);
 int get_max_index(void);
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int wmediumd_main(int argc, char *argv[], int event_fd, int msq_id);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* WMEDIUMD_H_ */

@@ -22,7 +22,6 @@ import static android.net.wifi.WifiInfo.sanitizeSsid;
 import static com.android.wifitrackerlib.Utils.getVerboseLoggingDescription;
 
 import android.content.Context;
-import android.net.NetworkInfo;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
@@ -153,8 +152,7 @@ public class MergedCarrierEntry extends WifiEntry {
     }
 
     @WorkerThread
-    protected boolean connectionInfoMatches(@NonNull WifiInfo wifiInfo,
-            @NonNull NetworkInfo networkInfo) {
+    protected boolean connectionInfoMatches(@NonNull WifiInfo wifiInfo) {
         return wifiInfo.isCarrierMerged() && mSubscriptionId == wifiInfo.getSubscriptionId();
     }
 

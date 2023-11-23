@@ -1,0 +1,8 @@
+on property:sys.boot_completed=1
+	start vendor.pixelstats_vendor
+
+service vendor.pixelstats_vendor /vendor/bin/pixelstats-vendor
+    class hal
+    user system
+    group system context_hub readproc
+    disabled

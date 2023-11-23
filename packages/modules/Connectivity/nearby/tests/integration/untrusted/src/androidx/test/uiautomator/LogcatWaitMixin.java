@@ -54,7 +54,7 @@ public class LogcatWaitMixin extends WaitMixin<UiDevice> {
             @NonNull String specificLog, @NonNull Date startTime) {
         return new Condition<UiDevice, Boolean>() {
             @Override
-            Boolean apply(UiDevice device) {
+            public Boolean apply(UiDevice device) {
                 String logcatLogs;
                 try {
                     logcatLogs = device.executeShellCommand("logcat -v time -v year -d");

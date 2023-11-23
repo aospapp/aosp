@@ -44,7 +44,7 @@ using std::vector;
 static std::string Dump(const AidlDefinedType& type) {
   string code;
   CodeWriterPtr out = CodeWriter::ForString(&code);
-  DumpVisitor visitor(*out);
+  DumpVisitor visitor(*out, /*inline_constants=*/true);
   type.DispatchVisit(visitor);
   out->Close();
   return code;
@@ -74,6 +74,12 @@ static vector<string> get_strict_annotations(const AidlAnnotatable& node) {
   // - a new implementation might change so that it no longer returns null
   // values (remove @nullable)
   // - a new implementation might start accepting null values (add @nullable)
+  //
+  // AidlAnnotation::Type::SENSITIVE_DATA could be ignored for backwards
+  // compatibility, but is not. It should retroactively be applied to the
+  // older versions of the interface. When doing that, we need
+  // to add the new hash to the older versions after the change using
+  // tools/aidl/build/hash_gen.sh.
   static const set<AidlAnnotation::Type> kIgnoreAnnotations{
       AidlAnnotation::Type::NULLABLE,
       // @JavaDerive doesn't affect read/write
@@ -296,57 +302,60 @@ static bool are_compatible_parcelables(const AidlDefinedType& older, const AidlT
     }
   }
 
-  for (size_t i = old_fields.size(); i < new_fields.size(); i++) {
-    const auto& new_field = new_fields.at(i);
-    if (new_field->HasUsefulDefaultValue()) {
-      continue;
-    }
-
-    // enum can't be nullable, but it's okay if it has 0 as a valid enumerator.
-    if (const auto& enum_decl = new_types.GetEnumDeclaration(new_field->GetType());
-        enum_decl != nullptr) {
-      if (HasZeroEnumerator(*enum_decl)) {
+  // New fields must have default values.
+  if (older.AsUnionDeclaration() == nullptr) {
+    for (size_t i = old_fields.size(); i < new_fields.size(); i++) {
+      const auto& new_field = new_fields.at(i);
+      if (new_field->HasUsefulDefaultValue()) {
         continue;
       }
 
-      // TODO(b/142893595): Rephrase the message: "provide a default value or make sure ..."
-      AIDL_ERROR(new_field) << "Field '" << new_field->GetName() << "' of enum '"
-                            << enum_decl->GetName()
-                            << "' can't be initialized as '0'. Please make sure '"
-                            << enum_decl->GetName() << "' has '0' as a valid value.";
-      compatible = false;
-      continue;
-    }
+      // enum can't be nullable, but it's okay if it has 0 as a valid enumerator.
+      if (const auto& enum_decl = new_types.GetEnumDeclaration(new_field->GetType());
+          enum_decl != nullptr) {
+        if (HasZeroEnumerator(*enum_decl)) {
+          continue;
+        }
 
-    // Old API versions may suffer from the issue presented here. There is
-    // only a finite number in Android, which we must allow indefinitely.
-    struct HistoricalException {
-      std::string canonical;
-      std::string field;
-    };
-    static std::vector<HistoricalException> exceptions = {
-        {"android.net.DhcpResultsParcelable", "serverHostName"},
-        {"android.net.ResolverParamsParcel", "resolverOptions"},
-    };
-    bool excepted = false;
-    for (const HistoricalException& exception : exceptions) {
-      if (older.GetCanonicalName() == exception.canonical &&
-          new_field->GetName() == exception.field) {
-        excepted = true;
-        break;
+        // TODO(b/142893595): Rephrase the message: "provide a default value or make sure ..."
+        AIDL_ERROR(new_field) << "Field '" << new_field->GetName() << "' of enum '"
+                              << enum_decl->GetName()
+                              << "' can't be initialized as '0'. Please make sure '"
+                              << enum_decl->GetName() << "' has '0' as a valid value.";
+        compatible = false;
+        continue;
       }
-    }
-    if (excepted) continue;
 
-    AIDL_ERROR(new_field)
-        << "Field '" << new_field->GetName()
-        << "' does not have a useful default in some backends. Please either provide a default "
-           "value for this field or mark the field as @nullable. This value or a null value will "
-           "be used automatically when an old version of this parcelable is sent to a process "
-           "which understands a new version of this parcelable. In order to make sure your code "
-           "continues to be backwards compatible, make sure the default or null value does not "
-           "cause a semantic change to this parcelable.";
-    compatible = false;
+      // Old API versions may suffer from the issue presented here. There is
+      // only a finite number in Android, which we must allow indefinitely.
+      struct HistoricalException {
+        std::string canonical;
+        std::string field;
+      };
+      static std::vector<HistoricalException> exceptions = {
+          {"android.net.DhcpResultsParcelable", "serverHostName"},
+          {"android.net.ResolverParamsParcel", "resolverOptions"},
+      };
+      bool excepted = false;
+      for (const HistoricalException& exception : exceptions) {
+        if (older.GetCanonicalName() == exception.canonical &&
+            new_field->GetName() == exception.field) {
+          excepted = true;
+          break;
+        }
+      }
+      if (excepted) continue;
+
+      AIDL_ERROR(new_field)
+          << "Field '" << new_field->GetName()
+          << "' does not have a useful default in some backends. Please either provide a default "
+             "value for this field or mark the field as @nullable. This value or a null value will "
+             "be used automatically when an old version of this parcelable is sent to a process "
+             "which understands a new version of this parcelable. In order to make sure your code "
+             "continues to be backwards compatible, make sure the default or null value does not "
+             "cause a semantic change to this parcelable.";
+      compatible = false;
+    }
   }
 
   compatible = are_compatible_constants(older, newer) && compatible;

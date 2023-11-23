@@ -7,7 +7,7 @@ import (
 )
 
 type TestSimpleTableWithEnumT struct {
-	Color Color
+	Color Color `json:"color"`
 }
 
 func (t *TestSimpleTableWithEnumT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -36,6 +36,13 @@ func GetRootAsTestSimpleTableWithEnum(buf []byte, offset flatbuffers.UOffsetT) *
 	n := flatbuffers.GetUOffsetT(buf[offset:])
 	x := &TestSimpleTableWithEnum{}
 	x.Init(buf, n+offset)
+	return x
+}
+
+func GetSizePrefixedRootAsTestSimpleTableWithEnum(buf []byte, offset flatbuffers.UOffsetT) *TestSimpleTableWithEnum {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &TestSimpleTableWithEnum{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
 	return x
 }
 

@@ -23,7 +23,9 @@ use protobuf::Message;
 use std::io::Read;
 use std::io::Write;
 
-pub use microdroid_metadata::metadata::{ApexPayload, ApkPayload, Metadata};
+pub use microdroid_metadata::metadata::{
+    ApexPayload, ApkPayload, Metadata, Metadata_oneof_payload as PayloadMetadata, PayloadConfig,
+};
 
 /// Reads a metadata from a reader
 pub fn read_metadata<T: Read>(mut r: T) -> Result<Metadata> {

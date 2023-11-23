@@ -16,6 +16,8 @@
 
 package android.voiceinteraction.cts;
 
+import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.mock;
@@ -25,23 +27,24 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.RemoteCallback;
 import android.platform.test.annotations.AppModeFull;
 import android.service.voice.VoiceInteractionSession;
 import android.util.Log;
 import android.voiceinteraction.common.Utils;
-import android.voiceinteraction.cts.activities.EmptyActivity;
 import android.voiceinteraction.cts.testcore.VoiceInteractionSessionControl;
 
 import androidx.annotation.NonNull;
-import androidx.lifecycle.Lifecycle;
-import androidx.test.core.app.ActivityScenario;
+import androidx.annotation.Nullable;
 
 import com.android.compatibility.common.util.BlockingBroadcastReceiver;
 
-import org.junit.After;
 import org.junit.Test;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Tests for reliable visible activity lookup related functions.
@@ -51,17 +54,11 @@ public class VoiceInteractionSessionVisibleActivityTest extends AbstractVoiceInt
     private static final String TAG =
             VoiceInteractionSessionVisibleActivityTest.class.getSimpleName();
 
-    private final @NonNull SessionControl mSessionControl = new SessionControl();
-    private final Handler mHandler = new Handler(Looper.getMainLooper());
-    private ActivityScenario<EmptyActivity> mActivityScenario;
+    private static final int INVALID_TASK_ID = -1;
 
-    @After
-    public void cleanup() throws Exception {
-        if (mActivityScenario != null) {
-            mActivityScenario.moveToState(Lifecycle.State.DESTROYED);
-            mActivityScenario = null;
-        }
-    }
+    @NonNull private final SessionControl mSessionControl = new SessionControl();
+    @NonNull private final ActivityControl mActivityControl = new ActivityControl();
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
 
     @Test
     public void testVoiceInteractionSession_registerVisibleActivityCallback_beforeOnCreate()
@@ -132,42 +129,60 @@ public class VoiceInteractionSessionVisibleActivityTest extends AbstractVoiceInt
         mSessionControl.startVoiceInteractionSession();
 
         try {
-            // Register the VisibleActivityCallback first, the VisibleActivityCallback.onVisible
-            // or VisibleActivityCallback.onInvisible that will be called when visible activities
-            // have been changed.
-            final BlockingBroadcastReceiver receiver = new BlockingBroadcastReceiver(mContext,
-                    Utils.VISIBLE_ACTIVITY_CALLBACK_ONVISIBLE_INTENT);
-            receiver.register();
+            registerVisibleActivityCallback();
 
-            // Register the VisibleActivityCallback and the VisibleActivityCallback.onVisible will
-            // be called immediately with current visible activities.
-            mSessionControl.registerVisibleActivityCallback(
-                    Utils.VISIBLE_ACTIVITY_CALLBACK_REGISTER_NORMAL);
+            // After starting a new activity, the VisibleActivityCallback.onVisible should be
+            // called with this new activity.
+            Intent visibleResult = getResultOnPerformActivityChange(
+                    Utils.ACTIVITY_NEW, /* expectedVisibleResult= */ true);
+            assertThat(visibleResult).isNotNull();
+            assertThat(visibleResult.getIntExtra(Utils.VOICE_INTERACTION_KEY_TASKID,
+                    INVALID_TASK_ID)).isEqualTo(mActivityControl.mTaskId);
 
-            // Verify if the VisibleActivityCallback.onVisible has been called.
-            Intent intent = receiver.awaitForBroadcast(Utils.OPERATION_TIMEOUT_MS);
-            receiver.unregisterQuietly();
-
-            assertThat(intent).isNotNull();
-            assertThat(intent.getBooleanExtra(Utils.VISIBLE_ACTIVITY_KEY_RESULT, false)).isTrue();
-
-            // After starting a new activity, the VisibleActivityCallback.onVisible and
-            // VisibleActivityCallback.onInvisible should be called due to visible activities have
-            // been changed.
-            performActivityChangeAndVerifyCallback(Utils.ACTIVITY_NEW);
-
-            // After finishing an activity, the VisibleActivityCallback.onVisible and
-            // VisibleActivityCallback.onInvisible should be called due to visible activities have
-            // been changed.
-            performActivityChangeAndVerifyCallback(Utils.ACTIVITY_FINISH);
-
+            // After finishing an activity, the VisibleActivityCallback.onInVisible should be
+            // called with this finishing activity.
+            Intent invisibleResult = getResultOnPerformActivityChange(
+                    Utils.ACTIVITY_FINISH, /* expectedVisibleResult= */ false);
+            assertThat(invisibleResult).isNotNull();
+            assertThat(invisibleResult.getIntExtra(Utils.VOICE_INTERACTION_KEY_TASKID,
+                    INVALID_TASK_ID)).isEqualTo(mActivityControl.mTaskId);
         } finally {
             mSessionControl.unregisterVisibleActivityCallback();
             mSessionControl.stopVoiceInteractionSession();
         }
     }
 
-    private void performActivityChangeAndVerifyCallback(int activityChange) throws Exception {
+    @Test
+    public void testReceiveVisibleActivityCallbackAfterCrashActivity() throws Exception {
+        // Start a VoiceInteractionSession and make sure the session has been created.
+        mSessionControl.startVoiceInteractionSession();
+
+        try {
+            registerVisibleActivityCallback();
+
+            // After starting a new activity, the VisibleActivityCallback.onVisible should be
+            // called with this new activity.
+            Intent visibleResult = getResultOnPerformActivityChange(
+                    Utils.ACTIVITY_NEW, /* expectedVisibleResult= */ true);
+            assertThat(visibleResult).isNotNull();
+            assertThat(visibleResult.getIntExtra(Utils.VOICE_INTERACTION_KEY_TASKID,
+                    INVALID_TASK_ID)).isEqualTo(mActivityControl.mTaskId);
+
+            // After crashing an activity, the VisibleActivityCallback.onInVisible should be
+            // called with this crashing activity.
+            Intent invisibleResult = getResultOnPerformActivityChange(
+                    Utils.ACTIVITY_CRASH, /* expectedVisibleResult= */ false);
+            assertThat(invisibleResult).isNotNull();
+            assertThat(invisibleResult.getIntExtra(Utils.VOICE_INTERACTION_KEY_TASKID,
+                    INVALID_TASK_ID)).isEqualTo(mActivityControl.mTaskId);
+        } finally {
+            mSessionControl.unregisterVisibleActivityCallback();
+            mSessionControl.stopVoiceInteractionSession();
+        }
+    }
+
+    private Intent getResultOnPerformActivityChange(int activityChange,
+            boolean expectedVisibleResult) throws Exception {
         // Sleep one second to reduce the impact of changing activity state.
         Thread.sleep(1000);
 
@@ -183,35 +198,54 @@ public class VoiceInteractionSessionVisibleActivityTest extends AbstractVoiceInt
         switch (activityChange) {
             case Utils.ACTIVITY_NEW:
                 // Start a new activity
-                final Intent intentActivity = new Intent(mContext, EmptyActivity.class)
-                        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                mActivityScenario = ActivityScenario.launch(intentActivity);
-                mActivityScenario.moveToState(Lifecycle.State.RESUMED);
+                mActivityControl.startActivity();
                 break;
             case Utils.ACTIVITY_FINISH:
                 // Finish an activity
-                mActivityScenario.moveToState(Lifecycle.State.DESTROYED);
-                mActivityScenario = null;
+                mActivityControl.finishActivity();
+                break;
+            case Utils.ACTIVITY_CRASH:
+                // Crash an activity
+                mActivityControl.crashActivity();
                 break;
         }
 
-        // Verify if the VisibleActivityCallback.onVisible is called
         final Intent onVisibleIntent = onVisibleReceiver.awaitForBroadcast(
                 Utils.OPERATION_TIMEOUT_MS);
+        Log.v(TAG, "onVisibleIntent : " + onVisibleIntent);
         onVisibleReceiver.unregisterQuietly();
 
-        assertThat(onVisibleIntent).isNotNull();
-        assertThat(
-                onVisibleIntent.getBooleanExtra(Utils.VISIBLE_ACTIVITY_KEY_RESULT, false)).isTrue();
-
-        // Verify if the VisibleActivityCallback.onInvisible is called
         final Intent onInvisibleIntent = onInvisibleReceiver.awaitForBroadcast(
                 Utils.OPERATION_TIMEOUT_MS);
+        Log.v(TAG, "onInvisibleIntent : " + onVisibleIntent);
         onInvisibleReceiver.unregisterQuietly();
 
-        assertThat(onInvisibleIntent).isNotNull();
-        assertThat(onInvisibleIntent.getBooleanExtra(Utils.VISIBLE_ACTIVITY_KEY_RESULT,
-                false)).isTrue();
+        if (expectedVisibleResult) {
+            return onVisibleIntent;
+        }
+        return onInvisibleIntent;
+    }
+
+    private void registerVisibleActivityCallback() throws Exception {
+        // Register the VisibleActivityCallback first, the VisibleActivityCallback.onVisible
+        // or VisibleActivityCallback.onInvisible that will be called when visible activities
+        // have been changed.
+        final BlockingBroadcastReceiver receiver = new BlockingBroadcastReceiver(mContext,
+                Utils.VISIBLE_ACTIVITY_CALLBACK_ONVISIBLE_INTENT);
+        receiver.register();
+
+        // Register the VisibleActivityCallback and the VisibleActivityCallback.onVisible will
+        // be called immediately with current visible activities.
+        mSessionControl.registerVisibleActivityCallback(
+                Utils.VISIBLE_ACTIVITY_CALLBACK_REGISTER_NORMAL);
+
+        // Verify if the VisibleActivityCallback.onVisible has been called.
+        Intent intent = receiver.awaitForBroadcast(Utils.OPERATION_TIMEOUT_MS);
+        receiver.unregisterQuietly();
+
+        assertThat(intent).isNotNull();
+        assertThat(intent.getIntExtra(Utils.VOICE_INTERACTION_KEY_TASKID,
+                INVALID_TASK_ID)).isGreaterThan(INVALID_TASK_ID);
     }
 
     private final class SessionControl extends VoiceInteractionSessionControl {
@@ -245,6 +279,86 @@ public class VoiceInteractionSessionVisibleActivityTest extends AbstractVoiceInt
                     Utils.VISIBLE_ACTIVITY_CMD_UNREGISTER_CALLBACK, null /*directAction*/,
                     null /*arguments*/, null /*postActionCommand*/);
             return result.getBoolean(Utils.VISIBLE_ACTIVITY_KEY_RESULT);
+        }
+    }
+
+    // TODO: (b/245720308) Refactor ActivityControl with DirectActionsTest
+    private final class ActivityControl {
+
+        @Nullable private RemoteCallback mControl;
+        int mTaskId;
+
+        void startActivity() throws Exception {
+            final CountDownLatch latch = new CountDownLatch(1);
+
+            final RemoteCallback callback = new RemoteCallback((result) -> {
+                Log.v(TAG, "ActivityControl: testapp called the callback: "
+                        + Utils.toBundleString(result));
+                mControl = result.getParcelable(Utils.VOICE_INTERACTION_KEY_CONTROL);
+                mTaskId = result.getInt(Utils.VOICE_INTERACTION_KEY_TASKID);
+                latch.countDown();
+            });
+
+            final Intent intent = new Intent()
+                    .setAction("android.intent.action.TestVisibleActivity")
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    .putExtra(Utils.VOICE_INTERACTION_KEY_CALLBACK, callback);
+            if (mContext.getPackageManager().isInstantApp()) {
+                // Override app-links domain verification.
+                runShellCommand(
+                        String.format(
+                                "pm set-app-links-user-selection --user cur --package %1$s true"
+                                        + " %1$s",
+                                Utils.TEST_APP_PACKAGE));
+            } else {
+                intent.setPackage(Utils.TEST_APP_PACKAGE);
+            }
+
+            Log.v(TAG, "startActivity: " + intent);
+            mContext.startActivity(intent);
+
+            if (!latch.await(Utils.OPERATION_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                throw new TimeoutException(
+                        "activity not started in " + Utils.OPERATION_TIMEOUT_MS + "ms");
+            }
+        }
+
+        void finishActivity() throws Exception {
+            executeRemoteCommand(Utils.VOICE_INTERACTION_ACTIVITY_CMD_FINISH);
+        }
+
+        void crashActivity() throws Exception {
+            executeRemoteCommand(Utils.VOICE_INTERACTION_ACTIVITY_CMD_CRASH);
+        }
+
+        @NonNull Bundle executeRemoteCommand(@NonNull String action) throws Exception {
+            final Bundle result = new Bundle();
+
+            final CountDownLatch latch = new CountDownLatch(1);
+
+            final RemoteCallback callback = new RemoteCallback((b) -> {
+                Log.v(TAG, "executeRemoteCommand(): received result from '" + action + "': "
+                        + Utils.toBundleString(b));
+                if (b != null) {
+                    result.putAll(b);
+                }
+                latch.countDown();
+            });
+
+            final Bundle command = new Bundle();
+            command.putString(Utils.VOICE_INTERACTION_KEY_COMMAND, action);
+            command.putParcelable(Utils.VOICE_INTERACTION_KEY_CALLBACK, callback);
+
+            Log.v(TAG, "executeRemoteCommand(): sending command for '" + action + "'");
+            if (mControl != null) {
+                mControl.sendResult(command);
+            }
+
+            if (!latch.await(Utils.OPERATION_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                throw new TimeoutException(
+                        "result not received in " + Utils.OPERATION_TIMEOUT_MS + "ms");
+            }
+            return result;
         }
     }
 }

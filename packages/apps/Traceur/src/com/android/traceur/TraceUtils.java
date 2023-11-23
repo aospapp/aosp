@@ -17,27 +17,28 @@
 package com.android.traceur;
 
 import android.os.Build;
-import android.os.AsyncTask;
 import android.os.FileUtils;
 import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Date;
 import java.util.Locale;
-import java.util.Collection;
-import java.util.concurrent.TimeUnit;
 import java.util.TreeMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Utility functions for tracing.
- * Will call atrace or perfetto depending on the setting.
  */
 public class TraceUtils {
 
@@ -45,19 +46,21 @@ public class TraceUtils {
 
     public static final String TRACE_DIRECTORY = "/data/local/traces/";
 
-    // To change Traceur to use atrace to collect traces,
-    // change mTraceEngine to point to AtraceUtils().
     private static TraceEngine mTraceEngine = new PerfettoUtils();
 
     private static final Runtime RUNTIME = Runtime.getRuntime();
     private static final int PROCESS_TIMEOUT_MS = 30000; // 30 seconds
 
+    enum RecordingType {
+      UNKNOWN, TRACE, STACK_SAMPLES
+    }
     public interface TraceEngine {
         public String getName();
         public String getOutputExtension();
         public boolean traceStart(Collection<String> tags, int bufferSizeKb, boolean apps,
             boolean attachToBugreport, boolean longTrace, int maxLongTraceSizeMb,
             int maxLongTraceDurationMinutes);
+        public boolean stackSampleStart(boolean attachToBugreport);
         public void traceStop();
         public boolean traceDump(File outFile);
         public boolean isTracingOn();
@@ -74,6 +77,10 @@ public class TraceUtils {
             attachToBugreport, longTrace, maxLongTraceSizeMb, maxLongTraceDurationMinutes);
     }
 
+    public static boolean stackSampleStart(boolean attachToBugreport) {
+        return mTraceEngine.stackSampleStart(attachToBugreport);
+    }
+
     public static void traceStop() {
         mTraceEngine.traceStop();
     }
@@ -87,11 +94,17 @@ public class TraceUtils {
     }
 
     public static TreeMap<String, String> listCategories() {
-        return PerfettoUtils.perfettoListCategories();
+        TreeMap<String, String> categories = PerfettoUtils.perfettoListCategories();
+        categories.put("sys_stats", "meminfo and vmstats");
+        categories.put("logs", "android logcat");
+        categories.put("cpu", "callstack samples");
+        return categories;
     }
 
     public static void clearSavedTraces() {
-        String cmd = "rm -f " + TRACE_DIRECTORY + "trace-*.*trace";
+        String cmd = "rm -f " + TRACE_DIRECTORY + "trace-*.*trace " +
+                TRACE_DIRECTORY + "recovered-trace*.*trace " +
+                TRACE_DIRECTORY + "stack-samples*.*trace";
 
         Log.v(TAG, "Clearing trace directory: " + cmd);
         try {
@@ -146,11 +159,30 @@ public class TraceUtils {
         return process;
     }
 
-    public static String getOutputFilename() {
+    public static String getOutputFilename(RecordingType type) {
+        String prefix;
+        switch (type) {
+            case TRACE:
+                prefix = "trace";
+                break;
+            case STACK_SAMPLES:
+                prefix = "stack-samples";
+                break;
+            case UNKNOWN:
+            default:
+                prefix = "recording";
+                break;
+        }
         String format = "yyyy-MM-dd-HH-mm-ss";
         String now = new SimpleDateFormat(format, Locale.US).format(new Date());
-        return String.format("trace-%s-%s-%s.%s", Build.BOARD, Build.ID, now,
+        return String.format("%s-%s-%s-%s.%s", prefix, Build.BOARD, Build.ID, now,
             mTraceEngine.getOutputExtension());
+    }
+
+    public static String getRecoveredFilename() {
+        // Knowing what the previous Traceur session was recording would require adding a
+        // recordingWasTrace parameter to TraceUtils.traceStart().
+        return "recovered-" + getOutputFilename(RecordingType.UNKNOWN);
     }
 
     public static File getOutputFile(String filename) {
@@ -158,17 +190,18 @@ public class TraceUtils {
     }
 
     protected static void cleanupOlderFiles(final int minCount, final long minAge) {
-        new AsyncTask<Void, Void, Void>() {
-            @Override
-            protected Void doInBackground(Void... params) {
-                try {
-                    FileUtils.deleteOlderFiles(new File(TRACE_DIRECTORY), minCount, minAge);
-                } catch (RuntimeException e) {
-                    Log.e(TAG, "Failed to delete older traces", e);
-                }
-                return null;
-            }
-        }.execute();
+        FutureTask<Void> task = new FutureTask<Void>(
+                () -> {
+                    try {
+                        FileUtils.deleteOlderFiles(new File(TRACE_DIRECTORY), minCount, minAge);
+                    } catch (RuntimeException e) {
+                        Log.e(TAG, "Failed to delete older traces", e);
+                    }
+                    return null;
+                });
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        // execute() instead of submit() because we don't need the result.
+        executor.execute(task);
     }
 
     /**

@@ -1,0 +1,136 @@
+/*
+ * Copyright (C) 2023 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto2";
+
+package android.os.statsd.framework;
+
+import "frameworks/proto_logging/stats/atoms.proto";
+import "frameworks/proto_logging/stats/atom_field_options.proto";
+
+option java_package = "com.android.os.framework";
+
+extend Atom {
+    optional FullScreenIntentLaunched full_screen_intent_launched = 631 [(module) = "framework"];
+    optional BalAllowed bal_allowed = 632 [(module) = "framework"];
+    optional InTaskActivityStarted in_task_activity_started = 685 [(module) = "framework"];
+    optional CachedAppsHighWaterMark cached_apps_high_watermark = 10189 [(module) = "framework"];
+}
+
+/**
+ * Logs when a full screen intent is launched.
+ *
+ * Logged from:
+ *   frameworks/base/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarNotificationActivityStarter.java
+ */
+message FullScreenIntentLaunched {
+    optional int32 creator_uid = 1 [(is_uid) = true];
+    optional string activity = 2;
+}
+
+message BalAllowed {
+    optional string target_activity = 1;
+    optional Status allowed_reason = 2;
+    optional int32 calling_uid = 3 [(is_uid) = true];
+    optional int32 real_calling_uid = 4 [(is_uid) = true];
+
+    enum Status {
+        BAL_STATUS_UNKNOWN = 0;
+        BAL_ALLOW_DEFAULT = 1;
+        BAL_ALLOW_ALLOWLISTED_UID = 2;
+        BAL_ALLOW_ALLOWLISTED_COMPONENT = 3;
+        BAL_ALLOW_VISIBLE_WINDOW = 4;
+        BAL_ALLOW_PENDING_INTENT = 5;
+        BAL_ALLOW_BAL_PERMISSION = 6;
+        BAL_ALLOW_SAW_PERMISSION = 7;
+        BAL_ALLOW_GRACE_PERIOD = 8;
+        BAL_ALLOW_FOREGROUND = 9;
+        BAL_ALLOW_SDK_SANDBOX = 10;
+    }
+}
+
+/**
+ * Logs when an activity is started in a task with existing visible activities.
+ *
+ * Logged from: com.android.server.wm.ActivityMetricsLogger
+ */
+message InTaskActivityStarted {
+    // The uid of the started activity.
+    optional int32 uid = 1 [(is_uid) = true];
+
+    enum TransitionType {
+        UNKNOWN = 0;
+        WARM = 1;
+        HOT = 2;
+        COLD = 3;
+        RELAUNCH = 4;
+    }
+    optional TransitionType type = 2;
+
+    // Whether the activity is opaque or translucent.
+    optional bool is_opaque = 3;
+
+    // The delay to start transition.
+    optional int32 transition_delay_millis = 4;
+
+    // How long the activity took to be drawn.
+    optional int32 windows_drawn_delay_millis = 5;
+
+    // The timestamp(SystemClock#elapsedRealtime()) when starting activity.
+    optional int64 activity_start_timestamp_millis = 6;
+}
+
+/**
+ * Logs the cached apps high water mark.
+ */
+message CachedAppsHighWaterMark {
+  // The high water mark of the number of cached apps.
+  optional int32 cached_app_high_watermark = 1;
+
+  // The uptime (in seconds) at the high watermark.
+  // Note this is going to be pull metrics, so we'll need the timestamp here.
+  optional int32 uptime_in_seconds = 2;
+
+  // The number of binder proxy at that high water mark.
+  optional int32 binder_proxy_snapshot = 3;
+
+  // Free physical memory (in kb) on device.
+  optional int32 free_in_kb = 4;
+
+  // Cched physical memory (in kb) on device.
+  optional int32 cached_in_kb = 5;
+
+  // zram (in kb) on device.
+  optional int32 zram_in_kb = 6;
+
+  // Kernel memory (in kb) on device.
+  optional int32 kernel_in_kb = 7;
+
+  // The number of apps in frozen state.
+  optional int32 num_frozen_apps = 8;
+
+  // The longest frozen time (now - last_frozen) in current frozen apps.
+  optional int32 longest_frozen_time_in_seconds = 9;
+
+  // The shortest frozen time (now - last_frozen) in current frozen apps.
+  optional int32 shortest_frozen_time_in_seconds = 10;
+
+  // The mean frozen time (now - last_frozen) in current frozen apps.
+  optional int32 mean_frozen_time_in_seconds = 11;
+
+  // The average frozen time (now - last_frozen) in current frozen apps.
+  optional int32 average_frozen_time_in_seconds = 12;
+}

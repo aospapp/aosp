@@ -48,23 +48,17 @@ import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.graphics.Rect;
+import android.hardware.display.DisplayManager;
 import android.os.SystemClock;
 import android.service.autofill.SaveInfo;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.BySelector;
-import android.support.test.uiautomator.Direction;
-import android.support.test.uiautomator.SearchCondition;
-import android.support.test.uiautomator.StaleObjectException;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.UiObjectNotFoundException;
-import android.support.test.uiautomator.UiScrollable;
-import android.support.test.uiautomator.UiSelector;
-import android.support.test.uiautomator.Until;
 import android.text.Html;
 import android.text.Spanned;
 import android.text.style.URLSpan;
 import android.util.Log;
+import android.view.Display;
+import android.view.InputDevice;
+import android.view.MotionEvent;
+import android.view.Surface;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.accessibility.AccessibilityEvent;
@@ -74,9 +68,22 @@ import android.view.accessibility.AccessibilityWindowInfo;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.Configurator;
+import androidx.test.uiautomator.Direction;
+import androidx.test.uiautomator.SearchCondition;
+import androidx.test.uiautomator.StaleObjectException;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObject2;
+import androidx.test.uiautomator.UiObjectNotFoundException;
+import androidx.test.uiautomator.UiScrollable;
+import androidx.test.uiautomator.UiSelector;
+import androidx.test.uiautomator.Until;
 
 import com.android.compatibility.common.util.RetryableException;
 import com.android.compatibility.common.util.Timeout;
+import com.android.compatibility.common.util.UserHelper;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -160,14 +167,22 @@ public class UiBot {
 
     private static final int MAX_UIOBJECT_RETRY_COUNT = 3;
 
-    /** Pass to {@link #setScreenOrientation(int)} to change the display to portrait mode */
-    public static int PORTRAIT = 0;
+    /**
+     * Pass to {@link #setScreenOrientation(int)} to change the display to portrait mode.
+     * This is an alias of Surface.ROTATION_0 though it's named as PORTRAIT for historical reasons.
+     */
+    public static final int PORTRAIT = Surface.ROTATION_0;
 
-    /** Pass to {@link #setScreenOrientation(int)} to change the display to landscape mode */
-    public static int LANDSCAPE = 1;
+    /**
+     * Pass to {@link #setScreenOrientation(int)} to change the display to landscape mode.
+     * This is an alias of Surface.ROTATION_90 though it's named as LANDSCAPE for historical
+     * reasons.
+     */
+    public static final int LANDSCAPE = Surface.ROTATION_90;
 
     private final UiDevice mDevice;
     private final Context mContext;
+    private final UserHelper mUserHelper;
     private final String mPackageName;
     private final UiAutomation mAutoman;
     private final Timeout mDefaultTimeout;
@@ -183,6 +198,7 @@ public class UiBot {
         final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
         mDevice = UiDevice.getInstance(instrumentation);
         mContext = instrumentation.getContext();
+        mUserHelper = new UserHelper(mContext);
         mPackageName = mContext.getPackageName();
         mAutoman = instrumentation.getUiAutomation();
     }
@@ -617,6 +633,15 @@ public class UiBot {
     }
 
     /**
+     * Asserts the save snackbar is showing with a custom service name and returns it.
+     */
+    public UiObject2 assertSaveShowingWithCustomServiceName(int type, String customServiceName)
+            throws Exception {
+        return assertSaveOrUpdateShowing(/* update= */ false, SaveInfo.NEGATIVE_BUTTON_STYLE_CANCEL,
+                SaveInfo.POSITIVE_BUTTON_STYLE_SAVE, null, SAVE_TIMEOUT, customServiceName, type);
+    }
+
+    /**
      * Asserts the save snackbar is showing and returns it.
      */
     public UiObject2 assertSaveShowing(Timeout timeout, int type) throws Exception {
@@ -651,7 +676,17 @@ public class UiBot {
      * Asserts the save snackbar is not showing.
      */
     public void assertSaveNotShowing(int type) throws Exception {
-        assertNeverShown("save UI for type " + type, SAVE_UI_SELECTOR, SAVE_NOT_SHOWN_NAPTIME_MS);
+        assertNeverShown("save UI for type " + saveTypeToString(type), SAVE_UI_SELECTOR,
+                SAVE_NOT_SHOWN_NAPTIME_MS);
+    }
+
+    /**
+     * Asserts the save snackbar is not showing, explaining when.
+     */
+    public void assertSaveNotShowing(int type, @Nullable String when) throws Exception {
+        String suffix = when == null ? "" : " when " + when;
+        assertNeverShown("save UI for type " + saveTypeToString(type) + suffix, SAVE_UI_SELECTOR,
+                SAVE_NOT_SHOWN_NAPTIME_MS);
     }
 
     public void assertSaveNotShowing() throws Exception {
@@ -691,6 +726,30 @@ public class UiBot {
         return getString(typeResourceName);
     }
 
+    private String saveTypeToString(int type) {
+        // Cannot use DebugUtils, it's @hide
+        switch (type) {
+            case SAVE_DATA_TYPE_PASSWORD:
+                return "PASSWORD";
+            case SAVE_DATA_TYPE_ADDRESS:
+                return "ADDRESS";
+            case SAVE_DATA_TYPE_CREDIT_CARD:
+                return "CREDIT_CARD";
+            case SAVE_DATA_TYPE_USERNAME:
+                return "USERNAME";
+            case SAVE_DATA_TYPE_EMAIL_ADDRESS:
+                return "EMAIL_ADDRESS";
+            case SAVE_DATA_TYPE_DEBIT_CARD:
+                return "DEBIT_CARD";
+            case SAVE_DATA_TYPE_PAYMENT_CARD:
+                return "PAYMENT_CARD";
+            case SAVE_DATA_TYPE_GENERIC_CARD:
+                return "GENERIC_CARD";
+            default:
+                return "UNSUPPORT_TYPE_" + type;
+        }
+    }
+
     public UiObject2 assertSaveShowing(String description, int... types) throws Exception {
         return assertSaveOrUpdateShowing(/* update= */ false, SaveInfo.NEGATIVE_BUTTON_STYLE_CANCEL,
                 description, SAVE_TIMEOUT, types);
@@ -722,6 +781,13 @@ public class UiBot {
     public UiObject2 assertSaveOrUpdateShowing(boolean update, int negativeButtonStyle,
             int positiveButtonStyle, String description, Timeout timeout, int... types)
             throws Exception {
+        return assertSaveOrUpdateShowing(update, negativeButtonStyle, positiveButtonStyle,
+            description, timeout, InstrumentedAutoFillService.getServiceLabel(), types);
+    }
+
+    public UiObject2 assertSaveOrUpdateShowing(boolean update, int negativeButtonStyle,
+            int positiveButtonStyle, String description, Timeout timeout, String serviceLabel,
+            int... types) throws Exception {
 
         final UiObject2 snackbar = waitForObject(SAVE_UI_SELECTOR, timeout);
 
@@ -747,7 +813,6 @@ public class UiBot {
             titleWithTypeId = RESOURCE_STRING_SAVE_TITLE_WITH_TYPE;
         }
 
-        final String serviceLabel = InstrumentedAutoFillService.getServiceLabel();
         switch (types.length) {
             case 1:
                 final String expectedTitle = (types[0] == SAVE_DATA_TYPE_GENERIC)
@@ -807,8 +872,19 @@ public class UiBot {
 
         final String expectedAccessibilityTitle =
                 getString(RESOURCE_STRING_SAVE_SNACKBAR_ACCESSIBILITY_TITLE);
-        assertAccessibilityTitle(snackbar, expectedAccessibilityTitle);
-
+        timeout.run(
+                String.format(
+                        "assertAccessibilityTitle(%s, %s)",
+                        snackbar,
+                        expectedAccessibilityTitle),
+                () -> {
+                    try {
+                        assertAccessibilityTitle(snackbar, expectedAccessibilityTitle);
+                    } catch (RetryableException e) {
+                        return null;
+                    }
+                    return true;
+                });
         return snackbar;
     }
 
@@ -1102,6 +1178,8 @@ public class UiBot {
         // does not expose that.
         for (AccessibilityWindowInfo window : mAutoman.getWindows()) {
             final CharSequence title = window.getTitle();
+            Log.d(TAG, "assertAccessibilityTitle(): found title =" + title + ", expected title="
+                    + expectedTitle);
             if (title != null && title.toString().equals(expectedTitle)) {
                 return;
             }
@@ -1110,18 +1188,29 @@ public class UiBot {
     }
 
     /**
-     * Sets the the screen orientation.
+     * Sets the screen orientation.
      *
      * @param orientation typically {@link #LANDSCAPE} or {@link #PORTRAIT}.
      *
      * @throws RetryableException if value didn't change.
      */
     public void setScreenOrientation(int orientation) throws Exception {
+        // Use the platform API instead of mDevice.getDisplayRotation(), which is slow due to
+        // waitForIdle(). waitForIdle() is not needed here because in AutoFillServiceTestCase we
+        // always use UiBot#setScreenOrientation() to change the screen rotation, which blocks until
+        // new rotation is reflected on the device.
+        final int currentRotation = InstrumentationRegistry.getInstrumentation().getContext()
+                .getSystemService(DisplayManager.class).getDisplay(Display.DEFAULT_DISPLAY)
+                .getRotation();
         mAutoman.setRotation(orientation);
 
-        UI_SCREEN_ORIENTATION_TIMEOUT.run("setScreenOrientation(" + orientation + ")", () -> {
-            return getScreenOrientation() == orientation ? Boolean.TRUE : null;
-        });
+        if (orientation == currentRotation) {
+            // Just need to freeze the rotation.
+            return;
+        }
+
+        UI_SCREEN_ORIENTATION_TIMEOUT.run("setScreenOrientation(" + orientation + ")", () ->
+                mDevice.getDisplayRotation() == orientation ? Boolean.TRUE : null);
     }
 
     /**
@@ -1277,20 +1366,6 @@ public class UiBot {
     }
 
     /**
-     * Selects a view by id via UiDevice.
-     *
-     * Note: This used to avoid IME issue that some case IME will be not shown via
-     * UiObject2.click().
-     */
-    public UiObject2 selectByRelativeIdFromUiDevice(String id) throws Exception {
-        Log.v(TAG, "selectByRelativeIdFromDevice(): " + id);
-        final UiObject2 object = waitForObject(By.res(mPackageName, id));
-        final Point p = object.getVisibleCenter();
-        mDevice.click(p.x, p.y);
-        return object;
-    }
-
-    /**
      * Asserts the header in the fill dialog.
      */
     public void assertFillDialogHeader(String expectedHeader) throws Exception {
@@ -1374,7 +1449,7 @@ public class UiBot {
     public void touchOutsideDialog() throws Exception {
         Log.v(TAG, "touchOutsideDialog()");
         final UiObject2 picker = findFillDialogPicker();
-        mDevice.click(1, picker.getVisibleBounds().top / 2);
+        assertThat(injectClick(new Point(1, picker.getVisibleBounds().top / 2))).isTrue();
     }
 
     /**
@@ -1383,7 +1458,8 @@ public class UiBot {
     public void touchOutsideSaveDialog() throws Exception {
         Log.v(TAG, "touchOutsideSaveDialog()");
         final UiObject2 picker = waitForObject(SAVE_UI_SELECTOR, SAVE_TIMEOUT);
-        mDevice.click(1, picker.getVisibleBounds().top / 2);
+        Log.v(TAG, "got picker: " + picker);
+        assertThat(injectClick(new Point(1, picker.getVisibleBounds().top / 2))).isTrue();
     }
 
     /**
@@ -1414,5 +1490,47 @@ public class UiBot {
      */
     public void assertNoFillDialog() throws Exception {
         assertNeverShown("Fill dialog", FILL_DIALOG_SELECTOR, DATASET_PICKER_NOT_SHOWN_NAPTIME_MS);
+    }
+
+    /**
+     * Injects a click input event at the given point in the default display.
+     * We have this method because {@link UiObject2#click) cannot touch outside the object, and
+     * {@link UiDevice#click} is broken in multi windowing mode (b/238254060).
+     */
+    private boolean injectClick(Point p) {
+        final long downTime = SystemClock.uptimeMillis();
+        final MotionEvent downEvent = getMotionEvent(downTime, downTime, MotionEvent.ACTION_DOWN,
+                p);
+        if (!mAutoman.injectInputEvent(downEvent, true)) {
+            Log.e(TAG, "Failed to inject down event.");
+            return false;
+        }
+
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            Log.e(TAG, "Interrupted while sleep between click", e);
+        }
+
+        final MotionEvent upEvent = getMotionEvent(downTime, SystemClock.uptimeMillis(),
+                MotionEvent.ACTION_UP, p);
+        return mAutoman.injectInputEvent(upEvent, true);
+    }
+
+    private MotionEvent getMotionEvent(long downTime, long eventTime, int action, Point p) {
+        final MotionEvent.PointerProperties properties = new MotionEvent.PointerProperties();
+        properties.id = 0;
+        properties.toolType = Configurator.getInstance().getToolType();
+        final MotionEvent.PointerCoords coords = new MotionEvent.PointerCoords();
+        coords.pressure = 1.0F;
+        coords.size = 1.0F;
+        coords.x = p.x;
+        coords.y = p.y;
+        MotionEvent event = MotionEvent.obtain(downTime, eventTime, action, 1,
+                new MotionEvent.PointerProperties[]{properties},
+                new MotionEvent.PointerCoords[]{coords}, 0, 0, 1.0F, 1.0F, 0, 0,
+                InputDevice.SOURCE_TOUCHSCREEN, 0);
+        mUserHelper.injectDisplayIdIfNeeded(event);
+        return event;
     }
 }

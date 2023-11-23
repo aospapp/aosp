@@ -18,11 +18,14 @@ package android.telecom.cts;
 
 import static android.telecom.Call.Details.*;
 
+import android.os.ParcelUuid;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
+import android.telecom.CallEndpoint;
 import android.test.AndroidTestCase;
 
 import java.util.Arrays;
+import java.util.UUID;
 
 public class CallTest extends AndroidTestCase {
 
@@ -124,5 +127,22 @@ public class CallTest extends AndroidTestCase {
         assertEquals(2, cas.getSupportedBluetoothDevices().size());
         assertTrue(cas.getSupportedBluetoothDevices().contains(TestUtils.BLUETOOTH_DEVICE1));
         assertTrue(cas.getSupportedBluetoothDevices().contains(TestUtils.BLUETOOTH_DEVICE2));
+    }
+
+    public void testCallEndpoint() {
+        if (!TestUtils.HAS_BLUETOOTH) return;
+        CharSequence name = "testCallEndpoint";
+        ParcelUuid identifier = new ParcelUuid(UUID.randomUUID());
+        CallEndpoint cep = new CallEndpoint(name, CallEndpoint.TYPE_BLUETOOTH, identifier);
+        assertEquals(name, cep.getEndpointName());
+        assertEquals(CallEndpoint.TYPE_BLUETOOTH, cep.getEndpointType());
+        assertEquals(identifier, cep.getIdentifier());
+    }
+
+    public void testStreamingAudioState() {
+        CallAudioState cas = new CallAudioState(false, CallAudioState.ROUTE_STREAMING,
+                CallAudioState.ROUTE_BLUETOOTH + CallAudioState.ROUTE_SPEAKER
+                        + CallAudioState.ROUTE_EARPIECE);
+        assertEquals(CallAudioState.ROUTE_STREAMING, cas.getSupportedRouteMask());
     }
 }

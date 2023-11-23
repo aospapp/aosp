@@ -16,10 +16,11 @@
 
 package android.server.wm;
 
-import static android.server.wm.WindowManagerState.STATE_RESUMED;
 import static android.server.wm.ComponentNameUtils.getActivityName;
 import static android.server.wm.MockImeHelper.createManagedMockImeSession;
 import static android.server.wm.MultiDisplaySystemDecorationTests.ImeTestActivity;
+import static android.server.wm.ShellCommandHelper.executeShellCommand;
+import static android.server.wm.WindowManagerState.STATE_RESUMED;
 import static android.server.wm.app.Components.DISPLAY_ACCESS_CHECK_EMBEDDING_ACTIVITY;
 import static android.server.wm.app.Components.LAUNCHING_ACTIVITY;
 import static android.server.wm.app.Components.LAUNCH_BROADCAST_RECEIVER;
@@ -64,10 +65,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.platform.test.annotations.Presubmit;
-import android.server.wm.WindowManagerState.DisplayContent;
-import android.server.wm.WindowManagerState.Task;
 import android.server.wm.CommandSession.ActivitySession;
 import android.server.wm.TestJournalProvider.TestJournalContainer;
+import android.server.wm.WindowManagerState.DisplayContent;
+import android.server.wm.WindowManagerState.Task;
 import android.view.Display;
 import android.view.View;
 import android.view.ViewGroup;

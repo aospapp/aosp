@@ -245,6 +245,9 @@ public class CameraExtensionCharacteristicsTest {
 
     @Test
     public void testExtensionRequestKeys() throws Exception {
+        ArraySet<CaptureRequest.Key> extensionRequestKeys = new ArraySet<>();
+        extensionRequestKeys.add(CaptureRequest.EXTENSION_STRENGTH);
+
         for (String id : mTestRule.getCameraIdsUnderTest()) {
             StaticMetadata staticMeta =
                     new StaticMetadata(mTestRule.getCameraManager().getCameraCharacteristics(id));
@@ -269,7 +272,8 @@ public class CameraExtensionCharacteristicsTest {
                     String msg = String.format("Supported extension request key %s doesn't appear "
                             + " int the regular camera characteristics list of supported keys!",
                             captureKey.getName());
-                    assertTrue(msg, staticMeta.areKeysAvailable(captureKey));
+                    assertTrue(msg, staticMeta.areKeysAvailable(captureKey) ||
+                            extensionRequestKeys.contains(captureKey));
                 }
             }
         }
@@ -277,6 +281,10 @@ public class CameraExtensionCharacteristicsTest {
 
     @Test
     public void testExtensionResultKeys() throws Exception {
+        ArraySet<CaptureResult.Key> extensionResultKeys = new ArraySet<>();
+        extensionResultKeys.add(CaptureResult.EXTENSION_STRENGTH);
+        extensionResultKeys.add(CaptureResult.EXTENSION_CURRENT_TYPE);
+
         for (String id : mTestRule.getCameraIdsUnderTest()) {
             StaticMetadata staticMeta =
                     new StaticMetadata(mTestRule.getCameraManager().getCameraCharacteristics(id));
@@ -309,7 +317,8 @@ public class CameraExtensionCharacteristicsTest {
                     String msg = String.format("Supported extension result key %s doesn't appear "
                             + " in the regular camera characteristics list of supported keys!",
                             resultKey.getName());
-                    assertTrue(msg, staticMeta.areKeysAvailable(resultKey));
+                    assertTrue(msg, staticMeta.areKeysAvailable(resultKey) ||
+                            extensionResultKeys.contains(resultKey));
                     resultKeyNames.add(resultKey.getName());
                 }
 

@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/fib_lookup/request.c	FIB Lookup Request
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2008 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -47,9 +40,12 @@ static int request_clone(struct nl_object *_dst, struct nl_object *_src)
 	struct flnl_request *dst = nl_object_priv(_dst);
 	struct flnl_request *src = nl_object_priv(_src);
 
-	if (src->lr_addr)
+	dst->lr_addr = NULL;
+
+	if (src->lr_addr) {
 		if (!(dst->lr_addr = nl_addr_clone(src->lr_addr)))
 			return -NLE_NOMEM;
+	}
 
 	return 0;
 }

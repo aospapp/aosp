@@ -405,6 +405,26 @@ apex {
 }
 
 apex {
+    name: "test.rebootless_apex_service_v1",
+    manifest: "manifest_rebootless.json",
+    init_rc: ["test_apex_service.rc"],
+    file_contexts: ":apex.test-file_contexts",
+    key: "com.android.apex.test_package.key",
+    installable: false,
+    updatable: false,
+}
+
+apex {
+    name: "test.rebootless_apex_service_v2",
+    manifest: "manifest_rebootless_v2.json",
+    init_rc: ["test_apex_service.rc"],
+    file_contexts: ":apex.test-file_contexts",
+    key: "com.android.apex.test_package.key",
+    installable: false,
+    updatable: false,
+}
+
+apex {
     name: "test.rebootless_apex_v2_no_hashtree",
     manifest: "manifest_rebootless_v2.json",
     file_contexts: ":apex.test-file_contexts",
@@ -523,7 +543,7 @@ apex_test {
     updatable: false,
 }
 
-bootclasspath_fragment {
+bootclasspath_fragment_test {
     name: "apex.apexd_test_bootclasspath-fragment",
     contents: ["test_framework-apexd"],
 }

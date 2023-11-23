@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package java.lang;
@@ -23,6 +23,7 @@ import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Comparator;
 import libcore.util.CharsetUtils;
@@ -35,9 +36,6 @@ import libcore.util.EmptyArray;
  */
 public final class StringFactory {
 
-    // TODO: Remove once native methods are in place.
-    private static final char REPLACEMENT_CHAR = (char) 0xfffd;
-
     public static String newEmptyString() {
         return newStringFromChars(EmptyArray.CHAR, 0, 0);
     }
@@ -45,6 +43,22 @@ public final class StringFactory {
     public static String newStringFromBytes(byte[] data) {
         return newStringFromBytes(data, 0, data.length);
     }
+
+    public static String newStringFromBytes(byte[] data, byte coder) {
+        if (coder == String.LATIN1) {
+            return newStringFromBytes(data, /*high=*/ 0);
+        } else {
+            return newStringFromUtf16Bytes(data, 0, data.length >>> 1);
+        }
+    }
+
+    /**
+     * This method doesn't validate any UTF-16 sequence, but simply convert each byte pair
+     * into 2-byte char. To produce valid UTF-16 sequence, please use
+     * {@link StandardCharsets#UTF_16} instead.
+     */
+    @FastNative
+    public static native String newStringFromUtf16Bytes(byte[] data, int offset, int charCount);
 
     public static String newStringFromBytes(byte[] data, int high) {
         return newStringFromBytes(data, high, 0, data.length);
@@ -79,9 +93,7 @@ public final class StringFactory {
         if (canonicalCharsetName.equals("UTF-8")) {
             return newStringFromUtf8Bytes(data, offset, byteCount);
         } else if (canonicalCharsetName.equals("ISO-8859-1")) {
-            value = new char[byteCount];
-            length = byteCount;
-            CharsetUtils.isoLatin1BytesToChars(data, offset, byteCount, value);
+            return newStringFromBytes(data, /*high=*/ 0, offset, byteCount);
         } else if (canonicalCharsetName.equals("US-ASCII")) {
             value = new char[byteCount];
             length = byteCount;
@@ -124,7 +136,13 @@ public final class StringFactory {
 
     public static String newStringFromStringBuffer(StringBuffer stringBuffer) {
         synchronized (stringBuffer) {
-            return newStringFromChars(stringBuffer.getValue(), 0, stringBuffer.length());
+            byte[] value = stringBuffer.getValue();
+            int length = stringBuffer.length();
+            if (stringBuffer.isLatin1()) {
+                return newStringFromBytes(value, /*high=*/ 0, /*offset=*/ 0, length);
+            } else {
+                return newStringFromUtf16Bytes(value, 0, length);
+            }
         }
     }
 
@@ -146,6 +164,12 @@ public final class StringFactory {
     }
 
     public static String newStringFromStringBuilder(StringBuilder stringBuilder) {
-        return newStringFromChars(stringBuilder.getValue(), 0, stringBuilder.length());
+        byte[] value = stringBuilder.getValue();
+        int length = stringBuilder.length();
+        if (stringBuilder.isLatin1()) {
+            return newStringFromBytes(value, /*high=*/ 0, /*offset=*/ 0, length);
+        } else {
+            return newStringFromUtf16Bytes(value, 0, length);
+        }
     }
 }

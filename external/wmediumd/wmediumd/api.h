@@ -70,6 +70,21 @@ enum wmediumd_message {
 	WMEDIUMD_MSG_STOP_PCAP,
 
 	WMEDIUMD_MSG_STATIONS_LIST,
+
+	/*
+	 * Set position of station.
+	 */
+	WMEDIUMD_MSG_SET_POSITION,
+
+	/*
+	 * Set LCI of station
+	 */
+	WMEDIUMD_MSG_SET_LCI,
+
+	/*
+	 * Set CIVIC loc of station
+	 */
+	WMEDIUMD_MSG_SET_CIVICLOC,
 };
 
 struct wmediumd_message_header {
@@ -109,7 +124,7 @@ struct wmediumd_tx_start {
 };
 
 #pragma pack(push, 1)
-	struct wmediumd_set_snr {
+struct wmediumd_set_snr {
 	/* MAC address of node 1 */
 	uint8_t node1_mac[6];
 	/* MAC address of node 2 */
@@ -136,6 +151,14 @@ struct wmediumd_station_info {
 	double x;
 	double y;
 
+	/*
+	 * Offsets to the null-terminating string data.
+	 * They point outside of the struct wmediumd_station_info,
+	 * and even struct wmediumd_station_infos for multiple stations.
+	 */
+	int lci_offset;
+	int civicloc_offset;
+
 	int tx_power;
 };
 
@@ -143,6 +166,32 @@ struct wmediumd_station_infos {
 	uint32_t count;
 	struct wmediumd_station_info stations[0];
 };
+
+struct wmediumd_set_position {
+	/* MAC address */
+	uint8_t mac[6];
+	/* X position of station */
+	double x;
+	/* Y position of station */
+	double y;
+};
+
+struct wmediumd_set_lci {
+	/* MAC address */
+	uint8_t mac[6];
+
+	/* LCI */
+	char lci[0];
+};
+
+struct wmediumd_set_civicloc {
+	/* MAC address */
+	uint8_t mac[6];
+
+	/* CIVIC location */
+	char civicloc[0];
+};
+
 #pragma pack(pop)
 
 #endif /* _WMEDIUMD_API_H */

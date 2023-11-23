@@ -18,9 +18,8 @@
 #include <memory>
 #include <string_view>
 
-#include "icing/jni/jni-cache.h"
-
 #include "icing/text_classifier/lib3/utils/base/statusor.h"
+#include "icing/jni/jni-cache.h"
 #include "icing/tokenization/language-segmenter.h"
 
 namespace icing {

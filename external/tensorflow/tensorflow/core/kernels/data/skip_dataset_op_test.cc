@@ -29,34 +29,35 @@ class SkipDatasetParams : public DatasetParams {
       : DatasetParams(std::move(output_dtypes), std::move(output_shapes),
                       std::move(node_name)),
         count_(count) {
-    input_dataset_params_.push_back(absl::make_unique<T>(input_dataset_params));
+    input_dataset_params_.push_back(std::make_unique<T>(input_dataset_params));
     iterator_prefix_ =
         name_utils::IteratorPrefix(input_dataset_params.dataset_type(),
                                    input_dataset_params.iterator_prefix());
   }
 
   std::vector<Tensor> GetInputTensors() const override {
-    return {CreateTensor<int64>(TensorShape({}), {count_})};
+    return {CreateTensor<int64_t>(TensorShape({}), {count_})};
   }
 
   Status GetInputNames(std::vector<string>* input_names) const override {
     input_names->clear();
     input_names->emplace_back(SkipDatasetOp::kInputDataset);
     input_names->emplace_back(SkipDatasetOp::kCount);
-    return Status::OK();
+    return OkStatus();
   }
 
   Status GetAttributes(AttributeVector* attr_vector) const override {
     attr_vector->clear();
-    attr_vector->emplace_back(SkipDatasetOp::kOutputTypes, output_dtypes_);
-    attr_vector->emplace_back(SkipDatasetOp::kOutputShapes, output_shapes_);
-    return Status::OK();
+    attr_vector->emplace_back("output_types", output_dtypes_);
+    attr_vector->emplace_back("output_shapes", output_shapes_);
+    attr_vector->emplace_back("metadata", "");
+    return OkStatus();
   }
 
   string dataset_type() const override { return SkipDatasetOp::kDatasetType; }
 
  private:
-  int64 count_;
+  int64_t count_;
 };
 
 class SkipDatasetOpTest : public DatasetOpsTestBase {};
@@ -115,14 +116,14 @@ std::vector<GetNextTestCase<SkipDatasetParams>> GetNextTestCases() {
   return {
       {/*dataset_params=*/SkipDatasetParams1(),
        /*expected_outputs=*/
-       CreateTensors<int64>(TensorShape{}, {{4}, {5}, {6}, {7}, {8}, {9}})},
+       CreateTensors<int64_t>(TensorShape{}, {{4}, {5}, {6}, {7}, {8}, {9}})},
       {/*dataset_params=*/SkipDatasetParams2(),
        /*expected_outputs=*/{}},
       {/*dataset_params=*/SkipDatasetParams3(),
        /*expected_outputs=*/{}},
       {/*dataset_params=*/SkipDatasetParams4(),
        /*expected_outputs=*/
-       CreateTensors<int64>(
+       CreateTensors<int64_t>(
            TensorShape{}, {{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}})},
       {/*dataset_params=*/SkipDatasetParams5(),
        /*expected_outputs=*/{}}};
@@ -213,7 +214,7 @@ IteratorSaveAndRestoreTestCases() {
       {/*dataset_params=*/SkipDatasetParams1(),
        /*breakpoints*/ {0, 2, 7},
        /*expected_outputs=*/
-       CreateTensors<int64>(TensorShape{}, {{4}, {5}, {6}, {7}, {8}, {9}})},
+       CreateTensors<int64_t>(TensorShape{}, {{4}, {5}, {6}, {7}, {8}, {9}})},
       {/*dataset_params=*/SkipDatasetParams2(),
        /*breakpoints*/ {0, 2, 5},
        /*expected_outputs=*/{}},
@@ -223,7 +224,7 @@ IteratorSaveAndRestoreTestCases() {
       {/*dataset_params=*/SkipDatasetParams4(),
        /*breakpoints*/ {0, 2, 5, 11},
        /*expected_outputs=*/
-       CreateTensors<int64>(
+       CreateTensors<int64_t>(
            TensorShape{}, {{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}})},
       {/*dataset_params=*/SkipDatasetParams5(),
        /*breakpoints*/ {0, 2, 5},

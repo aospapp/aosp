@@ -76,6 +76,7 @@ public final class CarFeatureController implements CarServiceBase {
             Car.CAR_INPUT_SERVICE,
             Car.CAR_MEDIA_SERVICE,
             Car.CAR_OCCUPANT_ZONE_SERVICE,
+            Car.CAR_PERFORMANCE_SERVICE,
             Car.CAR_USER_SERVICE,
             Car.CAR_UX_RESTRICTION_SERVICE,
             Car.CAR_WATCHDOG_SERVICE,
@@ -97,6 +98,8 @@ public final class CarFeatureController implements CarServiceBase {
             CarFeatures.FEATURE_CAR_USER_NOTICE_SERVICE,
             Car.CLUSTER_HOME_SERVICE,
             Car.CAR_NAVIGATION_SERVICE,
+            Car.CAR_OCCUPANT_CONNECTION_SERVICE,
+            Car.CAR_REMOTE_DEVICE_SERVICE,
             Car.DIAGNOSTIC_SERVICE,
             Car.EXPERIMENTAL_CAR_USER_SERVICE,
             Car.OCCUPANT_AWARENESS_SERVICE,
@@ -104,14 +107,14 @@ public final class CarFeatureController implements CarServiceBase {
             Car.VEHICLE_MAP_SERVICE,
             Car.CAR_TELEMETRY_SERVICE,
             Car.CAR_EVS_SERVICE,
+            Car.CAR_REMOTE_ACCESS_SERVICE,
+            Car.EXPERIMENTAL_CAR_KEYGUARD_SERVICE,
             // All items below here are deprecated, but still could be supported
             Car.CAR_INSTRUMENT_CLUSTER_SERVICE
     ));
 
     // This is a feature still under development and cannot be enabled in user build.
-    private static final HashSet<String> NON_USER_ONLY_FEATURES = new HashSet<>(Arrays.asList(
-            Car.CAR_TELEMETRY_SERVICE
-    ));
+    private static final HashSet<String> NON_USER_ONLY_FEATURES = new HashSet<>();
 
     // Features that depend on another feature being enabled (i.e. legacy API support).
     // For example, VMS_SUBSCRIBER_SERVICE will be enabled if VEHICLE_MAP_SERVICE is enabled

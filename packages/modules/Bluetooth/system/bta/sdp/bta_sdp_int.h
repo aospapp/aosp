@@ -48,10 +48,9 @@ extern tBTA_SDP_CB bta_sdp_cb;
 /* config struct */
 extern tBTA_SDP_CFG* p_bta_sdp_cfg;
 
-extern void bta_sdp_enable(tBTA_SDP_DM_CBACK* p_cback);
-extern void bta_sdp_search(const RawAddress bd_addr,
-                           const bluetooth::Uuid uuid);
-extern void bta_sdp_create_record(void* user_data);
-extern void bta_sdp_remove_record(void* user_data);
+void bta_sdp_enable(tBTA_SDP_DM_CBACK* p_cback);
+void bta_sdp_search(const RawAddress bd_addr, const bluetooth::Uuid uuid);
+void bta_sdp_create_record(void* user_data);
+void bta_sdp_remove_record(void* user_data);
 
 #endif /* BTA_SDP_INT_H */

@@ -27,7 +27,7 @@ android_test {
         "ctsdeviceutillegacy-axt",
         "ctstestrunner-axt",
         "truth-prebuilt",
-        "ub-uiautomator",
+        "androidx.test.uiautomator_uiautomator",
         "CtsMockInputMethodLib",
         // TODO: remove once Android migrates to JUnit 4.12,
         // which provides assertThrows

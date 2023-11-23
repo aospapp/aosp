@@ -18,7 +18,7 @@ package android.platform.helpers;
 
 import java.util.List;
 
-public interface IAutoMediaHelper extends IAppHelper {
+public interface IAutoMediaHelper extends IAppHelper, Scrollable {
     /**
      * Setup expectations: media app is open
      *
@@ -170,4 +170,43 @@ public interface IAutoMediaHelper extends IAppHelper {
      * @return Error message for no user login
      */
     String getMediaAppUserNotLoggedInErrorMessage();
+
+    /**
+     * Setup expectations: In Media.
+     *
+     * <p>Scroll up on page.
+     */
+    boolean scrollUpOnePage();
+
+    /**
+     * Setup expectations: In Media.
+     *
+     * <p>Scroll down on page.
+     */
+    boolean scrollDownOnePage();
+
+    /**
+     * Setup expectations: media test app is open.
+     *
+     * <p>This method is used to open Folder Menu with menuOptions and scroll into view the track.
+     * Example - openMenu->Folder->Mediafilename->trackName
+     * openMenuWith(Folder,mediafilename,trackName);
+     *
+     * @param menuOptions used to pass multiple level of menu options in one go.
+     */
+    void selectMediaTrack(String... menuOptions);
+
+    /**
+     * Setup expectations: Now Playing is open.
+     *
+     * <p>This method is used to select previous track.
+     */
+    void minimizeNowPlaying();
+
+    /**
+     * Setup expectations: media test app is open and Minimize control bar present.
+     *
+     * <p>This method is used to maximize the play back screen.
+     */
+    void maximizeNowPlaying();
 }

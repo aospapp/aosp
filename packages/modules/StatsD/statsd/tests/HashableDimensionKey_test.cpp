@@ -129,6 +129,41 @@ TEST(HashableDimensionKeyTest, TestContainsLinkedStateValues_AllConditionsMet) {
     EXPECT_TRUE(containsLinkedStateValues(whatKey, primaryKey, mMetric2StateLinks, stateAtomId));
 }
 
+/**
+ * Test that FieldValues with STORAGE values are hashed differently.
+ */
+TEST(HashableDimensionKeyTest, TestHashDimensionStorage) {
+    int pos[] = {1, 1, 1};
+    Field field(1, pos, 1);
+    vector<uint8_t> bytesField1{10, 20, 30};
+    vector<uint8_t> bytesField2{10, 20, 30, 40};
+    FieldValue fieldValue1(field, Value(bytesField1));
+    FieldValue fieldValue2(field, Value(bytesField2));
+    HashableDimensionKey dimKey1;
+    dimKey1.addValue(fieldValue1);
+    HashableDimensionKey dimKey2;
+    dimKey2.addValue(fieldValue2);
+
+    EXPECT_NE(std::hash<HashableDimensionKey>{}(dimKey1),
+              std::hash<HashableDimensionKey>{}(dimKey2));
+}
+/**
+ * Test that FieldValues with DOUBLE values are hashed differently.
+ */
+TEST(HashableDimensionKeyTest, TestHashDimensionDouble) {
+    int pos[] = {1, 1, 1};
+    Field field(1, pos, 1);
+    FieldValue fieldValue1(field, Value((double)100.00));
+    FieldValue fieldValue2(field, Value((double)200.00));
+    HashableDimensionKey dimKey1;
+    dimKey1.addValue(fieldValue1);
+    HashableDimensionKey dimKey2;
+    dimKey2.addValue(fieldValue2);
+
+    EXPECT_NE(std::hash<HashableDimensionKey>{}(dimKey1),
+              std::hash<HashableDimensionKey>{}(dimKey2));
+}
+
 }  // namespace statsd
 }  // namespace os
 }  // namespace android

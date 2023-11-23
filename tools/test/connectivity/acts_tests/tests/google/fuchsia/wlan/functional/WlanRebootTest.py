@@ -25,7 +25,6 @@ from acts import context
 from acts import utils
 from acts.controllers import iperf_client
 from acts.controllers import iperf_server
-from acts.controllers import pdu
 from acts.controllers.access_point import setup_ap
 from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.ap_lib.hostapd_security import Security
@@ -33,28 +32,40 @@ from acts.controllers.ap_lib.hostapd_utils import generate_random_password
 from acts.controllers.ap_lib.radvd import Radvd
 from acts.controllers.ap_lib import radvd_constants
 from acts.controllers.ap_lib.radvd_config import RadvdConfig
+from acts.controllers.fuchsia_device import IP_ADDRESS_TIMEOUT
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
-from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 
 # Constants, for readibility
 AP = 'ap'
 DUT = 'dut'
+DEVICES = [AP, DUT]
+
 SOFT = 'soft'
 HARD = 'hard'
+REBOOT_TYPES = [SOFT, HARD]
+
 BAND_2G = '2g'
 BAND_5G = '5g'
 BANDS = [BAND_2G, BAND_5G]
+
 IPV4 = 'ipv4'
 IPV6 = 'ipv6'
 DUAL_IPV4_IPV6 = {IPV4: True, IPV6: True}
 IPV4_ONLY = {IPV4: True, IPV6: False}
 IPV6_ONLY = {IPV4: False, IPV6: True}
+IP_VERSIONS = [IPV4_ONLY, IPV6_ONLY, DUAL_IPV4_IPV6]
+
 INTERRUPTS = [True, False]
+OPEN_ENCRYPTION_STRING = "open"
+SECURITY_MODES = [
+    OPEN_ENCRYPTION_STRING, hostapd_constants.WPA2_STRING,
+    hostapd_constants.WPA3_STRING
+]
+
 DEFAULT_IPERF_TIMEOUT = 30
 
 DUT_NETWORK_CONNECTION_TIMEOUT = 60
-DUT_IP_ADDRESS_TIMEOUT = 15
 
 # Constants for Custom Reboot Tests
 ALL = 'all'
@@ -76,32 +87,7 @@ CUSTOM_TEST_IP_VERSIONS = {
 CUSTOM_TEST_INTERRUPTS = {'true': [True], 'false': [False], ALL: [True, False]}
 
 
-def create_custom_test_name(reboot_device, reboot_type, band, ip_version,
-                            interrupt, iterations):
-    """Creates custom base test name, from custom test parameters"""
-    return ('test_custom_reboot_device_%s_type_%s_band_%s_ip_version_%s%s_with'
-            '_%s_iterations_each' %
-            (reboot_device, reboot_type, band, ip_version,
-             '_interrupt' if interrupt else '', iterations))
-
-
-def create_custom_subtest_name(settings):
-    """Creates custom subtest name, from subtest parameters."""
-    ipv4_str = '_ipv4' if settings[IPV4] else ''
-    ipv6_str = '_ipv6' if settings[IPV6] else ''
-    return 'test_custom_%s_reboot_%s_band_%s%s%s%s%s_with_%s_iterations' % (
-        settings['reboot_type'], settings['reboot_device'], settings['band'],
-        ipv4_str, ipv6_str, '_interrupt' if settings['interrupt'] else '',
-        '_%s' % settings['security_mode'] if settings['security_mode'] else '',
-        settings['iterations'])
-
-
-def get_test_name(settings):
-    """Returns test_name from custom generated subtest settings."""
-    return settings['test_name']
-
-
-class WlanRebootTest(AbstractDeviceWlanDeviceBaseTest):
+class WlanRebootTest(WifiBaseTest):
     """Tests wlan reconnects in different reboot scenarios.
 
     Testbed Requirement:
@@ -109,8 +95,15 @@ class WlanRebootTest(AbstractDeviceWlanDeviceBaseTest):
     * One Whirlwind Access Point (will also serve as iperf server)
     * One PduDevice
     """
+
     def __init__(self, controllers):
-        WifiBaseTest.__init__(self, controllers)
+        super().__init__(controllers)
+
+    def setup_generated_tests(self):
+        self._read_wlan_reboot_test_params()
+        self.generate_tests(test_logic=self.run_reboot_test,
+                            name_func=self.generate_test_name,
+                            arg_sets=self.generate_test_args())
 
     def setup_class(self):
         super().setup_class()
@@ -130,16 +123,6 @@ class WlanRebootTest(AbstractDeviceWlanDeviceBaseTest):
             self.dut = create_wlan_device(self.android_devices[0])
 
         self.access_point = self.access_points[0]
-
-        # Times (in seconds) to wait for DUT network connection and assigning an
-        # ip address to the wlan interface.
-        self.wlan_reboot_test_params = self.user_params.get(
-            'wlan_reboot_test_params', {})
-        self.dut_network_connection_timeout = self.wlan_reboot_test_params.get(
-            'dut_network_connection_timeout', DUT_NETWORK_CONNECTION_TIMEOUT)
-        self.dut_ip_address_timeout = self.wlan_reboot_test_params.get(
-            'dut_ip_address_timeout', DUT_IP_ADDRESS_TIMEOUT)
-        self.skip_iperf = self.wlan_reboot_test_params.get('skip_iperf', False)
 
         self.iperf_server_on_ap = None
         self.iperf_client_on_dut = None
@@ -221,80 +204,16 @@ class WlanRebootTest(AbstractDeviceWlanDeviceBaseTest):
         if not ipv4:
             self.access_point.stop_dhcp()
         if ipv6:
-            radvd_config = RadvdConfig(
-                prefix='fd00::/64',
-                adv_send_advert=radvd_constants.ADV_SEND_ADVERT_ON,
-                adv_on_link=radvd_constants.ADV_ON_LINK_ON,
-                adv_autonomous=radvd_constants.ADV_AUTONOMOUS_ON)
-
             if band == BAND_2G:
                 self.router_adv_daemon = Radvd(self.access_point.ssh,
                                                self.access_point.wlan_2g)
             elif band == BAND_5G:
                 self.router_adv_daemon = Radvd(self.access_point.ssh,
                                                self.access_point.wlan_5g)
+            radvd_config = RadvdConfig()
             self.router_adv_daemon.start(radvd_config)
 
         self.log.info('Network (SSID: %s) is up.' % ssid)
-
-    def wait_until_dut_gets_ipv4_addr(self, interface):
-        """Checks if device has an ipv4 private address. Sleeps 1 second between
-        retries.
-
-        Args:
-            interface: string, name of interface from which to get ipv4 address.
-
-        Raises:
-            ConnectionError, if DUT does not have an ipv4 address after all
-            timeout.
-        """
-        self.log.info(
-            'Checking if DUT has received an ipv4 addr. Will retry for %s '
-            'seconds.' % self.dut_ip_address_timeout)
-        timeout = time.time() + self.dut_ip_address_timeout
-        while time.time() < timeout:
-            ip_addrs = self.dut.get_interface_ip_addresses(interface)
-
-            if len(ip_addrs['ipv4_private']) > 0:
-                self.log.info('DUT has an ipv4 address: %s' %
-                              ip_addrs['ipv4_private'][0])
-                break
-            else:
-                self.log.debug(
-                    'DUT does not yet have an ipv4 address...retrying in 1 '
-                    'second.')
-                time.sleep(1)
-        else:
-            raise ConnectionError('DUT failed to get an ipv4 address.')
-
-    def wait_until_dut_gets_ipv6_addr(self, interface):
-        """Checks if device has an ipv6 private local address. Sleeps 1 second
-        between retries.
-
-        Args:
-            interface: string, name of interface from which to get ipv6 address.
-
-        Raises:
-            ConnectionError, if DUT does not have an ipv6 address after all
-            timeout.
-        """
-        self.log.info(
-            'Checking if DUT has received an ipv6 addr. Will retry for %s '
-            'seconds.' % self.dut_ip_address_timeout)
-        timeout = time.time() + self.dut_ip_address_timeout
-        while time.time() < timeout:
-            ip_addrs = self.dut.get_interface_ip_addresses(interface)
-            if len(ip_addrs['ipv6_private_local']) > 0:
-                self.log.info('DUT has an ipv6 private local address: %s' %
-                              ip_addrs['ipv6_private_local'][0])
-                break
-            else:
-                self.log.debug(
-                    'DUT does not yet have an ipv6 address...retrying in 1 '
-                    'second.')
-                time.sleep(1)
-        else:
-            raise ConnectionError('DUT failed to get an ipv6 address.')
 
     def setup_iperf_server_on_ap(self, band):
         """Configures iperf server based on the tests band.
@@ -359,7 +278,7 @@ class WlanRebootTest(AbstractDeviceWlanDeviceBaseTest):
             ConnectionError, if traffic is not passed successfully in both
                 directions.
         """
-        dut_ip_addresses = self.dut.get_interface_ip_addresses(
+        dut_ip_addresses = self.dut.device.get_interface_ip_addresses(
             iperf_client_on_dut.test_interface)
 
         iperf_server_ip_address = self.get_iperf_server_address(
@@ -597,9 +516,9 @@ class WlanRebootTest(AbstractDeviceWlanDeviceBaseTest):
         if not self.skip_iperf:
             dut_test_interface = self.iperf_client_on_dut.test_interface
             if ipv4:
-                self.wait_until_dut_gets_ipv4_addr(dut_test_interface)
+                self.dut.device.wait_for_ipv4_addr(dut_test_interface)
             if ipv6:
-                self.wait_until_dut_gets_ipv6_addr(dut_test_interface)
+                self.dut.device.wait_for_ipv6_addr(dut_test_interface)
 
             self.iperf_server_on_ap = self.setup_iperf_server_on_ap(band)
             self.iperf_server_on_ap.start()
@@ -657,9 +576,9 @@ class WlanRebootTest(AbstractDeviceWlanDeviceBaseTest):
 
                 if not self.skip_iperf:
                     if ipv4:
-                        self.wait_until_dut_gets_ipv4_addr(dut_test_interface)
+                        self.dut.device.wait_for_ipv4_addr(dut_test_interface)
                     if ipv6:
-                        self.wait_until_dut_gets_ipv6_addr(dut_test_interface)
+                        self.dut.device.wait_for_ipv6_addr(dut_test_interface)
 
                     self.iperf_server_on_ap.start()
 
@@ -689,882 +608,63 @@ class WlanRebootTest(AbstractDeviceWlanDeviceBaseTest):
                 'network %s %s/%s times.' %
                 (self.ssid, passed_count, iterations))
 
-# Open Network DUT Soft Reboots (requires a DUT and Whirlwind)
-
-    def test_soft_reboot_dut_ipv4_2g(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'band': BAND_2G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_dut_ipv4_5g(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'band': BAND_5G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_dut_ipv6_2g(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv6': True,
-            'band': BAND_2G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_dut_ipv6_5g(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv6': True,
-            'band': BAND_5G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_dut_ipv4_ipv6_2g(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_2G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_dut_ipv4_ipv6_5g(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_5G,
-        }
-        self.run_reboot_test(settings)
-
-# Open Network DUT Hard Reboots (requires a DUT, Whirlwind, and PDU)
-
-    def test_hard_reboot_dut_ipv4_2g(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'band': BAND_2G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_dut_ipv4_5g(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'band': BAND_5G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_dut_ipv6_2g(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv6': True,
-            'band': BAND_2G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_dut_ipv6_5g(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv6': True,
-            'band': BAND_5G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_dut_ipv4_ipv6_2g(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_2G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_dut_ipv4_ipv6_5g(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_5G,
-        }
-        self.run_reboot_test(settings)
-
-# Open Network AP Soft Reboots (requires a DUT and Whirlwind)
-
-    def test_soft_reboot_ap_ipv4_2g(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'band': BAND_2G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv4_5g(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'band': BAND_5G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv6_2g(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv6': True,
-            'band': BAND_2G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv6_5g(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv6': True,
-            'band': BAND_5G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv4_ipv6_2g(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_2G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv4_ipv6_5g(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_5G,
-        }
-        self.run_reboot_test(settings)
-
-# Open Network AP Soft Reboots (requires a DUT and Whirlwind) with traffic
-# interruption.
-
-    def test_soft_reboot_ap_ipv4_2g_interrupt(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'band': BAND_2G,
-            'interrupt': True
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv4_5g_interrupt(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'band': BAND_5G,
-            'interrupt': True
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv6_2g_interrupt(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv6': True,
-            'band': BAND_2G,
-            'interrupt': True
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv6_5g_interrupt(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv6': True,
-            'band': BAND_5G,
-            'interrupt': True
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv4_ipv6_2g_interrupt(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_2G,
-            'interrupt': True
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv4_ipv6_5g_interrupt(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_5G,
-            'interrupt': True
-        }
-        self.run_reboot_test(settings)
-
-# Open Network AP Hard Reboot (requires a DUT, Whirlwind, and PDU)
-
-    def test_hard_reboot_ap_ipv4_2g(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'band': BAND_2G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv4_5g(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'band': BAND_5G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv6_2g(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv6': True,
-            'band': BAND_2G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv6_5g(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv6': True,
-            'band': BAND_5G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv4_ipv6_2g(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_2G,
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv4_ipv6_5g(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_5G,
-        }
-        self.run_reboot_test(settings)
-
-# Open Network AP Hard Reboot (requires a DUT, Whirlwind, and PDU) with traffic
-# interruptions.
-
-    def test_hard_reboot_ap_ipv4_2g_interrupt(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'band': BAND_2G,
-            'interrupt': True
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv4_5g_interrupt(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'band': BAND_5G,
-            'interrupt': True
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv6_2g_interrupt(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv6': True,
-            'band': BAND_2G,
-            'interrupt': True
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv6_5g_interrupt(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv6': True,
-            'band': BAND_5G,
-            'interrupt': True
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv4_ipv6_2g_interrupt(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_2G,
-            'interrupt': True
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv4_ipv6_5g_interrupt(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_5G,
-            'interrupt': True
-        }
-        self.run_reboot_test(settings)
-
-# WPA2 DUT Soft Reboots (requires a DUT and Whirlwind)
-
-    def test_soft_reboot_dut_ipv4_2g_wpa2(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_dut_ipv4_5g_wpa2(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_dut_ipv6_2g_wpa2(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv6': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_dut_ipv6_5g_wpa2(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv6': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_dut_ipv4_ipv6_2g_wpa2(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_dut_ipv4_ipv6_5g_wpa2(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-# WPA2 Network DUT Hard Reboots (requires a DUT, Whirlwind, and PDU)
-
-    def test_hard_reboot_dut_ipv4_2g_wpa2(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_dut_ipv4_5g_wpa2(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_dut_ipv6_2g_wpa2(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv6': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_dut_ipv6_5g_wpa2(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv6': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_dut_ipv4_ipv6_2g_wpa2(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_dut_ipv4_ipv6_5g_wpa2(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-# WPA2 Network AP Soft Reboots (requires a DUT and Whirlwind)
-
-    def test_soft_reboot_ap_ipv4_2g_wpa2(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv4_5g_wpa2(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv6_2g_wpa2(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv6': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv6_5g_wpa2(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv6': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv4_ipv6_2g_wpa2(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv4_ipv6_5g_wpa2(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-# WPA2 Network AP Hard Reboot (requires a DUT, Whirlwind, and PDU)
-
-    def test_hard_reboot_ap_ipv4_2g_wpa2(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv4_5g_wpa2(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv6_2g_wpa2(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv6': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv6_5g_wpa2(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv6': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv4_ipv6_2g_wpa2(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv4_ipv6_5g_wpa2(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA2_STRING
-        }
-        self.run_reboot_test(settings)
-
-# WPA3 DUT Soft Reboots (requires a DUT and Whirlwind)
-
-    def test_soft_reboot_dut_ipv4_2g_wpa3(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_dut_ipv4_5g_wpa3(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_dut_ipv6_2g_wpa3(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv6': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_dut_ipv6_5g_wpa3(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv6': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_dut_ipv4_ipv6_2g_wpa3(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_dut_ipv4_ipv6_5g_wpa3(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-# WPA3 Network DUT Hard Reboots (requires a DUT, Whirlwind, and PDU)
-
-    def test_hard_reboot_dut_ipv4_2g_wpa3(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_dut_ipv4_5g_wpa3(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_dut_ipv6_2g_wpa3(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv6': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_dut_ipv6_5g_wpa3(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv6': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_dut_ipv4_ipv6_2g_wpa3(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_dut_ipv4_ipv6_5g_wpa3(self):
-        settings = {
-            'reboot_device': DUT,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-# WPA3 Network AP Soft Reboots (requires a DUT and Whirlwind)
-
-    def test_soft_reboot_ap_ipv4_2g_wpa3(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv4_5g_wpa3(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv6_2g_wpa3(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv6': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv6_5g_wpa3(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv6': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv4_ipv6_2g_wpa3(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_soft_reboot_ap_ipv4_ipv6_5g_wpa3(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': SOFT,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-
-# WPA3 Network AP Hard Reboot (requires a DUT, Whirlwind, and PDU)
-
-    def test_hard_reboot_ap_ipv4_2g_wpa3(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv4_5g_wpa3(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv6_2g_wpa3(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv6': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv6_5g_wpa3(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv6': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv4_ipv6_2g_wpa3(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_2G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_hard_reboot_ap_ipv4_ipv6_5g_wpa3(self):
-        settings = {
-            'reboot_device': AP,
-            'reboot_type': HARD,
-            'ipv4': True,
-            'ipv6': True,
-            'band': BAND_5G,
-            'security_mode': hostapd_constants.WPA3_STRING
-        }
-        self.run_reboot_test(settings)
-
-    def test_custom_reboots(self):
+    def generate_test_name(self, settings):
+        """Generates a test case name based on the reboot settings passed.
+
+        Args:
+            settings: A dictionary of settings related to reboot test.
+
+        Returns:
+            A string that represents a test case name.
+        """
+        test_name = "test_{reboot_type}_reboot_{reboot_device}_{band}_{security_mode}".format(
+            **settings)
+
+        if settings.get(IPV4):
+            test_name += "_ipv4"
+
+        if settings.get(IPV6):
+            test_name += "_ipv6"
+
+        if settings.get('interrupt'):
+            test_name += "_interrupt"
+
+        if settings.get('iterations'):
+            test_name += f"_with_{settings['iterations']}_iterations"
+
+        return test_name
+
+    def generate_test_args(self):
+        # If custom reboot tests present in ACTS config then run just those
+        test_args = self._generate_custom_reboots_test_args()
+        if test_args:
+            return test_args
+
+        # Interrupt tests requires using iperf. So do not run interrupt tests
+        # when skip_iperf is True
+        if self.skip_iperf is True:
+            interrupts = [False]
+        else:
+            interrupts = INTERRUPTS
+
+        for (reboot_device, reboot_type, band, ip_version, interrupt,
+             security_mode) in itertools.product(DEVICES, REBOOT_TYPES, BANDS,
+                                                 IP_VERSIONS, interrupts,
+                                                 SECURITY_MODES):
+            settings = {
+                "reboot_device": reboot_device,
+                "reboot_type": reboot_type,
+                "band": band,
+                "security_mode": security_mode,
+                "ipv4": ip_version["ipv4"],
+                "ipv6": ip_version["ipv6"],
+                "interrupt": interrupt,
+            }
+            test_args.append((settings, ))
+
+        return test_args
+
+    def _generate_custom_reboots_test_args(self):
         """Used to create custom reboot tests from ACTS config. Can be
         individual tests or permutation sets (i.e. setting "all" for a
         test param will run a test with every permutation).
@@ -1578,13 +678,11 @@ class WlanRebootTest(AbstractDeviceWlanDeviceBaseTest):
             security_modes: optional, string or list - "open", "wep", "wpa",
                 "wpa2", "wpa/wpa2", "wpa3", "wpa2/wpa3"
             iterations: int - number of iterations for each test
-            test_name: string (optional, one will be generated)
 
         Example:
         "wlan_reboot_test_params": {
             "test_custom_reboots": [
                 {
-                    "test_name": "test_custom_soft_reboot_dut_2g_dual_ip_open",
                     "reboot_device": "dut",
                     "reboot_type": "soft",
                     "band": "2g",
@@ -1599,7 +697,6 @@ class WlanRebootTest(AbstractDeviceWlanDeviceBaseTest):
                     "iterations": 10
                 },
                 {
-                    "test_name": "test_custom_hard_reboot_dut_open_and_wpa3",
                     "reboot_device": "dut",
                     "reboot_type": "hard",
                     "band": "5g",
@@ -1618,10 +715,11 @@ class WlanRebootTest(AbstractDeviceWlanDeviceBaseTest):
         The third example runs two tests, both hard reboots of the DUT with 5g
         and ipv4 only, one with open security and one with WPA3.
         """
-        asserts.skip_if(
-            'test_custom_reboots' not in self.wlan_reboot_test_params,
-            'No custom reboots provided in ACTS config.')
-        test_list = []
+        if 'test_custom_reboots' not in self.wlan_reboot_test_params:
+            self.log.info('No custom reboots provided in ACTS config.')
+            return []
+
+        test_args = []
         for test in self.wlan_reboot_test_params['test_custom_reboots']:
             # Ensure required params are present
             try:
@@ -1639,6 +737,12 @@ class WlanRebootTest(AbstractDeviceWlanDeviceBaseTest):
             interrupt = str(test.get('interrupt', False)).lower()
             iterations = test.get('iterations', 1)
 
+            if interrupt == "true" and self.skip_iperf:
+                raise AttributeError(
+                    "Interrupt can't be set to True when iperf is disabled. "
+                    "Update 'skip_iperf' to 'false' in ACTS config and run again"
+                )
+
             # Validate parameters and convert to lists (for permutations)
             try:
                 reboot_devices = CUSTOM_TEST_REBOOT_DEVICES[reboot_device]
@@ -1648,59 +752,36 @@ class WlanRebootTest(AbstractDeviceWlanDeviceBaseTest):
                 interrupts = CUSTOM_TEST_INTERRUPTS[interrupt]
                 if isinstance(security_modes, str):
                     security_modes = [security_modes]
-
             except KeyError as err:
                 raise AttributeError(
                     'Invalid custom test parameter provided. Err: %s' % err)
 
-            # Generate base test name if one is not present
-            if 'test_name' in test:
-                test_name = test['test_name']
-            else:
-                test_name = create_custom_test_name(reboot_device, reboot_type,
-                                                    band, ip_version,
-                                                    interrupt, iterations)
+            for (reboot_device, reboot_type, band, ip_version, interrupt,
+                 security_mode) in itertools.product(reboot_devices,
+                                                     reboot_types, bands,
+                                                     ip_versions, interrupts,
+                                                     security_modes):
+                settings = {
+                    "reboot_device": reboot_device,
+                    "reboot_type": reboot_type,
+                    "band": band,
+                    "security_mode": security_mode,
+                    "ipv4": ip_version[IPV4],
+                    "ipv6": ip_version[IPV6],
+                    "interrupt": interrupt,
+                    "iterations": iterations,
+                }
 
-            test_settings = {
-                'test_name': test_name,
-                'reboot_devices': reboot_devices,
-                'reboot_types': reboot_types,
-                'bands': bands,
-                'ip_versions': ip_versions,
-                'security_modes': security_modes,
-                'interrupts': interrupts,
-                'iterations': iterations
-            }
-            test_list.append(test_settings)
+                test_args.append((settings, ))
+        return test_args
 
-        # Run all permutations of the test settings
-        self.run_generated_testcases(self.run_custom_test_permutations,
-                                     test_list,
-                                     name_func=get_test_name)
-
-    def run_custom_test_permutations(self, settings):
-        """Runs a custom reboot subtest for each permutation of the provided
-        test parameters."""
-        test_list = []
-        for combination in itertools.product(
-                settings['reboot_devices'],
-                settings['reboot_types'],
-                settings['bands'],
-                settings['ip_versions'],
-                settings['security_modes'],
-                settings['interrupts'],
-        ):
-            test_settings = {
-                'reboot_device': combination[0],
-                'reboot_type': combination[1],
-                'band': combination[2],
-                'ipv4': combination[3][IPV4],
-                'ipv6': combination[3][IPV6],
-                'security_mode': combination[4],
-                'interrupt': combination[5],
-                'iterations': settings['iterations']
-            }
-            test_list.append(test_settings)
-        self.run_generated_testcases(self.run_reboot_test,
-                                     test_list,
-                                     name_func=create_custom_subtest_name)
+    def _read_wlan_reboot_test_params(self):
+        self.wlan_reboot_test_params = self.user_params.get(
+            'wlan_reboot_test_params', {})
+        self.skip_iperf = self.wlan_reboot_test_params.get('skip_iperf', False)
+        # Times (in seconds) to wait for DUT network connection and assigning an
+        # ip address to the wlan interface.
+        self.dut_network_connection_timeout = self.wlan_reboot_test_params.get(
+            'dut_network_connection_timeout', DUT_NETWORK_CONNECTION_TIMEOUT)
+        self.dut_ip_address_timeout = self.wlan_reboot_test_params.get(
+            'dut_ip_address_timeout', IP_ADDRESS_TIMEOUT)

@@ -1348,6 +1348,9 @@ default_reporter::report(const class_diff& d, ostream& out,
 	      out << "\n";
 	    }
 	}
+
+      // Report base classes re-organisation
+      maybe_report_base_class_reordering(d, out, indent);
     }
 
   d.class_or_union_diff::report(out, indent);

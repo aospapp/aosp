@@ -77,7 +77,6 @@ inline ObjPtr<mirror::Object> AllocObjectFromCodeInitialized(ObjPtr<mirror::Clas
     REQUIRES(!Roles::uninterruptible_);
 
 
-template <bool kAccessCheck>
 ALWAYS_INLINE inline ObjPtr<mirror::Class> CheckArrayAlloc(dex::TypeIndex type_idx,
                                                            int32_t component_count,
                                                            ArtMethod* method,
@@ -89,7 +88,7 @@ ALWAYS_INLINE inline ObjPtr<mirror::Class> CheckArrayAlloc(dex::TypeIndex type_i
 // it cannot be resolved, throw an error. If it can, use it to create an array.
 // When verification/compiler hasn't been able to verify access, optionally perform an access
 // check.
-template <bool kAccessCheck, bool kInstrumented = true>
+template <bool kInstrumented = true>
 ALWAYS_INLINE inline ObjPtr<mirror::Array> AllocArrayFromCode(dex::TypeIndex type_idx,
                                                               int32_t component_count,
                                                               ArtMethod* method,
@@ -143,11 +142,13 @@ inline ArtField* FindFieldFromCode(uint32_t field_idx,
     REQUIRES_SHARED(Locks::mutator_lock_)
     REQUIRES(!Roles::uninterruptible_);
 
-template<InvokeType type, bool access_check>
-inline ArtMethod* FindMethodFromCode(uint32_t method_idx,
-                                     ObjPtr<mirror::Object>* this_object,
-                                     ArtMethod* referrer,
-                                     Thread* self)
+template<InvokeType type>
+inline ArtMethod* FindMethodToCall(Thread* self,
+                                   ArtMethod* referrer,
+                                   ObjPtr<mirror::Object>* this_object,
+                                   const Instruction& inst,
+                                   bool only_lookup_tls_cache,
+                                   /*out*/ bool* string_init)
     REQUIRES_SHARED(Locks::mutator_lock_)
     REQUIRES(!Roles::uninterruptible_);
 
@@ -187,9 +188,10 @@ bool FillArrayData(ObjPtr<mirror::Object> obj, const Instruction::ArrayDataPaylo
 template <typename INT_TYPE, typename FLOAT_TYPE>
 inline INT_TYPE art_float_to_integral(FLOAT_TYPE f);
 
-ArtMethod* GetCalleeSaveMethodCaller(ArtMethod** sp,
-                                     CalleeSaveType type,
-                                     bool do_caller_check = false)
+ArtMethod* GetCalleeSaveMethodCallerAndDexPc(ArtMethod** sp,
+                                             CalleeSaveType type,
+                                             /* out */ uint32_t* dex_pc,
+                                             bool do_caller_check = false)
     REQUIRES_SHARED(Locks::mutator_lock_);
 
 struct CallerAndOuterMethod {
@@ -202,10 +204,6 @@ CallerAndOuterMethod GetCalleeSaveMethodCallerAndOuterMethod(Thread* self, Calle
 
 ArtMethod* GetCalleeSaveOuterMethod(Thread* self, CalleeSaveType type)
     REQUIRES_SHARED(Locks::mutator_lock_);
-
-// Returns whether we need to do class initialization check before invoking the method.
-// The caller is responsible for performing that check.
-bool NeedsClinitCheckBeforeCall(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
 
 // Returns the synchronization object for a native method for a GenericJni frame
 // we have just created or are about to exit. The synchronization object is

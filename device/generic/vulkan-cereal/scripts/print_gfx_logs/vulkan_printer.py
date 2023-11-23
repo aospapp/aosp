@@ -1,109 +1,1590 @@
 #####################################################################################################
 # Pretty-printer functions for Vulkan data structures
 # THIS FILE IS AUTO-GENERATED - DO NOT EDIT
-# Actually right now it is written by hand - TODO(gregschlom): auto-generate this
+#
+# To re-generate this file, run generate-vulkan-sources.sh
 #####################################################################################################
 
+def OP_vkAcquireImageANDROID(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    image = printer.write_int("image", 8, indent, signed=False, big_endian=False)
+    nativeFenceFd = printer.write_int("nativeFenceFd", 4, indent, signed=True, big_endian=False)
+    semaphore = printer.write_int("semaphore", 8, indent, signed=False, big_endian=False)
+    fence = printer.write_int("fence", 8, indent, signed=False, big_endian=False)
+    return
+
+def OP_vkAllocateMemory(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocateInfo", struct_VkMemoryAllocateInfo, False, None, indent)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    pMemory = printer.write_int("pMemory", 8, indent, optional=False, count=None, big_endian=False)
+    return
+
+def OP_vkBeginCommandBufferAsyncGOOGLE(printer, indent: int):
+    printer.write_struct("pBeginInfo", struct_VkCommandBufferBeginInfo, False, None, indent)
+    return
+
+def OP_vkBindBufferMemory(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    buffer = printer.write_int("buffer", 8, indent, signed=False, big_endian=False)
+    memory = printer.write_int("memory", 8, indent, signed=False, big_endian=False)
+    memoryOffset = printer.write_int("memoryOffset", 8, indent, signed=False, big_endian=False)
+    return
+
+def OP_vkBindImageMemory(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    image = printer.write_int("image", 8, indent, signed=False, big_endian=False)
+    memory = printer.write_int("memory", 8, indent, signed=False, big_endian=False)
+    memoryOffset = printer.write_int("memoryOffset", 8, indent, signed=False, big_endian=False)
+    return
+
 def OP_vkCmdBeginRenderPass(printer, indent: int):
-    printer.write_struct("pRenderPassBegin", struct_VkRenderPassBeginInfo, indent)
+    printer.write_struct("pRenderPassBegin", struct_VkRenderPassBeginInfo, False, None, indent)
     printer.write_enum("contents", VkSubpassContents, indent)
+    return
+
+def OP_vkCmdBindDescriptorSets(printer, indent: int):
+    printer.write_enum("pipelineBindPoint", VkPipelineBindPoint, indent)
+    layout = printer.write_int("layout", 8, indent, signed=False, big_endian=False)
+    firstSet = printer.write_int("firstSet", 4, indent, signed=False, big_endian=False)
+    descriptorSetCount = printer.write_int("descriptorSetCount", 4, indent, signed=False, big_endian=False)
+    pDescriptorSets = printer.write_int("pDescriptorSets", 8, indent, optional=False, count=descriptorSetCount, big_endian=False)
+    dynamicOffsetCount = printer.write_int("dynamicOffsetCount", 4, indent, signed=False, big_endian=False)
+    pDynamicOffsets = printer.write_int("pDynamicOffsets", 4, indent, optional=False, count=dynamicOffsetCount, big_endian=False)
+    return
+
+def OP_vkCmdBindIndexBuffer(printer, indent: int):
+    buffer = printer.write_int("buffer", 8, indent, signed=False, big_endian=False)
+    offset = printer.write_int("offset", 8, indent, signed=False, big_endian=False)
+    printer.write_enum("indexType", VkIndexType, indent)
+    return
 
 def OP_vkCmdBindPipeline(printer, indent: int):
     printer.write_enum("pipelineBindPoint", VkPipelineBindPoint, indent)
-    printer.write_int("pipeline", 8, indent)
+    pipeline = printer.write_int("pipeline", 8, indent, signed=False, big_endian=False)
+    return
+
+def OP_vkCmdBindVertexBuffers(printer, indent: int):
+    firstBinding = printer.write_int("firstBinding", 4, indent, signed=False, big_endian=False)
+    bindingCount = printer.write_int("bindingCount", 4, indent, signed=False, big_endian=False)
+    pBuffers = printer.write_int("pBuffers", 8, indent, optional=False, count=bindingCount, big_endian=False)
+    pOffsets = printer.write_int("pOffsets", 8, indent, optional=False, count=bindingCount, big_endian=False)
+    return
+
+def OP_vkCmdClearAttachments(printer, indent: int):
+    attachmentCount = printer.write_int("attachmentCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pAttachments", struct_VkClearAttachment, False, attachmentCount, indent)
+    rectCount = printer.write_int("rectCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pRects", struct_VkClearRect, False, rectCount, indent)
+    return
+
+def OP_vkCmdClearColorImage(printer, indent: int):
+    image = printer.write_int("image", 8, indent, signed=False, big_endian=False)
+    printer.write_enum("imageLayout", VkImageLayout, indent)
+    printer.write_struct("pColor", struct_VkClearColorValue, False, None, indent)
+    rangeCount = printer.write_int("rangeCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pRanges", struct_VkImageSubresourceRange, False, rangeCount, indent)
+    return
 
 def OP_vkCmdCopyBufferToImage(printer, indent: int):
-    printer.write_int("srcBuffer", 8, indent)
-    printer.write_int("dstImage", 8, indent)
+    srcBuffer = printer.write_int("srcBuffer", 8, indent, signed=False, big_endian=False)
+    dstImage = printer.write_int("dstImage", 8, indent, signed=False, big_endian=False)
     printer.write_enum("dstImageLayout", VkImageLayout, indent)
-    printer.write_repeated("regionCount", "pRegions", struct_VkBufferImageCopy, indent)
+    regionCount = printer.write_int("regionCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pRegions", struct_VkBufferImageCopy, False, regionCount, indent)
+    return
+
+def OP_vkCmdCopyImageToBuffer(printer, indent: int):
+    srcImage = printer.write_int("srcImage", 8, indent, signed=False, big_endian=False)
+    printer.write_enum("srcImageLayout", VkImageLayout, indent)
+    dstBuffer = printer.write_int("dstBuffer", 8, indent, signed=False, big_endian=False)
+    regionCount = printer.write_int("regionCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pRegions", struct_VkBufferImageCopy, False, regionCount, indent)
+    return
+
+def OP_vkCmdDraw(printer, indent: int):
+    vertexCount = printer.write_int("vertexCount", 4, indent, signed=False, big_endian=False)
+    instanceCount = printer.write_int("instanceCount", 4, indent, signed=False, big_endian=False)
+    firstVertex = printer.write_int("firstVertex", 4, indent, signed=False, big_endian=False)
+    firstInstance = printer.write_int("firstInstance", 4, indent, signed=False, big_endian=False)
+    return
+
+def OP_vkCmdDrawIndexed(printer, indent: int):
+    indexCount = printer.write_int("indexCount", 4, indent, signed=False, big_endian=False)
+    instanceCount = printer.write_int("instanceCount", 4, indent, signed=False, big_endian=False)
+    firstIndex = printer.write_int("firstIndex", 4, indent, signed=False, big_endian=False)
+    vertexOffset = printer.write_int("vertexOffset", 4, indent, signed=True, big_endian=False)
+    firstInstance = printer.write_int("firstInstance", 4, indent, signed=False, big_endian=False)
+    return
+
+def OP_vkCmdEndRenderPass(printer, indent: int):
+    return
 
 def OP_vkCmdPipelineBarrier(printer, indent: int):
-    printer.write_int("srcStageMask", 4, indent)
-    printer.write_int("dstStageMask", 4, indent)
-    printer.write_int("dependencyFlags", 4, indent)
-    printer.write_repeated("memoryBarrierCount", "pMemoryBarriers", struct_VkMemoryBarrier, indent)
-    printer.write_repeated("bufferMemoryBarrierCount", "pBufferMemoryBarriers", struct_VkBufferMemoryBarrier, indent)
-    printer.write_repeated("imageMemoryBarrierCount", "pImageMemoryBarriers", struct_VkImageMemoryBarrier, indent)
+    srcStageMask = printer.write_int("srcStageMask", 4, indent, signed=False, big_endian=False)
+    dstStageMask = printer.write_int("dstStageMask", 4, indent, signed=False, big_endian=False)
+    dependencyFlags = printer.write_int("dependencyFlags", 4, indent, signed=False, big_endian=False)
+    memoryBarrierCount = printer.write_int("memoryBarrierCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pMemoryBarriers", struct_VkMemoryBarrier, False, memoryBarrierCount, indent)
+    bufferMemoryBarrierCount = printer.write_int("bufferMemoryBarrierCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pBufferMemoryBarriers", struct_VkBufferMemoryBarrier, False, bufferMemoryBarrierCount, indent)
+    imageMemoryBarrierCount = printer.write_int("imageMemoryBarrierCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pImageMemoryBarriers", struct_VkImageMemoryBarrier, False, imageMemoryBarrierCount, indent)
+    return
 
+def OP_vkCmdSetScissor(printer, indent: int):
+    firstScissor = printer.write_int("firstScissor", 4, indent, signed=False, big_endian=False)
+    scissorCount = printer.write_int("scissorCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pScissors", struct_VkRect2D, False, scissorCount, indent)
+    return
+
+def OP_vkCmdSetViewport(printer, indent: int):
+    firstViewport = printer.write_int("firstViewport", 4, indent, signed=False, big_endian=False)
+    viewportCount = printer.write_int("viewportCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pViewports", struct_VkViewport, False, viewportCount, indent)
+    return
+
+def OP_vkCollectDescriptorPoolIdsGOOGLE(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    descriptorPool = printer.write_int("descriptorPool", 8, indent, signed=False, big_endian=False)
+    pPoolIdCount = printer.write_int("pPoolIdCount", 4, indent, optional=False, count=None, big_endian=False)
+    pPoolIds = printer.write_int("pPoolIds", 8, indent, optional=True, count=pPoolIdCount, big_endian=False)
+    return
+
+def OP_vkCreateBufferWithRequirementsGOOGLE(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pCreateInfo", struct_VkBufferCreateInfo, False, None, indent)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    pBuffer = printer.write_int("pBuffer", 8, indent, optional=False, count=None, big_endian=False)
+    printer.write_struct("pMemoryRequirements", struct_VkMemoryRequirements, False, None, indent)
+    return
+
+def OP_vkCreateDescriptorPool(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pCreateInfo", struct_VkDescriptorPoolCreateInfo, False, None, indent)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    pDescriptorPool = printer.write_int("pDescriptorPool", 8, indent, optional=False, count=None, big_endian=False)
+    return
+
+def OP_vkCreateDescriptorSetLayout(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pCreateInfo", struct_VkDescriptorSetLayoutCreateInfo, False, None, indent)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    pSetLayout = printer.write_int("pSetLayout", 8, indent, optional=False, count=None, big_endian=False)
+    return
+
+def OP_vkCreateFence(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pCreateInfo", struct_VkFenceCreateInfo, False, None, indent)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    pFence = printer.write_int("pFence", 8, indent, optional=False, count=None, big_endian=False)
+    return
+
+def OP_vkCreateFramebuffer(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pCreateInfo", struct_VkFramebufferCreateInfo, False, None, indent)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    pFramebuffer = printer.write_int("pFramebuffer", 8, indent, optional=False, count=None, big_endian=False)
+    return
+
+def OP_vkCreateGraphicsPipelines(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    pipelineCache = printer.write_int("pipelineCache", 8, indent, signed=False, big_endian=False)
+    createInfoCount = printer.write_int("createInfoCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pCreateInfos", struct_VkGraphicsPipelineCreateInfo, False, createInfoCount, indent)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    pPipelines = printer.write_int("pPipelines", 8, indent, optional=False, count=createInfoCount, big_endian=False)
+    return
+
+def OP_vkCreateImageView(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pCreateInfo", struct_VkImageViewCreateInfo, False, None, indent)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    pView = printer.write_int("pView", 8, indent, optional=False, count=None, big_endian=False)
+    return
+
+def OP_vkCreateImageWithRequirementsGOOGLE(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pCreateInfo", struct_VkImageCreateInfo, False, None, indent)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    pImage = printer.write_int("pImage", 8, indent, optional=False, count=None, big_endian=False)
+    printer.write_struct("pMemoryRequirements", struct_VkMemoryRequirements, False, None, indent)
+    return
+
+def OP_vkCreatePipelineCache(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pCreateInfo", struct_VkPipelineCacheCreateInfo, False, None, indent)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    pPipelineCache = printer.write_int("pPipelineCache", 8, indent, optional=False, count=None, big_endian=False)
+    return
+
+def OP_vkCreateRenderPass(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pCreateInfo", struct_VkRenderPassCreateInfo, False, None, indent)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    pRenderPass = printer.write_int("pRenderPass", 8, indent, optional=False, count=None, big_endian=False)
+    return
+
+def OP_vkCreateSampler(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pCreateInfo", struct_VkSamplerCreateInfo, False, None, indent)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    pSampler = printer.write_int("pSampler", 8, indent, optional=False, count=None, big_endian=False)
+    return
+
+def OP_vkCreateSemaphore(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pCreateInfo", struct_VkSemaphoreCreateInfo, False, None, indent)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    pSemaphore = printer.write_int("pSemaphore", 8, indent, optional=False, count=None, big_endian=False)
+    return
+
+def OP_vkCreateShaderModule(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pCreateInfo", struct_VkShaderModuleCreateInfo, False, None, indent)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    pShaderModule = printer.write_int("pShaderModule", 8, indent, optional=False, count=None, big_endian=False)
+    return
+
+def OP_vkDestroyBuffer(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    buffer = printer.write_int("buffer", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkDestroyCommandPool(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    commandPool = printer.write_int("commandPool", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkDestroyDescriptorPool(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    descriptorPool = printer.write_int("descriptorPool", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkDestroyDescriptorSetLayout(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    descriptorSetLayout = printer.write_int("descriptorSetLayout", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkDestroyDevice(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkDestroyFence(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    fence = printer.write_int("fence", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkDestroyFramebuffer(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    framebuffer = printer.write_int("framebuffer", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkDestroyImage(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    image = printer.write_int("image", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkDestroyImageView(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    imageView = printer.write_int("imageView", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkDestroyInstance(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    instance = printer.write_int("instance", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkDestroyPipeline(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    pipeline = printer.write_int("pipeline", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkDestroyPipelineCache(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    pipelineCache = printer.write_int("pipelineCache", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkDestroyPipelineLayout(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    pipelineLayout = printer.write_int("pipelineLayout", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkDestroyRenderPass(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    renderPass = printer.write_int("renderPass", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkDestroySemaphore(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    semaphore = printer.write_int("semaphore", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkDestroyShaderModule(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    shaderModule = printer.write_int("shaderModule", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkEndCommandBufferAsyncGOOGLE(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    return
+
+def OP_vkFreeCommandBuffers(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    commandPool = printer.write_int("commandPool", 8, indent, signed=False, big_endian=False)
+    commandBufferCount = printer.write_int("commandBufferCount", 4, indent, signed=False, big_endian=False)
+    pCommandBuffers = printer.write_int("pCommandBuffers", 8, indent, optional=True, count=commandBufferCount, big_endian=False)
+    return
+
+def OP_vkFreeMemory(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    memory = printer.write_int("memory", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkFreeMemorySyncGOOGLE(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    memory = printer.write_int("memory", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pAllocator", struct_VkAllocationCallbacks, True, None, indent)
+    return
+
+def OP_vkGetBlobGOOGLE(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    memory = printer.write_int("memory", 8, indent, signed=False, big_endian=False)
+    return
+
+def OP_vkGetFenceStatus(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    fence = printer.write_int("fence", 8, indent, signed=False, big_endian=False)
+    return
+
+def OP_vkGetMemoryHostAddressInfoGOOGLE(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    memory = printer.write_int("memory", 8, indent, signed=False, big_endian=False)
+    pAddress = printer.write_int("pAddress", 8, indent, optional=True, count=None, big_endian=False)
+    pSize = printer.write_int("pSize", 8, indent, optional=True, count=None, big_endian=False)
+    pHostmemId = printer.write_int("pHostmemId", 8, indent, optional=True, count=None, big_endian=False)
+    return
+
+def OP_vkGetPhysicalDeviceFormatProperties(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    physicalDevice = printer.write_int("physicalDevice", 8, indent, signed=False, big_endian=False)
+    printer.write_enum("format", VkFormat, indent)
+    printer.write_struct("pFormatProperties", struct_VkFormatProperties, False, None, indent)
+    return
+
+def OP_vkGetPhysicalDeviceProperties2KHR(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    physicalDevice = printer.write_int("physicalDevice", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("pProperties", struct_VkPhysicalDeviceProperties2, False, None, indent)
+    return
+
+def OP_vkGetPipelineCacheData(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    pipelineCache = printer.write_int("pipelineCache", 8, indent, signed=False, big_endian=False)
+    pDataSize = printer.write_int("pDataSize", 8, indent, optional=True, count=None, big_endian=True)
+    pData = printer.write_int("pData", 8, indent, optional=True, count=pDataSize, big_endian=False)
+    return
+
+def OP_vkGetSwapchainGrallocUsageANDROID(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    printer.write_enum("format", VkFormat, indent)
+    imageUsage = printer.write_int("imageUsage", 4, indent, signed=False, big_endian=False)
+    grallocUsage = printer.write_int("grallocUsage", 4, indent, optional=False, count=None, big_endian=False)
+    return
+
+def OP_vkQueueCommitDescriptorSetUpdatesGOOGLE(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    queue = printer.write_int("queue", 8, indent, signed=False, big_endian=False)
+    descriptorPoolCount = printer.write_int("descriptorPoolCount", 4, indent, signed=False, big_endian=False)
+    pDescriptorPools = printer.write_int("pDescriptorPools", 8, indent, optional=False, count=descriptorPoolCount, big_endian=False)
+    descriptorSetCount = printer.write_int("descriptorSetCount", 4, indent, signed=False, big_endian=False)
+    pSetLayouts = printer.write_int("pSetLayouts", 8, indent, optional=False, count=descriptorSetCount, big_endian=False)
+    pDescriptorSetPoolIds = printer.write_int("pDescriptorSetPoolIds", 8, indent, optional=False, count=descriptorSetCount, big_endian=False)
+    pDescriptorSetWhichPool = printer.write_int("pDescriptorSetWhichPool", 4, indent, optional=False, count=descriptorSetCount, big_endian=False)
+    pDescriptorSetPendingAllocation = printer.write_int("pDescriptorSetPendingAllocation", 4, indent, optional=False, count=descriptorSetCount, big_endian=False)
+    pDescriptorWriteStartingIndices = printer.write_int("pDescriptorWriteStartingIndices", 4, indent, optional=False, count=descriptorSetCount, big_endian=False)
+    pendingDescriptorWriteCount = printer.write_int("pendingDescriptorWriteCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pPendingDescriptorWrites", struct_VkWriteDescriptorSet, False, pendingDescriptorWriteCount, indent)
+    return
+
+def OP_vkQueueFlushCommandsGOOGLE(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    queue = printer.write_int("queue", 8, indent, signed=False, big_endian=False)
+    commandBuffer = printer.write_int("commandBuffer", 8, indent, signed=False, big_endian=False)
+    dataSize = printer.write_int("dataSize", 8, indent, signed=False, big_endian=False)
+    return
+
+def OP_vkQueueSignalReleaseImageANDROIDAsyncGOOGLE(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    queue = printer.write_int("queue", 8, indent, signed=False, big_endian=False)
+    waitSemaphoreCount = printer.write_int("waitSemaphoreCount", 4, indent, signed=False, big_endian=False)
+    pWaitSemaphores = printer.write_int("pWaitSemaphores", 8, indent, optional=True, count=waitSemaphoreCount, big_endian=False)
+    image = printer.write_int("image", 8, indent, signed=False, big_endian=False)
+    return
+
+def OP_vkQueueSubmitAsyncGOOGLE(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    queue = printer.write_int("queue", 8, indent, signed=False, big_endian=False)
+    submitCount = printer.write_int("submitCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pSubmits", struct_VkSubmitInfo, False, submitCount, indent)
+    fence = printer.write_int("fence", 8, indent, signed=False, big_endian=False)
+    return
+
+def OP_vkQueueWaitIdle(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    queue = printer.write_int("queue", 8, indent, signed=False, big_endian=False)
+    return
+
+def OP_vkResetFences(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    fenceCount = printer.write_int("fenceCount", 4, indent, signed=False, big_endian=False)
+    pFences = printer.write_int("pFences", 8, indent, optional=False, count=fenceCount, big_endian=False)
+    return
+
+def OP_vkWaitForFences(printer, indent: int):
+    printer.write_int("seqno: ", 4, indent)
+    device = printer.write_int("device", 8, indent, signed=False, big_endian=False)
+    fenceCount = printer.write_int("fenceCount", 4, indent, signed=False, big_endian=False)
+    pFences = printer.write_int("pFences", 8, indent, optional=False, count=fenceCount, big_endian=False)
+    waitAll = printer.write_int("waitAll", 4, indent, signed=False, big_endian=False)
+    timeout = printer.write_int("timeout", 8, indent, signed=False, big_endian=False)
+    return
+
+def struct_VkAllocationCallbacks(printer, indent: int):
+    pUserData = printer.write_int("pUserData", 8, indent, optional=True, count=None, big_endian=False)
+    pfnAllocation = printer.write_int("pfnAllocation", 8, indent, signed=False, big_endian=False)
+    pfnReallocation = printer.write_int("pfnReallocation", 8, indent, signed=False, big_endian=False)
+    pfnFree = printer.write_int("pfnFree", 8, indent, signed=False, big_endian=False)
+    pfnInternalAllocation = printer.write_int("pfnInternalAllocation", 8, indent, signed=False, big_endian=False)
+    pfnInternalFree = printer.write_int("pfnInternalFree", 8, indent, signed=False, big_endian=False)
+
+def struct_VkAttachmentDescription(printer, indent: int):
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("format", VkFormat, indent)
+    printer.write_enum("samples", VkSampleCountFlagBits, indent)
+    printer.write_enum("loadOp", VkAttachmentLoadOp, indent)
+    printer.write_enum("storeOp", VkAttachmentStoreOp, indent)
+    printer.write_enum("stencilLoadOp", VkAttachmentLoadOp, indent)
+    printer.write_enum("stencilStoreOp", VkAttachmentStoreOp, indent)
+    printer.write_enum("initialLayout", VkImageLayout, indent)
+    printer.write_enum("finalLayout", VkImageLayout, indent)
+
+def struct_VkAttachmentReference(printer, indent: int):
+    attachment = printer.write_int("attachment", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("layout", VkImageLayout, indent)
+
+def struct_VkBufferCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    size = printer.write_int("size", 8, indent, signed=False, big_endian=False)
+    usage = printer.write_int("usage", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("sharingMode", VkSharingMode, indent)
+    queueFamilyIndexCount = printer.write_int("queueFamilyIndexCount", 4, indent, signed=False, big_endian=False)
+    pQueueFamilyIndices = printer.write_int("pQueueFamilyIndices", 4, indent, optional=True, count=queueFamilyIndexCount, big_endian=False)
 
 def struct_VkBufferImageCopy(printer, indent: int):
-    printer.write_int("bufferOffset", 8, indent)
-    printer.write_int("bufferRowLength", 4, indent)
-    printer.write_int("bufferImageHeight", 4, indent)
-    printer.write_struct("imageSubresource", struct_VkImageSubresourceLayers, indent)
-    printer.write_struct("imageOffset", struct_VkOffset3D, indent)
-    printer.write_struct("imageExtent", struct_VkOffset3D, indent)
-
+    bufferOffset = printer.write_int("bufferOffset", 8, indent, signed=False, big_endian=False)
+    bufferRowLength = printer.write_int("bufferRowLength", 4, indent, signed=False, big_endian=False)
+    bufferImageHeight = printer.write_int("bufferImageHeight", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("imageSubresource", struct_VkImageSubresourceLayers, False, None, indent)
+    printer.write_struct("imageOffset", struct_VkOffset3D, False, None, indent)
+    printer.write_struct("imageExtent", struct_VkExtent3D, False, None, indent)
 
 def struct_VkBufferMemoryBarrier(printer, indent: int):
     printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER", indent)
-    printer.write_int("srcAccessMask", 4, indent)
-    printer.write_int("dstAccessMask", 4, indent)
-    printer.write_int("srcQueueFamilyIndex", 4, indent)
-    printer.write_int("dstQueueFamilyIndex", 4, indent)
-    printer.write_int("buffer", 8, indent)
-    printer.write_int("offset", 8, indent)
-    printer.write_int("size", 8, indent)
+    srcAccessMask = printer.write_int("srcAccessMask", 4, indent, signed=False, big_endian=False)
+    dstAccessMask = printer.write_int("dstAccessMask", 4, indent, signed=False, big_endian=False)
+    srcQueueFamilyIndex = printer.write_int("srcQueueFamilyIndex", 4, indent, signed=False, big_endian=False)
+    dstQueueFamilyIndex = printer.write_int("dstQueueFamilyIndex", 4, indent, signed=False, big_endian=False)
+    buffer = printer.write_int("buffer", 8, indent, signed=False, big_endian=False)
+    offset = printer.write_int("offset", 8, indent, signed=False, big_endian=False)
+    size = printer.write_int("size", 8, indent, signed=False, big_endian=False)
 
-def struct_VkClearValue(printer, indent: int):
-    printer.write_struct("color", struct_VkClearColorValue, indent)
+def struct_VkClearAttachment(printer, indent: int):
+    aspectMask = printer.write_int("aspectMask", 4, indent, signed=False, big_endian=False)
+    colorAttachment = printer.write_int("colorAttachment", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("clearValue", struct_VkClearValue, False, None, indent)
 
 def struct_VkClearColorValue(printer, indent: int):
-    printer.write("0x{:04X}, 0x{:04X}, 0x{:04X}, 0x{:04X}\n".format(
-        printer.read_int(4), printer.read_int(4), printer.read_int(4), printer.read_int(4)), indent)
+    printer.write_float("float32", indent, count=4)
+
+def struct_VkClearRect(printer, indent: int):
+    printer.write_struct("rect", struct_VkRect2D, False, None, indent)
+    baseArrayLayer = printer.write_int("baseArrayLayer", 4, indent, signed=False, big_endian=False)
+    layerCount = printer.write_int("layerCount", 4, indent, signed=False, big_endian=False)
+
+def struct_VkClearValue(printer, indent: int):
+    printer.write_struct("color", struct_VkClearColorValue, False, None, indent)
+
+def struct_VkCommandBufferBeginInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pInheritanceInfo", struct_VkCommandBufferInheritanceInfo, True, None, indent)
+
+def struct_VkCommandBufferInheritanceInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO", indent)
+    renderPass = printer.write_int("renderPass", 8, indent, signed=False, big_endian=False)
+    subpass = printer.write_int("subpass", 4, indent, signed=False, big_endian=False)
+    framebuffer = printer.write_int("framebuffer", 8, indent, signed=False, big_endian=False)
+    occlusionQueryEnable = printer.write_int("occlusionQueryEnable", 4, indent, signed=False, big_endian=False)
+    queryFlags = printer.write_int("queryFlags", 4, indent, signed=False, big_endian=False)
+    pipelineStatistics = printer.write_int("pipelineStatistics", 4, indent, signed=False, big_endian=False)
+
+def struct_VkComponentMapping(printer, indent: int):
+    printer.write_enum("r", VkComponentSwizzle, indent)
+    printer.write_enum("g", VkComponentSwizzle, indent)
+    printer.write_enum("b", VkComponentSwizzle, indent)
+    printer.write_enum("a", VkComponentSwizzle, indent)
+
+def struct_VkDescriptorBufferInfo(printer, indent: int):
+    buffer = printer.write_int("buffer", 8, indent, signed=False, big_endian=False)
+    offset = printer.write_int("offset", 8, indent, signed=False, big_endian=False)
+    range = printer.write_int("range", 8, indent, signed=False, big_endian=False)
+
+def struct_VkDescriptorImageInfo(printer, indent: int):
+    sampler = printer.write_int("sampler", 8, indent, signed=False, big_endian=False)
+    imageView = printer.write_int("imageView", 8, indent, signed=False, big_endian=False)
+    printer.write_enum("imageLayout", VkImageLayout, indent)
+
+def struct_VkDescriptorPoolCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    maxSets = printer.write_int("maxSets", 4, indent, signed=False, big_endian=False)
+    poolSizeCount = printer.write_int("poolSizeCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pPoolSizes", struct_VkDescriptorPoolSize, False, poolSizeCount, indent)
+
+def struct_VkDescriptorPoolSize(printer, indent: int):
+    printer.write_enum("type", VkDescriptorType, indent)
+    descriptorCount = printer.write_int("descriptorCount", 4, indent, signed=False, big_endian=False)
+
+def struct_VkDescriptorSetLayoutBinding(printer, indent: int):
+    binding = printer.write_int("binding", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("descriptorType", VkDescriptorType, indent)
+    descriptorCount = printer.write_int("descriptorCount", 4, indent, signed=False, big_endian=False)
+    stageFlags = printer.write_int("stageFlags", 4, indent, signed=False, big_endian=False)
+    pImmutableSamplers = printer.write_int("pImmutableSamplers", 8, indent, optional=True, count=descriptorCount, big_endian=False)
+
+def struct_VkDescriptorSetLayoutCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    bindingCount = printer.write_int("bindingCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pBindings", struct_VkDescriptorSetLayoutBinding, False, bindingCount, indent)
+
+def struct_VkExtent2D(printer, indent: int):
+    width = printer.write_int("width", 4, indent, signed=False, big_endian=False)
+    height = printer.write_int("height", 4, indent, signed=False, big_endian=False)
+
+def struct_VkExtent3D(printer, indent: int):
+    width = printer.write_int("width", 4, indent, signed=False, big_endian=False)
+    height = printer.write_int("height", 4, indent, signed=False, big_endian=False)
+    depth = printer.write_int("depth", 4, indent, signed=False, big_endian=False)
+
+def struct_VkFenceCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_FENCE_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+
+def struct_VkFormatProperties(printer, indent: int):
+    linearTilingFeatures = printer.write_int("linearTilingFeatures", 4, indent, signed=False, big_endian=False)
+    optimalTilingFeatures = printer.write_int("optimalTilingFeatures", 4, indent, signed=False, big_endian=False)
+    bufferFeatures = printer.write_int("bufferFeatures", 4, indent, signed=False, big_endian=False)
+
+def struct_VkFramebufferCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    renderPass = printer.write_int("renderPass", 8, indent, signed=False, big_endian=False)
+    attachmentCount = printer.write_int("attachmentCount", 4, indent, signed=False, big_endian=False)
+    pAttachments = printer.write_int("pAttachments", 8, indent, optional=False, count=attachmentCount, big_endian=False)
+    width = printer.write_int("width", 4, indent, signed=False, big_endian=False)
+    height = printer.write_int("height", 4, indent, signed=False, big_endian=False)
+    layers = printer.write_int("layers", 4, indent, signed=False, big_endian=False)
+
+def struct_VkGraphicsPipelineCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    stageCount = printer.write_int("stageCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pStages", struct_VkPipelineShaderStageCreateInfo, False, stageCount, indent)
+    printer.write_struct("pVertexInputState", struct_VkPipelineVertexInputStateCreateInfo, True, None, indent)
+    printer.write_struct("pInputAssemblyState", struct_VkPipelineInputAssemblyStateCreateInfo, True, None, indent)
+    printer.write_struct("pTessellationState", struct_VkPipelineTessellationStateCreateInfo, True, None, indent)
+    printer.write_struct("pViewportState", struct_VkPipelineViewportStateCreateInfo, True, None, indent)
+    printer.write_struct("pRasterizationState", struct_VkPipelineRasterizationStateCreateInfo, True, None, indent)
+    printer.write_struct("pMultisampleState", struct_VkPipelineMultisampleStateCreateInfo, True, None, indent)
+    printer.write_struct("pDepthStencilState", struct_VkPipelineDepthStencilStateCreateInfo, True, None, indent)
+    printer.write_struct("pColorBlendState", struct_VkPipelineColorBlendStateCreateInfo, True, None, indent)
+    printer.write_struct("pDynamicState", struct_VkPipelineDynamicStateCreateInfo, True, None, indent)
+    layout = printer.write_int("layout", 8, indent, signed=False, big_endian=False)
+    renderPass = printer.write_int("renderPass", 8, indent, signed=False, big_endian=False)
+    subpass = printer.write_int("subpass", 4, indent, signed=False, big_endian=False)
+    basePipelineHandle = printer.write_int("basePipelineHandle", 8, indent, signed=False, big_endian=False)
+    basePipelineIndex = printer.write_int("basePipelineIndex", 4, indent, signed=True, big_endian=False)
+
+def struct_VkImageCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("imageType", VkImageType, indent)
+    printer.write_enum("format", VkFormat, indent)
+    printer.write_struct("extent", struct_VkExtent3D, False, None, indent)
+    mipLevels = printer.write_int("mipLevels", 4, indent, signed=False, big_endian=False)
+    arrayLayers = printer.write_int("arrayLayers", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("samples", VkSampleCountFlagBits, indent)
+    printer.write_enum("tiling", VkImageTiling, indent)
+    usage = printer.write_int("usage", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("sharingMode", VkSharingMode, indent)
+    queueFamilyIndexCount = printer.write_int("queueFamilyIndexCount", 4, indent, signed=False, big_endian=False)
+    pQueueFamilyIndices = printer.write_int("pQueueFamilyIndices", 4, indent, optional=True, count=queueFamilyIndexCount, big_endian=False)
+    printer.write_enum("initialLayout", VkImageLayout, indent)
 
 def struct_VkImageMemoryBarrier(printer, indent: int):
     printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER", indent)
-    printer.write_int("srcAccessMask", 4, indent)
-    printer.write_int("dstAccessMask", 4, indent)
+    srcAccessMask = printer.write_int("srcAccessMask", 4, indent, signed=False, big_endian=False)
+    dstAccessMask = printer.write_int("dstAccessMask", 4, indent, signed=False, big_endian=False)
     printer.write_enum("oldLayout", VkImageLayout, indent)
     printer.write_enum("newLayout", VkImageLayout, indent)
-    printer.write_int("srcQueueFamilyIndex", 4, indent)
-    printer.write_int("dstQueueFamilyIndex", 4, indent)
-    printer.write_int("image", 8, indent)
-    printer.write_struct("subresourceRange", struct_VkImageSubresourceRange, indent)
-
-def struct_VkExtent2D(printer, indent: int):
-    printer.write_int("width", 4, indent)
-    printer.write_int("height", 4, indent)
+    srcQueueFamilyIndex = printer.write_int("srcQueueFamilyIndex", 4, indent, signed=False, big_endian=False)
+    dstQueueFamilyIndex = printer.write_int("dstQueueFamilyIndex", 4, indent, signed=False, big_endian=False)
+    image = printer.write_int("image", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("subresourceRange", struct_VkImageSubresourceRange, False, None, indent)
 
 def struct_VkImageSubresourceLayers(printer, indent: int):
-    printer.write_int("aspectMask", 4, indent)
-    printer.write_int("mipLevel", 4, indent)
-    printer.write_int("baseArrayLayer", 4, indent)
-    printer.write_int("layerCount", 4, indent)
+    aspectMask = printer.write_int("aspectMask", 4, indent, signed=False, big_endian=False)
+    mipLevel = printer.write_int("mipLevel", 4, indent, signed=False, big_endian=False)
+    baseArrayLayer = printer.write_int("baseArrayLayer", 4, indent, signed=False, big_endian=False)
+    layerCount = printer.write_int("layerCount", 4, indent, signed=False, big_endian=False)
 
 def struct_VkImageSubresourceRange(printer, indent: int):
-    printer.write_int("aspectMask", 4, indent)
-    printer.write_int("baseMipLevel", 4, indent)
-    printer.write_int("levelCount", 4, indent)
-    printer.write_int("baseArrayLayer", 4, indent)
-    printer.write_int("layerCount", 4, indent)
+    aspectMask = printer.write_int("aspectMask", 4, indent, signed=False, big_endian=False)
+    baseMipLevel = printer.write_int("baseMipLevel", 4, indent, signed=False, big_endian=False)
+    levelCount = printer.write_int("levelCount", 4, indent, signed=False, big_endian=False)
+    baseArrayLayer = printer.write_int("baseArrayLayer", 4, indent, signed=False, big_endian=False)
+    layerCount = printer.write_int("layerCount", 4, indent, signed=False, big_endian=False)
+
+def struct_VkImageViewCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    image = printer.write_int("image", 8, indent, signed=False, big_endian=False)
+    printer.write_enum("viewType", VkImageViewType, indent)
+    printer.write_enum("format", VkFormat, indent)
+    printer.write_struct("components", struct_VkComponentMapping, False, None, indent)
+    printer.write_struct("subresourceRange", struct_VkImageSubresourceRange, False, None, indent)
+
+def struct_VkMemoryAllocateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO", indent)
+    allocationSize = printer.write_int("allocationSize", 8, indent, signed=False, big_endian=False)
+    memoryTypeIndex = printer.write_int("memoryTypeIndex", 4, indent, signed=False, big_endian=False)
 
 def struct_VkMemoryBarrier(printer, indent: int):
     printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_MEMORY_BARRIER", indent)
-    printer.write_int("srcAccessMask", 4, indent)
-    printer.write_int("dstAccessMask", 4, indent)
+    srcAccessMask = printer.write_int("srcAccessMask", 4, indent, signed=False, big_endian=False)
+    dstAccessMask = printer.write_int("dstAccessMask", 4, indent, signed=False, big_endian=False)
+
+def struct_VkMemoryRequirements(printer, indent: int):
+    size = printer.write_int("size", 8, indent, signed=False, big_endian=False)
+    alignment = printer.write_int("alignment", 8, indent, signed=False, big_endian=False)
+    memoryTypeBits = printer.write_int("memoryTypeBits", 4, indent, signed=False, big_endian=False)
 
 def struct_VkOffset2D(printer, indent: int):
-    printer.write_int("x", 4, indent, signed=True)
-    printer.write_int("y", 4, indent, signed=True)
+    x = printer.write_int("x", 4, indent, signed=True, big_endian=False)
+    y = printer.write_int("y", 4, indent, signed=True, big_endian=False)
 
 def struct_VkOffset3D(printer, indent: int):
-    printer.write("x: {}, y: {}, z: {}\n".format(printer.read_int(4), printer.read_int(4), printer.read_int(4)), indent)
+    x = printer.write_int("x", 4, indent, signed=True, big_endian=False)
+    y = printer.write_int("y", 4, indent, signed=True, big_endian=False)
+    z = printer.write_int("z", 4, indent, signed=True, big_endian=False)
+
+def struct_VkPhysicalDeviceLimits(printer, indent: int):
+    maxImageDimension1D = printer.write_int("maxImageDimension1D", 4, indent, signed=False, big_endian=False)
+    maxImageDimension2D = printer.write_int("maxImageDimension2D", 4, indent, signed=False, big_endian=False)
+    maxImageDimension3D = printer.write_int("maxImageDimension3D", 4, indent, signed=False, big_endian=False)
+    maxImageDimensionCube = printer.write_int("maxImageDimensionCube", 4, indent, signed=False, big_endian=False)
+    maxImageArrayLayers = printer.write_int("maxImageArrayLayers", 4, indent, signed=False, big_endian=False)
+    maxTexelBufferElements = printer.write_int("maxTexelBufferElements", 4, indent, signed=False, big_endian=False)
+    maxUniformBufferRange = printer.write_int("maxUniformBufferRange", 4, indent, signed=False, big_endian=False)
+    maxStorageBufferRange = printer.write_int("maxStorageBufferRange", 4, indent, signed=False, big_endian=False)
+    maxPushConstantsSize = printer.write_int("maxPushConstantsSize", 4, indent, signed=False, big_endian=False)
+    maxMemoryAllocationCount = printer.write_int("maxMemoryAllocationCount", 4, indent, signed=False, big_endian=False)
+    maxSamplerAllocationCount = printer.write_int("maxSamplerAllocationCount", 4, indent, signed=False, big_endian=False)
+    bufferImageGranularity = printer.write_int("bufferImageGranularity", 8, indent, signed=False, big_endian=False)
+    sparseAddressSpaceSize = printer.write_int("sparseAddressSpaceSize", 8, indent, signed=False, big_endian=False)
+    maxBoundDescriptorSets = printer.write_int("maxBoundDescriptorSets", 4, indent, signed=False, big_endian=False)
+    maxPerStageDescriptorSamplers = printer.write_int("maxPerStageDescriptorSamplers", 4, indent, signed=False, big_endian=False)
+    maxPerStageDescriptorUniformBuffers = printer.write_int("maxPerStageDescriptorUniformBuffers", 4, indent, signed=False, big_endian=False)
+    maxPerStageDescriptorStorageBuffers = printer.write_int("maxPerStageDescriptorStorageBuffers", 4, indent, signed=False, big_endian=False)
+    maxPerStageDescriptorSampledImages = printer.write_int("maxPerStageDescriptorSampledImages", 4, indent, signed=False, big_endian=False)
+    maxPerStageDescriptorStorageImages = printer.write_int("maxPerStageDescriptorStorageImages", 4, indent, signed=False, big_endian=False)
+    maxPerStageDescriptorInputAttachments = printer.write_int("maxPerStageDescriptorInputAttachments", 4, indent, signed=False, big_endian=False)
+    maxPerStageResources = printer.write_int("maxPerStageResources", 4, indent, signed=False, big_endian=False)
+    maxDescriptorSetSamplers = printer.write_int("maxDescriptorSetSamplers", 4, indent, signed=False, big_endian=False)
+    maxDescriptorSetUniformBuffers = printer.write_int("maxDescriptorSetUniformBuffers", 4, indent, signed=False, big_endian=False)
+    maxDescriptorSetUniformBuffersDynamic = printer.write_int("maxDescriptorSetUniformBuffersDynamic", 4, indent, signed=False, big_endian=False)
+    maxDescriptorSetStorageBuffers = printer.write_int("maxDescriptorSetStorageBuffers", 4, indent, signed=False, big_endian=False)
+    maxDescriptorSetStorageBuffersDynamic = printer.write_int("maxDescriptorSetStorageBuffersDynamic", 4, indent, signed=False, big_endian=False)
+    maxDescriptorSetSampledImages = printer.write_int("maxDescriptorSetSampledImages", 4, indent, signed=False, big_endian=False)
+    maxDescriptorSetStorageImages = printer.write_int("maxDescriptorSetStorageImages", 4, indent, signed=False, big_endian=False)
+    maxDescriptorSetInputAttachments = printer.write_int("maxDescriptorSetInputAttachments", 4, indent, signed=False, big_endian=False)
+    maxVertexInputAttributes = printer.write_int("maxVertexInputAttributes", 4, indent, signed=False, big_endian=False)
+    maxVertexInputBindings = printer.write_int("maxVertexInputBindings", 4, indent, signed=False, big_endian=False)
+    maxVertexInputAttributeOffset = printer.write_int("maxVertexInputAttributeOffset", 4, indent, signed=False, big_endian=False)
+    maxVertexInputBindingStride = printer.write_int("maxVertexInputBindingStride", 4, indent, signed=False, big_endian=False)
+    maxVertexOutputComponents = printer.write_int("maxVertexOutputComponents", 4, indent, signed=False, big_endian=False)
+    maxTessellationGenerationLevel = printer.write_int("maxTessellationGenerationLevel", 4, indent, signed=False, big_endian=False)
+    maxTessellationPatchSize = printer.write_int("maxTessellationPatchSize", 4, indent, signed=False, big_endian=False)
+    maxTessellationControlPerVertexInputComponents = printer.write_int("maxTessellationControlPerVertexInputComponents", 4, indent, signed=False, big_endian=False)
+    maxTessellationControlPerVertexOutputComponents = printer.write_int("maxTessellationControlPerVertexOutputComponents", 4, indent, signed=False, big_endian=False)
+    maxTessellationControlPerPatchOutputComponents = printer.write_int("maxTessellationControlPerPatchOutputComponents", 4, indent, signed=False, big_endian=False)
+    maxTessellationControlTotalOutputComponents = printer.write_int("maxTessellationControlTotalOutputComponents", 4, indent, signed=False, big_endian=False)
+    maxTessellationEvaluationInputComponents = printer.write_int("maxTessellationEvaluationInputComponents", 4, indent, signed=False, big_endian=False)
+    maxTessellationEvaluationOutputComponents = printer.write_int("maxTessellationEvaluationOutputComponents", 4, indent, signed=False, big_endian=False)
+    maxGeometryShaderInvocations = printer.write_int("maxGeometryShaderInvocations", 4, indent, signed=False, big_endian=False)
+    maxGeometryInputComponents = printer.write_int("maxGeometryInputComponents", 4, indent, signed=False, big_endian=False)
+    maxGeometryOutputComponents = printer.write_int("maxGeometryOutputComponents", 4, indent, signed=False, big_endian=False)
+    maxGeometryOutputVertices = printer.write_int("maxGeometryOutputVertices", 4, indent, signed=False, big_endian=False)
+    maxGeometryTotalOutputComponents = printer.write_int("maxGeometryTotalOutputComponents", 4, indent, signed=False, big_endian=False)
+    maxFragmentInputComponents = printer.write_int("maxFragmentInputComponents", 4, indent, signed=False, big_endian=False)
+    maxFragmentOutputAttachments = printer.write_int("maxFragmentOutputAttachments", 4, indent, signed=False, big_endian=False)
+    maxFragmentDualSrcAttachments = printer.write_int("maxFragmentDualSrcAttachments", 4, indent, signed=False, big_endian=False)
+    maxFragmentCombinedOutputResources = printer.write_int("maxFragmentCombinedOutputResources", 4, indent, signed=False, big_endian=False)
+    maxComputeSharedMemorySize = printer.write_int("maxComputeSharedMemorySize", 4, indent, signed=False, big_endian=False)
+    printer.write_int("maxComputeWorkGroupCount", 4, indent, signed=False, count=3)
+    maxComputeWorkGroupInvocations = printer.write_int("maxComputeWorkGroupInvocations", 4, indent, signed=False, big_endian=False)
+    printer.write_int("maxComputeWorkGroupSize", 4, indent, signed=False, count=3)
+    subPixelPrecisionBits = printer.write_int("subPixelPrecisionBits", 4, indent, signed=False, big_endian=False)
+    subTexelPrecisionBits = printer.write_int("subTexelPrecisionBits", 4, indent, signed=False, big_endian=False)
+    mipmapPrecisionBits = printer.write_int("mipmapPrecisionBits", 4, indent, signed=False, big_endian=False)
+    maxDrawIndexedIndexValue = printer.write_int("maxDrawIndexedIndexValue", 4, indent, signed=False, big_endian=False)
+    maxDrawIndirectCount = printer.write_int("maxDrawIndirectCount", 4, indent, signed=False, big_endian=False)
+    printer.write_float("maxSamplerLodBias", indent)
+    printer.write_float("maxSamplerAnisotropy", indent)
+    maxViewports = printer.write_int("maxViewports", 4, indent, signed=False, big_endian=False)
+    printer.write_int("maxViewportDimensions", 4, indent, signed=False, count=2)
+    printer.write_float("viewportBoundsRange", indent, count=2)
+    viewportSubPixelBits = printer.write_int("viewportSubPixelBits", 4, indent, signed=False, big_endian=False)
+    minMemoryMapAlignment = printer.write_int("minMemoryMapAlignment", 8, indent, signed=False, big_endian=True)
+    minTexelBufferOffsetAlignment = printer.write_int("minTexelBufferOffsetAlignment", 8, indent, signed=False, big_endian=False)
+    minUniformBufferOffsetAlignment = printer.write_int("minUniformBufferOffsetAlignment", 8, indent, signed=False, big_endian=False)
+    minStorageBufferOffsetAlignment = printer.write_int("minStorageBufferOffsetAlignment", 8, indent, signed=False, big_endian=False)
+    minTexelOffset = printer.write_int("minTexelOffset", 4, indent, signed=True, big_endian=False)
+    maxTexelOffset = printer.write_int("maxTexelOffset", 4, indent, signed=False, big_endian=False)
+    minTexelGatherOffset = printer.write_int("minTexelGatherOffset", 4, indent, signed=True, big_endian=False)
+    maxTexelGatherOffset = printer.write_int("maxTexelGatherOffset", 4, indent, signed=False, big_endian=False)
+    printer.write_float("minInterpolationOffset", indent)
+    printer.write_float("maxInterpolationOffset", indent)
+    subPixelInterpolationOffsetBits = printer.write_int("subPixelInterpolationOffsetBits", 4, indent, signed=False, big_endian=False)
+    maxFramebufferWidth = printer.write_int("maxFramebufferWidth", 4, indent, signed=False, big_endian=False)
+    maxFramebufferHeight = printer.write_int("maxFramebufferHeight", 4, indent, signed=False, big_endian=False)
+    maxFramebufferLayers = printer.write_int("maxFramebufferLayers", 4, indent, signed=False, big_endian=False)
+    framebufferColorSampleCounts = printer.write_int("framebufferColorSampleCounts", 4, indent, signed=False, big_endian=False)
+    framebufferDepthSampleCounts = printer.write_int("framebufferDepthSampleCounts", 4, indent, signed=False, big_endian=False)
+    framebufferStencilSampleCounts = printer.write_int("framebufferStencilSampleCounts", 4, indent, signed=False, big_endian=False)
+    framebufferNoAttachmentsSampleCounts = printer.write_int("framebufferNoAttachmentsSampleCounts", 4, indent, signed=False, big_endian=False)
+    maxColorAttachments = printer.write_int("maxColorAttachments", 4, indent, signed=False, big_endian=False)
+    sampledImageColorSampleCounts = printer.write_int("sampledImageColorSampleCounts", 4, indent, signed=False, big_endian=False)
+    sampledImageIntegerSampleCounts = printer.write_int("sampledImageIntegerSampleCounts", 4, indent, signed=False, big_endian=False)
+    sampledImageDepthSampleCounts = printer.write_int("sampledImageDepthSampleCounts", 4, indent, signed=False, big_endian=False)
+    sampledImageStencilSampleCounts = printer.write_int("sampledImageStencilSampleCounts", 4, indent, signed=False, big_endian=False)
+    storageImageSampleCounts = printer.write_int("storageImageSampleCounts", 4, indent, signed=False, big_endian=False)
+    maxSampleMaskWords = printer.write_int("maxSampleMaskWords", 4, indent, signed=False, big_endian=False)
+    timestampComputeAndGraphics = printer.write_int("timestampComputeAndGraphics", 4, indent, signed=False, big_endian=False)
+    printer.write_float("timestampPeriod", indent)
+    maxClipDistances = printer.write_int("maxClipDistances", 4, indent, signed=False, big_endian=False)
+    maxCullDistances = printer.write_int("maxCullDistances", 4, indent, signed=False, big_endian=False)
+    maxCombinedClipAndCullDistances = printer.write_int("maxCombinedClipAndCullDistances", 4, indent, signed=False, big_endian=False)
+    discreteQueuePriorities = printer.write_int("discreteQueuePriorities", 4, indent, signed=False, big_endian=False)
+    printer.write_float("pointSizeRange", indent, count=2)
+    printer.write_float("lineWidthRange", indent, count=2)
+    printer.write_float("pointSizeGranularity", indent)
+    printer.write_float("lineWidthGranularity", indent)
+    strictLines = printer.write_int("strictLines", 4, indent, signed=False, big_endian=False)
+    standardSampleLocations = printer.write_int("standardSampleLocations", 4, indent, signed=False, big_endian=False)
+    optimalBufferCopyOffsetAlignment = printer.write_int("optimalBufferCopyOffsetAlignment", 8, indent, signed=False, big_endian=False)
+    optimalBufferCopyRowPitchAlignment = printer.write_int("optimalBufferCopyRowPitchAlignment", 8, indent, signed=False, big_endian=False)
+    nonCoherentAtomSize = printer.write_int("nonCoherentAtomSize", 8, indent, signed=False, big_endian=False)
+
+def struct_VkPhysicalDeviceProperties(printer, indent: int):
+    apiVersion = printer.write_int("apiVersion", 4, indent, signed=False, big_endian=False)
+    driverVersion = printer.write_int("driverVersion", 4, indent, signed=False, big_endian=False)
+    vendorID = printer.write_int("vendorID", 4, indent, signed=False, big_endian=False)
+    deviceID = printer.write_int("deviceID", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("deviceType", VkPhysicalDeviceType, indent)
+    printer.write_string("deviceName", 256, indent)
+    printer.write_int("pipelineCacheUUID", 1, indent, signed=False, count=16)
+    printer.write_struct("limits", struct_VkPhysicalDeviceLimits, False, None, indent)
+    printer.write_struct("sparseProperties", struct_VkPhysicalDeviceSparseProperties, False, None, indent)
+
+def struct_VkPhysicalDeviceProperties2(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2", indent)
+    printer.write_struct("properties", struct_VkPhysicalDeviceProperties, False, None, indent)
+
+def struct_VkPhysicalDeviceSparseProperties(printer, indent: int):
+    residencyStandard2DBlockShape = printer.write_int("residencyStandard2DBlockShape", 4, indent, signed=False, big_endian=False)
+    residencyStandard2DMultisampleBlockShape = printer.write_int("residencyStandard2DMultisampleBlockShape", 4, indent, signed=False, big_endian=False)
+    residencyStandard3DBlockShape = printer.write_int("residencyStandard3DBlockShape", 4, indent, signed=False, big_endian=False)
+    residencyAlignedMipSize = printer.write_int("residencyAlignedMipSize", 4, indent, signed=False, big_endian=False)
+    residencyNonResidentStrict = printer.write_int("residencyNonResidentStrict", 4, indent, signed=False, big_endian=False)
+
+def struct_VkPipelineCacheCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    initialDataSize = printer.write_int("initialDataSize", 8, indent, signed=False, big_endian=True)
+    pInitialData = printer.write_int("pInitialData", 8, indent, optional=False, count=initialDataSize, big_endian=False)
+
+def struct_VkPipelineColorBlendAttachmentState(printer, indent: int):
+    blendEnable = printer.write_int("blendEnable", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("srcColorBlendFactor", VkBlendFactor, indent)
+    printer.write_enum("dstColorBlendFactor", VkBlendFactor, indent)
+    printer.write_enum("colorBlendOp", VkBlendOp, indent)
+    printer.write_enum("srcAlphaBlendFactor", VkBlendFactor, indent)
+    printer.write_enum("dstAlphaBlendFactor", VkBlendFactor, indent)
+    printer.write_enum("alphaBlendOp", VkBlendOp, indent)
+    colorWriteMask = printer.write_int("colorWriteMask", 4, indent, signed=False, big_endian=False)
+
+def struct_VkPipelineColorBlendStateCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    logicOpEnable = printer.write_int("logicOpEnable", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("logicOp", VkLogicOp, indent)
+    attachmentCount = printer.write_int("attachmentCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pAttachments", struct_VkPipelineColorBlendAttachmentState, False, attachmentCount, indent)
+    printer.write_float("blendConstants", indent, count=4)
+
+def struct_VkPipelineDepthStencilStateCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    depthTestEnable = printer.write_int("depthTestEnable", 4, indent, signed=False, big_endian=False)
+    depthWriteEnable = printer.write_int("depthWriteEnable", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("depthCompareOp", VkCompareOp, indent)
+    depthBoundsTestEnable = printer.write_int("depthBoundsTestEnable", 4, indent, signed=False, big_endian=False)
+    stencilTestEnable = printer.write_int("stencilTestEnable", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("front", struct_VkStencilOpState, False, None, indent)
+    printer.write_struct("back", struct_VkStencilOpState, False, None, indent)
+    printer.write_float("minDepthBounds", indent)
+    printer.write_float("maxDepthBounds", indent)
+
+def struct_VkPipelineDynamicStateCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    dynamicStateCount = printer.write_int("dynamicStateCount", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("pDynamicStates", VkDynamicState, indent)
+
+def struct_VkPipelineInputAssemblyStateCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("topology", VkPrimitiveTopology, indent)
+    primitiveRestartEnable = printer.write_int("primitiveRestartEnable", 4, indent, signed=False, big_endian=False)
+
+def struct_VkPipelineMultisampleStateCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("rasterizationSamples", VkSampleCountFlagBits, indent)
+    sampleShadingEnable = printer.write_int("sampleShadingEnable", 4, indent, signed=False, big_endian=False)
+    printer.write_float("minSampleShading", indent)
+    pSampleMask = printer.write_int("pSampleMask", 8, indent, optional=True, count=int(rasterizationSamples / 32), big_endian=False)
+    alphaToCoverageEnable = printer.write_int("alphaToCoverageEnable", 4, indent, signed=False, big_endian=False)
+    alphaToOneEnable = printer.write_int("alphaToOneEnable", 4, indent, signed=False, big_endian=False)
+
+def struct_VkPipelineRasterizationStateCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    depthClampEnable = printer.write_int("depthClampEnable", 4, indent, signed=False, big_endian=False)
+    rasterizerDiscardEnable = printer.write_int("rasterizerDiscardEnable", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("polygonMode", VkPolygonMode, indent)
+    cullMode = printer.write_int("cullMode", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("frontFace", VkFrontFace, indent)
+    depthBiasEnable = printer.write_int("depthBiasEnable", 4, indent, signed=False, big_endian=False)
+    printer.write_float("depthBiasConstantFactor", indent)
+    printer.write_float("depthBiasClamp", indent)
+    printer.write_float("depthBiasSlopeFactor", indent)
+    printer.write_float("lineWidth", indent)
+
+def struct_VkPipelineShaderStageCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("stage", VkShaderStageFlagBits, indent)
+    module = printer.write_int("module", 8, indent, signed=False, big_endian=False)
+    printer.write_string("pName", None, indent)
+    printer.write_struct("pSpecializationInfo", struct_VkSpecializationInfo, True, None, indent)
+
+def struct_VkPipelineTessellationStateCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    patchControlPoints = printer.write_int("patchControlPoints", 4, indent, signed=False, big_endian=False)
+
+def struct_VkPipelineVertexInputStateCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    vertexBindingDescriptionCount = printer.write_int("vertexBindingDescriptionCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pVertexBindingDescriptions", struct_VkVertexInputBindingDescription, False, vertexBindingDescriptionCount, indent)
+    vertexAttributeDescriptionCount = printer.write_int("vertexAttributeDescriptionCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pVertexAttributeDescriptions", struct_VkVertexInputAttributeDescription, False, vertexAttributeDescriptionCount, indent)
+
+def struct_VkPipelineViewportStateCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    viewportCount = printer.write_int("viewportCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pViewports", struct_VkViewport, True, viewportCount, indent)
+    scissorCount = printer.write_int("scissorCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pScissors", struct_VkRect2D, True, scissorCount, indent)
 
 def struct_VkRect2D(printer, indent: int):
-    printer.write_struct("offset", struct_VkOffset2D, indent)
-    printer.write_struct("extent", struct_VkExtent2D, indent)
+    printer.write_struct("offset", struct_VkOffset2D, False, None, indent)
+    printer.write_struct("extent", struct_VkExtent2D, False, None, indent)
 
 def struct_VkRenderPassBeginInfo(printer, indent: int):
     printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO", indent)
-    printer.write_int("renderPass", 8, indent)
-    printer.write_int("framebuffer", 8, indent)
-    printer.write_struct("renderArea", struct_VkRect2D, indent)
-    printer.write_repeated("clearValueCount", "pClearValues", struct_VkClearValue, indent,
-                           "pClearValuesPtr")
+    renderPass = printer.write_int("renderPass", 8, indent, signed=False, big_endian=False)
+    framebuffer = printer.write_int("framebuffer", 8, indent, signed=False, big_endian=False)
+    printer.write_struct("renderArea", struct_VkRect2D, False, None, indent)
+    clearValueCount = printer.write_int("clearValueCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pClearValues", struct_VkClearValue, True, clearValueCount, indent)
+
+def struct_VkRenderPassCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    attachmentCount = printer.write_int("attachmentCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pAttachments", struct_VkAttachmentDescription, False, attachmentCount, indent)
+    subpassCount = printer.write_int("subpassCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pSubpasses", struct_VkSubpassDescription, False, subpassCount, indent)
+    dependencyCount = printer.write_int("dependencyCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pDependencies", struct_VkSubpassDependency, False, dependencyCount, indent)
+
+def struct_VkSamplerCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("magFilter", VkFilter, indent)
+    printer.write_enum("minFilter", VkFilter, indent)
+    printer.write_enum("mipmapMode", VkSamplerMipmapMode, indent)
+    printer.write_enum("addressModeU", VkSamplerAddressMode, indent)
+    printer.write_enum("addressModeV", VkSamplerAddressMode, indent)
+    printer.write_enum("addressModeW", VkSamplerAddressMode, indent)
+    printer.write_float("mipLodBias", indent)
+    anisotropyEnable = printer.write_int("anisotropyEnable", 4, indent, signed=False, big_endian=False)
+    printer.write_float("maxAnisotropy", indent)
+    compareEnable = printer.write_int("compareEnable", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("compareOp", VkCompareOp, indent)
+    printer.write_float("minLod", indent)
+    printer.write_float("maxLod", indent)
+    printer.write_enum("borderColor", VkBorderColor, indent)
+    unnormalizedCoordinates = printer.write_int("unnormalizedCoordinates", 4, indent, signed=False, big_endian=False)
+
+def struct_VkSemaphoreCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+
+def struct_VkShaderModuleCreateInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO", indent)
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    codeSize = printer.write_int("codeSize", 8, indent, signed=False, big_endian=True)
+    pCode = printer.write_int("pCode", 4, indent, optional=False, count=int(codeSize / 4), big_endian=False)
+
+def struct_VkSpecializationInfo(printer, indent: int):
+    mapEntryCount = printer.write_int("mapEntryCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pMapEntries", struct_VkSpecializationMapEntry, False, mapEntryCount, indent)
+    dataSize = printer.write_int("dataSize", 8, indent, signed=False, big_endian=True)
+    pData = printer.write_int("pData", 8, indent, optional=False, count=dataSize, big_endian=False)
+
+def struct_VkSpecializationMapEntry(printer, indent: int):
+    constantID = printer.write_int("constantID", 4, indent, signed=False, big_endian=False)
+    offset = printer.write_int("offset", 4, indent, signed=False, big_endian=False)
+    size = printer.write_int("size", 8, indent, signed=False, big_endian=True)
+
+def struct_VkStencilOpState(printer, indent: int):
+    printer.write_enum("failOp", VkStencilOp, indent)
+    printer.write_enum("passOp", VkStencilOp, indent)
+    printer.write_enum("depthFailOp", VkStencilOp, indent)
+    printer.write_enum("compareOp", VkCompareOp, indent)
+    compareMask = printer.write_int("compareMask", 4, indent, signed=False, big_endian=False)
+    writeMask = printer.write_int("writeMask", 4, indent, signed=False, big_endian=False)
+    reference = printer.write_int("reference", 4, indent, signed=False, big_endian=False)
+
+def struct_VkSubmitInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_SUBMIT_INFO", indent)
+    waitSemaphoreCount = printer.write_int("waitSemaphoreCount", 4, indent, signed=False, big_endian=False)
+    pWaitSemaphores = printer.write_int("pWaitSemaphores", 8, indent, optional=False, count=waitSemaphoreCount, big_endian=False)
+    pWaitDstStageMask = printer.write_int("pWaitDstStageMask", 4, indent, optional=False, count=waitSemaphoreCount, big_endian=False)
+    commandBufferCount = printer.write_int("commandBufferCount", 4, indent, signed=False, big_endian=False)
+    pCommandBuffers = printer.write_int("pCommandBuffers", 8, indent, optional=False, count=commandBufferCount, big_endian=False)
+    signalSemaphoreCount = printer.write_int("signalSemaphoreCount", 4, indent, signed=False, big_endian=False)
+    pSignalSemaphores = printer.write_int("pSignalSemaphores", 8, indent, optional=False, count=signalSemaphoreCount, big_endian=False)
+
+def struct_VkSubpassDependency(printer, indent: int):
+    srcSubpass = printer.write_int("srcSubpass", 4, indent, signed=False, big_endian=False)
+    dstSubpass = printer.write_int("dstSubpass", 4, indent, signed=False, big_endian=False)
+    srcStageMask = printer.write_int("srcStageMask", 4, indent, signed=False, big_endian=False)
+    dstStageMask = printer.write_int("dstStageMask", 4, indent, signed=False, big_endian=False)
+    srcAccessMask = printer.write_int("srcAccessMask", 4, indent, signed=False, big_endian=False)
+    dstAccessMask = printer.write_int("dstAccessMask", 4, indent, signed=False, big_endian=False)
+    dependencyFlags = printer.write_int("dependencyFlags", 4, indent, signed=False, big_endian=False)
+
+def struct_VkSubpassDescription(printer, indent: int):
+    flags = printer.write_int("flags", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("pipelineBindPoint", VkPipelineBindPoint, indent)
+    inputAttachmentCount = printer.write_int("inputAttachmentCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pInputAttachments", struct_VkAttachmentReference, False, inputAttachmentCount, indent)
+    colorAttachmentCount = printer.write_int("colorAttachmentCount", 4, indent, signed=False, big_endian=False)
+    printer.write_struct("pColorAttachments", struct_VkAttachmentReference, False, colorAttachmentCount, indent)
+    printer.write_struct("pResolveAttachments", struct_VkAttachmentReference, True, colorAttachmentCount, indent)
+    printer.write_struct("pDepthStencilAttachment", struct_VkAttachmentReference, True, None, indent)
+    preserveAttachmentCount = printer.write_int("preserveAttachmentCount", 4, indent, signed=False, big_endian=False)
+    pPreserveAttachments = printer.write_int("pPreserveAttachments", 4, indent, optional=False, count=preserveAttachmentCount, big_endian=False)
+
+def struct_VkVertexInputAttributeDescription(printer, indent: int):
+    location = printer.write_int("location", 4, indent, signed=False, big_endian=False)
+    binding = printer.write_int("binding", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("format", VkFormat, indent)
+    offset = printer.write_int("offset", 4, indent, signed=False, big_endian=False)
+
+def struct_VkVertexInputBindingDescription(printer, indent: int):
+    binding = printer.write_int("binding", 4, indent, signed=False, big_endian=False)
+    stride = printer.write_int("stride", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("inputRate", VkVertexInputRate, indent)
+
+def struct_VkViewport(printer, indent: int):
+    printer.write_float("x", indent)
+    printer.write_float("y", indent)
+    printer.write_float("width", indent)
+    printer.write_float("height", indent)
+    printer.write_float("minDepth", indent)
+    printer.write_float("maxDepth", indent)
+
+def struct_VkWriteDescriptorSet(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET", indent)
+    dstSet = printer.write_int("dstSet", 8, indent, signed=False, big_endian=False)
+    dstBinding = printer.write_int("dstBinding", 4, indent, signed=False, big_endian=False)
+    dstArrayElement = printer.write_int("dstArrayElement", 4, indent, signed=False, big_endian=False)
+    descriptorCount = printer.write_int("descriptorCount", 4, indent, signed=False, big_endian=False)
+    printer.write_enum("descriptorType", VkDescriptorType, indent)
+    printer.write_struct("pImageInfo", struct_VkDescriptorImageInfo, True, descriptorCount, indent)
+    printer.write_struct("pBufferInfo", struct_VkDescriptorBufferInfo, True, descriptorCount, indent)
+    pTexelBufferView = printer.write_int("pTexelBufferView", 8, indent, optional=True, count=descriptorCount, big_endian=False)
+
+VkAttachmentLoadOp = {
+    0: "VK_ATTACHMENT_LOAD_OP_LOAD",
+    1: "VK_ATTACHMENT_LOAD_OP_CLEAR",
+    2: "VK_ATTACHMENT_LOAD_OP_DONT_CARE",
+    1000400000: "VK_ATTACHMENT_LOAD_OP_NONE_EXT",
+}
+
+VkAttachmentStoreOp = {
+    0: "VK_ATTACHMENT_STORE_OP_STORE",
+    1: "VK_ATTACHMENT_STORE_OP_DONT_CARE",
+    1000301000: "VK_ATTACHMENT_STORE_OP_NONE_KHR",
+}
+
+VkBlendFactor = {
+    0: "VK_BLEND_FACTOR_ZERO",
+    1: "VK_BLEND_FACTOR_ONE",
+    2: "VK_BLEND_FACTOR_SRC_COLOR",
+    3: "VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR",
+    4: "VK_BLEND_FACTOR_DST_COLOR",
+    5: "VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR",
+    6: "VK_BLEND_FACTOR_SRC_ALPHA",
+    7: "VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA",
+    8: "VK_BLEND_FACTOR_DST_ALPHA",
+    9: "VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA",
+    10: "VK_BLEND_FACTOR_CONSTANT_COLOR",
+    11: "VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR",
+    12: "VK_BLEND_FACTOR_CONSTANT_ALPHA",
+    13: "VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA",
+    14: "VK_BLEND_FACTOR_SRC_ALPHA_SATURATE",
+    15: "VK_BLEND_FACTOR_SRC1_COLOR",
+    16: "VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR",
+    17: "VK_BLEND_FACTOR_SRC1_ALPHA",
+    18: "VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA",
+}
+
+VkBlendOp = {
+    0: "VK_BLEND_OP_ADD",
+    1: "VK_BLEND_OP_SUBTRACT",
+    2: "VK_BLEND_OP_REVERSE_SUBTRACT",
+    3: "VK_BLEND_OP_MIN",
+    4: "VK_BLEND_OP_MAX",
+    1000148000: "VK_BLEND_OP_ZERO_EXT",
+    1000148001: "VK_BLEND_OP_SRC_EXT",
+    1000148002: "VK_BLEND_OP_DST_EXT",
+    1000148003: "VK_BLEND_OP_SRC_OVER_EXT",
+    1000148004: "VK_BLEND_OP_DST_OVER_EXT",
+    1000148005: "VK_BLEND_OP_SRC_IN_EXT",
+    1000148006: "VK_BLEND_OP_DST_IN_EXT",
+    1000148007: "VK_BLEND_OP_SRC_OUT_EXT",
+    1000148008: "VK_BLEND_OP_DST_OUT_EXT",
+    1000148009: "VK_BLEND_OP_SRC_ATOP_EXT",
+    1000148010: "VK_BLEND_OP_DST_ATOP_EXT",
+    1000148011: "VK_BLEND_OP_XOR_EXT",
+    1000148012: "VK_BLEND_OP_MULTIPLY_EXT",
+    1000148013: "VK_BLEND_OP_SCREEN_EXT",
+    1000148014: "VK_BLEND_OP_OVERLAY_EXT",
+    1000148015: "VK_BLEND_OP_DARKEN_EXT",
+    1000148016: "VK_BLEND_OP_LIGHTEN_EXT",
+    1000148017: "VK_BLEND_OP_COLORDODGE_EXT",
+    1000148018: "VK_BLEND_OP_COLORBURN_EXT",
+    1000148019: "VK_BLEND_OP_HARDLIGHT_EXT",
+    1000148020: "VK_BLEND_OP_SOFTLIGHT_EXT",
+    1000148021: "VK_BLEND_OP_DIFFERENCE_EXT",
+    1000148022: "VK_BLEND_OP_EXCLUSION_EXT",
+    1000148023: "VK_BLEND_OP_INVERT_EXT",
+    1000148024: "VK_BLEND_OP_INVERT_RGB_EXT",
+    1000148025: "VK_BLEND_OP_LINEARDODGE_EXT",
+    1000148026: "VK_BLEND_OP_LINEARBURN_EXT",
+    1000148027: "VK_BLEND_OP_VIVIDLIGHT_EXT",
+    1000148028: "VK_BLEND_OP_LINEARLIGHT_EXT",
+    1000148029: "VK_BLEND_OP_PINLIGHT_EXT",
+    1000148030: "VK_BLEND_OP_HARDMIX_EXT",
+    1000148031: "VK_BLEND_OP_HSL_HUE_EXT",
+    1000148032: "VK_BLEND_OP_HSL_SATURATION_EXT",
+    1000148033: "VK_BLEND_OP_HSL_COLOR_EXT",
+    1000148034: "VK_BLEND_OP_HSL_LUMINOSITY_EXT",
+    1000148035: "VK_BLEND_OP_PLUS_EXT",
+    1000148036: "VK_BLEND_OP_PLUS_CLAMPED_EXT",
+    1000148037: "VK_BLEND_OP_PLUS_CLAMPED_ALPHA_EXT",
+    1000148038: "VK_BLEND_OP_PLUS_DARKER_EXT",
+    1000148039: "VK_BLEND_OP_MINUS_EXT",
+    1000148040: "VK_BLEND_OP_MINUS_CLAMPED_EXT",
+    1000148041: "VK_BLEND_OP_CONTRAST_EXT",
+    1000148042: "VK_BLEND_OP_INVERT_OVG_EXT",
+    1000148043: "VK_BLEND_OP_RED_EXT",
+    1000148044: "VK_BLEND_OP_GREEN_EXT",
+    1000148045: "VK_BLEND_OP_BLUE_EXT",
+}
+
+VkBorderColor = {
+    0: "VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK",
+    1: "VK_BORDER_COLOR_INT_TRANSPARENT_BLACK",
+    2: "VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK",
+    3: "VK_BORDER_COLOR_INT_OPAQUE_BLACK",
+    4: "VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE",
+    5: "VK_BORDER_COLOR_INT_OPAQUE_WHITE",
+    1000287003: "VK_BORDER_COLOR_FLOAT_CUSTOM_EXT",
+    1000287004: "VK_BORDER_COLOR_INT_CUSTOM_EXT",
+}
+
+VkCompareOp = {
+    0: "VK_COMPARE_OP_NEVER",
+    1: "VK_COMPARE_OP_LESS",
+    2: "VK_COMPARE_OP_EQUAL",
+    3: "VK_COMPARE_OP_LESS_OR_EQUAL",
+    4: "VK_COMPARE_OP_GREATER",
+    5: "VK_COMPARE_OP_NOT_EQUAL",
+    6: "VK_COMPARE_OP_GREATER_OR_EQUAL",
+    7: "VK_COMPARE_OP_ALWAYS",
+}
+
+VkComponentSwizzle = {
+    0: "VK_COMPONENT_SWIZZLE_IDENTITY",
+    1: "VK_COMPONENT_SWIZZLE_ZERO",
+    2: "VK_COMPONENT_SWIZZLE_ONE",
+    3: "VK_COMPONENT_SWIZZLE_R",
+    4: "VK_COMPONENT_SWIZZLE_G",
+    5: "VK_COMPONENT_SWIZZLE_B",
+    6: "VK_COMPONENT_SWIZZLE_A",
+}
+
+VkDescriptorType = {
+    0: "VK_DESCRIPTOR_TYPE_SAMPLER",
+    1: "VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER",
+    2: "VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE",
+    3: "VK_DESCRIPTOR_TYPE_STORAGE_IMAGE",
+    4: "VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER",
+    5: "VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER",
+    6: "VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER",
+    7: "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER",
+    8: "VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC",
+    9: "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC",
+    10: "VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT",
+    1000138000: "VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT",
+    1000150000: "VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR",
+    1000165000: "VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV",
+    1000351000: "VK_DESCRIPTOR_TYPE_MUTABLE_VALVE",
+}
+
+VkDynamicState = {
+    0: "VK_DYNAMIC_STATE_VIEWPORT",
+    1: "VK_DYNAMIC_STATE_SCISSOR",
+    2: "VK_DYNAMIC_STATE_LINE_WIDTH",
+    3: "VK_DYNAMIC_STATE_DEPTH_BIAS",
+    4: "VK_DYNAMIC_STATE_BLEND_CONSTANTS",
+    5: "VK_DYNAMIC_STATE_DEPTH_BOUNDS",
+    6: "VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK",
+    7: "VK_DYNAMIC_STATE_STENCIL_WRITE_MASK",
+    8: "VK_DYNAMIC_STATE_STENCIL_REFERENCE",
+    1000087000: "VK_DYNAMIC_STATE_VIEWPORT_W_SCALING_NV",
+    1000099000: "VK_DYNAMIC_STATE_DISCARD_RECTANGLE_EXT",
+    1000143000: "VK_DYNAMIC_STATE_SAMPLE_LOCATIONS_EXT",
+    1000347000: "VK_DYNAMIC_STATE_RAY_TRACING_PIPELINE_STACK_SIZE_KHR",
+    1000164004: "VK_DYNAMIC_STATE_VIEWPORT_SHADING_RATE_PALETTE_NV",
+    1000164006: "VK_DYNAMIC_STATE_VIEWPORT_COARSE_SAMPLE_ORDER_NV",
+    1000205001: "VK_DYNAMIC_STATE_EXCLUSIVE_SCISSOR_NV",
+    1000226000: "VK_DYNAMIC_STATE_FRAGMENT_SHADING_RATE_KHR",
+    1000259000: "VK_DYNAMIC_STATE_LINE_STIPPLE_EXT",
+    1000267000: "VK_DYNAMIC_STATE_CULL_MODE_EXT",
+    1000267001: "VK_DYNAMIC_STATE_FRONT_FACE_EXT",
+    1000267002: "VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY_EXT",
+    1000267003: "VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT_EXT",
+    1000267004: "VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT_EXT",
+    1000267005: "VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE_EXT",
+    1000267006: "VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE_EXT",
+    1000267007: "VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE_EXT",
+    1000267008: "VK_DYNAMIC_STATE_DEPTH_COMPARE_OP_EXT",
+    1000267009: "VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE_EXT",
+    1000267010: "VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE_EXT",
+    1000267011: "VK_DYNAMIC_STATE_STENCIL_OP_EXT",
+    1000352000: "VK_DYNAMIC_STATE_VERTEX_INPUT_EXT",
+    1000377000: "VK_DYNAMIC_STATE_PATCH_CONTROL_POINTS_EXT",
+    1000377001: "VK_DYNAMIC_STATE_RASTERIZER_DISCARD_ENABLE_EXT",
+    1000377002: "VK_DYNAMIC_STATE_DEPTH_BIAS_ENABLE_EXT",
+    1000377003: "VK_DYNAMIC_STATE_LOGIC_OP_EXT",
+    1000377004: "VK_DYNAMIC_STATE_PRIMITIVE_RESTART_ENABLE_EXT",
+    1000381000: "VK_DYNAMIC_STATE_COLOR_WRITE_ENABLE_EXT",
+}
+
+VkFilter = {
+    0: "VK_FILTER_NEAREST",
+    1: "VK_FILTER_LINEAR",
+    1000015000: "VK_FILTER_CUBIC_IMG",
+}
+
+VkFormat = {
+    0: "VK_FORMAT_UNDEFINED",
+    1: "VK_FORMAT_R4G4_UNORM_PACK8",
+    2: "VK_FORMAT_R4G4B4A4_UNORM_PACK16",
+    3: "VK_FORMAT_B4G4R4A4_UNORM_PACK16",
+    4: "VK_FORMAT_R5G6B5_UNORM_PACK16",
+    5: "VK_FORMAT_B5G6R5_UNORM_PACK16",
+    6: "VK_FORMAT_R5G5B5A1_UNORM_PACK16",
+    7: "VK_FORMAT_B5G5R5A1_UNORM_PACK16",
+    8: "VK_FORMAT_A1R5G5B5_UNORM_PACK16",
+    9: "VK_FORMAT_R8_UNORM",
+    10: "VK_FORMAT_R8_SNORM",
+    11: "VK_FORMAT_R8_USCALED",
+    12: "VK_FORMAT_R8_SSCALED",
+    13: "VK_FORMAT_R8_UINT",
+    14: "VK_FORMAT_R8_SINT",
+    15: "VK_FORMAT_R8_SRGB",
+    16: "VK_FORMAT_R8G8_UNORM",
+    17: "VK_FORMAT_R8G8_SNORM",
+    18: "VK_FORMAT_R8G8_USCALED",
+    19: "VK_FORMAT_R8G8_SSCALED",
+    20: "VK_FORMAT_R8G8_UINT",
+    21: "VK_FORMAT_R8G8_SINT",
+    22: "VK_FORMAT_R8G8_SRGB",
+    23: "VK_FORMAT_R8G8B8_UNORM",
+    24: "VK_FORMAT_R8G8B8_SNORM",
+    25: "VK_FORMAT_R8G8B8_USCALED",
+    26: "VK_FORMAT_R8G8B8_SSCALED",
+    27: "VK_FORMAT_R8G8B8_UINT",
+    28: "VK_FORMAT_R8G8B8_SINT",
+    29: "VK_FORMAT_R8G8B8_SRGB",
+    30: "VK_FORMAT_B8G8R8_UNORM",
+    31: "VK_FORMAT_B8G8R8_SNORM",
+    32: "VK_FORMAT_B8G8R8_USCALED",
+    33: "VK_FORMAT_B8G8R8_SSCALED",
+    34: "VK_FORMAT_B8G8R8_UINT",
+    35: "VK_FORMAT_B8G8R8_SINT",
+    36: "VK_FORMAT_B8G8R8_SRGB",
+    37: "VK_FORMAT_R8G8B8A8_UNORM",
+    38: "VK_FORMAT_R8G8B8A8_SNORM",
+    39: "VK_FORMAT_R8G8B8A8_USCALED",
+    40: "VK_FORMAT_R8G8B8A8_SSCALED",
+    41: "VK_FORMAT_R8G8B8A8_UINT",
+    42: "VK_FORMAT_R8G8B8A8_SINT",
+    43: "VK_FORMAT_R8G8B8A8_SRGB",
+    44: "VK_FORMAT_B8G8R8A8_UNORM",
+    45: "VK_FORMAT_B8G8R8A8_SNORM",
+    46: "VK_FORMAT_B8G8R8A8_USCALED",
+    47: "VK_FORMAT_B8G8R8A8_SSCALED",
+    48: "VK_FORMAT_B8G8R8A8_UINT",
+    49: "VK_FORMAT_B8G8R8A8_SINT",
+    50: "VK_FORMAT_B8G8R8A8_SRGB",
+    51: "VK_FORMAT_A8B8G8R8_UNORM_PACK32",
+    52: "VK_FORMAT_A8B8G8R8_SNORM_PACK32",
+    53: "VK_FORMAT_A8B8G8R8_USCALED_PACK32",
+    54: "VK_FORMAT_A8B8G8R8_SSCALED_PACK32",
+    55: "VK_FORMAT_A8B8G8R8_UINT_PACK32",
+    56: "VK_FORMAT_A8B8G8R8_SINT_PACK32",
+    57: "VK_FORMAT_A8B8G8R8_SRGB_PACK32",
+    58: "VK_FORMAT_A2R10G10B10_UNORM_PACK32",
+    59: "VK_FORMAT_A2R10G10B10_SNORM_PACK32",
+    60: "VK_FORMAT_A2R10G10B10_USCALED_PACK32",
+    61: "VK_FORMAT_A2R10G10B10_SSCALED_PACK32",
+    62: "VK_FORMAT_A2R10G10B10_UINT_PACK32",
+    63: "VK_FORMAT_A2R10G10B10_SINT_PACK32",
+    64: "VK_FORMAT_A2B10G10R10_UNORM_PACK32",
+    65: "VK_FORMAT_A2B10G10R10_SNORM_PACK32",
+    66: "VK_FORMAT_A2B10G10R10_USCALED_PACK32",
+    67: "VK_FORMAT_A2B10G10R10_SSCALED_PACK32",
+    68: "VK_FORMAT_A2B10G10R10_UINT_PACK32",
+    69: "VK_FORMAT_A2B10G10R10_SINT_PACK32",
+    70: "VK_FORMAT_R16_UNORM",
+    71: "VK_FORMAT_R16_SNORM",
+    72: "VK_FORMAT_R16_USCALED",
+    73: "VK_FORMAT_R16_SSCALED",
+    74: "VK_FORMAT_R16_UINT",
+    75: "VK_FORMAT_R16_SINT",
+    76: "VK_FORMAT_R16_SFLOAT",
+    77: "VK_FORMAT_R16G16_UNORM",
+    78: "VK_FORMAT_R16G16_SNORM",
+    79: "VK_FORMAT_R16G16_USCALED",
+    80: "VK_FORMAT_R16G16_SSCALED",
+    81: "VK_FORMAT_R16G16_UINT",
+    82: "VK_FORMAT_R16G16_SINT",
+    83: "VK_FORMAT_R16G16_SFLOAT",
+    84: "VK_FORMAT_R16G16B16_UNORM",
+    85: "VK_FORMAT_R16G16B16_SNORM",
+    86: "VK_FORMAT_R16G16B16_USCALED",
+    87: "VK_FORMAT_R16G16B16_SSCALED",
+    88: "VK_FORMAT_R16G16B16_UINT",
+    89: "VK_FORMAT_R16G16B16_SINT",
+    90: "VK_FORMAT_R16G16B16_SFLOAT",
+    91: "VK_FORMAT_R16G16B16A16_UNORM",
+    92: "VK_FORMAT_R16G16B16A16_SNORM",
+    93: "VK_FORMAT_R16G16B16A16_USCALED",
+    94: "VK_FORMAT_R16G16B16A16_SSCALED",
+    95: "VK_FORMAT_R16G16B16A16_UINT",
+    96: "VK_FORMAT_R16G16B16A16_SINT",
+    97: "VK_FORMAT_R16G16B16A16_SFLOAT",
+    98: "VK_FORMAT_R32_UINT",
+    99: "VK_FORMAT_R32_SINT",
+    100: "VK_FORMAT_R32_SFLOAT",
+    101: "VK_FORMAT_R32G32_UINT",
+    102: "VK_FORMAT_R32G32_SINT",
+    103: "VK_FORMAT_R32G32_SFLOAT",
+    104: "VK_FORMAT_R32G32B32_UINT",
+    105: "VK_FORMAT_R32G32B32_SINT",
+    106: "VK_FORMAT_R32G32B32_SFLOAT",
+    107: "VK_FORMAT_R32G32B32A32_UINT",
+    108: "VK_FORMAT_R32G32B32A32_SINT",
+    109: "VK_FORMAT_R32G32B32A32_SFLOAT",
+    110: "VK_FORMAT_R64_UINT",
+    111: "VK_FORMAT_R64_SINT",
+    112: "VK_FORMAT_R64_SFLOAT",
+    113: "VK_FORMAT_R64G64_UINT",
+    114: "VK_FORMAT_R64G64_SINT",
+    115: "VK_FORMAT_R64G64_SFLOAT",
+    116: "VK_FORMAT_R64G64B64_UINT",
+    117: "VK_FORMAT_R64G64B64_SINT",
+    118: "VK_FORMAT_R64G64B64_SFLOAT",
+    119: "VK_FORMAT_R64G64B64A64_UINT",
+    120: "VK_FORMAT_R64G64B64A64_SINT",
+    121: "VK_FORMAT_R64G64B64A64_SFLOAT",
+    122: "VK_FORMAT_B10G11R11_UFLOAT_PACK32",
+    123: "VK_FORMAT_E5B9G9R9_UFLOAT_PACK32",
+    124: "VK_FORMAT_D16_UNORM",
+    125: "VK_FORMAT_X8_D24_UNORM_PACK32",
+    126: "VK_FORMAT_D32_SFLOAT",
+    127: "VK_FORMAT_S8_UINT",
+    128: "VK_FORMAT_D16_UNORM_S8_UINT",
+    129: "VK_FORMAT_D24_UNORM_S8_UINT",
+    130: "VK_FORMAT_D32_SFLOAT_S8_UINT",
+    131: "VK_FORMAT_BC1_RGB_UNORM_BLOCK",
+    132: "VK_FORMAT_BC1_RGB_SRGB_BLOCK",
+    133: "VK_FORMAT_BC1_RGBA_UNORM_BLOCK",
+    134: "VK_FORMAT_BC1_RGBA_SRGB_BLOCK",
+    135: "VK_FORMAT_BC2_UNORM_BLOCK",
+    136: "VK_FORMAT_BC2_SRGB_BLOCK",
+    137: "VK_FORMAT_BC3_UNORM_BLOCK",
+    138: "VK_FORMAT_BC3_SRGB_BLOCK",
+    139: "VK_FORMAT_BC4_UNORM_BLOCK",
+    140: "VK_FORMAT_BC4_SNORM_BLOCK",
+    141: "VK_FORMAT_BC5_UNORM_BLOCK",
+    142: "VK_FORMAT_BC5_SNORM_BLOCK",
+    143: "VK_FORMAT_BC6H_UFLOAT_BLOCK",
+    144: "VK_FORMAT_BC6H_SFLOAT_BLOCK",
+    145: "VK_FORMAT_BC7_UNORM_BLOCK",
+    146: "VK_FORMAT_BC7_SRGB_BLOCK",
+    147: "VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK",
+    148: "VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK",
+    149: "VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK",
+    150: "VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK",
+    151: "VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK",
+    152: "VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK",
+    153: "VK_FORMAT_EAC_R11_UNORM_BLOCK",
+    154: "VK_FORMAT_EAC_R11_SNORM_BLOCK",
+    155: "VK_FORMAT_EAC_R11G11_UNORM_BLOCK",
+    156: "VK_FORMAT_EAC_R11G11_SNORM_BLOCK",
+    157: "VK_FORMAT_ASTC_4x4_UNORM_BLOCK",
+    158: "VK_FORMAT_ASTC_4x4_SRGB_BLOCK",
+    159: "VK_FORMAT_ASTC_5x4_UNORM_BLOCK",
+    160: "VK_FORMAT_ASTC_5x4_SRGB_BLOCK",
+    161: "VK_FORMAT_ASTC_5x5_UNORM_BLOCK",
+    162: "VK_FORMAT_ASTC_5x5_SRGB_BLOCK",
+    163: "VK_FORMAT_ASTC_6x5_UNORM_BLOCK",
+    164: "VK_FORMAT_ASTC_6x5_SRGB_BLOCK",
+    165: "VK_FORMAT_ASTC_6x6_UNORM_BLOCK",
+    166: "VK_FORMAT_ASTC_6x6_SRGB_BLOCK",
+    167: "VK_FORMAT_ASTC_8x5_UNORM_BLOCK",
+    168: "VK_FORMAT_ASTC_8x5_SRGB_BLOCK",
+    169: "VK_FORMAT_ASTC_8x6_UNORM_BLOCK",
+    170: "VK_FORMAT_ASTC_8x6_SRGB_BLOCK",
+    171: "VK_FORMAT_ASTC_8x8_UNORM_BLOCK",
+    172: "VK_FORMAT_ASTC_8x8_SRGB_BLOCK",
+    173: "VK_FORMAT_ASTC_10x5_UNORM_BLOCK",
+    174: "VK_FORMAT_ASTC_10x5_SRGB_BLOCK",
+    175: "VK_FORMAT_ASTC_10x6_UNORM_BLOCK",
+    176: "VK_FORMAT_ASTC_10x6_SRGB_BLOCK",
+    177: "VK_FORMAT_ASTC_10x8_UNORM_BLOCK",
+    178: "VK_FORMAT_ASTC_10x8_SRGB_BLOCK",
+    179: "VK_FORMAT_ASTC_10x10_UNORM_BLOCK",
+    180: "VK_FORMAT_ASTC_10x10_SRGB_BLOCK",
+    181: "VK_FORMAT_ASTC_12x10_UNORM_BLOCK",
+    182: "VK_FORMAT_ASTC_12x10_SRGB_BLOCK",
+    183: "VK_FORMAT_ASTC_12x12_UNORM_BLOCK",
+    184: "VK_FORMAT_ASTC_12x12_SRGB_BLOCK",
+    1000156000: "VK_FORMAT_G8B8G8R8_422_UNORM",
+    1000156001: "VK_FORMAT_B8G8R8G8_422_UNORM",
+    1000156002: "VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM",
+    1000156003: "VK_FORMAT_G8_B8R8_2PLANE_420_UNORM",
+    1000156004: "VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM",
+    1000156005: "VK_FORMAT_G8_B8R8_2PLANE_422_UNORM",
+    1000156006: "VK_FORMAT_G8_B8_R8_3PLANE_444_UNORM",
+    1000156007: "VK_FORMAT_R10X6_UNORM_PACK16",
+    1000156008: "VK_FORMAT_R10X6G10X6_UNORM_2PACK16",
+    1000156009: "VK_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16",
+    1000156010: "VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16",
+    1000156011: "VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16",
+    1000156012: "VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16",
+    1000156013: "VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16",
+    1000156014: "VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_422_UNORM_3PACK16",
+    1000156015: "VK_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16",
+    1000156016: "VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16",
+    1000156017: "VK_FORMAT_R12X4_UNORM_PACK16",
+    1000156018: "VK_FORMAT_R12X4G12X4_UNORM_2PACK16",
+    1000156019: "VK_FORMAT_R12X4G12X4B12X4A12X4_UNORM_4PACK16",
+    1000156020: "VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16",
+    1000156021: "VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16",
+    1000156022: "VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_420_UNORM_3PACK16",
+    1000156023: "VK_FORMAT_G12X4_B12X4R12X4_2PLANE_420_UNORM_3PACK16",
+    1000156024: "VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_422_UNORM_3PACK16",
+    1000156025: "VK_FORMAT_G12X4_B12X4R12X4_2PLANE_422_UNORM_3PACK16",
+    1000156026: "VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_444_UNORM_3PACK16",
+    1000156027: "VK_FORMAT_G16B16G16R16_422_UNORM",
+    1000156028: "VK_FORMAT_B16G16R16G16_422_UNORM",
+    1000156029: "VK_FORMAT_G16_B16_R16_3PLANE_420_UNORM",
+    1000156030: "VK_FORMAT_G16_B16R16_2PLANE_420_UNORM",
+    1000156031: "VK_FORMAT_G16_B16_R16_3PLANE_422_UNORM",
+    1000156032: "VK_FORMAT_G16_B16R16_2PLANE_422_UNORM",
+    1000156033: "VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM",
+    1000054000: "VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG",
+    1000054001: "VK_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG",
+    1000054002: "VK_FORMAT_PVRTC2_2BPP_UNORM_BLOCK_IMG",
+    1000054003: "VK_FORMAT_PVRTC2_4BPP_UNORM_BLOCK_IMG",
+    1000054004: "VK_FORMAT_PVRTC1_2BPP_SRGB_BLOCK_IMG",
+    1000054005: "VK_FORMAT_PVRTC1_4BPP_SRGB_BLOCK_IMG",
+    1000054006: "VK_FORMAT_PVRTC2_2BPP_SRGB_BLOCK_IMG",
+    1000054007: "VK_FORMAT_PVRTC2_4BPP_SRGB_BLOCK_IMG",
+    1000066000: "VK_FORMAT_ASTC_4x4_SFLOAT_BLOCK_EXT",
+    1000066001: "VK_FORMAT_ASTC_5x4_SFLOAT_BLOCK_EXT",
+    1000066002: "VK_FORMAT_ASTC_5x5_SFLOAT_BLOCK_EXT",
+    1000066003: "VK_FORMAT_ASTC_6x5_SFLOAT_BLOCK_EXT",
+    1000066004: "VK_FORMAT_ASTC_6x6_SFLOAT_BLOCK_EXT",
+    1000066005: "VK_FORMAT_ASTC_8x5_SFLOAT_BLOCK_EXT",
+    1000066006: "VK_FORMAT_ASTC_8x6_SFLOAT_BLOCK_EXT",
+    1000066007: "VK_FORMAT_ASTC_8x8_SFLOAT_BLOCK_EXT",
+    1000066008: "VK_FORMAT_ASTC_10x5_SFLOAT_BLOCK_EXT",
+    1000066009: "VK_FORMAT_ASTC_10x6_SFLOAT_BLOCK_EXT",
+    1000066010: "VK_FORMAT_ASTC_10x8_SFLOAT_BLOCK_EXT",
+    1000066011: "VK_FORMAT_ASTC_10x10_SFLOAT_BLOCK_EXT",
+    1000066012: "VK_FORMAT_ASTC_12x10_SFLOAT_BLOCK_EXT",
+    1000066013: "VK_FORMAT_ASTC_12x12_SFLOAT_BLOCK_EXT",
+    1000288000: "VK_FORMAT_ASTC_3x3x3_UNORM_BLOCK_EXT",
+    1000288001: "VK_FORMAT_ASTC_3x3x3_SRGB_BLOCK_EXT",
+    1000288002: "VK_FORMAT_ASTC_3x3x3_SFLOAT_BLOCK_EXT",
+    1000288003: "VK_FORMAT_ASTC_4x3x3_UNORM_BLOCK_EXT",
+    1000288004: "VK_FORMAT_ASTC_4x3x3_SRGB_BLOCK_EXT",
+    1000288005: "VK_FORMAT_ASTC_4x3x3_SFLOAT_BLOCK_EXT",
+    1000288006: "VK_FORMAT_ASTC_4x4x3_UNORM_BLOCK_EXT",
+    1000288007: "VK_FORMAT_ASTC_4x4x3_SRGB_BLOCK_EXT",
+    1000288008: "VK_FORMAT_ASTC_4x4x3_SFLOAT_BLOCK_EXT",
+    1000288009: "VK_FORMAT_ASTC_4x4x4_UNORM_BLOCK_EXT",
+    1000288010: "VK_FORMAT_ASTC_4x4x4_SRGB_BLOCK_EXT",
+    1000288011: "VK_FORMAT_ASTC_4x4x4_SFLOAT_BLOCK_EXT",
+    1000288012: "VK_FORMAT_ASTC_5x4x4_UNORM_BLOCK_EXT",
+    1000288013: "VK_FORMAT_ASTC_5x4x4_SRGB_BLOCK_EXT",
+    1000288014: "VK_FORMAT_ASTC_5x4x4_SFLOAT_BLOCK_EXT",
+    1000288015: "VK_FORMAT_ASTC_5x5x4_UNORM_BLOCK_EXT",
+    1000288016: "VK_FORMAT_ASTC_5x5x4_SRGB_BLOCK_EXT",
+    1000288017: "VK_FORMAT_ASTC_5x5x4_SFLOAT_BLOCK_EXT",
+    1000288018: "VK_FORMAT_ASTC_5x5x5_UNORM_BLOCK_EXT",
+    1000288019: "VK_FORMAT_ASTC_5x5x5_SRGB_BLOCK_EXT",
+    1000288020: "VK_FORMAT_ASTC_5x5x5_SFLOAT_BLOCK_EXT",
+    1000288021: "VK_FORMAT_ASTC_6x5x5_UNORM_BLOCK_EXT",
+    1000288022: "VK_FORMAT_ASTC_6x5x5_SRGB_BLOCK_EXT",
+    1000288023: "VK_FORMAT_ASTC_6x5x5_SFLOAT_BLOCK_EXT",
+    1000288024: "VK_FORMAT_ASTC_6x6x5_UNORM_BLOCK_EXT",
+    1000288025: "VK_FORMAT_ASTC_6x6x5_SRGB_BLOCK_EXT",
+    1000288026: "VK_FORMAT_ASTC_6x6x5_SFLOAT_BLOCK_EXT",
+    1000288027: "VK_FORMAT_ASTC_6x6x6_UNORM_BLOCK_EXT",
+    1000288028: "VK_FORMAT_ASTC_6x6x6_SRGB_BLOCK_EXT",
+    1000288029: "VK_FORMAT_ASTC_6x6x6_SFLOAT_BLOCK_EXT",
+    1000330000: "VK_FORMAT_G8_B8R8_2PLANE_444_UNORM_EXT",
+    1000330001: "VK_FORMAT_G10X6_B10X6R10X6_2PLANE_444_UNORM_3PACK16_EXT",
+    1000330002: "VK_FORMAT_G12X4_B12X4R12X4_2PLANE_444_UNORM_3PACK16_EXT",
+    1000330003: "VK_FORMAT_G16_B16R16_2PLANE_444_UNORM_EXT",
+    1000340000: "VK_FORMAT_A4R4G4B4_UNORM_PACK16_EXT",
+    1000340001: "VK_FORMAT_A4B4G4R4_UNORM_PACK16_EXT",
+}
+
+VkFrontFace = {
+    0: "VK_FRONT_FACE_COUNTER_CLOCKWISE",
+    1: "VK_FRONT_FACE_CLOCKWISE",
+}
+
 VkImageLayout = {
     0: "VK_IMAGE_LAYOUT_UNDEFINED",
     1: "VK_IMAGE_LAYOUT_GENERAL",
@@ -120,8 +1601,6 @@ VkImageLayout = {
     1000241001: "VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL",
     1000241002: "VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL",
     1000241003: "VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL",
-    1000314000: "VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL",
-    1000314001: "VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL",
     1000001002: "VK_IMAGE_LAYOUT_PRESENT_SRC_KHR",
     1000024000: "VK_IMAGE_LAYOUT_VIDEO_DECODE_DST_KHR",
     1000024001: "VK_IMAGE_LAYOUT_VIDEO_DECODE_SRC_KHR",
@@ -132,6 +1611,64 @@ VkImageLayout = {
     1000299000: "VK_IMAGE_LAYOUT_VIDEO_ENCODE_DST_KHR",
     1000299001: "VK_IMAGE_LAYOUT_VIDEO_ENCODE_SRC_KHR",
     1000299002: "VK_IMAGE_LAYOUT_VIDEO_ENCODE_DPB_KHR",
+    1000314000: "VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR",
+    1000314001: "VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR",
+}
+
+VkImageTiling = {
+    0: "VK_IMAGE_TILING_OPTIMAL",
+    1: "VK_IMAGE_TILING_LINEAR",
+    1000158000: "VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT",
+}
+
+VkImageType = {
+    0: "VK_IMAGE_TYPE_1D",
+    1: "VK_IMAGE_TYPE_2D",
+    2: "VK_IMAGE_TYPE_3D",
+}
+
+VkImageViewType = {
+    0: "VK_IMAGE_VIEW_TYPE_1D",
+    1: "VK_IMAGE_VIEW_TYPE_2D",
+    2: "VK_IMAGE_VIEW_TYPE_3D",
+    3: "VK_IMAGE_VIEW_TYPE_CUBE",
+    4: "VK_IMAGE_VIEW_TYPE_1D_ARRAY",
+    5: "VK_IMAGE_VIEW_TYPE_2D_ARRAY",
+    6: "VK_IMAGE_VIEW_TYPE_CUBE_ARRAY",
+}
+
+VkIndexType = {
+    0: "VK_INDEX_TYPE_UINT16",
+    1: "VK_INDEX_TYPE_UINT32",
+    1000165000: "VK_INDEX_TYPE_NONE_KHR",
+    1000265000: "VK_INDEX_TYPE_UINT8_EXT",
+}
+
+VkLogicOp = {
+    0: "VK_LOGIC_OP_CLEAR",
+    1: "VK_LOGIC_OP_AND",
+    2: "VK_LOGIC_OP_AND_REVERSE",
+    3: "VK_LOGIC_OP_COPY",
+    4: "VK_LOGIC_OP_AND_INVERTED",
+    5: "VK_LOGIC_OP_NO_OP",
+    6: "VK_LOGIC_OP_XOR",
+    7: "VK_LOGIC_OP_OR",
+    8: "VK_LOGIC_OP_NOR",
+    9: "VK_LOGIC_OP_EQUIVALENT",
+    10: "VK_LOGIC_OP_INVERT",
+    11: "VK_LOGIC_OP_OR_REVERSE",
+    12: "VK_LOGIC_OP_COPY_INVERTED",
+    13: "VK_LOGIC_OP_OR_INVERTED",
+    14: "VK_LOGIC_OP_NAND",
+    15: "VK_LOGIC_OP_SET",
+}
+
+VkPhysicalDeviceType = {
+    0: "VK_PHYSICAL_DEVICE_TYPE_OTHER",
+    1: "VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU",
+    2: "VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU",
+    3: "VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU",
+    4: "VK_PHYSICAL_DEVICE_TYPE_CPU",
 }
 
 VkPipelineBindPoint = {
@@ -139,6 +1676,87 @@ VkPipelineBindPoint = {
     1: "VK_PIPELINE_BIND_POINT_COMPUTE",
     1000165000: "VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR",
     1000369003: "VK_PIPELINE_BIND_POINT_SUBPASS_SHADING_HUAWEI",
+}
+
+VkPolygonMode = {
+    0: "VK_POLYGON_MODE_FILL",
+    1: "VK_POLYGON_MODE_LINE",
+    2: "VK_POLYGON_MODE_POINT",
+    1000153000: "VK_POLYGON_MODE_FILL_RECTANGLE_NV",
+}
+
+VkPrimitiveTopology = {
+    0: "VK_PRIMITIVE_TOPOLOGY_POINT_LIST",
+    1: "VK_PRIMITIVE_TOPOLOGY_LINE_LIST",
+    2: "VK_PRIMITIVE_TOPOLOGY_LINE_STRIP",
+    3: "VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST",
+    4: "VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP",
+    5: "VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN",
+    6: "VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY",
+    7: "VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY",
+    8: "VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY",
+    9: "VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY",
+    10: "VK_PRIMITIVE_TOPOLOGY_PATCH_LIST",
+}
+
+VkSampleCountFlagBits = {
+    1: "VK_SAMPLE_COUNT_1_BIT",
+    2: "VK_SAMPLE_COUNT_2_BIT",
+    4: "VK_SAMPLE_COUNT_4_BIT",
+    8: "VK_SAMPLE_COUNT_8_BIT",
+    16: "VK_SAMPLE_COUNT_16_BIT",
+    32: "VK_SAMPLE_COUNT_32_BIT",
+    64: "VK_SAMPLE_COUNT_64_BIT",
+}
+
+VkSamplerAddressMode = {
+    0: "VK_SAMPLER_ADDRESS_MODE_REPEAT",
+    1: "VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT",
+    2: "VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE",
+    3: "VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER",
+    4: "VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE",
+    4: "VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE",
+}
+
+VkSamplerMipmapMode = {
+    0: "VK_SAMPLER_MIPMAP_MODE_NEAREST",
+    1: "VK_SAMPLER_MIPMAP_MODE_LINEAR",
+}
+
+VkShaderStageFlagBits = {
+    1: "VK_SHADER_STAGE_VERTEX_BIT",
+    2: "VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT",
+    4: "VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT",
+    8: "VK_SHADER_STAGE_GEOMETRY_BIT",
+    16: "VK_SHADER_STAGE_FRAGMENT_BIT",
+    32: "VK_SHADER_STAGE_COMPUTE_BIT",
+    31: "VK_SHADER_STAGE_ALL_GRAPHICS",
+    2147483647: "VK_SHADER_STAGE_ALL",
+    256: "VK_SHADER_STAGE_RAYGEN_BIT_KHR",
+    512: "VK_SHADER_STAGE_ANY_HIT_BIT_KHR",
+    1024: "VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR",
+    2048: "VK_SHADER_STAGE_MISS_BIT_KHR",
+    4096: "VK_SHADER_STAGE_INTERSECTION_BIT_KHR",
+    8192: "VK_SHADER_STAGE_CALLABLE_BIT_KHR",
+    64: "VK_SHADER_STAGE_TASK_BIT_NV",
+    128: "VK_SHADER_STAGE_MESH_BIT_NV",
+    16384: "VK_SHADER_STAGE_SUBPASS_SHADING_BIT_HUAWEI",
+}
+
+VkSharingMode = {
+    0: "VK_SHARING_MODE_EXCLUSIVE",
+    1: "VK_SHARING_MODE_CONCURRENT",
+}
+
+VkStencilOp = {
+    0: "VK_STENCIL_OP_KEEP",
+    1: "VK_STENCIL_OP_ZERO",
+    2: "VK_STENCIL_OP_REPLACE",
+    3: "VK_STENCIL_OP_INCREMENT_AND_CLAMP",
+    4: "VK_STENCIL_OP_DECREMENT_AND_CLAMP",
+    5: "VK_STENCIL_OP_INVERT",
+    6: "VK_STENCIL_OP_INCREMENT_AND_WRAP",
+    7: "VK_STENCIL_OP_DECREMENT_AND_WRAP",
 }
 
 VkStructureType = {
@@ -306,58 +1924,6 @@ VkStructureType = {
     1000257002: "VK_STRUCTURE_TYPE_BUFFER_OPAQUE_CAPTURE_ADDRESS_CREATE_INFO",
     1000257003: "VK_STRUCTURE_TYPE_MEMORY_OPAQUE_CAPTURE_ADDRESS_ALLOCATE_INFO",
     1000257004: "VK_STRUCTURE_TYPE_DEVICE_MEMORY_OPAQUE_CAPTURE_ADDRESS_INFO",
-    53: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES",
-    54: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES",
-    1000192000: "VK_STRUCTURE_TYPE_PIPELINE_CREATION_FEEDBACK_CREATE_INFO",
-    1000215000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TERMINATE_INVOCATION_FEATURES",
-    1000245000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TOOL_PROPERTIES",
-    1000276000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES",
-    1000295000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRIVATE_DATA_FEATURES",
-    1000295001: "VK_STRUCTURE_TYPE_DEVICE_PRIVATE_DATA_CREATE_INFO",
-    1000295002: "VK_STRUCTURE_TYPE_PRIVATE_DATA_SLOT_CREATE_INFO",
-    1000297000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_CREATION_CACHE_CONTROL_FEATURES",
-    1000314000: "VK_STRUCTURE_TYPE_MEMORY_BARRIER_2",
-    1000314001: "VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2",
-    1000314002: "VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2",
-    1000314003: "VK_STRUCTURE_TYPE_DEPENDENCY_INFO",
-    1000314004: "VK_STRUCTURE_TYPE_SUBMIT_INFO_2",
-    1000314005: "VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO",
-    1000314006: "VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO",
-    1000314007: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES",
-    1000325000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ZERO_INITIALIZE_WORKGROUP_MEMORY_FEATURES",
-    1000335000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_ROBUSTNESS_FEATURES",
-    1000337000: "VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2",
-    1000337001: "VK_STRUCTURE_TYPE_COPY_IMAGE_INFO_2",
-    1000337002: "VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2",
-    1000337003: "VK_STRUCTURE_TYPE_COPY_IMAGE_TO_BUFFER_INFO_2",
-    1000337004: "VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2",
-    1000337005: "VK_STRUCTURE_TYPE_RESOLVE_IMAGE_INFO_2",
-    1000337006: "VK_STRUCTURE_TYPE_BUFFER_COPY_2",
-    1000337007: "VK_STRUCTURE_TYPE_IMAGE_COPY_2",
-    1000337008: "VK_STRUCTURE_TYPE_IMAGE_BLIT_2",
-    1000337009: "VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2",
-    1000337010: "VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2",
-    1000225000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_PROPERTIES",
-    1000225001: "VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO",
-    1000225002: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES",
-    1000138000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES",
-    1000138001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_PROPERTIES",
-    1000138002: "VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_INLINE_UNIFORM_BLOCK",
-    1000138003: "VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_INLINE_UNIFORM_BLOCK_CREATE_INFO",
-    1000066000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXTURE_COMPRESSION_ASTC_HDR_FEATURES",
-    1000044000: "VK_STRUCTURE_TYPE_RENDERING_INFO",
-    1000044001: "VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO",
-    1000044002: "VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO",
-    1000044003: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES",
-    1000044004: "VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDERING_INFO",
-    1000280000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES",
-    1000280001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_PROPERTIES",
-    1000281001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_PROPERTIES",
-    1000360000: "VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_3",
-    1000413000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_FEATURES",
-    1000413001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_PROPERTIES",
-    1000413002: "VK_STRUCTURE_TYPE_DEVICE_BUFFER_MEMORY_REQUIREMENTS",
-    1000413003: "VK_STRUCTURE_TYPE_DEVICE_IMAGE_MEMORY_REQUIREMENTS",
     1000001000: "VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR",
     1000001001: "VK_STRUCTURE_TYPE_PRESENT_INFO_KHR",
     1000060007: "VK_STRUCTURE_TYPE_DEVICE_GROUP_PRESENT_CAPABILITIES_KHR",
@@ -374,6 +1940,7 @@ VkStructureType = {
     1000006000: "VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR",
     1000008000: "VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR",
     1000009000: "VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR",
+    1000010000: "VK_STRUCTURE_TYPE_NATIVE_BUFFER_ANDROID",
     1000011000: "VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT",
     1000018000: "VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_RASTERIZATION_ORDER_AMD",
     1000022000: "VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT",
@@ -395,9 +1962,7 @@ VkStructureType = {
     1000023013: "VK_STRUCTURE_TYPE_VIDEO_PROFILES_KHR",
     1000023014: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VIDEO_FORMAT_INFO_KHR",
     1000023015: "VK_STRUCTURE_TYPE_VIDEO_FORMAT_PROPERTIES_KHR",
-    1000023016: "VK_STRUCTURE_TYPE_QUEUE_FAMILY_QUERY_RESULT_STATUS_PROPERTIES_2_KHR",
     1000024000: "VK_STRUCTURE_TYPE_VIDEO_DECODE_INFO_KHR",
-    1000024001: "VK_STRUCTURE_TYPE_VIDEO_DECODE_CAPABILITIES_KHR",
     1000026000: "VK_STRUCTURE_TYPE_DEDICATED_ALLOCATION_IMAGE_CREATE_INFO_NV",
     1000026001: "VK_STRUCTURE_TYPE_DEDICATED_ALLOCATION_BUFFER_CREATE_INFO_NV",
     1000026002: "VK_STRUCTURE_TYPE_DEDICATED_ALLOCATION_MEMORY_ALLOCATE_INFO_NV",
@@ -418,21 +1983,16 @@ VkStructureType = {
     1000038006: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H264_NALU_SLICE_EXT",
     1000038007: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H264_EMIT_PICTURE_PARAMETERS_EXT",
     1000038008: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H264_PROFILE_EXT",
-    1000038009: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H264_RATE_CONTROL_INFO_EXT",
-    1000038010: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H264_RATE_CONTROL_LAYER_INFO_EXT",
-    1000038011: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H264_REFERENCE_LISTS_EXT",
     1000039000: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_CAPABILITIES_EXT",
     1000039001: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_SESSION_CREATE_INFO_EXT",
     1000039002: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_SESSION_PARAMETERS_CREATE_INFO_EXT",
     1000039003: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_SESSION_PARAMETERS_ADD_INFO_EXT",
     1000039004: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_VCL_FRAME_INFO_EXT",
     1000039005: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_DPB_SLOT_INFO_EXT",
-    1000039006: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_NALU_SLICE_SEGMENT_EXT",
+    1000039006: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_NALU_SLICE_EXT",
     1000039007: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_EMIT_PICTURE_PARAMETERS_EXT",
     1000039008: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_PROFILE_EXT",
     1000039009: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_REFERENCE_LISTS_EXT",
-    1000039010: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_RATE_CONTROL_INFO_EXT",
-    1000039011: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_RATE_CONTROL_LAYER_INFO_EXT",
     1000040000: "VK_STRUCTURE_TYPE_VIDEO_DECODE_H264_CAPABILITIES_EXT",
     1000040001: "VK_STRUCTURE_TYPE_VIDEO_DECODE_H264_SESSION_CREATE_INFO_EXT",
     1000040002: "VK_STRUCTURE_TYPE_VIDEO_DECODE_H264_PICTURE_INFO_EXT",
@@ -442,6 +2002,11 @@ VkStructureType = {
     1000040006: "VK_STRUCTURE_TYPE_VIDEO_DECODE_H264_SESSION_PARAMETERS_ADD_INFO_EXT",
     1000040007: "VK_STRUCTURE_TYPE_VIDEO_DECODE_H264_DPB_SLOT_INFO_EXT",
     1000041000: "VK_STRUCTURE_TYPE_TEXTURE_LOD_GATHER_FORMAT_PROPERTIES_AMD",
+    1000044000: "VK_STRUCTURE_TYPE_RENDERING_INFO_KHR",
+    1000044001: "VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR",
+    1000044002: "VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR",
+    1000044003: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR",
+    1000044004: "VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDERING_INFO_KHR",
     1000044006: "VK_STRUCTURE_TYPE_RENDERING_FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR",
     1000044007: "VK_STRUCTURE_TYPE_RENDERING_FRAGMENT_DENSITY_MAP_ATTACHMENT_INFO_EXT",
     1000044008: "VK_STRUCTURE_TYPE_ATTACHMENT_SAMPLE_COUNT_INFO_AMD",
@@ -453,8 +2018,15 @@ VkStructureType = {
     1000057000: "VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_NV",
     1000057001: "VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_NV",
     1000058000: "VK_STRUCTURE_TYPE_WIN32_KEYED_MUTEX_ACQUIRE_RELEASE_INFO_NV",
+    1000060007: "VK_STRUCTURE_TYPE_DEVICE_GROUP_PRESENT_CAPABILITIES_KHR",
+    1000060008: "VK_STRUCTURE_TYPE_IMAGE_SWAPCHAIN_CREATE_INFO_KHR",
+    1000060009: "VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_SWAPCHAIN_INFO_KHR",
+    1000060010: "VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR",
+    1000060011: "VK_STRUCTURE_TYPE_DEVICE_GROUP_PRESENT_INFO_KHR",
+    1000060012: "VK_STRUCTURE_TYPE_DEVICE_GROUP_SWAPCHAIN_CREATE_INFO_KHR",
     1000061000: "VK_STRUCTURE_TYPE_VALIDATION_FLAGS_EXT",
     1000062000: "VK_STRUCTURE_TYPE_VI_SURFACE_CREATE_INFO_NN",
+    1000066000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXTURE_COMPRESSION_ASTC_HDR_FEATURES_EXT",
     1000067000: "VK_STRUCTURE_TYPE_IMAGE_VIEW_ASTC_DECODE_MODE_EXT",
     1000067001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ASTC_DECODE_FEATURES_EXT",
     1000073000: "VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR",
@@ -527,6 +2099,10 @@ VkStructureType = {
     1000129004: "VK_STRUCTURE_TYPE_MEMORY_GET_ANDROID_HARDWARE_BUFFER_INFO_ANDROID",
     1000129005: "VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID",
     1000129006: "VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_2_ANDROID",
+    1000138000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT",
+    1000138001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_PROPERTIES_EXT",
+    1000138002: "VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_INLINE_UNIFORM_BLOCK_EXT",
+    1000138003: "VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_INLINE_UNIFORM_BLOCK_CREATE_INFO_EXT",
     1000143000: "VK_STRUCTURE_TYPE_SAMPLE_LOCATIONS_INFO_EXT",
     1000143001: "VK_STRUCTURE_TYPE_RENDER_PASS_SAMPLE_LOCATIONS_BEGIN_INFO_EXT",
     1000143002: "VK_STRUCTURE_TYPE_PIPELINE_SAMPLE_LOCATIONS_STATE_CREATE_INFO_EXT",
@@ -589,6 +2165,7 @@ VkStructureType = {
     1000166001: "VK_STRUCTURE_TYPE_PIPELINE_REPRESENTATIVE_FRAGMENT_TEST_STATE_CREATE_INFO_NV",
     1000170000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_VIEW_IMAGE_FORMAT_INFO_EXT",
     1000170001: "VK_STRUCTURE_TYPE_FILTER_CUBIC_IMAGE_VIEW_IMAGE_FORMAT_PROPERTIES_EXT",
+    1000174000: "VK_STRUCTURE_TYPE_DEVICE_QUEUE_GLOBAL_PRIORITY_CREATE_INFO_EXT",
     1000178000: "VK_STRUCTURE_TYPE_IMPORT_MEMORY_HOST_POINTER_INFO_EXT",
     1000178001: "VK_STRUCTURE_TYPE_MEMORY_HOST_POINTER_PROPERTIES_EXT",
     1000178002: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT",
@@ -603,14 +2180,12 @@ VkStructureType = {
     1000187004: "VK_STRUCTURE_TYPE_VIDEO_DECODE_H265_PROFILE_EXT",
     1000187005: "VK_STRUCTURE_TYPE_VIDEO_DECODE_H265_PICTURE_INFO_EXT",
     1000187006: "VK_STRUCTURE_TYPE_VIDEO_DECODE_H265_DPB_SLOT_INFO_EXT",
-    1000174000: "VK_STRUCTURE_TYPE_DEVICE_QUEUE_GLOBAL_PRIORITY_CREATE_INFO_KHR",
-    1000388000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GLOBAL_PRIORITY_QUERY_FEATURES_KHR",
-    1000388001: "VK_STRUCTURE_TYPE_QUEUE_FAMILY_GLOBAL_PRIORITY_PROPERTIES_KHR",
     1000189000: "VK_STRUCTURE_TYPE_DEVICE_MEMORY_OVERALLOCATION_CREATE_INFO_AMD",
     1000190000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_PROPERTIES_EXT",
     1000190001: "VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_DIVISOR_STATE_CREATE_INFO_EXT",
     1000190002: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_FEATURES_EXT",
     1000191000: "VK_STRUCTURE_TYPE_PRESENT_FRAME_TOKEN_GGP",
+    1000192000: "VK_STRUCTURE_TYPE_PIPELINE_CREATION_FEEDBACK_CREATE_INFO_EXT",
     1000201000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_NV",
     1000202000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_NV",
     1000202001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_NV",
@@ -631,10 +2206,14 @@ VkStructureType = {
     1000213000: "VK_STRUCTURE_TYPE_DISPLAY_NATIVE_HDR_SURFACE_CAPABILITIES_AMD",
     1000213001: "VK_STRUCTURE_TYPE_SWAPCHAIN_DISPLAY_NATIVE_HDR_CREATE_INFO_AMD",
     1000214000: "VK_STRUCTURE_TYPE_IMAGEPIPE_SURFACE_CREATE_INFO_FUCHSIA",
+    1000215000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TERMINATE_INVOCATION_FEATURES_KHR",
     1000217000: "VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT",
     1000218000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_FEATURES_EXT",
     1000218001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_PROPERTIES_EXT",
     1000218002: "VK_STRUCTURE_TYPE_RENDER_PASS_FRAGMENT_DENSITY_MAP_CREATE_INFO_EXT",
+    1000225000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_PROPERTIES_EXT",
+    1000225001: "VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO_EXT",
+    1000225002: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT",
     1000226000: "VK_STRUCTURE_TYPE_FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR",
     1000226001: "VK_STRUCTURE_TYPE_PIPELINE_FRAGMENT_SHADING_RATE_STATE_CREATE_INFO_KHR",
     1000226002: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_PROPERTIES_KHR",
@@ -650,6 +2229,7 @@ VkStructureType = {
     1000240000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEDICATED_ALLOCATION_IMAGE_ALIASING_FEATURES_NV",
     1000244000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT",
     1000244002: "VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_CREATE_INFO_EXT",
+    1000245000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TOOL_PROPERTIES_EXT",
     1000247000: "VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT",
     1000248000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR",
     1000249000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_NV",
@@ -680,6 +2260,7 @@ VkStructureType = {
     1000269004: "VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_STATISTIC_KHR",
     1000269005: "VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_INTERNAL_REPRESENTATION_KHR",
     1000273000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_2_FEATURES_EXT",
+    1000276000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT",
     1000277000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_PROPERTIES_NV",
     1000277001: "VK_STRUCTURE_TYPE_GRAPHICS_SHADER_GROUP_CREATE_INFO_NV",
     1000277002: "VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_SHADER_GROUPS_CREATE_INFO_NV",
@@ -690,7 +2271,10 @@ VkStructureType = {
     1000277007: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_FEATURES_NV",
     1000278000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INHERITED_VIEWPORT_SCISSOR_FEATURES_NV",
     1000278001: "VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_VIEWPORT_SCISSOR_INFO_NV",
+    1000280000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES_KHR",
+    1000280001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_PROPERTIES_KHR",
     1000281000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT",
+    1000281001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_PROPERTIES_EXT",
     1000282000: "VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDER_PASS_TRANSFORM_INFO_QCOM",
     1000282001: "VK_STRUCTURE_TYPE_RENDER_PASS_TRANSFORM_BEGIN_INFO_QCOM",
     1000284000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_MEMORY_REPORT_FEATURES_EXT",
@@ -704,15 +2288,27 @@ VkStructureType = {
     1000290000: "VK_STRUCTURE_TYPE_PIPELINE_LIBRARY_CREATE_INFO_KHR",
     1000294000: "VK_STRUCTURE_TYPE_PRESENT_ID_KHR",
     1000294001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR",
+    1000295000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRIVATE_DATA_FEATURES_EXT",
+    1000295001: "VK_STRUCTURE_TYPE_DEVICE_PRIVATE_DATA_CREATE_INFO_EXT",
+    1000295002: "VK_STRUCTURE_TYPE_PRIVATE_DATA_SLOT_CREATE_INFO_EXT",
+    1000297000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_CREATION_CACHE_CONTROL_FEATURES_EXT",
     1000299000: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_INFO_KHR",
     1000299001: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_RATE_CONTROL_INFO_KHR",
-    1000299002: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_RATE_CONTROL_LAYER_INFO_KHR",
-    1000299003: "VK_STRUCTURE_TYPE_VIDEO_ENCODE_CAPABILITIES_KHR",
     1000300000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DIAGNOSTICS_CONFIG_FEATURES_NV",
     1000300001: "VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV",
+    1000309000: "VK_STRUCTURE_TYPE_RESERVED_QCOM",
+    1000314000: "VK_STRUCTURE_TYPE_MEMORY_BARRIER_2_KHR",
+    1000314001: "VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2_KHR",
+    1000314002: "VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR",
+    1000314003: "VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR",
+    1000314004: "VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR",
+    1000314005: "VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR",
+    1000314006: "VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO_KHR",
+    1000314007: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR",
     1000314008: "VK_STRUCTURE_TYPE_QUEUE_FAMILY_CHECKPOINT_PROPERTIES_2_NV",
     1000314009: "VK_STRUCTURE_TYPE_CHECKPOINT_DATA_2_NV",
     1000323000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_FEATURES_KHR",
+    1000325000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ZERO_INITIALIZE_WORKGROUP_MEMORY_FEATURES_KHR",
     1000326000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_ENUMS_PROPERTIES_NV",
     1000326001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_ENUMS_FEATURES_NV",
     1000326002: "VK_STRUCTURE_TYPE_PIPELINE_FRAGMENT_SHADING_RATE_ENUM_STATE_CREATE_INFO_NV",
@@ -723,9 +2319,20 @@ VkStructureType = {
     1000332000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_FEATURES_EXT",
     1000332001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_PROPERTIES_EXT",
     1000333000: "VK_STRUCTURE_TYPE_COPY_COMMAND_TRANSFORM_INFO_QCOM",
+    1000335000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_ROBUSTNESS_FEATURES_EXT",
     1000336000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_FEATURES_KHR",
+    1000337000: "VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2_KHR",
+    1000337001: "VK_STRUCTURE_TYPE_COPY_IMAGE_INFO_2_KHR",
+    1000337002: "VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2_KHR",
+    1000337003: "VK_STRUCTURE_TYPE_COPY_IMAGE_TO_BUFFER_INFO_2_KHR",
+    1000337004: "VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2_KHR",
+    1000337005: "VK_STRUCTURE_TYPE_RESOLVE_IMAGE_INFO_2_KHR",
+    1000337006: "VK_STRUCTURE_TYPE_BUFFER_COPY_2_KHR",
+    1000337007: "VK_STRUCTURE_TYPE_IMAGE_COPY_2_KHR",
+    1000337008: "VK_STRUCTURE_TYPE_IMAGE_BLIT_2_KHR",
+    1000337009: "VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2_KHR",
+    1000337010: "VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2_KHR",
     1000340000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_4444_FORMATS_FEATURES_EXT",
-    1000342000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_ARM",
     1000344000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RGBA10X6_FORMATS_FEATURES_EXT",
     1000346000: "VK_STRUCTURE_TYPE_DIRECTFB_SURFACE_CREATE_INFO_EXT",
     1000351000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MUTABLE_DESCRIPTOR_TYPE_FEATURES_VALVE",
@@ -734,9 +2341,8 @@ VkStructureType = {
     1000352001: "VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT",
     1000352002: "VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT",
     1000353000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRM_PROPERTIES_EXT",
-    1000355000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_CLIP_CONTROL_FEATURES_EXT",
-    1000355001: "VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_DEPTH_CLIP_CONTROL_CREATE_INFO_EXT",
     1000356000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRIMITIVE_TOPOLOGY_LIST_RESTART_FEATURES_EXT",
+    1000360000: "VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_3_KHR",
     1000364000: "VK_STRUCTURE_TYPE_IMPORT_MEMORY_ZIRCON_HANDLE_INFO_FUCHSIA",
     1000364001: "VK_STRUCTURE_TYPE_MEMORY_ZIRCON_HANDLE_PROPERTIES_FUCHSIA",
     1000364002: "VK_STRUCTURE_TYPE_MEMORY_GET_ZIRCON_HANDLE_INFO_FUCHSIA",
@@ -762,20 +2368,20 @@ VkStructureType = {
     1000378000: "VK_STRUCTURE_TYPE_SCREEN_SURFACE_CREATE_INFO_QNX",
     1000381000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT",
     1000381001: "VK_STRUCTURE_TYPE_PIPELINE_COLOR_WRITE_CREATE_INFO_EXT",
-    1000391000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_VIEW_MIN_LOD_FEATURES_EXT",
-    1000391001: "VK_STRUCTURE_TYPE_IMAGE_VIEW_MIN_LOD_CREATE_INFO_EXT",
+    1000388000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GLOBAL_PRIORITY_QUERY_FEATURES_EXT",
+    1000388001: "VK_STRUCTURE_TYPE_QUEUE_FAMILY_GLOBAL_PRIORITY_PROPERTIES_EXT",
     1000392000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_FEATURES_EXT",
     1000392001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_PROPERTIES_EXT",
     1000411000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BORDER_COLOR_SWIZZLE_FEATURES_EXT",
     1000411001: "VK_STRUCTURE_TYPE_SAMPLER_BORDER_COLOR_COMPONENT_MAPPING_CREATE_INFO_EXT",
     1000412000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PAGEABLE_DEVICE_LOCAL_MEMORY_FEATURES_EXT",
-    1000420000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_SET_HOST_MAPPING_FEATURES_VALVE",
-    1000420001: "VK_STRUCTURE_TYPE_DESCRIPTOR_SET_BINDING_REFERENCE_VALVE",
-    1000420002: "VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_HOST_MAPPING_INFO_VALVE",
-    1000425000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_OFFSET_FEATURES_QCOM",
-    1000425001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_OFFSET_PROPERTIES_QCOM",
-    1000425002: "VK_STRUCTURE_TYPE_SUBPASS_FRAGMENT_DENSITY_MAP_OFFSET_END_INFO_QCOM",
-    1000430000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINEAR_COLOR_ATTACHMENT_FEATURES_NV",
+    1000413000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_FEATURES_KHR",
+    1000413001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_PROPERTIES_KHR",
+    1000413002: "VK_STRUCTURE_TYPE_DEVICE_BUFFER_MEMORY_REQUIREMENTS_KHR",
+    1000413003: "VK_STRUCTURE_TYPE_DEVICE_IMAGE_MEMORY_REQUIREMENTS_KHR",
+    1000385000: "VK_STRUCTURE_TYPE_IMPORT_COLOR_BUFFER_GOOGLE",
+    1000385001: "VK_STRUCTURE_TYPE_IMPORT_BUFFER_GOOGLE",
+    1000385002: "VK_STRUCTURE_TYPE_CREATE_BLOB_GOOGLE",
 }
 
 VkSubpassContents = {
@@ -783,1271 +2389,8 @@ VkSubpassContents = {
     1: "VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS",
 }
 
-opcodes = {
-    # From http://source/play-internal/battlestar/aosp/device/generic/vulkan-cereal/stream-servers/vulkan/cereal/common/goldfish_vk_marshaling.h
-    20000: "OP_vkCreateInstance",
-    20001: "OP_vkDestroyInstance",
-    20002: "OP_vkEnumeratePhysicalDevices",
-    20003: "OP_vkGetPhysicalDeviceFeatures",
-    20004: "OP_vkGetPhysicalDeviceFormatProperties",
-    20005: "OP_vkGetPhysicalDeviceImageFormatProperties",
-    20006: "OP_vkGetPhysicalDeviceProperties",
-    20007: "OP_vkGetPhysicalDeviceQueueFamilyProperties",
-    20008: "OP_vkGetPhysicalDeviceMemoryProperties",
-    20009: "OP_vkGetInstanceProcAddr",
-    20010: "OP_vkGetDeviceProcAddr",
-    20011: "OP_vkCreateDevice",
-    20012: "OP_vkDestroyDevice",
-    20013: "OP_vkEnumerateInstanceExtensionProperties",
-    20014: "OP_vkEnumerateDeviceExtensionProperties",
-    20015: "OP_vkEnumerateInstanceLayerProperties",
-    20016: "OP_vkEnumerateDeviceLayerProperties",
-    20017: "OP_vkGetDeviceQueue",
-    20018: "OP_vkQueueSubmit",
-    20019: "OP_vkQueueWaitIdle",
-    20020: "OP_vkDeviceWaitIdle",
-    20021: "OP_vkAllocateMemory",
-    20022: "OP_vkFreeMemory",
-    20023: "OP_vkMapMemory",
-    20024: "OP_vkUnmapMemory",
-    20025: "OP_vkFlushMappedMemoryRanges",
-    20026: "OP_vkInvalidateMappedMemoryRanges",
-    20027: "OP_vkGetDeviceMemoryCommitment",
-    20028: "OP_vkBindBufferMemory",
-    20029: "OP_vkBindImageMemory",
-    20030: "OP_vkGetBufferMemoryRequirements",
-    20031: "OP_vkGetImageMemoryRequirements",
-    20032: "OP_vkGetImageSparseMemoryRequirements",
-    20033: "OP_vkGetPhysicalDeviceSparseImageFormatProperties",
-    20034: "OP_vkQueueBindSparse",
-    20035: "OP_vkCreateFence",
-    20036: "OP_vkDestroyFence",
-    20037: "OP_vkResetFences",
-    20038: "OP_vkGetFenceStatus",
-    20039: "OP_vkWaitForFences",
-    20040: "OP_vkCreateSemaphore",
-    20041: "OP_vkDestroySemaphore",
-    20042: "OP_vkCreateEvent",
-    20043: "OP_vkDestroyEvent",
-    20044: "OP_vkGetEventStatus",
-    20045: "OP_vkSetEvent",
-    20046: "OP_vkResetEvent",
-    20047: "OP_vkCreateQueryPool",
-    20048: "OP_vkDestroyQueryPool",
-    20049: "OP_vkGetQueryPoolResults",
-    20050: "OP_vkCreateBuffer",
-    20051: "OP_vkDestroyBuffer",
-    20052: "OP_vkCreateBufferView",
-    20053: "OP_vkDestroyBufferView",
-    20054: "OP_vkCreateImage",
-    20055: "OP_vkDestroyImage",
-    20056: "OP_vkGetImageSubresourceLayout",
-    20057: "OP_vkCreateImageView",
-    20058: "OP_vkDestroyImageView",
-    20059: "OP_vkCreateShaderModule",
-    20060: "OP_vkDestroyShaderModule",
-    20061: "OP_vkCreatePipelineCache",
-    20062: "OP_vkDestroyPipelineCache",
-    20063: "OP_vkGetPipelineCacheData",
-    20064: "OP_vkMergePipelineCaches",
-    20065: "OP_vkCreateGraphicsPipelines",
-    20066: "OP_vkCreateComputePipelines",
-    20067: "OP_vkDestroyPipeline",
-    20068: "OP_vkCreatePipelineLayout",
-    20069: "OP_vkDestroyPipelineLayout",
-    20070: "OP_vkCreateSampler",
-    20071: "OP_vkDestroySampler",
-    20072: "OP_vkCreateDescriptorSetLayout",
-    20073: "OP_vkDestroyDescriptorSetLayout",
-    20074: "OP_vkCreateDescriptorPool",
-    20075: "OP_vkDestroyDescriptorPool",
-    20076: "OP_vkResetDescriptorPool",
-    20077: "OP_vkAllocateDescriptorSets",
-    20078: "OP_vkFreeDescriptorSets",
-    20079: "OP_vkUpdateDescriptorSets",
-    20080: "OP_vkCreateFramebuffer",
-    20081: "OP_vkDestroyFramebuffer",
-    20082: "OP_vkCreateRenderPass",
-    20083: "OP_vkDestroyRenderPass",
-    20084: "OP_vkGetRenderAreaGranularity",
-    20085: "OP_vkCreateCommandPool",
-    20086: "OP_vkDestroyCommandPool",
-    20087: "OP_vkResetCommandPool",
-    20088: "OP_vkAllocateCommandBuffers",
-    20089: "OP_vkFreeCommandBuffers",
-    20090: "OP_vkBeginCommandBuffer",
-    20091: "OP_vkEndCommandBuffer",
-    20092: "OP_vkResetCommandBuffer",
-    20093: "OP_vkCmdBindPipeline",
-    20094: "OP_vkCmdSetViewport",
-    20095: "OP_vkCmdSetScissor",
-    20096: "OP_vkCmdSetLineWidth",
-    20097: "OP_vkCmdSetDepthBias",
-    20098: "OP_vkCmdSetBlendConstants",
-    20099: "OP_vkCmdSetDepthBounds",
-    20100: "OP_vkCmdSetStencilCompareMask",
-    20101: "OP_vkCmdSetStencilWriteMask",
-    20102: "OP_vkCmdSetStencilReference",
-    20103: "OP_vkCmdBindDescriptorSets",
-    20104: "OP_vkCmdBindIndexBuffer",
-    20105: "OP_vkCmdBindVertexBuffers",
-    20106: "OP_vkCmdDraw",
-    20107: "OP_vkCmdDrawIndexed",
-    20108: "OP_vkCmdDrawIndirect",
-    20109: "OP_vkCmdDrawIndexedIndirect",
-    20110: "OP_vkCmdDispatch",
-    20111: "OP_vkCmdDispatchIndirect",
-    20112: "OP_vkCmdCopyBuffer",
-    20113: "OP_vkCmdCopyImage",
-    20114: "OP_vkCmdBlitImage",
-    20115: "OP_vkCmdCopyBufferToImage",
-    20116: "OP_vkCmdCopyImageToBuffer",
-    20117: "OP_vkCmdUpdateBuffer",
-    20118: "OP_vkCmdFillBuffer",
-    20119: "OP_vkCmdClearColorImage",
-    20120: "OP_vkCmdClearDepthStencilImage",
-    20121: "OP_vkCmdClearAttachments",
-    20122: "OP_vkCmdResolveImage",
-    20123: "OP_vkCmdSetEvent",
-    20124: "OP_vkCmdResetEvent",
-    20125: "OP_vkCmdWaitEvents",
-    20126: "OP_vkCmdPipelineBarrier",
-    20127: "OP_vkCmdBeginQuery",
-    20128: "OP_vkCmdEndQuery",
-    20129: "OP_vkCmdResetQueryPool",
-    20130: "OP_vkCmdWriteTimestamp",
-    20131: "OP_vkCmdCopyQueryPoolResults",
-    20132: "OP_vkCmdPushConstants",
-    20133: "OP_vkCmdBeginRenderPass",
-    20134: "OP_vkCmdNextSubpass",
-    20135: "OP_vkCmdEndRenderPass",
-    20136: "OP_vkCmdExecuteCommands",
-    20137: "OP_vkEnumerateInstanceVersion",
-    20138: "OP_vkBindBufferMemory2",
-    20139: "OP_vkBindImageMemory2",
-    20140: "OP_vkGetDeviceGroupPeerMemoryFeatures",
-    20141: "OP_vkCmdSetDeviceMask",
-    20142: "OP_vkCmdDispatchBase",
-    20143: "OP_vkEnumeratePhysicalDeviceGroups",
-    20144: "OP_vkGetImageMemoryRequirements2",
-    20145: "OP_vkGetBufferMemoryRequirements2",
-    20146: "OP_vkGetImageSparseMemoryRequirements2",
-    20147: "OP_vkGetPhysicalDeviceFeatures2",
-    20148: "OP_vkGetPhysicalDeviceProperties2",
-    20149: "OP_vkGetPhysicalDeviceFormatProperties2",
-    20150: "OP_vkGetPhysicalDeviceImageFormatProperties2",
-    20151: "OP_vkGetPhysicalDeviceQueueFamilyProperties2",
-    20152: "OP_vkGetPhysicalDeviceMemoryProperties2",
-    20153: "OP_vkGetPhysicalDeviceSparseImageFormatProperties2",
-    20154: "OP_vkTrimCommandPool",
-    20155: "OP_vkGetDeviceQueue2",
-    20156: "OP_vkCreateSamplerYcbcrConversion",
-    20157: "OP_vkDestroySamplerYcbcrConversion",
-    20158: "OP_vkCreateDescriptorUpdateTemplate",
-    20159: "OP_vkDestroyDescriptorUpdateTemplate",
-    20160: "OP_vkUpdateDescriptorSetWithTemplate",
-    20161: "OP_vkGetPhysicalDeviceExternalBufferProperties",
-    20162: "OP_vkGetPhysicalDeviceExternalFenceProperties",
-    20163: "OP_vkGetPhysicalDeviceExternalSemaphoreProperties",
-    20164: "OP_vkGetDescriptorSetLayoutSupport",
-    282774587: "OP_vkCmdDrawIndirectCount",
-    245204359: "OP_vkCmdDrawIndexedIndirectCount",
-    279590827: "OP_vkCreateRenderPass2",
-    235222847: "OP_vkCmdBeginRenderPass2",
-    244873750: "OP_vkCmdNextSubpass2",
-    221297834: "OP_vkCmdEndRenderPass2",
-    252097672: "OP_vkResetQueryPool",
-    267066974: "OP_vkGetSemaphoreCounterValue",
-    224777382: "OP_vkWaitSemaphores",
-    271024127: "OP_vkSignalSemaphore",
-    222632266: "OP_vkGetBufferDeviceAddress",
-    230188231: "OP_vkGetBufferOpaqueCaptureAddress",
-    260620079: "OP_vkGetDeviceMemoryOpaqueCaptureAddress",
-    20165: "OP_vkDestroySurfaceKHR",
-    20166: "OP_vkGetPhysicalDeviceSurfaceSupportKHR",
-    20167: "OP_vkGetPhysicalDeviceSurfaceCapabilitiesKHR",
-    20168: "OP_vkGetPhysicalDeviceSurfaceFormatsKHR",
-    20169: "OP_vkGetPhysicalDeviceSurfacePresentModesKHR",
-    20170: "OP_vkCreateSwapchainKHR",
-    20171: "OP_vkDestroySwapchainKHR",
-    20172: "OP_vkGetSwapchainImagesKHR",
-    20173: "OP_vkAcquireNextImageKHR",
-    20174: "OP_vkQueuePresentKHR",
-    20175: "OP_vkGetDeviceGroupPresentCapabilitiesKHR",
-    20176: "OP_vkGetDeviceGroupSurfacePresentModesKHR",
-    20177: "OP_vkGetPhysicalDevicePresentRectanglesKHR",
-    20178: "OP_vkAcquireNextImage2KHR",
-    20179: "OP_vkGetPhysicalDeviceDisplayPropertiesKHR",
-    20180: "OP_vkGetPhysicalDeviceDisplayPlanePropertiesKHR",
-    20181: "OP_vkGetDisplayPlaneSupportedDisplaysKHR",
-    20182: "OP_vkGetDisplayModePropertiesKHR",
-    20183: "OP_vkCreateDisplayModeKHR",
-    20184: "OP_vkGetDisplayPlaneCapabilitiesKHR",
-    20185: "OP_vkCreateDisplayPlaneSurfaceKHR",
-    20186: "OP_vkCreateSharedSwapchainsKHR",
-    20187: "OP_vkCreateXlibSurfaceKHR",
-    20188: "OP_vkGetPhysicalDeviceXlibPresentationSupportKHR",
-    20189: "OP_vkCreateXcbSurfaceKHR",
-    20190: "OP_vkGetPhysicalDeviceXcbPresentationSupportKHR",
-    20191: "OP_vkCreateWaylandSurfaceKHR",
-    20192: "OP_vkGetPhysicalDeviceWaylandPresentationSupportKHR",
-    20195: "OP_vkCreateAndroidSurfaceKHR",
-    20196: "OP_vkCreateWin32SurfaceKHR",
-    20197: "OP_vkGetPhysicalDeviceWin32PresentationSupportKHR",
-    20198: "OP_vkGetPhysicalDeviceFeatures2KHR",
-    20199: "OP_vkGetPhysicalDeviceProperties2KHR",
-    20200: "OP_vkGetPhysicalDeviceFormatProperties2KHR",
-    20201: "OP_vkGetPhysicalDeviceImageFormatProperties2KHR",
-    20202: "OP_vkGetPhysicalDeviceQueueFamilyProperties2KHR",
-    20203: "OP_vkGetPhysicalDeviceMemoryProperties2KHR",
-    20204: "OP_vkGetPhysicalDeviceSparseImageFormatProperties2KHR",
-    20205: "OP_vkGetDeviceGroupPeerMemoryFeaturesKHR",
-    20206: "OP_vkCmdSetDeviceMaskKHR",
-    20207: "OP_vkCmdDispatchBaseKHR",
-    20208: "OP_vkTrimCommandPoolKHR",
-    20209: "OP_vkEnumeratePhysicalDeviceGroupsKHR",
-    20210: "OP_vkGetPhysicalDeviceExternalBufferPropertiesKHR",
-    20211: "OP_vkGetMemoryWin32HandleKHR",
-    20212: "OP_vkGetMemoryWin32HandlePropertiesKHR",
-    20213: "OP_vkGetMemoryFdKHR",
-    20214: "OP_vkGetMemoryFdPropertiesKHR",
-    20215: "OP_vkGetPhysicalDeviceExternalSemaphorePropertiesKHR",
-    20216: "OP_vkImportSemaphoreWin32HandleKHR",
-    20217: "OP_vkGetSemaphoreWin32HandleKHR",
-    20218: "OP_vkImportSemaphoreFdKHR",
-    20219: "OP_vkGetSemaphoreFdKHR",
-    20220: "OP_vkCmdPushDescriptorSetKHR",
-    20221: "OP_vkCmdPushDescriptorSetWithTemplateKHR",
-    20222: "OP_vkCreateDescriptorUpdateTemplateKHR",
-    20223: "OP_vkDestroyDescriptorUpdateTemplateKHR",
-    20224: "OP_vkUpdateDescriptorSetWithTemplateKHR",
-    20225: "OP_vkCreateRenderPass2KHR",
-    20226: "OP_vkCmdBeginRenderPass2KHR",
-    20227: "OP_vkCmdNextSubpass2KHR",
-    20228: "OP_vkCmdEndRenderPass2KHR",
-    20229: "OP_vkGetSwapchainStatusKHR",
-    20230: "OP_vkGetPhysicalDeviceExternalFencePropertiesKHR",
-    20231: "OP_vkImportFenceWin32HandleKHR",
-    20232: "OP_vkGetFenceWin32HandleKHR",
-    20233: "OP_vkImportFenceFdKHR",
-    20234: "OP_vkGetFenceFdKHR",
-    299033148: "OP_vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR",
-    282029987: "OP_vkGetPhysicalDeviceQueueFamilyPerformanceQueryPassesKHR",
-    238952296: "OP_vkAcquireProfilingLockKHR",
-    223904011: "OP_vkReleaseProfilingLockKHR",
-    20235: "OP_vkGetPhysicalDeviceSurfaceCapabilities2KHR",
-    20236: "OP_vkGetPhysicalDeviceSurfaceFormats2KHR",
-    20237: "OP_vkGetPhysicalDeviceDisplayProperties2KHR",
-    20238: "OP_vkGetPhysicalDeviceDisplayPlaneProperties2KHR",
-    20239: "OP_vkGetDisplayModeProperties2KHR",
-    20240: "OP_vkGetDisplayPlaneCapabilities2KHR",
-    20241: "OP_vkGetImageMemoryRequirements2KHR",
-    20242: "OP_vkGetBufferMemoryRequirements2KHR",
-    20243: "OP_vkGetImageSparseMemoryRequirements2KHR",
-    20244: "OP_vkCreateSamplerYcbcrConversionKHR",
-    20245: "OP_vkDestroySamplerYcbcrConversionKHR",
-    20246: "OP_vkBindBufferMemory2KHR",
-    20247: "OP_vkBindImageMemory2KHR",
-    20248: "OP_vkGetDescriptorSetLayoutSupportKHR",
-    20249: "OP_vkCmdDrawIndirectCountKHR",
-    20250: "OP_vkCmdDrawIndexedIndirectCountKHR",
-    229059496: "OP_vkGetSemaphoreCounterValueKHR",
-    263904357: "OP_vkWaitSemaphoresKHR",
-    269919108: "OP_vkSignalSemaphoreKHR",
-    272978593: "OP_vkGetPhysicalDeviceFragmentShadingRatesKHR",
-    204060280: "OP_vkCmdSetFragmentShadingRateKHR",
-    219261480: "OP_vkGetBufferDeviceAddressKHR",
-    285631711: "OP_vkGetBufferOpaqueCaptureAddressKHR",
-    294671624: "OP_vkGetDeviceMemoryOpaqueCaptureAddressKHR",
-    274342644: "OP_vkCreateDeferredOperationKHR",
-    215419514: "OP_vkDestroyDeferredOperationKHR",
-    203387076: "OP_vkGetDeferredOperationMaxConcurrencyKHR",
-    263822960: "OP_vkGetDeferredOperationResultKHR",
-    218492930: "OP_vkDeferredOperationJoinKHR",
-    269458798: "OP_vkGetPipelineExecutablePropertiesKHR",
-    271191699: "OP_vkGetPipelineExecutableStatisticsKHR",
-    274148497: "OP_vkGetPipelineExecutableInternalRepresentationsKHR",
-    247893766: "OP_vkCmdCopyBuffer2KHR",
-    227008250: "OP_vkCmdCopyImage2KHR",
-    248841963: "OP_vkCmdCopyBufferToImage2KHR",
-    252249060: "OP_vkCmdCopyImageToBuffer2KHR",
-    259838288: "OP_vkCmdBlitImage2KHR",
-    254857232: "OP_vkCmdResolveImage2KHR",
-    20251: "OP_vkGetSwapchainGrallocUsageANDROID",
-    20252: "OP_vkAcquireImageANDROID",
-    20253: "OP_vkQueueSignalReleaseImageANDROID",
-    20254: "OP_vkCreateDebugReportCallbackEXT",
-    20255: "OP_vkDestroyDebugReportCallbackEXT",
-    20256: "OP_vkDebugReportMessageEXT",
-    20257: "OP_vkDebugMarkerSetObjectTagEXT",
-    20258: "OP_vkDebugMarkerSetObjectNameEXT",
-    20259: "OP_vkCmdDebugMarkerBeginEXT",
-    20260: "OP_vkCmdDebugMarkerEndEXT",
-    20261: "OP_vkCmdDebugMarkerInsertEXT",
-    267779978: "OP_vkCmdBindTransformFeedbackBuffersEXT",
-    294396901: "OP_vkCmdBeginTransformFeedbackEXT",
-    272333731: "OP_vkCmdEndTransformFeedbackEXT",
-    275810601: "OP_vkCmdBeginQueryIndexedEXT",
-    279821337: "OP_vkCmdEndQueryIndexedEXT",
-    285235943: "OP_vkCmdDrawIndirectByteCountEXT",
-    204379647: "OP_vkGetImageViewHandleNVX",
-    210668576: "OP_vkGetImageViewAddressNVX",
-    20262: "OP_vkCmdDrawIndirectCountAMD",
-    20263: "OP_vkCmdDrawIndexedIndirectCountAMD",
-    20264: "OP_vkGetShaderInfoAMD",
-    241902685: "OP_vkCreateStreamDescriptorSurfaceGGP",
-    20265: "OP_vkGetPhysicalDeviceExternalImageFormatPropertiesNV",
-    20266: "OP_vkGetMemoryWin32HandleNV",
-    20267: "OP_vkCreateViSurfaceNN",
-    20268: "OP_vkCmdBeginConditionalRenderingEXT",
-    20269: "OP_vkCmdEndConditionalRenderingEXT",
-    20279: "OP_vkCmdSetViewportWScalingNV",
-    20280: "OP_vkReleaseDisplayEXT",
-    20281: "OP_vkAcquireXlibDisplayEXT",
-    20282: "OP_vkGetRandROutputDisplayEXT",
-    20283: "OP_vkGetPhysicalDeviceSurfaceCapabilities2EXT",
-    20284: "OP_vkDisplayPowerControlEXT",
-    20285: "OP_vkRegisterDeviceEventEXT",
-    20286: "OP_vkRegisterDisplayEventEXT",
-    20287: "OP_vkGetSwapchainCounterEXT",
-    20288: "OP_vkGetRefreshCycleDurationGOOGLE",
-    20289: "OP_vkGetPastPresentationTimingGOOGLE",
-    20290: "OP_vkCmdSetDiscardRectangleEXT",
-    20291: "OP_vkSetHdrMetadataEXT",
-    20292: "OP_vkCreateIOSSurfaceMVK",
-    20293: "OP_vkCreateMacOSSurfaceMVK",
-    20334: "OP_vkGetMTLDeviceMVK",
-    20335: "OP_vkSetMTLTextureMVK",
-    20336: "OP_vkGetMTLTextureMVK",
-    20337: "OP_vkGetMTLBufferMVK",
-    20338: "OP_vkUseIOSurfaceMVK",
-    20339: "OP_vkGetIOSurfaceMVK",
-    20294: "OP_vkSetDebugUtilsObjectNameEXT",
-    20295: "OP_vkSetDebugUtilsObjectTagEXT",
-    20296: "OP_vkQueueBeginDebugUtilsLabelEXT",
-    20297: "OP_vkQueueEndDebugUtilsLabelEXT",
-    20298: "OP_vkQueueInsertDebugUtilsLabelEXT",
-    20299: "OP_vkCmdBeginDebugUtilsLabelEXT",
-    20300: "OP_vkCmdEndDebugUtilsLabelEXT",
-    20301: "OP_vkCmdInsertDebugUtilsLabelEXT",
-    20302: "OP_vkCreateDebugUtilsMessengerEXT",
-    20303: "OP_vkDestroyDebugUtilsMessengerEXT",
-    20304: "OP_vkSubmitDebugUtilsMessageEXT",
-    20305: "OP_vkGetAndroidHardwareBufferPropertiesANDROID",
-    20306: "OP_vkGetMemoryAndroidHardwareBufferANDROID",
-    20307: "OP_vkCmdSetSampleLocationsEXT",
-    20308: "OP_vkGetPhysicalDeviceMultisamplePropertiesEXT",
-    251301237: "OP_vkGetImageDrmFormatModifierPropertiesEXT",
-    20309: "OP_vkCreateValidationCacheEXT",
-    20310: "OP_vkDestroyValidationCacheEXT",
-    20311: "OP_vkMergeValidationCachesEXT",
-    20312: "OP_vkGetValidationCacheDataEXT",
-    238618340: "OP_vkCmdBindShadingRateImageNV",
-    215295078: "OP_vkCmdSetViewportShadingRatePaletteNV",
-    236858637: "OP_vkCmdSetCoarseSampleOrderNV",
-    259713020: "OP_vkCreateAccelerationStructureNV",
-    252775746: "OP_vkDestroyAccelerationStructureNV",
-    220234370: "OP_vkGetAccelerationStructureMemoryRequirementsNV",
-    202856743: "OP_vkBindAccelerationStructureMemoryNV",
-    269050897: "OP_vkCmdBuildAccelerationStructureNV",
-    211075498: "OP_vkCmdCopyAccelerationStructureNV",
-    210219912: "OP_vkCmdTraceRaysNV",
-    203653638: "OP_vkCreateRayTracingPipelinesNV",
-    271962641: "OP_vkGetRayTracingShaderGroupHandlesKHR",
-    230045846: "OP_vkGetRayTracingShaderGroupHandlesNV",
-    269898134: "OP_vkGetAccelerationStructureHandleNV",
-    207954431: "OP_vkCmdWriteAccelerationStructuresPropertiesNV",
-    278731610: "OP_vkCompileDeferredNV",
-    20313: "OP_vkGetMemoryHostPointerPropertiesEXT",
-    20314: "OP_vkCmdWriteBufferMarkerAMD",
-    295643221: "OP_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT",
-    203583186: "OP_vkGetCalibratedTimestampsEXT",
-    207334931: "OP_vkCmdDrawMeshTasksNV",
-    274079208: "OP_vkCmdDrawMeshTasksIndirectNV",
-    223801967: "OP_vkCmdDrawMeshTasksIndirectCountNV",
-    225408194: "OP_vkCmdSetExclusiveScissorNV",
-    20315: "OP_vkCmdSetCheckpointNV",
-    20316: "OP_vkGetQueueCheckpointDataNV",
-    203336121: "OP_vkInitializePerformanceApiINTEL",
-    296137321: "OP_vkUninitializePerformanceApiINTEL",
-    270016385: "OP_vkCmdSetPerformanceMarkerINTEL",
-    261519634: "OP_vkCmdSetPerformanceStreamMarkerINTEL",
-    251310287: "OP_vkCmdSetPerformanceOverrideINTEL",
-    245737492: "OP_vkAcquirePerformanceConfigurationINTEL",
-    252877217: "OP_vkReleasePerformanceConfigurationINTEL",
-    294947726: "OP_vkQueueSetPerformanceConfigurationINTEL",
-    213620482: "OP_vkGetPerformanceParameterINTEL",
-    267533472: "OP_vkSetLocalDimmingAMD",
-    261626137: "OP_vkCreateImagePipeSurfaceFUCHSIA",
-    254915953: "OP_vkCreateMetalSurfaceEXT",
-    224361693: "OP_vkGetBufferDeviceAddressEXT",
-    282247593: "OP_vkGetPhysicalDeviceToolPropertiesEXT",
-    287711429: "OP_vkGetPhysicalDeviceCooperativeMatrixPropertiesNV",
-    292032159: "OP_vkGetPhysicalDeviceSupportedFramebufferMixedSamplesCombinationsNV",
-    268126279: "OP_vkGetPhysicalDeviceSurfacePresentModes2EXT",
-    200946668: "OP_vkAcquireFullScreenExclusiveModeEXT",
-    257629142: "OP_vkReleaseFullScreenExclusiveModeEXT",
-    206369543: "OP_vkGetDeviceGroupSurfacePresentModes2EXT",
-    298411290: "OP_vkCreateHeadlessSurfaceEXT",
-    263855692: "OP_vkCmdSetLineStippleEXT",
-    242995959: "OP_vkResetQueryPoolEXT",
-    266285895: "OP_vkCmdSetCullModeEXT",
-    212644406: "OP_vkCmdSetFrontFaceEXT",
-    260783979: "OP_vkCmdSetPrimitiveTopologyEXT",
-    257105245: "OP_vkCmdSetViewportWithCountEXT",
-    204588120: "OP_vkCmdSetScissorWithCountEXT",
-    243419921: "OP_vkCmdBindVertexBuffers2EXT",
-    233771166: "OP_vkCmdSetDepthTestEnableEXT",
-    218663304: "OP_vkCmdSetDepthWriteEnableEXT",
-    247761589: "OP_vkCmdSetDepthCompareOpEXT",
-    223213519: "OP_vkCmdSetDepthBoundsTestEnableEXT",
-    286438749: "OP_vkCmdSetStencilTestEnableEXT",
-    277159578: "OP_vkCmdSetStencilOpEXT",
-    249047049: "OP_vkGetGeneratedCommandsMemoryRequirementsNV",
-    297624330: "OP_vkCmdPreprocessGeneratedCommandsNV",
-    234711184: "OP_vkCmdExecuteGeneratedCommandsNV",
-    270362239: "OP_vkCmdBindPipelineShaderGroupNV",
-    285310710: "OP_vkCreateIndirectCommandsLayoutNV",
-    292584135: "OP_vkDestroyIndirectCommandsLayoutNV",
-    236374049: "OP_vkCreatePrivateDataSlotEXT",
-    208891309: "OP_vkDestroyPrivateDataSlotEXT",
-    225259406: "OP_vkSetPrivateDataEXT",
-    291399427: "OP_vkGetPrivateDataEXT",
-    264649847: "OP_vkCmdSetFragmentShadingRateEnumNV",
-    220792403: "OP_vkCreateDirectFBSurfaceEXT",
-    285441990: "OP_vkGetPhysicalDeviceDirectFBPresentationSupportEXT",
-    20318: "OP_vkRegisterImageColorBufferGOOGLE",
-    20319: "OP_vkRegisterBufferColorBufferGOOGLE",
-    20317: "OP_vkMapMemoryIntoAddressSpaceGOOGLE",
-    20320: "OP_vkUpdateDescriptorSetWithTemplateSizedGOOGLE",
-    20321: "OP_vkBeginCommandBufferAsyncGOOGLE",
-    20322: "OP_vkEndCommandBufferAsyncGOOGLE",
-    20323: "OP_vkResetCommandBufferAsyncGOOGLE",
-    20324: "OP_vkCommandBufferHostSyncGOOGLE",
-    20325: "OP_vkCreateImageWithRequirementsGOOGLE",
-    20326: "OP_vkCreateBufferWithRequirementsGOOGLE",
-    20327: "OP_vkGetMemoryHostAddressInfoGOOGLE",
-    20328: "OP_vkFreeMemorySyncGOOGLE",
-    20329: "OP_vkQueueHostSyncGOOGLE",
-    20330: "OP_vkQueueSubmitAsyncGOOGLE",
-    20331: "OP_vkQueueWaitIdleAsyncGOOGLE",
-    20332: "OP_vkQueueBindSparseAsyncGOOGLE",
-    20333: "OP_vkGetLinearImageLayoutGOOGLE",
-    20340: "OP_vkQueueFlushCommandsGOOGLE",
-    267932433: "OP_vkQueueCommitDescriptorSetUpdatesGOOGLE",
-    213659202: "OP_vkCollectDescriptorPoolIdsGOOGLE",
-    243985229: "OP_vkQueueSignalReleaseImageANDROIDAsyncGOOGLE",
-    259403971: "OP_vkCreateAccelerationStructureKHR",
-    223971120: "OP_vkDestroyAccelerationStructureKHR",
-    272943905: "OP_vkCmdBuildAccelerationStructuresKHR",
-    258066143: "OP_vkCmdBuildAccelerationStructuresIndirectKHR",
-    241919567: "OP_vkBuildAccelerationStructuresKHR",
-    241495016: "OP_vkCopyAccelerationStructureKHR",
-    256139578: "OP_vkCopyAccelerationStructureToMemoryKHR",
-    261558680: "OP_vkCopyMemoryToAccelerationStructureKHR",
-    289745796: "OP_vkWriteAccelerationStructuresPropertiesKHR",
-    279460332: "OP_vkCmdCopyAccelerationStructureKHR",
-    223539733: "OP_vkCmdCopyAccelerationStructureToMemoryKHR",
-    203733963: "OP_vkCmdCopyMemoryToAccelerationStructureKHR",
-    223466148: "OP_vkGetAccelerationStructureDeviceAddressKHR",
-    271696183: "OP_vkCmdWriteAccelerationStructuresPropertiesKHR",
-    266386590: "OP_vkGetDeviceAccelerationStructureCompatibilityKHR",
-    219720024: "OP_vkGetAccelerationStructureBuildSizesKHR",
-    213680716: "OP_vkCmdTraceRaysKHR",
-    247628685: "OP_vkCreateRayTracingPipelinesKHR",
-    221334934: "OP_vkGetRayTracingCaptureReplayShaderGroupHandlesKHR",
-    211788517: "OP_vkCmdTraceRaysIndirectKHR",
-    205271933: "OP_vkGetRayTracingShaderGroupStackSizeKHR",
-    260219604: "OP_vkCmdSetRayTracingPipelineStackSizeKHR",
-
-    # From http://source/play-internal/battlestar/aosp/device/generic/vulkan-cereal/stream-servers/renderControl_dec/renderControl_opcodes.h
-    10000: "OP_rcGetRendererVersion",
-    10001: "OP_rcGetEGLVersion",
-    10002: "OP_rcQueryEGLString",
-    10003: "OP_rcGetGLString",
-    10004: "OP_rcGetNumConfigs",
-    10005: "OP_rcGetConfigs",
-    10006: "OP_rcChooseConfig",
-    10007: "OP_rcGetFBParam",
-    10008: "OP_rcCreateContext",
-    10009: "OP_rcDestroyContext",
-    10010: "OP_rcCreateWindowSurface",
-    10011: "OP_rcDestroyWindowSurface",
-    10012: "OP_rcCreateColorBuffer",
-    10013: "OP_rcOpenColorBuffer",
-    10014: "OP_rcCloseColorBuffer",
-    10015: "OP_rcSetWindowColorBuffer",
-    10016: "OP_rcFlushWindowColorBuffer",
-    10017: "OP_rcMakeCurrent",
-    10018: "OP_rcFBPost",
-    10019: "OP_rcFBSetSwapInterval",
-    10020: "OP_rcBindTexture",
-    10021: "OP_rcBindRenderbuffer",
-    10022: "OP_rcColorBufferCacheFlush",
-    10023: "OP_rcReadColorBuffer",
-    10024: "OP_rcUpdateColorBuffer",
-    10025: "OP_rcOpenColorBuffer2",
-    10026: "OP_rcCreateClientImage",
-    10027: "OP_rcDestroyClientImage",
-    10028: "OP_rcSelectChecksumHelper",
-    10029: "OP_rcCreateSyncKHR",
-    10030: "OP_rcClientWaitSyncKHR",
-    10031: "OP_rcFlushWindowColorBufferAsync",
-    10032: "OP_rcDestroySyncKHR",
-    10033: "OP_rcSetPuid",
-    10034: "OP_rcUpdateColorBufferDMA",
-    10035: "OP_rcCreateColorBufferDMA",
-    10036: "OP_rcWaitSyncKHR",
-    10037: "OP_rcCompose",
-    10038: "OP_rcCreateDisplay",
-    10039: "OP_rcDestroyDisplay",
-    10040: "OP_rcSetDisplayColorBuffer",
-    10041: "OP_rcGetDisplayColorBuffer",
-    10042: "OP_rcGetColorBufferDisplay",
-    10043: "OP_rcGetDisplayPose",
-    10044: "OP_rcSetDisplayPose",
-    10045: "OP_rcSetColorBufferVulkanMode",
-    10046: "OP_rcReadColorBufferYUV",
-    10047: "OP_rcIsSyncSignaled",
-    10048: "OP_rcCreateColorBufferWithHandle",
-    10049: "OP_rcCreateBuffer",
-    10050: "OP_rcCloseBuffer",
-    10051: "OP_rcSetColorBufferVulkanMode2",
-    10052: "OP_rcMapGpaToBufferHandle",
-    10053: "OP_rcCreateBuffer2",
-    10054: "OP_rcMapGpaToBufferHandle2",
-    10055: "OP_rcFlushWindowColorBufferAsyncWithFrameNumber",
-    10056: "OP_rcSetTracingForPuid",
-    10057: "OP_rcMakeCurrentAsync",
-    10058: "OP_rcComposeAsync",
-    10059: "OP_rcDestroySyncKHRAsync",
-    10060: "OP_rcComposeWithoutPost",
-    10061: "OP_rcComposeAsyncWithoutPost",
-    10062: "OP_rcCreateDisplayById",
-    10063: "OP_rcSetDisplayPoseDpi",
-    10064: "OP_rcReadColorBufferDMA",
-
-    # From http://source/android/device/generic/vulkan-cereal/stream-servers/gles1_dec/gles1_opcodes.h
-    1024: "OP_glAlphaFunc",
-    1025: "OP_glClearColor",
-    1026: "OP_glClearDepthf",
-    1027: "OP_glClipPlanef",
-    1028: "OP_glColor4f",
-    1029: "OP_glDepthRangef",
-    1030: "OP_glFogf",
-    1031: "OP_glFogfv",
-    1032: "OP_glFrustumf",
-    1033: "OP_glGetClipPlanef",
-    1034: "OP_glGetFloatv",
-    1035: "OP_glGetLightfv",
-    1036: "OP_glGetMaterialfv",
-    1037: "OP_glGetTexEnvfv",
-    1038: "OP_glGetTexParameterfv",
-    1039: "OP_glLightModelf",
-    1040: "OP_glLightModelfv",
-    1041: "OP_glLightf",
-    1042: "OP_glLightfv",
-    1043: "OP_glLineWidth",
-    1044: "OP_glLoadMatrixf",
-    1045: "OP_glMaterialf",
-    1046: "OP_glMaterialfv",
-    1047: "OP_glMultMatrixf",
-    1048: "OP_glMultiTexCoord4f",
-    1049: "OP_glNormal3f",
-    1050: "OP_glOrthof",
-    1051: "OP_glPointParameterf",
-    1052: "OP_glPointParameterfv",
-    1053: "OP_glPointSize",
-    1054: "OP_glPolygonOffset",
-    1055: "OP_glRotatef",
-    1056: "OP_glScalef",
-    1057: "OP_glTexEnvf",
-    1058: "OP_glTexEnvfv",
-    1059: "OP_glTexParameterf",
-    1060: "OP_glTexParameterfv",
-    1061: "OP_glTranslatef",
-    1062: "OP_glActiveTexture",
-    1063: "OP_glAlphaFuncx",
-    1064: "OP_glBindBuffer",
-    1065: "OP_glBindTexture",
-    1066: "OP_glBlendFunc",
-    1067: "OP_glBufferData",
-    1068: "OP_glBufferSubData",
-    1069: "OP_glClear",
-    1070: "OP_glClearColorx",
-    1071: "OP_glClearDepthx",
-    1072: "OP_glClearStencil",
-    1073: "OP_glClientActiveTexture",
-    1074: "OP_glColor4ub",
-    1075: "OP_glColor4x",
-    1076: "OP_glColorMask",
-    1077: "OP_glColorPointer",
-    1078: "OP_glCompressedTexImage2D",
-    1079: "OP_glCompressedTexSubImage2D",
-    1080: "OP_glCopyTexImage2D",
-    1081: "OP_glCopyTexSubImage2D",
-    1082: "OP_glCullFace",
-    1083: "OP_glDeleteBuffers",
-    1084: "OP_glDeleteTextures",
-    1085: "OP_glDepthFunc",
-    1086: "OP_glDepthMask",
-    1087: "OP_glDepthRangex",
-    1088: "OP_glDisable",
-    1089: "OP_glDisableClientState",
-    1090: "OP_glDrawArrays",
-    1091: "OP_glDrawElements",
-    1092: "OP_glEnable",
-    1093: "OP_glEnableClientState",
-    1094: "OP_glFinish",
-    1095: "OP_glFlush",
-    1096: "OP_glFogx",
-    1097: "OP_glFogxv",
-    1098: "OP_glFrontFace",
-    1099: "OP_glFrustumx",
-    1100: "OP_glGetBooleanv",
-    1101: "OP_glGetBufferParameteriv",
-    1102: "OP_glClipPlanex",
-    1103: "OP_glGenBuffers",
-    1104: "OP_glGenTextures",
-    1105: "OP_glGetError",
-    1106: "OP_glGetFixedv",
-    1107: "OP_glGetIntegerv",
-    1108: "OP_glGetLightxv",
-    1109: "OP_glGetMaterialxv",
-    1110: "OP_glGetPointerv",
-    1111: "OP_glGetString",
-    1112: "OP_glGetTexEnviv",
-    1113: "OP_glGetTexEnvxv",
-    1114: "OP_glGetTexParameteriv",
-    1115: "OP_glGetTexParameterxv",
-    1116: "OP_glHint",
-    1117: "OP_glIsBuffer",
-    1118: "OP_glIsEnabled",
-    1119: "OP_glIsTexture",
-    1120: "OP_glLightModelx",
-    1121: "OP_glLightModelxv",
-    1122: "OP_glLightx",
-    1123: "OP_glLightxv",
-    1124: "OP_glLineWidthx",
-    1125: "OP_glLoadIdentity",
-    1126: "OP_glLoadMatrixx",
-    1127: "OP_glLogicOp",
-    1128: "OP_glMaterialx",
-    1129: "OP_glMaterialxv",
-    1130: "OP_glMatrixMode",
-    1131: "OP_glMultMatrixx",
-    1132: "OP_glMultiTexCoord4x",
-    1133: "OP_glNormal3x",
-    1134: "OP_glNormalPointer",
-    1135: "OP_glOrthox",
-    1136: "OP_glPixelStorei",
-    1137: "OP_glPointParameterx",
-    1138: "OP_glPointParameterxv",
-    1139: "OP_glPointSizex",
-    1140: "OP_glPolygonOffsetx",
-    1141: "OP_glPopMatrix",
-    1142: "OP_glPushMatrix",
-    1143: "OP_glReadPixels",
-    1144: "OP_glRotatex",
-    1145: "OP_glSampleCoverage",
-    1146: "OP_glSampleCoveragex",
-    1147: "OP_glScalex",
-    1148: "OP_glScissor",
-    1149: "OP_glShadeModel",
-    1150: "OP_glStencilFunc",
-    1151: "OP_glStencilMask",
-    1152: "OP_glStencilOp",
-    1153: "OP_glTexCoordPointer",
-    1154: "OP_glTexEnvi",
-    1155: "OP_glTexEnvx",
-    1156: "OP_glTexEnviv",
-    1157: "OP_glTexEnvxv",
-    1158: "OP_glTexImage2D",
-    1159: "OP_glTexParameteri",
-    1160: "OP_glTexParameterx",
-    1161: "OP_glTexParameteriv",
-    1162: "OP_glTexParameterxv",
-    1163: "OP_glTexSubImage2D",
-    1164: "OP_glTranslatex",
-    1165: "OP_glVertexPointer",
-    1166: "OP_glViewport",
-    1167: "OP_glPointSizePointerOES",
-    1168: "OP_glVertexPointerOffset",
-    1169: "OP_glColorPointerOffset",
-    1170: "OP_glNormalPointerOffset",
-    1171: "OP_glPointSizePointerOffset",
-    1172: "OP_glTexCoordPointerOffset",
-    1173: "OP_glWeightPointerOffset",
-    1174: "OP_glMatrixIndexPointerOffset",
-    1175: "OP_glVertexPointerData",
-    1176: "OP_glColorPointerData",
-    1177: "OP_glNormalPointerData",
-    1178: "OP_glTexCoordPointerData",
-    1179: "OP_glPointSizePointerData",
-    1180: "OP_glWeightPointerData",
-    1181: "OP_glMatrixIndexPointerData",
-    1182: "OP_glDrawElementsOffset",
-    1183: "OP_glDrawElementsData",
-    1184: "OP_glGetCompressedTextureFormats",
-    1185: "OP_glFinishRoundTrip",
-    1186: "OP_glBlendEquationSeparateOES",
-    1187: "OP_glBlendFuncSeparateOES",
-    1188: "OP_glBlendEquationOES",
-    1189: "OP_glDrawTexsOES",
-    1190: "OP_glDrawTexiOES",
-    1191: "OP_glDrawTexxOES",
-    1192: "OP_glDrawTexsvOES",
-    1193: "OP_glDrawTexivOES",
-    1194: "OP_glDrawTexxvOES",
-    1195: "OP_glDrawTexfOES",
-    1196: "OP_glDrawTexfvOES",
-    1197: "OP_glEGLImageTargetTexture2DOES",
-    1198: "OP_glEGLImageTargetRenderbufferStorageOES",
-    1199: "OP_glAlphaFuncxOES",
-    1200: "OP_glClearColorxOES",
-    1201: "OP_glClearDepthxOES",
-    1202: "OP_glClipPlanexOES",
-    1203: "OP_glClipPlanexIMG",
-    1204: "OP_glColor4xOES",
-    1205: "OP_glDepthRangexOES",
-    1206: "OP_glFogxOES",
-    1207: "OP_glFogxvOES",
-    1208: "OP_glFrustumxOES",
-    1209: "OP_glGetClipPlanexOES",
-    1210: "OP_glGetClipPlanex",
-    1211: "OP_glGetFixedvOES",
-    1212: "OP_glGetLightxvOES",
-    1213: "OP_glGetMaterialxvOES",
-    1214: "OP_glGetTexEnvxvOES",
-    1215: "OP_glGetTexParameterxvOES",
-    1216: "OP_glLightModelxOES",
-    1217: "OP_glLightModelxvOES",
-    1218: "OP_glLightxOES",
-    1219: "OP_glLightxvOES",
-    1220: "OP_glLineWidthxOES",
-    1221: "OP_glLoadMatrixxOES",
-    1222: "OP_glMaterialxOES",
-    1223: "OP_glMaterialxvOES",
-    1224: "OP_glMultMatrixxOES",
-    1225: "OP_glMultiTexCoord4xOES",
-    1226: "OP_glNormal3xOES",
-    1227: "OP_glOrthoxOES",
-    1228: "OP_glPointParameterxOES",
-    1229: "OP_glPointParameterxvOES",
-    1230: "OP_glPointSizexOES",
-    1231: "OP_glPolygonOffsetxOES",
-    1232: "OP_glRotatexOES",
-    1233: "OP_glSampleCoveragexOES",
-    1234: "OP_glScalexOES",
-    1235: "OP_glTexEnvxOES",
-    1236: "OP_glTexEnvxvOES",
-    1237: "OP_glTexParameterxOES",
-    1238: "OP_glTexParameterxvOES",
-    1239: "OP_glTranslatexOES",
-    1240: "OP_glIsRenderbufferOES",
-    1241: "OP_glBindRenderbufferOES",
-    1242: "OP_glDeleteRenderbuffersOES",
-    1243: "OP_glGenRenderbuffersOES",
-    1244: "OP_glRenderbufferStorageOES",
-    1245: "OP_glGetRenderbufferParameterivOES",
-    1246: "OP_glIsFramebufferOES",
-    1247: "OP_glBindFramebufferOES",
-    1248: "OP_glDeleteFramebuffersOES",
-    1249: "OP_glGenFramebuffersOES",
-    1250: "OP_glCheckFramebufferStatusOES",
-    1251: "OP_glFramebufferRenderbufferOES",
-    1252: "OP_glFramebufferTexture2DOES",
-    1253: "OP_glGetFramebufferAttachmentParameterivOES",
-    1254: "OP_glGenerateMipmapOES",
-    1255: "OP_glMapBufferOES",
-    1256: "OP_glUnmapBufferOES",
-    1257: "OP_glGetBufferPointervOES",
-    1258: "OP_glCurrentPaletteMatrixOES",
-    1259: "OP_glLoadPaletteFromModelViewMatrixOES",
-    1260: "OP_glMatrixIndexPointerOES",
-    1261: "OP_glWeightPointerOES",
-    1262: "OP_glQueryMatrixxOES",
-    1263: "OP_glDepthRangefOES",
-    1264: "OP_glFrustumfOES",
-    1265: "OP_glOrthofOES",
-    1266: "OP_glClipPlanefOES",
-    1267: "OP_glClipPlanefIMG",
-    1268: "OP_glGetClipPlanefOES",
-    1269: "OP_glClearDepthfOES",
-    1270: "OP_glTexGenfOES",
-    1271: "OP_glTexGenfvOES",
-    1272: "OP_glTexGeniOES",
-    1273: "OP_glTexGenivOES",
-    1274: "OP_glTexGenxOES",
-    1275: "OP_glTexGenxvOES",
-    1276: "OP_glGetTexGenfvOES",
-    1277: "OP_glGetTexGenivOES",
-    1278: "OP_glGetTexGenxvOES",
-    1279: "OP_glBindVertexArrayOES",
-    1280: "OP_glDeleteVertexArraysOES",
-    1281: "OP_glGenVertexArraysOES",
-    1282: "OP_glIsVertexArrayOES",
-    1283: "OP_glDiscardFramebufferEXT",
-    1284: "OP_glMultiDrawArraysEXT",
-    1285: "OP_glMultiDrawElementsEXT",
-    1286: "OP_glMultiDrawArraysSUN",
-    1287: "OP_glMultiDrawElementsSUN",
-    1288: "OP_glRenderbufferStorageMultisampleIMG",
-    1289: "OP_glFramebufferTexture2DMultisampleIMG",
-    1290: "OP_glDeleteFencesNV",
-    1291: "OP_glGenFencesNV",
-    1292: "OP_glIsFenceNV",
-    1293: "OP_glTestFenceNV",
-    1294: "OP_glGetFenceivNV",
-    1295: "OP_glFinishFenceNV",
-    1296: "OP_glSetFenceNV",
-    1297: "OP_glGetDriverControlsQCOM",
-    1298: "OP_glGetDriverControlStringQCOM",
-    1299: "OP_glEnableDriverControlQCOM",
-    1300: "OP_glDisableDriverControlQCOM",
-    1301: "OP_glExtGetTexturesQCOM",
-    1302: "OP_glExtGetBuffersQCOM",
-    1303: "OP_glExtGetRenderbuffersQCOM",
-    1304: "OP_glExtGetFramebuffersQCOM",
-    1305: "OP_glExtGetTexLevelParameterivQCOM",
-    1306: "OP_glExtTexObjectStateOverrideiQCOM",
-    1307: "OP_glExtGetTexSubImageQCOM",
-    1308: "OP_glExtGetBufferPointervQCOM",
-    1309: "OP_glExtGetShadersQCOM",
-    1310: "OP_glExtGetProgramsQCOM",
-    1311: "OP_glExtIsProgramBinaryQCOM",
-    1312: "OP_glExtGetProgramBinarySourceQCOM",
-    1313: "OP_glStartTilingQCOM",
-    1314: "OP_glEndTilingQCOM",
-    1315: "OP_glGetGraphicsResetStatusEXT",
-    1316: "OP_glReadnPixelsEXT",
-
-    # From https://source.corp.google.com/android/device/generic/vulkan-cereal/stream-servers/gles2_dec/gles2_opcodes.h
-    2048: "OP_glActiveTexture",
-    2049: "OP_glAttachShader",
-    2050: "OP_glBindAttribLocation",
-    2051: "OP_glBindBuffer",
-    2052: "OP_glBindFramebuffer",
-    2053: "OP_glBindRenderbuffer",
-    2054: "OP_glBindTexture",
-    2055: "OP_glBlendColor",
-    2056: "OP_glBlendEquation",
-    2057: "OP_glBlendEquationSeparate",
-    2058: "OP_glBlendFunc",
-    2059: "OP_glBlendFuncSeparate",
-    2060: "OP_glBufferData",
-    2061: "OP_glBufferSubData",
-    2062: "OP_glCheckFramebufferStatus",
-    2063: "OP_glClear",
-    2064: "OP_glClearColor",
-    2065: "OP_glClearDepthf",
-    2066: "OP_glClearStencil",
-    2067: "OP_glColorMask",
-    2068: "OP_glCompileShader",
-    2069: "OP_glCompressedTexImage2D",
-    2070: "OP_glCompressedTexSubImage2D",
-    2071: "OP_glCopyTexImage2D",
-    2072: "OP_glCopyTexSubImage2D",
-    2073: "OP_glCreateProgram",
-    2074: "OP_glCreateShader",
-    2075: "OP_glCullFace",
-    2076: "OP_glDeleteBuffers",
-    2077: "OP_glDeleteFramebuffers",
-    2078: "OP_glDeleteProgram",
-    2079: "OP_glDeleteRenderbuffers",
-    2080: "OP_glDeleteShader",
-    2081: "OP_glDeleteTextures",
-    2082: "OP_glDepthFunc",
-    2083: "OP_glDepthMask",
-    2084: "OP_glDepthRangef",
-    2085: "OP_glDetachShader",
-    2086: "OP_glDisable",
-    2087: "OP_glDisableVertexAttribArray",
-    2088: "OP_glDrawArrays",
-    2089: "OP_glDrawElements",
-    2090: "OP_glEnable",
-    2091: "OP_glEnableVertexAttribArray",
-    2092: "OP_glFinish",
-    2093: "OP_glFlush",
-    2094: "OP_glFramebufferRenderbuffer",
-    2095: "OP_glFramebufferTexture2D",
-    2096: "OP_glFrontFace",
-    2097: "OP_glGenBuffers",
-    2098: "OP_glGenerateMipmap",
-    2099: "OP_glGenFramebuffers",
-    2100: "OP_glGenRenderbuffers",
-    2101: "OP_glGenTextures",
-    2102: "OP_glGetActiveAttrib",
-    2103: "OP_glGetActiveUniform",
-    2104: "OP_glGetAttachedShaders",
-    2105: "OP_glGetAttribLocation",
-    2106: "OP_glGetBooleanv",
-    2107: "OP_glGetBufferParameteriv",
-    2108: "OP_glGetError",
-    2109: "OP_glGetFloatv",
-    2110: "OP_glGetFramebufferAttachmentParameteriv",
-    2111: "OP_glGetIntegerv",
-    2112: "OP_glGetProgramiv",
-    2113: "OP_glGetProgramInfoLog",
-    2114: "OP_glGetRenderbufferParameteriv",
-    2115: "OP_glGetShaderiv",
-    2116: "OP_glGetShaderInfoLog",
-    2117: "OP_glGetShaderPrecisionFormat",
-    2118: "OP_glGetShaderSource",
-    2119: "OP_glGetString",
-    2120: "OP_glGetTexParameterfv",
-    2121: "OP_glGetTexParameteriv",
-    2122: "OP_glGetUniformfv",
-    2123: "OP_glGetUniformiv",
-    2124: "OP_glGetUniformLocation",
-    2125: "OP_glGetVertexAttribfv",
-    2126: "OP_glGetVertexAttribiv",
-    2127: "OP_glGetVertexAttribPointerv",
-    2128: "OP_glHint",
-    2129: "OP_glIsBuffer",
-    2130: "OP_glIsEnabled",
-    2131: "OP_glIsFramebuffer",
-    2132: "OP_glIsProgram",
-    2133: "OP_glIsRenderbuffer",
-    2134: "OP_glIsShader",
-    2135: "OP_glIsTexture",
-    2136: "OP_glLineWidth",
-    2137: "OP_glLinkProgram",
-    2138: "OP_glPixelStorei",
-    2139: "OP_glPolygonOffset",
-    2140: "OP_glReadPixels",
-    2141: "OP_glReleaseShaderCompiler",
-    2142: "OP_glRenderbufferStorage",
-    2143: "OP_glSampleCoverage",
-    2144: "OP_glScissor",
-    2145: "OP_glShaderBinary",
-    2146: "OP_glShaderSource",
-    2147: "OP_glStencilFunc",
-    2148: "OP_glStencilFuncSeparate",
-    2149: "OP_glStencilMask",
-    2150: "OP_glStencilMaskSeparate",
-    2151: "OP_glStencilOp",
-    2152: "OP_glStencilOpSeparate",
-    2153: "OP_glTexImage2D",
-    2154: "OP_glTexParameterf",
-    2155: "OP_glTexParameterfv",
-    2156: "OP_glTexParameteri",
-    2157: "OP_glTexParameteriv",
-    2158: "OP_glTexSubImage2D",
-    2159: "OP_glUniform1f",
-    2160: "OP_glUniform1fv",
-    2161: "OP_glUniform1i",
-    2162: "OP_glUniform1iv",
-    2163: "OP_glUniform2f",
-    2164: "OP_glUniform2fv",
-    2165: "OP_glUniform2i",
-    2166: "OP_glUniform2iv",
-    2167: "OP_glUniform3f",
-    2168: "OP_glUniform3fv",
-    2169: "OP_glUniform3i",
-    2170: "OP_glUniform3iv",
-    2171: "OP_glUniform4f",
-    2172: "OP_glUniform4fv",
-    2173: "OP_glUniform4i",
-    2174: "OP_glUniform4iv",
-    2175: "OP_glUniformMatrix2fv",
-    2176: "OP_glUniformMatrix3fv",
-    2177: "OP_glUniformMatrix4fv",
-    2178: "OP_glUseProgram",
-    2179: "OP_glValidateProgram",
-    2180: "OP_glVertexAttrib1f",
-    2181: "OP_glVertexAttrib1fv",
-    2182: "OP_glVertexAttrib2f",
-    2183: "OP_glVertexAttrib2fv",
-    2184: "OP_glVertexAttrib3f",
-    2185: "OP_glVertexAttrib3fv",
-    2186: "OP_glVertexAttrib4f",
-    2187: "OP_glVertexAttrib4fv",
-    2188: "OP_glVertexAttribPointer",
-    2189: "OP_glViewport",
-    2190: "OP_glEGLImageTargetTexture2DOES",
-    2191: "OP_glEGLImageTargetRenderbufferStorageOES",
-    2192: "OP_glGetProgramBinaryOES",
-    2193: "OP_glProgramBinaryOES",
-    2194: "OP_glMapBufferOES",
-    2195: "OP_glUnmapBufferOES",
-    2196: "OP_glTexImage3DOES",
-    2197: "OP_glTexSubImage3DOES",
-    2198: "OP_glCopyTexSubImage3DOES",
-    2199: "OP_glCompressedTexImage3DOES",
-    2200: "OP_glCompressedTexSubImage3DOES",
-    2201: "OP_glFramebufferTexture3DOES",
-    2202: "OP_glBindVertexArrayOES",
-    2203: "OP_glDeleteVertexArraysOES",
-    2204: "OP_glGenVertexArraysOES",
-    2205: "OP_glIsVertexArrayOES",
-    2206: "OP_glDiscardFramebufferEXT",
-    2207: "OP_glMultiDrawArraysEXT",
-    2208: "OP_glMultiDrawElementsEXT",
-    2209: "OP_glGetPerfMonitorGroupsAMD",
-    2210: "OP_glGetPerfMonitorCountersAMD",
-    2211: "OP_glGetPerfMonitorGroupStringAMD",
-    2212: "OP_glGetPerfMonitorCounterStringAMD",
-    2213: "OP_glGetPerfMonitorCounterInfoAMD",
-    2214: "OP_glGenPerfMonitorsAMD",
-    2215: "OP_glDeletePerfMonitorsAMD",
-    2216: "OP_glSelectPerfMonitorCountersAMD",
-    2217: "OP_glBeginPerfMonitorAMD",
-    2218: "OP_glEndPerfMonitorAMD",
-    2219: "OP_glGetPerfMonitorCounterDataAMD",
-    2220: "OP_glRenderbufferStorageMultisampleIMG",
-    2221: "OP_glFramebufferTexture2DMultisampleIMG",
-    2222: "OP_glDeleteFencesNV",
-    2223: "OP_glGenFencesNV",
-    2224: "OP_glIsFenceNV",
-    2225: "OP_glTestFenceNV",
-    2226: "OP_glGetFenceivNV",
-    2227: "OP_glFinishFenceNV",
-    2228: "OP_glSetFenceNV",
-    2229: "OP_glCoverageMaskNV",
-    2230: "OP_glCoverageOperationNV",
-    2231: "OP_glGetDriverControlsQCOM",
-    2232: "OP_glGetDriverControlStringQCOM",
-    2233: "OP_glEnableDriverControlQCOM",
-    2234: "OP_glDisableDriverControlQCOM",
-    2235: "OP_glExtGetTexturesQCOM",
-    2236: "OP_glExtGetBuffersQCOM",
-    2237: "OP_glExtGetRenderbuffersQCOM",
-    2238: "OP_glExtGetFramebuffersQCOM",
-    2239: "OP_glExtGetTexLevelParameterivQCOM",
-    2240: "OP_glExtTexObjectStateOverrideiQCOM",
-    2241: "OP_glExtGetTexSubImageQCOM",
-    2242: "OP_glExtGetBufferPointervQCOM",
-    2243: "OP_glExtGetShadersQCOM",
-    2244: "OP_glExtGetProgramsQCOM",
-    2245: "OP_glExtIsProgramBinaryQCOM",
-    2246: "OP_glExtGetProgramBinarySourceQCOM",
-    2247: "OP_glStartTilingQCOM",
-    2248: "OP_glEndTilingQCOM",
-    2249: "OP_glVertexAttribPointerData",
-    2250: "OP_glVertexAttribPointerOffset",
-    2251: "OP_glDrawElementsOffset",
-    2252: "OP_glDrawElementsData",
-    2253: "OP_glGetCompressedTextureFormats",
-    2254: "OP_glShaderString",
-    2255: "OP_glFinishRoundTrip",
-    2256: "OP_glGenVertexArrays",
-    2257: "OP_glBindVertexArray",
-    2258: "OP_glDeleteVertexArrays",
-    2259: "OP_glIsVertexArray",
-    2260: "OP_glMapBufferRange",
-    2261: "OP_glUnmapBuffer",
-    2262: "OP_glFlushMappedBufferRange",
-    2263: "OP_glMapBufferRangeAEMU",
-    2264: "OP_glUnmapBufferAEMU",
-    2265: "OP_glFlushMappedBufferRangeAEMU",
-    2266: "OP_glReadPixelsOffsetAEMU",
-    2267: "OP_glCompressedTexImage2DOffsetAEMU",
-    2268: "OP_glCompressedTexSubImage2DOffsetAEMU",
-    2269: "OP_glTexImage2DOffsetAEMU",
-    2270: "OP_glTexSubImage2DOffsetAEMU",
-    2271: "OP_glBindBufferRange",
-    2272: "OP_glBindBufferBase",
-    2273: "OP_glCopyBufferSubData",
-    2274: "OP_glClearBufferiv",
-    2275: "OP_glClearBufferuiv",
-    2276: "OP_glClearBufferfv",
-    2277: "OP_glClearBufferfi",
-    2278: "OP_glGetBufferParameteri64v",
-    2279: "OP_glGetBufferPointerv",
-    2280: "OP_glUniformBlockBinding",
-    2281: "OP_glGetUniformBlockIndex",
-    2282: "OP_glGetUniformIndices",
-    2283: "OP_glGetUniformIndicesAEMU",
-    2284: "OP_glGetActiveUniformBlockiv",
-    2285: "OP_glGetActiveUniformBlockName",
-    2286: "OP_glUniform1ui",
-    2287: "OP_glUniform2ui",
-    2288: "OP_glUniform3ui",
-    2289: "OP_glUniform4ui",
-    2290: "OP_glUniform1uiv",
-    2291: "OP_glUniform2uiv",
-    2292: "OP_glUniform3uiv",
-    2293: "OP_glUniform4uiv",
-    2294: "OP_glUniformMatrix2x3fv",
-    2295: "OP_glUniformMatrix3x2fv",
-    2296: "OP_glUniformMatrix2x4fv",
-    2297: "OP_glUniformMatrix4x2fv",
-    2298: "OP_glUniformMatrix3x4fv",
-    2299: "OP_glUniformMatrix4x3fv",
-    2300: "OP_glGetUniformuiv",
-    2301: "OP_glGetActiveUniformsiv",
-    2302: "OP_glVertexAttribI4i",
-    2303: "OP_glVertexAttribI4ui",
-    2304: "OP_glVertexAttribI4iv",
-    2305: "OP_glVertexAttribI4uiv",
-    2306: "OP_glVertexAttribIPointer",
-    2307: "OP_glVertexAttribIPointerOffsetAEMU",
-    2308: "OP_glVertexAttribIPointerDataAEMU",
-    2309: "OP_glGetVertexAttribIiv",
-    2310: "OP_glGetVertexAttribIuiv",
-    2311: "OP_glVertexAttribDivisor",
-    2312: "OP_glDrawArraysInstanced",
-    2313: "OP_glDrawElementsInstanced",
-    2314: "OP_glDrawElementsInstancedDataAEMU",
-    2315: "OP_glDrawElementsInstancedOffsetAEMU",
-    2316: "OP_glDrawRangeElements",
-    2317: "OP_glDrawRangeElementsDataAEMU",
-    2318: "OP_glDrawRangeElementsOffsetAEMU",
-    2319: "OP_glFenceSync",
-    2320: "OP_glClientWaitSync",
-    2321: "OP_glWaitSync",
-    2322: "OP_glDeleteSync",
-    2323: "OP_glIsSync",
-    2324: "OP_glGetSynciv",
-    2325: "OP_glFenceSyncAEMU",
-    2326: "OP_glClientWaitSyncAEMU",
-    2327: "OP_glWaitSyncAEMU",
-    2328: "OP_glDeleteSyncAEMU",
-    2329: "OP_glIsSyncAEMU",
-    2330: "OP_glGetSyncivAEMU",
-    2331: "OP_glDrawBuffers",
-    2332: "OP_glReadBuffer",
-    2333: "OP_glBlitFramebuffer",
-    2334: "OP_glInvalidateFramebuffer",
-    2335: "OP_glInvalidateSubFramebuffer",
-    2336: "OP_glFramebufferTextureLayer",
-    2337: "OP_glRenderbufferStorageMultisample",
-    2338: "OP_glTexStorage2D",
-    2339: "OP_glGetInternalformativ",
-    2340: "OP_glBeginTransformFeedback",
-    2341: "OP_glEndTransformFeedback",
-    2342: "OP_glGenTransformFeedbacks",
-    2343: "OP_glDeleteTransformFeedbacks",
-    2344: "OP_glBindTransformFeedback",
-    2345: "OP_glPauseTransformFeedback",
-    2346: "OP_glResumeTransformFeedback",
-    2347: "OP_glIsTransformFeedback",
-    2348: "OP_glTransformFeedbackVaryings",
-    2349: "OP_glTransformFeedbackVaryingsAEMU",
-    2350: "OP_glGetTransformFeedbackVarying",
-    2351: "OP_glGenSamplers",
-    2352: "OP_glDeleteSamplers",
-    2353: "OP_glBindSampler",
-    2354: "OP_glSamplerParameterf",
-    2355: "OP_glSamplerParameteri",
-    2356: "OP_glSamplerParameterfv",
-    2357: "OP_glSamplerParameteriv",
-    2358: "OP_glGetSamplerParameterfv",
-    2359: "OP_glGetSamplerParameteriv",
-    2360: "OP_glIsSampler",
-    2361: "OP_glGenQueries",
-    2362: "OP_glDeleteQueries",
-    2363: "OP_glBeginQuery",
-    2364: "OP_glEndQuery",
-    2365: "OP_glGetQueryiv",
-    2366: "OP_glGetQueryObjectuiv",
-    2367: "OP_glIsQuery",
-    2368: "OP_glProgramParameteri",
-    2369: "OP_glProgramBinary",
-    2370: "OP_glGetProgramBinary",
-    2371: "OP_glGetFragDataLocation",
-    2372: "OP_glGetInteger64v",
-    2373: "OP_glGetIntegeri_v",
-    2374: "OP_glGetInteger64i_v",
-    2375: "OP_glTexImage3D",
-    2376: "OP_glTexImage3DOffsetAEMU",
-    2377: "OP_glTexStorage3D",
-    2378: "OP_glTexSubImage3D",
-    2379: "OP_glTexSubImage3DOffsetAEMU",
-    2380: "OP_glCompressedTexImage3D",
-    2381: "OP_glCompressedTexImage3DOffsetAEMU",
-    2382: "OP_glCompressedTexSubImage3D",
-    2383: "OP_glCompressedTexSubImage3DOffsetAEMU",
-    2384: "OP_glCopyTexSubImage3D",
-    2385: "OP_glGetStringi",
-    2386: "OP_glGetBooleani_v",
-    2387: "OP_glMemoryBarrier",
-    2388: "OP_glMemoryBarrierByRegion",
-    2389: "OP_glGenProgramPipelines",
-    2390: "OP_glDeleteProgramPipelines",
-    2391: "OP_glBindProgramPipeline",
-    2392: "OP_glGetProgramPipelineiv",
-    2393: "OP_glGetProgramPipelineInfoLog",
-    2394: "OP_glValidateProgramPipeline",
-    2395: "OP_glIsProgramPipeline",
-    2396: "OP_glUseProgramStages",
-    2397: "OP_glActiveShaderProgram",
-    2398: "OP_glCreateShaderProgramv",
-    2399: "OP_glCreateShaderProgramvAEMU",
-    2400: "OP_glProgramUniform1f",
-    2401: "OP_glProgramUniform2f",
-    2402: "OP_glProgramUniform3f",
-    2403: "OP_glProgramUniform4f",
-    2404: "OP_glProgramUniform1i",
-    2405: "OP_glProgramUniform2i",
-    2406: "OP_glProgramUniform3i",
-    2407: "OP_glProgramUniform4i",
-    2408: "OP_glProgramUniform1ui",
-    2409: "OP_glProgramUniform2ui",
-    2410: "OP_glProgramUniform3ui",
-    2411: "OP_glProgramUniform4ui",
-    2412: "OP_glProgramUniform1fv",
-    2413: "OP_glProgramUniform2fv",
-    2414: "OP_glProgramUniform3fv",
-    2415: "OP_glProgramUniform4fv",
-    2416: "OP_glProgramUniform1iv",
-    2417: "OP_glProgramUniform2iv",
-    2418: "OP_glProgramUniform3iv",
-    2419: "OP_glProgramUniform4iv",
-    2420: "OP_glProgramUniform1uiv",
-    2421: "OP_glProgramUniform2uiv",
-    2422: "OP_glProgramUniform3uiv",
-    2423: "OP_glProgramUniform4uiv",
-    2424: "OP_glProgramUniformMatrix2fv",
-    2425: "OP_glProgramUniformMatrix3fv",
-    2426: "OP_glProgramUniformMatrix4fv",
-    2427: "OP_glProgramUniformMatrix2x3fv",
-    2428: "OP_glProgramUniformMatrix3x2fv",
-    2429: "OP_glProgramUniformMatrix2x4fv",
-    2430: "OP_glProgramUniformMatrix4x2fv",
-    2431: "OP_glProgramUniformMatrix3x4fv",
-    2432: "OP_glProgramUniformMatrix4x3fv",
-    2433: "OP_glGetProgramInterfaceiv",
-    2434: "OP_glGetProgramResourceiv",
-    2435: "OP_glGetProgramResourceIndex",
-    2436: "OP_glGetProgramResourceLocation",
-    2437: "OP_glGetProgramResourceName",
-    2438: "OP_glBindImageTexture",
-    2439: "OP_glDispatchCompute",
-    2440: "OP_glDispatchComputeIndirect",
-    2441: "OP_glBindVertexBuffer",
-    2442: "OP_glVertexAttribBinding",
-    2443: "OP_glVertexAttribFormat",
-    2444: "OP_glVertexAttribIFormat",
-    2445: "OP_glVertexBindingDivisor",
-    2446: "OP_glDrawArraysIndirect",
-    2447: "OP_glDrawArraysIndirectDataAEMU",
-    2448: "OP_glDrawArraysIndirectOffsetAEMU",
-    2449: "OP_glDrawElementsIndirect",
-    2450: "OP_glDrawElementsIndirectDataAEMU",
-    2451: "OP_glDrawElementsIndirectOffsetAEMU",
-    2452: "OP_glTexStorage2DMultisample",
-    2453: "OP_glSampleMaski",
-    2454: "OP_glGetMultisamplefv",
-    2455: "OP_glFramebufferParameteri",
-    2456: "OP_glGetFramebufferParameteriv",
-    2457: "OP_glGetTexLevelParameterfv",
-    2458: "OP_glGetTexLevelParameteriv",
-    2459: "OP_glMapBufferRangeDMA",
-    2460: "OP_glUnmapBufferDMA",
-    2461: "OP_glMapBufferRangeDirect",
-    2462: "OP_glUnmapBufferDirect",
-    2463: "OP_glFlushMappedBufferRangeDirect",
-    2464: "OP_glGetGraphicsResetStatusEXT",
-    2465: "OP_glReadnPixelsEXT",
-    2466: "OP_glGetnUniformfvEXT",
-    2467: "OP_glGetnUniformivEXT",
-    2468: "OP_glDrawArraysNullAEMU",
-    2469: "OP_glDrawElementsNullAEMU",
-    2470: "OP_glDrawElementsOffsetNullAEMU",
-    2471: "OP_glDrawElementsDataNullAEMU",
-    2472: "OP_glUnmapBufferAsyncAEMU",
-    2473: "OP_glFlushMappedBufferRangeAEMU2",
-    2474: "OP_glBufferDataSyncAEMU",
+VkVertexInputRate = {
+    0: "VK_VERTEX_INPUT_RATE_VERTEX",
+    1: "VK_VERTEX_INPUT_RATE_INSTANCE",
 }
+

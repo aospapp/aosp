@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
-#include <linux/videodev2.h>
-#include <linux/v4l2-controls.h>
-
 #include <exynos-hwjpeg.h>
-#include "hwjpeg-internal.h"
+#include <linux/v4l2-controls.h>
+#include <linux/videodev2.h>
 
-CHWJpegV4L2Compressor::CHWJpegV4L2Compressor(): CHWJpegCompressor("/dev/video12")
-{
+#include "hwjpeg-internal.h"
+#include "log/log_main.h"
+
+CHWJpegV4L2Compressor::CHWJpegV4L2Compressor()
+      : CHWJpegCompressor("/dev/video12"), file_lock_(FileLock(GetDeviceFD())) {
     memset(&m_v4l2Format, 0, sizeof(m_v4l2Format));
     memset(&m_v4l2SrcBuffer, 0, sizeof(m_v4l2SrcBuffer));
     memset(&m_v4l2DstBuffer, 0, sizeof(m_v4l2DstBuffer));
@@ -63,27 +64,42 @@ CHWJpegV4L2Compressor::CHWJpegV4L2Compressor(): CHWJpegCompressor("/dev/video12"
     ALOGD("CHWJpegV4L2Compressor Created: %p, FD %d", this, GetDeviceFD());
 }
 
-CHWJpegV4L2Compressor::~CHWJpegV4L2Compressor()
-{
+CHWJpegV4L2Compressor::~CHWJpegV4L2Compressor() {
     StopStreaming();
 
     ALOGD("CHWJpegV4L2Compressor Destroyed: %p, FD %d", this, GetDeviceFD());
 }
 
-bool CHWJpegV4L2Compressor::SetChromaSampFactor(
-                    unsigned int horizontal, unsigned int vertical)
-{
+int CHWJpegV4L2Compressor::lock() {
+    return file_lock_.lock();
+}
+
+int CHWJpegV4L2Compressor::unlock() {
+    return file_lock_.unlock();
+}
+
+bool CHWJpegV4L2Compressor::SetChromaSampFactor(unsigned int horizontal, unsigned int vertical) {
     __s32 value;
     switch ((horizontal << 4) | vertical) {
-        case 0x00: value = V4L2_JPEG_CHROMA_SUBSAMPLING_GRAY; break;
-        case 0x11: value = V4L2_JPEG_CHROMA_SUBSAMPLING_444; break;
-        case 0x21: value = V4L2_JPEG_CHROMA_SUBSAMPLING_422; break;
-        case 0x22: value = V4L2_JPEG_CHROMA_SUBSAMPLING_420; break;
-        case 0x41: value = V4L2_JPEG_CHROMA_SUBSAMPLING_411; break;
+        case 0x00:
+            value = V4L2_JPEG_CHROMA_SUBSAMPLING_GRAY;
+            break;
+        case 0x11:
+            value = V4L2_JPEG_CHROMA_SUBSAMPLING_444;
+            break;
+        case 0x21:
+            value = V4L2_JPEG_CHROMA_SUBSAMPLING_422;
+            break;
+        case 0x22:
+            value = V4L2_JPEG_CHROMA_SUBSAMPLING_420;
+            break;
+        case 0x41:
+            value = V4L2_JPEG_CHROMA_SUBSAMPLING_411;
+            break;
         case 0x12:
         default:
-           ALOGE("Unsupported chroma subsampling %ux%u", horizontal, vertical);
-           return false;
+            ALOGE("Unsupported chroma subsampling %ux%u", horizontal, vertical);
+            return false;
     }
 
     m_v4l2Controls[HWJPEG_CTRL_CHROMFACTOR].id = V4L2_CID_JPEG_CHROMA_SUBSAMPLING;
@@ -93,17 +109,14 @@ bool CHWJpegV4L2Compressor::SetChromaSampFactor(
     return true;
 }
 
-bool CHWJpegV4L2Compressor::SetQuality(
-        unsigned int quality_factor, unsigned int quality_factor2)
-{
+bool CHWJpegV4L2Compressor::SetQuality(unsigned int quality_factor, unsigned int quality_factor2) {
     if (quality_factor > 100) {
         ALOGE("Unsupported quality factor %u", quality_factor);
         return false;
     }
 
     if (quality_factor2 > 100) {
-        ALOGE("Unsupported quality factor %u for the secondary image",
-                 quality_factor2);
+        ALOGE("Unsupported quality factor %u for the secondary image", quality_factor2);
         return false;
     }
 
@@ -122,8 +135,7 @@ bool CHWJpegV4L2Compressor::SetQuality(
     return true;
 }
 
-bool CHWJpegV4L2Compressor::SetQuality(const unsigned char qtable[])
-{
+bool CHWJpegV4L2Compressor::SetQuality(const unsigned char qtable[]) {
     v4l2_ext_controls ctrls;
     v4l2_ext_control ctrl;
 
@@ -146,10 +158,54 @@ bool CHWJpegV4L2Compressor::SetQuality(const unsigned char qtable[])
     return true;
 }
 
-bool CHWJpegV4L2Compressor::SetImageFormat(unsigned int v4l2_fmt,
-                                           unsigned int width, unsigned int height,
-                                           unsigned int width2, unsigned int height2)
-{
+bool CHWJpegV4L2Compressor::SetPadding(unsigned char padding[], unsigned int num_planes) {
+    if (num_planes > 3 || num_planes < 1) {
+        ALOGE("Attempting to set padding for incorrect number of buffers");
+        return false;
+    }
+
+    unsigned int padding_value = 0;
+
+    for (int i = num_planes - 1; i >= 0; i--) {
+        padding_value <<= 8;
+        padding_value |= padding[i];
+    }
+
+    m_v4l2Controls[HWJPEG_CTRL_PADDING].id = V4L2_CID_JPEG_PADDING;
+    m_v4l2Controls[HWJPEG_CTRL_PADDING].value = static_cast<__s32>(padding_value);
+    m_uiControlsToSet |= 1 << HWJPEG_CTRL_PADDING;
+
+    return true;
+}
+
+bool CHWJpegV4L2Compressor::SetPadding2(unsigned char padding[], unsigned int num_planes) {
+    if (!IsDeviceCapability(V4L2_CAP_EXYNOS_JPEG_B2B_COMPRESSION)) {
+        ALOGE("Back-to-back compression is not suppored by H/W");
+        return false;
+    }
+
+    if (num_planes > 3 || num_planes < 1) {
+        ALOGE("Attempting to set padding for incorrect number of buffers");
+        return false;
+    }
+
+    unsigned int padding_value = 0;
+
+    for (int i = num_planes - 1; i >= 0; i--) {
+        padding_value <<= 8;
+        padding_value |= padding[i];
+    }
+
+    m_v4l2Controls[HWJPEG_CTRL_PADDING2].id = V4L2_CID_JPEG_SEC_PADDING;
+    m_v4l2Controls[HWJPEG_CTRL_PADDING2].value = static_cast<__s32>(padding_value);
+    m_uiControlsToSet |= 1 << HWJPEG_CTRL_PADDING2;
+
+    return true;
+}
+
+bool CHWJpegV4L2Compressor::SetImageFormat(unsigned int v4l2_fmt, unsigned int width,
+                                           unsigned int height, unsigned int width2,
+                                           unsigned int height2) {
     if ((m_v4l2Format.fmt.pix_mp.pixelformat == v4l2_fmt) &&
         (m_v4l2Format.fmt.pix_mp.width == TO_IMAGE_SIZE(width, width2)) &&
         (m_v4l2Format.fmt.pix_mp.height == TO_IMAGE_SIZE(height, height2)))
@@ -164,8 +220,7 @@ bool CHWJpegV4L2Compressor::SetImageFormat(unsigned int v4l2_fmt,
     return TryFormat();
 }
 
-bool CHWJpegV4L2Compressor::GetImageBufferSizes(size_t buf_sizes[], unsigned int *num_buffers)
-{
+bool CHWJpegV4L2Compressor::GetImageBufferSizes(size_t buf_sizes[], unsigned int *num_buffers) {
     if (buf_sizes) {
         for (unsigned int i = 0; i < m_v4l2Format.fmt.pix_mp.num_planes; i++)
             buf_sizes[i] = m_v4l2Format.fmt.pix_mp.plane_fmt[i].sizeimage;
@@ -174,7 +229,7 @@ bool CHWJpegV4L2Compressor::GetImageBufferSizes(size_t buf_sizes[], unsigned int
     if (num_buffers) {
         if (*num_buffers < m_v4l2Format.fmt.pix_mp.num_planes) {
             ALOGE("The size array length %u is smaller than the number of required buffers %u",
-                    *num_buffers, m_v4l2Format.fmt.pix_mp.num_planes);
+                  *num_buffers, m_v4l2Format.fmt.pix_mp.num_planes);
             return false;
         }
 
@@ -185,19 +240,18 @@ bool CHWJpegV4L2Compressor::GetImageBufferSizes(size_t buf_sizes[], unsigned int
 }
 
 bool CHWJpegV4L2Compressor::SetImageBuffer(char *buffers[], size_t len_buffers[],
-                                           unsigned int num_buffers)
-{
+                                           unsigned int num_buffers) {
     if (num_buffers < m_v4l2Format.fmt.pix_mp.num_planes) {
-        ALOGE("The number of buffers %u is smaller than the required %u",
-                num_buffers,m_v4l2Format.fmt.pix_mp.num_planes);
+        ALOGE("The number of buffers %u is smaller than the required %u", num_buffers,
+              m_v4l2Format.fmt.pix_mp.num_planes);
         return false;
     }
 
     for (unsigned int i = 0; i < m_v4l2Format.fmt.pix_mp.num_planes; i++) {
         m_v4l2SrcPlanes[i].m.userptr = reinterpret_cast<unsigned long>(buffers[i]);
         if (len_buffers[i] < m_v4l2Format.fmt.pix_mp.plane_fmt[i].sizeimage) {
-            ALOGE("The size of the buffer[%u] %zu is smaller than required %u",
-                    i, len_buffers[i], m_v4l2Format.fmt.pix_mp.plane_fmt[i].sizeimage);
+            ALOGE("The size of the buffer[%u] %zu is smaller than required %u", i, len_buffers[i],
+                  m_v4l2Format.fmt.pix_mp.plane_fmt[i].sizeimage);
             return false;
         }
         m_v4l2SrcPlanes[i].bytesused = m_v4l2Format.fmt.pix_mp.plane_fmt[i].sizeimage;
@@ -212,19 +266,18 @@ bool CHWJpegV4L2Compressor::SetImageBuffer(char *buffers[], size_t len_buffers[]
 }
 
 bool CHWJpegV4L2Compressor::SetImageBuffer(int buffers[], size_t len_buffers[],
-                                           unsigned int num_buffers)
-{
+                                           unsigned int num_buffers) {
     if (num_buffers < m_v4l2Format.fmt.pix_mp.num_planes) {
-        ALOGE("The number of buffers %u is smaller than the required %u",
-                num_buffers,m_v4l2Format.fmt.pix_mp.num_planes);
+        ALOGE("The number of buffers %u is smaller than the required %u", num_buffers,
+              m_v4l2Format.fmt.pix_mp.num_planes);
         return false;
     }
 
     for (unsigned int i = 0; i < m_v4l2Format.fmt.pix_mp.num_planes; i++) {
         m_v4l2SrcPlanes[i].m.fd = buffers[i];
         if (len_buffers[i] < m_v4l2Format.fmt.pix_mp.plane_fmt[i].sizeimage) {
-            ALOGE("The size of the buffer[%u] %zu is smaller than required %u",
-                    i, len_buffers[i], m_v4l2Format.fmt.pix_mp.plane_fmt[i].sizeimage);
+            ALOGE("The size of the buffer[%u] %zu is smaller than required %u", i, len_buffers[i],
+                  m_v4l2Format.fmt.pix_mp.plane_fmt[i].sizeimage);
             return false;
         }
         m_v4l2SrcPlanes[i].bytesused = m_v4l2Format.fmt.pix_mp.plane_fmt[i].sizeimage;
@@ -238,23 +291,22 @@ bool CHWJpegV4L2Compressor::SetImageBuffer(int buffers[], size_t len_buffers[],
     return true;
 }
 
- bool CHWJpegV4L2Compressor::SetImageBuffer2(char *buffers[], size_t len_buffers[],
-                                                    unsigned int num_buffers)
-{
+bool CHWJpegV4L2Compressor::SetImageBuffer2(char *buffers[], size_t len_buffers[],
+                                            unsigned int num_buffers) {
     if (!IsDeviceCapability(V4L2_CAP_EXYNOS_JPEG_B2B_COMPRESSION)) {
         ALOGE("Back-to-back compression is not suppored by H/W");
         return false;
     }
 
     if (num_buffers < m_v4l2Format.fmt.pix_mp.num_planes) {
-        ALOGE("The number of buffers %u is smaller than the required %u (secondary)",
-                num_buffers,m_v4l2Format.fmt.pix_mp.num_planes);
+        ALOGE("The number of buffers %u is smaller than the required %u (secondary)", num_buffers,
+              m_v4l2Format.fmt.pix_mp.num_planes);
         return false;
     }
 
     unsigned int ibuf = 0;
     for (unsigned int i = m_v4l2Format.fmt.pix_mp.num_planes;
-                                i < (m_v4l2Format.fmt.pix_mp.num_planes * 2); i++, ibuf++) {
+         i < (m_v4l2Format.fmt.pix_mp.num_planes * 2); i++, ibuf++) {
         m_v4l2SrcPlanes[i].m.userptr = reinterpret_cast<unsigned long>(buffers[ibuf]);
         // size check is ignored for the secondary image buffers
         m_v4l2SrcPlanes[i].bytesused = len_buffers[ibuf];
@@ -267,23 +319,22 @@ bool CHWJpegV4L2Compressor::SetImageBuffer(int buffers[], size_t len_buffers[],
     return true;
 }
 
- bool CHWJpegV4L2Compressor::SetImageBuffer2(int buffers[], size_t len_buffers[],
-                                                    unsigned int num_buffers)
-{
+bool CHWJpegV4L2Compressor::SetImageBuffer2(int buffers[], size_t len_buffers[],
+                                            unsigned int num_buffers) {
     if (!IsDeviceCapability(V4L2_CAP_EXYNOS_JPEG_B2B_COMPRESSION)) {
         ALOGE("Back-to-back compression is not suppored by H/W");
         return false;
     }
 
     if (num_buffers < m_v4l2Format.fmt.pix_mp.num_planes) {
-        ALOGE("The number of buffers %u is smaller than the required %u (secondary)",
-                num_buffers,m_v4l2Format.fmt.pix_mp.num_planes);
+        ALOGE("The number of buffers %u is smaller than the required %u (secondary)", num_buffers,
+              m_v4l2Format.fmt.pix_mp.num_planes);
         return false;
     }
 
     unsigned int ibuf = 0;
     for (unsigned int i = m_v4l2Format.fmt.pix_mp.num_planes;
-                                i < (m_v4l2Format.fmt.pix_mp.num_planes * 2); i++, ibuf++) {
+         i < (m_v4l2Format.fmt.pix_mp.num_planes * 2); i++, ibuf++) {
         m_v4l2SrcPlanes[i].m.fd = buffers[ibuf];
         // size check is ignored for the secondary image buffers
         m_v4l2SrcPlanes[i].bytesused = len_buffers[ibuf];
@@ -297,8 +348,7 @@ bool CHWJpegV4L2Compressor::SetImageBuffer(int buffers[], size_t len_buffers[],
     return true;
 }
 
-bool CHWJpegV4L2Compressor::SetJpegBuffer(char *buffer, size_t len_buffer)
-{
+bool CHWJpegV4L2Compressor::SetJpegBuffer(char *buffer, size_t len_buffer) {
     m_v4l2DstPlanes[0].m.userptr = reinterpret_cast<unsigned long>(buffer);
     m_v4l2DstPlanes[0].length = len_buffer;
     m_v4l2DstBuffer.memory = V4L2_MEMORY_USERPTR;
@@ -306,8 +356,7 @@ bool CHWJpegV4L2Compressor::SetJpegBuffer(char *buffer, size_t len_buffer)
     return true;
 }
 
-bool CHWJpegV4L2Compressor::SetJpegBuffer(int buffer, size_t len_buffer, int offset)
-{
+bool CHWJpegV4L2Compressor::SetJpegBuffer(int buffer, size_t len_buffer, int offset) {
     m_v4l2DstPlanes[0].m.fd = buffer;
     m_v4l2DstPlanes[0].length = len_buffer;
     m_v4l2DstPlanes[0].data_offset = offset;
@@ -316,8 +365,7 @@ bool CHWJpegV4L2Compressor::SetJpegBuffer(int buffer, size_t len_buffer, int off
     return true;
 }
 
-bool CHWJpegV4L2Compressor::SetJpegBuffer2(char *buffer, size_t len_buffer)
-{
+bool CHWJpegV4L2Compressor::SetJpegBuffer2(char *buffer, size_t len_buffer) {
     if (!IsDeviceCapability(V4L2_CAP_EXYNOS_JPEG_B2B_COMPRESSION)) {
         ALOGE("Back-to-back compression is not suppored by H/W");
         return false;
@@ -329,8 +377,7 @@ bool CHWJpegV4L2Compressor::SetJpegBuffer2(char *buffer, size_t len_buffer)
     return true;
 }
 
-bool CHWJpegV4L2Compressor::SetJpegBuffer2(int buffer, size_t len_buffer)
-{
+bool CHWJpegV4L2Compressor::SetJpegBuffer2(int buffer, size_t len_buffer) {
     if (!IsDeviceCapability(V4L2_CAP_EXYNOS_JPEG_B2B_COMPRESSION)) {
         ALOGE("Back-to-back compression is not suppored by H/W");
         return false;
@@ -342,11 +389,9 @@ bool CHWJpegV4L2Compressor::SetJpegBuffer2(int buffer, size_t len_buffer)
     return true;
 }
 
-bool CHWJpegV4L2Compressor::StopStreaming()
-{
+bool CHWJpegV4L2Compressor::StopStreaming() {
     if (TestFlag(HWJPEG_FLAG_STREAMING)) {
-        if (!StreamOff())
-            return false;
+        if (!StreamOff()) return false;
         ClearFlag(HWJPEG_FLAG_STREAMING);
     }
 
@@ -355,19 +400,16 @@ bool CHWJpegV4L2Compressor::StopStreaming()
 
     // It is OK to skip DQBUF because STREAMOFF dequeues all queued buffers
     if (TestFlag(HWJPEG_FLAG_REQBUFS)) {
-        if (!ReqBufs(0))
-            return false;
+        if (!ReqBufs(0)) return false;
         ClearFlag(HWJPEG_FLAG_REQBUFS);
     }
 
     return true;
 }
 
-ssize_t CHWJpegV4L2Compressor::Compress(size_t *secondary_stream_size, bool block_mode)
-{
+ssize_t CHWJpegV4L2Compressor::Compress(size_t *secondary_stream_size, bool block_mode) {
     if (TestFlag(HWJPEG_FLAG_PIX_FMT)) {
-        if (!StopStreaming() || !SetFormat())
-            return -1;
+        if (!StopStreaming() || !SetFormat()) return -1;
     }
 
     if (!TestFlag(HWJPEG_FLAG_SRC_BUFFER)) {
@@ -384,7 +426,8 @@ ssize_t CHWJpegV4L2Compressor::Compress(size_t *secondary_stream_size, bool bloc
     m_v4l2DstBuffer.length = 1;
     if (IsB2BCompression()) {
         if (!TestFlag(HWJPEG_FLAG_SRC_BUFFER2 | HWJPEG_FLAG_DST_BUFFER2)) {
-            ALOGE("Either of source or destination buffer of secondary image is not specified (%#x)",
+            ALOGE("Either of source or destination buffer of secondary image is not specified "
+                  "(%#x)",
                   GetFlags());
             return -1;
         }
@@ -399,14 +442,12 @@ ssize_t CHWJpegV4L2Compressor::Compress(size_t *secondary_stream_size, bool bloc
     if (!!(GetAuxFlags() & EXYNOS_HWJPEG_AUXOPT_DST_NOCACHECLEAN))
         m_v4l2DstBuffer.flags |= V4L2_BUF_FLAG_NO_CACHE_CLEAN;
 
-    if (!ReqBufs() || !StreamOn() || !UpdateControls() || !QBuf())
-        return -1;
+    if (!ReqBufs() || !StreamOn() || !UpdateControls() || !QBuf()) return -1;
 
     return block_mode ? DQBuf(secondary_stream_size) : 0;
 }
 
-bool CHWJpegV4L2Compressor::TryFormat()
-{
+bool CHWJpegV4L2Compressor::TryFormat() {
     if (ioctl(GetDeviceFD(), VIDIOC_TRY_FMT, &m_v4l2Format) < 0) {
         ALOGERR("Failed to TRY_FMT for compression");
         return false;
@@ -415,8 +456,7 @@ bool CHWJpegV4L2Compressor::TryFormat()
     return true;
 }
 
-bool CHWJpegV4L2Compressor::SetFormat()
-{
+bool CHWJpegV4L2Compressor::SetFormat() {
     if (ioctl(GetDeviceFD(), VIDIOC_S_FMT, &m_v4l2Format) < 0) {
         ALOGERR("Failed to S_FMT for image to compress");
         return false;
@@ -440,12 +480,10 @@ bool CHWJpegV4L2Compressor::SetFormat()
     return true;
 }
 
-bool CHWJpegV4L2Compressor::UpdateControls()
-{
+bool CHWJpegV4L2Compressor::UpdateControls() {
     bool enable_hwfc = !!(GetAuxFlags() & EXYNOS_HWJPEG_AUXOPT_ENABLE_HWFC);
 
-    if ((m_uiControlsToSet == 0) && (enable_hwfc == m_bEnableHWFC))
-        return true;
+    if ((m_uiControlsToSet == 0) && (enable_hwfc == m_bEnableHWFC)) return true;
 
     v4l2_ext_controls ctrls;
     v4l2_ext_control ctrl[HWJPEG_CTRL_NUM];
@@ -481,14 +519,12 @@ bool CHWJpegV4L2Compressor::UpdateControls()
     return true;
 }
 
-bool CHWJpegV4L2Compressor::ReqBufs(unsigned int count)
-{
+bool CHWJpegV4L2Compressor::ReqBufs(unsigned int count) {
     // - count > 0 && REQBUFS is set: Just return true
     // - count > 0 && REQBUFS is unset: REQBUFS(count) is required
     // - count == 0 && REQBUFS is set: REQBUFS(0) is required
     // - count == 0 && REQBUFS is unset: Just return true;
-    if ((count > 0) == TestFlag(HWJPEG_FLAG_REQBUFS))
-        return true;
+    if ((count > 0) == TestFlag(HWJPEG_FLAG_REQBUFS)) return true;
 
     v4l2_requestbuffers reqbufs;
 
@@ -523,10 +559,8 @@ bool CHWJpegV4L2Compressor::ReqBufs(unsigned int count)
     return true;
 }
 
-bool CHWJpegV4L2Compressor::StreamOn()
-{
-    if (TestFlag(HWJPEG_FLAG_STREAMING))
-        return true;
+bool CHWJpegV4L2Compressor::StreamOn() {
+    if (TestFlag(HWJPEG_FLAG_STREAMING)) return true;
 
     if (!TestFlag(HWJPEG_FLAG_REQBUFS)) {
         ALOGE("Trying to STREAMON before REQBUFS");
@@ -549,10 +583,8 @@ bool CHWJpegV4L2Compressor::StreamOn()
     return true;
 }
 
-bool CHWJpegV4L2Compressor::StreamOff()
-{
-    if (!TestFlag(HWJPEG_FLAG_STREAMING))
-        return true;
+bool CHWJpegV4L2Compressor::StreamOff() {
+    if (!TestFlag(HWJPEG_FLAG_STREAMING)) return true;
 
     // error during stream off do not need further handling because of nothing to do
     if (ioctl(GetDeviceFD(), VIDIOC_STREAMOFF, &m_v4l2SrcBuffer.type) < 0)
@@ -566,8 +598,7 @@ bool CHWJpegV4L2Compressor::StreamOff()
     return true;
 }
 
-bool CHWJpegV4L2Compressor::QBuf()
-{
+bool CHWJpegV4L2Compressor::QBuf() {
     if (!TestFlag(HWJPEG_FLAG_REQBUFS)) {
         ALOGE("QBuf is not permitted until REQBUFS is performed");
         return false;
@@ -592,8 +623,7 @@ bool CHWJpegV4L2Compressor::QBuf()
     return true;
 }
 
-ssize_t CHWJpegV4L2Compressor::DQBuf(size_t *secondary_stream_size)
-{
+ssize_t CHWJpegV4L2Compressor::DQBuf(size_t *secondary_stream_size) {
     bool failed = false;
     v4l2_buffer buffer_src, buffer_dst;
     v4l2_plane planes_src[6], planes_dst[2];
@@ -627,8 +657,7 @@ ssize_t CHWJpegV4L2Compressor::DQBuf(size_t *secondary_stream_size)
 
     ClearFlag(HWJPEG_FLAG_QBUF_OUT | HWJPEG_FLAG_QBUF_CAP);
 
-    if (failed)
-        return -1;
+    if (failed) return -1;
 
     if (!!((buffer_src.flags | buffer_dst.flags) & V4L2_BUF_FLAG_ERROR)) {
         ALOGE("Error occurred during compression");
@@ -646,14 +675,12 @@ ssize_t CHWJpegV4L2Compressor::DQBuf(size_t *secondary_stream_size)
     return GetStreamSize(secondary_stream_size);
 }
 
-ssize_t CHWJpegV4L2Compressor::WaitForCompression(size_t *secondary_stream_size)
-{
+ssize_t CHWJpegV4L2Compressor::WaitForCompression(size_t *secondary_stream_size) {
     return DQBuf(secondary_stream_size);
 }
 
 bool CHWJpegV4L2Compressor::GetImageBuffers(int buffers[], size_t len_buffers[],
-                                            unsigned int num_buffers)
-{
+                                            unsigned int num_buffers) {
     if (m_v4l2SrcBuffer.memory != V4L2_MEMORY_DMABUF) {
         ALOGE("Current image buffer type is not dma-buf but attempted to retrieve dma-buf buffers");
         return false;
@@ -661,7 +688,7 @@ bool CHWJpegV4L2Compressor::GetImageBuffers(int buffers[], size_t len_buffers[],
 
     if (num_buffers < m_v4l2Format.fmt.pix_mp.num_planes) {
         ALOGE("Number of planes are %u but attemts to retrieve %u buffers",
-                m_v4l2Format.fmt.pix_mp.num_planes, num_buffers);
+              m_v4l2Format.fmt.pix_mp.num_planes, num_buffers);
         return false;
     }
 
@@ -674,8 +701,7 @@ bool CHWJpegV4L2Compressor::GetImageBuffers(int buffers[], size_t len_buffers[],
 }
 
 bool CHWJpegV4L2Compressor::GetImageBuffers(char *buffers[], size_t len_buffers[],
-                                            unsigned int num_buffers)
-{
+                                            unsigned int num_buffers) {
     if (m_v4l2SrcBuffer.memory != V4L2_MEMORY_USERPTR) {
         ALOGE("Current image buffer type is not userptr but attempted to retrieve userptr buffers");
         return false;
@@ -683,7 +709,7 @@ bool CHWJpegV4L2Compressor::GetImageBuffers(char *buffers[], size_t len_buffers[
 
     if (num_buffers < m_v4l2Format.fmt.pix_mp.num_planes) {
         ALOGE("Number of planes are %u but attemts to retrieve %u buffers",
-                m_v4l2Format.fmt.pix_mp.num_planes, num_buffers);
+              m_v4l2Format.fmt.pix_mp.num_planes, num_buffers);
         return false;
     }
 
@@ -695,8 +721,7 @@ bool CHWJpegV4L2Compressor::GetImageBuffers(char *buffers[], size_t len_buffers[
     return true;
 }
 
-bool CHWJpegV4L2Compressor::GetJpegBuffer(int *buffer, size_t *len_buffer)
-{
+bool CHWJpegV4L2Compressor::GetJpegBuffer(int *buffer, size_t *len_buffer) {
     if (m_v4l2DstBuffer.memory != V4L2_MEMORY_DMABUF) {
         ALOGE("Current jpeg buffer type is not dma-buf but attempted to retrieve dma-buf buffer");
         return false;
@@ -708,8 +733,7 @@ bool CHWJpegV4L2Compressor::GetJpegBuffer(int *buffer, size_t *len_buffer)
     return true;
 }
 
-bool CHWJpegV4L2Compressor::GetJpegBuffer(char **buffer, size_t *len_buffer)
-{
+bool CHWJpegV4L2Compressor::GetJpegBuffer(char **buffer, size_t *len_buffer) {
     if (m_v4l2DstBuffer.memory != V4L2_MEMORY_USERPTR) {
         ALOGE("Current jpeg buffer type is not userptr but attempted to retrieve userptr buffer");
         return false;
@@ -721,8 +745,7 @@ bool CHWJpegV4L2Compressor::GetJpegBuffer(char **buffer, size_t *len_buffer)
     return true;
 }
 
-void CHWJpegV4L2Compressor::Release()
-{
+void CHWJpegV4L2Compressor::Release() {
     StopStreaming();
 }
 
@@ -730,8 +753,7 @@ void CHWJpegV4L2Compressor::Release()
 /********* D E C O M P R E S S I O N   S U P P O R T **************************/
 /******************************************************************************/
 
-CHWJpegV4L2Decompressor::CHWJpegV4L2Decompressor() : CHWJpegDecompressor("/dev/video12")
-{
+CHWJpegV4L2Decompressor::CHWJpegV4L2Decompressor() : CHWJpegDecompressor("/dev/video12") {
     m_v4l2Format.type = 0; // inidication of uninitialized state
 
     memset(&m_v4l2DstBuffer, 0, sizeof(m_v4l2DstBuffer));
@@ -748,21 +770,18 @@ CHWJpegV4L2Decompressor::CHWJpegV4L2Decompressor() : CHWJpegDecompressor("/dev/v
     }
 }
 
-CHWJpegV4L2Decompressor::~CHWJpegV4L2Decompressor()
-{
+CHWJpegV4L2Decompressor::~CHWJpegV4L2Decompressor() {
     CancelCapture();
 }
 
-bool CHWJpegV4L2Decompressor::PrepareCapture()
-{
+bool CHWJpegV4L2Decompressor::PrepareCapture() {
     if (m_v4l2DstBuffer.length < m_v4l2Format.fmt.pix.sizeimage) {
-        ALOGE("The size of the buffer %u is smaller than required %u",
-              m_v4l2DstBuffer.length, m_v4l2Format.fmt.pix.sizeimage);
+        ALOGE("The size of the buffer %u is smaller than required %u", m_v4l2DstBuffer.length,
+              m_v4l2Format.fmt.pix.sizeimage);
         return false;
     }
 
-    if (TestFlag(HWJPEG_FLAG_CAPTURE_READY))
-        return true;
+    if (TestFlag(HWJPEG_FLAG_CAPTURE_READY)) return true;
 
     v4l2_requestbuffers reqbufs;
 
@@ -788,10 +807,8 @@ bool CHWJpegV4L2Decompressor::PrepareCapture()
     return true;
 }
 
-void CHWJpegV4L2Decompressor::CancelCapture()
-{
-    if (!TestFlag(HWJPEG_FLAG_CAPTURE_READY))
-        return;
+void CHWJpegV4L2Decompressor::CancelCapture() {
+    if (!TestFlag(HWJPEG_FLAG_CAPTURE_READY)) return;
 
     v4l2_requestbuffers reqbufs;
 
@@ -805,14 +822,12 @@ void CHWJpegV4L2Decompressor::CancelCapture()
     ClearFlag(HWJPEG_FLAG_CAPTURE_READY);
 }
 
-bool CHWJpegV4L2Decompressor::SetImageFormat(unsigned int v4l2_fmt,
-                                         unsigned int width, unsigned int height)
-{
+bool CHWJpegV4L2Decompressor::SetImageFormat(unsigned int v4l2_fmt, unsigned int width,
+                                             unsigned int height) {
     // Test if new format is the same as the current configured format
     if (m_v4l2Format.type != 0) {
         v4l2_pix_format *p = &m_v4l2Format.fmt.pix;
-        if ((p->pixelformat == v4l2_fmt) &&
-            (p->width == width) && (p->height == height))
+        if ((p->pixelformat == v4l2_fmt) && (p->width == width) && (p->height == height))
             return true;
     }
 
@@ -826,16 +841,14 @@ bool CHWJpegV4L2Decompressor::SetImageFormat(unsigned int v4l2_fmt,
     m_v4l2Format.fmt.pix.height = height;
 
     if (ioctl(GetDeviceFD(), VIDIOC_S_FMT, &m_v4l2Format) < 0) {
-        ALOGERR("Failed to S_FMT for decompressed image (%08X,%ux%u)",
-                v4l2_fmt, width, height);
+        ALOGERR("Failed to S_FMT for decompressed image (%08X,%ux%u)", v4l2_fmt, width, height);
         return false;
     }
 
     return true;
 }
 
-bool CHWJpegV4L2Decompressor::SetImageBuffer(char *buffer, size_t len_buffer)
-{
+bool CHWJpegV4L2Decompressor::SetImageBuffer(char *buffer, size_t len_buffer) {
     m_v4l2DstBuffer.m.userptr = reinterpret_cast<unsigned long>(buffer);
     m_v4l2DstBuffer.bytesused = m_v4l2Format.fmt.pix.sizeimage;
     m_v4l2DstBuffer.length = len_buffer;
@@ -844,8 +857,7 @@ bool CHWJpegV4L2Decompressor::SetImageBuffer(char *buffer, size_t len_buffer)
     return true;
 }
 
-bool CHWJpegV4L2Decompressor::SetImageBuffer(int buffer, size_t len_buffer)
-{
+bool CHWJpegV4L2Decompressor::SetImageBuffer(int buffer, size_t len_buffer) {
     m_v4l2DstBuffer.m.fd = buffer;
     m_v4l2DstBuffer.bytesused = m_v4l2Format.fmt.pix.sizeimage;
     m_v4l2DstBuffer.length = len_buffer;
@@ -854,10 +866,8 @@ bool CHWJpegV4L2Decompressor::SetImageBuffer(int buffer, size_t len_buffer)
     return true;
 }
 
-bool CHWJpegV4L2Decompressor::PrepareStream()
-{
-    if (TestFlag(HWJPEG_FLAG_OUTPUT_READY))
-        return true;
+bool CHWJpegV4L2Decompressor::PrepareStream() {
+    if (TestFlag(HWJPEG_FLAG_OUTPUT_READY)) return true;
 
     /*
      * S_FMT for output stream is unneccessary because the driver assumes that
@@ -893,10 +903,8 @@ bool CHWJpegV4L2Decompressor::PrepareStream()
     return true;
 }
 
-void CHWJpegV4L2Decompressor::CancelStream()
-{
-    if (!TestFlag(HWJPEG_FLAG_OUTPUT_READY))
-        return;
+void CHWJpegV4L2Decompressor::CancelStream() {
+    if (!TestFlag(HWJPEG_FLAG_OUTPUT_READY)) return;
 
     v4l2_requestbuffers rb;
     memset(&rb, 0, sizeof(rb));
@@ -911,8 +919,7 @@ void CHWJpegV4L2Decompressor::CancelStream()
     ClearFlag(HWJPEG_FLAG_OUTPUT_READY);
 }
 
-bool CHWJpegV4L2Decompressor::QBufAndWait(const char *buffer, size_t len)
-{
+bool CHWJpegV4L2Decompressor::QBufAndWait(const char *buffer, size_t len) {
     v4l2_buffer buf;
     memset(&buf, 0, sizeof(buf));
     buf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
@@ -952,8 +959,7 @@ bool CHWJpegV4L2Decompressor::QBufAndWait(const char *buffer, size_t len)
     return ret;
 }
 
-bool CHWJpegV4L2Decompressor::Decompress(const char *buffer, size_t len)
-{
+bool CHWJpegV4L2Decompressor::Decompress(const char *buffer, size_t len) {
     if (m_v4l2Format.type == 0) {
         ALOGE("Decompressed image format is not specified");
         return false;
@@ -966,11 +972,9 @@ bool CHWJpegV4L2Decompressor::Decompress(const char *buffer, size_t len)
 
     // Do not change the order of PrepareCapture() and PrepareStream().
     // Otherwise, decompression will fail.
-    if (!PrepareCapture() || !PrepareStream())
-        return false;
+    if (!PrepareCapture() || !PrepareStream()) return false;
 
-    if (!QBufAndWait(buffer, len))
-        return false;
+    if (!QBufAndWait(buffer, len)) return false;
 
     return true;
 }

@@ -33,6 +33,7 @@ android_library {
         "androidx.preference_preference",
         "androidx.recyclerview_recyclerview",
         "androidx.legacy_legacy-preference-v14",
+        "SettingsLibActivityEmbedding",
     ],
     proto: {
         type: "nano",

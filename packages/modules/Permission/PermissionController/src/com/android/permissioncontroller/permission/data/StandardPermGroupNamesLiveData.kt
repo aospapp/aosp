@@ -17,7 +17,7 @@
 package com.android.permissioncontroller.permission.data
 
 import androidx.lifecycle.LiveData
-import com.android.permissioncontroller.permission.utils.Utils
+import com.android.permissioncontroller.permission.utils.PermissionMapping
 
 /**
  * A LiveData which tracks Platform Permission Group names.
@@ -25,6 +25,6 @@ import com.android.permissioncontroller.permission.utils.Utils
 object StandardPermGroupNamesLiveData : LiveData<List<String>>() {
 
     init {
-        postValue(Utils.getPlatformPermissionGroups())
+        postValue(PermissionMapping.getPlatformPermissionGroups())
     }
 }

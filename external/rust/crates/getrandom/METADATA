@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/getrandom
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "getrandom"
 description: "A small cross-platform library for retrieving random data from system source"
 third_party {
@@ -7,13 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/getrandom/getrandom-0.2.5.crate"
+    value: "https://static.crates.io/crates/getrandom/getrandom-0.2.8.crate"
   }
-  version: "0.2.5"
+  version: "0.2.8"
   license_type: NOTICE
   last_upgrade_date {
     year: 2022
-    month: 3
-    day: 1
+    month: 12
+    day: 12
   }
 }

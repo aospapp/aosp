@@ -17,9 +17,13 @@
 package com.google.uwb.support.base;
 
 import android.os.Build.VERSION_CODES;
+import android.os.Parcel;
 import android.os.PersistableBundle;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+
+import java.util.Arrays;
 
 /** Provides common parameter operations. */
 @RequiresApi(VERSION_CODES.LOLLIPOP)
@@ -37,6 +41,14 @@ public abstract class Params {
         return bundle;
     }
 
+    private byte[] toBytes() {
+        Parcel parcel = Parcel.obtain();
+        toBundle().writeToParcel(parcel, 0);
+        byte[] bytes = parcel.marshall();
+        parcel.recycle();
+        return bytes;
+    }
+
     public abstract String getProtocolName();
 
     protected abstract int getBundleVersion();
@@ -47,5 +59,15 @@ public abstract class Params {
 
     public static boolean isProtocol(PersistableBundle bundle, String protocol) {
         return bundle.getString(KEY_PROTOCOL_NAME, PROTOCOL_NAME_UNKNOWN).equals(protocol);
+    }
+
+    @Override
+    public int hashCode() {
+        return Arrays.hashCode(toBytes());
+    }
+
+    @Override
+    public boolean equals(@Nullable Object obj) {
+        return obj instanceof Params && Arrays.equals(this.toBytes(), ((Params) obj).toBytes());
     }
 }

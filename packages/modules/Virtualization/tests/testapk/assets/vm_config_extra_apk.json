@@ -4,11 +4,7 @@
   },
   "task": {
     "type": "microdroid_launcher",
-    "command": "MicrodroidTestNativeLib.so",
-    "args": [
-      "hello",
-      "microdroid"
-    ]
+    "command": "MicrodroidTestNativeLib.so"
   },
   "extra_apks": [
     {

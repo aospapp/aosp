@@ -62,7 +62,7 @@
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"এই ডিভাইচৰ গৰাকীয়েহে প্ৰমাণপত্ৰসমূহ ইনষ্টল কৰিব পাৰে৷"</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"প্ৰমাণপত্ৰৰ ব্যৱহাৰ:"</string>
   <string-array name="credential_usage">
-    <item msgid="375085478373011304">"ভিপিএন আৰু এপসমূহ"</item>
+    <item msgid="375085478373011304">"ভিপিএন আৰু এপ্‌সমূহ"</item>
     <item msgid="692322974985472861">"ৱাই-ফাই"</item>
   </string-array>
     <string name="certificate_capabilities_warning" msgid="4158609401937799110">"টোকা: এই প্ৰমাণপত্ৰ প্ৰদানকাৰীয়ে এই ডিভাইচটোৰ পৰা যোৱা আৰু ডিভাইচটোলৈ অহা আটাইবোৰ ট্ৰেফিক পৰ্যবেক্ষণ কৰিব পাৰে।"</string>

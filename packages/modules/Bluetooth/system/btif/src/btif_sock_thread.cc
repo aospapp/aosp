@@ -46,6 +46,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <array>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -480,7 +481,6 @@ static void prepare_poll_fds(int h, struct pollfd* pfds) {
   int ps_i = 0;
   int pfd_i = 0;
   asrt(ts[h].poll_count <= MAX_POLL);
-  memset(pfds, 0, sizeof(pfds[0]) * ts[h].poll_count);
   while (count < ts[h].poll_count) {
     if (ps_i >= MAX_POLL) {
       APPL_TRACE_ERROR(
@@ -499,13 +499,14 @@ static void prepare_poll_fds(int h, struct pollfd* pfds) {
   }
 }
 static void* sock_poll_thread(void* arg) {
-  struct pollfd pfds[MAX_POLL];
-  memset(pfds, 0, sizeof(pfds));
+  std::array<struct pollfd, MAX_POLL> pfds;
+
   int h = (intptr_t)arg;
   for (;;) {
-    prepare_poll_fds(h, pfds);
+    pfds = {};
+    prepare_poll_fds(h, pfds.data());
     int ret;
-    OSI_NO_INTR(ret = poll(pfds, ts[h].poll_count, -1));
+    OSI_NO_INTR(ret = poll(pfds.data(), ts[h].poll_count, -1));
     if (ret == -1) {
       APPL_TRACE_ERROR("poll ret -1, exit the thread, errno:%d, err:%s", errno,
                        strerror(errno));
@@ -526,7 +527,8 @@ static void* sock_poll_thread(void* arg) {
         else
           ret--;  // exclude the cmd fd
       }
-      if (need_process_data_fd) process_data_sock(h, pfds, pfds_count, ret);
+      if (need_process_data_fd)
+        process_data_sock(h, pfds.data(), pfds_count, ret);
     } else {
       LOG_INFO("no data, select ret: %d", ret);
     };

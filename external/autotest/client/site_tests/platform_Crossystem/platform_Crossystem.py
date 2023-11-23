@@ -10,7 +10,7 @@ from autotest_lib.client.common_lib import error
 
 class _Matcher(object):
     """Extends regular expression with a match/do not match bit and
-    a saner definition of "match".
+    a more valid definition of "match".
     """
 
 

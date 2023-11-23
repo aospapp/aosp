@@ -19,17 +19,21 @@ import sys
 from google.protobuf.compiler import plugin_pb2
 
 from pw_rpc import codegen_nanopb
+from pw_rpc import codegen_pwpb
 from pw_rpc import codegen_raw
 
 
 class Codegen(enum.Enum):
     RAW = 0
     NANOPB = 1
+    PWPB = 2
 
 
-def process_proto_request(codegen: Codegen,
-                          req: plugin_pb2.CodeGeneratorRequest,
-                          res: plugin_pb2.CodeGeneratorResponse) -> None:
+def process_proto_request(
+    codegen: Codegen,
+    req: plugin_pb2.CodeGeneratorRequest,
+    res: plugin_pb2.CodeGeneratorResponse,
+) -> None:
     """Handles a protoc CodeGeneratorRequest message.
 
     Generates code for the files in the request and writes the output to the
@@ -44,6 +48,8 @@ def process_proto_request(codegen: Codegen,
             output_files = codegen_raw.process_proto_file(proto_file)
         elif codegen is Codegen.NANOPB:
             output_files = codegen_nanopb.process_proto_file(proto_file)
+        elif codegen is Codegen.PWPB:
+            output_files = codegen_pwpb.process_proto_file(proto_file)
         else:
             raise NotImplementedError(f'Unknown codegen type {codegen}')
 
@@ -67,7 +73,8 @@ def main(codegen: Codegen) -> int:
     # Declare that this plugin supports optional fields in proto3. No proto
     # message code is generated, so optional in proto3 is supported trivially.
     response.supported_features |= (  # type: ignore[attr-defined]
-        response.FEATURE_PROTO3_OPTIONAL)  # type: ignore[attr-defined]
+        response.FEATURE_PROTO3_OPTIONAL
+    )  # type: ignore[attr-defined]
 
     sys.stdout.buffer.write(response.SerializeToString())
     return 0

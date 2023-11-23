@@ -77,7 +77,6 @@ class TestInstrumentationListener final : public instrumentation::Instrumentatio
   }
 
   void MethodUnwind(Thread* thread ATTRIBUTE_UNUSED,
-                    Handle<mirror::Object> this_object ATTRIBUTE_UNUSED,
                     ArtMethod* method ATTRIBUTE_UNUSED,
                     uint32_t dex_pc ATTRIBUTE_UNUSED)
       override REQUIRES_SHARED(Locks::mutator_lock_) {
@@ -184,6 +183,10 @@ class InstrumentationTest : public CommonRuntimeTest {
   static constexpr const char* kClientOneKey = "TestClient1";
   static constexpr const char* kClientTwoKey = "TestClient2";
 
+  InstrumentationTest() {
+    use_boot_image_ = true;  // Make the Runtime creation cheaper.
+  }
+
   void CheckConfigureStubs(const char* key, Instrumentation::InstrumentationLevel level) {
     ScopedObjectAccess soa(Thread::Current());
     instrumentation::Instrumentation* instr = Runtime::Current()->GetInstrumentation();
@@ -223,7 +226,7 @@ class InstrumentationTest : public CommonRuntimeTest {
 
     mirror::Object* const event_obj = nullptr;
     const uint32_t event_dex_pc = 0;
-    ShadowFrameAllocaUniquePtr test_frame = CREATE_SHADOW_FRAME(0, nullptr, event_method, 0);
+    ShadowFrameAllocaUniquePtr test_frame = CREATE_SHADOW_FRAME(0, event_method, 0);
 
     // Check the listener is registered and is notified of the event.
     EXPECT_TRUE(HasEventListener(instr, instrumentation_event));
@@ -318,12 +321,13 @@ class InstrumentationTest : public CommonRuntimeTest {
         REQUIRES_SHARED(Locks::mutator_lock_) {
     Runtime* runtime = Runtime::Current();
     instrumentation::Instrumentation* instrumentation = runtime->GetInstrumentation();
+    TestInstrumentationListener listener;
     ScopedThreadSuspension sts(self, ThreadState::kSuspended);
     gc::ScopedGCCriticalSection gcs(self,
                                     gc::kGcCauseInstrumentation,
                                     gc::kCollectorTypeInstrumentation);
     ScopedSuspendAll ssa("EnableMethodTracing");
-    instrumentation->EnableMethodTracing(key, needs_interpreter);
+    instrumentation->EnableMethodTracing(key, &listener, needs_interpreter);
   }
 
   void DisableMethodTracing(Thread* self, const char* key)
@@ -387,7 +391,7 @@ class InstrumentationTest : public CommonRuntimeTest {
         break;
       }
       case instrumentation::Instrumentation::kMethodUnwind:
-        instr->MethodUnwindEvent(self, obj, method, dex_pc);
+        instr->MethodUnwindEvent(self, method, dex_pc);
         break;
       case instrumentation::Instrumentation::kDexPcMoved:
         instr->DexPcMovedEvent(self, obj, method, dex_pc);
@@ -464,11 +468,10 @@ TEST_F(InstrumentationTest, NoInstrumentation) {
   instrumentation::Instrumentation* instr = Runtime::Current()->GetInstrumentation();
   ASSERT_NE(instr, nullptr);
 
-  EXPECT_FALSE(instr->AreExitStubsInstalled());
+  EXPECT_FALSE(instr->RunExitHooks());
+  EXPECT_FALSE(instr->EntryExitStubsInstalled());
   EXPECT_FALSE(instr->AreAllMethodsDeoptimized());
   EXPECT_FALSE(instr->NeedsSlowInterpreterForListeners());
-  EXPECT_FALSE(instr->ShouldNotifyMethodEnterExitEvents());
-
 
   // Check there is no registered listener.
   EXPECT_FALSE(instr->HasDexPcListeners());
@@ -627,7 +630,7 @@ TEST_F(InstrumentationTest, DeoptimizeDirectMethod) {
   DeoptimizeMethod(soa.Self(), method_to_deoptimize);
 
   EXPECT_FALSE(instr->AreAllMethodsDeoptimized());
-  EXPECT_TRUE(instr->AreExitStubsInstalled());
+  EXPECT_TRUE(instr->RunExitHooks());
   EXPECT_TRUE(instr->IsDeoptimized(method_to_deoptimize));
 
   constexpr const char* instrumentation_key = "DeoptimizeDirectMethod";
@@ -647,7 +650,8 @@ TEST_F(InstrumentationTest, FullDeoptimization) {
   DeoptimizeEverything(soa.Self(), instrumentation_key);
 
   EXPECT_TRUE(instr->AreAllMethodsDeoptimized());
-  EXPECT_TRUE(instr->AreExitStubsInstalled());
+  EXPECT_TRUE(instr->RunExitHooks());
+  EXPECT_TRUE(instr->InterpreterStubsInstalled());
 
   UndeoptimizeEverything(soa.Self(), instrumentation_key, true);
 
@@ -678,7 +682,7 @@ TEST_F(InstrumentationTest, MixedDeoptimization) {
   EXPECT_EQ(Instrumentation::InstrumentationLevel::kInstrumentNothing,
             GetCurrentInstrumentationLevel());
   EXPECT_FALSE(instr->AreAllMethodsDeoptimized());
-  EXPECT_TRUE(instr->AreExitStubsInstalled());
+  EXPECT_TRUE(instr->RunExitHooks());
   EXPECT_TRUE(instr->IsDeoptimized(method_to_deoptimize));
 
   constexpr const char* instrumentation_key = "MixedDeoptimization";
@@ -686,14 +690,14 @@ TEST_F(InstrumentationTest, MixedDeoptimization) {
   EXPECT_EQ(Instrumentation::InstrumentationLevel::kInstrumentWithInterpreter,
             GetCurrentInstrumentationLevel());
   EXPECT_TRUE(instr->AreAllMethodsDeoptimized());
-  EXPECT_TRUE(instr->AreExitStubsInstalled());
+  EXPECT_TRUE(instr->RunExitHooks());
   EXPECT_TRUE(instr->IsDeoptimized(method_to_deoptimize));
 
   UndeoptimizeEverything(soa.Self(), instrumentation_key, false);
   EXPECT_EQ(Instrumentation::InstrumentationLevel::kInstrumentNothing,
             GetCurrentInstrumentationLevel());
   EXPECT_FALSE(instr->AreAllMethodsDeoptimized());
-  EXPECT_TRUE(instr->AreExitStubsInstalled());
+  EXPECT_TRUE(instr->RunExitHooks());
   EXPECT_TRUE(instr->IsDeoptimized(method_to_deoptimize));
 
   UndeoptimizeMethod(soa.Self(), method_to_deoptimize, instrumentation_key, true);
@@ -714,7 +718,7 @@ TEST_F(InstrumentationTest, MethodTracing_Interpreter) {
   EXPECT_EQ(Instrumentation::InstrumentationLevel::kInstrumentWithInterpreter,
             GetCurrentInstrumentationLevel());
   EXPECT_TRUE(instr->AreAllMethodsDeoptimized());
-  EXPECT_TRUE(instr->AreExitStubsInstalled());
+  EXPECT_TRUE(instr->RunExitHooks());
 
   DisableMethodTracing(soa.Self(), instrumentation_key);
   EXPECT_EQ(Instrumentation::InstrumentationLevel::kInstrumentNothing,
@@ -730,10 +734,10 @@ TEST_F(InstrumentationTest, MethodTracing_InstrumentationEntryExitStubs) {
 
   constexpr const char* instrumentation_key = "MethodTracing";
   EnableMethodTracing(soa.Self(), instrumentation_key, false);
-  EXPECT_EQ(Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs,
+  EXPECT_EQ(Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks,
             GetCurrentInstrumentationLevel());
   EXPECT_FALSE(instr->AreAllMethodsDeoptimized());
-  EXPECT_TRUE(instr->AreExitStubsInstalled());
+  EXPECT_TRUE(instr->RunExitHooks());
 
   DisableMethodTracing(soa.Self(), instrumentation_key);
   EXPECT_EQ(Instrumentation::InstrumentationLevel::kInstrumentNothing,
@@ -776,9 +780,8 @@ TEST_F(InstrumentationTest, ConfigureStubs_InstrumentationStubs) {
 
   // Check we can switch to instrumentation stubs
   CheckConfigureStubs(kClientOneKey,
-                      Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs);
-  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs,
-                        1U);
+                      Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks);
+  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks, 1U);
 
   // Check we can disable instrumentation.
   CheckConfigureStubs(kClientOneKey, Instrumentation::InstrumentationLevel::kInstrumentNothing);
@@ -803,9 +806,8 @@ TEST_F(InstrumentationTest, ConfigureStubs_InstrumentationStubsToInterpreter) {
 
   // Configure stubs with instrumentation stubs.
   CheckConfigureStubs(kClientOneKey,
-                      Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs);
-  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs,
-                        1U);
+                      Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks);
+  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks, 1U);
 
   // Configure stubs with interpreter.
   CheckConfigureStubs(kClientOneKey,
@@ -827,9 +829,8 @@ TEST_F(InstrumentationTest, ConfigureStubs_InterpreterToInstrumentationStubs) {
 
   // Configure stubs with instrumentation stubs.
   CheckConfigureStubs(kClientOneKey,
-                      Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs);
-  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs,
-                        1U);
+                      Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks);
+  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks, 1U);
 
   // Check we can disable instrumentation.
   CheckConfigureStubs(kClientOneKey, Instrumentation::InstrumentationLevel::kInstrumentNothing);
@@ -842,9 +843,8 @@ TEST_F(InstrumentationTest,
 
   // Configure stubs with instrumentation stubs.
   CheckConfigureStubs(kClientOneKey,
-                      Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs);
-  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs,
-                        1U);
+                      Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks);
+  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks, 1U);
 
   // Configure stubs with interpreter.
   CheckConfigureStubs(kClientOneKey,
@@ -853,9 +853,8 @@ TEST_F(InstrumentationTest,
 
   // Configure stubs with instrumentation stubs again.
   CheckConfigureStubs(kClientOneKey,
-                      Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs);
-  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs,
-                        1U);
+                      Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks);
+  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks, 1U);
 
   // Check we can disable instrumentation.
   CheckConfigureStubs(kClientOneKey, Instrumentation::InstrumentationLevel::kInstrumentNothing);
@@ -878,21 +877,18 @@ TEST_F(InstrumentationTest, MultiConfigureStubs_InstrumentationStubs) {
 
   // Configure stubs with instrumentation stubs for 1st client.
   CheckConfigureStubs(kClientOneKey,
-                      Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs);
-  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs,
-                        1U);
+                      Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks);
+  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks, 1U);
 
   // Configure stubs with instrumentation stubs for 2nd client.
   CheckConfigureStubs(kClientTwoKey,
-                      Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs);
-  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs,
-                        2U);
+                      Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks);
+  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks, 2U);
 
   // 1st client requests instrumentation deactivation but 2nd client still needs
   // instrumentation stubs.
   CheckConfigureStubs(kClientOneKey, Instrumentation::InstrumentationLevel::kInstrumentNothing);
-  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs,
-                        1U);
+  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks, 1U);
 
   // 2nd client requests instrumentation deactivation
   CheckConfigureStubs(kClientTwoKey, Instrumentation::InstrumentationLevel::kInstrumentNothing);
@@ -926,9 +922,8 @@ TEST_F(InstrumentationTest, MultiConfigureStubs_InstrumentationStubsThenInterpre
 
   // Configure stubs with instrumentation stubs for 1st client.
   CheckConfigureStubs(kClientOneKey,
-                      Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs);
-  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs,
-                        1U);
+                      Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks);
+  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks, 1U);
 
   // Configure stubs with interpreter for 2nd client.
   CheckConfigureStubs(kClientTwoKey,
@@ -954,14 +949,13 @@ TEST_F(InstrumentationTest, MultiConfigureStubs_InterpreterThenInstrumentationSt
 
   // Configure stubs with instrumentation stubs for 2nd client.
   CheckConfigureStubs(kClientTwoKey,
-                      Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs);
+                      Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks);
   CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInterpreter, 2U);
 
   // 1st client requests instrumentation deactivation but 2nd client still needs
   // instrumentation stubs.
   CheckConfigureStubs(kClientOneKey, Instrumentation::InstrumentationLevel::kInstrumentNothing);
-  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs,
-                        1U);
+  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithEntryExitHooks, 1U);
 
   // 2nd client requests instrumentation deactivation
   CheckConfigureStubs(kClientTwoKey, Instrumentation::InstrumentationLevel::kInstrumentNothing);

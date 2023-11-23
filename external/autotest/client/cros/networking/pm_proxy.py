@@ -10,7 +10,9 @@ This module provides bindings for PseudoModem Manager.
 import dbus
 import logging
 
-import mm1_proxy
+import common
+
+from autotest_lib.client.cros.networking import mm1_proxy
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.cros.cellular import mm1_constants

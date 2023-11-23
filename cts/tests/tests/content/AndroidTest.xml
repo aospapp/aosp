@@ -26,11 +26,17 @@
 
     <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
 
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
+
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="mkdir -p /data/local/tmp/cts/content" />
         <option name="teardown-command" value="rm -rf /data/local/tmp/cts"/>
         <option name="run-command" value="cmd thermalservice override-status 0" />
         <option name="teardown-command" value="cmd thermalservice reset" />
+    </target_preparer>
+
+    <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer">
+        <option name="force-root" value="false" />
     </target_preparer>
 
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
@@ -45,13 +51,11 @@
         <option name="push" value="CtsContentLongLabelNameTestApp.apk->/data/local/tmp/cts/content/CtsContentLongLabelNameTestApp.apk" />
         <option name="push" value="CtsSyncAccountAccessStubs.apk->/data/local/tmp/cts/content/CtsSyncAccountAccessStubs.apk" />
         <option name="push" value="CtsSyncAccountAccessStubs_mdpi-v4.apk->/data/local/tmp/cts/content/CtsSyncAccountAccessStubs_mdpi-v4.apk" />
+        <option name="push" value="CtsContentLongUsesPermissionNameTestApp.apk->/data/local/tmp/cts/content/CtsContentLongUsesPermissionNameTestApp.apk" />
     </target_preparer>
 
     <target_preparer class="com.android.tradefed.targetprep.PushFilePreparer">
         <option name="cleanup" value="true" />
-        <!-- idsig files might not be found, ignore the push failure -->
-        <!-- TODO(b/152888086): remove this after cts build process enables idsig files -->
-        <option name="abort-on-push-failure" value="false" />
         <option name="push-file" key="HelloWorld5.apk" value="/data/local/tmp/cts/content/HelloWorld5.apk" />
         <option name="push-file" key="HelloWorld5.apk.idsig" value="/data/local/tmp/cts/content/HelloWorld5.apk.idsig" />
         <option name="push-file" key="HelloWorld5_hdpi-v4.apk" value="/data/local/tmp/cts/content/HelloWorld5_hdpi-v4.apk" />
@@ -131,6 +135,20 @@
         <option name="push-file" key="HelloWorldUsingSdk3.apk.idsig" value="/data/local/tmp/cts/content/HelloWorldUsingSdk3.apk.idsig" />
         <option name="push-file" key="HelloWorldNoAppStorage.apk" value="/data/local/tmp/cts/content/HelloWorldNoAppStorage.apk" />
         <option name="push-file" key="HelloWorldNoAppStorage.apk.idsig" value="/data/local/tmp/cts/content/HelloWorldNoAppStorage.apk.idsig" />
+        <option name="push-file" key="HelloWorldLotsOfFlags.apk" value="/data/local/tmp/cts/content/HelloWorldLotsOfFlags.apk" />
+        <option name="push-file" key="HelloWorldLotsOfFlags.apk.idsig" value="/data/local/tmp/cts/content/HelloWorldLotsOfFlags.apk.idsig" />
+        <option name="push-file" key="HelloWorldWithSufficient.apk" value="/data/local/tmp/cts/content/HelloWorldWithSufficient.apk" />
+        <option name="push-file" key="HelloWorldWithSufficient.apk.idsig" value="/data/local/tmp/cts/content/HelloWorldWithSufficient.apk.idsig" />
+        <option name="push-file" key="HelloSufficientVerifierReject.apk" value="/data/local/tmp/cts/content/HelloSufficientVerifierReject.apk" />
+        <option name="push-file" key="HelloSufficientVerifierReject.apk.idsig" value="/data/local/tmp/cts/content/HelloSufficientVerifierReject.apk.idsig" />
+        <option name="push-file" key="HelloVerifierAllow.apk" value="/data/local/tmp/cts/content/HelloVerifierAllow.apk" />
+        <option name="push-file" key="HelloVerifierAllow.apk.idsig" value="/data/local/tmp/cts/content/HelloVerifierAllow.apk.idsig" />
+        <option name="push-file" key="HelloVerifierReject.apk" value="/data/local/tmp/cts/content/HelloVerifierReject.apk" />
+        <option name="push-file" key="HelloVerifierReject.apk.idsig" value="/data/local/tmp/cts/content/HelloVerifierReject.apk.idsig" />
+        <option name="push-file" key="HelloVerifierDelayedReject.apk" value="/data/local/tmp/cts/content/HelloVerifierDelayedReject.apk" />
+        <option name="push-file" key="HelloVerifierDelayedReject.apk.idsig" value="/data/local/tmp/cts/content/HelloVerifierDelayedReject.apk.idsig" />
+        <option name="push-file" key="HelloVerifierDisabled.apk" value="/data/local/tmp/cts/content/HelloVerifierDisabled.apk" />
+        <option name="push-file" key="HelloVerifierDisabled.apk.idsig" value="/data/local/tmp/cts/content/HelloVerifierDisabled.apk.idsig" />
     </target_preparer>
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
@@ -143,6 +161,8 @@
         <option name="test-file-name" value="CtsIntentResolutionTestApp.apk" />
         <option name="test-file-name" value="CtsIntentResolutionTestAppApi30.apk" />
         <option name="test-file-name" value="CtsContentNoApplicationTestApp.apk" />
+        <option name="test-file-name" value="CtsContentMockRestrictedApp.apk" />
+
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >

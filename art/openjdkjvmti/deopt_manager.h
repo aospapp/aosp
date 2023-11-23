@@ -57,8 +57,7 @@ struct JvmtiMethodInspectionCallback : public art::MethodInspectionCallback {
  public:
   explicit JvmtiMethodInspectionCallback(DeoptManager* manager) : manager_(manager) {}
 
-  bool IsMethodBeingInspected(art::ArtMethod* method)
-      override REQUIRES_SHARED(art::Locks::mutator_lock_);
+  bool HaveLocalsChanged() override REQUIRES_SHARED(art::Locks::mutator_lock_);
 
  private:
   DeoptManager* manager_;
@@ -111,9 +110,7 @@ class DeoptManager {
       REQUIRES_SHARED(art::Locks::mutator_lock_);
   void DeoptimizeAllThreads() REQUIRES_SHARED(art::Locks::mutator_lock_);
 
-  void FinishSetup()
-      REQUIRES(!deoptimization_status_lock_, !art::Roles::uninterruptible_)
-      REQUIRES(art::Locks::mutator_lock_);
+  void FinishSetup() REQUIRES(!deoptimization_status_lock_, !art::Roles::uninterruptible_);
 
   static DeoptManager* Get();
 

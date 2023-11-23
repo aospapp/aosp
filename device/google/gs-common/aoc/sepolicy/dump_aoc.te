@@ -1,0 +1,7 @@
+pixel_bugreport(dump_aoc)
+allow dump_aoc sysfs_aoc:dir search;
+allow dump_aoc sysfs_aoc_dumpstate:file r_file_perms;
+allow dump_aoc aoc_device:chr_file rw_file_perms;
+allow dump_aoc vendor_shell_exec:file execute_no_trans;
+allow dump_aoc vendor_toolbox_exec:file execute_no_trans;
+

@@ -24,8 +24,8 @@ namespace android {
 namespace vintf {
 
 status_t RuntimeInfo::fetchAllInformation(RuntimeInfo::FetchFlags /* flags */) {
-    LOG(WARNING) << "Should not run fetchAllInformation on host.";
-    return OK;
+    LOG(ERROR) << "Should not run fetchAllInformation on host.";
+    return UNKNOWN_ERROR;
 }
 
 } // namespace vintf

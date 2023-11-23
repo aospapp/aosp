@@ -16,6 +16,7 @@
 
 package com.android.server.wifi;
 
+import static com.android.server.wifi.WifiService.NOTIFICATION_APM_ALERTS;
 import static com.android.server.wifi.WifiService.NOTIFICATION_NETWORK_ALERTS;
 import static com.android.server.wifi.WifiService.NOTIFICATION_NETWORK_AVAILABLE;
 import static com.android.server.wifi.WifiService.NOTIFICATION_NETWORK_STATUS;
@@ -96,6 +97,14 @@ public class WifiNotificationManager {
                 NotificationManager.IMPORTANCE_LOW);
         networkAvailable.setBlockable(true);
         channelsList.add(networkAvailable);
+
+        final NotificationChannel apmAlertsChannel = new NotificationChannel(
+                NOTIFICATION_APM_ALERTS,
+                mContext.getResources().getString(
+                        R.string.notification_channel_apm_alerts),
+                NotificationManager.IMPORTANCE_HIGH);
+        apmAlertsChannel.setBlockable(true);
+        channelsList.add(apmAlertsChannel);
 
         mNotificationManager.createNotificationChannels(channelsList);
     }

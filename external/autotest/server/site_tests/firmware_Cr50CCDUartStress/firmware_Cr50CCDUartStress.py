@@ -47,7 +47,7 @@ class firmware_Cr50CCDUartStress(Cr50Test):
 
         # Check CCD is in servo_type.
         servo_type = self.servo.get_servo_version()
-        if 'ccd_cr50' not in servo_type:
+        if 'ccd' not in servo_type:
             raise error.TestNAError('unsupported servo type: %s' % servo_type)
         logging.info('Checked the servo type is %r.', servo_type)
 
@@ -55,17 +55,10 @@ class firmware_Cr50CCDUartStress(Cr50Test):
         self.fast_ccd_open(enable_testlab=True)
         logging.info('CCD opened.')
 
-        # Change active device as ccd_cr50.
-        if self.servo.has_control('active_v4_device'):
-            try:
-                self.active_dev = 'ccd_cr50'
-                self.servo.set('active_v4_device', self.active_dev)
-            except error.TestFail as e:
-                raise error.TestNAError('cannot change active_v4_device: %s' %
-                                        str(e))
-            logging.info('Set the active v4 device as %r.', self.active_dev)
-        else:
-            self.active_dev = ''
+        # Change active device to the ccd device
+        if not self.servo.enable_ccd_servo_device():
+            raise error.TestNAError('Cannot make ccd active')
+        self.active_dev = self.servo.get_active_device_prefix()
 
         # Store the original status of EC ec3po_interp_connect.
         self.ec_ec3po_connect = self.servo.get('ec_ec3po_interp_connect',

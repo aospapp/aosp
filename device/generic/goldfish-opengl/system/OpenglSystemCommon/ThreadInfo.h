@@ -41,6 +41,4 @@ extern "C" __attribute__((visibility("default"))) EGLThreadInfo *goldfish_get_eg
 
 EGLThreadInfo* getEGLThreadInfo();
 
-int32_t getCurrentThreadId();
-
 #endif // of _THREAD_INFO_H

@@ -60,7 +60,8 @@ class RealtimeZslResultRequestProcessor : public RealtimeZslResultProcessor,
   status_t Flush() override;
   // Override functions of RequestProcessor end.
 
-  void UpdateOutputBufferCount(int32_t frame_number, int output_buffer_count);
+  void UpdateOutputBufferCount(int32_t frame_number, int output_buffer_count,
+                               bool is_preview_intent);
 
  protected:
   RealtimeZslResultRequestProcessor(
@@ -79,9 +80,26 @@ class RealtimeZslResultRequestProcessor : public RealtimeZslResultProcessor,
     uint32_t partial_results_received = 0;
     bool zsl_buffer_received = false;
     int framework_buffer_count = INT_MAX;
+    // Whether there were filled raw buffers that have been returned to internal
+    // stream manager.
+    bool has_returned_output_to_internal_stream_manager = false;
   };
 
   bool AllDataCollected(const RequestEntry& request_entry) const;
+
+  // A helper function to combine information for the same frame number from
+  // `pending_error_frames_` and `pending_frame_number_to_requests_` to the
+  // `result`. This is a 3-way update, where `pending_request` info is copied to
+  // `error_entry` and `result`, and `pending_request` info gets reset.
+  void CombineErrorAndPendingEntriesToResult(
+      RequestEntry& error_entry, RequestEntry& pending_request,
+      std::unique_ptr<CaptureResult>& result) const;
+
+  // Returns result directly for frames with errors, if applicable. Call site
+  // must hold callback_lock_.
+  void ReturnResultDirectlyForFramesWithErrorsLocked(
+      RequestEntry& error_entry, RequestEntry& pending_request,
+      std::unique_ptr<CaptureResult> result);
 
   // Results collected so far on a valid frame. Results are passed to the
   // processor block once all items in the RequestEntry struct are complete -

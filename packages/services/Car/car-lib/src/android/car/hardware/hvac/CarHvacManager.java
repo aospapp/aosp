@@ -62,8 +62,8 @@ public final class CarHvacManager extends CarManagerBase {
      * HVAC property IDs for get/set methods
      */
     /**
-     * Mirror defrosters state, bool type
-     * true indicates mirror defroster is on
+     * Mirror defrosters state, int type
+     * Positive values indicate mirror defroster is on
      */
     @AddedInOrBefore(majorVersion = 33)
     public static final int ID_MIRROR_DEFROSTER_ON = 0x1440050c;

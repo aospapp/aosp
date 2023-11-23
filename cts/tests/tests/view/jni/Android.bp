@@ -30,8 +30,6 @@ cc_test_library {
     srcs: [
         "CtsViewJniOnLoad.cpp",
         "android_view_cts_AInputNativeTest.cpp",
-        "android_view_cts_ASurfaceControlTest.cpp",
-        "android_view_cts_ChoreographerNativeTest.cpp",
         "android_view_cts_InputDeviceKeyLayoutMapTest.cpp",
         "android_view_cts_InputQueueTest.cpp",
     ],

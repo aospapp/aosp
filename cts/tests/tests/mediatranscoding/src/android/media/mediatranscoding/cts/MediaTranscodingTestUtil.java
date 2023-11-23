@@ -34,8 +34,8 @@ import android.net.Uri;
 import android.os.FileUtils;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
-import android.util.Size;
 
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -227,7 +227,6 @@ import java.util.Locale;
 
             ByteBuffer[] inputBuffers = codec.getInputBuffers();
             ByteBuffer[] outputBuffers = codec.getOutputBuffers();
-            MediaFormat decoderOutputFormat = codec.getInputFormat();
 
             // start decode loop
             MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
@@ -255,7 +254,7 @@ import java.util.Locale;
                         advanceDone = extractor.advance();
 
                         if (sampleSize < 0) {
-                            Log.d(TAG, "saw input EOS.");
+                            Log.d(TAG, "Input EOS");
                             sawInputEOS = true;
                             sampleSize = 0;
                         }
@@ -265,8 +264,12 @@ import java.util.Locale;
                                 sampleSize,
                                 presentationTimeUs,
                                 sawInputEOS ? MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0);
-                    } else {
-                        Log.d(TAG, "codec.dequeueInputBuffer() unrecognized return value:");
+                    } else if (inputBufIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                        // Expected. Do nothing.
+                    }  else {
+                        Log.w(
+                                TAG,
+                                "Unrecognized dequeueInputBuffer() return value: " + inputBufIndex);
                     }
                 }
 
@@ -276,24 +279,27 @@ import java.util.Locale;
                 if (outputBufIndex >= 0) {
                     if (info.size > 0) { // Disregard 0-sized buffers at the end.
                         outputNum++;
-                        Log.i(TAG, "Output frame numer " + outputNum);
+                        Log.i(TAG, "Output frame number: " + outputNum);
                         Image image = codec.getOutputImage(outputBufIndex);
                         dumpYUV420PToFile(image, out);
                     }
 
                     codec.releaseOutputBuffer(outputBufIndex, false /* render */);
                     if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                        Log.d(TAG, "saw output EOS.");
+                        Log.d(TAG, "Output EOS");
                         sawOutputEOS = true;
                     }
                 } else if (outputBufIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
                     outputBuffers = codec.getOutputBuffers();
-                    Log.d(TAG, "output buffers have changed.");
+                    Log.d(TAG, "Output buffers changed");
                 } else if (outputBufIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                    decoderOutputFormat = codec.getOutputFormat();
-                    Log.d(TAG, "output resolution " + width + "x" + height);
+                    Log.d(TAG, "Output format changed");
+                } else if (outputBufIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                    // Expected. Do nothing.
                 } else {
-                    Log.w(TAG, "codec.dequeueOutputBuffer() unrecognized return index");
+                    Log.w(
+                            TAG,
+                            "Unrecognized dequeueOutputBuffer() return value: " + outputBufIndex);
                 }
             }
         } finally {
@@ -455,12 +461,11 @@ import java.util.Locale;
 
         while (true) {
             // Calculate Y PSNR.
-            int bytesReadRef = referenceStream.read(yRef);
-            int bytesReadDec = decodedStream.read(yDec);
-            if (bytesReadDec == -1) {
-                break;
-            }
-            if (bytesReadRef == -1) {
+            boolean refResult = readFully(referenceStream, yRef);
+            boolean decResult = readFully(decodedStream, yDec);
+            assertTrue(refResult == decResult);
+            if (!refResult) {
+                // We've reached the end.
                 break;
             }
             double curYPSNR = computePSNR(yRef, yDec);
@@ -469,16 +474,16 @@ import java.util.Locale;
             double curMinimumPSNR = curYPSNR;
 
             // Calculate U PSNR.
-            bytesReadRef = referenceStream.read(uvRef);
-            bytesReadDec = decodedStream.read(uvDec);
+            assertTrue(readFully(referenceStream, uvRef));
+            assertTrue(readFully(decodedStream, uvDec));
             double curUPSNR = computePSNR(uvRef, uvDec);
             averageUPSNR += curUPSNR;
             minimumUPSNR = Math.min(minimumUPSNR, curUPSNR);
             curMinimumPSNR = Math.min(curMinimumPSNR, curUPSNR);
 
             // Calculate V PSNR.
-            bytesReadRef = referenceStream.read(uvRef);
-            bytesReadDec = decodedStream.read(uvDec);
+            assertTrue(readFully(referenceStream, uvRef));
+            assertTrue(readFully(decodedStream, uvDec));
             double curVPSNR = computePSNR(uvRef, uvDec);
             averageVPSNR += curVPSNR;
             minimumVPSNR = Math.min(minimumVPSNR, curVPSNR);
@@ -518,6 +523,30 @@ import java.util.Locale;
         referenceFd.close();
         decodedFd.close();
         return statistics;
+    }
+
+    /**
+     * Reads {@code out.length} of data into {@code out}. True is returned if the operation
+     * succeeds, and false is returned if {@code in} was already ended. If {@code in} was not
+     * already ended but ad fewer than {@code out.length} bytes remaining, then {@link EOFException}
+     * is thrown.
+     */
+    private static boolean readFully(InputStream in, byte[] out) throws IOException {
+        int totalBytesRead = 0;
+        while (totalBytesRead < out.length) {
+            int bytesRead = in.read(out, totalBytesRead, out.length - totalBytesRead);
+            if (bytesRead == -1) {
+                if (totalBytesRead == 0) {
+                    // We were already at the end of the stream.
+                    return false;
+                } else {
+                    throw new EOFException();
+                }
+            } else {
+                totalBytesRead += bytesRead;
+            }
+        }
+        return true;
     }
 
     /**

@@ -42,7 +42,7 @@ def dbus2primitive(value):
     elif isinstance(value, str):
         return str(value)
     elif isinstance(value, six.text_type):
-        return str(value)
+        return str(value.encode('utf-8'))
     elif isinstance(value, list):
         return [dbus2primitive(x) for x in value]
     elif isinstance(value, tuple):

@@ -31,10 +31,11 @@ from setuptools import setup, Extension
 ANDROID_BUILD_TOP = os.getenv("ANDROID_BUILD_TOP")
 PYBIND11_INCLUDE_DIR = os.path.join(ANDROID_BUILD_TOP, "external/python/pybind11/include")
 GD_DIR = os.path.join(ANDROID_BUILD_TOP, "packages/modules/Bluetooth/system/gd")
-BT_PACKETS_GEN_DIR = os.path.join(ANDROID_BUILD_TOP,
-                                  "out/soong/.intermediates/packages/modules/Bluetooth/system/gd/BluetoothGeneratedPackets_h/gen")
-BT_PACKETS_PY3_GEN_DIR = os.path.join(ANDROID_BUILD_TOP,
-                                      "out/soong/.intermediates/packages/modules/Bluetooth/system/gd/BluetoothGeneratedPackets_python3_cc/gen")
+BT_PACKETS_GEN_DIR = os.path.join(
+    ANDROID_BUILD_TOP, "out/soong/.intermediates/packages/modules/Bluetooth/system/gd/BluetoothGeneratedPackets_h/gen")
+BT_PACKETS_PY3_GEN_DIR = os.path.join(
+    ANDROID_BUILD_TOP,
+    "out/soong/.intermediates/packages/modules/Bluetooth/system/gd/BluetoothGeneratedPackets_python3_cc/gen")
 
 BT_PACKETS_BASE_SRCS = [
     os.path.join(GD_DIR, "l2cap/fcs.cc"),
@@ -50,7 +51,6 @@ BT_PACKETS_BASE_SRCS = [
 
 BT_PACKETS_PY3_SRCs = \
   [os.path.join(GD_DIR, "packet/python3_module.cc")] \
-  + glob.glob(os.path.join(BT_PACKETS_PY3_GEN_DIR, "hci", "*.cc")) \
   + glob.glob(os.path.join(BT_PACKETS_PY3_GEN_DIR, "l2cap", "*.cc")) \
   + glob.glob(os.path.join(BT_PACKETS_PY3_GEN_DIR, "security", "*.cc"))
 

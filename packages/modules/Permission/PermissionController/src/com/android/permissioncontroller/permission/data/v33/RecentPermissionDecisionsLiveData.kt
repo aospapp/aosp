@@ -21,7 +21,7 @@ import androidx.annotation.RequiresApi
 import androidx.annotation.VisibleForTesting
 import com.android.permissioncontroller.permission.data.SmartAsyncMediatorLiveData
 import com.android.permissioncontroller.permission.service.v33.PermissionDecisionStorageImpl
-import com.android.permissioncontroller.permission.service.v33.PermissionEventStorage
+import com.android.permissioncontroller.permission.service.PermissionEventStorage
 import kotlinx.coroutines.Job
 
 /** Gets all recent permission decisions made by the user. */

@@ -16,14 +16,15 @@
 
 #pragma once
 
-#include "config/ConfigKey.h"
-#include "config/ConfigListener.h"
-
 #include <aidl/android/os/IPendingIntentRef.h>
+#include <stdio.h>
+
 #include <mutex>
 #include <string>
 
-#include <stdio.h>
+#include "config/ConfigKey.h"
+#include "config/ConfigKeyWithPackage.h"
+#include "config/ConfigListener.h"
 
 using aidl::android::os::IPendingIntentRef;
 using std::shared_ptr;
@@ -113,6 +114,27 @@ public:
                                             const shared_ptr<IPendingIntentRef>& pir);
 
     /**
+     * Sets the pending intent that is notified whenever the list of restricted metrics changes
+     */
+    void SetRestrictedMetricsChangedReceiver(const string& configPackage, const int64_t configId,
+                                             const int32_t callingUid,
+                                             const shared_ptr<IPendingIntentRef>& pir);
+
+    /**
+     * Erase any restricted metrics changed pending intents associated with this config key & uid.
+     */
+    void RemoveRestrictedMetricsChangedReceiver(const string& configPackage, const int64_t configId,
+                                                const int32_t callingUid);
+
+    /**
+     * Sends a restricted metrics broadcast for the valid config keys and delegate package
+     */
+    void SendRestrictedMetricsBroadcast(const std::set<string>& configPackages,
+                                        const int64_t configId,
+                                        const std::set<int32_t>& delegateUids,
+                                        const std::vector<int64_t>& metricIds);
+
+    /**
      * A configuration was removed.
      *
      * Reports this to listeners.
@@ -166,9 +188,24 @@ private:
     std::map<int, shared_ptr<IPendingIntentRef>> mActiveConfigsChangedReceivers;
 
     /**
+     * Each uid can subscribe up to one receiver for a particular config to receive the restricted
+     * metrics for that config. The receiver is specified as IPendingIntentRef.
+     */
+    std::map<ConfigKeyWithPackage, std::map<int32_t, shared_ptr<IPendingIntentRef>>>
+            mRestrictedMetricsChangedReceivers;
+
+    /**
      * The ConfigListeners that will be told about changes.
      */
     std::vector<sp<ConfigListener>> mListeners;
+
+    /**
+     * Erase the restricted metrics changed pending intents associated with this config key & uid if
+     * it is equal to the provided pending intent.
+     */
+    void RemoveRestrictedMetricsChangedReceiver(const ConfigKeyWithPackage& key,
+                                                const int32_t delegateUid,
+                                                const shared_ptr<IPendingIntentRef>& pir);
 };
 
 }  // namespace statsd

@@ -61,6 +61,7 @@ static const auto filenames_modes = std::vector<ModeLookupEntry>{
         {"aes-256-cts"s, FSCRYPT_MODE_AES_256_CTS},
         {"aes-256-heh"s, FSCRYPT_MODE_AES_256_HEH},
         {"adiantum"s, FSCRYPT_MODE_ADIANTUM},
+        {"aes-256-hctr2"s, FSCRYPT_MODE_AES_256_HCTR2},
 };
 
 static bool LookupModeByName(const std::vector<struct ModeLookupEntry>& modes,
@@ -85,7 +86,8 @@ static bool LookupModeById(const std::vector<struct ModeLookupEntry>& modes, int
     return false;
 }
 
-bool fscrypt_is_native() {
+// Returns true if FBE (File Based Encryption) is enabled.
+bool IsFbeEnabled() {
     char value[PROPERTY_VALUE_MAX];
     property_get("ro.crypto.type", value, "none");
     return !strcmp(value, "file");

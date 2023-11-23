@@ -36,6 +36,7 @@
 
 #include <epoxy/egl.h>
 
+#include "util/macros.h"
 #include "virglrenderer.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size);
@@ -58,12 +59,13 @@ struct fuzzer_cookie
    EGLContext ctx;
 };
 
-static void fuzzer_write_fence(void *opaque, uint32_t fence)
+static void fuzzer_write_fence(UNUSED void *opaque, UNUSED uint32_t fence)
 {
 }
 
 static virgl_renderer_gl_context fuzzer_create_gl_context(
-      void *cookie, int scanout_idx, struct virgl_renderer_gl_ctx_param *param)
+      void *cookie, UNUSED int scanout_idx,
+      struct virgl_renderer_gl_ctx_param *param)
 {
    struct fuzzer_cookie *cookie_data = cookie;
    EGLContext shared = param->shared ? eglGetCurrentContext() : NULL;
@@ -85,7 +87,8 @@ static void fuzzer_destroy_gl_context(void *cookie,
    eglDestroyContext(cookie_data->display, ctx);
 }
 
-static int fuzzer_make_current(void *cookie, int scanout_idx, virgl_renderer_gl_context ctx)
+static int fuzzer_make_current(UNUSED void *cookie, UNUSED int scanout_idx,
+                               UNUSED virgl_renderer_gl_context ctx)
 {
    return 0;
 }

@@ -64,6 +64,9 @@ class AvrcpInterface {
   virtual uint16_t MsgReq(uint8_t handle, uint8_t label, uint8_t ctype,
                           BT_HDR* p_pkt) = 0;
 
+  virtual void SaveControllerVersion(const RawAddress& bdaddr,
+                                     uint16_t version) = 0;
+
   virtual ~AvrcpInterface() = default;
 };
 

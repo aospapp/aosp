@@ -16,6 +16,7 @@
 
 package android.sustainedPerformance.cts;
 
+import com.android.tradefed.util.RunUtil;
 import com.android.compatibility.common.util.CddTest;
 import com.android.ddmlib.IShellOutputReceiver;
 import com.android.ddmlib.Log;
@@ -161,7 +162,7 @@ public class SustainedPerformanceHostTest extends DeviceTestCase {
     private void setUpEnvironment() throws Exception {
         dhryMin = Double.MAX_VALUE;
         dhryMax = Double.MIN_VALUE;
-        Thread.sleep(600000);
+        RunUtil.getDefault().sleep(600000);
         device.executeAdbCommand("logcat", "-c");
         device.executeShellCommand("settings put global airplane_mode_on 1");
         device.executeShellCommand("am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true");
@@ -207,7 +208,7 @@ public class SustainedPerformanceHostTest extends DeviceTestCase {
         Thread dhrystone1 = new Thread(new Dhrystone(true, 2));
         dhrystone.start();
         dhrystone1.start();
-        Thread.sleep(testDuration);
+        RunUtil.getDefault().sleep(testDuration);
         device.executeShellCommand(STOP_COMMAND);
         dhrystone.join();
         dhrystone1.join();

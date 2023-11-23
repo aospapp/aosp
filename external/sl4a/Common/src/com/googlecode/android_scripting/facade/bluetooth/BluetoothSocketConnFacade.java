@@ -21,6 +21,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
+import android.os.Bundle;
 
 import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.facade.EventFacade;
@@ -55,6 +56,9 @@ public class BluetoothSocketConnFacade extends RpcReceiver {
     private AcceptThread mAcceptThread;
     private byte mTxPktIndex = 0;
 
+    private final Bundle mGoodNews;
+    private final Bundle mBadNews;
+
     private static final String DEFAULT_PSM = "161";  //=0x00A1
 
     // UUID for SL4A.
@@ -68,6 +72,11 @@ public class BluetoothSocketConnFacade extends RpcReceiver {
         mEventFacade = manager.getReceiver(EventFacade.class);
         mService = manager.getService();
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
+        mGoodNews = new Bundle();
+        mGoodNews.putBoolean("Status", true);
+        mBadNews = new Bundle();
+        mBadNews.putBoolean("Status", false);
     }
 
     private BluetoothConnection getConnection(String connID) throws IOException {
@@ -731,9 +740,15 @@ public class BluetoothSocketConnFacade extends RpcReceiver {
                 mConnUuid = addConnection(conn);
                 Log.d("ConnectThread:run: isConnected=" + mSocket.isConnected() + ", address="
                         + mSocket.getRemoteDevice().getAddress() + ", uuid=" + mConnUuid);
+                if (mSocket.isConnected()) {
+                    mEventFacade.postEvent("BluetoothSocketConnectSuccess", mGoodNews);
+                } else {
+                    mEventFacade.postEvent("BluetoothSocketConnectError", mBadNews);
+                }
             } catch (IOException connectException) {
                 Log.e("ConnectThread::run(): Error: Connection Unsuccessful");
                 cancel();
+                mEventFacade.postEvent("BluetoothSocketConnectError", mBadNews);
                 return;
             }
         }

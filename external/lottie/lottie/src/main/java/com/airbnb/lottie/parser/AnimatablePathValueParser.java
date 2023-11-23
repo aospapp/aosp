@@ -1,16 +1,15 @@
 package com.airbnb.lottie.parser;
 
 import android.graphics.PointF;
-import android.util.JsonToken;
 
 import com.airbnb.lottie.LottieComposition;
-import com.airbnb.lottie.parser.moshi.JsonReader;
-import com.airbnb.lottie.value.Keyframe;
 import com.airbnb.lottie.model.animatable.AnimatableFloatValue;
 import com.airbnb.lottie.model.animatable.AnimatablePathValue;
 import com.airbnb.lottie.model.animatable.AnimatableSplitDimensionPathValue;
 import com.airbnb.lottie.model.animatable.AnimatableValue;
+import com.airbnb.lottie.parser.moshi.JsonReader;
 import com.airbnb.lottie.utils.Utils;
+import com.airbnb.lottie.value.Keyframe;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -18,13 +17,14 @@ import java.util.List;
 
 public class AnimatablePathValueParser {
 
-  private static JsonReader.Options NAMES = JsonReader.Options.of(
+  private static final JsonReader.Options NAMES = JsonReader.Options.of(
       "k",
       "x",
       "y"
   );
 
-  private AnimatablePathValueParser() {}
+  private AnimatablePathValueParser() {
+  }
 
   public static AnimatablePathValue parse(
       JsonReader reader, LottieComposition composition) throws IOException {

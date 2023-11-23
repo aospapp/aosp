@@ -16,17 +16,13 @@
 
 package com.android.nearby.halfsheet.utils;
 
-import static com.android.nearby.halfsheet.HalfSheetActivity.TAG;
+import static com.android.nearby.halfsheet.constants.Constant.TAG;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
-import androidx.core.graphics.ColorUtils;
 
 /**
  * Utility class for icon size verification.
@@ -85,49 +81,12 @@ public class IconUtils {
                     BitmapFactory.decodeByteArray(imageData, /* offset= */ 0, size);
             if (IconUtils.isIconSizeCorrect(icon)) {
                 // Do not add background for Half Sheet.
-                return IconUtils.addWhiteCircleBackground(icon);
+                return icon;
             }
         } catch (OutOfMemoryError e) {
             Log.w(TAG, "getIcon: Failed to decode icon, returning null.", e);
         }
         return null;
-    }
-
-    /** Adds a circular, white background to the bitmap. */
-    @Nullable
-    public static Bitmap addWhiteCircleBackground(Bitmap bitmap) {
-        if (bitmap == null) {
-            Log.w(TAG, "addWhiteCircleBackground: Bitmap is null, not adding background.");
-            return null;
-        }
-
-        if (bitmap.getWidth() != bitmap.getHeight()) {
-            Log.w(TAG, "addWhiteCircleBackground: Bitmap dimensions not square. Skipping"
-                    + "adding background.");
-            return bitmap;
-        }
-
-        int padding = (int) (bitmap.getWidth() * NOTIFICATION_BACKGROUND_PADDING_PERCENT);
-        Bitmap bitmapWithBackground =
-                Bitmap.createBitmap(
-                        bitmap.getWidth() + (2 * padding),
-                        bitmap.getHeight() + (2 * padding),
-                        bitmap.getConfig());
-        Canvas canvas = new Canvas(bitmapWithBackground);
-        Paint paint = new Paint();
-        paint.setColor(
-                ColorUtils.setAlphaComponent(
-                        Color.WHITE, (int) (255 * NOTIFICATION_BACKGROUND_ALPHA)));
-        paint.setStyle(Paint.Style.FILL);
-        paint.setAntiAlias(true);
-        canvas.drawCircle(
-                bitmapWithBackground.getWidth() / 2,
-                bitmapWithBackground.getHeight() / 2,
-                bitmapWithBackground.getWidth() / 2,
-                paint);
-        canvas.drawBitmap(bitmap, padding, padding, null);
-
-        return bitmapWithBackground;
     }
 }
 

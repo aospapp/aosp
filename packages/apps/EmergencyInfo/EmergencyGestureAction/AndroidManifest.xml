@@ -21,6 +21,7 @@
     package="com.android.emergency">
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.CALL_PHONE"/>
     <uses-permission android:name="android.permission.CALL_PRIVILEGED"/>
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
@@ -60,7 +61,10 @@
         <service
             android:name=".action.service.EmergencyActionForegroundService"
             android:directBootAware="true"
-            android:exported="false"/>
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="com.android.emergency" />
+        </service>
 
         <receiver
             android:name=".action.broadcast.EmergencyActionBroadcastReceiver"

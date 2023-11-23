@@ -46,7 +46,6 @@ cc_defaults {
         // in stdio2.h, and this #defines it in awk.h
         "-Wno-macro-redefined",
     ],
-    c_std: "gnu11",
     stl: "none",
     yacc: {
         flags: [

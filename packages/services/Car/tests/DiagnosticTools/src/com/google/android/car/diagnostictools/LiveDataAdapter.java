@@ -52,7 +52,7 @@ public class LiveDataAdapter extends RecyclerView.Adapter<RowViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull RowViewHolder holder, int position) {
         SensorDataWrapper wrapper = mLiveData.get(position);
-        holder.setFields(wrapper.mName, "", "" + wrapper.mNumber + " " + wrapper.mUnit, false);
+        holder.setFields(wrapper.mName, "", wrapper.mNumber + " " + wrapper.mUnit, false);
     }
 
     @Override

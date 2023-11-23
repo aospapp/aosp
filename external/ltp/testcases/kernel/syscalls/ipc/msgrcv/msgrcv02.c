@@ -21,6 +21,8 @@
  *   msgflg and no message of the requested type existed on the message queue.
  */
 
+#define _GNU_SOURCE
+
 #include <string.h>
 #include <sys/wait.h>
 #include <sys/msg.h>
@@ -38,7 +40,7 @@ struct passwd *pw;
 static struct buf {
 	long type;
 	char mtext[MSGSIZE];
-} rcv_buf, snd_buf = {MSGTYPE, "hello"};
+} rcv_buf, snd_buf = {2, "hello"};
 
 static struct tcase {
 	int *id;
@@ -49,28 +51,20 @@ static struct tcase {
 	int exp_user;
 	int exp_err;
 } tcases[] = {
-	{&queue_id, &rcv_buf, 4, 1, 0, 0, E2BIG},
-	{&queue_id, &rcv_buf, MSGSIZE, 1, 0, 1, EACCES},
-	{&queue_id, NULL, MSGSIZE, 1, 0, 0, EFAULT},
-	{&bad_id, &rcv_buf, MSGSIZE, 1, 0, 0, EINVAL},
-	{&queue_id, &rcv_buf, -1, 1, 0, 0, EINVAL},
-	{&queue_id, &rcv_buf, MSGSIZE, 2, IPC_NOWAIT, 0, ENOMSG},
+	{&queue_id, &rcv_buf, MSGSIZE - 1, 2, 0, 0, E2BIG},
+	{&queue_id, &rcv_buf, MSGSIZE,     2, 0, 1, EACCES},
+	{&queue_id, NULL,     MSGSIZE,     2, 0, 0, EFAULT},
+	{&bad_id,   &rcv_buf, MSGSIZE,     2, 0, 0, EINVAL},
+	{&queue_id, &rcv_buf, -1,          2, 0, 0, EINVAL},
+	{&queue_id, &rcv_buf, MSGSIZE,  3, IPC_NOWAIT,              0, ENOMSG},
+	{&queue_id, &rcv_buf, MSGSIZE, -1, IPC_NOWAIT,              0, ENOMSG},
+	{&queue_id, &rcv_buf, MSGSIZE, -1, IPC_NOWAIT | MSG_EXCEPT, 0, ENOMSG},
 };
 
 static void verify_msgrcv(struct tcase *tc)
 {
-	TEST(msgrcv(*tc->id, tc->buffer, tc->msgsz, tc->msgtyp, tc->msgflag));
-	if (TST_RET != -1) {
-		tst_res(TFAIL, "smgrcv() succeeded unexpectedly");
-		return;
-	}
-
-	if (TST_ERR == tc->exp_err) {
-		tst_res(TPASS | TTERRNO, "msgrcv() failed as expected");
-	} else {
-		tst_res(TFAIL | TTERRNO, "msgrcv() failed unexpectedly,"
-			" expected %s but got", tst_strerrno(tc->exp_err));
-	}
+	TST_EXP_FAIL2(msgrcv(*tc->id, tc->buffer, tc->msgsz, tc->msgtyp, tc->msgflag), tc->exp_err,
+		"msgrcv(%i, %p, %i, %ld, %i)", *tc->id, tc->buffer, tc->msgsz, tc->msgtyp, tc->msgflag);
 }
 
 static void do_test(unsigned int n)

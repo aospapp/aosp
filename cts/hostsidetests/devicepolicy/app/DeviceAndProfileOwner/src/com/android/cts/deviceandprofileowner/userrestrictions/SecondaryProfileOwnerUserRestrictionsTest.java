@@ -27,9 +27,6 @@ public class SecondaryProfileOwnerUserRestrictionsTest extends BaseUserRestricti
             UserManager.DISALLOW_INSTALL_APPS,
             UserManager.DISALLOW_UNINSTALL_APPS,
             // UserManager.DISALLOW_SHARE_LOCATION, // Has unrecoverable side effects.
-            // UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES, // Has unrecoverable side effects.
-            // UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY, // Same as above.
-            UserManager.DISALLOW_CONFIG_BLUETOOTH,
             UserManager.DISALLOW_CONFIG_CREDENTIALS,
             UserManager.DISALLOW_REMOVE_USER,
             // UserManager.DISALLOW_DEBUGGING_FEATURES, // Need for CTS
@@ -68,7 +65,6 @@ public class SecondaryProfileOwnerUserRestrictionsTest extends BaseUserRestricti
     };
 
     public static final String[] ALLOWED_BUT_LEAKY = new String[] {
-        UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY,
     };
 
     @Override

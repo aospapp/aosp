@@ -30,6 +30,7 @@ import org.unicode.cldr.util.CldrUtility;
 import org.unicode.cldr.util.Counter;
 import org.unicode.cldr.util.DtdType;
 import org.unicode.cldr.util.Factory;
+import org.unicode.cldr.util.GlossonymConstructor;
 import org.unicode.cldr.util.GrammarInfo;
 import org.unicode.cldr.util.GrammarInfo.GrammaticalFeature;
 import org.unicode.cldr.util.GrammarInfo.GrammaticalTarget;
@@ -82,7 +83,7 @@ public class TestCLDRFile extends TestFmwk {
             { "zh-RR", "Chinese (RR)" },
             { "new_Newa_NP", "Newari (Newa, Nepal)" },
         };
-        CLDRFile english = testInfo.getEnglish(); // testInfo.getFullCldrFactory().make("en", false);
+        CLDRFile english = testInfo.getEnglish();
         for (String[] test : tests) {
             assertEquals("", test[1], english.getName(test[0]));
         }
@@ -374,7 +375,11 @@ public class TestCLDRFile extends TestFmwk {
                         + status)
                     + ")");
             if (path.startsWith("//ldml/localeDisplayNames/")
-                || path.contains("[@alt=\"accounting\"]")) {
+                || path.contains("[@alt=\"accounting\"]")
+                || path.contains("[@alt=\"alphaNextToNumber\"]") // CLDR-14336
+                || path.contains("[@alt=\"noCurrency\"]") // CLDR-14336
+                || path.startsWith("//ldml/personNames/") // CLDR-15384
+                ) {
                 logln("+" + engName + ", -" + locales + "\t" + path);
             } else {
                 errln("+" + engName + ", -" + locales + "\t" + path);
@@ -571,6 +576,14 @@ public class TestCLDRFile extends TestFmwk {
                 String baileyValue = cldrFile.getBaileyValue(path, pathWhereFound, localeWhereFound);
                 String topValue = cldrFileUnresolved.getStringValue(path);
                 String resolvedValue = cldrFile.getStringValue(path);
+                String unresolvedConstructedValue = cldrFileUnresolved.getConstructedValue(path);
+                String resolvedConstructedValue = cldrFile.getConstructedValue(path);
+
+                // assertEquals("x≠y", "x", "y"); // expected x, got y
+                if (unresolvedConstructedValue != null) {
+                    assertEquals("uc≠rc\t" + locale + "\t" + phf.fromPath(path),
+                            unresolvedConstructedValue, resolvedConstructedValue);
+                }
 
                 // if there is a value, then either it is at the top level or it
                 // is the bailey value.
@@ -578,20 +591,18 @@ public class TestCLDRFile extends TestFmwk {
 
                 if (resolvedValue != null) {
                     if (topValue != null && !CldrUtility.INHERITANCE_MARKER.equals(topValue)) {
-                        assertEquals(
-                            "top≠resolved\t" + locale + "\t" + phf.fromPath(path),
-                            topValue,
-                            resolvedValue);
+                        if (!topValue.equals(cldrFileUnresolved.getConstructedValue(path))) {
+                            assertEquals("top≠resolved\t" + locale + "\t" + phf.fromPath(path),
+                              topValue, resolvedValue);
+                        }
                     } else {
                         String locale2 = cldrFile.getSourceLocaleID(path, status);
                         if (!assertEquals(
                             "bailey value≠\t" + locale + "\t" + phf.fromPath(path),
                             resolvedValue,
                             baileyValue)) {
-                            int debug = 0;
                             baileyValue = cldrFile.getBaileyValue(path, pathWhereFound, localeWhereFound);
                             topValue = cldrFileUnresolved.getStringValue(path);
-                            resolvedValue = cldrFile.getStringValue(path);
                         }
                         if (!assertEquals(
                             "bailey locale≠\t" + locale + "\t" + phf.fromPath(path),
@@ -599,14 +610,12 @@ public class TestCLDRFile extends TestFmwk {
                             localeWhereFound.value)) {
                             baileyValue = cldrFile.getBaileyValue(path, pathWhereFound, localeWhereFound);
                             topValue = cldrFileUnresolved.getStringValue(path);
-                            resolvedValue = cldrFile.getStringValue(path);
                         }
                         if (!assertEquals(
                             "bailey path≠\t" + locale + "\t" + phf.fromPath(path),
                             status.pathWhereFound, pathWhereFound.value)) {
                             baileyValue = cldrFile.getBaileyValue(path, pathWhereFound, localeWhereFound);
                             topValue = cldrFileUnresolved.getStringValue(path);
-                            resolvedValue = cldrFile.getStringValue(path);
                         }
                     }
                 }
@@ -619,12 +628,6 @@ public class TestCLDRFile extends TestFmwk {
                         countExtraLevel.add(topValue);
                     }
                     countOrdinary.add(topValue);
-
-                    // String parentValue = parentFile.getStringValue(path);
-                    // if (!CldrUtility.equals(parentValue, baileyValue)) {
-                    // diff.put(path, "parent=" + parentValue + ";\tbailey=" +
-                    // baileyValue);
-                    // }
                 }
             }
             logln("Superfluous (" + locale + "):\t"
@@ -638,25 +641,20 @@ public class TestCLDRFile extends TestFmwk {
         }
     }
 
-    public void TestConstructedBailey() {
+    public void TestConstructedValue() {
         CLDRFile eng = CLDRConfig.getInstance().getEnglish();
 
-        String prefix = "//ldml/localeDisplayNames/languages/language[@type=\"";
-        String display = eng.getConstructedBaileyValue(prefix + "zh_Hans"
-            + "\"]", null, null);
-        assertEquals("contructed bailey", "Chinese (Simplified)", display);
-        display = eng.getConstructedBaileyValue(prefix + "es_US" + "\"]", null,
-            null);
-        assertEquals("contructed bailey", "Spanish (United States)", display);
-        display = eng.getConstructedBaileyValue(prefix + "es_US"
-            + "\"][@alt=\"short\"]", null, null);
-        assertEquals("contructed bailey", "Spanish (US)", display);
-        display = eng.getConstructedBaileyValue(prefix + "es" + "\"]", null,
-            null);
-        assertEquals("contructed bailey", "es", display);
-        display = eng.getConstructedBaileyValue(prefix + "missing" + "\"]",
-            null, null);
-        assertEquals("contructed bailey", null, display);
+        String prefix = GlossonymConstructor.PATH_PREFIX;
+        String display = eng.getConstructedValue(prefix + "zh_Hans" + "\"]");
+        assertEquals("contructed value", "Chinese (Simplified)", display);
+        display = eng.getConstructedValue(prefix + "es_US" + "\"]");
+        assertEquals("contructed value", "Spanish (United States)", display);
+        display = eng.getConstructedValue(prefix + "es_US" + "\"][@alt=\"short\"]");
+        assertEquals("contructed value", "Spanish (US)", display);
+        display = eng.getConstructedValue(prefix + "es" + "\"]");
+        assertEquals("contructed value", null, display);
+        display = eng.getConstructedValue(prefix + "missing" + "\"]");
+        assertEquals("contructed value", null, display);
     }
 
     public void TestFileLocations() {

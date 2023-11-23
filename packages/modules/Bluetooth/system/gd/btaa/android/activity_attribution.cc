@@ -44,6 +44,7 @@ const ModuleFactory ActivityAttribution::Factory = ModuleFactory([]() { return n
 
 static const std::string kBtWakelockName("hal_bluetooth_lock");
 static const std::string kBtWakeupReason("hs_uart_wakeup");
+static const std::string kSuspendService("suspend_control");
 static const size_t kHciAclHeaderSize = 4;
 
 static std::mutex g_module_mutex;
@@ -102,12 +103,12 @@ struct ActivityAttribution::impl {
 
     Status register_callback_status;
     bool is_register_successful = false;
-    auto control_service =
-        ISuspendControlService::fromBinder(SpAIBinder(AServiceManager_getService("suspend_control")));
-    if (!control_service) {
-      LOG_ERROR("Fail to obtain suspend_control");
+    if (!AServiceManager_isDeclared(kSuspendService.c_str())) {
+      LOG_ERROR("No suspend control service available.");
       return;
     }
+    auto control_service = ISuspendControlService::fromBinder(
+        SpAIBinder(AServiceManager_waitForService(kSuspendService.c_str())));
 
     if (!is_wakeup_callback_registered) {
       g_wakeup_callback = SharedRefBase::make<wakeup_callback>();

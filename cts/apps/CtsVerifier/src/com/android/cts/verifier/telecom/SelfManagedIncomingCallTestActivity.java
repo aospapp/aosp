@@ -20,6 +20,8 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.telecom.Connection;
 import android.telecom.PhoneAccount;
 import android.telecom.TelecomManager;
@@ -64,9 +66,14 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
 
         @Override
         void onAnswer(CtsConnection connection, int videoState) {
-            // Call was answered, so disconnect it now.
+            // Call was answered
             Log.i(TAG, "Step 3 - Incoming call answered.");
-            connection.onDisconnect();
+            // Disconnect after 2500 MS
+            final Handler handler = new Handler(Looper.getMainLooper());
+            handler.postDelayed(() -> {
+                Log.i(TAG, "Step 3 - disconnecting call");
+                connection.onDisconnect();
+            }, 2500);
         };
 
         @Override
@@ -83,7 +90,7 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
                 mStep3Status.setImageResource(R.drawable.fs_error);
                 return;
             }
-            Log.i(TAG, "Step 3 pass - call disconnected");
+            Log.i(TAG, "Step 3 pass ");
             mStep3Status.setImageResource(R.drawable.fs_good);
             getPassButton().setEnabled(true);
         }
@@ -98,6 +105,9 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
                 R.string.telecom_incoming_self_mgd_info, -1);
         setPassFailButtonClickListeners();
         getPassButton().setEnabled(false);
+
+        // clean up any stuck self-managed calls
+        cleanupConnectionServices();
 
         mStep1Status = view.findViewById(R.id.step_1_status);
         mRegisterPhoneAccount = view.findViewById(R.id.telecom_incoming_self_mgd_register_button);
@@ -148,8 +158,8 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
                         TelecomManager telecomManager =
                                 (TelecomManager) getSystemService(Context.TELECOM_SERVICE);
                         if (telecomManager == null) {
-                            Log.w(TAG, "Step 2 fail - telecom manager null");
-                            mStep2Status.setImageResource(R.drawable.fs_error);
+                            Log.w(TAG, "Step 3 fail - telecom manager null");
+                            mStep3Status.setImageResource(R.drawable.fs_error);
                             return new Throwable("Could not get telecom service.");
                         }
                         telecomManager.addNewIncomingCall(
@@ -158,15 +168,15 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
                         CtsConnectionService ctsConnectionService =
                                 CtsConnectionService.waitForAndGetConnectionService();
                         if (ctsConnectionService == null) {
-                            Log.w(TAG, "Step 2 fail - ctsConnectionService null");
-                            mStep2Status.setImageResource(R.drawable.fs_error);
+                            Log.w(TAG, "Step 3 fail - ctsConnectionService null");
+                            mStep3Status.setImageResource(R.drawable.fs_error);
                             return new Throwable("Could not get connection service.");
                         }
 
                         CtsConnection connection = ctsConnectionService.waitForAndGetConnection();
                         if (connection == null) {
-                            Log.w(TAG, "Step 2 fail - could not get connection");
-                            mStep2Status.setImageResource(R.drawable.fs_error);
+                            Log.w(TAG, "Step 3 fail - could not get connection");
+                            mStep3Status.setImageResource(R.drawable.fs_error);
                             return new Throwable("Could not get connection.");
                         }
                         connection.addListener(mConnectionListener);
@@ -183,7 +193,7 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
                         int capabilities = connection.getConnectionCapabilities();
                         capabilities &= ~Connection.CAPABILITY_HOLD;
                         connection.setConnectionCapabilities(capabilities);
-                        Log.w(TAG, "Step 2 - connection added");
+                        Log.w(TAG, "doInBackground: Step 3 - connection active");
                         return null;
                     } catch (Throwable t) {
                         return t;
@@ -193,11 +203,12 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
                 @Override
                 protected void onPostExecute(Throwable t) {
                     if (t == null) {
-                        mStep2Status.setImageResource(R.drawable.fs_good);
+                        Log.i(TAG, "onPostExecute: Step 3 - "
+                                + "disabling start self-managed call button");
                         mPlaceCall.setEnabled(false);
                     } else {
-                        Log.i(TAG, "Step 2 pass - connection added");
-                        mStep2Status.setImageResource(R.drawable.fs_error);
+                        Log.i(TAG, "Step 3 fail - hit throwable while creating connection");
+                        mStep3Status.setImageResource(R.drawable.fs_error);
                     }
                 }
             }).execute();
@@ -210,7 +221,15 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
         mPlaceCall.setEnabled(false);
     }
 
+    @Override
+    protected void onDestroy() {
+        // cleanup any stuck self-managed calls
+        cleanupConnectionServices();
+        super.onDestroy();
+    }
+
     private void cleanupConnectionServices() {
+        Log.i(TAG, "cleanupConnectionServices: cleaning connections up");
         CtsSelfManagedConnectionService ctsSelfConnSvr =
                 CtsSelfManagedConnectionService.getConnectionService();
         if (ctsSelfConnSvr != null) {

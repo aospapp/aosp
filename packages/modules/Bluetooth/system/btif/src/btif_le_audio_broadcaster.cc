@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/logging.h>
 #include <hardware/bluetooth.h>
 #include <hardware/bt_le_audio.h>
@@ -28,7 +28,6 @@
 
 using base::Bind;
 using base::Unretained;
-using bluetooth::le_audio::BroadcastAudioProfile;
 using bluetooth::le_audio::BroadcastId;
 using bluetooth::le_audio::BroadcastState;
 using bluetooth::le_audio::LeAudioBroadcasterCallbacks;
@@ -52,23 +51,30 @@ class LeAudioBroadcasterInterfaceImpl : public LeAudioBroadcasterInterface,
   }
 
   void CreateBroadcast(
-      std::vector<uint8_t> metadata, BroadcastAudioProfile profile,
-      std::optional<std::array<uint8_t, 16>> broadcast_code) override {
+      bool is_public, std::string broadcast_name,
+      std::optional<bluetooth::le_audio::BroadcastCode> broadcast_code,
+      std::vector<uint8_t> public_metadata,
+      std::vector<uint8_t> subgroup_quality,
+      std::vector<std::vector<uint8_t>> subgroup_metadata) override {
     DVLOG(2) << __func__;
-    do_in_main_thread(
-        FROM_HERE,
-        Bind(&LeAudioBroadcaster::CreateAudioBroadcast,
-             Unretained(LeAudioBroadcaster::Get()), std::move(metadata),
-             static_cast<LeAudioBroadcaster::AudioProfile>(profile),
-             broadcast_code));
+    do_in_main_thread(FROM_HERE, Bind(&LeAudioBroadcaster::CreateAudioBroadcast,
+                                      Unretained(LeAudioBroadcaster::Get()),
+                                      is_public, broadcast_name, broadcast_code,
+                                      std::move(public_metadata),
+                                      std::move(subgroup_quality),
+                                      std::move(subgroup_metadata)));
   }
 
-  void UpdateMetadata(uint32_t broadcast_id,
-                      std::vector<uint8_t> metadata) override {
+  void UpdateMetadata(
+      uint32_t broadcast_id, std::string broadcast_name,
+      std::vector<uint8_t> public_metadata,
+      std::vector<std::vector<uint8_t>> subgroup_metadata) override {
     DVLOG(2) << __func__;
-    do_in_main_thread(FROM_HERE, Bind(&LeAudioBroadcaster::UpdateMetadata,
-                                      Unretained(LeAudioBroadcaster::Get()),
-                                      broadcast_id, std::move(metadata)));
+    do_in_main_thread(FROM_HERE,
+                      Bind(&LeAudioBroadcaster::UpdateMetadata,
+                           Unretained(LeAudioBroadcaster::Get()), broadcast_id,
+                           broadcast_name, std::move(public_metadata),
+                           std::move(subgroup_metadata)));
   }
 
   void StartBroadcast(uint32_t broadcast_id) override {

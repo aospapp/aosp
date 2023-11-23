@@ -132,7 +132,8 @@ TEST(AtomMatcherTest, TestFilter_ALL) {
     std::vector<string> attributionTags = {"location1", "location2", "location3"};
 
     LogEvent event(/*uid=*/0, /*pid=*/0);
-    makeLogEvent(&event, 10 /*atomId*/, 1012345, attributionUids, attributionTags, "some value");
+    makeLogEvent(&event, 10 /*atomId*/, /*timestamp=*/1012345, attributionUids, attributionTags,
+                 "some value");
     HashableDimensionKey output;
 
     filterValues(matchers, event.getValues(), &output);
@@ -225,6 +226,142 @@ TEST(AtomMatcherTest, TestFilterRepeated_ALL) {
     EXPECT_EQ((int32_t)9, output.getValues()[1].mValue.int_value);
     EXPECT_EQ((int32_t)0x01010300, output.getValues()[2].mField.getField());
     EXPECT_EQ((int32_t)13, output.getValues()[2].mValue.int_value);
+}
+
+TEST(AtomMatcherTest, TestFilterWithOneMatcher) {
+    FieldMatcher matcher;
+    matcher.set_field(10);
+    FieldMatcher* child = matcher.add_child();
+    child->set_field(2);
+
+    vector<Matcher> matchers;
+    translateFieldMatcher(matcher, &matchers);
+
+    std::vector<int> attributionUids = {1111, 2222, 3333};
+    std::vector<string> attributionTags = {"location1", "location2", "location3"};
+
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event, 10 /*atomId*/, /*timestamp=*/1012345, attributionUids, attributionTags,
+                 "some value");
+    FieldValue value;
+
+    EXPECT_TRUE(filterValues(matchers[0], event.getValues(), &value));
+    EXPECT_EQ((int32_t)0x20000, value.mField.getField());
+    EXPECT_EQ("some value", value.mValue.str_value);
+}
+
+TEST(AtomMatcherTest, TestFilterWithOneMatcher_PositionFIRST) {
+    FieldMatcher matcher;
+    matcher.set_field(10);
+    FieldMatcher* child = matcher.add_child();
+    child->set_field(1);
+    child->set_position(Position::FIRST);
+    child->add_child()->set_field(1);
+
+    vector<Matcher> matchers;
+    translateFieldMatcher(matcher, &matchers);
+
+    std::vector<int> attributionUids = {1111, 2222, 3333};
+    std::vector<string> attributionTags = {"location1", "location2", "location3"};
+
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event, 10 /*atomId*/, /*timestamp=*/1012345, attributionUids, attributionTags,
+                 "some value");
+    FieldValue value;
+
+    // Should only match the first field.
+    EXPECT_TRUE(filterValues(matchers[0], event.getValues(), &value));
+    EXPECT_EQ((int32_t)0x02010101, value.mField.getField());
+    EXPECT_EQ((int32_t)1111, value.mValue.int_value);
+}
+
+TEST(AtomMatcherTest, TestFilterWithOneMatcher_PositionLAST) {
+    FieldMatcher matcher;
+    matcher.set_field(10);
+    FieldMatcher* child = matcher.add_child();
+    child->set_field(1);
+    child->set_position(Position::LAST);
+    child->add_child()->set_field(1);
+
+    vector<Matcher> matchers;
+    translateFieldMatcher(matcher, &matchers);
+
+    std::vector<int> attributionUids = {1111, 2222, 3333};
+    std::vector<string> attributionTags = {"location1", "location2", "location3"};
+
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event, 10 /*atomId*/, /*timestamp=*/1012345, attributionUids, attributionTags,
+                 "some value");
+    FieldValue value;
+
+    // Should only match the last field.
+    EXPECT_TRUE(filterValues(matchers[0], event.getValues(), &value));
+    EXPECT_EQ((int32_t)0x02018301, value.mField.getField());
+    EXPECT_EQ((int32_t)3333, value.mValue.int_value);
+}
+
+TEST(AtomMatcherTest, TestFilterWithOneMatcher_PositionALL) {
+    FieldMatcher matcher;
+    matcher.set_field(10);
+    FieldMatcher* child = matcher.add_child();
+    child->set_field(1);
+    child->set_position(Position::ALL);
+    child->add_child()->set_field(1);
+
+    vector<Matcher> matchers;
+    translateFieldMatcher(matcher, &matchers);
+
+    std::vector<int> attributionUids = {1111, 2222, 3333};
+    std::vector<string> attributionTags = {"location1", "location2", "location3"};
+
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event, 10 /*atomId*/, 1012345, attributionUids, attributionTags, "some value");
+    FieldValue value;
+
+    // Can't filter with position ALL matcher.
+    EXPECT_FALSE(filterValues(matchers[0], event.getValues(), &value));
+}
+
+TEST(AtomMatcherTest, TestFilterWithOneMatcher_DifferentField) {
+    FieldMatcher matcher;
+    matcher.set_field(10);
+    FieldMatcher* child = matcher.add_child();
+    child->set_field(3);
+
+    vector<Matcher> matchers;
+    translateFieldMatcher(matcher, &matchers);
+
+    std::vector<int> attributionUids = {1111, 2222, 3333};
+    std::vector<string> attributionTags = {"location1", "location2", "location3"};
+
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event, 10 /*atomId*/, /*timestamp=*/1012345, attributionUids, attributionTags,
+                 "some value");
+    FieldValue value;
+
+    // Shouldn't match any fields because matcher is looking for field 3.
+    EXPECT_FALSE(filterValues(matchers[0], event.getValues(), &value));
+}
+
+TEST(AtomMatcherTest, TestFilterWithOneMatcher_EmptyAttributionUids) {
+    FieldMatcher matcher;
+    matcher.set_field(10);
+    FieldMatcher* child = matcher.add_child();
+    child->set_field(1);
+    child->set_position(Position::ALL);
+    child->add_child()->set_field(1);
+
+    vector<Matcher> matchers;
+    translateFieldMatcher(matcher, &matchers);
+
+    std::vector<string> attributionTags = {"location1", "location2", "location3"};
+
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event, 10 /*atomId*/, /*timestamp=*/1012345, {}, attributionTags, "some value");
+    FieldValue value;
+
+    // Shouldn't match any fields because field 1 is empty.
+    EXPECT_FALSE(filterValues(matchers[0], event.getValues(), &value));
 }
 
 TEST(AtomMatcherTest, TestSubDimension) {
@@ -790,6 +927,111 @@ TEST(AtomMatcherTest, TestIsPrimitiveRepeatedField) {
     EXPECT_TRUE(isPrimitiveRepeatedField(field5));
     EXPECT_TRUE(isPrimitiveRepeatedField(field6));
     EXPECT_FALSE(isPrimitiveRepeatedField(field7));
+}
+
+TEST(FieldValueTest, TestShouldKeepSampleInt) {
+    int shardOffset = 5;
+    int shardCount = 2;
+    int pos1[] = {1, 1, 1};
+
+    Field field(1, pos1, 2);
+
+    Value value1((int32_t)1001);
+    Value value2((int32_t)1002);
+
+    FieldValue fieldValue1(field, value1);
+    FieldValue fieldValue2(field, value2);
+
+    EXPECT_TRUE(shouldKeepSample(fieldValue1, shardOffset, shardCount));
+    EXPECT_FALSE(shouldKeepSample(fieldValue2, shardOffset, shardCount));
+}
+
+TEST(FieldValueTest, TestShouldKeepSampleLong) {
+    int shardOffset = 5;
+    int shardCount = 2;
+    int pos1[] = {1, 1, 1};
+
+    Field field(1, pos1, 2);
+
+    Value value1((int64_t)1001L);
+    Value value2((int64_t)1005L);
+
+    FieldValue fieldValue1(field, value1);
+    FieldValue fieldValue2(field, value2);
+
+    EXPECT_FALSE(shouldKeepSample(fieldValue1, shardOffset, shardCount));
+    EXPECT_TRUE(shouldKeepSample(fieldValue2, shardOffset, shardCount));
+}
+
+TEST(FieldValueTest, TestShouldKeepSampleFloat) {
+    int shardOffset = 5;
+    int shardCount = 2;
+    int pos1[] = {1, 1, 1};
+
+    Field field(1, pos1, 2);
+
+    Value value1((float)10.5);
+    Value value2((float)3.9);
+
+    FieldValue fieldValue1(field, value1);
+    FieldValue fieldValue2(field, value2);
+
+    EXPECT_TRUE(shouldKeepSample(fieldValue1, shardOffset, shardCount));
+    EXPECT_FALSE(shouldKeepSample(fieldValue2, shardOffset, shardCount));
+}
+
+TEST(FieldValueTest, TestShouldKeepSampleDouble) {
+    int shardOffset = 5;
+    int shardCount = 2;
+    int pos1[] = {1, 1, 1};
+
+    Field field(1, pos1, 2);
+
+    Value value1((double)1.5);
+    Value value2((double)3.9);
+
+    FieldValue fieldValue1(field, value1);
+    FieldValue fieldValue2(field, value2);
+
+    EXPECT_TRUE(shouldKeepSample(fieldValue1, shardOffset, shardCount));
+    EXPECT_FALSE(shouldKeepSample(fieldValue2, shardOffset, shardCount));
+}
+
+TEST(FieldValueTest, TestShouldKeepSampleString) {
+    int shardOffset = 5;
+    int shardCount = 2;
+    int pos1[] = {1, 1, 1};
+
+    Field field(1, pos1, 2);
+
+    Value value1("str1");
+    Value value2("str2");
+
+    FieldValue fieldValue1(field, value1);
+    FieldValue fieldValue2(field, value2);
+
+    EXPECT_FALSE(shouldKeepSample(fieldValue1, shardOffset, shardCount));
+    EXPECT_TRUE(shouldKeepSample(fieldValue2, shardOffset, shardCount));
+}
+
+TEST(FieldValueTest, TestShouldKeepSampleByteArray) {
+    int shardOffset = 5;
+    int shardCount = 2;
+    int pos1[] = {1, 1, 1};
+
+    Field field(1, pos1, 2);
+
+    vector<uint8_t> message1 = {'\t', 'e', '\0', 's', 't'};
+    vector<uint8_t> message2 = {'\t', 'e', '\0', 's', 't', 't'};
+
+    Value value1(message1);
+    Value value2(message2);
+
+    FieldValue fieldValue1(field, value1);
+    FieldValue fieldValue2(field, value2);
+
+    EXPECT_FALSE(shouldKeepSample(fieldValue1, shardOffset, shardCount));
+    EXPECT_TRUE(shouldKeepSample(fieldValue2, shardOffset, shardCount));
 }
 
 }  // namespace statsd

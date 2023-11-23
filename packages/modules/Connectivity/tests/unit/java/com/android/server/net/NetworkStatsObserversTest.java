@@ -21,11 +21,12 @@ import static android.net.NetworkIdentity.OEM_NONE;
 import static android.net.NetworkStats.DEFAULT_NETWORK_NO;
 import static android.net.NetworkStats.DEFAULT_NETWORK_YES;
 import static android.net.NetworkStats.METERED_NO;
+import static android.net.NetworkStats.METERED_YES;
 import static android.net.NetworkStats.ROAMING_NO;
 import static android.net.NetworkStats.SET_DEFAULT;
 import static android.net.NetworkStats.TAG_NONE;
-import static android.net.NetworkTemplate.buildTemplateMobileAll;
-import static android.net.NetworkTemplate.buildTemplateWifiWildcard;
+import static android.net.NetworkTemplate.MATCH_MOBILE;
+import static android.net.NetworkTemplate.MATCH_WIFI;
 import static android.net.TrafficStats.MB_IN_BYTES;
 import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
 
@@ -67,6 +68,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Tests for {@link NetworkStatsObservers}.
@@ -84,10 +86,13 @@ public class NetworkStatsObserversTest {
     private static final int SUBID_1 = 1;
     private static final String TEST_SSID = "AndroidAP";
 
-    private static NetworkTemplate sTemplateWifi = buildTemplateWifiWildcard();
-    private static NetworkTemplate sTemplateImsi1 = buildTemplateMobileAll(IMSI_1);
-    private static NetworkTemplate sTemplateImsi2 = buildTemplateMobileAll(IMSI_2);
-
+    private static NetworkTemplate sTemplateWifi = new NetworkTemplate.Builder(MATCH_WIFI).build();
+    private static NetworkTemplate sTemplateImsi1 = new NetworkTemplate.Builder(MATCH_MOBILE)
+            .setSubscriberIds(Set.of(IMSI_1))
+            .setMeteredness(METERED_YES).build();
+    private static NetworkTemplate sTemplateImsi2 = new NetworkTemplate.Builder(MATCH_MOBILE)
+            .setSubscriberIds(Set.of(IMSI_2))
+            .setMeteredness(METERED_YES).build();
     private static final int PID_SYSTEM = 1234;
     private static final int PID_RED = 1235;
     private static final int PID_BLUE = 1236;

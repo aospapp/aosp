@@ -17,6 +17,19 @@
 
 #include "main.h"
 
+/* musl libc doesn't implement these GNU extensions.  They are used below
+ * to optimize out walking unnecessary subtrees of /proc, #defining them
+ * to 0 here disables the optimization but leaves the functionality otherwise
+ * unchanged.
+ */
+#ifndef FTW_SKIP_SUBTREE
+#define FTW_SKIP_SUBTREE 0
+#endif
+
+#ifndef FTW_ACTIONRETVAL
+#define FTW_ACTIONRETVAL 0
+#endif
+
 /* 0: undecided, 1: supported, 2: not supported */
 static int perf_query_supported;
 static bool has_perf_query_support(void)

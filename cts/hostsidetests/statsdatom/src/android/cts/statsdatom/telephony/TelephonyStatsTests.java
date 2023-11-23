@@ -29,6 +29,7 @@ import com.android.os.StatsLog.EventMetricData;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.util.RunUtil;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -88,7 +89,7 @@ public class TelephonyStatsTests extends DeviceTestCase implements IBuildReceive
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -104,36 +105,6 @@ public class TelephonyStatsTests extends DeviceTestCase implements IBuildReceive
         mCtsBuild = buildInfo;
     }
 
-    public void testSimSlotState() throws Exception {
-        if (!DeviceUtils.hasFeature(getDevice(), FEATURE_TELEPHONY)) {
-            return;
-        }
-
-        ConfigUtils.uploadConfigForPulledAtom(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
-                AtomsProto.Atom.SIM_SLOT_STATE_FIELD_NUMBER);
-
-        AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
-
-        List<AtomsProto.Atom> data = ReportUtils.getGaugeMetricAtoms(getDevice());
-        assertThat(data).isNotEmpty();
-        AtomsProto.SimSlotState atom = data.get(0).getSimSlotState();
-        // NOTE: it is possible for devices with telephony support to have no SIM at all
-        assertThat(atom.getActiveSlotCount()).isEqualTo(getActiveSimSlotCount());
-        assertThat(atom.getSimCount()).isAtMost(getActiveSimCountUpperBound());
-        assertThat(atom.getEsimCount()).isAtMost(getActiveEsimCountUpperBound());
-        // Above assertions do no necessarily enforce the following, since some are upper bounds
-        if (!isEuiccSupportsMultipleEnabledProfiles()) {
-            assertThat(atom.getActiveSlotCount()).isAtLeast(atom.getSimCount());
-        }
-        assertThat(atom.getSimCount()).isAtLeast(atom.getEsimCount());
-        assertThat(atom.getEsimCount()).isAtLeast(0);
-        // For GSM phones, at least one slot should be active even if there is no card
-        if (hasGsmPhone()) {
-            assertThat(atom.getActiveSlotCount()).isAtLeast(1);
-        }
-    }
-
     public void testSupportedRadioAccessFamily() throws Exception {
         if (!DeviceUtils.hasFeature(getDevice(), FEATURE_TELEPHONY)) {
             return;
@@ -143,7 +114,7 @@ public class TelephonyStatsTests extends DeviceTestCase implements IBuildReceive
                 AtomsProto.Atom.SUPPORTED_RADIO_ACCESS_FAMILY_FIELD_NUMBER);
 
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         List<AtomsProto.Atom> data = ReportUtils.getGaugeMetricAtoms(getDevice());
         assertThat(data).isNotEmpty();
@@ -169,7 +140,7 @@ public class TelephonyStatsTests extends DeviceTestCase implements IBuildReceive
                 AtomsProto.Atom.CARRIER_ID_TABLE_VERSION_FIELD_NUMBER);
 
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         List<AtomsProto.Atom> data = ReportUtils.getGaugeMetricAtoms(getDevice());
         assertThat(data).isNotEmpty();
@@ -188,10 +159,10 @@ public class TelephonyStatsTests extends DeviceTestCase implements IBuildReceive
         turnOnAirplaneMode();
         // wait long enough for airplane mode events to propagate, but less than threshold for
         // long toggle.
-        Thread.sleep(1_200);
+        RunUtil.getDefault().sleep(1_200);
         turnOffAirplaneMode();
         // wait long enough for airplane mode events to propagate.
-        Thread.sleep(1_200);
+        RunUtil.getDefault().sleep(3_200);
 
         // Verify that we have at least one atom for enablement and one for disablement.
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
@@ -221,10 +192,10 @@ public class TelephonyStatsTests extends DeviceTestCase implements IBuildReceive
 
         turnOnAirplaneMode();
         // wait long enough for long airplane mode toggle (10 seconds).
-        Thread.sleep(12_000);
+        RunUtil.getDefault().sleep(12_000);
         turnOffAirplaneMode();
         // wait long enough for airplane mode events to propagate.
-        Thread.sleep(1_200);
+        RunUtil.getDefault().sleep(1_200);
 
         // Verify that we have at least one atom for enablement and one for disablement.
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
@@ -242,42 +213,6 @@ public class TelephonyStatsTests extends DeviceTestCase implements IBuildReceive
         assertThat(airplaneModeEnabledAtom).isNotNull();
         assertThat(airplaneModeDisabledAtom).isNotNull();
         assertThat(airplaneModeDisabledAtom.getShortToggle()).isFalse();
-    }
-
-    public void testModemRestart() throws Exception {
-        if (!DeviceUtils.hasFeature(getDevice(), FEATURE_TELEPHONY)) {
-            return;
-        }
-
-        ConfigUtils.uploadConfigForPushedAtom(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
-                AtomsProto.Atom.MODEM_RESTART_FIELD_NUMBER);
-
-        // Restart modem. If the command fails, exit the test case.
-        boolean restart = restartModem();
-        if (!restart) {
-            return;
-        }
-
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
-
-        // Verify that we have at least one atom for modem restart
-        List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
-        assertThat(data).isNotEmpty();
-    }
-
-    public void testPerSimStatus() throws Exception {
-        if (!DeviceUtils.hasFeature(getDevice(), FEATURE_TELEPHONY)) {
-            return;
-        }
-
-        ConfigUtils.uploadConfigForPulledAtom(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
-                AtomsProto.Atom.PER_SIM_STATUS_FIELD_NUMBER);
-
-        AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
-
-        List<AtomsProto.Atom> data = ReportUtils.getGaugeMetricAtoms(getDevice());
-        assertThat(data).hasSize(getActiveSimSlotCount());
     }
 
     private boolean hasGsmPhone() throws Exception {
@@ -312,7 +247,8 @@ public class TelephonyStatsTests extends DeviceTestCase implements IBuildReceive
         List<Map<String, String>> slots = getTelephonyDumpEntries("UiccSlot");
         long count = slots.stream().filter(slot ->
                 "true".equals(slot.get("mActive"))
-                        && "CARDSTATE_PRESENT".equals(slot.get("mCardState"))).count();
+                        && slot.get("mCardState") != null
+                        && slot.get("mCardState").contains("CARDSTATE_PRESENT")).count();
         return Math.toIntExact(count);
     }
 
@@ -325,7 +261,8 @@ public class TelephonyStatsTests extends DeviceTestCase implements IBuildReceive
         List<Map<String, String>> slots = getTelephonyDumpEntries("UiccSlot");
         long count = slots.stream().filter(slot ->
                 "true".equals(slot.get("mActive"))
-                        && "CARDSTATE_PRESENT".equals(slot.get("mCardState"))
+                        && slot.get("mCardState") != null
+                        && slot.get("mCardState").contains("CARDSTATE_PRESENT")
                         && "true".equals(slot.get("mIsEuicc"))).count();
         return Math.toIntExact(count);
     }
@@ -350,7 +287,7 @@ public class TelephonyStatsTests extends DeviceTestCase implements IBuildReceive
             if (lines.length >= DUMPSYS_MIN_NUM_LINES) {
                 return new LinkedList<>(Arrays.asList(lines));
             }
-            Thread.sleep(DUMPSYS_RETRY_WAIT_MILLIS);
+            RunUtil.getDefault().sleep(DUMPSYS_RETRY_WAIT_MILLIS);
         }
         throw new RuntimeException(
                 "dumpsys wasn't ready after "

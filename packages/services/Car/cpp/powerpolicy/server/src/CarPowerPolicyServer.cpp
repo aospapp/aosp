@@ -71,10 +71,11 @@ using ::android::frameworks::automotive::vhal::HalPropError;
 using ::android::frameworks::automotive::vhal::IHalPropValue;
 using ::android::frameworks::automotive::vhal::ISubscriptionClient;
 using ::android::frameworks::automotive::vhal::IVhalClient;
+using ::android::frameworks::automotive::vhal::VhalClientResult;
+
 using ::android::hardware::hidl_vec;
 using ::android::hardware::interfacesEqual;
 using ::android::hardware::Return;
-using ::android::hardware::automotive::vehicle::VhalResult;
 
 using ::android::hidl::base::V1_0::IBase;
 using ::ndk::ScopedAIBinder_DeathRecipient;
@@ -237,7 +238,7 @@ CarPowerPolicyServer::CarPowerPolicyServer() :
       mSilentModeHandler(this),
       mIsPowerPolicyLocked(false),
       mIsCarServiceInOperation(false),
-      mIsFirstConnectionToVhal(false) {
+      mIsFirstConnectionToVhal(true) {
     mMessageHandler = new MessageHandlerImpl(this);
     mDeathRecipient = ScopedAIBinder_DeathRecipient(
             AIBinder_DeathRecipient_new(&CarPowerPolicyServer::onBinderDied));
@@ -279,6 +280,12 @@ ScopedAStatus CarPowerPolicyServer::getPowerComponentState(PowerComponent compon
 ScopedAStatus CarPowerPolicyServer::registerPowerPolicyChangeCallback(
         const std::shared_ptr<ICarPowerPolicyChangeCallback>& callback,
         const CarPowerPolicyFilter& filter) {
+    if (callback == nullptr) {
+        std::string errorMsg = "Cannot register a null callback";
+        ALOGW("%s", errorMsg.c_str());
+        return ScopedAStatus::fromServiceSpecificErrorWithMessage(EX_ILLEGAL_ARGUMENT,
+                                                                  errorMsg.c_str());
+    }
     Mutex::Autolock lock(mMutex);
     pid_t callingPid = IPCThreadState::self()->getCallingPid();
     uid_t callingUid = IPCThreadState::self()->getCallingUid();
@@ -319,6 +326,12 @@ ScopedAStatus CarPowerPolicyServer::unregisterPowerPolicyChangeCallback(
     Mutex::Autolock lock(mMutex);
     pid_t callingPid = IPCThreadState::self()->getCallingPid();
     uid_t callingUid = IPCThreadState::self()->getCallingUid();
+    if (callback == nullptr) {
+        std::string errorMsg = "Cannot unregister a null callback";
+        ALOGW("%s", errorMsg.c_str());
+        return ScopedAStatus::fromServiceSpecificErrorWithMessage(EX_ILLEGAL_ARGUMENT,
+                                                                  errorMsg.c_str());
+    }
     AIBinder* clientId = callback->asBinder().get();
     auto it = lookupPowerPolicyChangeCallback(mPolicyChangeCallbacks, clientId);
     if (it == mPolicyChangeCallbacks.end()) {
@@ -349,7 +362,7 @@ ScopedAStatus CarPowerPolicyServer::notifyCarServiceReady(PolicyState* policySta
     if (!status.isOk()) {
         return status;
     }
-    mSilentModeHandler.stopMonitoringSilentModeHwState(/*shouldWaitThread=*/false);
+    mSilentModeHandler.stopMonitoringSilentModeHwState();
     Mutex::Autolock lock(mMutex);
     policyState->policyId =
             isPowerPolicyAppliedLocked() ? mCurrentPowerPolicyMeta.powerPolicy->policyId : "";
@@ -585,8 +598,10 @@ Result<void> CarPowerPolicyServer::applyPowerPolicy(const std::string& policyId,
         ALOGW("Failed to tell VHAL the new power policy(%s): %s", policyId.c_str(),
               ret.error().message().c_str());
     }
+    auto accumulatedPolicy = mComponentHandler.getAccumulatedPolicy();
     for (auto client : clients) {
-        ICarPowerPolicyChangeCallback::fromBinder(client.binder)->onPolicyChanged(*policy);
+        ICarPowerPolicyChangeCallback::fromBinder(client.binder)
+                ->onPolicyChanged(*accumulatedPolicy);
     }
     ALOGI("The current power policy is %s", policyId.c_str());
     return {};
@@ -713,6 +728,7 @@ void CarPowerPolicyServer::applyInitialPowerPolicy() {
         !ret.ok()) {
         ALOGW("Cannot apply the initial power policy(%s): %s", policyId.c_str(),
               ret.error().message().c_str());
+        return;
     }
     ALOGD("Policy(%s) is applied as the initial one", policyId.c_str());
 }
@@ -763,7 +779,7 @@ void CarPowerPolicyServer::subscribeToProperty(
         vhalService = mVhalService;
     }
 
-    VhalResult<std::unique_ptr<IHalPropValue>> result =
+    VhalClientResult<std::unique_ptr<IHalPropValue>> result =
             vhalService->getValueSync(*vhalService->createHalPropValue(prop));
 
     if (!result.ok()) {
@@ -798,7 +814,7 @@ Result<void> CarPowerPolicyServer::notifyVhalNewPowerPolicy(const std::string& p
     std::unique_ptr<IHalPropValue> propValue = vhalService->createHalPropValue(prop);
     propValue->setStringValue(policyId);
 
-    VhalResult<void> result = vhalService->setValueSync(*propValue);
+    VhalClientResult<void> result = vhalService->setValueSync(*propValue);
     if (!result.ok()) {
         return Error() << "Failed to set CURRENT_POWER_POLICY property";
     }

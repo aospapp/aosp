@@ -12,8 +12,6 @@ class gtest_parser(object):
     """This class knows how to understand GTest test output.
 
     The code was borrowed with minor changes from chrome utility gtest_command.
-        http://src.chromium.org/viewvc/chrome/trunk/tools/build/scripts/master/
-        log_parser/gtest_command.py?view=markup
     """
 
     def __init__(self):
@@ -49,21 +47,22 @@ class gtest_parser(object):
         # This regexp also matches SomeName.SomeTest/1, which should be
         # harmless.
         test_name_regexp = r'((\w+/)?\w+\.\w+(\.\w+)?(/\d+)?)'
-        self._test_start = re.compile('\[\s+RUN\s+\] ' + test_name_regexp)
-        self._test_ok = re.compile('\[\s+OK\s+\] ' + test_name_regexp)
-        self._test_fail = re.compile('\[\s+FAILED\s+\] ' + test_name_regexp)
+        self._test_start = re.compile(r'\[\s+RUN\s+\] ' + test_name_regexp)
+        self._test_ok = re.compile(r'\[\s+OK\s+\] ' + test_name_regexp)
+        self._test_fail = re.compile(r'\[\s+FAILED\s+\] ' + test_name_regexp)
         self._test_timeout = re.compile(
-            'Test timeout \([0-9]+ ms\) exceeded for ' + test_name_regexp)
-        self._disabled = re.compile('  YOU HAVE (\d+) DISABLED TEST')
-        self._flaky = re.compile('  YOU HAVE (\d+) FLAKY TEST')
+                r'Test timeout \([0-9]+ ms\) exceeded for ' + test_name_regexp)
+        self._disabled = re.compile(r'  YOU HAVE (\d+) DISABLED TEST')
+        self._flaky = re.compile(r'  YOU HAVE (\d+) FLAKY TEST')
 
         self._suppression_start = re.compile(
-            'Suppression \(error hash=#([0-9A-F]+)#\):')
-        self._suppression_end = re.compile('^}\s*$')
+                r'Suppression \(error hash=#([0-9A-F]+)#\):')
+        self._suppression_end = re.compile(r'^}\s*$')
 
         # TODO b:169251326 terms below are set outside of this codebase
         # and should be updated when possible. ("master" -> "main")
-        self._main_name_re = re.compile('\[Running for master: "([^"]*)"')
+        self._main_name_re = re.compile(
+                r'\[Running for master: "([^"]*)"')  # nocheck
         self.main_name = ''
 
         self._error_logging_start_re = re.compile('=' * 70)

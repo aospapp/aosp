@@ -17,7 +17,7 @@
 #ifndef CHRE_PLATFORM_ZEPHYR_FATAL_ERROR_H_
 #define CHRE_PLATFORM_ZEPHYR_FATAL_ERROR_H_
 
-#include <kernel.h>
+#include <zephyr/kernel.h>
 
 #define FATAL_ERROR_QUIT() k_panic()
 

@@ -34,6 +34,7 @@ public class TestApp {
     public static final String A = "com.android.cts.install.lib.testapp.A";
     public static final String B = "com.android.cts.install.lib.testapp.B";
     public static final String C = "com.android.cts.install.lib.testapp.C";
+    public static final String S = "com.android.cts.install.lib.testapp.S";
 
     // Apk collection
     public static final TestApp A1 = new TestApp("Av1", A, 1, /*isApex*/false,
@@ -72,6 +73,11 @@ public class TestApp {
             "TestAppCv2.apk");
     public static final TestApp CRollbackRetain2 = new TestApp("CRollbackRetain2", C, 2,
             /*isApex*/false, "TestAppCRollbackRetainV2.apk");
+
+    public static final TestApp S1 = new TestApp("Sv1", S, 1, /*isApex*/false,
+            "TestAppSv1.apk");
+    public static final TestApp S2 = new TestApp("Sv1", S, 2, /*isApex*/false,
+            "TestAppSv2.apk");
 
     // Apex collection
     public static final TestApp Apex1 = new TestApp("Apex1", SHIM_APEX_PACKAGE_NAME, 1,

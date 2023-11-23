@@ -4,6 +4,9 @@
       "name": "scudo_unit_tests"
     },
     {
+      "name": "scudo_hooks_unit_tests"
+    },
+    {
       "name": "memunreachable_unit_test"
     },
     {

@@ -30,6 +30,8 @@ import android.location.cts.gnss.pseudorange.PseudorangePositionVelocityFromReal
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 
+import androidx.test.filters.RequiresDevice;
+
 import com.android.compatibility.common.util.CddTest;
 
 import java.util.ArrayList;
@@ -37,8 +39,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-
-import androidx.test.filters.RequiresDevice;
 
 /**
  * Test computing and verifying the pseudoranges based on the raw measurements
@@ -107,6 +107,7 @@ public class GnssPseudorangeVerificationTest extends GnssTestCase {
    * This tests uses actual data retrieved from Gnss HAL.
    */
   @CddTest(requirement="7.3.3")
+  @RequiresDevice  // emulated devices do not support real measurements so far.
   public void testPseudorangeValue() throws Exception {
     // Checks if Gnss hardware feature is present, skips test (pass) if not
     if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG)) {

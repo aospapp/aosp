@@ -34,6 +34,8 @@ import com.android.compatibility.common.util.BlockingCallback;
 import com.android.compatibility.common.util.ShellIdentityUtils.QuadFunction;
 import com.android.compatibility.common.util.ShellIdentityUtils.TriFunction;
 
+import org.junit.Assume;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
@@ -239,8 +241,11 @@ public class ActivityContext extends Activity {
         // As we show an Activity we must be in the foreground
         UserReference currentUser = TestApis.users().current();
         try {
-            TestApis.users().instrumented().switchTo();
-
+            Assume.assumeTrue(
+                    "Requires user to be switched to but instrumented user cannot be switched to",
+                    TestApis.users().instrumented().canBeSwitchedTo() ||
+                            (TestApis.users().instrumented().isProfile()
+                                    && TestApis.users().instrumented().parent().canBeSwitchedTo()));
             Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
 
             if (!instrumentation.getContext().getPackageName().equals(

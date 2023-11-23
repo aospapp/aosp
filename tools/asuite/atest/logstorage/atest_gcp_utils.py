@@ -28,8 +28,10 @@ Utility functions for atest.
 """
 from __future__ import print_function
 
-import os
+import getpass
 import logging
+import os
+import subprocess
 import uuid
 try:
     import httplib2
@@ -37,9 +39,8 @@ except ModuleNotFoundError as e:
     logging.debug('Import error due to %s', e)
 
 from pathlib import Path
-import constants
+from socket import socket
 
-from logstorage import logstorage_utils
 try:
     # pylint: disable=import-error
     from oauth2client import client as oauth2_client
@@ -48,7 +49,9 @@ try:
 except ModuleNotFoundError as e:
     logging.debug('Import error due to %s', e)
 
-import atest_utils
+from atest.logstorage import logstorage_utils
+from atest import atest_utils
+from atest import constants
 
 class RunFlowFlags():
     """Flags for oauth2client.tools.run_flow."""
@@ -117,6 +120,18 @@ class GCPHelper():
         Returns:
             An oauth2client.OAuth2Credentials instance.
         """
+        credentials = None
+        # SSO auth
+        try:
+            token = self._get_sso_access_token()
+            credentials = oauth2_client.AccessTokenCredentials(
+                token , 'atest')
+            if credentials:
+                return credentials
+        # pylint: disable=broad-except
+        except Exception as e:
+            logging.debug('Exception:%s', e)
+        # GCP auth flow
         credentials = self.get_refreshed_credential_from_file(creds_file_path)
         if not credentials:
             storage = multistore_file.get_credential_storage(
@@ -130,20 +145,53 @@ class GCPHelper():
     def _run_auth_flow(self, storage):
         """Get user oauth2 credentials.
 
+        Using the loopback IP address flow for desktop clients.
+
         Args:
             storage: GCP storage object.
         Returns:
             An oauth2client.OAuth2Credentials instance.
         """
-        flags = RunFlowFlags(browser_auth=False)
+        flags = RunFlowFlags(browser_auth=True)
+
+        # Get a free port on demand.
+        port = None
+        while not port or port < 10000:
+            with socket() as local_socket:
+                local_socket.bind(('',0))
+                _, port = local_socket.getsockname()
+        _localhost_port = port
+        _direct_uri = f'http://localhost:{_localhost_port}'
         flow = oauth2_client.OAuth2WebServerFlow(
             client_id=self.client_id,
             client_secret=self.client_secret,
             scope=self.scope,
-            user_agent=self.user_agent)
+            user_agent=self.user_agent,
+            redirect_uri=f'{_direct_uri}')
         credentials = oauth2_tools.run_flow(
             flow=flow, storage=storage, flags=flags)
         return credentials
+
+    @staticmethod
+    def _get_sso_access_token():
+        """Use stubby command line to exchange corp sso to a scoped oauth
+        token.
+
+        Returns:
+            A token string.
+        """
+        if not constants.TOKEN_EXCHANGE_COMMAND:
+            return None
+
+        request = constants.TOKEN_EXCHANGE_REQUEST.format(
+            user=getpass.getuser(), scope=constants.SCOPE)
+        # The output format is: oauth2_token: "<TOKEN>"
+        return subprocess.run(constants.TOKEN_EXCHANGE_COMMAND,
+                              input=request,
+                              check=True,
+                              text=True,
+                              shell=True,
+                              stdout=subprocess.PIPE).stdout.split('"')[1]
 
 
 def do_upload_flow(extra_args):
@@ -157,9 +205,7 @@ def do_upload_flow(extra_args):
         tuple(invocation, workunit)
     """
     config_folder = os.path.join(atest_utils.get_misc_dir(), '.atest')
-    creds = request_consent_of_upload_test_result(
-        config_folder,
-        extra_args.get(constants.REQUEST_UPLOAD_RESULT, None))
+    creds = fetch_credential(config_folder, extra_args)
     if creds:
         inv, workunit, local_build_id, build_target = _prepare_data(creds)
         extra_args[constants.INVOCATION_ID] = inv['invocationId']
@@ -169,55 +215,55 @@ def do_upload_flow(extra_args):
         if not os.path.exists(os.path.dirname(constants.TOKEN_FILE_PATH)):
             os.makedirs(os.path.dirname(constants.TOKEN_FILE_PATH))
         with open(constants.TOKEN_FILE_PATH, 'w') as token_file:
-            token_file.write(creds.token_response['access_token'])
+            if creds.token_response:
+                token_file.write(creds.token_response['access_token'])
+            else:
+                token_file.write(creds.access_token)
         return creds, inv
     return None, None
 
-def request_consent_of_upload_test_result(config_folder,
-                                            request_to_upload_result):
-    """Request the consent of upload test results at the first time.
+def fetch_credential(config_folder, extra_args):
+    """Fetch the credential whenever --request-upload-result is specified.
 
     Args:
-        config_folder: The directory path to put config file.
-        request_to_upload_result: Prompt message for user determine.
+        config_folder: The directory path to put config file. The default path
+                       is ~/.atest.
+        extra_args: Dict of extra args to add to test run.
     Return:
         The credential object.
     """
     if not os.path.exists(config_folder):
         os.makedirs(config_folder)
-    not_upload_file = os.path.join(config_folder,
-                                    constants.DO_NOT_UPLOAD)
+    not_upload_file = os.path.join(config_folder, constants.DO_NOT_UPLOAD)
     # Do nothing if there are no related config or DO_NOT_UPLOAD exists.
     if (not constants.CREDENTIAL_FILE_NAME or
             not constants.TOKEN_FILE_PATH):
         return None
 
     creds_f = os.path.join(config_folder, constants.CREDENTIAL_FILE_NAME)
-    yn_result = False
-    if request_to_upload_result:
-        yn_result = atest_utils.prompt_with_yn_result(
-            constants.UPLOAD_TEST_RESULT_MSG, False)
-        if yn_result:
-            if os.path.exists(not_upload_file):
-                os.remove(not_upload_file)
-        else:
-            if os.path.exists(creds_f):
-                os.remove(creds_f)
+    if extra_args.get(constants.REQUEST_UPLOAD_RESULT):
+        if os.path.exists(not_upload_file):
+            os.remove(not_upload_file)
+    else:
+        # TODO(b/275113186): Change back to default upload after AnTS upload
+        #  extremely slow problem be solved.
+        if os.path.exists(creds_f):
+            os.remove(creds_f)
+        Path(not_upload_file).touch()
 
-    # If the credential file exists or the user says “Yes”, ATest will
-    # try to get the credential from the file, else will create a
-    # DO_NOT_UPLOAD to keep the user's decision.
+    # If DO_NOT_UPLOAD not exist, ATest will try to get the credential
+    # from the file.
     if not os.path.exists(not_upload_file):
-        if os.path.exists(creds_f) or yn_result:
-            return GCPHelper(
-                client_id=constants.CLIENT_ID,
-                client_secret=constants.CLIENT_SECRET,
-                user_agent='atest').get_credential_with_auth_flow(creds_f)
+        return GCPHelper(
+            client_id=constants.CLIENT_ID,
+            client_secret=constants.CLIENT_SECRET,
+            user_agent='atest').get_credential_with_auth_flow(creds_f)
 
-    Path(not_upload_file).touch()
+    # TODO(b/275113186): Change back the warning message after the bug solved.
     atest_utils.colorful_print(
-        'WARNING: In order to allow upload local test results to AnTS, it '
-        'is recommended you add the option --request-upload-result.',
+        'WARNING: AnTS upload disabled by default due to upload slowly'
+        '(b/275113186). If you still want to upload test result to AnTS, '
+        'please add the option --request-upload-result manually.',
         constants.YELLOW)
     return None
 
@@ -256,9 +302,9 @@ def _get_branch(build_client):
     """
     default_branch = ('git_master'
                         if constants.CREDENTIAL_FILE_NAME else 'aosp-master')
-    local_branch = atest_utils.get_manifest_branch()
-    branches = [b['name'] for b in build_client.list_branch()['branches']]
-    return local_branch if local_branch in branches else default_branch
+    local_branch = "git_%s" % atest_utils.get_manifest_branch()
+    branch = build_client.get_branch(local_branch)
+    return local_branch if branch else default_branch
 
 def _get_target(branch, build_client):
     """Get local build selected target.

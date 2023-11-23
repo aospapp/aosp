@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,10 +8,11 @@ import logging, math, time
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import rtc
+from autotest_lib.client.cros.power import force_discharge_utils
 from autotest_lib.client.cros.power import power_dashboard
 from autotest_lib.client.cros.power import power_status
-from autotest_lib.client.cros.power import power_telemetry_utils
 from autotest_lib.client.cros.power import power_suspend
+from autotest_lib.client.cros.power import power_telemetry_utils
 from autotest_lib.client.cros.power import power_utils
 
 
@@ -21,14 +23,18 @@ class power_Standby(test.test):
     _min_sample_hours = 0.1
 
     def initialize(self, pdash_note=''):
-        """Reset force discharge state."""
-        self._force_discharge_enabled = False
+        """Initialize."""
         self._pdash_note = pdash_note
         self._checkpoint_logger = power_status.CheckpointLogger()
 
-    def run_once(self, test_hours=None, sample_hours=None,
-                 max_milliwatts_standby=500, ac_ok=False,
-                 force_discharge=False, suspend_state='', bypass_check=False):
+    def run_once(self,
+                 test_hours=None,
+                 sample_hours=None,
+                 max_milliwatts_standby=500,
+                 ac_ok=False,
+                 force_discharge='false',
+                 suspend_state='',
+                 bypass_check=False):
         """Put DUT to suspend state for |sample_hours| and measure power."""
         if not power_utils.has_battery():
             raise error.TestNAError('Skipping test because DUT has no battery.')
@@ -46,17 +52,13 @@ class power_Standby(test.test):
 
         power_stats = power_status.get_status()
 
-        if not force_discharge and not ac_ok and power_stats.on_ac():
+        self._force_discharge_success = force_discharge_utils.process(
+                force_discharge, power_stats)
+        if self._force_discharge_success:
+            ac_ok = True
+
+        if force_discharge == 'false' and not ac_ok and power_stats.on_ac():
             raise error.TestError('On AC, please unplug power supply.')
-
-        if force_discharge:
-            if not power_stats.on_ac():
-                raise error.TestError('Not on AC, please plug in power supply '
-                                      'to attempt force discharge.')
-            if not power_utils.charge_control_by_ectool(False):
-                raise error.TestError('Unable to force discharge.')
-
-            self._force_discharge_enabled = True
 
         charge_start = power_stats.battery.charge_now
         voltage_start = power_stats.battery.voltage_now
@@ -120,7 +122,7 @@ class power_Standby(test.test):
             if not bypass_check:
                 raise error.TestError('Charge used is suspect.')
             # The standby time is too short, make it 0.001 to avoid divide by 0.
-            logging.warn('Total Charge used was 0')
+            logging.warning('Total Charge used was 0')
             total_charge_used = 0.001
 
         voltage_end = power_stats.battery.voltage_now
@@ -132,7 +134,7 @@ class power_Standby(test.test):
         results['ah_charge_start'] = charge_start
         results['ah_charge_now'] = charge_end
         results['ah_charge_used'] = total_charge_used
-        results['force_discharge'] = self._force_discharge_enabled
+        results['force_discharge'] = self._force_discharge_success
         results['hours_standby_time'] = standby_hours
         results['hours_standby_time_tested'] = elapsed_hours
         results['v_voltage_start'] = voltage_start
@@ -160,5 +162,4 @@ class power_Standby(test.test):
 
     def cleanup(self):
         """Clean up force discharge."""
-        if self._force_discharge_enabled:
-            power_utils.charge_control_by_ectool(True)
+        force_discharge_utils.restore(self._force_discharge_success)

@@ -15,6 +15,7 @@
  */
 package android.compat.hiddenapi.cts;
 
+import com.android.tradefed.util.RunUtil;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -88,7 +89,7 @@ public class HostsideStatsdAtomTests extends DeviceTestCase implements IBuildRec
             // Trigger hidden api event.
             runActivity(getDevice(), TEST_PKG, "HiddenApiUsedActivity",
                     /*actionKey=*/null, /*actionValue=*/null);
-            Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
             List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
             assertThat(data).hasSize(1);
@@ -134,7 +135,7 @@ public class HostsideStatsdAtomTests extends DeviceTestCase implements IBuildRec
             @Nullable String actionKey, @Nullable String actionValue, long waitTimeMs)
             throws Exception {
         try (AutoCloseable a = withActivity(device, pkgName, activity, actionKey, actionValue)) {
-            Thread.sleep(waitTimeMs);
+            RunUtil.getDefault().sleep(waitTimeMs);
         }
     }
 
@@ -166,7 +167,7 @@ public class HostsideStatsdAtomTests extends DeviceTestCase implements IBuildRec
 
         return () -> {
             device.executeShellCommand("am force-stop " + pkgName);
-            Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         };
     }
 

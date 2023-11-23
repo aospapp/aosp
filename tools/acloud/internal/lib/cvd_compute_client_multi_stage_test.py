@@ -19,7 +19,6 @@
 import collections
 import glob
 import os
-import subprocess
 import unittest
 
 from unittest import mock
@@ -51,6 +50,7 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
     MACHINE_TYPE = "fake-machine-type"
     NETWORK = "fake-network"
     ZONE = "fake-zone"
+    PROJECT = "fake-project"
     BRANCH = "fake-branch"
     TARGET = "aosp_cf_x86_64_phone-userdebug"
     BUILD_ID = "2263051"
@@ -68,8 +68,6 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
     GPU = "fake-gpu"
     DISK_TYPE = "fake-disk-type"
     FAKE_IP = IP(external="1.1.1.1", internal="10.1.1.1")
-    REMOTE_HOST_IP = "192.0.2.1"
-    REMOTE_HOST_INSTANCE_NAME = "host-192.0.2.1-2263051-aosp_cf_x86_64_phone"
 
     def _GetFakeConfig(self):
         """Create a fake configuration object.
@@ -82,6 +80,7 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
         fake_cfg.machine_type = self.MACHINE_TYPE
         fake_cfg.network = self.NETWORK
         fake_cfg.zone = self.ZONE
+        fake_cfg.project = self.PROJECT
         fake_cfg.resolution = "{x}x{y}x32x{dpi}".format(
             x=self.X_RES, y=self.Y_RES, dpi=self.DPI)
         fake_cfg.metadata_variable = self.METADATA
@@ -117,6 +116,7 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
         self.args.avd_type = constants.TYPE_CF
         self.args.flavor = "phone"
         self.args.adb_port = None
+        self.args.fastboot_port = None
         self.args.base_instance_num = None
         self.args.hw_property = "cpu:2,resolution:1080x1920,dpi:240,memory:4g,disk:10g"
         self.args.num_avds_per_instance = 2
@@ -126,44 +126,7 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
         self.args.autoconnect = False
         self.args.disk_type = self.DISK_TYPE
         self.args.openwrt = False
-
-    # pylint: disable=protected-access
-    @mock.patch.object(utils, "GetBuildEnvironmentVariable", return_value="fake_env_cf_x86")
-    @mock.patch.object(glob, "glob", return_value=["fake.img"])
-    def testGetLaunchCvdArgs(self, _mock_check_img, _mock_env):
-        """test GetLaunchCvdArgs."""
-        # test GetLaunchCvdArgs with avd_spec
-        self.Patch(cvd_compute_client_multi_stage.CvdComputeClient,
-                   "_GetConfigFromAndroidInfo", return_value="phone")
-        fake_avd_spec = avd_spec.AVDSpec(self.args)
-        expected_args = ["-config=phone", "-x_res=1080", "-y_res=1920", "-dpi=240",
-                         "-data_policy=always_create", "-blank_data_image_mb=10240",
-                         "-cpus=2", "-memory_mb=4096", "-num_instances=2",
-                         "--setupwizard_mode=REQUIRED",
-                         "-undefok=report_anonymous_usage_stats,config",
-                         "-report_anonymous_usage_stats=y"]
-        launch_cvd_args = self.cvd_compute_client_multi_stage._GetLaunchCvdArgs(fake_avd_spec)
-        self.assertEqual(launch_cvd_args, expected_args)
-
-        self.args.openwrt = True
-        fake_avd_spec = avd_spec.AVDSpec(self.args)
-        expected_args = ["-config=phone", "-x_res=1080", "-y_res=1920", "-dpi=240",
-                         "-data_policy=always_create", "-blank_data_image_mb=10240",
-                         "-cpus=2", "-memory_mb=4096", "-console=true",
-                         "-num_instances=2", "--setupwizard_mode=REQUIRED",
-                         "-undefok=report_anonymous_usage_stats,config",
-                         "-report_anonymous_usage_stats=y"]
-        launch_cvd_args = self.cvd_compute_client_multi_stage._GetLaunchCvdArgs(fake_avd_spec)
-        self.assertEqual(launch_cvd_args, expected_args)
-
-        # test GetLaunchCvdArgs without avd_spec
-        expected_args = ["-x_res=720", "-y_res=1280", "-dpi=160",
-                         "--setupwizard_mode=REQUIRED",
-                         "-undefok=report_anonymous_usage_stats,config",
-                         "-report_anonymous_usage_stats=y"]
-        launch_cvd_args = self.cvd_compute_client_multi_stage._GetLaunchCvdArgs(
-            avd_spec=None)
-        self.assertEqual(launch_cvd_args, expected_args)
+        self.args.webrtc_device_id = "cvd-1"
 
     @mock.patch.object(utils, "GetBuildEnvironmentVariable", return_value="fake_env_cf_x86")
     @mock.patch.object(glob, "glob", return_value=["fake.img"])
@@ -174,71 +137,29 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
     @mock.patch.object(gcompute_client.ComputeClient, "CreateInstance")
     @mock.patch.object(cvd_compute_client_multi_stage.CvdComputeClient, "_GetDiskArgs",
                        return_value=[{"fake_arg": "fake_value"}])
-    @mock.patch("getpass.getuser", return_value="fake_user")
-    def testCreateInstance(self, _get_user, _get_disk_args, mock_create,
-                           _get_image, _compare_machine_size, mock_check_img,
-                           _mock_env):
+    def testCreateInstance(self, _get_disk_args, mock_create, _get_image,
+                           _compare_machine_size, _mock_check_img, _mock_env):
         """Test CreateInstance."""
-        expected_metadata = dict()
-        expected_metadata_local_image = dict()
-        expected_metadata.update(self.METADATA)
-        expected_metadata_local_image.update(self.METADATA)
-        remote_image_metadata = dict(expected_metadata)
         expected_disk_args = [{"fake_arg": "fake_value"}]
         fake_avd_spec = avd_spec.AVDSpec(self.args)
         fake_avd_spec._instance_name_to_reuse = None
-
-        created_subprocess = mock.MagicMock()
-        created_subprocess.stdout = mock.MagicMock()
-        created_subprocess.stdout.readline = mock.MagicMock(return_value=b"")
-        created_subprocess.poll = mock.MagicMock(return_value=0)
-        created_subprocess.returncode = 0
-        created_subprocess.communicate = mock.MagicMock(return_value=('', ''))
-        self.Patch(subprocess, "Popen", return_value=created_subprocess)
-        self.Patch(subprocess, "check_call")
-        self.Patch(os, "chmod")
-        self.Patch(os, "stat")
-        self.Patch(os, "remove")
-        self.Patch(os, "rmdir")
-        self.cvd_compute_client_multi_stage.CreateInstance(
-            self.INSTANCE, self.IMAGE, self.IMAGE_PROJECT, self.TARGET,
-            self.BRANCH, self.BUILD_ID, self.KERNEL_BRANCH,
-            self.KERNEL_BUILD_ID, self.KERNEL_BUILD_TARGET,
-            self.EXTRA_DATA_DISK_SIZE_GB, extra_scopes=self.EXTRA_SCOPES)
-        mock_create.assert_called_with(
-            self.cvd_compute_client_multi_stage,
-            instance=self.INSTANCE,
-            image_name=self.IMAGE,
-            image_project=self.IMAGE_PROJECT,
-            disk_args=expected_disk_args,
-            metadata=remote_image_metadata,
-            machine_type=self.MACHINE_TYPE,
-            network=self.NETWORK,
-            zone=self.ZONE,
-            extra_scopes=self.EXTRA_SCOPES,
-            gpu=self.GPU,
-            disk_type=None,
-            disable_external_ip=False)
-
-        mock_check_img.return_value = True
-        #test use local image in the remote instance.
-        local_image_metadata = dict(expected_metadata_local_image)
         fake_avd_spec.hw_property[constants.HW_X_RES] = str(self.X_RES)
         fake_avd_spec.hw_property[constants.HW_Y_RES] = str(self.Y_RES)
         fake_avd_spec.hw_property[constants.HW_ALIAS_DPI] = str(self.DPI)
         fake_avd_spec.hw_property[constants.HW_ALIAS_DISK] = str(
             self.EXTRA_DATA_DISK_SIZE_GB * 1024)
+
+        local_image_metadata = dict(self.METADATA)
         local_image_metadata["avd_type"] = constants.TYPE_CF
         local_image_metadata["flavor"] = "phone"
+        local_image_metadata[constants.INS_KEY_WEBRTC_DEVICE_ID] = "cvd-1"
         local_image_metadata[constants.INS_KEY_DISPLAY] = ("%sx%s (%s)" % (
             fake_avd_spec.hw_property[constants.HW_X_RES],
             fake_avd_spec.hw_property[constants.HW_Y_RES],
             fake_avd_spec.hw_property[constants.HW_ALIAS_DPI]))
         self.cvd_compute_client_multi_stage.CreateInstance(
-            self.INSTANCE, self.IMAGE, self.IMAGE_PROJECT, self.TARGET, self.BRANCH,
-            self.BUILD_ID, self.KERNEL_BRANCH, self.KERNEL_BUILD_ID,
-            self.KERNEL_BUILD_TARGET, self.EXTRA_DATA_DISK_SIZE_GB,
-            fake_avd_spec, extra_scopes=self.EXTRA_SCOPES)
+            self.INSTANCE, self.IMAGE, self.IMAGE_PROJECT,
+            fake_avd_spec, self.EXTRA_SCOPES)
 
         mock_create.assert_called_with(
             self.cvd_compute_client_multi_stage,
@@ -255,22 +176,6 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
             disk_type=self.DISK_TYPE,
             disable_external_ip=False)
 
-    def testFormatRemoteHostInstanceName(self):
-        """Test FormatRemoteHostInstanceName."""
-        name = self.cvd_compute_client_multi_stage.FormatRemoteHostInstanceName(
-            self.REMOTE_HOST_IP, self.BUILD_ID, self.TARGET.split("-")[0])
-        self.assertEqual(name, self.REMOTE_HOST_INSTANCE_NAME)
-
-    def testParseRemoteHostAddress(self):
-        """Test ParseRemoteHostAddress."""
-        ip_addr = self.cvd_compute_client_multi_stage.ParseRemoteHostAddress(
-            self.REMOTE_HOST_INSTANCE_NAME)
-        self.assertEqual(ip_addr, self.REMOTE_HOST_IP)
-
-        ip_addr = self.cvd_compute_client_multi_stage.ParseRemoteHostAddress(
-            "host-goldfish-192.0.2.1-5554-123456-sdk_x86_64-sdk")
-        self.assertIsNone(ip_addr)
-
     def testSetStage(self):
         """Test SetStage"""
         device_stage = "fake_stage"
@@ -283,7 +188,7 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
         self.Patch(Ssh, "GetCmdOutput", return_value="config=phone")
         expected = "phone"
         self.assertEqual(
-            self.cvd_compute_client_multi_stage._GetConfigFromAndroidInfo(),
+            self.cvd_compute_client_multi_stage._GetConfigFromAndroidInfo("dir"),
             expected)
 
     @mock.patch.object(Ssh, "Run")

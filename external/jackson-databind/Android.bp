@@ -42,6 +42,10 @@ java_library_host {
         "jackson-core",
     ],
     errorprone: {
-        javacflags: ["-Xep:EqualsNull:WARN"]
-    }
+        javacflags: [
+            "-Xep:EqualsNull:WARN",
+            "-Xep:BoxedPrimitiveEquality:WARN",
+            "-Xep:SelfAssignment:WARN",
+        ],
+    },
 }

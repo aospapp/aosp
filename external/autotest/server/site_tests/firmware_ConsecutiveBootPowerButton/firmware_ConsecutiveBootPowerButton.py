@@ -13,7 +13,7 @@ class firmware_ConsecutiveBootPowerButton(FirmwareTest):
     Servo based consecutive boot test via power button for both on and off.
 
     This test is intended to be run with many iterations to ensure that the DUT
-    does boot into Chrome OS and then does power off later.
+    does boot into ChromeOS and then does power off later.
 
     The iteration should be specified by the parameter -a "faft_iterations=10".
     """
@@ -26,13 +26,14 @@ class firmware_ConsecutiveBootPowerButton(FirmwareTest):
         self.faft_iterations = int(dict_args.get('faft_iterations', 1))
         super(firmware_ConsecutiveBootPowerButton,
               self).initialize(host, cmdline_args)
-        self.switcher.setup_mode('dev' if dev_mode else 'normal')
+        self.switcher.setup_mode('dev' if dev_mode else 'normal',
+                                 allow_gbb_force=True)
         self.setup_usbkey(usbkey=False)
 
 
     def run_once(self, dev_mode=False):
         """Runs a single iteration of the test."""
-        for i in xrange(self.faft_iterations):
+        for i in range(self.faft_iterations):
             logging.info('======== Running FAFT ITERATION %d/%s ========',
                          i+1, self.faft_iterations)
             logging.info("Expected boot fine, full power off DUT and on.")

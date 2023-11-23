@@ -1,5 +1,6 @@
 /*
  *   Copyright (c) 2008 Vijay Kumar B. <vijaykumar@bravegnu.org>
+ *   Copyright (c) Linux Test Project, 2008-2022
  *
  *   Based on testcases/kernel/syscalls/waitpid/waitpid01.c
  *   Original copyright message:
@@ -72,7 +73,7 @@ static void setup(void);
 static int myeventfd(unsigned int initval, int flags)
 {
 	/* eventfd2 uses FLAGS but eventfd doesn't take FLAGS. */
-	return ltp_syscall(__NR_eventfd, initval);
+	return tst_syscall(__NR_eventfd, initval);
 }
 
 /*
@@ -718,9 +719,6 @@ static void setup(void)
 {
 
 	tst_sig(FORK, DEF_HANDLER, cleanup);
-
-	if (tst_kvercmp(2, 6, 22) < 0)
-		tst_brkm(TCONF, NULL, "2.6.22 or greater kernel required");
 
 	tst_tmpdir();
 

@@ -1,32 +1,25 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import division
+from __future__ import print_function
+
 import argparse
 import logging
 import sys
-import xmlrpclib
+import six.moves.xmlrpc_client
 
 import common
 
-from config import rpm_config
-from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib.cros import retry
+from autotest_lib.site_utils.rpm_control_system import rpm_constants
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     from autotest_lib.client.bin.utils import metrics_mock as metrics
-
-RPM_FRONTEND_URI = global_config.global_config.get_config_value('CROS',
-        'rpm_frontend_uri', type=str, default='')
-RPM_CALL_TIMEOUT_MINS = rpm_config.getint('RPM_INFRASTRUCTURE',
-                                          'call_timeout_mins')
-
-POWERUNIT_HOSTNAME_KEY = 'powerunit_hostname'
-POWERUNIT_OUTLET_KEY = 'powerunit_outlet'
-HYDRA_HOSTNAME_KEY = 'hydra_hostname'
 
 
 class RemotePowerException(Exception):
@@ -34,7 +27,9 @@ class RemotePowerException(Exception):
     pass
 
 
-def set_power(host, new_state, timeout_mins=RPM_CALL_TIMEOUT_MINS):
+def set_power(host,
+              new_state,
+              timeout_mins=rpm_constants.RPM_CALL_TIMEOUT_MINS):
     """Sends the power state change request to the RPM Infrastructure.
 
     @param host: A CrosHost or ServoHost instance.
@@ -47,11 +42,12 @@ def set_power(host, new_state, timeout_mins=RPM_CALL_TIMEOUT_MINS):
     else:
         info = host.host_info_store.get()
         try:
-            args_tuple = (host.hostname,
-                          info.attributes[POWERUNIT_HOSTNAME_KEY],
-                          info.attributes[POWERUNIT_OUTLET_KEY],
-                          info.attributes.get(HYDRA_HOSTNAME_KEY),
-                          new_state)
+            args_tuple = (
+                    host.hostname,
+                    info.attributes[rpm_constants.POWERUNIT_HOSTNAME_KEY],
+                    info.attributes[rpm_constants.POWERUNIT_OUTLET_KEY],
+                    info.attributes.get(rpm_constants.HYDRA_HOSTNAME_KEY),
+                    new_state)
         except KeyError as e:
             logging.warning('Powerunit information not found. Missing:'
                             ' %s in host_info_store.', e)
@@ -63,15 +59,14 @@ def set_power(host, new_state, timeout_mins=RPM_CALL_TIMEOUT_MINS):
     _set_power(args_tuple, timeout_mins)
 
 
-def _set_power(args_tuple, timeout_mins=RPM_CALL_TIMEOUT_MINS):
+def _set_power(args_tuple, timeout_mins=rpm_constants.RPM_CALL_TIMEOUT_MINS):
     """Sends the power state change request to the RPM Infrastructure.
 
     @param args_tuple: A args tuple for rpc call. See example below:
         (hostname, powerunit_hostname, outlet, hydra_hostname, new_state)
     """
-    client = xmlrpclib.ServerProxy(RPM_FRONTEND_URI,
-                                   verbose=False,
-                                   allow_none=True)
+    client = six.moves.xmlrpc_client.ServerProxy(
+            rpm_constants.RPM_FRONTEND_URI, verbose=False, allow_none=True)
     timeout = None
     result = None
     endpoint = (client.set_power_via_poe if len(args_tuple) == 2
@@ -83,11 +78,12 @@ def _set_power(args_tuple, timeout_mins=RPM_CALL_TIMEOUT_MINS):
                                         default_result=False)
     except Exception as e:
         logging.exception(e)
-        raise RemotePowerException(
-                'Client call exception (%s): %s' % (RPM_FRONTEND_URI, e))
+        raise RemotePowerException('Client call exception (%s): %s' %
+                                   (rpm_constants.RPM_FRONTEND_URI, e))
     if timeout:
         raise RemotePowerException(
-                'Call to RPM Infrastructure timed out (%s).' % RPM_FRONTEND_URI)
+                'Call to RPM Infrastructure timed out (%s).' %
+                rpm_constants.RPM_FRONTEND_URI)
     if not result:
         error_msg = ('Failed to change outlet status for host: %s to '
                      'state: %s.' % (args_tuple[0], args_tuple[-1]))
@@ -137,7 +133,7 @@ def main():
     if options.machine.endswith('servo'):
         args_tuple = (options.machine, options.state)
     elif not options.p_hostname or not options.outlet:
-        print "Powerunit hostname and outlet info are required for DUT."
+        print("Powerunit hostname and outlet info are required for DUT.")
         return
     else:
         args_tuple = (options.machine, options.p_hostname, options.outlet,
@@ -145,10 +141,12 @@ def main():
     _set_power(args_tuple)
 
     if options.disable_emails is not None:
-        client = xmlrpclib.ServerProxy(RPM_FRONTEND_URI, verbose=False)
+        client = six.moves.xmlrpc_client.ServerProxy(
+                rpm_constants.RPM_FRONTEND_URI, verbose=False)
         client.suspend_emails(options.disable_emails)
     if options.enable_emails:
-        client = xmlrpclib.ServerProxy(RPM_FRONTEND_URI, verbose=False)
+        client = six.moves.xmlrpc_client.ServerProxy(
+                rpm_constants.RPM_FRONTEND_URI, verbose=False)
         client.resume_emails()
 
 

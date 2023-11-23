@@ -25,8 +25,18 @@ package {
     default_applicable_licenses: ["external_smali_license"],
 }
 
+java_defaults {
+    name: "dexlib2_defaults",
+    errorprone: {
+        javacflags: [
+            "-Xep:ComparableType:WARN",
+        ],
+    },
+}
+
 java_library_host {
     name: "dexlib2",
+    defaults: ["dexlib2_defaults"],
 
     srcs: [
         "src/main/java/**/*.java",
@@ -42,6 +52,7 @@ java_library_host {
 
 java_library_host {
     name: "dexlib2-no-guava",
+    defaults: ["dexlib2_defaults"],
 
     srcs: [
         "src/main/java/**/*.java",
@@ -60,6 +71,7 @@ java_library_host {
 
 java_library_host {
     name: "dexlib2-no-guava-no-cli",
+    defaults: ["dexlib2_defaults"],
 
     srcs: [
         "src/main/java/**/*.java",

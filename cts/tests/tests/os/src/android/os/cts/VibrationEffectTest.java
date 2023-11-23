@@ -775,6 +775,7 @@ public class VibrationEffectTest {
                 VibrationEffect.startComposition().addOffDuration(Duration.ofSeconds(1)).compose());
     }
 
+    @SuppressWarnings("ReturnValueIgnored")
     @Test
     public void testToString() {
         TEST_ONE_SHOT.toString();

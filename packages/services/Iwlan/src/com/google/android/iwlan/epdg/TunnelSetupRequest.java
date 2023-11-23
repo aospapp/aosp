@@ -29,8 +29,6 @@ public abstract class TunnelSetupRequest {
 
     abstract int apnIpProtocol();
 
-    abstract Network network();
-
     abstract Optional<InetAddress> srcIpv4Address();
 
     abstract Optional<InetAddress> srcIpv6Address();
@@ -57,8 +55,6 @@ public abstract class TunnelSetupRequest {
         public abstract Builder setApnName(String apnName);
 
         public abstract Builder setApnIpProtocol(int protocol);
-
-        public abstract Builder setNetwork(Network network);
 
         public Builder setSrcIpv4Address(InetAddress srcIpv4Address) {
             return setSrcIpv4Address(Optional.ofNullable(srcIpv4Address));

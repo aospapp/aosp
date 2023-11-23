@@ -50,28 +50,28 @@ TEST_F(TestBase, MemoryAllocateAndFree) {
   CREATE_CHRE_TEST_EVENT(FREE, 1);
 
   struct App : public TestNanoapp {
-    void (*handleEvent)(uint32_t, uint16_t, const void *) =
-        [](uint32_t, uint16_t eventType, const void *eventData) {
-          switch (eventType) {
-            case CHRE_EVENT_TEST_EVENT: {
-              auto event = static_cast<const TestEvent *>(eventData);
-              switch (event->type) {
-                case ALLOCATE: {
-                  auto bytes = static_cast<const uint32_t *>(event->data);
-                  void *ptr = chreHeapAlloc(*bytes);
-                  TestEventQueueSingleton::get()->pushEvent(ALLOCATE, ptr);
-                  break;
-                }
-                case FREE: {
-                  auto ptr = static_cast<void **>(event->data);
-                  chreHeapFree(*ptr);
-                  TestEventQueueSingleton::get()->pushEvent(FREE);
-                  break;
-                }
-              }
+    decltype(nanoappHandleEvent) *handleEvent = [](uint32_t, uint16_t eventType,
+                                                   const void *eventData) {
+      switch (eventType) {
+        case CHRE_EVENT_TEST_EVENT: {
+          auto event = static_cast<const TestEvent *>(eventData);
+          switch (event->type) {
+            case ALLOCATE: {
+              auto bytes = static_cast<const uint32_t *>(event->data);
+              void *ptr = chreHeapAlloc(*bytes);
+              TestEventQueueSingleton::get()->pushEvent(ALLOCATE, ptr);
+              break;
+            }
+            case FREE: {
+              auto ptr = static_cast<void **>(event->data);
+              chreHeapFree(*ptr);
+              TestEventQueueSingleton::get()->pushEvent(FREE);
+              break;
             }
           }
-        };
+        }
+      }
+    };
   };
 
   auto app = loadNanoapp<App>();
@@ -117,22 +117,22 @@ TEST_F(TestBase, MemoryFreeOnNanoappUnload) {
   CREATE_CHRE_TEST_EVENT(ALLOCATE, 0);
 
   struct App : public TestNanoapp {
-    void (*handleEvent)(uint32_t, uint16_t, const void *) =
-        [](uint32_t, uint16_t eventType, const void *eventData) {
-          switch (eventType) {
-            case CHRE_EVENT_TEST_EVENT: {
-              auto event = static_cast<const TestEvent *>(eventData);
-              switch (event->type) {
-                case ALLOCATE: {
-                  auto bytes = static_cast<const uint32_t *>(event->data);
-                  void *ptr = chreHeapAlloc(*bytes);
-                  TestEventQueueSingleton::get()->pushEvent(ALLOCATE, ptr);
-                  break;
-                }
-              }
+    decltype(nanoappHandleEvent) *handleEvent = [](uint32_t, uint16_t eventType,
+                                                   const void *eventData) {
+      switch (eventType) {
+        case CHRE_EVENT_TEST_EVENT: {
+          auto event = static_cast<const TestEvent *>(eventData);
+          switch (event->type) {
+            case ALLOCATE: {
+              auto bytes = static_cast<const uint32_t *>(event->data);
+              void *ptr = chreHeapAlloc(*bytes);
+              TestEventQueueSingleton::get()->pushEvent(ALLOCATE, ptr);
+              break;
             }
           }
-        };
+        }
+      }
+    };
   };
 
   auto app = loadNanoapp<App>();
@@ -171,28 +171,28 @@ TEST_F(TestBase, MemoryStressTestShouldNotTriggerErrors) {
   CREATE_CHRE_TEST_EVENT(FREE, 1);
 
   struct App : public TestNanoapp {
-    void (*handleEvent)(uint32_t, uint16_t, const void *) =
-        [](uint32_t, uint16_t eventType, const void *eventData) {
-          switch (eventType) {
-            case CHRE_EVENT_TEST_EVENT: {
-              auto event = static_cast<const TestEvent *>(eventData);
-              switch (event->type) {
-                case ALLOCATE: {
-                  auto bytes = static_cast<const uint32_t *>(event->data);
-                  void *ptr = chreHeapAlloc(*bytes);
-                  TestEventQueueSingleton::get()->pushEvent(ALLOCATE, ptr);
-                  break;
-                }
-                case FREE: {
-                  auto ptr = static_cast<void **>(event->data);
-                  chreHeapFree(*ptr);
-                  TestEventQueueSingleton::get()->pushEvent(FREE);
-                  break;
-                }
-              }
+    decltype(nanoappHandleEvent) *handleEvent = [](uint32_t, uint16_t eventType,
+                                                   const void *eventData) {
+      switch (eventType) {
+        case CHRE_EVENT_TEST_EVENT: {
+          auto event = static_cast<const TestEvent *>(eventData);
+          switch (event->type) {
+            case ALLOCATE: {
+              auto bytes = static_cast<const uint32_t *>(event->data);
+              void *ptr = chreHeapAlloc(*bytes);
+              TestEventQueueSingleton::get()->pushEvent(ALLOCATE, ptr);
+              break;
+            }
+            case FREE: {
+              auto ptr = static_cast<void **>(event->data);
+              chreHeapFree(*ptr);
+              TestEventQueueSingleton::get()->pushEvent(FREE);
+              break;
             }
           }
-        };
+        }
+      }
+    };
   };
 
   MemoryManager &memManager =

@@ -18,8 +18,17 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_title" msgid="1995858460392177468">"કાર લૉન્ચર"</string>
+    <string name="reset_appgrid_title" msgid="814562055108028366">"ઍપ ગ્રિડને A-Z ક્રમ અનુસાર રીસેટ કરો"</string>
+    <string name="reset_appgrid_dialogue_message" msgid="8275758912490987735">"આ સુવિધા, સેટ કરવામાં આવેલા બધા કસ્ટમ ક્રમ કાઢી નાખશે. શું તમે ચાલુ રાખવા માગો છો?"</string>
     <string name="app_launcher_title_all_apps" msgid="3215107396036838217">"બધી ઍપ"</string>
     <string name="app_launcher_title_media_only" msgid="4400886555907422816">"મીડિયા ઍપ"</string>
+    <string name="app_launcher_stop_app_action" msgid="1081680842410279692">"ઍપ બંધ કરો"</string>
+    <string name="app_launcher_app_info_action" msgid="6388181061002827660">"ઍપની માહિતી"</string>
+    <string name="app_launcher_stop_app_success_toast_text" msgid="2117271772351005349">"<xliff:g id="APP_NAME">%1$s</xliff:g> બંધ કરવામાં આવી છે."</string>
+    <string name="app_launcher_stop_app_dialog_title" msgid="8276889322638001144">"ઍપ બંધ કરીએ?"</string>
+    <string name="app_launcher_stop_app_dialog_text" msgid="3264059639436254372">"જો તમે કોઈ ઍપને ફરજિયાત બંધ કરો, તો તે અયોગ્ય વર્તન કરી શકે છે."</string>
+    <string name="app_launcher_stop_app_cant_stop_text" msgid="4766841417948746773">"ઍપ બંધ કરી શકાતી નથી."</string>
+    <string name="default_media_song_title" msgid="2970305231647817808"></string>
     <string name="driving_toast_text" msgid="149483091947120092">"ડ્રાઇવ કરતી વખતે <xliff:g id="APP_NAME">%1$s</xliff:g>નો ઉપયોગ કરી શકાતો નથી."</string>
     <string name="tap_for_more_info_text" msgid="2043549383814415585">"વધુ માહિતી માટે કાર્ડ પર ટૅપ કરો"</string>
     <string name="tap_to_launch_text" msgid="6910695705119260847">"લૉન્ચ કરવા માટે કાર્ડ પર ટૅપ કરો"</string>
@@ -34,4 +43,8 @@
     <string name="fake_weather_footer_text" msgid="4570172025869749926">"માઉન્ટેન વ્યૂ • H: --° L: --°"</string>
     <string name="hide_debug_apps" msgid="6128313544379622475">"ડિબગ ઍપ છુપાવો"</string>
     <string name="show_debug_apps" msgid="4521073121286325786">"ડિબગ ઍપ બતાવો"</string>
+    <string name="times_separator" msgid="6180368193321715816">"/"</string>
+    <string name="recents_empty_state_text" msgid="6703106170272215731">"તાજેતરની કોઈ આઇટમ નથી"</string>
+    <string name="recents_clear_all_text" msgid="2088678071417053923">"બધી આઇટમ સાફ કરો"</string>
+    <string name="failure_opening_recent_task_message" msgid="9097595793150874357">"ઍપ ઉપલબ્ધ નથી"</string>
 </resources>

@@ -1125,7 +1125,7 @@ public class Main {
   /// CHECK-DAG: <<Len:i\d+>> ArrayLength [<<Nul>>]         loop:none
   /// CHECK-DAG:              Equal [<<Len>>,<<Val>>]       loop:none
   /// CHECK-DAG: <<Idx:i\d+>> Phi                           loop:<<Loop:B\d+>>
-  /// CHECK-DAG:              BoundsCheck [<<Idx>>,<<Len>>] loop:<<Loop>>
+  /// CHECK-DAG:              BoundsCheck [<<Idx>>,<<Val>>] loop:<<Loop>>
   //
   /// CHECK-START: void Main.lengthAlias4(int[]) BCE (after)
   /// CHECK-NOT:              BoundsCheck
@@ -1576,7 +1576,7 @@ public class Main {
   /// CHECK-NOT: BoundsCheck
   /// CHECK: ArrayGet
 
-  /// CHECK-START: void Main.foo9(int[], boolean) instruction_simplifier$after_bce (after)
+  /// CHECK-START: void Main.foo9(int[], boolean) instruction_simplifier$before_codegen (after)
   //  Simplification removes the redundant check
   /// CHECK: Deoptimize
   /// CHECK: Deoptimize

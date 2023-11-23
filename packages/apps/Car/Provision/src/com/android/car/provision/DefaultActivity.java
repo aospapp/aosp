@@ -28,6 +28,7 @@ import static android.app.admin.DevicePolicyManager.PROVISIONING_TRIGGER_QR_CODE
 import static android.car.settings.CarSettings.Secure.KEY_ENABLE_INITIAL_NOTICE_SCREEN_TO_USER;
 import static android.car.settings.CarSettings.Secure.KEY_SETUP_WIZARD_IN_PROGRESS;
 
+import android.Manifest.permission;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Notification;
@@ -220,6 +221,7 @@ public final class DefaultActivity extends Activity {
         Log.d(TAG, "startMonitor()");
         registerReceiver(mDrivingStateExitReceiver,
                 new IntentFilter(CarDrivingStateMonitor.EXIT_BROADCAST_ACTION),
+                permission.DISPATCH_PROVISIONING_MESSAGE, /* scheduler= */ null,
                 Context.RECEIVER_EXPORTED);
 
         mCarDrivingStateMonitor = CarDrivingStateMonitor.get(this);

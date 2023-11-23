@@ -329,15 +329,13 @@ public class EventsAssertor {
     @Nullable
     private String assertViewEvent(@NonNull ContentCaptureEvent event, @NonNull View expectedView,
             @Nullable AutofillId expectedParentId) {
-        assertEvent(event, expectedView, expectedParentId, /* expectedText */  null);
-        return null;
+        return assertEvent(event, expectedView, expectedParentId, /* expectedText */  null);
     }
 
     @Nullable
     private String assertViewEvent(@NonNull ContentCaptureEvent event, @NonNull View expectedView,
             AutofillId expectedParentId, String expectedText) {
-        assertEvent(event, expectedView, expectedParentId, expectedText);
-        return null;
+        return assertEvent(event, expectedView, expectedParentId, expectedText);
     }
 
     private String assertEventId(@NonNull ContentCaptureEvent event, View expectedView) {
@@ -367,15 +365,20 @@ public class EventsAssertor {
         return null;
     }
 
-    private void assertEvent(@NonNull ContentCaptureEvent event, @Nullable View expectedView,
+    private String assertEvent(@NonNull ContentCaptureEvent event, @Nullable View expectedView,
             @Nullable AutofillId expectedParentId, @Nullable String expectedText) {
         final ViewNode node = event.getViewNode();
+        if (node == null) {
+            return String.format("node is null at %s", event);
+        }
 
-        assertThat(node).isNotNull();
+        if (expectedView != null && !node.getAutofillId().equals(expectedView.getAutofillId())) {
+            return String.format("wrong event id (expected %s, actual is %s) at %s",
+                    expectedView.getAutofillId(), node.getAutofillId(), event);
+        }
+
         assertWithMessage("wrong class on %s", event).that(node.getClassName())
                 .isEqualTo(expectedView.getClass().getName());
-        assertWithMessage("wrong autofill id on %s", event).that(node.getAutofillId())
-                .isEqualTo(expectedView.getAutofillId());
 
         if (expectedParentId != null) {
             assertWithMessage("wrong parent autofill id on %s", event)
@@ -386,6 +389,7 @@ public class EventsAssertor {
             assertWithMessage("wrong text on %s", event).that(node.getText().toString())
                     .isEqualTo(expectedText);
         }
+        return null;
     }
 
     @Nullable
@@ -429,6 +433,24 @@ public class EventsAssertor {
         } while (mNextEvent < mEvents.size());
         throw new AssertionError(String.format(errorFormat, errorArgs) + "\n. Events("
                 + mEvents.size() + "): " + mEvents);
+    }
+
+    /**
+     * Asserts no event for the view.
+     */
+    public EventsAssertor assertNoEvent(View expectedView) {
+        for (ContentCaptureEvent event : mEvents) {
+            final ViewNode node = event.getViewNode();
+            if (node == null) {
+                continue;
+            }
+
+            if (expectedView != null && node.getAutofillId().equals(expectedView.getAutofillId())) {
+                throw new AssertionError("wrong event (expected no event for "
+                        + expectedView.getAutofillId() + " ) : " + event);
+            }
+        }
+        return this;
     }
 
     public ContentCaptureEvent getLastEvent() {

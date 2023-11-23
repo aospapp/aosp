@@ -16,77 +16,73 @@
 
 package dagger.internal.codegen.validation;
 
-import static com.google.auto.common.MoreTypes.asTypeElement;
+import static androidx.room.compiler.processing.XTypeKt.isArray;
+import static androidx.room.compiler.processing.XTypeKt.isVoid;
 import static com.google.common.base.Verify.verifyNotNull;
-import static dagger.internal.codegen.base.Scopes.scopesOf;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.base.Util.reentrantComputeIfAbsent;
 import static dagger.internal.codegen.binding.AssistedInjectionAnnotations.isAssistedFactoryType;
 import static dagger.internal.codegen.binding.AssistedInjectionAnnotations.isAssistedInjectionType;
 import static dagger.internal.codegen.binding.MapKeys.getMapKeys;
-import static dagger.internal.codegen.langmodel.DaggerElements.getAnnotationMirror;
-import static javax.lang.model.type.TypeKind.ARRAY;
-import static javax.lang.model.type.TypeKind.DECLARED;
-import static javax.lang.model.type.TypeKind.TYPEVAR;
-import static javax.lang.model.type.TypeKind.VOID;
+import static dagger.internal.codegen.xprocessing.XTypes.isDeclared;
+import static dagger.internal.codegen.xprocessing.XTypes.isPrimitive;
+import static dagger.internal.codegen.xprocessing.XTypes.isTypeVariable;
 
-import com.google.common.collect.ImmutableCollection;
+import androidx.room.compiler.processing.XAnnotation;
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XProcessingEnv;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.FormatMethod;
-import dagger.MapKey;
-import dagger.Provides;
+import com.squareup.javapoet.ClassName;
 import dagger.internal.codegen.base.ContributionType;
 import dagger.internal.codegen.base.FrameworkTypes;
-import dagger.internal.codegen.base.MultibindingAnnotations;
 import dagger.internal.codegen.base.SetType;
 import dagger.internal.codegen.binding.InjectionAnnotations;
-import dagger.model.Key;
-import dagger.model.Scope;
-import dagger.multibindings.ElementsIntoSet;
-import dagger.multibindings.IntoMap;
-import dagger.producers.Produces;
-import java.lang.annotation.Annotation;
+import dagger.internal.codegen.javapoet.TypeNames;
+import dagger.internal.codegen.xprocessing.XElements;
+import dagger.spi.model.Key;
+import dagger.spi.model.Scope;
 import java.util.Formatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import javax.inject.Inject;
 import javax.inject.Qualifier;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeKind;
-import javax.lang.model.type.TypeMirror;
 
 /** A validator for elements that represent binding declarations. */
-public abstract class BindingElementValidator<E extends Element> {
-  private final Class<? extends Annotation> bindingAnnotation;
+public abstract class BindingElementValidator<E extends XElement> {
+  private static final ImmutableSet<ClassName> MULTIBINDING_ANNOTATIONS =
+      ImmutableSet.of(TypeNames.INTO_SET, TypeNames.ELEMENTS_INTO_SET, TypeNames.INTO_MAP);
+
+  // TODO(bcorso): Inject this directly into InjectionAnnotations instead of using field injection.
+  @Inject XProcessingEnv processingEnv;
+
   private final AllowsMultibindings allowsMultibindings;
   private final AllowsScoping allowsScoping;
-  private final Map<E, ValidationReport<E>> cache = new HashMap<>();
+  private final Map<E, ValidationReport> cache = new HashMap<>();
   private final InjectionAnnotations injectionAnnotations;
 
-  /**
-   * Creates a validator object.
-   *
-   * @param bindingAnnotation the annotation on an element that identifies it as a binding element
-   */
+  /** Creates a validator object. */
+  // TODO(bcorso): Consider reworking BindingElementValidator and all subclasses to use composition
+  // rather than inheritance. The web of inheritance makes it difficult to track what implementation
+  // of a method is actually being used.
   protected BindingElementValidator(
-      Class<? extends Annotation> bindingAnnotation,
       AllowsMultibindings allowsMultibindings,
       AllowsScoping allowsScoping,
       InjectionAnnotations injectionAnnotations) {
-    this.bindingAnnotation = bindingAnnotation;
     this.allowsMultibindings = allowsMultibindings;
     this.allowsScoping = allowsScoping;
     this.injectionAnnotations = injectionAnnotations;
   }
 
   /** Returns a {@link ValidationReport} for {@code element}. */
-  final ValidationReport<E> validate(E element) {
+  final ValidationReport validate(E element) {
     return reentrantComputeIfAbsent(cache, element, this::validateUncached);
   }
 
-  private ValidationReport<E> validateUncached(E element) {
+  private ValidationReport validateUncached(E element) {
     return elementValidator(element).validate();
   }
 
@@ -118,7 +114,7 @@ public abstract class BindingElementValidator<E extends Element> {
 
   /**
    * The error message when a the type for a binding element with {@link
-   * ElementsIntoSet @ElementsIntoSet} or {@code SET_VALUES} is a not set type.
+   * dagger.multibindings.ElementsIntoSet @ElementsIntoSet} or {@code SET_VALUES} is a not set type.
    */
   protected String elementsIntoSetNotASetMessage() {
     return bindingElements(
@@ -127,7 +123,7 @@ public abstract class BindingElementValidator<E extends Element> {
 
   /**
    * The error message when a the type for a binding element with {@link
-   * ElementsIntoSet @ElementsIntoSet} or {@code SET_VALUES} is a raw set.
+   * dagger.multibindings.ElementsIntoSet @ElementsIntoSet} or {@code SET_VALUES} is a raw set.
    */
   protected String elementsIntoSetRawSetMessage() {
     return bindingElements(
@@ -139,9 +135,9 @@ public abstract class BindingElementValidator<E extends Element> {
 
   /** Validator for a single binding element. */
   protected abstract class ElementValidator {
-    protected final E element;
-    protected final ValidationReport.Builder<E> report;
-    private final ImmutableCollection<? extends AnnotationMirror> qualifiers;
+    private final E element;
+    protected final ValidationReport.Builder report;
+    private final ImmutableSet<XAnnotation> qualifiers;
 
     protected ElementValidator(E element) {
       this.element = element;
@@ -150,7 +146,7 @@ public abstract class BindingElementValidator<E extends Element> {
     }
 
     /** Checks the element for validity. */
-    private ValidationReport<E> validate() {
+    private ValidationReport validate() {
       checkType();
       checkQualifiers();
       checkMapKeys();
@@ -169,8 +165,8 @@ public abstract class BindingElementValidator<E extends Element> {
      * that the contributed type is ambiguous or missing, i.e. a {@code @BindsInstance} method with
      * zero or many parameters.
      */
-    // TODO(dpb): should this be an ImmutableList<TypeMirror>, with this class checking the size?
-    protected abstract Optional<TypeMirror> bindingElementType();
+    // TODO(dpb): should this be an ImmutableList<XType>, with this class checking the size?
+    protected abstract Optional<XType> bindingElementType();
 
     /**
      * Adds an error if the {@link #bindingElementType() binding element type} is not appropriate.
@@ -180,8 +176,8 @@ public abstract class BindingElementValidator<E extends Element> {
      * <p>If the binding is not a multibinding contribution, adds an error if the type is a
      * framework type.
      *
-     * <p>If the element has {@link ElementsIntoSet @ElementsIntoSet} or {@code SET_VALUES}, adds an
-     * error if the type is not a {@code Set<T>} for some {@code T}
+     * <p>If the element has {@link dagger.multibindings.ElementsIntoSet @ElementsIntoSet} or {@code
+     * SET_VALUES}, adds an error if the type is not a {@code Set<T>} for some {@code T}
      */
     protected void checkType() {
       switch (ContributionType.fromBindingElement(element)) {
@@ -199,7 +195,7 @@ public abstract class BindingElementValidator<E extends Element> {
 
         case SET:
         case MAP:
-          bindingElementType().ifPresent(type -> checkKeyType(type));
+          bindingElementType().ifPresent(this::checkKeyType);
           break;
 
         case SET_VALUES:
@@ -210,14 +206,13 @@ public abstract class BindingElementValidator<E extends Element> {
     /**
      * Adds an error if {@code keyType} is not a primitive, declared type, array, or type variable.
      */
-    protected void checkKeyType(TypeMirror keyType) {
-      TypeKind kind = keyType.getKind();
-      if (kind.equals(VOID)) {
+    protected void checkKeyType(XType keyType) {
+      if (isVoid(keyType)) {
         report.addError(bindingElements("must %s a value (not void)", bindingElementTypeVerb()));
-      } else if (!(kind.isPrimitive()
-          || kind.equals(DECLARED)
-          || kind.equals(ARRAY)
-          || kind.equals(TYPEVAR))) {
+      } else if (!(isPrimitive(keyType)
+          || isDeclared(keyType)
+          || isArray(keyType)
+          || isTypeVariable(keyType))) {
         report.addError(badTypeMessage());
       }
     }
@@ -225,9 +220,9 @@ public abstract class BindingElementValidator<E extends Element> {
     /** Adds errors for unqualified assisted types. */
     private void checkAssistedType() {
       if (qualifiers.isEmpty()
-              && bindingElementType().isPresent()
-              && bindingElementType().get().getKind() == DECLARED) {
-        TypeElement keyElement = asTypeElement(bindingElementType().get());
+          && bindingElementType().isPresent()
+          && isDeclared(bindingElementType().get())) {
+        XTypeElement keyElement = bindingElementType().get().getTypeElement();
         if (isAssistedInjectionType(keyElement)) {
           report.addError("Dagger does not support providing @AssistedInject types.", keyElement);
         }
@@ -238,16 +233,17 @@ public abstract class BindingElementValidator<E extends Element> {
     }
 
     /**
-     * Adds an error if the type for an element with {@link ElementsIntoSet @ElementsIntoSet} or
-     * {@code SET_VALUES} is not a a {@code Set<T>} for a reasonable {@code T}.
+     * Adds an error if the type for an element with {@link
+     * dagger.multibindings.ElementsIntoSet @ElementsIntoSet} or {@code SET_VALUES} is not a a
+     * {@code Set<T>} for a reasonable {@code T}.
      */
     // TODO(gak): should we allow "covariant return" for set values?
     protected void checkSetValuesType() {
-      bindingElementType().ifPresent(keyType -> checkSetValuesType(keyType));
+      bindingElementType().ifPresent(this::checkSetValuesType);
     }
 
     /** Adds an error if {@code type} is not a {@code Set<T>} for a reasonable {@code T}. */
-    protected final void checkSetValuesType(TypeMirror type) {
+    protected final void checkSetValuesType(XType type) {
       if (!SetType.isSet(type)) {
         report.addError(elementsIntoSetNotASetMessage());
       } else {
@@ -255,7 +251,10 @@ public abstract class BindingElementValidator<E extends Element> {
         if (setType.isRawType()) {
           report.addError(elementsIntoSetRawSetMessage());
         } else {
-          checkKeyType(setType.elementType());
+          // TODO(bcorso): Use setType.elementType() once setType is fully converted to XProcessing.
+          // However, currently SetType returns TypeMirror instead of XType and we have no
+          // conversion from TypeMirror to XType, so we just get the type ourselves.
+          checkKeyType(getOnlyElement(type.getTypeArguments()));
         }
       }
     }
@@ -265,7 +264,7 @@ public abstract class BindingElementValidator<E extends Element> {
      */
     private void checkQualifiers() {
       if (qualifiers.size() > 1) {
-        for (AnnotationMirror qualifier : qualifiers) {
+        for (XAnnotation qualifier : qualifiers) {
           report.addError(
               bindingElements("may not use more than one @Qualifier"),
               element,
@@ -275,14 +274,15 @@ public abstract class BindingElementValidator<E extends Element> {
     }
 
     /**
-     * Adds an error if an {@link IntoMap @IntoMap} element doesn't have exactly one {@link
-     * MapKey @MapKey} annotation, or if an element that is {@link IntoMap @IntoMap} has any.
+     * Adds an error if an {@link dagger.multibindings.IntoMap @IntoMap} element doesn't have
+     * exactly one {@link dagger.MapKey @MapKey} annotation, or if an element that is {@link
+     * dagger.multibindings.IntoMap @IntoMap} has any.
      */
     private void checkMapKeys() {
       if (!allowsMultibindings.allowsMultibindings()) {
         return;
       }
-      ImmutableSet<? extends AnnotationMirror> mapKeys = getMapKeys(element);
+      ImmutableSet<XAnnotation> mapKeys = getMapKeys(element);
       if (ContributionType.fromBindingElement(element).equals(ContributionType.MAP)) {
         switch (mapKeys.size()) {
           case 0:
@@ -306,17 +306,17 @@ public abstract class BindingElementValidator<E extends Element> {
      *   <li>the element doesn't allow {@linkplain MultibindingAnnotations multibinding annotations}
      *       and has any
      *   <li>the element does allow them but has more than one
-     *   <li>the element has a multibinding annotation and its {@link Provides} or {@link Produces}
-     *       annotation has a {@code type} parameter.
+     *   <li>the element has a multibinding annotation and its {@link dagger.Provides} or {@link
+     *       dagger.producers.Produces} annotation has a {@code type} parameter.
      * </ul>
      */
     private void checkMultibindings() {
-      ImmutableSet<AnnotationMirror> multibindingAnnotations =
-          MultibindingAnnotations.forElement(element);
+      ImmutableSet<XAnnotation> multibindingAnnotations =
+          XElements.getAllAnnotations(element, MULTIBINDING_ANNOTATIONS);
 
       switch (allowsMultibindings) {
         case NO_MULTIBINDINGS:
-          for (AnnotationMirror annotation : multibindingAnnotations) {
+          for (XAnnotation annotation : multibindingAnnotations) {
             report.addError(
                 bindingElements("cannot have multibinding annotations"),
                 element,
@@ -326,7 +326,7 @@ public abstract class BindingElementValidator<E extends Element> {
 
         case ALLOWS_MULTIBINDINGS:
           if (multibindingAnnotations.size() > 1) {
-            for (AnnotationMirror annotation : multibindingAnnotations) {
+            for (XAnnotation annotation : multibindingAnnotations) {
               report.addError(
                   bindingElements("cannot have more than one multibinding annotation"),
                   element,
@@ -335,20 +335,6 @@ public abstract class BindingElementValidator<E extends Element> {
           }
           break;
       }
-
-      // TODO(ronshapiro): move this into ProvidesMethodValidator
-      if (bindingAnnotation.equals(Provides.class)) {
-        AnnotationMirror bindingAnnotationMirror =
-            getAnnotationMirror(element, bindingAnnotation).get();
-        boolean usesProvidesType = false;
-        for (ExecutableElement member : bindingAnnotationMirror.getElementValues().keySet()) {
-          usesProvidesType |= member.getSimpleName().contentEquals("type");
-        }
-        if (usesProvidesType && !multibindingAnnotations.isEmpty()) {
-          report.addError(
-              "@Provides.type cannot be used with multibinding annotations", element);
-        }
-      }
     }
 
     /**
@@ -356,7 +342,7 @@ public abstract class BindingElementValidator<E extends Element> {
      * one {@linkplain Scope scope} annotation.
      */
     private void checkScopes() {
-      ImmutableSet<Scope> scopes = scopesOf(element);
+      ImmutableSet<Scope> scopes = injectionAnnotations.getScopes(element);
       String error = null;
       switch (allowsScoping) {
         case ALLOWS_SCOPING:
@@ -371,7 +357,7 @@ public abstract class BindingElementValidator<E extends Element> {
       }
       verifyNotNull(error);
       for (Scope scope : scopes) {
-        report.addError(error, element, scope.scopeAnnotation());
+        report.addError(error, element, scope.scopeAnnotation().xprocessing());
       }
     }
 

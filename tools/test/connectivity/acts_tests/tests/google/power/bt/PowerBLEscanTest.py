@@ -30,9 +30,6 @@ class PowerBLEscanTest(PBtBT.PowerBTBaseTest):
         req_params = ['scan_modes']
         self.unpack_userparams(req_params)
 
-        for scan_mode in self.scan_modes:
-            self.generate_test_case_no_devices_around(scan_mode)
-
     def setup_class(self):
 
         super().setup_class()
@@ -54,3 +51,12 @@ class PowerBLEscanTest(PBtBT.PowerBTBaseTest):
         btputils.start_apk_ble_scan(self.dut, scan_mode, self.scan_duration)
         time.sleep(EXTRA_SCAN_TIME)
         self.measure_power_and_validate()
+
+    def test_BLE_SCAN_MODE_LOW_POWER_no_advertisers(self):
+        self.measure_ble_scan_power(0)
+
+    def test_BLE_SCAN_MODE_BALANCED_no_advertisers(self):
+        self.measure_ble_scan_power(1)
+
+    def test_BLE_SCAN_MODE_LOW_LATENCY_no_advertisers(self):
+        self.measure_ble_scan_power(2)

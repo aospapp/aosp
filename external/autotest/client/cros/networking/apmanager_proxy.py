@@ -1,9 +1,15 @@
+# Lint as: python2, python3
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import dbus
 import dbus.mainloop.glib
+import six
 import time
 
 from autotest_lib.client.common_lib.cros.network import apmanager_constants
@@ -173,7 +179,7 @@ class ApmanagerProxy(object):
                                         self.DBUS_SERVICE_INTERFACE,
                                         self.SERVICE_PROPERTY_CONFIG))
         # Set configuration properties.
-        for name, value in config_params.iteritems():
+        for name, value in six.iteritems(config_params):
             if name in self.CONFIG_PROPERTY_DBUS_TYPE_MAPPING:
                 func = self.CONFIG_PROPERTY_DBUS_TYPE_MAPPING[name]
                 self._set_dbus_property(service_config,

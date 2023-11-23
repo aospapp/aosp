@@ -20,6 +20,7 @@
 #include <string>
 
 #include "common/libs/net/netlink_client.h"
+#include "common/libs/net/netlink_request.h"
 #include "common/libs/net/network_interface.h"
 
 namespace cuttlefish {
@@ -46,20 +47,12 @@ class NetworkInterfaceManager {
   // This method cannot be used to instantiate new network interfaces.
   bool ApplyChanges(const NetworkInterface& interface);
 
-  // Create new connected pair of virtual (veth) interfaces.
-  // Supplied pair of interfaces describe both endpoints' properties.
-  bool CreateVethPair(const NetworkInterface& first,
-                      const NetworkInterface& second);
-
   // Creates new NetworkInterfaceManager.
   static std::unique_ptr<NetworkInterfaceManager> New(
       NetlinkClientFactory* factory);
 
  private:
   NetworkInterfaceManager(std::unique_ptr<NetlinkClient> nl_client);
-
-  // Build (partial) netlink request.
-  bool BuildRequest(NetlinkRequest* request, const NetworkInterface& interface);
 
   std::unique_ptr<NetlinkClient> nl_client_;
 

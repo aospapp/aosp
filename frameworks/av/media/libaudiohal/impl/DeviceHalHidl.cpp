@@ -17,7 +17,7 @@
 #include <stdio.h>
 
 #define LOG_TAG "DeviceHalHidl"
-//#define LOG_NDEBUG 0
+// #define LOG_NDEBUG 0
 
 #include <cutils/native_handle.h>
 #include <cutils/properties.h>
@@ -35,6 +35,17 @@
 #include "ParameterUtils.h"
 #include "StreamHalHidl.h"
 
+#if MAJOR_VERSION == 7 && MINOR_VERSION == 1
+#include <aidl/android/hardware/audio/core/sounddose/BpSoundDose.h>
+#include <aidl/android/hardware/audio/sounddose/BpSoundDoseFactory.h>
+#include <android/binder_manager.h>
+
+constexpr std::string_view kSoundDoseInterfaceModule = "/default";
+
+using aidl::android::hardware::audio::core::sounddose::ISoundDose;
+using aidl::android::hardware::audio::sounddose::ISoundDoseFactory;
+#endif
+
 using ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::implementation::HidlUtils;
 using ::android::hardware::audio::common::utils::EnumBitfield;
 using ::android::hardware::audio::CORE_TYPES_CPP_VERSION::implementation::CoreUtils;
@@ -46,11 +57,21 @@ namespace android {
 using namespace ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION;
 using namespace ::android::hardware::audio::CORE_TYPES_CPP_VERSION;
 
-#define TIME_CHECK() auto timeCheck = \
-        mediautils::makeTimeCheckStatsForClassMethod(getClassName(), __func__)
+class DeviceHalHidl::SoundDoseWrapper {
+public:
+    SoundDoseWrapper() = default;
+    ~SoundDoseWrapper() = default;
+
+#if MAJOR_VERSION == 7 && MINOR_VERSION == 1
+    std::shared_ptr<ISoundDoseFactory> mSoundDoseFactory;
+    std::shared_ptr<ISoundDose> mSoundDose;
+#endif
+};
 
 DeviceHalHidl::DeviceHalHidl(const sp<::android::hardware::audio::CPP_VERSION::IDevice>& device)
-        : CoreConversionHelperHidl("DeviceHalHidl"), mDevice(device) {
+        : CoreConversionHelperHidl("DeviceHalHidl"),
+          mDevice(device),
+          mSoundDoseWrapper(std::make_unique<DeviceHalHidl::SoundDoseWrapper>()) {
 }
 
 DeviceHalHidl::DeviceHalHidl(
@@ -59,7 +80,8 @@ DeviceHalHidl::DeviceHalHidl(
 #if MAJOR_VERSION <= 6 || (MAJOR_VERSION == 7 && MINOR_VERSION == 0)
           mDevice(device),
 #endif
-          mPrimaryDevice(device) {
+          mPrimaryDevice(device),
+          mSoundDoseWrapper(std::make_unique<DeviceHalHidl::SoundDoseWrapper>()) {
 #if MAJOR_VERSION == 7 && MINOR_VERSION == 1
     auto getDeviceRet = mPrimaryDevice->getDevice();
     if (getDeviceRet.isOk()) {
@@ -80,6 +102,20 @@ DeviceHalHidl::~DeviceHalHidl() {
         mDevice->close();
 #endif
     }
+}
+
+status_t DeviceHalHidl::getAudioPorts(
+        std::vector<media::audio::common::AudioPort> *ports __unused) {
+    return INVALID_OPERATION;
+}
+
+status_t DeviceHalHidl::getAudioRoutes(std::vector<media::AudioRoute> *routes __unused) {
+    return INVALID_OPERATION;
+}
+
+status_t DeviceHalHidl::getSupportedModes(
+        std::vector<media::audio::common::AudioMode> *modes __unused) {
+    return INVALID_OPERATION;
 }
 
 status_t DeviceHalHidl::getSupportedDevices(uint32_t*) {
@@ -408,6 +444,7 @@ status_t DeviceHalHidl::releaseAudioPatch(audio_patch_handle_t patch) {
 
 template <typename HalPort>
 status_t DeviceHalHidl::getAudioPortImpl(HalPort *port) {
+    using ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::AudioPort;
     if (mDevice == 0) return NO_INIT;
     AudioPort hidlPort;
     HidlUtils::audioPortFromHal(*port, &hidlPort);
@@ -450,6 +487,7 @@ status_t DeviceHalHidl::getAudioPort(struct audio_port_v7 *port) {
 }
 
 status_t DeviceHalHidl::setAudioPortConfig(const struct audio_port_config *config) {
+    using ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::AudioPortConfig;
     TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     AudioPortConfig hidlConfig;
@@ -459,12 +497,13 @@ status_t DeviceHalHidl::setAudioPortConfig(const struct audio_port_config *confi
 
 #if MAJOR_VERSION == 2
 status_t DeviceHalHidl::getMicrophones(
-        std::vector<media::MicrophoneInfo> *microphonesInfo __unused) {
+        std::vector<audio_microphone_characteristic_t> *microphonesInfo __unused) {
     if (mDevice == 0) return NO_INIT;
     return INVALID_OPERATION;
 }
 #elif MAJOR_VERSION >= 4
-status_t DeviceHalHidl::getMicrophones(std::vector<media::MicrophoneInfo> *microphonesInfo) {
+status_t DeviceHalHidl::getMicrophones(
+        std::vector<audio_microphone_characteristic_t> *microphonesInfo) {
     TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     Result retval;
@@ -475,8 +514,7 @@ status_t DeviceHalHidl::getMicrophones(std::vector<media::MicrophoneInfo> *micro
             audio_microphone_characteristic_t dst;
             //convert
             (void)CoreUtils::microphoneInfoToHal(micArrayHal[k], &dst);
-            media::MicrophoneInfo microphone = media::MicrophoneInfo(dst);
-            microphonesInfo->push_back(microphone);
+            microphonesInfo->push_back(dst);
         }
     });
     return processReturn("getMicrophones", ret, retval);
@@ -513,9 +551,29 @@ status_t DeviceHalHidl::removeDeviceEffect(
 }
 #endif
 
+status_t DeviceHalHidl::prepareToDisconnectExternalDevice(const struct audio_port_v7* port) {
+    // For HIDL HAL, there is not API to call notify the HAL to prepare for device connected
+    // state changed. Call `setConnectedState` directly.
+    const status_t status = setConnectedState(port, false /*connected*/);
+    if (status == NO_ERROR) {
+        // Cache the port id so that it won't disconnect twice.
+        mDeviceDisconnectionNotified.insert(port->id);
+    }
+    return status;
+}
+
 status_t DeviceHalHidl::setConnectedState(const struct audio_port_v7 *port, bool connected) {
+    using ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::AudioPort;
     TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
+    if (!connected && mDeviceDisconnectionNotified.erase(port->id) > 0) {
+        // For device disconnection, APM will first call `prepareToDisconnectExternalDevice` and
+        // then call `setConnectedState`. However, in HIDL HAL, there is no API for
+        // `prepareToDisconnectExternalDevice`. In that case, HIDL HAL will call `setConnectedState`
+        // when calling `prepareToDisconnectExternalDevice`. Do not call to the HAL if previous
+        // call is successful. Also remove the cache here to avoid a large cache after a long run.
+        return NO_ERROR;
+    }
 #if MAJOR_VERSION == 7 && MINOR_VERSION == 1
     if (supportsSetConnectedState7_1) {
         AudioPort hidlPort;
@@ -576,5 +634,51 @@ status_t DeviceHalHidl::dump(int fd, const Vector<String16>& args) {
 
     return processReturn("dump", ret);
 }
+
+#if MAJOR_VERSION == 7 && MINOR_VERSION == 1
+status_t DeviceHalHidl::getSoundDoseInterface(const std::string& module,
+                                              ::ndk::SpAIBinder* soundDoseBinder) {
+    if (mSoundDoseWrapper->mSoundDose != nullptr) {
+        *soundDoseBinder = mSoundDoseWrapper->mSoundDose->asBinder();
+        return OK;
+    }
+
+    if (mSoundDoseWrapper->mSoundDoseFactory == nullptr) {
+        std::string interface =
+            std::string(ISoundDoseFactory::descriptor) + kSoundDoseInterfaceModule.data();
+        AIBinder* binder = AServiceManager_checkService(interface.c_str());
+        if (binder == nullptr) {
+            ALOGW("%s service %s doesn't exist", __func__, interface.c_str());
+            return NO_INIT;
+        }
+        mSoundDoseWrapper->mSoundDoseFactory =
+                ISoundDoseFactory::fromBinder(ndk::SpAIBinder(binder));
+    }
+
+    auto result = mSoundDoseWrapper->mSoundDoseFactory->getSoundDose(
+                        module, &mSoundDoseWrapper->mSoundDose);
+    if (!result.isOk()) {
+        ALOGW("%s could not get sound dose interface: %s", __func__, result.getMessage());
+        return BAD_VALUE;
+    }
+
+    if (mSoundDoseWrapper->mSoundDose == nullptr) {
+        ALOGW("%s standalone sound dose interface is not implemented", __func__);
+        *soundDoseBinder = nullptr;
+        return OK;
+    }
+
+    *soundDoseBinder = mSoundDoseWrapper->mSoundDose->asBinder();
+    ALOGI("%s using standalone sound dose interface", __func__);
+    return OK;
+}
+#else
+status_t DeviceHalHidl::getSoundDoseInterface(const std::string& module,
+                                              ::ndk::SpAIBinder* soundDoseBinder) {
+    (void)module;  // avoid unused param
+    (void)soundDoseBinder;  // avoid unused param
+    return INVALID_OPERATION;
+}
+#endif
 
 } // namespace android

@@ -18,11 +18,15 @@ package com.google.android.car.networking.railway;
 
 import android.app.Application;
 import android.net.ConnectivityManager;
+import android.net.ConnectivityManager.NetworkCallback;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
@@ -34,22 +38,27 @@ import java.util.List;
 import java.util.Set;
 
 public final class CurrentEthernetNetworksViewModel extends AndroidViewModel {
+    private static final String TAG = CurrentEthernetNetworksViewModel.class.getName();
     private final MutableLiveData<List<Network>> mNetworks =
             new MutableLiveData<>(new ArrayList<>());
     private final Application mApplication;
     private final ConnectivityManager mConnectivityManager;
-    private final ConnectivityManager.NetworkCallback mNetworkCallback;
+    private final NetworkCallback mNetworkCallback = new CurrentEthernetNetworksCallback();
+    private final Handler mHandler;
+
+    private void runOnUiThread(Runnable r) {
+        mHandler.post(r);
+    }
 
     public LiveData<List<Network>> getNetworksLiveData() {
         return mNetworks;
     }
 
-    public CurrentEthernetNetworksViewModel(Application application,
-            ConnectivityManager.NetworkCallback networkCallback) {
+    public CurrentEthernetNetworksViewModel(Application application) {
         super(application);
 
         mApplication = application;
-        mNetworkCallback = networkCallback;
+        mHandler = new Handler(Looper.getMainLooper());
 
         mConnectivityManager  =
                 mApplication.getSystemService(ConnectivityManager.class);
@@ -60,7 +69,7 @@ public final class CurrentEthernetNetworksViewModel extends AndroidViewModel {
                 .addTransportType(
                         NetworkCapabilities.TRANSPORT_ETHERNET)
                 .build();
-        mConnectivityManager.registerNetworkCallback(request, networkCallback);
+        mConnectivityManager.registerNetworkCallback(request, mNetworkCallback);
     }
 
     @Override
@@ -70,12 +79,12 @@ public final class CurrentEthernetNetworksViewModel extends AndroidViewModel {
         mConnectivityManager.unregisterNetworkCallback(mNetworkCallback);
     }
 
-    public void onNetworkChanged() {
+    private void onNetworkChanged() {
         mNetworks.setValue(mNetworks.getValue());
         // setValue triggers an update on the observer that in turn updates the text view
     }
 
-    public void addNetwork(Network network) {
+    private void addNetwork(Network network) {
         List<Network> networks = mNetworks.getValue();
 
         assert networks != null;
@@ -83,7 +92,7 @@ public final class CurrentEthernetNetworksViewModel extends AndroidViewModel {
         mNetworks.setValue(networks);
     }
 
-    public void removeNetwork(Network network) {
+    private void removeNetwork(Network network) {
         List<Network> networks = mNetworks.getValue();
 
         assert networks != null;
@@ -126,5 +135,42 @@ public final class CurrentEthernetNetworksViewModel extends AndroidViewModel {
             sb.append("\n\n");
         }
         return sb.toString();
+    }
+
+    private class CurrentEthernetNetworksCallback extends NetworkCallback {
+        @Override
+        public void onAvailable(Network network) {
+            super.onAvailable(network);
+            Log.d(TAG, "Network " + network + " available");
+
+            runOnUiThread(() -> addNetwork(network));
+        }
+
+        @Override
+        public void onLost(Network network) {
+            super.onLost(network);
+            Log.d(TAG, "Network " + network + " lost");
+
+            runOnUiThread(() -> removeNetwork(network));
+        }
+
+        @Override
+        public void onCapabilitiesChanged(Network network,
+                NetworkCapabilities networkCapabilities) {
+            super.onCapabilitiesChanged(network, networkCapabilities);
+            Log.d(TAG, "Network " + network + " capabilities changed to "
+                    + Arrays.toString(networkCapabilities.getCapabilities()));
+
+            runOnUiThread(() -> onNetworkChanged());
+        }
+
+        @Override
+        public void onLinkPropertiesChanged(Network network,
+                LinkProperties linkProperties) {
+            super.onLinkPropertiesChanged(network, linkProperties);
+            Log.d(TAG, "Network " + network + " link properties changed");
+
+            runOnUiThread(() -> onNetworkChanged());
+        }
     }
 }

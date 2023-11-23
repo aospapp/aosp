@@ -16,28 +16,26 @@
 #ifndef VIDEOTEX_H
 #define VIDEOTEX_H
 
+#include "BaseRenderCallback.h"
+#include "StreamHandler.h"
+#include "TexWrapper.h"
+
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
-
 #include <android/hardware/automotive/evs/1.0/IEvsEnumerator.h>
-
-#include "BaseRenderCallback.h"
-#include "StreamHandler.h"
-#include "TexWrapper.h"
 
 namespace android {
 namespace automotive {
 namespace evs {
 namespace support {
 
-using namespace ::android::hardware::automotive::evs::V1_0;
+using ::android::hardware::automotive::evs::V1_0::BufferDesc;
 
-
-class VideoTex: public TexWrapper {
+class VideoTex : public TexWrapper {
 public:
     VideoTex() = delete;
     VideoTex(EGLDisplay glDisplay);
@@ -47,7 +45,7 @@ public:
     bool refresh(const BufferDesc& imageBuffer);
 
 private:
-    EGLDisplay          mDisplay;
+    EGLDisplay mDisplay;
     EGLImageKHR mKHRimage = EGL_NO_IMAGE_KHR;
 };
 }  // namespace support

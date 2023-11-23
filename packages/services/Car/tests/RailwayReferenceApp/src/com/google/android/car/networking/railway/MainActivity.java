@@ -19,15 +19,13 @@ import android.app.AlertDialog;
 import android.app.Application;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
+import android.net.ConnectivityManager.NetworkCallback;
 import android.net.EthernetNetworkManagementException;
 import android.net.EthernetNetworkSpecifier;
-import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.os.OutcomeReceiver;
 import android.util.Log;
 import android.widget.Button;
@@ -46,13 +44,16 @@ import java.net.Socket;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public final class MainActivity extends FragmentActivity {
     private static final String TAG = MainActivity.class.getName();
     private static final Duration REQUEST_NETWORK_TIMEOUT =
-            Duration.of(200, ChronoUnit.MILLIS);
+            Duration.of(2000, ChronoUnit.MILLIS);
 
     private ConfigurationUpdater mConfigurationUpdater;
     private InterfaceEnabler mInterfaceEnabler;
@@ -103,9 +104,8 @@ public final class MainActivity extends FragmentActivity {
 
         mCurrentEthernetNetworksViewModel =
                 new ViewModelProvider(this,
-                        new CurrentEthernetNetworksViewModelFactory(
-                                (Application) getApplicationContext(),
-                                new CurrentEthernetNetworksCallback()))
+                        (ViewModelProvider.Factory) new CurrentEthernetNetworksViewModelFactory(
+                                (Application) getApplicationContext()))
                         .get(CurrentEthernetNetworksViewModel.class);
         mCurrentEthernetNetworksViewModel.getNetworksLiveData().observe(this,
                 networkNetworkInfoMap -> currentEthernetNetworksOutput
@@ -160,10 +160,11 @@ public final class MainActivity extends FragmentActivity {
     }
 
     private void onUpdateButtonClick() {
-        validateInterfaceName(getUpdateConfigurationIface());
         setButtonsAndEditTextsEnabled(false);
         Log.d(TAG, "configuration update started");
+
         try {
+            validateInterfaceName(getUpdateConfigurationIface());
             mConfigurationUpdater.updateNetworkConfiguration(
                     mAllowedPackageNames.getText().toString(),
                     mIpConfiguration.getText().toString(),
@@ -182,34 +183,35 @@ public final class MainActivity extends FragmentActivity {
 
         try {
             validateInterfaceName(getEnableDisableConnectIface());
-            NetworkRequest request =
-                    new NetworkRequest.Builder()
-                            .clearCapabilities()
-                            .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
-                            .setNetworkSpecifier(
-                                    new EthernetNetworkSpecifier(getEnableDisableConnectIface()))
-                            .build();
-            mConnectivityManager.requestNetwork(request,
-                    new InterfaceConnectorCallback(),
-                    new Handler(Looper.getMainLooper()),
-                    Math.toIntExact(REQUEST_NETWORK_TIMEOUT.toMillis()));
+            new NetworkConnector().checkNetworkConnectionAvailable(
+                    new EthernetNetworkSpecifier(getEnableDisableConnectIface()));
         } catch (SecurityException | IllegalArgumentException e) {
             showOperationResultDialog(e.getLocalizedMessage(), /* isSuccess= */ false);
         }
     }
 
     private void onEnableButtonClick() {
-        validateInterfaceName(getEnableDisableConnectIface());
         setButtonsAndEditTextsEnabled(false);
         Log.d(TAG, "enable interface started");
-        mInterfaceEnabler.enableInterface(getEnableDisableConnectIface());
+
+        try {
+            validateInterfaceName(getEnableDisableConnectIface());
+            mInterfaceEnabler.enableInterface(getEnableDisableConnectIface());
+        } catch (IllegalArgumentException e) {
+            showOperationResultDialog(e.getLocalizedMessage(), /* isSuccess= */ false);
+        }
     }
 
     private void onDisableButtonClick() {
-        validateInterfaceName(getEnableDisableConnectIface());
         setButtonsAndEditTextsEnabled(false);
         Log.d(TAG, "disable interface started");
-        mInterfaceEnabler.disableInterface(getEnableDisableConnectIface());
+
+        try {
+            validateInterfaceName(getEnableDisableConnectIface());
+            mInterfaceEnabler.disableInterface(getEnableDisableConnectIface());
+        } catch (IllegalArgumentException e) {
+            showOperationResultDialog(e.getLocalizedMessage(), /* isSuccess= */ false);
+        }
     }
 
     private void validateInterfaceName(String iface) {
@@ -218,91 +220,63 @@ public final class MainActivity extends FragmentActivity {
         }
     }
 
-    private class InterfaceConnectorCallback extends ConnectivityManager.NetworkCallback {
-        @Override
-        public void onAvailable(Network network) {
-            super.onAvailable(network);
+    private class NetworkConnector {
+        private final CompletableFuture<Network> mNetworkFuture = new CompletableFuture();
+        private final NetworkCallback mCb = new NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                super.onAvailable(network);
+                mNetworkFuture.complete(network);
 
-            try (Socket socket = new Socket()) {
-                network.bindSocket(socket);
-            } catch (IOException e) {
-                showOperationResultDialog(e.getLocalizedMessage(), /* isSuccess= */ false);
-                return;
-            } finally {
-                mConnectivityManager.unregisterNetworkCallback(this);
+                try (Socket socket = new Socket()) {
+                    network.bindSocket(socket);
+                } catch (IOException e) {
+                    runOnUiThread(() -> showOperationResultDialog(
+                            e.getLocalizedMessage(), /* isSuccess= */ false));
+                    return;
+                } finally {
+                    mConnectivityManager.unregisterNetworkCallback(this);
+                }
+
+                runOnUiThread(() -> showOperationResultDialog(
+                        mConnectivityManager.getLinkProperties(network).getInterfaceName(),
+                        /* isSuccess= */ true));
             }
+        };
 
-            showOperationResultDialog(
-                    mConnectivityManager.getLinkProperties(network).getInterfaceName(),
-                    /* isSuccess= */ true);
-        }
-
-        @Override
-        public void onUnavailable() {
-            super.onUnavailable();
-            mConnectivityManager.unregisterNetworkCallback(this);
-
-            showOperationResultDialog(mInterfaceName2.getText().toString() + " is not available",
-                    /* isSuccess= */ false);
-        }
-    }
-
-    private class CurrentEthernetNetworksCallback extends ConnectivityManager.NetworkCallback {
-        @Override
-        public void onAvailable(Network network) {
-            super.onAvailable(network);
-            Log.d(TAG, "Network " + network + " available");
-
-            runOnUiThread(() -> mCurrentEthernetNetworksViewModel.addNetwork(network));
-        }
-
-        @Override
-        public void onLost(Network network) {
-            super.onLost(network);
-            Log.d(TAG, "Network " + network + " lost");
-
-            runOnUiThread(() -> mCurrentEthernetNetworksViewModel.removeNetwork(network));
-        }
-
-        @Override
-        public void onCapabilitiesChanged(Network network,
-                NetworkCapabilities networkCapabilities) {
-            super.onCapabilitiesChanged(network, networkCapabilities);
-            Log.d(TAG, "Network " + network + " capabilities changed to "
-                    + Arrays.toString(networkCapabilities.getCapabilities()));
-
-            runOnUiThread(() -> mCurrentEthernetNetworksViewModel.onNetworkChanged());
-        }
-
-        @Override
-        public void onLinkPropertiesChanged(Network network,
-                LinkProperties linkProperties) {
-            super.onLinkPropertiesChanged(network, linkProperties);
-            Log.d(TAG, "Network " + network + " link properties changed");
-
-            runOnUiThread(
-                    () -> mCurrentEthernetNetworksViewModel.onNetworkChanged());
+        void checkNetworkConnectionAvailable(EthernetNetworkSpecifier specifier) {
+            NetworkRequest request =
+                    new NetworkRequest.Builder()
+                            .clearCapabilities()
+                            .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
+                            .setNetworkSpecifier(specifier)
+                            .build();
+            try {
+                mConnectivityManager.registerNetworkCallback(request, mCb);
+                mNetworkFuture.get(REQUEST_NETWORK_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (TimeoutException | ExecutionException | InterruptedException e) {
+                Log.e(TAG, e.getClass().getSimpleName());
+                mConnectivityManager.unregisterNetworkCallback(mCb);
+                runOnUiThread(() -> showOperationResultDialog(
+                        mInterfaceName2.getText().toString() + " is not available",
+                        /* isSuccess= */ false));
+            }
         }
     }
 
     private static class CurrentEthernetNetworksViewModelFactory extends
             ViewModelProvider.AndroidViewModelFactory {
         private final Application mApplication;
-        private final ConnectivityManager.NetworkCallback mNetworkCallback;
 
-        private CurrentEthernetNetworksViewModelFactory(
-                Application application, ConnectivityManager.NetworkCallback networkCallback) {
+        private CurrentEthernetNetworksViewModelFactory(Application application) {
             super(application);
             mApplication = application;
-            mNetworkCallback = networkCallback;
         }
 
         @NonNull
         @Override
         public <T extends ViewModel> T create(Class<T> modelClass) {
-            return modelClass.cast(
-                    new CurrentEthernetNetworksViewModel(mApplication, mNetworkCallback));
+            return modelClass.cast(new CurrentEthernetNetworksViewModel(mApplication));
         }
     }
-
 }

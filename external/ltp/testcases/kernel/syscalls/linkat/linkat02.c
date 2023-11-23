@@ -21,7 +21,6 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -113,7 +112,7 @@ static void linkat_verify(const struct test_struct *desc)
 		desc->setupfunc();
 	}
 
-	TEST(ltp_syscall(__NR_linkat, AT_FDCWD, desc->oldfname,
+	TEST(tst_syscall(__NR_linkat, AT_FDCWD, desc->oldfname,
 			 AT_FDCWD, desc->newfname, desc->flags));
 
 	if (desc->cleanfunc != NULL)
@@ -121,7 +120,7 @@ static void linkat_verify(const struct test_struct *desc)
 
 	if (TEST_RETURN != -1) {
 		tst_resm(TFAIL,
-			 "linkat(""AT_FDCWD"", %s, ""AT_FDCWD"", %s, %d)"
+			 "linkat(""AT_FDCWD"", %s, ""AT_FDCWD"", %s, %d) "
 			 "succeeded unexpectedly", desc->oldfname,
 			 desc->newfname, desc->flags);
 		return;
@@ -139,9 +138,6 @@ static void linkat_verify(const struct test_struct *desc)
 
 static void setup(void)
 {
-	if ((tst_kvercmp(2, 6, 16)) < 0)
-		tst_brkm(TCONF, NULL, "This test needs kernel 2.6.16 or newer");
-
 	tst_require_root();
 
 	tst_sig(NOFORK, DEF_HANDLER, cleanup);

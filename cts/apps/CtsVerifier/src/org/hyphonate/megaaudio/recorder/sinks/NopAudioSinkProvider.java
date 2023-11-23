@@ -27,7 +27,8 @@ public class NopAudioSinkProvider implements AudioSinkProvider {
 
     @Override
     public NativeAudioSink allocNativeSink() {
-        //||| TODO - implement this
-        return null;
+        return new NativeAudioSink(allocOboeSinkN());
     }
+
+    private native long allocOboeSinkN();
 }

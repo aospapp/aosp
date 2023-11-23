@@ -23,7 +23,7 @@ cc_library_static {
         "com_android_net_module_util_TcUtils.cpp",
     ],
     header_libs: [
-        "bpf_syscall_wrappers",
+        "bpf_headers",
         "jni_headers",
     ],
     shared_libs: [

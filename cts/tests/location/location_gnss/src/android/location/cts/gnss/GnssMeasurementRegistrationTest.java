@@ -34,6 +34,8 @@ import android.util.Log;
 
 import androidx.test.core.app.ApplicationProvider;
 
+import junit.framework.Assert;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -68,6 +70,7 @@ public class GnssMeasurementRegistrationTest {
     private static final String TAG = "GnssMeasRegTest";
     private static final int EVENTS_COUNT = 5;
     private static final int GPS_EVENTS_COUNT = 1;
+    private static final int PASSIVE_LISTENER_TIMEOUT_SECONDS = 15;
     private TestLocationListener mLocationListener;
     private TestGnssMeasurementListener mMeasurementListener;
     private TestLocationManager mTestLocationManager;
@@ -140,6 +143,63 @@ public class GnssMeasurementRegistrationTest {
         verifyGnssMeasurementsReceived();
     }
 
+    /**
+     * Test GPS measurements registration with passive interval.
+     *
+     * Verify the passive listener cannot receive any measurement.
+     */
+    @Test
+    public void testGnssMeasurementRegistration_passiveListenerOnly() throws Exception {
+        assumeTrue(TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG));
+        assumeFalse("Test is being skipped because the system has the AUTOMOTIVE feature.",
+                TestMeasurementUtil.isAutomotiveDevice(mContext));
+
+        // Register for GNSS measurements with passive interval
+        mMeasurementListener = new TestGnssMeasurementListener(TAG, GPS_EVENTS_COUNT);
+        mTestLocationManager.registerGnssMeasurementCallback(mMeasurementListener,
+                new GnssMeasurementRequest.Builder().setIntervalMillis(
+                        GnssMeasurementRequest.PASSIVE_INTERVAL).build());
+
+        // Wait for PASSIVE_LISTENER_TIMEOUT_SECONDS and verify no measurement is received.
+        Assert.assertFalse("Passive listener alone must not receive any measurement.",
+                mMeasurementListener.await(PASSIVE_LISTENER_TIMEOUT_SECONDS));
+    }
+
+    /**
+     * Test GPS measurements registration with a listener with a passive interval and a listener
+     * with the fastest interval.
+     *
+     * 1. Verify the passive listener can receive measurements after the 2nd non-passive listener
+     * is registered.
+     * 2. Verify the passive listener stops receiving measurements after the 2nd non-passive
+     * listener is unregistered.
+     */
+    @Test
+    public void testGnssMeasurementRegistration_passiveListenerAndNonPassiveListener()
+            throws Exception {
+        assumeTrue(TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG));
+        assumeFalse("Test is being skipped because the system has the AUTOMOTIVE feature.",
+                TestMeasurementUtil.isAutomotiveDevice(mContext));
+
+        // Register for GNSS measurements with passive interval
+        mMeasurementListener = new TestGnssMeasurementListener(TAG, GPS_EVENTS_COUNT);
+        mTestLocationManager.registerGnssMeasurementCallback(mMeasurementListener,
+                new GnssMeasurementRequest.Builder().setIntervalMillis(
+                        GnssMeasurementRequest.PASSIVE_INTERVAL).build());
+        // Register for GNSS measurements with non-passive interval
+        TestGnssMeasurementListener nonPassiveListener = new TestGnssMeasurementListener(TAG,
+                GPS_EVENTS_COUNT);
+        mTestLocationManager.registerGnssMeasurementCallback(nonPassiveListener);
+
+        // Verify that measurement is received in the passive listener.
+        verifyGnssMeasurementsReceived();
+
+        mTestLocationManager.unregisterGnssMeasurementCallback(nonPassiveListener);
+
+        // Verify that no more measurement is received in the passive listener.
+        verifyNoGnssMeasurementReceived();
+    }
+
     private void verifyGnssMeasurementsReceived() throws InterruptedException {
         mMeasurementListener.await();
 
@@ -181,5 +241,15 @@ public class GnssMeasurementRegistrationTest {
                 events.isEmpty());
 
         softAssert.assertAll();
+    }
+
+    private void verifyNoGnssMeasurementReceived() throws InterruptedException {
+        // Allow 1s for the in-flight measurement to arrive if any.
+        Thread.sleep(1000);
+        int eventCount = mMeasurementListener.getEvents().size();
+
+        // Assert that no more measurement is received in the next 5s
+        Thread.sleep(5000);
+        Assert.assertEquals(eventCount, mMeasurementListener.getEvents().size());
     }
 }

@@ -17,11 +17,10 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.bedstead.testapp.LockTaskApp">
-    <application
-        android:testOnly="true">
-
+          package="com.android.bedstead.testapp.LockTaskApp"
+          android:testOnly="true">
+    <application  android:testOnly="true" android:label="LockTaskApp">
         <activity android:name="android.testapp.ifwhitelistedactivity" android:lockTaskMode="if_whitelisted" android:exported="true" />
     </application>
-    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="28"/>
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29"/>
 </manifest>

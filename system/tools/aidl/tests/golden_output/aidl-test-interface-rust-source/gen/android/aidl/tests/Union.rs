@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 #![rustfmt::skip]
 #[derive(Debug, Clone, PartialEq)]
-pub enum Union {
+pub enum r#Union {
   Ns(Vec<i32>),
   N(i32),
   M(i32),
@@ -10,13 +10,13 @@ pub enum Union {
   Ss(Vec<String>),
   Be(crate::mangled::_7_android_4_aidl_5_tests_8_ByteEnum),
 }
-pub const S1: &str = "a string constant in union";
-impl Default for Union {
+pub const r#S1: &str = "a string constant in union";
+impl Default for r#Union {
   fn default() -> Self {
     Self::Ns(vec![])
   }
 }
-impl binder::Parcelable for Union {
+impl binder::Parcelable for r#Union {
   fn write_to_parcel(&self, parcel: &mut binder::binder_impl::BorrowedParcel) -> std::result::Result<(), binder::StatusCode> {
     match self {
       Self::Ns(v) => {
@@ -93,27 +93,27 @@ impl binder::Parcelable for Union {
     }
   }
 }
-binder::impl_serialize_for_parcelable!(Union);
-binder::impl_deserialize_for_parcelable!(Union);
-impl binder::binder_impl::ParcelableMetadata for Union {
+binder::impl_serialize_for_parcelable!(r#Union);
+binder::impl_deserialize_for_parcelable!(r#Union);
+impl binder::binder_impl::ParcelableMetadata for r#Union {
   fn get_descriptor() -> &'static str { "android.aidl.tests.Union" }
 }
-pub mod Tag {
+pub mod r#Tag {
   #![allow(non_upper_case_globals)]
   use binder::declare_binder_enum;
   declare_binder_enum! {
-    Tag : [i32; 7] {
-      ns = 0,
-      n = 1,
-      m = 2,
-      s = 3,
-      ibinder = 4,
-      ss = 5,
-      be = 6,
+    r#Tag : [i32; 7] {
+      r#ns = 0,
+      r#n = 1,
+      r#m = 2,
+      r#s = 3,
+      r#ibinder = 4,
+      r#ss = 5,
+      r#be = 6,
     }
   }
 }
 pub(crate) mod mangled {
- pub use super::Union as _7_android_4_aidl_5_tests_5_Union;
- pub use super::Tag::Tag as _7_android_4_aidl_5_tests_5_Union_3_Tag;
+ pub use super::r#Union as _7_android_4_aidl_5_tests_5_Union;
+ pub use super::r#Tag::r#Tag as _7_android_4_aidl_5_tests_5_Union_3_Tag;
 }

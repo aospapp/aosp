@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"Skambutis kontaktui <xliff:g id="CALLER">%s</xliff:g> buvo atjungtas dėl atliekamo skambučio pagalbos numeriu."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"Skambutis buvo atjungtas dėl atliekamo skambučio pagalbos numeriu."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"Skambutis fone"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"Programa „<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g>“ perkėlė skambutį į foną. Ši programa gali pasiekti ir leisti garsą vykstant skambučiui."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"„<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g>“ apdoroja skambutį fone. Ši programa gali pasiekti ir leisti garsą vykstant skambučiui."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"Programa „<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g>“ nebereaguoja"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"Atliekant skambutį buvo naudojama telefono programa, kuri buvo įrenginyje jį įsigijus"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"Skambutis nutildytas."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Skambučiai fone"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Skambučiai atjungti"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Užstrigusios telefono programos"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"Srautinis skambučio perdavimas"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"Atliekant šį skambutį bus užbaigtas „<xliff:g id="OTHER_APP">%1$s</xliff:g>“ skambutis."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Pasirinkite, kaip norite skambinti"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"Peradresuoti skambutį naudojant programą „<xliff:g id="OTHER_APP">%1$s</xliff:g>“"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Telekomunikacijų kūrėjų meniu"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Atliekant skambutį pagalbos numeriu negalima atsiliepti į kitus skambučius."</string>
     <string name="cancel" msgid="6733466216239934756">"Atšaukti"</string>
+    <string name="back" msgid="6915955601805550206">"Atgal"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"Garsiakalbis prie ausies"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"Bluetooth"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"Laidinės ausinės"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"Garsiakalbis"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"Išoriniai šaltiniai"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"Nežinoma"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"Srautinis garso perdavimas į kitą įrenginį"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"Baigti skambutį"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"Perjungti čia"</string>
 </resources>

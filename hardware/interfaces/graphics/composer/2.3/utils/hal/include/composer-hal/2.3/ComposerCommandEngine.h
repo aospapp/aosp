@@ -73,9 +73,7 @@ class ComposerCommandEngine : public V2_2::hal::ComposerCommandEngine {
     }
 
     bool executeSetLayerPerFrameMetadataBlobs(uint16_t length) {
-        // must have at least one metadata blob
-        // of at least size 1 in queue (i.e {/*numBlobs=*/1, key, size, blob})
-        if (length < 4) {
+        if (length == 0) {
             return false;
         }
 
@@ -84,7 +82,7 @@ class ComposerCommandEngine : public V2_2::hal::ComposerCommandEngine {
 
         std::vector<IComposerClient::PerFrameMetadataBlob> metadata;
 
-        for (size_t i = 0; i < numBlobs; i++) {
+        for (size_t i = 0; i < numBlobs && length >= 2; i++) {
             IComposerClient::PerFrameMetadataKey key =
                 static_cast<IComposerClient::PerFrameMetadataKey>(readSigned());
             uint32_t blobSize = read();

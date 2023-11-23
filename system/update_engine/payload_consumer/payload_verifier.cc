@@ -23,7 +23,6 @@
 #include <openssl/pem.h>
 
 #include "update_engine/common/constants.h"
-#include "update_engine/common/hash_calculator.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/payload_consumer/certificate_parser_interface.h"
 #include "update_engine/update_metadata.pb.h"

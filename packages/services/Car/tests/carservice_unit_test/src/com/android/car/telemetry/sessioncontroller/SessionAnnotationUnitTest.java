@@ -20,6 +20,8 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.os.PersistableBundle;
 
+import com.android.car.telemetry.publisher.Constants;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -31,10 +33,11 @@ public class SessionAnnotationUnitTest {
     private static final long CREATED_AT_SINCE_BOOT_MILLIS = 123;
     private static final long CREATED_AT_MILLIS = 123123;
     private static final String BOOT_REASON = "reboot";
+    private static final int BOOT_COUNT = 12;
 
     private static final SessionAnnotation sAnnotation = new SessionAnnotation(SESSION_ID,
             SESSION_STATE,
-            CREATED_AT_SINCE_BOOT_MILLIS, CREATED_AT_MILLIS, BOOT_REASON);
+            CREATED_AT_SINCE_BOOT_MILLIS, CREATED_AT_MILLIS, BOOT_REASON, BOOT_COUNT);
 
     @Test
     public void testAddAnnotationsToBundle_addsPopulatedBundle() {
@@ -42,17 +45,19 @@ public class SessionAnnotationUnitTest {
 
         sAnnotation.addAnnotationsToBundle(data);
 
-        assertThat(data.getInt(SessionAnnotation.ANNOTATION_BUNDLE_KEY_SESSION_ID)).isEqualTo(
+        assertThat(data.getInt(Constants.ANNOTATION_BUNDLE_KEY_SESSION_ID)).isEqualTo(
                 SESSION_ID);
-        assertThat(data.getInt(SessionAnnotation.ANNOTATION_BUNDLE_KEY_SESSION_STATE)).isEqualTo(
+        assertThat(data.getInt(Constants.ANNOTATION_BUNDLE_KEY_SESSION_STATE)).isEqualTo(
                 SESSION_STATE);
         assertThat(data.getLong(
-                SessionAnnotation.ANNOTATION_BUNDLE_KEY_CREATED_AT_SINCE_BOOT_MILLIS)).isEqualTo(
+                Constants.ANNOTATION_BUNDLE_KEY_CREATED_AT_SINCE_BOOT_MILLIS)).isEqualTo(
                 CREATED_AT_SINCE_BOOT_MILLIS);
         assertThat(
-                data.getLong(SessionAnnotation.ANNOTATION_BUNDLE_KEY_CREATED_AT_MILLIS)).isEqualTo(
+                data.getLong(Constants.ANNOTATION_BUNDLE_KEY_CREATED_AT_MILLIS)).isEqualTo(
                 CREATED_AT_MILLIS);
-        assertThat(data.getString(SessionAnnotation.ANNOTATION_BUNDLE_KEY_BOOT_REASON)).isEqualTo(
+        assertThat(data.getString(Constants.ANNOTATION_BUNDLE_KEY_BOOT_REASON)).isEqualTo(
                 BOOT_REASON);
+        assertThat(data.getInt(Constants.ANNOTATION_BUNDLE_KEY_BOOT_COUNT)).isEqualTo(
+                BOOT_COUNT);
     }
 }

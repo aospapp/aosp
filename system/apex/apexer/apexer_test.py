@@ -19,7 +19,6 @@
 import hashlib
 import logging
 import os
-import re
 import shutil
 import stat
 import subprocess
@@ -28,6 +27,7 @@ import unittest
 from zipfile import ZipFile
 
 from apex_manifest import ValidateApexManifest
+from apex_manifest import ParseApexManifest
 
 logger = logging.getLogger(__name__)
 
@@ -184,7 +184,7 @@ class ApexerRebuildTest(unittest.TestCase):
         files = {}
         for i in ["apexer", "deapexer", "avbtool", "mke2fs", "sefcontext_compile", "e2fsdroid",
             "resize2fs", "soong_zip", "aapt2", "merge_zips", "zipalign", "debugfs_static",
-            "signapk.jar", "android.jar"]:
+                  "signapk.jar", "android.jar", "blkid", "fsck.erofs"]:
             file_path = os.path.join(dir_name, "bin", i)
             if os.path.exists(file_path):
                 os.chmod(file_path, stat.S_IRUSR | stat.S_IXUSR);
@@ -249,7 +249,8 @@ class ApexerRebuildTest(unittest.TestCase):
         dir_name = tempfile.mkdtemp(prefix=self._testMethodName+"_extracted_payload_")
         self._to_cleanup.append(dir_name)
         cmd = ["deapexer", "--debugfs_path", self.host_tools["debugfs_static"],
-            "extract", apex_file_path, dir_name]
+               "--blkid_path",self.host_tools["blkid"], "--fsckerofs_path",
+               self.host_tools["fsck.erofs"], "extract", apex_file_path, dir_name]
         run_host_command(cmd)
 
         # Remove payload files added by apexer and e2fs tools.
@@ -300,8 +301,10 @@ class ApexerRebuildTest(unittest.TestCase):
 
     def _get_java_toolchain(self):
         java_toolchain = "java"
-        if os.path.isfile("prebuilts/jdk/jdk11/linux-x86/bin/java"):
-            java_toolchain = "prebuilts/jdk/jdk11/linux-x86/bin/java"
+        if os.path.isfile("prebuilts/jdk/jdk17/linux-x86/bin/java"):
+            java_toolchain = "prebuilts/jdk/jdk17/linux-x86/bin/java"
+        elif os.path.isfile("/jdk/jdk17/linux-x86/bin/java"):
+            java_toolchain = "/jdk/jdk17/linux-x86/bin/java"
         elif "ANDROID_JAVA_TOOLCHAIN" in os.environ:
             java_toolchain = os.path.join(os.environ["ANDROID_JAVA_TOOLCHAIN"], "java")
         elif "ANDROID_JAVA_HOME" in os.environ:
@@ -347,7 +350,8 @@ class ApexerRebuildTest(unittest.TestCase):
         cmd.extend(['--algorithm', 'SHA256_RSA4096'])
         cmd.extend(['--hash_algorithm', 'sha256'])
         cmd.extend(['--key', os.path.join(get_current_dir(), TEST_PRIVATE_KEY)])
-        manifest_apex = ValidateApexManifest(container_files["apex_manifest.pb"])
+        manifest_apex = ParseApexManifest(container_files["apex_manifest.pb"])
+        ValidateApexManifest(manifest_apex)
         cmd.extend(['--prop', 'apex.key:' + manifest_apex.name])
         # Set up the salt based on manifest content which includes name
         # and version
@@ -424,6 +428,7 @@ class ApexerRebuildTest(unittest.TestCase):
 
     def test_apex_with_overridden_package_name(self):
       self._run_build_test(TEST_APEX_WITH_OVERRIDDEN_PACKAGE_NAME)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

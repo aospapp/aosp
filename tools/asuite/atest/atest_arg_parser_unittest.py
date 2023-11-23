@@ -19,7 +19,7 @@
 
 import unittest
 
-import atest_arg_parser
+from atest import atest_arg_parser
 
 
 class AtestArgParserUnittests(unittest.TestCase):

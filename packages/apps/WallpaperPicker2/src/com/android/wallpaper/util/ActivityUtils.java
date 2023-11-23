@@ -122,4 +122,13 @@ public final class ActivityUtils {
         return "wallpaper_only".equals(
                 intent.getStringExtra("com.android.launcher3.WALLPAPER_FLAVOR"));
     }
+
+    /**
+     * Returns {@code true} if the activity was launched from the home screen (launcher);
+     * {@code false} otherwise.
+     */
+    public static boolean isLaunchedFromLauncher(Intent intent) {
+        return LaunchSourceUtils.LAUNCH_SOURCE_LAUNCHER.equals(
+                intent.getStringExtra(WALLPAPER_LAUNCH_SOURCE));
+    }
 }

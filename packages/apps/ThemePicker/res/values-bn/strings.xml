@@ -19,7 +19,28 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="1647136562008520313">"ওয়ালপেপার এবং স্টাইল"</string>
     <string name="theme_title" msgid="2144932106319405101">"স্টাইল"</string>
-    <string name="clock_title" msgid="2126046720254613991">"ঘড়ি"</string>
+    <string name="clock_title" msgid="1974314575211361352">"কাস্টম ঘড়ি"</string>
+    <string name="clock_description" msgid="3563839327378948">"কাস্টম ঘড়ি বেছে নিন"</string>
+    <string name="clock_picker_entry_content_description" msgid="8377139273468595734">"কাস্টম ঘড়ি পরিবর্তন করুন"</string>
+    <string name="select_clock_action_description" msgid="5025888763471843648">"ঘড়ির ডায়ালের বিকল্প <xliff:g id="ID_1">%1$s</xliff:g>"</string>
+    <string name="clock_settings_title" msgid="2050906379377120431">"ঘড়ির রঙ &amp; সাইজ"</string>
+    <string name="clock_color_and_size_title" msgid="7146791234905111351">"ঘড়ির রঙ ও সাইজ"</string>
+    <string name="clock_color_and_size_description" msgid="6578061553012886817">"<xliff:g id="ID_1">%1$s</xliff:g>, <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="clock_color" msgid="8081608867289156163">"রঙ"</string>
+    <string name="clock_color_red" msgid="3843504214807597810">"লাল"</string>
+    <string name="clock_color_orange" msgid="4175805201144275804">"কমলা"</string>
+    <string name="clock_color_yellow" msgid="7391699163247349977">"হলুদ"</string>
+    <string name="clock_color_green" msgid="1991157556500156596">"সবুজ"</string>
+    <string name="clock_color_blue" msgid="4037792003465759149">"নীল"</string>
+    <string name="clock_color_indigo" msgid="8910855386698452917">"নীলচে বেগুনি"</string>
+    <string name="clock_color_violet" msgid="3454503847169375826">"বেগুনি"</string>
+    <string name="clock_color_gray" msgid="9221530636948859231">"ধূসর"</string>
+    <string name="clock_color_teal" msgid="7499223425741344251">"নীলচে সবুজ"</string>
+    <string name="clock_size" msgid="5028923902364418263">"সাইজ"</string>
+    <string name="clock_size_dynamic" msgid="1023930312455061642">"ডায়নামিক"</string>
+    <string name="clock_size_dynamic_description" msgid="2776620745774561662">"লক স্ক্রিনের কন্টেন্ট অনুযায়ী ঘড়ির সাইজ পরিবর্তন হয়"</string>
+    <string name="clock_size_large" msgid="3143248715744138979">"বড়"</string>
+    <string name="clock_size_small" msgid="2280449912094164133">"ছোট করুন"</string>
     <string name="grid_title" msgid="1688173478777254123">"অ্যাপ গ্রিড"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"প্রয়োগ করুন"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"এডিট করতে ট্যাপ করুন"</string>
@@ -85,8 +106,34 @@
     <string name="beta_title" msgid="8703819523760746458">"বিটা"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"অ্যাপ গ্রিড পরিবর্তন করুন"</string>
     <string name="wallpaper_color_tab" msgid="1447926591721403840">"ওয়ালপেপারের রঙ"</string>
+    <string name="wallpaper_color_subheader" msgid="4044464573669965670">"ওয়ালপেপারে আইকন, টেক্সট ও আরও কিছু রঙের সাথে মিলে যায়"</string>
     <string name="wallpaper_color_title" msgid="5687965239180986458">"ওয়ালপেপারের রঙ"</string>
     <string name="preset_color_tab" msgid="3133391839341329314">"প্রাথমিক রঙ"</string>
+    <string name="preset_color_tab_2" msgid="1444107326712562538">"অন্য রঙ"</string>
+    <string name="preset_color_subheader" msgid="8230588536141279371">"আইকন, ঘড়ি এবং আরও অনেক কিছুর জন্য যেকোনও রঙ বেছে নিন"</string>
     <string name="color_changed" msgid="7029571720331641235">"রঙ পরিবর্তন করা হয়েছে"</string>
     <string name="adaptive_color_title" msgid="1336508599235896205">"ডায়নামিক"</string>
+    <string name="color_picker_title" msgid="6666830057938082864">"সিস্টেমের রঙ"</string>
+    <string name="keyguard_slot_name_bottom_start" msgid="8747677880200629719">"বাঁদিকের শর্টকাট"</string>
+    <string name="keyguard_slot_name_bottom_end" msgid="2525487375680217083">"ডানদিকের শর্টকাট"</string>
+    <string name="keyguard_affordance_none" msgid="1751643933430782312">"কোনওটিই নয়"</string>
+    <string name="keyguard_affordance_enablement_dialog_headline" msgid="365379085932610314">"শর্টকার্ট যোগ করা যাচ্ছে না"</string>
+    <string name="keyguard_affordance_enablement_dialog_action_template" msgid="8117011931337357438">"<xliff:g id="APPNAME">%1$s</xliff:g> খুলুন"</string>
+    <string name="keyguard_affordance_enablement_dialog_message" msgid="6136286758939253570">"শর্টকাট হিসেবে <xliff:g id="APPNAME">%1$s</xliff:g> অ্যাপ যোগ করতে, এইসব বিষয় নিশ্চিত করতে হবে"</string>
+    <string name="keyguard_affordance_enablement_dialog_dismiss_button" msgid="629754625264422508">"হয়ে গেছে"</string>
+    <string name="keyguard_quick_affordance_title" msgid="4242813186995735584">"শর্টকাট"</string>
+    <string name="keyguard_quick_affordance_section_title" msgid="2806304242671717309">"শর্টকাট"</string>
+    <string name="keyguard_quick_affordance_two_selected_template" msgid="1757099194522296363">"<xliff:g id="FIRST">%1$s</xliff:g>, <xliff:g id="SECOND">%2$s</xliff:g>"</string>
+    <string name="keyguard_quick_affordance_none_selected" msgid="8494127020144112003">"কোনও শর্টকাট নেই"</string>
+    <string name="show_notifications_on_lock_screen" msgid="4157744243084646720">"লক স্ক্রিনে বিজ্ঞপ্তি দেখুন"</string>
+    <string name="hide_notifications_on_lock_screen" msgid="7413548956484779174">"লক স্ক্রিনে বিজ্ঞপ্তি লুকান"</string>
+    <string name="more_settings_section_title" msgid="1331425454775815958">"লক স্ক্রিনের আরও বিকল্প"</string>
+    <string name="more_settings_section_description" msgid="1860115709122398325">"গোপনীয়তা, এখন চলছে এবং আরও অনেক কিছু"</string>
+    <string name="more_colors" msgid="3191071655353004591">"আরও রঙ"</string>
+    <string name="content_description_dynamic_color_option" msgid="2191721655642529886">"প্রাইমারি ডায়নামিক থিম"</string>
+    <string name="content_description_neutral_color_option" msgid="3385443834001275301">"প্রাইমারি নিউট্রাল থিম"</string>
+    <string name="content_description_vibrant_color_option" msgid="2230249305878632821">"প্রাইমারি ভাইব্রেন্ট থিম"</string>
+    <string name="content_description_expressive_color_option" msgid="6081295313456341282">"প্রাইমারি এক্সপ্রেসিভ থিম"</string>
+    <string name="content_description_default_color_option" msgid="7011899327541080695">"রঙের ডিফল্ট বিকল্প"</string>
+    <string name="content_description_color_option" msgid="4169813692012119578">"রঙের বিকল্প <xliff:g id="ID_1">%1$d</xliff:g>"</string>
 </resources>

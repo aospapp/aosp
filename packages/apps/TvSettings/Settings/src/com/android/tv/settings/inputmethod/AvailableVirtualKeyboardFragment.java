@@ -55,7 +55,7 @@ import java.util.List;
 public final class AvailableVirtualKeyboardFragment extends SettingsPreferenceFragment
         implements InputMethodPreference.OnSavePreferenceListener {
 
-    private final ArrayList<InputMethodPreference> mInputMethodPreferenceList = new ArrayList<>();
+    private final ArrayList<TVInputMethodPreference> mInputMethodPreferenceList = new ArrayList<>();
     private InputMethodSettingValuesWrapper mInputMethodSettingValues;
     private InputMethodManager mImm;
     private DevicePolicyManager mDpm;
@@ -141,7 +141,7 @@ public final class AvailableVirtualKeyboardFragment extends SettingsPreferenceFr
 
     private void updateInputMethodPreferenceViews() {
         mInputMethodSettingValues.refreshAllInputMethodAndSubtypes();
-        // Clear existing "InputMethodPreference"s
+        // Clear existing "TVInputMethodPreference"s
         mInputMethodPreferenceList.clear();
         List<String> permittedList = mDpm.getPermittedInputMethodsForCurrentUser();
         final Context context = getPreferenceManager().getContext();
@@ -152,7 +152,7 @@ public final class AvailableVirtualKeyboardFragment extends SettingsPreferenceFr
             final InputMethodInfo imi = imis.get(i);
             final boolean isAllowedByOrganization = permittedList == null
                     || permittedList.contains(imi.getPackageName());
-            final InputMethodPreference pref = new InputMethodPreference(
+            final TVInputMethodPreference pref = new TVInputMethodPreference(
                     context, imi, isAllowedByOrganization, this, UserHandle.myUserId());
             // TODO: Update the icon container in leanback_preference.xml to use LinearLayout.
             // This is a workaround to avoid the crash. b/146654624
@@ -164,7 +164,7 @@ public final class AvailableVirtualKeyboardFragment extends SettingsPreferenceFr
         mInputMethodPreferenceList.sort((lhs, rhs) -> lhs.compareTo(rhs, collator));
         getPreferenceScreen().removeAll();
         for (int i = 0; i < numImis; ++i) {
-            final InputMethodPreference pref = mInputMethodPreferenceList.get(i);
+            final TVInputMethodPreference pref = mInputMethodPreferenceList.get(i);
             pref.setOrder(i);
             getPreferenceScreen().addPreference(pref);
             InputMethodAndSubtypeUtilCompat.removeUnnecessaryNonPersistentPreference(pref);

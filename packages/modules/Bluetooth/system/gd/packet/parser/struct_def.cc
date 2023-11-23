@@ -182,6 +182,7 @@ void StructDef::GenDefinition(std::ostream& s) const {
   s << " {";
   s << " public:";
 
+  GenDefaultConstructor(s);
   GenConstructor(s);
 
   s << " public:\n";
@@ -250,7 +251,8 @@ void StructDef::GenDefinitionPybind11(std::ostream& s) const {
   s << ";\n";
 }
 
-void StructDef::GenConstructor(std::ostream& s) const {
+// Generate constructor which provides default values for all struct fields.
+void StructDef::GenDefaultConstructor(std::ostream& s) const {
   if (parent_ != nullptr) {
     s << name_ << "(const " << parent_->name_ << "& parent) : " << parent_->name_ << "(parent) {}";
     s << name_ << "() : " << parent_->name_ << "() {";
@@ -283,6 +285,96 @@ void StructDef::GenConstructor(std::ostream& s) const {
   }
 
   s << "}\n";
+}
+
+// Generate constructor which inputs initial field values for all struct fields.
+void StructDef::GenConstructor(std::ostream& s) const {
+  // Fetch the list of parameters and parent paremeters.
+  // GetParamList returns the list of all inherited fields that do not
+  // have a constrained value.
+  FieldList parent_params;
+  FieldList params = GetParamList().GetFieldsWithoutTypes({
+      PayloadField::kFieldType,
+      BodyField::kFieldType,
+  });
+
+  if (parent_ != nullptr) {
+    parent_params = parent_->GetParamList().GetFieldsWithoutTypes({
+        PayloadField::kFieldType,
+        BodyField::kFieldType,
+    });
+  }
+
+  // Generate constructor parameters for struct fields.
+  s << name_ << "(";
+  bool add_comma = false;
+  for (auto const& field : params) {
+    if (add_comma) {
+      s << ", ";
+    }
+    field->GenBuilderParameter(s);
+    add_comma = true;
+  }
+
+  s << ")" << std::endl;
+
+  if (params.size() > 0) {
+    s << " : ";
+  }
+
+  // Invoke parent constructor with correct field values.
+  if (parent_ != nullptr) {
+    s << parent_->name_ << "(";
+    add_comma = false;
+    for (auto const& field : parent_params) {
+      if (add_comma) {
+        s << ", ";
+      }
+
+      // Check for fields with constraint value.
+      const auto& constraint = parent_constraints_.find(field->GetName());
+      if (constraint != parent_constraints_.end()) {
+        s << "/* " << field->GetName() << " */ ";
+        if (field->GetFieldType() == ScalarField::kFieldType) {
+          s << std::get<int64_t>(constraint->second);
+        } else if (field->GetFieldType() == EnumField::kFieldType) {
+          s << std::get<std::string>(constraint->second);
+        } else {
+          ERROR(field) << "Constraints on non enum/scalar fields should be impossible.";
+        }
+      } else if (field->BuilderParameterMustBeMoved()) {
+        s << "std::move(" << field->GetName() << ")";
+      } else {
+        s << field->GetName();
+      }
+
+      add_comma = true;
+    }
+
+    s << ")";
+  }
+
+  // Initialize remaining fields.
+  add_comma = parent_ != nullptr;
+  for (auto const& field : params) {
+    if (parent_params.GetField(field->GetName()) != nullptr) {
+      continue;
+    }
+    if (add_comma) {
+      s << ", ";
+    }
+
+    if (field->BuilderParameterMustBeMoved()) {
+      s << field->GetName() << "_(std::move(" << field->GetName() << "))";
+    } else {
+      s << field->GetName() << "_(" << field->GetName() << ")";
+    }
+
+    add_comma = true;
+  }
+
+  s << std::endl;
+  s << "{}\n";
 }
 
 Size StructDef::GetStructOffsetForField(std::string field_name) const {
@@ -342,7 +434,7 @@ void StructDef::GenRustFieldNames(std::ostream& s) const {
 }
 
 void StructDef::GenRustDeclarations(std::ostream& s) const {
-  s << "#[derive(Debug, Clone)] ";
+  s << "#[derive(Debug, Clone, PartialEq)] ";
   s << "pub struct " << name_ << "{";
 
   // Generate struct fields

@@ -64,6 +64,7 @@ public class DumpOnFailureRule extends OnFailureRule {
                     "dumpsys usagestats appstandby",
                     "dumpsys connectivity trafficcontroller",
                     "dumpsys netd trafficcontroller",
+                    "dumpsys platform_compat"
             }) {
                 dumpCommandOutput(out, cmd);
             }

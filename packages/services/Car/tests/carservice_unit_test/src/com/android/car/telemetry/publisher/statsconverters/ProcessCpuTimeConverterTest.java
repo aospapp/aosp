@@ -20,6 +20,7 @@ import static com.android.car.telemetry.AtomsProto.ProcessCpuTime.PROCESS_NAME_F
 import static com.android.car.telemetry.AtomsProto.ProcessCpuTime.SYSTEM_TIME_MILLIS_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.ProcessCpuTime.UID_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.ProcessCpuTime.USER_TIME_MILLIS_FIELD_NUMBER;
+import static com.android.car.telemetry.publisher.Constants.STATS_BUNDLE_KEY_PREFIX;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -102,16 +103,20 @@ public class ProcessCpuTimeConverterTest {
                 dimensionsValuesList, HASH_STR_MAP);
 
         assertThat(bundle.size()).isEqualTo(4);
-        assertThat(bundle.getIntArray(accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getIntArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1000, 2000).inOrder();
-        assertThat(Arrays.asList(
-                bundle.getStringArray(accessorMap.get(PROCESS_NAME_FIELD_NUMBER).getFieldName())))
+        assertThat(Arrays.asList(bundle.getStringArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        PROCESS_NAME_FIELD_NUMBER).getFieldName())))
             .containsExactly("process.name.1", "process.name.2").inOrder();
         assertThat(bundle.getLongArray(
-                accessorMap.get(USER_TIME_MILLIS_FIELD_NUMBER).getFieldName()))
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        USER_TIME_MILLIS_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(234L, 345L).inOrder();
         assertThat(bundle.getLongArray(
-                accessorMap.get(SYSTEM_TIME_MILLIS_FIELD_NUMBER).getFieldName()))
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        SYSTEM_TIME_MILLIS_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(111L, 222L).inOrder();
     }
 

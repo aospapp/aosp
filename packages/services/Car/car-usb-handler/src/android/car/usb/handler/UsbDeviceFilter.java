@@ -223,62 +223,43 @@ class UsbDeviceFilter {
                 || mClass == -1 || mSubclass == -1 || mProtocol == -1) {
             return false;
         }
-        if (obj instanceof UsbDeviceFilter) {
-            UsbDeviceFilter filter = (UsbDeviceFilter) obj;
 
-            if (filter.mVendorId != mVendorId
-                    || filter.mProductId != mProductId
-                    || filter.mClass != mClass
-                    || filter.mSubclass != mSubclass
-                    || filter.mProtocol != mProtocol) {
-                return false;
-            }
-            if ((filter.mManufacturerName != null && mManufacturerName == null)
-                    || (filter.mManufacturerName == null && mManufacturerName != null)
-                    || (filter.mProductName != null && mProductName == null)
-                    || (filter.mProductName == null && mProductName != null)
-                    || (filter.mSerialNumber != null && mSerialNumber == null)
-                    || (filter.mSerialNumber == null && mSerialNumber != null)) {
-                return false;
-            }
-            if  ((filter.mManufacturerName != null && mManufacturerName != null
-                      && !mManufacturerName.equals(filter.mManufacturerName))
-                      || (filter.mProductName != null && mProductName != null
-                      && !mProductName.equals(filter.mProductName))
-                      || (filter.mSerialNumber != null && mSerialNumber != null
-                      && !mSerialNumber.equals(filter.mSerialNumber))) {
-                return false;
-            }
-            return true;
+        return ((obj instanceof UsbDeviceFilter) && matchesUsbDeviceFilter((UsbDeviceFilter) obj))
+                || ((obj instanceof UsbDevice) && matchesUsbDevice((UsbDevice) obj));
+
+    }
+
+    private boolean matchesUsbDevice(UsbDevice device) {
+        if (device.getVendorId() != mVendorId
+                || device.getProductId() != mProductId
+                || device.getDeviceClass() != mClass
+                || device.getDeviceSubclass() != mSubclass
+                || device.getDeviceProtocol() != mProtocol) {
+            return false;
         }
-        if (obj instanceof UsbDevice) {
-            UsbDevice device = (UsbDevice) obj;
-            if (device.getVendorId() != mVendorId
-                    || device.getProductId() != mProductId
-                    || device.getDeviceClass() != mClass
-                    || device.getDeviceSubclass() != mSubclass
-                    || device.getDeviceProtocol() != mProtocol) {
-                return false;
-            }
-            if ((mManufacturerName != null && device.getManufacturerName() == null)
-                    || (mManufacturerName == null && device.getManufacturerName() != null)
-                    || (mProductName != null && device.getProductName() == null)
-                    || (mProductName == null && device.getProductName() != null)
-                    || (mSerialNumber != null && device.getSerialNumber() == null)
-                    || (mSerialNumber == null && device.getSerialNumber() != null)) {
-                return false;
-            }
-            if ((device.getManufacturerName() != null
-                    && !mManufacturerName.equals(device.getManufacturerName()))
-                    || (device.getProductName() != null
-                    && !mProductName.equals(device.getProductName()))
-                    || (device.getSerialNumber() != null
-                    && !mSerialNumber.equals(device.getSerialNumber()))) {
-                return false;
-            }
-            return true;
+
+        return safeEquals(mManufacturerName, device.getManufacturerName())
+                && safeEquals(mProductName, device.getProductName())
+                && safeEquals(mSerialNumber, device.getSerialNumber());
+    }
+
+    private boolean matchesUsbDeviceFilter(UsbDeviceFilter filter) {
+        if (filter.mVendorId != mVendorId
+                || filter.mProductId != mProductId
+                || filter.mClass != mClass
+                || filter.mSubclass != mSubclass
+                || filter.mProtocol != mProtocol) {
+            return false;
         }
-        return false;
+
+        return safeEquals(mManufacturerName, filter.mManufacturerName)
+                && safeEquals(mProductName, filter.mProductName)
+                && safeEquals(mSerialNumber, filter.mSerialNumber);
+    }
+
+    private static boolean safeEquals(String firstString, String secondString) {
+        return (firstString == secondString)
+                || ((firstString != null) && firstString.equals(secondString));
     }
 
     @Override

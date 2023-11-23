@@ -68,6 +68,8 @@ public static java.util.@libcore.util.NonNull Locale @libcore.util.NonNull [] ge
 
 public static java.lang.@libcore.util.NonNull String @libcore.util.NonNull [] getISOCountries() { throw new RuntimeException("Stub!"); }
 
+@libcore.util.NonNull public static java.util.Set<java.lang.@libcore.util.NonNull String> getISOCountries(@libcore.util.NonNull java.util.Locale.IsoCountryCode type) { throw new RuntimeException("Stub!"); }
+
 public static java.lang.@libcore.util.NonNull String @libcore.util.NonNull [] getISOLanguages() { throw new RuntimeException("Stub!"); }
 
 @libcore.util.NonNull public java.lang.String getLanguage() { throw new RuntimeException("Stub!"); }

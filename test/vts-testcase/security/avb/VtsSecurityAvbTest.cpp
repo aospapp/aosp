@@ -588,9 +588,9 @@ static void LoadAndVerifyAvbSlotDataForCurrentSlot(
 TEST(AvbTest, HashtreeAlgorithm) {
   constexpr auto S_API_LEVEL = 31;
 
-  uint32_t board_api_level = GetBoardApiLevel();
-  GTEST_LOG_(INFO) << "Board API level is " << board_api_level;
-  if (board_api_level < S_API_LEVEL) {
+  uint32_t vendor_api_level = GetVendorApiLevel();
+  GTEST_LOG_(INFO) << "Vendor API level is " << vendor_api_level;
+  if (vendor_api_level < S_API_LEVEL) {
     GTEST_LOG_(INFO)
         << "Exempt from avb hash tree test due to old starting API level";
     return;

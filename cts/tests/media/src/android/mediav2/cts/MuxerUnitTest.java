@@ -16,11 +16,18 @@
 
 package android.mediav2.cts;
 
+import static android.system.Os.pipe;
+
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
 
 import androidx.test.filters.SmallTest;
+
+import com.android.compatibility.common.util.NonMainlineTest;
 
 import org.junit.After;
 import org.junit.Before;
@@ -34,14 +41,9 @@ import org.junit.runner.RunWith;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-
-import static android.system.Os.pipe;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 /**
  * Tests MediaMuxer API that are independent of MediaMuxer.OutputFormat. Constructors,
@@ -53,7 +55,7 @@ public class MuxerUnitTest {
     // duplicate definitions of hide fields of MediaMuxer.OutputFormat.
     private static final int MUXER_OUTPUT_LAST = MediaMuxer.OutputFormat.MUXER_OUTPUT_OGG;
 
-    @NonMediaMainlineTest
+    @NonMainlineTest
     @SmallTest
     public static class TestApi {
         @Rule
@@ -151,29 +153,13 @@ public class MuxerUnitTest {
         }
 
         @Test
-        @Ignore("TODO(b/146417874)")
-        public void testIfWriteOnlyFdIsRejected() {
-            MediaMuxer muxer = null;
-            try (FileOutputStream fOut = new FileOutputStream(mOutMedia)) {
-                muxer = new MediaMuxer(fOut.getFD(), MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM);
-                fail("fd with write only attribute accepted by constructor");
-            } catch (Exception e) {
-                // expected
-            } finally {
-                if (null != muxer) muxer.release();
-            }
-            assertTrue(mOutMedia.delete());
-        }
-
-        @Test
-        @Ignore("TODO(b/146417874)")
         public void testIfNonSeekableFdIsRejected() {
             MediaMuxer muxer = null;
             try {
                 FileDescriptor[] fd = pipe();
                 muxer = new MediaMuxer(fd[1], MediaMuxer.OutputFormat.MUXER_OUTPUT_3GPP);
                 fail("pipe, a non-seekable fd accepted by constructor");
-            } catch (IOException e) {
+            } catch (IllegalArgumentException e) {
                 // expected
             } catch (Exception e) {
                 fail(e.getMessage());
@@ -214,7 +200,7 @@ public class MuxerUnitTest {
         public void testIfInvalidMediaFormatIsRejected() throws IOException {
             MediaMuxer muxer = new MediaMuxer(mOutLoc, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
             try {
-                // Invalid media format - no mime key
+                // Invalid media format - no mediaType key
                 try {
                     muxer.addTrack(new MediaFormat());
                     fail("Invalid media format accepted by addTrack");
@@ -222,7 +208,7 @@ public class MuxerUnitTest {
                     // expected
                 }
 
-                // metadata mime format shall start with "application/*"
+                // metadata mediaType format shall start with "application/*"
                 try {
                     MediaFormat format = new MediaFormat();
                     format.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_TEXT_CEA_608);
@@ -238,13 +224,12 @@ public class MuxerUnitTest {
         }
 
         @Test
-        @Ignore("TODO(b/146923138)")
         public void testIfCorruptMediaFormatIsRejected() throws IOException {
             MediaMuxer muxer = new MediaMuxer(mOutLoc, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
 
-             /* TODO: Audio/Video formats, have certain keys required to be set. It is noticed
-                that even when these keys are not set, no exceptions were raised. Do we need to
-                add fixtures for those cases. */
+             /* TODO(b/278260304): Audio/Video formats, have certain keys required to be set. It
+                is noticed that even when these keys are not set, no exceptions were raised. Do we
+                need to add fixtures for those cases. */
             try {
                 MediaFormat format = new MediaFormat();
                 format.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_AUDIO_AAC);
@@ -740,7 +725,7 @@ public class MuxerUnitTest {
         }
     }
 
-    @NonMediaMainlineTest
+    @NonMainlineTest
     @SmallTest
     public static class TestApiNative {
         @Rule
@@ -765,8 +750,7 @@ public class MuxerUnitTest {
 
         private native boolean nativeTestIfInvalidFdIsRejected();
         private native boolean nativeTestIfReadOnlyFdIsRejected(String outPath);
-        private native boolean nativeTestIfWriteOnlyFdIsRejected(String outPath);
-        private native boolean nativeTestIfNonSeekableFdIsRejected(String outPath);
+        private native boolean nativeTestIfNonSeekableFdIsRejected();
         private native boolean nativeTestIfInvalidOutputFormatIsRejected(String outPath);
 
         private native boolean nativeTestIfInvalidMediaFormatIsRejected(String outPath);
@@ -790,31 +774,21 @@ public class MuxerUnitTest {
         private native boolean nativeTestIfWriteSampleDataSucceedsAfterStop(String outPath);
 
         @Test
-        @Ignore("TODO(b/146417874)")
         public void testIfInvalidFdIsRejected() {
             assertTrue(nativeTestIfInvalidFdIsRejected());
         }
 
         @Test
-        @Ignore("TODO(b/146417874)")
         public void testIfReadOnlyFdIsRejected() {
             assertTrue(nativeTestIfReadOnlyFdIsRejected(mOutLoc));
         }
 
         @Test
-        @Ignore("TODO(b/146417874)")
-        public void testIfWriteOnlyFdIsRejected() {
-            assertTrue(nativeTestIfWriteOnlyFdIsRejected(mOutLoc));
-        }
-
-        @Test
-        @Ignore("TODO(b/146417874)")
         public void testIfNonSeekableFdIsRejected() {
-            assertTrue(nativeTestIfNonSeekableFdIsRejected(mOutLoc));
+            assertTrue(nativeTestIfNonSeekableFdIsRejected());
         }
 
         @Test
-        @Ignore("TODO(b/146417874)")
         public void testIfInvalidOutputFormatIsRejected() {
             assertTrue(nativeTestIfInvalidOutputFormatIsRejected(mOutLoc));
         }
@@ -825,7 +799,6 @@ public class MuxerUnitTest {
         }
 
         @Test
-        @Ignore("TODO(b/146923138)")
         public void testIfCorruptMediaFormatIsRejected() {
             assertTrue(nativeTestIfCorruptMediaFormatIsRejected(mOutLoc));
         }

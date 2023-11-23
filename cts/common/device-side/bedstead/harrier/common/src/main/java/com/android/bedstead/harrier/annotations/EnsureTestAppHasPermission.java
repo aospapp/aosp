@@ -16,8 +16,8 @@
 
 package com.android.bedstead.harrier.annotations;
 
-import static com.android.bedstead.harrier.annotations.EnsureTestAppInstalled.DEFAULT_TEST_APP_KEY;
-import static com.android.bedstead.harrier.annotations.EnsureTestAppInstalled.ENSURE_TEST_APP_INSTALLED_WEIGHT;
+import static com.android.bedstead.harrier.annotations.EnsureTestAppInstalled.DEFAULT_KEY;
+import static com.android.bedstead.harrier.annotations.enterprise.EnsureHasDelegate.ENSURE_HAS_DELEGATE_WEIGHT;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Repeatable;
@@ -34,13 +34,16 @@ import java.lang.annotation.Target;
 public @interface EnsureTestAppHasPermission {
     String[] value();
 
-    String testAppKey() default DEFAULT_TEST_APP_KEY;
+    String testAppKey() default DEFAULT_KEY;
 
     /** The minimum version where this permission is required. */
     int minVersion() default 0;
 
     /** The maximum version where this permission is required. */
     int maxVersion() default Integer.MAX_VALUE;
+
+    /** The action to be taken if the permission cannot be granted. */
+    FailureMode failureMode() default FailureMode.FAIL;
 
     /**
      * Weight sets the order that annotations will be resolved.
@@ -52,5 +55,5 @@ public @interface EnsureTestAppHasPermission {
      *
      * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
      */
-    int weight() default ENSURE_TEST_APP_INSTALLED_WEIGHT + 1;
+    int weight() default ENSURE_HAS_DELEGATE_WEIGHT + 1;
 }

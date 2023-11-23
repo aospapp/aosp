@@ -16,17 +16,29 @@
 
 package android.mediav2.cts;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.media.Image;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
+import android.mediav2.common.cts.CodecTestBase;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.Pair;
 
 import androidx.test.filters.SdkSuppress;
 import androidx.test.filters.SmallTest;
 
+import com.android.compatibility.common.util.ApiTest;
+import com.android.compatibility.common.util.NonMainlineTest;
+
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -38,22 +50,17 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
 @RunWith(Enclosed.class)
 public class CodecUnitTest {
+    private static final String TAG = "CodecUnitTest";
     static final int PER_TEST_TIMEOUT_MS = 10000;
     static final long STALL_TIME_MS = 1000;
 
     @SmallTest
     // Following tests were added in Android R and are not limited to c2.android.* codecs.
-    // Hence limit the tests to Android R and above and also annotate as NonMediaMainlineTest
+    // Hence limit the tests to Android R and above and also annotate as NonMainlineTest
     @SdkSuppress(minSdkVersion = 30)
-    @NonMediaMainlineTest
+    @NonMainlineTest
     public static class TestApi extends CodecTestBase {
         @Rule
         public Timeout timeout = new Timeout(PER_TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS);
@@ -64,14 +71,14 @@ public class CodecUnitTest {
         }
 
         public TestApi() {
-            mAsyncHandle = new CodecAsyncHandler();
+            super("", "", "");
         }
 
-        void enqueueInput(int bufferIndex) {
+        protected void enqueueInput(int bufferIndex) {
             fail("something went wrong, shouldn't have reached here");
         }
 
-        void dequeueOutput(int bufferIndex, MediaCodec.BufferInfo info) {
+        protected void dequeueOutput(int bufferIndex, MediaCodec.BufferInfo info) {
             if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                 mSawOutputEOS = true;
             }
@@ -80,8 +87,8 @@ public class CodecUnitTest {
 
         private MediaFormat getSampleAudioFormat() {
             MediaFormat format = new MediaFormat();
-            String mime = MediaFormat.MIMETYPE_AUDIO_AAC;
-            format.setString(MediaFormat.KEY_MIME, mime);
+            String mediaType = MediaFormat.MIMETYPE_AUDIO_AAC;
+            format.setString(MediaFormat.KEY_MIME, mediaType);
             format.setInteger(MediaFormat.KEY_BIT_RATE, 64000);
             format.setInteger(MediaFormat.KEY_SAMPLE_RATE, 16000);
             format.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 1);
@@ -90,8 +97,8 @@ public class CodecUnitTest {
 
         private MediaFormat getSampleVideoFormat() {
             MediaFormat format = new MediaFormat();
-            String mime = MediaFormat.MIMETYPE_VIDEO_AVC;
-            format.setString(MediaFormat.KEY_MIME, mime);
+            String mediaType = MediaFormat.MIMETYPE_VIDEO_AVC;
+            format.setString(MediaFormat.KEY_MIME, mediaType);
             format.setInteger(MediaFormat.KEY_BIT_RATE, 256000);
             format.setInteger(MediaFormat.KEY_WIDTH, 352);
             format.setInteger(MediaFormat.KEY_HEIGHT, 288);
@@ -110,11 +117,11 @@ public class CodecUnitTest {
 
         void testConfigureCodecForIncompleteFormat(MediaFormat format, String[] keys,
                 boolean isEncoder) throws IOException {
-            String mime = format.getString(MediaFormat.KEY_MIME);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
             if (isEncoder) {
-                mCodec = MediaCodec.createEncoderByType(mime);
+                mCodec = MediaCodec.createEncoderByType(mediaType);
             } else {
-                mCodec = MediaCodec.createDecoderByType(mime);
+                mCodec = MediaCodec.createDecoderByType(mediaType);
             }
             for (String key : keys) {
                 MediaFormat formatClone = new MediaFormat(format);
@@ -125,9 +132,9 @@ public class CodecUnitTest {
                     fail("codec configure succeeds with missing mandatory keys :: " + key);
                 } catch (Exception e) {
                     if (!(e instanceof IllegalArgumentException)) {
-                        fail("codec configure rec/exp :: " + e.toString() +
-                                " / IllegalArgumentException");
+                        fail("codec configure rec/exp :: " + e + " / IllegalArgumentException");
                     }
+                    Log.v(TAG, "expected exception thrown", e);
                 }
             }
             try {
@@ -142,11 +149,11 @@ public class CodecUnitTest {
 
         void testConfigureCodecForBadFlags(boolean isEncoder) throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
             if (isEncoder) {
-                mCodec = MediaCodec.createEncoderByType(mime);
+                mCodec = MediaCodec.createEncoderByType(mediaType);
             } else {
-                mCodec = MediaCodec.createDecoderByType(mime);
+                mCodec = MediaCodec.createDecoderByType(mediaType);
             }
             try {
                 mCodec.configure(format, null, null,
@@ -154,9 +161,9 @@ public class CodecUnitTest {
                 fail("codec configure succeeds with bad configure flag");
             } catch (Exception e) {
                 if (!(e instanceof IllegalArgumentException)) {
-                    fail("codec configure rec/exp :: " + e.toString() +
-                            " / IllegalArgumentException");
+                    fail("codec configure rec/exp :: " + e + " / IllegalArgumentException");
                 }
+                Log.v(TAG, "expected exception thrown", e);
             } finally {
                 mCodec.release();
             }
@@ -167,7 +174,7 @@ public class CodecUnitTest {
                 configureCodec(format, isAsync, false, true);
                 fail(msg);
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
@@ -176,7 +183,7 @@ public class CodecUnitTest {
                 mCodec.dequeueInputBuffer(Q_DEQ_TIMEOUT_US);
                 fail(msg);
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
@@ -186,7 +193,7 @@ public class CodecUnitTest {
                 mCodec.dequeueOutputBuffer(info, Q_DEQ_TIMEOUT_US);
                 fail(msg);
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
@@ -195,7 +202,7 @@ public class CodecUnitTest {
                 flushCodec();
                 fail(msg);
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
@@ -203,25 +210,25 @@ public class CodecUnitTest {
             try {
                 mCodec.getName();
             } catch (IllegalStateException e) {
-                fail("get name resulted in" + e.getMessage());
+                fail(msg + ", get name resulted in" + e.getMessage());
             }
 
             try {
                 mCodec.getCanonicalName();
             } catch (IllegalStateException e) {
-                fail("get canonical name resulted in" + e.getMessage());
+                fail(msg + ", get canonical name resulted in" + e.getMessage());
             }
 
             try {
                 mCodec.getCodecInfo();
             } catch (IllegalStateException e) {
-                fail("get codec info resulted in" + e.getMessage());
+                fail(msg + ", get codec info resulted in" + e.getMessage());
             }
 
             try {
                 mCodec.getMetrics();
             } catch (IllegalStateException e) {
-                fail("get metrics resulted in" + e.getMessage());
+                fail(msg + ", get metrics resulted in" + e.getMessage());
             }
         }
 
@@ -230,7 +237,7 @@ public class CodecUnitTest {
                 mCodec.getInputBuffer(0);
                 fail(msg);
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
@@ -239,7 +246,7 @@ public class CodecUnitTest {
                 mCodec.getInputFormat();
                 fail(msg);
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
@@ -248,7 +255,7 @@ public class CodecUnitTest {
                 mCodec.getOutputBuffer(0);
                 fail(msg);
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
@@ -257,14 +264,14 @@ public class CodecUnitTest {
                 mCodec.getOutputFormat();
                 fail(msg);
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
 
             try {
                 mCodec.getOutputFormat(0);
                 fail(msg);
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
@@ -273,7 +280,7 @@ public class CodecUnitTest {
                 mCodec.start();
                 fail(msg);
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
@@ -282,7 +289,7 @@ public class CodecUnitTest {
                 mCodec.getInputImage(0);
                 fail(msg);
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
@@ -291,7 +298,7 @@ public class CodecUnitTest {
                 mCodec.getOutputImage(0);
                 fail(msg);
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
@@ -300,7 +307,7 @@ public class CodecUnitTest {
                 mCodec.queueInputBuffer(0, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
                 fail(msg);
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
@@ -309,82 +316,89 @@ public class CodecUnitTest {
                 mCodec.releaseOutputBuffer(0, false);
                 fail(msg);
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
+        @ApiTest(apis = "MediaCodec#createByCodecName")
         @Test
         public void testCreateByCodecNameForNull() throws IOException {
             try {
                 mCodec = MediaCodec.createByCodecName(null);
                 fail("createByCodecName succeeds with null argument");
             } catch (NullPointerException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             } finally {
                 if (mCodec != null) mCodec.release();
             }
         }
 
+        @ApiTest(apis = "MediaCodec#createByCodecName")
         @Test
         public void testCreateByCodecNameForInvalidName() throws IOException {
             try {
                 mCodec = MediaCodec.createByCodecName("invalid name");
                 fail("createByCodecName succeeds with invalid name");
             } catch (IllegalArgumentException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             } finally {
                 if (mCodec != null) mCodec.release();
             }
         }
 
+        @ApiTest(apis = "MediaCodec#createDecoderByType")
         @Test
         public void testCreateDecoderByTypeForNull() throws IOException {
             try {
                 mCodec = MediaCodec.createDecoderByType(null);
                 fail("createDecoderByType succeeds with null argument");
             } catch (NullPointerException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             } finally {
                 if (mCodec != null) mCodec.release();
             }
         }
 
+        @ApiTest(apis = "MediaCodec#createDecoderByType")
         @Test
-        public void testCreateDecoderByTypeForInvalidMime() throws IOException {
+        public void testCreateDecoderByTypeForInvalidMediaType() throws IOException {
             try {
-                mCodec = MediaCodec.createDecoderByType("invalid mime");
-                fail("createDecoderByType succeeds with invalid mime");
+                mCodec = MediaCodec.createDecoderByType("invalid mediaType");
+                fail("createDecoderByType succeeds with invalid mediaType");
             } catch (IllegalArgumentException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             } finally {
                 if (mCodec != null) mCodec.release();
             }
         }
 
+        @ApiTest(apis = "MediaCodec#createEncoderByType")
         @Test
         public void testCreateEncoderByTypeForNull() throws IOException {
             try {
                 mCodec = MediaCodec.createEncoderByType(null);
                 fail("createEncoderByType succeeds with null argument");
             } catch (NullPointerException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             } finally {
                 if (mCodec != null) mCodec.release();
             }
         }
 
+        @ApiTest(apis = "MediaCodec#createEncoderByType")
         @Test
-        public void testCreateEncoderByTypeForInvalidMime() throws IOException {
+        public void testCreateEncoderByTypeForInvalidMediaType() throws IOException {
             try {
-                mCodec = MediaCodec.createEncoderByType("invalid mime");
-                fail("createEncoderByType succeeds with invalid mime");
+                mCodec = MediaCodec.createEncoderByType("invalid mediaType");
+                fail("createEncoderByType succeeds with invalid mediaType");
             } catch (IllegalArgumentException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             } finally {
                 if (mCodec != null) mCodec.release();
             }
         }
 
+        @ApiTest(apis = "MediaCodec#configure")
         @Test
         @Ignore("TODO(b/151302868)")
         public void testConfigureForNullFormat() throws IOException {
@@ -393,6 +407,7 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#configure")
         @Test
         @Ignore("TODO(b/151302868)")
         public void testConfigureForEmptyFormat() throws IOException {
@@ -401,6 +416,7 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#configure")
         @Test
         @Ignore("TODO(b/151302868)")
         public void testConfigureAudioDecodeForIncompleteFormat() throws IOException {
@@ -411,6 +427,7 @@ public class CodecUnitTest {
             testConfigureCodecForIncompleteFormat(format, mandatoryKeys, false);
         }
 
+        @ApiTest(apis = "MediaCodec#configure")
         @Test
         @Ignore("TODO(b/151302868)")
         public void testConfigureAudioEncodeForIncompleteFormat() throws IOException {
@@ -421,6 +438,7 @@ public class CodecUnitTest {
             testConfigureCodecForIncompleteFormat(format, mandatoryKeys, true);
         }
 
+        @ApiTest(apis = "MediaCodec#configure")
         @Test
         @Ignore("TODO(b/151302868)")
         public void testConfigureVideoDecodeForIncompleteFormat() throws IOException {
@@ -431,6 +449,7 @@ public class CodecUnitTest {
             testConfigureCodecForIncompleteFormat(format, mandatoryKeys, false);
         }
 
+        @ApiTest(apis = "MediaCodec#configure")
         @Test
         @Ignore("TODO(b/151302868, b/151303041)")
         public void testConfigureVideoEncodeForIncompleteFormat() throws IOException {
@@ -443,23 +462,26 @@ public class CodecUnitTest {
             testConfigureCodecForIncompleteFormat(format, mandatoryKeys, true);
         }
 
+        @ApiTest(apis = "MediaCodec#configure")
         @Test
         @Ignore("TODO(b/151304147)")
         public void testConfigureEncoderForBadFlags() throws IOException {
             testConfigureCodecForBadFlags(true);
         }
 
+        @ApiTest(apis = "MediaCodec#configure")
         @Test
         @Ignore("TODO(b/151304147)")
         public void testConfigureDecoderForBadFlags() throws IOException {
             testConfigureCodecForBadFlags(false);
         }
 
+        @ApiTest(apis = "MediaCodec#configure")
         @Test
         public void testConfigureInInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -471,12 +493,13 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#configure")
         @Test
         @Ignore("TODO(b/151894670)")
         public void testConfigureAfterStart() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -491,12 +514,13 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#configure")
         @Test
         @Ignore("TODO(b/151894670)")
         public void testConfigureAfterQueueInputBuffer() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -511,11 +535,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#configure")
         @Test
         public void testConfigureInEOSState() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -530,12 +555,13 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#configure")
         @Test
         @Ignore("TODO(b/147576107)")
         public void testConfigureInFlushState() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -552,11 +578,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#configure")
         @Test
         public void testConfigureInUnInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -572,21 +599,23 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#configure")
         @Test
         public void testConfigureInReleaseState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             tryConfigureCodecInInvalidState(format, false,
                     "codec configure succeeds in release state");
         }
 
+        @ApiTest(apis = "MediaCodec#dequeueInputBuffer")
         @Test
         public void testDequeueInputBufferInUnInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 // dequeue buffer in uninitialized state
@@ -602,11 +631,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#dequeueInputBuffer")
         @Test
         public void testDequeueInputBufferInInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -618,12 +648,13 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#dequeueInputBuffer")
         @Test
         public void testDequeueInputBufferInRunningState()
                 throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -640,22 +671,24 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#dequeueInputBuffer")
         @Test
         public void testDequeueInputBufferInReleaseState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             // dequeue buffer in released state
             tryDequeueInputBufferInInvalidState(
                     "dequeue input buffer succeeds in release state");
         }
 
+        @ApiTest(apis = "MediaCodec#dequeueOutputBuffer")
         @Test
         public void testDequeueOutputBufferInUnInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 // dequeue buffer in uninitialized state
@@ -671,11 +704,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#dequeueOutputBuffer")
         @Test
         public void testDequeueOutputBufferInInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -687,12 +721,13 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#dequeueOutputBuffer")
         @Test
         public void testDequeueOutputBufferInRunningState()
                 throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -709,22 +744,24 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#dequeueOutputBuffer")
         @Test
         public void testDequeueOutputBufferInReleaseState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             // dequeue buffer in released state
             tryDequeueOutputBufferInInvalidState(
                     "dequeue output buffer succeeds in release state");
         }
 
+        @ApiTest(apis = "MediaCodec#flush")
         @Test
         public void testFlushInUnInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 // flush uninitialized state
@@ -739,11 +776,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#flush")
         @Test
         public void testFlushInInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -754,12 +792,13 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#flush")
         @Test
         @Ignore("TODO(b/147576107)")
         public void testFlushInRunningState() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             configureCodec(format, true, false, true);
             mCodec.start();
             flushCodec();
@@ -774,20 +813,25 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#flush")
         @Test
         public void testFlushInReleaseState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             tryFlushInInvalidState("codec flush succeeds in release state");
         }
 
+        @ApiTest(apis = {"MediaCodec#getName",
+                         "MediaCodec#getCanonicalName",
+                         "MediaCodec#getCodecInfo",
+                         "MediaCodec#getMetrics"})
         @Test
         public void testGetMetaDataInUnInitState() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 tryGetMetaData("codec get metadata call fails in uninitialized state");
@@ -802,11 +846,15 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = {"MediaCodec#getName",
+                         "MediaCodec#getCanonicalName",
+                         "MediaCodec#getCodecInfo",
+                         "MediaCodec#getMetrics"})
         @Test
         public void testGetMetaDataInInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -816,11 +864,15 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = {"MediaCodec#getName",
+                         "MediaCodec#getCanonicalName",
+                         "MediaCodec#getCodecInfo",
+                         "MediaCodec#getMetrics"})
         @Test
         public void testGetMetaDataInRunningState() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -835,46 +887,51 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = {"MediaCodec#getName",
+                         "MediaCodec#getCanonicalName",
+                         "MediaCodec#getCodecInfo",
+                         "MediaCodec#getMetrics"})
         @Test
         public void testGetMetaDataInReleaseState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             try {
                 mCodec.getCanonicalName();
                 fail("get canonical name succeeds after codec release");
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
 
             try {
                 mCodec.getCodecInfo();
                 fail("get codec info succeeds after codec release");
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
 
             try {
                 mCodec.getName();
                 fail("get name succeeds after codec release");
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
 
             try {
                 mCodec.getMetrics();
                 fail("get metrics succeeds after codec release");
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
+        @ApiTest(apis = "MediaCodec#setCallback")
         @Test
         public void testSetCallBackInUnInitState() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
 
             boolean isAsync = true;
             // set component in async mode
@@ -899,11 +956,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#setCallback")
         @Test
         public void testSetCallBackInInitState() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
 
             // configure component in async mode
             boolean isAsync = true;
@@ -928,12 +986,13 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#setCallback")
         @Test
         @Ignore("TODO(b/151305056)")
         public void testSetCallBackInRunningState() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean isAsync = false;
             // configure codec in sync mode
             configureCodec(format, isAsync, false, true);
@@ -944,7 +1003,7 @@ public class CodecUnitTest {
                 mIsCodecInAsyncMode = !isAsync;
                 fail("set call back succeeds in running state");
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
             queueEOS();
             waitForAllOutputs();
@@ -959,7 +1018,7 @@ public class CodecUnitTest {
                 mIsCodecInAsyncMode = isAsync;
                 fail("set call back succeeds in running state");
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
             queueEOS();
             waitForAllOutputs();
@@ -967,26 +1026,28 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#setCallback")
         @Test
         public void testSetCallBackInReleaseState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             // set callbacks in release state
             try {
                 mAsyncHandle.setCallBack(mCodec, false);
                 fail("set call back succeeds in released state");
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
+        @ApiTest(apis = "MediaCodec#getInputBuffer")
         @Test
         public void testGetInputBufferInUnInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 tryGetInputBufferInInvalidState("getInputBuffer succeeds in uninitialized state");
@@ -999,11 +1060,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getInputBuffer")
         @Test
         public void testGetInputBufferInInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1013,12 +1075,13 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getInputBuffer")
         @Test
         @Ignore("TODO(b/151304147)")
         public void testGetInputBufferInRunningState() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1027,7 +1090,7 @@ public class CodecUnitTest {
                     ByteBuffer buffer = mCodec.getInputBuffer(-1);
                     assertNull("getInputBuffer succeeds for bad buffer index " + -1, buffer);
                 } catch (Exception e) {
-                    fail("getInputBuffer rec/exp :: " + e.toString() + " / null");
+                    fail("getInputBuffer rec/exp :: " + e + " / null");
                 }
                 int bufferIndex = mIsCodecInAsyncMode ? mAsyncHandle.getInput().first :
                         mCodec.dequeueInputBuffer(-1);
@@ -1043,20 +1106,22 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getInputBuffer")
         @Test
         public void testGetInputBufferInReleaseState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             tryGetInputBufferInInvalidState("getInputBuffer succeeds in release state");
         }
 
+        @ApiTest(apis = "MediaCodec#getInputFormat")
         @Test
         public void testGetInputFormatInUnInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 tryGetInputFormatInInvalidState("getInputFormat succeeds in uninitialized state");
@@ -1069,11 +1134,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getInputFormat")
         @Test
         public void testGetInputFormatInInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1088,11 +1154,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getInputFormat")
         @Test
         public void testGetInputFormatInRunningState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1107,20 +1174,22 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getInputFormat")
         @Test
         public void testGetInputFormatInReleaseState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             tryGetInputFormatInInvalidState("getInputFormat succeeds in release state");
         }
 
+        @ApiTest(apis = "MediaCodec#getOutputBuffer")
         @Test
         public void testGetOutputBufferInUnInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 tryGetOutputBufferInInvalidState("getOutputBuffer succeeds in uninitialized state");
@@ -1133,11 +1202,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getOutputBuffer")
         @Test
         public void testGetOutputBufferInInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1147,13 +1217,14 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getOutputBuffer")
         @Test
         @Ignore("TODO(b/151304147)")
         public void testGetOutputBufferInRunningState() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
             MediaCodec.BufferInfo outInfo = new MediaCodec.BufferInfo();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1162,7 +1233,7 @@ public class CodecUnitTest {
                     ByteBuffer buffer = mCodec.getOutputBuffer(-1);
                     assertNull("getOutputBuffer succeeds for bad buffer index " + -1, buffer);
                 } catch (Exception e) {
-                    fail("getOutputBuffer rec/exp :: " + e.toString() + " / null");
+                    fail("getOutputBuffer rec/exp :: " + e + " / null");
                 }
                 queueEOS();
                 int bufferIndex = 0;
@@ -1187,7 +1258,7 @@ public class CodecUnitTest {
                     assertNull("getOutputBuffer succeeds for buffer index not owned by client",
                             buffer);
                 } catch (Exception e) {
-                    fail("getOutputBuffer rec/exp :: " + e.toString() + " / null");
+                    fail("getOutputBuffer rec/exp :: " + e + " / null");
                 }
                 mCodec.stop();
                 mCodec.reset();
@@ -1195,20 +1266,22 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getOutputBuffer")
         @Test
         public void testGetOutputBufferInReleaseState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             tryGetOutputBufferInInvalidState("getOutputBuffer succeeds in release state");
         }
 
+        @ApiTest(apis = "MediaCodec#getOutputFormat")
         @Test
         public void testGetOutputFormatInUnInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 tryGetOutputFormatInInvalidState("getOutputFormat succeeds in uninitialized state");
@@ -1221,11 +1294,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getOutputFormat")
         @Test
         public void testGetOutputFormatInInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1238,7 +1312,7 @@ public class CodecUnitTest {
                     mCodec.getOutputFormat(0);
                     fail("getOutputFormat succeeds in released state");
                 } catch (IllegalStateException e) {
-                    // expected
+                    Log.v(TAG, "expected exception thrown", e);
                 }
                 mCodec.start();
                 mCodec.stop();
@@ -1246,13 +1320,14 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getOutputFormat")
         @Test
         @Ignore("TODO(b/151304147)")
         public void testGetOutputFormatInRunningState() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
             MediaCodec.BufferInfo outInfo = new MediaCodec.BufferInfo();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1267,7 +1342,7 @@ public class CodecUnitTest {
                     MediaFormat outputFormat = mCodec.getOutputFormat(-1);
                     assertNull("getOutputFormat succeeds for bad buffer index " + -1, outputFormat);
                 } catch (Exception e) {
-                    fail("getOutputFormat rec/exp :: " + e.toString() + " / null");
+                    fail("getOutputFormat rec/exp :: " + e + " / null");
                 }
                 int bufferIndex = 0;
                 while (!mSawOutputEOS) {
@@ -1291,28 +1366,30 @@ public class CodecUnitTest {
                     assertNull("getOutputFormat succeeds for index not owned by client",
                             outputFormat);
                 } catch (Exception e) {
-                    fail("getOutputFormat rec/exp :: " + e.toString() + " / null");
+                    fail("getOutputFormat rec/exp :: " + e + " / null");
                 }
                 mCodec.stop();
             }
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getOutputFormat")
         @Test
         public void testGetOutputFormatInReleaseState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             tryGetOutputFormatInInvalidState("getOutputFormat succeeds in release state");
         }
 
+        @ApiTest(apis = "MediaCodec#setParameters")
         @Test
         public void testSetParametersInUnInitState() throws IOException {
             MediaFormat format = getSampleVideoFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
             int bitrate = format.getInteger(MediaFormat.KEY_BIT_RATE);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             // call set param in uninitialized state
             mCodec.setParameters(null);
             mCodec.setParameters(updateBitrate(bitrate >> 1));
@@ -1328,12 +1405,13 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#setParameters")
         @Test
         public void testSetParametersInInitState() throws IOException {
             MediaFormat format = getSampleVideoFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
             int bitrate = format.getInteger(MediaFormat.KEY_BIT_RATE);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1346,12 +1424,13 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#setParameters")
         @Test
         public void testSetParametersInRunningState() throws IOException, InterruptedException {
             MediaFormat format = getSampleVideoFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
             int bitrate = format.getInteger(MediaFormat.KEY_BIT_RATE);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1370,26 +1449,28 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#setParameters")
         @Test
         public void testSetParametersInReleaseState() throws IOException {
             MediaFormat format = getSampleVideoFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
             int bitrate = format.getInteger(MediaFormat.KEY_BIT_RATE);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             try {
                 mCodec.setParameters(updateBitrate(bitrate >> 1));
                 fail("Codec set parameter succeeds in release mode");
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
+        @ApiTest(apis = "MediaCodec#start")
         @Test
         public void testStartInUnInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             // call start in uninitialized state
             tryStartInInvalidState("codec start succeeds before initialization");
             configureCodec(format, false, false, true);
@@ -1400,11 +1481,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#start")
         @Test
         public void testStartInRunningState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             configureCodec(format, false, false, true);
             mCodec.start();
             // call start in running state
@@ -1413,21 +1495,23 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#start")
         @Test
         public void testStartInReleaseState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             // call start in release state
             tryStartInInvalidState("codec start succeeds in release state");
         }
 
+        @ApiTest(apis = "MediaCodec#stop")
         @Test
         public void testStopInUnInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.stop();
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
@@ -1439,11 +1523,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#stop")
         @Test
         public void testStopInInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1452,11 +1537,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#stop")
         @Test
         public void testStopInRunningState() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1467,25 +1553,27 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#stop")
         @Test
         public void testStopInReleaseState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             try {
                 mCodec.stop();
                 fail("Codec stop succeeds in release mode");
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
+        @ApiTest(apis = "MediaCodec#reset")
         @Test
         public void testResetInUnInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.reset();
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
@@ -1497,11 +1585,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#reset")
         @Test
         public void testResetInInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1510,11 +1599,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#reset")
         @Test
         public void testResetInRunningState() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1525,25 +1615,27 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#reset")
         @Test
         public void testResetInReleaseState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             try {
                 mCodec.reset();
                 fail("Codec reset succeeds in release mode");
             } catch (IllegalStateException e) {
-                // expected
+                Log.v(TAG, "expected exception thrown", e);
             }
         }
 
+        @ApiTest(apis = "MediaCodec#getInputImage")
         @Test
         public void testGetInputImageInUnInitState() throws IOException {
             MediaFormat format = getSampleVideoFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 tryGetInputImageInInvalidState("getInputImage succeeds in uninitialized state");
@@ -1556,11 +1648,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getInputImage")
         @Test
         public void testGetInputImageInInitState() throws IOException {
             MediaFormat format = getSampleVideoFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1570,13 +1663,14 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getInputImage")
         @Test
         @Ignore("TODO(b/151304147)")
         public void testGetInputImageInRunningStateVideo()
                 throws IOException, InterruptedException {
             MediaFormat format = getSampleVideoFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1585,7 +1679,7 @@ public class CodecUnitTest {
                     Image img = mCodec.getInputImage(-1);
                     assertNull("getInputImage succeeds for bad buffer index " + -1, img);
                 } catch (Exception e) {
-                    fail("getInputImage rec/exp :: " + e.toString() + " / null");
+                    fail("getInputImage rec/exp :: " + e + " / null");
                 }
                 int bufferIndex = mIsCodecInAsyncMode ? mAsyncHandle.getInput().first :
                         mCodec.dequeueInputBuffer(-1);
@@ -1601,13 +1695,14 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getInputImage")
         @Test
         @Ignore("TODO(b/151304147)")
         public void testGetInputImageInRunningStateAudio()
                 throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1616,7 +1711,7 @@ public class CodecUnitTest {
                     Image img = mCodec.getInputImage(-1);
                     assertNull("getInputImage succeeds for bad buffer index " + -1, img);
                 } catch (Exception e) {
-                    fail("getInputImage rec/exp :: " + e.toString() + " / null");
+                    fail("getInputImage rec/exp :: " + e + " / null");
                 }
                 int bufferIndex = mIsCodecInAsyncMode ? mAsyncHandle.getInput().first :
                         mCodec.dequeueInputBuffer(-1);
@@ -1631,20 +1726,22 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getInputImage")
         @Test
         public void testGetInputImageInReleaseState() throws IOException {
             MediaFormat format = getSampleVideoFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             tryGetInputImageInInvalidState("getInputImage succeeds in release state");
         }
 
+        @ApiTest(apis = "MediaCodec#getOutputImage")
         @Test
         public void testGetOutputImageInUnInitState() throws IOException {
             MediaFormat format = getSampleVideoFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createDecoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createDecoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 tryGetOutputImageInInvalidState("getOutputImage succeeds in uninitialized state");
@@ -1657,11 +1754,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getOutputImage")
         @Test
         public void testGetOutputImageInInitState() throws IOException {
             MediaFormat format = getSampleVideoFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createDecoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createDecoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, false);
@@ -1671,13 +1769,14 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getOutputImage")
         @Test
         @Ignore("TODO(b/151304147)")
         public void testGetOutputImageInRunningState() throws IOException, InterruptedException {
             MediaFormat format = getSampleVideoFormat();
             MediaCodec.BufferInfo outInfo = new MediaCodec.BufferInfo();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createDecoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createDecoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, false);
@@ -1686,7 +1785,7 @@ public class CodecUnitTest {
                     Image img = mCodec.getOutputImage(-1);
                     assertNull("getOutputImage succeeds for bad buffer index " + -1, img);
                 } catch (Exception e) {
-                    fail("getOutputImage rec/exp :: " + e.toString() + " / null");
+                    fail("getOutputImage rec/exp :: " + e + " / null");
                 }
                 queueEOS();
                 int bufferIndex = 0;
@@ -1706,7 +1805,7 @@ public class CodecUnitTest {
                     Image img = mCodec.getOutputImage(bufferIndex);
                     assertNull("getOutputImage succeeds for buffer index not owned by client", img);
                 } catch (Exception e) {
-                    fail("getOutputBuffer rec/exp :: " + e.toString() + " / null");
+                    fail("getOutputBuffer rec/exp :: " + e + " / null");
                 }
                 mCodec.stop();
                 mCodec.reset();
@@ -1714,20 +1813,22 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#getOutputImage")
         @Test
         public void testGetOutputImageInReleaseState() throws IOException {
             MediaFormat format = getSampleVideoFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createDecoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createDecoderByType(mediaType);
             mCodec.release();
             tryGetOutputImageInInvalidState("getOutputImage succeeds in release state");
         }
 
+        @ApiTest(apis = "MediaCodec#queueInputBuffer")
         @Test
         public void testQueueInputBufferInUnInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 tryQueueInputBufferInInvalidState(
@@ -1741,11 +1842,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#queueInputBuffer")
         @Test
         public void testQueueInputBufferInInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1757,11 +1859,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#queueInputBuffer")
         @Test
         public void testQueueInputBufferWithBadIndex() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1770,7 +1873,7 @@ public class CodecUnitTest {
                     mCodec.queueInputBuffer(-1, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
                     fail("queueInputBuffer succeeds with bad buffer index :: " + -1);
                 } catch (Exception e) {
-                    // expected
+                    Log.v(TAG, "expected exception thrown", e);
                 }
                 mCodec.stop();
                 mCodec.reset();
@@ -1778,11 +1881,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#queueInputBuffer")
         @Test
         public void testQueueInputBufferWithBadSize() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1797,7 +1901,7 @@ public class CodecUnitTest {
                     fail("queueInputBuffer succeeds with bad size param :: " + buffer.capacity() +
                             100);
                 } catch (Exception e) {
-                    // expected
+                    Log.v(TAG, "expected exception thrown", e);
                 }
                 mCodec.stop();
                 mCodec.reset();
@@ -1805,11 +1909,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#queueInputBuffer")
         @Test
         public void testQueueInputBufferWithBadBuffInfo() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1823,7 +1928,7 @@ public class CodecUnitTest {
                             MediaCodec.BUFFER_FLAG_END_OF_STREAM);
                     fail("queueInputBuffer succeeds with bad offset and size param");
                 } catch (Exception e) {
-                    // expected
+                    Log.v(TAG, "expected exception thrown", e);
                 }
                 mCodec.stop();
                 mCodec.reset();
@@ -1831,12 +1936,13 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#queueInputBuffer")
         @Test
         @Ignore("TODO(b/151305059)")
         public void testQueueInputBufferWithBadOffset() throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1850,7 +1956,7 @@ public class CodecUnitTest {
                             MediaCodec.BUFFER_FLAG_END_OF_STREAM);
                     fail("queueInputBuffer succeeds with bad offset param :: " + -1);
                 } catch (Exception e) {
-                    // expected
+                    Log.v(TAG, "expected exception thrown", e);
                 }
                 mCodec.stop();
                 mCodec.reset();
@@ -1858,20 +1964,46 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#queueInputBuffer")
         @Test
         public void testQueueInputBufferInReleaseState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             tryQueueInputBufferInInvalidState("queueInputBuffer succeeds in release state");
         }
 
+        @ApiTest(apis = {"MediaCodec#queueInputBuffer", "MediaCodec#queueSecureInputBuffer"})
         @Test
-        public void testReleaseOutputBufferInUnInitState() throws IOException {
+        public void testExceptionThrownWhenBufferIsEOSAndDecodeOnly() throws IOException {
             MediaFormat format = getSampleAudioFormat();
             String mime = format.getString(MediaFormat.KEY_MIME);
             mCodec = MediaCodec.createEncoderByType(mime);
+            boolean[] boolStates = {true, false};
+            for (boolean isAsync : boolStates) {
+                configureCodec(format, isAsync, false, true);
+                mCodec.start();
+                final int flags = MediaCodec.BUFFER_FLAG_END_OF_STREAM
+                        | MediaCodec.BUFFER_FLAG_DECODE_ONLY;
+
+                Assert.assertThrows(MediaCodec.InvalidBufferFlagsException.class,
+                        () -> mCodec.queueInputBuffer(0, 0, 0, 0, flags));
+
+                Assert.assertThrows(MediaCodec.InvalidBufferFlagsException.class,
+                        () -> mCodec.queueSecureInputBuffer(0, 0, null, 0, flags));
+                mCodec.stop();
+                mCodec.reset();
+            }
+            mCodec.release();
+        }
+
+        @ApiTest(apis = "MediaCodec#releaseOutputBuffer")
+        @Test
+        public void testReleaseOutputBufferInUnInitState() throws IOException {
+            MediaFormat format = getSampleAudioFormat();
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 tryReleaseOutputBufferInInvalidState(
@@ -1886,11 +2018,12 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#releaseOutputBuffer")
         @Test
         public void testReleaseOutputBufferInInitState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1901,13 +2034,14 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#releaseOutputBuffer")
         @Test
         public void testReleaseOutputBufferInRunningState()
                 throws IOException, InterruptedException {
             MediaFormat format = getSampleAudioFormat();
             MediaCodec.BufferInfo outInfo = new MediaCodec.BufferInfo();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             boolean[] boolStates = {true, false};
             for (boolean isAsync : boolStates) {
                 configureCodec(format, isAsync, false, true);
@@ -1916,7 +2050,7 @@ public class CodecUnitTest {
                     mCodec.releaseOutputBuffer(-1, false);
                     fail("releaseOutputBuffer succeeds for bad buffer index " + -1);
                 } catch (MediaCodec.CodecException e) {
-                    // expected
+                    Log.v(TAG, "expected exception thrown", e);
                 }
                 queueEOS();
                 int bufferIndex = 0;
@@ -1940,7 +2074,7 @@ public class CodecUnitTest {
                     mCodec.releaseOutputBuffer(bufferIndex, false);
                     fail("releaseOutputBuffer succeeds for buffer index not owned by client");
                 } catch (MediaCodec.CodecException e) {
-                    // expected
+                    Log.v(TAG, "expected exception thrown", e);
                 }
                 mCodec.stop();
                 mCodec.reset();
@@ -1948,21 +2082,23 @@ public class CodecUnitTest {
             mCodec.release();
         }
 
+        @ApiTest(apis = "MediaCodec#releaseOutputBuffer")
         @Test
         public void testReleaseOutputBufferInReleaseState() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             tryReleaseOutputBufferInInvalidState(
                     "releaseOutputBuffer succeeds in release state");
         }
 
+        @ApiTest(apis = "MediaCodec#releaseOutputBuffer")
         @Test
         public void testReleaseIdempotent() throws IOException {
             MediaFormat format = getSampleAudioFormat();
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mCodec = MediaCodec.createEncoderByType(mime);
+            String mediaType = format.getString(MediaFormat.KEY_MIME);
+            mCodec = MediaCodec.createEncoderByType(mediaType);
             mCodec.release();
             mCodec.release();
         }
@@ -1970,17 +2106,18 @@ public class CodecUnitTest {
 
     @SmallTest
     // Following tests were added in Android R and are not limited to c2.android.* codecs.
-    // Hence limit the tests to Android R and above and also annotate as NonMediaMainlineTest
+    // Hence limit the tests to Android R and above and also annotate as NonMainlineTest
     @SdkSuppress(minSdkVersion = 30)
-    @NonMediaMainlineTest
+    @NonMainlineTest
     public static class TestApiNative {
         @Rule
         public Timeout timeout = new Timeout(PER_TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
         static {
-            System.loadLibrary("ctsmediav2codec_jni");
+            System.loadLibrary("ctsmediav2codecapiunit_jni");
         }
 
+        @ApiTest(apis = "AMediaCodec_createCodecByName")
         @Test
         public void testCreateByCodecNameForNull() {
             assertTrue(nativeTestCreateByCodecNameForNull());
@@ -1988,6 +2125,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestCreateByCodecNameForNull();
 
+        @ApiTest(apis = "AMediaCodec_createCodecByName")
         @Test
         public void testCreateByCodecNameForInvalidName() {
             assertTrue(nativeTestCreateByCodecNameForInvalidName());
@@ -1995,6 +2133,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestCreateByCodecNameForInvalidName();
 
+        @ApiTest(apis = "AMediaCodec_createDecoderByType")
         @Test
         public void testCreateDecoderByTypeForNull() {
             assertTrue(nativeTestCreateDecoderByTypeForNull());
@@ -2002,13 +2141,15 @@ public class CodecUnitTest {
 
         private native boolean nativeTestCreateDecoderByTypeForNull();
 
+        @ApiTest(apis = "AMediaCodec_createDecoderByType")
         @Test
-        public void testCreateDecoderByTypeForInvalidMime() {
-            assertTrue(nativeTestCreateDecoderByTypeForInvalidMime());
+        public void testCreateDecoderByTypeForInvalidMediaType() {
+            assertTrue(nativeTestCreateDecoderByTypeForInvalidMediaType());
         }
 
-        private native boolean nativeTestCreateDecoderByTypeForInvalidMime();
+        private native boolean nativeTestCreateDecoderByTypeForInvalidMediaType();
 
+        @ApiTest(apis = "AMediaCodec_createEncoderByType")
         @Test
         public void testCreateEncoderByTypeForNull() {
             assertTrue(nativeTestCreateEncoderByTypeForNull());
@@ -2016,13 +2157,15 @@ public class CodecUnitTest {
 
         private native boolean nativeTestCreateEncoderByTypeForNull();
 
+        @ApiTest(apis = "AMediaCodec_createEncoderByType")
         @Test
-        public void testCreateEncoderByTypeForInvalidMime() {
-            assertTrue(nativeTestCreateEncoderByTypeForInvalidMime());
+        public void testCreateEncoderByTypeForInvalidMediaType() {
+            assertTrue(nativeTestCreateEncoderByTypeForInvalidMediaType());
         }
 
-        private native boolean nativeTestCreateEncoderByTypeForInvalidMime();
+        private native boolean nativeTestCreateEncoderByTypeForInvalidMediaType();
 
+        @ApiTest(apis = "AMediaCodec_configure")
         @Test
         @Ignore("TODO(b/151302868)")
         public void testConfigureForNullFormat() {
@@ -2031,6 +2174,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestConfigureForNullFormat();
 
+        @ApiTest(apis = "AMediaCodec_configure")
         @Test
         public void testConfigureForEmptyFormat() {
             assertTrue(nativeTestConfigureForEmptyFormat());
@@ -2038,6 +2182,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestConfigureForEmptyFormat();
 
+        @ApiTest(apis = "AMediaCodec_configure")
         @Test
         @Ignore("TODO(b/151303041)")
         public void testConfigureCodecForIncompleteFormat() {
@@ -2055,6 +2200,7 @@ public class CodecUnitTest {
         private native boolean nativeTestConfigureCodecForIncompleteFormat(boolean isAudio,
                 boolean isEncoder);
 
+        @ApiTest(apis = "AMediaCodec_configure")
         @Test
         public void testConfigureEncoderForBadFlags() {
             assertTrue(nativeTestConfigureEncoderForBadFlags());
@@ -2062,6 +2208,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestConfigureEncoderForBadFlags();
 
+        @ApiTest(apis = "AMediaCodec_configure")
         @Test
         public void testConfigureDecoderForBadFlags() {
             assertTrue(nativeTestConfigureDecoderForBadFlags());
@@ -2069,6 +2216,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestConfigureDecoderForBadFlags();
 
+        @ApiTest(apis = "AMediaCodec_configure")
         @Test
         public void testConfigureInInitState() {
             assertTrue(nativeTestConfigureInInitState());
@@ -2076,6 +2224,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestConfigureInInitState();
 
+        @ApiTest(apis = "AMediaCodec_configure")
         @Test
         public void testConfigureInRunningState() {
             assertTrue(nativeTestConfigureInRunningState());
@@ -2083,6 +2232,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestConfigureInRunningState();
 
+        @ApiTest(apis = "AMediaCodec_configure")
         @Test
         public void testConfigureInUnInitState() {
             assertTrue(nativeTestConfigureInUnInitState());
@@ -2090,6 +2240,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestConfigureInUnInitState();
 
+        @ApiTest(apis = "AMediaCodec_dequeueInputBuffer")
         @Test
         public void testDequeueInputBufferInInitState() {
             assertTrue(nativeTestDequeueInputBufferInInitState());
@@ -2097,6 +2248,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestDequeueInputBufferInInitState();
 
+        @ApiTest(apis = "AMediaCodec_dequeueInputBuffer")
         @Test
         public void testDequeueInputBufferInRunningState() {
             assertTrue(nativeTestDequeueInputBufferInRunningState());
@@ -2104,6 +2256,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestDequeueInputBufferInRunningState();
 
+        @ApiTest(apis = "AMediaCodec_dequeueInputBuffer")
         @Test
         public void testDequeueInputBufferInUnInitState() {
             assertTrue(nativeTestDequeueInputBufferInUnInitState());
@@ -2111,6 +2264,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestDequeueInputBufferInUnInitState();
 
+        @ApiTest(apis = "AMediaCodec_dequeueOutputBuffer")
         @Test
         public void testDequeueOutputBufferInInitState() {
             assertTrue(nativeTestDequeueOutputBufferInInitState());
@@ -2118,6 +2272,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestDequeueOutputBufferInInitState();
 
+        @ApiTest(apis = "AMediaCodec_dequeueOutputBuffer")
         @Test
         public void testDequeueOutputBufferInRunningState() {
             assertTrue(nativeTestDequeueOutputBufferInRunningState());
@@ -2125,6 +2280,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestDequeueOutputBufferInRunningState();
 
+        @ApiTest(apis = "AMediaCodec_dequeueOutputBuffer")
         @Test
         public void testDequeueOutputBufferInUnInitState() {
             assertTrue(nativeTestDequeueOutputBufferInUnInitState());
@@ -2132,6 +2288,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestDequeueOutputBufferInUnInitState();
 
+        @ApiTest(apis = "AMediaCodec_flush")
         @Test
         public void testFlushInInitState() {
             assertTrue(nativeTestFlushInInitState());
@@ -2139,6 +2296,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestFlushInInitState();
 
+        @ApiTest(apis = "AMediaCodec_flush")
         @Test
         public void testFlushInRunningState() {
             assertTrue(nativeTestFlushInRunningState());
@@ -2146,6 +2304,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestFlushInRunningState();
 
+        @ApiTest(apis = "AMediaCodec_flush")
         @Test
         public void testFlushInUnInitState() {
             assertTrue(nativeTestFlushInUnInitState());
@@ -2153,6 +2312,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestFlushInUnInitState();
 
+        @ApiTest(apis = "AMediaCodec_getName")
         @Test
         public void testGetNameInInitState() {
             assertTrue(nativeTestGetNameInInitState());
@@ -2160,6 +2320,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetNameInInitState();
 
+        @ApiTest(apis = "AMediaCodec_getName")
         @Test
         public void testGetNameInRunningState() {
             assertTrue(nativeTestGetNameInRunningState());
@@ -2167,6 +2328,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetNameInRunningState();
 
+        @ApiTest(apis = "AMediaCodec_getName")
         @Test
         public void testGetNameInUnInitState() {
             assertTrue(nativeTestGetNameInUnInitState());
@@ -2174,6 +2336,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetNameInUnInitState();
 
+        @ApiTest(apis = "AMediaCodec_setAsyncNotifyCallback")
         @Test
         @Ignore("TODO(b/148523403)")
         public void testSetAsyncNotifyCallbackInInitState() {
@@ -2182,6 +2345,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestSetAsyncNotifyCallbackInInitState();
 
+        @ApiTest(apis = "AMediaCodec_setAsyncNotifyCallback")
         @Test
         @Ignore("TODO(b/152553625)")
         public void testSetAsyncNotifyCallbackInRunningState() {
@@ -2190,6 +2354,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestSetAsyncNotifyCallbackInRunningState();
 
+        @ApiTest(apis = "AMediaCodec_setAsyncNotifyCallback")
         @Test
         public void testSetAsyncNotifyCallbackInUnInitState() {
             assertTrue(nativeTestSetAsyncNotifyCallbackInUnInitState());
@@ -2197,6 +2362,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestSetAsyncNotifyCallbackInUnInitState();
 
+        @ApiTest(apis = "AMediaCodec_getInputBuffer")
         @Test
         public void tesGetInputBufferInInitState() {
             assertTrue(nativeTestGetInputBufferInInitState());
@@ -2204,6 +2370,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetInputBufferInInitState();
 
+        @ApiTest(apis = "AMediaCodec_getInputBuffer")
         @Test
         public void testGetInputBufferInRunningState() {
             assertTrue(nativeTestGetInputBufferInRunningState());
@@ -2211,6 +2378,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetInputBufferInRunningState();
 
+        @ApiTest(apis = "AMediaCodec_getInputBuffer")
         @Test
         public void testGetInputBufferInUnInitState() {
             assertTrue(nativeTestGetInputBufferInUnInitState());
@@ -2218,6 +2386,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetInputBufferInUnInitState();
 
+        @ApiTest(apis = "AMediaCodec_getInputFormat")
         @Test
         public void testGetInputFormatInInitState() {
             assertTrue(nativeTestGetInputFormatInInitState());
@@ -2225,6 +2394,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetInputFormatInInitState();
 
+        @ApiTest(apis = "AMediaCodec_getInputFormat")
         @Test
         public void testGetInputFormatInRunningState() {
             assertTrue(nativeTestGetInputFormatInRunningState());
@@ -2232,6 +2402,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetInputFormatInRunningState();
 
+        @ApiTest(apis = "AMediaCodec_getInputFormat")
         @Test
         public void testGetInputFormatInUnInitState() {
             assertTrue(nativeTestGetInputFormatInUnInitState());
@@ -2239,6 +2410,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetInputFormatInUnInitState();
 
+        @ApiTest(apis = "AMediaCodec_getOutputBuffer")
         @Test
         public void testGetOutputBufferInInitState() {
             assertTrue(nativeTestGetOutputBufferInInitState());
@@ -2246,6 +2418,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetOutputBufferInInitState();
 
+        @ApiTest(apis = "AMediaCodec_getOutputBuffer")
         @Test
         public void testGetOutputBufferInRunningState() {
             assertTrue(nativeTestGetOutputBufferInRunningState());
@@ -2253,6 +2426,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetOutputBufferInRunningState();
 
+        @ApiTest(apis = "AMediaCodec_getOutputBuffer")
         @Test
         public void testGetOutputBufferInUnInitState() {
             assertTrue(nativeTestGetOutputBufferInUnInitState());
@@ -2260,6 +2434,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetOutputBufferInUnInitState();
 
+        @ApiTest(apis = "AMediaCodec_getOutputFormat")
         @Test
         public void testGetOutputFormatInInitState() {
             assertTrue(nativeTestGetOutputFormatInInitState());
@@ -2267,6 +2442,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetOutputFormatInInitState();
 
+        @ApiTest(apis = "AMediaCodec_getOutputFormat")
         @Test
         public void testGetOutputFormatInRunningState() {
             assertTrue(nativeTestGetOutputFormatInRunningState());
@@ -2274,6 +2450,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetOutputFormatInRunningState();
 
+        @ApiTest(apis = "AMediaCodec_getOutputFormat")
         @Test
         public void testGetOutputFormatInUnInitState() {
             assertTrue(nativeTestGetOutputFormatInUnInitState());
@@ -2281,6 +2458,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetOutputFormatInUnInitState();
 
+        @ApiTest(apis = "AMediaCodec_setParameters")
         @Test
         @Ignore("TODO(b/)")
         public void testSetParametersInInitState() {
@@ -2289,6 +2467,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestSetParametersInInitState();
 
+        @ApiTest(apis = "AMediaCodec_setParameters")
         @Test
         public void testSetParametersInRunningState() {
             assertTrue(nativeTestSetParametersInRunningState());
@@ -2296,6 +2475,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestSetParametersInRunningState();
 
+        @ApiTest(apis = "AMediaCodec_setParameters")
         @Test
         @Ignore("TODO(b/)")
         public void testSetParametersInUnInitState() {
@@ -2304,6 +2484,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestSetParametersInUnInitState();
 
+        @ApiTest(apis = "AMediaCodec_start")
         @Test
         public void testStartInRunningState() {
             assertTrue(nativeTestStartInRunningState());
@@ -2311,6 +2492,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestStartInRunningState();
 
+        @ApiTest(apis = "AMediaCodec_start")
         @Test
         public void testStartInUnInitState() {
             assertTrue(nativeTestStartInUnInitState());
@@ -2318,6 +2500,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestStartInUnInitState();
 
+        @ApiTest(apis = "AMediaCodec_stop")
         @Test
         public void testStopInInitState() {
             assertTrue(nativeTestStopInInitState());
@@ -2325,6 +2508,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestStopInInitState();
 
+        @ApiTest(apis = "AMediaCodec_stop")
         @Test
         public void testStopInRunningState() {
             assertTrue(nativeTestStopInRunningState());
@@ -2332,6 +2516,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestStopInRunningState();
 
+        @ApiTest(apis = "AMediaCodec_stop")
         @Test
         public void testStopInUnInitState() {
             assertTrue(nativeTestStopInUnInitState());
@@ -2339,6 +2524,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestStopInUnInitState();
 
+        @ApiTest(apis = "AMediaCodec_queueInputBuffer")
         @Test
         public void testQueueInputBufferInInitState() {
             assertTrue(nativeTestQueueInputBufferInInitState());
@@ -2346,6 +2532,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestQueueInputBufferInInitState();
 
+        @ApiTest(apis = "AMediaCodec_queueInputBuffer")
         @Test
         public void testQueueInputBufferWithBadIndex() {
             assertTrue(nativeTestQueueInputBufferWithBadIndex());
@@ -2353,6 +2540,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestQueueInputBufferWithBadIndex();
 
+        @ApiTest(apis = "AMediaCodec_queueInputBuffer")
         @Test
         public void testQueueInputBufferWithBadSize() {
             assertTrue(nativeTestQueueInputBufferWithBadSize());
@@ -2360,6 +2548,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestQueueInputBufferWithBadSize();
 
+        @ApiTest(apis = "AMediaCodec_queueInputBuffer")
         @Test
         public void testQueueInputBufferWithBadBuffInfo() {
             assertTrue(nativeTestQueueInputBufferWithBadBuffInfo());
@@ -2367,6 +2556,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestQueueInputBufferWithBadBuffInfo();
 
+        @ApiTest(apis = "AMediaCodec_queueInputBuffer")
         @Test
         public void testQueueInputBufferWithBadOffset() {
             assertTrue(nativeTestQueueInputBufferWithBadOffset());
@@ -2374,6 +2564,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestQueueInputBufferWithBadOffset();
 
+        @ApiTest(apis = "AMediaCodec_queueInputBuffer")
         @Test
         public void testQueueInputBufferInUnInitState() {
             assertTrue(nativeTestQueueInputBufferInUnInitState());
@@ -2381,6 +2572,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestQueueInputBufferInUnInitState();
 
+        @ApiTest(apis = "AMediaCodec_releaseOutputBuffer")
         @Test
         public void testReleaseOutputBufferInInitState() {
             assertTrue(nativeTestReleaseOutputBufferInInitState());
@@ -2388,6 +2580,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestReleaseOutputBufferInInitState();
 
+        @ApiTest(apis = "AMediaCodec_releaseOutputBuffer")
         @Test
         public void testReleaseOutputBufferInRunningState() {
             assertTrue(nativeTestReleaseOutputBufferInRunningState());
@@ -2395,6 +2588,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestReleaseOutputBufferInRunningState();
 
+        @ApiTest(apis = "AMediaCodec_releaseOutputBuffer")
         @Test
         public void testReleaseOutputBufferInUnInitState() {
             assertTrue(nativeTestReleaseOutputBufferInUnInitState());
@@ -2402,6 +2596,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestReleaseOutputBufferInUnInitState();
 
+        @ApiTest(apis = "AMediaCodec_getBufferFormat")
         @Test
         public void testGetBufferFormatInInitState() {
             assertTrue(nativeTestGetBufferFormatInInitState());
@@ -2409,6 +2604,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetBufferFormatInInitState();
 
+        @ApiTest(apis = "AMediaCodec_getBufferFormat")
         @Test
         public void testGetBufferFormatInRunningState() {
             assertTrue(nativeTestGetBufferFormatInRunningState());
@@ -2416,6 +2612,7 @@ public class CodecUnitTest {
 
         private native boolean nativeTestGetBufferFormatInRunningState();
 
+        @ApiTest(apis = "AMediaCodec_getBufferFormat")
         @Test
         public void testGetBufferFormatInUnInitState() {
             assertTrue(nativeTestGetBufferFormatInUnInitState());

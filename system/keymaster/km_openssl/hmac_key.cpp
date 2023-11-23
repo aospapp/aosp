@@ -16,6 +16,8 @@
 
 #include <keymaster/km_openssl/hmac_key.h>
 
+#include <utility>
+
 #include <openssl/err.h>
 #include <openssl/rand.h>
 
@@ -52,7 +54,8 @@ keymaster_error_t HmacKeyFactory::LoadKey(KeymasterKeyBlob&& key_material,
     }
 
     key->reset(new (std::nothrow)
-                   HmacKey(move(key_material), move(hw_enforced), move(sw_enforced), this));
+                   HmacKey(std::move(key_material), std::move(hw_enforced), std::move(sw_enforced),
+                           this));
     if (!key->get()) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     return KM_ERROR_OK;
 }

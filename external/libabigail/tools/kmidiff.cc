@@ -11,7 +11,6 @@
 
 #include <sys/types.h>
 #include <dirent.h>
-#include <fts.h>
 #include <cstring>
 #include <string>
 #include <vector>

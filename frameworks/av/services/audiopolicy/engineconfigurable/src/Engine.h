@@ -33,10 +33,15 @@ class Engine : public EngineBase, AudioPolicyPluginInterface
 {
 public:
     Engine();
-    virtual ~Engine();
+    virtual ~Engine() = default;
 
     template <class RequestedInterface>
     RequestedInterface *queryInterface();
+
+    ///
+    /// from EngineInterface
+    ///
+    android::status_t loadFromXmlConfigWithFallback(const std::string& xmlFilePath = "") override;
 
     ///
     /// from EngineBase
@@ -63,10 +68,16 @@ public:
 
     sp<DeviceDescriptor> getInputDeviceForAttributes(const audio_attributes_t &attr,
                                                      uid_t uid = 0,
+                                                     audio_session_t session = AUDIO_SESSION_NONE,
                                                      sp<AudioPolicyMix> *mix = nullptr)
                                                      const override;
 
-    void updateDeviceSelectionCache() override;
+    status_t setDevicesRoleForStrategy(product_strategy_t strategy, device_role_t role,
+                                       const AudioDeviceTypeAddrVector &devices) override;
+
+    status_t removeDevicesRoleForStrategy(product_strategy_t strategy, device_role_t role,
+                const AudioDeviceTypeAddrVector &devices) override;
+    status_t clearDevicesRoleForStrategy(product_strategy_t strategy, device_role_t role) override;
 
     ///
     /// from AudioPolicyPluginInterface
@@ -95,6 +106,12 @@ public:
     }
 
 private:
+    android::status_t disableDevicesForStrategy(product_strategy_t strategy,
+            const DeviceVector &devicesToDisable);
+    void enableDevicesForStrategy(product_strategy_t strategy, const DeviceVector &devicesToEnable);
+    android::status_t setOutputDevicesConnectionState(const DeviceVector &devices,
+                                                      audio_policy_dev_state_t state);
+
     /* Copy facilities are put private to disable copy. */
     Engine(const Engine &object);
     Engine &operator=(const Engine &object);
@@ -120,20 +137,21 @@ private:
     template <typename Property, typename Key>
     bool setPropertyForKey(const Property &property, const Key &key);
 
-    status_t loadAudioPolicyEngineConfig();
+    status_t loadAudioPolicyEngineConfig(const std::string& xmlFilePath);
 
-    DeviceVector getDevicesForProductStrategy(product_strategy_t strategy) const;
     DeviceVector getCachedDevices(product_strategy_t ps) const;
+
+    ///
+    /// from EngineBase
+    ///
+    DeviceVector getDevicesForProductStrategy(product_strategy_t strategy) const override;
 
     /**
      * Policy Parameter Manager hidden through a wrapper.
      */
     ParameterManagerWrapper *mPolicyParameterMgr;
-
-    DeviceStrategyMap mDevicesForStrategies;
 };
 
 } // namespace audio_policy
 
 } // namespace android
-

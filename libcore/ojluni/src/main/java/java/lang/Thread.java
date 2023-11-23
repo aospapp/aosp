@@ -42,7 +42,7 @@ import sun.nio.ch.Interruptible;
 import sun.reflect.CallerSensitive;
 import dalvik.system.VMStack;
 import libcore.util.EmptyArray;
-import jdk.internal.HotSpotIntrinsicCandidate;
+import jdk.internal.vm.annotation.IntrinsicCandidate;
 
 
 /**
@@ -311,7 +311,7 @@ class Thread implements Runnable {
      *
      * @return  the currently executing thread.
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     @FastNative
     public static native Thread currentThread();
 
@@ -489,7 +489,7 @@ class Thread implements Runnable {
      *
      * @since 9
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public static void onSpinWait() {}
 
     /**
@@ -1216,7 +1216,7 @@ class Thread implements Runnable {
      * is reset or not based on the value of ClearInterrupted that is
      * passed.
      *
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     private native boolean isInterrupted(boolean ClearInterrupted);
     */
 

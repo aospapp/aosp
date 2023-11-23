@@ -18,25 +18,26 @@ package com.android.quickstep;
 import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.Surface.ROTATION_0;
 
+import static com.android.launcher3.MotionEventsUtils.isTrackpadMultiFingerSwipe;
 import static com.android.launcher3.util.DisplayController.CHANGE_ACTIVE_SCREEN;
 import static com.android.launcher3.util.DisplayController.CHANGE_ALL;
 import static com.android.launcher3.util.DisplayController.CHANGE_NAVIGATION_MODE;
 import static com.android.launcher3.util.DisplayController.CHANGE_ROTATION;
 import static com.android.launcher3.util.DisplayController.CHANGE_SUPPORTED_BOUNDS;
-import static com.android.launcher3.util.DisplayController.NavigationMode.THREE_BUTTONS;
 import static com.android.launcher3.util.Executors.UI_HELPER_EXECUTOR;
+import static com.android.launcher3.util.NavigationMode.THREE_BUTTONS;
 
 import android.content.Context;
 import android.content.res.Resources;
 import android.view.MotionEvent;
 import android.view.OrientationEventListener;
 
-import com.android.launcher3.testing.TestProtocol;
+import com.android.launcher3.testing.shared.TestProtocol;
 import com.android.launcher3.util.DisplayController;
 import com.android.launcher3.util.DisplayController.DisplayInfoChangeListener;
 import com.android.launcher3.util.DisplayController.Info;
-import com.android.launcher3.util.DisplayController.NavigationMode;
 import com.android.launcher3.util.MainThreadInitializedObject;
+import com.android.launcher3.util.NavigationMode;
 import com.android.quickstep.util.RecentsOrientedState;
 import com.android.systemui.shared.system.QuickStepContract;
 import com.android.systemui.shared.system.TaskStackChangeListener;
@@ -231,15 +232,19 @@ public class RotationTouchHelper implements DisplayInfoChangeListener {
     /**
      * @return whether the coordinates of the {@param event} is in the swipe up gesture region.
      */
-    public boolean isInSwipeUpTouchRegion(MotionEvent event) {
-        return mOrientationTouchTransformer.touchInValidSwipeRegions(event.getX(), event.getY());
+    public boolean isInSwipeUpTouchRegion(MotionEvent event, BaseActivityInterface activity) {
+        return isInSwipeUpTouchRegion(event, 0, activity);
     }
 
     /**
      * @return whether the coordinates of the {@param event} with the given {@param pointerIndex}
      *         is in the swipe up gesture region.
      */
-    public boolean isInSwipeUpTouchRegion(MotionEvent event, int pointerIndex) {
+    public boolean isInSwipeUpTouchRegion(MotionEvent event, int pointerIndex,
+            BaseActivityInterface activity) {
+        if (isTrackpadMultiFingerSwipe(event)) {
+            return true;
+        }
         return mOrientationTouchTransformer.touchInValidSwipeRegions(event.getX(pointerIndex),
                 event.getY(pointerIndex));
     }
@@ -321,9 +326,9 @@ public class RotationTouchHelper implements DisplayInfoChangeListener {
         if (enable && !mInOverview && !TestProtocol.sDisableSensorRotation) {
             // Clear any previous state from sensor manager
             mSensorRotation = mCurrentAppRotation;
-            mOrientationListener.enable();
+            UI_HELPER_EXECUTOR.execute(mOrientationListener::enable);
         } else {
-            mOrientationListener.disable();
+            UI_HELPER_EXECUTOR.execute(mOrientationListener::disable);
         }
     }
 
@@ -345,7 +350,8 @@ public class RotationTouchHelper implements DisplayInfoChangeListener {
                 enableMultipleRegions(true);
             }
             activityInterface.onExitOverview(this, mExitOverviewRunnable);
-        } else if (endTarget == GestureState.GestureEndTarget.HOME) {
+        } else if (endTarget == GestureState.GestureEndTarget.HOME
+                || endTarget == GestureState.GestureEndTarget.ALL_APPS) {
             enableMultipleRegions(false);
         } else if (endTarget == GestureState.GestureEndTarget.NEW_TASK) {
             if (mOrientationTouchTransformer.getQuickStepStartingRotation() == -1) {

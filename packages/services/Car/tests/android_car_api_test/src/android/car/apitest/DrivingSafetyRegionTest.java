@@ -20,12 +20,13 @@ import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
-import static org.testng.Assert.assertThrows;
 
 import android.app.ActivityManager;
 import android.car.Car;
 import android.car.content.pm.CarPackageManager;
+import android.car.test.ApiCheckerRule.Builder;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -48,6 +49,12 @@ public class DrivingSafetyRegionTest extends CarApiTestBase {
     private String mOriginalDrivingSafetyRegion = null;
 
     private final int mCurrentUser = ActivityManager.getCurrentUser();
+
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        builder.disableAnnotationsCheck();
+    }
 
     @Before
     public void setUp() {

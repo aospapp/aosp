@@ -14,17 +14,14 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-import base64
 import os
-import time
 
 from acts.metrics.core import ProtoMetric
 from acts.metrics.logger import MetricLogger
 from acts_contrib.test_utils.tel.loggers.protos.telephony_metric_pb2 import TelephonyVoiceTestResult
 
 # Initializes the path to the protobuf
-PROTO_PATH = os.path.join(os.path.dirname(__file__),
-                          'protos',
+PROTO_PATH = os.path.join(os.path.dirname(__file__), 'protos',
                           'telephony_metric.proto')
 
 
@@ -46,4 +43,3 @@ class TelephonyMetricLogger(MetricLogger):
         metric = ProtoMetric(name='telephony_voice_test_result',
                              data=self.proto)
         return self.publisher.publish(metric)
-

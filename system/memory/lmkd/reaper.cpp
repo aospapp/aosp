@@ -53,94 +53,6 @@ static inline long get_time_diff_ms(struct timespec *from,
            (to->tv_nsec - from->tv_nsec) / (long)NS_PER_MS;
 }
 
-static void* reaper_main(void* param) {
-    Reaper *reaper = static_cast<Reaper*>(param);
-    struct timespec start_tm, end_tm;
-    struct Reaper::target_proc target;
-    pid_t tid = gettid();
-
-    // Ensure the thread does not use little cores
-    if (!SetTaskProfiles(tid, {"CPUSET_SP_FOREGROUND"}, true)) {
-        ALOGE("Failed to assign cpuset to the reaper thread");
-    }
-
-    for (;;) {
-        target = reaper->dequeue_request();
-
-        if (reaper->debug_enabled()) {
-            clock_gettime(CLOCK_MONOTONIC_COARSE, &start_tm);
-        }
-
-        if (pidfd_send_signal(target.pidfd, SIGKILL, NULL, 0)) {
-            // Inform the main thread about failure to kill
-            reaper->notify_kill_failure(target.pid);
-            goto done;
-        }
-        if (process_mrelease(target.pidfd, 0)) {
-            ALOGE("process_mrelease %d failed: %s", target.pidfd, strerror(errno));
-            goto done;
-        }
-        if (reaper->debug_enabled()) {
-            clock_gettime(CLOCK_MONOTONIC_COARSE, &end_tm);
-            ALOGI("Process %d was reaped in %ldms", target.pid,
-                  get_time_diff_ms(&start_tm, &end_tm));
-        }
-done:
-        close(target.pidfd);
-        reaper->request_complete();
-    }
-
-    return NULL;
-}
-
-bool Reaper::is_reaping_supported() {
-    static enum {
-        UNKNOWN,
-        SUPPORTED,
-        UNSUPPORTED
-    } reap_support = UNKNOWN;
-
-    if (reap_support == UNKNOWN) {
-        if (process_mrelease(-1, 0) && errno == ENOSYS) {
-            reap_support = UNSUPPORTED;
-        } else {
-            reap_support = SUPPORTED;
-        }
-    }
-    return reap_support == SUPPORTED;
-}
-
-bool Reaper::init(int comm_fd) {
-    char name[16];
-
-    if (thread_cnt_ > 0) {
-        // init should not be called multiple times
-        return false;
-    }
-
-    thread_pool_ = new pthread_t[THREAD_POOL_SIZE];
-    for (int i = 0; i < THREAD_POOL_SIZE; i++) {
-        if (pthread_create(&thread_pool_[thread_cnt_], NULL, reaper_main, this)) {
-            ALOGE("pthread_create failed: %s", strerror(errno));
-            continue;
-        }
-        snprintf(name, sizeof(name), "lmkd_reaper%d", thread_cnt_);
-        if (pthread_setname_np(thread_pool_[thread_cnt_], name)) {
-            ALOGW("pthread_setname_np failed: %s", strerror(errno));
-        }
-        thread_cnt_++;
-    }
-
-    if (!thread_cnt_) {
-        delete[] thread_pool_;
-        return false;
-    }
-
-    queue_.reserve(thread_cnt_);
-    comm_fd_ = comm_fd;
-    return true;
-}
-
 static void set_process_group_and_prio(uid_t uid, int pid, const std::vector<std::string>& profiles,
                                        int prio) {
     DIR* d;
@@ -176,6 +88,111 @@ static void set_process_group_and_prio(uid_t uid, int pid, const std::vector<std
     closedir(d);
 }
 
+static void* reaper_main(void* param) {
+    Reaper *reaper = static_cast<Reaper*>(param);
+    struct timespec start_tm, end_tm;
+    struct Reaper::target_proc target;
+    pid_t tid = gettid();
+
+    // Ensure the thread does not use little cores
+    if (!SetTaskProfiles(tid, {"CPUSET_SP_FOREGROUND"}, true)) {
+        ALOGE("Failed to assign cpuset to the reaper thread");
+    }
+
+    if (setpriority(PRIO_PROCESS, tid, ANDROID_PRIORITY_HIGHEST)) {
+        ALOGW("Unable to raise priority of the reaper thread (%d): errno=%d", tid, errno);
+    }
+
+    for (;;) {
+        target = reaper->dequeue_request();
+
+        if (reaper->debug_enabled()) {
+            clock_gettime(CLOCK_MONOTONIC_COARSE, &start_tm);
+        }
+
+        if (pidfd_send_signal(target.pidfd, SIGKILL, NULL, 0)) {
+            // Inform the main thread about failure to kill
+            reaper->notify_kill_failure(target.pid);
+            goto done;
+        }
+
+        set_process_group_and_prio(target.uid, target.pid,
+                                   {"CPUSET_SP_FOREGROUND", "SCHED_SP_FOREGROUND"},
+                                   ANDROID_PRIORITY_NORMAL);
+
+        if (process_mrelease(target.pidfd, 0)) {
+            ALOGE("process_mrelease %d failed: %s", target.pid, strerror(errno));
+            goto done;
+        }
+        if (reaper->debug_enabled()) {
+            clock_gettime(CLOCK_MONOTONIC_COARSE, &end_tm);
+            ALOGI("Process %d was reaped in %ldms", target.pid,
+                  get_time_diff_ms(&start_tm, &end_tm));
+        }
+
+done:
+        close(target.pidfd);
+        reaper->request_complete();
+    }
+
+    return NULL;
+}
+
+bool Reaper::is_reaping_supported() {
+    static enum {
+        UNKNOWN,
+        SUPPORTED,
+        UNSUPPORTED
+    } reap_support = UNKNOWN;
+
+    if (reap_support == UNKNOWN) {
+        if (process_mrelease(-1, 0) && errno == ENOSYS) {
+            reap_support = UNSUPPORTED;
+        } else {
+            reap_support = SUPPORTED;
+        }
+    }
+    return reap_support == SUPPORTED;
+}
+
+bool Reaper::init(int comm_fd) {
+    char name[16];
+    struct sched_param param = {
+        .sched_priority = 0,
+    };
+
+    if (thread_cnt_ > 0) {
+        // init should not be called multiple times
+        return false;
+    }
+
+    thread_pool_ = new pthread_t[THREAD_POOL_SIZE];
+    for (int i = 0; i < THREAD_POOL_SIZE; i++) {
+        if (pthread_create(&thread_pool_[thread_cnt_], NULL, reaper_main, this)) {
+            ALOGE("pthread_create failed: %s", strerror(errno));
+            continue;
+        }
+        // set normal scheduling policy for the reaper thread
+        if (pthread_setschedparam(thread_pool_[thread_cnt_], SCHED_OTHER, &param)) {
+            ALOGW("set SCHED_FIFO failed %s", strerror(errno));
+        }
+        snprintf(name, sizeof(name), "lmkd_reaper%d", thread_cnt_);
+        if (pthread_setname_np(thread_pool_[thread_cnt_], name)) {
+            ALOGW("pthread_setname_np failed: %s", strerror(errno));
+        }
+        thread_cnt_++;
+    }
+
+    if (!thread_cnt_) {
+        delete[] thread_pool_;
+        return false;
+    }
+
+    queue_.reserve(thread_cnt_);
+    comm_fd_ = comm_fd;
+    return true;
+}
+
 bool Reaper::async_kill(const struct target_proc& target) {
     if (target.pidfd == -1) {
         return false;
@@ -199,10 +216,6 @@ bool Reaper::async_kill(const struct target_proc& target) {
     cond_.notify_one();
     mutex_.unlock();
 
-    set_process_group_and_prio(target.uid, target.pid,
-                               {"CPUSET_SP_FOREGROUND", "SCHED_SP_FOREGROUND"},
-                               ANDROID_PRIORITY_HIGHEST);
-
     return true;
 }
 
@@ -222,7 +235,7 @@ int Reaper::kill(const struct target_proc& target, bool synchronous) {
         return result;
     }
 
-    return is_reaping_supported() ? process_mrelease(target.pidfd, 0) : 0;
+    return 0;
 }
 
 Reaper::target_proc Reaper::dequeue_request() {

@@ -120,9 +120,12 @@ public class PKCS12KeyStoreSpi
 {
     static final String PKCS12_MAX_IT_COUNT_PROPERTY = "com.android.org.bouncycastle.pkcs12.max_it_count";
 
-    // Android-changed: Use default provider for JCA algorithms instead of BC
+    // Android-changed: Use default provider for most JCA algorithms instead of BC.
+    // For the case where we need BC implementations, the BCJcaJceHelper will also search
+    // the list of private implementations help by BouncyCastleProvider.
     // Was: private final JcaJceHelper helper = new BCJcaJceHelper();
     private final JcaJceHelper helper = new DefaultJcaJceHelper();
+    private final JcaJceHelper selfHelper = new BCJcaJceHelper();
 
     private static final int SALT_SIZE = 20;
     private static final int MIN_ITERATIONS = 50 * 1024;
@@ -731,7 +734,9 @@ public class PKCS12KeyStoreSpi
         PBKDF2Params func = PBKDF2Params.getInstance(alg.getKeyDerivationFunc().getParameters());
         AlgorithmIdentifier encScheme = AlgorithmIdentifier.getInstance(alg.getEncryptionScheme());
 
-        SecretKeyFactory keyFact = helper.createSecretKeyFactory(alg.getKeyDerivationFunc().getAlgorithm().getId());
+        // Android-Changed: SecretKeyFactory must be from BC due to instanceof logic.
+        // SecretKeyFactory keyFact = helper.createSecretKeyFactory(alg.getKeyDerivationFunc().getAlgorithm().getId());
+        SecretKeyFactory keyFact = selfHelper.createSecretKeyFactory(alg.getKeyDerivationFunc().getAlgorithm().getId());
         SecretKey key;
 
         if (func.isDefaultPrf())
@@ -743,7 +748,9 @@ public class PKCS12KeyStoreSpi
             key = keyFact.generateSecret(new PBKDF2KeySpec(password, func.getSalt(), validateIterationCount(func.getIterationCount()), keySizeProvider.getKeySize(encScheme), func.getPrf()));
         }
 
-        Cipher cipher = Cipher.getInstance(alg.getEncryptionScheme().getAlgorithm().getId());
+        // Android-Changed: Cipher must be from BC due to use of internal PKCS12Key tyoe.
+        // Cipher cipher = Cipher.getInstance(alg.getEncryptionScheme().getAlgorithm().getId());
+        Cipher cipher = selfHelper.createCipher(alg.getEncryptionScheme().getAlgorithm().getId());
 
         ASN1Encodable encParams = alg.getEncryptionScheme().getParameters();
         if (encParams instanceof ASN1OctetString)
@@ -1785,7 +1792,9 @@ public class PKCS12KeyStoreSpi
     {
         PBEParameterSpec defParams = new PBEParameterSpec(salt, itCount);
 
-        Mac mac = helper.createMac(oid.getId());
+        // Android-Changed: Mac must be from BC due to use of internal PKCS12Key tyoe.
+        // Mac mac = helper.createMac(oid.getId());
+        Mac mac = selfHelper.createMac(oid.getId());
         mac.init(new PKCS12Key(password, wrongPkcs12Zero), defParams);
         mac.update(data);
 

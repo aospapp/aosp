@@ -16,16 +16,16 @@
 #ifndef __HARDWARE_EXYNOS_LIBSCALERFORJPEG_H__
 #define __HARDWARE_EXYNOS_LIBSCALERFORJPEG_H__
 
-#include <functional>
-
 #include <linux/videodev2.h>
+
+#include <functional>
 
 #include "ThumbnailScaler.h"
 
 class LibScalerForJpeg : public ThumbnailScaler {
 public:
-    LibScalerForJpeg() { }
-    ~LibScalerForJpeg() { }
+    LibScalerForJpeg() {}
+    ~LibScalerForJpeg() {}
 
     bool SetSrcImage(unsigned int width, unsigned int height, unsigned int v4l2_format) {
         return mSrcImage.set(width, height, v4l2_format);
@@ -35,10 +35,13 @@ public:
         return mDstImage.set(width, height, v4l2_format);
     }
 
-    bool RunStream(int srcBuf[SCALER_MAX_PLANES], int srcLen[SCALER_MAX_PLANES], int dstBuf, size_t dstLen);
-    bool RunStream(char *srcBuf[SCALER_MAX_PLANES], int srcLen[SCALER_MAX_PLANES], int dstBuf, size_t dstLen);
+    bool RunStream(int srcBuf[SCALER_MAX_PLANES], int srcLen[SCALER_MAX_PLANES], int dstBuf,
+                   size_t dstLen);
+    bool RunStream(char *srcBuf[SCALER_MAX_PLANES], int srcLen[SCALER_MAX_PLANES], int dstBuf,
+                   size_t dstLen);
 
     bool available() { return mDevice.mFd >= 0; }
+
 private:
     struct Device {
         int mFd;
@@ -46,12 +49,15 @@ private:
         Device();
         ~Device();
         bool requestBuffers(unsigned int buftype, unsigned int memtype, unsigned int count);
-        bool setFormat(unsigned int buftype, unsigned int format, unsigned int width, unsigned int height, unsigned int planelen[SCALER_MAX_PLANES]);
+        bool setFormat(unsigned int buftype, unsigned int format, unsigned int width,
+                       unsigned int height, unsigned int planelen[SCALER_MAX_PLANES]);
         bool streamOn(unsigned int buftype);
         bool streamOff(unsigned int buftype);
         bool queueBuffer(unsigned int buftype, std::function<void(v4l2_buffer &)> bufferFiller);
-        bool queueBuffer(unsigned int buftype, int buf[SCALER_MAX_PLANES], unsigned int len[SCALER_MAX_PLANES]);
-        bool queueBuffer(unsigned int buftype, char *buf[SCALER_MAX_PLANES], unsigned int len[SCALER_MAX_PLANES]);
+        bool queueBuffer(unsigned int buftype, int buf[SCALER_MAX_PLANES],
+                         unsigned int len[SCALER_MAX_PLANES]);
+        bool queueBuffer(unsigned int buftype, char *buf[SCALER_MAX_PLANES],
+                         unsigned int len[SCALER_MAX_PLANES]);
         bool queueBuffer(unsigned int buftype, int buf, unsigned int len[SCALER_MAX_PLANES]);
         bool dequeueBuffer(unsigned int buftype, unsigned int memtype);
     };
@@ -66,24 +72,26 @@ private:
         unsigned int planeLen[SCALER_MAX_PLANES];
 
         Image(Device &dev, unsigned int w, unsigned int h, unsigned int f, unsigned int buftype)
-            : mDevice(dev), width(w), height(h), format(f), bufferType(buftype)
-        { }
+              : mDevice(dev), width(w), height(h), format(f), bufferType(buftype) {}
 
         bool set(unsigned int width, unsigned int height, unsigned int format);
         bool begin(unsigned int memtype);
         bool cancelBuffer();
 
         template <class tBuf>
-        bool queueBuffer(tBuf buf) { return mDevice.queueBuffer(bufferType, buf, planeLen); }
+        bool queueBuffer(tBuf buf) {
+            return mDevice.queueBuffer(bufferType, buf, planeLen);
+        }
         bool dequeueBuffer() { return mDevice.dequeueBuffer(bufferType, memoryType); }
 
-        bool same(unsigned int w, unsigned int h, unsigned int f) { return width == w && height == h && format == f; }
+        bool same(unsigned int w, unsigned int h, unsigned int f) {
+            return width == w && height == h && format == f;
+        }
     };
 
-    template<class T>
+    template <class T>
     bool queue(T srcBuf[SCALER_MAX_PLANES], int dstBuf) {
-        if (!mSrcImage.queueBuffer(srcBuf))
-            return false;
+        if (!mSrcImage.queueBuffer(srcBuf)) return false;
 
         if (!mDstImage.queueBuffer(dstBuf)) {
             mSrcImage.cancelBuffer();

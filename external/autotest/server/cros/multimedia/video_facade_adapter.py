@@ -39,7 +39,7 @@ class VideoFacadeRemoteAdapter(object):
     def send_playback_file(self, path):
         """Copies a file to client.
 
-        The files on the client side will be deleted by VideoFacadeNative
+        The files on the client side will be deleted by VideoFacadeLocal
         after the test.
 
         @param path: A path to the file.

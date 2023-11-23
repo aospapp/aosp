@@ -14,6 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import queue
 import string
 import time
 
@@ -32,6 +33,7 @@ class DiscoveryTest(AwareBaseTest):
     PAYLOAD_SIZE_MIN = 0
     PAYLOAD_SIZE_TYPICAL = 1
     PAYLOAD_SIZE_MAX = 2
+    EVENT_TIMEOUT = 3
 
     # message strings
     query_msg = "How are you doing? 你好嗎？"
@@ -1111,6 +1113,18 @@ class DiscoveryTest(AwareBaseTest):
             event["data"][aconsts.SESSION_CB_KEY_MESSAGE_AS_STRING], s_to_p_msg,
             "Message on service %s from Subscriber to Publisher "
             "not received correctly" % session_name["pub"][p_disc_id])
+        try:
+            event = p_dut.ed.pop_event(autils.decorate_event(aconsts.SESSION_CB_ON_MESSAGE_RECEIVED,
+                                             p_disc_id), self.EVENT_TIMEOUT)
+            p_dut.log.info("re-transmit message received: "
+                           + event["data"][aconsts.SESSION_CB_KEY_MESSAGE_AS_STRING])
+            asserts.assert_equal(
+                event["data"][aconsts.SESSION_CB_KEY_MESSAGE_AS_STRING], s_to_p_msg,
+                "Message on service %s from Subscriber to Publisher "
+                "not received correctly" % session_name["pub"][p_disc_id])
+        except queue.Empty:
+            p_dut.log.info("no re-transmit message")
+
         peer_id_on_pub = event["data"][aconsts.SESSION_CB_KEY_PEER_ID]
 
         # Message send from Publisher to Subscriber
@@ -1129,6 +1143,17 @@ class DiscoveryTest(AwareBaseTest):
             event["data"][aconsts.SESSION_CB_KEY_MESSAGE_AS_STRING], p_to_s_msg,
             "Message on service %s from Publisher to Subscriber"
             "not received correctly" % session_name["sub"][s_disc_id])
+        try:
+            event = s_dut.ed.pop_event(autils.decorate_event(aconsts.SESSION_CB_ON_MESSAGE_RECEIVED,
+                                                             s_disc_id), self.EVENT_TIMEOUT)
+            s_dut.log.info("re-transmit message received: "
+                           + event["data"][aconsts.SESSION_CB_KEY_MESSAGE_AS_STRING])
+            asserts.assert_equal(
+                event["data"][aconsts.SESSION_CB_KEY_MESSAGE_AS_STRING], p_to_s_msg,
+                "Message on service %s from Publisher to Subscriber"
+                "not received correctly" % session_name["sub"][s_disc_id])
+        except queue.Empty:
+            s_dut.log.info("no re-transmit message")
 
     def run_multiple_concurrent_services_same_name_diff_ssi(self, type_x, type_y):
         """Validate same service name with multiple service specific info on publisher

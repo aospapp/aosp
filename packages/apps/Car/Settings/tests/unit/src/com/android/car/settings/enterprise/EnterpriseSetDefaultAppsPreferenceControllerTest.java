@@ -16,6 +16,8 @@
 package com.android.car.settings.enterprise;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 
 import static org.mockito.ArgumentMatchers.argThat;
@@ -71,11 +73,65 @@ public final class EnterpriseSetDefaultAppsPreferenceControllerTest
     }
 
     @Test
+    public void testGetAvailabilityStatus_none_zoneWrite() throws Exception {
+        setEnterpriseSetDefaultApps(EnterpriseDefaultApps.BROWSER, 0);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_none_zoneRead() throws Exception {
+        setEnterpriseSetDefaultApps(EnterpriseDefaultApps.BROWSER, 0);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_none_zoneHidden() throws Exception {
+        setEnterpriseSetDefaultApps(EnterpriseDefaultApps.BROWSER, 0);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_one() throws Exception {
         setEnterpriseSetDefaultApps(EnterpriseDefaultApps.BROWSER, 1);
 
         PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_one_zoneWrite() throws Exception {
+        setEnterpriseSetDefaultApps(EnterpriseDefaultApps.BROWSER, 1);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_one_zoneRead() throws Exception {
+        setEnterpriseSetDefaultApps(EnterpriseDefaultApps.BROWSER, 1);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_one_zoneHidden() throws Exception {
+        setEnterpriseSetDefaultApps(EnterpriseDefaultApps.BROWSER, 1);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test
@@ -88,6 +144,51 @@ public final class EnterpriseSetDefaultAppsPreferenceControllerTest
         setEnterpriseSetDefaultApps(EnterpriseDefaultApps.BROWSER, 0);
         PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 AVAILABLE);
+
+        verifyFindPersistentPreferredActivitiesCalledOnce();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_cached_zoneWrite() throws Exception {
+        setEnterpriseSetDefaultApps(EnterpriseDefaultApps.BROWSER, 1);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE);
+
+        setEnterpriseSetDefaultApps(EnterpriseDefaultApps.BROWSER, 0);
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE);
+
+        verifyFindPersistentPreferredActivitiesCalledOnce();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_cached_zoneRead() throws Exception {
+        setEnterpriseSetDefaultApps(EnterpriseDefaultApps.BROWSER, 1);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+
+        setEnterpriseSetDefaultApps(EnterpriseDefaultApps.BROWSER, 0);
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+
+        verifyFindPersistentPreferredActivitiesCalledOnce();
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_cached_zoneHidden() throws Exception {
+        setEnterpriseSetDefaultApps(EnterpriseDefaultApps.BROWSER, 1);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
+
+        setEnterpriseSetDefaultApps(EnterpriseDefaultApps.BROWSER, 0);
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
 
         verifyFindPersistentPreferredActivitiesCalledOnce();
     }

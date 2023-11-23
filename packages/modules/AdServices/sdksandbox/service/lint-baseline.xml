@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="5" by="lint 8.1.0-dev" dependencies="true" type="baseline" variant="all" version="8.0.0-dev">
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; SDK_INT is always >= 34">
+        <location
+            file="packages/modules/AdServices/sdksandbox/service/java/com/android/server/sdksandbox/SdkSandboxManagerService.java"
+            line="369"/>
+    </issue>
+
+</issues>

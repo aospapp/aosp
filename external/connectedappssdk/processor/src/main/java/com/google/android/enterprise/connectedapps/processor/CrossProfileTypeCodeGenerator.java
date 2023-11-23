@@ -23,15 +23,9 @@ import com.google.android.enterprise.connectedapps.processor.containers.Provider
 
 class CrossProfileTypeCodeGenerator {
   private boolean generated = false;
-  private final InterfaceGenerator interfaceGenerator;
-  private final CurrentProfileGenerator currentProfileGenerator;
-  private final OtherProfileGenerator otherProfileGenerator;
-  private final IfAvailableGenerator ifAvailableGenerator;
-  private final AlwaysThrowsGenerator alwaysThrowsGenerator;
+  private final CrossProfileTypeInterfaceGenerator crossProfileTypeInterfaceGenerator;
   private final MultipleProfilesGenerator multipleProfilesGenerator;
   private final DefaultProfileClassGenerator defaultProfileClassGenerator;
-  private final InternalCrossProfileClassGenerator internalCrossProfileClassGenerator;
-  private final BundlerGenerator bundlerGenerator;
 
   public CrossProfileTypeCodeGenerator(
       GeneratorContext generatorContext,
@@ -39,18 +33,12 @@ class CrossProfileTypeCodeGenerator {
       CrossProfileTypeInfo crossProfileType) {
     checkNotNull(generatorContext);
     checkNotNull(crossProfileType);
-    this.interfaceGenerator = new InterfaceGenerator(generatorContext, crossProfileType);
-    this.currentProfileGenerator = new CurrentProfileGenerator(generatorContext, crossProfileType);
-    this.otherProfileGenerator = new OtherProfileGenerator(generatorContext, crossProfileType);
-    this.ifAvailableGenerator = new IfAvailableGenerator(generatorContext, crossProfileType);
-    this.alwaysThrowsGenerator = new AlwaysThrowsGenerator(generatorContext, crossProfileType);
+    this.crossProfileTypeInterfaceGenerator =
+        new CrossProfileTypeInterfaceGenerator(generatorContext, crossProfileType);
     this.multipleProfilesGenerator =
         new MultipleProfilesGenerator(generatorContext, crossProfileType);
     this.defaultProfileClassGenerator =
         new DefaultProfileClassGenerator(generatorContext, crossProfileType);
-    this.internalCrossProfileClassGenerator =
-        new InternalCrossProfileClassGenerator(generatorContext, providerClass, crossProfileType);
-    this.bundlerGenerator = new BundlerGenerator(generatorContext, crossProfileType);
   }
 
   void generate() {
@@ -60,14 +48,8 @@ class CrossProfileTypeCodeGenerator {
     }
     generated = true;
 
-    interfaceGenerator.generate();
-    currentProfileGenerator.generate();
-    otherProfileGenerator.generate();
-    ifAvailableGenerator.generate();
-    alwaysThrowsGenerator.generate();
+    crossProfileTypeInterfaceGenerator.generate();
     multipleProfilesGenerator.generate();
     defaultProfileClassGenerator.generate();
-    internalCrossProfileClassGenerator.generate();
-    bundlerGenerator.generate();
   }
 }

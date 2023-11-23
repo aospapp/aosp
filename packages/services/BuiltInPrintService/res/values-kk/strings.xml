@@ -51,7 +51,7 @@
     <string name="find_wifi_direct" msgid="5270504288829123954">"Wi-Fi Direct принтерлерін іздеу"</string>
     <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi Direct арқылы басып шығару"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi Direct принтерлері"</string>
-    <string name="searching" msgid="2114018057619514587">"Ізделуде..."</string>
+    <string name="searching" msgid="2114018057619514587">"Ізделіп жатыр..."</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Байланысты принтердің алдыңғы панелінен мақұлдауыңыз қажет болуы мүмкін"</string>
     <string name="connecting_to" msgid="2665161014972086194">"<xliff:g id="PRINTER">%1$s</xliff:g> принтеріне жалғануда"</string>
     <string name="failed_printer_connection" msgid="4196305972749960362">"Принтерге жалғанбады"</string>

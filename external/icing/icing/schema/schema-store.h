@@ -16,23 +16,30 @@
 #define ICING_SCHEMA_SCHEMA_STORE_H_
 
 #include <cstdint>
+#include <cstring>
+#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 #include "icing/text_classifier/lib3/utils/base/status.h"
 #include "icing/text_classifier/lib3/utils/base/statusor.h"
+#include "icing/absl_ports/canonical_errors.h"
 #include "icing/file/file-backed-proto.h"
 #include "icing/file/filesystem.h"
+#include "icing/file/version-util.h"
 #include "icing/proto/debug.pb.h"
 #include "icing/proto/document.pb.h"
 #include "icing/proto/logging.pb.h"
 #include "icing/proto/schema.pb.h"
+#include "icing/proto/search.pb.h"
 #include "icing/proto/storage.pb.h"
+#include "icing/schema/joinable-property.h"
+#include "icing/schema/schema-type-manager.h"
 #include "icing/schema/schema-util.h"
-#include "icing/schema/section-manager.h"
 #include "icing/schema/section.h"
 #include "icing/store/document-filter-data.h"
 #include "icing/store/key-mapper.h"
@@ -49,15 +56,76 @@ namespace lib {
 // should always call Get* from the SchemaStore.
 class SchemaStore {
  public:
-  struct Header {
-    static constexpr int32_t kMagic = 0x72650d0a;
-
+  struct LegacyHeader {
     // Holds the magic as a quick sanity check against file corruption.
     int32_t magic;
 
     // Checksum of the SchemaStore's sub-component's checksums.
     uint32_t checksum;
   };
+
+  class Header {
+   public:
+    static constexpr int32_t kMagic = 0x72650d0a;
+
+    explicit Header()
+        : magic_(kMagic),
+          checksum_(0),
+          overlay_created_(false),
+          min_overlay_version_compatibility_(
+              std::numeric_limits<int32_t>::max()) {
+      memset(overlay_created_padding_, 0, kOverlayCreatedPaddingSize);
+      memset(padding_, 0, kPaddingSize);
+    }
+
+    // RETURNS:
+    //   - On success, a valid Header instance
+    //   - NOT_FOUND if header file doesn't exist
+    //   - INTERNAL if unable to read header
+    static libtextclassifier3::StatusOr<Header> Read(
+        const Filesystem* filesystem, const std::string& path);
+
+    libtextclassifier3::Status Write(const Filesystem* filesystem,
+                                     const std::string& path);
+
+    int32_t magic() const { return magic_; }
+
+    uint32_t checksum() const { return checksum_; }
+    void set_checksum(uint32_t checksum) { checksum_ = checksum; }
+
+    bool overlay_created() const { return overlay_created_; }
+
+    int32_t min_overlay_version_compatibility() const {
+      return min_overlay_version_compatibility_;
+    }
+
+    void SetOverlayInfo(bool overlay_created,
+                        int32_t min_overlay_version_compatibility) {
+      overlay_created_ = overlay_created;
+      min_overlay_version_compatibility_ = min_overlay_version_compatibility;
+    }
+
+   private:
+    // Holds the magic as a quick sanity check against file corruption.
+    int32_t magic_;
+
+    // Checksum of the SchemaStore's sub-component's checksums.
+    uint32_t checksum_;
+
+    bool overlay_created_;
+    // Three bytes of padding due to the fact that
+    // min_overlay_version_compatibility_ has an alignof() == 4 and the offset
+    // of overlay_created_padding_ == 9.
+    static constexpr int kOverlayCreatedPaddingSize = 3;
+    uint8_t overlay_created_padding_[kOverlayCreatedPaddingSize];
+
+    int32_t min_overlay_version_compatibility_;
+
+    static constexpr int kPaddingSize = 1008;
+    // Padding exists just to reserve space for additional values.
+    uint8_t padding_[kPaddingSize];
+  };
+  static_assert(sizeof(Header) == 1024);
 
   // Holds information on what may have been affected by the new schema. This is
   // generally data that other classes may depend on from the SchemaStore,
@@ -113,7 +181,19 @@ class SchemaStore {
     // but invalidated the index. Represented by the `schema_type` field in the
     // SchemaTypeConfigProto.
     std::unordered_set<std::string> schema_types_index_incompatible_by_name;
+
+    // Schema types that were changed in a way that was backwards compatible,
+    // but invalidated the joinable cache. Represented by the `schema_type`
+    // field in the SchemaTypeConfigProto.
+    std::unordered_set<std::string> schema_types_join_incompatible_by_name;
   };
+
+  struct ExpandedTypePropertyMask {
+    std::string schema_type;
+    std::unordered_set<std::string> paths;
+  };
+
+  static constexpr std::string_view kSchemaTypeWildcard = "*";
 
   // Factory function to create a SchemaStore which does not take ownership
   // of any input components, and all pointers must refer to valid objects that
@@ -130,7 +210,24 @@ class SchemaStore {
   static libtextclassifier3::StatusOr<std::unique_ptr<SchemaStore>> Create(
       const Filesystem* filesystem, const std::string& base_dir,
       const Clock* clock, InitializeStatsProto* initialize_stats = nullptr);
-  
+
+  // Migrates schema files (backup v.s. new schema) according to version state
+  // change.
+  //
+  // Returns:
+  //   OK on success or nothing to migrate
+  static libtextclassifier3::Status MigrateSchema(
+      const Filesystem* filesystem, const std::string& base_dir,
+      version_util::StateChange version_state_change, int32_t new_version);
+
+  // Discards all derived data in the schema store.
+  //
+  // Returns:
+  //   OK on success or nothing to discard
+  //   INTERNAL_ERROR on any I/O errors
+  static libtextclassifier3::Status DiscardDerivedFiles(
+      const Filesystem* filesystem, const std::string& base_dir);
+
   SchemaStore(SchemaStore&&) = default;
   SchemaStore& operator=(SchemaStore&&) = default;
 
@@ -162,10 +259,12 @@ class SchemaStore {
   //   INTERNAL_ERROR on any IO errors
   libtextclassifier3::StatusOr<const SetSchemaResult> SetSchema(
       const SchemaProto& new_schema,
-      bool ignore_errors_and_delete_documents = false);
+      bool ignore_errors_and_delete_documents,
+      bool allow_circular_schema_definitions);
   libtextclassifier3::StatusOr<const SetSchemaResult> SetSchema(
       SchemaProto&& new_schema,
-      bool ignore_errors_and_delete_documents = false);
+      bool ignore_errors_and_delete_documents,
+      bool allow_circular_schema_definitions);
 
   // Get the SchemaTypeConfigProto of schema_type name.
   //
@@ -187,49 +286,75 @@ class SchemaStore {
   libtextclassifier3::StatusOr<SchemaTypeId> GetSchemaTypeId(
       std::string_view schema_type) const;
 
-  // Finds content of a section by section path (e.g. property1.property2)
+  // Similar to GetSchemaTypeId but will return a set of SchemaTypeId to also
+  // include child types.
   //
   // Returns:
-  //   A string of content on success
+  //   A set of SchemaTypeId on success
   //   FAILED_PRECONDITION if schema hasn't been set yet
-  //   NOT_FOUND if:
-  //     1. Property is optional and not found in the document
-  //     2. section_path is invalid
-  //     3. Content is empty
-  libtextclassifier3::StatusOr<std::vector<std::string_view>>
-  GetStringSectionContent(const DocumentProto& document,
-                          std::string_view section_path) const;
-
-  // Finds content of a section by id
-  //
-  // Returns:
-  //   A string of content on success
-  //   FAILED_PRECONDITION if schema hasn't been set yet
-  //   INVALID_ARGUMENT if section id is invalid
-  //   NOT_FOUND if type config name of document not found
-  libtextclassifier3::StatusOr<std::vector<std::string_view>>
-  GetStringSectionContent(const DocumentProto& document,
-                          SectionId section_id) const;
+  //   NOT_FOUND_ERROR if we don't know about the schema type
+  //   INTERNAL_ERROR on IO error
+  libtextclassifier3::StatusOr<const std::unordered_set<SchemaTypeId>*>
+  GetSchemaTypeIdsWithChildren(std::string_view schema_type) const;
 
   // Returns the SectionMetadata associated with the SectionId that's in the
   // SchemaTypeId.
   //
   // Returns:
-  //   pointer to SectionMetadata on success
+  //   Valid pointer to SectionMetadata on success
   //   FAILED_PRECONDITION if schema hasn't been set yet
-  //   INVALID_ARGUMENT if schema type id or section is invalid
+  //   INVALID_ARGUMENT if schema type id or section id is invalid
   libtextclassifier3::StatusOr<const SectionMetadata*> GetSectionMetadata(
       SchemaTypeId schema_type_id, SectionId section_id) const;
 
-  // Extracts all sections from the given document, sections are sorted by
-  // section id in increasing order. Section ids start from 0. Sections with
-  // empty content won't be returned.
+  // Returns true if a property is defined in the said schema, regardless of
+  // whether it is indexed or not.
+  bool IsPropertyDefinedInSchema(SchemaTypeId schema_type_id,
+                                 const std::string& property) const;
+
+  // Extracts all sections of different types from the given document and group
+  // them by type.
+  // - Each Section vector is sorted by section Id in ascending order. The
+  //   sorted section ids may not be continuous, since not all sections are
+  //   present in the document.
+  // - Sections with empty content won't be returned.
+  // - For example, we may extract:
+  //   string_sections: [2, 7, 10]
+  //   integer_sections: [3, 5, 8]
   //
   // Returns:
-  //   A list of sections on success
+  //   A SectionGroup instance on success
   //   FAILED_PRECONDITION if schema hasn't been set yet
   //   NOT_FOUND if type config name of document not found
-  libtextclassifier3::StatusOr<std::vector<Section>> ExtractSections(
+  libtextclassifier3::StatusOr<SectionGroup> ExtractSections(
+      const DocumentProto& document) const;
+
+  // Returns the JoinablePropertyMetadata associated with property_path that's
+  // in the SchemaTypeId.
+  //
+  // Returns:
+  //   Valid pointer to JoinablePropertyMetadata on success
+  //   nullptr if property_path doesn't exist (or is not joinable) in the
+  //     joinable metadata list of the schema
+  //   FAILED_PRECONDITION if schema hasn't been set yet
+  //   INVALID_ARGUMENT if schema type id is invalid
+  libtextclassifier3::StatusOr<const JoinablePropertyMetadata*>
+  GetJoinablePropertyMetadata(SchemaTypeId schema_type_id,
+                              const std::string& property_path) const;
+
+  // Extracts all joinable property contents of different types from the given
+  // document and group them by joinable value type.
+  // - Joinable properties are sorted by joinable property id in ascending
+  //   order. The sorted joinable property ids may not be continuous, since not
+  //   all joinable properties are present in the document.
+  // - Joinable property ids start from 0.
+  // - Joinable properties with empty content won't be returned.
+  //
+  // Returns:
+  //   A JoinablePropertyGroup instance on success
+  //   FAILED_PRECONDITION if schema hasn't been set yet
+  //   NOT_FOUND if the type config name of document not found
+  libtextclassifier3::StatusOr<JoinablePropertyGroup> ExtractJoinableProperties(
       const DocumentProto& document) const;
 
   // Syncs all the data changes to disk.
@@ -266,6 +391,23 @@ class SchemaStore {
   //   INTERNAL_ERROR on IO errors, crc compute error
   libtextclassifier3::StatusOr<SchemaDebugInfoProto> GetDebugInfo() const;
 
+  // Expands the provided type_property_masks into a vector of
+  // ExpandedTypePropertyMasks to account for polymorphism. If both a parent
+  // type and one of its child type appears in the masks, the parent type's
+  // paths will be merged into the child's.
+  //
+  // For example, assume that we have two schema types A and B, and we have
+  // - A is the parent type of B
+  // - Paths of A: {P1, P2}
+  // - Paths of B: {P3}
+  //
+  // Then, we will have the following in the result.
+  // - Expanded paths of A: {P1, P2}
+  // - Expanded paths of B: {P1, P2, P3}
+  std::vector<ExpandedTypePropertyMask> ExpandTypePropertyMasks(
+      const google::protobuf::RepeatedPtrField<TypePropertyMask>& type_property_masks)
+      const;
+
  private:
   // Factory function to create a SchemaStore and set its schema. The created
   // instance does not take ownership of any input components and all pointers
@@ -282,10 +424,18 @@ class SchemaStore {
       const Filesystem* filesystem, const std::string& base_dir,
       const Clock* clock, SchemaProto schema);
 
-
   // Use SchemaStore::Create instead.
   explicit SchemaStore(const Filesystem* filesystem, std::string base_dir,
                        const Clock* clock);
+
+  // Deletes the overlay schema and ensures that the Header is correctly set.
+  //
+  // RETURNS:
+  //   OK on success
+  //   INTERNAL_ERROR on any IO errors
+  static libtextclassifier3::Status DiscardOverlaySchema(
+      const Filesystem* filesystem, const std::string& base_dir,
+      Header& header);
 
   // Verifies that there is no error retrieving a previously set schema. Then
   // initializes like normal.
@@ -310,7 +460,7 @@ class SchemaStore {
   //   OK on success
   //   INTERNAL_ERROR on IO error
   libtextclassifier3::Status InitializeInternal(
-      InitializeStatsProto* initialize_stats);
+      bool create_overlay_if_necessary, InitializeStatsProto* initialize_stats);
 
   // Creates sub-components and verifies the integrity of each sub-component.
   //
@@ -325,11 +475,16 @@ class SchemaStore {
   //   OK on success
   //   NOT_FOUND_ERROR if a schema proto has not been set
   //   INTERNAL_ERROR on any IO errors
-  libtextclassifier3::Status RegenerateDerivedFiles();
+  libtextclassifier3::Status RegenerateDerivedFiles(
+      bool create_overlay_if_necessary);
 
-  // Checks if the header exists already. This does not create the header file
-  // if it doesn't exist.
-  bool HeaderExists();
+  // Build type_config_map_, schema_subtype_id_map_, and schema_type_manager_.
+  //
+  // Returns:
+  //   OK on success
+  //   NOT_FOUND_ERROR if a schema proto has not been set
+  //   INTERNAL_ERROR on any IO errors
+  libtextclassifier3::Status BuildInMemoryCache();
 
   // Update and replace the header file. Creates the header file if it doesn't
   // exist.
@@ -362,6 +517,15 @@ class SchemaStore {
                : absl_ports::FailedPreconditionError("Schema not set yet.");
   }
 
+  // Correctly loads the Header, schema_file_ and (if present) the
+  // overlay_schema_file_.
+  // RETURNS:
+  //   - OK on success
+  //   - INTERNAL if an IO error is encountered when reading the Header or
+  //   schemas.
+  //     Or an invalid schema configuration is present.
+  libtextclassifier3::Status LoadSchema();
+
   const Filesystem* filesystem_;
   std::string base_dir_;
   const Clock* clock_;
@@ -374,16 +538,37 @@ class SchemaStore {
   // Cached schema
   std::unique_ptr<FileBackedProto<SchemaProto>> schema_file_;
 
+  // This schema holds the definition of any schema types that are not
+  // compatible with older versions of Icing code.
+  std::unique_ptr<FileBackedProto<SchemaProto>> overlay_schema_file_;
+
+  // Maps schema types to a densely-assigned unique id.
+  std::unique_ptr<KeyMapper<SchemaTypeId>> schema_type_mapper_;
+
+  // Maps schema type ids to the corresponding schema type. This is an inverse
+  // map of schema_type_mapper_.
+  std::unordered_map<SchemaTypeId, std::string> reverse_schema_type_mapper_;
+
   // A hash map of (type config name -> type config), allows faster lookup of
   // type config in schema. The O(1) type config access makes schema-related and
   // section-related operations faster.
   SchemaUtil::TypeConfigMap type_config_map_;
 
-  // Maps schema types to a densely-assigned unique id.
-  std::unique_ptr<KeyMapper<SchemaTypeId>> schema_type_mapper_;
+  // Maps from each type id to all of its subtype ids.
+  // T2 is a subtype of T1, if and only if one of the following conditions is
+  // met:
+  // - T2 is T1
+  // - T2 extends T1
+  // - There exists a type U, such that T2 is a subtype of U, and U is a subtype
+  //   of T1
+  std::unordered_map<SchemaTypeId, std::unordered_set<SchemaTypeId>>
+      schema_subtype_id_map_;
 
-  // Manager of indexed section related metadata.
-  std::unique_ptr<const SectionManager> section_manager_;
+  // Manager of section (indexable property) and joinable property related
+  // metadata for all Schemas.
+  std::unique_ptr<const SchemaTypeManager> schema_type_manager_;
+
+  std::unique_ptr<Header> header_;
 };
 
 }  // namespace lib

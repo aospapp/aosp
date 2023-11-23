@@ -79,10 +79,13 @@ enum KeyPermission {
      */
     USE = 0x100,
     /**
-     * Allow using device ids during attestation.
-     * It makes no sense to grant this permission, because attestation only
-     * works during key generation, and keys cannot be created through a grant.
-     * Implementations must not allow this permission to be granted.
+     * DO NOT USE. DOES NOTHING.
+     * To generate a key with hardware identifiers for device ID attestation,
+     * the caller must hold the READ_PRIVILEGED_PHONE_STATE Android permission.
+     * Additionally, note that it makes no sense to grant this permission,
+     * because attestation only works during key generation, and keys cannot be
+     * created through a grant. Implementations must not allow this permission
+     * to be granted.
      */
     USE_DEV_ID = 0x200,
     /**

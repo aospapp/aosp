@@ -74,6 +74,12 @@ rust_library {
         "libnum_integer",
         "libnum_traits",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
+    product_available: true,
+    vendor_available: true,
 }
 
 rust_test {

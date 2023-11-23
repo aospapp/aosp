@@ -4,6 +4,9 @@
     <string name="system_tracing" msgid="4719188511746319848">"Traçabilitat del sistema"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"Enregistra l\'activitat del sistema i l\'analitza més tard per millorar el rendiment"</string>
     <string name="record_trace" msgid="6416875085186661845">"Registra la traça"</string>
+    <string name="record_trace_summary" msgid="6705357754827849292">"Captura una traçabilitat del sistema amb la configuració definida a Configuració de traça"</string>
+    <string name="record_stack_samples" msgid="3498368637185702335">"Grava el perfil de CPU"</string>
+    <string name="record_stack_samples_summary" msgid="7827953921526410478">"L\'extracció de mostres de la pila de crides també es pot activar a les traces marcant la categoria \"cpu\""</string>
     <string name="start_new_trace" msgid="8177130420802170353">"Inicia una traça nova"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"Traça aplicacions que es puguin depurar"</string>
     <string name="categories" msgid="2280163673538611008">"Categories"</string>
@@ -17,7 +20,9 @@
     <string name="show_quick_settings_tile" msgid="4971147332635291585">"Mostra el mosaic de configuració ràpida"</string>
     <string name="saving_trace" msgid="1468692734770800541">"S\'està desant la traça"</string>
     <string name="trace_saved" msgid="5869970594780992309">"S\'ha desat la traça"</string>
-    <string name="tap_to_share" msgid="6766732404489536899">"Toca per compartir la traça"</string>
+    <string name="saving_stack_samples" msgid="8174915522390525221">"S\'estan desant les mostres de la pila"</string>
+    <string name="stack_samples_saved" msgid="8863295751647724616">"Les mostres de la pila s\'han desat"</string>
+    <string name="tap_to_share" msgid="4440713575852187545">"Toca per compartir la teva gravació"</string>
     <string name="attaching_to_report" msgid="2629202947947275886">"S\'està adjuntant una traça a l\'informe d\'errors"</string>
     <string name="attached_to_report" msgid="5806905349184608870">"S\'ha adjuntat una traça a l\'informe d\'errors"</string>
     <string name="attached_to_report_summary" msgid="7665675771190391355">"Toca per obrir BetterBug"</string>
@@ -25,18 +30,19 @@
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"Algunes categories de traça no estan disponibles:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"S\'està enregistrant una traça"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"Toca per aturar l\'enregistrament de la traça"</string>
-    <string name="clear_saved_traces" msgid="4809195654452260944">"Esborra les traces desades"</string>
-    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"Les traces s\'esborren al cap d\'un mes"</string>
-    <string name="clear_saved_traces_question" msgid="2184026613055303818">"Vols esborrar les traces desades?"</string>
-    <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"Se suprimiran totes les traces de la carpeta /data/local/traces"</string>
+    <string name="stack_samples_are_being_recorded" msgid="8669254939248349583">"Les mostres de la pila s\'estan gravant"</string>
+    <string name="tap_to_stop_stack_sampling" msgid="5911317684139059415">"Toca per aturar l\'extracció de mostres de la pila"</string>
+    <string name="clear_saved_files" msgid="9156079311231446825">"Esborra els fitxers desats"</string>
+    <string name="clear_saved_files_summary" msgid="109751867417553670">"Les gravacions s\'esborren al cap d\'un mes"</string>
+    <string name="clear_saved_files_question" msgid="8586686617760838834">"Vols esborrar els fitxers desats?"</string>
+    <string name="all_recordings_will_be_deleted" msgid="7731693738485947891">"Se suprimiran totes les gravacions de /data/local/traces"</string>
     <string name="clear" msgid="5484761795406948056">"Esborra"</string>
     <string name="system_traces_storage_title" msgid="8294090839883366871">"Traces del sistema"</string>
     <string name="keywords" msgid="736547007949049535">"systrace, traça, rendiment"</string>
-    <string name="share_trace" msgid="4528525067822044385">"Vols compartir la traça?"</string>
+    <string name="share_file" msgid="1982029143280382271">"Vols compartir el fitxer?"</string>
     <string name="system_trace_sensitive_data" msgid="3069389866696009549">"Els fitxers de Traçabilitat del sistema poden incloure dades sensibles del sistema i de les aplicacions (com ara l\'ús de les aplicacions). Comparteix les traces del sistema només amb aplicacions i persones de confiança."</string>
     <string name="share" msgid="8443979083706282338">"Comparteix"</string>
     <string name="dont_show_again" msgid="6662492041164390600">"No ho tornis a mostrar"</string>
-    <string name="use_perfetto_beta" msgid="2725630143916520160">"Utilitza Perfetto (versió beta)"</string>
     <string name="long_traces" msgid="5110949471775966329">"Traces llargues"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Es desa contínuament a l\'emmagatzematge del dispositiu"</string>
     <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Es desen contínuament a l\'emmagatzematge del dispositiu (no s\'adjuntaran automàticament als informes d\'errors)"</string>
@@ -58,9 +64,12 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16.384 kB"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32.768 kB"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65.536 kB"</string>
-    <string name="stop_on_bugreport" msgid="2045328149107284734">"Atura les traces per als informes d\'errors"</string>
-    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"Finalitza les gravacions actives de traces quan s\'inicia un informe d\'errors"</string>
-    <string name="attach_to_bug_report" msgid="2953745117960948415">"Adjunta traces als informes d\'errors"</string>
-    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"Envia automàticament traces en curs a BetterBug quan es reculli un informe d\'errors"</string>
-    <string name="link_to_traces" msgid="6569969595898995517">"Mostra els fitxers de seguiment"</string>
+    <string name="stop_on_bugreport" msgid="4591832600597126422">"Deixa de gravar per als informes d\'errors"</string>
+    <string name="stop_on_bugreport_summary" msgid="1601834864982891381">"Finalitza les gravacions actives quan s\'inicia un informe d\'errors"</string>
+    <string name="attach_to_bug_report" msgid="5388986830016247490">"Adjunta gravacions als informes d\'errors"</string>
+    <string name="attach_to_bug_report_summary" msgid="4213730623971240002">"Envia automàticament gravacions en curs a BetterBug quan es reculli un informe d\'errors"</string>
+    <string name="link_to_traces" msgid="1404687523304348490">"Mostra els fitxers desats"</string>
+    <string name="pref_category_trace_settings" msgid="6507535407023329628">"Configuració de traça"</string>
+    <string name="pref_category_saved_files" msgid="1477491400970413291">"Fitxers desats"</string>
+    <string name="pref_category_misc" msgid="6217624054980014683">"Miscel·lània"</string>
 </resources>

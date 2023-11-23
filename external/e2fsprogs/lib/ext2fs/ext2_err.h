@@ -186,6 +186,8 @@
 #define EXT2_ET_EA_INODE_CORRUPTED               (2133571506L)
 #define EXT2_ET_NO_GDESC                         (2133571507L)
 #define EXT2_FILSYS_CORRUPTED                    (2133571508L)
+#define EXT2_ET_EXTENT_CYCLE                     (2133571509L)
+#define EXT2_ET_EXTERNAL_JOURNAL_NOSUPP          (2133571510L)
 extern const struct error_table et_ext2_error_table;
 extern void initialize_ext2_error_table(void);
 

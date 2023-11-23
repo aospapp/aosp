@@ -249,6 +249,43 @@ public class CarAudioDeviceInfoTest {
                 .that(info.getEncodingFormat()).isEqualTo(ENCODING_PCM_16BIT);
     }
 
+    @Test
+    public void defaultDynamicPolicyMix_enabled() {
+        AudioDeviceInfo audioDeviceInfo = getMockAudioDeviceInfo();
+        CarAudioDeviceInfo info = new CarAudioDeviceInfo(mAudioManager, audioDeviceInfo);
+
+        boolean initialState = info.canBeRoutedWithDynamicPolicyMix();
+        assertWithMessage("Dynamic policy mix is enabled by default on Devices")
+                .that(info.canBeRoutedWithDynamicPolicyMix())
+                .isEqualTo(true);
+    }
+
+    @Test
+    public void setGetCanBeRoutedWithDynamicPolicyMix() {
+        AudioDeviceInfo audioDeviceInfo = getMockAudioDeviceInfo();
+        CarAudioDeviceInfo info = new CarAudioDeviceInfo(mAudioManager, audioDeviceInfo);
+
+        info.resetCanBeRoutedWithDynamicPolicyMix();
+
+        assertWithMessage("Setting and getting opposite from initial dynamic policy mix state")
+                .that(info.canBeRoutedWithDynamicPolicyMix())
+                .isEqualTo(false);
+    }
+
+    @Test
+    public void resetGetCanBeRoutedWithDynamicPolicyMix_isSticky() {
+        AudioDeviceInfo audioDeviceInfo = getMockAudioDeviceInfo();
+        CarAudioDeviceInfo info = new CarAudioDeviceInfo(mAudioManager, audioDeviceInfo);
+
+        info.resetCanBeRoutedWithDynamicPolicyMix();
+        // Setting twice, no-op, reset is fused.
+        info.resetCanBeRoutedWithDynamicPolicyMix();
+
+        assertWithMessage("Keeping state forever")
+                .that(info.canBeRoutedWithDynamicPolicyMix())
+                .isEqualTo(false);
+    }
+
     private AudioDeviceInfo getMockAudioDeviceInfo() {
         AudioGain mockGain = new GainBuilder().build();
         return getMockAudioDeviceInfo(new AudioGain[]{mockGain});

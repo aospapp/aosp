@@ -174,7 +174,7 @@ Examples of currently used libraries:
     *   base::BindOnce
     *   base::Bind
 *   google-breakpad: host binary crash handler
-*   libbacktrace: print stacktrace on crash on host
+*   libunwindstack: print stacktrace on crash on host
 
 ## Exposed symbols
 

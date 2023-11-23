@@ -8,11 +8,7 @@
 from __future__ import print_function
 
 import logging
-import sys
 
-import six
-
-from autotest_lib.client.common_lib import error
 from autotest_lib.server import test
 
 
@@ -69,4 +65,4 @@ class provision_FirmwareUpdate(test.test):
                                   try_scp=True)
         except Exception as e:
             logging.error(e)
-            six.reraise(error.TestFail, str(e), sys.exc_info()[2])
+            raise

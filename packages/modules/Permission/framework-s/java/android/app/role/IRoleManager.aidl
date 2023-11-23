@@ -40,6 +40,11 @@ interface IRoleManager {
     void clearRoleHoldersAsUser(in String roleName, int flags, int userId,
             in RemoteCallback callback);
 
+    String getDefaultApplicationAsUser(in String roleName, int userId);
+
+    void setDefaultApplicationAsUser(in String roleName, in String packageName, int flags,
+	    int userId, in RemoteCallback callback);
+
     void addOnRoleHoldersChangedListenerAsUser(IOnRoleHoldersChangedListener listener, int userId);
 
     void removeOnRoleHoldersChangedListenerAsUser(IOnRoleHoldersChangedListener listener,

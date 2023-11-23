@@ -16,6 +16,7 @@ import("//build_overrides/pigweed.gni")
 
 import("$dir_pw_build/facade.gni")
 import("$dir_pw_docgen/docs.gni")
+import("$dir_pw_unit_test/test.gni")
 import("backend.gni")
 
 config("public_include_path") {
@@ -100,7 +101,10 @@ pw_facade("handler") {
 pw_facade("support") {
   backend = pw_cpu_exception_SUPPORT_BACKEND
   public_configs = [ ":public_include_path" ]
-  public_deps = [ ":entry" ]
+  public_deps = [
+    ":entry",
+    dir_pw_span,
+  ]
   public = [ "public/pw_cpu_exception/support.h" ]
 }
 
@@ -114,4 +118,7 @@ pw_source_set("basic_handler") {
 
 pw_doc_group("docs") {
   sources = [ "docs.rst" ]
+}
+
+pw_test_group("tests") {
 }

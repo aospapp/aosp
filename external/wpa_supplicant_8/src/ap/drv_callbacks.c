@@ -261,12 +261,7 @@ int hostapd_notif_assoc(struct hostapd_data *hapd, const u8 *addr,
 	}
 #endif /* NEED_AP_MLME */
 
-#ifdef CONFIG_INTERWORKING
-	if (elems.ext_capab && elems.ext_capab_len > 4) {
-		if (elems.ext_capab[4] & 0x01)
-			sta->qos_map_enabled = 1;
-	}
-#endif /* CONFIG_INTERWORKING */
+	check_ext_capab(hapd, sta, elems.ext_capab, elems.ext_capab_len);
 
 #ifdef CONFIG_HS20
 	wpabuf_free(sta->hs20_ie);
@@ -344,6 +339,16 @@ int hostapd_notif_assoc(struct hostapd_data *hapd, const u8 *addr,
 			goto skip_wpa_check;
 		}
 #endif /* CONFIG_WPS */
+
+		if (check_sa_query_need(hapd, sta)) {
+			status = WLAN_STATUS_ASSOC_REJECTED_TEMPORARILY;
+
+			p = hostapd_eid_assoc_comeback_time(hapd, sta, p);
+
+			hostapd_sta_assoc(hapd, addr, reassoc, status, buf,
+					  p - buf);
+			return 0;
+		}
 
 		if (sta->wpa_sm == NULL)
 			sta->wpa_sm = wpa_auth_sta_init(hapd->wpa_auth,
@@ -425,16 +430,6 @@ int hostapd_notif_assoc(struct hostapd_data *hapd, const u8 *addr,
 			goto fail;
 		}
 
-		if (check_sa_query_need(hapd, sta)) {
-			status = WLAN_STATUS_ASSOC_REJECTED_TEMPORARILY;
-
-			p = hostapd_eid_assoc_comeback_time(hapd, sta, p);
-
-			hostapd_sta_assoc(hapd, addr, reassoc, status, buf,
-					  p - buf);
-			return 0;
-		}
-
 		if (wpa_auth_uses_mfp(sta->wpa_sm))
 			sta->flags |= WLAN_STA_MFP;
 		else
@@ -456,7 +451,7 @@ int hostapd_notif_assoc(struct hostapd_data *hapd, const u8 *addr,
 		}
 #endif /* CONFIG_IEEE80211R_AP */
 #ifdef CONFIG_SAE
-		if (hapd->conf->sae_pwe == 2 &&
+		if (hapd->conf->sae_pwe == SAE_PWE_BOTH &&
 		    sta->auth_alg == WLAN_AUTH_SAE &&
 		    sta->sae && !sta->sae->h2e &&
 		    ieee802_11_rsnx_capab_len(elems.rsnxe, elems.rsnxe_len,
@@ -843,6 +838,9 @@ void hostapd_event_sta_opmode_changed(struct hostapd_data *hapd, const u8 *addr,
 	case CHAN_WIDTH_160:
 		txt = "160";
 		break;
+	case CHAN_WIDTH_320:
+		txt = "320";
+		break;
 	default:
 		txt = NULL;
 		break;
@@ -861,20 +859,23 @@ void hostapd_event_sta_opmode_changed(struct hostapd_data *hapd, const u8 *addr,
 
 void hostapd_event_ch_switch(struct hostapd_data *hapd, int freq, int ht,
 			     int offset, int width, int cf1, int cf2,
-			     int finished)
+			     u16 punct_bitmap, int finished)
 {
 #ifdef NEED_AP_MLME
-	int channel, chwidth, is_dfs;
+	int channel, chwidth, is_dfs0, is_dfs;
 	u8 seg0_idx = 0, seg1_idx = 0;
 	size_t i;
 
 	hostapd_logger(hapd, NULL, HOSTAPD_MODULE_IEEE80211,
 		       HOSTAPD_LEVEL_INFO,
-		       "driver %s channel switch: freq=%d, ht=%d, vht_ch=0x%x, he_ch=0x%x, offset=%d, width=%d (%s), cf1=%d, cf2=%d",
+		       "driver %s channel switch: iface->freq=%d, freq=%d, ht=%d, vht_ch=0x%x, he_ch=0x%x, eht_ch=0x%x, offset=%d, width=%d (%s), cf1=%d, cf2=%d, puncturing_bitmap=0x%x",
 		       finished ? "had" : "starting",
+		       hapd->iface->freq,
 		       freq, ht, hapd->iconf->ch_switch_vht_config,
-		       hapd->iconf->ch_switch_he_config, offset,
-		       width, channel_width_to_string(width), cf1, cf2);
+		       hapd->iconf->ch_switch_he_config,
+		       hapd->iconf->ch_switch_eht_config, offset,
+		       width, channel_width_to_string(width), cf1, cf2,
+		       punct_bitmap);
 
 	if (!hapd->iface->current_mode) {
 		hostapd_logger(hapd, NULL, HOSTAPD_MODULE_IEEE80211,
@@ -883,6 +884,8 @@ void hostapd_event_ch_switch(struct hostapd_data *hapd, int freq, int ht,
 		return;
 	}
 
+	/* Check if any of configured channels require DFS */
+	is_dfs0 = hostapd_is_dfs_required(hapd->iface);
 	hapd->iface->freq = freq;
 
 	channel = hostapd_hw_get_channel(hapd, freq);
@@ -895,19 +898,22 @@ void hostapd_event_ch_switch(struct hostapd_data *hapd, int freq, int ht,
 
 	switch (width) {
 	case CHAN_WIDTH_80:
-		chwidth = CHANWIDTH_80MHZ;
+		chwidth = CONF_OPER_CHWIDTH_80MHZ;
 		break;
 	case CHAN_WIDTH_80P80:
-		chwidth = CHANWIDTH_80P80MHZ;
+		chwidth = CONF_OPER_CHWIDTH_80P80MHZ;
 		break;
 	case CHAN_WIDTH_160:
-		chwidth = CHANWIDTH_160MHZ;
+		chwidth = CONF_OPER_CHWIDTH_160MHZ;
+		break;
+	case CHAN_WIDTH_320:
+		chwidth = CONF_OPER_CHWIDTH_320MHZ;
 		break;
 	case CHAN_WIDTH_20_NOHT:
 	case CHAN_WIDTH_20:
 	case CHAN_WIDTH_40:
 	default:
-		chwidth = CHANWIDTH_USE_HT;
+		chwidth = CONF_OPER_CHWIDTH_USE_HT;
 		break;
 	}
 
@@ -953,9 +959,23 @@ void hostapd_event_ch_switch(struct hostapd_data *hapd, int freq, int ht,
 		else if (hapd->iconf->ch_switch_he_config &
 			 CH_SWITCH_HE_DISABLED)
 			hapd->iconf->ieee80211ax = 0;
+#ifdef CONFIG_IEEE80211BE
+	} else if (hapd->iconf->ch_switch_eht_config) {
+		/* CHAN_SWITCH EHT config */
+		if (hapd->iconf->ch_switch_eht_config &
+		    CH_SWITCH_EHT_ENABLED) {
+			hapd->iconf->ieee80211be = 1;
+			hapd->iconf->ieee80211ax = 1;
+			if (!is_6ghz_freq(hapd->iface->freq))
+				hapd->iconf->ieee80211ac = 1;
+		} else if (hapd->iconf->ch_switch_eht_config &
+			   CH_SWITCH_EHT_DISABLED)
+			hapd->iconf->ieee80211be = 0;
+#endif /* CONFIG_IEEE80211BE */
 	}
 	hapd->iconf->ch_switch_vht_config = 0;
 	hapd->iconf->ch_switch_he_config = 0;
+	hapd->iconf->ch_switch_eht_config = 0;
 
 	if (width == CHAN_WIDTH_40 || width == CHAN_WIDTH_80 ||
 	    width == CHAN_WIDTH_80P80 || width == CHAN_WIDTH_160)
@@ -967,12 +987,15 @@ void hostapd_event_ch_switch(struct hostapd_data *hapd, int freq, int ht,
 	hostapd_set_oper_chwidth(hapd->iconf, chwidth);
 	hostapd_set_oper_centr_freq_seg0_idx(hapd->iconf, seg0_idx);
 	hostapd_set_oper_centr_freq_seg1_idx(hapd->iconf, seg1_idx);
+#ifdef CONFIG_IEEE80211BE
+	hapd->iconf->punct_bitmap = punct_bitmap;
+#endif /* CONFIG_IEEE80211BE */
 	if (hapd->iconf->ieee80211ac) {
 		hapd->iconf->vht_capab &= ~VHT_CAP_SUPP_CHAN_WIDTH_MASK;
-		if (chwidth == CHANWIDTH_160MHZ)
+		if (chwidth == CONF_OPER_CHWIDTH_160MHZ)
 			hapd->iconf->vht_capab |=
 				VHT_CAP_SUPP_CHAN_WIDTH_160MHZ;
-		else if (chwidth == CHANWIDTH_80P80MHZ)
+		else if (chwidth == CONF_OPER_CHWIDTH_80P80MHZ)
 			hapd->iconf->vht_capab |=
 				VHT_CAP_SUPP_CHAN_WIDTH_160_80PLUS80MHZ;
 	}
@@ -981,11 +1004,11 @@ void hostapd_event_ch_switch(struct hostapd_data *hapd, int freq, int ht,
 				  hapd->iface->num_hw_features);
 
 	wpa_msg(hapd->msg_ctx, MSG_INFO,
-		"%sfreq=%d ht_enabled=%d ch_offset=%d ch_width=%s cf1=%d cf2=%d dfs=%d",
+		"%sfreq=%d ht_enabled=%d ch_offset=%d ch_width=%s cf1=%d cf2=%d is_dfs0=%d dfs=%d puncturing_bitmap=0x%04x",
 		finished ? WPA_EVENT_CHANNEL_SWITCH :
 		WPA_EVENT_CHANNEL_SWITCH_STARTED,
 		freq, ht, offset, channel_width_to_string(width),
-		cf1, cf2, is_dfs);
+		cf1, cf2, is_dfs0, is_dfs, punct_bitmap);
 	if (!finished)
 		return;
 
@@ -997,6 +1020,14 @@ void hostapd_event_ch_switch(struct hostapd_data *hapd, int freq, int ht,
 		wpa_msg(hapd->msg_ctx, MSG_INFO, AP_CSA_FINISHED
 			"freq=%d dfs=%d", freq, is_dfs);
 	} else if (hapd->iface->drv_flags & WPA_DRIVER_FLAGS_DFS_OFFLOAD) {
+		/* Complete AP configuration for the first bring up. */
+		if (is_dfs0 > 0 &&
+		    hostapd_is_dfs_required(hapd->iface) <= 0 &&
+		    hapd->iface->state != HAPD_IFACE_ENABLED) {
+			/* Fake a CAC start bit to skip setting channel */
+			hapd->iface->cac_started = 1;
+			hostapd_setup_interface_complete(hapd->iface, 0);
+		}
 		wpa_msg(hapd->msg_ctx, MSG_INFO, AP_CSA_FINISHED
 			"freq=%d dfs=%d", freq, is_dfs);
 	} else if (is_dfs &&
@@ -1011,7 +1042,9 @@ void hostapd_event_ch_switch(struct hostapd_data *hapd, int freq, int ht,
 		hostapd_neighbor_set_own_report(hapd->iface->bss[i]);
 
 #ifdef CONFIG_OCV
-	if (hapd->conf->ocv) {
+	if (hapd->conf->ocv &&
+	    !(hapd->iface->drv_flags2 &
+	      WPA_DRIVER_FLAGS2_SA_QUERY_OFFLOAD_AP)) {
 		struct sta_info *sta;
 		bool check_sa_query = false;
 
@@ -1133,7 +1166,7 @@ void hostapd_acs_channel_selected(struct hostapd_data *hapd,
 		/* set defaults for backwards compatibility */
 		hostapd_set_oper_centr_freq_seg1_idx(hapd->iconf, 0);
 		hostapd_set_oper_centr_freq_seg0_idx(hapd->iconf, 0);
-		hostapd_set_oper_chwidth(hapd->iconf, CHANWIDTH_USE_HT);
+		hostapd_set_oper_chwidth(hapd->iconf, CONF_OPER_CHWIDTH_USE_HT);
 		if (acs_res->ch_width == 40) {
 			if (is_6ghz_freq(acs_res->pri_freq))
 				hostapd_set_oper_centr_freq_seg0_idx(
@@ -1143,21 +1176,32 @@ void hostapd_acs_channel_selected(struct hostapd_data *hapd,
 			hostapd_set_oper_centr_freq_seg0_idx(
 				hapd->iconf, acs_res->vht_seg0_center_ch);
 			if (acs_res->vht_seg1_center_ch == 0) {
-				hostapd_set_oper_chwidth(hapd->iconf,
-							 CHANWIDTH_80MHZ);
+				hostapd_set_oper_chwidth(
+					hapd->iconf, CONF_OPER_CHWIDTH_80MHZ);
 			} else {
-				hostapd_set_oper_chwidth(hapd->iconf,
-							 CHANWIDTH_80P80MHZ);
+				hostapd_set_oper_chwidth(
+					hapd->iconf,
+					CONF_OPER_CHWIDTH_80P80MHZ);
 				hostapd_set_oper_centr_freq_seg1_idx(
 					hapd->iconf,
 					acs_res->vht_seg1_center_ch);
 			}
 		} else if (acs_res->ch_width == 160) {
-			hostapd_set_oper_chwidth(hapd->iconf, CHANWIDTH_160MHZ);
+			hostapd_set_oper_chwidth(hapd->iconf,
+						 CONF_OPER_CHWIDTH_160MHZ);
 			hostapd_set_oper_centr_freq_seg0_idx(
 				hapd->iconf, acs_res->vht_seg1_center_ch);
 		}
 	}
+
+#ifdef CONFIG_IEEE80211BE
+	if (hapd->iface->conf->ieee80211be && acs_res->ch_width == 320) {
+		hostapd_set_oper_chwidth(hapd->iconf, CONF_OPER_CHWIDTH_320MHZ);
+		hostapd_set_oper_centr_freq_seg0_idx(
+			hapd->iconf, acs_res->vht_seg1_center_ch);
+		hostapd_set_oper_centr_freq_seg1_idx(hapd->iconf, 0);
+	}
+#endif /* CONFIG_IEEE80211BE */
 
 out:
 	ret = hostapd_acs_completed(hapd->iface, err);
@@ -1531,7 +1575,8 @@ static int hostapd_event_new_sta(struct hostapd_data *hapd, const u8 *addr)
 
 
 static void hostapd_event_eapol_rx(struct hostapd_data *hapd, const u8 *src,
-				   const u8 *data, size_t data_len)
+				   const u8 *data, size_t data_len,
+				   enum frame_encryption encrypted)
 {
 	struct hostapd_iface *iface = hapd->iface;
 	struct sta_info *sta;
@@ -1545,7 +1590,7 @@ static void hostapd_event_eapol_rx(struct hostapd_data *hapd, const u8 *src,
 		}
 	}
 
-	ieee802_1x_receive(hapd, src, data, data_len);
+	ieee802_1x_receive(hapd, src, data, data_len, encrypted);
 }
 
 #endif /* HOSTAPD */
@@ -1940,7 +1985,8 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 	case EVENT_EAPOL_RX:
 		hostapd_event_eapol_rx(hapd, data->eapol_rx.src,
 				       data->eapol_rx.data,
-				       data->eapol_rx.data_len);
+				       data->eapol_rx.data_len,
+				       data->eapol_rx.encrypted);
 		break;
 	case EVENT_ASSOC:
 		if (!data)
@@ -1985,6 +2031,7 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 					data->ch_switch.ch_width,
 					data->ch_switch.cf1,
 					data->ch_switch.cf2,
+					data->ch_switch.punct_bitmap,
 					event == EVENT_CH_SWITCH);
 		break;
 	case EVENT_CONNECT_FAILED_REASON:
@@ -2084,6 +2131,32 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 			data->wds_sta_interface.ifname,
 			data->wds_sta_interface.sta_addr);
 		break;
+#ifdef CONFIG_IEEE80211AX
+	case EVENT_BSS_COLOR_COLLISION:
+		/* The BSS color is shared amongst all BBSs on a specific phy.
+		 * Therefore we always start the color change on the primary
+		 * BSS. */
+		wpa_printf(MSG_DEBUG, "BSS color collision on %s",
+			   hapd->conf->iface);
+		hostapd_switch_color(hapd->iface->bss[0],
+				     data->bss_color_collision.bitmap);
+		break;
+	case EVENT_CCA_STARTED_NOTIFY:
+		wpa_printf(MSG_DEBUG, "CCA started on on %s",
+			   hapd->conf->iface);
+		break;
+	case EVENT_CCA_ABORTED_NOTIFY:
+		wpa_printf(MSG_DEBUG, "CCA aborted on on %s",
+			   hapd->conf->iface);
+		hostapd_cleanup_cca_params(hapd);
+		break;
+	case EVENT_CCA_NOTIFY:
+		wpa_printf(MSG_DEBUG, "CCA finished on on %s",
+			   hapd->conf->iface);
+		hapd->iface->conf->he_op.he_bss_color = hapd->cca_color;
+		hostapd_cleanup_cca_params(hapd);
+		break;
+#endif /* CONFIG_IEEE80211AX */
 	default:
 		wpa_printf(MSG_DEBUG, "Unknown event %d", event);
 		break;

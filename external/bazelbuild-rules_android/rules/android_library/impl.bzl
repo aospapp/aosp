@@ -14,27 +14,26 @@
 
 """Implementation."""
 
-load("@rules_android//rules:acls.bzl", "acls")
-load("@rules_android//rules:attrs.bzl", _attrs = "attrs")
-load("@rules_android//rules:common.bzl", _common = "common")
-load("@rules_android//rules:data_binding.bzl", _data_binding = "data_binding")
-load("@rules_android//rules:idl.bzl", _idl = "idl")
-load("@rules_android//rules:intellij.bzl", _intellij = "intellij")
-load("@rules_android//rules:java.bzl", _java = "java")
+load("//rules:acls.bzl", "acls")
+load("//rules:attrs.bzl", _attrs = "attrs")
+load("//rules:common.bzl", _common = "common")
+load("//rules:data_binding.bzl", _data_binding = "data_binding")
+load("//rules:idl.bzl", _idl = "idl")
+load("//rules:intellij.bzl", _intellij = "intellij")
+load("//rules:java.bzl", _java = "java")
 load(
-    "@rules_android//rules:processing_pipeline.bzl",
+    "//rules:processing_pipeline.bzl",
     "ProviderInfo",
     "processing_pipeline",
 )
-load("@rules_android//rules:proguard.bzl", _proguard = "proguard")
-load("@rules_android//rules:resources.bzl", _resources = "resources")
-load("@rules_android//rules:utils.bzl", "get_android_sdk", "get_android_toolchain", "log", "utils")
-load("@rules_android//rules/flags:flags.bzl", _flags = "flags")
+load("//rules:proguard.bzl", _proguard = "proguard")
+load("//rules:providers.bzl", "AndroidLintRulesInfo")
+load("//rules:resources.bzl", _resources = "resources")
+load("//rules:utils.bzl", "get_android_sdk", "get_android_toolchain", "log", "utils")
+load("//rules/flags:flags.bzl", _flags = "flags")
 
 _USES_DEPRECATED_IMPLICIT_EXPORT_ERROR = (
-    "The android_library rule will be deprecating the use of deps to export " +
-    "targets implicitly. " +
-    "Please use android_library.exports to explicitly specify the exported " +
+    "Use android_library.exports to explicitly specify the exported " +
     "targets of %s."
 )
 
@@ -53,6 +52,14 @@ _IDL_SRC_FROM_DIFFERENT_PACKAGE_ERROR = (
     "package or depend on an appropriate rule there."
 )
 
+_IDL_USES_AOSP_COMPILER_ERROR = (
+    "Use of `idl_uses_aosp_compiler` is not allowed for %s."
+)
+
+_IDL_IDLOPTS_UNSUPPORTERD_ERROR = (
+    "`idlopts` is supported only if `idl_uses_aosp_compiler` is set to true."
+)
+
 # Android library AAR context attributes.
 _PROVIDERS = "providers"
 _VALIDATION_OUTPUTS = "validation_outputs"
@@ -65,35 +72,26 @@ _AARContextInfo = provider(
     },
 )
 
+def _has_srcs(ctx):
+    return ctx.files.srcs or ctx.files.idl_srcs or getattr(ctx.files, "common_srcs", False)
+
 def _uses_deprecated_implicit_export(ctx):
-    if not ctx.attr.deps:
-        return False
-    return not (ctx.files.srcs or
-                ctx.files.idl_srcs or
-                ctx.attr._defined_assets or
-                ctx.files.resource_files or
-                ctx.attr.manifest)
+    return (ctx.attr.deps and not (_has_srcs(ctx) or
+                                   ctx.attr._defined_assets or
+                                   ctx.files.resource_files or
+                                   ctx.attr.manifest))
 
 def _uses_resources_and_deps_without_srcs(ctx):
-    if not ctx.attr.deps:
-        return False
-    if not (ctx.attr._defined_assets or
-            ctx.files.resource_files or
-            ctx.attr.manifest):
-        return False
-    return not (ctx.files.srcs or ctx.files.idl_srcs)
+    return (ctx.attr.deps and
+            (ctx.attr._defined_assets or ctx.files.resource_files or ctx.attr.manifest) and
+            not _has_srcs(ctx))
 
 def _check_deps_without_java_srcs(ctx):
-    if not ctx.attr.deps or ctx.files.srcs or ctx.files.idl_srcs:
+    if not ctx.attr.deps or _has_srcs(ctx):
         return False
     gfn = getattr(ctx.attr, "generator_function", "")
     if _uses_deprecated_implicit_export(ctx):
-        if (acls.in_android_library_implicit_exports_generator_functions(gfn) or
-            acls.in_android_library_implicit_exports(str(ctx.label))):
-            return True
-        else:
-            # TODO(b/144163743): add a test for this.
-            log.error(_USES_DEPRECATED_IMPLICIT_EXPORT_ERROR % ctx.label)
+        log.error(_USES_DEPRECATED_IMPLICIT_EXPORT_ERROR % ctx.label)
     if _uses_resources_and_deps_without_srcs(ctx):
         if (acls.in_android_library_resources_without_srcs_generator_functions(gfn) or
             acls.in_android_library_resources_without_srcs(str(ctx.label))):
@@ -111,6 +109,15 @@ def _validate_rule_context(ctx):
         if ctx.label.package != idl_src.label.package:
             log.error(_IDL_SRC_FROM_DIFFERENT_PACKAGE_ERROR % idl_src.label)
 
+    # Ensure that the AOSP AIDL compiler is used only in allowlisted packages
+    if (ctx.attr.idl_uses_aosp_compiler and
+        not acls.in_android_library_use_aosp_aidl_compiler_allowlist(str(ctx.label))):
+        log.error(_IDL_USES_AOSP_COMPILER_ERROR % ctx.label)
+
+    # Check if idlopts is with idl_uses_aosp_compiler
+    if ctx.attr.idlopts and not ctx.attr.idl_uses_aosp_compiler:
+        log.error(_IDL_IDLOPTS_UNSUPPORTERD_ERROR)
+
     return struct(
         enable_deps_without_srcs = _check_deps_without_java_srcs(ctx),
     )
@@ -121,7 +128,20 @@ def _exceptions_processor(ctx, **unused_ctxs):
         value = _validate_rule_context(ctx),
     )
 
-def _process_resources(ctx, java_package, **unused_ctxs):
+def _process_manifest(ctx, **unused_ctxs):
+    manifest_ctx = _resources.bump_min_sdk(
+        ctx,
+        manifest = ctx.file.manifest,
+        floor = _resources.DEPOT_MIN_SDK_FLOOR if acls.in_enforce_min_sdk_floor_rollout(str(ctx.label)) else 0,
+        enforce_min_sdk_floor_tool = get_android_toolchain(ctx).enforce_min_sdk_floor_tool.files_to_run,
+    )
+
+    return ProviderInfo(
+        name = "manifest_ctx",
+        value = manifest_ctx,
+    )
+
+def _process_resources(ctx, java_package, manifest_ctx, **unused_ctxs):
     # exports_manifest can be overridden by a bazel flag.
     if ctx.attr.exports_manifest == _attrs.tristate.auto:
         exports_manifest = ctx.fragments.android.get_exports_manifest_default
@@ -131,7 +151,7 @@ def _process_resources(ctx, java_package, **unused_ctxs):
     # Process Android Resources
     resources_ctx = _resources.process(
         ctx,
-        manifest = ctx.file.manifest,
+        manifest = manifest_ctx.processed_manifest,
         resource_files = ctx.attr.resource_files,
         defined_assets = ctx.attr._defined_assets,
         assets = ctx.attr.assets,
@@ -151,7 +171,6 @@ def _process_resources(ctx, java_package, **unused_ctxs):
         # misbehavior on the Java side.
         fix_resource_transitivity = bool(ctx.attr.srcs),
         fix_export_exporting = acls.in_fix_export_exporting_rollout(str(ctx.label)),
-        propagate_resources = not ctx.attr._android_test_migration,
 
         # Tool and Processing related inputs
         aapt = get_android_toolchain(ctx).aapt2.files_to_run,
@@ -200,10 +219,14 @@ def _process_idl(ctx, **unused_sub_ctxs):
             aidl = get_android_sdk(ctx).aidl,
             aidl_lib = get_android_sdk(ctx).aidl_lib,
             aidl_framework = get_android_sdk(ctx).framework_aidl,
+            uses_aosp_compiler = ctx.attr.idl_uses_aosp_compiler,
+            idlopts = ctx.attr.idlopts,
         ),
     )
 
 def _process_data_binding(ctx, java_package, resources_ctx, **unused_sub_ctxs):
+    if ctx.attr.enable_data_binding and not acls.in_databinding_allowed(str(ctx.label)):
+        fail("This target is not allowed to use databinding and enable_data_binding is True.")
     return ProviderInfo(
         name = "db_ctx",
         value = _data_binding.process(
@@ -216,7 +239,7 @@ def _process_data_binding(ctx, java_package, resources_ctx, **unused_sub_ctxs):
             exports = utils.collect_providers(DataBindingV2Info, ctx.attr.exports),
             data_binding_exec = get_android_toolchain(ctx).data_binding_exec.files_to_run,
             data_binding_annotation_processor =
-                get_android_toolchain(ctx).data_binding_annotation_processor[JavaPluginInfo],
+                get_android_toolchain(ctx).data_binding_annotation_processor,
             data_binding_annotation_template =
                 utils.only(get_android_toolchain(ctx).data_binding_annotation_template.files.to_list()),
         ),
@@ -252,10 +275,7 @@ def _process_jvm(ctx, exceptions_ctx, resources_ctx, idl_ctx, db_ctx, **unused_s
         deps =
             utils.collect_providers(JavaInfo, ctx.attr.deps, idl_ctx.idl_deps),
         exports = utils.collect_providers(JavaInfo, ctx.attr.exports),
-        plugins = (
-            utils.collect_providers(JavaPluginInfo, ctx.attr.plugins) +
-            db_ctx.java_plugins
-        ),
+        plugins = utils.collect_providers(JavaPluginInfo, ctx.attr.plugins, db_ctx.java_plugins),
         exported_plugins = utils.collect_providers(
             JavaPluginInfo,
             ctx.attr.exported_plugins,
@@ -272,11 +292,25 @@ def _process_jvm(ctx, exceptions_ctx, resources_ctx, idl_ctx, db_ctx, **unused_s
         java_toolchain = _common.get_java_toolchain(ctx),
     )
 
+    providers = [java_info]
+
+    # Propagate Lint rule Jars from any exported AARs (b/229993446)
+    android_lint_rules = [info.lint_jars for info in utils.collect_providers(
+        AndroidLintRulesInfo,
+        ctx.attr.exports,
+    )]
+    if android_lint_rules:
+        providers.append(
+            AndroidLintRulesInfo(
+                lint_jars = depset(transitive = android_lint_rules),
+            ),
+        )
+
     return ProviderInfo(
         name = "jvm_ctx",
         value = struct(
             java_info = java_info,
-            providers = [java_info],
+            providers = providers,
         ),
     )
 
@@ -369,11 +403,11 @@ def _process_native(ctx, idl_ctx, **unused_ctx):
         ),
     )
 
-def _process_intellij(ctx, java_package, resources_ctx, idl_ctx, jvm_ctx, **unused_sub_ctxs):
+def _process_intellij(ctx, java_package, manifest_ctx, resources_ctx, idl_ctx, jvm_ctx, **unused_sub_ctxs):
     android_ide_info = _intellij.make_android_ide_info(
         ctx,
         java_package = java_package,
-        manifest = ctx.file.manifest,
+        manifest = manifest_ctx.processed_manifest,
         defines_resources = resources_ctx.defines_resources,
         merged_manifest = resources_ctx.merged_manifest,
         resources_apk = resources_ctx.resources_apk,
@@ -404,6 +438,7 @@ def _process_coverage(ctx, **unused_ctx):
             providers = [
                 coverage_common.instrumented_files_info(
                     ctx,
+                    source_attributes = ["srcs"],
                     dependency_attributes = ["assets", "deps", "exports"],
                 ),
             ],
@@ -415,6 +450,7 @@ def _process_coverage(ctx, **unused_ctx):
 # insertion.
 PROCESSORS = dict(
     ExceptionsProcessor = _exceptions_processor,
+    ManifestProcessor = _process_manifest,
     ResourceProcessor = _process_resources,
     IdlProcessor = _process_idl,
     DataBindingProcessor = _process_data_binding,

@@ -18,6 +18,7 @@
         <option name="jar" value="Robolectric_sandbox_tests.jar" />
         <option name="java-flags" value="-Drobolectric.offline=true" />
         <option name="java-flags" value="-Drobolectric.resourcesMode=binary" />
+        <option name="java-flags" value="--add-opens=java.base/java.lang=ALL-UNNAMED"/>
         <option name="exclude-paths" value="java/" />
     </test>
 </configuration>

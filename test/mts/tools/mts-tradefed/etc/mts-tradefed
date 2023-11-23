@@ -35,9 +35,9 @@ checkPath adb
 checkPath java
 
 # check java version
-JAVA_VERSION=$(java -version 2>&1 | head -n 1 | grep 'version [ "]\(1\.8\|9\|11\).*[ "]')
+JAVA_VERSION=$(java -version 2>&1 | head -n 1 | grep 'version [ "]\(1\.8\|9\|11\|17\).*[ "]')
 if [ "${JAVA_VERSION}" == "" ]; then
-    echo "Wrong java version. 1.8, 9, or 11 is required."
+    echo "Wrong java version. 1.8, 9, 11, or 17 is required."
     exit
 fi
 
@@ -108,10 +108,18 @@ elif [ "$HOST" == "Darwin" ]; then
 fi
 
 # include any host-side test jars
-for j in ${MTS_ROOT}/android-mts/testcases/*.jar; do
-    JAR_PATH=${JAR_PATH}:$j
+for j in $(find ${MTS_ROOT}/android-mts/testcases -name '*.jar'); do
+    case "$j" in
+      *testcases/art*)
+        /bin/true
+        ;;
+      *)
+        JAR_PATH=${JAR_PATH}:$j
+        ;;
+    esac
 done
 
+echo "java $RDBG_FLAG -cp ${JAR_PATH} -DMTS_ROOT=${MTS_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "$@""
 java $RDBG_FLAG -cp ${JAR_PATH} -DMTS_ROOT=${MTS_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "$@"
 
 

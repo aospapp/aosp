@@ -4,6 +4,8 @@ import android.Manifest
 import android.companion.AssociationRequest.DEVICE_PROFILE_APP_STREAMING
 import android.companion.AssociationRequest.DEVICE_PROFILE_AUTOMOTIVE_PROJECTION
 import android.companion.AssociationRequest.DEVICE_PROFILE_COMPUTER
+import android.companion.AssociationRequest.DEVICE_PROFILE_GLASSES
+import android.companion.AssociationRequest.DEVICE_PROFILE_NEARBY_DEVICE_STREAMING
 import android.companion.AssociationRequest.DEVICE_PROFILE_WATCH
 import android.net.MacAddress
 import android.os.Handler
@@ -13,6 +15,8 @@ import java.util.concurrent.Executor
 /** Set of all supported CDM Device Profiles. */
 val DEVICE_PROFILES = setOf(
         DEVICE_PROFILE_WATCH,
+        DEVICE_PROFILE_GLASSES,
+        DEVICE_PROFILE_NEARBY_DEVICE_STREAMING,
         DEVICE_PROFILE_COMPUTER,
         DEVICE_PROFILE_APP_STREAMING,
         DEVICE_PROFILE_AUTOMOTIVE_PROJECTION
@@ -20,6 +24,8 @@ val DEVICE_PROFILES = setOf(
 
 val DEVICE_PROFILE_TO_NAME = mapOf(
         DEVICE_PROFILE_WATCH to "WATCH",
+        DEVICE_PROFILE_GLASSES to "GLASSES",
+        DEVICE_PROFILE_NEARBY_DEVICE_STREAMING to "NEARBY_DEVICE_STREAMING",
         DEVICE_PROFILE_COMPUTER to "COMPUTER",
         DEVICE_PROFILE_APP_STREAMING to "APP_STREAMING",
         DEVICE_PROFILE_AUTOMOTIVE_PROJECTION to "AUTOMOTIVE_PROJECTION"
@@ -31,6 +37,10 @@ val DEVICE_PROFILE_TO_PERMISSION = mapOf(
                 Manifest.permission.REQUEST_COMPANION_PROFILE_APP_STREAMING,
         DEVICE_PROFILE_AUTOMOTIVE_PROJECTION to
                 Manifest.permission.REQUEST_COMPANION_PROFILE_AUTOMOTIVE_PROJECTION,
+        DEVICE_PROFILE_GLASSES to
+                Manifest.permission.REQUEST_COMPANION_PROFILE_GLASSES,
+        DEVICE_PROFILE_NEARBY_DEVICE_STREAMING to
+                Manifest.permission.REQUEST_COMPANION_PROFILE_NEARBY_DEVICE_STREAMING,
         DEVICE_PROFILE_COMPUTER to
                 Manifest.permission.REQUEST_COMPANION_PROFILE_COMPUTER
 )

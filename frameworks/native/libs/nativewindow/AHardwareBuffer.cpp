@@ -16,6 +16,9 @@
 
 #define LOG_TAG "AHardwareBuffer"
 
+#include <android/hardware_buffer.h>
+#include <android/hardware_buffer_aidl.h>
+#include <android/binder_libbinder.h>
 #include <vndk/hardware_buffer.h>
 
 #include <errno.h>
@@ -357,12 +360,12 @@ int AHardwareBuffer_recvHandleFromUnixSocket(int socketFd, AHardwareBuffer** out
         return INVALID_OPERATION;
     }
 
-    GraphicBuffer* gBuffer = new GraphicBuffer();
+    sp<GraphicBuffer> gBuffer(new GraphicBuffer());
     status_t err = gBuffer->unflatten(data, dataLen, fdData, fdCount);
     if (err != NO_ERROR) {
         return err;
     }
-    *outBuffer = AHardwareBuffer_from_GraphicBuffer(gBuffer);
+    *outBuffer = AHardwareBuffer_from_GraphicBuffer(gBuffer.get());
     // Ensure the buffer has a positive ref-count.
     AHardwareBuffer_acquire(*outBuffer);
 
@@ -410,6 +413,25 @@ int AHardwareBuffer_getId(const AHardwareBuffer* buffer, uint64_t* outId) {
     *outId = gb->getId();
 
     return OK;
+}
+
+binder_status_t AHardwareBuffer_readFromParcel(const AParcel* _Nonnull parcel,
+        AHardwareBuffer* _Nullable* _Nonnull outBuffer) {
+    if (!parcel || !outBuffer) return STATUS_BAD_VALUE;
+    auto buffer = sp<GraphicBuffer>::make();
+    status_t status = AParcel_viewPlatformParcel(parcel)->read(*buffer);
+    if (status != STATUS_OK) return status;
+    *outBuffer = AHardwareBuffer_from_GraphicBuffer(buffer.get());
+    AHardwareBuffer_acquire(*outBuffer);
+    return STATUS_OK;
+}
+
+binder_status_t AHardwareBuffer_writeToParcel(const AHardwareBuffer* _Nonnull buffer,
+        AParcel* _Nonnull parcel) {
+    const GraphicBuffer* gb = AHardwareBuffer_to_GraphicBuffer(buffer);
+    if (!gb) return STATUS_BAD_VALUE;
+    if (!parcel) return STATUS_BAD_VALUE;
+    return AParcel_viewPlatformParcel(parcel)->write(*gb);
 }
 
 // ----------------------------------------------------------------------------
@@ -593,15 +615,27 @@ bool AHardwareBuffer_isValidPixelFormat(uint32_t format) {
     static_assert(static_cast<int>(aidl::android::hardware::graphics::common::PixelFormat::R_8) ==
                           AHARDWAREBUFFER_FORMAT_R8_UNORM,
             "HAL and AHardwareBuffer pixel format don't match");
+    static_assert(static_cast<int>(aidl::android::hardware::graphics::common::PixelFormat::R_16_UINT) ==
+                          AHARDWAREBUFFER_FORMAT_R16_UINT,
+            "HAL and AHardwareBuffer pixel format don't match");
+    static_assert(static_cast<int>(aidl::android::hardware::graphics::common::PixelFormat::RG_1616_UINT) ==
+                          AHARDWAREBUFFER_FORMAT_R16G16_UINT,
+            "HAL and AHardwareBuffer pixel format don't match");
+    static_assert(static_cast<int>(aidl::android::hardware::graphics::common::PixelFormat::RGBA_10101010) ==
+                          AHARDWAREBUFFER_FORMAT_R10G10B10A10_UNORM,
+            "HAL and AHardwareBuffer pixel format don't match");
 
     switch (format) {
         case AHARDWAREBUFFER_FORMAT_R8_UNORM:
+        case AHARDWAREBUFFER_FORMAT_R16_UINT:
+        case AHARDWAREBUFFER_FORMAT_R16G16_UINT:
         case AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM:
         case AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM:
         case AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM:
         case AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM:
         case AHARDWAREBUFFER_FORMAT_R16G16B16A16_FLOAT:
         case AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM:
+        case AHARDWAREBUFFER_FORMAT_R10G10B10A10_UNORM:
         case AHARDWAREBUFFER_FORMAT_BLOB:
         case AHARDWAREBUFFER_FORMAT_D16_UNORM:
         case AHARDWAREBUFFER_FORMAT_D24_UNORM:
@@ -653,6 +687,7 @@ uint32_t AHardwareBuffer_bytesPerPixel(uint32_t format) {
           return 1;
       case AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM:
       case AHARDWAREBUFFER_FORMAT_D16_UNORM:
+      case AHARDWAREBUFFER_FORMAT_R16_UINT:
           return 2;
       case AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM:
       case AHARDWAREBUFFER_FORMAT_D24_UNORM:
@@ -662,8 +697,10 @@ uint32_t AHardwareBuffer_bytesPerPixel(uint32_t format) {
       case AHARDWAREBUFFER_FORMAT_D32_FLOAT:
       case AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM:
       case AHARDWAREBUFFER_FORMAT_D24_UNORM_S8_UINT:
+      case AHARDWAREBUFFER_FORMAT_R16G16_UINT:
           return 4;
       case AHARDWAREBUFFER_FORMAT_R16G16B16A16_FLOAT:
+      case AHARDWAREBUFFER_FORMAT_R10G10B10A10_UNORM:
           return 8;
       default:
           return 0;
@@ -676,6 +713,14 @@ uint32_t AHardwareBuffer_convertFromPixelFormat(uint32_t hal_format) {
 
 uint32_t AHardwareBuffer_convertToPixelFormat(uint32_t ahardwarebuffer_format) {
     return ahardwarebuffer_format;
+}
+
+int32_t AHardwareBuffer_getDataSpace(AHardwareBuffer* buffer) {
+    GraphicBuffer* gb = AHardwareBuffer_to_GraphicBuffer(buffer);
+    auto& mapper = GraphicBufferMapper::get();
+    ui::Dataspace dataspace = ui::Dataspace::UNKNOWN;
+    mapper.getDataspace(gb->handle, &dataspace);
+    return static_cast<int32_t>(dataspace);
 }
 
 uint64_t AHardwareBuffer_convertToGrallocUsageBits(uint64_t usage) {

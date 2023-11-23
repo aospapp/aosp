@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -8,8 +9,9 @@ from autotest_lib.server.cros.bluetooth.bluetooth_adapter_quick_tests \
      import BluetoothAdapterQuickTests
 from autotest_lib.server.cros.bluetooth.bluetooth_adapter_adv_monitor_tests \
      import BluetoothAdapterAdvMonitorTests
-from autotest_lib.server.cros.bluetooth.bluetooth_adapter_tests \
-     import SUSPEND_POWER_DOWN_CHIPSETS
+from autotest_lib.server.cros.bluetooth.bluetooth_adapter_tests import (
+        SUSPEND_POWER_DOWN_CHIPSETS, SUSPEND_RESET_IF_NO_PEER_CHIPSETS,
+        SUSPEND_POWER_DOWN_MODELS)
 
 
 class bluetooth_AdapterAdvMonitor(BluetoothAdapterQuickTests,
@@ -35,25 +37,32 @@ class bluetooth_AdapterAdvMonitor(BluetoothAdapterQuickTests,
         self.advmon_test_monitor_validity()
 
 
-    # TODO(b/150897528) - Dru loses firmware around suspend, which causes bluez
-    #                     removes all the monitors.
-    @test_wrapper('Pattern Filter Tests',
-                  devices={'BLE_KEYBOARD':1, 'BLE_MOUSE':1},
-                  skip_models=['dru'],
-                  skip_chipsets=SUSPEND_POWER_DOWN_CHIPSETS)
-    def advmon_pattern_filter_tests(self):
-        """Tests monitor functionality for pattern filter only."""
-        self.advmon_test_pattern_filter_only()
-
-
-    @test_wrapper('Single Client Tests',
+    @test_wrapper('Single Client Tests - Pattern Filter',
                   devices={'BLE_KEYBOARD':1, 'BLE_MOUSE':1})
-    def advmon_single_client_tests(self):
-        """Tests monitor functionality for single client."""
-        self.advmon_test_pattern_filter_1()
-        self.advmon_test_rssi_filter_1()
-        self.advmon_test_rssi_filter_2()
-        self.advmon_test_rssi_filter_3()
+    def advmon_pattern_filter_tests(self):
+        """Tests pattern filter for single client."""
+        self.advmon_test_pattern_filter()
+
+
+    @test_wrapper('Single Client Tests - RSSI Filter Range',
+                  devices={'BLE_KEYBOARD':1, 'BLE_MOUSE':1})
+    def advmon_rssi_filter_range_tests(self):
+        """Tests RSSI filter range for single client."""
+        self.advmon_test_rssi_filter_range()
+
+
+    @test_wrapper('Single Client Tests - RSSI Filter Multi Peers',
+                  devices={'BLE_KEYBOARD':1, 'BLE_MOUSE':1})
+    def advmon_rssi_filter_multi_peers_tests(self):
+        """Tests RSSI filter with multiple peers for single client."""
+        self.advmon_test_rssi_filter_multi_peers()
+
+
+    @test_wrapper('Single Client Tests - RSSI Filter Reset',
+                  devices={'BLE_KEYBOARD':1, 'BLE_MOUSE':1})
+    def advmon_rssi_filter_reset_tests(self):
+        """Tests RSSI filter reset for single client."""
+        self.advmon_test_rssi_filter_reset()
 
 
     @test_wrapper('Multi Client Tests',
@@ -63,8 +72,13 @@ class bluetooth_AdapterAdvMonitor(BluetoothAdapterQuickTests,
         self.advmon_test_multi_client()
 
 
+    # Remove flags=['Quick Health'] when this test is migrated to stable suite.
     @test_wrapper('Foreground Background Combination Tests',
-                  devices={'BLE_KEYBOARD':1, 'BLE_MOUSE':1})
+                  devices={
+                          'BLE_KEYBOARD': 1,
+                          'BLE_MOUSE': 1
+                  },
+                  flags=['Quick Health'])
     def advmon_fg_bg_combination_tests(self):
         """Tests foreground and background scanning working together."""
         self.advmon_test_fg_bg_combination()
@@ -77,8 +91,10 @@ class bluetooth_AdapterAdvMonitor(BluetoothAdapterQuickTests,
                           'BLE_KEYBOARD': 1,
                           'BLE_MOUSE': 1
                   },
-                  skip_models=['dru'],
-                  skip_chipsets=SUSPEND_POWER_DOWN_CHIPSETS)
+                  skip_models=SUSPEND_POWER_DOWN_MODELS,
+                  skip_chipsets=SUSPEND_POWER_DOWN_CHIPSETS +
+                  SUSPEND_RESET_IF_NO_PEER_CHIPSETS,
+                  flags=['Quick Health'])
     def advmon_suspend_resume_tests(self):
         """Tests working of background scanning with suspend resume."""
         self.advmon_test_suspend_resume()
@@ -88,14 +104,15 @@ class bluetooth_AdapterAdvMonitor(BluetoothAdapterQuickTests,
     #                     removes all the monitors.
     @test_wrapper('Interleave Scan Tests',
                   devices={'BLE_MOUSE': 1},
-                  skip_models=['dru'],
-                  skip_chipsets=SUSPEND_POWER_DOWN_CHIPSETS)
-    def advmon_interleaved_scan(self):
+                  skip_models=SUSPEND_POWER_DOWN_MODELS,
+                  skip_chipsets=SUSPEND_POWER_DOWN_CHIPSETS +
+                  SUSPEND_RESET_IF_NO_PEER_CHIPSETS)
+    def advmon_interleaved_scan_tests(self):
         """Tests interleave scan."""
         self.advmon_test_interleaved_scan()
 
     @batch_wrapper('Advertisement Monitor API')
-    def advmon_batch_run(self, num_iterations=1, test_name=None):
+    def advmon_health_batch_run(self, num_iterations=1, test_name=None):
         """Run the Advertisement Monitor test batch or a specific given test.
            The wrapper of this method is implemented in batch_decorator.
            Using the decorator a test batch method can implement the only its
@@ -110,11 +127,13 @@ class bluetooth_AdapterAdvMonitor(BluetoothAdapterQuickTests,
         """
         self.advmon_monitor_health_tests()
         self.advmon_pattern_filter_tests()
-        self.advmon_single_client_tests()
+        self.advmon_rssi_filter_range_tests()
+        self.advmon_rssi_filter_multi_peers_tests()
+        self.advmon_rssi_filter_reset_tests()
         self.advmon_multi_client_tests()
         self.advmon_fg_bg_combination_tests()
         self.advmon_suspend_resume_tests()
-        self.advmon_interleaved_scan()
+        self.advmon_interleaved_scan_tests()
 
     def run_once(self,
                  host,
@@ -136,5 +155,5 @@ class bluetooth_AdapterAdvMonitor(BluetoothAdapterQuickTests,
                              use_btpeer=peer_required,
                              flag=flag,
                              args_dict=args_dict)
-        self.advmon_batch_run(num_iterations, test_name)
+        self.advmon_health_batch_run(num_iterations, test_name)
         self.quick_test_cleanup()

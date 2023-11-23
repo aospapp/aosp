@@ -37,7 +37,7 @@ import (
 // resistance similar to that used in RFC 6962.
 const (
 	LeafHashPrefix     = 0
-	KeyNameForVerifier = "pixel6_transparency_log"
+	KeyNameForVerifier = "pixel_transparency_log"
 )
 
 // See https://developers.google.com/android/binary_transparency/pixel#signature-verification.

@@ -25,6 +25,12 @@
 struct _xmlNode;
 struct _xmlDoc;
 
+/**
+ * AudioAttributes custom tag to identify internal strategies, whose volumes are exclusively
+ * controlled by AudioPolicyManager
+ */
+#define AUDIO_TAG_APM_RESERVED_INTERNAL "reserved_internal_strategy"
+
 namespace android {
 namespace engineConfig {
 
@@ -35,7 +41,6 @@ using AttributesVector = std::vector<audio_attributes_t>;
 using StreamVector = std::vector<audio_stream_type_t>;
 
 struct AttributesGroup {
-    std::string name;
     audio_stream_type_t stream;
     std::string volumeGroup;
     AttributesVector attributesVect;

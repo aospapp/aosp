@@ -36,12 +36,7 @@
 pWORD8 ixheaacd_ppb_api_non_fatal[IA_MAX_ERROR_SUB_CODE] = {
     (pWORD8) "No Error",
     (pWORD8) "API Command not supported",
-    (pWORD8) "API Command type not supported",
-    (pWORD8) "DRC Unexpected Error",
-    (pWORD8) "DRC Param Error",
-    (pWORD8) "DRC External Error",
-    (pWORD8) "DRC Errorhandling",
-    (pWORD8) "DRC Bitstream Error"};
+    (pWORD8) "API Command type not supported"};
 /* Fatal Errors */
 pWORD8 ixheaacd_ppb_api_fatal[IA_MAX_ERROR_SUB_CODE] = {
     (pWORD8) "Invalid Memory Table Index",
@@ -59,30 +54,27 @@ pWORD8 ixheaacd_ppb_api_fatal[IA_MAX_ERROR_SUB_CODE] = {
 pWORD8 ixheaacd_ppb_config_non_fatal[IA_MAX_ERROR_SUB_CODE] = {
     (pWORD8) "Invalid Output PCM WORD Size. Setting to default, 16 ",
     (pWORD8) "Invalid Down-mix flag option. Setting to default, 0 ",
-    (pWORD8) "Invalid 8 khz output flag option. Setting to default, 0 ",
-    (pWORD8) "Invalid 16 khz output flag option. Setting to default, 0 ",
+    (pWORD8) "Invalid eSBR PS flag option. Setting to default, 0 ",
+    (pWORD8) "Invalid downmix to stereo flag option. Setting to default, 0 ",
     (pWORD8) "Invalid interleave to stereo flag option. Setting to default, 1 ",
     (pWORD8) "Invalid downsample flag option. Setting to default, 0 ",
-    (pWORD8) "Invalid Frame OK option. Setting to default, 1 ",
-    (pWORD8) "Invalid MP4 Flag option. Setting to default, 0 ",
+    (pWORD8) "Invalid peak limiter flag option. Setting to default, 1 ",
+    (pWORD8) "Invalid MP4 flag option. Setting to default, 0 ",
     (pWORD8) "Invalid maximum number of channels. limiting to between 2 and 8",
     (pWORD8) "Invalid instance for coupling channel. Setting to default 1",
-    (pWORD8) "Following feature is not supported in this build. ",
-    (pWORD8) "Invalid Disable Sync Flag option. Setting to default, 0 ",
+    (pWORD8) "Invalid error concealment flag option. Setting to default 0",
+    (pWORD8) "Invalid Disable Sync flag option. Setting to default, 0 ",
     (pWORD8) "Invalid Auto SBR upsample option. Setting to default, 1 ",
-    (pWORD8) "Invalid LOAS flag",
-    (pWORD8) "Invalid DRC flag",
+    (pWORD8) "Invalid DRC heavy compression flag option. Setting to default 0",
     (pWORD8) "Invalid DRC cut value",
     (pWORD8) "Invalid DRC boost value",
     (pWORD8) "Invalid DRC target",
     (pWORD8) "Invalid Frame size",
-    (pWORD8) "Invalid delay mode",
-    (pWORD8) "Invalid decode type",
-    (pWORD8) "Invalid peak limiter flag",
-    (pWORD8) "Invalid control param index",
-    (pWORD8) "Inalid gain delay",
-    (pWORD8) "Invalid constant delay mode",
-    (pWORD8) "Invalid effect type"};
+    (pWORD8) "Invalid LD testing flag option. Setting to default 0",
+    (pWORD8) "Invalid effect type",
+    (pWORD8) "Invalid target loudness value",
+    (pWORD8) "Invalid HQ eSBR flag option. Setting to default 0",
+    (pWORD8) "Invalid frame length flag option. Setting to default 0"};
 /* Fatal Errors */
 pWORD8 ixheaacd_ppb_config_fatal[IA_MAX_ERROR_SUB_CODE] = {
     (pWORD8) "Invalid Sample rate specified for RAW decoding"};
@@ -92,44 +84,68 @@ pWORD8 ixheaacd_ppb_config_fatal[IA_MAX_ERROR_SUB_CODE] = {
 /*****************************************************************************/
 /* Non Fatal Errors */
 pWORD8 ixheaacd_ppb_init_non_fatal[IA_MAX_ERROR_SUB_CODE] = {
-    (pWORD8)"Both 16 kHz and 8 kHz output config set. Giving 16 kHz output",
-    (pWORD8)"Output sampling frequency is 8 kHz, 16 kHz output disabled ",
-    (pWORD8)"Header not found at the beginning of input data continuing syncing"
-};
+    (pWORD8) "Header not found at the beginning of input data continuing syncing",
+    (pWORD8) "Invalid number of QMF bands", (pWORD8) "Decoder initialization failed",
+    (pWORD8) "Input bytes insufficient for decoding", (pWORD8) "Error in AAC decoding"};
 /* Fatal Errors */
 pWORD8 ixheaacd_ppb_init_fatal[IA_MAX_ERROR_SUB_CODE] = {
     (pWORD8) "AAC Decoder initialization failed",
     (pWORD8) "End of input reached during initialization",
     (pWORD8) "No. of channels in stream greater than max channels defined",
-    (pWORD8) "AudioObjectType is not supported"};
+    (pWORD8) "Audio object type is not supported",
+    (pWORD8) "Decoder initialization failed",
+    (pWORD8) "Channel coupling not supported"};
 /*****************************************************************************/
 /* Class 3: Execution Errors
  */
 /*****************************************************************************/
 /* Non Fatal Errors */
 pWORD8 ixheaacd_ppb_exe_non_fatal[IA_MAX_ERROR_SUB_CODE] = {
-    (pWORD8)"ADTS syncronization is lost. Re-syncing",
-    (pWORD8)"Though SBR was present in previous frame, not present in current frame (SBR turned off)",
-    (pWORD8)"SBR was not present in previous frame, but it is present in current frame (SBR turned on)",
-    (pWORD8)"ADTS Header CRC failed.Re-syncing",
-    (pWORD8)"Input bytes insufficient for decoding",
-    (pWORD8)"Element instance tag mismatch, because of new channel mode",
-    (pWORD8)"max huffman decoded value exceeded",
-    (pWORD8)"Error in AAC decoding",
-    (pWORD8)"Scale factor exceeds the transmitted boundary",
-    (pWORD8)"Gain control not supported",
-    (pWORD8)"Filter Order of TNS data is greater than maximum order",
-    (pWORD8)"LTP data found, not supported",
-    (pWORD8)"The base sampling frequency has changed in ADTS header",
-    (pWORD8)"Pulse Data exceeds the permitted boundary",
-    (pWORD8)"Invalid code ixheaacd_book number in ia_huffman_data_type decoding",
-//    (pWORD8)"The base sampling frequency has changed in ADTS header"
-};
+    (pWORD8) "ADTS syncronization is lost. Re-syncing",
+    (pWORD8) "Though SBR was present in previous frame, not present in current"
+             "frame (SBR turned off)",
+    (pWORD8) "SBR was not present in previous frame, but it is present in"
+             "current frame (SBR turned on)",
+    (pWORD8) "ADTS Header CRC failed.Re-syncing",
+    (pWORD8) "Input bytes insufficient for decoding",
+    (pWORD8) "Element instance tag mismatch, because of new channel mode",
+    (pWORD8) "max huffman decoded value exceeded",
+    (pWORD8) "Error in AAC decoding",
+    (pWORD8) "Scale factor exceeds the transmitted boundary",
+    (pWORD8) "Gain control not supported",
+    (pWORD8) "Filter Order of TNS data is greater than maximum order",
+    (pWORD8) "LTP data found, not supported",
+    (pWORD8) "The base sampling frequency has changed in ADTS header",
+    (pWORD8) "Pulse Data exceeds the permitted boundary",
+    (pWORD8) "Invalid code ixheaacd_book number in ia_huffman_data_type decoding",
+    (pWORD8) "Channel index not within allowed range",
+    (pWORD8) "Smoothing mode not within allowed range",
+    (pWORD8) "Smoothing time not within allowed range",
+    (pWORD8) "Extension type in the bitstream not within allowed range",
+    (pWORD8) "QMF update type in the bitstream not within allowed range",
+    (pWORD8) "Window type in the bitstream not within allowed range",
+    (pWORD8) "Evaluated sine parameter not within allowed range"};
 /* Fatal Errors */
 pWORD8 ixheaacd_ppb_exe_fatal[IA_MAX_ERROR_SUB_CODE] = {
     (pWORD8) "Channel coupling not supported",
-    (pWORD8) "TNS data range is errorneous", (pWORD8) "Invalid LOAS header",
-    (pWORD8) "Invalid ER profile", (pWORD8) "Invalid DRC data"};
+    (pWORD8) "TNS data range is errorneous",
+    (pWORD8) "Invalid LOAS header",
+    (pWORD8) "Invalid DRC data",
+    (pWORD8) "MPS reshaping input not valid",
+    (pWORD8) "Tree config present in bit stream not valid",
+    (pWORD8) "Number of timeslots not valid",
+    (pWORD8) "MPS dequantization parameter not valid",
+    (pWORD8) "MPS quantization mode not valid",
+    (pWORD8) "MPS input channels not valid",
+    (pWORD8) "Bitstream data in arbitrary downmix spatial frame not valid",
+    (pWORD8) "Window sequence value not valid",
+    (pWORD8) "Temporal shape config in the bitstream not valid",
+    (pWORD8) "3D audio HRTF set present in the bitstream not valid",
+    (pWORD8) "TTT mode read from the bitstream not valid",
+    (pWORD8) "Number of OTT boxes in the bitstream not valid",
+    (pWORD8) "Number of parameter sets present in the bitstream not valid",
+    (pWORD8) "Mapping of index data failed during decoding",
+    (pWORD8) "Number of parameter bands present in the bitstream not valid"};
 
 /*****************************************************************************/
 /* error info structure                                                      */
@@ -305,9 +321,15 @@ IA_ERRORCODE ixheaacd_error_handler(ia_error_info_struct *p_mod_err_info,
     return IA_NO_ERROR;
   }
   {
-    WORD is_fatal = (((UWORD)code & 0x8000) >> 15);
-    WORD err_class = (((UWORD)code & 0x7800) >> 11);
-    WORD err_sub_code = (((UWORD)code & 0x07FF));
+    WORD is_fatal, err_class, err_sub_code;
+
+    if (code == IA_FATAL_ERROR)
+      is_fatal = 1;
+    else
+      is_fatal = (((UWORD)code & 0x8000) >> 15);
+
+    err_class = (((UWORD)code & 0x7800) >> 11);
+    err_sub_code = (((UWORD)code & 0x07FF));
 
     if (!is_fatal) {
       printf("non ");

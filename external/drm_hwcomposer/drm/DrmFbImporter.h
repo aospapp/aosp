@@ -23,8 +23,8 @@
 #include <array>
 #include <map>
 
+#include "bufferinfo/BufferInfo.h"
 #include "drm/DrmDevice.h"
-#include "drmhwcgralloc.h"
 
 #ifndef DRM_FORMAT_INVALID
 #define DRM_FORMAT_INVALID 0
@@ -36,7 +36,7 @@ namespace android {
 
 class DrmFbIdHandle {
  public:
-  static auto CreateInstance(hwc_drm_bo_t *bo, GemHandle first_gem_handle,
+  static auto CreateInstance(BufferInfo *bo, GemHandle first_gem_handle,
                              DrmDevice &drm) -> std::shared_ptr<DrmFbIdHandle>;
 
   ~DrmFbIdHandle();
@@ -55,7 +55,7 @@ class DrmFbIdHandle {
   DrmDevice *const drm_;
 
   uint32_t fb_id_{};
-  std::array<GemHandle, kHwcDrmBoMaxPlanes> gem_handles_{};
+  std::array<GemHandle, kBufferMaxPlanes> gem_handles_{};
 };
 
 class DrmFbImporter {
@@ -67,7 +67,7 @@ class DrmFbImporter {
   auto operator=(const DrmFbImporter &) = delete;
   auto operator=(DrmFbImporter &&) = delete;
 
-  auto GetOrCreateFbId(hwc_drm_bo_t *bo) -> std::shared_ptr<DrmFbIdHandle>;
+  auto GetOrCreateFbId(BufferInfo *bo) -> std::shared_ptr<DrmFbIdHandle>;
 
  private:
   void CleanupEmptyCacheElements() {

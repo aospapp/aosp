@@ -30,6 +30,7 @@ android_test {
         "androidx.test.rules",
         "androidx.test.core",
         "truth-prebuilt",
+        "telephony-cts-utils",
     ],
     libs: [
         "android.test.runner",

@@ -14,6 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+from typing import Sequence
 from future import standard_library
 standard_library.install_aliases()
 
@@ -27,6 +28,7 @@ import acts.controllers.iperf_server as ipf
 import struct
 
 from acts import signals
+from acts.controllers.android_device import AndroidDevice
 from queue import Empty
 from acts.asserts import abort_all
 from acts.controllers.adb_lib.error import AdbCommandError, AdbError
@@ -34,6 +36,7 @@ from acts.controllers.android_device import list_adb_devices
 from acts.controllers.android_device import list_fastboot_devices
 
 from acts.libs.proc.job import TimeoutError
+from acts_contrib.test_utils.net import ui_utils
 from acts_contrib.test_utils.tel.loggers.protos.telephony_metric_pb2 import TelephonyVoiceTestResult
 from acts_contrib.test_utils.tel.tel_defines import CarrierConfigs
 from acts_contrib.test_utils.tel.tel_defines import AOSP_PREFIX
@@ -65,6 +68,7 @@ from acts_contrib.test_utils.tel.tel_defines import PHONE_NUMBER_STRING_FORMAT_7
 from acts_contrib.test_utils.tel.tel_defines import PHONE_NUMBER_STRING_FORMAT_10_DIGIT
 from acts_contrib.test_utils.tel.tel_defines import PHONE_NUMBER_STRING_FORMAT_11_DIGIT
 from acts_contrib.test_utils.tel.tel_defines import PHONE_NUMBER_STRING_FORMAT_12_DIGIT
+from acts_contrib.test_utils.tel.tel_defines import SimSlotInfo
 from acts_contrib.test_utils.tel.tel_defines import RAT_UNKNOWN
 from acts_contrib.test_utils.tel.tel_defines import SERVICE_STATE_EMERGENCY_ONLY
 from acts_contrib.test_utils.tel.tel_defines import SERVICE_STATE_IN_SERVICE
@@ -107,6 +111,7 @@ from acts_contrib.test_utils.tel.tel_lookup_tables import rat_family_from_rat
 from acts_contrib.test_utils.tel.tel_lookup_tables import rat_generation_from_rat
 from acts_contrib.test_utils.tel.tel_subscription_utils import get_slot_index_from_subid
 from acts_contrib.test_utils.tel.tel_subscription_utils import get_subid_by_adb
+from acts_contrib.test_utils.tel.tel_subscription_utils import get_subid_from_logical_slot
 from acts_contrib.test_utils.tel.tel_subscription_utils import get_subid_from_slot_index
 from acts_contrib.test_utils.tel.tel_subscription_utils import get_outgoing_voice_sub_id
 from acts_contrib.test_utils.tel.tel_subscription_utils import get_incoming_voice_sub_id
@@ -209,12 +214,12 @@ def setup_droid_properties_by_adb(log, ad, sim_filename=None):
     setattr(ad, 'telephony', device_props)
 
 
-def setup_droid_properties(log, ad, sim_filename=None):
+def setup_droid_properties(log, ad, sim_filename=None, all_sub=False):
 
     if ad.skip_sl4a:
         return setup_droid_properties_by_adb(
             log, ad, sim_filename=sim_filename)
-    refresh_droid_config(log, ad)
+    refresh_droid_config(log, ad, all_sub)
     sim_data = {}
     if sim_filename:
         try:
@@ -278,12 +283,13 @@ def setup_droid_properties(log, ad, sim_filename=None):
     ad.log.debug("telephony = %s", ad.telephony)
 
 
-def refresh_droid_config(log, ad):
+def refresh_droid_config(log, ad, all_sub = False):
     """ Update Android Device telephony records for each sub_id.
 
     Args:
         log: log object
         ad: android device object
+        all_sub: True to record all sub id(include inactive SIM.)
 
     Returns:
         None
@@ -307,7 +313,7 @@ def refresh_droid_config(log, ad):
         else:
             isopportunistic = -1
 
-        if sim_slot != INVALID_SIM_SLOT_INDEX:
+        if sim_slot != INVALID_SIM_SLOT_INDEX or all_sub:
             if sub_id not in ad.telephony["subscription"]:
                 ad.telephony["subscription"][sub_id] = {}
             sub_record = ad.telephony["subscription"][sub_id]
@@ -478,7 +484,8 @@ def toggle_airplane_mode_by_adb(log, ad, new_state=None):
     ad.log.info("Change airplane mode from %s to %s", cur_state, new_state)
     try:
         ad.adb.shell("settings put global airplane_mode_on %s" % int(new_state))
-        ad.adb.shell("am broadcast -a android.intent.action.AIRPLANE_MODE")
+        ad.adb.shell("am broadcast -a android.intent.action.AIRPLANE_MODE "
+                     "--ez state %s" % new_state)
     except Exception as e:
         ad.log.error(e)
         return False
@@ -1068,12 +1075,12 @@ def dumpsys_carrier_config(ad):
     else:
         phone_count = ad.droid.telephonyGetPhoneCount()
 
-    slot_0_subid = get_subid_from_slot_index(ad.log, ad, 0)
+    slot_0_subid = get_subid_from_logical_slot(ad, 0)
     if slot_0_subid != INVALID_SUB_ID:
         configs[slot_0_subid] = {}
 
     if phone_count == 2:
-        slot_1_subid = get_subid_from_slot_index(ad.log, ad, 1)
+        slot_1_subid = get_subid_from_logical_slot(ad, 1)
         if slot_1_subid != INVALID_SUB_ID:
             configs[slot_1_subid] = {}
 
@@ -2771,7 +2778,7 @@ def recover_build_id(ad):
         build_id_override(ad, build_id)
 
 
-def enable_privacy_usage_diagnostics(ad):
+def check_and_enable_privacy_usage_diagnostics(ad):
     try:
         ad.ensure_screen_on()
         ad.send_keycode('HOME')
@@ -2779,9 +2786,25 @@ def enable_privacy_usage_diagnostics(ad):
         cmd = ('am start -n com.google.android.gms/com.google.android.gms.'
                'usagereporting.settings.UsageReportingActivity')
         ad.adb.shell(cmd)
-    # perform the toggle
-        ad.send_keycode('TAB')
-        ad.send_keycode('ENTER')
+    # perform the toggle using UI
+        resource = {
+        'resource_id': 'android:id/switch_widget',
+        }
+        node = ui_utils.wait_and_get_xml_node(ad,
+                                        timeout=30,
+                                        sibling=resource,
+                                        text="Usage & diagnostics",
+                                        resource_id="com.google.android.gms:id/switch_text")
+        current_state = node.attributes['checked'].value
+
+        if current_state == "false":
+            ad.log.info("Enabling Usage & diagnostics")
+            ui_utils.wait_and_click(ad,
+                                    text="Usage & diagnostics",
+                                    resource_id="com.google.android.gms:id/switch_text")
+        else:
+            ad.log.info("Usage & diagnostics is already enabled")
+
     except Exception:
         ad.log.info("Unable to toggle Usage and Diagnostics")
 
@@ -2797,6 +2820,8 @@ def build_id_override(ad, new_build_id=None, postfix=None):
     existing_build_id = ad.adb.getprop("ro.build.id")
     if postfix is not None and postfix in build_id:
         ad.log.info("Build id already contains %s", postfix)
+        if postfix == 'STATIONARY_TEST':
+            check_and_enable_privacy_usage_diagnostics(ad)
         return
     if not new_build_id:
         if postfix and build_id:
@@ -2805,7 +2830,7 @@ def build_id_override(ad, new_build_id=None, postfix=None):
         return
     ad.log.info("Override build id %s with %s", existing_build_id,
                 new_build_id)
-    enable_privacy_usage_diagnostics(ad)
+    check_and_enable_privacy_usage_diagnostics(ad)
     adb_disable_verity(ad)
     ad.adb.remount()
     if "backup.prop" not in ad.adb.shell("ls /sdcard/"):
@@ -2989,6 +3014,50 @@ def power_off_sim_by_adb(ad, sim_slot_id,
     sim_state = ad.adb.getprop("gsm.sim.state").split(",")
     ad.log.warning("Fail to power off SIM slot %d, sim_state=%s",
         sim_slot_id, sim_state[sim_slot_id])
+    return False
+
+
+def change_slot(ad: AndroidDevice, sim_slot: Sequence[SimSlotInfo],
+                timeout: int = MAX_WAIT_TIME_FOR_STATE_CHANGE) -> bool:
+    """Enable Sims for Slot Mapping Mode.
+
+    Args:
+        ad: android device object.
+        sim_slot: a list which contains 2 slots for logical slot 0 and 1.
+            e.g. [SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1]
+        timeout: wait time for state change.
+
+    Returns:
+        True if success, False otherwise.
+    """
+    if not getattr(ad, "mep", False): return
+
+    port_id = [sim_slot[0].value[1], sim_slot[1].value[1]]
+    phy_slot_id = [sim_slot[0].value[2], sim_slot[1].value[2]]
+    ad.adb.shell(
+        "am broadcast -a android.telephony.euicc.action.TEST_PROFILE "
+        "-n com.google.android.euicc/com.android.euicc.receiver."
+        "ProfileTestReceiver --es 'operation' 'changeSlot' --es "
+        "'simSlotMapping' \"[{'port':%d,'physical':%d,'logical':0},{'port':%d,"
+        "'physical':%d,'logical':1}]\"" % (port_id[0], phy_slot_id[0],
+        port_id[1], phy_slot_id[1]))
+    time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
+
+    while timeout > 0:
+        sim_state = ad.adb.getprop("gsm.sim.state").split(",")
+        if (get_subid_from_slot_index(
+            ad.log, ad, sim_slot[0].value[0]) != INVALID_SUB_ID
+            ) and (get_subid_from_slot_index(
+                ad.log, ad, sim_slot[1].value[0]) != INVALID_SUB_ID):
+            if (set(sim_state) - {
+                SIM_STATE_UNKNOWN, SIM_STATE_ABSENT, SIM_STATE_NOT_READY}):
+                get_phone_capability(ad)
+                return True
+        timeout = timeout - WAIT_TIME_BETWEEN_STATE_CHECK
+        time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
+
+    ad.log.warning("Fail to change SIM slot %s, sim_state=%s",
+        sim_slot, sim_state)
     return False
 
 

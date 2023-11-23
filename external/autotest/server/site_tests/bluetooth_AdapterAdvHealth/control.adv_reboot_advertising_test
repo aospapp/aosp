@@ -6,13 +6,14 @@ AUTHOR = 'chromeos-bluetooth'
 NAME = 'bluetooth_AdapterAdvHealth.adv_reboot_advertising_test'
 PURPOSE = 'Test bluetooth adapter advertising.'
 CRITERIA = 'Adapter should advertise with correct parameters.'
-ATTRIBUTES = 'suite:bluetooth_flaky'
+ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_standalone, suite:py3-beta'
 TIME = 'SHORT'  # ~3 minutes on Eve
 MAX_RESULT_SIZE_KB = 128000
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
 DEPENDENCIES = 'bluetooth'
+PY_VERSION = 3
 
 DOC = """
 This test case verifies that the Bluetooth adapter of the DUT can

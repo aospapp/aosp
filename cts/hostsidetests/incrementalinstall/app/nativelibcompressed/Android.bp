@@ -35,12 +35,12 @@ android_test_helper_app {
     v4_signature: true,
     compile_multilib: "both",
     export_package_resources: true,
-        aapt_include_all_resources: true,
-        libs: ["IncrementalTestApp"],
-        aaptflags: [
-            "--rename-manifest-package android.incrementalinstall.incrementaltestapp",
-            "--package-id 0x82",
-        ],
+    aapt_include_all_resources: true,
+    libs: ["IncrementalTestApp"],
+    aaptflags: [
+        "--rename-manifest-package android.incrementalinstall.incrementaltestapp",
+        "--package-id 0x82",
+    ],
     // This flag along with android:extractNativeLibs="true" in the manifest will allow the native
     // lib to be compressed in the apk, and needs to be extracted by the installer instead of
     // calling directly into the apk.

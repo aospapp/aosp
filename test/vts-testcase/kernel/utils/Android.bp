@@ -23,12 +23,4 @@ python_library_host {
         "__init__.py",
         "adb.py",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
 }

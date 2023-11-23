@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+@file:Suppress("DEPRECATION")
 
 package com.android.permissioncontroller.permission.utils
 
@@ -21,6 +22,8 @@ import android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
 import android.Manifest.permission.ACCESS_FINE_LOCATION
 import android.Manifest.permission.BACKUP
 import android.Manifest.permission.POST_NOTIFICATIONS
+import android.Manifest.permission.READ_MEDIA_IMAGES
+import android.Manifest.permission.READ_MEDIA_VIDEO
 import android.Manifest.permission_group.NOTIFICATIONS
 import android.app.ActivityManager
 import android.app.AppOpsManager
@@ -46,16 +49,22 @@ import android.content.pm.PackageManager.MATCH_DIRECT_BOOT_AWARE
 import android.content.pm.PackageManager.MATCH_DIRECT_BOOT_UNAWARE
 import android.content.pm.PermissionGroupInfo
 import android.content.pm.PermissionInfo
+import android.content.pm.ResolveInfo
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.Icon
+import android.health.connect.HealthConnectManager
 import android.os.Build
 import android.os.Bundle
 import android.os.UserHandle
 import android.permission.PermissionManager
 import android.provider.DeviceConfig
 import android.provider.Settings
+import android.safetylabel.SafetyLabelConstants.PERMISSION_RATIONALE_ENABLED
+import android.safetylabel.SafetyLabelConstants.SAFETY_LABEL_CHANGE_NOTIFICATIONS_ENABLED
+import android.text.Html
 import android.text.TextUtils
 import android.util.Log
 import androidx.annotation.ChecksSdkIntAtLeast
@@ -65,7 +74,10 @@ import androidx.navigation.NavController
 import androidx.preference.Preference
 import androidx.preference.PreferenceGroup
 import com.android.modules.utils.build.SdkLevel
+import com.android.permissioncontroller.DeviceUtils
+import com.android.permissioncontroller.PermissionControllerApplication
 import com.android.permissioncontroller.R
+import com.android.permissioncontroller.permission.data.LightAppPermGroupLiveData
 import com.android.permissioncontroller.permission.data.LightPackageInfoLiveData
 import com.android.permissioncontroller.permission.data.get
 import com.android.permissioncontroller.permission.model.livedatatypes.LightAppPermGroup
@@ -74,16 +86,18 @@ import com.android.permissioncontroller.permission.model.livedatatypes.LightPerm
 import com.android.permissioncontroller.permission.model.livedatatypes.PermState
 import com.android.permissioncontroller.permission.service.LocationAccessCheck
 import com.android.permissioncontroller.permission.ui.handheld.SettingsWithLargeHeader
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.async
-import kotlinx.coroutines.launch
+import com.android.safetycenter.resources.SafetyCenterResourcesContext
+import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 
 /**
  * A set of util functions designed to work with kotlin, though they can work with java, as well.
@@ -116,6 +130,203 @@ object KotlinUtils {
      */
     private val ONE_TIME_PACKAGE_IMPORTANCE_LEVEL_TO_KEEP_SESSION_ALIVE =
         ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE
+
+    /** Whether to show the Permissions Hub.  */
+    private const val PROPERTY_PERMISSIONS_HUB_2_ENABLED = "permissions_hub_2_enabled"
+
+    /** Whether to show the mic and camera icons.  */
+    private const val PROPERTY_CAMERA_MIC_ICONS_ENABLED = "camera_mic_icons_enabled"
+
+    /** Whether to show the location indicators. */
+    private const val PROPERTY_LOCATION_INDICATORS_ENABLED = "location_indicators_enabled"
+
+    /** Whether location accuracy feature is enabled */
+    private const val PROPERTY_LOCATION_ACCURACY_ENABLED = "location_accuracy_enabled"
+
+    /** Whether to show 7-day toggle in privacy hub.  */
+    private const val PRIVACY_DASHBOARD_7_DAY_TOGGLE = "privacy_dashboard_7_day_toggle"
+
+    /** Default location precision */
+    private const val PROPERTY_LOCATION_PRECISION = "location_precision"
+
+    /** Whether to show the photo picker option in permission prompts.  */
+    private const val PROPERTY_PHOTO_PICKER_PROMPT_ENABLED = "photo_picker_prompt_enabled"
+
+    /**
+     * The minimum amount of time to wait, after scheduling the safety label changes job, before
+     * the job actually runs for the first time.
+     */
+    private const val PROPERTY_SAFETY_LABEL_CHANGES_JOB_DELAY_MILLIS =
+        "safety_label_changes_job_delay_millis"
+
+    /** How often the safety label changes job service will run its job. */
+    private const val PROPERTY_SAFETY_LABEL_CHANGES_JOB_INTERVAL_MILLIS =
+        "safety_label_changes_job_interval_millis"
+
+    /** Whether the safety label changes job should only be run when the device is idle. */
+    private const val PROPERTY_SAFETY_LABEL_CHANGES_JOB_RUN_WHEN_IDLE =
+        "safety_label_changes_job_run_when_idle"
+
+    /** Whether the kill switch is set for [SafetyLabelChangesJobService]. */
+    private const val PROPERTY_SAFETY_LABEL_CHANGES_JOB_SERVICE_KILL_SWITCH =
+        "safety_label_changes_job_service_kill_switch"
+
+    /**
+     * Whether the Permissions Hub 2 flag is enabled
+     *
+     * @return whether the flag is enabled
+     */
+    @ChecksSdkIntAtLeast(Build.VERSION_CODES.S)
+    fun isPermissionsHub2FlagEnabled(): Boolean {
+        return SdkLevel.isAtLeastS() && DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_PRIVACY,
+            PROPERTY_PERMISSIONS_HUB_2_ENABLED, false)
+    }
+    /**
+     * Whether to show the Permissions Dashboard
+     *
+     * @return whether to show the Permissions Dashboard.
+     */
+    @ChecksSdkIntAtLeast(Build.VERSION_CODES.S)
+    fun shouldShowPermissionsDashboard(): Boolean {
+        return isPermissionsHub2FlagEnabled()
+    }
+
+    /**
+     * Whether the Camera and Mic Icons are enabled by flag.
+     *
+     * @return whether the Camera and Mic Icons are enabled.
+     */
+    @ChecksSdkIntAtLeast(Build.VERSION_CODES.S)
+    fun isCameraMicIconsFlagEnabled(): Boolean {
+        return SdkLevel.isAtLeastS() && DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_PRIVACY,
+            PROPERTY_CAMERA_MIC_ICONS_ENABLED, true)
+    }
+
+    /**
+     * Whether to show Camera and Mic Icons. They should be shown if the permission hub, or the icons
+     * specifically, are enabled.
+     *
+     * @return whether to show the icons.
+     */
+    @ChecksSdkIntAtLeast(Build.VERSION_CODES.S)
+    fun shouldShowCameraMicIndicators(): Boolean {
+        return isCameraMicIconsFlagEnabled() || isPermissionsHub2FlagEnabled()
+    }
+
+    /**
+     * Whether the location indicators are enabled by flag.
+     *
+     * @return whether the location indicators are enabled by flag.
+     */
+    @ChecksSdkIntAtLeast(Build.VERSION_CODES.S)
+    fun isLocationIndicatorsFlagEnabled(): Boolean {
+        return SdkLevel.isAtLeastS() && DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_PRIVACY,
+            PROPERTY_LOCATION_INDICATORS_ENABLED, false)
+    }
+
+    /**
+     * Whether to show the location indicators. The location indicators are enable if the
+     * permission hub, or location indicator specifically are enabled.
+     */
+    @ChecksSdkIntAtLeast(Build.VERSION_CODES.S)
+    fun shouldShowLocationIndicators(): Boolean {
+        return isLocationIndicatorsFlagEnabled() || isPermissionsHub2FlagEnabled()
+    }
+
+    /**
+     * Whether the location accuracy feature is enabled
+     */
+    @ChecksSdkIntAtLeast(Build.VERSION_CODES.S)
+    fun isLocationAccuracyEnabled(): Boolean {
+        return SdkLevel.isAtLeastS() && DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_PRIVACY,
+            PROPERTY_LOCATION_ACCURACY_ENABLED, true)
+    }
+
+    /**
+     * Default state of location precision
+     * true: default is FINE.
+     * false: default is COARSE.
+     */
+    fun getDefaultPrecision(): Boolean {
+        return !SdkLevel.isAtLeastS() || DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_PRIVACY,
+            PROPERTY_LOCATION_PRECISION, true)
+    }
+
+    /**
+     * Whether we should enable the 7-day toggle in privacy dashboard
+     *
+     * @return whether the flag is enabled
+     */
+    @ChecksSdkIntAtLeast(Build.VERSION_CODES.S)
+    fun is7DayToggleEnabled(): Boolean {
+        return SdkLevel.isAtLeastS() && DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_PRIVACY,
+            PRIVACY_DASHBOARD_7_DAY_TOGGLE, false)
+    }
+
+    /**
+     * Whether the Photo Picker Prompt is enabled
+     *
+     * @return `true` iff the Location Access Check is enabled.
+     */
+    @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codename = "UpsideDownCake")
+    fun isPhotoPickerPromptEnabled(): Boolean {
+        val app = PermissionControllerApplication.get()
+        return SdkLevel.isAtLeastU() && !DeviceUtils.isAuto(app) &&
+                !DeviceUtils.isTelevision(app) && !DeviceUtils.isWear(app) &&
+                DeviceConfig.getBoolean(
+                        DeviceConfig.NAMESPACE_PRIVACY, PROPERTY_PHOTO_PICKER_PROMPT_ENABLED, true)
+    }
+
+    /*
+     * Whether we should enable the permission rationale in permission settings and grant dialog
+     *
+     * @return whether the flag is enabled
+     */
+    @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codename = "UpsideDownCake")
+    fun isPermissionRationaleEnabled(): Boolean {
+        return SdkLevel.isAtLeastU() && DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_PRIVACY,
+            PERMISSION_RATIONALE_ENABLED, true)
+    }
+
+    /**
+     * Whether we should enable the safety label change notifications and data sharing updates UI.
+     */
+    @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codename = "UpsideDownCake")
+    fun isSafetyLabelChangeNotificationsEnabled(context: Context): Boolean {
+        return SdkLevel.isAtLeastU() && DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_PRIVACY,
+                SAFETY_LABEL_CHANGE_NOTIFICATIONS_ENABLED, true) &&
+            !DeviceUtils.isAuto(context) &&
+            !DeviceUtils.isTelevision(context) &&
+            !DeviceUtils.isWear(context)
+    }
+
+    /**
+     * Whether the kill switch is set for [SafetyLabelChangesJobService]. If {@code true}, the
+     * service is effectively disabled and will not run or schedule any jobs.
+     */
+    @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codename = "UpsideDownCake")
+    fun safetyLabelChangesJobServiceKillSwitch(): Boolean {
+        return SdkLevel.isAtLeastU() && DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_PRIVACY,
+            PROPERTY_SAFETY_LABEL_CHANGES_JOB_SERVICE_KILL_SWITCH, false)
+    }
+
+    /** How often the safety label changes job will run. */
+    @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codename = "UpsideDownCake")
+    fun getSafetyLabelChangesJobIntervalMillis(): Long {
+        return DeviceConfig.getLong(
+            DeviceConfig.NAMESPACE_PRIVACY,
+            PROPERTY_SAFETY_LABEL_CHANGES_JOB_INTERVAL_MILLIS,
+            Duration.ofDays(30).toMillis())
+    }
+
+    /** Whether the safety label changes job should only be run when the device is idle. */
+    @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codename = "UpsideDownCake")
+    fun runSafetyLabelChangesJobOnlyWhenDeviceIdle(): Boolean {
+        return DeviceConfig.getBoolean(
+            DeviceConfig.NAMESPACE_PRIVACY,
+            PROPERTY_SAFETY_LABEL_CHANGES_JOB_RUN_WHEN_IDLE,
+            true)
+    }
 
     /**
      * Given a Map, and a List, determines which elements are in the list, but not the map, and
@@ -278,7 +489,7 @@ object KotlinUtils {
             }
 
             if (icon == null) {
-                val groupName = Utils.getGroupOfPermission(permInfo) ?: permInfo.name
+                val groupName = PermissionMapping.getGroupOfPermission(permInfo) ?: permInfo.name
                 icon = getPermGroupIcon(context, groupName)
             }
 
@@ -316,7 +527,6 @@ object KotlinUtils {
      *
      * @return The package's icon, or null, if the package does not exist
      */
-    @JvmOverloads
     fun getBadgedPackageIcon(
         app: Application,
         packageName: String,
@@ -382,6 +592,20 @@ object KotlinUtils {
                 null
             }
         }
+    }
+
+    /**
+     * Return a specific MIME type, if a set of permissions is associated with one
+     */
+    fun getMimeTypeForPermissions(permissions: List<String>): String? {
+        if (permissions.contains(READ_MEDIA_IMAGES) && !permissions.contains(READ_MEDIA_VIDEO)) {
+            return "image/*"
+        }
+        if (permissions.contains(READ_MEDIA_VIDEO) && !permissions.contains(READ_MEDIA_IMAGES)) {
+            return "video/*"
+        }
+
+        return null
     }
 
     /**
@@ -494,9 +718,12 @@ object KotlinUtils {
         app: Application,
         group: LightAppPermGroup,
         filterPermissions: List<String> = group.permissions.keys.toList(),
-        isOneTime: Boolean = false
+        isOneTime: Boolean = false,
+        userFixed: Boolean = false,
+        withoutAppOps: Boolean = false,
     ): LightAppPermGroup {
-        return grantRuntimePermissions(app, group, false, isOneTime, filterPermissions)
+        return grantRuntimePermissions(app, group, false, isOneTime, userFixed,
+            withoutAppOps, filterPermissions)
     }
 
     /**
@@ -518,7 +745,8 @@ object KotlinUtils {
         group: LightAppPermGroup,
         filterPermissions: List<String> = group.permissions.keys.toList()
     ): LightAppPermGroup {
-        return grantRuntimePermissions(app, group, true, false, filterPermissions)
+        return grantRuntimePermissions(app, group, true, false, false, false,
+            filterPermissions)
     }
 
     private fun grantRuntimePermissions(
@@ -526,16 +754,18 @@ object KotlinUtils {
         group: LightAppPermGroup,
         grantBackground: Boolean,
         isOneTime: Boolean = false,
-        filterPermissions: List<String> = group.permissions.keys.toList()
+        userFixed: Boolean = false,
+        withoutAppOps: Boolean = false,
+        filterPermissions: List<String> = group.permissions.keys.toList(),
     ): LightAppPermGroup {
-        val wasOneTime = group.isOneTime
         val newPerms = group.permissions.toMutableMap()
         var shouldKillForAnyPermission = false
         for (permName in filterPermissions) {
             val perm = group.permissions[permName] ?: continue
             val isBackgroundPerm = permName in group.backgroundPermNames
             if (isBackgroundPerm == grantBackground) {
-                val (newPerm, shouldKill) = grantRuntimePermission(app, perm, isOneTime, group)
+                val (newPerm, shouldKill) = grantRuntimePermission(app, perm, group, isOneTime,
+                    userFixed, withoutAppOps)
                 newPerms[newPerm.name] = newPerm
                 shouldKillForAnyPermission = shouldKillForAnyPermission || shouldKill
             }
@@ -543,10 +773,10 @@ object KotlinUtils {
         if (!newPerms.isEmpty()) {
             val user = UserHandle.getUserHandleForUid(group.packageInfo.uid)
             for (groupPerm in group.allPermissions.values) {
-                var permFlags = groupPerm!!.flags
-                permFlags = permFlags.clearFlag(PackageManager.FLAG_PERMISSION_AUTO_REVOKED)
-                if (groupPerm!!.flags != permFlags) {
-                    app.packageManager.updatePermissionFlags(groupPerm!!.name,
+                var permFlags = groupPerm.flags
+                permFlags = permFlags.clearFlag(FLAG_PERMISSION_AUTO_REVOKED)
+                if (groupPerm.flags != permFlags) {
+                    app.packageManager.updatePermissionFlags(groupPerm.name,
                         group.packageInfo.packageName, PERMISSION_CONTROLLER_CHANGED_FLAG_MASK,
                         permFlags, user)
                 }
@@ -582,8 +812,12 @@ object KotlinUtils {
      *
      * @param app The current application
      * @param perm The permission which should be granted.
-     * @param group An optional app permission group in which to look for background or foreground
+     * @param group An app permission group in which to look for background or foreground
+     * @param isOneTime Whether this is a one-time permission grant
      * permissions
+     * @param userFixed Whether to mark the permissions as user fixed when granted
+     * @param withoutAppOps If these permission have app ops associated, and this value is true,
+     * then do not grant the app op when the permission is granted, and add the REVOKED_COMPAT flag.
      *
      * @return a LightPermission and boolean pair <permission with updated state (or the original
      * state, if it wasn't changed), should kill app>
@@ -591,8 +825,10 @@ object KotlinUtils {
     private fun grantRuntimePermission(
         app: Application,
         perm: LightPermission,
+        group: LightAppPermGroup,
         isOneTime: Boolean,
-        group: LightAppPermGroup
+        userFixed: Boolean = false,
+        withoutAppOps: Boolean = false
     ): Pair<LightPermission, Boolean> {
         val pkgInfo = group.packageInfo
         val user = UserHandle.getUserHandleForUid(pkgInfo.uid)
@@ -605,6 +841,7 @@ object KotlinUtils {
         }
 
         var newFlags = perm.flags
+        var oldFlags = perm.flags
         var isGranted = perm.isGrantedIncludingAppOp
         var shouldKill = false
 
@@ -614,6 +851,14 @@ object KotlinUtils {
 
             // TODO 195016052: investigate adding split permission handling
             if (supportsRuntime) {
+                // If granting without app ops, explicitly disallow app op first, while setting the
+                // flag, so that the PermissionPolicyService doesn't reset the app op state
+                if (affectsAppOp && withoutAppOps) {
+                    oldFlags = oldFlags.setFlag(PackageManager.FLAG_PERMISSION_REVOKED_COMPAT)
+                    app.packageManager.updatePermissionFlags(perm.name, group.packageName,
+                        PERMISSION_CONTROLLER_CHANGED_FLAG_MASK, oldFlags, user)
+                    disallowAppOp(app, perm, group)
+                }
                 app.packageManager.grantRuntimePermission(group.packageName, perm.name, user)
                 isGranted = true
             } else if (affectsAppOp) {
@@ -624,31 +869,39 @@ object KotlinUtils {
                 shouldKill = true
                 isGranted = true
             }
-            newFlags = newFlags.clearFlag(PackageManager.FLAG_PERMISSION_REVOKED_COMPAT)
+            newFlags = if (affectsAppOp && withoutAppOps) {
+                newFlags.setFlag(PackageManager.FLAG_PERMISSION_REVOKED_COMPAT)
+            } else {
+                newFlags.clearFlag(PackageManager.FLAG_PERMISSION_REVOKED_COMPAT)
+            }
             newFlags = newFlags.clearFlag(PackageManager.FLAG_PERMISSION_REVOKE_WHEN_REQUESTED)
 
             // If this permission affects an app op, ensure the permission app op is enabled
             // before the permission grant.
-            if (affectsAppOp) {
+            if (affectsAppOp && !withoutAppOps) {
                 allowAppOp(app, perm, group)
             }
         }
 
         // Granting a permission explicitly means the user already
         // reviewed it so clear the review flag on every grant.
-        newFlags = newFlags.clearFlag(PackageManager.FLAG_PERMISSION_REVIEW_REQUIRED)
+        newFlags = newFlags.clearFlag(FLAG_PERMISSION_REVIEW_REQUIRED)
 
         // Update the permission flags
-        // Now the apps can ask for the permission as the user
-        // no longer has it fixed in a denied state.
-        newFlags = newFlags.clearFlag(PackageManager.FLAG_PERMISSION_USER_FIXED)
-        newFlags = newFlags.setFlag(PackageManager.FLAG_PERMISSION_USER_SET)
-        newFlags = newFlags.clearFlag(PackageManager.FLAG_PERMISSION_AUTO_REVOKED)
+        if (!withoutAppOps && !userFixed) {
+            // Now the apps can ask for the permission as the user
+            // no longer has it fixed in a denied state.
+            newFlags = newFlags.clearFlag(FLAG_PERMISSION_USER_FIXED)
+            newFlags = newFlags.setFlag(FLAG_PERMISSION_USER_SET)
+        } else if (userFixed) {
+            newFlags = newFlags.setFlag(FLAG_PERMISSION_USER_FIXED)
+        }
+        newFlags = newFlags.clearFlag(FLAG_PERMISSION_AUTO_REVOKED)
 
         newFlags = if (isOneTime) {
-            newFlags.setFlag(PackageManager.FLAG_PERMISSION_ONE_TIME)
+            newFlags.setFlag(FLAG_PERMISSION_ONE_TIME)
         } else {
-            newFlags.clearFlag(PackageManager.FLAG_PERMISSION_ONE_TIME)
+            newFlags.clearFlag(FLAG_PERMISSION_ONE_TIME)
         }
 
         // If we newly grant background access to the fine location, double-guess the user some
@@ -668,7 +921,7 @@ object KotlinUtils {
             }
         }
 
-        if (perm.flags != newFlags) {
+        if (oldFlags != newFlags) {
             app.packageManager.updatePermissionFlags(perm.name, group.packageInfo.packageName,
                 PERMISSION_CONTROLLER_CHANGED_FLAG_MASK, newFlags, user)
         }
@@ -699,9 +952,11 @@ object KotlinUtils {
         group: LightAppPermGroup,
         userFixed: Boolean = false,
         oneTime: Boolean = false,
+        forceRemoveRevokedCompat: Boolean = false,
         filterPermissions: List<String> = group.permissions.keys.toList()
     ): LightAppPermGroup {
-        return revokeRuntimePermissions(app, group, false, userFixed, oneTime, filterPermissions)
+        return revokeRuntimePermissions(app, group, false, userFixed, oneTime,
+            forceRemoveRevokedCompat, filterPermissions)
     }
 
     /**
@@ -724,9 +979,11 @@ object KotlinUtils {
         group: LightAppPermGroup,
         userFixed: Boolean = false,
         oneTime: Boolean = false,
+        forceRemoveRevokedCompat: Boolean = false,
         filterPermissions: List<String> = group.permissions.keys.toList()
     ): LightAppPermGroup {
-        return revokeRuntimePermissions(app, group, true, userFixed, oneTime, filterPermissions)
+        return revokeRuntimePermissions(app, group, true, userFixed, oneTime,
+            forceRemoveRevokedCompat, filterPermissions)
     }
 
     private fun revokeRuntimePermissions(
@@ -735,6 +992,7 @@ object KotlinUtils {
         revokeBackground: Boolean,
         userFixed: Boolean,
         oneTime: Boolean,
+        forceRemoveRevokedCompat: Boolean = false,
         filterPermissions: List<String>
     ): LightAppPermGroup {
         val wasOneTime = group.isOneTime
@@ -745,7 +1003,8 @@ object KotlinUtils {
             val isBackgroundPerm = permName in group.backgroundPermNames
             if (isBackgroundPerm == revokeBackground) {
                 val (newPerm, shouldKill) =
-                    revokeRuntimePermission(app, perm, userFixed, oneTime, group)
+                    revokeRuntimePermission(app, perm, userFixed, oneTime, forceRemoveRevokedCompat,
+                        group)
                 newPerms[newPerm.name] = newPerm
                 shouldKillForAnyPermission = shouldKillForAnyPermission || shouldKill
             }
@@ -764,6 +1023,34 @@ object KotlinUtils {
                 group.packageName)
         }
         return newGroup
+    }
+
+    /**
+     * Revoke background permissions
+     *
+     * @param context context
+     * @param packageName Name of the package
+     * @param permissionGroupName Name of the permission group
+     * @param user User handle
+     * @param postRevokeHandler Optional callback that lets us perform an action on revoke
+     */
+    fun revokeBackgroundRuntimePermissions(
+        context: Context,
+        packageName: String,
+        permissionGroupName: String,
+        user: UserHandle,
+        postRevokeHandler: Runnable?
+    ) {
+        GlobalScope.launch(Dispatchers.Main) {
+            val group = LightAppPermGroupLiveData[packageName, permissionGroupName, user]
+                .getInitializedValue()
+            if (group != null) {
+                revokeBackgroundRuntimePermissions(context.application, group)
+            }
+            if (postRevokeHandler != null) {
+                postRevokeHandler.run()
+            }
+        }
     }
 
     /**
@@ -816,6 +1103,7 @@ object KotlinUtils {
         perm: LightPermission,
         userFixed: Boolean,
         oneTime: Boolean,
+        forceRemoveRevokedCompat: Boolean,
         group: LightAppPermGroup
     ): Pair<LightPermission, Boolean> {
         // Do not touch permissions fixed by the system.
@@ -831,13 +1119,16 @@ object KotlinUtils {
 
         val affectsAppOp = permissionToOp(perm.name) != null || perm.isBackgroundPermission
 
-        if (perm.isGrantedIncludingAppOp) {
+        if (perm.isGrantedIncludingAppOp || (perm.isCompatRevoked && forceRemoveRevokedCompat)) {
             if (supportsRuntime && !isPermissionSplitFromNonRuntime(app, perm.name,
                             group.packageInfo.targetSdkVersion)) {
                 // Revoke the permission if needed.
                 app.packageManager.revokeRuntimePermission(group.packageInfo.packageName,
                     perm.name, user)
                 isGranted = false
+                if (forceRemoveRevokedCompat) {
+                    newFlags = newFlags.clearFlag(PackageManager.FLAG_PERMISSION_REVOKED_COMPAT)
+                }
             } else if (affectsAppOp) {
                 // If the permission has no corresponding app op, then it is a
                 // third-party one and we do not offer toggling of such permissions.
@@ -870,6 +1161,27 @@ object KotlinUtils {
         if (perm.flags != newFlags) {
             app.packageManager.updatePermissionFlags(perm.name, group.packageInfo.packageName,
                 PERMISSION_CONTROLLER_CHANGED_FLAG_MASK, newFlags, user)
+        }
+
+        // If we revoke background access to the fine location, we trigger a check to remove
+        // notification warning about background location access
+        if (perm.isGrantedIncludingAppOp && !isGranted) {
+            var cancelLocationAccessWarning = false
+            if (perm.name == ACCESS_FINE_LOCATION) {
+                val bgPerm = group.permissions[perm.backgroundPermission]
+                cancelLocationAccessWarning = bgPerm?.isGrantedIncludingAppOp == true
+            } else if (perm.name == ACCESS_BACKGROUND_LOCATION) {
+                val fgPerm = group.permissions[ACCESS_FINE_LOCATION]
+                cancelLocationAccessWarning = fgPerm?.isGrantedIncludingAppOp == true
+            }
+            if (cancelLocationAccessWarning) {
+                // cancel location access warning notification
+                LocationAccessCheck(app, null).cancelBackgroundAccessWarningNotification(
+                    group.packageInfo.packageName,
+                    user,
+                    true
+                )
+            }
         }
 
         val newState = PermState(newFlags, isGranted)
@@ -927,8 +1239,8 @@ object KotlinUtils {
                 val appOpName = permissionToOp(foregroundPermName) ?: continue
 
                 if (fgPerm != null && fgPerm.isGrantedIncludingAppOp) {
-                    wasChanged = wasChanged || setOpMode(appOpName, uid, packageName, MODE_ALLOWED,
-                        appOpsManager)
+                    wasChanged = setOpMode(appOpName, uid, packageName, MODE_ALLOWED,
+                        appOpsManager) || wasChanged
                 }
             }
         } else {
@@ -1089,14 +1401,14 @@ object KotlinUtils {
         var resolveInfos = context.packageManager.queryIntentActivities(intentToResolve,
             MATCH_DIRECT_BOOT_AWARE or MATCH_DIRECT_BOOT_UNAWARE)
 
-        if (resolveInfos == null || resolveInfos.size <= 0) {
+        if (resolveInfos.size <= 0) {
             intentToResolve.removeCategory(CATEGORY_INFO)
             intentToResolve.addCategory(CATEGORY_LAUNCHER)
             intentToResolve.setPackage(packageName)
             resolveInfos = context.packageManager.queryIntentActivities(intentToResolve,
                 MATCH_DIRECT_BOOT_AWARE or MATCH_DIRECT_BOOT_UNAWARE)
         }
-        return resolveInfos != null && resolveInfos.size > 0
+        return resolveInfos.size > 0
     }
 
     /**
@@ -1138,14 +1450,91 @@ object KotlinUtils {
      */
     @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.TIRAMISU)
     fun shouldShowSafetyProtectionResources(context: Context): Boolean {
-        return SdkLevel.isAtLeastT() &&
-            DeviceConfig.getBoolean(
-                DeviceConfig.NAMESPACE_PRIVACY, SAFETY_PROTECTION_RESOURCES_ENABLED, false) &&
-            context.getResources().getBoolean(
-                Resources.getSystem()
-                    .getIdentifier("config_safetyProtectionEnabled", "bool", "android")) &&
-            context.getDrawable(android.R.drawable.ic_safety_protection) != null &&
-            !context.getString(android.R.string.safety_protection_display_text).isNullOrEmpty()
+        return try {
+            SdkLevel.isAtLeastT() &&
+                DeviceConfig.getBoolean(
+                    DeviceConfig.NAMESPACE_PRIVACY, SAFETY_PROTECTION_RESOURCES_ENABLED, false) &&
+                context.getResources().getBoolean(
+                    Resources.getSystem()
+                        .getIdentifier("config_safetyProtectionEnabled", "bool", "android")) &&
+                context.getDrawable(android.R.drawable.ic_safety_protection) != null &&
+                !context.getString(android.R.string.safety_protection_display_text).isNullOrEmpty()
+        } catch (e: Resources.NotFoundException) {
+            // We should expect the resources to not exist for non-pixel devices
+            // (except for the OEMs that opt-in)
+            false
+        }
+    }
+
+    fun addHealthPermissions(context: Context) {
+        val permissions = HealthConnectManager.getHealthPermissions(context)
+        PermissionMapping.addHealthPermissionsToPlatform(permissions)
+    }
+
+    /**
+     * Returns an [Intent] to the installer app store for a given package name, or {@code null} if
+     * none found
+     */
+    fun getAppStoreIntent(
+        context: Context,
+        installerPackageName: String?,
+        packageName: String?
+    ): Intent? {
+        val intent: Intent = Intent(Intent.ACTION_SHOW_APP_INFO)
+            .setPackage(installerPackageName)
+        val result: Intent? = resolveActivityForIntent(context, intent)
+        if (result != null) {
+            result.putExtra(Intent.EXTRA_PACKAGE_NAME, packageName)
+            return result
+        }
+        return null
+    }
+
+    /**
+     * Verify that a component that supports the intent with action and return a new intent with
+     * same action and resolved class name set. Returns null if no activity resolution.
+     */
+    private fun resolveActivityForIntent(context: Context, intent: Intent): Intent? {
+        val result: ResolveInfo? = context.packageManager.resolveActivity(intent, 0)
+        return if (result != null) {
+            Intent(intent.action)
+                .setClassName(result.activityInfo.packageName, result.activityInfo.name)
+        } else {
+            null
+        }
+    }
+
+    data class NotificationResources(val appLabel: String, val smallIcon: Icon, val color: Int)
+
+    fun getSafetyCenterNotificationResources(context: Context): NotificationResources {
+        val appLabel: String
+        val smallIcon: Icon
+        val color: Int
+        // If U resources are available, and this is a U+ device, use those
+        if (SdkLevel.isAtLeastU()) {
+            val scContext = SafetyCenterResourcesContext(context)
+            val uIcon = scContext.getIconByDrawableName("ic_notification_badge_general")
+            val uColor = scContext.getColorByName("notification_tint_normal")
+            if (uIcon != null && uColor != null) {
+                appLabel = context.getString(R.string.safety_privacy_qs_tile_title)
+                return NotificationResources(appLabel, uIcon, uColor)
+            }
+        }
+
+        // Use PbA branding if available, otherwise default to more generic branding
+        if (shouldShowSafetyProtectionResources(context)) {
+            appLabel = Html.fromHtml(context.getString(
+                android.R.string.safety_protection_display_text), 0).toString()
+            smallIcon =
+                Icon.createWithResource(context, android.R.drawable.ic_safety_protection)
+            color = context.getColor(R.color.safety_center_info)
+        } else {
+            appLabel = context.getString(R.string.safety_center_notification_app_label)
+            smallIcon =
+                Icon.createWithResource(context, R.drawable.ic_settings_notification)
+            color = context.getColor(android.R.color.system_notification_accent_color)
+        }
+        return NotificationResources(appLabel, smallIcon, color)
     }
 }
 
@@ -1157,7 +1546,7 @@ suspend fun <T, LD : LiveData<T>> LD.getInitializedValue(
     isInitialized: LD.() -> Boolean = { value != null }
 ): T {
     return if (isInitialized()) {
-        value as T
+        value!!
     } else {
         suspendCoroutine { continuation: Continuation<T> ->
             val observer = AtomicReference<Observer<T>>()

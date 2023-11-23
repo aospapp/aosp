@@ -19,6 +19,7 @@ package com.android.bedstead.nene.device;
 import static com.android.bedstead.nene.permissions.CommonPermissions.DISABLE_KEYGUARD;
 
 import android.app.KeyguardManager;
+import android.content.pm.PackageManager;
 import android.os.RemoteException;
 import android.support.test.uiautomator.UiDevice;
 
@@ -40,6 +41,9 @@ public final class Device {
             TestApis.context().instrumentedContext()
             .getSystemService(KeyguardManager.class);
     private static KeyguardManager.KeyguardLock sKeyguardLock;
+
+    private static PackageManager sPackageManager =
+            TestApis.context().instrumentedContext().getPackageManager();
 
     private Device() {
 
@@ -128,5 +132,19 @@ public final class Device {
         } catch (RemoteException e) {
             throw new NeneException("Error getting isScreenOn", e);
         }
+    }
+
+    /**
+     * Returns True if this device is a handheld device.
+     */
+    @Experimental
+    public boolean isHandheld() {
+        // handheld nature is not exposed to package manager, for now
+        // we check for touchscreen and NOT watch, NOT tv, NOT car and NOT PC.
+        return sPackageManager.hasSystemFeature(sPackageManager.FEATURE_TOUCHSCREEN)
+                && !sPackageManager.hasSystemFeature(sPackageManager.FEATURE_WATCH)
+                && !sPackageManager.hasSystemFeature(sPackageManager.FEATURE_TELEVISION)
+                && !sPackageManager.hasSystemFeature(sPackageManager.FEATURE_AUTOMOTIVE)
+                && !sPackageManager.hasSystemFeature(sPackageManager.FEATURE_PC);
     }
 }

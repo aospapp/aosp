@@ -1,0 +1,32 @@
+pixel_bugreport(dump_gs101)
+allow dump_gs101 sysfs_pixel_stat:dir r_dir_perms;
+allow dump_gs101 sysfs_pixel_stat:file r_file_perms;
+allow dump_gs101 vendor_toolbox_exec:file execute_no_trans;
+allow dump_gs101 vendor_camera_data_file:dir r_dir_perms;
+allow dump_gs101 vendor_camera_data_file:file r_file_perms;
+allow dump_gs101 sysfs_acpm_stats:dir r_dir_perms;
+allow dump_gs101 sysfs_acpm_stats:file r_file_perms;
+allow dump_gs101 sysfs_batteryinfo:dir r_dir_perms;
+allow dump_gs101 sysfs_bcl:dir r_dir_perms;
+allow dump_gs101 sysfs_bcl:file r_file_perms;
+allow dump_gs101 sysfs_cpu:file r_file_perms;
+allow dump_gs101 logbuffer_device:chr_file r_file_perms;
+allow dump_gs101 sysfs_batteryinfo:file r_file_perms;
+allow dump_gs101 sysfs:dir r_dir_perms;
+allow dump_gs101 sysfs_wlc:dir r_dir_perms;
+allow dump_gs101 sysfs_wlc:file r_file_perms;
+userdebug_or_eng(`
+  allow dump_gs101 vendor_battery_debugfs:dir r_dir_perms;
+  allow dump_gs101 vendor_battery_debugfs:file r_file_perms;
+  allow dump_gs101 vendor_charger_debugfs:dir r_dir_perms;
+  allow dump_gs101 vendor_charger_debugfs:file r_file_perms;
+  allow dump_gs101 vendor_pm_genpd_debugfs:file r_file_perms;
+  allow dump_gs101 vendor_usb_debugfs:dir r_dir_perms;
+  allow dump_gs101 vendor_usb_debugfs:file r_file_perms;
+  allow dump_gs101 debugfs:dir r_dir_perms;
+  allow dump_gs101 vendor_maxfg_debugfs:dir r_dir_perms;
+  allow dump_gs101 vendor_maxfg_debugfs:file r_file_perms;
+  allow dump_gs101 vendor_votable_debugfs:dir r_dir_perms;
+  allow dump_gs101 vendor_votable_debugfs:file r_file_perms;
+')
+

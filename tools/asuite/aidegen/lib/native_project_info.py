@@ -26,8 +26,7 @@ from aidegen.lib import project_config
 from aidegen.lib import project_info
 
 
-# pylint: disable=too-few-public-methods
-class NativeProjectInfo():
+class NativeProjectInfo:
     """Native project information.
 
     Class attributes:
@@ -52,7 +51,7 @@ class NativeProjectInfo():
                     we should call 'm android.frameworks.bufferhub@1.0' to
                     generate the include header files in,
                     'android.frameworks.bufferhub@1.0_genc++_headers/gen'
-                    direcotry.
+                    directory.
         """
         self.module_names = [target] if self.modules_info.is_module(
             target) else self.modules_info.get_module_names_in_targets_paths(

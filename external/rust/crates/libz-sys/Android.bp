@@ -52,9 +52,9 @@ rust_library {
     host_supported: true,
     crate_name: "libz_sys",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.1.3",
+    cargo_pkg_version: "1.1.8",
     srcs: ["src/lib.rs"],
-    edition: "2015",
+    edition: "2018",
     features: [
         "default",
         "libc",
@@ -66,8 +66,10 @@ rust_library {
     shared_libs: ["libz"],
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth",
+        "com.android.btservices",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
     min_sdk_version: "29",
 }

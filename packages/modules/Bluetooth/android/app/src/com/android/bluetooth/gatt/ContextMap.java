@@ -15,6 +15,9 @@
  */
 package com.android.bluetooth.gatt;
 
+import android.bluetooth.le.AdvertiseData;
+import android.bluetooth.le.AdvertisingSetParameters;
+import android.bluetooth.le.PeriodicAdvertisingParameters;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.IInterface;
@@ -23,6 +26,13 @@ import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.WorkSource;
 import android.util.Log;
+
+import androidx.annotation.VisibleForTesting;
+
+import com.android.bluetooth.BluetoothMethodProxy;
+import com.android.internal.annotations.GuardedBy;
+
+import com.google.common.collect.EvictingQueue;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,13 +49,14 @@ import java.util.UUID;
  * This class manages application callbacks and keeps track of GATT connections.
  * @hide
  */
-/*package*/ class ContextMap<C, T> {
+@VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+public class ContextMap<C, T> {
     private static final String TAG = GattServiceConfig.TAG_PREFIX + "ContextMap";
 
     /**
      * Connection class helps map connection IDs to device addresses.
      */
-    class Connection {
+    static class Connection {
         public int connId;
         public String address;
         public int appId;
@@ -126,6 +137,15 @@ import java.util.UUID;
         }
 
         /**
+         * Creates a new app context for advertiser.
+         */
+        App(int id, C callback, String name) {
+            this.id = id;
+            this.callback = callback;
+            this.name = name;
+        }
+
+        /**
          * Link death recipient
          */
         void linkToDeath(IBinder.DeathRecipient deathRecipient) {
@@ -169,13 +189,25 @@ import java.util.UUID;
     }
 
     /** Our internal application list */
+    private final Object mAppsLock = new Object();
+    @GuardedBy("mAppsLock")
     private List<App> mApps = new ArrayList<App>();
 
     /** Internal map to keep track of logging information by app name */
     private HashMap<Integer, AppScanStats> mAppScanStats = new HashMap<Integer, AppScanStats>();
 
+    /** Internal map to keep track of logging information by advertise id */
+    private final Map<Integer, AppAdvertiseStats> mAppAdvertiseStats =
+            new HashMap<Integer, AppAdvertiseStats>();
+
+    private static final int ADVERTISE_STATE_MAX_SIZE = 5;
+
+    private final EvictingQueue<AppAdvertiseStats> mLastAdvertises =
+            EvictingQueue.create(ADVERTISE_STATE_MAX_SIZE);
+
     /** Internal list of connected devices **/
     private Set<Connection> mConnections = new HashSet<Connection>();
+    private final Object mConnectionsLock = new Object();
 
     /**
      * Add an entry to the application context list.
@@ -187,7 +219,7 @@ import java.util.UUID;
             // Assign an app name if one isn't found
             appName = "Unknown App (UID: " + appUid + ")";
         }
-        synchronized (mApps) {
+        synchronized (mAppsLock) {
             AppScanStats appScanStats = mAppScanStats.get(appUid);
             if (appScanStats == null) {
                 appScanStats = new AppScanStats(appName, workSource, this, service);
@@ -201,10 +233,38 @@ import java.util.UUID;
     }
 
     /**
+     * Add an entry to the application context list for advertiser.
+     */
+    App add(int id, C callback, GattService service) {
+        int appUid = Binder.getCallingUid();
+        String appName = service.getPackageManager().getNameForUid(appUid);
+        if (appName == null) {
+            // Assign an app name if one isn't found
+            appName = "Unknown App (UID: " + appUid + ")";
+        }
+
+        synchronized (mAppsLock) {
+            synchronized (this) {
+                if (!mAppAdvertiseStats.containsKey(id)) {
+                    AppAdvertiseStats appAdvertiseStats = BluetoothMethodProxy.getInstance()
+                            .createAppAdvertiseStats(appUid, id, appName, this, service);
+                    mAppAdvertiseStats.put(id, appAdvertiseStats);
+                }
+            }
+            App app = getById(appUid);
+            if (app == null) {
+                app = new App(appUid, callback, appName);
+                mApps.add(app);
+            }
+            return app;
+        }
+    }
+
+    /**
      * Remove the context for a given UUID
      */
     void remove(UUID uuid) {
-        synchronized (mApps) {
+        synchronized (mAppsLock) {
             Iterator<App> i = mApps.iterator();
             while (i.hasNext()) {
                 App entry = i.next();
@@ -223,7 +283,7 @@ import java.util.UUID;
      */
     void remove(int id) {
         boolean find = false;
-        synchronized (mApps) {
+        synchronized (mAppsLock) {
             Iterator<App> i = mApps.iterator();
             while (i.hasNext()) {
                 App entry = i.next();
@@ -243,7 +303,7 @@ import java.util.UUID;
 
     List<Integer> getAllAppsIds() {
         List<Integer> appIds = new ArrayList();
-        synchronized (mApps) {
+        synchronized (mAppsLock) {
             Iterator<App> i = mApps.iterator();
             while (i.hasNext()) {
                 App entry = i.next();
@@ -257,7 +317,7 @@ import java.util.UUID;
      * Add a new connection for a given application ID.
      */
     void addConnection(int id, int connId, String address) {
-        synchronized (mConnections) {
+        synchronized (mConnectionsLock) {
             App entry = getById(id);
             if (entry != null) {
                 mConnections.add(new Connection(connId, address, id));
@@ -269,7 +329,7 @@ import java.util.UUID;
      * Remove a connection with the given ID.
      */
     void removeConnection(int id, int connId) {
-        synchronized (mConnections) {
+        synchronized (mConnectionsLock) {
             Iterator<Connection> i = mConnections.iterator();
             while (i.hasNext()) {
                 Connection connection = i.next();
@@ -285,7 +345,7 @@ import java.util.UUID;
      * Remove all connections for a given application ID.
      */
     void removeConnectionsByAppId(int appId) {
-        synchronized (mConnections) {
+        synchronized (mConnectionsLock) {
             Iterator<Connection> i = mConnections.iterator();
             while (i.hasNext()) {
                 Connection connection = i.next();
@@ -300,7 +360,7 @@ import java.util.UUID;
      * Get an application context by ID.
      */
     App getById(int id) {
-        synchronized (mApps) {
+        synchronized (mAppsLock) {
             Iterator<App> i = mApps.iterator();
             while (i.hasNext()) {
                 App entry = i.next();
@@ -317,7 +377,7 @@ import java.util.UUID;
      * Get an application context by UUID.
      */
     App getByUuid(UUID uuid) {
-        synchronized (mApps) {
+        synchronized (mAppsLock) {
             Iterator<App> i = mApps.iterator();
             while (i.hasNext()) {
                 App entry = i.next();
@@ -334,7 +394,7 @@ import java.util.UUID;
      * Get an application context by the calling Apps name.
      */
     App getByName(String name) {
-        synchronized (mApps) {
+        synchronized (mAppsLock) {
             Iterator<App> i = mApps.iterator();
             while (i.hasNext()) {
                 App entry = i.next();
@@ -351,7 +411,7 @@ import java.util.UUID;
      * Get an application context by the context info object.
      */
     App getByContextInfo(T contextInfo) {
-        synchronized (mApps) {
+        synchronized (mAppsLock) {
             Iterator<App> i = mApps.iterator();
             while (i.hasNext()) {
                 App entry = i.next();
@@ -383,11 +443,143 @@ import java.util.UUID;
     }
 
     /**
+     * Remove the context for a given application ID.
+     */
+    void removeAppAdvertiseStats(int id) {
+        synchronized (this) {
+            mAppAdvertiseStats.remove(id);
+        }
+    }
+
+    /**
+     * Get Logging info by ID
+     */
+    AppAdvertiseStats getAppAdvertiseStatsById(int id) {
+        synchronized (this) {
+            return mAppAdvertiseStats.get(id);
+        }
+    }
+
+    /**
+     * update the advertiser ID by the regiseter ID
+     */
+    void setAdvertiserIdByRegId(int regId, int advertiserId) {
+        synchronized (this) {
+            AppAdvertiseStats stats = mAppAdvertiseStats.get(regId);
+            if (stats == null) {
+                return;
+            }
+            stats.setId(advertiserId);
+            mAppAdvertiseStats.remove(regId);
+            mAppAdvertiseStats.put(advertiserId, stats);
+        }
+    }
+
+    void recordAdvertiseStart(int id, AdvertisingSetParameters parameters,
+            AdvertiseData advertiseData, AdvertiseData scanResponse,
+            PeriodicAdvertisingParameters periodicParameters, AdvertiseData periodicData,
+            int duration, int maxExtAdvEvents) {
+        synchronized (this) {
+            AppAdvertiseStats stats = mAppAdvertiseStats.get(id);
+            if (stats == null) {
+                return;
+            }
+            stats.recordAdvertiseStart(parameters, advertiseData, scanResponse,
+                    periodicParameters, periodicData, duration, maxExtAdvEvents);
+            int advertiseInstanceCount = mAppAdvertiseStats.size();
+            Log.d(TAG, "advertiseInstanceCount is " + advertiseInstanceCount);
+            AppAdvertiseStats.recordAdvertiseInstanceCount(advertiseInstanceCount);
+        }
+    }
+
+    void recordAdvertiseStop(int id) {
+        synchronized (this) {
+            AppAdvertiseStats stats = mAppAdvertiseStats.get(id);
+            if (stats == null) {
+                return;
+            }
+            stats.recordAdvertiseStop();
+            mAppAdvertiseStats.remove(id);
+            mLastAdvertises.add(stats);
+        }
+    }
+
+    void enableAdvertisingSet(int id, boolean enable, int duration, int maxExtAdvEvents) {
+        synchronized (this) {
+            AppAdvertiseStats stats = mAppAdvertiseStats.get(id);
+            if (stats == null) {
+                return;
+            }
+            stats.enableAdvertisingSet(enable, duration, maxExtAdvEvents);
+        }
+    }
+
+    void setAdvertisingData(int id, AdvertiseData data) {
+        synchronized (this) {
+            AppAdvertiseStats stats = mAppAdvertiseStats.get(id);
+            if (stats == null) {
+                return;
+            }
+            stats.setAdvertisingData(data);
+        }
+    }
+
+    void setScanResponseData(int id, AdvertiseData data) {
+        synchronized (this) {
+            AppAdvertiseStats stats = mAppAdvertiseStats.get(id);
+            if (stats == null) {
+                return;
+            }
+            stats.setScanResponseData(data);
+        }
+    }
+
+    void setAdvertisingParameters(int id, AdvertisingSetParameters parameters) {
+        synchronized (this) {
+            AppAdvertiseStats stats = mAppAdvertiseStats.get(id);
+            if (stats == null) {
+                return;
+            }
+            stats.setAdvertisingParameters(parameters);
+        }
+    }
+
+    void setPeriodicAdvertisingParameters(int id, PeriodicAdvertisingParameters parameters) {
+        synchronized (this) {
+            AppAdvertiseStats stats = mAppAdvertiseStats.get(id);
+            if (stats == null) {
+                return;
+            }
+            stats.setPeriodicAdvertisingParameters(parameters);
+        }
+    }
+
+    void setPeriodicAdvertisingData(int id, AdvertiseData data) {
+        synchronized (this) {
+            AppAdvertiseStats stats = mAppAdvertiseStats.get(id);
+            if (stats == null) {
+                return;
+            }
+            stats.setPeriodicAdvertisingData(data);
+        }
+    }
+
+    void onPeriodicAdvertiseEnabled(int id, boolean enable) {
+        synchronized (this) {
+            AppAdvertiseStats stats = mAppAdvertiseStats.get(id);
+            if (stats == null) {
+                return;
+            }
+            stats.onPeriodicAdvertiseEnabled(enable);
+        }
+    }
+
+    /**
      * Get the device addresses for all connected devices
      */
     Set<String> getConnectedDevices() {
         Set<String> addresses = new HashSet<String>();
-        synchronized (mConnections) {
+        synchronized (mConnectionsLock) {
             Iterator<Connection> i = mConnections.iterator();
             while (i.hasNext()) {
                 Connection connection = i.next();
@@ -402,7 +594,7 @@ import java.util.UUID;
      */
     App getByConnId(int connId) {
         int appId = -1;
-        synchronized (mConnections) {
+        synchronized (mConnectionsLock) {
             Iterator<Connection> ii = mConnections.iterator();
             while (ii.hasNext()) {
                 Connection connection = ii.next();
@@ -426,7 +618,7 @@ import java.util.UUID;
         if (entry == null) {
             return null;
         }
-        synchronized (mConnections) {
+        synchronized (mConnectionsLock) {
             Iterator<Connection> i = mConnections.iterator();
             while (i.hasNext()) {
                 Connection connection = i.next();
@@ -442,7 +634,7 @@ import java.util.UUID;
      * Returns the device address for a given connection ID.
      */
     String addressByConnId(int connId) {
-        synchronized (mConnections) {
+        synchronized (mConnectionsLock) {
             Iterator<Connection> i = mConnections.iterator();
             while (i.hasNext()) {
                 Connection connection = i.next();
@@ -456,7 +648,7 @@ import java.util.UUID;
 
     List<Connection> getConnectionByApp(int appId) {
         List<Connection> currentConnections = new ArrayList<Connection>();
-        synchronized (mConnections) {
+        synchronized (mConnectionsLock) {
             Iterator<Connection> i = mConnections.iterator();
             while (i.hasNext()) {
                 Connection connection = i.next();
@@ -472,18 +664,25 @@ import java.util.UUID;
      * Erases all application context entries.
      */
     void clear() {
-        synchronized (mApps) {
+        synchronized (mAppsLock) {
             Iterator<App> i = mApps.iterator();
             while (i.hasNext()) {
                 App entry = i.next();
                 entry.unlinkToDeath();
-                entry.appScanStats.isRegistered = false;
+                if (entry.appScanStats != null) {
+                    entry.appScanStats.isRegistered = false;
+                }
                 i.remove();
             }
         }
 
-        synchronized (mConnections) {
+        synchronized (mConnectionsLock) {
             mConnections.clear();
+        }
+
+        synchronized (this) {
+            mAppAdvertiseStats.clear();
+            mLastAdvertises.clear();
         }
     }
 
@@ -492,7 +691,7 @@ import java.util.UUID;
      */
     Map<Integer, String> getConnectedMap() {
         Map<Integer, String> connectedmap = new HashMap<Integer, String>();
-        synchronized (mConnections) {
+        synchronized (mConnectionsLock) {
             for (Connection conn : mConnections) {
                 connectedmap.put(conn.appId, conn.address);
             }
@@ -513,5 +712,32 @@ import java.util.UUID;
             AppScanStats appScanStats = entry.getValue();
             appScanStats.dumpToString(sb);
         }
+    }
+
+    /**
+     * Logs advertiser debug information.
+     */
+    void dumpAdvertiser(StringBuilder sb) {
+        synchronized (this) {
+            if (!mLastAdvertises.isEmpty()) {
+                sb.append("\n  last " + mLastAdvertises.size() + " advertising:");
+                for (AppAdvertiseStats stats : mLastAdvertises) {
+                    AppAdvertiseStats.dumpToString(sb, stats);
+                }
+                sb.append("\n");
+            }
+
+            if (!mAppAdvertiseStats.isEmpty()) {
+                sb.append("  Total number of ongoing advertising                   : "
+                        + mAppAdvertiseStats.size());
+                sb.append("\n  Ongoing advertising:");
+                for (Integer key : mAppAdvertiseStats.keySet()) {
+                    AppAdvertiseStats stats = mAppAdvertiseStats.get(key);
+                    AppAdvertiseStats.dumpToString(sb, stats);
+                }
+            }
+            sb.append("\n");
+        }
+        Log.d(TAG, sb.toString());
     }
 }

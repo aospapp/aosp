@@ -70,6 +70,29 @@ bool MiscWriter::PerformAction(std::optional<size_t> override_offset) {
       content = (action_ == MiscWriterActions::kSetEnablePkvmFlag) ? kEnablePkvmFlag
                                                                    : kDisablePkvmFlag;
       break;
+    case MiscWriterActions::kSetWristOrientationFlag:
+    case MiscWriterActions::kClearWristOrientationFlag:
+      offset = override_offset.value_or(kWristOrientationFlagOffsetInVendorSpace);
+      content = (action_ == MiscWriterActions::kSetWristOrientationFlag)
+                    ? std::string(kWristOrientationFlag) + chardata_
+                    : std::string(strlen(kWristOrientationFlag) + sizeof(chardata_), 0);
+      break;
+    case MiscWriterActions::kWriteTimeFormat:
+        offset = override_offset.value_or(kTimeFormatValOffsetInVendorSpace);
+        content = std::string(kTimeFormat) + chardata_;
+        break;
+    case MiscWriterActions::kWriteTimeOffset:
+        offset = override_offset.value_or(kTimeOffsetValOffsetInVendorSpace);
+        content = std::string(kTimeOffset) + stringdata_;
+        content.resize(strlen(kTimeOffset) + std::to_string(kMinTimeOffset).size(), 0);
+        break;
+    case MiscWriterActions::kSetMaxRamSize:
+    case MiscWriterActions::kClearMaxRamSize:
+        offset = override_offset.value_or(kMaxRamSizeOffsetInVendorSpace);
+        content = (action_ == MiscWriterActions::kSetMaxRamSize)
+                          ? std::string(kMaxRamSize).append(stringdata_).append("\n")
+                          : std::string(32, 0);
+        break;
     case MiscWriterActions::kUnset:
       LOG(ERROR) << "The misc writer action must be set";
       return false;

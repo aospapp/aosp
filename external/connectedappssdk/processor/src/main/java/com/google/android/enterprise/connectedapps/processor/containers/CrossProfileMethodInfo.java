@@ -15,17 +15,15 @@
  */
 package com.google.android.enterprise.connectedapps.processor.containers;
 
-import static com.google.android.enterprise.connectedapps.processor.annotationdiscovery.AnnotationFinder.hasCrossProfileAnnotation;
 import static com.google.android.enterprise.connectedapps.processor.annotationdiscovery.AnnotationFinder.hasCrossProfileCallbackAnnotation;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 
+import com.google.android.enterprise.connectedapps.annotations.Cacheable;
 import com.google.android.enterprise.connectedapps.annotations.CrossProfile;
 import com.google.android.enterprise.connectedapps.annotations.CrossProfileCallback;
 import com.google.android.enterprise.connectedapps.processor.SupportedTypes;
 import com.google.android.enterprise.connectedapps.processor.TypeUtils;
-import com.google.android.enterprise.connectedapps.processor.annotationdiscovery.AnnotationFinder;
-import com.google.android.enterprise.connectedapps.processor.annotationdiscovery.interfaces.CrossProfileAnnotation;
 import com.google.auto.value.AutoValue;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
@@ -50,6 +48,8 @@ public abstract class CrossProfileMethodInfo {
 
   public abstract boolean isStatic();
 
+  public abstract boolean isCacheable();
+
   public String simpleName() {
     return methodElement().getSimpleName().toString();
   }
@@ -73,12 +73,6 @@ public abstract class CrossProfileMethodInfo {
         .filter(supportedTypes::isAutomaticallyResolved)
         .collect(toSet());
   }
-
-  /**
-   * The number of milliseconds to timeout async calls. This is either set on the method, the type,
-   * or defaults to {@link CrossProfileAnnotation#DEFAULT_TIMEOUT_MILLIS}.
-   */
-  public abstract long timeoutMillis();
 
   /**
    * Specify behaviour when encountering parameters of a type which is automatically resolved by the
@@ -165,13 +159,11 @@ public abstract class CrossProfileMethodInfo {
 
   /** True if there is only a single {@link CrossProfileCallback} argument and it is simple. */
   public boolean isSimpleCrossProfileCallback(GeneratorContext generatorContext) {
-    Optional<VariableElement> param = getCrossProfileCallbackParam(generatorContext);
+    Optional<CrossProfileCallbackParameterInfo> param =
+        getCrossProfileCallbackParam(generatorContext);
 
     if (param.isPresent()) {
-      CrossProfileCallbackInterfaceInfo callbackInterface =
-          CrossProfileCallbackInterfaceInfo.create(
-              (TypeElement) generatorContext.types().asElement(param.get().asType()));
-      return callbackInterface.isSimple();
+      return param.get().crossProfileCallbackInterface().isSimple();
     }
 
     return false;
@@ -187,16 +179,18 @@ public abstract class CrossProfileMethodInfo {
   }
 
   /** Return the {@link CrossProfileCallback} annotated parameter, if any. */
-  public Optional<VariableElement> getCrossProfileCallbackParam(GeneratorContext generatorContext) {
-    return getCrossProfileCallbackParam(generatorContext.elements(), methodElement());
+  public Optional<CrossProfileCallbackParameterInfo> getCrossProfileCallbackParam(
+      GeneratorContext generatorContext) {
+    return getCrossProfileCallbackParam(generatorContext, methodElement());
   }
 
-  public static Optional<VariableElement> getCrossProfileCallbackParam(
-      Elements elements, ExecutableElement method) {
+  public static Optional<CrossProfileCallbackParameterInfo> getCrossProfileCallbackParam(
+      Context context, ExecutableElement method) {
     return method.getParameters().stream()
-        .filter(v -> isCrossProfileCallbackInterface(elements, v.asType()))
+        .filter(v -> isCrossProfileCallbackInterface(context.elements(), v.asType()))
         .findFirst()
-        .map(e -> (VariableElement) e);
+        .map(e -> (VariableElement) e)
+        .map(e -> CrossProfileCallbackParameterInfo.create(context, e));
   }
 
   private static boolean isCrossProfileCallbackInterface(Elements elements, TypeMirror type) {
@@ -213,19 +207,6 @@ public abstract class CrossProfileMethodInfo {
         methodElement,
         identifier,
         methodElement.getModifiers().contains(Modifier.STATIC),
-        findTimeoutMillis(type, methodElement, context));
-  }
-
-  private static long findTimeoutMillis(
-      ValidatorCrossProfileTypeInfo type, ExecutableElement methodElement, Context context) {
-    if (hasCrossProfileAnnotation(methodElement)) {
-      return AnnotationFinder.extractCrossProfileAnnotationInfo(
-              methodElement, context.types(), context.elements())
-          .timeoutMillis()
-          .filter(timeout -> timeout > 0)
-          .orElse(type.timeoutMillis());
-    }
-
-    return type.timeoutMillis();
+        methodElement.getAnnotation(Cacheable.class) != null);
   }
 }

@@ -32,6 +32,7 @@ android_test {
         "general-tests",
     ],
     platform_apis: true,
+    host_required: ["cts-dalvik-host-test-runner"],
 }
 
 java_test_host {

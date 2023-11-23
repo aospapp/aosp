@@ -40,9 +40,6 @@ import android.graphics.SurfaceTexture;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.nfc.NfcAdapter;
-import android.nfc.NfcAdapter.CreateBeamUrisCallback;
-import android.nfc.NfcEvent;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -251,8 +248,6 @@ public class CameraActivity extends QuickActivity
     private boolean mIsActivityRunning = false;
     private FatalErrorHandler mFatalErrorHandler;
     private boolean mHasCriticalPermissions;
-
-    private final Uri[] mNfcPushUris = new Uri[1];
 
     private FilmstripContentObserver mLocalImagesObserver;
     private FilmstripContentObserver mLocalVideosObserver;
@@ -846,28 +841,6 @@ public class CameraActivity extends QuickActivity
     private void updateSessionProgressText(int messageId) {
         mCameraAppUI.getFilmstripBottomControls().setProgressText(
                 messageId > 0 ? getString(messageId) : "");
-    }
-
-    // Candidate for deletion as Android Beam is deprecated in Android Q
-    private void setupNfcBeamPush() {
-        NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mAppContext);
-        if (adapter == null) {
-            return;
-        }
-
-        if (!ApiHelper.HAS_SET_BEAM_PUSH_URIS) {
-            // Disable beaming
-            adapter.setNdefPushMessage(null, CameraActivity.this);
-            return;
-        }
-
-        adapter.setBeamPushUris(null, CameraActivity.this);
-        adapter.setBeamPushUrisCallback(new CreateBeamUrisCallback() {
-            @Override
-            public Uri[] createBeamUris(NfcEvent event) {
-                return mNfcPushUris;
-            }
-        }, CameraActivity.this);
     }
 
     @Override
@@ -1627,9 +1600,6 @@ public class CameraActivity extends QuickActivity
         profile.mark("Init CurrentModule");
 
         preloadFilmstripItems();
-
-        // Candidate for deletion as Android Beam is deprecated in Android Q
-        setupNfcBeamPush();
 
         mLocalImagesObserver = new FilmstripContentObserver();
         mLocalVideosObserver = new FilmstripContentObserver();
@@ -2879,9 +2849,7 @@ public class CameraActivity extends QuickActivity
     }
 
     private void finishActivityWithIntentResult(int resultCode, Intent resultIntent) {
-        mResultCodeForTesting = resultCode;
-        mResultDataForTesting = resultIntent;
-        setResult(resultCode, resultIntent);
+        setResultEx(resultCode, resultIntent);
         finish();
     }
 
@@ -2924,15 +2892,6 @@ public class CameraActivity extends QuickActivity
         return false;
     }
 
-    private void setNfcBeamPushUriFromData(FilmstripItem data) {
-        final Uri uri = data.getData().getUri();
-        if (uri != Uri.EMPTY) {
-            mNfcPushUris[0] = uri;
-        } else {
-            mNfcPushUris[0] = null;
-        }
-    }
-
     /**
      * Updates the visibility of the filmstrip bottom controls and action bar.
      */
@@ -2954,8 +2913,6 @@ public class CameraActivity extends QuickActivity
             mCameraAppUI.getFilmstripBottomControls().hideControls();
             return;
         }
-
-        setNfcBeamPushUriFromData(currentData);
 
         if (!mDataAdapter.isMetadataUpdatedAt(index)) {
             mDataAdapter.updateMetadataAt(index);

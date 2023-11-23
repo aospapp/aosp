@@ -42,14 +42,14 @@ rust_test {
     host_supported: true,
     crate_name: "either",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.6.1",
+    cargo_pkg_version: "1.8.1",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
     test_options: {
         unit_test: true,
     },
-    edition: "2015",
+    edition: "2018",
     features: [
         "default",
         "use_std",
@@ -64,14 +64,20 @@ rust_library {
     host_supported: true,
     crate_name: "either",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.6.1",
+    cargo_pkg_version: "1.8.1",
     srcs: ["src/lib.rs"],
-    edition: "2015",
+    edition: "2018",
     features: [
         "default",
         "use_std",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }
 
-//Non fatal errors:
+// Errors when listing tests:
 // error: test

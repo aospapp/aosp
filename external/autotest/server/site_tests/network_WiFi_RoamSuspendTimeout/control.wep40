@@ -8,6 +8,7 @@ TIME = 'SHORT'
 TEST_TYPE = 'Server'
 ATTRIBUTES = "suite:wifi_flaky"
 DEPENDENCIES = 'wificell'
+PY_VERSION = 3
 
 DOC = """
 This test case verifies that the DUT can reconnect to an AP using

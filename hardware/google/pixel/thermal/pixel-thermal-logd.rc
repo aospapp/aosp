@@ -17,16 +17,22 @@ service vendor.thermal.logd /vendor/bin/thermal_logd ${persist.vendor.log.therma
 on property:persist.vendor.disable.thermal.control=*
     setprop vendor.disable.thermal.control ${persist.vendor.disable.thermal.control}
 
+on property:persist.vendor.disable.thermalhal.control=*
+    setprop vendor.disable.thermalhal.control ${persist.vendor.disable.thermalhal.control}
+
 on property:persist.vendor.disable.usb.overheat.mitigation=*
     setprop vendor.disable.usb.overheat.mitigation.control ${persist.vendor.disable.usb.overheat.mitigation}
 
 on property:persist.vendor.disable.bcl.control=*
     setprop vendor.disable.bcl.control ${persist.vendor.disable.bcl.control}
 
+on property:vendor.disable.thermalhal.control=* && property:vendor.thermal.link_ready=1
+    restart vendor.thermal-hal
+
 on property:vendor.disable.thermal.control=1 && property:vendor.thermal.link_ready=1
     # common
     stop vendor.thermal-engine
-    restart vendor.thermal-hal-2-0
+    setprop vendor.disable.thermalhal.control 1
     # sdm845
     write /dev/thermal/tz-by-name/quiet-therm-adc/mode disabled
     write /dev/thermal/tz-by-name/quiet-therm-monitor/mode disabled
@@ -68,7 +74,7 @@ on property:vendor.disable.thermal.control=1 && property:vendor.thermal.link_rea
 on property:vendor.disable.thermal.control=0 && property:vendor.thermal.link_ready=1
     # common
     start vendor.thermal-engine
-    restart vendor.thermal-hal-2-0
+    setprop vendor.disable.thermalhal.control 0
     # sdm845
     write /dev/thermal/tz-by-name/quiet-therm-adc/mode enabled
     write /dev/thermal/tz-by-name/quiet-therm-monitor/mode enabled

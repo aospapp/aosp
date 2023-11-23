@@ -17,7 +17,7 @@
 
 #include "tst_test.h"
 #include "lapi/fcntl.h"
-#include "kcmp.h"
+#include "lapi/kcmp.h"
 
 #define TEST_FILE "test_file"
 #define TEST_FILE2 "test_file2"
@@ -94,6 +94,5 @@ static struct tst_test test = {
 	.setup = setup,
 	.cleanup = cleanup,
 	.test = verify_kcmp,
-	.min_kver = "3.5.0",
 	.needs_tmpdir = 1
 };

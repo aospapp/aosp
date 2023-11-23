@@ -3,15 +3,14 @@ Extensions to Django's model logic.
 """
 
 import django.core.exceptions
-from django.db import connection
-from django.db import connections
+import django.db.models.sql.where
+import six
+from autotest_lib.client.common_lib import error
+from autotest_lib.frontend.afe import rdb_model_extensions
+from django.db import connection, connections
 from django.db import models as dbmodels
 from django.db import transaction
 from django.db.models.sql import query
-import django.db.models.sql.where
-
-from autotest_lib.client.common_lib import error
-from autotest_lib.frontend.afe import rdb_model_extensions
 
 
 class ValidationError(django.core.exceptions.ValidationError):
@@ -39,18 +38,22 @@ class ExtendedManager(dbmodels.Manager):
     """
 
     class CustomQuery(query.Query):
+        """A custom query"""
+
         def __init__(self, *args, **kwargs):
             super(ExtendedManager.CustomQuery, self).__init__(*args, **kwargs)
             self._custom_joins = []
 
 
         def clone(self, klass=None, **kwargs):
+            """Clones the query and returns the clone."""
             obj = super(ExtendedManager.CustomQuery, self).clone(klass)
             obj._custom_joins = list(self._custom_joins)
             return obj
 
 
         def combine(self, rhs, connector):
+            """Combines query with another query."""
             super(ExtendedManager.CustomQuery, self).combine(rhs, connector)
             if hasattr(rhs, '_custom_joins'):
                 self._custom_joins.extend(rhs._custom_joins)
@@ -58,6 +61,7 @@ class ExtendedManager(dbmodels.Manager):
 
         def add_custom_join(self, table, condition, join_type,
                             condition_values=(), alias=None):
+            """Adds a custom join to the query."""
             if alias is None:
                 alias = table
             join_dict = dict(table=table,
@@ -93,10 +97,12 @@ class ExtendedManager(dbmodels.Manager):
 
 
         def as_sql(self, qn=None, connection=None):
+            """Converts the clause to SQL and returns it."""
             return self._clause, self._values
 
 
         def relabel_aliases(self, change_map):
+            """Does nothing."""
             return
 
 
@@ -263,6 +269,7 @@ class ExtendedManager(dbmodels.Manager):
 
 
     def add_where(self, query_set, where, values=()):
+        """Adds a where clause to the query_set."""
         query_set = query_set.all()
         query_set.query.where.add(self._WhereClause(where, values),
                                   django.db.models.sql.where.AND)
@@ -281,6 +288,7 @@ class ExtendedManager(dbmodels.Manager):
 
 
     def escape_user_sql(self, sql):
+        """Escapes % in sql."""
         return sql.replace('%', '%%')
 
 
@@ -408,8 +416,9 @@ class ExtendedManager(dbmodels.Manager):
         """ % dict(from_field=pivot_from_field,
                    to_field=pivot_to_field,
                    table=pivot_table,
-                   id_list=','.join(str(id_) for id_
-                                    in base_objects_by_id.iterkeys()))
+                   id_list=','.join(
+                           str(id_)
+                           for id_ in six.iterkeys(base_objects_by_id)))
 
         # Chose the connection that's responsible for this type of object
         # The databases for related_model and the current model will always
@@ -459,7 +468,7 @@ class ExtendedManager(dbmodels.Manager):
         # The default maximum value of a host parameter number in SQLite is 999.
         # Exceed this will get a DatabaseError later.
         batch_size = 900
-        for i in xrange(0, len(base_objects), batch_size):
+        for i in range(0, len(base_objects), batch_size):
             base_objects_batch = base_objects[i:i + batch_size]
             base_objects_by_id = dict((base_object._get_pk_val(), base_object)
                                       for base_object in base_objects_batch)
@@ -478,6 +487,7 @@ class ModelWithInvalidQuerySet(dbmodels.query.QuerySet):
     QuerySet that handles delete() properly for models with an "invalid" bit
     """
     def delete(self):
+        """Deletes the QuerySet."""
         for model in self:
             model.delete()
 
@@ -600,7 +610,7 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
         cls = type(self)
         field_dict = self.get_field_dict()
         manager = cls.get_valid_manager()
-        for field_name, field_obj in field_dict.iteritems():
+        for field_name, field_obj in six.iteritems(field_dict):
             if not field_obj.unique:
                 continue
 
@@ -637,7 +647,7 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
             try:
                 python_value = f.to_python(
                     getattr(self, f.attname, f.get_default()))
-            except django.core.exceptions.ValidationError, e:
+            except django.core.exceptions.ValidationError as e:
                 error_dict[f.name] = str(e)
                 continue
 
@@ -651,9 +661,10 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
 
 
     def do_validate(self):
+        """Validate fields."""
         errors = self._validate()
         unique_errors = self._validate_unique()
-        for field_name, error in unique_errors.iteritems():
+        for field_name, error in six.iteritems(unique_errors):
             errors.setdefault(field_name, error)
         if errors:
             raise ValidationError(errors)
@@ -690,7 +701,7 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
         data.update(kwargs)
         data = self.prepare_data_args(data)
         self.convert_human_readable_values(data)
-        for field_name, value in data.iteritems():
+        for field_name, value in six.iteritems(data):
             setattr(self, field_name, value)
         self.do_validate()
         self.save()
@@ -836,9 +847,10 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
         else:
             manager = cls.objects
 
-        if isinstance(id_or_name, (int, long)):
+        if isinstance(id_or_name, six.integer_types):
             return manager.get(pk=id_or_name)
-        if isinstance(id_or_name, basestring) and hasattr(cls, 'name_field'):
+        if isinstance(id_or_name, six.string_types) and hasattr(
+                cls, 'name_field'):
             return manager.get(**{cls.name_field : id_or_name})
         raise ValueError(
             'Invalid positional argument: %s (%s)' % (id_or_name,
@@ -847,6 +859,7 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
 
     @classmethod
     def smart_get_bulk(cls, id_or_name_list):
+        """Like smart_get, but for a list of ids or names"""
         invalid_inputs = []
         result_objects = []
         for id_or_name in id_or_name_list:
@@ -891,7 +904,7 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
         """
         See on_attribute_changed.
         """
-        assert not isinstance(attributes, basestring)
+        assert not isinstance(attributes, six.string_types)
         self._recorded_attributes = dict((attribute, getattr(self, attribute))
                                          for attribute in attributes)
 
@@ -900,7 +913,8 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
         """
         See on_attribute_changed.
         """
-        for attribute, original_value in self._recorded_attributes.iteritems():
+        for attribute, original_value in six.iteritems(
+                self._recorded_attributes):
             new_value = getattr(self, attribute)
             if original_value != new_value:
                 self.on_attribute_changed(attribute, original_value)
@@ -985,7 +999,7 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
                  fields/objects.
         """
         links_to_local_values, links_to_related_values = [], []
-        for link, value in data.iteritems():
+        for link, value in six.iteritems(data):
             if link in cls.SERIALIZATION_LINKS_TO_FOLLOW:
                 # It's a foreign key
                 links_to_related_values.append((link, value))
@@ -1123,7 +1137,7 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
         return instance
 
 
-    def sanity_check_update_from_shard(self, shard, updated_serialized,
+    def _check_update_from_shard(self, shard, updated_serialized,
                                        *args, **kwargs):
         """Check if an update sent from a shard is legitimate.
 
@@ -1131,7 +1145,7 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
                 legitimate.
         """
         raise NotImplementedError(
-            'sanity_check_update_from_shard must be implemented by subclass %s '
+            '_check_update_from_shard must be implemented by subclass %s '
             'for type %s' % type(self))
 
 
@@ -1239,6 +1253,7 @@ class ModelWithInvalid(ModelExtensions):
     """
 
     def save(self, *args, **kwargs):
+        """Saves the model"""
         first_time = (self.id is None)
         if first_time:
             # see if this object was previously added and invalidated
@@ -1274,6 +1289,7 @@ class ModelWithInvalid(ModelExtensions):
 
 
     def delete(self):
+        """Deletes the model"""
         self.invalid = self.invalid
         assert not self.invalid
         self.invalid = True
@@ -1337,6 +1353,7 @@ class ModelWithAttributes(object):
 
 
     def delete_attribute(self, attribute):
+        """Deletes an attribute"""
         if self._is_replaced_by_static_attribute(attribute):
             raise error.UnmodifiableAttributeException(
                     'Failed to delete attribute "%s" for host "%s" since it '
@@ -1362,6 +1379,7 @@ class ModelWithHashManager(dbmodels.Manager):
     """Manager for use with the ModelWithHash abstract model class"""
 
     def create(self, **kwargs):
+        """Always raises exception."""
         raise Exception('ModelWithHash manager should use get_or_create() '
                         'instead of create()')
 
@@ -1379,6 +1397,7 @@ class ModelWithHash(dbmodels.Model):
     objects = ModelWithHashManager()
 
     class Meta:
+        """Overrides dbmodels.Model.Meta."""
         abstract = True
 
 

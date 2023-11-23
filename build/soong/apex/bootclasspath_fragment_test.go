@@ -71,10 +71,6 @@ func TestBootclasspathFragments(t *testing.T) {
 			name: "com.android.art",
 			key: "com.android.art.key",
 			bootclasspath_fragments: ["art-bootclasspath-fragment"],
- 			java_libs: [
-				"baz",
-				"quuz",
-			],
 			updatable: false,
 		}
 
@@ -110,26 +106,16 @@ func TestBootclasspathFragments(t *testing.T) {
 			apex_available: [
 				"com.android.art",
 			],
+			hidden_api: {
+				split_packages: ["*"],
+			},
 		}
 `,
 	)
 
 	// Make sure that the art-bootclasspath-fragment is using the correct configuration.
 	checkBootclasspathFragment(t, result, "art-bootclasspath-fragment", "android_common_apex10000",
-		"com.android.art:baz,com.android.art:quuz", `
-test_device/dex_artjars/android/apex/art_boot_images/javalib/arm/boot.art
-test_device/dex_artjars/android/apex/art_boot_images/javalib/arm/boot.oat
-test_device/dex_artjars/android/apex/art_boot_images/javalib/arm/boot.vdex
-test_device/dex_artjars/android/apex/art_boot_images/javalib/arm/boot-quuz.art
-test_device/dex_artjars/android/apex/art_boot_images/javalib/arm/boot-quuz.oat
-test_device/dex_artjars/android/apex/art_boot_images/javalib/arm/boot-quuz.vdex
-test_device/dex_artjars/android/apex/art_boot_images/javalib/arm64/boot.art
-test_device/dex_artjars/android/apex/art_boot_images/javalib/arm64/boot.oat
-test_device/dex_artjars/android/apex/art_boot_images/javalib/arm64/boot.vdex
-test_device/dex_artjars/android/apex/art_boot_images/javalib/arm64/boot-quuz.art
-test_device/dex_artjars/android/apex/art_boot_images/javalib/arm64/boot-quuz.oat
-test_device/dex_artjars/android/apex/art_boot_images/javalib/arm64/boot-quuz.vdex
-`)
+		"com.android.art:baz,com.android.art:quuz")
 }
 
 func TestBootclasspathFragments_FragmentDependency(t *testing.T) {
@@ -209,6 +195,9 @@ func TestBootclasspathFragments_FragmentDependency(t *testing.T) {
 			apex_available: [
 				"com.android.art",
 			],
+			hidden_api: {
+				split_packages: ["*"],
+			},
 		}
 
 		bootclasspath_fragment {
@@ -220,6 +209,9 @@ func TestBootclasspathFragments_FragmentDependency(t *testing.T) {
 							module: "art-bootclasspath-fragment",
 					},
 			],
+			hidden_api: {
+				split_packages: ["*"],
+			},
 		}
 `,
 	)
@@ -256,7 +248,7 @@ func TestBootclasspathFragments_FragmentDependency(t *testing.T) {
 	checkAPIScopeStubs("other", otherInfo, java.CorePlatformHiddenAPIScope)
 }
 
-func checkBootclasspathFragment(t *testing.T, result *android.TestResult, moduleName, variantName string, expectedConfiguredModules string, expectedBootclasspathFragmentFiles string) {
+func checkBootclasspathFragment(t *testing.T, result *android.TestResult, moduleName, variantName string, expectedConfiguredModules string) {
 	t.Helper()
 
 	bootclasspathFragment := result.ModuleForTests(moduleName, variantName).Module().(*java.BootclasspathFragmentModule)
@@ -264,19 +256,6 @@ func checkBootclasspathFragment(t *testing.T, result *android.TestResult, module
 	bootclasspathFragmentInfo := result.ModuleProvider(bootclasspathFragment, java.BootclasspathFragmentApexContentInfoProvider).(java.BootclasspathFragmentApexContentInfo)
 	modules := bootclasspathFragmentInfo.Modules()
 	android.AssertStringEquals(t, "invalid modules for "+moduleName, expectedConfiguredModules, modules.String())
-
-	// Get a list of all the paths in the boot image sorted by arch type.
-	allPaths := []string{}
-	bootImageFilesByArchType := bootclasspathFragmentInfo.AndroidBootImageFilesByArchType()
-	for _, archType := range android.ArchTypeList() {
-		if paths, ok := bootImageFilesByArchType[archType]; ok {
-			for _, path := range paths {
-				allPaths = append(allPaths, android.NormalizePathForTesting(path))
-			}
-		}
-	}
-
-	android.AssertTrimmedStringEquals(t, "invalid paths for "+moduleName, expectedBootclasspathFragmentFiles, strings.Join(allPaths, "\n"))
 }
 
 func TestBootclasspathFragmentInArtApex(t *testing.T) {
@@ -292,11 +271,7 @@ func TestBootclasspathFragmentInArtApex(t *testing.T) {
 				"mybootclasspathfragment",
 			],
 			// bar (like foo) should be transitively included in this apex because it is part of the
-			// mybootclasspathfragment bootclasspath_fragment. However, it is kept here to ensure that the
-			// apex dedups the files correctly.
-			java_libs: [
-				"bar",
-			],
+			// mybootclasspathfragment bootclasspath_fragment.
 			updatable: false,
 		}
 
@@ -361,6 +336,9 @@ func TestBootclasspathFragmentInArtApex(t *testing.T) {
 				apex_available: [
 					"com.android.art",
 				],
+				hidden_api: {
+					split_packages: ["*"],
+				},
 			}
 		`, contentsInsert(contents))
 
@@ -416,42 +394,13 @@ func TestBootclasspathFragmentInArtApex(t *testing.T) {
 		ensureExactContents(t, result.TestContext, "com.android.art", "android_common_com.android.art_image", []string{
 			"etc/boot-image.prof",
 			"etc/classpaths/bootclasspath.pb",
-			"javalib/arm/boot.art",
-			"javalib/arm/boot.oat",
-			"javalib/arm/boot.vdex",
-			"javalib/arm/boot-bar.art",
-			"javalib/arm/boot-bar.oat",
-			"javalib/arm/boot-bar.vdex",
-			"javalib/arm64/boot.art",
-			"javalib/arm64/boot.oat",
-			"javalib/arm64/boot.vdex",
-			"javalib/arm64/boot-bar.art",
-			"javalib/arm64/boot-bar.oat",
-			"javalib/arm64/boot-bar.vdex",
 			"javalib/bar.jar",
 			"javalib/foo.jar",
 		})
 
 		java.CheckModuleDependencies(t, result.TestContext, "com.android.art", "android_common_com.android.art_image", []string{
-			`bar`,
 			`com.android.art.key`,
 			`mybootclasspathfragment`,
-		})
-
-		// The boot images are installed in the APEX by Soong, so there shouldn't be any dexpreopt-related Make modules.
-		ensureDoesNotContainRequiredDeps(t, result.TestContext, "com.android.art", "android_common_com.android.art_image", []string{
-			"mybootclasspathfragment-dexpreopt-arm64-boot.art",
-			"mybootclasspathfragment-dexpreopt-arm64-boot.oat",
-			"mybootclasspathfragment-dexpreopt-arm64-boot.vdex",
-			"mybootclasspathfragment-dexpreopt-arm64-boot-bar.art",
-			"mybootclasspathfragment-dexpreopt-arm64-boot-bar.oat",
-			"mybootclasspathfragment-dexpreopt-arm64-boot-bar.vdex",
-			"mybootclasspathfragment-dexpreopt-arm-boot.art",
-			"mybootclasspathfragment-dexpreopt-arm-boot.oat",
-			"mybootclasspathfragment-dexpreopt-arm-boot.vdex",
-			"mybootclasspathfragment-dexpreopt-arm-boot-bar.art",
-			"mybootclasspathfragment-dexpreopt-arm-boot-bar.oat",
-			"mybootclasspathfragment-dexpreopt-arm-boot-bar.vdex",
 		})
 
 		// Make sure that the source bootclasspath_fragment copies its dex files to the predefined
@@ -460,7 +409,7 @@ func TestBootclasspathFragmentInArtApex(t *testing.T) {
 		checkCopiesToPredefinedLocationForArt(t, result.Config, module, "bar", "foo")
 	})
 
-	t.Run("boot image files from source no boot image in apex", func(t *testing.T) {
+	t.Run("generate boot image profile even if dexpreopt is disabled", func(t *testing.T) {
 		result := android.GroupFixturePreparers(
 			commonPreparer,
 
@@ -469,6 +418,7 @@ func TestBootclasspathFragmentInArtApex(t *testing.T) {
 			java.FixtureConfigureBootJars("com.android.art:foo", "com.android.art:bar"),
 			addSource("foo", "bar"),
 			java.FixtureSetBootImageInstallDirOnDevice("art", "system/framework"),
+			dexpreopt.FixtureDisableDexpreoptBootImages(true),
 		).RunTest(t)
 
 		ensureExactContents(t, result.TestContext, "com.android.art", "android_common_com.android.art_image", []string{
@@ -476,21 +426,6 @@ func TestBootclasspathFragmentInArtApex(t *testing.T) {
 			"etc/classpaths/bootclasspath.pb",
 			"javalib/bar.jar",
 			"javalib/foo.jar",
-		})
-
-		ensureContainsRequiredDeps(t, result.TestContext, "com.android.art", "android_common_com.android.art_image", []string{
-			"mybootclasspathfragment-dexpreopt-arm64-boot.art",
-			"mybootclasspathfragment-dexpreopt-arm64-boot.oat",
-			"mybootclasspathfragment-dexpreopt-arm64-boot.vdex",
-			"mybootclasspathfragment-dexpreopt-arm64-boot-bar.art",
-			"mybootclasspathfragment-dexpreopt-arm64-boot-bar.oat",
-			"mybootclasspathfragment-dexpreopt-arm64-boot-bar.vdex",
-			"mybootclasspathfragment-dexpreopt-arm-boot.art",
-			"mybootclasspathfragment-dexpreopt-arm-boot.oat",
-			"mybootclasspathfragment-dexpreopt-arm-boot.vdex",
-			"mybootclasspathfragment-dexpreopt-arm-boot-bar.art",
-			"mybootclasspathfragment-dexpreopt-arm-boot-bar.oat",
-			"mybootclasspathfragment-dexpreopt-arm-boot-bar.vdex",
 		})
 	})
 
@@ -527,90 +462,22 @@ func TestBootclasspathFragmentInArtApex(t *testing.T) {
 			java.FixtureSetBootImageInstallDirOnDevice("art", "apex/com.android.art/javalib"),
 		).RunTest(t)
 
-		ensureExactContents(t, result.TestContext, "com.android.art", "android_common_com.android.art_image", []string{
+		ensureExactDeapexedContents(t, result.TestContext, "com.android.art", "android_common", []string{
 			"etc/boot-image.prof",
-			"etc/classpaths/bootclasspath.pb",
-			"javalib/arm/boot.art",
-			"javalib/arm/boot.oat",
-			"javalib/arm/boot.vdex",
-			"javalib/arm/boot-bar.art",
-			"javalib/arm/boot-bar.oat",
-			"javalib/arm/boot-bar.vdex",
-			"javalib/arm64/boot.art",
-			"javalib/arm64/boot.oat",
-			"javalib/arm64/boot.vdex",
-			"javalib/arm64/boot-bar.art",
-			"javalib/arm64/boot-bar.oat",
-			"javalib/arm64/boot-bar.vdex",
 			"javalib/bar.jar",
 			"javalib/foo.jar",
 		})
 
 		java.CheckModuleDependencies(t, result.TestContext, "com.android.art", "android_common_com.android.art_image", []string{
-			`bar`,
 			`com.android.art.key`,
 			`mybootclasspathfragment`,
 			`prebuilt_com.android.art`,
-		})
-
-		// The boot images are installed in the APEX by Soong, so there shouldn't be any dexpreopt-related Make modules.
-		ensureDoesNotContainRequiredDeps(t, result.TestContext, "com.android.art", "android_common_com.android.art_image", []string{
-			"mybootclasspathfragment-dexpreopt-arm64-boot.art",
-			"mybootclasspathfragment-dexpreopt-arm64-boot.oat",
-			"mybootclasspathfragment-dexpreopt-arm64-boot.vdex",
-			"mybootclasspathfragment-dexpreopt-arm64-boot-bar.art",
-			"mybootclasspathfragment-dexpreopt-arm64-boot-bar.oat",
-			"mybootclasspathfragment-dexpreopt-arm64-boot-bar.vdex",
-			"mybootclasspathfragment-dexpreopt-arm-boot.art",
-			"mybootclasspathfragment-dexpreopt-arm-boot.oat",
-			"mybootclasspathfragment-dexpreopt-arm-boot.vdex",
-			"mybootclasspathfragment-dexpreopt-arm-boot-bar.art",
-			"mybootclasspathfragment-dexpreopt-arm-boot-bar.oat",
-			"mybootclasspathfragment-dexpreopt-arm-boot-bar.vdex",
 		})
 
 		// Make sure that the prebuilt bootclasspath_fragment copies its dex files to the predefined
 		// locations for the art image.
 		module := result.ModuleForTests("prebuilt_mybootclasspathfragment", "android_common_com.android.art")
 		checkCopiesToPredefinedLocationForArt(t, result.Config, module, "bar", "foo")
-	})
-
-	t.Run("boot image files from preferred prebuilt no boot image in apex", func(t *testing.T) {
-		result := android.GroupFixturePreparers(
-			commonPreparer,
-
-			// Configure some libraries in the art bootclasspath_fragment that match the source
-			// bootclasspath_fragment's contents property.
-			java.FixtureConfigureBootJars("com.android.art:foo", "com.android.art:bar"),
-			addSource("foo", "bar"),
-
-			// Make sure that a preferred prebuilt with consistent contents doesn't affect the apex.
-			addPrebuilt(true, "foo", "bar"),
-
-			java.FixtureSetBootImageInstallDirOnDevice("art", "system/framework"),
-		).RunTest(t)
-
-		ensureExactContents(t, result.TestContext, "com.android.art", "android_common_com.android.art_image", []string{
-			"etc/boot-image.prof",
-			"etc/classpaths/bootclasspath.pb",
-			"javalib/bar.jar",
-			"javalib/foo.jar",
-		})
-
-		ensureContainsRequiredDeps(t, result.TestContext, "com.android.art", "android_common_com.android.art_image", []string{
-			"mybootclasspathfragment-dexpreopt-arm64-boot.art",
-			"mybootclasspathfragment-dexpreopt-arm64-boot.oat",
-			"mybootclasspathfragment-dexpreopt-arm64-boot.vdex",
-			"mybootclasspathfragment-dexpreopt-arm64-boot-bar.art",
-			"mybootclasspathfragment-dexpreopt-arm64-boot-bar.oat",
-			"mybootclasspathfragment-dexpreopt-arm64-boot-bar.vdex",
-			"mybootclasspathfragment-dexpreopt-arm-boot.art",
-			"mybootclasspathfragment-dexpreopt-arm-boot.oat",
-			"mybootclasspathfragment-dexpreopt-arm-boot.vdex",
-			"mybootclasspathfragment-dexpreopt-arm-boot-bar.art",
-			"mybootclasspathfragment-dexpreopt-arm-boot-bar.oat",
-			"mybootclasspathfragment-dexpreopt-arm-boot-bar.vdex",
-		})
 	})
 
 	t.Run("source with inconsistency between config and contents", func(t *testing.T) {
@@ -762,10 +629,6 @@ func TestBootclasspathFragmentInPrebuiltArtApex(t *testing.T) {
 
 		module := result.ModuleForTests("mybootclasspathfragment", "android_common_com.android.art")
 		checkCopiesToPredefinedLocationForArt(t, result.Config, module, "bar", "foo")
-
-		// Check that the right deapexer module was chosen for a boot image.
-		param := module.Output("out/soong/test_device/dex_artjars/android/apex/art_boot_images/javalib/arm64/boot.art")
-		android.AssertStringDoesContain(t, "didn't find the expected deapexer in the input path", param.Input.String(), "/com.android.art.deapexer")
 	})
 
 	t.Run("enabled alternative APEX", func(t *testing.T) {
@@ -782,7 +645,7 @@ func checkCopiesToPredefinedLocationForArt(t *testing.T, config android.Config, 
 	bootJarLocations := []string{}
 	for _, output := range module.AllOutputs() {
 		output = android.StringRelativeToTop(config, output)
-		if strings.HasPrefix(output, "out/soong/test_device/dex_artjars_input/") {
+		if strings.HasPrefix(output, "out/soong/dexpreopt_arm64/dex_artjars_input/") {
 			bootJarLocations = append(bootJarLocations, output)
 		}
 	}
@@ -790,7 +653,7 @@ func checkCopiesToPredefinedLocationForArt(t *testing.T, config android.Config, 
 	sort.Strings(bootJarLocations)
 	expected := []string{}
 	for _, m := range modules {
-		expected = append(expected, fmt.Sprintf("out/soong/test_device/dex_artjars_input/%s.jar", m))
+		expected = append(expected, fmt.Sprintf("out/soong/dexpreopt_arm64/dex_artjars_input/%s.jar", m))
 	}
 	sort.Strings(expected)
 
@@ -853,6 +716,9 @@ func TestBootclasspathFragmentContentsNoName(t *testing.T) {
 			apex_available: [
 				"myapex",
 			],
+			hidden_api: {
+				split_packages: ["*"],
+			},
 		}
 	`)
 
@@ -959,6 +825,9 @@ func TestBootclasspathFragment_HiddenAPIList(t *testing.T) {
 			apex_available: [
 				"com.android.art",
 			],
+			hidden_api: {
+				split_packages: ["*"],
+			},
 		}
 
 		apex {
@@ -1010,6 +879,9 @@ func TestBootclasspathFragment_HiddenAPIList(t *testing.T) {
 					module: "art-bootclasspath-fragment",
 				},
 			],
+			hidden_api: {
+				split_packages: ["*"],
+			},
 		}
 	`)
 
@@ -1084,10 +956,6 @@ func TestBootclasspathFragment_AndroidNonUpdatable(t *testing.T) {
 			name: "com.android.art",
 			key: "com.android.art.key",
 			bootclasspath_fragments: ["art-bootclasspath-fragment"],
- 			java_libs: [
-				"baz",
-				"quuz",
-			],
 			updatable: false,
 		}
 
@@ -1123,6 +991,9 @@ func TestBootclasspathFragment_AndroidNonUpdatable(t *testing.T) {
 			apex_available: [
 				"com.android.art",
 			],
+			hidden_api: {
+				split_packages: ["*"],
+			},
 		}
 
 		apex {
@@ -1175,6 +1046,9 @@ func TestBootclasspathFragment_AndroidNonUpdatable(t *testing.T) {
 					module: "art-bootclasspath-fragment",
 				},
 			],
+			hidden_api: {
+				split_packages: ["*"],
+			},
 		}
 	`)
 
@@ -1219,7 +1093,7 @@ func TestBootclasspathFragment_AndroidNonUpdatable(t *testing.T) {
 func TestBootclasspathFragment_AndroidNonUpdatable_AlwaysUsePrebuiltSdks(t *testing.T) {
 	result := android.GroupFixturePreparers(
 		prepareForTestWithBootclasspathFragment,
-		java.PrepareForTestWithJavaDefaultModules,
+		java.PrepareForTestWithDexpreopt,
 		prepareForTestWithArtApex,
 		prepareForTestWithMyapex,
 		// Configure bootclasspath jars to ensure that hidden API encoding is performed on them.
@@ -1243,10 +1117,6 @@ func TestBootclasspathFragment_AndroidNonUpdatable_AlwaysUsePrebuiltSdks(t *test
 			name: "com.android.art",
 			key: "com.android.art.key",
 			bootclasspath_fragments: ["art-bootclasspath-fragment"],
- 			java_libs: [
-				"baz",
-				"quuz",
-			],
 			updatable: false,
 		}
 
@@ -1282,6 +1152,9 @@ func TestBootclasspathFragment_AndroidNonUpdatable_AlwaysUsePrebuiltSdks(t *test
 			apex_available: [
 				"com.android.art",
 			],
+			hidden_api: {
+				split_packages: ["*"],
+			},
 		}
 
 		apex {
@@ -1334,6 +1207,9 @@ func TestBootclasspathFragment_AndroidNonUpdatable_AlwaysUsePrebuiltSdks(t *test
 					module: "art-bootclasspath-fragment",
 				},
 			],
+			hidden_api: {
+				split_packages: ["*"],
+			},
 		}
 	`)
 

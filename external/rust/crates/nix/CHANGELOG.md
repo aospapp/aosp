@@ -3,9 +3,276 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.26.2] - 2023-01-18
+### Fixed
+- Fix `SockaddrIn6` bug that was swapping flowinfo and scope_id byte ordering.
+  ([#1964](https://github.com/nix-rust/nix/pull/1964))
+
+## [0.26.1] - 2022-11-29
+### Fixed
+- Fix UB with `sys::socket::sockopt::SockType` using `SOCK_PACKET`.
+  ([#1821](https://github.com/nix-rust/nix/pull/1821))
+
+## [0.26.0] - 2022-11-29
+### Added
+
+- Added `SockaddrStorage::{as_unix_addr, as_unix_addr_mut}`
+  ([#1871](https://github.com/nix-rust/nix/pull/1871))
+- Added `MntFlags` and `unmount` on all of the BSDs.
+- Added `any()` and `all()` to `poll::PollFd`.
+  ([#1877](https://github.com/nix-rust/nix/pull/1877))
+- Add `MntFlags` and `unmount` on all of the BSDs.
+  ([#1849](https://github.com/nix-rust/nix/pull/1849))
+- Added a `Statfs::flags` method.
+  ([#1849](https://github.com/nix-rust/nix/pull/1849))
+- Added `NSFS_MAGIC` FsType on Linux and Android.
+  ([#1829](https://github.com/nix-rust/nix/pull/1829))
+- Added `sched_getcpu` on platforms that support it.
+  ([#1825](https://github.com/nix-rust/nix/pull/1825))
+- Added `sched_getaffinity` and `sched_setaffinity` on FreeBSD.
+  ([#1804](https://github.com/nix-rust/nix/pull/1804))
+- Added `line_discipline` field to `Termios` on Linux, Android and Haiku
+  ([#1805](https://github.com/nix-rust/nix/pull/1805))
+- Expose the memfd module on FreeBSD (memfd was added in FreeBSD 13)
+  ([#1808](https://github.com/nix-rust/nix/pull/1808))
+- Added `domainname` field of `UtsName` on Android and Linux
+  ([#1817](https://github.com/nix-rust/nix/pull/1817))
+- Re-export `RLIM_INFINITY` from `libc`
+  ([#1831](https://github.com/nix-rust/nix/pull/1831))
+- Added `syncfs(2)` on Linux
+  ([#1833](https://github.com/nix-rust/nix/pull/1833))
+- Added `faccessat(2)` on illumos
+  ([#1841](https://github.com/nix-rust/nix/pull/1841))
+- Added `eaccess()` on FreeBSD, DragonFly and Linux (glibc and musl).
+  ([#1842](https://github.com/nix-rust/nix/pull/1842))
+- Added `IP_TOS` `SO_PRIORITY` and `IPV6_TCLASS` sockopts for Linux
+  ([#1853](https://github.com/nix-rust/nix/pull/1853))
+- Added `new_unnamed` and `is_unnamed` for `UnixAddr` on Linux and Android.
+  ([#1857](https://github.com/nix-rust/nix/pull/1857))
+- Added `SockProtocol::Raw` for raw sockets
+  ([#1848](https://github.com/nix-rust/nix/pull/1848))
+- added `IP_MTU` (`IpMtu`) `IPPROTO_IP` sockopt on Linux and Android.
+  ([#1865](https://github.com/nix-rust/nix/pull/1865))
+
+### Changed
+
+- The MSRV is now 1.56.1
+  ([#1792](https://github.com/nix-rust/nix/pull/1792))
+- The `addr` argument of `sys::mman::mmap` is now of type `Option<NonZeroUsize>`.
+  ([#1870](https://github.com/nix-rust/nix/pull/1870))
+- The `length` argument of `sys::mman::mmap` is now of type `NonZeroUsize`.
+  ([#1873](https://github.com/nix-rust/nix/pull/1873))
+
+### Fixed
+
+- Fixed using `SockaddrStorage` to store a Unix-domain socket address on Linux.
+  ([#1871](https://github.com/nix-rust/nix/pull/1871))
+- Fix microsecond calculation for `TimeSpec`.
+  ([#1801](https://github.com/nix-rust/nix/pull/1801))
+- Fix `User::from_name` and `Group::from_name` panicking
+  when given a name containing a nul.
+  ([#1815](https://github.com/nix-rust/nix/pull/1815))
+- Fix `User::from_uid` and `User::from_name` crash on Android platform.
+  ([#1824](https://github.com/nix-rust/nix/pull/1824))
+- Workaround XNU bug causing netmasks returned by `getifaddrs` to misbehave.
+  ([#1788](https://github.com/nix-rust/nix/pull/1788))
+  
+### Removed
+
+- Removed deprecated error constants and conversions.
+  ([#1860](https://github.com/nix-rust/nix/pull/1860))
+
+## [0.25.0] - 2022-08-13
+### Added
+
+- Added `faccessat`
+  ([#1780](https://github.com/nix-rust/nix/pull/1780))
+- Added `memfd` on Android.
+  (#[1773](https://github.com/nix-rust/nix/pull/1773))
+- Added `ETH_P_ALL` to `SockProtocol` enum
+  (#[1768](https://github.com/nix-rust/nix/pull/1768))
+- Added four non-standard Linux `SysconfVar` variants
+  (#[1761](https://github.com/nix-rust/nix/pull/1761))
+- Added const constructors for `TimeSpec` and `TimeVal`
+  (#[1760](https://github.com/nix-rust/nix/pull/1760))
+- Added `chflags`.
+  (#[1758](https://github.com/nix-rust/nix/pull/1758))
+- Added `aio_writev` and `aio_readv`.
+  (#[1713](https://github.com/nix-rust/nix/pull/1713))
+- impl `From<uid_t>` for `Uid` and `From<gid_t>` for `Gid`
+  (#[1727](https://github.com/nix-rust/nix/pull/1727))
+- impl `From<SockaddrIn>` for `std::net::SocketAddrV4` and
+  impl `From<SockaddrIn6>` for `std::net::SocketAddrV6`.
+  (#[1711](https://github.com/nix-rust/nix/pull/1711))
+- Added support for the `x86_64-unknown-haiku` target.
+  (#[1703](https://github.com/nix-rust/nix/pull/1703))
+- Added `ptrace::read_user` and `ptrace::write_user` for Linux.
+  (#[1697](https://github.com/nix-rust/nix/pull/1697))
+- Added `getrusage` and helper types `UsageWho` and `Usage`
+  (#[1747](https://github.com/nix-rust/nix/pull/1747))
+- Added the `DontRoute` SockOpt
+  (#[1752](https://github.com/nix-rust/nix/pull/1752))
+- Added `signal::SigSet::from_sigset_t_unchecked()`.
+  (#[1741](https://github.com/nix-rust/nix/pull/1741))
+- Added the `Ipv4OrigDstAddr` sockopt and control message.
+  (#[1772](https://github.com/nix-rust/nix/pull/1772))
+- Added the `Ipv6OrigDstAddr` sockopt and control message.
+  (#[1772](https://github.com/nix-rust/nix/pull/1772))
+- Added the `Ipv4SendSrcAddr` control message.
+  (#[1776](https://github.com/nix-rust/nix/pull/1776))
+
+### Changed
+
+- Reimplemented sendmmsg/recvmmsg to avoid allocations and with better API
+  (#[1744](https://github.com/nix-rust/nix/pull/1744))
+
+- Rewrote the aio module.  The new module:
+  * Does more type checking at compile time rather than runtime.
+  * Gives the caller control over whether and when to `Box` an aio operation.
+  * Changes the type of the `priority` arguments to `i32`.
+  * Changes the return type of `aio_return` to `usize`.
+  (#[1713](https://github.com/nix-rust/nix/pull/1713))
+- `nix::poll::ppoll`: `sigmask` parameter is now optional.
+  (#[1739](https://github.com/nix-rust/nix/pull/1739))
+- Changed `gethostname` to return an owned `OsString`.
+  (#[1745](https://github.com/nix-rust/nix/pull/1745))
+- `signal:SigSet` is now marked as `repr(transparent)`.
+  (#[1741](https://github.com/nix-rust/nix/pull/1741))
+
+### Removed
+
+- Removed support for resubmitting partially complete `lio_listio` operations.
+  It was too complicated, and didn't fit Nix's theme of zero-cost abstractions.
+  Instead, it can be reimplemented downstream.
+  (#[1713](https://github.com/nix-rust/nix/pull/1713))
+
+## [0.24.2] - 2022-07-17
+### Fixed
+
+- Fixed buffer overflow in `nix::sys::socket::recvfrom`.
+  (#[1763](https://github.com/nix-rust/nix/pull/1763))
+- Enabled `SockaddrStorage::{as_link_addr, as_link_addr_mut}` for Linux-like
+  operating systems.
+  (#[1729](https://github.com/nix-rust/nix/pull/1729))
+- Fixed `SockaddrLike::from_raw` implementations for `VsockAddr` and
+  `SysControlAddr`.
+  (#[1736](https://github.com/nix-rust/nix/pull/1736))
+
+## [0.24.1] - 2022-04-22
+### Fixed
+
+- Fixed `UnixAddr::size` on Linux-based OSes.
+  (#[1702](https://github.com/nix-rust/nix/pull/1702))
+
+## [0.24.0] - 2022-04-21
+### Added
+
+- Added fine-grained features flags.  Most Nix functionality can now be
+  conditionally enabled.  By default, all features are enabled.
+  (#[1611](https://github.com/nix-rust/nix/pull/1611))
+- Added statfs FS type magic constants for `target_os = "android"`
+  and synced constants with libc v0.2.121.
+  (#[1690](https://github.com/nix-rust/nix/pull/1690))
+- Added `fexecve` on DragonFly.
+  (#[1577](https://github.com/nix-rust/nix/pull/1577))
+- `sys::uio::IoVec` is now `Send` and `Sync`
+  (#[1582](https://github.com/nix-rust/nix/pull/1582))
+- Added `EPOLLEXCLUSIVE` on Android.
+  (#[1567](https://github.com/nix-rust/nix/pull/1567))
+- Added `fdatasync` for FreeBSD, Fuchsia, NetBSD, and OpenBSD.
+  (#[1581](https://github.com/nix-rust/nix/pull/1581))
+- Added `sched_setaffinity` and `sched_getaffinity` on DragonFly.
+  (#[1537](https://github.com/nix-rust/nix/pull/1537))
+- Added `posix_fallocate` on DragonFly.
+  (#[1621](https://github.com/nix-rust/nix/pull/1621))
+- Added `SO_TIMESTAMPING` support
+  (#[1547](https://github.com/nix-rust/nix/pull/1547))
+- Added getter methods to `MqAttr` struct
+  (#[1619](https://github.com/nix-rust/nix/pull/1619))
+- Added the `TxTime` sockopt and control message.
+  (#[1564](https://github.com/nix-rust/nix/pull/1564))
+- Added POSIX per-process timer support
+  (#[1622](https://github.com/nix-rust/nix/pull/1622))
+- Added `sendfile` on DragonFly.
+  (#[1615](https://github.com/nix-rust/nix/pull/1615))
+- Added `UMOUNT_NOFOLLOW`, `FUSE_SUPER_MAGIC` on Linux.
+  (#[1634](https://github.com/nix-rust/nix/pull/1634))
+- Added `getresuid`, `setresuid`, `getresgid`, and `setresgid` on DragonFly, FreeBSD, and OpenBSD.
+  (#[1628](https://github.com/nix-rust/nix/pull/1628))
+- Added `MAP_FIXED_NOREPLACE` on Linux.
+  (#[1636](https://github.com/nix-rust/nix/pull/1636))
+- Added `fspacectl` on FreeBSD
+  (#[1640](https://github.com/nix-rust/nix/pull/1640))
+- Added `accept4` on DragonFly, Emscripten, Fuchsia, Illumos, and NetBSD.
+  (#[1654](https://github.com/nix-rust/nix/pull/1654))
+- Added `AsRawFd` implementation on `OwningIter`.
+  (#[1563](https://github.com/nix-rust/nix/pull/1563))
+- Added `process_vm_readv` and `process_vm_writev` on Android.
+  (#[1557](https://github.com/nix-rust/nix/pull/1557))
+- Added `nix::uncontext` module on s390x.
+  (#[1662](https://github.com/nix-rust/nix/pull/1662))
+- Implemented `Extend`, `FromIterator`, and `IntoIterator` for `SigSet` and
+  added `SigSet::iter` and `SigSetIter`.
+  (#[1553](https://github.com/nix-rust/nix/pull/1553))
+- Added `ENOTRECOVERABLE` and `EOWNERDEAD` error codes on DragonFly.
+  (#[1665](https://github.com/nix-rust/nix/pull/1665))
+- Implemented `Read` and `Write` for `&PtyMaster`
+  (#[1664](https://github.com/nix-rust/nix/pull/1664))
+- Added `MSG_NOSIGNAL` for Android, Dragonfly, FreeBSD, Fuchsia, Haiku, Illumos, Linux, NetBSD, OpenBSD and Solaris.
+  (#[1670](https://github.com/nix-rust/nix/pull/1670))
+- Added `waitid`.
+  (#[1584](https://github.com/nix-rust/nix/pull/1584))
+- Added `Ipv6DontFrag` for android, iOS, linux and macOS.
+- Added `IpDontFrag` for iOS, macOS.
+  (#[1692](https://github.com/nix-rust/nix/pull/1692))
+
+### Changed
+
+- `mqueue` functions now operate on a distinct type, `nix::mqueue::MqdT`.
+  Accessors take this type by reference, not by value.
+  (#[1639](https://github.com/nix-rust/nix/pull/1639))
+- Removed `SigSet::extend` in favor of `<SigSet as Extend<Signal>>::extend`.
+  Because of this change, you now need `use std::iter::Extend` to call `extend`
+  on a `SigSet`.
+  (#[1553](https://github.com/nix-rust/nix/pull/1553))
+- Removed the the `PATH_MAX` restriction from APIs accepting paths. Paths
+  will now be allocated on the heap if they are too long. In addition, large
+  instruction count improvements (~30x) were made to path handling.
+  (#[1656](https://github.com/nix-rust/nix/pull/1656))
+- Changed `getrlimit` and `setrlimit` to use `rlim_t` directly
+  instead of `Option<rlim_t>`.
+  (#[1668](https://github.com/nix-rust/nix/pull/1668))
+- Deprecated `InetAddr` and `SockAddr` in favor of `SockaddrIn`, `SockaddrIn6`,
+  and `SockaddrStorage`.
+  (#[1684](https://github.com/nix-rust/nix/pull/1684))
+- Deprecated `IpAddr`, `Ipv4Addr`, and `Ipv6Addr` in favor of their equivalents
+  from the standard library.
+  (#[1685](https://github.com/nix-rust/nix/pull/1685))
+- `uname` now returns a `Result<UtsName>` instead of just a `UtsName` and
+  ignoring failures from libc.  And getters on the `UtsName` struct now return
+  an `&OsStr` instead of `&str`.
+  (#[1672](https://github.com/nix-rust/nix/pull/1672))
+- Replaced `IoVec` with `IoSlice` and `IoSliceMut`, and replaced `IoVec::from_slice` with
+  `IoSlice::new`. (#[1643](https://github.com/nix-rust/nix/pull/1643))
+
+### Fixed
+
+- `InetAddr::from_std` now sets the `sin_len`/`sin6_len` fields on the BSDs.
+  (#[1642](https://github.com/nix-rust/nix/pull/1642))
+- Fixed a panic in `LinkAddr::addr`.  That function now returns an `Option`.
+  (#[1675](https://github.com/nix-rust/nix/pull/1675))
+  (#[1677](https://github.com/nix-rust/nix/pull/1677))
+
+### Removed
+
+- Removed public access to the inner fields of `NetlinkAddr`, `AlgAddr`,
+  `SysControlAddr`, `LinkAddr`, and `VsockAddr`.
+  (#[1614](https://github.com/nix-rust/nix/pull/1614))
+- Removed `EventFlag::EV_SYSFLAG`.
+  (#[1635](https://github.com/nix-rust/nix/pull/1635))
+
 ## [0.23.1] - 2021-12-16
 
-### Added
 ### Changed
 
 - Relaxed the bitflags requirement from 1.3.1 to 1.1.  This partially reverts
@@ -19,8 +286,6 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   `FdSet::contains` involving file descriptors outside of the range
   `0..FD_SETSIZE`.
   (#[1575](https://github.com/nix-rust/nix/pull/1575))
-
-### Removed
 
 ## [0.23.0] - 2021-09-28
 ### Added
@@ -130,6 +395,30 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - Removed `SigevNotify` on OpenBSD and Redox.
   (#[1511](https://github.com/nix-rust/nix/pull/1511))
 
+## [0.22.3] - 22 January 2022
+### Changed
+- Relaxed the bitflags requirement from 1.3.1 to 1.1.  This partially reverts
+  #1492.  From now on, the MSRV is not guaranteed to work with all versions of
+  all dependencies, just with some version of all dependencies.
+  (#[1607](https://github.com/nix-rust/nix/pull/1607))
+
+## [0.22.2] - 28 September 2021
+### Fixed
+- Fixed buffer overflow in `unistd::getgrouplist`.
+  (#[1545](https://github.com/nix-rust/nix/pull/1545))
+- Added more errno definitions for better backwards compatibility with
+  Nix 0.21.0.
+  (#[1467](https://github.com/nix-rust/nix/pull/1467))
+
+## [0.22.1] - 13 August 2021
+### Fixed
+- Locked bitflags to < 1.3.0 to fix the build with rust < 1.46.0.
+
+### Removed
+- Removed a couple of termios constants on redox that were never actually
+  supported.
+  (#[1483](https://github.com/nix-rust/nix/pull/1483))
+
 ## [0.22.0] - 9 July 2021
 ### Added
 - Added `if_nameindex` (#[1445](https://github.com/nix-rust/nix/pull/1445))
@@ -155,8 +444,19 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   `nix::Error::EINVAL`.
   ([#1446](https://github.com/nix-rust/nix/pull/1446))
 
+## [0.21.2] - 29 September 2021
 ### Fixed
+- Fixed buffer overflow in `unistd::getgrouplist`.
+  (#[1545](https://github.com/nix-rust/nix/pull/1545))
+
+## [0.21.1] - 13 August 2021
+### Fixed
+- Locked bitflags to < 1.3.0 to fix the build with rust < 1.46.0.
+
 ### Removed
+- Removed a couple of termios constants on redox that were never actually
+  supported.
+  (#[1483](https://github.com/nix-rust/nix/pull/1483))
 
 ## [0.21.0] - 31 May 2021
 ### Added
@@ -211,6 +511,20 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   (#[1440](https://github.com/nix-rust/nix/pull/1440))
 - Removed some Errno values from platforms where they aren't actually defined.
   (#[1452](https://github.com/nix-rust/nix/pull/1452))
+
+## [0.20.2] - 28 September 2021
+### Fixed
+- Fixed buffer overflow in `unistd::getgrouplist`.
+  (#[1545](https://github.com/nix-rust/nix/pull/1545))
+
+## [0.20.1] - 13 August 2021
+### Fixed
+- Locked bitflags to < 1.3.0 to fix the build with rust < 1.46.0.
+
+### Removed
+- Removed a couple of termios constants on redox that were never actually
+  supported.
+  (#[1483](https://github.com/nix-rust/nix/pull/1483))
 
 ## [0.20.0] - 20 February 2021
 ### Added
@@ -275,8 +589,6 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   (#[1278](https://github.com/nix-rust/nix/pull/1278))
 - Made `unistd::fork` an unsafe funtion, bringing it in line with [libstd's decision](https://github.com/rust-lang/rust/pull/58059).
   (#[1293](https://github.com/nix-rust/nix/pull/1293))
-### Fixed
-### Removed
 
 ## [0.18.0] - 26 July 2020
 ### Added
@@ -389,21 +701,15 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - Add `CLK_TCK` to `SysconfVar`
   (#[1177](https://github.com/nix-rust/nix/pull/1177))
-### Changed
-### Fixed
 ### Removed
 - Removed deprecated Error::description from error types
   (#[1175](https://github.com/nix-rust/nix/pull/1175))
 
 ## [0.16.1] - 23 December 2019
-### Added
-### Changed
 ### Fixed
 
 - Fixed the build for OpenBSD
   (#[1168](https://github.com/nix-rust/nix/pull/1168))
-
-### Removed
 
 ## [0.16.0] - 1 December 2019
 ### Added
@@ -532,8 +838,6 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - Enabled `sched_yield` for all nix hosts.
   ([#1090](https://github.com/nix-rust/nix/pull/1090))
 
-### Removed
-
 ## [0.14.1] - 2019-06-06
 ### Added
 - Macros exported by `nix` may now be imported via `use` on the Rust 2018
@@ -557,8 +861,6 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - Fix the build on Android and Linux/mips with recent versions of libc.
   ([#1072](https://github.com/nix-rust/nix/pull/1072/commits))
-
-### Removed
 
 ## [0.14.0] - 2019-05-21
 ### Added
@@ -628,6 +930,23 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   should've been defined in the first place.
   ([#1055](https://github.com/nix-rust/nix/pull/1055))
 
+## [0.13.1] - 2019-06-10
+### Changed
+- Changed some public types from reexports of libc types like `uint32_t` to the
+  native equivalents like `u32.`
+  ([#1072](https://github.com/nix-rust/nix/pull/1072/commits))
+
+### Fixed
+- Fix the build on Android and Linux/mips with recent versions of libc.
+  ([#1072](https://github.com/nix-rust/nix/pull/1072/commits))
+- Fixed build on Linux/arm and Linux/s390x with the latest Rust libc
+  ([52102cb](https://github.com/nix-rust/nix/commit/52102cb76398c4dfb9ea141b98c5b01a2e050973))
+
+### Removed
+- `Daemon`, `NOTE_REAP`, and `NOTE_EXIT_REPARENTED` are now deprecated on OSX
+  and iOS.
+  ([#1033](https://github.com/nix-rust/nix/pull/1033))
+
 ## [0.13.0] - 2019-01-15
 ### Added
 - Added PKTINFO(V4) & V6PKTINFO cmsg support - Android/FreeBSD/iOS/Linux/MacOS.
@@ -645,14 +964,30 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - Added an `mprotect` wrapper.
   ([#991](https://github.com/nix-rust/nix/pull/991))
 
-### Changed
 ### Fixed
 - `lutimes` never worked on OpenBSD as it is not implemented on OpenBSD. It has
   been removed. ([#1000](https://github.com/nix-rust/nix/pull/1000))
 - `fexecve` never worked on NetBSD or on OpenBSD as it is not implemented on
   either OS. It has been removed. ([#1000](https://github.com/nix-rust/nix/pull/1000))
 
+## [0.12.1] 2019-06-08
+### Changed
+- Changed some public types from reexports of libc types like `uint32_t` to the
+  native equivalents like `u32.`
+  ([#1072](https://github.com/nix-rust/nix/pull/1072/commits))
+
+### Fixed
+- Fix the build on Android and Linux/mips with recent versions of libc.
+  ([#1072](https://github.com/nix-rust/nix/pull/1072/commits))
+- Fixed build on Linux/arm and Linux/s390x with the latest Rust libc
+  ([52102cb](https://github.com/nix-rust/nix/commit/52102cb76398c4dfb9ea141b98c5b01a2e050973))
+
 ### Removed
+- `fexecve` never worked on NetBSD or on OpenBSD as it is not implemented on
+  either OS. It has been removed. ([#1000](https://github.com/nix-rust/nix/pull/1000))
+- `Daemon`, `NOTE_REAP`, and `NOTE_EXIT_REPARENTED` are now deprecated on OSX
+  and iOS.
+  ([#1033](https://github.com/nix-rust/nix/pull/1033))
 
 ## [0.12.0] 2018-11-28
 
@@ -704,7 +1039,24 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - Fixed passing multiple file descriptors over Unix Sockets.
   ([#918](https://github.com/nix-rust/nix/pull/918))
 
+## [0.11.1] 2019-06-06
+### Changed
+- Changed some public types from reexports of libc types like `uint32_t` to the
+  native equivalents like `u32.`
+  ([#1072](https://github.com/nix-rust/nix/pull/1072/commits))
+
+### Fixed
+- Fix the build on Android and Linux/mips with recent versions of libc.
+  ([#1072](https://github.com/nix-rust/nix/pull/1072/commits))
+- Fixed build on Linux/arm and Linux/s390x with the latest Rust libc
+  ([52102cb](https://github.com/nix-rust/nix/commit/52102cb76398c4dfb9ea141b98c5b01a2e050973))
+
 ### Removed
+- `fexecve` never worked on NetBSD or on OpenBSD as it is not implemented on
+  either OS. It has been removed. ([#1000](https://github.com/nix-rust/nix/pull/1000))
+- `Daemon`, `NOTE_REAP`, and `NOTE_EXIT_REPARENTED` are now deprecated on OSX
+  and iOS.
+  ([#1033](https://github.com/nix-rust/nix/pull/1033))
 
 ## [0.11.0] 2018-06-01
 

@@ -24,6 +24,8 @@
 #include "hci/le_scanning_manager_mock.h"
 #include "os/handler.h"
 
+using namespace std::chrono_literals;
+
 namespace bluetooth {
 namespace hci {
 namespace {
@@ -45,8 +47,9 @@ class TestLeScanningInterface : public LeScanningInterface {
     command_queue_.push(std::move(command));
     command_complete_callbacks.push_back(std::move(on_complete));
     if (command_promise_ != nullptr) {
-      command_promise_->set_value();
-      command_promise_.reset();
+      std::promise<void>* prom = command_promise_.release();
+      prom->set_value();
+      delete prom;
     }
   }
 
@@ -56,13 +59,14 @@ class TestLeScanningInterface : public LeScanningInterface {
     command_queue_.push(std::move(command));
     command_status_callbacks.push_back(std::move(on_status));
     if (command_promise_ != nullptr) {
-      command_promise_->set_value();
-      command_promise_.reset();
+      std::promise<void>* prom = command_promise_.release();
+      prom->set_value();
+      delete prom;
     }
   }
 
   void SetCommandFuture() {
-    ASSERT_LOG(command_promise_ == nullptr, "Promises, Promises, ... Only one at a time.");
+    ASSERT_EQ(command_promise_, nullptr) << "Promises, Promises, ... Only one at a time.";
     command_promise_ = std::make_unique<std::promise<void>>();
     command_future_ = std::make_unique<std::future<void>>(command_promise_->get_future());
   }
@@ -123,6 +127,11 @@ class TestLeScanningInterface : public LeScanningInterface {
   mutable std::mutex mutex_;
 };
 
+const char* test_flags[] = {
+  "INIT_logging_debug_enabled_for_all=true",
+  nullptr,
+};
+
 class PeriodicSyncManagerTest : public ::testing::Test {
  protected:
   void SetUp() override {
@@ -131,6 +140,7 @@ class PeriodicSyncManagerTest : public ::testing::Test {
     test_le_scanning_interface_ = new TestLeScanningInterface();
     periodic_sync_manager_ = new PeriodicSyncManager(&mock_callbacks_);
     periodic_sync_manager_->Init(test_le_scanning_interface_, handler_);
+    bluetooth::common::InitFlags::Load(test_flags);
   }
 
   void TearDown() override {
@@ -146,11 +156,8 @@ class PeriodicSyncManagerTest : public ::testing::Test {
   }
 
   void sync_handler() {
-    std::promise<void> promise;
-    auto future = promise.get_future();
-    handler_->Call(common::BindOnce(&std::promise<void>::set_value, common::Unretained(&promise)));
-    auto future_status = future.wait_for(std::chrono::seconds(1));
-    ASSERT_EQ(future_status, std::future_status::ready);
+    ASSERT(thread_ != nullptr);
+    ASSERT(thread_->GetReactor()->WaitForIdle(2s));
   }
 
   class MockCallbacks : public bluetooth::hci::ScanningCallback {
@@ -198,6 +205,7 @@ class PeriodicSyncManagerTest : public ::testing::Test {
     MOCK_METHOD(void, OnPeriodicSyncReport, (uint16_t, int8_t, int8_t, uint8_t, std::vector<uint8_t>));
     MOCK_METHOD(void, OnPeriodicSyncLost, (uint16_t));
     MOCK_METHOD(void, OnPeriodicSyncTransferred, (int, uint8_t, Address));
+    MOCK_METHOD(void, OnBigInfoReport, (uint16_t, bool));
   } mock_callbacks_;
 
   os::Thread* thread_;
@@ -224,13 +232,15 @@ TEST_F(PeriodicSyncManagerTest, start_sync_test) {
   };
   uint16_t skip = 0x04;
   uint16_t sync_timeout = 0x0A;
-  test_le_scanning_interface_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_le_scanning_interface_->SetCommandFuture());
   periodic_sync_manager_->StartSync(request, skip, sync_timeout);
   auto packet = test_le_scanning_interface_->GetCommand(OpCode::LE_PERIODIC_ADVERTISING_CREATE_SYNC);
   auto packet_view = LePeriodicAdvertisingCreateSyncView::Create(LeScanningCommandView::Create(packet));
   ASSERT_TRUE(packet_view.IsValid());
   ASSERT_EQ(advertiser_sid, packet_view.GetAdvertisingSid());
-  ASSERT_EQ(AdvertisingAddressType::PUBLIC_ADDRESS, packet_view.GetAdvertiserAddressType());
+  ASSERT_EQ(
+      AdvertisingAddressType::PUBLIC_DEVICE_OR_IDENTITY_ADDRESS,
+      packet_view.GetAdvertiserAddressType());
   ASSERT_EQ(address, packet_view.GetAdvertiserAddress());
   ASSERT_EQ(skip, packet_view.GetSkip());
   ASSERT_EQ(sync_timeout, packet_view.GetSyncTimeout());
@@ -251,7 +261,7 @@ TEST_F(PeriodicSyncManagerTest, handle_advertising_sync_established_test) {
       .sync_handle = sync_handle,
       .sync_state = PeriodicSyncState::PERIODIC_SYNC_STATE_IDLE,
   };
-  test_le_scanning_interface_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_le_scanning_interface_->SetCommandFuture());
   periodic_sync_manager_->StartSync(request, 0x04, 0x0A);
   auto packet = test_le_scanning_interface_->GetCommand(OpCode::LE_PERIODIC_ADVERTISING_CREATE_SYNC);
   auto temp_view = LePeriodicAdvertisingCreateSyncView::Create(LeScanningCommandView::Create(packet));
@@ -279,6 +289,48 @@ TEST_F(PeriodicSyncManagerTest, handle_advertising_sync_established_test) {
   sync_handler();
 }
 
+TEST_F(PeriodicSyncManagerTest, handle_advertising_sync_established_with_public_identity_address_test) {
+  uint16_t sync_handle = 0x12;
+  uint8_t advertiser_sid = 0x02;
+  // start scan
+  Address address;
+  Address::FromString("00:11:22:33:44:55", address);
+  AddressWithType address_with_type = AddressWithType(address, AddressType::PUBLIC_DEVICE_ADDRESS);
+  PeriodicSyncStates request{
+      .request_id = 0x01,
+      .advertiser_sid = advertiser_sid,
+      .address_with_type = address_with_type,
+      .sync_handle = sync_handle,
+      .sync_state = PeriodicSyncState::PERIODIC_SYNC_STATE_IDLE,
+  };
+  ASSERT_NO_FATAL_FAILURE(test_le_scanning_interface_->SetCommandFuture());
+  periodic_sync_manager_->StartSync(request, 0x04, 0x0A);
+  auto packet = test_le_scanning_interface_->GetCommand(OpCode::LE_PERIODIC_ADVERTISING_CREATE_SYNC);
+  auto temp_view = LePeriodicAdvertisingCreateSyncView::Create(LeScanningCommandView::Create(packet));
+  ASSERT_TRUE(temp_view.IsValid());
+
+  // Get command status
+  test_le_scanning_interface_->CommandStatusCallback(
+      LePeriodicAdvertisingCreateSyncStatusBuilder::Create(ErrorCode::SUCCESS, 0x00));
+
+  EXPECT_CALL(mock_callbacks_, OnPeriodicSyncStarted);
+
+  // Get LePeriodicAdvertisingSyncEstablished with AddressType::PUBLIC_IDENTITY_ADDRESS
+  auto builder = LePeriodicAdvertisingSyncEstablishedBuilder::Create(
+      ErrorCode::SUCCESS,
+      sync_handle,
+      advertiser_sid,
+      AddressType::PUBLIC_IDENTITY_ADDRESS,
+      address_with_type.GetAddress(),
+      SecondaryPhyType::LE_1M,
+      0xFF,
+      ClockAccuracy::PPM_250);
+  auto event_view = LePeriodicAdvertisingSyncEstablishedView::Create(
+      LeMetaEventView::Create(EventView::Create(GetPacketView(std::move(builder)))));
+  periodic_sync_manager_->HandleLePeriodicAdvertisingSyncEstablished(event_view);
+  sync_handler();
+}
+
 TEST_F(PeriodicSyncManagerTest, stop_sync_test) {
   uint16_t sync_handle = 0x12;
   uint8_t advertiser_sid = 0x02;
@@ -293,7 +345,7 @@ TEST_F(PeriodicSyncManagerTest, stop_sync_test) {
       .sync_handle = sync_handle,
       .sync_state = PeriodicSyncState::PERIODIC_SYNC_STATE_IDLE,
   };
-  test_le_scanning_interface_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_le_scanning_interface_->SetCommandFuture());
   periodic_sync_manager_->StartSync(request, 0x04, 0x0A);
   auto packet = test_le_scanning_interface_->GetCommand(OpCode::LE_PERIODIC_ADVERTISING_CREATE_SYNC);
   auto temp_veiw = LePeriodicAdvertisingCreateSyncView::Create(LeScanningCommandView::Create(packet));
@@ -320,7 +372,7 @@ TEST_F(PeriodicSyncManagerTest, stop_sync_test) {
   periodic_sync_manager_->HandleLePeriodicAdvertisingSyncEstablished(event_view);
 
   // StopSync
-  test_le_scanning_interface_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_le_scanning_interface_->SetCommandFuture());
   periodic_sync_manager_->StopSync(sync_handle);
   packet = test_le_scanning_interface_->GetCommand(OpCode::LE_PERIODIC_ADVERTISING_TERMINATE_SYNC);
   auto packet_view = LePeriodicAdvertisingTerminateSyncView::Create(LeScanningCommandView::Create(packet));
@@ -343,7 +395,7 @@ TEST_F(PeriodicSyncManagerTest, cancel_create_sync_test) {
       .sync_handle = sync_handle,
       .sync_state = PeriodicSyncState::PERIODIC_SYNC_STATE_IDLE,
   };
-  test_le_scanning_interface_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_le_scanning_interface_->SetCommandFuture());
   periodic_sync_manager_->StartSync(request, 0x04, 0x0A);
   auto packet = test_le_scanning_interface_->GetCommand(OpCode::LE_PERIODIC_ADVERTISING_CREATE_SYNC);
   auto temp_veiw = LePeriodicAdvertisingCreateSyncView::Create(LeScanningCommandView::Create(packet));
@@ -354,7 +406,7 @@ TEST_F(PeriodicSyncManagerTest, cancel_create_sync_test) {
       LePeriodicAdvertisingCreateSyncStatusBuilder::Create(ErrorCode::SUCCESS, 0x00));
 
   // Cancel crate sync
-  test_le_scanning_interface_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_le_scanning_interface_->SetCommandFuture());
   periodic_sync_manager_->CancelCreateSync(advertiser_sid, address_with_type.GetAddress());
   packet = test_le_scanning_interface_->GetCommand(OpCode::LE_PERIODIC_ADVERTISING_CREATE_SYNC_CANCEL);
   auto packet_view = LePeriodicAdvertisingCreateSyncCancelView::Create(LeScanningCommandView::Create(packet));
@@ -369,7 +421,7 @@ TEST_F(PeriodicSyncManagerTest, transfer_sync_test) {
   uint16_t sync_handle = 0x11;
   uint16_t connection_handle = 0x12;
   int pa_source = 0x01;
-  test_le_scanning_interface_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_le_scanning_interface_->SetCommandFuture());
   periodic_sync_manager_->TransferSync(address, service_data, sync_handle, pa_source, connection_handle);
   auto packet = test_le_scanning_interface_->GetCommand(OpCode::LE_PERIODIC_ADVERTISING_SYNC_TRANSFER);
   auto packet_view = LePeriodicAdvertisingSyncTransferView::Create(LeScanningCommandView::Create(packet));
@@ -394,7 +446,7 @@ TEST_F(PeriodicSyncManagerTest, sync_set_info_test) {
   uint16_t advertising_handle = 0x11;
   uint16_t connection_handle = 0x12;
   int pa_source = 0x01;
-  test_le_scanning_interface_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_le_scanning_interface_->SetCommandFuture());
   periodic_sync_manager_->SyncSetInfo(address, service_data, advertising_handle, pa_source, connection_handle);
   auto packet = test_le_scanning_interface_->GetCommand(OpCode::LE_PERIODIC_ADVERTISING_SET_INFO_TRANSFER);
   auto packet_view = LePeriodicAdvertisingSetInfoTransferView::Create(LeScanningCommandView::Create(packet));
@@ -419,7 +471,7 @@ TEST_F(PeriodicSyncManagerTest, sync_tx_parameters_test) {
   uint16_t skip = 0x11;
   uint16_t timout = 0x12;
   int reg_id = 0x01;
-  test_le_scanning_interface_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_le_scanning_interface_->SetCommandFuture());
   periodic_sync_manager_->SyncTxParameters(address, mode, skip, timout, reg_id);
   auto packet =
       test_le_scanning_interface_->GetCommand(OpCode::LE_SET_DEFAULT_PERIODIC_ADVERTISING_SYNC_TRANSFER_PARAMETERS);
@@ -448,7 +500,7 @@ TEST_F(PeriodicSyncManagerTest, handle_sync_lost_test) {
       .sync_handle = sync_handle,
       .sync_state = PeriodicSyncState::PERIODIC_SYNC_STATE_IDLE,
   };
-  test_le_scanning_interface_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_le_scanning_interface_->SetCommandFuture());
   periodic_sync_manager_->StartSync(request, 0x04, 0x0A);
   auto packet = test_le_scanning_interface_->GetCommand(OpCode::LE_PERIODIC_ADVERTISING_CREATE_SYNC);
   auto temp_veiw = LePeriodicAdvertisingCreateSyncView::Create(LeScanningCommandView::Create(packet));
@@ -500,7 +552,7 @@ TEST_F(PeriodicSyncManagerTest, handle_periodic_advertising_report_test) {
       .sync_handle = sync_handle,
       .sync_state = PeriodicSyncState::PERIODIC_SYNC_STATE_IDLE,
   };
-  test_le_scanning_interface_->SetCommandFuture();
+  ASSERT_NO_FATAL_FAILURE(test_le_scanning_interface_->SetCommandFuture());
   periodic_sync_manager_->StartSync(request, 0x04, 0x0A);
   auto packet = test_le_scanning_interface_->GetCommand(OpCode::LE_PERIODIC_ADVERTISING_CREATE_SYNC);
   auto temp_veiw = LePeriodicAdvertisingCreateSyncView::Create(LeScanningCommandView::Create(packet));
@@ -531,16 +583,65 @@ TEST_F(PeriodicSyncManagerTest, handle_periodic_advertising_report_test) {
   // Get LePeriodicAdvertisingReport
   std::vector<uint8_t> data = {0x01, 0x02, 0x03};
   auto builder2 = LePeriodicAdvertisingReportBuilder::Create(
-      sync_handle,
-      0x1a,
-      0x1a,
-      CteType::AOA_CONSTANT_TONE_EXTENSION,
-      PeriodicAdvertisingDataStatus::DATA_COMPLETE,
-      data);
+      sync_handle, 0x1a, 0x1a, CteType::AOA_CONSTANT_TONE_EXTENSION, DataStatus::COMPLETE, data);
 
   auto event_view2 = LePeriodicAdvertisingReportView::Create(
       LeMetaEventView::Create(EventView::Create(GetPacketView(std::move(builder2)))));
   periodic_sync_manager_->HandleLePeriodicAdvertisingReport(event_view2);
+
+  sync_handler();
+}
+
+TEST_F(PeriodicSyncManagerTest, handle_biginfo_advertising_report_test) {
+  uint16_t sync_handle = 0x12;
+  uint8_t advertiser_sid = 0x02;
+// start scan
+  Address address;
+  Address::FromString("00:11:22:33:44:55", address);
+  AddressWithType address_with_type = AddressWithType(address, AddressType::PUBLIC_DEVICE_ADDRESS);
+  PeriodicSyncStates request{
+      .request_id = 0x01,
+      .advertiser_sid = advertiser_sid,
+      .address_with_type = address_with_type,
+      .sync_handle = sync_handle,
+      .sync_state = PeriodicSyncState::PERIODIC_SYNC_STATE_IDLE,
+  };
+  ASSERT_NO_FATAL_FAILURE(test_le_scanning_interface_->SetCommandFuture());
+  periodic_sync_manager_->StartSync(request, 0x04, 0x0A);
+  auto packet = test_le_scanning_interface_->GetCommand(OpCode::LE_PERIODIC_ADVERTISING_CREATE_SYNC);
+  auto temp_veiw = LePeriodicAdvertisingCreateSyncView::Create(LeScanningCommandView::Create(packet));
+  ASSERT_TRUE(temp_veiw.IsValid());
+
+  // Get command status
+  test_le_scanning_interface_->CommandStatusCallback(
+      LePeriodicAdvertisingCreateSyncStatusBuilder::Create(ErrorCode::SUCCESS, 0x00));
+
+  EXPECT_CALL(mock_callbacks_, OnPeriodicSyncStarted);
+
+  // Get LePeriodicAdvertisingSyncEstablished
+  auto builder = LePeriodicAdvertisingSyncEstablishedBuilder::Create(
+      ErrorCode::SUCCESS,
+      sync_handle,
+      advertiser_sid,
+      address_with_type.GetAddressType(),
+      address_with_type.GetAddress(),
+      SecondaryPhyType::LE_1M,
+      0xFF,
+      ClockAccuracy::PPM_250);
+  auto event_view = LePeriodicAdvertisingSyncEstablishedView::Create(
+      LeMetaEventView::Create(EventView::Create(GetPacketView(std::move(builder)))));
+  periodic_sync_manager_->HandleLePeriodicAdvertisingSyncEstablished(event_view);
+
+  EXPECT_CALL(mock_callbacks_, OnBigInfoReport);
+
+  // Get LeBigInfoAdvertisingReport
+  auto builder2 = LeBigInfoAdvertisingReportBuilder::Create(
+      sync_handle, 2, 9, 24, 3, 1, 2, 100, 10000, 100, static_cast<SecondaryPhyType>(2),
+      static_cast<Enable> (0), static_cast<Enable> (1));
+
+  auto event_view2 = LeBigInfoAdvertisingReportView::Create(
+      LeMetaEventView::Create(EventView::Create(GetPacketView(std::move(builder2)))));
+  periodic_sync_manager_->HandleLeBigInfoAdvertisingReport(event_view2);
 
   sync_handler();
 }

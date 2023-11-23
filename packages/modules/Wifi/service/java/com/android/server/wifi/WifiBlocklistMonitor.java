@@ -34,6 +34,7 @@ import android.util.Log;
 import android.util.SparseArray;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.server.wifi.util.StringUtil;
 import com.android.server.wifi.util.WifiPermissionsUtil;
 import com.android.wifi.resources.R;
 
@@ -48,6 +49,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -84,8 +86,10 @@ public class WifiBlocklistMonitor {
     public static final int REASON_FRAMEWORK_DISCONNECT_CONNECTED_SCORE = 11;
     // Non-local disconnection in the middle of connecting state
     public static final int REASON_NONLOCAL_DISCONNECT_CONNECTING = 12;
+    // Connection attempt aborted by the watchdog because the AP didn't respond.
+    public static final int REASON_FAILURE_NO_RESPONSE = 13;
     // Constant being used to keep track of how many failure reasons there are.
-    public static final int NUMBER_REASON_CODES = 13;
+    public static final int NUMBER_REASON_CODES = 14;
     public static final int INVALID_REASON = -1;
 
     @IntDef(prefix = { "REASON_" }, value = {
@@ -101,7 +105,8 @@ public class WifiBlocklistMonitor {
             REASON_FRAMEWORK_DISCONNECT_MBO_OCE,
             REASON_FRAMEWORK_DISCONNECT_FAST_RECONNECT,
             REASON_FRAMEWORK_DISCONNECT_CONNECTED_SCORE,
-            REASON_NONLOCAL_DISCONNECT_CONNECTING
+            REASON_NONLOCAL_DISCONNECT_CONNECTING,
+            REASON_FAILURE_NO_RESPONSE
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface FailureReason {}
@@ -126,6 +131,7 @@ public class WifiBlocklistMonitor {
     private final ScoringParams mScoringParams;
     private final WifiMetrics mWifiMetrics;
     private final WifiPermissionsUtil mWifiPermissionsUtil;
+    private ScanRequestProxy mScanRequestProxy;
     private final Map<Integer, BssidDisableReason> mBssidDisableReasons =
             buildBssidDisableReasons();
     private final SparseArray<DisableReasonInfo> mDisableReasonInfo;
@@ -178,6 +184,8 @@ public class WifiBlocklistMonitor {
         // to true once it is covered in SSID blocklist.
         result.put(REASON_NONLOCAL_DISCONNECT_CONNECTING, new BssidDisableReason(
                 "REASON_NONLOCAL_DISCONNECT_CONNECTING", true, false));
+        result.put(REASON_FAILURE_NO_RESPONSE, new BssidDisableReason(
+                "REASON_FAILURE_NO_RESPONSE", true, true));
         return result;
     }
 
@@ -192,6 +200,49 @@ public class WifiBlocklistMonitor {
             this.isLowRssiSensitive = isLowRssiSensitive;
             this.ignoreIfOnlyBssid = ignoreIfOnlyBssid;
         }
+    }
+
+    /** Map of BSSID to affiliated BSSIDs. */
+    private Map<String, List<String>> mAffiliatedBssidMap = new ArrayMap<>();
+
+    /**
+     * Set the mapping of BSSID to affiliated BSSIDs.
+     *
+     * @param bssid A unique identifier of the AP.
+     * @param bssids List of affiliated BSSIDs.
+     */
+    public void setAffiliatedBssids(@NonNull String bssid, @NonNull List<String> bssids) {
+        mAffiliatedBssidMap.put(bssid, bssids);
+    }
+
+    /**
+     *  Get affiliated BSSIDs mapped to a BSSID.
+     *
+     * @param bssid A unique identifier of the AP.
+     * @return List of affiliated BSSIDs or an empty list.
+     */
+    public List<String> getAffiliatedBssids(@NonNull String bssid) {
+        List<String> affiliatedBssids = mAffiliatedBssidMap.get(bssid);
+        return affiliatedBssids == null ? Collections.EMPTY_LIST : affiliatedBssids;
+    }
+
+    /**
+     * Remove affiliated BSSIDs mapped to a BSSID.
+     *
+     * @param bssid A unique identifier of the AP.
+     */
+    public void removeAffiliatedBssids(@NonNull String bssid) {
+        mAffiliatedBssidMap.remove(bssid);
+    }
+
+    /** Clear affiliated BSSID mapping table. */
+    public void clearAffiliatedBssids() {
+        mAffiliatedBssidMap.clear();
+    }
+
+    /** Sets the ScanRequestProxy **/
+    public void setScanRequestProxy(ScanRequestProxy scanRequestProxy) {
+        mScanRequestProxy = scanRequestProxy;
     }
 
     /**
@@ -245,6 +296,8 @@ public class WifiBlocklistMonitor {
         pw.println("WifiBlocklistMonitor - Bssid blocklist begin ----");
         mBssidStatusMap.values().stream().forEach(entry -> pw.println(entry));
         pw.println("WifiBlocklistMonitor - Bssid blocklist end ----");
+        pw.println("Dump of BSSID to Affiliated BSSID mapping");
+        mAffiliatedBssidMap.forEach((bssid, aList) -> pw.println(bssid + " -> " + aList));
         mBssidBlocklistMonitorLogger.dump(pw);
     }
 
@@ -358,6 +411,14 @@ public class WifiBlocklistMonitor {
             return;
         }
         addToBlocklist(status, durationMs, blockReason, rssi);
+        /**
+         * Add affiliated BSSIDs also into the block list with the same parameters as connected
+         * BSSID.
+         */
+        for (String affiliatedBssid : getAffiliatedBssids(bssid)) {
+            status = getOrCreateBssidStatus(affiliatedBssid, config.SSID);
+            addToBlocklist(status, durationMs, blockReason, rssi);
+        }
     }
 
     private String getFailureReasonString(@FailureReason int reasonCode) {
@@ -405,6 +466,9 @@ public class WifiBlocklistMonitor {
         FAILURE_COUNT_DISABLE_THRESHOLD[REASON_NONLOCAL_DISCONNECT_CONNECTING] =
                 mContext.getResources().getInteger(R.integer
                         .config_wifiBssidBlocklistMonitorNonlocalDisconnectConnectingThreshold);
+        FAILURE_COUNT_DISABLE_THRESHOLD[REASON_FAILURE_NO_RESPONSE] =
+                mContext.getResources().getInteger(R.integer
+                        .config_wifiBssidBlocklistMonitorNoResponseThreshold);
         mFailureCountDisableThresholdArrayInitialized = true;
         return FAILURE_COUNT_DISABLE_THRESHOLD[reasonCode];
     }
@@ -421,11 +485,37 @@ public class WifiBlocklistMonitor {
                 localLog("Ignoring failure to wait for watchdog to trigger first.");
                 return false;
             }
+            // rssi may be unavailable for the first ever connection to a newly added network
+            // because it hasn't been cached inside the ScanDetailsCache yet. In this case, try to
+            // read the RSSI from the latest scan results.
+            if (rssi == WifiConfiguration.INVALID_RSSI && bssid != null) {
+                if (mScanRequestProxy != null) {
+                    ScanResult scanResult = mScanRequestProxy.getScanResult(bssid);
+                    if (scanResult != null) {
+                        rssi = scanResult.level;
+                    }
+                } else {
+                    localLog("mScanRequestProxy is null");
+                    Log.w(TAG, "mScanRequestProxy is null");
+                }
+            }
             int baseBlockDurationMs = getBaseBlockDurationForReason(reasonCode);
-            addToBlocklist(entry,
-                    getBlocklistDurationWithExponentialBackoff(currentStreak, baseBlockDurationMs),
-                    reasonCode, rssi);
+            long expBackoff = getBlocklistDurationWithExponentialBackoff(currentStreak,
+                    baseBlockDurationMs);
+            addToBlocklist(entry, expBackoff, reasonCode, rssi);
             mWifiScoreCard.incrementBssidBlocklistStreak(ssid, bssid, reasonCode);
+
+            /**
+             * Block list affiliated BSSID with same parameters, e.g. reason code, rssi ..etc.
+             * as connected BSSID.
+             */
+            for (String affiliatedBssid : getAffiliatedBssids(bssid)) {
+                BssidStatus affEntry = getOrCreateBssidStatus(affiliatedBssid, ssid);
+                affEntry.failureCount[reasonCode] = entry.failureCount[reasonCode];
+                addToBlocklist(affEntry, expBackoff, reasonCode, rssi);
+                mWifiScoreCard.incrementBssidBlocklistStreak(ssid, affiliatedBssid, reasonCode);
+            }
+
             return true;
         }
         return false;
@@ -436,9 +526,12 @@ public class WifiBlocklistMonitor {
             case REASON_FRAMEWORK_DISCONNECT_CONNECTED_SCORE:
                 return mContext.getResources().getInteger(R.integer
                         .config_wifiBssidBlocklistMonitorConnectedScoreBaseBlockDurationMs);
+            case REASON_NETWORK_VALIDATION_FAILURE:
+                return mContext.getResources().getInteger(
+                        R.integer.config_wifiBssidBlocklistMonitorValidationFailureBaseBlockDurationMs);
             default:
                 return mContext.getResources().getInteger(
-                        R.integer.config_wifiBssidBlocklistMonitorBaseBlockDurationMs);
+                    R.integer.config_wifiBssidBlocklistMonitorBaseBlockDurationMs);
         }
     }
 
@@ -489,6 +582,20 @@ public class WifiBlocklistMonitor {
      */
     public void handleBssidConnectionSuccess(@NonNull String bssid, @NonNull String ssid) {
         mDisabledSsids.remove(ssid);
+        resetFailuresAfterConnection(bssid, ssid);
+        for (String affiliatedBssid : getAffiliatedBssids(bssid)) {
+            resetFailuresAfterConnection(affiliatedBssid, ssid);
+        }
+    }
+
+    /**
+     * Reset all failure counters related to a connection.
+     *
+     * @param bssid A unique identifier of the AP.
+     * @param ssid Network name.
+     */
+    private void resetFailuresAfterConnection(@NonNull String bssid, @NonNull String ssid) {
+
         /**
          * First reset the blocklist streak.
          * This needs to be done even if a BssidStatus is not found, since the BssidStatus may
@@ -502,6 +609,7 @@ public class WifiBlocklistMonitor {
         mWifiScoreCard.resetBssidBlocklistStreak(ssid, bssid, REASON_AUTHENTICATION_FAILURE);
         mWifiScoreCard.resetBssidBlocklistStreak(ssid, bssid,
                 REASON_NONLOCAL_DISCONNECT_CONNECTING);
+        mWifiScoreCard.resetBssidBlocklistStreak(ssid, bssid, REASON_FAILURE_NO_RESPONSE);
 
         long connectionTime = mClock.getWallClockMillis();
         long prevConnectionTime = mWifiScoreCard.setBssidConnectionTimestampMs(
@@ -524,6 +632,7 @@ public class WifiBlocklistMonitor {
         status.failureCount[REASON_ASSOCIATION_TIMEOUT] = 0;
         status.failureCount[REASON_AUTHENTICATION_FAILURE] = 0;
         status.failureCount[REASON_NONLOCAL_DISCONNECT_CONNECTING] = 0;
+        status.failureCount[REASON_FAILURE_NO_RESPONSE] = 0;
         if (connectionTime - prevConnectionTime > ABNORMAL_DISCONNECT_RESET_TIME_MS) {
             status.failureCount[REASON_ABNORMAL_DISCONNECT] = 0;
         }
@@ -534,27 +643,67 @@ public class WifiBlocklistMonitor {
      * And then remove the BSSID from blocklist.
      */
     public void handleNetworkValidationSuccess(@NonNull String bssid, @NonNull String ssid) {
+        resetNetworkValidationFailures(bssid, ssid);
+        /**
+         * Network validation may take more than 1 tries to succeed.
+         * remove the BSSID from blocklist to make sure we are not accidentally blocking good
+         * BSSIDs.
+         **/
+        removeFromBlocklist(bssid, "Network validation success");
+
+        for (String affiliatedBssid : getAffiliatedBssids(bssid)) {
+            resetNetworkValidationFailures(affiliatedBssid, ssid);
+            removeFromBlocklist(affiliatedBssid, "Network validation success");
+        }
+    }
+
+    /**
+     * Clear failure counters related to network validation.
+     *
+     * @param bssid A unique identifier of the AP.
+     * @param ssid Network name.
+     */
+    private void resetNetworkValidationFailures(@NonNull String bssid, @NonNull String ssid) {
         mWifiScoreCard.resetBssidBlocklistStreak(ssid, bssid, REASON_NETWORK_VALIDATION_FAILURE);
         BssidStatus status = mBssidStatusMap.get(bssid);
         if (status == null) {
             return;
         }
         status.failureCount[REASON_NETWORK_VALIDATION_FAILURE] = 0;
-        /**
-         * Network validation may take more than 1 tries to succeed.
-         * remove the BSSID from blocklist to make sure we are not accidentally blocking good
-         * BSSIDs.
-         **/
+    }
+
+    /**
+     * Remove BSSID from block list.
+     *
+     * @param bssid A unique identifier of the AP.
+     * @param reasonString A string to be logged while removing the entry from the block list.
+     */
+    private void removeFromBlocklist(@NonNull String bssid, final String reasonString) {
+        BssidStatus status = mBssidStatusMap.get(bssid);
+        if (status == null) {
+            return;
+        }
+
         if (status.isInBlocklist) {
-            mBssidBlocklistMonitorLogger.logBssidUnblocked(status, "Network validation success");
+            mBssidBlocklistMonitorLogger.logBssidUnblocked(status, reasonString);
             mBssidStatusMap.remove(bssid);
         }
     }
 
     /**
-     * Note a successful DHCP provisioning and clear appropriate faliure counters.
+     * Note a successful DHCP provisioning and clear appropriate failure counters.
      */
     public void handleDhcpProvisioningSuccess(@NonNull String bssid, @NonNull String ssid) {
+        resetDhcpFailures(bssid, ssid);
+        for (String affiliatedBssid : getAffiliatedBssids(bssid)) {
+            resetDhcpFailures(affiliatedBssid, ssid);
+        }
+    }
+
+    /**
+     * Reset failure counters related to DHCP.
+     */
+    private void resetDhcpFailures(@NonNull String bssid, @NonNull String ssid) {
         mWifiScoreCard.resetBssidBlocklistStreak(ssid, bssid, REASON_DHCP_FAILURE);
         BssidStatus status = mBssidStatusMap.get(bssid);
         if (status == null) {
@@ -700,9 +849,10 @@ public class WifiBlocklistMonitor {
                     status.lastRssi < sufficientRssi && scanResult.level >= sufficientRssi;
             boolean goodRssiBreached = status.lastRssi < goodRssi && scanResult.level >= goodRssi;
             if (rssiMinDiffAchieved && (sufficientRssiBreached || goodRssiBreached)) {
-                mBssidBlocklistMonitorLogger.logBssidUnblocked(
-                        status, "rssi significantly improved");
-                mBssidStatusMap.remove(status.bssid);
+                removeFromBlocklist(status.bssid, "rssi significantly improved");
+                for (String affiliatedBssid : getAffiliatedBssids(status.bssid)) {
+                    removeFromBlocklist(affiliatedBssid, "rssi significantly improved");
+                }
                 results.add(scanDetail);
             }
         }
@@ -838,12 +988,7 @@ public class WifiBlocklistMonitor {
             StringBuilder sb = new StringBuilder();
             Calendar c = Calendar.getInstance();
             c.setTimeInMillis(mClock.getWallClockMillis());
-            sb.append("logTime=").append(c.get(Calendar.MONTH)).append("-")
-                    .append(c.get(Calendar.DAY_OF_MONTH)).append(" ")
-                    .append(c.get(Calendar.HOUR_OF_DAY)).append(":")
-                    .append(c.get(Calendar.MINUTE)).append(":")
-                    .append(c.get(Calendar.SECOND)).append(".")
-                    .append(c.get(Calendar.MILLISECOND));
+            sb.append("logTime=").append(StringUtil.calendarToString(c));
             return sb;
         }
 
@@ -927,19 +1072,9 @@ public class WifiBlocklistMonitor {
                 sb.append(", lastRssi=" + lastRssi);
                 Calendar c = Calendar.getInstance();
                 c.setTimeInMillis(blocklistStartTimeMs);
-                sb.append(", blocklistStartTime=").append(c.get(Calendar.MONTH)).append("-")
-                        .append(c.get(Calendar.DAY_OF_MONTH)).append(" ")
-                        .append(c.get(Calendar.HOUR_OF_DAY)).append(":")
-                        .append(c.get(Calendar.MINUTE)).append(":")
-                        .append(c.get(Calendar.SECOND)).append(".")
-                        .append(c.get(Calendar.MILLISECOND));
+                sb.append(", blocklistStartTime=").append(StringUtil.calendarToString(c));
                 c.setTimeInMillis(blocklistEndTimeMs);
-                sb.append(", blocklistEndTime=").append(c.get(Calendar.MONTH)).append("-")
-                        .append(c.get(Calendar.DAY_OF_MONTH)).append(" ")
-                        .append(c.get(Calendar.HOUR_OF_DAY)).append(":")
-                        .append(c.get(Calendar.MINUTE)).append(":")
-                        .append(c.get(Calendar.SECOND)).append(".")
-                        .append(c.get(Calendar.MILLISECOND));
+                sb.append(", blocklistEndTime=").append(StringUtil.calendarToString(c));
             }
             return sb.toString();
         }
@@ -964,42 +1099,142 @@ public class WifiBlocklistMonitor {
                         "NETWORK_SELECTION_DISABLED_ASSOCIATION_REJECTION ",
                         mContext.getResources().getInteger(R.integer
                                 .config_wifiDisableReasonAssociationRejectionThreshold),
-                        5 * 60 * 1000));
+                        mContext.getResources().getInteger(R.integer
+                                .config_wifiDisableReasonAssociationRejectionDurationMs)));
 
         mDisableReasonInfo.put(NetworkSelectionStatus.DISABLED_AUTHENTICATION_FAILURE,
                 new DisableReasonInfo(
                         "NETWORK_SELECTION_DISABLED_AUTHENTICATION_FAILURE",
                         mContext.getResources().getInteger(R.integer
                                 .config_wifiDisableReasonAuthenticationFailureThreshold),
-                        5 * 60 * 1000));
+                        mContext.getResources().getInteger(R.integer
+                                .config_wifiDisableReasonAuthenticationFailureDurationMs)));
 
         mDisableReasonInfo.put(NetworkSelectionStatus.DISABLED_DHCP_FAILURE,
                 new DisableReasonInfo(
                         "NETWORK_SELECTION_DISABLED_DHCP_FAILURE",
                         mContext.getResources().getInteger(R.integer
                                 .config_wifiDisableReasonDhcpFailureThreshold),
-                        5 * 60 * 1000));
+                        mContext.getResources().getInteger(R.integer
+                                .config_wifiDisableReasonDhcpFailureDurationMs)));
 
         mDisableReasonInfo.put(NetworkSelectionStatus.DISABLED_NETWORK_NOT_FOUND,
                 new DisableReasonInfo(
                         "NETWORK_SELECTION_DISABLED_NETWORK_NOT_FOUND",
                         mContext.getResources().getInteger(R.integer
                                 .config_wifiDisableReasonNetworkNotFoundThreshold),
-                        5 * 60 * 1000));
+                        mContext.getResources().getInteger(R.integer
+                                .config_wifiDisableReasonNetworkNotFoundDurationMs)));
+
+        mDisableReasonInfo.put(NetworkSelectionStatus.DISABLED_NO_INTERNET_TEMPORARY,
+                new DisableReasonInfo(
+                "NETWORK_SELECTION_DISABLED_NO_INTERNET_TEMPORARY",
+                mContext.getResources().getInteger(R.integer
+                    .config_wifiDisableReasonNoInternetTemporaryThreshold),
+                mContext.getResources().getInteger(R.integer
+                    .config_wifiDisableReasonNoInternetTemporaryDurationMs)));
+
+        mDisableReasonInfo.put(NetworkSelectionStatus.DISABLED_AUTHENTICATION_NO_CREDENTIALS,
+                new DisableReasonInfo(
+                        "NETWORK_SELECTION_DISABLED_AUTHENTICATION_NO_CREDENTIALS",
+                        mContext.getResources().getInteger(R.integer
+                                .config_wifiDisableReasonAuthenticationNoCredentialsThreshold),
+                        mContext.getResources().getInteger(R.integer
+                                .config_wifiDisableReasonAuthenticationNoCredentialsDurationMs)));
+
+        mDisableReasonInfo.put(NetworkSelectionStatus.DISABLED_NO_INTERNET_PERMANENT,
+                new DisableReasonInfo(
+                        "NETWORK_SELECTION_DISABLED_NO_INTERNET_PERMANENT",
+                        mContext.getResources().getInteger(R.integer
+                                .config_wifiDisableReasonNoInternetPermanentThreshold),
+                        mContext.getResources().getInteger(R.integer
+                                .config_wifiDisableReasonNoInternetPermanentDurationMs)));
+
+        mDisableReasonInfo.put(NetworkSelectionStatus.DISABLED_BY_WRONG_PASSWORD,
+                new DisableReasonInfo(
+                        "NETWORK_SELECTION_DISABLED_BY_WRONG_PASSWORD",
+                        mContext.getResources().getInteger(R.integer
+                                .config_wifiDisableReasonByWrongPasswordThreshold),
+                        mContext.getResources().getInteger(R.integer
+                                .config_wifiDisableReasonByWrongPasswordDurationMs)));
+
+        mDisableReasonInfo.put(NetworkSelectionStatus.DISABLED_AUTHENTICATION_NO_SUBSCRIPTION,
+                new DisableReasonInfo(
+                        "NETWORK_SELECTION_DISABLED_AUTHENTICATION_NO_SUBSCRIPTION",
+                        mContext.getResources().getInteger(R.integer
+                                .config_wifiDisableReasonAuthenticationNoSubscriptionThreshold),
+                        mContext.getResources().getInteger(R.integer
+                                .config_wifiDisableReasonAuthenticationNoSubscriptionDurationMs)));
+
+        mDisableReasonInfo.put(NetworkSelectionStatus.DISABLED_CONSECUTIVE_FAILURES,
+                new DisableReasonInfo(
+                        "NETWORK_SELECTION_DISABLED_CONSECUTIVE_FAILURES",
+                        mContext.getResources().getInteger(R.integer
+                                .config_wifiDisableReasonConsecutiveFailuresThreshold),
+                        mContext.getResources().getInteger(R.integer
+                                .config_wifiDisableReasonConsecutiveFailuresDurationMs)));
     }
 
-    /** Update DisableReasonInfo with carrier configurations defined in an overlay. **/
-    public void loadCarrierConfigsForDisableReasonInfos() {
-        int duration = mContext.getResources().getInteger(
-                R.integer.config_wifiDisableReasonAuthenticationFailureCarrierSpecificDurationMs);
+    /**
+     * Update DisableReasonInfo with carrier configurations defined in an overlay.
+     *
+     * TODO(236173881): mDisableReasonInfo storing the carrier specific EAP failure threshold and
+     * duration is always keyed by NetworkSelectionStatus.DISABLED_AUTHENTICATION_PRIVATE_EAP_ERROR.
+     * This is error prone now that different carrier networks could have different thresholds and
+     * durations. But with the current code only the last updated one will remain in
+     * mDisableReasonInfo. Need to clean this up to be more robust.
+     */
+    public void loadCarrierConfigsForDisableReasonInfos(
+            @NonNull CarrierSpecificEapFailureConfig config) {
+        if (config == null) {
+            Log.e(TAG, "Unexpected null CarrierSpecificEapFailureConfig");
+            return;
+        }
         DisableReasonInfo disableReasonInfo = new DisableReasonInfo(
                 "NETWORK_SELECTION_DISABLED_AUTHENTICATION_PRIVATE_EAP_ERROR",
-                mContext.getResources().getInteger(R.integer
-                        .config_wifiDisableReasonAuthenticationFailureCarrierSpecificThreshold),
-                duration);
+                config.threshold, config.durationMs);
         mDisableReasonInfo.put(
                 NetworkSelectionStatus.DISABLED_AUTHENTICATION_PRIVATE_EAP_ERROR,
                 disableReasonInfo);
+    }
+
+    /**
+     * Class to be used to represent blocklist behavior for a certain EAP error code.
+     */
+    public static class CarrierSpecificEapFailureConfig {
+        // number of failures to disable
+        public final int threshold;
+        // disable duration in ms. -1 means permanent disable.
+        public final int durationMs;
+        public CarrierSpecificEapFailureConfig(int threshold, int durationMs) {
+            this.threshold = threshold;
+            this.durationMs = durationMs;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(threshold, durationMs);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof CarrierSpecificEapFailureConfig)) {
+                return false;
+            }
+            CarrierSpecificEapFailureConfig lhs = (CarrierSpecificEapFailureConfig) obj;
+            return threshold == lhs.threshold && durationMs == lhs.durationMs;
+        }
+
+        @Override
+        public String toString() {
+            return new StringBuilder()
+                    .append("threshold=").append(threshold)
+                    .append(" durationMs=").append(durationMs)
+                    .toString();
+        }
     }
 
     /**
@@ -1009,23 +1244,7 @@ public class WifiBlocklistMonitor {
     public boolean shouldEnableNetwork(WifiConfiguration config) {
         NetworkSelectionStatus networkStatus = config.getNetworkSelectionStatus();
         if (networkStatus.isNetworkTemporaryDisabled()) {
-            long timeDifferenceMs =
-                    mClock.getElapsedSinceBootMillis() - networkStatus.getDisableTime();
-            int disableReason = networkStatus.getNetworkSelectionDisableReason();
-            long disableTimeoutMs = (long) getNetworkSelectionDisableTimeoutMillis(disableReason);
-            int exponentialBackoffCount = mWifiScoreCard.lookupNetwork(config.SSID)
-                    .getRecentStats().getCount(WifiScoreCard.CNT_CONSECUTIVE_CONNECTION_FAILURE)
-                    - NUM_CONSECUTIVE_FAILURES_PER_NETWORK_EXP_BACKOFF;
-            for (int i = 0; i < exponentialBackoffCount; i++) {
-                disableTimeoutMs *= 2;
-                if (disableTimeoutMs > WIFI_CONFIG_MAX_DISABLE_DURATION_MILLIS) {
-                    disableTimeoutMs = WIFI_CONFIG_MAX_DISABLE_DURATION_MILLIS;
-                    break;
-                }
-            }
-            if (timeDifferenceMs >= disableTimeoutMs) {
-                return true;
-            }
+            return mClock.getElapsedSinceBootMillis() >= networkStatus.getDisableEndTime();
         }
         return false;
     }
@@ -1128,6 +1347,8 @@ public class WifiBlocklistMonitor {
                 NetworkSelectionStatus.NETWORK_SELECTION_ENABLED);
         status.setDisableTime(
                 NetworkSelectionStatus.INVALID_NETWORK_SELECTION_DISABLE_TIMESTAMP);
+        status.setDisableEndTime(
+                NetworkSelectionStatus.INVALID_NETWORK_SELECTION_DISABLE_TIMESTAMP);
         status.setNetworkSelectionDisableReason(NetworkSelectionStatus.DISABLED_NONE);
 
         // Clear out all the disable reason counters.
@@ -1147,9 +1368,25 @@ public class WifiBlocklistMonitor {
                 NetworkSelectionStatus.NETWORK_SELECTION_TEMPORARY_DISABLED);
         // Only need a valid time filled in for temporarily disabled networks.
         status.setDisableTime(mClock.getElapsedSinceBootMillis());
+        status.setDisableEndTime(calculateDisableEndTime(config, disableReason));
         status.setNetworkSelectionDisableReason(disableReason);
         handleWifiConfigurationDisabled(config.SSID);
         mWifiMetrics.incrementWificonfigurationBlocklistCount(disableReason);
+    }
+
+    private long calculateDisableEndTime(WifiConfiguration config, int disableReason) {
+        long disableDurationMs = (long) getNetworkSelectionDisableTimeoutMillis(disableReason);
+        int exponentialBackoffCount = mWifiScoreCard.lookupNetwork(config.SSID)
+                .getRecentStats().getCount(WifiScoreCard.CNT_CONSECUTIVE_CONNECTION_FAILURE)
+                - NUM_CONSECUTIVE_FAILURES_PER_NETWORK_EXP_BACKOFF;
+        for (int i = 0; i < exponentialBackoffCount; i++) {
+            disableDurationMs *= 2;
+            if (disableDurationMs > WIFI_CONFIG_MAX_DISABLE_DURATION_MILLIS) {
+                disableDurationMs = WIFI_CONFIG_MAX_DISABLE_DURATION_MILLIS;
+                break;
+            }
+        }
+        return mClock.getElapsedSinceBootMillis() + disableDurationMs;
     }
 
     /**

@@ -70,7 +70,7 @@ public class FakePreferenceController extends PreferenceController<Preference> {
 
     @Override
     @AvailabilityStatus
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return mAvailabilityStatus;
     }
 

@@ -16,14 +16,17 @@
 
 package android.telecom.cts;
 
+import static android.media.AudioManager.MODE_IN_CALL;
+import static android.media.AudioManager.MODE_NORMAL;
+import static android.telecom.cts.TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS;
+
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.telecom.Call;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
 import android.telecom.PhoneAccountHandle;
-
-import static android.telecom.cts.TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS;
 
 /**
  * Tests which verify functionality related to {@link android.telecom.Connection}s and
@@ -63,6 +66,11 @@ public class ExternalCallTest extends BaseTelecomTestWithMockServices {
                         return connection;
                     }
                 }, FLAG_REGISTER | FLAG_ENABLE);
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
     }
 
     /**
@@ -152,6 +160,64 @@ public class ExternalCallTest extends BaseTelecomTestWithMockServices {
         call.pullExternalCall();
         counter.waitForCount(5000L /*mS*/);
         assertEquals(0, counter.getInvokeCount());
+    }
+
+    /**
+     * test to check external call and pull external call with call and connection states check
+     */
+    public void testExternalCallAndPullCall() throws Exception {
+        if (!mShouldTestTelecom  || !TestUtils.hasTelephonyFeature(mContext)) {
+            return;
+        }
+
+        Call call = placeExternalCall();
+
+        // Set the connection active.
+        mExternalConnection.setActive();
+
+        // Check with Telecom if we're in a call. Should not be in call.
+        assertIsInCall(false);
+        assertIsInManagedCall(false);
+
+        // Ensure AudioManager has Normal audio mode: not ringing and no call established.
+        AudioManager audioManager = mContext.getSystemService(AudioManager.class);
+        assertAudioMode(audioManager, MODE_NORMAL);
+
+        // Call and Connection state should be active
+        assertCallState(call, Call.STATE_ACTIVE);
+        assertConnectionState(mExternalConnection, Connection.STATE_ACTIVE);
+
+        // Call properties should have PROPERTY_IS_EXTERNAL_CALL
+        assertTrue(call.getDetails().hasProperty(Call.Details.PROPERTY_IS_EXTERNAL_CALL));
+
+        // pull the external call
+        final TestUtils.InvokeCounter counter = mExternalConnection.getInvokeCounter(
+                MockConnection.ON_PULL_EXTERNAL_CALL);
+        call.pullExternalCall();
+        counter.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+
+        mExternalConnection.setConnectionProperties(0);
+        // Set the connection active.
+        //mExternalConnection.setActive();
+
+        // Call and Connection state should be active
+        assertCallState(call, Call.STATE_ACTIVE);
+        assertConnectionState(mExternalConnection, Connection.STATE_ACTIVE);
+
+        // audio mode should be In call audio mode. A telephony call is established.
+        assertAudioMode(audioManager, MODE_IN_CALL);
+
+        // Call properties should have PROPERTY_IS_EXTERNAL_CALL
+        assertFalse(call.getDetails().hasProperty(Call.Details.PROPERTY_IS_EXTERNAL_CALL));
+
+        // Check with Telecom if we're in a call. should be in call.
+        assertIsInCall(true);
+        assertIsInManagedCall(true);
+
+        call.disconnect();
+
+        assertIsInCall(false);
+        assertIsInManagedCall(false);
     }
 
     private Call placeExternalCall() {

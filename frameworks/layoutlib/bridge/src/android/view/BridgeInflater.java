@@ -16,6 +16,7 @@
 
 package android.view;
 
+import com.android.ide.common.rendering.api.AdapterBinding;
 import com.android.ide.common.rendering.api.AndroidConstants;
 import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.ide.common.rendering.api.LayoutlibCallback;
@@ -31,6 +32,8 @@ import com.android.layoutlib.bridge.android.BridgeXmlBlockParser;
 import com.android.layoutlib.bridge.android.support.DrawerLayoutUtil;
 import com.android.layoutlib.bridge.android.support.RecyclerViewUtil;
 import com.android.layoutlib.bridge.impl.ParserFactory;
+import com.android.layoutlib.bridge.impl.binding.FakeAdapter;
+import com.android.layoutlib.bridge.impl.binding.FakeExpandableAdapter;
 import com.android.layoutlib.common.util.ReflectionUtils;
 import com.android.tools.layoutlib.annotations.NotNull;
 import com.android.tools.layoutlib.annotations.Nullable;
@@ -43,9 +46,15 @@ import android.content.res.TypedArray;
 import android.graphics.drawable.Animatable;
 import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
+import android.util.Pair;
 import android.util.ResolvingAttributeSet;
 import android.view.View.OnAttachStateChangeListener;
+import android.widget.AbsListView;
+import android.widget.AbsSpinner;
+import android.widget.AdapterView;
+import android.widget.ExpandableListView;
 import android.widget.ImageView;
+import android.widget.ListView;
 import android.widget.NumberPicker;
 
 import java.lang.reflect.Constructor;
@@ -514,7 +523,117 @@ public final class BridgeInflater extends LayoutInflater {
                 });
             }
         }
+        else if (view instanceof AdapterView<?>) {
+            // We do not need data binding support for Glance ListView, the assigned adapter should
+            // handle everything itself.
+            if (isGlanceView(view)) {
+                return;
+            }
 
+            int id = view.getId();
+            ResourceReference listRef = bc.resolveId(id);
+
+            if (listRef != null) {
+                Map<String, String> bindingAttributes = new HashMap<>(4);
+                String header = attrs.getAttributeValue(BridgeConstants.NS_TOOLS_URI,
+                        BridgeConstants.ATTR_LIST_HEADER);
+                String footer = attrs.getAttributeValue(BridgeConstants.NS_TOOLS_URI,
+                        BridgeConstants.ATTR_LIST_FOOTER);
+                String layout = attrs.getAttributeValue(BridgeConstants.NS_TOOLS_URI,
+                        BridgeConstants.ATTR_LIST_ITEM);
+                String columns = attrs.getAttributeValue(BridgeConstants.NS_RESOURCES,
+                        BridgeConstants.ATTR_NUM_COLUMNS);
+                if (header != null) {
+                    bindingAttributes.put(BridgeConstants.ATTR_LIST_HEADER, header);
+                }
+                if (footer != null) {
+                    bindingAttributes.put(BridgeConstants.ATTR_LIST_FOOTER, footer);
+                }
+                if (layout != null) {
+                    bindingAttributes.put(BridgeConstants.ATTR_LIST_ITEM, layout);
+                }
+                if (columns != null) {
+                    bindingAttributes.put(BridgeConstants.ATTR_NUM_COLUMNS, columns);
+                }
+
+                AdapterBinding binding =
+                        mLayoutlibCallback.getAdapterBinding(view, bindingAttributes);
+                if (binding != null) {
+                    setAdapterBinding(view, bc, listRef, binding);
+                }
+            }
+        }
+    }
+
+    private void setAdapterBinding(View view, BridgeContext bc, ResourceReference listRef,
+            AdapterBinding binding) {
+        if (view instanceof AbsListView) {
+            if ((binding.getFooterCount() > 0 || binding.getHeaderCount() > 0) &&
+                    view instanceof ListView) {
+                ListView list = (ListView) view;
+
+                boolean skipCallbackParser = false;
+
+                int count = binding.getHeaderCount();
+                for (int i = 0; i < count; i++) {
+                    Pair<View, Boolean> pair =
+                            bc.inflateView(binding.getHeaderAt(i), list, false,
+                                    skipCallbackParser);
+                    if (pair.first != null) {
+                        list.addHeaderView(pair.first);
+                    }
+
+                    skipCallbackParser |= pair.second;
+                }
+
+                count = binding.getFooterCount();
+                for (int i = 0; i < count; i++) {
+                    Pair<View, Boolean> pair =
+                            bc.inflateView(binding.getFooterAt(i), list, false,
+                                    skipCallbackParser);
+                    if (pair.first != null) {
+                        list.addFooterView(pair.first);
+                    }
+
+                    skipCallbackParser |= pair.second;
+                }
+            }
+
+            if (view instanceof ExpandableListView) {
+                ((ExpandableListView) view).setAdapter(
+                        new FakeExpandableAdapter(listRef, binding, mLayoutlibCallback));
+            } else {
+                ((AbsListView) view).setAdapter(
+                        new FakeAdapter(listRef, binding, mLayoutlibCallback));
+            }
+        } else if (view instanceof AbsSpinner) {
+            ((AbsSpinner) view).setAdapter(
+                    new FakeAdapter(listRef, binding, mLayoutlibCallback));
+        }
+    }
+
+    private static boolean isGlanceAdapter(Class<?> clazz) {
+        return clazz
+                .getName()
+                .equals("androidx.glance.appwidget.preview.GlanceAppWidgetViewAdapter");
+    }
+
+    /**
+     * Return true if the View belongs to the Glance generated hierarchy (when one of the view's
+     * parents is GlanceAppWidgetViewAdapter).
+     */
+    private static boolean isGlanceView(View view) {
+        if (isGlanceAdapter(view.getClass())) {
+            return true;
+        }
+        ViewParent parent = view.getParent();
+        while (parent != null) {
+            if (isGlanceAdapter(parent.getClass())) {
+                return true;
+            }
+            parent = parent.getParent();
+        }
+        return false;
     }
 
     public void setIsInMerge(boolean isInMerge) {

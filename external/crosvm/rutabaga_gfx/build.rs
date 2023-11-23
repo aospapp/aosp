@@ -1,11 +1,7 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2021 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use anyhow::Result;
-
-#[cfg(feature = "virgl_renderer")]
-use anyhow::bail;
 #[cfg(feature = "virgl_renderer")]
 use std::env;
 #[cfg(feature = "virgl_renderer")]
@@ -18,9 +14,13 @@ use std::path::PathBuf;
 use std::process::Command;
 
 #[cfg(feature = "virgl_renderer")]
-const MINIGBM_SRC: &str = "../../minigbm";
+use anyhow::bail;
+use anyhow::Result;
+
 #[cfg(feature = "virgl_renderer")]
-const VIRGLRENDERER_SRC: &str = "../../virglrenderer";
+const MINIGBM_SRC: &str = "../third_party/minigbm";
+#[cfg(feature = "virgl_renderer")]
+const VIRGLRENDERER_SRC: &str = "../third_party/virglrenderer";
 
 #[cfg(feature = "virgl_renderer")]
 fn is_native_build() -> bool {
@@ -38,7 +38,7 @@ fn get_cross_compile_prefix() -> String {
     let arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
     let os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let env = env::var("CARGO_CFG_TARGET_ENV").unwrap();
-    return format!("{}-{}-{}-", arch, os, env);
+    format!("{}-{}-{}-", arch, os, env)
 }
 
 /// For cross-compilation with meson, we need to pick a cross-file, which
@@ -137,13 +137,18 @@ fn build_virglrenderer(out_dir: &Path) -> Result<()> {
 }
 
 #[cfg(feature = "virgl_renderer")]
-fn virglrenderer() -> Result<()> {
+fn virglrenderer_deps() -> Result<()> {
     // System provided runtime dependencies.
     pkg_config::Config::new().probe("epoxy")?;
     pkg_config::Config::new().probe("libdrm")?;
+    Ok(())
+}
 
+#[cfg(feature = "virgl_renderer")]
+fn virglrenderer() -> Result<()> {
     // Use virglrenderer package from the standard system location if available.
     if pkg_config::Config::new().probe("virglrenderer").is_ok() {
+        virglrenderer_deps()?;
         return Ok(());
     }
 
@@ -161,12 +166,30 @@ fn virglrenderer() -> Result<()> {
     println!("cargo:rustc-link-search={}", minigbm_out.display());
     println!("cargo:rustc-link-lib=static=virglrenderer");
     println!("cargo:rustc-link-lib=static=gbm");
+
+    virglrenderer_deps()?;
+
+    Ok(())
+}
+
+#[cfg(all(feature = "gfxstream", not(feature = "gfxstream_stub")))]
+fn gfxstream() -> Result<()> {
+    let gfxstream_path = std::env::var("GFXSTREAM_PATH")?;
+    println!("cargo:rustc-link-lib=gfxstream_backend");
+    println!("cargo:rustc-link-search={}", gfxstream_path);
     Ok(())
 }
 
 fn main() -> Result<()> {
+    // Skip installing dependencies when generating documents.
+    if std::env::var("CARGO_DOC").is_ok() {
+        return Ok(());
+    }
+
     #[cfg(feature = "virgl_renderer")]
     virglrenderer()?;
+    #[cfg(all(feature = "gfxstream", not(feature = "gfxstream_stub")))]
+    gfxstream()?;
 
     Ok(())
 }

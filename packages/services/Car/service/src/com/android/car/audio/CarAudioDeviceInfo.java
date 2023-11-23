@@ -27,8 +27,10 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 
 import com.android.car.CarLog;
+import com.android.car.audio.hal.HalAudioDeviceInfo;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.car.internal.util.IndentingPrintWriter;
+import com.android.internal.annotations.GuardedBy;
 
 /**
  * A helper class wraps {@link AudioDeviceInfo}, and helps get/set the gain on a specific port
@@ -44,11 +46,20 @@ import com.android.car.internal.util.IndentingPrintWriter;
     private final int mSampleRate;
     private final int mEncodingFormat;
     private final int mChannelCount;
-    private final int mDefaultGain;
-    private final int mMaxGain;
-    private final int mMinGain;
-    private final int mStepValue;
     private final AudioManager mAudioManager;
+
+    private final Object mLock = new Object();
+    @GuardedBy("mLock")
+    private int mDefaultGain;
+    @GuardedBy("mLock")
+    private int mMaxGain;
+    @GuardedBy("mLock")
+    private int mMinGain;
+    @GuardedBy("mLock")
+    private int mStepValue;
+    @GuardedBy("mLock")
+    private boolean mCanBeRoutedWithDynamicPolicyMixRule = true;
+
 
     /**
      * We need to store the current gain because it is not accessible from the current
@@ -76,20 +87,43 @@ import com.android.car.internal.util.IndentingPrintWriter;
         return mAudioDeviceInfo;
     }
 
+    /**
+     * By default, considers all AudioDevice can be used to establish dynamic policy mixing rules.
+     * until validation state is performed.
+     * Once called, the device is marked definitively as "connot be routed with dynamic mixes".
+     */
+    void resetCanBeRoutedWithDynamicPolicyMix() {
+        synchronized (mLock) {
+            mCanBeRoutedWithDynamicPolicyMixRule = false;
+        }
+    }
+
+    boolean canBeRoutedWithDynamicPolicyMix() {
+        synchronized (mLock) {
+            return mCanBeRoutedWithDynamicPolicyMixRule;
+        }
+    }
+
     String getAddress() {
         return mAudioDeviceInfo.getAddress();
     }
 
     int getDefaultGain() {
-        return mDefaultGain;
+        synchronized (mLock) {
+            return mDefaultGain;
+        }
     }
 
     int getMaxGain() {
-        return mMaxGain;
+        synchronized (mLock) {
+            return mMaxGain;
+        }
     }
 
     int getMinGain() {
-        return mMinGain;
+        synchronized (mLock) {
+            return mMinGain;
+        }
     }
 
     int getSampleRate() {
@@ -105,27 +139,42 @@ import com.android.car.internal.util.IndentingPrintWriter;
     }
 
     int getStepValue() {
-        return mStepValue;
+        synchronized (mLock) {
+            return mStepValue;
+        }
     }
 
 
     // Input is in millibels
     void setCurrentGain(int gainInMillibels) {
+        int gain = gainInMillibels;
         // Clamp the incoming value to our valid range.  Out of range values ARE legal input
-        if (gainInMillibels < mMinGain) {
-            gainInMillibels = mMinGain;
-        } else if (gainInMillibels > mMaxGain) {
-            gainInMillibels = mMaxGain;
+        synchronized (mLock) {
+            if (gain < mMinGain) {
+                gain = mMinGain;
+            } else if (gain > mMaxGain) {
+                gain = mMaxGain;
+            }
         }
 
         if (AudioManagerHelper.setAudioDeviceGain(mAudioManager,
-                getAddress(), gainInMillibels, true)) {
+                getAddress(), gain, true)) {
             // Since we can't query for the gain on a device port later,
             // we have to remember what we asked for
-            mCurrentGain = gainInMillibels;
+            mCurrentGain = gain;
         } else {
-            Slogf.e(CarLog.TAG_AUDIO, "Failed to setAudioPortGain " + gainInMillibels
+            Slogf.e(CarLog.TAG_AUDIO, "Failed to setAudioPortGain " + gain
                     + " for output device " + getAddress());
+        }
+    }
+
+    // Updates audio device info for dynamic gain stage configurations
+    void updateAudioDeviceInfo(HalAudioDeviceInfo halDeviceInfo) {
+        synchronized (mLock) {
+            mMinGain = halDeviceInfo.getGainMinValue();
+            mMaxGain = halDeviceInfo.getGainMaxValue();
+            mStepValue = halDeviceInfo.getGainStepValue();
+            mDefaultGain = halDeviceInfo.getGainDefaultValue();
         }
     }
 
@@ -166,18 +215,22 @@ import com.android.car.internal.util.IndentingPrintWriter;
                 + " encodingFormat: " + getEncodingFormat()
                 + " channelCount: " + getChannelCount()
                 + " currentGain: " + mCurrentGain
-                + " maxGain: " + mMaxGain
-                + " minGain: " + mMinGain;
+                + " maxGain: " + getMaxGain()
+                + " minGain: " + getMinGain();
     }
 
     @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     void dump(IndentingPrintWriter writer) {
-        writer.printf("CarAudioDeviceInfo Device(%s)\n", mAudioDeviceInfo.getAddress());
-        writer.increaseIndent();
-        writer.printf("sample rate / encoding format / channel count: %d %d %d\n",
-                getSampleRate(), getEncodingFormat(), getChannelCount());
-        writer.printf("Gain values (min / max / default/ current): %d %d %d %d\n",
-                mMinGain, mMaxGain, mDefaultGain, mCurrentGain);
-        writer.decreaseIndent();
+        synchronized (mLock) {
+            writer.printf("CarAudioDeviceInfo Device(%s)\n", mAudioDeviceInfo.getAddress());
+            writer.increaseIndent();
+            writer.printf("Routing with Dynamic Mix enabled (%b)\n",
+                    mCanBeRoutedWithDynamicPolicyMixRule);
+            writer.printf("sample rate / encoding format / channel count: %d %d %d\n",
+                    getSampleRate(), getEncodingFormat(), getChannelCount());
+            writer.printf("Gain values (min / max / default/ current): %d %d %d %d\n",
+                    mMinGain, mMaxGain, mDefaultGain, mCurrentGain);
+            writer.decreaseIndent();
+        }
     }
 }

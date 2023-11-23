@@ -267,8 +267,8 @@ public final class CarWatchdogManager extends CarManagerBase {
                         "Cannot report client status. The client has not been registered.");
             }
             Preconditions.checkArgument(sessionId != -1 && mSession.currentId == sessionId,
-                    "Cannot report client status. "
-                    + "The given session id doesn't match the current one.");
+                    "Cannot report client status. Received session id (" + sessionId
+                            + ") doesn't match the current one (" + mSession.currentId + ").");
             if (mSession.lastReportedId == sessionId) {
                 Log.w(TAG, "The given session id is already reported.");
                 return;
@@ -472,11 +472,11 @@ public final class CarWatchdogManager extends CarManagerBase {
          *
          * <p>The listener is called at the executor which is specified in {@link
          * CarWatchdogManager#addResourceOveruseListener} or
-         * {@link CarWatchdogManager#addResourceOveruseListenerForSystem}.
+         * {@code addResourceOveruseListenerForSystem}.
          *
          * <p>The listener is called only on overusing one of the resources specified at the
          * {@code resourceOveruseFlag} in {@link CarWatchdogManager#addResourceOveruseListener} or
-         * {@link CarWatchdogManager#addResourceOveruseListenerForSystem}.
+         * {@code addResourceOveruseListenerForSystem}.
          *
          * @param resourceOveruseStats Resource overuse stats containing stats only for resources
          *                             overuse types that are either overused or about to be
@@ -837,6 +837,9 @@ public final class CarWatchdogManager extends CarManagerBase {
     private void reportToService(int sessionId) {
         try {
             mService.tellClientAlive(mClientImpl, sessionId);
+            if (DEBUG) {
+                Log.d(TAG, "Informed CarService that client is alive");
+            }
         } catch (RemoteException e) {
             handleRemoteExceptionFromCarService(e);
         }
@@ -1077,7 +1080,16 @@ public final class CarWatchdogManager extends CarManagerBase {
                 return false;
             }
             ResourceOveruseListenerInfo listenerInfo = (ResourceOveruseListenerInfo) obj;
+            // The ResourceOveruseListenerInfo equality is solely based on the listener because
+            // the clients shouldn't register the same listener multiple times. When checking
+            // whether a listener is previously registered, this equality check is used.
             return listenerInfo.listener == listener;
+        }
+
+        @Override
+        public int hashCode() {
+            // Similar to equality check, the hash generator uses only the listener.
+            return Objects.hash(listener);
         }
     }
 }

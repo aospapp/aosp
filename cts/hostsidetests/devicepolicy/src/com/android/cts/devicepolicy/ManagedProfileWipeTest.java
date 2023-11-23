@@ -31,7 +31,7 @@ import org.junit.Test;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ManagedProfileWipeTest extends BaseManagedProfileTest {
+public final class ManagedProfileWipeTest extends BaseManagedProfileTest {
 
     private static final String KEY_PROFILE_ID = "profileId";
     private final Map<String, String> mTestArgs = new HashMap<>();

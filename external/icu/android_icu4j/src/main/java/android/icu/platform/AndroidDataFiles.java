@@ -37,7 +37,6 @@ public class AndroidDataFiles {
     public static final String ANDROID_ROOT_ENV = "ANDROID_ROOT";
     public static final String ANDROID_I18N_ROOT_ENV = "ANDROID_I18N_ROOT";
     public static final String ANDROID_TZDATA_ROOT_ENV = "ANDROID_TZDATA_ROOT";
-    public static final String ANDROID_DATA_ENV = "ANDROID_DATA";
 
     // VisibleForTesting
     public static String getTimeZoneModuleIcuFile(String fileName) {
@@ -63,15 +62,7 @@ public class AndroidDataFiles {
         // Note: This logic below should match the logic in IcuRegistration.cpp in external/icu/
         // to ensure consistent behavior between ICU4C and ICU4J.
 
-        // ICU should first look in ANDROID_DATA. This is used for (optional) time zone data
-        // delivered by APK (https://source.android.com/devices/tech/config/timezone-rules)
-        String dataIcuDataPath =
-                getEnvironmentPath(ANDROID_DATA_ENV, "/misc/zoneinfo/current/icu/");
-        if (dataIcuDataPath != null) {
-            paths.add(dataIcuDataPath);
-        }
-
-        // ICU should then look for a mounted time zone module file in /apex. This is used for
+        // ICU should look for a mounted time zone module file in /apex. This is used for
         // (optional) time zone data that can be updated with an APEX file.
         String timeZoneModuleIcuDataPath = getTimeZoneModuleIcuFile("");
         paths.add(timeZoneModuleIcuDataPath);
@@ -82,17 +73,5 @@ public class AndroidDataFiles {
         paths.add(i18nModuleIcuDataPath);
 
         return String.join(":", paths);
-    }
-
-    /**
-     * Creates a path by combining the value of an environment variable with a relative path.
-     * Returns {@code null} if the environment variable is not set.
-     */
-    private static String getEnvironmentPath(String environmentVariable, String path) {
-        String variable = System.getenv(environmentVariable);
-        if (variable == null) {
-            return null;
-        }
-        return variable + path;
     }
 }

@@ -12,7 +12,19 @@ userdebug_or_eng(`
 
 # interface up
   allowxperm wifi_sniffer self:udp_socket ioctl SIOCSIFFLAGS;
-  allow wifi_sniffer self:netlink_generic_socket create_socket_perms_no_ioctl;
+  allow wifi_sniffer self:netlink_generic_socket create_socket_perms;
+  allowxperm wifi_sniffer self:netlink_generic_socket ioctl { 0x8910 0x8946 };
+
+# tcpdump
+  allow wifi_sniffer self:packet_socket create_socket_perms;
+  allowxperm wifi_sniffer self:packet_socket ioctl { 0x8933 0x8927 };
+  allow wifi_sniffer self:unix_dgram_socket ioctl;
+  allowxperm wifi_sniffer self:unix_dgram_socket ioctl 0x8946;
+  allow wifi_sniffer sysfs_net:dir search;
+  allow wifi_sniffer sysfs_net:file r_file_perms;
+  allow wifi_sniffer tcpdump_exec:file rx_file_perms;
+  allow wifi_sniffer wifi_logging_data_file:file create_file_perms;
+  allow wifi_sniffer wifi_logging_data_file:dir create_dir_perms;
 
   get_prop(wifi_sniffer, vendor_wifi_sniffer_prop)
 ')

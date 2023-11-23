@@ -14,38 +14,35 @@
  * limitations under the License.
  */
 
-#include <unistd.h>
-#include <atomic>
+#include "EvsEnumerator.h"
+#include "EvsGlDisplay.h"
+#include "ServiceNames.h"
 
 #include <hidl/HidlTransportSupport.h>
 #include <utils/Errors.h>
-#include <utils/StrongPointer.h>
 #include <utils/Log.h>
+#include <utils/StrongPointer.h>
 
-#include "ServiceNames.h"
-#include "EvsEnumerator.h"
-#include "EvsGlDisplay.h"
+#include <unistd.h>
 
+#include <atomic>
 
 // libhidl:
-using android::hardware::configureRpcThreadpool;
-using android::hardware::joinRpcThreadpool;
+using ::android::hardware::configureRpcThreadpool;
+using ::android::hardware::joinRpcThreadpool;
 
 // Generated HIDL files
-using android::hardware::automotive::evs::V1_1::IEvsEnumerator;
-using android::hardware::automotive::evs::V1_1::IEvsDisplay;
-using android::frameworks::automotive::display::V1_0::IAutomotiveDisplayProxyService;
+using ::android::frameworks::automotive::display::V1_0::IAutomotiveDisplayProxyService;
+using ::android::hardware::automotive::evs::V1_1::IEvsDisplay;
+using ::android::hardware::automotive::evs::V1_1::IEvsEnumerator;
 
-// The namespace in which all our implementation code lives
-using namespace android::hardware::automotive::evs::V1_1::implementation;
-using namespace android;
-
+using ::android::hardware::automotive::evs::V1_1::implementation::EvsEnumerator;
 
 int main() {
     LOG(INFO) << "EVS Hardware Enumerator service is starting";
 
     android::sp<IAutomotiveDisplayProxyService> carWindowService =
-        IAutomotiveDisplayProxyService::getService("default");
+            IAutomotiveDisplayProxyService::getService("default");
     if (carWindowService == nullptr) {
         LOG(ERROR) << "Cannot use AutomotiveDisplayProxyService.  Exiting.";
         return 1;
@@ -56,7 +53,7 @@ int main() {
 #endif
 
     // Start a thread to monitor hotplug devices
-    std::atomic<bool> running { true };
+    std::atomic<bool> running{true};
     std::thread hotplugHandler(EvsEnumerator::EvsHotplugThread, std::ref(running));
 
     android::sp<IEvsEnumerator> service = new EvsEnumerator(carWindowService);
@@ -65,13 +62,13 @@ int main() {
 
     // Register our service -- if somebody is already registered by our name,
     // they will be killed (their thread pool will throw an exception).
-    status_t status = service->registerAsService(kEnumeratorServiceName);
-    if (status == OK) {
+    android::status_t status = service->registerAsService(kEnumeratorServiceName);
+    if (status == android::OK) {
         LOG(DEBUG) << kEnumeratorServiceName << " is ready.";
         joinRpcThreadpool();
     } else {
-        LOG(ERROR) << "Could not register service " << kEnumeratorServiceName
-                   << " (" << status << ").";
+        LOG(ERROR) << "Could not register service " << kEnumeratorServiceName << " (" << status
+                   << ").";
     }
 
     // Exit a hotplug device thread

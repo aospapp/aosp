@@ -975,7 +975,9 @@ public class InformationElementUtil {
             while (ie.bytes.length >= startOffset + PER_STA_SUB_ELEMENT_MIN_LEN) {
                 int subElementId = ie.bytes[startOffset] & Constants.BYTE_MASK;
                 int subElementLen = ie.bytes[startOffset + 1] & Constants.BYTE_MASK;
-                if (ie.bytes.length < startOffset + subElementLen) {
+                // Expectation here is IE has enough length to parse and non-zero sub-element
+                // length.
+                if (ie.bytes.length < startOffset + subElementLen || subElementLen == 0) {
                     if (DBG) {
                         Log.w(TAG, "Invalid sub-element length: " + subElementLen);
                     }
@@ -1422,6 +1424,8 @@ public class InformationElementUtil {
         private static final int RSN_OSEN = 0x019a6f50;
         private static final int RSN_AKM_EAP_FILS_SHA256 = 0x0eac0f00;
         private static final int RSN_AKM_EAP_FILS_SHA384 = 0x0fac0f00;
+        private static final int RSN_AKM_SAE_EXT_KEY = 0x18ac0f00;
+        private static final int RSN_AKM_FT_SAE_EXT_KEY = 0x19ac0f00;
         private static final int RSN_AKM_DPP = 0x029a6f50;
 
         private static final int WPA_CIPHER_NONE = 0x00f25000;
@@ -1527,6 +1531,12 @@ public class InformationElementUtil {
                         case RSN_AKM_FT_SAE:
                             rsnKeyManagement.add(ScanResult.KEY_MGMT_FT_SAE);
                             break;
+                        case RSN_AKM_SAE_EXT_KEY:
+                            rsnKeyManagement.add(ScanResult.KEY_MGMT_SAE_EXT_KEY);
+                            break;
+                        case RSN_AKM_FT_SAE_EXT_KEY:
+                            rsnKeyManagement.add(ScanResult.KEY_MGMT_FT_SAE_EXT_KEY);
+                            break;
                         case RSN_AKM_OWE:
                             rsnKeyManagement.add(ScanResult.KEY_MGMT_OWE);
                             break;
@@ -1560,6 +1570,10 @@ public class InformationElementUtil {
                 // see section 9.4.2.25 - RSNE - In IEEE Std 802.11-2016
                 if (buf.remaining() < 2) return;
                 int rsnCaps = buf.getShort();
+                isManagementFrameProtectionRequired =
+                        0 != (RSN_CAP_MANAGEMENT_FRAME_PROTECTION_REQUIRED & rsnCaps);
+                isManagementFrameProtectionCapable =
+                        0 != (RSN_CAP_MANAGEMENT_FRAME_PROTECTION_CAPABLE & rsnCaps);
 
                 if (buf.remaining() < 2) return;
                 // PMKID, it's not used, drop it if exists (optional).
@@ -1573,10 +1587,6 @@ public class InformationElementUtil {
                 // Group management cipher suite (optional).
                 if (buf.remaining() < 4) return;
                 groupManagementCipher.add(parseRsnCipher(buf.getInt()));
-                isManagementFrameProtectionRequired = !groupManagementCipher.isEmpty()
-                        && 0 != (RSN_CAP_MANAGEMENT_FRAME_PROTECTION_REQUIRED & rsnCaps);
-                isManagementFrameProtectionCapable = !groupManagementCipher.isEmpty()
-                        && 0 != (RSN_CAP_MANAGEMENT_FRAME_PROTECTION_CAPABLE & rsnCaps);
             } catch (BufferUnderflowException e) {
                 Log.e("IE_Capabilities", "Couldn't parse RSNE, buffer underflow");
             }
@@ -1860,6 +1870,10 @@ public class InformationElementUtil {
                     return "SAE";
                 case ScanResult.KEY_MGMT_FT_SAE:
                     return "FT/SAE";
+                case ScanResult.KEY_MGMT_SAE_EXT_KEY:
+                    return "SAE_EXT_KEY";
+                case ScanResult.KEY_MGMT_FT_SAE_EXT_KEY:
+                    return "FT/SAE_EXT_KEY";
                 case ScanResult.KEY_MGMT_EAP_SUITE_B_192:
                     return "EAP_SUITE_B_192";
                 case ScanResult.KEY_MGMT_OSEN:
@@ -1926,13 +1940,11 @@ public class InformationElementUtil {
             if (isWPS) {
                 capabilities.append("[WPS]");
             }
-            if (!groupManagementCipher.isEmpty()) {
-                if (isManagementFrameProtectionRequired) {
-                    capabilities.append("[MFPR]");
-                }
-                if (isManagementFrameProtectionCapable) {
-                    capabilities.append("[MFPC]");
-                }
+            if (isManagementFrameProtectionRequired) {
+                capabilities.append("[MFPR]");
+            }
+            if (isManagementFrameProtectionCapable) {
+                capabilities.append("[MFPC]");
             }
 
             return capabilities.toString();

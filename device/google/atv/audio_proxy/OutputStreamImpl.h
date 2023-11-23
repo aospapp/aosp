@@ -28,6 +28,8 @@ using android::hardware::EventFlag;
 
 using aidl::device::google::atv::audio_proxy::AudioDrain;
 using aidl::device::google::atv::audio_proxy::BnOutputStream;
+using aidl::device::google::atv::audio_proxy::MmapBufferInfo;
+using aidl::device::google::atv::audio_proxy::PresentationPosition;
 using aidl::device::google::atv::audio_proxy::WriteStatus;
 
 namespace audio_proxy {
@@ -55,6 +57,15 @@ class OutputStreamImpl : public BnOutputStream {
   ndk::ScopedAStatus flush() override;
 
   ndk::ScopedAStatus setVolume(float left, float right) override;
+
+  ndk::ScopedAStatus getBufferSizeBytes(int64_t* bufferSizeBytes) override;
+  ndk::ScopedAStatus getLatencyMs(int32_t* latencyMs) override;
+
+  ndk::ScopedAStatus start() override;
+  ndk::ScopedAStatus stop() override;
+  ndk::ScopedAStatus createMmapBuffer(int32_t minBufferSizeFrames,
+                                      MmapBufferInfo* info) override;
+  ndk::ScopedAStatus getMmapPosition(PresentationPosition* position) override;
 
  private:
   typedef void (*EventFlagDeleter)(EventFlag*);

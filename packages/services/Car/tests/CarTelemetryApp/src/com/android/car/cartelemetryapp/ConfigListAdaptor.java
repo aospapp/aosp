@@ -29,66 +29,43 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.List;
 
 public class ConfigListAdaptor extends RecyclerView.Adapter<ConfigListAdaptor.ViewHolder> {
-    private List<ConfigData> mConfigs;
+    private List<IConfigData> mConfigs;
     private Callback mCallback;
 
     public interface Callback {
-        void onCheckedChanged(ConfigData config, boolean isChecked);
-        void onInfoButtonClicked(ConfigData config);
-        void onClearButtonClicked(ConfigData config);
+        void onAddButtonClicked(IConfigData config);
+        void onRemoveButtonClicked(IConfigData config);
+        void onInfoButtonClicked(IConfigData config);
+        void onClearButtonClicked(IConfigData config);
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
-        private final CheckBox mCheckBox;
-        private final TextView mConfigText;
-        private final TextView mOnReadyText;
-        private final TextView mSentBytesText;
-        private final TextView mErrorsCountText;
-        private final Button mInfoButton;
-        private final Button mClearButton;
+        public final CheckBox checkBox;
+        public final TextView configText;
+        public final TextView onReadyText;
+        public final TextView sentBytesText;
+        public final TextView errorsCountText;
+        public final Button addConfigButton;
+        public final Button removeConfigButton;
+        public final Button infoButton;
+        public final Button clearButton;
 
         public ViewHolder(View view) {
             super(view);
-            mCheckBox = view.findViewById(R.id.checkbox);
-            mConfigText = view.findViewById(R.id.config_name_text);
-            mOnReadyText = view.findViewById(R.id.on_ready_times_text);
-            mSentBytesText = view.findViewById(R.id.sent_bytes_text);
-            mErrorsCountText = view.findViewById(R.id.error_count_text);
-            mInfoButton = view.findViewById(R.id.show_info_button);
-            mClearButton = view.findViewById(R.id.clear_info_button);
-        }
-
-        public CheckBox getCheckBox() {
-            return mCheckBox;
-        }
-
-        public TextView getConfigText() {
-            return mConfigText;
-        }
-
-        public TextView getOnReadyText() {
-            return mOnReadyText;
-        }
-
-        public TextView getSentBytesText() {
-            return mSentBytesText;
-        }
-
-        public TextView getErrorsCountText() {
-            return mErrorsCountText;
-        }
-
-        public Button getInfoButton() {
-            return mInfoButton;
-        }
-
-        public Button getClearButton() {
-            return mClearButton;
+            checkBox = view.findViewById(R.id.checkbox);
+            configText = view.findViewById(R.id.config_name_text);
+            onReadyText = view.findViewById(R.id.on_ready_times_text);
+            sentBytesText = view.findViewById(R.id.sent_bytes_text);
+            errorsCountText = view.findViewById(R.id.error_count_text);
+            addConfigButton = view.findViewById(R.id.add_config_button);
+            removeConfigButton = view.findViewById(R.id.remove_config_button);
+            infoButton = view.findViewById(R.id.show_info_button);
+            clearButton = view.findViewById(R.id.clear_info_button);
         }
     }
 
     public ConfigListAdaptor(
-            List<ConfigData> configs,
+            List<IConfigData> configs,
             Callback callback) {
         mConfigs = configs;
         mCallback = callback;
@@ -105,20 +82,23 @@ public class ConfigListAdaptor extends RecyclerView.Adapter<ConfigListAdaptor.Vi
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         int pos = holder.getAbsoluteAdapterPosition();
-        ConfigData config = mConfigs.get(pos);
-        holder.getConfigText().setText(config.getName());
-        holder.getCheckBox().setOnCheckedChangeListener((buttonView, isChecked) -> {
-            mCallback.onCheckedChanged(config, isChecked);
-        });
-        holder.getCheckBox().setChecked(config.selected);
-        holder.getOnReadyText().setText(String.valueOf(config.onReadyTimes));
+        IConfigData config = mConfigs.get(pos);
+        holder.checkBox.setChecked(config.selected);
+        holder.configText.setText(config.name);
+        holder.onReadyText.setText(String.valueOf(config.onReadyTimes));
         String bytesSentStr = String.valueOf(config.sentBytes) + " B";
-        holder.getSentBytesText().setText(bytesSentStr);
-        holder.getErrorsCountText().setText(String.valueOf(config.errorCount));
-        holder.getInfoButton().setOnClickListener(v -> {
+        holder.sentBytesText.setText(bytesSentStr);
+        holder.errorsCountText.setText(String.valueOf(config.errorCount));
+        holder.addConfigButton.setOnClickListener(v -> {
+            mCallback.onAddButtonClicked(config);
+        });
+        holder.removeConfigButton.setOnClickListener(v -> {
+            mCallback.onRemoveButtonClicked(config);
+        });
+        holder.infoButton.setOnClickListener(v -> {
             mCallback.onInfoButtonClicked(config);
         });
-        holder.getClearButton().setOnClickListener(v -> {
+        holder.clearButton.setOnClickListener(v -> {
             mCallback.onClearButtonClicked(config);
         });
     }

@@ -16,8 +16,14 @@
 
 package android.scopedstorage.cts;
 
+import static android.scopedstorage.cts.lib.FilePathAccessTestUtils.assertAccess;
+import static android.scopedstorage.cts.lib.FilePathAccessTestUtils.assertCanAccessMyAppFile;
+import static android.scopedstorage.cts.lib.FilePathAccessTestUtils.assertCannotReadOrWrite;
+import static android.scopedstorage.cts.lib.FilePathAccessTestUtils.assertDirectoryAccess;
+import static android.scopedstorage.cts.lib.FilePathAccessTestUtils.assertFileAccess_existsOnly;
+import static android.scopedstorage.cts.lib.FilePathAccessTestUtils.assertFileAccess_readOnly;
+import static android.scopedstorage.cts.lib.FilePathAccessTestUtils.assertFileAccess_readWrite;
 import static android.scopedstorage.cts.lib.TestUtils.BYTES_DATA1;
-import static android.scopedstorage.cts.lib.TestUtils.adoptShellPermissionIdentity;
 import static android.scopedstorage.cts.lib.TestUtils.assertCanAccessPrivateAppAndroidDataDir;
 import static android.scopedstorage.cts.lib.TestUtils.assertCanAccessPrivateAppAndroidObbDir;
 import static android.scopedstorage.cts.lib.TestUtils.assertCanRenameFile;
@@ -34,7 +40,6 @@ import static android.scopedstorage.cts.lib.TestUtils.createFileAs;
 import static android.scopedstorage.cts.lib.TestUtils.deleteFileAs;
 import static android.scopedstorage.cts.lib.TestUtils.deleteFileAsNoThrow;
 import static android.scopedstorage.cts.lib.TestUtils.deleteRecursively;
-import static android.scopedstorage.cts.lib.TestUtils.dropShellPermissionIdentity;
 import static android.scopedstorage.cts.lib.TestUtils.executeShellCommand;
 import static android.scopedstorage.cts.lib.TestUtils.getAndroidDir;
 import static android.scopedstorage.cts.lib.TestUtils.getAndroidMediaDir;
@@ -65,9 +70,6 @@ import static android.scopedstorage.cts.lib.TestUtils.verifyInsertFromExternalPr
 import static android.scopedstorage.cts.lib.TestUtils.verifyUpdateToExternalDirsViaData_denied;
 import static android.scopedstorage.cts.lib.TestUtils.verifyUpdateToExternalMediaDirViaRelativePath_allowed;
 import static android.scopedstorage.cts.lib.TestUtils.verifyUpdateToExternalPrivateDirsViaRelativePath_denied;
-import static android.system.OsConstants.F_OK;
-import static android.system.OsConstants.R_OK;
-import static android.system.OsConstants.W_OK;
 
 import static androidx.test.InstrumentationRegistry.getContext;
 
@@ -78,11 +80,9 @@ import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.Manifest;
-import android.app.WallpaperManager;
 import android.content.ContentValues;
 import android.net.Uri;
 import android.os.Build;
@@ -92,8 +92,7 @@ import android.os.ParcelFileDescriptor;
 import android.os.storage.StorageManager;
 import android.platform.test.annotations.AppModeInstant;
 import android.provider.MediaStore;
-import android.system.ErrnoException;
-import android.system.Os;
+import android.scopedstorage.cts.lib.RedactionTestHelper;
 import android.util.Log;
 
 import androidx.test.runner.AndroidJUnit4;
@@ -221,6 +220,25 @@ public class ScopedStorageTest {
         assertCanCreateFile(topLevelPdf);
         // It can even create a music file in Pictures
         assertCanCreateFile(musicFileInMovies);
+    }
+
+    @Test
+    public void testManageExternalStorageCanReadRedactedContents() throws Exception {
+        pollForManageExternalStorageAllowed();
+
+        final File otherAppImage = new File(getDcimDir(), "other" + IMAGE_FILE_NAME);
+
+        try {
+            // Create file as another app
+            assertThat(createFileAs(APP_B_NO_PERMS, otherAppImage.getPath())).isTrue();
+
+            // Assert has access to redacted information
+            RedactionTestHelper.assertConsistentNonRedactedAccess(otherAppImage,
+                    R.raw.img_with_metadata);
+
+        } finally {
+            deleteFileAsNoThrow(APP_B_NO_PERMS, otherAppImage.getAbsolutePath());
+        }
     }
 
     @Test
@@ -830,49 +848,6 @@ public class ScopedStorageTest {
         assertSharedStorageAccess(getDcimDir(), getDownloadDir(), APP_B_NO_PERMS);
     }
 
-    @Test
-    public void testWallpaperApisNoPermission() throws Exception {
-        WallpaperManager wallpaperManager = WallpaperManager.getInstance(getContext());
-        assumeTrue("Test skipped as wallpaper is not supported.",
-                wallpaperManager.isWallpaperSupported());
-        assertThrows(SecurityException.class, () -> wallpaperManager.getFastDrawable());
-        assertThrows(SecurityException.class, () -> wallpaperManager.peekFastDrawable());
-        assertThrows(SecurityException.class,
-                () -> wallpaperManager.getWallpaperFile(WallpaperManager.FLAG_SYSTEM));
-    }
-
-    @Test
-    public void testWallpaperApisReadExternalStorage() throws Exception {
-        pollForPermission(Manifest.permission.READ_EXTERNAL_STORAGE, /*granted*/ true);
-        WallpaperManager wallpaperManager = WallpaperManager.getInstance(getContext());
-        wallpaperManager.getFastDrawable();
-        wallpaperManager.peekFastDrawable();
-        wallpaperManager.getWallpaperFile(WallpaperManager.FLAG_SYSTEM);
-    }
-
-    @Test
-    public void testWallpaperApisManageExternalStorageAppOp() throws Exception {
-        pollForManageExternalStorageAllowed();
-
-        WallpaperManager wallpaperManager = WallpaperManager.getInstance(getContext());
-        wallpaperManager.getFastDrawable();
-        wallpaperManager.peekFastDrawable();
-        wallpaperManager.getWallpaperFile(WallpaperManager.FLAG_SYSTEM);
-    }
-
-    @Test
-    public void testWallpaperApisManageExternalStoragePrivileged() throws Exception {
-        adoptShellPermissionIdentity(Manifest.permission.MANAGE_EXTERNAL_STORAGE);
-        try {
-            WallpaperManager wallpaperManager = WallpaperManager.getInstance(getContext());
-            wallpaperManager.getFastDrawable();
-            wallpaperManager.peekFastDrawable();
-            wallpaperManager.getWallpaperFile(WallpaperManager.FLAG_SYSTEM);
-        } finally {
-            dropShellPermissionIdentity();
-        }
-    }
-
     /**
      * Test that File Manager can't insert files from private directories.
      */
@@ -1131,22 +1106,24 @@ public class ScopedStorageTest {
 
             executeShellCommand("pm clear --user " + getCurrentUser() + " " + testAppPackageName);
 
-            // Wait a max of 5 seconds for the cleaning after "pm clear" command to complete.
+            // Wait a max of 10 seconds for the cleaning after "pm clear" command to complete.
             int i = 0;
-            while(i < 10 && getFileRowIdFromDatabase(fileToBeDeleted) != -1
+            while (i < 20 && getFileRowIdFromDatabase(fileToBeDeleted) != -1
                 && getFileRowIdFromDatabase(nestedFileToBeDeleted) != -1) {
                 Thread.sleep(500);
                 i++;
             }
-
-            assertThat(getFileOwnerPackageFromDatabase(fileToRemain)).isNull();
-            assertThat(getFileRowIdFromDatabase(fileToRemain)).isNotEqualTo(-1);
-
-            assertThat(getFileOwnerPackageFromDatabase(fileToBeDeleted)).isNull();
             assertThat(getFileRowIdFromDatabase(fileToBeDeleted)).isEqualTo(-1);
-
-            assertThat(getFileOwnerPackageFromDatabase(nestedFileToBeDeleted)).isNull();
             assertThat(getFileRowIdFromDatabase(nestedFileToBeDeleted)).isEqualTo(-1);
+
+            // Poll for package name to be cleared for existing files
+            i = 0;
+            while (i < 20 && getFileOwnerPackageFromDatabase(fileToRemain) != null) {
+                Thread.sleep(500);
+                i++;
+            }
+            assertThat(getFileRowIdFromDatabase(fileToRemain)).isNotEqualTo(-1);
+            assertThat(getFileOwnerPackageFromDatabase(fileToRemain)).isNull();
         } finally {
             deleteFilesAs(APP_B_NO_PERMS, fileToRemain);
             deleteFilesAs(APP_B_NO_PERMS, fileToBeDeleted);
@@ -1264,85 +1241,6 @@ public class ScopedStorageTest {
             Log.w(TAG,
                     "Couldn't assertCanCreateFile(" + file + ") because file existed prior to "
                             + "running the test!");
-        }
-    }
-
-    private static void assertFileAccess_existsOnly(File file) throws Exception {
-        assertThat(file.isFile()).isTrue();
-        assertAccess(file, true, false, false);
-    }
-
-    private static void assertFileAccess_readOnly(File file) throws Exception {
-        assertThat(file.isFile()).isTrue();
-        assertAccess(file, true, true, false);
-    }
-
-    private static void assertFileAccess_readWrite(File file) throws Exception {
-        assertThat(file.isFile()).isTrue();
-        assertAccess(file, true, true, true);
-    }
-
-    private static void assertDirectoryAccess(File dir, boolean exists, boolean canWrite)
-            throws Exception {
-        // This util does not handle app data directories.
-        assumeFalse(dir.getAbsolutePath().startsWith(getAndroidDir().getAbsolutePath())
-                && !dir.equals(getAndroidDir()));
-        assertThat(dir.isDirectory()).isEqualTo(exists);
-        // For non-app data directories, exists => canRead().
-        assertAccess(dir, exists, exists, exists && canWrite);
-    }
-
-    private static void assertAccess(File file, boolean exists, boolean canRead, boolean canWrite)
-            throws Exception {
-        assertAccess(file, exists, canRead, canWrite, true /* checkExists */);
-    }
-
-    private static void assertCannotReadOrWrite(File file)
-            throws Exception {
-        // App data directories have different 'x' bits on upgrading vs new devices. Let's not
-        // check 'exists', by passing checkExists=false. But assert this app cannot read or write
-        // the other app's file.
-        assertAccess(file, false /* value is moot */, false /* canRead */,
-                false /* canWrite */, false /* checkExists */);
-    }
-
-    private static void assertCanAccessMyAppFile(File file)
-            throws Exception {
-        assertAccess(file, true, true /* canRead */,
-                true /*canWrite */, true /* checkExists */);
-    }
-
-    private static void assertAccess(File file, boolean exists, boolean canRead, boolean canWrite,
-            boolean checkExists) throws Exception {
-        if (checkExists) {
-            assertThat(file.exists()).isEqualTo(exists);
-        }
-        assertThat(file.canRead()).isEqualTo(canRead);
-        assertThat(file.canWrite()).isEqualTo(canWrite);
-        if (file.isDirectory()) {
-            if (checkExists) {
-                assertThat(file.canExecute()).isEqualTo(exists);
-            }
-        } else {
-            assertThat(file.canExecute()).isFalse(); // Filesytem is mounted with MS_NOEXEC
-        }
-
-        // Test some combinations of mask.
-        assertAccess(file, R_OK, canRead);
-        assertAccess(file, W_OK, canWrite);
-        assertAccess(file, R_OK | W_OK, canRead && canWrite);
-        assertAccess(file, W_OK | F_OK, canWrite);
-
-        if (checkExists) {
-            assertAccess(file, F_OK, exists);
-        }
-    }
-
-    private static void assertAccess(File file, int mask, boolean expected) throws Exception {
-        if (expected) {
-            assertThat(Os.access(file.getAbsolutePath(), mask)).isTrue();
-        } else {
-            assertThrows(ErrnoException.class, () -> { Os.access(file.getAbsolutePath(), mask); });
         }
     }
 

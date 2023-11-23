@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-PHONE_CAR_BOARD_PRODUCT := raven_car
+AUTOMOTIVE_PRODUCT_PATH := google_car/raven_car
 
 $(call inherit-product, packages/services/Car/car_product/build/car.mk)
 

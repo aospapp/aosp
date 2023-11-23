@@ -22,7 +22,6 @@ import static android.media.AudioAttributes.ALLOW_CAPTURE_BY_SYSTEM;
 
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.lessThan;
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
@@ -31,6 +30,8 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.testng.Assert.assertThrows;
 
+import static java.util.stream.Collectors.toSet;
+
 import android.media.AudioAttributes;
 import android.media.AudioAttributes.AttributeUsage;
 import android.media.AudioAttributes.CapturePolicy;
@@ -38,16 +39,16 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioPlaybackCaptureConfiguration;
 import android.media.AudioRecord;
-import android.media.cts.MediaProjectionActivity;
 import android.media.MediaPlayer;
-import android.media.audio.cts.R;
+import android.media.cts.MediaProjectionActivity;
 import android.media.projection.MediaProjection;
-import android.media.cts.NonMediaMainlineTest;
 import android.os.Handler;
 import android.os.Looper;
 import android.platform.test.annotations.Presubmit;
 
 import androidx.test.rule.ActivityTestRule;
+
+import com.android.compatibility.common.util.NonMainlineTest;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -55,6 +56,8 @@ import org.junit.Test;
 
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
+import java.util.Arrays;
+import java.util.Set;
 import java.util.Stack;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -71,7 +74,7 @@ import java.util.concurrent.TimeUnit;
  * Currently the test that some audio was recorded just check that at least one sample is non 0.
  * A better check needs to be used, eg: compare the power spectrum.
  */
-@NonMediaMainlineTest
+@NonMainlineTest
 public class AudioPlaybackCaptureTest {
     private static final String TAG = "AudioPlaybackCaptureTest";
     private static final int SAMPLE_RATE = 44100;
@@ -122,18 +125,18 @@ public class AudioPlaybackCaptureTest {
         }
 
         private void assertCorreclyBuilt(AudioPlaybackCaptureConfiguration config) {
-            assertEqualNullIsEmpty("matchingUsages", matchingUsages, config.getMatchingUsages());
-            assertEqualNullIsEmpty("excludeUsages", excludeUsages, config.getExcludeUsages());
-            assertEqualNullIsEmpty("matchingUids", matchingUids, config.getMatchingUids());
-            assertEqualNullIsEmpty("excludeUids", excludeUids, config.getExcludeUids());
+            assertEquals("matchingUsages",
+                    arraytoSet(matchingUsages), arraytoSet(config.getMatchingUsages()));
+            assertEquals("excludeUsages",
+                    arraytoSet(excludeUsages), arraytoSet(config.getExcludeUsages()));
+            assertEquals("matchingUids",
+                    arraytoSet(matchingUids), arraytoSet(config.getMatchingUids()));
+            assertEquals("excludeUids",
+                    arraytoSet(excludeUids), arraytoSet(config.getExcludeUids()));
         }
 
-        private void assertEqualNullIsEmpty(String msg, int[] expected, int[] found) {
-            if (expected == null) {
-                assertEquals(msg, 0, found.length);
-            } else {
-                assertArrayEquals(msg, expected, found);
-            }
+        private static Set<Integer> arraytoSet(int[] array) {
+            return array == null ? Set.of() : Arrays.stream(array).boxed().collect(toSet());
         }
     };
     private APCTestConfig mAPCTestConfig;

@@ -22,11 +22,10 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 #include "btif/include/btif_common.h"
 #include "main/shim/activity_attribution.h"
 #include "main/shim/entry.h"
+#include "test/common/mock_functions.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
@@ -34,9 +33,9 @@ extern std::map<std::string, int> mock_function_count_map;
 
 ActivityAttributionInterface*
 bluetooth::shim::get_activity_attribution_instance() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }
 void bluetooth::shim::init_activity_attribution() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }

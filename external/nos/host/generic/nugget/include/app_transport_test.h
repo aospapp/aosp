@@ -21,5 +21,6 @@
 #define TRANSPORT_TEST_1234 8    /* Returns 0x01020304 successfully */
 #define TRANSPORT_TEST_9876 9    /* Only successful if the arg is 0x09080706 */
 #define TRANSPORT_TEST_HANG 12   /* Forgets to call app_reply() */
+#define TRANSPORT_TEST_ECHO_2 13 /* Echoes back 2 bytes received by host */
 
 #endif /* __CROS_EC_INCLUDE_APP_TRANSPORT_TEST_H */

@@ -15,11 +15,12 @@
 package bp2build
 
 import (
-	"android/soong/android"
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
+
+	"android/soong/android"
 )
 
 func setUp() {
@@ -84,6 +85,7 @@ custom = rule(
         "soong_module_name": attr.string(mandatory = True),
         "soong_module_variant": attr.string(),
         "soong_module_deps": attr.label_list(providers = [SoongModuleInfo]),
+        "api": attr.string(),
         "arch_paths": attr.string_list(),
         "arch_paths_exclude": attr.string_list(),
         # bazel_module start
@@ -103,6 +105,7 @@ custom = rule(
         "one_to_many_prop": attr.bool(),
         "other_embedded_prop": attr.string(),
         "string_list_prop": attr.string_list(),
+        "string_literal_prop": attr.string(),
         "string_prop": attr.string(),
         "string_ptr_prop": attr.string(),
     },
@@ -117,6 +120,7 @@ custom_defaults = rule(
         "soong_module_name": attr.string(mandatory = True),
         "soong_module_variant": attr.string(),
         "soong_module_deps": attr.label_list(providers = [SoongModuleInfo]),
+        "api": attr.string(),
         "arch_paths": attr.string_list(),
         "arch_paths_exclude": attr.string_list(),
         "bool_prop": attr.bool(),
@@ -132,6 +136,7 @@ custom_defaults = rule(
         "one_to_many_prop": attr.bool(),
         "other_embedded_prop": attr.string(),
         "string_list_prop": attr.string_list(),
+        "string_literal_prop": attr.string(),
         "string_prop": attr.string(),
         "string_ptr_prop": attr.string(),
     },
@@ -146,6 +151,7 @@ custom_test_ = rule(
         "soong_module_name": attr.string(mandatory = True),
         "soong_module_variant": attr.string(),
         "soong_module_deps": attr.label_list(providers = [SoongModuleInfo]),
+        "api": attr.string(),
         "arch_paths": attr.string_list(),
         "arch_paths_exclude": attr.string_list(),
         "bool_prop": attr.bool(),
@@ -161,6 +167,7 @@ custom_test_ = rule(
         "one_to_many_prop": attr.bool(),
         "other_embedded_prop": attr.string(),
         "string_list_prop": attr.string_list(),
+        "string_literal_prop": attr.string(),
         "string_prop": attr.string(),
         "string_ptr_prop": attr.string(),
         # test_prop start
@@ -189,7 +196,7 @@ func TestGenerateSoongModuleBzl(t *testing.T) {
 			content: "irrelevant",
 		},
 	}
-	files := CreateBazelFiles(ruleShims, make(map[string]BazelTargets), QueryView)
+	files := CreateBazelFiles(android.NullConfig("out", "out/soong"), ruleShims, make(map[string]BazelTargets), QueryView)
 
 	var actualSoongModuleBzl BazelFile
 	for _, f := range files {

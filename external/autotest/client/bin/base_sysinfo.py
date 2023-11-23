@@ -15,32 +15,33 @@ from autotest_lib.client.bin import utils, package
 
 _DEFAULT_COMMANDS_TO_LOG_PER_TEST = []
 _DEFAULT_COMMANDS_TO_LOG_PER_BOOT = [
-    'lspci -vvn',
-    'gcc --version',
-    'ld --version',
-    'mount',
-    'hostname',
-    'uptime',
-    # for Downloadable Content (DLC)
-    'losetup',
-    'dlcservice_util --list',
+        'lspci -vvnn',
+        'gcc --version',
+        'ld --version',
+        'mount',
+        'hostname',
+        'uptime',
+        # for Downloadable Content (DLC)
+        'losetup',
+        'dlcservice_util --list',
 ]
 _DEFAULT_COMMANDS_TO_LOG_BEFORE_ITERATION = []
 _DEFAULT_COMMANDS_TO_LOG_AFTER_ITERATION = []
 
 _DEFAULT_FILES_TO_LOG_PER_TEST = []
 _DEFAULT_FILES_TO_LOG_PER_BOOT = [
-    '/proc/pci',
-    '/proc/meminfo',
-    '/proc/slabinfo',
-    '/proc/version',
-    '/proc/cpuinfo',
-    '/proc/modules',
-    '/proc/interrupts',
-    '/proc/partitions',
-    '/var/log/bios_info.txt',
-    '/var/log/messages',
-    '/var/log/storage_info.txt',
+        '/proc/pci',
+        '/proc/meminfo',
+        '/proc/slabinfo',
+        '/proc/version',
+        '/proc/cpuinfo',
+        '/proc/modules',
+        '/proc/interrupts',
+        '/proc/partitions',
+        '/sys/firmware/log',
+        '/var/log/bios_info.txt',
+        '/var/log/messages',
+        '/var/log/storage_info.txt',
 ] + list(constants.LOG_PSTORE_DIRS)
 _DEFAULT_FILES_TO_LOG_BEFORE_ITERATION = [
     '/proc/diskstats',
@@ -250,6 +251,21 @@ class base_sysinfo(object):
         self.boot_loggables.add(command('uname -a',
                                         logf='uname',
                                         log_in_keyval=True))
+
+        # Log cpufreq parameters
+        self.boot_loggables.add(
+                command('cat /sys/bus/cpu/devices/cpu*/cpufreq/scaling_driver | sort -u',
+                        logf='scaling-driver',
+                        log_in_keyval=True))
+        self.boot_loggables.add(
+                command('cat /sys/bus/cpu/devices/cpu*/cpufreq/scaling_governor | sort -u',
+                        logf='scaling-governor',
+                        log_in_keyval=True))
+        # Will only get logged when using the ondemand governor
+        self.boot_loggables.add(
+                logfile('/sys/devices/system/cpu/cpufreq/ondemand/powersave_bias',
+                        logf='scaling-governor-ondemand-powersave-bias',
+                        log_in_keyval=True))
 
         # log contents of DLC directories with meaningful filenames
         self.boot_loggables.add(command('tree /var/cache/dlc',

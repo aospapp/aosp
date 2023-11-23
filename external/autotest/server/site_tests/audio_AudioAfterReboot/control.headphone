@@ -18,6 +18,7 @@ TEST_TYPE = "server"
 ATTRIBUTES = "suite:audio_essential"
 DEPENDENCIES = 'audio_cable'
 JOB_RETRIES = 1
+PY_VERSION = 3
 
 DOC = """
 This test remotely tests headphone audio function against DUT after reboot.
@@ -33,7 +34,7 @@ def run(machine):
                  bind_from=chameleon_audio_ids.CrosIds.HEADPHONE,
                  bind_to=chameleon_audio_ids.ChameleonIds.LINEIN,
                  audio_nodes=([audio_test_utils.get_headphone_node(host)],
-                              [ 'MIC']),
+                              None),
                  tag = "headphone")
 
 parallel_simple(run, machines)

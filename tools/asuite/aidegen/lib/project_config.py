@@ -27,14 +27,14 @@ SKIP_BUILD_INFO = ('If you are sure the related modules and dependencies have '
                    'the building process.')
 _SKIP_BUILD_CMD = 'aidegen {} -s'
 _SKIP_BUILD_WARN = (
-    'You choose "--skip-build". Skip building jar and module might increase '
+    'You chose "--skip-build". Skip building jar and module might increase '
     'the risk of the absence of some jar or R/AIDL/logtags java files and '
     'cause the red lines to appear in IDE tool.')
 _INSTANCE_NOT_EXIST_ERROR = ('The instance of {} does not exist. Please '
                              'initialize it before using.')
 
 
-class ProjectConfig():
+class ProjectConfig:
     """A singleton class manages AIDEGen's configurations.
 
     ProjectConfig is a singleton class that can be accessed in other modules.

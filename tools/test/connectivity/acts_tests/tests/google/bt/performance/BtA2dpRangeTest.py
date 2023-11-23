@@ -21,20 +21,26 @@ INIT_ATTEN = 0
 
 
 class BtA2dpRangeTest(A2dpBaseTest):
+
     def __init__(self, configs):
         super().__init__(configs)
         req_params = ['attenuation_vector', 'codecs']
+        opt_params = ['gain_mismatch', 'dual_chain']
         #'attenuation_vector' is a dict containing: start, stop and step of
         #attenuation changes
         #'codecs' is a list containing all codecs required in the tests
         self.unpack_userparams(req_params)
+        self.unpack_userparams(opt_params, dual_chain=None, gain_mismatch=None)
+
+    def setup_generated_tests(self):
         for codec_config in self.codecs:
-            self.generate_test_case(codec_config)
+            arg_set = [(codec_config, )]
+            self.generate_tests(test_logic=self.BtA2dp_test_logic,
+                                name_func=self.create_test_name,
+                                arg_sets=arg_set)
 
     def setup_class(self):
         super().setup_class()
-        opt_params = ['gain_mismatch', 'dual_chain']
-        self.unpack_userparams(opt_params, dual_chain=None, gain_mismatch=None)
         # Enable BQR on all android devices
         btutils.enable_bqr(self.android_devices)
         if hasattr(self, 'dual_chain') and self.dual_chain == 1:
@@ -49,14 +55,14 @@ class BtA2dpRangeTest(A2dpBaseTest):
             self.atten_c0.set_atten(INIT_ATTEN)
             self.atten_c1.set_atten(INIT_ATTEN)
 
-    def generate_test_case(self, codec_config):
-        def test_case_fn():
-            self.run_a2dp_to_max_range(codec_config)
+    def BtA2dp_test_logic(self, codec_config):
+        self.run_a2dp_to_max_range(codec_config)
 
+    def create_test_name(self, arg_set):
         if hasattr(self, 'dual_chain') and self.dual_chain == 1:
-            test_case_name = 'test_dual_bt_a2dp_range_codec_{}_gainmimatch_{}dB'.format(
-                codec_config['codec_type'], self.gain_mismatch)
+            test_case_name = 'test_dual_bt_a2dp_range_codec_{}_gainmismatch_{}dB'.format(
+                arg_set['codec_type'], self.gain_mismatch)
         else:
             test_case_name = 'test_bt_a2dp_range_codec_{}'.format(
-                codec_config['codec_type'])
-        setattr(self, test_case_name, test_case_fn)
+                arg_set['codec_type'])
+        return test_case_name

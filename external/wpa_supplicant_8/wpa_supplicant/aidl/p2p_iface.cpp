@@ -23,13 +23,7 @@ extern "C"
 #include "driver_i.h"
 }
 
-#define P2P_MAX_JOIN_SCAN_ATTEMPTS 3
-// Wait time before triggering the single channel scan to discover Auto GO.
-// Use a shorter wait time when the given frequency is GO operating frequency.
-// The idea is to quickly finish scans and return the status to application.
-#define P2P_JOIN_SINGLE_CHANNEL_SCAN_INTERVAL_USECS 200000
-// Wait time before triggering the multiple channel scan to discover Auto GO.
-#define P2P_JOIN_MULTIPLE_CHANNEL_SCAN_INTERVAL_USECS 1000000
+#define P2P_JOIN_LIMIT 3
 
 namespace {
 const char kConfigMethodStrPbc[] = "pbc";
@@ -99,138 +93,6 @@ int isPskPassphraseValid(const std::string &psk)
 	return 1;
 }
 
-static int setBandScanFreqsList(
-	struct wpa_supplicant *wpa_s,
-	enum hostapd_hw_mode hw_mode,
-	bool exclude_dfs,
-	struct wpa_driver_scan_params *params)
-{
-	struct hostapd_hw_modes *mode;
-	int count, i;
-
-	mode = get_mode(wpa_s->hw.modes, wpa_s->hw.num_modes, hw_mode, 0);
-	if (mode == NULL || !mode->num_channels) {
-		wpa_printf(MSG_ERROR,
-			"P2P: No channels supported in this hw_mode: %d", hw_mode);
-		return -1;
-	}
-
-	/*
-	 * Allocate memory for frequency array, allocate one extra
-	 * slot for the zero-terminator.
-	 */
-	params->freqs = (int *) os_calloc(mode->num_channels + 1, sizeof(int));
-	if (params->freqs == NULL) {
-		return -ENOMEM;
-	}
-	for (count = 0, i = 0; i < mode->num_channels; i++) {
-		if (mode->channels[i].flag & HOSTAPD_CHAN_DISABLED) {
-			continue;
-		}
-		if (exclude_dfs && (mode->channels[i].flag & HOSTAPD_CHAN_RADAR)) {
-			continue;
-		}
-		params->freqs[count++] = mode->channels[i].freq;
-	}
-	if (!count && params->freqs) {
-		wpa_printf(MSG_ERROR,
-			"P2P: All channels(exclude_dfs: %d) are disabled in this hw_mode: %d",
-			exclude_dfs, hw_mode);
-		os_free(params->freqs);
-		return -1;
-	}
-	return 0;
-}
-
-static int setScanFreq(struct wpa_supplicant *wpa_s, struct wpa_driver_scan_params *params,
-	int freq, int operating_freq)
-{
-	int frequency = operating_freq ? operating_freq : freq;
-	if (disabled_freq(wpa_s, frequency)) {
-		wpa_printf(MSG_ERROR,
-				"P2P: freq %d is not supported for a client.", frequency);
-		return -1;
-	}
-	/*
-	 * Allocate memory for frequency array, with one extra
-	 * slot for the zero-terminator.
-	 */
-	params->freqs = new int[2] {frequency, 0};
-	return 0;
-}
-
-/**
- * setP2pCliOptimizedScanFreqsList - Fill the frequencies to scan in Scan
- * parameters.
- * @wpa_s: Pointer to wpa_supplicant data
- * @params: Pointer to Scan parameters.
- * @freq: Frequency/Band requested to scan by the application, possible values are,
- *		0 - All the frequencies - full scan
- *		2 - Frequencies in 2.4GHz
- *		5 - Frequencies in 5GHz
- *		- Valid frequency
- * @operating_freq: Frequency of BSS if found in scan cache
- * Returns: Pointer to the BSS entry or %NULL if not found
- */
-static int setP2pCliOptimizedScanFreqsList(struct wpa_supplicant *wpa_s,
-	struct wpa_driver_scan_params *params, int freq, int operating_freq)
-{
-	int ret;
-	/* If BSS is found in scan cache, first scan its operating frequency */
-	if (!wpa_s->p2p_join_scan_count && operating_freq) {
-		ret = setScanFreq(wpa_s, params, freq, operating_freq);
-		if (!ret) {
-			return ret;
-		}
-	}
-
-	/* Empty freq params means scan all the frequencies */
-	if (freq == 0) {
-		return 0;
-	}
-	else if (freq == 2 || freq == 5) {
-		/* Scan the frequencies in the band */
-		enum hostapd_hw_mode mode;
-		int ret;
-		if (wpa_s->hw.modes == NULL) {
-			wpa_printf(MSG_DEBUG,
-				   "P2P: Unknown what %dG channels the driver supports.", freq);
-			return 0;
-		}
-		mode = freq == 5 ? HOSTAPD_MODE_IEEE80211A : HOSTAPD_MODE_IEEE80211G;
-		if (wpa_s->p2p_join_scan_count < 2) {
-			// scan all non DFS channels in the first two attempts
-			ret = setBandScanFreqsList(wpa_s, mode, true, params);
-			if (ret < 0 && (-ENOMEM != ret)) {
-				// try to scan all channels before returning error
-				ret = setBandScanFreqsList(wpa_s, mode, false, params);
-			}
-		} else {
-			// scan all channels
-			ret = setBandScanFreqsList(wpa_s, mode, false, params);
-		}
-		return ret;
-	} else {
-		/* Scan the frequency requested by the application */
-		ret = setScanFreq(wpa_s, params, freq, 0);
-		return ret;
-	}
-	return 0;
-}
-
-/**
- * getP2pJoinScanInterval - Get the delay in triggering the scan to discover
- * Auto GO.
- */
-static int getP2pJoinScanIntervalUsecs(int freq)
-{
-	if (freq == 5 || freq == 2 || freq == 0) {
-		return P2P_JOIN_MULTIPLE_CHANNEL_SCAN_INTERVAL_USECS;
-	} else {
-		return P2P_JOIN_SINGLE_CHANNEL_SCAN_INTERVAL_USECS;
-	}
-}
-
 /*
  * isAnyEtherAddr - match any ether address
  *
@@ -241,56 +103,9 @@ int isAnyEtherAddr(const u8 *a)
 	return (a[0] == 2) && !(a[1] | a[2] | a[3] | a[4] | a[5]);
 }
 
-/**
- * findBssBySsid - Fetch a BSS table entry based on SSID and optional BSSID.
- * @wpa_s: Pointer to wpa_supplicant data
- * @bssid: BSSID, 02:00:00:00:00:00 matches any bssid
- * @ssid: SSID
- * @ssid_len: Length of @ssid
- * Returns: Pointer to the BSS entry or %NULL if not found
- */
-struct wpa_bss* findBssBySsid(
-	struct wpa_supplicant *wpa_s, const u8 *bssid,
-	const u8 *ssid, size_t ssid_len)
-{
-	struct wpa_bss *bss;
-	dl_list_for_each(bss, &wpa_s->bss, struct wpa_bss, list) {
-		if ((isAnyEtherAddr(bssid) ||
-			os_memcmp(bss->bssid, bssid, ETH_ALEN) == 0) &&
-			bss->ssid_len == ssid_len &&
-			os_memcmp(bss->ssid, ssid, ssid_len) == 0)
-			return bss;
-	}
-	return NULL;
-}
-
-/**
- * findBssBySsidFromAnyInterface - Fetch a BSS table entry based on SSID and optional BSSID
- * by iterating through all the interfaces.
- * @head: Head of Pointer to wpa_supplicant data
- * @bssid: BSSID, 02:00:00:00:00:00 matches any bssid
- * @ssid: SSID
- * @ssid_len: Length of @ssid
- * Returns: Pointer to the BSS entry or %NULL if not found
- */
-struct wpa_bss* findBssBySsidFromAnyInterface(
-	struct wpa_supplicant *head, const u8 *bssid,
-	const u8 *ssid, size_t ssid_len)
-{
-	struct wpa_supplicant *wpa_s;
-	struct wpa_bss *bss = NULL;
-	for (wpa_s = head; wpa_s; wpa_s = wpa_s->next) {
-		bss = findBssBySsid(wpa_s, bssid, ssid, ssid_len);
-		if (bss != NULL) {
-			return bss;
-		}
-	}
-	return bss;
-}
-
 struct wpa_ssid* addGroupClientNetwork(
 	struct wpa_supplicant* wpa_s,
-	uint8_t *group_owner_bssid,
+	const uint8_t *group_owner_bssid,
 	const std::vector<uint8_t>& ssid,
 	const std::string& passphrase)
 {
@@ -304,22 +119,13 @@ struct wpa_ssid* addGroupClientNetwork(
 	// set P2p network defaults
 	wpa_network->p2p_group = 1;
 	wpa_network->mode = wpas_mode::WPAS_MODE_INFRA;
-
-	wpa_network->auth_alg = WPA_AUTH_ALG_OPEN;
-	wpa_network->key_mgmt = WPA_KEY_MGMT_PSK;
-	wpa_network->proto = WPA_PROTO_RSN;
-	wpa_network->pairwise_cipher = WPA_CIPHER_CCMP;
-	wpa_network->group_cipher = WPA_CIPHER_CCMP;
 	wpa_network->disabled = 2;
 
 	// set necessary fields
-	os_memcpy(wpa_network->bssid, group_owner_bssid, ETH_ALEN);
-	wpa_network->bssid_set = 1;
-
 	wpa_network->ssid = (uint8_t *)os_malloc(ssid.size());
 	if (wpa_network->ssid == NULL) {
 		wpa_config_remove_network(wpa_s->conf, wpa_network->id);
-		return  NULL;
+		return NULL;
 	}
 	memcpy(wpa_network->ssid, ssid.data(), ssid.size());
 	wpa_network->ssid_len = ssid.size();
@@ -328,21 +134,12 @@ struct wpa_ssid* addGroupClientNetwork(
 	wpa_network->passphrase = dup_binstr(passphrase.c_str(), passphrase.length());
 	if (wpa_network->passphrase == NULL) {
 		wpa_config_remove_network(wpa_s->conf, wpa_network->id);
-		return  NULL;
+		return NULL;
 	}
 	wpa_config_update_psk(wpa_network);
 
 	return wpa_network;
 
-}
-
-void joinScanWrapper(void *eloop_ctx, void *timeout_ctx)
-{
-	struct wpa_supplicant *wpa_s = (struct wpa_supplicant *) eloop_ctx;
-
-	if (pending_join_scan_callback != NULL) {
-		pending_join_scan_callback();
-	}
 }
 
 void scanResJoinWrapper(
@@ -360,85 +157,6 @@ void scanResJoinWrapper(
 	}
 }
 
-int joinScanReq(
-	struct wpa_supplicant* wpa_s,
-	const std::vector<uint8_t>& ssid,
-	int freq, int operating_freq)
-{
-	int ret;
-	struct wpa_driver_scan_params params;
-	struct wpabuf *ies;
-	size_t ielen;
-	unsigned int bands;
-
-	if (wpa_s->global->p2p == NULL || wpa_s->global->p2p_disabled) {
-		wpa_printf(MSG_ERROR,
-			"P2P: P2P interface is gone, cancel join scan");
-		return -ENXIO;
-	}
-
-	os_memset(&params, 0, sizeof(params));
-	if (ssid.size() > 0) {
-		params.ssids[0].ssid = ssid.data();
-		params.ssids[0].ssid_len = ssid.size();
-	} else {
-		params.ssids[0].ssid = (u8 *) P2P_WILDCARD_SSID;
-		params.ssids[0].ssid_len = P2P_WILDCARD_SSID_LEN;
-	}
-	wpa_printf(MSG_DEBUG, "Scan SSID %s for join with frequency %d"
-		"BSS operating_freq from scan cache %d",
-		wpa_ssid_txt(params.ssids[0].ssid, params.ssids[0].ssid_len), freq, operating_freq);
-
-	/* Construct an optimized p2p scan channel list */
-	ret = setP2pCliOptimizedScanFreqsList(wpa_s, &params, freq, operating_freq);
-	if (ret < 0) {
-		wpa_printf(MSG_ERROR,
-				   "Failed to set frequency in p2p scan params, error = %d", ret);
-		return -1;
-	}
-
-	ielen = p2p_scan_ie_buf_len(wpa_s->global->p2p);
-	ies = wpabuf_alloc(ielen);
-	if (ies == NULL) {
-		if (params.freqs) {
-			os_free(params.freqs);
-		}
-		return -1;
-	}
-
-	bands = wpas_get_bands(wpa_s, params.freqs);
-	p2p_scan_ie(wpa_s->global->p2p, ies, NULL, bands);
-
-	params.p2p_probe = 1;
-	params.extra_ies = (u8 *) wpabuf_head(ies);
-	params.extra_ies_len = wpabuf_len(ies);
-	if (wpa_s->clear_driver_scan_cache) {
-		wpa_printf(MSG_DEBUG,
-			"Request driver to clear scan cache due to local BSS flush");
-		params.only_new_results = 1;
-	}
-
-	ret = wpa_drv_scan(wpa_s, &params);
-	if (!ret) {
-		os_get_reltime(&wpa_s->scan_trigger_time);
-		if (wpa_s->scan_res_handler) {
-			wpa_printf(MSG_DEBUG, "Replace current running scan result handler");
-		}
-		wpa_s->p2p_join_scan_count++;
-		wpa_s->scan_res_handler = scanResJoinWrapper;
-		wpa_s->own_scan_requested = 1;
-		wpa_s->clear_driver_scan_cache = 0;
-	}
-
-	if (params.freqs) {
-		os_free(params.freqs);
-	}
-
-	wpabuf_free(ies);
-
-	return ret;
-}
-
 static bool is6GhzAllowed(struct wpa_supplicant *wpa_s) {
 	if (!wpa_s->global->p2p) return false;
 	return wpa_s->global->p2p->allow_6ghz;
@@ -446,9 +164,10 @@ static bool is6GhzAllowed(struct wpa_supplicant *wpa_s) {
 
 int joinGroup(
 	struct wpa_supplicant* wpa_s,
-	uint8_t *group_owner_bssid,
+	const uint8_t *group_owner_bssid,
 	const std::vector<uint8_t>& ssid,
-	const std::string& passphrase)
+	const std::string& passphrase,
+	uint32_t freq)
 {
 	int ret = 0;
 	int he = wpa_s->conf->p2p_go_he;
@@ -469,35 +188,15 @@ int joinGroup(
 	wpa_network->temporary = 1;
 
 	if (wpas_p2p_group_add_persistent(
-		wpa_s, wpa_network, 0, 0, 0, 0, ht40, vht,
-		CHANWIDTH_USE_HT, he, 0, NULL, 0, 0, is6GhzAllowed(wpa_s))) {
+		wpa_s, wpa_network, 0, 0, freq, 0, ht40, vht,
+		CONF_OPER_CHWIDTH_USE_HT, he, 0, NULL, 0, 0, is6GhzAllowed(wpa_s),
+		P2P_JOIN_LIMIT, isAnyEtherAddr(group_owner_bssid) ? NULL : group_owner_bssid)) {
 		ret = -1;
 	}
 
 	// Always remove this temporary network at the end.
 	wpa_config_remove_network(wpa_s->conf, wpa_network->id);
 	return ret;
-}
-
-void notifyGroupJoinFailure(
-	struct wpa_supplicant* wpa_s)
-{
-	u8 zero_addr[ETH_ALEN] = {0};
-	std::vector<uint8_t> ssid = {'D', 'I', 'R', 'E','C', 'T', '-'};
-	std::string passphrase = "";
-	struct wpa_ssid *wpa_network = addGroupClientNetwork(
-		wpa_s, zero_addr, ssid, passphrase);
-	if (wpa_network) {
-		wpa_network->temporary = 1;
-		wpas_notify_p2p_group_formation_failure(wpa_s, "Failed to find the group.");
-		wpas_notify_p2p_group_removed(
-			wpa_s, wpa_network, "client");
-		wpa_config_remove_network(
-			wpa_s->conf, wpa_network->id);
-	} else {
-		wpa_printf(MSG_ERROR,
-			"P2P: Cannot construct a network.");
-	}
 }
 
 void scanResJoinIgnore(struct wpa_supplicant *wpa_s, struct wpa_scan_results *scan_res) {
@@ -1106,6 +805,16 @@ ndk::ScopedAStatus P2pIface::addGroup(
 		&P2pIface::setVendorElementsInternal, in_frameTypeMask, in_vendorElemBytes);
 }
 
+::ndk::ScopedAStatus P2pIface::configureEapolIpAddressAllocationParams(
+	int32_t in_ipAddressGo, int32_t in_ipAddressMask,
+	int32_t in_ipAddressStart, int32_t in_ipAddressEnd)
+{
+	return validateAndCall(
+		this, SupplicantStatusCode::FAILURE_IFACE_INVALID,
+		&P2pIface::configureEapolIpAddressAllocationParamsInternal,
+		in_ipAddressGo, in_ipAddressMask, in_ipAddressStart, in_ipAddressEnd);
+}
+
 std::pair<std::string, ndk::ScopedAStatus> P2pIface::getNameInternal()
 {
 	return {ifname_, ndk::ScopedAStatus::ok()};
@@ -1289,6 +998,9 @@ std::pair<std::string, ndk::ScopedAStatus> P2pIface::connectInternal(
 	if (go_intent > 15) {
 		return {"", createStatus(SupplicantStatusCode::FAILURE_ARGS_INVALID)};
 	}
+	if (peer_address.size() != ETH_ALEN) {
+		return {"", createStatus(SupplicantStatusCode::FAILURE_ARGS_INVALID)};
+	}
 	int go_intent_signed = join_existing_group ? -1 : go_intent;
 	p2p_wps_method wps_method = {};
 	switch (provision_method) {
@@ -1305,13 +1017,13 @@ std::pair<std::string, ndk::ScopedAStatus> P2pIface::connectInternal(
 	int he = wpa_s->conf->p2p_go_he;
 	int vht = wpa_s->conf->p2p_go_vht;
 	int ht40 = wpa_s->conf->p2p_go_ht40 || vht;
+	int edmg = wpa_s->conf->p2p_go_edmg;
 	const char* pin =
 		pre_selected_pin.length() > 0 ? pre_selected_pin.data() : nullptr;
-	bool auto_join = !join_existing_group;
 	int new_pin = wpas_p2p_connect(
-		wpa_s, peer_address.data(), pin, wps_method, persistent, auto_join,
+		wpa_s, peer_address.data(), pin, wps_method, persistent, false,
 		join_existing_group, false, go_intent_signed, 0, 0, -1, false, ht40,
-		vht, CHANWIDTH_USE_HT, he, 0, nullptr, 0, is6GhzAllowed(wpa_s));
+		vht, CONF_OPER_CHWIDTH_USE_HT, he, edmg, nullptr, 0, is6GhzAllowed(wpa_s));
 	if (new_pin < 0) {
 		return {"", createStatus(SupplicantStatusCode::FAILURE_UNKNOWN)};
 	}
@@ -1344,6 +1056,9 @@ ndk::ScopedAStatus P2pIface::provisionDiscoveryInternal(
 	struct wpa_supplicant* wpa_s = retrieveIfacePtr();
 	p2ps_provision* prov_param;
 	const char* config_method_str = nullptr;
+	if (peer_address.size() != ETH_ALEN) {
+		return createStatus(SupplicantStatusCode::FAILURE_UNKNOWN);
+	}
 	switch (provision_method) {
 	case WpsProvisionMethod::PBC:
 		config_method_str = kConfigMethodStrPbc;
@@ -1370,7 +1085,6 @@ ndk::ScopedAStatus P2pIface::removeGroupInternal(const std::string& group_ifname
 	if (!wpa_group_s) {
 		return createStatus(SupplicantStatusCode::FAILURE_IFACE_UNKNOWN);
 	}
-	wpa_group_s->global->p2p_go_found_external_scan = 0;
 	if (wpas_p2p_group_remove(wpa_group_s, group_ifname.c_str())) {
 		return createStatus(SupplicantStatusCode::FAILURE_UNKNOWN);
 	}
@@ -1384,6 +1098,9 @@ ndk::ScopedAStatus P2pIface::rejectInternal(
 	if (wpa_s->global->p2p_disabled || wpa_s->global->p2p == NULL) {
 		return createStatus(SupplicantStatusCode::FAILURE_IFACE_DISABLED);
 	}
+	if (peer_address.size() != ETH_ALEN) {
+		return createStatus(SupplicantStatusCode::FAILURE_UNKNOWN);
+	}
 	if (wpas_p2p_reject(wpa_s, peer_address.data())) {
 		return createStatus(SupplicantStatusCode::FAILURE_UNKNOWN);
 	}
@@ -1396,6 +1113,9 @@ ndk::ScopedAStatus P2pIface::inviteInternal(
 	const std::vector<uint8_t>& peer_address)
 {
 	struct wpa_supplicant* wpa_s = retrieveIfacePtr();
+	if (go_device_address.size() != ETH_ALEN || peer_address.size() != ETH_ALEN) {
+		return {createStatus(SupplicantStatusCode::FAILURE_UNKNOWN)};
+	}
 	if (wpas_p2p_invite_group(
 		wpa_s, group_ifname.c_str(), peer_address.data(),
 		go_device_address.data(), is6GhzAllowed(wpa_s))) {
@@ -1412,14 +1132,18 @@ ndk::ScopedAStatus P2pIface::reinvokeInternal(
 	int he = wpa_s->conf->p2p_go_he;
 	int vht = wpa_s->conf->p2p_go_vht;
 	int ht40 = wpa_s->conf->p2p_go_ht40 || vht;
+	int edmg = wpa_s->conf->p2p_go_edmg;
 	struct wpa_ssid* ssid =
 		wpa_config_get_network(wpa_s->conf, persistent_network_id);
 	if (ssid == NULL || ssid->disabled != 2) {
 		return createStatus(SupplicantStatusCode::FAILURE_NETWORK_UNKNOWN);
 	}
+	if (peer_address.size() != ETH_ALEN) {
+		return {createStatus(SupplicantStatusCode::FAILURE_UNKNOWN)};
+	}
 	if (wpas_p2p_invite(
 		wpa_s, peer_address.data(), ssid, NULL, 0, 0, ht40, vht,
-		CHANWIDTH_USE_HT, 0, he, 0, is6GhzAllowed(wpa_s))) {
+		CONF_OPER_CHWIDTH_USE_HT, 0, he, edmg, is6GhzAllowed(wpa_s))) {
 		return createStatus(SupplicantStatusCode::FAILURE_UNKNOWN);
 	}
 	return ndk::ScopedAStatus::ok();
@@ -1478,6 +1202,10 @@ std::pair<std::vector<uint8_t>, ndk::ScopedAStatus> P2pIface::getSsidInternal(
 	const std::vector<uint8_t>& peer_address)
 {
 	struct wpa_supplicant* wpa_s = retrieveIfacePtr();
+	if (peer_address.size() != ETH_ALEN) {
+		return {std::vector<uint8_t>(),
+			createStatus(SupplicantStatusCode::FAILURE_UNKNOWN)};
+	}
 	const struct p2p_peer_info* info =
 		p2p_get_peer_info(wpa_s->global->p2p, peer_address.data(), 0);
 	if (!info) {
@@ -1500,6 +1228,10 @@ std::pair<P2pGroupCapabilityMask, ndk::ScopedAStatus> P2pIface::getGroupCapabili
 	const std::vector<uint8_t>& peer_address)
 {
 	struct wpa_supplicant* wpa_s = retrieveIfacePtr();
+	if (peer_address.size() != ETH_ALEN) {
+		return {static_cast<P2pGroupCapabilityMask>(0),
+			createStatus(SupplicantStatusCode::FAILURE_UNKNOWN)};
+	}
 	const struct p2p_peer_info* info =
 		p2p_get_peer_info(wpa_s->global->p2p, peer_address.data(), 0);
 	if (!info) {
@@ -1580,6 +1312,9 @@ std::pair<uint64_t, ndk::ScopedAStatus> P2pIface::requestServiceDiscoveryInterna
 	if (!query_buf) {
 		return {0, createStatus(SupplicantStatusCode::FAILURE_UNKNOWN)};
 	}
+	if (peer_address.size() != ETH_ALEN) {
+		return {0, createStatus(SupplicantStatusCode::FAILURE_UNKNOWN)};
+	}
 	const uint8_t* dst_addr = is_zero_ether_addr(peer_address.data())
 					  ? nullptr
 					  : peer_address.data();
@@ -1625,6 +1360,9 @@ ndk::ScopedAStatus P2pIface::startWpsPbcInternal(
 		retrieveGroupIfacePtr(group_ifname);
 	if (!wpa_group_s) {
 		return createStatus(SupplicantStatusCode::FAILURE_IFACE_UNKNOWN);
+	}
+	if (bssid.size() != ETH_ALEN) {
+		return createStatus(SupplicantStatusCode::FAILURE_UNKNOWN);
 	}
 	const uint8_t* bssid_addr =
 		is_zero_ether_addr(bssid.data()) ? nullptr : bssid.data();
@@ -1674,6 +1412,9 @@ std::pair<std::string, ndk::ScopedAStatus> P2pIface::startWpsPinDisplayInternal(
 	if (!wpa_group_s) {
 		return {"", createStatus(SupplicantStatusCode::FAILURE_IFACE_UNKNOWN)};
 	}
+	if (bssid.size() != ETH_ALEN) {
+		return {"", createStatus(SupplicantStatusCode::FAILURE_UNKNOWN)};
+	}
 	const uint8_t* bssid_addr =
 		is_zero_ether_addr(bssid.data()) ? nullptr : bssid.data();
 	int pin = wpas_wps_start_pin(
@@ -1706,6 +1447,9 @@ ndk::ScopedAStatus P2pIface::setWpsDeviceTypeInternal(
 	const std::vector<uint8_t>& type)
 {
 	std::array<uint8_t, 8> type_arr;
+	if (type.size() != 8) {
+		return createStatus(SupplicantStatusCode::FAILURE_UNKNOWN);
+	}
 	std::copy_n(type.begin(), 8, type_arr.begin());
 	return iface_config_utils::setWpsDeviceType(retrieveIfacePtr(), type_arr);
 }
@@ -1856,12 +1600,13 @@ ndk::ScopedAStatus P2pIface::addGroupInternal(
 	int he = wpa_s->conf->p2p_go_he;
 	int vht = wpa_s->conf->p2p_go_vht;
 	int ht40 = wpa_s->conf->p2p_go_ht40 || vht;
+	int edmg = wpa_s->conf->p2p_go_edmg;
 	struct wpa_ssid* ssid =
 		wpa_config_get_network(wpa_s->conf, persistent_network_id);
 	if (ssid == NULL) {
 		if (wpas_p2p_group_add(
 			wpa_s, persistent, 0, 0, ht40, vht,
-			CHANWIDTH_USE_HT, he, 0, is6GhzAllowed(wpa_s))) {
+			CONF_OPER_CHWIDTH_USE_HT, he, edmg, is6GhzAllowed(wpa_s))) {
 			return createStatus(SupplicantStatusCode::FAILURE_UNKNOWN);
 		} else {
 			return ndk::ScopedAStatus::ok();
@@ -1869,7 +1614,8 @@ ndk::ScopedAStatus P2pIface::addGroupInternal(
 	} else if (ssid->disabled == 2) {
 		if (wpas_p2p_group_add_persistent(
 			wpa_s, ssid, 0, 0, 0, 0, ht40, vht,
-			CHANWIDTH_USE_HT, he, 0, NULL, 0, 0, is6GhzAllowed(wpa_s))) {
+			CONF_OPER_CHWIDTH_USE_HT, he, edmg, NULL, 0, 0,
+			is6GhzAllowed(wpa_s), 0, NULL)) {
 			return createStatus(SupplicantStatusCode::FAILURE_NETWORK_UNKNOWN);
 		} else {
 			return ndk::ScopedAStatus::ok();
@@ -1887,6 +1633,7 @@ ndk::ScopedAStatus P2pIface::addGroupWithConfigInternal(
 	int he = wpa_s->conf->p2p_go_he;
 	int vht = wpa_s->conf->p2p_go_vht;
 	int ht40 = wpa_s->conf->p2p_go_ht40 || vht;
+	int edmg = wpa_s->conf->p2p_go_edmg;
 
 	if (wpa_s->global->p2p == NULL || wpa_s->global->p2p_disabled) {
 		return createStatus(SupplicantStatusCode::FAILURE_IFACE_DISABLED);
@@ -1902,6 +1649,10 @@ ndk::ScopedAStatus P2pIface::addGroupWithConfigInternal(
 			"Passphrase is invalid.");
 	}
 
+	wpa_printf(MSG_DEBUG,
+		    "P2P: Add group with config Role: %s network name: %s freq: %d",
+		    joinExistingGroup ? "CLIENT" : "GO",
+		    wpa_ssid_txt(ssid.data(), ssid.size()), freq);
 	if (!joinExistingGroup) {
 		struct p2p_data *p2p = wpa_s->global->p2p;
 		os_memcpy(p2p->ssid, ssid.data(), ssid.size());
@@ -1914,7 +1665,7 @@ ndk::ScopedAStatus P2pIface::addGroupWithConfigInternal(
 
 		if (wpas_p2p_group_add(
 			wpa_s, persistent, freq, 0, ht40, vht,
-			CHANWIDTH_USE_HT, he, 0, is6GhzAllowed(wpa_s))) {
+			CONF_OPER_CHWIDTH_USE_HT, he, edmg, is6GhzAllowed(wpa_s))) {
 			return createStatus(SupplicantStatusCode::FAILURE_UNKNOWN);
 		}
 		return ndk::ScopedAStatus::ok();
@@ -1923,79 +1674,11 @@ ndk::ScopedAStatus P2pIface::addGroupWithConfigInternal(
 	// The rest is for group join.
 	wpa_printf(MSG_DEBUG, "P2P: Stop any on-going P2P FIND before group join.");
 	wpas_p2p_stop_find(wpa_s);
-
-	if (pending_scan_res_join_callback != NULL) {
-		wpa_printf(MSG_WARNING, "P2P: Renew scan result callback with new request.");
+	if (peer_address.size() != ETH_ALEN) {
+		return createStatusWithMsg(SupplicantStatusCode::FAILURE_ARGS_INVALID,
+			"Peer address is invalid.");
 	}
-
-	pending_join_scan_callback =
-		[wpa_s, ssid, peer_address, freq]() {
-		if (wpa_s->global->p2p == NULL || wpa_s->global->p2p_disabled) {
-			return;
-		}
-		int operating_freq = 0;
-		struct wpa_bss *bss = findBssBySsidFromAnyInterface(
-			wpa_s->global->ifaces, peer_address.data(), ssid.data(), ssid.size());
-		if (bss != NULL) {
-			wpa_printf(MSG_DEBUG, "P2P: Found Group owner " MACSTR "in scan cache",
-				MAC2STR(bss->bssid));
-			operating_freq = bss->freq;
-		}
-
-		int ret = joinScanReq(wpa_s, ssid, freq, operating_freq);
-		// for BUSY case, the scan might be occupied by WiFi.
-		// Do not give up immediately, but try again later.
-		if (-EBUSY == ret) {
-			// re-schedule this join scan
-			eloop_cancel_timeout(joinScanWrapper, wpa_s, NULL);
-			eloop_register_timeout(0, P2P_JOIN_SINGLE_CHANNEL_SCAN_INTERVAL_USECS,
-					joinScanWrapper, wpa_s, NULL);
-		} else if (0 != ret) {
-			notifyGroupJoinFailure(wpa_s);
-			pending_scan_res_join_callback = NULL;
-		}
-	};
-
-	pending_scan_res_join_callback = [wpa_s, ssid, passphrase, peer_address, freq, this]() {
-		if (wpa_s->global->p2p == NULL || wpa_s->global->p2p_disabled) {
-			return;
-		}
-
-		wpa_printf(MSG_DEBUG, "P2P: Scan results received for join (reinvoke).");
-
-		struct wpa_bss *bss = findBssBySsid(
-			wpa_s, peer_address.data(), ssid.data(), ssid.size());
-		if (bss) {
-			wpa_s->global->p2p_go_found_external_scan = 1;
-			if (0 != joinGroup(wpa_s, bss->bssid, ssid, passphrase)) {
-				wpa_printf(MSG_ERROR, "P2P: Failed to join a group.");
-				wpa_s->global->p2p_go_found_external_scan = 0;
-			}
-			// no need to notify group join failure here,
-			// it will be handled by wpas_p2p_group_add_persistent
-			// called in joinGroup.
-			pending_scan_res_join_callback = NULL;
-			return;
-		}
-		wpa_printf(MSG_DEBUG, "P2P: Join scan count %d.", wpa_s->p2p_join_scan_count);
-		eloop_cancel_timeout(joinScanWrapper, wpa_s, NULL);
-		if (wpa_s->p2p_join_scan_count < P2P_MAX_JOIN_SCAN_ATTEMPTS) {
-			wpa_printf(MSG_DEBUG, "P2P: Try join again later.");
-			eloop_register_timeout(0, getP2pJoinScanIntervalUsecs(freq),
-				joinScanWrapper, wpa_s, this);
-			return;
-		}
-
-		wpa_printf(MSG_ERROR, "P2P: Failed to find the group with "
-			"network name %s - stop join attempt",
-			wpa_ssid_txt(ssid.data(), ssid.size()));
-		notifyGroupJoinFailure(wpa_s);
-		pending_scan_res_join_callback = NULL;
-	};
-
-	wpa_s->p2p_join_scan_count = 0;
-	pending_join_scan_callback();
-	if (pending_scan_res_join_callback == NULL) {
+	if (joinGroup(wpa_s, peer_address.data(), ssid, passphrase, freq)) {
 		return createStatusWithMsg(SupplicantStatusCode::FAILURE_UNKNOWN,
 			"Failed to start scan.");
 	}
@@ -2018,11 +1701,16 @@ ndk::ScopedAStatus P2pIface::setMacRandomizationInternal(bool enable)
 	if (enable) {
 		wpa_s->conf->p2p_device_random_mac_addr = 1;
 		wpa_s->conf->p2p_interface_random_mac_addr = 1;
+		int status = wpas_p2p_mac_setup(wpa_s);
 
 		// restore config if it failed to set up MAC address.
-		if (wpas_p2p_mac_setup(wpa_s) < 0) {
+		if (status < 0) {
 			wpa_s->conf->p2p_device_random_mac_addr = 0;
 			wpa_s->conf->p2p_interface_random_mac_addr = 0;
+			if (status == -ENOTSUP) {
+				return createStatusWithMsg(SupplicantStatusCode::FAILURE_UNSUPPORTED,
+					"Failed to set up MAC address, feature not supported.");
+			}
 			return createStatusWithMsg(SupplicantStatusCode::FAILURE_UNKNOWN,
 				"Failed to set up MAC address.");
 		}
@@ -2093,6 +1781,9 @@ ndk::ScopedAStatus P2pIface::removeClientInternal(
     const std::vector<uint8_t>& peer_address, bool isLegacyClient)
 {
 	struct wpa_supplicant* wpa_s = retrieveIfacePtr();
+	if (peer_address.size() != ETH_ALEN) {
+		return createStatus(SupplicantStatusCode::FAILURE_UNKNOWN);
+	}
 	wpas_p2p_remove_client(wpa_s, peer_address.data(), isLegacyClient? 1 : 0);
 	return ndk::ScopedAStatus::ok();
 }
@@ -2141,6 +1832,23 @@ ndk::ScopedAStatus P2pIface::setVendorElementsInternal(
 			updateP2pVendorElem(wpa_s, (enum wpa_vendor_elem_frame) i, vendorElemBytes);
 		}
 	}
+	return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus P2pIface::configureEapolIpAddressAllocationParamsInternal(
+	uint32_t ipAddressGo, uint32_t ipAddressMask,
+	uint32_t ipAddressStart, uint32_t ipAddressEnd)
+{
+	wpa_printf(MSG_DEBUG, "P2P: Configure IP addresses for IP allocation in EAPOL"
+		   " ipAddressGo: 0x%x mask: 0x%x Range - Start: 0x%x End: 0x%x",
+			ipAddressGo, ipAddressMask, ipAddressStart, ipAddressEnd);
+	struct wpa_supplicant* wpa_s = retrieveIfacePtr();
+
+	os_memcpy(wpa_s->conf->ip_addr_go, &ipAddressGo, 4);
+	os_memcpy(wpa_s->conf->ip_addr_mask, &ipAddressMask, 4);
+	os_memcpy(wpa_s->conf->ip_addr_start, &ipAddressStart, 4);
+	os_memcpy(wpa_s->conf->ip_addr_end, &ipAddressEnd, 4);
+
 	return ndk::ScopedAStatus::ok();
 }
 

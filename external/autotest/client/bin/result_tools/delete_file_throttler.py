@@ -18,9 +18,18 @@ except ImportError:
 DEFAULT_FILE_SIZE_THRESHOLD_BYTE = 1024 * 1024
 
 # Regex for file path that should not be deleted.
+# Note; it is OK to try to compress these.
 NON_DELETABLE_FILE_PATH_PATTERNS = [
-        '.*perf.data$',       # Performance test data.
-        ]
+        '.*perf.data$',  # Performance test data.
+        '.*DEBUG.*',  # Any autotest debug file needs to be preserved
+        '.*full.*',  # tast logs...
+        '.*net.log',  # net logs.
+        '.*android*',  # several android debugging logs are important.
+        '.*screenshot*',  # screenshots are needed for debugging.
+        '.*logcat*',
+        '.*/faillog/*',  # full tast fail logs.
+]
+
 
 def _delete_file(file_info):
     """Delete the given file and update the summary.

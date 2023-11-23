@@ -16,8 +16,8 @@
 
 syntax = "proto2";
 
-import "frameworks/proto_logging/stats/atoms.proto";
 import "frameworks/proto_logging/stats/atom_field_options.proto";
+import "frameworks/proto_logging/stats/attribution_node.proto";
 
 package android.stats_log_api_gen;
 
@@ -170,6 +170,48 @@ message GoodStateAtoms {
     }
 }
 
+message GoodRestrictedAtom {
+    optional int64 int64_field = 1 [(android.os.statsd.field_restriction_option).app_usage = true];
+    optional uint64 uint64_field = 2
+        [(android.os.statsd.field_restriction_option).app_activity = true];
+    optional int32 int32_field_1 = 3
+        [(android.os.statsd.field_restriction_option).health_connect = true];
+    optional bool bool_field = 4
+        [(android.os.statsd.field_restriction_option).accessibility = true];
+    optional string string_field = 5
+        [(android.os.statsd.field_restriction_option).system_search = true];
+    optional AnEnum enum_field = 6
+        [(android.os.statsd.field_restriction_option).ambient_sensing = true];
+    optional uint32 uint32_field = 7
+        [(android.os.statsd.field_restriction_option).user_engagement = true];
+    optional float float_field = 8
+        [(android.os.statsd.field_restriction_option).peripheral_device_info = true];
+    optional int32 int32_field_2 = 9
+        [(android.os.statsd.field_restriction_option).demographic_classification = true];
+}
+
+// Nonprimitive fields
+message BadRestrictedAtom1 {
+    repeated android.os.statsd.AttributionNode attribution_chain = 1
+        [(android.os.statsd.field_restriction_option).demographic_classification = true];
+    repeated float repeated_float_field = 2
+        [(android.os.statsd.field_restriction_option).app_usage = true];
+    repeated int64 repeated_int64_field = 3
+        [(android.os.statsd.field_restriction_option).app_activity = true];
+    repeated int32 repeated_int32_field = 4
+        [(android.os.statsd.field_restriction_option).health_connect = true];
+    repeated bool repeated_bool_field = 5
+        [(android.os.statsd.field_restriction_option).accessibility = true];
+    repeated string repeated_string_field = 6
+        [(android.os.statsd.field_restriction_option).system_search = true];
+}
+
+// Restriction category on atom field
+message BadRestrictedAtom2 {
+    optional int32 int32_field = 1
+        [(android.os.statsd.restriction_category) = RESTRICTION_DIAGNOSTIC];
+}
+
 // The atom has only primary field but no exclusive state field.
 message BadStateAtom1 {
     optional int32 uid = 1 [(android.os.statsd.state_field_option).primary_field = true];
@@ -273,23 +315,68 @@ message ModuleAtoms {
     }
 }
 
-message NotAPushNorPullAtom {
-    oneof event {
-        IntAtom int_atom = 1;
-    }
-}
-
-message AtomNotInAOneof {
-    optional IntAtom int_atom = 1;
-}
-
 message PushedAndPulledAtoms {
     oneof pushed {
         IntAtom int_atom_1 = 1;
     }
 
     oneof pulled {
-        OutOfOrderAtom out_of_order_atom = 11;
-        AnotherIntAtom another_int_atom = 10;
+        OutOfOrderAtom out_of_order_atom = 99999;
+        AnotherIntAtom another_int_atom = 10000;
     }
+}
+
+message VendorAtoms {
+    optional IntAtom pushed_atom_100000 = 100000;
+    optional AnotherIntAtom pulled_atom_199999 = 199999;
+}
+
+message GoodRestrictedAtoms {
+    optional GoodRestrictedAtom pushed_atom_1 = 1
+        [(android.os.statsd.restriction_category) = RESTRICTION_DIAGNOSTIC];
+    optional GoodRestrictedAtom pushed_atom_2 = 2
+        [(android.os.statsd.restriction_category) = RESTRICTION_SYSTEM_INTELLIGENCE];
+}
+
+// Nonprimitive fields
+message BadRestrictedAtoms1 {
+    optional BadRestrictedAtom1 pushed_atom_1 = 1
+        [(android.os.statsd.restriction_category) = RESTRICTION_AUTHENTICATION];
+}
+
+// Restriction category on atom field
+message BadRestrictedAtoms2 {
+    optional BadRestrictedAtom2 pushed_atom_1 = 1;
+}
+
+// Field restriction without restriction category
+message BadRestrictedAtoms3 {
+    optional GoodRestrictedAtom pushed_atom_1 = 1;
+}
+
+// Field restriction option on top level atom field
+message BadRestrictedAtoms4 {
+    optional IntAtom pushed_atom_1 = 1
+        [(android.os.statsd.field_restriction_option).peripheral_device_info = true];
+}
+
+// Restricted pulled atoms
+message BadRestrictedAtoms5 {
+    optional GoodRestrictedAtom pulled_atom_10001 = 10001
+        [(android.os.statsd.restriction_category) = RESTRICTION_AUTHENTICATION];
+    optional GoodRestrictedAtom pulled_atom_10002 = 10002
+        [(android.os.statsd.restriction_category) = RESTRICTION_FRAUD_AND_ABUSE];
+}
+
+message ExtensionAtoms {
+    oneof pushed {
+        IntAtom int_atom_1 = 1;
+    }
+    oneof pulled {
+        OutOfOrderAtom out_of_order_atom = 10000;
+    }
+
+    extensions 9999; // Pushed atom extension, ExtensionAtomPushed
+
+    extensions 99999; // Pulled atom extension, ExtensionAtomPulled
 }

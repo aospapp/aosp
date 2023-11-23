@@ -617,9 +617,30 @@ public class HostapdHalAidlImpTest extends WifiBaseTest {
         assertTrue(mHostapdHal.startDaemon() == shouldSucceed);
 
         // Verify initialization sequence
+        verify(mIHostapdMock).getInterfaceVersion();
         verify(mServiceBinderMock).linkToDeath(mHostapdDeathCaptor.capture(), anyInt());
         verify(mIHostapdMock).registerCallback(any(IHostapdCallback.class));
         assertEquals(shouldSucceed, mHostapdHal.isInitializationComplete());
+    }
+
+    /**
+     * Verifies the service initialization success but setDebugParams failed.
+     */
+    @Test
+    public void testServiceInitializationSetDebugParamFailed() throws Exception {
+        // Throw an exception when calling setDebugParams
+        doThrow(new RemoteException()).when(mIHostapdMock).setDebugParams(anyInt());
+
+        // Initialize and start hostapd daemon
+        assertTrue(mHostapdHal.initialize());
+        assertFalse(mHostapdHal.startDaemon());
+        assertFalse(mHostapdHal.isInitializationComplete());
+
+        // Verify initialization sequence
+        verify(mIHostapdMock).getInterfaceVersion();
+        verify(mServiceBinderMock).linkToDeath(mHostapdDeathCaptor.capture(), anyInt());
+        // Should never call register callback.
+        verify(mIHostapdMock, never()).registerCallback(any(IHostapdCallback.class));
     }
 
     /**

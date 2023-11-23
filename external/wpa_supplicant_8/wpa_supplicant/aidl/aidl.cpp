@@ -186,6 +186,21 @@ int wpas_aidl_notify_network_request(
 		wpa_s, ssid, rtype, default_txt);
 }
 
+void wpas_aidl_notify_permanent_id_req_denied(
+		struct wpa_supplicant *wpa_s)
+{
+	if (!wpa_s || !wpa_s->global->aidl)
+		return;
+
+	wpa_printf(MSG_DEBUG, "Notifying permanent_id_req denied to aidl control.");
+
+	AidlManager *aidl_manager = AidlManager::getInstance();
+	if (!aidl_manager)
+		return;
+
+	return aidl_manager->notifyPermanentIdReqDenied(wpa_s);
+}
+
 void wpas_aidl_notify_anqp_query_done(
 	struct wpa_supplicant *wpa_s, const u8 *bssid, const char *result,
 	const struct wpa_bss_anqp *anqp)
@@ -502,7 +517,7 @@ void wpas_aidl_notify_p2p_group_formation_failure(
 
 void wpas_aidl_notify_p2p_group_started(
 	struct wpa_supplicant *wpa_s, const struct wpa_ssid *ssid, int persistent,
-	int client)
+	int client, const u8 *ip)
 {
 	if (!wpa_s || !ssid)
 		return;
@@ -515,7 +530,7 @@ void wpas_aidl_notify_p2p_group_started(
 	if (!aidl_manager)
 		return;
 
-	aidl_manager->notifyP2pGroupStarted(wpa_s, ssid, persistent, client);
+	aidl_manager->notifyP2pGroupStarted(wpa_s, ssid, persistent, client, ip);
 }
 
 void wpas_aidl_notify_p2p_group_removed(
@@ -671,7 +686,7 @@ void wpas_aidl_notify_eap_error(struct wpa_supplicant *wpa_s, int error_code)
 }
 
 void wpas_aidl_notify_dpp_config_received(struct wpa_supplicant *wpa_s,
-		struct wpa_ssid *ssid)
+		struct wpa_ssid *ssid, bool conn_status_requested)
 {
 	if (!wpa_s || !ssid)
 		return;
@@ -684,12 +699,27 @@ void wpas_aidl_notify_dpp_config_received(struct wpa_supplicant *wpa_s,
 	if (!aidl_manager)
 		return;
 
-	aidl_manager->notifyDppConfigReceived(wpa_s, ssid);
+	aidl_manager->notifyDppConfigReceived(wpa_s, ssid, conn_status_requested);
 }
 
 void wpas_aidl_notify_dpp_config_sent(struct wpa_supplicant *wpa_s)
 {
 	wpas_aidl_notify_dpp_success(wpa_s, DppEventType::CONFIGURATION_SENT);
+}
+
+void wpas_aidl_notify_dpp_connection_status_sent(struct wpa_supplicant *wpa_s,
+                                                 enum dpp_status_error result)
+{
+	if (!wpa_s)
+		return;
+
+	wpa_printf(MSG_DEBUG, "wpas_aidl_notify_dpp_connection_status_sent %d ", result);
+
+	AidlManager *aidl_manager = AidlManager::getInstance();
+	if (!aidl_manager)
+		return;
+
+	aidl_manager->notifyDppConnectionStatusSent(wpa_s, result);
 }
 
 /* DPP Progress notifications */
@@ -1033,3 +1063,38 @@ void wpas_aidl_notify_qos_policy_request(struct wpa_supplicant *wpa_s,
 	aidl_manager->notifyQosPolicyRequest(wpa_s, policies, num_policies);
 }
 
+ssize_t wpas_aidl_get_certificate(const char* alias, uint8_t** value)
+{
+	AidlManager *aidl_manager = AidlManager::getInstance();
+	if (!aidl_manager)
+		return -1;
+
+	wpa_printf(MSG_INFO, "Requesting certificate from framework");
+
+	return aidl_manager->getCertificate(alias, value);
+}
+
+ssize_t wpas_aidl_list_aliases(const char *prefix, char ***aliases)
+{
+	AidlManager *aidl_manager = AidlManager::getInstance();
+	if (!aidl_manager)
+		return -1;
+
+	wpa_printf(MSG_INFO, "Requesting aliases from framework");
+
+	return aidl_manager->listAliases(prefix, aliases);
+}
+
+void wpas_aidl_notify_qos_policy_scs_response(struct wpa_supplicant *wpa_s,
+		unsigned int count, int **scs_resp)
+{
+	if (!wpa_s || !count || !scs_resp)
+		return;
+
+	AidlManager *aidl_manager = AidlManager::getInstance();
+	if (!aidl_manager)
+		return;
+
+	wpa_printf(MSG_DEBUG, "Notifying Qos Policy SCS Response");
+	aidl_manager->notifyQosPolicyScsResponse(wpa_s, count, scs_resp);
+}

@@ -42,7 +42,8 @@ inline u16 computeChecksum(u32 Seed, uptr Value, uptr *Array, uptr ArraySize) {
       Checksum = computeBSDChecksum(Checksum, Array[I]);
     return Checksum;
   }
-#endif // defined(__CRC32__) || defined(__SSE4_2__) || defined(__ARM_FEATURE_CRC32)
+#endif // defined(__CRC32__) || defined(__SSE4_2__) ||
+       // defined(__ARM_FEATURE_CRC32)
 }
 
 namespace Chunk {
@@ -84,7 +85,7 @@ constexpr uptr OffsetMask = (1UL << 16) - 1;
 constexpr uptr ChecksumMask = (1UL << 16) - 1;
 
 constexpr uptr getHeaderSize() {
-  return roundUpTo(sizeof(PackedHeader), 1U << SCUDO_MIN_ALIGNMENT_LOG);
+  return roundUp(sizeof(PackedHeader), 1U << SCUDO_MIN_ALIGNMENT_LOG);
 }
 
 inline AtomicPackedHeader *getAtomicHeader(void *Ptr) {

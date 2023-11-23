@@ -29,6 +29,8 @@
     <string name="static_wallpaper_presentation_mode_message" msgid="417940227049360906">"Έχει οριστεί"</string>
     <string name="rotating_wallpaper_presentation_mode_message" msgid="3361676041605733288">"Ημερήσια ταπετσαρία"</string>
     <string name="wallpaper_destination_both" msgid="1124197176741944063">"Αρχική οθόνη και οθόνη κλειδώματος"</string>
+    <string name="choose_a_wallpaper_section_title" msgid="1009823506890453891">"Επιλέξτε μια ταπετσαρία"</string>
+    <string name="creative_wallpaper_title" msgid="8459226435723103934">"Δημιουργήστε μια ταπετσαρία"</string>
     <string name="home_screen_message" msgid="106444102822522813">"Αρχική οθόνη"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"Οθόνη κλειδώματος"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"Αρχική και κλειδώματος"</string>
@@ -64,6 +66,7 @@
     <string name="explore_lock_screen" msgid="268938342103703665">"Εξερεύνηση ταπετσαρίας οθόνης κλειδώματος"</string>
     <string name="refresh_daily_wallpaper_home_content_description" msgid="2770445044556164259">"Ανανέωση ημερήσιας ταπετσαρίας αρχικής οθόνης"</string>
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"Ανανέωση ημερήσιας ταπετσαρίας"</string>
+    <string name="preview_screen_description" msgid="3386387053327775919">"Οθόνη προεπισκόπησης ταπετσαρίας"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"Ανανέωση ημερήσιας ταπετσαρίας…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"Αποτυχία ανανέωσης ημερήσιας ταπετσαρίας. Ελέγξτε τη σύνδεση δικτύου σας και δοκιμάστε ξανά."</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"Ταπετσαρίες στη συσκευή"</string>
@@ -81,10 +84,12 @@
     <string name="tab_info" msgid="818614080690111416">"Πληροφορίες"</string>
     <string name="tab_customize" msgid="2533745409174959960">"Προσαρμογή"</string>
     <string name="tab_effects" msgid="3213606157589233901">"Εφέ"</string>
+    <string name="tab_share" msgid="6676269624804601227">"Κοινοποίηση"</string>
     <string name="my_photos" msgid="8613021349284084982">"Οι φωτογραφίες μου"</string>
     <string name="configure_wallpaper" msgid="849882179182976621">"Ρυθμίσεις…"</string>
     <string name="delete_live_wallpaper" msgid="589212696102662329">"Διαγραφή"</string>
-    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Διαγραφή αυτής της ταπετσαρίας από το τηλέφωνό σας;"</string>
+    <string name="edit_live_wallpaper" msgid="3132060073690558045">"Επεξεργασία"</string>
+    <string name="delete_wallpaper_confirmation" msgid="1905114562243802354">"Να διαγραφεί αυτή η ταπετσαρία από τη συσκευή σας;"</string>
     <string name="bottom_action_bar_back" msgid="8237013112999946725">"Πίσω"</string>
     <string name="bottom_action_bar_edit" msgid="1214742990893082138">"Επεξεργασία"</string>
     <string name="bottom_action_bar_download" msgid="3983122338076389421">"Λήψη"</string>
@@ -95,11 +100,19 @@
     <string name="previous_page_content_description" msgid="1138597031571078429">"Προηγούμενη"</string>
     <string name="wallpaper_title" msgid="6754214682228331092">"Ταπετσαρία"</string>
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Προεπισκόπηση ταπετσαρίας"</string>
+    <string name="lock_wallpaper_preview_card_content_description" msgid="5236839857695985498">"Προεπισκόπηση ταπετσαρίας οθόνης κλειδώματος"</string>
+    <string name="home_wallpaper_preview_card_content_description" msgid="4059418716070821630">"Προεπισκόπηση ταπετσαρίας αρχικής οθόνης"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"Η συλλογή δεν υπάρχει."</string>
+    <string name="wallpaper_exit_split_screen" msgid="1928870664619591636">"Βγείτε από τη λειτουργία διαχωρισμού οθόνης και δοκιμάστε ξανά"</string>
     <string name="cancel" msgid="4970902691067201584">"Ακύρωση"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Απόκρυψη προεπ/σης διεπ.χρήστη"</string>
     <string name="hint_hide_ui_preview" msgid="4527603797714586070">"Η διεπαφή χρήστη είναι κρυφή σε προεπισκόπηση. Διπλό πάτημα για κατάργηση απόκρυψης"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Εμφάνιση προεπ/σης διεπ.χρήστη"</string>
+    <string name="hide_preview_controls_content_description" msgid="894958599274977655">"Γίνεται προβολή των στοιχείων ελέγχου προεπισκόπησης. Πατήστε δύο φορές για απόκρυψη"</string>
+    <string name="hide_preview_controls_action" msgid="3419260118386783295">"Απόκρυψη στοιχείων ελέγχου προεπισκόπησης"</string>
+    <string name="show_preview_controls_content_description" msgid="908147864005440602">"Γίνεται απόκρυψη των στοιχείων ελέγχου προεπισκόπησης. Πατήστε δύο φορές για εμφάνιση"</string>
+    <string name="show_preview_controls_action" msgid="7700775001986890400">"Εμφάνιση στοιχείων ελέγχου προεπισκόπησης"</string>
+    <string name="hide_wallpaper_info_action" msgid="6572492484253895374">"Απόκρυψη πληροφοριών ταπετσαρίας"</string>
     <string name="hint_show_ui_preview" msgid="2744155435325318349">"Η διεπαφή χρήστη εμφανίζεται σε προεπισκόπηση. Διπλό πάτημα για απόκρυψη"</string>
     <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Αλλαγή ταπετσαρίας"</string>
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Προεπ/ση ταπετσαρίας οθόνης κλειδώματος"</string>
@@ -111,4 +124,10 @@
     <string name="settings_snackbar_description" msgid="890168814524778486">"Ενεργοποιήστε την άδεια Αρχεία και μέσα στις ρυθμίσεις."</string>
     <string name="settings_snackbar_enable" msgid="5992112808061426068">"Ενεργοποίηση"</string>
     <string name="open_my_photos" msgid="4107196465713868381">"Άνοιγμα των φωτογραφιών μου"</string>
+    <string name="lock_screen_tab" msgid="6672930765010407652">"Οθόνη κλειδώματος"</string>
+    <string name="home_screen_tab" msgid="1080445697837877526">"Αρχική οθόνη"</string>
+    <string name="reset" msgid="4945445169532850631">"Επαναφορά"</string>
+    <string name="reset_confirmation_dialog_title" msgid="3391905685838213712">"Να γίνει επαναφορά αλλαγών;"</string>
+    <string name="reset_confirmation_dialog_message" msgid="888669268626289603">"Οι αλλαγές σας δεν θα αποθηκευτούν"</string>
+    <string name="more_wallpapers" msgid="8116268433411881705">"Περισσότερες ταπετσαρίες"</string>
 </resources>

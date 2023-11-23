@@ -27,7 +27,8 @@
         <service android:name=".HiddenFromPickerIme"
              android:label="Non User Selectable IME"
              android:permission="android.permission.BIND_INPUT_METHOD"
-             android:exported="true">
+             android:exported="true"
+             android:visibleToInstantApps="true">
             <intent-filter>
                 <action android:name="android.view.InputMethod"/>
             </intent-filter>

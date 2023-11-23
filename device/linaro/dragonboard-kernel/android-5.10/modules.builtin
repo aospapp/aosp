@@ -1,8 +1,10 @@
 kernel/arch/arm64/kvm/kvm.ko
 kernel/arch/arm64/crypto/sha2-ce.ko
+kernel/arch/arm64/crypto/sha512-ce.ko
 kernel/arch/arm64/crypto/aes-ce-cipher.ko
 kernel/arch/arm64/crypto/aes-glue-ce.ko
 kernel/arch/arm64/crypto/sha256-arm64.ko
+kernel/arch/arm64/crypto/sha512-arm64.ko
 kernel/arch/arm64/crypto/chacha-neon.ko
 kernel/arch/arm64/crypto/poly1305-neon.ko
 kernel/kernel/configs.ko
@@ -252,6 +254,7 @@ kernel/drivers/spmi/spmi.ko
 kernel/drivers/net/dummy.ko
 kernel/drivers/net/wireguard/wireguard.ko
 kernel/drivers/net/ifb.ko
+kernel/drivers/net/macsec.ko
 kernel/drivers/net/mii.ko
 kernel/drivers/net/phy/mdio_devres.ko
 kernel/drivers/net/phy/phylink.ko
@@ -270,6 +273,8 @@ kernel/drivers/net/ppp/pptp.ko
 kernel/drivers/net/slip/slhc.ko
 kernel/drivers/net/usb/rtl8150.ko
 kernel/drivers/net/usb/r8152.ko
+kernel/drivers/net/usb/asix.ko
+kernel/drivers/net/usb/ax88179_178a.ko
 kernel/drivers/net/usb/cdc_ether.ko
 kernel/drivers/net/usb/cdc_eem.ko
 kernel/drivers/net/usb/usbnet.ko
@@ -298,7 +303,6 @@ kernel/drivers/usb/gadget/function/u_ether.ko
 kernel/drivers/usb/gadget/function/usb_f_ncm.ko
 kernel/drivers/usb/gadget/function/usb_f_ecm.ko
 kernel/drivers/usb/gadget/function/usb_f_eem.ko
-kernel/drivers/usb/gadget/function/usb_f_rndis.ko
 kernel/drivers/usb/gadget/function/usb_f_mass_storage.ko
 kernel/drivers/usb/gadget/function/usb_f_fs.ko
 kernel/drivers/usb/gadget/function/u_audio.ko
@@ -341,6 +345,7 @@ kernel/drivers/media/common/videobuf2/videobuf2-v4l2.ko
 kernel/drivers/media/common/videobuf2/videobuf2-memops.ko
 kernel/drivers/media/common/videobuf2/videobuf2-vmalloc.ko
 kernel/drivers/media/common/videobuf2/videobuf2-dma-contig.ko
+kernel/drivers/media/common/videobuf2/videobuf2-dma-sg.ko
 kernel/drivers/media/usb/uvc/uvcvideo.ko
 kernel/drivers/media/usb/gspca/gspca_main.ko
 kernel/drivers/power/supply/power_supply.ko
@@ -456,6 +461,7 @@ kernel/net/sched/act_police.ko
 kernel/net/sched/act_gact.ko
 kernel/net/sched/act_mirred.ko
 kernel/net/sched/act_skbedit.ko
+kernel/net/sched/act_bpf.ko
 kernel/net/sched/sch_htb.ko
 kernel/net/sched/sch_ingress.ko
 kernel/net/sched/sch_sfq.ko
@@ -613,6 +619,7 @@ kernel/net/bluetooth/rfcomm/rfcomm.ko
 kernel/net/bluetooth/hidp/hidp.ko
 kernel/net/l2tp/l2tp_core.ko
 kernel/net/l2tp/l2tp_ppp.ko
+kernel/net/8021q/8021q.ko
 kernel/net/wireless/cfg80211.ko
 kernel/net/mac80211/mac80211.ko
 kernel/net/tipc/tipc.ko
@@ -630,6 +637,7 @@ kernel/net/ieee802154/ieee802154.ko
 kernel/net/ieee802154/ieee802154_socket.ko
 kernel/net/ieee802154/6lowpan/ieee802154_6lowpan.ko
 kernel/net/mac802154/mac802154.ko
+kernel/net/nfc/nfc.ko
 kernel/net/vmw_vsock/vsock.ko
 kernel/net/vmw_vsock/vsock_diag.ko
 kernel/net/vmw_vsock/vmw_vsock_virtio_transport_common.ko

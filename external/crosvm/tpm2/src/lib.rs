@@ -1,11 +1,17 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::os::raw::{c_int, c_uint};
+//! TPM2 (Trusted Platform Module 2.0) simulator.
+
+#![cfg(unix)]
+
+use std::os::raw::c_int;
+use std::os::raw::c_uint;
 use std::ptr;
 use std::slice;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 
 static SIMULATOR_EXISTS: AtomicBool = AtomicBool::new(false);
 

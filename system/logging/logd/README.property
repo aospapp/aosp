@@ -52,8 +52,8 @@ persist.log.tag            string build  default for log.tag
 log.tag.<tag>             string persist The <tag> specific logging level.
 persist.log.tag.<tag>      string build  default for log.tag.<tag>
 
-logd.buffer_type           string (empty) Set the log buffer type.  Current choices are 'simple',
-                                          'chatty', or 'serialized'.  Defaults to 'chatty' if empty.
+logd.buffer_type           string (empty) The log buffer type: 'simple' or
+                                          'serialized' (default: 'serialized').
 
 NB:
 - auto - managed by /init

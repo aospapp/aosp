@@ -113,6 +113,7 @@ TEST(StateManagerTest, TestStateManagerGetInstance) {
     mgr.registerListener(util::SCREEN_STATE_CHANGED, listener1);
     EXPECT_EQ(1, mgr.getStateTrackersCount());
     EXPECT_EQ(1, StateManager::getInstance().getStateTrackersCount());
+    mgr.unregisterListener(util::SCREEN_STATE_CHANGED, listener1);
 }
 
 TEST(StateManagerTest, TestOnLogEvent) {

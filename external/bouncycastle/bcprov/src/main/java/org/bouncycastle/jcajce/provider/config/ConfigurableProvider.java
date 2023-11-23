@@ -54,4 +54,11 @@ public interface ConfigurableProvider
     AsymmetricKeyInfoConverter getKeyInfoConverter(ASN1ObjectIdentifier oid);
 
     void addAttributes(String key, Map<String, String> attributeMap);
+
+    // BEGIN Android-added: Allow algorithms to be added privately.
+    // See BouncyCastleProvider for details.
+    void addPrivateAlgorithm(String key, String value);
+
+    void addPrivateAlgorithm(String type, ASN1ObjectIdentifier oid, String className);
+    // END Android-added: Allow algorithms to be added privately.
 }

@@ -30,8 +30,9 @@ import javax.net.ssl.SSLSession;
  * {@code SSLSession}s into raw bytes and vice versa. The exact makeup of the
  * session data is dependent upon the caller's implementation and is opaque to
  * the {@code SSLServerSessionCache} implementation.
+ * @hide This class is not part of the Android public SDK API
  */
-interface SSLServerSessionCache {
+public interface SSLServerSessionCache {
     /**
      * Gets the session data for given session ID.
      *

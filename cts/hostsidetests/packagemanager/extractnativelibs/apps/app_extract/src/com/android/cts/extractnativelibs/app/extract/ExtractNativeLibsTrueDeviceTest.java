@@ -64,7 +64,7 @@ public class ExtractNativeLibsTrueDeviceTest {
                 loaded.countDown();
             }
         };
-        mContext.registerReceiver(receiver, filter);
+        mContext.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED/*UNAUDITED*/);
         launchActivity();
         Assert.assertTrue("Native lib not loaded", loaded.await(
                 30, TimeUnit.SECONDS));

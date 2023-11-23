@@ -19,5 +19,10 @@
     {
       "name": "vehicle_binding_integration_test"
     }
+  ],
+  "auto-presubmit": [
+    {
+      "name": "hal_implementation_test"
+    }
   ]
 }

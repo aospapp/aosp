@@ -142,6 +142,17 @@ vpx_image_t *vpx_codec_get_frame(vpx_codec_ctx_t *ctx, int hostColorBufferId) {
     return &(ctx->myImg);
 }
 
+void vpx_codec_send_metadata(vpx_codec_ctx_t *ctx, void *ptr) {
+    MetaDataColorAspects& meta = *(MetaDataColorAspects*)ptr;
+    auto transport = GoldfishMediaTransport::getInstance();
+    transport->writeParam(ctx->id, 0, ctx->address_offset);
+    transport->writeParam(meta.type, 1, ctx->address_offset);
+    transport->writeParam(meta.primaries, 2, ctx->address_offset);
+    transport->writeParam(meta.range, 3, ctx->address_offset);
+    transport->writeParam(meta.transfer, 4, ctx->address_offset);
+    sendVpxOperation(ctx, MediaOperation::SendMetadata);
+}
+
 int vpx_codec_flush(vpx_codec_ctx_t *ctx) {
     DDD("%s %d", __func__, __LINE__);
     if (!ctx) {

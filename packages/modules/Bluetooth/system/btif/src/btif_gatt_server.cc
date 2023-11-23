@@ -26,7 +26,7 @@
 
 #define LOG_TAG "bt_btif_gatt"
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <errno.h>
 #include <hardware/bluetooth.h>
 #include <hardware/bt_gatt.h>
@@ -50,9 +50,8 @@
 #include "types/bt_transport.h"
 #include "types/raw_address.h"
 
-extern bool btif_get_address_type(const RawAddress& bda,
-                                  tBLE_ADDR_TYPE* p_addr_type);
-extern bool btif_get_device_type(const RawAddress& bda, int* p_device_type);
+bool btif_get_address_type(const RawAddress& bda, tBLE_ADDR_TYPE* p_addr_type);
+bool btif_get_device_type(const RawAddress& bda, int* p_device_type);
 
 using base::Bind;
 using base::Owned;
@@ -84,9 +83,9 @@ extern const btgatt_callbacks_t* bt_gatt_callbacks;
  ******************************************************************************/
 
 static void btapp_gatts_copy_req_data(uint16_t event, char* p_dest,
-                                      char* p_src) {
+                                      const char* p_src) {
   tBTA_GATTS* p_dest_data = (tBTA_GATTS*)p_dest;
-  tBTA_GATTS* p_src_data = (tBTA_GATTS*)p_src;
+  const tBTA_GATTS* p_src_data = (const tBTA_GATTS*)p_src;
 
   if (!p_src_data || !p_dest_data) return;
 
@@ -248,6 +247,13 @@ static void btapp_gatts_handle_cback(uint16_t event, char* p_param) {
                 p_data->conn_update.conn_id, p_data->conn_update.interval,
                 p_data->conn_update.latency, p_data->conn_update.timeout,
                 p_data->conn_update.status);
+      break;
+
+    case BTA_GATTS_SUBRATE_CHG_EVT:
+      HAL_CBACK(bt_gatt_callbacks, server->subrate_chg_cb,
+                p_data->subrate_chg.conn_id, p_data->subrate_chg.subrate_factor,
+                p_data->subrate_chg.latency, p_data->subrate_chg.cont_num,
+                p_data->subrate_chg.timeout, p_data->subrate_chg.status);
       break;
 
     default:

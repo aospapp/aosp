@@ -52,7 +52,7 @@ static bool gnssPalControlLocationSession(bool enable, uint32_t minIntervalMs,
   return true;  // If successful
 }
 
-void gnssPalSendLocationEvent() {
+void gnssPalSendLocationEvent(void) {
   struct chreGnssLocationEvent *event =
       (struct chreGnssLocationEvent *)(chppMalloc(
           sizeof(struct chreGnssLocationEvent)));
@@ -66,7 +66,7 @@ void gnssPalSendLocationEvent() {
   }
 }
 
-void gnssPalSendMeasurementEvent() {
+void gnssPalSendMeasurementEvent(void) {
   struct chreGnssDataEvent *event = (struct chreGnssDataEvent *)(chppMalloc(
       sizeof(struct chreGnssDataEvent)));
   struct chreGnssMeasurement *measurement =

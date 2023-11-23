@@ -20,12 +20,12 @@ class firmware_DevModeStress(FirmwareTest):
         dict_args = utils.args_to_dict(cmdline_args)
         self.faft_iterations = int(dict_args.get('faft_iterations', 1))
         super(firmware_DevModeStress, self).initialize(host, cmdline_args)
-        self.switcher.setup_mode('dev')
+        self.switcher.setup_mode('dev', allow_gbb_force=True)
         self.setup_usbkey(usbkey=False)
 
     def run_once(self):
         """Runs a single iteration of the test."""
-        for i in xrange(self.faft_iterations):
+        for i in range(self.faft_iterations):
             logging.info('======== Running FAFT ITERATION %d/%s ========',
                          i + 1, self.faft_iterations)
             logging.info("Verify dev mode.")

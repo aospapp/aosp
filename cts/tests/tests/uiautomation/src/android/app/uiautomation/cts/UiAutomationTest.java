@@ -16,11 +16,15 @@
 
 package android.app.uiautomation.cts;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
 
 import android.Manifest;
 import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
@@ -34,14 +38,17 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.os.Process;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.provider.Settings;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.FrameStats;
 import android.view.KeyEvent;
+import android.view.Window;
 import android.view.WindowAnimationFrameStats;
 import android.view.WindowContentFrameStats;
 import android.view.accessibility.AccessibilityEvent;
@@ -52,6 +59,8 @@ import android.widget.ListView;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.UserHelper;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -65,7 +74,10 @@ import java.util.concurrent.TimeoutException;
  * Tests for the UiAutomation APIs.
  */
 @RunWith(AndroidJUnit4.class)
-public class UiAutomationTest {
+public final class UiAutomationTest {
+
+    private static final String TAG = UiAutomationTest.class.getSimpleName();
+
     private static final long QUIET_TIME_TO_BE_CONSIDERED_IDLE_STATE = 1000;//ms
 
     private static final long TOTAL_TIME_TO_WAIT_FOR_IDLE_STATE = 1000 * 10;//ms
@@ -78,11 +90,14 @@ public class UiAutomationTest {
     public final AccessibilityDumpOnFailureRule mDumpOnFailureRule =
             new AccessibilityDumpOnFailureRule();
 
+    private final UserHelper mUserHelper = new UserHelper();
+
     @Before
     public void setUp() throws Exception {
         UiAutomation uiAutomation = getInstrumentation().getUiAutomation();
         AccessibilityServiceInfo info = uiAutomation.getServiceInfo();
         info.flags |= AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+        Log.d(TAG, "setup(): userHelper=" + mUserHelper);
         uiAutomation.setServiceInfo(info);
         grantWriteSecureSettingsPermission(uiAutomation);
     }
@@ -180,7 +195,7 @@ public class UiAutomationTest {
             Intent intent = new Intent(getInstrumentation().getContext(),
                     UiAutomationTestFirstActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            activity = getInstrumentation().startActivitySync(intent);
+            activity = startActivitySync(intent);
 
             // Wait for things to settle.
             uiAutomation.waitForIdle(
@@ -190,14 +205,18 @@ public class UiAutomationTest {
             getInstrumentation().waitForIdleSync();
 
             // Find the application window.
-            final int windowId = findAppWindowId(uiAutomation.getWindows(), activity);
-            assertTrue(windowId >= 0);
+            List<AccessibilityWindowInfo> windows = uiAutomation.getWindows();
+            assertWithMessage("UiAutomation.getWindows()").that(windows).isNotEmpty();
+            int windowId = findAppWindowId(windows, activity);
+            assertWithMessage("window id for activity %s (windows=%s)", activity, windows)
+                    .that(windowId).isAtLeast(0);
 
             // Clear stats to be with a clean slate.
-            assertTrue(uiAutomation.clearWindowContentFrameStats(windowId));
+            assertWithMessage("clearWindowContentFrameStats(%s)", windowId)
+                    .that(uiAutomation.clearWindowContentFrameStats(windowId)).isTrue();
 
             // Find the list to scroll around.
-            final ListView listView = (ListView) activity.findViewById(R.id.list_view);
+            final ListView listView = activity.findViewById(R.id.list_view);
 
             // Scroll a bit.
             scrollListView(uiAutomation, listView, listView.getAdapter().getCount() - 1);
@@ -242,7 +261,7 @@ public class UiAutomationTest {
             Intent intent = new Intent(getInstrumentation().getContext(),
                     UiAutomationTestFirstActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            activity = getInstrumentation().startActivitySync(intent);
+            activity = startActivitySync(intent);
 
             // Wait for things to settle.
             uiAutomation.waitForIdle(
@@ -252,11 +271,15 @@ public class UiAutomationTest {
             getInstrumentation().waitForIdleSync();
 
             // Find the application window.
-            final int windowId = findAppWindowId(uiAutomation.getWindows(), activity);
-            assertTrue(windowId >= 0);
+            List<AccessibilityWindowInfo> windows = uiAutomation.getWindows();
+            assertWithMessage("UiAutomation.getWindows()").that(windows).isNotEmpty();
+            int windowId = findAppWindowId(windows, activity);
+            assertWithMessage("window id for activity %s (windows=%s)", activity, windows)
+                    .that(windowId).isAtLeast(0);
 
             // Clear stats to be with a clean slate.
-            assertTrue(uiAutomation.clearWindowContentFrameStats(windowId));
+            assertWithMessage("clearWindowContentFrameStats(%s)", windowId)
+                    .that(uiAutomation.clearWindowContentFrameStats(windowId)).isTrue();
 
             // Get the frame stats.
             WindowContentFrameStats stats = uiAutomation.getWindowContentFrameStats(windowId);
@@ -462,6 +485,41 @@ public class UiAutomationTest {
         }
     }
 
+    @Test
+    public void testScreenshot() throws TimeoutException {
+        UiAutomation uiAutomation = getInstrumentation().getUiAutomation();
+
+        // Test with null window
+        Bitmap bitmap = uiAutomation.takeScreenshot(null);
+        assertNull(bitmap);
+
+        Activity activity = null;
+        try {
+
+            // Start an activity.
+            Intent intent = new Intent(getInstrumentation().getContext(),
+                    UiAutomationTestFirstActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            activity = startActivitySync(intent);
+
+            // Wait for things to settle.
+            uiAutomation.waitForIdle(
+                    QUIET_TIME_TO_BE_CONSIDERED_IDLE_STATE, TOTAL_TIME_TO_WAIT_FOR_IDLE_STATE);
+
+            // Wait for Activity draw finish
+            getInstrumentation().waitForIdleSync();
+
+            Window window = activity.getWindow();
+            bitmap = uiAutomation.takeScreenshot(window);
+            assertNotNull(bitmap);
+        } finally {
+            // Clean up.
+            if (activity != null) {
+                activity.finish();
+            }
+        }
+    }
+
     private void scrollListView(UiAutomation uiAutomation, final ListView listView,
             final int position) throws TimeoutException {
         getInstrumentation().runOnMainSync(new Runnable() {
@@ -496,8 +554,7 @@ public class UiAutomationTest {
 
     private void enableAccessibilityService() {
         Context context = getInstrumentation().getContext();
-        AccessibilityManager manager =
-                (AccessibilityManager) context.getSystemService(Context.ACCESSIBILITY_SERVICE);
+        AccessibilityManager manager = context.getSystemService(AccessibilityManager.class);
         List<AccessibilityServiceInfo> serviceInfos =
                 manager.getInstalledAccessibilityServiceList();
         for (int i = 0; i < serviceInfos.size(); i++) {
@@ -514,7 +571,8 @@ public class UiAutomationTest {
                 return;
             }
         }
-        throw new RuntimeException("Test accessibility service not found");
+        throw new RuntimeException("Test accessibility service not found for user "
+                + mUserHelper.getUserId());
     }
 
     private void waitForAccessibilityServiceToStart() {
@@ -554,6 +612,14 @@ public class UiAutomationTest {
     }
 
     private void turnAccessibilityOff() {
+        // TODO(b/272604566): remove check below once a11y supports concurrent users
+
+        // NOTE: cannot use Harrier / DeviceState because they call Instrumentation in a way that
+        // would make the tests pass. Besides, there are a @RequireNotVisibleBackgroundUsers and a
+        // @RequireRunNotOnSecondaryUser, but not a @RequireRunNotOnVisibleBackgroundSecondaryUser
+        assumeFalse("not supported when running on visible background user",
+                    mUserHelper.isVisibleBackgroundUser());
+
         getInstrumentation().getUiAutomation().destroy();
         final Object waitLockForA11yOff = new Object();
         Context context = getInstrumentation().getContext();
@@ -659,8 +725,15 @@ public class UiAutomationTest {
         final int windowCount = windows.size();
         for (int i = 0; i < windowCount; i++) {
             AccessibilityWindowInfo window = windows.get(i);
+            int displayId = window.getDisplayId();
+            CharSequence title = window.getTitle();
+            Log.v(TAG, "findAppWindowId()#" + i + ": title=" + title + ", display=" + displayId);
             if (window.getType() == AccessibilityWindowInfo.TYPE_APPLICATION
-                    && TextUtils.equals(window.getTitle(), activityTitle)) {
+                    && TextUtils.equals(title, activityTitle)) {
+                // TODO(b/271188189): once working, remove false or whole statement below
+                if (false && displayId != mUserHelper.getMainDisplayId()) {
+                    continue;
+                }
                 return window.getId();
             }
         }
@@ -669,6 +742,11 @@ public class UiAutomationTest {
 
     private Instrumentation getInstrumentation() {
         return InstrumentationRegistry.getInstrumentation();
+    }
+
+    private Activity startActivitySync(Intent intent) {
+        return getInstrumentation().startActivitySync(intent,
+                mUserHelper.getActivityOptions().toBundle());
     }
 
     private static CharSequence getActivityTitle(

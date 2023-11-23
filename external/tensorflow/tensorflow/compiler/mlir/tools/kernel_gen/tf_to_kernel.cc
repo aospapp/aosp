@@ -27,9 +27,9 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Host.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"  // from @llvm-project
@@ -38,10 +38,10 @@
 #include "mlir/Target/LLVMIR/Export.h"  // from @llvm-project
 #include "tensorflow/compiler/mlir/init_mlir.h"
 #include "tensorflow/compiler/mlir/tools/kernel_gen/kernel_creator.h"
-#include "tensorflow/compiler/xla/util.h"
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/platform/logging.h"
-#include "tensorflow/stream_executor/lib/statusor.h"
+#include "tensorflow/core/platform/status.h"
+#include "tensorflow/core/platform/statusor.h"
 
 namespace tensorflow {
 namespace kernel_gen {
@@ -70,7 +70,7 @@ std::unique_ptr<llvm::TargetMachine> GetTargetMachine(llvm::Module* module) {
 }
 
 // Compiles the given MLIR module via LLVM into an executable binary format.
-xla::StatusOr<std::string> EmitToBinary(mlir::ModuleOp module) {
+StatusOr<std::string> EmitToBinary(mlir::ModuleOp module) {
   // Translate the module.
   llvm::LLVMContext llvm_context;
   mlir::registerLLVMDialectTranslation(*module->getContext());
@@ -84,7 +84,7 @@ xla::StatusOr<std::string> EmitToBinary(mlir::ModuleOp module) {
   if (mlir::makeOptimizingTransformer(
           /*optLevel=*/2, /*sizeLevel=*/0,
           target_machine.get())(llvm_module.get())) {
-    return xla::InternalError("Failed to run LLVM optimizer passess");
+    return tensorflow::errors::Internal("Failed to run LLVM optimizer passess");
   }
 
   // Set up the output stream.
@@ -98,19 +98,19 @@ xla::StatusOr<std::string> EmitToBinary(mlir::ModuleOp module) {
 
   if (target_machine->addPassesToEmitFile(codegen_passes, ostream, nullptr,
                                           llvm::CGFT_ObjectFile, false)) {
-    return xla::InternalError("Failed add passes to emit file");
+    return tensorflow::errors::Internal("Failed add passes to emit file");
   }
   codegen_passes.run(*llvm_module);
   return ostream.str().str();
 }
 
-xla::Status Run(llvm::StringRef input_file, llvm::StringRef output_file,
-                llvm::ArrayRef<std::string> architectures,
-                llvm::ArrayRef<int64_t> tile_sizes,
-                llvm::ArrayRef<int64_t> unroll_factors,
-                int64_t max_supported_rank, bool embed_memref_prints,
-                bool print_ptx, bool print_llvmir, bool enable_ftz,
-                bool cpu_codegen, bool jit_compile) {
+Status Run(llvm::StringRef input_file, llvm::StringRef output_file,
+           llvm::ArrayRef<std::string> architectures,
+           llvm::ArrayRef<int64_t> tile_sizes,
+           llvm::ArrayRef<int64_t> unroll_factors, int64_t max_supported_rank,
+           bool embed_memref_prints, bool print_ptx, bool print_llvmir,
+           bool enable_ftz, bool index_64bit, bool jit_compile,
+           bool jit_i64_indexed_for_large_tensors) {
   // Read TF code.
   std::string tf_code;
   TF_RETURN_IF_ERROR(
@@ -118,18 +118,21 @@ xla::Status Run(llvm::StringRef input_file, llvm::StringRef output_file,
   // Compile.
   mlir::MLIRContext context;
   TF_ASSIGN_OR_RETURN(
-      mlir::OwningModuleRef module,
+      mlir::OwningOpRef<mlir::ModuleOp> module,
       GenerateKernelForTfCode(context, tf_code, architectures, tile_sizes,
                               unroll_factors, max_supported_rank,
                               embed_memref_prints, print_ptx, print_llvmir,
-                              enable_ftz, cpu_codegen, jit_compile));
+                              enable_ftz, index_64bit, jit_compile,
+                              jit_i64_indexed_for_large_tensors,
+                              /*apply_cl_options=*/true));
+
   // Get binary.
   TF_ASSIGN_OR_RETURN(std::string binary, EmitToBinary(*module));
 
   // Write .a file.
   TF_RETURN_IF_ERROR(
       WriteStringToFile(Env::Default(), output_file.str(), binary));
-  return xla::Status::OK();
+  return OkStatus();
 }
 
 }  // namespace
@@ -143,8 +146,8 @@ int main(int argc, char** argv) {
   llvm::cl::opt<std::string> output_file(
       "output", llvm::cl::desc("output file"), llvm::cl::value_desc("filename"),
       llvm::cl::init("foo.bin"));
-  llvm::cl::opt<bool> cpu_codegen("cpu_codegen",
-                                  llvm::cl::desc("enable CPU code generation"),
+  llvm::cl::opt<bool> index_64bit("index_64bit",
+                                  llvm::cl::desc("enable 64 bit indexing"),
                                   llvm::cl::init(false));
   llvm::cl::opt<bool> embed_memref_prints(
       "embed_memref_prints",
@@ -180,6 +183,11 @@ int main(int argc, char** argv) {
       "unroll_factors",
       llvm::cl::desc("factors to unroll by, separated by commas"),
       llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated);
+  llvm::cl::opt<bool> jit_i64_indexed_for_large_tensors(
+      "jit_i64_indexed_for_large_tensors",
+      llvm::cl::desc(
+          "Enable JIT compilation of i64-indexed kernels for large inputs."),
+      llvm::cl::init(false));
 
   tensorflow::InitMlir y(&argc, &argv);
   llvm::InitializeNativeTarget();
@@ -191,7 +199,7 @@ int main(int argc, char** argv) {
   auto status = tensorflow::kernel_gen::Run(
       input_file, output_file, architectures, tile_sizes, unroll_factors,
       max_supported_rank, embed_memref_prints, print_ptx, print_llvmir,
-      enable_ftz, cpu_codegen, jit_compile);
+      enable_ftz, index_64bit, jit_compile, jit_i64_indexed_for_large_tensors);
   if (!status.ok()) {
     LOG(ERROR) << status;
     return 1;

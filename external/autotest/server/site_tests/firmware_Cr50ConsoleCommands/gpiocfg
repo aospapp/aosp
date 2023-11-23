@@ -11,3 +11,4 @@ GPIO1_GPIO4:    read 1 INT_FALLING
 GPIO1_GPIO5:    read 0 drive 1
 (?P<ec_comm>GPIO1_GPIO7: read 0 INT_RISING)?
 (?P<ec_comm>GPIO1_GPIO8: read 0 INT_FALLING)?
+gpio sleepmask: 00000000

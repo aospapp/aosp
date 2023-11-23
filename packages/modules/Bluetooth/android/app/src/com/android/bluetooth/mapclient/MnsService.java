@@ -127,11 +127,11 @@ public class MnsService {
             /* Signal to the service that we have received an incoming connection.*/
             MceStateMachine stateMachine = sContext.getMceStateMachineForDevice(device);
             if (stateMachine == null) {
-                Log.e(TAG, "Error: NO statemachine for device: " + device.getAddress()
+                Log.e(TAG, "Error: NO statemachine for device: " + device
                         + " (name: " + Utils.getName(device));
                 return false;
             } else if (stateMachine.getState() != BluetoothProfile.STATE_CONNECTED) {
-                Log.e(TAG, "Error: statemachine for device: " + device.getAddress()
+                Log.e(TAG, "Error: statemachine for device: " + device
                         + " (name: " + Utils.getName(device) + ") is not currently CONNECTED : "
                         + stateMachine.getCurrentState());
                 return false;

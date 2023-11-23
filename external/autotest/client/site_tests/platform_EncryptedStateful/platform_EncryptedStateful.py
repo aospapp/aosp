@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -11,23 +12,26 @@ from autotest_lib.client.common_lib import error
 #  - test failure when things aren't mounted correctly
 
 class test_checker(object):
+    """ A helper for test result """
+
     def __init__(self):
         logging.info("test_checker.__init__")
-        # Empty failure list means test passes.
+        """ Empty failure list means test passes. """
         self._failures = []
 
     def _passed(self, msg):
-        logging.info('ok: %s' % (msg))
+        logging.info('ok: %s', (msg))
 
     def _failed(self, msg):
-        logging.error('FAIL: %s' % (msg))
+        logging.error('FAIL: %s', (msg))
         self._failures.append(msg)
 
     def _fatal(self, msg):
-        logging.error('FATAL: %s' % (msg))
+        logging.error('FATAL: %s', (msg))
         raise error.TestError(msg)
 
     def check(self, boolean, msg, fatal=False):
+        """ Check the result log error """
         if boolean == True:
             self._passed(msg)
         else:
@@ -38,7 +42,7 @@ class test_checker(object):
                 self._failed(msg)
 
     def test_raise(self):
-        # Raise a failure if anything unexpected was seen.
+        """ Raise a failure if anything unexpected was seen. """
         if len(self._failures):
             raise error.TestFail((", ".join(self._failures)))
 
@@ -46,6 +50,8 @@ chk = test_checker()
 
 
 class EncryptedStateful(object):
+    """ A helper to operate the encrypted stateful. """
+
     def _prepare_simulated_root(self):
         os.makedirs(self.var)
         os.makedirs(self.chronos)
@@ -87,6 +93,7 @@ class EncryptedStateful(object):
         self.mounted = not self.simulated
 
     def mount(self, args=""):
+        """ Mount the encstateful partition """
         if self.mounted or not self.simulated:
             return
         # TODO(keescook): figure out what is killing the resizer and
@@ -97,27 +104,30 @@ class EncryptedStateful(object):
         # unresized. It would be better to have the resizer running in
         # the background, as it is designed, so we can examine its behavior
         # during testing (e.g. "does the filesystem actually grow?").
-        utils.system("MOUNT_ENCRYPTED_ROOT=%s mount-encrypted %s 2>&1 "
-                     "| tee %s" % (self.root, args, self.mount_log))
+        utils.system("MOUNT_ENCRYPTED_ROOT=%s mount-encrypted --unsafe "
+                     "%s 2>&1 | tee %s" % (self.root, args, self.mount_log))
         self.mounted = True
 
     def umount(self):
+        """ Unmount the encstateful partition """
         if not self.mounted or not self.simulated:
             return
         utils.system("MOUNT_ENCRYPTED_ROOT=%s mount-encrypted umount" %
                          (self.root))
         self.mounted = False
 
-    # Clean up when destroyed.
     def __del__(self):
+        """ Clean up when destroyed. """
         if self.simulated:
             self.umount()
             utils.system("umount -n %s" % (self.stateful))
             shutil.rmtree(self.root)
 
-    # Perform common post-mount size/owner checks on the filesystem and
-    # backing files.
     def check_sizes(self, finalized=True):
+        """
+        Perform common post-mount size/owner checks on the filesystem and
+        backing files.
+        """
         # Do we have the expected backing files?
         chk.check(os.path.exists(self.block), "%s exists" % (self.block))
         if finalized:
@@ -129,7 +139,7 @@ class EncryptedStateful(object):
         chk.check(os.path.exists(keyfile), "%s exists" % (keyfile))
         chk.check(not os.path.exists(other), "%s does not exist" % (other))
 
-        # Sanity check the key file stat.
+        # Check the key file stat.
         info = os.stat(keyfile)
         chk.check(stat.S_ISREG(info.st_mode),
                   "%s is regular file" % (keyfile))
@@ -139,7 +149,7 @@ class EncryptedStateful(object):
                   "%s is S_IRUSR | S_IWUSR" % (keyfile))
         chk.check(info.st_size == 48, "%s is 48 bytes" % (keyfile))
 
-        # Sanity check the block file stat.
+        # Check the block file stat.
         info = os.stat(self.block)
         chk.check(stat.S_ISREG(info.st_mode),
                   "%s is regular file" % (self.block))
@@ -183,8 +193,9 @@ class EncryptedStateful(object):
         start = None
         size = 0
         while True:
-            k = long(utils.system_output("du -sk %s" % (self.block),
-                                         retain_output = True).split()[0])
+            k = int(
+                    utils.system_output("du -sk %s" % (self.block),
+                                        retain_output=True).split()[0])
             if start == None:
                 start = k
             if k == size:
@@ -194,12 +205,14 @@ class EncryptedStateful(object):
             time.sleep(10)
             utils.system("sync")
             size = k
-        logging.info("%s stabilized at %dK (was %dK)" %
+        logging.info("%s stabilized at %dK (was %dK)",
                      (self.block, size, start))
 
-    # Check that the backing file reclaims space when filesystem contents
-    # are deleted.
     def check_reclamation(self):
+        """
+        Check that the backing file reclaims space when filesystem contents
+        are deleted.
+        """
         # This test is sensitive to other things happening on the filesystem,
         # so we must wait for background initialization to finish first.
         self._backing_stabilize()
@@ -241,25 +254,33 @@ class EncryptedStateful(object):
 
 
 class platform_EncryptedStateful(test.test):
+    """ Test encrypted stateful partition."""
     version = 1
 
-    # With b/80549098, PUNCH_HOLE was disabled for all kernel trees
-    # before v4.4. This means that the reclamation check will only work
-    # with kernels that support PUNCH_HOLE.
     def is_punch_hole_supported(self):
+        """
+        With b/80549098, PUNCH_HOLE was disabled for all kernel trees
+        before v4.4. This means that the reclamation check will only work
+        with kernels that support PUNCH_HOLE.
+        """
         kernel_ver = os.uname()[2]
         if utils.compare_versions(kernel_ver, "4.4") < 0 :
             return False
         return True
 
     def existing_partition(self):
+        """ Do a no-write test of system's existing encrypted partition. """
         # Examine the existing encrypted partition.
         encstate = EncryptedStateful("/")
 
-        # Perform post-mount sanity checks (and handle unfinalized devices).
+        # Perform post-mount confidence check (and handle unfinalized devices).
         encstate.check_sizes(finalized=os.path.exists(encstate.key))
 
     def no_tpm(self):
+        """
+        Do a no-write, no-TPM test with confidence checks. Also do a
+        reclamation check against the encrypted stateful partition.
+        """
         encstate = EncryptedStateful()
 
         # Make sure we haven't run here before.
@@ -280,8 +301,8 @@ class platform_EncryptedStateful(test.test):
             if os.path.exists(off):
                 utils.system("mv %s %s" % (off, tpm))
 
-        # Perform post-mount sanity checks.
-        encstate.check_sizes(finalized=False)
+        # Perform post-mount confidence checks.
+        encstate.check_sizes(finalized=True)
 
         # Check disk reclamation for kernels that support PUNCH_HOLE.
         if self.is_punch_hole_supported():
@@ -291,9 +312,10 @@ class platform_EncryptedStateful(test.test):
         encstate.umount()
 
     def run_once(self):
+        """ Primary autotest function. """
         # Do a no-write test of system's existing encrypted partition.
         self.existing_partition()
 
-        # Do a no-write, no-TPM test with sanity checks. Also do a reclamation
-        # check against the encrypted stateful partition.
+        # Do a no-write, no-TPM test with confidence checks. Also do a
+        # reclamation check against the encrypted stateful partition.
         self.no_tpm()

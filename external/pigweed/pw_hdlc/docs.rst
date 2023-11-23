@@ -1,8 +1,8 @@
 .. _module-pw_hdlc:
 
--------
+=======
 pw_hdlc
--------
+=======
 `High-Level Data Link Control (HDLC)
 <https://en.wikipedia.org/wiki/High-Level_Data_Link_Control>`_ is a data link
 layer protocol intended for serial communication between devices. HDLC is
@@ -32,11 +32,12 @@ remote procedure calls (RPCs) on embedded on devices.
 
   rpc_example/docs
 
+--------------------
 Protocol Description
-====================
+--------------------
 
 Frames
-------
+======
 The HDLC implementation in ``pw_hdlc`` supports only HDLC unnumbered
 information frames. These frames are encoded as follows:
 
@@ -55,7 +56,7 @@ information frames. These frames are encoded as follows:
 
 
 Encoding and sending data
--------------------------
+=========================
 This module first writes an initial frame delimiter byte (0x7E) to indicate the
 beginning of the frame. Before sending any of the payload data through serial,
 the special bytes are escaped:
@@ -73,7 +74,7 @@ frame check sequence is calculated, escaped, and written after. After this, a
 final frame delimiter byte (0x7E) is written to mark the end of the frame.
 
 Decoding received bytes
------------------------
+=======================
 Frames may be received in multiple parts, so we need to store the received data
 in a buffer until the ending frame delimiter (0x7E) is read. When the
 ``pw_hdlc`` decoder receives data, it unescapes it and adds it to a buffer.
@@ -84,8 +85,9 @@ and does the following:
 * If the checksum verification fails, the frame is discarded and an error is
   reported.
 
+---------
 API Usage
-=========
+---------
 There are two primary functions of the ``pw_hdlc`` module:
 
   * **Encoding** data by constructing a frame with the escaped payload bytes and
@@ -94,12 +96,12 @@ There are two primary functions of the ``pw_hdlc`` module:
     check sequence, and returning successfully decoded frames.
 
 Encoder
--------
+=======
 The Encoder API provides a single function that encodes data as an HDLC
 unnumbered information frame.
 
 C++
-^^^
+---
 .. cpp:namespace:: pw
 
 .. cpp:function:: Status hdlc::WriteUIFrame(uint64_t address, ConstByteSpan data, stream::Writer& writer)
@@ -124,7 +126,7 @@ C++
   }
 
 Python
-^^^^^^
+------
 .. automodule:: pw_hdlc.encode
   :members:
 
@@ -138,10 +140,10 @@ Python
   ser.write(encode.ui_frame(address, b'your data here!'))
 
 Typescript
-^^^^^^^^^^
+----------
 
 Encoder
--------
+=======
 The Encoder class provides a way to build complete, escaped HDLC UI frames.
 
 .. js:method:: Encoder.uiFrame(address, data)
@@ -151,7 +153,7 @@ The Encoder class provides a way to build complete, escaped HDLC UI frames.
     :returns: Uint8Array containing a complete HDLC frame.
 
 Decoder
--------
+=======
 The decoder class unescapes received bytes and adds them to a buffer. Complete,
 valid HDLC frames are yielded as they are received.
 
@@ -161,7 +163,7 @@ valid HDLC frames are yielded as they are received.
     :yields: Frame complete frames.
 
 C++
-^^^
+---
 .. cpp:class:: pw::hdlc::Decoder
 
   .. cpp:function:: pw::Result<Frame> Process(std::byte b)
@@ -205,7 +207,7 @@ decoding HDLC frames:
   }
 
 Python
-^^^^^^
+------
 .. autoclass:: pw_hdlc.decode.FrameDecoder
   :members:
 
@@ -224,8 +226,7 @@ Below is an example using the decoder class to decode data read from serial:
           # Handle the decoded frame
 
 Typescript
-^^^^^^^^^^
-
+----------
 Decodes one or more HDLC frames from a stream of data.
 
 .. js:method:: process(data)
@@ -239,37 +240,123 @@ Decodes one or more HDLC frames from a stream of data.
     :param Uint8Array data: bytes to be decoded.
     :yields: Valid HDLC frames, logging any errors.
 
-Additional features
-===================
+Allocating buffers
+------------------
+Since HDLC's encoding overhead changes with payload size and what data is being
+encoded, this module provides helper functions that are useful for determining
+the size of buffers by providing worst-case sizes of frames given a certain
+payload size and vice-versa.
 
-pw::stream::SysIoWriter
-------------------------
-The ``SysIoWriter`` C++ class implements the ``Writer`` interface with
-``pw::sys_io``. This Writer may be used by the C++ encoder to send HDLC frames
-over serial.
+.. code-block:: cpp
+
+  #include "pw_assert/check.h"
+  #include "pw_bytes/span.h"
+  #include "pw_hdlc/encoder"
+  #include "pw_hdlc/encoded_size.h"
+  #include "pw_status/status.h"
+
+  // The max on-the-wire size in bytes of a single HDLC frame after encoding.
+  constexpr size_t kMtu = 512;
+  constexpr size_t kRpcEncodeBufferSize = pw::hdlc::MaxSafePayloadSize(kMtu);
+  std::array<std::byte, kRpcEncodeBufferSize> rpc_encode_buffer;
+
+  // Any data encoded to this buffer is guaranteed to fit in the MTU after
+  // HDLC encoding.
+  pw::ConstByteSpan GetRpcEncodeBuffer() {
+    return rpc_encode_buffer;
+  }
+
+The HDLC ``Decoder`` has its own helper for allocating a buffer since it doesn't
+need the entire escaped frame in-memory to decode, and therefore has slightly
+lower overhead.
+
+.. code-block:: cpp
+
+  #include "pw_hdlc/decoder.h"
+
+  // The max on-the-wire size in bytes of a single HDLC frame after encoding.
+  constexpr size_t kMtu = 512;
+
+  // Create a decoder given the MTU constraint.
+  constexpr size_t kDecoderBufferSize =
+      pw::hdlc::Decoder::RequiredBufferSizeForFrameSize(kMtu);
+  pw::hdlc::DecoderBuffer<kDecoderBufferSize> decoder;
+
+-------------------
+Additional features
+-------------------
+
+Interleaving unstructured data with HDLC
+========================================
+It is possible to decode HDLC frames from a stream using different protocols or
+unstructured data. This is not recommended, but may be necessary when
+introducing HDLC to an existing system.
+
+The ``FrameAndNonFrameDecoder`` Python class supports working with raw data and
+HDLC frames in the same stream.
+
+.. autoclass:: pw_hdlc.decode.FrameAndNonFrameDecoder
+  :members:
+
+RpcChannelOutput
+================
+The ``RpcChannelOutput`` implements pw_rpc's ``pw::rpc::ChannelOutput``
+interface, simplifying the process of creating an RPC channel over HDLC. A
+``pw::stream::Writer`` must be provided as the underlying transport
+implementation.
+
+If your HDLC routing path has a Maximum Transmission Unit (MTU) limitation,
+using the ``FixedMtuChannelOutput`` is strongly recommended to verify that the
+currently configured max RPC payload size (dictated by pw_rpc's static encode
+buffer) will always fit safely within the limits of the fixed HDLC MTU *after*
+HDLC encoding.
 
 HdlcRpcClient
--------------
+=============
 .. autoclass:: pw_hdlc.rpc.HdlcRpcClient
   :members:
 
 .. autoclass:: pw_hdlc.rpc.HdlcRpcLocalServerAndClient
   :members:
 
+Example pw::rpc::system_server backend
+======================================
+This module includes an example implementation of ``pw_rpc``'s ``system_server``
+facade. This implementation sends HDLC encoded RPC packets via ``pw_sys_io``,
+and has blocking sends/reads, so it is hardly performance-oriented and
+unsuitable for performance-sensitive applications. This mostly servers as a
+simplistic example for quickly bringing up RPC over HDLC on bare-metal targets.
+
+-----------
+Size report
+-----------
+The HDLC module currently optimizes for robustness and flexibility instead of
+binary size or performance.
+
+There are two size reports: the first shows the cost of everything needed to
+use HDLC, including the dependencies on common modules like CRC32 from
+pw_checksum and variable-length integer handling from pw_varint. The other is
+the cost if your application is already linking those functions. pw_varint is
+commonly used since it's necessary for protocol buffer handling, so is often
+already present.
+
+.. include:: size_report
+
+-------
 Roadmap
-=======
+-------
 - **Expanded protocol support** - ``pw_hdlc`` currently only supports
   unnumbered information frames. Support for different frame types and
   extended control fields may be added in the future.
 
-- **Higher performance** - We plan to improve the overall performance of the
-  decoder and encoder implementations by using SIMD/NEON.
-
+-------------
 Compatibility
-=============
+-------------
 C++17
 
+------
 Zephyr
-======
-To enable ``pw_hdlc`` for Zephyr add ``CONFIG_PIGWEED_HDLC=y`` to the project's
-configuration.
+------
+To enable ``pw_hdlc.pw_rpc`` for Zephyr add ``CONFIG_PIGWEED_HDLC_RPC=y`` to
+the project's configuration.
+

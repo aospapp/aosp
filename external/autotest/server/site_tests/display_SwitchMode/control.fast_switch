@@ -8,12 +8,13 @@ AUTHOR = "chromeos-chameleon"
 NAME = "display_SwitchMode.fast_switch"
 PURPOSE = "Switch external display mode in a loop."
 CRITERIA = "This test will fail if status checks fail after mode change."
-ATTRIBUTES = "suite:chameleon_dp, suite:chameleon_dp_hdmi, suite:chameleon_hdmi, suite:chameleon_hdmi_perbuild"
+#ATTRIBUTES = "suite:chameleon_hdmi_perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "display"
 TEST_TYPE = "server"
 DEPENDENCIES = 'chameleon'
+PY_VERSION = 3
 
 DOC = """
 This test switches display modes (extended and mirrored).

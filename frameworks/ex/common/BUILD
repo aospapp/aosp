@@ -1,6 +1,6 @@
 # TODO(b/198224074): auto-generate this file using bp2build.
 load("@rules_android//rules:rules.bzl", "android_library")
-load("//build/make/tools:event_log_tags.bzl", "event_log_tags")
+load("//build/bazel/rules/java:event_log_tags.bzl", "event_log_tags")
 
 event_log_tags(
     name = "genlogtags",

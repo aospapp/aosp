@@ -18,8 +18,8 @@ package android.hardware.camera2.cts;
 
 import android.graphics.ImageFormat;
 import android.hardware.HardwareBuffer;
-import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraCaptureSession;
+import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
@@ -28,41 +28,37 @@ import android.hardware.camera2.MultiResolutionImageReader;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.cts.CameraTestUtils.HandlerExecutor;
 import android.hardware.camera2.cts.CameraTestUtils.SimpleCaptureCallback;
-import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
+import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
 import android.hardware.camera2.params.MandatoryStreamCombination;
-import android.hardware.camera2.params.MandatoryStreamCombination.MandatoryStreamInformation;
 import android.hardware.camera2.params.MultiResolutionStreamConfigurationMap;
 import android.hardware.camera2.params.MultiResolutionStreamInfo;
 import android.hardware.camera2.params.OutputConfiguration;
 import android.hardware.camera2.params.SessionConfiguration;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
-import android.media.ImageReader;
 import android.util.Log;
-import android.util.Range;
 import android.util.Size;
 import android.view.Surface;
 
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.LinkedBlockingQueue;
 
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.junit.Test;
 
-import static android.hardware.camera2.cts.CameraTestUtils.checkSessionConfigurationSupported;
 import static android.hardware.camera2.cts.CameraTestUtils.ImageAndMultiResStreamInfo;
-import static android.hardware.camera2.cts.CameraTestUtils.StreamCombinationTargets;
 import static android.hardware.camera2.cts.CameraTestUtils.SimpleMultiResolutionImageReaderListener;
+import static android.hardware.camera2.cts.CameraTestUtils.StreamCombinationTargets;
+import static android.hardware.camera2.cts.CameraTestUtils.checkSessionConfigurationSupported;
+
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertTrue;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+
 import static org.mockito.Mockito.*;
 
 /**
@@ -128,9 +124,15 @@ public class MultiResolutionImageReaderTest extends Camera2AndroidTestCase {
                     isLogicalCamera || isUltraHighResCamera);
 
             for (int format : multiResolutionOutputFormats) {
-                assertTrue(String.format("Camera %s: multi-resolution output format %d "
-                        + "isn't a supported format", id, format),
-                        CameraTestUtils.contains(outputFormats, format));
+                // Multi-resolution output format must be one of the supports stream configuration
+                // map formats, with the exception of RAW. It's valid for the camera device not to
+                // support RAW, but the multi-resolution ImageReader does.
+                if (format != ImageFormat.RAW_SENSOR && format != ImageFormat.RAW10
+                        && format != ImageFormat.RAW12 && format != ImageFormat.RAW_PRIVATE) {
+                    assertTrue(String.format("Camera %s: multi-resolution output format %d "
+                            + "isn't a supported format", id, format),
+                            CameraTestUtils.contains(outputFormats, format));
+                }
 
                 Collection<MultiResolutionStreamInfo> multiResolutionStreams =
                         multiResolutionMap.getOutputInfo(format);
@@ -522,6 +524,7 @@ public class MultiResolutionImageReaderTest extends Camera2AndroidTestCase {
 
             img.close();
             numImageVerified++;
+            retryCount = 0;
         }
     }
 }

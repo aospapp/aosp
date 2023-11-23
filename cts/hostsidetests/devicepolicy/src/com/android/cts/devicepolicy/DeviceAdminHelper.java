@@ -15,7 +15,7 @@
  */
 package com.android.cts.devicepolicy;
 
-public class DeviceAdminHelper {
+public final class DeviceAdminHelper {
 
     private static final String ADMIN_RECEIVER_TEST_CLASS = "BaseDeviceAdminTest$AdminReceiver";
 

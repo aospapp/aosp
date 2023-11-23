@@ -8,6 +8,7 @@ NAME = 'network_WiFi_ChromeEndToEnd.autoconnectWiFi'
 TEST_TYPE = 'Server'
 ATTRIBUTES = ('suite:wifi_endtoend, suite:wifi_release')
 DEPENDENCIES = 'wificell'
+PY_VERSION = 3
 
 DOC = """
 Configures wifi APs and tests that the DUT autoconnects to a previously

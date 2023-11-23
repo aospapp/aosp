@@ -42,6 +42,7 @@ def build_autoconf_target(host, python_src, build_dir, install_dir,
         os.path.join(python_src, 'configure'),
         '--prefix={}'.format(install_dir),
         '--enable-shared',
+        '--with-ensurepip=install',
     ]
     env = dict(os.environ)
     if host == Host.Darwin:
@@ -136,8 +137,6 @@ def package_target(host, install_dir, dest_dir, build_id):
       "tkinter", "turtledemo",
       # IDLE_DIRS_ONLY
       "idlelib",
-      # VENV_DIRS_ONLY
-      "ensurepip",
       # TCLTK_FILES_ONLY
       "turtle.py",
       # BDIST_WININST_FILES_ONLY

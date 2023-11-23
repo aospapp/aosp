@@ -22,6 +22,7 @@ soong_config_module_type {
     config_namespace: "ANDROID",
     variables: ["library_linking_strategy"],
     properties: [
+        "min_sdk_version",
         "shared_libs",
         "static_libs",
         "stl",

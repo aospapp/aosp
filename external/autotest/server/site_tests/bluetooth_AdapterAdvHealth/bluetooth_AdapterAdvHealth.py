@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -5,7 +6,8 @@
 """A Batch of Bluetooth advertising tests"""
 
 from autotest_lib.server.cros.bluetooth.bluetooth_adapter_tests import (
-        SUSPEND_POWER_DOWN_CHIPSETS)
+        SUSPEND_POWER_DOWN_CHIPSETS, SUSPEND_RESET_IF_NO_PEER_CHIPSETS,
+        SUSPEND_POWER_DOWN_MODELS)
 from autotest_lib.server.cros.bluetooth import advertisements_data
 from autotest_lib.server.cros.bluetooth.bluetooth_adapter_quick_tests import \
      BluetoothAdapterQuickTests
@@ -28,10 +30,14 @@ class bluetooth_AdapterAdvHealth(BluetoothAdapterQuickTests,
     batch_wrapper = BluetoothAdapterQuickTests.quick_test_batch_decorator
 
 
-    # TODO(b/150897528) - Scarlet Dru loses firmware around suspend
+    # TODO(b/192419579) - RTL8822 and 8852 can't advertise 4 connectable
+    #                     advertisements.
     @test_wrapper('Multiple LE advertising test',
-                  skip_models=['dru', 'druwl'],
-                  skip_chipsets=SUSPEND_POWER_DOWN_CHIPSETS)
+                  skip_chipsets=[
+                          'Realtek-RTL8822C-USB', 'Realtek-RTL8822C-UART',
+                          'Realtek-RTL8852A-USB'
+                  ],
+                  skip_common_errors=True)
     def adv_multiple_advertising_test(self):
         """Run all test cases for multiple advertisements."""
         self.run_le_advertising_test(
@@ -48,11 +54,15 @@ class bluetooth_AdapterAdvHealth(BluetoothAdapterQuickTests,
 
 
     # TODO(b/150897528) - Scarlet Dru loses firmware around suspend
+    # TODO(b/182172118) - Winky has suspend test issues
+    # TODO(b/189813813) - Scarlet Dumo loses firmware around suspend
     @test_wrapper('Suspend resume LE advertising test',
-                  skip_models=['dru', 'druwl'],
-                  skip_chipsets=SUSPEND_POWER_DOWN_CHIPSETS)
+                  skip_models=SUSPEND_POWER_DOWN_MODELS + ['winky'],
+                  skip_chipsets=SUSPEND_POWER_DOWN_CHIPSETS +
+                  SUSPEND_RESET_IF_NO_PEER_CHIPSETS,
+                  skip_common_errors=True)
     def adv_suspend_resume_advertising_test(self):
-        """Run all test cases for multiple advertisements."""
+        """Run all test cases for advertisements involving suspend resume."""
         self.run_le_advertising_test(
             self.host, advertisements_data.ADVERTISEMENTS,
             'suspend_resume', num_iterations=1)
@@ -60,7 +70,7 @@ class bluetooth_AdapterAdvHealth(BluetoothAdapterQuickTests,
 
     @test_wrapper('Reboot LE advertising test')
     def adv_reboot_advertising_test(self):
-        """Run all test cases for single advertisements."""
+        """Run all test cases for advertisements involving reboot."""
         self.run_le_advertising_test(
             self.host, advertisements_data.ADVERTISEMENTS,
             'reboot', num_iterations=1)
@@ -87,13 +97,19 @@ class bluetooth_AdapterAdvHealth(BluetoothAdapterQuickTests,
     def adv_broadcast_test(self):
         """Verify broadcast advertising capability"""
 
-        self.test_case_broadcast()
+        self.run_le_advertising_test(self.host,
+                                     advertisements_data.ADVERTISEMENTS,
+                                     'broadcast',
+                                     num_iterations=1)
 
     # TODO(b/150897528) - Scarlet Dru loses firmware around suspend
+    # TODO(b/189813813) - Scarlet Dumo loses firmware around suspend
     @test_wrapper('Advertising suspend peer test',
                   devices={'BLE_MOUSE': 1},
-                  skip_models=['dru', 'druwl'],
-                  skip_chipsets=SUSPEND_POWER_DOWN_CHIPSETS)
+                  skip_models=SUSPEND_POWER_DOWN_MODELS,
+                  skip_chipsets=SUSPEND_POWER_DOWN_CHIPSETS +
+                  SUSPEND_RESET_IF_NO_PEER_CHIPSETS,
+                  skip_common_errors=True)
     def adv_suspend_peer_test(self):
         """Verify advertising around suspend from a peer"""
 

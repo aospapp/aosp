@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2019-2020 NXP
+ *  Copyright 2019-2020, 2022-2023 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -24,7 +24,9 @@
 
 #define NxpMfcReaderInstance (NxpMfcReader::getInstance())
 
-#define MAX_MFC_BUFF_SIZE 32
+#define MAX_MFC_BUFF_SIZE 300
+#define MFC_TAG_INCR_DECR_CMD_PART1_LEN 5
+#define MFC_TAG_INCR_DECR_CMD_PART2_LEN 4
 
 #define MFC_4K_BLK128 128  /*Block number 128 for Mifare 4k */
 #define MFC_SECTOR_NO32 32 /* Sector 32 for Mifare 4K*/
@@ -112,7 +114,7 @@ class NxpMfcReader {
   void BuildIncDecCmd();
   void CalcSectorAddress();
   void AuthForWrite();
-  void SendIncDecRestoreCmdPart2(const uint8_t* mfcData);
+  void SendIncDecRestoreCmdPart2(uint16_t mfcDataLen, const uint8_t* mfcData);
 
  public:
   int Write(uint16_t mfcDataLen, const uint8_t* pMfcData);

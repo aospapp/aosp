@@ -26,10 +26,10 @@
 #include <tuple>
 
 #include "compositor/DrmKmsPlan.h"
+#include "compositor/LayerData.h"
 #include "drm/DrmPlane.h"
 #include "drm/ResourceManager.h"
 #include "drm/VSyncWorker.h"
-#include "drmhwcomposer.h"
 
 namespace android {
 
@@ -49,11 +49,45 @@ struct AtomicCommitArgs {
   }
 };
 
-class DrmAtomicStateManager {
+class PresentTrackerThread {
  public:
-  explicit DrmAtomicStateManager(DrmDisplayPipeline *pipe) : pipe_(pipe){};
+  explicit PresentTrackerThread(DrmAtomicStateManager *st_man);
+
+  ~PresentTrackerThread();
+
+  void Stop() {
+    /* Exit thread by signalling that object is no longer valid */
+    st_man_ = nullptr;
+    Notify();
+    pt_.detach();
+  }
+
+  void Notify() {
+    cv_.notify_all();
+  }
+
+ private:
+  DrmAtomicStateManager *st_man_{};
+
+  void PresentTrackerThreadFn();
+
+  std::condition_variable cv_;
+  std::thread pt_;
+  std::mutex *mutex_;
+};
+
+class DrmAtomicStateManager {
+  friend class PresentTrackerThread;
+
+ public:
+  explicit DrmAtomicStateManager(DrmDisplayPipeline *pipe)
+      : pipe_(pipe),
+        ptt_(std::make_unique<PresentTrackerThread>(this).release()){};
+
   DrmAtomicStateManager(const DrmAtomicStateManager &) = delete;
-  ~DrmAtomicStateManager() = default;
+  ~DrmAtomicStateManager() {
+    ptt_->Stop();
+  }
 
   auto ExecuteAtomicCommit(AtomicCommitArgs &args) -> int;
   auto ActivateDisplayUsingDPMS() -> int;
@@ -70,20 +104,32 @@ class DrmAtomicStateManager {
 
     DrmModeUserPropertyBlobUnique mode_blob;
 
+    int release_fence_pt_index{};
+
     /* To avoid setting the inactive state twice, which will fail the commit */
     bool crtc_active_state{};
   } active_frame_state_;
 
   auto NewFrameState() -> KmsState {
+    auto *prev_frame_state = &active_frame_state_;
     return (KmsState){
-        .used_planes = active_frame_state_.used_planes,
-        .used_framebuffers = active_frame_state_.used_framebuffers,
-        .crtc_active_state = active_frame_state_.crtc_active_state,
+        .used_planes = prev_frame_state->used_planes,
+        .crtc_active_state = prev_frame_state->crtc_active_state,
     };
   }
 
   DrmDisplayPipeline *const pipe_;
+
+  void CleanupPriorFrameResources();
+
+  /* Present (swap) tracking */
+  PresentTrackerThread *ptt_;
+  KmsState staged_frame_state_;
+  UniqueFd last_present_fence_;
+  int frames_staged_{};
+  int frames_tracked_{};
 };
+
 }  // namespace android
 
 #endif  // ANDROID_DRM_DISPLAY_COMPOSITOR_H_

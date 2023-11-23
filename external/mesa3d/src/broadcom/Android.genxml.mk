@@ -58,13 +58,13 @@ $(intermediates)/broadcom/cle/v3d_packet_v33_pack.h: $(prebuilt_intermediates)/c
 	@echo "Gen Header: $(PRIVATE_MODULE) <= $(notdir $(@))"
 	@cp -f $< $@
 
-$(intermediates)/broadcom/cle/v3d_packet_v41_pack.h: PRIVATE_SCRIPT := $(MESA_PYTHON2) $(LOCAL_PATH)/cle/gen_pack_header.py
+$(intermediates)/broadcom/cle/v3d_packet_v41_pack.h: PRIVATE_SCRIPT := $(MESA_PYTHON3) $(LOCAL_PATH)/cle/gen_pack_header.py
 $(intermediates)/broadcom/cle/v3d_packet_v41_pack.h: PRIVATE_XML := $(LOCAL_PATH)/cle/v3d_packet_v33.xml
 $(intermediates)/broadcom/cle/v3d_packet_v41_pack.h: PRIVATE_VER := 41
 $(intermediates)/broadcom/cle/v3d_packet_v41_pack.h: $(LOCAL_PATH)/cle/v3d_packet_v33.xml $(LOCAL_PATH)/cle/gen_pack_header.py
 	$(call pack-header-gen)
 
-$(intermediates)/broadcom/cle/v3d_packet_v42_pack.h: PRIVATE_SCRIPT := $(MESA_PYTHON2) $(LOCAL_PATH)/cle/gen_pack_header.py
+$(intermediates)/broadcom/cle/v3d_packet_v42_pack.h: PRIVATE_SCRIPT := $(MESA_PYTHON3) $(LOCAL_PATH)/cle/gen_pack_header.py
 $(intermediates)/broadcom/cle/v3d_packet_v42_pack.h: PRIVATE_XML := $(LOCAL_PATH)/cle/v3d_packet_v33.xml
 $(intermediates)/broadcom/cle/v3d_packet_v42_pack.h: PRIVATE_VER := 42
 $(intermediates)/broadcom/cle/v3d_packet_v42_pack.h: $(LOCAL_PATH)/cle/v3d_packet_v33.xml $(LOCAL_PATH)/cle/gen_pack_header.py

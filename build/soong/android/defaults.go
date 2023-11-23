@@ -53,7 +53,7 @@ func (d *DefaultableModuleBase) SetDefaultableHook(hook DefaultableHook) {
 	d.hook = hook
 }
 
-func (d *DefaultableModuleBase) callHookIfAvailable(ctx DefaultableHookContext) {
+func (d *DefaultableModuleBase) CallHookIfAvailable(ctx DefaultableHookContext) {
 	if d.hook != nil {
 		d.hook(ctx)
 	}
@@ -78,7 +78,7 @@ type Defaultable interface {
 	SetDefaultableHook(hook DefaultableHook)
 
 	// Call the hook if specified.
-	callHookIfAvailable(context DefaultableHookContext)
+	CallHookIfAvailable(context DefaultableHookContext)
 }
 
 type DefaultableModule interface {
@@ -133,12 +133,12 @@ type DefaultsModuleBase struct {
 // retrieve the values it is necessary to iterate over properties(). E.g. to get
 // the commonProperties instance that have the real values:
 //
-//   d := myModule.(Defaults)
-//   for _, props := range d.properties() {
-//     if cp, ok := props.(*commonProperties); ok {
-//       ... access property values in cp ...
-//     }
-//   }
+//	d := myModule.(Defaults)
+//	for _, props := range d.properties() {
+//	  if cp, ok := props.(*commonProperties); ok {
+//	    ... access property values in cp ...
+//	  }
+//	}
 //
 // The rationale is that the properties on a defaults module apply to the
 // defaultable modules using it, not to the defaults module itself. E.g. setting
@@ -217,7 +217,6 @@ func InitDefaultsModule(module DefaultsModule) {
 
 	// The applicable licenses property for defaults is 'licenses'.
 	setPrimaryLicensesProperty(module, "licenses", &commonProperties.Licenses)
-
 }
 
 var _ Defaults = (*DefaultsModuleBase)(nil)
@@ -273,7 +272,7 @@ func (defaultable *DefaultableModuleBase) applyDefaults(ctx TopDownMutatorContex
 	defaultsList []Defaults) {
 
 	for _, defaults := range defaultsList {
-		if ctx.Config().runningAsBp2Build {
+		if ctx.Config().BuildMode == Bp2build {
 			applyNamespacedVariableDefaults(defaults, ctx)
 		}
 		for _, prop := range defaultable.defaultableProperties {
@@ -369,6 +368,6 @@ func defaultsMutator(ctx TopDownMutatorContext) {
 			defaultable.applyDefaults(ctx, defaultsList)
 		}
 
-		defaultable.callHookIfAvailable(ctx)
+		defaultable.CallHookIfAvailable(ctx)
 	}
 }

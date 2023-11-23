@@ -65,17 +65,13 @@ bool IcingArrayStorage::Init(int fd, size_t fd_offset, bool map_shared,
     return false;
   }
   if (file_size < fd_offset) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-        "Array storage file size %" PRIu64 " less than offset %zu", file_size,
-        fd_offset);
+    ICING_LOG(ERROR) << "Array storage file size " << file_size << " less than offset " << fd_offset;
     return false;
   }
 
   uint32_t capacity_num_elts = (file_size - fd_offset) / elt_size;
   if (capacity_num_elts < num_elts) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-        "Array storage num elts %u > capacity num elts %u", num_elts,
-        capacity_num_elts);
+    ICING_LOG(ERROR) << "Array storage num elts " << num_elts << " > capacity num elts " << capacity_num_elts;
     return false;
   }
 
@@ -108,8 +104,7 @@ bool IcingArrayStorage::Init(int fd, size_t fd_offset, bool map_shared,
     if (init_crc) {
       *crc_ptr_ = crc;
     } else if (crc != *crc_ptr_) {
-      ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-          "Array storage bad crc %u vs %u", crc, *crc_ptr_);
+      ICING_LOG(ERROR) << "Array storage bad crc " << crc << " vs " << *crc_ptr_;
       goto failed;
     }
   }
@@ -276,9 +271,9 @@ void IcingArrayStorage::UpdateCrc() {
     cur_offset += change.elt_len * elt_size_;
   }
   if (!changes_.empty()) {
-    ICING_VLOG(2) << IcingStringUtil::StringPrintf(
-        "Array update partial crcs %d truncated %d overlapped %d duplicate %d",
-        num_partial_crcs, num_truncated, num_overlapped, num_duplicate);
+    ICING_VLOG(2) << "Array update partial crcs " << num_partial_crcs
+        << " truncated " << num_truncated << " overlapped " << num_overlapped
+        << " duplicate " << num_duplicate;
   }
 
   // Now update with grown area.
@@ -286,8 +281,7 @@ void IcingArrayStorage::UpdateCrc() {
     cur_crc = IcingStringUtil::UpdateCrc32(
         cur_crc, array_cast<char>() + changes_end_ * elt_size_,
         (cur_num_ - changes_end_) * elt_size_);
-    ICING_VLOG(2) << IcingStringUtil::StringPrintf(
-        "Array update tail crc offset %u -> %u", changes_end_, cur_num_);
+    ICING_VLOG(2) << "Array update tail crc offset " << changes_end_ << " -> " << cur_num_;
   }
 
   // Clear, now that we've applied changes.
@@ -341,8 +335,7 @@ uint32_t IcingArrayStorage::Sync() {
         if (pwrite(fd_, array() + dirty_start, dirty_end - dirty_start,
                    fd_offset_ + dirty_start) !=
             static_cast<ssize_t>(dirty_end - dirty_start)) {
-          ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-              "Flushing pages failed (%u, %u)", dirty_start, dirty_end);
+          ICING_LOG(ERROR) << "Flushing pages failed (" << dirty_start << ", " << dirty_end << ")";
         }
         in_dirty = false;
       } else if (!in_dirty && is_dirty) {
@@ -361,8 +354,7 @@ uint32_t IcingArrayStorage::Sync() {
       if (pwrite(fd_, array() + dirty_start, dirty_end - dirty_start,
                  fd_offset_ + dirty_start) !=
           static_cast<ssize_t>(dirty_end - dirty_start)) {
-        ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-            "Flushing pages failed (%u, %u)", dirty_start, dirty_end);
+        ICING_LOG(ERROR) << "Flushing pages failed (" << dirty_start << ", " << dirty_end << ")";
       }
     }
 
@@ -377,9 +369,7 @@ uint32_t IcingArrayStorage::Sync() {
     }
 
     if (num_flushed > 0) {
-      ICING_VLOG(1) << IcingStringUtil::StringPrintf(
-          "Flushing %u/%u %u contiguous pages in %.3fms", num_flushed,
-          dirty_pages_size, num_contiguous, timer.Elapsed() * 1000.);
+      ICING_VLOG(1) << "Flushing " << num_flushed << "/" << dirty_pages_size << " " << num_contiguous << " contiguous pages in " << timer.Elapsed() * 1000 << "ms.";
     }
 
     return num_flushed;

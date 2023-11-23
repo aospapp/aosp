@@ -1,4 +1,5 @@
-// Copyright (c) 2020 Google LLC
+// Copyright (c) 2020-2022 Google LLC
+// Copyright (c) 2022 LunarG Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +25,8 @@
 static const uint32_t kOpLineOperandLineIndex = 1;
 static const uint32_t kLineOperandIndexDebugFunction = 7;
 static const uint32_t kLineOperandIndexDebugLexicalBlock = 5;
+static const uint32_t kLineOperandIndexDebugLine = 5;
+static const uint32_t kConstanstOperandIndexLiteral = 2;
 static const uint32_t kDebugFunctionOperandFunctionIndex = 13;
 static const uint32_t kDebugFunctionDefinitionOperandDebugFunctionIndex = 4;
 static const uint32_t kDebugFunctionDefinitionOperandOpFunctionIndex = 5;
@@ -210,7 +213,20 @@ uint32_t DebugInfoManager::CreateDebugInlinedAt(const Instruction* line,
         break;
     }
   } else {
-    line_number = line->GetSingleWordOperand(kOpLineOperandLineIndex);
+    if (line->opcode() == SpvOpLine) {
+      line_number = line->GetSingleWordOperand(kOpLineOperandLineIndex);
+    } else if (line->GetShader100DebugOpcode() ==
+               NonSemanticShaderDebugInfo100DebugLine) {
+      auto const line_number_id =
+          line->GetSingleWordOperand(kLineOperandIndexDebugLine);
+      auto const line_number_inst =
+          context()->get_def_use_mgr()->GetDef(line_number_id);
+      line_number =
+          line_number_inst->GetSingleWordOperand(kConstanstOperandIndexLiteral);
+    } else {
+      assert(false &&
+             "Unreachable. A line instruction must be OpLine or DebugLine");
+    }
 
     // If we need the line number as an ID, generate that constant now.
     // If Constant or DefUse managers are invalid, generate constant
@@ -546,10 +562,10 @@ bool DebugInfoManager::IsDeclareVisibleToInstr(Instruction* dbg_declare,
   return false;
 }
 
-bool DebugInfoManager::AddDebugValueIfVarDeclIsVisible(
-    Instruction* scope_and_line, uint32_t variable_id, uint32_t value_id,
-    Instruction* insert_pos,
-    std::unordered_set<Instruction*>* invisible_decls) {
+bool DebugInfoManager::AddDebugValueForVariable(Instruction* scope_and_line,
+                                                uint32_t variable_id,
+                                                uint32_t value_id,
+                                                Instruction* insert_pos) {
   assert(scope_and_line != nullptr);
 
   auto dbg_decl_itr = var_id_to_dbg_decl_.find(variable_id);
@@ -557,11 +573,6 @@ bool DebugInfoManager::AddDebugValueIfVarDeclIsVisible(
 
   bool modified = false;
   for (auto* dbg_decl_or_val : dbg_decl_itr->second) {
-    if (!IsDeclareVisibleToInstr(dbg_decl_or_val, scope_and_line)) {
-      if (invisible_decls) invisible_decls->insert(dbg_decl_or_val);
-      continue;
-    }
-
     // Avoid inserting the new DebugValue between OpPhi or OpVariable
     // instructions.
     Instruction* insert_before = insert_pos->NextNode();
@@ -849,7 +860,7 @@ void DebugInfoManager::ClearDebugInfo(Instruction* instr) {
     fn_id_to_dbg_fn_.erase(fn_id);
   }
   if (instr->GetShader100DebugOpcode() ==
-      NonSemanticShaderDebugInfo100DebugFunction) {
+      NonSemanticShaderDebugInfo100DebugFunctionDefinition) {
     auto fn_id = instr->GetSingleWordOperand(
         kDebugFunctionDefinitionOperandOpFunctionIndex);
     fn_id_to_dbg_fn_.erase(fn_id);

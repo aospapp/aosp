@@ -8,7 +8,7 @@
 
 // Clang compile-time and run-time tests for glibc FORTIFY.
 //
-// This file is compiled in two configurations ways to give us a sane set of
+// This file is compiled in two configurations ways to give us a valid set of
 // tests for clang's FORTIFY implementation.
 //
 // One configuration uses clang's diagnostic consumer

@@ -16,38 +16,33 @@
 
 package dagger.internal.codegen.base;
 
-import static com.google.auto.common.MoreTypes.asTypeElement;
 import static dagger.internal.codegen.base.ComponentAnnotation.allComponentAndCreatorAnnotations;
-import static dagger.internal.codegen.langmodel.DaggerElements.isAnyAnnotationPresent;
+import static dagger.internal.codegen.xprocessing.XElements.hasAnyAnnotation;
+import static dagger.internal.codegen.xprocessing.XTypes.isDeclared;
+import static dagger.internal.codegen.xprocessing.XTypes.isRawParameterizedType;
 
-import com.google.auto.common.MoreElements;
-import com.google.auto.common.MoreTypes;
-import dagger.internal.codegen.langmodel.DaggerTypes;
-import dagger.model.Key;
+import androidx.room.compiler.processing.XAnnotation;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XTypeElement;
+import dagger.spi.model.DaggerAnnotation;
+import dagger.spi.model.Key;
 import java.util.Optional;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeKind;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.SimpleTypeVisitor6;
 
 /** Utility methods related to {@link Key}s. */
 public final class Keys {
   public static boolean isValidMembersInjectionKey(Key key) {
     return !key.qualifier().isPresent()
         && !key.multibindingContributionIdentifier().isPresent()
-        && key.type().getKind().equals(TypeKind.DECLARED);
+        && isDeclared(key.type().xprocessing());
   }
 
   /**
    * Returns {@code true} if this is valid as an implicit key (that is, if it's valid for a
    * just-in-time binding by discovering an {@code @Inject} constructor).
    */
-  public static boolean isValidImplicitProvisionKey(Key key, DaggerTypes types) {
-    return isValidImplicitProvisionKey(key.qualifier(), key.type(), types);
+  public static boolean isValidImplicitProvisionKey(Key key) {
+    return isValidImplicitProvisionKey(
+        key.qualifier().map(DaggerAnnotation::xprocessing), key.type().xprocessing());
   }
 
   /**
@@ -55,42 +50,36 @@ public final class Keys {
    * key (that is, if it's valid for a just-in-time binding by discovering an {@code @Inject}
    * constructor).
    */
-  public static boolean isValidImplicitProvisionKey(
-      Optional<? extends AnnotationMirror> qualifier, TypeMirror type, final DaggerTypes types) {
+  public static boolean isValidImplicitProvisionKey(Optional<XAnnotation> qualifier, XType type) {
     // Qualifiers disqualify implicit provisioning.
     if (qualifier.isPresent()) {
       return false;
     }
 
-    return type.accept(
-        new SimpleTypeVisitor6<Boolean, Void>(false) {
-          @Override
-          public Boolean visitDeclared(DeclaredType type, Void ignored) {
-            // Non-classes or abstract classes aren't allowed.
-            TypeElement element = MoreElements.asType(type.asElement());
-            if (!element.getKind().equals(ElementKind.CLASS)
-                || element.getModifiers().contains(Modifier.ABSTRACT)) {
-              return false;
-            }
+    // A provision type must be a declared type
+    if (!isDeclared(type)) {
+      return false;
+    }
 
-            // If the key has type arguments, validate that each type argument is declared.
-            // Otherwise the type argument may be a wildcard (or other type), and we can't
-            // resolve that to actual types.
-            for (TypeMirror arg : type.getTypeArguments()) {
-              if (arg.getKind() != TypeKind.DECLARED) {
-                return false;
-              }
-            }
+    // Non-classes or abstract classes aren't allowed.
+    XTypeElement typeElement = type.getTypeElement();
+    if (!typeElement.isClass() || typeElement.isAbstract()) {
+      return false;
+    }
 
-            // Also validate that the key is not the erasure of a generic type.
-            // If it is, that means the user referred to Foo<T> as just 'Foo',
-            // which we don't allow.  (This is a judgement call -- we *could*
-            // allow it and instantiate the type bounds... but we don't.)
-            return MoreTypes.asDeclared(element.asType()).getTypeArguments().isEmpty()
-                || !types.isSameType(types.erasure(element.asType()), type);
-          }
-        },
-        null);
+    // If the key has type arguments, validate that each type argument is declared.
+    // Otherwise the type argument may be a wildcard (or other type), and we can't
+    // resolve that to actual types.
+    for (XType arg : type.getTypeArguments()) {
+      if (!isDeclared(arg)) {
+        return false;
+      }
+    }
+
+    // Also validate that if the type represents a parameterized type the user didn't refer to its
+    // raw type, which we don't allow. (This is a judgement call -- we *could* allow it and
+    // instantiate the type bounds... but we don't.)
+    return !isRawParameterizedType(type);
   }
 
   /**
@@ -99,7 +88,8 @@ public final class Keys {
    */
   public static boolean isComponentOrCreator(Key key) {
     return !key.qualifier().isPresent()
-        && key.type().getKind() == TypeKind.DECLARED
-        && isAnyAnnotationPresent(asTypeElement(key.type()), allComponentAndCreatorAnnotations());
+        && isDeclared(key.type().xprocessing())
+        && hasAnyAnnotation(
+            key.type().xprocessing().getTypeElement(), allComponentAndCreatorAnnotations());
   }
 }

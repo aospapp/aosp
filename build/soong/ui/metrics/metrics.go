@@ -32,6 +32,7 @@ package metrics
 // of what an event is and how the metrics system is a stack based system.
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 	"strings"
@@ -125,6 +126,25 @@ func (m *Metrics) SetTimeMetrics(perf soong_metrics_proto.PerfInfo) {
 	}
 }
 
+func (m *Metrics) SetCriticalPathInfo(criticalPathInfo soong_metrics_proto.CriticalPathInfo) {
+	m.metrics.CriticalPathInfo = &criticalPathInfo
+}
+
+// SetFatalOrPanicMessage stores a non-zero exit and the relevant message in the latest event if
+// available or the metrics base.
+func (m *Metrics) SetFatalOrPanicMessage(errMsg string) {
+	if m == nil {
+		return
+	}
+	if event := m.EventTracer.peek(); event != nil {
+		event.nonZeroExitCode = true
+		event.errorMsg = &errMsg
+	} else {
+		m.metrics.ErrorMessage = proto.String(errMsg)
+	}
+	m.metrics.NonZeroExit = proto.Bool(true)
+}
+
 // BuildConfig stores information about the build configuration.
 func (m *Metrics) BuildConfig(b *soong_metrics_proto.BuildConfig) {
 	m.metrics.BuildConfig = b
@@ -206,6 +226,17 @@ func arch(a string) *soong_metrics_proto.MetricsBase_Arch {
 // to the protobuf file is in seconds.
 func (m *Metrics) SetBuildDateTime(buildTimestamp time.Time) {
 	m.metrics.BuildDateTimestamp = proto.Int64(buildTimestamp.UnixNano() / int64(time.Second))
+}
+
+func (m *Metrics) UpdateTotalRealTime(data []byte) error {
+	if err := proto.Unmarshal(data, &m.metrics); err != nil {
+		return fmt.Errorf("Failed to unmarshal proto", err)
+	}
+	startTime := *m.metrics.Total.StartTime
+	endTime := uint64(time.Now().UnixNano())
+
+	*m.metrics.Total.RealTime = *proto.Uint64(endTime - startTime)
+	return nil
 }
 
 // SetBuildCommand adds the build command specified by the user to the

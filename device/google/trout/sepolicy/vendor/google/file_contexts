@@ -1,14 +1,19 @@
 # Dumpstate HAL
-/vendor/bin/hw/android\.hardware\.dumpstate@1\.1-service\.trout  u:object_r:hal_dumpstate_impl_exec:s0
+/vendor/bin/hw/android\.hardware\.automotive\.dumpstate-service\.trout  u:object_r:hal_dumpstate_impl_exec:s0
 
 # Virtualized Vehicle HAL (Client)
 /(vendor|system/vendor)/bin/hw/android\.hardware\.automotive\.vehicle@2\.0-virtualization-service  u:object_r:hal_vehicle_default_exec:s0
+/(vendor|system/vendor)/bin/hw/android\.hardware\.automotive\.vehicle@default-trout-service  u:object_r:hal_vehicle_default_exec:s0
 
 # Virtualized Vehicle HAL (Server)
 /(vendor|system/vendor)/bin/hw/android\.hardware\.automotive\.vehicle@2\.0-virtualization-grpc-server  u:object_r:hal_vehicle_default_exec:s0
+/(vendor|system/vendor)/bin/hw/android\.hardware\.automotive\.vehicle@default-trout-.*-grpc-server  u:object_r:hal_vehicle_default_exec:s0
 
 # Audio Control HAL
 /vendor/bin/hw/android\.hardware\.automotive\.audiocontrol-service\.trout  u:object_r:hal_audiocontrol_impl_exec:s0
+
+# virtio-gpu
+/sys/devices/platform/[0-f]{8}\.virtio_mmio/virtio[0-9]+/uevent u:object_r:sysfs_gpu_trout:s0
 
 # Sensor HAL
 /sys/bus/iio/devices/iio:device[0-9]+  u:object_r:sysfs_iio_devices:s0
@@ -18,5 +23,7 @@
 /sys/devices/platform/system-controller/scmi_dev\.[0-9]+/iio:device[0-9]+/buffer/enable$  u:object_r:sysfs_iio_file_ctrl:s0
 
 /dev/vport[0-9]+p1  u:object_r:bt_device:s0
+/dev/vport[0-9]+p2  u:object_r:gnss_device:s0
 
 /vendor/bin/vport_trigger  u:object_r:vport_trigger_exec:s0
+/vendor/bin/virtwifi.sh    u:object_r:trout_virtwifi_setup_exec:s0

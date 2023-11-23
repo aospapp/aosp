@@ -65,6 +65,16 @@ public final class Timeouts {
             ONE_TIMEOUT_TO_RULE_THEN_ALL_MS, 2F, ONE_TIMEOUT_TO_RULE_THEN_ALL_MS);
 
     /**
+     * Timeout for expected field classification requests.
+     *
+     * (May need to tune based on how much time it takes for field classification request to
+     * trigger)
+     */
+    public static final Timeout FIELD_CLASSIFICATION_TIMEOUT =
+            new Timeout("FIELD_CLASSIFICATION_TIMEOUT",
+                ONE_TIMEOUT_TO_RULE_THEN_ALL_MS, 2F, ONE_TIMEOUT_TO_RULE_THEN_ALL_MS);
+
+    /**
      * Timeout for expected save requests.
      */
     public static final Timeout SAVE_TIMEOUT = new Timeout("SAVE_TIMEOUT",

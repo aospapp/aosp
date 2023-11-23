@@ -50,11 +50,6 @@ cc_library_static {
                 "liblog",
             ],
         },
-        native_bridge: {
-            exclude_shared_libs: ["libicuuc"],
-            header_libs: ["libicuuc_headers"],
-            shared_libs: ["libnative_bridge_guest_libicuuc"],
-        },
     },
     apex_available: [
         "com.android.i18n",

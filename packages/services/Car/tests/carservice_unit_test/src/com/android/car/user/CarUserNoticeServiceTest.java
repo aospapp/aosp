@@ -37,6 +37,7 @@ import android.car.builtin.app.KeyguardManagerHelper;
 import android.car.hardware.power.CarPowerManager;
 import android.car.hardware.power.CarPowerManager.CarPowerStateListener;
 import android.car.settings.CarSettings;
+import android.car.test.mocks.MockSettings;
 import android.car.user.CarUserManager;
 import android.car.user.CarUserManager.UserLifecycleEvent;
 import android.car.user.CarUserManager.UserLifecycleListener;
@@ -49,6 +50,7 @@ import android.content.res.Resources;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.util.Log;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
@@ -56,6 +58,7 @@ import com.android.car.CarLocalServices;
 import com.android.car.R;
 import com.android.car.power.CarPowerManagementService;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -63,6 +66,8 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 
 public class CarUserNoticeServiceTest extends AbstractExtendedMockitoCarServiceTestCase {
+
+    private static final String TAG = CarUserNoticeServiceTest.class.getSimpleName();
 
     private static final long TIMEOUT_MS = 15_000;
     private static final int USER_ID = 101;
@@ -99,7 +104,9 @@ public class CarUserNoticeServiceTest extends AbstractExtendedMockitoCarServiceT
 
     private final Handler mHandler = new Handler(Looper.getMainLooper());
 
-    private boolean mIsKeyguardLocked = false;
+    private boolean mIsKeyguardLocked;
+
+    private MockSettings mMockSettings;
 
     public CarUserNoticeServiceTest() {
         super(CarUserNoticeService.TAG);
@@ -107,6 +114,7 @@ public class CarUserNoticeServiceTest extends AbstractExtendedMockitoCarServiceT
 
     @Override
     protected void onSessionBuilder(CustomMockitoSessionBuilder session) {
+        mMockSettings = new MockSettings(session);
         session
             .spyStatic(CarLocalServices.class)
             .spyStatic(ActivityManager.class)
@@ -123,7 +131,7 @@ public class CarUserNoticeServiceTest extends AbstractExtendedMockitoCarServiceT
         mockGetCarLocalService(CarPowerManagementService.class, mMockCarPowerManagementService);
         mockGetCarLocalService(CarUserService.class, mMockCarUserService);
 
-        putSettingsInt(CarSettings.Secure.KEY_ENABLE_INITIAL_NOTICE_SCREEN_TO_USER, 1);
+        mMockSettings.putInt(CarSettings.Secure.KEY_ENABLE_INITIAL_NOTICE_SCREEN_TO_USER, 1);
 
         when(mMockContext.createContextAsUser(any(), anyInt())).thenReturn(mMockContext);
         when(mMockContext.getResources()).thenReturn(mMockedResources);
@@ -136,6 +144,8 @@ public class CarUserNoticeServiceTest extends AbstractExtendedMockitoCarServiceT
         mockContextGetService(mMockContext, AppOpsManager.class, mMockAppOpsManager);
         mockContextGetService(mMockContext, PackageManager.class, mMockPackageManager);
         when(mMockPackageManager.getPackageUidAsUser(any(), anyInt())).thenReturn(1);
+        Log.d(TAG, "setUpMocks(): handler=" + mHandler + ", looper=" + mHandler.getLooper()
+                + ", thread=" + mHandler.getLooper().getThread());
         mCarUserNoticeService = new CarUserNoticeService(mMockContext, mHandler);
         mCarUserNoticeService.init();
         verify(mMockCarUserService).addUserLifecycleListener(any(),
@@ -146,6 +156,11 @@ public class CarUserNoticeServiceTest extends AbstractExtendedMockitoCarServiceT
         when(mMockContext.bindServiceAsUser(any(), any(), anyInt(), any())).thenReturn(true);
         doAnswer(invocation -> mIsKeyguardLocked)
                 .when(() -> KeyguardManagerHelper.isKeyguardLocked());
+    }
+
+    @After
+    public void clearHandler() {
+        mCarUserNoticeService.removeCallbacks();
     }
 
     @Test
@@ -232,7 +247,7 @@ public class CarUserNoticeServiceTest extends AbstractExtendedMockitoCarServiceT
         sendBroadcastActionOff();
         // UI hidden when broadcast off
         assertUiHidden();
-        putSettingsInt(CarSettings.Secure.KEY_ENABLE_INITIAL_NOTICE_SCREEN_TO_USER, 0);
+        mMockSettings.putInt(CarSettings.Secure.KEY_ENABLE_INITIAL_NOTICE_SCREEN_TO_USER, 0);
         sendBroadcastActionOn();
         // UI shown only once, when user switched
         assertUiShownOnce();

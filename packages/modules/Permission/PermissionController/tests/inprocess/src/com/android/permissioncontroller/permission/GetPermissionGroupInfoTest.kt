@@ -20,7 +20,7 @@ import android.content.Context
 import android.os.Build
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
-import com.android.permissioncontroller.permission.utils.Utils
+import com.android.permissioncontroller.permission.utils.PermissionMapping
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import java.util.concurrent.CountDownLatch
@@ -34,7 +34,7 @@ class GetPermissionGroupInfoTest {
 
     @Test
     fun assertAllPlatformPermGroupPermListsMatch() {
-        val groups = Utils.getPlatformPermissionGroups()
+        val groups = PermissionMapping.getPlatformPermissionGroups()
         var returnedPerms: List<String>? = null
         for (group in groups) {
             val latch = CountDownLatch(1)
@@ -44,15 +44,15 @@ class GetPermissionGroupInfoTest {
             }
             latch.await(timeoutMs, TimeUnit.MILLISECONDS)
             assertThat(returnedPerms).isEqualTo(
-                    Utils.getPlatformPermissionNamesOfGroup(group))
+                    PermissionMapping.getPlatformPermissionNamesOfGroup(group))
         }
     }
 
     @Test
     fun assertAllPlatformPermGroupsMatch() {
-        val groups = Utils.getPlatformPermissionGroups()
+        val groups = PermissionMapping.getPlatformPermissionGroups()
         for (group in groups) {
-            val perms = Utils.getPlatformPermissionNamesOfGroup(group)
+            val perms = PermissionMapping.getPlatformPermissionNamesOfGroup(group)
             for (permName in perms) {
                 var permGroup: String? = null
                 val latch = CountDownLatch(1)
@@ -61,7 +61,8 @@ class GetPermissionGroupInfoTest {
                     latch.countDown()
                 }
                 latch.await(timeoutMs, TimeUnit.MILLISECONDS)
-                assertThat(permGroup).isEqualTo(Utils.getGroupOfPlatformPermission(permName))
+                assertThat(permGroup).isEqualTo(
+                    PermissionMapping.getGroupOfPlatformPermission(permName))
             }
         }
     }

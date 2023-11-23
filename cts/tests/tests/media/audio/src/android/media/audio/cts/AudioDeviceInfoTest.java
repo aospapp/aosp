@@ -16,20 +16,21 @@
 
 package android.media.audio.cts;
 
-import static org.junit.Assert.*;
-
 import android.media.AudioDeviceInfo;
-import android.media.cts.NonMediaMainlineTest;
-import android.util.Log;
+
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.NonMainlineTest;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.junit.Test;
-import org.junit.runner.RunWith;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 @RunWith(AndroidJUnit4.class)
 public class AudioDeviceInfoTest {
     private static final Set<Integer> INPUT_TYPES = Stream.of(
@@ -53,7 +54,8 @@ public class AudioDeviceInfoTest {
         AudioDeviceInfo.TYPE_BLE_HEADSET,
         AudioDeviceInfo.TYPE_HDMI_ARC,
         AudioDeviceInfo.TYPE_HDMI_EARC,
-        AudioDeviceInfo.TYPE_ECHO_REFERENCE)
+        AudioDeviceInfo.TYPE_ECHO_REFERENCE,
+        AudioDeviceInfo.TYPE_DOCK_ANALOG)
             .collect(Collectors.toCollection(HashSet::new));
 
     private static final Set<Integer> OUTPUT_TYPES = Stream.of(
@@ -81,7 +83,8 @@ public class AudioDeviceInfoTest {
         AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE,
         AudioDeviceInfo.TYPE_BLE_HEADSET,
         AudioDeviceInfo.TYPE_BLE_SPEAKER,
-        AudioDeviceInfo.TYPE_BLE_BROADCAST)
+        AudioDeviceInfo.TYPE_BLE_BROADCAST,
+        AudioDeviceInfo.TYPE_DOCK_ANALOG)
             .collect(Collectors.toCollection(HashSet::new));
 
     private static int MAX_TYPE;

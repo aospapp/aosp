@@ -1,5 +1,8 @@
 package org.apache.harmony.security.tests.java.security;
 
+import dalvik.annotation.compat.VersionCodes;
+import dalvik.system.VMRuntime;
+
 import junit.framework.TestCase;
 
 import java.lang.reflect.Constructor;
@@ -108,7 +111,8 @@ public class KeyFactoryTest extends TestCase {
                 NoSuchAlgorithmException.class,
                 NullPointerException.class,
                 IllegalArgumentException.class,
-                IllegalArgumentException.class
+                VMRuntime.getSdkVersion() >= VersionCodes.UPSIDE_DOWN_CAKE
+                        ? NullPointerException.class : IllegalArgumentException.class,
         };
 
         for (int i = 0; i < combinations.length; i++) {

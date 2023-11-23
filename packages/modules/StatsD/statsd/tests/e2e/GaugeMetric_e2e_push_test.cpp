@@ -414,6 +414,93 @@ TEST_F(GaugeMetricE2ePushedTest, TestRepeatedFieldsForPushedEvent) {
     }
 }
 
+TEST_F(GaugeMetricE2ePushedTest, TestDimensionalSampling) {
+    ShardOffsetProvider::getInstance().setShardOffset(5);
+
+    StatsdConfig config;
+    config.add_allowed_log_source("AID_ROOT");  // LogEvent defaults to UID of root.
+
+    AtomMatcher appCrashMatcher =
+            CreateSimpleAtomMatcher("APP_CRASH_OCCURRED", util::APP_CRASH_OCCURRED);
+    *config.add_atom_matcher() = appCrashMatcher;
+
+    GaugeMetric sampledGaugeMetric =
+            createGaugeMetric("GaugeSampledAppCrashesPerUid", appCrashMatcher.id(),
+                              GaugeMetric::FIRST_N_SAMPLES, nullopt, nullopt);
+    *sampledGaugeMetric.mutable_dimensions_in_what() =
+            CreateDimensions(util::APP_CRASH_OCCURRED, {1 /* uid */});
+    *sampledGaugeMetric.mutable_dimensional_sampling_info()->mutable_sampled_what_field() =
+            CreateDimensions(util::APP_CRASH_OCCURRED, {1 /*uid*/});
+    sampledGaugeMetric.mutable_dimensional_sampling_info()->set_shard_count(2);
+    *config.add_gauge_metric() = sampledGaugeMetric;
+
+    const int64_t configAddedTimeNs = 10 * NS_PER_SEC;  // 0:10
+    const int64_t bucketSizeNs =
+            TimeUnitToBucketSizeInMillis(config.gauge_metric(0).bucket()) * 1000LL * 1000LL;
+
+    int uid = 12345;
+    int64_t cfgId = 98765;
+    ConfigKey cfgKey(uid, cfgId);
+
+    sp<StatsLogProcessor> processor = CreateStatsLogProcessor(
+            configAddedTimeNs, configAddedTimeNs, config, cfgKey, nullptr, 0, new UidMap());
+
+    int appUid1 = 1001;  // odd hash value
+    int appUid2 = 1002;  // even hash value
+    int appUid3 = 1003;  // odd hash value
+
+    const int64_t gaugeEventTimeNs1 = configAddedTimeNs + 20 * NS_PER_SEC;
+    const int64_t gaugeEventTimeNs2 = configAddedTimeNs + 40 * NS_PER_SEC;
+    const int64_t gaugeEventTimeNs3 = configAddedTimeNs + 60 * NS_PER_SEC;
+    const int64_t gaugeEventTimeNs4 = configAddedTimeNs + 100 * NS_PER_SEC;
+    const int64_t gaugeEventTimeNs5 = configAddedTimeNs + 110 * NS_PER_SEC;
+    const int64_t gaugeEventTimeNs6 = configAddedTimeNs + 150 * NS_PER_SEC;
+
+    std::vector<std::unique_ptr<LogEvent>> events;
+    events.push_back(CreateAppCrashOccurredEvent(gaugeEventTimeNs1, appUid1));  // 0:30
+    events.push_back(CreateAppCrashOccurredEvent(gaugeEventTimeNs2, appUid2));  // 0:50
+    events.push_back(CreateAppCrashOccurredEvent(gaugeEventTimeNs3, appUid3));  // 1:10
+    events.push_back(CreateAppCrashOccurredEvent(gaugeEventTimeNs4, appUid1));  // 1:50
+    events.push_back(CreateAppCrashOccurredEvent(gaugeEventTimeNs5, appUid2));  // 2:00
+    events.push_back(CreateAppCrashOccurredEvent(gaugeEventTimeNs6, appUid3));  // 2:40
+
+    // Send log events to StatsLogProcessor.
+    for (auto& event : events) {
+        processor->OnLogEvent(event.get());
+    }
+
+    ConfigMetricsReportList reports;
+    vector<uint8_t> buffer;
+    processor->onDumpReport(cfgKey, configAddedTimeNs + bucketSizeNs + 1, false, true, ADB_DUMP,
+                            FAST, &buffer);
+    EXPECT_TRUE(buffer.size() > 0);
+    EXPECT_TRUE(reports.ParseFromArray(&buffer[0], buffer.size()));
+    backfillDimensionPath(&reports);
+    backfillStringInReport(&reports);
+    backfillStartEndTimestamp(&reports);
+    backfillAggregatedAtoms(&reports);
+
+    ASSERT_EQ(1, reports.reports_size());
+    ASSERT_EQ(1, reports.reports(0).metrics_size());
+    EXPECT_TRUE(reports.reports(0).metrics(0).has_gauge_metrics());
+    StatsLogReport::GaugeMetricDataWrapper gaugeMetrics;
+    sortMetricDataByDimensionsValue(reports.reports(0).metrics(0).gauge_metrics(), &gaugeMetrics);
+    ASSERT_EQ(2, gaugeMetrics.data_size());
+
+    // Only Uid 1 and 3 are logged. (odd hash value) + (offset of 5) % (shard count of 2) = 0
+    GaugeMetricData data = gaugeMetrics.data(0);
+    ValidateUidDimension(data.dimensions_in_what(), util::APP_CRASH_OCCURRED, appUid1);
+    ValidateGaugeBucketTimes(data.bucket_info(0), configAddedTimeNs,
+                             configAddedTimeNs + bucketSizeNs,
+                             {gaugeEventTimeNs1, gaugeEventTimeNs4});
+
+    data = gaugeMetrics.data(1);
+    ValidateUidDimension(data.dimensions_in_what(), util::APP_CRASH_OCCURRED, appUid3);
+    ValidateGaugeBucketTimes(data.bucket_info(0), configAddedTimeNs,
+                             configAddedTimeNs + bucketSizeNs,
+                             {gaugeEventTimeNs3, gaugeEventTimeNs6});
+}
+
 #else
 GTEST_LOG_(INFO) << "This test does nothing.\n";
 #endif

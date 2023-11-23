@@ -15,8 +15,7 @@
  */
 package android.bluetooth;
 
-import android.annotation.RequiresPermission;
-import android.bluetooth.annotations.RequiresBluetoothConnectPermission;
+import android.annotation.NonNull;
 import android.bluetooth.annotations.RequiresLegacyBluetoothPermission;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Build;
@@ -168,8 +167,7 @@ public class BluetoothGattService implements Parcelable {
         out.writeTypedList(includedServices);
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<BluetoothGattService> CREATOR =
-            new Parcelable.Creator<BluetoothGattService>() {
+    public static final @NonNull Creator<BluetoothGattService> CREATOR = new Creator<>() {
         public BluetoothGattService createFromParcel(Parcel in) {
             return new BluetoothGattService(in);
         }

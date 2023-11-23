@@ -57,3 +57,28 @@ cc_library {
         },
     },
 }
+
+cc_library_static {
+    name: "libwebm_mkvparser",
+    host_supported: true,
+    export_include_dirs: ["."],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+    srcs: ["mkvparser/mkvparser.cc"],
+    sanitize: {
+        // Enable CFI if this becomes a shared library.
+        // cfi: true,
+    },
+    min_sdk_version: "29",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.media",
+    ],
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+}

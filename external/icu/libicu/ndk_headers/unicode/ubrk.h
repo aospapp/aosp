@@ -35,7 +35,7 @@
 
 
 /**
- * @addtogroup ICU4C
+ * @addtogroup icu4c ICU4C
  * @{
  * \file
  * \brief C API: BreakIterator
@@ -261,7 +261,6 @@ ubrk_open(UBreakIteratorType type,
 
 #endif /* U_HIDE_DEPRECATED_API */
 
-
 /**
  * Thread safe cloning operation.
  * @param bi iterator to be cloned
@@ -272,7 +271,6 @@ ubrk_open(UBreakIteratorType type,
 U_CAPI UBreakIterator * U_EXPORT2
 ubrk_clone(const UBreakIterator *bi,
            UErrorCode *status) __INTRODUCED_IN(31);
-
 
 
 

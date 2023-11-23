@@ -565,7 +565,7 @@ public class FixedSizeArrayExample implements android.os.Parcelable
         }
         @Override public byte[] RepeatBytes(byte[] input, byte[] repeated) throws android.os.RemoteException
         {
-          android.os.Parcel _data = android.os.Parcel.obtain();
+          android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
           android.os.Parcel _reply = android.os.Parcel.obtain();
           byte[] _result;
           try {
@@ -584,7 +584,7 @@ public class FixedSizeArrayExample implements android.os.Parcelable
         }
         @Override public int[] RepeatInts(int[] input, int[] repeated) throws android.os.RemoteException
         {
-          android.os.Parcel _data = android.os.Parcel.obtain();
+          android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
           android.os.Parcel _reply = android.os.Parcel.obtain();
           int[] _result;
           try {
@@ -603,7 +603,7 @@ public class FixedSizeArrayExample implements android.os.Parcelable
         }
         @Override public android.os.IBinder[] RepeatBinders(android.os.IBinder[] input, android.os.IBinder[] repeated) throws android.os.RemoteException
         {
-          android.os.Parcel _data = android.os.Parcel.obtain();
+          android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
           android.os.Parcel _reply = android.os.Parcel.obtain();
           android.os.IBinder[] _result;
           try {
@@ -622,7 +622,7 @@ public class FixedSizeArrayExample implements android.os.Parcelable
         }
         @Override public android.aidl.fixedsizearray.FixedSizeArrayExample.IntParcelable[] RepeatParcelables(android.aidl.fixedsizearray.FixedSizeArrayExample.IntParcelable[] input, android.aidl.fixedsizearray.FixedSizeArrayExample.IntParcelable[] repeated) throws android.os.RemoteException
         {
-          android.os.Parcel _data = android.os.Parcel.obtain();
+          android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
           android.os.Parcel _reply = android.os.Parcel.obtain();
           android.aidl.fixedsizearray.FixedSizeArrayExample.IntParcelable[] _result;
           try {
@@ -641,7 +641,7 @@ public class FixedSizeArrayExample implements android.os.Parcelable
         }
         @Override public byte[][] Repeat2dBytes(byte[][] input, byte[][] repeated) throws android.os.RemoteException
         {
-          android.os.Parcel _data = android.os.Parcel.obtain();
+          android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
           android.os.Parcel _reply = android.os.Parcel.obtain();
           byte[][] _result;
           try {
@@ -660,7 +660,7 @@ public class FixedSizeArrayExample implements android.os.Parcelable
         }
         @Override public int[][] Repeat2dInts(int[][] input, int[][] repeated) throws android.os.RemoteException
         {
-          android.os.Parcel _data = android.os.Parcel.obtain();
+          android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
           android.os.Parcel _reply = android.os.Parcel.obtain();
           int[][] _result;
           try {
@@ -679,7 +679,7 @@ public class FixedSizeArrayExample implements android.os.Parcelable
         }
         @Override public android.os.IBinder[][] Repeat2dBinders(android.os.IBinder[][] input, android.os.IBinder[][] repeated) throws android.os.RemoteException
         {
-          android.os.Parcel _data = android.os.Parcel.obtain();
+          android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
           android.os.Parcel _reply = android.os.Parcel.obtain();
           android.os.IBinder[][] _result;
           try {
@@ -698,7 +698,7 @@ public class FixedSizeArrayExample implements android.os.Parcelable
         }
         @Override public android.aidl.fixedsizearray.FixedSizeArrayExample.IntParcelable[][] Repeat2dParcelables(android.aidl.fixedsizearray.FixedSizeArrayExample.IntParcelable[][] input, android.aidl.fixedsizearray.FixedSizeArrayExample.IntParcelable[][] repeated) throws android.os.RemoteException
         {
-          android.os.Parcel _data = android.os.Parcel.obtain();
+          android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
           android.os.Parcel _reply = android.os.Parcel.obtain();
           android.aidl.fixedsizearray.FixedSizeArrayExample.IntParcelable[][] _result;
           try {

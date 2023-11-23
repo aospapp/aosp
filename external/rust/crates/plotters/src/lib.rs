@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 /*!
 
 # Plotters - A Rust drawing library focus on data plotting for both WASM and native applications  🦀📈🚀
@@ -8,14 +9,11 @@
 <a href="https://docs.rs/plotters">
     <img style="display: inline!important" src="https://docs.rs/plotters/badge.svg"></img>
 </a>
+<a href="https://docs.rs/plotters">
+    <img style="display: inline!important" src="https://img.shields.io/crates/d/plotters"></img>
+</a>
 <a href="https://plotters-rs.github.io/rustdoc/plotters/">
     <img style="display: inline! important" src="https://img.shields.io/badge/docs-development-lightgrey.svg"></img>
-</a>
-<a href="https://travis-ci.org/38/plotters">
-    <img style="display: inline! important" src="https://travis-ci.org/38/plotters.svg?branch=master"></img>
-</a>
-<a href="https://codecov.io/gh/38/plotters">
-    <img style="display: inline! important" src="https://codecov.io/gh/38/plotters/branch/master/graph/badge.svg" />
 </a>
 
 Plotters is drawing library designed for rendering figures, plots, and charts, in pure rust. Plotters supports various types of back-ends,
@@ -23,9 +21,10 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
 
 - A new Plotters Developer's Guide is working in progress. The preview version is available at [here](https://plotters-rs.github.io/book).
 - To try Plotters with interactive Jupyter notebook, or view [here](https://plotters-rs.github.io/plotters-doc-data/evcxr-jupyter-integration.html) for the static HTML version.
-- To view the WASM example, go to this [link](https://plumberserver.com/plotters-wasm-demo/index.html)
+- To view the WASM example, go to this [link](https://plotters-rs.github.io/wasm-demo/www/index.html)
 - Currently we have all the internal code ready for console plotting, but a console based backend is still not ready. See [this example](https://github.com/38/plotters/blob/master/examples/console.rs) for how to plotting on Console with a customized backend.
-- Plotters now moved all backend code to sperate repository, check [FAQ list](#faq-list) for details
+- Plotters now moved all backend code to sperate repositories, check [FAQ list](#faq-list) for details
+- Some interesting [demo projects](#demo-projects) are available, feel free to try them out.
 
 ## Gallery
 
@@ -35,7 +34,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         Multiple Plot
-        <a href="https://github.com/38/plotters/blob/master/examples/chart.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/chart.rs">[code]</a>
     </div>
 </div>
 
@@ -45,7 +44,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         Candlestick Plot
-        <a href="https://github.com/38/plotters/blob/master/examples/stock.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/stock.rs">[code]</a>
     </div>
 </div>
 
@@ -55,7 +54,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
        Histogram
-        <a href="https://github.com/38/plotters/blob/master/examples/histogram.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/histogram.rs">[code]</a>
     </div>
 </div>
 
@@ -83,7 +82,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         Mandelbrot set
-        <a href="https://github.com/38/plotters/blob/master/examples/mandelbrot.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/mandelbrot.rs">[code]</a>
     </div>
 </div>
 
@@ -113,7 +112,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         Histogram with Scatter
-        <a href="https://github.com/38/plotters/blob/master/examples/normal-dist.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/normal-dist.rs">[code]</a>
     </div>
 </div>
 
@@ -123,7 +122,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         Dual Y-Axis Example
-        <a href="https://github.com/38/plotters/blob/master/examples/two-scales.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/two-scales.rs">[code]</a>
     </div>
 </div>
 
@@ -133,7 +132,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         The Matplotlib Matshow Example
-        <a href="https://github.com/38/plotters/blob/master/examples/matshow.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/matshow.rs">[code]</a>
     </div>
 </div>
 
@@ -143,7 +142,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         The Sierpinski Carpet
-        <a href="https://github.com/38/plotters/blob/master/examples/sierpinski.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/sierpinski.rs">[code]</a>
     </div>
 </div>
 
@@ -153,7 +152,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         The 1D Gaussian Distribution
-        <a href="https://github.com/38/plotters/blob/master/examples/nomal-dist2.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/nomal-dist2.rs">[code]</a>
     </div>
 </div>
 
@@ -163,7 +162,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         The 1D Gaussian Distribution
-        <a href="https://github.com/38/plotters/blob/master/examples/errorbar.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/errorbar.rs">[code]</a>
     </div>
 </div>
 
@@ -173,7 +172,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         Monthly Time Coordinate
-        <a href="https://github.com/38/plotters/blob/master/examples/slc-temp.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/slc-temp.rs">[code]</a>
     </div>
 </div>
 
@@ -183,7 +182,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         Monthly Time Coordinate
-        <a href="https://github.com/38/plotters/blob/master/examples/area-chart.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/area-chart.rs">[code]</a>
     </div>
 </div>
 
@@ -193,7 +192,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         Koch Snowflake
-        <a href="https://github.com/38/plotters/blob/master/examples/snowflake.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/snowflake.rs">[code]</a>
     </div>
 </div>
 
@@ -204,7 +203,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         Koch Snowflake Animation
-        <a href="https://github.com/38/plotters/blob/master/examples/animation.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/animation.rs">[code]</a>
     </div>
 </div>
 
@@ -215,7 +214,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         Drawing on a Console
-        <a href="https://github.com/38/plotters/blob/master/examples/console.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/console.rs">[code]</a>
     </div>
 </div>
 
@@ -225,7 +224,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         Drawing bitmap on chart
-        <a href="https://github.com/38/plotters/blob/master/examples/blit-bitmap.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/blit-bitmap.rs">[code]</a>
     </div>
 </div>
 
@@ -235,7 +234,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         The boxplot demo
-        <a href="https://github.com/38/plotters/blob/master/examples/boxplot.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/boxplot.rs">[code]</a>
     </div>
 </div>
 
@@ -245,7 +244,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         3D plot rendering
-        <a href="https://github.com/38/plotters/blob/master/examples/3d-plot.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/3d-plot.rs">[code]</a>
     </div>
 </div>
 
@@ -255,7 +254,7 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         2-Var Gussian Distribution PDF
-        <a href="https://github.com/38/plotters/blob/master/examples/3d-plot2.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/3d-plot2.rs">[code]</a>
     </div>
 </div>
 
@@ -265,14 +264,17 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     </a>
     <div class="galleryText">
         COVID-19 Visualization
-        <a href="https://github.com/38/plotters/blob/master/examples/tick_control.rs">[code]</a>
+        <a href="https://github.com/38/plotters/blob/master/plotters/examples/tick_control.rs">[code]</a>
     </div>
 </div>
 
 
 ## Table of Contents
   * [Gallery](#gallery)
+  * [Dependencies](#dependencies)
+    + [Ubuntu Linux](#ubuntu-linux)
   * [Quick Start](#quick-start)
+  * [Demo Projects](#demo-projects)
   * [Trying with Jupyter evcxr Kernel Interactively](#trying-with-jupyter-evcxr-kernel-interactively)
   * [Interactive Tutorial with Jupyter Notebook](#interactive-tutorial-with-jupyter-notebook)
   * [Plotting in Rust](#plotting-in-rust)
@@ -290,12 +292,18 @@ including bitmap, vector graph, piston window, GTK/Cairo and WebAssembly.
     + [List of Features](#list-of-features)
   * [FAQ List](#faq-list)
 
+## Dependencies
+
+### Ubuntu Linux
+
+ ```sudo apt install pkg-config libfreetype6-dev libfontconfig1-dev```
+
 ## Quick Start
 
 To use Plotters, you can simply add Plotters into your `Cargo.toml`
 ```toml
 [dependencies]
-plotters = "^0.3.1"
+plotters = "0.3.1"
 ```
 
 And the following code draws a quadratic function. `src/main.rs`,
@@ -328,11 +336,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .border_style(&BLACK)
         .draw()?;
 
+    root.present()?;
+
     Ok(())
 }
 ```
 
 ![](https://plotters-rs.github.io/plotters-doc-data/0.png)
+
+## Demo Projects
+
+To learn how to use Plotters in different scenarios by checking out the following demo projects:
+
+- WebAssembly + Plotters: [plotters-wasm-demo](https://github.com/plotters-rs/plotters-wasm-demo)
+- minifb + Plotters: [plotters-minifb-demo](https://github.com/plotters-rs/plotters-minifb-demo)
+- GTK + Plotters: [plotters-gtk-demo](https://github.com/plotters/plotters-gtk-demo)
 
 
 ## Trying with Jupyter evcxr Kernel Interactively
@@ -394,7 +412,7 @@ jupyter notebook
 
 And select the notebook called `evcxr-jupyter-integration.ipynb`.
 
-Also, there's a static HTML version of this notebook available at the [this location](https://plumberserver.com/plotters-docs/evcxr-jupyter-integration.html)
+Also, there's a static HTML version of this notebook available at the [this location](https://plotters-rs.github.io/plotters-doc-data/evcxr-jupyter-integration.html)
 
 ## Plotting in Rust
 
@@ -421,8 +439,8 @@ very useful for visualization on a web page and would have a huge performance im
 Plotters currently supports backend that uses the HTML5 canvas. To use the WASM support, you can simply use
 `CanvasBackend` instead of other backend and all other API remains the same!
 
-There's a small demo for Plotters + WASM under `examples/wasm-demo` directory of this repo.
-To play with the deployed version, follow this [link](https://plumberserver.com/plotters-wasm-demo/index.html).
+There's a small demo for Plotters + WASM available at [here](https://github.com/plotters-rs/plotters-wasm-demo).
+To play with the deployed version, follow this [link](https://plotters-rs.github.io/wasm-demo/www/index.html).
 
 
 ## What types of figure are supported?
@@ -448,6 +466,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // And if we want SVG backend
     // let backend = SVGBackend::new("output.svg", (800, 600));
     backend.draw_rect((50, 50), (200, 150), &RED, true)?;
+    backend.present()?;
     Ok(())
 }
 ```
@@ -472,6 +491,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (area, color) in child_drawing_areas.into_iter().zip(0..) {
         area.fill(&Palette99::pick(color))?;
     }
+    root_drawing_area.present()?;
     Ok(())
 }
 ```
@@ -499,6 +519,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         50,
         Into::<ShapeStyle>::into(&GREEN).filled(),
     ))?;
+    root.present()?;
     Ok(())
 }
 ```
@@ -541,6 +562,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     root.draw(&dot_and_label(0.5, 0.6))?;
     root.draw(&dot_and_label(0.25, 0.33))?;
     root.draw(&dot_and_label(0.8, 0.8))?;
+    root.present()?;
     Ok(())
 }
 ```
@@ -596,6 +618,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             + Text::new(format!("{:?}", c), (10, 0), ("sans-serif", 10).into_font());
         },
     ))?;
+    root.present()?;
     Ok(())
 }
 ```
@@ -606,7 +629,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ### Development Version
 
-To use the latest development version, pull https://github.com/38/plotters.git. In `Cargo.toml`
+Find the latest development version of Plotters on [GitHub](https://github.com/38/plotters.git).
+Clone the repository and learn more about the Plotters API and ways to contribute. Your help is needed!
+
+If you want to add the development version of Plotters to your project, add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
@@ -657,7 +683,7 @@ The following list is a complete list of features that can be opt in and out.
 
 | Name    |  Description | Additional Dependency |Default?|
 |---------|--------------|--------|------------|
-| datetime | Eanble the date and time coordinate support | chrono | Yes |
+| datetime | Enable the date and time coordinate support | chrono | Yes |
 
 - Element, series and util functions
 
@@ -703,6 +729,15 @@ The following list is a complete list of features that can be opt in and out.
     - [HTML5 Canvas Backend](https://github.com/plotters-rs/plotters-canvas.git)
     - [GTK/Cairo Backend](https://github.com/plotters-rs/plotters-cairo.git)
 
+* How to check if a backend writes file successfully ?
+
+    The behavior of Plotters backend is consistent with standard library.
+    When the backend instance is being dropped, [`crate::drawing::DrawingArea::present()`] or `Backend::present()` is called automatically
+    whenever is needed. When the `present()` method is called from `drop`, any error will be silently ignored.
+
+    In the case that error handling is important, you need manually call the `present()` method before the backend gets dropped.
+    For more information, please see the examples.
+
 
 <style>
     img {
@@ -732,6 +767,7 @@ pub mod element;
 pub mod series;
 pub mod style;
 
+/// Evaluation Context for Rust. See [the evcxr crate](https://crates.io/crates/evcxr) for more information.
 #[cfg(feature = "evcxr")]
 pub mod evcxr;
 
@@ -784,17 +820,21 @@ pub mod prelude {
     pub use crate::series::SurfaceSeries;
 
     // Styles
+    pub use crate::style::{BLACK, BLUE, CYAN, GREEN, MAGENTA, RED, TRANSPARENT, WHITE, YELLOW};
+
+    #[cfg(feature = "full_palette")]
+    pub use crate::style::full_palette;
+
     pub use crate::style::{
         AsRelative, Color, FontDesc, FontFamily, FontStyle, FontTransform, HSLColor, IntoFont,
-        IntoTextStyle, Palette, Palette100, Palette99, Palette9999, PaletteColor, RGBColor,
-        ShapeStyle, TextStyle,
+        IntoTextStyle, Palette, Palette100, Palette99, Palette9999, PaletteColor, RGBAColor,
+        RGBColor, ShapeStyle, TextStyle,
     };
-    pub use crate::style::{BLACK, BLUE, CYAN, GREEN, MAGENTA, RED, TRANSPARENT, WHITE, YELLOW};
 
     // Elements
     pub use crate::element::{
         Circle, Cross, Cubiod, DynElement, EmptyElement, IntoDynElement, MultiLineText,
-        PathElement, Pixel, Polygon, Rectangle, Text, TriangleMarker,
+        PathElement, Pie, Pixel, Polygon, Rectangle, Text, TriangleMarker,
     };
 
     #[cfg(feature = "boxplot")]
@@ -832,3 +872,18 @@ pub mod prelude {
     #[cfg(feature = "svg_backend")]
     pub use plotters_svg::SVGBackend;
 }
+
+/// This module contains some useful re-export of backend related types.
+pub mod backend {
+    pub use plotters_backend::DrawingBackend;
+    #[cfg(feature = "bitmap_backend")]
+    pub use plotters_bitmap::{
+        bitmap_pixel::{BGRXPixel, PixelFormat, RGBPixel},
+        BitMapBackend,
+    };
+    #[cfg(feature = "svg_backend")]
+    pub use plotters_svg::SVGBackend;
+}
+
+#[cfg(test)]
+mod test;

@@ -99,7 +99,7 @@ public class AdaptiveBrightnessTogglePreferenceController extends
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         if (!supportsAdaptiveBrightness()) {
             return UNSUPPORTED_ON_DEVICE;
         }

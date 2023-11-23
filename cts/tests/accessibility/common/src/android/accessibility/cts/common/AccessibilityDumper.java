@@ -65,8 +65,12 @@ public class AccessibilityDumper {
     /** Dump flag to write the tree of accessility node info to logcat. */
     public static final int FLAG_NODETREE = 0x8;
 
+    /** Dump flag to write the output of {@code dumpsys window accessibility} to logcat. */
+    public static final int FLAG_DUMPSYS_WINDOW_MANAGER = 0x16;
+
     /** Default dump flag */
-    public static final int FLAG_DUMP_ALL = FLAG_DUMPSYS | FLAG_HIERARCHY | FLAG_SCREENSHOT;
+    public static final int FLAG_DUMP_ALL = FLAG_DUMPSYS | FLAG_HIERARCHY | FLAG_SCREENSHOT
+            | FLAG_DUMPSYS_WINDOW_MANAGER;
 
     private static AccessibilityDumper sDumper;
 
@@ -99,7 +103,7 @@ public class AccessibilityDumper {
         final UiAutomation automation = getUiAutomation();
 
         if ((flag & FLAG_DUMPSYS) != 0) {
-            dumpsysOnLogcat(automation);
+            dumpsysOnLogcat(automation, "accessibility");
         }
         if ((flag & FLAG_HIERARCHY) != 0) {
             dumpHierarchyOnLogcat();
@@ -109,6 +113,9 @@ public class AccessibilityDumper {
         }
         if ((flag & FLAG_NODETREE) != 0) {
             dumpAccessibilityNodeTreeOnLogcat(automation);
+        }
+        if ((flag & FLAG_DUMPSYS_WINDOW_MANAGER) != 0) {
+            dumpsysOnLogcat(automation, "window accessibility ");
         }
     }
 
@@ -125,9 +132,9 @@ public class AccessibilityDumper {
         return new File(Environment.getExternalStorageDirectory(), directory);
     }
 
-    private void dumpsysOnLogcat(UiAutomation automation) {
+    private void dumpsysOnLogcat(UiAutomation automation, String service) {
         ShellCommandBuilder.create(automation)
-            .addCommandPrintOnLogCat("dumpsys accessibility")
+            .addCommandPrintOnLogCat("dumpsys " + service)
             .run();
     }
 
@@ -146,7 +153,8 @@ public class AccessibilityDumper {
     private void dumpScreen(UiAutomation automation) {
         assertNotEmpty(mName);
         final Bitmap screenshot = automation.takeScreenshot();
-        final String filename = String.format("%s_%s__screenshot.png", mName, LocalTime.now());
+        final String filename = String.format("%s_%s__screenshot.png", mName,
+                LocalTime.now().toString().replace(':', '.'));
         BitmapUtils.saveBitmap(screenshot, mRoot.toString(), filename);
     }
 

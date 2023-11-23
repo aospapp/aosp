@@ -1,9 +1,9 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 import sys
 import unittest
 
-from cStringIO import StringIO
+from six import StringIO
 
 import common
 from autotest_lib.tko import db

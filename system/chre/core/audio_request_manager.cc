@@ -22,6 +22,7 @@
 #include "chre/platform/system_time.h"
 #include "chre/util/nested_data_ptr.h"
 #include "chre/util/system/debug_dump.h"
+#include "chre/util/system/event_callbacks.h"
 #include "chre/util/time.h"
 
 /*
@@ -59,7 +60,7 @@ bool AudioRequestManager::configureSource(const Nanoapp *nanoapp,
                                           uint32_t handle, bool enable,
                                           uint64_t bufferDuration,
                                           uint64_t deliveryInterval) {
-  uint32_t numSamples;
+  uint32_t numSamples = 0;
   return validateConfigureSourceArguments(handle, enable, bufferDuration,
                                           deliveryInterval, &numSamples) &&
          doConfigureSource(nanoapp->getInstanceId(), handle, enable, numSamples,
@@ -86,9 +87,14 @@ void AudioRequestManager::handleAudioDataEvent(
   // Cast off the event const so that it can be provided to the callback as
   // non-const. The event is provided to nanoapps as const and the runtime
   // itself will not modify this memory so this is safe.
-  EventLoopManagerSingleton::get()->deferCallback(
-      SystemCallbackType::AudioHandleDataEvent,
-      const_cast<struct chreAudioDataEvent *>(audioDataEvent), callback);
+  struct chreAudioDataEvent *event =
+      const_cast<struct chreAudioDataEvent *>(audioDataEvent);
+  if (!EventLoopManagerSingleton::get()->deferCallback(
+          SystemCallbackType::AudioHandleDataEvent, event, callback)) {
+    EventLoopManagerSingleton::get()
+        ->getAudioRequestManager()
+        .handleFreeAudioDataEvent(event);
+  }
 }
 
 void AudioRequestManager::handleAudioAvailability(uint32_t handle,

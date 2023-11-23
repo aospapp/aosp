@@ -25,4 +25,5 @@
     <string name="set_wallpaper" msgid="3650915172749345197">"വാൾപേപ്പർ സജ്ജീകരിക്കുക"</string>
     <string name="new_instance" msgid="1924479866055190730">"പുതിയ ഇൻസ്‌റ്റൻസിൽ ലോഞ്ച് അഭ്യർത്ഥിക്കുക"</string>
     <string name="wallpaper_description" msgid="5885164573334720996">"സാമ്പിൾ മൾട്ടിഡിസ്പ്ലേ വാൾപേപ്പർ"</string>
+    <string name="exit" msgid="3648703694102318310">"പുറത്ത് കടക്കുക"</string>
 </resources>

@@ -49,6 +49,7 @@ public final class MainActivity extends Activity {
 
     private static final String EXTRA_DISMISS_DIALOG = "extra_dismiss_dialog";
     private static final String EXTRA_SHOW_SOFT_INPUT = "extra_show_soft_input";
+    private static final String EXTRA_HANDWRITING_DELEGATOR = "extra_handwriting_delegator";
 
     private static final String ACTION_TRIGGER = "broadcast_action_trigger";
     private AlertDialog mDialog;
@@ -110,6 +111,11 @@ public final class MainActivity extends Activity {
             final String privateImeOptions = getStringIntentExtra(EXTRA_KEY_PRIVATE_IME_OPTIONS);
             if (privateImeOptions != null) {
                 mEditor.setPrivateImeOptions(privateImeOptions);
+            }
+            boolean isHandwritingDelegator = getBooleanIntentExtra(EXTRA_HANDWRITING_DELEGATOR);
+            if (isHandwritingDelegator) {
+                mEditor.setIsHandwritingDelegate(true);
+                mEditor.setAllowedHandwritingDelegatorPackage("android.view.inputmethod.cts");
             }
             mEditor.requestFocus();
             layout.addView(mEditor);

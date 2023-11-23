@@ -98,7 +98,8 @@ TEST_P(ConfigUpdateE2eAbTest, TestUidMapVersionStringInstaller) {
     ASSERT_EQ(uidMapping.snapshots_size(), 1);
     ASSERT_EQ(uidMapping.snapshots(0).package_info_size(), 1);
     EXPECT_FALSE(uidMapping.snapshots(0).package_info(0).has_version_string());
-    EXPECT_EQ(uidMapping.snapshots(0).package_info(0).installer(), "installer1");
+    EXPECT_EQ(uidMapping.snapshots(0).package_info(0).installer_index(), 0);
+    EXPECT_THAT(uidMapping.installer_name(), ElementsAre("installer1"));
 }
 
 TEST_P(ConfigUpdateE2eAbTest, TestHashStrings) {

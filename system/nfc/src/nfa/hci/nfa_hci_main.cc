@@ -21,10 +21,9 @@
  *  This is the main implementation file for the NFA HCI.
  *
  ******************************************************************************/
-#include <string.h>
-
 #include <android-base/stringprintf.h>
 #include <base/logging.h>
+#include <string.h>
 
 #include "nfa_dm_int.h"
 #include "nfa_ee_api.h"
@@ -829,7 +828,7 @@ static void nfa_hci_conn_cback(uint8_t conn_id, tNFC_CONN_EVT event,
     case NFA_HCI_ADMIN_PIPE:
       /* Check if data packet is a command, response or event */
       if (nfa_hci_cb.type == NFA_HCI_COMMAND_TYPE) {
-        nfa_hci_handle_admin_gate_cmd(p);
+        nfa_hci_handle_admin_gate_cmd(p, pkt_len);
       } else if (nfa_hci_cb.type == NFA_HCI_RESPONSE_TYPE) {
         nfa_hci_handle_admin_gate_rsp(p, (uint8_t)pkt_len);
       } else if (nfa_hci_cb.type == NFA_HCI_EVENT_TYPE) {
@@ -840,7 +839,7 @@ static void nfa_hci_conn_cback(uint8_t conn_id, tNFC_CONN_EVT event,
     case NFA_HCI_LINK_MANAGEMENT_PIPE:
       /* We don't send Link Management commands, we only get them */
       if (nfa_hci_cb.type == NFA_HCI_COMMAND_TYPE)
-        nfa_hci_handle_link_mgm_gate_cmd(p);
+        nfa_hci_handle_link_mgm_gate_cmd(p, pkt_len);
       break;
 
     default:

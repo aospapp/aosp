@@ -18,8 +18,6 @@
 """
 
 import pprint
-import random
-import time
 
 from acts.controllers import android_device
 from acts_contrib.test_utils.fuchsia.bt_test_utils import le_scan_for_device_by_name
@@ -76,9 +74,6 @@ class BleFuchsiaAndroidTest(BluetoothBaseTest):
                 self.fd, self.log, sample_android_name, self.default_timeout):
             res = False
 
-        #Print clients to validate results are saved
-        self.fd.print_clients()
-
         #Stop android advertising
         self.ad.droid.bleStopBleAdvertising(adv_callback)
 
@@ -104,17 +99,17 @@ class BleFuchsiaAndroidTest(BluetoothBaseTest):
         name, did, connectable = scan_result["name"], scan_result[
             "id"], scan_result["connectable"]
 
-        connect = self.fd.gattc_lib.bleConnectToPeripheral(did)
+        connect = self.fd.sl4f.gattc_lib.bleConnectToPeripheral(did)
         self.log.info("Connecting returned status: {}".format(connect))
 
-        services = self.fd.gattc_lib.listServices(did)
+        services = self.fd.sl4f.gattc_lib.listServices(did)
         self.log.info("Listing services returned: {}".format(services))
 
-        dconnect = self.fd.gattc_lib.bleDisconnectPeripheral(did)
+        dconnect = self.fd.sl4f.gattc_lib.bleDisconnectPeripheral(did)
         self.log.info("Disconnect status: {}".format(dconnect))
 
         #Print clients to validate results are saved
-        self.fd.print_clients()
+        self.fd.sl4f.print_clients()
 
         #Stop android advertising + cleanup sl4f
         self.ad.droid.bleStopBleAdvertising(adv_callback)
@@ -141,8 +136,8 @@ class BleFuchsiaAndroidTest(BluetoothBaseTest):
         interval = 1000
 
         #Start advertising
-        self.fd.ble_lib.bleStartBleAdvertising(adv_data, scan_response,
-                                               interval, connectable)
+        self.fd.sl4f.ble_lib.bleStartBleAdvertising(adv_data, scan_response,
+                                                    interval, connectable)
 
         # Initialize scan on android device which scan settings + callback
         filter_list = self.ad.droid.bleGenFilterList()
@@ -163,7 +158,7 @@ class BleFuchsiaAndroidTest(BluetoothBaseTest):
             self.log.error("Didn't find any scan results.")
             return False
         finally:
-            self.fd.ble_lib.bleStopBleAdvertising()
+            self.fd.sl4f.ble_lib.bleStopBleAdvertising()
             self.ad.droid.bleStopBleScan(scan_callback)
         # TODO(): Validate result
         return True

@@ -26,22 +26,10 @@ Getting Started
 Making Changes
 --------------
 
+-  Ensure commits adhere to the the project's :ref:`Commit Style`.
+
 -  Make commits of logical units. See these general `Git guidelines`_ for
    contributing to a project.
-
--  Ensure your commit messages comply with the `Conventional Commits`_
-   specification:
-
-   .. code::
-
-       <type>[optional scope]: <description>
-
-       [optional body]
-
-       [optional footer(s)]
-
-   You can use the tooling installed by the optional steps in the
-   :ref:`prerequisites <Prerequisites>` guide to validate this locally.
 
 -  Keep the commits on topic. If you need to fix another bug or make another
    enhancement, please address it on a separate topic branch.
@@ -51,39 +39,6 @@ Making Changes
 
 -  Avoid long commit series. If you do have a long series, consider whether
    some commits should be squashed together or addressed in a separate topic.
-
--  Ensure that each commit in the series has at least one ``Signed-off-by:``
-   line, using your real name and email address. The names in the
-   ``Signed-off-by:`` and ``Commit:`` lines must match. By adding this line the
-   contributor certifies the contribution is made under the terms of the
-   :download:`Developer Certificate of Origin <../../dco.txt>`.
-
-   There might be multiple ``Signed-off-by:`` lines, depending on the history
-   of the patch.
-
-   More details may be found in the `Gerrit Signed-off-by Lines guidelines`_.
-
--  Ensure that each commit also has a unique ``Change-Id:`` line. If you have
-   cloned the repository with the "`Clone with commit-msg hook`" clone method
-   (following the :ref:`Prerequisites` document), this should already be the
-   case.
-
-   More details may be found in the `Gerrit Change-Ids documentation`_.
-
--  Write informative and comprehensive commit messages. A good commit message
-   provides all the background information needed for reviewers to understand
-   the intent and rationale of the patch. This information is also useful for
-   future reference.
-
-   For example:
-
-   -  What does the patch do?
-   -  What motivated it?
-   -  What impact does it have?
-   -  How was it tested?
-   -  Have alternatives been considered? Why did you choose this approach over
-      another one?
-   -  If it fixes an `issue`_, include a reference.
 
 -  Follow the :ref:`Coding Style` and :ref:`Coding Guidelines`.
 
@@ -209,6 +164,65 @@ Submitting Changes
       revert your patches and ask you to resubmit a reworked version of them or
       they may ask you to provide a fix-up patch.
 
+Add Build Configurations
+------------------------
+
+-  TF-A uses Jenkins tool for Continuous Integration and testing activities.
+   Various CI Jobs are deployed which run tests on every patch before being
+   merged. So each of your patches go through a series of checks before they
+   get merged on to the master branch.
+
+-  ``Coverity Scan analysis`` is one of the tests we perform on our source code
+   at regular intervals. We maintain a build script ``tf-cov-make`` which contains the
+   build configurations of various platforms in order to cover the entire source
+   code being analysed by Coverity.
+
+-  When you submit your patches for review containing new source files, please
+   ensure to include them for the ``Coverity Scan analysis`` by adding the
+   respective build configurations in the ``tf-cov-make`` build script.
+
+-  In this section you find the details on how to append your new build
+   configurations for Coverity Scan analysis:
+
+#. We maintain a separate repository named `tf-a-ci-scripts repository`_
+   for placing all the test scripts which will be executed by the CI Jobs.
+
+#. In this repository, ``tf-cov-make`` script is located at
+   ``tf-a-ci-scripts/script/tf-coverity/tf-cov-make``
+
+#. Edit `tf-cov-make`_ script by appending all the possible build configurations with
+   the specific ``build-flags`` relevant to your platform, so that newly added
+   source files get built and analysed by Coverity.
+
+#. For better understanding follow the below specified examples listed in the
+   ``tf-cov-make`` script.
+
+.. code:: shell
+
+    Example 1:
+    #Intel
+    make PLAT=stratix10 $(common_flags) all
+    make PLAT=agilex $(common_flags) all
+
+-  In the above example there are two different SoCs ``stratix`` and ``agilex``
+   under the Intel platform and the build configurations has been added suitably
+   to include most of their source files.
+
+.. code:: shell
+
+    Example 2:
+    #Hikey
+    make PLAT=hikey $(common_flags) ${TBB_OPTIONS} ENABLE_PMF=1 all
+    make PLAT=hikey960 $(common_flags) ${TBB_OPTIONS} all
+    make PLAT=poplar $(common_flags) all
+
+-  In this case for ``Hikey`` boards additional ``build-flags`` has been included
+   along with the ``commom_flags`` to cover most of the files relevant to it.
+
+-  Similar to this you can still find many other different build configurations
+   of various other platforms listed in the ``tf-cov-make`` script. Kindly refer
+   them and append your build configurations respectively.
+
 Binary Components
 -----------------
 
@@ -228,18 +242,16 @@ Binary Components
 
 --------------
 
-*Copyright (c) 2013-2020, Arm Limited and Contributors. All rights reserved.*
+*Copyright (c) 2013-2021, Arm Limited and Contributors. All rights reserved.*
 
-.. _Conventional Commits: https://www.conventionalcommits.org/en/v1.0.0
 .. _developer.trustedfirmware.org: https://developer.trustedfirmware.org
 .. _review.trustedfirmware.org: https://review.trustedfirmware.org
-.. _issue: https://developer.trustedfirmware.org/project/board/1/
 .. _Trusted Firmware-A: https://git.trustedfirmware.org/TF-A/trusted-firmware-a.git
 .. _Git guidelines: http://git-scm.com/book/ch5-2.html
 .. _Gerrit Uploading Changes documentation: https://review.trustedfirmware.org/Documentation/user-upload.html
-.. _Gerrit Signed-off-by Lines guidelines: https://review.trustedfirmware.org/Documentation/user-signedoffby.html
-.. _Gerrit Change-Ids documentation: https://review.trustedfirmware.org/Documentation/user-changeid.html
 .. _TF-A Tests: https://trustedfirmware-a-tests.readthedocs.io
 .. _Trusted Firmware binary repository: https://review.trustedfirmware.org/admin/repos/tf-binaries
 .. _tf-binaries-readme: https://git.trustedfirmware.org/tf-binaries.git/tree/readme.rst
 .. _TF-A mailing list: https://lists.trustedfirmware.org/mailman/listinfo/tf-a
+.. _tf-a-ci-scripts repository: https://git.trustedfirmware.org/ci/tf-a-ci-scripts.git/
+.. _tf-cov-make: https://git.trustedfirmware.org/ci/tf-a-ci-scripts.git/tree/script/tf-coverity/tf-cov-make

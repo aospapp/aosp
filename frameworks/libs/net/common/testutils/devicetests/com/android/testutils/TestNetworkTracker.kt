@@ -23,16 +23,22 @@ import android.net.LinkAddress
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.net.LinkProperties
 import android.net.TestNetworkInterface
 import android.net.TestNetworkManager
 import android.os.Binder
+import android.os.Build
+import androidx.annotation.RequiresApi
+import com.android.modules.utils.build.SdkLevel.isAtLeastR
 import com.android.modules.utils.build.SdkLevel.isAtLeastS
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
+import kotlin.test.assertTrue
 
 /**
  * Create a test network based on a TUN interface with a LinkAddress.
  *
+ * TODO: remove this function after fixing all the callers to use a list of LinkAddresses.
  * This method will block until the test network is available. Requires
  * [android.Manifest.permission.CHANGE_NETWORK_STATE] and
  * [android.Manifest.permission.MANAGE_TEST_NETWORKS].
@@ -46,7 +52,7 @@ fun initTestNetwork(
 }
 
 /**
- * Create a test network based on a TUN interface with giving LinkAddress list.
+ * Create a test network based on a TUN interface with a LinkAddress list.
  *
  * This method will block until the test network is available. Requires
  * [android.Manifest.permission.CHANGE_NETWORK_STATE] and
@@ -57,10 +63,41 @@ fun initTestNetwork(
     linkAddrs: List<LinkAddress>,
     setupTimeoutMs: Long = 10_000L
 ): TestNetworkTracker {
+    return initTestNetwork(context, linkAddrs, lp = null, setupTimeoutMs = setupTimeoutMs)
+}
+
+/**
+ * Create a test network based on a TUN interface
+ *
+ * This method will block until the test network is available. Requires
+ * [android.Manifest.permission.CHANGE_NETWORK_STATE] and
+ * [android.Manifest.permission.MANAGE_TEST_NETWORKS].
+ *
+ * This is only usable starting from R as [TestNetworkManager] has no support for specifying
+ * LinkProperties on Q.
+ */
+@RequiresApi(Build.VERSION_CODES.R)
+fun initTestNetwork(
+    context: Context,
+    lp: LinkProperties,
+    setupTimeoutMs: Long = 10_000L
+): TestNetworkTracker {
+    return initTestNetwork(context, lp.linkAddresses, lp, setupTimeoutMs)
+}
+
+private fun initTestNetwork(
+    context: Context,
+    linkAddrs: List<LinkAddress>,
+    lp: LinkProperties?,
+    setupTimeoutMs: Long = 10_000L
+): TestNetworkTracker {
     val tnm = context.getSystemService(TestNetworkManager::class.java)
     val iface = if (isAtLeastS()) tnm.createTunInterface(linkAddrs)
-            else tnm.createTunInterface(linkAddrs.toTypedArray())
-    return TestNetworkTracker(context, iface, tnm, setupTimeoutMs)
+    else tnm.createTunInterface(linkAddrs.toTypedArray())
+    val lpWithIface = if (lp == null) null else LinkProperties(lp).apply {
+        interfaceName = iface.interfaceName
+    }
+    return TestNetworkTracker(context, iface, tnm, lpWithIface, setupTimeoutMs)
 }
 
 /**
@@ -72,13 +109,14 @@ class TestNetworkTracker internal constructor(
     val context: Context,
     val iface: TestNetworkInterface,
     val tnm: TestNetworkManager,
+    val lp: LinkProperties?,
     setupTimeoutMs: Long
-) {
+) : TestableNetworkCallback.HasNetwork {
     private val cm = context.getSystemService(ConnectivityManager::class.java)
     private val binder = Binder()
 
     private val networkCallback: NetworkCallback
-    val network: Network
+    override val network: Network
     val testIface: TestNetworkInterface
 
     init {
@@ -97,11 +135,16 @@ class TestNetworkTracker internal constructor(
         }
         cm.requestNetwork(networkRequest, networkCallback)
 
-        try {
-            tnm.setupTestNetwork(iface.interfaceName, binder)
-            network = networkFuture.get(setupTimeoutMs, TimeUnit.MILLISECONDS)
+        network = try {
+            if (lp != null) {
+                assertTrue(isAtLeastR(), "Cannot specify TestNetwork LinkProperties before R")
+                tnm.setupTestNetwork(lp, true /* isMetered */, binder)
+            } else {
+                tnm.setupTestNetwork(iface.interfaceName, binder)
+            }
+            networkFuture.get(setupTimeoutMs, TimeUnit.MILLISECONDS)
         } catch (e: Throwable) {
-            teardown()
+            cm.unregisterNetworkCallback(networkCallback)
             throw e
         }
 

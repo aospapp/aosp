@@ -62,7 +62,7 @@ public class SystemUpdatePreferenceController extends PreferenceController<Prefe
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         if (!getContext().getResources().getBoolean(R.bool.config_show_system_update_settings)) {
             return UNSUPPORTED_ON_DEVICE;
         }

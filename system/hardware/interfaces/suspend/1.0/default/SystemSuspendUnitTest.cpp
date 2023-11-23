@@ -198,8 +198,12 @@ class SystemSuspendTest : public ::testing::Test {
     }
 
     virtual void TearDown() override {
+        // Allow some time for the autosuspend loop to happen, if unblocked
+        std::this_thread::sleep_for(100ms);
+
         if (!isReadBlocked(wakeupCountFd)) readFd(wakeupCountFd);
-        if (!isReadBlocked(stateFd)) readFd(stateFd).empty();
+        if (!isReadBlocked(stateFd)) readFd(stateFd);
+
         ASSERT_TRUE(isReadBlocked(wakeupCountFd));
         ASSERT_TRUE(isReadBlocked(stateFd));
     }
@@ -209,7 +213,12 @@ class SystemSuspendTest : public ::testing::Test {
         ASSERT_TRUE(WriteStringToFd(wakeupCount, wakeupCountFd));
     }
 
-    bool isSystemSuspendBlocked(int timeout_ms = 20) { return isReadBlocked(stateFd, timeout_ms); }
+    bool isSystemSuspendBlocked(int timeout_ms = 20) {
+        // Allow some time for the autosuspend loop to happen, if unblocked
+        std::this_thread::sleep_for(100ms);
+
+        return isReadBlocked(stateFd, timeout_ms);
+    }
 
     std::shared_ptr<IWakeLock> acquireWakeLock(const std::string& name = "TestLock") {
         std::shared_ptr<IWakeLock> wl = nullptr;
@@ -305,18 +314,32 @@ TEST_F(SystemSuspendTest, OnlyOneEnableAutosuspend) {
 // Tests that autosuspend thread can only enabled again after its been disabled.
 TEST_F(SystemSuspendTest, EnableAutosuspendAfterDisableAutosuspend) {
     bool enabled = false;
-    unblockSystemSuspendFromWakeupCount();
-    systemSuspend->disableAutosuspend();
+
+    checkLoop(1);
     controlServiceInternal->enableAutosuspend(new BBinder(), &enabled);
-    ASSERT_EQ(enabled, true);
+    ASSERT_FALSE(enabled);
+
+    systemSuspend->disableAutosuspend();
+    unblockSystemSuspendFromWakeupCount();
+
+    controlServiceInternal->enableAutosuspend(new BBinder(), &enabled);
+    ASSERT_TRUE(enabled);
 }
 
 TEST_F(SystemSuspendTest, DisableAutosuspendBlocksSuspend) {
     checkLoop(1);
     systemSuspend->disableAutosuspend();
+    unblockSystemSuspendFromWakeupCount();
     ASSERT_TRUE(isSystemSuspendBlocked());
+
+    // Re-enable autosuspend
+    bool enabled = false;
+    controlServiceInternal->enableAutosuspend(new BBinder(), &enabled);
+    ASSERT_TRUE(enabled);
 }
 
+// TODO: Clean up binder tokens after soaking new implementation
+/*
 TEST_F(SystemSuspendTest, BlockAutosuspendIfBinderIsDead) {
     class DeadBinder : public BBinder {
         android::status_t pingBinder() override { return android::UNKNOWN_ERROR; }
@@ -334,6 +357,58 @@ TEST_F(SystemSuspendTest, BlockAutosuspendIfBinderIsDead) {
 
     ASSERT_TRUE(isSystemSuspendBlocked(150));
 }
+
+TEST_F(SystemSuspendTest, UnresponsiveClientDoesNotBlockAcquireRelease) {
+    static std::mutex _lock;
+    static std::condition_variable inPingBinderCondVar;
+    static bool inPingBinder = false;
+
+    class UnresponsiveBinder : public BBinder {
+        android::status_t pingBinder() override {
+            auto lock = std::unique_lock(_lock);
+            inPingBinder = true;
+            inPingBinderCondVar.notify_all();
+
+            // Block pingBinder until test finishes and releases its lock
+            inPingBinderCondVar.wait(lock);
+            return android::UNKNOWN_ERROR;
+        }
+    };
+
+    systemSuspend->disableAutosuspend();
+    unblockSystemSuspendFromWakeupCount();
+    ASSERT_TRUE(isSystemSuspendBlocked());
+
+    auto token = sp<UnresponsiveBinder>::make();
+    bool enabled = false;
+    controlServiceInternal->enableAutosuspend(token, &enabled);
+    unblockSystemSuspendFromWakeupCount();
+
+    auto lock = std::unique_lock(_lock);
+    // wait until pingBinder has been called.
+    if (!inPingBinder) {
+        inPingBinderCondVar.wait(lock);
+    }
+    // let pingBinder finish once we release the test lock
+    inPingBinderCondVar.notify_all();
+
+    std::condition_variable wakeLockAcquired;
+    std::thread(
+        [this](std::condition_variable& wakeLockAcquired) {
+            std::shared_ptr<IWakeLock> testLock = acquireWakeLock("testLock");
+            testLock->release();
+            wakeLockAcquired.notify_all();
+        },
+        std::ref(wakeLockAcquired))
+        .detach();
+
+    std::mutex _acquireReleaseLock;
+    auto acquireReleaseLock = std::unique_lock(_acquireReleaseLock);
+    bool timedOut = wakeLockAcquired.wait_for(acquireReleaseLock, 200ms) == std::cv_status::timeout;
+
+    ASSERT_FALSE(timedOut);
+}
+*/
 
 TEST_F(SystemSuspendTest, AutosuspendLoop) {
     checkLoop(5);
@@ -366,10 +441,10 @@ TEST_F(SystemSuspendTest, MultipleWakeLocks) {
         std::shared_ptr<IWakeLock> wl1 = acquireWakeLock();
         ASSERT_NE(wl1, nullptr);
         ASSERT_TRUE(isSystemSuspendBlocked());
-        unblockSystemSuspendFromWakeupCount();
         {
             std::shared_ptr<IWakeLock> wl2 = acquireWakeLock();
             ASSERT_NE(wl2, nullptr);
+            unblockSystemSuspendFromWakeupCount();
             ASSERT_TRUE(isSystemSuspendBlocked());
         }
         ASSERT_TRUE(isSystemSuspendBlocked());

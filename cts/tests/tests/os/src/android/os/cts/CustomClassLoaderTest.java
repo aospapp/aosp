@@ -16,11 +16,14 @@
 
 package android.os.cts;
 
-import java.io.*;
-import java.lang.reflect.*;
-
 import android.platform.test.annotations.Presubmit;
 import android.test.AndroidTestCase;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.reflect.Field;
 
 public class CustomClassLoaderTest extends AndroidTestCase {
     File tf;
@@ -47,6 +50,7 @@ public class CustomClassLoaderTest extends AndroidTestCase {
         InputStream is = mContext.getAssets().open("dex1.bytes");
         assertNotNull(is);
         OutputStream fos = new FileOutputStream(tf);
+        assertTrue(tf.setReadOnly());
         byte[] buffer = new byte[8192];
         int len = is.read(buffer);
         while (len != -1) {

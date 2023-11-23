@@ -38,13 +38,14 @@ typedef enum {
 
 /* RTT Measurement Bandwidth */
 typedef enum {
-    WIFI_RTT_BW_5   = 0x01,
-    WIFI_RTT_BW_10  = 0x02,
-    WIFI_RTT_BW_20  = 0x04,
-    WIFI_RTT_BW_40  = 0x08,
-    WIFI_RTT_BW_80  = 0x10,
-    WIFI_RTT_BW_160 = 0x20,
-    WIFI_RTT_BW_320 = 0x40
+    WIFI_RTT_BW_UNSPECIFIED = 0x00,
+    WIFI_RTT_BW_5           = 0x01,
+    WIFI_RTT_BW_10          = 0x02,
+    WIFI_RTT_BW_20          = 0x04,
+    WIFI_RTT_BW_40          = 0x08,
+    WIFI_RTT_BW_80          = 0x10,
+    WIFI_RTT_BW_160         = 0x20,
+    WIFI_RTT_BW_320         = 0x40
 } wifi_rtt_bw;
 
 /* RTT Measurement Preamble */
@@ -150,9 +151,24 @@ typedef struct {
     wifi_information_element *LCR; // for 11mc only
 } wifi_rtt_result;
 
-/* RTT result callback */
+/* RTT results version 2 */
 typedef struct {
+    wifi_rtt_result rtt_result;   // Legacy wifi rtt result structure
+    wifi_channel frequency;       // primary channel frequency (MHz) used for ranging measurements
+                                  // If frequency is unknown, this will be set to |UNSPECIFIED(-1)|
+    wifi_rtt_bw packet_bw;        // RTT packet bandwidth is an average BW of the BWs of RTT frames.
+                                  // Cap the average close to a specific valid RttBw.
+} wifi_rtt_result_v2;
+
+/* RTT result callbacks */
+typedef struct {
+    /*
+     * This callback is deprecated on Android 14 and onwards.
+     * Newer implementations should support on_rtt_results_v2 callback
+     */
     void (*on_rtt_results) (wifi_request_id id, unsigned num_results, wifi_rtt_result *rtt_result[]);
+    /* Called when vendor implementation supports sending RTT results version 2 */
+    void (*on_rtt_results_v2) (wifi_request_id id, unsigned num_results, wifi_rtt_result_v2 *rtt_result_v2[]);
 } wifi_rtt_event_handler;
 
 /* API to request RTT measurement */

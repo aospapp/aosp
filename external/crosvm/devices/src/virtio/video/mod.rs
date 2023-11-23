@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,16 +9,29 @@
 
 use std::thread;
 
+use anyhow::anyhow;
+use anyhow::Context;
+use base::error;
 #[cfg(feature = "video-encoder")]
 use base::info;
-use base::{error, AsRawDescriptor, Error as SysError, Event, RawDescriptor, Tube};
-use data_model::{DataInit, Le32};
+use base::AsRawDescriptor;
+use base::Error as SysError;
+use base::Event;
+use base::RawDescriptor;
+use base::Tube;
+use data_model::Le32;
 use remain::sorted;
 use thiserror::Error;
 use vm_memory::GuestMemory;
+use zerocopy::AsBytes;
 
+use crate::virtio;
+use crate::virtio::copy_config;
 use crate::virtio::virtio_device::VirtioDevice;
-use crate::virtio::{self, copy_config, DescriptorError, Interrupt};
+use crate::virtio::DescriptorError;
+use crate::virtio::DeviceType;
+use crate::virtio::Interrupt;
+use crate::Suspendable;
 
 #[macro_use]
 mod macros;
@@ -27,7 +40,7 @@ mod command;
 mod control;
 #[cfg(feature = "video-decoder")]
 mod decoder;
-mod device;
+pub mod device;
 #[cfg(feature = "video-encoder")]
 mod encoder;
 mod error;
@@ -37,14 +50,23 @@ mod params;
 mod protocol;
 mod resource;
 mod response;
-mod worker;
+mod utils;
+pub mod worker;
 
-#[cfg(all(feature = "video-decoder", not(feature = "libvda")))]
-compile_error!("The \"video-decoder\" feature requires \"libvda\" to also be enabled.");
+#[cfg(all(
+    feature = "video-decoder",
+    not(any(feature = "libvda", feature = "ffmpeg", feature = "vaapi"))
+))]
+compile_error!("The \"video-decoder\" feature requires at least one of \"ffmpeg\", \"libvda\" or \"vaapi\" to also be enabled.");
 
-#[cfg(all(feature = "video-encoder", not(feature = "libvda")))]
-compile_error!("The \"video-encoder\" feature requires \"libvda\" to also be enabled.");
+#[cfg(all(
+    feature = "video-encoder",
+    not(any(feature = "libvda", feature = "ffmpeg"))
+))]
+compile_error!("The \"video-encoder\" feature requires at least one of \"ffmpeg\" or \"libvda\" to also be enabled.");
 
+#[cfg(feature = "ffmpeg")]
+mod ffmpeg;
 #[cfg(feature = "libvda")]
 mod vda;
 
@@ -52,16 +74,29 @@ use command::ReadCmdError;
 use device::Device;
 use worker::Worker;
 
-const QUEUE_SIZE: u16 = 256;
-const QUEUE_SIZES: &[u16] = &[QUEUE_SIZE, QUEUE_SIZE];
+use super::device_constants::video::backend_supported_virtio_features;
+use super::device_constants::video::virtio_video_config;
+use super::device_constants::video::VideoBackendType;
+use super::device_constants::video::VideoDeviceType;
+use super::device_constants::video::QUEUE_SIZES;
 
 /// An error indicating something went wrong in virtio-video's worker.
 #[sorted]
 #[derive(Error, Debug)]
 pub enum Error {
+    /// Cloning a descriptor failed
+    #[error("failed to clone a descriptor: {0}")]
+    CloneDescriptorFailed(SysError),
     /// No available descriptor in which an event is written to.
     #[error("no available descriptor in which an event is written to")]
     DescriptorNotAvailable,
+    /// Creating a video device failed.
+    #[cfg(feature = "video-decoder")]
+    #[error("failed to create a video device: {0}")]
+    DeviceCreationFailed(String),
+    /// Making an EventAsync failed.
+    #[error("failed to create an EventAsync: {0}")]
+    EventAsyncCreationFailed(cros_async::AsyncError),
     /// A DescriptorChain contains invalid data.
     #[error("DescriptorChain contains invalid data: {0}")]
     InvalidDescriptorChain(DescriptorError),
@@ -83,14 +118,6 @@ pub enum Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
-
-#[derive(Debug)]
-pub enum VideoDeviceType {
-    #[cfg(feature = "video-decoder")]
-    Decoder,
-    #[cfg(feature = "video-encoder")]
-    Encoder,
-}
 
 pub struct VideoDevice {
     device_type: VideoDeviceType,
@@ -121,17 +148,29 @@ impl Drop for VideoDevice {
     fn drop(&mut self) {
         if let Some(kill_evt) = self.kill_evt.take() {
             // Ignore the result because there is nothing we can do about it.
-            let _ = kill_evt.write(1);
+            let _ = kill_evt.signal();
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum VideoBackendType {
-    #[cfg(feature = "libvda")]
-    Libvda,
-    #[cfg(feature = "libvda")]
-    LibvdaVd,
+pub fn build_config(backend: VideoBackendType) -> virtio_video_config {
+    let mut device_name = [0u8; 32];
+    match backend {
+        #[cfg(feature = "libvda")]
+        VideoBackendType::Libvda => device_name[0..6].copy_from_slice("libvda".as_bytes()),
+        #[cfg(feature = "libvda")]
+        VideoBackendType::LibvdaVd => device_name[0..8].copy_from_slice("libvdavd".as_bytes()),
+        #[cfg(feature = "ffmpeg")]
+        VideoBackendType::Ffmpeg => device_name[0..6].copy_from_slice("ffmpeg".as_bytes()),
+        #[cfg(feature = "vaapi")]
+        VideoBackendType::Vaapi => device_name[0..5].copy_from_slice("vaapi".as_bytes()),
+    };
+    virtio_video_config {
+        version: Le32::from(0),
+        max_caps_length: Le32::from(1024), // Set a big number
+        max_resp_length: Le32::from(1024), // Set a big number
+        device_name,
+    }
 }
 
 impl VirtioDevice for VideoDevice {
@@ -143,12 +182,10 @@ impl VirtioDevice for VideoDevice {
         keep_rds
     }
 
-    fn device_type(&self) -> u32 {
+    fn device_type(&self) -> DeviceType {
         match &self.device_type {
-            #[cfg(feature = "video-decoder")]
-            VideoDeviceType::Decoder => virtio::TYPE_VIDEO_DEC,
-            #[cfg(feature = "video-encoder")]
-            VideoDeviceType::Encoder => virtio::TYPE_VIDEO_ENC,
+            VideoDeviceType::Decoder => DeviceType::VideoDec,
+            VideoDeviceType::Encoder => DeviceType::VideoEnc,
         }
     }
 
@@ -157,134 +194,70 @@ impl VirtioDevice for VideoDevice {
     }
 
     fn features(&self) -> u64 {
-        // We specify the type to avoid an extra compilation error in case no backend is enabled
-        // and this match statement becomes empty.
-        let backend_features: u64 = match self.backend {
-            #[cfg(feature = "libvda")]
-            VideoBackendType::Libvda | VideoBackendType::LibvdaVd => {
-                vda::supported_virtio_features()
-            }
-        };
-
-        self.base_features | backend_features
+        self.base_features | backend_supported_virtio_features(self.backend)
     }
 
     fn read_config(&self, offset: u64, data: &mut [u8]) {
-        let mut device_name = [0u8; 32];
-        match self.backend {
-            #[cfg(feature = "libvda")]
-            VideoBackendType::Libvda => {
-                (&mut device_name[0..6]).copy_from_slice("libvda".as_bytes())
-            }
-            #[cfg(feature = "libvda")]
-            VideoBackendType::LibvdaVd => {
-                (&mut device_name[0..8]).copy_from_slice("libvdavd".as_bytes())
-            }
-        };
-        let mut cfg = protocol::virtio_video_config {
-            version: Le32::from(0),
-            max_caps_length: Le32::from(1024), // Set a big number
-            max_resp_length: Le32::from(1024), // Set a big number
-            device_name,
-        };
-        copy_config(data, 0, cfg.as_mut_slice(), offset);
+        let mut cfg = build_config(self.backend);
+        copy_config(data, 0, cfg.as_bytes_mut(), offset);
     }
 
     fn activate(
         &mut self,
         mem: GuestMemory,
         interrupt: Interrupt,
-        mut queues: Vec<virtio::queue::Queue>,
-        mut queue_evts: Vec<Event>,
-    ) {
+        mut queues: Vec<(virtio::queue::Queue, Event)>,
+    ) -> anyhow::Result<()> {
         if queues.len() != QUEUE_SIZES.len() {
-            error!(
+            return Err(anyhow!(
                 "wrong number of queues are passed: expected {}, actual {}",
                 queues.len(),
                 QUEUE_SIZES.len()
-            );
-            return;
-        }
-        if queue_evts.len() != QUEUE_SIZES.len() {
-            error!(
-                "wrong number of events are passed: expected {}, actual {}",
-                queue_evts.len(),
-                QUEUE_SIZES.len()
-            );
+            ));
         }
 
-        let (self_kill_evt, kill_evt) = match Event::new().and_then(|e| Ok((e.try_clone()?, e))) {
-            Ok(v) => v,
-            Err(e) => {
-                error!("failed to create kill Event pair: {:?}", e);
-                return;
-            }
-        };
+        let (self_kill_evt, kill_evt) = Event::new()
+            .and_then(|e| Ok((e.try_clone()?, e)))
+            .context("failed to create kill Event pair")?;
         self.kill_evt = Some(self_kill_evt);
 
-        let cmd_queue = queues.remove(0);
-        let cmd_evt = queue_evts.remove(0);
-        let event_queue = queues.remove(0);
-        let event_evt = queue_evts.remove(0);
+        let (cmd_queue, cmd_evt) = queues.remove(0);
+        let (event_queue, event_evt) = queues.remove(0);
         let backend = self.backend;
-        let resource_bridge = match self.resource_bridge.take() {
-            Some(r) => r,
-            None => {
-                error!("no resource bridge is passed");
-                return;
-            }
-        };
+        let resource_bridge = self
+            .resource_bridge
+            .take()
+            .context("no resource bridge is passed")?;
         let mut worker = Worker::new(
-            interrupt,
             mem.clone(),
             cmd_queue,
-            cmd_evt,
+            interrupt.clone(),
             event_queue,
-            event_evt,
-            kill_evt,
+            interrupt,
         );
+
         let worker_result = match &self.device_type {
             #[cfg(feature = "video-decoder")]
             VideoDeviceType::Decoder => thread::Builder::new()
-                .name("virtio video decoder".to_owned())
+                .name("v_video_decoder".to_owned())
                 .spawn(move || {
-                    let device: Box<dyn Device> = match backend {
-                        #[cfg(feature = "libvda")]
-                        VideoBackendType::Libvda => {
-                            let vda = match decoder::backend::vda::LibvdaDecoder::new(
-                                libvda::decode::VdaImplType::Gavda,
-                            ) {
-                                Ok(vda) => vda,
-                                Err(e) => {
-                                    error!("Failed to initialize VDA for decoder: {}", e);
-                                    return;
-                                }
-                            };
-                            Box::new(decoder::Decoder::new(vda, resource_bridge, mem))
-                        }
-                        #[cfg(feature = "libvda")]
-                        VideoBackendType::LibvdaVd => {
-                            let vda = match decoder::backend::vda::LibvdaDecoder::new(
-                                libvda::decode::VdaImplType::Gavd,
-                            ) {
-                                Ok(vda) => vda,
-                                Err(e) => {
-                                    error!("Failed to initialize VD for decoder: {}", e);
-                                    return;
-                                }
-                            };
-                            Box::new(decoder::Decoder::new(vda, resource_bridge, mem))
-                        }
-                    };
+                    let device: Box<dyn Device> =
+                        match create_decoder_device(backend, resource_bridge, mem) {
+                            Ok(value) => value,
+                            Err(e) => {
+                                error!("{}", e);
+                                return;
+                            }
+                        };
 
-                    if let Err(e) = worker.run(device) {
+                    if let Err(e) = worker.run(device, &cmd_evt, &event_evt, &kill_evt) {
                         error!("Failed to start decoder worker: {}", e);
                     };
                     // Don't return any information since the return value is never checked.
                 }),
             #[cfg(feature = "video-encoder")]
             VideoDeviceType::Encoder => thread::Builder::new()
-                .name("virtio video encoder".to_owned())
+                .name("v_video_encoder".to_owned())
                 .spawn(move || {
                     let device: Box<dyn Device> = match backend {
                         #[cfg(feature = "libvda")]
@@ -310,21 +283,90 @@ impl VirtioDevice for VideoDevice {
                             error!("Invalid backend for encoder");
                             return;
                         }
+                        #[cfg(feature = "ffmpeg")]
+                        VideoBackendType::Ffmpeg => {
+                            let ffmpeg = encoder::backend::ffmpeg::FfmpegEncoder::new();
+
+                            match encoder::EncoderDevice::new(ffmpeg, resource_bridge, mem) {
+                                Ok(encoder) => Box::new(encoder),
+                                Err(e) => {
+                                    error!("Failed to create encoder device: {}", e);
+                                    return;
+                                }
+                            }
+                        }
+                        #[cfg(feature = "vaapi")]
+                        VideoBackendType::Vaapi => {
+                            error!("The VA-API encoder is not supported yet");
+                            return;
+                        }
                     };
 
-                    if let Err(e) = worker.run(device) {
+                    if let Err(e) = worker.run(device, &cmd_evt, &event_evt, &kill_evt) {
                         error!("Failed to start encoder worker: {}", e);
                     }
                 }),
+            #[allow(unreachable_patterns)]
+            // A device will never be created for a device type not enabled
+            device_type => unreachable!("Not compiled with {:?} enabled", device_type),
         };
-        if let Err(e) = worker_result {
-            error!(
-                "failed to spawn virtio_video worker for {:?}: {}",
-                &self.device_type, e
-            );
-            return;
-        }
+        worker_result.with_context(|| {
+            format!(
+                "failed to spawn virtio_video worker for {:?}",
+                &self.device_type
+            )
+        })?;
+        Ok(())
     }
+}
+
+impl Suspendable for VideoDevice {}
+
+#[cfg(feature = "video-decoder")]
+pub fn create_decoder_device(
+    backend: VideoBackendType,
+    resource_bridge: Tube,
+    mem: GuestMemory,
+) -> Result<Box<dyn Device>> {
+    Ok(match backend {
+        #[cfg(feature = "libvda")]
+        VideoBackendType::Libvda => {
+            let vda = decoder::backend::vda::LibvdaDecoder::new(libvda::decode::VdaImplType::Gavda)
+                .map_err(|e| {
+                    Error::DeviceCreationFailed(format!(
+                        "Failed to initialize VDA for decoder: {}",
+                        e
+                    ))
+                })?;
+            Box::new(decoder::Decoder::new(vda, resource_bridge, mem))
+        }
+        #[cfg(feature = "libvda")]
+        VideoBackendType::LibvdaVd => {
+            let vda = decoder::backend::vda::LibvdaDecoder::new(libvda::decode::VdaImplType::Gavd)
+                .map_err(|e| {
+                    Error::DeviceCreationFailed(format!(
+                        "Failed to initialize VD for decoder: {}",
+                        e
+                    ))
+                })?;
+            Box::new(decoder::Decoder::new(vda, resource_bridge, mem))
+        }
+        #[cfg(feature = "ffmpeg")]
+        VideoBackendType::Ffmpeg => {
+            let ffmpeg = decoder::backend::ffmpeg::FfmpegDecoder::new();
+            Box::new(decoder::Decoder::new(ffmpeg, resource_bridge, mem))
+        }
+        #[cfg(feature = "vaapi")]
+        VideoBackendType::Vaapi => {
+            let va = decoder::backend::vaapi::VaapiDecoder::new().map_err(|e| {
+                Error::DeviceCreationFailed(format!(
+                    "Failed to initialize VA-API driver for decoder: {}",
+                    e
+                ))
+            })?;
+            Box::new(decoder::Decoder::new(va, resource_bridge, mem))
+        }
+    })
 }
 
 /// Manages the zero-length, EOS-marked buffer signaling the end of a stream.

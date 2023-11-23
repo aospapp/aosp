@@ -33,12 +33,76 @@ prop {
     prop_name: "persist.bluetooth.btsnooplogmode"
 }
 
+# When snoop_log_mode is set as filtered, this filter truncates ACL packets (non-fragment)
+# to fixed (MAX_HCI_ACL_LEN) number of bytes
+prop {
+    api_name: "snoop_log_filter_snoop_headers_enabled"
+    type: Boolean
+    scope: Public
+    access: ReadWrite
+    prop_name: "persist.bluetooth.snooplogfilter.headers.enabled"
+}
+
+# When snoop_log_mode is set as filtered, this filter discards A2DP media packets (non-split mode)
+prop {
+    api_name: "snoop_log_filter_profile_a2dp_enabled"
+    type: Boolean
+    scope: Public
+    access: ReadWrite
+    prop_name: "persist.bluetooth.snooplogfilter.profiles.a2dp.enabled"
+}
+
+# When snoop_log_mode is set as filtered, this filters MAP packets based on the filter mode:
+#  fullfilter - discard whole packet
+#  header     - truncate to fixed length
+#  magic      - fill with a magic string, such as: "PROHIBITED"
+prop {
+    api_name: "snoop_log_filter_profile_map"
+    type: Enum
+    scope: Public
+    access: ReadWrite
+    enum_values: "empty|disabled|fullfilter|header|magic"
+    prop_name: "persist.bluetooth.snooplogfilter.profiles.map"
+}
+
+# When snoop_log_mode is set as filtered, this filters PBAP and HFP packets (CPBR, CLCC)
+# based on the filter mode:
+#  fullfilter - discard whole packet
+#  header     - truncate to fixed length
+#  magic      - fill with a magic string, such as: "PROHIBITED"
+prop {
+    api_name: "snoop_log_filter_profile_pbap"
+    type: Enum
+    scope: Public
+    access: ReadWrite
+    enum_values: "empty|disabled|fullfilter|header|magic"
+    prop_name: "persist.bluetooth.snooplogfilter.profiles.pbap"
+}
+
+# When snoop_log_mode is set as filtered, this filter truncates RFCOMM UIH packet
+# to fixed (L2CAP_HEADER_SIZE) number of bytes
+prop {
+    api_name: "snoop_log_filter_profile_rfcomm_enabled"
+    type: Boolean
+    scope: Public
+    access: ReadWrite
+    prop_name: "persist.bluetooth.snooplogfilter.profiles.rfcomm.enabled"
+}
+
 prop {
     api_name: "factory_reset"
     type: Boolean
     scope: Public
     access: ReadWrite
     prop_name: "persist.bluetooth.factoryreset"
+}
+
+prop {
+    api_name: "le_audio_allow_list"
+    type: StringList
+    scope: Public
+    access: ReadWrite
+    prop_name: "persist.bluetooth.leaudio.allow_list"
 }
 
 ######## Bluetooth configurations
@@ -51,6 +115,36 @@ prop {
     scope: Public
     access: Readonly
     prop_name: "bluetooth.core.gap.le.privacy.enabled"
+}
+
+# Minimum limit for GAP LE connection update time.
+# Set by vendors overlay, read at Bluetooth initialization
+prop {
+    api_name: "getGapLeConnMinLimit"
+    type: Integer
+    scope: Public
+    access: Readonly
+    prop_name: "bluetooth.core.gap.le.conn.min.limit"
+}
+
+# Whether LE Connection with initiating with only LE 1M PHY.
+# Set by vendors overlay, read at Bluetooth initialization
+prop {
+    api_name: "isGapLeConnOnlyInit1mPhyEnabled"
+    type: Boolean
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.gap.le.conn.only_init_1m_phy.enabled"
+}
+
+# Whether Inband ringtone for LeAudio is supported.
+# Set by vendors overlay, read at Bluetooth initialization
+prop {
+    api_name: "isLeAudioInbandRingtoneSupported"
+    type: Boolean
+    scope: Public
+    access: Readonly
+    prop_name: "bluetooth.core.le_audio.inband_ringtone.supported"
 }
 
 # The default name of the device.
@@ -71,6 +165,31 @@ prop {
     scope: Public
     access: Readonly
     prop_name: "bluetooth.device.class_of_device"
+}
+
+# The default audio profile for dual mode audio devices for output only audio. The value should be
+# the integer value of BluetoothProfile#A2DP (2) or BluetoothProfile#LE_AUDIO (22). If the value is
+# set to anything else, LE Audio will be the default.
+# Set by vendors overlay, read at Bluetooth initialization
+prop {
+    api_name: "getDefaultOutputOnlyAudioProfile"
+    type: Integer
+    scope: Public
+    access: Readonly
+    prop_name: "bluetooth.device.default_output_only_audio_profile"
+}
+
+# The default audio profile for dual mode audio devices for duplex (output + input) audio. The
+# value should be the integer value of BluetoothProfile#HEADSET (1) or
+# BluetoothProfile#LE_AUDIO (22). If the value is set to anything else, LE Audio will be the
+# default.
+# Set by vendors overlay, read at Bluetooth initialization
+prop {
+    api_name: "getDefaultDuplexAudioProfile"
+    type: Integer
+    scope: Public
+    access: Readonly
+    prop_name: "bluetooth.device.default_duplex_audio_profile"
 }
 
 # Bluetooth operating voltage in millivolts available for vendors overlay.
@@ -411,4 +530,228 @@ prop {
     scope: Public
     access: Readonly
     prop_name: "bluetooth.profile.vcp.controller.enabled"
+}
+
+# ACL Link supervision timeout
+prop {
+    api_name: "getLinkSupervisionTimeout"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.acl.link_supervision_timeout"
+}
+
+# The following values are used to load default adapter parameters for BR/EDR.
+# The Bluetooth Core Specification should be consulted for the meaning and valid
+# domain of each of these values.
+
+# BR/EDR Page scan activity configuration
+prop {
+    api_name: "getClassicPageScanType"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.classic.page_scan_type"
+}
+prop {
+    api_name: "getClassicPageScanInterval"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.classic.page_scan_interval"
+}
+prop {
+    api_name: "getClassicPageScanWindow"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.classic.page_scan_window"
+}
+
+# BR/EDR Inquiry scan activity configuration
+prop {
+    api_name: "getClassicInquiryScanType"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.classic.inq_scan_type"
+}
+prop {
+    api_name: "getClassicInquiryScanInterval"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.classic.inq_scan_interval"
+}
+prop {
+    api_name: "getClassicInquiryScanWindow"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.classic.inq_scan_window"
+}
+
+# BR/EDR Page Timeout
+prop {
+    api_name: "getClassicPageTimeout"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.classic.page_timeout"
+}
+
+# BR/EDR Sniff Parameters
+# Please refer to BTA_DM_PM_PARK_IDX in bta_api.h to determine how many
+# entries are currently being supported.
+# The SNIFF table entries must be in the order from highest latency (biggest
+# interval) to lowest latency. If there's a conflict among the connected
+# services, the setting with lowest latency wins.
+prop {
+    api_name: "getClassicSniffMaxIntervals"
+    type: UIntList
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.classic.sniff_max_intervals"
+}
+prop {
+    api_name: "getClassicSniffMinIntervals"
+    type: UIntList
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.classic.sniff_min_intervals"
+}
+prop {
+    api_name: "getClassicSniffAttempts"
+    type: UIntList
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.classic.sniff_attempts"
+}
+prop {
+    api_name: "getClassicSniffTimeouts"
+    type: UIntList
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.classic.sniff_timeouts"
+}
+
+# The following values are used to load default adapter parameters for LE.
+# The Bluetooth Core Specification should be consulted for the meaning and valid
+# domain of each of these values.
+
+# LE connection parameters.
+prop {
+    api_name: "getLeMinConnectionInterval"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.le.min_connection_interval"
+}
+prop {
+    api_name: "getLeMaxConnectionInterval"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.le.max_connection_interval"
+}
+prop {
+    api_name: "getLeConnectionLatency"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.le.connection_latency"
+}
+prop {
+    api_name: "getLeConnectionSupervisionTimeout"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.le.connection_supervision_timeout"
+}
+
+# Direct connection timeout in ms
+prop {
+    api_name: "getLeDirectConnectionTimeout"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.le.direct_connection_timeout"
+}
+
+# LE connection scan interval/window
+prop {
+    api_name: "getLeConnectionScanIntervalFast"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.le.connection_scan_interval_fast"
+}
+prop {
+    api_name: "getLeConnectionScanWindowFast"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.le.connection_scan_window_fast"
+}
+prop {
+    api_name: "getLeConnectionScanWindow2mFast"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.le.connection_scan_window_2m_fast"
+}
+prop {
+    api_name: "getLeConnectionScanWindowCodedFast"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.le.connection_scan_window_coded_fast"
+}
+prop {
+    api_name: "getLeConnectionScanIntervalSlow"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.le.connection_scan_interval_slow"
+}
+prop {
+    api_name: "getLeConnectionScanWindowSlow"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.le.connection_scan_window_slow"
+}
+
+# LE scanning parameters used during BTM inquiry
+prop {
+    api_name: "getLeInquiryScanInterval"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.le.inquiry_scan_interval"
+}
+prop {
+    api_name: "getLeInquiryScanWindow"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.le.inquiry_scan_window"
+}
+
+# Used to disable LeGetVendorCapabilities.
+prop {
+    api_name: "getLeVendorCapabilitiesEnabled"
+    type: Boolean
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.core.le.vendor_capabilities.enabled"
+}
+
+# Used to disable enhanced SCO connection
+prop {
+    api_name: "getDisableEnchancedConnection"
+    type: Boolean
+    scope: Internal
+    access: Readonly
+    prop_name: "bluetooth.sco.disable_enhanced_connection"
 }

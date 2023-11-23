@@ -30,8 +30,8 @@ license {
     ],
 }
 
-cc_defaults {
-    name: "logcat_defaults",
+cc_binary {
+    name: "logcat",
 
     cflags: [
         "-Wall",
@@ -45,12 +45,6 @@ cc_defaults {
     ],
     static_libs: ["liblog"],
     logtags: ["event.logtags"],
-}
-
-cc_binary {
-    name: "logcat",
-
-    defaults: ["logcat_defaults"],
     srcs: [
         "logcat.cpp",
     ],
@@ -58,7 +52,7 @@ cc_binary {
 
 sh_binary {
     name: "logcatd",
-    src: "logcatd",
+    src: "logcatd.sh",
 }
 
 sh_binary {

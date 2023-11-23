@@ -16,13 +16,15 @@
 
 package com.android.tv.settings.device.displaysound;
 
-import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
 import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
 
 import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
+import android.hardware.display.DisplayManager;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.view.Display;
 
 import androidx.annotation.Keep;
 import androidx.annotation.VisibleForTesting;
@@ -32,7 +34,7 @@ import androidx.preference.PreferenceGroup;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RadioPreference;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 /**
  * This Fragment is responsible for allowing the user to express a preference for matching the
@@ -52,7 +54,6 @@ public class MatchContentFrameRateFragment extends SettingsPreferenceFragment {
 
     private String mCurrentPreferenceKey;
 
-
     /** @return the new instance of the class */
     public static MatchContentFrameRateFragment newInstance() {
         return new MatchContentFrameRateFragment();
@@ -67,13 +68,23 @@ public class MatchContentFrameRateFragment extends SettingsPreferenceFragment {
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         setPreferencesFromResource(R.xml.match_content_frame_rate, null);
 
+        if (!isSeamlessSwitchingSupported()) {
+            removeSeamlessPreference();
+        }
+
         // Do not show sidebar info texts in case of 1 panel settings.
         if (FlavorUtils.getFlavor(getContext()) != FLAVOR_CLASSIC) {
             createInfoFragments();
         }
+
         mCurrentPreferenceKey = preferenceKeyFromSetting();
         getRadioPreference(mCurrentPreferenceKey).setChecked(true);
         getRadioPreference(mCurrentPreferenceKey).clearOtherRadioPreferences(getPreferenceGroup());
+    }
+
+    @VisibleForTesting
+    boolean isSeamlessSwitchingSupported() {
+        return getDisplayManager().supportsSeamlessRefreshRateSwitching();
     }
 
     @VisibleForTesting
@@ -143,11 +154,18 @@ public class MatchContentFrameRateFragment extends SettingsPreferenceFragment {
         return TvSettingsEnums.DISPLAY_SOUND_MATCH_CONTENT_FRAMERATE;
     }
 
+    @VisibleForTesting
+    DisplayManager getDisplayManager() {
+        return getContext().getSystemService(DisplayManager.class);
+    }
+
     private int getCurrentSettingValue() {
+        int defaultSetting = isSeamlessSwitchingSupported()
+                ? Settings.Secure.MATCH_CONTENT_FRAMERATE_SEAMLESSS_ONLY
+                : Settings.Secure.MATCH_CONTENT_FRAMERATE_NEVER;
         return Settings.Secure.getInt(
                 getContext().getContentResolver(),
-                Settings.Secure.MATCH_CONTENT_FRAME_RATE,
-                Settings.Secure.MATCH_CONTENT_FRAMERATE_SEAMLESSS_ONLY);
+                Settings.Secure.MATCH_CONTENT_FRAME_RATE, defaultSetting);
     }
 
     private String preferenceKeyFromSetting() {
@@ -183,15 +201,35 @@ public class MatchContentFrameRateFragment extends SettingsPreferenceFragment {
 
     private void createInfoFragments() {
         Preference seamlessPreference = findPreference(KEY_MATCH_CONTENT_FRAME_RATE_SEAMLESS);
-        seamlessPreference.setFragment(
-                MatchContentFrameRateInfo.SeamlessInfoFragment.class.getName());
+        if (seamlessPreference != null) {
+            if (getDisplayManager().getDisplay(Display.DEFAULT_DISPLAY)
+                    .getMode().getAlternativeRefreshRates().length != 0) {
+                seamlessPreference.setFragment(
+                        MatchContentFrameRateInfo.SeamlessInfoFragment.class.getName());
+            } else {
+                seamlessPreference.setFragment(
+                        MatchContentFrameRateInfo.SeamlessUnsupportedInfoFragment.class.getName());
+            }
+        }
 
         Preference nonSeamlessPreference = findPreference(
                 KEY_MATCH_CONTENT_FRAME_RATE_NON_SEAMLESS);
-        nonSeamlessPreference.setFragment(
-                MatchContentFrameRateInfo.NonSeamlessInfoFragment.class.getName());
+        if (nonSeamlessPreference != null) {
+            nonSeamlessPreference.setFragment(
+                    MatchContentFrameRateInfo.NonSeamlessInfoFragment.class.getName());
+        }
 
         Preference neverPreference = findPreference(KEY_MATCH_CONTENT_FRAME_RATE_NEVER);
-        neverPreference.setFragment(MatchContentFrameRateInfo.NeverInfoFragment.class.getName());
+        if (neverPreference != null) {
+            neverPreference.setFragment(
+                    MatchContentFrameRateInfo.NeverInfoFragment.class.getName());
+        }
+    }
+
+    private void removeSeamlessPreference() {
+        Preference seamlessPreference = findPreference(KEY_MATCH_CONTENT_FRAME_RATE_SEAMLESS);
+        if (seamlessPreference != null) {
+            getPreferenceGroup().removePreference(seamlessPreference);
+        }
     }
 }

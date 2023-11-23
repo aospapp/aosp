@@ -27,7 +27,7 @@ GenJavaTests(
     javacopts = DOCLINT_HTML_AND_SYNTAX,
     deps = [
         "//java/dagger/internal/codegen/validation",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2021 Unicode, Inc.
+<!-- Copyright © 1991-2022 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 SPDX-License-Identifier: Unicode-DFS-2016
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
@@ -37,6 +37,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="am">אמהרית</language>
 			<language type="an">אראגונית</language>
 			<language type="ang">אנגלית עתיקה</language>
+			<language type="ann">אובולו</language>
 			<language type="anp">אנג׳יקה</language>
 			<language type="ar">ערבית</language>
 			<language type="ar_001">ערבית ספרותית</language>
@@ -48,6 +49,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="as">אסאמית</language>
 			<language type="asa">אסו</language>
 			<language type="ast">אסטורית</language>
+			<language type="atj">אטיקמק</language>
 			<language type="av">אווארית</language>
 			<language type="awa">אוואדית</language>
 			<language type="ay">איימארית</language>
@@ -108,13 +110,21 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ckb">כורדית סוראנית</language>
 			<language type="ckb" alt="menu">↑↑↑</language>
 			<language type="ckb" alt="variant">↑↑↑</language>
+			<language type="clc">צ׳ילקוטין</language>
 			<language type="co">קורסיקנית</language>
 			<language type="cop">קופטית</language>
 			<language type="cr">קרי</language>
+			<language type="crg">מצ׳יף</language>
 			<language type="crh">טטרית של קרים</language>
+			<language type="crj">קרי דרום מזרחי</language>
+			<language type="crk">קרי מישורים</language>
+			<language type="crl">קרי צפון מזרחי</language>
+			<language type="crm">מוס קרי</language>
+			<language type="crr">אלגונקוויאן בקרוליינה</language>
 			<language type="crs">קריאולית (סיישל)</language>
 			<language type="cs">צ׳כית</language>
 			<language type="csb">קשובית</language>
+			<language type="csw">סקרי של אזור הביצות</language>
 			<language type="cu">סלאבית כנסייתית עתיקה</language>
 			<language type="cv">צ׳ובאש</language>
 			<language type="cy">וולשית</language>
@@ -209,8 +219,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="hai">האידה</language>
 			<language type="hak">סינית האקה</language>
 			<language type="haw">הוואית</language>
+			<language type="hax">האידה דרומית</language>
 			<language type="he">עברית</language>
 			<language type="hi">הינדי</language>
+			<language type="hi_Latn">↑↑↑</language>
+			<language type="hi_Latn" alt="variant">הינגליש</language>
 			<language type="hil">היליגאינון</language>
 			<language type="hit">חתית</language>
 			<language type="hmn">המונג</language>
@@ -221,6 +234,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ht">קריאולית (האיטי)</language>
 			<language type="hu">הונגרית</language>
 			<language type="hup">הופה</language>
+			<language type="hur">הלקומלם</language>
 			<language type="hy">ארמנית</language>
 			<language type="hz">הררו</language>
 			<language type="ia">‏אינטרלינגואה</language>
@@ -231,6 +245,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ig">איגבו</language>
 			<language type="ii">סצ׳ואן יי</language>
 			<language type="ik">אינופיאק</language>
+			<language type="ikt">אינוקטיטוט במערב קנדה</language>
 			<language type="ilo">אילוקו</language>
 			<language type="inh">אינגושית</language>
 			<language type="io">אידו</language>
@@ -258,7 +273,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="kea">קאבוורדיאנו</language>
 			<language type="kfo">קורו</language>
 			<language type="kg">קונגו</language>
-			<language type="kgp" draft="contributed">קיינגאנג</language>
+			<language type="kgp">קיינגאנג</language>
 			<language type="kha">קהאסי</language>
 			<language type="kho">קוטאנזית</language>
 			<language type="khq">קוירה צ׳יני</language>
@@ -289,6 +304,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="kut">קוטנאי</language>
 			<language type="kv">קומי</language>
 			<language type="kw">קורנית</language>
+			<language type="kwk">קוואקוואלה</language>
 			<language type="ky">קירגיזית</language>
 			<language type="la">לטינית</language>
 			<language type="lad">לדינו</language>
@@ -300,6 +316,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="lg">גאנדה</language>
 			<language type="li">לימבורגית</language>
 			<language type="lij" draft="contributed">ליגורית</language>
+			<language type="lil">לילואט</language>
 			<language type="lkt">לקוטה</language>
 			<language type="ln">לינגלה</language>
 			<language type="lo">לאו</language>
@@ -307,6 +324,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="lou">קריאולית לואיזיאנית</language>
 			<language type="loz">לוזית</language>
 			<language type="lrc">לורית צפונית</language>
+			<language type="lsm">סמיה</language>
 			<language type="lt">ליטאית</language>
 			<language type="lu">לובה-קטנגה</language>
 			<language type="lua">לובה-לולואה</language>
@@ -342,9 +360,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="mn">מונגולית</language>
 			<language type="mnc">מנצ׳ו</language>
 			<language type="mni">מניפורית</language>
+			<language type="moe">אינו-אמון</language>
 			<language type="moh">מוהוק</language>
 			<language type="mos">מוסי</language>
-			<language type="mr">מראטהי</language>
+			<language type="mr">מראטהית</language>
 			<language type="ms">מלאית</language>
 			<language type="mt">מלטית</language>
 			<language type="mua">מונדאנג</language>
@@ -370,7 +389,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="nia">ניאס</language>
 			<language type="niu">ניואן</language>
 			<language type="nl">הולנדית</language>
-			<language type="nl_BE">פלמית</language>
+			<language type="nl_BE">הולנדית (פלמית)</language>
 			<language type="nmg">קוואסיו</language>
 			<language type="nn">נורווגית חדשה</language>
 			<language type="nnh">נגיאמבון</language>
@@ -390,6 +409,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="nzi">נזימה</language>
 			<language type="oc">אוקסיטנית</language>
 			<language type="oj">אוג׳יבווה</language>
+			<language type="ojb">אוג׳יבווה צפון מערבית</language>
+			<language type="ojc">אוג׳יבווה (מרכז)</language>
+			<language type="ojs">אוג׳י-קרי</language>
+			<language type="ojw">אוביג׳ווה מערבית</language>
+			<language type="oka">אוקאנגן</language>
 			<language type="om">אורומו</language>
 			<language type="or">אורייה</language>
 			<language type="os">אוסטית</language>
@@ -401,12 +425,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="pam">פמפאניה</language>
 			<language type="pap">פפיאמנטו</language>
 			<language type="pau">פלוואן</language>
-			<language type="pcm">ניגרית פידג׳ית</language>
+			<language type="pcm">פידגין ניגרי</language>
 			<language type="peo">פרסית עתיקה</language>
 			<language type="phn">פיניקית</language>
 			<language type="pi">פאלי</language>
+			<language type="pis">פייג׳ין</language>
 			<language type="pl">פולנית</language>
 			<language type="pon">פונפיאן</language>
+			<language type="pqm">מליסיט-פאסמקוודי</language>
 			<language type="prg">פרוסית</language>
 			<language type="pro">פרובנסאל עתיקה</language>
 			<language type="ps">פאשטו</language>
@@ -459,6 +485,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="sid">סידאמו</language>
 			<language type="sk">סלובקית</language>
 			<language type="sl">סלובנית</language>
+			<language type="slh">לשוטסיד</language>
 			<language type="sm">סמואית</language>
 			<language type="sma">סאמי דרומית</language>
 			<language type="smj">לולה סאמי</language>
@@ -475,6 +502,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ss">סאווזי</language>
 			<language type="ssy">סאהו</language>
 			<language type="st">סותו דרומית</language>
+			<language type="str">סאליש מיצרי חואן דה פוקה</language>
 			<language type="su">סונדנזית</language>
 			<language type="suk">סוקומה</language>
 			<language type="sus">סוסו</language>
@@ -486,13 +514,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="syc">סירית קלאסית</language>
 			<language type="syr">סורית</language>
 			<language type="ta">טמילית</language>
+			<language type="tce">טצ׳ון דרומית</language>
 			<language type="te">טלוגו</language>
 			<language type="tem">טימנה</language>
 			<language type="teo">טסו</language>
 			<language type="ter">טרנו</language>
 			<language type="tet">טטום</language>
 			<language type="tg">טג׳יקית</language>
+			<language type="tgx">טגישית</language>
 			<language type="th">תאית</language>
+			<language type="tht">טלתנית</language>
 			<language type="ti">תיגרינית</language>
 			<language type="tig">טיגרית</language>
 			<language type="tiv">טיב</language>
@@ -505,12 +536,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="tn">סוואנה</language>
 			<language type="to">טונגאית</language>
 			<language type="tog">ניאסה טונגה</language>
+			<language type="tok">טוקי פונה</language>
 			<language type="tpi">טוק פיסין</language>
 			<language type="tr">טורקית</language>
 			<language type="trv">טרוקו</language>
 			<language type="ts">טסונגה</language>
 			<language type="tsi">טסימשיאן</language>
 			<language type="tt">טטרית</language>
+			<language type="ttm">טצ׳ון צפונית</language>
 			<language type="tum">טומבוקה</language>
 			<language type="tvl">טובאלו</language>
 			<language type="tw">טווי</language>
@@ -549,6 +582,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ybb">ימבה</language>
 			<language type="yi">יידיש</language>
 			<language type="yo">יורובה</language>
+			<language type="yrl">נינגטו</language>
 			<language type="yue">קנטונזית</language>
 			<language type="yue" alt="menu">סינית, קנטונזית</language>
 			<language type="za">זואנג</language>
@@ -568,12 +602,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="zza">זאזא</language>
 		</languages>
 		<scripts>
-			<script type="Adlm" draft="contributed">אדלם</script>
+			<script type="Adlm">אדלם</script>
 			<script type="Aghb" draft="contributed">אלבני קווקזי</script>
 			<script type="Ahom" draft="contributed">אהום</script>
 			<script type="Arab">ערבי</script>
 			<script type="Arab" alt="variant">ערבי-פרסי</script>
-			<script type="Aran" draft="contributed">נסתעליק</script>
+			<script type="Aran">נסתעליק</script>
 			<script type="Armi" draft="contributed">ארמית רשמית</script>
 			<script type="Armn">ארמני</script>
 			<script type="Avst" draft="contributed">אווסטן</script>
@@ -588,11 +622,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<script type="Brai">ברייל</script>
 			<script type="Bugi" draft="contributed">בוגינזי</script>
 			<script type="Buhd" draft="contributed">בוהיד</script>
-			<script type="Cakm" draft="contributed">צ׳אקמה</script>
-			<script type="Cans" draft="contributed">סילביקה קדומה מאוחדת של קנדה</script>
+			<script type="Cakm">צ׳אקמה</script>
+			<script type="Cans">כתב הברתי קנדי ילידי מאוחד</script>
 			<script type="Cari" draft="contributed">קריאן</script>
 			<script type="Cham">צ׳אם</script>
-			<script type="Cher">צ׳ירוקי</script>
+			<script type="Cher">צ׳רוקי</script>
 			<script type="Chrs" draft="contributed">כורזמיאן</script>
 			<script type="Copt">קופטי</script>
 			<script type="Cpmn" draft="contributed">ציפרו-מינואן</script>
@@ -672,17 +706,17 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<script type="Modi" draft="contributed">מודי</script>
 			<script type="Mong">מונגולי</script>
 			<script type="Mroo" draft="contributed">מרו</script>
-			<script type="Mtei" draft="contributed">מאיטי מאייק</script>
+			<script type="Mtei">מאיטי מאייק</script>
 			<script type="Mult" draft="contributed">מולטיני</script>
 			<script type="Mymr">מיאנמר</script>
 			<script type="Nand" draft="contributed">ננדינאגרי</script>
 			<script type="Narb" draft="contributed">ערב צפון עתיק</script>
 			<script type="Nbat" draft="contributed">נבטי</script>
 			<script type="Newa" draft="contributed">נווארית</script>
-			<script type="Nkoo" draft="contributed">נ׳קו</script>
+			<script type="Nkoo">נ׳קו</script>
 			<script type="Nshu" draft="contributed">נושו</script>
 			<script type="Ogam" draft="contributed">אוהם</script>
-			<script type="Olck" draft="contributed">אול צ׳יקי</script>
+			<script type="Olck">אול צ׳יקי</script>
 			<script type="Orkh" draft="contributed">אורחון</script>
 			<script type="Orya">אודייה</script>
 			<script type="Osge" draft="contributed">אוסייג׳</script>
@@ -699,7 +733,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<script type="Prti" draft="contributed">פרטית כתובה</script>
 			<script type="Qaag" draft="contributed">זאוגיי</script>
 			<script type="Rjng" draft="contributed">רג׳אנג</script>
-			<script type="Rohg" draft="contributed">חניפי</script>
+			<script type="Rohg">חניפי</script>
 			<script type="Runr">רוני</script>
 			<script type="Samr" draft="contributed">שומרונית</script>
 			<script type="Sarb" draft="contributed">דרום ערבית</script>
@@ -714,7 +748,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<script type="Sogo" draft="contributed">סוגדית עתיקה</script>
 			<script type="Sora" draft="contributed">סורה סומפנג</script>
 			<script type="Soyo" draft="contributed">סויומבו</script>
-			<script type="Sund" draft="contributed">סונדאנית</script>
+			<script type="Sund">סונדאני</script>
 			<script type="Sylo" draft="contributed">סילוטי נגרי</script>
 			<script type="Syrc">סורי</script>
 			<script type="Syrj">סורי מערבי</script>
@@ -727,7 +761,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<script type="Tang" draft="contributed">טאנגוט</script>
 			<script type="Tavt" draft="contributed">טאי וייט</script>
 			<script type="Telu">טלוגו</script>
-			<script type="Tfng" draft="contributed">טיפינה</script>
+			<script type="Tfng">טיפינה</script>
 			<script type="Tglg">טגלוג</script>
 			<script type="Thaa">תאנה</script>
 			<script type="Thai">תאי</script>
@@ -736,14 +770,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<script type="Tnsa" draft="contributed">טנגסה</script>
 			<script type="Toto" draft="contributed">טוטו</script>
 			<script type="Ugar">אוגריתי</script>
-			<script type="Vaii" draft="contributed">ואי</script>
+			<script type="Vaii">ואי</script>
 			<script type="Vith" draft="contributed">ויטוקוקי</script>
 			<script type="Wara" draft="contributed">ווראנג סיטי</script>
 			<script type="Wcho" draft="contributed">וונצ׳ו</script>
 			<script type="Xpeo">פרסי עתיק</script>
 			<script type="Xsux" draft="contributed">כתב היתדות השומרי-אכדי</script>
 			<script type="Yezi" draft="contributed">יעזי</script>
-			<script type="Yiii" draft="contributed">יי</script>
+			<script type="Yiii">יי</script>
 			<script type="Zanb" draft="contributed">כיכר זנבזר</script>
 			<script type="Zinh" draft="contributed">מורש</script>
 			<script type="Zmth">סימון מתמטי</script>
@@ -820,7 +854,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<territory type="BS">איי בהאמה</territory>
 			<territory type="BT">בהוטן</territory>
 			<territory type="BV">האי בובה</territory>
-			<territory type="BW">בוצוואנה</territory>
+			<territory type="BW">בוטסואנה</territory>
 			<territory type="BY">בלארוס</territory>
 			<territory type="BZ">בליז</territory>
 			<territory type="CA">קנדה</territory>
@@ -971,6 +1005,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<territory type="NR">נאורו</territory>
 			<territory type="NU">ניווה</territory>
 			<territory type="NZ">ניו זילנד</territory>
+			<territory type="NZ" alt="variant">אאוטארואה</territory>
 			<territory type="OM">עומאן</territory>
 			<territory type="PA">פנמה</territory>
 			<territory type="PE">פרו</territory>
@@ -1004,7 +1039,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<territory type="SI">סלובניה</territory>
 			<territory type="SJ">סבאלברד ויאן מאיין</territory>
 			<territory type="SK">סלובקיה</territory>
-			<territory type="SL">סיירה לאונה</territory>
+			<territory type="SL">סיירה לאון</territory>
 			<territory type="SM">סן מרינו</territory>
 			<territory type="SN">סנגל</territory>
 			<territory type="SO">סומליה</territory>
@@ -1030,6 +1065,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<territory type="TN">תוניסיה</territory>
 			<territory type="TO">טונגה</territory>
 			<territory type="TR">טורקיה</territory>
+			<territory type="TR" alt="variant">טורקיה</territory>
 			<territory type="TT">טרינידד וטובגו</territory>
 			<territory type="TV">טובאלו</territory>
 			<territory type="TW">טייוואן</territory>
@@ -1199,10 +1235,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<types>
 			<type key="calendar" type="buddhist">לוח השנה הבודהיסטי</type>
 			<type key="calendar" type="chinese">לוח השנה הסיני</type>
-			<type key="calendar" type="coptic">לוח שנה קופטי</type>
+			<type key="calendar" type="coptic">לוח השנה הקופטי</type>
 			<type key="calendar" type="dangi">לוח השנה הקוריאני</type>
 			<type key="calendar" type="ethiopic">לוח השנה האתיופי</type>
-			<type key="calendar" type="ethiopic-amete-alem" draft="contributed">לוח השנה אמטה אלם האתיופי</type>
+			<type key="calendar" type="ethiopic-amete-alem">לוח השנה אמטה אלם האתיופי</type>
 			<type key="calendar" type="gregorian">לוח השנה הגרגוריאני</type>
 			<type key="calendar" type="hebrew">לוח השנה העברי</type>
 			<type key="calendar" type="indian">לוח השנה ההודי הלאומי</type>
@@ -1228,22 +1264,22 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="colCaseLevel" type="yes" draft="contributed">מיין באופן תלוי רישיות</type>
 			<type key="collation" type="big5han">מיון סינית מסורתית</type>
 			<type key="collation" type="compat">סדר מיון קודם, עבור תאימות</type>
-			<type key="collation" type="dictionary" draft="contributed">סדר מיון במילון</type>
+			<type key="collation" type="dictionary">סדר מיון במילון</type>
 			<type key="collation" type="ducet">סדר מיון Unicode המוגדר כברירת מחדל</type>
 			<type key="collation" type="emoji" draft="contributed">סדר מיון אימוג׳י</type>
 			<type key="collation" type="eor">חוקי סדר אירופיים</type>
-			<type key="collation" type="gb2312han">מיון סינית מודרנית</type>
+			<type key="collation" type="gb2312han">סדר מיון סיני פשוט - GB2312</type>
 			<type key="collation" type="phonebook">מיון ספר טלפונים</type>
-			<type key="collation" type="phonetic" draft="contributed">סדר מיון פונטי</type>
+			<type key="collation" type="phonetic">סדר מיון פונטי</type>
 			<type key="collation" type="pinyin">מיון פיניין</type>
-			<type key="collation" type="reformed" draft="contributed">סדר מיון מתוקן</type>
+			<type key="collation" type="reformed">סדר מיון מתוקן</type>
 			<type key="collation" type="search">חיפוש למטרה כללית</type>
 			<type key="collation" type="searchjl" draft="contributed">חפש לפי העיצור הראשון באותיות הנגול</type>
 			<type key="collation" type="standard">סדר מיון רגיל</type>
-			<type key="collation" type="stroke" draft="contributed">סדר מיון לפי ספירת תווים</type>
+			<type key="collation" type="stroke">סדר מיון לפי ספירת תווים</type>
 			<type key="collation" type="traditional">מיון מסורתי</type>
-			<type key="collation" type="unihan" draft="contributed">סדר מיון לפי ספירת תווים Radical-Stroke</type>
-			<type key="collation" type="zhuyin" draft="contributed">סדר מיונים של ג׳ואין</type>
+			<type key="collation" type="unihan">סדר מיון לפי ספירת תווים Radical-Stroke</type>
+			<type key="collation" type="zhuyin">סדר מיון של ג׳ואין</type>
 			<type key="colNormalization" type="no" draft="contributed">מיין ללא נורמליזציה</type>
 			<type key="colNormalization" type="yes" draft="contributed">מיין לפי Unicode מנורמל</type>
 			<type key="colNumeric" type="no" draft="contributed">מיין ספרות בנפרד</type>
@@ -1263,8 +1299,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="lb" type="loose">סגנון מעבר שורה גמיש</type>
 			<type key="lb" type="normal">סגנון מעבר שורה רגיל</type>
 			<type key="lb" type="strict">סגנון מעבר שורה קשיח</type>
-			<type key="m0" type="bgn">מטבע BGN</type>
-			<type key="m0" type="ungegn">UNGEGN</type>
+			<type key="m0" type="bgn">תעתיק BGN ארה״ב</type>
+			<type key="m0" type="ungegn">תעתיק GEGN האו״ם</type>
 			<type key="ms" type="metric">מערכת מטרית</type>
 			<type key="ms" type="uksystem">מערכת מדידה אימפריאלית</type>
 			<type key="ms" type="ussystem">מערכת מדידה אמריקאית</type>
@@ -1276,7 +1312,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="numbers" type="bali" draft="contributed">ספרות באלינתיות</type>
 			<type key="numbers" type="beng">ספרות בנגליות</type>
 			<type key="numbers" type="brah" draft="contributed">ספרות ברהמי</type>
-			<type key="numbers" type="cakm" draft="contributed">ספרות של צ׳קמה</type>
+			<type key="numbers" type="cakm">ספרות של צ׳קמה</type>
 			<type key="numbers" type="cham" draft="contributed">ספרות צ׳אם</type>
 			<type key="numbers" type="cyrl" draft="contributed">ספרות קיריליות</type>
 			<type key="numbers" type="deva">ספרות של דוונגארי</type>
@@ -1299,7 +1335,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="numbers" type="hebr">ספרות עבריות</type>
 			<type key="numbers" type="hmng" draft="contributed">ספרות פאהח המונג</type>
 			<type key="numbers" type="hmnp" draft="contributed">ספרות המונג פוצ׳ו יאקנג</type>
-			<type key="numbers" type="java" draft="contributed">ספרות ג׳אוואניות</type>
+			<type key="numbers" type="java">ספרות ג׳אוואניות</type>
 			<type key="numbers" type="jpan">ספרות יפניות</type>
 			<type key="numbers" type="jpanfin">ספרות פיננסיות יפניות</type>
 			<type key="numbers" type="kali" draft="contributed">ספרות קיה ליי</type>
@@ -1320,13 +1356,13 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="numbers" type="modi" draft="contributed">ספרות מודי</type>
 			<type key="numbers" type="mong" draft="contributed">ספרות מונגוליות</type>
 			<type key="numbers" type="mroo" draft="contributed">ספרות מרו</type>
-			<type key="numbers" type="mtei" draft="contributed">ספרות מטעי מייק</type>
+			<type key="numbers" type="mtei">ספרות של מיטיי מאייק</type>
 			<type key="numbers" type="mymr">ספרות של מיאנמר</type>
 			<type key="numbers" type="mymrshan" draft="contributed">ספרות מיאנמר שאן</type>
 			<type key="numbers" type="mymrtlng" draft="contributed">ספרות טאי לאינג במיאנמר</type>
-			<type key="numbers" type="native" draft="contributed">ספרות מקומיות</type>
+			<type key="numbers" type="native">ספרות מקומיות</type>
 			<type key="numbers" type="nkoo" draft="contributed">ספרות נקו</type>
-			<type key="numbers" type="olck" draft="contributed">ספרות אול צ׳יקי</type>
+			<type key="numbers" type="olck">ספרות אול צ׳יקי</type>
 			<type key="numbers" type="orya">ספרות אוריה</type>
 			<type key="numbers" type="osma" draft="contributed">ספרות אוסמניה</type>
 			<type key="numbers" type="rohg" draft="contributed">ספרות חניפי רוהינגיה</type>
@@ -1348,7 +1384,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="numbers" type="tirh" draft="contributed">ספרות תרחותא</type>
 			<type key="numbers" type="tnsa" draft="contributed">ספרות טנגסה</type>
 			<type key="numbers" type="traditional" draft="contributed">ספרות מסורתיות</type>
-			<type key="numbers" type="vaii" draft="contributed">ספרות ואי</type>
+			<type key="numbers" type="vaii">ספרות ואי</type>
 			<type key="numbers" type="wara" draft="contributed">ספרות ווראנג סיטי</type>
 			<type key="numbers" type="wcho" draft="contributed">ספרות וונצ׳ו</type>
 		</types>
@@ -2133,11 +2169,17 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<dateTimeFormats>
 					<dateTimeFormatLength type="full">
 						<dateTimeFormat>
+							<pattern>{1}, {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
 							<pattern>{1} בשעה {0}</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="long">
 						<dateTimeFormat>
+							<pattern>{1}, {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
 							<pattern>{1} בשעה {0}</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
@@ -2145,10 +2187,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<dateTimeFormat>
 							<pattern>{1}, {0}</pattern>
 						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
+						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="short">
 						<dateTimeFormat>
 							<pattern>{1}, {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<availableFormats>
@@ -2641,7 +2689,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 					</eraAbbr>
 					<eraNarrow>
 						<era type="0" draft="contributed">לפני</era>
-						<era type="0" alt="variant" draft="provisional">↑↑↑</era>
+						<era type="0" alt="variant" draft="contributed">↑↑↑</era>
 						<era type="1" draft="contributed">אחריי</era>
 						<era type="1" alt="variant">↑↑↑</era>
 					</eraNarrow>
@@ -2701,11 +2749,17 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<dateTimeFormats>
 					<dateTimeFormatLength type="full">
 						<dateTimeFormat>
+							<pattern>{1}, {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
 							<pattern>{1} בשעה {0}</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="long">
 						<dateTimeFormat>
+							<pattern>{1}, {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
 							<pattern>{1} בשעה {0}</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
@@ -2713,10 +2767,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<dateTimeFormat>
 							<pattern>{1}, {0}</pattern>
 						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
+						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="short">
 						<dateTimeFormat>
 							<pattern>{1}, {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<availableFormats>
@@ -3459,7 +3519,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<era type="0" draft="contributed">שנת היג׳רה</era>
 					</eraNames>
 					<eraAbbr>
-						<era type="0">שנת היג׳רה</era>
+						<era type="0">הג׳רה</era>
 					</eraAbbr>
 				</eras>
 				<dateFormats>
@@ -4563,7 +4623,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<exemplarCity>ווסטוק</exemplarCity>
 			</zone>
 			<zone type="Antarctica/Casey">
-				<exemplarCity>קאסיי</exemplarCity>
+				<exemplarCity>קייסי</exemplarCity>
 			</zone>
 			<zone type="Antarctica/DumontDUrville">
 				<exemplarCity>דומון ד׳אורוויל</exemplarCity>
@@ -5144,6 +5204,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<zone type="Pacific/Enderbury">
 				<exemplarCity>אנדרבורי</exemplarCity>
 			</zone>
+			<zone type="Pacific/Kanton">
+				<exemplarCity>קנטון</exemplarCity>
+			</zone>
 			<zone type="Pacific/Kiritimati">
 				<exemplarCity>קיריטימאטי</exemplarCity>
 			</zone>
@@ -5297,6 +5360,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<zone type="America/Hermosillo">
 				<exemplarCity>הרמוסיו</exemplarCity>
 			</zone>
+			<zone type="America/Ciudad_Juarez">
+				<exemplarCity>סיודד חוארס</exemplarCity>
+			</zone>
 			<zone type="America/Mazatlan">
 				<exemplarCity>מזטלן</exemplarCity>
 			</zone>
@@ -5346,7 +5412,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<exemplarCity>נורפוק</exemplarCity>
 			</zone>
 			<zone type="Africa/Lagos">
-				<exemplarCity>לגוס</exemplarCity>
+				<exemplarCity>לאגוס</exemplarCity>
 			</zone>
 			<zone type="America/Managua">
 				<exemplarCity>מנגואה</exemplarCity>
@@ -5700,13 +5766,13 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<exemplarCity>דנוור</exemplarCity>
 			</zone>
 			<zone type="America/North_Dakota/Beulah">
-				<exemplarCity>ביולה, צפון דקוטה</exemplarCity>
+				<exemplarCity>ביולה, דקוטה הצפונית</exemplarCity>
 			</zone>
 			<zone type="America/North_Dakota/New_Salem">
-				<exemplarCity>ניו סיילם, צפון דקוטה</exemplarCity>
+				<exemplarCity>ניו סיילם, דקוטה הצפונית</exemplarCity>
 			</zone>
 			<zone type="America/North_Dakota/Center">
-				<exemplarCity>סנטר, צפון דקוטה</exemplarCity>
+				<exemplarCity>סנטר, דקוטה הצפונית</exemplarCity>
 			</zone>
 			<zone type="America/Chicago">
 				<exemplarCity>שיקגו</exemplarCity>
@@ -6916,64 +6982,114 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<currencyFormats numberSystem="latn">
 			<currencyFormatLength>
 				<currencyFormat type="standard">
-					<pattern>‏#,##0.00 ¤;‏-#,##0.00 ¤</pattern>
+					<pattern>‏#,##0.00 ‏¤;‏-#,##0.00 ‏¤</pattern>
 				</currencyFormat>
 				<currencyFormat type="accounting">
-					<pattern>#,##0.00 ¤</pattern>
+					<pattern>‏#,##0.00 ‏¤;‏-#,##0.00 ‏¤</pattern>
+					<pattern alt="noCurrency">↑↑↑</pattern>
 				</currencyFormat>
 			</currencyFormatLength>
 			<currencyFormatLength type="short">
 				<currencyFormat type="standard">
 					<pattern type="1000" count="one">¤0K‏</pattern>
+					<pattern type="1000" count="one" alt="alphaNextToNumber">¤ 0K‏</pattern>
 					<pattern type="1000" count="two">¤0K‏</pattern>
+					<pattern type="1000" count="two" alt="alphaNextToNumber">¤ 0K‏</pattern>
 					<pattern type="1000" count="many">¤0K‏</pattern>
+					<pattern type="1000" count="many" alt="alphaNextToNumber">¤ 0K‏</pattern>
 					<pattern type="1000" count="other">¤0K‏</pattern>
+					<pattern type="1000" count="other" alt="alphaNextToNumber">¤ 0K‏</pattern>
 					<pattern type="10000" count="one">¤00K‏</pattern>
+					<pattern type="10000" count="one" alt="alphaNextToNumber">¤ 00K‏</pattern>
 					<pattern type="10000" count="two">¤00K‏</pattern>
+					<pattern type="10000" count="two" alt="alphaNextToNumber">¤ 00K‏</pattern>
 					<pattern type="10000" count="many">¤00K‏</pattern>
+					<pattern type="10000" count="many" alt="alphaNextToNumber">¤ 00K‏</pattern>
 					<pattern type="10000" count="other">¤00K‏</pattern>
+					<pattern type="10000" count="other" alt="alphaNextToNumber">¤ 00K‏</pattern>
 					<pattern type="100000" count="one">¤000K‏</pattern>
+					<pattern type="100000" count="one" alt="alphaNextToNumber">¤ 000K‏</pattern>
 					<pattern type="100000" count="two">¤000K‏</pattern>
+					<pattern type="100000" count="two" alt="alphaNextToNumber">¤ 000K‏</pattern>
 					<pattern type="100000" count="many">¤000K‏</pattern>
+					<pattern type="100000" count="many" alt="alphaNextToNumber">¤ 000K‏</pattern>
 					<pattern type="100000" count="other">¤000K‏</pattern>
+					<pattern type="100000" count="other" alt="alphaNextToNumber">¤ 000K‏</pattern>
 					<pattern type="1000000" count="one">¤0M‏</pattern>
+					<pattern type="1000000" count="one" alt="alphaNextToNumber">¤ 0M‏</pattern>
 					<pattern type="1000000" count="two">¤0M‏</pattern>
+					<pattern type="1000000" count="two" alt="alphaNextToNumber">¤ 0M‏</pattern>
 					<pattern type="1000000" count="many">¤0M‏</pattern>
+					<pattern type="1000000" count="many" alt="alphaNextToNumber">¤ 0M‏</pattern>
 					<pattern type="1000000" count="other">¤0M‏</pattern>
+					<pattern type="1000000" count="other" alt="alphaNextToNumber">¤ 0M‏</pattern>
 					<pattern type="10000000" count="one">¤00M‏</pattern>
+					<pattern type="10000000" count="one" alt="alphaNextToNumber">¤ 00M‏</pattern>
 					<pattern type="10000000" count="two">¤00M‏</pattern>
+					<pattern type="10000000" count="two" alt="alphaNextToNumber">¤ 00M‏</pattern>
 					<pattern type="10000000" count="many">¤00M‏</pattern>
+					<pattern type="10000000" count="many" alt="alphaNextToNumber">¤ 00M‏</pattern>
 					<pattern type="10000000" count="other">¤00M‏</pattern>
+					<pattern type="10000000" count="other" alt="alphaNextToNumber">¤ 00M‏</pattern>
 					<pattern type="100000000" count="one">¤000M‏</pattern>
+					<pattern type="100000000" count="one" alt="alphaNextToNumber">¤ 000M‏</pattern>
 					<pattern type="100000000" count="two">¤000M‏</pattern>
+					<pattern type="100000000" count="two" alt="alphaNextToNumber">¤ 000M‏</pattern>
 					<pattern type="100000000" count="many">¤000M‏</pattern>
+					<pattern type="100000000" count="many" alt="alphaNextToNumber">¤ 000M‏</pattern>
 					<pattern type="100000000" count="other">¤000M‏</pattern>
+					<pattern type="100000000" count="other" alt="alphaNextToNumber">¤ 000M‏</pattern>
 					<pattern type="1000000000" count="one">¤0B‏</pattern>
+					<pattern type="1000000000" count="one" alt="alphaNextToNumber">¤ 0B‏</pattern>
 					<pattern type="1000000000" count="two">¤0B‏</pattern>
+					<pattern type="1000000000" count="two" alt="alphaNextToNumber">¤ 0B‏</pattern>
 					<pattern type="1000000000" count="many">¤0B‏</pattern>
+					<pattern type="1000000000" count="many" alt="alphaNextToNumber">¤ 0B‏</pattern>
 					<pattern type="1000000000" count="other">¤0B‏</pattern>
+					<pattern type="1000000000" count="other" alt="alphaNextToNumber">¤ 0B‏</pattern>
 					<pattern type="10000000000" count="one">¤00B‏</pattern>
+					<pattern type="10000000000" count="one" alt="alphaNextToNumber">¤ 00B‏</pattern>
 					<pattern type="10000000000" count="two">¤00B‏</pattern>
+					<pattern type="10000000000" count="two" alt="alphaNextToNumber">¤ 00B‏</pattern>
 					<pattern type="10000000000" count="many">¤00B‏</pattern>
+					<pattern type="10000000000" count="many" alt="alphaNextToNumber">¤ 00B‏</pattern>
 					<pattern type="10000000000" count="other">¤00B‏</pattern>
+					<pattern type="10000000000" count="other" alt="alphaNextToNumber">¤ 00B‏</pattern>
 					<pattern type="100000000000" count="one">¤000B‏</pattern>
+					<pattern type="100000000000" count="one" alt="alphaNextToNumber">¤ 000B‏</pattern>
 					<pattern type="100000000000" count="two">¤000B‏</pattern>
+					<pattern type="100000000000" count="two" alt="alphaNextToNumber">¤ 000B‏</pattern>
 					<pattern type="100000000000" count="many">¤000B‏</pattern>
+					<pattern type="100000000000" count="many" alt="alphaNextToNumber">¤ 000B‏</pattern>
 					<pattern type="100000000000" count="other">¤000B‏</pattern>
+					<pattern type="100000000000" count="other" alt="alphaNextToNumber">¤ 000B‏</pattern>
 					<pattern type="1000000000000" count="one">¤0T‏</pattern>
+					<pattern type="1000000000000" count="one" alt="alphaNextToNumber">¤ 0T‏</pattern>
 					<pattern type="1000000000000" count="two">¤0T‏</pattern>
+					<pattern type="1000000000000" count="two" alt="alphaNextToNumber">¤ 0T‏</pattern>
 					<pattern type="1000000000000" count="many">¤0T‏</pattern>
+					<pattern type="1000000000000" count="many" alt="alphaNextToNumber">¤ 0T‏</pattern>
 					<pattern type="1000000000000" count="other">¤0T‏</pattern>
+					<pattern type="1000000000000" count="other" alt="alphaNextToNumber">¤ 0T‏</pattern>
 					<pattern type="10000000000000" count="one">¤00T‏</pattern>
+					<pattern type="10000000000000" count="one" alt="alphaNextToNumber">¤ 00T‏</pattern>
 					<pattern type="10000000000000" count="two">¤00T‏</pattern>
+					<pattern type="10000000000000" count="two" alt="alphaNextToNumber">¤ 00T‏</pattern>
 					<pattern type="10000000000000" count="many">¤00T‏</pattern>
+					<pattern type="10000000000000" count="many" alt="alphaNextToNumber">¤ 00T‏</pattern>
 					<pattern type="10000000000000" count="other">¤00T‏</pattern>
+					<pattern type="10000000000000" count="other" alt="alphaNextToNumber">¤ 00T‏</pattern>
 					<pattern type="100000000000000" count="one">¤000T‏</pattern>
+					<pattern type="100000000000000" count="one" alt="alphaNextToNumber">¤ 000T‏</pattern>
 					<pattern type="100000000000000" count="two">¤000T‏</pattern>
+					<pattern type="100000000000000" count="two" alt="alphaNextToNumber">¤ 000T‏</pattern>
 					<pattern type="100000000000000" count="many">¤000T‏</pattern>
+					<pattern type="100000000000000" count="many" alt="alphaNextToNumber">¤ 000T‏</pattern>
 					<pattern type="100000000000000" count="other">¤000T‏</pattern>
+					<pattern type="100000000000000" count="other" alt="alphaNextToNumber">¤ 000T‏</pattern>
 				</currencyFormat>
 			</currencyFormatLength>
+			<currencyPatternAppendISO>↑↑↑</currencyPatternAppendISO>
 			<unitPattern count="one">{0} {1}</unitPattern>
 			<unitPattern count="two">{0} {1}</unitPattern>
 			<unitPattern count="many">{0} {1}</unitPattern>
@@ -7484,7 +7600,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<displayName count="other">לארי גאורגי</displayName>
 				<symbol>GEL</symbol>
 				<symbol alt="narrow">₾</symbol>
-				<symbol alt="variant">₾</symbol>
 			</currency>
 			<currency type="GHS">
 				<displayName>סדי גאני</displayName>
@@ -7592,9 +7707,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<currency type="IDR">
 				<displayName>רופיה אינדונזית</displayName>
 				<displayName count="one">רופיה אינדונזית</displayName>
-				<displayName count="two">רופיה אינדונזית</displayName>
-				<displayName count="many">רופיה אינדונזית</displayName>
-				<displayName count="other">רופיה אינדונזית</displayName>
+				<displayName count="two">רופיות אינדונזיות</displayName>
+				<displayName count="many">רופיות אינדונזיות</displayName>
+				<displayName count="other">רופיות אינדונזיות</displayName>
 				<symbol>IDR</symbol>
 				<symbol alt="narrow">Rp</symbol>
 			</currency>
@@ -7767,9 +7882,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<currency type="LBP">
 				<displayName>לירה לבנונית</displayName>
 				<displayName count="one">לירה לבנונית</displayName>
-				<displayName count="two">לירה לבנונית</displayName>
-				<displayName count="many">לירה לבנונית</displayName>
-				<displayName count="other">לירה לבנונית</displayName>
+				<displayName count="two">לירות לבנוניות</displayName>
+				<displayName count="many">לירות לבנוניות</displayName>
+				<displayName count="other">לירות לבנוניות</displayName>
 				<symbol>LBP</symbol>
 				<symbol alt="narrow">L£</symbol>
 			</currency>
@@ -7918,9 +8033,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<currency type="MVR">
 				<displayName>רופיה מלדיבית</displayName>
 				<displayName count="one">רופיה מלדיבית</displayName>
-				<displayName count="two">רופיה מלדיבית</displayName>
-				<displayName count="many">רופיה מלדיבית</displayName>
-				<displayName count="other">רופיה מלדיבית</displayName>
+				<displayName count="two">רופיות מלדיביות</displayName>
+				<displayName count="many">רופיות מלדיביות</displayName>
+				<displayName count="other">רופיות מלדיביות</displayName>
 				<symbol>MVR</symbol>
 			</currency>
 			<currency type="MWK">
@@ -8081,11 +8196,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<symbol>PGK</symbol>
 			</currency>
 			<currency type="PHP">
-				<displayName>פזו פיליפיני</displayName>
-				<displayName count="one">פזו פיליפיני</displayName>
-				<displayName count="two">פזו פיליפיני</displayName>
-				<displayName count="many">פזו פיליפיני</displayName>
-				<displayName count="other">פזו פיליפיני</displayName>
+				<displayName>פסו פיליפיני</displayName>
+				<displayName count="one">פסו פיליפיני</displayName>
+				<displayName count="two">פסו פיליפיני</displayName>
+				<displayName count="many">פסו פיליפיני</displayName>
+				<displayName count="other">פסו פיליפיני</displayName>
 				<symbol>PHP</symbol>
 				<symbol alt="narrow">₱</symbol>
 			</currency>
@@ -8312,9 +8427,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<currency type="SYP">
 				<displayName>לירה סורית</displayName>
 				<displayName count="one">לירה סורית</displayName>
-				<displayName count="two">לירה סורית</displayName>
-				<displayName count="many">לירה סורית</displayName>
-				<displayName count="other">לירה סורית</displayName>
+				<displayName count="two">לירות סוריות</displayName>
+				<displayName count="many">לירות סוריות</displayName>
+				<displayName count="other">לירות סוריות</displayName>
 				<symbol>SYP</symbol>
 				<symbol alt="narrow">£</symbol>
 			</currency>
@@ -8380,9 +8495,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<currency type="TRY">
 				<displayName>לירה טורקית חדשה</displayName>
 				<displayName count="one">לירה טורקית חדשה</displayName>
-				<displayName count="two">לירה טורקית חדשה</displayName>
-				<displayName count="many">לירה טורקית חדשה</displayName>
-				<displayName count="other">לירה טורקית חדשה</displayName>
+				<displayName count="two">לירות טורקיות חדשות</displayName>
+				<displayName count="many">לירות טורקיות חדשות</displayName>
+				<displayName count="other">לירות טורקיות חדשות</displayName>
 				<symbol>TRY</symbol>
 				<symbol alt="narrow">₺</symbol>
 				<symbol alt="variant">TL</symbol>
@@ -8555,7 +8670,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<displayName count="two">פרנק CFA מערב אפריקני</displayName>
 				<displayName count="many">פרנק CFA מערב אפריקני</displayName>
 				<displayName count="other">פרנק CFA מערב אפריקני</displayName>
-				<symbol draft="contributed">F CFA</symbol>
+				<symbol>F CFA</symbol>
 			</currency>
 			<currency type="XPD">
 				<displayName draft="contributed">פלדיום</displayName>
@@ -8636,13 +8751,13 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<pattern type="range">{0}–{1}</pattern>
 		</miscPatterns>
 		<minimalPairs>
-			<pluralMinimalPairs count="one">שנה</pluralMinimalPairs>
-			<pluralMinimalPairs count="two">שנתיים</pluralMinimalPairs>
-			<pluralMinimalPairs count="many">{0} שנה</pluralMinimalPairs>
-			<pluralMinimalPairs count="other">{0} שנים</pluralMinimalPairs>
+			<pluralMinimalPairs count="one">יום</pluralMinimalPairs>
+			<pluralMinimalPairs count="two">יומיים</pluralMinimalPairs>
+			<pluralMinimalPairs count="many">{0} יום</pluralMinimalPairs>
+			<pluralMinimalPairs count="other">{0} ימים</pluralMinimalPairs>
 			<ordinalMinimalPairs ordinal="other">פנה ימינה בפנייה ה-{0}</ordinalMinimalPairs>
-			<genderMinimalPairs gender="feminine">{0} נקבה</genderMinimalPairs>
-			<genderMinimalPairs gender="masculine">{0} זכר</genderMinimalPairs>
+			<genderMinimalPairs gender="feminine">ה{0} הראשונה היא הקובעת</genderMinimalPairs>
+			<genderMinimalPairs gender="masculine">ה{0} הראשון הוא הקובע</genderMinimalPairs>
 		</minimalPairs>
 	</numbers>
 	<units>
@@ -8766,6 +8881,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} כוחות ג׳י</unitPattern>
 			</unit>
 			<unit type="acceleration-meter-per-square-second">
+				<gender>masculine</gender>
 				<displayName>מטר לשנייה בריבוע</displayName>
 				<unitPattern count="one">{0} מטר לשנייה בריבוע</unitPattern>
 				<unitPattern count="two">{0} מטר לשנייה בריבוע</unitPattern>
@@ -8813,6 +8929,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} שניות קשת</unitPattern>
 			</unit>
 			<unit type="area-square-kilometer">
+				<gender>masculine</gender>
 				<displayName>קילומטר רבוע</displayName>
 				<unitPattern count="one">קילומטר רבוע {0}</unitPattern>
 				<unitPattern count="two">{0} קילומטר רבוע</unitPattern>
@@ -8829,6 +8946,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} הקטאר</unitPattern>
 			</unit>
 			<unit type="area-square-meter">
+				<gender>masculine</gender>
 				<displayName>מטר רבוע</displayName>
 				<unitPattern count="one">מטר רבוע {0}</unitPattern>
 				<unitPattern count="two">{0} מטר רבוע</unitPattern>
@@ -8837,6 +8955,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0} למטר רבוע</perUnitPattern>
 			</unit>
 			<unit type="area-square-centimeter">
+				<gender>masculine</gender>
 				<displayName>סנטימטר רבוע</displayName>
 				<unitPattern count="one">סנטימטר רבוע {0}</unitPattern>
 				<unitPattern count="two">{0} סנטימטר רבוע</unitPattern>
@@ -8904,6 +9023,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} מיליגרם/דציליטר</unitPattern>
 			</unit>
 			<unit type="concentr-millimole-per-liter">
+				<gender>masculine</gender>
 				<displayName>מילימול/ליטר</displayName>
 				<unitPattern count="one">{0} מילימול/ליטר</unitPattern>
 				<unitPattern count="two">{0} מילימול/ליטר</unitPattern>
@@ -8911,6 +9031,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} מילימול/ליטר</unitPattern>
 			</unit>
 			<unit type="concentr-item">
+				<gender>masculine</gender>
 				<displayName>פריטים</displayName>
 				<unitPattern count="one">פריט {0}</unitPattern>
 				<unitPattern count="two">{0} פריטים</unitPattern>
@@ -8958,6 +9079,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} מול</unitPattern>
 			</unit>
 			<unit type="consumption-liter-per-kilometer">
+				<gender>masculine</gender>
 				<displayName>ליטרים/קילומטר</displayName>
 				<unitPattern count="one">{0} ליטר/קילומטר</unitPattern>
 				<unitPattern count="two">{0} ליטרים/קילומטר</unitPattern>
@@ -8965,6 +9087,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} ליטרים/קילומטר</unitPattern>
 			</unit>
 			<unit type="consumption-liter-per-100-kilometer">
+				<gender>masculine</gender>
 				<displayName>ליטר/100 ק״מ</displayName>
 				<unitPattern count="one">ליטר/100 ק״מ</unitPattern>
 				<unitPattern count="two">{0} ליטר/100 ק״מ</unitPattern>
@@ -8986,6 +9109,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} מייל/גלון אימפריאלי</unitPattern>
 			</unit>
 			<unit type="digital-petabyte">
+				<gender>masculine</gender>
 				<displayName>פטה-בייט</displayName>
 				<unitPattern count="one">{0} פטה-בייט</unitPattern>
 				<unitPattern count="two">{0} פטה-בייט</unitPattern>
@@ -8993,6 +9117,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} פטה-בייט</unitPattern>
 			</unit>
 			<unit type="digital-terabyte">
+				<gender>masculine</gender>
 				<displayName>טרה-בייט</displayName>
 				<unitPattern count="one">טרה-בייט {0}</unitPattern>
 				<unitPattern count="two">טרה-בייט {0}</unitPattern>
@@ -9000,13 +9125,15 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">טרה-בייט {0}</unitPattern>
 			</unit>
 			<unit type="digital-terabit">
+				<gender>masculine</gender>
 				<displayName>טרה-ביט</displayName>
-				<unitPattern count="one">טרה-ביט {0}</unitPattern>
-				<unitPattern count="two">טרה-ביט {0}</unitPattern>
-				<unitPattern count="many">טרה-ביט {0}</unitPattern>
-				<unitPattern count="other">טרה-ביט {0}</unitPattern>
+				<unitPattern count="one">{0} טרה-ביט</unitPattern>
+				<unitPattern count="two">{0} טרה-ביט</unitPattern>
+				<unitPattern count="many">{0} טרה-ביט</unitPattern>
+				<unitPattern count="other">{0} טרה-ביט</unitPattern>
 			</unit>
 			<unit type="digital-gigabyte">
+				<gender>masculine</gender>
 				<displayName>ג׳יגה-בייט</displayName>
 				<unitPattern count="one">{0} ג׳יגה-בייט</unitPattern>
 				<unitPattern count="two">{0} ג׳יגה-בייט</unitPattern>
@@ -9014,6 +9141,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} ג׳יגה-בייט</unitPattern>
 			</unit>
 			<unit type="digital-gigabit">
+				<gender>masculine</gender>
 				<displayName>ג׳יגה-ביט</displayName>
 				<unitPattern count="one">{0} ג'יגה-ביט</unitPattern>
 				<unitPattern count="two">{0} ג'יגה-ביט</unitPattern>
@@ -9021,6 +9149,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} ג'יגה-ביט</unitPattern>
 			</unit>
 			<unit type="digital-megabyte">
+				<gender>masculine</gender>
 				<displayName>מגה-בייט</displayName>
 				<unitPattern count="one">מגה-בייט</unitPattern>
 				<unitPattern count="two">{0} מגה-בייט</unitPattern>
@@ -9028,13 +9157,15 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} מגה-בייט</unitPattern>
 			</unit>
 			<unit type="digital-megabit">
+				<gender>masculine</gender>
 				<displayName>מגה-ביט</displayName>
-				<unitPattern count="one">מגה-ביט {0}</unitPattern>
-				<unitPattern count="two">מגה-ביט {0}</unitPattern>
-				<unitPattern count="many">מגה-ביט {0}</unitPattern>
-				<unitPattern count="other">מגה-ביט {0}</unitPattern>
+				<unitPattern count="one">{0} מגה-ביט</unitPattern>
+				<unitPattern count="two">{0} מגה-ביט</unitPattern>
+				<unitPattern count="many">{0} מגה-ביט</unitPattern>
+				<unitPattern count="other">{0} מגה-ביט</unitPattern>
 			</unit>
 			<unit type="digital-kilobyte">
+				<gender>masculine</gender>
 				<displayName>קילו-בייט</displayName>
 				<unitPattern count="one">{0} קילו-בייט</unitPattern>
 				<unitPattern count="two">{0} קילו-בייט</unitPattern>
@@ -9042,6 +9173,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} קילו-בייט</unitPattern>
 			</unit>
 			<unit type="digital-kilobit">
+				<gender>masculine</gender>
 				<displayName>קילוביט</displayName>
 				<unitPattern count="one">{0} קילוביט</unitPattern>
 				<unitPattern count="two">{0} קילוביט</unitPattern>
@@ -9059,10 +9191,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<unit type="digital-bit">
 				<gender>masculine</gender>
 				<displayName>ביט</displayName>
-				<unitPattern count="one">ביט {0}</unitPattern>
-				<unitPattern count="two">ביט {0}</unitPattern>
-				<unitPattern count="many">ביט {0}</unitPattern>
-				<unitPattern count="other">ביט {0}</unitPattern>
+				<unitPattern count="one">{0} ביט</unitPattern>
+				<unitPattern count="two">{0} ביט</unitPattern>
+				<unitPattern count="many">{0} ביט</unitPattern>
+				<unitPattern count="other">{0} ביט</unitPattern>
 			</unit>
 			<unit type="duration-century">
 				<gender>feminine</gender>
@@ -9088,6 +9220,15 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="many">{0} שנים</unitPattern>
 				<unitPattern count="other">{0} שנים</unitPattern>
 				<perUnitPattern>‏{0} לשנה</perUnitPattern>
+			</unit>
+			<unit type="duration-quarter">
+				<gender>masculine</gender>
+				<displayName>רבעונים</displayName>
+				<unitPattern count="one">{0} רבעון</unitPattern>
+				<unitPattern count="two">{0} רבעונים</unitPattern>
+				<unitPattern count="many">{0} רבעונים</unitPattern>
+				<unitPattern count="other">{0} רבעונים</unitPattern>
+				<perUnitPattern>↑↑↑</perUnitPattern>
 			</unit>
 			<unit type="duration-month">
 				<gender>masculine</gender>
@@ -9147,6 +9288,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0} לשניה</perUnitPattern>
 			</unit>
 			<unit type="duration-millisecond">
+				<gender>feminine</gender>
 				<displayName>אלפיות השניה</displayName>
 				<unitPattern count="one">אלפית שנייה {0}</unitPattern>
 				<unitPattern count="two">{0} אלפיות שנייה</unitPattern>
@@ -9154,6 +9296,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} אלפיות שנייה</unitPattern>
 			</unit>
 			<unit type="duration-microsecond">
+				<gender>feminine</gender>
 				<displayName>מיליוניות שנייה</displayName>
 				<unitPattern count="one">{0} מיליונית שנייה</unitPattern>
 				<unitPattern count="two">{0} מיליוניות שנייה</unitPattern>
@@ -9161,6 +9304,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} מיליוניות שנייה</unitPattern>
 			</unit>
 			<unit type="duration-nanosecond">
+				<gender>feminine</gender>
 				<displayName>ננו שניות</displayName>
 				<unitPattern count="one">{0} ננו שנייה</unitPattern>
 				<unitPattern count="two">{0} ננו שניות</unitPattern>
@@ -9176,6 +9320,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} אמפר</unitPattern>
 			</unit>
 			<unit type="electric-milliampere">
+				<gender>masculine</gender>
 				<displayName>מיליאמפר</displayName>
 				<unitPattern count="one">מיליאמפר {0}</unitPattern>
 				<unitPattern count="two">{0} מיליאמפר</unitPattern>
@@ -9221,6 +9366,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} קלוריות</unitPattern>
 			</unit>
 			<unit type="energy-kilojoule">
+				<gender>masculine</gender>
 				<displayName>קילו ג׳אול</displayName>
 				<unitPattern count="one">קילו ג׳אול {0}</unitPattern>
 				<unitPattern count="two">{0} קילו ג׳אול</unitPattern>
@@ -9236,6 +9382,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} ג׳אול</unitPattern>
 			</unit>
 			<unit type="energy-kilowatt-hour">
+				<gender>masculine</gender>
 				<displayName>קילוואט־שעה</displayName>
 				<unitPattern count="one">קילוואט־שעה {0}</unitPattern>
 				<unitPattern count="two">{0} קילוואט-שעה</unitPattern>
@@ -9279,6 +9426,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} ניוטון</unitPattern>
 			</unit>
 			<unit type="force-kilowatt-hour-per-100-kilometer">
+				<gender>masculine</gender>
 				<displayName>קילוואט/שעה ל-100 קילומטר</displayName>
 				<unitPattern count="one">{0} קילוואט/שעה ל-100 קילומטר</unitPattern>
 				<unitPattern count="two">{0} קילוואט/שעה ל-100 קילומטר</unitPattern>
@@ -9286,6 +9434,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} קילוואט/שעה ל-100 קילומטר</unitPattern>
 			</unit>
 			<unit type="frequency-gigahertz">
+				<gender>masculine</gender>
 				<displayName>ג׳יגה-הרץ</displayName>
 				<unitPattern count="one">ג׳יגה-הרץ {0}</unitPattern>
 				<unitPattern count="two">{0} ג׳יגה-הרץ</unitPattern>
@@ -9293,6 +9442,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} ג׳יגה-הרץ</unitPattern>
 			</unit>
 			<unit type="frequency-megahertz">
+				<gender>masculine</gender>
 				<displayName>מגה-הרץ</displayName>
 				<unitPattern count="one">מגה-הרץ {0}</unitPattern>
 				<unitPattern count="two">{0} מגה-הרץ</unitPattern>
@@ -9300,6 +9450,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} מגה-הרץ</unitPattern>
 			</unit>
 			<unit type="frequency-kilohertz">
+				<gender>masculine</gender>
 				<displayName>קילו-הרץ</displayName>
 				<unitPattern count="one">קילו-הרץ {0}</unitPattern>
 				<unitPattern count="two">{0} קילו-הרץ</unitPattern>
@@ -9331,6 +9482,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="graphics-megapixel">
+				<gender>masculine</gender>
 				<displayName>מגה-פיקסל</displayName>
 				<unitPattern count="one">↑↑↑</unitPattern>
 				<unitPattern count="two">‎{0} MP ‎</unitPattern>
@@ -9338,6 +9490,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="graphics-pixel-per-centimeter">
+				<gender>masculine</gender>
 				<displayName>פיקסלים לסנטימטר</displayName>
 				<unitPattern count="one">↑↑↑</unitPattern>
 				<unitPattern count="two">‎{0} ppcm‎</unitPattern>
@@ -9380,6 +9533,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} רדיוס כדור-הארץ</unitPattern>
 			</unit>
 			<unit type="length-kilometer">
+				<gender>masculine</gender>
 				<displayName>קילומטרים</displayName>
 				<unitPattern count="one">קילומטר {0}</unitPattern>
 				<unitPattern count="two">{0} קילומטרים</unitPattern>
@@ -9397,6 +9551,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0} למטר</perUnitPattern>
 			</unit>
 			<unit type="length-decimeter">
+				<gender>masculine</gender>
 				<displayName>דצימטר</displayName>
 				<unitPattern count="one">דצימטר אחד</unitPattern>
 				<unitPattern count="two">{0} דצימטרים</unitPattern>
@@ -9404,6 +9559,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} דצימטרים</unitPattern>
 			</unit>
 			<unit type="length-centimeter">
+				<gender>masculine</gender>
 				<displayName>סנטימטרים</displayName>
 				<unitPattern count="one">סנטימטר {0}</unitPattern>
 				<unitPattern count="two">{0} סנטימטרים</unitPattern>
@@ -9412,6 +9568,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0} לסנטימטר</perUnitPattern>
 			</unit>
 			<unit type="length-millimeter">
+				<gender>masculine</gender>
 				<displayName>מילימטרים</displayName>
 				<unitPattern count="one">מילימטר {0}</unitPattern>
 				<unitPattern count="two">{0} מילימטרים</unitPattern>
@@ -9419,6 +9576,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} מילימטרים</unitPattern>
 			</unit>
 			<unit type="length-micrometer">
+				<gender>masculine</gender>
 				<displayName>מיקרומטרים</displayName>
 				<unitPattern count="one">מיקרומטר {0}</unitPattern>
 				<unitPattern count="two">{0} מיקרומטרים</unitPattern>
@@ -9426,6 +9584,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} מיקרומטרים</unitPattern>
 			</unit>
 			<unit type="length-nanometer">
+				<gender>masculine</gender>
 				<displayName>ננומטרים</displayName>
 				<unitPattern count="one">ננומטר {0}</unitPattern>
 				<unitPattern count="two">{0} ננומטרים</unitPattern>
@@ -9433,6 +9592,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} ננומטרים</unitPattern>
 			</unit>
 			<unit type="length-picometer">
+				<gender>masculine</gender>
 				<displayName>פיקומטרים</displayName>
 				<unitPattern count="one">פיקומטר {0}</unitPattern>
 				<unitPattern count="two">{0} פיקומטרים</unitPattern>
@@ -9564,7 +9724,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="many">↑↑↑</unitPattern>
 				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
-			<unit type="mass-metric-ton">
+			<unit type="mass-tonne">
 				<gender>masculine</gender>
 				<displayName>טון מטרי</displayName>
 				<unitPattern count="one">טון מטרי אחד</unitPattern>
@@ -9591,6 +9751,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0}/גרם</perUnitPattern>
 			</unit>
 			<unit type="mass-milligram">
+				<gender>masculine</gender>
 				<displayName>מיליגרם</displayName>
 				<unitPattern count="one">מיליגרם אחד</unitPattern>
 				<unitPattern count="two">שני מיליגרם</unitPattern>
@@ -9598,6 +9759,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} מיליגרם</unitPattern>
 			</unit>
 			<unit type="mass-microgram">
+				<gender>masculine</gender>
 				<displayName>מיקרוגרם</displayName>
 				<unitPattern count="one">מיקרוגרם אחד</unitPattern>
 				<unitPattern count="two">שני מיקרוגרם</unitPattern>
@@ -9606,8 +9768,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</unit>
 			<unit type="mass-ton">
 				<displayName>טונות</displayName>
-				<unitPattern count="one">טון אחד</unitPattern>
-				<unitPattern count="two">שני טונות</unitPattern>
+				<unitPattern count="one">טונה אחת</unitPattern>
+				<unitPattern count="two">שתי טונות</unitPattern>
 				<unitPattern count="many">{0} טונות</unitPattern>
 				<unitPattern count="other">{0} טונות</unitPattern>
 			</unit>
@@ -9678,6 +9840,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} גרעינים</unitPattern>
 			</unit>
 			<unit type="power-gigawatt">
+				<gender>masculine</gender>
 				<displayName>ג׳יגה ואט</displayName>
 				<unitPattern count="one">ג׳יגה ואט {0}</unitPattern>
 				<unitPattern count="two">{0} ג׳יגה ואט</unitPattern>
@@ -9685,6 +9848,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} ג׳יגה ואט</unitPattern>
 			</unit>
 			<unit type="power-megawatt">
+				<gender>masculine</gender>
 				<displayName>מגה ואט</displayName>
 				<unitPattern count="one">מגה ואט {0}</unitPattern>
 				<unitPattern count="two">{0} מגה ואט</unitPattern>
@@ -9692,6 +9856,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} מגה ואט</unitPattern>
 			</unit>
 			<unit type="power-kilowatt">
+				<gender>masculine</gender>
 				<displayName>קילוואט</displayName>
 				<unitPattern count="one">קילוואט {0}</unitPattern>
 				<unitPattern count="two">{0} קילוואט</unitPattern>
@@ -9707,6 +9872,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} ואט</unitPattern>
 			</unit>
 			<unit type="power-milliwatt">
+				<gender>masculine</gender>
 				<displayName>מיליוואט</displayName>
 				<unitPattern count="one">מיליוואט {0}</unitPattern>
 				<unitPattern count="two">{0} מיליוואט</unitPattern>
@@ -9750,6 +9916,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} בר</unitPattern>
 			</unit>
 			<unit type="pressure-millibar">
+				<gender>masculine</gender>
 				<displayName>מיליבר</displayName>
 				<unitPattern count="one">{0} מיליבר</unitPattern>
 				<unitPattern count="two">{0} מיליבר</unitPattern>
@@ -9773,6 +9940,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} פסקל</unitPattern>
 			</unit>
 			<unit type="pressure-hectopascal">
+				<gender>masculine</gender>
 				<displayName>הקטופסקל</displayName>
 				<unitPattern count="one">הקטופסקל {0}</unitPattern>
 				<unitPattern count="two">{0} הקטופסקל</unitPattern>
@@ -9780,6 +9948,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} הקטופסקל</unitPattern>
 			</unit>
 			<unit type="pressure-kilopascal">
+				<gender>masculine</gender>
 				<displayName>קילו-פסקל</displayName>
 				<unitPattern count="one">{0} קילו-פסקל</unitPattern>
 				<unitPattern count="two">{0} קילו-פסקל</unitPattern>
@@ -9787,6 +9956,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} קילו-פסקל</unitPattern>
 			</unit>
 			<unit type="pressure-megapascal">
+				<gender>masculine</gender>
 				<displayName>מגה-פסקל</displayName>
 				<unitPattern count="one">{0} מגה-פסקל</unitPattern>
 				<unitPattern count="two">{0} מגה-פסקל</unitPattern>
@@ -9794,6 +9964,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} מגה-פסקל</unitPattern>
 			</unit>
 			<unit type="speed-kilometer-per-hour">
+				<gender>masculine</gender>
 				<displayName>קילומטר לשעה</displayName>
 				<unitPattern count="one">{0} קילומטר לשעה</unitPattern>
 				<unitPattern count="two">{0} קילומטר לשעה</unitPattern>
@@ -9801,6 +9972,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} קילומטר לשעה</unitPattern>
 			</unit>
 			<unit type="speed-meter-per-second">
+				<gender>masculine</gender>
 				<displayName>מטר לשנייה</displayName>
 				<unitPattern count="one">{0} מטר לשנייה</unitPattern>
 				<unitPattern count="two">{0} מטר לשנייה</unitPattern>
@@ -9860,6 +10032,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} רגל-פאונד</unitPattern>
 			</unit>
 			<unit type="torque-newton-meter">
+				<gender>masculine</gender>
 				<displayName>ניוטון-מטר</displayName>
 				<unitPattern count="one">{0} ניוטון-מטר</unitPattern>
 				<unitPattern count="two">{0} ניוטון-מטר</unitPattern>
@@ -9867,6 +10040,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} ניוטון-מטר</unitPattern>
 			</unit>
 			<unit type="volume-cubic-kilometer">
+				<gender>masculine</gender>
 				<displayName>קילומטר מעוקב</displayName>
 				<unitPattern count="one">קילומטר מעוקב {0}</unitPattern>
 				<unitPattern count="two">{0} קילומטר מעוקב</unitPattern>
@@ -9874,6 +10048,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} קילומטר מעוקב</unitPattern>
 			</unit>
 			<unit type="volume-cubic-meter">
+				<gender>masculine</gender>
 				<displayName>מטר מעוקב</displayName>
 				<unitPattern count="one">מטר מעוקב {0}</unitPattern>
 				<unitPattern count="two">{0} מטר מעוקב</unitPattern>
@@ -9882,6 +10057,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0}/מטר מעוקב</perUnitPattern>
 			</unit>
 			<unit type="volume-cubic-centimeter">
+				<gender>masculine</gender>
 				<displayName>סנטימטר מעוקב</displayName>
 				<unitPattern count="one">סנטימטר מעוקב {0}</unitPattern>
 				<unitPattern count="two">{0} סנטימטר מעוקב</unitPattern>
@@ -9918,6 +10094,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} אינץ׳ מעוקב</unitPattern>
 			</unit>
 			<unit type="volume-megaliter">
+				<gender>masculine</gender>
 				<displayName>מגה ליטר</displayName>
 				<unitPattern count="one">מגה ליטר {0}</unitPattern>
 				<unitPattern count="two">{0} מגה ליטר</unitPattern>
@@ -9925,6 +10102,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} מגה ליטר</unitPattern>
 			</unit>
 			<unit type="volume-hectoliter">
+				<gender>masculine</gender>
 				<displayName>הקטוליטר</displayName>
 				<unitPattern count="one">הקטוליטר {0}</unitPattern>
 				<unitPattern count="two">{0} הקטוליטר</unitPattern>
@@ -9941,6 +10119,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0}/ליטר</perUnitPattern>
 			</unit>
 			<unit type="volume-deciliter">
+				<gender>masculine</gender>
 				<displayName>דציליטר</displayName>
 				<unitPattern count="one">דציליטר {0}</unitPattern>
 				<unitPattern count="two">{0} דציליטר</unitPattern>
@@ -9948,6 +10127,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} דציליטר</unitPattern>
 			</unit>
 			<unit type="volume-centiliter">
+				<gender>masculine</gender>
 				<displayName>סנטיליטר</displayName>
 				<unitPattern count="one">סנטיליטר {0}</unitPattern>
 				<unitPattern count="two">{0} סנטיליטר</unitPattern>
@@ -9955,6 +10135,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} סנטיליטר</unitPattern>
 			</unit>
 			<unit type="volume-milliliter">
+				<gender>masculine</gender>
 				<displayName>מיליליטר</displayName>
 				<unitPattern count="one">מיליליטר {0}</unitPattern>
 				<unitPattern count="two">{0} מיליליטר</unitPattern>
@@ -10512,10 +10693,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</unit>
 			<unit type="digital-bit">
 				<displayName>ביט</displayName>
-				<unitPattern count="one">ביט {0}</unitPattern>
-				<unitPattern count="two">ביט {0}</unitPattern>
-				<unitPattern count="many">ביט {0}</unitPattern>
-				<unitPattern count="other">ביט {0}</unitPattern>
+				<unitPattern count="one">{0} ביט</unitPattern>
+				<unitPattern count="two">{0} ביט</unitPattern>
+				<unitPattern count="many">{0} ביט</unitPattern>
+				<unitPattern count="other">{0} ביט</unitPattern>
 			</unit>
 			<unit type="duration-century">
 				<displayName>מאות</displayName>
@@ -10538,6 +10719,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="many">{0} שנים</unitPattern>
 				<unitPattern count="other">{0} שנים</unitPattern>
 				<perUnitPattern>{0}/שנה</perUnitPattern>
+			</unit>
+			<unit type="duration-quarter">
+				<displayName>רבעונים</displayName>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="two">↑↑↑</unitPattern>
+				<unitPattern count="many">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
+				<perUnitPattern>↑↑↑</perUnitPattern>
 			</unit>
 			<unit type="duration-month">
 				<displayName>חודשים</displayName>
@@ -10991,7 +11180,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="many">↑↑↑</unitPattern>
 				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
-			<unit type="mass-metric-ton">
+			<unit type="mass-tonne">
 				<displayName>t</displayName>
 				<unitPattern count="one">{0} t</unitPattern>
 				<unitPattern count="two">{0} t</unitPattern>
@@ -11029,7 +11218,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} מק״ג</unitPattern>
 			</unit>
 			<unit type="mass-ton">
-				<displayName>טון</displayName>
+				<displayName>טונה</displayName>
 				<unitPattern count="one">ט׳ {0}</unitPattern>
 				<unitPattern count="two">{0} ט׳</unitPattern>
 				<unitPattern count="many">{0} ט׳</unitPattern>
@@ -11639,18 +11828,18 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<compoundUnitPattern>↑↑↑</compoundUnitPattern>
 			</compoundUnit>
 			<unit type="acceleration-g-force">
-				<displayName draft="contributed">כוח ג׳י</displayName>
-				<unitPattern count="one" draft="contributed">{0} G</unitPattern>
-				<unitPattern count="two" draft="contributed">{0} G</unitPattern>
-				<unitPattern count="many" draft="contributed">{0} G</unitPattern>
-				<unitPattern count="other" draft="contributed">{0} G</unitPattern>
+				<displayName>כוח ג׳י</displayName>
+				<unitPattern count="one">{0} G</unitPattern>
+				<unitPattern count="two">{0} G</unitPattern>
+				<unitPattern count="many">{0} G</unitPattern>
+				<unitPattern count="other">{0} G</unitPattern>
 			</unit>
 			<unit type="acceleration-meter-per-square-second">
-				<displayName draft="contributed">m/s²</displayName>
-				<unitPattern count="one" draft="contributed">{0} m/s²</unitPattern>
-				<unitPattern count="two" draft="contributed">{0} m/s²</unitPattern>
-				<unitPattern count="many" draft="contributed">{0} m/s²</unitPattern>
-				<unitPattern count="other" draft="contributed">{0} m/s²</unitPattern>
+				<displayName>m/s²</displayName>
+				<unitPattern count="one">{0} m/s²</unitPattern>
+				<unitPattern count="two">{0} m/s²</unitPattern>
+				<unitPattern count="many">{0} m/s²</unitPattern>
+				<unitPattern count="other">{0} m/s²</unitPattern>
 			</unit>
 			<unit type="angle-revolution">
 				<displayName>↑↑↑</displayName>
@@ -11847,11 +12036,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="consumption-mile-per-gallon-imperial">
-				<displayName draft="contributed">↑↑↑</displayName>
-				<unitPattern count="one" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="two" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="many" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
+				<displayName>↑↑↑</displayName>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="two">↑↑↑</unitPattern>
+				<unitPattern count="many">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-petabyte">
 				<displayName>↑↑↑</displayName>
@@ -11925,10 +12114,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</unit>
 			<unit type="digital-bit">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one">↑↑↑</unitPattern>
-				<unitPattern count="two">↑↑↑</unitPattern>
-				<unitPattern count="many">↑↑↑</unitPattern>
-				<unitPattern count="other">↑↑↑</unitPattern>
+				<unitPattern count="one">{0} ביט</unitPattern>
+				<unitPattern count="two">{0} ביט</unitPattern>
+				<unitPattern count="many">{0} ביט</unitPattern>
+				<unitPattern count="other">{0} ביט</unitPattern>
 			</unit>
 			<unit type="duration-century">
 				<displayName>מאות</displayName>
@@ -11951,6 +12140,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="many">{0} ש′</unitPattern>
 				<unitPattern count="other">{0} ש′</unitPattern>
 				<perUnitPattern>{0}/שנה</perUnitPattern>
+			</unit>
+			<unit type="duration-quarter">
+				<displayName>רבעונים</displayName>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="two">↑↑↑</unitPattern>
+				<unitPattern count="many">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
+				<perUnitPattern>↑↑↑</perUnitPattern>
 			</unit>
 			<unit type="duration-month">
 				<displayName>ח׳</displayName>
@@ -12022,32 +12219,32 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} ns</unitPattern>
 			</unit>
 			<unit type="electric-ampere">
-				<displayName draft="contributed">↑↑↑</displayName>
-				<unitPattern count="one" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="two" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="many" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
+				<displayName>↑↑↑</displayName>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="two">↑↑↑</unitPattern>
+				<unitPattern count="many">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="electric-milliampere">
-				<displayName draft="contributed">↑↑↑</displayName>
-				<unitPattern count="one" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="two" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="many" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
+				<displayName>↑↑↑</displayName>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="two">↑↑↑</unitPattern>
+				<unitPattern count="many">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="electric-ohm">
 				<displayName draft="contributed">↑↑↑</displayName>
-				<unitPattern count="one" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="two" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="many" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="two">↑↑↑</unitPattern>
+				<unitPattern count="many">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="electric-volt">
-				<displayName draft="contributed">↑↑↑</displayName>
-				<unitPattern count="one" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="two" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="many" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
+				<displayName>↑↑↑</displayName>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="two">↑↑↑</unitPattern>
+				<unitPattern count="many">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="energy-kilocalorie">
 				<displayName>↑↑↑</displayName>
@@ -12129,37 +12326,37 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<unit type="force-kilowatt-hour-per-100-kilometer">
 				<displayName>kWh/100km</displayName>
 				<unitPattern count="one">{0} kWh/100km</unitPattern>
-				<unitPattern count="two" draft="contributed">↑↑↑</unitPattern>
+				<unitPattern count="two">↑↑↑</unitPattern>
 				<unitPattern count="many">{0} kWh/100km</unitPattern>
 				<unitPattern count="other">{0} kWh</unitPattern>
 			</unit>
 			<unit type="frequency-gigahertz">
-				<displayName draft="contributed">↑↑↑</displayName>
-				<unitPattern count="one" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="two" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="many" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
+				<displayName>↑↑↑</displayName>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="two">↑↑↑</unitPattern>
+				<unitPattern count="many">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="frequency-megahertz">
-				<displayName draft="contributed">↑↑↑</displayName>
-				<unitPattern count="one" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="two" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="many" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
+				<displayName>↑↑↑</displayName>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="two">↑↑↑</unitPattern>
+				<unitPattern count="many">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="frequency-kilohertz">
-				<displayName draft="contributed">↑↑↑</displayName>
-				<unitPattern count="one" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="two" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="many" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
+				<displayName>↑↑↑</displayName>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="two">↑↑↑</unitPattern>
+				<unitPattern count="many">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="frequency-hertz">
-				<displayName draft="contributed">↑↑↑</displayName>
-				<unitPattern count="one" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="two" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="many" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
+				<displayName>↑↑↑</displayName>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="two">↑↑↑</unitPattern>
+				<unitPattern count="many">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="graphics-em">
 				<displayName>↑↑↑</displayName>
@@ -12404,7 +12601,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="many">↑↑↑</unitPattern>
 				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
-			<unit type="mass-metric-ton">
+			<unit type="mass-tonne">
 				<displayName>t</displayName>
 				<unitPattern count="one">{0} t</unitPattern>
 				<unitPattern count="two">{0} t</unitPattern>
@@ -12442,7 +12639,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} מק״ג</unitPattern>
 			</unit>
 			<unit type="mass-ton">
-				<displayName>טון</displayName>
+				<displayName>טונה</displayName>
 				<unitPattern count="one">ט׳ {0}</unitPattern>
 				<unitPattern count="two">{0} ט׳</unitPattern>
 				<unitPattern count="many">{0} ט׳</unitPattern>
@@ -12556,11 +12753,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} כ״ס</unitPattern>
 			</unit>
 			<unit type="pressure-millimeter-ofhg">
-				<displayName draft="contributed">mm Hg</displayName>
-				<unitPattern count="one" draft="contributed">{0} mm Hg</unitPattern>
-				<unitPattern count="two" draft="contributed">{0} mm Hg</unitPattern>
-				<unitPattern count="many" draft="contributed">{0} mm Hg</unitPattern>
-				<unitPattern count="other" draft="contributed">{0} mm Hg</unitPattern>
+				<displayName>mm Hg</displayName>
+				<unitPattern count="one">{0} mm Hg</unitPattern>
+				<unitPattern count="two">{0} mm Hg</unitPattern>
+				<unitPattern count="many">{0} mm Hg</unitPattern>
+				<unitPattern count="other">{0} mm Hg</unitPattern>
 			</unit>
 			<unit type="pressure-pound-force-per-square-inch">
 				<displayName>psi</displayName>
@@ -12598,25 +12795,25 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-pascal">
-				<displayName draft="contributed">↑↑↑</displayName>
-				<unitPattern count="one" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="two" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="many" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
+				<displayName>↑↑↑</displayName>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="two">↑↑↑</unitPattern>
+				<unitPattern count="many">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-hectopascal">
-				<displayName draft="contributed">hPa</displayName>
+				<displayName>hPa</displayName>
 				<unitPattern count="one">{0} hPa</unitPattern>
 				<unitPattern count="two">{0} hPa</unitPattern>
 				<unitPattern count="many">{0} hPa</unitPattern>
 				<unitPattern count="other">{0} hPa</unitPattern>
 			</unit>
 			<unit type="pressure-kilopascal">
-				<displayName draft="contributed">↑↑↑</displayName>
-				<unitPattern count="one" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="two" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="many" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
+				<displayName>↑↑↑</displayName>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="two">↑↑↑</unitPattern>
+				<unitPattern count="many">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-megapascal">
 				<displayName>↑↑↑</displayName>
@@ -12633,25 +12830,25 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} קמ״ש</unitPattern>
 			</unit>
 			<unit type="speed-meter-per-second">
-				<displayName draft="contributed">מ׳/שנ׳</displayName>
+				<displayName>מ׳/שנ׳</displayName>
 				<unitPattern count="one">{0} מ/ש</unitPattern>
 				<unitPattern count="two">{0} מ/ש</unitPattern>
 				<unitPattern count="many">{0} מ/ש</unitPattern>
 				<unitPattern count="other">{0} מ/ש</unitPattern>
 			</unit>
 			<unit type="speed-mile-per-hour">
-				<displayName draft="contributed">mph</displayName>
+				<displayName>mph</displayName>
 				<unitPattern count="one">{0} mph</unitPattern>
 				<unitPattern count="two">{0} mph</unitPattern>
 				<unitPattern count="many">{0} mph</unitPattern>
 				<unitPattern count="other">{0} mph</unitPattern>
 			</unit>
 			<unit type="speed-knot">
-				<displayName draft="contributed">kn</displayName>
-				<unitPattern count="one" draft="contributed">{0} kn</unitPattern>
-				<unitPattern count="two" draft="contributed">{0} kn</unitPattern>
-				<unitPattern count="many" draft="contributed">{0} kn</unitPattern>
-				<unitPattern count="other" draft="contributed">{0} kn</unitPattern>
+				<displayName>kn</displayName>
+				<unitPattern count="one">{0} kn</unitPattern>
+				<unitPattern count="two">{0} kn</unitPattern>
+				<unitPattern count="many">{0} kn</unitPattern>
+				<unitPattern count="other">{0} kn</unitPattern>
 			</unit>
 			<unit type="temperature-generic">
 				<displayName>°</displayName>
@@ -12863,10 +13060,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</unit>
 			<unit type="volume-fluid-ounce-imperial">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="two" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="many" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="two">↑↑↑</unitPattern>
+				<unitPattern count="many">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-tablespoon">
 				<displayName>↑↑↑</displayName>
@@ -12966,7 +13163,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<listPattern type="or">
 			<listPatternPart type="start">{0}, {1}</listPatternPart>
 			<listPatternPart type="middle">{0}, {1}</listPatternPart>
-			<listPatternPart type="end">{0}, או {1}</listPatternPart>
+			<listPatternPart type="end">{0} או {1}</listPatternPart>
 			<listPatternPart type="2">{0} או {1}</listPatternPart>
 		</listPattern>
 		<listPattern type="or-narrow">
@@ -12996,7 +13193,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<listPattern type="unit">
 			<listPatternPart type="start">{0}, {1}</listPatternPart>
 			<listPatternPart type="middle">{0}, {1}</listPatternPart>
-			<listPatternPart type="end">{0} ו{1}</listPatternPart>
+			<listPatternPart type="end">{0} ו-{1}</listPatternPart>
 			<listPatternPart type="2">{0}, {1}</listPatternPart>
 		</listPattern>
 		<listPattern type="unit-narrow">
@@ -13192,4 +13389,159 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<featureName type="tnum">ספרות ברוחב זהה</featureName>
 		<featureName type="zero">אפס עם קו חוצה</featureName>
 	</typographicNames>
+	<personNames>
+		<nameOrderLocales order="givenFirst">und he</nameOrderLocales>
+		<nameOrderLocales order="surnameFirst">ko vi yue zh</nameOrderLocales>
+		<foreignSpaceReplacement xml:space="preserve">↑↑↑</foreignSpaceReplacement>
+		<initialPattern type="initial">↑↑↑</initialPattern>
+		<initialPattern type="initialSequence">↑↑↑</initialPattern>
+		<personName order="givenFirst" length="long" usage="referring" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="referring" formality="informal">
+			<namePattern>{given-informal} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="monogram" formality="formal">
+			<namePattern>{given-monogram-allCaps}{given2-monogram-allCaps}״{surname-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="monogram" formality="informal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="referring" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="referring" formality="informal">
+			<namePattern>{given-informal} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="monogram" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="monogram" formality="informal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="referring" formality="formal">
+			<namePattern>{prefix} {given-initial} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="referring" formality="informal">
+			<namePattern>{given-informal} {surname-initial}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="monogram" formality="formal">
+			<namePattern>{given-monogram-allCaps}{given2-monogram-allCaps}״{surname-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="monogram" formality="informal">
+			<namePattern>{given-monogram-allCaps}{given2-monogram-allCaps}״{surname-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="referring" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="referring" formality="informal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="monogram" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="monogram" formality="informal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="referring" formality="formal">
+			<namePattern>{surname} {given} {given2-initial} {suffix}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="referring" formality="informal">
+			<namePattern>{surname} {given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="monogram" formality="formal">
+			<namePattern>{surname-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="monogram" formality="informal">
+			<namePattern>{given-informal-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="referring" formality="formal">
+			<namePattern>{surname} {given-initial} {given2-initial}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="referring" formality="informal">
+			<namePattern>{surname} {given-initial}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="addressing" formality="formal">
+			<namePattern>{surname}, {prefix}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="monogram" formality="formal">
+			<namePattern>{surname-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="monogram" formality="informal">
+			<namePattern>{given-informal-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="sorting" length="long" usage="referring" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="sorting" length="long" usage="referring" formality="informal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="sorting" length="medium" usage="referring" formality="formal">
+			<namePattern>{surname-core}, {given} {given2-initial} {surname-prefix}</namePattern>
+		</personName>
+		<personName order="sorting" length="medium" usage="referring" formality="informal">
+			<namePattern>{surname}, {given-informal}</namePattern>
+		</personName>
+		<personName order="sorting" length="short" usage="referring" formality="formal">
+			<namePattern>{surname-core}, {given-initial} {given2-initial} {surname-prefix}</namePattern>
+		</personName>
+		<personName order="sorting" length="short" usage="referring" formality="informal">
+			<namePattern>{surname}, {given-informal}</namePattern>
+		</personName>
+		<sampleName item="givenOnly">
+			<nameField type="given">יונתן</nameField>
+		</sampleName>
+		<sampleName item="givenSurnameOnly">
+			<nameField type="given">דנית</nameField>
+			<nameField type="surname">לוי</nameField>
+		</sampleName>
+		<sampleName item="given12Surname">
+			<nameField type="given">יונתן</nameField>
+			<nameField type="given2">חיים</nameField>
+			<nameField type="surname">כהן</nameField>
+		</sampleName>
+		<sampleName item="full">
+			<nameField type="prefix">ד״ר</nameField>
+			<nameField type="given">רונית</nameField>
+			<nameField type="given-informal">רוני</nameField>
+			<nameField type="given2">חנה</nameField>
+			<nameField type="surname-prefix">בן</nameField>
+			<nameField type="surname-core">ארי</nameField>
+			<nameField type="surname2">מזרחי</nameField>
+			<nameField type="suffix">Ph.D.</nameField>
+		</sampleName>
+	</personNames>
 </ldml>

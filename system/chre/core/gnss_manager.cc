@@ -24,6 +24,7 @@
 #include "chre/platform/fatal_error.h"
 #include "chre/util/nested_data_ptr.h"
 #include "chre/util/system/debug_dump.h"
+#include "chre/util/system/event_callbacks.h"
 
 namespace chre {
 
@@ -295,7 +296,7 @@ void GnssSession::handleReportEvent(void *event) {
   }
 
   auto callback = [](uint16_t type, void *data, void * /*extraData*/) {
-    uint16_t reportEventType;
+    uint16_t reportEventType = 0;
     if (!getReportEventType(static_cast<SystemCallbackType>(type),
                             &reportEventType) ||
         !EventLoopManagerSingleton::get()
@@ -309,10 +310,9 @@ void GnssSession::handleReportEvent(void *event) {
   };
 
   SystemCallbackType type;
-  if (!getCallbackType(kReportEventType, &type)) {
+  if (!getCallbackType(kReportEventType, &type) ||
+      !EventLoopManagerSingleton::get()->deferCallback(type, event, callback)) {
     freeReportEventCallback(kReportEventType, event);
-  } else {
-    EventLoopManagerSingleton::get()->deferCallback(type, event, callback);
   }
 }
 
@@ -721,7 +721,7 @@ void GnssSession::dispatchQueuedStateTransitions() {
   while (!mStateTransitions.empty()) {
     const auto &stateTransition = mStateTransitions.front();
 
-    size_t requestIndex;
+    size_t requestIndex = 0;
     bool hasRequest =
         nanoappHasRequest(stateTransition.nanoappInstanceId, &requestIndex);
 

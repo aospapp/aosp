@@ -20,6 +20,7 @@
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -45,7 +46,11 @@
         <service android:name=".MyService"
              android:exported="true"/>
         <service android:name=".MyForegroundService"
-             android:exported="true"/>
+             android:foregroundServiceType="specialUse"
+             android:exported="true">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" 
+                      android:value="Connectivity" />
+        </service>
         <service android:name=".RemoteSocketFactoryService"
              android:exported="true"/>
 

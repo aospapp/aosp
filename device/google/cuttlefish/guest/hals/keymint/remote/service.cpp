@@ -89,11 +89,11 @@ int main(int, char** argv) {
                << " a raw terminal: " << fd->StrError();
   }
 
-  cuttlefish::KeymasterChannel keymasterChannel(fd, fd);
+  cuttlefish::SharedFdKeymasterChannel keymasterChannel(fd, fd);
 
   keymaster::RemoteKeymaster remote_keymaster(
       &keymasterChannel, keymaster::MessageVersion(
-                             keymaster::KmVersion::KEYMINT_2, 0 /* km_date */));
+                             keymaster::KmVersion::KEYMINT_3, 0 /* km_date */));
 
   if (!remote_keymaster.Initialize()) {
     LOG(FATAL) << "Could not initialize keymaster";

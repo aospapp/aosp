@@ -15,9 +15,6 @@
      limitations under the License.
 -->
 <resources>
-    <color name="bugreport_background">@*android:color/car_grey_846</color>
-    <color name="bugreport_text">@*android:color/car_body1_light</color>
-
-    <color name="bugreport_button_background">@*android:color/car_grey_746</color>
-    <color name="bugreport_button_foreground">@*android:color/car_body1_light</color>
+    <color name="bugreport_background">@*android:color/car_card</color>
+    <color name="bugreport_text">@*android:color/car_title</color>
 </resources>

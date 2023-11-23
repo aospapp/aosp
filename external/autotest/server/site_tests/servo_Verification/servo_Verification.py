@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -62,13 +63,13 @@ class servo_Verification(test.test):
         # This assumes that the string is job.run_test(...) so the first ( is
         # at index 0.
         for index in range(1, len(run_test_str)):
-          if run_test_str[index] == '(': paran += 1
-          if run_test_str[index] == ')': paran -= 1
-          if paran == 0: break
+            if run_test_str[index] == '(': paran += 1
+            if run_test_str[index] == ')': paran -= 1
+            if paran == 0: break
         else:
-          # Failed to find balanced parentheses.
-          raise error.TestNAError('Unable to parse %s for %s.' % (anchor,
-                                                                  cname))
+            # Failed to find balanced parentheses.
+            raise error.TestNAError('Unable to parse %s for %s.' %
+                                    (anchor, cname))
         # Extract only the args
         run_test_str = run_test_str[1:index]
         raw_args = run_test_str.split(',')
@@ -129,7 +130,15 @@ class servo_Verification(test.test):
             # need it can use it.
             _, image_url = host.stage_image_for_servo()
             host.servo.image_to_servo_usb(image_url)
-
+            # `image_to_servo_usb` turned DUT off while download image to usb
+            # drive, so we need to turn DUT back on as some tests assume DUT
+            # is sshable at begin.
+            host.servo.get_power_state_controller().power_on()
+            if not host.wait_up(timeout=host.BOOT_TIMEOUT):
+                logging.warning(
+                        '%s failed to boot in %s seconds, some tests'
+                        ' may fail due to not able to ssh to the DUT',
+                        host.hostname, host.BOOT_TIMEOUT)
 
     def run_once(self, host):
         """Run through the test sequence.

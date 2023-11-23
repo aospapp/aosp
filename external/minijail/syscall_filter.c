@@ -1,4 +1,4 @@
-/* Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+/* Copyright 2012 The ChromiumOS Authors
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
@@ -34,21 +34,21 @@ int seccomp_can_softfail(void)
 
 int str_to_op(const char *op_str)
 {
-	if (!strcmp(op_str, "==")) {
+	if (streq(op_str, "==")) {
 		return EQ;
-	} else if (!strcmp(op_str, "!=")) {
+	} else if (streq(op_str, "!=")) {
 		return NE;
-	} else if (!strcmp(op_str, "<")) {
+	} else if (streq(op_str, "<")) {
 		return LT;
-	} else if (!strcmp(op_str, "<=")) {
+	} else if (streq(op_str, "<=")) {
 		return LE;
-	} else if (!strcmp(op_str, ">")) {
+	} else if (streq(op_str, ">")) {
 		return GT;
-	} else if (!strcmp(op_str, ">=")) {
+	} else if (streq(op_str, ">=")) {
 		return GE;
-	} else if (!strcmp(op_str, "&")) {
+	} else if (streq(op_str, "&")) {
 		return SET;
-	} else if (!strcmp(op_str, "in")) {
+	} else if (streq(op_str, "in")) {
 		return IN;
 	} else {
 		return 0;
@@ -705,7 +705,7 @@ int compile_file(const char *filename, FILE *policy_file,
 		 * For each syscall, add either a simple ALLOW,
 		 * or an arg filter block.
 		 */
-		if (strcmp(policy_line, "1") == 0) {
+		if (streq(policy_line, "1")) {
 			/* Add simple ALLOW. */
 			append_allow_syscall(head, nr);
 		} else {
@@ -742,8 +742,8 @@ int compile_file(const char *filename, FILE *policy_file,
 		}
 		/* Reuse |line| in the next getline() call. */
 	}
-	/* getline(3) returned -1. This can mean EOF or the below errors. */
-	if (errno == EINVAL || errno == ENOMEM) {
+	/* getline(3) returned -1. This can mean EOF or an error. */
+	if (!feof(policy_file)) {
 		if (*arg_blocks) {
 			free_block_list(*arg_blocks);
 			*arg_blocks = NULL;

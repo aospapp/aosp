@@ -31,12 +31,12 @@ public class MainActivity extends Activity {
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
         for (String component : Consts.SupportedComponents.getAllComponents()) {
-            broadcastStatus(component,
-                    component.equals(Consts.SupportedComponents.ON_CREATE_COMPONENT_2));
+            boolean status = component.equals(Consts.SupportedComponents.ON_CREATE_COMPONENT_2);
+            broadcastStatus(component, status ? "true" : "false");
         }
     }
 
-    private void broadcastStatus(String component, boolean status) {
+    private void broadcastStatus(String component, String status) {
         Intent intent = new Intent(INCREMENTAL_TEST_APP_STATUS_RECEIVER_ACTION);
         intent.putExtra(TARGET_COMPONENT_KEY, component);
         intent.putExtra(COMPONENT_STATUS_KEY, status);

@@ -381,6 +381,14 @@ func TestRemoveFromList(t *testing.T) {
 	}
 }
 
+func TestCopyOfEmptyAndNil(t *testing.T) {
+	emptyList := []string{}
+	copyOfEmptyList := CopyOf(emptyList)
+	AssertBoolEquals(t, "Copy of an empty list should be an empty list and not nil", true, copyOfEmptyList != nil)
+	copyOfNilList := CopyOf(nil)
+	AssertBoolEquals(t, "Copy of a nil list should be a nil list and not an empty list", true, copyOfNilList == nil)
+}
+
 func ExampleCopyOf() {
 	a := []string{"1", "2", "3"}
 	b := CopyOf(a)
@@ -641,42 +649,34 @@ func BenchmarkFirstUniqueStrings(b *testing.B) {
 	}
 }
 
-func TestSortedStringKeys(t *testing.T) {
-	testCases := []struct {
-		name     string
-		in       interface{}
-		expected []string
-	}{
-		{
-			name:     "nil",
-			in:       map[string]string(nil),
-			expected: nil,
-		},
-		{
-			name:     "empty",
-			in:       map[string]string{},
-			expected: nil,
-		},
-		{
-			name:     "simple",
-			in:       map[string]string{"a": "foo", "b": "bar"},
-			expected: []string{"a", "b"},
-		},
-		{
-			name:     "interface values",
-			in:       map[string]interface{}{"a": nil, "b": nil},
-			expected: []string{"a", "b"},
-		},
-	}
+func testSortedKeysHelper[K Ordered, V any](t *testing.T, name string, input map[K]V, expected []K) {
+	t.Helper()
+	t.Run(name, func(t *testing.T) {
+		actual := SortedKeys(input)
+		if !reflect.DeepEqual(actual, expected) {
+			t.Errorf("expected %v, got %v", expected, actual)
+		}
+	})
+}
 
-	for _, tt := range testCases {
-		t.Run(tt.name, func(t *testing.T) {
-			got := SortedStringKeys(tt.in)
-			if g, w := got, tt.expected; !reflect.DeepEqual(g, w) {
-				t.Errorf("wanted %q, got %q", w, g)
-			}
-		})
-	}
+func TestSortedKeys(t *testing.T) {
+	testSortedKeysHelper(t, "simple", map[string]string{
+		"b": "bar",
+		"a": "foo",
+	}, []string{
+		"a",
+		"b",
+	})
+	testSortedKeysHelper(t, "ints", map[int]interface{}{
+		10: nil,
+		5:  nil,
+	}, []int{
+		5,
+		10,
+	})
+
+	testSortedKeysHelper(t, "nil", map[string]string(nil), nil)
+	testSortedKeysHelper(t, "empty", map[string]string{}, nil)
 }
 
 func TestSortedStringValues(t *testing.T) {

@@ -10,6 +10,7 @@ PURPOSE = "Verify Cr50 to AP USB connection"
 TIME = "MEDIUM"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 This test runs 'usb_updater -f' many times to verify the cr50 to ap usb

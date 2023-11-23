@@ -1,0 +1,9 @@
+# IntelliJ
+.idea/
+*.iml
+
+# Python
+*.pyc
+
+# A file created when launching android emulators
+read-snapshot.txt

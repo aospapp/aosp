@@ -18,6 +18,7 @@
 
 #include <cinttypes>
 
+#include "chre/platform/linux/task_util/task_manager.h"
 #include "chre/platform/log.h"
 #include "chre/platform/shared/pal_system_api.h"
 #include "chre/platform/system_time.h"
@@ -116,6 +117,8 @@ void chrePalNanSubscriptionCanceledCallback(uint8_t reason,
 }  // anonymous namespace
 
 void PalWifiTest::SetUp() {
+  chre::TaskManagerSingleton::deinit();
+  chre::TaskManagerSingleton::init();
   api_ = chrePalWifiGetApi(CHRE_PAL_WIFI_API_CURRENT_VERSION);
   ASSERT_NE(api_, nullptr);
   EXPECT_EQ(api_->moduleVersion, CHRE_PAL_WIFI_API_CURRENT_VERSION);
@@ -149,6 +152,7 @@ void PalWifiTest::TearDown() {
   if (api_ != nullptr) {
     api_->close();
   }
+  chre::TaskManagerSingleton::deinit();
 }
 
 void PalWifiTest::scanMonitorStatusChangeCallback(bool enabled,

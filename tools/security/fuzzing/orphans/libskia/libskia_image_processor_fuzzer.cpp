@@ -20,9 +20,13 @@
 #include <cstdio>
 #include <string>
 
+#include "SkAlphaType.h"
 #include "SkAndroidCodec.h"
 #include "SkBitmap.h"
 #include "SkCodec.h"
+#include "SkColorType.h"
+#include "SkImageInfo.h"
+#include "SkStream.h"
 #include "SkString.h"
 
 #include "fuzzer/FuzzedDataProvider.h"

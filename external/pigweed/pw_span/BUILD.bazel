@@ -24,23 +24,32 @@ licenses(["notice"])
 
 pw_cc_library(
     name = "pw_span",
-    srcs = ["public/pw_span/internal/span.h"],
-    hdrs = ["public_overrides/span"],
-    includes = [
-        "public",
-        "public_overrides",
+    srcs = [
+        "public/pw_span/internal/config.h",
+        "public/pw_span/internal/span_impl.h",
     ],
+    hdrs = ["public/pw_span/span.h"],
+    includes = ["public"],
     deps = [
-        "//pw_polyfill",
-        "//pw_polyfill:standard_library",
+        # TODO(b/243851191): Depending on pw_assert causes a dependency cycle.
     ],
 )
 
 pw_cc_test(
-    name = "span_test",
+    name = "pw_span_test",
     srcs = ["span_test.cc"],
     deps = [
         ":pw_span",
+        "//pw_polyfill",
         "//pw_unit_test",
+    ],
+)
+
+pw_cc_test(
+    name = "compatibility_test",
+    srcs = ["compatibility_test.cc"],
+    deps = [
+        ":pw_span",
+        "//pw_polyfill",
     ],
 )

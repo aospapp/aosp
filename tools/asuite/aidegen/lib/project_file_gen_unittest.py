@@ -90,7 +90,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         sample_module = common_util.read_file_content(self._MODULE_XML_SAMPLE)
         self.assertEqual(test_module, sample_module)
 
-        # Test for sub projects which only has self module.
+        # Test for sub-projects which only has self module.
         try:
             pfile_gen._generate_modules_xml()
             project_file_gen.update_enable_debugger(self._ANDROID_PROJECT_PATH)
@@ -165,7 +165,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     @mock.patch.object(shutil, 'copy')
     @mock.patch.object(os.path, 'exists')
     def test_generate_git_ignore(self, mock_path_exist, mock_copy,
-                                 mock_loggin_error):
+                                 mock_logging_error):
         """Test _generate_git_ignore."""
         mock_path_exist.return_value = True
         project_file_gen._generate_git_ignore(
@@ -177,7 +177,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         mock_copy.side_effect = OSError()
         project_file_gen._generate_git_ignore(
             common_util.get_aidegen_root_dir())
-        self.assertTrue(mock_loggin_error.called)
+        self.assertTrue(mock_logging_error.called)
 
     def test_filter_out_source_paths(self):
         """Test _filter_out_source_paths."""

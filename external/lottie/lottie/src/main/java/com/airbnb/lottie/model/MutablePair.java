@@ -1,14 +1,13 @@
 package com.airbnb.lottie.model;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY;
+
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.core.util.Pair;
 
-import static androidx.annotation.RestrictTo.Scope.LIBRARY;
-
 /**
- * Non final version of {@link Pair}
- * @param <T>
+ * Non final version of {@link Pair}.
  */
 @RestrictTo(LIBRARY)
 public class MutablePair<T> {
@@ -26,7 +25,7 @@ public class MutablePair<T> {
    *
    * @param o the {@link Pair} to which this one is to be checked for equality
    * @return true if the underlying objects of the Pair are both considered
-   *         equal
+   * equal
    */
   @Override
   public boolean equals(Object o) {
@@ -53,6 +52,6 @@ public class MutablePair<T> {
 
   @Override
   public String toString() {
-    return "Pair{" + String.valueOf(first) + " " + String.valueOf(second) + "}";
+    return "Pair{" + first + " " + second + "}";
   }
 }

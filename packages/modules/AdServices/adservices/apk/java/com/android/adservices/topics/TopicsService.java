@@ -15,18 +15,46 @@
  */
 package com.android.adservices.topics;
 
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_API_CALLED__API_CLASS__TARGETING;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__ERROR_CODE__TOPICS_API_DISABLED;
+import static com.android.adservices.service.stats.AdServicesStatsLog.AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__TOPICS;
+
 import android.app.Service;
 import android.content.Intent;
+import android.os.Build;
 import android.os.IBinder;
 
-import com.android.adservices.service.MaintenanceJobService;
-import com.android.adservices.service.topics.EpochJobService;
-import com.android.adservices.service.topics.TopicsServiceImpl;
+import androidx.annotation.RequiresApi;
 
+import com.android.adservices.LoggerFactory;
+import com.android.adservices.data.enrollment.EnrollmentDao;
+import com.android.adservices.download.MddJobService;
+import com.android.adservices.download.MobileDataDownloadFactory;
+import com.android.adservices.errorlogging.ErrorLogUtil;
+import com.android.adservices.service.FlagsFactory;
+import com.android.adservices.service.MaintenanceJobService;
+import com.android.adservices.service.common.AppImportanceFilter;
+import com.android.adservices.service.common.PackageChangedReceiver;
+import com.android.adservices.service.common.Throttler;
+import com.android.adservices.service.consent.AdServicesApiType;
+import com.android.adservices.service.consent.ConsentManager;
+import com.android.adservices.service.stats.AdServicesLoggerImpl;
+import com.android.adservices.service.stats.Clock;
+import com.android.adservices.service.topics.CacheManager;
+import com.android.adservices.service.topics.EpochJobService;
+import com.android.adservices.service.topics.EpochManager;
+import com.android.adservices.service.topics.TopicsServiceImpl;
+import com.android.adservices.service.topics.TopicsWorker;
+
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
 import java.util.Objects;
 
 /** Topics Service */
+// TODO(b/269798827): Enable for R.
+@RequiresApi(Build.VERSION_CODES.S)
 public class TopicsService extends Service {
+    private static final LoggerFactory.Logger sLogger = LoggerFactory.getTopicsLogger();
 
     /** The binder service. This field must only be accessed on the main thread. */
     private TopicsServiceImpl mTopicsService;
@@ -34,21 +62,86 @@ public class TopicsService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        if (mTopicsService == null) {
-            mTopicsService = new TopicsServiceImpl(this);
+
+        if (FlagsFactory.getFlags().getTopicsKillSwitch()) {
+            sLogger.e("onCreate(): Topics API is disabled");
+            ErrorLogUtil.e(
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__TOPICS_API_DISABLED,
+                    AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__TOPICS,
+                    "TopicsService",
+                    "onCreate");
+            return;
         }
 
-        schedulePeriodicJobs();
+        AppImportanceFilter appImportanceFilter =
+                AppImportanceFilter.create(
+                        this,
+                        AD_SERVICES_API_CALLED__API_CLASS__TARGETING,
+                        () -> FlagsFactory.getFlags().getForegroundStatuslLevelForValidation());
+
+        if (mTopicsService == null) {
+            mTopicsService =
+                    new TopicsServiceImpl(
+                            this,
+                            TopicsWorker.getInstance(this),
+                            ConsentManager.getInstance(this),
+                            AdServicesLoggerImpl.getInstance(),
+                            Clock.SYSTEM_CLOCK,
+                            FlagsFactory.getFlags(),
+                            Throttler.getInstance(FlagsFactory.getFlags()),
+                            EnrollmentDao.getInstance(this),
+                            appImportanceFilter);
+            mTopicsService.init();
+        }
+        if (hasUserConsent()) {
+            PackageChangedReceiver.enableReceiver(this, FlagsFactory.getFlags());
+            schedulePeriodicJobs();
+        }
     }
 
     private void schedulePeriodicJobs() {
-        MaintenanceJobService.schedule(this);
-        EpochJobService.schedule(this);
+        MaintenanceJobService.scheduleIfNeeded(this, /* forceSchedule */ false);
+        EpochJobService.scheduleIfNeeded(this, /* forceSchedule */ false);
+        MddJobService.scheduleIfNeeded(this, /* forceSchedule */ false);
     }
 
+    private boolean hasUserConsent() {
+        if (FlagsFactory.getFlags().getGaUxFeatureEnabled()) {
+            return ConsentManager.getInstance(this).getConsent(AdServicesApiType.TOPICS).isGiven();
+        } else {
+            return ConsentManager.getInstance(this).getConsent().isGiven();
+        }
+    }
 
     @Override
     public IBinder onBind(Intent intent) {
+        if (FlagsFactory.getFlags().getTopicsKillSwitch()) {
+            sLogger.e("onBind(): Topics API is disabled, return nullBinding.");
+            ErrorLogUtil.e(
+                    AD_SERVICES_ERROR_REPORTED__ERROR_CODE__TOPICS_API_DISABLED,
+                    AD_SERVICES_ERROR_REPORTED__PPAPI_NAME__TOPICS,
+                    "TopicsService",
+                    "onBind");
+            // Return null so that clients can not bind to the service.
+            return null;
+        }
         return Objects.requireNonNull(mTopicsService);
+    }
+
+    // TODO(b/246316128): Add dump() in Consent Manager.
+    @Override
+    public void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
+        super.dump(fd, writer, args);
+        FlagsFactory.getFlags().dump(writer, args);
+        if (Build.isDebuggable()) {
+            writer.println("Build is Debuggable, dumping information for TopicsService");
+            EpochManager.getInstance(this).dump(writer, args);
+            CacheManager.getInstance(this).dump(writer, args);
+            MobileDataDownloadFactory.dump(this, writer);
+            writer.println("=== User Consent State For Topics Service ===");
+            writer.println("User Consent is given: " + hasUserConsent());
+        } else {
+            writer.println("Build is not Debuggable");
+        }
     }
 }

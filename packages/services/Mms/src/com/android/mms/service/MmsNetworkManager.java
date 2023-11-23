@@ -26,11 +26,16 @@ import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.net.NetworkRequest;
 import android.net.TelephonyNetworkSpecifier;
+import android.os.Binder;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Message;
+import android.os.PersistableBundle;
 import android.provider.DeviceConfig;
+import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.PhoneConstants;
@@ -52,9 +57,8 @@ public class MmsNetworkManager {
     // timeout to make sure we don't bail prematurely.
     private static final int ADDITIONAL_NETWORK_ACQUIRE_TIMEOUT_MILLIS = (5 * 1000);
 
-    // Waiting time used before releasing a network prematurely. This allows the MMS download
-    // acknowledgement messages to be sent using the same network that was used to download the data
-    private static final int NETWORK_RELEASE_TIMEOUT_MILLIS = 5 * 1000;
+    /* Event created when receiving ACTION_CARRIER_CONFIG_CHANGED */
+    private static final int EVENT_CARRIER_CONFIG_CHANGED = 1;
 
     private final Context mContext;
 
@@ -88,9 +92,35 @@ public class MmsNetworkManager {
     private int mPhoneId;
 
     // If ACTION_SIM_CARD_STATE_CHANGED intent receiver is registered
-    private boolean mReceiverRegistered;
+    private boolean mSimCardStateChangedReceiverRegistered;
 
     private final Dependencies mDeps;
+
+    private int mNetworkReleaseTimeoutMillis;
+    private EventHandler mEventHandler;
+
+    private final class EventHandler extends Handler {
+        EventHandler() {
+            super(Looper.getMainLooper());
+        }
+
+        /**
+         * Handles events coming from the phone stack. Overridden from handler.
+         *
+         * @param msg the message to handle
+         */
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case EVENT_CARRIER_CONFIG_CHANGED:
+                    // Reload mNetworkReleaseTimeoutMillis from CarrierConfigManager.
+                    handleCarrierConfigChanged();
+                    break;
+                default:
+                    LogUtil.e("MmsNetworkManager: ignoring message of unexpected type " + msg.what);
+            }
+        }
+    }
 
     /**
      * This receiver listens to ACTION_SIM_CARD_STATE_CHANGED after starting a new NetworkRequest.
@@ -98,7 +128,7 @@ public class MmsNetworkManager {
      * current NetworkRequest is received, it just releases the NetworkRequest without waiting for
      * timeout.
      */
-    private final BroadcastReceiver mReceiver =
+    private final BroadcastReceiver mSimCardStateChangedReceiver =
             new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
@@ -137,6 +167,35 @@ public class MmsNetworkManager {
             default:
                 return "INVALID";
         }
+    }
+
+    /**
+     * This receiver listens to ACTION_CARRIER_CONFIG_CHANGED. Whenever receiving this event,
+     * mNetworkReleaseTimeoutMillis needs to be reloaded from CarrierConfigManager.
+     */
+    private final BroadcastReceiver mCarrierConfigChangedReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            final String action = intent.getAction();
+            if (CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED.equals(action)
+                    && mSubId == intent.getIntExtra(
+                            CarrierConfigManager.EXTRA_SUBSCRIPTION_INDEX,
+                            SubscriptionManager.DEFAULT_SUBSCRIPTION_ID)) {
+                mEventHandler.sendMessage(mEventHandler.obtainMessage(
+                        EVENT_CARRIER_CONFIG_CHANGED));
+            }
+        }
+    };
+
+    private void handleCarrierConfigChanged() {
+        final CarrierConfigManager configManager =
+                (CarrierConfigManager)
+                        mContext.getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        final PersistableBundle config = configManager.getConfigForSubId(mSubId);
+        mNetworkReleaseTimeoutMillis =
+                config.getInt(CarrierConfigManager.KEY_MMS_NETWORK_RELEASE_TIMEOUT_MILLIS_INT);
+        LogUtil.d("MmsNetworkManager: handleCarrierConfigChanged() mNetworkReleaseTimeoutMillis "
+                + mNetworkReleaseTimeoutMillis);
     }
 
     /**
@@ -245,6 +304,13 @@ public class MmsNetworkManager {
                 }
             }
         };
+
+        mEventHandler = new EventHandler();
+        // Register a receiver to listen to ACTION_CARRIER_CONFIG_CHANGED
+        mContext.registerReceiver(
+                mCarrierConfigChangedReceiver,
+                new IntentFilter(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED));
+        handleCarrierConfigChanged();
     }
 
     public MmsNetworkManager(Context context, int subId) {
@@ -270,7 +336,7 @@ public class MmsNetworkManager {
                 return;
             }
 
-            if (!mReceiverRegistered) {
+            if (!mSimCardStateChangedReceiverRegistered) {
                 mPhoneId = mDeps.getPhoneId(mSubId);
                 if (mPhoneId == SubscriptionManager.INVALID_PHONE_INDEX
                         || mPhoneId == SubscriptionManager.DEFAULT_PHONE_INDEX) {
@@ -279,9 +345,9 @@ public class MmsNetworkManager {
 
                 // Register a receiver to listen to ACTION_SIM_CARD_STATE_CHANGED
                 mContext.registerReceiver(
-                        mReceiver,
+                        mSimCardStateChangedReceiver,
                         new IntentFilter(TelephonyManager.ACTION_SIM_CARD_STATE_CHANGED));
-                mReceiverRegistered = true;
+                mSimCardStateChangedReceiverRegistered = true;
             }
 
             // Not available, so start a new request if not done yet
@@ -297,10 +363,10 @@ public class MmsNetworkManager {
                 LogUtil.w(requestId, "MmsNetworkManager: acquire network wait interrupted");
             }
 
-            if (mReceiverRegistered) {
+            if (mSimCardStateChangedReceiverRegistered) {
                 // Unregister the receiver.
-                mContext.unregisterReceiver(mReceiver);
-                mReceiverRegistered = false;
+                mContext.unregisterReceiver(mSimCardStateChangedReceiver);
+                mSimCardStateChangedReceiverRegistered = false;
             }
 
             if (mNetwork != null) {
@@ -328,10 +394,11 @@ public class MmsNetworkManager {
     /**
      * Release the MMS network when nobody is holding on to it.
      *
-     * @param requestId          request ID for logging
-     * @param shouldDelayRelease whether the release should be delayed for 5 seconds, the regular
-     *                           use case is to delay this for DownloadRequests to use the network
-     *                           for sending an acknowledgement on the same network
+     * @param requestId          request ID for logging.
+     * @param shouldDelayRelease whether the release should be delayed for a carrier-configured
+     *                           timeout (default 5 seconds), the regular use case is to delay this
+     *                           for DownloadRequests to use the network for sending an
+     *                           acknowledgement on the same network.
      */
     public void releaseNetwork(final String requestId, final boolean shouldDelayRelease) {
         synchronized (this) {
@@ -344,7 +411,7 @@ public class MmsNetworkManager {
                         // handler to release the network
                         mReleaseHandler.removeCallbacks(mNetworkReleaseTask);
                         mReleaseHandler.postDelayed(mNetworkReleaseTask,
-                                NETWORK_RELEASE_TIMEOUT_MILLIS);
+                                mNetworkReleaseTimeoutMillis);
                     } else {
                         releaseRequestLocked(mNetworkCallback);
                     }
@@ -442,5 +509,10 @@ public class MmsNetworkManager {
             apnName = mmsNetworkInfo.getExtraInfo();
         }
         return apnName;
+    }
+
+    @VisibleForTesting
+    protected int getNetworkReleaseTimeoutMillis() {
+        return mNetworkReleaseTimeoutMillis;
     }
 }

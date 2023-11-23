@@ -21,15 +21,15 @@ package com.android.car;
  *
  * <p> This is for tracking all dependencies done through java reflection.
  */
-public class UpdatablePackageDependency {
+public final class UpdatablePackageDependency {
     private UpdatablePackageDependency() {}
 
     /** {@code com.android.car.CarServiceImpl} class */
     public static final String CAR_SERVICE_IMPL_CLASS = "com.android.car.CarServiceImpl";
 
-    /** {@code com.android.car.PerUserCarServiceImpl} class */
-    public static final String PER_USER_CAR_SERVICE_IMPL_CLASS =
-            "com.android.car.PerUserCarServiceImpl";
+    /** {@code com.android.car.CarPerUserServiceImpl} class */
+    public static final String CAR_USER_PER_SERVICE_IMPL_CLASS =
+            "com.android.car.CarPerUserServiceImpl";
 
     /** {@code com.android.car.pm.CarSafetyAccessibilityServiceImpl} class */
     public static final String CAR_ACCESSIBILITY_IMPL_CLASS =

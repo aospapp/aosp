@@ -1,0 +1,39 @@
+From a980e07587a349935a36c13464de80b6a3c1da32 Mon Sep 17 00:00:00 2001
+From: Patrick Rohr <prohr@google.com>
+Date: Thu, 30 Mar 2023 12:56:48 -0700
+Subject: [PATCH] Disable pkeys for cronet builds
+
+Cronet only builds partition_allocator for some of its test
+dependencies in AOSP. AOSP host targets build against a glibc prebuilt
+that does not include the pkey syscall numbers.
+
+Test: try to build
+Change-Id: I87209a7f986516f5171f1730925633984be2901c
+---
+ base/allocator/partition_allocator/partition_alloc.gni | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/base/allocator/partition_allocator/partition_alloc.gni b/base/allocator/partition_allocator/partition_alloc.gni
+index 88915bd59dacd..b3f9d1c390a03 100644
+--- a/base/allocator/partition_allocator/partition_alloc.gni
++++ b/base/allocator/partition_allocator/partition_alloc.gni
+@@ -2,6 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
++import ("//build/config/cronet/config.gni")
+ import("//build/config/sanitizers/sanitizers.gni")
+ import("//build_overrides/partition_alloc.gni")
+ 
+@@ -200,7 +201,7 @@ assert(!use_asan_unowned_ptr || is_asan,
+        "AsanUnownedPtr requires AddressSanitizer")
+ 
+ declare_args() {
+-  enable_pkeys = is_linux && target_cpu == "x64"
++  enable_pkeys = is_linux && target_cpu == "x64" && !is_cronet_build
+ }
+ assert(!enable_pkeys || (is_linux && target_cpu == "x64"),
+        "Pkeys are only supported on x64 linux")
+-- 
+2.40.0.348.gf938b09366-goog
+

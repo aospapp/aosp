@@ -45,6 +45,8 @@ static void testEmptyCreate(JNIEnv* env, jclass) {
     AImageDecoder* decoderPtr = nullptr;
     for (AImageDecoder** outDecoder : { &decoderPtr, (AImageDecoder**) nullptr }) {
         for (AAsset* asset : { nullptr }) {
+            // Intentional negative test to pass nullptr.
+            // NOLINTNEXTLINE(clang-analyzer-nullability.NullPassedToNonnull)
             int result = AImageDecoder_createFromAAsset(asset, outDecoder);
             ASSERT_EQ(ANDROID_IMAGE_DECODER_BAD_PARAMETER, result);
             if (outDecoder) {
@@ -53,6 +55,8 @@ static void testEmptyCreate(JNIEnv* env, jclass) {
         }
 
         for (int fd : { 0, -1 }) {
+            // Intentional negative test to pass nullptr.
+            // NOLINTNEXTLINE(clang-analyzer-nullability.NullPassedToNonnull)
             int result = AImageDecoder_createFromFd(fd, outDecoder);
             ASSERT_EQ(ANDROID_IMAGE_DECODER_BAD_PARAMETER, result);
             if (outDecoder) {
@@ -61,6 +65,8 @@ static void testEmptyCreate(JNIEnv* env, jclass) {
         }
 
         auto testEmptyBuffer = [env, outDecoder](void* buffer, size_t length) {
+            // Intentional negative test to pass nullptr.
+            // NOLINTNEXTLINE(clang-analyzer-nullability.NullPassedToNonnull)
             int result = AImageDecoder_createFromBuffer(buffer, length, outDecoder);
             ASSERT_EQ(ANDROID_IMAGE_DECODER_BAD_PARAMETER, result);
             if (outDecoder) {
@@ -540,7 +546,8 @@ static void testDecode(JNIEnv* env, jclass, jlong imageDecoderPtr,
     size_t minStride = AImageDecoder_getMinimumStride(decoder);
 
     size_t size = minStride * height;
-    void* pixels = malloc(size);
+    std::unique_ptr<char[]> pixelsBuffer(new char[size]);
+    void* pixels = (void*) pixelsBuffer.get();
 
     {
         // Try some invalid parameters.
@@ -585,7 +592,8 @@ static void testDecode(JNIEnv* env, jclass, jlong imageDecoderPtr,
             return false;
         }
 
-        void* otherPixels = malloc(size);
+        std::unique_ptr<char[]> otherPixelsBuffer(new char[size]);
+        void* otherPixels = (void*) otherPixelsBuffer.get();
         r = AImageDecoder_decodeImage(decoder, otherPixels, minStride, size);
         if (ANDROID_IMAGE_DECODER_SUCCESS != r) {
             fail(env, "Failed to decode again with different settings");
@@ -593,11 +601,9 @@ static void testDecode(JNIEnv* env, jclass, jlong imageDecoderPtr,
         }
 
         if (!bitmapsEqual(minStride, height, pixels, minStride, otherPixels, minStride)) {
-            free(otherPixels);
             fail(env, "Decoding again with different settings did not match!");
             return false;
         }
-        free(otherPixels);
         return true;
     };
     if (alphaFlags == ANDROID_BITMAP_FLAGS_ALPHA_OPAQUE) {
@@ -616,8 +622,6 @@ static void testDecode(JNIEnv* env, jclass, jlong imageDecoderPtr,
             if (!decodeAgain(alphaFlags)) return;
         }
     }
-
-    free(pixels);
 }
 
 static void testDecodeStride(JNIEnv* env, jclass, jlong imageDecoderPtr) {
@@ -663,7 +667,8 @@ static void testDecodeStride(JNIEnv* env, jclass, jlong imageDecoderPtr) {
             strides.push_back(minStride * 3);
             for (size_t stride : strides) {
                 size_t size = stride * (height - 1) + minStride;
-                void* decodePixels = malloc(size);
+                std::unique_ptr<char[]> decodePixelsBuffer(new char[size]);
+                void* decodePixels = (void*) decodePixelsBuffer.get();
                 result = AImageDecoder_decodeImage(decoder, decodePixels, stride, size);
                 if ((stride - minStride) % bytesPerPixel(format) != 0) {
                     // The stride is not pixel aligned.
@@ -673,15 +678,12 @@ static void testDecodeStride(JNIEnv* env, jclass, jlong imageDecoderPtr) {
                 ASSERT_EQ(ANDROID_IMAGE_DECODER_SUCCESS, result);
 
                 if (pixels == nullptr) {
-                    pixels = decodePixels;
+                    pixels = (void*) decodePixelsBuffer.release();
                 } else {
                     ASSERT_TRUE(bitmapsEqual(minStride, height, pixels, minStride, decodePixels,
                                              stride));
-                    free(decodePixels);
                 }
             }
-
-            free(pixels);
         }
     }
 }
@@ -837,14 +839,14 @@ static void testComputeSampledSize(JNIEnv* env, jclass, jlong imageDecoderPtr,
 
     size_t minStride = AImageDecoder_getMinimumStride(decoder);
     size_t size = minStride * height;
-    void* pixels = malloc(size);
+    std::unique_ptr<char[]> pixelsBuffer(new char[size]);
+    void* pixels = (void*) pixelsBuffer.get();
     result = AImageDecoder_decodeImage(decoder, pixels, minStride, size);
     ASSERT_EQ(ANDROID_IMAGE_DECODER_SUCCESS, result);
 
     ASSERT_TRUE(bitmapsEqual(env, jbitmap, AImageDecoderHeaderInfo_getAndroidBitmapFormat(info),
                              width, height, AImageDecoderHeaderInfo_getAlphaFlags(info),
                              minStride, pixels, minStride));
-    free(pixels);
 }
 
 static void testDecodeScaled(JNIEnv* env, jclass, jlong imageDecoderPtr,
@@ -861,7 +863,8 @@ static void testDecodeScaled(JNIEnv* env, jclass, jlong imageDecoderPtr,
 
     size_t minStride = AImageDecoder_getMinimumStride(decoder);
     size_t size = minStride * jInfo.height;
-    void* pixels = malloc(size);
+    std::unique_ptr<char[]> pixelsBuffer(new char[size]);
+    void* pixels = (void*) pixelsBuffer.get();
 
     {
         // Try some invalid parameters.
@@ -892,15 +895,13 @@ static void testDecodeScaled(JNIEnv* env, jclass, jlong imageDecoderPtr,
     // Verify that larger strides still behave as expected.
     for (size_t stride : { minStride * 2, minStride * 3 }) {
         size_t size = stride * (jInfo.height - 1) + minStride;
-        void* decodePixels = malloc(size);
+        std::unique_ptr<char[]> decodePixelsBuffer(new char[size]);
+        void* decodePixels = (void*) decodePixelsBuffer.get();
         result = AImageDecoder_decodeImage(decoder, decodePixels, stride, size);
         ASSERT_EQ(ANDROID_IMAGE_DECODER_SUCCESS, result);
 
         ASSERT_TRUE(bitmapsEqual(minStride, jInfo.height, pixels, minStride, decodePixels, stride));
-        free(decodePixels);
     }
-
-    free(pixels);
 }
 
 static void testSetCrop(JNIEnv* env, jclass, jobject jAssets, jstring jFile) {
@@ -1081,7 +1082,8 @@ static void testDecodeCrop(JNIEnv* env, jclass, jlong imageDecoderPtr,
     const int32_t height = bottom - top;
     size_t minStride = AImageDecoder_getMinimumStride(decoder);
     size_t size = minStride * height;
-    void* pixels = malloc(size);
+    std::unique_ptr<char[]> pixelsBuffer(new char[size]);
+    void* pixels = (void*) pixelsBuffer.get();
 
     {
         // Try some invalid parameters.
@@ -1112,15 +1114,13 @@ static void testDecodeCrop(JNIEnv* env, jclass, jlong imageDecoderPtr,
     // Verify that larger strides still behave as expected.
     for (size_t stride : { minStride * 2, minStride * 3 }) {
         size_t size = stride * (height - 1) + minStride;
-        void* decodePixels = malloc(size);
+        std::unique_ptr<char[]> decodePixelsBuffer(new char[size]);
+        void* decodePixels = (void*) decodePixelsBuffer.get();
         result = AImageDecoder_decodeImage(decoder, decodePixels, stride, size);
         ASSERT_EQ(ANDROID_IMAGE_DECODER_SUCCESS, result);
 
         ASSERT_TRUE(bitmapsEqual(minStride, height, pixels, minStride, decodePixels, stride));
-        free(decodePixels);
     }
-
-    free(pixels);
 }
 
 static void testScalePlusUnpremul(JNIEnv* env, jclass, jlong imageDecoderPtr) {
@@ -1222,14 +1222,14 @@ static void testDecodeSetDataSpace(JNIEnv* env, jclass, jlong imageDecoderPtr,
 
     size_t minStride = AImageDecoder_getMinimumStride(decoder);
     size_t size = minStride * height;
-    void* pixels = malloc(size);
+    std::unique_ptr<char[]> pixelsBuffer(new char[size]);
+    void* pixels = (void*) pixelsBuffer.get();
 
     result = AImageDecoder_decodeImage(decoder, pixels, minStride, size);
     ASSERT_EQ(ANDROID_IMAGE_DECODER_SUCCESS, result);
 
     ASSERT_TRUE(bitmapsEqual(env, jbitmap, (AndroidBitmapFormat) jInfo.format,
                              width, height, alphaFlags, minStride, pixels, minStride));
-    free(pixels);
 }
 
 static void testIsAnimated(JNIEnv* env, jclass, jlong imageDecoderPtr, jboolean animated) {

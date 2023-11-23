@@ -158,7 +158,7 @@ public final class PowerPolicyDef {
 
     public static final class IdSet {
         public static final String DEFAULT_ALL_ON = "system_power_policy_all_on";
-        public static final String INITIAL_ALL_ON = "system_power_policy_initiall_on";
+        public static final String INITIAL_ALL_ON = "system_power_policy_initial_on";
         public static final String NO_USER_INTERACTION = "system_power_policy_no_user_interaction";
         public static final String NONE = "none";
         public static final String TEST1 = "test1";

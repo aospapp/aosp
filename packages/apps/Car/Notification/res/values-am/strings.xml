@@ -49,4 +49,11 @@
     <string name="see_more_message" msgid="6343183827924395955">"ተጨማሪ ይመልከቱ"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"አዲስ መልዕክት"</string>
     <string name="manage_text" msgid="4225197445283791757">"ያቀናብሩ"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"አሰሳ"</string>
+    <string name="category_call" msgid="2249490790700877973">"ጥሪ"</string>
+    <string name="category_message" msgid="451360226248504859">"መልዕክት"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"የHeads up መጥፋት"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"የቅርብ ጊዜዎቹን ይከታተሉ"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"በመንዳት ላይ ያተኩሩ"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"አንዳንድ አዲስ ማሳወቂያዎች በማሳወቂያ ማዕከሉ ውስጥ ይቀመጣሉ"</string>
 </resources>

@@ -99,11 +99,12 @@ public class CommReceiver extends BroadcastRpcBase.ReceiverBase<Payload, Payload
             final int requestCode = req.getRequestCode();
 
             final PendingIntent alarmSender = PendingIntent.getBroadcast(context, requestCode,
-                    new Intent(req.getIntentAction()), PendingIntent.FLAG_MUTABLE);
+                    new Intent(req.getIntentAction()), PendingIntent.FLAG_IMMUTABLE);
 
             Log.d(TAG, "Setting alarm: type=" + type + ", triggerTime=" + triggerTime
                     + ", interval=" + interval + ", allowWhileIdle=" + allowWhileIdle);
             if (interval > 0) {
+                // Intent#EXTRA_ALARM_COUNT will not be supplied because alarmSender is immutable
                 am.setRepeating(type, triggerTime, interval, alarmSender);
             } else if (allowWhileIdle) {
                 am.setExactAndAllowWhileIdle(type, triggerTime, alarmSender);

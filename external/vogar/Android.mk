@@ -31,14 +31,13 @@ LOCAL_JAVA_RESOURCE_DIRS := resources
 LOCAL_STATIC_JAVA_LIBRARIES := \
   caliper \
   caliper-gson \
-  guavalib \
+  guava \
   junit \
   testng \
   vogar-jsr305 \
   vogar-kxml-libcore-20110123
 
 LOCAL_ADDITIONAL_DEPENDENCIES := \
-  $(HOST_OUT_EXECUTABLES)/dx \
   $(HOST_OUT_EXECUTABLES)/d8 \
   $(HOST_OUT_JAVA_LIBRARIES)/desugar.jar
 

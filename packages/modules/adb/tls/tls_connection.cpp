@@ -16,6 +16,8 @@
 
 #include "adb/tls/tls_connection.h"
 
+#include <limits.h>
+
 #include <algorithm>
 #include <vector>
 

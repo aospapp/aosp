@@ -25,7 +25,9 @@
     <item name="sud_no_scroll_template_short" type="layout">@layout/sud_no_scroll_template_card</item>
 
     <item name="sud_glif_template" type="layout">@layout/sud_glif_template_card</item>
+    <item name="sud_glif_embedded_template" type="layout">@layout/sud_glif_embedded_template_card</item>
     <item name="sud_glif_list_template" type="layout">@layout/sud_glif_list_template_card</item>
+    <item name="sud_glif_list_embedded_template" type="layout">@layout/sud_glif_list_embedded_template_card</item>
     <item name="sud_glif_blank_template" type="layout">@layout/sud_glif_blank_template_card</item>
 
     <item name="sud_preference_recycler_view" type="layout">@layout/sud_preference_recycler_view_normal</item>
@@ -34,7 +36,9 @@
     <item name="sud_recycler_template_short" type="layout">@layout/sud_recycler_template_card</item>
 
     <item name="sud_glif_preference_template" type="layout">@layout/sud_glif_blank_template_card</item>
+    <item name="sud_glif_preference_embedded_template" type="layout">@layout/sud_glif_blank_embedded_template_card</item>
     <item name="sud_glif_recycler_template" type="layout">@layout/sud_glif_recycler_template_card</item>
+    <item name="sud_glif_recycler_embedded_template" type="layout">@layout/sud_glif_recycler_embedded_template_card</item>
 
 </resources>
 

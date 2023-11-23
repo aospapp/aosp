@@ -16,6 +16,7 @@
 
 package dagger.internal.codegen;
 
+import androidx.room.compiler.processing.XTypeElement;
 import dagger.Module;
 import dagger.Provides;
 import dagger.internal.codegen.base.SourceFileGenerator;
@@ -29,7 +30,6 @@ import dagger.internal.codegen.writing.MembersInjectorGenerator;
 import dagger.internal.codegen.writing.ModuleGenerator;
 import dagger.internal.codegen.writing.ModuleProxies.ModuleConstructorProxyGenerator;
 import dagger.internal.codegen.writing.ProducerFactoryGenerator;
-import javax.lang.model.element.TypeElement;
 
 @Module
 abstract class SourceFileGeneratorsModule {
@@ -54,7 +54,7 @@ abstract class SourceFileGeneratorsModule {
 
   @Provides
   @ModuleGenerator
-  static SourceFileGenerator<TypeElement> moduleConstructorProxyGenerator(
+  static SourceFileGenerator<XTypeElement> moduleConstructorProxyGenerator(
       ModuleConstructorProxyGenerator generator, CompilerOptions compilerOptions) {
     return hjarWrapper(generator, compilerOptions);
   }

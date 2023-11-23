@@ -1,3 +1,12 @@
+# Version 0.8.3
+
+- Add `Stealer::{steal_batch_with_limit, steal_batch_with_limit_and_pop}` methods. (#903)
+- Add `Injector::{steal_batch_with_limit, steal_batch_with_limit_and_pop}` methods. (#903)
+
+# Version 0.8.2
+
+- Bump the minimum supported Rust version to 1.38. (#877)
+
 # Version 0.8.1
 
 - Fix deque steal race condition. (#726)
@@ -5,25 +14,39 @@
 
 # Version 0.8.0
 
+**Note:** This release has been yanked. See [GHSA-pqqp-xmhj-wgcw](https://github.com/crossbeam-rs/crossbeam/security/advisories/GHSA-pqqp-xmhj-wgcw) for details.
+
 - Bump the minimum supported Rust version to 1.36.
 - Add `Worker::len()` and `Injector::len()` methods.
 - Add `std` (enabled by default) feature for forward compatibility.
 
+# Version 0.7.4
+
+- Fix deque steal race condition.
+
 # Version 0.7.3
+
+**Note:** This release has been yanked. See [GHSA-pqqp-xmhj-wgcw](https://github.com/crossbeam-rs/crossbeam/security/advisories/GHSA-pqqp-xmhj-wgcw) for details.
 
 - Stop stealing from the same deque. (#448)
 - Fix unsoundness issues by adopting `MaybeUninit`. (#458)
 
 # Version 0.7.2
 
+**Note:** This release has been yanked. See [GHSA-pqqp-xmhj-wgcw](https://github.com/crossbeam-rs/crossbeam/security/advisories/GHSA-pqqp-xmhj-wgcw) for details.
+
 - Bump `crossbeam-epoch` to `0.8`.
 - Bump `crossbeam-utils` to `0.7`.
 
 # Version 0.7.1
 
+**Note:** This release has been yanked. See [GHSA-pqqp-xmhj-wgcw](https://github.com/crossbeam-rs/crossbeam/security/advisories/GHSA-pqqp-xmhj-wgcw) for details.
+
 - Bump the minimum required version of `crossbeam-utils`.
 
 # Version 0.7.0
+
+**Note:** This release has been yanked. See [GHSA-pqqp-xmhj-wgcw](https://github.com/crossbeam-rs/crossbeam/security/advisories/GHSA-pqqp-xmhj-wgcw) for details.
 
 - Make `Worker::pop()` faster in the FIFO case.
 - Replace `fifo()` nad `lifo()` with `Worker::new_fifo()` and `Worker::new_lifo()`.

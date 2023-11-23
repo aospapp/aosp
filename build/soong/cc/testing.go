@@ -15,11 +15,13 @@
 package cc
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"testing"
 
 	"android/soong/android"
 	"android/soong/genrule"
+	"android/soong/multitree"
 	"android/soong/snapshot"
 )
 
@@ -29,14 +31,17 @@ func RegisterRequiredBuildComponentsForTest(ctx android.RegistrationContext) {
 	RegisterBinaryBuildComponents(ctx)
 	RegisterLibraryBuildComponents(ctx)
 	RegisterLibraryHeadersBuildComponents(ctx)
+	RegisterLibraryStubBuildComponents(ctx)
+
+	multitree.RegisterApiImportsModule(ctx)
 
 	ctx.RegisterModuleType("cc_benchmark", BenchmarkFactory)
 	ctx.RegisterModuleType("cc_object", ObjectFactory)
 	ctx.RegisterModuleType("cc_genrule", GenRuleFactory)
 	ctx.RegisterModuleType("ndk_prebuilt_shared_stl", NdkPrebuiltSharedStlFactory)
 	ctx.RegisterModuleType("ndk_prebuilt_static_stl", NdkPrebuiltStaticStlFactory)
-	ctx.RegisterModuleType("ndk_prebuilt_object", NdkPrebuiltObjectFactory)
 	ctx.RegisterModuleType("ndk_library", NdkLibraryFactory)
+	ctx.RegisterModuleType("ndk_headers", ndkHeadersFactory)
 }
 
 func GatherRequiredDepsForTest(oses ...android.OsType) string {
@@ -64,6 +69,7 @@ func commonDefaultModules() string {
 	return `
 		cc_defaults {
 			name: "toolchain_libs_defaults",
+			host_supported: true,
 			vendor_available: true,
 			product_available: true,
 			recovery_available: true,
@@ -72,7 +78,6 @@ func commonDefaultModules() string {
 			nocrt: true,
 			system_shared_libs: [],
 			stl: "none",
-			srcs: [""],
 			check_elf_files: false,
 			sanitize: {
 				never: true,
@@ -83,6 +88,7 @@ func commonDefaultModules() string {
 			name: "libcompiler_rt-extras",
 			defaults: ["toolchain_libs_defaults"],
 			vendor_ramdisk_available: true,
+			srcs: [""],
 		}
 
 		cc_prebuilt_library_static {
@@ -92,11 +98,13 @@ func commonDefaultModules() string {
 	        vendor_available: true,
 			vendor_ramdisk_available: true,
 			native_bridge_supported: true,
+			srcs: [""],
 		}
 
 		cc_prebuilt_library_shared {
 			name: "libclang_rt.hwasan",
 			defaults: ["toolchain_libs_defaults"],
+			srcs: [""],
 		}
 
 		cc_prebuilt_library_static {
@@ -107,6 +115,7 @@ func commonDefaultModules() string {
 			],
 			vendor_ramdisk_available: true,
 			native_bridge_supported: true,
+			srcs: [""],
 		}
 
 		cc_prebuilt_library_static {
@@ -115,17 +124,46 @@ func commonDefaultModules() string {
 				"linux_bionic_supported",
 				"toolchain_libs_defaults",
 			],
+			srcs: [""],
 		}
 
 		// Needed for sanitizer
 		cc_prebuilt_library_shared {
 			name: "libclang_rt.ubsan_standalone",
 			defaults: ["toolchain_libs_defaults"],
+			srcs: [""],
+		}
+
+		cc_prebuilt_library_static {
+			name: "libclang_rt.ubsan_standalone.static",
+			defaults: ["toolchain_libs_defaults"],
+			srcs: [""],
 		}
 
 		cc_prebuilt_library_static {
 			name: "libclang_rt.ubsan_minimal",
 			defaults: ["toolchain_libs_defaults"],
+			host_supported: true,
+			target: {
+				android_arm64: {
+					srcs: ["libclang_rt.ubsan_minimal.android_arm64.a"],
+				},
+				android_arm: {
+					srcs: ["libclang_rt.ubsan_minimal.android_arm.a"],
+				},
+				linux_glibc_x86_64: {
+					srcs: ["libclang_rt.ubsan_minimal.x86_64.a"],
+				},
+				linux_glibc_x86: {
+					srcs: ["libclang_rt.ubsan_minimal.x86.a"],
+				},
+				linux_musl_x86_64: {
+					srcs: ["libclang_rt.ubsan_minimal.x86_64.a"],
+				},
+				linux_musl_x86: {
+					srcs: ["libclang_rt.ubsan_minimal.x86.a"],
+				},
+			},
 		}
 
 		cc_library {
@@ -173,7 +211,6 @@ func commonDefaultModules() string {
 			native_coverage: false,
 			system_shared_libs: [],
 			stl: "none",
-			notice: "custom_notice",
 		}
 		cc_library {
 			name: "libprofile-clang-extras",
@@ -184,7 +221,6 @@ func commonDefaultModules() string {
 			native_coverage: false,
 			system_shared_libs: [],
 			stl: "none",
-			notice: "custom_notice",
 		}
 		cc_library {
 			name: "libprofile-extras_ndk",
@@ -193,7 +229,6 @@ func commonDefaultModules() string {
 			native_coverage: false,
 			system_shared_libs: [],
 			stl: "none",
-			notice: "custom_notice",
 			sdk_version: "current",
 		}
 		cc_library {
@@ -203,7 +238,6 @@ func commonDefaultModules() string {
 			native_coverage: false,
 			system_shared_libs: [],
 			stl: "none",
-			notice: "custom_notice",
 			sdk_version: "current",
 		}
 
@@ -513,7 +547,7 @@ var PrepareForTestWithCcBuildComponents = android.GroupFixturePreparers(
 	android.PrepareForTestWithAndroidBuildComponents,
 	android.FixtureRegisterWithContext(RegisterRequiredBuildComponentsForTest),
 	android.FixtureRegisterWithContext(func(ctx android.RegistrationContext) {
-		ctx.RegisterModuleType("cc_fuzz", FuzzFactory)
+		ctx.RegisterModuleType("cc_fuzz", LibFuzzFactory)
 		ctx.RegisterModuleType("cc_test", TestFactory)
 		ctx.RegisterModuleType("cc_test_library", TestLibraryFactory)
 		ctx.RegisterModuleType("vndk_prebuilt_shared", VndkPrebuiltSharedFactory)
@@ -545,6 +579,11 @@ var PrepareForTestWithCcDefaultModules = android.GroupFixturePreparers(
 		"defaults/cc/common/crtend_so.c":            nil,
 		"defaults/cc/common/crtend.c":               nil,
 		"defaults/cc/common/crtbrand.c":             nil,
+
+		"defaults/cc/common/libclang_rt.ubsan_minimal.android_arm64.a": nil,
+		"defaults/cc/common/libclang_rt.ubsan_minimal.android_arm.a":   nil,
+		"defaults/cc/common/libclang_rt.ubsan_minimal.x86_64.a":        nil,
+		"defaults/cc/common/libclang_rt.ubsan_minimal.x86.a":           nil,
 	}.AddToFixture(),
 
 	// Place the default cc test modules that are common to all platforms in a location that will not
@@ -592,6 +631,51 @@ var PrepareForTestWithCcIncludeVndk = android.GroupFixturePreparers(
 	}),
 )
 
+// PrepareForTestWithHostMusl sets the host configuration to musl libc instead of glibc.  It also disables the test
+// on mac, which doesn't support musl libc, and adds musl modules.
+var PrepareForTestWithHostMusl = android.GroupFixturePreparers(
+	android.FixtureModifyConfig(android.ModifyTestConfigForMusl),
+	android.PrepareForSkipTestOnMac,
+	android.FixtureAddTextFile("external/musl/Android.bp", `
+		cc_defaults {
+			name: "libc_musl_crt_defaults",
+			host_supported: true,
+			device_supported: false,
+		}
+
+		cc_object {
+			name: "libc_musl_crtbegin_so",
+			defaults: ["libc_musl_crt_defaults"],
+		}
+
+		cc_object {
+			name: "libc_musl_crtend_so",
+			defaults: ["libc_musl_crt_defaults"],
+		}
+
+		cc_object {
+			name: "libc_musl_crtbegin_dynamic",
+			defaults: ["libc_musl_crt_defaults"],
+		}
+
+		cc_object {
+			name: "libc_musl_crtbegin_static",
+			defaults: ["libc_musl_crt_defaults"],
+		}
+
+		cc_object {
+			name: "libc_musl_crtend",
+			defaults: ["libc_musl_crt_defaults"],
+		}
+	`),
+)
+
+// PrepareForTestWithFdoProfile registers module types to test with fdo_profile
+var PrepareForTestWithFdoProfile = android.FixtureRegisterWithContext(func(ctx android.RegistrationContext) {
+	ctx.RegisterModuleType("soong_namespace", android.NamespaceFactory)
+	ctx.RegisterModuleType("fdo_profile", fdoProfileFactory)
+})
+
 // TestConfig is the legacy way of creating a test Config for testing cc modules.
 //
 // See testCc for an explanation as to how to stop using this deprecated method.
@@ -622,7 +706,7 @@ func TestConfig(buildDir string, os android.OsType, env map[string]string,
 func CreateTestContext(config android.Config) *android.TestContext {
 	ctx := android.NewTestArchContext(config)
 	genrule.RegisterGenruleBuildComponents(ctx)
-	ctx.RegisterModuleType("cc_fuzz", FuzzFactory)
+	ctx.RegisterModuleType("cc_fuzz", LibFuzzFactory)
 	ctx.RegisterModuleType("cc_test", TestFactory)
 	ctx.RegisterModuleType("cc_test_library", TestLibraryFactory)
 	ctx.RegisterModuleType("filegroup", android.FileGroupFactory)
@@ -708,5 +792,24 @@ func AssertExcludeFromRecoverySnapshotIs(t *testing.T, ctx *android.TestContext,
 	m := ctx.ModuleForTests(name, variant).Module().(LinkableInterface)
 	if m.ExcludeFromRecoverySnapshot() != expected {
 		t.Errorf("expected %q ExcludeFromRecoverySnapshot to be %t", m.String(), expected)
+	}
+}
+
+func checkOverrides(t *testing.T, ctx *android.TestContext, singleton android.TestingSingleton, jsonPath string, expected []string) {
+	t.Helper()
+	out := singleton.MaybeOutput(jsonPath)
+	content := android.ContentFromFileRuleForTests(t, out)
+
+	var flags snapshotJsonFlags
+	if err := json.Unmarshal([]byte(content), &flags); err != nil {
+		t.Errorf("Error while unmarshalling json %q: %s", jsonPath, err.Error())
+		return
+	}
+
+	for _, moduleName := range expected {
+		if !android.InList(moduleName, flags.Overrides) {
+			t.Errorf("expected %q to be in %q: %q", moduleName, flags.Overrides, content)
+			return
+		}
 	}
 }

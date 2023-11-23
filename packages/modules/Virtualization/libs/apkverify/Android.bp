@@ -7,27 +7,34 @@ rust_defaults {
     crate_name: "apkverify",
     srcs: ["src/lib.rs"],
     prefer_rlib: true,
-    edition: "2018",
+    edition: "2021",
     rustlibs: [
         "libanyhow",
         "libbyteorder",
         "libbytes",
+        "libhex",
         "liblog_rust",
-        "libring",
-        "libx509_parser",
+        "libnum_traits",
+        "libopenssl",
+        "libserde",
         "libzip",
     ],
+    proc_macros: ["libnum_derive"],
 }
 
 rust_library {
     name: "libapkverify",
     defaults: ["libapkverify.defaults"],
+    // TODO(b/204562227): move to host_supported to the defaults to include tests
+    host_supported: true,
+    apex_available: ["com.android.virt"],
 }
 
 rust_test {
     name: "libapkverify.test",
     defaults: ["libapkverify.defaults"],
     test_suites: ["general-tests"],
+    data: ["tests/data/*"],
 }
 
 rust_test {
@@ -35,10 +42,12 @@ rust_test {
     crate_name: "apkverify_test",
     srcs: ["tests/*_test.rs"],
     prefer_rlib: true,
-    edition: "2018",
+    edition: "2021",
     test_suites: ["general-tests"],
     rustlibs: [
+        "libandroid_logger",
         "libapkverify",
+        "liblog_rust",
         "libzip",
     ],
     data: ["tests/data/*"],

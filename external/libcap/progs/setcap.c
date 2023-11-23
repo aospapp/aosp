@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 	}
 	if (!strcmp("--license", *argv)) {
 	    printf(
-		"%s has a you choose license: BSD 3-clause or GPL2\n"
+		"%s see LICENSE file for details.\n"
 		"Copyright (c) 1997,2007-8,2020 Andrew G. Morgan"
 		" <morgan@kernel.org>\n", argv[0]);
 	    exit(0);

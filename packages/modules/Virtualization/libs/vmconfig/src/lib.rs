@@ -33,6 +33,8 @@ use std::path::{Path, PathBuf};
 /// Configuration for a particular VM to be started.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct VmConfig {
+    /// The name of VM.
+    pub name: Option<String>,
     /// The filename of the kernel image, if any.
     pub kernel: Option<PathBuf>,
     /// The filename of the initial ramdisk for the kernel, if any.
@@ -91,6 +93,7 @@ impl VmConfig {
         } else {
             0
         };
+
         Ok(VirtualMachineRawConfig {
             kernel: maybe_open_parcel_file(&self.kernel, false)?,
             initrd: maybe_open_parcel_file(&self.initrd, false)?,

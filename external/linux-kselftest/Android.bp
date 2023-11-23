@@ -93,6 +93,12 @@ cc_defaults {
     no_named_install_directory: true,
 
     test_per_src: true,
+
+    // FIXME: test fails to build with LTO
+    // http://b/241723066
+    lto: {
+        never: true,
+    },
 }
 
 // binderfs test
@@ -113,6 +119,9 @@ cc_test {
     defaults: ["kselftest_defaults"],
     arch: {
         arm: {
+            enabled: false,
+        },
+        riscv64: {
             enabled: false,
         },
         arm64: {
@@ -286,13 +295,16 @@ cc_test {
     name: "kselftest_futex_tests",
     relative_install_path: "linux-kselftest/futex/functional",
     srcs: [
-        "tools/testing/selftests/futex/functional/futex_requeue_pi.c",
         "tools/testing/selftests/futex/functional/futex_requeue_pi_mismatched_ops.c",
         "tools/testing/selftests/futex/functional/futex_requeue_pi_signal_restart.c",
+        "tools/testing/selftests/futex/functional/futex_requeue_pi.c",
+        "tools/testing/selftests/futex/functional/futex_requeue.c",
         "tools/testing/selftests/futex/functional/futex_wait_private_mapped_file.c",
         "tools/testing/selftests/futex/functional/futex_wait_timeout.c",
         "tools/testing/selftests/futex/functional/futex_wait_uninitialized_heap.c",
         "tools/testing/selftests/futex/functional/futex_wait_wouldblock.c",
+        "tools/testing/selftests/futex/functional/futex_wait.c",
+        "tools/testing/selftests/futex/functional/futex_waitv.c",
     ],
     local_include_dirs: [
         "tools/testing/selftests/futex/include",
@@ -348,12 +360,21 @@ cc_test {
 cc_test {
     name: "kselftest_kvm_arm64_tests",
     relative_install_path: "linux-kselftest/kvm/aarch64",
-    local_include_dirs: [ "tools/testing/selftests"],
+    local_include_dirs: [
+        "tools/testing/selftests/kvm/include",
+        "tools/testing/selftests",
+    ],
     enabled: false,
     arch: {
         arm64: {
             enabled: true,
-            srcs: ["tools/testing/selftests/kvm/aarch64/pvm_wipe_mem.c"],
+            srcs: [
+                "tools/testing/selftests/kvm/aarch64/pvm_wipe_mem.c",
+            ],
+            cflags: [
+                "-fno-stack-protector",
+                "-fno-PIE",
+            ],
         },
     },
     defaults: ["kselftest_defaults"],
@@ -580,11 +601,59 @@ sh_test {
 
 // vdso test
 cc_test {
-    name: "kselftest_vdso_test",
+    name: "kselftest_vdso_test_abi",
     relative_install_path: "linux-kselftest/vDSO",
     srcs: [
         "tools/testing/selftests/vDSO/parse_vdso.c",
-        "tools/testing/selftests/vDSO/vdso_test.c",
+        "tools/testing/selftests/vDSO/vdso_test_abi.c",
+    ],
+    defaults: ["kselftest_defaults"],
+    test_per_src: false,
+}
+
+cc_test {
+    name: "kselftest_vdso_test_clock_getres",
+    relative_install_path: "linux-kselftest/vDSO",
+    srcs: [
+        "tools/testing/selftests/vDSO/parse_vdso.c",
+        "tools/testing/selftests/vDSO/vdso_test_clock_getres.c",
+    ],
+    defaults: ["kselftest_defaults"],
+    test_per_src: false,
+}
+
+cc_test {
+    name: "kselftest_vdso_test_correctness",
+    relative_install_path: "linux-kselftest/vDSO",
+    srcs: [
+        "tools/testing/selftests/vDSO/parse_vdso.c",
+        "tools/testing/selftests/vDSO/vdso_test_correctness.c",
+    ],
+    static_libs: [
+        "libdl",
+    ],
+    defaults: ["kselftest_defaults"],
+    test_per_src: false,
+    enabled: false,
+}
+
+cc_test {
+    name: "kselftest_vdso_test_getcpu",
+    relative_install_path: "linux-kselftest/vDSO",
+    srcs: [
+        "tools/testing/selftests/vDSO/parse_vdso.c",
+        "tools/testing/selftests/vDSO/vdso_test_getcpu.c",
+    ],
+    defaults: ["kselftest_defaults"],
+    test_per_src: false,
+}
+
+cc_test {
+    name: "kselftest_vdso_test_gettimeofday",
+    relative_install_path: "linux-kselftest/vDSO",
+    srcs: [
+        "tools/testing/selftests/vDSO/parse_vdso.c",
+        "tools/testing/selftests/vDSO/vdso_test_gettimeofday.c",
     ],
     defaults: ["kselftest_defaults"],
     test_per_src: false,
@@ -602,6 +671,8 @@ cc_test {
         "tools/testing/selftests/vm/mlock-random-test.c",
         "tools/testing/selftests/vm/mlock2-tests.c",
         "tools/testing/selftests/vm/on-fault-limit.c",
+        "tools/testing/selftests/vm/mremap_dontunmap.c",
+        "tools/testing/selftests/vm/mremap_test.c",
         "tools/testing/selftests/vm/userfaultfd.c",
         "tools/testing/selftests/vm/thuge-gen.c",
         "tools/testing/selftests/vm/transhuge-stress.c",
@@ -629,7 +700,7 @@ cc_test {
 sh_test {
     name: "kselftest_vm_run_vmtests",
     sub_dir: "linux-kselftest/vm",
-    src: "tools/testing/selftests/vm/run_vmtests",
+    src: "tools/testing/selftests/vm/run_vmtests.sh",
     filename_from_src: true,
     compile_multilib: "both",
 }
@@ -671,6 +742,9 @@ cc_test {
                 "libdl",
             ],
         },
+        riscv64: {
+            enabled: false,
+        },
     },
     cflags: [
         "-O2",
@@ -700,6 +774,9 @@ cc_test {
         },
         x86_64: {
             enabled: true,
+        },
+        riscv64: {
+            enabled: false,
         },
     },
     cflags: [
@@ -772,6 +849,9 @@ cc_test {
                 "tools/testing/selftests/x86/thunks.S",
             ],
         },
+        riscv64: {
+            enabled: false,
+        },
     },
 }
 
@@ -795,6 +875,9 @@ cc_test {
     arch: {
         x86: {
             enabled: true,
+        },
+        riscv64: {
+            enabled: false,
         },
     },
 }

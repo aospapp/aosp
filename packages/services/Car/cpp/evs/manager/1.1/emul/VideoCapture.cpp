@@ -16,12 +16,15 @@
 
 #include "emul/VideoCapture.h"
 
+#include <android-base/logging.h>
+#include <processgroup/sched_policy.h>
+
 #include <assert.h>
 #include <errno.h>
 #include <error.h>
 #include <fcntl.h>
 #include <memory.h>
-#include <processgroup/sched_policy.h>
+#include <png.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,149 +35,135 @@
 #include <fstream>
 #include <iomanip>
 
-#include <android-base/logging.h>
-#include <png.h>
-
-using namespace std;
-
 namespace {
-    const char* kPngFileExtension = ".png";
-    const char* kDumpFileExtension = ".bin";
 
-    bool validatePng(std::ifstream& source) {
-        const int kSigSize = 8;
-        png_byte header[kSigSize] = {0};
-        source.read((char*)header, kSigSize);
+const char* kPngFileExtension = ".png";
+const char* kDumpFileExtension = ".bin";
 
-        return source.good() &&
-               (png_sig_cmp(header, 0, kSigSize) == 0);
+bool validatePng(std::ifstream& source) {
+    const int kSigSize = 8;
+    png_byte header[kSigSize] = {0};
+    source.read((char*)header, kSigSize);
+
+    return source.good() && (png_sig_cmp(header, 0, kSigSize) == 0);
+}
+
+void readPngDataFromStream(png_structp pngPtr, png_bytep data, png_size_t length) {
+    png_voidp p = png_get_io_ptr(pngPtr);
+    ((std::ifstream*)p)->read((char*)data, length);
+}
+
+char* fillBufferFromPng(const std::string& filename, imageMetadata& info) {
+    // Open a PNG file
+    std::ifstream source(filename, std::ios::in | std::ios::binary);
+    if (!source.is_open()) {
+        LOG(ERROR) << "Failed to open " << filename;
+        return nullptr;
     }
 
-
-    void readPngDataFromStream(png_structp pngPtr,
-                                      png_bytep data,
-                                      png_size_t length) {
-        png_voidp p = png_get_io_ptr(pngPtr);
-        ((std::ifstream*)p)->read((char*)data, length);
-    }
-
-
-    char* fillBufferFromPng(const string& filename,
-                                  imageMetadata& info) {
-        // Open a PNG file
-        std::ifstream source(filename, ios::in | ios::binary);
-        if (!source.is_open()) {
-            LOG(ERROR) << "Failed to open " << filename;
-            return nullptr;
-        }
-
-        // Validate an input PNG file
-        if (!validatePng(source)) {
-            LOG(ERROR) << filename << " is not a valid PNG file";
-            source.close();
-            return nullptr;
-        }
-
-        // Prepare a control structure
-        png_structp pngPtr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-        if (!pngPtr) {
-            LOG(ERROR) << "Failed to create a control structure";
-            source.close();
-            return nullptr;
-        }
-
-        // Set up an image info
-        png_infop infoPtr = png_create_info_struct(pngPtr);
-        if (!infoPtr) {
-            LOG(ERROR) << " Failed to initialize a png_info";
-            png_destroy_read_struct(&pngPtr, nullptr, nullptr);
-            source.close();
-            return nullptr;
-        }
-
-        // Set up an error handler
-        if (setjmp(png_jmpbuf(pngPtr))) {
-            png_destroy_read_struct(&pngPtr, &infoPtr, nullptr);
-            source.close();
-            return nullptr;
-        }
-
-        // Set up PNG reader and fetch the remaining header bytes
-        png_set_read_fn(pngPtr, (png_voidp)&source, readPngDataFromStream);
-        const int kSigSize = 8;
-        png_set_sig_bytes(pngPtr, kSigSize);
-        png_read_info(pngPtr, infoPtr);
-
-        // Get basic image information
-        png_uint_32 width = png_get_image_width(pngPtr, infoPtr);
-        png_uint_32 height = png_get_image_height(pngPtr, infoPtr);
-        png_uint_32 bitdepth = png_get_bit_depth(pngPtr, infoPtr);
-        png_uint_32 channels = png_get_channels(pngPtr, infoPtr);
-        png_uint_32 colorType = png_get_color_type(pngPtr, infoPtr);
-
-        // Record video device info
-        info.width = width;
-        info.height = height;
-        switch(colorType) {
-            case PNG_COLOR_TYPE_GRAY:
-                png_set_expand_gray_1_2_4_to_8(pngPtr);
-                bitdepth = 8;
-                info.format = V4L2_PIX_FMT_GREY;
-                break;
-
-            case PNG_COLOR_TYPE_RGB:
-                info.format = V4L2_PIX_FMT_XBGR32;
-                break;
-
-            case PNG_COLOR_TYPE_RGB_ALPHA:
-                info.format = V4L2_PIX_FMT_ABGR32;
-                break;
-
-            default:
-                LOG(INFO) << "Unsupported PNG color type: " << colorType;
-                return nullptr;
-        }
-
-        // If the image has a transparancy set, convert it to a full Alpha channel
-        if (png_get_valid(pngPtr, infoPtr, PNG_INFO_tRNS)) {
-            png_set_tRNS_to_alpha(pngPtr);
-            channels += 1;
-            info.format = V4L2_PIX_FMT_ABGR32;
-        }
-
-        // Refresh PNG info
-        png_read_update_info(pngPtr, infoPtr);
-
-        // Allocate a buffer to contain pixel data.  This buffer will be managed
-        // by the caller.
-        const int stride = png_get_rowbytes(pngPtr, infoPtr);
-        info.stride = stride;
-        LOG(DEBUG) << "width = " << width
-                   << ", height = " << height
-                   << ", bitdepth = " << bitdepth
-                   << ", channels = " << channels
-                   << ", colorType = " << colorType
-                   << ", stride = " << stride;
-
-        char* buffer = new char[info.stride * height];
-        png_bytep* rowPtrs = new png_bytep[height];
-        for (int r = 0; r < height; ++r) {
-            rowPtrs[r] = reinterpret_cast<unsigned char*>(buffer) + r * stride;
-        }
-
-        // Read the image
-        png_read_image(pngPtr, rowPtrs);
-        png_read_end(pngPtr, nullptr);
-
-        // Clean up
-        png_destroy_read_struct(&pngPtr, &infoPtr, nullptr);
-        delete[] rowPtrs;
+    // Validate an input PNG file
+    if (!validatePng(source)) {
+        LOG(ERROR) << filename << " is not a valid PNG file";
         source.close();
-
-        return buffer;
+        return nullptr;
     }
-} // namespace
 
+    // Prepare a control structure
+    png_structp pngPtr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if (!pngPtr) {
+        LOG(ERROR) << "Failed to create a control structure";
+        source.close();
+        return nullptr;
+    }
+
+    // Set up an image info
+    png_infop infoPtr = png_create_info_struct(pngPtr);
+    if (!infoPtr) {
+        LOG(ERROR) << " Failed to initialize a png_info";
+        png_destroy_read_struct(&pngPtr, nullptr, nullptr);
+        source.close();
+        return nullptr;
+    }
+
+    // Set up an error handler
+    if (setjmp(png_jmpbuf(pngPtr))) {
+        png_destroy_read_struct(&pngPtr, &infoPtr, nullptr);
+        source.close();
+        return nullptr;
+    }
+
+    // Set up PNG reader and fetch the remaining header bytes
+    png_set_read_fn(pngPtr, (png_voidp)&source, readPngDataFromStream);
+    const int kSigSize = 8;
+    png_set_sig_bytes(pngPtr, kSigSize);
+    png_read_info(pngPtr, infoPtr);
+
+    // Get basic image information
+    png_uint_32 width = png_get_image_width(pngPtr, infoPtr);
+    png_uint_32 height = png_get_image_height(pngPtr, infoPtr);
+    png_uint_32 bitdepth = png_get_bit_depth(pngPtr, infoPtr);
+    png_uint_32 channels = png_get_channels(pngPtr, infoPtr);
+    png_uint_32 colorType = png_get_color_type(pngPtr, infoPtr);
+
+    // Record video device info
+    info.width = width;
+    info.height = height;
+    switch (colorType) {
+        case PNG_COLOR_TYPE_GRAY:
+            png_set_expand_gray_1_2_4_to_8(pngPtr);
+            bitdepth = 8;
+            info.format = V4L2_PIX_FMT_GREY;
+            break;
+
+        case PNG_COLOR_TYPE_RGB:
+            info.format = V4L2_PIX_FMT_XBGR32;
+            break;
+
+        case PNG_COLOR_TYPE_RGB_ALPHA:
+            info.format = V4L2_PIX_FMT_ABGR32;
+            break;
+
+        default:
+            LOG(INFO) << "Unsupported PNG color type: " << colorType;
+            return nullptr;
+    }
+
+    // If the image has a transparency set, convert it to a full Alpha channel
+    if (png_get_valid(pngPtr, infoPtr, PNG_INFO_tRNS)) {
+        png_set_tRNS_to_alpha(pngPtr);
+        channels += 1;
+        info.format = V4L2_PIX_FMT_ABGR32;
+    }
+
+    // Refresh PNG info
+    png_read_update_info(pngPtr, infoPtr);
+
+    // Allocate a buffer to contain pixel data.  This buffer will be managed
+    // by the caller.
+    const int stride = png_get_rowbytes(pngPtr, infoPtr);
+    info.stride = stride;
+    LOG(DEBUG) << "width = " << width << ", height = " << height << ", bitdepth = " << bitdepth
+               << ", channels = " << channels << ", colorType = " << colorType
+               << ", stride = " << stride;
+
+    char* buffer = new char[info.stride * height];
+    png_bytep* rowPtrs = new png_bytep[height];
+    for (int r = 0; r < height; ++r) {
+        rowPtrs[r] = reinterpret_cast<unsigned char*>(buffer) + r * stride;
+    }
+
+    // Read the image
+    png_read_image(pngPtr, rowPtrs);
+    png_read_end(pngPtr, nullptr);
+
+    // Clean up
+    png_destroy_read_struct(&pngPtr, &infoPtr, nullptr);
+    delete[] rowPtrs;
+    source.close();
+
+    return buffer;
+}
+}  // namespace
 
 namespace android {
 namespace automotive {
@@ -190,21 +179,19 @@ VideoCapture::~VideoCapture() {
     close();
 }
 
-
-bool VideoCapture::open(const std::string& path,
-                        const std::chrono::nanoseconds interval) {
+bool VideoCapture::open(const std::string& path, const std::chrono::nanoseconds interval) {
     // Report device properties
     LOG(INFO) << "Open a virtual video stream with data from " << path;
 
     // Store the source location
-    if (!filesystem::exists(path) || !filesystem::is_directory(path)) {
+    if (!std::filesystem::exists(path) || !std::filesystem::is_directory(path)) {
         LOG(INFO) << path << " does not exist or is not a directory.";
         return false;
     }
 
     // Sets a directory iterator
     LOG(INFO) << "directory_iterator is set to " << path;
-    mSrcIter = filesystem::directory_iterator(path);
+    mSrcIter = std::filesystem::directory_iterator(path);
     mSourceDir = path;
 
     // Set a frame rate
@@ -219,7 +206,6 @@ bool VideoCapture::open(const std::string& path,
     return true;
 }
 
-
 void VideoCapture::close() {
     LOG(DEBUG) << __FUNCTION__;
 
@@ -232,7 +218,6 @@ void VideoCapture::close() {
     // Free allocated resources
     delete[] mPixelBuffer;
 }
-
 
 bool VideoCapture::startStream(
         std::function<void(VideoCapture*, imageBufferDesc*, void*)> callback) {
@@ -248,7 +233,7 @@ bool VideoCapture::startStream(
     mCallback = callback;
 
     // Fires up a thread to generate and dispatch the video frames
-    mCaptureThread = std::thread([&](){
+    mCaptureThread = std::thread([&]() {
         if (mCurrentStreamEvent != StreamEvent::INIT) {
             LOG(ERROR) << "Not in the right state to start a video stream.  Current state is "
                        << mCurrentStreamEvent;
@@ -289,7 +274,6 @@ bool VideoCapture::startStream(
     return true;
 }
 
-
 void VideoCapture::stopStream() {
     // Tell the background thread to stop
     int prevRunMode = mRunMode.fetch_or(STOPPING);
@@ -319,11 +303,9 @@ void VideoCapture::stopStream() {
     mCallback = nullptr;
 }
 
-
 void VideoCapture::markFrameReady() {
     mFrameReady = true;
 }
-
 
 bool VideoCapture::returnFrame() {
     // We're using a single buffer synchronousely so just need to set
@@ -333,26 +315,24 @@ bool VideoCapture::returnFrame() {
     return true;
 }
 
-
 // This runs on a background thread to receive and dispatch video frames
 void VideoCapture::collectFrames() {
-    const filesystem::directory_iterator end_iter;
+    const std::filesystem::directory_iterator end_iter;
     imageMetadata header = {};
-    static uint64_t sequence = 0; // counting frames
+    static uint64_t sequence = 0;  // counting frames
 
     while (mPixelBuffer == nullptr && mSrcIter != end_iter) {
         LOG(INFO) << "Synthesizing a frame from " << mSrcIter->path();
         auto ext = mSrcIter->path().extension();
         if (ext == kPngFileExtension) {
             // Read PNG image; a buffer will be allocated inside
-            mPixelBuffer =
-                fillBufferFromPng(mSrcIter->path(), header);
+            mPixelBuffer = fillBufferFromPng(mSrcIter->path(), header);
 
             // Update frame info
             mPixelBufferSize = header.stride * header.height;
         } else if (ext == kDumpFileExtension) {
             // Read files dumped by the reference EVS HAL implementation
-            std::ifstream fin(mSrcIter->path(), ios::in | ios::binary);
+            std::ifstream fin(mSrcIter->path(), std::ios::in | std::ios::binary);
             if (fin.is_open()) {
                 // Read a header
                 fin.read((char*)&header, sizeof(header));
@@ -372,8 +352,7 @@ void VideoCapture::collectFrames() {
                 PLOG(ERROR) << "Failed to open " << mSrcIter->path();
             }
         } else {
-            LOG(DEBUG) << "Unsupported file extension.  Ignores "
-                       << mSrcIter->path().filename();
+            LOG(DEBUG) << "Unsupported file extension.  Ignores " << mSrcIter->path().filename();
         }
 
         // Moves to next file
@@ -400,22 +379,19 @@ void VideoCapture::collectFrames() {
     // If the last file is processed, reset the iterator to the first file.
     if (mSrcIter == end_iter) {
         LOG(DEBUG) << "Rewinds the iterator to the beginning.";
-        mSrcIter = filesystem::directory_iterator(mSourceDir);
+        mSrcIter = std::filesystem::directory_iterator(mSourceDir);
     }
 }
-
 
 int VideoCapture::setParameter(v4l2_control& /*control*/) {
     // Not implemented yet.
     return -ENOSYS;
 }
 
-
 int VideoCapture::getParameter(v4l2_control& /*control*/) {
     // Not implemented yet.
     return -ENOSYS;
 }
-
 
 void VideoCapture::handleMessage(const android::Message& message) {
     const auto received = static_cast<StreamEvent>(message.what);
@@ -443,8 +419,8 @@ void VideoCapture::handleMessage(const android::Message& message) {
     }
 }
 
-} // namespace implementation
-} // namespace V1_1
-} // namespace evs
-} // namespace automotive
-} // namespace android
+}  // namespace implementation
+}  // namespace V1_1
+}  // namespace evs
+}  // namespace automotive
+}  // namespace android

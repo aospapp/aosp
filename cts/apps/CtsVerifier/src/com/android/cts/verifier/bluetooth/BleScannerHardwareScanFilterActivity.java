@@ -16,8 +16,7 @@
 
 package com.android.cts.verifier.bluetooth;
 
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
+import static android.content.Context.RECEIVER_EXPORTED;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -33,9 +32,12 @@ import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
+
 import java.util.ArrayList;
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
 
 public class BleScannerHardwareScanFilterActivity extends PassFailButtons.Activity {
 
@@ -87,7 +89,7 @@ public class BleScannerHardwareScanFilterActivity extends PassFailButtons.Activi
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(BleScannerService.BLE_SCAN_RESULT);
-        registerReceiver(onBroadcast, filter);
+        registerReceiver(onBroadcast, filter, RECEIVER_EXPORTED);
     }
 
 

@@ -33,6 +33,7 @@ import android.platform.test.annotations.Presubmit;
 import org.junit.Test;
 
 @Presubmit
+@android.server.wm.annotation.Group2
 public class MinimalPostProcessingTests extends ActivityManagerTestBase {
     private static final boolean PREFER_MPP = true;
     private static final boolean NOT_PREFER_MPP = false;

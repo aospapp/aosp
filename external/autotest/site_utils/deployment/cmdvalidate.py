@@ -163,7 +163,7 @@ def _validate_board(board):
     """Return whether a given board exists in Google storage.
 
     For purposes of this function, a board exists if it has a
-    "LATEST-master" file in its release builder's directory.
+    "LATEST-main" file in its release builder's directory.
 
     N.B. For convenience, this function prints an error message
     on stderr in certain failure cases.  This is currently useful
@@ -178,12 +178,8 @@ def _validate_board(board):
     if board is None:
         return False
 
-    # TODO b:169251326 terms below (and in the comment above) are set outside
-    # of this codebase and should be updated when possible.
-    # ("master" -> "main")
-
     # Check Google storage; report failures on stderr.
-    if _build_path_exists(board, 'LATEST-master'):
+    if _build_path_exists(board, 'LATEST-main'):
         return True
     else:
         sys.stderr.write('Board %s doesn\'t exist.\n' % board)
@@ -217,7 +213,7 @@ def _validate_build(board, build):
 def _validate_hostname(hostname):
     """Return whether a given hostname is valid for the test lab.
 
-    This is a sanity check meant to guarantee that host names follow
+    This is a validity check meant to guarantee that host names follow
     naming requirements for the test lab.
 
     N.B. For convenience, this function prints an error message

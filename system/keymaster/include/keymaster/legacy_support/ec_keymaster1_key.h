@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include <openssl/ecdsa.h>
 
 #include <hardware/keymaster1.h>
@@ -77,7 +79,7 @@ class EcdsaKeymaster1Key : public EcKey {
   public:
     EcdsaKeymaster1Key(EC_KEY* ecdsa_key, AuthorizationSet&& hw_enforced,
                        AuthorizationSet&& sw_enforced, const KeyFactory* key_factory)
-        : EcKey(ecdsa_key, move(hw_enforced), move(sw_enforced), key_factory) {}
+        : EcKey(ecdsa_key, std::move(hw_enforced), std::move(sw_enforced), key_factory) {}
 };
 
 }  // namespace keymaster

@@ -15,6 +15,7 @@ limitations under the License.
 #ifndef TENSORFLOW_CORE_COMMON_RUNTIME_PROPAGATOR_STATE_H_
 #define TENSORFLOW_CORE_COMMON_RUNTIME_PROPAGATOR_STATE_H_
 
+#include <queue>
 #include <vector>
 
 #include "tensorflow/core/common_runtime/entry.h"
@@ -76,7 +77,7 @@ class PropagatorState {
     const NodeItem& get_node_item() const { return *node_item; }
 
     bool get_is_dead() const { return is_dead; }
-    int64 get_iter_num() const;
+    int64_t get_iter_num() const;
   };
 
   // A drop-in replacement for std::deque<TaggedNode>.  We typically don't
@@ -106,6 +107,7 @@ class PropagatorState {
       }
     }
     bool empty() const { return ready_.empty(); }
+    int size() const { return ready_.size() - front_index_; }
 
    private:
     // TODO(b/152925936): Re-evaluate these constants with current usage
@@ -131,7 +133,8 @@ class PropagatorState {
           counts(*pending_counts) {  // Initialize with copy of *pending_counts
     }
 
-    const int64 iter_num;  // The index of this iteration in the enclosing loop.
+    const int64_t
+        iter_num;  // The index of this iteration in the enclosing loop.
 
     // One copy per iteration. For iteration k, i-th node's j-th input is in
     // input_tensors[k][immutable_state_.nodes[i].input_start + j]. An entry is
@@ -246,7 +249,7 @@ class PropagatorState {
     int num_pending_inputs = 0;
 
     // The highest iteration number we have reached so far in this frame.
-    int64 iteration_count TF_GUARDED_BY(mu) = 0;
+    int64_t iteration_count TF_GUARDED_BY(mu) = 0;
 
     // The number of outstanding iterations.
     int num_outstanding_iterations TF_GUARDED_BY(mu) = 1;
@@ -493,7 +496,7 @@ class PropagatorState {
   void DumpIterationState(const FrameState* frame, IterationState* iteration);
 
   const ImmutableExecutorState& immutable_state_;
-  const int64 step_id_;
+  const int64_t step_id_;
   const bool vlog_;
 
   mutex mu_;
@@ -512,9 +515,48 @@ class PropagatorState {
   TF_DISALLOW_COPY_AND_ASSIGN(PropagatorState);
 };
 
-inline int64 PropagatorState::TaggedNode::get_iter_num() const {
+inline int64_t PropagatorState::TaggedNode::get_iter_num() const {
   return input_iter->iter_num;
 }
+
+// `OrderedPropagatorState` replaces `PropagatorState`s `TaggedNodeReadyQueue`
+// with a priority queue. This ensures that the order in which we dequeue
+// `TaggedNode&`s is stable with respect to ASLR.
+//
+// This is not always needed, as in a multithreaded environment, executions are
+// expected to happen nondeterministically, but this nondeteminism can be a
+// problem: For example, In usecases that are running close to the RAM limit of
+// a device, reordering ops can cause an increase in memory fragmenenation,
+// causing an OOM.
+// This codepath is enabled using TF_DETERMINISTIC_ORDER=1 in executor.cc
+class OrderedPropagatorState : public PropagatorState {
+  using PropagatorState::PropagatorState;
+
+ public:
+  class TaggedNodeReadyQueue : PropagatorState::TaggedNodeReadyQueue {
+   public:
+    TaggedNodeReadyQueue() : readyp_(compare) {}
+    void push_back(const TaggedNode& node) { readyp_.push(node); }
+    TaggedNode front() const { return readyp_.top(); }
+    void pop_front() { readyp_.pop(); }
+    bool empty() const { return readyp_.empty(); }
+    int size() const { return readyp_.size(); }
+
+   private:
+    static bool compare(TaggedNode const& lhs, TaggedNode const& rhs) {
+      std::tuple<int, uint64, int64_t> lhs_prio{lhs.node_item->node_id,
+                                                lhs.input_frame->frame_id,
+                                                lhs.input_iter->iter_num};
+      std::tuple<int, uint64, int64_t> rhs_prio{rhs.node_item->node_id,
+                                                rhs.input_frame->frame_id,
+                                                rhs.input_iter->iter_num};
+      return lhs_prio < rhs_prio;
+    }
+
+    std::priority_queue<TaggedNode, std::vector<TaggedNode>, decltype(&compare)>
+        readyp_;
+  };
+};
 
 }  // namespace tensorflow
 

@@ -46,7 +46,6 @@ public class PartnerConfigHelper {
 
   private static final String TAG = PartnerConfigHelper.class.getSimpleName();
 
-  @VisibleForTesting
   public static final String SUW_AUTHORITY = "com.google.android.setupwizard.partner";
 
   @VisibleForTesting public static final String SUW_GET_PARTNER_CONFIG_METHOD = "getOverlayConfig";
@@ -69,8 +68,18 @@ public class PartnerConfigHelper {
   @VisibleForTesting
   public static final String IS_NEUTRAL_BUTTON_STYLE_ENABLED_METHOD = "isNeutralButtonStyleEnabled";
 
+  @VisibleForTesting
+  public static final String IS_EMBEDDED_ACTIVITY_ONE_PANE_ENABLED_METHOD =
+      "isEmbeddedActivityOnePaneEnabled";
+
+  @VisibleForTesting
+  public static final String GET_SUW_DEFAULT_THEME_STRING_METHOD = "suwDefaultThemeString";
+
   @VisibleForTesting public static final String SUW_PACKAGE_NAME = "com.google.android.setupwizard";
   @VisibleForTesting public static final String MATERIAL_YOU_RESOURCE_SUFFIX = "_material_you";
+
+  @VisibleForTesting
+  public static final String EMBEDDED_ACTIVITY_RESOURCE_SUFFIX = "_embedded_activity";
 
   @VisibleForTesting static Bundle suwDayNightEnabledBundle = null;
 
@@ -81,6 +90,10 @@ public class PartnerConfigHelper {
   @VisibleForTesting public static Bundle applyDynamicColorBundle = null;
 
   @VisibleForTesting public static Bundle applyNeutralButtonStyleBundle = null;
+
+  @VisibleForTesting public static Bundle applyEmbeddedActivityOnePaneBundle = null;
+
+  @VisibleForTesting public static Bundle suwDefaultThemeBundle = null;
 
   private static PartnerConfigHelper instance = null;
 
@@ -93,8 +106,15 @@ public class PartnerConfigHelper {
 
   private static int savedConfigUiMode;
 
-  @VisibleForTesting
-  public static int savedOrientation = Configuration.ORIENTATION_PORTRAIT;
+  private static boolean savedConfigEmbeddedActivityMode;
+
+  @VisibleForTesting static Bundle applyTransitionBundle = null;
+
+  @VisibleForTesting public static int savedOrientation = Configuration.ORIENTATION_PORTRAIT;
+
+  /** The method name to get if transition settings is set from client. */
+  public static final String APPLY_GLIF_THEME_CONTROLLED_TRANSITION_METHOD =
+      "applyGlifThemeControlledTransition";
 
   /**
    * When testing related to fake PartnerConfigHelper instance, should sync the following saved
@@ -114,6 +134,8 @@ public class PartnerConfigHelper {
   private static boolean isValidInstance(@NonNull Context context) {
     Configuration currentConfig = context.getResources().getConfiguration();
     if (instance == null) {
+      savedConfigEmbeddedActivityMode =
+          isEmbeddedActivityOnePaneEnabled(context) && BuildCompatUtils.isAtLeastU();
       savedConfigUiMode = currentConfig.uiMode & Configuration.UI_MODE_NIGHT_MASK;
       savedOrientation = currentConfig.orientation;
       savedScreenWidth = currentConfig.screenWidthDp;
@@ -123,7 +145,10 @@ public class PartnerConfigHelper {
       boolean uiModeChanged =
           isSetupWizardDayNightEnabled(context)
               && (currentConfig.uiMode & Configuration.UI_MODE_NIGHT_MASK) != savedConfigUiMode;
+      boolean embeddedActivityModeChanged =
+          isEmbeddedActivityOnePaneEnabled(context) && BuildCompatUtils.isAtLeastU();
       if (uiModeChanged
+          || embeddedActivityModeChanged != savedConfigEmbeddedActivityMode
           || currentConfig.orientation != savedOrientation
           || currentConfig.screenWidthDp != savedScreenWidth
           || currentConfig.screenHeightDp != savedScreenHeight) {
@@ -551,6 +576,11 @@ public class PartnerConfigHelper {
     ResourceEntry adjustResourceEntry =
         adjustResourceEntryDefaultValue(
             context, ResourceEntry.fromBundle(context, resourceEntryBundle));
+    ;
+    if (BuildCompatUtils.isAtLeastU() && isEmbeddedActivityOnePaneEnabled(context)) {
+      adjustResourceEntry = embeddedActivityResourceEntryDefaultValue(context, adjustResourceEntry);
+    }
+
     return adjustResourceEntryDayNightMode(context, adjustResourceEntry);
   }
 
@@ -614,6 +644,42 @@ public class PartnerConfigHelper {
     return inputResourceEntry;
   }
 
+  // Check the embedded acitvity flag and replace the inputResourceEntry.resourceName &
+  // inputResourceEntry.resourceId after U.
+  ResourceEntry embeddedActivityResourceEntryDefaultValue(
+      Context context, ResourceEntry inputResourceEntry) {
+    // If not overlay resource
+    try {
+      if (SUW_PACKAGE_NAME.equals(inputResourceEntry.getPackageName())) {
+        String resourceTypeName =
+            inputResourceEntry
+                .getResources()
+                .getResourceTypeName(inputResourceEntry.getResourceId());
+        // try to update resourceName & resourceId
+        String embeddedActivityResourceName =
+            inputResourceEntry.getResourceName().concat(EMBEDDED_ACTIVITY_RESOURCE_SUFFIX);
+        int embeddedActivityResourceId =
+            inputResourceEntry
+                .getResources()
+                .getIdentifier(
+                    embeddedActivityResourceName,
+                    resourceTypeName,
+                    inputResourceEntry.getPackageName());
+        if (embeddedActivityResourceId != 0) {
+          Log.i(TAG, "use embedded activity resource:" + embeddedActivityResourceName);
+          return new ResourceEntry(
+              inputResourceEntry.getPackageName(),
+              embeddedActivityResourceName,
+              embeddedActivityResourceId,
+              inputResourceEntry.getResources());
+        }
+      }
+    } catch (NotFoundException ex) {
+      // fall through
+    }
+    return inputResourceEntry;
+  }
+
   @VisibleForTesting
   public static synchronized void resetInstance() {
     instance = null;
@@ -622,6 +688,9 @@ public class PartnerConfigHelper {
     applyMaterialYouConfigBundle = null;
     applyDynamicColorBundle = null;
     applyNeutralButtonStyleBundle = null;
+    applyEmbeddedActivityOnePaneBundle = null;
+    suwDefaultThemeBundle = null;
+    applyTransitionBundle = null;
   }
 
   /**
@@ -711,6 +780,34 @@ public class PartnerConfigHelper {
         && applyMaterialYouConfigBundle.getBoolean(IS_MATERIAL_YOU_STYLE_ENABLED_METHOD, false));
   }
 
+  /**
+   * Returns default glif theme name string from setupwizard, or if the setupwizard has not
+   * supported this api, return a null string.
+   */
+  @Nullable
+  public static String getSuwDefaultThemeString(@NonNull Context context) {
+    if (suwDefaultThemeBundle == null || suwDefaultThemeBundle.isEmpty()) {
+      try {
+        suwDefaultThemeBundle =
+            context
+                .getContentResolver()
+                .call(
+                    getContentUri(),
+                    GET_SUW_DEFAULT_THEME_STRING_METHOD,
+                    /* arg= */ null,
+                    /* extras= */ null);
+      } catch (IllegalArgumentException | SecurityException exception) {
+        Log.w(TAG, "SetupWizard default theme status unknown; return as null.");
+        suwDefaultThemeBundle = null;
+        return null;
+      }
+    }
+    if (suwDefaultThemeBundle == null || suwDefaultThemeBundle.isEmpty()) {
+      return null;
+    }
+    return suwDefaultThemeBundle.getString(GET_SUW_DEFAULT_THEME_STRING_METHOD);
+  }
+
   /** Returns true if the SetupWizard supports the dynamic color during setup flow. */
   public static boolean isSetupWizardDynamicColorEnabled(@NonNull Context context) {
     if (applyDynamicColorBundle == null) {
@@ -734,6 +831,32 @@ public class PartnerConfigHelper {
         && applyDynamicColorBundle.getBoolean(IS_DYNAMIC_COLOR_ENABLED_METHOD, false));
   }
 
+  /** Returns true if the SetupWizard supports the one-pane embedded activity during setup flow. */
+  public static boolean isEmbeddedActivityOnePaneEnabled(@NonNull Context context) {
+    if (applyEmbeddedActivityOnePaneBundle == null) {
+      try {
+        applyEmbeddedActivityOnePaneBundle =
+            context
+                .getContentResolver()
+                .call(
+                    getContentUri(),
+                    IS_EMBEDDED_ACTIVITY_ONE_PANE_ENABLED_METHOD,
+                    /* arg= */ null,
+                    /* extras= */ null);
+      } catch (IllegalArgumentException | SecurityException exception) {
+        Log.w(
+            TAG,
+            "SetupWizard one-pane support in embedded activity status unknown; return as false.");
+        applyEmbeddedActivityOnePaneBundle = null;
+        return false;
+      }
+    }
+
+    return (applyEmbeddedActivityOnePaneBundle != null
+        && applyEmbeddedActivityOnePaneBundle.getBoolean(
+            IS_EMBEDDED_ACTIVITY_ONE_PANE_ENABLED_METHOD, false));
+  }
+
   /** Returns true if the SetupWizard supports the neutral button style during setup flow. */
   public static boolean isNeutralButtonStyleEnabled(@NonNull Context context) {
     if (applyNeutralButtonStyleBundle == null) {
@@ -755,6 +878,37 @@ public class PartnerConfigHelper {
 
     return (applyNeutralButtonStyleBundle != null
         && applyNeutralButtonStyleBundle.getBoolean(IS_NEUTRAL_BUTTON_STYLE_ENABLED_METHOD, false));
+  }
+
+  /**
+   * Returns the system property to indicate the transition settings is set by Glif theme rather
+   * than the client.
+   */
+  public static boolean isGlifThemeControlledTransitionApplied(@NonNull Context context) {
+    if (applyTransitionBundle == null
+        || applyTransitionBundle.isEmpty()) {
+      try {
+        applyTransitionBundle =
+            context
+                .getContentResolver()
+                .call(
+                    getContentUri(),
+                    APPLY_GLIF_THEME_CONTROLLED_TRANSITION_METHOD,
+                    /* arg= */ null,
+                    /* extras= */ null);
+      } catch (IllegalArgumentException | SecurityException exception) {
+        Log.w(
+            TAG,
+            "applyGlifThemeControlledTransition unknown; return applyGlifThemeControlledTransition"
+                + " as default value");
+      }
+    }
+    if (applyTransitionBundle != null
+        && !applyTransitionBundle.isEmpty()) {
+      return applyTransitionBundle.getBoolean(
+          APPLY_GLIF_THEME_CONTROLLED_TRANSITION_METHOD, true);
+    }
+    return true;
   }
 
   @VisibleForTesting

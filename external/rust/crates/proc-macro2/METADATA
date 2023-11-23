@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/proc-macro2
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "proc-macro2"
 description: "A substitute implementation of the compiler\'s `proc_macro` API to decouple token-based libraries from the procedural macro use case."
 third_party {
@@ -7,13 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/proc-macro2/proc-macro2-1.0.36.crate"
+    value: "https://static.crates.io/crates/proc-macro2/proc-macro2-1.0.54.crate"
   }
-  version: "1.0.36"
+  version: "1.0.54"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2022
+    year: 2023
     month: 3
-    day: 1
+    day: 30
   }
 }

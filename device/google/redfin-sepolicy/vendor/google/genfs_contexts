@@ -1,0 +1,1 @@
+genfscon sysfs /devices/platform/soc/98c000.i2c/i2c-1/1-003b                    u:object_r:sysfs_wlc:s0

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2023 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@
 
 #include <phNxpNciHal_ext.h>
 
+#include <vector>
+
 #include "phNfcStatus.h"
 
 #define AUTONOMOUS_SCREEN_OFF_LOCK_MASK 0x20
@@ -29,6 +31,36 @@ typedef struct {
   uint8_t guard_timer_value;
 } nxp_nfc_config_ext_t;
 extern nxp_nfc_config_ext_t config_ext;
+
+/*
+ * Add needed GPIO status to read into two bits each
+ * INVALID(-2)
+ * GPIO_SET(1)
+ * GPIO_RESET(0)
+ */
+typedef struct {
+  int irq : 2;
+  int ven : 2;
+  int fw_dwl : 2;
+} platform_gpios_t;
+
+/*
+ * platform_gpios_status --> decoded gpio status flag bits
+ * gpios_status_data    -->  encoded gpio status flag bytes
+ */
+union {
+  uint32_t gpios_status_data;
+  platform_gpios_t platform_gpios_status;
+} gpios_data;
+
+/*******************************************************************************
+**
+** Function         phNxpNciHal_getExtVendorConfig()
+**
+** Description      this function gets and updates the extension params
+**
+*******************************************************************************/
+void phNxpNciHal_getExtVendorConfig();
 
 /******************************************************************************
  * Function         phNxpNciHal_updateAutonomousPwrState
@@ -108,7 +140,7 @@ NFCSTATUS phNxpNciHal_setSrdtimeout();
  *
  ******************************************************************************/
 NFCSTATUS
-phNxpNciHal_set_uicc_hci_params(std::vector<uint8_t>& ptr, uint8_t bufflen,
+phNxpNciHal_set_uicc_hci_params(vector<uint8_t>& ptr, uint8_t bufflen,
                                 phNxpNci_EEPROM_request_type_t uiccType);
 /******************************************************************************
  * Function         phNxpNciHal_get_uicc_hci_params
@@ -123,7 +155,7 @@ phNxpNciHal_set_uicc_hci_params(std::vector<uint8_t>& ptr, uint8_t bufflen,
  *
  ******************************************************************************/
 NFCSTATUS
-phNxpNciHal_get_uicc_hci_params(std::vector<uint8_t>& ptr, uint8_t bufflen,
+phNxpNciHal_get_uicc_hci_params(vector<uint8_t>& ptr, uint8_t bufflen,
                                 phNxpNci_EEPROM_request_type_t uiccType);
 
 /******************************************************************************
@@ -136,3 +168,28 @@ phNxpNciHal_get_uicc_hci_params(std::vector<uint8_t>& ptr, uint8_t bufflen,
  *
  ******************************************************************************/
 NFCSTATUS phNxpNciHal_setExtendedFieldMode();
+
+/*******************************************************************************
+**
+** Function         phNxpNciHal_configGPIOControl()
+**
+** Description      Helper function to configure GPIO control
+**
+** Parameters       gpioControl - Byte array with first two bytes are used to
+**                  configure gpio for specific functionality (ex:ULPDET,
+**                  GPIO LEVEL ...) and 3rd byte indicates the level of GPIO
+**                  to be set.
+**                  len        - Len of byte array
+**
+** Returns          NFCSTATUS_FAILED or NFCSTATUS_SUCCESS
+*******************************************************************************/
+NFCSTATUS phNxpNciHal_configGPIOControl(uint8_t gpioControl[], uint8_t len);
+
+/*******************************************************************************
+**
+** Function         phNxpNciHal_decodeGpioStatus()
+**
+** Description      this function decodes gpios status of the nfc pins
+**
+*******************************************************************************/
+void phNxpNciHal_decodeGpioStatus(void);

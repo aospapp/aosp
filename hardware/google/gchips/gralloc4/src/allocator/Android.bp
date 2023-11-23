@@ -86,11 +86,10 @@ arm_gralloc_allocator_cc_defaults {
 		"liblog",
 		"libcutils",
 		"libdmabufheap",
-		"libion_google",
 		"libsync",
 		"libutils",
 		"libnativewindow",
-		"android.hardware.graphics.common-V3-ndk",
+		"android.hardware.graphics.common-V4-ndk",
 	],
 	header_libs: [
 		"libnativebase_headers",

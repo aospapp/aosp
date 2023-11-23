@@ -1,0 +1,4 @@
+type vendor_ims_remote_app, domain;
+app_domain(vendor_ims_remote_app)
+
+allow vendor_ims_remote_app app_api_service:service_manager find;

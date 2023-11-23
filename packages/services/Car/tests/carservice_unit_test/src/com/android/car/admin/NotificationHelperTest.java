@@ -22,7 +22,6 @@ import static android.app.NotificationManager.IMPORTANCE_HIGH;
 
 import static com.android.car.admin.NotificationHelper.CAR_WATCHDOG_ACTION_DISMISS_RESOURCE_OVERUSE_NOTIFICATION;
 import static com.android.car.admin.NotificationHelper.CAR_WATCHDOG_ACTION_LAUNCH_APP_SETTINGS;
-import static com.android.car.admin.NotificationHelper.CAR_WATCHDOG_ACTION_RESOURCE_OVERUSE_DISABLE_APP;
 import static com.android.car.admin.NotificationHelper.CHANNEL_ID_DEFAULT;
 import static com.android.car.admin.NotificationHelper.INTENT_EXTRA_NOTIFICATION_ID;
 import static com.android.car.admin.NotificationHelper.NEW_USER_DISCLAIMER_NOTIFICATION_ID;
@@ -30,6 +29,7 @@ import static com.android.car.admin.NotificationHelper.newNotificationBuilder;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -38,7 +38,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.testng.Assert.expectThrows;
 
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -107,7 +106,7 @@ public final class NotificationHelperTest {
 
     @Test
     public void testNewNotificationBuilder_nullContext() {
-        NullPointerException exception = expectThrows(NullPointerException.class,
+        NullPointerException exception = assertThrows(NullPointerException.class,
                 () -> newNotificationBuilder(/* context= */ null, IMPORTANCE_HIGH));
 
         assertWithMessage("exception message").that(exception.getMessage()).contains("context");
@@ -188,23 +187,19 @@ public final class NotificationHelperTest {
 
         SparseArray<Notification> expectedNotificationsById = new SparseArray<>();
         expectedNotificationsById.put(169, constructNotification(userHandle, "system_package.A",
-                /* notificationId= */ 169, NotificationManager.IMPORTANCE_HIGH,
-                /* isBundledApp= */ true));
+                /* notificationId= */ 169, NotificationManager.IMPORTANCE_HIGH));
         expectedNotificationsById.put(150, constructNotification(userHandle, "vendor_package.A",
-                /* notificationId= */ 150, NotificationManager.IMPORTANCE_HIGH,
-                /* isBundledApp= */ true));
+                /* notificationId= */ 150, NotificationManager.IMPORTANCE_HIGH));
         expectedNotificationsById.put(151, constructNotification(userHandle,
                 "third_party_package.A", /* notificationId= */ 151,
-                NotificationManager.IMPORTANCE_HIGH, /* isBundledApp= */ false));
+                NotificationManager.IMPORTANCE_HIGH));
         expectedNotificationsById.put(152, constructNotification(userHandle, "system_package.B",
-                /* notificationId= */ 152, NotificationManager.IMPORTANCE_DEFAULT,
-                /* isBundledApp= */ true));
+                /* notificationId= */ 152, NotificationManager.IMPORTANCE_DEFAULT));
         expectedNotificationsById.put(153, constructNotification(userHandle, "vendor_package.B",
-                /* notificationId= */ 153, NotificationManager.IMPORTANCE_DEFAULT,
-                /* isBundledApp= */ true));
+                /* notificationId= */ 153, NotificationManager.IMPORTANCE_DEFAULT));
         expectedNotificationsById.put(154, constructNotification(userHandle,
                 "third_party_package.B", /* notificationId= */ 154,
-                NotificationManager.IMPORTANCE_DEFAULT, /* isBundledApp= */ false));
+                NotificationManager.IMPORTANCE_DEFAULT));
 
         captureAndVerifyUserNotifications(expectedNotificationsById, userHandle);
     }
@@ -246,50 +241,36 @@ public final class NotificationHelperTest {
     }
 
     private Notification constructNotification(UserHandle userHandle, String packageName,
-            int notificationId, int importance, boolean isBundledApp) {
+            int notificationId, int importance) {
         CharSequence title = TextUtils.expandTemplate(
                 mSpiedContext.getText(R.string.resource_overuse_notification_title),
                 packageName + APP_SUFFIX);
         String actionTitlePrioritizeApp = mSpiedContext.getString(
                 R.string.resource_overuse_notification_button_prioritize_app);
+        String contextText =
+                mSpiedContext.getString(R.string.resource_overuse_notification_text_disabled_app);
+        String negativeActionText = mSpiedContext.getString(
+                R.string.resource_overuse_notification_button_close_app);
+
         PendingIntent positiveActionPendingIntent =
                 NotificationHelper.getPendingIntent(mSpiedContext,
                         CAR_WATCHDOG_ACTION_LAUNCH_APP_SETTINGS, userHandle, packageName,
                         notificationId);
-        PendingIntent deletePendingIntent = NotificationHelper.getPendingIntent(mSpiedContext,
+        PendingIntent negativeActionPendingIntent = NotificationHelper.getPendingIntent(
+                mSpiedContext,
                 CAR_WATCHDOG_ACTION_DISMISS_RESOURCE_OVERUSE_NOTIFICATION, userHandle, packageName,
                 notificationId);
-
-        String text;
-        String negativeActionText;
-        PendingIntent negativeActionPendingIntent;
-        if (isBundledApp) {
-            text = mSpiedContext.getString(R.string.resource_overuse_notification_text_disable_app);
-            negativeActionText = mSpiedContext.getString(
-                    R.string.resource_overuse_notification_button_disable_app);
-            negativeActionPendingIntent = NotificationHelper.getPendingIntent(mSpiedContext,
-                    CAR_WATCHDOG_ACTION_RESOURCE_OVERUSE_DISABLE_APP, userHandle,
-                    packageName, notificationId);
-        } else {
-            text = mSpiedContext.getString(
-                    R.string.resource_overuse_notification_text_uninstall_app);
-            negativeActionText = mSpiedContext.getString(
-                    R.string.resource_overuse_notification_button_uninstall_app);
-            negativeActionPendingIntent = positiveActionPendingIntent;
-        }
-        text += " " + mSpiedContext.getString(
-                R.string.resource_overuse_notification_text_prioritize_app);
 
         return NotificationHelper.newNotificationBuilder(mSpiedContext, importance)
                 .setSmallIcon(R.drawable.car_ic_warning)
                 .setContentTitle(title)
-                .setContentText(text)
+                .setContentText(contextText)
                 .setCategory(Notification.CATEGORY_CAR_WARNING)
                 .addAction(new Notification.Action.Builder(/* icon= */ null,
-                        actionTitlePrioritizeApp, positiveActionPendingIntent).build())
-                .addAction(new Notification.Action.Builder(/* icon= */ null,
                         negativeActionText, negativeActionPendingIntent).build())
-                .setDeleteIntent(deletePendingIntent)
+                .addAction(new Notification.Action.Builder(/* icon= */ null,
+                        actionTitlePrioritizeApp, positiveActionPendingIntent).build())
+                .setDeleteIntent(negativeActionPendingIntent)
                 .build();
     }
 

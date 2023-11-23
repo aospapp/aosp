@@ -223,7 +223,12 @@ public class ContextHubTestConstants {
         /**
          * Test: ContextHubSimpleGeneralNanoAppTests[BasicSensorFlushAsyncTest]
          */
-        BASIC_SENSOR_FLUSH_ASYNC_TEST(0x0426);
+        BASIC_SENSOR_FLUSH_ASYNC_TEST(0x0426),
+
+        /**
+         * Test: ContextHubSimpleGeneralNanoAppTests[BasicBleTest]
+         */
+        BASIC_BLE_TEST(0x0427);
 
         private final int mValue;
         TestNames(int value) {

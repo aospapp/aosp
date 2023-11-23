@@ -16,39 +16,32 @@
 package android.server.wm;
 
 import static android.server.wm.WindowManagerState.STATE_RESUMED;
-import static android.server.wm.WindowManagerState.STATE_STOPPED;
 import static android.server.wm.backlegacyapp.Components.BACK_LEGACY;
+import static android.view.Display.DEFAULT_DISPLAY;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import android.app.Instrumentation;
+import android.platform.test.annotations.Presubmit;
 import android.server.wm.TestJournalProvider.TestJournalContainer;
 import android.server.wm.backlegacyapp.Components;
-import android.support.test.uiautomator.UiDevice;
-
-import androidx.test.platform.app.InstrumentationRegistry;
-
-import com.android.compatibility.common.util.GestureNavRule;
 
 import org.junit.Before;
-import org.junit.ClassRule;
 import org.junit.Test;
 
 /**
  * Integration test for back navigation legacy mode
+ *
+ *  <p>Build/Install/Run:
+ *      atest CtsWindowManagerDeviceTestCases:BackNavigationLegacyGestureTest
  */
+@Presubmit
 public class BackNavigationLegacyGestureTest extends ActivityManagerTestBase {
-    private Instrumentation mInstrumentation;
-
-    @ClassRule
-    public static GestureNavRule GESTURE_NAV_RULE = new GestureNavRule();
-    private UiDevice mUiDevice;
-
+    private static final int ACTIVITY_FOCUS_TIMEOUT_MS = 3000;
     @Before
-    public void setup() {
-        GESTURE_NAV_RULE.assumeGestureNavigationMode();
-        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+    public void setup() throws Exception {
+        super.setUp();
+        enableAndAssumeGestureNavigationMode();
     }
 
     @Test
@@ -57,24 +50,14 @@ public class BackNavigationLegacyGestureTest extends ActivityManagerTestBase {
         launchActivity(BACK_LEGACY);
         mWmState.assertActivityDisplayed(BACK_LEGACY);
         waitAndAssertActivityState(BACK_LEGACY, STATE_RESUMED, "Activity should be resumed");
-        mUiDevice = UiDevice.getInstance(mInstrumentation);
-        doBackGesture();
-        waitAndAssertActivityState(BACK_LEGACY, STATE_STOPPED, "Activity should be stopped");
+        waitForActivityFocused(ACTIVITY_FOCUS_TIMEOUT_MS, BACK_LEGACY);
+        triggerBackEventByGesture(DEFAULT_DISPLAY);
+        waitForIdle();
         assertTrue("OnBackPressed should have been called",
                 TestJournalContainer.get(BACK_LEGACY).extras.getBoolean(
                         Components.KEY_ON_BACK_PRESSED_CALLED));
         assertFalse("OnBackInvoked should not have been called",
                 TestJournalContainer.get(BACK_LEGACY).extras.getBoolean(
                         Components.KEY_ON_BACK_INVOKED_CALLED));
-    }
-
-    /**
-     * Do a back gesture. (Swipe)
-     */
-    private void doBackGesture() {
-        int midHeight = mUiDevice.getDisplayHeight() / 2;
-        int midWidth = mUiDevice.getDisplayWidth() / 2;
-        mUiDevice.swipe(0, midHeight, midWidth, midHeight, 100);
-        mUiDevice.waitForIdle();
     }
 }

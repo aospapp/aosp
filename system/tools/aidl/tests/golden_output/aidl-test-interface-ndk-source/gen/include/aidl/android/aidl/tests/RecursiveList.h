@@ -13,6 +13,9 @@
 #include <android/binder_stability.h>
 #endif  // BINDER_STABILITY_SUPPORT
 
+namespace aidl::android::aidl::tests {
+class RecursiveList;
+}  // namespace aidl::android::aidl::tests
 namespace aidl {
 namespace android {
 namespace aidl {

@@ -33,6 +33,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.settings.common.PreferenceControllerTestUtil;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -79,12 +80,86 @@ public class RegulatoryInfoPreferenceControllerTest {
     }
 
     @Test
+    public void hasIntent_isAvailable_zoneWrite() {
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        List<ResolveInfo> activities = new ArrayList<>();
+        activities.add(new ResolveInfo());
+        when(mPm.queryIntentActivities(any(Intent.class), eq(0)))
+                .thenReturn(activities);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), PreferenceController.AVAILABLE);
+    }
+
+    @Test
+    public void hasIntent_isAvailable_zoneRead() {
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        List<ResolveInfo> activities = new ArrayList<>();
+        activities.add(new ResolveInfo());
+        when(mPm.queryIntentActivities(any(Intent.class), eq(0)))
+                .thenReturn(activities);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void hasIntent_isAvailable_zoneHidden() {
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        List<ResolveInfo> activities = new ArrayList<>();
+        activities.add(new ResolveInfo());
+        when(mPm.queryIntentActivities(any(Intent.class), eq(0)))
+                .thenReturn(activities);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void hasNoIntent_isNotAvailable() {
         List<ResolveInfo> activities = new ArrayList<>();
         when(mPm.queryIntentActivities(any(Intent.class), eq(0)))
                 .thenReturn(activities);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(
+                PreferenceController.UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void hasNoIntent_isNotAvailable_zoneWrite() {
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        List<ResolveInfo> activities = new ArrayList<>();
+        when(mPm.queryIntentActivities(any(Intent.class), eq(0)))
+                .thenReturn(activities);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(),
+                PreferenceController.UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void hasNoIntent_isNotAvailable_zoneRead() {
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        List<ResolveInfo> activities = new ArrayList<>();
+        when(mPm.queryIntentActivities(any(Intent.class), eq(0)))
+                .thenReturn(activities);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(),
+                PreferenceController.UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void hasNoIntent_isNotAvailable_zoneHidden() {
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        List<ResolveInfo> activities = new ArrayList<>();
+        when(mPm.queryIntentActivities(any(Intent.class), eq(0)))
+                .thenReturn(activities);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(),
                 PreferenceController.UNSUPPORTED_ON_DEVICE);
     }
 }

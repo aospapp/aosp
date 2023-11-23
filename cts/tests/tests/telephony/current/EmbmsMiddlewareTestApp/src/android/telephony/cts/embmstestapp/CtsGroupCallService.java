@@ -34,15 +34,12 @@ import android.util.Log;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
 public class CtsGroupCallService extends MbmsGroupCallServiceBase {
-    private static final Set<String> ALLOWED_PACKAGES = new HashSet<String>() {{
-        add("android.telephony.cts");
-    }};
+    private static final Set<String> ALLOWED_PACKAGES = Set.of("android.telephony.cts");
     private static final String TAG = "EmbmsTestGroupCall";
 
     public static final String METHOD_INITIALIZE = "initialize";

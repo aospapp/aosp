@@ -18,6 +18,7 @@ package com.android.car.telemetry.scriptexecutorinterface;
 
 import android.os.ParcelFileDescriptor;
 import android.os.PersistableBundle;
+import com.android.car.telemetry.scriptexecutorinterface.BundleList;
 import com.android.car.telemetry.scriptexecutorinterface.IScriptExecutorListener;
 
 /**
@@ -57,6 +58,24 @@ oneway interface IScriptExecutor {
   void invokeScriptForLargeInput(String scriptBody,
                     String functionName,
                     in ParcelFileDescriptor publishedDataFileDescriptor,
+                    in @nullable PersistableBundle savedState,
+                    in IScriptExecutorListener listener);
+
+  /**
+   * Executes a specified function in a provided Lua script with given input arguments.
+   * This is a specialized version of invokeScript API above for sending a list of bundles. The
+   * data is delivered use LargeParcelable so it can handle large data sizes automatically.
+   *
+   * @param scriptBody complete body of Lua script that also contains the function to be invoked
+   * @param functionName the name of the function to execute
+   * @param bundleList the list of bundles as input data which the scripts will handle
+   * @param savedState key-value pairs preserved from the previous invocation of the function
+   * @param listener callback for the sandboxed environment to report back script execution results,
+   * errors, and logs
+   */
+  void invokeScriptForBundleList(String scriptBody,
+                    String functionName,
+                    in BundleList bundleList,
                     in @nullable PersistableBundle savedState,
                     in IScriptExecutorListener listener);
 }

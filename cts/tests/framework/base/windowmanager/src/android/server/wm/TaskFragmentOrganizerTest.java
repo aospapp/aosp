@@ -19,11 +19,13 @@ package android.server.wm;
 import static android.app.WindowConfiguration.WINDOWING_MODE_MULTI_WINDOW;
 import static android.server.wm.WindowManagerState.STATE_RESUMED;
 import static android.server.wm.WindowManagerState.STATE_STOPPED;
+import static android.window.TaskFragmentOrganizer.TASK_FRAGMENT_TRANSIT_CHANGE;
+import static android.window.TaskFragmentOrganizer.TASK_FRAGMENT_TRANSIT_CLOSE;
+import static android.window.TaskFragmentOrganizer.TASK_FRAGMENT_TRANSIT_OPEN;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Activity;
@@ -36,12 +38,12 @@ import android.os.IBinder;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.WindowManagerState.Task;
 import android.server.wm.WindowManagerState.TaskFragment;
-import android.view.SurfaceControl;
 import android.window.TaskFragmentCreationParams;
 import android.window.TaskFragmentInfo;
 import android.window.TaskFragmentOrganizer;
-import android.window.WindowContainerToken;
 import android.window.WindowContainerTransaction;
+
+import com.android.compatibility.common.util.ApiTest;
 
 import org.junit.Test;
 
@@ -52,6 +54,7 @@ import org.junit.Test;
  *     atest CtsWindowManagerDeviceTestCases:TaskFragmentOrganizerTest
  */
 @Presubmit
+@android.server.wm.annotation.Group2
 public class TaskFragmentOrganizerTest extends TaskFragmentOrganizerTestBase {
     private final ComponentName mLaunchingActivity = new ComponentName(mContext,
             WindowMetricsActivityTests.MetricsActivity.class);
@@ -73,12 +76,13 @@ public class TaskFragmentOrganizerTest extends TaskFragmentOrganizerTestBase {
         final int windowingMode = WINDOWING_MODE_MULTI_WINDOW;
         final TaskFragmentCreationParams params = new TaskFragmentCreationParams.Builder(
                 mTaskFragmentOrganizer.getOrganizerToken(), taskFragToken, mOwnerToken)
-                .setInitialBounds(bounds)
+                .setInitialRelativeBounds(bounds)
                 .setWindowingMode(windowingMode)
                 .build();
         final WindowContainerTransaction wct = new WindowContainerTransaction()
                 .createTaskFragment(params);
-        mTaskFragmentOrganizer.applyTransaction(wct);
+        mTaskFragmentOrganizer.applyTransaction(wct, TASK_FRAGMENT_TRANSIT_OPEN,
+                false /* shouldApplyIndependently */);
 
         mTaskFragmentOrganizer.waitForTaskFragmentCreated();
 
@@ -111,7 +115,8 @@ public class TaskFragmentOrganizerTest extends TaskFragmentOrganizerTestBase {
         final WindowContainerTransaction wct = new WindowContainerTransaction()
                 .createTaskFragment(params)
                 .reparentActivityToTaskFragment(taskFragToken, mOwnerToken);
-        mTaskFragmentOrganizer.applyTransaction(wct);
+        mTaskFragmentOrganizer.applyTransaction(wct, TASK_FRAGMENT_TRANSIT_CHANGE,
+                false /* shouldApplyIndependently */);
 
         mTaskFragmentOrganizer.waitForTaskFragmentCreated();
 
@@ -143,7 +148,8 @@ public class TaskFragmentOrganizerTest extends TaskFragmentOrganizerTestBase {
                 .createTaskFragment(params)
                 .startActivityInTaskFragment(taskFragToken, mOwnerToken,
                         new Intent().setComponent(mLaunchingActivity), null /* activityOptions */);
-        mTaskFragmentOrganizer.applyTransaction(wct);
+        mTaskFragmentOrganizer.applyTransaction(wct, TASK_FRAGMENT_TRANSIT_OPEN,
+                false /* shouldApplyIndependently */);
 
         mTaskFragmentOrganizer.waitForTaskFragmentCreated();
 
@@ -168,11 +174,12 @@ public class TaskFragmentOrganizerTest extends TaskFragmentOrganizerTestBase {
     }
 
     /**
-     * Verifies the behavior of
-     * {@link WindowContainerTransaction#deleteTaskFragment(WindowContainerToken)} to remove
-     * the organized TaskFragment.
+     * Verifies the behavior of {@link WindowContainerTransaction#deleteTaskFragment} to remove the
+     * organized TaskFragment.
      */
     @Test
+    @ApiTest(apis = {
+            "android.window.WindowContainerTransaction#deleteTaskFragment"})
     public void testDeleteTaskFragment() {
         final TaskFragmentInfo taskFragmentInfo = createTaskFragment(null);
         final IBinder taskFragToken = taskFragmentInfo.getFragmentToken();
@@ -183,8 +190,9 @@ public class TaskFragmentOrganizerTest extends TaskFragmentOrganizerTestBase {
                 .size();
 
         WindowContainerTransaction wct = new WindowContainerTransaction()
-                .deleteTaskFragment(taskFragmentInfo.getToken());
-        mTaskFragmentOrganizer.applyTransaction(wct);
+                .deleteTaskFragment(taskFragToken);
+        mTaskFragmentOrganizer.applyTransaction(wct, TASK_FRAGMENT_TRANSIT_CLOSE,
+                false /* shouldApplyIndependently */);
 
         mTaskFragmentOrganizer.waitForTaskFragmentRemoved();
 
@@ -195,6 +203,61 @@ public class TaskFragmentOrganizerTest extends TaskFragmentOrganizerTestBase {
         final int currTaskFragCount = mWmState.getRootTask(mOwnerTaskId).getTaskFragments().size();
         assertWithMessage("TaskFragment with token " + taskFragToken + " must be"
                 + " removed.").that(originalTaskFragCount - currTaskFragCount).isEqualTo(1);
+    }
+
+    /**
+     * Verifies the behavior of {@link WindowContainerTransaction#deleteTaskFragment} to remove the
+     * organized TaskFragment with activity embedded.
+     */
+    @Test
+    @ApiTest(apis = {
+            "android.window.WindowContainerTransaction#deleteTaskFragment",
+            "android.window.TaskFragmentOrganizer.#onTransactionReady"})
+    public void testDeleteTaskFragmentWithActivity() {
+        final TaskFragmentInfo taskFragmentInfo = createTaskFragment(mLaunchingActivity);
+        final IBinder taskFragToken = taskFragmentInfo.getFragmentToken();
+        assertNotEmptyTaskFragment(taskFragmentInfo, taskFragmentInfo.getFragmentToken());
+
+        mWmState.computeState(mOwnerActivityName);
+        final int originalTaskFragCount = mWmState.getRootTask(mOwnerTaskId).getTaskFragments()
+                .size();
+
+        WindowContainerTransaction wct = new WindowContainerTransaction()
+                .deleteTaskFragment(taskFragToken);
+        mTaskFragmentOrganizer.applyTransaction(wct, TASK_FRAGMENT_TRANSIT_CLOSE,
+                false /* shouldApplyIndependently */);
+
+        mTaskFragmentOrganizer.waitForTaskFragmentRemoved();
+
+        assertEmptyTaskFragment(mTaskFragmentOrganizer.getRemovedTaskFragmentInfo(taskFragToken),
+                taskFragToken);
+
+        mWmState.computeState(mOwnerActivityName);
+        final int currTaskFragCount = mWmState.getRootTask(mOwnerTaskId).getTaskFragments().size();
+        assertWithMessage("TaskFragment with token " + taskFragToken + " must be"
+                + " removed.").that(originalTaskFragCount - currTaskFragCount).isEqualTo(1);
+    }
+
+    /**
+     * Verifies the behavior of {@link WindowContainerTransaction#finishActivity(IBinder)} to finish
+     * an Activity.
+     */
+    @Test
+    @ApiTest(apis = {
+            "android.window.TaskFragmentOrganizer#applyTransaction",
+            "android.window.WindowContainerTransaction#finishActivity"})
+    public void testFinishActivity() {
+        final Activity activity = startNewActivity(
+                WindowMetricsActivityTests.MetricsActivity.class);
+        // Make sure mLaunchingActivity is mapping to the correct component that is started.
+        mWmState.waitAndAssertActivityState(mLaunchingActivity, STATE_RESUMED);
+
+        final WindowContainerTransaction wct = new WindowContainerTransaction()
+                .finishActivity(getActivityToken(activity));
+        mTaskFragmentOrganizer.applyTransaction(wct, TASK_FRAGMENT_TRANSIT_CLOSE,
+                false /* shouldApplyIndependently */);
+
+        mWmState.waitAndAssertActivityRemoved(mLaunchingActivity);
     }
 
     /**
@@ -212,7 +275,8 @@ public class TaskFragmentOrganizerTest extends TaskFragmentOrganizerTestBase {
         final WindowContainerTransaction wct = new WindowContainerTransaction()
                 .createTaskFragment(params)
                 .reparentActivityToTaskFragment(taskFragToken, embeddedActivityToken);
-        mTaskFragmentOrganizer.applyTransaction(wct);
+        mTaskFragmentOrganizer.applyTransaction(wct, TASK_FRAGMENT_TRANSIT_CHANGE,
+                false /* shouldApplyIndependently */);
         mTaskFragmentOrganizer.waitForTaskFragmentCreated();
         // The activity below must be occluded and stopped.
         waitAndAssertActivityState(mOwnerActivityName, STATE_STOPPED,
@@ -222,31 +286,5 @@ public class TaskFragmentOrganizerTest extends TaskFragmentOrganizerTestBase {
         // must be resumed.
         embeddedActivity.finish();
         waitAndAssertResumedActivity(mOwnerActivityName, "Activity must be resumed");
-    }
-
-    /**
-     * Verifies that config changes with {@link WindowContainerTransaction.Change#getChangeMask()}
-     * are disallowed for embedded TaskFragments.
-     */
-    @Test
-    public void testTaskFragmentConfigChange_disallowChangeMaskChanges() {
-        final TaskFragmentInfo taskFragmentInfo = createTaskFragment(mLaunchingActivity);
-        final WindowContainerToken token = taskFragmentInfo.getToken();
-
-        final WindowContainerTransaction wct0 = new WindowContainerTransaction()
-                .scheduleFinishEnterPip(token, new Rect(0, 0, 100, 100));
-        assertThrows(SecurityException.class, () -> mTaskFragmentOrganizer.applyTransaction(wct0));
-
-        final WindowContainerTransaction wct1 = new WindowContainerTransaction()
-                .setBoundsChangeTransaction(token, new SurfaceControl.Transaction());
-        assertThrows(SecurityException.class, () -> mTaskFragmentOrganizer.applyTransaction(wct1));
-
-        final WindowContainerTransaction wct3 = new WindowContainerTransaction()
-                .setFocusable(token, false /* focusable */);
-        assertThrows(SecurityException.class, () -> mTaskFragmentOrganizer.applyTransaction(wct3));
-
-        final WindowContainerTransaction wct4 = new WindowContainerTransaction()
-                .setHidden(token, false /* hidden */);
-        assertThrows(SecurityException.class, () -> mTaskFragmentOrganizer.applyTransaction(wct4));
     }
 }

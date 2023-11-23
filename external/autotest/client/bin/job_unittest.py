@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # pylint: disable=missing-docstring
 
 import logging
@@ -60,9 +60,14 @@ class test_find_base_directories(
 class abstract_test_init(base_job_unittest.test_init.generic_tests):
     """Generic client job mixin used when defining variations on the
     job.__init__ generic tests."""
+
+    PUBLIC_ATTRIBUTES = (
+            base_job_unittest.test_init.generic_tests.PUBLIC_ATTRIBUTES -
+            set(['force_full_log_collection']))
+
     OPTIONAL_ATTRIBUTES = (
-        base_job_unittest.test_init.generic_tests.OPTIONAL_ATTRIBUTES
-        - set(['control', 'harness']))
+            base_job_unittest.test_init.generic_tests.OPTIONAL_ATTRIBUTES -
+            set(['control', 'harness', 'force_full_log_collection']))
 
 
 class test_init_minimal_options(abstract_test_init, job_test_case):
@@ -101,6 +106,7 @@ class test_init_minimal_options(abstract_test_init, job_test_case):
             log = False
             args = ''
             output_dir = ''
+
         self.god.stub_function_to_return(job.utils, 'drop_caches', None)
 
         self.job._job_state = base_job_unittest.stub_job_state
@@ -320,7 +326,7 @@ class test_base_job(unittest.TestCase):
         # record
         which = "which"
         harness_args = ''
-        harness.select.expect_call(which, self.job, 
+        harness.select.expect_call(which, self.job,
                                    harness_args).and_return(None)
 
         # run and test
@@ -491,10 +497,24 @@ class test_base_job(unittest.TestCase):
         self._setup_check_post_reboot(mount_info, None)
 
         self.god.stub_function(self.job, "_record_reboot_failure")
-        self.job._record_reboot_failure.expect_call("sub",
-                "reboot.verify_config", "mounted partitions are different after"
-                " reboot (old entries: set([]), new entries: set([('/dev/hdb1',"
-                " '/mnt/hdb1')]))", running_id=None)
+
+        if six.PY2:
+            self.job._record_reboot_failure.expect_call(
+                    "sub",
+                    "reboot.verify_config",
+                    "mounted partitions are different after"
+                    " reboot (old entries: set([]), new entries: set([('/dev/hdb1',"
+                    " '/mnt/hdb1')]))",
+                    running_id=None)
+        else:
+            # Py3 string formatting of sets is a bit different...
+            self.job._record_reboot_failure.expect_call(
+                    "sub",
+                    "reboot.verify_config",
+                    "mounted partitions are different after"
+                    " reboot (old entries: set(), new entries: {('/dev/hdb1',"
+                    " '/mnt/hdb1')})",
+                    running_id=None)
 
         # playback
         self.assertRaises(error.JobError, self.job._check_post_reboot, "sub")

@@ -18,6 +18,7 @@ package android.bluetooth;
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.RequiresNoPermission;
 import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
@@ -359,7 +360,7 @@ public interface BluetoothProfile {
      *
      * @return List of devices. The list will be empty on error.
      */
-    public List<BluetoothDevice> getConnectedDevices();
+    List<BluetoothDevice> getConnectedDevices();
 
     /**
      * Get a list of devices that match any of the given connection
@@ -372,7 +373,7 @@ public interface BluetoothProfile {
      * #STATE_CONNECTING}, {@link #STATE_DISCONNECTED}, {@link #STATE_DISCONNECTING},
      * @return List of devices. The list will be empty on error.
      */
-    public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states);
+    List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states);
 
     /**
      * Get the current connection state of the profile
@@ -382,6 +383,13 @@ public interface BluetoothProfile {
      * #STATE_CONNECTING}, {@link #STATE_DISCONNECTED}, {@link #STATE_DISCONNECTING}
      */
     @BtProfileState int getConnectionState(BluetoothDevice device);
+
+    /**
+     * Releases any held resources.
+     *
+     * @hide
+     */
+    void close();
 
     /**
      * An interface for notifying BluetoothProfile IPC clients when they have
@@ -396,7 +404,7 @@ public interface BluetoothProfile {
          * @param proxy - One of {@link BluetoothHeadset} or {@link BluetoothA2dp}
          */
         @RequiresNoPermission
-        public void onServiceConnected(int profile, BluetoothProfile proxy);
+        void onServiceConnected(int profile, BluetoothProfile proxy);
 
         /**
          * Called to notify the client that this proxy object has been
@@ -405,7 +413,34 @@ public interface BluetoothProfile {
          * @param profile - One of {@link #HEADSET} or {@link #A2DP}
          */
         @RequiresNoPermission
-        public void onServiceDisconnected(int profile);
+        void onServiceDisconnected(int profile);
+    }
+
+    /**
+     * A service listener that forwards methods calls to the given listener.
+     * This can be used to override specific method.
+     * @hide
+     */
+    class ForwardingServiceListener implements ServiceListener {
+        private final ServiceListener mListener;
+
+        ForwardingServiceListener(@Nullable ServiceListener listener) {
+            mListener = listener;
+        }
+
+        @Override
+        public void onServiceConnected(int profile, BluetoothProfile proxy) {
+            if (mListener != null) {
+                mListener.onServiceConnected(profile, proxy);
+            }
+        }
+
+        @Override
+        public void onServiceDisconnected(int profile) {
+            if (mListener != null) {
+                mListener.onServiceDisconnected(profile);
+            }
+        }
     }
 
     /**

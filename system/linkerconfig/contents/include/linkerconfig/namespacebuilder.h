@@ -16,17 +16,13 @@
 #pragma once
 
 #include "linkerconfig/apex.h"
+#include "linkerconfig/common.h"
 #include "linkerconfig/context.h"
 #include "linkerconfig/namespace.h"
 
 namespace android {
 namespace linkerconfig {
 namespace contents {
-
-enum class VndkUserPartition {
-  Vendor,
-  Product,
-};
 
 typedef modules::Namespace NamespaceBuilder(const Context& ctx);
 

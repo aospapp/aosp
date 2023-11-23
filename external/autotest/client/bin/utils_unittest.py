@@ -1,10 +1,11 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 __author__ = "kerl@google.com, gwendal@google.com (Gwendal Grignou)"
 
 import io
-import mock
+import six
 import unittest
+from unittest import mock
 
 from autotest_lib.client.bin import utils
 
@@ -27,7 +28,10 @@ class TestUtils(unittest.TestCase):
 
     def fake_open(self, path):
         # Use BytesIO instead of StringIO to support with statements.
-        return io.BytesIO(bytes(self.fake_file_text))
+        if six.PY2:
+            return io.BytesIO(bytes(self.fake_file_text))
+        else:
+            return io.StringIO(self.fake_file_text)
 
     def test_concat_partition(self):
         self.assertEquals("nvme0n1p3", utils.concat_partition("nvme0n1", 3))
@@ -174,3 +178,111 @@ class TestUtils(unittest.TestCase):
             'transfers_per_s': 4.45,
             'written_kb': 188458.0,
         }, statistics)
+
+    def test_base64_recursive_encode(self):
+        obj = {
+                'a': 10,
+                'b': 'hello',
+                'c': [100, 200, bytearray(b'\xf0\xf1\xf2\xf3\xf4')],
+                'd': {
+                        784: bytearray(b'@\x14\x01P'),
+                        78.0: bytearray(b'\x10\x05\x0b\x10\xb2\x1b\x00')
+                }
+        }
+        if utils.is_python2():
+            expected_encoded_obj = {
+                    'YQ==': 10,
+                    'Yg==': 'aGVsbG8=',
+                    'Yw==': [100, 200, '8PHy8/Q='],
+                    'ZA==': {
+                            784: 'QBQBUA==',
+                            78.0: 'EAULELIbAA=='
+                    }
+            }
+        else:
+            expected_encoded_obj = {
+                    'a': 10,
+                    'b': 'hello',
+                    'c': [100, 200, b'8PHy8/Q='],
+                    'd': {
+                            784: b'QBQBUA==',
+                            78.0: b'EAULELIbAA=='
+                    }
+            }
+
+        encoded_obj = utils.base64_recursive_encode(obj)
+        self.assertEqual(expected_encoded_obj, encoded_obj)
+
+    def test_base64_recursive_decode(self):
+        if utils.is_python2():
+            encoded_obj = {
+                    'YQ==': 10,
+                    'Yg==': 'aGVsbG8=',
+                    'Yw==': [100, 200, '8PHy8/Q='],
+                    'ZA==': {
+                            784: 'QBQBUA==',
+                            78.0: 'EAULELIbAA=='
+                    }
+            }
+        else:
+            encoded_obj = {
+                    'a': 10,
+                    'b': 'hello',
+                    'c': [100, 200, b'8PHy8/Q='],
+                    'd': {
+                            784: b'QBQBUA==',
+                            78.0: b'EAULELIbAA=='
+                    }
+            }
+
+        expected_decoded_obj = {
+                'a': 10,
+                'b': 'hello',
+                'c': [100, 200, b'\xf0\xf1\xf2\xf3\xf4'],
+                'd': {
+                        784: b'@\x14\x01P',
+                        78.0: b'\x10\x05\x0b\x10\xb2\x1b\x00'
+                }
+        }
+
+        decoded_obj = utils.base64_recursive_decode(encoded_obj)
+        self.assertEqual(expected_decoded_obj, decoded_obj)
+
+    def test_bytes_to_str_recursive(self):
+        obj = {
+                'a': 10,
+                'b': 'hello',
+                'c': b'b_hello',
+                'd': [100, 200, bytearray(b'\xf0\xf1\xf2\xf3\xf4')],
+                'e': {
+                        784: bytearray(b'@\x14\x01P'),
+                        78.0: bytearray(b'\x10\x05\x0b\x10\xb2\x1b\x00')
+                }
+        }
+
+        if utils.is_python2():
+            self.assertEqual(b'foo', utils.bytes_to_str_recursive(b'foo'))
+            self.assertEqual(b'\x80abc',
+                             utils.bytes_to_str_recursive(b'\x80abc'))
+            self.assertEqual('foo', utils.bytes_to_str_recursive('foo'))
+            self.assertEqual('\x80abc',
+                             utils.bytes_to_str_recursive('\x80abc'))
+            self.assertEqual(obj, utils.bytes_to_str_recursive(obj))
+        else:
+            self.assertEqual('foo', utils.bytes_to_str_recursive(b'foo'))
+            # self.assertEqual('\ufffdabc', utils.bytes_to_str_recursive(b'\x80abc'))
+            self.assertEqual('foo', utils.bytes_to_str_recursive('foo'))
+            self.assertEqual('\x80abc',
+                             utils.bytes_to_str_recursive('\x80abc'))
+            expected_obj = {
+                    'a': 10,
+                    'b': 'hello',
+                    'c': 'b_hello',
+                    # u prefix: Python 2 interpreter friendly.
+                    'd': [100, 200, u'\u0440\u0441\u0442\u0443\u0444'],
+                    'e': {
+                            784: '@\x14\x01P',
+                            78.0: u'\x10\x05\x0b\x10\u00b2\x1b\x00'
+                    }
+            }
+            self.assertEqual(expected_obj, utils.bytes_to_str_recursive(obj))

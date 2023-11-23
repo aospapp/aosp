@@ -1,11 +1,11 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 use kvm_sys::*;
 
 /// A capability the kernel's KVM interface can possibly expose.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum Cap {
     Irqchip = KVM_CAP_IRQCHIP,
@@ -122,4 +122,7 @@ pub enum Cap {
     ArmPmuV3 = KVM_CAP_ARM_PMU_V3,
     IoapicNumPins = KVM_CAP_IOAPIC_NUM_PINS,
     ArmProtectedVm = KVM_CAP_ARM_PROTECTED_VM,
+    ArmMte = KVM_CAP_ARM_MTE,
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    BusLockDetect = KVM_CAP_X86_BUS_LOCK_EXIT,
 }

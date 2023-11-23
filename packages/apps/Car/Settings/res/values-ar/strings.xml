@@ -24,14 +24,13 @@
     <string name="auto_brightness_title" msgid="9124647862844666581">"السطوع التكيُّفي"</string>
     <string name="auto_brightness_summary" msgid="2002570577219479702">"ضبط سطوع الشاشة بناءً على الظروف المحيطة"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"تم تفعيل الإضاءة الليلية."</string>
-    <string name="night_mode_tile_label" msgid="6603597795502131664">"الوضع الليلي"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"الشبكة والإنترنت"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"شبكة الجوّال"</string>
     <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{شريحة SIM واحدة}zero{# شريحة SIM}two{شريحتَا SIM}few{# شرائح SIM}many{# شريحة SIM}other{# شريحة SIM}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"مفعّلة / SIM"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"غير مفعّلة / SIM"</string>
-    <string name="mobile_network_active_esim" msgid="5864100786496761032">"مفعّلة / شريحة SIM التي تم تنزيلها"</string>
-    <string name="mobile_network_inactive_esim" msgid="1397332352238119032">"غير مفعّلة / شريحة SIM التي تم تنزيلها"</string>
+    <string name="mobile_network_active_esim" msgid="5175362818078597096">"مفعَّلة / شريحة eSIM"</string>
+    <string name="mobile_network_inactive_esim" msgid="7273712403773327964">"غير مفعّلة / شريحة eSIM"</string>
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"إضافة المزيد"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"بيانات الجوّال"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"الوصول إلى البيانات باستخدام شبكة الجوّال"</string>
@@ -163,7 +162,7 @@
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"اختر نطاقًا واحدًا على الأقل لنقطة اتصال Wi‑Fi:"</string>
     <string name="tether_settings_title_all" msgid="4663704772599383169">"نقطة الاتصال والتوصيل"</string>
     <string name="hotspot_settings_title" msgid="8220814387592756713">"نقطة الاتصال"</string>
-    <string name="wifi_hotspot_state_off" msgid="6096709579204322798">"إيقاف"</string>
+    <string name="wifi_hotspot_state_off" msgid="6096709579204322798">"غير مفعّلة"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"إيقاف نقطة الاتصال تلقائيًا"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"سيتم إيقاف نقطة اتصال Wi‑Fi في حال عدم اتصال أي أجهزة."</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"هناك رغبة من <xliff:g id="REQUESTER">%s</xliff:g> في تفعيل شبكة Wi-Fi."</string>
@@ -177,6 +176,7 @@
     <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"عرض الكل"</string>
     <string name="progress_scanning" msgid="7191583064717479795">"البحث"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"البلوتوث"</string>
+    <string name="bluetooth_toggle_title" msgid="1431803611346881088">"استخدام البلوتوث"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"جهاز بدون اسم"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"الأجهزة المقترنة"</string>
     <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"إقران جهاز جديد"</string>
@@ -221,6 +221,9 @@
     <string name="bluetooth_notif_title" msgid="8374602799367803335">"طلب الإقران"</string>
     <string name="bluetooth_notif_message" msgid="1060821000510108726">"انقر للإقران مع <xliff:g id="DEVICE_NAME">%1$s</xliff:g>."</string>
     <string name="bluetooth_device_picker" msgid="673238198452345475">"اختيار جهاز البلوتوث"</string>
+    <string name="bluetooth_bonded_bluetooth_toggle_content_description" msgid="6800772154405846597">"البلوتوث"</string>
+    <string name="bluetooth_bonded_phone_toggle_content_description" msgid="8152794643249938377">"الهاتف"</string>
+    <string name="bluetooth_bonded_media_toggle_content_description" msgid="7803420585378155404">"الوسائط"</string>
     <string name="language_settings" msgid="2079258598337245546">"اللغات"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"اللغات والإدخال"</string>
     <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"اللغات المقترحة"</string>
@@ -300,14 +303,16 @@
     <string name="apps_and_notifications_settings" msgid="8704585874333781975">"التطبيقات والإشعارات"</string>
     <string name="all_applications" msgid="7798210477486822168">"إظهار جميع التطبيقات"</string>
     <string name="default_applications" msgid="1558183275638697087">"التطبيقات التلقائية"</string>
+    <string name="performance_impacting_apps" msgid="3439260699394720569">"التطبيقات التي تؤثر في الأداء"</string>
     <string name="app_permissions" msgid="32799922508313948">"أذونات التطبيقات"</string>
     <string name="app_permissions_summary" msgid="5402214755935368418">"التحكُّم في وصول التطبيقات إلى بياناتك"</string>
     <string name="applications_settings" msgid="794261395191035632">"معلومات التطبيق"</string>
-    <string name="force_stop" msgid="2153183697014720520">"فرض الإيقاف"</string>
-    <string name="force_stop_dialog_title" msgid="3342850939200388694">"هل تريد فرض إيقاف التطبيق؟"</string>
+    <string name="force_stop" msgid="1616958676171167028">"إيقاف التطبيق"</string>
+    <string name="force_stop_dialog_title" msgid="4481858344628934971">"هل تريد إيقاف التطبيق؟"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"في حال فرض إيقاف التطبيق، قد لا يعمل بشكل صحيح."</string>
-    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"هل تريد تفعيل الإعداد \"منح الأولوية لأداء التطبيق\"؟"</string>
-    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"يمكن أن يؤدي تفعيل هذا الإعداد إلى حدوث عدم استقرار محتمل في النظام أو تأثير طويل الأمد في الأجهزة. هل تريد المتابعة؟"</string>
+    <string name="force_stop_success_toast_text" msgid="2986272849275894254">"تم إيقاف <xliff:g id="APP_NAME">%1$s</xliff:g>."</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="3205297520523665568">"هل تريد منح الأولوية لأداء التطبيق؟"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="4321564728229192878">"يمكن أن يؤدي تفعيل هذا الإعداد إلى حدوث عدم استقرار محتمل في النظام أو تأثير طويل الأمد في الأجهزة. هل تريد المتابعة؟"</string>
     <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"نعم"</string>
     <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"لا، شكرًا"</string>
     <string name="disable_text" msgid="4358165448648990820">"إيقاف"</string>
@@ -375,12 +380,13 @@
     <string name="apps_settings_title" msgid="3982535942394315336">"التطبيقات"</string>
     <string name="apps_recently_opened" msgid="5320377037971195984">"التطبيقات التي تم فتحها مؤخرًا"</string>
     <string name="apps_view_all_apps_title" msgid="2322120325505230530">"عرض جميع التطبيقات الـ ‎%1$d"</string>
-    <string name="apps_permission_manager_title" msgid="8776335943862484131">"مدير الأذونات"</string>
+    <string name="apps_permission_manager_title" msgid="8776335943862484131">"إدارة الأذونات"</string>
     <string name="apps_permission_manager_summary" msgid="4180424218228141274">"التحكُّم في وصول التطبيقات إلى بياناتك"</string>
     <string name="apps_default_apps_summary" msgid="2017792579839972926">"لعرض تطبيق المساعد وتطبيقات أخرى"</string>
+    <string name="performance_impacting_apps_summary" msgid="7762122057244111162">"{count,plural, =1{تطبيق واحد يؤثر في الأداء}zero{# تطبيق تؤثر في الأداء}two{تطبيقان يؤثران في الأداء}few{# تطبيقات تؤثر في الأداء}many{# تطبيقًا تؤثر في الأداء}other{# تطبيق تؤثر في الأداء}}"</string>
     <string name="apps_special_app_access_summary" msgid="6464767436309742163">"الانتقال إلى النظام والإعدادات الأخرى"</string>
     <string name="special_access" msgid="5730278220917123811">"أذونات خاصة للتطبيقات"</string>
-    <string name="show_system" msgid="4401355756969485287">"عرض عمليات النظام"</string>
+    <string name="show_system" msgid="4401355756969485287">"إظهار تطبيقات النظام"</string>
     <string name="hide_system" msgid="8845453295584638040">"إخفاء عمليات النظام"</string>
     <string name="hide_system_apps" msgid="6583947381056154020">"إخفاء تطبيقات النظام"</string>
     <string name="modify_system_settings_title" msgid="4596320571562433972">"تعديل إعدادات النظام"</string>
@@ -391,6 +397,8 @@
     <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"عند إيقاف الوصول إلى الإشعارات لخدمة <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g>، قد يتم إيقاف الوصول إلى ميزة \"عدم الإزعاج\" أيضًا."</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"إيقاف"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"إلغاء"</string>
+    <string name="performance_impacting_apps_description" msgid="7361464904617808444">"تؤثر هذه التطبيقات سلبًا في أداء النظام وقد تم منع استخدامها في الخلفية.\nعليك منح الأولوية للتطبيق للسماح باستخدامه في الخلفية وإزالته من هذه القائمة."</string>
+    <string name="performance_impacting_apps_button_label" msgid="8277507326717608783">"منح أولوية للتطبيق"</string>
     <string name="premium_sms_access_title" msgid="1409118461646148686">"إمكانية إرسال رسائل قصيرة SMS مميزة"</string>
     <string name="premium_sms_access_description" msgid="7119026067677052169">"يمكن أن تكلفك الرسائل القصيرة SMS المميزة بعض الرسوم، وستتم إضافة هذه الرسوم إلى فواتير مشغِّل شبكة الجوّال. وفي حال تفعيل الإذن لأحد التطبيقات، ستتمكن من إرسال رسائل قصيرة SMS مميزة باستخدام هذا التطبيق."</string>
     <string name="usage_access_title" msgid="7153427122072303254">"الوصول إلى بيانات الاستخدام"</string>
@@ -401,22 +409,27 @@
     <string name="location_settings_title" msgid="901334356682423679">"الموقع الجغرافي"</string>
     <string name="location_toggle_title" msgid="836779750812064601">"استخدام الموقع الجغرافي"</string>
     <string name="location_toggle_summary" msgid="7977868708102299495">"السماح للتطبيقات التي تحددها بالوصول إلى موقعك الجغرافي"</string>
-    <string name="location_toggle_off_warning" msgid="8396854289251143748">"إذا أوقفت هذا الإعداد، سيؤدي ذلك إلى إزالة إمكانية وصول كل التطبيقات إلى الموقع الجغرافي. وسيظل بإمكان تطبيقات \"مساعدة السائق\" الوصول إلى الموقع الجغرافي."</string>
-    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"استخدام الموقع الجغرافي لميزات \"مساعدة السائق\""</string>
+    <string name="location_toggle_off_warning" msgid="5959449346865136081">"إذا أوقفت هذا الإعداد، سيؤدي ذلك إلى إزالة إمكانية وصول كل التطبيقات إلى الموقع الجغرافي باستثناء تلك اللازمة لتطبيقات \"مساعد السائق\"."</string>
+    <string name="location_driver_assistance_toggle_title" msgid="3780157378527924932">"استخدام الموقع الجغرافي لميزة \"مساعدة السائق\""</string>
     <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"ميزة الموقع الجغرافي للسيارة غير مفعَّلة"</string>
-    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"يتعذّر على تطبيقات \"مساعدة السائق\" الوصول إلى موقعك الجغرافي."</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="6040822988891113026">"يتعذّر على تطبيقات \"مساعدة السائق\" الوصول لموقعك الجغرافي."</string>
     <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"تغيير"</string>
     <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"السماح للتطبيقات التي تساعدك على القيادة بالوصول إلى موقعك الجغرافي"</string>
-    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"إذا أوقفت ميزة \"مساعدة السائق\" هذه، سيتم إيقاف تطبيقات \"مساعدة السائق\" التي تعتمد على معلومات الموقع الجغرافي."</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="2733124752598498356">"إذا تم إيقاف ميزة \"مساعدة السائق\" هذه، سيتم إيقاف تطبيقات \"مساعدة السائق\" التي تعتمد على معلومات الموقع الجغرافي."</string>
     <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"إيقاف على أي حال"</string>
-    <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"طلبات الموقع الجغرافي الأخيرة"</string>
-    <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"لا توجد طلبات حديثة للموقع الجغرافي."</string>
+    <string name="location_recently_accessed" msgid="522888989582110975">"المواقع الجغرافية التي تم الوصول إليها مؤخرًا"</string>
+    <string name="location_settings_recently_accessed_title" msgid="6016264778609426382">"المواقع الجغرافية التي تم الوصول إليها مؤخرًا"</string>
+    <string name="location_settings_recently_accessed_view_all_title" msgid="6344830628885781448">"عرض الكل"</string>
+    <string name="location_no_recent_access" msgid="2859914321242257931">"لم يَصِل أي تطبيق مؤخرًا إلى الموقع الجغرافي."</string>
+    <string name="driver_assistance_label" msgid="9217315205754658940">"<xliff:g id="TIME">%1$s</xliff:g> • مساعدة السائق"</string>
+    <string name="location_driver_assistance_privacy_policy_header_content" msgid="8118086439003674350">"يمكن للتطبيقات التي لديها إذن وصول للموقع الجغرافي لهذه السيارة الحصول على ميزات \"مساعدة السائق\"."</string>
+    <string name="location_driver_assistance_privacy_policy_button_text" msgid="669921557502414704">"سياسة الخصوصية"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"الأذونات على مستوى التطبيقات"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"خدمات الموقع الجغرافي"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"استخدام الموقع الجغرافي"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"قد تستخدم ميزة الموقع الجغرافي مصادر مثل نظام تحديد المواقع العالمي (GPS) أو شبكة Wi-Fi أو شبكات الجوّال أو أجهزة الاستشعار للمساعدة في تقدير الموقع الجغرافي لجهازك."</string>
     <string name="driver_assistance_settings_title" msgid="4915804073177128915">"مساعدة السائق"</string>
-    <string name="adas_settings_footer" msgid="5128483877858058534">"لا تحتوي معلومات الموقع الجغرافي التي تم إرسالها إلى تطبيقات \"مساعدة السائق\" على أي معلومات تحدِّد هويتك. وسيتم تخزين تلك المعلومات لمدة يومين كحد أقصى قبل حذفها."</string>
+    <string name="adas_settings_footer" msgid="6697021691244459156">"لا تحتوي معلومات الموقع الجغرافي التي تم إرسالها إلى تطبيقات \"مساعدة السائق\" على أي معلومات تحدِّد هويتك. ويتم تخزين تلك المعلومات لمدة يومَين كحد أقصى قبل حذفها."</string>
     <string name="microphone_settings_title" msgid="7125554350537136922">"الميكروفون"</string>
     <string name="microphone_toggle_title" msgid="911586035332827275">"استخدام الميكروفون"</string>
     <string name="microphone_toggle_summary" msgid="2682653449849128626">"السماح لجميع التطبيقات باستخدام الميكروفون"</string>
@@ -432,6 +445,9 @@
     <string name="system_update_settings_title" msgid="8448588267784138855">"تحديثات النظام"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"الإعدادات المتقدّمة"</string>
     <string name="system_advanced_summary" msgid="5833643795981791953">"نبذة والمعلومات القانونية وإعادة الضبط والمزيد"</string>
+    <string name="restart_infotainment_system_title" msgid="5174129167446756511">"إعادة تشغيل نظام الترفيه والمعلومات"</string>
+    <string name="restart_infotainment_system_dialog_text" msgid="6395281407323116808">"يمكن أن تستغرق إعادة تشغيل نظام الترفيه والمعلومات بالسيارة بضع دقائق. هل تريد المتابعة؟"</string>
+    <string name="continue_confirmation" msgid="1598892163951467191">"متابعة"</string>
     <string name="firmware_version" msgid="8491753744549309333">"إصدار Android"</string>
     <string name="security_patch" msgid="4794276590178386903">"مستوى رمز تصحيح أمان Android"</string>
     <string name="hardware_info" msgid="3973165746261507658">"الطراز والجهاز"</string>
@@ -472,11 +488,11 @@
     <string name="developer_options_settings" msgid="1530739225109118480">"خيارات المطوّرين"</string>
     <string name="reset_options_title" msgid="4388902952861833420">"خيارات إعادة الضبط"</string>
     <string name="reset_options_summary" msgid="5508201367420359293">"إعادة ضبط الشبكة أو التطبيقات أو الجهاز"</string>
-    <string name="reset_network_title" msgid="1284233059990797263">"إعادة ضبط الشبكة"</string>
-    <string name="reset_network_desc" msgid="602381374544634925">"سيؤدي هذا الإجراء إلى إعادة ضبط جميع إعدادات الشبكة، بما في ذلك:"</string>
-    <string name="reset_network_item_wifi" msgid="7569481589699982698"><li>"Wi‑Fi"</li></string>
+    <string name="reset_network_title" msgid="3077846909739832734">"إعادة ضبط شبكة Wi‑Fi والبلوتوث"</string>
+    <string name="reset_network_desc" msgid="3332203703135823033">"سيؤدي هذا الإجراء إلى إعادة ضبط إعدادات البلوتوث وWi‑Fi وإزالة سجلّ العناصر التي تم ربطها:"</string>
+    <string name="reset_network_item_wifi" msgid="2876370861806060314"><li>"شبكات Wi-Fi وكلمات المرور"</li></string>
     <string name="reset_network_item_mobile" msgid="5747282716664480997"><li>"بيانات الجوّال"</li></string>
-    <string name="reset_network_item_bluetooth" msgid="6035019931106921284"><li>"بلوتوث"</li></string>
+    <string name="reset_network_item_bluetooth" msgid="7475279871421815601"><li>"الهواتف والأجهزة الأخرى التي تتضمّن بلوتوث"</li></string>
     <string name="reset_esim_title" msgid="8132107637911831211">"محو بيانات جميع بطاقات eSIM للمركبة"</string>
     <string name="reset_esim_desc" msgid="1437276625485586740">"لن يلغي هذا الإجراء خطة الخدمة التي تستخدمها."</string>
     <string name="reset_esim_error_title" msgid="7245109418130525492">"تعذُّر إعادة ضبط شرائح eSIM"</string>
@@ -574,7 +590,7 @@
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"محو مساحة التخزين"</string>
     <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"محو ذاكرة التخزين المؤقت"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"هل تريد حذف بيانات التطبيق؟"</string>
-    <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"سيتم حذف جميع بيانات هذا التطبيق نهائيًا. ويشمل ذلك جميع الملفات والإعدادات والحسابات وقواعد البيانات وما إلى ذلك."</string>
+    <string name="storage_clear_data_dlg_text" msgid="3255314337644212283">"سيتم حذف بيانات هذا التطبيق نهائيًا، بما في ذلك الملفات والإعدادات وقواعد البيانات وبيانات التطبيق الأخرى."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"تعذّر محو مساحة تخزين للتطبيق."</string>
     <string name="storage_unmount_success" msgid="1553591517580407021">"تم إخراج <xliff:g id="NAME">%1$s</xliff:g> بشكل آمن."</string>
     <string name="storage_unmount_failure" msgid="4591934911541762883">"تعذّر إخراج <xliff:g id="NAME">%1$s</xliff:g> بشكل آمن."</string>
@@ -675,6 +691,7 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"إلغاء"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"تأكيد"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"يجب أن تتكوَّن كلمة المرور من 4 أحرف على الأقل."</string>
+    <string name="locktype_unavailable" msgid="2678317466336249126">"لا يتوفّر نوع القفل هذا."</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"يجب أن يحتوي رقم التعريف الشخصي على أرقام من ۰ إلى ٩ فقط."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"لا يسمح مشرف الجهاز باستخدام رقم تعريف شخصي تم استخدامه مؤخرًا."</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"حظرَ مشرف تكنولوجيا المعلومات استخدام أرقام التعريف الشخصية الشائعة. جرِّب استخدام رقم تعريف شخصي مختلف."</string>
@@ -699,7 +716,6 @@
     <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{يجب أن يحتوي رقم التعريف الشخصي على أقل من رقم واحد.}zero{يجب أن يحتوي رقم التعريف الشخصي على أقل من # رقم.}two{يجب أن يحتوي رقم التعريف الشخصي على أقل من رقمين.}few{يجب أن يحتوي رقم التعريف الشخصي على أقل من # أرقام.}many{يجب أن يحتوي رقم التعريف الشخصي على أقل من # رقمًا.}other{يجب أن يحتوي رقم التعريف الشخصي على أقل من # رقم.}}"</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"غير مسموح باستخدام الترتيب التصاعدي أو التنازلي أو المكرر للأرقام."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"خيارات قفل الشاشة"</string>
-    <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : قبل <xliff:g id="NUM_DAYS">%3$s</xliff:g> يوم"</string>
     <string name="credentials_reset" msgid="873900550885788639">"محو بيانات الاعتماد"</string>
     <string name="credentials_reset_summary" msgid="6067911547500459637">"إزالة جميع الشهادات"</string>
     <string name="credentials_reset_hint" msgid="3459271621754137661">"هل تريد إزالة جميع المحتوى؟"</string>
@@ -722,6 +738,8 @@
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"خروج من عرض توضيحي"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"رفض"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"لا تتوفَّر هذه الميزة أثناء القيادة."</string>
+    <string name="restricted_for_passenger" msgid="7240117443887727753">"اطلب من السائق تغيير الإعدادات."</string>
+    <string name="restricted_for_driver" msgid="3364388937671526800">"لا يمكنك تنفيذ هذا الإجراء."</string>
     <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"لا يمكن إضافة ملف شخصي أثناء القيادة."</string>
     <string name="default_search_query" msgid="3137420627428857068">"بحث"</string>
     <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"\"مساعد Google\" والصوت"</string>
@@ -737,6 +755,7 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"إنشاء ملف شخصي"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"حذف هذا الملف الشخصي"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"إضافة ملف شخصي"</string>
+    <string name="cannot_remove_driver_profile" msgid="4109363161608717969">"هذا الملف الشخصي مسجّلٌ الدخول حاليًا كسائق. أعِد المحاولة عندما لا يكون الملف الشخصي قيد الاستخدام كسائق"</string>
     <string name="qc_display_brightness" msgid="2939655289816201170">"سطوع الشاشة"</string>
     <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"لرؤية أجهزتك، يجب تفعيل البلوتوث."</string>
     <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"لإقران جهاز، افتح إعدادات البلوتوث."</string>
@@ -769,6 +788,7 @@
     <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{تطبيق واحد مفعّل}zero{# تطبيق مفعّل}two{تطبيقان مفعّلان}few{# تطبيقات مفعّلة}many{# تطبيقًا مفعّلاً}other{# تطبيق مفعّل}}"</string>
     <string name="number_of_device_admins_none" msgid="5547493703413973954">"ما مِن تطبيقات مفعّلة"</string>
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"سياسة المركبات السارية لدى <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>"</string>
+    <string name="work_policy_privacy_settings_no_org_name" msgid="8011687012493940230">"سياسة المركبات"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"الإعدادات التي يديرها مدير المؤسسة"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"مزيد من المعلومات عن <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
     <string name="enterprise_privacy_settings" msgid="6496900796150572727">"معلومات عن المركبة المُدارة"</string>

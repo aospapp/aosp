@@ -10,6 +10,7 @@ PURPOSE = "Verify servo_v4 console."
 TIME = "SHORT"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """Run the control a bunch. Make sure the output doesn't change
 
@@ -28,7 +29,7 @@ def run(machine):
     iterations = int(args_dict.get("iterations", 1))
     attempts = int(args_dict.get("attempts", 5000))
     cmd_type = args_dict.get("cmd_type", "servo")
-    cmd = args_dict.get("cmd", "servo_v4_version")
+    cmd = args_dict.get("cmd", "root.servo_fw_version")
 
     job.run_test("servo_ConsoleStress", host=host, cmdline_args=args,
                  full_args=args_dict, iterations=iterations,

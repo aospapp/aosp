@@ -91,41 +91,43 @@ public class ApkPackageNameCheck {
                     }
                     // Ensure the files requested to be pushed exist.
                     if (prep instanceof FilePusher && ((FilePusher) prep).shouldAppendBitness()) {
+                        if (!((FilePusher) prep).shouldAbortOnFailure()) {
+                            errors.add(String.format("Config %s should not disable abort-on-push-failure", config.getName()));
+                        }
                         for (File f : ((PushFilePreparer) prep).getPushSpecs(null).values()) {
                             String path = f.getPath();
                             File file32 = FileUtil.findFile(config.getParentFile(), path + "32");
                             File file64 = FileUtil.findFile(config.getParentFile(), path + "64");
                             if (file32 == null || file64 == null) {
-                                // TODO: Enforce should abort on failure is True in CTS
-                                if (((FilePusher) prep).shouldAbortOnFailure()) {
-                                    errors.add(
-                                            String.format(
-                                                    "File %s[32/64] wasn't found in module "
-                                                            + "dependencies while it's expected to "
-                                                            + "be pushed as part of %s. Make sure "
-                                                            + "that it's added in the Android.bp "
-                                                            + "file of the module under "
-                                                            + "'data_device_bins_both' field.",
-                                                    path, config.getName()));
-                                    continue;
-                                }
+                                errors.add(
+                                        String.format(
+                                                "File %s[32/64] wasn't found in module "
+                                                        + "dependencies while it's expected to "
+                                                        + "be pushed as part of %s. Make sure "
+                                                        + "that it's added in the Android.bp "
+                                                        + "file of the module under "
+                                                        + "'data_device_bins_both' field.",
+                                                        path, config.getName()));
+                                continue;
                             }
                         }
                     } else if (prep instanceof PushFilePreparer) {
+                        if (!((PushFilePreparer) prep).shouldAbortOnFailure()) {
+                            errors.add(String.format("Config %s should not disable abort-on-push-failure", config.getName()));
+                        }
                         for (File f : ((PushFilePreparer) prep).getPushSpecs(null).values()) {
                             String path = f.getPath();
-                            File toBePushed = FileUtil.findFile(config.getParentFile(), path);
-                            if (toBePushed == null) {
-                                // TODO: Enforce should abort on failure is True in CTS
-                                if (((PushFilePreparer) prep).shouldAbortOnFailure()) {
-                                    errors.add(
-                                            String.format(
-                                                    "File %s wasn't found in module dependencies "
-                                                            + "while it's expected to be pushed "
-                                                            + "as part of %s. Make sure that it's added in the Android.bp file of the module under 'data' field.",
-                                                    path, config.getName()));
-                                    continue;
-                                }
+                            // Use findFiles to also match top-level dir, which is a valid push spec
+                            Set<String> toBePushed = FileUtil.findFiles(config.getParentFile(),
+                                                                        path);
+                            if (toBePushed.isEmpty()) {
+                                errors.add(
+                                        String.format(
+                                                "File %s wasn't found in module dependencies "
+                                                        + "while it's expected to be pushed "
+                                                        + "as part of %s. Make sure that it's added in the Android.bp file of the module under 'data' field.",
+                                                        path, config.getName()));
+                                continue;
                             }
                         }
                     }

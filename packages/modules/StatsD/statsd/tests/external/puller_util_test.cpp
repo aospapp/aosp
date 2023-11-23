@@ -22,7 +22,6 @@
 
 #include "../metrics/metrics_test_helper.h"
 #include "FieldValue.h"
-#include "annotations.h"
 #include "stats_event.h"
 #include "tests/statsd_test_util.h"
 

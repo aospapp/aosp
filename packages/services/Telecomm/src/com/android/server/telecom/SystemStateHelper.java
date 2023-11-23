@@ -146,9 +146,11 @@ public class SystemStateHelper implements UiModeManager.OnProjectionStateChanged
         IntentFilter intentFilter1 = new IntentFilter(
                 UiModeManager.ACTION_ENTER_CAR_MODE_PRIORITIZED);
         intentFilter1.addAction(UiModeManager.ACTION_EXIT_CAR_MODE_PRIORITIZED);
+        intentFilter1.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
 
         IntentFilter intentFilter2 = new IntentFilter(Intent.ACTION_PACKAGE_REMOVED);
         intentFilter2.addDataScheme("package");
+        intentFilter2.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
         mContext.registerReceiver(mBroadcastReceiver, intentFilter1);
         mContext.registerReceiver(mBroadcastReceiver, intentFilter2);
         Log.i(this, "Registering broadcast receiver: %s", intentFilter1);

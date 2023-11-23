@@ -25,9 +25,9 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.platform.test.annotations.AppModeFull;
 import android.server.wm.ActivityManagerTestBase;
-import android.support.test.uiautomator.UiDevice;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
 
 import com.android.compatibility.common.util.TestUtils;
 

@@ -24,9 +24,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <array>
 #include <string>
-#include <utility>
 
 #include "perfetto/base/build_config.h"
 #include "perfetto/base/logging.h"
@@ -40,7 +38,6 @@
 #include "src/traced/probes/ftrace/atrace_hal_wrapper.h"
 #include "src/traced/probes/ftrace/cpu_reader.h"
 #include "src/traced/probes/ftrace/cpu_stats_parser.h"
-#include "src/traced/probes/ftrace/discover_vendor_tracepoints.h"
 #include "src/traced/probes/ftrace/event_info.h"
 #include "src/traced/probes/ftrace/ftrace_config_muxer.h"
 #include "src/traced/probes/ftrace/ftrace_data_source.h"
@@ -48,6 +45,7 @@
 #include "src/traced/probes/ftrace/ftrace_procfs.h"
 #include "src/traced/probes/ftrace/ftrace_stats.h"
 #include "src/traced/probes/ftrace/proto_translation_table.h"
+#include "src/traced/probes/ftrace/vendor_tracepoints.h"
 
 namespace perfetto {
 namespace {
@@ -98,18 +96,40 @@ bool ClearFile(const char* path) {
   return !!fd;
 }
 
-base::Optional<int64_t> ReadFtraceNowTs(const base::ScopedFile& cpu_stats_fd) {
+std::optional<int64_t> ReadFtraceNowTs(const base::ScopedFile& cpu_stats_fd) {
   PERFETTO_CHECK(cpu_stats_fd);
 
   char buf[512];
   ssize_t res = PERFETTO_EINTR(pread(*cpu_stats_fd, buf, sizeof(buf) - 1, 0));
   if (res <= 0)
-    return base::nullopt;
+    return std::nullopt;
   buf[res] = '\0';
 
   FtraceCpuStats stats{};
   DumpCpuStats(buf, &stats);
   return static_cast<int64_t>(stats.now_ts * 1000 * 1000 * 1000);
+}
+
+std::map<std::string, std::vector<GroupAndName>> GetAtraceVendorEvents(
+    FtraceProcfs* tracefs) {
+#if PERFETTO_BUILDFLAG(PERFETTO_OS_ANDROID)
+  if (base::FileExists(vendor_tracepoints::kCategoriesFile)) {
+    std::map<std::string, std::vector<GroupAndName>> vendor_evts;
+    base::Status status =
+        vendor_tracepoints::DiscoverAccessibleVendorTracepointsWithFile(
+            vendor_tracepoints::kCategoriesFile, &vendor_evts, tracefs);
+    if (!status.ok()) {
+      PERFETTO_ELOG("Cannot load vendor categories: %s", status.c_message());
+    }
+    return vendor_evts;
+  } else {
+    AtraceHalWrapper hal;
+    return vendor_tracepoints::DiscoverVendorTracepointsWithHal(&hal, tracefs);
+  }
+#else
+  base::ignore_result(tracefs);
+  return {};
+#endif
 }
 
 }  // namespace
@@ -124,9 +144,11 @@ bool HardResetFtraceState() {
     bool res = true;
     res &= WriteToFile((prefix + "tracing_on").c_str(), "0");
     res &= WriteToFile((prefix + "buffer_size_kb").c_str(), "4");
-    // We deliberately don't check for this as on some older versions of Android
-    // events/enable was not writable by the shell user.
+    // Not checking success because these files might not be accessible on
+    // older or release builds of Android:
     WriteToFile((prefix + "events/enable").c_str(), "0");
+    WriteToFile((prefix + "events/raw_syscalls/filter").c_str(), "0");
+    WriteToFile((prefix + "current_tracer").c_str(), "nop");
     res &= ClearFile((prefix + "trace").c_str());
     if (res)
       return true;
@@ -139,85 +161,93 @@ std::unique_ptr<FtraceController> FtraceController::Create(
     base::TaskRunner* runner,
     Observer* observer) {
   std::unique_ptr<FtraceProcfs> ftrace_procfs =
-      FtraceProcfs::CreateGuessingMountPoint();
-
+      FtraceProcfs::CreateGuessingMountPoint("");
   if (!ftrace_procfs)
     return nullptr;
 
-  auto table = ProtoTranslationTable::Create(
+  std::unique_ptr<ProtoTranslationTable> table = ProtoTranslationTable::Create(
       ftrace_procfs.get(), GetStaticEventInfo(), GetStaticCommonFieldsInfo());
-
   if (!table)
     return nullptr;
 
-  AtraceHalWrapper hal;
-  auto vendor_evts =
-      vendor_tracepoints::DiscoverVendorTracepoints(&hal, ftrace_procfs.get());
+  std::map<std::string, std::vector<GroupAndName>> vendor_evts =
+      GetAtraceVendorEvents(ftrace_procfs.get());
 
-  std::unique_ptr<FtraceConfigMuxer> model = std::unique_ptr<FtraceConfigMuxer>(
-      new FtraceConfigMuxer(ftrace_procfs.get(), table.get(), vendor_evts));
+  SyscallTable syscalls = SyscallTable::FromCurrentArch();
+
+  std::unique_ptr<FtraceConfigMuxer> muxer =
+      std::unique_ptr<FtraceConfigMuxer>(new FtraceConfigMuxer(
+          ftrace_procfs.get(), table.get(), std::move(syscalls), vendor_evts));
   return std::unique_ptr<FtraceController>(
       new FtraceController(std::move(ftrace_procfs), std::move(table),
-                           std::move(model), runner, observer));
+                           std::move(muxer), runner, observer));
 }
 
 FtraceController::FtraceController(std::unique_ptr<FtraceProcfs> ftrace_procfs,
                                    std::unique_ptr<ProtoTranslationTable> table,
-                                   std::unique_ptr<FtraceConfigMuxer> model,
+                                   std::unique_ptr<FtraceConfigMuxer> muxer,
                                    base::TaskRunner* task_runner,
                                    Observer* observer)
     : task_runner_(task_runner),
       observer_(observer),
       symbolizer_(new LazyKernelSymbolizer()),
-      ftrace_procfs_(std::move(ftrace_procfs)),
-      table_(std::move(table)),
-      ftrace_config_muxer_(std::move(model)),
+      primary_(std::move(ftrace_procfs), std::move(table), std::move(muxer)),
       ftrace_clock_snapshot_(new FtraceClockSnapshot()),
       weak_factory_(this) {}
 
 FtraceController::~FtraceController() {
-  for (const auto* data_source : data_sources_)
-    ftrace_config_muxer_->RemoveConfig(data_source->config_id());
-  data_sources_.clear();
-  started_data_sources_.clear();
-  StopIfNeeded();
+  while (!data_sources_.empty()) {
+    RemoveDataSource(*data_sources_.begin());
+  }
+  PERFETTO_DCHECK(data_sources_.empty());
+  PERFETTO_DCHECK(primary_.started_data_sources.empty());
+  PERFETTO_DCHECK(primary_.per_cpu.empty());
+  PERFETTO_DCHECK(secondary_instances_.empty());
 }
 
 uint64_t FtraceController::NowMs() const {
   return static_cast<uint64_t>(base::GetWallTimeMs().count());
 }
 
-void FtraceController::StartIfNeeded() {
+void FtraceController::StartIfNeeded(FtraceInstanceState* instance) {
   using FtraceClock = protos::pbzero::FtraceClock;
-  if (started_data_sources_.size() > 1)
+  if (instance->started_data_sources.size() > 1)
     return;
-  PERFETTO_DCHECK(!started_data_sources_.empty());
-  PERFETTO_DCHECK(per_cpu_.empty());
 
-  // Lazily allocate the memory used for reading & parsing ftrace.
+  // Lazily allocate the memory used for reading & parsing ftrace. In the case
+  // of multiple ftrace instances, this might already be valid.
   if (!parsing_mem_.IsValid()) {
     parsing_mem_ =
         base::PagedMemory::Allocate(base::kPageSize * kParsingBufferSizePages);
   }
 
-  // If we're not using the boot clock, snapshot the ftrace clock.
-  FtraceClock clock = ftrace_config_muxer_->ftrace_clock();
-  if (clock != FtraceClock::FTRACE_CLOCK_UNSPECIFIED) {
-    cpu_zero_stats_fd_ = ftrace_procfs_->OpenCpuStats(0 /* cpu */);
+  PERFETTO_DCHECK(instance->per_cpu.empty());
+  size_t num_cpus = instance->ftrace_procfs->NumberOfCpus();
+  instance->per_cpu.clear();
+  instance->per_cpu.reserve(num_cpus);
+  size_t period_page_quota =
+      instance->ftrace_config_muxer->GetPerCpuBufferSizePages();
+  for (size_t cpu = 0; cpu < num_cpus; cpu++) {
+    auto reader = std::unique_ptr<CpuReader>(
+        new CpuReader(cpu, instance->table.get(), symbolizer_.get(),
+                      ftrace_clock_snapshot_.get(),
+                      instance->ftrace_procfs->OpenPipeForCpu(cpu)));
+    instance->per_cpu.emplace_back(std::move(reader), period_page_quota);
+  }
+
+  // Special case for primary instance: if not using the boot clock, take
+  // manual clock snapshots so that the trace parser can do a best effort
+  // conversion back to boot. This is primarily for old kernels that predate
+  // boot support, and therefore default to "global" clock.
+  if (instance == &primary_ && instance->ftrace_config_muxer->ftrace_clock() !=
+                                   FtraceClock::FTRACE_CLOCK_UNSPECIFIED) {
+    cpu_zero_stats_fd_ = primary_.ftrace_procfs->OpenCpuStats(0 /* cpu */);
     MaybeSnapshotFtraceClock();
   }
 
-  per_cpu_.clear();
-  per_cpu_.reserve(ftrace_procfs_->NumberOfCpus());
-  size_t period_page_quota = ftrace_config_muxer_->GetPerCpuBufferSizePages();
-  for (size_t cpu = 0; cpu < ftrace_procfs_->NumberOfCpus(); cpu++) {
-    auto reader = std::unique_ptr<CpuReader>(new CpuReader(
-        cpu, table_.get(), symbolizer_.get(), ftrace_clock_snapshot_.get(),
-        ftrace_procfs_->OpenPipeForCpu(cpu)));
-    per_cpu_.emplace_back(std::move(reader), period_page_quota);
-  }
-
-  // Start the repeating read tasks.
+  // Start a new repeating read task (even if there is already one posted due
+  // to a different ftrace instance). Any old tasks will stop due to generation
+  // checks.
   auto generation = ++generation_;
   auto drain_period_ms = GetDrainPeriodMs();
   auto weak_this = weak_factory_.GetWeakPtr();
@@ -249,55 +279,22 @@ void FtraceController::StartIfNeeded() {
 // continuation tasks) without bound, as we want to limit our cpu% usage.  We
 // assume that given a config saying "per-cpu kernel ftrace buffer is N pages,
 // and drain every T milliseconds", we should not read more than N pages per
-// drain period. Therefore we introduce |per_cpu_.period_page_quota|. If the
+// drain period. Therefore we introduce |per_cpu.period_page_quota|. If the
 // consumer wants to handle a high bandwidth of ftrace events, they should set
 // the config values appropriately.
 void FtraceController::ReadTick(int generation) {
   metatrace::ScopedEvent evt(metatrace::TAG_FTRACE,
                              metatrace::FTRACE_READ_TICK);
-  if (started_data_sources_.empty() || generation != generation_) {
+  if (generation != generation_ || GetStartedDataSourcesCount() == 0) {
     return;
   }
 
-#if PERFETTO_DCHECK_IS_ON()
-  // The OnFtraceDataWrittenIntoDataSourceBuffers() below is supposed to clear
-  // all metadata, including the |kernel_addrs| map for symbolization.
-  for (FtraceDataSource* ds : started_data_sources_) {
-    FtraceMetadata* ftrace_metadata = ds->mutable_metadata();
-    PERFETTO_DCHECK(ftrace_metadata->kernel_addrs.empty());
-    PERFETTO_DCHECK(ftrace_metadata->last_kernel_addr_index_written == 0);
-  }
-#endif
-
   // Read all cpu buffers with remaining per-period quota.
-  bool all_cpus_done = true;
-  uint8_t* parsing_buf = reinterpret_cast<uint8_t*>(parsing_mem_.Get());
-  const auto ftrace_clock = ftrace_config_muxer_->ftrace_clock();
-  for (size_t i = 0; i < per_cpu_.size(); i++) {
-    size_t orig_quota = per_cpu_[i].period_page_quota;
-    if (orig_quota == 0)
-      continue;
-
-    size_t max_pages = std::min(orig_quota, kMaxPagesPerCpuPerReadTick);
-    CpuReader& cpu_reader = *per_cpu_[i].reader;
-    cpu_reader.set_ftrace_clock(ftrace_clock);
-    size_t pages_read = cpu_reader.ReadCycle(
-        parsing_buf, kParsingBufferSizePages, max_pages, started_data_sources_);
-
-    size_t new_quota = (pages_read >= orig_quota) ? 0 : orig_quota - pages_read;
-    per_cpu_[i].period_page_quota = new_quota;
-
-    // Reader got stopped by the cap on the number of pages (to not do too much
-    // work on the shared thread at once), but can read more in this drain
-    // period. Repost the ReadTick (on the immediate queue) to iterate over all
-    // cpus again. In other words, we will keep reposting work for all cpus as
-    // long as at least one of them hits the read page cap each tick. If all
-    // readers catch up to the event stream (pages_read < max_pages), or exceed
-    // their quota, we will stop for the given period.
-    PERFETTO_DCHECK(pages_read <= max_pages);
-    if (pages_read == max_pages && new_quota > 0)
-      all_cpus_done = false;
+  bool all_cpus_done = ReadTickForInstance(&primary_);
+  for (auto& kv : secondary_instances_) {
+    all_cpus_done &= ReadTickForInstance(kv.second.get());
   }
+
   observer_->OnFtraceDataWrittenIntoDataSourceBuffers();
 
   // More work to do in this period.
@@ -310,9 +307,18 @@ void FtraceController::ReadTick(int generation) {
     });
   } else {
     // Done until next drain period.
-    size_t period_page_quota = ftrace_config_muxer_->GetPerCpuBufferSizePages();
-    for (auto& per_cpu : per_cpu_)
+    size_t period_page_quota =
+        primary_.ftrace_config_muxer->GetPerCpuBufferSizePages();
+    for (auto& per_cpu : primary_.per_cpu)
       per_cpu.period_page_quota = period_page_quota;
+
+    for (auto& it : secondary_instances_) {
+      FtraceInstanceState* instance = it.second.get();
+      size_t quota = instance->ftrace_config_muxer->GetPerCpuBufferSizePages();
+      for (auto& per_cpu : instance->per_cpu) {
+        per_cpu.period_page_quota = quota;
+      }
+    }
 
     // Snapshot the clock so the data in the next period will be clock synced as
     // well.
@@ -328,6 +334,53 @@ void FtraceController::ReadTick(int generation) {
   }
 }
 
+bool FtraceController::ReadTickForInstance(FtraceInstanceState* instance) {
+  if (instance->started_data_sources.empty())
+    return true;
+
+#if PERFETTO_DCHECK_IS_ON()
+  // The OnFtraceDataWrittenIntoDataSourceBuffers() below is supposed to clear
+  // all metadata, including the |kernel_addrs| map for symbolization.
+  for (FtraceDataSource* ds : instance->started_data_sources) {
+    FtraceMetadata* ftrace_metadata = ds->mutable_metadata();
+    PERFETTO_DCHECK(ftrace_metadata->kernel_addrs.empty());
+    PERFETTO_DCHECK(ftrace_metadata->last_kernel_addr_index_written == 0);
+  }
+#endif
+
+  bool all_cpus_done = true;
+  uint8_t* parsing_buf = reinterpret_cast<uint8_t*>(parsing_mem_.Get());
+  const auto ftrace_clock = instance->ftrace_config_muxer->ftrace_clock();
+  for (size_t i = 0; i < instance->per_cpu.size(); i++) {
+    size_t orig_quota = instance->per_cpu[i].period_page_quota;
+    if (orig_quota == 0)
+      continue;
+
+    size_t max_pages = std::min(orig_quota, kMaxPagesPerCpuPerReadTick);
+    CpuReader& cpu_reader = *instance->per_cpu[i].reader;
+    cpu_reader.set_ftrace_clock(ftrace_clock);
+    size_t pages_read =
+        cpu_reader.ReadCycle(parsing_buf, kParsingBufferSizePages, max_pages,
+                             instance->started_data_sources);
+
+    size_t new_quota = (pages_read >= orig_quota) ? 0 : orig_quota - pages_read;
+    instance->per_cpu[i].period_page_quota = new_quota;
+
+    // Reader got stopped by the cap on the number of pages (to not do too much
+    // work on the shared thread at once), but can read more in this drain
+    // period. Repost the ReadTick (on the immediate queue) to iterate over all
+    // cpus again. In other words, we will keep reposting work for all cpus as
+    // long as at least one of them hits the read page cap each tick. If all
+    // readers catch up to the event stream (pages_read < max_pages), or exceed
+    // their quota, we will stop for the given period.
+    PERFETTO_DCHECK(pages_read <= max_pages);
+    if (pages_read == max_pages && new_quota > 0) {
+      all_cpus_done = false;
+    }
+  }
+  return all_cpus_done;
+}
+
 uint32_t FtraceController::GetDrainPeriodMs() {
   if (data_sources_.empty())
     return kDefaultDrainPeriodMs;
@@ -339,50 +392,69 @@ uint32_t FtraceController::GetDrainPeriodMs() {
   return ClampDrainPeriodMs(min_drain_period_ms);
 }
 
-void FtraceController::ClearTrace() {
-  ftrace_procfs_->ClearTrace();
-}
-
-void FtraceController::DisableAllEvents() {
-  ftrace_procfs_->DisableAllEvents();
-}
-
-void FtraceController::WriteTraceMarker(const std::string& s) {
-  ftrace_procfs_->WriteTraceMarker(s);
-}
-
 void FtraceController::Flush(FlushRequestID flush_id) {
   metatrace::ScopedEvent evt(metatrace::TAG_FTRACE,
                              metatrace::FTRACE_CPU_FLUSH);
 
+  FlushForInstance(&primary_);
+  for (auto& it : secondary_instances_) {
+    FlushForInstance(it.second.get());
+  }
+
+  observer_->OnFtraceDataWrittenIntoDataSourceBuffers();
+
+  for (FtraceDataSource* data_source : primary_.started_data_sources) {
+    data_source->OnFtraceFlushComplete(flush_id);
+  }
+  for (auto& kv : secondary_instances_) {
+    for (FtraceDataSource* data_source : kv.second->started_data_sources) {
+      data_source->OnFtraceFlushComplete(flush_id);
+    }
+  }
+}
+
+void FtraceController::FlushForInstance(FtraceInstanceState* instance) {
+  if (instance->started_data_sources.empty())
+    return;
+
   // Read all cpus in one go, limiting the per-cpu read amount to make sure we
   // don't get stuck chasing the writer if there's a very high bandwidth of
   // events.
-  size_t per_cpu_buf_size_pages =
-      ftrace_config_muxer_->GetPerCpuBufferSizePages();
+  size_t per_cpubuf_size_pages =
+      instance->ftrace_config_muxer->GetPerCpuBufferSizePages();
   uint8_t* parsing_buf = reinterpret_cast<uint8_t*>(parsing_mem_.Get());
-  for (size_t i = 0; i < per_cpu_.size(); i++) {
-    per_cpu_[i].reader->ReadCycle(parsing_buf, kParsingBufferSizePages,
-                                  per_cpu_buf_size_pages,
-                                  started_data_sources_);
+  for (size_t i = 0; i < instance->per_cpu.size(); i++) {
+    instance->per_cpu[i].reader->ReadCycle(parsing_buf, kParsingBufferSizePages,
+                                           per_cpubuf_size_pages,
+                                           instance->started_data_sources);
   }
-  observer_->OnFtraceDataWrittenIntoDataSourceBuffers();
-
-  for (FtraceDataSource* data_source : started_data_sources_)
-    data_source->OnFtraceFlushComplete(flush_id);
 }
 
-void FtraceController::StopIfNeeded() {
-  if (!started_data_sources_.empty())
+// We are not implicitly flushing on Stop. The tracing service is supposed to
+// ask for an explicit flush before stopping, unless it needs to perform a
+// non-graceful stop.
+void FtraceController::StopIfNeeded(FtraceInstanceState* instance) {
+  if (!instance->started_data_sources.empty())
     return;
 
-  // We are not implicitly flushing on Stop. The tracing service is supposed to
-  // ask for an explicit flush before stopping, unless it needs to perform a
-  // non-graceful stop.
+  instance->per_cpu.clear();
+  if (instance == &primary_) {
+    cpu_zero_stats_fd_.reset();
+  }
+  // Muxer cannot change the current_tracer until we close the trace pipe fds
+  // (i.e. per_cpu). Hence an explicit request here.
+  instance->ftrace_config_muxer->ResetCurrentTracer();
 
-  per_cpu_.clear();
-  symbolizer_->Destroy();
-  cpu_zero_stats_fd_.reset();
+  DestroyIfUnusedSeconaryInstance(instance);
+
+  // Clean up global state if done with all data sources.
+  if (!data_sources_.empty())
+    return;
+
+  if (!retain_ksyms_on_stop_) {
+    symbolizer_->Destroy();
+  }
+  retain_ksyms_on_stop_ = false;
 
   if (parsing_mem_.IsValid()) {
     parsing_mem_.AdviseDontNeed(parsing_mem_.Get(), parsing_mem_.size());
@@ -393,13 +465,24 @@ bool FtraceController::AddDataSource(FtraceDataSource* data_source) {
   if (!ValidConfig(data_source->config()))
     return false;
 
-  auto config_id = ftrace_config_muxer_->SetupConfig(
-      data_source->config(), data_source->mutable_setup_errors());
-  if (!config_id)
+  FtraceInstanceState* instance =
+      GetOrCreateInstance(data_source->config().instance_name());
+  if (!instance)
     return false;
 
+  // note: from this point onwards, need to not leak a possibly created
+  // instance if returning early.
+
+  FtraceConfigId config_id = next_cfg_id_++;
+  if (!instance->ftrace_config_muxer->SetupConfig(
+          config_id, data_source->config(),
+          data_source->mutable_setup_errors())) {
+    DestroyIfUnusedSeconaryInstance(instance);
+    return false;
+  }
+
   const FtraceDataSourceConfig* ds_config =
-      ftrace_config_muxer_->GetDataSourceConfig(config_id);
+      instance->ftrace_config_muxer->GetDataSourceConfig(config_id);
   auto it_and_inserted = data_sources_.insert(data_source);
   PERFETTO_DCHECK(it_and_inserted.second);
   data_source->Initialize(config_id, ds_config);
@@ -412,47 +495,62 @@ bool FtraceController::StartDataSource(FtraceDataSource* data_source) {
   FtraceConfigId config_id = data_source->config_id();
   PERFETTO_CHECK(config_id);
 
-  if (!ftrace_config_muxer_->ActivateConfig(config_id))
+  FtraceInstanceState* instance =
+      GetOrCreateInstance(data_source->config().instance_name());
+  PERFETTO_CHECK(instance);
+
+  if (!instance->ftrace_config_muxer->ActivateConfig(config_id))
     return false;
+  instance->started_data_sources.insert(data_source);
+  StartIfNeeded(instance);
 
-  started_data_sources_.insert(data_source);
-  StartIfNeeded();
-
-  // If the config is requesting to symbolize kernel addresses, create the
-  // symbolizer and parse /proc/kallsyms (it will take 200-300 ms). This is not
-  // strictly required here but is to avoid hitting the parsing cost while
-  // processing the first ftrace event batch in CpuReader.
+  // Parse kernel symbols if required by the config. This can be an expensive
+  // operation (cpu-bound for 500ms+), so delay the StartDataSource
+  // acknowledgement until after we're done. This lets a consumer wait for the
+  // expensive work to be done by waiting on the "all data sources started"
+  // fence. This helps isolate the effects of the cpu-bound work on
+  // frequency scaling of cpus when recording benchmarks (b/236143653).
+  // Note that we're already recording data into the kernel ftrace
+  // buffers while doing the symbol parsing.
   if (data_source->config().symbolize_ksyms()) {
-    if (data_source->config().initialize_ksyms_synchronously_for_testing()) {
-      symbolizer_->GetOrCreateKernelSymbolMap();
-    } else {
-      auto weak_this = weak_factory_.GetWeakPtr();
-      task_runner_->PostTask([weak_this] {
-        if (weak_this)
-          weak_this->symbolizer_->GetOrCreateKernelSymbolMap();
-      });
-    }
+    symbolizer_->GetOrCreateKernelSymbolMap();
+    // If at least one config sets the KSYMS_RETAIN flag, keep the ksysm map
+    // around in StopIfNeeded().
+    const auto KRET = FtraceConfig::KSYMS_RETAIN;
+    retain_ksyms_on_stop_ |= data_source->config().ksyms_mem_policy() == KRET;
   }
 
   return true;
 }
 
 void FtraceController::RemoveDataSource(FtraceDataSource* data_source) {
-  started_data_sources_.erase(data_source);
   size_t removed = data_sources_.erase(data_source);
   if (!removed)
-    return;  // Can happen if AddDataSource failed (e.g. too many sessions).
-  ftrace_config_muxer_->RemoveConfig(data_source->config_id());
-  StopIfNeeded();
+    return;  // can happen if AddDataSource failed
+
+  FtraceInstanceState* instance =
+      GetOrCreateInstance(data_source->config().instance_name());
+  PERFETTO_CHECK(instance);
+
+  instance->ftrace_config_muxer->RemoveConfig(data_source->config_id());
+  instance->started_data_sources.erase(data_source);
+  StopIfNeeded(instance);
 }
 
-void FtraceController::DumpFtraceStats(FtraceStats* stats) {
-  DumpAllCpuStats(ftrace_procfs_.get(), stats);
+void FtraceController::DumpFtraceStats(FtraceDataSource* data_source,
+                                       FtraceStats* stats_out) {
+  FtraceInstanceState* instance =
+      GetInstance(data_source->config().instance_name());
+  PERFETTO_DCHECK(instance);
+  if (!instance)
+    return;
+
+  DumpAllCpuStats(instance->ftrace_procfs.get(), stats_out);
   if (symbolizer_ && symbolizer_->is_valid()) {
     auto* symbol_map = symbolizer_->GetOrCreateKernelSymbolMap();
-    stats->kernel_symbols_parsed =
+    stats_out->kernel_symbols_parsed =
         static_cast<uint32_t>(symbol_map->num_syms());
-    stats->kernel_symbols_mem_kb =
+    stats_out->kernel_symbols_mem_kb =
         static_cast<uint32_t>(symbol_map->size_bytes() / 1024);
   }
 }
@@ -461,7 +559,7 @@ void FtraceController::MaybeSnapshotFtraceClock() {
   if (!cpu_zero_stats_fd_)
     return;
 
-  auto ftrace_clock = ftrace_config_muxer_->ftrace_clock();
+  auto ftrace_clock = primary_.ftrace_config_muxer->ftrace_clock();
   PERFETTO_DCHECK(ftrace_clock != protos::pbzero::FTRACE_CLOCK_UNSPECIFIED);
 
   // Snapshot the boot clock *before* reading CPU stats so that
@@ -472,6 +570,130 @@ void FtraceController::MaybeSnapshotFtraceClock() {
   // A value of zero will cause this snapshot to be skipped.
   ftrace_clock_snapshot_->ftrace_clock_ts =
       ReadFtraceNowTs(cpu_zero_stats_fd_).value_or(0);
+}
+
+size_t FtraceController::GetStartedDataSourcesCount() const {
+  size_t cnt = primary_.started_data_sources.size();
+  for (auto& it : secondary_instances_) {
+    cnt += it.second->started_data_sources.size();
+  }
+  return cnt;
+}
+
+FtraceController::FtraceInstanceState::FtraceInstanceState(
+    std::unique_ptr<FtraceProcfs> ft,
+    std::unique_ptr<ProtoTranslationTable> ptt,
+    std::unique_ptr<FtraceConfigMuxer> fcm)
+    : ftrace_procfs(std::move(ft)),
+      table(std::move(ptt)),
+      ftrace_config_muxer(std::move(fcm)) {}
+
+FtraceController::FtraceInstanceState* FtraceController::GetOrCreateInstance(
+    const std::string& instance_name) {
+  FtraceInstanceState* maybe_existing = GetInstance(instance_name);
+  if (maybe_existing)
+    return maybe_existing;
+
+  PERFETTO_DCHECK(!instance_name.empty());
+  std::unique_ptr<FtraceInstanceState> instance =
+      CreateSecondaryInstance(instance_name);
+  if (!instance)
+    return nullptr;
+
+  auto it_and_inserted = secondary_instances_.emplace(
+      std::piecewise_construct, std::forward_as_tuple(instance_name),
+      std::forward_as_tuple(std::move(instance)));
+  PERFETTO_CHECK(it_and_inserted.second);
+  return it_and_inserted.first->second.get();
+}
+
+FtraceController::FtraceInstanceState* FtraceController::GetInstance(
+    const std::string& instance_name) {
+  if (instance_name.empty())
+    return &primary_;
+
+  auto it = secondary_instances_.find(instance_name);
+  return it != secondary_instances_.end() ? it->second.get() : nullptr;
+}
+
+void FtraceController::DestroyIfUnusedSeconaryInstance(
+    FtraceInstanceState* instance) {
+  if (instance == &primary_)
+    return;
+  for (auto it = secondary_instances_.begin(); it != secondary_instances_.end();
+       ++it) {
+    if (it->second.get() == instance &&
+        instance->ftrace_config_muxer->GetDataSourcesCount() == 0) {
+      // no data sources left referencing this secondary instance
+      secondary_instances_.erase(it);
+      return;
+    }
+  }
+  PERFETTO_FATAL("Bug in ftrace instance lifetimes");
+}
+
+// TODO(rsavitski): dedupe with FtraceController::Create.
+std::unique_ptr<FtraceController::FtraceInstanceState>
+FtraceController::CreateSecondaryInstance(const std::string& instance_name) {
+  std::optional<std::string> instance_path = AbsolutePathForInstance(
+      primary_.ftrace_procfs->GetRootPath(), instance_name);
+  if (!instance_path.has_value()) {
+    PERFETTO_ELOG("Invalid ftrace instance name: \"%s\"",
+                  instance_name.c_str());
+    return nullptr;
+  }
+
+  auto ftrace_procfs = FtraceProcfs::Create(*instance_path);
+  if (!ftrace_procfs) {
+    PERFETTO_ELOG("Failed to create ftrace procfs for \"%s\"",
+                  instance_path->c_str());
+    return nullptr;
+  }
+
+  auto table = ProtoTranslationTable::Create(
+      ftrace_procfs.get(), GetStaticEventInfo(), GetStaticCommonFieldsInfo());
+  if (!table) {
+    PERFETTO_ELOG("Failed to create proto translation table for \"%s\"",
+                  instance_path->c_str());
+    return nullptr;
+  }
+
+  // secondary instances don't support atrace and vendor tracepoint HAL
+  std::map<std::string, std::vector<GroupAndName>> vendor_evts;
+
+  auto syscalls = SyscallTable::FromCurrentArch();
+
+  auto muxer = std::unique_ptr<FtraceConfigMuxer>(new FtraceConfigMuxer(
+      ftrace_procfs.get(), table.get(), std::move(syscalls), vendor_evts,
+      /* secondary_instance= */ true));
+  return std::unique_ptr<FtraceInstanceState>(new FtraceInstanceState(
+      std::move(ftrace_procfs), std::move(table), std::move(muxer)));
+}
+
+// TODO(rsavitski): we want to eventually add support for the default
+// (primary_) tracefs path to be an instance itself, at which point we'll need
+// to be careful to distinguish the tracefs mount point from the default
+// instance path.
+// static
+std::optional<std::string> FtraceController::AbsolutePathForInstance(
+    const std::string& tracefs_root,
+    const std::string& raw_cfg_name) {
+  if (base::Contains(raw_cfg_name, '/') ||
+      base::StartsWith(raw_cfg_name, "..")) {
+    return std::nullopt;
+  }
+
+  // ARM64 pKVM hypervisor tracing emulates an instance, but is not under
+  // instances/, we special-case that name for now.
+  if (raw_cfg_name == "hyp") {
+    std::string hyp_path = tracefs_root + "hyp/";
+    PERFETTO_LOG(
+        "Config specified reserved \"hyp\" instance name, using %s for events.",
+        hyp_path.c_str());
+    return std::make_optional(hyp_path);
+  }
+
+  return tracefs_root + "instances/" + raw_cfg_name + "/";
 }
 
 FtraceController::Observer::~Observer() = default;

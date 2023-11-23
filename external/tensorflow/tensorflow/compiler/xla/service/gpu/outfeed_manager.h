@@ -19,7 +19,6 @@ limitations under the License.
 #include "tensorflow/compiler/xla/literal.h"
 #include "tensorflow/compiler/xla/service/gpu/xfeed_queue.h"
 #include "tensorflow/compiler/xla/shape_tree.h"
-#include "tensorflow/core/platform/mutex.h"
 #include "tensorflow/core/platform/notification.h"
 #include "tensorflow/core/platform/stream_executor_no_cuda.h"
 
@@ -39,7 +38,7 @@ class OutfeedBuffer {
   // Waits for the device transfer to be finished.
   void WaitUntilAvailable() { done_.WaitForNotification(); }
 
-  int64 length() const { return length_; }
+  int64_t length() const { return length_; }
   void set_destination(std::unique_ptr<MutableBorrowingLiteral> destination) {
     destination_ = std::move(destination);
   }
@@ -50,7 +49,7 @@ class OutfeedBuffer {
 
  private:
   std::unique_ptr<MutableBorrowingLiteral> destination_;
-  const int64 length_;
+  const int64_t length_;
   tensorflow::Notification done_;
 };
 

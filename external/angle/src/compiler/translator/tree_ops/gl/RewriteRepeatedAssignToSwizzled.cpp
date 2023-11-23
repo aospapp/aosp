@@ -27,7 +27,7 @@ namespace
 class RewriteAssignToSwizzledTraverser : public TIntermTraverser
 {
   public:
-    ANGLE_NO_DISCARD static bool rewrite(TCompiler *compiler, TIntermBlock *root);
+    [[nodiscard]] static bool rewrite(TCompiler *compiler, TIntermBlock *root);
 
   private:
     RewriteAssignToSwizzledTraverser();
@@ -78,7 +78,7 @@ bool RewriteAssignToSwizzledTraverser::visitBinary(Visit, TIntermBinary *node)
         replacements.push_back(rightBinary);
         TIntermTyped *rightAssignmentTargetCopy = rightBinary->getLeft()->deepCopy();
         TIntermBinary *lastAssign =
-            new TIntermBinary(EOpAssign, node->getLeft(), rightAssignmentTargetCopy);
+            new TIntermBinary(node->getOp(), node->getLeft(), rightAssignmentTargetCopy);
         replacements.push_back(lastAssign);
         mMultiReplacements.emplace_back(parentBlock, node, std::move(replacements));
         mDidRewrite = true;

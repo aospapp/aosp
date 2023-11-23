@@ -29,6 +29,8 @@ import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.widget.TextView;
 
+import com.android.internal.annotations.GuardedBy;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,22 +42,28 @@ public class UsbAoapHostActivity extends Activity
 
     private static final String TAG = UsbAoapHostActivity.class.getSimpleName();
 
-    private final List<String> mLogMessages = new ArrayList<>();
-
     private UsbManager mUsbManager;
     private UsbStateReceiver mReceiver;
     private UsbDevice mUsbDevice;
     private UsbDeviceConnection mUsbConnection;
+
+    private final Object mLock = new Object();
+
+    @GuardedBy("mLock")
     private TextView mLog;
+
+    @GuardedBy("mLock")
+    private final List<String> mLogMessages = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         setContentView(R.layout.host);
-        mLog = (TextView) findViewById(R.id.usb_log);
-        mLog.setMovementMethod(new ScrollingMovementMethod());
 
+        synchronized (mLock) {
+            mLog = (TextView) findViewById(R.id.usb_log);
+            mLog.setMovementMethod(new ScrollingMovementMethod());
+        }
 
         mUsbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
         IntentFilter filter = new IntentFilter();
@@ -89,7 +97,7 @@ public class UsbAoapHostActivity extends Activity
         }
     }
 
-    private String getTestModeString(int mode) {
+    private static String getTestModeString(int mode) {
         if (mode == SpeedMeasurementController.TEST_MODE_SYNC) {
             return "Sync";
         } else if (mode == SpeedMeasurementController.TEST_MODE_ASYNC) {
@@ -99,14 +107,16 @@ public class UsbAoapHostActivity extends Activity
         }
     }
 
-    private synchronized void addLog(String message) {
-        mLogMessages.add(message);
-        runOnUiThread(new Runnable() {
+    private void addLog(String message) {
+        synchronized (mLock) {
+            mLogMessages.add(message);
+            runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     mLog.setText(TextUtils.join("\n", mLogMessages));
                 }
             });
+        }
     }
 
     @Override
@@ -134,11 +144,8 @@ public class UsbAoapHostActivity extends Activity
     }
 
     private static boolean isDevicesMatching(UsbDevice l, UsbDevice r) {
-        if (l.getVendorId() == r.getVendorId() && l.getProductId() == r.getProductId()
-                && TextUtils.equals(l.getSerialNumber(), r.getSerialNumber())) {
-            return true;
-        }
-        return false;
+        return l.getVendorId() == r.getVendorId() && l.getProductId() == r.getProductId()
+                && TextUtils.equals(l.getSerialNumber(), r.getSerialNumber());
     }
 
     private class UsbStateReceiver extends BroadcastReceiver {

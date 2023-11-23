@@ -14,4 +14,3 @@ allow dumpstate modem_img_file:dir getattr;
 allow dumpstate modem_userdata_file:dir getattr;
 allow dumpstate fuse:dir search;
 
-dontaudit dumpstate vendor_dmabuf_debugfs:file r_file_perms;

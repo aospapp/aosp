@@ -29,6 +29,7 @@ import com.android.services.telephony.rcs.SipTransportController;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -166,7 +167,7 @@ public class OutgoingTransportStateValidator implements SipMessageValidator {
         }
         // Only need to validate requests that start dialogs.
         boolean startsDialog = Arrays.stream(SipSessionTracker.SIP_REQUEST_DIALOG_START_METHODS)
-                .anyMatch(req -> req.equals(segments[0].trim().toLowerCase()));
+                .anyMatch(req -> req.equals(segments[0].trim().toLowerCase(Locale.ROOT)));
         // If part of an existing dialog, then no need to validate.
         boolean needsFeatureValidation = startsDialog && !getAllowedCallIds()
                 .contains(m.getCallIdParameter());

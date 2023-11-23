@@ -63,9 +63,9 @@ class TriangularSolveExpander : public OpExpanderPass {
 
  private:
   // Block size for BuildTriangularSolve
-  const int64 block_size_;
+  const int64_t block_size_;
   // Mapping from op signatures to existing computations.
-  absl::flat_hash_map<string, HloComputation*> computation_cache_;
+  absl::flat_hash_map<std::string, HloComputation*> computation_cache_;
 };
 
 }  // namespace xla

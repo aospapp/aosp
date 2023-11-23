@@ -47,7 +47,7 @@ private const val TEST_SUBID1 = 1
 private const val TEST_SUBID2 = 2
 
 @RunWith(DevSdkIgnoreRunner::class)
-@DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.R)
+@DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.S_V2)
 class NetworkIdentityTest {
     private val mockContext = mock(Context::class.java)
 
@@ -101,15 +101,15 @@ class NetworkIdentityTest {
                 false /* defaultNetwork */, TelephonyManager.NETWORK_TYPE_UMTS)
         assertFalse(netIdent2.isMetered())
 
-        // Verify network is not metered because it has NET_CAPABILITY_TEMPORARILY_NOT_METERED
-        // capability .
+        // In current design, a network that has NET_CAPABILITY_TEMPORARILY_NOT_METERED
+        // capability will be treated as metered.
         val capsTempNotMetered = NetworkCapabilities().apply {
             setCapability(NetworkCapabilities.NET_CAPABILITY_TEMPORARILY_NOT_METERED, true)
         }
         val netIdent3 = NetworkIdentity.buildNetworkIdentity(mockContext,
                 buildMobileNetworkStateSnapshot(capsTempNotMetered, TEST_IMSI1),
                 false /* defaultNetwork */, TelephonyManager.NETWORK_TYPE_UMTS)
-        assertFalse(netIdent3.isMetered())
+        assertTrue(netIdent3.isMetered())
     }
 
     @Test

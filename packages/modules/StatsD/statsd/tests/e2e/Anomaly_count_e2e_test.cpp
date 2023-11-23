@@ -54,7 +54,7 @@ StatsdConfig CreateStatsdConfig(int num_buckets, int threshold, int refractory_p
 
 }  // namespace
 
-TEST(AnomalyDetectionE2eTest, TestSlicedCountMetric_single_bucket) {
+TEST(AnomalyCountDetectionE2eTest, TestSlicedCountMetric_single_bucket) {
     const int num_buckets = 1;
     const int threshold = 3;
     const int refractory_period_sec = 10;
@@ -171,7 +171,7 @@ TEST(AnomalyDetectionE2eTest, TestSlicedCountMetric_single_bucket) {
               anomalyTracker->getRefractoryPeriodEndsSec(dimensionKey2));
 }
 
-TEST(AnomalyDetectionE2eTest, TestSlicedCountMetric_multiple_buckets) {
+TEST(AnomalyCountDetectionE2eTest, TestSlicedCountMetric_multiple_buckets) {
     const int num_buckets = 3;
     const int threshold = 3;
     const int refractory_period_sec = 10;
@@ -241,7 +241,7 @@ TEST(AnomalyDetectionE2eTest, TestSlicedCountMetric_multiple_buckets) {
               anomalyTracker->getRefractoryPeriodEndsSec(dimensionKey1));
 }
 
-TEST(AnomalyDetectionE2eTest, TestCountMetric_save_refractory_to_disk_no_data_written) {
+TEST(AnomalyCountDetectionE2eTest, TestCountMetric_save_refractory_to_disk_no_data_written) {
     const int num_buckets = 1;
     const int threshold = 0;
     const int refractory_period_sec = 86400 * 365; // 1 year
@@ -266,7 +266,7 @@ TEST(AnomalyDetectionE2eTest, TestCountMetric_save_refractory_to_disk_no_data_wr
     ASSERT_EQ(result.stats_metadata_size(), 0);
 }
 
-TEST(AnomalyDetectionE2eTest, TestCountMetric_save_refractory_to_disk) {
+TEST(AnomalyCountDetectionE2eTest, TestCountMetric_save_refractory_to_disk) {
     const int num_buckets = 1;
     const int threshold = 0;
     const int refractory_period_sec = 86400 * 365; // 1 year
@@ -329,7 +329,7 @@ TEST(AnomalyDetectionE2eTest, TestCountMetric_save_refractory_to_disk) {
     EXPECT_EQ(dimKeyInWhat.value_int(), fieldValue1.mValue.int_value);
 }
 
-TEST(AnomalyDetectionE2eTest, TestCountMetric_load_refractory_from_disk) {
+TEST(AnomalyCountDetectionE2eTest, TestCountMetric_load_refractory_from_disk) {
     const int num_buckets = 1;
     const int threshold = 0;
     const int refractory_period_sec = 86400 * 365; // 1 year

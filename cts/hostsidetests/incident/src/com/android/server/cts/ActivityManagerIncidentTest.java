@@ -55,7 +55,7 @@ public class ActivityManagerIncidentTest extends ProtoDumpTestCase {
      */
     public void testDumpBroadcasts() throws Exception {
         getDevice().executeShellCommand("am broadcast -a " + TEST_BROADCAST);
-        Thread.sleep(100);
+        getDevice().executeShellCommand("am wait-for-broadcast-barrier");
         final ActivityManagerServiceDumpBroadcastsProto dump = getDump(
                 ActivityManagerServiceDumpBroadcastsProto.parser(),
                 "dumpsys activity --proto broadcasts");

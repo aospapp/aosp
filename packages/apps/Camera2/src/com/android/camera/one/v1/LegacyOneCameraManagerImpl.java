@@ -17,6 +17,7 @@
 package com.android.camera.one.v1;
 
 import android.hardware.Camera;
+import android.os.Handler;
 
 import com.android.camera.debug.Log;
 import com.android.camera.debug.Log.Tag;
@@ -158,6 +159,11 @@ public class LegacyOneCameraManagerImpl implements OneCameraManager {
         Log.e(TAG, "FrontCamera: " + mFirstFrontCameraId);
         Log.e(TAG, "No matching camera id for: " + cameraId);
         return null;
+    }
+
+    @Override
+    public void setAvailabilityCallback(AvailabilityCallback callback, Handler handler) {
+        // Do nothing
     }
 
     public OneCameraCharacteristics computeCameraCharacteristics(CameraId key)

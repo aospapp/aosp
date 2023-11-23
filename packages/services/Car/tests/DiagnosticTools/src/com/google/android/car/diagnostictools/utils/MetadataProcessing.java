@@ -29,7 +29,7 @@ import java.util.Map;
 
 
 /** Singleton class that contains all available metadata information */
-public class MetadataProcessing {
+public final class MetadataProcessing {
 
     private static final String TAG = "MetadataProcessing";
     private static MetadataProcessing sInstance = null;

@@ -751,5 +751,17 @@ public final class URITest extends TestCase {
         assertFalse(lower.hashCode() == mixed.hashCode());
     }
 
+    // check that "." and "_" characters are allowed in IPv6 scope_id.
+    public void test_JDK6933879() {
+        final String HOST = "fe80::c00:16fe:cebe:3214%eth1.12_55";
+        URI uri;
+        try {
+            uri = new URI("http", null, HOST, 10, "/", null, null);
+        } catch (URISyntaxException ex) {
+            throw new AssertionError("Should not happen", ex);
+        }
+        assertEquals("[" + HOST + "]", uri.getHost());
+    }
+
     // Adding a new test? Consider adding an equivalent test to URLTest.java
 }

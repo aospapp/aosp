@@ -42,6 +42,7 @@ import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.PowerManager;
 import android.os.RemoteException;
+import android.os.SystemProperties;
 import android.sysprop.BluetoothProperties;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
@@ -74,9 +75,9 @@ public class BluetoothMapService extends ProfileService {
      * DEBUG log: "setprop log.tag.BluetoothMapService VERBOSE"
      */
 
-    public static final boolean DEBUG = false;
+    public static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
-    public static final boolean VERBOSE = false;
+    public static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
 
     /**
      * The component names for the owned provider and activity
@@ -104,10 +105,12 @@ public class BluetoothMapService extends ProfileService {
     static final int MSG_OBSERVER_REGISTRATION = 5008;
 
     private static final int START_LISTENER = 1;
-    private static final int USER_TIMEOUT = 2;
+    @VisibleForTesting
+    static final int USER_TIMEOUT = 2;
     private static final int DISCONNECT_MAP = 3;
     private static final int SHUTDOWN = 4;
-    private static final int UPDATE_MAS_INSTANCES = 5;
+    @VisibleForTesting
+    static final int UPDATE_MAS_INSTANCES = 5;
 
     private static final int RELEASE_WAKE_LOCK_DELAY = 10000;
     private PowerManager.WakeLock mWakeLock = null;
@@ -148,7 +151,8 @@ public class BluetoothMapService extends ProfileService {
     private boolean mAccountChanged = false;
     private boolean mSdpSearchInitiated = false;
     private SdpMnsRecord mMnsRecord = null;
-    private MapServiceMessageHandler mSessionStatusHandler;
+    @VisibleForTesting
+    Handler mSessionStatusHandler;
     private boolean mServiceStarted = false;
 
     private static BluetoothMapService sBluetoothMapService;
@@ -381,11 +385,13 @@ public class BluetoothMapService extends ProfileService {
                 case USER_TIMEOUT:
                     if (mIsWaitingAuthorization) {
                         Intent intent = new Intent(BluetoothDevice.ACTION_CONNECTION_ACCESS_CANCEL);
-                        intent.setPackage(getString(R.string.pairing_ui_package));
+                        intent.setPackage(SystemProperties.get(
+                                Utils.PAIRING_UI_PROPERTY,
+                                getString(R.string.pairing_ui_package)));
                         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, sRemoteDevice);
                         intent.putExtra(BluetoothDevice.EXTRA_ACCESS_REQUEST_TYPE,
                                 BluetoothDevice.REQUEST_TYPE_MESSAGE_ACCESS);
-                        sendBroadcast(intent, BLUETOOTH_CONNECT,
+                        Utils.sendBroadcast(BluetoothMapService.this, intent, BLUETOOTH_CONNECT,
                                 Utils.getTempAllowlistBroadcastOptions());
                         cancelUserTimeoutAlarm();
                         mIsWaitingAuthorization = false;
@@ -526,7 +532,8 @@ public class BluetoothMapService extends ProfileService {
             intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
             intent.putExtra(BluetoothProfile.EXTRA_STATE, mState);
             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, sRemoteDevice);
-            sendBroadcast(intent, BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
+            Utils.sendBroadcast(this, intent, BLUETOOTH_CONNECT,
+                    Utils.getTempAllowlistBroadcastOptions());
         }
     }
 
@@ -556,7 +563,7 @@ public class BluetoothMapService extends ProfileService {
         }
     }
 
-    private List<BluetoothDevice> getConnectedDevices() {
+    List<BluetoothDevice> getConnectedDevices() {
         List<BluetoothDevice> devices = new ArrayList<>();
         synchronized (this) {
             if (mState == BluetoothMap.STATE_CONNECTED && sRemoteDevice != null) {
@@ -682,6 +689,7 @@ public class BluetoothMapService extends ProfileService {
         mSessionStatusHandler = new MapServiceMessageHandler(looper);
 
         IntentFilter filter = new IntentFilter();
+        filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
         filter.addAction(BluetoothDevice.ACTION_CONNECTION_ACCESS_REPLY);
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
         filter.addAction(BluetoothDevice.ACTION_SDP_RECORD);
@@ -689,6 +697,7 @@ public class BluetoothMapService extends ProfileService {
 
         // We need two filters, since Type only applies to the ACTION_MESSAGE_SENT
         IntentFilter filterMessageSent = new IntentFilter();
+        filterMessageSent.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
         filterMessageSent.addAction(BluetoothMapContentObserver.ACTION_MESSAGE_SENT);
         try {
             filterMessageSent.addDataType("message/*");
@@ -834,7 +843,8 @@ public class BluetoothMapService extends ProfileService {
      * If the key 255 is in use, the first free masId will be returned.
      * @return a free MasId
      */
-    private int getNextMasId() {
+    @VisibleForTesting
+    int getNextMasId() {
         // Find the largest masId in use
         int largestMasId = 0;
         for (int i = 0, c = mMasInstances.size(); i < c; i++) {
@@ -946,11 +956,13 @@ public class BluetoothMapService extends ProfileService {
         if (sendIntent) {
             // This will trigger Settings app's dialog.
             Intent intent = new Intent(BluetoothDevice.ACTION_CONNECTION_ACCESS_REQUEST);
-            intent.setPackage(getString(R.string.pairing_ui_package));
+            intent.setPackage(SystemProperties.get(
+                    Utils.PAIRING_UI_PROPERTY,
+                    getString(R.string.pairing_ui_package)));
             intent.putExtra(BluetoothDevice.EXTRA_ACCESS_REQUEST_TYPE,
                     BluetoothDevice.REQUEST_TYPE_MESSAGE_ACCESS);
             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, sRemoteDevice);
-            sendOrderedBroadcast(intent, BLUETOOTH_CONNECT,
+            Utils.sendOrderedBroadcast(this, intent, BLUETOOTH_CONNECT,
                     Utils.getTempAllowlistBroadcastOptions(), null, null,
                     Activity.RESULT_OK, null, null);
 
@@ -1026,7 +1038,8 @@ public class BluetoothMapService extends ProfileService {
         } // Can only be null during shutdown
     }
 
-    private void sendConnectTimeoutMessage() {
+    @VisibleForTesting
+    void sendConnectTimeoutMessage() {
         if (DEBUG) {
             Log.d(TAG, "sendConnectTimeoutMessage()");
         }
@@ -1036,7 +1049,8 @@ public class BluetoothMapService extends ProfileService {
         } // Can only be null during shutdown
     }
 
-    private void sendConnectCancelMessage() {
+    @VisibleForTesting
+    void sendConnectCancelMessage() {
         if (mSessionStatusHandler != null) {
             Message msg = mSessionStatusHandler.obtainMessage(MSG_MAS_CONNECT_CANCEL);
             msg.sendToTarget();
@@ -1047,7 +1061,8 @@ public class BluetoothMapService extends ProfileService {
         // Pending messages are no longer valid. To speed up things, simply delete them.
         if (mRemoveTimeoutMsg) {
             Intent timeoutIntent = new Intent(USER_CONFIRM_TIMEOUT_ACTION);
-            sendBroadcast(timeoutIntent, null, Utils.getTempAllowlistBroadcastOptions());
+            Utils.sendBroadcast(this, timeoutIntent, null,
+                    Utils.getTempAllowlistBroadcastOptions());
             mIsWaitingAuthorization = false;
             cancelUserTimeoutAlarm();
         }
@@ -1209,14 +1224,18 @@ public class BluetoothMapService extends ProfileService {
      * This class implements the IBluetoothMap interface - or actually it validates the
      * preconditions for calling the actual functionality in the MapService, and calls it.
      */
-    private static class BluetoothMapBinder extends IBluetoothMap.Stub
+    @VisibleForTesting
+    static class BluetoothMapBinder extends IBluetoothMap.Stub
             implements IProfileServiceBinder {
         private BluetoothMapService mService;
 
         @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
         private BluetoothMapService getService(AttributionSource source) {
-            if (!Utils.checkCallerIsSystemOrActiveUser(TAG)
-                    || !Utils.checkServiceAvailable(mService, TAG)
+            if (Utils.isInstrumentationTestMode()) {
+                return mService;
+            }
+            if (!Utils.checkServiceAvailable(mService, TAG)
+                    || !Utils.checkCallerIsSystemOrActiveOrManagedUser(mService, TAG)
                     || !Utils.checkConnectPermissionForDataDelivery(mService, source, TAG)) {
                 return null;
             }
@@ -1318,9 +1337,9 @@ public class BluetoothMapService extends ProfileService {
             }
             try {
                 BluetoothMapService service = getService(source);
-                enforceBluetoothPrivilegedPermission(service);
                 List<BluetoothDevice> connectedDevices = new ArrayList<>(0);
                 if (service != null) {
+                    enforceBluetoothPrivilegedPermission(service);
                     connectedDevices = service.getConnectedDevices();
                 }
                 receiver.send(connectedDevices);

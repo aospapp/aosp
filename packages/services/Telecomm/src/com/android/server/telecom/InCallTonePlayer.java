@@ -170,7 +170,7 @@ public class InCallTonePlayer extends Thread {
 
     private static final int RELATIVE_VOLUME_EMERGENCY = 100;
     private static final int RELATIVE_VOLUME_HIPRI = 80;
-    private static final int RELATIVE_VOLUME_LOPRI = 50;
+    private static final int RELATIVE_VOLUME_LOPRI = 30;
     private static final int RELATIVE_VOLUME_UNDEFINED = -1;
 
     // Buffer time (in msec) to add on to the tone timeout value. Needed mainly when the timeout
@@ -470,12 +470,6 @@ public class InCallTonePlayer extends Thread {
 
     @VisibleForTesting
     public boolean startTone() {
-        // Skip playing the end call tone if the volume is silenced.
-        if (mToneId == TONE_CALL_ENDED && !mAudioManagerAdapter.isVolumeOverZero()) {
-            Log.i(this, "startTone: skip end-call tone as device is silenced.");
-            return false;
-        }
-
         // Tone already done; don't allow re-used
         if (mState == STATE_STOPPED) {
             return false;
@@ -524,7 +518,7 @@ public class InCallTonePlayer extends Thread {
         mMainThreadHandler.post(new Runnable("ICTP.cUTP", mLock) {
             @Override
             public void loggedRun() {
-                int newToneCount = sTonesPlaying.updateAndGet( t -> Math.min(0, t--));
+                int newToneCount = sTonesPlaying.updateAndGet( t -> Math.max(0, --t));
 
                 if (newToneCount == 0) {
                     Log.i(InCallTonePlayer.this,

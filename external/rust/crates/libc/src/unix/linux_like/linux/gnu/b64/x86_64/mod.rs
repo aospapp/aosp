@@ -265,6 +265,14 @@ s! {
         pub seccomp_notif_resp: ::__u16,
         pub seccomp_data: ::__u16,
     }
+
+    pub struct ptrace_rseq_configuration {
+        pub rseq_abi_pointer: ::__u64,
+        pub rseq_abi_size: ::__u32,
+        pub signature: ::__u32,
+        pub flags: ::__u32,
+        pub pad: ::__u32,
+    }
 }
 
 s_no_extra_traits! {
@@ -399,12 +407,6 @@ pub const VEOF: usize = 4;
 pub const RTLD_DEEPBIND: ::c_int = 0x8;
 pub const RTLD_GLOBAL: ::c_int = 0x100;
 pub const RTLD_NOLOAD: ::c_int = 0x4;
-
-pub const RLIMIT_RSS: ::__rlimit_resource_t = 5;
-pub const RLIMIT_AS: ::__rlimit_resource_t = 9;
-pub const RLIMIT_MEMLOCK: ::__rlimit_resource_t = 8;
-pub const RLIMIT_NOFILE: ::__rlimit_resource_t = 7;
-pub const RLIMIT_NPROC: ::__rlimit_resource_t = 6;
 
 pub const O_APPEND: ::c_int = 1024;
 pub const O_CREAT: ::c_int = 64;
@@ -541,6 +543,7 @@ pub const O_ASYNC: ::c_int = 0x2000;
 pub const O_NDELAY: ::c_int = 0x800;
 
 pub const PTRACE_DETACH: ::c_uint = 17;
+pub const PTRACE_GET_RSEQ_CONFIGURATION: ::c_uint = 0x420f;
 
 pub const EFD_NONBLOCK: ::c_int = 0x800;
 
@@ -631,6 +634,19 @@ pub const PTRACE_SETREGS: ::c_uint = 13;
 pub const PTRACE_PEEKSIGINFO_SHARED: ::c_uint = 1;
 pub const PTRACE_SYSEMU: ::c_uint = 31;
 pub const PTRACE_SYSEMU_SINGLESTEP: ::c_uint = 32;
+
+pub const PR_GET_SPECULATION_CTRL: ::c_int = 52;
+pub const PR_SET_SPECULATION_CTRL: ::c_int = 53;
+pub const PR_SPEC_NOT_AFFECTED: ::c_uint = 0;
+pub const PR_SPEC_PRCTL: ::c_uint = 1 << 0;
+pub const PR_SPEC_ENABLE: ::c_uint = 1 << 1;
+pub const PR_SPEC_DISABLE: ::c_uint = 1 << 2;
+pub const PR_SPEC_FORCE_DISABLE: ::c_uint = 1 << 3;
+pub const PR_SPEC_DISABLE_NOEXEC: ::c_uint = 1 << 4;
+pub const PR_SPEC_STORE_BYPASS: ::c_int = 0;
+pub const PR_SPEC_INDIRECT_BRANCH: ::c_int = 1;
+// FIXME: perharps for later
+//pub const PR_SPEC_L1D_FLUSH: ::c_int = 2;
 
 pub const MCL_CURRENT: ::c_int = 0x0001;
 pub const MCL_FUTURE: ::c_int = 0x0002;

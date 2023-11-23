@@ -36,7 +36,6 @@ cc_library_headers {
 
 cc_defaults {
     name: "libui-defaults",
-    clang: true,
     cflags: [
         "-Wall",
         "-Werror",
@@ -49,7 +48,6 @@ cc_defaults {
         integer_overflow: true,
         misc_undefined: ["bounds"],
     },
-
 }
 
 cc_library_static {
@@ -111,7 +109,6 @@ cc_library_shared {
     },
     double_loadable: true,
 
-    clang: true,
     cflags: [
         "-Wall",
         "-Werror",
@@ -129,7 +126,6 @@ cc_library_shared {
         "DebugUtils.cpp",
         "DeviceProductInfo.cpp",
         "DisplayIdentification.cpp",
-        "DisplayMode.cpp",
         "DynamicDisplayInfo.cpp",
         "Fence.cpp",
         "FenceTime.cpp",
@@ -138,14 +134,13 @@ cc_library_shared {
         "Gralloc2.cpp",
         "Gralloc3.cpp",
         "Gralloc4.cpp",
+        "Gralloc5.cpp",
         "GraphicBuffer.cpp",
         "GraphicBufferAllocator.cpp",
         "GraphicBufferMapper.cpp",
-        "HdrCapabilities.cpp",
         "PixelFormat.cpp",
         "PublicFormat.cpp",
         "StaticAsserts.cpp",
-        "StaticDisplayInfo.cpp",
     ],
 
     include_dirs: [
@@ -157,6 +152,8 @@ cc_library_shared {
     ],
 
     defaults: [
+        "android.hardware.graphics.allocator-ndk_shared",
+        "android.hardware.graphics.common-ndk_shared",
         "libui-defaults",
         // Uncomment the following line to enable VALIDATE_REGIONS traces
         //defaults: ["libui-validate-regions-defaults"],
@@ -166,8 +163,6 @@ cc_library_shared {
         "android.hardware.graphics.allocator@2.0",
         "android.hardware.graphics.allocator@3.0",
         "android.hardware.graphics.allocator@4.0",
-        "android.hardware.graphics.allocator-V1-ndk",
-        "android.hardware.graphics.common-V3-ndk",
         "android.hardware.graphics.common@1.2",
         "android.hardware.graphics.mapper@2.0",
         "android.hardware.graphics.mapper@2.1",
@@ -181,11 +176,11 @@ cc_library_shared {
         "libsync",
         "libutils",
         "liblog",
+        "libvndksupport",
     ],
 
     export_shared_lib_headers: [
         "android.hardware.graphics.common@1.2",
-        "android.hardware.graphics.common-V3-ndk",
         "android.hardware.graphics.mapper@4.0",
         "libgralloctypes",
     ],
@@ -220,6 +215,8 @@ cc_library_shared {
         "libnativewindow_headers",
         "libhardware_headers",
         "libui_headers",
+        "libimapper_stablec",
+        "libimapper_providerutils",
     ],
 
     export_static_lib_headers: [
@@ -243,10 +240,6 @@ cc_library_shared {
     ],
 
     afdo: true,
-
-    header_abi_checker: {
-        diff_flags: ["-allow-adding-removing-weak-symbols"],
-    },
 }
 
 cc_library_headers {

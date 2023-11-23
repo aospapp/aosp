@@ -21,7 +21,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import com.android.modules.utils.build.SdkLevel
 import com.android.permissioncontroller.PermissionControllerApplication
+import com.android.permissioncontroller.permission.data.v34.LightInstallSourceInfoLiveData
+import com.android.permissioncontroller.permission.data.v34.SafetyLabelInfoLiveData
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -161,6 +164,10 @@ object PackageBroadcastReceiver : BroadcastReceiver() {
             HibernationSettingStateLiveData.invalidateAllForPackage(packageName)
             LightAppPermGroupLiveData.invalidateAllForPackage(packageName)
             AppPermGroupUiInfoLiveData.invalidateAllForPackage(packageName)
+            if (SdkLevel.isAtLeastU()) {
+                SafetyLabelInfoLiveData.invalidateAllForPackage(packageName)
+                LightInstallSourceInfoLiveData.invalidateAllForPackage(packageName)
+            }
         }
     }
 

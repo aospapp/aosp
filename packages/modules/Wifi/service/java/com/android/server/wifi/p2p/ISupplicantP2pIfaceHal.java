@@ -569,4 +569,20 @@ interface ISupplicantP2pIfaceHal {
      * @return boolean value indicating whether operation was successful.
      */
     boolean setVendorElements(Set<ScanResult.InformationElement> vendorElements);
+
+    /**
+     * Configure the IP addresses in supplicant for P2P GO to provide the IP address to
+     * client in EAPOL handshake. Refer Wi-Fi P2P Technical Specification v1.7 - Section  4.2.8
+     * IP Address Allocation in EAPOL-Key Frames (4-Way Handshake) for more details.
+     * The IP addresses are IPV4 addresses and higher-order address bytes are in the
+     * lower-order int bytes (e.g. 1.2.3.4 is represented as 0x04030201)
+     *
+     * @param ipAddressGo The P2P Group Owner IP address.
+     * @param ipAddressMask The P2P Group owner subnet mask.
+     * @param ipAddressStart The starting address in the IP address pool.
+     * @param ipAddressEnd The ending address in the IP address pool.
+     * @return boolean value indicating whether operation was successful.
+     */
+    boolean configureEapolIpAddressAllocationParams(int ipAddressGo, int ipAddressMask,
+            int ipAddressStart, int ipAddressEnd);
 }

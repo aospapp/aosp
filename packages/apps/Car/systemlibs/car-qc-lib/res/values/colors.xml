@@ -20,4 +20,12 @@
     <color name="qc_toggle_unavailable_background_color">@android:color/transparent</color>
     <color name="qc_toggle_unavailable_color">#37FFFFFF</color>
     <color name="qc_toggle_rotary_shadow_color">#C7000000</color>
+    <!-- The SeekBar thumb color. -->
+    <color name="qc_seekbar_thumb">#FFFFFF</color>
+    <!-- The SeekBar thumb color when disabled. Use for the dark theme. -->
+    <color name="qc_seekbar_thumb_disabled_on_dark">#757575</color>
+    <!-- The Switch thumb color. -->
+    <color name="qc_switch_thumb_color">#FFFFFF</color>
+    <!-- The Switch thumb color when disabled. Use for the dark theme. -->
+    <color name="qc_switch_thumb_color_disabled_on_dark">#757575</color>
 </resources>

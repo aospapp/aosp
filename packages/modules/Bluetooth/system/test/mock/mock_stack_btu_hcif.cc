@@ -23,14 +23,13 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 #define LOG_TAG "bt_btu_hcif"
-#include <base/bind.h>
-#include <base/callback.h>
+#include <base/functional/bind.h>
+#include <base/functional/callback.h>
 #include <base/location.h>
 
 #include "stack/include/bt_hdr.h"
+#include "test/common/mock_functions.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
@@ -45,22 +44,22 @@ struct cmd_with_cb_data {
 };
 
 void btu_hcif_log_event_metrics(uint8_t evt_code, uint8_t* p_event) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void btu_hcif_process_event(UNUSED_ATTR uint8_t controller_id, BT_HDR* p_msg) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void btu_hcif_send_cmd(UNUSED_ATTR uint8_t controller_id, const BT_HDR* p_buf) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void btu_hcif_send_cmd_with_cb(const base::Location& posted_from,
                                uint16_t opcode, uint8_t* params,
                                uint8_t params_len, hci_cmd_cb cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void cmd_with_cb_data_cleanup(cmd_with_cb_data* cb_wrapper) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void cmd_with_cb_data_init(cmd_with_cb_data* cb_wrapper) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }

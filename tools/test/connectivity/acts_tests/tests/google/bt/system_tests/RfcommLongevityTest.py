@@ -18,10 +18,8 @@ Test script to execute Bluetooth basic functionality test cases.
 This test was designed to be run in a shield box.
 """
 
-import time
 from random import randint
 
-from queue import Empty
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
@@ -78,8 +76,8 @@ class RfcommLongevityTest(BluetoothBaseTest):
                                                  self.server_ad):
                 return False
             for n in range(self.write_iterations):
-                self.log.info("iteration {} data".format(((n + 1) + (
-                    i * self.write_iterations))))
+                self.log.info("iteration {} data".format(
+                    ((n + 1) + (i * self.write_iterations))))
                 if not write_read_verify_data(self.client_ad, self.server_ad,
                                               self.generic_message, False):
                     return False
@@ -123,8 +121,8 @@ class RfcommLongevityTest(BluetoothBaseTest):
                                                  self.server_ad):
                 return False
             for n in range(self.write_iterations):
-                self.log.info("iteration {} data".format(((n + 1) + (
-                    i * self.write_iterations))))
+                self.log.info("iteration {} data".format(
+                    ((n + 1) + (i * self.write_iterations))))
                 if not write_read_verify_data(self.client_ad, self.server_ad,
                                               message, False):
                     return False
@@ -168,8 +166,8 @@ class RfcommLongevityTest(BluetoothBaseTest):
                                                  self.server_ad):
                 return False
             for n in range(self.write_iterations):
-                self.log.info("iteration {} data".format(((n + 1) + (
-                    i * self.write_iterations))))
+                self.log.info("iteration {} data".format(
+                    ((n + 1) + (i * self.write_iterations))))
                 if not write_read_verify_data(self.client_ad, self.server_ad,
                                               binary_message, True):
                     return False
@@ -213,8 +211,8 @@ class RfcommLongevityTest(BluetoothBaseTest):
                                                  self.server_ad):
                 return False
             for n in range(self.write_iterations):
-                self.log.info("iteration {} data".format(((n + 1) + (
-                    i * self.write_iterations))))
+                self.log.info("iteration {} data".format(
+                    ((n + 1) + (i * self.write_iterations))))
                 if not write_read_verify_data(self.client_ad, self.server_ad,
                                               message, False):
                     return False
@@ -262,8 +260,8 @@ class RfcommLongevityTest(BluetoothBaseTest):
                     return False
                 random_interup_iteration = randint(0, self.write_iterations)
                 for n in range(self.write_iterations):
-                    self.log.info("iteration {} data".format(((n + 1) + (
-                        i * self.write_iterations))))
+                    self.log.info("iteration {} data".format(
+                        ((n + 1) + (i * self.write_iterations))))
                     if not write_read_verify_data(self.client_ad,
                                                   self.server_ad,
                                                   self.generic_message, False):
@@ -330,8 +328,8 @@ class RfcommLongevityTest(BluetoothBaseTest):
                                                      self.server_ad):
                     return False
                 for n in range(self.write_iterations):
-                    self.log.info("iteration {} data".format(((n + 1) + (
-                        i * self.write_iterations))))
+                    self.log.info("iteration {} data".format(
+                        ((n + 1) + (i * self.write_iterations))))
                     if not write_read_verify_data(
                             self.client_ad, self.server_ad, message, False):
                         return False

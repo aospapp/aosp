@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 
 #include "hci/address_with_type.h"
@@ -29,25 +30,43 @@ using ::bluetooth::hci::AddressWithType;
 class AclConnection {
  public:
   AclConnection(AddressWithType address, AddressWithType own_address,
-                AddressWithType resolved_address, Phy::Type phy_type);
+                AddressWithType resolved_address, Phy::Type phy_type,
+                bluetooth::hci::Role role);
 
   virtual ~AclConnection() = default;
 
-  void Encrypt();
+  Phy::Type GetPhyType() const { return type_; }
 
+  AddressWithType GetAddress() const { return address_; }
+  AddressWithType GetOwnAddress() const { return own_address_; }
+  AddressWithType GetResolvedAddress() const { return resolved_address_; }
+
+  void Encrypt();
   bool IsEncrypted() const;
 
-  AddressWithType GetAddress() const;
+  uint16_t GetLinkPolicySettings() const;
+  void SetLinkPolicySettings(uint16_t settings);
 
-  void SetAddress(AddressWithType address);
+  bluetooth::hci::Role GetRole() const;
+  void SetRole(bluetooth::hci::Role role);
 
-  AddressWithType GetOwnAddress() const;
+  int8_t GetRssi() const;
+  void SetRssi(int8_t rssi);
 
-  void SetOwnAddress(AddressWithType address);
+  std::chrono::steady_clock::duration TimeUntilNearExpiring() const;
+  std::chrono::steady_clock::duration TimeUntilExpired() const;
+  void ResetLinkTimer();
+  bool IsNearExpiring() const;
+  bool HasExpired() const;
 
-  AddressWithType GetResolvedAddress() const;
-
-  Phy::Type GetPhyType() const;
+  // LE-ACL state.
+  void InitiatePhyUpdate() { initiated_phy_update_ = true; }
+  void PhyUpdateComplete() { initiated_phy_update_ = false; }
+  bool InitiatedPhyUpdate() const { return initiated_phy_update_; }
+  bluetooth::hci::PhyType GetTxPhy() const { return tx_phy_; }
+  bluetooth::hci::PhyType GetRxPhy() const { return rx_phy_; }
+  void SetTxPhy(bluetooth::hci::PhyType phy) { tx_phy_ = phy; }
+  void SetRxPhy(bluetooth::hci::PhyType phy) { rx_phy_ = phy; }
 
  private:
   AddressWithType address_;
@@ -55,8 +74,21 @@ class AclConnection {
   AddressWithType resolved_address_;
   Phy::Type type_{Phy::Type::BR_EDR};
 
+  // Reports the RSSI measured for the last packet received on
+  // this connection.
+  int8_t rssi_{0};
+
   // State variables
   bool encrypted_{false};
+  uint16_t link_policy_settings_{0};
+  bluetooth::hci::Role role_{bluetooth::hci::Role::CENTRAL};
+  std::chrono::steady_clock::time_point last_packet_timestamp_;
+  std::chrono::steady_clock::duration timeout_;
+
+  // LE-ACL state.
+  bluetooth::hci::PhyType tx_phy_{bluetooth::hci::PhyType::LE_1M};
+  bluetooth::hci::PhyType rx_phy_{bluetooth::hci::PhyType::LE_1M};
+  bool initiated_phy_update_{false};
 };
 
 }  // namespace rootcanal

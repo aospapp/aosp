@@ -24,6 +24,8 @@ package {
 cc_defaults {
     name: "libstatspull_defaults",
     srcs: [
+        "stats_subscription.cpp",
+        "stats_provider.cpp",
         "stats_pull_atom_callback.cpp",
     ],
     cflags: [
@@ -48,6 +50,7 @@ cc_defaults {
         },
     },
 }
+
 cc_library {
     name: "libstatspull",
     defaults: [
@@ -83,11 +86,6 @@ cc_library {
     min_sdk_version: "30",
 
     stl: "libc++_static",
-
-    // TODO(b/151102177): Enable it when the build error is fixed.
-    header_abi_checker: {
-        enabled: false,
-    },
 }
 
 cc_library_headers {
@@ -109,21 +107,45 @@ cc_library_static {
     ],
 }
 
-// Note: These unit tests only test PullAtomMetadata.
-// For full E2E tests of libstatspull, use LibStatsPullTests
+// Note: These unit tests only test PullAtomMetadata and subscriptions
+// For full E2E tests of pullers, use LibStatsPullTests
 cc_test {
     name: "libstatspull_test",
     srcs: [
+        ":libprotobuf-internal-descriptor-proto",
+        ":libstats_log_protos",
+        ":libstats_subscription_protos",
         "tests/pull_atom_metadata_test.cpp",
+        "tests/stats_subscription_test.cpp",
     ],
+    proto: {
+        type: "lite",
+        include_dirs: [
+            "external/protobuf/src",
+        ],
+        static: true,
+    },
     shared_libs: [
         "libstatspull",
         "libstatssocket",
+        "libbase",
+        "libbinder",
+        "libutils",
+        "liblog",
     ],
-    test_suites: ["general-tests", "mts-statsd"],
+    static_libs: [
+        "libgmock",
+        "libstatsgtestmatchers",
+        "libstatslog_statsdtest",
+        "libprotobuf-cpp-lite",
+    ],
+    test_suites: [
+        "general-tests",
+        "mts-statsd",
+    ],
     test_config: "libstatspull_test.xml",
 
-    //TODO(b/153588990): Remove when the build system properly separates 
+    //TODO(b/153588990): Remove when the build system properly separates
     //32bit and 64bit architectures.
     compile_multilib: "both",
     multilib: {
@@ -141,6 +163,8 @@ cc_test {
         "-Wno-unused-variable",
         "-Wno-unused-function",
         "-Wno-unused-parameter",
+        "-Wno-deprecated-declarations",
     ],
     require_root: true,
+    min_sdk_version: "30",
 }

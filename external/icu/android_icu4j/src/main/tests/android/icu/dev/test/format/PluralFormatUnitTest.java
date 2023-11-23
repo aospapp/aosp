@@ -24,6 +24,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
+import android.icu.impl.number.DecimalQuantity;
 import android.icu.text.DecimalFormat;
 import android.icu.text.DecimalFormatSymbols;
 import android.icu.text.MessageFormat;
@@ -231,10 +232,10 @@ public class PluralFormatUnitTest extends TestFmwk {
             logln(localeName + "\ttoString\t" + rules.toString());
             Set<String> keywords = rules.getKeywords();
             for (String keyword : keywords) {
-                Collection<Double> list = rules.getSamples(keyword);
+                Collection<DecimalQuantity> list = rules.getDecimalQuantitySamples(keyword);
                 if (list.size() == 0) {
                     // if there aren't any integer samples, get the decimal ones.
-                    list = rules.getSamples(keyword, SampleType.DECIMAL);
+                    list = rules.getDecimalQuantitySamples(keyword, SampleType.DECIMAL);
                 }
 
                 if (list == null || list.size() == 0) {

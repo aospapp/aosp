@@ -171,7 +171,7 @@ public final class CommandSession {
         private final String mHostId;
         private final Response mPendingResponse = new Response();
         // Only set when requiring response.
-        private long mPendingRequestToken = INVALID_REQUEST_TOKEN;
+        private volatile long mPendingRequestToken = INVALID_REQUEST_TOKEN;
         private String mPendingCommand;
         private boolean mFinished;
         private Intent mOriginalLaunchIntent;
@@ -316,8 +316,8 @@ public final class CommandSession {
             if (incomingToken == mPendingRequestToken) {
                 mPendingResponse.setResult(reply);
             } else {
-                throw new IllegalStateException("Mismatched token: incoming=" + incomingToken
-                        + " pending=" + mPendingRequestToken);
+                Log.e(TAG, "Mismatched token: incoming=" + incomingToken + " pending="
+                        + mPendingRequestToken + ". Ignoring this reply.");
             }
         }
 

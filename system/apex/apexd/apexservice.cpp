@@ -139,6 +139,9 @@ BinderStatus CheckDebuggable(const std::string& name) {
 }
 
 BinderStatus ApexService::stagePackages(const std::vector<std::string>& paths) {
+  LOG(INFO) << "stagePackages() received by ApexService, paths "
+            << android::base::Join(paths, ',');
+
   BinderStatus debug_check = CheckDebuggable("stagePackages");
   if (!debug_check.isOk()) {
     return debug_check;
@@ -146,9 +149,6 @@ BinderStatus ApexService::stagePackages(const std::vector<std::string>& paths) {
   if (auto is_root = CheckCallerIsRoot("stagePackages"); !is_root.isOk()) {
     return is_root;
   }
-  LOG(DEBUG) << "stagePackages() received by ApexService, paths "
-             << android::base::Join(paths, ',');
-
   Result<void> res = ::android::apex::StagePackages(paths);
 
   if (res.ok()) {
@@ -164,6 +164,9 @@ BinderStatus ApexService::stagePackages(const std::vector<std::string>& paths) {
 
 BinderStatus ApexService::unstagePackages(
     const std::vector<std::string>& paths) {
+  LOG(INFO) << "unstagePackages() received by ApexService, paths "
+            << android::base::Join(paths, ',');
+
   if (auto check = CheckCallerSystemOrRoot("unstagePackages"); !check.isOk()) {
     return check;
   }
@@ -182,14 +185,14 @@ BinderStatus ApexService::unstagePackages(
 
 BinderStatus ApexService::submitStagedSession(const ApexSessionParams& params,
                                               ApexInfoList* apex_info_list) {
+  LOG(INFO) << "submitStagedSession() received by ApexService, session id "
+            << params.sessionId << " child sessions: ["
+            << android::base::Join(params.childSessionIds, ',') << "]";
+
   auto check = CheckCallerSystemOrRoot("submitStagedSession");
   if (!check.isOk()) {
     return check;
   }
-
-  LOG(DEBUG) << "submitStagedSession() received by ApexService, session id "
-             << params.sessionId << " child sessions: ["
-             << android::base::Join(params.childSessionIds, ',') << "]";
 
   Result<std::vector<ApexFile>> packages = ::android::apex::SubmitStagedSession(
       params.sessionId, params.childSessionIds, params.hasRollbackEnabled,
@@ -213,13 +216,14 @@ BinderStatus ApexService::submitStagedSession(const ApexSessionParams& params,
 }
 
 BinderStatus ApexService::markStagedSessionReady(int session_id) {
+  LOG(INFO) << "markStagedSessionReady() received by ApexService, session id "
+            << session_id;
+
   auto check = CheckCallerSystemOrRoot("markStagedSessionReady");
   if (!check.isOk()) {
     return check;
   }
 
-  LOG(DEBUG) << "markStagedSessionReady() received by ApexService, session id "
-             << session_id;
   Result<void> success = ::android::apex::MarkStagedSessionReady(session_id);
   if (!success.ok()) {
     LOG(ERROR) << "Failed to mark session id " << session_id
@@ -232,14 +236,15 @@ BinderStatus ApexService::markStagedSessionReady(int session_id) {
 }
 
 BinderStatus ApexService::markStagedSessionSuccessful(int session_id) {
+  LOG(INFO)
+      << "markStagedSessionSuccessful() received by ApexService, session id "
+      << session_id;
+
   auto check = CheckCallerSystemOrRoot("markStagedSessionSuccessful");
   if (!check.isOk()) {
     return check;
   }
 
-  LOG(DEBUG)
-      << "markStagedSessionSuccessful() received by ApexService, session id "
-      << session_id;
   Result<void> ret = ::android::apex::MarkStagedSessionSuccessful(session_id);
   if (!ret.ok()) {
     LOG(ERROR) << "Failed to mark session " << session_id
@@ -252,6 +257,8 @@ BinderStatus ApexService::markStagedSessionSuccessful(int session_id) {
 }
 
 BinderStatus ApexService::markBootCompleted() {
+  LOG(INFO) << "markBootCompleted() received by ApexService";
+
   auto check = CheckCallerSystemOrRoot("markBootCompleted");
   if (!check.isOk()) {
     return check;
@@ -389,6 +396,8 @@ static std::string ToString(const ApexInfo& package) {
 
 BinderStatus ApexService::getSessions(
     std::vector<ApexSessionInfo>* aidl_return) {
+  LOG(INFO) << "getSessions() received by ApexService";
+
   auto check = CheckCallerSystemOrRoot("getSessions");
   if (!check.isOk()) {
     return check;
@@ -406,13 +415,14 @@ BinderStatus ApexService::getSessions(
 
 BinderStatus ApexService::getStagedSessionInfo(
     int session_id, ApexSessionInfo* apex_session_info) {
+  LOG(INFO) << "getStagedSessionInfo() received by ApexService, session id "
+            << session_id;
+
   auto check = CheckCallerSystemOrRoot("getStagedSessionInfo");
   if (!check.isOk()) {
     return check;
   }
 
-  LOG(DEBUG) << "getStagedSessionInfo() received by ApexService, session id "
-             << session_id;
   auto session = ApexSession::GetSession(session_id);
   if (!session.ok()) {
     // Unknown session.
@@ -428,14 +438,15 @@ BinderStatus ApexService::getStagedSessionInfo(
 
 BinderStatus ApexService::getStagedApexInfos(
     const ApexSessionParams& params, std::vector<ApexInfo>* aidl_return) {
+  LOG(INFO) << "getStagedApexInfos() received by ApexService, session id "
+            << params.sessionId << " child sessions: ["
+            << android::base::Join(params.childSessionIds, ',') << "]";
+
   auto check = CheckCallerSystemOrRoot("getStagedApexInfos");
   if (!check.isOk()) {
     return check;
   }
 
-  LOG(DEBUG) << "getStagedApexInfos() received by ApexService, session id "
-             << params.sessionId << " child sessions: ["
-             << android::base::Join(params.childSessionIds, ',') << "]";
   Result<std::vector<ApexFile>> files = ::android::apex::GetStagedApexFiles(
       params.sessionId, params.childSessionIds);
   if (!files.ok()) {
@@ -448,6 +459,14 @@ BinderStatus ApexService::getStagedApexInfos(
 
   // Retrieve classpath information
   auto class_path = ::android::apex::MountAndDeriveClassPath(*files);
+  if (!class_path.ok()) {
+    LOG(ERROR) << "Failed to getStagedApexInfo session id " << params.sessionId
+               << ": " << class_path.error();
+    return BinderStatus::fromExceptionCode(
+        BinderStatus::EX_SERVICE_SPECIFIC,
+        String8(class_path.error().message().c_str()));
+  }
+
   for (const auto& apex_file : *files) {
     ApexInfo apex_info = GetApexInfo(apex_file);
     auto package_name = apex_info.moduleName;
@@ -460,6 +479,8 @@ BinderStatus ApexService::getStagedApexInfos(
 
 BinderStatus ApexService::getActivePackages(
     std::vector<ApexInfo>* aidl_return) {
+  LOG(INFO) << "getActivePackages received by ApexService";
+
   auto check = CheckCallerSystemOrRoot("getActivePackages");
   if (!check.isOk()) {
     return check;
@@ -477,6 +498,9 @@ BinderStatus ApexService::getActivePackages(
 
 BinderStatus ApexService::getActivePackage(const std::string& package_name,
                                            ApexInfo* aidl_return) {
+  LOG(INFO) << "getActivePackage received by ApexService package_name : "
+            << package_name;
+
   auto check = CheckCallerSystemOrRoot("getActivePackage");
   if (!check.isOk()) {
     return check;
@@ -491,6 +515,8 @@ BinderStatus ApexService::getActivePackage(const std::string& package_name,
 }
 
 BinderStatus ApexService::getAllPackages(std::vector<ApexInfo>* aidl_return) {
+  LOG(INFO) << "getAllPackages received by ApexService";
+
   auto check = CheckCallerSystemOrRoot("getAllPackages");
   if (!check.isOk()) {
     return check;
@@ -516,13 +542,14 @@ BinderStatus ApexService::getAllPackages(std::vector<ApexInfo>* aidl_return) {
 
 BinderStatus ApexService::installAndActivatePackage(
     const std::string& package_path, ApexInfo* aidl_return) {
+  LOG(INFO) << "installAndActivatePackage() received by ApexService, path: "
+            << package_path;
+
   auto check = CheckCallerSystemOrRoot("installAndActivatePackage");
   if (!check.isOk()) {
     return check;
   }
 
-  LOG(DEBUG) << "installAndActivatePackage() received by ApexService, path: "
-             << package_path;
   auto res = InstallPackage(package_path);
   if (!res.ok()) {
     LOG(ERROR) << "Failed to install package " << package_path << " : "
@@ -537,12 +564,14 @@ BinderStatus ApexService::installAndActivatePackage(
 }
 
 BinderStatus ApexService::abortStagedSession(int session_id) {
+  LOG(INFO) << "abortStagedSession() received by ApexService session : "
+            << session_id;
+
   auto check = CheckCallerSystemOrRoot("abortStagedSession");
   if (!check.isOk()) {
     return check;
   }
 
-  LOG(DEBUG) << "abortStagedSession() received by ApexService.";
   Result<void> res = ::android::apex::AbortStagedSession(session_id);
   if (!res.ok()) {
     return BinderStatus::fromExceptionCode(
@@ -553,12 +582,13 @@ BinderStatus ApexService::abortStagedSession(int session_id) {
 }
 
 BinderStatus ApexService::revertActiveSessions() {
+  LOG(INFO) << "revertActiveSessions() received by ApexService.";
+
   auto check = CheckCallerSystemOrRoot("revertActiveSessions");
   if (!check.isOk()) {
     return check;
   }
 
-  LOG(DEBUG) << "revertActiveSessions() received by ApexService.";
   Result<void> res = ::android::apex::RevertActiveSessions("", "");
   if (!res.ok()) {
     return BinderStatus::fromExceptionCode(
@@ -569,6 +599,8 @@ BinderStatus ApexService::revertActiveSessions() {
 }
 
 BinderStatus ApexService::resumeRevertIfNeeded() {
+  LOG(INFO) << "resumeRevertIfNeeded() received by ApexService.";
+
   BinderStatus debug_check = CheckDebuggable("resumeRevertIfNeeded");
   if (!debug_check.isOk()) {
     return debug_check;
@@ -579,7 +611,6 @@ BinderStatus ApexService::resumeRevertIfNeeded() {
     return root_check;
   }
 
-  LOG(DEBUG) << "resumeRevertIfNeeded() received by ApexService.";
   Result<void> res = ::android::apex::ResumeRevertIfNeeded();
   if (!res.ok()) {
     return BinderStatus::fromExceptionCode(
@@ -591,12 +622,14 @@ BinderStatus ApexService::resumeRevertIfNeeded() {
 
 BinderStatus ApexService::snapshotCeData(int user_id, int rollback_id,
                                          const std::string& apex_name) {
+  LOG(INFO) << "snapshotCeData() received by ApexService user_id : " << user_id
+            << " rollback_id : " << rollback_id << " apex_name : " << apex_name;
+
   auto check = CheckCallerSystemOrRoot("snapshotCeData");
   if (!check.isOk()) {
     return check;
   }
 
-  LOG(DEBUG) << "snapshotCeData() received by ApexService.";
   Result<void> res =
       ::android::apex::SnapshotCeData(user_id, rollback_id, apex_name);
   if (!res.ok()) {
@@ -609,12 +642,14 @@ BinderStatus ApexService::snapshotCeData(int user_id, int rollback_id,
 
 BinderStatus ApexService::restoreCeData(int user_id, int rollback_id,
                                         const std::string& apex_name) {
+  LOG(INFO) << "restoreCeData() received by ApexService user_id : " << user_id
+            << " rollback_id : " << rollback_id << " apex_name : " << apex_name;
+
   auto check = CheckCallerSystemOrRoot("restoreCeData");
   if (!check.isOk()) {
     return check;
   }
 
-  LOG(DEBUG) << "restoreCeData() received by ApexService.";
   Result<void> res =
       ::android::apex::RestoreCeData(user_id, rollback_id, apex_name);
   if (!res.ok()) {
@@ -626,12 +661,14 @@ BinderStatus ApexService::restoreCeData(int user_id, int rollback_id,
 }
 
 BinderStatus ApexService::destroyDeSnapshots(int rollback_id) {
+  LOG(INFO) << "destroyDeSnapshots() received by ApexService rollback_id : "
+            << rollback_id;
+
   auto check = CheckCallerSystemOrRoot("destroyDeSnapshots");
   if (!check.isOk()) {
     return check;
   }
 
-  LOG(DEBUG) << "destroyDeSnapshots() received by ApexService.";
   Result<void> res = ::android::apex::DestroyDeSnapshots(rollback_id);
   if (!res.ok()) {
     return BinderStatus::fromExceptionCode(
@@ -642,12 +679,14 @@ BinderStatus ApexService::destroyDeSnapshots(int rollback_id) {
 }
 
 BinderStatus ApexService::destroyCeSnapshots(int user_id, int rollback_id) {
+  LOG(INFO) << "destroyCeSnapshots() received by ApexService user_id : "
+            << user_id << " rollback_id : " << rollback_id;
+
   auto check = CheckCallerSystemOrRoot("destroyCeSnapshots");
   if (!check.isOk()) {
     return check;
   }
 
-  LOG(DEBUG) << "destroyCeSnapshots() received by ApexService.";
   Result<void> res = ::android::apex::DestroyCeSnapshots(user_id, rollback_id);
   if (!res.ok()) {
     return BinderStatus::fromExceptionCode(
@@ -659,12 +698,16 @@ BinderStatus ApexService::destroyCeSnapshots(int user_id, int rollback_id) {
 
 BinderStatus ApexService::destroyCeSnapshotsNotSpecified(
     int user_id, const std::vector<int>& retain_rollback_ids) {
+  LOG(INFO)
+      << "destroyCeSnapshotsNotSpecified() received by ApexService user_id : "
+      << user_id << " retain_rollback_ids : [" << Join(retain_rollback_ids, ',')
+      << "]";
+
   auto check = CheckCallerSystemOrRoot("destroyCeSnapshotsNotSpecified");
   if (!check.isOk()) {
     return check;
   }
 
-  LOG(DEBUG) << "destroyCeSnapshotsNotSpecified() received by ApexService.";
   Result<void> res = ::android::apex::DestroyCeSnapshotsNotSpecified(
       user_id, retain_rollback_ids);
   if (!res.ok()) {
@@ -676,7 +719,8 @@ BinderStatus ApexService::destroyCeSnapshotsNotSpecified(
 }
 
 BinderStatus ApexService::remountPackages() {
-  LOG(DEBUG) << "remountPackages() received by ApexService";
+  LOG(INFO) << "remountPackages() received by ApexService";
+
   if (auto debug = CheckDebuggable("remountPackages"); !debug.isOk()) {
     return debug;
   }
@@ -693,8 +737,9 @@ BinderStatus ApexService::remountPackages() {
 
 BinderStatus ApexService::recollectPreinstalledData(
     const std::vector<std::string>& paths) {
-  LOG(DEBUG) << "recollectPreinstalledData() received by ApexService, paths: "
-             << Join(paths, ',');
+  LOG(INFO) << "recollectPreinstalledData() received by ApexService, paths: "
+            << Join(paths, ',');
+
   if (auto debug = CheckDebuggable("recollectPreinstalledData");
       !debug.isOk()) {
     return debug;
@@ -714,8 +759,9 @@ BinderStatus ApexService::recollectPreinstalledData(
 
 BinderStatus ApexService::recollectDataApex(
     const std::string& path, const std::string& decompression_dir) {
-  LOG(DEBUG) << "recollectDataApex() received by ApexService, paths " << path
-             << " and " << decompression_dir;
+  LOG(INFO) << "recollectDataApex() received by ApexService, paths " << path
+            << " and " << decompression_dir;
+
   if (auto debug = CheckDebuggable("recollectDataApex"); !debug.isOk()) {
     return debug;
   }

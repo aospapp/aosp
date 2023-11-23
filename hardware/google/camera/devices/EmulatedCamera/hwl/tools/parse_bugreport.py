@@ -45,10 +45,16 @@ def parseCameraDump(deviceId, cameraDumpPath, tagList):
     physicalDeviceRegExp = "Physical camera [0-9] characteristics:"
     tagRegExp = " {4}android[a-zA-Z0-9\.]+ \([a-z0-9]+\): "
     tagValueRegExp = "[^a-zA-Z0-9-\._]"
+    expandedTagsRegExp = " \(.*?\)"
+    expandedMetadataTags = ["android.request.availableRequestKeys",
+                            "android.request.availableResultKeys",
+                            "android.request.availableSessionKeys",
+                            "android.request.availableCharacteristicsKeys",
+                            "android.request.availablePhysicalCameraRequestKeys"]
     with open(cameraDumpPath, "r") as file:
         devices = re.split(deviceRegExp, file.read())
         if len(devices) != 3 and len(devices) != 2:
-            print "Camera device id: {0} not found".format(deviceId)
+            print("Camera device id: {0} not found".format(deviceId))
             sys.exit()
 
         physicalDevices = re.split(physicalDeviceRegExp, devices[1])
@@ -66,12 +72,12 @@ def parseCameraDump(deviceId, cameraDumpPath, tagList):
 
                 lines = tag.splitlines()
                 if len(lines) < 2:
-                    print "Empty tag entry, skipping!"
+                    print("Empty tag entry, skipping!")
                     continue
                 tagName = tagsContent[i].split()[0]
 
                 if tagName is None or len(tagName) < 1:
-                    print "Invalid tag found, skipping!"
+                    print("Invalid tag found, skipping!")
                     continue
 
                 i += 1
@@ -82,9 +88,14 @@ def parseCameraDump(deviceId, cameraDumpPath, tagList):
 
                     values = re.split(r' {8}', line)
                     if len(values) == 2:
+                        # For all the tags which have expanded values of the tag ids, remove the
+                        # expanded value in round brackets when generating the json file.
+                        if tagName in expandedMetadataTags:
+                            # replace everything between '<space>(' and ')' with an empty string.
+                            values[1] = re.sub(expandedTagsRegExp, "", values[1])
                         key = tagName
-                        tagValues = filter(None, re.split(tagValueRegExp, values[1]))
-                        if deviceChars.has_key(key):
+                        tagValues = list(filter(None, re.split(tagValueRegExp, values[1])))
+                        if key in deviceChars:
                             deviceChars[key] = deviceChars[key] + tagValues
                         else:
                             deviceChars[key] = tagValues
@@ -103,7 +114,7 @@ if __name__ == '__main__':
         deviceId = str(sys.argv[2])
         configPath = str(sys.argv[3])
     else:
-        print "Usage: parse_bugreport.py PathToBugreport DeviceId JSONConfigurationPath"
+        print("Usage: parse_bugreport.py PathToBugreport DeviceId JSONConfigurationPath")
         sys.exit();
 
     with zipfile.ZipFile(bugreportPath) as bugzip:

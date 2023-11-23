@@ -49,6 +49,11 @@ inline uint32_t fp_sz(VRegister vn) { return vn.is_s() ? 0 : 1 << 22; }
 inline uint32_t postindex(MemOperand op) { return (op.mode == AddressingMode::kPostIndex) ? 0 : 1 << 24; }
 inline uint32_t wb(MemOperand op) { return op.mode == AddressingMode::kOffset ? 0 : 1 << 23; }
 
+inline uint32_t imm9(int32_t imm) {
+  assert(!(imm < kInt9Min || imm > kInt9Max));
+  return (imm & kImm9Mask) << 12;
+}
+
 inline bool is_same_shape(VRegister vt1, VRegister vt2) {
   return vt1.size == vt2.size && vt1.q == vt2.q;
 }
@@ -249,6 +254,10 @@ void Assembler::csel(XRegister xd, XRegister xn, XRegister xm, Condition c) {
   emit32(0x9A800000 | rm(xm) | c << 12 | rn(xn) | rd(xd));
 }
 
+void Assembler::hlt() {
+  emit32(0xD4400000);
+}
+
 void Assembler::ldp(XRegister xt1, XRegister xt2, MemOperand xn) {
   if (!imm7_offset_valid(xn.offset, xt1)) {
     error_ = Error::kInvalidOperand;
@@ -284,11 +293,15 @@ void Assembler::ldr(XRegister xt, MemOperand xn, int32_t imm) {
     return;
   }
 
-  emit32(0xF8400400 | (imm & kImm9Mask) << 12 | rn(xn.base) | rt(xt));
+  emit32(0xF8400400 | imm9(imm) | rn(xn.base) | rt(xt));
 }
 
 void Assembler::mov(XRegister xd, XRegister xn) {
   emit32(0xAA0003E0 | rm(xn) | rd(xd));
+}
+
+void Assembler::nop() {
+  emit32(0xD503201F);
 }
 
 void Assembler::prfm(PrefetchOp prfop, MemOperand xn) {
@@ -312,6 +325,25 @@ void Assembler::stp(XRegister xt1, XRegister xt2, MemOperand xn) {
 
   const uint32_t offset = (xn.offset >> 3) & kImm7Mask;
   emit32(0xA9000000 | wb(xn) | offset << 15 | rt2(xt2) | rn(xn.base) | rt(xt1));
+}
+
+void Assembler::str(XRegister xt1, MemOperand xn) {
+  const int32_t offset = xn.offset;
+  if (xn.mode == AddressingMode::kPreIndex) {
+    if (offset < kInt9Min || offset > kInt9Max) {
+      error_ = Error::kInvalidOperand;
+      return;
+    }
+    emit32(0xF8000C00 | imm9(offset) | rn(xn.base) | rt(xt1));
+  } else if (xn.mode == AddressingMode::kOffset) {
+    if (offset < 0 || offset > kImm12Max || offset % 8 != 0) {
+      error_ = Error::kInvalidOperand;
+      return;
+    }
+    emit32(0xF9000000 | offset >> 3 << 10 | rn(xn.base) | rt(xt1));
+  } else {
+    XNN_UNREACHABLE;
+  }
 }
 
 void Assembler::sub(XRegister xd, XRegister xn, XRegister xm) {
@@ -343,7 +375,7 @@ void Assembler::tst(XRegister xn, uint8_t imm) {
     return;
   }
 
-  const uint32_t imm_s = (ctz(imm_po2) - 1) << 10;
+  const uint32_t imm_s = (math_ctz_u32(imm_po2) - 1) << 10;
   emit32(0xF240001F | imm_s | rn(xn));
 }
 
@@ -356,6 +388,15 @@ void Assembler::dup(DRegister dd, VRegisterLane vn) {
   }
   const uint8_t imm5 = 0b1000 | (vn.lane & 1) << 4;
   emit32(0x5E000400 | imm5 << 16 | rn(vn) | rd(dd));
+}
+
+void Assembler::fabs(VRegister vd, VRegister vn) {
+  if (!is_same_shape(vd, vn)) {
+    error_ = Error::kInvalidOperand;
+    return;
+  }
+
+  emit32(0x0EA0F800 | q(vd) | fp_sz(vn) | rn(vn) | rd(vd));
 }
 
 void Assembler::fadd(VRegister vd, VRegister vn, VRegister vm) {
@@ -398,6 +439,24 @@ void Assembler::fmla(VRegister vd, VRegister vn, VRegisterLane vm) {
   emit32(0x0F801000 | q(vd) | fp_sz(vd) | hl(vm) | rm(vm) | rn(vn) | rd(vd));
 }
 
+void Assembler::fmul(VRegister vd, VRegister vn, VRegister vm) {
+  if (!is_same_shape(vd, vn, vm)) {
+    error_ = Error::kInvalidOperand;
+    return;
+  }
+
+  emit32(0x2E20DC00 | q(vd) | fp_sz(vn) | rm(vm) | rn(vn) | rd(vd));
+}
+
+void Assembler::fneg(VRegister vd, VRegister vn) {
+  if (!is_same_shape(vd, vn)) {
+    error_ = Error::kInvalidOperand;
+    return;
+  }
+
+  emit32(0x2EA0F800 | q(vd) | fp_sz(vn) | rn(vn) | rd(vd));
+}
+
 void Assembler::ld1(VRegisterList vs, MemOperand xn, int32_t imm) {
   VRegister vt = vs.vt1;
 
@@ -427,12 +486,21 @@ void Assembler::ld1r(VRegisterList xs, MemOperand xn) {
 }
 
 void Assembler::ld2r(VRegisterList xs, MemOperand xn) {
-  if (xs.length != 2 || !is_same_shape(xs.vt1, xs.vt2) || xn.offset != 0) {
+  if (xs.length != 2 || !is_same_shape(xs.vt1, xs.vt2) || xn.offset != 0 || !is_consecutive(xs)) {
     error_ = Error::kInvalidOperand;
     return;
   }
 
   emit32(0x0D60C000 | q(xs.vt1) | size(xs.vt1) | rn(xn.base) | xs.vt1.code);
+}
+
+void Assembler::ld3r(VRegisterList xs, MemOperand xn) {
+  if (xs.length != 3 || !is_same_shape(xs.vt1, xs.vt2, xs.vt3) || xn.offset != 0 || !is_consecutive(xs)) {
+    error_ = Error::kInvalidOperand;
+    return;
+  }
+
+  emit32(0x0D40E000 | q(xs.vt1) | size(xs.vt1) | rn(xn.base) | xs.vt1.code);
 }
 
 void Assembler::ldp(DRegister dt1, DRegister dt2, MemOperand xn) {
@@ -568,7 +636,34 @@ void Assembler::str(SRegister st, MemOperand xn, int32_t imm) {
   return str(/*size=*/2, /*opc=*/0, xn, imm, st.code);
 }
 
+void Assembler::align(uint8_t n, AlignInstruction instr) {
+  if (!is_po2(n) || (n % kInstructionSizeInBytes != 0)) {
+    error_ = Error::kInvalidOperand;
+    return;
+  }
+
+  uintptr_t cursor = reinterpret_cast<uintptr_t>(cursor_);
+  const uintptr_t target = round_up_po2(cursor, n);
+  while (cursor < target) {
+    switch (instr) {
+      case AlignInstruction::kHlt:
+        hlt();
+        break;
+      case AlignInstruction::kNop:
+        nop();
+        break;
+      default:
+        XNN_UNREACHABLE;
+    }
+    cursor += kInstructionSizeInBytes;
+  }
+}
+
 void Assembler::bind(Label& l) {
+  if (error_ != Error::kNoError) {
+    return;
+  }
+
   if (l.bound) {
     error_ = Error::kLabelAlreadyBound;
     return;
@@ -620,7 +715,7 @@ void Assembler::ldr(uint32_t size, uint32_t opc, MemOperand xn, int32_t imm, uin
     return;
   }
 
-  emit32(0x3C400400 | size << 30 | opc << 22 | (imm & kImm9Mask) << 12| rn(xn.base) | rt_code);
+  emit32(0x3C400400 | size << 30 | opc << 22 | imm9(imm) | rn(xn.base) | rt_code);
 }
 
 void Assembler::str(uint32_t size, uint32_t opc, MemOperand xn, int32_t imm, uint8_t rt_code) {
@@ -629,7 +724,7 @@ void Assembler::str(uint32_t size, uint32_t opc, MemOperand xn, int32_t imm, uin
     return;
   }
 
-  emit32(0x3C000400 | size << 30 | opc << 22 | (imm & kImm9Mask) << 12 | rn(xn.base) | rt_code);
+  emit32(0x3C000400 | size << 30 | opc << 22 | imm9(imm) | rn(xn.base) | rt_code);
 }
 
 void Assembler::tb_helper(uint32_t op, XRegister xd, uint8_t bit, Label& l) {

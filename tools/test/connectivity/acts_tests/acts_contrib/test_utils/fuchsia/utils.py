@@ -15,8 +15,7 @@
 #   limitations under the License.
 
 import os
-
-from acts.libs.proc.job import Error
+from acts.controllers.fuchsia_lib.ssh import FuchsiaSSHError
 
 
 def http_file_download_by_curl(fd,
@@ -48,39 +47,35 @@ def http_file_download_by_curl(fd,
     file_path = os.path.join(file_directory, file_name)
     curl_cmd = curl_loc
     if limit_rate:
-        curl_cmd += ' --limit-rate %s' % limit_rate
+        curl_cmd += f' --limit-rate {limit_rate}'
     if retry:
-        curl_cmd += ' --retry %s' % retry
+        curl_cmd += f' --retry {retry}'
     if additional_args:
-        curl_cmd += ' %s' % additional_args
-    curl_cmd += ' --url %s > %s' % (url, file_path)
+        curl_cmd += f' {additional_args}'
+    curl_cmd += f' --url {url} > {file_path}'
+
+    fd.log.info(f'Download {url} to {file_path} by ssh command {curl_cmd}')
     try:
-        fd.log.info(
-            'Download %s to %s by ssh command %s' % (url, file_path, curl_cmd))
+        fd.ssh.run(curl_cmd, timeout_sec=timeout)
+        if _check_file_existence(fd, file_path):
+            fd.log.info(f'{url} is downloaded to {file_path} successfully')
+            return True
 
-        status = fd.send_command_ssh(curl_cmd, timeout=timeout)
-        if isinstance(status, Error):
-            status = status.result
-        if not status.stderr:
-            if int(status.exit_status) != 0:
-                fd.log.warning('Curl command: "%s" failed with error %s' %
-                               (curl_cmd, status.exit_status))
-                return False
-
-            if _check_file_existence(fd, file_path):
-                fd.log.info(
-                    '%s is downloaded to %s successfully' % (url, file_path))
-                return True
-        else:
-            fd.log.warning('Fail to download %s' % url)
-            return False
+        fd.log.warning(f'Fail to download {url}')
+        return False
+    except FuchsiaSSHError as e:
+        fd.log.warning(f'Command "{curl_cmd}" failed with error {e}')
+        return False
     except Exception as e:
-        fd.log.warning('Download %s failed with exception %s' % (url, e))
+        fd.log.error(f'Download {url} failed with unexpected exception {e}')
         return False
     finally:
         if remove_file_after_check:
-            fd.log.info('Remove the downloaded file %s' % file_path)
-            fd.send_command_ssh('rm %s' % file_path)
+            fd.log.info(f'Remove the downloaded file {file_path}')
+            try:
+                fd.ssh.run(f'rm {file_path}')
+            except FuchsiaSSHError:
+                pass
 
 
 def _generate_file_directory_and_file_name(url, out_path):
@@ -113,12 +108,12 @@ def _check_file_existence(fd, file_path):
         fd: A fuchsia device
         file_path: Where to store the file on the fuchsia device.
     """
-    out = fd.send_command_ssh('ls -al "%s"' % file_path)
-    if isinstance(out, Error):
-        out = out.result
-    if 'No such file or directory' in out.stdout:
-        fd.log.debug('File %s does not exist.' % file_path)
-        return False
-    else:
-        fd.log.debug('File %s exists.' % file_path)
+    try:
+        result = fd.ssh.run(f'ls -al "{file_path}"')
+        fd.log.debug(f'File {file_path} exists.')
         return True
+    except FuchsiaSSHError as e:
+        if 'No such file or directory' in e.result.stderr:
+            fd.log.debug(f'File {file_path} does not exist.')
+            return False
+        raise e

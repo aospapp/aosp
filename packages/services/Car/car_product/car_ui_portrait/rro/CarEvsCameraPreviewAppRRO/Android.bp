@@ -17,7 +17,7 @@ package {
 android_app {
     name: "CarEvsCameraPreviewAppRRO",
     resource_dirs: ["res"],
-    platform_apis: true,
+    sdk_version: "current",
     certificate: "platform",
     aaptflags: [
         "--no-resource-deduping",

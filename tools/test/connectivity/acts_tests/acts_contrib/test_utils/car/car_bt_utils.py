@@ -26,9 +26,6 @@
 # NOTE: This util is applicable to only non-conference type calls. It is best
 # suited to test cases where only one call is in action at any point of time.
 
-import queue
-import time
-
 from acts import logger
 from acts_contrib.test_utils.bt import bt_test_utils
 from acts_contrib.test_utils.bt.BtEnum import *
@@ -48,8 +45,9 @@ def set_car_profile_priorities_off(car_droid, ph_droid):
         True if success, False if fail.
     """
     # TODO investigate MCE
-    car_profiles = [BluetoothProfile.A2DP_SINK,
-                    BluetoothProfile.HEADSET_CLIENT,
-                    BluetoothProfile.PBAP_CLIENT, BluetoothProfile.MAP_MCE]
+    car_profiles = [
+        BluetoothProfile.A2DP_SINK, BluetoothProfile.HEADSET_CLIENT,
+        BluetoothProfile.PBAP_CLIENT, BluetoothProfile.MAP_MCE
+    ]
     bt_test_utils.set_profile_priority(car_droid, ph_droid, car_profiles,
                                        BluetoothPriorityLevel.PRIORITY_OFF)

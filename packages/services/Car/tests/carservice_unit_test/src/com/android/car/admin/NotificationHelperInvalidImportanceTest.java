@@ -23,7 +23,7 @@ import static android.app.NotificationManager.IMPORTANCE_UNSPECIFIED;
 
 import static com.android.car.admin.NotificationHelper.newNotificationBuilder;
 
-import static org.testng.Assert.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 

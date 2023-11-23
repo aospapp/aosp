@@ -8,24 +8,23 @@ disable=
     # More than 7 variables is reasonable in ModuleData class.
     too-many-instance-attributes,
     # Atest unittests requires below flags:
-    no-self-use,
     duplicate-code,
     consider-using-f-string
 
 [MASTER]
 
-init-hook='import sys, os; sys.path.append(os.getcwd() + '/atest')'
+init-hook='import sys, os; sys.path.append(os.getcwd())'
 
 [BASIC]
-
-# Naming hint for method names.
-method-name-hint=(([a-z][a-z0-9_]{2,50})|(_[a-z0-9_]*))$
 
 # Regular expression matching correct method names.
 method-rgx=(([a-z][a-z0-9_]{2,50})|(_[a-z0-9_]*))$
 
 # Good variable names which should always be accepted, separated by a comma.
 good-names=e, f, i, j
+
+# Naming style for methods
+method-naming-style=snake_case
 
 [DESIGN]
 

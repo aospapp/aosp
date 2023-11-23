@@ -23,7 +23,6 @@
     <!-- All related tests -->
     <option name="compatibility:include-filter" value="CtsAppTestCases android.app.cts.SystemFeaturesTest#testCameraFeatures"/>
     <option name="compatibility:include-filter" value="CtsCameraApi25TestCases" />
-    <option name="compatibility:include-filter" value="CtsCameraApi31TestCases" />
     <option name="compatibility:include-filter" value="CtsPermissionTestCases" />
     <option name="compatibility:include-filter" value="CtsViewTestCases" />
 

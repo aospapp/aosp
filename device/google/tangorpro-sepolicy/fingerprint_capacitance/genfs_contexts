@@ -1,0 +1,1 @@
+genfscon sysfs /devices/platform/odm/odm:fp_fpc1020     u:object_r:sysfs_fingerprint:s0

@@ -850,7 +850,7 @@ public final class StringSearch extends SearchIterator {
      * Checks for identical match
      * @param start offset of possible match
      * @param end offset of possible match
-     * @return TRUE if identical match is found
+     * @return true if identical match is found
      */
     private boolean checkIdentical(int start, int end) {
         if (strength_ != Collator.IDENTICAL) {
@@ -898,7 +898,7 @@ public final class StringSearch extends SearchIterator {
     }
 
     /*
-     * Returns TRUE if index is on a break boundary. If the UStringSearch
+     * Returns true if index is on a break boundary. If the UStringSearch
      * has an external break iterator, test using that, otherwise test
      * using the internal character break iterator.
      */

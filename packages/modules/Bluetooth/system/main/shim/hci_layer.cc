@@ -18,12 +18,11 @@
 
 #include "hci/hci_layer.h"
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 
 #include <algorithm>
 #include <cstdint>
 
-#include "callbacks/callbacks.h"
 #include "gd/common/init_flags.h"
 #include "hci/hci_packets.h"
 #include "hci/include/packet_fragmenter.h"
@@ -35,9 +34,9 @@
 #include "osi/include/allocator.h"
 #include "osi/include/future.h"
 #include "packet/raw_builder.h"
-#include "src/bridge.rs.h"
 #include "stack/include/bt_hdr.h"
 #include "stack/include/bt_types.h"
+#include "stack/include/hcimsgs.h"
 
 /**
  * Callback data wrapped as opaque token bundled with the command
@@ -46,7 +45,9 @@
  * Upon completion a token for a corresponding command transmit.
  * request is returned from the Gd layer.
  */
-using CommandCallbackData = struct { void* context; };
+using CommandCallbackData = struct {
+  void* context;
+};
 
 constexpr size_t kBtHdrSize = sizeof(BT_HDR);
 constexpr size_t kCommandLengthSize = sizeof(uint8_t);
@@ -171,6 +172,9 @@ static bool event_already_registered_in_hci_layer(
     case bluetooth::hci::EventCode::DISCONNECTION_COMPLETE:
     case bluetooth::hci::EventCode::READ_REMOTE_VERSION_INFORMATION_COMPLETE:
       return true;
+    case bluetooth::hci::EventCode::REMOTE_HOST_SUPPORTED_FEATURES_NOTIFICATION:
+    case bluetooth::hci::EventCode::REMOTE_NAME_REQUEST_COMPLETE:
+      return bluetooth::common::init_flags::gd_remote_name_request_is_enabled();
     default:
       return false;
   }
@@ -216,6 +220,8 @@ static bool subevent_already_registered_in_le_hci_layer(
     case bluetooth::hci::SubeventCode::PERIODIC_ADVERTISING_SYNC_LOST:
     case bluetooth::hci::SubeventCode::
         PERIODIC_ADVERTISING_SYNC_TRANSFER_RECEIVED:
+    case bluetooth::hci::SubeventCode::TRANSMIT_POWER_REPORTING:
+    case bluetooth::hci::SubeventCode::BIG_INFO_ADVERTISING_REPORT:
       return true;
     case bluetooth::hci::SubeventCode::READ_REMOTE_FEATURES_COMPLETE:
     case bluetooth::hci::SubeventCode::READ_LOCAL_P256_PUBLIC_KEY_COMPLETE:
@@ -232,8 +238,6 @@ static bool subevent_already_registered_in_le_hci_layer(
     case bluetooth::hci::SubeventCode::BIG_SYNC_LOST:
     case bluetooth::hci::SubeventCode::REQUEST_PEER_SCA_COMPLETE:
     case bluetooth::hci::SubeventCode::PATH_LOSS_THRESHOLD:
-    case bluetooth::hci::SubeventCode::TRANSMIT_POWER_REPORTING:
-    case bluetooth::hci::SubeventCode::BIG_INFO_ADVERTISING_REPORT:
     case bluetooth::hci::SubeventCode::LONG_TERM_KEY_REQUEST:
     default:
       return false;
@@ -320,22 +324,11 @@ static void subevent_callback(
                                                      &le_meta_event_view));
 }
 
-static void vendor_specific_event_callback(
-    bluetooth::hci::VendorSpecificEventView vendor_specific_event_view) {
-  if (!send_data_upwards) {
-    return;
-  }
-  send_data_upwards.Run(
-      FROM_HERE,
-      WrapPacketAndCopy(MSG_HC_TO_STACK_HCI_EVT, &vendor_specific_event_view));
-}
-
 void OnTransmitPacketCommandComplete(command_complete_cb complete_callback,
                                      void* context,
                                      bluetooth::hci::CommandCompleteView view) {
   LOG_DEBUG("Received cmd complete for %s",
             bluetooth::hci::OpCodeText(view.GetCommandOpCode()).c_str());
-  std::vector<uint8_t> data(view.begin(), view.end());
   BT_HDR* response = WrapPacketAndCopy(MSG_HC_TO_STACK_HCI_EVT, &view);
   complete_callback(response, context);
 }
@@ -395,8 +388,9 @@ static void transmit_fragment(const uint8_t* stream, size_t length) {
       handle_with_flags >> 12 & 0b11);
   auto bc_flag =
       static_cast<bluetooth::hci::BroadcastFlag>(handle_with_flags >> 14);
-  uint16_t handle = handle_with_flags & 0xFFF;
-  ASSERT_LOG(handle <= 0xEFF, "Require handle <= 0xEFF, but is 0x%X", handle);
+  uint16_t handle = HCID_GET_HANDLE(handle_with_flags);
+  ASSERT_LOG(handle <= HCI_HANDLE_MAX, "Require handle <= 0x%X, but is 0x%X",
+             HCI_HANDLE_MAX, handle);
   length -= 2;
   // skip data total length
   stream += 2;
@@ -411,8 +405,10 @@ static void transmit_fragment(const uint8_t* stream, size_t length) {
 static void transmit_sco_fragment(const uint8_t* stream, size_t length) {
   uint16_t handle_with_flags;
   STREAM_TO_UINT16(handle_with_flags, stream);
-  uint16_t handle = handle_with_flags & 0xFFF;
-  ASSERT_LOG(handle <= 0xEFF, "Require handle <= 0xEFF, but is 0x%X", handle);
+  uint16_t handle = HCID_GET_HANDLE(handle_with_flags);
+  ASSERT_LOG(handle <= HCI_HANDLE_MAX, "Require handle <= 0x%X, but is 0x%X",
+             HCI_HANDLE_MAX, handle);
+
   length -= 2;
   // skip data total length
   stream += 1;
@@ -433,8 +429,9 @@ static void transmit_iso_fragment(const uint8_t* stream, size_t length) {
       handle_with_flags >> 12 & 0b11);
   auto ts_flag =
       static_cast<bluetooth::hci::TimeStampFlag>(handle_with_flags >> 14);
-  uint16_t handle = handle_with_flags & 0xFFF;
-  ASSERT_LOG(handle <= 0xEFF, "Require handle <= 0xEFF, but is 0x%X", handle);
+  uint16_t handle = HCID_GET_HANDLE(handle_with_flags);
+  ASSERT_LOG(handle <= HCI_HANDLE_MAX, "Require handle <= 0x%X, but is 0x%X",
+             HCI_HANDLE_MAX, handle);
   length -= 2;
   // skip data total length
   stream += 2;
@@ -564,150 +561,6 @@ using bluetooth::common::Bind;
 using bluetooth::common::BindOnce;
 using bluetooth::common::Unretained;
 
-namespace rust {
-
-using bluetooth::shim::rust::u8SliceCallback;
-using bluetooth::shim::rust::u8SliceOnceCallback;
-
-static BT_HDR* WrapRustPacketAndCopy(uint16_t event,
-                                     ::rust::Slice<const uint8_t>* data) {
-  size_t packet_size = data->length() + kBtHdrSize;
-  BT_HDR* packet = reinterpret_cast<BT_HDR*>(osi_malloc(packet_size));
-  packet->offset = 0;
-  packet->len = data->length();
-  packet->layer_specific = 0;
-  packet->event = event;
-  std::copy(data->data(), data->data() + data->length(), packet->data);
-  return packet;
-}
-
-static void on_sco(::rust::Slice<const uint8_t> data) {
-  if (!send_data_upwards) {
-    return;
-  }
-  auto legacy_data = WrapRustPacketAndCopy(MSG_HC_TO_STACK_HCI_SCO, &data);
-  packet_fragmenter->reassemble_and_dispatch(legacy_data);
-}
-
-static void on_iso(::rust::Slice<const uint8_t> data) {
-  if (!send_data_upwards) {
-    return;
-  }
-  auto legacy_data = WrapRustPacketAndCopy(MSG_HC_TO_STACK_HCI_ISO, &data);
-  packet_fragmenter->reassemble_and_dispatch(legacy_data);
-}
-
-static void on_event(::rust::Slice<const uint8_t> data) {
-  if (!send_data_upwards) {
-    return;
-  }
-  send_data_upwards.Run(FROM_HERE,
-                        WrapRustPacketAndCopy(MSG_HC_TO_STACK_HCI_EVT, &data));
-}
-
-void OnRustTransmitPacketCommandComplete(command_complete_cb complete_callback,
-                                         void* context,
-                                         ::rust::Slice<const uint8_t> data) {
-  BT_HDR* response = WrapRustPacketAndCopy(MSG_HC_TO_STACK_HCI_EVT, &data);
-  complete_callback(response, context);
-}
-
-void OnRustTransmitPacketStatus(command_status_cb status_callback,
-                                void* context,
-                                std::unique_ptr<OsiObject> command,
-                                ::rust::Slice<const uint8_t> data) {
-  ASSERT(data.length() >= 3);
-  uint8_t status = data.data()[2];
-  status_callback(status, static_cast<BT_HDR*>(command->Release()), context);
-}
-
-static void transmit_command(const BT_HDR* command,
-                             command_complete_cb complete_callback,
-                             command_status_cb status_callback, void* context) {
-  CHECK(command != nullptr);
-  const uint8_t* data = command->data + command->offset;
-  size_t len = command->len;
-  CHECK(len >= (kCommandOpcodeSize + kCommandLengthSize));
-
-  // little endian command opcode
-  uint16_t command_op_code = (data[1] << 8 | data[0]);
-  auto op_code = static_cast<const bluetooth::hci::OpCode>(command_op_code);
-
-  LOG_DEBUG("Sending command %s", bluetooth::hci::OpCodeText(op_code).c_str());
-
-  if (bluetooth::hci::Checker::IsCommandStatusOpcode(op_code)) {
-    auto command_unique = std::make_unique<OsiObject>(command);
-    bluetooth::shim::rust::hci_send_command(
-        **bluetooth::shim::Stack::Stack::GetInstance()->GetRustHci(),
-        ::rust::Slice(data, len),
-        std::make_unique<u8SliceOnceCallback>(
-            BindOnce(OnRustTransmitPacketStatus, status_callback, context,
-                     std::move(command_unique))));
-  } else {
-    bluetooth::shim::rust::hci_send_command(
-        **bluetooth::shim::Stack::Stack::GetInstance()->GetRustHci(),
-        ::rust::Slice(data, len),
-        std::make_unique<u8SliceOnceCallback>(BindOnce(
-            OnRustTransmitPacketCommandComplete, complete_callback, context)));
-    osi_free(const_cast<void*>(static_cast<const void*>(command)));
-  }
-}
-
-static void transmit_fragment(const uint8_t* stream, size_t length) {
-  bluetooth::shim::rust::hci_send_acl(
-      **bluetooth::shim::Stack::Stack::GetInstance()->GetRustHci(),
-      ::rust::Slice(stream, length));
-}
-
-static void transmit_sco_fragment(const uint8_t* stream, size_t length) {
-  bluetooth::shim::rust::hci_send_sco(
-      **bluetooth::shim::Stack::Stack::GetInstance()->GetRustHci(),
-      ::rust::Slice(stream, length));
-}
-
-static void transmit_iso_fragment(const uint8_t* stream, size_t length) {
-  bluetooth::shim::rust::hci_send_iso(
-      **bluetooth::shim::Stack::Stack::GetInstance()->GetRustHci(),
-      ::rust::Slice(stream, length));
-}
-
-static void register_event(bluetooth::hci::EventCode event_code) {
-  bluetooth::shim::rust::hci_register_event(
-      **bluetooth::shim::Stack::GetInstance()->GetRustHci(),
-      static_cast<uint8_t>(event_code));
-}
-
-static void register_le_event(bluetooth::hci::SubeventCode subevent_code) {
-  bluetooth::shim::rust::hci_register_le_event(
-      **bluetooth::shim::Stack::Stack::GetInstance()->GetRustHci(),
-      static_cast<uint8_t>(subevent_code));
-}
-
-static void hci_on_reset_complete() {
-  bluetooth::shim::rust::hci_set_evt_callback(
-      **bluetooth::shim::Stack::GetInstance()->GetRustHci(),
-      std::make_unique<u8SliceCallback>(Bind(rust::on_event)));
-  bluetooth::shim::rust::hci_set_le_evt_callback(
-      **bluetooth::shim::Stack::GetInstance()->GetRustHci(),
-      std::make_unique<u8SliceCallback>(Bind(rust::on_event)));
-}
-
-static void register_for_sco() {
-  bluetooth::shim::rust::hci_set_sco_callback(
-      **bluetooth::shim::Stack::GetInstance()->GetRustHci(),
-      std::make_unique<u8SliceCallback>(Bind(rust::on_sco)));
-}
-
-static void register_for_iso() {
-  bluetooth::shim::rust::hci_set_iso_callback(
-      **bluetooth::shim::Stack::GetInstance()->GetRustHci(),
-      std::make_unique<u8SliceCallback>(Bind(rust::on_iso)));
-}
-
-static void on_shutting_down() {}
-
-}  // namespace rust
-
 static void set_data_cb(
     base::Callback<void(const base::Location&, BT_HDR*)> send_data_cb) {
   send_data_upwards = std::move(send_data_cb);
@@ -716,12 +569,7 @@ static void set_data_cb(
 static void transmit_command(const BT_HDR* command,
                              command_complete_cb complete_callback,
                              command_status_cb status_callback, void* context) {
-  if (bluetooth::common::init_flags::gd_rust_is_enabled()) {
-    rust::transmit_command(command, complete_callback, status_callback,
-                           context);
-  } else {
-    cpp::transmit_command(command, complete_callback, status_callback, context);
-  }
+  cpp::transmit_command(command, complete_callback, status_callback, context);
 }
 
 static void command_complete_callback(BT_HDR* response, void* context) {
@@ -753,27 +601,15 @@ static void transmit_fragment(BT_HDR* packet, bool send_transmit_finished) {
   if (event == MSG_STACK_TO_HC_HCI_ACL) {
     const uint8_t* stream = packet->data + packet->offset;
     size_t length = packet->len;
-    if (bluetooth::common::init_flags::gd_rust_is_enabled()) {
-      rust::transmit_fragment(stream, length);
-    } else {
-      cpp::transmit_fragment(stream, length);
-    }
+    cpp::transmit_fragment(stream, length);
   } else if (event == MSG_STACK_TO_HC_HCI_SCO) {
     const uint8_t* stream = packet->data + packet->offset;
     size_t length = packet->len;
-    if (bluetooth::common::init_flags::gd_rust_is_enabled()) {
-      rust::transmit_sco_fragment(stream, length);
-    } else {
-      cpp::transmit_sco_fragment(stream, length);
-    }
+    cpp::transmit_sco_fragment(stream, length);
   } else if (event == MSG_STACK_TO_HC_HCI_ISO) {
     const uint8_t* stream = packet->data + packet->offset;
     size_t length = packet->len;
-    if (bluetooth::common::init_flags::gd_rust_is_enabled()) {
-      rust::transmit_iso_fragment(stream, length);
-    } else {
-      cpp::transmit_iso_fragment(stream, length);
-    }
+    cpp::transmit_iso_fragment(stream, length);
   }
 
   if (free_after_transmit) {
@@ -802,13 +638,8 @@ static const packet_fragmenter_callbacks_t packet_fragmenter_callbacks = {
     transmit_fragment, dispatch_reassembled, fragmenter_transmit_finished};
 
 static void transmit_downward(uint16_t type, void* raw_data) {
-  if (bluetooth::common::init_flags::gd_rust_is_enabled()) {
-    packet_fragmenter->fragment_and_dispatch(static_cast<BT_HDR*>(raw_data));
-  } else {
-    bluetooth::shim::GetGdShimHandler()->Call(
-        packet_fragmenter->fragment_and_dispatch,
-        static_cast<BT_HDR*>(raw_data));
-  }
+  bluetooth::shim::GetGdShimHandler()->Call(
+      packet_fragmenter->fragment_and_dispatch, static_cast<BT_HDR*>(raw_data));
 }
 
 static hci_t interface = {.set_data_cb = set_data_cb,
@@ -824,9 +655,6 @@ const hci_t* bluetooth::shim::hci_layer_get_interface() {
 
 void bluetooth::shim::hci_on_reset_complete() {
   ASSERT(send_data_upwards);
-  if (bluetooth::common::init_flags::gd_rust_is_enabled()) {
-    ::rust::hci_on_reset_complete();
-  }
 
   for (uint16_t event_code_raw = 0; event_code_raw < 0x100; event_code_raw++) {
     auto event_code = static_cast<bluetooth::hci::EventCode>(event_code_raw);
@@ -845,11 +673,7 @@ void bluetooth::shim::hci_on_reset_complete() {
       continue;
     }
 
-    if (bluetooth::common::init_flags::gd_rust_is_enabled()) {
-      ::rust::register_event(event_code);
-    } else {
-      cpp::register_event(event_code);
-    }
+    cpp::register_event(event_code);
   }
 
   for (uint16_t subevent_code_raw = 0; subevent_code_raw < 0x100;
@@ -863,38 +687,11 @@ void bluetooth::shim::hci_on_reset_complete() {
       continue;
     }
 
-    if (bluetooth::common::init_flags::gd_rust_is_enabled()) {
-      ::rust::register_le_event(subevent_code);
-    } else {
-      cpp::register_le_event(subevent_code);
-    }
+    cpp::register_le_event(subevent_code);
   }
 
-  // TODO handle BQR event in GD
-  if (!bluetooth::common::init_flags::gd_rust_is_enabled()) {
-    auto handler = bluetooth::shim::GetGdShimHandler();
-    bluetooth::shim::GetVendorSpecificEventManager()->RegisterEventHandler(
-        bluetooth::hci::VseSubeventCode::BQR_EVENT,
-        handler->Bind(cpp::vendor_specific_event_callback));
-  }
-
-  if (bluetooth::common::init_flags::gd_rust_is_enabled()) {
-    ::rust::register_for_sco();
-  } else {
-    cpp::register_for_sco();
-  }
-
-  if (bluetooth::common::init_flags::gd_rust_is_enabled()) {
-    ::rust::register_for_iso();
-  } else {
-    cpp::register_for_iso();
-  }
+  cpp::register_for_sco();
+  cpp::register_for_iso();
 }
 
-void bluetooth::shim::hci_on_shutting_down() {
-  if (bluetooth::common::init_flags::gd_rust_is_enabled()) {
-    ::rust::on_shutting_down();
-  } else {
-    cpp::on_shutting_down();
-  }
-}
+void bluetooth::shim::hci_on_shutting_down() { cpp::on_shutting_down(); }

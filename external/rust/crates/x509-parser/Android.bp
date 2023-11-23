@@ -39,6 +39,7 @@ license {
 
 rust_library {
     name: "libx509_parser",
+    // has rustc warnings
     host_supported: true,
     crate_name: "x509_parser",
     cargo_env_compat: true,
@@ -56,4 +57,10 @@ rust_library {
         "librusticata_macros",
         "libthiserror",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
+    product_available: true,
+    vendor_available: true,
 }

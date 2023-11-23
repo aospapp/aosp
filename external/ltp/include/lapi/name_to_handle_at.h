@@ -4,15 +4,15 @@
  * Author: Viresh Kumar <viresh.kumar@linaro.org>
  */
 
-#ifndef NAME_TO_HANDLE_AT_H__
-#define NAME_TO_HANDLE_AT_H__
+#ifndef LAPI_NAME_TO_HANDLE_AT_H__
+#define LAPI_NAME_TO_HANDLE_AT_H__
 
 #include <sys/syscall.h>
 #include "config.h"
+#include "tst_test.h"
 #include "lapi/syscalls.h"
 #include "lapi/fcntl.h"
 #include "tst_buffers.h"
-#include "tst_test.h"
 
 #ifndef HAVE_NAME_TO_HANDLE_AT
 static inline int name_to_handle_at(int dfd, const char *pathname,
@@ -34,6 +34,7 @@ static inline int open_by_handle_at(int mount_fd, struct file_handle *handle,
 static inline struct file_handle *
 allocate_file_handle(int dfd, const char *pathname)
 {
+	long ret;
 	struct file_handle fh = {}, *fhp;
 	int mount_id;
 
@@ -41,9 +42,9 @@ allocate_file_handle(int dfd, const char *pathname)
 	 * Make an initial call to name_to_handle_at() to discover the size
 	 * required for the file handle.
 	 */
-	TEST(name_to_handle_at(dfd, pathname, &fh, &mount_id, 0));
-	if (TST_RET != -1 || TST_ERR != EOVERFLOW) {
-		tst_res(TFAIL | TTERRNO,
+	ret = name_to_handle_at(dfd, pathname, &fh, &mount_id, 0);
+	if (ret != -1 || errno != EOVERFLOW) {
+		tst_res(TFAIL | TERRNO,
 			"name_to_handle_at() should fail with EOVERFLOW");
 		return NULL;
 	}
@@ -56,4 +57,4 @@ allocate_file_handle(int dfd, const char *pathname)
 	return fhp;
 }
 
-#endif /* NAME_TO_HANDLE_AT_H__ */
+#endif /* LAPI_NAME_TO_HANDLE_AT_H__ */

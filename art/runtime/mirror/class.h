@@ -64,6 +64,8 @@ class Signature;
 template<typename T> class StrideIterator;
 template<size_t kNumReferences> class PACKED(4) StackHandleScope;
 class Thread;
+class DexCacheVisitor;
+class RuntimeImageHelper;
 
 namespace mirror {
 
@@ -236,6 +238,15 @@ class MANAGED Class final : public Object {
   // Set access flags, recording the change if running inside a Transaction.
   void SetAccessFlags(uint32_t new_access_flags) REQUIRES_SHARED(Locks::mutator_lock_);
 
+  void SetInBootImageAndNotInPreloadedClasses() REQUIRES_SHARED(Locks::mutator_lock_) {
+    uint32_t flags = GetAccessFlags();
+    SetAccessFlags(flags | kAccInBootImageAndNotInPreloadedClasses);
+  }
+
+  ALWAYS_INLINE bool IsInBootImageAndNotInPreloadedClasses() REQUIRES_SHARED(Locks::mutator_lock_) {
+    return (GetAccessFlags() & kAccInBootImageAndNotInPreloadedClasses) != 0;
+  }
+
   // Returns true if the class is an enum.
   ALWAYS_INLINE bool IsEnum() REQUIRES_SHARED(Locks::mutator_lock_) {
     return (GetAccessFlags() & kAccEnum) != 0;
@@ -304,6 +315,15 @@ class MANAGED Class final : public Object {
 
   ALWAYS_INLINE void SetDexCacheClass() REQUIRES_SHARED(Locks::mutator_lock_) {
     SetClassFlags(GetClassFlags() | kClassFlagDexCache);
+  }
+
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>
+  ALWAYS_INLINE bool IsRecordClass() REQUIRES_SHARED(Locks::mutator_lock_) {
+    return (GetClassFlags<kVerifyFlags>() & kClassFlagRecord) != 0;
+  }
+
+  ALWAYS_INLINE void SetRecordClass() REQUIRES_SHARED(Locks::mutator_lock_) {
+    SetClassFlags(GetClassFlags() | kClassFlagRecord);
   }
 
   // Returns true if the class is abstract.
@@ -486,6 +506,7 @@ class MANAGED Class final : public Object {
 
   size_t GetComponentSize() REQUIRES_SHARED(Locks::mutator_lock_);
 
+  template<ReadBarrierOption kReadBarrierOption = kWithoutReadBarrier>
   size_t GetComponentSizeShift() REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool IsObjectClass() REQUIRES_SHARED(Locks::mutator_lock_);
@@ -495,7 +516,8 @@ class MANAGED Class final : public Object {
   template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>
   bool IsInstantiable() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
+           ReadBarrierOption kReadBarrierOption = kWithoutReadBarrier>
   ALWAYS_INLINE bool IsObjectArrayClass() REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>
@@ -553,7 +575,7 @@ class MANAGED Class final : public Object {
   // The size of java.lang.Class.class.
   static uint32_t ClassClassSize(PointerSize pointer_size) {
     // The number of vtable entries in java.lang.Class.
-    uint32_t vtable_entries = Object::kVTableLength + 67;
+    uint32_t vtable_entries = Object::kVTableLength + 81;
     return ComputeClassSize(true, vtable_entries, 0, 0, 4, 1, 0, pointer_size);
   }
 
@@ -569,6 +591,9 @@ class MANAGED Class final : public Object {
   }
   static constexpr MemberOffset ObjectSizeAllocFastPathOffset() {
     return OFFSET_OF_OBJECT_MEMBER(Class, object_size_alloc_fast_path_);
+  }
+  static constexpr MemberOffset ClinitThreadIdOffset() {
+    return OFFSET_OF_OBJECT_MEMBER(Class, clinit_thread_id_);
   }
 
   ALWAYS_INLINE void SetObjectSize(uint32_t new_object_size) REQUIRES_SHARED(Locks::mutator_lock_);
@@ -621,21 +646,6 @@ class MANAGED Class final : public Object {
                                 ArtField* field,
                                 ObjPtr<DexCache> dex_cache,
                                 uint32_t field_idx)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  // Can this class access a resolved method?
-  // Note that access to methods's class is checked and this may require looking up the class
-  // referenced by the MethodId in the DexFile in case the declaring class is inaccessible.
-  bool CanAccessResolvedMethod(ObjPtr<Class> access_to,
-                               ArtMethod* resolved_method,
-                               ObjPtr<DexCache> dex_cache,
-                               uint32_t method_idx)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-  bool CheckResolvedMethodAccess(ObjPtr<Class> access_to,
-                                 ArtMethod* resolved_method,
-                                 ObjPtr<DexCache> dex_cache,
-                                 uint32_t method_idx,
-                                 InvokeType throw_invoke_type)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool IsSubClass(ObjPtr<Class> klass) REQUIRES_SHARED(Locks::mutator_lock_);
@@ -865,6 +875,8 @@ class MANAGED Class final : public Object {
   ImTable* GetImt(PointerSize pointer_size) REQUIRES_SHARED(Locks::mutator_lock_);
 
   void SetImt(ImTable* imt, PointerSize pointer_size) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  ImTable* FindSuperImt(PointerSize pointer_size) REQUIRES_SHARED(Locks::mutator_lock_);
 
   ArtMethod* GetEmbeddedVTableEntry(uint32_t i, PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
@@ -1170,9 +1182,18 @@ class MANAGED Class final : public Object {
 
   // Visit native roots visits roots which are keyed off the native pointers such as ArtFields and
   // ArtMethods.
-  template<ReadBarrierOption kReadBarrierOption = kWithReadBarrier, class Visitor>
+  template<ReadBarrierOption kReadBarrierOption = kWithReadBarrier,
+           bool kVisitProxyMethod = true,
+           class Visitor>
   void VisitNativeRoots(Visitor& visitor, PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // Visit obsolete dex caches possibly stored in ext_data_
+  template<ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  void VisitObsoleteDexCaches(DexCacheVisitor& visitor) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template<ReadBarrierOption kReadBarrierOption = kWithReadBarrier, class Visitor>
+  void VisitObsoleteClass(Visitor& visitor) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Visit ArtMethods directly owned by this class.
   template<ReadBarrierOption kReadBarrierOption = kWithReadBarrier, class Visitor>
@@ -1347,6 +1368,13 @@ class MANAGED Class final : public Object {
   size_t GetMethodIdOffset(ArtMethod* method, PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
+  // Returns whether the class should be visible to an app.
+  // Notorious example is java.lang.ClassValue, which was added in Android U and proguarding tools
+  // used that as justification to remove computeValue method implementation. Such an app running
+  // on U+ will fail with AbstractMethodError as computeValue is not implemented.
+  // See b/259501764.
+  bool CheckIsVisibleWithTargetSdk(Thread* self) REQUIRES_SHARED(Locks::mutator_lock_);
+
  private:
   template <typename T, VerifyObjectFlags kVerifyFlags, typename Visitor>
   void FixupNativePointer(
@@ -1365,14 +1393,6 @@ class MANAGED Class final : public Object {
                                ArtField* field,
                                ObjPtr<DexCache> dex_cache,
                                uint32_t field_idx)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  template <bool throw_on_failure>
-  bool ResolvedMethodAccessTest(ObjPtr<Class> access_to,
-                                ArtMethod* resolved_method,
-                                ObjPtr<DexCache> dex_cache,
-                                uint32_t method_idx,
-                                InvokeType throw_invoke_type)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool IsArrayAssignableFromArray(ObjPtr<Class> klass) REQUIRES_SHARED(Locks::mutator_lock_);
@@ -1417,7 +1437,7 @@ class MANAGED Class final : public Object {
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
   // 'Class' Object Fields
-  // Order governed by java field ordering. See art::ClassLinker::LinkFields.
+  // Order governed by java field ordering. See art::ClassLinker::LinkFieldsHelper::LinkFields.
 
   // Defining class loader, or null for the "bootstrap" system loader.
   HeapReference<ClassLoader> class_loader_;
@@ -1571,6 +1591,7 @@ class MANAGED Class final : public Object {
   friend struct art::ClassOffsets;  // for verifying offset information
   friend class Object;  // For VisitReferences
   friend class linker::ImageWriter;  // For SetStatusInternal
+  friend class art::RuntimeImageHelper;  // For SetStatusInternal
   DISALLOW_IMPLICIT_CONSTRUCTORS(Class);
 };
 

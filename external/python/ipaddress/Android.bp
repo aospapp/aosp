@@ -35,9 +35,4 @@ python_library {
     srcs: [
         "ipaddress.py",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-    },
 }

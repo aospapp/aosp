@@ -16,28 +16,25 @@
 
 package dagger.internal.codegen.binding;
 
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.google.auto.common.MoreTypes;
+import androidx.room.compiler.processing.XMethodElement;
+import androidx.room.compiler.processing.XMethodType;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import dagger.internal.codegen.base.ContributionType;
 import dagger.internal.codegen.base.ContributionType.HasContributionType;
 import dagger.internal.codegen.base.MapType;
 import dagger.internal.codegen.base.SetType;
-import dagger.internal.codegen.langmodel.DaggerTypes;
-import dagger.model.Key;
+import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.multibindings.Multibinds;
+import dagger.spi.model.Key;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.inject.Inject;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.ExecutableType;
-import javax.lang.model.type.TypeMirror;
 
 /**
  * A declaration that a multibinding with a certain key is available to be injected in a component
@@ -71,43 +68,36 @@ public abstract class MultibindingDeclaration extends BindingDeclaration
 
   /** A factory for {@link MultibindingDeclaration}s. */
   public static final class Factory {
-    private final DaggerTypes types;
     private final KeyFactory keyFactory;
 
     @Inject
-    Factory(DaggerTypes types, KeyFactory keyFactory) {
-      this.types = types;
+    Factory(KeyFactory keyFactory) {
       this.keyFactory = keyFactory;
     }
 
     /** A multibinding declaration for a {@link Multibinds @Multibinds} method. */
     MultibindingDeclaration forMultibindsMethod(
-        ExecutableElement moduleMethod, TypeElement moduleElement) {
-      checkArgument(isAnnotationPresent(moduleMethod, Multibinds.class));
+        XMethodElement moduleMethod, XTypeElement moduleElement) {
+      checkArgument(moduleMethod.hasAnnotation(TypeNames.MULTIBINDS));
       return forDeclaredMethod(
-          moduleMethod,
-          MoreTypes.asExecutable(
-              types.asMemberOf(MoreTypes.asDeclared(moduleElement.asType()), moduleMethod)),
-          moduleElement);
+          moduleMethod, moduleMethod.asMemberOf(moduleElement.getType()), moduleElement);
     }
 
     private MultibindingDeclaration forDeclaredMethod(
-        ExecutableElement method,
-        ExecutableType methodType,
-        TypeElement contributingType) {
-      TypeMirror returnType = methodType.getReturnType();
+        XMethodElement method, XMethodType methodType, XTypeElement contributingType) {
+      XType returnType = methodType.getReturnType();
       checkArgument(
           SetType.isSet(returnType) || MapType.isMap(returnType),
           "%s must return a set or map",
           method);
       return new AutoValue_MultibindingDeclaration(
-          Optional.<Element>of(method),
+          Optional.of(method),
           Optional.of(contributingType),
-          keyFactory.forMultibindsMethod(methodType, method),
+          keyFactory.forMultibindsMethod(method, methodType),
           contributionType(returnType));
     }
 
-    private ContributionType contributionType(TypeMirror returnType) {
+    private ContributionType contributionType(XType returnType) {
       if (MapType.isMap(returnType)) {
         return ContributionType.MAP;
       } else if (SetType.isSet(returnType)) {

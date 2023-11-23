@@ -137,7 +137,7 @@ public final class DnsResolver {
          * @param answer <T> answer to the query.
          * @param rcode The response code in the DNS response.
          *
-         * {@see android.net.DnsResolver#query query()}
+         * @see android.net.DnsResolver#query query()
          */
         void onAnswer(@NonNull T answer, int rcode);
         /**
@@ -542,7 +542,7 @@ public final class DnsResolver {
 
         DnsAddressAnswer(@NonNull byte[] data) throws ParseException {
             super(data);
-            if ((mHeader.flags & (1 << 15)) == 0) {
+            if ((mHeader.getFlags() & (1 << 15)) == 0) {
                 throw new ParseException("Not an answer packet");
             }
             if (mHeader.getRecordCount(QDSECTION) == 0) {

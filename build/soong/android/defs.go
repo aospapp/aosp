@@ -25,7 +25,8 @@ import (
 )
 
 var (
-	pctx = NewPackageContext("android/soong/android")
+	pctx         = NewPackageContext("android/soong/android")
+	exportedVars = NewExportedVariables(pctx)
 
 	cpPreserveSymlinks = pctx.VariableConfigMethod("cpPreserveSymlinks",
 		Config.CpPreserveSymlinksFlags)
@@ -57,6 +58,14 @@ var (
 		},
 		"cpFlags", "extraCmds")
 
+	// A copy rule that doesn't preserve symlinks.
+	CpNoPreserveSymlink = pctx.AndroidStaticRule("CpNoPreserveSymlink",
+		blueprint.RuleParams{
+			Command:     "rm -f $out && cp $cpFlags $in $out$extraCmds",
+			Description: "cp $out",
+		},
+		"cpFlags", "extraCmds")
+
 	// A copy rule that only updates the output if it changed.
 	CpIfChanged = pctx.AndroidStaticRule("CpIfChanged",
 		blueprint.RuleParams{
@@ -68,7 +77,7 @@ var (
 
 	CpExecutable = pctx.AndroidStaticRule("CpExecutable",
 		blueprint.RuleParams{
-			Command:     "rm -f $out && cp $cpPreserveSymlinks $cpFlags $in $out && chmod +x $out$extraCmds",
+			Command:     "rm -f $out && cp $cpFlags $in $out && chmod +x $out$extraCmds",
 			Description: "cp $out",
 		},
 		"cpFlags", "extraCmds")
@@ -128,6 +137,13 @@ func init() {
 	pctx.VariableFunc("RBEWrapper", func(ctx PackageVarContext) string {
 		return ctx.Config().RBEWrapper()
 	})
+
+	exportedVars.ExportStringList("NeverAllowNotInIncludeDir", neverallowNotInIncludeDir)
+	exportedVars.ExportStringList("NeverAllowNoUseIncludeDir", neverallowNoUseIncludeDir)
+}
+
+func BazelCcToolchainVars(config Config) string {
+	return BazelToolchainVars(config, exportedVars)
 }
 
 var (
@@ -166,10 +182,15 @@ func buildWriteFileRule(ctx BuilderContext, outputFile WritablePath, content str
 // WriteFileRule creates a ninja rule to write contents to a file.  The contents will be escaped
 // so that the file contains exactly the contents passed to the function, plus a trailing newline.
 func WriteFileRule(ctx BuilderContext, outputFile WritablePath, content string) {
+	WriteFileRuleVerbatim(ctx, outputFile, content+"\n")
+}
+
+// WriteFileRuleVerbatim creates a ninja rule to write contents to a file.  The contents will be
+// escaped so that the file contains exactly the contents passed to the function.
+func WriteFileRuleVerbatim(ctx BuilderContext, outputFile WritablePath, content string) {
 	// This is MAX_ARG_STRLEN subtracted with some safety to account for shell escapes
 	const SHARD_SIZE = 131072 - 10000
 
-	content += "\n"
 	if len(content) > SHARD_SIZE {
 		var chunks WritablePaths
 		for i, c := range ShardString(content, SHARD_SIZE) {

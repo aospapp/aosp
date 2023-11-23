@@ -54,10 +54,11 @@ public:
     // stack: a bit map to keep track which nodes have been visited on the stack in the recursion.
     // conditionCache: tracks initial conditions of all ConditionTrackers. returns the
     //                        current condition if called on a config update.
-    virtual bool init(const std::vector<Predicate>& allConditionConfig,
-                      const std::vector<sp<ConditionTracker>>& allConditionTrackers,
-                      const std::unordered_map<int64_t, int>& conditionIdIndexMap,
-                      std::vector<bool>& stack, std::vector<ConditionState>& conditionCache) = 0;
+    virtual optional<InvalidConfigReason> init(
+            const std::vector<Predicate>& allConditionConfig,
+            const std::vector<sp<ConditionTracker>>& allConditionTrackers,
+            const std::unordered_map<int64_t, int>& conditionIdIndexMap, std::vector<bool>& stack,
+            std::vector<ConditionState>& conditionCache) = 0;
 
     // Update appropriate state on config updates. Primarily, all indices need to be updated.
     // This predicate and all of its children are guaranteed to be preserved across the update.
@@ -71,12 +72,13 @@ public:
     // atomMatchingTrackerMap: map of atom matcher id to index after the config update.
     // conditionTrackerMap: map of condition tracker id to index after the config update.
     // returns whether or not the update is successful.
-    virtual bool onConfigUpdated(const std::vector<Predicate>& allConditionProtos, const int index,
-                                 const std::vector<sp<ConditionTracker>>& allConditionTrackers,
-                                 const std::unordered_map<int64_t, int>& atomMatchingTrackerMap,
-                                 const std::unordered_map<int64_t, int>& conditionTrackerMap) {
+    virtual optional<InvalidConfigReason> onConfigUpdated(
+            const std::vector<Predicate>& allConditionProtos, const int index,
+            const std::vector<sp<ConditionTracker>>& allConditionTrackers,
+            const std::unordered_map<int64_t, int>& atomMatchingTrackerMap,
+            const std::unordered_map<int64_t, int>& conditionTrackerMap) {
         mIndex = index;
-        return true;
+        return nullopt;
     }
 
     // evaluate current condition given the new event.

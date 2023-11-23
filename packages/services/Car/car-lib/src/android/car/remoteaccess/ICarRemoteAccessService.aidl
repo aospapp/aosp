@@ -1,0 +1,59 @@
+/*
+ * Copyright (C) 2022 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package android.car.remoteaccess;
+
+import android.car.remoteaccess.ICarRemoteAccessCallback;
+
+/** @hide */
+interface ICarRemoteAccessService {
+    /**
+     * Adds the remote task client represented as {@link ICarRemoteAccessCallback} to listen to
+     * remote access related events.
+     */
+    void addCarRemoteTaskClient(in ICarRemoteAccessCallback callback);
+
+    /**
+     * Removes the remote task client represented as {@link ICarRemoteAccessCallback} from
+     * CarRemoteAccessService.
+     */
+    void removeCarRemoteTaskClient(in ICarRemoteAccessCallback callback);
+
+    /**
+     * Tells CarRemoteAccessService that the remote task is completed.
+     *
+     * @param clientId ID of the remote task client.
+     */
+    void reportRemoteTaskDone(in String clientId, in String taskId);
+
+    /**
+     * Sets the power state after all the remote tasks are completed.
+     *
+     * @param nextPowerState The next power state.
+     * @param runGarageMode Whether to run GarageMode.
+     */
+    void setPowerStatePostTaskExecution(int nextPowerState, boolean runGarageMode);
+
+    /**
+     * Tells CarRemoteAccessService that the remote task client is ready for shutdown.
+     *
+     * <p>After the allowed delay(= 5s), CarRemoteAccessService moves on to shutdown the system
+     * even without this confirmation.
+     *
+     * @param clientId ID of the remote task client.
+     */
+    void confirmReadyForShutdown(in String clientId);
+}

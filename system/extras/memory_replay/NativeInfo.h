@@ -20,8 +20,5 @@ void NativeGetInfo(int smaps_fd, size_t* rss_bytes, size_t* va_bytes);
 
 void NativePrintInfo(const char* preamble);
 
-// Does not support any floating point specifiers.
-void NativePrintf(const char* fmt, ...) __printflike(1, 2);
-
 // Fill buffer as if %0.2f was chosen for value / divisor.
 void NativeFormatFloat(char* buffer, size_t buffer_len, uint64_t value, uint64_t divisor);

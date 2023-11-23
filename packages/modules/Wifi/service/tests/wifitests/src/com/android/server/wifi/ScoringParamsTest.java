@@ -19,6 +19,7 @@ package com.android.server.wifi;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
@@ -26,9 +27,12 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiNetworkSelectionConfig;
+import android.util.SparseArray;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.modules.utils.build.SdkLevel;
 import com.android.wifi.resources.R;
 
 import org.junit.Before;
@@ -331,5 +335,101 @@ public class ScoringParamsTest extends WifiBaseTest {
         assertEquals(mEstimateRssiErrorMargin, mScoringParams.getEstimateRssiErrorMargin());
         assertEquals(mBand6GhzBonus, mScoringParams.getBand6GhzBonus());
         assertEquals(mScoringBucketStepSize, mScoringParams.getScoringBucketStepSize());
+    }
+
+    /**
+     * Check that RSSI thresholds can be set to a specific value and reset to use config.xml values
+     */
+    @Test
+    public void testSetRssiThresholds() throws Exception {
+        mScoringParams = new ScoringParams(mContext);
+
+        int[] reset = new int[4];
+        int[] rssi2 = {-80, -70, -60, -50};
+        int[] rssi5 = {-85, -75, -65, -55};
+        int[] rssi6 = {-70, -65, -60, -55};
+
+        // Set the RSSI 2.4 GHz thresholds and confirm the values
+        mScoringParams.setRssi2Thresholds(rssi2);
+        assertEquals(-80, mScoringParams.getExitRssi(2412));
+        assertEquals(-70, mScoringParams.getEntryRssi(2480));
+        assertEquals(-60, mScoringParams.getSufficientRssi(2457));
+        assertEquals(-50, mScoringParams.getGoodRssi(2442));
+        assertEquals(-50, mScoringParams.getGoodRssi(ScanResult.BAND_24_GHZ_START_FREQ_MHZ));
+
+        // Reset the RSSI 2.4 GHz thresholds and confirm the values
+        mScoringParams.setRssi2Thresholds(reset);
+        assertEquals(mBad2GHz, mScoringParams.getExitRssi(2412));
+        assertEquals(mEntry2GHz, mScoringParams.getEntryRssi(2480));
+        assertEquals(mSufficient2GHz, mScoringParams.getSufficientRssi(2457));
+        assertEquals(mGood2GHz, mScoringParams.getGoodRssi(2442));
+        assertEquals(mGood2GHz, mScoringParams.getGoodRssi(ScanResult.BAND_24_GHZ_START_FREQ_MHZ));
+
+        // Set the RSSI 5 GHz thresholds and confirm the values
+        mScoringParams.setRssi5Thresholds(rssi5);
+        assertEquals(-85, mScoringParams.getExitRssi(5200));
+        assertEquals(-75, mScoringParams.getEntryRssi(5220));
+        assertEquals(-65, mScoringParams.getSufficientRssi(5300));
+        assertEquals(-55, mScoringParams.getGoodRssi(5745));
+        assertEquals(-55, mScoringParams.getGoodRssi(ScanResult.BAND_5_GHZ_START_FREQ_MHZ));
+
+        // Reset the RSSI 5 GHz thresholds and confirm the values
+        mScoringParams.setRssi5Thresholds(reset);
+        assertEquals(mBad5GHz, mScoringParams.getExitRssi(5200));
+        assertEquals(mEntry5GHz, mScoringParams.getEntryRssi(5220));
+        assertEquals(mSufficient5GHz, mScoringParams.getSufficientRssi(5300));
+        assertEquals(mGood5GHz, mScoringParams.getGoodRssi(5745));
+        assertEquals(mGood5GHz, mScoringParams.getGoodRssi(ScanResult.BAND_5_GHZ_START_FREQ_MHZ));
+
+        // Set the RSSI 6 GHz thresholds and confirm the values
+        mScoringParams.setRssi6Thresholds(rssi6);
+        assertEquals(-70, mScoringParams.getExitRssi(5965));
+        assertEquals(-65, mScoringParams.getEntryRssi(6095));
+        assertEquals(-60, mScoringParams.getSufficientRssi(6255));
+        assertEquals(-55, mScoringParams.getGoodRssi(6275));
+        assertEquals(-55, mScoringParams.getGoodRssi(ScanResult.BAND_6_GHZ_START_FREQ_MHZ));
+
+        // Reset the RSSI 6 GHz thresholds and confirm the values
+        mScoringParams.setRssi6Thresholds(reset);
+        assertEquals(mBad6GHz, mScoringParams.getExitRssi(5965));
+        assertEquals(mEntry6GHz, mScoringParams.getEntryRssi(6095));
+        assertEquals(mSufficient6GHz, mScoringParams.getSufficientRssi(6255));
+        assertEquals(mGood6GHz, mScoringParams.getGoodRssi(6275));
+        assertEquals(mGood6GHz, mScoringParams.getGoodRssi(ScanResult.BAND_6_GHZ_START_FREQ_MHZ));
+    }
+
+    /**
+     * Check that frequency weight score returns the expected value
+     */
+    @Test
+    public void testGetFrequencyScore() throws Exception {
+        assumeTrue(SdkLevel.isAtLeastT());
+        // Without setting frequency weights, frequency score should return default value
+        assertEquals(mScoringParams.getFrequencyScore(ScanResult.BAND_24_GHZ_START_FREQ_MHZ),
+                ScoringParams.FREQUENCY_WEIGHT_DEFAULT);
+        assertEquals(mScoringParams.getFrequencyScore(ScanResult.BAND_5_GHZ_START_FREQ_MHZ),
+                ScoringParams.FREQUENCY_WEIGHT_DEFAULT);
+        assertEquals(mScoringParams.getFrequencyScore(ScanResult.BAND_6_GHZ_START_FREQ_MHZ),
+                ScoringParams.FREQUENCY_WEIGHT_DEFAULT);
+
+        // Set frequency weights
+        SparseArray<Integer> weights = new SparseArray<>();
+        weights.put(ScanResult.BAND_24_GHZ_START_FREQ_MHZ,
+                WifiNetworkSelectionConfig.FREQUENCY_WEIGHT_LOW);
+        weights.put(ScanResult.BAND_6_GHZ_START_FREQ_MHZ,
+                WifiNetworkSelectionConfig.FREQUENCY_WEIGHT_HIGH);
+        mScoringParams.setFrequencyWeights(weights);
+
+        // Verify the frequency score change
+        assertEquals(mScoringParams.getFrequencyScore(ScanResult.BAND_24_GHZ_START_FREQ_MHZ),
+                ScoringParams.FREQUENCY_WEIGHT_LOW);
+        assertEquals(mScoringParams.getFrequencyScore(ScanResult.BAND_6_GHZ_START_FREQ_MHZ),
+                ScoringParams.FREQUENCY_WEIGHT_HIGH);
+
+        // Verify frequency not present in the list returns the default score
+        assertEquals(mScoringParams.getFrequencyScore(2000),
+                ScoringParams.FREQUENCY_WEIGHT_DEFAULT);
+        assertEquals(mScoringParams.getFrequencyScore(6000),
+                ScoringParams.FREQUENCY_WEIGHT_DEFAULT);
     }
 }

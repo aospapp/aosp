@@ -7,5 +7,21 @@
     {
       "path": "external/rust/crates/tokio-test"
     }
+  ],
+  "presubmit": [
+    {
+      "name": "async-stream_test_tests_for_await"
+    },
+    {
+      "name": "async-stream_test_tests_try_stream"
+    }
+  ],
+  "presubmit-rust": [
+    {
+      "name": "async-stream_test_tests_for_await"
+    },
+    {
+      "name": "async-stream_test_tests_try_stream"
+    }
   ]
 }

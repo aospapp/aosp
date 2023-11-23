@@ -56,9 +56,8 @@ public class MediaSessionWrapperTest {
 
     @Before
     public void setUp() {
-        pendingIntent =
-                PendingIntent.getActivity(
-                        RuntimeEnvironment.application, TEST_REQUEST_CODE, new Intent(), 0);
+        pendingIntent = PendingIntent.getActivity(RuntimeEnvironment.application, TEST_REQUEST_CODE,
+                new Intent(), PendingIntent.FLAG_IMMUTABLE);
         mediaSessionWrapper =
                 new MediaSessionWrapper(RuntimeEnvironment.application, pendingIntent) {
                     @Override

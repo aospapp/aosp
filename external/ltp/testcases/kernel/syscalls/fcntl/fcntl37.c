@@ -14,7 +14,6 @@
  */
 
 #include <unistd.h>
-#include <fcntl.h>
 #include <sys/types.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -68,7 +67,7 @@ static void setup(void)
 
 	wrbuf = SAFE_MALLOC(orig_value);
 	memset(wrbuf, 'x', orig_value);
-	SAFE_WRITE(1, fds[1], wrbuf, orig_value);
+	SAFE_WRITE(SAFE_WRITE_ALL, fds[1], wrbuf, orig_value);
 	free(wrbuf);
 
 	SAFE_FILE_SCANF("/proc/sys/fs/pipe-max-size", "%d", &sys_value);

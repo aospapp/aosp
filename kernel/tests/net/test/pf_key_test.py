@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2017 The Android Open Source Project
 #
@@ -18,13 +18,14 @@
 from socket import *
 import unittest
 
+import binascii
 import csocket
 import pf_key
 import xfrm
 
-ENCRYPTION_KEY = ("308146eb3bd84b044573d60f5a5fd159"
-                  "57c7d4fe567a2120f35bae0f9869ec22".decode("hex"))
-AUTH_KEY = "af442892cdcd0ef650e9c299f9a8436a".decode("hex")
+ENCRYPTION_KEY = binascii.unhexlify("308146eb3bd84b044573d60f5a5fd159"
+                                    "57c7d4fe567a2120f35bae0f9869ec22")
+AUTH_KEY = binascii.unhexlify("af442892cdcd0ef650e9c299f9a8436a")
 
 
 class PfKeyTest(unittest.TestCase):
@@ -32,6 +33,10 @@ class PfKeyTest(unittest.TestCase):
   def setUp(self):
     self.pf_key = pf_key.PfKey()
     self.xfrm = xfrm.Xfrm()
+
+  def tearDown(self):
+    self.pf_key.close()
+    self.pf_key = None
 
   def testAddDelSa(self):
     src4 = csocket.Sockaddr(("192.0.2.1", 0))
@@ -72,27 +77,39 @@ class PfKeyTest(unittest.TestCase):
 
     # The algorithm names are null-terminated, but after that contain garbage.
     # Kernel bug?
-    aes_name = "cbc(aes)\x00"
-    sha256_name = "hmac(sha256)\x00"
+    aes_name = b"cbc(aes)\x00"
+    sha256_name = b"hmac(sha256)\x00"
     self.assertTrue(attrs4["XFRMA_ALG_CRYPT"].name.startswith(aes_name))
     self.assertTrue(attrs6["XFRMA_ALG_CRYPT"].name.startswith(aes_name))
     self.assertTrue(attrs4["XFRMA_ALG_AUTH"].name.startswith(sha256_name))
     self.assertTrue(attrs6["XFRMA_ALG_AUTH"].name.startswith(sha256_name))
 
     self.assertEqual(256, attrs4["XFRMA_ALG_CRYPT"].key_len)
-    self.assertEqual(256, attrs4["XFRMA_ALG_CRYPT"].key_len)
+    self.assertEqual(256, attrs6["XFRMA_ALG_CRYPT"].key_len)
+    self.assertEqual(256, attrs4["XFRMA_ALG_AUTH"].key_len)
     self.assertEqual(256, attrs6["XFRMA_ALG_AUTH"].key_len)
-    self.assertEqual(256, attrs6["XFRMA_ALG_AUTH"].key_len)
-    self.assertEqual(256, attrs6["XFRMA_ALG_AUTH_TRUNC"].key_len)
+    self.assertEqual(256, attrs4["XFRMA_ALG_AUTH_TRUNC"].key_len)
     self.assertEqual(256, attrs6["XFRMA_ALG_AUTH_TRUNC"].key_len)
 
-    self.assertEqual(128, attrs4["XFRMA_ALG_AUTH_TRUNC"].trunc_len)
-    self.assertEqual(128, attrs4["XFRMA_ALG_AUTH_TRUNC"].trunc_len)
+    if attrs4["XFRMA_ALG_AUTH_TRUNC"].trunc_len == 96:
+        missing4 = True
+    else:
+        self.assertEqual(128, attrs4["XFRMA_ALG_AUTH_TRUNC"].trunc_len)
+        missing4 = False
+
+    if attrs6["XFRMA_ALG_AUTH_TRUNC"].trunc_len == 96:
+        missing6 = True
+    else:
+        self.assertEqual(128, attrs6["XFRMA_ALG_AUTH_TRUNC"].trunc_len)
+        missing6 = False
 
     self.pf_key.DelSa(src4, dst4, 0xdeadbeef, pf_key.SADB_TYPE_ESP)
     self.assertEqual(1, len(self.xfrm.DumpSaInfo()))
     self.pf_key.DelSa(src6, dst6, 0xbeefdead, pf_key.SADB_TYPE_ESP)
     self.assertEqual(0, len(self.xfrm.DumpSaInfo()))
+
+    if missing4 or missing6:
+        self.assertFalse("missing b8a72fd7c4e9 ANDROID: net: xfrm: make PF_KEY SHA256 use RFC-compliant truncation.")
 
 
 if __name__ == "__main__":

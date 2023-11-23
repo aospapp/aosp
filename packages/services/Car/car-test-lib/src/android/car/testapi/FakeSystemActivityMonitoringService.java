@@ -33,8 +33,12 @@ public class FakeSystemActivityMonitoringService extends SystemActivityMonitorin
     private int mForegroundPid = DEFAULT_FOREGROUND_ID;
     private int mForegroundUid = DEFAULT_FOREGROUND_ID;
 
-    FakeSystemActivityMonitoringService(Context context) {
-         super(context);
+    public FakeSystemActivityMonitoringService(Context context) {
+        super(context);
+    }
+
+    public FakeSystemActivityMonitoringService() {
+        this(/*context=*/ null);
     }
 
     @Override

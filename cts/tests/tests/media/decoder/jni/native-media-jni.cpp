@@ -300,13 +300,12 @@ extern "C" jobject Java_android_media_decoder_cts_NativeDecoderTest_getDecodedDa
 
     int numtracks = AMediaExtractor_getTrackCount(ex);
 
-    AMediaCodec **codec = new AMediaCodec*[numtracks];
-    AMediaFormat **format = new AMediaFormat*[numtracks];
-    memset(format, 0, sizeof(AMediaFormat*) * numtracks);
-    bool *sawInputEOS = new bool[numtracks];
-    bool *sawOutputEOS = new bool[numtracks];
-    simplevector<int> *sizes = new simplevector<int>[numtracks];
-    CallbackData *callbackData = new CallbackData[numtracks];
+    std::unique_ptr<AMediaCodec*[]> codec(new AMediaCodec*[numtracks]());
+    std::unique_ptr<AMediaFormat*[]> format(new AMediaFormat*[numtracks]());
+    std::unique_ptr<bool[]> sawInputEOS(new bool[numtracks]);
+    std::unique_ptr<bool[]> sawOutputEOS(new bool[numtracks]);
+    std::unique_ptr<simplevector<int>[]> sizes(new simplevector<int>[numtracks]);
+    std::unique_ptr<CallbackData[]> callbackData(new CallbackData[numtracks]);
 
     ALOGV("input has %d tracks", numtracks);
     for (int i = 0; i < numtracks; i++) {
@@ -458,17 +457,11 @@ extern "C" jobject Java_android_media_decoder_cts_NativeDecoderTest_getDecodedDa
     }
     env->ReleaseIntArrayElements(ret, org, 0);
 
-    delete[] callbackData;
-    delete[] sizes;
-    delete[] sawOutputEOS;
-    delete[] sawInputEOS;
     for (int i = 0; i < numtracks; i++) {
         AMediaFormat_delete(format[i]);
         AMediaCodec_stop(codec[i]);
         AMediaCodec_delete(codec[i]);
     }
-    delete[] format;
-    delete[] codec;
     AMediaExtractor_delete(ex);
     AMediaDataSource_delete(ndkSrc);
     return ret;

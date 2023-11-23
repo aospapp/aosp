@@ -45,11 +45,7 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_1x8__aarch64_neonfma_cortex_a53
         LDP     q16, q17, [x5], 32
 
         MOVI    v18.4s, 0               // second set of C for pipelining FMLA
-        PRFM    PLDL1KEEP, [x5]
         MOVI    v19.4s, 0
-        PRFM    PLDL1KEEP, [x5, 64]
-        PRFM    PLDL1KEEP, [x5, 128]
-        PRFM    PLDL1KEEP, [x5, 192]
 
         # Is there at least 8 floats (32 bytes) for prologue + epilogue?
         SUBS    x0, x2, 32              // k = kc - 32
@@ -89,6 +85,7 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_1x8__aarch64_neonfma_cortex_a53
         LDR     q26, [x5], 16
         LDR     q27, [x5], 16
 
+
         # Second block of 4.  FMA for second 4, loads for 1st block of 4.
         FMLA    v16.4s, v20.4s, v1.s[0]
         LDR     q0, [x3], 16
@@ -105,8 +102,8 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_1x8__aarch64_neonfma_cortex_a53
         FMLA    v18.4s, v26.4s, v1.s[3]
         LDR     q25, [x5], 16
         FMLA    v19.4s, v27.4s, v1.s[3]
-        LDR     q26, [x5], 16
         SUBS    x0, x0, 32
+        LDR     q26, [x5], 16
         LDR     q27, [x5], 16
         B.HS    1b
 
@@ -147,7 +144,7 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_1x8__aarch64_neonfma_cortex_a53
         TBNZ    x0, 4, 5f
         # Is there a remainder?- 2 floats of A (8 bytes)
         TBNZ    x0, 3, 6f
-        # Is there a remainder?- 1 floats of A (4 bytes)
+        # Is there a remainder?- 1 float of A (4 bytes)
         TBNZ    x0, 2, 8f
 
 4:

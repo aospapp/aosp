@@ -21,7 +21,10 @@ java_test_host {
     defaults: ["cts_defaults"],
     srcs: ["src/**/*.java"],
     libs: ["cts-tradefed", "tradefed", "truth-prebuilt"],
-    data: [":CtsRootRollbackManagerHostTestHelperApp"],
+    data: [
+        ":CtsRootPackageInstallerTestCases",
+        ":CtsRootRollbackManagerHostTestHelperApp",
+    ],
     test_suites: ["cts_root", "general-tests"],
 }
 

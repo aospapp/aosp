@@ -168,16 +168,22 @@ public final class AppSearchUserInstanceManager {
     /**
      * Gets an {@link UserStorageInfo} for the given user.
      *
+     * @param userContext Context for the user.
      * @param userHandle The multi-user handle of the device user
      * @return An initialized {@link UserStorageInfo} for this user
      */
     @NonNull
-    public UserStorageInfo getOrCreateUserStorageInfoInstance(@NonNull UserHandle userHandle) {
+    public UserStorageInfo getOrCreateUserStorageInfoInstance(
+        @NonNull Context userContext, @NonNull UserHandle userHandle) {
+        Objects.requireNonNull(userContext);
         Objects.requireNonNull(userHandle);
         synchronized (mStorageInfoLocked) {
             UserStorageInfo userStorageInfo = mStorageInfoLocked.get(userHandle);
             if (userStorageInfo == null) {
-                userStorageInfo = new UserStorageInfo(AppSearchModule.getAppSearchDir(userHandle));
+                File appSearchDir = AppSearchEnvironmentFactory
+                    .getEnvironmentInstance()
+                    .getAppSearchDir(userContext, userHandle);
+                userStorageInfo = new UserStorageInfo(appSearchDir);
                 mStorageInfoLocked.put(userHandle, userStorageInfo);
             }
             return userStorageInfo;
@@ -208,19 +214,23 @@ public final class AppSearchUserInstanceManager {
         // Initialize the classes that make up AppSearchUserInstance
         PlatformLogger logger = new PlatformLogger(userContext, config);
 
-        File appSearchDir = AppSearchModule.getAppSearchDir(userHandle);
+        File appSearchDir = AppSearchEnvironmentFactory
+            .getEnvironmentInstance()
+            .getAppSearchDir(userContext, userHandle);
         File icingDir = new File(appSearchDir, "icing");
         Log.i(TAG, "Creating new AppSearch instance at: " + icingDir);
         VisibilityCheckerImpl visibilityCheckerImpl = new VisibilityCheckerImpl(userContext);
         AppSearchImpl appSearchImpl = AppSearchImpl.create(
                 icingDir,
-                new FrameworkLimitConfig(config),
+                /* limitConfig= */ config,
+                /* icingOptionsConfig= */ config,
                 initStatsBuilder,
                 new FrameworkOptimizeStrategy(config),
                 visibilityCheckerImpl);
 
         // Update storage info file
-        UserStorageInfo userStorageInfo = getOrCreateUserStorageInfoInstance(userHandle);
+        UserStorageInfo userStorageInfo = getOrCreateUserStorageInfoInstance(
+            userContext, userHandle);
         userStorageInfo.updateStorageInfoFile(appSearchImpl);
 
         initStatsBuilder

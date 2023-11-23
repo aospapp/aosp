@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -10,11 +11,15 @@ A test which monitors the camera HAL3 performance metrics:
     4. Shot to shot time
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import os, logging
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.camera import camera_utils
+from six.moves import map
 
 
 class camera_HAL3Perf(test.test):
@@ -65,7 +70,7 @@ class camera_HAL3Perf(test.test):
                     else:
                         msg = 'Error in parsing the log file (%s)' % log_file
                         raise error.TestFail(msg)
-        except IOError, err:
+        except IOError as err:
             msg = 'Error in reading the log file (%s): %s' % (log_file, err)
             raise error.TestFail(msg)
 

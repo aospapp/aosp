@@ -118,21 +118,20 @@ private:
     CollectionEvent mCurrentCollectionEvent GUARDED_BY(mMutex);
 
     // Periodic collection information
-    CollectionInfo  mPeriodicCollectionInfo GUARDED_BY(mMutex);
+    CollectionInfo mPeriodicCollectionInfo GUARDED_BY(mMutex);
 
     // A collection during the custom period the user sets
-    CollectionInfo  mCustomCollectionInfo GUARDED_BY(mMutex);
+    CollectionInfo mCustomCollectionInfo GUARDED_BY(mMutex);
 
     // A list of HalCamera objects to monitor
-    std::unordered_map<std::string,
-                       android::wp<HalCamera>> mClientsToMonitor GUARDED_BY(mMutex);
+    std::unordered_map<std::string, android::wp<HalCamera>> mClientsToMonitor GUARDED_BY(mMutex);
 
     // Handles the messages from the looper
     void handleMessage(const Message& message) override;
 
     // Handles each CollectionEvent
-    android::base::Result<void> handleCollectionEvent(
-            CollectionEvent event, CollectionInfo* info) EXCLUDES(mMutex);
+    android::base::Result<void> handleCollectionEvent(CollectionEvent event, CollectionInfo* info)
+            EXCLUDES(mMutex);
 
     // Pulls the statistics from each active HalCamera objects and generates the
     // records

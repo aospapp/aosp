@@ -19,15 +19,14 @@
  *   Functions generated:6
  */
 
+#include <base/functional/bind.h>
+#include <string.h>
+
+#include <algorithm>
 #include <map>
 #include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <base/bind.h>
-#include <string.h>
-#include <algorithm>
 #include <vector>
+
 #include "bind_helpers.h"
 #include "bt_target.h"
 #include "btm_ble_api.h"
@@ -35,7 +34,7 @@ extern std::map<std::string, int> mock_function_count_map;
 #include "device/include/controller.h"
 #include "stack/btm/btm_ble_int.h"
 #include "stack/btm/btm_int_types.h"
-#include "utils/include/bt_utils.h"
+#include "test/common/mock_functions.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
@@ -45,19 +44,19 @@ void BTM_BleAdvFilterParamSetup(
     tBTM_BLE_SCAN_COND_OP action, tBTM_BLE_PF_FILT_INDEX filt_index,
     std::unique_ptr<btgatt_filt_param_setup_t> p_filt_params,
     tBTM_BLE_PF_PARAM_CB cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void BTM_BleEnableDisableFilterFeature(uint8_t enable,
                                        tBTM_BLE_PF_STATUS_CBACK p_stat_cback) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void BTM_LE_PF_clear(tBTM_BLE_PF_FILT_INDEX filt_index,
                      tBTM_BLE_PF_CFG_CBACK cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
                    std::vector<ApcfCommand> commands,
                    tBTM_BLE_PF_CFG_CBACK cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
-void btm_ble_adv_filter_init(void) { mock_function_count_map[__func__]++; }
+void btm_ble_adv_filter_init(void) { inc_func_call_count(__func__); }

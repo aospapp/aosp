@@ -4,14 +4,12 @@
 # Copyright (c) 2019 FUJITSU LIMITED. All rights reserved.
 # Author: Xiao Yang <yangx.jy@cn.fujitsu.com>
 
-TST_SETUP=binfmt_misc_setup
-TST_CLEANUP=binfmt_misc_cleanup
+TST_SETUP="${TST_SETUP:-binfmt_misc_setup}"
+TST_CLEANUP="${TST_CLEANUP:-binfmt_misc_cleanup}"
 TST_NEEDS_DRIVERS="binfmt_misc"
 TST_NEEDS_TMPDIR=1
 TST_NEEDS_ROOT=1
 TST_NEEDS_CMDS="${TST_NEEDS_CMDS} modprobe mount umount mkdir rm"
-
-. tst_test.sh
 
 rmod_binfmt_misc=0
 umount_binfmt_misc=0
@@ -72,3 +70,5 @@ binfmt_misc_cleanup()
 		rmod_binfmt_misc=0
 	fi
 }
+
+. tst_test.sh

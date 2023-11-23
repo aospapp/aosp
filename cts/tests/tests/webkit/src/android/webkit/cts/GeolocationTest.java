@@ -16,49 +16,50 @@
 
 package android.webkit.cts;
 
+import static org.junit.Assert.assertFalse;
+
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.location.Criteria;
 import android.location.Location;
-import android.location.LocationListener;
 import android.location.LocationManager;
 import android.location.LocationProvider;
-import android.platform.test.annotations.AppModeFull;
-import android.os.Bundle;
-import android.os.Looper;
 import android.os.SystemClock;
-import android.test.ActivityInstrumentationTestCase2;
-import android.webkit.CookieManager;
-import android.webkit.CookieSyncManager;
+import android.platform.test.annotations.AppModeFull;
 import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
-import android.webkit.WebChromeClient;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.webkit.cts.WebViewSyncLoader.WaitForLoadedClient;
 import android.webkit.cts.WebViewSyncLoader.WaitForProgressClient;
+
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.MediumTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.LocationUtils;
 import com.android.compatibility.common.util.NullWebViewUtils;
 import com.android.compatibility.common.util.PollingCheck;
 
+import org.junit.After;
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.io.ByteArrayInputStream;
 import java.io.UnsupportedEncodingException;
-import java.util.concurrent.Callable;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Random;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.Set;
 import java.util.TreeSet;
-
-import junit.framework.Assert;
+import java.util.concurrent.Callable;
 
 @AppModeFull(reason = "Instant apps do not have access to location information")
-public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class GeolocationTest {
 
     // TODO Write additional tests to cover:
     // - test that the errors are correct
@@ -107,16 +108,16 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
             "  </body>\n" +
             "</html>";
 
+    @Rule
+    public ActivityScenarioRule mActivityScenarioRule =
+            new ActivityScenarioRule(WebViewCtsActivity.class);
+
     private JavascriptStatusReceiver mJavascriptStatusReceiver;
     private LocationManager mLocationManager;
     private WebViewOnUiThread mOnUiThread;
     private Thread mLocationUpdateThread;
     private volatile boolean mLocationUpdateThreadExitRequested;
     private List<String> mProviders;
-
-    public GeolocationTest() throws Exception {
-        super("android.webkit.cts", WebViewCtsActivity.class);
-    }
 
     // Both this test and WebViewOnUiThread need to override some of the methods on WebViewClient,
     // so this test sublclasses the WebViewClient from WebViewOnUiThread
@@ -132,27 +133,33 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
             try {
                 return new WebResourceResponse("text/html", "utf-8",
                     new ByteArrayInputStream(RAW_HTML.getBytes("UTF-8")));
-            } catch(java.io.UnsupportedEncodingException e) {
+            } catch (UnsupportedEncodingException e) {
                 return null;
             }
         }
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
+        Assume.assumeTrue("WebView is not available", NullWebViewUtils.isWebViewAvailable());
+        mActivityScenarioRule.getScenario().onActivity(activity -> {
+            WebViewCtsActivity webViewCtsActivity = (WebViewCtsActivity) activity;
+            WebView webview = webViewCtsActivity.getWebView();
+            if (webview != null) {
+                mOnUiThread = new WebViewOnUiThread(webview);
+            }
+        });
+        LocationUtils.registerMockLocationProvider(
+                InstrumentationRegistry.getInstrumentation(), true);
 
-        LocationUtils.registerMockLocationProvider(getInstrumentation(), true);
-        WebView webview = getActivity().getWebView();
-
-        if (webview != null) {
+        if (mOnUiThread != null) {
             // Set up a WebView with JavaScript and Geolocation enabled
             final String GEO_DIR = "geo_test";
-            mOnUiThread = new WebViewOnUiThread(webview);
             mOnUiThread.getSettings().setJavaScriptEnabled(true);
             mOnUiThread.getSettings().setGeolocationEnabled(true);
             mOnUiThread.getSettings().setGeolocationDatabasePath(
-                    getActivity().getApplicationContext().getDir(GEO_DIR, 0).getPath());
+                    InstrumentationRegistry.getInstrumentation().getContext().getDir(GEO_DIR, 0)
+                    .getPath());
 
             // Add a JsInterface to report back to the test when a location is received
             mJavascriptStatusReceiver = new JavascriptStatusReceiver();
@@ -163,8 +170,8 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
             // Clear all permissions before each test
             GeolocationPermissions.getInstance().clearAll();
             // Cache this mostly because the lookup is two lines of code
-            mLocationManager = (LocationManager)getActivity().getApplicationContext()
-                    .getSystemService(Context.LOCATION_SERVICE);
+            mLocationManager = (LocationManager) InstrumentationRegistry.getInstrumentation()
+                    .getContext().getSystemService(Context.LOCATION_SERVICE);
             // Add a test provider before each test to inject a location
             mProviders = mLocationManager.getAllProviders();
             for (String provider : mProviders) {
@@ -184,8 +191,8 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
         }
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         stopUpdateLocationThread();
         if (mProviders != null) {
             // Remove the test provider after each test
@@ -201,13 +208,12 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
                 removeTestLocationProvider();
             }
         }
-        LocationUtils.registerMockLocationProvider(getInstrumentation(), false);
+        LocationUtils.registerMockLocationProvider(
+                InstrumentationRegistry.getInstrumentation(), false);
 
         if (mOnUiThread != null) {
             mOnUiThread.cleanUp();
         }
-        // This will null all member and static variables
-        super.tearDown();
     }
 
     private void addTestProviders() {
@@ -266,7 +272,7 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
                     while (!mLocationUpdateThreadExitRequested) {
                         try {
                             Thread.sleep(LOCATION_THREAD_UPDATE_WAIT_MS);
-                        } catch(Exception e) {
+                        } catch (Exception e) {
                             // Do nothing, an extra update is no problem
                         }
                         updateLocation();
@@ -334,10 +340,8 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
     }
 
     // Test loading a page and accepting the domain for one load
+    @Test
     public void testSimpleGeolocationRequestAcceptOnce() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         final TestSimpleGeolocationRequestWebChromeClient chromeClientAcceptOnce =
                 new TestSimpleGeolocationRequestWebChromeClient(mOnUiThread, true, false);
         mOnUiThread.setWebChromeClient(chromeClientAcceptOnce);
@@ -427,10 +431,8 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
     }
 
     // Test loading a page and retaining the domain forever
+    @Test
     public void testSimpleGeolocationRequestAcceptAlways() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         final TestSimpleGeolocationRequestWebChromeClient chromeClientAcceptAlways =
                 new TestSimpleGeolocationRequestWebChromeClient(mOnUiThread, true, true);
         mOnUiThread.setWebChromeClient(chromeClientAcceptAlways);
@@ -486,10 +488,8 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
     }
 
     // Test the GeolocationPermissions API
+    @Test
     public void testGeolocationPermissions() {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         Set<String> acceptedOrigins = new TreeSet<String>();
         BooleanCheck falseCheck = new BooleanCheck(false);
         GeolocationPermissions.getInstance().getAllowed(URL_2, falseCheck);
@@ -548,10 +548,8 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
     }
 
     // Test loading pages and checks rejecting once and rejecting the domain forever
+    @Test
     public void testSimpleGeolocationRequestReject() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         final TestSimpleGeolocationRequestWebChromeClient chromeClientRejectOnce =
                 new TestSimpleGeolocationRequestWebChromeClient(mOnUiThread, false, false);
         mOnUiThread.setWebChromeClient(chromeClientRejectOnce);
@@ -603,10 +601,8 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
     }
 
     // Test deny geolocation on insecure origins
+    @Test
     public void testGeolocationRequestDeniedOnInsecureOrigin() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         final TestSimpleGeolocationRequestWebChromeClient chromeClientAcceptAlways =
                 new TestSimpleGeolocationRequestWebChromeClient(mOnUiThread, true, true);
         mOnUiThread.setWebChromeClient(chromeClientAcceptAlways);

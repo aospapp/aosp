@@ -29,6 +29,7 @@ android_test {
         "android.test.base",
         "android.test.mock",
         "android.test.runner",
+        "HalfSheetUX",
     ],
     compile_multilib: "both",
 

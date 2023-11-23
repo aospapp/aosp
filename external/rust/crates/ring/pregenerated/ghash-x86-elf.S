@@ -2,16 +2,14 @@
 # source tree. Do not edit by hand.
 
 #if defined(__i386__)
-#if defined(BORINGSSL_PREFIX)
-#include <boringssl_prefix_symbols_asm.h>
-#endif
+#include "ring_core_generated/prefix_symbols_asm.h"
 .text
-.globl	GFp_gcm_init_clmul
-.hidden	GFp_gcm_init_clmul
-.type	GFp_gcm_init_clmul,@function
+.globl	gcm_init_clmul
+.hidden	gcm_init_clmul
+.type	gcm_init_clmul,@function
 .align	16
-GFp_gcm_init_clmul:
-.L_GFp_gcm_init_clmul_begin:
+gcm_init_clmul:
+.L_gcm_init_clmul_begin:
 	movl	4(%esp),%edx
 	movl	8(%esp),%eax
 	call	.L000pic
@@ -75,13 +73,13 @@ GFp_gcm_init_clmul:
 .byte	102,15,58,15,227,8
 	movdqu	%xmm4,32(%edx)
 	ret
-.size	GFp_gcm_init_clmul,.-.L_GFp_gcm_init_clmul_begin
-.globl	GFp_gcm_gmult_clmul
-.hidden	GFp_gcm_gmult_clmul
-.type	GFp_gcm_gmult_clmul,@function
+.size	gcm_init_clmul,.-.L_gcm_init_clmul_begin
+.globl	gcm_gmult_clmul
+.hidden	gcm_gmult_clmul
+.type	gcm_gmult_clmul,@function
 .align	16
-GFp_gcm_gmult_clmul:
-.L_GFp_gcm_gmult_clmul_begin:
+gcm_gmult_clmul:
+.L_gcm_gmult_clmul_begin:
 	movl	4(%esp),%eax
 	movl	8(%esp),%edx
 	call	.L001pic
@@ -129,13 +127,13 @@ GFp_gcm_gmult_clmul:
 .byte	102,15,56,0,197
 	movdqu	%xmm0,(%eax)
 	ret
-.size	GFp_gcm_gmult_clmul,.-.L_GFp_gcm_gmult_clmul_begin
-.globl	GFp_gcm_ghash_clmul
-.hidden	GFp_gcm_ghash_clmul
-.type	GFp_gcm_ghash_clmul,@function
+.size	gcm_gmult_clmul,.-.L_gcm_gmult_clmul_begin
+.globl	gcm_ghash_clmul
+.hidden	gcm_ghash_clmul
+.type	gcm_ghash_clmul,@function
 .align	16
-GFp_gcm_ghash_clmul:
-.L_GFp_gcm_ghash_clmul_begin:
+gcm_ghash_clmul:
+.L_gcm_ghash_clmul_begin:
 	pushl	%ebp
 	pushl	%ebx
 	pushl	%esi
@@ -317,7 +315,7 @@ GFp_gcm_ghash_clmul:
 	popl	%ebx
 	popl	%ebp
 	ret
-.size	GFp_gcm_ghash_clmul,.-.L_GFp_gcm_ghash_clmul_begin
+.size	gcm_ghash_clmul,.-.L_gcm_ghash_clmul_begin
 .align	64
 .Lbswap:
 .byte	15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0

@@ -163,10 +163,9 @@ unsafe fn rustc_demangle_native(
         }
     }
 
-    let mut out_buf = SystemBuffer::from_raw(out, out_size)?;
-
     match rustc_demangle::try_demangle(mangled_str) {
         Ok(demangle) => {
+            let mut out_buf = SystemBuffer::from_raw(out, out_size)?;
             while write!(out_buf.as_mut_slice(), "{:#}\0", demangle).is_err() {
                 out_buf.resize()?;
             }

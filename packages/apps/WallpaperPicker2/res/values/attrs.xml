@@ -27,4 +27,11 @@
         </attr>
     </declare-styleable>
     <item name="linear_layout_horizontal_display_options_max" format="float" type="dimen">4.35</item>
+    <declare-styleable name="DuoTabs">
+        <attr name="should_use_short_tabs" format="boolean" />
+        <attr name="selected_tab_drawable" format="reference" />
+        <attr name="selected_tab_text_color" format="color" />
+        <attr name="non_selected_tab_drawable" format="reference" />
+        <attr name="non_selected_tab_text_color" format="color" />
+    </declare-styleable>
 </resources>

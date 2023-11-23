@@ -19,10 +19,6 @@
 #
 $(call inherit-product, device/google/cuttlefish/shared/wear/aosp_system.mk)
 
-# Allowed for wearables, but not installed to /system by default
-PRODUCT_PACKAGES += \
-    cameraserver \
-
 # Cuttlefish uses A/B with system_b preopt, so we must install these
 PRODUCT_PACKAGES += \
     cppreopts.sh \
@@ -55,12 +51,10 @@ $(call inherit-product, device/google/cuttlefish/shared/wear/aosp_product.mk)
 #
 $(call inherit-product, device/google/cuttlefish/shared/wear/aosp_vendor.mk)
 $(call inherit-product, device/google/cuttlefish/shared/wear/device_vendor.mk)
-PRODUCT_ENFORCE_MAC80211_HWSIM := false
 
 #
 # Special settings for the target
 #
-$(call inherit-product, device/google/cuttlefish/vsoc_x86_64/kernel.mk)
 $(call inherit-product, device/google/cuttlefish/vsoc_x86_64/bootloader.mk)
 
 # Exclude features that are not available on AOSP devices.

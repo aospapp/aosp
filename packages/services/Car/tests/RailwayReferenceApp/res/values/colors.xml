@@ -15,7 +15,7 @@
   ~ limitations under the License.
   -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <color name="activity_background">#E8EAED</color> <!-- gray -->
+    <color name="activity_background">@*android:color/car_background</color>
     <color name="scrolling_text_field_background">#F1F3F4</color> <!-- light gray -->
     <color name="green_button_background">#198639</color>
     <color name="red_button_background">#DC362E</color>

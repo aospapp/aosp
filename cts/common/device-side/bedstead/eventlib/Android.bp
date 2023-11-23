@@ -9,12 +9,15 @@ android_library {
         "src/main/java/**/*.java",
         "src/main/aidl/**/I*.aidl",
     ],
+    aidl: {
+        local_include_dirs: ["src/main/aidl/"],
+    },
     static_libs: [
         "NeneInternal",
         "Queryable"
     ],
     manifest: "src/main/AndroidManifest.xml",
-    min_sdk_version: "27"
+    min_sdk_version: "29"
 }
 
 android_test {
@@ -38,5 +41,5 @@ android_test {
     resource_dirs: ["src/test/res"],
     data: [":EventLibTestApp"],
     manifest: "src/test/AndroidManifest.xml",
-    min_sdk_version: "27"
+    min_sdk_version: "29"
 }

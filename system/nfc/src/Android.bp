@@ -21,7 +21,7 @@ cc_library_shared {
         "libz",
         "libchrome",
         "libbase",
-        "libstatslog",
+        "libstatslog_nfc",
 
         // Treble configuration
         "libhidlbase",
@@ -39,6 +39,7 @@ cc_library_shared {
     cflags: [
         "-DDYN_ALLOC=1",
         "-DBUILDCFG=1",
+        "-DGKI_PTHREAD_JOINABLE",
         "-Wall",
         "-Werror",
         "-Wimplicit-fallthrough",
@@ -133,9 +134,56 @@ cc_defaults {
     },
 }
 
+cc_library {
+    name: "libstatslog_nfc",
+    host_supported: true,
+    generated_sources: ["statslog_nfc.cpp"],
+    generated_headers: ["statslog_nfc.h"],
+    export_generated_headers: ["statslog_nfc.h"],
+    shared_libs: [
+        "libcutils",
+    ],
+    target: {
+        android: {
+            shared_libs: [
+                "libstatssocket",
+            ],
+        },
+        host: {
+            static_libs: [
+                "libstatssocket",
+            ],
+        },
+        darwin: {
+            enabled: false,
+        },
+    },
+}
+
+genrule {
+    name: "statslog_nfc.h",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --header $(genDir)/statslog_nfc.h --module nfc --namespace nfc,stats",
+    out: [
+        "statslog_nfc.h",
+    ],
+}
+
+genrule {
+    name: "statslog_nfc.cpp",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --cpp $(genDir)/statslog_nfc.cpp --module nfc --namespace nfc,stats --importHeader statslog_nfc.h",
+    out: [
+        "statslog_nfc.cpp",
+    ],
+}
+
 cc_fuzz {
     name: "nfc_nci_fuzzer",
     defaults: ["nfc_fuzzer_defaults"],
+    fuzzing_frameworks: {
+      afl: false,
+    },
     srcs: [
         "nfc/nci/*.cc",
         "nfc/nfc/*.cc",
@@ -145,11 +193,17 @@ cc_fuzz {
         "fuzzers/*.cc",
         "fuzzers/nci/*.cc",
     ],
+    shared_libs: [
+        "libstatslog_nfc",
+    ]
 }
 
 cc_fuzz {
     name: "nfc_rw_fuzzer",
     defaults: ["nfc_fuzzer_defaults"],
+    fuzzing_frameworks: {
+      afl: false,
+    },
     srcs: [
         "nfc/tags/rw_*.cc",
         "nfc/tags/tags_int.cc",
@@ -163,6 +217,9 @@ cc_fuzz {
 cc_fuzz {
     name: "nfc_ce_fuzzer",
     defaults: ["nfc_fuzzer_defaults"],
+    fuzzing_frameworks: {
+      afl: false,
+    },
     srcs: [
         "nfc/tags/ce_*.cc",
         "nfc/tags/tags_int.cc",
@@ -176,6 +233,9 @@ cc_fuzz {
 cc_fuzz {
     name: "nfc_ndef_fuzzer",
     defaults: ["nfc_fuzzer_defaults"],
+    fuzzing_frameworks: {
+      afl: false,
+    },
     srcs: [
         "nfa/dm/nfa_dm_ndef.cc",
         "nfc/ndef/*.cc",
@@ -189,6 +249,9 @@ cc_fuzz {
 cc_fuzz {
     name: "nfc_llcp_fuzzer",
     defaults: ["nfc_fuzzer_defaults"],
+    fuzzing_frameworks: {
+      afl: false,
+    },
     srcs: [
         "nfc/llcp/*.cc",
         "gki/common/*.cc",
@@ -213,6 +276,9 @@ cc_library_static {
 cc_fuzz {
     name: "nfc_integration_fuzzer",
     defaults: ["nfc_fuzzer_defaults"],
+    fuzzing_frameworks: {
+      afl: false,
+    },
     srcs: [
         "adaptation/debug_nfcsnoop.cc",
         "fuzzers/integration/*.cc",
@@ -246,6 +312,7 @@ cc_fuzz {
     ],
     shared_libs: [
         "libprotobuf-cpp-full",
+        "libstatslog_nfc",
         "libz",
     ]
 }

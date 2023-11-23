@@ -28,8 +28,10 @@ limitations under the License.
 #include "tensorflow/compiler/xla/literal.h"
 #include "tensorflow/compiler/xla/service/call_graph.h"
 #include "tensorflow/compiler/xla/service/call_inliner.h"
+#include "tensorflow/compiler/xla/service/hlo_casting_utils.h"
 #include "tensorflow/compiler/xla/service/hlo_computation.h"
 #include "tensorflow/compiler/xla/service/hlo_instruction.h"
+#include "tensorflow/compiler/xla/service/hlo_instructions.h"
 #include "tensorflow/compiler/xla/service/hlo_opcode.h"
 #include "tensorflow/compiler/xla/shape_util.h"
 #include "tensorflow/compiler/xla/status_macros.h"
@@ -73,7 +75,7 @@ StatusOr<bool> TryRemoveUnusedConditionalOperands(
   if (!param->shape().IsTuple()) {
     return false;
   }
-  std::set<int64> tuple_indices_to_keep;
+  std::set<int64_t> tuple_indices_to_keep;
   for (HloInstruction* user : param->users()) {
     // If the user is not a get tuple element, assume it is unsafe to remove
     // elements from the tuple.
@@ -92,14 +94,14 @@ StatusOr<bool> TryRemoveUnusedConditionalOperands(
 
   // Create a new tuple shape based on the indices actually used by this
   // computation branch.
-  std::vector<Shape> new_tuple_shapes;
+  std::vector<const Shape*> new_tuple_shapes;
   new_tuple_shapes.reserve(tuple_indices_to_keep.size());
-  std::vector<int64> map(old_tuple_element_count, -1);
+  std::vector<int64_t> map(old_tuple_element_count, -1);
   for (int64_t i : tuple_indices_to_keep) {
     map[i] = new_tuple_shapes.size();
-    new_tuple_shapes.push_back(param->shape().tuple_shapes(i));
+    new_tuple_shapes.push_back(&param->shape().tuple_shapes(i));
   }
-  Shape tuple_shape = ShapeUtil::MakeTupleShape(new_tuple_shapes);
+  Shape tuple_shape = ShapeUtil::MakeTupleShapeWithPtrs(new_tuple_shapes);
   // Clone the computation in case it is called by another non-conditional
   // instruction.
   HloComputation* new_computation =
@@ -243,13 +245,13 @@ bool RemoveUnusedTupleElements(HloInstruction* conditional_op) {
 
   // Create new tuple shape, only keep active indices.
   const Shape old_shape = conditional_op->shape();
-  std::vector<Shape> new_tuple_shapes;
+  std::vector<const Shape*> new_tuple_shapes;
   new_tuple_shapes.reserve(new_tuple_shapes_size);
   for (int new_index = 0; new_index < new_tuple_shapes_size; ++new_index) {
     new_tuple_shapes.push_back(
-        old_shape.tuple_shapes(new_to_old_mapping[new_index]));
+        &old_shape.tuple_shapes(new_to_old_mapping[new_index]));
   }
-  const Shape new_shape = ShapeUtil::MakeTupleShape(new_tuple_shapes);
+  const Shape new_shape = ShapeUtil::MakeTupleShapeWithPtrs(new_tuple_shapes);
 
   // Double-check the old branch root shape is compatible (tuple-like).
   for (HloComputation* branch : conditional_op->branch_computations()) {
@@ -417,7 +419,7 @@ bool MergeDuplicateTupleElements(HloInstruction* conditional) {
   };
 
   bool changed = false;
-  absl::flat_hash_map<std::vector<const HloInstruction*>, int64>
+  absl::flat_hash_map<std::vector<const HloInstruction*>, int64_t>
       index_collision_table;
   for (int i = 0; i < conditional->shape().tuple_shapes_size(); ++i) {
     const std::vector<const HloInstruction*> ith_operands_vector =
@@ -474,7 +476,7 @@ StatusOr<bool> ConditionalSimplifier::TryRemoveConditional(
     if (conditional->operand(0)->shape().element_type() == PRED) {
       branch_index = conditional->operand(0)->literal().Get<bool>({}) ? 0 : 1;
     } else {
-      branch_index = conditional->operand(0)->literal().Get<int32>({});
+      branch_index = conditional->operand(0)->literal().Get<int32_t>({});
       if (branch_index < 0 || branch_index >= conditional->branch_count()) {
         branch_index = conditional->branch_count() - 1;
       }
@@ -572,7 +574,38 @@ StatusOr<bool> ConditionalSimplifier::TryRemoveConditional(
   return true;
 }
 
-StatusOr<bool> ConditionalSimplifier::Run(HloModule* module) {
+static bool ComputationCallsChannelInstructions(
+    const HloComputation& computation) {
+  std::vector<const HloComputation*> worklist = {&computation};
+  while (!worklist.empty()) {
+    const HloComputation* work = worklist.back();
+    worklist.pop_back();
+    for (const HloInstruction* instruction : work->instructions()) {
+      if (DynCast<HloChannelInstruction>(instruction) != nullptr) {
+        return true;
+      }
+      worklist.insert(worklist.end(),
+                      instruction->called_computations().begin(),
+                      instruction->called_computations().end());
+    }
+  }
+  return false;
+}
+
+static bool InstructionCallsChannelInstructions(
+    const HloInstruction& instruction) {
+  for (const HloComputation* called_computation :
+       instruction.called_computations()) {
+    if (ComputationCallsChannelInstructions(*called_computation)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+StatusOr<bool> ConditionalSimplifier::Run(
+    HloModule* module,
+    const absl::flat_hash_set<absl::string_view>& execution_threads) {
   XLA_VLOG_LINES(
       3, "ConditionalSimplifier::Run(), before:\n" + module->ToString());
   bool changed = false;
@@ -581,9 +614,18 @@ StatusOr<bool> ConditionalSimplifier::Run(HloModule* module) {
   // we don't have to worry about mutating the lists of computations or
   // instructions as we iterate.
   std::vector<HloInstruction*> conditional_ops;
-  for (auto* comp : module->computations()) {
+  for (auto* comp : module->computations(execution_threads)) {
     for (auto* instr : comp->MakeInstructionPostOrder()) {
       if (instr->opcode() == HloOpcode::kConditional) {
+        // Verifier wants a single send/recv with a given channel. This pass
+        // clones computations which can result in that getting violated.
+        if (InstructionCallsChannelInstructions(*instr)) {
+          continue;
+        }
+        if (instr->has_sharding()) {
+          // The code below doesn't handle sharding properly.
+          continue;
+        }
         conditional_ops.push_back(instr);
       }
     }
@@ -591,10 +633,6 @@ StatusOr<bool> ConditionalSimplifier::Run(HloModule* module) {
 
   absl::flat_hash_set<HloInstruction*> removed_conditionals;
   for (HloInstruction* conditional_op : conditional_ops) {
-    if (conditional_op->has_sharding()) {
-      // The code below doesn't handle sharding properly.
-      continue;
-    }
     changed |= MergeDuplicateTupleElements(conditional_op);
     changed |= RemoveUnusedTupleElements(conditional_op);
     changed |= ReplaceRootWithEmptyTupleIfNoUsers(conditional_op);

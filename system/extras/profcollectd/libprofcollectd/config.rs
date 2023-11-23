@@ -40,6 +40,7 @@ lazy_static! {
     pub static ref REPORT_OUTPUT_DIR: &'static Path = Path::new("/data/misc/profcollectd/report/");
     pub static ref CONFIG_FILE: &'static Path =
         Path::new("/data/misc/profcollectd/output/config.json");
+    pub static ref LOG_FILE: &'static Path = Path::new("/data/misc/profcollectd/output/trace.log");
 }
 
 /// Dynamic configs, stored in config.json.
@@ -151,7 +152,7 @@ pub fn clear_data() -> Result<()> {
         read_dir(path)?
             .filter_map(|e| e.ok())
             .map(|e| e.path())
-            .filter(|e| e.is_file())
+            .filter(|e| e.is_file() && e != *LOG_FILE)
             .try_for_each(remove_file)?;
         Ok(())
     }

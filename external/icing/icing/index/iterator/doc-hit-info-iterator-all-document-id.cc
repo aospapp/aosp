@@ -40,5 +40,12 @@ libtextclassifier3::Status DocHitInfoIteratorAllDocumentId::Advance() {
   return libtextclassifier3::Status::OK;
 }
 
+libtextclassifier3::StatusOr<DocHitInfoIterator::TrimmedNode>
+DocHitInfoIteratorAllDocumentId::TrimRightMostNode() && {
+  // The all document id node should be trimmed.
+  TrimmedNode node = {nullptr, /*term=*/"", /*term_start_index_=*/0,
+                      /*unnormalized_term_length_=*/0};
+  return node;
+}
 }  // namespace lib
 }  // namespace icing

@@ -26,6 +26,10 @@ import android.uwb.RangingSession;
 import android.uwb.UwbAddress;
 import android.uwb.UwbManager;
 
+import com.google.uwb.support.ccc.CccOpenRangingParams;
+import com.google.uwb.support.ccc.CccParams;
+import com.google.uwb.support.ccc.CccPulseShapeCombo;
+import com.google.uwb.support.ccc.CccRangingStartedParams;
 import com.google.uwb.support.fira.FiraOpenSessionParams;
 import com.google.uwb.support.fira.FiraParams;
 import com.google.uwb.support.fira.FiraRangingReconfigureParams;
@@ -318,6 +322,77 @@ public class UwbManagerFacade extends RpcReceiver {
         return builder.build();
     }
 
+    private CccRangingStartedParams generateCccRangingStartedParams(JSONObject j)
+            throws JSONException {
+        if (j == null) {
+            return null;
+        }
+        CccRangingStartedParams.Builder builder = new CccRangingStartedParams.Builder();
+        if (j.has("stsIndex")) {
+            builder.setStartingStsIndex(j.getInt("stsIndex"));
+        }
+        if (j.has("uwbTime")) {
+            builder.setUwbTime0(j.getInt("uwbTime"));
+        }
+        if (j.has("hopModeKey")) {
+            builder.setHopModeKey(j.getInt("hopModeKey"));
+        }
+        if (j.has("syncCodeIndex")) {
+            builder.setSyncCodeIndex(j.getInt("syncCodeIndex"));
+        }
+        if (j.has("ranMultiplier")) {
+            builder.setRanMultiplier(j.getInt("ranMultiplier"));
+        }
+
+        return builder.build();
+    }
+
+    private CccOpenRangingParams generateCccOpenRangingParams(JSONObject j) throws JSONException {
+        if (j == null) {
+            return null;
+        }
+        CccOpenRangingParams.Builder builder = new CccOpenRangingParams.Builder();
+        builder.setProtocolVersion(CccParams.PROTOCOL_VERSION_1_0);
+        if (j.has("sessionId")) {
+            builder.setSessionId(j.getInt("sessionId"));
+        }
+        if (j.has("uwbConfig")) {
+            builder.setUwbConfig(j.getInt("uwbConfig"));
+        }
+        if (j.has("ranMultiplier")) {
+            builder.setRanMultiplier(j.getInt("ranMultiplier"));
+        }
+        if (j.has("channel")) {
+            builder.setChannel(j.getInt("channel"));
+        }
+        if (j.has("chapsPerSlot")) {
+            builder.setNumChapsPerSlot(j.getInt("chapsPerSlot"));
+        }
+        if (j.has("responderNodes")) {
+            builder.setNumResponderNodes(j.getInt("responderNodes"));
+        }
+        if (j.has("slotsPerRound")) {
+            builder.setNumSlotsPerRound(j.getInt("slotsPerRound"));
+        }
+        if (j.has("hoppingMode")) {
+            builder.setHoppingConfigMode(j.getInt("hoppingMode"));
+        }
+        if (j.has("hoppingSequence")) {
+            builder.setHoppingSequence(j.getInt("hoppingSequence"));
+        }
+        if (j.has("syncCodeIndex")) {
+            builder.setSyncCodeIndex(j.getInt("syncCodeIndex"));
+        }
+        if (j.has("pulseShapeCombo")) {
+            JSONObject pulseShapeCombo = j.getJSONObject("pulseShapeCombo");
+            builder.setPulseShapeCombo(new CccPulseShapeCombo(
+                    pulseShapeCombo.getInt("pulseShapeComboTx"),
+                    pulseShapeCombo.getInt("pulseShapeComboRx")));
+        }
+
+        return builder.build();
+    }
+
     private FiraOpenSessionParams generateFiraOpenSessionParams(JSONObject j) throws JSONException {
         if (j == null) {
             return null;
@@ -355,7 +430,7 @@ public class UwbManagerFacade extends RpcReceiver {
             builder.setDestAddressList(Arrays.asList(destinationUwbAddresses));
         }
         if (j.has("initiationTimeMs")) {
-            builder.setInitiationTimeMs(j.getInt("initiationTimeMs"));
+            builder.setInitiationTime(j.getInt("initiationTimeMs"));
         }
         if (j.has("slotDurationRstu")) {
             builder.setSlotDurationRstu(j.getInt("slotDurationRstu"));
@@ -424,12 +499,38 @@ public class UwbManagerFacade extends RpcReceiver {
     }
 
     /**
+     * Open CCC UWB ranging session.
+     */
+    @Rpc(description = "Open CCC UWB ranging session")
+    public String openCccRangingSession(@RpcParameter(name = "config") JSONObject config)
+            throws JSONException {
+        RangingSessionCallback rangingSessionCallback = new RangingSessionCallback(
+                Event.EventAll.getType());
+        CccOpenRangingParams params = generateCccOpenRangingParams(config);
+        CancellationSignal cancellationSignal = mUwbManager.openRangingSession(
+                params.toBundle(), mExecutor, rangingSessionCallback);
+        String key = rangingSessionCallback.mId;
+        sRangingSessionCallbackMap.put(key, rangingSessionCallback);
+        return key;
+    }
+
+    /**
      * Start UWB ranging.
      */
     @Rpc(description = "Start UWB ranging")
     public void startRangingSession(String key) {
         RangingSessionCallback rangingSessionCallback = sRangingSessionCallbackMap.get(key);
         rangingSessionCallback.rangingSession.start(new PersistableBundle());
+    }
+
+    /**
+     * Start CCC UWB ranging.
+     */
+    @Rpc(description = "Start CCC UWB ranging")
+    public void startCccRangingSession(String key, JSONObject config) throws JSONException {
+        RangingSessionCallback rangingSessionCallback = sRangingSessionCallbackMap.get(key);
+        CccRangingStartedParams params = generateCccRangingStartedParams(config);
+        rangingSessionCallback.rangingSession.start(params.toBundle());
     }
 
     /**

@@ -64,6 +64,25 @@ TEST(kallsyms, ProcessKernelSymbols) {
       data, std::bind(&KernelSymbolsMatch, std::placeholders::_1, expected_symbol)));
 }
 
+TEST(kallsyms, ProcessKernelSymbols_ignore_arm_mapping_symbols) {
+  std::string data =
+      "aaaaaaaaaaaaaaaa t $x.9 [coresight_etm4x]\n"
+      "bbbbbbbbbbbbbbbb t etm4_pm_clear [coresight_etm4x]\n";
+  bool has_normal_symbol = false;
+  bool has_arm_mapping_symbol = false;
+  auto callback = [&](const KernelSymbol& sym) {
+    if (strcmp(sym.name, "etm4_pm_clear") == 0) {
+      has_normal_symbol = true;
+    } else {
+      has_arm_mapping_symbol = true;
+    }
+    return false;
+  };
+  ProcessKernelSymbols(data, callback);
+  ASSERT_TRUE(has_normal_symbol);
+  ASSERT_FALSE(has_arm_mapping_symbol);
+}
+
 #if defined(__ANDROID__)
 TEST(kallsyms, GetKernelStartAddress) {
   TEST_REQUIRE_ROOT();

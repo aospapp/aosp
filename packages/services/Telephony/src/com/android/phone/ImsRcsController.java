@@ -50,6 +50,7 @@ import android.util.Log;
 import com.android.ims.ImsManager;
 import com.android.ims.internal.IImsServiceFeatureCallback;
 import com.android.internal.telephony.IIntegerConsumer;
+import com.android.internal.telephony.ISipDialogStateCallback;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.TelephonyPermissions;
 import com.android.internal.telephony.ims.ImsResolver;
@@ -252,7 +253,7 @@ public class ImsRcsController extends IImsRcsController.Stub {
         } catch (ImsException e) {
             Log.e(TAG, "isCapable: sudId=" + subId
                     + ", capability=" + capability + ", " + e.getMessage());
-            return false;
+            throw new ServiceSpecificException(e.getCode(), e.getMessage());
         } finally {
             Binder.restoreCallingIdentity(token);
         }
@@ -278,7 +279,7 @@ public class ImsRcsController extends IImsRcsController.Stub {
         } catch (ImsException e) {
             Log.e(TAG, "isAvailable: sudId=" + subId
                     + ", capability=" + capability + ", " + e.getMessage());
-            return false;
+            throw new ServiceSpecificException(e.getCode(), e.getMessage());
         } finally {
             Binder.restoreCallingIdentity(token);
         }
@@ -667,6 +668,60 @@ public class ImsRcsController extends IImsRcsController.Stub {
     }
 
     /**
+     * Register a state of Sip Dialog callback
+     */
+    @Override
+    public void registerSipDialogStateCallback(int subId, ISipDialogStateCallback cb) {
+        enforceReadPrivilegedPermission("registerSipDialogStateCallback");
+        if (cb == null) {
+            throw new IllegalArgumentException("SipDialogStateCallback is null");
+        }
+        final long identity = Binder.clearCallingIdentity();
+        if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+            throw new IllegalArgumentException("Invalid Subscription ID: " + subId);
+        }
+        try {
+            SipTransportController transport = getRcsFeatureController(subId).getFeature(
+                    SipTransportController.class);
+            if (transport == null) {
+                throw new ServiceSpecificException(ImsException.CODE_ERROR_SERVICE_UNAVAILABLE,
+                        "This transport does not support the registerSipDialogStateCallback"
+                                + " of SIP delegates");
+            }
+            transport.addCallbackForSipDialogState(subId, cb);
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
+    }
+
+    /**
+     * Unregister a state of Sip Dialog callback
+     */
+    @Override
+    public  void unregisterSipDialogStateCallback(int subId, ISipDialogStateCallback cb) {
+        enforceReadPrivilegedPermission("unregisterSipDialogStateCallback");
+        if (cb == null) {
+            throw new IllegalArgumentException("SipDialogStateCallback is null");
+        }
+        final long identity = Binder.clearCallingIdentity();
+        if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+            throw new IllegalArgumentException("Invalid Subscription ID: " + subId);
+        }
+        try {
+            SipTransportController transport = getRcsFeatureController(subId).getFeature(
+                    SipTransportController.class);
+            if (transport == null) {
+                throw new ServiceSpecificException(ImsException.CODE_ERROR_SERVICE_UNAVAILABLE,
+                        "This transport does not support the unregisterSipDialogStateCallback"
+                                + " of SIP delegates");
+            }
+            transport.removeCallbackForSipDialogState(subId, cb);
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
+    }
+
+    /**
      * Registers for updates to the RcsFeature connection through the IImsServiceFeatureCallback
      * callback.
      */
@@ -786,13 +841,40 @@ public class ImsRcsController extends IImsRcsController.Stub {
         int slotId = phone.getPhoneId();
         if (!skipVerifyingConfig) {
             verifyImsRcsConfiguredOrThrow(slotId);
+            verifyRcsSubIdActiveOrThrow(slotId, subId);
         }
         RcsFeatureController c = mRcsService.getFeatureController(slotId);
         if (c == null) {
+            // If we hit this case, we have verified that TelephonyRcsService has processed any
+            // subId changes for the associated slot and applied configs. In this case, the configs
+            // do not have the RCS feature enabled.
             throw new ServiceSpecificException(ImsException.CODE_ERROR_UNSUPPORTED_OPERATION,
                     "The requested operation is not supported for subId " + subId);
         }
+        if (!skipVerifyingConfig && c.getAssociatedSubId() != subId) {
+            // If we hit this case, the ImsFeature has not finished setting up the RCS feature yet
+            // or the RCS feature has crashed and is being set up again.
+            Log.w(TAG, "getRcsFeatureController: service unavailable on slot " + slotId
+                    + " for subId " + subId);
+            throw new ServiceSpecificException(ImsException.CODE_ERROR_SERVICE_UNAVAILABLE,
+                    "The ImsService is not currently available for subid " + subId
+                            + ", please try again");
+        }
         return c;
+    }
+
+    /**
+     * Ensure the TelephonyRcsService is tracking the supplied subId for the supplied slotId and has
+     * set up the stack.
+     */
+    private void verifyRcsSubIdActiveOrThrow(int slotId, int subId) {
+        if (mRcsService.verifyActiveSubId(slotId, subId)) return;
+
+        Log.w(TAG, "verifyRcsSubIdActiveOrThrow: verify failed, service not set up yet on "
+                + "slot " + slotId + " for subId " + subId);
+        throw new ServiceSpecificException(ImsException.CODE_ERROR_SERVICE_UNAVAILABLE,
+                "ImsService set up in progress for subId " + subId
+                        + ", please try again");
     }
 
     /**

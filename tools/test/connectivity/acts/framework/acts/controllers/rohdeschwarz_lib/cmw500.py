@@ -26,7 +26,40 @@ LTE_IDLE_RESP = 'IDLE'
 LTE_PSWITCHED_ON_RESP = 'ON'
 LTE_PSWITCHED_OFF_RESP = 'OFF'
 
+WCDMA_ATTACH_RESP = 'ATT'
+WCDMA_CESTABLISHED_RESP = 'CEST'
+WCDMA_PSWITCHED_ON_RESP = 'ON'
+
 STATE_CHANGE_TIMEOUT = 20
+
+
+class IPAddressType(Enum):
+    """ IP Address types"""
+    IPV4 = "IPV4"
+    IPV6 = "IPV6"
+    IPV4V6 = "IPV46"
+
+
+class SignallingState(Enum):
+    """Signalling states common to all RATs."""
+    ON = 'ON'
+    OFF = 'OFF'
+    ReadyForHandover = 'RFH'
+
+
+class SccActivationMode(Enum):
+    """Activation mode to use for SCCs."""
+    AUTO = 'AUTO'
+    MANUAL = 'MAN'
+    SEMI_AUTO = 'SEM'
+
+
+class SccState(Enum):
+    """Secondary component carrier states."""
+    ON = 'ON'
+    OFF = 'OFF'
+    RRC = 'RRC'
+    MAC = 'MAC'
 
 
 class LteState(Enum):
@@ -54,6 +87,32 @@ class LteBandwidth(Enum):
     BANDWIDTH_10MHz = 'B100'
     BANDWIDTH_15MHz = 'B150'
     BANDWIDTH_20MHz = 'B200'
+
+
+def BandwidthFromFloat(bw):
+    if bw == 20:
+        return LteBandwidth.BANDWIDTH_20MHz
+    elif bw == 15:
+        return LteBandwidth.BANDWIDTH_15MHz
+    elif bw == 10:
+        return LteBandwidth.BANDWIDTH_10MHz
+    elif bw == 5:
+        return LteBandwidth.BANDWIDTH_5MHz
+    elif bw == 3:
+        return LteBandwidth.BANDWIDTH_3MHz
+    elif bw == 1.4:
+        return LteBandwidth.BANDWIDTH_1MHz
+
+    raise ValueError('Bandwidth {} MHz is not valid for LTE'.format(bandwidth))
+
+
+class DrxMode(Enum):
+    """DRX Modes."""
+    DRXS = 'DRXS'
+    DRXL = 'DRXL'
+    USER_DEFINED = 'UDEF'
+    ON = 'ON'
+    OFF = 'OFF'
 
 
 class DuplexMode(Enum):
@@ -174,7 +233,6 @@ class ReducedPdcch(Enum):
 
 
 class Cmw500(abstract_inst.SocketInstrument):
-
     def __init__(self, ip_addr, port):
         """Init method to setup variables for controllers.
 
@@ -218,6 +276,51 @@ class Cmw500(abstract_inst.SocketInstrument):
             time_elapsed += 1
         else:
             raise CmwError('Failed to turn {} LTE signalling.'.format(state))
+
+    def switch_scc_state(self, scc_index, state):
+        """ Changes the SCC to the requested state.
+
+        Args:
+            scc_index: the SCC number to modify.
+            state: an instance of SccState indicating which SCC state to set.
+        """
+        cmd = 'CALL:LTE:SIGN:SCC{}:ACTion {}'.format(scc_index, state.value)
+        self.send_and_recv(cmd)
+        self.wait_for_scc_state(scc_index, [state])
+
+    def wait_for_scc_state(self, scc_index, allowed, timeout=120):
+        """ Polls for a SCC to reach the requested state.
+
+        Args:
+            scc_index: an integer defining the scc number.
+            allowed: a list of SccStates defining the allowed states.
+            timeout: the maximum amount of time to wait for the requested state.
+        """
+        self.wait_for_response(
+            'FETCh:LTE:SIGN:SCC{}:STATe?'.format(scc_index),
+            [a.value for a in allowed],
+            timeout,
+        )
+
+    def wait_for_response(self, cmd, allowed, timeout=120):
+        """Polls a specific query command until an allowed response is returned.
+
+        Args:
+            cmd: the query command string.
+            allowed: a collection of allowed string responses.
+            timeout: the maximum amount of time to wait for an allowed response.
+        """
+        time_elapsed = 0
+        while time_elapsed < timeout:
+            response = self.send_and_recv(cmd)
+
+            if response in allowed:
+                return
+
+            time.sleep(1)
+            time_elapsed += 1
+
+        raise CmwError('Failed to wait for valid response.')
 
     def enable_packet_switching(self):
         """Enable packet switching in call box."""
@@ -342,6 +445,15 @@ class Cmw500(abstract_inst.SocketInstrument):
         else:
             raise CmwError('Timeout before RRC state was {}.'.format(state))
 
+    def stop_all_signalling(self):
+        """Turns off all signaling applications, generators, or measurements."""
+        self.send_and_recv('SYSTem:SIGNaling:ALL:OFF')
+        self.wait_until_quiet()
+
+    def wait_until_quiet(self):
+        """Waits for all pending operations to stop on the callbox."""
+        self.send_and_recv('*OPC?')
+
     def reset(self):
         """System level reset"""
         self.send_and_recv('*RST; *OPC')
@@ -400,6 +512,27 @@ class Cmw500(abstract_inst.SocketInstrument):
         self.send_and_recv(cmd)
 
     @property
+    def scc_activation_mode(self):
+        """Gets the activation mode to use for SCCs when establishing a
+        connection.
+        """
+        return self.send_and_recv('CONFigure:LTE:SIGN:SCC:AMODe?')
+
+    @scc_activation_mode.setter
+    def scc_activation_mode(self, activation_mode):
+        """Sets the activation mode to use with SCCs when establishing a
+        connection.
+
+        Args:
+            activation_mode: the scc activation mode to use.
+        """
+        if not isinstance(activation_mode, SccActivationMode):
+            raise ValueError('state should be the instance of RrcState.')
+
+        cmd = 'CONFigure:LTE:SIGN:SCC:AMODe {}'.format(activation_mode.value)
+        self.send_and_recv(cmd)
+
+    @property
     def dl_mac_padding(self):
         """Gets the state of mac padding."""
         return self.send_and_recv('CONFigure:LTE:SIGN:CONNection:DLPadding?')
@@ -429,6 +562,224 @@ class Cmw500(abstract_inst.SocketInstrument):
         cmd = 'CONFigure:LTE:SIGN:CONNection:CTYPe {}'.format(ctype.value)
         self.send_and_recv(cmd)
 
+    @property
+    def drx_connected_mode(self):
+        """ Gets the Connected DRX LTE cell parameter
+
+        Args:
+            None
+
+        Returns:
+            DRX connected mode (ON, OFF, USER_DEFINED, DRX_S, DRX_L)
+        """
+        cmd = 'CONFigure:LTE:SIGN:CONNection:CDRX:ENABle?'
+        return self.send_and_recv(cmd)
+
+    @drx_connected_mode.setter
+    def drx_connected_mode(self, mode):
+        """  Sets the Connected DRX LTE cell parameter
+
+        Args:
+            mode: DRX mode
+
+        Returns:
+            None
+        """
+        if not isinstance(mode, DrxMode):
+            raise ValueError('state should be the instance of DrxMode.')
+
+        cmd = 'CONFigure:LTE:SIGN:CONNection:CDRX:ENABle {}'.format(mode.value)
+        self.send_and_recv(cmd)
+
+    @property
+    def drx_on_duration_timer(self):
+        """ Gets the amount of PDCCH subframes to wait for data after
+            waking up from a DRX cycle
+
+        Args:
+            None
+
+        Returns:
+            DRX mode duration timer
+        """
+        cmd = 'CONFigure:LTE:SIGN:CONNection:CDRX:ODTimer?'
+        return self.send_and_recv(cmd)
+
+    @drx_on_duration_timer.setter
+    def drx_on_duration_timer(self, time):
+        """ Sets the amount of PDCCH subframes to wait for data after
+            waking up from a DRX cycle
+
+        Args:
+            timer: Length of interval to wait for user data to be transmitted
+
+        Returns:
+            None
+        """
+        cmd = 'CONFigure:LTE:SIGN:CONNection:CDRX:ODTimer {}'.format(time)
+        self.send_and_recv(cmd)
+
+    @property
+    def drx_inactivity_timer(self):
+        """ Gets the number of PDCCH subframes to wait before entering DRX mode
+
+        Args:
+            None
+
+        Returns:
+            DRX mode inactivity timer
+        """
+        cmd = 'CONFigure:LTE:SIGN:CONNection:CDRX:ITIMer?'
+        return self.send_and_recv(cmd)
+
+    @drx_inactivity_timer.setter
+    def drx_inactivity_timer(self, time):
+        """ Sets the number of PDCCH subframes to wait before entering DRX mode
+
+        Args:
+            timer: Length of the interval to wait
+
+        Returns:
+            None
+        """
+        cmd = 'CONFigure:LTE:SIGN:CONNection:CDRX:ITIMer {}'.format(time)
+        self.send_and_recv(cmd)
+
+    @property
+    def drx_retransmission_timer(self):
+        """ Gets the number of consecutive PDCCH subframes to wait
+        for retransmission
+
+        Args:
+            None
+
+        Returns:
+            Number of PDCCH subframes to wait for retransmission
+        """
+        cmd = 'CONFigure:LTE:SIGN:CONNection:CDRX:RTIMer?'
+        self.send_and_recv(cmd)
+
+    @drx_retransmission_timer.setter
+    def drx_retransmission_timer(self, time):
+        """ Sets the number of consecutive PDCCH subframes to wait
+        for retransmission
+
+        Args:
+            time: Number of PDCCH subframes to wait
+            for retransmission
+
+        Returns:
+            None
+        """
+        cmd = 'CONFigure:LTE:SIGN:CONNection:CDRX:RTIMer {}'.format(time)
+        self.send_and_recv(cmd)
+
+    @property
+    def drx_long_cycle(self):
+        """ Gets the amount of subframes representing a DRX long cycle
+
+        Args:
+            None
+
+        Returns:
+            The amount of subframes representing one long DRX cycle.
+            One cycle consists of DRX sleep + DRX on duration
+        """
+        cmd = 'CONFigure:LTE:SIGN:CONNection:CDRX:LDCYcle?'
+        return self.send_and_recv(cmd)
+
+    @drx_long_cycle.setter
+    def drx_long_cycle(self, long_cycle):
+        """ Sets the amount of subframes representing a DRX long cycle
+
+        Args:
+            long_cycle: The amount of subframes representing one long DRX cycle.
+                One cycle consists of DRX sleep + DRX on duration
+
+        Returns:
+            None
+        """
+        cmd = 'CONFigure:LTE:SIGN:CONNection:CDRX:LDCYcle {}'.format(
+            long_cycle)
+        self.send_and_recv(cmd)
+
+    @property
+    def drx_long_cycle_offset(self):
+        """ Gets the offset used to determine long cycle starting
+        subframe
+
+        Args:
+            None
+
+        Returns:
+            Long cycle offset
+        """
+        cmd = 'CONFigure:LTE:SIGN:CONNection:CDRX:SOFFset?'
+        return self.send_and_recv(cmd)
+
+    @drx_long_cycle_offset.setter
+    def drx_long_cycle_offset(self, offset):
+        """ Sets the offset used to determine long cycle starting
+        subframe
+
+        Args:
+            offset: Number in range 0...(long cycle - 1)
+        """
+        cmd = 'CONFigure:LTE:SIGN:CONNection:CDRX:SOFFset {}'.format(offset)
+        self.send_and_recv(cmd)
+
+    @property
+    def apn(self):
+        """Gets the callbox network Access Point Name."""
+        cmd = 'CONFigure:LTE:SIGNaling:CONNection:APN?'
+        return self.send_and_recv(cmd)
+
+    @apn.setter
+    def apn(self, apn):
+        """Sets the callbox network Access Point Name.
+
+        Args:
+            apn: the APN name
+        """
+        cmd = 'CONFigure:LTE:SIGNaling:CONNection:APN {}'.format(apn)
+        self.send_and_recv(cmd)
+
+    @property
+    def ip_type(self):
+        """Gets the callbox network IP type."""
+        cmd = 'CONFigure:LTE:SIGNaling:CONNection:IPVersion?'
+        return self.send_and_recv(cmd)
+
+    @ip_type.setter
+    def ip_type(self, ip_type):
+        """ Configures the callbox network IP type.
+
+        Args:
+            ip_type: the network type to use.
+        """
+        if not isinstance(ip_type, IPAddressType):
+            raise ValueError('state should be the instance of IPAddressType.')
+
+        cmd = 'CONFigure:LTE:SIGNaling:CONNection:IPVersion {}'.format(
+            ip_type.value)
+        return self.send_and_recv(cmd)
+
+    @property
+    def mtu(self):
+        """Gets the callbox network Maximum Transmission Unit."""
+        cmd = 'CONFigure:DATA:CONTrol:MTU?'
+        return self.send_and_recv(cmd)
+
+    @mtu.setter
+    def mtu(self, mtu):
+        """Sets the callbox network Maximum Transmission Unit.
+
+        Args:
+            mtu: the MTU size.
+        """
+        cmd = 'CONFigure:DATA:CONTrol:MTU {}'.format(mtu)
+        self.send_and_recv(cmd)
+
     def get_base_station(self, bts_num=BtsNumber.BTS1):
         """Gets the base station object based on bts num. By default
         bts_num set to PCC
@@ -450,15 +801,42 @@ class Cmw500(abstract_inst.SocketInstrument):
         """
         return LteMeasurement(self)
 
+    def set_sms(self, message):
+        """Sets the SMS message to be sent to the DUT.
+
+        Args:
+            message: the SMS message to send.
+        """
+        cmd = 'CONFigure:LTE:SIGN:SMS:OUTGoing:INTernal "{}"'.format(message)
+        self.send_and_recv(cmd)
+
+    def send_sms(self):
+        """Sends the currently set SMS message."""
+        self.send_and_recv('CALL:LTE:SIGN:PSWitched:ACTion SMS;*OPC?')
+        timeout = time.time() + STATE_CHANGE_TIMEOUT
+        while time.time() < timeout:
+            state = self.send_and_recv(
+                'SENSe:LTE:SIGN:SMS:OUTGoing:INFO:LMSent?')
+            if state == "SUCC":
+                return
+            time.sleep(1)
+
+        raise CmwError('Failed to send SMS message')
+
 
 class BaseStation(object):
     """Class to interact with different base stations"""
-
     def __init__(self, cmw, bts_num):
         if not isinstance(bts_num, BtsNumber):
             raise ValueError('bts_num should be an instance of BtsNumber.')
         self._bts = bts_num.value
         self._cmw = cmw
+
+    @property
+    def scc_state(self):
+        """Gets the scc state of cell."""
+        cmd = 'FETCh:LTE:SIGN:{}:STATe?'.format(self._bts)
+        return self._cmw.send_and_recv(cmd)
 
     @property
     def duplex_mode(self):
@@ -884,13 +1262,14 @@ class BaseStation(object):
             raise ValueError('dci_format should be the instance of DciFormat.')
 
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:DCIFormat {}'.format(
-            self._bts, dci_format)
+            self._bts, dci_format.value)
         self._cmw.send_and_recv(cmd)
 
     @property
     def dl_antenna(self):
         """Gets dl antenna count of cell."""
-        cmd = 'CONFigure:LTE:SIGN:CONNection:{}:NENBantennas?'.format(self._bts)
+        cmd = 'CONFigure:LTE:SIGN:CONNection:{}:NENBantennas?'.format(
+            self._bts)
         return self._cmw.send_and_recv(cmd)
 
     @dl_antenna.setter
@@ -903,7 +1282,7 @@ class BaseStation(object):
         if not isinstance(num_antenna, MimoModes):
             raise ValueError('num_antenna should be an instance of MimoModes.')
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:NENBantennas {}'.format(
-            self._bts, num_antenna)
+            self._bts, num_antenna.value)
         self._cmw.send_and_recv(cmd)
 
     @property
@@ -924,6 +1303,13 @@ class BaseStation(object):
             self._bts, state.value)
         self._cmw.send_and_recv(cmd)
 
+    @property
+    def tpc_power_control(self):
+        """Gets the type of uplink power control used."""
+        cmd = 'CONFigure:LTE:SIGN:UL:{}:PUSCh:TPC:SET?'.format(self._bts)
+        return self._cmw.send_and_recv(cmd)
+
+    @tpc_power_control.setter
     def tpc_power_control(self, set_type):
         """Set and execute the Up Link Power Control via TPC.
 
@@ -957,166 +1343,114 @@ class BaseStation(object):
             self._bts, cltpower)
         self._cmw.send_and_recv(cmd)
 
-    @property
-    def drx_connected_mode(self):
-        """ Gets the Connected DRX LTE cell parameter
 
-        Args:
-            None
+class LteMeasurementState(Enum):
+    """Possible measurement states"""
+    OFF = 'OFF'
+    READY = 'RDY'
+    RUN = 'RUN'
 
-        Returns:
-            DRX connected mode (OFF, AUTO, MANUAL)
-        """
-        raise NotImplementedError()
 
-    @drx_connected_mode.setter
-    def drx_connected_mode(self, mode):
-        """  Sets the Connected DRX LTE cell parameter
-
-        Args:
-            mode: DRX Connected mode
-
-        Returns:
-            None
-        """
-        raise NotImplementedError()
-
-    @property
-    def drx_on_duration_timer(self):
-        """ Gets the amount of PDCCH subframes to wait for data after
-            waking up from a DRX cycle
-
-        Args:
-            None
-
-        Returns:
-            DRX mode duration timer
-        """
-        raise NotImplementedError()
-
-    @drx_on_duration_timer.setter
-    def drx_on_duration_timer(self, time):
-        """ Sets the amount of PDCCH subframes to wait for data after
-            waking up from a DRX cycle
-
-        Args:
-            timer: Length of interval to wait for user data to be transmitted
-
-        Returns:
-            None
-        """
-        raise NotImplementedError()
-
-    @property
-    def drx_inactivity_timer(self):
-        """ Gets the number of PDCCH subframes to wait before entering DRX mode
-
-        Args:
-            None
-
-        Returns:
-            DRX mode inactivity timer
-        """
-        raise NotImplementedError()
-
-    @drx_inactivity_timer.setter
-    def drx_inactivity_timer(self, time):
-        """ Sets the number of PDCCH subframes to wait before entering DRX mode
-
-        Args:
-            timer: Length of the interval to wait
-
-        Returns:
-            None
-        """
-        raise NotImplementedError()
-
-    @property
-    def drx_retransmission_timer(self):
-        """ Gets the number of consecutive PDCCH subframes to wait
-        for retransmission
-
-        Args:
-            None
-
-        Returns:
-            Number of PDCCH subframes to wait for retransmission
-        """
-        raise NotImplementedError()
-
-    @drx_retransmission_timer.setter
-    def drx_retransmission_timer(self, time):
-        """ Sets the number of consecutive PDCCH subframes to wait
-        for retransmission
-
-        Args:
-            time: Number of PDCCH subframes to wait
-            for retransmission
-
-        Returns:
-            None
-        """
-        raise NotImplementedError()
-
-    @property
-    def drx_long_cycle(self):
-        """ Gets the amount of subframes representing a DRX long cycle
-
-        Args:
-            None
-
-        Returns:
-            The amount of subframes representing one long DRX cycle.
-            One cycle consists of DRX sleep + DRX on duration
-        """
-        raise NotImplementedError()
-
-    @drx_long_cycle.setter
-    def drx_long_cycle(self, time):
-        """ Sets the amount of subframes representing a DRX long cycle
-
-        Args:
-            long_cycle: The amount of subframes representing one long DRX cycle.
-                One cycle consists of DRX sleep + DRX on duration
-
-        Returns:
-            None
-        """
-        raise NotImplementedError()
-
-    @property
-    def drx_long_cycle_offset(self):
-        """ Gets the offset used to determine long cycle starting
-        subframe
-
-        Args:
-            None
-
-        Returns:
-            Long cycle offset
-        """
-        raise NotImplementedError()
-
-    @drx_long_cycle_offset.setter
-    def drx_long_cycle_offset(self, offset):
-        """ Sets the offset used to determine long cycle starting
-        subframe
-
-        Args:
-            offset: Number in range 0...(long cycle - 1)
-        """
-        raise NotImplementedError()
-
+def _try_parse(s, fun):
+    try:
+        return fun(s)
+    except ValueError:
+        return None
 
 
 class LteMeasurement(object):
+    """ Class for measuring LTE performance """
+
+    INDEX_TX = 17
+    INDEX_TX_MIN = 17
+    INDEX_TX_MAX = 18
 
     def __init__(self, cmw):
         self._cmw = cmw
 
-    def intitilize_measurement(self):
-        """Initialize measurement modules."""
-        self._cmw.send_and_recv('INIT:LTE:MEAS:MEValuation')
+    @property
+    def sample_count(self):
+        """Gets the number of samples to use when calculating results."""
+        cmd = 'CONFigure:LTE:MEAS:MEValuation:SCOunt:MODulation?'
+        return self._cmw.send_and_recv(cmd)
+
+    @sample_count.setter
+    def sample_count(self, sample_count):
+        cmd = 'CONFigure:LTE:MEAS:MEValuation:SCOunt:MODulation {}'.format(
+            sample_count)
+        self._cmw.send_and_recv(cmd)
+
+    @property
+    def average(self):
+        """Gets the average values of the most recent measurement.
+        Invalid measurements are set to None.
+        """
+        values = self._cmw.send_and_recv(
+            'FETch:LTE:MEAS:MEValuation:MODulation:AVERage?').split(',')
+        for i in range(0, 2):
+            values[i] = _try_parse(values[i], int)
+        for i in range(2, len(values)):
+            values[i] = _try_parse(values[i], float)
+        return values
+
+    @property
+    def extrema(self):
+        """Gets the extrema values of the most recent measurement.
+        Invalid measurements are set to None.
+        """
+        values = self._cmw.send_and_recv(
+            'FETch:LTE:MEAS:MEValuation:MODulation:EXTReme?').split(',')
+        for i in range(0, 2):
+            values[i] = _try_parse(values[i], int)
+        for i in range(2, len(values)):
+            values[i] = _try_parse(values[i], float)
+        return values
+
+    @property
+    def stdev(self):
+        """Gets the standard deviation of the most recent measurement.
+        Invalid measurements are set to None.
+        """
+        values = self._cmw.send_and_recv(
+            'FETch:LTE:MEAS:MEValuation:MODulation:SDEV?').split(',')
+        for i in range(0, 2):
+            values[i] = _try_parse(values[i], int)
+        for i in range(2, len(values)):
+            values[i] = _try_parse(values[i], float)
+        return values
+
+    @property
+    def tx_average(self):
+        """Gets the measured average Tx power (in dBm)."""
+        value = self.average[self.INDEX_TX]
+        if value is None:
+            raise ValueError("LteMeasurement has no value for tx_average")
+        return value
+
+    @property
+    def tx_min(self):
+        """Gets the measured minimum Tx power (in dBm)."""
+        value = self.extrema[self.INDEX_TX_MIN]
+        if value is None:
+            raise ValueError("LteMeasurement has no value for tx_min")
+        return value
+
+    @property
+    def tx_max(self):
+        """Gets the measured maximum Tx power (in dBm)."""
+        value = self.extrema[self.INDEX_TX_MAX]
+        if value is None:
+            raise ValueError("LteMeasurement has no value for tx_max")
+        return value
+
+    @property
+    def tx_stdev(self):
+        """Gets the measured Tx power standard deviation (in dBm)."""
+        value = self.stdev[self.INDEX_TX]
+        if value is None:
+            raise ValueError(
+                "LteMeasurement has no value for standard_deviation")
+        return value
 
     @property
     def measurement_repetition(self):
@@ -1148,12 +1482,35 @@ class LteMeasurement(object):
         return self._cmw.send_and_recv(
             'FETCh:LTE:MEAS:MEValuation:PMONitor:AVERage?')
 
+    @property
+    def state(self):
+        """Gets the state of the measurement."""
+        cmd = 'FETCh:LTE:MEAS:MEValuation:STATe?'
+        return LteMeasurementState(self._cmw.send_and_recv(cmd))
+
+    def initialize_measurement(self):
+        """Initialize measurement modules."""
+        self._cmw.send_and_recv(
+            'CONF:LTE:MEAS:MEV:RES:ALL ON,ON,ON,ON,ON,ON,ON,ON,ON,ON,ON,ON')
+        self._cmw.send_and_recv('ROUTe:LTE:MEAS:SCENario:CSPath "LTE Sig1"')
+        self._cmw.send_and_recv('INIT:LTE:MEAS:MEValuation;*OPC?')
+        self._wait_for_state({LteMeasurementState.RUN})
+
+    def run_measurement(self):
+        """Runs a single Tx multievaluation measurement to completion."""
+        self.stop_measurement()
+        self.measurement_repetition = RepetitionMode.SINGLESHOT
+        self.initialize_measurement()
+        self._wait_for_state({LteMeasurementState.READY}, timeout=120)
+
     def stop_measurement(self):
         """Stops the on-going measurement.
         This function call does not free up resources allocated for
         measurement. Instead it moves from RUN to RDY state.
         """
         self._cmw.send_and_recv('STOP:LTE:MEAS:MEValuation')
+        self._wait_for_state(
+            {LteMeasurementState.OFF, LteMeasurementState.READY})
 
     def abort_measurement(self):
         """Aborts the measurement abruptly.
@@ -1161,6 +1518,24 @@ class LteMeasurement(object):
         measurement and all the results will be wiped off.
         """
         self._cmw.send_and_recv('ABORt:LTE:MEAS:MEValuation')
+        self._wait_for_state({LteMeasurementState.OFF})
+
+    def _wait_for_state(self, states, timeout=10):
+        """Polls the measurement state until it reaches an allowable state
+
+        Args:
+            states: the allowed states
+            timeout: the maximum amount time to wait (in seconds)
+        """
+        while timeout > 0:
+            if self.state in states:
+                return
+
+            time.sleep(1)
+            timeout -= 1
+
+        raise CmwError(
+            'Failed to wait for LTE measurement state: {}.'.format(states))
 
 
 class CmwError(Exception):

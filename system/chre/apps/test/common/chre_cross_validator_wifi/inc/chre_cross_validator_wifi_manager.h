@@ -20,12 +20,12 @@
 #include <cinttypes>
 #include <cstdint>
 
-#include <chre.h>
 #include <pb_common.h>
 #include <pb_decode.h>
 #include <pb_encode.h>
 
 #include "chre/util/singleton.h"
+#include "chre_api/chre.h"
 
 #include "chre_cross_validation_wifi.nanopb.h"
 #include "chre_test_common.nanopb.h"
@@ -133,15 +133,6 @@ class Manager {
   chre_cross_validation_wifi_WifiCapabilities makeWifiCapabilitiesMessage(
       uint32_t capabilitiesFromChre);
 
-  /**
-   * Encode the proto message and send to host.
-   *
-   * @param message The proto message struct pointer.
-   * @param fields The fields descriptor of the proto message to encode.
-   * @param messageType The message type of the message.
-   */
-  void encodeAndSendMessageToHost(const void *message, const pb_field_t *fields,
-                                  uint32_t messageType);
   /**
    * Handle a wifi scan result data message sent from AP.
    *

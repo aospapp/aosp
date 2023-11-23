@@ -108,7 +108,8 @@ class AdvertiserHciMock : public BleAdvertiserHciInterface {
                void(uint8_t, uint16_t, uint16_t, uint16_t, status_cb));
   MOCK_METHOD5(SetPeriodicAdvertisingData,
                void(uint8_t, uint8_t, uint8_t, uint8_t*, status_cb));
-  MOCK_METHOD3(SetPeriodicAdvertisingEnable, void(uint8_t, uint8_t, status_cb));
+  MOCK_METHOD((void), SetPeriodicAdvertisingEnable,
+              (bool, bool, uint8_t, status_cb), (override));
   MOCK_METHOD2(RemoveAdvertisingSet, void(uint8_t, status_cb));
   MOCK_METHOD1(ClearAdvertisingSets, void(status_cb));
 
@@ -851,9 +852,10 @@ TEST_F(BleAdvertisingManagerTest, test_periodic_adv_disable_on_unregister) {
   EXPECT_CALL(*hci_mock, SetPeriodicAdvertisingData(_, _, _, _, _))
       .Times(1)
       .WillOnce(SaveArg<4>(&set_periodic_data_cb));
-  EXPECT_CALL(*hci_mock, SetPeriodicAdvertisingEnable(0x01 /* enable */, _, _))
+  EXPECT_CALL(*hci_mock, SetPeriodicAdvertisingEnable(
+                             true /* enable */, false /* include_adi */, _, _))
       .Times(1)
-      .WillOnce(SaveArg<2>(&set_periodic_enable_cb));
+      .WillOnce(SaveArg<3>(&set_periodic_enable_cb));
   EXPECT_CALL(*hci_mock, Enable(0x01 /* enable */, _, _))
       .Times(1)
       .WillOnce(SaveArg<2>(&enable_cb));
@@ -891,10 +893,11 @@ TEST_F(BleAdvertisingManagerTest, test_periodic_adv_disable_on_unregister) {
       .Times(1)
       .WillOnce(SaveArg<2>(&disable_cb));
   status_cb disable_periodic_cb;
-  EXPECT_CALL(*hci_mock, SetPeriodicAdvertisingEnable(0x00 /* disable */,
+  EXPECT_CALL(*hci_mock, SetPeriodicAdvertisingEnable(false /* disable */,
+                                                      false /* include_adi */,
                                                       advertiser_id, _))
       .Times(1)
-      .WillOnce(SaveArg<2>(&disable_periodic_cb));
+      .WillOnce(SaveArg<3>(&disable_periodic_cb));
   status_cb remove_cb;
   EXPECT_CALL(*hci_mock, RemoveAdvertisingSet(advertiser_id, _))
       .Times(1)
@@ -1131,9 +1134,9 @@ TEST_F(BleAdvertisingManagerTest, test_cleanup_during_execution) {
   ::testing::Mock::VerifyAndClearExpectations(hci_mock.get());
 }
 
-extern void testRecomputeTimeout1();
-extern void testRecomputeTimeout2();
-extern void testRecomputeTimeout3();
+void testRecomputeTimeout1();
+void testRecomputeTimeout2();
+void testRecomputeTimeout3();
 
 TEST_F(BleAdvertisingManagerTest, test_recompute_timeout) {
   testRecomputeTimeout1();

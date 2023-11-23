@@ -52,7 +52,7 @@ abstract class BaseAdminActionReporterPreferenceController<P extends Preference>
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return isEnabled() ? AVAILABLE : CONDITIONALLY_UNAVAILABLE;
     }
 

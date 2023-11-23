@@ -73,15 +73,17 @@ class InterfaceChecker {
         HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract android.graphics.Region android.view.WindowManager.getCurrentImeTouchRegion()");
         HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract java.util.Set<android.media.AudioMetadata$Key<?>> android.media.AudioMetadataReadMap.keySet()");
         HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract android.view.InsetsState android.view.WindowInsetsController.getState()");
-        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract boolean android.view.WindowInsetsController.isRequestedVisible(int)");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract int android.view.WindowInsetsController.getRequestedVisibleTypes()");
         HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract void android.view.WindowInsetsController.setAnimationsDisabled(boolean)");
         HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract void android.view.inputmethod.InputMethod.hideSoftInputWithToken(int,android.os.ResultReceiver,android.os.IBinder)");
         HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract boolean android.view.WindowInsetsAnimationController.hasZeroInsetsIme()");
         HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract void android.view.WindowInsetsController.setCaptionInsetsHeight(int)");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract void android.view.WindowInsetsController.setSystemDrivenInsetsAnimationLoggingListener(android.view.WindowInsetsAnimationControlListener)");
         HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract void android.view.inputmethod.InputMethod.setCurrentHideInputToken(android.os.IBinder)");
         HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract void android.view.inputmethod.InputMethod.setCurrentShowInputToken(android.os.IBinder)");
         HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract void android.view.inputmethod.InputMethodSession.notifyImeHidden()");
         HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract void android.view.inputmethod.InputMethodSession.removeImeSurface()");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract void android.bluetooth.BluetoothProfile.close()");
     }
 
     private final ResultObserver resultObserver;

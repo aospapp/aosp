@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"CDMA – další hovor na lince ve službě IMS – vypnuto"</string>
     <string name="updating_title" msgid="6130548922615719689">"Nastavení hovorů"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Nastavení hovorů může změnit pouze uživatel s oprávněním administrátora."</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"Nastavení telefonního účtu může změnit jen administrátor nebo uživatel pracovního účtu."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Nastavení (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"Chyba nastavení hovorů"</string>
     <string name="reading_settings" msgid="1605904432450871183">"Načítání nastavení..."</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"Hovory nelze podržet."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"Chcete-li provést hovor, připojte se k bezdrátové síti."</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"Pokud chcete provést hovor, povolte volání přes připojení Wi-Fi."</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"Pokud chcete někomu zavolat, satelitní režim vypněte."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"Nouzové informace"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"Vlastník"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"Údaje zobrazíte dalším klepnutím"</string>
@@ -596,8 +598,8 @@
     <string name="hac_mode_summary" msgid="7774989500136009881">"Zapnout režim kompatibility s naslouchátkem"</string>
     <string name="rtt_mode_title" msgid="3075948111362818043">"Hovor, během něhož můžete posílat zprávy (RTT)"</string>
     <string name="rtt_mode_summary" msgid="8631541375609989562">"Povolit posílání zpráv během hlasového hovoru"</string>
-    <string name="rtt_mode_more_information" msgid="587500128658756318">"Funkce SMS během hovoru (RTT) pomáhá volajícím, kteří neslyší, jsou nedoslýchaví, mají řečovou vadu, případně potřebují víc než jen hlas z jiného důvodu.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Další informace&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; – Text poslaný během hovoru se uloží jako přepis zpráv\n       &lt;br&gt; – Tato funkce není dostupná při videohovorech"</string>
-    <string name="no_rtt_when_roaming" msgid="5268008247378355389">"Použít: Funkce SMS během hovoru není dostupná při roamingu"</string>
+    <string name="rtt_mode_more_information" msgid="587500128658756318">"Funkce Okamžitý text (RTT) pomáhá volajícím, kteří neslyší, jsou nedoslýchaví, mají řečovou vadu, případně potřebují víc než jen hlas z jiného důvodu.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Další informace&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; – Text poslaný během hovoru se uloží jako přepis zpráv\n       &lt;br&gt; – Tato funkce není dostupná při videohovorech"</string>
+    <string name="no_rtt_when_roaming" msgid="5268008247378355389">"Použít: Funkce Okamžitý text není dostupná při roamingu"</string>
   <string-array name="tty_mode_entries">
     <item msgid="3238070884803849303">"TTY vypnuto"</item>
     <item msgid="1449091874731375214">"Úplný režim TTY"</item>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"Režim Letadlo je zapnutý"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"Nelze získat přístup k SIM kartě"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"Mobilní síť je nedostupná"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"Satelitní režim je zapnutý"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"Došlo k potížím s telefonním číslem, které se pokoušíte vytočit. Kód chyby: 1."</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"Hovor se nepodařilo dokončit. Kód chyby: 3."</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"Hovor se nepodařilo dokončit. Kód chyby: 6."</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Zrušit"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"Nastavit vyjímatelnou eSIM jako výchozí"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Výkon mobilního přijímače"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"Simulovat provoz mimo službu (pouze ladicí sestavení)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Zobrazit adresář SIM karty"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Zobrazit povolená telefonní čísla"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"Zobrazit čísla volání služeb"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"Připojeno"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"Pozastaveno"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"Neznámé"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"Primární"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pakety"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"B"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"Odeslaná data:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"Čekající zpráva:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"Telefonní číslo:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"Zvolit pásmo bezdrátového modulu"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Typ hlasové sítě:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Typ datové sítě:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Přepsat typ sítě:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"Voice – stav registrace nezpracovaných dat:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"Stav registrace nezpracovaných dat:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"WLAN – stav registrace nezpracovaných dat:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Vybrat telefonní seznam"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Nastavit upřednostňovaný typ sítě:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Ping názvu hostitele (www.google.com) IPv4:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Signál sítě Bluetooth je slabý. Zkuste přepnout na hlasitý odposlech."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"Oznámení o kvalitě hovoru"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"Zastaralé účty SIP"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"Z osobní aplikace nelze odeslat zprávu"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"Vaše organizace dovoluje odesílat zprávy jen z pracovních aplikací"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"Zrušit"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"Přepnout na pracovní profil"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"Nainstalovat pracovní aplikaci na odesílání zpráv"</string>
 </resources>

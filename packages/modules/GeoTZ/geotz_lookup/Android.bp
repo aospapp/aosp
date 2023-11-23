@@ -31,6 +31,7 @@ java_library {
     host_supported: true,
     jarjar_rules: "jarjar-rules.txt",
     apex_available: [
+        "//apex_available:platform",
         "com.android.geotz",
     ],
 }

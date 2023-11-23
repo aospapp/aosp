@@ -20,6 +20,7 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
+import android.net.ipsec.ike.IkeManager;
 
 import com.android.internal.net.ipsec.ike.ike3gpp.Ike3gppDeviceIdentityUtils;
 
@@ -96,9 +97,10 @@ public final class Ike3gppParams {
     public String toString() {
         return new StringBuilder()
                 .append("Ike3gppParams={ ")
-                .append("pduSessionId=")
-                .append(String.format("%02X", mPduSessionId))
-                .append(String.format("%16s", mDeviceIdentity))
+                .append("mPduSessionId=")
+                .append(String.format("%02X ", mPduSessionId))
+                .append("mDeviceIdentity=")
+                .append(IkeManager.getIkeLog().pii(String.format("%16s ", mDeviceIdentity)))
                 .append(" }")
                 .toString();
     }

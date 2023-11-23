@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/link/macsec.c	MACsec Link Info
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2016 Sabrina Dubroca <sd@queasysnail.net>
  */
 
@@ -47,6 +41,7 @@
 #define MACSEC_ATTR_REPLAY_PROTECT	(1 << 10)
 #define MACSEC_ATTR_VALIDATION		(1 << 11)
 #define MACSEC_ATTR_PORT		(1 << 12)
+#define MACSEC_ATTR_OFFLOAD		(1 << 13)
 
 struct macsec_info {
 	int ifindex;
@@ -58,7 +53,7 @@ struct macsec_info {
 	enum macsec_validation_type validate;
 	uint8_t encoding_sa;
 
-	uint8_t send_sci, end_station, scb, replay_protect, protect, encrypt;
+	uint8_t send_sci, end_station, scb, replay_protect, protect, encrypt, offload;
 
 	uint32_t ce_mask;
 };
@@ -80,6 +75,7 @@ static struct nla_policy macsec_policy[IFLA_MACSEC_MAX+1] = {
 	[IFLA_MACSEC_SCB] = { .type = NLA_U8 },
 	[IFLA_MACSEC_REPLAY_PROTECT] = { .type = NLA_U8 },
 	[IFLA_MACSEC_VALIDATION] = { .type = NLA_U8 },
+	[IFLA_MACSEC_OFFLOAD] = { .type = NLA_U8 },
 };
 
 /**
@@ -162,6 +158,11 @@ static int macsec_parse(struct rtnl_link *link, struct nlattr *data,
 	if (tb[IFLA_MACSEC_ENCRYPT]) {
 		info->encrypt = nla_get_u8(tb[IFLA_MACSEC_ENCRYPT]);
 		info->ce_mask |= MACSEC_ATTR_ENCRYPT;
+	}
+
+	if (tb[IFLA_MACSEC_OFFLOAD]) {
+		info->offload = nla_get_u8(tb[IFLA_MACSEC_OFFLOAD]);
+		info->ce_mask |= MACSEC_ATTR_OFFLOAD;
 	}
 
 	if (tb[IFLA_MACSEC_INC_SCI]) {
@@ -262,7 +263,8 @@ static void macsec_dump_line(struct rtnl_link *link, struct nl_dump_params *p)
 	struct macsec_info *info = link->l_info;
 	char tmp[128];
 
-	nl_dump(p, "sci %016llx <%s>", ntohll(info->sci), flags_str(tmp, sizeof(tmp), info));
+	nl_dump(p, "sci %016llx <%s>", (long long unsigned)ntohll(info->sci),
+		flags_str(tmp, sizeof(tmp), info));
 }
 
 static void macsec_dump_details(struct rtnl_link *link, struct nl_dump_params *p)
@@ -270,12 +272,15 @@ static void macsec_dump_details(struct rtnl_link *link, struct nl_dump_params *p
 	struct macsec_info *info = link->l_info;
 	char tmp[128];
 
-	nl_dump(p, "    sci %016llx protect %s encoding_sa %d encrypt %s send_sci %s validate %s %s\n",
-		ntohll(info->sci), values_on_off[info->protect], info->encoding_sa, values_on_off[info->encrypt], values_on_off[info->send_sci],
+	nl_dump(p,
+		"    sci %016llx protect %s encoding_sa %d encrypt %s send_sci %s validate %s %s\n",
+		(long long unsigned)ntohll(info->sci),
+		values_on_off[info->protect], info->encoding_sa,
+		values_on_off[info->encrypt], values_on_off[info->send_sci],
 		VALIDATE_STR[info->validate],
 		replay_protect_str(tmp, info->replay_protect, info->window));
 	nl_dump(p, "    cipher suite: %016llx, icv_len %d\n",
-		info->cipher_suite, info->icv_len);
+		(long long unsigned)info->cipher_suite, info->icv_len);
 }
 
 static int macsec_clone(struct rtnl_link *dst, struct rtnl_link *src)
@@ -311,6 +316,9 @@ static int macsec_put_attrs(struct nl_msg *msg, struct rtnl_link *link)
 
 	if ((info->ce_mask & MACSEC_ATTR_ENCRYPT))
 		NLA_PUT_U8(msg, IFLA_MACSEC_ENCRYPT, info->encrypt);
+
+	if ((info->ce_mask & MACSEC_ATTR_OFFLOAD))
+		NLA_PUT_U8(msg, IFLA_MACSEC_OFFLOAD, info->offload);
 
 	if (info->cipher_suite != MACSEC_DEFAULT_CIPHER_ID || info->icv_len != DEFAULT_ICV_LEN) {
 		NLA_PUT_U64(msg, IFLA_MACSEC_CIPHER_SUITE, info->cipher_suite);
@@ -638,6 +646,36 @@ int rtnl_link_macsec_get_encrypt(struct rtnl_link *link, uint8_t *encrypt)
 	return 0;
 }
 
+int rtnl_link_macsec_set_offload(struct rtnl_link *link, uint8_t offload)
+{
+	struct macsec_info *info = link->l_info;
+
+	IS_MACSEC_LINK_ASSERT(link);
+
+	if (offload > 1)
+		return -NLE_INVAL;
+
+	info->offload = offload;
+	info->ce_mask |= MACSEC_ATTR_OFFLOAD;
+
+	return 0;
+}
+
+int rtnl_link_macsec_get_offload(struct rtnl_link *link, uint8_t *offload)
+{
+	struct macsec_info *info = link->l_info;
+
+	IS_MACSEC_LINK_ASSERT(link);
+
+	if (!(info->ce_mask & MACSEC_ATTR_OFFLOAD))
+		return -NLE_NOATTR;
+
+	if (offload)
+		*offload = info->offload;
+
+	return 0;
+}
+
 int rtnl_link_macsec_set_encoding_sa(struct rtnl_link *link, uint8_t encoding_sa)
 {
 	struct macsec_info *info = link->l_info;
@@ -674,7 +712,7 @@ int rtnl_link_macsec_set_validation_type(struct rtnl_link *link, enum macsec_val
 
 	IS_MACSEC_LINK_ASSERT(link);
 
-	if (validate > 1)
+	if (validate > MACSEC_VALIDATE_MAX)
 		return -NLE_INVAL;
 
 	info->validate = validate;

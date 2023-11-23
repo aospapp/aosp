@@ -28,10 +28,6 @@
         <activity android:name="android.media.cts.MediaProjectionActivity"
             android:label="MediaProjectionActivity"
             android:screenOrientation="locked"/>
-        <activity android:name="android.media.cts.AudioManagerStub"
-            android:label="AudioManagerStub"/>
-        <activity android:name="android.media.cts.AudioManagerStubHelper"
-            android:label="AudioManagerStubHelper"/>
 
         <activity android:name="android.media.cts.MediaStubActivity"
             android:label="MediaStubActivity"
@@ -57,6 +53,19 @@
         <service android:name="android.media.cts.LocalMediaProjectionService"
             android:foregroundServiceType="mediaProjection"
             android:enabled="true">
+        </service>
+
+        <service android:name="android.media.cts.LocalMediaProjectionSecondaryService"
+            android:process=":secondary"
+            android:foregroundServiceType="mediaProjection"
+            android:enabled="true">
+        </service>
+
+        <service android:name="android.media.cts.LocalMediaProjectionHelperService"
+            android:foregroundServiceType="specialUse"
+            android:exported="true">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="test helper" />
         </service>
      </application>
 </manifest>

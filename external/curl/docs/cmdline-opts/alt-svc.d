@@ -1,10 +1,14 @@
+c: Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
+SPDX-License-Identifier: curl
 Long: alt-svc
 Arg: <file name>
 Protocols: HTTPS
 Help: Enable alt-svc with this cache file
 Added: 7.64.1
 Category: http
+See-also: resolve connect-to
 Example: --alt-svc svc.txt $URL
+Multi: append
 ---
 This option enables the alt-svc parser in curl. If the file name points to an
 existing alt-svc cache file, that will be used. After a completed transfer,

@@ -22,23 +22,20 @@ import sys
 import unittest
 
 from importlib import import_module
+from unittest import mock
 
-import atest_utils
-
-COVERAGE = 'coverage'
-RUN_COVERAGE = COVERAGE in sys.argv
-SHOW_MISSING = '--show-missing' in sys.argv
-BUILD_TOP = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)),
-    '../../..')
-# list of 3rd party libraries
-_PYFAKEFS = os.path.join(BUILD_TOP, 'external', 'python', 'pyfakefs')
-EXTERNAL_PYTHONPATHS = [_PYFAKEFS]
-for lib in EXTERNAL_PYTHONPATHS:
-    if os.path.exists(lib):
-        sys.path.insert(0, lib)
 # Setup logging to be silent so unittests can pass through TF.
 logging.disable(logging.ERROR)
+
+ENV = {
+    'ANDROID_BUILD_TOP': '/',
+    'ANDROID_PRODUCT_OUT': '/out/prod',
+    'ANDROID_TARGET_OUT_TESTCASES': '/out/prod/tcases',
+    'ANDROID_HOST_OUT': '/out/host',
+    'ANDROID_HOST_OUT_TESTCASES': '/out/host/tcases',
+    'TARGET_PRODUCT': 'aosp_cf_x86_64',
+    'TARGET_BUILD_VARIANT': 'userdebug',
+}
 
 def get_test_modules():
     """Returns a list of testable modules.
@@ -51,9 +48,10 @@ def get_test_modules():
         List of strings (the testable module import path).
     """
     testable_modules = []
-    base_path = os.path.dirname(os.path.realpath(__file__))
+    package = os.path.dirname(os.path.realpath(__file__))
+    base_path = os.path.dirname(package)
 
-    for dirpath, _, files in os.walk(base_path):
+    for dirpath, _, files in os.walk(package):
         for f in files:
             if f.endswith("_unittest.py"):
                 # Now transform it into a no-absolute import path.
@@ -82,45 +80,11 @@ def run_test_modules(test_modules):
     runner = unittest.TextTestRunner(verbosity=2)
     return runner.run(test_suite)
 
-# pylint: disable=import-outside-toplevel
-def main(run_coverage=False, show_missing=False):
-    """Main unittest entry.
 
-    Args:
-        cov_args: A list of coverage arguments.
-
-    Returns:
-        0 if success. None-zero if fails.
-    """
-    if not all((run_coverage, atest_utils.has_python_module(COVERAGE))):
+if __name__ == '__main__':
+    print(sys.version_info)
+    with mock.patch.dict('os.environ', ENV):
         result = run_test_modules(get_test_modules())
         if not result.wasSuccessful():
             sys.exit(not result.wasSuccessful())
         sys.exit(0)
-
-    # pylint: disable=import-error
-    from coverage import coverage
-    # The cover_pylib=False ignores only std libs; therefore, these 3rd-party
-    # libs must be omitted before creating coverage class.
-    ignore_libs = ['*/__init__.py',
-                   '*dist-packages/*.py',
-                   '*site-packages/*.py']
-    cov = coverage(omit=ignore_libs)
-    cov.erase()
-    cov.start()
-    result = run_test_modules(get_test_modules())
-    if not result.wasSuccessful():
-        cov.erase()
-        sys.exit(not result.wasSuccessful())
-    cov.stop()
-    cov.save()
-    cov.report(show_missing=show_missing)
-    cov.html_report()
-
-
-if __name__ == '__main__':
-    print(sys.version_info)
-    if len(sys.argv) > 1:
-        main(RUN_COVERAGE, SHOW_MISSING)
-    else:
-        main()

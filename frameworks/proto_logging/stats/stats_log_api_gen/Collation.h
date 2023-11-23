@@ -29,9 +29,9 @@
 namespace android {
 namespace stats_log_api_gen {
 
-using google::protobuf::OneofDescriptor;
 using google::protobuf::Descriptor;
 using google::protobuf::FieldDescriptor;
+using google::protobuf::OneofDescriptor;
 using std::map;
 using std::set;
 using std::shared_ptr;
@@ -50,6 +50,8 @@ const int FIRST_UID_IN_CHAIN_ID = 0;
 const char ONEOF_PUSHED_ATOM_NAME[] = "pushed";
 const char ONEOF_PULLED_ATOM_NAME[] = "pulled";
 
+enum AtomType { ATOM_TYPE_PUSHED, ATOM_TYPE_PULLED };
+
 enum AnnotationId : uint8_t {
     ANNOTATION_ID_IS_UID = 1,
     ANNOTATION_ID_TRUNCATE_TIMESTAMP = 2,
@@ -59,6 +61,16 @@ enum AnnotationId : uint8_t {
     ANNOTATION_ID_DEFAULT_STATE = 6,
     ANNOTATION_ID_TRIGGER_STATE_RESET = 7,
     ANNOTATION_ID_STATE_NESTED = 8,
+    ANNOTATION_ID_RESTRICTION_CATEGORY = 9,
+    ANNOTATION_ID_FIELD_RESTRICTION_PERIPHERAL_DEVICE_INFO = 10,
+    ANNOTATION_ID_FIELD_RESTRICTION_APP_USAGE = 11,
+    ANNOTATION_ID_FIELD_RESTRICTION_APP_ACTIVITY = 12,
+    ANNOTATION_ID_FIELD_RESTRICTION_HEALTH_CONNECT = 13,
+    ANNOTATION_ID_FIELD_RESTRICTION_ACCESSIBILITY = 14,
+    ANNOTATION_ID_FIELD_RESTRICTION_SYSTEM_SEARCH = 15,
+    ANNOTATION_ID_FIELD_RESTRICTION_USER_ENGAGEMENT = 16,
+    ANNOTATION_ID_FIELD_RESTRICTION_AMBIENT_SENSING = 17,
+    ANNOTATION_ID_FIELD_RESTRICTION_DEMOGRAPHIC_CLASSIFICATION = 18,
 };
 
 const int ATOM_ID_FIELD_NUMBER = -1;
@@ -146,11 +158,16 @@ struct AtomField {
     // If the field is of type enum, the following map contains the list of enum
     // values.
     map<int /* numeric value */, string /* value name */> enumValues;
+    // If the field is of type enum, the following field contains enum type name
+    string enumTypeName;
 
     inline AtomField() : name(), javaType(JAVA_TYPE_UNKNOWN_OR_INVALID) {
     }
     inline AtomField(const AtomField& that)
-        : name(that.name), javaType(that.javaType), enumValues(that.enumValues) {
+        : name(that.name),
+          javaType(that.javaType),
+          enumValues(that.enumValues),
+          enumTypeName(that.enumTypeName) {
     }
 
     inline AtomField(string n, java_type_t jt) : name(n), javaType(jt) {
@@ -169,7 +186,7 @@ struct AtomDecl {
     string message;
     vector<AtomField> fields;
 
-    string oneOfName;
+    AtomType atomType;
 
     FieldNumberToAnnotations fieldNumberToAnnotations;
 
@@ -178,10 +195,11 @@ struct AtomDecl {
     int defaultState = INT_MAX;
     int triggerStateReset = INT_MAX;
     bool nested = true;
+    bool restricted = false;
 
     AtomDecl();
     AtomDecl(const AtomDecl& that);
-    AtomDecl(int code, const string& name, const string& message, const string& oneOfName);
+    AtomDecl(int code, const string& name, const string& message, AtomType atomType);
     ~AtomDecl();
 
     inline bool operator<(const AtomDecl& that) const {

@@ -1560,6 +1560,62 @@ corpus::get_exported_decls_builder() const
   return priv_->exported_decls_builder;
 }
 
+/// Bitwise | operator for the corpus::origin type.
+///
+/// @param l the left-hand side operand of the | operation.
+///
+/// @param r the right-hand side operand of the | operation.
+///
+/// @return the result of the operation.
+corpus::origin
+operator|(corpus::origin l, corpus::origin r)
+{
+  return static_cast<corpus::origin>
+    (static_cast<uint32_t>(l) |  static_cast<uint32_t>(r));
+}
+
+/// Bitwise |= operator for the corpus::origin type.
+///
+/// @param l the left-hand side operand for the |= operation.
+///
+/// @param r the right-hand side operand for the |= operation.
+///
+/// @return the result of the operation.
+corpus::origin
+operator|=(corpus::origin &l, corpus::origin r)
+{
+  l = l | r;
+  return l;
+}
+
+/// Bitwise & operator for the corpus::origin type.
+///
+/// @param l the left-hand side operand of the & operation.
+///
+/// @param r the right-hand side operand of the & operation.
+///
+/// @return the result of the operation.
+corpus::origin
+operator&(corpus::origin l, corpus::origin r)
+{
+    return static_cast<corpus::origin>
+    (static_cast<uint32_t>(l) & static_cast<uint32_t>(r));
+}
+
+/// Bitwise &= operator for the corpus::origin type.
+///
+/// @param l the left-hand side operand of the &= operation.
+///
+/// @param r the right-hand side operand of the &= operation.
+///
+/// @return the result of the operation.
+corpus::origin
+operator&=(corpus::origin &l, corpus::origin r)
+{
+  l = l & r;
+  return l;
+}
+
 // </corpus stuff>
 
 // <corpus_group stuff>

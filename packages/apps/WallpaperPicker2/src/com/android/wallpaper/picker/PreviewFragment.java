@@ -58,6 +58,7 @@ import com.android.wallpaper.module.WallpaperPersister.Destination;
 import com.android.wallpaper.module.WallpaperPreferences;
 import com.android.wallpaper.module.WallpaperSetter;
 import com.android.wallpaper.util.FullScreenAnimation;
+import com.android.wallpaper.util.PreviewUtils;
 import com.android.wallpaper.util.ResourceUtils;
 import com.android.wallpaper.widget.BottomActionBar;
 import com.android.wallpaper.widget.BottomActionBar.BottomSheetContent;
@@ -104,25 +105,6 @@ public abstract class PreviewFragment extends AppbarFragment implements
     public static final String ARG_VIEW_AS_HOME = "view_as_home";
     public static final String ARG_FULL_SCREEN = "view_full_screen";
     public static final String ARG_TESTING_MODE_ENABLED = "testing_mode_enabled";
-
-    /**
-     * Creates and returns new instance of {@link ImagePreviewFragment} with the provided wallpaper
-     * set as an argument.
-     */
-    public static PreviewFragment newInstance(WallpaperInfo wallpaperInfo, @PreviewMode int mode,
-            boolean viewAsHome, boolean viewFullScreen, boolean testingModeEnabled) {
-        Bundle args = new Bundle();
-        args.putParcelable(ARG_WALLPAPER, wallpaperInfo);
-        args.putInt(ARG_PREVIEW_MODE, mode);
-        args.putBoolean(ARG_VIEW_AS_HOME, viewAsHome);
-        args.putBoolean(ARG_FULL_SCREEN, viewFullScreen);
-        args.putBoolean(ARG_TESTING_MODE_ENABLED, testingModeEnabled);
-
-        PreviewFragment fragment = wallpaperInfo instanceof LiveWallpaperInfo
-                ? new LivePreviewFragment() : new ImagePreviewFragment();
-        fragment.setArguments(args);
-        return fragment;
-    }
 
     private static final String TAG_LOAD_WALLPAPER_ERROR_DIALOG_FRAGMENT =
             "load_wallpaper_error_dialog";
@@ -182,16 +164,11 @@ public abstract class PreviewFragment extends AppbarFragment implements
 
         mTestingModeEnabled = getArguments().getBoolean(ARG_TESTING_MODE_ENABLED);
         mWallpaperSetter = new WallpaperSetter(injector.getWallpaperPersister(appContext),
-                injector.getPreferences(appContext), mUserEventLogger, mTestingModeEnabled);
+                injector.getPreferences(appContext), mUserEventLogger,
+                injector.getCurrentWallpaperInfoFactory(appContext), mTestingModeEnabled);
 
         mViewModelProvider = new ViewModelProvider(requireActivity());
         mSetWallpaperViewModel = mViewModelProvider.get(SetWallpaperViewModel.class);
-
-        Activity activity = getActivity();
-        List<String> attributions = getAttributions(activity);
-        if (attributions.size() > 0 && attributions.get(0) != null) {
-            activity.setTitle(attributions.get(0));
-        }
     }
 
     @Override
@@ -227,7 +204,7 @@ public abstract class PreviewFragment extends AppbarFragment implements
                             mFullScreenAnimation.getStatusBarHeight(),
                             previewHeader.getPaddingRight(), previewHeader.getPaddingBottom());
 
-                    return windowInsets.consumeSystemWindowInsets();
+                    return windowInsets.CONSUMED;
                 }
         );
 
@@ -279,7 +256,7 @@ public abstract class PreviewFragment extends AppbarFragment implements
             return;
         }
         startActivity(FullPreviewActivity.newIntent(getActivity(), wallpaperInfo,
-                /* viewAsHome= */ mLastSelectedTabPositionOptional.orElse(0) == 0),
+                        /* viewAsHome= */ mLastSelectedTabPositionOptional.orElse(0) == 0),
                 ActivityOptions.makeSceneTransitionAnimation(getActivity()).toBundle());
     }
 
@@ -304,7 +281,7 @@ public abstract class PreviewFragment extends AppbarFragment implements
                     }
             );
             container.findViewById(R.id.set_as_wallpaper_button).setOnClickListener(
-                    unused -> onSetWallpaperClicked(null, mWallpaper));
+                    unused -> onSetWallpaperClicked(null, getCurrentWallpaperInfo()));
         } else {
             container.findViewById(R.id.hide_ui_preview_button).setVisibility(View.GONE);
             container.findViewById(R.id.set_as_wallpaper_button).setVisibility(View.GONE);
@@ -317,7 +294,7 @@ public abstract class PreviewFragment extends AppbarFragment implements
                 LayerDrawable layerDrawable = (LayerDrawable) ripple.getDrawable(/* index= */ 0);
                 Drawable backgroundDrawable = layerDrawable.getDrawable(/* index= */ 0);
                 backgroundDrawable.setTint(!visible ? ResourceUtils.getColorAttr(getActivity(),
-                        com.android.internal.R.attr.colorAccentSecondary)
+                        com.android.internal.R.attr.materialColorSecondary)
                         : ResourceUtils.getColorAttr(getActivity(),
                                 com.android.internal.R.attr.colorAccentPrimary));
             });
@@ -329,6 +306,10 @@ public abstract class PreviewFragment extends AppbarFragment implements
         mFullScreenAnimation.ensureBottomActionBarIsCorrectlyLocated();
     }
 
+    protected WallpaperInfo getCurrentWallpaperInfo() {
+        return mWallpaper;
+    }
+
     protected List<String> getAttributions(Context context) {
         return mWallpaper.getAttributions(context);
     }
@@ -338,7 +319,11 @@ public abstract class PreviewFragment extends AppbarFragment implements
 
     protected WorkspaceSurfaceHolderCallback createWorkspaceSurfaceCallback(
             SurfaceView workspaceSurface) {
-        return new WorkspaceSurfaceHolderCallback(workspaceSurface, getContext());
+        return new WorkspaceSurfaceHolderCallback(
+                workspaceSurface,
+                new PreviewUtils(
+                        getContext(),
+                        getContext().getString(R.string.grid_control_metadata_name)));
     }
 
     @Override
@@ -468,10 +453,14 @@ public abstract class PreviewFragment extends AppbarFragment implements
             } catch (NotFoundException e) {
                 Log.e(TAG, "Could not show toast " + e);
             }
-            activity.setResult(Activity.RESULT_OK);
+            setResult(activity);
         }
         activity.finish();
         activity.overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
+    }
+
+    protected void setResult(Activity activity) {
+        activity.setResult(Activity.RESULT_OK);
     }
 
     protected void showSetWallpaperErrorDialog(@Destination int wallpaperDestination) {

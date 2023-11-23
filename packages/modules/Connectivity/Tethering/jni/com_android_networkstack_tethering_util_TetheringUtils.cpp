@@ -18,21 +18,19 @@
 #include <error.h>
 #include <jni.h>
 #include <linux/filter.h>
+#include <linux/ipv6.h>
 #include <nativehelper/JNIHelp.h>
 #include <nativehelper/ScopedUtfChars.h>
 #include <netjniutils/netjniutils.h>
 #include <net/if.h>
 #include <netinet/ether.h>
-#include <netinet/ip6.h>
 #include <netinet/icmp6.h>
 #include <sys/socket.h>
 #include <stdio.h>
 
-namespace android {
+#include <bpf/BpfClassic.h>
 
-static const uint32_t kIPv6NextHeaderOffset = offsetof(ip6_hdr, ip6_nxt);
-static const uint32_t kIPv6PayloadStart = sizeof(ip6_hdr);
-static const uint32_t kICMPv6TypeOffset = kIPv6PayloadStart + offsetof(icmp6_hdr, icmp6_type);
+namespace android {
 
 static void throwSocketException(JNIEnv *env, const char* msg, int error) {
     jniThrowExceptionFmt(env, "java/net/SocketException", "%s: %s", msg, strerror(error));
@@ -42,16 +40,14 @@ static void com_android_networkstack_tethering_util_setupIcmpFilter(JNIEnv *env,
         uint32_t type) {
     sock_filter filter_code[] = {
         // Check header is ICMPv6.
-        BPF_STMT(BPF_LD  | BPF_B   | BPF_ABS,  kIPv6NextHeaderOffset),
-        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,    IPPROTO_ICMPV6, 0, 3),
+        BPF_LOAD_IPV6_U8(nexthdr),
+        BPF2_REJECT_IF_NOT_EQUAL(IPPROTO_ICMPV6),
 
         // Check ICMPv6 type.
-        BPF_STMT(BPF_LD  | BPF_B   | BPF_ABS,  kICMPv6TypeOffset),
-        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,    type, 0, 1),
+        BPF_LOAD_NET_RELATIVE_U8(sizeof(ipv6hdr) + offsetof(icmp6_hdr, icmp6_type)),
+        BPF2_REJECT_IF_NOT_EQUAL(type),
 
-        // Accept or reject.
-        BPF_STMT(BPF_RET | BPF_K,              0xffff),
-        BPF_STMT(BPF_RET | BPF_K,              0)
+        BPF_ACCEPT,
     };
 
     const sock_fprog filter = {
@@ -65,17 +61,17 @@ static void com_android_networkstack_tethering_util_setupIcmpFilter(JNIEnv *env,
     }
 }
 
-static void com_android_networkstack_tethering_util_setupNaSocket(JNIEnv *env, jobject clazz,
+static void com_android_networkstack_tethering_util_setupNaSocket(JNIEnv *env, jclass clazz,
         jobject javaFd) {
     com_android_networkstack_tethering_util_setupIcmpFilter(env, javaFd, ND_NEIGHBOR_ADVERT);
 }
 
-static void com_android_networkstack_tethering_util_setupNsSocket(JNIEnv *env, jobject clazz,
+static void com_android_networkstack_tethering_util_setupNsSocket(JNIEnv *env, jclass clazz,
         jobject javaFd) {
     com_android_networkstack_tethering_util_setupIcmpFilter(env, javaFd, ND_NEIGHBOR_SOLICIT);
 }
 
-static void com_android_networkstack_tethering_util_setupRaSocket(JNIEnv *env, jobject clazz,
+static void com_android_networkstack_tethering_util_setupRaSocket(JNIEnv *env, jclass clazz,
         jobject javaFd, jint ifIndex) {
     static const int kLinkLocalHopLimit = 255;
 

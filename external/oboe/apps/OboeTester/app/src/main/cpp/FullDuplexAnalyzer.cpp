@@ -20,19 +20,27 @@
 oboe::Result  FullDuplexAnalyzer::start() {
     getLoopbackProcessor()->setSampleRate(getOutputStream()->getSampleRate());
     getLoopbackProcessor()->prepareToTest();
+    mWriteReadDeltaValid = false;
     return FullDuplexStream::start();
 }
 
 oboe::DataCallbackResult FullDuplexAnalyzer::onBothStreamsReady(
-        const void *inputData,
+        const float *inputData,
         int   numInputFrames,
-        void *outputData,
+        float *outputData,
         int   numOutputFrames) {
 
     int32_t inputStride = getInputStream()->getChannelCount();
     int32_t outputStride = getOutputStream()->getChannelCount();
-    float *inputFloat = (float *) inputData;
-    float *outputFloat = (float *) outputData;
+    const float *inputFloat = inputData;
+    float *outputFloat = outputData;
+
+    // Get atomic snapshot of the relative frame positions so they
+    // can be used to calculate timestamp latency.
+    int64_t framesRead = getInputStream()->getFramesRead();
+    int64_t framesWritten = getOutputStream()->getFramesWritten();
+    mWriteReadDelta = framesWritten - framesRead;
+    mWriteReadDeltaValid = true;
 
     (void) getLoopbackProcessor()->process(inputFloat, inputStride, numInputFrames,
                                    outputFloat, outputStride, numOutputFrames);

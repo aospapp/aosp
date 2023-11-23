@@ -21,7 +21,7 @@
 #include "hci/fuzz/fuzz_hci_layer.h"
 #include "hci/hci_layer.h"
 #include "module.h"
-#include "os/fuzz/fake_timerfd.h"
+#include "os/fake_timer/fake_timerfd.h"
 #include "os/log.h"
 
 #include <fuzzer/FuzzedDataProvider.h>
@@ -31,9 +31,16 @@ using bluetooth::fuzz::GetArbitraryBytes;
 using bluetooth::hci::AclManager;
 using bluetooth::hci::HciLayer;
 using bluetooth::hci::fuzz::FuzzHciLayer;
-using bluetooth::os::fuzz::fake_timerfd_advance;
-using bluetooth::os::fuzz::fake_timerfd_cap_at;
-using bluetooth::os::fuzz::fake_timerfd_reset;
+using bluetooth::os::fake_timer::fake_timerfd_advance;
+using bluetooth::os::fake_timer::fake_timerfd_cap_at;
+using bluetooth::os::fake_timer::fake_timerfd_reset;
+
+constexpr int32_t kMinTimeAdvanced = 0;
+/**
+ * kMaxTotalTimeAdvanced value is referenced from
+ * kDefaultConfigSaveDelay defined in storage_module.cc
+ */
+constexpr int32_t kMaxTotalTimeAdvanced = 3000;
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   FuzzedDataProvider dataProvider(data, size);
@@ -43,16 +50,24 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   fuzzHci->TurnOnAutoReply(&dataProvider);
   moduleRegistry.Start<AclManager>();
   fuzzHci->TurnOffAutoReply();
+  uint64_t totalAdvanceTime = 0;
 
   while (dataProvider.remaining_bytes() > 0) {
     const uint8_t action = dataProvider.ConsumeIntegralInRange(0, 2);
+
     switch (action) {
-      case 1:
-        fake_timerfd_advance(dataProvider.ConsumeIntegral<uint64_t>());
+      case 1: {
+        uint64_t advanceTime = dataProvider.ConsumeIntegralInRange<uint64_t>(kMinTimeAdvanced, kMaxTotalTimeAdvanced);
+        totalAdvanceTime += advanceTime;
+        if (totalAdvanceTime < kMaxTotalTimeAdvanced) {
+          fake_timerfd_advance(advanceTime);
+        }
         break;
-      case 2:
+      }
+      case 2: {
         fuzzHci->injectArbitrary(dataProvider);
         break;
+      }
     }
   }
 

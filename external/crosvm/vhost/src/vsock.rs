@@ -1,13 +1,18 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 use std::fs::File;
 
-use base::{ioctl_with_ref, AsRawDescriptor, RawDescriptor};
-use virtio_sys::{VHOST_VSOCK_SET_GUEST_CID, VHOST_VSOCK_SET_RUNNING};
+use base::ioctl_with_ref;
+use base::AsRawDescriptor;
+use base::RawDescriptor;
+use virtio_sys::VHOST_VSOCK_SET_GUEST_CID;
+use virtio_sys::VHOST_VSOCK_SET_RUNNING;
 
-use super::{ioctl_result, Result, Vhost};
+use super::ioctl_result;
+use super::Result;
+use super::Vhost;
 
 /// Handle for running VHOST_VSOCK ioctls.
 pub struct Vsock {
@@ -47,7 +52,7 @@ impl Vsock {
     }
 
     fn set_running(&self, running: bool) -> Result<()> {
-        let on: ::std::os::raw::c_int = if running { 1 } else { 0 };
+        let on = ::std::os::raw::c_int::from(running);
         let ret = unsafe { ioctl_with_ref(&self.descriptor, VHOST_VSOCK_SET_RUNNING(), &on) };
 
         if ret < 0 {

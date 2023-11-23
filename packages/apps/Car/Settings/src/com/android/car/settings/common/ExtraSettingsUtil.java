@@ -67,12 +67,9 @@ public class ExtraSettingsUtil {
     @Nullable
     public static Drawable createIcon(Context context, Bundle metaData, String packageName,
             @DrawableRes int resId) {
-        Drawable icon;
+        Drawable icon = null;
         if (resId != 0) {
             icon = loadDrawableFromPackage(context, packageName, resId);
-        } else {
-            icon = context.getDrawable(R.drawable.ic_settings_gear);
-            LOG.d("Icon not provided for " + packageName + "; using default icon");
         }
         if (icon == null) {
             return null;

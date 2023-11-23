@@ -24,6 +24,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.PackageManager.ResolveInfoFlags;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
 import android.nfc.cardemulation.AidGroup;
@@ -31,9 +32,9 @@ import android.nfc.cardemulation.ApduServiceInfo;
 import android.nfc.cardemulation.CardEmulation;
 import android.nfc.cardemulation.HostApduService;
 import android.nfc.cardemulation.OffHostApduService;
-import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.sysprop.NfcProperties;
 import android.util.AtomicFile;
 import android.util.Log;
 import android.util.SparseArray;
@@ -41,9 +42,6 @@ import android.util.Xml;
 import android.util.proto.ProtoOutputStream;
 
 import com.android.internal.annotations.GuardedBy;
-import com.android.internal.util.FastXmlSerializer;
-
-import com.google.android.collect.Maps;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -73,7 +71,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class RegisteredServicesCache {
     static final String XML_INDENT_OUTPUT_FEATURE = "http://xmlpull.org/v1/doc/features.html#indent-output";
     static final String TAG = "RegisteredServicesCache";
-    static final boolean DEBUG = SystemProperties.getBoolean("persist.nfc.debug_enabled", false);
+    static final boolean DEBUG = NfcProperties.debug_enabled().orElse(false);
 
     final Context mContext;
     final AtomicReference<BroadcastReceiver> mReceiver;
@@ -100,7 +98,7 @@ public class RegisteredServicesCache {
 
     static class DynamicSettings {
         public final int uid;
-        public final HashMap<String, AidGroup> aidGroups = Maps.newHashMap();
+        public final HashMap<String, AidGroup> aidGroups = new HashMap<>();
         public String offHostSE;
 
         DynamicSettings(int uid) {
@@ -113,9 +111,9 @@ public class RegisteredServicesCache {
          * All services that have registered
          */
         final HashMap<ComponentName, ApduServiceInfo> services =
-                Maps.newHashMap(); // Re-built at run-time
+                new HashMap<>(); // Re-built at run-time
         final HashMap<ComponentName, DynamicSettings> dynamicSettings =
-                Maps.newHashMap(); // In memory cache of dynamic settings
+                new HashMap<>(); // In memory cache of dynamic settings
     };
 
     private UserServices findOrCreateUserLocked(int userId) {
@@ -153,11 +151,14 @@ public class RegisteredServicesCache {
                              Intent.ACTION_PACKAGE_REMOVED.equals(action));
                     if (!replaced) {
                         int currentUser = ActivityManager.getCurrentUser();
-                        if (currentUser == getProfileParentId(UserHandle.getUserId(uid))) {
+                        if (currentUser == getProfileParentId(UserHandle.
+                                getUserHandleForUid(uid).getIdentifier())) {
                             if (Intent.ACTION_PACKAGE_REMOVED.equals(action)) {
-                                invalidateCache(UserHandle.getUserId(uid), true);
+                                invalidateCache(UserHandle.
+                                        getUserHandleForUid(uid).getIdentifier(), true);
                             } else {
-                                invalidateCache(UserHandle.getUserId(uid), false);
+                                invalidateCache(UserHandle.
+                                        getUserHandleForUid(uid).getIdentifier(), false);
                             }
                         } else {
                             // Cache will automatically be updated on user switch
@@ -178,13 +179,13 @@ public class RegisteredServicesCache {
         intentFilter.addAction(Intent.ACTION_PACKAGE_FIRST_LAUNCH);
         intentFilter.addAction(Intent.ACTION_PACKAGE_RESTARTED);
         intentFilter.addDataScheme("package");
-        mContext.registerReceiverAsUser(mReceiver.get(), UserHandle.ALL, intentFilter, null, null);
+        mContext.registerReceiverForAllUsers(mReceiver.get(), intentFilter, null, null);
 
         // Register for events related to sdcard operations
         IntentFilter sdFilter = new IntentFilter();
         sdFilter.addAction(Intent.ACTION_EXTERNAL_APPLICATIONS_AVAILABLE);
         sdFilter.addAction(Intent.ACTION_EXTERNAL_APPLICATIONS_UNAVAILABLE);
-        mContext.registerReceiverAsUser(mReceiver.get(), UserHandle.ALL, sdFilter, null, null);
+        mContext.registerReceiverForAllUsers(mReceiver.get(), sdFilter, null, null);
 
         File dataDir = mContext.getFilesDir();
         mDynamicSettingsFile = new AtomicFile(new File(dataDir, "dynamic_aids.xml"));
@@ -274,7 +275,7 @@ public class RegisteredServicesCache {
         PackageManager pm;
         try {
             pm = mContext.createPackageContextAsUser("android", 0,
-                    new UserHandle(userId)).getPackageManager();
+                    UserHandle.of(userId)).getPackageManager();
         } catch (NameNotFoundException e) {
             Log.e(TAG, "Could not create user package context");
             return null;
@@ -284,11 +285,11 @@ public class RegisteredServicesCache {
 
         List<ResolveInfo> resolvedServices = new ArrayList<>(pm.queryIntentServicesAsUser(
                 new Intent(HostApduService.SERVICE_INTERFACE),
-                PackageManager.GET_META_DATA, userId));
+                ResolveInfoFlags.of(PackageManager.GET_META_DATA), UserHandle.of(userId)));
 
         List<ResolveInfo> resolvedOffHostServices = pm.queryIntentServicesAsUser(
                 new Intent(OffHostApduService.SERVICE_INTERFACE),
-                PackageManager.GET_META_DATA, userId);
+                ResolveInfoFlags.of(PackageManager.GET_META_DATA), UserHandle.of(userId));
         resolvedServices.addAll(resolvedOffHostServices);
 
         for (ResolveInfo resolvedService : resolvedServices) {
@@ -296,6 +297,12 @@ public class RegisteredServicesCache {
                 boolean onHost = !resolvedOffHostServices.contains(resolvedService);
                 ServiceInfo si = resolvedService.serviceInfo;
                 ComponentName componentName = new ComponentName(si.packageName, si.name);
+                // Check if the package exported the service in manifest
+                if (!si.exported) {
+                    Log.e(TAG, "Skipping application component " + componentName +
+                            ": it must configured as exported");
+                    continue;
+                }
                 // Check if the package holds the NFC permission
                 if (pm.checkPermission(android.Manifest.permission.NFC, si.packageName) !=
                         PackageManager.PERMISSION_GRANTED) {
@@ -442,7 +449,8 @@ public class RegisteredServicesCache {
                             // See if we have a valid service
                             if (currentComponent != null && currentUid >= 0 &&
                                     (currentGroups.size() > 0 || currentOffHostSE != null)) {
-                                final int userId = UserHandle.getUserId(currentUid);
+                                final int userId = UserHandle.
+                                        getUserHandleForUid(currentUid).getIdentifier();
                                 DynamicSettings dynSettings = new DynamicSettings(currentUid);
                                 for (AidGroup group : currentGroups) {
                                     dynSettings.aidGroups.put(group.getCategory(), group);
@@ -478,7 +486,7 @@ public class RegisteredServicesCache {
         FileOutputStream fos = null;
         try {
             fos = mDynamicSettingsFile.startWrite();
-            XmlSerializer out = new FastXmlSerializer();
+            XmlSerializer out = Xml.newSerializer();
             out.setOutput(fos, "utf-8");
             out.startDocument(null, true);
             out.setFeature(XML_INDENT_OUTPUT_FEATURE, true);

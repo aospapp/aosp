@@ -10,6 +10,7 @@
 
 #include "venus-protocol/vn_protocol_renderer_defines.h"
 #include "virgl_context.h"
+#include "vrend_iov.h"
 
 #include "vkr_cs.h"
 
@@ -19,15 +20,17 @@ struct virgl_resource;
  * When a virgl_resource is attached in vkr_context_attach_resource, a
  * vkr_resource_attachment is created.  A vkr_resource_attachment is valid
  * until the resource it tracks is detached.
- *
- * To support transfers to resources not backed by coherent dma-bufs, we
- * associate a vkr_resource_attachment with a (list of) vkr_device_memory.
- * This way, we can find a vkr_device_memory from a vkr_resource_attachment
- * and do transfers using VkDeviceMemory.
  */
 struct vkr_resource_attachment {
    struct virgl_resource *resource;
-   struct list_head memories;
+
+   /* if VIRGL_RESOURCE_FD_SHM, this is the mapping of the shm and iov below
+    * points to this
+    */
+   struct iovec shm_iov;
+
+   const struct iovec *iov;
+   int iov_count;
 };
 
 enum vkr_context_validate_level {
@@ -37,6 +40,14 @@ enum vkr_context_validate_level {
    VKR_CONTEXT_VALIDATE_ON,
    /* force enabling the validation layer */
    VKR_CONTEXT_VALIDATE_FULL,
+};
+
+struct vkr_cpu_sync {
+   uint32_t flags;
+   uint32_t ring_idx;
+   uint64_t fence_id;
+
+   struct list_head head;
 };
 
 struct vkr_context {
@@ -49,9 +60,8 @@ struct vkr_context {
    mtx_t mutex;
 
    struct list_head rings;
-   struct util_hash_table_u64 *object_table;
-   struct util_hash_table *resource_table;
-   struct list_head newly_exported_memories;
+   struct hash_table *object_table;
+   struct hash_table *resource_table;
 
    struct vkr_cs_encoder encoder;
    struct vkr_cs_decoder decoder;
@@ -60,15 +70,46 @@ struct vkr_context {
    int fence_eventfd;
    struct list_head busy_queues;
    struct list_head signaled_syncs;
+   struct list_head signaled_cpu_syncs;
+
+   struct vkr_queue *sync_queues[64];
 
    struct vkr_instance *instance;
    char *instance_name;
 };
 
+void
+vkr_context_free_resource(struct hash_entry *entry);
+
+static inline void
+vkr_context_add_resource(struct vkr_context *ctx, struct vkr_resource_attachment *att)
+{
+   assert(!_mesa_hash_table_search(ctx->resource_table, &att->resource->res_id));
+   _mesa_hash_table_insert(ctx->resource_table, &att->resource->res_id, att);
+}
+
+static inline void
+vkr_context_remove_resource(struct vkr_context *ctx, uint32_t res_id)
+{
+   struct hash_entry *entry = _mesa_hash_table_search(ctx->resource_table, &res_id);
+   if (likely(entry)) {
+      vkr_context_free_resource(entry);
+      _mesa_hash_table_remove(ctx->resource_table, entry);
+   }
+}
+
+static inline struct vkr_resource_attachment *
+vkr_context_get_resource(struct vkr_context *ctx, uint32_t res_id)
+{
+   const struct hash_entry *entry = _mesa_hash_table_search(ctx->resource_table, &res_id);
+   return likely(entry) ? entry->data : NULL;
+}
+
 static inline bool
 vkr_context_validate_object_id(struct vkr_context *ctx, vkr_object_id id)
 {
-   if (unlikely(!id || util_hash_table_get_u64(ctx->object_table, id))) {
+   if (unlikely(!id || _mesa_hash_table_search(ctx->object_table, &id))) {
+      vkr_log("invalid object id %" PRIu64, id);
       vkr_cs_decoder_set_fatal(&ctx->decoder);
       return false;
    }
@@ -89,23 +130,29 @@ vkr_context_alloc_object(UNUSED struct vkr_context *ctx,
    return vkr_object_alloc(size, type, id);
 }
 
+void
+vkr_context_free_object(struct hash_entry *entry);
+
 static inline void
 vkr_context_add_object(struct vkr_context *ctx, struct vkr_object *obj)
 {
    assert(vkr_is_recognized_object_type(obj->type));
    assert(obj->id);
-   assert(!util_hash_table_get_u64(ctx->object_table, obj->id));
+   assert(!_mesa_hash_table_search(ctx->object_table, &obj->id));
 
-   util_hash_table_set_u64(ctx->object_table, obj->id, obj);
+   _mesa_hash_table_insert(ctx->object_table, &obj->id, obj);
 }
 
 static inline void
 vkr_context_remove_object(struct vkr_context *ctx, struct vkr_object *obj)
 {
-   assert(util_hash_table_get_u64(ctx->object_table, obj->id));
+   assert(_mesa_hash_table_search(ctx->object_table, &obj->id));
 
-   /* this frees obj */
-   util_hash_table_remove_u64(ctx->object_table, obj->id);
+   struct hash_entry *entry = _mesa_hash_table_search(ctx->object_table, &obj->id);
+   if (likely(entry)) {
+      vkr_context_free_object(entry);
+      _mesa_hash_table_remove(ctx->object_table, entry);
+   }
 }
 
 static inline void
@@ -115,6 +162,13 @@ vkr_context_remove_objects(struct vkr_context *ctx, struct list_head *objects)
    LIST_FOR_EACH_ENTRY_SAFE (obj, tmp, objects, track_head)
       vkr_context_remove_object(ctx, obj);
    /* objects should be reinitialized if to be reused */
+}
+
+static inline void *
+vkr_context_get_object(struct vkr_context *ctx, vkr_object_id obj_id)
+{
+   const struct hash_entry *entry = _mesa_hash_table_search(ctx->object_table, &obj_id);
+   return likely(entry) ? entry->data : NULL;
 }
 
 static inline const char *

@@ -54,6 +54,7 @@ import org.junit.Before;
 import org.junit.runner.RunWith;
 
 import java.net.Inet4Address;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -129,6 +130,13 @@ abstract class IkeSessionTestBase extends IkeTestNetworkBase {
     private static final byte[] NEXT_AVAILABLE_IP4_ADDR_LOCAL = INITIAL_AVAILABLE_IP4_ADDR_LOCAL;
     private static final byte[] NEXT_AVAILABLE_IP4_ADDR_REMOTE = INITIAL_AVAILABLE_IP4_ADDR_REMOTE;
 
+    private static final byte[] INITIAL_AVAILABLE_IP6_ADDR_LOCAL =
+            InetAddresses.parseNumericAddress("2a00:1000::0").getAddress();
+    private static final byte[] INITIAL_AVAILABLE_IP6_ADDR_REMOTE =
+            InetAddresses.parseNumericAddress("2404:6800:4004:820::2004").getAddress();
+    private static final byte[] NEXT_AVAILABLE_IP6_ADDR_LOCAL = INITIAL_AVAILABLE_IP6_ADDR_LOCAL;
+    private static final byte[] NEXT_AVAILABLE_IP6_ADDR_REMOTE = INITIAL_AVAILABLE_IP6_ADDR_REMOTE;
+
     TunNetworkContext mTunNetworkContext;
 
     InetAddress mLocalAddress;
@@ -185,6 +193,22 @@ abstract class IkeSessionTestBase extends IkeTestNetworkBase {
                         NEXT_AVAILABLE_IP4_ADDR_REMOTE,
                         INITIAL_AVAILABLE_IP4_ADDR_REMOTE,
                         false /* isIp6 */);
+    }
+
+    Inet6Address getNextAvailableIpv6AddressLocal() throws Exception {
+        return (Inet6Address)
+                getNextAvailableAddress(
+                        NEXT_AVAILABLE_IP6_ADDR_LOCAL,
+                        INITIAL_AVAILABLE_IP6_ADDR_LOCAL,
+                        true /* isIp6 */);
+    }
+
+    Inet6Address getNextAvailableIpv6AddressRemote() throws Exception {
+        return (Inet6Address)
+                getNextAvailableAddress(
+                        NEXT_AVAILABLE_IP6_ADDR_REMOTE,
+                        INITIAL_AVAILABLE_IP6_ADDR_REMOTE,
+                        true /* isIp6 */);
     }
 
     InetAddress getNextAvailableAddress(
@@ -511,11 +535,14 @@ abstract class IkeSessionTestBase extends IkeTestNetworkBase {
         }
     }
 
-    void verifyIkeSessionSetupBlocking() throws Exception {
-        verifyIkeSessionSetupBlocking(EXTENSION_TYPE_FRAGMENTATION);
+    // TODO: b/275938211 Rename the method to reflect that it will return a value besides doing
+    // validations
+    IkeSessionConnectionInfo verifyIkeSessionSetupBlocking() throws Exception {
+        return verifyIkeSessionSetupBlocking(EXTENSION_TYPE_FRAGMENTATION);
     }
 
-    void verifyIkeSessionSetupBlocking(int... expectedIkeExtensions) throws Exception {
+    IkeSessionConnectionInfo verifyIkeSessionSetupBlocking(int... expectedIkeExtensions)
+            throws Exception {
         IkeSessionConfiguration ikeConfig = mIkeSessionCallback.awaitIkeConfig();
         assertNotNull(ikeConfig);
         assertEquals(EXPECTED_REMOTE_APP_VERSION_EMPTY, ikeConfig.getRemoteApplicationVersion());
@@ -530,15 +557,17 @@ abstract class IkeSessionTestBase extends IkeTestNetworkBase {
         assertEquals(mLocalAddress, ikeConnectInfo.getLocalAddress());
         assertEquals(mRemoteAddress, ikeConnectInfo.getRemoteAddress());
         assertEquals(mTunNetworkContext.tunNetwork, ikeConnectInfo.getNetwork());
+
+        return ikeConnectInfo;
     }
 
-    void verifyChildSessionSetupBlocking(
+    ChildSessionConfiguration verifyChildSessionSetupBlocking(
             TestChildSessionCallback childCallback,
             List<IkeTrafficSelector> expectedInboundTs,
             List<IkeTrafficSelector> expectedOutboundTs,
             List<LinkAddress> expectedInternalAddresses)
             throws Exception {
-        verifyChildSessionSetupBlocking(
+        return verifyChildSessionSetupBlocking(
                 childCallback,
                 expectedInboundTs,
                 expectedOutboundTs,
@@ -546,7 +575,7 @@ abstract class IkeSessionTestBase extends IkeTestNetworkBase {
                 new ArrayList<InetAddress>() /* expectedDnsServers */);
     }
 
-    void verifyChildSessionSetupBlocking(
+    ChildSessionConfiguration verifyChildSessionSetupBlocking(
             TestChildSessionCallback childCallback,
             List<IkeTrafficSelector> expectedInboundTs,
             List<IkeTrafficSelector> expectedOutboundTs,
@@ -561,6 +590,7 @@ abstract class IkeSessionTestBase extends IkeTestNetworkBase {
         assertEquals(expectedDnsServers, childConfig.getInternalDnsServers());
         assertTrue(childConfig.getInternalSubnets().isEmpty());
         assertTrue(childConfig.getInternalDhcpServers().isEmpty());
+        return childConfig;
     }
 
     void verifyCloseIkeAndChildBlocking(
@@ -610,6 +640,12 @@ abstract class IkeSessionTestBase extends IkeTestNetworkBase {
     /** Package private method to check if device has IPsec tunnels feature */
     static boolean hasTunnelsFeature() {
         return sContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_IPSEC_TUNNELS);
+    }
+
+    /** Package private method to check if device has IPsec tunnel migration feature */
+    static boolean hasTunnelMigrationFeature() {
+        return sContext.getPackageManager()
+                .hasSystemFeature(PackageManager.FEATURE_IPSEC_TUNNEL_MIGRATION);
     }
 
     // TODO(b/148689509): Verify hostname based creation

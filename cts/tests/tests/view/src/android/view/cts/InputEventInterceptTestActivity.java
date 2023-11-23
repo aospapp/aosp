@@ -35,13 +35,13 @@ public class InputEventInterceptTestActivity extends Activity {
 
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent event) {
-        mMotionEvents.add(event);
+        mMotionEvents.add(MotionEvent.obtain(event));
         return true;
     }
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
-        mMotionEvents.add(event);
+        mMotionEvents.add(MotionEvent.obtain(event));
         return true;
     }
 }

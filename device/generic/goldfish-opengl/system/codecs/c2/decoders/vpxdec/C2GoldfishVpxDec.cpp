@@ -324,6 +324,12 @@ class C2GoldfishVpxDec::IntfImpl : public SimpleInterface<void>::BaseParams {
 
     int height() const { return mSize->height; }
 
+    int primaries() const { return mDefaultColorAspects->primaries; }
+
+    int range() const { return mDefaultColorAspects->range; }
+
+    int transfer() const { return mDefaultColorAspects->transfer; }
+
     static C2R Hdr10PlusInfoInputSetter(bool mayBlock,
                                         C2P<C2StreamHdr10PlusInfo::input> &me) {
         (void)mayBlock;
@@ -416,6 +422,30 @@ void C2GoldfishVpxDec::onReset() {
 
 void C2GoldfishVpxDec::onRelease() { destroyDecoder(); }
 
+void C2GoldfishVpxDec::sendMetadata() {
+    // compare and send if changed
+    MetaDataColorAspects currentMetaData = {1, 0, 0, 0};
+    currentMetaData.primaries = mIntf->primaries();
+    currentMetaData.range = mIntf->range();
+    currentMetaData.transfer = mIntf->transfer();
+
+    DDD("metadata primaries %d range %d transfer %d",
+            (int)(currentMetaData.primaries),
+            (int)(currentMetaData.range),
+            (int)(currentMetaData.transfer)
+       );
+
+    if (mSentMetadata.primaries == currentMetaData.primaries &&
+        mSentMetadata.range == currentMetaData.range &&
+        mSentMetadata.transfer == currentMetaData.transfer) {
+        DDD("metadata is the same, no need to update");
+        return;
+    }
+    std::swap(mSentMetadata, currentMetaData);
+
+    vpx_codec_send_metadata(mCtx, &(mSentMetadata));
+}
+
 c2_status_t C2GoldfishVpxDec::onFlush_sm() {
     if (mFrameParallelMode) {
         // Flush decoder by passing nullptr data ptr and 0 size.
@@ -465,11 +495,19 @@ void C2GoldfishVpxDec::checkContext(const std::shared_ptr<C2BlockPool> &pool) {
     mCtx = new vpx_codec_ctx_t;
     mCtx->vpversion = mMode == MODE_VP8 ? 8 : 9;
 
+    //const bool isGraphic = (pool->getLocalId() == C2PlatformAllocatorStore::GRALLOC);
     const bool isGraphic = (pool->getAllocatorId() & C2Allocator::GRAPHIC);
-    DDD("buffer id %d", (int)(pool->getAllocatorId()));
+    DDD("buffer pool allocator id %x",  (int)(pool->getAllocatorId()));
     if (isGraphic) {
-        DDD("decoding to host color buffer");
-        mEnableAndroidNativeBuffers = true;
+        uint64_t client_usage = getClientUsage(pool);
+        DDD("client has usage as 0x%llx", client_usage);
+        if (client_usage & BufferUsage::CPU_READ_MASK) {
+            DDD("decoding to guest byte buffer as client has read usage");
+            mEnableAndroidNativeBuffers = false;
+        } else {
+            DDD("decoding to host color buffer");
+            mEnableAndroidNativeBuffers = true;
+        }
     } else {
         DDD("decoding to guest byte buffer");
         mEnableAndroidNativeBuffers = false;
@@ -609,6 +647,8 @@ void C2GoldfishVpxDec::process(const std::unique_ptr<C2Work> &work,
         }
     }
 
+    sendMetadata();
+
     if (inSize) {
         uint8_t *bitstream = const_cast<uint8_t *>(rView.data() + inOffset);
         vpx_codec_err_t err = vpx_codec_decode(
@@ -691,9 +731,9 @@ C2GoldfishVpxDec::outputBuffer(const std::shared_ptr<C2BlockPool> &pool,
 
     // now get the block
     std::shared_ptr<C2GraphicBlock> block;
-    C2MemoryUsage usage = {C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE};
     uint32_t format = HAL_PIXEL_FORMAT_YCBCR_420_888;
-    usage.expected = (uint64_t)(BufferUsage::VIDEO_DECODER);
+    const C2MemoryUsage usage = {(uint64_t)(BufferUsage::VIDEO_DECODER),
+                                 C2MemoryUsage::CPU_WRITE | C2MemoryUsage::CPU_READ};
 
     c2_status_t err = pool->fetchGraphicBlock(align(mWidth, 2), mHeight, format,
                                               usage, &block);

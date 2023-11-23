@@ -1,0 +1,16 @@
+{
+  "image": "gcr.io/crosvm-infra/crosvm_dev:latest",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "bungcip.better-toml",
+        "esbenp.prettier-vscode",
+        "ms-python.vscode-pylance",
+        "foxundermoon.shell-format",
+        "timonwong.shellcheck"
+      ]
+    }
+  },
+  "updateContentCommand": "git submodule update --init"
+}

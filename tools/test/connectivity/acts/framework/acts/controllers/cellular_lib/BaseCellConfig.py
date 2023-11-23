@@ -46,5 +46,5 @@ class BaseCellConfig:
             new_config: 5G cell configuration object.
         """
         for attr, value in vars(new_config).items():
-            if value and not hasattr(self, attr):
+            if value is not None:
                 setattr(self, attr, value)

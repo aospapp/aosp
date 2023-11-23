@@ -17,12 +17,13 @@
 
 #include "utils.h"
 
+#include <android-base/logging.h>
+#include <android-base/properties.h>
+
 #include <map>
 #include <set>
 #include <string>
 #include <vector>
-
-#include <android-base/properties.h>
 
 using android::base::GetUintProperty;
 
@@ -49,6 +50,68 @@ const set<string> kPassthroughHals = {
     "android.hardware.graphics.mapper", "android.hardware.renderscript",
     "android.hidl.memory",
 };
+
+std::string SanitizeTestCaseName(std::string original) {
+  for (char &c : original) {
+    if (!isalnum(c)) {
+      c = '_';
+    }
+  }
+  return original;
+}
+
+HidlInstance::HidlInstance(const ManifestInstance &other)
+    : ManifestInstance(other) {
+  CHECK_EQ(format(), HalFormat::HIDL);
+}
+
+ostream &operator<<(ostream &os, const HidlInstance& val) {
+  return os << val.transport() << " HAL " << val.fq_name().string() << "/"
+            << val.instance_name();
+}
+
+string HidlInstance::test_case_name() const {
+  return SanitizeTestCaseName(fq_name().string() + "/" + instance_name());
+}
+
+AidlInstance::AidlInstance(const ManifestInstance &other)
+    : ManifestInstance(other) {
+  CHECK_EQ(format(), HalFormat::AIDL);
+}
+
+string AidlInstance::test_case_name() const {
+  return SanitizeTestCaseName(
+      toAidlFqnameString(package(), interface(), instance()) + "_V" +
+      to_string(version()));
+}
+
+ostream &operator<<(ostream &os, const AidlInstance& val) {
+  os << toAidlFqnameString(val.package(), val.interface(), val.instance())
+     << ", Version " << val.version();
+  if (val.updatable_via_apex()) {
+    os << ", updatable_via_apex = " << *val.updatable_via_apex();
+  }
+  return os;
+}
+
+NativeInstance::NativeInstance(const ManifestInstance &other)
+    : ManifestInstance(other) {
+  CHECK_EQ(format(), HalFormat::NATIVE);
+}
+
+string NativeInstance::test_case_name() const {
+  return SanitizeTestCaseName(
+      toAidlFqnameString(package(), interface(), instance()) + "_V" +
+      to_string(version()));
+}
+
+ostream &operator<<(ostream &os, const NativeInstance &val) {
+  os << "Native HAL { package: " << val.package()
+     << " version: " << val.major_version() << "." << val.minor_version()
+     << " interface: " << val.interface() << " instance: " << val.instance()
+     << " }";
+  return os;
+}
 
 uint64_t GetBoardApiLevel() {
   return GetUintProperty<uint64_t>("ro.vendor.api_level", 0);

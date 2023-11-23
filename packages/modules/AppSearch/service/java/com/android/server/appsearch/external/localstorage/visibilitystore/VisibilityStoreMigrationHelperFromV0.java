@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -201,16 +202,21 @@ public class VisibilityStoreMigrationHelperFromV0 {
             if (deprecatedPackageDocuments != null) {
                 for (GenericDocument deprecatedPackageDocument : deprecatedPackageDocuments) {
                     String prefixedSchemaType =
-                            deprecatedPackageDocument.getPropertyString(
-                                    DEPRECATED_ACCESSIBLE_SCHEMA_PROPERTY);
+                            Objects.requireNonNull(
+                                    deprecatedPackageDocument.getPropertyString(
+                                            DEPRECATED_ACCESSIBLE_SCHEMA_PROPERTY));
                     VisibilityDocumentV1.Builder visibilityBuilder =
                             getOrCreateBuilder(documentBuilderMap, prefixedSchemaType);
-                    visibilityBuilder.addVisibleToPackage(
-                            new PackageIdentifier(
+                    String packageName =
+                            Objects.requireNonNull(
                                     deprecatedPackageDocument.getPropertyString(
-                                            DEPRECATED_PACKAGE_NAME_PROPERTY),
+                                            DEPRECATED_PACKAGE_NAME_PROPERTY));
+                    byte[] sha256Cert =
+                            Objects.requireNonNull(
                                     deprecatedPackageDocument.getPropertyBytes(
-                                            DEPRECATED_SHA_256_CERT_PROPERTY)));
+                                            DEPRECATED_SHA_256_CERT_PROPERTY));
+                    visibilityBuilder.addVisibleToPackage(
+                            new PackageIdentifier(packageName, sha256Cert));
                 }
             }
         }

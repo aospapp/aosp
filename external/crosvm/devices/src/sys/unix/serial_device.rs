@@ -1,38 +1,65 @@
-// Copyright 2022 The Chromium OS Authors. All rights reserved.
+// Copyright 2022 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use crate::serial_device::{Error, SerialParameters};
-use base::{error, AsRawDescriptor, Event, FileSync, RawDescriptor};
-use base::{info, read_raw_stdin};
-use hypervisor::ProtectionType;
 use std::borrow::Cow;
 use std::fs::OpenOptions;
 use std::io;
-use std::io::{ErrorKind, Write};
+use std::io::ErrorKind;
+use std::io::Write;
 use std::os::unix::net::UnixDatagram;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
+
+use base::error;
+use base::info;
+use base::read_raw_stdin;
+use base::AsRawDescriptor;
+use base::Event;
+use base::FileSync;
+use base::RawDescriptor;
+use base::ReadNotifier;
+use hypervisor::ProtectionType;
+
+use crate::serial_device::Error;
+use crate::serial_device::SerialInput;
+use crate::serial_device::SerialParameters;
 
 pub const SYSTEM_SERIAL_TYPE_NAME: &str = "UnixSocket";
 
 // This wrapper is used in place of the libstd native version because we don't want
 // buffering for stdin.
-pub struct ConsoleInput;
+pub struct ConsoleInput(std::io::Stdin);
+
+impl ConsoleInput {
+    pub fn new() -> Self {
+        Self(std::io::stdin())
+    }
+}
+
 impl io::Read for ConsoleInput {
     fn read(&mut self, out: &mut [u8]) -> io::Result<usize> {
         read_raw_stdin(out).map_err(|e| e.into())
     }
 }
 
+impl ReadNotifier for ConsoleInput {
+    fn get_read_notifier(&self) -> &dyn AsRawDescriptor {
+        &self.0
+    }
+}
+
+impl SerialInput for ConsoleInput {}
+
 /// Abstraction over serial-like devices that can be created given an event and optional input and
 /// output streams.
 pub trait SerialDevice {
     fn new(
-        protected_vm: ProtectionType,
+        protection_type: ProtectionType,
         interrupt_evt: Event,
-        input: Option<Box<dyn io::Read + Send>>,
+        input: Option<Box<dyn SerialInput>>,
         output: Option<Box<dyn io::Write + Send>>,
         sync: Option<Box<dyn FileSync + Send>>,
         out_timestamp: bool,
@@ -113,9 +140,9 @@ impl io::Write for WriteSocket {
 
 pub(crate) fn create_system_type_serial_device<T: SerialDevice>(
     param: &SerialParameters,
-    protected_vm: ProtectionType,
+    protection_type: ProtectionType,
     evt: Event,
-    input: Option<Box<dyn io::Read + Send>>,
+    input: Option<Box<dyn SerialInput>>,
     keep_rds: &mut Vec<RawDescriptor>,
 ) -> std::result::Result<T, Error> {
     match &param.path {
@@ -132,6 +159,13 @@ pub(crate) fn create_system_type_serial_device<T: SerialDevice>(
                 let mut short_path = PathBuf::with_capacity(MAX_SOCKET_PATH_LENGTH);
                 short_path.push("/proc/self/fd/");
 
+                let parent_path = path
+                    .parent()
+                    .ok_or_else(|| Error::InvalidPath(path.clone()))?;
+                let file_name = path
+                    .file_name()
+                    .ok_or_else(|| Error::InvalidPath(path.clone()))?;
+
                 // We don't actually want to open this
                 // directory for reading, but the stdlib
                 // requires all files be opened as at
@@ -139,11 +173,11 @@ pub(crate) fn create_system_type_serial_device<T: SerialDevice>(
                 // appeandable.
                 let dir = OpenOptions::new()
                     .read(true)
-                    .open(path.parent().ok_or(Error::InvalidPath)?)
-                    .map_err(Error::FileError)?;
+                    .open(parent_path)
+                    .map_err(|e| Error::FileOpen(e, parent_path.into()))?;
 
                 short_path.push(dir.as_raw_descriptor().to_string());
-                short_path.push(path.file_name().ok_or(Error::InvalidPath)?);
+                short_path.push(file_name);
                 path_cow = Cow::Owned(short_path);
                 _dir_fd = Some(dir);
             }
@@ -151,14 +185,14 @@ pub(crate) fn create_system_type_serial_device<T: SerialDevice>(
             // The shortened path may still be too long,
             // in which case we must give up here.
             if path_cow.as_os_str().len() >= MAX_SOCKET_PATH_LENGTH {
-                return Err(Error::InvalidPath);
+                return Err(Error::InvalidPath(path_cow.into()));
             }
 
             // There's a race condition between
             // vmlog_forwarder making the logging socket and
             // crosvm starting up, so we loop here until it's
             // available.
-            let sock = UnixDatagram::unbound().map_err(Error::FileError)?;
+            let sock = UnixDatagram::unbound().map_err(Error::SocketCreate)?;
             loop {
                 match sock.connect(&path_cow) {
                     Ok(_) => break,
@@ -172,7 +206,7 @@ pub(crate) fn create_system_type_serial_device<T: SerialDevice>(
                             }
                             _ => {
                                 error!("Unexpected error connecting to logging socket: {:?}", e);
-                                return Err(Error::FileError(e));
+                                return Err(Error::SocketConnect(e));
                             }
                         }
                     }
@@ -180,16 +214,16 @@ pub(crate) fn create_system_type_serial_device<T: SerialDevice>(
             }
             keep_rds.push(sock.as_raw_descriptor());
             let output: Option<Box<dyn Write + Send>> = Some(Box::new(WriteSocket::new(sock)));
-            return Ok(T::new(
-                protected_vm,
+            Ok(T::new(
+                protection_type,
                 evt,
                 input,
                 output,
                 None,
                 false,
                 keep_rds.to_vec(),
-            ));
+            ))
         }
-        None => return Err(Error::PathRequired),
+        None => Err(Error::PathRequired),
     }
 }

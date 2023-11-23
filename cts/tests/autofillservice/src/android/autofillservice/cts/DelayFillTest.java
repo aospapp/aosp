@@ -30,7 +30,10 @@ import android.autofillservice.cts.testcore.AutofillActivityTestRule;
 import android.autofillservice.cts.testcore.CannedFillResponse;
 import android.autofillservice.cts.testcore.Helper;
 import android.content.Intent;
+import android.os.SystemClock;
+import android.platform.test.annotations.FlakyTest;
 import android.service.autofill.FillResponse;
+import android.util.Log;
 
 import org.junit.Test;
 
@@ -52,6 +55,7 @@ public class DelayFillTest extends AutoFillServiceTestCase.AutoActivityLaunch<Lo
         };
     }
 
+    @FlakyTest(bugId = 271521636)
     @Test
     public void testDelayedFill() throws Exception {
         // Set service.
@@ -91,7 +95,7 @@ public class DelayFillTest extends AutoFillServiceTestCase.AutoActivityLaunch<Lo
         fillRequest.delayFillIntentSender.sendIntent(getContext(), 0, intent, null, null, null);
 
         // Wait for fill response to be processed
-        mUiBot.waitForIdle();
+        sleep();
 
         // Dataset of second response should be shown
         mUiBot.assertDatasets("dataset");
@@ -136,12 +140,13 @@ public class DelayFillTest extends AutoFillServiceTestCase.AutoActivityLaunch<Lo
         fillRequest.delayFillIntentSender.sendIntent(getContext(), 0, intent, null, null, null);
 
         // Wait for fill response to be processed
-        mUiBot.waitForIdle();
+        sleep();
 
         // Dataset of placeholder response should still be shown
         mUiBot.assertDatasets("placeholder");
     }
 
+    @FlakyTest(bugId = 271521636)
     @Test
     public void testPreventSendingDelayedFillIntentTwice() throws Exception {
         // Set service.
@@ -181,7 +186,7 @@ public class DelayFillTest extends AutoFillServiceTestCase.AutoActivityLaunch<Lo
         fillRequest.delayFillIntentSender.sendIntent(getContext(), 0, intent, null, null, null);
 
         // Wait for fill response to be processed
-        mUiBot.waitForIdle();
+        sleep();
 
         // Dataset of second response should be shown
         mUiBot.assertDatasets("dataset");
@@ -204,7 +209,7 @@ public class DelayFillTest extends AutoFillServiceTestCase.AutoActivityLaunch<Lo
                         .sendIntent(getContext(), 0, anotherIntent, null, null, null));
 
         // Wait for fill response to be processed
-        mUiBot.waitForIdle();
+        sleep();
 
         // Dataset of second response should still be shown
         mUiBot.assertDatasets("dataset");
@@ -249,7 +254,7 @@ public class DelayFillTest extends AutoFillServiceTestCase.AutoActivityLaunch<Lo
         fillRequest.delayFillIntentSender.sendIntent(getContext(), 0, intent, null, null, null);
 
         // Wait for fill response to be processed
-        mUiBot.waitForIdle();
+        sleep();
 
         // Dataset of second response should be shown
         mUiBot.assertDatasets("dataset");
@@ -272,7 +277,7 @@ public class DelayFillTest extends AutoFillServiceTestCase.AutoActivityLaunch<Lo
                         .sendIntent(getContext(), 0, intent2, null, null, null));
 
         // Wait for fill response to be processed
-        mUiBot.waitForIdle();
+        sleep();
 
         // Dataset of second response should still be shown
         mUiBot.assertDatasets("dataset");
@@ -325,7 +330,7 @@ public class DelayFillTest extends AutoFillServiceTestCase.AutoActivityLaunch<Lo
         mActivity.getAutofillManager().requestAutofill(mActivity.getUsername());
 
         // Wait for fill response to be processed
-        mUiBot.waitForIdle();
+        sleep();
 
         // Wait for second fill request to be processed
         FillRequest fillRequest2 = sReplier.getNextFillRequest();
@@ -337,6 +342,9 @@ public class DelayFillTest extends AutoFillServiceTestCase.AutoActivityLaunch<Lo
         assertThrows(SendIntentException.class, () ->
                 fillRequest.delayFillIntentSender
                         .sendIntent(getContext(), 0, intent, null, null, null));
+
+        // Wait for fill response to be processed
+        sleep();
 
         // Dataset of second response should still be shown
         mUiBot.assertDatasets("placeholder2");
@@ -357,9 +365,14 @@ public class DelayFillTest extends AutoFillServiceTestCase.AutoActivityLaunch<Lo
         fillRequest2.delayFillIntentSender.sendIntent(getContext(), 0, intent2, null, null, null);
 
         // Wait for fill response to be processed
-        mUiBot.waitForIdle();
+        sleep();
 
         // Dataset of second delayed response should be shown
         mUiBot.assertDatasets("dataset2");
+    }
+
+    private void sleep() {
+        Log.d(TAG, "sleeping 2s ");
+        SystemClock.sleep(2000);
     }
 }

@@ -716,6 +716,29 @@ int ANeuralNetworksDevice_getType(const ANeuralNetworksDevice* device, int32_t* 
     return ANEURALNETWORKS_NO_ERROR;
 }
 
+#ifdef NN_DEBUGGABLE
+static int64_t sRuntimeFeatureLevel = 0;
+void forTest_setRuntimeFeatureLevel(int64_t level) {
+    sRuntimeFeatureLevel = level;
+}
+#endif
+
+// Since ANeuralNetworks_getRuntimeFeatureLevel is new in 31 while libneuralnetwork targets
+// "min_sdk_version: 30", calling it should be properly guarded (e.g. __builtin_available).
+// But calling it within the same compilation unit is perfectly fine. Guarding it doesn't
+// make any sense and is simply wrong. (It's available on a system where __builtin_available(30)
+// evaluates to false.)
+// To make the compiler happy we introduce getRuntimeFeatureLevelImpl() and call it within the
+// library.
+static inline int64_t getRuntimeFeatureLevelImpl() {
+#ifdef NN_DEBUGGABLE
+    if (sRuntimeFeatureLevel) {
+        return sRuntimeFeatureLevel;
+    }
+#endif
+    return DeviceManager::get()->getRuntimeFeatureLevel();
+}
+
 int ANeuralNetworksDevice_getFeatureLevel(const ANeuralNetworksDevice* device,
                                           int64_t* featureLevel) {
     if (device == nullptr || featureLevel == nullptr) {
@@ -727,7 +750,7 @@ int ANeuralNetworksDevice_getFeatureLevel(const ANeuralNetworksDevice* device,
     if (dFeatureLevel < 0) {
         return ANEURALNETWORKS_BAD_STATE;
     }
-    *featureLevel = std::min(ANeuralNetworks_getRuntimeFeatureLevel(), dFeatureLevel);
+    *featureLevel = std::min(getRuntimeFeatureLevelImpl(), dFeatureLevel);
     return ANEURALNETWORKS_NO_ERROR;
 }
 
@@ -1661,20 +1684,8 @@ int ANeuralNetworksExecution_startComputeWithDependencies(
     return n;
 }
 
-#ifdef NN_DEBUGGABLE
-static int64_t sRuntimeFeatureLevel = 0;
-void forTest_setRuntimeFeatureLevel(int64_t level) {
-    sRuntimeFeatureLevel = level;
-}
-#endif
-
 int64_t ANeuralNetworks_getRuntimeFeatureLevel() {
-#ifdef NN_DEBUGGABLE
-    if (sRuntimeFeatureLevel) {
-        return sRuntimeFeatureLevel;
-    }
-#endif
-    return DeviceManager::get()->getRuntimeFeatureLevel();
+    return getRuntimeFeatureLevelImpl();
 }
 
 int ANeuralNetworksExecution_enableInputAndOutputPadding(ANeuralNetworksExecution* execution,

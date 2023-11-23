@@ -49,6 +49,7 @@ pub struct ServerInfo {
     pub cert_path: Option<String>,
     pub idle_timeout_ms: u64,
     pub use_session_resumption: bool,
+    pub enable_early_data: bool,
 }
 
 #[derive(Debug)]

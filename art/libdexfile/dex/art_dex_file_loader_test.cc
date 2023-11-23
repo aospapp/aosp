@@ -57,6 +57,38 @@ TEST_F(ArtDexFileLoaderTest, Open) {
   ASSERT_TRUE(dex.get() != nullptr);
 }
 
+TEST_F(ArtDexFileLoaderTest, OpenZipMultiDex) {
+  std::string zip_file = GetTestDexFileName("MultiDex");
+  File file(zip_file, O_RDONLY, /*check_usage=*/false);
+  ASSERT_GE(file.Fd(), 0);
+  std::vector<std::unique_ptr<const DexFile>> dex_files;
+  std::string error_msg;
+  ArtDexFileLoader dex_file_loader(file.Release(), zip_file);
+  ASSERT_TRUE(dex_file_loader.Open(/*verify=*/false,
+                                   /*verify_checksum=*/true,
+                                   /*allow_no_dex_files=*/true,
+                                   &error_msg,
+                                   &dex_files))
+      << error_msg;
+  EXPECT_GT(dex_files.size(), 1);
+}
+
+TEST_F(ArtDexFileLoaderTest, OpenZipEmpty) {
+  std::string zip_file = GetTestDexFileName("MainEmptyUncompressed");
+  File file(zip_file, O_RDONLY, /*check_usage=*/false);
+  ASSERT_GE(file.Fd(), 0);
+  std::vector<std::unique_ptr<const DexFile>> dex_files;
+  std::string error_msg;
+  ArtDexFileLoader dex_file_loader(file.Release(), zip_file);
+  ASSERT_TRUE(dex_file_loader.Open(/*verify=*/false,
+                                   /*verify_checksum=*/true,
+                                   /*allow_no_dex_files=*/true,
+                                   &error_msg,
+                                   &dex_files))
+      << error_msg;
+  EXPECT_EQ(dex_files.size(), 0);
+}
+
 TEST_F(ArtDexFileLoaderTest, GetLocationChecksum) {
   std::unique_ptr<const DexFile> raw(OpenTestDexFile("Main"));
   EXPECT_NE(raw->GetHeader().checksum_, raw->GetLocationChecksum());
@@ -66,11 +98,8 @@ TEST_F(ArtDexFileLoaderTest, GetChecksum) {
   std::vector<uint32_t> checksums;
   std::vector<std::string> dex_locations;
   std::string error_msg;
-  const ArtDexFileLoader dex_file_loader;
-  EXPECT_TRUE(dex_file_loader.GetMultiDexChecksums(GetLibCoreDexFileNames()[0].c_str(),
-                                                   &checksums,
-                                                   &dex_locations,
-                                                   &error_msg))
+  EXPECT_TRUE(ArtDexFileLoader::GetMultiDexChecksums(
+      GetLibCoreDexFileNames()[0].c_str(), &checksums, &dex_locations, &error_msg))
       << error_msg;
   ASSERT_EQ(1U, checksums.size());
   ASSERT_EQ(1U, dex_locations.size());
@@ -83,11 +112,9 @@ TEST_F(ArtDexFileLoaderTest, GetMultiDexChecksums) {
   std::vector<uint32_t> checksums;
   std::vector<std::string> dex_locations;
   std::string multidex_file = GetTestDexFileName("MultiDex");
-  const ArtDexFileLoader dex_file_loader;
-  EXPECT_TRUE(dex_file_loader.GetMultiDexChecksums(multidex_file.c_str(),
-                                                   &checksums,
-                                                   &dex_locations,
-                                                   &error_msg)) << error_msg;
+  EXPECT_TRUE(ArtDexFileLoader::GetMultiDexChecksums(
+      multidex_file.c_str(), &checksums, &dex_locations, &error_msg))
+      << error_msg;
 
   std::vector<std::unique_ptr<const DexFile>> dexes = OpenTestDexFiles("MultiDex");
   ASSERT_EQ(2U, dexes.size());
@@ -101,6 +128,32 @@ TEST_F(ArtDexFileLoaderTest, GetMultiDexChecksums) {
   EXPECT_EQ(dexes[1]->GetLocation(), DexFileLoader::GetMultiDexLocation(1, multidex_file.c_str()));
   EXPECT_EQ(dexes[1]->GetLocation(), dex_locations[1]);
   EXPECT_EQ(dexes[1]->GetLocationChecksum(), checksums[1]);
+}
+
+TEST_F(ArtDexFileLoaderTest, GetMultiDexChecksumsEmptyZip) {
+  std::string error_msg;
+  std::vector<uint32_t> checksums;
+  std::vector<std::string> dex_locations;
+  std::string multidex_file = GetTestDexFileName("MainEmptyUncompressed");
+  EXPECT_TRUE(ArtDexFileLoader::GetMultiDexChecksums(
+      multidex_file.c_str(), &checksums, &dex_locations, &error_msg))
+      << error_msg;
+
+  EXPECT_EQ(dex_locations.size(), 0);
+  EXPECT_EQ(checksums.size(), 0);
+}
+
+TEST_F(ArtDexFileLoaderTest, GetMultiDexChecksumsDexFile) {
+  std::string error_msg;
+  std::vector<uint32_t> checksums;
+  std::vector<std::string> dex_locations;
+  std::string multidex_file = GetTestDexFileName("VerifierDeps");  // This is a .dex file.
+  EXPECT_TRUE(ArtDexFileLoader::GetMultiDexChecksums(
+      multidex_file.c_str(), &checksums, &dex_locations, &error_msg))
+      << error_msg;
+
+  EXPECT_EQ(dex_locations.size(), 1);
+  EXPECT_EQ(checksums.size(), 1);
 }
 
 TEST_F(ArtDexFileLoaderTest, ClassDefs) {

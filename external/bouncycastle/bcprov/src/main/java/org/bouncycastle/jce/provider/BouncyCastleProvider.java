@@ -426,4 +426,37 @@ public final class BouncyCastleProvider extends Provider
         return converter.generatePrivate(privateKeyInfo);
         */
     }
+
+    // BEGIN Android-added: Allow algorithms to be provided privately for BC internals.
+    //
+    // Algorithms added via these methods are stored in a private instance of PrivateProvider,
+    // which is never added to the system-wide list of installed Providers, and is only
+    // ever searched by BC internal classes which search for algorithms using an instance
+    // of BCJcajceHelper.
+    private static final class PrivateProvider extends Provider {
+        public PrivateProvider() {
+            super("BCPrivate", 1.0, "Android BC private use only");
+        }
+    }
+
+    private final Provider privateProvider = new PrivateProvider();
+
+    public void addPrivateAlgorithm(String key, String value)
+    {
+        if (privateProvider.containsKey(key))
+        {
+            throw new IllegalStateException("duplicate provider key (" + key + ") found");
+        }
+        privateProvider.put(key, value);
+    }
+
+    public void addPrivateAlgorithm(String type, ASN1ObjectIdentifier oid, String className)
+    {
+        addPrivateAlgorithm(type + "." + oid, className);
+    }
+
+    public Provider getPrivateProvider() {
+        return privateProvider;
+    }
+    // END Android-added: Allow algorithms to be provided privately for BC internals.
 }

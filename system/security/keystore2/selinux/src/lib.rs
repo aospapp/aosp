@@ -65,7 +65,7 @@ fn init_logger_once() {
 }
 
 /// Selinux Error code.
-#[derive(thiserror::Error, Debug, PartialEq)]
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum Error {
     /// Indicates that an access check yielded no access.
     #[error("Permission Denied")]

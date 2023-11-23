@@ -45,18 +45,13 @@ limitations under the License.
 #include "tensorflow/core/lib/math/math_util.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/platform/test.h"
-#include "tensorflow/core/platform/types.h"
 
 namespace xla {
 namespace {
 
-class BatchNormalizationTest
-    : public ClientLibraryTestBase,
-      public ::testing::WithParamInterface<bool /*use_cudnn_batchnorm*/> {
+class BatchNormalizationTest : public ClientLibraryTestBase {
  protected:
   BatchNormalizationTest() : input_array_(kSamples, kZ, kY, kX) {
-    mutable_debug_options()->set_xla_gpu_use_cudnn_batchnorm(GetParam());
-
     Array2D<float> pz({
         // z0 z1
         {-1.0f, 4.1f},  // p0
@@ -73,7 +68,7 @@ class BatchNormalizationTest
 
   XlaOp CheckShape(XlaBuilder* b, const XlaOp operand,
                    const Shape& expected_shape) const {
-    Shape actual_shape = b->GetShape(operand).ConsumeValueOrDie();
+    Shape actual_shape = b->GetShape(operand).value();
     CHECK(ShapeUtil::Equal(expected_shape, actual_shape))
         << "want " << ShapeUtil::HumanString(expected_shape) << " got "
         << ShapeUtil::HumanString(actual_shape);
@@ -90,18 +85,7 @@ class BatchNormalizationTest
   const ErrorSpec error_spec_{0.001, 0.001};
 };
 
-// If testing the GPU backend, run the tests twice, with and without cudnn
-// batchnorm.  Otherwise, just run the tests once -- the value of this flag
-// doesn't matter.
-#ifdef XLA_TEST_BACKEND_GPU
-INSTANTIATE_TEST_CASE_P(BatchNormalizationTestInstance, BatchNormalizationTest,
-                        ::testing::Bool());
-#else
-INSTANTIATE_TEST_CASE_P(BatchNormalizationTestInstance, BatchNormalizationTest,
-                        ::testing::Values(false));
-#endif
-
-XLA_TEST_P(BatchNormalizationTest, SubtractInZ) {
+XLA_TEST_F(BatchNormalizationTest, SubtractInZ) {
   XlaBuilder builder("subtract_in_z_one_sample");
   auto x = ConstantLiteral(&builder, input_literal_);
   auto y = ConstantR1<float>(&builder, {3.14, 4.25});
@@ -117,7 +101,7 @@ XLA_TEST_P(BatchNormalizationTest, SubtractInZ) {
   ComputeAndCompareR4<float>(&builder, expected, {}, error_spec_);
 }
 
-XLA_TEST_P(BatchNormalizationTest, SquareTesseractElementwise) {
+XLA_TEST_F(BatchNormalizationTest, SquareTesseractElementwise) {
   XlaBuilder builder("square_tesseract_elementwise");
   auto x = ConstantLiteral(&builder, input_literal_);
   Square(x);
@@ -134,7 +118,7 @@ XLA_TEST_P(BatchNormalizationTest, SquareTesseractElementwise) {
   ComputeAndCompareR4<float>(&builder, expected, {}, error_spec_);
 }
 
-XLA_TEST_P(BatchNormalizationTest, SumToZ) {
+XLA_TEST_F(BatchNormalizationTest, SumToZ) {
   XlaBuilder builder("sum_to_z");
   auto input_activations = ConstantLiteral(&builder, input_literal_);
   XlaComputation add = CreateScalarAddComputation(F32, &builder);
@@ -145,7 +129,7 @@ XLA_TEST_P(BatchNormalizationTest, SumToZ) {
   ComputeAndCompareR1<float>(&builder, expected, {}, error_spec_);
 }
 
-XLA_TEST_P(BatchNormalizationTest, SquareAndReduce) {
+XLA_TEST_F(BatchNormalizationTest, SquareAndReduce) {
   XlaBuilder builder("square_and_reduce");
   auto input_activations = ConstantLiteral(&builder, input_literal_);
   auto set_means = ConstantR1<float>(&builder, {2.f, 4.2f});
@@ -159,7 +143,7 @@ XLA_TEST_P(BatchNormalizationTest, SquareAndReduce) {
   ComputeAndCompareR1<float>(&builder, expected, {}, error_spec_);
 }
 
-XLA_TEST_P(BatchNormalizationTest, VarianceToStddev) {
+XLA_TEST_F(BatchNormalizationTest, VarianceToStddev) {
   XlaBuilder builder("variance_to_stddev");
   auto variance = ConstantR1<float>(&builder, {6.f, .02f});
   Sqrt(variance);
@@ -170,7 +154,7 @@ XLA_TEST_P(BatchNormalizationTest, VarianceToStddev) {
 
 // Compare against a forward batch normalization example in the NN spec
 // reference.
-XLA_TEST_P(BatchNormalizationTest, SpecComparisonForward) {
+XLA_TEST_F(BatchNormalizationTest, SpecComparisonForward) {
   XlaBuilder builder("batch_normalize_per_spec");
   auto input_activations =
       CheckShape(&builder, ConstantLiteral(&builder, input_literal_),
@@ -185,8 +169,8 @@ XLA_TEST_P(BatchNormalizationTest, SpecComparisonForward) {
       Reduce(input_activations, ConstantR0<float>(&builder, 0.0f), add,
              /*dimensions_to_reduce=*/{0, 2, 3}),
       TwoElementVectorF32);
-  auto input_shape = builder.GetShape(input_activations).ConsumeValueOrDie();
-  auto sum_shape = builder.GetShape(sum).ConsumeValueOrDie();
+  auto input_shape = builder.GetShape(input_activations).value();
+  auto sum_shape = builder.GetShape(sum).value();
   auto count =
       ConstantR0<float>(&builder, ShapeUtil::ElementsIn(input_shape) /
                                       ShapeUtil::ElementsIn(sum_shape));
@@ -229,7 +213,7 @@ XLA_TEST_P(BatchNormalizationTest, SpecComparisonForward) {
   ComputeAndCompareR4<float>(&builder, expected, {}, error_spec_);
 }
 
-XLA_TEST_P(BatchNormalizationTest, BasicTraining) {
+XLA_TEST_F(BatchNormalizationTest, BasicTraining) {
   const int kFeatureIndex = 3;
   XlaBuilder builder(TestName());
 
@@ -252,7 +236,7 @@ XLA_TEST_P(BatchNormalizationTest, BasicTraining) {
   ComputeAndCompareTuple(&builder, expected, {}, ErrorSpec(0.1));
 }
 
-XLA_TEST_P(BatchNormalizationTest, BasicTraining_fp16) {
+XLA_TEST_F(BatchNormalizationTest, BasicTraining_fp16) {
   const int kFeatureIndex = 3;
   XlaBuilder builder(TestName());
   Array4D<Eigen::half> input = {{{{1.f, 2.f}}, {{3.f, 4.f}}},
@@ -282,7 +266,7 @@ XLA_TEST_P(BatchNormalizationTest, BasicTraining_fp16) {
   ComputeAndCompareTuple(&builder, expected, {}, ErrorSpec(0.1));
 }
 
-XLA_TEST_P(BatchNormalizationTest, BasicTrainingOnDimension2) {
+XLA_TEST_F(BatchNormalizationTest, BasicTrainingOnDimension2) {
   const int kFeatureIndex = 2;
   XlaBuilder builder(TestName());
 
@@ -306,7 +290,7 @@ XLA_TEST_P(BatchNormalizationTest, BasicTrainingOnDimension2) {
   ComputeAndCompareTuple(&builder, expected, {}, ErrorSpec(0.1));
 }
 
-XLA_TEST_P(BatchNormalizationTest, BasicTrainingOnDimension2_fp16) {
+XLA_TEST_F(BatchNormalizationTest, BasicTrainingOnDimension2_fp16) {
   const int kFeatureIndex = 2;
   XlaBuilder builder(TestName());
   Array4D<Eigen::half> input = {{{{1.f}, {2.f}}, {{3.f}, {4.f}}},
@@ -336,7 +320,7 @@ XLA_TEST_P(BatchNormalizationTest, BasicTrainingOnDimension2_fp16) {
   ComputeAndCompareTuple(&builder, expected, {}, ErrorSpec(0.1));
 }
 
-XLA_TEST_P(BatchNormalizationTest, TrainingWithFeatureOnLowDimension) {
+XLA_TEST_F(BatchNormalizationTest, TrainingWithFeatureOnLowDimension) {
   // Use 0 dimension as feature, tests layout analyzer.
   const int kFeatureIndex = 0;
   XlaBuilder builder(TestName());
@@ -367,7 +351,7 @@ XLA_TEST_P(BatchNormalizationTest, TrainingWithFeatureOnLowDimension) {
                          ErrorSpec(0.1));
 }
 
-XLA_TEST_P(BatchNormalizationTest, LargeEpsilonTest) {
+XLA_TEST_F(BatchNormalizationTest, LargeEpsilonTest) {
   // Test the correctness of choosing a large epsilon value.
   const int kFeatureIndex = 2;
   XlaBuilder builder(TestName());
@@ -400,7 +384,7 @@ XLA_TEST_P(BatchNormalizationTest, LargeEpsilonTest) {
                          ErrorSpec(0.1));
 }
 
-XLA_TEST_P(BatchNormalizationTest, BatchNormGradBasic) {
+XLA_TEST_F(BatchNormalizationTest, BatchNormGradBasic) {
   const int kFeatureIndex = 2;
   XlaBuilder builder(TestName());
 
@@ -429,7 +413,7 @@ XLA_TEST_P(BatchNormalizationTest, BatchNormGradBasic) {
   ComputeAndCompareTuple(&builder, expected, {}, ErrorSpec(0.1));
 }
 
-XLA_TEST_P(BatchNormalizationTest, BatchNormGradBasic_fp16) {
+XLA_TEST_F(BatchNormalizationTest, BatchNormGradBasic_fp16) {
   const int kFeatureIndex = 2;
   XlaBuilder builder(TestName());
   auto operand = ConstantR4FromArray4D<Eigen::half>(
@@ -467,11 +451,10 @@ XLA_TEST_P(BatchNormalizationTest, BatchNormGradBasic_fp16) {
 }
 
 struct BatchNormTestParam {
-  std::vector<int64> bounds;
-  int64 feature_index;
+  std::vector<int64_t> bounds;
+  int64_t feature_index;
   float random_value_mean;
   float random_value_var;
-  bool use_cudnn_batchnorm;
 
   friend ::std::ostream& operator<<(::std::ostream& os,
                                     const BatchNormTestParam& p) {
@@ -479,12 +462,6 @@ struct BatchNormTestParam {
     os << "feature_index=" << p.feature_index << ", ";
     os << "random_value_mean=" << p.random_value_mean << ", ";
     os << "random_value_var=" << p.random_value_var;
-
-    // Don't print use_cudnn_batchnorm when it's false, because most backends
-    // never set it to true.
-    if (p.use_cudnn_batchnorm) {
-      os << ", use_cudnn_batchnorm=true";
-    }
     return os;
   }
 };
@@ -492,28 +469,16 @@ struct BatchNormTestParam {
 // Tests to test the fused operation of BatchNorm.
 class BatchNormTestManySizes
     : public ClientLibraryTestBase,
-      public ::testing::WithParamInterface<BatchNormTestParam> {
- public:
-  BatchNormTestManySizes() {
-    mutable_debug_options()->set_xla_gpu_use_cudnn_batchnorm(
-        GetParam().use_cudnn_batchnorm);
-  }
-};
+      public ::testing::WithParamInterface<BatchNormTestParam> {};
 
 std::vector<BatchNormTestParam> BuildBatchNormTestParams() {
   std::vector<BatchNormTestParam> params;
 
-  auto add_testcase = [&](std::vector<int64> bounds, int64_t feature_index,
+  auto add_testcase = [&](std::vector<int64_t> bounds, int64_t feature_index,
                           float random_value_mean, float random_value_var) {
     BatchNormTestParam p{bounds, feature_index, random_value_mean,
-                         random_value_var, /*use_cudnn_batchnorm=*/false};
+                         random_value_var};
     params.push_back(p);
-
-    // If testing the GPU backend, also run with cudnn batchnorm enabled.
-#ifdef XLA_TEST_BACKEND_GPU
-    p.use_cudnn_batchnorm = true;
-    params.push_back(p);
-#endif
   };
 
   add_testcase({2, 2, 2, 2}, 0, 100.2f, 200.0f);
@@ -547,7 +512,7 @@ INSTANTIATE_TEST_CASE_P(BatchNormTest_Instantiation, BatchNormTestManySizes,
 XLA_TEST_P(BatchNormTestManySizes, RandomizedTrainingTests) {
   float epsilon = 0.001;
   XlaBuilder builder(TestName());
-  const std::vector<int64>& bounds = GetParam().bounds;
+  const std::vector<int64_t>& bounds = GetParam().bounds;
   Array4D<float> input_array(bounds[0], bounds[1], bounds[2], bounds[3]);
   input_array.FillRandom(GetParam().random_value_var,
                          GetParam().random_value_mean);
@@ -561,8 +526,8 @@ XLA_TEST_P(BatchNormTestManySizes, RandomizedTrainingTests) {
 
   auto input_squared =
       ReferenceUtil::MapArray4D(input_array, [](float a) { return a * a; });
-  std::vector<int64> reduce_dims;
-  for (int64_t i = 0; i < static_cast<int64>(bounds.size()); ++i) {
+  std::vector<int64_t> reduce_dims;
+  for (int64_t i = 0; i < static_cast<int64_t>(bounds.size()); ++i) {
     if (i != feature_index) {
       reduce_dims.push_back(i);
     }
@@ -626,11 +591,11 @@ XLA_TEST_P(BatchNormTestManySizes, RandomizedTrainingTests) {
        LiteralUtil::CreateR1<float>(var)});
 
   std::unique_ptr<GlobalData> input_data =
-      client_->TransferToServer(input_literal).ConsumeValueOrDie();
+      client_->TransferToServer(input_literal).value();
   std::unique_ptr<GlobalData> scale_data =
-      client_->TransferToServer(scale_literal).ConsumeValueOrDie();
+      client_->TransferToServer(scale_literal).value();
   std::unique_ptr<GlobalData> offset_data =
-      client_->TransferToServer(offset_literal).ConsumeValueOrDie();
+      client_->TransferToServer(offset_literal).value();
 
   BatchNormTraining(input_activations, scale_activations, offset_activations,
                     epsilon, feature_index);
@@ -648,7 +613,7 @@ XLA_TEST_P(BatchNormTestManySizes, RandomizedTrainingTests) {
 XLA_TEST_P(BatchNormTestManySizes, RandomizedInferencingTests) {
   float epsilon = 0.001;
   XlaBuilder builder(TestName());
-  const std::vector<int64>& bounds = GetParam().bounds;
+  const std::vector<int64_t>& bounds = GetParam().bounds;
   Array4D<float> input_array(bounds[0], bounds[1], bounds[2], bounds[3]);
   input_array.FillRandom(GetParam().random_value_var,
                          GetParam().random_value_mean);
@@ -662,8 +627,8 @@ XLA_TEST_P(BatchNormTestManySizes, RandomizedInferencingTests) {
 
   auto input_squared =
       ReferenceUtil::MapArray4D(input_array, [](float a) { return a * a; });
-  std::vector<int64> reduce_dims;
-  for (int64_t i = 0; i < static_cast<int64>(bounds.size()); ++i) {
+  std::vector<int64_t> reduce_dims;
+  for (int64_t i = 0; i < static_cast<int64_t>(bounds.size()); ++i) {
     if (i != feature_index) {
       reduce_dims.push_back(i);
     }
@@ -727,15 +692,15 @@ XLA_TEST_P(BatchNormTestManySizes, RandomizedInferencingTests) {
   Array4D<float> expected = normalized;
 
   std::unique_ptr<GlobalData> input_data =
-      client_->TransferToServer(input_literal).ConsumeValueOrDie();
+      client_->TransferToServer(input_literal).value();
   std::unique_ptr<GlobalData> scale_data =
-      client_->TransferToServer(scale_literal).ConsumeValueOrDie();
+      client_->TransferToServer(scale_literal).value();
   std::unique_ptr<GlobalData> offset_data =
-      client_->TransferToServer(offset_literal).ConsumeValueOrDie();
+      client_->TransferToServer(offset_literal).value();
   std::unique_ptr<GlobalData> mean_data =
-      client_->TransferToServer(mean_literal).ConsumeValueOrDie();
+      client_->TransferToServer(mean_literal).value();
   std::unique_ptr<GlobalData> variance_data =
-      client_->TransferToServer(var_literal).ConsumeValueOrDie();
+      client_->TransferToServer(var_literal).value();
 
   BatchNormInference(input_activations, scale_activations, offset_activations,
                      mean_activations, variance_activations, epsilon,
@@ -756,7 +721,7 @@ XLA_TEST_P(BatchNormTestManySizes, RandomizedInferencingTests) {
 XLA_TEST_P(BatchNormTestManySizes, RandomizedGradTests) {
   float epsilon = 0.001;
   XlaBuilder builder(TestName());
-  const std::vector<int64>& bounds = GetParam().bounds;
+  const std::vector<int64_t>& bounds = GetParam().bounds;
   Array4D<float> input_array(bounds[0], bounds[1], bounds[2], bounds[3]);
   input_array.FillRandom(GetParam().random_value_var,
                          GetParam().random_value_mean);
@@ -773,8 +738,8 @@ XLA_TEST_P(BatchNormTestManySizes, RandomizedGradTests) {
 
   auto input_squared =
       ReferenceUtil::MapArray4D(input_array, [](float a) { return a * a; });
-  std::vector<int64> reduce_dims;
-  for (int64_t i = 0; i < static_cast<int64>(bounds.size()); ++i) {
+  std::vector<int64_t> reduce_dims;
+  for (int64_t i = 0; i < static_cast<int64_t>(bounds.size()); ++i) {
     if (i != feature_index) {
       reduce_dims.push_back(i);
     }
@@ -912,15 +877,15 @@ XLA_TEST_P(BatchNormTestManySizes, RandomizedGradTests) {
       Parameter(&builder, 4, grad_output_literal.shape(), "grad_output");
 
   std::unique_ptr<GlobalData> input_data =
-      client_->TransferToServer(input_literal).ConsumeValueOrDie();
+      client_->TransferToServer(input_literal).value();
   std::unique_ptr<GlobalData> scale_data =
-      client_->TransferToServer(scale_literal).ConsumeValueOrDie();
+      client_->TransferToServer(scale_literal).value();
   std::unique_ptr<GlobalData> mean_data =
-      client_->TransferToServer(mean_literal).ConsumeValueOrDie();
+      client_->TransferToServer(mean_literal).value();
   std::unique_ptr<GlobalData> var_data =
-      client_->TransferToServer(var_literal).ConsumeValueOrDie();
+      client_->TransferToServer(var_literal).value();
   std::unique_ptr<GlobalData> grad_output_data =
-      client_->TransferToServer(grad_output_literal).ConsumeValueOrDie();
+      client_->TransferToServer(grad_output_literal).value();
 
   BatchNormGrad(input_parameter, scale_parameter, mean_parameter, var_parameter,
                 grad_output_parameter, epsilon, feature_index);

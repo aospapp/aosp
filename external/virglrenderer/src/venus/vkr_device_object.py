@@ -13,9 +13,12 @@ vkr_{create_func_name}_create_driver_handle(
    struct vn_command_{create_cmd} *args,
    struct vkr_{vkr_type} *obj)
 {{
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    /* handles in args are replaced */
    vn_replace_{create_cmd}_args_handle(args);
-   args->ret = {create_cmd}(args->device, args->{create_info}, NULL,
+   args->ret = vk->{proc_create}(args->device, args->{create_info}, NULL,
       &obj->base.handle.{vkr_type});
    return args->ret;
 }}
@@ -31,9 +34,12 @@ VkResult vkr_{create_func_name}_create_driver_handles(
    struct vn_command_{create_cmd} *args,
    struct object_array *arr)
 {{
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    /* handles in args are replaced */
    vn_replace_{create_cmd}_args_handle(args);
-   args->ret = {create_cmd}(args->device, args->{create_info},
+   args->ret = vk->{proc_create}(args->device, args->{create_info},
       arr->handle_storage);
    return args->ret;
 }}
@@ -47,9 +53,12 @@ vkr_{create_func_name}_create_driver_handles(
    struct vn_command_{create_cmd} *args,
    struct object_array *arr)
 {{
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    /* handles in args are replaced */
    vn_replace_{create_cmd}_args_handle(args);
-   args->ret = {create_cmd}(args->device, args->{create_cache},
+   args->ret = vk->{proc_create}(args->device, args->{create_cache},
       args->{create_count}, args->{create_info}, NULL,
       arr->handle_storage);
    return args->ret;
@@ -63,9 +72,12 @@ vkr_{destroy_func_name}_destroy_driver_handle(
    UNUSED struct vkr_context *ctx,
    struct vn_command_{destroy_cmd} *args)
 {{
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    /* handles in args are replaced */
    vn_replace_{destroy_cmd}_args_handle(args);
-   {destroy_cmd}(args->device, args->{destroy_obj}, NULL);
+   vk->{proc_destroy}(args->device, args->{destroy_obj}, NULL);
 }}
 '''
 
@@ -79,6 +91,9 @@ vkr_{destroy_func_name}_destroy_driver_handles(
    struct vn_command_{destroy_cmd} *args,
    struct list_head *free_list)
 {{
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    list_inithead(free_list);
    for (uint32_t i = 0; i < args->{destroy_count}; i++) {{
       struct vkr_{vkr_type} *obj =
@@ -92,7 +107,7 @@ vkr_{destroy_func_name}_destroy_driver_handles(
 
    /* handles in args are replaced */
    vn_replace_{destroy_cmd}_args_handle(args);
-   {destroy_cmd}(args->device, args->{destroy_pool},
+   vk->{proc_destroy}(args->device, args->{destroy_pool},
       args->{destroy_count}, args->{destroy_objs});
 }}
 '''
@@ -155,7 +170,12 @@ vkr_{create_func_name}_create_array(
    if (vkr_{create_func_name}_init_array(ctx, args, arr) != VK_SUCCESS)
       return args->ret;
 
-   if (vkr_{create_func_name}_create_driver_handles(ctx, args, arr) != VK_SUCCESS) {{
+   if (vkr_{create_func_name}_create_driver_handles(ctx, args, arr) < VK_SUCCESS) {{
+      /* In case the client expects a reply, clear all returned handles to
+       * VK_NULL_HANDLE.
+       */
+      memset(args->{create_objs}, 0,
+             args->{create_count} * sizeof(args->{create_objs}[0]));
       object_array_fini(arr);
       return args->ret;
    }}
@@ -219,14 +239,22 @@ static inline void
 vkr_{create_func_name}_add_array(
    struct vkr_context *ctx,
    struct vkr_device *dev,
-   struct object_array *arr)
+   struct object_array *arr,
+   {vk_type} *args_{create_objs})
 {{
    for (uint32_t i = 0; i < arr->count; i++) {{
       struct vkr_{vkr_type} *obj = arr->objects[i];
 
       obj->base.handle.{vkr_type} = (({vk_type} *)arr->handle_storage)[i];
 
-      vkr_device_add_object(ctx, dev, &obj->base);
+      /* Individual pipelines may fail creation. */
+      if (obj->base.handle.{vkr_type} == VK_NULL_HANDLE) {{
+         free(obj);
+         arr->objects[i] = NULL;
+         args_{create_objs}[i] = VK_NULL_HANDLE;
+      }} else {{
+         vkr_device_add_object(ctx, dev, &obj->base);
+      }}
    }}
 
    arr->objects_stolen = true;
@@ -428,6 +456,13 @@ def process_objects(json_objs):
         json_obj.setdefault('create_func_name', json_obj['vkr_type'])
         json_obj.setdefault('destroy_func_name', json_obj['vkr_type'])
         json_obj.setdefault('variants', [])
+        json_obj['proc_create'] = json_obj.get('create_cmd')[2:]
+        json_obj['proc_destroy'] = json_obj.get('destroy_cmd')[2:]
+        for variant in json_obj.get('variants'):
+            if variant.get('create_cmd') != None:
+                variant['proc_create'] = variant.get('create_cmd')[2:]
+            if variant.get('destroy_cmd') != None:
+                variant['proc_destroy'] = variant.get('create_cmd')[2:]
 
 def file_generator(json_file):
     contents = file_header_generator(json_file)

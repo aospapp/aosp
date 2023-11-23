@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -68,8 +68,8 @@ from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.server.lib import status_history
 from autotest_lib.site_utils import lab_inventory
 from autotest_lib.utils import labellib
-from chromite.lib import metrics
-from chromite.lib import parallel
+from autotest_lib.utils.frozen_chromite.lib import metrics
+from autotest_lib.utils.frozen_chromite.lib import parallel
 
 #This must be imported after chromite.lib.metrics
 from infra_libs import ts_mon

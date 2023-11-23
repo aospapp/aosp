@@ -17,7 +17,12 @@
 #pragma once
 
 #include <map>
+#include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
+int get_func_call_size();
+
+int get_func_call_count(const char* fn);
+void inc_func_call_count(const char* fn);
+
 void dump_mock_function_count_map();
 void reset_mock_function_count_map();

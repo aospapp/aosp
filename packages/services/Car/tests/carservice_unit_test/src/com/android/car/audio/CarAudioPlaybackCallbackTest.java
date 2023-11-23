@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,24 +16,17 @@
 
 package com.android.car.audio;
 
-import static android.media.AudioAttributes.AttributeUsage;
-import static android.media.AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE;
 import static android.media.AudioAttributes.USAGE_MEDIA;
 
-import static com.android.car.audio.CarAudioContext.MUSIC;
-import static com.android.car.audio.CarAudioContext.NAVIGATION;
-import static com.android.car.audio.CarAudioContext.VOICE_COMMAND;
 import static com.android.car.audio.CarAudioService.SystemClockWrapper;
 
-import static com.google.common.truth.Truth.assertThat;
-
-import static org.mockito.Mockito.mock;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.when;
-import static org.testng.Assert.expectThrows;
 
+import android.car.test.mocks.AbstractExtendedMockitoTestCase;
 import android.media.AudioAttributes;
-import android.media.AudioDeviceInfo;
 import android.media.AudioPlaybackConfiguration;
+import android.util.SparseArray;
 
 import com.google.common.collect.ImmutableList;
 
@@ -46,222 +39,222 @@ import org.mockito.junit.MockitoJUnitRunner;
 import java.util.List;
 
 @RunWith(MockitoJUnitRunner.class)
-public final class CarAudioPlaybackCallbackTest {
+public class CarAudioPlaybackCallbackTest extends AbstractExtendedMockitoTestCase {
 
     private static final int PRIMARY_ZONE_ID = 0;
-    private static final String PRIMARY_MEDIA_ADDRESS = "music_bus0";
-    private static final String PRIMARY_NAVIGATION_ADDRESS = "navigation_bus1";
-    private static final String PRIMARY_VOICE_ADDRESS = "voice_bus3";
-
-    private static final String SECONDARY_MEDIA_ADDRESS = "music_bus100";
-    private static final String SECONDARY_NAVIGATION_ADDRESS = "navigation_bus101";
-
+    private static final int SECONDARY_ZONE_ID = 1;
     private static final long TIMER_START_TIME_MS = 100000;
     private static final int KEY_EVENT_TIMEOUT_MS = 3000;
     private static final long TIMER_BEFORE_TIMEOUT_MS =
             TIMER_START_TIME_MS + KEY_EVENT_TIMEOUT_MS - 1;
     private static final long TIMER_AFTER_TIMEOUT_MS =
             TIMER_START_TIME_MS + KEY_EVENT_TIMEOUT_MS + 1;
+    private static final int NEGATIVE_KEY_EVENT_TIMEOUT_MS = -KEY_EVENT_TIMEOUT_MS;
+    private static final String PRIMARY_MEDIA_ADDRESS = "music_bus0";
+    private static final String SECONDARY_MEDIA_ADDRESS = "music_bus1";
 
-    @Mock
-    private SystemClockWrapper mClock;
+    private static final AudioAttributes TEST_MEDIA_AUDIO_ATTRIBUTE =
+            new AudioAttributes.Builder().setUsage(USAGE_MEDIA).build();
+
+    private static final CarAudioContext TEST_CAR_AUDIO_CONTEXT =
+            new CarAudioContext(CarAudioContext.getAllContextsInfo(),
+                    /* useCoreAudioRouting= */ false);
+
+    private static final @CarAudioContext.AudioContext int TEST_MEDIA_AUDIO_CONTEXT =
+            TEST_CAR_AUDIO_CONTEXT.getContextForAudioAttribute(TEST_MEDIA_AUDIO_ATTRIBUTE);
+
 
     private CarAudioZone mPrimaryZone;
+    private SparseArray<CarAudioZone> mCarAudioZones = new SparseArray<>();
+    private CarAudioZone mSecondaryZone;
+    private CarAudioPlaybackCallback mCallback;
+    @Mock
+    private SystemClockWrapper mClock;
 
     @Before
     public void setUp() {
         mPrimaryZone = generatePrimaryZone();
+        mSecondaryZone = generateSecondaryZone();
         when(mClock.uptimeMillis()).thenReturn(TIMER_START_TIME_MS);
+        mCarAudioZones.put(PRIMARY_ZONE_ID, mPrimaryZone);
+        mCarAudioZones.put(SECONDARY_ZONE_ID, mSecondaryZone);
+        mCallback = new CarAudioPlaybackCallback(mCarAudioZones, mClock, KEY_EVENT_TIMEOUT_MS);
     }
 
     @Test
-    public void createCarAudioPlaybackCallback_withNullCarAudioZones_fails() throws Exception {
-        expectThrows(NullPointerException.class, () -> {
-            new CarAudioPlaybackCallback(null, mClock, KEY_EVENT_TIMEOUT_MS);
-        });
+    public void constructor_withNullAudioZones_fails() throws Exception {
+        NullPointerException thrown = assertThrows(NullPointerException.class,
+                () -> new CarAudioPlaybackCallback(/* audioZones= */ null, mClock,
+                        KEY_EVENT_TIMEOUT_MS));
+
+        expectWithMessage("Car audio playback callback construction exception")
+                .that(thrown).hasMessageThat().contains("Car audio zone cannot be null");
     }
 
     @Test
-    public void createCarAudioPlaybackCallback_withNullSystemClockWrapper_fails() throws Exception {
-        expectThrows(NullPointerException.class, () -> {
-            new CarAudioPlaybackCallback(mPrimaryZone, null, KEY_EVENT_TIMEOUT_MS);
-        });
+    public void constructor_withEmptyAudioZones_fails() throws Exception {
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+                () -> new CarAudioPlaybackCallback(new SparseArray<>(), mClock,
+                        KEY_EVENT_TIMEOUT_MS));
+
+        expectWithMessage("Car audio playback callback construction exception")
+                .that(thrown).hasMessageThat().contains("Car audio zones must not be empty");
     }
 
     @Test
-    public void
-            createCarAudioPlaybackCallback_withNegativeKeyEventTimeout_fails() throws Exception {
-        expectThrows(IllegalArgumentException.class, () -> {
-            new CarAudioPlaybackCallback(mPrimaryZone, mClock, -KEY_EVENT_TIMEOUT_MS);
-        });
+    public void constructor_withNullSystemClockWrapper_fails()
+            throws Exception {
+        NullPointerException thrown = assertThrows(NullPointerException.class,
+                () -> new CarAudioPlaybackCallback(mCarAudioZones, /* clock= */ null,
+                        KEY_EVENT_TIMEOUT_MS));
+
+        expectWithMessage("Car audio playback callback construction exception")
+                .that(thrown).hasMessageThat().contains("Clock cannot be null");
     }
 
     @Test
-    public void
-            getAllActiveContextsForPrimaryZone_withNoOnPlaybackConfigChanged_returnsEmptyList() {
-        CarAudioPlaybackCallback callback =
-                new CarAudioPlaybackCallback(mPrimaryZone, mClock, KEY_EVENT_TIMEOUT_MS);
+    public void constructor_withNegativeKeyEventTimeout_fails()
+            throws Exception {
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+                () -> new CarAudioPlaybackCallback(mCarAudioZones, mClock,
+                        NEGATIVE_KEY_EVENT_TIMEOUT_MS));
 
-        List<Integer> activeContexts =
-                callback.getAllActiveContextsForPrimaryZone();
-
-        assertThat(activeContexts).isEmpty();
+        expectWithMessage("Car audio playback callback construction exception")
+                .that(thrown).hasMessageThat()
+                .contains("Volume key event timeout must be positive");
     }
 
     @Test
-    public void
-            getAllActiveContextsForPrimaryZone_withOneMatchingConfiguration_returnsActiveContext() {
-        List<AudioPlaybackConfiguration> activeConfigurations = ImmutableList.of(
+    public void onPlaybackConfigChanged_singleConfig_returnsActiveContextForPrimaryZoneOnly() {
+        List<AudioPlaybackConfiguration> configurations = ImmutableList.of(
                 new AudioPlaybackConfigurationBuilder()
                         .setUsage(USAGE_MEDIA)
                         .setDeviceAddress(PRIMARY_MEDIA_ADDRESS)
                         .build()
         );
 
-        CarAudioPlaybackCallback callback =
-                new CarAudioPlaybackCallback(mPrimaryZone, mClock, KEY_EVENT_TIMEOUT_MS);
+        mCallback.onPlaybackConfigChanged(configurations);
+        List<AudioAttributes> primaryZoneActiveAttributes =
+                mCallback.getAllActiveAudioAttributesForZone(PRIMARY_ZONE_ID);
+        List<AudioAttributes> secondaryZoneActiveAttributes =
+                mCallback.getAllActiveAudioAttributesForZone(SECONDARY_ZONE_ID);
 
-        callback.onPlaybackConfigChanged(activeConfigurations);
-
-        List<Integer> activeContexts =
-                callback.getAllActiveContextsForPrimaryZone();
-
-        assertThat(activeContexts).containsExactly(MUSIC);
+        expectWithMessage("Primary zone active attributes")
+                .that(primaryZoneActiveAttributes)
+                .containsExactly(TEST_MEDIA_AUDIO_ATTRIBUTE);
+        expectWithMessage("Secondary zone active attributes")
+                .that(secondaryZoneActiveAttributes)
+                .isEmpty();
     }
 
     @Test
-    public void
-            getAllActiveContextsForPrimaryZone_withMultipleConfiguration_returnsActiveContexts() {
-        List<AudioPlaybackConfiguration> activeConfigurations = ImmutableList.of(
-                new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_MEDIA)
-                        .setDeviceAddress(PRIMARY_MEDIA_ADDRESS)
-                        .build(),
-                new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setDeviceAddress(PRIMARY_NAVIGATION_ADDRESS)
-                        .build()
-        );
-
-        CarAudioPlaybackCallback callback =
-                new CarAudioPlaybackCallback(mPrimaryZone, mClock, KEY_EVENT_TIMEOUT_MS);
-
-        callback.onPlaybackConfigChanged(activeConfigurations);
-
-        List<Integer> activeContexts =
-                callback.getAllActiveContextsForPrimaryZone();
-
-        assertThat(activeContexts).containsExactly(MUSIC, NAVIGATION);
-    }
-
-    @Test
-    public void
-            getAllActiveContextsForPrimaryZone_withInactiveConfigurations_returnsActiveContext() {
+    public void onPlaybackConfigChanged_withMultipleConfigs_returnsActiveConfigsForTwoZones() {
         List<AudioPlaybackConfiguration> configurations = ImmutableList.of(
                 new AudioPlaybackConfigurationBuilder()
                         .setUsage(USAGE_MEDIA)
                         .setDeviceAddress(PRIMARY_MEDIA_ADDRESS)
                         .build(),
                 new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setDeviceAddress(PRIMARY_NAVIGATION_ADDRESS)
-                        .setInactive()
-                        .build()
-        );
-
-        CarAudioPlaybackCallback callback =
-                new CarAudioPlaybackCallback(mPrimaryZone, mClock, KEY_EVENT_TIMEOUT_MS);
-
-        callback.onPlaybackConfigChanged(configurations);
-
-        List<Integer> activeContexts =
-                callback.getAllActiveContextsForPrimaryZone();
-
-        assertThat(activeContexts).containsExactly(MUSIC);
-    }
-
-    @Test
-    public void
-            getAllActiveContextsForPrimaryZone_withNoActiveConfigurations_returnsEmptyContexts() {
-        List<AudioPlaybackConfiguration> activeConfigurations = ImmutableList.of(
-                new AudioPlaybackConfigurationBuilder()
                         .setUsage(USAGE_MEDIA)
-                        .setDeviceAddress(PRIMARY_MEDIA_ADDRESS)
-                        .setInactive()
-                        .build(),
-                new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setDeviceAddress(PRIMARY_NAVIGATION_ADDRESS)
-                        .setInactive()
+                        .setDeviceAddress(SECONDARY_MEDIA_ADDRESS)
                         .build()
         );
 
-        CarAudioPlaybackCallback callback =
-                new CarAudioPlaybackCallback(mPrimaryZone, mClock, KEY_EVENT_TIMEOUT_MS);
+        mCallback.onPlaybackConfigChanged(configurations);
+        List<AudioAttributes> primaryZoneActiveAttributes =
+                mCallback.getAllActiveAudioAttributesForZone(PRIMARY_ZONE_ID);
+        List<AudioAttributes> secondaryZoneActiveAttributes =
+                mCallback.getAllActiveAudioAttributesForZone(SECONDARY_ZONE_ID);
 
-        callback.onPlaybackConfigChanged(activeConfigurations);
-
-        List<Integer> activeContexts =
-                callback.getAllActiveContextsForPrimaryZone();
-
-        assertThat(activeContexts).isEmpty();
+        expectWithMessage("Primary zone active attributes")
+                .that(primaryZoneActiveAttributes)
+                .containsExactly(TEST_MEDIA_AUDIO_ATTRIBUTE);
+        expectWithMessage("Secondary zone active attributes")
+                .that(secondaryZoneActiveAttributes)
+                .containsExactly(TEST_MEDIA_AUDIO_ATTRIBUTE);
     }
 
     @Test
-    public void
-            getAllActiveContextsForPrimaryZone_withInactiveConfig_beforeTimeout_returnsContexts() {
-        List<AudioPlaybackConfiguration> activeConfigurations = ImmutableList.of(
+    public void onPlaybackConfigChanged_withMultipleConfigs_onIncorrectConfigurations() {
+        List<AudioPlaybackConfiguration> configurations = ImmutableList.of(
                 new AudioPlaybackConfigurationBuilder()
                         .setUsage(USAGE_MEDIA)
                         .setDeviceAddress(PRIMARY_MEDIA_ADDRESS)
                         .build(),
                 new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setDeviceAddress(PRIMARY_NAVIGATION_ADDRESS)
+                        .setUsage(USAGE_MEDIA)
+                        .setDeviceAddress(SECONDARY_MEDIA_ADDRESS)
+                        .setInactive()
                         .build()
         );
 
+        mCallback.onPlaybackConfigChanged(configurations);
+        List<AudioAttributes> primaryZoneActiveAttributes =
+                mCallback.getAllActiveAudioAttributesForZone(PRIMARY_ZONE_ID);
+        List<AudioAttributes> secondaryZoneActiveAttributes =
+                mCallback.getAllActiveAudioAttributesForZone(SECONDARY_ZONE_ID);
+
+        expectWithMessage("Primary zone active attributes")
+                .that(primaryZoneActiveAttributes)
+                .containsExactly(TEST_MEDIA_AUDIO_ATTRIBUTE);
+        expectWithMessage("Secondary zone active attributes")
+                .that(secondaryZoneActiveAttributes)
+                .isEmpty();
+    }
+
+    @Test
+    public void onPlaybackConfigChanged_withMultipleInactiveConfigs_beforeTimeout() {
+        List<AudioPlaybackConfiguration> configurations = ImmutableList.of(
+                new AudioPlaybackConfigurationBuilder()
+                        .setUsage(USAGE_MEDIA)
+                        .setDeviceAddress(PRIMARY_MEDIA_ADDRESS)
+                        .build(),
+                new AudioPlaybackConfigurationBuilder()
+                        .setUsage(USAGE_MEDIA)
+                        .setDeviceAddress(SECONDARY_MEDIA_ADDRESS)
+                        .build()
+        );
         List<AudioPlaybackConfiguration> configurationsChanged = ImmutableList.of(
                 new AudioPlaybackConfigurationBuilder()
                         .setUsage(USAGE_MEDIA)
                         .setDeviceAddress(PRIMARY_MEDIA_ADDRESS)
+                        .setInactive()
                         .build(),
                 new AudioPlaybackConfigurationBuilder()
+                        .setUsage(USAGE_MEDIA)
+                        .setDeviceAddress(SECONDARY_MEDIA_ADDRESS)
                         .setInactive()
-                        .setUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setDeviceAddress(PRIMARY_NAVIGATION_ADDRESS)
                         .build()
         );
+        mCallback.onPlaybackConfigChanged(configurations);
 
-        CarAudioPlaybackCallback callback =
-                new CarAudioPlaybackCallback(mPrimaryZone, mClock, KEY_EVENT_TIMEOUT_MS);
-
-        callback.onPlaybackConfigChanged(activeConfigurations);
-
-        callback.onPlaybackConfigChanged(configurationsChanged);
+        mCallback.onPlaybackConfigChanged(configurationsChanged);
 
         when(mClock.uptimeMillis()).thenReturn(TIMER_BEFORE_TIMEOUT_MS);
-
-        List<Integer> activeContexts =
-                callback.getAllActiveContextsForPrimaryZone();
-
-        assertThat(activeContexts).containsExactly(MUSIC, NAVIGATION);
+        List<AudioAttributes> primaryZoneActiveAttributes =
+                mCallback.getAllActiveAudioAttributesForZone(PRIMARY_ZONE_ID);
+        List<AudioAttributes> secondaryZoneActiveAttributes =
+                mCallback.getAllActiveAudioAttributesForZone(SECONDARY_ZONE_ID);
+        expectWithMessage("Primary zone active attributes")
+                .that(primaryZoneActiveAttributes)
+                .containsExactly(TEST_MEDIA_AUDIO_ATTRIBUTE);
+        expectWithMessage("Secondary zone active attributes")
+                .that(secondaryZoneActiveAttributes)
+                .containsExactly(TEST_MEDIA_AUDIO_ATTRIBUTE);
     }
 
     @Test
-    public void
-            getAllActiveContextsForPrimaryZone_withInactiveConfigs_beforeTimeout_returnsContexts() {
-        List<AudioPlaybackConfiguration> activeConfigurations = ImmutableList.of(
+    public void onPlaybackConfigChanged_withMultipleConfigs_afterTimeout() {
+        List<AudioPlaybackConfiguration> configurations = ImmutableList.of(
                 new AudioPlaybackConfigurationBuilder()
                         .setUsage(USAGE_MEDIA)
                         .setDeviceAddress(PRIMARY_MEDIA_ADDRESS)
                         .build(),
                 new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setDeviceAddress(PRIMARY_NAVIGATION_ADDRESS)
+                        .setUsage(USAGE_MEDIA)
+                        .setDeviceAddress(SECONDARY_MEDIA_ADDRESS)
                         .build()
         );
-
         List<AudioPlaybackConfiguration> configurationsChanged = ImmutableList.of(
                 new AudioPlaybackConfigurationBuilder()
                         .setUsage(USAGE_MEDIA)
@@ -269,125 +262,40 @@ public final class CarAudioPlaybackCallbackTest {
                         .setInactive()
                         .build(),
                 new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setDeviceAddress(PRIMARY_NAVIGATION_ADDRESS)
+                        .setUsage(USAGE_MEDIA)
+                        .setDeviceAddress(SECONDARY_MEDIA_ADDRESS)
                         .setInactive()
                         .build()
         );
+        mCallback.onPlaybackConfigChanged(configurations);
 
-        CarAudioPlaybackCallback callback =
-                new CarAudioPlaybackCallback(mPrimaryZone, mClock, KEY_EVENT_TIMEOUT_MS);
-
-        callback.onPlaybackConfigChanged(activeConfigurations);
-
-        callback.onPlaybackConfigChanged(configurationsChanged);
-
-        when(mClock.uptimeMillis()).thenReturn(TIMER_BEFORE_TIMEOUT_MS);
-
-        List<Integer> activeContexts =
-                callback.getAllActiveContextsForPrimaryZone();
-
-        assertThat(activeContexts).containsExactly(NAVIGATION, MUSIC);
-    }
-
-    @Test
-    public void
-            getAllActiveContextsForPrimaryZone_afterResetStillActiveContexts_returnsEmptyContext() {
-        List<AudioPlaybackConfiguration> activeConfigurations = ImmutableList.of(
-                new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_MEDIA)
-                        .setDeviceAddress(PRIMARY_MEDIA_ADDRESS)
-                        .build(),
-                new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setDeviceAddress(PRIMARY_NAVIGATION_ADDRESS)
-                        .build()
-        );
-
-        List<AudioPlaybackConfiguration> configurationsChanged = ImmutableList.of(
-                new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_MEDIA)
-                        .setDeviceAddress(PRIMARY_MEDIA_ADDRESS)
-                        .setInactive()
-                        .build(),
-                new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setDeviceAddress(PRIMARY_NAVIGATION_ADDRESS)
-                        .setInactive()
-                        .build()
-        );
-
-        CarAudioPlaybackCallback callback =
-                new CarAudioPlaybackCallback(mPrimaryZone, mClock, KEY_EVENT_TIMEOUT_MS);
-
-        callback.onPlaybackConfigChanged(activeConfigurations);
-
-        callback.onPlaybackConfigChanged(configurationsChanged);
-
-        callback.resetStillActiveContexts();
-
-        when(mClock.uptimeMillis()).thenReturn(TIMER_BEFORE_TIMEOUT_MS);
-
-        List<Integer> activeContexts =
-                callback.getAllActiveContextsForPrimaryZone();
-
-        assertThat(activeContexts).isEmpty();
-    }
-
-    @Test
-    public void
-            getAllActiveContextsForPrimaryZone_withInactiveConfig_afterTimeout_returnsContext() {
-        List<AudioPlaybackConfiguration> activeConfigurations = ImmutableList.of(
-                new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_MEDIA)
-                        .setDeviceAddress(PRIMARY_MEDIA_ADDRESS)
-                        .build(),
-                new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setDeviceAddress(PRIMARY_NAVIGATION_ADDRESS)
-                        .build()
-        );
-
-        List<AudioPlaybackConfiguration> configurationsChanged = ImmutableList.of(
-                new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_MEDIA)
-                        .setDeviceAddress(PRIMARY_MEDIA_ADDRESS)
-                        .build(),
-                new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setDeviceAddress(PRIMARY_NAVIGATION_ADDRESS)
-                        .setInactive()
-                        .build()
-        );
-
-        CarAudioPlaybackCallback callback =
-                new CarAudioPlaybackCallback(mPrimaryZone, mClock, KEY_EVENT_TIMEOUT_MS);
-
-        callback.onPlaybackConfigChanged(activeConfigurations);
-
-        callback.onPlaybackConfigChanged(configurationsChanged);
+        mCallback.onPlaybackConfigChanged(configurationsChanged);
 
         when(mClock.uptimeMillis()).thenReturn(TIMER_AFTER_TIMEOUT_MS);
-
-        List<Integer> activeContexts =
-                callback.getAllActiveContextsForPrimaryZone();
-
-        assertThat(activeContexts).containsExactly(MUSIC);
+        List<AudioAttributes> primaryZoneActiveAttributes =
+                mCallback.getAllActiveAudioAttributesForZone(PRIMARY_ZONE_ID);
+        List<AudioAttributes> secondaryZoneActiveAttributes =
+                mCallback.getAllActiveAudioAttributesForZone(SECONDARY_ZONE_ID);
+        expectWithMessage("Primary zone active attributes")
+                .that(primaryZoneActiveAttributes)
+                .isEmpty();
+        expectWithMessage("Secondary zone active attributes")
+                .that(secondaryZoneActiveAttributes)
+                .isEmpty();
     }
 
     @Test
-    public void getAllActiveContextsForPrimaryZone_withInactiveConfigs_afterTimeout_returnsEmpty() {
-        List<AudioPlaybackConfiguration> activeConfigurations = ImmutableList.of(
+    public void onPlaybackConfigChanged_withMultipleConfigs_resetStillActiveContexts() {
+        List<AudioPlaybackConfiguration> configurations = ImmutableList.of(
                 new AudioPlaybackConfigurationBuilder()
                         .setUsage(USAGE_MEDIA)
                         .setDeviceAddress(PRIMARY_MEDIA_ADDRESS)
                         .build(),
                 new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setDeviceAddress(PRIMARY_NAVIGATION_ADDRESS)
+                        .setUsage(USAGE_MEDIA)
+                        .setDeviceAddress(SECONDARY_MEDIA_ADDRESS)
                         .build()
         );
-
         List<AudioPlaybackConfiguration> configurationsChanged = ImmutableList.of(
                 new AudioPlaybackConfigurationBuilder()
                         .setUsage(USAGE_MEDIA)
@@ -395,146 +303,54 @@ public final class CarAudioPlaybackCallbackTest {
                         .setInactive()
                         .build(),
                 new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setDeviceAddress(PRIMARY_NAVIGATION_ADDRESS)
-                        .setInactive()
-                        .build()
-        );
-
-        CarAudioPlaybackCallback callback =
-                new CarAudioPlaybackCallback(mPrimaryZone, mClock, KEY_EVENT_TIMEOUT_MS);
-
-        callback.onPlaybackConfigChanged(activeConfigurations);
-
-        callback.onPlaybackConfigChanged(configurationsChanged);
-
-        when(mClock.uptimeMillis()).thenReturn(TIMER_AFTER_TIMEOUT_MS);
-
-        List<Integer> activeContexts =
-                callback.getAllActiveContextsForPrimaryZone();
-
-        assertThat(activeContexts).isEmpty();
-    }
-
-
-    @Test
-    public void
-            getAllActiveContextsForPrimaryZone_withMultiActiveConfigs_forDiffZone_returnsEmpty() {
-        List<AudioPlaybackConfiguration> activeConfigurations = ImmutableList.of(
-                new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_MEDIA)
-                        .setDeviceAddress(SECONDARY_MEDIA_ADDRESS)
-                        .build(),
-                new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setDeviceAddress(SECONDARY_NAVIGATION_ADDRESS)
-                        .build()
-        );
-
-        CarAudioPlaybackCallback callback =
-                new CarAudioPlaybackCallback(mPrimaryZone, mClock, KEY_EVENT_TIMEOUT_MS);
-
-        callback.onPlaybackConfigChanged(activeConfigurations);
-
-        List<Integer> activeContexts =
-                callback.getAllActiveContextsForPrimaryZone();
-
-        assertThat(activeContexts).isEmpty();
-    }
-
-    @Test
-    public void
-            getAllActiveContextsForPrimaryZone_withInactiveConfigs_forDifferentZone_returnsEmpty() {
-        List<AudioPlaybackConfiguration> activeConfigurations = ImmutableList.of(
-                new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_MEDIA)
-                        .setDeviceAddress(SECONDARY_MEDIA_ADDRESS)
-                        .build(),
-                new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setDeviceAddress(SECONDARY_NAVIGATION_ADDRESS)
-                        .build()
-        );
-
-        List<AudioPlaybackConfiguration> configurationsChanged = ImmutableList.of(
-                new AudioPlaybackConfigurationBuilder()
                         .setUsage(USAGE_MEDIA)
                         .setDeviceAddress(SECONDARY_MEDIA_ADDRESS)
                         .setInactive()
-                        .build(),
-                new AudioPlaybackConfigurationBuilder()
-                        .setUsage(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setDeviceAddress(SECONDARY_NAVIGATION_ADDRESS)
-                        .setInactive()
                         .build()
         );
+        mCallback.onPlaybackConfigChanged(configurations);
+        mCallback.onPlaybackConfigChanged(configurationsChanged);
 
-        CarAudioPlaybackCallback callback =
-                new CarAudioPlaybackCallback(mPrimaryZone, mClock, KEY_EVENT_TIMEOUT_MS);
+        mCallback.resetStillActiveContexts();
 
-        callback.onPlaybackConfigChanged(activeConfigurations);
-
-        callback.onPlaybackConfigChanged(configurationsChanged);
-
-        List<Integer> activeContexts =
-                callback.getAllActiveContextsForPrimaryZone();
-
-        assertThat(activeContexts).isEmpty();
+        when(mClock.uptimeMillis()).thenReturn(TIMER_BEFORE_TIMEOUT_MS);
+        List<AudioAttributes> primaryZoneActiveAttributes =
+                mCallback.getAllActiveAudioAttributesForZone(PRIMARY_ZONE_ID);
+        List<AudioAttributes> secondaryZoneActiveAttributes =
+                mCallback.getAllActiveAudioAttributesForZone(SECONDARY_ZONE_ID);
+        expectWithMessage("Primary zone active attributes")
+                .that(primaryZoneActiveAttributes)
+                .isEmpty();
+        expectWithMessage("Secondary zone active attributes")
+                .that(secondaryZoneActiveAttributes)
+                .isEmpty();
     }
 
     private CarAudioZone generatePrimaryZone() {
-        return new TestCarAudioZoneBuilder("Primary zone", PRIMARY_ZONE_ID)
-                .addVolumeGroup(new VolumeGroupBuilder()
-                                .addDeviceAddressAndContexts(MUSIC, PRIMARY_MEDIA_ADDRESS)
+        CarAudioZoneConfig primaryCarAudioZoneConfig =
+                new CarAudioZoneConfig.Builder("Primary zone config 0", PRIMARY_ZONE_ID,
+                        /* zoneConfigId= */ 0, /* isDefault= */ true)
+                        .addVolumeGroup(new VolumeGroupBuilder()
+                                .addDeviceAddressAndContexts(TEST_MEDIA_AUDIO_CONTEXT,
+                                        PRIMARY_MEDIA_ADDRESS)
                                 .build())
-                .addVolumeGroup(new VolumeGroupBuilder()
-                        .addDeviceAddressAndContexts(NAVIGATION, PRIMARY_NAVIGATION_ADDRESS)
-                        .build())
-                .addVolumeGroup(new VolumeGroupBuilder()
-                        .addDeviceAddressAndContexts(VOICE_COMMAND, PRIMARY_VOICE_ADDRESS)
-                        .build())
+                        .build();
+        return new TestCarAudioZoneBuilder("Primary zone", PRIMARY_ZONE_ID)
+                .addCarAudioZoneConfig(primaryCarAudioZoneConfig)
                 .build();
     }
 
-    private static class AudioPlaybackConfigurationBuilder {
-        private @AttributeUsage int mUsage = USAGE_MEDIA;
-        private boolean mIsActive = true;
-        private String mDeviceAddress = "";
-
-        AudioPlaybackConfigurationBuilder setUsage(@AttributeUsage int usage) {
-            mUsage = usage;
-            return this;
-        }
-
-        AudioPlaybackConfigurationBuilder setDeviceAddress(String deviceAddress) {
-            mDeviceAddress = deviceAddress;
-            return this;
-        }
-
-        AudioPlaybackConfigurationBuilder setInactive() {
-            mIsActive = false;
-            return this;
-        }
-
-        AudioPlaybackConfiguration build() {
-            AudioPlaybackConfiguration configuration = mock(AudioPlaybackConfiguration.class);
-            AudioAttributes attributes = new AudioAttributes.Builder().setUsage(mUsage).build();
-            AudioDeviceInfo outputDevice = generateOutAudioDeviceInfo(mDeviceAddress);
-            when(configuration.getAudioAttributes()).thenReturn(attributes);
-            when(configuration.getAudioDeviceInfo()).thenReturn(outputDevice);
-            when(configuration.isActive()).thenReturn(mIsActive);
-            return configuration;
-        }
-
-        private AudioDeviceInfo generateOutAudioDeviceInfo(String address) {
-            AudioDeviceInfo audioDeviceInfo = mock(AudioDeviceInfo.class);
-            when(audioDeviceInfo.getAddress()).thenReturn(address);
-            when(audioDeviceInfo.getType()).thenReturn(AudioDeviceInfo.TYPE_BUS);
-            when(audioDeviceInfo.isSource()).thenReturn(false);
-            when(audioDeviceInfo.isSink()).thenReturn(true);
-            when(audioDeviceInfo.getInternalType()).thenReturn(AudioDeviceInfo
-                    .convertDeviceTypeToInternalInputDevice(AudioDeviceInfo.TYPE_BUS));
-            return audioDeviceInfo;
-        }
+    private CarAudioZone generateSecondaryZone() {
+        CarAudioZoneConfig secondaryCarAudioZoneConfig =
+                new CarAudioZoneConfig.Builder("Secondary zone config 0", SECONDARY_ZONE_ID,
+                        /* zoneConfigId= */ 0, /* isDefault= */ true)
+                        .addVolumeGroup(new VolumeGroupBuilder()
+                                .addDeviceAddressAndContexts(TEST_MEDIA_AUDIO_CONTEXT,
+                                        SECONDARY_MEDIA_ADDRESS)
+                                .build())
+                        .build();
+        return new TestCarAudioZoneBuilder("Secondary zone", SECONDARY_ZONE_ID)
+                .addCarAudioZoneConfig(secondaryCarAudioZoneConfig)
+                .build();
     }
 }

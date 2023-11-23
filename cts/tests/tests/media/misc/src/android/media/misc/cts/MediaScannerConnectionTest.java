@@ -16,22 +16,20 @@
 
 package android.media.misc.cts;
 
-import android.content.ComponentName;
 import android.content.Context;
 import android.media.MediaScannerConnection;
 import android.media.MediaScannerConnection.MediaScannerConnectionClient;
-import android.media.cts.NonMediaMainlineTest;
 import android.net.Uri;
-import android.os.IBinder;
 import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import com.android.compatibility.common.util.FileCopyHelper;
+import com.android.compatibility.common.util.NonMainlineTest;
 import com.android.compatibility.common.util.PollingCheck;
 
 import java.io.File;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaScannerConnectionTest extends AndroidTestCase {
 

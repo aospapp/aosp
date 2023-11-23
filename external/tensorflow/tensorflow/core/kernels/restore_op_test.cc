@@ -148,8 +148,8 @@ TEST_F(RestoreOpTest, RestoreSimple) {
                                        [](int x) -> int16 { return x - 8; });
     inputs.push_back({nullptr, &input_10});
     // Input #11 is a 1-d int64 tensor
-    Tensor input_11 = MakeInput<int64>(TensorShape({9}),
-                                       [](int x) -> int64 { return x - 9; });
+    Tensor input_11 = MakeInput<int64_t>(TensorShape({9}),
+                                         [](int x) -> int64 { return x - 9; });
     inputs.push_back({nullptr, &input_11});
     // Input #12 is a 1-d string tensor
     Tensor input_12 = MakeInput<tstring>(
@@ -174,7 +174,7 @@ TEST_F(RestoreOpTest, RestoreSimple) {
     OpKernelContext::Params params;
     params.device = device.get();
     params.frame_iter = FrameAndIter(0, 0);
-    params.inputs = &inputs;
+    params.inputs = inputs;
     params.op_kernel = op.get();
     std::vector<AllocatorAttributes> attrs;
     test::SetOutputAttrs(&params, &attrs);
@@ -309,7 +309,7 @@ TEST_F(RestoreOpTest, RestoreSimple) {
     TensorShape expected({9});
     EXPECT_TRUE(output->shape().IsSameSize(expected));
     for (int i = 0; i < 9; ++i) {
-      EXPECT_EQ(i - 9, output->flat<int64>()(i));
+      EXPECT_EQ(i - 9, output->flat<int64_t>()(i));
     }
   }
   // The 1-d string tensor
@@ -419,7 +419,7 @@ TEST_F(RestoreSliceOpTest, RestoreInt) {
     OpKernelContext::Params params;
     params.device = device.get();
     params.frame_iter = FrameAndIter(0, 0);
-    params.inputs = &inputs;
+    params.inputs = inputs;
     params.op_kernel = op.get();
     std::vector<AllocatorAttributes> attrs;
     test::SetOutputAttrs(&params, &attrs);

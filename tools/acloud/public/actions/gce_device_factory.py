@@ -51,7 +51,7 @@ class GCEDeviceFactory(base_device_factory.BaseDeviceFactory):
         super().__init__(compute_client)
         self._ssh = None
 
-    def _CreateGceInstance(self):
+    def CreateGceInstance(self):
         """Create a single configured GCE instance.
 
         build_target: The format is like "aosp_cf_x86_phone". We only get info
@@ -87,14 +87,15 @@ class GCEDeviceFactory(base_device_factory.BaseDeviceFactory):
             instance=instance,
             image_name=host_image_name,
             image_project=self._cfg.stable_host_image_project,
-            blank_data_disk_size_gb=self._cfg.extra_data_disk_size_gb,
             avd_spec=self._avd_spec)
         ip = self._compute_client.GetInstanceIP(instance)
+        self._all_failures = self._compute_client.all_failures
         self._ssh = ssh.Ssh(ip=ip,
                             user=constants.GCE_USER,
                             ssh_private_key_path=self._cfg.ssh_private_key_path,
                             extra_args_ssh_tunnel=self._cfg.extra_args_ssh_tunnel,
-                            report_internal_ip=self._report_internal_ip)
+                            report_internal_ip=self._report_internal_ip,
+                            gce_hostname=self._compute_client.gce_hostname)
         return instance
 
     def GetFailures(self):

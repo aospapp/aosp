@@ -30,13 +30,17 @@ using ::aidl::android::hardware::nfc::Nfc;
 typedef int (*STEseReset)(void);
 
 int main() {
+  void* stdll = nullptr;
   LOG(INFO) << "NFC AIDL HAL Service is starting up";
 
   std::string valueStr =
       android::base::GetProperty("persist.vendor.nfc.streset", "");
   if (valueStr.length() > 0) {
-    valueStr = VENDOR_LIB_PATH + valueStr + VENDOR_LIB_EXT;
-    void* stdll = dlopen(valueStr.c_str(), RTLD_NOW);
+    stdll = dlopen(valueStr.c_str(), RTLD_NOW);
+    if (!stdll) {
+      valueStr = VENDOR_LIB_PATH + valueStr + VENDOR_LIB_EXT;
+      stdll = dlopen(valueStr.c_str(), RTLD_NOW);
+    }
     if (stdll) {
       LOG(INFO) << "ST NFC HAL STReset starting.";
       STEseReset fn = (STEseReset)dlsym(stdll, "boot_reset");

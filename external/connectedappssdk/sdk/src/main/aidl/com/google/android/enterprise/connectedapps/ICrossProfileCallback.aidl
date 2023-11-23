@@ -15,8 +15,11 @@
  */
  package com.google.android.enterprise.connectedapps;
 
+import android.os.Bundle;
+
 interface ICrossProfileCallback {
   void prepareResult(long callId, int blockId, int numBytes, in byte[] params);
+  void prepareBundle(long callId, int bundleId, in Bundle bundle);
   void onResult(long callId, int blockId, int methodIdentifier, in byte[] params);
   void onException(long callId, int blockId, in byte[] params);
 }

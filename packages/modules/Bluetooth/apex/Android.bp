@@ -13,42 +13,6 @@ linker_config {
     installable: false,
 }
 
-// Mainline bluetooth apex module (legacy, do not use).
-// TODO: Remove
-apex {
-    name: "com.android.bluetooth",
-    defaults: ["t-launched-apex-module"],
-    manifest: "apex_manifest.json",
-    bootclasspath_fragments: ["com.android.btservices-bootclasspath-fragment"],
-    systemserverclasspath_fragments: ["com.android.btservices-systemserverclasspath-fragment"],
-    compat_configs: ["bluetooth-compat-config"],
-    apps: ["Bluetooth"],
-
-    multilib: {
-        first: {
-            // Extractor process runs only with the primary ABI.
-            jni_libs: [
-                "libbluetooth_jni",
-            ],
-        },
-    },
-
-    prebuilts: [
-        "audio_set_configurations_bfbs",
-        "audio_set_configurations_json",
-        "audio_set_scenarios_bfbs",
-        "audio_set_scenarios_json",
-        "btservices-linker-config",
-        "bt_did.conf",
-        "bt_stack.conf",
-        "privapp_allowlist_com.android.bluetooth.xml",
-    ],
-    key: "com.android.btservices.key",
-    certificate: ":com.android.btservices.certificate",
-    updatable: false,
-    compressible: false,
-}
-
 // Mainline bluetooth apex module.
 apex {
     name: "com.android.btservices",
@@ -56,7 +20,11 @@ apex {
     manifest: "apex_manifest.json",
     bootclasspath_fragments: ["com.android.btservices-bootclasspath-fragment"],
     systemserverclasspath_fragments: ["com.android.btservices-systemserverclasspath-fragment"],
-    compat_configs: ["bluetooth-compat-config"],
+    compat_configs: [
+        "bluetooth-compat-config",
+        "bluetoothapk-platform-compat-config",
+        "framework-bluetooth-compat-config",
+    ],
     apps: ["Bluetooth"],
 
     multilib: {
@@ -73,14 +41,15 @@ apex {
         "audio_set_configurations_json",
         "audio_set_scenarios_bfbs",
         "audio_set_scenarios_json",
-        "btservices-linker-config",
         "bt_did.conf",
         "bt_stack.conf",
+        "btservices-linker-config",
+        "interop_database.conf",
         "privapp_allowlist_com.android.bluetooth.xml",
     ],
     key: "com.android.btservices.key",
     certificate: ":com.android.btservices.certificate",
-    updatable: false,
+    updatable: true,
     compressible: false,
 }
 
@@ -97,15 +66,18 @@ android_app_certificate {
 
 sdk {
     name: "btservices-module-sdk",
-    bootclasspath_fragments: ["com.android.btservices-bootclasspath-fragment"],
-    systemserverclasspath_fragments: ["com.android.btservices-systemserverclasspath-fragment"],
+    apexes: [
+        // Adds exportable dependencies of the APEX to the sdk,
+        // e.g. *classpath_fragments.
+        "com.android.btservices",
+    ],
 }
 
 // Encapsulate the contributions made by the com.android.bluetooth to the bootclasspath.
 bootclasspath_fragment {
     name: "com.android.btservices-bootclasspath-fragment",
     contents: ["framework-bluetooth"],
-    apex_available: ["com.android.bluetooth"],
+    apex_available: ["com.android.btservices"],
 
     // The bootclasspath_fragments that provide APIs on which this depends.
     fragments: [
@@ -155,5 +127,5 @@ bootclasspath_fragment {
 systemserverclasspath_fragment {
     name: "com.android.btservices-systemserverclasspath-fragment",
     standalone_contents: ["service-bluetooth"],
-    apex_available: ["com.android.bluetooth"],
+    apex_available: ["com.android.btservices"],
 }

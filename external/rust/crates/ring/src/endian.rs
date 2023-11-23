@@ -11,13 +11,6 @@ where
     const ZERO: Self;
 }
 
-/// Allow access to a slice of  of `Encoding<T>` as a slice of bytes.
-pub fn as_byte_slice<E: Encoding<T>, T>(x: &[E]) -> &[u8] {
-    unsafe {
-        core::slice::from_raw_parts(x.as_ptr() as *const u8, x.len() * core::mem::size_of::<E>())
-    }
-}
-
 /// Work around the inability to implement `AsRef` for arrays of `Encoding`s
 /// due to the coherence rules.
 pub trait ArrayEncoding<T> {
@@ -35,21 +28,25 @@ macro_rules! define_endian {
         #[repr(transparent)]
         pub struct $endian<T>(T);
 
-        impl<T> $endian<T> {
-            #[deprecated]
-            pub fn into_raw_value(self) -> T {
-                self.0
-            }
-        }
-
         impl<T> Copy for $endian<T> where T: Copy {}
 
         impl<T> Clone for $endian<T>
         where
             T: Clone,
         {
+            #[inline]
             fn clone(&self) -> Self {
                 Self(self.0.clone())
+            }
+        }
+
+        impl<T> core::ops::BitXorAssign for $endian<T>
+        where
+            T: core::ops::BitXorAssign,
+        {
+            #[inline(always)]
+            fn bitxor_assign(&mut self, a: Self) {
+                self.0 ^= a.0;
             }
         }
     };
@@ -60,6 +57,7 @@ macro_rules! impl_from_byte_array {
         impl FromByteArray<[u8; $elems * core::mem::size_of::<$base>()]>
             for [$endian<$base>; $elems]
         {
+            #[inline]
             fn from_byte_array(a: &[u8; $elems * core::mem::size_of::<$base>()]) -> Self {
                 unsafe { core::mem::transmute_copy(a) }
             }
@@ -72,10 +70,8 @@ macro_rules! impl_array_encoding {
         impl ArrayEncoding<[u8; $elems * core::mem::size_of::<$base>()]>
             for [$endian<$base>; $elems]
         {
+            #[inline]
             fn as_byte_array(&self) -> &[u8; $elems * core::mem::size_of::<$base>()] {
-                // TODO: When we can require Rust 1.47.0 or later we could avoid
-                // `as` and `unsafe` here using
-                // `as_byte_slice(self).try_into().unwrap()`.
                 let as_bytes_ptr =
                     self.as_ptr() as *const [u8; $elems * core::mem::size_of::<$base>()];
                 unsafe { &*as_bytes_ptr }

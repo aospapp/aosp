@@ -1,0 +1,2 @@
+/vendor/bin/hw/battery_mitigation                                           u:object_r:battery_mitigation_exec:s0
+/data/vendor/mitigation(/.*)?                                               u:object_r:mitigation_vendor_data_file:s0

@@ -43,6 +43,26 @@ public interface ILoggableInterface extends android.os.IInterface
     {
       return this;
     }
+    /** @hide */
+    public static java.lang.String getDefaultTransactionName(int transactionCode)
+    {
+      switch (transactionCode)
+      {
+        case TRANSACTION_LogThis:
+        {
+          return "LogThis";
+        }
+        default:
+        {
+          return null;
+        }
+      }
+    }
+    /** @hide */
+    public java.lang.String getTransactionName(int transactionCode)
+    {
+      return this.getDefaultTransactionName(transactionCode);
+    }
     @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
     {
       java.lang.String descriptor = DESCRIPTOR;
@@ -61,69 +81,63 @@ public interface ILoggableInterface extends android.os.IInterface
       {
         case TRANSACTION_LogThis:
         {
-          try {
-            android.os.Trace.traceBegin(android.os.Trace.TRACE_TAG_AIDL, "AIDL::java::ILoggableInterface::LogThis::server");
-            boolean _arg0;
-            _arg0 = data.readBoolean();
-            boolean[] _arg1;
-            _arg1 = data.createBooleanArray();
-            byte _arg2;
-            _arg2 = data.readByte();
-            byte[] _arg3;
-            _arg3 = data.createByteArray();
-            char _arg4;
-            _arg4 = (char)data.readInt();
-            char[] _arg5;
-            _arg5 = data.createCharArray();
-            int _arg6;
-            _arg6 = data.readInt();
-            int[] _arg7;
-            _arg7 = data.createIntArray();
-            long _arg8;
-            _arg8 = data.readLong();
-            long[] _arg9;
-            _arg9 = data.createLongArray();
-            float _arg10;
-            _arg10 = data.readFloat();
-            float[] _arg11;
-            _arg11 = data.createFloatArray();
-            double _arg12;
-            _arg12 = data.readDouble();
-            double[] _arg13;
-            _arg13 = data.createDoubleArray();
-            java.lang.String _arg14;
-            _arg14 = data.readString();
-            java.lang.String[] _arg15;
-            _arg15 = data.createStringArray();
-            java.util.List<java.lang.String> _arg16;
-            _arg16 = data.createStringArrayList();
-            android.aidl.loggable.Data _arg17;
-            _arg17 = data.readTypedObject(android.aidl.loggable.Data.CREATOR);
-            android.os.IBinder _arg18;
-            _arg18 = data.readStrongBinder();
-            android.os.ParcelFileDescriptor _arg19;
-            _arg19 = data.readTypedObject(android.os.ParcelFileDescriptor.CREATOR);
-            android.os.ParcelFileDescriptor[] _arg20;
-            _arg20 = data.createTypedArray(android.os.ParcelFileDescriptor.CREATOR);
-            data.enforceNoDataAvail();
-            java.lang.String[] _result = this.LogThis(_arg0, _arg1, _arg2, _arg3, _arg4, _arg5, _arg6, _arg7, _arg8, _arg9, _arg10, _arg11, _arg12, _arg13, _arg14, _arg15, _arg16, _arg17, _arg18, _arg19, _arg20);
-            reply.writeNoException();
-            reply.writeStringArray(_result);
-            reply.writeBooleanArray(_arg1);
-            reply.writeByteArray(_arg3);
-            reply.writeCharArray(_arg5);
-            reply.writeIntArray(_arg7);
-            reply.writeLongArray(_arg9);
-            reply.writeFloatArray(_arg11);
-            reply.writeDoubleArray(_arg13);
-            reply.writeStringArray(_arg15);
-            reply.writeStringList(_arg16);
-            reply.writeTypedObject(_arg19, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
-            reply.writeTypedArray(_arg20, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
-          }
-          finally {
-            android.os.Trace.traceEnd(android.os.Trace.TRACE_TAG_AIDL);
-          }
+          boolean _arg0;
+          _arg0 = data.readBoolean();
+          boolean[] _arg1;
+          _arg1 = data.createBooleanArray();
+          byte _arg2;
+          _arg2 = data.readByte();
+          byte[] _arg3;
+          _arg3 = data.createByteArray();
+          char _arg4;
+          _arg4 = (char)data.readInt();
+          char[] _arg5;
+          _arg5 = data.createCharArray();
+          int _arg6;
+          _arg6 = data.readInt();
+          int[] _arg7;
+          _arg7 = data.createIntArray();
+          long _arg8;
+          _arg8 = data.readLong();
+          long[] _arg9;
+          _arg9 = data.createLongArray();
+          float _arg10;
+          _arg10 = data.readFloat();
+          float[] _arg11;
+          _arg11 = data.createFloatArray();
+          double _arg12;
+          _arg12 = data.readDouble();
+          double[] _arg13;
+          _arg13 = data.createDoubleArray();
+          java.lang.String _arg14;
+          _arg14 = data.readString();
+          java.lang.String[] _arg15;
+          _arg15 = data.createStringArray();
+          java.util.List<java.lang.String> _arg16;
+          _arg16 = data.createStringArrayList();
+          android.aidl.loggable.Data _arg17;
+          _arg17 = data.readTypedObject(android.aidl.loggable.Data.CREATOR);
+          android.os.IBinder _arg18;
+          _arg18 = data.readStrongBinder();
+          android.os.ParcelFileDescriptor _arg19;
+          _arg19 = data.readTypedObject(android.os.ParcelFileDescriptor.CREATOR);
+          android.os.ParcelFileDescriptor[] _arg20;
+          _arg20 = data.createTypedArray(android.os.ParcelFileDescriptor.CREATOR);
+          data.enforceNoDataAvail();
+          java.lang.String[] _result = this.LogThis(_arg0, _arg1, _arg2, _arg3, _arg4, _arg5, _arg6, _arg7, _arg8, _arg9, _arg10, _arg11, _arg12, _arg13, _arg14, _arg15, _arg16, _arg17, _arg18, _arg19, _arg20);
+          reply.writeNoException();
+          reply.writeStringArray(_result);
+          reply.writeBooleanArray(_arg1);
+          reply.writeByteArray(_arg3);
+          reply.writeCharArray(_arg5);
+          reply.writeIntArray(_arg7);
+          reply.writeLongArray(_arg9);
+          reply.writeFloatArray(_arg11);
+          reply.writeDoubleArray(_arg13);
+          reply.writeStringArray(_arg15);
+          reply.writeStringList(_arg16);
+          reply.writeTypedObject(_arg19, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
+          reply.writeTypedArray(_arg20, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
           break;
         }
         default:
@@ -150,11 +164,10 @@ public interface ILoggableInterface extends android.os.IInterface
       }
       @Override public java.lang.String[] LogThis(boolean boolValue, boolean[] boolArray, byte byteValue, byte[] byteArray, char charValue, char[] charArray, int intValue, int[] intArray, long longValue, long[] longArray, float floatValue, float[] floatArray, double doubleValue, double[] doubleArray, java.lang.String stringValue, java.lang.String[] stringArray, java.util.List<java.lang.String> listValue, android.aidl.loggable.Data dataValue, android.os.IBinder binderValue, android.os.ParcelFileDescriptor pfdValue, android.os.ParcelFileDescriptor[] pfdArray) throws android.os.RemoteException
       {
-        android.os.Parcel _data = android.os.Parcel.obtain();
+        android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
         android.os.Parcel _reply = android.os.Parcel.obtain();
         java.lang.String[] _result;
         try {
-          android.os.Trace.traceBegin(android.os.Trace.TRACE_TAG_AIDL, "AIDL::java::ILoggableInterface::LogThis::client");
           _data.writeInterfaceToken(DESCRIPTOR);
           _data.writeBoolean(boolValue);
           _data.writeBooleanArray(boolArray);
@@ -197,12 +210,16 @@ public interface ILoggableInterface extends android.os.IInterface
         finally {
           _reply.recycle();
           _data.recycle();
-          android.os.Trace.traceEnd(android.os.Trace.TRACE_TAG_AIDL);
         }
         return _result;
       }
     }
     static final int TRANSACTION_LogThis = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
+    /** @hide */
+    public int getMaxTransactionId()
+    {
+      return 0;
+    }
   }
   public static final java.lang.String DESCRIPTOR = "android$aidl$loggable$ILoggableInterface".replace('$', '.');
   public java.lang.String[] LogThis(boolean boolValue, boolean[] boolArray, byte byteValue, byte[] byteArray, char charValue, char[] charArray, int intValue, int[] intArray, long longValue, long[] longArray, float floatValue, float[] floatArray, double doubleValue, double[] doubleArray, java.lang.String stringValue, java.lang.String[] stringArray, java.util.List<java.lang.String> listValue, android.aidl.loggable.Data dataValue, android.os.IBinder binderValue, android.os.ParcelFileDescriptor pfdValue, android.os.ParcelFileDescriptor[] pfdArray) throws android.os.RemoteException;
@@ -246,6 +263,26 @@ public interface ILoggableInterface extends android.os.IInterface
       {
         return this;
       }
+      /** @hide */
+      public static java.lang.String getDefaultTransactionName(int transactionCode)
+      {
+        switch (transactionCode)
+        {
+          case TRANSACTION_Log:
+          {
+            return "Log";
+          }
+          default:
+          {
+            return null;
+          }
+        }
+      }
+      /** @hide */
+      public java.lang.String getTransactionName(int transactionCode)
+      {
+        return this.getDefaultTransactionName(transactionCode);
+      }
       @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
       {
         java.lang.String descriptor = DESCRIPTOR;
@@ -264,17 +301,11 @@ public interface ILoggableInterface extends android.os.IInterface
         {
           case TRANSACTION_Log:
           {
-            try {
-              android.os.Trace.traceBegin(android.os.Trace.TRACE_TAG_AIDL, "AIDL::java::ISub::Log::server");
-              int _arg0;
-              _arg0 = data.readInt();
-              data.enforceNoDataAvail();
-              this.Log(_arg0);
-              reply.writeNoException();
-            }
-            finally {
-              android.os.Trace.traceEnd(android.os.Trace.TRACE_TAG_AIDL);
-            }
+            int _arg0;
+            _arg0 = data.readInt();
+            data.enforceNoDataAvail();
+            this.Log(_arg0);
+            reply.writeNoException();
             break;
           }
           default:
@@ -301,10 +332,9 @@ public interface ILoggableInterface extends android.os.IInterface
         }
         @Override public void Log(int value) throws android.os.RemoteException
         {
-          android.os.Parcel _data = android.os.Parcel.obtain();
+          android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
           android.os.Parcel _reply = android.os.Parcel.obtain();
           try {
-            android.os.Trace.traceBegin(android.os.Trace.TRACE_TAG_AIDL, "AIDL::java::ISub::Log::client");
             _data.writeInterfaceToken(DESCRIPTOR);
             _data.writeInt(value);
             boolean _status = mRemote.transact(Stub.TRANSACTION_Log, _data, _reply, 0);
@@ -313,11 +343,15 @@ public interface ILoggableInterface extends android.os.IInterface
           finally {
             _reply.recycle();
             _data.recycle();
-            android.os.Trace.traceEnd(android.os.Trace.TRACE_TAG_AIDL);
           }
         }
       }
       static final int TRANSACTION_Log = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
+      /** @hide */
+      public int getMaxTransactionId()
+      {
+        return 0;
+      }
     }
     public static final java.lang.String DESCRIPTOR = "android$aidl$loggable$ILoggableInterface$ISub".replace('$', '.');
     public void Log(int value) throws android.os.RemoteException;

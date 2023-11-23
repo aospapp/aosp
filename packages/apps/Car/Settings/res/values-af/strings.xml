@@ -24,14 +24,13 @@
     <string name="auto_brightness_title" msgid="9124647862844666581">"Aanpasbare helderheid"</string>
     <string name="auto_brightness_summary" msgid="2002570577219479702">"Pas skermhelderheid by omgewing aan"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"Aandbeligting is aan"</string>
-    <string name="night_mode_tile_label" msgid="6603597795502131664">"Nagmodus"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"Netwerk en internet"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"Selnetwerk"</string>
     <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# SIM-kaart}other{# SIM-kaarte}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"Aktief / SIM"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"Onaktief / SIM"</string>
-    <string name="mobile_network_active_esim" msgid="5864100786496761032">"Aktief / Afgelaaide SIM"</string>
-    <string name="mobile_network_inactive_esim" msgid="1397332352238119032">"Onaktief / Afgelaaide SIM"</string>
+    <string name="mobile_network_active_esim" msgid="5175362818078597096">"Aktief/e-SIM"</string>
+    <string name="mobile_network_inactive_esim" msgid="7273712403773327964">"Onaktief/e-SIM"</string>
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"Voeg nog by"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"Mobiele data"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Kry toegang tot data deur selnetwerk"</string>
@@ -177,6 +176,7 @@
     <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"Wys alles"</string>
     <string name="progress_scanning" msgid="7191583064717479795">"Soek"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"Bluetooth"</string>
+    <string name="bluetooth_toggle_title" msgid="1431803611346881088">"Gebruik Bluetooth"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"Naamlose toestel"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"Saamgebinde toestelle"</string>
     <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"Bind nuwe toestel saam"</string>
@@ -221,6 +221,9 @@
     <string name="bluetooth_notif_title" msgid="8374602799367803335">"Saambindversoek"</string>
     <string name="bluetooth_notif_message" msgid="1060821000510108726">"Tik om met <xliff:g id="DEVICE_NAME">%1$s</xliff:g> saam te bind."</string>
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Kies Bluetooth-toestel"</string>
+    <string name="bluetooth_bonded_bluetooth_toggle_content_description" msgid="6800772154405846597">"Bluetooth"</string>
+    <string name="bluetooth_bonded_phone_toggle_content_description" msgid="8152794643249938377">"Foon"</string>
+    <string name="bluetooth_bonded_media_toggle_content_description" msgid="7803420585378155404">"Media"</string>
     <string name="language_settings" msgid="2079258598337245546">"Tale"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Tale en invoer"</string>
     <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Voorgestel"</string>
@@ -300,14 +303,16 @@
     <string name="apps_and_notifications_settings" msgid="8704585874333781975">"Programme en kennisgewings"</string>
     <string name="all_applications" msgid="7798210477486822168">"Wys alle programme"</string>
     <string name="default_applications" msgid="1558183275638697087">"Verstekprogramme"</string>
+    <string name="performance_impacting_apps" msgid="3439260699394720569">"Apps wat werkverrigting beïnvloed"</string>
     <string name="app_permissions" msgid="32799922508313948">"Programtoestemmings"</string>
-    <string name="app_permissions_summary" msgid="5402214755935368418">"Beheer programtoegang tot jou data"</string>
+    <string name="app_permissions_summary" msgid="5402214755935368418">"Beheer apptoegang tot jou data"</string>
     <string name="applications_settings" msgid="794261395191035632">"Programinligting"</string>
-    <string name="force_stop" msgid="2153183697014720520">"Dwing stop"</string>
-    <string name="force_stop_dialog_title" msgid="3342850939200388694">"Dwing stop?"</string>
+    <string name="force_stop" msgid="1616958676171167028">"Stop app"</string>
+    <string name="force_stop_dialog_title" msgid="4481858344628934971">"Stop app?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"As jy \'n program dwing om te stop, kan dit wangedra."</string>
-    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"Skakel Prioritiseer Programwerkverrigting aan?"</string>
-    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"As jy dit aanskakel, kan dit potensiële stelselonstabiliteit of \'n langtermynimpak op hardware veroorsaak. Wil jy voortgaan?"</string>
+    <string name="force_stop_success_toast_text" msgid="2986272849275894254">"<xliff:g id="APP_NAME">%1$s</xliff:g> is gestop."</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="3205297520523665568">"Prioritiseer appwerkverrigting?"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="4321564728229192878">"Dit kan potensiële stelselonstabiliteit veroorsaak of hardeware lang termyn beïnvloed. Wil jy voortgaan?"</string>
     <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"Ja"</string>
     <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"Nee, dankie"</string>
     <string name="disable_text" msgid="4358165448648990820">"Deaktiveer"</string>
@@ -376,10 +381,11 @@
     <string name="apps_recently_opened" msgid="5320377037971195984">"Onlangs oopgemaak"</string>
     <string name="apps_view_all_apps_title" msgid="2322120325505230530">"Bekyk al %1$d programme"</string>
     <string name="apps_permission_manager_title" msgid="8776335943862484131">"Toestemmingbestuurder"</string>
-    <string name="apps_permission_manager_summary" msgid="4180424218228141274">"Beheer programtoegang tot jou data"</string>
+    <string name="apps_permission_manager_summary" msgid="4180424218228141274">"Beheer apptoegang tot jou data"</string>
     <string name="apps_default_apps_summary" msgid="2017792579839972926">"Vir Assistent en meer"</string>
+    <string name="performance_impacting_apps_summary" msgid="7762122057244111162">"{count,plural, =1{# app wat werkverrigting beïnvloed}other{# apps wat werkverrigting beïnvloed}}"</string>
     <string name="apps_special_app_access_summary" msgid="6464767436309742163">"Na stelsel- en ander instellings"</string>
-    <string name="special_access" msgid="5730278220917123811">"Spesiale programtoegang"</string>
+    <string name="special_access" msgid="5730278220917123811">"Spesiale apptoegang"</string>
     <string name="show_system" msgid="4401355756969485287">"Wys stelsel"</string>
     <string name="hide_system" msgid="8845453295584638040">"Versteek stelsel"</string>
     <string name="hide_system_apps" msgid="6583947381056154020">"Versteek stelselprogramme"</string>
@@ -391,6 +397,8 @@
     <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"As jy kennisgewingtoegang vir <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> afskakel, kan Moenie Steur Nie-toegang dalk ook afgeskakel word."</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"Skakel af"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"Kanselleer"</string>
+    <string name="performance_impacting_apps_description" msgid="7361464904617808444">"Hierdie apps het stelselwerkverrigting negatief beïnvloed en is verhoed om op die agtergrond te loop.\nPrioritiseer app om agtergrondgebruik toe te laat en verwyder dit van hierdie lys."</string>
+    <string name="performance_impacting_apps_button_label" msgid="8277507326717608783">"Prioritiseer app"</string>
     <string name="premium_sms_access_title" msgid="1409118461646148686">"Toegang tot premium-SMS\'e"</string>
     <string name="premium_sms_access_description" msgid="7119026067677052169">"Premium-SMS\'e kan jou geld kos en die koste sal by jou diensverskafferfakture gevoeg word. As jy toestemming vir \'n program aktiveer, sal jy premium-SMS\'e met daardie program kan stuur."</string>
     <string name="usage_access_title" msgid="7153427122072303254">"Gebruiktoegang"</string>
@@ -401,22 +409,27 @@
     <string name="location_settings_title" msgid="901334356682423679">"Ligging"</string>
     <string name="location_toggle_title" msgid="836779750812064601">"Gebruik ligging"</string>
     <string name="location_toggle_summary" msgid="7977868708102299495">"Gee programme wat jy spesifiseer toegang tot jou ligging"</string>
-    <string name="location_toggle_off_warning" msgid="8396854289251143748">"As jy dit afskakel, sal liggingtoegang vir alle programme afgeskakel word. Bestuurderbystandprogramme sal steeds toegang hê."</string>
-    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"Gebruik ligging vir bestuurderbystand"</string>
+    <string name="location_toggle_off_warning" msgid="5959449346865136081">"As jy dit afskakel, sal liggingtoegang vir alle apps, behalwe dié wat vir bestuurderbysrand benodig word, afgeskakel word."</string>
+    <string name="location_driver_assistance_toggle_title" msgid="3780157378527924932">"Gebruik ligging vir bestuurderbystand"</string>
     <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"Voertuigligging is af"</string>
-    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"Bestuurderbystandprogramme het nie toegang tot jou ligging nie"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="6040822988891113026">"Bestuurderbystand-apps het nie toegang tot jou ligging nie"</string>
     <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"Verander"</string>
     <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"Gee programme wat jou help bestuur, toegang tot jou ligging"</string>
-    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"As jy dit afskakel, sal bestuurderbystandkenmerke wat op ligginginligting staatmaak, gedeaktiveer word."</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="2733124752598498356">"As jy dit afskakel, sal bestuurderbystandkenmerke wat op ligginginligting staatmaak, gedeaktiveer word."</string>
     <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"Skakel in elk geval af"</string>
-    <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Onlangse liggingversoeke"</string>
-    <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Geen onlangse liggingversoeke nie"</string>
+    <string name="location_recently_accessed" msgid="522888989582110975">"Onlangs gebruik"</string>
+    <string name="location_settings_recently_accessed_title" msgid="6016264778609426382">"Onlangs gebruik"</string>
+    <string name="location_settings_recently_accessed_view_all_title" msgid="6344830628885781448">"Bekyk alles"</string>
+    <string name="location_no_recent_access" msgid="2859914321242257931">"Geen onlangse programme nie"</string>
+    <string name="driver_assistance_label" msgid="9217315205754658940">"<xliff:g id="TIME">%1$s</xliff:g> • Bestuurderbystand"</string>
+    <string name="location_driver_assistance_privacy_policy_header_content" msgid="8118086439003674350">"Apps met toestemming het toegang tot dié voertuig se ligging vir bestuurderbystandkenmerke"</string>
+    <string name="location_driver_assistance_privacy_policy_button_text" msgid="669921557502414704">"Privaatheidsbeleid"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Programvlaktoestemmings"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Liggingdienste"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"Gebruik ligging"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"Ligging kan bronne soos GPS, wi-fi, selnetwerke en sensors gebruik om te help om jou toestel se ligging te skat."</string>
     <string name="driver_assistance_settings_title" msgid="4915804073177128915">"Bestuurderbystand"</string>
-    <string name="adas_settings_footer" msgid="5128483877858058534">"Ligginginligting wat na bestuurderbystandprogramme toe gestuur word, bevat nie inligting wat jou identifiseer nie. Dit word hoogstens 2 dae lank geberg voordat dit uitgevee word."</string>
+    <string name="adas_settings_footer" msgid="6697021691244459156">"Ligginginligting wat na bestuurderbystand-apps toe gestuur word, bevat nie inligting wat jou identifiseer nie. Dit word hoogstens 2 dae lank geberg voordat dit uitgevee word."</string>
     <string name="microphone_settings_title" msgid="7125554350537136922">"Mikrofoon"</string>
     <string name="microphone_toggle_title" msgid="911586035332827275">"Gebruik mikrofoon"</string>
     <string name="microphone_toggle_summary" msgid="2682653449849128626">"Gee programme toegang tot jou mikrofoon"</string>
@@ -432,6 +445,9 @@
     <string name="system_update_settings_title" msgid="8448588267784138855">"Stelselopdaterings"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"Gevorderd"</string>
     <string name="system_advanced_summary" msgid="5833643795981791953">"Meer oor, regsinligting, terugstelling, en meer"</string>
+    <string name="restart_infotainment_system_title" msgid="5174129167446756511">"Herbegin inligtingvermaakstelsel"</string>
+    <string name="restart_infotainment_system_dialog_text" msgid="6395281407323116808">"Dit kan ’n paar minute neem om jou motor se inligtingvermaakstelsel te herbegin. Wil jy voortgaan?"</string>
+    <string name="continue_confirmation" msgid="1598892163951467191">"Gaan voort"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android-weergawe"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android-sekuriteitregstellingvlak"</string>
     <string name="hardware_info" msgid="3973165746261507658">"Model en hardeware"</string>
@@ -472,11 +488,11 @@
     <string name="developer_options_settings" msgid="1530739225109118480">"Ontwikkelaaropsies"</string>
     <string name="reset_options_title" msgid="4388902952861833420">"Terugstellingopsies"</string>
     <string name="reset_options_summary" msgid="5508201367420359293">"Terugstelling van netwerk, programme of toestel"</string>
-    <string name="reset_network_title" msgid="1284233059990797263">"Stel netwerk terug"</string>
-    <string name="reset_network_desc" msgid="602381374544634925">"Dit sal alle netwerkinstellings terugstel, insluitend:"</string>
-    <string name="reset_network_item_wifi" msgid="7569481589699982698"><li>"Wi‑Fi"</li></string>
+    <string name="reset_network_title" msgid="3077846909739832734">"Stel wi-fi en Bluetooth terug"</string>
+    <string name="reset_network_desc" msgid="3332203703135823033">"Dit sal die wi-fi- en Bluetooth-instellings terugstel, wat die geheue sal verwyder van die voorheen gekoppelde:"</string>
+    <string name="reset_network_item_wifi" msgid="2876370861806060314"><li>"Wi‑fi-netwerke en -wagwoorde"</li></string>
     <string name="reset_network_item_mobile" msgid="5747282716664480997"><li>"Mobiele data"</li></string>
-    <string name="reset_network_item_bluetooth" msgid="6035019931106921284"><li>"Bluetooth"</li></string>
+    <string name="reset_network_item_bluetooth" msgid="7475279871421815601"><li>"Fone en ander Bluetooth-toestelle"</li></string>
     <string name="reset_esim_title" msgid="8132107637911831211">"Vee alle voertuig-e-SIM\'e uit"</string>
     <string name="reset_esim_desc" msgid="1437276625485586740">"Dit sal nie jou diensplan kanselleer nie."</string>
     <string name="reset_esim_error_title" msgid="7245109418130525492">"Kan nie e-SIM\'e terugstel nie"</string>
@@ -574,7 +590,7 @@
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"Vee berging uit"</string>
     <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"Maak kas skoon"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"Vee programdata uit?"</string>
-    <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Alle data van hierdie program sal permanent uitgevee word. Dit sluit alle lêers, instellings, rekeninge, databasisse ens. in."</string>
+    <string name="storage_clear_data_dlg_text" msgid="3255314337644212283">"Hierdie program se data sal permanent uitgevee word. Dit sluit lêers, instellings, databasisse en ander programdata in."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Kon nie berging vir program uitvee nie."</string>
     <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> is veilig losgemaak"</string>
     <string name="storage_unmount_failure" msgid="4591934911541762883">"Kon <xliff:g id="NAME">%1$s</xliff:g> nie veilig losmaak nie"</string>
@@ -583,7 +599,7 @@
     <string name="no_accounts_added" msgid="5148163140691096055">"Geen rekeninge is bygevoeg nie"</string>
     <string name="account_list_title" msgid="7631588514613843065">"Rekeninge van <xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g>"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"Sinkroniseer data outomaties"</string>
-    <string name="account_auto_sync_summary" msgid="6963837893148304128">"Laat programme data outomaties herlaai"</string>
+    <string name="account_auto_sync_summary" msgid="6963837893148304128">"Laat apps data outomaties herlaai"</string>
     <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"Laat outomatiese datasinkronisering toe?"</string>
     <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"Enige veranderinge wat jy op die web aan jou rekeninge maak, sal outomaties na jou voertuig gekopieer word.\n\nSommige rekeninge kan ook outomaties enige veranderinge wat jy op die voertuig maak, na die web kopieer."</string>
     <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"Moenie outomatiese datasinkronisering toelaat nie?"</string>
@@ -611,11 +627,11 @@
     <string name="sync_is_failing" msgid="5766255460901806206">"Sinkronisering ondervind tans probleme. Dit sal binnekort terug wees."</string>
     <string name="privacy_settings_title" msgid="3150145262029229572">"Privaatheid"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Inligtingvermaakstelseldata"</string>
-    <string name="privacy_location_summary" msgid="7019817848470566242">"Beheer programtoegang tot jou ligging"</string>
+    <string name="privacy_location_summary" msgid="7019817848470566242">"Beheer apptoegang tot jou ligging"</string>
     <string name="mute_camera_title" msgid="215494079895460172">"Kamera"</string>
-    <string name="mute_camera_summary" msgid="1237452064757403042">"Beheer programtoegang tot jou kameras"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"Beheer apptoegang tot jou kameras"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"Mikrofoon"</string>
-    <string name="mute_mic_summary" msgid="5426953935775303904">"Beheer programtoegang tot mikrofoon"</string>
+    <string name="mute_mic_summary" msgid="5426953935775303904">"Beheer apptoegang tot mikrofoon"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"Inligtingvermaakstelseldata"</string>
     <string name="vehicle_data_summary" msgid="9204836361819386115">"Bestuur aktiwiteite en inligting wat in hierdie voertuig gestoor is"</string>
     <string name="vehicle_data_delete_user_title" msgid="9132472153739085346">"Vee jou profiel uit"</string>
@@ -675,6 +691,7 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Kanselleer"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Bevestig"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Moet minstens 4 karakters lank wees"</string>
+    <string name="locktype_unavailable" msgid="2678317466336249126">"Hierdie slotsoort is nie beskikbaar nie."</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Mag net syfers 0-9 bevat."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Toesteladministrateur laat nie toe dat \'n onlangse PIN gebruik word nie"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Jou IT-administrateur blokkeer algemene PIN\'e. Probeer \'n ander PIN."</string>
@@ -699,7 +716,6 @@
     <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{Moet minder as # syfer wees}other{Moet minder as # syfers wees}}"</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Stygende, dalende of herhalende groep syfers word nie toegelaat nie"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Skermslotopsies"</string>
-    <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> dae gelede"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Vee eiebewyse uit"</string>
     <string name="credentials_reset_summary" msgid="6067911547500459637">"Verwyder alle sertifikate"</string>
     <string name="credentials_reset_hint" msgid="3459271621754137661">"Verwyder al die inhoud?"</string>
@@ -722,6 +738,8 @@
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Verlaat demonstrasie"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"WYS AF"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"Kenmerk is nie beskikbaar terwyl jy bestuur nie"</string>
+    <string name="restricted_for_passenger" msgid="7240117443887727753">"Vra bestuurder om instelling te verander"</string>
+    <string name="restricted_for_driver" msgid="3364388937671526800">"Jy kan nie hierdie handeling uitvoer nie"</string>
     <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"Kan nie profiel byvoeg terwyl jy bestuur nie"</string>
     <string name="default_search_query" msgid="3137420627428857068">"Soek"</string>
     <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"Assistent en stem"</string>
@@ -737,6 +755,7 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"Voeg \'n profiel by"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"Vee hierdie profiel uit"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"Voeg profiel by"</string>
+    <string name="cannot_remove_driver_profile" msgid="4109363161608717969">"Dié profiel is tans as bestuurder aangemeld. Probeer weer wanneer profiel nie as bestuurder in gebruik is nie."</string>
     <string name="qc_display_brightness" msgid="2939655289816201170">"Skermhelderheid"</string>
     <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"Skakel Bluetooth aan om jou toestelle te sien"</string>
     <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"Maak Bluetooth-instellings oop om \'n toestel saam te bind"</string>
@@ -769,6 +788,7 @@
     <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# geaktiveerde program}other{# geaktiveerde programme}}"</string>
     <string name="number_of_device_admins_none" msgid="5547493703413973954">"Geen geaktiveerde programme nie"</string>
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g> se voertuigbeleid"</string>
+    <string name="work_policy_privacy_settings_no_org_name" msgid="8011687012493940230">"Voertuigbeleid"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Instellings wat deur die organisasiebestuurder bestuur word"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Kom meer te wete oor <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
     <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Inligting vir bestuurde voertuig"</string>

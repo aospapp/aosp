@@ -452,7 +452,7 @@ Options
     Emit verbose progress messages.
 
 
-  * ``self-check``
+  * ``--self-check``
 
     This is used to test the underlying Libabigail library.  When in
     used, the command expects only on input package, along with its
@@ -467,6 +467,10 @@ Options
       $ abipkgdiff --self-check --d1 mesa-libGLU-debuginfo-9.0.1-3.fc33.x86_64.rpm  mesa-libGLU-9.0.1-3.fc33.x86_64.rpm
        ==== SELF CHECK SUCCEEDED for 'libGLU.so.1.3.1' ====
       $
+
+  * ``--ctf``
+
+     This is used to compare packages with CTF debug information, if present.
 
 .. _abipkgdiff_return_value_label:
 

@@ -16,11 +16,11 @@
 
 package com.android.cts.verifier.bluetooth;
 
+import static android.content.Context.RECEIVER_EXPORTED;
+
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.ProgressDialog;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -28,6 +28,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.widget.ListView;
 
 import com.android.cts.verifier.PassFailButtons;
@@ -35,7 +36,6 @@ import com.android.cts.verifier.R;
 
 import java.util.ArrayList;
 import java.util.List;
-import android.util.Log;
 
 public class BleCocClientTestBaseActivity extends PassFailButtons.Activity {
     public static final String TAG = "BleCocClientTestBase";
@@ -95,7 +95,7 @@ public class BleCocClientTestBaseActivity extends PassFailButtons.Activity {
         filter.addAction(BleCocClientService.BLE_BLUETOOTH_MISMATCH_INSECURE);
         filter.addAction(BleCocClientService.BLE_CLIENT_ERROR);
 
-        registerReceiver(mBroadcast, filter);
+        registerReceiver(mBroadcast, filter, RECEIVER_EXPORTED);
     }
 
     @Override

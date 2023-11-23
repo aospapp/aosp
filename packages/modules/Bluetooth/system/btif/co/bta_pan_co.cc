@@ -31,6 +31,7 @@
 #include <hardware/bt_pan.h>
 #include <string.h>
 
+#include "os/log.h"
 #include "bta_api.h"
 #include "bta_pan_api.h"
 #include "bta_pan_ci.h"
@@ -139,7 +140,8 @@ void bta_pan_co_tx_path(uint16_t handle, uint8_t app_id) {
           "p_buf->len:%d, offset:%d",
           __func__, p_buf->len, p_buf->offset);
       if (is_empty_eth_addr(conn->eth_addr) && is_valid_bt_eth_addr(src)) {
-        VLOG(1) << __func__ << " pan bt peer addr: " << conn->peer
+        VLOG(1) << __func__ << " pan bt peer addr: "
+                << ADDRESS_TO_LOGGABLE_STR(conn->peer)
                 << " update its ethernet addr: " << src;
         conn->eth_addr = src;
       }

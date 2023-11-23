@@ -5,6 +5,12 @@
 
 #include "flatbuffers/flatbuffers.h"
 
+// Ensure the included flatbuffers.h is the same version as when this file was
+// generated, otherwise it may not be compatible.
+static_assert(
+    FLATBUFFERS_VERSION_MAJOR == 2 && FLATBUFFERS_VERSION_MINOR == 0 && FLATBUFFERS_VERSION_REVISION == 7,
+    "Non-compatible flatbuffers version included");
+
 namespace testing {
 
 struct TestTableFloat;
@@ -17,7 +23,7 @@ struct TestTableFloat FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return GetField<float>(VT_TEST_FLOAT, 0.0f);
   }
   bool Verify(flatbuffers::Verifier& verifier) const {
-    return VerifyTableStart(verifier) && VerifyField<float>(verifier, VT_TEST_FLOAT) && verifier.EndTable();
+    return VerifyTableStart(verifier) && VerifyField<float>(verifier, VT_TEST_FLOAT, 4) && verifier.EndTable();
   }
 };
 
@@ -31,7 +37,6 @@ struct TestTableFloatBuilder {
   explicit TestTableFloatBuilder(flatbuffers::FlatBufferBuilder& _fbb) : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  TestTableFloatBuilder& operator=(const TestTableFloatBuilder&);
   flatbuffers::Offset<TestTableFloat> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<TestTableFloat>(end);

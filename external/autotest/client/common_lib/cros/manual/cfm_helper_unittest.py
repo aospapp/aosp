@@ -5,8 +5,8 @@
 
 import unittest
 
-import cfm_helper
-import get_usb_devices
+from autotest_lib.client.common_lib.cros.manual import cfm_helper
+from autotest_lib.client.common_lib.cros.manual import get_usb_devices
 
 SPEAKERS = 'speakers'
 CAMERAS = 'cameras'

@@ -60,6 +60,9 @@ SensorManager::~SensorManager() {
     if (mPollThread.joinable()) {
         mPollThread.join();
     }
+
+    ::android::SensorManager::removeInstanceForPackage(
+            String16(ISensorManager::descriptor));
 }
 
 // Methods from ::android::frameworks::sensorservice::V1_0::ISensorManager follow.
@@ -193,12 +196,8 @@ sp<Looper> SensorManager::getLooper() {
 }
 
 ::android::SensorManager& SensorManager::getInternalManager() {
-    std::lock_guard<std::mutex> lock(mInternalManagerMutex);
-    if (mInternalManager == nullptr) {
-        mInternalManager = &::android::SensorManager::getInstanceForPackage(
-                String16(ISensorManager::descriptor));
-    }
-    return *mInternalManager;
+    return ::android::SensorManager::getInstanceForPackage(
+            String16(ISensorManager::descriptor));
 }
 
 Return<void> SensorManager::createEventQueue(

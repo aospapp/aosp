@@ -31,6 +31,8 @@
     <string name="enabled" msgid="5127188665060746381">"Aktiveret"</string>
     <string name="disabled" msgid="4589065923272201387">"Deaktiveret"</string>
     <string name="unavailable" msgid="1610732303812180196">"Ikke tilgængelig"</string>
+    <string name="allow" msgid="6982558814345894019">"Tillad"</string>
+    <string name="deny" msgid="8291577308813053917">"Afvis"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"Forslag"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"Kvikmenu"</string>
     <string name="header_category_general_settings" msgid="3897615781153506434">"Generelle indstillinger"</string>
@@ -51,6 +53,7 @@
     <string name="sound_category_title" msgid="7899816751041939518">"Lyd"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"Apps"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"Enhedspræferencer"</string>
+    <string name="accessibility_category_title" msgid="1552664829936369592">"Hjælpefunktioner"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"Fjernbetjeninger og tilbehør"</string>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"Skærm og lyd"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"Hjælp og feedback"</string>
@@ -109,7 +112,8 @@
     <string name="device_backup_restore" msgid="3634531946308269398">"Sikkerhedskopiering og gendannelse"</string>
     <string name="device_factory_reset" msgid="1110189450013225971">"Gendannelse af fabriksdata"</string>
     <string name="device_calibration" msgid="2907914144048739705">"Kalibrering"</string>
-    <string name="device_energy_saver" msgid="1105023232841036991">"Energisparefunktion"</string>
+    <string name="device_energy_saver" msgid="6611757996220443028">"Timer til slukning"</string>
+    <string name="device_energy_saver_summary" msgid="5306058475316008429">"Indstil timere for at slukke fjernsynet og spare strøm"</string>
     <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
     <string name="device_fastpair" msgid="1235240814051277047">"Enheder"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"Vælg formater"</string>
@@ -118,7 +122,7 @@
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="4268947520371740146">"DTS-HD"</string>
-    <string name="surround_sound_format_dts_uhd" msgid="2844983210044263719">"DTS-UHD"</string>
+    <string name="surround_sound_format_dts_uhd" msgid="4340749818133578788">"DTS:X"</string>
     <string name="surround_sound_format_dolby_mat" msgid="3029804841912462928">"Dolby Atmos med Dolby TrueHD"</string>
     <string name="surround_sound_format_dolby_truehd" msgid="5113046743572967088">"Dolby TrueHD"</string>
     <string name="surround_sound_format_e_ac3_joc" msgid="3360344066462262996">"Dolby Atmos med Dolby Digital Plus"</string>
@@ -147,10 +151,38 @@
     <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"HDMI-CEC"</string>
     <string name="advanced_sound_settings_title" msgid="319921303039469139">"Avancerede lydindstillinger"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"Tillad spiltilstand"</string>
+    <string name="match_content_dynamic_range_title" msgid="2794980556561655838">"Dynamisk område for matchet indhold"</string>
+    <string name="match_content_dynamic_range_summary" msgid="2255683926227355398">"Når du aktiverer denne mulighed, vil systemet skifte mellem forskellige dynamiske områdeformater for at matche indholdet. Dette kan medføre, at skærmen bliver sort under et formatskift.\n\nKlik på Avancerede skærmindstillinger for at se flere muligheder for dynamiske områder."</string>
+    <string name="preferred_dynamic_range_title" msgid="5064883672337010588">"Foretrukket dynamisk område"</string>
+    <string name="preferred_dynamic_range_selection_system_title" msgid="4505030483876080996">"Systemforetrukken konvertering"</string>
+    <string name="preferred_dynamic_range_selection_system_desc" msgid="5712920601553613576">"Lader systemet administrere konverteringen af formatet"</string>
+    <string name="preferred_dynamic_range_selection_system_summary" msgid="4509062596428781094">"Når denne mulighed er valgt, fastlægger systemet et passende dynamisk interval, som sendes til din skærm, og konverterer indholdet i overensstemmelse med dette dynamiske interval efter behov."</string>
+    <string name="preferred_dynamic_range_selection_passthrough_desc" msgid="4831260397179583737">"Matcher altid indholdets format"</string>
+    <string name="preferred_dynamic_range_selection_force_title" msgid="4448836594133973103">"Gennemtving konvertering"</string>
+    <string name="preferred_dynamic_range_selection_force_desc" msgid="1418542349290684513">"Gennemtvinger konvertering til foretrukket format"</string>
+    <string name="preferred_dynamic_range_selection_force_summary" msgid="8381058061765216239">"Gennemtving konvertering til et foretrukket format. Når du gennemtvinger konvertering, kan det påvirke andre indstillinger i Skærmtilstand eller HDR-format."</string>
+    <string name="preferred_dynamic_range_selection_force_sdr_title" msgid="3135104063034317252">"Altid til SDR"</string>
+    <string name="preferred_dynamic_range_selection_force_hdr_title" msgid="1032587815433139859">"Altid til <xliff:g id="HDR_TYPE">%s</xliff:g>"</string>
+    <string name="preferred_dynamic_range_force_dialog_title" msgid="6865110024863661702">"Vil du gennemtvinge HDR-output?"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc" msgid="7758323258282201656">"Som standard gennemtvinges konverteringen til <xliff:g id="HDR_TYPE">%s</xliff:g>."</string>
+    <string name="preferred_dynamic_range_force_dialog_desc_4k30_issue" msgid="4938418395391206131">"Din skærm vil køre med en opløsning på 1080p 60 Hz. Denne valgmulighed er ikke kompatibel med din skærm, når den kører med en opløsning på 4K 60 Hz."</string>
+    <string name="selection_dolby_vision_not_supported_sidebar" msgid="8994591316574824115">"Dolby Vision understøttes ikke i den nuværende opløsning. Hvis du aktiverer Dolby Vision manuelt, ændres opløsningen på din skærm til 1080p 60 Hz"</string>
+    <string name="manual_dolby_vision_format_on_4k60_title" msgid="4172263676512376500">"Vil du ændre opløsning til 1080p 60 Hz?"</string>
+    <string name="dynamic_range_selection_force_dv_title" msgid="8070148109262327094">"Gennemtving altid konvertering til Dolby Vision"</string>
+    <string name="dynamic_range_selection_force_dv_summary" msgid="1052851029985095562">"Hvis Dolby Vision er deaktiveret under HDR-formaterne i de avancerede skærmindstillinger, vil tvungen konvertering til Dolby Vision genaktivere formatet."</string>
+    <string name="dynamic_range_selection_force_hdr10_title" msgid="1221688206945051384">"Gennemtving altid konvertering til HDR10"</string>
+    <string name="dynamic_range_selection_force_hdr10_summary" msgid="7784573527636502784">"Hvis HDR10 er deaktiveret under HDR-formaterne i de avancerede skærmindstillinger, vil tvungen konvertering til HDR10 genaktivere formatet."</string>
+    <string name="dynamic_range_selection_force_hlg_title" msgid="3976190987768712696">"Gennemtving altid konvertering til HLG"</string>
+    <string name="dynamic_range_selection_force_hlg_summary" msgid="5371949016689544001">"Hvis HLG er deaktiveret under HDR-formaterne i de avancerede skærmindstillinger, vil tvungen konvertering til HLG genaktivere formatet."</string>
+    <string name="dynamic_range_selection_force_hdr10plus_title" msgid="1305556000063625735">"Gennemtving altid konvertering til HDR10+"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_summary" msgid="918038386222537401">"Hvis HDR10+ er deaktiveret under HDR-formaterne i de avancerede skærmindstillinger, vil tvungen konvertering til HDR10+ genaktivere formatet."</string>
+    <string name="dynamic_range_selection_force_sdr_title" msgid="1063579223517652945">"Gennemtving altid konvertering til SDR"</string>
+    <string name="dynamic_range_selection_force_sdr_summary" msgid="2874771365465898941">"Hvis du gennemtvinger konvertering til SDR, deaktiveres alle formater under HDR-formaterne i de avancerede skærmindstillinger."</string>
     <string name="match_content_frame_rate_title" msgid="153291168560947689">"Match indholdets billedfrekvens"</string>
-    <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"Problemfri"</string>
+    <string name="match_content_frame_rate_seamless" msgid="5577846750811067585">"Kun overgang uden sort skærm"</string>
     <string name="match_content_frame_rate_seamless_summary" msgid="2737466163964133210">"Hvis appen anmoder om det, justerer din enhed outputtet efter den oprindelige billedfrekvens for det indhold, du ser. Dette kan KUN gennemføres, hvis dit fjernsyn kan udføre en problemfri overgang."</string>
-    <string name="match_content_frame_rate_non_seamless" msgid="1534300397118594640">"Ikke problemfri"</string>
+    <string name="match_content_frame_rate_seamless_not_supported_summary" msgid="98559950465123792">"Din forbundne skærm understøtter ikke overgangsfri ændring af opdateringshastigheden. Denne indstilling har ingen effekt, medmindre du skifter til en skærm, der understøtter dette."</string>
+    <string name="match_content_frame_rate_non_seamless" msgid="2702658727234710031">"Altid"</string>
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Hvis appen anmoder om det, justerer din enhed outputtet efter den oprindelige billedfrekvens for det indhold, du ser. Dette kan medføre, at din skærm bliver sort i et sekunds tid, når du afslutter eller starter en videoafspilning."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Aldrig"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Selvom appen anmoder om det, forsøger din enhed aldrig at justere outputtet efter den oprindelige billedfrekvens for det indhold, du ser."</string>
@@ -167,6 +199,7 @@
     <string name="hdr_format_selection_manual_desc" msgid="8865649615882146772">"Vælg formater manuelt blandt de tilgængelige formater"</string>
     <string name="hdr_format_supported_title" msgid="1458594819224612431">"UNDERSTØTTEDE FORMATER"</string>
     <string name="hdr_format_unsupported_title" msgid="715318408107924941">"IKKE-UNDERSTØTTEDE FORMATER"</string>
+    <string name="hdr_format_sdr" msgid="7211377112392255102">"SDR"</string>
     <string name="hdr_format_hdr10" msgid="8063543267227491062">"HDR10"</string>
     <string name="hdr_format_hlg" msgid="454510079939620321">"HLG"</string>
     <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"HDR10+"</string>
@@ -182,10 +215,14 @@
     <string name="resolution_selection_title" msgid="2873993320284587853">"Opløsning"</string>
     <string name="resolution_selection_auto_title" msgid="4738671207331027385">"Automatisk"</string>
     <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"Opløsningen er ændret"</string>
+    <string name="resolution_selection_with_mode_dialog_title" msgid="5011192408613100514">"Vil du skifte opløsning til %1$s?"</string>
     <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"Vælg OK for at bruge %1$s fremover."</string>
+    <string name="resolution_selection_disabled_dolby_vision_dialog_desc" msgid="7952404018654828187">"Dolby Vision understøttes ikke med %1$s og deaktiveres under \"Avancerede skærmindstillinger\""</string>
+    <string name="resolution_hdr_description_info" msgid="2408761621976850238">"Denne tilstand understøtter: %1$s\nPå visse fjernsyn kan det være nødvendigt at aktivere Forbedret HDMI for at få flere HDR-formater. Tjek dit fjernsyns indstillinger for at se, om denne funktion understøttes."</string>
     <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"Annuller"</string>
     <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"OK"</string>
     <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
+    <string name="resolution_display_mode" msgid="6633857172598855480">"<xliff:g id="RESOLUTION">%1$s</xliff:g> (<xliff:g id="REFRESH_RATE">%2$s</xliff:g> Hz)"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"Vil du rydde cachelagrede data?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"Dette vil rydde cachelagrede data for alle apps."</string>
     <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
@@ -257,7 +294,6 @@
     <string name="system_inputs" msgid="5552840337357572096">"Indgange"</string>
     <string name="system_inputs_devices" msgid="2158421111699829399">"Input og enheder"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"Styring af hjemmebiograf"</string>
-    <string name="system_accessibility" msgid="3081009195560501010">"Hjælpefunktioner"</string>
     <string name="system_developer_options" msgid="8480844257066475479">"Valgmuligheder for udviklere"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"Ingen"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"Brug og diagnostik"</string>
@@ -307,6 +343,7 @@
     <string name="do_disclosure_generic" msgid="8390478119591845948">"Denne enhed administreres af din organisation."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"Denne enhed administreres af <xliff:g id="ORGANIZATION_NAME">%s</xliff:g>."</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
+    <string name="hdr_capability" msgid="3331021013422460270">"- %1$s"</string>
     <string name="learn_more" msgid="820336467414665686">"Få flere oplysninger"</string>
     <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{Kameraapp}one{Kameraapp}other{Kameraapps}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"Kalenderapp"</string>
@@ -590,6 +627,7 @@
     <string name="recently_accessed_show_all" msgid="5234849189704717855">"Se alle"</string>
     <string name="microphone" msgid="7893752847683941214">"Mikrofon"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"Mikrofonadgang"</string>
+    <string name="mic_remote_toggle_title" msgid="7153283895012570080">"Mikrofonadgang på din fjernbetjening"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"Appadgang til mikrofon"</string>
     <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"Adgang til mikrofonen er blokeret"</string>
     <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"Du kan fjerne blokeringen ved at slå kontakten for privatliv til på din enhed, så mikrofonen får adgang."</string>
@@ -599,7 +637,11 @@
     <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"Adgang til kameraet er blokeret"</string>
     <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"Du kan fjerne blokeringen ved at slå kontakten for privatliv til på din enhed, så kameraet får adgang."</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"Mikrofonadgang: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
-    <string name="mic_toggle_info_content" msgid="4699624900513326055">"Når du har aktiveret denne indstilling, kan alle apps og tjenester, der har fået tilladelse til det, få adgang til enhver mikrofon på denne enhed.\n\nEksterne lydenheder med en tilpasset protokol påvirkes ikke af denne indstilling."</string>
+    <string name="mic_toggle_info_content" msgid="3187791167208947239">"Når mikrofonen er tændt, kan alle apps og tjenester, der har tilladelse til at bruge mikrofonen, få adgang til den.\n\nNår mikrofonen er slukket, er der ikke nogen apps eller tjenester, der har adgang til den. Men du kan muligvis stadig tale til Google Assistent ved at trykke på Assistent-knappen på din fjernbetjening.\n\nLydenheder, der bruger tilpassede protokoller til at kommunikere med fjernsynet, påvirkes muligvis ikke af denne indstilling."</string>
+    <string name="mic_remote_toggle_on_info_title" msgid="8503441878870972046">"Mikrofonen er aktiveret på fjernbetjeningen"</string>
+    <string name="mic_remote_toggle_on_info_content" msgid="2715872916376493679">"Google Assistent har adgang til mikrofonen på din fjernbetjening. Du kan tale til Google Assistent ved at trykke på Google Assistent-knappen på din fjernbetjening."</string>
+    <string name="mic_remote_toggle_off_info_title" msgid="4902909833546393713">"Mikrofonen er deaktiveret på fjernbetjeningen"</string>
+    <string name="mic_remote_toggle_off_info_content" msgid="8062526350553191004">"Du kan ikke tale til Google Assistent via din fjernbetjening. Hvis du vil bruge Google Assistent-knappen, skal du aktivere mikrofonadgang."</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"Kameraadgang: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="camera_toggle_info_content" msgid="2999965953853204003">"Når du har aktiveret denne indstilling, kan alle apps og tjenester, der har fået tilladelse til det, få adgang til ethvert kamera på denne enhed.\n\nEksterne kameraenheder med en tilpasset protokol påvirkes ikke af denne indstilling."</string>
     <string name="sensor_toggle_info_on" msgid="4568111889147132257">"Til"</string>
@@ -625,9 +667,34 @@
     <string name="location_history_desc" msgid="926674012916014270">"Når Lokationshistorik er slået til for denne konto, kan Google gemme enhedens lokationsdata, så dine apps kan bruge dem.\n\nGoogle Maps kan f.eks. give dig rutevejledning, og Google Nu kan informere dig om pendlertrafik.\n\nDu kan til enhver tid slå Lokationshistorik fra, men det vil ikke slette den. Du kan se og administrere din Lokationshistorik på maps.google.com/locationhistory."</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"Slet Lokationshistorik"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"Dette vil slette alt, som Lokationshistorik har gemt fra denne enhed for denne Google-konto. Du kan ikke fortryde denne sletning. Nogle apps, herunder Google Nu, vil stoppe med at virke."</string>
-    <string name="system_services" msgid="5754310941186053151">"Tjenester"</string>
+    <string name="accessibility_screen_readers_category_title" msgid="7742526514873922018">"Skærmlæsere"</string>
+    <string name="accessibility_display_category_title" msgid="593444602101558017">"Skærm"</string>
+    <string name="accessibility_interaction_controls_category_title" msgid="5290687835178852745">"Interaktionsstyring"</string>
+    <string name="accessibility_audio_and_onscreen_text_category_title" msgid="113841605896486212">"Lyd og tekst på skærmen"</string>
+    <string name="accessibility_experimental_category_title" msgid="3401773834179170206">"Eksperimentel"</string>
+    <string name="accessibility_services_category_title" msgid="8813843874978910442">"Tjenester"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"Tjenesteindstillinger"</string>
+    <string name="accessibility_screen_reader_flattened_component_name" msgid="6834614827111101213">"com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"Tekst med høj kontrast"</string>
+    <string name="accessibility_toggle_bold_text_preference_title" msgid="3328992531170432669">"Fed tekst"</string>
+    <string name="accessibility_color_correction" msgid="6765093204922184119">"Farvekorrigering"</string>
+    <string name="color_correction_usage" msgid="4160611639548748657">"Brug farvekorrigering"</string>
+    <string name="color_correction_color_mode" msgid="5081377780734779169">"Farvetilstand"</string>
+    <string name="color_correction_mode_deuteranomaly" msgid="1513793544554228224">"Deuteranomali"</string>
+    <string name="color_correction_mode_deuteranomaly_summary" msgid="5991561481464520986">"Rød-grøn"</string>
+    <string name="color_correction_mode_protanomaly" msgid="8105793166015115037">"Protanomali"</string>
+    <string name="color_correction_mode_protanomaly_summary" msgid="3247619910784115563">"Rød-grøn"</string>
+    <string name="color_correction_mode_tritanomaly" msgid="757769418392736089">"Tritanomali"</string>
+    <string name="color_correction_mode_tritanomaly_summary" msgid="137712354510881252">"Blå-gul"</string>
+    <string name="color_correction_mode_grayscale" msgid="2592973844160514484">"Gråtoner"</string>
+    <string name="palette_color_red" msgid="507196433434979086">"Rød"</string>
+    <string name="palette_color_orange" msgid="6209196069366109835">"Orange"</string>
+    <string name="palette_color_yellow" msgid="298466132578870590">"Gul"</string>
+    <string name="palette_color_green" msgid="4904783063036825668">"Grøn"</string>
+    <string name="palette_color_cyan" msgid="3212217287628948203">"Cyan"</string>
+    <string name="palette_color_blue" msgid="8836682634988540630">"Blå"</string>
+    <string name="palette_color_purple" msgid="2123828754639683555">"Lilla"</string>
+    <string name="palette_color_gray" msgid="4014534773994261194">"Grå"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"Genvej til hjælpefunktion"</string>
     <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"Aktivér genvej til Hjælpefunktioner"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"Genvejstjeneste"</string>
@@ -705,7 +772,7 @@
     <string name="system_allow_mock_locations" msgid="2483106887711851466">"Tillad imiterede lokationer"</string>
     <string name="system_select_debug_app" msgid="6200987902307533721">"Vælg app til fejlretning"</string>
     <string name="system_wait_for_debugger" msgid="5715878008542589060">"Vent på fejlfinder"</string>
-    <string name="system_verify_apps_over_usb" msgid="7289212844195483932">"Bekræft apps via USB"</string>
+    <string name="system_verify_apps_over_usb" msgid="7289212844195483932">"Verificer apps via USB"</string>
     <string name="system_desc_verify_apps_over_usb" msgid="7737988681480237094">"Tjek om apps, der er installeret via ADB/ADT, har skadelig adfærd"</string>
     <string name="system_wifi_verbose_logging" msgid="3097788974146704831">"Detaljeret Wi-Fi-logføring"</string>
     <string name="system_desc_wifi_verbose_logging" msgid="3537578245428327314">"Aktivér detaljeret Wi-Fi-logføring"</string>
@@ -886,12 +953,24 @@
     <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"Pauseskærmen starter efter dette tidsrum uden aktivitet. Hvis der ikke er valgt nogen pauseskærm, slukkes displayet."</string>
     <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"Efter <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>s inaktivitet"</string>
     <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"Sluk skærmen"</string>
-    <string name="device_energy_saver_screen_off_description" msgid="4469679706899396071">"Efter <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
-    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"Sluk skærmen efter"</string>
-    <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"Gør det muligt at slukke skærmen"</string>
-    <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"I løbet af medieafspilning"</string>
-    <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"Bekræft indstillinger for energisparefunktionen"</string>
-    <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"Bekræft nye indstillinger for <xliff:g id="SLEEP_TIME">%1$s</xliff:g>, der har potentiale for at øge energiforbruget."</string>
+    <!-- no translation found for device_energy_saver_timeout_description (3206609135199137514) -->
+    <skip />
+    <string name="device_energy_saver_confirmation_title" msgid="7614859812773584773">"Godkend din indstilling for strøm og energi"</string>
+    <string name="device_energy_saver_confirmation_message" msgid="7789453187001013951">"Hvis du lader fjernsynet være tændt i langt tid, kan det medføre større energiforbrug"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_title" msgid="1468097048101593731">"Deaktiver indstillingen for energisparefunktion"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_text" msgid="6334963903866002164">"Bekræft, at du vil forhindre skærmen i at slukke under afspilning. Det kan øge energiforbruget."</string>
+    <string name="device_energy_saver_sleep_timeout" msgid="1841900768718452039">"Ved inaktivitet"</string>
+    <string name="device_energy_saver_attentive_timeout" msgid="3649486668821348087">"Under afspilning"</string>
+    <string name="device_energy_saver_category_title" msgid="170076161677525986">"Sluk automatisk"</string>
+    <string name="device_energy_saver_sleep_timeout_dialog_title" msgid="6588352532253294558">"Sluk automatisk ved inaktivitet"</string>
+    <string name="device_energy_saver_attentive_timeout_dialog_title" msgid="3273988875711109352">"Sluk automatisk under afspilning"</string>
+    <string name="device_energy_saver_validation_sleep" msgid="7490897287741107840">"Timeren for \"Ved inaktivitet\" skal være kortere end timeren for \"Under afspilning\""</string>
+    <string name="device_energy_saver_validation_attentive" msgid="1461105528087097435">"Timeren for \"Under afspilning\" skal være længere end timeren for \"Ved inaktivitet\""</string>
+    <string name="limit_network_in_standby_toggle_title" msgid="6587185599397355336">"Begræns netværksforbindelsen i standby"</string>
+    <string name="limit_network_in_standby_toggle_summary" msgid="9127792748675581174">"Bruger mindre energi i standbytilstand"</string>
+    <string name="limit_network_in_standby_toggle_info" msgid="566947772381093991">"Dit fjernsyns forbindelse til netværket afbrydes, når det er i standbytilstand, bortset fra når det skal modtage automatiske opdateringer. Dette kan reducere fjernsynets energiforbrug, selvom det også betyder, at du muligvis ikke kan bruge funktioner som f.eks. Cast og Google Assistent, når du er i standbytilstand."</string>
+    <string name="limit_network_in_standby_confirm_title" msgid="789232987058850322">"Tillad netværksforbindelse i standbytilstand"</string>
+    <string name="limit_network_in_standby_confirm_message" msgid="7176699480768019689">"Hvis du tillader netværksforbindelse i standbytilstand, øges energiforbruget under standby."</string>
     <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"Der er i øjeblikket ikke nogen konto, der lagrer sikkerhedskopierede data"</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"Vil du stoppe sikkerhedskopieringen af dine Wi-Fi-adgangskoder, bogmærker, andre indstillinger og appdata samt rydde alle kopier på Google-servere?"</string>
@@ -979,12 +1058,17 @@
     <string name="time_to_start_read_title" msgid="6565449163802837806">"Tid før oplæsningens start"</string>
     <string name="time_to_valid_audio_title" msgid="7246101824813414348">"Tid før gyldige lyddata"</string>
     <string name="empty_audio_duration_title" msgid="9024377320171450683">"Stilhedens varighed"</string>
+    <string name="record_audio_source_title" msgid="9087784503276397929">"Lydkilde"</string>
+    <string name="record_audio_source_dialog_title" msgid="6556408220589197097">"Vælg lydkilde til den næste optagelse"</string>
+    <string name="recorded_microphones_title" msgid="5466988146086215426">"Lydkilde (mikrofoner)"</string>
     <string name="show_audio_recording_start_failed" msgid="9131762831381326605">"Lydoptagelsen kunne ikke startes."</string>
     <string name="show_audio_recording_failed" msgid="8128216664039868681">"Lydoptagelsen mislykkedes."</string>
     <string name="title_data_saver" msgid="7500278996154002792">"Datasparefunktion"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"Juster automatisk videokvaliteten, så der bruges mindre mobildata"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"Databrug og underretninger"</string>
     <string name="data_saver_header_info" msgid="2706725187498535785">"Du kan få internetforbindelse via Wi-Fi, Ethernet eller din telefons hotspot."</string>
+    <string name="bluetooth_ask_discovery_title" msgid="4955540555242269694">"Vil du gøre det synligt for andre Bluetooth-enheder?"</string>
+    <string name="bluetooth_ask_discovery_message" msgid="8609666862877703398">"En app anmoder om at gøre dit fjernsyn synligt for andre Bluetooth-enheder i <xliff:g id="TIMEOUT">%1$d</xliff:g> sekunder."</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"Handlingen er ikke tilladt"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"Lydstyrken kan ikke ændres"</string>
@@ -1035,4 +1119,9 @@
     <string name="power_on_behavior" msgid="927607372303160716">"Adfærd, når fjernsynet tændes"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"Nulstil"</string>
     <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"Ethernet-parringskode"</string>
+    <string name="energy_modes" msgid="1331693860386361744">"Energitilstande"</string>
+    <string name="energy_modes_summary" msgid="7196407759836930799">"Optimer energiforbruget, når fjernsynet ikke er i brug"</string>
+    <string name="energy_mode_enables" msgid="357960364751477627">"Aktiverer:"</string>
+    <string name="energy_mode_eco_hint" msgid="1461517905015359947">"Vær opmærksom på, at denne tilstand kan øge energiforbruget på enheden."</string>
+    <string name="energy_modes_confirmation_title" msgid="4520280098781914825">"Aktivér \"<xliff:g id="ENERGYMODENAME">%s</xliff:g>\""</string>
 </resources>

@@ -20,7 +20,7 @@
 #include <dbus/dbus-glib.h>
 
 GIOChannel* ioc;
-int masterfd;
+int primaryfd;
 
 typedef struct {
   GRegex *command;
@@ -61,7 +61,7 @@ fake_modem_class_init (FakeModemClass* self)
 {
 }
 
-static gboolean master_read (GIOChannel *source, GIOCondition condition,
+static gboolean primary_read (GIOChannel *source, GIOCondition condition,
                              gpointer data);
 
 static const gchar *handle_cmd (FakeModem *fakemodem, const gchar *cmd);
@@ -216,7 +216,7 @@ main (int argc, char *argv[])
   DBusGConnection *bus;
   DBusGProxy *proxy;
   GMainLoop* loop;
-  const char *slavedevice;
+  const char *helperdevice;
   struct termios t;
   FakeModem *fakemodem;
   GOptionContext *opt_ctx;
@@ -287,26 +287,26 @@ main (int argc, char *argv[])
                                        "/",
                                        G_OBJECT (fakemodem));
 
-  masterfd = posix_openpt (O_RDWR | O_NOCTTY);
+  primaryfd = posix_openpt (O_RDWR | O_NOCTTY);
 
-  if (masterfd == -1
-      || grantpt (masterfd) == -1
-      || unlockpt (masterfd) == -1
-      || (slavedevice = ptsname (masterfd)) == NULL)
+  if (primaryfd == -1
+      || grantpt (primaryfd) == -1
+      || unlockpt (primaryfd) == -1
+      || (helperdevice = ptsname (primaryfd)) == NULL)
     exit (1);
 
-  printf ("%s\n", slavedevice);
+  printf ("%s\n", helperdevice);
   fflush (stdout);
 
   /* Echo is actively harmful here */
-  tcgetattr (masterfd, &t);
+  tcgetattr (primaryfd, &t);
   t.c_lflag &= ~ECHO;
-  tcsetattr (masterfd, TCSANOW, &t);
+  tcsetattr (primaryfd, TCSANOW, &t);
 
-  ioc = g_io_channel_unix_new (masterfd);
+  ioc = g_io_channel_unix_new (primaryfd);
   g_io_channel_set_encoding (ioc, NULL, NULL);
   g_io_channel_set_line_term (ioc, "\r", 1);
-  g_io_add_watch (ioc, G_IO_IN, master_read, fakemodem);
+  g_io_add_watch (ioc, G_IO_IN, primary_read, fakemodem);
 
   g_main_loop_run (loop);
 
@@ -346,7 +346,7 @@ static char *command_patterns[] =
 #undef VALUE
 #undef CVALUE
 
-static gboolean master_read (GIOChannel *source, GIOCondition condition,
+static gboolean primary_read (GIOChannel *source, GIOCondition condition,
                              gpointer data)
 {
   FakeModem *fakemodem = data;
@@ -388,9 +388,9 @@ static gboolean master_read (GIOChannel *source, GIOCondition condition,
   printf ("Line: '%s'\n", line);
 
   if (fakemodem->echo) {
-    rval = write (masterfd, line, term);
+    rval = write (primaryfd, line, term);
     assert(term == rval);
-    rval = write (masterfd, "\r\n", 2);
+    rval = write (primaryfd, "\r\n", 2);
     assert(2 == rval);
   }
 
@@ -433,13 +433,13 @@ done:
     if (response == NULL)
       response = "OK";
     rstr = g_strdup_printf("\r\n%s\r\n", response);
-    rval = write (masterfd, rstr, strlen (rstr));
+    rval = write (primaryfd, rstr, strlen (rstr));
     assert(strlen(rstr) == rval);
     g_free (rstr);
   } else {
     gchar *rstr;
     rstr = g_strdup_printf("%s\n", response);
-    rval = write (masterfd, rstr, strlen (rstr));
+    rval = write (primaryfd, rstr, strlen (rstr));
     assert(strlen(rstr) == rval);
     g_free (rstr);
   }
@@ -495,9 +495,9 @@ handle_cmd(FakeModem *fakemodem, const gchar *cmd)
   if (pat->reply && pat->reply[0]) {
     int rval;
     printf (" Reply: '%s'\n", pat->reply);
-    rval = write (masterfd, pat->reply, strlen (pat->reply));
+    rval = write (primaryfd, pat->reply, strlen (pat->reply));
     assert(strlen(pat->reply) == rval);
-    rval = write (masterfd, "\r\n", 2);
+    rval = write (primaryfd, "\r\n", 2);
     assert(2 == rval);
   }
 
@@ -510,10 +510,10 @@ send_unsolicited (FakeModem *fakemodem, const gchar* text)
 {
   int rval;
 
-  rval = write (masterfd, "\r\n", 2);
-  rval = write (masterfd, text, strlen (text));
+  rval = write (primaryfd, "\r\n", 2);
+  rval = write (primaryfd, text, strlen (text));
   assert(strlen(text) == rval);
-  rval = write (masterfd, "\r\n", 2);
+  rval = write (primaryfd, "\r\n", 2);
   assert(2 == rval);
 
   return TRUE;

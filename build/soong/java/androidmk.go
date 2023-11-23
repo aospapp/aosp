@@ -17,6 +17,7 @@ package java
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"android/soong/android"
 )
@@ -132,6 +133,23 @@ func (library *Library) AndroidMkEntries() []android.AndroidMkEntries {
 	return entriesList
 }
 
+func (j *JavaFuzzTest) AndroidMkEntries() []android.AndroidMkEntries {
+	entriesList := j.Library.AndroidMkEntries()
+	entries := &entriesList[0]
+	entries.ExtraEntries = append(entries.ExtraEntries, func(ctx android.AndroidMkExtraEntriesContext, entries *android.AndroidMkEntries) {
+		entries.AddStrings("LOCAL_COMPATIBILITY_SUITE", "null-suite")
+		androidMkWriteTestData(android.Paths{j.implementationJarFile}, entries)
+		androidMkWriteTestData(j.jniFilePaths, entries)
+		if j.fuzzPackagedModule.Corpus != nil {
+			androidMkWriteTestData(j.fuzzPackagedModule.Corpus, entries)
+		}
+		if j.fuzzPackagedModule.Dictionary != nil {
+			androidMkWriteTestData(android.Paths{j.fuzzPackagedModule.Dictionary}, entries)
+		}
+	})
+	return entriesList
+}
+
 // Called for modules that are a component of a test suite.
 func testSuiteComponent(entries *android.AndroidMkEntries, test_suites []string, perTestcaseDirectory bool) {
 	entries.SetString("LOCAL_MODULE_TAGS", "tests")
@@ -157,9 +175,8 @@ func (j *Test) AndroidMkEntries() []android.AndroidMkEntries {
 			entries.SetString("LOCAL_DISABLE_AUTO_GENERATE_TEST_CONFIG", "true")
 		}
 		entries.AddStrings("LOCAL_TEST_MAINLINE_MODULES", j.testProperties.Test_mainline_modules...)
-		if Bool(j.testProperties.Test_options.Unit_test) {
-			entries.SetBool("LOCAL_IS_UNIT_TEST", true)
-		}
+
+		j.testProperties.Test_options.CommonTestOptions.SetAndroidMkEntries(entries)
 	})
 
 	return entriesList
@@ -188,11 +205,6 @@ func (prebuilt *Import) AndroidMkEntries() []android.AndroidMkEntries {
 		// is preopted.
 		dexpreoptEntries := prebuilt.dexpreopter.AndroidMkEntriesForApex()
 		return append(dexpreoptEntries, android.AndroidMkEntries{Disabled: true})
-	}
-	if !prebuilt.ContainingSdk().Unversioned() {
-		return []android.AndroidMkEntries{android.AndroidMkEntries{
-			Disabled: true,
-		}}
 	}
 	return []android.AndroidMkEntries{android.AndroidMkEntries{
 		Class:      "JAVA_LIBRARIES",
@@ -389,6 +401,19 @@ func (app *AndroidApp) AndroidMkEntries() []android.AndroidMkEntries {
 				} else {
 					for _, jniLib := range app.jniLibs {
 						entries.AddStrings("LOCAL_SOONG_JNI_LIBS_"+jniLib.target.Arch.ArchType.String(), jniLib.name)
+						var partitionTag string
+
+						// Mimic the creation of partition_tag in build/make,
+						// which defaults to an empty string when the partition is system.
+						// Otherwise, capitalize with a leading _
+						if jniLib.partition == "system" {
+							partitionTag = ""
+						} else {
+							split := strings.Split(jniLib.partition, "/")
+							partitionTag = "_" + strings.ToUpper(split[len(split)-1])
+						}
+						entries.AddStrings("LOCAL_SOONG_JNI_LIBS_PARTITION_"+jniLib.target.Arch.ArchType.String(),
+							jniLib.name+":"+partitionTag)
 					}
 				}
 
@@ -540,6 +565,9 @@ func (dstubs *Droidstubs) AndroidMkEntries() []android.AndroidMkEntries {
 	if !outputFile.Valid() {
 		outputFile = android.OptionalPathForPath(dstubs.apiFile)
 	}
+	if !outputFile.Valid() {
+		outputFile = android.OptionalPathForPath(dstubs.apiVersionsXml)
+	}
 	return []android.AndroidMkEntries{android.AndroidMkEntries{
 		Class:      "JAVA_LIBRARIES",
 		OutputFile: outputFile,
@@ -618,6 +646,7 @@ func (dstubs *Droidstubs) AndroidMkEntries() []android.AndroidMkEntries {
 					if dstubs.apiLintReport != nil {
 						fmt.Fprintf(w, "$(call dist-for-goals,%s,%s:%s)\n", dstubs.Name()+"-api-lint",
 							dstubs.apiLintReport.String(), "apilint/"+dstubs.Name()+"-lint-report.txt")
+						fmt.Fprintf(w, "$(call declare-0p-target,%s)\n", dstubs.apiLintReport.String())
 					}
 				}
 				if dstubs.checkNullabilityWarningsTimestamp != nil {
@@ -709,4 +738,23 @@ func (apkSet *AndroidAppSet) AndroidMkEntries() []android.AndroidMkEntries {
 			},
 		},
 	}
+}
+
+func (al *ApiLibrary) AndroidMkEntries() []android.AndroidMkEntries {
+	var entriesList []android.AndroidMkEntries
+
+	entriesList = append(entriesList, android.AndroidMkEntries{
+		Class:      "JAVA_LIBRARIES",
+		OutputFile: android.OptionalPathForPath(al.stubsJar),
+		Include:    "$(BUILD_SYSTEM)/soong_java_prebuilt.mk",
+		ExtraEntries: []android.AndroidMkExtraEntriesFunc{
+			func(ctx android.AndroidMkExtraEntriesContext, entries *android.AndroidMkEntries) {
+				entries.SetBoolIfTrue("LOCAL_UNINSTALLABLE_MODULE", true)
+				entries.SetPath("LOCAL_SOONG_CLASSES_JAR", al.stubsJar)
+				entries.SetPath("LOCAL_SOONG_HEADER_JAR", al.stubsJar)
+			},
+		},
+	})
+
+	return entriesList
 }

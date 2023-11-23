@@ -17,7 +17,6 @@
 package android.server.wm;
 
 import static android.content.res.Configuration.ORIENTATION_PORTRAIT;
-import static android.provider.Settings.Secure.IMMERSIVE_MODE_CONFIRMATIONS;
 import static android.server.wm.app.Components.LAUNCHING_ACTIVITY;
 import static android.view.Surface.ROTATION_0;
 import static android.view.Surface.ROTATION_180;
@@ -39,8 +38,6 @@ import android.content.pm.PackageManager;
 import android.graphics.Insets;
 import android.os.Bundle;
 import android.platform.test.annotations.Presubmit;
-import android.provider.Settings;
-import android.server.wm.settings.SettingsSession;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -54,9 +51,9 @@ import com.android.compatibility.common.util.WindowUtil;
 
 import org.hamcrest.CustomTypeSafeMatcher;
 import org.hamcrest.Matcher;
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
@@ -64,12 +61,15 @@ import org.junit.rules.ErrorCollector;
 import java.util.function.Supplier;
 
 @Presubmit
+@android.server.wm.annotation.Group2
 public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
     private static final String TAG = WindowInsetsPolicyTest.class.getSimpleName();
 
     private ComponentName mTestActivityComponentName;
 
-    private SettingsSession<String> mImmersiveModeConfirmationSetting;
+    @ClassRule
+    public static DisableImmersiveModeConfirmationRule mDisableImmersiveModeConfirmationRule =
+            new DisableImmersiveModeConfirmationRule();
 
     @Rule
     public final ErrorCollector mErrorCollector = new ErrorCollector();
@@ -99,18 +99,6 @@ public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
     public void setUp() throws Exception {
         super.setUp();
         mTestActivityComponentName = new ComponentName(mContext, TestActivity.class);
-        mImmersiveModeConfirmationSetting = new SettingsSession<>(
-                Settings.Secure.getUriFor(IMMERSIVE_MODE_CONFIRMATIONS),
-                Settings.Secure::getString, Settings.Secure::putString);
-        mImmersiveModeConfirmationSetting.set("confirmed");
-
-    }
-
-    @After
-    public void tearDown() {
-        if (mImmersiveModeConfirmationSetting != null) {
-            mImmersiveModeConfirmationSetting.close();
-        }
     }
 
     @Test
@@ -199,6 +187,8 @@ public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
 
     @Test
     public void testImmersiveFullscreenHidesSystemBars() throws Throwable {
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
+
         // Run the test twice, because the issue that shows system bars even in the immersive mode,
         // happens at the 2nd try.
         for (int i = 1; i <= 2; ++i) {

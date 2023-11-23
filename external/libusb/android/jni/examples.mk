@@ -20,6 +20,12 @@ LOCAL_PATH := $(call my-dir)
 LIBUSB_ROOT_REL := ../..
 LIBUSB_ROOT_ABS := $(LOCAL_PATH)/../..
 
+ifeq ($(USE_PC_NAME),1)
+  LIBUSB_MODULE := usb-1.0
+else
+  LIBUSB_MODULE := libusb1.0
+endif
+
 # dpfp
 
 include $(CLEAR_VARS)
@@ -31,7 +37,7 @@ LOCAL_C_INCLUDES += \
   $(LOCAL_PATH)/.. \
   $(LIBUSB_ROOT_ABS)
 
-LOCAL_SHARED_LIBRARIES += libusb1.0
+LOCAL_SHARED_LIBRARIES += $(LIBUSB_MODULE)
 
 LOCAL_MODULE := dpfp
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-LGPL SPDX-license-identifier-LGPL-2.1 SPDX-license-identifier-LGPL-3.0
@@ -53,7 +59,7 @@ LOCAL_C_INCLUDES += \
 
 LOCAL_CFLAGS := -DDPFP_THREADED -pthread
 
-LOCAL_SHARED_LIBRARIES += libusb1.0
+LOCAL_SHARED_LIBRARIES += $(LIBUSB_MODULE)
 
 LOCAL_MODULE := dpfp_threaded
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-LGPL SPDX-license-identifier-LGPL-2.1 SPDX-license-identifier-LGPL-3.0
@@ -74,7 +80,7 @@ LOCAL_C_INCLUDES += \
   $(LOCAL_PATH)/.. \
   $(LIBUSB_ROOT_ABS)
 
-LOCAL_SHARED_LIBRARIES += libusb1.0
+LOCAL_SHARED_LIBRARIES += $(LIBUSB_MODULE)
 
 LOCAL_MODULE := fxload
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-LGPL SPDX-license-identifier-LGPL-2.1 SPDX-license-identifier-LGPL-3.0
@@ -94,7 +100,7 @@ LOCAL_C_INCLUDES += \
   $(LOCAL_PATH)/.. \
   $(LIBUSB_ROOT_ABS)
 
-LOCAL_SHARED_LIBRARIES += libusb1.0
+LOCAL_SHARED_LIBRARIES += $(LIBUSB_MODULE)
 
 LOCAL_MODULE := hotplugtest
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-LGPL SPDX-license-identifier-LGPL-2.1 SPDX-license-identifier-LGPL-3.0
@@ -114,7 +120,7 @@ LOCAL_C_INCLUDES += \
   $(LOCAL_PATH)/.. \
   $(LIBUSB_ROOT_ABS)
 
-LOCAL_SHARED_LIBRARIES += libusb1.0
+LOCAL_SHARED_LIBRARIES += $(LIBUSB_MODULE)
 
 LOCAL_MODULE := listdevs
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-LGPL SPDX-license-identifier-LGPL-2.1 SPDX-license-identifier-LGPL-3.0
@@ -134,7 +140,7 @@ LOCAL_C_INCLUDES += \
   $(LOCAL_PATH)/.. \
   $(LIBUSB_ROOT_ABS)
 
-LOCAL_SHARED_LIBRARIES += libusb1.0
+LOCAL_SHARED_LIBRARIES += $(LIBUSB_MODULE)
 
 LOCAL_MODULE := sam3u_benchmark
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-LGPL SPDX-license-identifier-LGPL-2.1 SPDX-license-identifier-LGPL-3.0
@@ -154,7 +160,7 @@ LOCAL_C_INCLUDES += \
   $(LOCAL_PATH)/.. \
   $(LIBUSB_ROOT_ABS)
 
-LOCAL_SHARED_LIBRARIES += libusb1.0
+LOCAL_SHARED_LIBRARIES += $(LIBUSB_MODULE)
 
 LOCAL_MODULE := xusb
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-LGPL SPDX-license-identifier-LGPL-2.1 SPDX-license-identifier-LGPL-3.0
@@ -162,3 +168,25 @@ LOCAL_LICENSE_CONDITIONS := restricted
 LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../COPYING $(LOCAL_PATH)/../../NOTICE
 
 include $(BUILD_EXECUTABLE)
+
+# unrooted_android
+
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES := \
+  $(LIBUSB_ROOT_REL)/android/examples/unrooted_android.c
+
+LOCAL_C_INCLUDES += \
+  $(LOCAL_PATH)/.. \
+  $(LIBUSB_ROOT_ABS)
+
+LOCAL_SHARED_LIBRARIES += libusb1.0
+
+LOCAL_LDLIBS += -llog
+
+LOCAL_MODULE := unrooted_android
+
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-LGPL SPDX-license-identifier-LGPL-2.1 SPDX-license-identifier-LGPL-3.0
+LOCAL_LICENSE_CONDITIONS := restricted
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../COPYING $(LOCAL_PATH)/../../NOTICE
+include $(BUILD_SHARED_LIBRARY)

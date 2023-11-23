@@ -23,7 +23,7 @@ import androidx.annotation.NonNull;
 import androidx.lifecycle.ViewModel;
 import androidx.lifecycle.ViewModelProvider;
 
-import com.android.permissioncontroller.role.model.Role;
+import com.android.role.controller.model.Role;
 
 /**
  * {@link ViewModel} for a role request.

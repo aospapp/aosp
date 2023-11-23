@@ -12,7 +12,7 @@ class firmware_UserRequestRecovery(FirmwareTest):
     """
     Servo based user request recovery boot test.
 
-    This test requires a USB disk plugged-in, which contains a Chrome OS test
+    This test requires a USB disk plugged-in, which contains a ChromeOS test
     image (built by "build_image --test"). On runtime, this test first requests
     a recovery mode on next boot by setting the crossystem recovery_request
     flag. It then triggers recovery mode by unplugging and plugging in the USB

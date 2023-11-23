@@ -47,8 +47,27 @@ typedef enum
     SPATIALIZER_PARAM_HEAD_TO_STAGE,
     // foldable device hinge angle as a float value in rad
     SPATIALIZER_PARAM_HINGE_ANGLE,
-    // Display orientation as a float value in rad
+
+    // The default display orientation as reported by DisplayManager.
+    //
+    // The DisplayManager reports 0, 90, 180, 270 degrees,
+    // here it is reported as a float value in radians.
+    // Only 4 values 0, PI/2, PI, 3PI/2 will be sent as of Android 14 (U).
+    // Due to precision, compare with an epsilon range, suggest
+    // rounding to the nearest integer degree for practical use.
+    //
+    // Notes:
+    //    1) A device may have more than one display.
+    //    2) A display may be locked which prevents the application from rotating.
     SPATIALIZER_PARAM_DISPLAY_ORIENTATION,
+
+    // The fold state as reported by DeviceStateManager for a foldable.
+    // This is an integer value of either 0 (open) or 1 (folded).
+    //
+    // The device fold state may affect which display is active (if any).
+    // The open/closed logical state differs than the hinge angle,
+    // which may be reported by a hinge sensor.
+    SPATIALIZER_PARAM_FOLD_STATE,
 } t_virtualizer_stage_params;
 
 // See SpatializationLevel.aidl

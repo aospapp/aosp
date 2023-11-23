@@ -63,6 +63,8 @@ class NearbyManagerTest {
             override fun onUpdated(device: NearbyDevice) {}
 
             override fun onLost(device: NearbyDevice) {}
+
+            override fun onError(errorCode: Int) {}
         }
 
         nearbyManager.startScan(scanRequest, /* executor */ { it.run() }, scanCallback)

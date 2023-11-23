@@ -33,6 +33,28 @@
 #define NO_IID_LEVELS_FINE (2 * NUM_IID_LEVELS_FINE + 1)
 #define NO_ICC_LEVELS (NUM_ICC_LEVELS)
 
+#define IPD_QMF_GROUPS (3)
+
+#define SUBQMF_GROUPS_HI_RES (32)
+#define QMF_GROUPS_HI_RES (18)
+#define IPD_QMF_GROUPS_HI_RES (1)
+
+#define NUM_IID_GROUPS (SUBQMF_GROUPS + QMF_GROUPS)
+#define NUM_IPD_GROUPS (SUBQMF_GROUPS + IPD_QMF_GROUPS)
+
+#define NUM_IID_GROUPS_HI_RES (SUBQMF_GROUPS_HI_RES + QMF_GROUPS_HI_RES)
+#define NUM_IPD_GROUPS_HI_RES (SUBQMF_GROUPS_HI_RES + IPD_QMF_GROUPS_HI_RES)
+
+#define NUM_SUB_QMF_CHANNELS 12
+#define NUM_SUB_QMF_CHANNELS_HI_RES 32
+
+#define NUM_QUAD_MIRROR_FILTER_CHNLS 64
+
+#define NUM_IID_STEPS (7)
+#define NUM_IID_STEPS_FINE (15)
+#define NUM_ICC_STEPS (8)
+#define HYBRID_FILTER_LENGTH 13
+
 typedef struct {
   WORD16 sbr_lim_gains_m[8];
 
@@ -92,6 +114,7 @@ typedef struct {
   WORD16 qmf_c_eld2[640];
 
   WORD16 qmf_c_eld3[640];
+  WORD32 qmf_c_ldsbr_mps[640];
 
   WORD16 ixheaacd_sbr_synth_cos_sin_l32[64 + 64];
 
@@ -100,7 +123,7 @@ typedef struct {
 extern const ia_qmf_dec_tables_struct ixheaacd_aac_qmf_dec_tables;
 
 typedef struct {
-  ia_frame_info_struct sbr_frame_info1_2_4_16[3 + 1];
+  ia_frame_info_struct sbr_frame_info1_2_4_16[3 + 1 + 3];
 
   ia_sbr_header_data_struct str_sbr_default_header;
   WORD16 ixheaacd_t_huffman_env_bal_1_5db_inp_table[50];
@@ -165,6 +188,53 @@ typedef struct {
   WORD16 huff_iid_df_fine[60];
   WORD32 dummy;
 
+  FLOAT32 qmf_fract_delay_phase_factor_im[NUM_QUAD_MIRROR_FILTER_CHNLS];
+  FLOAT32 qmf_fract_delay_phase_factor_re[NUM_QUAD_MIRROR_FILTER_CHNLS];
+
+  FLOAT32 frac_delay_phase_fac_qmf_sub_im_20[NUM_SUB_QMF_CHANNELS];
+  FLOAT32 frac_delay_phase_fac_qmf_sub_re_20[NUM_SUB_QMF_CHANNELS];
+  FLOAT32 frac_delay_phase_fac_qmf_sub_im_34[NUM_SUB_QMF_CHANNELS_HI_RES];
+  FLOAT32 frac_delay_phase_fac_qmf_sub_re_34[NUM_SUB_QMF_CHANNELS_HI_RES];
+
+  FLOAT32 qmf_ser_fract_delay_phase_factor_im[NUM_QUAD_MIRROR_FILTER_CHNLS]
+                                             [NUM_SER_AP_LINKS];
+  FLOAT32 qmf_ser_fract_delay_phase_factor_re[NUM_QUAD_MIRROR_FILTER_CHNLS]
+                                             [NUM_SER_AP_LINKS];
+
+  FLOAT32 frac_delay_phase_fac_ser_qmf_sub_im_20[NUM_SUB_QMF_CHANNELS][NUM_SER_AP_LINKS];
+  FLOAT32 frac_delay_phase_fac_ser_qmf_sub_re_20[NUM_SUB_QMF_CHANNELS][NUM_SER_AP_LINKS];
+  FLOAT32 frac_delay_phase_fac_ser_qmf_sub_im_34[NUM_SUB_QMF_CHANNELS_HI_RES]
+                                                [NUM_SER_AP_LINKS];
+  FLOAT32 frac_delay_phase_fac_ser_qmf_sub_re_34[NUM_SUB_QMF_CHANNELS_HI_RES]
+                                                [NUM_SER_AP_LINKS];
+
+  FLOAT32 scale_factors_flt[NO_IID_LEVELS];
+  FLOAT32 scale_factors_fine_flt[NO_IID_LEVELS_FINE];
+
+  FLOAT32 alphas[NUM_ICC_LEVELS];
+  FLOAT32 all_pass_link_decay_ser[NUM_SER_AP_LINKS];
+  FLOAT32 p8_13_20[HYBRID_FILTER_LENGTH];
+  FLOAT32 p2_13_20[HYBRID_FILTER_LENGTH];
+  FLOAT32 p12_13_34[HYBRID_FILTER_LENGTH];
+  FLOAT32 p8_13_34[HYBRID_FILTER_LENGTH];
+  FLOAT32 p4_13_34[HYBRID_FILTER_LENGTH];
+  FLOAT32 cos_mod_2channel[2][HYBRID_FILTER_LENGTH];
+  FLOAT32 cos_sin_mod_4channel[4][HYBRID_FILTER_LENGTH * 2];
+  FLOAT32 cos_sin_mod_8channel[8][HYBRID_FILTER_LENGTH * 2];
+  FLOAT32 cos_sin_mod_12channel[12][HYBRID_FILTER_LENGTH * 2];
+
+  WORD32 qmf_delay_idx_tbl[NUM_QUAD_MIRROR_FILTER_CHNLS];
+  WORD32 group_borders_20_tbl[NUM_IID_GROUPS + 1];
+  WORD32 group_borders_34_tbl[NUM_IID_GROUPS_HI_RES + 1];
+  WORD32 bin_group_map_20[NUM_IID_GROUPS];
+  WORD32 bin_group_map_34[NUM_IID_GROUPS_HI_RES];
+  WORD32 quantized_iids[NUM_IID_STEPS];
+  WORD32 quantized_iids_fine[NUM_IID_STEPS_FINE];
+  FLOAT32 quantized_rhos[NUM_ICC_STEPS];
+  WORD32 ipd_bins_tbl[3];
+
+  WORD16 band_res_hyb20[3];
+  WORD16 band_res_hyb34[5];
 } ia_ps_tables_struct;
 
 extern const ia_ps_tables_struct ixheaacd_aac_dec_ps_tables;

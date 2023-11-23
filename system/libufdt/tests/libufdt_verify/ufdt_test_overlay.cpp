@@ -348,7 +348,7 @@ int ufdt_resolve_duplicate_phandles(ufdt** overlay_tree, size_t overlay_count) {
         if (ufdt_overlay_do_local_fixups(overlay_tree[i], phandle_offset) < 0) {
             return -1;
         }
-        phandle_offset = ufdt_get_max_phandle(overlay_tree[i]);
+        phandle_offset += ufdt_get_max_phandle(overlay_tree[i]);
   }
 
   return 0;

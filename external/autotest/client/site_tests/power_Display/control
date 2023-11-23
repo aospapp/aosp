@@ -1,12 +1,14 @@
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "power_Display"
 PURPOSE = "Measure display power usage."
+
 CRITERIA = "This test is a benchmark."
 TIME = "SHORT"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
-ATTRIBUTES = "suite:power_daily, suite:power_sanity, suite:power_monitoring"
+ATTRIBUTES = "suite:power_daily, suite:power_check, suite:power_monitoring"
+PY_VERSION = 3
 
 DOC = """
 This test records power related statistics while displaying different static

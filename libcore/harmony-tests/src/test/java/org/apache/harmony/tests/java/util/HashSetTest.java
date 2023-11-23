@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.tests.java.util;
@@ -109,12 +109,12 @@ public class HashSetTest extends junit.framework.TestCase {
     public void test_addLjava_lang_Object() {
         // Test for method boolean java.util.HashSet.add(java.lang.Object)
         int size = hs.size();
-        hs.add(new Integer(8));
+        hs.add(Integer.valueOf(8));
         assertTrue("Added element already contained by set", hs.size() == size);
-        hs.add(new Integer(-9));
+        hs.add(Integer.valueOf(-9));
         assertTrue("Failed to increment set size after add",
                 hs.size() == size + 1);
-        assertTrue("Failed to add element to set", hs.contains(new Integer(-9)));
+        assertTrue("Failed to add element to set", hs.contains(Integer.valueOf(-9)));
     }
 
     /**
@@ -188,14 +188,14 @@ public class HashSetTest extends junit.framework.TestCase {
     public void test_removeLjava_lang_Object() {
         // Test for method boolean java.util.HashSet.remove(java.lang.Object)
         int size = hs.size();
-        hs.remove(new Integer(98));
-        assertTrue("Failed to remove element", !hs.contains(new Integer(98)));
+        hs.remove(Integer.valueOf(98));
+        assertTrue("Failed to remove element", !hs.contains(Integer.valueOf(98)));
         assertTrue("Failed to decrement set size", hs.size() == size - 1);
 
         HashSet s = new HashSet();
         s.add(null);
         assertTrue("Cannot handle null", s.remove(null));
-        assertFalse(hs.remove(new Integer(-98)));
+        assertFalse(hs.remove(Integer.valueOf(-98)));
     }
 
     /**
@@ -225,7 +225,7 @@ public class HashSetTest extends junit.framework.TestCase {
     public void test_empty_clone() throws Exception {
         HashSet<Integer> emptyHs = new HashSet<Integer>();
         HashSet<Integer> cloned = (HashSet) emptyHs.clone();
-        cloned.add(new Integer(8));
+        cloned.add(Integer.valueOf(8));
     }
 
     public void test_forEach() throws Exception {
@@ -285,7 +285,7 @@ public class HashSetTest extends junit.framework.TestCase {
     protected void setUp() {
         objArray = new Object[1000];
         for (int i = 0; i < objArray.length; i++) {
-            objArray[i] = new Integer(i);
+            objArray[i] = Integer.valueOf(i);
         }
 
         hs = new HashSet();

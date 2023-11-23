@@ -16,7 +16,7 @@
 
 package com.android.tv.settings.device.display.daydream;
 
-import static com.android.tv.settings.library.overlay.FlavorUtils.NON_X_EXPERIENCE_FLAVORS_MASK;
+import static com.android.tv.settings.overlay.FlavorUtils.NON_X_EXPERIENCE_FLAVORS_MASK;
 
 import androidx.fragment.app.Fragment;
 

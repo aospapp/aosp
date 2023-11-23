@@ -54,7 +54,7 @@ public class CharsetDecoderTest extends junit.framework.TestCase {
     public void test_ByteArray_decode_with_offset() throws Exception {
         CharsetDecoder decoder = Charset.forName("UTF-16").newDecoder();
         byte[] arr = encode("UTF-16", "Android");
-        arr = prependByteToByteArray(arr, new Integer(1).byteValue());
+        arr = prependByteToByteArray(arr, Integer.valueOf(1).byteValue());
         int offset = 1;
         ByteBuffer inBuffer = ByteBuffer.wrap(arr, offset, arr.length - offset).slice();
         CharBuffer outBuffer = CharBuffer.allocate(arr.length - offset);
@@ -70,7 +70,7 @@ public class CharsetDecoderTest extends junit.framework.TestCase {
     public void test_ByteArray_decode_with_offset_using_facade_method() throws Exception {
         CharsetDecoder decoder = Charset.forName("UTF-16").newDecoder();
         byte[] arr = encode("UTF-16", "Android");
-        arr = prependByteToByteArray(arr, new Integer(1).byteValue());
+        arr = prependByteToByteArray(arr, Integer.valueOf(1).byteValue());
         int offset = 1;
         CharBuffer outBuffer = decoder.decode(ByteBuffer.wrap(arr, offset, arr.length - offset));
         assertEquals("Android", outBuffer.toString().trim());

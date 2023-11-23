@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-#ifndef _LIBINPUT_KEY_LAYOUT_MAP_H
-#define _LIBINPUT_KEY_LAYOUT_MAP_H
+#pragma once
 
 #include <android-base/result.h>
 #include <stdint.h>
 #include <utils/Errors.h>
-#include <utils/KeyedVector.h>
-#include <utils/RefBase.h>
 #include <utils/Tokenizer.h>
+#include <set>
 
 #include <input/InputDevice.h>
 
@@ -65,25 +63,28 @@ struct AxisInfo {
  */
 class KeyLayoutMap {
 public:
-    static base::Result<std::shared_ptr<KeyLayoutMap>> load(const std::string& filename);
-    static base::Result<std::shared_ptr<KeyLayoutMap>> load(Tokenizer* tokenizer);
+    static base::Result<std::shared_ptr<KeyLayoutMap>> load(const std::string& filename,
+                                                            const char* contents = nullptr);
     static base::Result<std::shared_ptr<KeyLayoutMap>> loadContents(const std::string& filename,
                                                                     const char* contents);
 
     status_t mapKey(int32_t scanCode, int32_t usageCode,
             int32_t* outKeyCode, uint32_t* outFlags) const;
-    status_t findScanCodesForKey(int32_t keyCode, std::vector<int32_t>* outScanCodes) const;
-    status_t findScanCodeForLed(int32_t ledCode, int32_t* outScanCode) const;
-    status_t findUsageCodeForLed(int32_t ledCode, int32_t* outUsageCode) const;
+    std::vector<int32_t> findScanCodesForKey(int32_t keyCode) const;
+    std::optional<int32_t> findScanCodeForLed(int32_t ledCode) const;
+    std::vector<int32_t> findUsageCodesForKey(int32_t keyCode) const;
+    std::optional<int32_t> findUsageCodeForLed(int32_t ledCode) const;
 
-    status_t mapAxis(int32_t scanCode, AxisInfo* outAxisInfo) const;
+    std::optional<AxisInfo> mapAxis(int32_t scanCode) const;
     const std::string getLoadFileName() const;
     // Return pair of sensor type and sensor data index, for the input device abs code
-    base::Result<std::pair<InputDeviceSensorType, int32_t>> mapSensor(int32_t absCode);
+    base::Result<std::pair<InputDeviceSensorType, int32_t>> mapSensor(int32_t absCode) const;
 
     virtual ~KeyLayoutMap();
 
 private:
+    static base::Result<std::shared_ptr<KeyLayoutMap>> load(Tokenizer* tokenizer);
+
     struct Key {
         int32_t keyCode;
         uint32_t flags;
@@ -98,12 +99,13 @@ private:
         int32_t sensorDataIndex;
     };
 
-    KeyedVector<int32_t, Key> mKeysByScanCode;
-    KeyedVector<int32_t, Key> mKeysByUsageCode;
-    KeyedVector<int32_t, AxisInfo> mAxes;
-    KeyedVector<int32_t, Led> mLedsByScanCode;
-    KeyedVector<int32_t, Led> mLedsByUsageCode;
+    std::unordered_map<int32_t, Key> mKeysByScanCode;
+    std::unordered_map<int32_t, Key> mKeysByUsageCode;
+    std::unordered_map<int32_t, AxisInfo> mAxes;
+    std::unordered_map<int32_t, Led> mLedsByScanCode;
+    std::unordered_map<int32_t, Led> mLedsByUsageCode;
     std::unordered_map<int32_t, Sensor> mSensorsByAbsCode;
+    std::set<std::string> mRequiredKernelConfigs;
     std::string mLoadFileName;
 
     KeyLayoutMap();
@@ -124,9 +126,8 @@ private:
         status_t parseAxis();
         status_t parseLed();
         status_t parseSensor();
+        status_t parseRequiredKernelConfig();
     };
 };
 
 } // namespace android
-
-#endif // _LIBINPUT_KEY_LAYOUT_MAP_H

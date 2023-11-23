@@ -10,7 +10,7 @@ outdir="$1"
 pkgdir=modp-b64-0.0.1
 origtar=modp-b64_0.0.1.orig.tar.gz
 scriptdir="$( cd "$( dirname "$0" )" && pwd )"
-branch=release-R90-13816.B
+branch=release-R110-15278.B
 
 tmpdir=$(mktemp -d)
 echo Generating source package in "${tmpdir}".

@@ -23,7 +23,7 @@
  *
  ******************************************************************************/
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/logging.h>
 
 #include <cstring>
@@ -358,6 +358,7 @@ void bta_ag_rfc_do_open(tBTA_AG_SCB* p_scb, const tBTA_AG_DATA& data) {
  ******************************************************************************/
 void bta_ag_rfc_do_close(tBTA_AG_SCB* p_scb,
                          UNUSED_ATTR const tBTA_AG_DATA& data) {
+  LOG_INFO("p_scb->conn_handle: 0x%04x", p_scb->conn_handle);
   if (p_scb->conn_handle) {
     RFCOMM_RemoveConnection(p_scb->conn_handle);
   } else {

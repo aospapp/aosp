@@ -15,7 +15,6 @@
      limitations under the License.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content">
 
@@ -27,5 +26,5 @@
         android:background="@drawable/menu_item_hide_ui_background"
         android:contentDescription="@string/hide_ui_preview_text"
         android:gravity="center"
-        android:textColor="?androidprv:attr/textColorOnAccent" />
+        android:textColor="@color/text_color_on_accent" />
 </LinearLayout>

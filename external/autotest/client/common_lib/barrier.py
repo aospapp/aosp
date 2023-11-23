@@ -240,7 +240,7 @@ class barrier(object):
 
         except socket.timeout:
             # This is nominally an error, but as we do not know
-            # who that was we cannot do anything sane other
+            # who that was we cannot do anything valid other
             # than report it and let the normal timeout kill
             # us when that's appropriate.
             logging.warning("client handshake timeout: (%s:%d)",
@@ -275,7 +275,7 @@ class barrier(object):
 
         except socket.timeout:
             # This is nominally an error, but as we do not know
-            # who that was we cannot do anything sane other
+            # who that was we cannot do anything valid other
             # than report it and let the normal timeout kill
             # us when that's appropriate.
             logging.error("main handshake timeout: (%s:%d)",

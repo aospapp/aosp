@@ -24,17 +24,18 @@
 
 class Gralloc;
 
-namespace goldfish_vk {
+namespace gfxstream {
+namespace vk {
 
 uint64_t
 getAndroidHardwareBufferUsageFromVkUsage(
     const VkImageCreateFlags vk_create,
     const VkImageUsageFlags vk_usage);
 
+void updateMemoryTypeBits(uint32_t* memoryTypeBits, uint32_t colorBufferMemoryIndex);
+
 VkResult getAndroidHardwareBufferPropertiesANDROID(
     Gralloc* grallocHelper,
-    const HostVisibleMemoryVirtualizationInfo* hostMemVirtInfo,
-    VkDevice device,
     const AHardwareBuffer* buffer,
     VkAndroidHardwareBufferPropertiesANDROID* pProperties);
 
@@ -58,4 +59,5 @@ VkResult createAndroidHardwareBuffer(
     VkDeviceSize allocationInfoAllocSize,
     struct AHardwareBuffer **out);
 
-} // namespace goldfish_vk
+}  // namespace vk
+}  // namespace gfxstream

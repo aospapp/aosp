@@ -49,11 +49,3 @@ prop {
     prop_name: "debug.layout"
 }
 
-# When set to true, apps frame rate can be overridden with a non natively-supported refresh rate
-prop {
-    api_name: "debug_allow_non_native_refresh_rate_override"
-    type: Boolean
-    scope: Internal
-    access: Readonly
-    prop_name: "debug.display.allow_non_native_refresh_rate_override"
-}

@@ -26,10 +26,8 @@ use android_system_composd::aidl::android::system::composd::{
         ApexSource::ApexSource, BnIsolatedCompilationService, IIsolatedCompilationService,
     },
 };
-use android_system_composd::binder::{
-    self, BinderFeatures, ExceptionCode, Interface, Status, Strong, ThreadState,
-};
 use anyhow::{Context, Result};
+use binder::{self, BinderFeatures, ExceptionCode, Interface, Status, Strong, ThreadState};
 use compos_aidl_interface::aidl::com::android::compos::ICompOsService::CompilationMode::CompilationMode;
 use compos_common::binder::to_binder_result;
 use compos_common::odrefresh::{PENDING_ARTIFACTS_SUBDIR, TEST_ARTIFACTS_SUBDIR};

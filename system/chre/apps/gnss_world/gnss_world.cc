@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <chre.h>
 #include <cinttypes>
 
 #include "chre/util/macros.h"
 #include "chre/util/nanoapp/log.h"
 #include "chre/util/time.h"
+#include "chre_api/chre.h"
 
 #define LOG_TAG "[GnssWorld]"
 

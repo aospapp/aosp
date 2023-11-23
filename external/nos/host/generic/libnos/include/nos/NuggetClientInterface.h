@@ -58,6 +58,23 @@ public:
     virtual uint32_t CallApp(uint32_t appId, uint16_t arg,
                              const std::vector<uint8_t>& request,
                              std::vector<uint8_t>* response) = 0;
+
+    /**
+     * Call into an app running on Nugget.
+     *
+     * @param app_id   The ID of the app to call.
+     * @param arg      Argument to pass to the app.
+     * @param req_ptr  Data to send to the app.
+     * @param req_len  Number of bytes to send to the app.
+     * @param resp_ptr Buffer to receive data from the app.
+     * @param resp_len In: Max number of bytes to receive from the app.
+     *                 Out: Actual number of bytes received from the app.
+     * @return         Status code from the app.
+     */
+    virtual uint32_t CallApp(uint32_t appId, uint16_t arg, const void* req_ptr,
+                             uint32_t req_len, void* resp_ptr,
+                             uint32_t* resp_len) = 0;
+
     /**
      * Reset the device. Use with caution; context may be lost.
      */

@@ -34,5 +34,5 @@ class firmware_ECAdc(FirmwareTest):
             raise error.TestNAError("Nothing needs to be tested on this device")
         logging.info("Reading EC internal temperature for %d times.",
                      self.READ_COUNT)
-        for _ in xrange(self.READ_COUNT):
+        for _ in range(self.READ_COUNT):
             self._check_read()

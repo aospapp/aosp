@@ -192,7 +192,12 @@ public class TimeConsumingPreferenceActivity extends PreferenceActivity
         if (mIsForeground) {
             showDialog(error);
         }
-        preference.setEnabled(false);
+
+        //If the error is due to RESPONSE_ERROR, do not disable the item so end user
+        //can continue to interact with it.
+        if (error != RESPONSE_ERROR) {
+            preference.setEnabled(false);
+        }
     }
 
     @Override

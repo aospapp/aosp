@@ -1,0 +1,101 @@
+From b81e3bd53bb4c60e6a778fa230cb8fd2a73b3683 Mon Sep 17 00:00:00 2001
+From: David LeGare <legare@google.com>
+Date: Wed, 22 Jun 2022 18:39:50 +0000
+Subject: [PATCH] Add support for the Trusty OS
+
+Change-Id: I7f99f36b85ff5ed2bf71c0d8f6561e32fa25105d
+---
+ src/lib.rs    |  6 +++++
+ src/trusty.rs | 63 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 69 insertions(+)
+ create mode 100644 src/trusty.rs
+
+diff --git a/src/lib.rs b/src/lib.rs
+index ac86322b..cf307958 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -145,6 +145,12 @@ cfg_if! {
+ 
+         mod hermit;
+         pub use hermit::*;
++    } else if #[cfg(target_os = "trusty")] {
++        mod fixed_width_ints;
++        pub use fixed_width_ints::*;
++
++        mod trusty;
++        pub use trusty::*;
+     } else if #[cfg(all(target_env = "sgx", target_vendor = "fortanix"))] {
+         mod fixed_width_ints;
+         pub use fixed_width_ints::*;
+diff --git a/src/trusty.rs b/src/trusty.rs
+new file mode 100644
+index 00000000..c7e4e4fa
+--- /dev/null
++++ b/src/trusty.rs
+@@ -0,0 +1,63 @@
++pub use core::ffi::c_void;
++
++pub type size_t = usize;
++pub type ssize_t = isize;
++
++#[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
++pub type c_char = u8;
++#[cfg(target_arch = "x86_64")]
++pub type c_char = i8;
++
++pub type c_schar = i8;
++pub type c_uchar = u8;
++pub type c_short = i16;
++pub type c_ushort = u16;
++pub type c_int = i32;
++pub type c_uint = u32;
++
++#[cfg(target_pointer_width = "32")]
++pub type c_long = i32;
++#[cfg(target_pointer_width = "64")]
++pub type c_long = i64;
++
++#[cfg(target_pointer_width = "32")]
++pub type c_ulong = u32;
++#[cfg(target_pointer_width = "64")]
++pub type c_ulong = u64;
++
++pub type c_longlong = i64;
++pub type c_ulonglong = u64;
++
++pub type c_uint8_t = u8;
++pub type c_uint16_t = u16;
++pub type c_uint32_t = u32;
++pub type c_uint64_t = u64;
++
++pub type c_int8_t = i8;
++pub type c_int16_t = i16;
++pub type c_int32_t = i32;
++pub type c_int64_t = i64;
++
++pub type time_t = c_long;
++
++pub const STDOUT_FILENO: ::c_int = 1;
++pub const STDERR_FILENO: ::c_int = 2;
++
++extern "C" {
++    pub fn calloc(nobj: size_t, size: size_t) -> *mut c_void;
++    pub fn malloc(size: size_t) -> *mut c_void;
++    pub fn realloc(p: *mut c_void, size: size_t) -> *mut c_void;
++    pub fn free(p: *mut c_void);
++    pub fn memalign(align: ::size_t, size: ::size_t) -> *mut ::c_void;
++    pub fn posix_memalign(memptr: *mut *mut ::c_void, align: ::size_t, size: ::size_t) -> ::c_int;
++    pub fn write(fd: ::c_int, buf: *const ::c_void, count: ::size_t) -> ::ssize_t;
++    pub fn writev(fd: ::c_int, iov: *const ::iovec, iovcnt: ::c_int) -> ::ssize_t;
++    pub fn strlen(cs: *const c_char) -> size_t;
++}
++
++s! {
++    pub struct iovec {
++        pub iov_base: *mut ::c_void,
++        pub iov_len: ::size_t,
++    }
++}
+-- 
+2.37.0.rc0.104.g0611611a94-goog
+

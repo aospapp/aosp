@@ -10,4 +10,5 @@ package {
 java_library_host {
     name: "auto_android_annotation_stubs",
     srcs: ["src/**/*.java"],
+    visibility: ["//visibility:public"],
 }

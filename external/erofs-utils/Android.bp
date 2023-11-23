@@ -57,6 +57,7 @@ cc_defaults {
     cflags: [
         "-Wall",
         "-Werror",
+        "-Wno-error=#warnings",
         "-Wno-ignored-qualifiers",
         "-Wno-pointer-arith",
         "-Wno-unused-parameter",
@@ -68,6 +69,10 @@ cc_defaults {
         "-DLZ4_ENABLED",
         "-DLZ4HC_ENABLED",
         "-DWITH_ANDROID",
+        "-DHAVE_MEMRCHR",
+        "-DHAVE_SYS_IOCTL_H",
+        "-DHAVE_LLISTXATTR",
+        "-DHAVE_LGETXATTR",
     ],
 }
 
@@ -144,6 +149,7 @@ cc_binary_host {
     name: "make_erofs",
 
     defaults: ["mkfs-erofs_defaults"],
+    stl: "libc++_static"
 }
 
 cc_binary {

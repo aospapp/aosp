@@ -116,7 +116,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 	})
 
 	var metadataOutputs android.Paths
-	for _, name := range android.SortedStringKeys(moduleInfos) {
+	for _, name := range android.SortedKeys(moduleInfos) {
 		info := moduleInfos[name]
 		metadataPath := android.PathForModuleOut(ctx, "metadata_"+name)
 		metadataOutputs = append(metadataOutputs, metadataPath)

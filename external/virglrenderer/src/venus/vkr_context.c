@@ -5,10 +5,16 @@
 
 #include "vkr_context.h"
 
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "pipe/p_state.h"
+#include "util/anon_file.h"
 #include "venus-protocol/vn_protocol_renderer_dispatches.h"
-#include "virgl_protocol.h" /* for transfer_mode */
-#include "vrend_iov.h"
+
+#define XXH_INLINE_ALL
+#include "util/xxhash.h"
 
 #include "vkr_buffer.h"
 #include "vkr_command_buffer.h"
@@ -114,28 +120,65 @@ vkr_context_init_dispatch(struct vkr_context *ctx)
    vkr_context_init_command_buffer_dispatch(ctx);
 }
 
+static struct vkr_cpu_sync *
+vkr_alloc_cpu_sync(uint32_t flags, uint32_t ring_idx, uint64_t fence_id)
+{
+   struct vkr_cpu_sync *sync;
+   sync = malloc(sizeof(*sync));
+   if (!sync)
+      return NULL;
+
+   sync->flags = flags;
+   sync->fence_id = fence_id;
+   sync->ring_idx = ring_idx;
+   list_inithead(&sync->head);
+
+   return sync;
+}
+
 static int
 vkr_context_submit_fence_locked(struct virgl_context *base,
                                 uint32_t flags,
-                                uint64_t queue_id,
-                                void *fence_cookie)
+                                uint32_t ring_idx,
+                                uint64_t fence_id)
 {
    struct vkr_context *ctx = (struct vkr_context *)base;
-   struct vkr_queue *queue;
    VkResult result;
 
-   queue = util_hash_table_get_u64(ctx->object_table, queue_id);
-   if (!queue)
+   if (ring_idx >= ARRAY_SIZE(ctx->sync_queues)) {
+      vkr_log("invalid sync ring_idx %u", ring_idx);
       return -EINVAL;
+   }
+
+   if (ring_idx == 0) {
+      if (vkr_renderer_flags & VKR_RENDERER_ASYNC_FENCE_CB) {
+         ctx->base.fence_retire(&ctx->base, ring_idx, fence_id);
+      } else {
+         struct vkr_cpu_sync *sync = vkr_alloc_cpu_sync(flags, ring_idx, fence_id);
+         if (!sync)
+            return -ENOMEM;
+
+         list_addtail(&sync->head, &ctx->signaled_cpu_syncs);
+      }
+      return 0;
+   } else if (!ctx->sync_queues[ring_idx]) {
+      vkr_log("invalid ring_idx %u", ring_idx);
+      return -EINVAL;
+   }
+
+   struct vkr_queue *queue = ctx->sync_queues[ring_idx];
    struct vkr_device *dev = queue->device;
+   struct vn_device_proc_table *vk = &dev->proc_table;
 
    struct vkr_queue_sync *sync =
-      vkr_device_alloc_queue_sync(dev, flags, queue->base.id, fence_cookie);
+      vkr_device_alloc_queue_sync(dev, flags, ring_idx, fence_id);
    if (!sync)
       return -ENOMEM;
 
-   result = vkQueueSubmit(queue->base.handle.queue, 0, NULL, sync->fence);
-   if (result != VK_SUCCESS) {
+   result = vk->QueueSubmit(queue->base.handle.queue, 0, NULL, sync->fence);
+   if (result == VK_ERROR_DEVICE_LOST) {
+      sync->device_lost = true;
+   } else if (result != VK_SUCCESS) {
       vkr_device_free_queue_sync(dev, sync);
       return -1;
    }
@@ -158,14 +201,18 @@ vkr_context_submit_fence_locked(struct virgl_context *base,
 static int
 vkr_context_submit_fence(struct virgl_context *base,
                          uint32_t flags,
-                         uint64_t queue_id,
-                         void *fence_cookie)
+                         uint32_t ring_idx,
+                         uint64_t fence_id)
 {
    struct vkr_context *ctx = (struct vkr_context *)base;
    int ret;
 
+   /* always merge fences */
+   assert(!(flags & ~VIRGL_RENDERER_FENCE_FLAG_MERGEABLE));
+   flags = VIRGL_RENDERER_FENCE_FLAG_MERGEABLE;
+
    mtx_lock(&ctx->mutex);
-   ret = vkr_context_submit_fence_locked(base, flags, queue_id, fence_cookie);
+   ret = vkr_context_submit_fence_locked(base, flags, ring_idx, fence_id);
    mtx_unlock(&ctx->mutex);
    return ret;
 }
@@ -181,11 +228,19 @@ vkr_context_retire_fences_locked(struct virgl_context *base)
 
    /* retire syncs from destroyed devices */
    LIST_FOR_EACH_ENTRY_SAFE (sync, sync_tmp, &ctx->signaled_syncs, head) {
-      /* queue_id might have already get reused but is opaque to the clients */
-      ctx->base.fence_retire(&ctx->base, sync->queue_id, sync->fence_cookie);
+      /* ring_idx might have already get reused but is opaque to the clients */
+      ctx->base.fence_retire(&ctx->base, sync->ring_idx, sync->fence_id);
       free(sync);
    }
    list_inithead(&ctx->signaled_syncs);
+
+   /* retire syncs from CPU timeline */
+   struct vkr_cpu_sync *cpu_sync, *cpu_sync_tmp;
+   LIST_FOR_EACH_ENTRY_SAFE (cpu_sync, cpu_sync_tmp, &ctx->signaled_cpu_syncs, head) {
+      ctx->base.fence_retire(&ctx->base, cpu_sync->ring_idx, cpu_sync->fence_id);
+      free(cpu_sync);
+   }
+   list_inithead(&ctx->signaled_cpu_syncs);
 
    /* flush first and once because the per-queue sync threads might write to
     * it any time
@@ -201,7 +256,7 @@ vkr_context_retire_fences_locked(struct virgl_context *base)
       vkr_queue_get_signaled_syncs(queue, &retired_syncs, &queue_empty);
 
       LIST_FOR_EACH_ENTRY_SAFE (sync, sync_tmp, &retired_syncs, head) {
-         ctx->base.fence_retire(&ctx->base, sync->queue_id, sync->fence_cookie);
+         ctx->base.fence_retire(&ctx->base, sync->ring_idx, sync->fence_id);
          vkr_device_free_queue_sync(dev, sync);
       }
 
@@ -241,7 +296,7 @@ vkr_context_submit_cmd(struct virgl_context *base, const void *buffer, size_t si
    /* CS error is considered fatal (destroy the context?) */
    if (vkr_cs_decoder_get_fatal(&ctx->decoder)) {
       mtx_unlock(&ctx->mutex);
-      return EINVAL;
+      return -EINVAL;
    }
 
    vkr_cs_decoder_set_stream(&ctx->decoder, buffer, size);
@@ -249,7 +304,7 @@ vkr_context_submit_cmd(struct virgl_context *base, const void *buffer, size_t si
    while (vkr_cs_decoder_has_command(&ctx->decoder)) {
       vn_dispatch_command(&ctx->dispatch);
       if (vkr_cs_decoder_get_fatal(&ctx->decoder)) {
-         ret = EINVAL;
+         ret = -EINVAL;
          break;
       }
    }
@@ -264,35 +319,52 @@ vkr_context_submit_cmd(struct virgl_context *base, const void *buffer, size_t si
 static int
 vkr_context_get_blob_locked(struct virgl_context *base,
                             uint64_t blob_id,
+                            uint64_t blob_size,
                             uint32_t flags,
                             struct virgl_context_blob *blob)
 {
    struct vkr_context *ctx = (struct vkr_context *)base;
    struct vkr_device_memory *mem;
    enum virgl_resource_fd_type fd_type = VIRGL_RESOURCE_FD_INVALID;
+   int fd = -1;
 
-   mem = util_hash_table_get_u64(ctx->object_table, blob_id);
+   /* blob_id == 0 does not refer to an existing VkDeviceMemory, but implies a
+    * shm allocation.  It serves a similar purpose as iov does, but it is
+    * logically contiguous and it can be exported.
+    */
+   if (!blob_id && flags == VIRGL_RENDERER_BLOB_FLAG_USE_MAPPABLE) {
+      fd = os_create_anonymous_file(blob_size, "vkr-shmem");
+      if (fd < 0)
+         return -ENOMEM;
+
+      blob->type = VIRGL_RESOURCE_FD_SHM;
+      blob->u.fd = fd;
+      blob->map_info = VIRGL_RENDERER_MAP_CACHE_CACHED;
+      return 0;
+   }
+
+   mem = vkr_context_get_object(ctx, blob_id);
    if (!mem || mem->base.type != VK_OBJECT_TYPE_DEVICE_MEMORY)
-      return EINVAL;
+      return -EINVAL;
 
    /* a memory can only be exported once; we don't want two resources to point
     * to the same storage.
     */
    if (mem->exported)
-      return EINVAL;
+      return -EINVAL;
 
    if (!mem->valid_fd_types)
-      return EINVAL;
+      return -EINVAL;
 
    if (flags & VIRGL_RENDERER_BLOB_FLAG_USE_MAPPABLE) {
       const bool host_visible = mem->property_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
       if (!host_visible)
-         return EINVAL;
+         return -EINVAL;
    }
 
    if (flags & VIRGL_RENDERER_BLOB_FLAG_USE_CROSS_DEVICE) {
       if (!(mem->valid_fd_types & (1 << VIRGL_RESOURCE_FD_DMABUF)))
-         return EINVAL;
+         return -EINVAL;
 
       fd_type = VIRGL_RESOURCE_FD_DMABUF;
    }
@@ -305,30 +377,39 @@ vkr_context_get_blob_locked(struct virgl_context *base,
          fd_type = VIRGL_RESOURCE_FD_OPAQUE;
    }
 
-   int fd = -1;
    if (fd_type != VIRGL_RESOURCE_FD_INVALID) {
       VkExternalMemoryHandleTypeFlagBits handle_type;
+      int ret;
+
       switch (fd_type) {
       case VIRGL_RESOURCE_FD_DMABUF:
          handle_type = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
          break;
       case VIRGL_RESOURCE_FD_OPAQUE:
          handle_type = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
+         assert(sizeof(blob->opaque_fd_metadata.driver_uuid) == VK_UUID_SIZE);
+         memcpy(blob->opaque_fd_metadata.driver_uuid,
+                mem->device->physical_device->id_properties.driverUUID, VK_UUID_SIZE);
+         memcpy(blob->opaque_fd_metadata.device_uuid,
+                mem->device->physical_device->id_properties.deviceUUID, VK_UUID_SIZE);
+         blob->opaque_fd_metadata.allocation_size = mem->allocation_size;
+         blob->opaque_fd_metadata.memory_type_index = mem->memory_type_index;
          break;
       default:
-         return EINVAL;
+         return -EINVAL;
       }
 
-      VkResult result = ctx->instance->get_memory_fd(
-         mem->device,
-         &(VkMemoryGetFdInfoKHR){
-            .sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
-            .memory = mem->base.handle.device_memory,
-            .handleType = handle_type,
-         },
-         &fd);
-      if (result != VK_SUCCESS)
-         return EINVAL;
+      ret = vkr_device_memory_export_fd(mem, handle_type, &fd);
+      if (ret)
+         return ret;
+
+      if (fd_type == VIRGL_RESOURCE_FD_DMABUF &&
+          (uint64_t)lseek(fd, 0, SEEK_END) < blob_size) {
+         close(fd);
+         return -EINVAL;
+      }
+
+      mem->exported = true;
    }
 
    blob->type = fd_type;
@@ -350,14 +431,14 @@ vkr_context_get_blob_locked(struct virgl_context *base,
       blob->map_info = VIRGL_RENDERER_MAP_CACHE_NONE;
    }
 
-   blob->renderer_data = mem;
-
    return 0;
 }
 
 static int
 vkr_context_get_blob(struct virgl_context *base,
+                     UNUSED uint32_t res_id,
                      uint64_t blob_id,
+                     uint64_t blob_size,
                      uint32_t flags,
                      struct virgl_context_blob *blob)
 {
@@ -365,109 +446,22 @@ vkr_context_get_blob(struct virgl_context *base,
    int ret;
 
    mtx_lock(&ctx->mutex);
-   ret = vkr_context_get_blob_locked(base, blob_id, flags, blob);
-   /* XXX unlock in vkr_context_get_blob_done on success */
-   if (ret)
-      mtx_unlock(&ctx->mutex);
+   ret = vkr_context_get_blob_locked(base, blob_id, blob_size, flags, blob);
+   mtx_unlock(&ctx->mutex);
 
    return ret;
-}
-
-static void
-vkr_context_get_blob_done(struct virgl_context *base,
-                          uint32_t res_id,
-                          struct virgl_context_blob *blob)
-{
-   struct vkr_context *ctx = (struct vkr_context *)base;
-   struct vkr_device_memory *mem = blob->renderer_data;
-
-   mem->exported = true;
-   mem->exported_res_id = res_id;
-   list_add(&mem->exported_head, &ctx->newly_exported_memories);
-
-   /* XXX locked in vkr_context_get_blob */
-   mtx_unlock(&ctx->mutex);
-}
-
-static int
-vkr_context_transfer_3d_locked(struct virgl_context *base,
-                               struct virgl_resource *res,
-                               const struct vrend_transfer_info *info,
-                               int transfer_mode)
-{
-   struct vkr_context *ctx = (struct vkr_context *)base;
-   struct vkr_resource_attachment *att;
-   const struct iovec *iov;
-   int iov_count;
-
-   if (info->level || info->stride || info->layer_stride)
-      return EINVAL;
-
-   if (info->iovec) {
-      iov = info->iovec;
-      iov_count = info->iovec_cnt;
-   } else {
-      iov = res->iov;
-      iov_count = res->iov_count;
-   }
-
-   if (!iov || !iov_count)
-      return 0;
-
-   att = util_hash_table_get(ctx->resource_table, uintptr_to_pointer(res->res_id));
-   if (!att)
-      return EINVAL;
-
-   assert(att->resource == res);
-
-   /* TODO transfer via dmabuf (and find a solution to coherency issues) */
-   if (LIST_IS_EMPTY(&att->memories)) {
-      vkr_log("unable to transfer without VkDeviceMemory (TODO)");
-      return EINVAL;
-   }
-
-   struct vkr_device_memory *mem =
-      LIST_ENTRY(struct vkr_device_memory, att->memories.next, exported_head);
-   const VkMappedMemoryRange range = {
-      .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
-      .memory = mem->base.handle.device_memory,
-      .offset = info->box->x,
-      .size = info->box->width,
-   };
-
-   void *ptr;
-   VkResult result =
-      vkMapMemory(mem->device, range.memory, range.offset, range.size, 0, &ptr);
-   if (result != VK_SUCCESS)
-      return EINVAL;
-
-   if (transfer_mode == VIRGL_TRANSFER_TO_HOST) {
-      vrend_read_from_iovec(iov, iov_count, range.offset, ptr, range.size);
-      vkFlushMappedMemoryRanges(mem->device, 1, &range);
-   } else {
-      vkInvalidateMappedMemoryRanges(mem->device, 1, &range);
-      vrend_write_to_iovec(iov, iov_count, range.offset, ptr, range.size);
-   }
-
-   vkUnmapMemory(mem->device, range.memory);
-
-   return 0;
 }
 
 static int
 vkr_context_transfer_3d(struct virgl_context *base,
                         struct virgl_resource *res,
-                        const struct vrend_transfer_info *info,
-                        int transfer_mode)
+                        UNUSED const struct vrend_transfer_info *info,
+                        UNUSED int transfer_mode)
 {
    struct vkr_context *ctx = (struct vkr_context *)base;
-   int ret;
 
-   mtx_lock(&ctx->mutex);
-   ret = vkr_context_transfer_3d_locked(base, res, info, transfer_mode);
-   mtx_unlock(&ctx->mutex);
-
-   return ret;
+   vkr_log("no transfer support for ctx %d and res %d", ctx->base.ctx_id, res->res_id);
+   return -1;
 }
 
 static void
@@ -476,7 +470,7 @@ vkr_context_attach_resource_locked(struct virgl_context *base, struct virgl_reso
    struct vkr_context *ctx = (struct vkr_context *)base;
    struct vkr_resource_attachment *att;
 
-   att = util_hash_table_get(ctx->resource_table, uintptr_to_pointer(res->res_id));
+   att = vkr_context_get_resource(ctx, res->res_id);
    if (att) {
       assert(att->resource == res);
       return;
@@ -486,27 +480,29 @@ vkr_context_attach_resource_locked(struct virgl_context *base, struct virgl_reso
    if (!att)
       return;
 
-   /* TODO When in multi-process mode, we cannot share a virgl_resource as-is
-    * to another process.  The resource must have a valid fd, and only the fd
-    * and the iov can be sent the other process.
-    *
-    * For vrend-to-vkr sharing, we can get the fd from pipe_resource.
-    */
-
-   att->resource = res;
-   list_inithead(&att->memories);
-
-   /* associate a memory with the resource, if any */
-   struct vkr_device_memory *mem;
-   LIST_FOR_EACH_ENTRY (mem, &ctx->newly_exported_memories, exported_head) {
-      if (mem->exported_res_id == res->res_id) {
-         list_del(&mem->exported_head);
-         list_addtail(&mem->exported_head, &att->memories);
-         break;
+   void *mmap_ptr = NULL;
+   if (res->fd_type == VIRGL_RESOURCE_FD_SHM) {
+      mmap_ptr =
+         mmap(NULL, res->map_size, PROT_WRITE | PROT_READ, MAP_SHARED, res->fd, 0);
+      if (mmap_ptr == MAP_FAILED) {
+         free(att);
+         return;
       }
    }
 
-   util_hash_table_set(ctx->resource_table, uintptr_to_pointer(res->res_id), att);
+   att->resource = res;
+
+   if (mmap_ptr) {
+      att->shm_iov.iov_base = mmap_ptr;
+      att->shm_iov.iov_len = res->map_size;
+      att->iov = &att->shm_iov;
+      att->iov_count = 1;
+   } else {
+      att->iov = res->iov;
+      att->iov_count = res->iov_count;
+   }
+
+   vkr_context_add_resource(ctx, att);
 }
 
 static void
@@ -524,7 +520,38 @@ vkr_context_detach_resource(struct virgl_context *base, struct virgl_resource *r
    struct vkr_context *ctx = (struct vkr_context *)base;
 
    mtx_lock(&ctx->mutex);
-   util_hash_table_remove(ctx->resource_table, uintptr_to_pointer(res->res_id));
+
+   const struct vkr_resource_attachment *att = ctx->encoder.stream.attachment;
+   if (att && att->resource == res) {
+      /* TODO vkSetReplyCommandStreamMESA should support res_id 0 to unset.
+       * Until then, and until we can ignore older guests, treat this as
+       * non-fatal
+       */
+      vkr_cs_encoder_set_stream(&ctx->encoder, NULL, 0, 0);
+   }
+
+   struct vkr_ring *ring, *ring_tmp;
+   LIST_FOR_EACH_ENTRY_SAFE (ring, ring_tmp, &ctx->rings, head) {
+      if (ring->attachment->resource != res)
+         continue;
+
+      vkr_cs_decoder_set_fatal(&ctx->decoder);
+      mtx_unlock(&ctx->mutex);
+
+      vkr_ring_stop(ring);
+
+      mtx_lock(&ctx->mutex);
+      vkr_ring_destroy(ring);
+   }
+
+   if (res->fd_type == VIRGL_RESOURCE_FD_SHM) {
+      struct vkr_resource_attachment *att = vkr_context_get_resource(ctx, res->res_id);
+      if (att)
+         munmap(att->shm_iov.iov_base, att->shm_iov.iov_len);
+   }
+
+   vkr_context_remove_resource(ctx, res->res_id);
+
    mtx_unlock(&ctx->mutex);
 }
 
@@ -549,12 +576,16 @@ vkr_context_destroy(struct virgl_context *base)
       vkr_instance_destroy(ctx, ctx->instance);
    }
 
-   util_hash_table_destroy(ctx->resource_table);
-   util_hash_table_destroy_u64(ctx->object_table);
+   _mesa_hash_table_destroy(ctx->resource_table, vkr_context_free_resource);
+   _mesa_hash_table_destroy(ctx->object_table, vkr_context_free_object);
 
    struct vkr_queue_sync *sync, *tmp;
    LIST_FOR_EACH_ENTRY_SAFE (sync, tmp, &ctx->signaled_syncs, head)
       free(sync);
+
+   struct vkr_queue_sync *cpu_sync, *cpu_sync_tmp;
+   LIST_FOR_EACH_ENTRY_SAFE (cpu_sync, cpu_sync_tmp, &ctx->signaled_cpu_syncs, head)
+      free(cpu_sync);
 
    if (ctx->fence_eventfd >= 0)
       close(ctx->fence_eventfd);
@@ -574,7 +605,6 @@ vkr_context_init_base(struct vkr_context *ctx)
    ctx->base.detach_resource = vkr_context_detach_resource;
    ctx->base.transfer_3d = vkr_context_transfer_3d;
    ctx->base.get_blob = vkr_context_get_blob;
-   ctx->base.get_blob_done = vkr_context_get_blob_done;
    ctx->base.submit_cmd = vkr_context_submit_cmd;
 
    ctx->base.get_fencing_fd = vkr_context_get_fencing_fd;
@@ -582,22 +612,29 @@ vkr_context_init_base(struct vkr_context *ctx)
    ctx->base.submit_fence = vkr_context_submit_fence;
 }
 
-static void
-destroy_func_object(void *val)
+static uint32_t
+vkr_hash_u64(const void *key)
 {
-   struct vkr_object *obj = val;
+   return XXH32(key, sizeof(uint64_t), 0);
+}
+
+static bool
+vkr_key_u64_equal(const void *key1, const void *key2)
+{
+   return *(const uint64_t *)key1 == *(const uint64_t *)key2;
+}
+
+void
+vkr_context_free_object(struct hash_entry *entry)
+{
+   struct vkr_object *obj = entry->data;
    free(obj);
 }
 
-static void
-destroy_func_resource(void *val)
+void
+vkr_context_free_resource(struct hash_entry *entry)
 {
-   struct vkr_resource_attachment *att = val;
-   struct vkr_device_memory *mem, *tmp;
-
-   LIST_FOR_EACH_ENTRY_SAFE (mem, tmp, &att->memories, exported_head)
-      list_delinit(&mem->exported_head);
-
+   struct vkr_resource_attachment *att = entry->data;
    free(att);
 }
 
@@ -606,17 +643,13 @@ vkr_context_create(size_t debug_len, const char *debug_name)
 {
    struct vkr_context *ctx;
 
-   /* TODO inject a proxy context when multi-process */
-
    ctx = calloc(1, sizeof(*ctx));
    if (!ctx)
       return NULL;
 
    ctx->debug_name = malloc(debug_len + 1);
-   if (!ctx->debug_name) {
-      free(ctx);
-      return NULL;
-   }
+   if (!ctx->debug_name)
+      goto err_debug_name;
 
    memcpy(ctx->debug_name, debug_name, debug_len);
    ctx->debug_name[debug_len] = '\0';
@@ -631,21 +664,17 @@ vkr_context_create(size_t debug_len, const char *debug_name)
    if (VKR_DEBUG(VALIDATE))
       ctx->validate_level = VKR_CONTEXT_VALIDATE_FULL;
 
-   if (mtx_init(&ctx->mutex, mtx_plain) != thrd_success) {
-      free(ctx->debug_name);
-      free(ctx);
-      return NULL;
-   }
+   if (mtx_init(&ctx->mutex, mtx_plain) != thrd_success)
+      goto err_mtx_init;
 
-   list_inithead(&ctx->rings);
+   ctx->object_table = _mesa_hash_table_create(NULL, vkr_hash_u64, vkr_key_u64_equal);
+   if (!ctx->object_table)
+      goto err_ctx_object_table;
 
-   ctx->object_table = util_hash_table_create_u64(destroy_func_object);
    ctx->resource_table =
-      util_hash_table_create(hash_func_u32, compare_func, destroy_func_resource);
-   if (!ctx->object_table || !ctx->resource_table)
-      goto fail;
-
-   list_inithead(&ctx->newly_exported_memories);
+      _mesa_hash_table_create(NULL, _mesa_hash_u32, _mesa_key_u32_equal);
+   if (!ctx->resource_table)
+      goto err_ctx_resource_table;
 
    vkr_cs_decoder_init(&ctx->decoder, ctx->object_table);
    vkr_cs_encoder_init(&ctx->encoder, &ctx->decoder.fatal_error);
@@ -657,23 +686,27 @@ vkr_context_create(size_t debug_len, const char *debug_name)
        !(vkr_renderer_flags & VKR_RENDERER_ASYNC_FENCE_CB)) {
       ctx->fence_eventfd = create_eventfd(0);
       if (ctx->fence_eventfd < 0)
-         goto fail;
+         goto err_eventfd;
    } else {
       ctx->fence_eventfd = -1;
    }
 
+   list_inithead(&ctx->rings);
    list_inithead(&ctx->busy_queues);
    list_inithead(&ctx->signaled_syncs);
+   list_inithead(&ctx->signaled_cpu_syncs);
 
    return &ctx->base;
 
-fail:
-   if (ctx->object_table)
-      util_hash_table_destroy_u64(ctx->object_table);
-   if (ctx->resource_table)
-      util_hash_table_destroy(ctx->resource_table);
+err_eventfd:
+   _mesa_hash_table_destroy(ctx->resource_table, vkr_context_free_resource);
+err_ctx_resource_table:
+   _mesa_hash_table_destroy(ctx->object_table, vkr_context_free_object);
+err_ctx_object_table:
    mtx_destroy(&ctx->mutex);
+err_mtx_init:
    free(ctx->debug_name);
+err_debug_name:
    free(ctx);
    return NULL;
 }

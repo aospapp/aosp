@@ -212,12 +212,6 @@ bool PairingServerImpl::setupServer() {
     if (server_fd_.get() == -1) {
         PLOG(ERROR) << "Failed to start pairing connection server";
         return false;
-    } else if (fcntl(server_fd_.get(), F_SETFD, FD_CLOEXEC) != 0) {
-        PLOG(ERROR) << "Failed to make server socket cloexec";
-        return false;
-    } else if (fcntl(server_fd_.get(), F_SETFD, O_NONBLOCK) != 0) {
-        PLOG(ERROR) << "Failed to make server socket nonblocking";
-        return false;
     }
 
     startConnectionEventsThread();

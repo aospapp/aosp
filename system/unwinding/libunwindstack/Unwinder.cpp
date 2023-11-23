@@ -25,10 +25,12 @@
 
 #include <algorithm>
 #include <memory>
+#include <string>
 
 #include <android-base/file.h>
 #include <android-base/stringprintf.h>
 
+#include <unwindstack/Demangle.h>
 #include <unwindstack/DexFiles.h>
 #include <unwindstack/Elf.h>
 #include <unwindstack/JitDebug.h>
@@ -38,9 +40,6 @@
 #include <unwindstack/Unwinder.h>
 
 #include "Check.h"
-
-// Use the demangler from libc++.
-extern "C" char* __cxa_demangle(const char*, char*, size_t*, int* status);
 
 namespace unwindstack {
 
@@ -326,15 +325,7 @@ std::string Unwinder::FormatFrame(ArchEnum arch, const FrameData& frame, bool di
   }
 
   if (!frame.function_name.empty()) {
-    char* demangled_name = __cxa_demangle(frame.function_name.c_str(), nullptr, nullptr, nullptr);
-    if (demangled_name == nullptr) {
-      data += " (";
-      data += frame.function_name;
-    } else {
-      data += " (";
-      data += demangled_name;
-      free(demangled_name);
-    }
+    data += " (" + DemangleNameIfNeeded(frame.function_name);
     if (frame.function_offset != 0) {
       data += android::base::StringPrintf("+%" PRId64, frame.function_offset);
     }

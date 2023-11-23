@@ -26,12 +26,13 @@
 
 #include "common/libs/fs/shared_fd.h"
 #include "common/libs/utils/tee_logging.h"
+#include "host/commands/assemble_cvd/flags_defaults.h"
 #include "host/commands/kernel_log_monitor/kernel_log_server.h"
 #include "host/commands/kernel_log_monitor/utils.h"
 #include "host/commands/run_cvd/runner_defs.h"
 #include "host/libs/config/feature.h"
 
-DEFINE_int32(reboot_notification_fd, -1,
+DEFINE_int32(reboot_notification_fd, CF_DEFAULTS_REBOOT_NOTIFICATION_FD,
              "A file descriptor to notify when boot completes.");
 
 namespace cuttlefish {
@@ -111,7 +112,9 @@ SharedFD DaemonizeLauncher(const CuttlefishConfig& config) {
 
 class ProcessLeader : public SetupFeature {
  public:
-  INJECT(ProcessLeader(const CuttlefishConfig& config)) : config_(config) {}
+  INJECT(ProcessLeader(const CuttlefishConfig& config,
+                       const CuttlefishConfig::InstanceSpecific& instance))
+      : config_(config), instance_(instance) {}
 
   SharedFD ForegroundLauncherPipe() { return foreground_launcher_pipe_; }
 
@@ -125,7 +128,7 @@ class ProcessLeader : public SetupFeature {
     /* These two paths result in pretty different process state, but both
      * achieve the same goal of making the current process the leader of a
      * process group, and are therefore grouped together. */
-    if (config_.run_as_daemon()) {
+    if (instance_.run_as_daemon()) {
       foreground_launcher_pipe_ = DaemonizeLauncher(config_);
       if (!foreground_launcher_pipe_->IsOpen()) {
         return false;
@@ -145,13 +148,14 @@ class ProcessLeader : public SetupFeature {
   }
 
   const CuttlefishConfig& config_;
+  const CuttlefishConfig::InstanceSpecific& instance_;
   SharedFD foreground_launcher_pipe_;
 };
 
 // Maintains the state of the boot process, once a final state is reached
 // (success or failure) it sends the appropriate exit code to the foreground
 // launcher process
-class CvdBootStateMachine : public SetupFeature {
+class CvdBootStateMachine : public SetupFeature, public KernelLogPipeConsumer {
  public:
   INJECT(CvdBootStateMachine(ProcessLeader& process_leader,
                              KernelLogPipeProvider& kernel_log_pipe_provider))
@@ -300,9 +304,11 @@ class CvdBootStateMachine : public SetupFeature {
 
 }  // namespace
 
-fruit::Component<fruit::Required<const CuttlefishConfig, KernelLogPipeProvider>>
+fruit::Component<fruit::Required<const CuttlefishConfig, KernelLogPipeProvider,
+                     const CuttlefishConfig::InstanceSpecific>>
 bootStateMachineComponent() {
   return fruit::createComponent()
+      .addMultibinding<KernelLogPipeConsumer, CvdBootStateMachine>()
       .addMultibinding<SetupFeature, ProcessLeader>()
       .addMultibinding<SetupFeature, CvdBootStateMachine>();
 }

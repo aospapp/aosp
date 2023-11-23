@@ -91,17 +91,19 @@ public class MultiInternetWifiNetworkFactory extends NetworkFactory {
      * @param networkRequest the network requested by connectivity service
      * @return true if the request if for multi internet Wifi network, false if not.
      */
-    public static boolean isWifiMultiInternetRequest(NetworkRequest networkRequest) {
+    public static boolean isWifiMultiInternetRequest(NetworkRequest networkRequest,
+            boolean isFromSettings) {
         if (networkRequest.getNetworkSpecifier() == null
                 || !(networkRequest.getNetworkSpecifier() instanceof WifiNetworkSpecifier)) {
             return false;
         }
         WifiNetworkSpecifier wns = (WifiNetworkSpecifier) networkRequest.getNetworkSpecifier();
-        // Multi internet request must have internet capability, with specifier of band request,
-        // and must not have SSID/BSSID pattern matcher.
+        // Multi internet request must have internet capability, with specifier of band request.
+        // It must not have SSID/BSSID pattern matcher - except a request from Settings which can
+        // specify a BSSID (while an SSID specification is allowed here, it is dropped later on).
         if (networkRequest.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 && wns.getBand() != ScanResult.UNSPECIFIED
-                && WifiConfigurationUtil.isMatchAllNetworkSpecifier(wns)) {
+                && (isFromSettings || WifiConfigurationUtil.isMatchAllNetworkSpecifier(wns))) {
             return true;
         }
         return false;
@@ -137,13 +139,13 @@ public class MultiInternetWifiNetworkFactory extends NetworkFactory {
      */
     @Override
     public boolean acceptRequest(NetworkRequest networkRequest) {
-        if (!mMultiInternetManager.isStaConcurrencyForMultiInternetEnabled()
-                || !isWifiMultiInternetRequest(networkRequest)) {
-            return false;
-        }
         final int uid = networkRequest.getRequestorUid();
         boolean isFromSetting = mWifiPermissionsUtil.checkNetworkSettingsPermission(uid)
                 || mWifiPermissionsUtil.checkNetworkSetupWizardPermission(uid);
+        if (!mMultiInternetManager.isStaConcurrencyForMultiInternetEnabled()
+                || !isWifiMultiInternetRequest(networkRequest, isFromSetting)) {
+            return false;
+        }
         boolean isFromNetworkStack = mWifiPermissionsUtil.checkNetworkStackPermission(uid)
                 || mWifiPermissionsUtil.checkMainlineNetworkStackPermission(uid);
         // Only allow specific wifi network request with band from apps or services with settings
@@ -164,14 +166,14 @@ public class MultiInternetWifiNetworkFactory extends NetworkFactory {
 
     @Override
     protected void needNetworkFor(NetworkRequest networkRequest) {
+        boolean isFromSetting = mWifiPermissionsUtil.checkNetworkSettingsPermission(
+                networkRequest.getRequestorUid());
         if (!mMultiInternetManager.isStaConcurrencyForMultiInternetEnabled()
-                || !isWifiMultiInternetRequest(networkRequest)) {
+                || !isWifiMultiInternetRequest(networkRequest, isFromSetting)) {
             return;
         }
         WifiNetworkSpecifier wns = (WifiNetworkSpecifier) networkRequest.getNetworkSpecifier();
         final int band = wns.getBand();
-        boolean isFromSetting = mWifiPermissionsUtil.checkNetworkSettingsPermission(
-                networkRequest.getRequestorUid());
         boolean isFromForegroundApp = mFacade.isRequestFromForegroundApp(mContext,
                 networkRequest.getRequestorPackageName());
         boolean isFromForegroundAppOrService =
@@ -180,7 +182,7 @@ public class MultiInternetWifiNetworkFactory extends NetworkFactory {
         NetworkRequestState nrs = new NetworkRequestState(networkRequest,
                 new WifiNetworkSpecifier(
                 wns.ssidPatternMatcher, wns.bssidPatternMatcher, wns.getBand(),
-                wns.wifiConfiguration),
+                wns.wifiConfiguration, wns.getPreferredChannelFrequenciesMhz()),
                 isFromSetting,
                 isFromForegroundApp,
                 isFromForegroundAppOrService);
@@ -193,13 +195,14 @@ public class MultiInternetWifiNetworkFactory extends NetworkFactory {
         if (mConnectionReqCount.contains(band)) {
             reqCount = mConnectionReqCount.get(band);
         }
-        if (reqCount == 0) {
+        if (reqCount == 0 || isFromSetting) {
             localLog("Need network : Uid " + networkRequest.getRequestorUid() + " PackageName "
                     + networkRequest.getRequestorPackageName() + " for band " + band
                     + " is rom Setting " + isFromSetting + " ForegroundApp " + isFromForegroundApp
                     + " ForegroundAppOrService " + isFromForegroundApp);
             mMultiInternetManager.setMultiInternetConnectionWorksource(
-                    band, new WorkSource(networkRequest.getRequestorUid(),
+                    band, wns.wifiConfiguration.BSSID,
+                    new WorkSource(networkRequest.getRequestorUid(),
                     networkRequest.getRequestorPackageName()));
         }
         mConnectionReqCount.put(band, reqCount + 1);
@@ -207,7 +210,9 @@ public class MultiInternetWifiNetworkFactory extends NetworkFactory {
 
     @Override
     protected void releaseNetworkFor(NetworkRequest networkRequest) {
-        if (!isWifiMultiInternetRequest(networkRequest)) {
+        boolean isFromSetting = mWifiPermissionsUtil.checkNetworkSettingsPermission(
+                networkRequest.getRequestorUid());
+        if (!isWifiMultiInternetRequest(networkRequest, isFromSetting)) {
             return;
         }
         localLog("releaseNetworkFor " + networkRequest);
@@ -219,7 +224,7 @@ public class MultiInternetWifiNetworkFactory extends NetworkFactory {
             return;
         }
         if (reqCount == 1) {
-            mMultiInternetManager.setMultiInternetConnectionWorksource(band, null);
+            mMultiInternetManager.setMultiInternetConnectionWorksource(band, null, null);
         }
         mConnectionReqCount.put(band, reqCount - 1);
     }

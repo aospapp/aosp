@@ -18,38 +18,39 @@ package dagger.internal.codegen.validation;
 
 import static dagger.internal.codegen.base.ElementFormatter.elementToString;
 import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSet;
+import static dagger.internal.codegen.langmodel.DaggerElements.transitivelyEncloses;
 import static javax.tools.Diagnostic.Kind.ERROR;
 import static javax.tools.Diagnostic.Kind.NOTE;
 import static javax.tools.Diagnostic.Kind.WARNING;
 
+import androidx.room.compiler.processing.XAnnotation;
+import androidx.room.compiler.processing.XAnnotationValue;
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XMessager;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.Traverser;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.util.Optional;
-import javax.annotation.processing.Messager;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.AnnotationValue;
-import javax.lang.model.element.Element;
 import javax.tools.Diagnostic;
 import javax.tools.Diagnostic.Kind;
 
 /** A collection of issues to report for source code. */
-public final class ValidationReport<T extends Element> {
-  private static final Traverser<ValidationReport<?>> SUBREPORTS =
+public final class ValidationReport {
+  private static final Traverser<ValidationReport> SUBREPORTS =
       Traverser.forTree(report -> report.subreports);
 
-  private final T subject;
+  private final XElement subject;
   private final ImmutableSet<Item> items;
-  private final ImmutableSet<ValidationReport<?>> subreports;
+  private final ImmutableSet<ValidationReport> subreports;
   private final boolean markedDirty;
   private boolean hasPrintedErrors;
 
   private ValidationReport(
-      T subject,
+      XElement subject,
       ImmutableSet<Item> items,
-      ImmutableSet<ValidationReport<?>> subreports,
+      ImmutableSet<ValidationReport> subreports,
       boolean markedDirty) {
     this.subject = subject;
     this.items = items;
@@ -81,7 +82,7 @@ public final class ValidationReport<T extends Element> {
           break;
       }
     }
-    for (ValidationReport<?> subreport : subreports) {
+    for (ValidationReport subreport : subreports) {
       if (!subreport.isClean()) {
         return false;
       }
@@ -90,20 +91,20 @@ public final class ValidationReport<T extends Element> {
   }
 
   /**
-   * Prints all messages to {@code messager} (and recurs for subreports). If a
-   * message's {@linkplain Item#element() element} is contained within the report's subject,
-   * associates the message with the message's element. Otherwise, since {@link Diagnostic}
-   * reporting is expected to be associated with elements that are currently being compiled,
-   * associates the message with the subject itself and prepends a reference to the item's element.
+   * Prints all messages to {@code messager} (and recurs for subreports). If a message's {@linkplain
+   * Item#element() element} is contained within the report's subject, associates the message with
+   * the message's element. Otherwise, since {@link Diagnostic} reporting is expected to be
+   * associated with elements that are currently being compiled, associates the message with the
+   * subject itself and prepends a reference to the item's element.
    */
-  public void printMessagesTo(Messager messager) {
+  public void printMessagesTo(XMessager messager) {
     if (hasPrintedErrors) {
       // Avoid printing the errors from this validation report more than once.
       return;
     }
     hasPrintedErrors = true;
     for (Item item : items) {
-      if (isEnclosedIn(subject, item.element())) {
+      if (transitivelyEncloses(subject, item.element())) {
         if (item.annotation().isPresent()) {
           if (item.annotationValue().isPresent()) {
             messager.printMessage(
@@ -124,20 +125,9 @@ public final class ValidationReport<T extends Element> {
         messager.printMessage(item.kind(), message, subject);
       }
     }
-    for (ValidationReport<?> subreport : subreports) {
+    for (ValidationReport subreport : subreports) {
       subreport.printMessagesTo(messager);
     }
-  }
-
-  private static boolean isEnclosedIn(Element parent, Element child) {
-    Element current = child;
-    while (current != null) {
-      if (current.equals(parent)) {
-        return true;
-      }
-      current = current.getEnclosingElement();
-    }
-    return false;
   }
 
   /** Metadata about a {@link ValidationReport} item. */
@@ -145,122 +135,122 @@ public final class ValidationReport<T extends Element> {
   public abstract static class Item {
     public abstract String message();
     public abstract Kind kind();
-    public abstract Element element();
-    public abstract Optional<AnnotationMirror> annotation();
-    abstract Optional<AnnotationValue> annotationValue();
+    public abstract XElement element();
+    public abstract Optional<XAnnotation> annotation();
+    abstract Optional<XAnnotationValue> annotationValue();
   }
 
-  public static <T extends Element> Builder<T> about(T subject) {
-    return new Builder<>(subject);
+  public static Builder about(XElement subject) {
+    return new Builder(subject);
   }
 
   /** A {@link ValidationReport} builder. */
   @CanIgnoreReturnValue
-  public static final class Builder<T extends Element> {
-    private final T subject;
+  public static final class Builder {
+    private final XElement subject;
     private final ImmutableSet.Builder<Item> items = ImmutableSet.builder();
-    private final ImmutableSet.Builder<ValidationReport<?>> subreports = ImmutableSet.builder();
+    private final ImmutableSet.Builder<ValidationReport> subreports = ImmutableSet.builder();
     private boolean markedDirty;
 
-    private Builder(T subject) {
+    private Builder(XElement subject) {
       this.subject = subject;
     }
 
-    @CheckReturnValue
-    T getSubject() {
-      return subject;
-    }
-
-    Builder<T> addItems(Iterable<Item> newItems) {
+    Builder addItems(Iterable<Item> newItems) {
       items.addAll(newItems);
       return this;
     }
 
-    public Builder<T> addError(String message) {
+    public Builder addError(String message) {
       return addError(message, subject);
     }
 
-    public Builder<T> addError(String message, Element element) {
+    public Builder addError(String message, XElement element) {
       return addItem(message, ERROR, element);
     }
 
-    public Builder<T> addError(String message, Element element, AnnotationMirror annotation) {
+    public Builder addError(String message, XElement element, XAnnotation annotation) {
       return addItem(message, ERROR, element, annotation);
     }
 
-    public Builder<T> addError(
+    public Builder addError(
         String message,
-        Element element,
-        AnnotationMirror annotation,
-        AnnotationValue annotationValue) {
+        XElement element,
+        XAnnotation annotation,
+        XAnnotationValue annotationValue) {
       return addItem(message, ERROR, element, annotation, annotationValue);
     }
 
-    Builder<T> addWarning(String message) {
+    Builder addWarning(String message) {
       return addWarning(message, subject);
     }
 
-    Builder<T> addWarning(String message, Element element) {
+    Builder addWarning(String message, XElement element) {
       return addItem(message, WARNING, element);
     }
 
-    Builder<T> addWarning(String message, Element element, AnnotationMirror annotation) {
+    Builder addWarning(String message, XElement element, XAnnotation annotation) {
       return addItem(message, WARNING, element, annotation);
     }
 
-    Builder<T> addWarning(
+    Builder addWarning(
         String message,
-        Element element,
-        AnnotationMirror annotation,
-        AnnotationValue annotationValue) {
+        XElement element,
+        XAnnotation annotation,
+        XAnnotationValue annotationValue) {
       return addItem(message, WARNING, element, annotation, annotationValue);
     }
 
-    Builder<T> addNote(String message) {
+    Builder addNote(String message) {
       return addNote(message, subject);
     }
 
-    Builder<T> addNote(String message, Element element) {
+    Builder addNote(String message, XElement element) {
       return addItem(message, NOTE, element);
     }
 
-    Builder<T> addNote(String message, Element element, AnnotationMirror annotation) {
+    Builder addNote(String message, XElement element, XAnnotation annotation) {
       return addItem(message, NOTE, element, annotation);
     }
 
-    Builder<T> addNote(
+    Builder addNote(
         String message,
-        Element element,
-        AnnotationMirror annotation,
-        AnnotationValue annotationValue) {
+        XElement element,
+        XAnnotation annotation,
+        XAnnotationValue annotationValue) {
       return addItem(message, NOTE, element, annotation, annotationValue);
     }
 
-    Builder<T> addItem(String message, Kind kind, Element element) {
+    Builder addItem(String message, Kind kind, XElement element) {
       return addItem(message, kind, element, Optional.empty(), Optional.empty());
     }
 
-    Builder<T> addItem(String message, Kind kind, Element element, AnnotationMirror annotation) {
+    Builder addItem(String message, Kind kind, XElement element, XAnnotation annotation) {
       return addItem(message, kind, element, Optional.of(annotation), Optional.empty());
     }
 
-    Builder<T> addItem(
+    Builder addItem(
         String message,
         Kind kind,
-        Element element,
-        AnnotationMirror annotation,
-        AnnotationValue annotationValue) {
+        XElement element,
+        XAnnotation annotation,
+        XAnnotationValue annotationValue) {
       return addItem(message, kind, element, Optional.of(annotation), Optional.of(annotationValue));
     }
 
-    private Builder<T> addItem(
+    private Builder addItem(
         String message,
         Kind kind,
-        Element element,
-        Optional<AnnotationMirror> annotation,
-        Optional<AnnotationValue> annotationValue) {
+        XElement element,
+        Optional<XAnnotation> annotation,
+        Optional<XAnnotationValue> annotationValue) {
       items.add(
-          new AutoValue_ValidationReport_Item(message, kind, element, annotation, annotationValue));
+          new AutoValue_ValidationReport_Item(
+              message,
+              kind,
+              element,
+              annotation,
+              annotationValue));
       return this;
     }
 
@@ -272,14 +262,14 @@ public final class ValidationReport<T extends Element> {
       this.markedDirty = true;
     }
 
-    public Builder<T> addSubreport(ValidationReport<?> subreport) {
+    public Builder addSubreport(ValidationReport subreport) {
       subreports.add(subreport);
       return this;
     }
 
     @CheckReturnValue
-    public ValidationReport<T> build() {
-      return new ValidationReport<>(subject, items.build(), subreports.build(), markedDirty);
+    public ValidationReport build() {
+      return new ValidationReport(subject, items.build(), subreports.build(), markedDirty);
     }
   }
 }

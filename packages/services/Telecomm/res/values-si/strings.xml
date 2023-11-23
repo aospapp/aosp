@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"<xliff:g id="CALLER">%s</xliff:g> වෙත ඇමතුම හදිසි ඇමතුමක් ගනිමින් ඇති නිසා විසන්ධි කර ඇත."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"හදිසි ඇමතුමක් ගනිමින් පැවතීම හේතුවෙන් ඔබේ ඇමතුම විසන්ධි කර ඇත."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"පසුබිම් ඇමතුම"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> පසුබිම තුළට ඇමතුමක් ගෙන ඇත. මෙම යෙදුම ඇමතුම හරහා ඕඩියෝ වෙත ප්‍රවේශ වෙමින් සහ වාදනය කරමින් සිටිය හැකිය."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> පසුබිමේ ඇමතුමක් සකසමින් සිටී. මෙම යෙදුම ඇමතුම හරහා ඕඩියෝ වෙත ප්‍රවේශ වෙමින් සහ වාදනය කරමින් සිටිය හැක."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> ප්‍රතිචාර දැක්වීම නතර කළේය"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"ඔබේ ඇමතුම ඔබේ උපාංගය සමග පැමිණි දුරකථන යෙදුම භාවිත කළේය"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"ඇමතුම නිශ්ශබ්දයි."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"පසුබිම් ඇමතුම්"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"විසන්ධි කළ ඇමතුම්"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"බිඳ වැටුණු දුරකථන යෙදුම්"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"ඇමතුම් ප්‍රවාහය"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"මෙම ඇමතුම ගැනීම ඔබේ <xliff:g id="OTHER_APP">%1$s</xliff:g> ඇමතුම අවසන් කරනු ඇත."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"මෙම ඇමතුම ගන්නා ආකාරය තෝරන්න"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"<xliff:g id="OTHER_APP">%1$s</xliff:g> භාවිතයෙන් ඇමතුම ප්‍රතියොමු කරන්න"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"ටෙලිකොම් සංවර්ධක මෙනුව"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"හදිසි ඇමතුමක් අතරතුර ඇමතුම් ගත නොහැකිය."</string>
     <string name="cancel" msgid="6733466216239934756">"අවලංගු කරන්න"</string>
+    <string name="back" msgid="6915955601805550206">"ආපසු"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"සවන් කඩ"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"බ්ලූටූත්"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"රැහැන්ගත කළ හෙඩ්සෙට්"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"ස්පීකරය"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"බාහිර"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"නොදනී"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"වෙනත් උපාංගයකට ශ්‍රව්‍ය ප්‍රවාහ කිරීම"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"විසන්ධි කරන්න"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"මෙතැනට මාරු වෙන්න"</string>
 </resources>

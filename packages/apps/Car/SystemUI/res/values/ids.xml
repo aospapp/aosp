@@ -19,4 +19,16 @@
     <!-- Values used for finding elements on the system ui nav bars -->
     <item type="id" name="lock_screen_nav_buttons"/>
     <item type="id" name="hvac_panel_close_button"/>
+
+    <!-- Values assigneed to quick control views    -->
+    <item type="id" name="qc_display_status_icon"/>
+    <item type="id" name="qc_bluetooth_status_icon"/>
+    <item type="id" name="qc_signal_status_icon"/>
+    <item type="id" name="qc_location_status_icon"/>
+    <item type="id" name="qc_phone_call_status_icon"/>
+    <item type="id" name="qc_drive_mode_status_icon"/>
+    <item type="id" name="qc_mobile_signal_status_icon"/>
+    <item type="id" name="qc_wifi_signal_status_icon"/>
+    <item type="id" name="qc_media_volume_status_icon"/>
+    <item type="id" name="qc_status_icon_list"/>
 </resources>

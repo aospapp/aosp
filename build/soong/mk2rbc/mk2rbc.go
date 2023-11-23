@@ -14,13 +14,13 @@
 
 // Convert makefile containing device configuration to Starlark file
 // The conversion can handle the following constructs in a makefile:
-//   * comments
-//   * simple variable assignments
-//   * $(call init-product,<file>)
-//   * $(call inherit-product-if-exists
-//   * if directives
-// All other constructs are carried over to the output starlark file as comments.
+//   - comments
+//   - simple variable assignments
+//   - $(call init-product,<file>)
+//   - $(call inherit-product-if-exists
+//   - if directives
 //
+// All other constructs are carried over to the output starlark file as comments.
 package mk2rbc
 
 import (
@@ -77,6 +77,8 @@ var knownFunctions = map[string]interface {
 	"add-to-product-copy-files-if-exists":  &simpleCallParser{name: baseName + ".copy_if_exists", returnType: starlarkTypeList},
 	"addprefix":                            &simpleCallParser{name: baseName + ".addprefix", returnType: starlarkTypeList},
 	"addsuffix":                            &simpleCallParser{name: baseName + ".addsuffix", returnType: starlarkTypeList},
+	"and":                                  &andOrParser{isAnd: true},
+	"clear-var-list":                       &simpleCallParser{name: baseName + ".clear_var_list", returnType: starlarkTypeVoid, addGlobals: true, addHandle: true},
 	"copy-files":                           &simpleCallParser{name: baseName + ".copy_files", returnType: starlarkTypeList},
 	"dir":                                  &simpleCallParser{name: baseName + ".dir", returnType: starlarkTypeString},
 	"dist-for-goals":                       &simpleCallParser{name: baseName + ".mkdist_for_goals", returnType: starlarkTypeVoid, addGlobals: true},
@@ -86,7 +88,7 @@ var knownFunctions = map[string]interface {
 	"find-copy-subdir-files":               &simpleCallParser{name: baseName + ".find_and_copy", returnType: starlarkTypeList},
 	"filter":                               &simpleCallParser{name: baseName + ".filter", returnType: starlarkTypeList},
 	"filter-out":                           &simpleCallParser{name: baseName + ".filter_out", returnType: starlarkTypeList},
-	"firstword":                            &firstOrLastwordCallParser{isLastWord: false},
+	"firstword":                            &simpleCallParser{name: baseName + ".first_word", returnType: starlarkTypeString},
 	"foreach":                              &foreachCallParser{},
 	"if":                                   &ifCallParser{},
 	"info":                                 &makeControlFuncParser{name: baseName + ".mkinfo"},
@@ -97,7 +99,7 @@ var knownFunctions = map[string]interface {
 	"is-product-in-list":                   &isProductInListCallParser{},
 	"is-vendor-board-platform":             &isVendorBoardPlatformCallParser{},
 	"is-vendor-board-qcom":                 &isVendorBoardQcomCallParser{},
-	"lastword":                             &firstOrLastwordCallParser{isLastWord: true},
+	"lastword":                             &simpleCallParser{name: baseName + ".last_word", returnType: starlarkTypeString},
 	"notdir":                               &simpleCallParser{name: baseName + ".notdir", returnType: starlarkTypeString},
 	"math_max":                             &mathMaxOrMinCallParser{function: "max"},
 	"math_min":                             &mathMaxOrMinCallParser{function: "min"},
@@ -105,6 +107,7 @@ var knownFunctions = map[string]interface {
 	"math_gt":                              &mathComparisonCallParser{op: ">"},
 	"math_lt":                              &mathComparisonCallParser{op: "<"},
 	"my-dir":                               &myDirCallParser{},
+	"or":                                   &andOrParser{isAnd: false},
 	"patsubst":                             &substCallParser{fname: "patsubst"},
 	"product-copy-files-by-pattern":        &simpleCallParser{name: baseName + ".product_copy_files_by_pattern", returnType: starlarkTypeList},
 	"require-artifacts-in-path":            &simpleCallParser{name: baseName + ".require_artifacts_in_path", returnType: starlarkTypeVoid, addHandle: true},
@@ -114,8 +117,11 @@ var knownFunctions = map[string]interface {
 	"sort":     &simpleCallParser{name: baseName + ".mksort", returnType: starlarkTypeList},
 	"strip":    &simpleCallParser{name: baseName + ".mkstrip", returnType: starlarkTypeString},
 	"subst":    &substCallParser{fname: "subst"},
+	"to-lower": &lowerUpperParser{isUpper: false},
+	"to-upper": &lowerUpperParser{isUpper: true},
 	"warning":  &makeControlFuncParser{name: baseName + ".mkwarning"},
 	"word":     &wordCallParser{},
+	"words":    &wordsCallParser{},
 	"wildcard": &simpleCallParser{name: baseName + ".expand_wildcard", returnType: starlarkTypeList},
 }
 
@@ -128,6 +134,14 @@ var knownNodeFunctions = map[string]interface {
 	"inherit-product":           &inheritProductCallParser{loadAlways: true},
 	"inherit-product-if-exists": &inheritProductCallParser{loadAlways: false},
 	"foreach":                   &foreachCallNodeParser{},
+}
+
+// These look like variables, but are actually functions, and would give
+// undefined variable errors if we converted them as variables. Instead,
+// emit an error instead of converting them.
+var unsupportedFunctions = map[string]bool{
+	"local-generated-sources-dir": true,
+	"local-intermediates-dir":     true,
 }
 
 // These are functions that we don't implement conversions for, but
@@ -459,6 +473,7 @@ func newParseContext(ss *StarlarkScript, nodes []mkparser.Node) *parseContext {
 	predefined := []struct{ name, value string }{
 		{"SRC_TARGET_DIR", filepath.Join("build", "make", "target")},
 		{"LOCAL_PATH", filepath.Dir(ss.mkFile)},
+		{"MAKEFILE_LIST", ss.mkFile},
 		{"TOPDIR", ""}, // TOPDIR is just set to an empty string in cleanbuild.mk and core.mk
 		// TODO(asmundak): maybe read it from build/make/core/envsetup.mk?
 		{"TARGET_COPY_OUT_SYSTEM", "system"},
@@ -531,7 +546,7 @@ func (ctx *parseContext) backNode() {
 
 func (ctx *parseContext) handleAssignment(a *mkparser.Assignment) []starlarkNode {
 	// Handle only simple variables
-	if !a.Name.Const() {
+	if !a.Name.Const() || a.Target != nil {
 		return []starlarkNode{ctx.newBadNode(a, "Only simple variables are handled")}
 	}
 	name := a.Name.Strings[0]
@@ -541,6 +556,12 @@ func (ctx *parseContext) handleAssignment(a *mkparser.Assignment) []starlarkNode
 	// There are very few places where `override` is used, just flag it.
 	if strings.HasPrefix(name, "override ") {
 		return []starlarkNode{ctx.newBadNode(a, "cannot handle override directive")}
+	}
+	if name == ".KATI_READONLY" {
+		// Skip assignments to .KATI_READONLY. If it was in the output file, it
+		// would be an error because it would be sorted before the definition of
+		// the variable it's trying to make readonly.
+		return []starlarkNode{}
 	}
 
 	// Soong configuration
@@ -556,9 +577,6 @@ func (ctx *parseContext) handleAssignment(a *mkparser.Assignment) []starlarkNode
 	if lhs.valueType() == starlarkTypeUnknown {
 		// Try to divine variable type from the RHS
 		asgn.value = ctx.parseMakeString(a, a.Value)
-		if xBad, ok := asgn.value.(*badExpr); ok {
-			return []starlarkNode{&exprNode{xBad}}
-		}
 		inferred_type := asgn.value.typ()
 		if inferred_type != starlarkTypeUnknown {
 			lhs.setValueType(inferred_type)
@@ -567,21 +585,19 @@ func (ctx *parseContext) handleAssignment(a *mkparser.Assignment) []starlarkNode
 	if lhs.valueType() == starlarkTypeList {
 		xConcat, xBad := ctx.buildConcatExpr(a)
 		if xBad != nil {
-			return []starlarkNode{&exprNode{expr: xBad}}
-		}
-		switch len(xConcat.items) {
-		case 0:
-			asgn.value = &listExpr{}
-		case 1:
-			asgn.value = xConcat.items[0]
-		default:
-			asgn.value = xConcat
+			asgn.value = xBad
+		} else {
+			switch len(xConcat.items) {
+			case 0:
+				asgn.value = &listExpr{}
+			case 1:
+				asgn.value = xConcat.items[0]
+			default:
+				asgn.value = xConcat
+			}
 		}
 	} else {
 		asgn.value = ctx.parseMakeString(a, a.Value)
-		if xBad, ok := asgn.value.(*badExpr); ok {
-			return []starlarkNode{&exprNode{expr: xBad}}
-		}
 	}
 
 	if asgn.lhs.valueType() == starlarkTypeString &&
@@ -811,35 +827,32 @@ func (ctx *parseContext) handleSubConfig(
 	//       rblf.inherit(handle, _e[0], _e[1])
 	//
 	var matchingPaths []string
-	varPath, ok := pathExpr.(*interpolateExpr)
-	if !ok {
+	var needsWarning = false
+	if interpolate, ok := pathExpr.(*interpolateExpr); ok {
+		pathPattern := []string{interpolate.chunks[0]}
+		for _, chunk := range interpolate.chunks[1:] {
+			if chunk != "" {
+				pathPattern = append(pathPattern, chunk)
+			}
+		}
+		if len(pathPattern) == 1 {
+			pathPattern = append(pathPattern, "")
+		}
+		matchingPaths = ctx.findMatchingPaths(pathPattern)
+		needsWarning = pathPattern[0] == "" && len(ctx.includeTops) == 0
+	} else if len(ctx.includeTops) > 0 {
+		matchingPaths = append(matchingPaths, ctx.findMatchingPaths([]string{"", ""})...)
+	} else {
 		return []starlarkNode{ctx.newBadNode(v, "inherit-product/include argument is too complex")}
 	}
 
-	pathPattern := []string{varPath.chunks[0]}
-	for _, chunk := range varPath.chunks[1:] {
-		if chunk != "" {
-			pathPattern = append(pathPattern, chunk)
-		}
-	}
-	if pathPattern[0] == "" && len(ctx.includeTops) > 0 {
-		// If pattern starts from the top. restrict it to the directories where
-		// we know inherit-product uses dynamically calculated path.
-		for _, p := range ctx.includeTops {
-			pathPattern[0] = p
-			matchingPaths = append(matchingPaths, ctx.findMatchingPaths(pathPattern)...)
-		}
-	} else {
-		matchingPaths = ctx.findMatchingPaths(pathPattern)
-	}
 	// Safeguard against $(call inherit-product,$(PRODUCT_PATH))
 	const maxMatchingFiles = 150
 	if len(matchingPaths) > maxMatchingFiles {
 		return []starlarkNode{ctx.newBadNode(v, "there are >%d files matching the pattern, please rewrite it", maxMatchingFiles)}
 	}
 
-	needsWarning := pathPattern[0] == "" && len(ctx.includeTops) == 0
-	res := inheritedDynamicModule{*varPath, []*moduleInfo{}, loadAlways, ctx.errorLocation(v), needsWarning}
+	res := inheritedDynamicModule{pathExpr, []*moduleInfo{}, loadAlways, ctx.errorLocation(v), needsWarning}
 	for _, p := range matchingPaths {
 		// A product configuration files discovered dynamically may attempt to inherit
 		// from another one which does not exist in this source tree. Prevent load errors
@@ -856,17 +869,31 @@ func (ctx *parseContext) findMatchingPaths(pattern []string) []string {
 	}
 
 	// Create regular expression from the pattern
-	s_regexp := "^" + regexp.QuoteMeta(pattern[0])
+	regexString := "^" + regexp.QuoteMeta(pattern[0])
 	for _, s := range pattern[1:] {
-		s_regexp += ".*" + regexp.QuoteMeta(s)
+		regexString += ".*" + regexp.QuoteMeta(s)
 	}
-	s_regexp += "$"
-	rex := regexp.MustCompile(s_regexp)
+	regexString += "$"
+	rex := regexp.MustCompile(regexString)
+
+	includeTopRegexString := ""
+	if len(ctx.includeTops) > 0 {
+		for i, top := range ctx.includeTops {
+			if i > 0 {
+				includeTopRegexString += "|"
+			}
+			includeTopRegexString += "^" + regexp.QuoteMeta(top)
+		}
+	} else {
+		includeTopRegexString = ".*"
+	}
+
+	includeTopRegex := regexp.MustCompile(includeTopRegexString)
 
 	// Now match
 	var res []string
 	for _, p := range files {
-		if rex.MatchString(p) {
+		if rex.MatchString(p) && includeTopRegex.MatchString(p) {
 			res = append(res, p)
 		}
 	}
@@ -889,8 +916,9 @@ func (p *inheritProductCallParser) parse(ctx *parseContext, v mkparser.Node, arg
 	})
 }
 
-func (ctx *parseContext) handleInclude(v mkparser.Node, pathExpr starlarkExpr, loadAlways bool) []starlarkNode {
-	return ctx.handleSubConfig(v, pathExpr, loadAlways, func(im inheritedModule) starlarkNode {
+func (ctx *parseContext) handleInclude(v *mkparser.Directive) []starlarkNode {
+	loadAlways := v.Name[0] != '-'
+	return ctx.handleSubConfig(v, ctx.parseMakeString(v, v.Args), loadAlways, func(im inheritedModule) starlarkNode {
 		return &includeNode{im, loadAlways}
 	})
 }
@@ -1068,6 +1096,18 @@ func (ctx *parseContext) parseCompare(cond *mkparser.Directive) starlarkExpr {
 				return otherOperand
 			}
 		}
+		if otherOperand.typ() == starlarkTypeList {
+			fields := strings.Fields(stringOperand)
+			elements := make([]starlarkExpr, len(fields))
+			for i, s := range fields {
+				elements[i] = &stringLiteralExpr{literal: s}
+			}
+			return &eqExpr{
+				left:  otherOperand,
+				right: &listExpr{elements},
+				isEq:  isEq,
+			}
+		}
 		if intOperand, err := strconv.Atoi(strings.TrimSpace(stringOperand)); err == nil && otherOperand.typ() == starlarkTypeInt {
 			return &eqExpr{
 				left:  otherOperand,
@@ -1113,8 +1153,6 @@ func (ctx *parseContext) parseCompareSpecialCases(directive *mkparser.Directive,
 	switch call.name {
 	case baseName + ".filter":
 		return ctx.parseCompareFilterFuncResult(directive, call, value, isEq)
-	case baseName + ".expand_wildcard":
-		return ctx.parseCompareWildcardFuncResult(directive, call, value, !isEq), true
 	case baseName + ".findstring":
 		return ctx.parseCheckFindstringFuncResult(directive, call, value, !isEq), true
 	case baseName + ".strip":
@@ -1157,22 +1195,6 @@ func (ctx *parseContext) parseCompareFilterFuncResult(cond *mkparser.Directive,
 	} else {
 		return &inExpr{isNot: negate, list: newStringListExpr(strings.Fields(xInList.literal)), expr: expr}, true
 	}
-}
-
-func (ctx *parseContext) parseCompareWildcardFuncResult(directive *mkparser.Directive,
-	xCall *callExpr, xValue starlarkExpr, negate bool) starlarkExpr {
-	if !isEmptyString(xValue) {
-		return ctx.newBadExpr(directive, "wildcard result can be compared only to empty: %s", xValue)
-	}
-	callFunc := baseName + ".file_wildcard_exists"
-	if s, ok := xCall.args[0].(*stringLiteralExpr); ok && !strings.ContainsAny(s.literal, "*?{[") {
-		callFunc = baseName + ".file_exists"
-	}
-	var cc starlarkExpr = &callExpr{name: callFunc, args: xCall.args, returnType: starlarkTypeBool}
-	if !negate {
-		cc = &notExpr{cc}
-	}
-	return cc
 }
 
 func (ctx *parseContext) parseCheckFindstringFuncResult(directive *mkparser.Directive,
@@ -1259,7 +1281,34 @@ func (ctx *parseContext) parseReference(node mkparser.Node, ref *mkparser.MakeSt
 	// Handle only the case where the first (or only) word is constant
 	words := ref.SplitN(" ", 2)
 	if !words[0].Const() {
-		return ctx.newBadExpr(node, "reference is too complex: %s", refDump)
+		if len(words) == 1 {
+			expr := ctx.parseMakeString(node, ref)
+			return &callExpr{
+				object: &identifierExpr{"cfg"},
+				name:   "get",
+				args: []starlarkExpr{
+					expr,
+					&callExpr{
+						object: &identifierExpr{"g"},
+						name:   "get",
+						args: []starlarkExpr{
+							expr,
+							&stringLiteralExpr{literal: ""},
+						},
+						returnType: starlarkTypeUnknown,
+					},
+				},
+				returnType: starlarkTypeUnknown,
+			}
+		} else {
+			return ctx.newBadExpr(node, "reference is too complex: %s", refDump)
+		}
+	}
+
+	if name, _, ok := ctx.maybeParseFunctionCall(node, ref); ok {
+		if _, unsupported := unsupportedFunctions[name]; unsupported {
+			return ctx.newBadExpr(node, "%s is not supported", refDump)
+		}
 	}
 
 	// If it is a single word, it can be a simple variable
@@ -1309,9 +1358,8 @@ func (ctx *parseContext) parseReference(node mkparser.Node, ref *mkparser.MakeSt
 		} else {
 			return ctx.newBadExpr(node, "cannot handle invoking %s", name)
 		}
-	} else {
-		return ctx.newBadExpr(node, "cannot handle %s", refDump)
 	}
+	return ctx.newBadExpr(node, "cannot handle %s", refDump)
 }
 
 type simpleCallParser struct {
@@ -1385,6 +1433,51 @@ func (p *myDirCallParser) parse(ctx *parseContext, node mkparser.Node, args *mkp
 		return ctx.newBadExpr(node, "my-dir function cannot have any arguments passed to it.")
 	}
 	return &stringLiteralExpr{literal: filepath.Dir(ctx.script.mkFile)}
+}
+
+type andOrParser struct {
+	isAnd bool
+}
+
+func (p *andOrParser) parse(ctx *parseContext, node mkparser.Node, args *mkparser.MakeString) starlarkExpr {
+	if args.Empty() {
+		return ctx.newBadExpr(node, "and/or function must have at least 1 argument")
+	}
+	op := "or"
+	if p.isAnd {
+		op = "and"
+	}
+
+	argsParsed := make([]starlarkExpr, 0)
+
+	for _, arg := range args.Split(",") {
+		arg.TrimLeftSpaces()
+		arg.TrimRightSpaces()
+		x := ctx.parseMakeString(node, arg)
+		if xBad, ok := x.(*badExpr); ok {
+			return xBad
+		}
+		argsParsed = append(argsParsed, x)
+	}
+	typ := starlarkTypeUnknown
+	for _, arg := range argsParsed {
+		if typ != arg.typ() && arg.typ() != starlarkTypeUnknown && typ != starlarkTypeUnknown {
+			return ctx.newBadExpr(node, "Expected all arguments to $(or) or $(and) to have the same type, found %q and %q", typ.String(), arg.typ().String())
+		}
+		if arg.typ() != starlarkTypeUnknown {
+			typ = arg.typ()
+		}
+	}
+	result := argsParsed[0]
+	for _, arg := range argsParsed[1:] {
+		result = &binaryOpExpr{
+			left:       result,
+			right:      arg,
+			op:         op,
+			returnType: typ,
+		}
+	}
+	return result
 }
 
 type isProductInListCallParser struct{}
@@ -1558,11 +1651,21 @@ func (p *foreachCallParser) parse(ctx *parseContext, node mkparser.Node, args *m
 		}
 	}
 
-	return &foreachExpr{
+	var result starlarkExpr = &foreachExpr{
 		varName: loopVarName,
 		list:    list,
 		action:  action,
 	}
+
+	if action.typ() == starlarkTypeList {
+		result = &callExpr{
+			name:       baseName + ".flatten_2d_list",
+			args:       []starlarkExpr{result},
+			returnType: starlarkTypeList,
+		}
+	}
+
+	return result
 }
 
 func transformNode(node starlarkNode, transformer func(expr starlarkExpr) starlarkExpr) {
@@ -1586,6 +1689,16 @@ func transformNode(node starlarkNode, transformer func(expr starlarkExpr) starla
 		a.list = a.list.transform(transformer)
 		for _, n := range a.actions {
 			transformNode(n, transformer)
+		}
+	case *inheritNode:
+		if b, ok := a.module.(inheritedDynamicModule); ok {
+			b.path = b.path.transform(transformer)
+			a.module = b
+		}
+	case *includeNode:
+		if b, ok := a.module.(inheritedDynamicModule); ok {
+			b.path = b.path.transform(transformer)
+			a.module = b
 		}
 	}
 }
@@ -1637,9 +1750,11 @@ func (p *wordCallParser) parse(ctx *parseContext, node mkparser.Node, args *mkpa
 	if len(words) != 2 {
 		return ctx.newBadExpr(node, "word function should have 2 arguments")
 	}
-	var index uint64 = 0
+	var index = 0
 	if words[0].Const() {
-		index, _ = strconv.ParseUint(strings.TrimSpace(words[0].Strings[0]), 10, 64)
+		if i, err := strconv.Atoi(strings.TrimSpace(words[0].Strings[0])); err == nil {
+			index = i
+		}
 	}
 	if index < 1 {
 		return ctx.newBadExpr(node, "word index should be constant positive integer")
@@ -1647,35 +1762,40 @@ func (p *wordCallParser) parse(ctx *parseContext, node mkparser.Node, args *mkpa
 	words[1].TrimLeftSpaces()
 	words[1].TrimRightSpaces()
 	array := ctx.parseMakeString(node, words[1])
-	if xBad, ok := array.(*badExpr); ok {
-		return xBad
-	}
-	if array.typ() != starlarkTypeList {
-		array = &callExpr{object: array, name: "split", returnType: starlarkTypeList}
-	}
-	return &indexExpr{array, &intLiteralExpr{int(index - 1)}}
-}
-
-type firstOrLastwordCallParser struct {
-	isLastWord bool
-}
-
-func (p *firstOrLastwordCallParser) parse(ctx *parseContext, node mkparser.Node, args *mkparser.MakeString) starlarkExpr {
-	arg := ctx.parseMakeString(node, args)
-	if bad, ok := arg.(*badExpr); ok {
+	if bad, ok := array.(*badExpr); ok {
 		return bad
 	}
-	index := &intLiteralExpr{0}
-	if p.isLastWord {
-		if v, ok := arg.(*variableRefExpr); ok && v.ref.name() == "MAKEFILE_LIST" {
-			return &stringLiteralExpr{ctx.script.mkFile}
+	if array.typ() != starlarkTypeList {
+		array = &callExpr{
+			name:       baseName + ".words",
+			args:       []starlarkExpr{array},
+			returnType: starlarkTypeList,
 		}
-		index.literal = -1
 	}
-	if arg.typ() == starlarkTypeList {
-		return &indexExpr{arg, index}
+	return &indexExpr{array, &intLiteralExpr{index - 1}}
+}
+
+type wordsCallParser struct{}
+
+func (p *wordsCallParser) parse(ctx *parseContext, node mkparser.Node, args *mkparser.MakeString) starlarkExpr {
+	args.TrimLeftSpaces()
+	args.TrimRightSpaces()
+	array := ctx.parseMakeString(node, args)
+	if bad, ok := array.(*badExpr); ok {
+		return bad
 	}
-	return &indexExpr{&callExpr{object: arg, name: "split", returnType: starlarkTypeList}, index}
+	if array.typ() != starlarkTypeList {
+		array = &callExpr{
+			name:       baseName + ".words",
+			args:       []starlarkExpr{array},
+			returnType: starlarkTypeList,
+		}
+	}
+	return &callExpr{
+		name:       "len",
+		args:       []starlarkExpr{array},
+		returnType: starlarkTypeInt,
+	}
 }
 
 func parseIntegerArguments(ctx *parseContext, node mkparser.Node, args *mkparser.MakeString, expectedArgs int) ([]starlarkExpr, error) {
@@ -1752,6 +1872,18 @@ func (p *evalNodeParser) parse(ctx *parseContext, node mkparser.Node, args *mkpa
 	if len(nodes) == 0 {
 		return []starlarkNode{}
 	} else if len(nodes) == 1 {
+		// Replace the nodeLocator with one that just returns the location of
+		// the $(eval) node. Otherwise, statements inside an $(eval) will show as
+		// being on line 1 of the file, because they're on line 1 of
+		// strings.NewReader(args.Dump())
+		oldNodeLocator := ctx.script.nodeLocator
+		ctx.script.nodeLocator = func(pos mkparser.Pos) int {
+			return oldNodeLocator(node.Pos())
+		}
+		defer func() {
+			ctx.script.nodeLocator = oldNodeLocator
+		}()
+
 		switch n := nodes[0].(type) {
 		case *mkparser.Assignment:
 			if n.Name.Const() {
@@ -1759,10 +1891,41 @@ func (p *evalNodeParser) parse(ctx *parseContext, node mkparser.Node, args *mkpa
 			}
 		case *mkparser.Comment:
 			return []starlarkNode{&commentNode{strings.TrimSpace("#" + n.Comment)}}
+		case *mkparser.Directive:
+			if n.Name == "include" || n.Name == "-include" {
+				return ctx.handleInclude(n)
+			}
+		case *mkparser.Variable:
+			// Technically inherit-product(-if-exists) don't need to be put inside
+			// an eval, but some makefiles do it, presumably because they copy+pasted
+			// from a $(eval include ...)
+			if name, _, ok := ctx.maybeParseFunctionCall(n, n.Name); ok {
+				if name == "inherit-product" || name == "inherit-product-if-exists" {
+					return ctx.handleVariable(n)
+				}
+			}
 		}
 	}
 
-	return []starlarkNode{ctx.newBadNode(node, "Eval expression too complex; only assignments and comments are supported")}
+	return []starlarkNode{ctx.newBadNode(node, "Eval expression too complex; only assignments, comments, includes, and inherit-products are supported")}
+}
+
+type lowerUpperParser struct {
+	isUpper bool
+}
+
+func (p *lowerUpperParser) parse(ctx *parseContext, node mkparser.Node, args *mkparser.MakeString) starlarkExpr {
+	fn := "lower"
+	if p.isUpper {
+		fn = "upper"
+	}
+	arg := ctx.parseMakeString(node, args)
+
+	return &callExpr{
+		object:     arg,
+		name:       fn,
+		returnType: starlarkTypeString,
+	}
 }
 
 func (ctx *parseContext) parseMakeString(node mkparser.Node, mk *mkparser.MakeString) starlarkExpr {
@@ -1822,7 +1985,7 @@ func (ctx *parseContext) handleSimpleStatement(node mkparser.Node) []starlarkNod
 				result = []starlarkNode{res}
 			}
 		case "include", "-include":
-			result = ctx.handleInclude(node, ctx.parseMakeString(node, x.Args), x.Name[0] != '-')
+			result = ctx.handleInclude(x)
 		case "ifeq", "ifneq", "ifdef", "ifndef":
 			result = []starlarkNode{ctx.handleIfBlock(x)}
 		default:

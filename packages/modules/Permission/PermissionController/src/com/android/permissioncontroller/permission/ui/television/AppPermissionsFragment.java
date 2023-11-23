@@ -61,9 +61,9 @@ import com.android.permissioncontroller.permission.ui.model.AppPermissionGroupsV
 import com.android.permissioncontroller.permission.ui.model.AppPermissionGroupsViewModelFactory;
 import com.android.permissioncontroller.permission.utils.KotlinUtils;
 import com.android.permissioncontroller.permission.utils.LocationUtils;
-import com.android.permissioncontroller.permission.utils.SafetyNetLogger;
 import com.android.permissioncontroller.permission.utils.StringUtils;
 import com.android.permissioncontroller.permission.utils.Utils;
+import com.android.permissioncontroller.permission.utils.legacy.LegacySafetyNetLogger;
 
 public final class AppPermissionsFragment extends SettingsWithHeader
         implements OnPreferenceClickListener {
@@ -377,7 +377,7 @@ public final class AppPermissionsFragment extends SettingsWithHeader
 
     private void logToggledGroups() {
         if (mToggledGroups != null) {
-            SafetyNetLogger.logPermissionsToggled(mToggledGroups);
+            LegacySafetyNetLogger.logPermissionsToggled(mToggledGroups);
             mToggledGroups = null;
         }
     }

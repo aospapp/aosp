@@ -16,6 +16,7 @@
 
 package android.settings.cts;
 
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
@@ -44,6 +45,8 @@ public class TetherProvisioningCarrierDialogActivityTest {
         final PackageManager pm =
                 InstrumentationRegistry.getInstrumentation().getContext().getPackageManager();
         assumeTrue(pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY));
+        assumeFalse(
+                "Skipping test: Tethering is not supported in Wear OS", isWatch());
     }
 
     @Test
@@ -53,5 +56,10 @@ public class TetherProvisioningCarrierDialogActivityTest {
                 .getPackageManager().resolveActivity(
                         intent, PackageManager.MATCH_DEFAULT_ONLY);
         assertTrue(ri != null);
+    }
+
+    private boolean isWatch() {
+        return InstrumentationRegistry.getTargetContext()
+                .getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
     }
 }

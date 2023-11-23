@@ -27,7 +27,7 @@ namespace {
 //    $ blaze build -c opt --dynamic_mode=off --copt=-gmlt
 //    //icing/scoring:ranker_benchmark
 //
-//    $ blaze-bin/icing/scoring/ranker_benchmark --benchmarks=all
+//    $ blaze-bin/icing/scoring/ranker_benchmark --benchmark_filter=all
 //    --benchmark_memory_usage
 //
 // Run on an Android device:
@@ -38,7 +38,7 @@ namespace {
 //    $ adb push blaze-bin/icing/scoring/ranker_benchmark
 //    /data/local/tmp/
 //
-//    $ adb shell /data/local/tmp/ranker_benchmark --benchmarks=all
+//    $ adb shell /data/local/tmp/ranker_benchmark --benchmark_filter=all
 
 void BM_GetTopN(benchmark::State& state) {
   int num_to_score = state.range(0);

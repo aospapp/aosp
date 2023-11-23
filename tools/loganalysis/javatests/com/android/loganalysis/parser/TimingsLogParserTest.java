@@ -272,20 +272,20 @@ public class TimingsLogParserTest extends TestCase {
         String log =
                 String.join(
                         "\n",
-                        "01-10 01:25:57.675   981   981 D SystemServerTiming: StartWatchdog took to complete: 38ms",
+                        "01-10 01:25:57.675   981   981 V SystemServerTiming: StartWatchdog took to complete: 38ms",
                         "01-10 01:25:57.675   981   981 I SystemServer: Reading configuration...",
                         "01-10 01:25:57.675   981   981 I SystemServer: ReadingSystemConfig",
-                        "01-10 01:25:57.676   981   981 D SystemServerTiming: ReadingSystemConfig took to complete: 0.53ms",
-                        "01-10 01:25:57.676   981   981 D SystemServerTiming: ReadingSystemConfig took to complete: 0.53ms", // Parser should skip duplicated log line
+                        "01-10 01:25:57.676   981   981 V SystemServerTiming: ReadingSystemConfig took to complete: 0.53ms",
+                        "01-10 01:25:57.676   981   981 V SystemServerTiming: ReadingSystemConfig took to complete: 0.53ms", // Parser should skip duplicated log line
                         "01-10 01:25:57.677   465   465 I snet_event_log: [121035042,-1,]",
                         "01-10 01:25:57.678   900   900 I FakeComponent: FakeSubcomponent wrong format took to complete: 10ms",
                         "01-10 01:25:57.678   900   900 I FakeComponent: FakeSubcomponent took to complete: 20s",
-                        "01-10 01:25:57.680   981   981 D SystemServerTiming: StartInstaller took to complete: 5ms wrong format",
-                        "01-10 01:25:57.682   981   981 D SystemServerTiming: DeviceIdentifiersPolicyService took to complete: 2ms",
-                        "01-10 01:25:57.682   981   981 D SystemServerTiming: DeviceIdentifiersPolicyService took to complete: 2ms",
-                        "06-06 19:23:54.410  1295  1295 D OtherService  : StartTestStack took to complete: 7ms",
-                        "06-06 19:23:55.410   129   129 D FakeService  : Validtook to complete: 8ms",
-                        "06-06 19:23:56.410   981   981 D SystemServerTiming: StartWatchdog took to complete: 38ms"); //Parser should parse the same metric at a different time
+                        "01-10 01:25:57.680   981   981 V SystemServerTiming: StartInstaller took to complete: 5ms wrong format",
+                        "01-10 01:25:57.682   981   981 V SystemServerTiming: DeviceIdentifiersPolicyService took to complete: 2ms",
+                        "01-10 01:25:57.682   981   981 V SystemServerTiming: DeviceIdentifiersPolicyService took to complete: 2ms",
+                        "06-06 19:23:54.410  1295  1295 V OtherService  : StartTestStack took to complete: 7ms",
+                        "06-06 19:23:55.410   129   129 V FakeService  : Validtook to complete: 8ms",
+                        "06-06 19:23:56.410   981   981 V SystemServerTiming: StartWatchdog took to complete: 38ms"); //Parser should parse the same metric at a different time
 
         List<SystemServicesTimingItem> items =
                 mParser.parseSystemServicesTimingItems(createBufferedReader(log));
@@ -315,17 +315,17 @@ public class TimingsLogParserTest extends TestCase {
         String log =
                 String.join(
                         "\n",
-                        "01-10 01:24:45.536  1079  1079 D BootAnimation: BootAnimationStartTiming start time: 8611ms",
-                        "01-10 01:24:45.537  1079  1079 D BootAnimation: BootAnimationPreloadTiming start time: 8611ms",
+                        "01-10 01:24:45.536  1079  1079 V BootAnimation: BootAnimationStartTiming start time: 8611ms",
+                        "01-10 01:24:45.537  1079  1079 V BootAnimation: BootAnimationPreloadTiming start time: 8611ms",
                         "01-10 01:24:45.556   874  1021 I ServiceManager: Waiting for service 'package_native' on '/dev/binder'...",
                         "01-10 01:24:45.561   466   466 I snet_event_log: [121035042,-1,]",
                         "01-10 01:24:45.583  1080  1080 I SystemServer: InitBeforeStartServices start time: 2345ms wrong format",
-                        "01-10 01:25:24.095  1014  1111 D BootAnimation: BootAnimationShownTiming start time: 9191s",
+                        "01-10 01:25:24.095  1014  1111 V BootAnimation: BootAnimationShownTiming start time: 9191s",
                         "06-06 19:23:49.299   603   603 E qdmetadata: Unknown paramType 2",
                         "06-06 19:23:49.299   603   603 I FakeComponent : wrong subcomponent start time: 234ms",
-                        "06-06 19:23:49.299   603   603 D FakeComponent: Subcomponent start time 234ms",
-                        "06-06 19:23:49.299  1079  1079 D BootAnimation: BootAnimationStopTiming start time: 24839ms",
-                        "06-06 19:23:59.299   179   179 D FakeService  : Validstart time: 34839ms");
+                        "06-06 19:23:49.299   603   603 V FakeComponent: Subcomponent start time 234ms",
+                        "06-06 19:23:49.299  1079  1079 V BootAnimation: BootAnimationStopTiming start time: 24839ms",
+                        "06-06 19:23:59.299   179   179 V FakeService  : Validstart time: 34839ms");
 
         List<SystemServicesTimingItem> items =
                 mParser.parseSystemServicesTimingItems(createBufferedReader(log));

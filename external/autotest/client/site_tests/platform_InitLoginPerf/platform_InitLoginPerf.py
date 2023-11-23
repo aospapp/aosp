@@ -1,7 +1,9 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import codecs
 import logging
 import os
 import re
@@ -191,7 +193,10 @@ class platform_InitLoginPerf(test.test):
         """
         # Grep syslog for AttestationReady line
         attestation_line = ''
-        with open('/var/log/messages', 'r') as syslog:
+        with codecs.open('/var/log/messages',
+                         'r',
+                         encoding='utf-8',
+                         errors='surrogateescape') as syslog:
             for ln in syslog:
                 if 'Attestation: Prepared successfully' in ln:
                     attestation_line = ln

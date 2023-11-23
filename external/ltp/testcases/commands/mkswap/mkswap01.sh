@@ -11,7 +11,6 @@ TST_TESTFUNC=do_test
 TST_NEEDS_ROOT=1
 TST_NEEDS_DEVICE=1
 TST_NEEDS_CMDS="uuidgen blkid blockdev mkswap"
-. tst_test.sh
 
 setup()
 {
@@ -52,12 +51,7 @@ mkswap_verify()
 		local pagesize=$PAGE_SIZE
 	fi
 
-	if tst_kvcmp -lt "2.6.35" && [ -n "$dev_file" ]; then
-		tst_res TINFO "Waiting for $dev_file to appear"
-		tst_sleep 100ms
-	else
-		TST_RETRY_FUNC "check_for_file $dev_file" 0
-	fi
+	TST_RETRY_FUNC "check_for_file $dev_file" 0
 
 	swapon $swapfile 2>/dev/null
 
@@ -129,6 +123,7 @@ mkswap_test()
 	fi
 
 	udevadm trigger --name-match=$TST_DEVICE
+	udevadm settle --exit-if-exists==$TST_DEVICE
 
 	if [ -n "$device" ]; then
 		mkswap_verify "$mkswap_op" "$op_arg" "$device" "$size" "$dev_file"
@@ -157,4 +152,5 @@ do_test()
 	esac
 }
 
+. tst_test.sh
 tst_run

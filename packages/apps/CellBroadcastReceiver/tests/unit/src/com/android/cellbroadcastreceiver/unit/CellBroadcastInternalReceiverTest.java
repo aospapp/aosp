@@ -21,17 +21,21 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.UserManager;
 
+import com.android.cellbroadcastreceiver.CellBroadcastAlertService;
 import com.android.cellbroadcastreceiver.CellBroadcastInternalReceiver;
 import com.android.cellbroadcastreceiver.CellBroadcastReceiver;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -44,6 +48,8 @@ public class CellBroadcastInternalReceiverTest extends CellBroadcastTest {
 
     private Configuration mConfiguration = new Configuration();
     private CellBroadcastInternalReceiver mReceiver;
+
+    private static final int TEST_NOTIFICATION_ID = 0x123;
 
     @Before
     public void setUp() throws Exception {
@@ -58,11 +64,22 @@ public class CellBroadcastInternalReceiverTest extends CellBroadcastTest {
 
     @Test
     public void testOnReceive_actionMarkAsRead() {
+        NotificationManager mockNotificationManager = mock(NotificationManager.class);
+        doReturn(Context.NOTIFICATION_SERVICE).when(mContext)
+            .getSystemServiceName(NotificationManager.class);
+        doReturn(mockNotificationManager).when(mContext)
+                .getSystemService(Context.NOTIFICATION_SERVICE);
         doReturn(CellBroadcastReceiver.ACTION_MARK_AS_READ).when(mIntent).getAction();
+        doReturn(TEST_NOTIFICATION_ID).when(mIntent).getIntExtra(
+                CellBroadcastReceiver.EXTRA_NOTIF_ID,
+                CellBroadcastAlertService.NOTIFICATION_ID);
         doNothing().when(mReceiver).getCellBroadcastTask(nullable(Context.class), anyLong());
+
         mReceiver.onReceive(mContext, mIntent);
+
         verify(mIntent).getLongExtra(CellBroadcastReceiver.EXTRA_DELIVERY_TIME, -1);
         verify(mReceiver).getCellBroadcastTask(nullable(Context.class), anyLong());
+        verify(mockNotificationManager).cancel(TEST_NOTIFICATION_ID);
     }
 
     @Test
@@ -71,6 +88,11 @@ public class CellBroadcastInternalReceiverTest extends CellBroadcastTest {
         mReceiver.onReceive(mContext, mIntent);
 
         verify(mReceiver).startConfigServiceToEnableChannels(any());
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
     }
 
 }

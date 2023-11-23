@@ -2,13 +2,14 @@ diff --git a/protos/Android.bp b/protos/Android.bp
 index eaf06cf1..32a8f81b 100644
 --- a/protos/Android.bp
 +++ b/protos/Android.bp
-@@ -17,7 +17,9 @@ rust_library {
+@@ -17,7 +17,11 @@ rust_library {
      crate_name: "protos",
      srcs: ["src/lib.rs"],
      edition: "2021",
 +    features: ["composite-disk"],
-     rustlibs: [
+-    rustlibs: ["libprotobuf_deprecated"],
++    rustlibs: [
 +        "libcdisk_spec_proto",
-         "libprotobuf",
-     ],
++        "libprotobuf_deprecated",
++    ],
  }

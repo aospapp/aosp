@@ -19,8 +19,6 @@ package android.cts.statsdatom.lib;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import com.android.os.StatsLog;
-
 import com.android.os.AtomsProto.Atom;
 import com.android.os.StatsLog;
 import com.android.os.StatsLog.ConfigMetricsReport;
@@ -33,6 +31,7 @@ import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.Pair;
 
+import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.util.ArrayList;
@@ -49,10 +48,15 @@ public final class ReportUtils {
      * Returns a list of event metrics, which is sorted by timestamp, from the statsd report.
      * Note: Calling this function deletes the report from statsd.
      */
+    public static List<EventMetricData> getEventMetricDataList(
+            ITestDevice device, ExtensionRegistry extensionRegistry) throws Exception {
+        ConfigMetricsReportList reportList = getReportList(device, extensionRegistry);
+        return getEventMetricDataList(reportList);
+    }
+
     public static List<EventMetricData> getEventMetricDataList(ITestDevice device)
             throws Exception {
-        ConfigMetricsReportList reportList = getReportList(device);
-        return getEventMetricDataList(reportList);
+        return getEventMetricDataList(device, ExtensionRegistry.getEmptyRegistry());
     }
 
     /**
@@ -110,11 +114,12 @@ public final class ReportUtils {
      * for the gauge metric.
      * Note: calling this function deletes the report from statsd.
      *
+     * @param extensionRegistry ExtensionRegistry containing extensions that should be parsed
      * @param checkTimestampTrucated if true, checks that atom timestmaps are properly truncated
      */
     public static List<Atom> getGaugeMetricAtoms(ITestDevice device,
-            boolean checkTimestampTruncated) throws Exception {
-        ConfigMetricsReportList reportList = getReportList(device);
+            ExtensionRegistry extensionRegistry, boolean checkTimestampTruncated) throws Exception {
+        ConfigMetricsReportList reportList = getReportList(device, extensionRegistry);
         assertThat(reportList.getReportsCount()).isEqualTo(1);
         ConfigMetricsReport report = reportList.getReports(0);
         assertThat(report.getMetricsCount()).isEqualTo(1);
@@ -142,6 +147,12 @@ public final class ReportUtils {
         return atoms;
     }
 
+    public static List<Atom> getGaugeMetricAtoms(
+            ITestDevice device, boolean checkTimestampTruncated) throws Exception {
+        return getGaugeMetricAtoms(
+                device, ExtensionRegistry.getEmptyRegistry(), checkTimestampTruncated);
+    }
+
     private static List<Atom> backFillGaugeBucketAtoms(
             List<StatsLog.AggregatedAtomInfo> atomInfoList) {
         List<Pair<Atom, Long>> atomTimestamp = new ArrayList<>();
@@ -159,19 +170,20 @@ public final class ReportUtils {
      * Delete all pre-existing reports corresponding to the CTS config.
      */
     public static void clearReports(ITestDevice device) throws Exception {
-        getReportList(device);
+        getReportList(device, ExtensionRegistry.getEmptyRegistry());
     }
 
     /**
      * Retrieves the ConfigMetricsReports corresponding to the CTS config from statsd.
      * Note: Calling this functions deletes the report from statsd.
      */
-    private static ConfigMetricsReportList getReportList(ITestDevice device) throws Exception {
+    private static ConfigMetricsReportList getReportList(
+            ITestDevice device, ExtensionRegistry extensionRegistry) throws Exception {
         try {
             String cmd = String.join(" ", DUMP_REPORT_CMD, ConfigUtils.CONFIG_ID_STRING,
                     "--include_current_bucket", "--proto");
-            ConfigMetricsReportList reportList = DeviceUtils.getShellCommandOutput(device,
-                    ConfigMetricsReportList.parser(), cmd);
+            ConfigMetricsReportList reportList = DeviceUtils.getShellCommandOutput(
+                    device, ConfigMetricsReportList.parser(), extensionRegistry, cmd);
             return reportList;
         } catch (InvalidProtocolBufferException ex) {
             int hostUid = DeviceUtils.getHostUid(device);

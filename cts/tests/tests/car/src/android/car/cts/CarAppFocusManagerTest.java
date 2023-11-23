@@ -28,9 +28,9 @@ import static org.junit.Assert.fail;
 
 import android.car.Car;
 import android.car.CarAppFocusManager;
+import android.car.test.ApiCheckerRule.Builder;
 import android.content.Context;
 import android.platform.test.annotations.AppModeFull;
-import android.platform.test.annotations.RequiresDevice;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
 
@@ -48,7 +48,7 @@ import java.util.concurrent.TimeUnit;
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 @AppModeFull(reason = "Test relies on other server to connect to.")
-public class CarAppFocusManagerTest extends CarApiTestBase {
+public final class CarAppFocusManagerTest extends AbstractCarTestCase {
     private static final String TAG = CarAppFocusManagerTest.class.getSimpleName();
 
     private static final long NO_EVENT_WAIT_TIME_MS = 50;
@@ -57,9 +57,15 @@ public class CarAppFocusManagerTest extends CarApiTestBase {
             InstrumentationRegistry.getInstrumentation().getTargetContext();
     private CarAppFocusManager mManager;
 
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        Log.w(TAG, "Disabling API requirements check");
+        builder.disableAnnotationsCheck();
+    }
+
     @Before
     public void setUp() throws Exception {
-        super.setUp();
         mManager = (CarAppFocusManager) getCar().getCarManager(Car.APP_FOCUS_SERVICE);
         assertNotNull(mManager);
 

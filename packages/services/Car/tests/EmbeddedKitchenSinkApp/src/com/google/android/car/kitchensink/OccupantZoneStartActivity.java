@@ -34,7 +34,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.UserHandle;
 import android.util.Log;
-import android.util.SparseArray;
 import android.view.Display;
 
 import java.util.List;
@@ -42,7 +41,6 @@ import java.util.List;
 public final class OccupantZoneStartActivity extends Activity {
 
     private static final String TAG = "CAR.OCCUPANT.KS.START";
-    private static final SparseArray<String> MESSAGE_MAP_NAME = new SparseArray<>();
     private static final String AUDIO_ACTIVITY =
             "com.google.android.car.kitchensink/.AudioAutoStartActivity";
 

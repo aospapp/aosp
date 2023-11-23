@@ -27,9 +27,9 @@ android_test {
     srcs: ["src/**/*.java"],
     static_libs: ["print-test-util-lib"],
     sdk_version: "test_current",
-    required: ["com.android.cts.helpers.aosp"],
     data: [
         ":CtsExternalPrintService",
+        ":com.android.cts.helpers.aosp",
     ],
     per_testcase_directory: true,
 }

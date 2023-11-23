@@ -27,7 +27,7 @@ import static android.car.user.CarUserManager.USER_LIFECYCLE_EVENT_TYPE_UNLOCKIN
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import static org.testng.Assert.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import android.annotation.NonNull;
 import android.annotation.UserIdInt;
@@ -258,6 +258,22 @@ public final class BlockingUserLifecycleListenerTest {
         assertThat(allReceivedEvents)
                 .containsExactly(wrong1, right1, wrong2, right2, wrong3)
                 .inOrder();
+    }
+
+    @Test
+    public void testForNoExpectedEvent_noEventsReceived() throws Exception {
+        BlockingUserLifecycleListener listener =  BlockingUserLifecycleListener.forNoExpectedEvent()
+                .addExpectedEvent(USER_LIFECYCLE_EVENT_TYPE_STARTING)
+                .addExpectedEvent(USER_LIFECYCLE_EVENT_TYPE_UNLOCKED)
+                .build();
+
+        List<UserLifecycleEvent> events = listener.waitForEvents();
+
+        sendAsyncEvents(listener, /* userId= */ 10,
+                USER_LIFECYCLE_EVENT_TYPE_SWITCHING,
+                USER_LIFECYCLE_EVENT_TYPE_UNLOCKING);
+
+        assertThat(events).isEmpty();
     }
 
     @NonNull

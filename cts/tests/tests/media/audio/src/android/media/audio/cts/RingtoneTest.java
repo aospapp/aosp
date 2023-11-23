@@ -153,13 +153,22 @@ public class RingtoneTest extends InstrumentationTestCase {
         mRingtone.setStreamType(AudioManager.STREAM_RING);
         assertEquals(AudioManager.STREAM_RING, mRingtone.getStreamType());
 
-        // test both the "None" ringtone and an actual ringtone
-        RingtoneManager.setActualDefaultRingtoneUri(mContext, RingtoneManager.TYPE_RINGTONE, null);
-        mRingtone = RingtoneManager.getRingtone(mContext, Settings.System.DEFAULT_RINGTONE_URI);
-        assertTrue(mRingtone.getStreamType() == AudioManager.STREAM_RING);
-        mRingtone.play();
-        assertFalse(mRingtone.isPlaying());
+        // Some releases, such as Wear R can return a null ringtone when its badly formed, this
+        // assumption may change on T+ so if it does, update this test accordingly
+        Ringtone badRingtone =
+            RingtoneManager.getRingtone(mContext, Uri.parse("content://fakeuri"));
+        boolean nullForBadRingtonesSupported = badRingtone == null;
+        if (!nullForBadRingtonesSupported) {
+            // test the "None" ringtone
+            RingtoneManager.setActualDefaultRingtoneUri(
+                mContext, RingtoneManager.TYPE_RINGTONE, null);
+            mRingtone = RingtoneManager.getRingtone(mContext, Settings.System.DEFAULT_RINGTONE_URI);
+            assertTrue(mRingtone.getStreamType() == AudioManager.STREAM_RING);
+            mRingtone.play();
+            assertFalse(mRingtone.isPlaying());
+        }
 
+        // Test an actual ringtone
         Uri uri = RingtoneManager.getValidRingtoneUri(mContext);
         assertNotNull("ringtone was unexpectedly null", uri);
         RingtoneManager.setActualDefaultRingtoneUri(mContext, RingtoneManager.TYPE_RINGTONE, uri);

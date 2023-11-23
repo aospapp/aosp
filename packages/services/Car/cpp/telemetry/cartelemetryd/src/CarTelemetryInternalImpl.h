@@ -44,6 +44,10 @@ public:
 
     ndk::ScopedAStatus clearListener() override;
 
+    ndk::ScopedAStatus addCarDataIds(const std::vector<int32_t>& ids) override;
+
+    ndk::ScopedAStatus removeCarDataIds(const std::vector<int32_t>& ids) override;
+
     binder_status_t dump(int fd, const char** args, uint32_t numArgs) override;
 
 private:

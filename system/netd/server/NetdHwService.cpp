@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
+#include "NetdHwService.h"
 #include <binder/IPCThreadState.h>
-#include <hidl/HidlTransportSupport.h>
 #include "Controllers.h"
 #include "Fwmark.h"
-#include "NetdHwService.h"
 #include "RouteController.h"
 #include "TetherController.h"
 
-using android::hardware::configureRpcThreadpool;
 using android::hardware::Void;
 
 // Tells TetherController::enableForwarding who is requesting forwarding, so that TetherController
@@ -55,9 +53,6 @@ static StatusCode toHalStatus(int ret) {
 
 // Minimal service start.
 status_t NetdHwService::start() {
-    IPCThreadState::self()->disableBackgroundScheduling(true);
-    // Usage of this HAL is anticipated to be thin; one thread should suffice.
-    configureRpcThreadpool(1, false /* callerWillNotJoin */);
     // Register hardware service with ServiceManager.
     return INetd::registerAsService();
 }

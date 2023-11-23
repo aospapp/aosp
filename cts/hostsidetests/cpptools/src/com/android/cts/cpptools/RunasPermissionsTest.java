@@ -16,6 +16,7 @@
 
 package com.android.cts.cpptools;
 
+import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.testtype.DeviceTestCase;
 
 import org.junit.Test;
@@ -43,11 +44,7 @@ public final class RunasPermissionsTest extends DeviceTestCase {
 
         // Sleep for 0.3 second (300 milliseconds) so the test app has sufficient time
         // to open the socket.
-        try {
-            Thread.sleep(300);
-        } catch (InterruptedException e) {
-            // ignored
-        }
+        RunUtil.getDefault().sleep(300);
 
         // Start a run-as process that attempts to connect to the socket opened by the
         // app.

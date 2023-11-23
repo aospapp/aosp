@@ -18,8 +18,9 @@ package dagger.internal.codegen.javapoet;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.auto.common.MoreTypes;
 import com.google.testing.compile.CompilationRule;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.TypeName;
 import dagger.internal.codegen.langmodel.DaggerElements;
 import dagger.internal.codegen.langmodel.DaggerTypes;
 import javax.lang.model.type.PrimitiveType;
@@ -70,11 +71,10 @@ public class ExpressionTest {
     Expression boxedExpression = primitiveExpression.box(types);
 
     assertThat(boxedExpression.codeBlock().toString()).isEqualTo("(java.lang.Integer) 5");
-    assertThat(MoreTypes.equivalence().equivalent(boxedExpression.type(), type(Integer.class)))
-        .isTrue();
+    assertThat(TypeName.get(boxedExpression.type())).isEqualTo(TypeName.get(type(Integer.class)));
   }
 
   private TypeMirror type(Class<?> clazz) {
-    return elements.getTypeElement(clazz).asType();
+    return elements.getTypeElement(ClassName.get(clazz)).asType();
   }
 }

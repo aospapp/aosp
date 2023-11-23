@@ -5,7 +5,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     tools:ignore="RtlCompat"
-    android:layout_width="match_parent" android:layout_height="match_parent">
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
 
   <androidx.constraintlayout.widget.ConstraintLayout
       android:id="@+id/image_view"
@@ -16,6 +17,7 @@
       android:paddingEnd="12dp"
       android:paddingTop="12dp"
       android:paddingBottom="12dp">
+
     <TextView
         android:id="@+id/header_subtitle"
         android:textColor="@color/fast_pair_half_sheet_subtitle_color"
@@ -73,14 +75,15 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:orientation="horizontal"
         app:layout_constraintTop_toBottomOf="@+id/connect_progressbar"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
       <ImageView
           android:id="@+id/info_icon"
-          android:layout_width="24dp"
-          android:layout_height="24dp"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
           app:srcCompat="@drawable/fast_pair_ic_info"
           android:layout_centerInParent="true"
           android:contentDescription="@null"
@@ -113,12 +116,11 @@
         android:id="@+id/cancel_btn"
         android:text="@string/paring_action_done"
         android:visibility="invisible"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         android:gravity="start|center_vertical"
         android:layout_marginTop="6dp"
+        android:layout_marginBottom="16dp"
         style="@style/HalfSheetButtonBorderless"/>
 
     <com.google.android.material.button.MaterialButton

@@ -33,6 +33,8 @@ import androidx.test.runner.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.File;
+
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class FontRenderingTests extends ActivityTestBase {
@@ -61,6 +63,15 @@ public class FontRenderingTests extends ActivityTestBase {
                     p.setColor(Color.BLACK);
                     p.setTextSize(26);
                     p.setTypeface(typeface);
+
+                    File fontFile = TypefaceTestUtil.getFirstFont(sTestString1, p);
+                    if (!fontFile.getName().startsWith("Roboto")) {
+                        p.setTypeface(
+                                TypefaceTestUtil.getRobotoTypeface(
+                                        typeface.getWeight(),
+                                        typeface.isItalic()));
+                    }
+
                     canvas.drawText(sTestString1, 1, 20, p);
                     canvas.drawText(sTestString2, 1, 50, p);
                     canvas.drawText(sTestString3, 1, 80, p);

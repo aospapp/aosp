@@ -30,16 +30,19 @@ bool isSamplerType(GLenum type) {
         case GL_SAMPLER_2D_ARRAY_SHADOW:
         case GL_SAMPLER_2D_MULTISAMPLE:
         case GL_SAMPLER_CUBE_SHADOW:
+        case GL_SAMPLER_BUFFER_OES:
         case GL_INT_SAMPLER_2D:
         case GL_INT_SAMPLER_3D:
         case GL_INT_SAMPLER_CUBE:
         case GL_INT_SAMPLER_2D_ARRAY:
         case GL_INT_SAMPLER_2D_MULTISAMPLE:
+        case GL_INT_SAMPLER_BUFFER_OES:
         case GL_UNSIGNED_INT_SAMPLER_2D:
         case GL_UNSIGNED_INT_SAMPLER_3D:
         case GL_UNSIGNED_INT_SAMPLER_CUBE:
         case GL_UNSIGNED_INT_SAMPLER_2D_ARRAY:
         case GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE:
+        case GL_UNSIGNED_INT_SAMPLER_BUFFER_OES:
             return true;
         default:
             return false;
@@ -60,11 +63,13 @@ bool isIntegerType(GLenum type) {
         case GL_INT_IMAGE_3D:
         case GL_INT_IMAGE_CUBE:
         case GL_INT_IMAGE_2D_ARRAY:
+        case GL_INT_IMAGE_BUFFER_OES:
         case GL_UNSIGNED_INT_IMAGE_2D:
         case GL_UNSIGNED_INT_IMAGE_3D:
         case GL_UNSIGNED_INT_IMAGE_CUBE:
         case GL_UNSIGNED_INT_IMAGE_2D_ARRAY:
         case GL_UNSIGNED_INT_ATOMIC_COUNTER:
+        case GL_UNSIGNED_INT_IMAGE_BUFFER_OES:
             return true;
         default:
             return false;
@@ -82,6 +87,7 @@ bool isUnsignedIntType(GLenum type) {
         case GL_UNSIGNED_INT_IMAGE_CUBE:
         case GL_UNSIGNED_INT_IMAGE_2D_ARRAY:
         case GL_UNSIGNED_INT_ATOMIC_COUNTER:
+        case GL_UNSIGNED_INT_IMAGE_BUFFER_OES:
             return true;
         default:
             return false;
@@ -167,27 +173,33 @@ uint32_t getColumnsOfType(GLenum type) {
     case GL_SAMPLER_2D_ARRAY_SHADOW:
     case GL_SAMPLER_2D_MULTISAMPLE:
     case GL_SAMPLER_CUBE_SHADOW:
+    case GL_SAMPLER_BUFFER_OES:
     case GL_INT_SAMPLER_2D:
     case GL_INT_SAMPLER_3D:
     case GL_INT_SAMPLER_CUBE:
     case GL_INT_SAMPLER_2D_ARRAY:
     case GL_INT_SAMPLER_2D_MULTISAMPLE:
+    case GL_INT_SAMPLER_BUFFER_OES:
     case GL_UNSIGNED_INT_SAMPLER_2D:
     case GL_UNSIGNED_INT_SAMPLER_3D:
     case GL_UNSIGNED_INT_SAMPLER_CUBE:
     case GL_UNSIGNED_INT_SAMPLER_2D_ARRAY:
     case GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE:
+    case GL_UNSIGNED_INT_SAMPLER_BUFFER_OES:
     case GL_IMAGE_CUBE:
     case GL_IMAGE_2D_ARRAY:
+    case GL_IMAGE_BUFFER_OES:
     case GL_INT_IMAGE_2D:
     case GL_INT_IMAGE_3D:
     case GL_INT_IMAGE_CUBE:
     case GL_INT_IMAGE_2D_ARRAY:
+    case GL_INT_IMAGE_BUFFER_OES:
     case GL_UNSIGNED_INT_IMAGE_2D:
     case GL_UNSIGNED_INT_IMAGE_3D:
     case GL_UNSIGNED_INT_IMAGE_CUBE:
     case GL_UNSIGNED_INT_IMAGE_2D_ARRAY:
     case GL_UNSIGNED_INT_ATOMIC_COUNTER:
+    case GL_UNSIGNED_INT_IMAGE_BUFFER_OES:
     default:
         return 1;
     }
@@ -261,27 +273,33 @@ uint32_t getRowsOfType(GLenum type) {
     case GL_SAMPLER_2D_ARRAY_SHADOW:
     case GL_SAMPLER_2D_MULTISAMPLE:
     case GL_SAMPLER_CUBE_SHADOW:
+    case GL_SAMPLER_BUFFER_OES:
     case GL_INT_SAMPLER_2D:
     case GL_INT_SAMPLER_3D:
     case GL_INT_SAMPLER_CUBE:
     case GL_INT_SAMPLER_2D_ARRAY:
     case GL_INT_SAMPLER_2D_MULTISAMPLE:
+    case GL_INT_SAMPLER_BUFFER_OES:
     case GL_UNSIGNED_INT_SAMPLER_2D:
     case GL_UNSIGNED_INT_SAMPLER_3D:
     case GL_UNSIGNED_INT_SAMPLER_CUBE:
     case GL_UNSIGNED_INT_SAMPLER_2D_ARRAY:
     case GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE:
+    case GL_UNSIGNED_INT_SAMPLER_BUFFER_OES:
     case GL_IMAGE_CUBE:
     case GL_IMAGE_2D_ARRAY:
+    case GL_IMAGE_BUFFER_OES:
     case GL_INT_IMAGE_2D:
     case GL_INT_IMAGE_3D:
     case GL_INT_IMAGE_CUBE:
     case GL_INT_IMAGE_2D_ARRAY:
+    case GL_INT_IMAGE_BUFFER_OES:
     case GL_UNSIGNED_INT_IMAGE_2D:
     case GL_UNSIGNED_INT_IMAGE_3D:
     case GL_UNSIGNED_INT_IMAGE_CUBE:
     case GL_UNSIGNED_INT_IMAGE_2D_ARRAY:
     case GL_UNSIGNED_INT_ATOMIC_COUNTER:
+    case GL_UNSIGNED_INT_IMAGE_BUFFER_OES:
     default:
         return 1;
     }
@@ -355,27 +373,33 @@ uint32_t getAttributeCountOfType(GLenum type) {
     case GL_SAMPLER_2D_ARRAY_SHADOW:
     case GL_SAMPLER_2D_MULTISAMPLE:
     case GL_SAMPLER_CUBE_SHADOW:
+    case GL_SAMPLER_BUFFER_OES:
     case GL_INT_SAMPLER_2D:
     case GL_INT_SAMPLER_3D:
     case GL_INT_SAMPLER_CUBE:
     case GL_INT_SAMPLER_2D_ARRAY:
     case GL_INT_SAMPLER_2D_MULTISAMPLE:
+    case GL_INT_SAMPLER_BUFFER_OES:
     case GL_UNSIGNED_INT_SAMPLER_2D:
     case GL_UNSIGNED_INT_SAMPLER_3D:
     case GL_UNSIGNED_INT_SAMPLER_CUBE:
     case GL_UNSIGNED_INT_SAMPLER_2D_ARRAY:
     case GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE:
+    case GL_UNSIGNED_INT_SAMPLER_BUFFER_OES:
     case GL_IMAGE_CUBE:
     case GL_IMAGE_2D_ARRAY:
+    case GL_IMAGE_BUFFER_OES:
     case GL_INT_IMAGE_2D:
     case GL_INT_IMAGE_3D:
     case GL_INT_IMAGE_CUBE:
     case GL_INT_IMAGE_2D_ARRAY:
+    case GL_INT_IMAGE_BUFFER_OES:
     case GL_UNSIGNED_INT_IMAGE_2D:
     case GL_UNSIGNED_INT_IMAGE_3D:
     case GL_UNSIGNED_INT_IMAGE_CUBE:
     case GL_UNSIGNED_INT_IMAGE_2D_ARRAY:
     case GL_UNSIGNED_INT_ATOMIC_COUNTER:
+    case GL_UNSIGNED_INT_IMAGE_BUFFER_OES:
     default:
         return 1;
     }
@@ -484,27 +508,33 @@ size_t glSizeof(GLenum type)
     case GL_SAMPLER_2D_ARRAY_SHADOW:
     case GL_SAMPLER_2D_MULTISAMPLE:
     case GL_SAMPLER_CUBE_SHADOW:
+    case GL_SAMPLER_BUFFER_OES:
     case GL_INT_SAMPLER_2D:
     case GL_INT_SAMPLER_3D:
     case GL_INT_SAMPLER_CUBE:
     case GL_INT_SAMPLER_2D_ARRAY:
     case GL_INT_SAMPLER_2D_MULTISAMPLE:
+    case GL_INT_SAMPLER_BUFFER_OES:
     case GL_UNSIGNED_INT_SAMPLER_2D:
     case GL_UNSIGNED_INT_SAMPLER_3D:
     case GL_UNSIGNED_INT_SAMPLER_CUBE:
     case GL_UNSIGNED_INT_SAMPLER_2D_ARRAY:
     case GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE:
+    case GL_UNSIGNED_INT_SAMPLER_BUFFER_OES:
     case GL_IMAGE_CUBE:
     case GL_IMAGE_2D_ARRAY:
+    case GL_IMAGE_BUFFER_OES:
     case GL_INT_IMAGE_2D:
     case GL_INT_IMAGE_3D:
     case GL_INT_IMAGE_CUBE:
     case GL_INT_IMAGE_2D_ARRAY:
+    case GL_INT_IMAGE_BUFFER_OES:
     case GL_UNSIGNED_INT_IMAGE_2D:
     case GL_UNSIGNED_INT_IMAGE_3D:
     case GL_UNSIGNED_INT_IMAGE_CUBE:
     case GL_UNSIGNED_INT_IMAGE_2D_ARRAY:
     case GL_UNSIGNED_INT_ATOMIC_COUNTER:
+    case GL_UNSIGNED_INT_IMAGE_BUFFER_OES:
         retval = 4;
         break;
     case GL_UNSIGNED_SHORT_4_4_4_4:
@@ -1087,7 +1117,7 @@ GLuint glUtilsIndirectStructSize(IndirectCommandType cmdType) {
     return 4;
 }
 
-bool colorRenderableFormat(GLint internalformat, GLenum texturetype, int majorVersion, int minorVersion, bool hasColorBufferFloatExtension, bool hasColorBufferHalfFloatExtension) {
+bool colorRenderableFormat(GLint internalformat, GLenum texturetype, int majorVersion, __attribute__((unused)) int minorVersion, bool hasColorBufferFloatExtension, bool hasColorBufferHalfFloatExtension) {
     switch (internalformat) {
         case GL_RGB:
         case GL_RGBA:

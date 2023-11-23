@@ -39,6 +39,7 @@ license {
 
 rust_test {
     name: "ash_test_src_lib",
+    // has rustc warnings
     host_supported: true,
     crate_name: "ash",
     cargo_env_compat: true,
@@ -80,6 +81,7 @@ rust_defaults {
 rust_test {
     name: "ash_test_tests_constant_size_arrays",
     defaults: ["ash_test_defaults"],
+    // has rustc warnings
     host_supported: true,
     srcs: ["tests/constant_size_arrays.rs"],
     test_options: {
@@ -90,6 +92,7 @@ rust_test {
 rust_test {
     name: "ash_test_tests_display",
     defaults: ["ash_test_defaults"],
+    // has rustc warnings
     host_supported: true,
     srcs: ["tests/display.rs"],
     test_options: {
@@ -100,6 +103,7 @@ rust_test {
 rust_library {
     name: "libash_rust",
     stem: "libash",
+    // has rustc warnings
     host_supported: true,
     crate_name: "ash",
     cargo_env_compat: true,
@@ -117,4 +121,6 @@ rust_library {
         "//apex_available:platform",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
 }

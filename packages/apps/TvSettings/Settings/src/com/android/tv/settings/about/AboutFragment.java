@@ -16,10 +16,10 @@
 
 package com.android.tv.settings.about;
 
-import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_CLASSIC;
-import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
-import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_VENDOR;
-import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_X;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_VENDOR;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_X;
 import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
 
 import android.app.tvsettings.TvSettingsEnums;
@@ -59,8 +59,11 @@ import com.android.tv.settings.MainFragment;
 import com.android.tv.settings.PreferenceUtils;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.customization.CustomizationConstants;
+import com.android.tv.settings.customization.Partner;
+import com.android.tv.settings.customization.PartnerPreferencesMerger;
 import com.android.tv.settings.name.DeviceManager;
+import com.android.tv.settings.overlay.FlavorUtils;
 import com.android.tv.twopanelsettings.slices.CustomContentDescriptionPreference;
 
 import java.util.HashMap;
@@ -141,6 +144,13 @@ public class AboutFragment extends SettingsPreferenceFragment {
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         setPreferencesFromResource(getPreferenceScreenResId(), null);
         final PreferenceScreen screen = getPreferenceScreen();
+        if (Partner.getInstance(getContext()).isCustomizationPackageProvided()) {
+            PartnerPreferencesMerger.mergePreferences(
+                    getContext(),
+                    screen,
+                    CustomizationConstants.ABOUT_SCREEN
+            );
+        }
 
         refreshDeviceName();
         final Preference deviceNamePref = findPreference(KEY_DEVICE_NAME);

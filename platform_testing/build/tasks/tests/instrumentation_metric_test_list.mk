@@ -81,12 +81,15 @@ instrumentation_metric_tests := \
     QueriesAll47 \
     QueriesAll48 \
     QueriesAll49 \
+    SettingsProviderPerfTests \
     TextClassifierPerfTests \
     WmPerfTests \
     ImePerfTests \
+    SurfaceFlingerPerfTests \
     trace_config_detailed.textproto \
     trace_config_multi_user.textproto \
-    perfetto_trace_processor_shell
+    perfetto_trace_processor_shell \
+    RubidiumPerfTests
 
     # TODO(b/72332760): Uncomment when fixed
     #DocumentsUIPerfTests

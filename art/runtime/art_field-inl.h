@@ -40,15 +40,11 @@ inline bool ArtField::IsProxyField() {
   return GetDeclaringClass<kWithoutReadBarrier>()->IsProxyClass<kVerifyNone>();
 }
 
-// We are only ever allowed to set our own final fields. We do need to be careful since if a
-// structural redefinition occurs during <clinit> we can end up trying to set the non-obsolete
-// class's fields from the obsolete class. This is something we want to allow. This is tested by
-// run-test 2002-virtual-structural-initializing.
+// We are only ever allowed to set our own final fields
 inline bool ArtField::CanBeChangedBy(ArtMethod* method) {
   ObjPtr<mirror::Class> declaring_class(GetDeclaringClass());
   ObjPtr<mirror::Class> referring_class(method->GetDeclaringClass());
-  return !IsFinal() || (declaring_class == referring_class) ||
-         UNLIKELY(referring_class->IsObsoleteVersionOf(declaring_class));
+  return !IsFinal() || (declaring_class == referring_class);
 }
 
 template<ReadBarrierOption kReadBarrierOption>
@@ -62,6 +58,32 @@ inline ObjPtr<mirror::Class> ArtField::GetDeclaringClass() {
 
 inline void ArtField::SetDeclaringClass(ObjPtr<mirror::Class> new_declaring_class) {
   declaring_class_ = GcRoot<mirror::Class>(new_declaring_class);
+}
+
+template<typename RootVisitorType>
+void ArtField::VisitArrayRoots(RootVisitorType& visitor,
+                               uint8_t* start_boundary,
+                               uint8_t* end_boundary,
+                               LengthPrefixedArray<ArtField>* array) {
+  DCHECK_LE(start_boundary, end_boundary);
+  DCHECK_NE(array->size(), 0u);
+  ArtField* first_field = &array->At(0);
+  DCHECK_LE(static_cast<void*>(end_boundary), static_cast<void*>(first_field + array->size()));
+  static constexpr size_t kFieldSize = sizeof(ArtField);
+  // Confirm the assumption that ArtField size is power of two. It's important
+  // as we assume so below (RoundUp).
+  static_assert(IsPowerOfTwo(kFieldSize));
+  uint8_t* declaring_class =
+      reinterpret_cast<uint8_t*>(first_field) + DeclaringClassOffset().Int32Value();
+  // Jump to the first class to visit.
+  if (declaring_class < start_boundary) {
+    declaring_class += RoundUp(start_boundary - declaring_class, kFieldSize);
+  }
+  while (declaring_class < end_boundary) {
+    visitor.VisitRoot(
+        reinterpret_cast<mirror::CompressedReference<mirror::Object>*>(declaring_class));
+    declaring_class += kFieldSize;
+  }
 }
 
 inline MemberOffset ArtField::GetOffsetDuringLinking() {

@@ -221,26 +221,6 @@ inline android::base::Result<std::vector<std::string>> FindFilesBySuffix(
   return ReadDir(path, filter_fn);
 }
 
-inline android::base::Result<std::vector<std::string>> FindApexes(
-    const std::vector<std::string>& paths) {
-  std::vector<std::string> result;
-  for (const auto& path : paths) {
-    auto exist = PathExists(path);
-    if (!exist.ok()) {
-      return exist.error();
-    }
-    if (!*exist) continue;
-
-    const auto& apexes = FindFilesBySuffix(path, {kApexPackageSuffix});
-    if (!apexes.ok()) {
-      return apexes;
-    }
-
-    result.insert(result.end(), apexes->begin(), apexes->end());
-  }
-  return result;
-}
-
 // Returns first path between |first_dir| and |second_dir| that correspond to a
 // existing directory. Returns error if neither |first_dir| nor |second_dir|
 // correspond to an existing directory.

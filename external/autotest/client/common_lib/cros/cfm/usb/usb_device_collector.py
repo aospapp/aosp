@@ -1,4 +1,4 @@
-import cStringIO
+import six
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib.cros import textfsm
@@ -43,7 +43,7 @@ class UsbDeviceCollector(object):
         self._host = host
 
     def _extract_usb_data(self, rawdata):
-      """
+        """
       Populate usb data into a list of dictionaries.
       @param rawdata The output of "usb-devices" on CfM.
       @returns list of dictionary, example dictionary:
@@ -64,12 +64,12 @@ class UsbDeviceCollector(object):
       'ProdID': '0110',
       'tprnt': '14'}
       """
-      usbdata = []
-      rawdata += '\n'
-      re_table = textfsm.TextFSM(cStringIO.StringIO(self.USB_DEVICES_TEMPLATE))
-      fsm_results = re_table.ParseText(rawdata)
-      usbdata = [dict(zip(re_table.header, row)) for row in fsm_results]
-      return usbdata
+        usbdata = []
+        rawdata += '\n'
+        re_table = textfsm.TextFSM(six.StringIO(self.USB_DEVICES_TEMPLATE))
+        fsm_results = re_table.ParseText(rawdata)
+        usbdata = [dict(zip(re_table.header, row)) for row in fsm_results]
+        return usbdata
 
     def _collect_usb_device_data(self):
         """Collecting usb device data."""

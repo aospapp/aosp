@@ -23,6 +23,7 @@ import android.content.pm.IPackageManager;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.RemoteException;
+import android.os.UserHandle;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -36,6 +37,7 @@ import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -118,9 +120,9 @@ public abstract class ManageAppOp extends SettingsPreferenceFragment
      */
     public abstract String getPermission();
 
-    private boolean hasRequestedAppOpPermission(String permission, String packageName) {
+    private boolean hasRequestedAppOpPermission(String permission, String packageName, int userId) {
         try {
-            String[] packages = mIPackageManager.getAppOpPermissionPackages(permission);
+            String[] packages = mIPackageManager.getAppOpPermissionPackages(permission, userId);
             return ArrayUtils.contains(packages, packageName);
         } catch (RemoteException exc) {
             Log.e(TAG, "PackageManager dead. Cannot get permission info");
@@ -144,7 +146,8 @@ public abstract class ManageAppOp extends SettingsPreferenceFragment
 
     private PermissionState createPermissionStateFor(String packageName, int uid) {
         return new PermissionState(
-                hasRequestedAppOpPermission(getPermission(), packageName),
+                hasRequestedAppOpPermission(
+                        getPermission(), packageName, UserHandle.getUserId(uid)),
                 hasPermission(uid),
                 getAppOpMode(uid, packageName));
     }
@@ -219,5 +222,11 @@ public abstract class ManageAppOp extends SettingsPreferenceFragment
         empty.setTitle(R.string.noApplications);
         empty.setEnabled(false);
         return empty;
+    }
+
+    public List<ApplicationsState.AppEntry> findEntriesUsingPackageName(String packageName) {
+        return mManageApplicationsController.getApps().stream()
+                .filter(entry -> entry.info.packageName.equals(packageName))
+                .collect(Collectors.toList());
     }
 }

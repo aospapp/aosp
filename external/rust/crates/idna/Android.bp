@@ -42,11 +42,10 @@ rust_library {
     host_supported: true,
     crate_name: "idna",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.2.3",
+    cargo_pkg_version: "0.3.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
-        "libmatches",
         "libunicode_bidi",
         "libunicode_normalization",
     ],
@@ -54,5 +53,7 @@ rust_library {
         "//apex_available:platform",
         "com.android.resolv",
     ],
+    product_available: true,
+    vendor_available: true,
     min_sdk_version: "29",
 }

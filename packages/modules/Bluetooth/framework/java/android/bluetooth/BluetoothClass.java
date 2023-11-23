@@ -23,10 +23,6 @@ import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.Arrays;
-
 /**
  * Represents a Bluetooth class, which describes general characteristics
  * and capabilities of a device. For example, a Bluetooth class will
@@ -288,32 +284,6 @@ public final class BluetoothClass implements Parcelable {
      */
     public int getClassOfDevice() {
         return mClass;
-    }
-
-    /**
-     * Return the Bluetooth Class of Device (CoD) value including the
-     * {@link BluetoothClass.Service}, {@link BluetoothClass.Device.Major} and
-     * minor device fields.
-     *
-     * <p>This value is a byte array representation of Bluetooth CoD as in
-     * Bluetooth specification.
-     *
-     * <p>Bluetooth COD information is 3 bytes, but stored as an int. Hence the
-     * MSB is useless and needs to be thrown away. The lower 3 bytes are
-     * converted into a byte array MSB to LSB. Hence, using BIG_ENDIAN.
-     *
-     * @see <a href="Bluetooth CoD">https://www.bluetooth.com/specifications/assigned-numbers/baseband</a>
-     *
-     * @hide
-     */
-    public byte[] getClassOfDeviceBytes() {
-        byte[] bytes = ByteBuffer.allocate(4)
-                .order(ByteOrder.BIG_ENDIAN)
-                .putInt(mClass)
-                .array();
-
-        // Discard the top byte
-        return Arrays.copyOfRange(bytes, 1, bytes.length);
     }
 
     public static final int PROFILE_HEADSET = 0;

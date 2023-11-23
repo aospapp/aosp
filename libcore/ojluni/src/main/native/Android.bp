@@ -13,11 +13,10 @@
 // limitations under the License.
 
 package {
-    // http://go/android-license-faq
-    // A large-scale-change added 'default_applicable_licenses' to import
-    // the below license kinds from "libcore_ojluni_license":
-    //   SPDX-license-identifier-GPL-2.0
-    default_applicable_licenses: ["libcore_ojluni_license"],
+    // The native sources are GPLv2 with classpath exception.
+    // SPDX-license-identifier-GPL-2.0-with-classpath-exception
+    // For general tips, see http://go/android-license-faq
+    default_applicable_licenses: ["libcore_ojluni_src_main_license"],
 }
 
 filegroup {
@@ -85,6 +84,7 @@ filegroup {
         "socket_tagger_util.cpp",
         "OnLoad.cpp",
         "JniConstants.cpp",
+        "UnixDomainSockets.c",
         "jdk_internal_misc_VM.cpp",
     ],
 }

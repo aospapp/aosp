@@ -126,7 +126,6 @@ ssize_t __android_log_pmsg_file_write(log_id_t logId, char prio,
                                       const char* filename, const char* buf,
                                       size_t len);
 
-#define LOG_ID_ANY ((log_id_t)-1)
 #define ANDROID_LOG_ANY ANDROID_LOG_UNKNOWN
 
 /* first 5 arguments match __android_log_msg_file_write, a cast is safe */

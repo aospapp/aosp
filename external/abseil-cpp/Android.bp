@@ -1,31 +1,12 @@
 package {
-    default_applicable_licenses: ["external_abseil-cpp_license"],
+    default_applicable_licenses: ["libabsl_license"],
 }
 
-// Added automatically by a large-scale-change that took the approach of
-// 'apply every license found to every target'. While this makes sure we respect
-// every license restriction, it may not be entirely correct.
-//
-// e.g. GPL in an MIT project might only apply to the contrib/ directory.
-//
-// Please consider splitting the single license below into multiple licenses,
-// taking care not to lose any license_kind information, and overriding the
-// default license using the 'licenses: [...]' property on targets as needed.
-//
-// For unused files, consider creating a 'fileGroup' with "//visibility:private"
-// to attach the license to, and including a comment whether the files may be
-// used in the current project.
-// See: http://go/android-license-faq
 license {
-    name: "external_abseil-cpp_license",
+    name: "libabsl_license",
     visibility: [":__subpackages__"],
-    license_kinds: [
-        "SPDX-license-identifier-Apache-2.0",
-        "legacy_unencumbered",
-    ],
-    license_text: [
-        "LICENSE",
-    ],
+    license_kinds: ["SPDX-license-identifier-Apache-2.0"],
+    license_text: ["LICENSE"],
 }
 
 cc_library_headers {
@@ -35,12 +16,21 @@ cc_library_headers {
     export_include_dirs: ["."],
 }
 
+cc_defaults {
+    name: "libabsl_library_defaults",
+    header_libs: ["libabsl_headers"],
+    export_header_lib_headers: ["libabsl_headers"],
+    whole_static_libs: ["libabsl_base"],
+}
+
 cc_library_host_static {
     name: "libabsl_base",
+    defaults: ["libabsl_library_defaults"],
     srcs: [
         "absl/base/internal/cycleclock.cc",
         "absl/base/internal/low_level_alloc.cc",
         "absl/base/internal/raw_logging.cc",
+        "absl/base/internal/scoped_set_env.cc",
         "absl/base/internal/spinlock.cc",
         "absl/base/internal/spinlock_wait.cc",
         "absl/base/internal/strerror.cc",
@@ -48,14 +38,16 @@ cc_library_host_static {
         "absl/base/internal/thread_identity.cc",
         "absl/base/internal/throw_delegate.cc",
         "absl/base/internal/unscaledcycleclock.cc",
+        "absl/base/log_severity.cc",
     ],
+    exclude_static_libs: ["libabsl_base"], // don't depend on itself
 }
 
 cc_library_host_static {
     name: "libabsl_container",
+    defaults: ["libabsl_library_defaults"],
     srcs: [
         "absl/container/internal/test_instance_tracker.cc",
-        "absl/container/internal/hash_generator_testing.cc",
         "absl/container/internal/hashtablez_sampler.cc",
         "absl/container/internal/hashtablez_sampler_force_weak_definition.cc",
         "absl/container/internal/raw_hash_set.cc",
@@ -64,6 +56,7 @@ cc_library_host_static {
 
 cc_library_host_static {
     name: "libabsl_debugging",
+    defaults: ["libabsl_library_defaults"],
     srcs: [
         "absl/debugging/failure_signal_handler.cc",
         "absl/debugging/internal/address_is_readable.cc",
@@ -80,39 +73,44 @@ cc_library_host_static {
 
 cc_library_host_static {
     name: "libabsl_flags",
+    defaults: ["libabsl_library_defaults"],
     srcs: [
         "absl/flags/commandlineflag.cc",
-        "absl/flags/usage_config.cc",
-        "absl/flags/marshalling.cc",
-        "absl/flags/usage.cc",
+        "absl/flags/flag_test_defs.cc",
         "absl/flags/flag.cc",
-        "absl/flags/parse.cc",
         "absl/flags/internal/commandlineflag.cc",
         "absl/flags/internal/flag.cc",
         "absl/flags/internal/private_handle_accessor.cc",
         "absl/flags/internal/program_name.cc",
         "absl/flags/internal/usage.cc",
-        "absl/flags/flag_test_defs.cc",
+        "absl/flags/marshalling.cc",
+        "absl/flags/parse.cc",
         "absl/flags/reflection.cc",
+        "absl/flags/usage_config.cc",
+        "absl/flags/usage.cc",
     ],
 }
 
 cc_library_host_static {
     name: "libabsl_hash",
+    defaults: ["libabsl_library_defaults"],
     srcs: [
         "absl/hash/internal/city.cc",
         "absl/hash/internal/hash.cc",
         "absl/hash/internal/low_level_hash.cc",
+        "absl/hash/internal/print_hash_of.cc",
     ],
 }
 
 cc_library_host_static {
     name: "libabsl_numeric",
+    defaults: ["libabsl_library_defaults"],
     srcs: ["absl/numeric/int128.cc"],
 }
 
 cc_library_host_static {
     name: "libabsl_profiling",
+    defaults: ["libabsl_library_defaults"],
     srcs: [
         "absl/profiling/internal/exponential_biased.cc",
         "absl/profiling/internal/periodic_sampler.cc",
@@ -120,7 +118,32 @@ cc_library_host_static {
 }
 
 cc_library_host_static {
+    name: "libabsl_random",
+    defaults: ["libabsl_library_defaults"],
+    srcs: [
+        "absl/random/discrete_distribution.cc",
+        "absl/random/gaussian_distribution.cc",
+        "absl/random/internal/chi_square.cc",
+        "absl/random/internal/distribution_test_util.cc",
+        "absl/random/internal/gaussian_distribution_gentables.cc",
+        "absl/random/internal/nanobenchmark.cc",
+        "absl/random/internal/pool_urbg.cc",
+        "absl/random/internal/randen_benchmarks.cc",
+        "absl/random/internal/randen.cc",
+        "absl/random/internal/randen_detect.cc",
+        "absl/random/internal/randen_hwaes.cc",
+        "absl/random/internal/randen_round_keys.cc",
+        "absl/random/internal/randen_slow.cc",
+        "absl/random/internal/seed_material.cc",
+        "absl/random/seed_gen_exception.cc",
+        "absl/random/seed_sequences.cc",
+    ],
+    cflags: ["-Wno-unused-parameter"],
+}
+
+cc_library_host_static {
     name: "libabsl_status",
+    defaults: ["libabsl_library_defaults"],
     srcs: [
         "absl/status/status.cc",
         "absl/status/status_payload_printer.cc",
@@ -130,9 +153,12 @@ cc_library_host_static {
 
 cc_library_host_static {
     name: "libabsl_strings",
+    defaults: ["libabsl_library_defaults"],
     srcs: [
         "absl/strings/ascii.cc",
         "absl/strings/charconv.cc",
+        "absl/strings/cord_analysis.cc",
+        "absl/strings/cord_buffer.cc",
         "absl/strings/cord.cc",
         "absl/strings/escaping.cc",
         "absl/strings/internal/charconv_bigint.cc",
@@ -142,13 +168,16 @@ cc_library_host_static {
         "absl/strings/internal/cord_rep_btree_navigator.cc",
         "absl/strings/internal/cord_rep_btree_reader.cc",
         "absl/strings/internal/cord_rep_consume.cc",
+        "absl/strings/internal/cord_rep_crc.cc",
         "absl/strings/internal/cord_rep_ring.cc",
         "absl/strings/internal/cordz_functions.cc",
         "absl/strings/internal/cordz_handle.cc",
         "absl/strings/internal/cordz_info.cc",
+        "absl/strings/internal/cordz_sample_token.cc",
         "absl/strings/internal/escaping.cc",
         "absl/strings/internal/memutil.cc",
         "absl/strings/internal/ostringstream.cc",
+        "absl/strings/internal/pow10_helper.cc",
         "absl/strings/internal/str_format/arg.cc",
         "absl/strings/internal/str_format/bind.cc",
         "absl/strings/internal/str_format/extension.cc",
@@ -168,6 +197,7 @@ cc_library_host_static {
 
 cc_library_host_static {
     name: "libabsl_synchronization",
+    defaults: ["libabsl_library_defaults"],
     srcs: [
         "absl/synchronization/barrier.cc",
         "absl/synchronization/blocking_counter.cc",
@@ -175,13 +205,14 @@ cc_library_host_static {
         "absl/synchronization/internal/per_thread_sem.cc",
         "absl/synchronization/internal/waiter.cc",
         "absl/synchronization/internal/graphcycles.cc",
-        "absl/synchronization/notification.cc",
         "absl/synchronization/mutex.cc",
+        "absl/synchronization/notification.cc",
     ],
 }
 
 cc_library_host_static {
     name: "libabsl_time",
+    defaults: ["libabsl_library_defaults"],
     srcs: [
         "absl/time/civil_time.cc",
         "absl/time/clock.cc",
@@ -203,6 +234,7 @@ cc_library_host_static {
 
 cc_library_host_static {
     name: "libabsl_types",
+    defaults: ["libabsl_library_defaults"],
     srcs: [
         "absl/types/bad_any_cast.cc",
         "absl/types/bad_optional_access.cc",

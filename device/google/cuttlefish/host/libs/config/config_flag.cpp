@@ -26,10 +26,12 @@
 
 #include "common/libs/utils/files.h"
 #include "common/libs/utils/flag_parser.h"
+#include "host/commands/assemble_cvd/flags_defaults.h"
 #include "host/libs/config/cuttlefish_config.h"
 
 // To support other files that use this from gflags.
-DEFINE_string(system_image_dir, "", "");
+// TODO: Add a description to this flag
+DEFINE_string(system_image_dir, CF_DEFAULTS_SYSTEM_IMAGE_DIR, "");
 
 using gflags::FlagSettingMode::SET_FLAGS_DEFAULT;
 
@@ -97,8 +99,11 @@ class ConfigReader : public FlagFeature {
   std::string Name() const override { return "ConfigReader"; }
   std::unordered_set<FlagFeature*> Dependencies() const override { return {}; }
   bool Process(std::vector<std::string>&) override {
-    for (const std::string& file :
-         DirectoryContents(DefaultHostArtifactsPath("etc/cvd_config"))) {
+    auto directory_contents_result =
+        DirectoryContents(DefaultHostArtifactsPath("etc/cvd_config"));
+    CHECK(directory_contents_result.ok())
+        << directory_contents_result.error().Message();
+    for (const std::string& file : *directory_contents_result) {
       std::string_view local_file(file);
       if (android::base::ConsumePrefix(&local_file, "cvd_config_") &&
           android::base::ConsumeSuffix(&local_file, ".json")) {

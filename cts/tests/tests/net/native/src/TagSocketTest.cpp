@@ -79,6 +79,15 @@ constexpr uint32_t TEST_TAG = 42;
   return true;
 }
 
+bool waitSocketIsNotTagged(const sp<IBinder>& binder, uint64_t cookie,
+                           int maxTries) {
+    for (int i = 0; i < maxTries; ++i) {
+        if (socketIsNotTagged(binder, cookie)) return true;
+        usleep(50 * 1000);
+    }
+    return false;
+}
+
 }  // namespace
 
 TEST_F(TagSocketTest, TagSocket) {
@@ -98,6 +107,11 @@ TEST_F(TagSocketTest, TagSocket) {
   EXPECT_TRUE(socketIsTagged(mBinder, cookie, TEST_UID, TEST_TAG));
   EXPECT_EQ(0, android_untag_socket(sock));
   EXPECT_TRUE(socketIsNotTagged(mBinder, cookie));
+
+  EXPECT_EQ(0, android_tag_socket(sock, TEST_TAG));
+  EXPECT_TRUE(socketIsTagged(mBinder, cookie, geteuid(), TEST_TAG));
+  EXPECT_EQ(0, close(sock));
+  EXPECT_TRUE(waitSocketIsNotTagged(mBinder, cookie, 100 /* maxTries */));
 }
 
 TEST_F(TagSocketTest, TagSocketErrors) {

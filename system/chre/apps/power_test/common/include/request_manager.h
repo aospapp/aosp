@@ -17,11 +17,11 @@
 #ifndef CHRE_POWER_TEST_REQUEST_MANAGER_H_
 #define CHRE_POWER_TEST_REQUEST_MANAGER_H_
 
-#include <chre.h>
 #include <cinttypes>
 
 #include "chre/util/singleton.h"
 #include "chre/util/time.h"
+#include "chre_api/chre.h"
 #include "common.h"
 #include "generated/chre_power_test_generated.h"
 

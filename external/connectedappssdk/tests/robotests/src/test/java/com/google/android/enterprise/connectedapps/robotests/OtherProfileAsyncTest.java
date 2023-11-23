@@ -34,7 +34,6 @@ import com.google.android.enterprise.connectedapps.TestStringCallbackListenerImp
 import com.google.android.enterprise.connectedapps.TestVoidCallbackListenerImpl;
 import com.google.android.enterprise.connectedapps.exceptions.ProfileRuntimeException;
 import com.google.android.enterprise.connectedapps.exceptions.UnavailableProfileException;
-import com.google.android.enterprise.connectedapps.processor.annotationdiscovery.interfaces.CrossProfileAnnotation;
 import com.google.android.enterprise.connectedapps.testapp.CustomRuntimeException;
 import com.google.android.enterprise.connectedapps.testapp.configuration.TestApplication;
 import com.google.android.enterprise.connectedapps.testapp.connector.TestProfileConnector;
@@ -95,18 +94,19 @@ public class OtherProfileAsyncTest {
   }
 
   @Test
-  public void other_async_callbackTriggeredMultipleTimes_isOnlyReceivedOnce() {
+  public void other_async_callbackTriggeredMultipleTimes_isReceivedTwice() {
     profileTestCrossProfileType
         .other()
-        .asyncVoidMethodWhichCallsBackTwice(voidCallbackListener, exceptionCallbackListener);
+        .asyncIdentityStringMethodWhichCallsBackTwice(
+            STRING, stringCallbackListener, exceptionCallbackListener);
 
-    assertThat(voidCallbackListener.callbackMethodCalls).isEqualTo(1);
+    assertThat(stringCallbackListener.callbackMethodCalls).isEqualTo(2);
   }
 
   @Test
   public void
       other_async_automaticConnection_workProfileIsTurnedOff_doesReceiveUnavailableProfileExceptionImmediately() {
-    testProfileConnector.stopManualConnectionManagement();
+    testProfileConnector.clearConnectionHolders();
     testUtilities.turnOffWorkProfile();
 
     profileTestCrossProfileType
@@ -120,7 +120,7 @@ public class OtherProfileAsyncTest {
   @Test
   public void
       other_async_automaticConnection_workProfileIsTurnedOn_doesNotSetUnavailableProfileException() {
-    testProfileConnector.stopManualConnectionManagement();
+    testProfileConnector.clearConnectionHolders();
     testUtilities.turnOnWorkProfile();
 
     profileTestCrossProfileType
@@ -134,7 +134,7 @@ public class OtherProfileAsyncTest {
 
   @Test
   public void other_async_automaticConnection_callsMethod() {
-    testProfileConnector.stopManualConnectionManagement();
+    testProfileConnector.clearConnectionHolders();
     testUtilities.turnOnWorkProfile();
 
     profileTestCrossProfileType
@@ -146,7 +146,7 @@ public class OtherProfileAsyncTest {
 
   @Test
   public void other_async_automaticConnection_resultIsSet() {
-    testProfileConnector.stopManualConnectionManagement();
+    testProfileConnector.clearConnectionHolders();
     testUtilities.turnOnWorkProfile();
 
     profileTestCrossProfileType
@@ -159,7 +159,7 @@ public class OtherProfileAsyncTest {
   @Test
   public void
       other_async_automaticConnection_connectionIsDroppedDuringCall_setUnavailableProfileException() {
-    testProfileConnector.stopManualConnectionManagement();
+    testProfileConnector.clearConnectionHolders();
     testUtilities.turnOnWorkProfile();
     profileTestCrossProfileType
         .other()
@@ -173,120 +173,12 @@ public class OtherProfileAsyncTest {
   }
 
   @Test
-  public void other_async_timeoutSetOnMethod_doesNotTimeoutEarly() {
-    profileTestCrossProfileType
-        .other()
-        .asyncMethodWhichNeverCallsBackWith5SecondTimeout(
-            stringCallbackListener, exceptionCallbackListener);
-
-    testUtilities.advanceTimeBySeconds(4);
-
-    assertThat(exceptionCallbackListener.lastException).isNull();
-  }
-
-  @Test
-  public void other_async_timeoutSetOnMethod_timesOut() {
-    profileTestCrossProfileType
-        .other()
-        .asyncMethodWhichNeverCallsBackWith5SecondTimeout(
-            stringCallbackListener, exceptionCallbackListener);
-
-    testUtilities.advanceTimeBySeconds(6);
-
-    assertThat(exceptionCallbackListener.lastException)
-        .isInstanceOf(UnavailableProfileException.class);
-  }
-
-  @Test
-  public void other_async_timeoutSetOnType_doesNotTimeoutEarly() {
-    profileTestCrossProfileType
-        .other()
-        .asyncMethodWhichNeverCallsBackWith7SecondTimeout(
-            stringCallbackListener, exceptionCallbackListener);
-
-    testUtilities.advanceTimeBySeconds(6);
-
-    assertThat(exceptionCallbackListener.lastException).isNull();
-  }
-
-  @Test
-  public void other_async_timeoutSetOnType_timesOut() {
-    profileTestCrossProfileType
-        .other()
-        .asyncMethodWhichNeverCallsBackWith7SecondTimeout(
-            stringCallbackListener, exceptionCallbackListener);
-
-    testUtilities.advanceTimeBySeconds(8);
-
-    assertThat(exceptionCallbackListener.lastException)
-        .isInstanceOf(UnavailableProfileException.class);
-  }
-
-  @Test
-  public void other_async_timeoutSetByDefault_doesNotTimeoutEarly() throws Exception {
+  public void other_async_doesNotTimeOut() throws Exception {
     profileTestCrossProfileTypeWhichNeedsContext
         .other()
-        .asyncMethodWhichNeverCallsBackWithDefaultTimeout(
-            stringCallbackListener, exceptionCallbackListener);
+        .asyncMethodWhichNeverCallsBack(stringCallbackListener, exceptionCallbackListener);
 
-    scheduledExecutorService.advanceTimeBy(
-        CrossProfileAnnotation.DEFAULT_TIMEOUT_MILLIS - 1, TimeUnit.MILLISECONDS);
-
-    assertThat(exceptionCallbackListener.lastException).isNull();
-  }
-
-  @Test
-  public void other_async_timeoutSetByDefault_timesOut() throws Exception {
-    profileTestCrossProfileTypeWhichNeedsContext
-        .other()
-        .asyncMethodWhichNeverCallsBackWithDefaultTimeout(
-            stringCallbackListener, exceptionCallbackListener);
-
-    scheduledExecutorService.advanceTimeBy(
-        CrossProfileAnnotation.DEFAULT_TIMEOUT_MILLIS + 1, TimeUnit.MILLISECONDS);
-
-    assertThat(exceptionCallbackListener.lastException)
-        .isInstanceOf(UnavailableProfileException.class);
-  }
-
-  @Test
-  public void other_async_timeoutSetByCaller_doesNotTimeoutEarly() throws Exception {
-    long timeoutMillis = 5000;
-    profileTestCrossProfileTypeWhichNeedsContext
-        .other()
-        .timeout(timeoutMillis)
-        .asyncMethodWhichNeverCallsBackWithDefaultTimeout(
-            stringCallbackListener, exceptionCallbackListener);
-
-    scheduledExecutorService.advanceTimeBy(timeoutMillis - 1, TimeUnit.MILLISECONDS);
-
-    assertThat(exceptionCallbackListener.lastException).isNull();
-  }
-
-  @Test
-  public void other_async_timeoutSetByCaller_timesOut() throws Exception {
-    long timeoutMillis = 5000;
-    profileTestCrossProfileTypeWhichNeedsContext
-        .other()
-        .timeout(timeoutMillis)
-        .asyncMethodWhichNeverCallsBackWithDefaultTimeout(
-            stringCallbackListener, exceptionCallbackListener);
-
-    scheduledExecutorService.advanceTimeBy(timeoutMillis + 1, TimeUnit.MILLISECONDS);
-
-    assertThat(exceptionCallbackListener.lastException)
-        .isInstanceOf(UnavailableProfileException.class);
-  }
-
-  @Test
-  public void other_async_doesNotTimeoutAfterCompletion() throws Exception {
-    // We would expect an exception if the timeout continued after completion
-    profileTestCrossProfileType
-        .other()
-        .asyncVoidMethod(voidCallbackListener, exceptionCallbackListener);
-
-    scheduledExecutorService.advanceTimeBy(
-        CrossProfileAnnotation.DEFAULT_TIMEOUT_MILLIS + 1, TimeUnit.MILLISECONDS);
+    scheduledExecutorService.advanceTimeBy(10, TimeUnit.MINUTES);
 
     assertThat(exceptionCallbackListener.lastException).isNull();
   }
@@ -294,7 +186,7 @@ public class OtherProfileAsyncTest {
   @Test
   public void other_async_throwsException_exceptionIsWrapped() {
     // The exception is only catchable when the connection is already established.
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     try {
       profileTestCrossProfileType

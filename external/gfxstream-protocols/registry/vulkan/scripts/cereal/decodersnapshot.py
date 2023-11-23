@@ -25,7 +25,8 @@ public:
     ~VkDecoderSnapshot();
 
     void save(android::base::Stream* stream);
-    void load(android::base::Stream* stream);
+    void load(android::base::Stream* stream, emugl::GfxApiLogger& gfx_logger,
+              emugl::HealthMonitor<>* healthMonitor);
 """
 
 decoder_snapshot_decl_postamble = """
@@ -38,7 +39,9 @@ private:
 
 decoder_snapshot_impl_preamble ="""
 
-using namespace goldfish_vk;
+using namespace gfxstream::vk;
+using emugl::GfxApiLogger;
+using emugl::HealthMonitor;
 
 class VkDecoderSnapshot::Impl {
 public:
@@ -48,8 +51,9 @@ public:
         mReconstruction.save(stream);
     }
 
-    void load(android::base::Stream* stream) {
-        mReconstruction.load(stream);
+    void load(android::base::Stream* stream, GfxApiLogger& gfx_logger,
+              HealthMonitor<>* healthMonitor) {
+        mReconstruction.load(stream, gfx_logger, healthMonitor);
     }
 
 """
@@ -67,8 +71,9 @@ void VkDecoderSnapshot::save(android::base::Stream* stream) {
     mImpl->save(stream);
 }
 
-void VkDecoderSnapshot::load(android::base::Stream* stream) {
-    mImpl->load(stream);
+void VkDecoderSnapshot::load(android::base::Stream* stream, GfxApiLogger& gfx_logger,
+                             HealthMonitor<>* healthMonitor) {
+    mImpl->load(stream, gfx_logger, healthMonitor);
 }
 
 VkDecoderSnapshot::~VkDecoderSnapshot() = default;
@@ -207,8 +212,8 @@ class VulkanDecoderSnapshot(VulkanWrapperGenerator):
         self.module.appendHeader(decoder_snapshot_decl_preamble)
         self.module.appendImpl(decoder_snapshot_impl_preamble)
 
-    def onBeginFeature(self, featureName):
-        VulkanWrapperGenerator.onBeginFeature(self, featureName)
+    def onBeginFeature(self, featureName, featureType):
+        VulkanWrapperGenerator.onBeginFeature(self, featureName, featureType)
         self.currentFeature = featureName
 
     def onGenCmd(self, cmdinfo, name, alias):

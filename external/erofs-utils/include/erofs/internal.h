@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0+ OR Apache-2.0 */
 /*
  * Copyright (C) 2019 HUAWEI, Inc.
  *             http://www.huawei.com/
@@ -36,7 +36,7 @@ typedef unsigned short umode_t;
 
 /* no obvious reason to support explicit PAGE_SIZE != 4096 for now */
 #if PAGE_SIZE != 4096
-#error incompatible PAGE_SIZE is already defined
+#warning EROFS may be incompatible on your platform
 #endif
 
 #ifndef PAGE_MASK
@@ -131,6 +131,7 @@ EROFS_FEATURE_FUNCS(compr_cfgs, incompat, INCOMPAT_COMPR_CFGS)
 EROFS_FEATURE_FUNCS(big_pcluster, incompat, INCOMPAT_BIG_PCLUSTER)
 EROFS_FEATURE_FUNCS(chunked_file, incompat, INCOMPAT_CHUNKED_FILE)
 EROFS_FEATURE_FUNCS(device_table, incompat, INCOMPAT_DEVICE_TABLE)
+EROFS_FEATURE_FUNCS(ztailpacking, incompat, INCOMPAT_ZTAILPACKING)
 EROFS_FEATURE_FUNCS(sb_chksum, compat, COMPAT_SB_CHKSUM)
 
 #define EROFS_I_EA_INITED	(1 << 0)
@@ -174,6 +175,7 @@ struct erofs_inode {
 	unsigned char inode_isize;
 	/* inline tail-end packing size */
 	unsigned short idata_size;
+	bool compressed_idata;
 
 	unsigned int xattr_isize;
 	unsigned int extent_isize;
@@ -184,6 +186,10 @@ struct erofs_inode {
 
 	void *idata;
 
+	/* (ztailpacking) in order to recover uncompressed EOF data */
+	void *eof_tailraw;
+	unsigned int eof_tailrawsize;
+
 	union {
 		void *compressmeta;
 		void *chunkindexes;
@@ -192,6 +198,9 @@ struct erofs_inode {
 			uint8_t  z_algorithmtype[2];
 			uint8_t  z_logical_clusterbits;
 			uint8_t  z_physical_clusterblks;
+			uint64_t z_tailextent_headlcn;
+			unsigned int    z_idataoff;
+#define z_idata_size	idata_size
 		};
 	};
 #ifdef WITH_ANDROID
@@ -295,6 +304,7 @@ struct erofs_map_blocks {
  * approach instead if possible since it's more metadata lightweight.)
  */
 #define EROFS_GET_BLOCKS_FIEMAP	0x0002
+#define EROFS_GET_BLOCKS_FINDTAIL	0x0008
 
 enum {
 	Z_EROFS_COMPRESSION_SHIFTED = Z_EROFS_COMPRESSION_MAX,
@@ -320,6 +330,27 @@ int erofs_pread(struct erofs_inode *inode, char *buf,
 int erofs_map_blocks(struct erofs_inode *inode,
 		struct erofs_map_blocks *map, int flags);
 int erofs_map_dev(struct erofs_sb_info *sbi, struct erofs_map_dev *map);
+
+static inline int erofs_get_occupied_size(const struct erofs_inode *inode,
+					  erofs_off_t *size)
+{
+	*size = 0;
+	switch (inode->datalayout) {
+	case EROFS_INODE_FLAT_INLINE:
+	case EROFS_INODE_FLAT_PLAIN:
+	case EROFS_INODE_CHUNK_BASED:
+		*size = inode->i_size;
+		break;
+	case EROFS_INODE_FLAT_COMPRESSION_LEGACY:
+	case EROFS_INODE_FLAT_COMPRESSION:
+		*size = inode->u.i_blocks * EROFS_BLKSIZ;
+		break;
+	default:
+		return -ENOTSUP;
+	}
+	return 0;
+}
+
 /* zmap.c */
 int z_erofs_fill_inode(struct erofs_inode *vi);
 int z_erofs_map_blocks_iter(struct erofs_inode *vi,

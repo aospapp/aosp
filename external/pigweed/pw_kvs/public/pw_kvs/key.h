@@ -21,8 +21,6 @@
 #include <string_view>
 #endif  // __cplusplus >= 201703L
 
-#include "pw_string/internal/length.h"
-
 namespace pw {
 namespace kvs {
 
@@ -30,13 +28,12 @@ namespace kvs {
 // platforms without C++17.
 class Key {
  public:
+  using value_type = const char;
+
   // Constructors
   constexpr Key() : str_{nullptr}, length_{0} {}
   constexpr Key(const Key&) = default;
-  constexpr Key(const char* str)
-      : str_{str},
-        length_{string::internal::ClampedLength(
-            str, std::numeric_limits<size_t>::max())} {}
+  constexpr Key(const char* str) : str_{str}, length_{CStringLength(str)} {}
   constexpr Key(const char* str, size_t len) : str_{str}, length_{len} {}
   Key(const std::string& str) : str_{str.data()}, length_{str.length()} {}
 
@@ -78,6 +75,15 @@ class Key {
   }
 
  private:
+  // constexpr version of strlen
+  static constexpr size_t CStringLength(const char* str) {
+    size_t length = 0;
+    while (str[length] != '\0') {
+      length += 1;
+    }
+    return length;
+  }
+
   const char* str_;
   size_t length_;
 };

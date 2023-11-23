@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.appcompatstate;
 
+import com.android.tradefed.util.RunUtil;
 import static com.android.os.AtomsProto.AppCompatStateChanged.State.LETTERBOXED_FOR_ASPECT_RATIO;
 import static com.android.os.AtomsProto.AppCompatStateChanged.State.LETTERBOXED_FOR_FIXED_ORIENTATION;
 import static com.android.os.AtomsProto.AppCompatStateChanged.State.LETTERBOXED_FOR_SIZE_COMPAT_MODE;
@@ -33,9 +34,11 @@ import com.android.os.AtomsProto;
 import com.android.os.AtomsProto.AppCompatStateChanged;
 import com.android.os.StatsLog.EventMetricData;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.util.Pair;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -89,7 +92,7 @@ public class AppCompatStateStatsTests extends DeviceTestCase implements IBuildRe
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
         DeviceUtils.turnScreenOn(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         ConfigUtils.uploadConfigForPushedAtomWithUid(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
                 AtomsProto.Atom.APP_COMPAT_STATE_CHANGED_FIELD_NUMBER, /*uidInAttributionChain=*/
                 false);
@@ -183,30 +186,46 @@ public class AppCompatStateStatsTests extends DeviceTestCase implements IBuildRe
     private void testAppCompatFlow(String activity, @Nullable String secondActivity,
             boolean switchToOpened, List<AppCompatStateChanged.State>... expectedStatesOptions)
             throws Exception {
-        if (!isDeviceStateAvailable(DEVICE_STATE_OPENED)
-                || !isDeviceStateAvailable(DEVICE_STATE_CLOSED)) {
+        if (!isFoldableStateAvailable(DEVICE_STATE_OPENED)
+                || !isFoldableStateAvailable(DEVICE_STATE_CLOSED)) {
             CLog.i("Device doesn't support OPENED or CLOSED device states.");
+            return;
+        }
+
+        Pair<Integer, Integer> displaySizeClosed = getDisplayRealSize(getDevice());
+        if (displaySizeClosed == null) {
+            CLog.i("Could not determine display size while CLOSED.");
             return;
         }
 
         try (AutoCloseable a1 = DeviceUtils.withActivity(getDevice(),
                 DeviceUtils.STATSD_ATOM_TEST_PKG, activity, "action", "action.sleep_top")) {
-            Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
             if (switchToOpened) {
                 getDevice().executeShellCommand(
                         String.format(CMD_PUT_DEVICE_STATE_TEMPLATE, DEVICE_STATE_OPENED));
-                Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+                RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
+
+                Pair<Integer, Integer> displaySizeOpened = getDisplayRealSize(getDevice());
+                if (displaySizeOpened == null) {
+                    CLog.i("Could not determine display size while OPENED.");
+                    return;
+                }
+                if (displaySizeClosed.equals(displaySizeOpened)) {
+                    CLog.i("Display size has not changed.");
+                    return;
+                }
             }
 
             if (secondActivity != null) {
                 try (AutoCloseable a2 = DeviceUtils.withActivity(getDevice(),
                         DeviceUtils.STATSD_ATOM_TEST_PKG, secondActivity, "action",
                         "action.sleep_top")) {
-                    Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+                    RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
                 }
             }
         }
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         assertThat(expectedStatesOptions).asList().contains(
                 getAppCompatStatesForUid(DeviceUtils.getStatsdTestAppUid(getDevice())));
@@ -239,10 +258,30 @@ public class AppCompatStateStatsTests extends DeviceTestCase implements IBuildRe
         return result;
     }
 
-    private boolean isDeviceStateAvailable(int state) throws Exception {
-        return Arrays.stream(
-                getDevice().executeShellCommand(CMD_GET_AVAILABLE_DEVICE_STATES).split(","))
-                .map(Integer::valueOf)
-                .anyMatch(availableState -> availableState == state);
+    private boolean isFoldableStateAvailable(int state) throws Exception {
+        return getDevice().getFoldableStates().stream().anyMatch(
+                foldableState -> foldableState.getIdentifier() == state);
+    }
+
+
+    /**
+     * Returns the physical size of the current display used.
+     */
+    private Pair<Integer, Integer> getDisplayRealSize(ITestDevice device) throws Exception {
+        final String physicalSize = "Physical size: ";
+        String str = device.executeShellCommand("wm size");
+        if (!str.isEmpty()) {
+            String[] lines = str.split(System.getProperty("line.separator"));
+            for (String s : lines) {
+                if (s.contains(physicalSize)) {
+                    String substring = s.substring(physicalSize.length());
+                    if (!substring.isEmpty()) {
+                        return Pair.create(Integer.parseInt(substring.split("x")[0]),
+                                Integer.parseInt(substring.split("x")[1]));
+                    }
+                }
+            }
+        }
+        return null;
     }
 }

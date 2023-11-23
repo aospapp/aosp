@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <base/callback_forward.h>
+#include <base/functional/callback_forward.h>
 #include <hardware/bt_hearing_aid.h>
 
 #include <cstdint>
@@ -26,10 +26,9 @@
 #include <functional>
 #include <vector>
 
+#include "common/init_flags.h"
 #include "stack/include/gap_api.h"
 #include "types/raw_address.h"
-
-constexpr uint16_t HEARINGAID_MAX_NUM_UUIDS = 1;
 
 constexpr uint16_t HA_INTERVAL_10_MS = 10;
 constexpr uint16_t HA_INTERVAL_20_MS = 20;
@@ -38,6 +37,10 @@ constexpr uint16_t HA_INTERVAL_20_MS = 20;
 constexpr uint8_t CAPABILITY_SIDE = 0x01;
 constexpr uint8_t CAPABILITY_BINAURAL = 0x02;
 constexpr uint8_t CAPABILITY_RESERVED = 0xFC;
+
+// Number of retry for phy update. This targets to reduce phy update collision.
+const static uint8_t PHY_UPDATE_RETRY_LIMIT =
+    bluetooth::common::init_flags::get_asha_phy_update_retry_limit();
 
 /** Implementations of HearingAid will also implement this interface */
 class HearingAidAudioReceiver {
@@ -160,6 +163,8 @@ struct HearingDevice {
 
   bool gap_opened;
 
+  int phy_update_retry_remain;
+
   HearingDevice(const RawAddress& address, uint8_t capabilities,
                 uint16_t codecs, uint16_t audio_control_point_handle,
                 uint16_t audio_status_handle, uint16_t audio_status_ccc_handle,
@@ -188,7 +193,8 @@ struct HearingDevice {
         playback_started(false),
         command_acked(false),
         read_rssi_count(0),
-        gap_opened(false) {}
+        gap_opened(false),
+        phy_update_retry_remain(PHY_UPDATE_RETRY_LIMIT) {}
 
   HearingDevice(const RawAddress& address, bool first_connection)
       : address(address),
@@ -211,7 +217,8 @@ struct HearingDevice {
         playback_started(false),
         command_acked(false),
         read_rssi_count(0),
-        gap_opened(false) {}
+        gap_opened(false),
+        phy_update_retry_remain(PHY_UPDATE_RETRY_LIMIT) {}
 
   HearingDevice() : HearingDevice(RawAddress::kEmpty, false) {}
 
@@ -228,7 +235,6 @@ class HearingAid {
                          base::Closure initCb);
   static void CleanUp();
   static bool IsHearingAidRunning();
-  static HearingAid* Get();
   static void DebugDump(int fd);
 
   static void AddFromStorage(const HearingDevice& dev_info,
@@ -236,10 +242,10 @@ class HearingAid {
 
   static int GetDeviceCount();
 
-  virtual void Connect(const RawAddress& address) = 0;
-  virtual void Disconnect(const RawAddress& address) = 0;
-  virtual void AddToAcceptlist(const RawAddress& address) = 0;
-  virtual void SetVolume(int8_t volume) = 0;
+  static void Connect(const RawAddress& address);
+  static void Disconnect(const RawAddress& address);
+  static void AddToAcceptlist(const RawAddress& address);
+  static void SetVolume(int8_t volume);
 };
 
 /* Represents configuration of audio codec, as exchanged between hearing aid and

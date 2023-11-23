@@ -18,5 +18,5 @@ package {
 
 sh_binary_host {
     name: "hierarchyviewer1",
-    src: "hierarchyviewer1",
+    src: "hierarchyviewer1.sh",
 }

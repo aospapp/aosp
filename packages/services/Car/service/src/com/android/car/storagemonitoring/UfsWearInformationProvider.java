@@ -100,6 +100,8 @@ public class UfsWearInformationProvider implements WearInformationProvider {
                         case "bDeviceLifeTimeEstB":
                             lifetimeB = Optional.of(Integer.decode(value));
                             break;
+                        default:
+                            break;
                     }
                 } catch (NumberFormatException e) {
                     Slogf.w(CarLog.TAG_STORAGE, "trying to decode key " + name + " value " + value

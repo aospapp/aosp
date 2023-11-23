@@ -24,7 +24,6 @@ java_library_host {
         "tradefed",
         "compatibility-host-util",
         "host-libprotobuf-java-full",
-        "platformprotos",
     ],
     static_libs: [
         "cts-statsd-atom-host-test-utils",

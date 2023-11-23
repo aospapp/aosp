@@ -43,6 +43,9 @@
 #include "vmDebug.h"
 #include "DDMImpl.h"
 
+// ANDROID-CHANGED: Need to sent metrics before debugInit_exit
+#include "timing.h"
+
 /* How the options get to OnLoad: */
 #define XDEBUG "-Xdebug"
 #define XRUN "-Xrunjdwp"
@@ -1402,6 +1405,10 @@ void
 debugInit_exit(jvmtiError error, const char *msg)
 {
     enum exit_codes { EXIT_NO_ERRORS = 0, EXIT_JVMTI_ERROR = 1, EXIT_TRANSPORT_ERROR = 2 };
+
+    // ANDROID-CHANGED: We are about to exit(). Send ART cmd processing time,
+    // if there are any remaining.
+    timings_flush();
 
     // Prepare to exit. Log error and finish logging
     LOG_MISC(("Exiting with error %s(%d): %s", jvmtiErrorText(error), error,

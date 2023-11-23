@@ -26,13 +26,15 @@ import android.widget.TextView;
 import androidx.preference.PreferenceViewHolder;
 
 import com.android.car.settings.R;
-import com.android.car.ui.preference.CarUiSwitchPreference;
+import com.android.car.ui.preference.CarUiPrimarySwitchPreference;
 import com.android.settingslib.Utils;
 
 /**
- * Extends {@link CarUiSwitchPreference} to customize colors for each state.
+ * Extends {@link CarUiPrimarySwitchPreference} to customize colors for each state.
  */
-public class ColoredSwitchPreference extends CarUiSwitchPreference {
+// TODO(242221289): Remove ColoredSwitchPreference once contentDescription is
+// added to chassis preferences
+public class ColoredSwitchPreference extends CarUiPrimarySwitchPreference {
     private ColorStateList mEnabledColor;
     private ColorStateList mDisabledColor;
     private String mContentDescription;

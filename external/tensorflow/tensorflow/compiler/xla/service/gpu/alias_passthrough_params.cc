@@ -21,14 +21,16 @@ limitations under the License.
 namespace xla {
 namespace gpu {
 
-StatusOr<bool> AliasPassthroughParams::Run(HloModule* module) {
+StatusOr<bool> AliasPassthroughParams::Run(
+    HloModule* module,
+    const absl::flat_hash_set<absl::string_view>& execution_threads) {
   const HloInstruction* root = module->entry_computation()->root_instruction();
   if (module->entry_computation()->num_parameters() == 0 ||
       root->opcode() != HloOpcode::kTuple) {
     return false;
   }
   bool changed = false;
-  absl::flat_hash_set<int64> used_params;
+  absl::flat_hash_set<int64_t> used_params;
   for (int64_t i = 0; i < root->operand_count(); ++i) {
     if (root->operand(i)->opcode() == HloOpcode::kParameter &&
         used_params.count(root->operand(i)->parameter_number()) == 0) {

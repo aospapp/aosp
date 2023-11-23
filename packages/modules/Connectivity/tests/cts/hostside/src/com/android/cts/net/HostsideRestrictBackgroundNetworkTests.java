@@ -20,6 +20,7 @@ import android.platform.test.annotations.SecurityTest;
 
 import com.android.ddmlib.Log;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.util.RunUtil;
 
 public class HostsideRestrictBackgroundNetworkTests extends HostsideNetworkTestCase {
 
@@ -359,7 +360,7 @@ public class HostsideRestrictBackgroundNetworkTests extends HostsideNetworkTestC
             }
             Log.v(TAG, "whitelist check for uid " + uid + " doesn't match yet (expected "
                     + expected + ", got " + actual + "); sleeping 1s before polling again");
-            Thread.sleep(1000);
+            RunUtil.getDefault().sleep(1000);
         }
         fail("whitelist check for uid " + uid + " failed: expected "
                 + expected + ", got " + actual);
@@ -384,7 +385,7 @@ public class HostsideRestrictBackgroundNetworkTests extends HostsideNetworkTestC
             if (result.equals(expectedResult)) return;
             Log.v(TAG, "Command '" + command + "' returned '" + result + " instead of '"
                     + expectedResult + "' on attempt #; sleeping 1s before polling again");
-            Thread.sleep(1000);
+            RunUtil.getDefault().sleep(1000);
         }
         fail("Command '" + command + "' did not return '" + expectedResult + "' after " + maxTries
                 + " attempts");

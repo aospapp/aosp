@@ -1,0 +1,47 @@
+load("@bazel_skylib//lib:selects.bzl", "selects")
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load(":tradefed_test.bzl", "tradefed_test_suite")
+
+# flags / configs.
+string_flag(
+    name = "runmode",
+    build_setting_default = "",
+)
+
+config_setting(
+    name = "all",
+    flag_values = {
+        ":runmode": "all",
+    },
+)
+
+config_setting(
+    name = "host_driven_test",
+    flag_values = {
+        ":runmode": "host_driven_test",
+    },
+)
+
+selects.config_setting_group(
+    name = "android_host_driven_tradefed_test",
+    match_all = [
+        "//build/bazel/platforms/os:android",
+        ":host_driven_test",
+    ],
+)
+
+selects.config_setting_group(
+    name = "linux_host_driven_tradefed_test",
+    match_all = [
+        "//build/bazel/platforms/os:linux",
+        ":host_driven_test",
+    ],
+)
+
+# exports.
+exports_files(
+    glob(["*.tpl"]),
+)
+
+# tests_suites.
+tradefed_test_suite(name = "tradefed_tests")

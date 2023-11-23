@@ -16,6 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="pws_other_message_identifiers" msgid="4208192760081890030">"‏معلومات AG"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="8604945009695563346">"‏قناة بث AG عادية"</string>
+    <string name="pws_other_message_identifiers" msgid="2878052464538791122">"تحذير بشأن مشغّل شبكة الجوّال"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="735033564276896784">"تحذيرات بشأن مشغّلي شبكة الجوّال"</string>
+    <string name="enable_emergency_alerts_message_summary" msgid="9097859342785910501">"قناة للتحذيرات بشأن مشغّلي شبكة الجوّال"</string>
 </resources>

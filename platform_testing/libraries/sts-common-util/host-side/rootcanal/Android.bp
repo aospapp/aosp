@@ -5,7 +5,10 @@ package {
 sh_test {
     name: "sts-rootcanal-sidebins",
     src: "empty.sh",
-    test_suites: ["sts"],
+    test_suites: [
+        "sts",
+        "sts-lite",
+    ],
     data_bins: [
         "android.hardware.bluetooth@1.1-service.sim",
         "android.hardware.bluetooth@1.1-impl-sim"

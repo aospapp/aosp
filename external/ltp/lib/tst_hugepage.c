@@ -20,11 +20,18 @@ size_t tst_get_hugepage_size(void)
 	return SAFE_READ_MEMINFO("Hugepagesize:") * 1024;
 }
 
-unsigned long tst_request_hugepages(unsigned long hpages)
+unsigned long tst_reserve_hugepages(struct tst_hugepage *hp)
 {
 	unsigned long val, max_hpages;
+	struct tst_path_val pvl = {
+		.path = PATH_NR_HPAGES,
+		.val = NULL,
+		.flags = TST_SR_SKIP_MISSING | TST_SR_TCONF_RO
+	};
 
 	if (access(PATH_HUGEPAGES, F_OK)) {
+		if (hp->policy == TST_NEEDS)
+			tst_brk(TCONF, "hugetlbfs is not supported");
 		tst_hugepages = 0;
 		goto out;
 	}
@@ -32,11 +39,20 @@ unsigned long tst_request_hugepages(unsigned long hpages)
 	if (nr_opt)
 		tst_hugepages = SAFE_STRTOL(nr_opt, 1, LONG_MAX);
 	else
-		tst_hugepages = hpages;
+		tst_hugepages = hp->number;
+
+	if (hp->number == TST_NO_HUGEPAGES) {
+		tst_hugepages = 0;
+		goto set_hugepages;
+	}
 
 	SAFE_FILE_PRINTF("/proc/sys/vm/drop_caches", "3");
-	max_hpages = SAFE_READ_MEMINFO("MemFree:") / SAFE_READ_MEMINFO("Hugepagesize:");
+	if (hp->policy == TST_NEEDS) {
+		tst_hugepages += SAFE_READ_MEMINFO("HugePages_Total:");
+		goto set_hugepages;
+	}
 
+	max_hpages = SAFE_READ_MEMINFO("MemFree:") / SAFE_READ_MEMINFO("Hugepagesize:");
 	if (tst_hugepages > max_hpages) {
 		tst_res(TINFO, "Requested number(%lu) of hugepages is too large, "
 				"limiting to 80%% of the max hugepage count %lu",
@@ -47,13 +63,22 @@ unsigned long tst_request_hugepages(unsigned long hpages)
 			goto out;
 	}
 
-	tst_sys_conf_save("?/proc/sys/vm/nr_hugepages");
+set_hugepages:
+	tst_sys_conf_save(&pvl);
 	SAFE_FILE_PRINTF(PATH_NR_HPAGES, "%lu", tst_hugepages);
 	SAFE_FILE_SCANF(PATH_NR_HPAGES, "%lu", &val);
 	if (val != tst_hugepages)
 		tst_brk(TCONF, "nr_hugepages = %lu, but expect %lu. "
 				"Not enough hugepages for testing.",
 				val, tst_hugepages);
+
+	if (hp->policy == TST_NEEDS) {
+		unsigned long free_hpages = SAFE_READ_MEMINFO("HugePages_Free:");
+		if (hp->number > free_hpages)
+			tst_brk(TCONF, "free_hpages = %lu, but expect %lu. "
+				"Not enough hugepages for testing.",
+				free_hpages, hp->number);
+	}
 
 	tst_res(TINFO, "%lu hugepage(s) reserved", tst_hugepages);
 out:

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -22,14 +22,17 @@
 #pragma weak bl1_early_platform_setup
 #pragma weak bl1_plat_arch_setup
 #pragma weak bl1_plat_sec_mem_layout
+#pragma weak arm_bl1_early_platform_setup
 #pragma weak bl1_plat_prepare_exit
 #pragma weak bl1_plat_get_next_image_id
 #pragma weak plat_arm_bl1_fwu_needed
+#pragma weak arm_bl1_plat_arch_setup
+#pragma weak arm_bl1_platform_setup
 
 #define MAP_BL1_TOTAL		MAP_REGION_FLAT(			\
 					bl1_tzram_layout.total_base,	\
 					bl1_tzram_layout.total_size,	\
-					MT_MEMORY | MT_RW | MT_SECURE)
+					MT_MEMORY | MT_RW | EL3_PAS)
 /*
  * If SEPARATE_CODE_AND_RODATA=1 we define a region for each section
  * otherwise one region is defined containing both
@@ -38,17 +41,17 @@
 #define MAP_BL1_RO		MAP_REGION_FLAT(			\
 					BL_CODE_BASE,			\
 					BL1_CODE_END - BL_CODE_BASE,	\
-					MT_CODE | MT_SECURE),		\
+					MT_CODE | EL3_PAS),		\
 				MAP_REGION_FLAT(			\
 					BL1_RO_DATA_BASE,		\
 					BL1_RO_DATA_END			\
 						- BL_RO_DATA_BASE,	\
-					MT_RO_DATA | MT_SECURE)
+					MT_RO_DATA | EL3_PAS)
 #else
 #define MAP_BL1_RO		MAP_REGION_FLAT(			\
 					BL_CODE_BASE,			\
 					BL1_CODE_END - BL_CODE_BASE,	\
-					MT_CODE | MT_SECURE)
+					MT_CODE | EL3_PAS)
 #endif
 
 /* Data structure which holds the extents of the trusted SRAM for BL1*/

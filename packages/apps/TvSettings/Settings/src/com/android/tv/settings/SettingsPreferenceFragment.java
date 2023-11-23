@@ -54,7 +54,7 @@ import androidx.preference.PreferenceViewHolder;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.settingslib.core.lifecycle.Lifecycle;
-import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.overlay.FlavorUtils;
 import com.android.tv.settings.util.SettingsPreferenceUtil;
 import com.android.tv.settings.widget.SettingsViewModel;
 import com.android.tv.settings.widget.TsPreference;
@@ -129,6 +129,10 @@ public abstract class SettingsPreferenceFragment extends LeanbackPreferenceFragm
                 ViewGroup decor = view.findViewById(R.id.decor_title_container);
                 if (decor != null) {
                     decor.setOutlineProvider(null);
+                    if (getCallbackFragment() == null ||
+                            !(getCallbackFragment() instanceof TwoPanelSettingsFragment)) {
+                        decor.setBackgroundResource(R.color.tp_preference_panel_background_color);
+                    }
                 }
             } else {
                 // We only want to set the title in this location for one-panel settings.

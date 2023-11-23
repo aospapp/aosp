@@ -19,11 +19,11 @@
 #include <optional>
 #include <string>
 
-#include <android-base/result.h>
 #include <json/json.h>
 
+#include "common/libs/utils/result.h"
 #include "host/libs/web/credential_source.h"
-#include "host/libs/web/curl_wrapper.h"
+#include "host/libs/web/http_client/http_client.h"
 
 namespace cuttlefish {
 
@@ -57,6 +57,14 @@ class GceNetworkInterface {
   explicit GceNetworkInterface(const Json::Value&);
 
   static GceNetworkInterface Default();
+
+  std::optional<std::string> Network() const;
+  GceNetworkInterface& Network(const std::string&) &;
+  GceNetworkInterface Network(const std::string&) &&;
+
+  std::optional<std::string> Subnetwork() const;
+  GceNetworkInterface& Subnetwork(const std::string&) &;
+  GceNetworkInterface Subnetwork(const std::string&) &&;
 
   std::optional<std::string> ExternalIp() const;
   std::optional<std::string> InternalIp() const;
@@ -110,7 +118,7 @@ class GceApi {
     ~Operation();
     void StopWaiting();
     /// `true` means it waited to completion, `false` means it was cancelled
-    std::future<android::base::Result<bool>>& Future();
+    std::future<Result<bool>>& Future();
 
    private:
     class Impl;
@@ -119,13 +127,12 @@ class GceApi {
     friend class GceApi;
   };
 
-  GceApi(CurlWrapper&, CredentialSource& credentials,
+  GceApi(HttpClient&, CredentialSource& credentials,
          const std::string& project);
 
-  std::future<android::base::Result<GceInstanceInfo>> Get(
-      const GceInstanceInfo&);
-  std::future<android::base::Result<GceInstanceInfo>> Get(
-      const std::string& zone, const std::string& name);
+  std::future<Result<GceInstanceInfo>> Get(const GceInstanceInfo&);
+  std::future<Result<GceInstanceInfo>> Get(const std::string& zone,
+                                           const std::string& name);
 
   Operation Insert(const Json::Value&);
   Operation Insert(const GceInstanceInfo&);
@@ -137,9 +144,9 @@ class GceApi {
   Operation Delete(const GceInstanceInfo&);
 
  private:
-  std::vector<std::string> Headers();
+  Result<std::vector<std::string>> Headers();
 
-  CurlWrapper& curl_;
+  HttpClient& http_client_;
   CredentialSource& credentials_;
   std::string project_;
 };

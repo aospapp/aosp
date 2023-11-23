@@ -16,17 +16,21 @@
 
 package android.security.cts;
 
+import static org.junit.Assert.*;
+
 import android.app.ActivityManager;
 import android.content.Context;
 import android.platform.test.annotations.AsbSecurityTest;
-import androidx.test.runner.AndroidJUnit4;
-import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
-import org.junit.runner.RunWith;
-import org.junit.Test;
 
-import static org.junit.Assert.*;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RunWith(AndroidJUnit4.class)
 public class RunningAppProcessInfoTest extends StsExtraBusinessLogicTestCase {
@@ -40,12 +44,23 @@ public class RunningAppProcessInfoTest extends StsExtraBusinessLogicTestCase {
     @Test
     public void testRunningAppProcessInfo() {
         ActivityManager amActivityManager =
-                (ActivityManager) getInstrumentation().getContext().getSystemService(Context.ACTIVITY_SERVICE);
+                (ActivityManager)
+                        getInstrumentation()
+                                .getContext()
+                                .getSystemService(Context.ACTIVITY_SERVICE);
         List<ActivityManager.RunningAppProcessInfo> appList =
                 amActivityManager.getRunningAppProcesses();
+
+        // Assembles app list for logging
+        List<String> processNames =
+                appList.stream()
+                        .map((processInfo) -> processInfo.processName)
+                        .collect(Collectors.toList());
+
         // The test will pass if it is able to get only its process info
-        assertTrue("Device is vulnerable to CVE-2015-3833. For more information, see " +
-                "https://android.googlesource.com/platform/frameworks/base/+" +
-                "/aaa0fee0d7a8da347a0c47cef5249c70efee209e", (appList.size() == 1));
+        assertTrue(
+                "Device is vulnerable to CVE-2015-3833. Running app processes: "
+                        + processNames.toString(),
+                (appList.size() == 1));
     }
 }

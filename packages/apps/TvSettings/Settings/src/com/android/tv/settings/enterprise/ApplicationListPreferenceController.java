@@ -26,8 +26,8 @@ import androidx.preference.PreferenceScreen;
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.settingslib.widget.AppPreference;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.library.enterprise.apps.ApplicationFeatureProvider;
-import com.android.tv.settings.library.enterprise.apps.UserAppInfo;
+import com.android.tv.settings.enterprise.apps.ApplicationFeatureProvider;
+import com.android.tv.settings.enterprise.apps.UserAppInfo;
 
 import java.util.List;
 

@@ -19,6 +19,8 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := optional
 LOCAL_PROPRIETARY_MODULE := true
 
+LOCAL_CFLAGS :=
+
 LOCAL_SRC_FILES := \
 	VendorVideoAPI.cpp
 

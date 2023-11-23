@@ -142,7 +142,6 @@ public class HostapdHalHidlImp implements IHostapdHal {
     /**
      * Enable/Disable verbose logging.
      *
-     * @param enable true to enable, false to disable.
      */
     @Override
     public void enableVerboseLogging(boolean verboseEnabled, boolean halVerboseEnabled) {
@@ -315,6 +314,9 @@ public class HostapdHalHidlImp implements IHostapdHal {
             android.hardware.wifi.hostapd.V1_1.IHostapdCallback callback) {
         synchronized (mLock) {
             String methodStr = "registerCallback_1_1";
+            if (!checkHostapdAndLogFailure(methodStr)) {
+                return false;
+            }
             try {
                 android.hardware.wifi.hostapd.V1_1.IHostapd iHostapdV1_1 = getHostapdMockableV1_1();
                 if (iHostapdV1_1 == null) return false;
@@ -331,6 +333,9 @@ public class HostapdHalHidlImp implements IHostapdHal {
             android.hardware.wifi.hostapd.V1_3.IHostapdCallback callback) {
         synchronized (mLock) {
             String methodStr = "registerCallback_1_3";
+            if (!checkHostapdAndLogFailure(methodStr)) {
+                return false;
+            }
             try {
                 android.hardware.wifi.hostapd.V1_3.IHostapd iHostapdV1_3 = getHostapdMockableV1_3();
                 if (iHostapdV1_3 == null) return false;
@@ -382,7 +387,9 @@ public class HostapdHalHidlImp implements IHostapdHal {
             }
 
             // Setup log level
-            setDebugParams();
+            if (isV1_2()) {
+               return setDebugParams();
+            }
         }
         return true;
     }

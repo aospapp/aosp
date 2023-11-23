@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 /**
@@ -58,11 +59,6 @@ public class UiInteractionFrameInfoHelper implements ICollectorHelper<StringBuil
     public boolean startCollecting(@NonNull Function<String, Boolean> filters) {
         mFilters = filters;
         return startCollecting();
-    }
-
-    // convert 0 to 1e-6 to make logarithmic dashboards look better.
-    public static double makeLogFriendly(double metric) {
-        return Math.max(0.01, metric);
     }
 
     /**
@@ -98,28 +94,33 @@ public class UiInteractionFrameInfoHelper implements ICollectorHelper<StringBuil
 
                 addMetric(
                         constructKey(KEY_PREFIX_CUJ, interactionType, "total_frames"),
-                        makeLogFriendly(uiInteractionFrameInfoReported.totalFrames),
+                        uiInteractionFrameInfoReported.totalFrames,
                         frameInfoMap);
 
                 addMetric(
                         constructKey(KEY_PREFIX_CUJ, interactionType, "missed_frames"),
-                        makeLogFriendly(uiInteractionFrameInfoReported.missedFrames),
+                        uiInteractionFrameInfoReported.missedFrames,
                         frameInfoMap);
 
                 addMetric(
                         constructKey(KEY_PREFIX_CUJ, interactionType, "sf_missed_frames"),
-                        makeLogFriendly(uiInteractionFrameInfoReported.sfMissedFrames),
+                        uiInteractionFrameInfoReported.sfMissedFrames,
                         frameInfoMap);
 
                 addMetric(
                         constructKey(KEY_PREFIX_CUJ, interactionType, "app_missed_frames"),
-                        makeLogFriendly(uiInteractionFrameInfoReported.appMissedFrames),
+                        uiInteractionFrameInfoReported.appMissedFrames,
                         frameInfoMap);
 
                 addMetric(
                         constructKey(KEY_PREFIX_CUJ, interactionType, SUFFIX_MAX_FRAME_MS),
-                        makeLogFriendly(
-                                uiInteractionFrameInfoReported.maxFrameTimeNanos / 1000000.0),
+                        TimeUnit.NANOSECONDS.toMillis(
+                                uiInteractionFrameInfoReported.maxFrameTimeNanos),
+                        frameInfoMap);
+
+                addMetric(
+                        constructKey(KEY_PREFIX_CUJ, interactionType, "max_successive_misses"),
+                        uiInteractionFrameInfoReported.maxSuccessiveMissedFrames,
                         frameInfoMap);
             }
         }

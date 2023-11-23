@@ -12,8 +12,9 @@
 namespace sh
 {
 
-constexpr const char kUniformsVar[]               = "angleUniforms";
-constexpr const char kUnassignedAttributeString[] = " __unassigned_attribute__";
+constexpr const char kUniformsVar[]                    = "angleUniforms";
+constexpr const char kUnassignedAttributeString[]      = " __unassigned_attribute__";
+constexpr const char kUnassignedFragmentOutputString[] = "__unassigned_output__";
 
 class DriverUniform;
 class DriverUniformMetal;
@@ -23,6 +24,7 @@ class TranslatorMetalReflection;
 typedef std::unordered_map<size_t, std::string> originalNamesMap;
 typedef std::unordered_map<std::string, size_t> samplerBindingMap;
 typedef std::unordered_map<std::string, size_t> textureBindingMap;
+typedef std::unordered_map<int, int> rwTextureBindingMap;  // GLSL image -> mtl read_write texture.
 typedef std::unordered_map<std::string, size_t> userUniformBufferBindingMap;
 typedef std::pair<size_t, size_t> uboBindingInfo;
 struct UBOBindingInfo
@@ -54,6 +56,19 @@ class TranslatorMetalReflection
     void addTextureBinding(const std::string &name, size_t textureBinding)
     {
         textureBindings.insert({name, textureBinding});
+    }
+    void addRWTextureBinding(int glslImageBinding, int mtlRWTextureBinding)
+    {
+        bool inserted = rwTextureBindings.insert({glslImageBinding, mtlRWTextureBinding}).second;
+        if (!inserted)
+        {
+            // Shader images are currently only implemented enough to support pixel local storage,
+            // which does not allow more than one image to be bound to the same index.
+            //
+            // NOTE: Pixel local storage also does not allow image bindings to change via
+            // glUniform1i, which we do not currently account for in this backend.
+            UNIMPLEMENTED();
+        }
     }
     void addUserUniformBufferBinding(const std::string &name, size_t userUniformBufferBinding)
     {
@@ -95,6 +110,17 @@ class TranslatorMetalReflection
         ASSERT(0);
         return std::numeric_limits<size_t>::max();
     }
+    int getRWTextureBinding(int glslImageBinding) const
+    {
+        auto it = rwTextureBindings.find(glslImageBinding);
+        if (it != rwTextureBindings.end())
+        {
+            return it->second;
+        }
+        // If there isn't a shader image bound to this slot, return -1. This signals to the program
+        // that there is nothing here to bind.
+        return -1;
+    }
     size_t getUserUniformBufferBinding(const std::string &name) const
     {
         auto it = userUniformBufferBindings.find(name);
@@ -129,6 +155,7 @@ class TranslatorMetalReflection
         originalNames.clear();
         samplerBindings.clear();
         textureBindings.clear();
+        rwTextureBindings.clear();
         userUniformBufferBindings.clear();
         uniformBufferBindings.clear();
     }
@@ -142,6 +169,7 @@ class TranslatorMetalReflection
     originalNamesMap originalNames;
     samplerBindingMap samplerBindings;
     textureBindingMap textureBindings;
+    rwTextureBindingMap rwTextureBindings;
     userUniformBufferBindingMap userUniformBufferBindings;
     uniformBufferBindingMap uniformBufferBindings;
 };
@@ -159,32 +187,35 @@ class TranslatorMetalDirect : public TCompiler
 
   protected:
     bool translate(TIntermBlock *root,
-                   ShCompileOptions compileOptions,
+                   const ShCompileOptions &compileOptions,
                    PerformanceDiagnostics *perfDiagnostics) override;
 
+    // The sample mask can't be in our fragment output struct if we read the framebuffer. Luckily,
+    // pixel local storage bans gl_SampleMask, so we can just not use it when PLS is active.
+    bool isSampleMaskAllowed() const { return !hasPixelLocalStorageUniforms(); }
+
     // Need to collect variables so that RemoveInactiveInterfaceVariables works.
-    bool shouldCollectVariables(ShCompileOptions compileOptions) override { return true; }
+    bool shouldCollectVariables(const ShCompileOptions &compileOptions) override { return true; }
 
-    ANGLE_NO_DISCARD bool translateImpl(TInfoSinkBase &sink,
-                                        TIntermBlock *root,
-                                        ShCompileOptions compileOptions,
-                                        PerformanceDiagnostics *perfDiagnostics,
-                                        SpecConst *specConst,
-                                        DriverUniformMetal *driverUniforms);
+    [[nodiscard]] bool translateImpl(TInfoSinkBase &sink,
+                                     TIntermBlock *root,
+                                     const ShCompileOptions &compileOptions,
+                                     PerformanceDiagnostics *perfDiagnostics,
+                                     SpecConst *specConst,
+                                     DriverUniformMetal *driverUniforms);
 
-    ANGLE_NO_DISCARD bool shouldFlattenPragmaStdglInvariantAll() override;
+    [[nodiscard]] bool shouldFlattenPragmaStdglInvariantAll() override;
 
-    ANGLE_NO_DISCARD bool transformDepthBeforeCorrection(TIntermBlock *root,
-                                                         const DriverUniformMetal *driverUniforms);
+    [[nodiscard]] bool transformDepthBeforeCorrection(TIntermBlock *root,
+                                                      const DriverUniformMetal *driverUniforms);
 
-    ANGLE_NO_DISCARD bool appendVertexShaderDepthCorrectionToMain(TIntermBlock *root);
+    [[nodiscard]] bool appendVertexShaderDepthCorrectionToMain(
+        TIntermBlock *root,
+        const DriverUniformMetal *driverUniforms);
 
-    ANGLE_NO_DISCARD bool insertSampleMaskWritingLogic(TIntermBlock &root,
-                                                       DriverUniformMetal &driverUniforms);
-    ANGLE_NO_DISCARD bool insertRasterizationDiscardLogic(TIntermBlock &root);
-
-    ANGLE_NO_DISCARD TIntermSwizzle *getDriverUniformNegFlipYRef(
-        DriverUniform &driverUniforms) const;
+    [[nodiscard]] bool insertSampleMaskWritingLogic(TIntermBlock &root,
+                                                    DriverUniformMetal &driverUniforms);
+    [[nodiscard]] bool insertRasterizationDiscardLogic(TIntermBlock &root);
 
     TranslatorMetalReflection translatorMetalReflection = {};
 };

@@ -1,0 +1,4 @@
+# Battery Mitigation
+vendor_internal_prop(vendor_mitigation_ready_prop)
+vendor_public_prop(vendor_brownout_reason_prop)
+vendor_internal_prop(vendor_brownout_br_feasible_prop)

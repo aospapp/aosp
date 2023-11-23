@@ -1,3 +1,8 @@
+ayushjain@google.com
 rpius@google.com
 steveliu@google.com
 zning@google.com
+
+# For the rust codebase
+per-file *.rs = akahuang@google.com, cante@google.com
+per-file *.bp = akahuang@google.com, cante@google.com

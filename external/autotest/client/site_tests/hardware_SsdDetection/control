@@ -11,6 +11,7 @@ TIME='SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = "hardware"
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 DOC = """
 This test uses hdparm to determine if the rotation rate properties match that of

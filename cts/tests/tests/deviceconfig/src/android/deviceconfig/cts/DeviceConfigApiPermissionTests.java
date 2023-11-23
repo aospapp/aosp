@@ -18,7 +18,9 @@ package android.deviceconfig.cts;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
+import android.os.Binder;
 import android.provider.DeviceConfig;
 import android.provider.DeviceConfig.OnPropertiesChangedListener;
 import android.provider.DeviceConfig.Properties;
@@ -26,7 +28,10 @@ import android.provider.DeviceConfig.Properties;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.modules.utils.build.SdkLevel;
+
 import org.junit.After;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -48,6 +53,14 @@ public final class DeviceConfigApiPermissionTests {
             "android.permission.READ_DEVICE_CONFIG";
 
     private static final Executor EXECUTOR = InstrumentationRegistry.getContext().getMainExecutor();
+
+    /**
+     * Checks that the test runs on UpsideDownCake.
+     */
+    @BeforeClass
+    public static void setUp() throws Exception {
+        assumeTrue(SdkLevel.isAtLeastU());
+    }
 
     @After
     public void dropShellPermissionIdentityAfterTest() {
@@ -71,7 +84,6 @@ public final class DeviceConfigApiPermissionTests {
         // getters without read permission
         tryGetPropertyWithoutReadPermission(violations);
         tryGetPropertiesWithoutReadPermission(violations);
-        tryAddOnPropertiesChangedListenerWithoutReadPermission(violations);
 
         // Bail if we found any violations
         if (violations.length() > 0) {
@@ -98,7 +110,6 @@ public final class DeviceConfigApiPermissionTests {
         // getters without read permission
         tryGetPropertyWithoutReadPermission(violations);
         tryGetPropertiesWithoutReadPermission(violations);
-        tryAddOnPropertiesChangedListenerWithoutReadPermission(violations);
 
         // Bail if we found any violations
         if (violations.length() > 0) {
@@ -141,6 +152,8 @@ public final class DeviceConfigApiPermissionTests {
      */
     @Test
     public void testDeviceConfigWithAllPermissions() {
+        final long prevIdentity = Binder.clearCallingIdentity();
+
         StringBuilder violations = new StringBuilder();
 
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
@@ -165,6 +178,8 @@ public final class DeviceConfigApiPermissionTests {
         if (violations.length() > 0) {
             fail(violations.toString());
         }
+
+        Binder.restoreCallingIdentity(prevIdentity);
     }
 
     /**
@@ -303,16 +318,6 @@ public final class DeviceConfigApiPermissionTests {
             DeviceConfig.getProperties(NAMESPACE2);
             violations.append("DeviceConfig.getProperties() must not be accessible without "
                     + "READ_DEVICE_CONFIG permission.\n");
-        } catch (SecurityException e) {
-        }
-    }
-
-    private void tryAddOnPropertiesChangedListenerWithoutReadPermission(StringBuilder violations) {
-        try {
-            DeviceConfig.addOnPropertiesChangedListener(
-                    NAMESPACE, EXECUTOR, new TestOnPropertiesListener());
-            violations.append("DeviceConfig.addOnPropertiesChangedListener() must not be accessible"
-                    + " without READ_DEVICE_CONFIG permission.\n");
         } catch (SecurityException e) {
         }
     }

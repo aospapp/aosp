@@ -23,6 +23,7 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
@@ -38,6 +39,7 @@ public class LocalForegroundService extends LocalService {
 
     private static final String TAG = "LocalForegroundService";
     public static final String EXTRA_COMMAND = "LocalForegroundService.command";
+    public static final String EXTRA_FOREGROUND_SERVICE_TYPE = "ForegroundService.type";
     public static final String NOTIFICATION_CHANNEL_ID = "cts/" + TAG;
     public static String ACTION_START_FGS_RESULT =
             "android.app.stubs.LocalForegroundService.RESULT";
@@ -54,6 +56,8 @@ public class LocalForegroundService extends LocalService {
     private final Messenger mMessenger = new Messenger(new IncomingHandler());
 
     private int mNotificationId = 0;
+
+    private static final int DEFAULT_FGS_TYPE = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE;
 
     protected String getTag() {
         return TAG;
@@ -98,8 +102,10 @@ public class LocalForegroundService extends LocalService {
                     builder.setForegroundServiceBehavior(
                             Notification.FOREGROUND_SERVICE_IMMEDIATE);
                 }
+                final int fgsType = intent.getIntExtra(EXTRA_FOREGROUND_SERVICE_TYPE,
+                        DEFAULT_FGS_TYPE);
                 try {
-                    startForeground(mNotificationId, builder.build());
+                    startForeground(mNotificationId, builder.build(), fgsType);
                 } catch (ForegroundServiceStartNotAllowedException e) {
                     Log.d(TAG, "startForeground gets an "
                             + " ForegroundServiceStartNotAllowedException", e);

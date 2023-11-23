@@ -128,7 +128,7 @@ aidl_interface {
     srcs: [":hidl2aidl_test_gen_aidl"],
     backend: {
         java: {
-            sdk_version: "module_current",
+            sdk_version: "system_current",
         },
     },
     flags: [

@@ -29,6 +29,8 @@
 #include <binder/ActivityManager.h>
 #include <binder/AppOpsManager.h>
 #include <binder/BinderService.h>
+#include <binder/IServiceManager.h>
+#include <binder/IActivityManager.h>
 #include <binder/IAppOpsCallback.h>
 #include <binder/IUidObserver.h>
 #include <hardware/camera.h>
@@ -48,6 +50,7 @@
 #include "utils/AutoConditionLock.h"
 #include "utils/ClientManager.h"
 #include "utils/IPCTransport.h"
+#include "utils/CameraServiceProxyWrapper.h"
 
 #include <set>
 #include <string>
@@ -70,7 +73,8 @@ class CameraService :
     public BinderService<CameraService>,
     public virtual ::android::hardware::BnCameraService,
     public virtual IBinder::DeathRecipient,
-    public virtual CameraProviderManager::StatusListener
+    public virtual CameraProviderManager::StatusListener,
+    public virtual IServiceManager::LocalRegistrationCallback
 {
     friend class BinderService<CameraService>;
     friend class CameraOfflineSessionClient;
@@ -97,10 +101,19 @@ public:
     // Event log ID
     static const int SN_EVENT_LOG_ID = 0x534e4554;
 
+    // Register camera service
+    static void instantiate();
+
     // Implementation of BinderService<T>
     static char const* getServiceName() { return "media.camera"; }
 
-                        CameraService();
+    // Implementation of IServiceManager::LocalRegistrationCallback
+    virtual void onServiceRegistration(const String16& name, const sp<IBinder>& binder) override;
+
+                        // Non-null arguments for cameraServiceProxyWrapper should be provided for
+                        // testing purposes only.
+                        CameraService(std::shared_ptr<CameraServiceProxyWrapper>
+                                cameraServiceProxyWrapper = nullptr);
     virtual             ~CameraService();
 
     /////////////////////////////////////////////////////////////////////
@@ -127,10 +140,10 @@ public:
     // ICameraService
     virtual binder::Status     getNumberOfCameras(int32_t type, int32_t* numCameras);
 
-    virtual binder::Status     getCameraInfo(int cameraId,
-            hardware::CameraInfo* cameraInfo);
+    virtual binder::Status     getCameraInfo(int cameraId, bool overrideToPortrait,
+            hardware::CameraInfo* cameraInfo) override;
     virtual binder::Status     getCameraCharacteristics(const String16& cameraId,
-            int targetSdkVersion, CameraMetadata* cameraInfo);
+            int targetSdkVersion, bool overrideToPortrait, CameraMetadata* cameraInfo) override;
     virtual binder::Status     getCameraVendorTagDescriptor(
             /*out*/
             hardware::camera2::params::VendorTagDescriptor* desc);
@@ -141,13 +154,14 @@ public:
     virtual binder::Status     connect(const sp<hardware::ICameraClient>& cameraClient,
             int32_t cameraId, const String16& clientPackageName,
             int32_t clientUid, int clientPid, int targetSdkVersion,
+            bool overrideToPortrait, bool forceSlowJpegMode,
             /*out*/
-            sp<hardware::ICamera>* device);
+            sp<hardware::ICamera>* device) override;
 
     virtual binder::Status     connectDevice(
             const sp<hardware::camera2::ICameraDeviceCallbacks>& cameraCb, const String16& cameraId,
             const String16& clientPackageName, const std::optional<String16>& clientFeatureId,
-            int32_t clientUid, int scoreOffset, int targetSdkVersion,
+            int32_t clientUid, int scoreOffset, int targetSdkVersion, bool overrideToPortrait,
             /*out*/
             sp<hardware::camera2::ICameraDeviceUser>* device);
 
@@ -204,6 +218,9 @@ public:
             /*out*/
             sp<hardware::camera2::ICameraInjectionSession>* cameraInjectionSession);
 
+    virtual binder::Status reportExtensionSessionStats(
+            const hardware::CameraExtensionSessionStats& stats, String16* sessionKey /*out*/);
+
     // Extra permissions checks
     virtual status_t    onTransact(uint32_t code, const Parcel& data,
                                    Parcel* reply, uint32_t flags);
@@ -219,6 +236,7 @@ public:
 
     // Monitored UIDs availability notification
     void                notifyMonitoredUids();
+    void                notifyMonitoredUids(const std::unordered_set<uid_t> &notifyUidSet);
 
     // Stores current open session device info in temp file.
     void cacheDump();
@@ -243,8 +261,9 @@ public:
 
     /////////////////////////////////////////////////////////////////////
     // CameraDeviceFactory functionality
-    std::pair<int, IPCTransport>    getDeviceVersion(const String8& cameraId, int* facing = nullptr,
-            int* orientation = nullptr);
+    std::pair<int, IPCTransport>    getDeviceVersion(const String8& cameraId,
+            bool overrideToPortrait, int* portraitRotation,
+            int* facing = nullptr, int* orientation = nullptr);
 
     /////////////////////////////////////////////////////////////////////
     // Methods to be used in CameraService class tests only
@@ -280,6 +299,10 @@ public:
         // Return the remote callback binder object (e.g. ICameraDeviceCallbacks)
         sp<IBinder>            getRemote() {
             return mRemoteBinder;
+        }
+
+        bool getOverrideToPortrait() const {
+            return mOverrideToPortrait;
         }
 
         // Disallows dumping over binder interface
@@ -333,11 +356,30 @@ public:
         // Override rotate-and-crop AUTO behavior
         virtual status_t setRotateAndCropOverride(uint8_t rotateAndCrop) = 0;
 
+        // Override autoframing AUTO behaviour
+        virtual status_t setAutoframingOverride(uint8_t autoframingValue) = 0;
+
         // Whether the client supports camera muting (black only output)
         virtual bool supportsCameraMute() = 0;
 
         // Set/reset camera mute
         virtual status_t setCameraMute(bool enabled) = 0;
+
+        // Set Camera service watchdog
+        virtual status_t setCameraServiceWatchdog(bool enabled) = 0;
+
+        // Set stream use case overrides
+        virtual void setStreamUseCaseOverrides(
+                const std::vector<int64_t>& useCaseOverrides) = 0;
+
+        // Clear stream use case overrides
+        virtual void clearStreamUseCaseOverrides() = 0;
+
+        // Whether the client supports camera zoom override
+        virtual bool supportsZoomOverride() = 0;
+
+        // Set/reset zoom override
+        virtual status_t setZoomOverride(int32_t zoomOverride) = 0;
 
         // The injection camera session to replace the internal camera
         // session.
@@ -358,7 +400,8 @@ public:
                 int sensorOrientation,
                 int clientPid,
                 uid_t clientUid,
-                int servicePid);
+                int servicePid,
+                bool overrideToPortrait);
 
         virtual ~BasicClient();
 
@@ -381,6 +424,7 @@ public:
         const pid_t                     mServicePid;
         bool                            mDisconnected;
         bool                            mUidIsTrusted;
+        bool                            mOverrideToPortrait;
 
         mutable Mutex                   mAudioRestrictionLock;
         int32_t                         mAudioRestriction;
@@ -470,7 +514,8 @@ public:
                 int sensorOrientation,
                 int clientPid,
                 uid_t clientUid,
-                int servicePid);
+                int servicePid,
+                bool overrideToPortrait);
         ~Client();
 
         // return our camera client
@@ -562,6 +607,20 @@ public:
     int32_t updateAudioRestrictionLocked();
 
 private:
+
+    // TODO: b/263304156 update this to make use of a death callback for more
+    // robust/fault tolerant logging
+    static const sp<IActivityManager>& getActivityManager() {
+        static const char* kActivityService = "activity";
+        static const auto activityManager = []() -> sp<IActivityManager> {
+            const sp<IServiceManager> sm(defaultServiceManager());
+            if (sm != nullptr) {
+                 return interface_cast<IActivityManager>(sm->checkService(String16(kActivityService)));
+            }
+            return nullptr;
+        }();
+        return activityManager;
+    }
 
     /**
      * Typesafe version of device status, containing both the HAL-layer and the service interface-
@@ -688,7 +747,10 @@ private:
 
     // Observer for UID lifecycle enforcing that UIDs in idle
     // state cannot use the camera to protect user privacy.
-    class UidPolicy : public BnUidObserver, public virtual IBinder::DeathRecipient {
+    class UidPolicy :
+        public BnUidObserver,
+        public virtual IBinder::DeathRecipient,
+        public virtual IServiceManager::LocalRegistrationCallback {
     public:
         explicit UidPolicy(sp<CameraService> service)
                 : mRegistered(false), mService(service) {}
@@ -705,23 +767,29 @@ private:
         void onUidIdle(uid_t uid, bool disabled) override;
         void onUidStateChanged(uid_t uid, int32_t procState, int64_t procStateSeq,
                 int32_t capability) override;
-        void onUidProcAdjChanged(uid_t uid) override;
+        void onUidProcAdjChanged(uid_t uid, int adj) override;
 
         void addOverrideUid(uid_t uid, String16 callingPackage, bool active);
         void removeOverrideUid(uid_t uid, String16 callingPackage);
 
-        void registerMonitorUid(uid_t uid);
-        void unregisterMonitorUid(uid_t uid);
+        void registerMonitorUid(uid_t uid, bool openCamera);
+        void unregisterMonitorUid(uid_t uid, bool closeCamera);
 
+        // Implementation of IServiceManager::LocalRegistrationCallback
+        virtual void onServiceRegistration(const String16& name,
+                        const sp<IBinder>& binder) override;
         // IBinder::DeathRecipient implementation
         virtual void binderDied(const wp<IBinder> &who);
     private:
         bool isUidActiveLocked(uid_t uid, String16 callingPackage);
         int32_t getProcStateLocked(uid_t uid);
         void updateOverrideUid(uid_t uid, String16 callingPackage, bool active, bool insert);
+        void registerWithActivityManager();
 
         struct MonitoredUid {
             int32_t procState;
+            int32_t procAdj;
+            bool hasCamera;
             size_t refCount;
         };
 
@@ -733,12 +801,14 @@ private:
         // Monitored uid map
         std::unordered_map<uid_t, MonitoredUid> mMonitoredUids;
         std::unordered_map<uid_t, bool> mOverrideUids;
+        sp<IBinder> mObserverToken;
     }; // class UidPolicy
 
     // If sensor privacy is enabled then all apps, including those that are active, should be
     // prevented from accessing the camera.
     class SensorPrivacyPolicy : public hardware::BnSensorPrivacyListener,
-            public virtual IBinder::DeathRecipient {
+            public virtual IBinder::DeathRecipient,
+            public virtual IServiceManager::LocalRegistrationCallback {
         public:
             explicit SensorPrivacyPolicy(wp<CameraService> service)
                     : mService(service), mSensorPrivacyEnabled(false), mRegistered(false) {}
@@ -752,6 +822,9 @@ private:
             binder::Status onSensorPrivacyChanged(int toggleType, int sensor,
                                                   bool enabled);
 
+            // Implementation of IServiceManager::LocalRegistrationCallback
+            virtual void onServiceRegistration(const String16& name,
+                                               const sp<IBinder>& binder) override;
             // IBinder::DeathRecipient implementation
             virtual void binderDied(const wp<IBinder> &who);
 
@@ -763,11 +836,14 @@ private:
             bool mRegistered;
 
             bool hasCameraPrivacyFeature();
+            void registerWithSensorPrivacyManager();
     };
 
     sp<UidPolicy> mUidPolicy;
 
     sp<SensorPrivacyPolicy> mSensorPrivacyPolicy;
+
+    std::shared_ptr<CameraServiceProxyWrapper> mCameraServiceProxyWrapper;
 
     // Delay-load the Camera HAL module
     virtual void onFirstRef();
@@ -825,12 +901,22 @@ private:
     // sorted in alpha-numeric order.
     void filterAPI1SystemCameraLocked(const std::vector<std::string> &normalDeviceIds);
 
+    // In some cases the calling code has no access to the package it runs under.
+    // For example, NDK camera API.
+    // In this case we will get the packages for the calling UID and pick the first one
+    // for attributing the app op. This will work correctly for runtime permissions
+    // as for legacy apps we will toggle the app op for all packages in the UID.
+    // The caveat is that the operation may be attributed to the wrong package and
+    // stats based on app ops may be slightly off.
+    String16 getPackageNameFromUid(int clientUid);
+
     // Single implementation shared between the various connect calls
     template<class CALLBACK, class CLIENT>
     binder::Status connectHelper(const sp<CALLBACK>& cameraCb, const String8& cameraId,
-            int api1CameraId, const String16& clientPackageName, bool systemNativeClient,
+            int api1CameraId, const String16& clientPackageNameMaybe, bool systemNativeClient,
             const std::optional<String16>& clientFeatureId, int clientUid, int clientPid,
             apiLevel effectiveApiLevel, bool shimUpdateOnly, int scoreOffset, int targetSdkVersion,
+            bool overrideToPortrait, bool forceSlowJpegMode,
             /*out*/sp<CLIENT>& device);
 
     // Lock guarding camera service state
@@ -1055,6 +1141,29 @@ private:
                 return IInterface::asBinder(mListener)->linkToDeath(this);
             }
 
+            template<typename... args_t>
+            void handleBinderStatus(const binder::Status &ret, const char *logOnError,
+                    args_t... args) {
+                if (!ret.isOk() &&
+                        (ret.exceptionCode() != binder::Status::Exception::EX_TRANSACTION_FAILED
+                        || !mLastTransactFailed)) {
+                    ALOGE(logOnError, args...);
+                }
+
+                // If the transaction failed, the process may have died (or other things, see
+                // b/28321379). Mute consecutive errors from this listener to avoid log spam.
+                if (ret.exceptionCode() == binder::Status::Exception::EX_TRANSACTION_FAILED) {
+                    if (!mLastTransactFailed) {
+                        ALOGE("%s: Muting similar errors from listener %d:%d", __FUNCTION__,
+                                mListenerUid, mListenerPid);
+                    }
+                    mLastTransactFailed = true;
+                } else {
+                    // Reset mLastTransactFailed when binder becomes healthy again.
+                    mLastTransactFailed = false;
+                }
+            }
+
             virtual void binderDied(const wp<IBinder> &/*who*/) {
                 auto parent = mParent.promote();
                 if (parent.get() != nullptr) {
@@ -1075,6 +1184,9 @@ private:
             int mListenerPid = -1;
             bool mIsVendorListener = false;
             bool mOpenCloseCallbackAllowed = false;
+
+            // Flag for preventing log spam when binder becomes unhealthy
+            bool mLastTransactFailed = false;
     };
 
     // Guarded by mStatusListenerMutex
@@ -1186,6 +1298,12 @@ private:
     // Get the rotate-and-crop AUTO override behavior
     status_t handleGetRotateAndCrop(int out);
 
+    // Set the autoframing AUTO override behaviour.
+    status_t handleSetAutoframing(const Vector<String16>& args);
+
+    // Get the autoframing AUTO override behaviour
+    status_t handleGetAutoframing(int out);
+
     // Set the mask for image dump to disk
     status_t handleSetImageDumpMask(const Vector<String16>& args);
 
@@ -1195,8 +1313,20 @@ private:
     // Set the camera mute state
     status_t handleSetCameraMute(const Vector<String16>& args);
 
+    // Set the stream use case overrides
+    status_t handleSetStreamUseCaseOverrides(const Vector<String16>& args);
+
+    // Clear the stream use case overrides
+    void handleClearStreamUseCaseOverrides();
+
+    // Set or clear the zoom override flag
+    status_t handleSetZoomOverride(const Vector<String16>& args);
+
     // Handle 'watch' command as passed through 'cmd'
     status_t handleWatchCommand(const Vector<String16> &args, int inFd, int outFd);
+
+    // Set the camera service watchdog
+    status_t handleSetCameraServiceWatchdog(const Vector<String16>& args);
 
     // Enable tag monitoring of the given tags in provided clients
     status_t startWatchingTags(const Vector<String16> &args, int outFd);
@@ -1243,7 +1373,8 @@ private:
             const String8& cameraId, int api1CameraId, int facing, int sensorOrientation,
             int clientPid, uid_t clientUid, int servicePid,
             std::pair<int, IPCTransport> deviceVersionAndIPCTransport, apiLevel effectiveApiLevel,
-            bool overrideForPerfClass, /*out*/sp<BasicClient>* client);
+            bool overrideForPerfClass, bool overrideToPortrait, bool forceSlowJpegMode,
+            /*out*/sp<BasicClient>* client);
 
     status_t checkCameraAccess(const String16& opPackageName);
 
@@ -1278,11 +1409,23 @@ private:
     // Current override cmd rotate-and-crop mode; AUTO means no override
     uint8_t mOverrideRotateAndCropMode = ANDROID_SCALER_ROTATE_AND_CROP_AUTO;
 
+    // Current autoframing mode
+    uint8_t mOverrideAutoframingMode = ANDROID_CONTROL_AUTOFRAMING_AUTO;
+
     // Current image dump mask
     uint8_t mImageDumpMask = 0;
 
     // Current camera mute mode
     bool mOverrideCameraMuteMode = false;
+
+    // Camera Service watchdog flag
+    bool mCameraServiceWatchdogEnabled = true;
+
+    // Current stream use case overrides
+    std::vector<int64_t> mStreamUseCaseOverrides;
+
+    // Current zoom override value
+    int32_t mZoomOverrideValue = -1;
 
     /**
      * A listener class that implements the IBinder::DeathRecipient interface
@@ -1336,6 +1479,9 @@ private:
     bool mInjectionInitPending = false;
     // Guard mInjectionInternalCamId and mInjectionInitPending.
     Mutex mInjectionParametersLock;
+
+    // Track the folded/unfoled device state. 0 == UNFOLDED, 4 == FOLDED
+    int64_t mDeviceState;
 
     void updateTorchUidMapLocked(const String16& cameraId, int uid);
 };

@@ -38,8 +38,6 @@ limitations under the License.
 // replacement for the features of tflite::support::TfLiteInterpreterWrapper.
 #if TFLITE_USE_C_API
 #include "tensorflow/lite/c/c_api.h"
-#include "tensorflow/lite/core/api/verifier.h"
-#include "tensorflow/lite/tools/verifier.h"
 #else
 #include "tensorflow/lite/interpreter.h"
 #include "tensorflow/lite/model.h"
@@ -190,24 +188,8 @@ class TfLiteEngine {
   ErrorReporter error_reporter_;
 
  private:
-  // Direct wrapper around tflite::TfLiteVerifier which checks the integrity of
-  // the FlatBuffer data provided as input.
-  class Verifier : public tflite::TfLiteVerifier {
-   public:
-    explicit Verifier(const tflite::OpResolver* op_resolver)
-        : op_resolver_(op_resolver) {}
-    bool Verify(const char* data, int length,
-                tflite::ErrorReporter* reporter) override;
-    // The OpResolver to be used to build the TF Lite interpreter.
-    const tflite::OpResolver* op_resolver_;
-  };
-
-  // Verifies that the supplied buffer refers to a valid flatbuffer model,
-  // and that it uses only operators that are supported by the OpResolver
-  // that was passed to the TfLiteEngine constructor, and then builds
-  // the model from the buffer and stores it in 'model_'.
-  void VerifyAndBuildModelFromBuffer(const char* buffer_data,
-                                     size_t buffer_size);
+  // Builds the model from the buffer and stores it in 'model_'.
+  void BuildModelFromBuffer(const char* buffer_data, size_t buffer_size);
 
   // Gets the buffer from the file handler; verifies and builds the model
   // from the buffer; if successful, sets 'model_metadata_extractor_' to be
@@ -228,9 +210,6 @@ class TfLiteEngine {
   // Mechanism used by TF Lite to map Ops referenced in the FlatBuffer model to
   // actual implementation. Defaults to TF Lite BuiltinOpResolver.
   std::unique_ptr<tflite::OpResolver> resolver_;
-
-  // Extra verifier for FlatBuffer input data.
-  Verifier verifier_;
 
   // ExternalFile and corresponding ExternalFileHandler for models loaded from
   // disk or file descriptor.

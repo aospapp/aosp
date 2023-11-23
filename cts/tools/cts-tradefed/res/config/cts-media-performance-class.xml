@@ -25,6 +25,6 @@
     <option name="compatibility:include-filter" value="CtsFileSystemTestCases android.filesystem.cts.RandomRWTest" />
 
     <option name="compatibility:include-filter" value="CtsCameraTestCases android.hardware.camera2.cts.ExtendedCameraCharacteristicsTest#testCameraPerfClassCharacteristics" />
-    <option name="compatibility:include-filter" value="CtsCameraApi31TestCases android.camera.cts.api31test.SPerfClassTest#testSPerfClassJpegSizes" />
+    <option name="compatibility:include-filter" value="CtsCameraTestCases android.hardware.camera2.cts.ExtendedCameraCharacteristicsTest#testSPerfClassJpegSizes" />
 
 </configuration>

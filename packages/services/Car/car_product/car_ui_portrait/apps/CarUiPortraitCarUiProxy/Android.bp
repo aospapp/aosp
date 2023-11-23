@@ -1,0 +1,65 @@
+// Copyright (C) 2023 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+android_app {
+    name: "car-ui-lib-portrait-sharedlibrary",
+    manifest: "sharedlibrary/src/main/AndroidManifest.xml",
+    aaptflags: ["--shared-lib"],
+    sdk_version: "current",
+    optimize: {
+        enabled: false,
+    },
+    // car-ui-lib-oem-apis is added such that at runtime those classes will be available
+    // to the car-ui-lib code which only compiles against them
+    static_libs: [
+        "car-ui-lib",
+        "car-ui-lib-oem-apis",
+    ],
+    export_package_resources: true,
+    overrides: [
+        "car-ui-lib-sharedlibrary-vendor",
+    ]
+}
+
+android_app {
+    name: "car-ui-lib-portrait-proxyplugin",
+    certificate: "platform",
+
+    min_sdk_version: "28",
+    target_sdk_version: "30",
+    sdk_version: "current",
+
+    manifest: "plugin/src/main/AndroidManifest.xml",
+    srcs: ["plugin/src/main/java/**/*.java"],
+    libs: [
+        "car-ui-lib-portrait-sharedlibrary",
+        "android.car-stubs",
+    ],
+    static_libs: [
+        "car-ui-lib-oem-apis",
+        "androidx.annotation_annotation",
+    ],
+
+    optimize: {
+        enabled: false,
+    },
+    enforce_uses_libs: false,
+        overrides: [
+            "car-ui-lib-proxyplugin",
+        ]
+}

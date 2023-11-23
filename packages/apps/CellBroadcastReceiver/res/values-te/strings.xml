@@ -26,16 +26,16 @@
     <string name="button_dismiss" msgid="1234221657930516287">"సరే"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"మునుపటి అలర్ట్‌లు లేవు"</string>
     <string name="menu_preferences" msgid="3596514894131599202">"సెట్టింగ్‌లు"</string>
-    <string name="menu_delete_all" msgid="3940997343921149800">"ప్రసారాలను తొలగించు"</string>
+    <string name="menu_delete_all" msgid="3940997343921149800">"ప్రసారాలను తొలగించండి"</string>
     <string name="message_options" msgid="3178489901903589574">"సందేశ ఎంపికలు"</string>
     <string name="menu_view_details" msgid="1040989019045280975">"వివరాలను చూడండి"</string>
-    <string name="menu_delete" msgid="128380070910799366">"ప్రసారాన్ని తొలగించు"</string>
+    <string name="menu_delete" msgid="128380070910799366">"ప్రసారాన్ని తొలగించండి"</string>
     <string name="view_details_title" msgid="1780427629491781473">"హెచ్చరిక వివరాలు"</string>
     <string name="view_details_debugging_title" msgid="5699927030805114173">"డీబగ్గింగ్ కోసం అలర్ట్ వివరాలు"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"ఈ ప్రసారాన్ని తొలగించాలా?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"అన్ని స్వీకరించిన ప్రసార మెసేజ్‌లను తొలగించాలా?"</string>
-    <string name="button_delete" msgid="4672451757925194350">"తొలగించు"</string>
-    <string name="button_cancel" msgid="7479958360523246140">"రద్దు చేయి"</string>
+    <string name="button_delete" msgid="4672451757925194350">"తొలగించండి"</string>
+    <string name="button_cancel" msgid="7479958360523246140">"రద్దు చేయండి"</string>
     <string name="etws_earthquake_warning" msgid="6428741104423152511">"భూకంప హెచ్చరిక"</string>
     <string name="etws_tsunami_warning" msgid="6173964105145900312">"సునామీ హెచ్చరిక"</string>
     <string name="etws_earthquake_and_tsunami_warning" msgid="662449983177407681">"భూకంపం మరియు సునామీ హెచ్చరిక"</string>
@@ -62,7 +62,7 @@
     <string name="notification_channel_settings_updates" msgid="6779759372516475085">"SIM ఆధారంగా WEA సెట్టింగుల ఆటోమేటిక్ మార్పులు"</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"అలర్ట్‌లను అనుమతించండి"</string>
     <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"వైర్‌లెస్ ఎమర్జెన్సీ అలర్ట్ నోటిఫికేషన్‌లను పొందండి"</string>
-    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"హెచ్చరిక రిమైండర్"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"అలర్ట్ రిమైండర్"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"అలర్ట్ మెసేజ్‌లను చదివి వినిపించు"</string>
     <string name="enable_alert_speech_summary" msgid="2855629032890937297">"ఎమర్జెన్సీ అలర్ట్ మెసేజ్‌లను చదివి వినిపించడానికి \'టెక్స్ట్-టు-స్పీచ్\' ఉపయోగించండి"</string>
     <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"రిమైండర్ శబ్దం క్రమ విరామాల వద్ద ప్లే అవుతుంది"</string>
@@ -70,11 +70,11 @@
     <string name="alert_preferences_title" msgid="6001469026393248468">"హెచ్చరిక ప్రాధాన్యతలు"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"ETWS పరీక్ష ప్రసారాలు"</string>
     <string name="enable_etws_test_alerts_summary" msgid="8746155402612927306">"\'భూకంప సునామీ హెచ్చరిక సిస్టమ్\' కోసం పరీక్ష ప్రసారాలు"</string>
-    <string name="enable_cmas_extreme_threat_alerts_title" msgid="5416260219062637770">"అత్యంత తీవ్ర అపాయాలు"</string>
-    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="5832146246627518123">"ప్రాణానికి మరియు ఆస్తికి అత్యంత తీవ్ర అపాయాలు"</string>
-    <string name="enable_cmas_severe_threat_alerts_title" msgid="1066172973703410042">"తీవ్ర అపాయాలు"</string>
-    <string name="enable_cmas_severe_threat_alerts_summary" msgid="5292443310309039223">"ప్రాణానికి మరియు ఆస్తికి తీవ్ర అపాయాలు"</string>
-    <string name="enable_cmas_amber_alerts_title" msgid="1475030503498979651">"AMBER హెచ్చరికలు"</string>
+    <string name="enable_cmas_extreme_threat_alerts_title" msgid="5416260219062637770">"పొంచి ఉన్న అత్యంత తీవ్ర అపాయాలు"</string>
+    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="5832146246627518123">"ప్రాణానికి, ఆస్తికి పొంచి ఉన్న అత్యంత తీవ్ర అపాయాలు"</string>
+    <string name="enable_cmas_severe_threat_alerts_title" msgid="1066172973703410042">"పొంచి ఉన్న తీవ్ర అపాయాలు"</string>
+    <string name="enable_cmas_severe_threat_alerts_summary" msgid="5292443310309039223">"ప్రాణానికి, ఆస్తికి పొంచి ఉన్న తీవ్ర అపాయాలు"</string>
+    <string name="enable_cmas_amber_alerts_title" msgid="1475030503498979651">"AMBER అలర్ట్‌లు"</string>
     <string name="enable_cmas_amber_alerts_summary" msgid="4495233280416889667">"పిల్లల అపహరణ అత్యవసర బులెటిన్‌లు"</string>
     <string name="enable_alert_message_title" msgid="2939830587633599352">"అలర్ట్ మెసేజ్‌లు"</string>
     <string name="enable_alert_message_summary" msgid="6525664541696985610">"తక్షణ భద్రతా ప్రమాదాల గురించి హెచ్చరించు"</string>
@@ -87,7 +87,7 @@
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"అత్యవసర హెచ్చరికలు"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"ప్రాణాంతకమైన సంఘటనల గురించి హెచ్చరించు"</string>
     <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"పరీక్ష అలర్ట్‌లు"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"భద్రతా అలర్ట్ సిస్టమ్ నుండి క్యారియర్ పరిక్షలను, నెలవారీ పరిక్షలను స్వీకరించండి"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"భద్రతా అలర్ట్ సిస్టమ్ నుండి క్యారియర్ టెస్ట్‌లను, నెలవారీ టెస్ట్‌లను స్వీకరించండి"</string>
     <!-- no translation found for enable_exercise_test_alerts_title (6030780598569873865) -->
     <skip />
     <string name="enable_exercise_test_alerts_summary" msgid="4276766794979567304">"ఎమర్జెన్సీ అలర్ట్‌ను అందుకోండి: అభ్యాసం/డ్రిల్ మెసేజ్"</string>

@@ -26,7 +26,7 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.CLASS)
 public @interface AliasOfPropagatedData {
-  Class<? extends Annotation> defineComponentScope();
+  Class<? extends Annotation>[] defineComponentScopes();
 
   Class<? extends Annotation> alias();
 }

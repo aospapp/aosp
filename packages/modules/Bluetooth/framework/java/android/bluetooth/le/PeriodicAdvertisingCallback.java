@@ -87,4 +87,13 @@ public abstract class PeriodicAdvertisingCallback {
      */
     public void onSyncTransferred(BluetoothDevice device, int status) {
     }
+
+    /**
+     * Callback when BIGInfo advertising report is received.
+     *
+     * @param syncHandle handle used to identify this synchronization.
+     * @param encrypted BIG carries encrypted data or not
+     */
+    public void onBigInfoAdvertisingReport(int syncHandle, boolean encrypted) {
+    }
 }

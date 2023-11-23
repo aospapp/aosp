@@ -10,13 +10,14 @@
 #include <vector>
 
 #include <benchmark/benchmark.h>
+#include <fp16/fp16.h>
 #include "bench/utils.h"
 
-#include <fp16/fp16.h>
-#include <xnnpack/AlignedAllocator.h>
+#include <xnnpack.h>
+#include <xnnpack/aligned-allocator.h>
 #include <xnnpack/common.h>
-#include <xnnpack/params.h>
-#include <xnnpack/params-init.h>
+#include <xnnpack/microfnptr.h>
+#include <xnnpack/microparams-init.h>
 #include <xnnpack/vcvt.h>
 
 

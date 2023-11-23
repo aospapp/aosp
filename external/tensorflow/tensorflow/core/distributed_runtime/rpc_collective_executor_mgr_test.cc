@@ -47,7 +47,7 @@ class RpcCollectiveExecutorMgrTest : public ::testing::Test {
     device_count->insert({"CPU", NUM_DEVS});
     std::vector<std::unique_ptr<Device>> devices;
     TF_CHECK_OK(DeviceFactory::AddDevices(options, task_name, &devices));
-    device_mgr_ = absl::make_unique<StaticDeviceMgr>(std::move(devices));
+    device_mgr_ = std::make_unique<StaticDeviceMgr>(std::move(devices));
     std::unique_ptr<DeviceResolverDistributed> dr(
         new DeviceResolverDistributed(device_mgr_.get()));
     std::unique_ptr<CollectiveParamResolverDistributed> cpr(
@@ -146,7 +146,7 @@ TEST_F(RpcCollectiveExecutorMgrTest, GetStepSequence) {
     EXPECT_TRUE(status.ok());
   }
   ASSERT_EQ(2, response.step_sequence_size());
-  std::unordered_map<int64, int64> values;
+  std::unordered_map<int64_t, int64_t> values;
   for (const auto& ss : response.step_sequence()) {
     values[ss.graph_key()] = ss.next_step_id();
   }

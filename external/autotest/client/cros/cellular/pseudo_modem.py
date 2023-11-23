@@ -1,5 +1,4 @@
-#!/usr/bin/env python2
-
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -21,6 +20,10 @@ TODO:
    * implement CDMA modems
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 from optparse import OptionParser
 import logging
 import os
@@ -39,8 +42,13 @@ from dbus.types import ObjectPath
 from dbus.types import Struct
 from dbus.types import UInt32
 import glib
-import gobject
+# AU tests use ToT client code, but ToT -3 client version.
+try:
+    from gi.repository import GObject
+except ImportError:
+    import gobject as GObject
 import mm1
+from six.moves import range
 
 
 # Miscellaneous delays to simulate a modem
@@ -547,8 +555,8 @@ class Modem(DBusObjectWithProperties):
                          out_signature='ao')
     def List(self, *args, **kwargs):
         logging.info('Modem.Messaging: List: %s',
-                     ', '.join(self.smses.keys()))
-        return self.smses.keys()
+                     ', '.join(list(self.smses.keys())))
+        return list(self.smses.keys())
 
     @dbus.service.method(mm1.MODEM_MESSAGING_INTERFACE, in_signature='o',
                          out_signature='')
@@ -620,7 +628,7 @@ class ModemManager(dbus.service.Object):
         """Removes a modem device from the list of managed devices."""
         logging.info('ModemManager: remove %s', device.name)
         self.devices.remove(device)
-        interfaces = device.InterfacesAndProperties().keys()
+        interfaces = list(device.InterfacesAndProperties().keys())
         self.InterfacesRemoved(device.path, interfaces)
 
     @dbus.service.method(mm1.OFDOM, out_signature='a{oa{sa{sv}}}')
@@ -629,7 +637,7 @@ class ModemManager(dbus.service.Object):
         results = {}
         for device in self.devices:
             results[device.path] = device.InterfacesAndProperties()
-        logging.info('GetManagedObjects: %s', ', '.join(results.keys()))
+        logging.info('GetManagedObjects: %s', ', '.join(list(results.keys())))
         return results
 
     @dbus.service.signal(mm1.OFDOM, signature='oa{sa{sv}}')
@@ -678,7 +686,7 @@ after the pseudo modem is recognized by shill.
     parser.add_option('-c', '--carrier', dest='carrier_name',
                       metavar='<carrier name>',
                       help='<carrier name> := %s' % ' | '.join(
-                          SIM.CARRIERS.keys()))
+                          list(SIM.CARRIERS.keys())))
     parser.add_option('-s', '--smscount', dest='sms_count',
                       default=0,
                       metavar='<smscount>',
@@ -723,12 +731,12 @@ after the pseudo modem is recognized by shill.
                     sms = SMS(manager, name='/SMS/%s' % index, text=line)
                     modem.AddSMS(sms)
         else:
-            for index in xrange(int(options.sms_count)):
+            for index in range(int(options.sms_count)):
                 sms = SMS(manager, name='/SMS/%s' % index,
                           text=options.sms_text)
                 modem.AddSMS(sms)
 
-        mainloop = gobject.MainLoop()
+        mainloop = GObject.MainLoop()
 
         def SignalHandler(signum, frame):
             logging.info('Signal handler called with signal: %s', signum)

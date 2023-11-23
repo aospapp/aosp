@@ -15,7 +15,9 @@
  */
 
 #include <vibrator/ExternalVibration.h>
+#include <vibrator/ExternalVibrationUtils.h>
 
+#include <android/os/IExternalVibratorService.h>
 #include <binder/Parcel.h>
 #include <log/log.h>
 #include <utils/Errors.h>
@@ -61,6 +63,26 @@ status_t ExternalVibration::readFromParcel(const Parcel* parcel) {
 
 inline bool ExternalVibration::operator==(const ExternalVibration& rhs) const {
     return mToken == rhs.mToken;
+}
+
+os::HapticScale ExternalVibration::externalVibrationScaleToHapticScale(int externalVibrationScale) {
+    switch (externalVibrationScale) {
+        case IExternalVibratorService::SCALE_MUTE:
+            return os::HapticScale::MUTE;
+        case IExternalVibratorService::SCALE_VERY_LOW:
+            return os::HapticScale::VERY_LOW;
+        case IExternalVibratorService::SCALE_LOW:
+            return os::HapticScale::LOW;
+        case IExternalVibratorService::SCALE_NONE:
+            return os::HapticScale::NONE;
+        case IExternalVibratorService::SCALE_HIGH:
+            return os::HapticScale::HIGH;
+        case IExternalVibratorService::SCALE_VERY_HIGH:
+            return os::HapticScale::VERY_HIGH;
+        default:
+          ALOGE("Unknown ExternalVibrationScale %d, not applying scaling", externalVibrationScale);
+          return os::HapticScale::NONE;
+      }
 }
 
 } // namespace os

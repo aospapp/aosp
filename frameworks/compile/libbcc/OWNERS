@@ -1,5 +1,2 @@
-butlermichael@google.com
-dgross@google.com
-jeanluc@google.com
-miaowang@google.com
+include platform/frameworks/rs:/RS_OWNERS  # Bug component: 43047
 srhines@google.com

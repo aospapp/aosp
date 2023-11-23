@@ -36,8 +36,8 @@
   } while (0)
 
 extern const FLOAT32 ixheaacd_twiddle_table_fft_float[514];
-const FLOAT32 ixheaacd_twidle_tbl_48[64];
-const FLOAT32 ixheaacd_twidle_tbl_24[32];
+extern const FLOAT32 ixheaacd_twidle_tbl_48[64];
+extern const FLOAT32 ixheaacd_twidle_tbl_24[32];
 
 void ixheaacd_real_synth_fft_p2(FLOAT32 *ptr_x, FLOAT32 *ptr_y,
                                 WORD32 npoints) {
@@ -522,7 +522,6 @@ void ixheaacd_real_synth_fft_p2(FLOAT32 *ptr_x, FLOAT32 *ptr_y,
 
       x1r = *ptr_y;
       x1i = *(ptr_y + 1);
-
       tmp = (FLOAT32)(((FLOAT32)x1r * W4) - ((FLOAT32)x1i * W1));
       x1i = (FLOAT32)(((FLOAT32)x1r * W1) + ((FLOAT32)x1i * W4));
       x1r = tmp;

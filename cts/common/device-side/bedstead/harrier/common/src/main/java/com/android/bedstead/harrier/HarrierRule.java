@@ -20,8 +20,10 @@ import org.junit.rules.TestRule;
 
 /** A @Rule used on device by Harrier. */
 public abstract class HarrierRule implements TestRule {
-    /** Set that we should skip tearing down between tests. */
+    /** Sets that we should skip tearing down between tests. */
     abstract void setSkipTestTeardown(boolean skipTestTeardown);
-    /** Set that we are using the BedsteadJUnit4 test runner. */
+    /** Sets that we are using the BedsteadJUnit4 test runner. */
     abstract void setUsingBedsteadJUnit4(boolean usingBedsteadJUnit4);
+    /** Queries if the current device is using headless system user mode. */
+    abstract boolean isHeadlessSystemUserMode();
 }

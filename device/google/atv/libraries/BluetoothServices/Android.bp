@@ -12,6 +12,7 @@ android_library {
 
     srcs: ["src/**/*.java"],
     static_libs: [
+        "androidx.annotation_annotation",
         "androidx.leanback_leanback",
         "androidx.leanback_leanback-preference",
         "androidx.legacy_legacy-support-core-ui",
@@ -19,7 +20,7 @@ android_library {
         "TwoPanelSettingsLib",
     ],
 
-    min_sdk_version: "32",
     resource_dirs: ["res"],
     manifest: "AndroidManifest.xml",
+    sdk_version: "system_current",
 }

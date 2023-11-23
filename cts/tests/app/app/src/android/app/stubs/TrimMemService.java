@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package android.app.stubs;;
+package android.app.stubs;
 
 import android.app.Service;
 import android.content.ComponentName;

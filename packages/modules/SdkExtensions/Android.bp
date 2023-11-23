@@ -56,7 +56,11 @@ android_app_certificate {
 
 sdk {
     name: "sdkextensions-sdk",
-    bootclasspath_fragments: ["com.android.sdkext-bootclasspath-fragment"],
+    apexes: [
+        // Adds exportable dependencies of the APEX to the sdk,
+        // e.g. *classpath_fragments.
+        "com.android.sdkext",
+    ],
 }
 
 // Encapsulate the contributions made by the com.android.sdkext to the bootclasspath.
@@ -87,4 +91,27 @@ bootclasspath_fragment {
             "android.os.ext",
         ],
     },
+}
+
+filegroup {
+    name: "sdk-extensions-info",
+    srcs: ["sdk-extensions-info.xml"],
+    visibility: [
+        "//frameworks/base",
+        "//frameworks/base/api",
+    ],
+}
+
+java_test_host {
+    name: "sdkextensions_conformance_framework_tests",
+    static_libs: ["ClasspathFetcher"],
+    libs: [
+        "tradefed",
+        "truth-prebuilt",
+    ],
+    test_config: "sdkext-conformance-framework.xml",
+    test_suites: [
+        "mts",
+        "device-tests",
+    ],
 }

@@ -91,7 +91,7 @@ public final class WidgetsListHeaderViewHolderBinderTest {
         mViewHolderBinder = new WidgetsListHeaderViewHolderBinder(
                 LayoutInflater.from(mContext),
                 mOnHeaderClickListener,
-                new WidgetsListDrawableFactory(mContext));
+                false);
     }
 
     @Test
@@ -134,7 +134,7 @@ public final class WidgetsListHeaderViewHolderBinderTest {
         appInfo.title = appName;
         appInfo.bitmap = BitmapInfo.of(Bitmap.createBitmap(10, 10, Bitmap.Config.ALPHA_8), 0);
 
-        return new WidgetsListHeaderEntry(appInfo,
+        return WidgetsListHeaderEntry.create(appInfo,
                 /* titleSectionName= */ "",
                 generateWidgetItems(packageName, numOfWidgets));
     }
@@ -147,7 +147,7 @@ public final class WidgetsListHeaderViewHolderBinderTest {
 
             widgetItems.add(new WidgetItem(
                     LauncherAppWidgetProviderInfo.fromProviderInfo(mContext, widgetInfo),
-                    mTestProfile, mIconCache));
+                    mTestProfile, mIconCache, mContext));
         }
         return widgetItems;
     }

@@ -19,9 +19,11 @@ package android.permission.cts
 import android.content.pm.PackageManager
 import android.content.pm.PermissionGroupInfo
 import android.content.pm.PermissionInfo
+import android.os.Build
 import android.platform.test.annotations.AppModeFull
 import android.platform.test.annotations.AsbSecurityTest
 import androidx.test.InstrumentationRegistry
+import androidx.test.filters.SdkSuppress
 import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner
 import com.android.compatibility.common.util.ShellUtils.runShellCommand
 import com.google.common.truth.Truth.assertThat
@@ -73,6 +75,7 @@ private const val INVALID_GROUP = "com.android.cts.duplicatepermission.invalid"
  */
 @AppModeFull(reason = "Tests properties of other app. Instant apps cannot interact with other apps")
 @RunWith(AndroidJUnit4ClassRunner::class)
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
 class DuplicatePermissionDefinitionsTest {
     private val pm = InstrumentationRegistry.getTargetContext().packageManager
 

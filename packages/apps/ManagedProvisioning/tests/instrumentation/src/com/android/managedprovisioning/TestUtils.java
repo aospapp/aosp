@@ -22,6 +22,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.BaseBundle;
+import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.os.RemoteException;
 import android.support.test.uiautomator.UiDevice;
@@ -69,6 +70,36 @@ public class TestUtils extends AndroidTestCase {
         assertFalse(intentEquals(i1, i2));
     }
 
+    @SmallTest
+    public void testIntentMultipleExtrasOfArray() {
+        Intent i1 = new Intent()
+                .putExtra("aa", new int[] {1, 2})
+                .putExtra("aaa", new int[] {3, 4});
+        Intent i2 = new Intent(i1);
+        assertTrue(intentEquals(i1, i2));
+
+        i2.putExtra("aaa", new int[] {5, 6});
+        assertFalse(intentEquals(i1, i2));
+    }
+
+    @SmallTest
+    public void testIntentMultipleExtrasOfBundle() {
+        Bundle b1 = new Bundle();
+        b1.putString("b1", "11");
+        Bundle b2 = new Bundle();
+        b2.putString("b2", "22");
+        Intent i1 = new Intent()
+                .putExtra("aa", b1)
+                .putExtra("aaa", b2);
+        Intent i2 = new Intent(i1);
+        assertTrue(intentEquals(i1, i2));
+
+        Bundle b3 = new Bundle();
+        b3.putString("b3", "33");
+        i2.putExtra("aaa", b3);
+        assertFalse(intentEquals(i1, i2));
+    }
+
     /**
      * This method uses Object.equals to compare the extras.
      * Which means that it will always return false if one of the intents has an extra with an
@@ -105,9 +136,13 @@ public class TestUtils extends AndroidTestCase {
             Object value2 = bundle2.get(key);
             if (value1 != null && value1.getClass().isArray()
                     && value2 != null && value2.getClass().isArray()) {
-                return arrayEquals(value1, value2);
+                if (!arrayEquals(value1, value2)) {
+                    return false;
+                }
             } else if (value1 instanceof BaseBundle && value2 instanceof BaseBundle) {
-                return bundleEquals((BaseBundle) value1, (BaseBundle) value2);
+                if (!bundleEquals((BaseBundle) value1, (BaseBundle) value2)) {
+                    return false;
+                }
             } else if (!Objects.equals(value1, value2)) {
                 return false;
             }

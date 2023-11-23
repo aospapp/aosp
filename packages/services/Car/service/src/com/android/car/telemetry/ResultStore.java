@@ -20,12 +20,18 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.car.builtin.util.Slogf;
 import android.car.telemetry.TelemetryProto;
+import android.content.Context;
 import android.os.PersistableBundle;
+import android.provider.Settings;
 import android.util.ArrayMap;
 import android.util.AtomicFile;
 
 import com.android.car.CarLog;
+import com.android.car.internal.util.IndentingPrintWriter;
+import com.android.car.telemetry.MetricsReportProto.MetricsReportContainer;
+import com.android.car.telemetry.MetricsReportProto.MetricsReportList;
 import com.android.car.telemetry.util.IoUtils;
+import com.android.car.telemetry.util.MetricsReportProtoUtils;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.io.File;
@@ -36,7 +42,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Disk storage for interim and final metrics statistics.
+ * Disk storage for interim and final metrics statistics, as well as for internal data.
  * All methods in this class should be invoked from the telemetry thread.
  */
 public class ResultStore {
@@ -51,29 +57,45 @@ public class ResultStore {
     static final String FINAL_RESULT_DIR = "final";
     @VisibleForTesting
     static final String PUBLISHER_STORAGE_DIR = "publisher";
+    /**
+     * The following are bundle keys for the annotations.
+     * The metrics report is annotated with the boot count, id, and timestamp.
+     * Together, boot count and id will help clients determine if any report had been dropped.
+     */
+    @VisibleForTesting
+    static final String BUNDLE_KEY_BOOT_COUNT = "metrics.report.boot_count";
+    @VisibleForTesting
+    static final String BUNDLE_KEY_ID = "metrics.report.id";
+    @VisibleForTesting
+    static final String BUNDLE_KEY_TIMESTAMP = "metrics.report.timestamp_millis";
 
     /** Map keys are MetricsConfig names, which are also the file names in disk. */
     private final ArrayMap<String, InterimResult> mInterimResultCache = new ArrayMap<>();
-    private final ArrayMap<String, PersistableBundle> mFinalResultCache = new ArrayMap<>();
+    private final ArrayMap<String, MetricsReportList.Builder> mMetricsReportCache =
+            new ArrayMap<>();
     private final ArrayMap<String, TelemetryProto.TelemetryError> mErrorCache = new ArrayMap<>();
-    /** Keyed by publisher's class name. **/
+    /** Keyed by publisher's class name. */
     private final ArrayMap<String, PersistableBundle> mPublisherCache = new ArrayMap<>();
+    /** Keyed by metrics config name, value is how many reports it produced since boot. */
+    private final ArrayMap<String, Integer> mReportCountMap = new ArrayMap<>();
 
+    private final Context mContext;
     private final File mInterimResultDirectory;
     private final File mErrorResultDirectory;
-    private final File mFinalResultDirectory;
+    private final File mMetricsReportDirectory;
     private final File mPublisherDataDirectory;
 
-    public ResultStore(@NonNull File rootDirectory) {
+    public ResultStore(@NonNull Context context, @NonNull File rootDirectory) {
+        mContext = context;
         mInterimResultDirectory = new File(rootDirectory, INTERIM_RESULT_DIR);
         mErrorResultDirectory = new File(rootDirectory, ERROR_RESULT_DIR);
-        mFinalResultDirectory = new File(rootDirectory, FINAL_RESULT_DIR);
+        mMetricsReportDirectory = new File(rootDirectory, FINAL_RESULT_DIR);
         mPublisherDataDirectory = new File(rootDirectory, PUBLISHER_STORAGE_DIR);
         mInterimResultDirectory.mkdirs();
         mErrorResultDirectory.mkdirs();
-        mFinalResultDirectory.mkdirs();
+        mMetricsReportDirectory.mkdirs();
         mPublisherDataDirectory.mkdir();
-        // load results into memory to reduce the frequency of disk access
+        // load interim results and internal data into memory to reduce the frequency of disk access
         loadInterimResultsIntoMemory();
     }
 
@@ -112,56 +134,52 @@ public class ResultStore {
      *
      * @param metricsConfigName name of the MetricsConfig.
      * @param deleteResult      if true, the final result will be deleted from disk.
-     * @return the final result as PersistableBundle if exists, null otherwise
+     * @return {@link MetricsReportList} that contains all report for the given config.
      */
     @Nullable
-    public PersistableBundle getFinalResult(
+    public MetricsReportList getMetricsReports(
             @NonNull String metricsConfigName, boolean deleteResult) {
-        // check in memory storage
-        PersistableBundle result = mFinalResultCache.get(metricsConfigName);
-        if (result != null) {
-            if (deleteResult) {
-                mFinalResultCache.remove(metricsConfigName);
-            }
-            return result;
+        // the reports may have been stored in memory
+        MetricsReportList.Builder reportList = mMetricsReportCache.get(metricsConfigName);
+        // if not, the reports may have been stored in disk
+        if (reportList == null) {
+            reportList = readMetricsReportList(metricsConfigName);
         }
-        // check persistent storage
-        File file = new File(mFinalResultDirectory, metricsConfigName);
-        // if no final result exists for this metrics config, return immediately
-        if (!file.exists()) {
-            return null;
+        if (deleteResult) {
+            mMetricsReportCache.remove(metricsConfigName);
+            IoUtils.deleteSilently(mMetricsReportDirectory, metricsConfigName);
         }
-        try {
-            result = IoUtils.readBundle(file);
-            if (deleteResult) {
-                file.delete();
-            }
-            return result;
-        } catch (IOException e) {
-            Slogf.w(CarLog.TAG_TELEMETRY, "Failed to read from disk.", e);
-            // TODO(b/197153560): record failure
-        }
-        return null;
+        return reportList == null ? null : reportList.build();
     }
 
     /**
-     * Retrieves all final results, mapped to each config name.
+     * Retrieves all metrics reports for all configs, keyed by each config name. This call is
+     * not destructive, because this method is only used by
+     * {@link CarTelemetryService#dump(IndentingPrintWriter)}.
      *
-     * @return the final results mapped to config names.
+     * @return All available metrics reports keyed by config names.
      */
-    public ArrayMap<String, PersistableBundle> getAllFinalResults() {
-        ArrayMap<String, PersistableBundle> results = new ArrayMap<>(mFinalResultCache);
-        File[] files = mFinalResultDirectory.listFiles();
+    @NonNull
+    public ArrayMap<String, MetricsReportList> getAllMetricsReports() {
+        // reports could be stored in two places, in memory and in disk
+        ArrayMap<String, MetricsReportList> results = new ArrayMap<>();
+        // first check the in-memory cache
+        for (int i = 0; i < mMetricsReportCache.size(); i++) {
+            results.put(mMetricsReportCache.keyAt(i), mMetricsReportCache.valueAt(i).build());
+        }
+        // also check the disk
+        File[] files = mMetricsReportDirectory.listFiles();
         if (files == null) {
             return results;
         }
         for (File file : files) {
-            try {
-                PersistableBundle finalResultBundle = IoUtils.readBundle(file);
-                results.put(file.getName(), finalResultBundle);
-            } catch (IOException e) {
-                Slogf.w(CarLog.TAG_TELEMETRY, "Failed to read from disk.", e);
-                // TODO(b/197153560): record failure
+            // if the metrics reports exist in memory, they have already been added to `results`
+            if (results.containsKey(file.getName())) {
+                continue; // skip already-added results
+            }
+            MetricsReportList.Builder reportList = readMetricsReportList(file.getName());
+            if (reportList != null) {
+                results.put(file.getName(), reportList.build());
             }
         }
         return results;
@@ -205,7 +223,8 @@ public class ResultStore {
     }
 
     /**
-     * Retrieves all errors, mapped to each config name.
+     * Retrieves all errors, mapped to each config name. This call is not destructive because
+     * this method is only used by {@link CarTelemetryService#dump(IndentingPrintWriter)}.
      *
      * @return the map of errors to each config.
      */
@@ -274,21 +293,42 @@ public class ResultStore {
     }
 
     /**
-     * Stores final metrics in memory for the given
+     * Stores metrics report in memory for the given
      * {@link android.car.telemetry.TelemetryProto.MetricsConfig}.
+     *
+     * If the report is produced via {@code on_metrics_report()} Lua callback, the config is not
+     * considered finished. If the report is produced via {@code on_script_finished()} Lua
+     * callback, the config is finished.
      */
-    public void putFinalResult(
-            @NonNull String metricsConfigName, @NonNull PersistableBundle result) {
-        IoUtils.deleteSilently(mInterimResultDirectory, metricsConfigName);
-        mInterimResultCache.remove(metricsConfigName);
-        mFinalResultCache.put(metricsConfigName, result);
+    public void putMetricsReport(
+            @NonNull String metricsConfigName,
+            @NonNull PersistableBundle report,
+            boolean finished) {
+        // annotate the report with boot count, ID and timestamp
+        annotateReport(metricsConfigName, report);
+        // Every new report should be appended at the end of the report list. The previous reports
+        // may exist in the cache or in the disk. We need to check both places.
+        MetricsReportList.Builder reportList = mMetricsReportCache.get(metricsConfigName);
+        // if no previous reports found in memory, check if there is previous report in disk
+        if (reportList == null) {
+            reportList = readMetricsReportList(metricsConfigName);
+        }
+        // if no previous report found in memory and in disk, create a new MetricsReportList
+        if (reportList == null) {
+            reportList = MetricsReportList.newBuilder();
+        }
+        // add new metrics report
+        reportList = reportList.addReport(
+                MetricsReportContainer.newBuilder()
+                        .setReportBytes(MetricsReportProtoUtils.getByteString(report))
+                        .setIsLastReport(finished));
+        mMetricsReportCache.put(metricsConfigName, reportList);
     }
 
     /** Stores the error object produced by the script. */
     public void putErrorResult(
             @NonNull String metricsConfigName, @NonNull TelemetryProto.TelemetryError error) {
-        IoUtils.deleteSilently(mInterimResultDirectory, metricsConfigName);
-        mInterimResultCache.remove(metricsConfigName);
+        removeInterimResult(metricsConfigName);
         mErrorCache.put(metricsConfigName, error);
     }
 
@@ -305,6 +345,30 @@ public class ResultStore {
     }
 
     /**
+     * Deletes interim result associated with the given MetricsConfig name.
+     */
+    public void removeInterimResult(@NonNull String metricsConfigName) {
+        mInterimResultCache.remove(metricsConfigName);
+        IoUtils.deleteSilently(mInterimResultDirectory, metricsConfigName);
+    }
+
+    /**
+     * Deletes metrics reports associated with the given MetricsConfig name.
+     */
+    public void removeMetricsReports(@NonNull String metricsConfigName) {
+        mMetricsReportCache.remove(metricsConfigName);
+        IoUtils.deleteSilently(mMetricsReportDirectory, metricsConfigName);
+    }
+
+    /**
+     * Deletes error result associated with the given MetricsConfig name.
+     */
+    public void removeErrorResult(@NonNull String metricsConfigName) {
+        mErrorCache.remove(metricsConfigName);
+        IoUtils.deleteSilently(mErrorResultDirectory, metricsConfigName);
+    }
+
+    /**
      * Deletes associated publisher data.
      */
     public void removePublisherData(@NonNull String publisherName) {
@@ -313,26 +377,24 @@ public class ResultStore {
     }
 
     /**
-     * Deletes script result associated with the given config name. If result does not exist, this
+     * Deletes all data associated with the given config name. If result does not exist, this
      * method does not do anything.
      */
     public void removeResult(@NonNull String metricsConfigName) {
-        mInterimResultCache.remove(metricsConfigName);
-        mFinalResultCache.remove(metricsConfigName);
-        mErrorCache.remove(metricsConfigName);
-        IoUtils.deleteSilently(mInterimResultDirectory, metricsConfigName);
-        IoUtils.deleteSilently(mFinalResultDirectory, metricsConfigName);
-        IoUtils.deleteSilently(mErrorResultDirectory, metricsConfigName);
+        removeInterimResult(metricsConfigName);
+        removeMetricsReports(metricsConfigName);
+        removeErrorResult(metricsConfigName);
+        mReportCountMap.remove(metricsConfigName);
     }
 
     /** Deletes all interim and final results. */
     public void removeAllResults() {
         mInterimResultCache.clear();
-        mFinalResultCache.clear();
+        mMetricsReportCache.clear();
         mErrorCache.clear();
         mPublisherCache.clear();
         IoUtils.deleteAllSilently(mInterimResultDirectory);
-        IoUtils.deleteAllSilently(mFinalResultDirectory);
+        IoUtils.deleteAllSilently(mMetricsReportDirectory);
         IoUtils.deleteAllSilently(mErrorResultDirectory);
         IoUtils.deleteAllSilently(mPublisherDataDirectory);
     }
@@ -340,12 +402,13 @@ public class ResultStore {
     /**
      * Returns the names of MetricsConfigs whose script reached a terminal state.
      */
+    @NonNull
     public Set<String> getFinishedMetricsConfigNames() {
         HashSet<String> configNames = new HashSet<>();
-        configNames.addAll(mFinalResultCache.keySet());
+        configNames.addAll(mMetricsReportCache.keySet());
         configNames.addAll(mErrorCache.keySet());
         // prevent NPE
-        String[] fileNames = mFinalResultDirectory.list();
+        String[] fileNames = mMetricsReportDirectory.list();
         if (fileNames != null) {
             configNames.addAll(Arrays.asList(fileNames));
         }
@@ -359,11 +422,11 @@ public class ResultStore {
     /** Persists data to disk and deletes stale data. */
     public void flushToDisk() {
         writeInterimResultsToFile();
-        writeFinalResultsToFile();
+        writeMetricsReportsToFile();
         writeErrorsToFile();
         writePublisherCacheToFile();
         IoUtils.deleteOldFiles(STALE_THRESHOLD_MILLIS,
-                mInterimResultDirectory, mFinalResultDirectory, mErrorResultDirectory,
+                mInterimResultDirectory, mMetricsReportDirectory, mErrorResultDirectory,
                 mPublisherDataDirectory);
     }
 
@@ -384,11 +447,10 @@ public class ResultStore {
         });
     }
 
-
-    private void writeFinalResultsToFile() {
-        mFinalResultCache.forEach((metricsConfigName, bundle) -> {
+    private void writeMetricsReportsToFile() {
+        mMetricsReportCache.forEach((metricsConfigName, reportList) -> {
             try {
-                IoUtils.writeBundle(mFinalResultDirectory, metricsConfigName, bundle);
+                IoUtils.writeProto(mMetricsReportDirectory, metricsConfigName, reportList.build());
             } catch (IOException e) {
                 Slogf.w(CarLog.TAG_TELEMETRY, "Failed to write result to file", e);
                 // TODO(b/197153560): record failure
@@ -418,27 +480,67 @@ public class ResultStore {
         });
     }
 
+    /**
+     * Gets the {@link MetricsReportList} for the given metricsConfigName from disk.
+     * If no report exists, return null.
+     */
+    @Nullable
+    private MetricsReportList.Builder readMetricsReportList(@NonNull String metricsConfigName) {
+        // check persistent storage
+        File file = new File(mMetricsReportDirectory, metricsConfigName);
+        // if no error exists for this metrics config, return immediately
+        if (!file.exists()) {
+            return null;
+        }
+        try {
+            // return the mutable builder because ResultStore will be modifying the list frequently
+            return MetricsReportList.parseFrom(new AtomicFile(file).readFully()).toBuilder();
+        } catch (IOException e) {
+            Slogf.w(CarLog.TAG_TELEMETRY, "Failed to get report list from disk.", e);
+            // TODO(b/197153560): record failure
+        }
+        return null;
+    }
+
+    /**
+     * Annotates the report with boot count, id, and timestamp.
+     *
+     * ResultStore will keep track of how many reports are produced by each config since boot.
+     */
+    private void annotateReport(
+            @NonNull String metricsConfigName, @NonNull PersistableBundle report) {
+        report.putLong(BUNDLE_KEY_TIMESTAMP, System.currentTimeMillis());
+        report.putInt(
+                BUNDLE_KEY_BOOT_COUNT,
+                Settings.Global.getInt(
+                        mContext.getContentResolver(), Settings.Global.BOOT_COUNT, -1));
+        int id = mReportCountMap.getOrDefault(metricsConfigName, 0);
+        id++;
+        report.putInt(BUNDLE_KEY_ID, id);
+        mReportCountMap.put(metricsConfigName, id);
+    }
+
     /** Wrapper around a result and whether the result should be written to disk. */
-    static final class InterimResult {
+    private static final class InterimResult {
         private final PersistableBundle mBundle;
         private final boolean mDirty;
 
-        InterimResult(@NonNull PersistableBundle bundle) {
+        private InterimResult(@NonNull PersistableBundle bundle) {
             mBundle = bundle;
             mDirty = false;
         }
 
-        InterimResult(@NonNull PersistableBundle bundle, boolean dirty) {
+        private InterimResult(@NonNull PersistableBundle bundle, boolean dirty) {
             mBundle = bundle;
             mDirty = dirty;
         }
 
         @NonNull
-        PersistableBundle getBundle() {
+        private PersistableBundle getBundle() {
             return mBundle;
         }
 
-        boolean isDirty() {
+        private boolean isDirty() {
             return mDirty;
         }
     }

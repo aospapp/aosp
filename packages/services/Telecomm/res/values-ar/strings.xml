@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"تم قطع اتصالك بجهة الاتصال <xliff:g id="CALLER">%s</xliff:g> بسبب إجراء مكالمة طوارئ."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"تم قطع مكالمتك بسبب إجراء مكالمة طوارئ."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"مكالمة في الخلفية"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"وضَع <xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> مكالمة في الخلفية. يمكن لهذا التطبيق الوصول إلى الصوت وتشغيله عبر المكالمة."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"يعالج تطبيق <xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> مكالمة في الخلفية. يمكن لهذا التطبيق الوصول إلى الصوت وتشغيله عبر المكالمة."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"توقّف <xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> عن الاستجابة"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"تمت مكالمتك باستخدام تطبيق \"الهاتف\" الذي أتى مع جهازك."</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"تم كتم صوت المكالمة."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"مكالمات في الخلفية"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"المكالمات التي تم قطع الاتصال بها"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"تطبيقات الهواتف المعطّلة"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"بث المكالمات"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"يؤدي إجراء هذه المكالمة إلى إنهاء مكالمة <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"اختيار كيفية إجراء هذه المكالمة"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"إعادة توجيه المكالمة باستخدام <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"قائمة مطوّر برامج الاتصالات"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"لا يمكن تلقّي المكالمات أثناء إجراء مكالمة طوارئ."</string>
     <string name="cancel" msgid="6733466216239934756">"إلغاء"</string>
+    <string name="back" msgid="6915955601805550206">"رجوع"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"سماعة الأذن"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"البلوتوث"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"سماعة رأس سلكية"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"مكبّر صوت"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"المصادر الخارجية"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"غير معروف"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"بث الصوت على جهاز آخر"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"قطع الاتصال"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"الانتقال إلى هنا"</string>
 </resources>

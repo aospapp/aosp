@@ -21,6 +21,7 @@
 #include <base/strings/stringprintf.h>
 
 #include <cstdint>
+#include <list>
 #include <string>
 
 #include "bt_target.h"
@@ -86,6 +87,64 @@ typedef enum GattStatus : uint8_t {
   GATT_OUT_OF_RANGE = 0xFF,
 } tGATT_STATUS;
 
+#ifndef CASE_RETURN_TEXT
+#define CASE_RETURN_TEXT(code) \
+  case code:                   \
+    return #code
+#endif
+
+inline std::string gatt_status_text(const tGATT_STATUS& status) {
+  switch (status) {
+    CASE_RETURN_TEXT(GATT_SUCCESS);  // Also GATT_ENCRYPED_MITM
+    CASE_RETURN_TEXT(GATT_INVALID_HANDLE);
+    CASE_RETURN_TEXT(GATT_READ_NOT_PERMIT);
+    CASE_RETURN_TEXT(GATT_WRITE_NOT_PERMIT);
+    CASE_RETURN_TEXT(GATT_INVALID_PDU);
+    CASE_RETURN_TEXT(GATT_INSUF_AUTHENTICATION);
+    CASE_RETURN_TEXT(GATT_REQ_NOT_SUPPORTED);
+    CASE_RETURN_TEXT(GATT_INVALID_OFFSET);
+    CASE_RETURN_TEXT(GATT_INSUF_AUTHORIZATION);
+    CASE_RETURN_TEXT(GATT_PREPARE_Q_FULL);
+    CASE_RETURN_TEXT(GATT_NOT_FOUND);
+    CASE_RETURN_TEXT(GATT_NOT_LONG);
+    CASE_RETURN_TEXT(GATT_INSUF_KEY_SIZE);
+    CASE_RETURN_TEXT(GATT_INVALID_ATTR_LEN);
+    CASE_RETURN_TEXT(GATT_ERR_UNLIKELY);
+    CASE_RETURN_TEXT(GATT_INSUF_ENCRYPTION);
+    CASE_RETURN_TEXT(GATT_UNSUPPORT_GRP_TYPE);
+    CASE_RETURN_TEXT(GATT_INSUF_RESOURCE);
+    CASE_RETURN_TEXT(GATT_DATABASE_OUT_OF_SYNC);
+    CASE_RETURN_TEXT(GATT_VALUE_NOT_ALLOWED);
+    CASE_RETURN_TEXT(GATT_ILLEGAL_PARAMETER);
+    CASE_RETURN_TEXT(GATT_TOO_SHORT);
+    CASE_RETURN_TEXT(GATT_NO_RESOURCES);
+    CASE_RETURN_TEXT(GATT_INTERNAL_ERROR);
+    CASE_RETURN_TEXT(GATT_WRONG_STATE);
+    CASE_RETURN_TEXT(GATT_DB_FULL);
+    CASE_RETURN_TEXT(GATT_BUSY);
+    CASE_RETURN_TEXT(GATT_ERROR);
+    CASE_RETURN_TEXT(GATT_CMD_STARTED);
+    CASE_RETURN_TEXT(GATT_PENDING);
+    CASE_RETURN_TEXT(GATT_AUTH_FAIL);
+    CASE_RETURN_TEXT(GATT_MORE);
+    CASE_RETURN_TEXT(GATT_INVALID_CFG);
+    CASE_RETURN_TEXT(GATT_SERVICE_STARTED);
+    CASE_RETURN_TEXT(GATT_ENCRYPED_NO_MITM);
+    CASE_RETURN_TEXT(GATT_NOT_ENCRYPTED);
+    CASE_RETURN_TEXT(GATT_CONGESTED);
+    CASE_RETURN_TEXT(GATT_DUP_REG);
+    CASE_RETURN_TEXT(GATT_ALREADY_OPEN);
+    CASE_RETURN_TEXT(GATT_CANCEL);
+    CASE_RETURN_TEXT(GATT_CCC_CFG_ERR);
+    CASE_RETURN_TEXT(GATT_PRC_IN_PROGRESS);
+    CASE_RETURN_TEXT(GATT_OUT_OF_RANGE);
+    default:
+      return base::StringPrintf("UNKNOWN[%hhu]", status);
+  }
+}
+
+#undef CASE_RETURN_TEXT
+
 typedef enum : uint8_t {
   GATT_RSP_ERROR = 0x01,
   GATT_REQ_MTU = 0x02,
@@ -126,6 +185,14 @@ typedef enum : uint8_t {
   /* 0x1E = 30 + 1 = 31*/
   GATT_OP_CODE_MAX = (GATT_HANDLE_MULTI_VALUE_NOTIF + 1),
 } tGATT_OP_CODE;
+
+typedef enum : uint8_t {
+  MTU_EXCHANGE_DEVICE_DISCONNECTED = 0x00,
+  MTU_EXCHANGE_NOT_ALLOWED,
+  MTU_EXCHANGE_NOT_DONE_YET,
+  MTU_EXCHANGE_IN_PROGRESS,
+  MTU_EXCHANGE_ALREADY_DONE,
+} tGATTC_TryMtuRequestResult;
 
 inline std::string gatt_op_code_text(const tGATT_OP_CODE& op_code) {
   switch (op_code) {
@@ -213,6 +280,8 @@ typedef enum : uint16_t {
 
   GATT_CONN_FAILED_ESTABLISHMENT = HCI_ERR_CONN_FAILED_ESTABLISHMENT,
 
+  GATT_CONN_TERMINATED_POWER_OFF = HCI_ERR_REMOTE_POWER_OFF,
+
   BTA_GATT_CONN_NONE = 0x0101, /* 0x0101 no connection to cancel  */
 
 } tGATT_DISCONN_REASON;
@@ -232,6 +301,7 @@ inline std::string gatt_disconnection_reason_text(
     CASE_RETURN_TEXT(GATT_CONN_LMP_TIMEOUT);
     CASE_RETURN_TEXT(GATT_CONN_FAILED_ESTABLISHMENT);
     CASE_RETURN_TEXT(BTA_GATT_CONN_NONE);
+    CASE_RETURN_TEXT(GATT_CONN_TERMINATED_POWER_OFF);
     default:
       return base::StringPrintf("UNKNOWN[%hu]", reason);
   }
@@ -282,13 +352,15 @@ inline std::string gatt_disconnection_reason_text(
 #define GATT_PERM_WRITE_ENC_MITM (1 << 6)    /* bit 6 */
 #define GATT_PERM_WRITE_SIGNED (1 << 7)      /* bit 7 */
 #define GATT_PERM_WRITE_SIGNED_MITM (1 << 8) /* bit 8 */
+#define GATT_PERM_READ_IF_ENCRYPTED_OR_DISCOVERABLE (1 << 9) /* bit 9 */
 typedef uint16_t tGATT_PERM;
 
 /* the MS nibble of tGATT_PERM; key size 7=0; size 16=9 */
 #define GATT_ENCRYPT_KEY_SIZE_MASK (0xF000)
 
-#define GATT_READ_ALLOWED \
-  (GATT_PERM_READ | GATT_PERM_READ_ENCRYPTED | GATT_PERM_READ_ENC_MITM)
+#define GATT_READ_ALLOWED                                                \
+  (GATT_PERM_READ | GATT_PERM_READ_ENCRYPTED | GATT_PERM_READ_ENC_MITM | \
+   GATT_PERM_READ_IF_ENCRYPTED_OR_DISCOVERABLE)
 #define GATT_READ_AUTH_REQUIRED (GATT_PERM_READ_ENCRYPTED)
 #define GATT_READ_MITM_REQUIRED (GATT_PERM_READ_ENC_MITM)
 #define GATT_READ_ENCRYPTED_REQUIRED \
@@ -518,6 +590,7 @@ enum {
   GATT_READ_BY_TYPE = 1,
   GATT_READ_BY_HANDLE,
   GATT_READ_MULTIPLE,
+  GATT_READ_MULTIPLE_VAR_LEN,
   GATT_READ_CHAR_VALUE,
   GATT_READ_PARTIAL,
   GATT_READ_MAX
@@ -685,6 +758,12 @@ typedef void(tGATT_CONN_UPDATE_CB)(tGATT_IF gatt_if, uint16_t conn_id,
                                    uint16_t interval, uint16_t latency,
                                    uint16_t timeout, tGATT_STATUS status);
 
+/* Define a callback function when subrate change event is received */
+typedef void(tGATT_SUBRATE_CHG_CB)(tGATT_IF gatt_if, uint16_t conn_id,
+                                   uint16_t subrate_factor, uint16_t latency,
+                                   uint16_t cont_num, uint16_t timeout,
+                                   tGATT_STATUS status);
+
 /* Define the structure that applications use to register with
  * GATT. This structure includes callback functions. All functions
  * MUST be provided.
@@ -699,6 +778,7 @@ typedef struct {
   tGATT_CONGESTION_CBACK* p_congestion_cb{nullptr};
   tGATT_PHY_UPDATE_CB* p_phy_update_cb{nullptr};
   tGATT_CONN_UPDATE_CB* p_conn_update_cb{nullptr};
+  tGATT_SUBRATE_CHG_CB* p_subrate_chg_cb{nullptr};
 } tGATT_CBACK;
 
 /*****************  Start Handle Management Definitions   *********************/
@@ -772,7 +852,7 @@ typedef struct {
  * Returns          true if registered OK, else false
  *
  ******************************************************************************/
-extern bool GATTS_NVRegister(tGATT_APPL_INFO* p_cb_info);
+bool GATTS_NVRegister(tGATT_APPL_INFO* p_cb_info);
 
 /*******************************************************************************
  *
@@ -791,8 +871,8 @@ extern bool GATTS_NVRegister(tGATT_APPL_INFO* p_cb_info);
  *                  on error error status is returned.
  *
  ******************************************************************************/
-extern tGATT_STATUS GATTS_AddService(tGATT_IF gatt_if,
-                                     btgatt_db_element_t* service, int count);
+tGATT_STATUS GATTS_AddService(tGATT_IF gatt_if, btgatt_db_element_t* service,
+                              int count);
 
 /*******************************************************************************
  *
@@ -808,8 +888,8 @@ extern tGATT_STATUS GATTS_AddService(tGATT_IF gatt_if,
  * Returns          true if operation succeed, else false
  *
  ******************************************************************************/
-extern bool GATTS_DeleteService(tGATT_IF gatt_if, bluetooth::Uuid* p_svc_uuid,
-                                uint16_t svc_inst);
+bool GATTS_DeleteService(tGATT_IF gatt_if, bluetooth::Uuid* p_svc_uuid,
+                         uint16_t svc_inst);
 
 /*******************************************************************************
  *
@@ -822,7 +902,7 @@ extern bool GATTS_DeleteService(tGATT_IF gatt_if, bluetooth::Uuid* p_svc_uuid,
  * Returns          None.
  *
  ******************************************************************************/
-extern void GATTS_StopService(uint16_t service_handle);
+void GATTS_StopService(uint16_t service_handle);
 
 /*******************************************************************************
  *
@@ -840,10 +920,8 @@ extern void GATTS_StopService(uint16_t service_handle);
  *                               code.
  *
  ******************************************************************************/
-extern tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id,
-                                                uint16_t attr_handle,
-                                                uint16_t val_len,
-                                                uint8_t* p_val);
+tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_handle,
+                                         uint16_t val_len, uint8_t* p_val);
 
 /*******************************************************************************
  *
@@ -860,10 +938,9 @@ extern tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id,
  * Returns          GATT_SUCCESS if sucessfully sent; otherwise error code.
  *
  ******************************************************************************/
-extern tGATT_STATUS GATTS_HandleValueNotification(uint16_t conn_id,
-                                                  uint16_t attr_handle,
-                                                  uint16_t val_len,
-                                                  uint8_t* p_val);
+tGATT_STATUS GATTS_HandleValueNotification(uint16_t conn_id,
+                                           uint16_t attr_handle,
+                                           uint16_t val_len, uint8_t* p_val);
 
 /*******************************************************************************
  *
@@ -879,8 +956,8 @@ extern tGATT_STATUS GATTS_HandleValueNotification(uint16_t conn_id,
  * Returns          GATT_SUCCESS if sucessfully sent; otherwise error code.
  *
  ******************************************************************************/
-extern tGATT_STATUS GATTS_SendRsp(uint16_t conn_id, uint32_t trans_id,
-                                  tGATT_STATUS status, tGATTS_RSP* p_msg);
+tGATT_STATUS GATTS_SendRsp(uint16_t conn_id, uint32_t trans_id,
+                           tGATT_STATUS status, tGATTS_RSP* p_msg);
 
 /******************************************************************************/
 /* GATT Profile Client Functions */
@@ -899,8 +976,57 @@ extern tGATT_STATUS GATTS_SendRsp(uint16_t conn_id, uint32_t trans_id,
  * Returns          GATT_SUCCESS if command started successfully.
  *
  ******************************************************************************/
-extern tGATT_STATUS GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu);
+tGATT_STATUS GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu);
 
+/*******************************************************************************
+ * Function         GATTC_UpdateUserAttMtuIfNeeded
+ *
+ * Description      This function to be called when user requested MTU after
+ *                  MTU Exchange has been already done. This will update data
+ *                  length in the controller.
+ *
+ * Parameters        remote_bda : peer device address. (input)
+ *                   transport  : physical transport of the GATT connection
+ *                                 (BR/EDR or LE) (input)
+ *                   user_mtu: user request mtu
+ *
+ ******************************************************************************/
+void GATTC_UpdateUserAttMtuIfNeeded(const RawAddress& remote_bda,
+                                    tBT_TRANSPORT transport, uint16_t user_mtu);
+
+/******************************************************************************
+ *
+ * Function         GATTC_TryMtuRequest
+ *
+ * Description      This function shall be called before calling
+ *                  GATTC_ConfgureMTU in order to check if operation is
+ *                  available to do.
+ *
+ * Parameters        remote_bda : peer device address. (input)
+ *                   transport  : physical transport of the GATT connection
+ *                                 (BR/EDR or LE) (input)
+ *                   conn_id    : connection id  (input)
+ *                   current_mtu: current mtu on the link (output)
+ *
+ * Returns          tGATTC_TryMtuRequestResult:
+ *                  - MTU_EXCHANGE_NOT_DONE_YET: There was no MTU Exchange
+ *                      procedure on the link. User can call GATTC_ConfigureMTU
+ *                      now.
+ *                  - MTU_EXCHANGE_NOT_ALLOWED : Not allowed for BR/EDR or if
+ *                      link does not exist
+ *                  - MTU_EXCHANGE_ALREADY_DONE: MTU Exchange is done. MTU
+ *                      should be taken from current_mtu
+ *                  - MTU_EXCHANGE_IN_PROGRESS : Other use is doing MTU
+ *                      Exchange. Conn_id is stored for result.
+ *
+ ******************************************************************************/
+tGATTC_TryMtuRequestResult GATTC_TryMtuRequest(const RawAddress& remote_bda,
+                                               tBT_TRANSPORT transport,
+                                               uint16_t conn_id,
+                                               uint16_t* current_mtu);
+
+std::list<uint16_t> GATTC_GetAndRemoveListOfConnIdsWaitingForMtuRequest(
+    const RawAddress& remote_bda);
 /*******************************************************************************
  *
  * Function         GATTC_Discover
@@ -917,11 +1043,11 @@ extern tGATT_STATUS GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu);
  * Returns          GATT_SUCCESS if command received/sent successfully.
  *
  ******************************************************************************/
-extern tGATT_STATUS GATTC_Discover(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
-                                   uint16_t start_handle, uint16_t end_handle,
-                                   const bluetooth::Uuid& uuid);
-extern tGATT_STATUS GATTC_Discover(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
-                                   uint16_t start_handle, uint16_t end_handle);
+tGATT_STATUS GATTC_Discover(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
+                            uint16_t start_handle, uint16_t end_handle,
+                            const bluetooth::Uuid& uuid);
+tGATT_STATUS GATTC_Discover(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
+                            uint16_t start_handle, uint16_t end_handle);
 
 /*******************************************************************************
  *
@@ -937,8 +1063,8 @@ extern tGATT_STATUS GATTC_Discover(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
  * Returns          GATT_SUCCESS if command started successfully.
  *
  ******************************************************************************/
-extern tGATT_STATUS GATTC_Read(uint16_t conn_id, tGATT_READ_TYPE type,
-                               tGATT_READ_PARAM* p_read);
+tGATT_STATUS GATTC_Read(uint16_t conn_id, tGATT_READ_TYPE type,
+                        tGATT_READ_PARAM* p_read);
 
 /*******************************************************************************
  *
@@ -954,8 +1080,8 @@ extern tGATT_STATUS GATTC_Read(uint16_t conn_id, tGATT_READ_TYPE type,
  * Returns          GATT_SUCCESS if command started successfully.
  *
  ******************************************************************************/
-extern tGATT_STATUS GATTC_Write(uint16_t conn_id, tGATT_WRITE_TYPE type,
-                                tGATT_VALUE* p_write);
+tGATT_STATUS GATTC_Write(uint16_t conn_id, tGATT_WRITE_TYPE type,
+                         tGATT_VALUE* p_write);
 
 /*******************************************************************************
  *
@@ -971,7 +1097,7 @@ extern tGATT_STATUS GATTC_Write(uint16_t conn_id, tGATT_WRITE_TYPE type,
  * Returns          GATT_SUCCESS if command started successfully.
  *
  ******************************************************************************/
-extern tGATT_STATUS GATTC_ExecuteWrite(uint16_t conn_id, bool is_execute);
+tGATT_STATUS GATTC_ExecuteWrite(uint16_t conn_id, bool is_execute);
 
 /*******************************************************************************
  *
@@ -986,8 +1112,7 @@ extern tGATT_STATUS GATTC_ExecuteWrite(uint16_t conn_id, bool is_execute);
  * Returns          GATT_SUCCESS if command started successfully.
  *
  ******************************************************************************/
-extern tGATT_STATUS GATTC_SendHandleValueConfirm(uint16_t conn_id,
-                                                 uint16_t handle);
+tGATT_STATUS GATTC_SendHandleValueConfirm(uint16_t conn_id, uint16_t handle);
 
 /*******************************************************************************
  *
@@ -998,13 +1123,18 @@ extern tGATT_STATUS GATTC_SendHandleValueConfirm(uint16_t conn_id,
  *
  * Parameter        bd_addr:   target device bd address.
  *                  idle_tout: timeout value in seconds.
- *                  transport: trasnport option.
+ *                  transport: transport option.
+ *                  is_active: whether we should use this as a signal that an
+ *                             active client now exists (which changes link
+ *                             timeout logic, see
+ *                             t_l2c_linkcb.with_active_local_clients for
+ *                             details).
  *
  * Returns          void
  *
  ******************************************************************************/
-extern void GATT_SetIdleTimeout(const RawAddress& bd_addr, uint16_t idle_tout,
-                                tBT_TRANSPORT transport);
+void GATT_SetIdleTimeout(const RawAddress& bd_addr, uint16_t idle_tout,
+                         tBT_TRANSPORT transport, bool is_active);
 
 /*******************************************************************************
  *
@@ -1021,9 +1151,9 @@ extern void GATT_SetIdleTimeout(const RawAddress& bd_addr, uint16_t idle_tout,
  *                  with GATT
  *
  ******************************************************************************/
-extern tGATT_IF GATT_Register(const bluetooth::Uuid& p_app_uuid128,
-                              const std::string name, tGATT_CBACK* p_cb_info,
-                              bool eatt_support);
+tGATT_IF GATT_Register(const bluetooth::Uuid& p_app_uuid128,
+                       const std::string& name, tGATT_CBACK* p_cb_info,
+                       bool eatt_support);
 
 /*******************************************************************************
  *
@@ -1036,7 +1166,7 @@ extern tGATT_IF GATT_Register(const bluetooth::Uuid& p_app_uuid128,
  * Returns          None.
  *
  ******************************************************************************/
-extern void GATT_Deregister(tGATT_IF gatt_if);
+void GATT_Deregister(tGATT_IF gatt_if);
 
 /*******************************************************************************
  *
@@ -1051,7 +1181,7 @@ extern void GATT_Deregister(tGATT_IF gatt_if);
  * Returns          None
  *
  ******************************************************************************/
-extern void GATT_StartIf(tGATT_IF gatt_if);
+void GATT_StartIf(tGATT_IF gatt_if);
 
 /*******************************************************************************
  *
@@ -1061,9 +1191,9 @@ extern void GATT_StartIf(tGATT_IF gatt_if);
  *                  GATT channel.
  *
  * Parameters       gatt_if: applicaiton interface
- *                  bd_addr: peer device address.
- *                  is_direct: is a direct connection or a background auto
- *                             connection
+ *                  bd_addr: peer device address
+ *                  addr_type: peer device address type
+ *                  connection_type: connection type
  *                  transport : Physical transport for GATT connection
  *                              (BR/EDR or LE)
  *                  opportunistic: will not keep device connected if other apps
@@ -1073,12 +1203,16 @@ extern void GATT_StartIf(tGATT_IF gatt_if);
  * Returns          true if connection started; else false
  *
  ******************************************************************************/
-extern bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr,
-                         bool is_direct, tBT_TRANSPORT transport,
-                         bool opportunistic);
-extern bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr,
-                         bool is_direct, tBT_TRANSPORT transport,
-                         bool opportunistic, uint8_t initiating_phys);
+bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr,
+                  tBTM_BLE_CONN_TYPE connection_type, tBT_TRANSPORT transport,
+                  bool opportunistic);
+bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr,
+                  tBTM_BLE_CONN_TYPE connection_type, tBT_TRANSPORT transport,
+                  bool opportunistic, uint8_t initiating_phys);
+bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr,
+                  tBLE_ADDR_TYPE addr_type, tBTM_BLE_CONN_TYPE connection_type,
+                  tBT_TRANSPORT transport, bool opportunistic,
+                  uint8_t initiating_phys);
 
 /*******************************************************************************
  *
@@ -1097,8 +1231,8 @@ extern bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr,
  * Returns          true if connection started; else false
  *
  ******************************************************************************/
-extern bool GATT_CancelConnect(tGATT_IF gatt_if, const RawAddress& bd_addr,
-                               bool is_direct);
+bool GATT_CancelConnect(tGATT_IF gatt_if, const RawAddress& bd_addr,
+                        bool is_direct);
 
 /*******************************************************************************
  *
@@ -1111,7 +1245,7 @@ extern bool GATT_CancelConnect(tGATT_IF gatt_if, const RawAddress& bd_addr,
  * Returns          GATT_SUCCESS if disconnected.
  *
  ******************************************************************************/
-extern tGATT_STATUS GATT_Disconnect(uint16_t conn_id);
+tGATT_STATUS GATT_Disconnect(uint16_t conn_id);
 
 /*******************************************************************************
  *
@@ -1129,9 +1263,8 @@ extern tGATT_STATUS GATT_Disconnect(uint16_t conn_id);
  * Returns          true the ligical link information is found for conn_id
  *
  ******************************************************************************/
-extern bool GATT_GetConnectionInfor(uint16_t conn_id, tGATT_IF* p_gatt_if,
-                                    RawAddress& bd_addr,
-                                    tBT_TRANSPORT* p_transport);
+bool GATT_GetConnectionInfor(uint16_t conn_id, tGATT_IF* p_gatt_if,
+                             RawAddress& bd_addr, tBT_TRANSPORT* p_transport);
 
 /*******************************************************************************
  *
@@ -1149,10 +1282,8 @@ extern bool GATT_GetConnectionInfor(uint16_t conn_id, tGATT_IF* p_gatt_if,
  * Returns          true the ligical link is connected
  *
  ******************************************************************************/
-extern bool GATT_GetConnIdIfConnected(tGATT_IF gatt_if,
-                                      const RawAddress& bd_addr,
-                                      uint16_t* p_conn_id,
-                                      tBT_TRANSPORT transport);
+bool GATT_GetConnIdIfConnected(tGATT_IF gatt_if, const RawAddress& bd_addr,
+                               uint16_t* p_conn_id, tBT_TRANSPORT transport);
 
 /*******************************************************************************
  *
@@ -1163,22 +1294,25 @@ extern bool GATT_GetConnIdIfConnected(tGATT_IF gatt_if,
  * Returns          None.
  *
  ******************************************************************************/
-extern void GATT_ConfigServiceChangeCCC(const RawAddress& remote_bda,
-                                        bool enable, tBT_TRANSPORT transport);
+void GATT_ConfigServiceChangeCCC(const RawAddress& remote_bda, bool enable,
+                                 tBT_TRANSPORT transport);
 
 // Enables the GATT profile on the device.
 // It clears out the control blocks, and registers with L2CAP.
-extern void gatt_init(void);
+void gatt_init(void);
 
 // Frees resources used by the GATT profile.
-extern void gatt_free(void);
+void gatt_free(void);
 
 // Link encryption complete notification for all encryption process
 // initiated outside GATT.
-extern void gatt_notify_enc_cmpl(const RawAddress& bd_addr);
+void gatt_notify_enc_cmpl(const RawAddress& bd_addr);
 
 /** Reset bg device list. If called after controller reset, set |after_reset| to
  * true, as there is no need to wipe controller acceptlist in this case. */
-extern void gatt_reset_bgdev_list(bool after_reset);
+void gatt_reset_bgdev_list(bool after_reset);
+
+// Initialize GATTS list of bonded device service change updates.
+void gatt_load_bonded(void);
 
 #endif /* GATT_API_H */

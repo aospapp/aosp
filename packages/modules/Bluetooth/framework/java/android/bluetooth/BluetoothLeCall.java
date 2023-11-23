@@ -20,8 +20,8 @@ package android.bluetooth;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.os.Parcel;
-import android.os.Parcelable;
 import android.os.ParcelUuid;
+import android.os.Parcelable;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -159,10 +159,11 @@ public final class BluetoothLeCall implements Parcelable {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o)
-            return true;
-        if (o == null || getClass() != o.getClass())
-            return false;
+
+        if (this == o) return true;
+
+        if (o == null || getClass() != o.getClass()) return false;
+
         BluetoothLeCall that = (BluetoothLeCall) o;
         return mUuid.equals(that.mUuid) && mUri.equals(that.mUri)
                 && mFriendlyName.equals(that.mFriendlyName) && mState == that.mState
@@ -201,8 +202,7 @@ public final class BluetoothLeCall implements Parcelable {
         out.writeInt(mCallFlags);
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<BluetoothLeCall> CREATOR =
-    						    new Parcelable.Creator<BluetoothLeCall>() {
+    public static final @NonNull Creator<BluetoothLeCall> CREATOR = new Creator<>() {
         public BluetoothLeCall createFromParcel(Parcel in) {
             return new BluetoothLeCall(in);
         }

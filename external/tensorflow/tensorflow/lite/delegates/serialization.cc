@@ -74,8 +74,7 @@ inline std::string GetFilePath(const std::string& cache_dir,
 
 std::string StrFingerprint(const void* data, const size_t num_bytes) {
   return std::to_string(
-      ::NAMESPACE_FOR_HASH_FUNCTIONS::Fingerprint64(
-          reinterpret_cast<const char*>(data), num_bytes));
+      ::NAMESPACE_FOR_HASH_FUNCTIONS::Fingerprint64(reinterpret_cast<const char*>(data), num_bytes));
 }
 
 SerializationEntry::SerializationEntry(const std::string& cache_dir,
@@ -234,13 +233,11 @@ SerializationEntry Serialization::GetEntryImpl(
   // We use Fingerprint64 instead of std::hash, since the latter isn't
   // guaranteed to be stable across runs. See b/172237993.
   uint64_t fingerprint =
-      ::NAMESPACE_FOR_HASH_FUNCTIONS::Fingerprint64(
-          model_token_.c_str(), model_token_.size());
+      ::NAMESPACE_FOR_HASH_FUNCTIONS::Fingerprint64(model_token_.c_str(), model_token_.size());
 
   // Incorporate custom_key.
   const uint64_t custom_str_fingerprint =
-      ::NAMESPACE_FOR_HASH_FUNCTIONS::Fingerprint64(
-          custom_key.c_str(), custom_key.size());
+      ::NAMESPACE_FOR_HASH_FUNCTIONS::Fingerprint64(custom_key.c_str(), custom_key.size());
   fingerprint = CombineFingerprints(fingerprint, custom_str_fingerprint);
 
   // Incorporate context details, if provided.
@@ -258,8 +255,7 @@ SerializationEntry Serialization::GetEntryImpl(
       context_data.push_back(context->tensors[i].bytes);
     }
     const uint64_t context_fingerprint =
-        ::NAMESPACE_FOR_HASH_FUNCTIONS::Fingerprint64(
-            reinterpret_cast<char*>(context_data.data()),
+        ::NAMESPACE_FOR_HASH_FUNCTIONS::Fingerprint64(reinterpret_cast<char*>(context_data.data()),
                                 context_data.size() * sizeof(int32_t));
     fingerprint = CombineFingerprints(fingerprint, context_fingerprint);
   }
@@ -285,8 +281,7 @@ SerializationEntry Serialization::GetEntryImpl(
       partition_data.push_back(tensor.bytes);
     }
     const uint64_t partition_fingerprint =
-        ::NAMESPACE_FOR_HASH_FUNCTIONS::Fingerprint64(
-            reinterpret_cast<char*>(partition_data.data()),
+        ::NAMESPACE_FOR_HASH_FUNCTIONS::Fingerprint64(reinterpret_cast<char*>(partition_data.data()),
                                 partition_data.size() * sizeof(int32_t));
     fingerprint = CombineFingerprints(fingerprint, partition_fingerprint);
   }

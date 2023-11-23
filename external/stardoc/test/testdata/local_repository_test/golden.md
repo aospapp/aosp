@@ -1,6 +1,8 @@
 <!-- Generated with Stardoc: http://skydoc.bazel.build -->
 
-<a name="#min"></a>
+A test that verifies documenting functions in an input file under a local_repository.
+
+<a id="min"></a>
 
 ## min
 
@@ -14,7 +16,11 @@ Returns the minimum of given elements.
 
 
 | Name  | Description | Default Value |
-| :-------------: | :-------------: | :-------------: |
-| integers |  A list of integers. Must not be empty.   |  none |
+| :------------- | :------------- | :------------- |
+| <a id="min-integers"></a>integers |  A list of integers. Must not be empty.   |  none |
+
+**RETURNS**
+
+The minimum integer in the given list.
 
 

@@ -91,8 +91,11 @@ public class GrantPermissionsAutoViewHandler implements GrantPermissionsViewHand
 
     @Override
     public void updateUi(String groupName, int groupCount, int groupIndex, Icon icon,
-            CharSequence message, CharSequence detailMessage, boolean[] buttonVisibilities,
+            CharSequence message, CharSequence detailMessage,
+            CharSequence permissionRationaleMessage, boolean[] buttonVisibilities,
             boolean[] locationVisibilities) {
+        // permissionRationaleMessage ignored by auto
+
         mGroupName = groupName;
         mGroupCount = groupCount;
         mGroupIndex = groupIndex;

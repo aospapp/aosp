@@ -87,10 +87,17 @@
     <option name="compatibility:exclude-filter" value="GtsBackupHostTestCases com.google.android.gts.backup.SettingsBackupValidationHostSideTest" />
     <option name="compatibility:exclude-filter" value="GtsBackupHostTestCases com.google.android.gts.backup.AccessibilityServiceRestoreHostSideTest" />
 
-    <!-- b/110385515: Flaky test -->
-    <option name="compatibility:exclude-filter" value="CtsWifiTestCases android.net.wifi.rtt.cts.WifiRttTest#testRangingToTestAp" />
+    <!-- b/234821097: Flaky test due to hardware and test setup, not related to the module-->
+    <option name="compatibility:exclude-filter" value="CtsWifiTestCases android.net.wifi.rtt.cts.WifiRttTest#testRangingToTest11mcApUsingResponderConfig" />
+    <option name="compatibility:exclude-filter" value="CtsWifiTestCases android.net.wifi.rtt.cts.WifiRttTest#testRangingToTest11mcApUsingScanResult" />
+    <option name="compatibility:exclude-filter" value="CtsWifiTestCases android.net.wifi.rtt.cts.WifiRttTest#testRangingToTest11mcApUsingListResponderConfig" />
+    <option name="compatibility:exclude-filter" value="CtsWifiTestCases android.net.wifi.rtt.cts.WifiRttTest#testRangingToTestNon11mcApUsingResponderConfig" />
+    <option name="compatibility:exclude-filter" value="CtsWifiTestCases android.net.wifi.rtt.cts.WifiRttTest#testRangingToTestNon11mcApUsingScanResult" />
     <!-- TODO(b/153088610): Missing AP support in test lab -->
     <option name="compatibility:exclude-filter" value="CtsWifiTestCases android.net.wifi.rtt.cts.WifiRttTest#testRangingToTestApWithResponderLocation" />
+    <!-- Exclude the sharedconnectivity from CtsWifiTestCases as it's not related to Wifi APIs -->
+    <option name="compatibility:exclude-filter" value="CtsWifiTestCases android.net.wifi.sharedconnectivity.cts" />
+    <option name="compatibility:exclude-filter" value="CtsWifiTestCases android.net.wifi.sharedconnectivity.cts.app" />
 
     <!--Tests in CtsAppSecurityHostTestCases that are not testing mainline modules-->
     <option name="compatibility:exclude-filter" value="CtsAppSecurityHostTestCases android.appsecurity.cts.AccessSerialNumberTest" />
@@ -259,6 +266,10 @@
     <!-- HostnameVerifierTest assumes latest security patches installed, not always true for MTS: b/182957352 -->
     <option name="compatibility:exclude-filter" value="MtsConscryptTestCases org.apache.harmony.tests.javax.net.ssl.HostnameVerifierTest#testVerify" />
     <option name="compatibility:exclude-filter" value="MtsConscryptFdSocketTestCases org.apache.harmony.tests.javax.net.ssl.HostnameVerifierTest#testVerify" />
+
+    <!-- b/278930042: Test depends on a change not available on older branches -->
+    <option name="compatibility:exclude-filter" value="MtsConscryptTestCases com.android.org.conscrypt.javax.crypto.CipherTest#test_PBKDF2WITHHMACSHA1_SKFactory_and_PBEAESCBC_Cipher_noIV" />
+    <option name="compatibility:exclude-filter" value="MtsConscryptFdSocketTestCases com.android.org.conscrypt.javax.crypto.CipherTest#test_PBKDF2WITHHMACSHA1_SKFactory_and_PBEAESCBC_Cipher_noIV" />
 
     <!-- Exclude tests that are not related to TextClassifierService mainline. -->
     <option name="compatibility:exclude-filter" value="CtsTextClassifierTestCases android.view.textclassifier.cts.ConversationActionsTest" />

@@ -20,11 +20,10 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <sched.h>
 #include <stdlib.h>
 
 #include "tst_test.h"
-#include "lapi/namespaces_constants.h"
+#include "lapi/sched.h"
 
 #ifdef HAVE_SYS_FANOTIFY_H
 #include "fanotify.h"
@@ -159,8 +158,7 @@ static void do_unshare(int map_root)
 		 * uid_map file should exist since Linux 3.8 because
 		 * it is available on Linux 3.5
 		 */
-		if (access(UID_MAP, F_OK))
-			tst_brk(TBROK, "file %s didn't exist", UID_MAP);
+		SAFE_ACCESS(UID_MAP, F_OK);
 
 		SAFE_FILE_PRINTF(UID_MAP, "%d %d %d", 0, 0, 1);
 	}

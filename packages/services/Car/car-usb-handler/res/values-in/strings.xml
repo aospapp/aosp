@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="6963366455471441257">"Pengendali USB"</string>
-    <string name="usb_saved_devices" msgid="2829442070749964872">"Perangkat yang disimpan"</string>
+    <string name="usb_saved_devices" msgid="2829442070749964872">"Perangkat tersimpan"</string>
     <string name="usb_pref_delete_title" msgid="3885061814853467483">"Menghapus aplikasi penanganan untuk perangkat USB"</string>
     <string name="usb_pref_delete_message" msgid="5849493572520646218">"Yakin ingin menghapus aplikasi penanganan default untuk %1$s?"</string>
     <string name="usb_pref_delete_yes" msgid="7803356145103146036">"Ya"</string>

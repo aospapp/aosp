@@ -40,7 +40,6 @@ import android.telephony.TelephonyManager;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
@@ -101,6 +100,8 @@ public class BlockedNumbersActivity extends ListActivity
         ActionBar actionBar = getActionBar();
         if (actionBar != null) {
             actionBar.setDisplayHomeAsUpEnabled(true);
+            // set the talkback voice prompt to "Back" instead of "Navigate Up"
+            actionBar.setHomeActionContentDescription(R.string.back);
         }
 
         if (!BlockedNumberContract.canCurrentUserBlockNumbers(this)) {
@@ -153,8 +154,11 @@ public class BlockedNumbersActivity extends ListActivity
                 updateButterBar();
             }
         };
-        registerReceiver(mBlockingStatusReceiver, new IntentFilter(
-                BlockedNumberContract.SystemContract.ACTION_BLOCK_SUPPRESSION_STATE_CHANGED));
+        IntentFilter blockStatusIntentFilter = new IntentFilter(
+                BlockedNumberContract.SystemContract.ACTION_BLOCK_SUPPRESSION_STATE_CHANGED);
+        blockStatusIntentFilter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
+        registerReceiver(mBlockingStatusReceiver, blockStatusIntentFilter,
+                Context.RECEIVER_EXPORTED);
 
         getLoaderManager().initLoader(0, null, this);
     }

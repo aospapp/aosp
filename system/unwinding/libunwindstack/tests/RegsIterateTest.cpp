@@ -28,6 +28,7 @@
 #include <unwindstack/MachineArm64.h>
 #include <unwindstack/MachineMips.h>
 #include <unwindstack/MachineMips64.h>
+#include <unwindstack/MachineRiscv64.h>
 #include <unwindstack/MachineX86.h>
 #include <unwindstack/MachineX86_64.h>
 #include <unwindstack/MapInfo.h>
@@ -35,6 +36,7 @@
 #include <unwindstack/RegsArm64.h>
 #include <unwindstack/RegsMips.h>
 #include <unwindstack/RegsMips64.h>
+#include <unwindstack/RegsRiscv64.h>
 #include <unwindstack/RegsX86.h>
 #include <unwindstack/RegsX86_64.h>
 
@@ -236,7 +238,47 @@ std::vector<Register> ExpectedRegisters<RegsMips64>() {
   return result;
 }
 
-using RegTypes = ::testing::Types<RegsArm, RegsArm64, RegsX86, RegsX86_64, RegsMips, RegsMips64>;
+template <>
+std::vector<Register> ExpectedRegisters<RegsRiscv64>() {
+  std::vector<Register> result;
+  result.push_back({"pc", RISCV64_REG_PC});
+  result.push_back({"ra", RISCV64_REG_RA});
+  result.push_back({"sp", RISCV64_REG_SP});
+  result.push_back({"gp", RISCV64_REG_GP});
+  result.push_back({"tp", RISCV64_REG_TP});
+  result.push_back({"t0", RISCV64_REG_T0});
+  result.push_back({"t1", RISCV64_REG_T1});
+  result.push_back({"t2", RISCV64_REG_T2});
+  result.push_back({"t3", RISCV64_REG_T3});
+  result.push_back({"t4", RISCV64_REG_T4});
+  result.push_back({"t5", RISCV64_REG_T5});
+  result.push_back({"t6", RISCV64_REG_T6});
+  result.push_back({"s0", RISCV64_REG_S0});
+  result.push_back({"s1", RISCV64_REG_S1});
+  result.push_back({"s2", RISCV64_REG_S2});
+  result.push_back({"s3", RISCV64_REG_S3});
+  result.push_back({"s4", RISCV64_REG_S4});
+  result.push_back({"s5", RISCV64_REG_S5});
+  result.push_back({"s6", RISCV64_REG_S6});
+  result.push_back({"s7", RISCV64_REG_S7});
+  result.push_back({"s8", RISCV64_REG_S8});
+  result.push_back({"s9", RISCV64_REG_S9});
+  result.push_back({"s10", RISCV64_REG_S10});
+  result.push_back({"s11", RISCV64_REG_S11});
+  result.push_back({"a0", RISCV64_REG_A0});
+  result.push_back({"a1", RISCV64_REG_A1});
+  result.push_back({"a2", RISCV64_REG_A2});
+  result.push_back({"a3", RISCV64_REG_A3});
+  result.push_back({"a4", RISCV64_REG_A4});
+  result.push_back({"a5", RISCV64_REG_A5});
+  result.push_back({"a6", RISCV64_REG_A6});
+  result.push_back({"a7", RISCV64_REG_A7});
+
+  return result;
+}
+
+using RegTypes =
+    ::testing::Types<RegsArm, RegsArm64, RegsX86, RegsX86_64, RegsMips, RegsMips64, RegsRiscv64>;
 TYPED_TEST_SUITE(RegsIterateTest, RegTypes);
 
 TYPED_TEST(RegsIterateTest, iterate) {

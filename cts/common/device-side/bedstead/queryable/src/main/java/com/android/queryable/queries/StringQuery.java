@@ -25,7 +25,15 @@ import com.android.queryable.Queryable;
  */
 public interface StringQuery<E extends Queryable> extends NullableQuery<E, String> {
 
-    static StringQuery<StringQuery<?>> string() {
-        return new StringQueryHelper<>();
+    /** Queries a {@link String}. */
+    static StringQueryHelper.StringQueryBase string() {
+        return new StringQueryHelper.StringQueryBase();
     }
+
+    /** Require the {@link String} starts with {@code string}. */
+    E startsWith(String string);
+
+    /** Require the {@link String} matches the requirements of the query annotation. */
+    E matchesAnnotation(com.android.queryable.annotations.StringQuery queryAnnotation);
+
 }

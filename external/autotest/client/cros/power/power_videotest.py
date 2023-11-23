@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -31,11 +32,11 @@ class power_VideoTest(power_test.power_Test):
 
 
     def initialize(self, seconds_period=3, pdash_note='',
-                   force_discharge=False):
+                   force_discharge=False, run_arc=True):
         """Create and mount ram disk to download video."""
         super(power_VideoTest, self).initialize(
                 seconds_period=seconds_period, pdash_note=pdash_note,
-                force_discharge=force_discharge)
+                force_discharge=force_discharge, run_arc=run_arc)
         utils.run('mkdir -p %s' % self._RAMDISK)
         # Don't throw an exception on errors.
         result = utils.run('mount -t ramfs -o context=u:object_r:tmpfs:s0 '
@@ -104,14 +105,23 @@ class power_VideoTest(power_test.power_Test):
         @param secs_per_video: time in seconds to play video and measure power.
         @param use_hw_decode: if False, disable hw video decoding.
         """
-        extra_browser_args = []
+        # --disable-sync disables test account info sync, eg. Wi-Fi credentials,
+        # so that each test run does not remember info from last test run.
+        extra_browser_args = ['--disable-sync']
+        # b/228256145 to avoid powerd restart
+        extra_browser_args.append('--disable-features=FirmwareUpdaterApp')
         if not use_hw_decode:
             extra_browser_args.append(self._DISABLE_HW_VIDEO_DECODE_ARGS)
 
         with chrome.Chrome(extra_browser_args=extra_browser_args,
-                           init_network_controller=True) as self.cr:
-            tab = self.cr.browser.tabs.New()
+                           init_network_controller=True,
+                           arc_mode=self._arc_mode) as self.cr:
+            # Chrome always starts with an empty tab, so we just use that one.
+            tab = self.cr.browser.tabs[0]
             tab.Activate()
+
+            # Stop services again as Chrome might have restarted them.
+            self._services.stop_services()
 
             # Just measure power in full-screen.
             fullscreen = tab.EvaluateJavaScript('document.webkitIsFullScreen')

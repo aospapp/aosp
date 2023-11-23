@@ -27,6 +27,7 @@
     <string name="notification_channel_network_status" msgid="1631786866932924838">"নেটওয়ার্কের স্থিতি"</string>
     <string name="notification_channel_network_alerts" msgid="1391603215241200880">"নেটওয়ার্ক সক্রান্ত অ্যালার্ট"</string>
     <string name="notification_channel_network_available" msgid="8454366142428864948">"নেটওয়ার্ক পাওয়া যাচ্ছে"</string>
+    <string name="notification_channel_apm_alerts" msgid="6775293475896473489">"APM সতর্কতা"</string>
     <string name="wifi_suggestion_title" msgid="2564179935989099139">"সাজেস্ট করা ওয়াই-ফাই নেটওয়ার্কে কানেক্ট করার অনুমতি দিতে চান?"</string>
     <string name="wifi_suggestion_content" msgid="6985149577828091835">"<xliff:g id="NAME">%s</xliff:g>-এর সাজেস্ট করা নেটওয়ার্ক। ডিভাইস নিজে থেকে কানেক্ট হতে পারে।"</string>
     <string name="wifi_suggestion_action_allow_app" msgid="7757859972144671588">"অনুমতি দিন"</string>
@@ -54,6 +55,7 @@
     <string name="ok" msgid="847575529546290102">"ঠিক আছে"</string>
     <string name="wifi_p2p_invitation_sent_title" msgid="6552639940428040869">"আমন্ত্রণ পাঠানো হয়েছে"</string>
     <string name="wifi_p2p_invitation_to_connect_title" msgid="8917157937652519251">"সংযুক্ত হওয়ার আমন্ত্রণ"</string>
+    <string name="wifi_p2p_invitation_seconds_remaining" msgid="4214101104506918344">"{0,plural, =1{# সেকেন্ডের মধ্যে গ্রহণ করুন।}one{# সেকেন্ডের মধ্যে গ্রহণ করুন।}other{# সেকেন্ডের মধ্যে গ্রহণ করুন।}}"</string>
     <string name="wifi_p2p_from_message" msgid="5921308150192756898">"থেকে:"</string>
     <string name="wifi_p2p_to_message" msgid="3809923305696994787">"প্রাপক:"</string>
     <string name="wifi_p2p_enter_pin_message" msgid="5200220251738047620">"প্রয়োজনীয় পিনটি লিখুন:"</string>
@@ -102,19 +104,19 @@
   </string-array>
     <string name="wifi_eap_error_message_code_32767" msgid="7094289719914089006">"<xliff:g id="SSID">%1$s</xliff:g> : EAP যাচাইকরণ সমস্যা ৩২৭৬৭"</string>
   <string-array name="wifi_eap_error_message_code_32767_carrier_overrides">
-    <item msgid="873264900678243330">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access-এর সাথে কানেক্ট করার সময় কিছু সমস্যা হয়েছে। পরে আবার চেষ্টা করুন অথবা অন্য লোকেশন থেকে চেষ্টা করুন।"</item>
+    <item msgid="3756793972687282940">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : \'Verizon ওয়াই-ফাই অ্যাক্সেস\'-এর সাথে আপনার কানেক্ট করার সময় কিছু সমস্যা হয়েছে। পরে আবার চেষ্টা করুন অথবা অন্য লোকেশন থেকে চেষ্টা করুন। (সমস্যা = ৩২৭৬৭)"</item>
   </string-array>
     <string name="wifi_eap_error_message_code_16384" msgid="575394783233092922">"<xliff:g id="SSID">%1$s</xliff:g> : EAP যাচাইকরণ সমস্যা ১৬৩৮৪"</string>
   <string-array name="wifi_eap_error_message_code_16384_carrier_overrides">
-    <item msgid="5042774904407799226">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : ১৬৩৮৪ সমস্যার জন্য Verizon Wi-Fi Access-এর সাথে আপনাকে কানেক্ট করা যাচ্ছে না।"</item>
+    <item msgid="270219697600808218">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : \'Verizon ওয়াই-ফাই\'-এর সাথে আপনার কানেক্ট করার সময় কিছু সমস্যা হয়েছে। (সমস্যা = ১৬৩৮৪)"</item>
   </string-array>
     <string name="wifi_eap_error_message_code_16385" msgid="8392878664662215609">"<xliff:g id="SSID">%1$s</xliff:g> : EAP যাচাইকরণ সমস্যা ১৬৩৮৫"</string>
   <string-array name="wifi_eap_error_message_code_16385_carrier_overrides">
-    <item msgid="1251122579833932025">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : ১৬৩৮৫ সমস্যার জন্য Verizon Wi-Fi Access-এর সাথে আপনাকে কানেক্ট করা যাচ্ছে না।"</item>
+    <item msgid="50575315771146940">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : \'Verizon ওয়াই-ফাই\'-এর সাথে আপনার কানেক্ট করার সময় কিছু সমস্যা হয়েছে। (সমস্যা = ১৬৩৮৫)"</item>
   </string-array>
     <string name="wifi_eap_error_message_unknown_error_code" msgid="4480884285384231323">"<xliff:g id="SSID">%1$s</xliff:g> : EAP যাচাইকরণ সমস্যা, সমস্যার কোড অজানা"</string>
   <string-array name="wifi_eap_error_message_unknown_error_code_carrier_overrides">
-    <item msgid="6141795443609380009">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access-এর সাথে কানেক্ট করার সময় কিছু সমস্যা হয়েছে।"</item>
+    <item msgid="2705387186478280792">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : \'Verizon ওয়াই-ফাই\'-এর সাথে আপনার কানেক্ট করার সময় কিছু সমস্যা হয়েছে। (সমস্যা = অজানা)"</item>
   </string-array>
     <string name="wifi_softap_auto_shutdown_timeout_expired_title" msgid="4896534374569504484">"হটস্পট বন্ধ করা আছে"</string>
     <string name="wifi_softap_auto_shutdown_timeout_expired_summary" msgid="7975476698140267728">"কোনও ডিভাইস কানেক্ট করা নেই। পরিবর্তন করতে ট্যাপ করুন।"</string>
@@ -125,6 +127,11 @@
     <string name="wifi_interface_priority_message_plural" msgid="8178086373318831859">"এর ফলে এই অ্যাপে সমস্যা হতে পারে: <xliff:g id="APPS">%3$s</xliff:g>."</string>
     <string name="wifi_interface_priority_approve" msgid="7877379614986261096">"অনুমতি দিন"</string>
     <string name="wifi_interface_priority_reject" msgid="1378461018835886777">"অনুমতি দেবেন না"</string>
+    <string name="wifi_interface_priority_interface_name_sta" msgid="5107477901500010776">"STA"</string>
+    <string name="wifi_interface_priority_interface_name_ap" msgid="161777054136866061">"ওয়াই-ফাই হটস্পট"</string>
+    <string name="wifi_interface_priority_interface_name_ap_bridge" msgid="1270364818879977821">"ওয়াই-ফাই হটস্পট"</string>
+    <string name="wifi_interface_priority_interface_name_p2p" msgid="1278122698099149708">"ওয়াই-ফাই ডাইরেক্ট"</string>
+    <string name="wifi_interface_priority_interface_name_nan" msgid="8812888073122966870">"Wi‑Fi Aware"</string>
     <string name="wifi_ca_cert_dialog_title" msgid="3872340345882915806">"এই নেটওয়ার্কটি কি বিশ্বস্ত?"</string>
     <string name="wifi_ca_cert_dialog_continue_text" msgid="1674156611893471003">"হ্যাঁ, কানেক্ট করুন"</string>
     <string name="wifi_ca_cert_dialog_abort_text" msgid="1303170595421648059">"না, কানেক্ট করবেন না"</string>
@@ -132,14 +139,18 @@
     <string name="wifi_ca_cert_dialog_message_server_name_text" msgid="3707809865604348289">"সার্ভারের নাম:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_issuer_name_text" msgid="1147216922475192304">"ইস্যুকারীর নাম:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_organization_text" msgid="4936354600863239487">"সংস্থা:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_expiration_text" msgid="1612917217606436217">"সার্টিফিকেটের মেয়াদ শেষ হওয়ার তারিখ:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="8455163626514894233">"SHA-256 ফিঙ্গারপ্রিন্ট:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_contact_text" msgid="5799083318641183815">"পরিচিতি:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
-    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="704614002854299776">"স্বাক্ষর:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_notification_title" msgid="537569884930429796">"নেটওয়ার্ক যাচাই করা প্রয়োজন"</string>
     <string name="wifi_ca_cert_notification_message" msgid="6413248690626616961">"কানেক্ট করার আগে <xliff:g id="SSID">%1$s</xliff:g>-এর নেটওয়ার্ক সংক্রান্ত বিবরণ পর্যালোচনা করুন। চালিয়ে যেতে ট্যাপ করুন।"</string>
     <string name="wifi_ca_cert_failed_to_install_ca_cert" msgid="4864192219789736195">"সার্টিফিকেট ইনস্টল করা যায়নি।"</string>
+    <string name="wifi_tofu_invalid_cert_chain_title" msgid="332710627417595752">"<xliff:g id="VALUE">%1$s</xliff:g>-এ কানেক্ট করা যাচ্ছে না"</string>
+    <string name="wifi_tofu_invalid_cert_chain_message" msgid="7047987920029432392">"সার্ভার সার্টিফিকেট চেন সঠিক নয়।"</string>
+    <string name="wifi_tofu_invalid_cert_chain_ok_text" msgid="9098567577510279854">"ঠিক আছে"</string>
     <string name="wifi_ca_cert_dialog_preT_title" msgid="6916320484037009061">"এই নেটওয়ার্ক যাচাই করা যায়নি"</string>
-    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="3181614240421159530">"তবুও কানেক্ট করুন"</string>
-    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1195575129023960325">"কানেক্ট করবেন না"</string>
+    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="9118713368838029797">"সবসময় কানেক্ট থাকুন"</string>
+    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1331309662999405224">"এখনই ডিসকানেক্ট করুন"</string>
     <string name="wifi_ca_cert_dialog_preT_message_hint" msgid="5682518783200852031">"<xliff:g id="SSID">%1$s</xliff:g> নেটওয়ার্কে একটি সার্টিফিকেট নেই।"</string>
     <string name="wifi_ca_cert_dialog_preT_message_link" msgid="6325483132538546884">"কীভাবে সার্টিফিকেট যোগ করতে হয় তা জানুন"</string>
     <string name="wifi_ca_cert_notification_preT_title" msgid="7255129934648316663">"এই নেটওয়ার্ক যাচাই করা যায়নি"</string>
@@ -150,4 +161,15 @@
     <string name="wifi_enable_request_dialog_message" msgid="6395169178524938278">"\'দ্রুত সেটিংস\' মেনু থেকে আপনি ওয়াই-ফাই বন্ধ করতে পারবেন"</string>
     <string name="wifi_enable_request_dialog_positive_button" msgid="6050832555821470466">"অনুমতি দিন"</string>
     <string name="wifi_enable_request_dialog_negative_button" msgid="4754219902374918882">"অনুমতি দেবেন না"</string>
+    <string name="wifi_enabled_apm_first_time_title" msgid="4814302384637588804">"\'বিমান মোড\'-এ ওয়াই-ফাই চালু থাকে"</string>
+    <string name="wifi_enabled_apm_first_time_message" msgid="6416193199042203037">"আপনি ওয়াই-ফাই চালু রাখলে, আপনি এরপর \'বিমান মোড\'-এ থাকলেও আপনার ডিভাইস এটি চালু রাখবে"</string>
+    <string name="apm_enabled_first_time_title" msgid="2534167413190488009">"ওয়াই-ফাই চালু থাকে"</string>
+    <string name="apm_enabled_first_time_message" msgid="6093911536874954410">"\'বিমান মোড\'-এ থাকাকালীন আপনার ডিভাইস ওয়াই-ফাই চালু রাখে। আপনি ওয়াই-ফাই চালু না রাখতে চাইলে এটি বন্ধ করুন।"</string>
+    <string name="wifi_network_disabled_by_admin_title" msgid="9057697656855227293">"নেটওয়ার্ক উপলভ্য নয়"</string>
+    <string name="wifi_network_disabled_by_admin_message" msgid="7830360441333155462">"আপনার অ্যাডমিনিস্ট্রেটর <xliff:g id="SSID">%1$s</xliff:g> বন্ধ করে দিয়েছেন।"</string>
+    <string name="wifi_network_disabled_by_admin_button" msgid="3350310756265122689">"বন্ধ করুন"</string>
+    <string name="wifi_network_switch_dialog_title_no_internet" msgid="4116969009784041242">"<xliff:g id="SSID_0">%1$s</xliff:g> ইন্টারনেটের সাথে কানেক্ট করা নেই। <xliff:g id="SSID_1">%2$s</xliff:g>-এ বদল করবেন?"</string>
+    <string name="wifi_network_switch_dialog_title_bad_internet" msgid="6013385270249705547">"<xliff:g id="SSID_0">%1$s</xliff:g>-এর কোয়ালিটি খারাপ। <xliff:g id="SSID_1">%2$s</xliff:g>-এ বদল করবেন?"</string>
+    <string name="wifi_network_switch_dialog_positive_button" msgid="7845507995422722454">"পাল্টান"</string>
+    <string name="wifi_network_switch_dialog_negative_button" msgid="1496665895689498806">"পাল্টাতে চাই না"</string>
 </resources>

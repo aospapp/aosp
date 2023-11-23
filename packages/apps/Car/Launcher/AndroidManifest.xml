@@ -26,6 +26,8 @@
     <uses-permission android:name="android.permission.ACTIVITY_EMBEDDING"/>
     <!-- Needed to change component enabled state when user opens disabled apps. -->
     <uses-permission android:name="android.permission.CHANGE_COMPONENT_ENABLED_STATE"/>
+    <!-- Permission to open recent tasks and to allow drag surface control to be transferred from DragEvent. -->
+    <uses-permission android:name="android.permission.START_TASKS_FROM_RECENTS"/>
     <!-- Permission for the InCallController to bind the InCallService -->
     <uses-permission android:name="android.permission.CONTROL_INCALL_EXPERIENCE"/>
     <!-- System permission to send events to hosted maps activity -->
@@ -58,17 +60,20 @@
     <!-- Needed to use TYPE_APPLICATION_OVERLAY window type to display title bar. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <!-- Permission to start a voice interaction service. -->
-    <uses-permission android:name="android.permission.ACCESS_VOICE_INTERACTION_SERVICE" />
+    <uses-permission android:name="android.permission.ACCESS_VOICE_INTERACTION_SERVICE"/>
     <!-- Permission to use InteractionJankMonitor. -->
-    <uses-permission android:name="android.permission.READ_DEVICE_CONFIG" />
+    <uses-permission android:name="android.permission.READ_DEVICE_CONFIG"/>
     <!-- Permission to send notifications -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.FORCE_STOP_PACKAGES"/>
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL"/>
+    <!-- Permission to create RemoteCarTaskView -->
+    <uses-permission android:name="android.car.permission.MANAGE_CAR_SYSTEM_UI"/>
     <!-- To connect to media browser services in other apps, media browser clients
     that target Android 11 need to add the following in their manifest -->
     <queries>
         <intent>
-            <action android:name="android.media.browse.MediaBrowserService" />
+            <action android:name="android.media.browse.MediaBrowserService"/>
         </intent>
     </queries>
 
@@ -94,6 +99,22 @@
                 <category android:name="android.intent.category.LAUNCHER_APP"/>
             </intent-filter>
         </activity>
+        <activity android:name="com.android.car.carlauncher.ResetLauncherActivity"
+                  android:theme="@style/ActionDialogTheme"
+                  android:excludeFromRecents="true"
+                  android:exported="true"
+                  android:launchMode="singleInstance">
+            <intent-filter>
+                <action android:name="com.android.settings.action.EXTRA_SETTINGS"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+            <meta-data
+                android:name="com.android.settings.title"
+                android:resource="@string/reset_appgrid_title"/>
+            <meta-data
+                android:name="com.android.settings.category"
+                android:value="com.android.settings.category.ia.apps"/>
+        </activity>
         <activity
             android:name=".ControlBarActivity"
             android:launchMode="singleInstance"
@@ -101,30 +122,60 @@
             android:stateNotNeeded="true"
             android:resumeWhilePausing="true"
             android:exported="true"
-            android:windowSoftInputMode="adjustPan">
+            android:windowSoftInputMode="adjustPan"
+            android:excludeFromRecents="true">
             <meta-data android:name="distractionOptimized" android:value="true"/>
             <intent-filter>
-                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
         <activity
             android:name=".AppGridActivity"
             android:launchMode="singleInstance"
             android:exported="true"
-            android:theme="@style/Theme.Launcher.AppGridActivity">
+            android:theme="@style/Theme.Launcher.AppGridActivity"
+            android:excludeFromRecents="true">
             <meta-data android:name="distractionOptimized" android:value="true"/>
             <intent-filter>
                 <action android:name="com.android.car.carlauncher.ACTION_APP_GRID"/>
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
+        <service
+            android:name=".recents.CarQuickStepService"
+            android:permission="android.permission.STATUS_BAR_SERVICE"
+            android:directBootAware="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.QUICKSTEP_SERVICE"/>
+            </intent-filter>
+        </service>
+        <activity
+            android:name=".recents.CarRecentsActivity"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:stateNotNeeded="true"
+            android:exported="true"
+            android:taskAffinity=""
+            android:resumeWhilePausing="true">
+            <meta-data android:name="distractionOptimized" android:value="true"/>
+            <intent-filter>
+                <action android:name="com.android.car.carlauncher.recents.OPEN_RECENT_TASK_ACTION"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
+
+
         <service android:name=".homescreen.audio.telecom.InCallServiceImpl"
                  android:permission="android.permission.BIND_INCALL_SERVICE"
                  android:exported="true">
             <!-- The home app does not display the in-call UI. This is handled by the
             Dialer application.-->
             <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="false"/>
-            <meta-data android:name="android.telecom.IN_CALL_SERVICE_CAR_MODE_UI" android:value="false"/>
+            <meta-data android:name="android.telecom.IN_CALL_SERVICE_CAR_MODE_UI"
+                       android:value="false"/>
+            <meta-data android:name="android.telecom.INCLUDE_SELF_MANAGED_CALLS"
+                       android:value="true"/>
             <intent-filter>
                 <action android:name="android.telecom.InCallService"/>
             </intent-filter>

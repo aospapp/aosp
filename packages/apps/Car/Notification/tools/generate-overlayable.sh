@@ -29,3 +29,7 @@ python $ANDROID_BUILD_TOP/packages/apps/Car/systemlibs/tools/rro/generate-overla
     -r $PROJECT_TOP/res \
     -e $PROJECT_TOP/res-overlayable/values/overlayable.xml \
     -o $PROJECT_TOP/res-overlayable/values/overlayable.xml
+
+sed -i '/<item type="attr" name="categoryCall".*/i\      <item type="attr" name="cardBackgroundColor"/>\n      <item type="attr" name="cardCornerRadius"/>\n      <item type="attr" name="cardElevation"/>' $PROJECT_TOP/res-overlayable/values/overlayable.xml
+
+echo 'use `--no-verify` when uploading using `repo`'

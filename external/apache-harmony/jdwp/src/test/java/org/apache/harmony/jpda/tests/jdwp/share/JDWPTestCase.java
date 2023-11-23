@@ -765,7 +765,7 @@ public abstract class JDWPTestCase extends JDWPRawTestCase {
         if (reply.isAllDataRead()) {
             return; // OK
         }
-        printErrorAndFail("Not all data has been read");
+        printErrorAndFail("Not all data has been read, remaining=" + reply.remainingData());
     }
 
     /**

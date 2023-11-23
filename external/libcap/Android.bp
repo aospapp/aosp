@@ -84,6 +84,8 @@ cc_library {
     apex_available: [
         "//apex_available:platform",
         "com.android.adbd",
+        "com.android.art",
+        "com.android.art.debug",
         "com.android.compos",
         "com.android.media.swcodec",
         "com.android.virt",
@@ -117,13 +119,8 @@ genrule {
     name: "cap_names.list.h",
     srcs: ["libcap/include/uapi/linux/capability.h"],
     out: ["cap_names.list.h"],
-    tool_files: [":generate_cap_names_list.awk"],
-    cmd: "awk -f $(location :generate_cap_names_list.awk) $(in) > $(out)",
-}
-
-filegroup {
-    name: "generate_cap_names_list.awk",
-    srcs: ["generate_cap_names_list.awk"],
+    tool_files: ["generate_cap_names_list.awk"],
+    cmd: "awk -f $(location generate_cap_names_list.awk) $(in) > $(out)",
 }
 
 //

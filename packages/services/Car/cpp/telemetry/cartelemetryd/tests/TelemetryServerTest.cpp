@@ -24,6 +24,8 @@
 #include <aidl/android/automotive/telemetry/internal/BnCarDataListener.h>
 #include <aidl/android/automotive/telemetry/internal/CarDataInternal.h>
 #include <aidl/android/automotive/telemetry/internal/ICarTelemetryInternal.h>
+#include <aidl/android/frameworks/automotive/telemetry/BnCarTelemetryCallback.h>
+#include <aidl/android/frameworks/automotive/telemetry/CallbackConfig.h>
 #include <aidl/android/frameworks/automotive/telemetry/CarData.h>
 #include <aidl/android/frameworks/automotive/telemetry/ICarTelemetry.h>
 #include <android-base/chrono_utils.h>
@@ -34,7 +36,9 @@
 
 #include <unistd.h>
 
+#include <cstdint>
 #include <memory>
+#include <unordered_set>
 
 namespace android {
 namespace automotive {
@@ -43,12 +47,15 @@ namespace telemetry {
 using ::aidl::android::automotive::telemetry::internal::BnCarDataListener;
 using ::aidl::android::automotive::telemetry::internal::CarDataInternal;
 using ::aidl::android::automotive::telemetry::internal::ICarTelemetryInternal;
+using ::aidl::android::frameworks::automotive::telemetry::BnCarTelemetryCallback;
+using ::aidl::android::frameworks::automotive::telemetry::CallbackConfig;
 using ::aidl::android::frameworks::automotive::telemetry::CarData;
 using ::aidl::android::frameworks::automotive::telemetry::ICarTelemetry;
 using ::ndk::ScopedAStatus;
 using ::testing::_;
 using ::testing::ByMove;
 using ::testing::Return;
+using ::testing::UnorderedElementsAre;
 
 constexpr const std::chrono::nanoseconds kPushCarDataDelayNs = 1000ms;
 constexpr const std::chrono::nanoseconds kAllowedErrorNs = 100ms;
@@ -57,6 +64,13 @@ const int kMaxBufferSize = 3;
 // Because `ScopedAStatus` is move-only, `EXPECT_CALL().WillRepeatedly()` will not work.
 inline testing::internal::ReturnAction<testing::internal::ByMoveWrapper<ScopedAStatus>> ReturnOk() {
     return testing::Return(ByMove(ScopedAStatus::ok()));
+}
+
+// Builds CallbackConfig from clients.
+CallbackConfig buildConfig(const std::vector<int32_t>& ids) {
+    CallbackConfig config;
+    config.carDataIds = ids;
+    return config;
 }
 
 // Builds incoming CarData from writer clients.
@@ -75,11 +89,17 @@ CarDataInternal buildCarDataInternal(int id, const std::vector<uint8_t>& content
     return msg;
 }
 
-// Mock listener, behaves as CarTelemetryService.
+// Mock ICarDataListener, behaves as CarTelemetryService.
 class MockCarDataListener : public BnCarDataListener {
 public:
     MOCK_METHOD(ScopedAStatus, onCarDataReceived, (const std::vector<CarDataInternal>& dataList),
                 (override));
+};
+
+// Mock ICarTelemetryCallback, behaves as client application.
+class MockCarTelemetryCallback : public BnCarTelemetryCallback {
+public:
+    MOCK_METHOD(ScopedAStatus, onChange, (const std::vector<int32_t>& ids), (override));
 };
 
 // The main test class. Tests using `ICarTelemetry` and `ICarTelemetryInternal` interfaces.
@@ -88,7 +108,9 @@ class TelemetryServerTest : public ::testing::Test {
 protected:
     TelemetryServerTest() :
           mTelemetryServer(&mFakeLooper, kPushCarDataDelayNs, kMaxBufferSize),
+          mDefaultConfig(buildConfig({101})),
           mMockCarDataListener(ndk::SharedRefBase::make<MockCarDataListener>()),
+          mMockCarTelemetryCallback(ndk::SharedRefBase::make<MockCarTelemetryCallback>()),
           mTelemetry(ndk::SharedRefBase::make<CarTelemetryImpl>(&mTelemetryServer)),
           mTelemetryInternal(
                   ndk::SharedRefBase::make<CarTelemetryInternalImpl>(&mTelemetryServer)) {}
@@ -100,9 +122,17 @@ protected:
         return EXPECT_CALL(*mMockCarDataListener, onCarDataReceived(expected));
     }
 
+    void TearDown() override {
+        mTelemetryServer.mCarDataIds.clear();
+        mTelemetryServer.mCallbacks.clear();
+        mTelemetryServer.mIdToCallbacksMap.clear();
+    }
+
     FakeLooperWrapper mFakeLooper;
     TelemetryServer mTelemetryServer;
+    CallbackConfig mDefaultConfig;
     std::shared_ptr<MockCarDataListener> mMockCarDataListener;
+    std::shared_ptr<MockCarTelemetryCallback> mMockCarTelemetryCallback;
     std::shared_ptr<ICarTelemetry> mTelemetry;
     std::shared_ptr<ICarTelemetryInternal> mTelemetryInternal;
 };
@@ -115,18 +145,69 @@ TEST_F(TelemetryServerTest, WriteReturnsOk) {
     EXPECT_TRUE(status.isOk()) << status.getMessage();
 }
 
+TEST_F(TelemetryServerTest, AddCarDataIdsReturnsOk) {
+    auto status = mTelemetryInternal->addCarDataIds({101});
+
+    EXPECT_TRUE(status.isOk()) << status.getMessage();
+}
+
+TEST_F(TelemetryServerTest, AddCarDataIdsNotifiesInterestedCallbacks) {
+    CallbackConfig config = buildConfig({101, 102});
+    std::shared_ptr<MockCarTelemetryCallback> mockCallback =
+            ndk::SharedRefBase::make<MockCarTelemetryCallback>();
+    mTelemetry->addCallback(config, mockCallback);
+    // mDefaultConfig only contains ID 101
+    mTelemetry->addCallback(mDefaultConfig, mMockCarTelemetryCallback);
+
+    EXPECT_CALL(*mMockCarTelemetryCallback, onChange(UnorderedElementsAre(101)))
+            .Times(1)
+            .WillOnce(ReturnOk());
+    EXPECT_CALL(*mockCallback, onChange(UnorderedElementsAre(101, 102)))
+            .Times(1)
+            .WillOnce(ReturnOk());
+
+    mTelemetryInternal->addCarDataIds({101, 102, 103, 104});
+}
+
+TEST_F(TelemetryServerTest, RemoveCarDataIdsReturnsOk) {
+    mTelemetryInternal->addCarDataIds({101, 102, 103});
+    EXPECT_EQ(3, mTelemetryServer.mCarDataIds.size());
+
+    auto status = mTelemetryInternal->removeCarDataIds({101, 103});
+
+    EXPECT_TRUE(status.isOk()) << status.getMessage();
+    EXPECT_EQ(1, mTelemetryServer.mCarDataIds.size());
+    EXPECT_NE(mTelemetryServer.mCarDataIds.end(), mTelemetryServer.mCarDataIds.find(102));
+}
+
+TEST_F(TelemetryServerTest, RemoveCarDataIdsNotifiesInterestedCallbacks) {
+    // should only receive updates on IDs 101, 102, 103
+    CallbackConfig config = buildConfig({101, 102, 103});
+    mTelemetry->addCallback(config, mMockCarTelemetryCallback);
+
+    EXPECT_CALL(*mMockCarTelemetryCallback, onChange(UnorderedElementsAre(101, 102, 103)))
+            .Times(1)
+            .WillOnce(ReturnOk());
+    EXPECT_CALL(*mMockCarTelemetryCallback, onChange(UnorderedElementsAre(101, 102)))
+            .Times(1)
+            .WillOnce(ReturnOk());
+
+    mTelemetryInternal->addCarDataIds({101, 102, 103, 104});
+    mTelemetryInternal->removeCarDataIds({103, 104});
+}
+
 TEST_F(TelemetryServerTest, SetListenerReturnsOk) {
     auto status = mTelemetryInternal->setListener(mMockCarDataListener);
 
     EXPECT_TRUE(status.isOk()) << status.getMessage();
 }
 
-TEST_F(TelemetryServerTest, SetListenerFailsWhenAlreadySubscribed) {
+TEST_F(TelemetryServerTest, SetListenerAllowedWhenAlreadySubscribed) {
     mTelemetryInternal->setListener(mMockCarDataListener);
 
     auto status = mTelemetryInternal->setListener(ndk::SharedRefBase::make<MockCarDataListener>());
 
-    EXPECT_EQ(status.getExceptionCode(), ::EX_ILLEGAL_STATE) << status.getMessage();
+    EXPECT_TRUE(status.isOk()) << status.getMessage();
 }
 
 TEST_F(TelemetryServerTest, ClearListenerWorks) {
@@ -147,6 +228,47 @@ TEST_F(TelemetryServerTest, ClearListenerRemovesPushMessagesFromLooper) {
     mTelemetryInternal->clearListener();
 
     EXPECT_EQ(mFakeLooper.getNextMessageUptime(), FakeLooperWrapper::kNoScheduledMessage);
+}
+
+TEST_F(TelemetryServerTest, AddCallbackReturnsOk) {
+    auto status = mTelemetry->addCallback(mDefaultConfig, mMockCarTelemetryCallback);
+
+    EXPECT_TRUE(status.isOk()) << status.getMessage();
+}
+
+TEST_F(TelemetryServerTest, AddCallbackReturnsErrorForExistingCallback) {
+    mTelemetry->addCallback(mDefaultConfig, mMockCarTelemetryCallback);
+
+    auto status = mTelemetry->addCallback(mDefaultConfig, mMockCarTelemetryCallback);
+
+    EXPECT_FALSE(status.isOk()) << status.getMessage();
+}
+
+TEST_F(TelemetryServerTest, AddCallbackReceivesCarDataIds) {
+    CallbackConfig config = buildConfig({101, 102, 103});
+    mTelemetryInternal->addCarDataIds({101, 102, 103, 104});
+
+    EXPECT_CALL(*mMockCarTelemetryCallback, onChange(UnorderedElementsAre(101, 102, 103)))
+            .Times(1)
+            .WillOnce(ReturnOk());
+
+    auto status = mTelemetry->addCallback(config, mMockCarTelemetryCallback);
+}
+
+TEST_F(TelemetryServerTest, RemoveCallbackReturnsOk) {
+    mTelemetry->addCallback(mDefaultConfig, mMockCarTelemetryCallback);
+
+    auto status = mTelemetry->removeCallback(mMockCarTelemetryCallback);
+
+    EXPECT_TRUE(status.isOk()) << status.getMessage();
+    EXPECT_EQ(0, mTelemetryServer.mCallbacks.size());
+    EXPECT_EQ(0, mTelemetryServer.mIdToCallbacksMap.size());
+}
+
+TEST_F(TelemetryServerTest, RemoveCallbackReturnsErrorForNonexistentCallback) {
+    auto status = mTelemetry->removeCallback(mMockCarTelemetryCallback);
+
+    EXPECT_FALSE(status.isOk()) << status.getMessage();
 }
 
 TEST_F(TelemetryServerTest, WriteSchedulesNextMessageAfterRightDelay) {
@@ -174,6 +296,7 @@ TEST_F(TelemetryServerTest, BuffersOnlyLimitedData) {
     std::vector<CarData> dataList1 = {buildCarData(10, {1, 2}), buildCarData(11, {2, 3})};
     std::vector<CarData> dataList2 = {buildCarData(101, {1, 2}), buildCarData(102, {2, 3}),
                                       buildCarData(103, {3, 4}), buildCarData(104, {4, 5})};
+    mTelemetryInternal->addCarDataIds({10, 11, 101, 102, 103, 104});
 
     mTelemetry->write(dataList1);
     mTelemetry->write(dataList2);
@@ -189,9 +312,22 @@ TEST_F(TelemetryServerTest, BuffersOnlyLimitedData) {
     mFakeLooper.poll();
 }
 
-// First sets the listener, then writes CarData.
-TEST_F(TelemetryServerTest, WhenListenerIsAlreadyItPushesData) {
+// Data is filtered out when mTelemetryInternal->addCarDataIds() is not called
+TEST_F(TelemetryServerTest, WriteFiltersDataBasedOnId) {
     std::vector<CarData> dataList = {buildCarData(101, {1})};
+    mTelemetryInternal->setListener(mMockCarDataListener);
+
+    mTelemetry->write(dataList);
+
+    expectMockListenerToReceive({buildCarDataInternal(101, {1})}).Times(0);
+
+    mFakeLooper.poll();
+}
+
+// First sets the listener, then writes CarData.
+TEST_F(TelemetryServerTest, WhenListenerIsAlreadySetItPushesData) {
+    std::vector<CarData> dataList = {buildCarData(101, {1})};
+    mTelemetryInternal->addCarDataIds({101});
 
     mTelemetryInternal->setListener(mMockCarDataListener);
     mTelemetry->write(dataList);
@@ -204,6 +340,7 @@ TEST_F(TelemetryServerTest, WhenListenerIsAlreadyItPushesData) {
 // First writes CarData, only then sets the listener.
 TEST_F(TelemetryServerTest, WhenListenerIsSetLaterItPushesData) {
     std::vector<CarData> dataList = {buildCarData(101, {1})};
+    mTelemetryInternal->addCarDataIds({101});
 
     mTelemetry->write(dataList);
     mTelemetryInternal->setListener(mMockCarDataListener);
@@ -214,6 +351,7 @@ TEST_F(TelemetryServerTest, WhenListenerIsSetLaterItPushesData) {
 }
 
 TEST_F(TelemetryServerTest, WriteDuringPushingDataToListener) {
+    mTelemetryInternal->addCarDataIds({101, 102, 103});
     std::vector<CarData> dataList = {buildCarData(101, {1}), buildCarData(102, {1})};
     std::vector<CarData> dataList2 = {buildCarData(103, {1})};
     mTelemetryInternal->setListener(mMockCarDataListener);
@@ -232,6 +370,7 @@ TEST_F(TelemetryServerTest, WriteDuringPushingDataToListener) {
 
 TEST_F(TelemetryServerTest, ClearListenerDuringPushingDataToListener) {
     std::vector<CarData> dataList = {buildCarData(101, {1})};
+    mTelemetryInternal->addCarDataIds({101});
     mTelemetryInternal->setListener(mMockCarDataListener);
     mTelemetry->write(dataList);
 
@@ -245,6 +384,7 @@ TEST_F(TelemetryServerTest, ClearListenerDuringPushingDataToListener) {
 
 TEST_F(TelemetryServerTest, RetriesPushAgainIfListenerFails) {
     std::vector<CarData> dataList = {buildCarData(101, {1})};
+    mTelemetryInternal->addCarDataIds({101});
     mTelemetryInternal->setListener(mMockCarDataListener);
     mTelemetry->write(dataList);
 
@@ -260,6 +400,7 @@ TEST_F(TelemetryServerTest, RetriesPushAgainIfListenerFails) {
 // is handled properly when transaction fails and clearListener() is called.
 TEST_F(TelemetryServerTest, ClearListenerDuringPushingDataAndSetListenerAgain) {
     std::vector<CarData> dataList = {buildCarData(101, {1})};
+    mTelemetryInternal->addCarDataIds({101});
     mTelemetryInternal->setListener(mMockCarDataListener);
     mTelemetry->write(dataList);
 
@@ -277,6 +418,7 @@ TEST_F(TelemetryServerTest, ClearListenerDuringPushingDataAndSetListenerAgain) {
 // Directly calls pushCarDataToListeners() to make sure it can handle edge-cases.
 TEST_F(TelemetryServerTest, NoListenerButMultiplePushes) {
     std::vector<CarData> dataList = {buildCarData(101, {1})};
+    mTelemetryInternal->addCarDataIds({101});
     mTelemetry->write(dataList);
 
     mTelemetryServer.pushCarDataToListeners();

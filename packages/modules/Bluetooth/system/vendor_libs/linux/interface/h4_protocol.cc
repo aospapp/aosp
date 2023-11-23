@@ -28,6 +28,17 @@ namespace hardware {
 namespace bluetooth {
 namespace hci {
 
+H4Protocol::H4Protocol(int fd, PacketReadCallback event_cb,
+                       PacketReadCallback acl_cb, PacketReadCallback sco_cb,
+                       PacketReadCallback iso_cb,
+                       OnDisconnectCallback disconnect_cb)
+    : uart_fd_(fd),
+      event_cb_(std::move(event_cb)),
+      acl_cb_(std::move(acl_cb)),
+      sco_cb_(std::move(sco_cb)),
+      iso_cb_(std::move(iso_cb)),
+      disconnect_cb_(std::move(disconnect_cb)) {}
+
 size_t H4Protocol::Send(uint8_t type, const uint8_t* data, size_t length) {
     /* For HCI communication over USB dongle, multiple write results in
      * response timeout as driver expect type + data at once to process
@@ -56,59 +67,68 @@ size_t H4Protocol::Send(uint8_t type, const uint8_t* data, size_t length) {
     return ret;
 }
 
-void H4Protocol::OnPacketReady() {
+size_t H4Protocol::on_packet_ready(const hidl_vec<uint8_t>& packet) {
   switch (hci_packet_type_) {
     case HCI_PACKET_TYPE_EVENT:
-      event_cb_(hci_packetizer_.GetPacket());
+      event_cb_(packet);
       break;
     case HCI_PACKET_TYPE_ACL_DATA:
-      acl_cb_(hci_packetizer_.GetPacket());
+      acl_cb_(packet);
       break;
     case HCI_PACKET_TYPE_SCO_DATA:
-      sco_cb_(hci_packetizer_.GetPacket());
+      sco_cb_(packet);
       break;
     case HCI_PACKET_TYPE_ISO_DATA:
-      iso_cb_(hci_packetizer_.GetPacket());
+      iso_cb_(packet);
       break;
     default: {
-      bool bad_packet_type = true;
-      CHECK(!bad_packet_type);
+      LOG_ALWAYS_FATAL("Unhandled packet of type 0x%x", hci_packet_type_);
     }
   }
-  // Get ready for the next type byte.
-  hci_packet_type_ = HCI_PACKET_TYPE_UNKNOWN;
+  return packet.size();
+}
+
+void H4Protocol::send_data_to_packetizer(uint8_t* buffer, size_t length) {
+  std::vector<uint8_t> input_buffer{buffer, buffer + length};
+  size_t buffer_offset = 0;
+  while (buffer_offset < input_buffer.size()) {
+    if (hci_packet_type_ == HCI_PACKET_TYPE_UNKNOWN) {
+      hci_packet_type_ =
+          static_cast<HciPacketType>(input_buffer.data()[buffer_offset]);
+      buffer_offset += 1;
+    } else {
+      bool packet_ready = hci_packetizer_.OnDataReady(
+          hci_packet_type_, input_buffer, buffer_offset);
+      if (packet_ready) {
+        // Call packet callback and move offset.
+        buffer_offset += on_packet_ready(hci_packetizer_.GetPacket());
+        // Get ready for the next type byte.
+        hci_packet_type_ = HCI_PACKET_TYPE_UNKNOWN;
+      } else {
+        // The data was consumed, but there wasn't a packet.
+        buffer_offset = input_buffer.size();
+      }
+    }
+  }
 }
 
 void H4Protocol::OnDataReady(int fd) {
-    if (hci_packet_type_ == HCI_PACKET_TYPE_UNKNOWN) {
-        /**
-         * read full buffer. ACL max length is 2 bytes, and SCO max length is 2
-         * byte. so taking 64K as buffer length.
-         * Question : Why to read in single chunk rather than multiple reads,
-         * which can give parameter length arriving in response ?
-         * Answer: The multiple reads does not work with BT USB dongle. At least
-         * with Bluetooth 2.0 supported USB dongle. After first read, either
-         * firmware/kernel (do not know who is responsible - inputs ??) driver
-         * discard the whole message and successive read results in forever
-         * blocking loop. - Is there any other way to make it work with multiple
-         * reads, do not know yet (it can eliminate need of this function) ?
-         * Reading in single shot gives expected response.
-         */
-        const size_t max_plen = 64*1024;
-        hidl_vec<uint8_t> tpkt;
-        tpkt.resize(max_plen);
-        ssize_t bytes_read = TEMP_FAILURE_RETRY(read(fd, tpkt.data(), max_plen));
-        if (bytes_read == 0) {
-            ALOGI("No bytes read");
-            return;
-        }
-        if (bytes_read < 0) {
-            ALOGW("error reading from UART (%s)", strerror(errno));
-            return;
-        }
-        hci_packet_type_ = static_cast<HciPacketType>(tpkt.data()[0]);
-        hci_packetizer_.CbHciPacket(tpkt.data()+1, bytes_read-1);
-    }
+  if (disconnected_) {
+    return;
+  }
+  uint8_t buffer[kMaxPacketLength];
+  ssize_t bytes_read = TEMP_FAILURE_RETRY(read(fd, buffer, kMaxPacketLength));
+  if (bytes_read == 0) {
+    ALOGI("No bytes read, calling the disconnect callback");
+    disconnected_ = true;
+    disconnect_cb_();
+    return;
+  }
+  if (bytes_read < 0) {
+    ALOGW("error reading from UART (%s)", strerror(errno));
+    return;
+  }
+  send_data_to_packetizer(buffer, bytes_read);
 }
 
 }  // namespace hci

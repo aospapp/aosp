@@ -28,6 +28,8 @@ import android.annotation.NonNull;
 import android.app.ActivityManager;
 import android.app.UiAutomation;
 import android.car.Car;
+import android.car.test.AbstractExpectableTestCase;
+import android.car.test.ApiCheckerRule;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.ServiceConnection;
@@ -45,17 +47,25 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
-import org.junit.rules.TestName;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.Collection;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-public abstract class CarApiTestBase {
+/**
+ * Base class for tests that don't need to connect to a {@link android.car.Car} object.
+ *
+ * <p>For tests that don't need a {@link android.car.Car} object, use
+ * {@link CarLessApiTestBase} instead.
+ */
+public abstract class CarApiTestBase extends AbstractExpectableTestCase {
 
     private static final String TAG = CarApiTestBase.class.getSimpleName();
 
@@ -71,21 +81,38 @@ public abstract class CarApiTestBase {
      */
     private static final int SMALL_NAP_MS = 100;
 
-    protected static final Context sContext = InstrumentationRegistry.getInstrumentation()
-            .getTargetContext();
+    protected static final ReceiverTrackingContext sContext = new ReceiverTrackingContext(
+            InstrumentationRegistry.getInstrumentation().getTargetContext());
 
     private Car mCar;
 
     protected final DefaultServiceConnectionListener mConnectionListener =
             new DefaultServiceConnectionListener();
 
-    // NOTE: public as required by JUnit; tests should call getTestName() instead
+    // TODO(b/242350638): temporary hack to allow subclasses to disable checks - should be removed
+    // when not needed anymore
+    private final ApiCheckerRule.Builder mApiCheckerRuleBuilder = new ApiCheckerRule.Builder();
+
     @Rule
-    public final TestName mTestName = new TestName();
+    public final ApiCheckerRule mApiCheckerRule;
+
+    // TODO(b/242350638): temporary hack to allow subclasses to disable checks - should be removed
+    // when not needed anymore
+    protected CarApiTestBase() {
+        configApiCheckerRule(mApiCheckerRuleBuilder);
+        mApiCheckerRule = mApiCheckerRuleBuilder.build();
+    }
+
+    // TODO(b/242350638): temporary hack to allow subclasses to disable checks - should be removed
+    // when not needed anymore
+    protected void configApiCheckerRule(ApiCheckerRule.Builder builder) {
+        Log.v(TAG, "Good News, Everyone! Class " + getClass()
+                + " doesn't override configApiCheckerRule()");
+    }
 
     @Before
     public final void setFixturesAndConnectToCar() throws Exception {
-        Log.d(TAG, "setFixturesAndConnectToCar() for " + mTestName.getMethodName());
+        Log.d(TAG, "setFixturesAndConnectToCar() for " + getTestName());
 
         mCar = Car.createCar(getContext(), mConnectionListener);
         mCar.connect();
@@ -94,7 +121,7 @@ public abstract class CarApiTestBase {
 
     @Before
     public final void dontStopUserOnSwitch() throws Exception {
-        Log.d(TAG, "Calling am.setStopUserOnSwitch(false) for " + mTestName.getMethodName());
+        Log.d(TAG, "Calling am.setStopUserOnSwitch(false) for " + getTestName());
         getContext().getSystemService(ActivityManager.class)
                 .setStopUserOnSwitch(ActivityManager.STOP_USER_ON_SWITCH_FALSE);
     }
@@ -110,9 +137,18 @@ public abstract class CarApiTestBase {
 
     @After
     public final void resetStopUserOnSwitch() throws Exception {
-        Log.d(TAG, "Calling am.setStopUserOnSwitch(default) for " + mTestName.getMethodName());
+        Log.d(TAG, "Calling am.setStopUserOnSwitch(default) for " + getTestName());
         getContext().getSystemService(ActivityManager.class)
                 .setStopUserOnSwitch(ActivityManager.STOP_USER_ON_SWITCH_DEFAULT);
+    }
+
+    @After
+    public final void checkReceiversUnregisters() {
+        Collection<String> receivers = sContext.getReceiversInfo();
+        Log.d(TAG, "Checking if all receivers were unregistered.");
+
+        assertWithMessage("Broadcast receivers that are not unregistered: %s", receivers)
+                .that(receivers).isEmpty();
     }
 
     protected Car getCar() {
@@ -235,17 +271,58 @@ public abstract class CarApiTestBase {
         return false;
     }
 
+    // TODO(b/250914846): Clean this up once the investigation is done.
+    // Same as waitUntil except for not failing the test.
+    protected static boolean waitUntilNoFail(long timeoutMs,
+            BooleanSupplierWithThrow condition) {
+        long deadline = SystemClock.elapsedRealtime() + timeoutMs;
+        do {
+            try {
+                if (condition.getAsBoolean()) {
+                    return true;
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Exception in waitUntilNoFail");
+                throw new RuntimeException(e);
+            }
+            SystemClock.sleep(SMALL_NAP_MS);
+        } while (SystemClock.elapsedRealtime() < deadline);
+
+        return false;
+    }
+
     protected void requireNonUserBuild() {
         assumeFalse("Requires Shell commands that are not available on user builds", Build.IS_USER);
     }
 
     protected String getTestName() {
-        return getClass().getSimpleName() + "." + mTestName.getMethodName();
+        return getClass().getSimpleName() + "." + mApiCheckerRule.getTestMethodName();
     }
 
     protected static void fail(String format, Object...args) {
         String message = String.format(format, args);
         Log.e(TAG, "test failed: " + message);
         org.junit.Assert.fail(message);
+    }
+
+    protected static String executeShellCommand(String commandFormat, Object... args)
+            throws IOException {
+        UiAutomation uiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        return executeShellCommand(uiAutomation, commandFormat, args);
+    }
+
+    private static String executeShellCommand(UiAutomation uiAutomation, String commandFormat,
+            Object... args) throws IOException {
+        ParcelFileDescriptor stdout = uiAutomation.executeShellCommand(
+                String.format(commandFormat, args));
+        try (InputStream inputStream = new ParcelFileDescriptor.AutoCloseInputStream(stdout)) {
+            ByteArrayOutputStream result = new ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = inputStream.read(buffer)) != -1) {
+                result.write(buffer, 0, length);
+            }
+            return result.toString("UTF-8");
+        }
     }
 }

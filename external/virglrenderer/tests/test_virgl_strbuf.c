@@ -177,11 +177,28 @@ START_TEST(strbuf_test_appendf_str)
    bool ret;
    ret = strbuf_alloc(&sb, 1024);
    ck_assert_int_eq(ret, true);
+   ck_assert_int_eq(sb.external_buffer, false);
    strbuf_appendf(&sb, "%s5", "hello");
    ck_assert_str_eq(sb.buf, "hello5");
    strbuf_free(&sb);
 }
 END_TEST
+
+
+START_TEST(strbuf_test_fixed_string)
+{
+   struct vrend_strbuf sb;
+   bool ret;
+   char buf[1024];
+   ret = strbuf_alloc_fixed(&sb, buf, 1024);
+   ck_assert_int_eq(ret, true);
+   ck_assert_int_eq(sb.external_buffer, true);
+   strbuf_appendf(&sb, "%s5", "hello");
+   ck_assert_str_eq(sb.buf, "hello5");
+   strbuf_free(&sb);
+}
+END_TEST
+
 
 static Suite *init_suite(void)
 {
@@ -202,6 +219,7 @@ static Suite *init_suite(void)
   tcase_add_test(tc_core, strbuf_test_boundary2);
   tcase_add_test(tc_core, strbuf_test_appendf);
   tcase_add_test(tc_core, strbuf_test_appendf_str);
+  tcase_add_test(tc_core, strbuf_test_fixed_string);
   return s;
 }
 

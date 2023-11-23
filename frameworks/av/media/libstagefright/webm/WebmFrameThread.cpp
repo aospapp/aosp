@@ -197,7 +197,6 @@ status_t WebmFrameSinkThread::start() {
 }
 
 status_t WebmFrameSinkThread::stop() {
-    mDone = true;
     mVideoFrames.push(WebmFrame::EOS);
     mAudioFrames.push(WebmFrame::EOS);
     return WebmFrameThread::stop();
@@ -337,7 +336,6 @@ status_t WebmFrameMediaSourceThread::stop() {
 }
 
 void WebmFrameMediaSourceThread::run() {
-    int32_t count = 0;
     int64_t timestampUs = 0xdeadbeef;
     int64_t lastTimestampUs = 0; // Previous sample time stamp
     int64_t lastDurationUs = 0; // Previous sample duration
@@ -368,7 +366,6 @@ void WebmFrameMediaSourceThread::run() {
             buffer = NULL;
             continue;
         }
-        ++count;
 
         // adjust time-stamps after pause/resume
         if (mResumed) {

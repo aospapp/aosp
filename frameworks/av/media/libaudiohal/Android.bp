@@ -13,7 +13,7 @@ cc_library_shared {
     srcs: [
         "DevicesFactoryHalInterface.cpp",
         "EffectsFactoryHalInterface.cpp",
-        "FactoryHalHidl.cpp",
+        "FactoryHal.cpp",
     ],
 
     cflags: [
@@ -28,10 +28,12 @@ cc_library_shared {
         "libaudiohal@6.0",
         "libaudiohal@7.0",
         "libaudiohal@7.1",
+        "libaudiohal@aidl",
     ],
 
     shared_libs: [
         "audioclient-types-aidl-cpp",
+        "libbinder_ndk",
         "libdl",
         "libhidlbase",
         "liblog",
@@ -41,6 +43,7 @@ cc_library_shared {
     header_libs: [
         "libaudiohal_headers",
         "libbase_headers",
+        "liberror_headers",
         "libmediautils_headers",
     ]
 }
@@ -65,15 +68,25 @@ cc_library_shared {
 
     header_libs: [
         "libaudiohal_headers"
-    ]
+    ],
 }
 
 cc_library_headers {
     name: "libaudiohal_headers",
 
-    export_include_dirs: ["include"],
+    header_libs: [
+        "libeffectsconfig_headers",
+    ],
 
-    // This is needed because the stream interface includes media/MicrophoneInfo.h
-    header_libs: ["av-headers"],
-    export_header_lib_headers: ["av-headers"],
+    export_header_lib_headers: ["libeffectsconfig_headers"],
+
+    export_include_dirs: ["include"],
+}
+
+cc_library_headers {
+    name: "libaudiohalimpl_headers",
+
+    header_libs: ["libaudiohal_headers"],
+    export_header_lib_headers: ["libaudiohal_headers"],
+    export_include_dirs: ["impl"],
 }

@@ -178,13 +178,13 @@ public class IdentityCredentialAuthentication extends PassFailButtons.Activity {
         final int result = mBiometricManager.canAuthenticate(Authenticators.BIOMETRIC_STRONG);
         switch (result) {
             case BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED:
-                showToast("No biometrics enrolled.\n"
+                showToast("No strong biometrics (Class 3) enrolled.\n"
                         + "Go to 'Settings -> Security' to enroll");
                 Button startTestButton = findViewById(R.id.sec_start_test_button);
                 startTestButton.setEnabled(false);
                 return;
             case BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE:
-                showToast("No strong biometrics, test passed.");
+                showToast("No strong biometrics (Class 3), test passed.");
                 showToast("No Identity Credential support, test passed.");
                 getPassButton().setEnabled(true);
                 return;

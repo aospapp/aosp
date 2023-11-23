@@ -16,6 +16,8 @@
 
 package com.android.settings.intelligence.search.query;
 
+import static com.android.settings.intelligence.search.sitemap.HighlightableMenu.MENU_KEY_APPS;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -29,6 +31,7 @@ import com.android.settings.intelligence.search.AppSearchResult;
 import com.android.settings.intelligence.search.ResultPayload;
 import com.android.settings.intelligence.search.SearchResult;
 import com.android.settings.intelligence.search.indexing.DatabaseIndexingUtils;
+import com.android.settings.intelligence.search.sitemap.HighlightableMenu;
 import com.android.settings.intelligence.search.sitemap.SiteMapManager;
 
 import java.util.ArrayList;
@@ -40,11 +43,11 @@ import java.util.List;
  */
 public class InstalledAppResultTask extends SearchQueryTask.QueryWorker {
 
-    public static final int QUERY_WORKER_ID =
+    private static final int QUERY_WORKER_ID =
             SettingsIntelligenceLogProto.SettingsIntelligenceEvent.SEARCH_QUERY_INSTALLED_APPS;
+    private static final String INTENT_SCHEME = "package";
 
     private final PackageManager mPackageManager;
-    private final String INTENT_SCHEME = "package";
     private List<String> mBreadcrumb;
 
     public static SearchQueryTask newTask(Context context, SiteMapManager siteMapManager,
@@ -85,12 +88,14 @@ public class InstalledAppResultTask extends SearchQueryTask.QueryWorker {
                 continue;
             }
 
-            final Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            final Intent targetIntent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                     .setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                    .setData(
-                            Uri.fromParts(INTENT_SCHEME, info.packageName, null /* fragment */))
+                    .setData(Uri.fromParts(INTENT_SCHEME, info.packageName, null /* fragment */))
                     .putExtra(DatabaseIndexingUtils.EXTRA_SOURCE_METRICS_CATEGORY,
                             DatabaseIndexingUtils.DASHBOARD_SEARCH_RESULTS);
+            final Intent intent = HighlightableMenu.isFeatureEnabled(mContext)
+                    ? DatabaseIndexingUtils.buildSearchTrampolineIntent(targetIntent, MENU_KEY_APPS)
+                    : targetIntent;
 
             final AppSearchResult.Builder builder = new AppSearchResult.Builder();
             builder.setAppInfo(info)

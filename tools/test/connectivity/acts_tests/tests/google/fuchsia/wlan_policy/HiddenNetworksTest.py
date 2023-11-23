@@ -13,13 +13,15 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+
+import time
+
 from acts import signals
 from acts.controllers.access_point import setup_ap
 from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.ap_lib import hostapd_security
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from acts.utils import rand_ascii_str
-import time
 
 # These tests should have a longer timeout for connecting than normal connect
 # tests because the device should probabilistically perform active scans for
@@ -96,7 +98,7 @@ class HiddenNetworksTest(WifiBaseTest):
 
             while time.time() < start_time + TIME_ATTEMPT_SCANS:
                 num_performed_scans = num_performed_scans + 1
-                scan_result = fd.wlan_policy_lib.wlanScanForNetworks()
+                scan_result = fd.sl4f.wlan_policy_lib.wlanScanForNetworks()
                 if scan_result["error"] != None:
                     self.log.warn("Failed to scan for networks with error %s" %
                                   scan_result["error"])

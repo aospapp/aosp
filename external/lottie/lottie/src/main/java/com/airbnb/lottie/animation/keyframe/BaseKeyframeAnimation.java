@@ -25,7 +25,7 @@ public abstract class BaseKeyframeAnimation<K, A> {
   private boolean isDiscrete = false;
 
   private final KeyframesWrapper<K> keyframesWrapper;
-  private float progress = 0f;
+  protected float progress = 0f;
   @Nullable protected LottieValueCallback<A> valueCallback;
 
   @Nullable private A cachedGetValue = null;
@@ -101,7 +101,9 @@ public abstract class BaseKeyframeAnimation<K, A> {
    */
   protected float getInterpolatedCurrentKeyframeProgress() {
     Keyframe<K> keyframe = getCurrentKeyframe();
-    if (keyframe.isStatic()) {
+    // Keyframe should not be null here but there seems to be a Xiaomi Android 10 specific crash.
+    // https://github.com/airbnb/lottie-android/issues/2050
+    if (keyframe == null || keyframe.isStatic()) {
       return 0f;
     }
     //noinspection ConstantConditions
@@ -110,30 +112,39 @@ public abstract class BaseKeyframeAnimation<K, A> {
 
   @FloatRange(from = 0f, to = 1f)
   private float getStartDelayProgress() {
-      if (cachedStartDelayProgress == -1f) {
-        cachedStartDelayProgress = keyframesWrapper.getStartDelayProgress();
-      }
-      return cachedStartDelayProgress;
+    if (cachedStartDelayProgress == -1f) {
+      cachedStartDelayProgress = keyframesWrapper.getStartDelayProgress();
+    }
+    return cachedStartDelayProgress;
   }
 
   @FloatRange(from = 0f, to = 1f)
   float getEndProgress() {
-      if (cachedEndProgress == -1f) {
-        cachedEndProgress = keyframesWrapper.getEndProgress();
-      }
-      return cachedEndProgress;
+    if (cachedEndProgress == -1f) {
+      cachedEndProgress = keyframesWrapper.getEndProgress();
+    }
+    return cachedEndProgress;
   }
 
   public A getValue() {
-    float progress = getInterpolatedCurrentKeyframeProgress();
-    if (valueCallback == null && keyframesWrapper.isCachedValueEnabled(progress)) {
+    A value;
+
+    float linearProgress = getLinearCurrentKeyframeProgress();
+    if (valueCallback == null && keyframesWrapper.isCachedValueEnabled(linearProgress)) {
       return cachedGetValue;
     }
-
     final Keyframe<K> keyframe = getCurrentKeyframe();
-    A value = getValue(keyframe, progress);
-    cachedGetValue = value;
 
+    if (keyframe.xInterpolator != null && keyframe.yInterpolator != null) {
+      float xProgress = keyframe.xInterpolator.getInterpolation(linearProgress);
+      float yProgress = keyframe.yInterpolator.getInterpolation(linearProgress);
+      value = getValue(keyframe, linearProgress, xProgress, yProgress);
+    } else {
+      float progress = getInterpolatedCurrentKeyframeProgress();
+      value = getValue(keyframe, progress);
+    }
+
+    cachedGetValue = value;
     return value;
   }
 
@@ -156,6 +167,13 @@ public abstract class BaseKeyframeAnimation<K, A> {
    * should be able to handle values outside of that range.
    */
   abstract A getValue(Keyframe<K> keyframe, float keyframeProgress);
+
+  /**
+   * Similar to {@link #getValue(Keyframe, float)} but used when an animation has separate interpolators for the X and Y axis.
+   */
+  protected A getValue(Keyframe<K> keyframe, float linearKeyframeProgress, float xKeyframeProgress, float yKeyframeProgress) {
+    throw new UnsupportedOperationException("This animation does not support split dimensions!");
+  }
 
   private static <T> KeyframesWrapper<T> wrap(List<? extends Keyframe<T>> keyframes) {
     if (keyframes.isEmpty()) {
@@ -180,7 +198,7 @@ public abstract class BaseKeyframeAnimation<K, A> {
     @FloatRange(from = 0f, to = 1f)
     float getEndProgress();
 
-    boolean isCachedValueEnabled(float interpolatedProgress);
+    boolean isCachedValueEnabled(float progress);
   }
 
   private static final class EmptyKeyframeWrapper<T> implements KeyframesWrapper<T> {
@@ -210,7 +228,7 @@ public abstract class BaseKeyframeAnimation<K, A> {
     }
 
     @Override
-    public boolean isCachedValueEnabled(float interpolatedProgress) {
+    public boolean isCachedValueEnabled(float progress) {
       throw new IllegalStateException("not implemented");
     }
   }
@@ -250,11 +268,11 @@ public abstract class BaseKeyframeAnimation<K, A> {
     }
 
     @Override
-    public boolean isCachedValueEnabled(float interpolatedProgress) {
-      if (cachedInterpolatedProgress == interpolatedProgress) {
+    public boolean isCachedValueEnabled(float progress) {
+      if (cachedInterpolatedProgress == progress) {
         return true;
       }
-      cachedInterpolatedProgress = interpolatedProgress;
+      cachedInterpolatedProgress = progress;
       return false;
     }
   }
@@ -319,13 +337,13 @@ public abstract class BaseKeyframeAnimation<K, A> {
     }
 
     @Override
-    public boolean isCachedValueEnabled(float interpolatedProgress) {
+    public boolean isCachedValueEnabled(float progress) {
       if (cachedCurrentKeyframe == currentKeyframe
-              && cachedInterpolatedProgress == interpolatedProgress) {
+          && cachedInterpolatedProgress == progress) {
         return true;
       }
       cachedCurrentKeyframe = currentKeyframe;
-      cachedInterpolatedProgress = interpolatedProgress;
+      cachedInterpolatedProgress = progress;
       return false;
     }
   }

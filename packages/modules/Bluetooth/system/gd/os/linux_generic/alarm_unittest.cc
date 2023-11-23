@@ -20,12 +20,15 @@
 
 #include "common/bind.h"
 #include "gtest/gtest.h"
+#include "os/fake_timer/fake_timerfd.h"
 
 namespace bluetooth {
 namespace os {
 namespace {
 
 using common::BindOnce;
+using fake_timer::fake_timerfd_advance;
+using fake_timer::fake_timerfd_reset;
 
 class AlarmTest : public ::testing::Test {
  protected:
@@ -40,6 +43,11 @@ class AlarmTest : public ::testing::Test {
     handler_->Clear();
     delete handler_;
     delete thread_;
+    fake_timerfd_reset();
+  }
+
+  void fake_timer_advance(uint64_t ms) {
+    handler_->Post(common::BindOnce(fake_timerfd_advance, ms));
   }
   Alarm* alarm_;
 
@@ -55,15 +63,12 @@ TEST_F(AlarmTest, cancel_while_not_armed) {
 TEST_F(AlarmTest, schedule) {
   std::promise<void> promise;
   auto future = promise.get_future();
-  auto before = std::chrono::steady_clock::now();
   int delay_ms = 10;
-  int delay_error_ms = 3;
   alarm_->Schedule(
       BindOnce(&std::promise<void>::set_value, common::Unretained(&promise)), std::chrono::milliseconds(delay_ms));
+  fake_timer_advance(10);
   future.get();
-  auto after = std::chrono::steady_clock::now();
-  auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(after - before);
-  ASSERT_NEAR(duration_ms.count(), delay_ms, delay_error_ms);
+  ASSERT_FALSE(future.valid());
 }
 
 TEST_F(AlarmTest, cancel_alarm) {
@@ -83,6 +88,7 @@ TEST_F(AlarmTest, schedule_while_alarm_armed) {
   auto future = promise.get_future();
   alarm_->Schedule(
       BindOnce(&std::promise<void>::set_value, common::Unretained(&promise)), std::chrono::milliseconds(10));
+  fake_timer_advance(10);
   future.get();
 }
 

@@ -16,7 +16,8 @@ TEST_TYPE = "server"
 # Stop schedule this until it can be passed manually
 # ATTRIBUTES = "suite:audio_advanced"
 DEPENDENCIES = "audio_box, hotwording"
-JOB_RETRIES = 2
+JOB_RETRIES = 1
+PY_VERSION = 3
 
 DOC = """
 This test remotely tests hotwording function after the DUT suspend.

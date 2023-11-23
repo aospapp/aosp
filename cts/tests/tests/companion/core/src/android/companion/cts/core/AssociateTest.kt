@@ -17,15 +17,17 @@
 package android.companion.cts.core
 
 import android.companion.AssociationRequest
+import android.companion.CompanionDeviceManager.FLAG_CALL_METADATA
+import android.companion.cts.common.MAC_ADDRESS_A
 import android.companion.cts.common.RecordingCallback
 import android.companion.cts.common.RecordingCallback.OnAssociationPending
 import android.companion.cts.common.SIMPLE_EXECUTOR
 import android.platform.test.annotations.AppModeFull
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import org.junit.Test
-import org.junit.runner.RunWith
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import org.junit.Test
+import org.junit.runner.RunWith
 
 /**
  * Test CDM APIs for requesting establishing new associations.
@@ -51,5 +53,23 @@ class AssociateTest : CoreTestBase() {
         // onAssociationPending() method.
         assertEquals(1, callback.invocations.size)
         assertIs<OnAssociationPending>(callback.invocations.first())
+    }
+
+    @Test
+    fun test_systemDataSyncForTypes() = with(targetApp) {
+        associate(MAC_ADDRESS_A)
+
+        var associations = cdm.myAssociations
+        assertEquals(0,
+            associations[0].systemDataSyncFlags and FLAG_CALL_METADATA)
+
+        cdm.enableSystemDataSyncForTypes(associations[0].id, FLAG_CALL_METADATA)
+        associations = cdm.myAssociations
+        assertEquals(FLAG_CALL_METADATA,
+                associations[0].systemDataSyncFlags and FLAG_CALL_METADATA)
+
+        cdm.disableSystemDataSyncForTypes(associations[0].id, FLAG_CALL_METADATA)
+        associations = cdm.myAssociations
+        assertEquals(0, associations[0].systemDataSyncFlags and FLAG_CALL_METADATA)
     }
 }

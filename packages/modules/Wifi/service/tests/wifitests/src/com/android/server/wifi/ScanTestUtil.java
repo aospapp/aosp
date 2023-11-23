@@ -16,6 +16,8 @@
 
 package com.android.server.wifi;
 
+import static com.android.server.wifi.scanner.WifiScanningServiceImpl.getVendorIesBytesFromVendorIesList;
+
 import static org.junit.Assert.*;
 import static org.junit.Assume.*;
 import static org.mockito.Mockito.*;
@@ -37,6 +39,7 @@ import org.hamcrest.TypeSafeDiagnosingMatcher;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -134,6 +137,14 @@ public class ScanTestUtil {
         }
         public NativeScanSettingsBuilder withEnable6GhzRnr(boolean enable) {
             mSettings.enable6GhzRnr = enable;
+            return this;
+        }
+        public NativeScanSettingsBuilder withVendorIes(byte[] vendorIes) {
+            if (vendorIes == null) {
+                mSettings.vendorIes = null;
+            } else {
+                mSettings.vendorIes = Arrays.copyOf(vendorIes, vendorIes.length);
+            }
             return this;
         }
 
@@ -256,6 +267,11 @@ public class ScanTestUtil {
             builder.addBucketWithChannels(0, reportEvents, requestSettings.channels);
         } else {
             builder.addBucketWithBand(0, reportEvents, requestSettings.band);
+        }
+        if (SdkLevel.isAtLeastU()) {
+            List<ScanResult.InformationElement> vendorIesList = requestSettings.getVendorIes();
+            byte[] nativeSettingsVendorIes = getVendorIesBytesFromVendorIesList(vendorIesList);
+            builder.withVendorIes(nativeSettingsVendorIes);
         }
 
         return builder.build();
@@ -444,6 +460,7 @@ public class ScanTestUtil {
                 actual.report_threshold_percent);
         assertEquals("base period", expected.base_period_ms, actual.base_period_ms);
         assertEquals("enable 6Ghz RNR", expected.enable6GhzRnr, actual.enable6GhzRnr);
+        assertArrayEquals("vendor IEs", expected.vendorIes, actual.vendorIes);
 
         assertEquals("number of buckets", expected.num_buckets, actual.num_buckets);
         assertNotNull("buckets was null", actual.buckets);

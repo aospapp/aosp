@@ -23,9 +23,7 @@ import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
-import android.os.Build;
 
-import com.android.compatibility.common.util.PropertyUtil;
 import com.android.cts.verifier.R;
 
 import java.lang.reflect.Method;
@@ -189,11 +187,21 @@ public abstract class ConnectReqTestCase extends ReqTestCase {
      * @throws InterruptedException
      */
     protected boolean connectTest(WifiP2pConfig config) throws InterruptedException {
+        notifyTestMsg(R.string.p2p_searching_target);
+
+        /*
+         * Search target device and check its capability.
+         */
         ActionListenerTest actionListener = new ActionListenerTest();
+        mP2pMgr.discoverPeers(mChannel, actionListener);
+        if (!actionListener.check(ActionListenerTest.SUCCESS, TIMEOUT)) {
+            mReason = mContext.getString(R.string.p2p_discover_peers_error);
+            return false;
+        }
+
         /*
          * Try to connect the target device.
          */
-        long startTime = System.currentTimeMillis();
         mP2pMgr.connect(mChannel, config, actionListener);
         if (!actionListener.check(ActionListenerTest.SUCCESS, TIMEOUT)) {
             mReason = mContext.getString(R.string.p2p_connect_error);
@@ -216,15 +224,6 @@ public abstract class ConnectReqTestCase extends ReqTestCase {
         WifiP2pGroup group = mReceiverTest.getWifiP2pGroup();
         if (group != null) {
             if (!group.isGroupOwner()) {
-                long endTime = System.currentTimeMillis();
-                long connectionLatency = endTime - startTime;
-                if (PropertyUtil.isVndkApiLevelAtLeast(Build.VERSION_CODES.TIRAMISU)
-                        && connectionLatency
-                        > MAXIMUM_EXPECTED_CONNECTION_LATENCY_WITH_CONFIG_MS) {
-                    mReason = mContext.getString(R.string.p2p_connection_latency_error,
-                            MAXIMUM_EXPECTED_CONNECTION_LATENCY_WITH_CONFIG_MS, connectionLatency);
-                    return false;
-                }
                 setTargetAddress(group.getOwner().deviceAddress);
             } else {
                 mReason = mContext.getString(R.string.p2p_connection_error);

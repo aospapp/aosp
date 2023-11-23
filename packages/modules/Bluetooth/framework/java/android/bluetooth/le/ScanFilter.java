@@ -24,6 +24,7 @@ import android.annotation.SystemApi;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothDevice.AddressType;
+import android.bluetooth.BluetoothStatusCodes;
 import android.bluetooth.le.ScanRecord.AdvertisingDataType;
 import android.os.Parcel;
 import android.os.ParcelUuid;
@@ -91,6 +92,9 @@ public final class ScanFilter implements Parcelable {
     @Nullable
     private final byte[] mAdvertisingDataMask;
 
+    @Nullable
+    private final TransportBlockFilter mTransportBlockFilter;
+
     /** @hide */
     public static final ScanFilter EMPTY = new ScanFilter.Builder().build();
 
@@ -99,7 +103,8 @@ public final class ScanFilter implements Parcelable {
             ParcelUuid serviceDataUuid, byte[] serviceData, byte[] serviceDataMask,
             int manufacturerId, byte[] manufacturerData, byte[] manufacturerDataMask,
             @AddressType int addressType, @Nullable byte[] irk, int advertisingDataType,
-            @Nullable byte[] advertisingData, @Nullable byte[] advertisingDataMask) {
+            @Nullable byte[] advertisingData, @Nullable byte[] advertisingDataMask,
+            @Nullable TransportBlockFilter transportBlockFilter) {
         mDeviceName = name;
         mServiceUuid = uuid;
         mServiceUuidMask = uuidMask;
@@ -117,6 +122,7 @@ public final class ScanFilter implements Parcelable {
         mAdvertisingDataType = advertisingDataType;
         mAdvertisingData = advertisingData;
         mAdvertisingDataMask = advertisingDataMask;
+        mTransportBlockFilter = transportBlockFilter;
     }
 
     @Override
@@ -183,7 +189,7 @@ public final class ScanFilter implements Parcelable {
             dest.writeInt(mAddressType);
             dest.writeInt(mIrk == null ? 0 : 1);
             if (mIrk != null) {
-                dest.writeByteArray(mIrk);
+                dest.writeByteArray(Arrays.copyOfRange(mIrk, 0, 16));
             }
         }
 
@@ -199,6 +205,11 @@ public final class ScanFilter implements Parcelable {
                 dest.writeInt(mAdvertisingDataMask.length);
                 dest.writeByteArray(mAdvertisingDataMask);
             }
+        }
+
+        dest.writeInt(mTransportBlockFilter == null ? 0 : 1);
+        if (mTransportBlockFilter != null) {
+            dest.writeTypedObject(mTransportBlockFilter, 0);
         }
     }
 
@@ -309,6 +320,10 @@ public final class ScanFilter implements Parcelable {
                         advertisingDataMask);
             }
 
+            if (in.readInt() == 1) {
+                builder.setTransportBlockFilter(in.readTypedObject(TransportBlockFilter.CREATOR));
+            }
+
             return builder.build();
         }
     };
@@ -405,6 +420,17 @@ public final class ScanFilter implements Parcelable {
     }
 
     /**
+     * Return filter information for a transport block in Transport Discovery Service advertisement.
+     *
+     * @hide
+     */
+    @SystemApi
+    @Nullable
+    public TransportBlockFilter getTransportBlockFilter() {
+        return mTransportBlockFilter;
+    }
+
+    /**
      * Returns the advertising data type of this filter.
      * Returns {@link ScanRecord#DATA_TYPE_NONE} if the type is not set.
      * The values of advertising data type are defined in the Bluetooth Generic Access Profile
@@ -497,6 +523,11 @@ public final class ScanFilter implements Parcelable {
             }
         }
 
+        // Transport Discovery data match
+        if (mTransportBlockFilter != null && !mTransportBlockFilter.matches(scanResult)) {
+            return false;
+        }
+
         // All filters match.
         return true;
     }
@@ -560,7 +591,7 @@ public final class ScanFilter implements Parcelable {
     }
 
     // Check whether the data pattern matches the parsed data.
-    private boolean matchesPartialData(byte[] data, byte[] dataMask, byte[] parsedData) {
+    static boolean matchesPartialData(byte[] data, byte[] dataMask, byte[] parsedData) {
         if (parsedData == null || parsedData.length < data.length) {
             return false;
         }
@@ -593,7 +624,8 @@ public final class ScanFilter implements Parcelable {
                 + ", mManufacturerDataMask=" + Arrays.toString(mManufacturerDataMask)
                 + ", mAdvertisingDataType=" + mAdvertisingDataType + ", mAdvertisingData="
                 + Arrays.toString(mAdvertisingData) + ", mAdvertisingDataMask="
-                + Arrays.toString(mAdvertisingDataMask) + "]";
+                + Arrays.toString(mAdvertisingDataMask)
+                + ", mTransportBlockFilter=" + mTransportBlockFilter + "]";
     }
 
     @Override
@@ -608,7 +640,8 @@ public final class ScanFilter implements Parcelable {
                 mServiceSolicitationUuid, mServiceSolicitationUuidMask,
                 mAdvertisingDataType,
                 Arrays.hashCode(mAdvertisingData),
-                Arrays.hashCode(mAdvertisingDataMask));
+                Arrays.hashCode(mAdvertisingDataMask),
+                mTransportBlockFilter);
     }
 
     @Override
@@ -635,7 +668,8 @@ public final class ScanFilter implements Parcelable {
                         other.mServiceSolicitationUuidMask)
                 && mAdvertisingDataType == other.mAdvertisingDataType
                 && Objects.deepEquals(mAdvertisingData, other.mAdvertisingData)
-                && Objects.deepEquals(mAdvertisingDataMask, other.mAdvertisingDataMask);
+                && Objects.deepEquals(mAdvertisingDataMask, other.mAdvertisingDataMask)
+                && Objects.equals(mTransportBlockFilter, other.getTransportBlockFilter());
     }
 
     /**
@@ -681,6 +715,7 @@ public final class ScanFilter implements Parcelable {
         private byte[] mAdvertisingData;
         private byte[] mAdvertisingDataMask;
 
+        private TransportBlockFilter mTransportBlockFilter = null;
         /**
          * Set filter on device name.
          */
@@ -988,6 +1023,37 @@ public final class ScanFilter implements Parcelable {
         }
 
         /**
+         * Set filter information for a transport block in Transport Discovery Service advertisement
+         *
+         * Use {@link BluetoothAdapter#getOffloadedTransportDiscoveryDataScanSupported()} to check
+         * whether transport discovery data filtering is supported on this device before calling
+         * this method.
+         *
+         * @param transportBlockFilter filter data for a transport block in Transport Discovery
+         * Service advertisement
+         * @throws IllegalArgumentException if Transport Discovery Data filter is not supported.
+         * @return this builder
+         * @hide
+         */
+        @SystemApi
+        @NonNull
+        public Builder setTransportBlockFilter(@NonNull TransportBlockFilter transportBlockFilter) {
+            BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
+            if (bluetoothAdapter == null) {
+                throw new IllegalArgumentException("BluetoothAdapter is null");
+            }
+            if (bluetoothAdapter.getOffloadedTransportDiscoveryDataScanSupported()
+                    != BluetoothStatusCodes.FEATURE_SUPPORTED) {
+                throw new IllegalArgumentException(
+                        "Transport Discovery Data filter is not supported");
+            }
+
+            mTransportBlockFilter = transportBlockFilter;
+            return this;
+        }
+
+        /**
          * Set filter on advertising data with specific advertising data type.
          * For any bit in the mask, set it the 1 if it needs to match the one in
          * advertising data, otherwise set it to 0.
@@ -1053,7 +1119,7 @@ public final class ScanFilter implements Parcelable {
                     mServiceSolicitationUuid, mServiceSolicitationUuidMask, mServiceDataUuid,
                     mServiceData, mServiceDataMask, mManufacturerId, mManufacturerData,
                     mManufacturerDataMask, mAddressType, mIrk, mAdvertisingDataType,
-                    mAdvertisingData, mAdvertisingDataMask);
+                    mAdvertisingData, mAdvertisingDataMask, mTransportBlockFilter);
         }
     }
 }

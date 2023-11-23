@@ -25,6 +25,7 @@ import android.os.Parcelable.Creator;
 import android.util.SparseArray;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -267,7 +268,8 @@ public final class CivicLocation implements Parcelable {
     public int hashCode() {
         int[] civicAddressKeys = getSparseArrayKeys(mCivicAddressElements);
         String[] civicAddressValues = getSparseArrayValues(mCivicAddressElements);
-        return Objects.hash(mIsValid, mCountryCode, civicAddressKeys, civicAddressValues);
+        return Objects.hash(mIsValid, mCountryCode, Arrays.hashCode(civicAddressKeys),
+                Arrays.hashCode(civicAddressValues));
     }
 
     /**

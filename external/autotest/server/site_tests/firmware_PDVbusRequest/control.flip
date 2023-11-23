@@ -4,15 +4,17 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_PDVbusRequest.flip"
 PURPOSE = "Servo based PD VBUS voltage level test"
 ATTRIBUTES = "suite:faft_pd"
 CRITERIA = "This test will fail if actual voltage does not meet expected"
+DEPENDENCIES = "servo_state:WORKING"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
+PY_VERSION = 3
 
 DOC = """
 This test checks:

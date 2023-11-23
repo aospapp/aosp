@@ -72,4 +72,20 @@ oneway interface IIpClientCallbacks {
     // Called when the internal IpReachabilityMonitor (if enabled) has detected the loss of a
     // critical number of required neighbors or DHCP roaming fails.
     void onReachabilityFailure(in ReachabilityLossInfoParcelable lossInfo);
+
+    // Reset the DTIM multiplier to the default hardware driver value.
+    const int DTIM_MULTIPLIER_RESET = 0;
+
+    // Set maximum acceptable DTIM multiplier to hardware driver. Any multiplier larger than the
+    // maximum value must not be accepted, it will cause packet loss higher than what the system
+    // can accept, which will cause unexpected behavior for apps, and may interrupt the network
+    // connection.
+    //
+    // DTIM multiplier controls how often the device should wake up to receive multicast/broadcast
+    // packets. Typically the wake up interval is decided by multiplier * AP's DTIM period if
+    // multiplier is non-zero. For example, when hardware driver sets the DTIM multiplier to 2, it
+    // means device wakes up once every 2 DTIM periods, 50% of multicast packets will be dropped.
+    // Setting DTIM multiplier to DTIM_MULTIPLIER_RESET(0) applies the hardware driver default
+    // value.
+    void setMaxDtimMultiplier(int multiplier);
 }

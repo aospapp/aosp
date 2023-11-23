@@ -3,21 +3,30 @@ package org.unicode.cldr.unittest;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 import org.unicode.cldr.test.ExampleGenerator;
 import org.unicode.cldr.test.ExampleGenerator.UnitLength;
 import org.unicode.cldr.util.CLDRConfig;
 import org.unicode.cldr.util.CLDRFile;
 import org.unicode.cldr.util.CLDRPaths;
+import org.unicode.cldr.util.CldrUtility;
 import org.unicode.cldr.util.Factory;
 import org.unicode.cldr.util.GrammarInfo;
+import org.unicode.cldr.util.GrammarInfo.CaseValues;
 import org.unicode.cldr.util.GrammarInfo.GrammaticalFeature;
 import org.unicode.cldr.util.GrammarInfo.GrammaticalScope;
 import org.unicode.cldr.util.GrammarInfo.GrammaticalTarget;
+import org.unicode.cldr.util.Pair;
 import org.unicode.cldr.util.PathStarrer;
 import org.unicode.cldr.util.SupplementalDataInfo;
 import org.unicode.cldr.util.SupplementalDataInfo.PluralInfo;
@@ -30,6 +39,9 @@ import com.google.common.collect.ImmutableSet;
 import com.ibm.icu.dev.test.TestFmwk;
 
 public class TestExampleGenerator extends TestFmwk {
+
+    boolean showTranslationPaths = CldrUtility.getProperty("TestExampleGenerator:showTranslationPaths", false);
+
     private static final SupplementalDataInfo SDI = SupplementalDataInfo.getInstance();
     CLDRConfig info = CLDRConfig.getInstance();
 
@@ -126,12 +138,14 @@ public class TestExampleGenerator extends TestFmwk {
         "//ldml/numbers/currencyFormats/currencySpacing/afterCurrency/currencyMatch",
         "//ldml/numbers/currencyFormats/currencySpacing/afterCurrency/surroundingMatch",
         "//ldml/numbers/currencyFormats/currencySpacing/afterCurrency/insertBetween",
+        "//ldml/numbers/currencyFormats/currencyPatternAppendISO", // TODO see CLDR-14831
         "//ldml/numbers/currencyFormats[@numberSystem=\"([^\"]*+)\"]/currencySpacing/beforeCurrency/currencyMatch",
         "//ldml/numbers/currencyFormats[@numberSystem=\"([^\"]*+)\"]/currencySpacing/beforeCurrency/surroundingMatch",
         "//ldml/numbers/currencyFormats[@numberSystem=\"([^\"]*+)\"]/currencySpacing/beforeCurrency/insertBetween",
         "//ldml/numbers/currencyFormats[@numberSystem=\"([^\"]*+)\"]/currencySpacing/afterCurrency/currencyMatch",
         "//ldml/numbers/currencyFormats[@numberSystem=\"([^\"]*+)\"]/currencySpacing/afterCurrency/surroundingMatch",
         "//ldml/numbers/currencyFormats[@numberSystem=\"([^\"]*+)\"]/currencySpacing/afterCurrency/insertBetween",
+        "//ldml/numbers/currencyFormats[@numberSystem=\"([^\"]*+)\"]/currencyPatternAppendISO", // TODO see CLDR-14831
 
         "//ldml/localeDisplayNames/variants/variant[@type=\"([^\"]*+)\"]",
         "//ldml/localeDisplayNames/keys/key[@type=\"([^\"]*+)\"]",
@@ -174,7 +188,19 @@ public class TestExampleGenerator extends TestFmwk {
 
         "//ldml/localeDisplayNames/subdivisions/subdivision[@type=\"([^\"]*+)\"]",
 
-        "//ldml/dates/timeZoneNames/zone[@type=\"([^\"]*+)\"]/long/standard" // Error: (TestExampleGenerator.java:245) No background:   <Coordinated Universal Time>    〖Coordinated Universal Time〗
+        "//ldml/dates/timeZoneNames/zone[@type=\"([^\"]*+)\"]/long/standard", // Error: (TestExampleGenerator.java:245) No background:   <Coordinated Universal Time>    〖Coordinated Universal Time〗
+
+        "//ldml/personNames/nameOrderLocales[@order=\"([^\"]*+)\"]", // TODO CLDR-15384
+        "//ldml/personNames/foreignSpaceReplacement[@xml:space=\"([^\"]*+)\"][@alt=\"([^\"]*+)\"]", // TODO CLDR-15384
+        "//ldml/personNames/foreignSpaceReplacement[@xml:space=\"([^\"]*+)\"]", // TODO CLDR-15384
+        "//ldml/personNames/foreignSpaceReplacement[@alt=\"([^\"]*+)\"]", // TODO CLDR-15384
+        "//ldml/personNames/foreignSpaceReplacement", // TODO CLDR-15384
+        "//ldml/personNames/initialPattern[@type=\"([^\"]*+)\"][@alt=\"([^\"]*+)\"]", // TODO CLDR-15384
+        "//ldml/personNames/initialPattern[@type=\"([^\"]*+)\"]", // TODO CLDR-15384
+        "//ldml/personNames/personName[@order=\"([^\"]*+)\"][@length=\"([^\"]*+)\"][@usage=\"([^\"]*+)\"][@formality=\"([^\"]*+)\"]/namePattern[@alt=\"([^\"]*+)\"]", // TODO CLDR-15384
+        "//ldml/personNames/sampleName[@item=\"([^\"]*+)\"]/nameField[@type=\"([^\"]*+)\"][@alt=\"([^\"]*+)\"]", // TODO CLDR-15384
+        "//ldml/personNames/sampleName[@item=\"([^\"]*+)\"]/nameField[@type=\"([^\"]*+)\"]" // TODO CLDR-15384
+
         );
     // Add to above if the example SHOULD appear, but we don't have it yet. TODO Add later
 
@@ -218,7 +244,9 @@ public class TestExampleGenerator extends TestFmwk {
         "//ldml/dates/timeZoneNames/zone[@type=\"([^\"]*+)\"]/long/standard",
         "//ldml/dates/timeZoneNames/metazone[@type=\"([^\"]*+)\"]/short/generic",
         "//ldml/dates/timeZoneNames/metazone[@type=\"([^\"]*+)\"]/short/standard",
-        "//ldml/dates/timeZoneNames/metazone[@type=\"([^\"]*+)\"]/short/daylight");
+        "//ldml/dates/timeZoneNames/metazone[@type=\"([^\"]*+)\"]/short/daylight",
+        "//ldml/personNames/personName[@order=\"([^\"]*+)\"][@length=\"([^\"]*+)\"][@formality=\"([^\"]*+)\"]/namePattern",
+        "//ldml/personNames/personName[@order=\"([^\"]*+)\"][@length=\"([^\"]*+)\"][@usage=\"([^\"]*+)\"][@formality=\"([^\"]*+)\"]/namePattern"); // CLDR-15384
     // Add to above if the background SHOULD appear, but we don't have them yet. TODO Add later
 
     public void TestAllPaths() {
@@ -327,22 +355,29 @@ public class TestExampleGenerator extends TestFmwk {
         ExampleGenerator exampleGeneratorDe = getExampleGenerator("de");
         checkValue(
             "Length m",
-            "〖❬1,5❭ badmeter〗〖❬Anstatt 1,5❭ badmeter❬ …❭〗",
+            "〖❬1,5❭ badmeter〗〖❬Anstatt 1,5❭ badmeter❬ …❭〗〖❌  ❬… für 1,5❭ badmeter❬ …❭〗",
             exampleGeneratorDe,
             "//ldml/units/unitLength[@type=\"long\"]/unit[@type=\"length-meter\"]/unitPattern[@count=\"other\"][@case=\"genitive\"]",
             "{0} badmeter");
     }
 
+    /**
+     * Check that the expected exampleGenerator example is produced for the parameters, with the value coming from the file.
+     */
     private void checkValue(String message, String expected,
         ExampleGenerator exampleGenerator, String path) {
         checkValue(message, expected, exampleGenerator, path, null);
     }
 
+    /**
+     * Check that the expected exampleGenerator example is produced for the parameters
+     */
     private void checkValue(String message, String expected,
         ExampleGenerator exampleGenerator, String path, String value) {
-        value = value != null ? value : exampleGenerator.getCldrFile().getStringValue(path);
+        final CLDRFile cldrFile = exampleGenerator.getCldrFile();
+        value = value != null ? value : cldrFile.getStringValue(path);
         String actual = exampleGenerator.getExampleHtml(path, value);
-        assertEquals(message, expected,
+        assertEquals(cldrFile.getLocaleID() + ": " + message, expected,
             ExampleGenerator.simplify(actual, false));
     }
 
@@ -382,7 +417,7 @@ public class TestExampleGenerator extends TestFmwk {
     }
 
     public void TestTranslationPaths() {
-        for (String locale : Arrays.asList("en", "el")) {
+        for (String locale : Arrays.asList("en", "el", "ru")) {
             CLDRFile cldrFile = CLDRConfig.getInstance().getCldrFactory().make(locale, true);
             ExampleGenerator exampleGenerator = getExampleGenerator(locale);
 
@@ -398,7 +433,9 @@ public class TestExampleGenerator extends TestFmwk {
                             String example = exampleGenerator.getExampleHtml(path, value);
                             if (assertNotNull(locale + "/" + path, example)) {
                                 String simplified = ExampleGenerator.simplify(example, false);
-                                warnln(locale + ", " + width + ", " + pathType.toString() + " ==>" + simplified);
+                                if (showTranslationPaths) {
+                                    warnln(locale + ", " + width + ", " + pathType.toString() + " ==>" + simplified);
+                                }
                             } else {
                                 // for debugging
                                 example = exampleGenerator.getExampleHtml(path, value);
@@ -567,8 +604,24 @@ public class TestExampleGenerator extends TestFmwk {
 
     public void TestPluralSamples() {
         ExampleGenerator exampleGenerator = getExampleGenerator("sv");
-        String path = "//ldml/units/unitLength[@type=\"short\"]/unit[@type=\"length-centimeter\"]/unitPattern[@count=\"one\"]";
-        checkValue("Number should be one", "〖❬1❭ cm〗", exampleGenerator, path);
+        String[][] tests = {
+            {"//ldml/units/unitLength[@type=\"short\"]/unit[@type=\"length-centimeter\"]/unitPattern[@count=\"one\"]",
+                "Number should be one",
+            "〖❬1❭ cm〗〖❬Jag tror att 1❭ cm❬ är tillräckligt.❭〗"},
+            {"//ldml/numbers/minimalPairs/ordinalMinimalPairs[@ordinal=\"one\"]",
+                "Ordinal one",
+            "〖Ta ❬1❭:a svängen till höger〗〖❌  Ta ❬3❭:a svängen till höger〗"},
+            {"//ldml/numbers/minimalPairs/ordinalMinimalPairs[@ordinal=\"other\"]",
+                "Ordinal other",
+            "〖Ta ❬3❭:e svängen till höger〗〖❌  Ta ❬1❭:e svängen till höger〗"},
+        };
+        for (String[] row : tests) {
+            String path = row[0];
+            String message = row[1];
+            String expected = row[2];
+            checkValue(message, expected, exampleGenerator, path);
+        }
+
     }
 
     public void TestLocaleDisplayPatterns() {
@@ -603,6 +656,26 @@ public class TestExampleGenerator extends TestFmwk {
             "〖€ ❬1295,00❭〗〖-€ ❬1295,00❭〗", actual);
     }
 
+    public void TestCurrencyFormatsWithContext() {
+        ExampleGenerator exampleGenerator = getExampleGenerator("he");
+        String actual = simplify(exampleGenerator
+            .getExampleHtml(
+                "//ldml/numbers/currencyFormats[@numberSystem=\"latn\"]/currencyFormatLength/currencyFormat[@type=\"standard\"]/pattern[@type=\"standard\"]",
+                "‏#,##0.00 ¤;‏-#,##0.00 ¤"));
+        assertEquals("Currency format example faulty",
+            "【‏❬1,295❭.❬00❭ ₪〗【⃪‏❬1,295❭.❬00❭ ₪〗【‏‎-❬1,295❭.❬00❭ ₪〗【⃪‏‎-❬1,295❭.❬00❭ ₪〗【‏❬1,295❭.❬00❭ ILS〗【⃪‏❬1,295❭.❬00❭ ILS〗【‏‎-❬1,295❭.❬00❭ ILS〗【⃪‏‎-❬1,295❭.❬00❭ ILS〗", actual);
+    }
+
+    public void TestDateFormatsWithContext() {
+        ExampleGenerator exampleGenerator = getExampleGenerator("ar");
+        String actual = simplify(exampleGenerator
+            .getExampleHtml(
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/dateFormats/dateFormatLength[@type=\"short\"]/dateFormat[@type=\"standard\"]/pattern[@type=\"standard\"]",
+                "d‏/M‏/y"));
+        assertEquals("Currency format example faulty",
+            "【٥‏/٩‏/١٩٩٩〗【⃪٥‏/٩‏/١٩٩٩〗", actual);
+    }
+
     public void TestSymbols() {
         CLDRFile english = info.getEnglish();
         ExampleGenerator exampleGenerator = new ExampleGenerator(english,
@@ -624,7 +697,7 @@ public class TestExampleGenerator extends TestFmwk {
             CLDRPaths.DEFAULT_SUPPLEMENTAL_DIRECTORY);
         String actual = exampleGenerator.getExampleHtml(
             "//ldml/dates/timeZoneNames/fallbackFormat", "{1} [{0}]");
-        assertEquals("fallbackFormat faulty", "〖❬Central Time❭ [❬Cancun❭]〗",
+        assertEquals("fallbackFormat faulty", "〖❬Central Time❭ [❬Cancún❭]〗",
             ExampleGenerator.simplify(actual, false));
     }
 
@@ -862,59 +935,121 @@ public class TestExampleGenerator extends TestFmwk {
     }
 
     public void TestInflectedUnitExamples() {
-        final CLDRFile cldrFile = info.getCLDRFile("de", true);
-        ExampleGenerator exampleGenerator = getExampleGenerator("de");
-        String pattern = "//ldml/units/unitLength[@type=\"long\"]/unit[@type=\"duration-day\"]/unitPattern[@count=\"COUNT\"][@case=\"CASE\"]";
-        String[][] tests = {
-            {"one", "nominative",  "〖❬1❭ Tag〗〖❬1❭ Tag❬ kostet (kosten) € 3,50.❭〗"},
-            {"one", "accusative",  "〖❬1❭ Tag〗〖❬… für 1❭ Tag❬ …❭〗"},
-            {"one", "genitive",  "〖❬1❭ Tages〗〖❬Anstatt 1❭ Tages❬ …❭〗"},
-            {"one", "dative",  "〖❬1❭ Tag〗〖❬… mit 1❭ Tag❬ …❭〗"},
-            {"other", "nominative",  "〖❬1,5❭ Tage〗〖❬1,5❭ Tage❬ kostet (kosten) € 3,50.❭〗"},
-            {"other", "accusative",  "〖❬1,5❭ Tage〗〖❬… für 1,5❭ Tage❬ …❭〗"},
-            {"other", "genitive",  "〖❬1,5❭ Tage〗〖❬Anstatt 1,5❭ Tage❬ …❭〗"},
-            {"other", "dative",  "〖❬1,5❭ Tagen〗〖❬… mit 1,5❭ Tagen❬ …❭〗"}
+        String[][] deTests = {
+            {"one", "accusative", "〖❬1❭ Tag〗〖❬… für 1❭ Tag❬ …❭〗〖❌  ❬Anstatt 1❭ Tag❬ …❭〗"},
+            {"one", "dative", "〖❬1❭ Tag〗〖❬… mit 1❭ Tag❬ …❭〗〖❌  ❬Anstatt 1❭ Tag❬ …❭〗"},
+            {"one", "genitive", "〖❬1❭ Tages〗〖❬Anstatt 1❭ Tages❬ …❭〗〖❌  ❬… für 1❭ Tages❬ …❭〗"},
+            {"one", "nominative", "〖❬1❭ Tag〗〖❬1❭ Tag❬ kostet (kosten) € 3,50.❭〗〖❌  ❬Anstatt 1❭ Tag❬ …❭〗"},
+
+            {"other", "accusative", "〖❬1,5❭ Tage〗〖❬… für 1,5❭ Tage❬ …❭〗〖❌  ❬… mit 1,5❭ Tage❬ …❭〗"},
+            {"other", "dative", "〖❬1,5❭ Tagen〗〖❬… mit 1,5❭ Tagen❬ …❭〗〖❌  ❬… für 1,5❭ Tagen❬ …❭〗"},
+            {"other", "genitive", "〖❬1,5❭ Tage〗〖❬Anstatt 1,5❭ Tage❬ …❭〗〖❌  ❬… mit 1,5❭ Tage❬ …❭〗"},
+            {"other", "nominative", "〖❬1,5❭ Tage〗〖❬1,5❭ Tage❬ kostet (kosten) € 3,50.❭〗〖❌  ❬… mit 1,5❭ Tage❬ …❭〗"},
         };
+        checkInflectedUnitExamples("de", deTests);
+        String[][] elTests = {
+            {"one", "accusative", "〖❬1❭ ημέρα〗〖❬… ανά 1❭ ημέρα❬ …❭〗〖❌  ❬… αξίας 1❭ ημέρα❬ …❭〗"},
+            {"one", "genitive", "〖❬1❭ ημέρας〗〖❬… αξίας 1❭ ημέρας❬ …❭〗〖❌  ❬… ανά 1❭ ημέρας❬ …❭〗"},
+            {"one", "nominative", "〖❬1❭ ημέρα〗〖❬Η απόσταση είναι 1❭ ημέρα❬ …❭〗〖❌  ❬… αξίας 1❭ ημέρα❬ …❭〗"},
+            {"other", "accusative", "〖❬0,9❭ ημέρες〗〖❬… ανά 0,9❭ ημέρες❬ …❭〗〖❌  ❬… αξίας 0,9❭ ημέρες❬ …❭〗"},
+            {"other", "genitive", "〖❬0,9❭ ημερών〗〖❬… αξίας 0,9❭ ημερών❬ …❭〗〖❌  ❬… ανά 0,9❭ ημερών❬ …❭〗"},
+            {"other", "nominative", "〖❬0,9❭ ημέρες〗〖❬Η απόσταση είναι 0,9❭ ημέρες❬ …❭〗〖❌  ❬… αξίας 0,9❭ ημέρες❬ …❭〗"},
+        };
+        checkInflectedUnitExamples("el", elTests);
+    }
+
+    private void checkInflectedUnitExamples(final String locale, String[][] tests) {
+        final CLDRFile cldrFile = info.getCLDRFile(locale, true);
+        ExampleGenerator exampleGenerator = getExampleGenerator(locale);
+        String pattern = "//ldml/units/unitLength[@type=\"long\"]/unit[@type=\"duration-day\"]/unitPattern[@count=\"COUNT\"][@case=\"CASE\"]";
+        boolean showWorkingExamples = false;
         for (String[] row : tests) {
             String path = pattern.replace("COUNT", row[0]).replace("CASE", row[1]);
             String expected = row[2];
             String value = cldrFile.getStringValue(path);
             String actualRaw = exampleGenerator.getExampleHtml(path, value);
             String actual = ExampleGenerator.simplify(actualRaw, false);
-            assertEquals(row[0] + ", " + row[1], expected, actual);
+            showWorkingExamples |= !assertEquals(row[0] + ", " + row[1], expected, actual);
+        }
+
+        // If a test fails, verbose will regenerate what the code thinks they should be.
+        // Review for correctness, and then replace the test cases
+
+        if (showWorkingExamples) {
+            System.out.println("## The following would satisfy the test, but check to make sure the expected values are all correct!");
+            PluralInfo pluralInfo = SDI.getPlurals(PluralType.cardinal, locale);
+            GrammarInfo grammarInfo = SDI.getGrammarInfo(locale);
+            final Collection<String> grammaticalValues2 = grammarInfo.get(GrammaticalTarget.nominal, GrammaticalFeature.grammaticalCase, GrammaticalScope.units);
+
+            for (Count plural : pluralInfo.getCounts()) {
+                for (String grammaticalCase : grammaticalValues2) {
+                    String path = pattern.replace("COUNT", plural.toString()).replace("CASE", grammaticalCase);
+                    String value = cldrFile.getStringValue(path);
+                    String actualRaw = exampleGenerator.getExampleHtml(path, value);
+                    String actual = ExampleGenerator.simplify(actualRaw, false);
+                    System.out.println(
+                        "{\"" + plural + "\", "
+                            + "\"" + grammaticalCase + "\", "
+                            + "\"" + actual + "\"},");
+                }
+            }
         }
     }
 
     public void TestMinimalPairExamples() {
-        final CLDRFile cldrFile = info.getCLDRFile("de", true);
-        ExampleGenerator exampleGenerator = getExampleGenerator("de");
         String[][] tests = {
-            {"//ldml/numbers/minimalPairs/pluralMinimalPairs[@count=\"one\"]", "〖❬1❭ Tag〗"},
-            {"//ldml/numbers/minimalPairs/pluralMinimalPairs[@count=\"other\"]", "〖❬2❭ Tage〗"},
-            {"//ldml/numbers/minimalPairs/caseMinimalPairs[@case=\"accusative\"]", "〖… für ❬1 metrische Pint❭ …〗"},
-            {"//ldml/numbers/minimalPairs/caseMinimalPairs[@case=\"dative\"]", "〖… mit ❬1 metrischen Pint❭ …〗"},
-            {"//ldml/numbers/minimalPairs/caseMinimalPairs[@case=\"genitive\"]", "〖Anstatt ❬1 metrischen Pints❭ …〗"},
-            {"//ldml/numbers/minimalPairs/caseMinimalPairs[@case=\"nominative\"]", "〖❬2 metrische Pints❭ kostet (kosten) € 3,50.〗"},
-            {"//ldml/numbers/minimalPairs/genderMinimalPairs[@gender=\"feminine\"]", "〖Die ❬Stunde❭ ist …〗"},
-            {"//ldml/numbers/minimalPairs/genderMinimalPairs[@gender=\"masculine\"]", "〖Der ❬Meter❭ ist …〗"},
-            {"//ldml/numbers/minimalPairs/genderMinimalPairs[@gender=\"neuter\"]", "〖Das ❬mol❭ ist …〗"},
+            {"//ldml/numbers/minimalPairs/pluralMinimalPairs[@count=\"one\"]", "〖❬1❭ Tag〗〖❌  ❬2❭ Tag〗"},
+            {"//ldml/numbers/minimalPairs/pluralMinimalPairs[@count=\"other\"]", "〖❬2❭ Tage〗〖❌  ❬1❭ Tage〗"},
+            {"//ldml/numbers/minimalPairs/caseMinimalPairs[@case=\"accusative\"]", "〖… für ❬1 metrische Pint❭ …〗〖❌  … für ❬1 metrischen Pint❭ …〗"},
+            {"//ldml/numbers/minimalPairs/caseMinimalPairs[@case=\"dative\"]", "〖… mit ❬1 metrischen Pint❭ …〗〖❌  … mit ❬1 metrische Pint❭ …〗"},
+            {"//ldml/numbers/minimalPairs/caseMinimalPairs[@case=\"genitive\"]", "〖Anstatt ❬1 metrischen Pints❭ …〗〖❌  Anstatt ❬1 metrische Pint❭ …〗"},
+            {"//ldml/numbers/minimalPairs/caseMinimalPairs[@case=\"nominative\"]", "〖❬2 metrische Pints❭ kostet (kosten) € 3,50.〗〖❌  ❬1 metrische Pint❭ kostet (kosten) € 3,50.〗"},
+            {"//ldml/numbers/minimalPairs/genderMinimalPairs[@gender=\"feminine\"]", "〖Die ❬Stunde❭ ist …〗〖❌  Die ❬Zentimeter❭ ist …〗"},
+            {"//ldml/numbers/minimalPairs/genderMinimalPairs[@gender=\"masculine\"]", "〖Der ❬Zentimeter❭ ist …〗〖❌  Der ❬Stunde❭ ist …〗"},
+            {"//ldml/numbers/minimalPairs/genderMinimalPairs[@gender=\"neuter\"]", "〖Das ❬Jahrhundert❭ ist …〗〖❌  Das ❬Stunde❭ ist …〗"},
         };
+        checkMinimalPairExamples("de", tests);
+
+        String[][] elTests = {
+            {"//ldml/numbers/minimalPairs/pluralMinimalPairs[@count=\"one\"]", "〖❬1❭ ημέρα〗〖❌  ❬2❭ ημέρα〗"},
+            {"//ldml/numbers/minimalPairs/pluralMinimalPairs[@count=\"other\"]", "〖❬2❭ ημέρες〗〖❌  ❬1❭ ημέρες〗"},
+
+            {"//ldml/numbers/minimalPairs/caseMinimalPairs[@case=\"accusative\"]", "〖… ανά ❬1 τόνο❭ …〗〖❌  … ανά ❬1 τόνου❭ …〗"},
+            {"//ldml/numbers/minimalPairs/caseMinimalPairs[@case=\"genitive\"]", "〖… αξίας ❬1 τόνου❭ …〗〖❌  … αξίας ❬1 τόνο❭ …〗"},
+            {"//ldml/numbers/minimalPairs/caseMinimalPairs[@case=\"nominative\"]", "〖Η απόσταση είναι ❬2 τόνοι❭ …〗〖❌  Η απόσταση είναι ❬1 τόνο❭ …〗"},
+
+            {"//ldml/numbers/minimalPairs/genderMinimalPairs[@gender=\"feminine\"]", "〖Η ❬ημέρα❭ είναι〗〖❌  Η ❬αιώνας❭ είναι〗"},
+            {"//ldml/numbers/minimalPairs/genderMinimalPairs[@gender=\"masculine\"]", "〖Ο ❬αιώνας❭ θα είναι〗〖❌  Ο ❬ημέρα❭ θα είναι〗"},
+            {"//ldml/numbers/minimalPairs/genderMinimalPairs[@gender=\"neuter\"]", "〖Το ❬εκατοστό❭ ήταν〗〖❌  Το ❬ημέρα❭ ήταν〗"},
+        };
+        checkMinimalPairExamples("el", elTests);
+    }
+
+    private void checkMinimalPairExamples(final String locale, String[][] tests) {
+        final CLDRFile cldrFile = info.getCLDRFile(locale, true);
+        ExampleGenerator exampleGenerator = getExampleGenerator(locale);
+        boolean showWorkingExamples = false;
         for (String[] row : tests) {
             String path = row[0];
             String expected = row[1];
             String value = cldrFile.getStringValue(path);
             String actualRaw = exampleGenerator.getExampleHtml(path, value);
             String actual = ExampleGenerator.simplify(actualRaw, false);
-            assertEquals(row[0] + ", " + row[1], expected, actual);
+            showWorkingExamples |= !assertEquals(row[0] + ", " + row[1], expected, actual);
         }
-        if (isVerbose()) { // generate examples
-            PluralInfo pluralInfo = SDI.getPlurals(PluralType.cardinal, cldrFile.getLocaleID());
+
+        // If a test fails, verbose will regenerate what the code thinks they should be.
+        // Review for correctness, and then replace the test cases
+
+        if (showWorkingExamples) {
+            System.out.println("## The following would satisfy the test, but check to make sure the expected values are all correct!");
+            PluralInfo pluralInfo = SDI.getPlurals(PluralType.cardinal, locale);
             ArrayList<String> paths = new ArrayList<>();
 
             for (Count plural : pluralInfo.getCounts()) {
                 paths.add("//ldml/numbers/minimalPairs/pluralMinimalPairs[@count=\"" + plural +  "\"]");
             }
-            GrammarInfo grammarInfo = SDI.getGrammarInfo("de");
+            GrammarInfo grammarInfo = SDI.getGrammarInfo(locale);
             for (String grammaticalValues : grammarInfo.get(GrammaticalTarget.nominal, GrammaticalFeature.grammaticalCase, GrammaticalScope.units)) {
                 paths.add("//ldml/numbers/minimalPairs/caseMinimalPairs[@case=\"" + grammaticalValues +  "\"]");
             }
@@ -930,4 +1065,146 @@ public class TestExampleGenerator extends TestFmwk {
         }
     }
 
+    /** Test the production of minimal pair examples, to make sure we get no exceptions.
+     * If -v, then generates lines for spreadsheet survey
+     */
+    public void TestListMinimalPairExamples() {
+        Set<String> localesWithGrammar = SDI.hasGrammarInfo();
+        if (isVerbose()) {
+            System.out.println("\nLC\tLocale\tType\tCode\tCurrent Pattern\tVerify this is correct!\tVerify this is wrong!");
+        }
+        final String unused = "∅";
+        List<String> pluralSheet = new ArrayList();
+        for (String locale : localesWithGrammar) {
+            final CLDRFile cldrFile = info.getCLDRFile(locale, true);
+            ExampleGenerator exampleGenerator = getExampleGenerator(locale);
+
+            PluralInfo pluralInfo = SDI.getPlurals(PluralType.cardinal, cldrFile.getLocaleID());
+            Map<String, Pair<String,String>> paths = new LinkedHashMap<>();
+
+            Set<Count> counts = pluralInfo.getCounts();
+            if (counts.size() > 1) {
+                for (Count plural : counts) {
+                    paths.put("//ldml/numbers/minimalPairs/pluralMinimalPairs[@count=\"" + plural +  "\"]", Pair.of("plural",plural.toString()));
+                }
+            }
+            GrammarInfo grammarInfo = SDI.getGrammarInfo(locale);
+            Collection<String> unitCases = grammarInfo.get(GrammaticalTarget.nominal, GrammaticalFeature.grammaticalCase, GrammaticalScope.units);
+            Collection<String> generalCasesRaw = grammarInfo.get(GrammaticalTarget.nominal, GrammaticalFeature.grammaticalCase, GrammaticalScope.general);
+            Collection<CaseValues> generalCases = generalCasesRaw.stream().map(x -> CaseValues.valueOf(x)).collect(Collectors.toCollection(TreeSet::new));
+            for (CaseValues unitCase0 : generalCases) {
+                String unitCase = unitCase0.toString();
+                paths.put((unitCases.contains(unitCase) ? "" : unused) + "//ldml/numbers/minimalPairs/caseMinimalPairs[@case=\"" + unitCase +  "\"]",
+                    Pair.of("case",unitCase));
+            }
+            Collection<String> unitGenders = grammarInfo.get(GrammaticalTarget.nominal, GrammaticalFeature.grammaticalGender, GrammaticalScope.units);
+            Collection<String> generalGenders = grammarInfo.get(GrammaticalTarget.nominal, GrammaticalFeature.grammaticalGender, GrammaticalScope.general);
+            for (String unitGender : generalGenders) {
+                paths.put((unitGenders.contains(unitGender) ? "" : unused) + "//ldml/numbers/minimalPairs/genderMinimalPairs[@gender=\"" + unitGender +  "\"]",
+                    Pair.of("gender",unitGender));
+            }
+            String localeName = CLDRConfig.getInstance().getEnglish().getName(locale);
+            boolean pluralOnly = true;
+            if (paths.isEmpty()) {
+                pluralSheet.add(locale
+                    + "\t" + localeName
+                    + "\t" + "N/A"
+                    + "\t" + "N/A"
+                    + "\t" + "N/A"
+                    );
+            } else {
+                for (Entry<String, Pair<String, String>> pathAndLabel : paths.entrySet()) {
+                    String path = pathAndLabel.getKey();
+                    String label = pathAndLabel.getValue().getFirst();
+                    String code = pathAndLabel.getValue().getSecond();
+                    if (!label.equals("plural")) {
+                        pluralOnly = false;
+                    }
+                }
+                String lastLabel = "";
+                for (Entry<String, Pair<String, String>> pathAndLabel : paths.entrySet()) {
+                    String path = pathAndLabel.getKey();
+                    String label = pathAndLabel.getValue().getFirst();
+                    String code = pathAndLabel.getValue().getSecond();
+                    String pattern = "";
+                    String examples = "";
+                    if (!label.equals(lastLabel)) {
+                        lastLabel = label;
+                        if (!pluralOnly) {
+                            if (isVerbose()) {
+                                System.out.println();
+                            }
+                        }
+                    }
+                    if (path.startsWith(unused)) {
+                        pattern = "🚫  Not used with formatted units";
+                    } else {
+                        pattern = cldrFile.getStringValue(path);
+                        if (pattern == null) {
+                            warnln("Missing ExampleGenerator html example for " + locale + "(" + localeName + "): " + path);
+                            continue;
+                        }
+                        String actualRaw = exampleGenerator.getExampleHtml(path, pattern);
+                        String actualSimplified = ExampleGenerator.simplify(actualRaw, false);
+                        examples = actualSimplified
+                            .replace("〗〖", "\t")
+                            .replace("〗", "")
+                            .replace("〖", "")
+                            ;
+                        List<String> exampleList = com.google.common.base.Splitter.on('\t').trimResults().splitToList(examples);
+                        final int exampleListSize = exampleList.size();
+                        switch(exampleListSize) {
+                        case 2: // ok
+                            break;
+                        case 1:
+                            warnln("Expecting exactly 2 examples: " + exampleList + ", but got " + exampleListSize);
+                            break;
+                        default:
+                            errln("Expecting exactly 2 examples: " + exampleList + ", but got " + exampleListSize);
+                            break;
+                        }
+                        StringBuilder exampleBuffer = new StringBuilder();
+                        for (String exampleItem : exampleList) {
+                            if (exampleItem.contains("❬null❭") || exampleItem.contains("❬n/a❭")) {
+                                boolean bad = (exampleItem.contains("❌"));
+                                exampleItem = "🆖  No unit available";
+                                if (bad) {
+                                    exampleItem = "❌  " + exampleItem;
+                                }
+                            }
+                            if (exampleBuffer.length() != 0) {
+                                exampleBuffer.append('\t');
+                            }
+                            exampleBuffer.append(exampleItem);
+                        }
+                        examples = exampleBuffer.toString();
+                    }
+                    String line = (locale
+                        + "\t" + localeName
+                        + "\t" + label
+                        + "\t" + code
+                        + "\t" + pattern
+                        + "\t" + examples);
+                    if (pluralOnly) {
+                        pluralSheet.add(line);
+                    } else {
+                        if (isVerbose()) {
+                            System.out.println(line);
+                        }
+                    }
+                }
+            }
+            if (pluralOnly) {
+                pluralSheet.add("");
+            } else if (isVerbose()) {
+                System.out.println();
+            }
+        }
+        if (isVerbose()) {
+            System.out.println("#################### Plural Only ###################");
+            for (String line : pluralSheet) {
+                System.out.println(line);
+            }
+        }
+    }
 }

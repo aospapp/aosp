@@ -56,6 +56,7 @@ public class Utils {
     public static final String COMPARE_SCREENSHOT_KEY = "compare_screenshot";
     public static final String DISPLAY_WIDTH_KEY = "display_width";
     public static final String DISPLAY_HEIGHT_KEY = "dislay_height";
+    public static final String DISPLAY_AREA_BOUNDS_KEY = "display_area_bounds";
     public static final String SCROLL_X_POSITION = "scroll_x_position";
     public static final String SCROLL_Y_POSITION = "scroll_y_position";
     public static final String SHOW_SESSION_FLAGS_TO_SET = "show_session_flags_to_set";
@@ -82,9 +83,9 @@ public class Utils {
     // slower.
 
     /** Timeout for getting back assist context */
-    public static final int TIMEOUT_MS = 4 * 1_000;
+    public static final int TIMEOUT_MS = 6 * 1_000;
     /** Timeout for an activity to resume */
-    public static final int ACTIVITY_ONRESUME_TIMEOUT_MS = 8 * 1_000;
+    public static final int ACTIVITY_ONRESUME_TIMEOUT_MS = 12 * 1_000;
 
     public static final String EXTRA_REGISTER_RECEIVER = "register_receiver";
 

@@ -24,12 +24,12 @@
 
 #include "DrmCrtc.h"
 #include "DrmProperty.h"
-#include "drmhwcomposer.h"
+#include "compositor/LayerData.h"
 
 namespace android {
 
 class DrmDevice;
-struct DrmHwcLayer;
+struct LayerData;
 
 class DrmPlane : public PipelineBindable<DrmPlane> {
  public:
@@ -40,7 +40,7 @@ class DrmPlane : public PipelineBindable<DrmPlane> {
       -> std::unique_ptr<DrmPlane>;
 
   bool IsCrtcSupported(const DrmCrtc &crtc) const;
-  bool IsValidForLayer(DrmHwcLayer *layer);
+  bool IsValidForLayer(LayerData *layer);
 
   auto GetType() const {
     return type_;
@@ -49,7 +49,7 @@ class DrmPlane : public PipelineBindable<DrmPlane> {
   bool IsFormatSupported(uint32_t format) const;
   bool HasNonRgbFormat() const;
 
-  auto AtomicSetState(drmModeAtomicReq &pset, DrmHwcLayer &layer, uint32_t zpos,
+  auto AtomicSetState(drmModeAtomicReq &pset, LayerData &layer, uint32_t zpos,
                       uint32_t crtc_id) -> int;
   auto AtomicDisablePlane(drmModeAtomicReq &pset) -> int;
   auto &GetZPosProperty() const {
@@ -94,10 +94,10 @@ class DrmPlane : public PipelineBindable<DrmPlane> {
   DrmProperty color_encoding_propery_;
   DrmProperty color_range_property_;
 
-  std::map<DrmHwcBlending, uint64_t> blending_enum_map_;
-  std::map<DrmHwcColorSpace, uint64_t> color_encoding_enum_map_;
-  std::map<DrmHwcSampleRange, uint64_t> color_range_enum_map_;
-  std::map<DrmHwcTransform, uint64_t> transform_enum_map_;
+  std::map<BufferBlendMode, uint64_t> blending_enum_map_;
+  std::map<BufferColorSpace, uint64_t> color_encoding_enum_map_;
+  std::map<BufferSampleRange, uint64_t> color_range_enum_map_;
+  std::map<LayerTransform, uint64_t> transform_enum_map_;
 };
 }  // namespace android
 

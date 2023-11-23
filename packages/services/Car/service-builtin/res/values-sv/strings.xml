@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"bind till projektionstjänst"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"Innehavaren tillåts att binda till den översta nivåns gränssnitt för en projektionstjänst. Ska inte behövas för vanliga appar."</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"VMS-klienttjänst"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"Bind till VMS-klienter"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"Rendering på digital instrumentbräda"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"Ta emot data från bilens digitala instrumentbräda"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"Indatatjänst för bilen"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"Hantera indatahändelser"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"Du kan inte använda funktionen medan du kör"</string>
     <string name="exit_button_message" msgid="5375678491245394542">"Välj <xliff:g id="EXIT_BUTTON">%s</xliff:g> om du vill starta om appen med säkra funktioner."</string>
     <string name="exit_button" msgid="3491899413031549265">"Tillbaka"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"Enheten kommer att rensas"</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"Det går inte att använda administratörsappen. Enheten rensas.\n\nKontakta organisationens administratör om du har några frågor."</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> påverkar systemprestandan."</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"Inaktivera appen för att förbättra systemprestandan. Du kan aktivera appen på nytt i inställningarna."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"Prioritera appen för att fortsätta använda den."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"Avinstallera appen för att förbättra systemprestandan."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"Inaktivera app"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"Appen hindras från att köras i bakgrunden. Prioritera appen för att fortsätta använda den i bakgrunden."</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"Stäng"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"Prioritera app"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"Avinstallera app"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> har inaktiverats. Du kan aktivera den på nytt i inställningarna."</string>
 </resources>

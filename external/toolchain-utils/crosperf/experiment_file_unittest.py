@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
+# Copyright 2011 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """The unittest of experiment_file."""
-from __future__ import print_function
 
 import io
 import unittest
 
 from experiment_file import ExperimentFile
+
 
 EXPERIMENT_FILE_1 = """
   board: x86-alex
@@ -158,94 +158,111 @@ label: image2 {
 
 
 class ExperimentFileTest(unittest.TestCase):
-  """The main class for Experiment File test."""
+    """The main class for Experiment File test."""
 
-  def testLoadExperimentFile1(self):
-    input_file = io.StringIO(EXPERIMENT_FILE_1)
-    experiment_file = ExperimentFile(input_file)
-    global_settings = experiment_file.GetGlobalSettings()
-    self.assertEqual(global_settings.GetField('remote'), ['chromeos-alex3'])
-    self.assertEqual(
-        global_settings.GetField('perf_args'), 'record -a -e cycles')
-    benchmark_settings = experiment_file.GetSettings('benchmark')
-    self.assertEqual(len(benchmark_settings), 1)
-    self.assertEqual(benchmark_settings[0].name, 'PageCycler')
-    self.assertEqual(benchmark_settings[0].GetField('iterations'), 3)
+    def testLoadExperimentFile1(self):
+        input_file = io.StringIO(EXPERIMENT_FILE_1)
+        experiment_file = ExperimentFile(input_file)
+        global_settings = experiment_file.GetGlobalSettings()
+        self.assertEqual(global_settings.GetField("remote"), ["chromeos-alex3"])
+        self.assertEqual(
+            global_settings.GetField("perf_args"), "record -a -e cycles"
+        )
+        benchmark_settings = experiment_file.GetSettings("benchmark")
+        self.assertEqual(len(benchmark_settings), 1)
+        self.assertEqual(benchmark_settings[0].name, "PageCycler")
+        self.assertEqual(benchmark_settings[0].GetField("iterations"), 3)
 
-    label_settings = experiment_file.GetSettings('label')
-    self.assertEqual(len(label_settings), 2)
-    self.assertEqual(label_settings[0].name, 'image1')
-    self.assertEqual(label_settings[0].GetField('chromeos_image'),
-                     '/usr/local/google/cros_image1.bin')
-    self.assertEqual(label_settings[1].GetField('remote'), ['chromeos-lumpy1'])
-    self.assertEqual(label_settings[0].GetField('remote'), ['chromeos-alex3'])
+        label_settings = experiment_file.GetSettings("label")
+        self.assertEqual(len(label_settings), 2)
+        self.assertEqual(label_settings[0].name, "image1")
+        self.assertEqual(
+            label_settings[0].GetField("chromeos_image"),
+            "/usr/local/google/cros_image1.bin",
+        )
+        self.assertEqual(
+            label_settings[1].GetField("remote"), ["chromeos-lumpy1"]
+        )
+        self.assertEqual(
+            label_settings[0].GetField("remote"), ["chromeos-alex3"]
+        )
 
-  def testOverrideSetting(self):
-    input_file = io.StringIO(EXPERIMENT_FILE_2)
-    experiment_file = ExperimentFile(input_file)
-    global_settings = experiment_file.GetGlobalSettings()
-    self.assertEqual(global_settings.GetField('remote'), ['chromeos-alex3'])
+    def testOverrideSetting(self):
+        input_file = io.StringIO(EXPERIMENT_FILE_2)
+        experiment_file = ExperimentFile(input_file)
+        global_settings = experiment_file.GetGlobalSettings()
+        self.assertEqual(global_settings.GetField("remote"), ["chromeos-alex3"])
 
-    benchmark_settings = experiment_file.GetSettings('benchmark')
-    self.assertEqual(len(benchmark_settings), 2)
-    self.assertEqual(benchmark_settings[0].name, 'PageCycler')
-    self.assertEqual(benchmark_settings[0].GetField('iterations'), 3)
-    self.assertEqual(benchmark_settings[1].name, 'AndroidBench')
-    self.assertEqual(benchmark_settings[1].GetField('iterations'), 2)
+        benchmark_settings = experiment_file.GetSettings("benchmark")
+        self.assertEqual(len(benchmark_settings), 2)
+        self.assertEqual(benchmark_settings[0].name, "PageCycler")
+        self.assertEqual(benchmark_settings[0].GetField("iterations"), 3)
+        self.assertEqual(benchmark_settings[1].name, "AndroidBench")
+        self.assertEqual(benchmark_settings[1].GetField("iterations"), 2)
 
-  def testDuplicateLabel(self):
-    input_file = io.StringIO(EXPERIMENT_FILE_3)
-    self.assertRaises(Exception, ExperimentFile, input_file)
+    def testDuplicateLabel(self):
+        input_file = io.StringIO(EXPERIMENT_FILE_3)
+        self.assertRaises(Exception, ExperimentFile, input_file)
 
-  def testDuplicateBenchmark(self):
-    input_file = io.StringIO(EXPERIMENT_FILE_4)
-    experiment_file = ExperimentFile(input_file)
-    benchmark_settings = experiment_file.GetSettings('benchmark')
-    self.assertEqual(benchmark_settings[0].name, 'webrtc')
-    self.assertEqual(benchmark_settings[0].GetField('test_args'),
-                     '--story-filter=datachannel')
-    self.assertEqual(benchmark_settings[1].name, 'webrtc')
-    self.assertEqual(benchmark_settings[1].GetField('test_args'),
-                     '--story-tag-filter=smoothness')
+    def testDuplicateBenchmark(self):
+        input_file = io.StringIO(EXPERIMENT_FILE_4)
+        experiment_file = ExperimentFile(input_file)
+        benchmark_settings = experiment_file.GetSettings("benchmark")
+        self.assertEqual(benchmark_settings[0].name, "webrtc")
+        self.assertEqual(
+            benchmark_settings[0].GetField("test_args"),
+            "--story-filter=datachannel",
+        )
+        self.assertEqual(benchmark_settings[1].name, "webrtc")
+        self.assertEqual(
+            benchmark_settings[1].GetField("test_args"),
+            "--story-tag-filter=smoothness",
+        )
 
-  def testCanonicalize(self):
-    input_file = io.StringIO(EXPERIMENT_FILE_1)
-    experiment_file = ExperimentFile(input_file)
-    res = experiment_file.Canonicalize()
-    self.assertEqual(res, OUTPUT_FILE)
+    def testCanonicalize(self):
+        input_file = io.StringIO(EXPERIMENT_FILE_1)
+        experiment_file = ExperimentFile(input_file)
+        res = experiment_file.Canonicalize()
+        self.assertEqual(res, OUTPUT_FILE)
 
-  def testLoadDutConfigExperimentFile_Good(self):
-    input_file = io.StringIO(DUT_CONFIG_EXPERIMENT_FILE_GOOD)
-    experiment_file = ExperimentFile(input_file)
-    global_settings = experiment_file.GetGlobalSettings()
-    self.assertEqual(global_settings.GetField('turbostat'), False)
-    self.assertEqual(global_settings.GetField('intel_pstate'), 'no_hwp')
-    self.assertEqual(global_settings.GetField('governor'), 'powersave')
-    self.assertEqual(global_settings.GetField('cpu_usage'), 'exclusive_cores')
-    self.assertEqual(global_settings.GetField('cpu_freq_pct'), 50)
-    self.assertEqual(global_settings.GetField('cooldown_time'), 5)
-    self.assertEqual(global_settings.GetField('cooldown_temp'), 38)
-    self.assertEqual(global_settings.GetField('top_interval'), 5)
+    def testLoadDutConfigExperimentFile_Good(self):
+        input_file = io.StringIO(DUT_CONFIG_EXPERIMENT_FILE_GOOD)
+        experiment_file = ExperimentFile(input_file)
+        global_settings = experiment_file.GetGlobalSettings()
+        self.assertEqual(global_settings.GetField("turbostat"), False)
+        self.assertEqual(global_settings.GetField("intel_pstate"), "no_hwp")
+        self.assertEqual(global_settings.GetField("governor"), "powersave")
+        self.assertEqual(
+            global_settings.GetField("cpu_usage"), "exclusive_cores"
+        )
+        self.assertEqual(global_settings.GetField("cpu_freq_pct"), 50)
+        self.assertEqual(global_settings.GetField("cooldown_time"), 5)
+        self.assertEqual(global_settings.GetField("cooldown_temp"), 38)
+        self.assertEqual(global_settings.GetField("top_interval"), 5)
 
-  def testLoadDutConfigExperimentFile_WrongGovernor(self):
-    input_file = io.StringIO(DUT_CONFIG_EXPERIMENT_FILE_BAD_GOV)
-    with self.assertRaises(RuntimeError) as msg:
-      ExperimentFile(input_file)
-    self.assertRegex(str(msg.exception), 'governor: misspelled_governor')
-    self.assertRegex(
-        str(msg.exception), "Invalid enum value for field 'governor'."
-        r' Must be one of \(performance, powersave, userspace, ondemand,'
-        r' conservative, schedutils, sched, interactive\)')
+    def testLoadDutConfigExperimentFile_WrongGovernor(self):
+        input_file = io.StringIO(DUT_CONFIG_EXPERIMENT_FILE_BAD_GOV)
+        with self.assertRaises(RuntimeError) as msg:
+            ExperimentFile(input_file)
+        self.assertRegex(str(msg.exception), "governor: misspelled_governor")
+        self.assertRegex(
+            str(msg.exception),
+            "Invalid enum value for field 'governor'."
+            r" Must be one of \(performance, powersave, userspace, ondemand,"
+            r" conservative, schedutils, sched, interactive\)",
+        )
 
-  def testLoadDutConfigExperimentFile_WrongCpuUsage(self):
-    input_file = io.StringIO(DUT_CONFIG_EXPERIMENT_FILE_BAD_CPUUSE)
-    with self.assertRaises(RuntimeError) as msg:
-      ExperimentFile(input_file)
-    self.assertRegex(str(msg.exception), 'cpu_usage: unknown')
-    self.assertRegex(
-        str(msg.exception), "Invalid enum value for field 'cpu_usage'."
-        r' Must be one of \(all, big_only, little_only, exclusive_cores\)')
+    def testLoadDutConfigExperimentFile_WrongCpuUsage(self):
+        input_file = io.StringIO(DUT_CONFIG_EXPERIMENT_FILE_BAD_CPUUSE)
+        with self.assertRaises(RuntimeError) as msg:
+            ExperimentFile(input_file)
+        self.assertRegex(str(msg.exception), "cpu_usage: unknown")
+        self.assertRegex(
+            str(msg.exception),
+            "Invalid enum value for field 'cpu_usage'."
+            r" Must be one of \(all, big_only, little_only, exclusive_cores\)",
+        )
 
 
-if __name__ == '__main__':
-  unittest.main()
+if __name__ == "__main__":
+    unittest.main()

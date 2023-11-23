@@ -83,6 +83,7 @@ class Variant {
       : type_(TYPE_STRING_VARIANT_MAP_VALUE),
         string_variant_map_value_(value) {}
 
+  Variant(const Variant&) = default;
   Variant& operator=(const Variant&) = default;
 
   template <class T>

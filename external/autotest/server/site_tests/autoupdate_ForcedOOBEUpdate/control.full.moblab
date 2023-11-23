@@ -10,6 +10,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:au_fsi"
+PY_VERSION = 3
 DOC = """
 This tests the forced autoupdate flow at OOBE.
 

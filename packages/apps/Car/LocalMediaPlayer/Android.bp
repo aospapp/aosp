@@ -42,6 +42,8 @@ android_app {
     platform_apis: true,
     certificate: "platform",
     privileged: true,
+    min_sdk_version: "26",
+    target_sdk_version: "current",
     static_libs: [
         "LocalMediaPlayer-proto",
         "androidx.legacy_legacy-support-v4",

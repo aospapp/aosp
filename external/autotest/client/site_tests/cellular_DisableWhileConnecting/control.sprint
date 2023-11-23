@@ -15,6 +15,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
 TEST_TYPE = "client"
 DEPENDENCIES = "carrier:sprint"
+PY_VERSION = 3
 
 DOC = """
 Check that the 3G modem can handle a disconnect while connecting.

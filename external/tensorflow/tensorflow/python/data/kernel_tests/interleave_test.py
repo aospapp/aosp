@@ -13,10 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for `tf.data.Dataset.interleave()`."""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import multiprocessing
 import os
 
@@ -60,12 +56,18 @@ def _interleave(lists, cycle_length, block_length, num_parallel_calls=None):
   open_iterators = []
   if cycle_length is None:
     # The logic here needs to match interleave C++ kernels.
+    cpu_count = multiprocessing.cpu_count()
+    if hasattr(os, "sched_getaffinity"):
+      try:
+        cpu_count = len(os.sched_getaffinity(0))
+      except NotImplementedError:
+        pass
     if num_parallel_calls is None:
-      cycle_length = multiprocessing.cpu_count()
+      cycle_length = cpu_count
     elif num_parallel_calls == dataset_ops.AUTOTUNE:
-      cycle_length = (multiprocessing.cpu_count() + 2) // 3
+      cycle_length = (cpu_count + 2) // 3
     else:
-      cycle_length = min(num_parallel_calls, multiprocessing.cpu_count())
+      cycle_length = min(num_parallel_calls, cpu_count)
 
   for i in range(cycle_length):
     if all_iterators:
@@ -356,6 +358,91 @@ class InterleaveTest(test_base.DatasetTestBase, parameterized.TestCase):
       return dataset
 
     self.checkDeterminism(dataset_fn, expect_determinism, elements)
+
+  @combinations.generate(
+      combinations.times(test_base.default_test_combinations(),
+                         combinations.combine(num_parallel_calls=[None, 1])))
+  def testName(self, num_parallel_calls):
+
+    def fn(x):
+      return dataset_ops.Dataset.from_tensors(x)
+
+    dataset = dataset_ops.Dataset.from_tensors(42).interleave(
+        fn, num_parallel_calls=num_parallel_calls, name="interleave")
+    self.assertDatasetProduces(dataset, [42])
+
+  @combinations.generate(
+      combinations.times(test_base.default_test_combinations(),
+                         combinations.combine(num_parallel_calls=[None, 1])))
+  def testMapFuncMustReturnDataset(self, num_parallel_calls):
+
+    def map_fn(x):
+      return [x]
+
+    with self.assertRaisesRegex(
+        TypeError, "The `map_func` argument must return a `Dataset` object."):
+      dataset_ops.Dataset.from_tensors(42).interleave(
+          map_fn, num_parallel_calls=num_parallel_calls)
+
+
+class InterleaveDatasetCheckpointTest(checkpoint_test_base.CheckpointTestBase,
+                                      parameterized.TestCase):
+
+  @combinations.generate(
+      combinations.times(
+          test_base.default_test_combinations(),
+          checkpoint_test_base.default_test_combinations(),
+          combinations.combine(
+              cycle_length=2,
+              block_length=[1, 3],
+              num_parallel_calls=[None, 1, 2])))
+  def test(self, verify_fn, cycle_length, block_length, num_parallel_calls):
+
+    num_repeats = 2
+    input_values = np.array([2, 3], dtype=np.int64)
+
+    def _build_dataset():
+      return dataset_ops.Dataset.from_tensor_slices(input_values).repeat(
+          num_repeats).interleave(
+              lambda x: dataset_ops.Dataset.from_tensors(x).repeat(x),
+              cycle_length, block_length, num_parallel_calls)
+
+    num_outputs = np.sum(input_values) * num_repeats
+    verify_fn(self, _build_dataset, num_outputs)
+
+  @combinations.generate(
+      combinations.times(test_base.default_test_combinations(),
+                         checkpoint_test_base.default_test_combinations(),
+                         combinations.combine(num_parallel_calls=[None, 2])))
+  def testNested(self, verify_fn, num_parallel_calls):
+
+    def build_ds():
+
+      inner_ds = dataset_ops.Dataset.from_tensor_slices(range(10))
+      ds = dataset_ops.Dataset.from_tensors(inner_ds).repeat(10)
+      return ds.interleave(
+          lambda x: x, cycle_length=5, num_parallel_calls=num_parallel_calls)
+
+    verify_fn(self, build_ds, num_outputs=100)
+
+  @combinations.generate(
+      combinations.times(test_base.default_test_combinations(),
+                         checkpoint_test_base.default_test_combinations()))
+  def testSparse(self, verify_fn):
+
+    def _map_fn(i):
+      return sparse_tensor.SparseTensorValue(
+          indices=[[0, 0], [1, 1]], values=(i * [1, -1]), dense_shape=[2, 2])
+
+    def _interleave_fn(x):
+      return dataset_ops.Dataset.from_tensor_slices(
+          sparse_ops.sparse_to_dense(x.indices, x.dense_shape, x.values))
+
+    def _build_dataset():
+      return dataset_ops.Dataset.range(10).map(_map_fn).interleave(
+          _interleave_fn, cycle_length=1)
+
+    verify_fn(self, _build_dataset, num_outputs=20)
 
 
 class InterleaveDatasetCheckpointTest(checkpoint_test_base.CheckpointTestBase,

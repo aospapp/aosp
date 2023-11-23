@@ -25,8 +25,8 @@ from aidegen.lib import common_util
 from aidegen.lib import module_info
 from aidegen.lib import module_info_util
 
+
 # pylint: disable=protected-access
-#pylint: disable=invalid-name
 class AidegenModuleInfoUnittests(unittest.TestCase):
     """Unit tests for module_info.py"""
 
@@ -48,29 +48,29 @@ class AidegenModuleInfoUnittests(unittest.TestCase):
 
     def test_is_project_path_relative_module(self):
         """Test is_project_path_relative_module handling."""
-        mod_info = {'class':['APPS']}
+        mod_info = {'class': ['APPS']}
         self.assertFalse(
             module_info.AidegenModuleInfo.is_project_path_relative_module(
                 mod_info, ''))
-        mod_info = {'class':['APPS'], 'path':[]}
+        mod_info = {'class': ['APPS'], 'path': []}
         self.assertFalse(
             module_info.AidegenModuleInfo.is_project_path_relative_module(
                 mod_info, ''))
-        mod_info = {'class':['APPS'], 'path':['path_to_a']}
+        mod_info = {'class': ['APPS'], 'path': ['path_to_a']}
         self.assertTrue(
             module_info.AidegenModuleInfo.is_project_path_relative_module(
                 mod_info, ''))
         self.assertFalse(
             module_info.AidegenModuleInfo.is_project_path_relative_module(
                 mod_info, 'test'))
-        mod_info = {'path':['path_to_a']}
+        mod_info = {'path': ['path_to_a']}
         self.assertFalse(
             module_info.AidegenModuleInfo.is_project_path_relative_module(
                 mod_info, 'test'))
         self.assertFalse(
             module_info.AidegenModuleInfo.is_project_path_relative_module(
                 mod_info, 'path_to_a'))
-        mod_info = {'class':['APPS'], 'path':['test/path_to_a']}
+        mod_info = {'class': ['APPS'], 'path': ['test/path_to_a']}
         self.assertTrue(
             module_info.AidegenModuleInfo.is_project_path_relative_module(
                 mod_info, 'test'))
@@ -114,11 +114,13 @@ class AidegenModuleInfoUnittests(unittest.TestCase):
                        '_discover_mod_file_and_target')
     def test_load_module_info_file(self, mock_discover):
         """Test _load_module_info_file with conditions."""
-        json_path = 'test_data/out/soong/merged_module_info.json'
+        json_path = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                                 'test_data/out/soong/merged_module_info.json')
         # Test file exist case.
         module_file = json_path
         module_info.AidegenModuleInfo._load_module_info_file(self, module_file)
         self.assertFalse(mock_discover.called)
+
 
 if __name__ == '__main__':
     unittest.main()

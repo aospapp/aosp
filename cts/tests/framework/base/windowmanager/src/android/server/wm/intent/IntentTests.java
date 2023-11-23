@@ -26,7 +26,6 @@ import android.platform.test.annotations.Presubmit;
 import android.server.wm.intent.Persistence.IntentFlag;
 import android.server.wm.intent.Persistence.TestCase;
 
-import androidx.test.filters.FlakyTest;
 import androidx.test.filters.LargeTest;
 
 import com.google.common.collect.Lists;
@@ -62,7 +61,6 @@ import java.util.stream.Collectors;
  * Build/Install/Run:
  * atest CtsWindowManagerDeviceTestCases:IntentTests
  */
-@FlakyTest(detail = "Promote once confirmed non-flaky")
 @Presubmit
 @LargeTest
 @RunWith(Parameterized.class)

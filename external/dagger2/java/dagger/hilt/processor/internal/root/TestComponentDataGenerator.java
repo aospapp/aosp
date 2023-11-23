@@ -44,15 +44,18 @@ import javax.lang.model.element.TypeElement;
 /** Generates an implementation of {@link dagger.hilt.android.internal.TestComponentData}. */
 public final class TestComponentDataGenerator {
   private final ProcessingEnvironment processingEnv;
+  private final TypeElement originatingElement;
   private final RootMetadata rootMetadata;
   private final ClassName name;
   private final ComponentNames componentNames;
 
   public TestComponentDataGenerator(
       ProcessingEnvironment processingEnv,
+      TypeElement originatingElement,
       RootMetadata rootMetadata,
       ComponentNames componentNames) {
     this.processingEnv = processingEnv;
+    this.originatingElement = originatingElement;
     this.rootMetadata = rootMetadata;
     this.componentNames = componentNames;
     this.name =
@@ -75,7 +78,8 @@ public final class TestComponentDataGenerator {
    *         modules ->
    *             DaggerFooTest_ApplicationComponent.builder()
    *                 .applicationContextModule(
-   *                     new ApplicationContextModule(ApplicationProvider.getApplicationContext()))
+   *                     new ApplicationContextModule(
+   *                         Contexts.getApplication(ApplicationProvider.getApplicationContext())))
    *                 .testModule((FooTest.TestModule) modules.get(FooTest.TestModule.class))
    *                 .testModule(modules.containsKey(FooTest.TestModule.class)
    *                   ? (FooTest.TestModule) modules.get(FooTest.TestModule.class)
@@ -88,6 +92,7 @@ public final class TestComponentDataGenerator {
   public void generate() throws IOException {
     TypeSpec.Builder generator =
         TypeSpec.classBuilder(name)
+            .addOriginatingElement(originatingElement)
             .superclass(ClassNames.TEST_COMPONENT_DATA_SUPPLIER)
             .addModifiers(PUBLIC, FINAL)
             .addMethod(getMethod())
@@ -105,10 +110,7 @@ public final class TestComponentDataGenerator {
     TypeElement testElement = rootMetadata.testRootMetadata().testElement();
     ClassName component =
         componentNames.generatedComponent(
-            rootMetadata.canShareTestComponents()
-                ? ClassNames.DEFAULT_ROOT
-                : ClassName.get(testElement),
-            ClassNames.SINGLETON_COMPONENT);
+            ClassName.get(testElement), ClassNames.SINGLETON_COMPONENT);
     ImmutableSet<TypeElement> daggerRequiredModules =
         rootMetadata.modulesThatDaggerCannotConstruct(ClassNames.SINGLETON_COMPONENT);
     ImmutableSet<TypeElement> hiltRequiredModules =
@@ -128,11 +130,13 @@ public final class TestComponentDataGenerator {
             getElementsListed(hiltRequiredModules),
             CodeBlock.of(
                 "(modules, testInstance, autoAddModuleEnabled) -> $T.builder()\n"
-                    + ".applicationContextModule(new $T($T.getApplicationContext()))\n"
+                    + ".applicationContextModule(\n"
+                    + "    new $T($T.getApplication($T.getApplicationContext())))\n"
                     + "$L"
                     + ".build()",
                 Processors.prepend(Processors.getEnclosedClassName(component), "Dagger"),
                 ClassNames.APPLICATION_CONTEXT_MODULE,
+                ClassNames.CONTEXTS,
                 ClassNames.APPLICATION_PROVIDER,
                 daggerRequiredModules.stream()
                     .map(module -> getAddModuleStatement(module, testElement))
@@ -216,9 +220,10 @@ public final class TestComponentDataGenerator {
 
   private CodeBlock callInjectTest(TypeElement testElement) {
     return CodeBlock.of(
-        "(($T) (($T) $T.getApplicationContext()).generatedComponent()).injectTest(testInstance)",
+        "(($T) (($T) $T.getApplication($T.getApplicationContext())).generatedComponent()).injectTest(testInstance)",
         rootMetadata.testRootMetadata().testInjectorName(),
         ClassNames.GENERATED_COMPONENT_MANAGER,
+        ClassNames.CONTEXTS,
         ClassNames.APPLICATION_PROVIDER);
   }
 }

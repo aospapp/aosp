@@ -190,14 +190,18 @@ public class A2dpSinkService extends ProfileService {
     }
 
     //Binder object: Must be static class or memory leak may occur
-    private static class A2dpSinkServiceBinder extends IBluetoothA2dpSink.Stub
+    @VisibleForTesting
+    static class A2dpSinkServiceBinder extends IBluetoothA2dpSink.Stub
             implements IProfileServiceBinder {
         private A2dpSinkService mService;
 
         @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
         private A2dpSinkService getService(AttributionSource source) {
-            if (!Utils.checkCallerIsSystemOrActiveUser(TAG)
-                    || !Utils.checkServiceAvailable(mService, TAG)
+            if (Utils.isInstrumentationTestMode()) {
+                return mService;
+            }
+            if (!Utils.checkServiceAvailable(mService, TAG)
+                    || !Utils.checkCallerIsSystemOrActiveOrManagedUser(mService, TAG)
                     || !Utils.checkConnectPermissionForDataDelivery(mService, source, TAG)) {
                 return null;
             }
@@ -370,7 +374,7 @@ public class A2dpSinkService extends ProfileService {
                     + ", InstanceMap start state: " + sb.toString());
         }
         if (getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
-            Log.w(TAG, "Connection not allowed: <" + device.getAddress()
+            Log.w(TAG, "Connection not allowed: <" + device
                     + "> is CONNECTION_POLICY_FORBIDDEN");
             return false;
         }

@@ -17,6 +17,8 @@ load(
     "pw_cc_library",
     "pw_cc_test",
 )
+load("//pw_protobuf_compiler:proto.bzl", "pw_proto_library")
+load("//pw_build/bazel_internal:py_proto_library.bzl", "py_proto_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -50,15 +52,74 @@ pw_cc_library(
     ],
 )
 
+# Common MetricWalker/MetricWriter used by RPC service.
+pw_cc_library(
+    name = "metric_walker",
+    hdrs = ["pw_metric_private/metric_walker.h"],
+    visibility = ["//visibility:private"],
+    deps = [
+        ":metric",
+        "//pw_assert",
+        "//pw_containers",
+        "//pw_status",
+        "//pw_tokenizer",
+    ],
+)
+
 pw_cc_library(
     name = "metric_service_nanopb",
     srcs = ["metric_service_nanopb.cc"],
-    hdrs = [
-        "public/pw_metric/metric_service_nanopb.h",
+    hdrs = ["public/pw_metric/metric_service_nanopb.h"],
+    # TODO(b/258078909): Get this target to build.
+    tags = ["manual"],
+    deps = [
+        ":metric",
+        ":metric_proto_cc.nanopb_rpc",
+        ":metric_walker",
+    ],
+)
+
+pw_cc_library(
+    name = "metric_service_pwpb",
+    srcs = ["metric_service_pwpb.cc"],
+    hdrs = ["public/pw_metric/metric_service_pwpb.h"],
+    includes = [
+        "metric_proto_cc.pwpb.pb/pw_metric",
+        "metric_proto_cc.raw_rpc.pb/pw_metric",
     ],
     deps = [
         ":metric",
+        ":metric_proto_cc.pwpb",
+        ":metric_proto_cc.pwpb_rpc",
+        ":metric_proto_cc.raw_rpc",
+        ":metric_walker",
+        "//pw_assert",
+        "//pw_bytes",
+        "//pw_containers",
+        "//pw_preprocessor",
+        "//pw_rpc/raw:server_api",
+        "//pw_span",
+        "//pw_status",
     ],
+)
+
+proto_library(
+    name = "metric_proto",
+    srcs = [
+        "pw_metric_proto/metric_service.proto",
+    ],
+)
+
+# TODO(b/241456982): Not expected to build yet.
+py_proto_library(
+    name = "metric_proto_py_pb2",
+    tags = ["manual"],
+    deps = [":metric_proto"],
+)
+
+pw_proto_library(
+    name = "metric_proto_cc",
+    deps = [":metric_proto"],
 )
 
 pw_cc_test(
@@ -86,7 +147,21 @@ pw_cc_test(
     srcs = [
         "metric_service_nanopb_test.cc",
     ],
+    # TODO(b/258078909): Get this target to build.
+    tags = ["manual"],
     deps = [
         ":metric_service_nanopb",
+    ],
+)
+
+pw_cc_test(
+    name = "metric_service_pwpb_test",
+    srcs = [
+        "metric_service_pwpb_test.cc",
+    ],
+    deps = [
+        ":metric_service_pwpb",
+        "//pw_rpc/pwpb:test_method_context",
+        "//pw_rpc/raw:test_method_context",
     ],
 )

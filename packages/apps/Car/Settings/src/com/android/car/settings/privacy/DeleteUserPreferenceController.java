@@ -79,7 +79,7 @@ public class DeleteUserPreferenceController
     }
 
     @AvailabilityStatus
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return mRemoveProfileHandler.canRemoveProfile(mUserInfo) ? AVAILABLE
                 : AVAILABLE_FOR_VIEWING;
     }

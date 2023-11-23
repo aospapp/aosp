@@ -17,14 +17,16 @@ package android.car.apitest;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.testng.Assert.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import android.app.Service;
 import android.car.Car;
 import android.car.CarProjectionManager;
+import android.car.test.ApiCheckerRule.Builder;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
+import android.util.Log;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
@@ -47,7 +49,7 @@ public final class CarProjectionManagerTest extends CarApiTestBase {
             sBound = bound;
         }
 
-        public static synchronized boolean getBound() {
+        public static synchronized boolean isBound() {
             return sBound;
         }
 
@@ -55,10 +57,17 @@ public final class CarProjectionManagerTest extends CarApiTestBase {
         public IBinder onBind(Intent intent) {
             setBound(true);
             synchronized (mLock) {
-                mLock.notify();
+                mLock.notifyAll();
             }
             return mBinder;
         }
+    }
+
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        Log.w(TAG, "Disabling API requirements check");
+        builder.disableAnnotationsCheck();
     }
 
     @Before
@@ -84,7 +93,7 @@ public final class CarProjectionManagerTest extends CarApiTestBase {
     public void testRegisterProjectionRunner() throws Exception {
         Intent intent = new Intent(
                 InstrumentationRegistry.getInstrumentation().getContext(), TestService.class);
-        assertThat(TestService.getBound()).isFalse();
+        assertThat(TestService.isBound()).isFalse();
         mManager.registerProjectionRunner(intent);
         synchronized (TestService.mLock) {
             try {
@@ -93,7 +102,7 @@ public final class CarProjectionManagerTest extends CarApiTestBase {
                 // Do nothing
             }
         }
-        assertThat(TestService.getBound()).isTrue();
+        assertThat(TestService.isBound()).isTrue();
         mManager.unregisterProjectionRunner(intent);
     }
 }

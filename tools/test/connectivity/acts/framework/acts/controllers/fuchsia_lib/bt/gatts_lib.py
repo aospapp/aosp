@@ -18,10 +18,9 @@ from acts.controllers.fuchsia_lib.base_lib import BaseLib
 
 
 class FuchsiaGattsLib(BaseLib):
-    def __init__(self, addr, tc, client_id):
-        self.address = addr
-        self.test_counter = tc
-        self.client_id = client_id
+
+    def __init__(self, addr: str) -> None:
+        super().__init__(addr, "gatt_server")
 
     def publishServer(self, database):
         """Publishes services specified by input args
@@ -37,10 +36,8 @@ class FuchsiaGattsLib(BaseLib):
         test_args = {
             "database": database,
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def closeServer(self):
         """Closes an active GATT server.
@@ -50,7 +47,5 @@ class FuchsiaGattsLib(BaseLib):
         """
         test_cmd = "gatt_server_facade.GattServerCloseServer"
         test_args = {}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)

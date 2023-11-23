@@ -16,7 +16,7 @@
 
 #include "cha_guard_optimization.h"
 
-namespace art {
+namespace art HIDDEN {
 
 // Note we can only do CHA guard elimination/motion in a single pass, since
 // if a guard is not removed, another guard might be removed due to
@@ -200,6 +200,7 @@ bool CHAGuardVisitor::HoistGuard(HShouldDeoptimizeFlag* flag,
 
     block->RemoveInstruction(deopt);
     HInstruction* suspend = loop_info->GetSuspendCheck();
+    DCHECK(suspend != nullptr);
     // Need a new deoptimize instruction that copies the environment
     // of the suspend instruction for the loop.
     HDeoptimize* deoptimize = new (GetGraph()->GetAllocator()) HDeoptimize(

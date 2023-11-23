@@ -24,6 +24,7 @@
 
 #include "HashableDimensionKey.h"
 #include "packages/UidMap.h"
+#include "socket/LogEventFilter.h"
 #include "state/StateListener.h"
 #include "state/StateTracker.h"
 
@@ -35,7 +36,7 @@ namespace statsd {
  * This class is NOT thread safe.
  * It should only be used while StatsLogProcessor's lock is held.
  */
-class StateManager : public virtual RefBase {
+class StateManager {
 public:
     StateManager();
 
@@ -83,6 +84,8 @@ public:
         }
         return -1;
     }
+
+    void addAllAtomIds(LogEventFilter::AtomIdSet& allIds) const;
 
 private:
     mutable std::mutex mMutex;

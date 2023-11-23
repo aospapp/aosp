@@ -8,6 +8,7 @@ TIME = 'LENGTHY'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:wifi_atten_roam_perf'
 MAX_RESULT_SIZE_KB = 1024 * 1024
+PY_VERSION = 3
 
 DOC = '''
 Run Tast test which check WiFi roaming performance/correctness.

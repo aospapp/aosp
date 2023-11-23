@@ -21,25 +21,24 @@
 #include <base/at_exit.h>
 #include <base/command_line.h>
 #include <base/logging.h>
-#include <brillo/flag_helper.h>
+#include <gflags/gflags.h>
 
 #include "update_engine/common/daemon_base.h"
 #include "update_engine/common/logging.h"
 #include "update_engine/common/subprocess.h"
 #include "update_engine/common/terminator.h"
-#include "update_engine/common/utils.h"
 
 using std::string;
+DEFINE_bool(logtofile, false, "Write logs to a file in log_dir.");
+DEFINE_bool(logtostderr,
+            false,
+            "Write logs to stderr instead of to a file in log_dir.");
+DEFINE_bool(foreground, false, "Don't daemon()ize; run in foreground.");
 
 int main(int argc, char** argv) {
-  DEFINE_bool(logtofile, false, "Write logs to a file in log_dir.");
-  DEFINE_bool(logtostderr,
-              false,
-              "Write logs to stderr instead of to a file in log_dir.");
-  DEFINE_bool(foreground, false, "Don't daemon()ize; run in foreground.");
-
   chromeos_update_engine::Terminator::Init();
-  brillo::FlagHelper::Init(argc, argv, "A/B Update Engine");
+  gflags::SetUsageMessage("A/B Update Engine");
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   // We have two logging flags "--logtostderr" and "--logtofile"; and the logic
   // to choose the logging destination is:

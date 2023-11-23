@@ -20,7 +20,18 @@
     <string name="fast_pair_setup_in_progress" msgid="4158762239172829807">"సెటప్ ప్రారంభమవుతోంది…"</string>
     <string name="fast_pair_title_setup" msgid="2894360355540593246">"పరికరాన్ని సెటప్ చేయండి"</string>
     <string name="fast_pair_device_ready" msgid="2903490346082833101">"పరికరం కనెక్ట్ చేయబడింది"</string>
+    <string name="fast_pair_device_ready_with_device_name" msgid="2151967995692339422">"“%s”కు కనెక్ట్ చేయబడింది"</string>
     <string name="fast_pair_title_fail" msgid="5677174346601290232">"కనెక్ట్ చేయడం సాధ్యపడలేదు"</string>
+    <string name="fast_pair_unable_to_connect" msgid="3661854812014294569">"కనెక్ట్ చేయలేకపోయింది"</string>
+    <string name="fast_pair_unable_to_connect_description" msgid="3926830740860653891">"పరికరానికి మాన్యువల్‌గా పెయిరింగ్ చేయడానికి ట్రై చేయండి"</string>
+    <string name="fast_pair_turn_on_bt_device_pairing_mode" msgid="3197372738187738030">"పరికరాన్ని పెయిరింగ్ మోడ్‌లో ఉంచడానికి ట్రై చేయండి"</string>
+    <string name="devices_within_reach_channel_name" msgid="876280551450910440">"అందుబాటులో ఉన్న పరికరాలు"</string>
+    <string name="devices_with_your_account_channel_name" msgid="8120067812798598102">"మీ ఖాతా ఉన్న పరికరాలు"</string>
+    <string name="fast_pair_your_device" msgid="3662423897069320840">"మీ సేవ్ చేసిన పరికరం అందుబాటులో ఉంది"</string>
+    <string name="common_nearby_title" msgid="5480324514713607015">"సమీపం"</string>
+    <string name="common_devices" msgid="2635603125608104442">"పరికరాలు"</string>
+    <string name="common_connecting" msgid="160531481424245303">"కనెక్ట్ అవుతోంది…"</string>
+    <string name="common_battery_level" msgid="8748495823047456645">"బ్యాటరీ: %d%%"</string>
     <string name="paring_action_done" msgid="6888875159174470731">"పూర్తయింది"</string>
     <string name="paring_action_save" msgid="6259357442067880136">"సేవ్ చేయండి"</string>
     <string name="paring_action_connect" msgid="4801102939608129181">"కనెక్ట్ చేయండి"</string>

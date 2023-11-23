@@ -6,8 +6,8 @@ use std::ptr;
 
 use libc::{self, off_t};
 
-use crate::Result;
 use crate::errno::Errno;
+use crate::Result;
 
 /// Copy up to `count` bytes to `out_fd` from `in_fd` starting at `offset`.
 ///
@@ -22,6 +22,7 @@ use crate::errno::Errno;
 ///
 /// For more information, see [the sendfile(2) man page.](https://man7.org/linux/man-pages/man2/sendfile.2.html)
 #[cfg(any(target_os = "android", target_os = "linux"))]
+#[cfg_attr(docsrs, doc(cfg(all())))]
 pub fn sendfile(
     out_fd: RawFd,
     in_fd: RawFd,
@@ -48,6 +49,7 @@ pub fn sendfile(
 ///
 /// For more information, see [the sendfile(2) man page.](https://man7.org/linux/man-pages/man2/sendfile.2.html)
 #[cfg(target_os = "linux")]
+#[cfg_attr(docsrs, doc(cfg(all())))]
 pub fn sendfile64(
     out_fd: RawFd,
     in_fd: RawFd,
@@ -62,16 +64,17 @@ pub fn sendfile64(
 }
 
 cfg_if! {
-    if #[cfg(any(target_os = "freebsd",
+    if #[cfg(any(target_os = "dragonfly",
+                 target_os = "freebsd",
                  target_os = "ios",
                  target_os = "macos"))] {
-        use crate::sys::uio::IoVec;
+        use std::io::IoSlice;
 
-        #[derive(Clone, Debug, Eq, Hash, PartialEq)]
+        #[derive(Clone, Debug)]
         struct SendfileHeaderTrailer<'a>(
             libc::sf_hdtr,
-            Option<Vec<IoVec<&'a [u8]>>>,
-            Option<Vec<IoVec<&'a [u8]>>>,
+            Option<Vec<IoSlice<'a>>>,
+            Option<Vec<IoSlice<'a>>>,
         );
 
         impl<'a> SendfileHeaderTrailer<'a> {
@@ -79,10 +82,10 @@ cfg_if! {
                 headers: Option<&'a [&'a [u8]]>,
                 trailers: Option<&'a [&'a [u8]]>
             ) -> SendfileHeaderTrailer<'a> {
-                let header_iovecs: Option<Vec<IoVec<&[u8]>>> =
-                    headers.map(|s| s.iter().map(|b| IoVec::from_slice(b)).collect());
-                let trailer_iovecs: Option<Vec<IoVec<&[u8]>>> =
-                    trailers.map(|s| s.iter().map(|b| IoVec::from_slice(b)).collect());
+                let header_iovecs: Option<Vec<IoSlice<'_>>> =
+                    headers.map(|s| s.iter().map(|b| IoSlice::new(b)).collect());
+                let trailer_iovecs: Option<Vec<IoSlice<'_>>> =
+                    trailers.map(|s| s.iter().map(|b| IoSlice::new(b)).collect());
                 SendfileHeaderTrailer(
                     libc::sf_hdtr {
                         headers: {
@@ -179,6 +182,49 @@ cfg_if! {
                                hdtr_ptr as *mut libc::sf_hdtr,
                                &mut bytes_sent as *mut off_t,
                                flags as c_int)
+            };
+            (Errno::result(return_code).and(Ok(())), bytes_sent)
+        }
+    } else if #[cfg(target_os = "dragonfly")] {
+        /// Read up to `count` bytes from `in_fd` starting at `offset` and write to `out_sock`.
+        ///
+        /// Returns a `Result` and a count of bytes written. Bytes written may be non-zero even if
+        /// an error occurs.
+        ///
+        /// `in_fd` must describe a regular file. `out_sock` must describe a stream socket.
+        ///
+        /// If `offset` falls past the end of the file, the function returns success and zero bytes
+        /// written.
+        ///
+        /// If `count` is `None` or 0, bytes will be read from `in_fd` until reaching the end of
+        /// file (EOF).
+        ///
+        /// `headers` and `trailers` specify optional slices of byte slices to be sent before and
+        /// after the data read from `in_fd`, respectively. The length of headers and trailers sent
+        /// is included in the returned count of bytes written. The values of `offset` and `count`
+        /// do not apply to headers or trailers.
+        ///
+        /// For more information, see
+        /// [the sendfile(2) man page.](https://leaf.dragonflybsd.org/cgi/web-man?command=sendfile&section=2)
+        pub fn sendfile(
+            in_fd: RawFd,
+            out_sock: RawFd,
+            offset: off_t,
+            count: Option<usize>,
+            headers: Option<&[&[u8]]>,
+            trailers: Option<&[&[u8]]>,
+        ) -> (Result<()>, off_t) {
+            let mut bytes_sent: off_t = 0;
+            let hdtr = headers.or(trailers).map(|_| SendfileHeaderTrailer::new(headers, trailers));
+            let hdtr_ptr = hdtr.as_ref().map_or(ptr::null(), |s| &s.0 as *const libc::sf_hdtr);
+            let return_code = unsafe {
+                libc::sendfile(in_fd,
+                               out_sock,
+                               offset,
+                               count.unwrap_or(0),
+                               hdtr_ptr as *mut libc::sf_hdtr,
+                               &mut bytes_sent as *mut off_t,
+                               0)
             };
             (Errno::result(return_code).and(Ok(())), bytes_sent)
         }

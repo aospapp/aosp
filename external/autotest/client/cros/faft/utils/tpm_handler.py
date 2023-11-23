@@ -143,7 +143,7 @@ class TpmHandler(object):
         actually uses it.
         """
         self.stop_daemon()
-        for nvram in self.nvrams.itervalues():
+        for nvram in self.nvrams.values():
             nvram.init()
         self.restart_daemon()
         self.initialized = True

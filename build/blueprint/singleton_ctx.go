@@ -157,6 +157,10 @@ type SingletonContext interface {
 	// Fs returns a pathtools.Filesystem that can be used to interact with files.  Using the Filesystem interface allows
 	// the singleton to be used in build system tests that run against a mock filesystem.
 	Fs() pathtools.FileSystem
+
+	// ModuleVariantsFromName returns the list of module variants named `name` in the same namespace as `referer`.
+	// Allows generating build actions for `referer` based on the metadata for `name` deferred until the singleton context.
+	ModuleVariantsFromName(referer Module, name string) []Module
 }
 
 var _ SingletonContext = (*singletonContext)(nil)
@@ -368,4 +372,27 @@ func (s *singletonContext) GlobWithDeps(pattern string,
 
 func (s *singletonContext) Fs() pathtools.FileSystem {
 	return s.context.fs
+}
+
+func (s *singletonContext) ModuleVariantsFromName(referer Module, name string) []Module {
+	c := s.context
+
+	refererInfo := c.moduleInfo[referer]
+	if refererInfo == nil {
+		s.ModuleErrorf(referer, "could not find module %q", referer.Name())
+		return nil
+	}
+
+	moduleGroup, exists := c.nameInterface.ModuleFromName(name, refererInfo.namespace())
+	if !exists {
+		return nil
+	}
+	result := make([]Module, 0, len(moduleGroup.modules))
+	for _, module := range moduleGroup.modules {
+		moduleInfo := module.module()
+		if moduleInfo != nil {
+			result = append(result, moduleInfo.logicModule)
+		}
+	}
+	return result
 }

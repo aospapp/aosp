@@ -35,20 +35,19 @@ cc_library {
 
     export_shared_lib_headers: [
         "android.frameworks.stats-V1-ndk",
-        "android.hardware.health-V1-ndk",
-        "pixelatoms-cpp",
+        "android.hardware.health-V2-ndk",
+        "libpixelatoms_defs",
     ],
 
     shared_libs: [
         "android.frameworks.stats-V1-ndk",
-        "android.hardware.health-V1-ndk",
+        "android.hardware.health-V2-ndk",
         "libbase",
         "libbinder_ndk",
         "libcutils",
         "libhidlbase",
-        "libprotobuf-cpp-lite",
+        "libpixelatoms_defs",
         "libutils",
-        "pixelatoms-cpp",
     ],
 }
 

@@ -15,6 +15,7 @@
  */
 
 #include "RenderDirectView.h"
+
 #include "VideoTex.h"
 #include "glError.h"
 #include "shader.h"
@@ -37,8 +38,7 @@ bool RenderDirectView::activate() {
 
     // Load our shader program if we don't have it already
     if (!mShaderProgram) {
-        mShaderProgram = buildShaderProgram(vtxShader_simpleTexture,
-                                            pixShader_simpleTexture,
+        mShaderProgram = buildShaderProgram(vtxShader_simpleTexture, pixShader_simpleTexture,
                                             "simpleTexture");
         if (!mShaderProgram) {
             ALOGE("Error building shader program");
@@ -50,13 +50,12 @@ bool RenderDirectView::activate() {
     mTexture.reset(new VideoTex(sDisplay));
     if (!mTexture) {
         ALOGE("Failed to set up video texture");
-// TODO:  For production use, we may actually want to fail in this case, but not yet...
-//       return false;
+        // TODO:  For production use, we may actually want to fail in this case, but not yet...
+        //       return false;
     }
 
     return true;
 }
-
 
 void RenderDirectView::deactivate() {
     // Release our video texture
@@ -65,9 +64,7 @@ void RenderDirectView::deactivate() {
     mTexture = nullptr;
 }
 
-
-bool RenderDirectView::drawFrame(const BufferDesc& tgtBuffer,
-                                 const BufferDesc& imageBuffer) {
+bool RenderDirectView::drawFrame(const BufferDesc& tgtBuffer, const BufferDesc& imageBuffer) {
     // Tell GL to render to the given buffer
     if (!attachRenderTarget(tgtBuffer)) {
         ALOGE("Failed to attached render target");
@@ -87,12 +84,10 @@ bool RenderDirectView::drawFrame(const BufferDesc& tgtBuffer,
         glUniformMatrix4fv(loc, 1, false, identityMatrix.asArray());
     }
 
-
     // Bind the texture and assign it to the shader's sampler
     mTexture->refresh(imageBuffer);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, mTexture->glId());
-
 
     GLint sampler = glGetUniformLocation(mShaderProgram, "tex");
     if (sampler < 0) {
@@ -106,18 +101,19 @@ bool RenderDirectView::drawFrame(const BufferDesc& tgtBuffer,
     // We want our image to show up opaque regardless of alpha values
     glDisable(GL_BLEND);
 
-
     // Draw a rectangle on the screen
-    GLfloat vertsCarPos[] = { -1.0,  1.0, 0.0f,   // left top in window space
-                               1.0,  1.0, 0.0f,   // right top
-                              -1.0, -1.0, 0.0f,   // left bottom
-                               1.0, -1.0, 0.0f    // right bottom
+    GLfloat vertsCarPos[] = {
+            -1.0, 1.0,  0.0f,  // left top in window space
+            1.0,  1.0,  0.0f,  // right top
+            -1.0, -1.0, 0.0f,  // left bottom
+            1.0,  -1.0, 0.0f   // right bottom
     };
     // TODO:  We're flipping horizontally here, but should do it only for specified cameras!
-    GLfloat vertsCarTex[] = { 1.0f, 1.0f,   // left top
-                              0.0f, 1.0f,   // right top
-                              1.0f, 0.0f,   // left bottom
-                              0.0f, 0.0f    // right bottom
+    GLfloat vertsCarTex[] = {
+            1.0f, 1.0f,  // left top
+            0.0f, 1.0f,  // right top
+            1.0f, 0.0f,  // left bottom
+            0.0f, 0.0f   // right bottom
     };
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, vertsCarPos);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, vertsCarTex);
@@ -128,7 +124,6 @@ bool RenderDirectView::drawFrame(const BufferDesc& tgtBuffer,
 
     glDisableVertexAttribArray(0);
     glDisableVertexAttribArray(1);
-
 
     // Now that everything is submitted, release our hold on the texture resource
     detachRenderTarget();

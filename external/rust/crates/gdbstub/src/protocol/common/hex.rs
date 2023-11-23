@@ -8,7 +8,7 @@ pub enum DecodeHexError {
     InvalidOutput,
 }
 
-/// Decode a GDB dex string into the specified integer.
+/// Decode a GDB hex string into the specified integer.
 ///
 /// GDB hex strings may include "xx", which represent "missing" data. This
 /// method simply treats "xx" as 0x00.
@@ -35,7 +35,7 @@ where
     Ok(result)
 }
 
-/// Wrapper around a raw hex string. Enabled "late" calls to `decode` from
+/// Wrapper around a raw hex string. Enables "late" calls to `decode` from
 /// outside the `crate::protocol` module.
 #[derive(Debug, Clone, Copy)]
 pub struct HexString<'a>(pub &'a [u8]);
@@ -54,6 +54,7 @@ pub enum DecodeHexBufError {
     NotAscii,
 }
 
+#[inline]
 fn ascii2byte(c: u8) -> Option<u8> {
     match c {
         b'0'..=b'9' => Some(c - b'0'),
@@ -64,9 +65,10 @@ fn ascii2byte(c: u8) -> Option<u8> {
     }
 }
 
-/// Check if the byte `c` is a valid GDB hex digit `[0-9][a-f][A-F][xX]`
-#[allow(clippy::match_like_matches_macro)]
+/// Check if the byte `c` is a valid GDB hex digit `[0-9a-fA-FxX]`
+#[inline]
 pub fn is_hex(c: u8) -> bool {
+    #[allow(clippy::match_like_matches_macro)] // mirror ascii2byte
     match c {
         b'0'..=b'9' => true,
         b'a'..=b'f' => true,
@@ -81,7 +83,74 @@ pub fn is_hex(c: u8) -> bool {
 /// GDB hex strings may include "xx", which represent "missing" data. This
 /// method simply treats "xx" as 0x00.
 // TODO: maybe don't blindly translate "xx" as 0x00?
-// TODO: rewrite this method to elide bound checks
+#[cfg(not(feature = "paranoid_unsafe"))]
+pub fn decode_hex_buf(base_buf: &mut [u8]) -> Result<&mut [u8], DecodeHexBufError> {
+    use DecodeHexBufError::*;
+
+    if base_buf.is_empty() {
+        return Ok(&mut []);
+    }
+
+    let odd_adust = base_buf.len() % 2;
+    if odd_adust != 0 {
+        base_buf[0] = ascii2byte(base_buf[0]).ok_or(NotAscii)?;
+    }
+
+    let buf = &mut base_buf[odd_adust..];
+
+    let decoded_len = buf.len() / 2;
+    for i in 0..decoded_len {
+        // SAFETY: rustc isn't smart enough to automatically elide these bound checks.
+        //
+        // If buf.len() == 0 or 1: trivially safe, since the for block is never taken
+        // If buf.len() >= 2: the range of values for `i` is 0..(buf.len() / 2 - 1)
+        let (hi, lo, b) = unsafe {
+            (
+                //    (buf.len() / 2 - 1) * 2
+                // == (buf.len() - 2)
+                // since buf.len() is >2, this is in-bounds
+                *buf.get_unchecked(i * 2),
+                //    (buf.len() / 2 - 1) * 2 + 1
+                // == (buf.len() - 1)
+                // since buf.len() is >2, this is in-bounds
+                *buf.get_unchecked(i * 2 + 1),
+                // since buf.len() is >2, (buf.len() / 2 - 1) is always in-bounds
+                buf.get_unchecked_mut(i),
+            )
+        };
+
+        let hi = ascii2byte(hi).ok_or(NotAscii)?;
+        let lo = ascii2byte(lo).ok_or(NotAscii)?;
+        *b = hi << 4 | lo;
+    }
+
+    // SAFETY: rustc isn't smart enough to automatically elide this bound check.
+    //
+    // Consider the different values (decoded_len + odd_adust) can take:
+    //
+    //  buf.len() | (decoded_len + odd_adust)
+    // -----------|---------------------------
+    //      0     | (0 + 0) == 0
+    //      1     | (0 + 1) == 1
+    //      2     | (1 + 0) == 1
+    //      3     | (1 + 1) == 2
+    //      4     | (2 + 0) == 2
+    //      5     | (2 + 1) == 3
+    //
+    // Note that the computed index is always in-bounds.
+    //
+    // If I were still in undergrad, I could probably have whipped up a proper
+    // mathematical proof by induction or whatnot, but hopefully this "proof by
+    // example" ought to suffice.
+    unsafe { Ok(base_buf.get_unchecked_mut(..decoded_len + odd_adust)) }
+}
+
+/// Decode a GDB hex string into a byte slice _in place_.
+///
+/// GDB hex strings may include "xx", which represent "missing" data. This
+/// method simply treats "xx" as 0x00.
+// TODO: maybe don't blindly translate "xx" as 0x00?
+#[cfg(feature = "paranoid_unsafe")]
 pub fn decode_hex_buf(base_buf: &mut [u8]) -> Result<&mut [u8], DecodeHexBufError> {
     use DecodeHexBufError::*;
 
@@ -95,91 +164,39 @@ pub fn decode_hex_buf(base_buf: &mut [u8]) -> Result<&mut [u8], DecodeHexBufErro
     for i in 0..decoded_len {
         let b = ascii2byte(buf[i * 2]).ok_or(NotAscii)? << 4
             | ascii2byte(buf[i * 2 + 1]).ok_or(NotAscii)?;
-        buf[i] = b as u8;
+        buf[i] = b;
     }
 
     Ok(&mut base_buf[..decoded_len + odd_adust])
 }
 
-#[allow(dead_code)]
-#[derive(Debug)]
-pub enum EncodeHexBufError {
-    SmallBuffer,
-}
+/// Decode GDB escaped binary bytes into origin bytes _in place_.
+//
+// Thanks reddit!
+// https://www.reddit.com/r/rust/comments/110qzq9/any_idea_why_rust_isnt_able_to_elide_this_bounds/
+pub fn decode_bin_buf(buf: &mut [u8]) -> Option<&mut [u8]> {
+    let mut i = 0;
+    let len = buf.len();
+    for j in 0..len {
+        if i >= len {
+            return Some(&mut buf[..j]);
+        }
 
-/// Encode a GDB hex string into a byte slice _in place_.
-///
-/// The data to be encoded should be copied into the buffer from
-/// `buf[start_idx..]`. The buffer itself must be at least `data.len() * 2`
-/// bytes in size, as each byte is expanded into a two byte hex string.
-#[allow(dead_code)]
-pub fn encode_hex_buf(buf: &mut [u8], start_idx: usize) -> Result<&mut [u8], EncodeHexBufError> {
-    use EncodeHexBufError::*;
-
-    let len = buf.len() - start_idx;
-    let encoded_len = len * 2;
-
-    if buf.len() < encoded_len {
-        return Err(SmallBuffer);
-    }
-
-    for i in 0..encoded_len {
-        let byte = buf[start_idx + i / 2];
-        let nybble = if i % 2 == 0 {
-            // high
-            (byte & 0xf0) >> 4
+        if buf[i] == b'}' {
+            buf[j] = buf.get(i + 1)? ^ 0x20;
+            i += 1;
         } else {
-            // low
-            byte & 0x0f
-        };
-
-        buf[i] = match nybble {
-            0x0..=0x9 => b'0' + nybble,
-            0xa..=0xf => b'A' + (nybble - 0xa),
-            _ => unreachable!(), // could be unreachable_unchecked...
-        };
+            buf[j] = buf[i];
+        }
+        i += 1;
     }
 
-    Ok(&mut buf[..encoded_len])
+    Some(buf)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn encode_hex_simple() {
-        let payload = [0xde, 0xad, 0xbe, 0xef];
-        let mut buf = [0; 16];
-
-        let start_idx = buf.len() - payload.len();
-
-        // copy the payload into the buffer
-        buf[start_idx..].copy_from_slice(&payload);
-        let out = encode_hex_buf(&mut buf, start_idx).unwrap();
-
-        assert_eq!(out, b"DEADBEEF");
-    }
-
-    #[test]
-    fn encode_hex_in_chunks() {
-        let payload = (0..=255).collect::<Vec<u8>>();
-        let mut out = Vec::new();
-
-        let mut buf = [0; 30];
-
-        for c in payload.chunks(15) {
-            let start_idx = buf.len() - c.len();
-
-            let data_buf = &mut buf[start_idx..];
-            data_buf[..c.len()].copy_from_slice(c);
-            out.extend_from_slice(encode_hex_buf(&mut buf, start_idx).unwrap());
-        }
-
-        let expect = (0..=255).map(|b| format!("{:02X?}", b)).collect::<String>();
-
-        assert_eq!(out, expect.as_bytes())
-    }
 
     #[test]
     fn decode_hex_buf_odd() {
@@ -189,7 +206,14 @@ mod tests {
     }
 
     #[test]
-    fn decode_hex_buf_2() {
+    fn decode_hex_buf_even() {
+        let mut payload = b"0123456789abcdef".to_vec();
+        let res = decode_hex_buf(&mut payload).unwrap();
+        assert_eq!(res, [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]);
+    }
+
+    #[test]
+    fn decode_hex_buf_odd_alt() {
         let mut payload = b"12345".to_vec();
         let res = decode_hex_buf(&mut payload).unwrap();
         assert_eq!(res, [0x1, 0x23, 0x45]);
@@ -200,5 +224,19 @@ mod tests {
         let mut payload = b"1".to_vec();
         let res = decode_hex_buf(&mut payload).unwrap();
         assert_eq!(res, [0x1]);
+    }
+
+    #[test]
+    fn decode_hex_buf_empty() {
+        let mut payload = b"".to_vec();
+        let res = decode_hex_buf(&mut payload).unwrap();
+        assert_eq!(res, []);
+    }
+
+    #[test]
+    fn decode_bin_buf_escaped() {
+        let mut payload = b"}\x03}\x04}]}\n".to_vec();
+        let res = decode_bin_buf(&mut payload).unwrap();
+        assert_eq!(res, [0x23, 0x24, 0x7d, 0x2a]);
     }
 }

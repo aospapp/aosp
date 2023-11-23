@@ -26,6 +26,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.content.ClipData;
 import android.content.ClipDescription;
@@ -36,10 +37,14 @@ import android.platform.test.annotations.Presubmit;
 import android.util.Pair;
 import android.view.ContentInfo;
 import android.view.DragAndDropPermissions;
+import android.view.DragEvent;
 import android.view.inputmethod.InputContentInfo;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
+
+import com.android.internal.inputmethod.IInputContentUriToken;
+import com.android.internal.view.IDragAndDropPermissions;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -60,11 +65,12 @@ public class ContentInfoTest {
         ClipData clip = ClipData.newPlainText("", "Hello");
         clip.addItem(new ClipData.Item("Hi", "<b>Salut</b>"));
         clip.addItem(new ClipData.Item(sampleUri));
-        ContentInfo payload = new ContentInfo.Builder(clip, SOURCE_CLIPBOARD)
-                .setFlags(ContentInfo.FLAG_CONVERT_TO_PLAIN_TEXT)
-                .setLinkUri(Uri.parse("http://example.com"))
-                .setExtras(new Bundle())
-                .build();
+        ContentInfo payload =
+                new ContentInfo.Builder(clip, SOURCE_CLIPBOARD)
+                        .setFlags(ContentInfo.FLAG_CONVERT_TO_PLAIN_TEXT)
+                        .setLinkUri(Uri.parse("http://example.com"))
+                        .setExtras(new Bundle())
+                        .build();
 
         // Test splitting when some items match and some don't.
         Pair<ContentInfo, ContentInfo> split;
@@ -72,10 +78,10 @@ public class ContentInfoTest {
         assertThat(split.first.getClip().getItemCount()).isEqualTo(1);
         assertThat(split.second.getClip().getItemCount()).isEqualTo(2);
         assertThat(split.first.getClip().getItemAt(0).getUri()).isEqualTo(sampleUri);
-        assertThat(split.first.getClip().getDescription()).isNotSameInstanceAs(
-                payload.getClip().getDescription());
-        assertThat(split.second.getClip().getDescription()).isNotSameInstanceAs(
-                payload.getClip().getDescription());
+        assertThat(split.first.getClip().getDescription())
+                .isNotSameInstanceAs(payload.getClip().getDescription());
+        assertThat(split.second.getClip().getDescription())
+                .isNotSameInstanceAs(payload.getClip().getDescription());
         assertThat(split.first.getSource()).isEqualTo(SOURCE_CLIPBOARD);
         assertThat(split.first.getLinkUri()).isNotNull();
         assertThat(split.first.getExtras()).isNotNull();
@@ -97,11 +103,12 @@ public class ContentInfoTest {
     @Test
     public void testPartition_singleItem() throws Exception {
         ClipData clip = ClipData.newPlainText("", "Hello");
-        ContentInfo payload = new ContentInfo.Builder(clip, SOURCE_CLIPBOARD)
-                .setFlags(ContentInfo.FLAG_CONVERT_TO_PLAIN_TEXT)
-                .setLinkUri(Uri.parse("http://example.com"))
-                .setExtras(new Bundle())
-                .build();
+        ContentInfo payload =
+                new ContentInfo.Builder(clip, SOURCE_CLIPBOARD)
+                        .setFlags(ContentInfo.FLAG_CONVERT_TO_PLAIN_TEXT)
+                        .setLinkUri(Uri.parse("http://example.com"))
+                        .setExtras(new Bundle())
+                        .build();
 
         Pair<ContentInfo, ContentInfo> split;
         split = payload.partition(item -> false);
@@ -116,11 +123,12 @@ public class ContentInfoTest {
     @Test
     public void testBuilder_copy() throws Exception {
         ClipData clip = ClipData.newPlainText("", "Hello");
-        ContentInfo original = new ContentInfo.Builder(clip, SOURCE_CLIPBOARD)
-                .setFlags(ContentInfo.FLAG_CONVERT_TO_PLAIN_TEXT)
-                .setLinkUri(Uri.parse("http://example.com"))
-                .setExtras(new Bundle())
-                .build();
+        ContentInfo original =
+                new ContentInfo.Builder(clip, SOURCE_CLIPBOARD)
+                        .setFlags(ContentInfo.FLAG_CONVERT_TO_PLAIN_TEXT)
+                        .setLinkUri(Uri.parse("http://example.com"))
+                        .setExtras(new Bundle())
+                        .build();
 
         // Verify that that calling the builder with a ContentInfo instance creates a shallow copy.
         ContentInfo copy = new ContentInfo.Builder(original).build();
@@ -135,22 +143,24 @@ public class ContentInfoTest {
     @Test
     public void testBuilder_copyAndUpdate() throws Exception {
         ClipData clip1 = ClipData.newPlainText("", "Hello");
-        ContentInfo original = new ContentInfo.Builder(clip1, SOURCE_CLIPBOARD)
-                .setFlags(ContentInfo.FLAG_CONVERT_TO_PLAIN_TEXT)
-                .setLinkUri(Uri.parse("http://example.com"))
-                .setExtras(new Bundle())
-                .build();
+        ContentInfo original =
+                new ContentInfo.Builder(clip1, SOURCE_CLIPBOARD)
+                        .setFlags(ContentInfo.FLAG_CONVERT_TO_PLAIN_TEXT)
+                        .setLinkUri(Uri.parse("http://example.com"))
+                        .setExtras(new Bundle())
+                        .build();
 
         // Verify that calling setters after initializing the builder with a ContentInfo instance
         // updates the fields.
         ClipData clip2 = ClipData.newPlainText("", "Bye");
-        ContentInfo copy = new ContentInfo.Builder(original)
-                .setClip(clip2)
-                .setSource(SOURCE_APP)
-                .setFlags(0)
-                .setLinkUri(null)
-                .setExtras(null)
-                .build();
+        ContentInfo copy =
+                new ContentInfo.Builder(original)
+                        .setClip(clip2)
+                        .setSource(SOURCE_APP)
+                        .setFlags(0)
+                        .setLinkUri(null)
+                        .setExtras(null)
+                        .build();
         assertThat(copy.getClip().getItemAt(0).getText()).isEqualTo("Bye");
         assertThat(copy.getSource()).isEqualTo(SOURCE_APP);
         assertThat(copy.getFlags()).isEqualTo(0);
@@ -170,56 +180,77 @@ public class ContentInfoTest {
     public void testReleasePermissions_ime() throws Exception {
         // Verify that releasePermissions() makes the appropriate call when IME permissions
         // metadata is present.
+        IInputContentUriToken token = mock(IInputContentUriToken.class);
+        InputContentInfo inputContentInfo =
+                new InputContentInfo(
+                        Uri.parse("content://example/1"),
+                        new ClipDescription("", new String[] {"image/png"}));
+        inputContentInfo.setUriToken(token);
         ClipData clip = ClipData.newPlainText("", "Hello");
-        InputContentInfo inputContentInfo = mock(InputContentInfo.class);
-        ContentInfo payload = new ContentInfo.Builder(clip, SOURCE_INPUT_METHOD)
-                .setInputContentInfo(inputContentInfo)
-                .build();
+        ContentInfo payload =
+                new ContentInfo.Builder(clip, SOURCE_INPUT_METHOD)
+                        .setInputContentInfo(inputContentInfo)
+                        .build();
         payload.releasePermissions();
-        verify(inputContentInfo).releasePermission();
+        verify(token).release();
     }
 
     @Test
     public void testReleasePermissions_ime_afterCopy() throws Exception {
+        IInputContentUriToken token = mock(IInputContentUriToken.class);
+        InputContentInfo inputContentInfo =
+                new InputContentInfo(
+                        Uri.parse("content://example/1"),
+                        new ClipDescription("", new String[] {"image/png"}));
+        inputContentInfo.setUriToken(token);
         ClipData clip = ClipData.newPlainText("", "Hello");
-        InputContentInfo inputContentInfo = mock(InputContentInfo.class);
-        ContentInfo payload = new ContentInfo.Builder(clip, SOURCE_INPUT_METHOD)
-                .setInputContentInfo(inputContentInfo)
-                .build();
+        ContentInfo payload =
+                new ContentInfo.Builder(clip, SOURCE_INPUT_METHOD)
+                        .setInputContentInfo(inputContentInfo)
+                        .build();
 
         // Verify that making a copy of the payload via the builder carries along the IME
         // permissions metadata.
         ContentInfo copy = new ContentInfo.Builder(payload).build();
         copy.releasePermissions();
-        verify(inputContentInfo).releasePermission();
+        verify(token).release();
     }
 
     @Test
     public void testReleasePermissions_dragAndDrop() throws Exception {
         // Verify that releasePermissions() makes the appropriate call when permissions metadata
         // for drag-and-drop is present.
+        IDragAndDropPermissions permission = mock(IDragAndDropPermissions.class);
+        DragEvent dragEvent = mock(DragEvent.class);
+        when(dragEvent.getDragAndDropPermissions()).thenReturn(permission);
+        DragAndDropPermissions dragAndDropPermissions = DragAndDropPermissions.obtain(dragEvent);
+
         ClipData clip = ClipData.newPlainText("", "Hello");
-        DragAndDropPermissions dragAndDropPermissions = mock(DragAndDropPermissions.class);
-        ContentInfo payload = new ContentInfo.Builder(clip, SOURCE_DRAG_AND_DROP)
-                .setDragAndDropPermissions(dragAndDropPermissions)
-                .build();
+        ContentInfo payload =
+                new ContentInfo.Builder(clip, SOURCE_DRAG_AND_DROP)
+                        .setDragAndDropPermissions(dragAndDropPermissions)
+                        .build();
         payload.releasePermissions();
-        verify(dragAndDropPermissions).release();
+        verify(permission).release();
     }
 
     @Test
     public void testReleasePermissions_dragAndDrop_afterCopy() throws Exception {
+        IDragAndDropPermissions permission = mock(IDragAndDropPermissions.class);
+        DragEvent dragEvent = mock(DragEvent.class);
+        when(dragEvent.getDragAndDropPermissions()).thenReturn(permission);
+        DragAndDropPermissions dragAndDropPermissions = DragAndDropPermissions.obtain(dragEvent);
         ClipData clip = ClipData.newPlainText("", "Hello");
-        DragAndDropPermissions dragAndDropPermissions = mock(DragAndDropPermissions.class);
-        ContentInfo payload = new ContentInfo.Builder(clip, SOURCE_DRAG_AND_DROP)
-                .setDragAndDropPermissions(dragAndDropPermissions)
-                .build();
+        ContentInfo payload =
+                new ContentInfo.Builder(clip, SOURCE_DRAG_AND_DROP)
+                        .setDragAndDropPermissions(dragAndDropPermissions)
+                        .build();
 
         // Verify that making a copy of the payload via the builder carries along the permissions
         // metadata for drag-and-drop.
         ContentInfo copy = new ContentInfo.Builder(payload).build();
         copy.releasePermissions();
-        verify(dragAndDropPermissions).release();
+        verify(permission).release();
     }
 
     @Test
@@ -240,11 +271,12 @@ public class ContentInfoTest {
         ClipData clip = ClipData.newPlainText("", "Hello");
         Bundle extras = new Bundle();
         extras.putString("one", "sample value");
-        ContentInfo original = new ContentInfo.Builder(clip, SOURCE_CLIPBOARD)
-                .setFlags(ContentInfo.FLAG_CONVERT_TO_PLAIN_TEXT)
-                .setLinkUri(Uri.parse("http://example.com"))
-                .setExtras(extras)
-                .build();
+        ContentInfo original =
+                new ContentInfo.Builder(clip, SOURCE_CLIPBOARD)
+                        .setFlags(ContentInfo.FLAG_CONVERT_TO_PLAIN_TEXT)
+                        .setLinkUri(Uri.parse("http://example.com"))
+                        .setExtras(extras)
+                        .build();
 
         ContentInfo fromParcel = parcelAndUnparcel(original);
         assertThat(fromParcel.getClip().getItemAt(0).getText()).isEqualTo("Hello");
@@ -258,11 +290,14 @@ public class ContentInfoTest {
     @Test
     public void testParcel_imePermissionsMetadata() throws Exception {
         ClipData clip = ClipData.newPlainText("", "Hello");
-        InputContentInfo inputContentInfo = new InputContentInfo(Uri.parse("content://example/1"),
-                new ClipDescription("", new String[]{"image/png"}));
-        ContentInfo payload = new ContentInfo.Builder(clip, SOURCE_INPUT_METHOD)
-                .setInputContentInfo(inputContentInfo)
-                .build();
+        InputContentInfo inputContentInfo =
+                new InputContentInfo(
+                        Uri.parse("content://example/1"),
+                        new ClipDescription("", new String[] {"image/png"}));
+        ContentInfo payload =
+                new ContentInfo.Builder(clip, SOURCE_INPUT_METHOD)
+                        .setInputContentInfo(inputContentInfo)
+                        .build();
 
         // Verify that releasePermissions() doesn't throw an exception when IME permissions
         // metadata is present after going through parceling.

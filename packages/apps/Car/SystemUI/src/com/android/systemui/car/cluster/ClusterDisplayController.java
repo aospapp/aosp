@@ -22,7 +22,6 @@ import static android.car.cluster.ClusterHomeManager.CONFIG_DISPLAY_ID;
 import android.car.Car;
 import android.car.cluster.ClusterHomeManager;
 import android.car.cluster.ClusterState;
-import android.content.Context;
 import android.graphics.Rect;
 import android.util.Slog;
 import android.view.Display;
@@ -46,7 +45,7 @@ import javax.inject.Inject;
  * Controls the RootTDA of cluster display per CLUSTER_DISPLAY_STATE message.
  */
 @SysUISingleton
-public class ClusterDisplayController extends CoreStartable {
+public class ClusterDisplayController implements CoreStartable {
     private static final String TAG = ClusterDisplayController.class.getSimpleName();
     private static final boolean DBG = false;
 
@@ -59,10 +58,9 @@ public class ClusterDisplayController extends CoreStartable {
     private ClusterState mClusterState;
 
     @Inject
-    public ClusterDisplayController(Context context,
+    public ClusterDisplayController(
             Optional<RootTaskDisplayAreaOrganizer> rootTDAOrganizer,
             CarServiceProvider carServiceProvider, @Main Executor mainExecutor) {
-        super(context);
         mRootTDAOrganizer = rootTDAOrganizer.orElse(null);
         mCarServiceProvider = carServiceProvider;
         mMainExecutor = mainExecutor;

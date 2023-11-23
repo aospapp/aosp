@@ -36,10 +36,10 @@
     <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
     <skip />
     <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"Орын босату"</string>
-    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"Құрылғыдан <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> көлеміндегі мазмұн өшіріледі"</string>
+    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"Құрылғыдан <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> көлеміндегі контент өшіріледі"</string>
     <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"Орын босату"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"Жад автоматты басқарылсын ба?"</string>
-    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"<xliff:g id="USED">%1$s</xliff:g> қазір бос. Жад менеджері құрылғыдағы мазмұнның сақтық көшірмесін өшіру арқылы орынды автоматты түрде босатсын ба?"</string>
+    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"<xliff:g id="USED">%1$s</xliff:g> қазір бос. Жад менеджері құрылғыдағы контенттің сақтық көшірмесін өшіру арқылы орынды автоматты түрде босатсын ба?"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"Жоқ, рақмет"</string>
     <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"Қосу"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"Сирек пайдаланылатын қолданбалар"</string>
@@ -58,7 +58,7 @@
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Элементтер ізделуде..."</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Барлық элементтерді көрсету"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Соңғы элементтерді жасыру"</string>
-    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"Құрылғыдан <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> көлеміндегі мазмұн өшіріледі"</string>
+    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"Құрылғыдан <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> көлеміндегі контент өшіріледі"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Құрылғы жадын енді жад менеджері басқарады"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"Өшіретін ешнәрсе жоқ"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Соңғы элементтерді қарап шығу"</string>

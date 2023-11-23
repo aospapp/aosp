@@ -1,6 +1,7 @@
 # buildifier: disable=module-docstring
 def my_rule_impl(ctx):
-  return []
+    _ignore = [ctx]  # @unused
+    return []
 
 my_rule = rule(
     implementation = my_rule_impl,

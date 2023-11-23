@@ -23,17 +23,22 @@ namespace android {
 namespace os {
 namespace statsd {
 
+// Determine if pull was needed and if so, whether the pull was successful
+enum PullResult { PULL_RESULT_SUCCESS = 1, PULL_RESULT_FAIL = 2, PULL_NOT_NEEDED = 3 };
+
 class PullDataReceiver : virtual public RefBase{
  public:
   virtual ~PullDataReceiver() {}
   /**
    * @param data The pulled data.
-   * @param pullSuccess Whether the pull succeeded. If the pull does not succeed, the data for the
-   * bucket should be invalidated.
+   * @param pullResult Whether the pull succeeded and was needed. If the pull does not succeed,
+   * the data for the bucket should be invalidated.
    * @param originalPullTimeNs This is when all the pulls have been initiated (elapsed time).
    */
-  virtual void onDataPulled(const std::vector<std::shared_ptr<LogEvent>>& data, bool pullSuccess,
-                            int64_t originalPullTimeNs) = 0;
+  virtual void onDataPulled(const std::vector<std::shared_ptr<LogEvent>>& data,
+                            PullResult pullResult, int64_t originalPullTimeNs) = 0;
+
+  virtual bool isPullNeeded() const = 0;
 };
 
 }  // namespace statsd

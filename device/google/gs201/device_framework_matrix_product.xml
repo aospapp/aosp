@@ -1,0 +1,185 @@
+<compatibility-matrix version="1.0" type="framework" level="7">
+    <hal format="aidl">
+        <name>android.hardware.contexthub</name>
+        <version>1</version>
+        <interface>
+            <name>IContextHub</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.graphics.composer3</name>
+        <version>2</version>
+        <interface>
+            <name>IComposer</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl" optional="true">
+        <name>android.hardware.radio</name>
+        <version>1.2</version>
+        <interface>
+            <name>ISap</name>
+            <instance>slot2</instance>
+        </interface>
+    </hal>
+    <hal format="aidl" optional="true">
+        <name>android.hardware.vibrator</name>
+        <version>2</version>
+        <interface>
+            <name>IVibrator</name>
+            <instance>dual</instance>
+        </interface>
+    </hal>
+    <hal format="aidl" optional="true">
+        <name>android.hardware.wifi.hostapd</name>
+        <version>1</version>
+        <interface>
+            <name>IHostapd</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl" optional="true">
+        <name>android.vendor.samsung_slsi.telephony.hardware.radio</name>
+        <version>1.1</version>
+        <interface>
+            <name>IOemSamsungslsi</name>
+            <instance>slot1</instance>
+            <instance>slot2</instance>
+        </interface>
+    </hal>
+    <hal format="hidl" optional="true">
+        <name>com.fingerprints42.extension</name>
+        <version>1.0</version>
+        <interface>
+            <name>IFingerprintAuthenticator</name>
+            <instance>default</instance>
+        </interface>
+        <interface>
+            <name>IFingerprintCalibration</name>
+            <instance>default</instance>
+        </interface>
+        <interface>
+            <name>IFingerprintEngineering</name>
+            <instance>default</instance>
+        </interface>
+        <interface>
+            <name>IFingerprintNavigation</name>
+            <instance>default</instance>
+        </interface>
+        <interface>
+            <name>IFingerprintRecalibration</name>
+            <instance>default</instance>
+        </interface>
+        <interface>
+            <name>IFingerprintSenseTouch</name>
+            <instance>default</instance>
+        </interface>
+        <interface>
+            <name>IFingerprintSensorTest</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="aidl" optional="true">
+      <name>com.google.face.debug</name>
+      <version>2</version>
+        <interface>
+            <name>IDebugHost</name>
+            <instance>default</instance>
+        </interface>
+        <interface>
+            <name>IDebugManager</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="aidl" optional="true">
+      <name>com.google.edgetpu</name>
+        <version>2</version>
+        <interface>
+            <name>IEdgeTpuVendorService</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="aidl" optional="true">
+        <name>com.google.edgetpu.dba</name>
+        <version>1</version>
+        <interface>
+            <name>IDevice</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="aidl" optional="true">
+      <name>com.google.hardware.pixel.display</name>
+        <version>8</version>
+        <interface>
+            <name>IDisplay</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="aidl" optional="true">
+        <name>com.google.input</name>
+        <version>2</version>
+        <interface>
+            <name>ITouchContextService</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="aidl" optional="true">
+        <name>hardware.qorvo.uwb</name>
+        <version>2</version>
+        <interface>
+            <name>IUwbVendor</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl" optional="true">
+        <name>vendor.goodix.hardware.biometrics.fingerprint</name>
+        <version>2.1</version>
+        <interface>
+            <name>IGoodixFingerprintDaemon</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="aidl" optional="true">
+        <name>vendor.google.google_battery</name>
+        <version>2</version>
+        <interface>
+            <name>IGoogleBattery</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl" optional="true">
+        <name>vendor.google.radioext</name>
+        <version>1.5</version>
+        <interface>
+            <name>IRadioExt</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="aidl" optional="true">
+        <name>vendor.google.wifi_ext</name>
+        <version>1</version>
+        <interface>
+            <name>IWifiExt</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl" optional="true">
+        <name>vendor.samsung_slsi.telephony.hardware.oemservice</name>
+        <version>1.0</version>
+        <interface>
+            <name>IOemService</name>
+            <instance>dm0</instance>
+            <instance>dm1</instance>
+            <instance>sced0</instance>
+        </interface>
+    </hal>
+    <hal format="hidl" optional="true">
+        <name>vendor.samsung_slsi.telephony.hardware.radioExternal</name>
+        <version>1.1</version>
+        <interface>
+            <name>IOemSlsiRadioExternal</name>
+            <instance>rilExternal</instance>
+        </interface>
+    </hal>
+</compatibility-matrix>

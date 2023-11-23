@@ -24,41 +24,38 @@
 
 // This header contains functions for HCI-LinkManagement to invoke
 
-extern bool l2c_link_hci_disc_comp(uint16_t handle, tHCI_REASON reason);
+bool l2c_link_hci_disc_comp(uint16_t handle, tHCI_REASON reason);
 
-extern void l2c_link_role_changed(const RawAddress* bd_addr, uint8_t new_role,
-                                  uint8_t hci_status);
+void l2c_link_role_changed(const RawAddress* bd_addr, uint8_t new_role,
+                           uint8_t hci_status);
 
-extern bool l2cble_conn_comp(uint16_t handle, uint8_t role,
-                             const RawAddress& bda, tBLE_ADDR_TYPE type,
-                             uint16_t conn_interval, uint16_t conn_latency,
-                             uint16_t conn_timeout);
+bool l2cble_conn_comp(uint16_t handle, uint8_t role, const RawAddress& bda,
+                      tBLE_ADDR_TYPE type, uint16_t conn_interval,
+                      uint16_t conn_latency, uint16_t conn_timeout);
 
-extern bool l2cble_conn_comp_from_address_with_type(
+bool l2cble_conn_comp_from_address_with_type(
     uint16_t handle, uint8_t role, const tBLE_BD_ADDR& address_with_type,
     uint16_t conn_interval, uint16_t conn_latency, uint16_t conn_timeout);
 
-extern void l2cble_process_conn_update_evt(uint16_t handle, uint8_t status,
-                                           uint16_t interval, uint16_t latency,
-                                           uint16_t timeout);
+void l2cble_process_conn_update_evt(uint16_t handle, uint8_t status,
+                                    uint16_t interval, uint16_t latency,
+                                    uint16_t timeout);
 
-extern void l2cble_process_data_length_change_event(uint16_t handle,
-                                                    uint16_t tx_data_len,
-                                                    uint16_t rx_data_len);
+void l2cble_process_data_length_change_event(uint16_t handle,
+                                             uint16_t tx_data_len,
+                                             uint16_t rx_data_len);
 
 // Notify to L2cap layer that ACL data or remote version is received
-extern void l2cble_notify_le_connection(const RawAddress& bda);
+void l2cble_notify_le_connection(const RawAddress& bda);
 
 void l2cble_use_preferred_conn_params(const RawAddress& bda);
 
-extern void l2cble_process_rc_param_request_evt(uint16_t handle,
-                                                uint16_t int_min,
-                                                uint16_t int_max,
-                                                uint16_t latency,
-                                                uint16_t timeout);
+void l2cble_process_rc_param_request_evt(uint16_t handle, uint16_t int_min,
+                                         uint16_t int_max, uint16_t latency,
+                                         uint16_t timeout);
 
 // Invoked when HCI mode is changed to HCI_MODE_ACTIVE or HCI_MODE_SNIFF
-extern void l2c_OnHciModeChangeSendPendingPackets(RawAddress remote);
+void l2c_OnHciModeChangeSendPendingPackets(RawAddress remote);
 
 // Invoked when HCI indicates to L2cap to check Security requirement
-extern void l2cu_resubmit_pending_sec_req(const RawAddress* p_bda);
+void l2cu_resubmit_pending_sec_req(const RawAddress* p_bda);

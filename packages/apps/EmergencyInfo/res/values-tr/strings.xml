@@ -87,7 +87,7 @@
     <!-- no translation found for organ_donor_entries:0 (4680498266537823362) -->
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
-    <string name="emergency_contacts_title" msgid="5462202017417821030">"Acil durumda iletişim kurulacak kişiler"</string>
+    <string name="emergency_contacts_title" msgid="5462202017417821030">"Acil durumda iletişime geçilecek kişiler"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Kişi ekle"</string>
     <string name="fail_load_contact_picker" msgid="817205483833876726">"Kişi seçici bulunamadı"</string>
     <string name="fail_display_contact" msgid="4128854688897045879">"Kişi görüntülenemiyor"</string>

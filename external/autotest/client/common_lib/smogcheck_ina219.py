@@ -127,7 +127,7 @@ class InaController(i2c_node.I2cNode):
           measure: a string, 'current' or 'voltage'.
 
         Returns:
-          a float, measurement in native units. Or None if error.
+          a float, measurement in units. Or None if error.
 
         Raises:
           InaError: if error reading requested measurement.

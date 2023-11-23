@@ -1,0 +1,42 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+sh_binary {
+    name: "dump_display_userdebug.sh",
+    src: "dump_display_userdebug.sh",
+    vendor: true,
+    sub_dir: "dump",
+}
+
+cc_binary {
+    name: "dump_display",
+    srcs: ["dump_display.cpp"],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+    shared_libs: [
+        "libbase",
+        "libdump",
+    ],
+    vendor: true,
+    relative_install_path: "dump",
+}
+
+cc_binary {
+    name: "dump_second_display",
+    srcs: ["dump_second_display.cpp"],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+    shared_libs: [
+        "libdump",
+    ],
+    vendor: true,
+    relative_install_path: "dump",
+}
+

@@ -5,7 +5,6 @@
 
 #include "vkr_instance.h"
 
-#include "venus-protocol/vn_protocol_renderer_info.h"
 #include "venus-protocol/vn_protocol_renderer_instance.h"
 
 #include "vkr_context.h"
@@ -16,7 +15,13 @@ vkr_dispatch_vkEnumerateInstanceVersion(UNUSED struct vn_dispatch_context *dispa
                                         struct vn_command_vkEnumerateInstanceVersion *args)
 {
    vn_replace_vkEnumerateInstanceVersion_args_handle(args);
-   args->ret = vkEnumerateInstanceVersion(args->pApiVersion);
+
+   uint32_t version = 0;
+   args->ret = vkEnumerateInstanceVersion(&version);
+   if (args->ret == VK_SUCCESS)
+      version = vkr_api_version_cap_minor(version, VKR_MAX_API_VERSION);
+
+   *args->pApiVersion = version;
 }
 
 static void
@@ -41,7 +46,7 @@ vkr_dispatch_vkEnumerateInstanceExtensionProperties(
 
    for (uint32_t i = 0; i < ARRAY_SIZE(private_extensions); i++) {
       VkExtensionProperties *props = &private_extensions[i];
-      props->specVersion = vn_info_extension_spec_version(props->extensionName);
+      props->specVersion = vkr_extension_get_spec_version(props->extensionName);
    }
 
    const uint32_t count = MIN2(*args->pPropertyCount, ARRAY_SIZE(private_extensions));
@@ -195,11 +200,6 @@ vkr_dispatch_vkCreateInstance(struct vn_dispatch_context *dispatch,
       free(instance);
       return;
    }
-
-   instance->get_memory_fd = (PFN_vkGetMemoryFdKHR)vkGetInstanceProcAddr(
-      instance->base.handle.instance, "vkGetMemoryFdKHR");
-   instance->get_fence_fd = (PFN_vkGetFenceFdKHR)vkGetInstanceProcAddr(
-      instance->base.handle.instance, "vkGetFenceFdKHR");
 
    if (ctx->validate_level != VKR_CONTEXT_VALIDATE_NONE) {
       instance->create_debug_utils_messenger =

@@ -17,7 +17,6 @@
 static_library("btcore") {
   sources = [
     "src/device_class.cc",
-    "src/hal_util.cc",
     "src/module.cc",
     "src/osi_module.cc",
     "src/property.cc",
@@ -33,7 +32,6 @@ static_library("btcore") {
   deps = [
     "//bt/system/gd/rust/shim:init_flags_bridge_header",
     "//bt/system/gd/rust/shim:libbluetooth_rust_interop",
-    "//bt/system/gd/rust/shim:message_loop_thread_bridge_header",
   ]
 }
 

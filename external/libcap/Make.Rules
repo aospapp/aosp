@@ -1,7 +1,7 @@
 # Common version number defines for libcap
 LIBTITLE=libcap
 VERSION=2
-MINOR=48
+MINOR=53
 
 #
 ## Optional prefixes:
@@ -43,11 +43,11 @@ LIBDIR=$(lib_prefix)/$(lib)
 PKGCONFIGDIR=$(LIBDIR)/pkgconfig
 GOPKGDIR=$(prefix)/share/gocode/src
 
-# Once go1.16 is released, I plan to set this value to 1 and keep it
-# there. The Go packages should always remain backwardly compatible,
-# but I may have to up it if Go's syntax dramatically changes in a
-# backwards incompatible manner. (Let's hope not.)
-GOMAJOR=0
+# From here on out, the Go module packages should always remain
+# backwardly compatible. I will only resort to using major version 2
+# etc if Go's syntax dramatically changes in a backwards incompatible
+# manner. (Let's hope not.)
+GOMAJOR=1
 
 # Compilation specifics
 
@@ -63,6 +63,7 @@ BUILD_COPTS ?= -O2
 BUILD_CFLAGS ?= $(BUILD_COPTS) $(DEFINES) $(IPATH)
 AR := $(CROSS_COMPILE)ar
 RANLIB := $(CROSS_COMPILE)ranlib
+OBJCOPY := $(CROSS_COMPILE)objcopy
 DEBUG = -g #-DDEBUG
 WARNINGS=-Wall -Wwrite-strings \
         -Wpointer-arith -Wcast-qual -Wcast-align \
@@ -78,7 +79,6 @@ BUILD_GPERF := $(shell which gperf >/dev/null 2>/dev/null && echo yes)
 
 SYSTEM_HEADERS = /usr/include
 INCS=$(topdir)/libcap/include/sys/capability.h
-LDFLAGS += -L$(topdir)/libcap
 CFLAGS += -Dlinux $(WARNINGS) $(DEBUG)
 INDENT := $(shell if [ -n "$$(which indent 2>/dev/null)" ]; then echo "| indent -kr" ; fi)
 
@@ -114,7 +114,7 @@ ifeq ($(CGO_REQUIRED),1)
 # Strictly speaking go1.15 doesn't need this, but 1.16 is when the
 # real golang support arrives for non-cgo support, so drop the last
 # vestige of legacy workarounds then.
-CGO_LDFLAGS_ALLOW := -Wl,-?-wrap[=,][^-.@][^,]*
+CGO_LDFLAGS_ALLOW := CGO_LDFLAGS_ALLOW="-Wl,-?-wrap[=,][^-.@][^,]*"
 endif
 CGO_CFLAGS := -I$(topdir)/libcap/include
 CGO_LDFLAGS := -L$(topdir)/libcap
@@ -155,7 +155,7 @@ endif
 #
 # In the context of this tree, on such such systems, a yes setting will
 # guarantee that every user, by default, is able to bless any binary with
-# any capability - a ready made local exploit machanism.
+# any capability - a ready made local exploit mechanism.
 RAISE_SETFCAP := no
 
 # If set to yes, this will cause the go "web" demo app to force the needed p

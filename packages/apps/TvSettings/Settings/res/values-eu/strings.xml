@@ -31,6 +31,8 @@
     <string name="enabled" msgid="5127188665060746381">"Gaituta"</string>
     <string name="disabled" msgid="4589065923272201387">"Desgaituta"</string>
     <string name="unavailable" msgid="1610732303812180196">"Ez dago erabilgarri"</string>
+    <string name="allow" msgid="6982558814345894019">"Eman baimena"</string>
+    <string name="deny" msgid="8291577308813053917">"Ukatu"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"Iradokizunak"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"Ezarpen bizkorrak"</string>
     <string name="header_category_general_settings" msgid="3897615781153506434">"Ezarpen orokorrak"</string>
@@ -51,6 +53,7 @@
     <string name="sound_category_title" msgid="7899816751041939518">"Soinua"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"Aplikazioak"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"Gailuaren hobespenak"</string>
+    <string name="accessibility_category_title" msgid="1552664829936369592">"Erabilerraztasuna"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"Urruneko kontrolagailuak eta osagarriak"</string>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"Pantaila eta soinua"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"Laguntza eta iritziak"</string>
@@ -109,7 +112,8 @@
     <string name="device_backup_restore" msgid="3634531946308269398">"Babeskopiak eta leheneratzea"</string>
     <string name="device_factory_reset" msgid="1110189450013225971">"Berrezarri jatorrizko datuak"</string>
     <string name="device_calibration" msgid="2907914144048739705">"Kalibrazioa"</string>
-    <string name="device_energy_saver" msgid="1105023232841036991">"Energia-aurrezlea"</string>
+    <string name="device_energy_saver" msgid="6611757996220443028">"Itzaltzeko tenporizadorea"</string>
+    <string name="device_energy_saver_summary" msgid="5306058475316008429">"Ezarri tenporizadoreak telebista itzaltzeko eta energia aurrezteko moduan"</string>
     <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
     <string name="device_fastpair" msgid="1235240814051277047">"Gailuak"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"Hautatu formatuak"</string>
@@ -118,7 +122,7 @@
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="4268947520371740146">"DTS-HD"</string>
-    <string name="surround_sound_format_dts_uhd" msgid="2844983210044263719">"DTS-UHD"</string>
+    <string name="surround_sound_format_dts_uhd" msgid="4340749818133578788">"DTS:X"</string>
     <string name="surround_sound_format_dolby_mat" msgid="3029804841912462928">"Dolby Atmos, Dolby TrueHD-rekin"</string>
     <string name="surround_sound_format_dolby_truehd" msgid="5113046743572967088">"Dolby TrueHD"</string>
     <string name="surround_sound_format_e_ac3_joc" msgid="3360344066462262996">"Dolby Atmos, Dolby Digital Plus-ekin"</string>
@@ -147,10 +151,38 @@
     <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"HDMI-CEC"</string>
     <string name="advanced_sound_settings_title" msgid="319921303039469139">"Soinuaren ezarpen aurreratuak"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"Eman jokatzeko modua erabiltzeko baimena"</string>
+    <string name="match_content_dynamic_range_title" msgid="2794980556561655838">"Bat etorri edukiaren tarte dinamikoarekin"</string>
+    <string name="match_content_dynamic_range_summary" msgid="2255683926227355398">"Aukera hau gaitzean, sistema tarte dinamikoko formatu batetik bestera aldatuko da edukiarekin bat etortzeko. Ondorioz, baliteke pantaila beltz jartzea formatu batetik bestera aldatu bitartean.\n\nTarte dinamikoen aukera gehiago ikusteko, sakatu pantailaren ezarpen aurreratuak."</string>
+    <string name="preferred_dynamic_range_title" msgid="5064883672337010588">"Tarte dinamiko hobetsia"</string>
+    <string name="preferred_dynamic_range_selection_system_title" msgid="4505030483876080996">"Sistemak hobetsitako bihurketa"</string>
+    <string name="preferred_dynamic_range_selection_system_desc" msgid="5712920601553613576">"Utzi sistemari formatuaren bihurketa kudeatzen"</string>
+    <string name="preferred_dynamic_range_selection_system_summary" msgid="4509062596428781094">"Aukera hau hautatzean, sistemak zehaztuko du tarte dinamiko egokia hura pantailara bidaltzeko eta edukia tarte dinamiko horretara bihurtzeko, beharrezkoa bada."</string>
+    <string name="preferred_dynamic_range_selection_passthrough_desc" msgid="4831260397179583737">"Beti dator bat edukiaren formatuarekin"</string>
+    <string name="preferred_dynamic_range_selection_force_title" msgid="4448836594133973103">"Behartu bihurketa"</string>
+    <string name="preferred_dynamic_range_selection_force_desc" msgid="1418542349290684513">"Bihurketa hobetsitako formatura behartzen du"</string>
+    <string name="preferred_dynamic_range_selection_force_summary" msgid="8381058061765216239">"Behartu bihurketa hobetsitako formatura. Baliteke bihurketa behartzeak bistaratzeko moduaren edo HDR formatuaren beste ezarpen batzuei eragitea."</string>
+    <string name="preferred_dynamic_range_selection_force_sdr_title" msgid="3135104063034317252">"Beti SDR formatura"</string>
+    <string name="preferred_dynamic_range_selection_force_hdr_title" msgid="1032587815433139859">"Beti <xliff:g id="HDR_TYPE">%s</xliff:g> formatura"</string>
+    <string name="preferred_dynamic_range_force_dialog_title" msgid="6865110024863661702">"HDR formaturako irteera behartu nahi duzu?"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc" msgid="7758323258282201656">"Modu lehenetsian, <xliff:g id="HDR_TYPE">%s</xliff:g> formatura behartuko da bihurketa."</string>
+    <string name="preferred_dynamic_range_force_dialog_desc_4k30_issue" msgid="4938418395391206131">"Zure pantailak 1080p bereizmena izango du (60 Hz). Aukera hori ez da bateragarria pantailarekin pantailak 4K bereizmena badu (60 Hz)."</string>
+    <string name="selection_dolby_vision_not_supported_sidebar" msgid="8994591316574824115">"Bereizmen honetan ez da onartzen Dolby Vision. Dolby Vision eskuz gaituz gero, 1080p-ko (60Hz) bereizmenera aldatuko da pantaila."</string>
+    <string name="manual_dolby_vision_format_on_4k60_title" msgid="4172263676512376500">"1080p-ko (60Hz) bereizmenera aldatu nahi duzu?"</string>
+    <string name="dynamic_range_selection_force_dv_title" msgid="8070148109262327094">"Behartu beti Dolby Vision-erako bihurketa"</string>
+    <string name="dynamic_range_selection_force_dv_summary" msgid="1052851029985095562">"Pantailaren ezarpen aurreratuetako HDRko formatuetarako Dolby Vision desgaituta badago, Dolby Vision-erako bihurketa behartzeak Dolby Vision berriro gaituko du."</string>
+    <string name="dynamic_range_selection_force_hdr10_title" msgid="1221688206945051384">"Behartu beti HDR10-erako bihurketa"</string>
+    <string name="dynamic_range_selection_force_hdr10_summary" msgid="7784573527636502784">"Pantailaren ezarpen aurreratuetako HDRko formatuetarako HDR10 desgaituta badago, HDR10-erako bihurketa behartzeak HDR10 berriro gaituko du."</string>
+    <string name="dynamic_range_selection_force_hlg_title" msgid="3976190987768712696">"Behartu beti HLGrako bihurketa"</string>
+    <string name="dynamic_range_selection_force_hlg_summary" msgid="5371949016689544001">"Pantailaren ezarpen aurreratuetako HDRko formatuetarako HLG desgaituta badago, HLGrako bihurketa behartzeak HLG berriro gaituko du."</string>
+    <string name="dynamic_range_selection_force_hdr10plus_title" msgid="1305556000063625735">"Behartu beti HDR10+ araurako bihurketa"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_summary" msgid="918038386222537401">"Pantailaren ezarpen aurreratuetako HDRko formatuetarako HDR10+ desgaituta badago, HDR10+ araurako bihurketa behartzeak HDR10+ berriro gaituko du."</string>
+    <string name="dynamic_range_selection_force_sdr_title" msgid="1063579223517652945">"Behartu beti SDR-rako bihurketa"</string>
+    <string name="dynamic_range_selection_force_sdr_summary" msgid="2874771365465898941">"SDR-rako bihurketa behartuz gero, pantailaren ezarpen aurreratuetako HDRko formatuetan dauden formatu guztiak desgaituko dira."</string>
     <string name="match_content_frame_rate_title" msgid="153291168560947689">"Bat etorri edukiaren irudi-abiadurarekin"</string>
-    <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"Zuzenekoa"</string>
+    <string name="match_content_frame_rate_seamless" msgid="5577846750811067585">"Etenik gabe soilik"</string>
     <string name="match_content_frame_rate_seamless_summary" msgid="2737466163964133210">"Aplikazioak eskatzen badu eta telebistak zuzeneko trantsizio bat egin badezake SOILIK bat-etorraraziko du gailuak bere irteera ikusten ari zaren edukiaren jatorrizko irudi-abiadurarekin."</string>
-    <string name="match_content_frame_rate_non_seamless" msgid="1534300397118594640">"Ez-zuzenekoa"</string>
+    <string name="match_content_frame_rate_seamless_not_supported_summary" msgid="98559950465123792">"Konektatu duzun pantailak ez ditu onartzen etenik gabeko trantsizioak freskatze-abiaduran. Aukera honek ez du eraginik izango hura onartzen duen pantaila bat erabiltzen ez baduzu."</string>
+    <string name="match_content_frame_rate_non_seamless" msgid="2702658727234710031">"Beti"</string>
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Aplikazioak eskatzen badu, ikusten ari zaren edukiaren jatorrizko irudi-abiadurarekin bat-etorraraziko du gailuak bere irteera. Ondorioz, baliteke segundo batez pantailan ezer ez agertzea bideoa erreproduzitzen duzunean edo erreproduzitzeari uzten diozunean."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Inoiz ez"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Aplikazioak eskatu arren, gailuak ez du bat-etorraraziko bere irteera ikusten ari zaren edukiaren jatorrizko irudi-abiadurarekin."</string>
@@ -167,6 +199,7 @@
     <string name="hdr_format_selection_manual_desc" msgid="8865649615882146772">"Hautatu formatuak eskuz, erabilgarri daudenen artean"</string>
     <string name="hdr_format_supported_title" msgid="1458594819224612431">"ONARTZEN DIREN FORMATUAK"</string>
     <string name="hdr_format_unsupported_title" msgid="715318408107924941">"ONARTZEN EZ DIREN FORMATUAK"</string>
+    <string name="hdr_format_sdr" msgid="7211377112392255102">"SDR"</string>
     <string name="hdr_format_hdr10" msgid="8063543267227491062">"HDR10"</string>
     <string name="hdr_format_hlg" msgid="454510079939620321">"HLG"</string>
     <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"HDR10+"</string>
@@ -182,10 +215,14 @@
     <string name="resolution_selection_title" msgid="2873993320284587853">"Bereizmena"</string>
     <string name="resolution_selection_auto_title" msgid="4738671207331027385">"Automatikoa"</string>
     <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"Aldatu da bereizmena"</string>
+    <string name="resolution_selection_with_mode_dialog_title" msgid="5011192408613100514">"%1$s ezarri nahi duzu bereizmen gisa?"</string>
     <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"Hemendik aurrera %1$s erabiltzeko, hautatu Ados."</string>
+    <string name="resolution_selection_disabled_dolby_vision_dialog_desc" msgid="7952404018654828187">"Dolby Vision-ek ez du %1$s modua onartzen eta pantailaren ezarpen aurreratuetan desgaituko da"</string>
+    <string name="resolution_hdr_description_info" msgid="2408761621976850238">"Moduak hauek onartzen ditu: %1$s\nTelebista batzuetan, baliteke HDMI hobetua aktibatu behar izatea HDR formatu gehiago gaitzeko. Aukera hori duzun jakiteko, ikusi telebistaren ezarpenak."</string>
     <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"Utzi"</string>
     <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"Ados"</string>
     <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
+    <string name="resolution_display_mode" msgid="6633857172598855480">"<xliff:g id="RESOLUTION">%1$s</xliff:g> (<xliff:g id="REFRESH_RATE">%2$s</xliff:g> Hz)"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"Cacheko datuak garbitu nahi dituzu?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"Aplikazio guztien cacheko datuak garbituko dira."</string>
     <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
@@ -219,9 +256,9 @@
     <string name="bluetooth_device_connected_toast" msgid="1896195197089204806">"Konektatu da %1$s"</string>
     <string name="bluetooth_device_disconnected_toast" msgid="7459239447363156499">"Deskonektatu da %1$s"</string>
     <string name="connected_devices_slice_pref_title" msgid="6761921505544005991">"Urruneko kontrolagailuak eta osagarriak"</string>
-    <string name="bluetooth_toggle_title" msgid="3808904783456336104">"Bluetooth-a"</string>
-    <string name="bluetooth_toggle_confirmation_dialog_title" msgid="3906746631391295717">"Desaktibatu Bluetooth-a"</string>
-    <string name="bluetooth_toggle_confirmation_dialog_summary" msgid="9017044450625172698">"Bluetooth-a desaktibatuta badago, ezingo duzu urruneko kontrolagailuaren bidez atzitu Google-ren Laguntzailea."</string>
+    <string name="bluetooth_toggle_title" msgid="3808904783456336104">"Bluetootha"</string>
+    <string name="bluetooth_toggle_confirmation_dialog_title" msgid="3906746631391295717">"Desaktibatu Bluetootha"</string>
+    <string name="bluetooth_toggle_confirmation_dialog_summary" msgid="9017044450625172698">"Bluetootha desaktibatuta badago, ezingo duzu urruneko kontrolagailuaren bidez atzitu Google-ren Laguntzailea."</string>
     <string name="bluetooth_pair_accessory" msgid="5508750142754420984">"Parekatu osagarria"</string>
     <string name="bluetooth_known_devices_category" msgid="6895470515631452961">"Osagarriak"</string>
     <string name="bluetooth_official_remote_category" msgid="5817814488268307170">"Urruneko kontrolagailua"</string>
@@ -239,7 +276,7 @@
     <string name="bluetooth_serial_number_label" msgid="6639294603220209971">"Bluetooth bidez konektatzeko helbidea"</string>
     <string name="bluetooth_connected_status" msgid="8629393539370085418">"Konektatuta"</string>
     <string name="bluetooth_disconnected_status" msgid="7617866963193224775">"Deskonektatuta"</string>
-    <string name="bluetooth_empty_list_user_restricted" msgid="1610743588460010736">"Ez daukazu Bluetooth-aren ezarpenak aldatzeko baimenik."</string>
+    <string name="bluetooth_empty_list_user_restricted" msgid="1610743588460010736">"Ez daukazu Bluetootharen ezarpenak aldatzeko baimenik."</string>
     <string name="send_feedback" msgid="936698637869795473">"Bidali oharrak"</string>
     <string name="launch_help" msgid="2607478763131952469">"Laguntza-zentroa"</string>
     <string name="system_cast" msgid="6081391679828510058">"Google Cast"</string>
@@ -257,7 +294,6 @@
     <string name="system_inputs" msgid="5552840337357572096">"Sarrerak"</string>
     <string name="system_inputs_devices" msgid="2158421111699829399">"Sarrerako konexioak eta gailuak"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"Etxeko zinema kontrolatzeko aukerak"</string>
-    <string name="system_accessibility" msgid="3081009195560501010">"Erabilerraztasuna"</string>
     <string name="system_developer_options" msgid="8480844257066475479">"Garatzaileentzako aukerak"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"Bat ere ez"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"Erabilera eta diagnostikoak"</string>
@@ -282,7 +318,7 @@
     <string name="enterprise_privacy_security_logs" msgid="2573545327989145361">"Azken segurtasun-erregistroa"</string>
     <string name="enterprise_privacy_none" msgid="6660670916934417519">"Bat ere ez"</string>
     <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"Instalatutako aplikazioak"</string>
-    <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"Gutxi gorabeherakoa da aplikazio kopurua. Baliteke Play Store-tik instalatu ez diren aplikazioak kontuan ez izatea."</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"Aplikazio kopurua estimazio bat da. Baliteke Play Store-tik instalatu ez diren aplikazioak kontuan ez izatea."</string>
     <string name="enterprise_privacy_number_packages_lower_bound" msgid="4518330667109848939">"{count,plural, =1{Gutxienez # aplikazio}other{Gutxienez # aplikazio}}"</string>
     <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"Kokapena hautemateko baimenak"</string>
     <string name="enterprise_privacy_microphone_access" msgid="3746238027890585248">"Mikrofonoa erabiltzeko baimenak"</string>
@@ -298,7 +334,7 @@
     <string name="enterprise_privacy_ca_certs_device" msgid="975646846291012452">"Kredentzial fidagarriak"</string>
     <string name="enterprise_privacy_ca_certs_personal" msgid="7641368559306519707">"Profil pertsonaleko kredentzial fidagarriak"</string>
     <string name="enterprise_privacy_ca_certs_work" msgid="2905939250974399645">"Laneko profileko kredentzial fidagarriak"</string>
-    <string name="enterprise_privacy_number_ca_certs" msgid="5918439861975410142">"{count,plural, =1{# CA ziurtagiri}other{# CA ziurtagiri}}"</string>
+    <string name="enterprise_privacy_number_ca_certs" msgid="5918439861975410142">"{count,plural, =1{Autoritate ziurtagiri-emaile batek jaulkitako # ziurtagiri}other{Autoritate ziurtagiri-emaile batek jaulkitako # ziurtagiri}}"</string>
     <string name="enterprise_privacy_lock_device" msgid="3140624232334033641">"Administratzaileak gailua blokea eta pasahitza berrezar dezake"</string>
     <string name="enterprise_privacy_wipe_device" msgid="1714271125636510031">"Administratzaileak gailuko datu guztiak ezaba ditzake"</string>
     <string name="enterprise_privacy_failed_password_wipe_device" msgid="8272298134556250600">"Pasahitza idazteko egin daitezkeen saiakerak gailuko datu guztiak ezabatu aurretik"</string>
@@ -307,6 +343,7 @@
     <string name="do_disclosure_generic" msgid="8390478119591845948">"Zure erakundeak kudeatzen du gailua."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"<xliff:g id="ORGANIZATION_NAME">%s</xliff:g> erakundeak kudeatzen du gailu hau."</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
+    <string name="hdr_capability" msgid="3331021013422460270">"- %1$s"</string>
     <string name="learn_more" msgid="820336467414665686">"Lortu informazio gehiago"</string>
     <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{Kamera-aplikazioa}other{Kamera-aplikazioak}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"Egutegi-aplikazioa"</string>
@@ -334,8 +371,8 @@
     <string name="about_build" msgid="8467840394761634575">"Android TV-ren sistema eragilearen konpilazioa"</string>
     <string name="show_dev_countdown" msgid="4064986225625409361">"{count,plural, =1{# urrats falta zaizu garatzaile izateko}other{# urrats falta zaizkizu garatzaile izateko}}"</string>
     <string name="about_ads" msgid="7662896442040086522">"Iragarkiak"</string>
-    <string name="ads_description" msgid="8081069475265061074">"Kudeatu iragarkien ezarpenak; adibidez, berrezarri publizitate IDa."</string>
-    <string name="ads_content_description" msgid="1006489792324920289">"Iragarkiak: kudeatu iragarkien ezarpenak; adibidez, berrezarri publizitate IDa."</string>
+    <string name="ads_description" msgid="8081069475265061074">"Kudeatu iragarkien ezarpenak; adibidez, berrezarri publizitate-identifikatzailea."</string>
+    <string name="ads_content_description" msgid="1006489792324920289">"Iragarkiak: kudeatu iragarkien ezarpenak; adibidez, berrezarri publizitate-identifikatzailea."</string>
     <string name="show_dev_on" msgid="612741433124106067">"Garatzailea zara!"</string>
     <string name="show_dev_already" msgid="1522591284776449818">"Ez dago zertan, dagoeneko garatzailea zara"</string>
     <string name="device_info_default" msgid="2374506935205518448">"Ezezaguna"</string>
@@ -589,18 +626,23 @@
     <string name="no_recent_sensor_accesses" msgid="3498112970658050800">"Ez dute atzitu azkenaldian"</string>
     <string name="recently_accessed_show_all" msgid="5234849189704717855">"Ikusi guztiak"</string>
     <string name="microphone" msgid="7893752847683941214">"Mikrofonoa"</string>
-    <string name="mic_toggle_title" msgid="7193417007060235665">"Mikrofonoa atzitzeko baimena"</string>
+    <string name="mic_toggle_title" msgid="7193417007060235665">"Mikrofonoa erabiltzeko baimena"</string>
+    <string name="mic_remote_toggle_title" msgid="7153283895012570080">"Urruneko kontrolagailuaren mikrofonorako sarbidea"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"Aplikazioen mikrofono-atzitzeak"</string>
     <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"Mikrofonorako sarbidea blokeatuta dago"</string>
     <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"Hura desblokeatzeko, ezarri gailuaren pribatutasun-etengailua mikrofonoa aktibatuta egon dadin, kamerarako sarbidea emateko."</string>
     <string name="camera" msgid="1226671478936288283">"Kamera"</string>
-    <string name="camera_toggle_title" msgid="5566469574224956142">"Kamera atzitzeko baimena"</string>
+    <string name="camera_toggle_title" msgid="5566469574224956142">"Kamera erabiltzeko baimena"</string>
     <string name="open_camera_permissions" msgid="301360297337141591">"Aplikazioen kamera-atzitzeak"</string>
     <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"Kamerarako sarbidea blokeatuta dago"</string>
     <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"Hura desblokeatzeko, ezarri gailuaren pribatutasun-etengailua kamera aktibatuta egon dadin, kamerarako sarbidea emateko."</string>
-    <string name="mic_toggle_info_title" msgid="1086545614315873599">"Mikrofonoa atzitzeko baimena: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
-    <string name="mic_toggle_info_content" msgid="4699624900513326055">"Aktibatuta dagoenean, gailu honetako edozein mikrofono atzitu ahalko dute horretarako baimena daukaten aplikazio eta zerbitzu guztiek.\n\nEzarpen honek ez die eragingo protokolo pertsonalizatu bat daukaten audio-gailu periferikoei."</string>
-    <string name="camera_toggle_info_title" msgid="3871317082313736088">"Kamera atzitzeko baimena: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
+    <string name="mic_toggle_info_title" msgid="1086545614315873599">"Mikrofonoa erabiltzeko baimena: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
+    <string name="mic_toggle_info_content" msgid="3187791167208947239">"Aktibatuta dagoenean, mikrofonoa erabiltzeko baimena duten aplikazio eta zerbitzu guztiek hura atzitu ahal izango dute.\n\nDesaktibatuta dagoenean, aldiz, ezein aplikaziok edo zerbitzuk ezingo du atzitu mikrofonoa. Alabaina, baliteke Google-ren Laguntzailea zerbitzuarekin hitz egin ahal izatea halere. Horretarako, sakatu urruneko kontrolagailuaren botoia (Laguntzailea atzitzeko balio duena).\n\nBaliteke telebistarekin komunikatzeko protokolo pertsonalizatuak erabiltzen dituzten audio-gailuek ezarpenaren eragina ez jasatea."</string>
+    <string name="mic_remote_toggle_on_info_title" msgid="8503441878870972046">"Urruneko kontrolagailuaren mikrofonoa gaituta dago"</string>
+    <string name="mic_remote_toggle_on_info_content" msgid="2715872916376493679">"Google-ren Laguntzailea zerbitzuak urruneko kontrolagailuaren mikrofonoa atzi dezake. Laguntzailea zerbitzuarekin hitz egiteko, sakatu urruneko kontrolagailuaren botoia (Google-ren Laguntzailea atzitzeko balio duena)."</string>
+    <string name="mic_remote_toggle_off_info_title" msgid="4902909833546393713">"Urruneko kontrolagailuaren mikrofonoa desgaituta dago"</string>
+    <string name="mic_remote_toggle_off_info_content" msgid="8062526350553191004">"Ezingo duzu hitz egin Google-ren Laguntzailea zerbitzuarekin urruneko kontrolagailua erabilita. Google-ren Laguntzailea atzitzeko botoia erabili ahal izateko, gaitu mikrofonorako sarbidea."</string>
+    <string name="camera_toggle_info_title" msgid="3871317082313736088">"Kamera erabiltzeko baimena: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="camera_toggle_info_content" msgid="2999965953853204003">"Aktibatuta dagoenean, gailu honetako edozein kamera atzitu ahalko dute horretarako baimena daukaten aplikazio eta zerbitzu guztiek.\n\nEzarpen honek ez die eragingo protokolo pertsonalizatu bat daukaten kamera periferikoei."</string>
     <string name="sensor_toggle_info_on" msgid="4568111889147132257">"aktibatuta"</string>
     <string name="sensor_toggle_info_off" msgid="7546772458177469821">"desaktibatuta"</string>
@@ -612,7 +654,7 @@
     <string name="location_no_recent_apps" msgid="7033474075806435793">"Ez dago kokapena duela gutxi eskatu duen aplikaziorik"</string>
     <string name="location_high_battery_use" msgid="5325556609027887602">"Bateria-erabilera handia"</string>
     <string name="location_low_battery_use" msgid="728585923412018253">"Bateria-erabilera txikia"</string>
-    <string name="location_mode_wifi_description" msgid="84697248707903061">"Erabili wifi-konexioa kokapena kalkulatzeko"</string>
+    <string name="location_mode_wifi_description" msgid="84697248707903061">"Erabili wifi-konexioa kokapena estimatzeko"</string>
     <string name="location_status" msgid="3037321737386011224">"Kokapenaren egoera"</string>
     <string name="location_services" msgid="551503779736382878">"Kokapen-zerbitzuak"</string>
     <string name="on" msgid="4899322147062342542">"Aktibatuta"</string>
@@ -625,9 +667,34 @@
     <string name="location_history_desc" msgid="926674012916014270">"Kontu honen Kokapen-historia aktibatuta dagoenean, Google-k gailuaren kokapen-datuak gorde ditzake aplikazioek erabil ditzaten.\n\nAdibidez, Google Maps-ek jarraibideak eman diezazkizuke eta Google Now aplikazioak, berriz, eguneroko joan-etorrietan aurki dezakezun trafikoaren berri eman diezazuke.\n\nEdonoiz desaktiba dezakezu Kokapen-historia, baina horrek ez du ezabatuko. Kokapen-historia ikusteko eta kudeatzeko, joan maps.google.com/locationhistory helbidera."</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"Ezabatu kokapen-historia"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"Honekin, Kokapen-historiak kontu honetarako gorde duen gailuko guztia ezabatuko da. Ezin duzu ezabatzea desegin. Zenbait aplikaziok (besteak beste, Google Now aplikazioak) funtzionatzeari utziko diote."</string>
-    <string name="system_services" msgid="5754310941186053151">"Zerbitzuak"</string>
+    <string name="accessibility_screen_readers_category_title" msgid="7742526514873922018">"Pantaila-irakurgailuak"</string>
+    <string name="accessibility_display_category_title" msgid="593444602101558017">"Pantaila"</string>
+    <string name="accessibility_interaction_controls_category_title" msgid="5290687835178852745">"Interakzioa kontrolatzeko aukerak"</string>
+    <string name="accessibility_audio_and_onscreen_text_category_title" msgid="113841605896486212">"Audioa eta pantailako testua"</string>
+    <string name="accessibility_experimental_category_title" msgid="3401773834179170206">"Esperimentala"</string>
+    <string name="accessibility_services_category_title" msgid="8813843874978910442">"Zerbitzuak"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"Zerbitzuaren ezarpenak"</string>
+    <string name="accessibility_screen_reader_flattened_component_name" msgid="6834614827111101213">"com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"Kontraste handiko testua"</string>
+    <string name="accessibility_toggle_bold_text_preference_title" msgid="3328992531170432669">"Testu lodia"</string>
+    <string name="accessibility_color_correction" msgid="6765093204922184119">"Koloreen zuzenketa"</string>
+    <string name="color_correction_usage" msgid="4160611639548748657">"Erabili koloreen zuzenketa"</string>
+    <string name="color_correction_color_mode" msgid="5081377780734779169">"Kolore modua"</string>
+    <string name="color_correction_mode_deuteranomaly" msgid="1513793544554228224">"Daltonismoa"</string>
+    <string name="color_correction_mode_deuteranomaly_summary" msgid="5991561481464520986">"Gorri-berdea"</string>
+    <string name="color_correction_mode_protanomaly" msgid="8105793166015115037">"Protanopia"</string>
+    <string name="color_correction_mode_protanomaly_summary" msgid="3247619910784115563">"Gorri-berdea"</string>
+    <string name="color_correction_mode_tritanomaly" msgid="757769418392736089">"Tritanomalia"</string>
+    <string name="color_correction_mode_tritanomaly_summary" msgid="137712354510881252">"Urdin-horia"</string>
+    <string name="color_correction_mode_grayscale" msgid="2592973844160514484">"Grisen eskala"</string>
+    <string name="palette_color_red" msgid="507196433434979086">"Gorria"</string>
+    <string name="palette_color_orange" msgid="6209196069366109835">"Laranja"</string>
+    <string name="palette_color_yellow" msgid="298466132578870590">"Horia"</string>
+    <string name="palette_color_green" msgid="4904783063036825668">"Berdea"</string>
+    <string name="palette_color_cyan" msgid="3212217287628948203">"Ziana"</string>
+    <string name="palette_color_blue" msgid="8836682634988540630">"Urdina"</string>
+    <string name="palette_color_purple" msgid="2123828754639683555">"Morea"</string>
+    <string name="palette_color_gray" msgid="4014534773994261194">"Grisa"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"Erabilerraztasunaren lasterbidea"</string>
     <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"Gaitu erabilerraztasunaren lasterbidea"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"Lasterbideari esleitutako zerbitzua"</string>
@@ -730,7 +797,7 @@
     <string name="system_desc_hdmi_optimization" msgid="5695603795556335912">"Optimizatu pantaila bereizmen edo irudi-abiadura handiena izan dezan. Ezarpen honek Ultra HD motako pantailetan soilik du eragina. Ezarpena aldatuz gero, gailua berrabiaraziko da."</string>
     <string name="system_desc_bt_hci_log" msgid="2592649923221658103">"Gaitu Bluetooth HCI miatze-erregistroa"</string>
     <string name="system_desc_usb_debugging" msgid="5672275208185222785">"Aktibatu arazketa modua USBa konektatzean"</string>
-    <string name="system_desc_wait_for_debugger" msgid="7213496668606417691">"Araztutako aplikazioa araztailea erantsi arte itxaroten ari da exekutatu aurretik"</string>
+    <string name="system_desc_wait_for_debugger" msgid="7213496668606417691">"Araztutako aplikazioak araztailea erantsi arte itxaroten du exekutatu aurretik"</string>
     <string name="system_desc_show_layout_bounds" msgid="5275008598296135852">"Erakutsi bideo zatiaren mugak, marjinak, etab."</string>
     <string name="system_desc_show_gpu_view_updates" msgid="9088343415389734854">"Distirarazi leiho barruko ikuspegiak GPUz marraztean"</string>
     <string name="system_desc_show_hardware_layer" msgid="3483713991865249527">"Distirarazi hardware-geruzak berdez haiek eguneratzean"</string>
@@ -741,7 +808,7 @@
     <string name="security_unknown_sources_title" msgid="2012801664240314305">"Iturburu ezezagunak"</string>
     <string name="security_unknown_sources_desc" msgid="7196715598352173267">"Baimendu Play Store ez diren iturburuetatik datozen aplikazioak instalatzea"</string>
     <string name="security_unknown_sources_confirm_title" msgid="4600896691987804985">"Baimendu iturburu ezezagunak"</string>
-    <string name="security_unknown_sources_confirm_desc" msgid="7883820068140189584">"Gailuak eta datu pertsonalek iturburu ezezagunetako aplikazioen erasoak jaso ditzakete. Aplikazio horiek erabiltzen badituzu, onartzen duzu gailuari agian gertatuko zaizkion kalteen edo datu-galeren erantzule bakarra zeu zarela."</string>
+    <string name="security_unknown_sources_confirm_desc" msgid="7883820068140189584">"Baliteke gailuak eta datu pertsonalek iturburu ezezagunetako aplikazioen erasoak jasatea. Aplikazio horiek erabiltzen badituzu, onartu egingo duzu gailuari agian gertatuko zaizkion kalteen edo datu-galeren erantzulea zeu izango zarela."</string>
     <string name="system_hdcp_checking_never" msgid="3251512398865365135">"Inoiz ez"</string>
     <string name="system_hdcp_checking_drm" msgid="2159124883496899278">"DRM edukirako"</string>
     <string name="system_hdcp_checking_always" msgid="5868177105455148262">"Beti"</string>
@@ -836,7 +903,7 @@
     <string name="restriction_description" msgid="2053112392083722259">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
     <string name="app_sees_restricted_accounts_and_controlled_by" msgid="1261056180558324892">"Aplikazio honek zure kontuak atzi ditzake. <xliff:g id="APP">%1$s</xliff:g> aplikazioak kontrolatzen du."</string>
     <string name="pin_enter_unlock_channel" msgid="243855138978654080">"Kanal hau ikusi nahi baduzu, idatzi PINa."</string>
-    <string name="pin_enter_unlock_program" msgid="275489015420025531">"Telesaio hau ikusi nahi baduzu, idatzi PINa."</string>
+    <string name="pin_enter_unlock_program" msgid="275489015420025531">"Saio hau ikusi nahi baduzu, idatzi PINa."</string>
     <string name="pin_enter_pin" msgid="5020029261153234751">"Idatzi PINa"</string>
     <string name="pin_enter_new_pin" msgid="1930944619313642621">"Aldatu PINa"</string>
     <string name="pin_enter_again" msgid="7615050143778858658">"Idatzi PINa berriro"</string>
@@ -885,12 +952,24 @@
     <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"Tarte horretan inaktibo egon ondoren agertzen da pantaila-babeslea. Pantaila-babeslerik hautatzen ez bada, itzali egiten da pantaila."</string>
     <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"<xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> inaktibo egon ondoren"</string>
     <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"Itzali pantaila"</string>
-    <string name="device_energy_saver_screen_off_description" msgid="4469679706899396071">"<xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> eta gero"</string>
-    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"Itzali pantaila denbora hau eta gero"</string>
-    <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"Onartu pantaila itzaltzea"</string>
-    <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"Multimedia-edukia erreproduzitzean"</string>
-    <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"Berretsi Energia-aurrezlea moduaren ezarpena"</string>
-    <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"Berretsi beste ezarpen bat denbora honetarako: <xliff:g id="SLEEP_TIME">%1$s</xliff:g>. Baliteke energia gehiago kontsumitzea modu horrek."</string>
+    <!-- no translation found for device_energy_saver_timeout_description (3206609135199137514) -->
+    <skip />
+    <string name="device_energy_saver_confirmation_title" msgid="7614859812773584773">"Berretsi piztu eta itzaltzearen eta kontsumoaren ezarpenak"</string>
+    <string name="device_energy_saver_confirmation_message" msgid="7789453187001013951">"Telebista denbora luzez piztuta utziz gero argindar gehiago gastatuko du."</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_title" msgid="1468097048101593731">"Desgaitu energia-aurreztailea moduaren ezarpena"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_text" msgid="6334963903866002164">"Berretsi pantaila itzaltzea eragozteko multimedia-edukia ikusi bitartean (baliteke energia gehiago kontsumitzea modu horrek)."</string>
+    <string name="device_energy_saver_sleep_timeout" msgid="1841900768718452039">"Inaktibo dagoenean"</string>
+    <string name="device_energy_saver_attentive_timeout" msgid="3649486668821348087">"Zerbait ikusi bitartean"</string>
+    <string name="device_energy_saver_category_title" msgid="170076161677525986">"Desaktibatu automatikoki"</string>
+    <string name="device_energy_saver_sleep_timeout_dialog_title" msgid="6588352532253294558">"Desaktibatu automatikoki inaktibo dagoenean"</string>
+    <string name="device_energy_saver_attentive_timeout_dialog_title" msgid="3273988875711109352">"Desaktibatu automatikoki ikusi bitartean"</string>
+    <string name="device_energy_saver_validation_sleep" msgid="7490897287741107840">"\"Inaktibo dagoenean\" izeneko tenporizadoreak \"Zerbait ikusi bitartean\" izenekoak baino laburragoa izan behar du"</string>
+    <string name="device_energy_saver_validation_attentive" msgid="1461105528087097435">"\"Zerbait ikusi bitartean\" izeneko tenporizadoreak \"Inaktibo dagoenean\" izenekoak baino luzeagoa izan behar du"</string>
+    <string name="limit_network_in_standby_toggle_title" msgid="6587185599397355336">"Mugatu sarerako konexioak egonean moduan"</string>
+    <string name="limit_network_in_standby_toggle_summary" msgid="9127792748675581174">"Energia gutxiago kontsumitzen du egonean moduan"</string>
+    <string name="limit_network_in_standby_toggle_info" msgid="566947772381093991">"Egonean moduan, telebista ez da sarera konektatuta egongo eguneratze automatikoak jasotzeko ez bada. Horrela energia gutxiago kontsumituko du, baina ezingo dituzu erabili funtzioetako batzuk; esate baterako Cast eta Google Laguntzailea."</string>
+    <string name="limit_network_in_standby_confirm_title" msgid="789232987058850322">"Eman egonean moduan sarera konektatuta egoteko baimena"</string>
+    <string name="limit_network_in_standby_confirm_message" msgid="7176699480768019689">"Egonean moduan sarera konektatuta egoteko baimena emanez gero, energia gehiago kontsumituko da."</string>
     <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"Ez dago babeskopiak gordetzen dituen aplikaziorik"</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"Wifi-sareetako pasahitzen, laster-marken, bestelako ezarpenen eta aplikazioetako datuen babeskopia egiteari utzi eta Google-ren zerbitzarietako kopia guztiak ezabatu nahi dituzu?"</string>
@@ -963,7 +1042,7 @@
     <string name="picture_in_picture_app_detail_switch" msgid="3688997906817583854">"Eman pantaila txiki gainjarria erabiltzeko baimena"</string>
     <string name="picture_in_picture_empty_text" msgid="4370198922852736600">"Ez dago instalatuta pantaila txiki gainjarriarekin bateragarria den aplikaziorik"</string>
     <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"Eman pantaila txiki gainjarri bat sortzeko baimena aplikazioei, aplikazioa irekita dagoenean nahiz hartatik irtetean (adibidez, bideoak ikusten jarraitzeko). Erabiltzen ari zaren beste aplikazioen gaienean erakutsiko da leiho hori."</string>
-    <string name="alarms_and_reminders_description" msgid="4063972350154624500">"Eman alarmak ezartzeko eta orduaren araberako beste ekintza batzuk programatzeko baimena aplikazioei. Hala, aplikazioek atzeko planoan funtzionatuko dute, eta litekeena da bateria gehiago kontsumitzea.\n\nEz baduzu ematen baimen hori, ez dute funtzionatuko aplikazio horien bidez programatutako alarmek eta orduaren araberako ekintzek."</string>
+    <string name="alarms_and_reminders_description" msgid="4063972350154624500">"Eman alarmak ezartzeko eta orduaren araberako beste ekintza batzuk programatzeko baimena aplikazioei. Hala, aplikazioek atzeko planoan funtzionatuko dute, eta litekeena da bateria gehiago kontsumitzea.\n\nBaimen hori ematen ez baduzu, ez dute funtzionatuko aplikazio horien bidez programatutako alarmek eta orduaren araberako ekintzek."</string>
     <string name="turn_screen_on_title" msgid="5293798529284629011">"Piztu pantaila"</string>
     <string name="allow_turn_screen_on" msgid="4903401106871656521">"Eman pantaila pizteko baimena"</string>
     <string name="allow_turn_screen_on_description" msgid="7521761625343889415">"Eman pantaila pizteko baimena aplikazioei. Baimena emanez gero, aplikazioek edonoiz piztu ahal izango dute pantaila, zuk halako asmorik izan ez arren."</string>
@@ -978,12 +1057,17 @@
     <string name="time_to_start_read_title" msgid="6565449163802837806">"Irakurtzen hasi aurreko denbora"</string>
     <string name="time_to_valid_audio_title" msgid="7246101824813414348">"Balio duten audio-datuak grabatu aurreko denbora"</string>
     <string name="empty_audio_duration_title" msgid="9024377320171450683">"Audio hutsaren iraupena"</string>
+    <string name="record_audio_source_title" msgid="9087784503276397929">"Grabatutako audioaren iturburua"</string>
+    <string name="record_audio_source_dialog_title" msgid="6556408220589197097">"Hautatu hurrengo grabaketaren audioaren iturburua"</string>
+    <string name="recorded_microphones_title" msgid="5466988146086215426">"Grabatutako mikrofonoak"</string>
     <string name="show_audio_recording_start_failed" msgid="9131762831381326605">"Ezin izan da hasi audioa grabatzen."</string>
     <string name="show_audio_recording_failed" msgid="8128216664039868681">"Ezin izan da grabatu audioa."</string>
-    <string name="title_data_saver" msgid="7500278996154002792">"Datu-aurrezlea"</string>
+    <string name="title_data_saver" msgid="7500278996154002792">"Datu-aurreztailea"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"Doitu automatikoki bideoen kalitatea datu-konexioa gutxiago erabiltzeko"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"Datu-konexioaren erabilera eta alertak"</string>
     <string name="data_saver_header_info" msgid="2706725187498535785">"Wifi edo Ethernet bidez, nahiz telefonoaren konexioa partekatuta konekta zaitezke Internetera."</string>
+    <string name="bluetooth_ask_discovery_title" msgid="4955540555242269694">"Bluetooth bidezko beste gailu batzuen aurrean ikusgai egotea nahi duzu?"</string>
+    <string name="bluetooth_ask_discovery_message" msgid="8609666862877703398">"Aplikazio batek telebista Bluetooth bidezko beste gailu batzuen aurrean ikusgai ezarri nahi du <xliff:g id="TIMEOUT">%1$d</xliff:g> segundoz."</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"Ezin da hori egin"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"Ezin da aldatu bolumena"</string>
@@ -1034,4 +1118,9 @@
     <string name="power_on_behavior" msgid="927607372303160716">"Piztean izan beharreko portaera"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"Berrezarri"</string>
     <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"Ethernet bidez parekatzeko kodea"</string>
+    <string name="energy_modes" msgid="1331693860386361744">"Energia moduak"</string>
+    <string name="energy_modes_summary" msgid="7196407759836930799">"Hobetu energiaren eraginkortasuna telebista erabiltzen ari ez zarenean"</string>
+    <string name="energy_mode_enables" msgid="357960364751477627">"Hauek gaitzen ditu:"</string>
+    <string name="energy_mode_eco_hint" msgid="1461517905015359947">"Kontuan izan agian modu honek gailuaren energia-kontsumoa handituko duela."</string>
+    <string name="energy_modes_confirmation_title" msgid="4520280098781914825">"Gaitu <xliff:g id="ENERGYMODENAME">%s</xliff:g>"</string>
 </resources>

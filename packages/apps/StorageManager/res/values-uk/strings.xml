@@ -48,7 +48,7 @@
     <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"Автоматично"</string>
     <string name="deletion_helper_manual_title" msgid="3905192395039688529">"Вручну"</string>
     <string name="deletion_helper_preference_title" msgid="803484286872745892">"Звільнити місце"</string>
-    <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"Служба автоматичного керування пам’яттю"</string>
+    <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"Автоматичне керування сховищем"</string>
     <string name="automatic_storage_manager_notification_title" product="default" msgid="8480483265300964701">"На телефоні замало місця"</string>
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"На планшеті мало місця"</string>
     <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"Дозволити диспетчеру пам’яті автоматично звільняти місце, видаляючи старі фото й відео, коли на телефоні замало місця."</string>

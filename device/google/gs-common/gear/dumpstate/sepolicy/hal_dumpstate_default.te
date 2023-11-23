@@ -1,0 +1,7 @@
+# required permission to use tar to pack dumpsate_board.bin
+allow hal_dumpstate_default vendor_toolbox_exec:file execute_no_trans;
+allow hal_dumpstate_default radio_vendor_data_file:dir create_dir_perms;
+allow hal_dumpstate_default radio_vendor_data_file:file create_file_perms;
+allow hal_dumpstate_default shell_data_file:file getattr;
+set_prop(hal_dumpstate_default, vendor_logger_prop)
+

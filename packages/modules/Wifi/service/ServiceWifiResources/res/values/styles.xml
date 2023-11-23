@@ -43,7 +43,8 @@
         <item name="android:orientation">vertical</item>
     </style>
 
-    <style name="wifi_p2p_invitation_received_dialog" />
+    <style name="wifi_dialog" parent="@android:style/Theme.DeviceDefault.Light.Dialog.Alert" />
+    <style name="wifi_p2p_invitation_received_dialog" parent="@android:style/Theme.DeviceDefault.Light.Dialog.Alert" />
 
     <style name="wifi_p2p_dialog_row_label" parent="@style/wifi_item_label" />
 
@@ -58,5 +59,6 @@
         <item name="android:singleLine">true</item>
         <item name="android:maxLength">8</item>
         <item name="android:inputType">number</item>
+        <item name="android:textColor">@android:color/primary_text_light</item>
     </style>
 </resources>

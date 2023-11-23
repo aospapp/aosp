@@ -27,7 +27,6 @@ android_test_helper_app {
         "androidx.test.ext.junit",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
-        "ub-uiautomator",
     ],
     srcs: ["src/**/*.java"],
     // Tag this module as a cts test artifact

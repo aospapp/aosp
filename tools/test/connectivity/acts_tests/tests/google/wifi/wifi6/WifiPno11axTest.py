@@ -15,7 +15,7 @@
 
 import time
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
-from WifiPnoTest import WifiPnoTest
+from ..WifiPnoTest import WifiPnoTest
 
 MAX_ATTN = 95
 

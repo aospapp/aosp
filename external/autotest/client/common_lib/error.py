@@ -258,6 +258,10 @@ class AutoservSshPermissionDeniedError(AutoservRunError):
     """Indicates that a SSH permission denied error was encountered."""
 
 
+class AutoservSshDnsError(AutoservRunError):
+    """Indicates that a DNS resolution error was encountered."""
+
+
 class AutoservUnsupportedError(AutoservError):
     """Error raised when you try to use an unsupported optional feature"""
 
@@ -276,6 +280,10 @@ class AutoservNotMountedHostError(AutoservHostError):
 
 class AutoservSshPingHostError(AutoservHostError):
     """SSH ping failed"""
+
+
+class AutoservSSPError(AutoservHostError):
+    """SSP setup failed"""
 
 
 class AutoservDiskFullHostError(AutoservHostError):
@@ -509,6 +517,10 @@ class AutoservDirectoryNotFoundError(AutoservHostError):
 
 class AutoservDiskSizeUnknownError(AutoservHostError):
     """Exception raised when the disk space could not be determined."""
+
+
+class TLSConnectionError(AutoservError):
+    pass
 
 
 # This MUST remain at the end of the file.

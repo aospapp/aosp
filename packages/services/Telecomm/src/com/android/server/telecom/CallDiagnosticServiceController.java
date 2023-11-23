@@ -25,7 +25,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -86,17 +85,19 @@ public class CallDiagnosticServiceController extends CallsManagerListenerBase {
          * Listens for changes to extras reported by a Telecom {@link Call}.
          *
          * Extras changes can originate from a {@link ConnectionService} or an {@link InCallService}
-         * so we will only trigger an update of the call information if the source of the extras
-         * change was a {@link ConnectionService}.
+         * so we will only trigger an update of the call information if the source of the
+         * extras change was a {@link ConnectionService}.
          *
-         * @param call The call.
-         * @param source The source of the extras change ({@link Call#SOURCE_CONNECTION_SERVICE} or
+         * @param call   The call.
+         * @param source The source of the extras change
+         *               ({@link Call#SOURCE_CONNECTION_SERVICE} or
          *               {@link Call#SOURCE_INCALL_SERVICE}).
          * @param extras The extras.
          */
         @Override
-        public void onExtrasChanged(Call call, int source, Bundle extras) {
-            // Do not inform InCallServices of changes which originated there.
+        public void onExtrasChanged(Call call, int source, Bundle extras,
+                String requestingPackageName) {
+            // Do not inform of changes which originated from an InCallService to a CDS.
             if (source == Call.SOURCE_INCALL_SERVICE) {
                 return;
             }

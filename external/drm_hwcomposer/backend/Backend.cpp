@@ -83,9 +83,9 @@ std::tuple<int, size_t> Backend::GetClientLayers(
 
 bool Backend::IsClientLayer(HwcDisplay *display, HwcLayer *layer) {
   return !HardwareSupportsLayerType(layer->GetSfType()) ||
-         !BufferInfoGetter::GetInstance()->IsHandleUsable(layer->GetBuffer()) ||
+         !layer->IsLayerUsableAsDevice() ||
          display->color_transform_hint() != HAL_COLOR_TRANSFORM_IDENTITY ||
-         (layer->RequireScalingOrPhasing() &&
+         (layer->GetLayerData().pi.RequireScalingOrPhasing() &&
           display->GetHwc2()->GetResMan().ForcedScalingWithGpu());
 }
 
@@ -99,7 +99,7 @@ uint32_t Backend::CalcPixOps(const std::vector<HwcLayer *> &layers,
   uint32_t pixops = 0;
   for (size_t z_order = 0; z_order < layers.size(); ++z_order) {
     if (z_order >= first_z && z_order < first_z + size) {
-      hwc_rect_t df = layers[z_order]->GetDisplayFrame();
+      hwc_rect_t &df = layers[z_order]->GetLayerData().pi.display_frame;
       pixops += (df.right - df.left) * (df.bottom - df.top);
     }
   }

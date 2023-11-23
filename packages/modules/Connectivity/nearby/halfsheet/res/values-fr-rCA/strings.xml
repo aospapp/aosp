@@ -20,7 +20,18 @@
     <string name="fast_pair_setup_in_progress" msgid="4158762239172829807">"Démarrage de la configuration…"</string>
     <string name="fast_pair_title_setup" msgid="2894360355540593246">"Configurer l\'appareil"</string>
     <string name="fast_pair_device_ready" msgid="2903490346082833101">"Appareil associé"</string>
+    <string name="fast_pair_device_ready_with_device_name" msgid="2151967995692339422">"Connecté à l\'appareil suivant : « %s »"</string>
     <string name="fast_pair_title_fail" msgid="5677174346601290232">"Impossible d\'associer"</string>
+    <string name="fast_pair_unable_to_connect" msgid="3661854812014294569">"Échec de la connexion"</string>
+    <string name="fast_pair_unable_to_connect_description" msgid="3926830740860653891">"Essayez d\'associer manuellement l\'appareil"</string>
+    <string name="fast_pair_turn_on_bt_device_pairing_mode" msgid="3197372738187738030">"Essayez de mettre l\'appareil en mode d\'association"</string>
+    <string name="devices_within_reach_channel_name" msgid="876280551450910440">"Appareils à portée"</string>
+    <string name="devices_with_your_account_channel_name" msgid="8120067812798598102">"Appareils connectés à votre compte"</string>
+    <string name="fast_pair_your_device" msgid="3662423897069320840">"Appareil enregistré accessible"</string>
+    <string name="common_nearby_title" msgid="5480324514713607015">"À proximité"</string>
+    <string name="common_devices" msgid="2635603125608104442">"Appareils"</string>
+    <string name="common_connecting" msgid="160531481424245303">"Connexion en cours…"</string>
+    <string name="common_battery_level" msgid="8748495823047456645">"Pile : %d%%"</string>
     <string name="paring_action_done" msgid="6888875159174470731">"OK"</string>
     <string name="paring_action_save" msgid="6259357442067880136">"Enregistrer"</string>
     <string name="paring_action_connect" msgid="4801102939608129181">"Associer"</string>

@@ -29,7 +29,7 @@
     <string name="one_userkey" msgid="3500697912370644881">"erabiltzaile-gako bat"</string>
     <string name="userkey_type" msgid="6214833257030657106">"Algoritmoa:"</string>
     <string name="one_usercrt" msgid="7690798336332403106">"erabiltzaile-ziurtagiri bat"</string>
-    <string name="one_cacrt" msgid="2667950425420663146">"CA ziurtagiri bat"</string>
+    <string name="one_cacrt" msgid="2667950425420663146">"autoritate ziurtagiri-emaile batek jaulkitako ziurtagiri bat"</string>
     <string name="n_cacrts" msgid="2141498640685639208">"%d CA ziurtagiriak"</string>
     <string name="password_error" msgid="2042471639556516356">"Idatzi pasahitz zuzena."</string>
     <string name="password_empty_error" msgid="591713406761723025">"Idatzi pasahitza."</string>
@@ -49,10 +49,10 @@
     <string name="invalid_certificate_close_button" msgid="350986774973653102">"Itxi"</string>
     <string name="invalid_certificate_message" msgid="3508065546083182733">"Fitxategi horri ezin zaio eman erabilera hau: <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>"</string>
     <string name="certificate" msgid="8790577925509962529">"Ziurtagiria"</string>
-    <string name="ca_certificate" msgid="7397198551290322945">"CA ziurtagiria"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"Autoritate ziurtagiri-emaile batek jaulkitako ziurtagiria"</string>
     <string name="user_certificate" msgid="514888069820553128">"VPN eta aplikazioetarako erabiltzaile-ziurtagiria"</string>
     <string name="wifi_certificate" msgid="5356595832360140989">"Wifi-ziurtagiria"</string>
-    <string name="ca_cert_is_added" msgid="2847081843756291802">"Instalatu da CA ziurtagiria"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"Instalatu da autoritate ziurtagiri-emaile batek jaulkitako ziurtagiria"</string>
     <string name="user_cert_is_added" msgid="3088794616560630823">"Instalatu da erabiltzaile-ziurtagiria"</string>
     <string name="wifi_cert_is_added" msgid="333220613655140428">"Instalatu da wifi-ziurtagiria"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Ezin izan da instalatu ziurtagiria handiegia delako."</string>

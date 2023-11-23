@@ -42,4 +42,16 @@
 
     <!-- Milliseconds delay between clear all notifications animation end and the collapse shade panel animation -->
     <integer name="delay_between_clear_all_notifications_end_and_collapse_shade_panel_ms">300</integer>
+
+    <!-- Duration a heads-up notification can stay in the queue
+    before it is sent to the Notification Center directly when driving (Milliseconds) -->
+    <integer name="headsup_queue_expire_driving_duration_ms">24000</integer>
+
+    <!-- Duration a heads-up notification can stay in the queue
+    before it is sent to the Notification Center directly when parked (Milliseconds) -->
+    <integer name="headsup_queue_expire_parked_duration_ms">24000</integer>
+
+    <!-- Duration between consecutive heads-up notification or after throttled package
+     goes out of focus (Milliseconds) -->
+    <integer name="headsup_delay_duration">6000</integer>
 </resources>

@@ -1,0 +1,14 @@
+diff --git a/src/prefixed.rs b/src/prefixed.rs
+index 0f1c13e8c..c8ac807ee 100644
+--- a/src/prefixed.rs
++++ b/src/prefixed.rs
+@@ -68,7 +68,8 @@ macro_rules! prefixed_item {
+     } => {
+         prefixed_item! {
+             $attr
+-            { concat!(env!("RING_CORE_PREFIX"), stringify!($name)) }
++            //{ concat!(env!("RING_CORE_PREFIX"), stringify!($name)) }
++            { concat!("ring_core_android_platform_", stringify!($name)) }
+             { $( $item )+ }
+         }
+     };

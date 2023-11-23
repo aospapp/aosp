@@ -22,3 +22,5 @@ PRODUCT_DEVICE := bluejay
 PRODUCT_MODEL := AOSP on Bluejay
 PRODUCT_BRAND := Android
 PRODUCT_MANUFACTURER := Google
+
+PRODUCT_PACKAGES += com.android.vndk.current.on_vendor

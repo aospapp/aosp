@@ -37,37 +37,37 @@
 #include "tst_test.h"
 #include "lapi/keyctl.h"
 
-static char *opt_bug;
-
-static void test_with_key_type(const char *type, const char *payload,
-			       int effort)
-{
-	int i;
-	int status;
-	pid_t add_key_pid;
-	pid_t request_key_pid;
-	bool info_only;
-
-	TEST(keyctl(KEYCTL_JOIN_SESSION_KEYRING, NULL));
-	if (TST_RET < 0)
-		tst_brk(TBROK | TTERRNO, "failed to join new session keyring");
-
-	TEST(add_key(type, "desc", payload, strlen(payload),
-		     KEY_SPEC_SESSION_KEYRING));
-	if (TST_RET < 0 && TST_ERR != EINVAL) {
-		if (TST_ERR == ENODEV) {
-			tst_res(TCONF, "kernel doesn't support key type '%s'",
-				type);
-			return;
-		}
-		tst_brk(TBROK | TTERRNO,
-			"unexpected error checking whether key type '%s' is supported",
-			type);
-	}
+static struct test_case {
+	const char *type;
+	const char *payload;
+	int effort;
+} testcase_list[] = {
+	/*
+	 * Briefly test the "encrypted" and/or "trusted" key types when
+	 * availaible, mainly to reproduce CVE-2017-15299.
+	 */
+	{"encrypted", "update user:foo 32", 2},
+	{"trusted", "update", 2},
 
 	/*
-	 * Fork a subprocess which repeatedly tries to "add" a key of the given
-	 * type.  This actually will try to update the key if it already exists.
+	 * Test the "user" key type for longer, mainly in order to reproduce
+	 * CVE-2017-15951.  However, without the fix for CVE-2017-15299 as well,
+	 * WARNs may show up in the kernel log.
+	 *
+	 * Note: the precise iteration count is arbitrary; it's just intended to
+	 * be enough to give a decent chance of reproducing the bug, without
+	 * wasting too much time.
+	 */
+	{"user", "payload", 20},
+};
+
+static char *opt_bug;
+
+static void run_child_add(const char *type, const char *payload, int effort)
+{
+	int i;
+
+	/*
 	 * Depending on the state of the key, add_key() should either succeed or
 	 * fail with one of several errors:
 	 *
@@ -85,39 +85,89 @@ static void test_with_key_type(const char *type, const char *payload,
 	 * For now we also accept EDQUOT because the kernel frees up the keys
 	 * quota asynchronously after keys are unlinked.  So it may be hit.
 	 */
+	for (i = 0; i < 100 * effort; i++) {
+		usleep(rand() % 1024);
+		TEST(add_key(type, "desc", payload, strlen(payload),
+			KEY_SPEC_SESSION_KEYRING));
+		if (TST_RET < 0 && TST_ERR != EINVAL && TST_ERR != ENOKEY &&
+			TST_ERR != EDQUOT) {
+			tst_brk(TBROK | TTERRNO,
+				"unexpected error adding key of type '%s'",
+				type);
+		}
+
+		TEST(keyctl(KEYCTL_CLEAR, KEY_SPEC_SESSION_KEYRING));
+
+		if (TST_RET < 0)
+			tst_brk(TBROK | TTERRNO, "unable to clear keyring");
+
+		if (!tst_remaining_runtime()) {
+			tst_res(TINFO, "add_key() process runtime exceeded");
+			break;
+		}
+	}
+}
+
+static void run_child_request(const char *type, int effort)
+{
+	int i;
+
+	for (i = 0; i < 5000 * effort; i++) {
+		TEST(request_key(type, "desc", "callout_info",
+			KEY_SPEC_SESSION_KEYRING));
+		if (TST_RET < 0 && TST_ERR != ENOKEY && TST_ERR != ENOENT &&
+			TST_ERR != EDQUOT) {
+			tst_brk(TBROK | TTERRNO,
+				"unexpected error requesting key of type '%s'",
+				type);
+		}
+
+		if (!tst_remaining_runtime()) {
+			tst_res(TINFO,
+				"request_key() process runtime exceeded");
+			break;
+		}
+	}
+}
+
+static void do_test(unsigned int n)
+{
+	int status;
+	pid_t add_key_pid;
+	pid_t request_key_pid;
+	bool info_only;
+	struct test_case *tc = testcase_list + n;
+
+	TEST(keyctl(KEYCTL_JOIN_SESSION_KEYRING, NULL));
+	if (TST_RET < 0)
+		tst_brk(TBROK | TTERRNO, "failed to join new session keyring");
+
+	TEST(add_key(tc->type, "desc", tc->payload, strlen(tc->payload),
+		     KEY_SPEC_SESSION_KEYRING));
+	if (TST_RET < 0 && TST_ERR != EINVAL) {
+		if (TST_ERR == ENODEV) {
+			tst_res(TCONF, "kernel doesn't support key type '%s'",
+				tc->type);
+			return;
+		}
+		tst_brk(TBROK | TTERRNO,
+			"unexpected error checking whether key type '%s' is supported",
+			tc->type);
+	}
+
+	/*
+	 * Fork a subprocess which repeatedly tries to "add" a key of the given
+	 * type.  This actually will try to update the key if it already exists.
+	 */
 	add_key_pid = SAFE_FORK();
 	if (add_key_pid == 0) {
-		for (i = 0; i < 100 * effort; i++) {
-			usleep(rand() % 1024);
-			TEST(add_key(type, "desc", payload, strlen(payload),
-				     KEY_SPEC_SESSION_KEYRING));
-			if (TST_RET < 0 && TST_ERR != EINVAL &&
-			    TST_ERR != ENOKEY && TST_ERR != EDQUOT) {
-				tst_brk(TBROK | TTERRNO,
-					"unexpected error adding key of type '%s'",
-					type);
-			}
-			TEST(keyctl(KEYCTL_CLEAR, KEY_SPEC_SESSION_KEYRING));
-			if (TST_RET < 0) {
-				tst_brk(TBROK | TTERRNO,
-					"unable to clear keyring");
-			}
-		}
+		run_child_add(tc->type, tc->payload, tc->effort);
 		exit(0);
 	}
 
 	request_key_pid = SAFE_FORK();
 	if (request_key_pid == 0) {
-		for (i = 0; i < 5000 * effort; i++) {
-			TEST(request_key(type, "desc", "callout_info",
-					 KEY_SPEC_SESSION_KEYRING));
-			if (TST_RET < 0 && TST_ERR != ENOKEY &&
-			    TST_ERR != ENOENT && TST_ERR != EDQUOT) {
-				tst_brk(TBROK | TTERRNO,
-					"unexpected error requesting key of type '%s'",
-					type);
-			}
-		}
+		run_child_request(tc->type, tc->effort);
 		exit(0);
 	}
 
@@ -134,11 +184,11 @@ static void test_with_key_type(const char *type, const char *payload,
 	if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
 		tst_res(info_only ? TINFO : TPASS,
 			"didn't crash while updating key of type '%s'",
-			type);
+			tc->type);
 	} else if (WIFSIGNALED(status) && WTERMSIG(status) == SIGKILL) {
 		tst_res(info_only ? TINFO : TFAIL,
 			"kernel oops while updating key of type '%s'",
-			type);
+			tc->type);
 	} else {
 		tst_brk(TBROK, "add_key child %s", tst_strstatus(status));
 	}
@@ -148,42 +198,23 @@ static void test_with_key_type(const char *type, const char *payload,
 	if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
 		tst_res(info_only ? TINFO : TPASS,
 			"didn't crash while requesting key of type '%s'",
-			type);
+			tc->type);
 	} else if (WIFSIGNALED(status) && WTERMSIG(status) == SIGKILL) {
 		tst_res(info_only ? TINFO : TFAIL,
 			"kernel oops while requesting key of type '%s'",
-			type);
+			tc->type);
 	} else {
 		tst_brk(TBROK, "request_key child %s", tst_strstatus(status));
 	}
 }
 
-static void do_test(void)
-{
-	/*
-	 * Briefly test the "encrypted" and/or "trusted" key types when
-	 * availaible, mainly to reproduce CVE-2017-15299.
-	 */
-	test_with_key_type("encrypted", "update user:foo 32", 2);
-	test_with_key_type("trusted", "update", 2);
-
-	/*
-	 * Test the "user" key type for longer, mainly in order to reproduce
-	 * CVE-2017-15951.  However, without the fix for CVE-2017-15299 as well,
-	 * WARNs may show up in the kernel log.
-	 *
-	 * Note: the precise iteration count is arbitrary; it's just intended to
-	 * be enough to give a decent chance of reproducing the bug, without
-	 * wasting too much time.
-	 */
-	test_with_key_type("user", "payload", 20);
-}
-
 static struct tst_test test = {
-	.test_all = do_test,
+	.test = do_test,
+	.tcnt = ARRAY_SIZE(testcase_list),
 	.forks_child = 1,
+	.max_runtime = 20,
 	.options = (struct tst_option[]) {
-		{"b:", &opt_bug,  "-b       Bug to test for (cve-2017-15299 or cve-2017-15951; default is both)"},
+		{"b:", &opt_bug,  "Bug to test for (cve-2017-15299 or cve-2017-15951; default is both)"},
 		{}
 	},
 	.tags = (const struct tst_tag[]) {

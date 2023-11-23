@@ -68,6 +68,7 @@ import com.android.telephony.Rlog;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
 /**
@@ -142,6 +143,10 @@ public class ImsStateCallbackController {
     private final ImsResolver mImsResolver;
     private final SparseArray<MmTelFeatureListener> mMmTelFeatureListeners = new SparseArray<>();
     private final SparseArray<RcsFeatureListener> mRcsFeatureListeners = new SparseArray<>();
+
+    // Container to store ImsManager instance by subId
+    private final ConcurrentHashMap<Integer, ImsManager> mSubIdToImsManagerCache =
+            new ConcurrentHashMap<>();
 
     private final SubscriptionManager mSubscriptionManager;
     private final TelephonyRegistryManager mTelephonyRegistryManager;
@@ -282,6 +287,13 @@ public class ImsStateCallbackController {
             if (mSubId == subId) return;
             logd(mLogPrefix + "setSubId changed subId=" + subId);
 
+            // subId changed from valid to invalid
+            if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+                if (VDBG) logv(mLogPrefix + "setSubId remove ImsManager " + mSubId);
+                // remove ImsManager reference associated with subId
+                mSubIdToImsManagerCache.remove(mSubId);
+            }
+
             mSubId = subId;
         }
 
@@ -298,6 +310,12 @@ public class ImsStateCallbackController {
             mSubId = subId;
             if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) return;
 
+            // store ImsManager reference associated with subId
+            if (manager != null) {
+                if (VDBG) logv(mLogPrefix + "connectionReady add ImsManager " + subId);
+                mSubIdToImsManagerCache.put(subId, manager);
+            }
+
             mState = STATE_READY;
             mReason = AVAILABLE;
             mHasConfig = true;
@@ -311,6 +329,10 @@ public class ImsStateCallbackController {
             reason = convertReasonType(reason);
             if (mReason == reason) return;
 
+            // remove ImsManager reference associated with subId
+            if (VDBG) logv(mLogPrefix + "connectionUnavailable remove ImsManager " + mSubId);
+            mSubIdToImsManagerCache.remove(mSubId);
+
             connectionUnavailableInternal(reason);
         }
 
@@ -319,7 +341,7 @@ public class ImsStateCallbackController {
             mReason = reason;
 
             /* If having no IMS package for MMTEL,
-             * dicard the reason except REASON_NO_IMS_SERVICE_CONFIGURED. */
+             * discard the reason except REASON_NO_IMS_SERVICE_CONFIGURED. */
             if (!mHasConfig && reason != REASON_NO_IMS_SERVICE_CONFIGURED) return;
 
             onFeatureStateChange(mSubId, FEATURE_MMTEL, mState, mReason);
@@ -971,6 +993,19 @@ public class ImsStateCallbackController {
         if (VDBG) logv("unregisterImsStateCallback");
 
         mHandler.sendMessage(mHandler.obtainMessage(EVENT_UNREGISTER_CALLBACK, cb));
+    }
+
+    /**
+     * Get ImsManager reference associated with subId
+     *
+     * @param subId subscribe ID
+     * @return instance of ImsManager associated with subId, but if ImsService is not
+     * available return null
+     */
+    public ImsManager getImsManager(int subId) {
+        if (VDBG) logv("getImsManager subId = " + subId);
+
+        return mSubIdToImsManagerCache.get(subId);
     }
 
     private void removeInactiveCallbacks(

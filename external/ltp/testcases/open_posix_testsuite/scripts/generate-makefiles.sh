@@ -111,9 +111,9 @@ top_srcdir?=		`echo "$prereq_dir" | awk '{ gsub(/[^\/]+/, "..", $0); print }'`
 subdir=			$prereq_cache_dir
 srcdir=			\$(top_srcdir)/\$(subdir)
 
-prefix?=		$PREFIX
-exec_prefix?=		\$(prefix)
-INSTALL_DIR=		\$(DESTDIR)/\$(exec_prefix)/\$(subdir)
+include \$(top_srcdir)/include/mk/env.mk
+
+INSTALL_DIR=		\$(DESTDIR)/\$(testdir)/\$(subdir)
 LOGFILE?=		logfile
 
 # Build variables
@@ -124,19 +124,12 @@ CFLAGS+=		-I\$(srcdir)
 
 EOF
 
-		if [ -f "$GLOBAL_BOILERPLATE" ]; then
-			cat >> "$makefile.1" <<EOF
-# Top-level make definitions
-`cat $GLOBAL_BOILERPLATE`
-EOF
-		fi
-
 		cat >> "$makefile.1" <<EOF
 # Submake make definitions.
 EOF
 
 		for var in CFLAGS LDFLAGS LDLIBS; do
-			if [ -f "${TOP_SRCDIR}/$var" ]; then
+			if [ -f "${prereq_cache_dir}/$var" ]; then
 				cat >> "$makefile.1" <<EOF
 ${var}+=		`cat "${prereq_cache_dir}/${var}" 2>/dev/null`
 EOF
@@ -156,18 +149,29 @@ EOF
 	cat >> "$makefile.2" <<EOF
 MAKE_TARGETS+=		${targets}
 
+ifeq (\$V,1)
+VERBOSE=1
+endif
+
+ifndef VERBOSE
+v=@
+endif
+
 EOF
 
 	if [ ! -f "$makefile.3" ]; then
 
 		cat > "$makefile.3" <<EOF
+.PHONY: all
 all: \$(MAKE_TARGETS)
 	@if [ -d speculative ]; then \$(MAKE) -C speculative all; fi
 
+.PHONY: clean
 clean:
 	rm -f \$(MAKE_TARGETS) logfile* run.sh *.core
 	@if [ -d speculative ]; then \$(MAKE) -C speculative clean; fi
 
+.PHONY: install
 install: \$(INSTALL_DIR) run.sh
 	set -e; for file in \$(INSTALL_TARGETS) run.sh; do	\\
 		if [ -f "\$\$file" ] ; then			\\
@@ -177,8 +181,9 @@ install: \$(INSTALL_DIR) run.sh
 	done
 	@if [ -d speculative ]; then \$(MAKE) -C speculative install; fi
 
+.PHONY: test
 test: run.sh
-	@./run.sh
+	\$(v)./run.sh
 
 \$(INSTALL_DIR):
 	mkdir -p \$@
@@ -231,7 +236,7 @@ EOF
 
 		cat >> "$makefile.3" <<EOF
 $bin_file: \$(srcdir)/$c_file
-	@if $COMPILE_STR > logfile.\$\$\$\$ 2>&1; then \\
+	\$(v)if $COMPILE_STR > logfile.\$\$\$\$ 2>&1; then \\
 		 cat logfile.\$\$\$\$; \\
 		 echo "\$(subdir)/$test_name compile PASSED"; \\
 		 echo "\$(subdir)/$test_name compile PASSED" >> \$(LOGFILE); \\
@@ -300,34 +305,12 @@ generate_makefiles() {
 export PATH="$PATH:`dirname "$0"`"
 
 AUTHORDATE=`grep "Ngie Cooper" "$0" | head -n 1 | sed 's,# *,,'`
-PREFIX=`print-prefix.sh`
-EXEC_PREFIX="${PREFIX}/bin"
 TOP_SRCDIR=${TOP_SRCDIR:=`dirname "$0"`/..}
-
-GLOBAL_BOILERPLATE="${TOP_SRCDIR}/.global_boilerplate"
-
-CONFIG_MK="../../include/mk/config-openposix.mk"
-
-rm -f "$GLOBAL_BOILERPLATE"
-
-for var in CFLAGS LDFLAGS LDLIBS; do
-	if [ -f "$TOP_SRCDIR/$var" ]; then
-		cat >> "$GLOBAL_BOILERPLATE" <<EOF
-$var+=		`cat "$TOP_SRCDIR/$var"`
-EOF
-	fi
-done
-
-if [ -f "$CONFIG_MK" ]; then
-	cat "$CONFIG_MK" >> "$GLOBAL_BOILERPLATE"
-fi
 
 # For the generic cases.
 generate_locate_test_makefile buildonly '.test' "$buildonly_compiler_args"
 generate_locate_test_makefile runnable '.run-test'
 generate_locate_test_makefile test-tools ''
-
-rm -f "$GLOBAL_BOILERPLATE"
 
 find . -name Makefile.1 -exec dirname {} \; | while read dir; do
 	if [ -f "$dir/Makefile.2" ]; then

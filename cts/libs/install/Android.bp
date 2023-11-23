@@ -18,6 +18,22 @@ package {
 }
 
 android_test_helper_app {
+    name: "TestAppSv1",
+    manifest: "testapp/Sv1.xml",
+    srcs: ["testapp/src/**/*.java"],
+    min_sdk_version: "28",
+    target_sdk_version: "28",
+}
+
+android_test_helper_app {
+    name: "TestAppSv2",
+    manifest: "testapp/Sv2.xml",
+    srcs: ["testapp/src/**/*.java"],
+    min_sdk_version: "28",
+    target_sdk_version: "28",
+}
+
+android_test_helper_app {
     name: "TestAppAv1",
     manifest: "testapp/Av1.xml",
     srcs: ["testapp/src/**/*.java"],
@@ -185,6 +201,8 @@ java_library {
         ":TestAppBv3",
         ":TestAppCv1",
         ":TestAppCv2",
+        ":TestAppSv1",
+        ":TestAppSv2",
         ":TestAppACrashingV2",
         ":TestAppASplitV1",
         ":TestAppASplitV2",

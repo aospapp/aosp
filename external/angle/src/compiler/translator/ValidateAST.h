@@ -29,6 +29,13 @@ struct ValidateASTOptions
     // Whether validateVariableReferences should also include specialization constants.  Their
     // declaration is output after their usage is discovered, so this is disabled until then.
     bool validateSpecConstReferences = false;
+    // Validate that:
+    //
+    // - TIntermUnary only contains unary operators
+    // - TIntermBinary only contains binary operators
+    // - TIntermBranch only contains branch operators
+    // - EOpInitialize is only used in TIntermDeclaration
+    bool validateOps = true;
     // Check that TIntermUnary and TIntermAggregate nodes with a built-in op reference a function
     // with said op.
     bool validateBuiltInOps = true;
@@ -90,6 +97,9 @@ struct ValidateASTOptions
     // If PruneNoOps has been run, check that no statements are ever added after branches in the
     // same block.  Those statements would be dead code.
     bool validateNoStatementsAfterBranch = false;
+    // Check that swizzle is not applied to swizzle.  Swizzles of swizzles are folded in
+    // TIntermSwizzle::fold.
+    bool validateNoSwizzleOfSwizzle = true;
 
     // Once set, disallows any further transformations on the tree.  Used before AST post-processing
     // which requires that the tree remains unmodified.

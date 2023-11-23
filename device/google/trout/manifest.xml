@@ -9,5 +9,5 @@
 */
 -->
 <!-- Trout specific HALs-->
-<manifest version="1.0" type="device">
+<manifest version="1.0" type="device" target-level="7">
 </manifest>

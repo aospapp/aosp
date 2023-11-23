@@ -17,6 +17,8 @@
 package com.android.car.settings.location;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -31,6 +33,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.LogicalPreferenceGroup;
+import com.android.car.settings.common.PreferenceControllerTestUtil;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -72,9 +75,63 @@ public class AdasGroupPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_driverAssistanceEnabled_unsupportedOnDevice_zoneWrite() {
+        mController.setAvailabilityStatusForZone("write");
+        mLocationManager.setAdasGnssLocationEnabled(true);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_driverAssistanceEnabled_unsupportedOnDevice_zoneRead() {
+        mController.setAvailabilityStatusForZone("read");
+        mLocationManager.setAdasGnssLocationEnabled(true);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_driverAssistanceEnabled_unsupportedOnDevice_zoneHidden() {
+        mController.setAvailabilityStatusForZone("hidden");
+        mLocationManager.setAdasGnssLocationEnabled(true);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
     public void getAvailabilityStatus_driverAssistanceDisabled_available() {
         mLocationManager.setAdasGnssLocationEnabled(false);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_driverAssistanceDisabled_available_zoneWrite() {
+        mController.setAvailabilityStatusForZone("write");
+        mLocationManager.setAdasGnssLocationEnabled(false);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_driverAssistanceDisabled_available_zoneRead() {
+        mController.setAvailabilityStatusForZone("read");
+        mLocationManager.setAdasGnssLocationEnabled(false);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_driverAssistanceDisabled_available_zoneHidden() {
+        mController.setAvailabilityStatusForZone("hidden");
+        mLocationManager.setAdasGnssLocationEnabled(false);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
     }
 }

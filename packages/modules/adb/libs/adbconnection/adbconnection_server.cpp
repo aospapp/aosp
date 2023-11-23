@@ -69,7 +69,7 @@ void adbconnection_listen(void (*callback)(int fd, ProcessInfo process)) {
   events[0].events = EPOLLIN;
   events[0].data.fd = -1;
   if (epoll_ctl(epfd.get(), EPOLL_CTL_ADD, s.get(), &events[0]) != 0) {
-    LOG(FATAL) << "failed to register event with epoll fd";
+    PLOG(FATAL) << "failed to register socket " << s.get() << " with epoll fd";
   }
 
   while (true) {
@@ -94,7 +94,7 @@ void adbconnection_listen(void (*callback)(int fd, ProcessInfo process)) {
         register_event.data.fd = client.get();
 
         if (epoll_ctl(epfd.get(), EPOLL_CTL_ADD, client.get(), &register_event) != 0) {
-          PLOG(FATAL) << "failed to register JDWP client with epoll";
+          PLOG(FATAL) << "failed to register JDWP client " << client.get() << " with epoll";
         }
 
         pending_connections.emplace_back(std::move(client));
@@ -118,7 +118,7 @@ void adbconnection_listen(void (*callback)(int fd, ProcessInfo process)) {
         }
 
         if (epoll_ctl(epfd.get(), EPOLL_CTL_DEL, event.data.fd, nullptr) != 0) {
-          LOG(FATAL) << "failed to delete fd from JDWP epoll fd";
+          PLOG(FATAL) << "failed to delete fd " << event.data.fd << " from JDWP epoll fd";
         }
 
         pending_connections.erase(it);

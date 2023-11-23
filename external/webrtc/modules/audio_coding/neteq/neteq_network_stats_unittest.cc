@@ -17,7 +17,6 @@
 #include "api/neteq/neteq.h"
 #include "modules/audio_coding/neteq/default_neteq_factory.h"
 #include "modules/audio_coding/neteq/tools/rtp_generator.h"
-#include "rtc_base/ref_counted_object.h"
 #include "system_wrappers/include/clock.h"
 #include "test/audio_decoder_proxy_factory.h"
 #include "test/gmock.h"
@@ -162,7 +161,7 @@ class NetEqNetworkStatsTest {
   NetEqNetworkStatsTest(const SdpAudioFormat& format, MockAudioDecoder* decoder)
       : decoder_(decoder),
         decoder_factory_(
-            new rtc::RefCountedObject<AudioDecoderProxyFactory>(decoder)),
+            rtc::make_ref_counted<AudioDecoderProxyFactory>(decoder)),
         samples_per_ms_(format.clockrate_hz / 1000),
         frame_size_samples_(kFrameSizeMs * samples_per_ms_),
         rtp_generator_(new RtpGenerator(samples_per_ms_)),
@@ -188,11 +187,11 @@ class NetEqNetworkStatsTest {
                            : 0xffffffff);
   }
 
-  // |stats_ref|
+  // `stats_ref`
   // expects.x = -1, do not care
-  // expects.x = 0, 'x' in current stats should equal 'x' in |stats_ref|
-  // expects.x = 1, 'x' in current stats should < 'x' in |stats_ref|
-  // expects.x = 2, 'x' in current stats should > 'x' in |stats_ref|
+  // expects.x = 0, 'x' in current stats should equal 'x' in `stats_ref`
+  // expects.x = 1, 'x' in current stats should < 'x' in `stats_ref`
+  // expects.x = 2, 'x' in current stats should > 'x' in `stats_ref`
   void CheckNetworkStatistics(NetEqNetworkStatsCheck expects) {
     NetEqNetworkStatistics stats;
     neteq_->NetworkStatistics(&stats);
@@ -215,14 +214,12 @@ class NetEqNetworkStatsTest {
     CHECK_NETEQ_NETWORK_STATS(current_buffer_size_ms);
     CHECK_NETEQ_NETWORK_STATS(preferred_buffer_size_ms);
     CHECK_NETEQ_NETWORK_STATS(jitter_peaks_found);
-    CHECK_NETEQ_NETWORK_STATS(packet_loss_rate);
     CHECK_NETEQ_NETWORK_STATS(expand_rate);
     CHECK_NETEQ_NETWORK_STATS(speech_expand_rate);
     CHECK_NETEQ_NETWORK_STATS(preemptive_rate);
     CHECK_NETEQ_NETWORK_STATS(accelerate_rate);
     CHECK_NETEQ_NETWORK_STATS(secondary_decoded_rate);
     CHECK_NETEQ_NETWORK_STATS(secondary_discarded_rate);
-    CHECK_NETEQ_NETWORK_STATS(added_zero_samples);
 
 #undef CHECK_NETEQ_NETWORK_STATS
   }
@@ -231,7 +228,7 @@ class NetEqNetworkStatsTest {
     uint32_t time_now;
     uint32_t next_send_time;
 
-    // Initiate |last_lost_time_|.
+    // Initiate `last_lost_time_`.
     time_now = next_send_time = last_lost_time_ = rtp_generator_->GetRtpHeader(
         kPayloadType, frame_size_samples_, &rtp_header_);
     for (int k = 0; k < num_loops; ++k) {
@@ -276,14 +273,12 @@ class NetEqNetworkStatsTest {
 
     // Next we introduce packet losses.
     SetPacketLossRate(0.1);
-    expects.stats_ref.packet_loss_rate = 1337;
-    expects.stats_ref.expand_rate = expects.stats_ref.speech_expand_rate = 1065;
+    expects.stats_ref.expand_rate = expects.stats_ref.speech_expand_rate = 898;
     RunTest(50, expects);
 
     // Next we enable FEC.
     decoder_->set_fec_enabled(true);
     // If FEC fills in the lost packets, no packet loss will be counted.
-    expects.stats_ref.packet_loss_rate = 0;
     expects.stats_ref.expand_rate = expects.stats_ref.speech_expand_rate = 0;
     expects.stats_ref.secondary_decoded_rate = 2006;
     expects.stats_ref.secondary_discarded_rate = 14336;

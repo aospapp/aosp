@@ -1,9 +1,9 @@
 """Tests for rf_switch_utils."""
 
-import common
 import unittest
+from unittest import mock
 
-import mock
+import common
 
 from autotest_lib.server.cros.network import rf_switch_utils
 

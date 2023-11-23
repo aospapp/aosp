@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/neigh.c	Neighbours
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2008 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -191,6 +184,9 @@ static int neigh_clone(struct nl_object *_dst, struct nl_object *_src)
 {
 	struct rtnl_neigh *dst = nl_object_priv(_dst);
 	struct rtnl_neigh *src = nl_object_priv(_src);
+
+	dst->n_lladdr = NULL;
+	dst->n_dst = NULL;
 
 	if (src->n_lladdr)
 		if (!(dst->n_lladdr = nl_addr_clone(src->n_lladdr)))
@@ -716,7 +712,7 @@ static int build_neigh_msg(struct rtnl_neigh *tmpl, int cmd, int flags,
 	if (nlmsg_append(msg, &nhdr, sizeof(nhdr), NLMSG_ALIGNTO) < 0)
 		goto nla_put_failure;
 
-	if (tmpl->n_family != AF_BRIDGE)
+	if (tmpl->ce_mask & NEIGH_ATTR_DST)
 		NLA_PUT_ADDR(msg, NDA_DST, tmpl->n_dst);
 
 	if (tmpl->ce_mask & NEIGH_ATTR_LLADDR)

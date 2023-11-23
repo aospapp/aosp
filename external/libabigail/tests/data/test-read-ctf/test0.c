@@ -1,3 +1,9 @@
+/*
+ * ELF EXEC files must use -Wl,--ctf-variables -Bdynimic options
+ * to export an ABI and store CTF symbols information.
+ *
+ * ctf-gcc -gctf -Wl,--ctf-variables -Bdynamic test0.c -o test0
+ */
 
 #include <stdio.h>
 

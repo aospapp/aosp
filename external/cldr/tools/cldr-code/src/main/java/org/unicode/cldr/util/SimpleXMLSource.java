@@ -37,6 +37,7 @@ public class SimpleXMLSource extends XMLSource {
         this.xpath_fullXPath = copyAsLockedFrom.xpath_fullXPath;
         this.xpath_comments = copyAsLockedFrom.xpath_comments;
         this.setLocaleID(copyAsLockedFrom.getLocaleID());
+        this.locationHash = Collections.unmodifiableMap(copyAsLockedFrom.locationHash);
         locked = true;
     }
 
@@ -103,6 +104,7 @@ public class SimpleXMLSource extends XMLSource {
         result.xpath_comments = (Comments) result.xpath_comments.clone();
         result.xpath_fullXPath = CldrUtility.newConcurrentHashMap(result.xpath_fullXPath);
         result.xpath_value = CldrUtility.newConcurrentHashMap(result.xpath_value);
+        result.locationHash.putAll(result.locationHash);
         return result;
     }
 
@@ -225,5 +227,22 @@ public class SimpleXMLSource extends XMLSource {
     @Override
     public VersionInfo getDtdVersionInfo() {
         return dtdVersionInfo;
+    }
+
+    private Map<String, SourceLocation> locationHash = new HashMap<>();
+
+    @Override
+    public XMLSource addSourceLocation(String currentFullXPath, SourceLocation location) {
+        if (!isFrozen()) {
+            locationHash.put(currentFullXPath.intern(), location);
+        } else {
+            System.err.println("SimpleXMLSource::addSourceLocationAttempt to modify frozen source location");
+        }
+        return this;
+    }
+
+    @Override
+    public SourceLocation getSourceLocation(String fullXPath) {
+        return locationHash.get(fullXPath);
     }
 }

@@ -180,7 +180,7 @@ bool BenchmarkModel::init(const char* modelfile, int tfliteBackend,
       }
       mTfliteNnapiDelegate =
           nnApiSl
-              ? std::make_unique<tflite::StatefulNnApiDelegate>(nnApiSl, nnapi_options)
+              ? std::make_unique<tflite::StatefulNnApiDelegate>(nnApiSl->getFL5(), nnapi_options)
               : std::make_unique<tflite::StatefulNnApiDelegate>(nnapi_options);
       int delegationStatus = mTfliteInterpreter->ModifyGraphWithDelegate(mTfliteNnapiDelegate.get());
       *nnapiErrno = mTfliteNnapiDelegate->GetNnApiErrno();
@@ -476,7 +476,7 @@ bool BenchmarkModel::runCompilation(const char* cacheDir, bool useNnapiSl) {
                             "NNAPI SL is null pointer when running compilation caching benchmark.");
         return false;
       }
-      delegate = std::make_unique<tflite::StatefulNnApiDelegate>(mNnApiSl, nnapi_options);
+      delegate = std::make_unique<tflite::StatefulNnApiDelegate>(mNnApiSl->getFL5(), nnapi_options);
     } else {
       delegate = std::make_unique<tflite::StatefulNnApiDelegate>(nnapi_options);
     }

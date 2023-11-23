@@ -25,9 +25,9 @@ java_test(
     runtime_deps = [
         ":ViewModelProcessorTestLib",
         "//java/dagger/hilt/android/lifecycle",
+        "//third_party/java/compile_testing",
+        "//third_party/java/truth",
         "@androidsdk//:platforms/android-30/android.jar",
-        "@google_bazel_common//third_party/java/compile_testing",
-        "@google_bazel_common//third_party/java/truth",
         "@maven//:androidx_lifecycle_lifecycle_viewmodel",
         "@maven//:androidx_lifecycle_lifecycle_viewmodel_savedstate",
     ],
@@ -41,9 +41,9 @@ kt_jvm_library(
     deps = [
         ":test_utils",
         "//java/dagger/hilt/android/processor/internal/viewmodel:processor_lib",
-        "@google_bazel_common//third_party/java/compile_testing",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/compile_testing",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -52,9 +52,9 @@ java_test(
     runtime_deps = [
         ":ViewModelGeneratorTestLib",
         "//java/dagger/hilt/android/lifecycle",
+        "//third_party/java/compile_testing",
+        "//third_party/java/truth",
         "@androidsdk//:platforms/android-30/android.jar",
-        "@google_bazel_common//third_party/java/compile_testing",
-        "@google_bazel_common//third_party/java/truth",
         "@maven//:androidx_lifecycle_lifecycle_viewmodel",
         "@maven//:androidx_lifecycle_lifecycle_viewmodel_savedstate",
     ],
@@ -68,9 +68,9 @@ kt_jvm_library(
     deps = [
         ":test_utils",
         "//java/dagger/hilt/android/processor/internal/viewmodel:processor_lib",
-        "@google_bazel_common//third_party/java/compile_testing",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/compile_testing",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -83,8 +83,8 @@ kt_compiler_test(
         "@androidsdk//:platforms/android-30/android.jar",
         "@maven//:androidx_lifecycle_lifecycle_viewmodel",
         "@maven//:androidx_lifecycle_lifecycle_viewmodel_savedstate",
-        "@google_bazel_common//third_party/java/compile_testing",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/compile_testing",
+        "//third_party/java/truth",
         "//java/dagger/hilt/android/lifecycle",
         "//java/dagger/hilt/android:android_entry_point",
         "//java/dagger/hilt/android:hilt_android_app",
@@ -94,10 +94,10 @@ kt_compiler_test(
         "//:compiler_internals",
         "//java/dagger/hilt/android/processor/internal/viewmodel:processor_lib",
         "//java/dagger/hilt/android/processor/internal/viewmodel:validation_plugin_lib",
-        "//javatests/dagger/hilt/android/processor:android_compilers",
-        "@google_bazel_common//third_party/java/compile_testing",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
+        "//java/dagger/hilt/android/testing/compile",
+        "//third_party/java/compile_testing",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -107,6 +107,6 @@ kt_jvm_library(
         "TestUtils.kt",
     ],
     deps = [
-        "@google_bazel_common//third_party/java/compile_testing",
+        "//third_party/java/compile_testing",
     ],
 )

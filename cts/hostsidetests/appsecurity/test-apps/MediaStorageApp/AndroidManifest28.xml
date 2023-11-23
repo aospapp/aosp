@@ -30,7 +30,7 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="com.android.cts.mediastorageapp.GetResultActivity"/>
+        <activity android:name="android.scopedstorage.cts.lib.GetResultActivity"/>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

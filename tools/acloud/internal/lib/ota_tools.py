@@ -298,3 +298,30 @@ class OtaTools:
         utils.Popen(unpack_bootimg,
                     "--out", out_dir,
                     "--boot_img", boot_img)
+
+    def MixSuperImage(self, super_image, misc_info, image_dir,
+                      system_image=None, vendor_image=None,
+                      vendor_dlkm_image=None, odm_image=None,
+                      odm_dlkm_image=None):
+        """Create mixed super image from device images and given partition
+        images.
+
+        Args:
+            super_image: Path to the output super image.
+            misc_info: Path to the misc_info.txt.
+            image_dir: Path to image files excluding system image.
+            system_image: Path to the system image.
+            vendor_image: Path to the vendor image.
+            vendor_dlkm_image: Path to the vendor_dlkm image.
+            odm_image: Path to the odm image.
+            odm_dlkm_image: Path to the odm_dlkm image.
+        """
+        self.BuildSuperImage(
+            super_image, misc_info,
+            lambda partition: GetImageForPartition(
+                partition, image_dir,
+                system=system_image,
+                vendor=vendor_image,
+                vendor_dlkm=vendor_dlkm_image,
+                odm=odm_image,
+                odm_dlkm=odm_dlkm_image))

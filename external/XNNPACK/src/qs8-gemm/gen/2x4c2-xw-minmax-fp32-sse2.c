@@ -13,6 +13,7 @@
 
 #include <xnnpack/gemm.h>
 #include <xnnpack/math.h>
+#include <xnnpack/unaligned.h>
 
 
 
@@ -37,7 +38,7 @@ void xnn_qs8_gemm_xw_minmax_fp32_ukernel_2x4c2__sse2(
   assert(w != NULL);
   assert(c != NULL);
 
-  kc = round_up_po2(kc, 2);
+  kc = round_up_po2(kc, 2 * sizeof(int8_t));
   const int8_t* a0 = a;
   int8_t* c0 = c;
   const int8_t* a1 = (const int8_t*) ((uintptr_t) a0 + a_stride);
@@ -150,9 +151,9 @@ void xnn_qs8_gemm_xw_minmax_fp32_ukernel_2x4c2__sse2(
 
 
     if (nc >= 4) {
-      *((uint32_t*) c0) = (uint32_t) _mm_cvtsi128_si32(vout);
-      vout = _mm_srli_si128(vout, 4);
-      *((uint32_t*) c1) = (uint32_t) _mm_cvtsi128_si32(vout);
+      unaligned_store_u32(c0, (uint32_t) _mm_cvtsi128_si32(vout));
+      vout = _mm_shuffle_epi32(vout, _MM_SHUFFLE(0, 3, 2, 1));
+      unaligned_store_u32(c1, (uint32_t) _mm_cvtsi128_si32(vout));
 
       c0 = (int8_t*) ((uintptr_t) c0 + cn_stride);
       c1 = (int8_t*) ((uintptr_t) c1 + cn_stride);
@@ -163,9 +164,9 @@ void xnn_qs8_gemm_xw_minmax_fp32_ukernel_2x4c2__sse2(
       nc -= 4;
     } else {
       if (nc & 2) {
-        *((uint16_t*) c0) = (uint16_t) _mm_extract_epi16(vout, 0);
+        unaligned_store_u16(c0, (uint16_t) _mm_extract_epi16(vout, 0));
         c0 += 2;
-        *((uint16_t*) c1) = (uint16_t) _mm_extract_epi16(vout, 2);
+        unaligned_store_u16(c1, (uint16_t) _mm_extract_epi16(vout, 2));
         c1 += 2;
         vout = _mm_srli_epi32(vout, 16);
       }

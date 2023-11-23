@@ -54,7 +54,7 @@ Once Bazel is properly configured with iOS support, you can build the
 `TensorFlowLiteC` framework with the following command.
 
 ```sh
-bazel build --config=ios_fat -c opt \
+bazel build --config=ios_fat -c opt --cxxopt=--std=c++17 \
   //tensorflow/lite/ios:TensorFlowLiteC_framework
 ```
 
@@ -72,7 +72,7 @@ to use the static framework instead, you can build the `TensorFlowLiteC` static
 framework with the following command:
 
 ```
-bazel build --config=ios_fat -c opt \
+bazel build --config=ios_fat -c opt --cxxopt=--std=c++17 \
   //tensorflow/lite/ios:TensorFlowLiteC_static_framework
 ```
 
@@ -80,6 +80,25 @@ The command will generate a file named `TensorFlowLiteC_static_framework.zip`
 under `bazel-bin/tensorflow/lite/ios/` directory under your TensorFlow root
 directory. This static framework can be used in the exact same way as the
 dynamic one.
+
+### Selectively build TFLite frameworks
+
+You can build smaller frameworks targeting only a set of models using selective
+build, which will skip unused operations in your model set and only include the
+op kernels required to run the given set of models. The command is as following:
+
+```sh
+bash tensorflow/lite/ios/build_frameworks.sh \
+  --input_models=model1.tflite,model2.tflite \
+  --target_archs=x86_64,armv7,arm64
+```
+
+The above command will generate the static framework
+`bazel-bin/tensorflow/lite/ios/tmp/TensorFlowLiteC_framework.zip` for TensorFlow
+Lite built-in and custom ops; and optionally, generates the static framework
+`bazel-bin/tensorflow/lite/ios/tmp/TensorFlowLiteSelectTfOps_framework.zip` if
+your models contain Select TensorFlow ops. Note that the `--target_archs` flag
+can be used to specify your deployment architectures.
 
 ## Use in your own application
 

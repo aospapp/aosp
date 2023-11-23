@@ -20,6 +20,8 @@ import android.content.Context;
 import androidx.annotation.IntDef;
 import androidx.annotation.StringDef;
 import com.google.android.setupcompat.logging.MetricKey;
+import com.google.android.setupcompat.logging.ScreenKey;
+import com.google.android.setupcompat.logging.SetupMetric;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -28,7 +30,12 @@ public interface SetupMetricsLoggingConstants {
 
   /** Enumeration of supported metric types logged to SetupWizard. */
   @Retention(RetentionPolicy.SOURCE)
-  @IntDef({MetricType.CUSTOM_EVENT, MetricType.COUNTER_EVENT, MetricType.DURATION_EVENT})
+  @IntDef({
+      MetricType.CUSTOM_EVENT,
+      MetricType.DURATION_EVENT,
+      MetricType.COUNTER_EVENT,
+      MetricType.SETUP_COLLECTION_EVENT,
+      MetricType.INTERNAL})
   @interface MetricType {
     /**
      * MetricType constant used when logging {@link
@@ -47,8 +54,37 @@ public interface SetupMetricsLoggingConstants {
      */
     int COUNTER_EVENT = 3;
 
+    /**
+     * MetricType constant used when logging setup metric using {@link
+     * com.google.android.setupcompat.logging.SetupMetricsLogger#logMetrics(Context, ScreenKey,
+     * SetupMetric...)}.
+     */
+    int SETUP_COLLECTION_EVENT = 4;
+
     /** MetricType constant used for internal logging purposes. */
     int INTERNAL = 100;
+  }
+
+  /**
+   * Enumeration of supported EventType of {@link MetricType#SETUP_COLLECTION_EVENT} logged to
+   * SetupWizard. (go/suw-metrics-collection-api)
+   */
+  @Retention(RetentionPolicy.SOURCE)
+  @IntDef({
+      EventType.UNKNOWN,
+      EventType.IMPRESSION,
+      EventType.OPT_IN,
+      EventType.WAITING_START,
+      EventType.WAITING_END,
+      EventType.ERROR,
+  })
+  @interface EventType {
+    int UNKNOWN = 1;
+    int IMPRESSION = 2;
+    int OPT_IN = 3;
+    int WAITING_START = 4;
+    int WAITING_END = 5;
+    int ERROR = 6;
   }
 
   /** Keys of the bundle used while logging data to SetupWizard. */
@@ -59,7 +95,9 @@ public interface SetupMetricsLoggingConstants {
     MetricBundleKeys.CUSTOM_EVENT,
     MetricBundleKeys.CUSTOM_EVENT_BUNDLE,
     MetricBundleKeys.TIME_MILLIS_LONG,
-    MetricBundleKeys.COUNTER_INT
+    MetricBundleKeys.COUNTER_INT,
+    MetricBundleKeys.SCREEN_KEY_BUNDLE,
+    MetricBundleKeys.SETUP_METRIC_BUNDLE,
   })
   @interface MetricBundleKeys {
     /**
@@ -104,5 +142,17 @@ public interface SetupMetricsLoggingConstants {
      * com.google.android.setupcompat.logging.CustomEvent}.
      */
     String CUSTOM_EVENT_BUNDLE = "CustomEvent_bundle";
+
+    /**
+     * This key will be used when {@code metricType} is {@link MetricType#SETUP_COLLECTION_EVENT}
+     * with the value being a Bundle which can be used to read {@link ScreenKey}
+     */
+    String SCREEN_KEY_BUNDLE = "ScreenKey_bundle";
+
+    /**
+     * This key will be used when {@code metricType} is {@link MetricType#SETUP_COLLECTION_EVENT}
+     * with the value being a Bundle which can be used to read {@link SetupMetric}
+     */
+    String SETUP_METRIC_BUNDLE = "SetupMetric_bundle";
   }
 }

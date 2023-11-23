@@ -41,7 +41,7 @@ public class BluetoothMapAccountItem implements Comparable<BluetoothMapAccountIt
     private final String mUci;
     private final String mUciPrefix;
 
-    public BluetoothMapAccountItem(String id, String name, String packageName, String authority,
+    private BluetoothMapAccountItem(String id, String name, String packageName, String authority,
             Drawable icon, BluetoothMapUtils.TYPE appType, String uci, String uciPrefix) {
         this.mName = name;
         this.mIcon = icon;

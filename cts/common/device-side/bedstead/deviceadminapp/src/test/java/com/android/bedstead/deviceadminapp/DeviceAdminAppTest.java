@@ -20,9 +20,11 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
 import com.android.bedstead.harrier.DeviceState;
 import com.android.bedstead.harrier.annotations.EnsureHasNoWorkProfile;
-import com.android.bedstead.harrier.annotations.RequireRunOnPrimaryUser;
+import com.android.bedstead.harrier.annotations.RequireRunOnInitialUser;
+import com.android.bedstead.harrier.annotations.RequireRunOnSystemUser;
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.devicepolicy.DeviceOwner;
 import com.android.bedstead.nene.users.UserReference;
@@ -32,12 +34,12 @@ import com.android.eventlib.events.deviceadminreceivers.DeviceAdminEnabledEvent;
 
 import org.junit.Before;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(BedsteadJUnit4.class)
 public class DeviceAdminAppTest {
 
     private static final Context sContext = TestApis.context().instrumentedContext();
@@ -53,7 +55,7 @@ public class DeviceAdminAppTest {
     }
 
     @Test
-    @RequireRunOnPrimaryUser
+    @RequireRunOnSystemUser
     // TODO(scottjonathan): Add annotations to ensure no accounts and no users
     public void setAsDeviceOwner_isEnabled() throws Exception {
         try (DeviceOwner deviceOwner = TestApis.devicePolicy().setDeviceOwner(
@@ -66,8 +68,9 @@ public class DeviceAdminAppTest {
     }
 
     @Test
-    @RequireRunOnPrimaryUser
+    @RequireRunOnInitialUser
     @EnsureHasNoWorkProfile
+    @Ignore
     public void setAsProfileOwner_isEnabled() {
         try (UserReference profile = TestApis.users().createUser()
                 .parent(TestApis.users().instrumented())

@@ -126,7 +126,7 @@ public class NLClassifier extends BaseTaskApi {
     }
   }
 
-  private static final String NL_CLASSIFIER_NATIVE_LIBNAME = "task_text_jni";
+  private static final String NL_CLASSIFIER_NATIVE_LIBNAME = "tflite_support_classifiers_native";
 
   /**
    * Constructor to initialize the JNI with a pointer from C++.

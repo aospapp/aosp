@@ -28,8 +28,6 @@
 
 namespace art {
 
-constexpr size_t kMemoryToolRedZoneBytes = 8;
-
 template <bool kCount>
 const char* const ArenaAllocatorStatsImpl<kCount>::kAllocNames[] = {
   // Every name should have the same width and end with a space. Abbreviate if necessary:
@@ -75,6 +73,7 @@ const char* const ArenaAllocatorStatsImpl<kCount>::kAllocNames[] = {
   "LSE          ",
   "CFRE         ",
   "LICM         ",
+  "WBE          ",
   "LoopOpt      ",
   "SsaLiveness  ",
   "SsaPhiElim   ",
@@ -187,9 +186,6 @@ void ArenaAllocatorMemoryTool::DoMakeInaccessible(void* ptr, size_t size) {
   MEMORY_TOOL_MAKE_NOACCESS(ptr, size);
 }
 
-Arena::Arena() : bytes_allocated_(0), memory_(nullptr), size_(0), next_(nullptr) {
-}
-
 size_t ArenaAllocator::BytesAllocated() const {
   return ArenaAllocatorStats::BytesAllocated();
 }
@@ -247,7 +243,7 @@ void* ArenaAllocator::AllocWithMemoryToolAlign16(size_t bytes, ArenaAllocKind ki
   size_t rounded_bytes = bytes + kMemoryToolRedZoneBytes;
   DCHECK_ALIGNED(rounded_bytes, 8);  // `bytes` is 16-byte aligned, red zone is 8-byte aligned.
   uintptr_t padding =
-      ((reinterpret_cast<uintptr_t>(ptr_) + 15u) & 15u) - reinterpret_cast<uintptr_t>(ptr_);
+      RoundUp(reinterpret_cast<uintptr_t>(ptr_), 16) - reinterpret_cast<uintptr_t>(ptr_);
   ArenaAllocatorStats::RecordAlloc(rounded_bytes, kind);
   uint8_t* ret;
   if (UNLIKELY(padding + rounded_bytes > static_cast<size_t>(end_ - ptr_))) {
@@ -268,6 +264,13 @@ ArenaAllocator::~ArenaAllocator() {
   // Reclaim all the arenas by giving them back to the thread pool.
   UpdateBytesAllocated();
   pool_->FreeArenaChain(arena_head_);
+}
+
+void ArenaAllocator::ResetCurrentArena() {
+  UpdateBytesAllocated();
+  begin_ = nullptr;
+  ptr_ = nullptr;
+  end_ = nullptr;
 }
 
 uint8_t* ArenaAllocator::AllocFromNewArena(size_t bytes) {

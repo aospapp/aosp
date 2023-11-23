@@ -25,23 +25,19 @@ import static android.telephony.TelephonyManager.CALL_STATE_RINGING;
 import android.content.ComponentName;
 import android.media.AudioManager;
 import android.media.AudioPlaybackConfiguration;
-import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
+import android.provider.CallLog;
 import android.telecom.Call;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
-import android.telephony.PhoneStateListener;
+import android.telephony.TelephonyCallback;
 
-import com.android.compatibility.common.util.ShellIdentityUtils;
-
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -103,11 +99,15 @@ public class IncomingCallTest extends BaseTelecomTestWithMockServices {
             return;
         }
         setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
-        addAndVerifyNewIncomingCall(createTestNumber(), null);
+        Uri testNumber = createTestNumber();
+        addAndVerifyNewIncomingCall(testNumber, null);
         final Connection connection3 = verifyConnectionForIncomingCall();
         Collection<Connection> connections = CtsConnectionService.getAllConnectionsFromTelecom();
         assertEquals(1, connections.size());
         assertTrue(connections.contains(connection3));
+        connection3.onDisconnect();
+        verifyCallLogging(testNumber, CallLog.Calls.INCOMING_TYPE,
+                TestUtils.TEST_PHONE_ACCOUNT_HANDLE);
     }
 
     public void testPhoneStateListenerInvokedOnIncomingCall() throws Exception {
@@ -133,16 +133,9 @@ public class IncomingCallTest extends BaseTelecomTestWithMockServices {
      * @throws Exception
      */
     public void testRingOnIncomingCall() throws Exception {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom  || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
-        ShellIdentityUtils.invokeStaticMethodWithShellPermissions(
-                (ShellIdentityUtils.StaticShellPermissionMethodHelper<Void>) () -> {
-                    RingtoneManager.setActualDefaultRingtoneUri(mContext,
-                            RingtoneManager.TYPE_RINGTONE,
-                            Settings.System.DEFAULT_RINGTONE_URI);
-                    return null;
-                });
         LinkedBlockingQueue<Boolean> queue = new LinkedBlockingQueue(1);
         setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
         AudioManager audioManager = mContext.getSystemService(AudioManager.class);
@@ -179,13 +172,6 @@ public class IncomingCallTest extends BaseTelecomTestWithMockServices {
         if (!mShouldTestTelecom) {
             return;
         }
-        ShellIdentityUtils.invokeStaticMethodWithShellPermissions(
-                (ShellIdentityUtils.StaticShellPermissionMethodHelper<Void>) () -> {
-                    RingtoneManager.setActualDefaultRingtoneUri(mContext,
-                            RingtoneManager.TYPE_RINGTONE,
-                            Settings.System.DEFAULT_RINGTONE_URI);
-                    return null;
-                });
         LinkedBlockingQueue<Boolean> queue = new LinkedBlockingQueue(1);
         setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
         AudioManager audioManager = mContext.getSystemService(AudioManager.class);
@@ -291,28 +277,30 @@ public class IncomingCallTest extends BaseTelecomTestWithMockServices {
     }
 
     /**
-     * Ensure the {@link android.telephony.PhoneStateListener#onCallStateChanged(int, String)}
-     * called in an expected way and phone state is correct.
+     * Ensure the phone state is changed in an expected way.
      * @throws Exception
      */
     public void testPhoneStateChangeAsExpected() throws Exception {
         if (!mShouldTestTelecom) {
             return;
         }
-        setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
-        Uri testNumber = createTestNumber();
-        addAndVerifyNewIncomingCall(testNumber, null);
 
         CountDownLatch count = new CountDownLatch(1);
-        Executor executor = (Runnable command)->count.countDown();
-        PhoneStateListener listener = new PhoneStateListener(executor);
-        mTelephonyManager.listen(listener, PhoneStateListener.LISTEN_CALL_STATE);
+        Executor executor = (Runnable command) -> count.countDown();
+        TelephonyCallback callback = new TelephonyCallback();
+        try {
+            setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
+            Uri testNumber = createTestNumber();
+            addAndVerifyNewIncomingCall(testNumber, null);
 
-        count.await(TestUtils.WAIT_FOR_PHONE_STATE_LISTENER_REGISTERED_TIMEOUT_S,
-                TimeUnit.SECONDS);
-
-        Thread.sleep(STATE_CHANGE_DELAY);
-        assertEquals(CALL_STATE_RINGING, mTelephonyManager.getCallState());
+            mTelephonyManager.registerTelephonyCallback(executor, callback);
+            count.await(TestUtils.WAIT_FOR_PHONE_STATE_LISTENER_REGISTERED_TIMEOUT_S,
+                    TimeUnit.SECONDS);
+            Thread.sleep(STATE_CHANGE_DELAY);
+            assertEquals(CALL_STATE_RINGING, mTelephonyManager.getCallState());
+        } finally {
+            mTelephonyManager.unregisterTelephonyCallback(callback);
+        }
     }
 
     /**

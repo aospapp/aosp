@@ -21,6 +21,7 @@
 #include <type_traits>
 
 #include "chre/util/non_copyable.h"
+#include "chre/util/raw_storage.h"
 
 namespace chre {
 
@@ -99,6 +100,7 @@ class FixedSizeVector : public NonCopyable {
    * @param The element to push onto the vector.
    */
   void push_back(const ElementType &element);
+  void push_back(ElementType &&element);
 
   /**
    * Constructs an element onto the back of the vector. It is illegal to
@@ -198,11 +200,9 @@ class FixedSizeVector : public NonCopyable {
   typename FixedSizeVector<ElementType, kCapacity>::const_iterator end() const;
   typename FixedSizeVector<ElementType, kCapacity>::const_iterator cend() const;
 
- private:
-  //! Storage for vector elements. To avoid static initialization of members,
-  //! std::aligned_storage is used.
-  typename std::aligned_storage<sizeof(ElementType), alignof(ElementType)>::type
-      mData[kCapacity];
+ protected:
+  //! Provides storage for elements, initially uninitialized.
+  RawStorage<ElementType, kCapacity> mData;
 
   //! The number of elements in the vector. This will never be more than
   //! kCapacity.

@@ -37,7 +37,7 @@ inline bool IndirectReferenceTable::IsValidReference(IndirectRef iref,
                                                      /*out*/std::string* error_msg) const {
   DCHECK(iref != nullptr);
   DCHECK_EQ(GetIndirectRefKind(iref), kind_);
-  const uint32_t top_index = segment_state_.top_index;
+  const uint32_t top_index = top_index_;
   uint32_t idx = ExtractIndex(iref);
   if (UNLIKELY(idx >= top_index)) {
     *error_msg = android::base::StringPrintf("deleted reference at index %u in a table of size %u",
@@ -82,7 +82,7 @@ template<ReadBarrierOption kReadBarrierOption>
 inline ObjPtr<mirror::Object> IndirectReferenceTable::Get(IndirectRef iref) const {
   DCHECK_EQ(GetIndirectRefKind(iref), kind_);
   uint32_t idx = ExtractIndex(iref);
-  DCHECK_LT(idx, segment_state_.top_index);
+  DCHECK_LT(idx, top_index_);
   DCHECK_EQ(DecodeSerial(reinterpret_cast<uintptr_t>(iref)), table_[idx].GetSerial());
   DCHECK(!table_[idx].GetReference()->IsNull());
   ObjPtr<mirror::Object> obj = table_[idx].GetReference()->Read<kReadBarrierOption>();
@@ -93,7 +93,7 @@ inline ObjPtr<mirror::Object> IndirectReferenceTable::Get(IndirectRef iref) cons
 inline void IndirectReferenceTable::Update(IndirectRef iref, ObjPtr<mirror::Object> obj) {
   DCHECK_EQ(GetIndirectRefKind(iref), kind_);
   uint32_t idx = ExtractIndex(iref);
-  DCHECK_LT(idx, segment_state_.top_index);
+  DCHECK_LT(idx, top_index_);
   DCHECK_EQ(DecodeSerial(reinterpret_cast<uintptr_t>(iref)), table_[idx].GetSerial());
   DCHECK(!table_[idx].GetReference()->IsNull());
   table_[idx].SetReference(obj);

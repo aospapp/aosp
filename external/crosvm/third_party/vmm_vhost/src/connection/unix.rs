@@ -5,20 +5,17 @@
 
 #[cfg(all(test, feature = "vmm"))]
 pub(crate) mod tests {
-    use crate::connection::{
-        socket::Endpoint as SocketEndpoint, socket::Listener as SocketListener, Listener,
-    };
+    use tempfile::Builder;
+    use tempfile::TempDir;
+
+    use crate::connection::socket::Endpoint as SocketEndpoint;
+    use crate::connection::socket::Listener as SocketListener;
+    use crate::connection::Listener;
     use crate::master::Master;
     use crate::message::MasterReq;
-    use tempfile::{Builder, TempDir};
-    #[cfg(feature = "device")]
-    use {
-        crate::{
-            slave::SlaveListener,
-            slave_req_handler::{SlaveReqHandler, VhostUserSlaveReqHandler},
-        },
-        std::sync::Arc,
-    };
+    use crate::slave::SlaveListener;
+    use crate::slave_req_handler::SlaveReqHandler;
+    use crate::slave_req_handler::VhostUserSlaveReqHandler;
 
     pub(crate) type TestMaster = Master<SocketEndpoint<MasterReq>>;
     pub(crate) type TestEndpoint = SocketEndpoint<MasterReq>;
@@ -34,12 +31,12 @@ pub(crate) mod tests {
         listener.set_nonblocking(true).unwrap();
         let master = Master::connect(path, 2).unwrap();
         let slave = listener.accept().unwrap().unwrap();
-        (master, SocketEndpoint::from(slave))
+        (master, slave)
     }
 
     #[cfg(feature = "device")]
     pub(crate) fn create_master_slave_pair<S>(
-        backend: Arc<S>,
+        backend: S,
     ) -> (TestMaster, SlaveReqHandler<S, TestEndpoint>)
     where
         S: VhostUserSlaveReqHandler,

@@ -22,23 +22,14 @@ import static com.android.car.settings.applications.ApplicationsUtils.PROPERTY_A
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.app.usage.IUsageStatsManager;
-import android.app.usage.UsageStats;
-import android.app.usage.UsageStatsManager;
-import android.apphibernation.AppHibernationManager;
 import android.content.Context;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.content.pm.ParceledListSlice;
-import android.content.res.Resources;
-import android.os.RemoteException;
+import android.permission.PermissionControllerManager;
 import android.provider.DeviceConfig;
 
 import androidx.test.core.app.ApplicationProvider;
@@ -47,28 +38,28 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.IntConsumer;
 
 @RunWith(AndroidJUnit4.class)
 public class HibernatedAppsItemManagerTest {
     private static final int CALLBACK_TIMEOUT_MS = 100;
 
-    private static final String HIBERNATED_PACKAGE_NAME = "hibernated_package";
-    private static final String AUTO_REVOKED_PACKAGE_NAME = "auto_revoked_package";
-    private static final String PERMISSION = "permission";
     private final CountDownLatch mCountDownLatch = new CountDownLatch(1);
+
     private final TestListener mHibernatedAppsCountListener = new TestListener();
     @Mock
     private PackageManager mPackageManager;
     @Mock
-    private AppHibernationManager mAppHibernationManager;
-    @Mock
-    private IUsageStatsManager mIUsageStatsManager;
+    private PermissionControllerManager mPermissionControllerManager;
+    @Captor
+    private ArgumentCaptor<IntConsumer> mIntConsumerCaptor;
     private Context mContext;
     private HibernatedAppsItemManager mManager;
 
@@ -79,10 +70,8 @@ public class HibernatedAppsItemManagerTest {
                 "true", false);
         mContext = spy(ApplicationProvider.getApplicationContext());
         when(mContext.getPackageManager()).thenReturn(mPackageManager);
-        when(mContext.getSystemService(AppHibernationManager.class))
-                .thenReturn(mAppHibernationManager);
-        when(mContext.getSystemService(UsageStatsManager.class)).thenReturn(
-                new UsageStatsManager(mContext, mIUsageStatsManager));
+        when(mContext.getSystemService(PermissionControllerManager.class))
+                .thenReturn(mPermissionControllerManager);
         mManager = new HibernatedAppsItemManager(mContext);
         mManager.setListener(mHibernatedAppsCountListener);
     }
@@ -90,78 +79,11 @@ public class HibernatedAppsItemManagerTest {
 
     @Test
     public void getSummary_getsRightCountForHibernatedPackage() throws Exception {
-        PackageInfo hibernatedPkg = getHibernatedPackage();
-        when(mPackageManager.getInstalledPackages(anyInt())).thenReturn(
-                Arrays.asList(hibernatedPkg, new PackageInfo()));
-        when(mContext.getResources()).thenReturn(mock(Resources.class));
-
         mManager.startLoading();
         mCountDownLatch.await(CALLBACK_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-
+        verify(mPermissionControllerManager).getUnusedAppCount(any(), mIntConsumerCaptor.capture());
+        mIntConsumerCaptor.getValue().accept(1);
         assertThat(mHibernatedAppsCountListener.mResult).isEqualTo(1);
-    }
-
-    @Test
-    public void getSummary_getsRightCountForUnusedAutoRevokedPackage() throws Exception {
-        PackageInfo autoRevokedPkg = getAutoRevokedPackage();
-        when(mPackageManager.getInstalledPackages(anyInt())).thenReturn(
-                Arrays.asList(autoRevokedPkg, new PackageInfo()));
-        when(mContext.getResources()).thenReturn(mock(Resources.class));
-
-        mManager.startLoading();
-        mCountDownLatch.await(CALLBACK_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-
-        assertThat(mHibernatedAppsCountListener.mResult).isEqualTo(1);
-    }
-
-    @Test
-    public void getSummary_getsRightCountForUsedAutoRevokedPackage() throws Exception {
-        PackageInfo usedAutoRevokedPkg = getAutoRevokedPackage();
-        setAutoRevokedPackageUsageStats();
-        when(mPackageManager.getInstalledPackages(anyInt())).thenReturn(
-                Arrays.asList(usedAutoRevokedPkg, new PackageInfo()));
-        when(mContext.getResources()).thenReturn(mock(Resources.class));
-
-        mManager.startLoading();
-        mCountDownLatch.await(CALLBACK_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-
-        assertThat(mHibernatedAppsCountListener.mResult).isEqualTo(0);
-    }
-
-
-    private PackageInfo getHibernatedPackage() {
-        PackageInfo pi = new PackageInfo();
-        pi.packageName = HIBERNATED_PACKAGE_NAME;
-        pi.requestedPermissions = new String[]{PERMISSION};
-        when(mAppHibernationManager.getHibernatingPackagesForUser())
-                .thenReturn(Arrays.asList(pi.packageName));
-        when(mPackageManager.getPermissionFlags(
-                pi.requestedPermissions[0], pi.packageName, mContext.getUser()))
-                .thenReturn(PackageManager.FLAG_PERMISSION_AUTO_REVOKED);
-        return pi;
-    }
-
-    private PackageInfo getAutoRevokedPackage() {
-        PackageInfo pi = new PackageInfo();
-        pi.packageName = AUTO_REVOKED_PACKAGE_NAME;
-        pi.requestedPermissions = new String[]{PERMISSION};
-        when(mPackageManager.getPermissionFlags(
-                pi.requestedPermissions[0], pi.packageName, mContext.getUser()))
-                .thenReturn(PackageManager.FLAG_PERMISSION_AUTO_REVOKED);
-        return pi;
-    }
-
-    private void setAutoRevokedPackageUsageStats() {
-        UsageStats us = new UsageStats();
-        us.mPackageName = AUTO_REVOKED_PACKAGE_NAME;
-        us.mLastTimeVisible = System.currentTimeMillis();
-        try {
-            when(mIUsageStatsManager.queryUsageStats(
-                    anyInt(), anyLong(), anyLong(), anyString(), anyInt()))
-                    .thenReturn(new ParceledListSlice(Arrays.asList(us)));
-        } catch (RemoteException e) {
-            // no-op
-        }
     }
 
     private class TestListener implements HibernatedAppsItemManager.HibernatedAppsCountListener {

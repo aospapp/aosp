@@ -7,11 +7,11 @@
     <type-decl name='int' size-in-bits='32' alignment-in-bits='32' id='type-id-1'/>
     <type-decl name='long int' size-in-bits='64' alignment-in-bits='64' id='type-id-2'/>
     <pointer-type-def type-id='type-id-3' size-in-bits='64' alignment-in-bits='64' id='type-id-4'/>
-    <function-decl name='attribute_container_add_device' visibility='default' binding='global' size-in-bits='64' alignment-in-bits='8'>
+    <function-decl name='attribute_container_add_device' visibility='default' binding='global' size-in-bits='64' alignment-in-bits='8' elf-symbol-id='attribute_container_add_device'>
       <parameter type-id='type-id-4'/>
       <return type-id='type-id-5'/>
     </function-decl>
-    <function-decl name='attribute_container_device_trigger' visibility='default' binding='global' size-in-bits='64' alignment-in-bits='8'>
+    <function-decl name='attribute_container_device_trigger' visibility='default' binding='global' size-in-bits='64' alignment-in-bits='8' elf-symbol-id='attribute_container_device_trigger'>
       <parameter type-id='type-id-4'/>
       <return type-id='type-id-5'/>
     </function-decl>

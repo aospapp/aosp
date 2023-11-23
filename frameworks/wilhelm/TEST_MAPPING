@@ -2,13 +2,13 @@
 {
     "presubmit": [
         {
-            "name": "CtsMediaTestCases",
+            "name": "CtsMediaAudioTestCases",
             "options" : [
                 {
                     "include-annotation": "android.platform.test.annotations.Presubmit"
                 },
                 {
-                    "include-filter": "android.media.cts.AudioNativeTest"
+                    "include-filter": "android.media.audio.cts.AudioNativeTest"
                 }
             ]
         }

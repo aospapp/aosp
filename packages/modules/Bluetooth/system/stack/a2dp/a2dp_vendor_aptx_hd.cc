@@ -30,7 +30,6 @@
 
 #include "a2dp_vendor.h"
 #include "a2dp_vendor_aptx_hd_encoder.h"
-#include "bt_utils.h"
 #include "btif_av_co.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"

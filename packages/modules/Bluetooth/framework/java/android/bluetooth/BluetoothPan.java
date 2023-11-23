@@ -264,9 +264,12 @@ public final class BluetoothPan implements BluetoothProfile {
 
     /**
      * Closes the connection to the service and unregisters callbacks
+     *
+     * @hide
      */
     @UnsupportedAppUsage
-    void close() {
+    @Override
+    public void close() {
         if (VDBG) log("close()");
         mProfileConnector.disconnect();
     }

@@ -185,10 +185,13 @@ class WEPConfig(SecurityConfig):
 class WPAConfig(SecurityConfig):
     """Abstracts security configuration for a WPA encrypted WiFi network."""
 
-    # We have the option of turning on WPA, WPA2, or both via a bitfield.
+    # We have the option of turning on combinations of WPA, WPA2, or WPA3 via a
+    # bitfield.
     MODE_PURE_WPA = 1
     MODE_PURE_WPA2 = 2
+    MODE_PURE_WPA3 = 4
     MODE_MIXED_WPA = MODE_PURE_WPA | MODE_PURE_WPA2
+    MODE_MIXED_WPA3 = MODE_PURE_WPA2 | MODE_PURE_WPA3
     MODE_DEFAULT = MODE_MIXED_WPA
 
     # WPA2 mandates the use of AES in CCMP mode.
@@ -221,7 +224,7 @@ class WPAConfig(SecurityConfig):
         @param wpa_gtk_rekey_period int number of second between GTK rekeys.
         @param wpa_gmk_rekey_period int number of seconds between GMK rekeys.
                 The GMK is a key internal to hostapd used to generate GTK.
-                It is the 'master' key.
+                It is the 'main' key.
         @param use_strict_rekey bool True iff hostapd should refresh the GTK
                 whenever any client leaves the group.
         @param ft_mode int one of the FT_MODE_* in SecurityConfig.
@@ -249,11 +252,18 @@ class WPAConfig(SecurityConfig):
 
     def get_hostapd_config(self):
         """@return dict fragment of hostapd configuration for security."""
-        if not self.wpa_mode:
+        mode = 0
+        # WPA2 and WPA3 are both RSN, so hostapd lumps these together for wpa=.
+        if self.wpa_mode & (self.MODE_PURE_WPA2 | self.MODE_PURE_WPA3):
+            mode |= self.MODE_PURE_WPA2
+        # WPA.
+        if self.wpa_mode & self.MODE_PURE_WPA:
+            mode |= self.MODE_PURE_WPA
+        if not mode:
             raise error.TestFail('Cannot configure WPA unless we know which '
                                  'mode to use.')
 
-        if self.MODE_PURE_WPA & self.wpa_mode and not self.wpa_ciphers:
+        if mode & self.MODE_PURE_WPA and not self.wpa_ciphers:
             raise error.TestFail('Cannot configure WPA unless we know which '
                                  'ciphers to use.')
 
@@ -261,12 +271,20 @@ class WPAConfig(SecurityConfig):
             raise error.TestFail('Cannot configure WPA2 unless we have some '
                                  'ciphers.')
 
-        ret = {'wpa': self.wpa_mode,
-               'wpa_key_mgmt': 'WPA-PSK'}
-        if self.ft_mode == self.FT_MODE_PURE:
-            ret['wpa_key_mgmt'] = 'FT-PSK'
-        elif self.ft_mode == self.FT_MODE_MIXED:
-            ret['wpa_key_mgmt'] = 'WPA-PSK FT-PSK'
+        key_mgmt = []
+        if self.ft_mode & self.FT_MODE_NONE:
+            if self.wpa_mode & self.MODE_MIXED_WPA:
+                key_mgmt += ['WPA-PSK']
+            if self.wpa_mode & self.MODE_PURE_WPA3:
+                key_mgmt += ['SAE']
+        if self.ft_mode & self.FT_MODE_PURE:
+            if self.wpa_mode & self.MODE_MIXED_WPA:
+                key_mgmt += ['FT-PSK']
+            if self.wpa_mode & self.MODE_PURE_WPA3:
+                key_mgmt += ['FT-SAE']
+
+        ret = {'wpa': mode, 'wpa_key_mgmt': ' '.join(key_mgmt)}
+
         if len(self.psk) == 64:
             ret['wpa_psk'] = self.psk
         else:
@@ -299,15 +317,24 @@ class WPAConfig(SecurityConfig):
         protos = []
         if self.wpa_mode & self.MODE_PURE_WPA:
             protos.append('WPA')
-        if self.wpa_mode & self.MODE_PURE_WPA2:
+        if self.wpa_mode & (self.MODE_PURE_WPA2 | self.MODE_PURE_WPA3):
             protos.append('RSN')
-        properties.update({'psk': '\\"%s\\"' % self.psk,
-                           'key_mgmt': 'WPA-PSK',
-                           'proto': ' '.join(protos)})
-        if self.ft_mode == self.FT_MODE_PURE:
-            properties['key_mgmt'] = 'FT-PSK'
-        elif self.ft_mode == self.FT_MODE_MIXED:
-            properties['key_mgmt'] = 'WPA-PSK FT-PSK'
+        key_mgmt = []
+        if self.ft_mode & self.FT_MODE_NONE:
+            if self.wpa_mode & self.MODE_MIXED_WPA:
+                key_mgmt += ['WPA-PSK']
+            if self.wpa_mode & self.MODE_PURE_WPA3:
+                key_mgmt += ['SAE']
+        if self.ft_mode & self.FT_MODE_PURE:
+            if self.wpa_mode & self.MODE_MIXED_WPA:
+                key_mgmt += ['FT-PSK']
+            if self.wpa_mode & self.MODE_PURE_WPA3:
+                key_mgmt += ['FT-SAE']
+        properties.update({
+                'psk': '\\"%s\\"' % self.psk,
+                'key_mgmt': ' '.join(key_mgmt),
+                'proto': ' '.join(protos)
+        })
         return properties
 
 

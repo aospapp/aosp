@@ -1,11 +1,8 @@
-amitmahajan@google.com
 breadley@google.com
 fionaxu@google.com
 jackyu@google.com
 rgreenwalt@google.com
 tgunn@google.com
-jminjie@google.com
-shuoq@google.com
 sarahchin@google.com
 xiaotonj@google.com
 huiwang@google.com
@@ -13,5 +10,8 @@ jayachandranc@google.com
 chinmayd@google.com
 amruthr@google.com
 sasindran@google.com
+tjstuart@google.com
+pmadapurmath@google.com
+grantmenke@google.com
 
 per-file *SimPhonebookProvider* = file:platform/packages/apps/Contacts:/OWNERS

@@ -322,7 +322,8 @@ public class RecordingScheduler extends TvInputCallback implements ScheduledReco
             long wakeAt = nextStartTime - MS_TO_WAKE_BEFORE_START;
             if (DEBUG) Log.d(TAG, "Set alarm to record at " + wakeAt);
             Intent intent = new Intent(mContext, DvrStartRecordingReceiver.class);
-            PendingIntent alarmIntent = PendingIntent.getBroadcast(mContext, 0, intent, 0);
+            PendingIntent alarmIntent =
+                    PendingIntent.getBroadcast(mContext, 0, intent, PendingIntent.FLAG_IMMUTABLE);
             // This will cancel the previous alarm.
             mAlarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, wakeAt, alarmIntent);
         } else {

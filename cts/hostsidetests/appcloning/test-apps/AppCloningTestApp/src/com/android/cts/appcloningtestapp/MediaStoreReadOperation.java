@@ -30,10 +30,8 @@ public class MediaStoreReadOperation {
     private static final int ANDROID_Q = 29;
 
     // Need READ_EXTERNAL_STORAGE permission if accessing image files that your app didn't create.
-    public static List<Image> getImageFilesFromMediaStore(Context context) {
+    public static List<Image> getImageFilesFromMediaStore(Context context, Uri collection) {
         List<Image> imageList = new ArrayList<>();
-
-        Uri collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL);
 
         String[] projection = new String[] {
                 MediaStore.Images.Media.DATA,

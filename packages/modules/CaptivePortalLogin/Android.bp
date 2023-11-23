@@ -26,13 +26,15 @@ java_defaults {
     target_sdk_version: "33", // Keep in sync with CaptivePortalLoginTests
     static_libs: [
         "androidx.annotation_annotation",
-        "androidx.legacy_legacy-support-v4",
+        "androidx.legacy_legacy-support-core-ui",
         "metrics-constants-protos",
         "captiveportal-lib",
     ],
     manifest: "AndroidManifest.xml",
-    plugins: ["java_api_finder"],
-    lint: { strict_updatability_linting: true }
+    lint: { strict_updatability_linting: true },
+    optimize: {
+        ignore_warnings: false,
+    },
 }
 
 android_app {
@@ -45,6 +47,7 @@ android_app {
 android_library {
     name: "CaptivePortalLoginTestLib",
     defaults: ["CaptivePortalLoginDefaults"],
+    static_libs: ["net-tests-utils"],
     lint: { strict_updatability_linting: true }
 }
 

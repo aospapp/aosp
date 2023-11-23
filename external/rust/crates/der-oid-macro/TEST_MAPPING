@@ -4,27 +4,5 @@
     {
       "path": "external/rust/crates/oid-registry"
     }
-  ],
-  "presubmit": [
-    {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    }
-  ],
-  "presubmit-rust": [
-    {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    }
   ]
 }

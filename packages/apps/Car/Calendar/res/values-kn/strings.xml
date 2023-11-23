@@ -24,8 +24,5 @@
     <!-- no translation found for phone_number (3879925006862072135) -->
     <skip />
     <string name="phone_number_with_pin" msgid="6760582665093825412">"<xliff:g id="NUMBER">%1$s</xliff:g> ಪಿನ್: <xliff:g id="PIN_0">%2$s</xliff:g>"</string>
-    <plurals name="all_day_title" formatted="false" msgid="7938279592034934265">
-      <item quantity="one">%d ಇಡೀ ದಿನದ ಈವೆಂಟ್‌ಗಳು</item>
-      <item quantity="other">%d ಇಡೀ ದಿನದ ಈವೆಂಟ್‌ಗಳು</item>
-    </plurals>
+    <string name="all_day_title" msgid="5963074297534975402">"{count,plural, =1{ಇಡೀ ದಿನದ # ಈವೆಂಟ್}one{ಇಡೀ ದಿನದ # ಈವೆಂಟ್‌ಗಳು}other{ಇಡೀ ದಿನದ # ಈವೆಂಟ್‌ಗಳು}}"</string>
 </resources>

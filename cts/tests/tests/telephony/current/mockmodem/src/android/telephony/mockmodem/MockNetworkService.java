@@ -16,11 +16,13 @@
 
 package android.telephony.mockmodem;
 
+import android.content.Context;
+import android.hardware.radio.network.BarringInfo;
 import android.hardware.radio.network.CellConnectionStatus;
 import android.hardware.radio.network.CellInfo;
-import android.hardware.radio.network.CellInfoLte;
 import android.hardware.radio.network.CellInfoRatSpecificInfo;
-import android.hardware.radio.network.CellInfoWcdma;
+import android.hardware.radio.network.Domain;
+import android.hardware.radio.network.EmergencyRegResult;
 import android.hardware.radio.network.RegState;
 import android.telephony.RadioAccessFamily;
 import android.telephony.ServiceState;
@@ -29,6 +31,8 @@ import android.util.Log;
 import com.android.internal.telephony.RILConstants;
 
 import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class MockNetworkService {
     private static final String TAG = "MockNetworkService";
@@ -57,15 +61,18 @@ public class MockNetworkService {
     public static final int NR = RadioAccessFamily.RAF_NR;
 
     static final int MOCK_CARRIER_NO_SERVICE = 0;
-    // TODO: Integrate carrier network parameters with SIM profile
-    static final int MOCK_CARRIER_CHT = 1;
-    static final int MOCK_CARRIER_FET = 2;
 
     // Network status update reason
     static final int NETWORK_UPDATE_PREFERRED_MODE_CHANGE = 1;
 
+    public static final int LATCH_TRIGGER_EMERGENCY_SCAN = 0;
+    public static final int LATCH_CANCEL_EMERGENCY_SCAN = 1;
+    private static final int LATCH_MAX = 2;
+
     private int mCsRegState = RegState.NOT_REG_MT_NOT_SEARCHING_OP;
     private int mPsRegState = RegState.NOT_REG_MT_NOT_SEARCHING_OP;
+
+    private Context mContext;
 
     private String mSimPlmn;
     private boolean mIsHomeCamping;
@@ -77,6 +84,16 @@ public class MockNetworkService {
 
     private ArrayList<MockModemCell> mCellList = new ArrayList<MockModemCell>();
 
+    private BarringInfo[] mBarringInfos = new BarringInfo[0];
+    private EmergencyRegResult mEmergencyRegResult = new EmergencyRegResult();
+    private boolean mEmergencyNetworkScanTriggered = false;
+    private boolean mEmergencyNetworkScanCanceled = false;
+    private int[] mEmergencyNetworkScanAccessNetwork = null;
+    private int mEmergencyNetworkScanType = -1;
+    private int mEmergencyMode = 0;
+
+    private final CountDownLatch[] mLatches = new CountDownLatch[LATCH_MAX];
+
     private class MockModemCell {
         private int mCarrierId;
 
@@ -87,10 +104,14 @@ public class MockNetworkService {
         // AOSP
         private CellInfo[] mCells;
 
-        MockModemCell(int carrierConfig) {
-            mCarrierId = carrierConfig;
-            updateHomeRoamingList();
-            updateCellList();
+        MockModemCell(Context context, String file) {
+            MockNetworkConfig config;
+
+            config = new MockNetworkConfig(context);
+            config.getConfigFromAssets(file);
+            mCarrierId = config.getCarrierId();
+            updateHomeRoamingList(config);
+            updateCellList(config);
         }
 
         public int getCarrierId() {
@@ -101,128 +122,18 @@ public class MockNetworkService {
             return mCells;
         }
 
-        private void updateHomeRoamingList() {
-            // TODO: Read from carrier configuration file
-            switch (mCarrierId) {
-                case MOCK_CARRIER_CHT:
-                    mEHPlmnList = new String[] {"46692"};
-                    mAllowRoamingList = new String[] {"310026"};
-                    break;
-                case MOCK_CARRIER_FET:
-                    mEHPlmnList = new String[] {"46601"};
-                    mAllowRoamingList = new String[] {"310026"};
-                    break;
-                case MOCK_CARRIER_NO_SERVICE:
-                default:
-                    break;
-            }
+        private void updateHomeRoamingList(MockNetworkConfig config) {
+            mEHPlmnList = config.getEHPlmnList();
+            mAllowRoamingList = config.getAllowRoamingList();
         }
 
-        private void updateCellList() {
-            // TODO: Read from carrier configuration file
-            switch (mCarrierId) {
-                case MOCK_CARRIER_NO_SERVICE:
-                    break;
-                case MOCK_CARRIER_CHT:
-                    // LTE Cell configuration
-                    CellInfoLte lte = new CellInfoLte();
-                    lte.cellIdentityLte = new android.hardware.radio.network.CellIdentityLte();
-                    lte.cellIdentityLte.mcc = "466";
-                    lte.cellIdentityLte.mnc = "92";
-                    lte.cellIdentityLte.ci = 101;
-                    lte.cellIdentityLte.pci = 273;
-                    lte.cellIdentityLte.tac = 13100;
-                    lte.cellIdentityLte.earfcn = 9260;
-                    lte.cellIdentityLte.operatorNames =
-                            new android.hardware.radio.network.OperatorInfo();
-                    lte.cellIdentityLte.operatorNames.alphaLong = "Chung Hwa Telecom";
-                    lte.cellIdentityLte.operatorNames.alphaShort = "CHT";
-                    lte.cellIdentityLte.operatorNames.operatorNumeric = "46692";
-                    lte.cellIdentityLte.additionalPlmns = new String[0];
-                    lte.cellIdentityLte.bands = new int[0];
+        private void updateCellList(MockNetworkConfig config) {
+            int cellNum;
 
-                    lte.signalStrengthLte = new android.hardware.radio.network.LteSignalStrength();
-                    lte.signalStrengthLte.signalStrength = 20;
-                    lte.signalStrengthLte.rsrp = 71;
-                    lte.signalStrengthLte.rsrq = 6;
-                    lte.signalStrengthLte.rssnr = 100;
-                    lte.signalStrengthLte.cqi = 13;
-                    lte.signalStrengthLte.timingAdvance = 0;
-                    lte.signalStrengthLte.cqiTableIndex = 1;
-
-                    // WCDMA Cell configuration
-                    CellInfoWcdma wcdma = new CellInfoWcdma();
-                    wcdma.cellIdentityWcdma =
-                            new android.hardware.radio.network.CellIdentityWcdma();
-                    wcdma.cellIdentityWcdma.mcc = "466";
-                    wcdma.cellIdentityWcdma.mnc = "92";
-                    wcdma.cellIdentityWcdma.lac = 9222;
-                    wcdma.cellIdentityWcdma.cid = 14549;
-                    wcdma.cellIdentityWcdma.psc = 413;
-                    wcdma.cellIdentityWcdma.uarfcn = 10613;
-                    wcdma.cellIdentityWcdma.operatorNames =
-                            new android.hardware.radio.network.OperatorInfo();
-                    wcdma.cellIdentityWcdma.operatorNames.alphaLong = "Chung Hwa 3G";
-                    wcdma.cellIdentityWcdma.operatorNames.alphaShort = "CHT";
-                    wcdma.cellIdentityWcdma.operatorNames.operatorNumeric = "46692";
-                    wcdma.cellIdentityWcdma.additionalPlmns = new String[0];
-
-                    wcdma.signalStrengthWcdma =
-                            new android.hardware.radio.network.WcdmaSignalStrength();
-                    wcdma.signalStrengthWcdma.signalStrength = 20;
-                    wcdma.signalStrengthWcdma.bitErrorRate = 3;
-                    wcdma.signalStrengthWcdma.rscp = 45;
-                    wcdma.signalStrengthWcdma.ecno = 25;
-
-                    // Fill the cells
-                    mCells = new CellInfo[2]; // TODO: 2 is read from config file
-                    mCells[0] = new CellInfo();
-                    mCells[0].registered = false;
-                    mCells[0].connectionStatus = CellConnectionStatus.PRIMARY_SERVING;
-                    mCells[0].ratSpecificInfo = new CellInfoRatSpecificInfo();
-                    mCells[0].ratSpecificInfo.setLte(lte);
-
-                    mCells[1] = new CellInfo();
-                    mCells[1].registered = false;
-                    mCells[1].connectionStatus = CellConnectionStatus.SECONDARY_SERVING;
-                    mCells[1].ratSpecificInfo = new CellInfoRatSpecificInfo();
-                    mCells[1].ratSpecificInfo.setWcdma(wcdma);
-                    break;
-                case MOCK_CARRIER_FET:
-                    // WCDMA Cell configuration
-                    CellInfoWcdma wcdma2 = new CellInfoWcdma();
-                    wcdma2.cellIdentityWcdma =
-                            new android.hardware.radio.network.CellIdentityWcdma();
-                    wcdma2.cellIdentityWcdma.mcc = "466";
-                    wcdma2.cellIdentityWcdma.mnc = "01";
-                    wcdma2.cellIdentityWcdma.lac = 8122;
-                    wcdma2.cellIdentityWcdma.cid = 16249;
-                    wcdma2.cellIdentityWcdma.psc = 413;
-                    wcdma2.cellIdentityWcdma.uarfcn = 10613;
-                    wcdma2.cellIdentityWcdma.operatorNames =
-                            new android.hardware.radio.network.OperatorInfo();
-                    wcdma2.cellIdentityWcdma.operatorNames.alphaLong = "Far EasTone";
-                    wcdma2.cellIdentityWcdma.operatorNames.alphaShort = "FET";
-                    wcdma2.cellIdentityWcdma.operatorNames.operatorNumeric = "46601";
-                    wcdma2.cellIdentityWcdma.additionalPlmns = new String[0];
-
-                    wcdma2.signalStrengthWcdma =
-                            new android.hardware.radio.network.WcdmaSignalStrength();
-                    wcdma2.signalStrengthWcdma.signalStrength = 10;
-                    wcdma2.signalStrengthWcdma.bitErrorRate = 6;
-                    wcdma2.signalStrengthWcdma.rscp = 55;
-                    wcdma2.signalStrengthWcdma.ecno = 15;
-
-                    // Fill the cells
-                    mCells = new CellInfo[1];
-                    mCells[0] = new CellInfo();
-                    mCells[0].registered = false;
-                    mCells[0].connectionStatus = CellConnectionStatus.PRIMARY_SERVING;
-                    mCells[0].ratSpecificInfo = new CellInfoRatSpecificInfo();
-                    mCells[0].ratSpecificInfo.setWcdma(wcdma2);
-                    break;
-                default:
-                    break;
+            cellNum = config.getCellNum();
+            mCells = new CellInfo[cellNum];
+            for (int i = 0; i < cellNum; i++) {
+                mCells[i] = config.getCellInfo(i);
             }
         }
 
@@ -331,22 +242,29 @@ public class MockNetworkService {
         }
     }
 
-    public MockNetworkService() {
-        loadMockModemCell(MOCK_CARRIER_CHT);
-        loadMockModemCell(MOCK_CARRIER_FET);
+    public MockNetworkService(Context context) {
+        mContext = context;
+        loadMockModemCell("mock_network_tw_cht.xml");
+        loadMockModemCell("mock_network_tw_fet.xml");
+        for (int i = 0; i < LATCH_MAX; i++) {
+            mLatches[i] = new CountDownLatch(1);
+        }
     }
 
-    public void loadMockModemCell(int carrierId) {
+    public void loadMockModemCell(String config) {
+        MockModemCell tmp = new MockModemCell(mContext, config);
+        int cid = tmp.getCarrierId();
         if (!mCellList.isEmpty()) {
             for (MockModemCell mmc : mCellList) {
-                if (mmc.getCarrierId() == carrierId) {
-                    Log.d(TAG, "Carrier ID " + carrierId + " is loaded.");
+                if (mmc.getCarrierId() == cid) {
+                    Log.d(TAG, "Carrier ID " + cid + " had been loaded.");
                     return;
                 }
             }
         }
 
-        mCellList.add(new MockModemCell(carrierId));
+        Log.d(TAG, "Load carrier(" + cid + ") " + config);
+        mCellList.add(tmp);
     }
 
     private int getHighestRatFromNetworkType(int raf) {
@@ -562,6 +480,10 @@ public class MockNetworkService {
                 || (mPsRegState == RegState.REG_ROAMING));
     }
 
+    public boolean isPsInService() {
+        return ((mPsRegState == RegState.REG_HOME) || (mPsRegState == RegState.REG_ROAMING));
+    }
+
     public void updateSimPlmn(String simPlmn) {
         mSimPlmn = simPlmn;
 
@@ -652,6 +574,51 @@ public class MockNetworkService {
         // TODO: mCsRegState and mPsReState may be changed by the registration denied reason set by
         // TestCase
 
+        updateCellRegistration();
+    }
+
+    public void updateServiceState(int reg, int domainBitmask) {
+        Log.d(TAG, "Cell ID: updateServiceState " + reg + " with domainBitmask = " + domainBitmask);
+        switch (reg) {
+            case RegState.NOT_REG_MT_SEARCHING_OP:
+                if ((domainBitmask & Domain.CS) != 0) {
+                    mCsRegState = RegState.NOT_REG_MT_SEARCHING_OP;
+                }
+                if ((domainBitmask & Domain.PS) != 0) {
+                    mPsRegState = RegState.NOT_REG_MT_SEARCHING_OP;
+                }
+                break;
+            case RegState.REG_HOME:
+                if ((domainBitmask & Domain.CS) != 0) {
+                    mCsRegState = RegState.REG_HOME;
+                }
+                if ((domainBitmask & Domain.PS) != 0) {
+                    mPsRegState = RegState.REG_HOME;
+                }
+                break;
+            case RegState.REG_ROAMING:
+                if ((domainBitmask & Domain.CS) != 0) {
+                    mCsRegState = RegState.REG_ROAMING;
+                }
+                if ((domainBitmask & Domain.PS) != 0) {
+                    mPsRegState = RegState.REG_ROAMING;
+                }
+                break;
+            case RegState.NOT_REG_MT_NOT_SEARCHING_OP:
+            default:
+                if ((domainBitmask & Domain.CS) != 0) {
+                    mCsRegState = RegState.NOT_REG_MT_NOT_SEARCHING_OP;
+                }
+                if ((domainBitmask & Domain.PS) != 0) {
+                    mPsRegState = RegState.NOT_REG_MT_NOT_SEARCHING_OP;
+                }
+                break;
+        }
+
+        updateCellRegistration();
+    }
+
+    void updateCellRegistration() {
         for (MockModemCell mmc : mCellList) {
             boolean registered;
             if ((mCsRegState == RegState.REG_HOME || mPsRegState == RegState.REG_HOME)
@@ -679,6 +646,164 @@ public class MockNetworkService {
         }
 
         return null;
+    }
+
+    /**
+     * @return The barring status.
+     */
+    public BarringInfo[] getBarringInfo() {
+        return mBarringInfos;
+    }
+
+    /**
+     * Updates the barring status.
+     * @param barringInfos the barring status.
+     */
+    public void updateBarringInfos(BarringInfo[] barringInfos) {
+        mBarringInfos = barringInfos;
+    }
+
+    /**
+     * Updates the emergency registration state.
+     * @param regResult the emergency registration state.
+     */
+    public void setEmergencyRegResult(EmergencyRegResult regResult) {
+        mEmergencyRegResult = regResult;
+    }
+
+    /**
+     * @return the emergency registration state.
+     */
+    public EmergencyRegResult getEmergencyRegResult() {
+        return mEmergencyRegResult;
+    }
+
+    /**
+     * Updates the current emergency mode.
+     * @param mode the emergency mode
+     */
+    public void setEmergencyMode(int mode) {
+        mEmergencyMode = mode;
+    }
+
+    /**
+     * @return the current emergency mode.
+     */
+    public int getEmergencyMode() {
+        return mEmergencyMode;
+    }
+
+    /**
+     * Updates whether triggerEmergencyNetworkScan is requested and the attributes.
+     *
+     * @param state {@code true} if the scan is trigerred.
+     * @param accessNetwork the list of preferred network type.
+     * @param scanType indicates the preferred scan type.
+     */
+    public void setEmergencyNetworkScanTriggered(boolean state,
+            int[] accessNetwork, int scanType) {
+        mEmergencyNetworkScanTriggered = state;
+        if (state) {
+            mEmergencyNetworkScanAccessNetwork = accessNetwork;
+            mEmergencyNetworkScanType = scanType;
+            countDownLatch(LATCH_TRIGGER_EMERGENCY_SCAN);
+        }
+    }
+
+    /**
+     * Updates whether cancelEmergencyNetworkScan is requested.
+     */
+    public void setEmergencyNetworkScanCanceled(boolean state) {
+        mEmergencyNetworkScanCanceled = state;
+        if (state) {
+            mEmergencyNetworkScanAccessNetwork = null;
+            mEmergencyNetworkScanType = -1;
+            countDownLatch(LATCH_CANCEL_EMERGENCY_SCAN);
+        }
+    }
+
+    /**
+     * @return whether emergency network scan is triggered.
+     */
+    public boolean isEmergencyNetworkScanTriggered() {
+        return mEmergencyNetworkScanTriggered;
+    }
+
+    /**
+     * @return whether emergency network scan is canceled.
+     */
+    public boolean isEmergencyNetworkScanCanceled() {
+        return mEmergencyNetworkScanCanceled;
+    }
+
+    /**
+     * @return the list of preferred network type.
+     */
+    public int[] getEmergencyNetworkScanAccessNetwork() {
+        return mEmergencyNetworkScanAccessNetwork;
+    }
+
+    /**
+     * @return the preferred scan type.
+     */
+    public int getEmergencyNetworkScanType() {
+        return mEmergencyNetworkScanType;
+    }
+
+    /**
+     * Resets the emergency network scan attributes.
+     */
+    public void resetEmergencyNetworkScan() {
+        mEmergencyRegResult = new EmergencyRegResult();
+        mEmergencyNetworkScanTriggered = false;
+        mEmergencyNetworkScanCanceled = false;
+        mEmergencyNetworkScanAccessNetwork = null;
+        mEmergencyNetworkScanType = -1;
+        mEmergencyMode = 0;
+    }
+
+    private void countDownLatch(int latchIndex) {
+        synchronized (mLatches) {
+            mLatches[latchIndex].countDown();
+        }
+    }
+
+    /**
+     * Waits for the event of network service.
+     *
+     * @param latchIndex The index of the event.
+     * @param waitMs The timeout in milliseconds.
+     * @return {@code true} if the event happens.
+     */
+    public boolean waitForLatchCountdown(int latchIndex, long waitMs) {
+        boolean complete = false;
+        try {
+            CountDownLatch latch;
+            synchronized (mLatches) {
+                latch = mLatches[latchIndex];
+            }
+            long startTime = System.currentTimeMillis();
+            complete = latch.await(waitMs, TimeUnit.MILLISECONDS);
+            Log.i(TAG, "Latch " + latchIndex + " took "
+                    + (System.currentTimeMillis() - startTime) + " ms to count down.");
+        } catch (InterruptedException e) {
+            Log.e(TAG, "Waiting latch " + latchIndex + " interrupted, e=" + e);
+        }
+        synchronized (mLatches) {
+            mLatches[latchIndex] = new CountDownLatch(1);
+        }
+        return complete;
+    }
+
+    /**
+     * Resets the CountDownLatches
+     */
+    public void resetAllLatchCountdown() {
+        synchronized (mLatches) {
+            for (int i = 0; i < LATCH_MAX; i++) {
+                mLatches[i] = new CountDownLatch(1);
+            }
+        }
     }
 
     @Override

@@ -51,6 +51,7 @@ class EmulatedRequestState {
 
   status_t InitializeSensorSettings(
       std::unique_ptr<HalCameraMetadata> request_settings,
+      uint32_t override_frame_number,
       EmulatedSensor::SensorSettings* sensor_settings /*out*/);
 
  private:
@@ -206,6 +207,7 @@ class EmulatedRequestState {
   uint8_t af_state_ = ANDROID_CONTROL_AF_STATE_INACTIVE;
   uint8_t af_trigger_ = ANDROID_CONTROL_AF_TRIGGER_IDLE;
   uint8_t ae_trigger_ = ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
+  uint8_t autoframing_ = ANDROID_CONTROL_AUTOFRAMING_OFF;
   FPSRange ae_target_fps_ = {0, 0};
   float zoom_ratio_ = 1.0f;
   uint8_t extended_scene_mode_ = ANDROID_CONTROL_EXTENDED_SCENE_MODE_DISABLED;
@@ -237,6 +239,8 @@ class EmulatedRequestState {
   bool af_supported_ = false;
   bool picture_caf_supported_ = false;
   bool video_caf_supported_ = false;
+  int32_t settings_override_ = ANDROID_CONTROL_SETTINGS_OVERRIDE_OFF;
+  uint32_t settings_overriding_frame_number_ = 0;
 
   // android.flash.*
   bool is_flash_supported_ = false;

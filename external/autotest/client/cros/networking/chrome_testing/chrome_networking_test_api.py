@@ -1,9 +1,16 @@
+# Lint as: python2, python3
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import time
+
+from six.moves import range
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.networking.chrome_testing import test_utils
@@ -98,7 +105,7 @@ class ChromeNetworkProvider(object):
     def scan_for_networks(self, timeout=SHORT_TIMEOUT):
         """Scan for all the available networks
 
-        @param timeout int seconds to sleep while scanning for networks 
+        @param timeout int seconds to sleep while scanning for networks
 
         """
         self._chrome_testing.call_test_function_async('requestNetworkScan')

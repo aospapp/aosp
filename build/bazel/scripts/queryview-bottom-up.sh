@@ -68,7 +68,7 @@ set -euo pipefail
 function bazel() {
   # We're in <root>/build/bazel/scripts
   AOSP_ROOT="$(dirname $0)/../../.."
-  "${AOSP_ROOT}/tools/bazel" "$@"
+  "${AOSP_ROOT}/build/bazel/bin/bazel" "$@"
 }
 
 T=${1:-//bionic/libc:libc--android_arm_armv7-a-neon_shared}

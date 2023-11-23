@@ -19,6 +19,7 @@ package android.server.wm.intent;
 import static android.server.wm.intent.Persistence.LaunchFromIntent.prepareSerialisation;
 import static android.server.wm.intent.StateComparisonException.assertEndStatesEqual;
 import static android.server.wm.intent.StateComparisonException.assertInitialStateEqual;
+import static android.window.DisplayAreaOrganizer.FEATURE_UNDEFINED;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
@@ -42,6 +43,7 @@ import android.server.wm.intent.Persistence.GenerationIntent;
 import android.server.wm.intent.Persistence.LaunchFromIntent;
 import android.server.wm.intent.Persistence.StateDump;
 import android.view.Display;
+import android.window.DisplayAreaOrganizer;
 
 import com.google.common.collect.Lists;
 
@@ -97,14 +99,19 @@ public class LaunchRunner {
 
         // Launch the first activity from the start context
         GenerationIntent firstIntent = initialState.get(0);
-        activityLog.add(launchFromContext(initialContext, firstIntent.getActualIntent()));
+        Activity firstActivity = launchFromContext(initialContext, firstIntent.getActualIntent());
+        // Launch all tasks in the same task display area. CTS tests using multiple tasks assume
+        // they will be started in the same task display area.
+        int firstActivityDisplayAreaFeatureId = mTestBase.getWmState()
+                .getTaskDisplayAreaFeatureId(firstActivity.getComponentName());
+        activityLog.add(firstActivity);
 
         // launch the rest from the initial intents
         for (int i = 1; i < initialState.size(); i++) {
             GenerationIntent generationIntent = initialState.get(i);
             Activity activityToLaunchFrom = activityLog.get(generationIntent.getLaunchFromIndex(i));
             Activity result = launch(activityToLaunchFrom, generationIntent.getActualIntent(),
-                    generationIntent.startForResult());
+                    generationIntent.startForResult(), firstActivityDisplayAreaFeatureId);
             activityLog.add(result);
         }
 
@@ -119,7 +126,7 @@ public class LaunchRunner {
             Activity activityToLaunchFrom = activityLog.get(
                     generationIntent.getLaunchFromIndex(initialState.size() + i));
             Activity result = launch(activityToLaunchFrom, generationIntent.getActualIntent(),
-                    generationIntent.startForResult());
+                    generationIntent.startForResult(), firstActivityDisplayAreaFeatureId);
             activityLog.add(result);
         }
 
@@ -245,10 +252,16 @@ public class LaunchRunner {
 
 
     public Activity launchFromContext(Context context, Intent intent) {
+        return launchFromContext(context, intent, FEATURE_UNDEFINED);
+    }
+
+
+    public Activity launchFromContext(Context context, Intent intent,
+                                      int launchTaskDisplayAreaFeatureId) {
         Instrumentation.ActivityMonitor monitor = getInstrumentation()
                 .addMonitor((String) null, null, false);
 
-        context.startActivity(intent, getLaunchOptions());
+        context.startActivity(intent, getLaunchOptions(launchTaskDisplayAreaFeatureId));
         Activity activity = monitor.waitForActivityWithTimeout(ACTIVITY_LAUNCH_TIMEOUT);
         waitAndAssertActivityLaunched(activity, intent);
 
@@ -256,13 +269,19 @@ public class LaunchRunner {
     }
 
     public Activity launch(Activity activityContext, Intent intent, boolean startForResult) {
+        return launch(activityContext, intent, startForResult, FEATURE_UNDEFINED);
+    }
+
+    public Activity launch(Activity activityContext, Intent intent, boolean startForResult,
+                           int launchTaskDisplayAreaFeatureId) {
         Instrumentation.ActivityMonitor monitor = getInstrumentation()
                 .addMonitor((String) null, null, false);
 
         if (startForResult) {
-            activityContext.startActivityForResult(intent, 1, getLaunchOptions());
+            activityContext.startActivityForResult(intent, 1,
+                    getLaunchOptions(launchTaskDisplayAreaFeatureId));
         } else {
-            activityContext.startActivity(intent, getLaunchOptions());
+            activityContext.startActivity(intent, getLaunchOptions(launchTaskDisplayAreaFeatureId));
         }
         Activity activity = monitor.waitForActivityWithTimeout(ACTIVITY_LAUNCH_TIMEOUT);
 
@@ -343,8 +362,15 @@ public class LaunchRunner {
     }
 
     private static Bundle getLaunchOptions() {
+        return getLaunchOptions(FEATURE_UNDEFINED);
+    }
+
+    private static Bundle getLaunchOptions(int launchTaskDisplayAreaFeatureId) {
         ActivityOptions options = ActivityOptions.makeBasic();
         options.setLaunchWindowingMode(WindowConfiguration.WINDOWING_MODE_FULLSCREEN);
+        if (launchTaskDisplayAreaFeatureId != DisplayAreaOrganizer.FEATURE_UNDEFINED) {
+            options.setLaunchTaskDisplayAreaFeatureId(launchTaskDisplayAreaFeatureId);
+        }
         return options.toBundle();
     }
 }

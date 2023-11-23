@@ -15,7 +15,8 @@
 #include "BusOutputStream.h"
 
 #include <android-base/logging.h>
-#include <system/audio.h>
+
+#include "AudioUtil.h"
 
 namespace audio_proxy::service {
 
@@ -28,18 +29,7 @@ const std::string& BusOutputStream::getAddress() const { return mAddress; }
 const AidlAudioConfig& BusOutputStream::getConfig() const { return mConfig; }
 int32_t BusOutputStream::getFlags() const { return mFlags; }
 
-int BusOutputStream::getFrameSize() const {
-  audio_format_t format = static_cast<audio_format_t>(mConfig.format);
-
-  if (!audio_has_proportional_frames(format)) {
-    return sizeof(int8_t);
-  }
-
-  size_t channelSampleSize = audio_bytes_per_sample(format);
-  return audio_channel_count_from_out_mask(
-             static_cast<audio_channel_mask_t>(mConfig.channelMask)) *
-         channelSampleSize;
-}
+int BusOutputStream::getFrameSize() const { return computeFrameSize(mConfig); }
 
 bool BusOutputStream::prepareForWriting(uint32_t frameSize,
                                         uint32_t frameCount) {

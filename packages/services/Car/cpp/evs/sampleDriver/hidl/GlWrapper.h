@@ -23,59 +23,54 @@
 #include <GLES2/gl2ext.h>
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
-
+#include <android-base/logging.h>
 #include <android/frameworks/automotive/display/1.0/IAutomotiveDisplayProxyService.h>
 #include <android/hardware/automotive/evs/1.1/types.h>
-#include <android-base/logging.h>
 #include <bufferqueueconverter/BufferQueueConverter.h>
 
-
-using ::android::sp;
-using ::android::SurfaceHolder;
-using BufferDesc_1_0 = ::android::hardware::automotive::evs::V1_0::BufferDesc;
-using BufferDesc_1_1 = ::android::hardware::automotive::evs::V1_1::BufferDesc;
 using ::android::frameworks::automotive::display::V1_0::IAutomotiveDisplayProxyService;
 using ::android::hardware::graphics::bufferqueue::V2_0::IGraphicBufferProducer;
 
+using BufferDesc_1_0 = ::android::hardware::automotive::evs::V1_0::BufferDesc;
+using BufferDesc_1_1 = ::android::hardware::automotive::evs::V1_1::BufferDesc;
 
 class GlWrapper {
 public:
-    GlWrapper()
-        : mSurfaceHolder(android::SurfaceHolderUniquePtr(nullptr, nullptr)) {}
-    bool initialize(sp<IAutomotiveDisplayProxyService> pWindowService, uint64_t displayId);
+    GlWrapper() : mSurfaceHolder(android::SurfaceHolderUniquePtr(nullptr, nullptr)) {}
+    bool initialize(android::sp<IAutomotiveDisplayProxyService> pWindowService, uint64_t displayId);
     void shutdown();
 
     bool updateImageTexture(const BufferDesc_1_0& buffer);
     bool updateImageTexture(const BufferDesc_1_1& buffer);
     void renderImageToScreen();
 
-    void showWindow(sp<IAutomotiveDisplayProxyService>& pWindowService, uint64_t id);
-    void hideWindow(sp<IAutomotiveDisplayProxyService>& pWindowService, uint64_t id);
+    void showWindow(android::sp<IAutomotiveDisplayProxyService>& pWindowService, uint64_t id);
+    void hideWindow(android::sp<IAutomotiveDisplayProxyService>& pWindowService, uint64_t id);
 
-    unsigned getWidth()     { return mWidth; };
-    unsigned getHeight()    { return mHeight; };
+    unsigned getWidth() { return mWidth; };
+    unsigned getHeight() { return mHeight; };
 
 private:
-    sp<IGraphicBufferProducer>  mGfxBufferProducer;
+    android::sp<IGraphicBufferProducer> mGfxBufferProducer;
 
-    EGLDisplay                  mDisplay;
-    EGLSurface                  mSurface;
-    EGLContext                  mContext;
+    EGLDisplay mDisplay;
+    EGLSurface mSurface;
+    EGLContext mContext;
 
-    unsigned mWidth  = 0;
+    unsigned mWidth = 0;
     unsigned mHeight = 0;
 
     EGLImageKHR mKHRimage = EGL_NO_IMAGE_KHR;
 
-    GLuint mTextureMap    = 0;
+    GLuint mTextureMap = 0;
     GLuint mShaderProgram = 0;
 
     // Opaque handle for a native hardware buffer defined in
     // frameworks/native/opengl/include/EGL/eglplatform.h
-    ANativeWindow*                  mWindow;
+    ANativeWindow* mWindow;
 
     // Pointer to a Surface wrapper.
     android::SurfaceHolderUniquePtr mSurfaceHolder;
 };
 
-#endif // ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_DISPLAY_GLWRAPPER_H
+#endif  // ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_DISPLAY_GLWRAPPER_H

@@ -17,7 +17,7 @@
 #ifndef CHRE_PLATFORM_ZEPHYR_LOG_H_
 #define CHRE_PLATFORM_ZEPHYR_LOG_H_
 
-#include <logging/log.h>
+#include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(chre, CONFIG_CHRE_LOG_LEVEL);
 
 /** Map CHRE's LOGE to Zephyr's LOG_ERR */

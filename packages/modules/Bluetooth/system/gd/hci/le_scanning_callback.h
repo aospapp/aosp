@@ -29,6 +29,9 @@ using ScannerId = uint8_t;
 
 class AdvertisingFilterOnFoundOnLostInfo {
  public:
+  // For MSFT-based advertisement events, the monitor handle associates every event with the monitor
+  // filter this event comes from.
+  uint8_t monitor_handle;
   uint8_t scanner_id;
   uint8_t filter_index;
   uint8_t advertiser_state;
@@ -87,6 +90,7 @@ class ScanningCallback {
       uint16_t sync_handle, int8_t tx_power, int8_t rssi, uint8_t status, std::vector<uint8_t> data) = 0;
   virtual void OnPeriodicSyncLost(uint16_t sync_handle) = 0;
   virtual void OnPeriodicSyncTransferred(int pa_source, uint8_t status, Address address) = 0;
+  virtual void OnBigInfoReport(uint16_t sync_handle, bool encrypted) = 0;
 };
 
 class AdvertisingPacketContentFilterCommand {
@@ -99,6 +103,12 @@ class AdvertisingPacketContentFilterCommand {
   std::vector<uint8_t> name;
   uint16_t company;
   uint16_t company_mask;
+  uint8_t org_id;
+  uint8_t tds_flags;
+  uint8_t tds_flags_mask;
+  ApcfMetaDataType meta_data_type;
+  std::vector<uint8_t> meta_data;
+  uint8_t ad_type;
   std::vector<uint8_t> data;
   std::vector<uint8_t> data_mask;
   std::array<uint8_t, 16> irk;

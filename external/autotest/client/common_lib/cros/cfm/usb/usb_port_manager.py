@@ -24,10 +24,36 @@ _PORT_ID_TO_GPIO_INDEX_DICT = {
         PortId(bus=1, port_number=6): 47,  # Back lower USB 2
         PortId(bus=2, port_number=4): 47,  # Back lower USB 3
     },
+    'guado-cfm': {
+        # Front ports
+        PortId(bus=1, port_number=2): 56,  # Front left USB 2
+        PortId(bus=2, port_number=1): 56,  # Front left USB 3
+        PortId(bus=1, port_number=3): 57,  # Front right USB 2
+        PortId(bus=2, port_number=2): 57,  # Front right USB 3
+        # Back ports (same GPIO is used for both ports)
+        PortId(bus=1, port_number=5): 47,  # Back upper USB 2
+        PortId(bus=2, port_number=3): 47,  # Back upper USB 3
+        PortId(bus=1, port_number=6): 47,  # Back lower USB 2
+        PortId(bus=2, port_number=4): 47,  # Back lower USB 3
+    },
     # On Fizz, there are in total 5 usb ports and per port usb power
     # is controlled by EC with user space command:
     # ectool gpioset USBx_ENABLE 0/1 (x from 1 to 5).
     'fizz': {
+        # USB 2 bus.
+        PortId(bus=1, port_number=3): 4,    # Front right USB 2
+        PortId(bus=1, port_number=4): 5,    # Front left USB 2
+        PortId(bus=1, port_number=5): 1,    # Back left USB 2
+        PortId(bus=1, port_number=6): 2,    # Back middle USB 2
+        PortId(bus=1, port_number=2): 3,    # Back right USB 2
+        # USB 3 bus.
+        PortId(bus=2, port_number=3): 4,    # Front right USB 3
+        PortId(bus=2, port_number=4): 5,    # Front left USB 3
+        PortId(bus=2, port_number=5): 1,    # Back left USB 3
+        PortId(bus=2, port_number=6): 2,    # Back middle USB 3
+        PortId(bus=2, port_number=2): 3,    # Back right USB 3
+    },
+    'fizz-cfm': {
         # USB 2 bus.
         PortId(bus=1, port_number=3): 4,    # Front right USB 2
         PortId(bus=1, port_number=4): 5,    # Front left USB 2
@@ -157,9 +183,9 @@ class UsbPortManager(object):
         @param gpio_idx The index of the gpio to set the power for.
         @param power_on If True, powers on the GPIO. If False, powers it off.
         """
-        if board == 'guado':
+        if board == 'guado' or board == 'guado-cfm':
             self._set_gpio_power_guado(gpio_index, power_on)
-        elif board == 'fizz':
+        elif board == 'fizz' or board == 'fizz-cfm':
             self._set_gpio_power_fizz(gpio_index, power_on)
         else:
             raise ValueError('Unsupported board type {}.'.format(board))

@@ -18,6 +18,9 @@ package android.permission.cts;
 
 import static android.Manifest.permission.ACCESS_BACKGROUND_LOCATION;
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
+import static android.Manifest.permission.ADJUST_RUNTIME_PERMISSIONS_POLICY;
+import static android.Manifest.permission.GRANT_RUNTIME_PERMISSIONS;
+import static android.Manifest.permission.MANAGE_APP_OPS_MODES;
 import static android.Manifest.permission.PACKAGE_USAGE_STATS;
 import static android.app.AppOpsManager.MODE_ALLOWED;
 import static android.app.AppOpsManager.MODE_FOREGROUND;
@@ -32,22 +35,29 @@ import static android.content.pm.PackageManager.FLAG_PERMISSION_USER_SET;
 import static android.content.pm.PackageManager.GET_PERMISSIONS;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static android.content.pm.PermissionInfo.PROTECTION_DANGEROUS;
+import static android.permission.cts.TestUtils.awaitJobUntilRequestedState;
 
 import static com.android.compatibility.common.util.SystemUtil.callWithShellPermissionIdentity;
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+import static com.android.compatibility.common.util.SystemUtil.waitForBroadcasts;
 
 import android.app.AppOpsManager;
 import android.app.UiAutomation;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PermissionInfo;
+import android.content.pm.ResolveInfo;
 import android.os.Build;
 import android.os.Process;
 import android.os.UserHandle;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.modules.utils.build.SdkLevel;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -57,13 +67,11 @@ import java.util.List;
  * Common utils for permission tests
  */
 public class PermissionUtils {
-    private static String GRANT_RUNTIME_PERMISSIONS = "android.permission.GRANT_RUNTIME_PERMISSIONS";
-    private static String MANAGE_APP_OPS_MODES = "android.permission.MANAGE_APP_OPS_MODES";
-
     private static final int TESTED_FLAGS = FLAG_PERMISSION_USER_SET | FLAG_PERMISSION_USER_FIXED
             | FLAG_PERMISSION_REVOKE_ON_UPGRADE | FLAG_PERMISSION_REVIEW_REQUIRED
             | FLAG_PERMISSION_REVOKE_WHEN_REQUESTED;
 
+    private static final String LOG_TAG = PermissionUtils.class.getSimpleName();
     private static final Context sContext =
             InstrumentationRegistry.getInstrumentation().getTargetContext();
     private static final UiAutomation sUiAutomation =
@@ -98,6 +106,7 @@ public class PermissionUtils {
                 + (Build.VERSION.RELEASE_OR_CODENAME.equals("REL") ? 0 : 1);
         boolean forceQueryable = sdkVersion > Build.VERSION_CODES.Q;
         runShellCommand("pm install -r --force-sdk "
+                + (SdkLevel.isAtLeastU() ? "--bypass-low-target-sdk-block " : "")
                 + (forceQueryable ? "--force-queryable " : "")
                 + apkFile);
     }
@@ -254,6 +263,26 @@ public class PermissionUtils {
     }
 
     /**
+     * Get all the flags of a permission.
+     *
+     * @param packageName Package the permission belongs to
+     * @param permission Name of the permission
+     *
+     * @return Permission flags
+     */
+    public static int getAllPermissionFlags(@NonNull String packageName,
+            @NonNull String permission) {
+        try {
+            return callWithShellPermissionIdentity(
+                    () -> sContext.getPackageManager().getPermissionFlags(permission, packageName,
+                            UserHandle.getUserHandleForUid(Process.myUid())),
+                    GRANT_RUNTIME_PERMISSIONS);
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
      * Get the flags of a permission.
      *
      * @param packageName Package the permission belongs to
@@ -262,14 +291,7 @@ public class PermissionUtils {
      * @return Permission flags
      */
     public static int getPermissionFlags(@NonNull String packageName, @NonNull String permission) {
-        try {
-            return callWithShellPermissionIdentity(
-                    () -> sContext.getPackageManager().getPermissionFlags(permission, packageName,
-                            UserHandle.getUserHandleForUid(Process.myUid())) & TESTED_FLAGS,
-                    GRANT_RUNTIME_PERMISSIONS);
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
+        return getAllPermissionFlags(packageName, permission) & TESTED_FLAGS;
     }
 
     /**
@@ -285,7 +307,7 @@ public class PermissionUtils {
         runWithShellPermissionIdentity(
                 () -> sContext.getPackageManager().updatePermissionFlags(permission, packageName,
                         mask, flags, UserHandle.getUserHandleForUid(Process.myUid())),
-                GRANT_RUNTIME_PERMISSIONS);
+                GRANT_RUNTIME_PERMISSIONS, ADJUST_RUNTIME_PERMISSIONS_POLICY);
     }
 
     /**
@@ -324,4 +346,63 @@ public class PermissionUtils {
         return runtimePermissions;
     }
 
+    /**
+     * Reset permission controller state & re-schedule the job.
+     */
+    public static void resetPermissionControllerJob(@NonNull UiAutomation automation,
+            @NonNull String packageName, int jobId, long timeout, @NonNull String intentAction,
+            @NonNull String onBootReceiver) throws Exception {
+        clearAppState(packageName);
+        awaitJobUntilRequestedState(packageName, jobId, timeout, automation, "unknown");
+        scheduleJob(automation, packageName, jobId, timeout, intentAction, onBootReceiver);
+
+        runShellCommand("cmd jobscheduler reset-execution-quota -u "
+                + Process.myUserHandle().getIdentifier() + " " + packageName);
+        runShellCommand("cmd jobscheduler reset-schedule-quota");
+    }
+
+    /**
+     * schedules a job for the privacy signal in Permission Controller
+     */
+    public static void scheduleJob(@NonNull UiAutomation automation,
+            @NonNull String packageName, int jobId, long timeout, @NonNull String intentAction,
+            @NonNull String broadcastReceiver) throws Exception {
+        long startTime = System.currentTimeMillis();
+        String jobStatus = "";
+
+        while ((System.currentTimeMillis() - startTime) < timeout
+                && !jobStatus.contains("waiting")) {
+            simulateReboot(packageName, intentAction, broadcastReceiver);
+            String cmd =
+                    "cmd jobscheduler get-job-state -u " + Process.myUserHandle().getIdentifier()
+                            + " " + packageName + " " + jobId;
+            jobStatus = runShellCommand(automation, cmd).trim();
+            Log.v(LOG_TAG, "Job: " + jobId + ", job status " + jobStatus);
+        }
+        if (!jobStatus.contains("waiting")) {
+            throw new IllegalStateException("The job didn't get scheduled in time.");
+        }
+    }
+
+    private static void simulateReboot(@NonNull String packageName, @NonNull String intentAction,
+            @NonNull String broadcastReceiver) {
+        Intent jobSetupReceiverIntent = new Intent(intentAction);
+        jobSetupReceiverIntent.setPackage(packageName);
+        jobSetupReceiverIntent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+
+        // Query for the setup broadcast receiver
+        List<ResolveInfo> resolveInfos =
+                sContext.getPackageManager().queryBroadcastReceivers(jobSetupReceiverIntent, 0);
+
+        if (resolveInfos.size() > 0) {
+            sContext.sendBroadcast(jobSetupReceiverIntent);
+        } else {
+            Intent intent = new Intent();
+            intent.setClassName(packageName, broadcastReceiver);
+            intent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+            intent.setPackage(packageName);
+            sContext.sendBroadcast(intent);
+        }
+        waitForBroadcasts();
+    }
 }

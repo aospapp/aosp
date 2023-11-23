@@ -19,30 +19,31 @@
      package="android.voiceinteraction.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
-    <uses-permission android:name="android.permission.BIND_VOICE_INTERACTION"/>
+    <queries>
+        <package android:name="android.voiceinteraction.service" />
+    </queries>
+
 
     <application>
       <uses-library android:name="android.test.runner"/>
-
-      <activity android:name="TestStartActivity"
-           android:label="Voice Interaction Target"
-           android:exported="true">
-          <intent-filter>
-              <action android:name="android.intent.action.TEST_START_ACTIVITY"/>
-              <category android:name="android.intent.category.LAUNCHER"/>
-              <category android:name="android.intent.category.DEFAULT"/>
-          </intent-filter>
-      </activity>
-      <activity android:name="TestLocalInteractionActivity"
-           android:label="Local Interaction Activity"
-           android:exported="true">
-          <intent-filter>
-              <action android:name="android.intent.action.TEST_LOCAL_INTERACTION_ACTIVITY"/>
-          </intent-filter>
-      </activity>
-        <activity android:name="TestVoiceInteractionServiceActivity"
-            android:label="Voice Interaction Service Activity"
-            android:exported="true">
+        <!-- Activities -->
+        <activity android:name=".activities.SettingsActivity"
+                  android:label="SettingsActivity Activity"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <action android:name="android.intent.action.ASSIST"/>
+            </intent-filter>
+        </activity>
+        <activity android:name=".activities.TestStartActivity"
+                  android:label="Voice Interaction Target"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.TEST_START_ACTIVITY"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
         </activity>
         <activity android:name=".activities.EmptyActivity"
                   android:label="Empty Activity"
@@ -52,8 +53,148 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <service android:name="android.voiceinteraction.service.BasicVoiceInteractionService"
+        <!-- VoiceInteractionService -->
+        <service android:name=".services.CtsBasicVoiceInteractionService"
                  android:label="CTS test Basic voice interaction service"
+                 android:permission="android.permission.BIND_VOICE_INTERACTION"
+                 android:exported="false"
+                 android:visibleToInstantApps="true">
+            <meta-data android:name="android.voice_interaction"
+                       android:resource="@xml/interaction_service_with_hotword" />
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+        </service>
+        <service android:name=".services.CtsMainVoiceInteractionService"
+                 android:label="CTS test voice interaction service"
+                 android:permission="android.permission.BIND_VOICE_INTERACTION"
+                 android:exported="true"
+                 android:visibleToInstantApps="true">
+            <meta-data android:name="android.voice_interaction"
+                       android:resource="@xml/interaction_service" />
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+        </service>
+        <service android:name=".services.NoOpVoiceInteractionService"
+                 android:label="NoOpVoiceInteractionService has recognition"
+                 android:permission="android.permission.BIND_VOICE_INTERACTION"
+                 android:exported="true">
+            <meta-data android:name="android.voice_interaction"
+                       android:resource="@xml/has_recognition_interaction_service" />
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name="android.voiceinteraction.cts.services.TestPermissionVoiceInteractionService"
+            android:label="CTS test permission voice interaction service"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true"
+            android:visibleToInstantApps="true">
+            <meta-data android:name="android.voice_interaction"
+                       android:resource="@xml/interaction_service_with_hotword_permission"/>
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService"/>
+            </intent-filter>
+        </service>
+        <service
+            android:name="android.voiceinteraction.cts.services.NonIsolatedHotwordDetectionVoiceInteractionService"
+            android:label="NonIsolatedHotwordDetectionVoiceInteractionService"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true"
+            android:visibleToInstantApps="true">
+            <meta-data android:name="android.voice_interaction"
+                       android:resource="@xml/interaction_service_with_non_isolated_hotword"/>
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService"/>
+            </intent-filter>
+        </service>
+        <service
+            android:name="android.voiceinteraction.cts.services.NonSharedIsolatedHotwordDetectionVoiceInteractionService"
+            android:label="NonIsolatedHotwordDetectionVoiceInteractionService"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true"
+            android:visibleToInstantApps="true">
+            <meta-data android:name="android.voice_interaction"
+                       android:resource="@xml/interaction_service_with_non_shared_isolated"/>
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService"/>
+            </intent-filter>
+        </service>
+        <service
+            android:name=".services.NoSessionVoiceInteractionService"
+            android:label="Voice interaction service with no existing session service"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true"
+            android:visibleToInstantApps="true">
+            <meta-data android:name="android.voice_interaction"
+                       android:resource="@xml/interaction_service_no_existing_session_service"/>
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService"/>
+            </intent-filter>
+        </service>
+        <!-- RecognitionService -->
+        <service android:name=".services.MainRecognitionService"
+                 android:label="CTS Voice Recognition Service"
+                 android:exported="true"
+                 android:visibleToInstantApps="true">
+            <intent-filter>
+                <action android:name="android.speech.RecognitionService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data android:name="android.speech"
+                       android:resource="@xml/recognition_service" />
+        </service>
+
+        <!-- HotwordDetectionService -->
+        <service
+            android:name="android.voiceinteraction.cts.services.TestPermissionHotwordDetectionService"
+            android:permission="android.permission.BIND_HOTWORD_DETECTION_SERVICE"
+            android:isolatedProcess="true"
+            android:allowSharedIsolatedProcess="true"
+            android:exported="true">
+        </service>
+        <service
+            android:name="android.voiceinteraction.cts.services.NonIsolatedHotwordDetectionService"
+            android:permission="android.permission.BIND_HOTWORD_DETECTION_SERVICE"
+            android:exported="true">
+        </service>
+        <service
+            android:name="android.voiceinteraction.cts.services.NonSharedIsolatedHotwordDetectionService"
+            android:permission="android.permission.BIND_HOTWORD_DETECTION_SERVICE"
+            android:isolatedProcess="true"
+            android:exported="true">
+        </service>
+
+        <!-- VisualQueryDetectionService -->
+        <service
+            android:name="android.voiceinteraction.service.MainVisualQueryDetectionService"
+            android:permission="android.permission.BIND_VISUAL_QUERY_DETECTION_SERVICE"
+            android:isolatedProcess="true"
+            android:allowSharedIsolatedProcess="true"
+            android:exported="true">
+        </service>
+        <service
+            android:name="android.voiceinteraction.cts.services.NonSharedIsolatedVisualQueryDetectionService"
+            android:permission="android.permission.BIND_VISUAL_QUERY_DETECTION_SERVICE"
+            android:isolatedProcess="true"
+            android:exported="true">
+        </service>
+
+        <!-- AttentionService, in CtsAttentionServiceDevice apk  -->
+        <service android:name="android.attentionservice.cts.CtsTestAttentionService"
+                 android:label="CtsTestAttentionService"
+                 android:permission="android.permission.BIND_ATTENTION_SERVICE"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.attention.AttentionService"/>
+            </intent-filter>
+        </service>
+
+        <!-- TODO: move these VoiceInteractionService back to test folder -->
+        <service android:name="android.voiceinteraction.service.ProxyVoiceInteractionService"
+                 android:label="CTS test proxy voice interaction service with binder interface"
                  android:permission="android.permission.BIND_VOICE_INTERACTION"
                  android:exported="true"
                  android:visibleToInstantApps="true">
@@ -66,6 +207,7 @@
         <service android:name="android.voiceinteraction.service.MainHotwordDetectionService"
                  android:permission="android.permission.BIND_HOTWORD_DETECTION_SERVICE"
                  android:isolatedProcess="true"
+                 android:allowSharedIsolatedProcess="true"
                  android:exported="true">
         </service>
         <service android:name="android.voiceinteraction.service.MainInteractionService"

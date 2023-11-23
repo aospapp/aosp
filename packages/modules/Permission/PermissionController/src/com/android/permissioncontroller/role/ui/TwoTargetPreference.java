@@ -49,4 +49,7 @@ public interface TwoTargetPreference {
          */
         void onSecondTargetClick(@NonNull TwoTargetPreference preference);
     }
+
+    /** @see androidx.preference.Preference#setEnabled(boolean) */
+    void setEnabled(boolean enabled);
 }

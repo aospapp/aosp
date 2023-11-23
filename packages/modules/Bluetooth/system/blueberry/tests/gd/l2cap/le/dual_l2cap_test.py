@@ -14,7 +14,7 @@
 #   limitations under the License.
 
 import bluetooth_packets_python3 as bt_packets
-from bluetooth_packets_python3 import hci_packets, l2cap_packets
+from bluetooth_packets_python3 import l2cap_packets
 from blueberry.tests.gd.cert.truth import assertThat
 from blueberry.tests.gd.cert.py_l2cap import PyLeL2cap, PyL2cap
 from blueberry.tests.gd.cert.matchers import L2capMatchers
@@ -29,6 +29,7 @@ from blueberry.facade.hci import le_advertising_manager_facade_pb2 as le_adverti
 from blueberry.facade.hci import le_initiator_address_facade_pb2 as le_initiator_address_facade
 from blueberry.facade.neighbor import facade_pb2 as neighbor_facade
 from mobly import test_runner
+import hci_packets as hci
 
 # Assemble a sample packet.
 SAMPLE_PACKET = bt_packets.RawBuilder([0x19, 0x26, 0x08, 0x17])
@@ -82,10 +83,8 @@ class DualL2capTest(gd_base_test.GdBaseTestClass):
 
     def _setup_le_link_from_cert(self):
         # DUT Advertises
-        gap_name = hci_packets.GapData()
-        gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(b'Im_The_DUT'))
-        gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
+        gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME, data=list(bytes(b'Im_The_DUT')))
+        gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
         config = le_advertising_facade.AdvertisingConfig(
             advertisement=[gap_data],
             interval_min=512,

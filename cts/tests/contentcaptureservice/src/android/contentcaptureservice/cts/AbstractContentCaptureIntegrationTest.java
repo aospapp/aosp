@@ -19,6 +19,7 @@ import static android.content.Context.CONTENT_CAPTURE_MANAGER_SERVICE;
 import static android.contentcaptureservice.cts.Helper.MY_PACKAGE;
 import static android.contentcaptureservice.cts.Helper.resetService;
 import static android.contentcaptureservice.cts.Helper.sContext;
+import static android.contentcaptureservice.cts.Helper.sUserSettings;
 import static android.contentcaptureservice.cts.Helper.setService;
 import static android.contentcaptureservice.cts.Helper.toSet;
 import static android.provider.Settings.Secure.CONTENT_CAPTURE_ENABLED;
@@ -42,7 +43,6 @@ import com.android.compatibility.common.util.DeviceConfigStateManager;
 import com.android.compatibility.common.util.RequiredServiceRule;
 import com.android.compatibility.common.util.SafeCleanerRule;
 import com.android.compatibility.common.util.SettingsStateChangerRule;
-import com.android.compatibility.common.util.SettingsUtils;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -210,7 +210,7 @@ public abstract class AbstractContentCaptureIntegrationTest {
 
     @Nullable
     public static void setFeatureEnabledBySettings(@Nullable boolean enabled) {
-        SettingsUtils.syncSet(sContext, CONTENT_CAPTURE_ENABLED, enabled ? "1" : "0");
+        sUserSettings.syncSet(CONTENT_CAPTURE_ENABLED, enabled ? "1" : "0");
     }
 
     /**

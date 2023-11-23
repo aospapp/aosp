@@ -30,7 +30,7 @@ import org.junit.Test;
 
 import java.util.concurrent.Callable;
 
-public class ManagedProfileContactsTest extends BaseManagedProfileTest {
+public final class ManagedProfileContactsTest extends BaseManagedProfileTest {
     private static final String DIRECTORY_PROVIDER_APK = "CtsContactDirectoryProvider.apk";
     private static final String DIRECTORY_PROVIDER_PKG
             = "com.android.cts.contactdirectoryprovider";
@@ -49,6 +49,7 @@ public class ManagedProfileContactsTest extends BaseManagedProfileTest {
 
             contactsTestSet.setCallerIdEnabled(true);
             contactsTestSet.setContactsSearchEnabled(true);
+            contactsTestSet.checkIfCanListEnterpriseContacts(true);
             contactsTestSet.checkIfCanLookupEnterpriseContacts(true);
             contactsTestSet.checkIfCanFilterEnterpriseContacts(true);
             contactsTestSet.checkIfCanFilterSelfContacts();
@@ -77,16 +78,19 @@ public class ManagedProfileContactsTest extends BaseManagedProfileTest {
                 contactsTestSet.setContactsSearchEnabled(false);
                 contactsTestSet.checkIfCanLookupEnterpriseContacts(true);
                 contactsTestSet.checkIfCanFilterEnterpriseContacts(false);
+                contactsTestSet.checkIfCanListEnterpriseContacts(false);
                 contactsTestSet.checkIfCanFilterSelfContacts();
                 contactsTestSet.setCallerIdEnabled(false);
                 contactsTestSet.setContactsSearchEnabled(true);
                 contactsTestSet.checkIfCanLookupEnterpriseContacts(false);
                 contactsTestSet.checkIfCanFilterEnterpriseContacts(true);
+                contactsTestSet.checkIfCanListEnterpriseContacts(true);
                 contactsTestSet.checkIfCanFilterSelfContacts();
                 contactsTestSet.setCallerIdEnabled(false);
                 contactsTestSet.setContactsSearchEnabled(false);
                 contactsTestSet.checkIfCanLookupEnterpriseContacts(false);
                 contactsTestSet.checkIfCanFilterEnterpriseContacts(false);
+                contactsTestSet.checkIfCanListEnterpriseContacts(false);
                 contactsTestSet.checkIfCanFilterSelfContacts();
                 contactsTestSet.checkIfNoEnterpriseDirectoryFound();
                 assertMetricsLogged(getDevice(), () -> {
@@ -160,6 +164,9 @@ public class ManagedProfileContactsTest extends BaseManagedProfileTest {
             runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ContactsTest",
                     "testGetDirectoryListInPrimaryProfile", mParentUserId);
 
+            // Remove parent user's contacts to make sure the test starts from a clean state
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ContactsTest",
+                    "testRemoveAllUserContacts", mParentUserId);
             // Insert Primary profile Contacts
             runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ContactsTest",
                     "testPrimaryProfilePhoneAndEmailLookup_insertedAndfound", mParentUserId);
@@ -232,6 +239,49 @@ public class ManagedProfileContactsTest extends BaseManagedProfileTest {
             } else {
                 runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
                         "testSetCrossProfileContactsSearchDisabled_true", mProfileUserId);
+            }
+        }
+
+        public void checkIfCanListEnterpriseContacts(boolean expected)
+                throws DeviceNotAvailableException {
+            // Primary user with standard list api can only list primary contacts
+            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
+                    "testPrimaryProfileContactList_canListOnlyPrimaryContacts",
+                    mParentUserId);
+            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
+                    "testPrimaryProfilePhoneList_canListOnlyPrimaryContacts",
+                    mParentUserId);
+            // Managed user with standard list api can only list managed contacts
+            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
+                    "testManagedProfileContactList_canListManagedContacts",
+                    mProfileUserId);
+            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
+                    "testManagedProfilePhoneList_canListManagedContacts",
+                    mProfileUserId);
+            // Managed user can use ENTERPRISE_CONTENT_URI to list managed contacts
+            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
+                    "testManagedProfileEnterpriseContactList_canListManagedContacts",
+                    mProfileUserId);
+            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
+                    "testManagedProfileEnterprisePhoneList_canListManagedContacts",
+                    mProfileUserId);
+
+            if (expected) {
+                // Primary user can use ENTERPRISE_CONTENT_URI to list all contacts
+                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
+                        "testPrimaryProfileEnterpriseContactList_canListAllContacts",
+                        mParentUserId);
+                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
+                        "testPrimaryProfileEnterprisePhoneList_canListAllContacts",
+                        mParentUserId);
+            } else {
+                // Primary user can use ENTERPRISE_CONTENT_URI to list only primary contacts
+                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
+                        "testPrimaryProfileEnterpriseContactList_canListOnlyPrimaryContacts",
+                        mParentUserId);
+                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
+                        "testPrimaryProfileEnterprisePhoneList_canListOnlyPrimaryContacts",
+                        mParentUserId);
             }
         }
 

@@ -23,7 +23,6 @@
 #include "main/shim/entry.h"
 #include "osi/include/future.h"
 
-static const char GD_IDLE_MODULE[] = "gd_idle_module";
 static const char GD_SHIM_MODULE[] = "gd_shim_module";
 
 constexpr future_t* kReturnImmediate = nullptr;
@@ -45,7 +44,6 @@ namespace shim {
  *
  * @return true if using gd shim core, false if using legacy.
  */
-bool is_gd_security_enabled();
 bool is_gd_link_policy_enabled();
 bool is_gd_l2cap_enabled();
 bool is_gd_shim_enabled();
@@ -64,6 +62,13 @@ bool is_gd_stack_started_up();
  * @return true if specified module has started, false otherwise.
  */
 bool is_gd_dumpsys_module_started();
+
+/**
+ * Checks whether discovery should be classic only (vs also triggering BLE).
+ *
+ * @return true if discovery should be limited to classic.
+ */
+bool is_classic_discovery_only_enabled();
 
 }  // namespace shim
 }  // namespace bluetooth

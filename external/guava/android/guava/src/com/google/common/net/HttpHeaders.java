@@ -14,7 +14,6 @@
 
 package com.google.common.net;
 
-import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
 
 /**
@@ -102,7 +101,6 @@ public final class HttpHeaders {
    *
    * @since 17.0
    */
-  @Beta
   public static final String FOLLOW_ONLY_WHEN_PRERENDER_SHOWN = "Follow-Only-When-Prerender-Shown";
   /** The HTTP {@code Host} header field name. */
   public static final String HOST = "Host";
@@ -201,6 +199,14 @@ public final class HttpHeaders {
   public static final String ACCESS_CONTROL_ALLOW_METHODS = "Access-Control-Allow-Methods";
   /** The HTTP {@code Access-Control-Allow-Origin} header field name. */
   public static final String ACCESS_CONTROL_ALLOW_ORIGIN = "Access-Control-Allow-Origin";
+  /**
+   * The HTTP <a href="https://wicg.github.io/private-network-access/#headers">{@code
+   * Access-Control-Allow-Private-Network}</a> header field name.
+   *
+   * @since 31.1
+   */
+  public static final String ACCESS_CONTROL_ALLOW_PRIVATE_NETWORK =
+      "Access-Control-Allow-Private-Network";
   /** The HTTP {@code Access-Control-Allow-Credentials} header field name. */
   public static final String ACCESS_CONTROL_ALLOW_CREDENTIALS = "Access-Control-Allow-Credentials";
   /** The HTTP {@code Access-Control-Expose-Headers} header field name. */
@@ -357,7 +363,7 @@ public final class HttpHeaders {
    *
    * @since 27.1
    */
-  @Beta public static final String SOURCE_MAP = "SourceMap";
+  public static final String SOURCE_MAP = "SourceMap";
 
   /**
    * The HTTP <a href="http://tools.ietf.org/html/rfc6797#section-6.1">{@code
@@ -455,14 +461,14 @@ public final class HttpHeaders {
    *
    * @since 15.0
    */
-  @Beta public static final String PUBLIC_KEY_PINS = "Public-Key-Pins";
+  public static final String PUBLIC_KEY_PINS = "Public-Key-Pins";
   /**
    * The HTTP <a href="http://tools.ietf.org/html/draft-evans-palmer-key-pinning">{@code
    * Public-Key-Pins-Report-Only}</a> header field name.
    *
    * @since 15.0
    */
-  @Beta public static final String PUBLIC_KEY_PINS_REPORT_ONLY = "Public-Key-Pins-Report-Only";
+  public static final String PUBLIC_KEY_PINS_REPORT_ONLY = "Public-Key-Pins-Report-Only";
   /**
    * The HTTP {@code X-Request-ID} header field name.
    *
@@ -482,7 +488,7 @@ public final class HttpHeaders {
    *
    * @since 24.1
    */
-  @Beta public static final String X_DOWNLOAD_OPTIONS = "X-Download-Options";
+  public static final String X_DOWNLOAD_OPTIONS = "X-Download-Options";
   /** The HTTP {@code X-XSS-Protection} header field name. */
   public static final String X_XSS_PROTECTION = "X-XSS-Protection";
   /**
@@ -665,9 +671,17 @@ public final class HttpHeaders {
    * The HTTP <a href="https://wicg.github.io/ua-client-hints/#sec-ch-ua-full-version">{@code
    * Sec-CH-UA-Full-Version}</a> header field name.
    *
+   * @deprecated Prefer {@link SEC_CH_UA_FULL_VERSION_LIST}.
    * @since 30.0
    */
-  public static final String SEC_CH_UA_FULL_VERSION = "Sec-CH-UA-Full-Version";
+  @Deprecated public static final String SEC_CH_UA_FULL_VERSION = "Sec-CH-UA-Full-Version";
+  /**
+   * The HTTP <a href="https://wicg.github.io/ua-client-hints/#sec-ch-ua-full-version-list">{@code
+   * Sec-CH-UA-Full-Version}</a> header field name.
+   *
+   * @since 31.1
+   */
+  public static final String SEC_CH_UA_FULL_VERSION_LIST = "Sec-CH-UA-Full-Version-List";
   /**
    * The HTTP <a href="https://wicg.github.io/ua-client-hints/#sec-ch-ua-mobile">{@code
    * Sec-CH-UA-Mobile}</a> header field name.

@@ -23,7 +23,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
-import android.content.pm.ActivityInfo;
 import android.content.pm.LauncherActivityInfo;
 import android.content.pm.LauncherApps;
 import android.content.pm.PackageManager;
@@ -112,26 +111,6 @@ public abstract class ShortcutConfigActivityInfo implements ComponentWithLabelAn
         return true;
     }
 
-    static class ShortcutConfigActivityInfoVL extends ShortcutConfigActivityInfo {
-
-        private final ActivityInfo mInfo;
-
-        ShortcutConfigActivityInfoVL(ActivityInfo info) {
-            super(new ComponentName(info.packageName, info.name), Process.myUserHandle());
-            mInfo = info;
-        }
-
-        @Override
-        public CharSequence getLabel(PackageManager pm) {
-            return mInfo.loadLabel(pm);
-        }
-
-        @Override
-        public Drawable getFullResIcon(IconCache cache) {
-            return cache.getFullResIcon(mInfo);
-        }
-    }
-
     @TargetApi(26)
     public static class ShortcutConfigActivityInfoVO extends ShortcutConfigActivityInfo {
 
@@ -172,8 +151,6 @@ public abstract class ShortcutConfigActivityInfo implements ComponentWithLabelAn
     public static List<ShortcutConfigActivityInfo> queryList(
             Context context, @Nullable PackageUserKey packageUser) {
         List<ShortcutConfigActivityInfo> result = new ArrayList<>();
-        UserHandle myUser = Process.myUserHandle();
-
         final List<UserHandle> users;
         final String packageName;
         if (packageUser == null) {
@@ -185,11 +162,9 @@ public abstract class ShortcutConfigActivityInfo implements ComponentWithLabelAn
         }
         LauncherApps launcherApps = context.getSystemService(LauncherApps.class);
         for (UserHandle user : users) {
-            boolean ignoreTargetSdk = myUser.equals(user);
             for (LauncherActivityInfo activityInfo :
                     launcherApps.getShortcutConfigActivityList(packageName, user)) {
-                if (ignoreTargetSdk || activityInfo.getApplicationInfo().targetSdkVersion
-                        >= Build.VERSION_CODES.O) {
+                if (activityInfo.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.O) {
                     result.add(new ShortcutConfigActivityInfoVO(activityInfo));
                 }
             }

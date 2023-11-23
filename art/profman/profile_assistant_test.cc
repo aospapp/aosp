@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
+#include "profile_assistant.h"
+
 #include <sstream>
 #include <string>
 
@@ -31,12 +32,13 @@
 #include "dex/dex_instruction_iterator.h"
 #include "dex/type_reference.h"
 #include "exec_utils.h"
+#include "gtest/gtest.h"
 #include "linear_alloc.h"
 #include "mirror/class-inl.h"
 #include "obj_ptr-inl.h"
 #include "profile/profile_compilation_info.h"
 #include "profile/profile_test_helper.h"
-#include "profile_assistant.h"
+#include "profman/profman_result.h"
 #include "scoped_thread_state_change-inl.h"
 
 namespace art {
@@ -50,13 +52,13 @@ class ProfileAssistantTest : public CommonRuntimeTest, public ProfileTestHelper 
   void PostRuntimeCreate() override {
     allocator_.reset(new ArenaAllocator(Runtime::Current()->GetArenaPool()));
 
-    dex1 = BuildDex("location1", /*checksum=*/ 1, "LUnique1;", /*num_method_ids=*/ 10001);
-    dex2 = BuildDex("location2", /*checksum=*/ 2, "LUnique2;", /*num_method_ids=*/ 10002);
-    dex3 = BuildDex("location3", /*checksum=*/ 3, "LUnique3;", /*num_method_ids=*/ 10003);
-    dex4 = BuildDex("location4", /*checksum=*/ 4, "LUnique4;", /*num_method_ids=*/ 10004);
+    dex1 = BuildDex("location1", /*location_checksum=*/ 1, "LUnique1;", /*num_method_ids=*/ 10001);
+    dex2 = BuildDex("location2", /*location_checksum=*/ 2, "LUnique2;", /*num_method_ids=*/ 10002);
+    dex3 = BuildDex("location3", /*location_checksum=*/ 3, "LUnique3;", /*num_method_ids=*/ 10003);
+    dex4 = BuildDex("location4", /*location_checksum=*/ 4, "LUnique4;", /*num_method_ids=*/ 10004);
 
     dex1_checksum_missmatch =
-        BuildDex("location1", /*checksum=*/ 12, "LUnique1;", /*num_method_ids=*/ 10001);
+        BuildDex("location1", /*location_checksum=*/ 12, "LUnique1;", /*num_method_ids=*/ 10001);
   }
 
  protected:
@@ -267,7 +269,7 @@ class ProfileAssistantTest : public CommonRuntimeTest, public ProfileTestHelper 
 
   bool CreateAndDump(const std::string& input_file_contents,
                      std::string* output_file_contents,
-                     std::optional<const std::string> target = std::nullopt) {
+                     const std::optional<const std::string>& target = std::nullopt) {
     ScratchFile profile_file;
     EXPECT_TRUE(CreateProfile(input_file_contents,
                               profile_file.GetFilename(),
@@ -442,10 +444,16 @@ class ProfileAssistantTest : public CommonRuntimeTest, public ProfileTestHelper 
                                          const std::vector<const std::string>& extra_args =
                                              std::vector<const std::string>()) {
     uint16_t max_classes = std::max(classes_in_cur_profile, classes_in_ref_profile);
-    const DexFile* dex1_x = BuildDex(
-        "location1_x", /*checksum=*/ 0x101, "LUnique1_x;", /*num_method_ids=*/ 0, max_classes);
-    const DexFile* dex2_x = BuildDex(
-        "location2_x", /*checksum=*/ 0x102, "LUnique2_x;", /*num_method_ids=*/ 0, max_classes);
+    const DexFile* dex1_x = BuildDex("location1_x",
+                                     /*location_checksum=*/ 0x101,
+                                     "LUnique1_x;",
+                                     /*num_method_ids=*/ 0,
+                                     max_classes);
+    const DexFile* dex2_x = BuildDex("location2_x",
+                                     /*location_checksum=*/ 0x102,
+                                     "LUnique2_x;",
+                                     /*num_method_ids=*/ 0,
+                                     max_classes);
 
     ScratchFile profile;
     ScratchFile reference_profile;
@@ -486,8 +494,7 @@ TEST_F(ProfileAssistantTest, AdviseCompilationEmptyReferences) {
   SetupProfile(dex3, dex4, kNumberOfMethodsToEnableCompilation, 0, profile2, &info2);
 
   // We should advise compilation.
-  ASSERT_EQ(ProfileAssistant::kCompile,
-            ProcessProfiles(profile_fds, reference_profile_fd));
+  ASSERT_EQ(ProfmanResult::kCompile, ProcessProfiles(profile_fds, reference_profile_fd));
   // The resulting compilation info must be equal to the merge of the inputs.
   ProfileCompilationInfo result;
   ASSERT_TRUE(result.Load(reference_profile_fd));
@@ -506,15 +513,15 @@ TEST_F(ProfileAssistantTest, AdviseCompilationEmptyReferences) {
 TEST_F(ProfileAssistantTest, AdviseCompilationEmptyReferencesBecauseOfClasses) {
   const uint16_t kNumberOfClassesToEnableCompilation = 100;
   const DexFile* dex1_100 = BuildDex("location1_100",
-                                     /*checksum=*/ 101,
+                                     /*location_checksum=*/ 101,
                                      "LUnique1_100;",
                                      /*num_method_ids=*/ 0,
-                                     /*num_type_ids=*/ 100);
+                                     /*num_class_ids=*/ 100);
   const DexFile* dex2_100 = BuildDex("location2_100",
-                                     /*checksum=*/ 102,
+                                     /*location_checksum=*/ 102,
                                      "LUnique2_100;",
                                      /*num_method_ids=*/ 0,
-                                     /*num_type_ids=*/ 100);
+                                     /*num_class_ids=*/ 100);
 
   ScratchFile profile1;
   ScratchFile reference_profile;
@@ -527,8 +534,7 @@ TEST_F(ProfileAssistantTest, AdviseCompilationEmptyReferencesBecauseOfClasses) {
   SetupProfile(dex1_100, dex2_100, 0, kNumberOfClassesToEnableCompilation, profile1, &info1);
 
   // We should advise compilation.
-  ASSERT_EQ(ProfileAssistant::kCompile,
-            ProcessProfiles(profile_fds, reference_profile_fd));
+  ASSERT_EQ(ProfmanResult::kCompile, ProcessProfiles(profile_fds, reference_profile_fd));
   // The resulting compilation info must be equal to the merge of the inputs.
   ProfileCompilationInfo result;
   ASSERT_TRUE(result.Load(reference_profile_fd));
@@ -566,8 +572,7 @@ TEST_F(ProfileAssistantTest, AdviseCompilationNonEmptyReferences) {
       &reference_info, kNumberOfMethodsToEnableCompilation / 2);
 
   // We should advise compilation.
-  ASSERT_EQ(ProfileAssistant::kCompile,
-            ProcessProfiles(profile_fds, reference_profile_fd));
+  ASSERT_EQ(ProfmanResult::kCompile, ProcessProfiles(profile_fds, reference_profile_fd));
 
   // The resulting compilation info must be equal to the merge of the inputs
   ProfileCompilationInfo result;
@@ -600,7 +605,7 @@ TEST_F(ProfileAssistantTest, DoNotAdviseCompilationEmptyProfile) {
   SetupProfile(dex3, dex4, /*number_of_methods=*/ 0, /*number_of_classes*/ 0, profile2, &info2);
 
   // We should not advise compilation.
-  ASSERT_EQ(ProfileAssistant::kSkipCompilationEmptyProfiles,
+  ASSERT_EQ(ProfmanResult::kSkipCompilationEmptyProfiles,
             ProcessProfiles(profile_fds, reference_profile_fd));
 
   // The information from profiles must remain the same.
@@ -637,7 +642,7 @@ TEST_F(ProfileAssistantTest, DoNotAdviseCompilation) {
   SetupProfile(dex3, dex4, kNumberOfMethodsToSkipCompilation, 0, profile2, &info2);
 
   // We should not advise compilation.
-  ASSERT_EQ(ProfileAssistant::kSkipCompilationSmallDelta,
+  ASSERT_EQ(ProfmanResult::kSkipCompilationSmallDelta,
             ProcessProfiles(profile_fds, reference_profile_fd));
 
   // The information from profiles must remain the same.
@@ -663,10 +668,9 @@ TEST_F(ProfileAssistantTest, DoNotAdviseCompilationMethodPercentage) {
   std::vector<const std::string> extra_args({"--min-new-methods-percent-change=2"});
 
   // We should not advise compilation.
-  ASSERT_EQ(ProfileAssistant::kSkipCompilationSmallDelta,
-            CheckCompilationMethodPercentChange(kNumberOfMethodsInCurProfile,
-                                                kNumberOfMethodsInRefProfile,
-                                                extra_args));
+  ASSERT_EQ(ProfmanResult::kSkipCompilationSmallDelta,
+            CheckCompilationMethodPercentChange(
+                kNumberOfMethodsInCurProfile, kNumberOfMethodsInRefProfile, extra_args));
 }
 
 TEST_F(ProfileAssistantTest, ShouldAdviseCompilationMethodPercentage) {
@@ -675,10 +679,9 @@ TEST_F(ProfileAssistantTest, ShouldAdviseCompilationMethodPercentage) {
   std::vector<const std::string> extra_args({"--min-new-methods-percent-change=2"});
 
   // We should advise compilation.
-  ASSERT_EQ(ProfileAssistant::kCompile,
-            CheckCompilationMethodPercentChange(kNumberOfMethodsInCurProfile,
-                                                kNumberOfMethodsInRefProfile,
-                                                extra_args));
+  ASSERT_EQ(ProfmanResult::kCompile,
+            CheckCompilationMethodPercentChange(
+                kNumberOfMethodsInCurProfile, kNumberOfMethodsInRefProfile, extra_args));
 }
 
 TEST_F(ProfileAssistantTest, DoNotAdviseCompilationMethodPercentageWithNewMin) {
@@ -686,7 +689,7 @@ TEST_F(ProfileAssistantTest, DoNotAdviseCompilationMethodPercentageWithNewMin) {
   const uint16_t kNumberOfMethodsInCurProfile = 6200;  // Threshold is 20%.
 
   // We should not advise compilation.
-  ASSERT_EQ(ProfileAssistant::kSkipCompilationSmallDelta,
+  ASSERT_EQ(ProfmanResult::kSkipCompilationSmallDelta,
             CheckCompilationMethodPercentChange(kNumberOfMethodsInCurProfile,
                                                 kNumberOfMethodsInRefProfile));
 }
@@ -697,10 +700,9 @@ TEST_F(ProfileAssistantTest, DoNotAdviseCompilationClassPercentage) {
   std::vector<const std::string> extra_args({"--min-new-classes-percent-change=2"});
 
   // We should not advise compilation.
-  ASSERT_EQ(ProfileAssistant::kSkipCompilationSmallDelta,
-            CheckCompilationClassPercentChange(kNumberOfClassesInCurProfile,
-                                               kNumberOfClassesInRefProfile,
-                                               extra_args));
+  ASSERT_EQ(ProfmanResult::kSkipCompilationSmallDelta,
+            CheckCompilationClassPercentChange(
+                kNumberOfClassesInCurProfile, kNumberOfClassesInRefProfile, extra_args));
 }
 
 TEST_F(ProfileAssistantTest, ShouldAdviseCompilationClassPercentage) {
@@ -709,10 +711,9 @@ TEST_F(ProfileAssistantTest, ShouldAdviseCompilationClassPercentage) {
   std::vector<const std::string> extra_args({"--min-new-classes-percent-change=2"});
 
   // We should advise compilation.
-  ASSERT_EQ(ProfileAssistant::kCompile,
-            CheckCompilationClassPercentChange(kNumberOfClassesInCurProfile,
-                                               kNumberOfClassesInRefProfile,
-                                               extra_args));
+  ASSERT_EQ(ProfmanResult::kCompile,
+            CheckCompilationClassPercentChange(
+                kNumberOfClassesInCurProfile, kNumberOfClassesInRefProfile, extra_args));
 }
 
 TEST_F(ProfileAssistantTest, DoNotAdviseCompilationClassPercentageWithNewMin) {
@@ -720,7 +721,7 @@ TEST_F(ProfileAssistantTest, DoNotAdviseCompilationClassPercentageWithNewMin) {
   const uint16_t kNumberOfClassesInCurProfile = 6200;  // Threshold is 20%.
 
   // We should not advise compilation.
-  ASSERT_EQ(ProfileAssistant::kSkipCompilationSmallDelta,
+  ASSERT_EQ(ProfmanResult::kSkipCompilationSmallDelta,
             CheckCompilationClassPercentChange(kNumberOfClassesInCurProfile,
                                                kNumberOfClassesInRefProfile));
 }
@@ -744,8 +745,7 @@ TEST_F(ProfileAssistantTest, FailProcessingBecauseOfProfiles) {
       dex1_checksum_missmatch, dex2, kNumberOfMethodsToEnableCompilation, 0, profile2, &info2);
 
   // We should fail processing.
-  ASSERT_EQ(ProfileAssistant::kErrorBadProfiles,
-            ProcessProfiles(profile_fds, reference_profile_fd));
+  ASSERT_EQ(ProfmanResult::kErrorBadProfiles, ProcessProfiles(profile_fds, reference_profile_fd));
 
   // The information from profiles must remain the same.
   CheckProfileInfo(profile1, info1);
@@ -776,8 +776,7 @@ TEST_F(ProfileAssistantTest, FailProcessingBecauseOfReferenceProfiles) {
                &reference_info);
 
   // We should not advise compilation.
-  ASSERT_EQ(ProfileAssistant::kErrorBadProfiles,
-            ProcessProfiles(profile_fds, reference_profile_fd));
+  ASSERT_EQ(ProfmanResult::kErrorBadProfiles, ProcessProfiles(profile_fds, reference_profile_fd));
 
   // The information from profiles must remain the same.
   CheckProfileInfo(profile1, info1);
@@ -971,7 +970,7 @@ TEST_F(ProfileAssistantTest, TestBootImageProfile) {
                             /*for_boot_image=*/ true));
 
   ProfileCompilationInfo bootProfile(/*for_boot_image=*/ true);
-  bootProfile.Load(profile.GetFilename(), /*clear_if_invalid=*/ true);
+  EXPECT_TRUE(bootProfile.Load(profile.GetFilename(), /*clear_if_invalid=*/ false));
 
   // Generate the boot profile.
   ScratchFile out_profile;
@@ -1065,10 +1064,10 @@ TEST_F(ProfileAssistantTest, TestBootImageProfileWith2RawProfiles) {
                             core_dex,
                             /*for_boot_image=*/ true));
 
-  ProfileCompilationInfo boot_profile1;
-  ProfileCompilationInfo boot_profile2;
-  boot_profile1.Load(profile1.GetFilename(), /*for_boot_image=*/ true);
-  boot_profile2.Load(profile2.GetFilename(), /*for_boot_image=*/ true);
+  ProfileCompilationInfo boot_profile1(/*for_boot_image=*/ true);
+  ProfileCompilationInfo boot_profile2(/*for_boot_image=*/ true);
+  EXPECT_TRUE(boot_profile1.Load(profile1.GetFilename(), /*clear_if_invalid=*/ false));
+  EXPECT_TRUE(boot_profile2.Load(profile2.GetFilename(), /*clear_if_invalid=*/ false));
 
   // Generate the boot profile.
   ScratchFile out_profile;
@@ -1525,8 +1524,7 @@ TEST_F(ProfileAssistantTest, MergeProfilesWithDifferentDexOrder) {
       &reference_info, kNumberOfMethodsToEnableCompilation / 2, /*reverse_dex_write_order=*/true);
 
   // We should advise compilation.
-  ASSERT_EQ(ProfileAssistant::kCompile,
-            ProcessProfiles(profile_fds, reference_profile_fd));
+  ASSERT_EQ(ProfmanResult::kCompile, ProcessProfiles(profile_fds, reference_profile_fd));
 
   // The resulting compilation info must be equal to the merge of the inputs.
   ProfileCompilationInfo result;
@@ -1787,7 +1785,7 @@ TEST_F(ProfileAssistantTest, MergeProfilesWithFilter) {
   argv_str.push_back("--apk-fd=" + std::to_string(apk_fd.get()));
   std::string error;
 
-  EXPECT_EQ(ExecAndReturnCode(argv_str, &error), ProfileAssistant::kCompile) << error;
+  EXPECT_EQ(ExecAndReturnCode(argv_str, &error), ProfmanResult::kCompile) << error;
 
   // Verify that we can load the result.
 
@@ -1820,6 +1818,169 @@ TEST_F(ProfileAssistantTest, MergeProfilesWithFilter) {
   ASSERT_TRUE(expected.Equals(result));
 }
 
+TEST_F(ProfileAssistantTest, MergeProfilesNoProfile) {
+  ScratchFile reference_profile;
+
+  // Use a real dex file to generate profile test data.
+  std::vector<std::unique_ptr<const DexFile>> dex_files = OpenTestDexFiles("ProfileTestMultiDex");
+  const DexFile& d1 = *dex_files[0];
+  const DexFile& d2 = *dex_files[0];
+
+  // The reference profile info will contain the methods with indices 0-100.
+  ProfileCompilationInfo reference_info;
+  SetupProfile(&d1,
+               &d2,
+               /*number_of_methods=*/ 100,
+               /*number_of_classes=*/ 0,
+               reference_profile,
+               &reference_info);
+
+  std::string content_before;
+  ASSERT_TRUE(android::base::ReadFileToString(reference_profile.GetFilename(), &content_before));
+
+  // Run profman and pass the dex file with --apk-fd.
+  android::base::unique_fd apk_fd(
+      // NOLINTNEXTLINE - Profman needs file to be opened after fork() and exec()
+      open(GetTestDexFileName("ProfileTestMultiDex").c_str(), O_RDONLY));
+  ASSERT_GE(apk_fd.get(), 0);
+
+  std::string profman_cmd = GetProfmanCmd();
+  std::vector<std::string> argv_str;
+  argv_str.push_back(profman_cmd);
+  argv_str.push_back("--reference-profile-file-fd=" + std::to_string(reference_profile.GetFd()));
+  argv_str.push_back("--apk-fd=" + std::to_string(apk_fd.get()));
+
+  // Must return kSkipCompilationSmallDelta.
+  std::string error;
+  EXPECT_EQ(ExecAndReturnCode(argv_str, &error), ProfmanResult::kSkipCompilationSmallDelta)
+      << error;
+
+  // Verify that the content has not changed.
+  std::string content_after;
+  ASSERT_TRUE(android::base::ReadFileToString(reference_profile.GetFilename(), &content_after));
+  EXPECT_EQ(content_before, content_after);
+}
+
+TEST_F(ProfileAssistantTest, MergeProfilesNoProfilePassByFilename) {
+  ScratchFile reference_profile;
+
+  // Use a real dex file to generate profile test data.
+  std::vector<std::unique_ptr<const DexFile>> dex_files = OpenTestDexFiles("ProfileTestMultiDex");
+  const DexFile& d1 = *dex_files[0];
+  const DexFile& d2 = *dex_files[0];
+
+  // The reference profile info will contain the methods with indices 0-100.
+  ProfileCompilationInfo reference_info;
+  SetupProfile(&d1,
+               &d2,
+               /*number_of_methods=*/100,
+               /*number_of_classes=*/0,
+               reference_profile,
+               &reference_info);
+
+  std::string content_before;
+  ASSERT_TRUE(android::base::ReadFileToString(reference_profile.GetFilename(), &content_before));
+
+  // Run profman and pass the dex file with --apk-fd.
+  android::base::unique_fd apk_fd(
+      // NOLINTNEXTLINE - Profman needs file to be opened after fork() and exec()
+      open(GetTestDexFileName("ProfileTestMultiDex").c_str(), O_RDONLY));
+  ASSERT_GE(apk_fd.get(), 0);
+
+  std::string profman_cmd = GetProfmanCmd();
+  std::vector<std::string> argv_str;
+  argv_str.push_back(profman_cmd);
+  argv_str.push_back("--reference-profile-file=" + reference_profile.GetFilename());
+  argv_str.push_back("--apk-fd=" + std::to_string(apk_fd.get()));
+
+  // Must return kSkipCompilationSmallDelta.
+  std::string error;
+  EXPECT_EQ(ExecAndReturnCode(argv_str, &error), ProfmanResult::kSkipCompilationSmallDelta)
+      << error;
+
+  // Verify that the content has not changed.
+  std::string content_after;
+  ASSERT_TRUE(android::base::ReadFileToString(reference_profile.GetFilename(), &content_after));
+  EXPECT_EQ(content_before, content_after);
+}
+
+TEST_F(ProfileAssistantTest, MergeProfilesNoProfileEmptyReferenceProfile) {
+  ScratchFile reference_profile;
+
+  // The reference profile info will only contain the header.
+  ProfileCompilationInfo reference_info;
+  SetupProfile(/*dex_file1=*/ nullptr,
+               /*dex_file2=*/ nullptr,
+               /*number_of_methods=*/ 0,
+               /*number_of_classes=*/ 0,
+               reference_profile,
+               &reference_info);
+
+  std::string content_before;
+  ASSERT_TRUE(android::base::ReadFileToString(reference_profile.GetFilename(), &content_before));
+
+  // Run profman and pass the dex file with --apk-fd.
+  android::base::unique_fd apk_fd(
+      // NOLINTNEXTLINE - Profman needs file to be opened after fork() and exec()
+      open(GetTestDexFileName("ProfileTestMultiDex").c_str(), O_RDONLY));
+  ASSERT_GE(apk_fd.get(), 0);
+
+  std::string profman_cmd = GetProfmanCmd();
+  std::vector<std::string> argv_str;
+  argv_str.push_back(profman_cmd);
+  argv_str.push_back("--reference-profile-file-fd=" + std::to_string(reference_profile.GetFd()));
+  argv_str.push_back("--apk-fd=" + std::to_string(apk_fd.get()));
+
+  // Must return kSkipCompilationEmptyProfiles.
+  std::string error;
+  EXPECT_EQ(ExecAndReturnCode(argv_str, &error), ProfmanResult::kSkipCompilationEmptyProfiles)
+      << error;
+
+  // Verify that the content has not changed.
+  std::string content_after;
+  ASSERT_TRUE(android::base::ReadFileToString(reference_profile.GetFilename(), &content_after));
+  EXPECT_EQ(content_before, content_after);
+}
+
+TEST_F(ProfileAssistantTest, MergeProfilesNoProfileEmptyReferenceProfileAfterFiltering) {
+  ScratchFile reference_profile;
+
+  // Use fake dex files to generate profile test data.
+  // All the methods will be filtered out during the profman invocation.
+  ProfileCompilationInfo reference_info;
+  SetupProfile(dex1,
+               dex2,
+               /*number_of_methods=*/ 100,
+               /*number_of_classes=*/ 0,
+               reference_profile,
+               &reference_info);
+
+  std::string content_before;
+  ASSERT_TRUE(android::base::ReadFileToString(reference_profile.GetFilename(), &content_before));
+
+  // Run profman and pass the real dex file with --apk-fd.
+  android::base::unique_fd apk_fd(
+      // NOLINTNEXTLINE - Profman needs file to be opened after fork() and exec()
+      open(GetTestDexFileName("ProfileTestMultiDex").c_str(), O_RDONLY));
+  ASSERT_GE(apk_fd.get(), 0);
+
+  std::string profman_cmd = GetProfmanCmd();
+  std::vector<std::string> argv_str;
+  argv_str.push_back(profman_cmd);
+  argv_str.push_back("--reference-profile-file-fd=" + std::to_string(reference_profile.GetFd()));
+  argv_str.push_back("--apk-fd=" + std::to_string(apk_fd.get()));
+
+  // Must return kSkipCompilationEmptyProfiles.
+  std::string error;
+  EXPECT_EQ(ExecAndReturnCode(argv_str, &error), ProfmanResult::kSkipCompilationEmptyProfiles)
+      << error;
+
+  // Verify that the content has not changed.
+  std::string content_after;
+  ASSERT_TRUE(android::base::ReadFileToString(reference_profile.GetFilename(), &content_after));
+  EXPECT_EQ(content_before, content_after);
+}
+
 TEST_F(ProfileAssistantTest, CopyAndUpdateProfileKey) {
   ScratchFile profile1;
   ScratchFile reference_profile;
@@ -1846,7 +2007,8 @@ TEST_F(ProfileAssistantTest, CopyAndUpdateProfileKey) {
 
   // Run profman and pass the dex file with --apk-fd.
   android::base::unique_fd apk_fd(
-      open(GetTestDexFileName("ProfileTestMultiDex").c_str(), O_RDONLY));  // NOLINT
+      // NOLINTNEXTLINE - Profman needs file to be opened after fork() and exec()
+      open(GetTestDexFileName("ProfileTestMultiDex").c_str(), O_RDONLY));
   ASSERT_GE(apk_fd.get(), 0);
 
   std::string profman_cmd = GetProfmanCmd();
@@ -1858,7 +2020,8 @@ TEST_F(ProfileAssistantTest, CopyAndUpdateProfileKey) {
   argv_str.push_back("--copy-and-update-profile-key");
   std::string error;
 
-  ASSERT_EQ(ExecAndReturnCode(argv_str, &error), 0) << error;
+  // Must return kCopyAndUpdateSuccess.
+  ASSERT_EQ(ExecAndReturnCode(argv_str, &error), ProfmanResult::kCopyAndUpdateSuccess) << error;
 
   // Verify that we can load the result.
   ProfileCompilationInfo result;
@@ -1872,6 +2035,46 @@ TEST_F(ProfileAssistantTest, CopyAndUpdateProfileKey) {
     ASSERT_FALSE(result.GetMethodHotness(MethodReference(dex_to_be_updated1, i)).IsHot()) << i;
     ASSERT_FALSE(result.GetMethodHotness(MethodReference(dex_to_be_updated2, i)).IsHot()) << i;
   }
+}
+
+TEST_F(ProfileAssistantTest, CopyAndUpdateProfileKeyNoUpdate) {
+  ScratchFile profile1;
+  ScratchFile reference_profile;
+
+  // Use fake dex files to generate profile test data.
+  ProfileCompilationInfo info1;
+  SetupProfile(dex1,
+               dex2,
+               /*number_of_methods=*/ 100,
+               /*number_of_classes=*/ 0,
+               profile1,
+               &info1);
+
+  std::string input_content;
+  ASSERT_TRUE(android::base::ReadFileToString(profile1.GetFilename(), &input_content));
+
+  // Run profman and pass the real dex file with --apk-fd. It won't match any entry in the profile.
+  android::base::unique_fd apk_fd(
+      // NOLINTNEXTLINE - Profman needs file to be opened after fork() and exec()
+      open(GetTestDexFileName("ProfileTestMultiDex").c_str(), O_RDONLY));
+  ASSERT_GE(apk_fd.get(), 0);
+
+  std::string profman_cmd = GetProfmanCmd();
+  std::vector<std::string> argv_str;
+  argv_str.push_back(profman_cmd);
+  argv_str.push_back("--profile-file-fd=" + std::to_string(profile1.GetFd()));
+  argv_str.push_back("--reference-profile-file-fd=" + std::to_string(reference_profile.GetFd()));
+  argv_str.push_back("--apk-fd=" + std::to_string(apk_fd.get()));
+  argv_str.push_back("--copy-and-update-profile-key");
+  std::string error;
+
+  // Must return kCopyAndUpdateNoMatch.
+  ASSERT_EQ(ExecAndReturnCode(argv_str, &error), ProfmanResult::kCopyAndUpdateNoMatch) << error;
+
+  // Verify that the content is the same.
+  std::string output_content;
+  ASSERT_TRUE(android::base::ReadFileToString(reference_profile.GetFilename(), &output_content));
+  EXPECT_EQ(input_content, output_content);
 }
 
 TEST_F(ProfileAssistantTest, BootImageMerge) {
@@ -1900,7 +2103,7 @@ TEST_F(ProfileAssistantTest, BootImageMerge) {
 
   int return_code = ProcessProfiles(profile_fds, reference_profile_fd, extra_args);
 
-  ASSERT_EQ(return_code, ProfileAssistant::kSuccess);
+  ASSERT_EQ(return_code, ProfmanResult::kSuccess);
 
   // Verify the result: it should be equal to info2 since info1 is a regular profile
   // and should be ignored.
@@ -1918,15 +2121,15 @@ TEST_F(ProfileAssistantTest, ForceMerge) {
   const uint16_t kNumberOfClassesInCurProfile = 6110;  // Threshold is 2%.
 
   const DexFile* dex1_7000 = BuildDex("location1_7000",
-                                      /*checksum=*/ 7001,
+                                      /*location_checksum=*/ 7001,
                                       "LUnique1_7000;",
                                       /*num_method_ids=*/ 0,
-                                      /*num_type_ids=*/ 7000);
+                                      /*num_class_ids=*/ 7000);
   const DexFile* dex2_7000 = BuildDex("location2_7000",
-                                      /*checksum=*/ 7002,
+                                      /*location_checksum=*/ 7002,
                                       "LUnique2_7000;",
                                       /*num_method_ids=*/ 0,
-                                      /*num_type_ids=*/ 7000);
+                                      /*num_class_ids=*/ 7000);
 
   ScratchFile profile;
   ScratchFile reference_profile;
@@ -1942,7 +2145,7 @@ TEST_F(ProfileAssistantTest, ForceMerge) {
   std::vector<const std::string> extra_args({"--force-merge"});
   int return_code = ProcessProfiles(profile_fds, reference_profile_fd, extra_args);
 
-  ASSERT_EQ(return_code, ProfileAssistant::kSuccess);
+  ASSERT_EQ(return_code, ProfmanResult::kSuccess);
 
   // Check that the result is the aggregation.
   ProfileCompilationInfo result;
@@ -1974,7 +2177,8 @@ TEST_F(ProfileAssistantTest, BootImageMergeWithAnnotations) {
 
   // Run profman and pass the dex file with --apk-fd.
   android::base::unique_fd apk_fd(
-      open(GetTestDexFileName("ProfileTestMultiDex").c_str(), O_RDONLY));  // NOLINT
+      // NOLINTNEXTLINE - Profman needs file to be opened after fork() and exec()
+      open(GetTestDexFileName("ProfileTestMultiDex").c_str(), O_RDONLY));
   ASSERT_GE(apk_fd.get(), 0);
 
   std::string profman_cmd = GetProfmanCmd();
@@ -1987,7 +2191,7 @@ TEST_F(ProfileAssistantTest, BootImageMergeWithAnnotations) {
   argv_str.push_back("--boot-image-merge");
   std::string error;
 
-  EXPECT_EQ(ExecAndReturnCode(argv_str, &error), ProfileAssistant::kSuccess) << error;
+  EXPECT_EQ(ExecAndReturnCode(argv_str, &error), ProfmanResult::kSuccess) << error;
 
   // Verify that we can load the result and that it equals to what we saved.
   ProfileCompilationInfo result(/*for_boot_image=*/ true);
@@ -2009,17 +2213,16 @@ TEST_F(ProfileAssistantTest, DifferentProfileVersions) {
   int reference_profile_fd = GetFd(profile2);
   std::vector<const std::string> boot_image_args({"--boot-image-merge"});
   ASSERT_EQ(ProcessProfiles(profile_fds, reference_profile_fd, boot_image_args),
-            ProfileAssistant::kErrorDifferentVersions);
-  ASSERT_EQ(ProcessProfiles(profile_fds, reference_profile_fd),
-            ProfileAssistant::kErrorBadProfiles);
+            ProfmanResult::kErrorDifferentVersions);
+  ASSERT_EQ(ProcessProfiles(profile_fds, reference_profile_fd), ProfmanResult::kErrorBadProfiles);
 
   // Reverse the order of the profiles to verify we get the same behaviour.
   profile_fds[0] = GetFd(profile2);
   reference_profile_fd = GetFd(profile1);
   ASSERT_EQ(ProcessProfiles(profile_fds, reference_profile_fd, boot_image_args),
-            ProfileAssistant::kErrorBadProfiles);
+            ProfmanResult::kErrorBadProfiles);
   ASSERT_EQ(ProcessProfiles(profile_fds, reference_profile_fd),
-            ProfileAssistant::kErrorDifferentVersions);
+            ProfmanResult::kErrorDifferentVersions);
 }
 
 // Under default behaviour we will abort if we cannot load a profile during a merge
@@ -2042,7 +2245,7 @@ TEST_F(ProfileAssistantTest, ForceMergeIgnoreProfilesItCannotLoad) {
   // With force-merge we should merge successfully.
   std::vector<const std::string> extra_args({"--force-merge", "--boot-image-merge"});
   ASSERT_EQ(ProcessProfiles(profile_fds, reference_profile_fd, extra_args),
-            ProfileAssistant::kSuccess);
+            ProfmanResult::kSuccess);
 
   ProfileCompilationInfo result(/*for_boot_image=*/ true);
   ASSERT_TRUE(result.Load(reference_profile_fd));
@@ -2051,7 +2254,7 @@ TEST_F(ProfileAssistantTest, ForceMergeIgnoreProfilesItCannotLoad) {
   // Without force-merge we should fail.
   std::vector<const std::string> extra_args2({"--boot-image-merge"});
   ASSERT_EQ(ProcessProfiles(profile_fds, reference_profile_fd, extra_args2),
-            ProfileAssistant::kErrorBadProfiles);
+            ProfmanResult::kErrorBadProfiles);
 }
 
 }  // namespace art

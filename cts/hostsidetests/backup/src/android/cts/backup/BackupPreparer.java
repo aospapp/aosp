@@ -30,6 +30,7 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetCleaner;
 import com.android.tradefed.targetprep.TargetSetupError;
+import com.android.tradefed.util.RunUtil;
 
 import java.io.IOException;
 import java.util.concurrent.Callable;
@@ -172,7 +173,7 @@ public class BackupPreparer implements ITargetCleaner {
             if (predicate.apply(false)) {
                 return;
             }
-            Thread.sleep(sleep);
+            RunUtil.getDefault().sleep(sleep);
         }
         if (!predicate.apply(true)) {
             fail(message);

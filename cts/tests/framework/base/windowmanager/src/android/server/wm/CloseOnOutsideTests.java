@@ -17,18 +17,23 @@
 package android.server.wm;
 
 import static android.server.wm.ActivityManagerTestBase.createFullscreenActivityScenarioRule;
+import static android.server.wm.ActivityManagerTestBase.wakeUpAndUnlock;
+
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
 import android.app.Instrumentation;
+import android.graphics.Insets;
 import android.util.DisplayMetrics;
+import android.view.MotionEvent;
+import android.view.WindowInsets;
+import android.view.WindowMetrics;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.runner.AndroidJUnit4;
-
-import com.android.compatibility.common.util.ShellUtils;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -49,6 +54,7 @@ public class CloseOnOutsideTests {
 
     @Before
     public void setup() {
+        wakeUpAndUnlock(getInstrumentation().getContext());
         mScenarioRule.getScenario().onActivity(activity -> mTestActivity = activity);
     }
 
@@ -71,18 +77,41 @@ public class CloseOnOutsideTests {
 
     // Tap the bottom right and check the Activity is finishing
     private void touchAndAssert(boolean shouldBeFinishing) {
-        DisplayMetrics displayMetrics = mTestActivity.getResources().getDisplayMetrics();
-        int width = (int) (displayMetrics.widthPixels * 0.875f);
-        int height = (int) (displayMetrics.heightPixels * 0.875f);
+        DisplayMetrics displayMetrics =
+                mTestActivity.getResources().getDisplayMetrics();
+        WindowMetrics windowMetrics =
+                mTestActivity.getWindowManager().getCurrentWindowMetrics();
+        Insets systemBarInsets =
+                windowMetrics.getWindowInsets().getInsets(WindowInsets.Type.systemBars());
+        Insets statusBarInsets =
+                windowMetrics.getWindowInsets().getInsets(WindowInsets.Type.statusBars());
+
+        // DisplayMetrics.widthPixels and DisplayMetrics.heightPixels
+        // do not include the navigation bar size, so subtract the status bar size.
+        int appAreaWidth =
+                displayMetrics.widthPixels - statusBarInsets.left - statusBarInsets.right;
+        int appAreaHeight =
+                displayMetrics.heightPixels - statusBarInsets.top - statusBarInsets.bottom;
+
+        int width = (int) (systemBarInsets.left + (appAreaWidth * 0.875f));
+        int height = (int) (systemBarInsets.top + (appAreaHeight * 0.875f));
 
         Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
 
-        // To be safe, make sure nothing else is finishing the Activity
-        instrumentation.runOnMainSync(() -> assertFalse(mTestActivity.isFinishing()));
+        // First setup the new window size to be smaller than the entire activity, "revealing" a
+        // clickable area outside the window.
+        instrumentation.runOnMainSync(() -> mTestActivity.setupWindowSize());
 
-        ShellUtils.runShellCommand("input tap %d %d", width, height);
-
-        instrumentation.runOnMainSync(
-                () -> assertEquals(shouldBeFinishing, mTestActivity.isFinishing()));
+        // After that call is complete, run the test on the activity by simulating a touch outside
+        // the Window.
+        instrumentation.runOnMainSync(() -> {
+            // To be safe, make sure nothing else is finishing the Activity
+            assertFalse(mTestActivity.isFinishing());
+            mTestActivity.dispatchTouchEvent(
+                    MotionEvent.obtain(1, 1, MotionEvent.ACTION_DOWN, width, height, 0));
+            mTestActivity.dispatchTouchEvent(
+                    MotionEvent.obtain(1, 1, MotionEvent.ACTION_UP, width, height, 0));
+            assertEquals(shouldBeFinishing, mTestActivity.isFinishing());
+        });
     }
 }

@@ -27,7 +27,7 @@ import java.util.Collection;
 /**
  * A builder class for {@link android.hardware.automotive.vehicle.VehiclePropConfig}
  */
-public class AidlVehiclePropConfigBuilder {
+public final class AidlVehiclePropConfigBuilder {
 
     private final VehiclePropConfig mConfig;
 
@@ -75,6 +75,18 @@ public class AidlVehiclePropConfigBuilder {
     @CheckResult
     public AidlVehiclePropConfigBuilder setChangeMode(int changeMode) {
         mConfig.changeMode = changeMode;
+        return this;
+    }
+
+    @CheckResult
+    public AidlVehiclePropConfigBuilder setMaxSampleRate(float maxSampleRate) {
+        mConfig.maxSampleRate = maxSampleRate;
+        return this;
+    }
+
+    @CheckResult
+    public AidlVehiclePropConfigBuilder setMinSampleRate(float minSampleRate) {
+        mConfig.minSampleRate = minSampleRate;
         return this;
     }
 

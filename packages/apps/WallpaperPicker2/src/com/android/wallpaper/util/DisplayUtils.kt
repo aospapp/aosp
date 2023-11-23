@@ -15,45 +15,119 @@
  */
 package com.android.wallpaper.util
 
+import android.app.Activity
 import android.content.Context
 import android.graphics.Point
 import android.hardware.display.DisplayManager
 import android.util.Log
 import android.view.Display
+import android.view.DisplayInfo
+import android.view.Surface.ROTATION_270
+import android.view.Surface.ROTATION_90
+import com.android.systemui.shared.recents.utilities.Utilities
+import kotlin.math.min
 
 /**
- * Utility class to provide methods to find and obtain information about displays via
- * {@link DisplayManager}
+ * Utility class to provide methods to find and obtain information about displays via {@link
+ * DisplayManager}
  */
-class DisplayUtils(context: Context) {
+class DisplayUtils(private val context: Context) {
     companion object {
         private const val TAG = "DisplayUtils"
+        private val ROTATION_HORIZONTAL_HINGE = setOf(ROTATION_90, ROTATION_270)
+        private const val TABLET_MIN_DPS = 600f // See Sysui's Utilities.TABLET_MIN_DPS
     }
 
-    private val internalDisplays: List<Display>
+    private val displayManager: DisplayManager by lazy {
+        context.applicationContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+    }
 
-    init {
-        val appContext = context.applicationContext
-        val dm = appContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
-        val allDisplays: Array<out Display> = dm.displays
-        if (allDisplays.isEmpty()) {
-            Log.e(TAG, "No displays found on context $appContext")
-            throw RuntimeException("No displays found!")
-        }
-        internalDisplays = allDisplays.filter { it.type == Display.TYPE_INTERNAL }
+    fun hasMultiInternalDisplays(): Boolean {
+        return getInternalDisplays().size > 1
     }
 
     /**
-     * Returns the {@link Display} to be used to calculate wallpaper size and cropping.
+     * Returns the internal {@link Display} with the largest area to be used to calculate wallpaper
+     * size and cropping.
      */
     fun getWallpaperDisplay(): Display {
-        return internalDisplays.maxWithOrNull { a, b -> getRealSize(a) - getRealSize(b) }
-                ?: internalDisplays[0]
+        val internalDisplays = getInternalDisplays()
+        return internalDisplays.maxWithOrNull { a, b -> getRealArea(a) - getRealArea(b) }
+            ?: internalDisplays[0]
     }
 
-    private fun getRealSize(display: Display): Int {
-        val p = Point()
-        display.getRealSize(p)
-        return p.x * p.y
+    /**
+     * Checks if the device only has one display or unfolded screen in horizontal hinge orientation.
+     */
+    fun isSingleDisplayOrUnfoldedHorizontalHinge(activity: Activity): Boolean {
+        return !hasMultiInternalDisplays() || isUnfoldedHorizontalHinge(activity)
+    }
+
+    /**
+     * Checks if the device is a foldable and it's unfolded and in horizontal hinge orientation
+     * (portrait).
+     */
+    fun isUnfoldedHorizontalHinge(activity: Activity): Boolean {
+        return activity.display.rotation in ROTATION_HORIZONTAL_HINGE &&
+            isOnWallpaperDisplay(activity) &&
+            hasMultiInternalDisplays()
+    }
+
+    fun getMaxDisplaysDimension(): Point {
+        val dimen = Point()
+        getInternalDisplays().let { displays ->
+            dimen.x = displays.maxOf { getRealSize(it).x }
+            dimen.y = displays.maxOf { getRealSize(it).y }
+        }
+        return dimen
+    }
+
+    /**
+     * Returns true if this device's screen (or largest screen in case of multiple screen devices)
+     * is considered a "Large screen"
+     */
+    fun isLargeScreenDevice(): Boolean {
+        // We need to use MaxDisplay's dimensions because if we're in embedded mode, our window
+        // will only be the size of the embedded Activity.
+        val maxDisplaysDimension = getRealSize(getWallpaperDisplay())
+        val smallestWidth = min(maxDisplaysDimension.x, maxDisplaysDimension.y)
+        return Utilities.dpiFromPx(
+            smallestWidth.toFloat(),
+            context.resources.configuration.densityDpi
+        ) >= TABLET_MIN_DPS
+    }
+
+    /**
+     * Returns `true` if the current display is the wallpaper display on a multi-display device.
+     *
+     * On a multi-display device the wallpaper display is the largest display while on a single
+     * display device the only display is both the wallpaper display and the current display.
+     *
+     * For single display device, this is always true.
+     */
+    fun isOnWallpaperDisplay(activity: Activity): Boolean {
+        return activity.display.uniqueId == getWallpaperDisplay().uniqueId
+    }
+
+    private fun getRealArea(display: Display): Int {
+        val displayInfo = DisplayInfo()
+        display.getDisplayInfo(displayInfo)
+        return displayInfo.logicalHeight * displayInfo.logicalWidth
+    }
+
+    private fun getRealSize(display: Display): Point {
+        val displayInfo = DisplayInfo()
+        display.getDisplayInfo(displayInfo)
+        return Point(displayInfo.logicalWidth, displayInfo.logicalHeight)
+    }
+
+    private fun getInternalDisplays(): List<Display> {
+        val allDisplays: Array<out Display> =
+            displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_ALL_INCLUDING_DISABLED)
+        if (allDisplays.isEmpty()) {
+            Log.e(TAG, "No displays found on context ${context.applicationContext}")
+            throw RuntimeException("No displays found!")
+        }
+        return allDisplays.filter { it.type == Display.TYPE_INTERNAL }
     }
 }

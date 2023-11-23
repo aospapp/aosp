@@ -19,6 +19,8 @@
 
 #include "common/CameraDeviceBase.h"
 #include "camera/CaptureResult.h"
+#include "utils/CameraServiceProxyWrapper.h"
+#include "CameraServiceWatchdog.h"
 
 namespace android {
 
@@ -47,6 +49,7 @@ public:
     // TODO: too many params, move into a ClientArgs<T>
     Camera2ClientBase(const sp<CameraService>& cameraService,
                       const sp<TCamCallbacks>& remoteCallback,
+                      std::shared_ptr<CameraServiceProxyWrapper> cameraServiceProxyWrapper,
                       const String16& clientPackageName,
                       bool systemNativeClient,
                       const std::optional<String16>& clientFeatureId,
@@ -58,6 +61,7 @@ public:
                       uid_t clientUid,
                       int servicePid,
                       bool overrideForPerfClass,
+                      bool overrideToPortrait,
                       bool legacyClient = false);
     virtual ~Camera2ClientBase();
 
@@ -73,6 +77,7 @@ public:
 
     virtual void          notifyError(int32_t errorCode,
                                       const CaptureResultExtras& resultExtras);
+    virtual void          notifyPhysicalCameraChange(const std::string &physicalId) override;
     // Returns errors on app ops permission failures
     virtual status_t      notifyActive(float maxPreviewFps);
     virtual void          notifyIdle(int64_t /*requestCount*/, int64_t /*resultErrorCount*/,
@@ -131,10 +136,14 @@ public:
 
 protected:
 
+    // Used for watchdog timeout to monitor disconnect
+    static const nsecs_t kBufferTimeDisconnectNs = 3000000000; // 3 sec.
+
     // The PID provided in the constructor call
     pid_t mInitialClientPid;
     bool mOverrideForPerfClass = false;
     bool mLegacyClient = false;
+    std::shared_ptr<CameraServiceProxyWrapper> mCameraServiceProxyWrapper;
 
     virtual sp<IBinder> asBinderWrapper() {
         return IInterface::asBinder(this);
@@ -173,6 +182,12 @@ protected:
 private:
     template<typename TProviderPtr>
     status_t              initializeImpl(TProviderPtr providerPtr, const String8& monitorTags);
+
+    binder::Status disconnectImpl();
+
+    // Watchdog thread
+    sp<CameraServiceWatchdog> mCameraServiceWatchdog;
+
 };
 
 }; // namespace android

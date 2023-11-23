@@ -1,11 +1,16 @@
 [package]
 name = "cros_fuzz"
 version = "0.1.0"
-authors = ["The Chromium OS Authors"]
+authors = ["The ChromiumOS Authors"]
 edition = "2021"
 include = ["Cargo.toml", "src/*.rs"]
 
 [dependencies]
-rand_core = "0.4"
+rand_core = {version = "0.6", features = ["std"]}
+libfuzzer-sys = { version = "*", optional = true }
+cfg-if = "1.0"
 
-[workspace]
+[features]
+upstream-fuzz = ["dep:libfuzzer-sys"]
+
+

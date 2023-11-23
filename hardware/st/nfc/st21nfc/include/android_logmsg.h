@@ -33,6 +33,7 @@ extern "C" {
 #define HAL_LOG_TAG "StNfcHal"
 
 extern unsigned char hal_trace_level;
+extern unsigned char hal_conf_trace_level;
 extern int GetNumValue(const char* name, void* p_value, unsigned long len);
 extern int GetByteArrayValue(const char* name, char* pValue, long bufflen,
                              long* len);

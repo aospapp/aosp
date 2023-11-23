@@ -17,6 +17,12 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.cts.appsearch" >
+
+    <queries>
+        <package android:name="com.android.cts.appsearch.helper.a" />
+        <package android:name="com.android.cts.appsearch.helper.b" />
+    </queries>
+
     <application android:label="CtsAppSearchTestCases">
         <uses-library android:name="android.test.runner"/>
     </application>

@@ -274,7 +274,7 @@ inline android::base::Result<void> SetUpApexTestEnvironment() {
     }
   }
 
-  static constexpr const char* kApexMountForTest = "/mnt/scratch/apex";
+  static constexpr const char* kApexMountForTest = "/mnt/scratch-apex";
 
   // Clean up in case previous test left directory behind.
   if (access(kApexMountForTest, F_OK) == 0) {

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -87,7 +88,7 @@ class network_WiFi_AttenuatedPerf(wifi_cell_test_base.WiFiCellTestBase):
                     atten, self._ap_config.frequency)
             logging.info('RvR test: current attenuation = %d dB', atten)
 
-            # Give this attenuation level a quick sanity test. If we can't stay
+            # Give this attenuation level a quick check. If we can't stay
             # associated and handle a few pings, we probably won't get
             # meaningful results out of netperf.
             try:

@@ -17,7 +17,6 @@
 package com.android.cts.verifier.audio;
 
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.RadioButton;
@@ -27,24 +26,12 @@ import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
 import org.hyphonate.megaaudio.common.BuilderBase;
+import org.hyphonate.megaaudio.common.StreamBase;
 
 public abstract class AudioColdStartBaseActivity
         extends PassFailButtons.Activity
         implements View.OnClickListener {
     private static final String TAG = "AudioColdStartBaseActivity";
-
-    // JNI load
-    static {
-        try {
-            System.loadLibrary("megaaudio_jni");
-        } catch (UnsatisfiedLinkError e) {
-            Log.e(TAG, "Error loading MegaAudio JNI library");
-            Log.e(TAG, "e: " + e);
-            e.printStackTrace();
-        }
-
-        /* TODO: gracefully fail/notify if the library can't be loaded */
-    }
 
     // Test State
     protected boolean mIsTestRunning;
@@ -52,7 +39,7 @@ public abstract class AudioColdStartBaseActivity
     // Audio Attributes
     protected static final int NUM_CHANNELS = 2;
     protected int mSampleRate;
-    protected int mNumBufferFrames;
+    protected int mNumExchangeFrames;
 
     protected int mAudioApi = BuilderBase.TYPE_OBOE;
 
@@ -96,7 +83,7 @@ public abstract class AudioColdStartBaseActivity
     // UI
     //
     void showAttributes() {
-        mAttributesTxt.setText("" + mSampleRate + " Hz " + mNumBufferFrames + " Frames");
+        mAttributesTxt.setText("" + mSampleRate + " Hz " + mNumExchangeFrames + " Frames");
     }
 
     void showOpenTime() {
@@ -112,7 +99,9 @@ public abstract class AudioColdStartBaseActivity
     void showColdStartLatency() {
         mLatencyTxt.setText("Latency: " + mColdStartlatencyMS);
 
-        if (mColdStartlatencyMS <= getRecommendedTimeMS()) {
+        if (mColdStartlatencyMS < 0) {
+            mResultsTxt.setText("Invalid cold start latency.");
+        } else if (mColdStartlatencyMS <= getRecommendedTimeMS()) {
             mResultsTxt.setText("PASS. Meets RECOMMENDED latency of "
                     + getRecommendedTimeMS() + "ms");
         } else if (mColdStartlatencyMS <= getRequiredTimeMS()) {
@@ -135,14 +124,19 @@ public abstract class AudioColdStartBaseActivity
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // MegaAudio Initialization
+        StreamBase.setup(this);
+        mSampleRate = StreamBase.getSystemSampleRate();
+        mNumExchangeFrames = StreamBase.getNumBurstFrames(mAudioApi);
+
         ((RadioButton) findViewById(R.id.audioJavaApiBtn)).setOnClickListener(this);
         RadioButton nativeApiRB = findViewById(R.id.audioNativeApiBtn);
         nativeApiRB.setChecked(true);
         nativeApiRB.setOnClickListener(this);
 
-        mStartBtn = (Button) findViewById(R.id.coldstart_start_btn);
+        mStartBtn = (Button) findViewById(R.id.coldstart_run_btn);
         mStartBtn.setOnClickListener(this);
-        mStopBtn = (Button) findViewById(R.id.coldstart_stop_btn);
+        mStopBtn = (Button) findViewById(R.id.coldstart_cancel_btn);
         mStopBtn.setOnClickListener(this);
         mStopBtn.setEnabled(false);
 
@@ -156,8 +150,19 @@ public abstract class AudioColdStartBaseActivity
     abstract int getRequiredTimeMS();
     abstract int getRecommendedTimeMS();
 
-    abstract boolean startAudioTest();
-    abstract void stopAudioTest();
+    abstract boolean runAudioTest();
+    abstract void stopAudio();
+    void cancelTest() {
+        stopAudio();
+        updateTestStateButtons();
+
+        mOpenTimeTxt.setText("");
+        mStartTimeTxt.setText("");
+        mLatencyTxt.setText("");
+        mResultsTxt.setText("");
+
+        getPassButton().setEnabled(false);
+    }
 
     protected void updateTestStateButtons() {
         mStartBtn.setEnabled(!mIsTestRunning);
@@ -171,27 +176,27 @@ public abstract class AudioColdStartBaseActivity
     public void onClick(View v) {
         int id = v.getId();
         if (id == R.id.audioJavaApiBtn) {
-            stopAudioTest();
+            stopAudio();
             updateTestStateButtons();
             clearResults();
             mAudioApi = BuilderBase.TYPE_JAVA;
+            mNumExchangeFrames = StreamBase.getNumBurstFrames(mAudioApi);
         } else if (id == R.id.audioNativeApiBtn) {
-            stopAudioTest();
+            stopAudio();
             updateTestStateButtons();
             clearResults();
             mAudioApi = BuilderBase.TYPE_OBOE;
-        } else if (id == R.id.coldstart_start_btn) {
-            startAudioTest();
+            mNumExchangeFrames = StreamBase.getNumBurstFrames(mAudioApi);
+        } else if (id == R.id.coldstart_run_btn) {
+            runAudioTest();
 
             showAttributes();
             showOpenTime();
             showStartTime();
 
             updateTestStateButtons();
-        } else if (id == R.id.coldstart_stop_btn) {
-            stopAudioTest();
-
-            updateTestStateButtons();
+        } else if (id == R.id.coldstart_cancel_btn) {
+            cancelTest();
         }
     }
 }

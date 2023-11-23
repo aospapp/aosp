@@ -25,11 +25,11 @@ import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
-import androidx.preference.SwitchPreference;
 import androidx.preference.TwoStatePreference;
 
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;
+import com.android.tv.settings.widget.SwitchWithSoundPreference;
 
 /**
  * Settings screen for managing "All files access" permission
@@ -56,16 +56,13 @@ public class AllFilesAccess extends ManageAppOp {
     @Override
     public Preference bindPreference(@NonNull Preference preference,
             ApplicationsState.AppEntry entry) {
-        final TwoStatePreference switchPref = (SwitchPreference) preference;
+        final TwoStatePreference switchPref = (SwitchWithSoundPreference) preference;
         switchPref.setTitle(entry.label);
         switchPref.setKey(entry.info.packageName);
         switchPref.setIcon(entry.icon);
         switchPref.setOnPreferenceChangeListener((pref, grant) -> {
-            pref.getContext().getSystemService(AppOpsManager.class)
-                    .setMode(getAppOpsOpCode(), entry.info.uid, entry.info.packageName,
-                            (Boolean) grant
-                                    ? AppOpsManager.MODE_ALLOWED
-                                    : AppOpsManager.MODE_ERRORED);
+            findEntriesUsingPackageName(entry.info.packageName)
+                    .forEach(packageEntry -> setMode(entry, (Boolean) grant));
             return true;
         });
         switchPref.setSummary(getPreferenceSummary(entry));
@@ -77,7 +74,7 @@ public class AllFilesAccess extends ManageAppOp {
     @NonNull
     @Override
     public Preference createAppPreference() {
-        return new SwitchPreference(getPreferenceManager().getContext());
+        return new SwitchWithSoundPreference(getPreferenceManager().getContext());
     }
 
     @NonNull
@@ -94,6 +91,12 @@ public class AllFilesAccess extends ManageAppOp {
         } else {
             return null;
         }
+    }
+
+    private void setMode(ApplicationsState.AppEntry entry, boolean grant) {
+        getContext().getSystemService(AppOpsManager.class)
+                .setMode(getAppOpsOpCode(), entry.info.uid, entry.info.packageName,
+                        grant ? AppOpsManager.MODE_ALLOWED : AppOpsManager.MODE_ERRORED);
     }
 
     @Override

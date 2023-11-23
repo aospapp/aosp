@@ -1,6 +1,6 @@
-From 2bc2650d0a7a11a74670a6583b16aa6714d7c993 Mon Sep 17 00:00:00 2001
-From: Matthew Maurer <mmaurer@google.com>
-Date: Thu, 17 Feb 2022 20:23:37 +0000
+From a41a079a81f381f2002917fb1c030690e0798f0c Mon Sep 17 00:00:00 2001
+From: Jeff Vander Stoep <jeffv@google.com>
+Date: Thu, 2 Feb 2023 13:33:47 +0100
 Subject: [PATCH] Support selecting target log buffer
 
 Android has several different log buffers. Previously, this library
@@ -8,16 +8,17 @@ would only support logging to the "Main" log. Now, it logs to the
 default log (which is Main for most processes), with the option to
 override which log buffer you send messages to in the config.
 
-Change-Id: I72779e62bd963586e3dfad431cd82c75daf04d92
+Test: atest
+Change-Id: I3cc393b989b8189675581ba6bf700f95715aa9e9
 ---
- src/lib.rs | 71 ++++++++++++++++++++++++++++++++++++++++++++----------
- 1 file changed, 58 insertions(+), 13 deletions(-)
+ src/lib.rs | 73 +++++++++++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 59 insertions(+), 14 deletions(-)
 
 diff --git a/src/lib.rs b/src/lib.rs
-index 11a127e..d21be3f 100644
+index 0446fad..9ec7f0d 100644
 --- a/src/lib.rs
 +++ b/src/lib.rs
-@@ -87,21 +87,49 @@ pub use env_logger::fmt::Formatter;
+@@ -85,21 +85,49 @@ pub use env_logger::fmt::Formatter;
  
  pub(crate) type FormatFn = Box<dyn Fn(&mut dyn fmt::Write, &Record) -> fmt::Result + Sync + Send>;
  
@@ -74,7 +75,7 @@ index 11a127e..d21be3f 100644
  
  /// Underlying android logger backend
  pub struct AndroidLogger {
-@@ -164,7 +192,7 @@ impl Log for AndroidLogger {
+@@ -172,7 +200,7 @@ impl Log for AndroidLogger {
  
          // message must not exceed LOGGING_MSG_MAX_LEN
          // therefore split log message into multiple log calls
@@ -83,23 +84,15 @@ index 11a127e..d21be3f 100644
  
          // If a custom tag is used, add the module path to the message.
          // Use PlatformLogWriter to output chunks if they exceed max size.
-@@ -208,6 +236,7 @@ impl AndroidLogger {
- /// Filter for android logger.
+@@ -215,6 +243,7 @@ impl AndroidLogger {
+ #[derive(Default)]
  pub struct Config {
-     log_level: Option<Level>,
+     log_level: Option<LevelFilter>,
 +    log_id: Option<LogId>,
      filter: Option<env_logger::filter::Filter>,
      tag: Option<CString>,
      custom_format: Option<FormatFn>,
-@@ -217,6 +246,7 @@ impl Default for Config {
-     fn default() -> Self {
-         Config {
-             log_level: None,
-+            log_id: None,
-             filter: None,
-             tag: None,
-             custom_format: None,
-@@ -234,6 +264,15 @@ impl Config {
+@@ -241,6 +270,15 @@ impl Config {
          self
      }
  
@@ -114,34 +107,41 @@ index 11a127e..d21be3f 100644
 +
      fn filter_matches(&self, record: &Record) -> bool {
          if let Some(ref filter) = self.filter {
-             filter.matches(&record)
-@@ -273,6 +312,8 @@ impl Config {
- struct PlatformLogWriter<'a> {
-     #[cfg(target_os = "android")] priority: LogPriority,
-     #[cfg(not(target_os = "android"))] priority: Level,
+             filter.matches(record)
+@@ -282,6 +320,8 @@ pub struct PlatformLogWriter<'a> {
+     priority: LogPriority,
+     #[cfg(not(target_os = "android"))]
+     priority: Level,
 +    #[cfg(target_os = "android")] log_id: log_ffi::log_id_t,
 +    #[cfg(not(target_os = "android"))] log_id: Option<LogId>,
      len: usize,
      last_newline_index: usize,
      tag: &'a CStr,
-@@ -281,7 +322,7 @@ struct PlatformLogWriter<'a> {
+@@ -290,10 +330,11 @@ pub struct PlatformLogWriter<'a> {
  
  impl<'a> PlatformLogWriter<'a> {
      #[cfg(target_os = "android")]
--    pub fn new(level: Level, tag: &CStr) -> PlatformLogWriter {
-+    pub fn new(log_id: Option<LogId>, level: Level, tag: &CStr) -> PlatformLogWriter {
+-    pub fn new_with_priority(priority: log_ffi::LogPriority, tag: &CStr) -> PlatformLogWriter {
++    pub fn new_with_priority(log_id: Option<LogId>, priority: log_ffi::LogPriority, tag: &CStr) -> PlatformLogWriter {
          #[allow(deprecated)] // created an issue #35 for this
          PlatformLogWriter {
-             priority: match level {
-@@ -291,6 +332,7 @@ impl<'a> PlatformLogWriter<'a> {
-                 Level::Error => LogPriority::ERROR,
-                 Level::Trace => LogPriority::VERBOSE,
-             },
+             priority,
 +            log_id: LogId::to_native(log_id),
              len: 0,
              last_newline_index: 0,
              tag,
-@@ -299,10 +341,11 @@ impl<'a> PlatformLogWriter<'a> {
+@@ -302,8 +343,9 @@ impl<'a> PlatformLogWriter<'a> {
+     }
+ 
+     #[cfg(target_os = "android")]
+-    pub fn new(level: Level, tag: &CStr) -> PlatformLogWriter {
++    pub fn new(log_id: Option<LogId>, level: Level, tag: &CStr) -> PlatformLogWriter {
+         Self::new_with_priority(
++            log_id,
+             match level {
+                 Level::Warn => LogPriority::WARN,
+                 Level::Info => LogPriority::INFO,
+@@ -316,10 +358,11 @@ impl<'a> PlatformLogWriter<'a> {
      }
  
      #[cfg(not(target_os = "android"))]
@@ -154,44 +154,45 @@ index 11a127e..d21be3f 100644
              len: 0,
              last_newline_index: 0,
              tag,
-@@ -358,7 +401,7 @@ impl<'a> PlatformLogWriter<'a> {
+@@ -376,7 +419,7 @@ impl<'a> PlatformLogWriter<'a> {
          });
  
-         let msg: &CStr = unsafe { CStr::from_ptr(mem::transmute(self.buffer.as_ptr())) };
+         let msg: &CStr = unsafe { CStr::from_ptr(self.buffer.as_ptr().cast()) };
 -        android_log(self.priority, self.tag, msg);
 +        android_log(self.log_id, self.priority, self.tag, msg);
  
-         *unsafe { self.buffer.get_unchecked_mut(len) } = last_byte;
+         unsafe { *self.buffer.get_unchecked_mut(len) = last_byte };
      }
-@@ -458,9 +501,11 @@ mod tests {
+@@ -481,9 +524,11 @@ mod tests {
          // Filter is checked in config_filter_match below.
          let config = Config::default()
-             .with_min_level(Level::Trace)
+             .with_max_level(LevelFilter::Trace)
 +            .with_log_id(LogId::System)
              .with_tag("my_app");
  
-         assert_eq!(config.log_level, Some(Level::Trace));
+         assert_eq!(config.log_level, Some(LevelFilter::Trace));
 +        assert_eq!(config.log_id, Some(LogId::System));
          assert_eq!(config.tag, Some(CString::new("my_app").unwrap()));
      }
  
-@@ -531,7 +576,7 @@ mod tests {
+@@ -556,7 +601,7 @@ mod tests {
      fn platform_log_writer_init_values() {
          let tag = CStr::from_bytes_with_nul(b"tag\0").unwrap();
  
--        let writer = PlatformLogWriter::new(Level::Warn, &tag);
-+        let writer = PlatformLogWriter::new(None, Level::Warn, &tag);
+-        let writer = PlatformLogWriter::new(Level::Warn, tag);
++        let writer = PlatformLogWriter::new(None, Level::Warn, tag);
  
          assert_eq!(writer.tag, tag);
          // Android uses LogPriority instead, which doesn't implement equality checks
-@@ -630,6 +675,6 @@ mod tests {
+@@ -661,7 +706,7 @@ mod tests {
      }
  
      fn get_tag_writer() -> PlatformLogWriter<'static> {
--        PlatformLogWriter::new(Level::Warn, &CStr::from_bytes_with_nul(b"tag\0").unwrap())
-+        PlatformLogWriter::new(None, Level::Warn, &CStr::from_bytes_with_nul(b"tag\0").unwrap())
+-        PlatformLogWriter::new(Level::Warn, CStr::from_bytes_with_nul(b"tag\0").unwrap())
++        PlatformLogWriter::new(None, Level::Warn, CStr::from_bytes_with_nul(b"tag\0").unwrap())
      }
- }
+ 
+     unsafe fn assume_init_slice<T>(slice: &[MaybeUninit<T>]) -> &[T] {
 -- 
-2.35.1.265.g69c8d7142f-goog
+2.39.1.456.gfc5497dd1b-goog
 

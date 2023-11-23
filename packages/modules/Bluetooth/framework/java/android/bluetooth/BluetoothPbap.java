@@ -135,13 +135,13 @@ public class BluetoothPbap implements BluetoothProfile {
     }
 
     /**
-     * Close the connection to the backing service.
-     * Other public functions of BluetoothPbap will return default error
-     * results once close() has been called. Multiple invocations of close()
+     * Close the connection to the backing service. Other public functions of BluetoothPbap will
+     * return default error results once close() has been called. Multiple invocations of close()
      * are ok.
      *
      * @hide
      */
+    @Override
     public synchronized void close() {
         mProfileConnector.disconnect();
     }

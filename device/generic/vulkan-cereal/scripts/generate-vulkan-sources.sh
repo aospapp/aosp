@@ -13,6 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+echo ""
+echo ""
+echo "DEPRECATED: Please regenerate the Vulkan codegen using the "
+echo "external/gfxstream-protocols project!"
+echo ""
+echo ""
+
 echo "To be run in the vulkan-cereal repo root directory."
 echo "Note: This needs to be in an AOSP checkout to generate guest encoder files."
 
@@ -27,7 +34,8 @@ export VK_CEREAL_HOST_DECODER_DIR=$REPO_DIR/stream-servers/vulkan
 export VK_CEREAL_HOST_PROTO_DIR=$REPO_DIR/stream-servers/vulkan/cereal/proto
 export VK_CEREAL_HOST_INCLUDE_DIR=$REPO_DIR/include
 export VK_CEREAL_BASELIB_PREFIX=base
-export VK_CEREAL_BASELIB_LINKNAME=gfxstream-base
+export VK_CEREAL_BASELIB_LINKNAME=aemu-base.headers
+export VK_CEREAL_HOST_COMMON_LIB_LINKNAME=aemu-host-common.headers
 
 mkdir -p $CEREAL_OUTPUT_DIR
 

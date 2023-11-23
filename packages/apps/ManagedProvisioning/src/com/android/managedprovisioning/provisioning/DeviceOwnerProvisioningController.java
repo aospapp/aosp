@@ -84,33 +84,38 @@ public class DeviceOwnerProvisioningController extends AbstractProvisioningContr
     }
 
     @Override
-    protected int getErrorMsgId(AbstractProvisioningTask task, int errorCode) {
+    protected String getErrorMsgId(AbstractProvisioningTask task, int errorCode) {
         if (task instanceof AddWifiNetworkTask) {
-            return R.string.error_wifi;
+            return mContext.getString(R.string.error_wifi);
         } else if (task instanceof DownloadPackageTask) {
             switch (errorCode) {
                 case DownloadPackageTask.ERROR_DOWNLOAD_FAILED:
-                    return R.string.error_download_failed;
+                    return mContext.getString(R.string.error_download_failed);
                 case DownloadPackageTask.ERROR_OTHER:
-                    return R.string.cant_set_up_device;
+                    return mContext.getString(R.string.cant_set_up_device);
             }
         } else if (task instanceof VerifyAdminPackageTask) {
             switch (errorCode) {
                 case VerifyAdminPackageTask.ERROR_HASH_MISMATCH:
-                    return R.string.error_hash_mismatch;
+                    return mContext.getString(R.string.error_hash_mismatch);
                 case VerifyAdminPackageTask.ERROR_DEVICE_ADMIN_MISSING:
-                    return R.string.error_package_invalid;
+                    return mContext.getString(R.string.error_package_invalid);
             }
         } else if (task instanceof InstallPackageTask) {
             switch (errorCode) {
                 case InstallPackageTask.ERROR_PACKAGE_INVALID:
-                    return R.string.error_package_invalid;
+                    return mContext.getString(R.string.error_package_invalid);
                 case InstallPackageTask.ERROR_INSTALLATION_FAILED:
-                    return R.string.error_installation_failed;
+                    return mContext.getString(R.string.error_installation_failed);
+            }
+        } else if (task instanceof ProvisionFullyManagedDeviceTask) {
+            switch (errorCode) {
+                case ProvisionFullyManagedDeviceTask.ERROR_FULLY_MANAGED_MODE_UNSUPPORTED_IN_HEADLESS:
+                    return mContext.getString(R.string.fully_managed_device_unsupported_DPC_in_headless_mode_subheader);
             }
         }
 
-        return R.string.cant_set_up_device;
+        return mContext.getString(R.string.cant_set_up_device);
     }
 
     @Override

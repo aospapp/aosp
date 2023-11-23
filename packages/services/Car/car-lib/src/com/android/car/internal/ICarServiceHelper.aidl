@@ -22,7 +22,12 @@ import android.os.UserHandle;
 import java.util.List;
 
 /**
- * Helper API for car service. Only for interaction between system server and car service.
+ * Helper API for CarService.
+ *
+ * Only for interaction between system server and car service, so it can be changed (without
+ * breaking Car Mainline)
+ *
+ *
  * @hide
  */
 interface ICarServiceHelper {
@@ -63,8 +68,42 @@ interface ICarServiceHelper {
     int setPersistentActivity(in ComponentName activity, int displayId, int featureId) = 5;
 
     /**
-     * Saves initial user information in System Server. If car service crashes, Car service helepr
+     * Saves initial user information in System Server. If car service crashes, Car service helper
      * service would send back this information.
      */
     void sendInitialUser(in UserHandle user) = 6;
+
+    /** Check {@link android.os.Process#setProcessGroup(int, int)}. */
+    void setProcessGroup(int pid, int group) = 7;
+
+    /** Check {@link android.os.Process#getProcessGroup(int)}. */
+    int getProcessGroup(int pid) = 8;
+
+    /** Same as {@code UserManagerInternal#getMainDisplayAssignedToUser()} */
+    int getMainDisplayAssignedToUser(int userId) = 9;
+
+    /** Same as {@code UserManagerInternal#getUsersAssignedToDisplay()} */
+    int getUserAssignedToDisplay(int displayId) = 10;
+
+    /**
+     * Check {@link android.app.AcitivityManager#startUserInBackgroundVisibleOnDisplay(int, int)}
+     */
+    boolean startUserInBackgroundVisibleOnDisplay(int userId, int displayId) = 11;
+
+    /** Check {@link android.os.Process#setProcessProfile(int, int, String)}. */
+    void setProcessProfile(int pid, int uid, in String profile) = 12;
+
+    /**
+     * Returns the PID for the AIDL VHAL service.
+     *
+     * On error, returns {@link com.android.car.internal.common.CommonConstants#INVALID_PID}.
+     */
+    int fetchAidlVhalPid() = 13;
+
+    /**
+     * Designates the given {@code activities} to be launched in the root task associated with
+     * {@code rootTaskToken}.
+     */
+    void setPersistentActivitiesOnRootTask(in List<ComponentName> activity,
+        in IBinder rootTaskToken) = 14;
 }

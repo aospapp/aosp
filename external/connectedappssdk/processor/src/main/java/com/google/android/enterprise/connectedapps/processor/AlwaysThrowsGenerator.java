@@ -15,6 +15,8 @@
  */
 package com.google.android.enterprise.connectedapps.processor;
 
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.append;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.transformClassName;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.EXCEPTION_CALLBACK_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.UNAVAILABLE_PROFILE_EXCEPTION_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.containers.CrossProfileMethodInfo.AutomaticallyResolvedParameterFilterBehaviour.REMOVE_AUTOMATICALLY_RESOLVED_PARAMETERS;
@@ -24,7 +26,6 @@ import com.google.android.enterprise.connectedapps.processor.containers.CrossPro
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileTypeInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.FutureWrapper;
 import com.google.android.enterprise.connectedapps.processor.containers.GeneratorContext;
-import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
@@ -89,19 +90,6 @@ final class AlwaysThrowsGenerator {
             .addStatement("throw new $T()", NullPointerException.class)
             .endControlFlow()
             .addStatement("this.errorMessage = errorMessage")
-            .build());
-
-    classBuilder.addMethod(
-        MethodSpec.methodBuilder("timeout")
-            .addAnnotation(Override.class)
-            .addAnnotation(
-                AnnotationSpec.builder(SuppressWarnings.class)
-                    .addMember("value", "$S", "GoodTime")
-                    .build())
-            .addModifiers(Modifier.PUBLIC)
-            .returns(className)
-            .addParameter(long.class, "timeout")
-            .addStatement("return this")
             .build());
 
     ClassName ifAvailableClass =
@@ -215,7 +203,6 @@ final class AlwaysThrowsGenerator {
 
   static ClassName getAlwaysThrowsClassName(
       GeneratorContext generatorContext, CrossProfileTypeInfo crossProfileType) {
-    return GeneratorUtilities.appendToClassName(
-        crossProfileType.profileClassName(), "_AlwaysThrows");
+    return transformClassName(crossProfileType.generatedClassName(), append("_AlwaysThrows"));
   }
 }

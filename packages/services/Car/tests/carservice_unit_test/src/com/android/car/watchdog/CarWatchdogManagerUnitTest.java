@@ -23,6 +23,7 @@ import static android.car.watchdog.ResourceOveruseConfiguration.COMPONENT_TYPE_S
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.eq;
@@ -33,7 +34,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertThrows;
 
 import android.car.Car;
 import android.car.watchdog.CarWatchdogManager;
@@ -93,6 +93,8 @@ public class CarWatchdogManagerUnitTest {
     @Before
     public void setUp() {
         when(mCar.getEventHandler()).thenReturn(mMainHandler);
+        when(mCar.handleRemoteExceptionFromCarService(any(RemoteException.class), any()))
+                .thenCallRealMethod();
         when(mBinder.queryLocalInterface(anyString())).thenReturn(mService);
         mCarWatchdogManager = new CarWatchdogManager(mCar, mBinder);
     }
@@ -156,6 +158,19 @@ public class CarWatchdogManagerUnitTest {
     }
 
     @Test
+    public void testFailsGetResourceOveruseStats() throws Exception {
+        ResourceOveruseStats expectedStats =
+                new ResourceOveruseStats.Builder("", UserHandle.CURRENT).build();
+        when(mService.getResourceOveruseStats(FLAG_RESOURCE_OVERUSE_IO, STATS_PERIOD_CURRENT_DAY))
+                .thenThrow(new RemoteException());
+
+        ResourceOveruseStats actualStats = mCarWatchdogManager
+                .getResourceOveruseStats(FLAG_RESOURCE_OVERUSE_IO, STATS_PERIOD_CURRENT_DAY);
+
+        ResourceOveruseStatsSubject.isEquals(actualStats, expectedStats);
+    }
+
+    @Test
     public void testGetAllResourceOveruseStats() throws Exception {
         UserHandle userHandle = Process.myUserHandle();
         List<ResourceOveruseStats> expectedStats = new ArrayList<>();
@@ -172,6 +187,19 @@ public class CarWatchdogManagerUnitTest {
     }
 
     @Test
+    public void testFailsGetAllResourceOveruseStats() throws Exception {
+        when(mService.getAllResourceOveruseStats(FLAG_RESOURCE_OVERUSE_IO,
+                FLAG_MINIMUM_STATS_IO_1_MB, STATS_PERIOD_CURRENT_DAY))
+                .thenThrow(new RemoteException());
+
+        List<ResourceOveruseStats> actualStats = mCarWatchdogManager
+                .getAllResourceOveruseStats(FLAG_RESOURCE_OVERUSE_IO, FLAG_MINIMUM_STATS_IO_1_MB,
+                        STATS_PERIOD_CURRENT_DAY);
+
+        assertThat(actualStats).isEmpty();
+    }
+
+    @Test
     public void testGetResourceOveruseStatsForUserPackage() throws Exception {
         UserHandle userHandle = Process.myUserHandle();
         String packageName = "random.package";
@@ -185,6 +213,21 @@ public class CarWatchdogManagerUnitTest {
                         FLAG_RESOURCE_OVERUSE_IO, STATS_PERIOD_CURRENT_DAY);
 
         assertThat(actualStats).isEqualTo(expectedStats);
+    }
+
+    @Test
+    public void testFailsGetResourceOveruseStatsForUserPackage() throws Exception {
+        ResourceOveruseStats expectedStats =
+                new ResourceOveruseStats.Builder("", UserHandle.of(100)).build();
+        when(mService.getResourceOveruseStatsForUserPackage("random.package",
+                UserHandle.of(100), FLAG_RESOURCE_OVERUSE_IO, STATS_PERIOD_CURRENT_DAY))
+                .thenThrow(new RemoteException());
+
+        ResourceOveruseStats actualStats = mCarWatchdogManager
+                .getResourceOveruseStatsForUserPackage("random.package",
+                        UserHandle.of(100), FLAG_RESOURCE_OVERUSE_IO, STATS_PERIOD_CURRENT_DAY);
+
+        ResourceOveruseStatsSubject.isEquals(actualStats, expectedStats);
     }
 
     @Test
@@ -427,6 +470,17 @@ public class CarWatchdogManagerUnitTest {
                 mCarWatchdogManager.getPackageKillableStatesAsUser(userHandle);
 
         assertThat(actualPackages).isEqualTo(expectedPackages);
+    }
+
+    @Test
+    public void testFailsGetPackageKillableStatesAsUser() throws Exception {
+        when(mService.getPackageKillableStatesAsUser(UserHandle.of(100)))
+                .thenThrow(new RemoteException());
+
+        List<PackageKillableState> actualPackageStates =
+                mCarWatchdogManager.getPackageKillableStatesAsUser(UserHandle.of(100));
+
+        assertThat(actualPackageStates).isEmpty();
     }
 
     @Test

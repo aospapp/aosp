@@ -28,6 +28,7 @@ public abstract class IterateBase<T, U> implements Compose<T, U> {
     protected static final String ITERATIONS_OPTION_NAME = "iterations";
     protected static final int ITERATIONS_DEFAULT_VALUE = 1;
 
+    /** Iteration ordering, i.e. cyclical (ABCABC) or sequential (AABBCC). */
     protected enum OrderOptions { CYCLIC, SEQUENTIAL };
     protected static final String ORDER_OPTION_NAME = "order";
     protected static final OrderOptions ORDER_DEFAULT_VALUE = OrderOptions.CYCLIC;
@@ -61,7 +62,7 @@ public abstract class IterateBase<T, U> implements Compose<T, U> {
         }
         // We should never get here as the switch statement should exhaust the order options.
         throw new AssertionError(
-                String.format("Order option \"%s\" is not supported", order.toString()));
+                String.format("Order option \"%s\" is not supported", order));
     }
 
     /** Returns the number of iterations to run from {@code args}. */

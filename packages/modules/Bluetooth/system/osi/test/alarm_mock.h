@@ -8,6 +8,8 @@ class AlarmMock {
   MOCK_METHOD1(AlarmNew, alarm_t*(const char*));
   MOCK_METHOD1(AlarmFree, void(alarm_t*));
   MOCK_METHOD1(AlarmCancel, void(alarm_t*));
+  MOCK_METHOD4(AlarmSet, void(alarm_t* alarm, uint64_t interval_ms,
+                              alarm_callback_t cb, void* data));
   MOCK_METHOD4(AlarmSetOnMloop, void(alarm_t* alarm, uint64_t interval_ms,
                                      alarm_callback_t cb, void* data));
   MOCK_METHOD1(AlarmIsScheduled, bool(const alarm_t*));
@@ -50,6 +52,11 @@ void alarm_free(alarm_t* alarm) { AlarmMock::Get()->AlarmFreeImpl(alarm); }
 void alarm_set_on_mloop(alarm_t* alarm, uint64_t interval_ms,
                         alarm_callback_t cb, void* data) {
   AlarmMock::Get()->AlarmSetOnMloop(alarm, interval_ms, cb, data);
+}
+
+void alarm_set(alarm_t* alarm, uint64_t interval_ms, alarm_callback_t cb,
+               void* data) {
+  AlarmMock::Get()->AlarmSet(alarm, interval_ms, cb, data);
 }
 
 bool alarm_is_scheduled(const alarm_t* alarm) {

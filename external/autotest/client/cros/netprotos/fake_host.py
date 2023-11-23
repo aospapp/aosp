@@ -59,3 +59,6 @@ class FakeSocket(object):
         self._bind_port = port
         self._bind_recv_callback = recv_callback
 
+    def close(self):
+        """Mock close for python3 unit tests."""
+        pass

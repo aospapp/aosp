@@ -52,7 +52,7 @@ var combineApk = pctx.AndroidStaticRule("combineApk",
 	})
 
 func CreateAndSignAppPackage(ctx android.ModuleContext, outputFile android.WritablePath,
-	packageFile, jniJarFile, dexJarFile android.Path, certificates []Certificate, deps android.Paths, v4SignatureFile android.WritablePath, lineageFile android.Path, rotationMinSdkVersion string) {
+	packageFile, jniJarFile, dexJarFile android.Path, certificates []Certificate, deps android.Paths, v4SignatureFile android.WritablePath, lineageFile android.Path, rotationMinSdkVersion string, shrinkResources bool) {
 
 	unsignedApkName := strings.TrimSuffix(outputFile.Base(), ".apk") + "-unsigned.apk"
 	unsignedApk := android.PathForModuleOut(ctx, unsignedApkName)
@@ -65,7 +65,6 @@ func CreateAndSignAppPackage(ctx android.ModuleContext, outputFile android.Writa
 	if jniJarFile != nil {
 		inputs = append(inputs, jniJarFile)
 	}
-
 	ctx.Build(pctx, android.BuildParams{
 		Rule:      combineApk,
 		Inputs:    inputs,
@@ -73,6 +72,11 @@ func CreateAndSignAppPackage(ctx android.ModuleContext, outputFile android.Writa
 		Implicits: deps,
 	})
 
+	if shrinkResources {
+		shrunkenApk := android.PathForModuleOut(ctx, "resource-shrunken", unsignedApk.Base())
+		ShrinkResources(ctx, unsignedApk, shrunkenApk)
+		unsignedApk = shrunkenApk
+	}
 	SignAppPackage(ctx, outputFile, unsignedApk, certificates, v4SignatureFile, lineageFile, rotationMinSdkVersion)
 }
 
@@ -84,7 +88,6 @@ func SignAppPackage(ctx android.ModuleContext, signedApk android.WritablePath, u
 		certificateArgs = append(certificateArgs, c.Pem.String(), c.Key.String())
 		deps = append(deps, c.Pem, c.Key)
 	}
-
 	outputFiles := android.WritablePaths{signedApk}
 	var flags []string
 	if v4SignatureFile != nil {
@@ -182,7 +185,7 @@ func BuildBundleModule(ctx android.ModuleContext, outputFile android.WritablePat
 	packageFile, jniJarFile, dexJarFile android.Path) {
 
 	protoResJarFile := android.PathForModuleOut(ctx, "package-res.pb.apk")
-	aapt2Convert(ctx, protoResJarFile, packageFile)
+	aapt2Convert(ctx, protoResJarFile, packageFile, "proto")
 
 	var zips android.Paths
 
@@ -222,8 +225,14 @@ func BuildBundleModule(ctx android.ModuleContext, outputFile android.WritablePat
 	})
 }
 
-func TransformJniLibsToJar(ctx android.ModuleContext, outputFile android.WritablePath,
-	jniLibs []jniLib, uncompressJNI bool) {
+const jniJarOutputPathString = "jniJarOutput.zip"
+
+func TransformJniLibsToJar(
+	ctx android.ModuleContext,
+	outputFile android.WritablePath,
+	jniLibs []jniLib,
+	prebuiltJniPackages android.Paths,
+	uncompressJNI bool) {
 
 	var deps android.Paths
 	jarArgs := []string{
@@ -249,12 +258,19 @@ func TransformJniLibsToJar(ctx android.ModuleContext, outputFile android.Writabl
 		rule = zipRE
 		args["implicits"] = strings.Join(deps.Strings(), ",")
 	}
+	jniJarPath := android.PathForModuleOut(ctx, jniJarOutputPathString)
 	ctx.Build(pctx, android.BuildParams{
 		Rule:        rule,
 		Description: "zip jni libs",
-		Output:      outputFile,
+		Output:      jniJarPath,
 		Implicits:   deps,
 		Args:        args,
+	})
+	ctx.Build(pctx, android.BuildParams{
+		Rule:        mergeAssetsRule,
+		Description: "merge prebuilt JNI packages",
+		Inputs:      append(prebuiltJniPackages, jniJarPath),
+		Output:      outputFile,
 	})
 }
 

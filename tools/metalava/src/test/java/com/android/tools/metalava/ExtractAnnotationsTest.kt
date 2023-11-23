@@ -74,7 +74,6 @@ class ExtractAnnotationsTest : DriverTest() {
     @Test
     fun `Check java typedef extraction and warning about non-source retention of typedefs`() {
         check(
-            includeSourceRetentionAnnotations = false,
             format = FileFormat.V2,
             sourceFiles = sourceFiles1,
             expectedIssues = "src/test/pkg/IntDefTest.java:13: error: This typedef annotation class should have @Retention(RetentionPolicy.SOURCE) [AnnotationExtraction]",
@@ -108,7 +107,6 @@ class ExtractAnnotationsTest : DriverTest() {
     @Test
     fun `Check Kotlin and referencing hidden constants from typedef`() {
         check(
-            includeSourceRetentionAnnotations = false,
             sourceFiles = arrayOf(
                 kotlin(
                     """
@@ -186,7 +184,6 @@ class ExtractAnnotationsTest : DriverTest() {
     @Test
     fun `Check including only class retention annotations other than typedefs`() {
         check(
-            includeSourceRetentionAnnotations = true,
             sourceFiles = arrayOf(
                 kotlin(
                     """
@@ -264,7 +261,6 @@ class ExtractAnnotationsTest : DriverTest() {
     @Test
     fun `Extract permission annotations`() {
         check(
-            includeSourceRetentionAnnotations = false,
             sourceFiles = arrayOf(
                 java(
                     """
@@ -333,7 +329,6 @@ class ExtractAnnotationsTest : DriverTest() {
     @Test
     fun `Include merged annotations in exported source annotations`() {
         check(
-            includeSourceRetentionAnnotations = true,
             outputKotlinStyleNulls = false,
             includeSystemApiAnnotations = false,
             expectedIssues = "error: Unexpected reference to Nonexistent.Field [InternalError]",
@@ -397,7 +392,6 @@ class ExtractAnnotationsTest : DriverTest() {
     @Test
     fun `Only including class retention annotations in stubs`() {
         check(
-            includeSourceRetentionAnnotations = false,
             outputKotlinStyleNulls = false,
             includeSystemApiAnnotations = false,
             sourceFiles = arrayOf(
@@ -446,7 +440,6 @@ class ExtractAnnotationsTest : DriverTest() {
     @Test
     fun `Check warning about unexpected returns from typedef method`() {
         check(
-            includeSourceRetentionAnnotations = false,
             expectedIssues = "src/test/pkg/IntDefTest.java:36: warning: Returning unexpected constant UNRELATED; is @DialogStyle missing this constant? Expected one of STYLE_NORMAL, STYLE_NO_TITLE, STYLE_NO_FRAME, STYLE_NO_INPUT [ReturningUnexpectedConstant]",
             sourceFiles = arrayOf(
                 java(
@@ -523,7 +516,6 @@ class ExtractAnnotationsTest : DriverTest() {
     @Test
     fun `No typedef signatures in api files`() {
         check(
-            includeSourceRetentionAnnotations = false,
             extraArguments = arrayOf(
                 ARG_HIDE_PACKAGE, "android.annotation",
                 ARG_TYPEDEFS_IN_SIGNATURES, "none"
@@ -559,7 +551,6 @@ class ExtractAnnotationsTest : DriverTest() {
     @Test
     fun `Inlining typedef signatures in api files`() {
         check(
-            includeSourceRetentionAnnotations = false,
             extraArguments = arrayOf(
                 ARG_HIDE_PACKAGE, "android.annotation",
                 ARG_TYPEDEFS_IN_SIGNATURES, "inline"
@@ -595,7 +586,6 @@ class ExtractAnnotationsTest : DriverTest() {
     @Test
     fun `Referencing typedef signatures in api files`() {
         check(
-            includeSourceRetentionAnnotations = false,
             extraArguments = arrayOf(
                 ARG_HIDE_PACKAGE, "android.annotation",
                 ARG_TYPEDEFS_IN_SIGNATURES, "ref"
@@ -631,7 +621,6 @@ class ExtractAnnotationsTest : DriverTest() {
     @Test
     fun `Test generics in XML attributes are encoded`() {
         check(
-            includeSourceRetentionAnnotations = false,
             outputKotlinStyleNulls = false,
             includeSystemApiAnnotations = false,
             sourceFiles = arrayOf(

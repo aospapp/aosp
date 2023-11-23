@@ -3,7 +3,10 @@
  * Copyright (c) 2019 SUSE LLC
  * Author: Christian Amann <camann@suse.com>
  */
-/*
+
+/*\
+ * [Description]
+ *
  * Tests if the pidfd_send_signal syscall behaves
  * like rt_sigqueueinfo when a pointer to a siginfo_t
  * struct is passed.
@@ -12,7 +15,8 @@
 #define _GNU_SOURCE
 #include <signal.h>
 #include <stdlib.h>
-#include "lapi/pidfd_send_signal.h"
+#include "tst_test.h"
+#include "lapi/pidfd.h"
 #include "tst_safe_pthread.h"
 
 #define SIGNAL  SIGUSR1

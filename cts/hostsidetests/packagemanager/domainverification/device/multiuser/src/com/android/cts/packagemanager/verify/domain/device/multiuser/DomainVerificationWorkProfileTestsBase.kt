@@ -27,7 +27,7 @@ import com.android.bedstead.harrier.annotations.AfterClass
 import com.android.bedstead.harrier.annotations.BeforeClass
 import com.android.bedstead.harrier.annotations.EnsureHasWorkProfile
 import com.android.bedstead.harrier.annotations.Postsubmit
-import com.android.bedstead.harrier.annotations.RequireRunOnPrimaryUser
+import com.android.bedstead.harrier.annotations.RequireRunOnInitialUser
 import com.android.bedstead.harrier.annotations.RequireRunOnWorkProfile
 import com.android.bedstead.nene.TestApis
 import com.android.bedstead.nene.packages.Packages
@@ -54,7 +54,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-@EnsureHasWorkProfile(forUser = UserType.PRIMARY_USER)
+@EnsureHasWorkProfile(forUser = UserType.INITIAL_USER)
 @RunWith(BedsteadJUnit4::class)
 abstract class DomainVerificationWorkProfileTestsBase {
 
@@ -101,8 +101,8 @@ abstract class DomainVerificationWorkProfileTestsBase {
         @JvmStatic
         @BeforeClass
         fun installApks() {
-            personalUser = deviceState.primaryUser()
-            workUser = deviceState.workProfile(UserType.PRIMARY_USER)
+            personalUser = deviceState.initialUser()
+            workUser = deviceState.workProfile(UserType.INITIAL_USER)
             personalBrowsers = collectBrowsers(personalUser)
             workBrowsers = collectBrowsers(workUser)
             TestApis.packages().run {
@@ -162,14 +162,14 @@ abstract class DomainVerificationWorkProfileTestsBase {
         }
     }
 
-    @RequireRunOnPrimaryUser
+    @RequireRunOnInitialUser
     @Postsubmit(reason = "New test")
     @Test
     fun inPersonal_unverified() {
         assertResolvesTo(personalBrowsers)
     }
 
-    @RequireRunOnPrimaryUser
+    @RequireRunOnInitialUser
     @Postsubmit(reason = "New test")
     @Test
     fun inPersonal_verifiedInCurrentProfile() {
@@ -181,7 +181,7 @@ abstract class DomainVerificationWorkProfileTestsBase {
     // The assertion for this method varies based on general versus specific cross profile config
     abstract fun inPersonal_verifiedInOtherProfile()
 
-    @RequireRunOnPrimaryUser
+    @RequireRunOnInitialUser
     @Postsubmit(reason = "New test")
     @Test
     fun inPersonal_verifiedInBothProfiles() {

@@ -19,7 +19,7 @@ import logging
 
 from google.protobuf import empty_pb2 as empty_proto
 
-from bluetooth_packets_python3 import hci_packets
+import hci_packets as hci
 from blueberry.facade.hci import le_advertising_manager_facade_pb2 as le_advertising_facade
 from blueberry.facade.hci import le_initiator_address_facade_pb2 as le_initiator_address_facade
 from blueberry.facade import common_pb2 as common
@@ -73,10 +73,9 @@ class LeAdvancedScanningTest(gd_sl4a_base_test.GdSl4aBaseTestClass):
         logging.info("Done %s" % ADDRESS)
 
         # Setup cert side to advertise
-        gap_name = hci_packets.GapData()
-        gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(DEVICE_NAME, encoding='utf8'))
-        gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
+        gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME,
+                               data=list(bytes(DEVICE_NAME, encoding='utf8')))
+        gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
         config = le_advertising_facade.AdvertisingConfig(
             advertisement=[gap_data],
             interval_min=512,
@@ -131,10 +130,9 @@ class LeAdvancedScanningTest(gd_sl4a_base_test.GdSl4aBaseTestClass):
         logging.info("Done %s" % ADDRESS)
 
         # Setup cert side to advertise
-        gap_name = hci_packets.GapData()
-        gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(DEVICE_NAME, encoding='utf8'))
-        gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
+        gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME,
+                               data=list(bytes(DEVICE_NAME, encoding='utf8')))
+        gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
         config = le_advertising_facade.AdvertisingConfig(
             advertisement=[gap_data],
             interval_min=512,
@@ -305,10 +303,9 @@ class LeAdvancedScanningTest(gd_sl4a_base_test.GdSl4aBaseTestClass):
         logging.info("Set public address")
 
         # Setup cert side to advertise
-        gap_name = hci_packets.GapData()
-        gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(DEVICE_NAME, encoding='utf8'))
-        gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
+        gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME,
+                               data=list(bytes(DEVICE_NAME, encoding='utf8')))
+        gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
         config = le_advertising_facade.AdvertisingConfig(
             advertisement=[gap_data],
             interval_min=512,
@@ -360,10 +357,9 @@ class LeAdvancedScanningTest(gd_sl4a_base_test.GdSl4aBaseTestClass):
         logging.info("Set random address")
 
         # Setup cert side to advertise
-        gap_name = hci_packets.GapData()
-        gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(DEVICE_NAME, encoding='utf8'))
-        gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
+        gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME,
+                               data=list(bytes(DEVICE_NAME, encoding='utf8')))
+        gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
         config = le_advertising_facade.AdvertisingConfig(
             advertisement=[gap_data],
             interval_min=512,
@@ -414,10 +410,9 @@ class LeAdvancedScanningTest(gd_sl4a_base_test.GdSl4aBaseTestClass):
         logging.info("Set public address")
 
         # Setup cert side to advertise
-        gap_name = hci_packets.GapData()
-        gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(DEVICE_NAME, encoding='utf8'))
-        gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
+        gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME,
+                               data=list(bytes(DEVICE_NAME, encoding='utf8')))
+        gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
         config = le_advertising_facade.AdvertisingConfig(
             advertisement=[gap_data],
             interval_min=512,
@@ -637,10 +632,9 @@ class LeAdvancedScanningTest(gd_sl4a_base_test.GdSl4aBaseTestClass):
         legacy_pdus = False
 
         # Setup cert side to advertise
-        gap_name = hci_packets.GapData()
-        gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-        gap_name.data = list(bytes(DEVICE_NAME, encoding='utf8'))
-        gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
+        gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME,
+                               data=list(bytes(DEVICE_NAME, encoding='utf8')))
+        gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
         config = le_advertising_facade.AdvertisingConfig(
             advertisement=[gap_data],
             interval_min=128,

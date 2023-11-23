@@ -15,6 +15,7 @@
  */
 package com.android.bluetooth.gatt;
 
+import android.bluetooth.BluetoothProtoEnums;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanSettings;
 import android.os.BatteryStatsManager;
@@ -25,7 +26,9 @@ import android.os.WorkSource;
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.util.WorkSourceUtil;
+import com.android.internal.annotations.GuardedBy;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -49,8 +52,9 @@ import java.util.Objects;
 
     // Weight is the duty cycle of the scan mode
     static final int OPPORTUNISTIC_WEIGHT = 0;
+    static final int SCREEN_OFF_LOW_POWER_WEIGHT = 5;
     static final int LOW_POWER_WEIGHT = 10;
-    static final int AMBIENT_DISCOVERY_WEIGHT = 20;
+    static final int AMBIENT_DISCOVERY_WEIGHT = 25;
     static final int BALANCED_WEIGHT = 25;
     static final int LOW_LATENCY_WEIGHT = 100;
 
@@ -67,6 +71,13 @@ import java.util.Objects;
 
     private final AdapterService mAdapterService;
 
+    private static Object sLock = new Object();
+    @GuardedBy("sLock")
+    static long sRadioStartTime = 0;
+    static int sRadioScanMode;
+    static boolean sIsRadioStarted = false;
+    static boolean sIsScreenOn = false;
+
     class LastScan {
         public long duration;
         public long suspendDuration;
@@ -75,10 +86,12 @@ import java.util.Objects;
         public long timestamp;
         public boolean isOpportunisticScan;
         public boolean isTimeout;
+        public boolean isDowngraded;
         public boolean isBackgroundScan;
         public boolean isFilterScan;
         public boolean isCallbackScan;
         public boolean isBatchScan;
+        public boolean isAutoBatchScan;
         public int results;
         public int scannerId;
         public int scanMode;
@@ -91,10 +104,12 @@ import java.util.Objects;
             this.timestamp = timestamp;
             this.isOpportunisticScan = false;
             this.isTimeout = false;
+            this.isDowngraded = false;
             this.isBackgroundScan = false;
             this.isFilterScan = isFilterScan;
             this.isCallbackScan = isCallbackScan;
             this.isBatchScan = false;
+            this.isAutoBatchScan = false;
             this.scanMode = scanMode;
             this.scanCallbackType = scanCallbackType;
             this.results = 0;
@@ -105,29 +120,6 @@ import java.util.Objects;
             this.filterString = "";
         }
     }
-
-    static int getNumScanDurationsKept() {
-        return AdapterService.getScanQuotaCount();
-    }
-
-    // This constant defines the time window an app can scan multiple times.
-    // Any single app can scan up to |NUM_SCAN_DURATIONS_KEPT| times during
-    // this window. Once they reach this limit, they must wait until their
-    // earliest recorded scan exits this window.
-    static long getExcessiveScanningPeriodMillis() {
-        return AdapterService.getScanQuotaWindowMillis();
-    }
-
-    // Maximum msec before scan gets downgraded to opportunistic
-    static long getScanTimeoutMillis() {
-        return AdapterService.getScanTimeoutMillis();
-    }
-
-    // Scan mode upgrade duration after scanStart()
-    static long getScanUpgradeDurationMillis() {
-        return AdapterService.getAdapterService().getScanUpgradeDurationMillis();
-    }
-
     public String appName;
     public WorkSource mWorkSource; // Used for BatteryStatsManager
     public final WorkSourceUtil mWorkSourceUtil; // Used for BluetoothStatsLog
@@ -186,12 +178,36 @@ import java.util.Objects;
         results++;
     }
 
-    boolean isScanning() {
+    synchronized boolean isScanning() {
         return !mOngoingScans.isEmpty();
     }
 
-    LastScan getScanFromScannerId(int scannerId) {
+    synchronized LastScan getScanFromScannerId(int scannerId) {
         return mOngoingScans.get(scannerId);
+    }
+
+    synchronized boolean isScanTimeout(int scannerId) {
+        LastScan scan = getScanFromScannerId(scannerId);
+        if (scan == null) {
+            return false;
+        }
+        return scan.isTimeout;
+    }
+
+    synchronized boolean isScanDowngraded(int scannerId) {
+        LastScan scan = getScanFromScannerId(scannerId);
+        if (scan == null) {
+            return false;
+        }
+        return scan.isDowngraded;
+    }
+
+    synchronized boolean isAutoBatchScan(int scannerId) {
+        LastScan scan = getScanFromScannerId(scannerId);
+        if (scan == null) {
+            return false;
+        }
+        return scan.isAutoBatchScan;
     }
 
     synchronized void recordScanStart(ScanSettings settings, List<ScanFilter> filters,
@@ -324,6 +340,119 @@ import java.util.Objects;
                 scan.isFilterScan, scan.isBackgroundScan, scan.isOpportunisticScan);
     }
 
+    static void initScanRadioState() {
+        synchronized (sLock) {
+            sIsRadioStarted = false;
+        }
+    }
+    static boolean recordScanRadioStart(int scanMode) {
+        synchronized (sLock) {
+            if (sIsRadioStarted) {
+                return false;
+            }
+            sRadioStartTime = SystemClock.elapsedRealtime();
+            sRadioScanMode = scanMode;
+            sIsRadioStarted = true;
+        }
+        return true;
+    }
+
+    static boolean recordScanRadioStop() {
+        synchronized (sLock) {
+            if (!sIsRadioStarted) {
+                return false;
+            }
+            recordScanRadioDurationMetrics();
+            sRadioStartTime = 0;
+            sIsRadioStarted = false;
+        }
+        return true;
+    }
+
+    @GuardedBy("sLock")
+    private static void recordScanRadioDurationMetrics() {
+        if (!sIsRadioStarted) {
+            return;
+        }
+        long currentTime = SystemClock.elapsedRealtime();
+        long radioScanDuration = currentTime - sRadioStartTime;
+        double scanWeight = getScanWeight(sRadioScanMode) * 0.01;
+        long weightedDuration = (long) (radioScanDuration * scanWeight);
+
+        if (weightedDuration > 0) {
+            MetricsLogger.getInstance().cacheCount(
+                    BluetoothProtoEnums.LE_SCAN_RADIO_DURATION_REGULAR, weightedDuration);
+            if (sIsScreenOn) {
+                MetricsLogger.getInstance().cacheCount(
+                        BluetoothProtoEnums.LE_SCAN_RADIO_DURATION_REGULAR_SCREEN_ON,
+                        weightedDuration);
+            } else {
+                MetricsLogger.getInstance().cacheCount(
+                        BluetoothProtoEnums.LE_SCAN_RADIO_DURATION_REGULAR_SCREEN_OFF,
+                        weightedDuration);
+            }
+        }
+    }
+
+    @GuardedBy("sLock")
+    private static void recordScreenOnOffMetrics(boolean isScreenOn) {
+        if (isScreenOn) {
+            MetricsLogger.getInstance().cacheCount(BluetoothProtoEnums.SCREEN_ON_EVENT, 1);
+        } else {
+            MetricsLogger.getInstance().cacheCount(BluetoothProtoEnums.SCREEN_OFF_EVENT, 1);
+        }
+    }
+
+    private static int getScanWeight(int scanMode) {
+        switch (scanMode) {
+            case ScanSettings.SCAN_MODE_OPPORTUNISTIC:
+                return OPPORTUNISTIC_WEIGHT;
+            case ScanSettings.SCAN_MODE_SCREEN_OFF:
+                return SCREEN_OFF_LOW_POWER_WEIGHT;
+            case ScanSettings.SCAN_MODE_LOW_POWER:
+                return LOW_POWER_WEIGHT;
+            case ScanSettings.SCAN_MODE_BALANCED:
+            case ScanSettings.SCAN_MODE_AMBIENT_DISCOVERY:
+            case ScanSettings.SCAN_MODE_SCREEN_OFF_BALANCED:
+                return BALANCED_WEIGHT;
+            case ScanSettings.SCAN_MODE_LOW_LATENCY:
+                return LOW_LATENCY_WEIGHT;
+            default:
+                return LOW_POWER_WEIGHT;
+        }
+    }
+
+    static void recordScanRadioResultCount() {
+        synchronized (sLock) {
+            if (!sIsRadioStarted) {
+                return;
+            }
+            MetricsLogger.getInstance().cacheCount(
+                    BluetoothProtoEnums.LE_SCAN_RESULTS_COUNT_REGULAR, 1);
+            if (sIsScreenOn) {
+                MetricsLogger.getInstance().cacheCount(
+                        BluetoothProtoEnums.LE_SCAN_RESULTS_COUNT_REGULAR_SCREEN_ON, 1);
+            } else {
+                MetricsLogger.getInstance().cacheCount(
+                        BluetoothProtoEnums.LE_SCAN_RESULTS_COUNT_REGULAR_SCREEN_OFF, 1);
+            }
+        }
+    }
+
+    static void setScreenState(boolean isScreenOn) {
+        synchronized (sLock) {
+            if (sIsScreenOn == isScreenOn) {
+                return;
+            }
+            if (sIsRadioStarted) {
+                recordScanRadioDurationMetrics();
+                sRadioStartTime = SystemClock.elapsedRealtime();
+            }
+            recordScreenOnOffMetrics(isScreenOn);
+            sIsScreenOn = isScreenOn;
+        }
+    }
+
     synchronized void recordScanSuspend(int scannerId) {
         LastScan scan = getScanFromScannerId(scannerId);
         if (scan == null || scan.isSuspended) {
@@ -354,6 +483,24 @@ import java.util.Objects;
         LastScan scan = getScanFromScannerId(scannerId);
         if (scan != null) {
             scan.isTimeout = true;
+        }
+    }
+
+    synchronized void setScanDowngrade(int scannerId, boolean isDowngrade) {
+        if (!isScanning()) {
+            return;
+        }
+
+        LastScan scan = getScanFromScannerId(scannerId);
+        if (scan != null) {
+            scan.isDowngraded = isDowngrade;
+        }
+    }
+
+    synchronized void setAutoBatchScan(int scannerId, boolean isBatchScan) {
+        LastScan scan = getScanFromScannerId(scannerId);
+        if (scan != null) {
+            scan.isAutoBatchScan = isBatchScan;
         }
     }
 
@@ -471,6 +618,8 @@ import java.util.Objects;
                 return "FIRST_MATCH";
             case ScanSettings.CALLBACK_TYPE_MATCH_LOST:
                 return "LOST";
+            case ScanSettings.CALLBACK_TYPE_ALL_MATCHES_AUTO_BATCH:
+                return "ALL_MATCHES_AUTO_BATCH";
             default:
                 return callbackType == (ScanSettings.CALLBACK_TYPE_FIRST_MATCH
                     | ScanSettings.CALLBACK_TYPE_MATCH_LOST) ? "[FIRST_MATCH | LOST]" : "UNKNOWN: "
@@ -585,6 +734,8 @@ import java.util.Objects;
                 }
                 if (scan.isBatchScan) {
                     sb.append("Batch Scan");
+                } else if (scan.isAutoBatchScan) {
+                    sb.append("Auto Batch Scan");
                 } else {
                     sb.append("Regular Scan");
                 }
@@ -633,6 +784,8 @@ import java.util.Objects;
                 }
                 if (scan.isBatchScan) {
                     sb.append("Batch Scan");
+                } else if (scan.isAutoBatchScan) {
+                    sb.append("Auto Batch Scan");
                 } else {
                     sb.append("Regular Scan");
                 }

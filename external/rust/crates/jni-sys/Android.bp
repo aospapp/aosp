@@ -49,5 +49,7 @@ rust_library {
         "//apex_available:platform",
         "com.android.uwb",
     ],
+    product_available: true,
+    vendor_available: true,
     min_sdk_version: "29",
 }

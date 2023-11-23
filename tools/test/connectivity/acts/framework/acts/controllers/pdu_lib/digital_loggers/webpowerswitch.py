@@ -14,10 +14,19 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+from acts import signals
 from acts.controllers import pdu
 
-import dlipower
-import time
+# Create an optional dependency for dlipower since it has a transitive
+# dependency on beautifulsoup4. This library is difficult to maintain as a
+# third_party dependency in Fuchsia since it is hosted on launchpad.
+#
+# TODO(b/246999212): Explore alternatives to the dlipower package
+try:
+    import dlipower
+    HAS_IMPORT_DLIPOWER = True
+except ImportError:
+    HAS_IMPORT_DLIPOWER = False
 
 
 class PduDevice(pdu.PduDevice):
@@ -32,12 +41,19 @@ class PduDevice(pdu.PduDevice):
         - WebPowerSwitch II
         - Ethernet Power Controller III
     """
+
     def __init__(self, host, username, password):
         """
         Note: This may require allowing plaintext password sign in on the
         power switch, which can be configure in the device's control panel.
         """
         super(PduDevice, self).__init__(host, username, password)
+
+        if not HAS_IMPORT_DLIPOWER:
+            raise signals.ControllerError(
+                'Digital Loggers PDUs are not supported with current installed '
+                'packages; install the dlipower package to add support')
+
         self.power_switch = dlipower.PowerSwitch(hostname=host,
                                                  userid=username,
                                                  password=password)

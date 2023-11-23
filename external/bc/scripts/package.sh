@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Copyright (c) 2018-2021 Gavin D. Howard and contributors.
+# Copyright (c) 2018-2023 Gavin D. Howard and contributors.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -35,6 +35,7 @@
 # * git
 # * stat
 # * tar
+# * gzip
 # * xz
 # * sha512sum
 # * sha256sum
@@ -79,12 +80,14 @@ shasum() {
 script="$0"
 scriptdir=$(dirname "$script")
 
+. "$scriptdir/functions.sh"
+
 repo="$scriptdir/.."
 proj="bc"
 
 cd "$repo"
 
-if [ ! -f "../Debug.zip" ] || [ ! -f "../Release.zip" ]; then
+if [ ! -f "../vs.zip" ]; then
 	printf 'Must have Windows builds!\n'
 	exit 1
 fi
@@ -181,72 +184,82 @@ cd ..
 
 parent="$repo/.."
 
+# Cleanup old stuff.
+if [ -f "$projver.tar.gz" ]; then
+	rm -rf "$projver.tar.gz"
+fi
+
+if [ -f "$projver.tar.gz.sig" ]; then
+	rm -rf "$projver.tar.gz.sig"
+fi
+
+if [ -f "$projver.tar.xz" ]; then
+	rm -rf "$projver.tar.xz"
+fi
+
+if [ -f "$projver.tar.xz.sig" ]; then
+	rm -rf "$projver.tar.xz.sig"
+fi
+
 # Tar and compress and move into the parent directory of the repo.
 tar cf "$projver.tar" "$projver/"
+gzip -k "$projver.tar"
+mv "$projver.tar.gz" "$parent"
 xz -z -v -9 -e "$projver.tar" > /dev/null 2> /dev/null
 mv "$projver.tar.xz" "$parent"
 
 cd "$parent"
 
 # Clean up old Windows stuff.
-if [ -d Win32_Debug ]; then
-	rm -rf Win32_Debug
+if [ -d windows ]; then
+	rm -rf windows
 fi
 
-if [ -d Win32_Release ]; then
-	rm -rf Win32_Release
-fi
-
-if [ -d Win64_Debug ]; then
-	rm -rf Win64_Debug
-fi
-
-if [ -d Win64_Release ]; then
-	rm -rf Win64_Release
+if [ -f windows.zip ]; then
+	rm -rf $projver-windows.zip
 fi
 
 # Prepare Windows stuff.
-if [ ! -d Debug ]; then
-	unzip Debug.zip > /dev/null
-fi
+unzip vs.zip > /dev/null
+mv vs windows
 
-if [ ! -d Release ]; then
-	unzip Release.zip > /dev/null
-fi
+# Remove unneeded Windows stuff.
+rm -rf windows/*.vcxproj.user
+rm -rf windows/src2
+rm -rf windows/tests
+rm -rf windows/*.sln
+rm -rf windows/*.vcxproj
+rm -rf windows/*.vcxproj.filters
+
+rm -rf windows/bin/{Win32,x64}/{Debug,Release}/*.obj
+rm -rf windows/bin/{Win32,x64}/{Debug,Release}/*.iobj
+rm -rf windows/bin/{Win32,x64}/{Debug,Release}/bc.exe.recipe
+rm -rf windows/bin/{Win32,x64}/{Debug,Release}/bc.ilk
+rm -rf windows/bin/{Win32,x64}/{Debug,Release}/bc.log
+rm -rf windows/bin/{Win32,x64}/{Debug,Release}/bc.tlog
+rm -rf windows/bin/{Win32,x64}/{Debug,Release}/bc.pdb
+rm -rf windows/bin/{Win32,x64}/{Debug,Release}/bc.ipdb
+rm -rf windows/bin/{Win32,x64}/{Debug,Release}/bc.vcxproj.FileListAbsolute.txt
+rm -rf windows/bin/{Win32,x64}/{Debug,Release}/bc.Build.CppClean.log
+rm -rf windows/bin/{Win32,x64}/{Debug,Release}/strgen.exe
+rm -rf windows/bin/{Win32,x64}/{Debug,Release}/vc142.idb
+rm -rf windows/bin/{Win32,x64}/{Debug,Release}/vc142.pdb
+
+rm -rf windows/lib/{Win32,x64}/{Debug,ReleaseMD,ReleaseMT}/*.obj
+rm -rf windows/lib/{Win32,x64}/{Debug,ReleaseMD,ReleaseMT}/bcl.lib.recipe
+rm -rf windows/lib/{Win32,x64}/{Debug,ReleaseMD,ReleaseMT}/bcl.log
+rm -rf windows/lib/{Win32,x64}/{Debug,ReleaseMD,ReleaseMT}/bcl.tlog
+rm -rf windows/lib/{Win32,x64}/{Debug,ReleaseMD,ReleaseMT}/bcl.idb
+rm -rf windows/lib/{Win32,x64}/{Debug,ReleaseMD,ReleaseMT}/bcl.pdb
+rm -rf windows/lib/{Win32,x64}/{Debug,ReleaseMD,ReleaseMT}/bcl.vcxproj.FileListAbsolute.txt
+rm -rf windows/lib/{Win32,x64}/{Debug,ReleaseMD,ReleaseMT}/bcl.Build.CppClean.log
 
 # Zip the Windows stuff.
-mkdir Win32_Debug
-cp Debug/Win32/bc/bc.exe Win32_Debug
-cp Debug/Win32/bc/dc.exe Win32_Debug
-cp Debug/Win32/bcl/bcl.lib Win32_Debug
+zip -r $projver-windows.zip windows > /dev/null
 
-mkdir Win32_Release
-cp Release/Win32/bc/bc.exe Win32_Release
-cp Release/Win32/bc/dc.exe Win32_Release
-cp Release/Win32/bcl/bcl.lib Win32_Release
-
-mkdir Win64_Debug
-cp Debug/x64/bc/bc.exe Win64_Debug
-cp Debug/x64/bc/dc.exe Win64_Debug
-cp Debug/x64/bcl/bcl.lib Win64_Debug
-
-mkdir Win64_Release
-cp Release/x64/bc/bc.exe Win64_Release
-cp Release/x64/bc/dc.exe Win64_Release
-cp Release/x64/bcl/bcl.lib Win64_Release
-
-zip -r Win32_Debug.zip Win32_Debug > /dev/null
-zip -r Win32_Release.zip Win32_Release > /dev/null
-zip -r Win64_Debug.zip Win64_Debug > /dev/null
-zip -r Win64_Release.zip Win64_Release > /dev/null
-
+printf '\n'
+shasum "$projver.tar.gz"
 printf '\n'
 shasum "$projver.tar.xz"
 printf '\n'
-shasum "Win32_Debug.zip"
-printf '\n'
-shasum "Win32_Release.zip"
-printf '\n'
-shasum "Win64_Debug.zip"
-printf '\n'
-shasum "Win64_Release.zip"
+shasum "$projver-windows.zip"

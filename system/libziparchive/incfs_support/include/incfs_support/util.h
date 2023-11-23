@@ -16,6 +16,11 @@
 
 #pragma once
 
+#ifdef __BIONIC__
+#include <linux/incrementalfs.h>
+#include <sys/vfs.h>
+#endif
+
 namespace incfs::util {
 
 // Some tools useful for writing hardened code
@@ -25,6 +30,18 @@ namespace incfs::util {
 template <class Container>
 void clearAndFree(Container& c) {
   Container().swap(c);
+}
+
+bool isIncfsFd([[maybe_unused]] int fd) {
+#ifdef __BIONIC__
+  struct statfs fs = {};
+  if (::fstatfs(fd, &fs) != 0) {
+    return false;
+  }
+  return fs.f_type == static_cast<decltype(fs.f_type)>(INCFS_MAGIC_NUMBER);
+#else
+  return false;  // incfs is linux-specific, and only matters on Android.
+#endif
 }
 
 }  // namespace incfs::util

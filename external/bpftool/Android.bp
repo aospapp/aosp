@@ -31,6 +31,19 @@ cc_binary_host {
         "include/uapi",
         "src/kernel/bpf"
     ],
+    target: {
+        musl: {
+            // There is an unfortunate interaction between the bionic uapi headers
+            // used by musl and the kernel headers distributed with bpftool.  The
+            // bionic uapi headers include <linux/compiler_types.h>, which they
+            // expect to be resolved to their own copy of compiler_types.h that
+            // includes compiler.h.  It instead resolves to the bpftool copy,
+            // which includes compiler-gcc.h directly, triggering an error if
+            // the _LINUX_COMPILER_H_ header guard is not already defined.  Hack
+            // around it by always including linux/compiler.h from the command line.
+            cflags: ["-include linux/compiler.h"],
+        },
+    },
     static_libs: [
         "libbpf",
         "libcap",

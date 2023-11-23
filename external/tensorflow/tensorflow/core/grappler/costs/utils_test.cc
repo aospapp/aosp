@@ -28,7 +28,7 @@ namespace grappler {
 
 namespace {
 
-void CreateConstOp(const string& name, std::initializer_list<int64> dims,
+void CreateConstOp(const string& name, std::initializer_list<int64_t> dims,
                    NodeDef* node) {
   Tensor tensor(DT_FLOAT, TensorShape(dims));
   for (int64_t i = 0; i < tensor.NumElements(); ++i)
@@ -202,6 +202,10 @@ TEST(UtilsTest, CalculateTensorSize) {
   EXPECT_EQ(
       DataTypeSize(DT_FLOAT) * 1 * 7 * 1 * 99,
       CalculateTensorSize(ShapeToTensorProperty({-1, 7, -1, 99}, DT_FLOAT)));
+
+  // Test overflow
+  EXPECT_EQ(-1, CalculateTensorSize(ShapeToTensorProperty(
+                    {4096, 4096, 4096, 33554432}, DT_FLOAT)));
 }
 
 TEST(UtilsTest, CalculateOutputSize) {

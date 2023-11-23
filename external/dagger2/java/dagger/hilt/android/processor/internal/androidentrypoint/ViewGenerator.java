@@ -31,7 +31,6 @@ import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -70,6 +69,7 @@ public final class ViewGenerator {
     Generators.addGeneratedBaseClassJavadoc(builder, AndroidClassNames.ANDROID_ENTRY_POINT);
     Processors.addGeneratedAnnotation(builder, env, getClass());
     Generators.copyLintAnnotations(metadata.element(), builder);
+    Generators.copySuppressAnnotations(metadata.element(), builder);
 
     metadata.baseElement().getTypeParameters().stream()
         .map(TypeVariableName::get)
@@ -177,13 +177,13 @@ public final class ViewGenerator {
   }
 
   private static boolean isSecondRestrictedParameter(Element element) {
-    return element instanceof TypeElement
+    return MoreElements.isType(element)
         && Processors.isAssignableFrom(
             MoreElements.asType(element), AndroidClassNames.ATTRIBUTE_SET);
   }
 
   private static boolean isFirstRestrictedParameter(Element element) {
-    return element instanceof TypeElement
+    return MoreElements.isType(element)
         && Processors.isAssignableFrom(MoreElements.asType(element), AndroidClassNames.CONTEXT);
   }
 

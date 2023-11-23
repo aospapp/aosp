@@ -20,15 +20,15 @@ android_test {
     name: "AndroidAutomotiveHomeTests",
     min_sdk_version: "24",
     static_libs: [
-        "androidx.test.runner",
         "androidx.test.rules",
         "automotive-home-helper",
-        "automotive-utility-helper",
-        "app-helpers-auto-interfaces",
-        "ub-uiautomator",
-        "hamcrest-library",
         "platform-test-options",
     ],
     srcs: ["src/**/*.java"],
-    test_suites: ["catbox","general-tests"],
+    test_suites: [
+        "catbox",
+        "general-tests",
+        "automotive-tests",
+        "automotive-general-tests",
+    ],
 }

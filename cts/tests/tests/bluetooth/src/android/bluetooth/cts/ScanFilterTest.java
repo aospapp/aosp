@@ -16,15 +16,38 @@
 
 package android.bluetooth.cts;
 
+import static android.Manifest.permission.BLUETOOTH_PRIVILEGED;
+import static android.bluetooth.BluetoothStatusCodes.FEATURE_SUPPORTED;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
+
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothAssignedNumbers.OrganizationId;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.TransportBlockFilter;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Parcel;
 import android.os.ParcelUuid;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
+
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SmallTest;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.CddTest;
+
+import org.junit.After;
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Unit test cases for Bluetooth LE scan filters.
@@ -32,7 +55,9 @@ import android.test.suitebuilder.annotation.SmallTest;
  * To run this test, use adb shell am instrument -e class 'android.bluetooth.ScanFilterTest' -w
  * 'com.android.bluetooth.tests/android.bluetooth.BluetoothTestRunner'
  */
-public class ScanFilterTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+@SmallTest
+public class ScanFilterTest {
 
     private static final String LOCAL_NAME = "Ped";
     private static final String DEVICE_MAC = "01:02:03:04:05:AB";
@@ -43,9 +68,13 @@ public class ScanFilterTest extends AndroidTestCase {
 
     private ScanResult mScanResult;
     private ScanFilter.Builder mFilterBuilder;
+    private BluetoothAdapter mBluetoothAdapter;
 
-    @Override
-    protected void setUp() {
+    @Before
+    public void setUp() {
+        Context context = InstrumentationRegistry.getInstrumentation().getContext();
+        Assume.assumeTrue(TestUtils.isBleSupported(context));
+
         byte[] scanRecord = new byte[] {
                 0x02, 0x01, 0x1a, // advertising flags
                 0x05, 0x02, 0x0b, 0x11, 0x0a, 0x11, // 16 bit service uuids
@@ -58,25 +87,32 @@ public class ScanFilterTest extends AndroidTestCase {
                 0x07, 0x2E, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06 // resolvable set identifier
         };
 
-        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-        if (adapter == null) {
+        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (mBluetoothAdapter == null) {
             // Bluetooth is not supported
-            assertFalse(mContext.getPackageManager().
-                        hasSystemFeature(PackageManager.FEATURE_BLUETOOTH));
+            assertFalse(context.getPackageManager()
+                    .hasSystemFeature(PackageManager.FEATURE_BLUETOOTH));
         } else {
-            assertTrue(mContext.getPackageManager().
-                       hasSystemFeature(PackageManager.FEATURE_BLUETOOTH));
-            BluetoothDevice device = adapter.getRemoteDevice(DEVICE_MAC);
+            assertTrue(context.getPackageManager()
+                    .hasSystemFeature(PackageManager.FEATURE_BLUETOOTH));
+            BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(DEVICE_MAC);
             mScanResult = new ScanResult(device, TestUtils.parseScanRecord(scanRecord),
                     -10, 1397545200000000L);
             mFilterBuilder = new ScanFilter.Builder();
+            TestUtils.adoptPermissionAsShellUid(BLUETOOTH_PRIVILEGED);
         }
     }
 
-    @SmallTest
-    public void testsetNameFilter() {
-        if (mFilterBuilder == null) return;
+    @After
+    public void tearDown() {
+        if (mFilterBuilder != null) {
+            TestUtils.dropPermissionAsShellUid();
+        }
+    }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
+    @Test
+    public void testSetNameFilter() {
         ScanFilter filter = mFilterBuilder.setDeviceName(LOCAL_NAME).build();
         assertEquals(LOCAL_NAME, filter.getDeviceName());
         assertTrue("setName filter fails", filter.matches(mScanResult));
@@ -85,10 +121,9 @@ public class ScanFilterTest extends AndroidTestCase {
         assertFalse("setName filter fails", filter.matches(mScanResult));
     }
 
-    @SmallTest
+    @CddTest(requirements = {"7.4.3/C-2-1"})
+    @Test
     public void testDeviceAddressFilter() {
-        if (mFilterBuilder == null) return;
-
         ScanFilter filter = mFilterBuilder.setDeviceAddress(DEVICE_MAC).build();
         assertEquals(DEVICE_MAC, filter.getDeviceAddress());
         assertTrue("device filter fails", filter.matches(mScanResult));
@@ -97,10 +132,9 @@ public class ScanFilterTest extends AndroidTestCase {
         assertFalse("device filter fails", filter.matches(mScanResult));
     }
 
-    @SmallTest
-    public void testsetServiceUuidFilter() {
-        if (mFilterBuilder == null) return;
-
+    @CddTest(requirements = {"7.4.3/C-2-1"})
+    @Test
+    public void testSetServiceUuidFilter() {
         ScanFilter filter = mFilterBuilder.setServiceUuid(
                 ParcelUuid.fromString(UUID1)).build();
         assertEquals(UUID1, filter.getServiceUuid().toString());
@@ -120,10 +154,9 @@ public class ScanFilterTest extends AndroidTestCase {
         assertTrue("uuid filter fails", filter.matches(mScanResult));
     }
 
-    @SmallTest
-    public void testsetServiceSolicitationUuidFilter() {
-        if (mFilterBuilder == null) return;
-
+    @CddTest(requirements = {"7.4.3/C-2-1"})
+    @Test
+    public void testSetServiceSolicitationUuidFilter() {
         ScanFilter filter = mFilterBuilder.setServiceSolicitationUuid(
                 ParcelUuid.fromString(UUID1)).build();
         assertEquals(UUID1, filter.getServiceSolicitationUuid().toString());
@@ -142,10 +175,9 @@ public class ScanFilterTest extends AndroidTestCase {
         assertTrue("uuid filter fails", filter.matches(mScanResult));
     }
 
-    @SmallTest
-    public void testsetServiceDataFilter() {
-        if (mFilterBuilder == null) return;
-
+    @CddTest(requirements = {"7.4.3/C-2-1"})
+    @Test
+    public void testSetServiceDataFilter() {
         byte[] setServiceData = new byte[] {
                 0x50, 0x64 };
         ParcelUuid serviceDataUuid = ParcelUuid.fromString(UUID2);
@@ -175,10 +207,9 @@ public class ScanFilterTest extends AndroidTestCase {
         assertFalse("service data filter fails", filter.matches(mScanResult));
     }
 
-    @SmallTest
-    public void testManufacturerSpecificData() {
-        if (mFilterBuilder == null) return;
-
+    @CddTest(requirements = {"7.4.3/C-2-1"})
+    @Test
+    public void testSetManufacturerSpecificData() {
         byte[] manufacturerData = new byte[] {
                 0x02, 0x15 };
         int manufacturerId = 0xE0;
@@ -212,9 +243,9 @@ public class ScanFilterTest extends AndroidTestCase {
         assertTrue("partial setManufacturerData filter fails", filter.matches(mScanResult));
     }
 
-    @SmallTest
+    @CddTest(requirements = {"7.4.3/C-2-1"})
+    @Test
     public void testSetAdvertisingDataTypeWithData() {
-        if (mFilterBuilder == null) return;
         byte[] adData = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
         byte[] adDataMask = {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
                 (byte) 0xFF};
@@ -232,10 +263,9 @@ public class ScanFilterTest extends AndroidTestCase {
         assertFalse("advertising data filter fails", filter.matches(mScanResult));
     }
 
-    @SmallTest
+    @CddTest(requirements = {"7.4.3/C-2-1"})
+    @Test
     public void testReadWriteParcel() {
-        if (mFilterBuilder == null) return;
-
         ScanFilter filter = mFilterBuilder.build();
         testReadWriteParcelForFilter(filter);
 
@@ -287,10 +317,44 @@ public class ScanFilterTest extends AndroidTestCase {
         testReadWriteParcelForFilter(filter);
     }
 
-    @SmallTest
+    @CddTest(requirements = {"7.4.3/C-2-1"})
+    @Test
     public void testDescribeContents() {
         final int expected = 0;
         assertEquals(expected, new ScanFilter.Builder().build().describeContents());
+    }
+
+    @CddTest(requirements = {"7.4.3/C-2-1"})
+    @Test
+    public void testBuilderSetTransportBlockFilter() {
+        final int orgId = OrganizationId.BLUETOOTH_SIG;
+        final int tdsFlag = 0x2;
+        final int tdsFlagMask = 0b11;
+        final byte[] transportData = new byte[] { 0x42, 0x43 };
+        final byte[] transportDataMask = new byte[] { 0x44, 0x45 };
+
+        TransportBlockFilter transportBlockFilter = new TransportBlockFilter.Builder(orgId)
+                .setTdsFlags(tdsFlag, tdsFlagMask)
+                .setTransportData(transportData, transportDataMask).build();
+
+        if (mBluetoothAdapter.getOffloadedTransportDiscoveryDataScanSupported()
+                != FEATURE_SUPPORTED) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> mFilterBuilder.setTransportBlockFilter(transportBlockFilter));
+            return;
+        }
+
+        final ScanFilter filter = mFilterBuilder
+                .setTransportBlockFilter(transportBlockFilter)
+                .build();
+
+        final TransportBlockFilter returnedTransportBlockFilter = filter.getTransportBlockFilter();
+        assertNotNull(returnedTransportBlockFilter);
+        assertEquals(orgId, returnedTransportBlockFilter.getOrgId());
+        assertEquals(tdsFlag, returnedTransportBlockFilter.getTdsFlags());
+        assertEquals(tdsFlagMask, returnedTransportBlockFilter.getTdsFlagsMask());
+        assertArrayEquals(transportData, returnedTransportBlockFilter.getTransportData());
+        assertArrayEquals(transportDataMask, returnedTransportBlockFilter.getTransportDataMask());
     }
 
     private void testReadWriteParcelForFilter(ScanFilter filter) {

@@ -16,6 +16,9 @@
 
 package com.android.sdksandbox;
 
+import android.app.sdksandbox.LoadSdkException;
+import android.app.sdksandbox.LogUtil;
+import android.app.sdksandbox.SandboxedSdk;
 import android.app.sdksandbox.SandboxedSdkContext;
 import android.app.sdksandbox.SandboxedSdkProvider;
 import android.content.Context;
@@ -43,9 +46,12 @@ class SandboxedSdkHolder {
     private static final String TAG = "SdkSandbox";
 
     private boolean mInitialized = false;
-    private ISdkSandboxToSdkSandboxManagerCallback mCallback;
     private SandboxedSdkProvider mSdk;
     private Context mContext;
+    private SandboxedSdk mSandboxedSdk;
+    private ILoadSdkInSandboxCallback mLoadSdkInSandboxCallback;
+    private SdkSandboxServiceImpl.SdkHolderToSdkSandboxServiceCallback
+            mHolderToSdkSandboxServiceCallback;
 
     private DisplayManager mDisplayManager;
     private final Random mRandom = new SecureRandom();
@@ -53,40 +59,85 @@ class SandboxedSdkHolder {
             new SparseArray<>();
 
     private final Handler mHandler = new Handler(Looper.getMainLooper());
+    private SdkSandboxServiceImpl.Injector mInjector;
 
-    void init(Context context, Bundle params,
-            ISdkSandboxToSdkSandboxManagerCallback callback,
-            String sdkProviderClassName, ClassLoader loader,
-            SandboxedSdkContext sandboxedSdkContext) {
+    void init(
+            Bundle params,
+            ILoadSdkInSandboxCallback loadSdkInSandboxCallback,
+            String sdkProviderClassName,
+            ClassLoader loader,
+            SandboxedSdkContext sandboxedSdkContext,
+            SdkSandboxServiceImpl.Injector injector,
+            SandboxLatencyInfo sandboxLatencyInfo,
+            SdkSandboxServiceImpl.SdkHolderToSdkSandboxServiceCallback holderToServiceCallback) {
         if (mInitialized) {
             throw new IllegalStateException("Already initialized!");
         }
         mInitialized = true;
-        mCallback = callback;
-        mContext = context;
+        mContext = sandboxedSdkContext.getBaseContext();
+        mLoadSdkInSandboxCallback = loadSdkInSandboxCallback;
+        mHolderToSdkSandboxServiceCallback = holderToServiceCallback;
         mDisplayManager = mContext.getSystemService(DisplayManager.class);
+        mInjector = injector;
+        /**
+         * The code inside the try block is *owned* by the sandbox, and latency is measured
+         * separately to the code that is owned by the SDK
+         */
         try {
             Class<?> clz = Class.forName(sdkProviderClassName, true, loader);
             mSdk = (SandboxedSdkProvider) clz.getConstructor().newInstance();
-            mSdk.initSdk(sandboxedSdkContext, params, mContext.getMainExecutor(),
-                    new SandboxedSdkProvider.InitSdkCallback() {
-                        @Override
-                        public void onInitSdkFinished(Bundle extraParams) {
-                            sendLoadSdkSuccess();
-                        }
-
-                        @Override
-                        public void onInitSdkError(String errorMessage) {
-                            sendLoadSdkError(errorMessage);
-                        }
-                    });
+            mSdk.attachContext(sandboxedSdkContext);
         } catch (ClassNotFoundException e) {
-            sendLoadSdkError("Could not find class: " + sdkProviderClassName);
+            sandboxLatencyInfo.setSandboxStatus(
+                    SandboxLatencyInfo.SANDBOX_STATUS_FAILED_AT_SANDBOX);
+            sendLoadSdkError(
+                    new LoadSdkException(
+                            ILoadSdkInSandboxCallback.LOAD_SDK_INTERNAL_ERROR,
+                            "Could not find class: " + sdkProviderClassName),
+                    sandboxLatencyInfo);
         } catch (Exception e) {
-            sendLoadSdkError("Could not instantiate SandboxedSdkProvider: " + e);
+            sandboxLatencyInfo.setSandboxStatus(
+                    SandboxLatencyInfo.SANDBOX_STATUS_FAILED_AT_SANDBOX);
+            sendLoadSdkError(
+                    new LoadSdkException(
+                            ILoadSdkInSandboxCallback.LOAD_SDK_INTERNAL_ERROR,
+                            "Could not instantiate SandboxedSdkProvider: " + e),
+                    sandboxLatencyInfo);
         } catch (Throwable e) {
-            sendLoadSdkError("Error thrown during init: " + e);
+            sandboxLatencyInfo.setSandboxStatus(
+                    SandboxLatencyInfo.SANDBOX_STATUS_FAILED_AT_SANDBOX);
+            sendLoadSdkError(
+                    new LoadSdkException(
+                            ILoadSdkInSandboxCallback.LOAD_SDK_INTERNAL_ERROR,
+                            "Error thrown during init: " + e),
+                    sandboxLatencyInfo);
         }
+
+        mHandler.post(
+                () -> {
+                    /** The code inside the try block runs in SDK and is measured latency of SDK */
+                    try {
+                        sandboxLatencyInfo.setTimeSandboxCalledSdk(mInjector.getCurrentTime());
+                        mSandboxedSdk = mSdk.onLoadSdk(params);
+                        sandboxLatencyInfo.setTimeSdkCallCompleted(mInjector.getCurrentTime());
+                        sendLoadSdkSuccess(mSandboxedSdk, sandboxLatencyInfo);
+                    } catch (LoadSdkException exception) {
+                        sandboxLatencyInfo.setTimeSdkCallCompleted(mInjector.getCurrentTime());
+                        sandboxLatencyInfo.setSandboxStatus(
+                                SandboxLatencyInfo.SANDBOX_STATUS_FAILED_AT_SDK);
+                        sendLoadSdkError(exception, sandboxLatencyInfo);
+                    } catch (RuntimeException exception) {
+                        sandboxLatencyInfo.setTimeSdkCallCompleted(mInjector.getCurrentTime());
+                        sandboxLatencyInfo.setSandboxStatus(
+                                SandboxLatencyInfo.SANDBOX_STATUS_FAILED_AT_SDK);
+                        sendLoadSdkError(
+                                new LoadSdkException(exception, new Bundle()), sandboxLatencyInfo);
+                    }
+                });
+    }
+
+    void unloadSdk() {
+        mHandler.post(() -> mSdk.beforeUnloadSdk());
     }
 
     void dump(PrintWriter writer) {
@@ -95,30 +146,38 @@ class SandboxedSdkHolder {
         writer.println(" mSdk class: " + sdkClass);
     }
 
-    private void sendLoadSdkSuccess() {
+    private void sendLoadSdkSuccess(
+            SandboxedSdk sandboxedSdk, SandboxLatencyInfo sandboxLatencyInfo) {
+        sandboxLatencyInfo.setTimeSandboxCalledSystemServer(mInjector.getCurrentTime());
         try {
-            mCallback.onLoadSdkSuccess(new Bundle(), new SdkSandboxCallbackImpl());
+            mHolderToSdkSandboxServiceCallback.onSuccess();
+            mLoadSdkInSandboxCallback.onLoadSdkSuccess(
+                    sandboxedSdk, new SdkSandboxCallbackImpl(), sandboxLatencyInfo);
         } catch (RemoteException e) {
             Log.e(TAG, "Could not send onLoadSdkSuccess: " + e);
         }
     }
 
-    private void sendSurfacePackageError(String errorMessage) {
+    private void sendSurfacePackageError(
+            String errorMessage,
+            IRequestSurfacePackageFromSdkCallback callback,
+            SandboxLatencyInfo sandboxLatencyInfo) {
+        sandboxLatencyInfo.setTimeSandboxCalledSystemServer(mInjector.getCurrentTime());
         try {
-            mCallback.onSurfacePackageError(
-                    ISdkSandboxToSdkSandboxManagerCallback
-                            .SURFACE_PACKAGE_INTERNAL_ERROR,
-                    errorMessage);
+            callback.onSurfacePackageError(
+                    IRequestSurfacePackageFromSdkCallback.SURFACE_PACKAGE_INTERNAL_ERROR,
+                    errorMessage,
+                    sandboxLatencyInfo);
         } catch (RemoteException e) {
             Log.e(TAG, "Could not send onSurfacePackageError: " + e);
         }
     }
 
-    private void sendLoadSdkError(String errorMessage) {
+    private void sendLoadSdkError(
+            LoadSdkException exception, SandboxLatencyInfo sandboxLatencyInfo) {
+        sandboxLatencyInfo.setTimeSandboxCalledSystemServer(mInjector.getCurrentTime());
         try {
-            mCallback.onLoadSdkError(
-                    ISdkSandboxToSdkSandboxManagerCallback.LOAD_SDK_PROVIDER_INIT_ERROR,
-                    errorMessage);
+            mLoadSdkInSandboxCallback.onLoadSdkError(exception, sandboxLatencyInfo);
         } catch (RemoteException e) {
             Log.e(TAG, "Could not send onLoadSdkError: " + e);
         }
@@ -141,35 +200,86 @@ class SandboxedSdkHolder {
             extends ISdkSandboxManagerToSdkSandboxCallback.Stub {
 
         @Override
-        public void onSurfacePackageRequested(IBinder token, int displayId, Bundle params) {
+        public void onSurfacePackageRequested(
+                IBinder token,
+                int displayId,
+                int width,
+                int height,
+                Bundle params,
+                SandboxLatencyInfo sandboxLatencyInfo,
+                IRequestSurfacePackageFromSdkCallback callback) {
+            sandboxLatencyInfo.setTimeSandboxReceivedCallFromSystemServer(
+                    mInjector.getCurrentTime());
+
+            LogUtil.d(TAG, "onSurfacePackageRequested received");
+
             try {
                 Context displayContext = mContext.createDisplayContext(
                         mDisplayManager.getDisplay(displayId));
                 // TODO(b/209009304): Support other window contexts?
                 Context windowContext = displayContext.createWindowContext(
                         WindowManager.LayoutParams.TYPE_APPLICATION_PANEL, null);
-                final View view = mSdk.getView(windowContext, params);
                 // Creating a SurfaceControlViewHost needs to done on the handler thread.
-                mHandler.post(() -> {
-                    try {
-                        SurfaceControlViewHost host = new SurfaceControlViewHost(windowContext,
-                                mDisplayManager.getDisplay(displayId), token);
-                        int width = params.getInt(SdkSandboxServiceImpl.WIDTH_KEY, 500);
-                        int height = params.getInt(SdkSandboxServiceImpl.HEIGHT_KEY, 500);
-                        host.setView(view, width, height);
-                        SurfaceControlViewHost.SurfacePackage surfacePackage =
-                                host.getSurfacePackage();
-                        int surfacePackageId = allocateSurfacePackageId(surfacePackage);
-                        mCallback.onSurfacePackageReady(surfacePackage, surfacePackageId, params);
-                    } catch (RemoteException e) {
-                        Log.e(TAG, "Could not send onSurfacePackageReady", e);
-                    } catch (Throwable e) {
-                        sendSurfacePackageError("Error thrown while getting surface package: " + e);
-                    }
-                });
+                mHandler.post(
+                        () -> {
+                            LogUtil.d(TAG, "Creating SurfaceControlViewHost on handler thread");
+                            final View view;
+                            sandboxLatencyInfo.setTimeSandboxCalledSdk(mInjector.getCurrentTime());
+                            try {
+                                view = mSdk.getView(windowContext, params, width, height);
+                            } catch (Throwable e) {
+                                sandboxLatencyInfo.setTimeSdkCallCompleted(
+                                        mInjector.getCurrentTime());
+                                sandboxLatencyInfo.setSandboxStatus(
+                                        SandboxLatencyInfo.SANDBOX_STATUS_FAILED_AT_SDK);
+                                sendSurfacePackageError(
+                                        "Error thrown while getting surface package from SDK: " + e,
+                                        callback,
+                                        sandboxLatencyInfo);
+                                return;
+                            }
+                            sandboxLatencyInfo.setTimeSdkCallCompleted(mInjector.getCurrentTime());
+                            try {
+                                SurfaceControlViewHost host =
+                                        new SurfaceControlViewHost(
+                                                windowContext,
+                                                mDisplayManager.getDisplay(displayId),
+                                                token);
+                                LogUtil.d(TAG, "SurfaceControlViewHost created");
+                                host.setView(view, width, height);
+                                LogUtil.d(TAG, "View from SDK set to SurfaceControlViewHost");
+                                SurfaceControlViewHost.SurfacePackage surfacePackage =
+                                        host.getSurfacePackage();
+                                int surfacePackageId = allocateSurfacePackageId(surfacePackage);
+
+                                sandboxLatencyInfo.setTimeSandboxCalledSystemServer(
+                                        mInjector.getCurrentTime());
+
+                                callback.onSurfacePackageReady(
+                                        surfacePackage,
+                                        surfacePackageId,
+                                        params,
+                                        sandboxLatencyInfo);
+                            } catch (RemoteException e) {
+                                Log.e(TAG, "Could not send onSurfacePackageReady", e);
+                            } catch (Throwable e) {
+                                sandboxLatencyInfo.setSandboxStatus(
+                                        SandboxLatencyInfo.SANDBOX_STATUS_FAILED_AT_SANDBOX);
+                                sendSurfacePackageError(
+                                        "Error thrown while getting surface package: " + e,
+                                        callback,
+                                        sandboxLatencyInfo);
+                            }
+                        });
             } catch (Throwable e) {
-                sendSurfacePackageError("Error thrown while getting surface package: " + e);
+                sandboxLatencyInfo.setSandboxStatus(
+                        SandboxLatencyInfo.SANDBOX_STATUS_FAILED_AT_SANDBOX);
+                sendSurfacePackageError(
+                        "Error thrown while getting surface package: " + e,
+                        callback,
+                        sandboxLatencyInfo);
             }
         }
+
     }
 }

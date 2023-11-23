@@ -20,6 +20,7 @@ import android.Manifest;
 import android.app.ActivityManager;
 import android.app.AppOpsManager;
 import android.app.tvsettings.TvSettingsEnums;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.UserHandle;
@@ -29,53 +30,28 @@ import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
-import androidx.preference.SwitchPreference;
 import androidx.preference.TwoStatePreference;
 
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;
-import com.android.tv.settings.SettingsPreferenceFragment;
+import com.android.tv.settings.widget.SwitchWithSoundPreference;
 
 /**
  * Fragment for managing which apps are allowed to turn the screen on
  */
 @Keep
-public class TurnScreenOn extends SettingsPreferenceFragment
-        implements ManageApplicationsController.Callback {
+public class TurnScreenOn extends ManageAppOp {
     private static final String TAG = TurnScreenOn.class.getSimpleName();
     private static final boolean DEBUG = false;
-    private ManageApplicationsController mManageApplicationsController;
-    private AppOpsManager mAppOpsManager;
-
-    private final ApplicationsState.AppFilter mFilter = new ApplicationsState.CompoundFilter(
-            new ApplicationsState.CompoundFilter(
-                    ApplicationsState.FILTER_WITHOUT_DISABLED_UNTIL_USED,
-                    ApplicationsState.FILTER_ALL_ENABLED),
-            new ApplicationsState.AppFilter() {
-                @Override
-                public void init() {
-                }
-
-                @Override
-                public boolean filterApp(ApplicationsState.AppEntry info) {
-                    info.extraInfo = mAppOpsManager.checkOpNoThrow(AppOpsManager.OP_TURN_SCREEN_ON,
-                            info.info.uid, info.info.packageName) == AppOpsManager.MODE_ALLOWED;
-                    return !ManageAppOp.shouldIgnorePackage(
-                            getContext(),
-                            info.info.packageName, /* customizedIgnoredPackagesArray= */ 0)
-                            && !info.info.isPrivilegedApp()
-                            && ActivityManager.getCurrentUser() == UserHandle.getUserId(
-                            info.info.uid)
-                            && checkPackageHasWakeLockPermission(info.info.packageName);
-                }
-            });
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        mAppOpsManager = getContext().getSystemService(AppOpsManager.class);
-        mManageApplicationsController = new ManageApplicationsController(getContext(), this,
-                getLifecycle(), mFilter, ApplicationsState.ALPHA_COMPARATOR);
+    public int getAppOpsOpCode() {
+        return AppOpsManager.OP_TURN_SCREEN_ON;
+    }
+
+    @Override
+    public String getPermission() {
+        return Manifest.permission.TURN_SCREEN_ON;
     }
 
     @Override
@@ -86,37 +62,26 @@ public class TurnScreenOn extends SettingsPreferenceFragment
     @Override
     public void onResume() {
         super.onResume();
-        mManageApplicationsController.updateAppList();
+        updateAppList();
     }
 
-    private boolean checkPackageHasWakeLockPermission(String packageName) {
-        return getContext().getPackageManager().checkPermission(Manifest.permission.WAKE_LOCK,
-                packageName) == PackageManager.PERMISSION_GRANTED;
+    private boolean hasTurnScreenOnPermission(ApplicationInfo appInfo) {
+        return getContext().getPackageManager().checkPermission(Manifest.permission.TURN_SCREEN_ON,
+                appInfo.packageName) == PackageManager.PERMISSION_GRANTED;
     }
 
     @NonNull
     @Override
     public Preference bindPreference(@NonNull Preference preference,
             ApplicationsState.AppEntry entry) {
-        final TwoStatePreference switchPref = (SwitchPreference) preference;
+        final TwoStatePreference switchPref = (SwitchWithSoundPreference) preference;
         switchPref.setTitle(entry.label);
-        switchPref.setKey(entry.info.packageName);
+        switchPref.setKey("package:" + entry.info.uid + ":" + entry.info.packageName);
         switchPref.setIcon(entry.icon);
-        switchPref.setChecked((Boolean) entry.extraInfo);
+        switchPref.setChecked(((PermissionState) entry.extraInfo).isAllowed());
         switchPref.setOnPreferenceChangeListener((pref, newValue) -> {
-            int newMode =
-                    (Boolean) newValue ? AppOpsManager.MODE_ALLOWED : AppOpsManager.MODE_ERRORED;
-            if (DEBUG) {
-                Log.d(TAG, "setting OP_TURN_SCREEN_ON to " + newMode
-                        + ", uid=" + entry.info.uid
-                        + ", packageName=" + entry.info.packageName
-                        + ", userId=" + UserHandle.getUserId(entry.info.uid)
-                        + ", currentUser=" + ActivityManager.getCurrentUser());
-            }
-            mAppOpsManager.setMode(AppOpsManager.OP_TURN_SCREEN_ON,
-                    entry.info.uid,
-                    entry.info.packageName,
-                    newMode);
+            findEntriesUsingPackageName(entry.info.packageName)
+                    .forEach(packageEntry -> setTurnScreenOnMode(packageEntry, (Boolean) newValue));
             return true;
         });
         switchPref.setSummaryOn(R.string.app_permission_summary_allowed);
@@ -124,10 +89,23 @@ public class TurnScreenOn extends SettingsPreferenceFragment
         return switchPref;
     }
 
+    private void setTurnScreenOnMode(ApplicationsState.AppEntry entry, boolean newValue) {
+        int newMode = newValue ? AppOpsManager.MODE_ALLOWED : AppOpsManager.MODE_ERRORED;
+        if (DEBUG) {
+            Log.d(TAG, "setting OP_TURN_SCREEN_ON to " + newMode
+                    + ", uid=" + entry.info.uid
+                    + ", packageName=" + entry.info.packageName
+                    + ", userId=" + UserHandle.getUserId(entry.info.uid)
+                    + ", currentUser=" + ActivityManager.getCurrentUser());
+        }
+        getContext().getSystemService(AppOpsManager.class).setMode(getAppOpsOpCode(),
+                entry.info.uid, entry.info.packageName, newMode);
+    }
+
     @NonNull
     @Override
     public Preference createAppPreference() {
-        return new SwitchPreference(getPreferenceManager().getContext());
+        return new SwitchWithSoundPreference(getPreferenceManager().getContext());
     }
 
     @NonNull

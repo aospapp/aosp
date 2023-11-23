@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,16 +33,16 @@ import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceScreen;
 
 import com.android.tv.settings.SettingsFragmentProvider;
-import com.android.tv.settings.library.basic.BasicModeFeatureProvider;
-import com.android.tv.settings.library.basic.BasicModeFeatureProviderImpl;
-import com.android.tv.settings.library.enterprise.EnterprisePrivacyFeatureProvider;
-import com.android.tv.settings.library.enterprise.EnterprisePrivacyFeatureProviderImpl;
-import com.android.tv.settings.library.enterprise.apps.ApplicationFeatureProvider;
-import com.android.tv.settings.library.enterprise.apps.ApplicationFeatureProviderImpl;
-import com.android.tv.settings.library.help.SupportFeatureProvider;
-import com.android.tv.settings.library.help.SupportFeatureProviderImpl;
-import com.android.tv.settings.library.startup.startup.StartupVerificationFeatureProvider;
-import com.android.tv.settings.library.startup.startup.StartupVerificationFeatureProviderImpl;
+import com.android.tv.settings.basic.BasicModeFeatureProvider;
+import com.android.tv.settings.basic.BasicModeFeatureProviderImpl;
+import com.android.tv.settings.enterprise.EnterprisePrivacyFeatureProvider;
+import com.android.tv.settings.enterprise.EnterprisePrivacyFeatureProviderImpl;
+import com.android.tv.settings.enterprise.apps.ApplicationFeatureProvider;
+import com.android.tv.settings.enterprise.apps.ApplicationFeatureProviderImpl;
+import com.android.tv.settings.help.SupportFeatureProvider;
+import com.android.tv.settings.help.SupportFeatureProviderImpl;
+import com.android.tv.settings.startup.StartupVerificationFeatureProvider;
+import com.android.tv.settings.startup.StartupVerificationFeatureProviderImpl;
 import com.android.tv.settings.system.LeanbackPickerDialogFragment;
 import com.android.tv.settings.system.LeanbackPickerDialogPreference;
 import com.android.tv.twopanelsettings.TwoPanelSettingsFragment;
@@ -53,10 +53,57 @@ public class FeatureFactoryImplTwoPanel implements FeatureFactory {
 
     protected static final String TAG = "FeatureFactoryImplTwoP";
 
+    private EnterprisePrivacyFeatureProvider mEnterprisePrivacyFeatureProvider;
+    private ApplicationFeatureProvider mApplicationFeatureProvider;
+
+
     @Override
     public SettingsFragmentProvider getSettingsFragmentProvider() {
         return SettingsFragment::newInstance;
     }
+
+    @Override
+    public SupportFeatureProvider getSupportFeatureProvider() {
+        return new SupportFeatureProviderImpl();
+    }
+
+    @Override
+    public BasicModeFeatureProvider getBasicModeFeatureProvider() {
+        return new BasicModeFeatureProviderImpl();
+    }
+
+    @Override
+    public StartupVerificationFeatureProvider getStartupVerificationFeatureProvider() {
+        return new StartupVerificationFeatureProviderImpl();
+    }
+
+    @Override
+    public EnterprisePrivacyFeatureProvider getEnterprisePrivacyFeatureProvider(Context context) {
+        if (mEnterprisePrivacyFeatureProvider == null) {
+            final Context appContext = context.getApplicationContext();
+            mEnterprisePrivacyFeatureProvider = new EnterprisePrivacyFeatureProviderImpl(appContext,
+                    appContext.getSystemService(DevicePolicyManager.class),
+                    appContext.getPackageManager(),
+                    UserManager.get(appContext),
+                    appContext.getSystemService(ConnectivityManager.class),
+                    appContext.getSystemService(VpnManager.class),
+                    appContext.getResources());
+        }
+        return mEnterprisePrivacyFeatureProvider;
+    }
+
+    @Override
+    public ApplicationFeatureProvider getApplicationFeatureProvider(Context context) {
+        if (mApplicationFeatureProvider == null) {
+            final Context appContext = context.getApplicationContext();
+            mApplicationFeatureProvider = new ApplicationFeatureProviderImpl(appContext,
+                    appContext.getPackageManager(),
+                    AppGlobals.getPackageManager(),
+                    appContext.getSystemService(DevicePolicyManager.class));
+        }
+        return mApplicationFeatureProvider;
+    }
+
     /**
      * A settings fragment suitable for displaying in the two panel layout. Handles launching
      * fragments and dialogs in a reasonably generic way.

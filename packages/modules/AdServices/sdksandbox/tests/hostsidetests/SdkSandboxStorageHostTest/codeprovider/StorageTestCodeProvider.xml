@@ -15,12 +15,12 @@
   ~ limitations under the License.
   -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.tests.codeprovider.storagetest">
+          package="com.android.tests.codeprovider.storagetest_1">
 
-    <application hasCode="false">
+    <application>
         <sdk-library android:name="com.android.tests.codeprovider.storagetest"
             android:versionMajor="1" />
         <property android:name="android.sdksandbox.PROPERTY_SDK_PROVIDER_CLASS_NAME"
-                  android:value="com.android.tests.codeprovider.storagetest.StorageTestSandboxedSdkProvider" />
+                  android:value="com.android.tests.codeprovider.storagetest_1.StorageTestSandboxedSdkProvider" />
     </application>
 </manifest>

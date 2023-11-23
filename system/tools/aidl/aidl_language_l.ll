@@ -128,6 +128,8 @@ out                   { return yy::parser::token::OUT; }
 inout                 { return yy::parser::token::INOUT; }
 cpp_header            { yylval->token = new AidlToken("cpp_header", comments);
                         return yy::parser::token::CPP_HEADER; }
+ndk_header            { yylval->token = new AidlToken("ndk_header", comments);
+                        return yy::parser::token::NDK_HEADER; }
 const                 { yylval->token = new AidlToken("const", comments);
                         return yy::parser::token::CONST; }
 true                  { return yy::parser::token::TRUE_LITERAL; }

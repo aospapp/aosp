@@ -18,15 +18,23 @@ package com.android.tv.menu;
 import static androidx.test.InstrumentationRegistry.getTargetContext;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.isNull;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+
 import com.android.tv.menu.Menu.OnMenuVisibilityChangeListener;
+
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentMatchers;
-import org.mockito.Matchers;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -43,9 +51,8 @@ public class MenuTest {
     public void setUp() {
         mMenuView = Mockito.mock(IMenuView.class);
         MenuRowFactory factory = Mockito.mock(MenuRowFactory.class);
-    Mockito.when(
-            factory.createMenuRow(
-                ArgumentMatchers.any(Menu.class), ArgumentMatchers.any(Class.class)))
+        when(factory.createMenuRow(
+                any(Menu.class), any(Class.class)))
         .thenReturn(null);
         mVisibilityChangeListener = Mockito.mock(OnMenuVisibilityChangeListener.class);
         mMenu = new Menu(getTargetContext(), mMenuView, factory, mVisibilityChangeListener);
@@ -81,22 +88,22 @@ public class MenuTest {
         mMenu.show(Menu.REASON_NONE);
         setMenuVisible(true);
         // Listener should be called with "true" argument.
-        Mockito.verify(mVisibilityChangeListener, Mockito.atLeastOnce())
-                .onMenuVisibilityChange(Matchers.eq(true));
-        Mockito.verify(mVisibilityChangeListener, Mockito.never())
-                .onMenuVisibilityChange(Matchers.eq(false));
+        verify(mVisibilityChangeListener, atLeastOnce())
+                .onMenuVisibilityChange(eq(true));
+        verify(mVisibilityChangeListener, never())
+                .onMenuVisibilityChange(eq(false));
         // IMenuView.show should be called with the same parameter.
-        Mockito.verify(mMenuView)
+        verify(mMenuView)
                 .onShow(
-                        Matchers.eq(Menu.REASON_NONE),
-                        Matchers.isNull(String.class),
-                        Matchers.isNull(Runnable.class));
+                        eq(Menu.REASON_NONE),
+                        isNull(),
+                        isNull());
         mMenu.hide(true);
         setMenuVisible(false);
         // Listener should be called with "false" argument.
-        Mockito.verify(mVisibilityChangeListener, Mockito.atLeastOnce())
-                .onMenuVisibilityChange(Matchers.eq(false));
-        Mockito.verify(mMenuView).onHide();
+        verify(mVisibilityChangeListener, atLeastOnce())
+                .onMenuVisibilityChange(eq(false));
+        verify(mMenuView).onHide();
     }
 
     @Test
@@ -105,22 +112,22 @@ public class MenuTest {
         mMenu.show(Menu.REASON_GUIDE);
         setMenuVisible(true);
         // Listener should be called with "true" argument.
-        Mockito.verify(mVisibilityChangeListener, Mockito.atLeastOnce())
-                .onMenuVisibilityChange(Matchers.eq(true));
-        Mockito.verify(mVisibilityChangeListener, Mockito.never())
-                .onMenuVisibilityChange(Matchers.eq(false));
+        verify(mVisibilityChangeListener, atLeastOnce())
+                .onMenuVisibilityChange(eq(true));
+        verify(mVisibilityChangeListener, never())
+                .onMenuVisibilityChange(eq(false));
         // IMenuView.show should be called with the same parameter.
-        Mockito.verify(mMenuView)
+        verify(mMenuView)
                 .onShow(
-                        Matchers.eq(Menu.REASON_GUIDE),
-                        Matchers.eq(ChannelsRow.ID),
-                        Matchers.isNull(Runnable.class));
+                        eq(Menu.REASON_GUIDE),
+                        eq(ChannelsRow.ID),
+                        isNull());
         mMenu.hide(false);
         setMenuVisible(false);
         // Listener should be called with "false" argument.
-        Mockito.verify(mVisibilityChangeListener, Mockito.atLeastOnce())
-                .onMenuVisibilityChange(Matchers.eq(false));
-        Mockito.verify(mMenuView).onHide();
+        verify(mVisibilityChangeListener, atLeastOnce())
+                .onMenuVisibilityChange(eq(false));
+        verify(mMenuView).onHide();
     }
 
     @Test
@@ -129,26 +136,26 @@ public class MenuTest {
         mMenu.show(Menu.REASON_PLAY_CONTROLS_FAST_FORWARD);
         setMenuVisible(true);
         // Listener should be called with "true" argument.
-        Mockito.verify(mVisibilityChangeListener, Mockito.atLeastOnce())
-                .onMenuVisibilityChange(Matchers.eq(true));
-        Mockito.verify(mVisibilityChangeListener, Mockito.never())
-                .onMenuVisibilityChange(Matchers.eq(false));
+        verify(mVisibilityChangeListener, atLeastOnce())
+                .onMenuVisibilityChange(eq(true));
+        verify(mVisibilityChangeListener, never())
+                .onMenuVisibilityChange(eq(false));
         // IMenuView.show should be called with the same parameter.
-        Mockito.verify(mMenuView)
+        verify(mMenuView)
                 .onShow(
-                        Matchers.eq(Menu.REASON_PLAY_CONTROLS_FAST_FORWARD),
-                        Matchers.eq(PlayControlsRow.ID),
-                        Matchers.isNull(Runnable.class));
+                        eq(Menu.REASON_PLAY_CONTROLS_FAST_FORWARD),
+                        eq(PlayControlsRow.ID),
+                        isNull());
         mMenu.hide(false);
         setMenuVisible(false);
         // Listener should be called with "false" argument.
-        Mockito.verify(mVisibilityChangeListener, Mockito.atLeastOnce())
-                .onMenuVisibilityChange(Matchers.eq(false));
-        Mockito.verify(mMenuView).onHide();
+        verify(mVisibilityChangeListener, atLeastOnce())
+                .onMenuVisibilityChange(eq(false));
+        verify(mMenuView).onHide();
     }
 
     private void setMenuVisible(final boolean visible) {
-        Mockito.when(mMenuView.isVisible())
+        when(mMenuView.isVisible())
                 .thenAnswer(
                         new Answer<Boolean>() {
                             @Override

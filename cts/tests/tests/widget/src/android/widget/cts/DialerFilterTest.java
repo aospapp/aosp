@@ -60,6 +60,7 @@ import org.xmlpull.v1.XmlPullParser;
 public class DialerFilterTest {
     private Activity mActivity;
     private Instrumentation mInstrumentation;
+    private CtsKeyEventUtil mCtsKeyEventUtil;
     private DialerFilter mDialerFilter;
 
     @Rule
@@ -69,6 +70,7 @@ public class DialerFilterTest {
     @Before
     public void setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mCtsKeyEventUtil = new CtsKeyEventUtil(mInstrumentation.getTargetContext());
         mActivity = mActivityRule.getActivity();
         WindowUtil.waitForFocus(mActivity);
 
@@ -104,7 +106,7 @@ public class DialerFilterTest {
 
         assertTrue(mDialerFilter.hasFocus());
 
-        CtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "123");
+        mCtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "123");
         assertEquals("", mDialerFilter.getLetters().toString());
         assertEquals("123", mDialerFilter.getDigits().toString());
 
@@ -118,10 +120,10 @@ public class DialerFilterTest {
                 = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
         if (keymap.getKeyboardType() == KeyCharacterMap.NUMERIC) {
             // "adg" in case of 12-key(NUMERIC) keyboard
-            CtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "234");
+            mCtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "234");
         }
         else {
-            CtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "adg");
+            mCtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "adg");
         }
         assertEquals("ADG", mDialerFilter.getLetters().toString());
         assertEquals("", mDialerFilter.getDigits().toString());
@@ -134,10 +136,10 @@ public class DialerFilterTest {
         // 12-key support
         if (keymap.getKeyboardType() == KeyCharacterMap.NUMERIC) {
             // "adg" in case of 12-key(NUMERIC) keyboard
-            CtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "234");
+            mCtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "234");
         }
         else {
-            CtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "adg");
+            mCtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "adg");
         }
         assertEquals("ADG", mDialerFilter.getLetters().toString());
         // A, D, K may map to numbers on some keyboards. Don't test.
@@ -147,7 +149,7 @@ public class DialerFilterTest {
             mDialerFilter.setMode(DialerFilter.DIGITS_AND_LETTERS);
         });
 
-        CtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "123");
+        mCtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "123");
         // 1, 2, 3 may map to letters on some keyboards. Don't test.
         assertEquals("123", mDialerFilter.getDigits().toString());
     }

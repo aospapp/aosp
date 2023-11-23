@@ -16,8 +16,8 @@
 // for FLAG macros to work out right in shared infrastructure.
 
 USE_CP(NEWTOY(cp, "<1(preserve):;D(parents)RHLPprudaslvnF(remove-destination)fit:T[-HLPd][-niu][+Rr]", TOYFLAG_BIN))
-USE_MV(NEWTOY(mv, "<1vnF(remove-destination)fit:T[-ni]", TOYFLAG_BIN))
-USE_INSTALL(NEWTOY(install, "<1cdDpsvt:m:o:g:", TOYFLAG_USR|TOYFLAG_BIN))
+USE_MV(NEWTOY(mv, "<1v(verbose)nF(remove-destination)fit:T[-ni]", TOYFLAG_BIN))
+USE_INSTALL(NEWTOY(install, "<1cdDp(preserve-timestamps)svt:m:o:g:", TOYFLAG_USR|TOYFLAG_BIN))
 
 config CP
   bool "cp"
@@ -148,10 +148,8 @@ static int cp_node(struct dirtree *try)
 
     // Detect recursive copies via repeated top node (cp -R .. .) or
     // identical source/target (fun with hardlinks).
-    if ((TT.top.st_dev == try->st.st_dev && TT.top.st_ino == try->st.st_ino
-         && (catch = TT.destname))
-        || (!fstatat(cfd, catch, &cst, 0) && cst.st_dev == try->st.st_dev
-         && cst.st_ino == try->st.st_ino))
+    if ((same_file(&TT.top, &try->st) && (catch = TT.destname))
+        || (!fstatat(cfd, catch, &cst, 0) && same_file(&cst, &try->st)))
     {
       error_msg("'%s' is '%s'", catch, err = dirtree_path(try, 0));
       free(err);
@@ -206,7 +204,7 @@ static int cp_node(struct dirtree *try)
         if (!mkdirat(cfd, catch, try->st.st_mode | 0200) || errno == EEXIST)
           if (-1 != (try->extra = openat(cfd, catch, O_NOFOLLOW)))
             if (!fstat(try->extra, &st2) && S_ISDIR(st2.st_mode))
-              return DIRTREE_COMEAGAIN | (DIRTREE_SYMFOLLOW*!!FLAG(L));
+              return DIRTREE_COMEAGAIN | DIRTREE_SYMFOLLOW*FLAG(L);
 
       // Hardlink
 
@@ -432,9 +430,7 @@ void cp_main(void)
     // "mv across devices" triggers cp fallback path, so set that as default
     errno = EXDEV;
     if (CFG_MV && toys.which->name[0] == 'm') {
-      int force = FLAG(f), no_clobber = FLAG(n);
-
-      if (!force || no_clobber) {
+      if (!FLAG(f) || FLAG(n)) {
         struct stat st;
         int exists = !stat(TT.destname, &st);
 
@@ -447,7 +443,7 @@ void cp_main(void)
           else unlink(TT.destname);
         }
         // if -n and dest exists, don't try to rename() or copy
-        if (exists && no_clobber) send = 0;
+        if (exists && FLAG(n)) send = 0;
       }
       if (send) send = rename(src, TT.destname);
       if (trail) trail[1] = '/';
@@ -456,7 +452,7 @@ void cp_main(void)
     // Copy if we didn't mv or hit an error, skipping nonexistent sources
     if (send) {
       if (errno!=EXDEV || dirtree_flagread(src, DIRTREE_SHUTUP+
-        DIRTREE_SYMFOLLOW*!!(FLAG(H)||FLAG(L)), TT.callback))
+        DIRTREE_SYMFOLLOW*(FLAG(H)|FLAG(L)), TT.callback))
           perror_msg("bad '%s'", src);
     }
     if (destdir) free(TT.destname);
@@ -472,9 +468,9 @@ void mv_main(void)
 
 // Export cp flags into install's flag context.
 
-static inline int cp_flag_F(void) { return FLAG_F; };
-static inline int cp_flag_p(void) { return FLAG_p; };
-static inline int cp_flag_v(void) { return FLAG_v; };
+static inline int cp_flag_F(void) { return FLAG_F; }
+static inline int cp_flag_p(void) { return FLAG_p; }
+static inline int cp_flag_v(void) { return FLAG_v; }
 
 // Switch to install's flag context
 #define FOR_install
@@ -516,15 +512,15 @@ void install_main(void)
   }
 
   if (FLAG(D)) {
-    char *destname = FLAG(t) ? TT.i.t : (TT.destname = toys.optargs[toys.optc-1]);
-    if (mkpathat(AT_FDCWD, destname, 0777, MKPATHAT_MAKE | (FLAG(t) ? MKPATHAT_MKLAST : 0)))
+    char *destname = TT.i.t ? : (TT.destname = toys.optargs[toys.optc-1]);
+    if (mkpathat(AT_FDCWD, destname, 0777, MKPATHAT_MAKE|MKPATHAT_MKLAST*FLAG(t)))
       perror_exit("-D '%s'", destname);
     if (toys.optc == !FLAG(t)) return;
   }
 
   // Translate flags from install to cp
-  toys.optflags = cp_flag_F() + cp_flag_v()*!!FLAG(v)
-    + cp_flag_p()*!!(FLAG(p)|FLAG(o)|FLAG(g));
+  toys.optflags = cp_flag_F() + cp_flag_v()*FLAG(v)
+    + cp_flag_p()*(FLAG(p)|FLAG(o)|FLAG(g));
 
   TT.callback = install_node;
   cp_main();

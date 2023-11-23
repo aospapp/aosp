@@ -75,7 +75,7 @@ extern "C" const void* artFindNativeMethodRunnable(Thread* self)
 
     // These calls do not have an explicit class initialization check, so do the check now.
     // (When going through the stub or GenericJNI, the check was already done.)
-    DCHECK(NeedsClinitCheckBeforeCall(target_method));
+    DCHECK(target_method->NeedsClinitCheckBeforeCall());
     ObjPtr<mirror::Class> declaring_class = target_method->GetDeclaringClass();
     if (UNLIKELY(!declaring_class->IsVisiblyInitialized())) {
       StackHandleScope<1> hs(self);
@@ -87,11 +87,11 @@ extern "C" const void* artFindNativeMethodRunnable(Thread* self)
     }
 
     // Replace the runtime method on the stack with the target method.
-    DCHECK(!self->GetManagedStack()->GetTopQuickFrameTag());
+    DCHECK(!self->GetManagedStack()->GetTopQuickFrameGenericJniTag());
     ArtMethod** sp = self->GetManagedStack()->GetTopQuickFrameKnownNotTagged();
     DCHECK(*sp == Runtime::Current()->GetCalleeSaveMethod(CalleeSaveType::kSaveRefsAndArgs));
     *sp = target_method;
-    self->SetTopOfStackTagged(sp);  // Fake GenericJNI frame.
+    self->SetTopOfStackGenericJniTagged(sp);  // Fake GenericJNI frame.
 
     // Continue with the target method.
     method = target_method;

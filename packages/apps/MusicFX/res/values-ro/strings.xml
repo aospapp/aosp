@@ -19,10 +19,10 @@
     <string name="app_name" msgid="2227320688818248940">"MusicFX"</string>
     <string name="no_effects" msgid="9023408561505030260">"Efectele nu sunt disponibile."</string>
     <string name="eq_dialog_title" msgid="3237402214371962070">"Egalizator"</string>
-    <string name="headset_plug" msgid="1774198554148807517">"Pentru aceste efecte trebuie să conectați căștile."</string>
+    <string name="headset_plug" msgid="1774198554148807517">"Pentru aceste efecte trebuie să conectezi căștile."</string>
     <string name="bass_boost_strength" msgid="8643071340166812205">"Amplificare bas"</string>
     <string name="virtualizer_strength" msgid="2139410708760989842">"Sunet surround"</string>
-    <string name="setup" msgid="4811197673396615722">"Configurați"</string>
+    <string name="setup" msgid="4811197673396615722">"Configurează"</string>
     <string name="normal" msgid="757786146857325609">"Normal"</string>
     <string name="classical" msgid="1975693421508209132">"Clasică"</string>
     <string name="dance" msgid="212617702657103572">"Dance"</string>

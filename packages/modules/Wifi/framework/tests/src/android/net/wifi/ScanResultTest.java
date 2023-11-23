@@ -50,7 +50,7 @@ import java.util.stream.Collectors;
 @SmallTest
 public class ScanResultTest {
     public static final String TEST_SSID = "\"test_ssid\"";
-    public static final String TEST_SSID_NON_UTF_8 = "B9C8B8E8";
+    public static final String TEST_SSID_NON_UTF_8 = "b9c8b8e8";
     public static final String TEST_BSSID = "04:ac:fe:45:34:10";
     public static final String TEST_CAPS = "CCMP";
     public static final int TEST_LEVEL = -56;
@@ -296,7 +296,7 @@ public class ScanResultTest {
     public void verifyScanResultToStringWithNonUtf8Ssid() throws Exception {
         ScanResult scanResult = createScanResult();
         scanResult.setWifiSsid(WifiSsid.fromString(TEST_SSID_NON_UTF_8));
-        assertEquals("SSID: B9C8B8E8, BSSID: 04:ac:fe:45:34:10, capabilities: CCMP, "
+        assertEquals("SSID: b9c8b8e8, BSSID: 04:ac:fe:45:34:10, capabilities: CCMP, "
                 + "level: -56, frequency: 2412, timestamp: 2480, "
                 + "distance: 0(cm), distanceSd: 0(cm), "
                 + "passpoint: no, ChannelBandwidth: 0, centerFreq0: 0, centerFreq1: 0, "

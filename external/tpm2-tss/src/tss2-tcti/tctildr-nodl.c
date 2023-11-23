@@ -57,7 +57,7 @@ struct {
     char *conf;
     char *description;
 } tctis [] = {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__MINGW32__)
     {
         .names = {
             "libtss2-tcti-tbs.so.0",

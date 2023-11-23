@@ -18,6 +18,8 @@ package com.android.permissioncontroller.permission.data
 
 import android.app.Application
 import android.app.role.RoleManager
+import android.os.Handler
+import android.os.Looper
 import android.os.UserHandle
 import androidx.lifecycle.LiveData
 import com.android.permissioncontroller.PermissionControllerApplication
@@ -34,10 +36,23 @@ import com.android.permissioncontroller.permission.utils.Utils
  */
 class PermGroupsPackagesUiInfoLiveData(
     private val app: Application,
-    groupNamesLiveData: LiveData<List<String>>
+    private val groupNamesLiveData: LiveData<List<String>>
 ) : SmartUpdateMediatorLiveData<
     @kotlin.jvm.JvmSuppressWildcards Map<String, PermGroupPackagesUiInfo?>>() {
     private val SYSTEM_SHELL = "android.app.role.SYSTEM_SHELL"
+
+    private val STAGGER_LOAD_TIME_MS = 50L
+
+    // Optimization: This LiveData relies on a large number of other ones. Enough that they can
+    // cause loading issues when they all become active at once. If this value is true, then it will
+    // slowly load data from all source LiveDatas, spacing loads them STAGGER_LOAD_TIME_MS apart
+    var loadStaggered: Boolean = false
+
+    // If we are returning from a particular permission group page, then that particular group is
+    // the one most likely to change. If so, then it will be prioritized in the load order.
+    var firstLoadGroup: String? = null
+
+    private val handler: Handler = Handler(Looper.getMainLooper())
 
     /**
      * Map<permission group name, PermGroupUiLiveDatas>
@@ -138,5 +153,40 @@ class PermGroupsPackagesUiInfoLiveData(
             }
         }
         value = allPackageData.toMap()
+    }
+
+    // Schedule a staggered loading of individual permission group livedatas
+    private fun scheduleStaggeredGroupLoad() {
+        if (groupNamesLiveData.value != null) {
+            if (firstLoadGroup in groupNames) {
+                addLiveDataDelayed(firstLoadGroup!!, 0)
+            }
+            for ((idx, groupName) in groupNames.withIndex()) {
+                if (groupName != firstLoadGroup) {
+                    addLiveDataDelayed(groupName, idx * STAGGER_LOAD_TIME_MS)
+                }
+            }
+        }
+    }
+
+    private fun addLiveDataDelayed(groupName: String, delayTimeMs: Long) {
+        val liveData = SinglePermGroupPackagesUiInfoLiveData[groupName]
+        permGroupPackagesLiveDatas[groupName] = liveData
+        handler.postDelayed( { addSource(liveData) { update() } }, delayTimeMs)
+    }
+
+    override fun onActive() {
+        super.onActive()
+        if (loadStaggered && permGroupPackagesLiveDatas.isEmpty()) {
+            scheduleStaggeredGroupLoad()
+        }
+    }
+
+    override fun onInactive() {
+        super.onInactive()
+        if (loadStaggered) {
+            permGroupPackagesLiveDatas.forEach { (_, liveData) -> removeSource(liveData) }
+            permGroupPackagesLiveDatas.clear()
+        }
     }
 }

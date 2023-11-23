@@ -68,6 +68,7 @@ bool KeymasterResponder::ProcessMessage() {
     HANDLE_MESSAGE(IMPORT_WRAPPED_KEY, ImportWrappedKey)
     HANDLE_MESSAGE(GENERATE_RKP_KEY, GenerateRkpKey)
     HANDLE_MESSAGE(GENERATE_CSR, GenerateCsr)
+    HANDLE_MESSAGE(GENERATE_CSR_V2, GenerateCsrV2)
     HANDLE_MESSAGE(GENERATE_TIMESTAMP_TOKEN, GenerateTimestampToken)
 #undef HANDLE_MESSAGE
 #define HANDLE_MESSAGE_W_RETURN(ENUM_NAME, METHOD_NAME)              \
@@ -90,6 +91,8 @@ bool KeymasterResponder::ProcessMessage() {
     HANDLE_MESSAGE_W_RETURN(CONFIGURE_VERIFIED_BOOT_INFO,
                             ConfigureVerifiedBootInfo)
     HANDLE_MESSAGE_W_RETURN(GET_ROOT_OF_TRUST, GetRootOfTrust)
+    HANDLE_MESSAGE_W_RETURN(SET_ATTESTATION_IDS, SetAttestationIds)
+    HANDLE_MESSAGE_W_RETURN(SET_ATTESTATION_IDS_KM3, SetAttestationIdsKM3)
 #undef HANDLE_MESSAGE_W_RETURN
 #define HANDLE_MESSAGE_W_RETURN_NO_ARG(ENUM_NAME, METHOD_NAME) \
   case ENUM_NAME: {                                            \
@@ -99,6 +102,7 @@ bool KeymasterResponder::ProcessMessage() {
     HANDLE_MESSAGE_W_RETURN_NO_ARG(GET_HMAC_SHARING_PARAMETERS,
                                    GetHmacSharingParameters)
     HANDLE_MESSAGE_W_RETURN_NO_ARG(EARLY_BOOT_ENDED, EarlyBootEnded)
+    HANDLE_MESSAGE_W_RETURN_NO_ARG(GET_HW_INFO, GetHwInfo)
 #undef HANDLE_MESSAGE_W_RETURN_NO_ARG
     case ADD_RNG_ENTROPY: {
       AddEntropyRequest request(keymaster_.message_version());

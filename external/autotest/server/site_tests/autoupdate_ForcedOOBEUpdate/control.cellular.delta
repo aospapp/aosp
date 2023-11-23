@@ -11,6 +11,7 @@ TEST_CLASS = "platform"
 TEST_TYPE = "server"
 # Disable until test can be fixed: http://b/163367994
 # ATTRIBUTES = "suite:cellular_au_nightly"
+PY_VERSION = 3
 DOC = """
 This tests the forced autoupdate flow at OOBE using cellular.
 

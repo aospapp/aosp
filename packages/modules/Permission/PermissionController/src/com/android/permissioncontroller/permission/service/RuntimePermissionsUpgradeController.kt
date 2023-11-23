@@ -23,6 +23,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager.FLAG_PERMISSION_RESTRICTION_UPGRADE_EXEMPT
 import android.content.pm.PackageManager.FLAG_PERMISSION_WHITELIST_UPGRADE
 import android.content.pm.PermissionInfo
+import android.os.Build
 import android.os.Process.myUserHandle
 import android.permission.PermissionManager
 import android.util.Log
@@ -41,8 +42,8 @@ import com.android.permissioncontroller.permission.model.livedatatypes.LightPerm
 import com.android.permissioncontroller.permission.utils.IPC
 import com.android.permissioncontroller.permission.utils.KotlinUtils.grantBackgroundRuntimePermissions
 import com.android.permissioncontroller.permission.utils.KotlinUtils.grantForegroundRuntimePermissions
-import com.android.permissioncontroller.permission.utils.Utils.getPlatformPermissionNamesOfGroup
-import com.android.permissioncontroller.permission.utils.Utils.getRuntimePlatformPermissionNames
+import com.android.permissioncontroller.permission.utils.PermissionMapping.getPlatformPermissionNamesOfGroup
+import com.android.permissioncontroller.permission.utils.PermissionMapping.getRuntimePlatformPermissionNames
 import com.android.permissioncontroller.permission.utils.application
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -54,24 +55,28 @@ internal object RuntimePermissionsUpgradeController {
     private val LOG_TAG = RuntimePermissionsUpgradeController::class.java.simpleName
 
     // The latest version of the runtime permissions database
-    private val LATEST_VERSION = 9
+    private val LATEST_VERSION = if (SdkLevel.isAtLeastT()) {
+        10
+    } else {
+        9
+    }
 
     fun upgradeIfNeeded(context: Context, onComplete: Runnable) {
         val permissionManager = context.getSystemService(PermissionManager::class.java)
-        val currentVersion = permissionManager!!.runtimePermissionsVersion
+        val storedVersion = permissionManager!!.runtimePermissionsVersion
+        val currentVersion = minOf(storedVersion, LATEST_VERSION)
 
         GlobalScope.launch(IPC) {
             val upgradedVersion = onUpgradeLocked(context, currentVersion)
             if (upgradedVersion != LATEST_VERSION) {
                 Log.wtf("PermissionControllerService", "warning: upgrading permission database" +
-                    " to version " + LATEST_VERSION + " left it at " + currentVersion +
-                    " instead; this is probably a bug. Did you update " +
-                    "LATEST_VERSION?", Throwable())
+                    " to version $LATEST_VERSION left it at $currentVersion instead; this is " +
+                    "probably a bug. Did you update LATEST_VERSION?", Throwable())
                 throw RuntimeException("db upgrade error")
             }
 
-            if (currentVersion != upgradedVersion) {
-                permissionManager!!.runtimePermissionsVersion = LATEST_VERSION
+            if (storedVersion != upgradedVersion) {
+                permissionManager.runtimePermissionsVersion = LATEST_VERSION
             }
             onComplete.run()
         }
@@ -128,6 +133,8 @@ internal object RuntimePermissionsUpgradeController {
 
         val needBackgroundAppPermGroups = sdkUpgradedFromP && currentVersion <= 6
         val needAccessMediaAppPermGroups = !isNewUser && currentVersion <= 7
+        val needGrantedExternalStorage = currentVersion <= 9 && SdkLevel.isAtLeastT()
+        val isDeviceUpgrading = context.packageManager.isDeviceUpgrading
 
         // All data needed by this method.
         //
@@ -199,10 +206,11 @@ internal object RuntimePermissionsUpgradeController {
                     permGroupProviders = mutableListOf()
 
                     // Only load app-perm-groups needed for this upgrade
-                    if (needBackgroundAppPermGroups || needAccessMediaAppPermGroups) {
+                    if (needBackgroundAppPermGroups || needAccessMediaAppPermGroups ||
+                        needGrantedExternalStorage) {
                         for ((pkgName, _, requestedPerms, requestedPermFlags) in
                                 pkgInfoProvider.value!!) {
-                            var hasAccessMedia = false
+                            var requestsAccessMediaLocation = false
                             var hasGrantedExternalStorage = false
 
                             for ((perm, flags) in requestedPerms.zip(requestedPermFlags)) {
@@ -212,9 +220,10 @@ internal object RuntimePermissionsUpgradeController {
                                             permission_group.LOCATION, myUserHandle()])
                                 }
 
-                                if (needAccessMediaAppPermGroups) {
-                                    if (perm == permission.ACCESS_MEDIA_LOCATION) {
-                                        hasAccessMedia = true
+                                if (needAccessMediaAppPermGroups || needGrantedExternalStorage) {
+                                    if (needAccessMediaAppPermGroups &&
+                                        perm == permission.ACCESS_MEDIA_LOCATION) {
+                                        requestsAccessMediaLocation = true
                                     }
 
                                     if (perm == permission.READ_EXTERNAL_STORAGE &&
@@ -231,9 +240,20 @@ internal object RuntimePermissionsUpgradeController {
                                 else
                                     permission_group.STORAGE
 
-                            if (hasAccessMedia && hasGrantedExternalStorage) {
-                                permGroupProviders!!.add(LightAppPermGroupLiveData[pkgName,
-                                        accessMediaLocationPermGroup, myUserHandle()])
+                            if (hasGrantedExternalStorage) {
+                                if (needGrantedExternalStorage) {
+                                    permGroupProviders!!.add(LightAppPermGroupLiveData[pkgName,
+                                            permission_group.STORAGE, myUserHandle()])
+                                    if (SdkLevel.isAtLeastT()) {
+                                        permGroupProviders!!.add(LightAppPermGroupLiveData[pkgName,
+                                                permission_group.READ_MEDIA_VISUAL, myUserHandle()])
+                                        permGroupProviders!!.add(LightAppPermGroupLiveData[pkgName,
+                                                permission_group.READ_MEDIA_AURAL, myUserHandle()])
+                                    }
+                                } else if (requestsAccessMediaLocation) {
+                                    permGroupProviders!!.add(LightAppPermGroupLiveData[pkgName,
+                                            accessMediaLocationPermGroup, myUserHandle()])
+                                }
                             }
                         }
                     }
@@ -263,7 +283,6 @@ internal object RuntimePermissionsUpgradeController {
 
                     val bgGroups = mutableListOf<LightAppPermGroup>()
                     val storageGroups = mutableListOf<LightAppPermGroup>()
-                    val bgMicGroups = mutableListOf<LightAppPermGroup>()
 
                     for (group in permGroupProviders!!.mapNotNull { it.value }) {
                         when (group.permGroupName) {
@@ -273,8 +292,11 @@ internal object RuntimePermissionsUpgradeController {
                             permission_group.STORAGE -> {
                                 storageGroups.add(group)
                             }
-                            permission_group.MICROPHONE -> {
-                                bgMicGroups.add(group)
+                            permission_group.READ_MEDIA_AURAL -> {
+                                storageGroups.add(group)
+                            }
+                            permission_group.READ_MEDIA_VISUAL -> {
+                                storageGroups.add(group)
                             }
                         }
                     }
@@ -292,7 +314,7 @@ internal object RuntimePermissionsUpgradeController {
                     }
 
                     value = UpgradeData(preinstalledPkgInfoProvider.value!!, restrictedPermissions,
-                            pkgInfoProvider.value!!, bgGroups, storageGroups, bgMicGroups)
+                            pkgInfoProvider.value!!, bgGroups, storageGroups)
                 }
             }
         }
@@ -311,7 +333,8 @@ internal object RuntimePermissionsUpgradeController {
 
         val (newVersion, upgradeExemptions, grants) = onUpgradeLockedDataLoaded(currentVersion,
                 upgradeData.pkgs, upgradeData.restrictedPermissions,
-                upgradeData.bgGroups, upgradeData.storageGroups, upgradeData.bgMicGroups)
+                upgradeData.bgGroups, upgradeData.storageGroups,
+                isDeviceUpgrading)
 
         // Do not run in parallel. Measurements have shown that this is slower than sequential
         for (exemption in (preinstalledAppExemptions union upgradeExemptions)) {
@@ -330,8 +353,8 @@ internal object RuntimePermissionsUpgradeController {
         pkgs: List<LightPackageInfo>,
         restrictedPermissions: Set<String>,
         bgApps: List<LightAppPermGroup>,
-        accessMediaApps: List<LightAppPermGroup>,
-        bgMicApps: List<LightAppPermGroup>
+        storageAndMediaAppPermGroups: List<LightAppPermGroup>,
+        isDeviceUpgrading: Boolean
     ): Triple<Int, List<RestrictionExemption>, List<Grant>> {
         val exemptions = mutableListOf<RestrictionExemption>()
         val grants = mutableListOf<Grant>()
@@ -446,7 +469,7 @@ internal object RuntimePermissionsUpgradeController {
             if (!isNewUser) {
                 Log.i(LOG_TAG, "Expanding read storage to access media location")
 
-                for (appPermGroup in accessMediaApps) {
+                for (appPermGroup in storageAndMediaAppPermGroups) {
                     val perm = appPermGroup.permissions[permission.ACCESS_MEDIA_LOCATION]
                             ?: continue
 
@@ -468,6 +491,49 @@ internal object RuntimePermissionsUpgradeController {
             // Removed
 
             currentVersion = 9
+        }
+
+        if (currentVersion == 9 && SdkLevel.isAtLeastT()) {
+            if (isNewUser) {
+                Log.i(LOG_TAG, "Not migrating STORAGE permissions to READ_MEDIA permissions as" +
+                    " this is a new user")
+            } else if (!isDeviceUpgrading) {
+                Log.i(LOG_TAG, "Not migrating STORAGE permissions to READ_MEDIA permissions as" +
+                    " this device is not performing an upgrade")
+            } else {
+                Log.i(LOG_TAG, "Migrating STORAGE permissions to READ_MEDIA permissions")
+
+                // Upon upgrading to platform 33, for all targetSdk>=33 apps, do the following:
+                // If STORAGE is granted, and the user has not set READ_MEDIA_AURAL or
+                // READ_MEDIA_VISUAL, grant READ_MEDIA_AURAL and READ_MEDIA_VISUAL
+                val storageAppPermGroups = storageAndMediaAppPermGroups.filter {
+                    it.packageInfo.targetSdkVersion >= Build.VERSION_CODES.TIRAMISU &&
+                        it.permGroupInfo.name == permission_group.STORAGE &&
+                        it.isGranted && it.isUserSet
+                }
+                for (storageAppPermGroup in storageAppPermGroups) {
+                    val pkgName = storageAppPermGroup.packageInfo.packageName
+                    val auralAppPermGroup = storageAndMediaAppPermGroups.firstOrNull {
+                        it.packageInfo.packageName == pkgName &&
+                            it.permGroupInfo.name == permission_group.READ_MEDIA_AURAL &&
+                            !it.isUserSet && !it.isUserFixed
+                    }
+                    val visualAppPermGroup = storageAndMediaAppPermGroups.firstOrNull {
+                        it.packageInfo.packageName == pkgName &&
+                            it.permGroupInfo.name == permission_group.READ_MEDIA_VISUAL &&
+                            !it.permissions.filter { it.key != permission.ACCESS_MEDIA_LOCATION }
+                                .any { it.value.isUserSet || it.value.isUserFixed }
+                    }
+
+                    if (auralAppPermGroup != null) {
+                        grants.add(Grant(false, auralAppPermGroup))
+                    }
+                    if (visualAppPermGroup != null) {
+                        grants.add(Grant(false, visualAppPermGroup))
+                    }
+                }
+            }
+            currentVersion = 10
         }
 
         // XXX: Add new upgrade steps above this point.
@@ -494,11 +560,6 @@ internal object RuntimePermissionsUpgradeController {
          * Storage groups that need to be inspected by {@link #onUpgradeLockedDataLoaded}
          */
         val storageGroups: List<LightAppPermGroup>,
-        /**
-         * Background Microphone groups that need to be inspected by
-         * {@link #onUpgradeLockedDataLoaded}
-         */
-        val bgMicGroups: List<LightAppPermGroup>
     )
 
     /**

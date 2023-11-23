@@ -21,13 +21,13 @@
 #include <android-base/file.h>
 #include <android-base/properties.h>
 #include <gtest/gtest.h>
+#include <netdutils/NetNativeTestBase.h>
 #include <private/android_filesystem_config.h>  // AID_DNS
 
 #include "DnsResolver.h"
 #include "getaddrinfo.h"
 #include "resolv_cache.h"
 #include "resolv_private.h"
-#include "tests/resolv_test_base.h"
 #include "tests/resolv_test_utils.h"
 
 namespace android::net {
@@ -102,7 +102,7 @@ void resetCallbackParams() {
     testUid = 0;
 }
 
-class CallbackTest : public ResolvTestBase {
+class CallbackTest : public NetNativeTestBase {
   protected:
     void SetUp() override {
         initDnsResolverCallbacks();

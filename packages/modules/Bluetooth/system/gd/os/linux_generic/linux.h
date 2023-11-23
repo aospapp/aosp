@@ -20,11 +20,11 @@
 #define EFD_SEMAPHORE 1
 #endif
 
-#ifdef FUZZ_TARGET
-#include "os/fuzz/fake_timerfd.h"
-#define TIMERFD_CREATE ::bluetooth::os::fuzz::fake_timerfd_create
-#define TIMERFD_SETTIME ::bluetooth::os::fuzz::fake_timerfd_settime
-#define TIMERFD_CLOSE ::bluetooth::os::fuzz::fake_timerfd_close
+#ifdef USE_FAKE_TIMERS
+#include "os/fake_timer/fake_timerfd.h"
+#define TIMERFD_CREATE ::bluetooth::os::fake_timer::fake_timerfd_create
+#define TIMERFD_SETTIME ::bluetooth::os::fake_timer::fake_timerfd_settime
+#define TIMERFD_CLOSE ::bluetooth::os::fake_timer::fake_timerfd_close
 #else
 #define TIMERFD_CREATE timerfd_create
 #define TIMERFD_SETTIME timerfd_settime

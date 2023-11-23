@@ -15,7 +15,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <span>
 #include <string_view>
 
 #include "pw_bytes/span.h"
@@ -24,6 +23,7 @@
 #include "pw_protobuf/serialized_size.h"
 #include "pw_result/result.h"
 #include "pw_rpc/raw/server_reader_writer.h"
+#include "pw_span/span.h"
 #include "pw_status/status.h"
 #include "pw_status/status_with_size.h"
 
@@ -38,7 +38,7 @@ class FlatFileSystemService
  public:
   class Entry {
    public:
-    using FilePermissions = pw::file::Path::Permissions;
+    using FilePermissions = ::pw::file::pwpb::Path::Permissions;
     using Id = uint32_t;
 
     Entry() = default;
@@ -57,7 +57,7 @@ class FlatFileSystemService
     //   OK - Successfully read file name to `dest`.
     //   NOT_FOUND - No file to enumerate for this entry.
     //   RESOURCE_EXHAUSTED - `dest` buffer too small to fit the full file name.
-    virtual StatusWithSize Name(std::span<char> dest) = 0;
+    virtual StatusWithSize Name(span<char> dest) = 0;
 
     virtual size_t SizeBytes() = 0;
     virtual FilePermissions Permissions() const = 0;
@@ -79,7 +79,7 @@ class FlatFileSystemService
                                                   size_t minimum_entries = 1) {
     return minimum_entries *
            protobuf::SizeOfDelimitedField(
-               ListResponse::Fields::PATHS,
+               pwpb::ListResponse::Fields::kPaths,
                EncodedPathProtoSizeBytes(max_file_name_length));
   }
 
@@ -94,9 +94,9 @@ class FlatFileSystemService
   //     files. Should be large enough to hold the longest expected file name.
   //     The span's underlying buffer must outlive this object.
   //   max_file_name_length - Number of bytes to reserve for the file name.
-  constexpr FlatFileSystemService(std::span<Entry*> entry_list,
-                                  std::span<std::byte> encoding_buffer,
-                                  std::span<char> file_name_buffer)
+  constexpr FlatFileSystemService(span<Entry*> entry_list,
+                                  span<std::byte> encoding_buffer,
+                                  span<char> file_name_buffer)
       : encoding_buffer_(encoding_buffer),
         file_name_buffer_(file_name_buffer),
         entries_(entry_list) {}
@@ -113,24 +113,24 @@ class FlatFileSystemService
   // Returns the maximum size of a single encoded Path proto.
   static constexpr size_t EncodedPathProtoSizeBytes(
       size_t max_file_name_length) {
-    return protobuf::SizeOfFieldString(Path::Fields::PATH,
+    return protobuf::SizeOfFieldString(pwpb::Path::Fields::kPath,
                                        max_file_name_length) +
-           protobuf::SizeOfFieldEnum(Path::Fields::PERMISSIONS,
-                                     Path::Permissions::READ_AND_WRITE) +
-           protobuf::SizeOfFieldUint32(Path::Fields::SIZE_BYTES) +
-           protobuf::SizeOfFieldUint32(Path::Fields::FILE_ID);
+           protobuf::SizeOfFieldEnum(pwpb::Path::Fields::kPermissions,
+                                     pwpb::Path::Permissions::READ_AND_WRITE) +
+           protobuf::SizeOfFieldUint32(pwpb::Path::Fields::kSizeBytes) +
+           protobuf::SizeOfFieldUint32(pwpb::Path::Fields::kFileId);
   }
 
   Result<Entry*> FindFile(std::string_view file_name);
   Status FindAndDeleteFile(std::string_view file_name);
 
   Status EnumerateFile(Entry& entry,
-                       pw::file::ListResponse::StreamEncoder& output_encoder);
+                       pwpb::ListResponse::StreamEncoder& output_encoder);
   void EnumerateAllFiles(RawServerWriter& writer);
 
-  const std::span<std::byte> encoding_buffer_;
-  const std::span<char> file_name_buffer_;
-  const std::span<Entry*> entries_;
+  const span<std::byte> encoding_buffer_;
+  const span<char> file_name_buffer_;
+  const span<Entry*> entries_;
 };
 
 // Provides the encoding and file name buffers to a FlatFileSystemService.
@@ -138,7 +138,7 @@ template <unsigned kMaxFileNameLength,
           unsigned kMinGuaranteedEntriesPerResponse = 1>
 class FlatFileSystemServiceWithBuffer : public FlatFileSystemService {
  public:
-  constexpr FlatFileSystemServiceWithBuffer(std::span<Entry*> entry_list)
+  constexpr FlatFileSystemServiceWithBuffer(span<Entry*> entry_list)
       : FlatFileSystemService(entry_list, encoding_buffer_, file_name_buffer_) {
   }
 

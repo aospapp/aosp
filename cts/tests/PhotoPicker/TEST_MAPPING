@@ -1,5 +1,25 @@
 {
+  "mainline-presubmit": [
+    {
+      "name": "CtsPhotoPickerTest[com.google.android.mediaprovider.apex]",
+      "options": [
+        {
+          "exclude-annotation": "androidx.test.filters.LargeTest"
+        }
+      ]
+    }
+  ],
   "presubmit": [
+    {
+      "name": "CtsPhotoPickerTest",
+      "options": [
+        {
+          "exclude-annotation": "androidx.test.filters.LargeTest"
+        }
+      ]
+    }
+  ],
+  "postsubmit": [
     {
       "name": "CtsPhotoPickerTest"
     }

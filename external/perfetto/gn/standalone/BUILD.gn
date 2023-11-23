@@ -82,12 +82,36 @@ config("extra_warnings") {
       "-Wno-poison-system-directories",
       "-Wno-reserved-id-macro",
       "-Wno-reserved-identifier",
+      "-Wno-shadow-uncaptured-local",
       "-Wno-unknown-sanitizers",
       "-Wno-unknown-warning-option",
+      "-Wno-unsafe-buffer-usage",
     ]
   } else if (!is_clang && !is_win) {
     # Use return std::move(...) for compatibility with old GCC compilers.
-    cflags += [ "-Wno-redundant-move" ]
+    cflags_cc = [ "-Wno-redundant-move" ]
+
+    # Use after free detection in GCC is still not good enough: it still fails
+    # on very obvious false-positives in trace processor.
+    cflags_cc += [ "-Wno-use-after-free" ]
+
+    # GCC 7's handling of uninitialized std::optional is flaky at best and
+    # causes many false positives.
+    # TODO(lalitm): remove this when we upgrade to a GCC version which is good
+    # enough to handle this.
+    cflags_cc += [ "-Wno-maybe-uninitialized" ]
+
+    # GCC's handling of detecting infinite recursion is flaky at best and
+    # causes some false positives.
+    # TODO(lalitm): remove this when we upgrade to a GCC version which is good
+    # enough to handle this.
+    cflags_cc += [ "-Wno-infinite-recursion" ]
+
+    # GCC's handling of detecting non null arguments is flaky at best and
+    # causes some false positives.
+    # TODO(lalitm): remove this when we upgrade to a GCC version which is good
+    # enough to handle this.
+    cflags_cc += [ "-Wno-nonnull" ]
   }
 }
 
@@ -106,31 +130,22 @@ config("no_rtti") {
   }
 }
 
-config("c++11") {
-  # C++11 is the default on Windows.
-  if (!is_win) {
-    cflags_cc = [ "-std=c++11" ]
-  } else if (is_win && !is_clang) {
-    # Enable standards-conforming compiler behavior.
-    cflags_cc = [ "/permissive-" ]
-  }
-}
-
-# Used in buildtools dependencies for standalone builds.
-config("c++14") {
-  if (is_win) {
-    cflags_cc = [ "/std:c++14" ]
-  } else {
-    cflags_cc = [ "-std=c++14" ]
-  }
-}
-
 # Used in buildtools dependencies for standalone builds.
 config("c++17") {
   if (is_win) {
     cflags_cc = [ "/std:c++17" ]
   } else {
     cflags_cc = [ "-std=c++17" ]
+  }
+}
+
+# Used in buildtools dependencies for standalone builds.
+config("c++20") {
+  visibility = [ "//buildtools:libc++config" ]
+  if (is_win) {
+    cflags_cc = [ "/std:c++20" ]
+  } else {
+    cflags_cc = [ "-std=c++20" ]
   }
 }
 
@@ -167,12 +182,20 @@ config("default") {
     ]
   }
 
+  if (is_clang && is_win) {
+    # clang-cl from version 16 does not like out-of-line definition of static
+    # constexpr, even in C++14 mode. Disable the deprecated warnings to work
+    # around the problem.
+    cflags += [ "-Wno-deprecated" ]
+  }
+
   if (is_win) {
     cflags += [
       "/bigobj",  # Some of our files are bigger than the regular limits.
       "/Gy",  # Enable function-level linking.
       "/FS",  # Preserve previous PDB behavior.
       "/utf-8",  # Assume UTF-8 by default to avoid code page dependencies.
+      "/Zc:__cplusplus",  # Allow use of __cplusplus macro.
     ]
     defines += [
       "_CRT_NONSTDC_NO_WARNINGS",
@@ -214,6 +237,13 @@ config("default") {
     not_needed([ "hermetic_clang_suppressions" ])
   }
 
+  if (non_hermetic_clang_stdlib != "") {
+    if (is_clang && !is_hermetic_clang && !is_wasm) {
+      cflags_cc += [ "-stdlib=" + non_hermetic_clang_stdlib ]
+      ldflags += [ "-stdlib=" + non_hermetic_clang_stdlib ]
+    }
+  }
+
   if (is_lto) {
     cflags += [ "-flto=full" ]
     ldflags += [ "-flto=full" ]
@@ -247,7 +277,9 @@ config("default") {
       # When updating these flags, the CheckCpuOptimizations() in utils.cc must
       # be updated accordingly.
       cflags += [
-        "-mavx",
+        "-mbmi",
+        "-mbmi2",
+        "-mavx2",
         "-mpopcnt",
         "-msse4.2",
       ]
@@ -255,6 +287,12 @@ config("default") {
   }
 
   if (is_linux) {
+    # Enable LFS (large file support) for stat() and other syscalls.
+    cflags += [
+      "-D_FILE_OFFSET_BITS=64",
+      "-D_LARGEFILE_SOURCE",
+      "-D_LARGEFILE64_SOURCE",
+    ]
     libs += [
       "pthread",
       "rt",
@@ -285,21 +323,28 @@ config("default") {
     asmflags += [ "--target=$android_abi_target" ]
     cflags += [
       "--sysroot=$android_compile_sysroot",
-      "-isystem$android_compile_sysroot/$android_compile_sysroot_subdir",
-      "-isystem$android_compile_sysroot",
       "-DANDROID",
       "-D__ANDROID_API__=${android_api_level}",
       "--target=$android_abi_target",
     ]
     cflags_cc += [
-      "-I$android_ndk_root/sources/cxx-stl/llvm-libc++/include",
-      "-I$android_ndk_root/sources/android/support/include",
-      "-I$android_ndk_root/sources/cxx-stl/llvm-libc++abi/include",
-
-      # This is needed for NDK libc++. Using -isystem instead of -I above
-      # results in build breakage related to cmath.h.
-      "-Wno-format-nonliteral",
+      "-isystem$android_ndk_root/sources/cxx-stl/llvm-libc++/include",
+      "-isystem$android_ndk_root/sources/android/support/include",
+      "-isystem$android_ndk_root/sources/cxx-stl/llvm-libc++abi/include",
     ]
+
+    # Keep these include paths *after* the above to prevent the wrong include
+    # being used for some headers (e.g. math.h).
+    # We need to add to each language (cflags_c, cflags_cc etc.) separately as
+    # we added to cflags directly, these inludes would end up before the
+    # languge and thus the above includes.
+    sysroot_cflags = [
+      "-isystem$android_compile_sysroot/$android_compile_sysroot_subdir",
+      "-isystem$android_compile_sysroot",
+    ]
+    cflags_c += sysroot_cflags
+    cflags_cc += sysroot_cflags
+
     ldflags += [
       "-Wl,-z,nocopyreloc",
       "-gcc-toolchain",

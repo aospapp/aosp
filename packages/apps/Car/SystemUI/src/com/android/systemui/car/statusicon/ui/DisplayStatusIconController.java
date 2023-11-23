@@ -32,22 +32,31 @@ import javax.inject.Inject;
 public class DisplayStatusIconController extends StatusIconController {
 
     private final Drawable mDisplayBrightnessDrawable;
+    private String mDisplayBrightnessContentDescription;
 
     @Inject
     DisplayStatusIconController(Context context, @Main Resources resources) {
         mDisplayBrightnessDrawable = resources.getDrawable(R.drawable.car_ic_brightness,
                 context.getTheme());
+        mDisplayBrightnessContentDescription = resources.getString(
+                R.string.status_icon_display_status);
         updateStatus();
     }
 
     @Override
     protected void updateStatus() {
         setIconDrawableToDisplay(mDisplayBrightnessDrawable);
+        setIconContentDescription(mDisplayBrightnessContentDescription);
         onStatusUpdated();
     }
 
     @Override
     protected int getPanelContentLayout() {
         return R.layout.qc_display_panel;
+    }
+
+    @Override
+    protected int getId() {
+        return R.id.qc_display_status_icon;
     }
 }

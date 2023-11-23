@@ -57,4 +57,47 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
-</resources>
+    <style name="window_task_animation" parent="@android:style/Theme.DeviceDefault">
+      <item name="android:taskOpenEnterAnimation">@anim/alpha</item>
+      <item name="android:taskOpenExitAnimation">@anim/alpha</item>
+      <item name="android:taskCloseEnterAnimation">@anim/alpha</item>
+      <item name="android:taskCloseExitAnimation">@anim/alpha</item>
+    </style>
+    <style name="BackgroundImage" parent="@android:style/Theme.NoTitleBar.Fullscreen">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">always</item>
+        <item name="android:windowSoftInputMode">stateHidden</item>
+        <item name="android:windowBackground">@drawable/background_image</item>
+    </style>
+    <style name="BlurryDialog" parent="TranslucentDialog">
+        <item name="android:windowBackgroundBlurRadius">@dimen/test_background_blur_radius</item>
+        <item name="android:windowBlurBehindRadius">@dimen/test_blur_behind_radius</item>
+        <item name="android:windowBlurBehindEnabled">true</item>
+    </style>
+
+    <style name="BadBlurryDialog" parent="TranslucentDialog">
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowBlurBehindEnabled">false</item>
+    </style>
+
+    <style name="Floating" parent="@android:style/Theme.DeviceDefault">
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+    <style name="Floating.NoMove">
+        <item name="android:windowNoMoveAnimation">true</item>
+    </style>
+    <style name="TranslucentDialog" parent="@android:style/Theme.Material.Dialog">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowBlurBehindEnabled">true</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:windowElevation">0dp</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">always</item>
+        <item name="android:windowSoftInputMode">stateHidden</item>
+    </style>
+ </resources>

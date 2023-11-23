@@ -327,4 +327,4 @@ public abstract class Archive implements Closeable {
             checkArgumentEquals(expected.toString(), actual.toString(), message);
         }
     }
-};
+}

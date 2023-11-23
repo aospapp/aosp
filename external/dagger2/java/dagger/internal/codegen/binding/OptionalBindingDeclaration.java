@@ -16,18 +16,17 @@
 
 package dagger.internal.codegen.binding;
 
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.base.Preconditions.checkArgument;
 
+import androidx.room.compiler.processing.XMethodElement;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import dagger.BindsOptionalOf;
-import dagger.model.Key;
+import dagger.internal.codegen.javapoet.TypeNames;
+import dagger.spi.model.Key;
 import java.util.Optional;
 import javax.inject.Inject;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
 
 /** A {@link BindsOptionalOf} declaration. */
 @AutoValue
@@ -57,10 +56,10 @@ abstract class OptionalBindingDeclaration extends BindingDeclaration {
       this.keyFactory = keyFactory;
     }
 
-    OptionalBindingDeclaration forMethod(ExecutableElement method, TypeElement contributingModule) {
-      checkArgument(isAnnotationPresent(method, BindsOptionalOf.class));
+    OptionalBindingDeclaration forMethod(XMethodElement method, XTypeElement contributingModule) {
+      checkArgument(method.hasAnnotation(TypeNames.BINDS_OPTIONAL_OF));
       return new AutoValue_OptionalBindingDeclaration(
-          Optional.<Element>of(method),
+          Optional.of(method),
           Optional.of(contributingModule),
           keyFactory.forBindsOptionalOfMethod(method, contributingModule));
     }

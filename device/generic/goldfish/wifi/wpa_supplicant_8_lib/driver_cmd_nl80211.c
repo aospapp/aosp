@@ -10,35 +10,22 @@
  */
 
 #include "includes.h"
-#include "driver_cmd_nl80211.h"
 
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-//#if GCE_PLATFORM_SDK_AFTER(L_MR1)
-// Android M exposes headers more directly.
+#include <string.h>
 #include <netinet/in.h>
 #include <linux/if.h>
-#include "driver_nl80211.h"
-/*
-#elif GCE_PLATFORM_SDK_AFTER(J_MR2)
-// Android versions K and L put structures in hardware_legacy
-#include "hardware_legacy/driver_nl80211.h"
-#else
-// Android version J does not expose structures directly. These structures are
-// manually defined later.
-#include <netinet/in.h>
-#include <linux/if.h>
-#endif
-*/
 
 #include "common.h"
 #include "wpa_supplicant_i.h"
+#include "driver_nl80211.h"
 #include "config.h"
 #include "android_drv.h"
 #include "linux_ioctl.h"
 
+#define UNUSED_ARG __attribute__((__unused__))
 
 int wpa_driver_nl80211_driver_cmd(
     void* priv, char* cmd, char* buf, size_t buf_len) {
@@ -46,7 +33,6 @@ int wpa_driver_nl80211_driver_cmd(
   struct wpa_driver_nl80211_data* drv = bss->drv;
   int ret = 0;
 
-  D("%s: called", __FUNCTION__);
   if (os_strcasecmp(cmd, "STOP") == 0) {
     linux_set_iface_flags(drv->global->ioctl_sock, bss->ifname, 0);
     wpa_msg(drv->ctx, MSG_INFO, WPA_EVENT_DRIVER_STATE "STOPPED");
@@ -68,41 +54,33 @@ int wpa_driver_nl80211_driver_cmd(
   return ret;
 }
 
-
 int wpa_driver_set_p2p_noa(
-    __attribute__((__unused__)) void* priv,
-    __attribute__((__unused__)) u8 count,
-    __attribute__((__unused__)) int start,
-    __attribute__((__unused__)) int duration) {
-  D("%s: called", __FUNCTION__);
+        UNUSED_ARG void* priv,
+        UNUSED_ARG u8 count,
+        UNUSED_ARG int start,
+        UNUSED_ARG int duration) {
   return 0;
 }
-
 
 int wpa_driver_get_p2p_noa(
-    __attribute__((__unused__)) void* priv,
-    __attribute__((__unused__)) u8* buf,
-    __attribute__((__unused__)) size_t len) {
-  D("%s: called", __FUNCTION__);
+        UNUSED_ARG void* priv,
+        UNUSED_ARG u8* buf,
+        UNUSED_ARG size_t len) {
   return 0;
 }
 
-
 int wpa_driver_set_p2p_ps(
-    __attribute__((__unused__)) void* priv,
-    __attribute__((__unused__)) int legacy_ps,
-    __attribute__((__unused__)) int opp_ps,
-    __attribute__((__unused__)) int ctwindow) {
-  D("%s: called", __FUNCTION__);
+        UNUSED_ARG void* priv,
+        UNUSED_ARG int legacy_ps,
+        UNUSED_ARG int opp_ps,
+        UNUSED_ARG int ctwindow) {
   return -1;
 }
 
-
 int wpa_driver_set_ap_wps_p2p_ie(
-    __attribute__((__unused__)) void* priv,
-    __attribute__((__unused__)) const struct wpabuf* beacon,
-    __attribute__((__unused__)) const struct wpabuf* proberesp,
-    __attribute__((__unused__)) const struct wpabuf* assocresp) {
-  D("%s: called", __FUNCTION__);
+        UNUSED_ARG void* priv,
+        UNUSED_ARG const struct wpabuf* beacon,
+        UNUSED_ARG const struct wpabuf* proberesp,
+        UNUSED_ARG const struct wpabuf* assocresp) {
   return 0;
 }

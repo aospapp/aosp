@@ -23,6 +23,8 @@ import android.content.Intent;
 import android.net.Uri;
 import android.util.Log;
 
+import com.android.bluetooth.BluetoothMethodProxy;
+
 import java.util.ArrayList;
 
 public class BluetoothOppHandoverReceiver extends BroadcastReceiver {
@@ -78,13 +80,13 @@ public class BluetoothOppHandoverReceiver extends BroadcastReceiver {
         } else if (action.equals(Constants.ACTION_ACCEPTLIST_DEVICE)) {
             BluetoothDevice device =
                     (BluetoothDevice) intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-            if (D) {
-                Log.d(TAG, "Adding " + device + " to acceptlist");
-            }
             if (device == null) {
                 return;
             }
-            BluetoothOppManager.getInstance(context).addToAcceptlist(device.getAddress());
+            if (D) {
+                Log.d(TAG, "Adding " + device.getIdentityAddress() + " to acceptlist");
+            }
+            BluetoothOppManager.getInstance(context).addToAcceptlist(device.getIdentityAddress());
         } else if (action.equals(Constants.ACTION_STOP_HANDOVER)) {
             int id = intent.getIntExtra(Constants.EXTRA_BT_OPP_TRANSFER_ID, -1);
             if (id != -1) {
@@ -93,7 +95,8 @@ public class BluetoothOppHandoverReceiver extends BroadcastReceiver {
                 if (D) {
                     Log.d(TAG, "Stopping handover transfer with Uri " + contentUri);
                 }
-                context.getContentResolver().delete(contentUri, null, null);
+                BluetoothMethodProxy.getInstance().contentResolverDelete(
+                        context.getContentResolver(), contentUri, null, null);
             }
         } else {
             if (D) {

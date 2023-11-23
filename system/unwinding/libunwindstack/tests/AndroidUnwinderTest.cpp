@@ -15,6 +15,7 @@
  */
 
 #include <dlfcn.h>
+#include <fcntl.h>
 #include <stdint.h>
 #include <string.h>
 #include <sys/types.h>
@@ -29,6 +30,7 @@
 #include <vector>
 
 #include <android-base/strings.h>
+#include <android-base/test_utils.h>
 #include <android-base/threads.h>
 
 #include <unwindstack/AndroidUnwinder.h>
@@ -150,6 +152,28 @@ TEST(AndroidUnwinderTest, create) {
   }));
 }
 
+TEST(AndroidUnwinderTest, initialize_fails) {
+  AndroidLocalUnwinder unwinder;
+
+  // Induce a failure in the initialize function by grabbing every
+  // fd available.
+  std::vector<android::base::unique_fd> fds;
+  while (true) {
+    auto fd = android::base::unique_fd(TEMP_FAILURE_RETRY(open("/dev/null", O_RDONLY)));
+    if (fd == -1) {
+      break;
+    }
+    fds.emplace_back(std::move(fd));
+  }
+
+  ErrorData error;
+  ASSERT_FALSE(unwinder.Initialize(error));
+
+  // Make sure there is no crash when trying to unwind.
+  AndroidUnwinderData data;
+  ASSERT_FALSE(unwinder.Unwind(data));
+}
+
 TEST(AndroidLocalUnwinderTest, initialize_before) {
   AndroidLocalUnwinder unwinder;
   ErrorData error;
@@ -173,14 +197,24 @@ TEST(AndroidLocalUnwinderTest, suffix_ignore) {
 }
 
 TEST(AndroidUnwinderTest, verify_all_unwind_functions) {
-  AndroidLocalUnwinder unwinder;
+  // Do not reuse the unwinder object to verify initialization is done
+  // correctly.
   AndroidUnwinderData data;
-  ASSERT_TRUE(unwinder.Unwind(data));
-  ASSERT_TRUE(unwinder.Unwind(std::nullopt, data));
-  ASSERT_TRUE(unwinder.Unwind(getpid(), data));
+  {
+    AndroidLocalUnwinder unwinder;
+    ASSERT_TRUE(unwinder.Unwind(data));
+  }
+  {
+    AndroidLocalUnwinder unwinder;
+    ASSERT_TRUE(unwinder.Unwind(std::nullopt, data));
+  }
+  {
+    AndroidLocalUnwinder unwinder;
+    ASSERT_TRUE(unwinder.Unwind(getpid(), data));
+  }
+
   std::unique_ptr<Regs> regs(Regs::CreateFromLocal());
   RegsGetLocal(regs.get());
-
   void* ucontext;
   switch (regs->Arch()) {
     case ARCH_ARM: {
@@ -235,17 +269,21 @@ TEST(AndroidUnwinderTest, verify_all_unwind_functions) {
       ucontext = nullptr;
       break;
   }
+
+  AndroidLocalUnwinder unwinder_with_ucontext;
   ASSERT_TRUE(ucontext != nullptr);
-  ASSERT_TRUE(unwinder.Unwind(ucontext, data));
+  ASSERT_TRUE(unwinder_with_ucontext.Unwind(ucontext, data));
   free(ucontext);
+
+  AndroidLocalUnwinder unwinder_with_regs;
   AndroidUnwinderData reg_data;
-  ASSERT_TRUE(unwinder.Unwind(regs.get(), reg_data));
+  ASSERT_TRUE(unwinder_with_regs.Unwind(regs.get(), reg_data));
   ASSERT_EQ(data.frames.size(), reg_data.frames.size());
   // Make sure all of the frame data is exactly the same.
   for (size_t i = 0; i < data.frames.size(); i++) {
     SCOPED_TRACE("\nMismatch at Frame " + std::to_string(i) + "\nucontext trace:\n" +
-                 GetBacktrace(unwinder, data.frames) + "\nregs trace:\n" +
-                 GetBacktrace(unwinder, reg_data.frames));
+                 GetBacktrace(unwinder_with_ucontext, data.frames) + "\nregs trace:\n" +
+                 GetBacktrace(unwinder_with_regs, reg_data.frames));
     const auto& frame_context = data.frames[i];
     const auto& frame_reg = reg_data.frames[i];
     ASSERT_EQ(frame_context.num, frame_reg.num);
@@ -254,7 +292,9 @@ TEST(AndroidUnwinderTest, verify_all_unwind_functions) {
     ASSERT_EQ(frame_context.sp, frame_reg.sp);
     ASSERT_STREQ(frame_context.function_name.c_str(), frame_reg.function_name.c_str());
     ASSERT_EQ(frame_context.function_offset, frame_reg.function_offset);
-    ASSERT_EQ(frame_context.map_info.get(), frame_reg.map_info.get());
+    ASSERT_STREQ(frame_context.map_info->name().c_str(), frame_reg.map_info->name().c_str());
+    ASSERT_EQ(frame_context.map_info->start(), frame_reg.map_info->start());
+    ASSERT_EQ(frame_context.map_info->end(), frame_reg.map_info->end());
   }
 }
 
@@ -280,38 +320,35 @@ TEST(AndroidLocalUnwinderTest, unwind_current_thread_show_all_frames) {
       << GetBacktrace(unwinder, data.frames);
 }
 
+__attribute__((__noinline__)) extern "C" void ThreadBusyWait(std::atomic<pid_t>* tid,
+                                                             volatile bool* keep_running) {
+  *tid = android::base::GetThreadId();
+  while (*keep_running) {
+  }
+}
+
 TEST(AndroidLocalUnwinderTest, unwind_different_thread) {
   std::atomic<pid_t> tid;
-  std::atomic_bool keep_running = true;
+  volatile bool keep_running = true;
   std::thread thread([&tid, &keep_running] {
-    tid = android::base::GetThreadId();
-    while (keep_running) {
-    }
+    ThreadBusyWait(&tid, &keep_running);
     return nullptr;
   });
 
   while (tid == 0) {
   }
 
-  {
-    AndroidLocalUnwinder unwinder;
-    AndroidUnwinderData data;
-    ASSERT_TRUE(unwinder.Unwind(data));
-    // Verify that the libunwindstack.so does not appear in the first frame.
-    ASSERT_TRUE(data.frames[0].map_info == nullptr ||
-                !android::base::EndsWith(data.frames[0].map_info->name(), "/libunwindstack.so"))
-        << "libunwindstack.so not removed properly\n"
+  AndroidLocalUnwinder unwinder;
+  AndroidUnwinderData data;
+  ASSERT_TRUE(unwinder.Unwind(tid, data));
+  // Verify that we are unwinding the thread.
+  if (running_with_hwasan()) {
+    // Could be in a hwasan function, so allow the second caller to be ThreadBusyWait.
+    ASSERT_TRUE(data.frames[0].function_name == "ThreadBusyWait" ||
+                data.frames[1].function_name == "ThreadBusyWait")
         << GetBacktrace(unwinder, data.frames);
-  }
-
-  {
-    AndroidLocalUnwinder unwinder;
-    AndroidUnwinderData data(true);
-    ASSERT_TRUE(unwinder.Unwind(data));
-    // Verify that the libunwindstack.so does appear in the first frame.
-    ASSERT_TRUE(data.frames[0].map_info != nullptr &&
-                android::base::EndsWith(data.frames[0].map_info->name(), "/libunwindstack.so"))
-        << "libunwindstack.so was removed improperly\n"
+  } else {
+    ASSERT_EQ("ThreadBusyWait", data.frames[0].function_name)
         << GetBacktrace(unwinder, data.frames);
   }
 
@@ -421,6 +458,20 @@ TEST(AndroidRemoteUnwinderTest, suffix_ignore) {
     }
     return PID_RUN_PASS;
   }));
+}
+
+TEST(AndroidRemoteUnwinderTest, remote_get_arch_ptrace_fails) {
+  AndroidRemoteUnwinder unwinder(getpid());
+  AndroidUnwinderData data;
+  ASSERT_FALSE(unwinder.Unwind(data));
+  EXPECT_EQ("Ptrace Call Failed", data.GetErrorString());
+}
+
+TEST(AndroidRemoteUnwinderTest, remote_get_ptrace_fails) {
+  AndroidRemoteUnwinder unwinder(getpid(), Regs::CurrentArch());
+  AndroidUnwinderData data;
+  ASSERT_FALSE(unwinder.Unwind(data));
+  EXPECT_EQ("Ptrace Call Failed", data.GetErrorString());
 }
 
 }  // namespace unwindstack

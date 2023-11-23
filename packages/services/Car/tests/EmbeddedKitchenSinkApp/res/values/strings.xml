@@ -115,6 +115,7 @@
     <string name="hw_audio_source_not_found" translatable="false">Not found</string>
     <string name="media_with_delayed_focus" translatable="false">Media With Delayed Focus</string>
     <string name="player_not_started" translatable="false">Player Not Started</string>
+    <string name="audio_device_selected" translatable="false">Audio Device Selected: %1$s</string>
     <string name="player_paused" translatable="false">Player Paused</string>
     <string name="player_started" translatable="false">Player Started</string>
     <string name="player_delayed" translatable="false">Player Delayed</string>
@@ -145,6 +146,35 @@
     <string name="phone_audio_player" translatable="false">Phone Player</string>
     <string name="track_audio_player" translatable="false">Track Player Tone Generator </string>
     <string name="select_tone_to_hear_on_speaker" translatable="false">Tone</string>
+    <string name="file_path" translatable="false">File Path</string>
+    <string name="stop_recording" translatable="false">Stop Recording</string>
+    <string name="start_recording" translatable="false">Start Recording</string>
+    <string name="start_service" translatable="false">Start Service</string>
+    <string name="stop_service" translatable="false">Stop Service</string>
+    <string name="volume_key_events" translatable="false">Key Events</string>
+    <string name="select_user_title" translatable="false">Select User</string>
+    <string name="reset_user" translatable="false">Reset User</string>
+    <string name="assign_user" translatable="false">Assign User</string>
+    <string name="unassign_user" translatable="false">Unassign User</string>
+    <string name="user_focus_unknown" translatable="false">Audio Focus Unknown</string>
+    <string name="user_has_focus" translatable="false">User Has Audio Focus</string>
+    <string name="user_does_not_have_focus" translatable="false">User Does Not Have Audio Focus</string>
+    <string name="allow_passenger_playback_confirmation" translatable="false">Allow Passenger %1$s To Play Audio In Main Cabin?</string>
+    <string name="request_result_message" translatable="false">Passenger %1$s %2$s To Play Audio In Main Cabin.</string>
+    <string name="accept" translatable="false">Accept</string>
+    <string name="reject" translatable="false">Reject</string>
+    <string name="close" translatable="false">Close</string>
+    <string name="cancel_request" translatable="false">Cancel Request</string>
+    <string name="assign_audio_accept_audio" translatable="false">Auto Accept Request</string>
+    <string name="assign_audio_reject_audio" translatable="false">Auto Reject Request</string>
+    <string name="assign_audio_ask_user" translatable="false">Ask User To Accept/Reject</string>
+    <string name="zone_configuration" translatable="false">Zone Configuration</string>
+    <string name="switch_zone_configuration" translatable="false">Switch Configuration</string>
+    <string name="select_zone_title" translatable="false">Select Audio Zone to Mirror</string>
+    <string name="select_mirror_id_title" translatable="false">Select Mirror Id</string>
+    <string name="enable_audio_mirror" translatable="false">Enable Audio Mirror for Zones</string>
+    <string name="disable_audio_mirror" translatable="false">Disable Audio Mirror for Zones</string>
+    <string name="update_audio_zones" translatable="false">Updates Audio Zones</string>
 
     <!-- Audio Input-->
     <string name="play_audio_input" translatable="false">Play</string>
@@ -211,12 +241,17 @@
     <string name="power_request_shutdown" translatable="false">Request Shutdown</string>
     <string name="power_shutdown" translatable="false">Shutdown</string>
     <string name="power_sleep" translatable="false">Sleep</string>
+    <string name="power_display_on" translatable="false">Display On</string>
+    <string name="power_display_off" translatable="false">Display Off</string>
+    <string name="power_display_mode" translatable="false">Mode</string>
 
     <!-- property test -->
     <string name="property_clear" translatable="false">Clear Log</string>
     <string name="property_get" translatable="false">Get</string>
+    <string name="property_get_async" translatable="false">Get Async</string>
     <string name="property_register" translatable="false">Register</string>
     <string name="property_set" translatable="false">Set</string>
+    <string name="property_set_async" translatable="false">Set Async</string>
     <string name="property_unregister" translatable="false">Unregister</string>
 
     <!-- radio test -->
@@ -381,13 +416,16 @@
     <!-- User Profile -->
     <string name="status_message_title">Status Message</string>
 
+    <!-- User Picker -->
+    <string name="user_picker_activity" translatable="false">User Picker Demo</string>
+
     <!-- Fullscreen Activity Test -->
     <string name="nav_to_full_screen" translatable="false">Navigate to Full Screen</string>
     <string name="cancel" translatable="false">Cancel</string>
 
     <!-- CarTelemetryService Test -->
     <string name="gear_change_config" translatable="false">on_gear_change:</string>
-    <string name="process_memory_config" translatable="false">process_memory:</string>
+    <string name="process_memory_config" translatable="false">process_memory_state:</string>
     <string name="app_start_memory_state_captured_config" translatable="false">app_start_memory_state_captured:</string>
     <string name="activity_foreground_state_changed_config" translatable="false">activity_foreground_state_changed:</string>
     <string name="process_cpu_time_config" translatable="false">process_cpu_time:</string>
@@ -397,6 +435,8 @@
     <string name="wifi_netstats_config" translatable="false">wifi_netstats_top_consumers:</string>
     <string name="stats_and_connectivity_config" translatable="false">stats and connectivity:</string>
     <string name="memory_config" translatable="false">memory:</string>
+    <string name="process_memory_snapshot_config" translatable="false">process_memory_snapshot:</string>
+    <string name="process_start_time_config" translatable="false">process_start_time:</string>
     <string name="add_metrics_config" translatable="false">Add MetricsConfig</string>
     <string name="remove_metrics_config" translatable="false">Remove MetricsConfig</string>
     <string name="download_data" translatable="false">Download Data</string>
@@ -411,4 +451,35 @@
     <string name="non_recurring_io_overuse" translatable="false">Non-recurring I/O overuse</string>
     <string name="recurring_io_overuse" translatable="false">Recurring I/O overuse</string>
     <string name="long_running_recurring_io_overuse" translatable="false">Long-running recurring I/O overuse</string>
+
+    <!-- Thread Priority Test -->
+    <string name="get_thread_priority" translatable="false">Get current thread priority</string>
+    <string name="set_thread_priority" translatable="false">Set current thread priority</string>
+    <string name="priority_input_hint" translatable="false">Thread Priority (int)</string>
+    <string name="policy_input_hint" translatable="false">Thread Policy</string>
+    <string-array name="thread_policy_list" translatable="false">
+        <item>Default</item>
+        <item>FIFO</item>
+        <item>Round-Robin</item>
+    </string-array>
+
+    <!-- Drive Mode Switch -->
+    <string name="drive_mode_state" translatable="false">Drive Mode State</string>
+
+    <!-- Privacy chip test -->
+    <string name="audio_permission_granted">Audio permission granted</string>
+    <string name="audio_permission_not_granted">No audio permission</string>
+
+    <!-- Biometric Prompt Test -->
+    <string name="auth_device_credential" translatable="false">Auth by device credential</string>
+    <string name="auth_biometric" translatable="false">Auth by biometric</string>
+    <string name="auth_device_credential_intent" translatable="false">Auth by createConfirmDeviceCredentialIntent</string>
+    
+    <!-- Remote access test -->
+    <string name="refresh_remote_task">Refresh</string>
+    <string name="task_time">Time</string>
+    <string name="task_id">Task ID</string>
+    <string name="task_data">Task Data</string>
+    <string name="remaining_time_sec">Remaining Time(s)</string>
+
 </resources>

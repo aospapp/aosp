@@ -22,9 +22,8 @@ import unittest
 
 from unittest import mock
 
-import unittest_constants as uc
-
-from test_runners import vts_tf_test_runner
+from atest import unittest_constants as uc
+from atest.test_runners import vts_tf_test_runner
 
 # pylint: disable=protected-access
 class VtsTradefedTestRunnerUnittests(unittest.TestCase):

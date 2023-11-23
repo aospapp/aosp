@@ -15,24 +15,20 @@
  */
 package com.android.compatibility.common.deviceinfo;
 
-import android.app.ActivityManager;
-import android.app.ActivityManager.MemoryInfo;
-import android.content.Context;
-import android.os.Bundle;
-import android.os.Build;
-
-import android.media.CamcorderProfile;
+import android.annotation.TargetApi;
 import android.media.MediaCodecInfo;
+import android.media.MediaCodecInfo.AudioCapabilities;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaCodecInfo.VideoCapabilities;
 import android.media.MediaCodecList;
+import android.os.Build;
+import android.util.Range;
 
-import com.android.compatibility.common.util.DeviceInfoStore;
 import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.DeviceInfoStore;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 
 /**
  * Media information collector.
@@ -40,6 +36,7 @@ import java.util.List;
 public final class MediaDeviceInfo extends DeviceInfo {
 
     @Override
+    @TargetApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     protected void collectDeviceInfo(DeviceInfoStore store) throws Exception {
         MediaCodecList allCodecs = new MediaCodecList(MediaCodecList.ALL_CODECS);
         store.startArray("media_codec_info");
@@ -78,6 +75,8 @@ public final class MediaDeviceInfo extends DeviceInfo {
                 }
                 store.addResult("supported_secure_playback", codecCapabilities.isFeatureSupported(
                         CodecCapabilities.FEATURE_SecurePlayback));
+                store.addResult("supported_hdr_editing", codecCapabilities.isFeatureSupported(
+                        CodecCapabilities.FEATURE_HdrEditing));
                 VideoCapabilities videoCapabilities = codecCapabilities.getVideoCapabilities();
                 if (videoCapabilities != null) {
                     store.startGroup("supported_resolutions");
@@ -126,6 +125,41 @@ public final class MediaDeviceInfo extends DeviceInfo {
                             "supported_8k_60fps",
                             videoCapabilities.areSizeAndRateSupported(7680, 4320, 60));
                     store.endGroup(); // supported_resolutions
+                    store.addResult("width_alignment", videoCapabilities.getWidthAlignment());
+                    store.addResult("height_alignment", videoCapabilities.getHeightAlignment());
+                    // get min & max resolution
+                    Range<Integer> widthRange = videoCapabilities.getSupportedWidths();
+                    int minWidth = widthRange.getLower();
+                    int minPixelCount = minWidth
+                            * videoCapabilities.getSupportedHeightsFor(minWidth).getLower();
+                    int maxWidth = widthRange.getUpper();
+                    int maxPixelCount = maxWidth
+                            * videoCapabilities.getSupportedHeightsFor(maxWidth).getUpper();
+                    store.addResult("min_pixel_count", minPixelCount);
+                    store.addResult("max_pixel_count", maxPixelCount);
+                }
+                AudioCapabilities audioCapabilities = codecCapabilities.getAudioCapabilities();
+                if (audioCapabilities != null) {
+                    int minSampleRate = -1, maxSampleRate = -1;
+                    int[] discreteSampleRates = audioCapabilities.getSupportedSampleRates();
+                    if (discreteSampleRates != null) {  // codec supports only discrete sample rates
+                        minSampleRate = Arrays.stream(discreteSampleRates).min().getAsInt();
+                        maxSampleRate = Arrays.stream(discreteSampleRates).max().getAsInt();
+                    } else {  // codec supports continuous sample rates
+                        Range<Integer>[] sampleRateRanges =
+                                        audioCapabilities.getSupportedSampleRateRanges();
+                        minSampleRate = sampleRateRanges[0].getLower();
+                        maxSampleRate = sampleRateRanges[sampleRateRanges.length - 1].getUpper();
+                    }
+                    store.addResult("min_sample_rate", minSampleRate);
+                    store.addResult("max_sample_rate", maxSampleRate);
+
+                    store.addResult("max_channel_count",
+                                audioCapabilities.getMaxInputChannelCount());
+                    if (ApiLevelUtil.isAtLeast(Build.VERSION_CODES.S)) {
+                        store.addResult("min_channel_count",
+                                    audioCapabilities.getMinInputChannelCount());
+                    }
                 }
                 store.endGroup();
             }

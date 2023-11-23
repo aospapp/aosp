@@ -44,7 +44,12 @@ import org.junit.runners.Parameterized.Parameters;
 public class LowerIntegrationTest {
 
   private static final ImmutableMap<String, Integer> SOURCE_VERSION =
-      ImmutableMap.of("record.test", 16, "record2.test", 16, "sealed.test", 17);
+      ImmutableMap.of(
+          "record.test", 16, //
+          "record2.test", 16,
+          "sealed.test", 17,
+          "sealed_nested.test", 17,
+          "textblock.test", 15);
 
   @Parameters(name = "{index}: {0}")
   public static Iterable<Object[]> parameters() {
@@ -285,6 +290,7 @@ public class LowerIntegrationTest {
       "superabstract.test",
       "supplierfunction.test",
       "tbound.test",
+      "textblock.test",
       "tyanno_inner.test",
       "tyanno_varargs.test",
       "typaram.test",

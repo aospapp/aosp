@@ -119,7 +119,9 @@ public class BluetoothObexTransport implements ObexTransport {
         if (mSocket == null) {
             return null;
         }
-        return mSocket.getRemoteDevice().getAddress();
+        return mSocket.getConnectionType() == BluetoothSocket.TYPE_RFCOMM
+                ? mSocket.getRemoteDevice().getIdentityAddress()
+                : mSocket.getRemoteDevice().getAddress();
     }
 
     @Override

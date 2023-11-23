@@ -36,7 +36,7 @@ java_import {
     name: "error_prone_annotations",
     host_supported: true,
     visibility: ["//visibility:public"],
-    jars: ["error_prone/error_prone_annotations-2.11.0.jar"],
+    jars: ["error_prone/error_prone_annotations-2.15.0.jar"],
     min_sdk_version : "29",
     apex_available: [
         "//apex_available:anyapex",
@@ -48,8 +48,8 @@ java_import {
     name: "error_prone_core_jars",
     host_supported: true,
     jars: [
-        "error_prone/error_prone_core-2.11.0-with-dependencies.jar",
-        "error_prone/error_prone_annotations-2.11.0.jar",
+        "error_prone/error_prone_core-2.15.0-with-dependencies.jar",
+        "error_prone/error_prone_annotations-2.15.0.jar",
     ],
 }
 
@@ -63,6 +63,7 @@ java_library {
         "error_prone_javac",
         "error_prone_jFormatString",
     ],
+    sdk_version: "core_current",
 }
 
 java_import {
@@ -70,7 +71,7 @@ java_import {
     host_supported: true,
     visibility: ["//visibility:public"],
     jars: [
-        "error_prone/error_prone_test_helpers-2.11.0.jar",
+        "error_prone/error_prone_test_helpers-2.15.0.jar",
         "jimfs/jimfs-1.1.jar",
     ],
 }

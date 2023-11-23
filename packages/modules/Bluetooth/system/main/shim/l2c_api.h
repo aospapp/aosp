@@ -195,10 +195,9 @@ extern std::vector<uint16_t> L2CA_ConnectCreditBasedReq(
  *
  ******************************************************************************/
 
-extern bool L2CA_ConnectCreditBasedRsp(const RawAddress& p_bd_addr, uint8_t id,
-                                       std::vector<uint16_t>& accepted_lcids,
-                                       uint16_t result,
-                                       tL2CAP_LE_CFG_INFO* p_cfg);
+bool L2CA_ConnectCreditBasedRsp(const RawAddress& p_bd_addr, uint8_t id,
+                                std::vector<uint16_t>& accepted_lcids,
+                                uint16_t result, tL2CAP_LE_CFG_INFO* p_cfg);
 
 /*******************************************************************************
  *
@@ -427,6 +426,8 @@ bool L2CA_EnableUpdateBleConnParams(const RawAddress& rem_bda, bool enable);
  *
  ******************************************************************************/
 bool L2CA_SetLeGattTimeout(const RawAddress& rem_bda, uint16_t idle_tout);
+
+bool L2CA_MarkLeLinkAsActive(const RawAddress& rem_bda);
 
 bool L2CA_UpdateBleConnParams(const RawAddress& rem_bda, uint16_t min_int,
                               uint16_t max_int, uint16_t latency,

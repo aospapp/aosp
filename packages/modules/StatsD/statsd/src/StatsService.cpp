@@ -18,20 +18,15 @@
 #include "Log.h"
 
 #include "StatsService.h"
-#include "stats_log_util.h"
-#include "android-base/stringprintf.h"
-#include "config/ConfigKey.h"
-#include "config/ConfigManager.h"
-#include "guardrail/StatsdStats.h"
-#include "storage/StorageManager.h"
-#include "subscriber/SubscriberReporter.h"
 
 #include <android-base/file.h>
 #include <android-base/strings.h>
+#include <android-modules-utils/sdk_level.h>
+#include <android/binder_ibinder_platform.h>
 #include <cutils/multiuser.h>
+#include <private/android_filesystem_config.h>
 #include <src/statsd_config.pb.h>
 #include <src/uid_data.pb.h>
-#include <private/android_filesystem_config.h>
 #include <statslog_statsd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,9 +34,20 @@
 #include <unistd.h>
 #include <utils/String16.h>
 
+#include "android-base/stringprintf.h"
+#include "config/ConfigKey.h"
+#include "config/ConfigManager.h"
+#include "flags/FlagProvider.h"
+#include "guardrail/StatsdStats.h"
+#include "stats_log_util.h"
+#include "storage/StorageManager.h"
+#include "subscriber/SubscriberReporter.h"
+#include "utils/DbUtils.h"
+
 using namespace android;
 
 using android::base::StringPrintf;
+using android::modules::sdklevel::IsAtLeastU;
 using android::util::FIELD_COUNT_REPEATED;
 using android::util::FIELD_TYPE_MESSAGE;
 
@@ -53,9 +59,9 @@ namespace statsd {
 
 constexpr const char* kPermissionDump = "android.permission.DUMP";
 
-constexpr const char* kPermissionRegisterPullAtom = "android.permission.REGISTER_STATS_PULL_ATOM";
+constexpr const char* kTracedProbesSid = "u:r:traced_probes:s0";
 
-constexpr const char* kIncludeCertificateHash = "include_certificate_hash";
+constexpr const char* kPermissionRegisterPullAtom = "android.permission.REGISTER_STATS_PULL_ATOM";
 
 #define STATS_SERVICE_DIR "/data/misc/stats-service"
 
@@ -90,8 +96,39 @@ Status checkUid(uid_t expectedUid) {
     }                                                             \
 }
 
-StatsService::StatsService(const sp<Looper>& handlerLooper, shared_ptr<LogEventQueue> queue)
-    : mAnomalyAlarmMonitor(new AlarmMonitor(
+Status checkSid(const char* expectedSid) {
+    const char* sid = nullptr;
+    if (__builtin_available(android __ANDROID_API_U__, *)) {
+        sid = AIBinder_getCallingSid();
+    }
+
+    // root (which is the uid in tests for example) has all permissions.
+    uid_t uid = AIBinder_getCallingUid();
+    if (uid == AID_ROOT) {
+        return Status::ok();
+    }
+
+    if (sid != nullptr && strcmp(expectedSid, sid) == 0) {
+        return Status::ok();
+    } else {
+        return exception(EX_SECURITY,
+                         StringPrintf("SID '%s' is not expected SID '%s'", sid, expectedSid));
+    }
+}
+
+#define ENFORCE_SID(sid)                 \
+    {                                    \
+        Status status = checkSid((sid)); \
+        if (!status.isOk()) {            \
+            return status;               \
+        }                                \
+    }
+
+StatsService::StatsService(const sp<UidMap>& uidMap, shared_ptr<LogEventQueue> queue,
+                           const std::shared_ptr<LogEventFilter>& logEventFilter,
+                           int initEventDelaySecs)
+    : mUidMap(uidMap),
+      mAnomalyAlarmMonitor(new AlarmMonitor(
               MIN_DIFF_TO_UPDATE_REGISTERED_ALARM_SECS,
               [this](const shared_ptr<IStatsCompanionService>& /*sc*/, int64_t timeMillis) {
                   mProcessor->setAnomalyAlarm(timeMillis);
@@ -115,12 +152,13 @@ StatsService::StatsService(const sp<Looper>& handlerLooper, shared_ptr<LogEventQ
                       StatsdStats::getInstance().noteRegisteredPeriodicAlarmChanged();
                   }
               })),
-      mEventQueue(queue),
+      mEventQueue(std::move(queue)),
+      mLogEventFilter(logEventFilter),
       mBootCompleteTrigger({kBootCompleteTag, kUidMapReceivedTag, kAllPullersRegisteredTag},
-                           [this]() { mProcessor->onStatsdInitCompleted(getElapsedRealtimeNs()); }),
+                           [this]() { onStatsdInitCompleted(); }),
       mStatsCompanionServiceDeathRecipient(
-              AIBinder_DeathRecipient_new(StatsService::statsCompanionServiceDied)) {
-    mUidMap = UidMap::getInstance();
+              AIBinder_DeathRecipient_new(StatsService::statsCompanionServiceDied)),
+      mInitEventDelaySecs(initEventDelaySecs) {
     mPullerManager = new StatsPullerManager();
     StatsPuller::SetUidMap(mUidMap);
     mConfigManager = new ConfigManager();
@@ -162,7 +200,29 @@ StatsService::StatsService(const sp<Looper>& handlerLooper, shared_ptr<LogEventQ
                 }
                 VLOG("StatsService::active configs broadcast failed for uid %d", uid);
                 return false;
-            });
+            },
+            [this](const ConfigKey& key, const string& delegatePackage,
+                   const vector<int64_t>& restrictedMetrics) {
+                set<string> configPackages;
+                set<int32_t> delegateUids;
+                for (const auto& kv : UidMap::sAidToUidMapping) {
+                    if (kv.second == static_cast<uint32_t>(key.GetUid())) {
+                        configPackages.insert(kv.first);
+                    }
+                    if (kv.first == delegatePackage) {
+                        delegateUids.insert(kv.second);
+                    }
+                }
+                if (configPackages.empty()) {
+                    configPackages = mUidMap->getAppNamesFromUid(key.GetUid(), true);
+                }
+                if (delegateUids.empty()) {
+                    delegateUids = mUidMap->getAppUid(delegatePackage);
+                }
+                mConfigManager->SendRestrictedMetricsBroadcast(configPackages, key.GetId(),
+                                                               delegateUids, restrictedMetrics);
+            },
+            logEventFilter);
 
     mUidMap->setListener(mProcessor);
     mConfigManager->AddListener(mProcessor);
@@ -357,12 +417,7 @@ status_t StatsService::handleShellCommand(int in, int out, int err, const char**
         }
 
         if (!utf8Args[0].compare(String8("data-subscribe"))) {
-            {
-                std::lock_guard<std::mutex> lock(mShellSubscriberMutex);
-                if (mShellSubscriber == nullptr) {
-                    mShellSubscriber = new ShellSubscriber(mUidMap, mPullerManager);
-                }
-            }
+            initShellSubscriber();
             int timeoutSec = -1;
             if (argc >= 2) {
                 timeoutSec = atoi(utf8Args[1].c_str());
@@ -792,8 +847,7 @@ status_t StatsService::cmd_log_app_breadcrumb(int out, const Vector<String8>& ar
     }
     if (good) {
         dprintf(out, "Logging AppBreadcrumbReported(%d, %d, %d) to statslog.\n", uid, label, state);
-        android::os::statsd::util::stats_write(
-                android::os::statsd::util::APP_BREADCRUMB_REPORTED, uid, label, state);
+        util::stats_write(util::APP_BREADCRUMB_REPORTED, uid, label, state);
     } else {
         print_cmd_help(out);
         return UNKNOWN_ERROR;
@@ -1079,10 +1133,28 @@ Status StatsService::bootCompleted() {
     return Status::ok();
 }
 
+void StatsService::onStatsdInitCompleted() {
+    if (mInitEventDelaySecs > 0) {
+        // The hard-coded delay is determined based on perfetto traces evaluation
+        // for statsd during the boot.
+        // The delay is required to properly process event storm which often has place
+        // after device boot.
+        // This function is called from a dedicated thread without holding locks, so sleeping is ok.
+        // See MultiConditionTrigger::markComplete() executorThread for details
+        // For more details see http://b/277958338
+        std::this_thread::sleep_for(std::chrono::seconds(mInitEventDelaySecs));
+    }
+
+    mProcessor->onStatsdInitCompleted(getElapsedRealtimeNs());
+}
+
 void StatsService::Startup() {
     mConfigManager->Startup();
+    int64_t wallClockNs = getWallClockNs();
+    int64_t elapsedRealtimeNs = getElapsedRealtimeNs();
     mProcessor->LoadActiveConfigsFromDisk();
-    mProcessor->LoadMetadataFromDisk(getWallClockNs(), getElapsedRealtimeNs());
+    mProcessor->LoadMetadataFromDisk(wallClockNs, elapsedRealtimeNs);
+    mProcessor->EnforceDataTtls(wallClockNs, elapsedRealtimeNs);
 }
 
 void StatsService::Terminate() {
@@ -1307,11 +1379,8 @@ Status StatsService::getRegisteredExperimentIds(std::vector<int64_t>* experiment
 Status StatsService::updateProperties(const vector<PropertyParcel>& properties) {
     ENFORCE_UID(AID_SYSTEM);
 
-    for (const auto& [property, value] : properties) {
-        if (property == kIncludeCertificateHash) {
-            mUidMap->setIncludeCertificateHash(value == "true");
-        }
-    }
+    // TODO(b/281765292): Forward statsd_java properties received here to FlagProvider.
+
     return Status::ok();
 }
 
@@ -1347,6 +1416,90 @@ void StatsService::statsCompanionServiceDiedImpl() {
     mAnomalyAlarmMonitor->setStatsCompanionService(nullptr);
     mPeriodicAlarmMonitor->setStatsCompanionService(nullptr);
     mPullerManager->SetStatsCompanionService(nullptr);
+}
+
+Status StatsService::setRestrictedMetricsChangedOperation(const int64_t configId,
+                                                          const string& configPackage,
+                                                          const shared_ptr<IPendingIntentRef>& pir,
+                                                          const int32_t callingUid,
+                                                          vector<int64_t>* output) {
+    ENFORCE_UID(AID_SYSTEM);
+    if (!IsAtLeastU()) {
+        ALOGW("setRestrictedMetricsChangedOperation invoked on U- device");
+        return Status::ok();
+    }
+    mConfigManager->SetRestrictedMetricsChangedReceiver(configPackage, configId, callingUid, pir);
+    if (output != nullptr) {
+        mProcessor->fillRestrictedMetrics(configId, configPackage, callingUid, output);
+    } else {
+        ALOGW("StatsService::setRestrictedMetricsChangedOperation output was nullptr");
+    }
+    return Status::ok();
+}
+
+Status StatsService::removeRestrictedMetricsChangedOperation(const int64_t configId,
+                                                             const string& configPackage,
+                                                             const int32_t callingUid) {
+    ENFORCE_UID(AID_SYSTEM);
+    if (!IsAtLeastU()) {
+        ALOGW("removeRestrictedMetricsChangedOperation invoked on U- device");
+        return Status::ok();
+    }
+    mConfigManager->RemoveRestrictedMetricsChangedReceiver(configPackage, configId, callingUid);
+    return Status::ok();
+}
+
+Status StatsService::querySql(const string& sqlQuery, const int32_t minSqlClientVersion,
+                              const optional<vector<uint8_t>>& policyConfig,
+                              const shared_ptr<IStatsQueryCallback>& callback,
+                              const int64_t configKey, const string& configPackage,
+                              const int32_t callingUid) {
+    ENFORCE_UID(AID_SYSTEM);
+    if (callback == nullptr) {
+        ALOGW("querySql called with null callback.");
+        StatsdStats::getInstance().noteQueryRestrictedMetricFailed(
+                configKey, configPackage, std::nullopt, callingUid,
+                InvalidQueryReason(NULL_CALLBACK));
+        return Status::ok();
+    }
+    mProcessor->querySql(sqlQuery, minSqlClientVersion, policyConfig, callback, configKey,
+                         configPackage, callingUid);
+    return Status::ok();
+}
+
+Status StatsService::addSubscription(const vector<uint8_t>& subscriptionConfig,
+                                     const shared_ptr<IStatsSubscriptionCallback>& callback) {
+    ENFORCE_SID(kTracedProbesSid);
+
+    initShellSubscriber();
+
+    mShellSubscriber->startNewSubscription(subscriptionConfig, callback);
+    return Status::ok();
+}
+
+Status StatsService::removeSubscription(const shared_ptr<IStatsSubscriptionCallback>& callback) {
+    ENFORCE_SID(kTracedProbesSid);
+
+    if (mShellSubscriber != nullptr) {
+        mShellSubscriber->unsubscribe(callback);
+    }
+    return Status::ok();
+}
+
+Status StatsService::flushSubscription(const shared_ptr<IStatsSubscriptionCallback>& callback) {
+    ENFORCE_SID(kTracedProbesSid);
+
+    if (mShellSubscriber != nullptr) {
+        mShellSubscriber->flushSubscription(callback);
+    }
+    return Status::ok();
+}
+
+void StatsService::initShellSubscriber() {
+    std::lock_guard<std::mutex> lock(mShellSubscriberMutex);
+    if (mShellSubscriber == nullptr) {
+        mShellSubscriber = new ShellSubscriber(mUidMap, mPullerManager, mLogEventFilter);
+    }
 }
 
 }  // namespace statsd

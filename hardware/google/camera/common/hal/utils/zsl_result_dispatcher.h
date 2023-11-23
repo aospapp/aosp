@@ -43,9 +43,11 @@ class ZslResultDispatcher {
   // Treat ZSL requests and normal requests separately.
   // For ZSL requests, it returns zsl shutter and zsl results in order
   // and is not blocked by normal shutter and results.
+  // stream_config is the session stream configuration.
   static std::unique_ptr<ZslResultDispatcher> Create(
       uint32_t partial_result_count,
-      ProcessCaptureResultFunc process_capture_result, NotifyFunc notify);
+      ProcessCaptureResultFunc process_capture_result, NotifyFunc notify,
+      const StreamConfiguration& stream_config);
 
   virtual ~ZslResultDispatcher() = default;
 
@@ -78,7 +80,8 @@ class ZslResultDispatcher {
                       NotifyFunc notify);
 
  private:
-  status_t Initialize(uint32_t partial_result_count);
+  status_t Initialize(uint32_t partial_result_count,
+                      const StreamConfiguration& stream_config);
 
   // Invoked when receiving a result from ResultDispatcher class.
   void ProcessCaptureResult(std::unique_ptr<CaptureResult> result);

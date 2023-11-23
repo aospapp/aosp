@@ -46,7 +46,7 @@ struct virgl_renderer_gl_ctx_param {
 };
 
 #ifdef VIRGL_RENDERER_UNSTABLE_APIS
-#define VIRGL_RENDERER_CALLBACKS_VERSION 3
+#define VIRGL_RENDERER_CALLBACKS_VERSION 4
 #else
 #define VIRGL_RENDERER_CALLBACKS_VERSION 2
 #endif
@@ -55,15 +55,39 @@ struct virgl_renderer_callbacks {
    int version;
    void (*write_fence)(void *cookie, uint32_t fence);
 
-   /* interact with GL implementation */
+   /*
+    * The following 3 callbacks allows virglrenderer to
+    * use winsys from caller, instead of initializing it's own
+    * winsys (flag VIRGL_RENDERER_USE_EGL or VIRGL_RENDERER_USE_GLX).
+    */
+
+   /* create a GL/GLES context */
    virgl_renderer_gl_context (*create_gl_context)(void *cookie, int scanout_idx, struct virgl_renderer_gl_ctx_param *param);
+   /* destroy a GL/GLES context */
    void (*destroy_gl_context)(void *cookie, virgl_renderer_gl_context ctx);
+   /* make a context current */
    int (*make_current)(void *cookie, int scanout_idx, virgl_renderer_gl_context ctx);
 
-   int (*get_drm_fd)(void *cookie); /* v2, used with flags & VIRGL_RENDERER_USE_EGL */
+   /*
+    * v2, used with flags & VIRGL_RENDERER_USE_EGL
+    * Chose the drm fd, that will be used by virglrenderer
+    * for winsys initialization.  Virglrenderer takes ownership of the fd
+    * that is returned and is responsible to close() it.  This should not
+    * return the same fd each time it is call, if called multiple times.
+    */
+   int (*get_drm_fd)(void *cookie);
 
 #ifdef VIRGL_RENDERER_UNSTABLE_APIS
-   void (*write_context_fence)(void *cookie, uint32_t ctx_id, uint64_t queue_id, void *fence_cookie);
+   void (*write_context_fence)(void *cookie, uint32_t ctx_id, uint32_t ring_idx, uint64_t fence_id);
+
+   /* version 0: a connected socket of type SOCK_SEQPACKET */
+   int (*get_server_fd)(void *cookie, uint32_t version);
+
+   /*
+    * Get the EGLDisplay from caller. It requires create_gl_context,
+    * destroy_gl_context, make_current to be implemented by caller.
+    */
+   void *(*get_egl_display)(void *cookie);
 #endif
 };
 
@@ -104,6 +128,21 @@ struct virgl_renderer_callbacks {
  * virgl_renderer_get_poll_fd should not be used to watch for retired fences.
  */
 #define VIRGL_RENDERER_ASYNC_FENCE_CB (1 << 8)
+
+/* Start a render server and move GPU rendering to the render server.
+ *
+ * This is respected by the venus renderer but ignored by the virgl renderer.
+ */
+#define VIRGL_RENDERER_RENDER_SERVER (1 << 9)
+
+/*
+ * Enable drm renderer.
+ */
+#define VIRGL_RENDERER_DRM           (1 << 10)
+
+/* Video encode/decode */
+#define VIRGL_RENDERER_USE_VIDEO     (1 << 11)
+
 
 #endif /* VIRGL_RENDERER_UNSTABLE_APIS */
 
@@ -273,12 +312,6 @@ VIRGL_EXPORT int virgl_renderer_get_poll_fd(void);
 
 VIRGL_EXPORT int virgl_renderer_execute(void *execute_args, uint32_t execute_size);
 
-/*
- * These are unstable APIs for development only. Use these for development/testing purposes
- * only, not in production
- */
-#ifdef VIRGL_RENDERER_UNSTABLE_APIS
-
 #define VIRGL_RENDERER_CONTEXT_FLAG_CAPSET_ID_MASK 0xff
 
 VIRGL_EXPORT int virgl_renderer_context_create_with_flags(uint32_t ctx_id,
@@ -289,6 +322,7 @@ VIRGL_EXPORT int virgl_renderer_context_create_with_flags(uint32_t ctx_id,
 #define VIRGL_RENDERER_BLOB_MEM_GUEST             0x0001
 #define VIRGL_RENDERER_BLOB_MEM_HOST3D            0x0002
 #define VIRGL_RENDERER_BLOB_MEM_HOST3D_GUEST      0x0003
+#define VIRGL_RENDERER_BLOB_MEM_GUEST_VRAM        0x0004
 
 #define VIRGL_RENDERER_BLOB_FLAG_USE_MAPPABLE     0x0001
 #define VIRGL_RENDERER_BLOB_FLAG_USE_SHAREABLE    0x0002
@@ -323,9 +357,28 @@ VIRGL_EXPORT int virgl_renderer_resource_get_map_info(uint32_t res_handle, uint3
 
 #define VIRGL_RENDERER_BLOB_FD_TYPE_DMABUF        0x0001
 #define VIRGL_RENDERER_BLOB_FD_TYPE_OPAQUE        0x0002
+#define VIRGL_RENDERER_BLOB_FD_TYPE_SHM           0x0003
 
 VIRGL_EXPORT int
 virgl_renderer_resource_export_blob(uint32_t res_id, uint32_t *fd_type, int *fd);
+
+/*
+ * These are unstable APIs for development only. Use these for development/testing purposes
+ * only, not in production
+ */
+#ifdef VIRGL_RENDERER_UNSTABLE_APIS
+
+struct virgl_renderer_resource_import_blob_args
+{
+   uint32_t res_handle;
+   uint32_t blob_mem;
+   uint32_t fd_type;
+   int fd;
+   uint64_t size;
+};
+
+VIRGL_EXPORT int
+virgl_renderer_resource_import_blob(const struct virgl_renderer_resource_import_blob_args *args);
 
 VIRGL_EXPORT int
 virgl_renderer_export_fence(uint32_t client_fence_id, int *fd);
@@ -333,8 +386,8 @@ virgl_renderer_export_fence(uint32_t client_fence_id, int *fd);
 #define VIRGL_RENDERER_FENCE_FLAG_MERGEABLE      (1 << 0)
 VIRGL_EXPORT int virgl_renderer_context_create_fence(uint32_t ctx_id,
                                                      uint32_t flags,
-                                                     uint64_t queue_id,
-                                                     void *fence_cookie);
+                                                     uint32_t ring_idx,
+                                                     uint64_t fence_id);
 VIRGL_EXPORT void virgl_renderer_context_poll(uint32_t ctx_id); /* force fences */
 VIRGL_EXPORT int virgl_renderer_context_get_poll_fd(uint32_t ctx_id);
 

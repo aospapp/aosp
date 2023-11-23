@@ -16,18 +16,14 @@ package com.google.security.wycheproof;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-
-import com.google.security.wycheproof.WycheproofRunner.NoPresubmitTest;
-import com.google.security.wycheproof.WycheproofRunner.ProviderType;
-import com.google.security.wycheproof.WycheproofRunner.SlowTest;
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadMXBean;
+import static org.junit.Assume.assumeTrue;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -44,9 +40,16 @@ import java.security.spec.EllipticCurve;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import javax.crypto.KeyAgreement;
+import org.junit.After;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.Ignore;
+import android.content.Context;
+import android.security.keystore.KeyProtection;
+import android.security.keystore.KeyProperties;
+import android.security.keystore.KeyGenParameterSpec;
+import android.keystore.cts.util.KeyStoreUtil;
+
+import androidx.test.InstrumentationRegistry;
 
 /**
  * Testing ECDH.
@@ -89,8 +92,40 @@ import org.junit.runners.JUnit4;
 //     certificate.
 //   - CVE-2014-3572: OpenSSL downgrades ECDHE to ECDH
 //   - CVE-2011-3210: OpenSSL was not thread safe
-@RunWith(JUnit4.class)
 public class EcdhTest {
+  private static final String EXPECTED_PROVIDER_NAME = TestUtil.EXPECTED_PROVIDER_NAME;
+  private static final String KEY_ALIAS_1 = "TestKey";
+  private static final String KEY_ALIAS_2 = "wycheproofkey1";
+  private static final String KEY_ALIAS_3 = "wycheproofkey2";
+
+  @After
+  public void tearDown() throws Exception {
+    KeyStoreUtil.cleanUpKeyStore();
+  }
+
+  private static PrivateKey getKeystorePrivateKey(PublicKey pubKey, PrivateKey privKey,
+                                                  boolean isStrongBox)
+    throws Exception {
+    return (PrivateKey) KeyStoreUtil.saveKeysToKeystore(
+                                    KEY_ALIAS_1, pubKey, privKey,
+                                    new KeyProtection.Builder(KeyProperties.PURPOSE_AGREE_KEY)
+                                    .setIsStrongBoxBacked(isStrongBox)
+                                    .build())
+                                .getKey(KEY_ALIAS_1, null);
+  }
+
+  private KeyPair generateECKeyPair(String alias, ECGenParameterSpec ecSpec, boolean isStrongBox)
+          throws Exception {
+    KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC", EXPECTED_PROVIDER_NAME);
+    KeyGenParameterSpec ecKeySpec =
+                new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_AGREE_KEY)
+                        .setAlgorithmParameterSpec(ecSpec)
+                        .setIsStrongBoxBacked(isStrongBox)
+                        .build();
+
+    keyGen.initialize(ecKeySpec);
+    return keyGen.generateKeyPair();
+  }
 
   static final String[] ECDH_VARIANTS = {
     // Raw ECDH. The shared secret is the x-coordinate of the ECDH computation.
@@ -161,7 +196,6 @@ public class EcdhTest {
         ECPublicKeySpec pub = new ECPublicKeySpec(pubPoint, params);
         return pub;
       } catch (Exception ex) {
-        System.out.println(comment + " throws " + ex.toString());
         return null;
       }
     }
@@ -509,14 +543,21 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
   /** Checks that key agreement using ECDH works. */
   @Test
   public void testBasic() throws Exception {
-    KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
-    ECGenParameterSpec ecSpec = new ECGenParameterSpec("secp256r1");
-    keyGen.initialize(ecSpec);
-    KeyPair keyPairA = keyGen.generateKeyPair();
-    KeyPair keyPairB = keyGen.generateKeyPair();
+    testBasic(false);
+  }
+  @Test
+  public void testBasic_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testBasic(true);
+  }
+  private void testBasic(boolean isStrongBox) throws Exception {
+    KeyPair keyPairA = generateECKeyPair(KEY_ALIAS_2, new ECGenParameterSpec("secp256r1"),
+                                        isStrongBox);
+    KeyPair keyPairB = generateECKeyPair(KEY_ALIAS_3, new ECGenParameterSpec("secp256r1"),
+                                        isStrongBox);
 
-    KeyAgreement kaA = KeyAgreement.getInstance("ECDH");
-    KeyAgreement kaB = KeyAgreement.getInstance("ECDH");
+    KeyAgreement kaA = KeyAgreement.getInstance("ECDH", EXPECTED_PROVIDER_NAME);
+    KeyAgreement kaB = KeyAgreement.getInstance("ECDH", EXPECTED_PROVIDER_NAME);
     kaA.init(keyPairA.getPrivate());
     kaB.init(keyPairB.getPrivate());
     kaA.doPhase(keyPairB.getPublic(), true);
@@ -526,10 +567,6 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
     assertEquals(TestUtil.bytesToHex(kAB), TestUtil.bytesToHex(kBA));
   }
 
-  @NoPresubmitTest(
-    providers = {ProviderType.BOUNCY_CASTLE},
-    bugs = {"BouncyCastle uses long encoding. Is this a bug?"}
-  )
   @Test
   public void testEncode() throws Exception {
     KeyFactory kf = KeyFactory.getInstance("EC");
@@ -559,26 +596,23 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
    */
   @SuppressWarnings("InsecureCryptoUsage")
   public void testModifiedPublic(String algorithm) throws Exception {
-    KeyAgreement ka;
-    try {
-      ka = KeyAgreement.getInstance(algorithm);
-    } catch (NoSuchAlgorithmException ex) {
-      System.out.println("testWrongOrder: " + algorithm + " not supported");
-      return;
-    }
-    KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
-    keyGen.initialize(EcUtil.getNistP256Params());
-    ECPrivateKey priv = (ECPrivateKey) keyGen.generateKeyPair().getPrivate();
+    testModifiedPublic(algorithm, false);
+  }
+  @SuppressWarnings("InsecureCryptoUsage")
+  public void testModifiedPublic(String algorithm, boolean isStrongBox) throws Exception {
+    KeyAgreement ka = KeyAgreement.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
+    KeyPair pair = generateECKeyPair(KEY_ALIAS_1, new ECGenParameterSpec("secp256r1"),
+            isStrongBox);
     KeyFactory kf = KeyFactory.getInstance("EC");
     ECPublicKey validKey = (ECPublicKey) kf.generatePublic(EC_VALID_PUBLIC_KEY.getSpec());
-    ka.init(priv);
+    ka.init(pair.getPrivate());
     ka.doPhase(validKey, true);
     String expected = TestUtil.bytesToHex(ka.generateSecret());
     for (EcPublicKeyTestVector test : EC_MODIFIED_PUBLIC_KEYS) {
       try {
         X509EncodedKeySpec spec = test.getX509EncodedKeySpec();
         ECPublicKey modifiedKey = (ECPublicKey) kf.generatePublic(spec);
-        ka.init(priv);
+        ka.init(pair.getPrivate());
         ka.doPhase(modifiedKey, true);
         String shared = TestUtil.bytesToHex(ka.generateSecret());
         // The implementation did not notice that the public key was modified.
@@ -593,7 +627,6 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
         assertEquals("algorithm:" + algorithm + " test:" + test.comment, expected, shared);
       } catch (GeneralSecurityException ex) {
         // OK, since the public keys have been modified.
-        System.out.println("testModifiedPublic:" + test.comment + " throws " + ex.toString());
       }
     }
   }
@@ -604,19 +637,16 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
    */
   @SuppressWarnings("InsecureCryptoUsage")
   public void testModifiedPublicSpec(String algorithm) throws Exception {
-    KeyAgreement ka;
-    try {
-      ka = KeyAgreement.getInstance(algorithm);
-    } catch (NoSuchAlgorithmException ex) {
-      System.out.println("testWrongOrder: " + algorithm + " not supported");
-      return;
-    }
-    KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
-    keyGen.initialize(EcUtil.getNistP256Params());
-    ECPrivateKey priv = (ECPrivateKey) keyGen.generateKeyPair().getPrivate();
+    testModifiedPublicSpec(algorithm, false);
+  }
+  @SuppressWarnings("InsecureCryptoUsage")
+  public void testModifiedPublicSpec(String algorithm, boolean isStrongBox) throws Exception {
+    KeyAgreement ka = KeyAgreement.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
+    KeyPair pair = generateECKeyPair(KEY_ALIAS_1, new ECGenParameterSpec("secp256r1"),
+            isStrongBox);
     KeyFactory kf = KeyFactory.getInstance("EC");
     ECPublicKey validKey = (ECPublicKey) kf.generatePublic(EC_VALID_PUBLIC_KEY.getSpec());
-    ka.init(priv);
+    ka.init(pair.getPrivate());
     ka.doPhase(validKey, true);
     String expected = TestUtil.bytesToHex(ka.generateSecret());
     for (EcPublicKeyTestVector test : EC_MODIFIED_PUBLIC_KEYS) {
@@ -628,7 +658,7 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
       }
       try {
         ECPublicKey modifiedKey = (ECPublicKey) kf.generatePublic(spec);
-        ka.init(priv);
+        ka.init(pair.getPrivate());
         ka.doPhase(modifiedKey, true);
         String shared = TestUtil.bytesToHex(ka.generateSecret());
         // The implementation did not notice that the public key was modified.
@@ -643,77 +673,40 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
         assertEquals("algorithm:" + algorithm + " test:" + test.comment, expected, shared);
       } catch (GeneralSecurityException ex) {
         // OK, since the public keys have been modified.
-        System.out.println("testModifiedPublic:" + test.comment + " throws " + ex.toString());
       }
     }
   }
 
   @Test
-  public void testModifiedPublic() throws Exception {
+  public void testEcdhModifiedPublic() throws Exception {
     testModifiedPublic("ECDH");
+  }
+  @Test
+  public void testEcdhModifiedPublic_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testModifiedPublic("ECDH", true);
+  }
+
+  @Test
+  @Ignore // ECDHC algorithm is not supported in AndroidKeyStore
+  public void testEcdhcModifiedPublic() throws Exception {
     testModifiedPublic("ECDHC");
   }
 
   @Test
-  public void testModifiedPublicSpec() throws Exception {
+  public void testEcdhModifiedPublicSpec() throws Exception {
     testModifiedPublicSpec("ECDH");
-    testModifiedPublicSpec("ECDHC");
+  }
+  @Test
+  public void testEcdhModifiedPublicSpec_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testModifiedPublicSpec("ECDH", true);
   }
 
-  @SuppressWarnings("InsecureCryptoUsage")
-  public void testDistinctCurves(String algorithm, ECPrivateKey priv, ECPublicKey pub)
-      throws Exception {
-    KeyAgreement kaA;
-    try {
-      kaA = KeyAgreement.getInstance(algorithm);
-    } catch (NoSuchAlgorithmException ex) {
-      System.out.println("Algorithm not supported: " + algorithm);
-      return;
-    }
-    byte[] shared;
-    try {
-      kaA.init(priv);
-      kaA.doPhase(pub, true);
-      shared = kaA.generateSecret();
-    } catch (InvalidKeyException ex) {
-      // This is expected.
-      return;
-    }
-    // Printing some information to determine what might have gone wrong:
-    // E.g., if the generated secret is the same as the x-coordinate of the public key
-    // then it is likely that the ECDH computation was using a fake group with small order.
-    // Such a situation is probably exploitable.
-    // This probably is exploitable. If the curve of the private key was used for the ECDH
-    // then the generated secret and the x-coordinate of the public key are likely
-    // distinct.
-    EllipticCurve pubCurve = pub.getParams().getCurve();
-    EllipticCurve privCurve = priv.getParams().getCurve();
-    ECPoint pubW = pub.getW();
-    System.out.println("testDistinctCurves: algorithm=" + algorithm);
-    System.out.println(
-        "Private key: a="
-            + privCurve.getA()
-            + " b="
-            + privCurve.getB()
-            + " p"
-            + EcUtil.getModulus(privCurve));
-    System.out.println("        s =" + priv.getS());
-    System.out.println(
-        "Public key: a="
-            + pubCurve.getA()
-            + " b="
-            + pubCurve.getB()
-            + " p"
-            + EcUtil.getModulus(pubCurve));
-    System.out.println("        w = (" + pubW.getAffineX() + ", " + pubW.getAffineY() + ")");
-    System.out.println(
-        "          = ("
-            + pubW.getAffineX().toString(16)
-            + ", "
-            + pubW.getAffineY().toString(16)
-            + ")");
-    System.out.println("generated shared secret:" + TestUtil.bytesToHex(shared));
-    fail("Generated secret with distinct Curves using " + algorithm);
+  @Test
+  @Ignore // ECDHC algorithm is not supported in AndroidKeyStore
+  public void testEcdhcModifiedPublicSpec() throws Exception {
+    testModifiedPublicSpec("ECDHC");
   }
 
   /**
@@ -724,26 +717,20 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
    */
   // TODO(bleichen): This can be merged with testModifiedPublic once this is fixed.
   @SuppressWarnings("InsecureCryptoUsage")
-  public void testWrongOrder(String algorithm, ECParameterSpec spec) throws Exception {
-    KeyAgreement ka;
-    try {
-      ka = KeyAgreement.getInstance(algorithm);
-    } catch (NoSuchAlgorithmException ex) {
-      System.out.println("testWrongOrder: " + algorithm + " not supported");
-      return;
-    }
-    KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
-    ECPrivateKey priv;
-    ECPublicKey pub;
-    try {
-      keyGen.initialize(spec);
-      priv = (ECPrivateKey) keyGen.generateKeyPair().getPrivate();
-      pub = (ECPublicKey) keyGen.generateKeyPair().getPublic();
-    } catch (GeneralSecurityException ex) {
-      // This is OK, since not all provider support Brainpool curves
-      System.out.println("testWrongOrder: could not generate keys for curve");
-      return;
-    }
+  public void testWrongOrder(String algorithm, ECParameterSpec spec)
+          throws Exception {
+    testWrongOrder(algorithm, spec, false);
+  }
+  @SuppressWarnings("InsecureCryptoUsage")
+  public void testWrongOrder(String algorithm, ECParameterSpec spec, boolean isStrongBox)
+          throws Exception {
+    KeyAgreement ka = KeyAgreement.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
+    PrivateKey priv = generateECKeyPair(KEY_ALIAS_2,
+                                        new ECGenParameterSpec("secp256r1"), isStrongBox)
+            .getPrivate();
+    ECPublicKey pub = (ECPublicKey) generateECKeyPair(KEY_ALIAS_3,
+                                        new ECGenParameterSpec("secp256r1"), isStrongBox)
+            .getPublic();
     // Get the shared secret for the unmodified keys.
     ka.init(priv);
     ka.doPhase(pub, true);
@@ -754,15 +741,7 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
             spec.getCurve(), spec.getGenerator(), spec.getOrder().shiftRight(16), 1);
     ECPublicKeySpec modifiedPubSpec = new ECPublicKeySpec(pub.getW(), modifiedParams);
     KeyFactory kf = KeyFactory.getInstance("EC");
-    ECPublicKey modifiedPub;
-    try {
-      modifiedPub = (ECPublicKey) kf.generatePublic(modifiedPubSpec);
-    } catch (GeneralSecurityException ex) {
-      // The provider does not support non-standard curves or did a validity check.
-      // Both would be correct.
-      System.out.println("testWrongOrder: can't modify order.");
-      return;
-    }
+    ECPublicKey modifiedPub = (ECPublicKey) kf.generatePublic(modifiedPubSpec);
     byte[] shared2;
     try {
       ka.init(priv);
@@ -770,7 +749,6 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
       shared2 = ka.generateSecret();
     } catch (GeneralSecurityException ex) {
       // This is the expected behavior
-      System.out.println("testWrongOrder:" + ex.toString());
       return;
     }
     // TODO(bleichen): Getting here is already a bug and we might flag this later.
@@ -782,25 +760,29 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
     // of modular reduction, can determine the private key, either by a binary search or by trying
     // to guess the private key modulo some small "order".
     // BouncyCastle v.1.53 fails this test, and leaks the private key.
-    System.out.println(
-        "Generated shared secret with a modified order:"
-            + algorithm
-            + "\n"
-            + "expected:"
-            + TestUtil.bytesToHex(shared)
-            + " computed:"
-            + TestUtil.bytesToHex(shared2));
+    
     assertEquals(
         "Algorithm:" + algorithm, TestUtil.bytesToHex(shared), TestUtil.bytesToHex(shared2));
   }
 
   @Test
-  public void testWrongOrderEcdh() throws Exception {
+  public void testWrongOrderEcdhNist() throws Exception {
     testWrongOrder("ECDH", EcUtil.getNistP256Params());
+  }
+  @Test
+  public void testWrongOrderEcdhNist_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testWrongOrder("ECDH", EcUtil.getNistP256Params(), true);
+  }
+
+  @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeyStore.
+  public void testWrongOrderEcdhBrainpool() throws Exception {
     testWrongOrder("ECDH", EcUtil.getBrainpoolP256r1Params());
   }
 
   @Test
+  @Ignore // ECDHC algorithm not supported in AndroidKeyStore.
   public void testWrongOrderEcdhc() throws Exception {
     testWrongOrder("ECDHC", EcUtil.getNistP256Params());
     testWrongOrder("ECDHC", EcUtil.getBrainpoolP256r1Params());
@@ -814,26 +796,28 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
    * occur for example when the private key is close to the order of the curve.
    */
   private void testLargePrivateKey(ECParameterSpec spec) throws Exception {
+    testLargePrivateKey(spec, false);
+  }
+  private void testLargePrivateKey(ECParameterSpec spec, boolean isStrongBox) throws Exception {
     BigInteger order = spec.getOrder();
     KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
-    ECPublicKey pub;
-    try {
-      keyGen.initialize(spec);
-      pub = (ECPublicKey) keyGen.generateKeyPair().getPublic();
-    } catch (GeneralSecurityException ex) {
-      // curve is not supported
-      return;
-    }
+    keyGen.initialize(spec);
+    ECPublicKey pub = (ECPublicKey) keyGen.generateKeyPair().getPublic();
     KeyFactory kf = KeyFactory.getInstance("EC");
-    KeyAgreement ka = KeyAgreement.getInstance("ECDH");
+    KeyAgreement ka = KeyAgreement.getInstance("ECDH", EXPECTED_PROVIDER_NAME);
     for (int i = 1; i <= 64; i++) {
       BigInteger p1 = BigInteger.valueOf(i);
       ECPrivateKeySpec spec1 = new ECPrivateKeySpec(p1, spec);
       ECPrivateKeySpec spec2 = new ECPrivateKeySpec(order.subtract(p1), spec);
-      ka.init(kf.generatePrivate(spec1));
+      PrivateKey priv1 = kf.generatePrivate(spec1);
+      // This Public key is not pair of priv1, but it is required to create KeyPair to import into
+      // AndroidKeyStore, So using dummy public key. 
+      PublicKey pub1 = kf.generatePublic(EC_VALID_PUBLIC_KEY.getX509EncodedKeySpec());
+      ka.init(getKeystorePrivateKey(pub1, priv1, isStrongBox));
       ka.doPhase(pub, true);
       byte[] shared1 = ka.generateSecret();
-      ka.init(kf.generatePrivate(spec2));
+      PrivateKey priv2 = kf.generatePrivate(spec2);
+      ka.init(getKeystorePrivateKey(pub1, priv2, isStrongBox));
       ka.doPhase(pub, true);
       byte[] shared2 = ka.generateSecret();
       // The private keys p1 and p2 are equivalent, since only the x-coordinate of the
@@ -843,230 +827,23 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
   }
 
   @Test
-  public void testLargePrivateKey() throws Exception {
+  public void testNistCurveLargePrivateKey() throws Exception {
     testLargePrivateKey(EcUtil.getNistP224Params());
     testLargePrivateKey(EcUtil.getNistP256Params());
     testLargePrivateKey(EcUtil.getNistP384Params());
     // This test failed before CVE-2017-10176 was fixed.
     testLargePrivateKey(EcUtil.getNistP521Params());
+  }
+  @Test
+  public void testNistCurveLargePrivateKey_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testLargePrivateKey(EcUtil.getNistP256Params(), true);
+  }
+
+  @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeyStore.
+  public void testBrainpoolCurveLargePrivateKey() throws Exception {
     testLargePrivateKey(EcUtil.getBrainpoolP256r1Params());
-  }
-
-  /**
-   * This test tries to determine whether point multipliplication using two distinct
-   * points leads to distinguishable timings.
-   *
-   * The main goal here is to determine if the attack by Toru Akishita and Tsuyoshi Takagi
-   * in https://www-old.cdc.informatik.tu-darmstadt.de/reports/TR/TI-03-01.zvp.pdf
-   * might be applicable. I.e. one of the points contains a zero value when multiplied
-   * by mul, the other one does not.
-   *
-   * In its current form the test here is quite weak for a number of reasons:
-   * (1) The timing is often noisy, because the test is run as a unit test.
-   * (2) The test is executed with only a small number of input points.
-   * (3) The number of samples is rather low. Running this test with a larger sample
-   *     size would detect more timing differences. Unfortunately
-   * (4) The test does not determine if a variable run time is exploitable. For example
-   *     if the tested provider uses windowed exponentiation and the special point is
-   *     in the precomputation table then timing differences are easy to spot, but more
-   *     difficult to exploit and hence additional experiments would be necessary.
-   *
-   * @param spec the specification of the curve
-   * @param p0 This is a special point. I.e. multiplying this point by mul
-   *           may lead to a zero value that may be observable.
-   * @param p1 a random point on the curve
-   * @param mul an integer, such that multiplying p0 with this value may lead to a timing
-   *        difference
-   * @param privKeySize the size of the private key in bits
-   * @param comment describes the test case
-   */
-  private void testTiming(ECParameterSpec spec, ECPoint p0, ECPoint p1,
-                          BigInteger mul, int privKeySize, String comment) throws Exception {
-    ThreadMXBean bean = ManagementFactory.getThreadMXBean();
-    if (!bean.isCurrentThreadCpuTimeSupported()) {
-      System.out.println("getCurrentThreadCpuTime is not supported. Skipping");
-      return;
-    }
-    SecureRandom random = new SecureRandom();
-    int fixedSize = mul.bitLength();
-    int missingBits = privKeySize - 2 * fixedSize;
-    assertTrue(missingBits > 0);
-    // possible values for tests, minCount:
-    //   1024,  410
-    //   2048,  880
-    //   4096, 1845
-    //  10000, 4682
-    // I.e. these are values, such that doing 'tests' coin flips results in <= minCount heads or
-    // tails with a probability smaller than 2^-32.
-    //
-    // def min_count(n, b=33):
-    //   res, sum, k = 1,1,0
-    //   bnd = 2**(n-b)
-    //   while sum < bnd:
-    //     res *= n - k
-    //     res //= 1 + k
-    //     k += 1
-    //     sum += res
-    //   return k - 1
-    final int tests = 2048;
-    final int minCount = 880;
-    // the number of measurements done with each point
-    final int repetitions = 8;
-    // the number of warmup experiments that are ignored
-    final int warmup = 8;
-    final int sampleSize = warmup + tests;
-    KeyFactory kf = KeyFactory.getInstance("EC");
-    PublicKey[] publicKeys = new PublicKey[2];
-    try {
-      publicKeys[0] = kf.generatePublic(new ECPublicKeySpec(p0, spec));
-      publicKeys[1] = kf.generatePublic(new ECPublicKeySpec(p1, spec));
-    } catch (InvalidKeySpecException ex) {
-      // unsupported curve
-      return;
-    }
-    PrivateKey[] privKeys = new PrivateKey[sampleSize];
-    for (int i = 0; i < sampleSize; i++) {
-      BigInteger m = new BigInteger(missingBits, random);
-      m = mul.shiftLeft(missingBits).add(m);
-      m = m.shiftLeft(fixedSize).add(mul);
-      ECPrivateKeySpec privSpec = new ECPrivateKeySpec(m, spec);
-      privKeys[i] = kf.generatePrivate(privSpec);
-    }
-    KeyAgreement ka = KeyAgreement.getInstance("ECDH");
-    long[][] timings = new long[2][sampleSize];
-    for (int i = 0; i < sampleSize; i++) {
-      for (int j = 0; j < 2 * repetitions; j++) {
-        // idx determines which key to use.
-        int idx = (j ^ i) & 1;
-        ka.init(privKeys[i]);
-        long start = bean.getCurrentThreadCpuTime();
-        ka.doPhase(publicKeys[idx], true);
-        byte[] unused = ka.generateSecret();
-        long time = bean.getCurrentThreadCpuTime() - start;
-        timings[idx][i] += time;
-      }
-    }
-    for (int i = 0; i < sampleSize; i++) {
-      for (int j = 0; j < 2; j++) {
-        timings[j][i] /= repetitions;
-      }
-    }
- 
-    // Performs some statistics.
-    boolean noisy = false;  // Set to true, if the timings have a large variance.
-    System.out.println("ECDH timing test:" + comment);
-    double[] avg = new double[2];
-    double[] var = new double[2];
-    for (int i = 0; i < 2; i++) {
-      double sum = 0.0;
-      double sumSqr = 0.0;
-      for (int j = warmup; j < sampleSize; j++) {
-        double val = (double) timings[i][j];
-        sum += val;
-        sumSqr += val * val;
-      }
-      avg[i] = sum / tests;
-      var[i] = (sumSqr - avg[i] * sum) / (tests - 1);
-      double stdDev = Math.sqrt(var[i]);
-      double cv = stdDev / avg[i]; 
-      System.out.println("Timing for point " + i + " avg: " + avg[i] + " std dev: " + stdDev
-                         + " cv:" + cv);
-      // The ratio 0.05 below is a somewhat arbitrary value that tries to determine if the noise
-      // is too big to detect even larger timing differences.
-      if (cv > 0.05) {
-        noisy = true;
-      }
-    }
-    // Paired Z-test:
-    // The outcome of this value can be significantly influenced by extreme outliers, such
-    // as slow timings because of things like a garbage collection.
-    double sigmas = Math.abs(avg[0] - avg[1]) / Math.sqrt((var[0] + var[1]) / tests);
-    System.out.println("Sigmas: " + sigmas);
-
-    // Pairwise comparison:
-    // this comparison has the property that it compares timings done with the same
-    // private key, hence timing differences from using different addition chain sizes
-    // are ignored. Extreme outliers should not influence the result a lot, as long as the
-    // number of outliers is small.
-    int point0Faster = 0;
-    int equal = 0;
-    for (int i = 0; i < sampleSize; i++) {
-      if (timings[0][i] < timings[1][i]) {
-        point0Faster += 1;
-      } else if (timings[0][i] < timings[1][i]) {
-        equal += 1;
-      }
-    }
-    point0Faster += equal / 2;
-    System.out.println("Point 0 multiplication is faster: " + point0Faster);
-    if (point0Faster < minCount || point0Faster > sampleSize - minCount) {
-      fail("Timing differences in ECDH computation detected");
-    } else if (noisy) {
-      System.out.println("Timing was too noisy to expect results.");
-    }
-  }
-
-  @SlowTest(providers = 
-      {ProviderType.BOUNCY_CASTLE, ProviderType.SPONGY_CASTLE, ProviderType.OPENJDK})
-  @Test
-  public void testTimingSecp256r1() throws Exception {
-    // edge case for projective coordinates
-    BigInteger x1 =
-        new BigInteger("81bfb55b010b1bdf08b8d9d8590087aa278e28febff3b05632eeff09011c5579", 16);
-    BigInteger y1 =
-        new BigInteger("732d0e65267ea28b7af8cfcb148936c2af8664cbb4f04e188148a1457400c2a7", 16);
-    ECPoint p1 = new ECPoint(x1, y1);
-    // random point
-    BigInteger x2 =
-        new BigInteger("8608e36a91f1fba12e4074972af446176b5608c9c58dc318bd0742754c3dcee7", 16);
-    BigInteger y2 =
-        new BigInteger("bc2c9ecd44af916ca58d9e3ef1257f698d350ef486eb86137fe69a7375bcc191", 16);
-    ECPoint p2 = new ECPoint(x2, y2);
-    testTiming(EcUtil.getNistP256Params(), p1, p2, new BigInteger("2"), 256, "secp256r1");
-  }
-
-  @SlowTest(providers = 
-      {ProviderType.BOUNCY_CASTLE, ProviderType.SPONGY_CASTLE, ProviderType.OPENJDK})
-  @Test
-  public void testTimingSecp384r1() throws Exception {
-    // edge case for projective coordinates
-    BigInteger x1 =
-        new BigInteger("7a6fadfee03eb09554f2a04fe08300aca88bb3a46e8f6347bace672cfe427698"
-                       + "8541cef8dc10536a84580215f5f90a3b", 16);
-    BigInteger y1 =
-        new BigInteger("6d243d5d9de1cdddd04cbeabdc7a0f6c244391f7cb2d5738fe13c334add4b458"
-                       + "5fef61ffd446db33b39402278713ae78", 16);
-    ECPoint p1 = new ECPoint(x1, y1);
-    // random point
-    BigInteger x2 =
-        new BigInteger("71f3c57d6a879889e582af2c7c5444b0eb6ba95d88365b21ca9549475273ecdd"
-                       + "3930aa0bebbd1cf084e4049667278602", 16);
-    BigInteger y2 =
-        new BigInteger("9dcbc4d843af8944eb4ba018d369b351a9ea0f7b9e3561df2ee218d54e198f7c"
-                       + "837a3abaa41dffd2d2cb771a7599ed9e", 16);
-    ECPoint p2 = new ECPoint(x2, y2);
-    testTiming(EcUtil.getNistP384Params(), p1, p2, new BigInteger("2"), 384, "secp384r1");
-  }
-
-  @SlowTest(providers = 
-      {ProviderType.BOUNCY_CASTLE, ProviderType.SPONGY_CASTLE, ProviderType.OPENJDK})
-  @Test
-  public void testTimingBrainpoolP256r1() throws Exception {
-    // edge case for Jacobian and projective coordinates
-    BigInteger x1 =
-        new BigInteger("79838c22d2b8dc9af2e6cf56f8826dc3dfe10fcb17b6aaaf551ee52bef12f826", 16);
-    BigInteger y1 =
-        new BigInteger("1e2ed3d453088c8552c6feecf898667bc1e15905002edec6b269feb7bea09d5b", 16);
-    ECPoint p1 = new ECPoint(x1, y1);
-
-    // random point
-    BigInteger x2 =
-        new BigInteger("2720b2e821b2ac8209b573bca755a68821e1e09deb580666702570dd527dd4c1", 16);
-    BigInteger y2 =
-        new BigInteger("25cdd610243c7e693fad7bd69b43ae3e63e94317c4c6b717d9c8bc3be8c996fb", 16);
-    ECPoint p2 = new ECPoint(x2, y2);
-    testTiming(EcUtil.getBrainpoolP256r1Params(), p1, p2, new BigInteger("2"), 255,
-               "brainpoolP256r1");
   }
 }
 

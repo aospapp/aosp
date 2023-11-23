@@ -140,7 +140,8 @@ public class SliceBindingTest {
             }
         };
         mContext.registerReceiver(receiver,
-                new IntentFilter(mContext.getPackageName() + ".action"));
+                new IntentFilter(mContext.getPackageName() + ".action"),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         Uri uri = BASE_URI.buildUpon().appendPath("action").build();
         Slice s = mSliceManager.bindSlice(uri, Collections.emptySet());
         assertEquals(uri, s.getUri());

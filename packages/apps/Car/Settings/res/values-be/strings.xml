@@ -24,14 +24,13 @@
     <string name="auto_brightness_title" msgid="9124647862844666581">"Адаптыўная яркасць"</string>
     <string name="auto_brightness_summary" msgid="2002570577219479702">"Карэкціраваць яркасць экрана з улікам наваколля"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"Начная падсветка ўключана"</string>
-    <string name="night_mode_tile_label" msgid="6603597795502131664">"Начны рэжым"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"Сетка і інтэрнэт"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"Мабільная сетка"</string>
     <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# SIM-карта}one{# SIM-карта}few{# SIM-карты}many{# SIM-карт}other{# SIM-карты}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"Актывавана / SIM-карта"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"Не актывавана / SIM-карта"</string>
-    <string name="mobile_network_active_esim" msgid="5864100786496761032">"Актывавана / Спампаваная SIM-карта"</string>
-    <string name="mobile_network_inactive_esim" msgid="1397332352238119032">"Не актывавана / Спампаваная SIM-карта"</string>
+    <string name="mobile_network_active_esim" msgid="5175362818078597096">"Актыўна / eSIM-карта"</string>
+    <string name="mobile_network_inactive_esim" msgid="7273712403773327964">"Неактыўна / eSIM-карта"</string>
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"Дадаць яшчэ"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"Мабільная перадача даных"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Доступ да даных па мабільнай сетцы"</string>
@@ -177,6 +176,7 @@
     <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"Паказаць усе"</string>
     <string name="progress_scanning" msgid="7191583064717479795">"Пошук"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"Bluetooth"</string>
+    <string name="bluetooth_toggle_title" msgid="1431803611346881088">"Выкарыстоўваць Bluetooth"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"Прылада без назвы"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"Спалучаныя прылады"</string>
     <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"Спалучыць новую прыладу"</string>
@@ -221,6 +221,9 @@
     <string name="bluetooth_notif_title" msgid="8374602799367803335">"Запыт на спалучэнне"</string>
     <string name="bluetooth_notif_message" msgid="1060821000510108726">"Націсніце, каб спалучыцца з прыладай \"<xliff:g id="DEVICE_NAME">%1$s</xliff:g>\"."</string>
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Выберыце прыладу Bluetooth"</string>
+    <string name="bluetooth_bonded_bluetooth_toggle_content_description" msgid="6800772154405846597">"Bluetooth"</string>
+    <string name="bluetooth_bonded_phone_toggle_content_description" msgid="8152794643249938377">"Тэлефон"</string>
+    <string name="bluetooth_bonded_media_toggle_content_description" msgid="7803420585378155404">"Мультымедыя"</string>
     <string name="language_settings" msgid="2079258598337245546">"Мовы"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Мовы і спосаб уводу"</string>
     <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Прапанавана"</string>
@@ -300,14 +303,16 @@
     <string name="apps_and_notifications_settings" msgid="8704585874333781975">"Праграмы і апавяшчэнні"</string>
     <string name="all_applications" msgid="7798210477486822168">"Паказваць усе праграмы"</string>
     <string name="default_applications" msgid="1558183275638697087">"Стандартныя праграмы"</string>
+    <string name="performance_impacting_apps" msgid="3439260699394720569">"Праграмы, якія зніжаюць прадукцыйнасць"</string>
     <string name="app_permissions" msgid="32799922508313948">"Дазволы праграмы"</string>
     <string name="app_permissions_summary" msgid="5402214755935368418">"Кіруйце доступам праграм да вашых даных"</string>
-    <string name="applications_settings" msgid="794261395191035632">"Звесткі пра праграму"</string>
-    <string name="force_stop" msgid="2153183697014720520">"Прымусова спыніць"</string>
-    <string name="force_stop_dialog_title" msgid="3342850939200388694">"Спыніць прымусова?"</string>
+    <string name="applications_settings" msgid="794261395191035632">"Звесткі аб праграме"</string>
+    <string name="force_stop" msgid="1616958676171167028">"Спыніць праграму"</string>
+    <string name="force_stop_dialog_title" msgid="4481858344628934971">"Спыніць праграму?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"Прымусовае спыненне дзейнасці праграмы можа прывесці да збою."</string>
-    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"Уключыць прыярытэт прадукцыйнасці праграмы?"</string>
-    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"Уключэнне гэтай налады можа стаць прычынай нестабільнасці сістэмы або мець доўгатэрміновае ўздзеянне на апаратнае забеспячэнне. Працягнуць?"</string>
+    <string name="force_stop_success_toast_text" msgid="2986272849275894254">"Праграма \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" спынена."</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="3205297520523665568">"Зраб. прадукцыйнасць праграмы прыяр-най?"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="4321564728229192878">"Гэта можа стаць прычынай нестабільнасці сістэмы або мець доўгатэрміновае ўздзеянне на апаратнае забеспячэнне. Працягнуць?"</string>
     <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"Так"</string>
     <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"Не, дзякуй"</string>
     <string name="disable_text" msgid="4358165448648990820">"Адключыць"</string>
@@ -378,6 +383,7 @@
     <string name="apps_permission_manager_title" msgid="8776335943862484131">"Менеджар дазволаў"</string>
     <string name="apps_permission_manager_summary" msgid="4180424218228141274">"Кіруйце доступам праграм да вашых даных"</string>
     <string name="apps_default_apps_summary" msgid="2017792579839972926">"Для Памочніка і не толькі"</string>
+    <string name="performance_impacting_apps_summary" msgid="7762122057244111162">"{count,plural, =1{# праграма, якая зніжае прадукцыйнасць}one{# праграма, якая зніжае прадукцыйнасць}few{# праграмы, якія зніжаюць прадукцыйнасць}many{# праграм, якія зніжаюць прадукцыйнасць}other{# праграмы, якія зніжаюць прадукцыйнасць}}"</string>
     <string name="apps_special_app_access_summary" msgid="6464767436309742163">"Да сістэмных і іншых налад"</string>
     <string name="special_access" msgid="5730278220917123811">"Спецыяльны доступ да праграм"</string>
     <string name="show_system" msgid="4401355756969485287">"Паказаць сістэмныя працэсы"</string>
@@ -391,6 +397,8 @@
     <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"Калі вы адключыце для праграмы \"<xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g>\" доступ да апавяшчэнняў, таксама можа быць адключаны доступ да рэжыму \"Не турбаваць\"."</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"Выключыць"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"Скасаваць"</string>
+    <string name="performance_impacting_apps_description" msgid="7361464904617808444">"Гэтыя праграмы зніжаюць прадукцыйнасць сістэмы, і ім забаронена выконвацца ў фонавым рэжыме.\nЗрабіце праграму прыярытэтнай, каб дазволіць ёй выконвацца ў фонавым рэжыме і выдаліць з гэтага спіса."</string>
+    <string name="performance_impacting_apps_button_label" msgid="8277507326717608783">"Зрабіць прыярытэтнай"</string>
     <string name="premium_sms_access_title" msgid="1409118461646148686">"Доступ да платных SMS"</string>
     <string name="premium_sms_access_description" msgid="7119026067677052169">"За доступ да платных SMS з вас можа спаганяцца аплата. Гэта павялічыць вашы рахункі за паслугі аператара. Калі вы ўключыце дазвол для праграмы, вы атрымаеце магчымасць адпраўляць з яе платныя SMS."</string>
     <string name="usage_access_title" msgid="7153427122072303254">"Доступ да даных выкарыстання"</string>
@@ -401,22 +409,27 @@
     <string name="location_settings_title" msgid="901334356682423679">"Месцазнаходжанне"</string>
     <string name="location_toggle_title" msgid="836779750812064601">"Выкарыстоўваць месцазнаходжанне"</string>
     <string name="location_toggle_summary" msgid="7977868708102299495">"Даць доступ да геаданых выбраным праграмам"</string>
-    <string name="location_toggle_off_warning" msgid="8396854289251143748">"Калі выключыць гэту наладу, доступ да геаданых будзе выдалены для ўсіх праграм, але не для праграм падтрымкі вадзіцеля."</string>
-    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"Выкарыстоўваць геаданыя для падтрымкі вадзіцеля"</string>
+    <string name="location_toggle_off_warning" msgid="5959449346865136081">"Калі выключыць гэту наладу, доступ да геаданых будзе выдалены для ўсіх праграм, акрамя тых, якія патрабуюцца для дапамогі вадзіцелю"</string>
+    <string name="location_driver_assistance_toggle_title" msgid="3780157378527924932">"Карыстацца геаданымі для дапамогі вадзіцелю"</string>
     <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"Геалакацыя аўтамабіля выключана"</string>
-    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"Праграмы дапамогі вадзіцелю не маюць доступу да геаданых"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="6040822988891113026">"Праграмы дапамогі вадзіцелю не маюць доступу да геаданых"</string>
     <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"Змяніць"</string>
     <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"Даць доступ да геаданых праграмам падтрымкі вадзіцеля"</string>
-    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"Калі выключыць гэту наладу, праграмы падтрымкі вадзіцеля, для работы якіх патрабуецца інфармацыя аб месцазнаходжанні, будуць выключаны."</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="2733124752598498356">"Калі выключыць гэту наладу, праграмы дапамогі вадзіцелю, для работы якіх патрабуецца інфармацыя аб месцазнаходжанні, будуць выключаны"</string>
     <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"Усё роўна выключыць"</string>
-    <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Нядаўнія запыты геаданых"</string>
-    <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Няма нядаўніх запытаў геаданых"</string>
+    <string name="location_recently_accessed" msgid="522888989582110975">"Нядаўна быў атрыманы доступ"</string>
+    <string name="location_settings_recently_accessed_title" msgid="6016264778609426382">"Нядаўна быў атрыманы доступ"</string>
+    <string name="location_settings_recently_accessed_view_all_title" msgid="6344830628885781448">"Паказаць усе"</string>
+    <string name="location_no_recent_access" msgid="2859914321242257931">"Ніякія праграмы не атрымлівалі нядаўна доступу да геаданых"</string>
+    <string name="driver_assistance_label" msgid="9217315205754658940">"<xliff:g id="TIME">%1$s</xliff:g> • Дапамога вадзіцелю"</string>
+    <string name="location_driver_assistance_privacy_policy_header_content" msgid="8118086439003674350">"Праграмы з доступам да даных пра месцазнаходжанне аўтамабіля для дапамогі вадзіцелю"</string>
+    <string name="location_driver_assistance_privacy_policy_button_text" msgid="669921557502414704">"Палітыка прыватнасці"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Дазволы на ўзроўні праграм"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Службы геалакацыі"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"Выкарыстоўваць геалакацыю"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"Для вызначэння месцазнаходжання прылады могуць выкарыстоўвацца даныя GPS, Wi-Fi, мабільных сетак і датчыкаў."</string>
     <string name="driver_assistance_settings_title" msgid="4915804073177128915">"Падтрымка вадзіцеля"</string>
-    <string name="adas_settings_footer" msgid="5128483877858058534">"Звесткі пра месцазнаходжанне, якія адпраўляюцца праграмам дапамогі вадзіцелю, не змяшчаюць інфармацыі, па якой вас можна ідэнтыфікаваць. Яны захоўваюцца не больш за 2 дні, пасля чаго выдаляюцца."</string>
+    <string name="adas_settings_footer" msgid="6697021691244459156">"Звесткі пра месцазнаходжанне, якія адпраўляюцца праграмам дапамогі вадзіцелю, не змяшчаюць інфармацыі, па якой вас можна ідэнтыфікаваць. Яны захоўваюцца не больш за 2 дні, пасля чаго выдаляюцца."</string>
     <string name="microphone_settings_title" msgid="7125554350537136922">"Мікрафон"</string>
     <string name="microphone_toggle_title" msgid="911586035332827275">"Выкарыстоўваць мікрафон"</string>
     <string name="microphone_toggle_summary" msgid="2682653449849128626">"Даць усім праграмам доступ да мікрафона"</string>
@@ -432,6 +445,9 @@
     <string name="system_update_settings_title" msgid="8448588267784138855">"Абнаўленне сістэмы"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"Дадаткова"</string>
     <string name="system_advanced_summary" msgid="5833643795981791953">"Агульная інфармацыя, юрыдычныя звесткі, скід налад і іншае"</string>
+    <string name="restart_infotainment_system_title" msgid="5174129167446756511">"Перазапуск інфармацыйна-забаўляльнай сістэмы"</string>
+    <string name="restart_infotainment_system_dialog_text" msgid="6395281407323116808">"Перазапуск інфармацыйна-забаўляльнай сістэмы вашага аўтамабіля можа заняць некалькі хвілін. Працягнуць?"</string>
+    <string name="continue_confirmation" msgid="1598892163951467191">"Працягнуць"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Версія Android"</string>
     <string name="security_patch" msgid="4794276590178386903">"Абнаўленне сістэмы бяспекі Android"</string>
     <string name="hardware_info" msgid="3973165746261507658">"Мадэль і апаратнае забеспячэнне"</string>
@@ -472,11 +488,11 @@
     <string name="developer_options_settings" msgid="1530739225109118480">"Параметры распрацоўшчыка"</string>
     <string name="reset_options_title" msgid="4388902952861833420">"Параметры скіду"</string>
     <string name="reset_options_summary" msgid="5508201367420359293">"Скід налад сеткі, праграм ці прылады"</string>
-    <string name="reset_network_title" msgid="1284233059990797263">"Скінуць налады сеткі да заводскіх"</string>
-    <string name="reset_network_desc" msgid="602381374544634925">"Гэта дзеянне прывядзе да скіду ўсіх налад сеткі, уключаючы:"</string>
-    <string name="reset_network_item_wifi" msgid="7569481589699982698"><li>"Wi‑Fi"</li></string>
+    <string name="reset_network_title" msgid="3077846909739832734">"Скінуць Wi-Fi і Bluetooth"</string>
+    <string name="reset_network_desc" msgid="3332203703135823033">"Налады Wi-Fi і Bluetooth будуць скінуты. Таксама будзе выдалена гісторыя падключаных і выкарыстаных:"</string>
+    <string name="reset_network_item_wifi" msgid="2876370861806060314"><li>"пароляў і сетак Wi-Fi."</li></string>
     <string name="reset_network_item_mobile" msgid="5747282716664480997"><li>"Мабільная перадача даных"</li></string>
-    <string name="reset_network_item_bluetooth" msgid="6035019931106921284"><li>"Bluetooth"</li></string>
+    <string name="reset_network_item_bluetooth" msgid="7475279871421815601"><li>"тэлефонаў і іншых прылад з Bluetooth;"</li></string>
     <string name="reset_esim_title" msgid="8132107637911831211">"Сцерці ўсе eSIM аўтамабіля"</string>
     <string name="reset_esim_desc" msgid="1437276625485586740">"Гэта не прывядзе да скасавання вашага тарыфнага плана."</string>
     <string name="reset_esim_error_title" msgid="7245109418130525492">"Не ўдалося скінуць налады eSIM-карт"</string>
@@ -574,7 +590,7 @@
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"Ачысціць сховішча"</string>
     <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"Ачысціць кэш"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"Выдаліць даныя праграмы?"</string>
-    <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Усе даныя гэтай праграмы будуць назаўсёды выдалены. Гэта датычыцца ўсіх файлаў, налад, уліковых запісаў, баз даных і г. д."</string>
+    <string name="storage_clear_data_dlg_text" msgid="3255314337644212283">"Даныя гэтай праграмы (файлы, налады, базы даных і г. д.) будуць выдалены назаўсёды."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Не ўдалося ачысціць сховішча для праграмы."</string>
     <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> бяспечна вынята"</string>
     <string name="storage_unmount_failure" msgid="4591934911541762883">"Не ўдалося бяспечна выняць <xliff:g id="NAME">%1$s</xliff:g>"</string>
@@ -654,7 +670,7 @@
     <string name="lockpattern_too_many_failed_confirmation_attempts" msgid="4636307830951251013">"Занадта шмат няўдалых спроб. Паспрабуйце яшчэ раз праз <xliff:g id="NUMBER">%d</xliff:g> с."</string>
     <string name="lockpattern_does_not_support_rotary" msgid="7356367113555659428">"Паваротны рэгулятар не падтрымліваецца, выкарыстайце сэнсарны ўвод"</string>
     <string name="okay" msgid="4589873324439764349">"ОК"</string>
-    <string name="remove_screen_lock_title" msgid="1234382338764193387">"Зняць блакіроўку экрана?"</string>
+    <string name="remove_screen_lock_title" msgid="1234382338764193387">"Выключыць блакіроўку экрана?"</string>
     <string name="remove_screen_lock_message" msgid="6675850371585564965">"Доступ да вашага ўліковага запісу зможа атрымаць любы чалавек"</string>
     <string name="security_profile_lock_title" msgid="3082523481292617350">"Блакіроўка профілю"</string>
     <string name="security_unlock_profile_summary" msgid="6742592419759865631">"Наладзіць аўтаматычную разблакіроўку"</string>
@@ -675,6 +691,7 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Скасаваць"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Пацвердзіць"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Мінімальная колькасць сімвалаў: 4"</string>
+    <string name="locktype_unavailable" msgid="2678317466336249126">"Гэты тып блакіроўкі недаступны."</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"PIN-код павінен змяшчаць толькі лічбы 0-9."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Адміністратар прылады не дазваляе выкарыстоўваць апошні PIN-код"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"IT-адміністратар блакіруе папулярныя PIN-коды. Паспрабуйце іншы PIN-код."</string>
@@ -699,7 +716,6 @@
     <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{Пароль павінен змяшчаць менш чым # лічбу}one{Пароль павінен змяшчаць менш чым # лічбу}few{Пароль павінен змяшчаць менш чым # лічбы}many{Пароль павінен змяшчаць менш чым # лічбаў}other{Пароль павінен змяшчаць менш чым # лічбы}}"</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Забаронена выкарыстоўваць паслядоўнасці з лічбаў, якія ідуць адна за адной або паўтараюцца"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Параметры блакіроўкі экрана"</string>
-    <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> сут. таму назад"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Выдаліць уліковыя даныя"</string>
     <string name="credentials_reset_summary" msgid="6067911547500459637">"Выдаліць усе сертыфікаты"</string>
     <string name="credentials_reset_hint" msgid="3459271621754137661">"Выдаліць усё змесціва?"</string>
@@ -722,6 +738,8 @@
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Выйсці з дэма-рэжыму"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"АДХІЛІЦЬ"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"Функцыя недаступная, калі аўтамабіль рухаецца"</string>
+    <string name="restricted_for_passenger" msgid="7240117443887727753">"Папрасіце вадзіцеля змяніць наладу"</string>
+    <string name="restricted_for_driver" msgid="3364388937671526800">"Гэта дзеянне для вас недаступнае"</string>
     <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"Нельга дадаваць профіль, калі аўтамабіль рухаецца"</string>
     <string name="default_search_query" msgid="3137420627428857068">"Пошук"</string>
     <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"Памочнік і Voice"</string>
@@ -737,6 +755,7 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"Дадаць профіль"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"Выдаліць гэты профіль"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"Дадаць профіль"</string>
+    <string name="cannot_remove_driver_profile" msgid="4109363161608717969">"Вы ўвайшлі ў профіль як вадзіцель. Паўтарыце спробу пасля выхаду з профілю."</string>
     <string name="qc_display_brightness" msgid="2939655289816201170">"Яркасць дысплэя"</string>
     <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"Каб пабачыць прылады, уключыце Bluetooth"</string>
     <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"Каб спалучыць прыладу, адкрыйце налады Bluetooth"</string>
@@ -769,6 +788,7 @@
     <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# актываваная праграма}one{# актываваная праграма}few{# актываваныя праграмы}many{# актываваных праграм}other{# актываванай праграмы}}"</string>
     <string name="number_of_device_admins_none" msgid="5547493703413973954">"Няма актываваных праграм"</string>
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"Палітыка кампаніі \"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>\" адносна транспартных сродкаў"</string>
+    <string name="work_policy_privacy_settings_no_org_name" msgid="8011687012493940230">"Палітыка адносна транспартных сродкаў"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Налады, якімі кіруе менеджар арганізацыі"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Даведацца больш пра сэрвіс \"<xliff:g id="SERVICE">%1$s</xliff:g>\""</string>
     <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Інфармацыя пра аўтамабіль пад кіраваннем"</string>

@@ -14,7 +14,7 @@
     </class-decl>
     <type-decl name='int' size-in-bits='32' alignment-in-bits='32' id='type-id-3'/>
     <pointer-type-def type-id='type-id-1' size-in-bits='64' alignment-in-bits='64' id='type-id-2'/>
-    <var-decl name='n1' type-id='type-id-1' mangled-name='n1' visibility='default'/>
-    <var-decl name='n2' type-id='type-id-1' mangled-name='n2' visibility='default'/>
+    <var-decl name='n1' type-id='type-id-1' mangled-name='n1' visibility='default' elf-symbol-id='n1'/>
+    <var-decl name='n2' type-id='type-id-1' mangled-name='n2' visibility='default' elf-symbol-id='n2'/>
   </abi-instr>
 </abi-corpus>

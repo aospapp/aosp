@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
+include common/fdt_wrappers.mk
 include lib/libfdt/libfdt.mk
 
 RESET_TO_BL31 := 1
@@ -89,6 +90,8 @@ endif
 # Allow detection of GIC-600
 GICV3_SUPPORT_GIC600	:=	1
 
+GIC_ENABLE_V4_EXTN	:=	1
+
 # Include GICv3 driver files
 include drivers/arm/gic/v3/gicv3.mk
 
@@ -102,8 +105,7 @@ PLAT_INCLUDES		:=	-Iplat/arm/board/arm_fpga/include
 
 PLAT_BL_COMMON_SOURCES	:=	plat/arm/board/arm_fpga/${ARCH}/fpga_helpers.S
 
-BL31_SOURCES		+=	common/fdt_wrappers.c				\
-				common/fdt_fixup.c				\
+BL31_SOURCES		+=	common/fdt_fixup.c				\
 				drivers/delay_timer/delay_timer.c		\
 				drivers/delay_timer/generic_delay_timer.c	\
 				drivers/arm/pl011/${ARCH}/pl011_console.S	\
@@ -115,11 +117,14 @@ BL31_SOURCES		+=	common/fdt_wrappers.c				\
 				${FPGA_CPU_LIBS}				\
 				${FPGA_GIC_SOURCES}
 
-$(eval $(call MAKE_S,$(BUILD_PLAT),plat/arm/board/arm_fpga/rom_trampoline.S,31))
-$(eval $(call MAKE_LD,$(BUILD_PLAT)/build_axf.ld,plat/arm/board/arm_fpga/build_axf.ld.S,31))
+BL31_SOURCES		+=	${FDT_WRAPPERS_SOURCES}
 
-bl31.axf: bl31 dtbs ${BUILD_PLAT}/rom_trampoline.o ${BUILD_PLAT}/build_axf.ld
+$(eval $(call MAKE_S,$(BUILD_PLAT),plat/arm/board/arm_fpga/rom_trampoline.S,bl31))
+$(eval $(call MAKE_S,$(BUILD_PLAT),plat/arm/board/arm_fpga/kernel_trampoline.S,bl31))
+$(eval $(call MAKE_LD,$(BUILD_PLAT)/build_axf.ld,plat/arm/board/arm_fpga/build_axf.ld.S,bl31))
+
+bl31.axf: bl31 dtbs ${BUILD_PLAT}/rom_trampoline.o ${BUILD_PLAT}/kernel_trampoline.o ${BUILD_PLAT}/build_axf.ld
 	$(ECHO) "  LD      $@"
-	$(Q)$(LD) -T ${BUILD_PLAT}/build_axf.ld -L ${BUILD_PLAT} --strip-debug -o ${BUILD_PLAT}/bl31.axf
+	$(Q)$(LD) -T ${BUILD_PLAT}/build_axf.ld -L ${BUILD_PLAT} --strip-debug -s -n -o ${BUILD_PLAT}/bl31.axf
 
 all: bl31.axf

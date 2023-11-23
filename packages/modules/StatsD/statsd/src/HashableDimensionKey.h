@@ -166,7 +166,8 @@ android::hash_t hashDimension(const HashableDimensionKey& key);
 
 /**
  * Returns true if a FieldValue field matches the matcher field.
- * The value of the FieldValue is output.
+ * This function can only be used to match one field (i.e. matcher with position ALL will return
+ * false). The value of the FieldValue is output.
  */
 bool filterValues(const Matcher& matcherField, const std::vector<FieldValue>& values,
                   FieldValue* output);

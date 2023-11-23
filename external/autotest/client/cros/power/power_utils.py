@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,11 +7,13 @@ import logging
 import os
 import re
 import shutil
+import sys
 import time
 from autotest_lib.client.bin import utils
 from autotest_lib.client.bin.input.input_device import InputDevice
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import upstart
+from six.moves import range
 
 
 # Possible display power settings. Copied from chromeos::DisplayPowerState
@@ -146,11 +149,9 @@ def get_power_supply():
              'power:AC_only' when the device has no battery at all.
     """
     try:
-        psu = utils.system_output('mosys psu type')
+        psu = utils.system_output('cros_config /hardware-properties psu-type')
     except Exception:
-        # The psu command for mosys is not included for all platforms. The
-        # assumption is that the device will have a battery if the command
-        # is not found.
+        # Assume battery if unspecified in cros_config.
         return 'power:battery'
 
     psu_str = psu.strip()
@@ -176,24 +177,7 @@ def has_battery():
     Returns:
         Boolean, False if known not to have battery, True otherwise.
     """
-    rv = True
-    power_supply = get_power_supply()
-    if power_supply == 'power:battery':
-        # TODO(tbroch) if/when 'power:battery' param is reliable
-        # remove board type logic.  Also remove verbose mosys call.
-        _NO_BATTERY_BOARD_TYPE = ['CHROMEBOX', 'CHROMEBIT', 'CHROMEBASE']
-        board_type = utils.get_board_type()
-        if board_type in _NO_BATTERY_BOARD_TYPE:
-            logging.warn('Do NOT believe type %s has battery. '
-                         'See debug for mosys details', board_type)
-            psu = utils.system_output('mosys -vvvv psu type',
-                                      ignore_status=True)
-            logging.debug(psu)
-            rv = False
-    elif power_supply == 'power:AC_only':
-        rv = False
-
-    return rv
+    return get_power_supply() == 'power:battery'
 
 
 def get_low_battery_shutdown_percent():
@@ -267,7 +251,7 @@ def charge_control_by_ectool(is_charge, ignore_status=True):
     Raises:
       error.CmdError: if ectool returns non-zero exit status.
     """
-    for i in xrange(ECTOOL_CHARGECONTROL_RETRY_TIMES):
+    for i in range(ECTOOL_CHARGECONTROL_RETRY_TIMES):
         if _charge_control_by_ectool(is_charge, ignore_status):
             return True
 
@@ -295,7 +279,17 @@ def get_core_keyvals(keyvals):
                          .*_[cg]pu(freq(_\d+)+)?_\d{3,}_.*|
                          .*cpu(idle|pkg)[ABD-Za-z0-9_\-]+C[^0].*
                          """, re.X)
-    return {k: v for k, v in keyvals.iteritems() if not matcher.match(k)}
+    return {k: v for k, v in keyvals.items() if not matcher.match(k)}
+
+
+# TODO(b/220192766): Remove when Python 2 completely phase out.
+def encoding_kwargs():
+    """Use encoding kwarg if it is running in Python 3+.
+    """
+    if sys.version_info.major > 2:
+        return {'encoding': 'utf-8'}
+    else:
+        return {}
 
 
 class BacklightException(Exception):
@@ -308,9 +302,6 @@ class Backlight(object):
     Public methods:
        set_level: Set backlight level to the given brightness.
        set_percent: Set backlight level to the given brightness percent.
-       set_resume_level: Set backlight level on resume to the given brightness.
-       set_resume_percent: Set backlight level on resume to the given brightness
-                           percent.
        set_default: Set backlight to CrOS default.
 
        get_level: Get backlight level currently.
@@ -319,7 +310,10 @@ class Backlight(object):
        restore: Restore backlight to initial level when instance created.
 
     Public attributes:
-        default_brightness_percent: float of default brightness
+        default_brightness_percent: float of default brightness.
+        force_battery: bool; if True, force backlight_tool to assume that the
+                       device is on battery and have AC disconnected; if False,
+                       use the device's real power source.
 
     Private methods:
         _try_bl_cmd: run a backlight command.
@@ -333,7 +327,7 @@ class Backlight(object):
     # See http://www.chromium.org/chromium-os/testing/power-testing for more
     # details.
 
-    def __init__(self, default_brightness_percent=0):
+    def __init__(self, default_brightness_percent=0, force_battery=False):
         """Constructor.
 
         attributes:
@@ -352,14 +346,16 @@ class Backlight(object):
             return
 
         if not self.default_brightness_percent:
-            cmd = \
-                "backlight_tool --get_initial_brightness --lux=150 2>/dev/null"
+            force_battery_arg = "--force_battery " if force_battery else ""
+            cmd = ("backlight_tool --get_initial_brightness --lux=150 " +
+                   force_battery_arg + "2>/dev/null")
             try:
                 level = float(utils.system_output(cmd).rstrip())
                 self.default_brightness_percent = \
                     (level / self.get_max_level()) * 100
-                logging.info("Default backlight brightness percent = %f",
-                             self.default_brightness_percent)
+                logging.info("Default backlight brightness percent = %f%s",
+                             self.default_brightness_percent,
+                             " with force battery" if force_battery else "")
             except error.CmdError:
                 self.default_brightness_percent = 40.0
                 logging.warning("Unable to determine default backlight "
@@ -402,22 +398,6 @@ class Backlight(object):
           percent: float between 0 and 100
         """
         self._try_bl_cmd('--set_brightness_percent=%f' % (percent))
-
-    def set_resume_level(self, level):
-        """Set backlight level on resume to the given brightness.
-
-        Args:
-          level: integer of brightness to set
-        """
-        self._try_bl_cmd('--set_resume_brightness=%d' % (level))
-
-    def set_resume_percent(self, percent):
-        """Set backlight level on resume to the given brightness percent.
-
-        Args:
-          percent: float between 0 and 100
-        """
-        self._try_bl_cmd('--set_resume_brightness_percent=%f' % (percent))
 
     def set_default(self):
         """Set backlight to CrOS default.
@@ -500,8 +480,8 @@ class KbdBacklight(object):
             raise KbdBacklightException('Keyboard backlight support' +
                                         'is not enabled')
         try:
-            cmd = \
-                "backlight_tool --keyboard --get_initial_brightness 2>/dev/null"
+            cmd = ("backlight_tool --keyboard --get_initial_brightness "
+                   "--lux=0 2>/dev/null")
             self._default_backlight_level = int(
                 utils.system_output(cmd).rstrip())
             logging.info("Default keyboard backlight brightness level = %d",
@@ -534,8 +514,7 @@ class KbdBacklight(object):
         @param percent: float value in the range [0.0, 100.0]
                         to set keyboard backlight to.
         """
-        cmd = ('backlight_tool --keyboard --set_brightness_percent=' +
-               str(percent))
+        cmd = 'backlight_tool --keyboard --set_brightness_percent=%f' % percent
         utils.system(cmd)
 
     def set_level(self, level):
@@ -544,7 +523,7 @@ class KbdBacklight(object):
         Args:
         @param level: level to set keyboard backlight to.
         """
-        cmd = 'backlight_tool --keyboard --set_brightness=' + str(level)
+        cmd = 'backlight_tool --keyboard --set_brightness=%d' % level
         utils.system(cmd)
 
 
@@ -655,7 +634,7 @@ class PowerPrefChanger(object):
 
     def __init__(self, prefs):
         shutil.copytree(self._PREFDIR, self._TEMPDIR)
-        for name, value in prefs.iteritems():
+        for name, value in prefs.items():
             utils.write_one_line('%s/%s' % (self._TEMPDIR, name), value)
         utils.system('mount --bind %s %s' % (self._TEMPDIR, self._PREFDIR))
         upstart.restart_job('powerd')
@@ -742,7 +721,7 @@ class Registers(object):
 
     def _verify_registers(self, reg_name, read_fn, match_list):
         errors = 0
-        for k, v in match_list.iteritems():
+        for k, v in match_list.items():
             r = read_fn(k)
             for item in v:
                 good = self._shift_mask_match(reg_name, r, item)
@@ -762,7 +741,7 @@ class Registers(object):
         @param match_list: match list
         """
         errors = 0
-        for cpu_id in xrange(0, max(utils.count_cpus(), 1)):
+        for cpu_id in range(0, max(utils.count_cpus(), 1)):
             self._cpu_id = cpu_id
             errors += self._verify_registers('msr', self._read_msr, match_list)
         return errors
@@ -862,8 +841,8 @@ class USBPower(object):
         self._alist_file = \
             '/etc/laptop-mode/conf.d/board-specific/usb-autosuspend.conf'
         # TODO b:169251326 terms below are set outside of this codebase
-        # and should be updated when possible. ("WHITELIST" -> "ALLOWLIST")
-        self._alist_vname = '$AUTOSUSPEND_USBID_WHITELIST'
+        # and should be updated when possible. ("WHITELIST" -> "ALLOWLIST") # nocheck
+        self._alist_vname = '$AUTOSUSPEND_USBID_WHITELIST' # nocheck
         self._allowlisted = None
         self.devices = []
 
@@ -969,9 +948,12 @@ class DisplayPanelSelfRefresh(object):
         return int(count) if count else None
 
     def _calc_residency(self):
-        """Calculate the PSR residency."""
+        """Calculate the PSR residency.
+
+        @returns: PSR residency in percent or -1 if not able to calculate.
+        """
         if not self.supported:
-            return 0
+            return -1
 
         tdelta = time.time() - self._init_time
         cdelta = self._get_counter() - self._init_counter

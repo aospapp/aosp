@@ -26,6 +26,8 @@ import androidx.annotation.RequiresApi
 import com.android.permissioncontroller.DeviceUtils
 import com.android.permissioncontroller.PermissionControllerApplication
 import com.android.permissioncontroller.permission.data.v33.PermissionDecision
+import com.android.permissioncontroller.permission.service.BasePermissionEventStorage
+import com.android.permissioncontroller.permission.service.PermissionEventStorage
 import com.android.permissioncontroller.permission.utils.Utils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope

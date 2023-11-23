@@ -506,7 +506,7 @@ TEST_F(AvbSlotVerifyTest, LoadEntirePartitionIfAllowingVerificationError) {
   // says.
   EXPECT_COMMAND(
       0,
-      "./avbtool add_hash_footer"
+      "./avbtool.py add_hash_footer"
       " --image %s"
       " --rollback_index 0"
       " --partition_name boot"
@@ -574,7 +574,7 @@ TEST_F(AvbSlotVerifyTest, LoadSmallerPartitionIfAllowingVerificationError) {
   // says.
   EXPECT_COMMAND(
       0,
-      "./avbtool add_hash_footer"
+      "./avbtool.py add_hash_footer"
       " --image %s"
       " --rollback_index 0"
       " --partition_name boot"
@@ -636,7 +636,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInVBMeta) {
 
   EXPECT_COMMAND(
       0,
-      "./avbtool add_hash_footer"
+      "./avbtool.py add_hash_footer"
       " --image %s"
       " --rollback_index 0"
       " --partition_name boot"
@@ -689,13 +689,13 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInVBMeta) {
       InfoImage(vbmeta_image_path_));
 
   EXPECT_COMMAND(0,
-                 "./avbtool erase_footer"
+                 "./avbtool.py erase_footer"
                  " --image %s",
                  boot_path.value().c_str());
 
   // With no footer, 'avbtool info_image' should fail (exit status 1).
   EXPECT_COMMAND(
-      1, "./avbtool info_image --image %s", boot_path.value().c_str());
+      1, "./avbtool.py info_image --image %s", boot_path.value().c_str());
 
   ops_.set_expected_public_key(
       PublicKeyAVB(base::FilePath("test/data/testkey_rsa2048.pem")));
@@ -760,7 +760,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInVBMetaWithPreloadedPartition) {
 
   EXPECT_COMMAND(
       0,
-      "./avbtool add_hash_footer"
+      "./avbtool.py add_hash_footer"
       " --image %s"
       " --rollback_index 0"
       " --partition_name boot"
@@ -783,13 +783,13 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInVBMetaWithPreloadedPartition) {
           boot_path.value().c_str()));
 
   EXPECT_COMMAND(0,
-                 "./avbtool erase_footer"
+                 "./avbtool.py erase_footer"
                  " --image %s",
                  boot_path.value().c_str());
 
   // With no footer, 'avbtool info_image' should fail (exit status 1).
   EXPECT_COMMAND(
-      1, "./avbtool info_image --image %s", boot_path.value().c_str());
+      1, "./avbtool.py info_image --image %s", boot_path.value().c_str());
 
   ops_.set_expected_public_key(
       PublicKeyAVB(base::FilePath("test/data/testkey_rsa2048.pem")));
@@ -844,7 +844,7 @@ TEST_F(AvbSlotVerifyTest, SmallPreallocatedPreloadedPartitionFailGracefully) {
 
   EXPECT_COMMAND(
       0,
-      "./avbtool add_hash_footer"
+      "./avbtool.py add_hash_footer"
       " --image %s"
       " --rollback_index 0"
       " --partition_name boot"
@@ -867,7 +867,7 @@ TEST_F(AvbSlotVerifyTest, SmallPreallocatedPreloadedPartitionFailGracefully) {
           boot_path.value().c_str()));
 
   EXPECT_COMMAND(0,
-                 "./avbtool erase_footer"
+                 "./avbtool.py erase_footer"
                  " --image %s",
                  boot_path.value().c_str());
 
@@ -895,7 +895,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInVBMetaCorruptBoot) {
   const char* requested_partitions[] = {"boot", NULL};
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer"
+                 "./avbtool.py add_hash_footer"
                  " --image %s"
                  " --rollback_index 0"
                  " --partition_name boot"
@@ -914,7 +914,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInVBMetaCorruptBoot) {
                                          boot_path.value().c_str()));
 
   EXPECT_COMMAND(0,
-                 "./avbtool erase_footer"
+                 "./avbtool.py erase_footer"
                  " --image %s",
                  boot_path.value().c_str());
 
@@ -968,7 +968,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInChainedPartition) {
   const char* requested_partitions[] = {"boot", NULL};
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer"
+                 "./avbtool.py add_hash_footer"
                  " --image %s"
                  " --kernel_cmdline 'cmdline2 in hash footer'"
                  " --rollback_index 12"
@@ -984,7 +984,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInChainedPartition) {
   base::FilePath pk_path = testdir_.Append("testkey_rsa4096.avbpubkey");
   EXPECT_COMMAND(
       0,
-      "./avbtool extract_public_key --key test/data/testkey_rsa4096.pem"
+      "./avbtool.py extract_public_key --key test/data/testkey_rsa4096.pem"
       " --output %s",
       pk_path.value().c_str());
 
@@ -1153,7 +1153,7 @@ TEST_F(AvbSlotVerifyTest, RollbackIndexLocationInChainedPartition) {
   const char* requested_partitions[] = {"boot", NULL};
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer"
+                 "./avbtool.py add_hash_footer"
                  " --image %s"
                  " --kernel_cmdline 'cmdline2 in hash footer'"
                  " --rollback_index 12"
@@ -1170,7 +1170,7 @@ TEST_F(AvbSlotVerifyTest, RollbackIndexLocationInChainedPartition) {
   base::FilePath pk_path = testdir_.Append("testkey_rsa4096.avbpubkey");
   EXPECT_COMMAND(
       0,
-      "./avbtool extract_public_key --key test/data/testkey_rsa4096.pem"
+      "./avbtool.py extract_public_key --key test/data/testkey_rsa4096.pem"
       " --output %s",
       pk_path.value().c_str());
 
@@ -1271,7 +1271,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInOtherVBMetaPartition) {
   const char* requested_partitions[] = {"boot", NULL};
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer"
+                 "./avbtool.py add_hash_footer"
                  " --image %s"
                  " --kernel_cmdline 'cmdline2 in hash footer'"
                  " --rollback_index 12"
@@ -1287,20 +1287,20 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInOtherVBMetaPartition) {
   // Extract the vbmeta blob from the footer in boot.img, put it into
   // vbmeta_google.img, and erase the footer from boot.img
   EXPECT_COMMAND(0,
-                 "./avbtool extract_vbmeta_image"
+                 "./avbtool.py extract_vbmeta_image"
                  " --image %s"
                  " --output %s",
                  boot_path.value().c_str(),
                  other_vbmeta_path.value().c_str());
   EXPECT_COMMAND(0,
-                 "./avbtool erase_footer"
+                 "./avbtool.py erase_footer"
                  " --image %s",
                  boot_path.value().c_str());
 
   base::FilePath pk_path = testdir_.Append("testkey_rsa4096.avbpubkey");
   EXPECT_COMMAND(
       0,
-      "./avbtool extract_public_key --key test/data/testkey_rsa4096.pem"
+      "./avbtool.py extract_public_key --key test/data/testkey_rsa4096.pem"
       " --output %s",
       pk_path.value().c_str());
 
@@ -1463,7 +1463,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInChainedPartitionCorruptBoot) {
   const char* requested_partitions[] = {"boot", NULL};
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer"
+                 "./avbtool.py add_hash_footer"
                  " --image %s"
                  " --rollback_index 0"
                  " --partition_name boot"
@@ -1478,7 +1478,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInChainedPartitionCorruptBoot) {
   base::FilePath pk_path = testdir_.Append("testkey_rsa4096.avbpubkey");
   EXPECT_COMMAND(
       0,
-      "./avbtool extract_public_key --key test/data/testkey_rsa4096.pem"
+      "./avbtool.py extract_public_key --key test/data/testkey_rsa4096.pem"
       " --output %s",
       pk_path.value().c_str());
 
@@ -1543,7 +1543,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInChainedPartitionKeyMismatch) {
   // AVB_SLOT_VERIFY_RESULT_ERROR_PUBLIC_KEY_REJECTED.
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer"
+                 "./avbtool.py add_hash_footer"
                  " --image %s"
                  " --rollback_index 0"
                  " --partition_name boot"
@@ -1558,7 +1558,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInChainedPartitionKeyMismatch) {
   base::FilePath pk_path = testdir_.Append("testkey_rsa4096.avbpubkey");
   EXPECT_COMMAND(
       0,
-      "./avbtool extract_public_key --key test/data/testkey_rsa4096.pem"
+      "./avbtool.py extract_public_key --key test/data/testkey_rsa4096.pem"
       " --output %s",
       pk_path.value().c_str());
 
@@ -1599,7 +1599,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInChainedPartitionRollbackIndexFail) {
   const char* requested_partitions[] = {"boot", NULL};
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer"
+                 "./avbtool.py add_hash_footer"
                  " --image %s"
                  " --rollback_index 10"
                  " --partition_name boot"
@@ -1614,7 +1614,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInChainedPartitionRollbackIndexFail) {
   base::FilePath pk_path = testdir_.Append("testkey_rsa4096.avbpubkey");
   EXPECT_COMMAND(
       0,
-      "./avbtool extract_public_key --key test/data/testkey_rsa4096.pem"
+      "./avbtool.py extract_public_key --key test/data/testkey_rsa4096.pem"
       " --output %s",
       pk_path.value().c_str());
 
@@ -1687,7 +1687,7 @@ TEST_F(AvbSlotVerifyTest, ChainedPartitionNoSlots) {
   const char* requested_partitions[] = {"boot", NULL};
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer"
+                 "./avbtool.py add_hash_footer"
                  " --image %s"
                  " --kernel_cmdline 'cmdline2 in hash footer'"
                  " --rollback_index 12"
@@ -1703,7 +1703,7 @@ TEST_F(AvbSlotVerifyTest, ChainedPartitionNoSlots) {
   base::FilePath pk_path = testdir_.Append("testkey_rsa4096.avbpubkey");
   EXPECT_COMMAND(
       0,
-      "./avbtool extract_public_key --key test/data/testkey_rsa4096.pem"
+      "./avbtool.py extract_public_key --key test/data/testkey_rsa4096.pem"
       " --output %s",
       pk_path.value().c_str());
 
@@ -1804,7 +1804,7 @@ TEST_F(AvbSlotVerifyTest, PartitionsOtherThanBoot) {
   base::FilePath bar_path = GenerateImage("bar_a.img", bar_image_size);
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer"
+                 "./avbtool.py add_hash_footer"
                  " --image %s"
                  " --partition_name foo"
                  " --partition_size %zd"
@@ -1814,7 +1814,7 @@ TEST_F(AvbSlotVerifyTest, PartitionsOtherThanBoot) {
                  foo_partition_size);
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer"
+                 "./avbtool.py add_hash_footer"
                  " --image %s"
                  " --partition_name bar"
                  " --partition_size %zd"
@@ -1919,7 +1919,7 @@ TEST_F(AvbSlotVerifyTest, OnlyLoadWhatHasBeenRequested) {
   base::FilePath bar_path = GenerateImage("bar_a.img", bar_image_size);
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer"
+                 "./avbtool.py add_hash_footer"
                  " --image %s"
                  " --partition_name foo"
                  " --partition_size %zd"
@@ -1929,7 +1929,7 @@ TEST_F(AvbSlotVerifyTest, OnlyLoadWhatHasBeenRequested) {
                  foo_partition_size);
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer"
+                 "./avbtool.py add_hash_footer"
                  " --image %s"
                  " --partition_name bar"
                  " --partition_size %zd"
@@ -2011,7 +2011,7 @@ TEST_F(AvbSlotVerifyTest, NoVBMetaPartitionFlag) {
   base::FilePath bar_path = GenerateImage("bar_a.img", bar_image_size);
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer"
+                 "./avbtool.py add_hash_footer"
                  " --image %s"
                  " --kernel_cmdline 'this is=5 from foo=42'"
                  " --partition_name foo"
@@ -2026,7 +2026,7 @@ TEST_F(AvbSlotVerifyTest, NoVBMetaPartitionFlag) {
                  foo_partition_size);
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer"
+                 "./avbtool.py add_hash_footer"
                  " --image %s"
                  " --kernel_cmdline 'and=43 from bar'"
                  " --partition_name bar"
@@ -2170,7 +2170,7 @@ void AvbSlotVerifyTest::CmdlineWithHashtreeVerification(
                                 rootfs.size())));
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hashtree_footer --salt d00df00d --image %s "
+                 "./avbtool.py add_hashtree_footer --salt d00df00d --image %s "
                  "--partition_size %d --partition_name foobar "
                  "--algorithm SHA256_RSA2048 "
                  "--key test/data/testkey_rsa2048.pem "
@@ -2304,7 +2304,7 @@ void AvbSlotVerifyTest::CmdlineWithChainedHashtreeVerification(
   // Check that we correctly generate dm-verity kernel cmdline
   // snippets, if requested.
   EXPECT_COMMAND(0,
-                 "./avbtool add_hashtree_footer --salt d00df00d --image %s "
+                 "./avbtool.py add_hashtree_footer --salt d00df00d --image %s "
                  "--partition_size %d --partition_name foobar "
                  "--algorithm SHA256_RSA2048 "
                  "--key test/data/testkey_rsa2048.pem "
@@ -2362,7 +2362,7 @@ void AvbSlotVerifyTest::CmdlineWithChainedHashtreeVerification(
   base::FilePath pk_path = testdir_.Append("testkey_rsa2048.avbpubkey");
   EXPECT_COMMAND(
       0,
-      "./avbtool extract_public_key --key test/data/testkey_rsa2048.pem"
+      "./avbtool.py extract_public_key --key test/data/testkey_rsa2048.pem"
       " --output %s",
       pk_path.value().c_str());
 
@@ -2494,7 +2494,7 @@ void AvbSlotVerifyTest::VerificationDisabled(bool use_avbctl,
                                 rootfs.size())));
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hashtree_footer --salt d00df00d --image %s "
+                 "./avbtool.py add_hashtree_footer --salt d00df00d --image %s "
                  "--partition_size %d --partition_name foobar "
                  "--algorithm SHA256_RSA2048 "
                  "--key test/data/testkey_rsa2048.pem "
@@ -2682,7 +2682,7 @@ TEST_F(AvbSlotVerifyTest, NoVBMetaPartition) {
   base::FilePath bazboo_path = GenerateImage("bazboo.img", bazboo_size);
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hashtree_footer --salt d00df00d --image %s "
+                 "./avbtool.py add_hashtree_footer --salt d00df00d --image %s "
                  "--partition_size %d --partition_name system "
                  "--algorithm SHA256_RSA2048 "
                  "--key test/data/testkey_rsa2048.pem "
@@ -2692,7 +2692,7 @@ TEST_F(AvbSlotVerifyTest, NoVBMetaPartition) {
                  (int)system_part_size);
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hashtree_footer --salt d00df00d --image %s "
+                 "./avbtool.py add_hashtree_footer --salt d00df00d --image %s "
                  "--partition_size %d --partition_name foobar "
                  "--algorithm SHA256_RSA2048 "
                  "--key test/data/testkey_rsa2048.pem "
@@ -2702,7 +2702,7 @@ TEST_F(AvbSlotVerifyTest, NoVBMetaPartition) {
                  (int)foobar_part_size);
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hashtree_footer --salt d00df00d --image %s "
+                 "./avbtool.py add_hashtree_footer --salt d00df00d --image %s "
                  "--partition_size %d --partition_name bazboo "
                  "--algorithm SHA512_RSA4096 "
                  "--key test/data/testkey_rsa4096.pem "
@@ -2714,7 +2714,7 @@ TEST_F(AvbSlotVerifyTest, NoVBMetaPartition) {
   base::FilePath pk_path = testdir_.Append("testkey_rsa4096.avbpubkey");
   EXPECT_COMMAND(
       0,
-      "./avbtool extract_public_key --key test/data/testkey_rsa4096.pem"
+      "./avbtool.py extract_public_key --key test/data/testkey_rsa4096.pem"
       " --output %s",
       pk_path.value().c_str());
 
@@ -2722,7 +2722,7 @@ TEST_F(AvbSlotVerifyTest, NoVBMetaPartition) {
   // boot.img is treated as top-level. Note the corresponding "Flags:"
   // field below in the avbtool info_image output.
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer --salt d00df00d "
+                 "./avbtool.py add_hash_footer --salt d00df00d "
                  "--hash_algorithm sha256 --image %s "
                  "--partition_size %d --partition_name boot "
                  "--algorithm SHA256_RSA2048 "
@@ -2858,7 +2858,7 @@ TEST_F(AvbSlotVerifyTest, ChainedPartitionEnforceFlagsZero) {
   const char* requested_partitions[] = {"boot", NULL};
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer"
+                 "./avbtool.py add_hash_footer"
                  " --image %s"
                  " --kernel_cmdline 'cmdline2 in hash footer'"
                  " --rollback_index 12"
@@ -2875,7 +2875,7 @@ TEST_F(AvbSlotVerifyTest, ChainedPartitionEnforceFlagsZero) {
   base::FilePath pk_path = testdir_.Append("testkey_rsa4096.avbpubkey");
   EXPECT_COMMAND(
       0,
-      "./avbtool extract_public_key --key test/data/testkey_rsa4096.pem"
+      "./avbtool.py extract_public_key --key test/data/testkey_rsa4096.pem"
       " --output %s",
       pk_path.value().c_str());
 
@@ -2914,12 +2914,12 @@ TEST_F(AvbSlotVerifyTest, ChainedPartitionEnforceNoChainPartitions) {
   base::FilePath pk_path = testdir_.Append("testkey_rsa4096.avbpubkey");
   EXPECT_COMMAND(
       0,
-      "./avbtool extract_public_key --key test/data/testkey_rsa4096.pem"
+      "./avbtool.py extract_public_key --key test/data/testkey_rsa4096.pem"
       " --output %s",
       pk_path.value().c_str());
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hash_footer"
+                 "./avbtool.py add_hash_footer"
                  " --image %s"
                  " --kernel_cmdline 'cmdline2 in hash footer'"
                  " --rollback_index 12"
@@ -2965,7 +2965,7 @@ TEST_F(AvbSlotVerifyTest, HashtreeErrorModes) {
   base::FilePath system_path = GenerateImage("system.img", system_size);
 
   EXPECT_COMMAND(0,
-                 "./avbtool add_hashtree_footer --salt d00df00d --image %s "
+                 "./avbtool.py add_hashtree_footer --salt d00df00d --image %s "
                  "--partition_size %d --partition_name system "
                  "--algorithm SHA256_RSA2048 "
                  "--key test/data/testkey_rsa2048.pem "
@@ -3169,7 +3169,7 @@ class AvbSlotVerifyTestWithPersistentDigest : public AvbSlotVerifyTest {
         GenerateImage("factory.img", factory_image_size);
 
     EXPECT_COMMAND(0,
-                   "./avbtool add_hash_footer"
+                   "./avbtool.py add_hash_footer"
                    " --image %s"
                    " --rollback_index 0"
                    " --partition_name factory"
@@ -3223,7 +3223,7 @@ class AvbSlotVerifyTestWithPersistentDigest : public AvbSlotVerifyTest {
 
     EXPECT_COMMAND(
         0,
-        "./avbtool add_hashtree_footer"
+        "./avbtool.py add_hashtree_footer"
         " --image %s"
         " --rollback_index 0"
         " --partition_name factory"

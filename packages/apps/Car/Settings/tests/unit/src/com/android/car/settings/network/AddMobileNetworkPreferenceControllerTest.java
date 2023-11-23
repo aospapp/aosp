@@ -17,6 +17,8 @@
 package com.android.car.settings.network;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 import static com.android.car.settings.network.AddMobileNetworkPreferenceController.ADD_NETWORK_INTENT;
 
@@ -85,6 +87,33 @@ public class AddMobileNetworkPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_euiccDisabled_isUnsupported_zoneWrite() {
+        when(mMockEuiccManager.isEnabled()).thenReturn(false);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_euiccDisabled_isUnsupported_zoneRead() {
+        when(mMockEuiccManager.isEnabled()).thenReturn(false);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_euiccDisabled_isUnsupported_zoneHidden() {
+        when(mMockEuiccManager.isEnabled()).thenReturn(false);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
     public void getAvailabilityStatus_euiccEnabled_intentResolves_isAvailable() {
         when(mMockEuiccManager.isEnabled()).thenReturn(true);
         when(mMockPackageManager.queryIntentActivities(ADD_NETWORK_INTENT, /* flags= */ 0))
@@ -94,9 +123,69 @@ public class AddMobileNetworkPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_euiccEnabled_intentResolves_isAvailable_zoneWrite() {
+        when(mMockEuiccManager.isEnabled()).thenReturn(true);
+        when(mMockPackageManager.queryIntentActivities(ADD_NETWORK_INTENT, /* flags= */ 0))
+                .thenReturn(Collections.singletonList(new ResolveInfo()));
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_euiccEnabled_intentResolves_isAvailable_zoneRead() {
+        when(mMockEuiccManager.isEnabled()).thenReturn(true);
+        when(mMockPackageManager.queryIntentActivities(ADD_NETWORK_INTENT, /* flags= */ 0))
+                .thenReturn(Collections.singletonList(new ResolveInfo()));
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_euiccEnabled_intentResolves_isAvailable_zoneHidden() {
+        when(mMockEuiccManager.isEnabled()).thenReturn(true);
+        when(mMockPackageManager.queryIntentActivities(ADD_NETWORK_INTENT, /* flags= */ 0))
+                .thenReturn(Collections.singletonList(new ResolveInfo()));
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_euiccEnabled_intentFailsToResolve_isUnsupported() {
         when(mMockEuiccManager.isEnabled()).thenReturn(true);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_euiccEnabled_intentFailsToResolve_isUnsupported_zoneWrite() {
+        when(mMockEuiccManager.isEnabled()).thenReturn(true);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_euiccEnabled_intentFailsToResolve_isUnsupported_zoneRead() {
+        when(mMockEuiccManager.isEnabled()).thenReturn(true);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_euiccEnabled_intentFailsToResolve_isUnsupported_zoneHidden() {
+        when(mMockEuiccManager.isEnabled()).thenReturn(true);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
     }
 }

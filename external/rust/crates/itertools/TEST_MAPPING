@@ -12,22 +12,12 @@
     },
     {
       "path": "external/rust/crates/unicode-xid"
-    }
-  ],
-  "presubmit": [
-    {
-      "name": "apkdmverity.test"
     },
     {
-      "name": "microdroid_manager_test"
-    }
-  ],
-  "presubmit-rust": [
-    {
-      "name": "apkdmverity.test"
+      "path": "packages/modules/Virtualization/apkdmverity"
     },
     {
-      "name": "microdroid_manager_test"
+      "path": "packages/modules/Virtualization/microdroid_manager"
     }
   ]
 }

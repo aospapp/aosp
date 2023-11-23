@@ -40,6 +40,13 @@
         ]
       },
       {
+        "color": "blue",
+        "name": "Off-CPU",
+        "subcategories": [
+          "Other"
+        ]
+      },
+      {
         "color": "grey",
         "name": "Other",
         "subcategories": [

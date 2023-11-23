@@ -17,12 +17,14 @@
 package com.android.server.appsearch;
 
 import android.annotation.NonNull;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.DeviceConfig;
 import android.provider.DeviceConfig.OnPropertiesChangedListener;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.server.appsearch.external.localstorage.IcingOptionsConfig;
 
 import java.util.Objects;
 import java.util.concurrent.Executor;
@@ -65,10 +67,41 @@ public final class FrameworkAppSearchConfig implements AppSearchConfig {
     public static final String KEY_LIMIT_CONFIG_MAX_DOCUMENT_SIZE_BYTES =
             "limit_config_max_document_size_bytes";
     public static final String KEY_LIMIT_CONFIG_MAX_DOCUMENT_COUNT =
-            "limit_config_max_document_docunt";
+            "limit_config_max_document_count";
+    public static final String KEY_LIMIT_CONFIG_MAX_SUGGESTION_COUNT =
+            "limit_config_max_suggestion_count";
     public static final String KEY_BYTES_OPTIMIZE_THRESHOLD = "bytes_optimize_threshold";
     public static final String KEY_TIME_OPTIMIZE_THRESHOLD_MILLIS = "time_optimize_threshold";
     public static final String KEY_DOC_COUNT_OPTIMIZE_THRESHOLD = "doc_count_optimize_threshold";
+    public static final String KEY_MIN_TIME_OPTIMIZE_THRESHOLD_MILLIS =
+            "min_time_optimize_threshold";
+    public static final String KEY_API_CALL_STATS_LIMIT = "api_call_stats_limit";
+    public static final String KEY_DENYLIST = "denylist";
+    public static final String KEY_RATE_LIMIT_ENABLED = "rate_limit_enabled";
+    public static final String KEY_RATE_LIMIT_TASK_QUEUE_TOTAL_CAPACITY =
+            "rate_limit_task_queue_total_capacity";
+    public static final String KEY_RATE_LIMIT_TASK_QUEUE_PER_PACKAGE_CAPACITY_PERCENTAGE =
+            "rate_limit_task_queue_per_package_capacity_percentage";
+    public static final String KEY_RATE_LIMIT_API_COSTS = "rate_limit_api_costs";
+
+    public static final String KEY_ICING_MAX_TOKEN_LENGTH = "icing_max_token_length";
+    public static final String KEY_ICING_INDEX_MERGE_SIZE = "icing_index_merge_size";
+    public static final String KEY_ICING_DOCUMENT_STORE_NAMESPACE_ID_FINGERPRINT =
+            "icing_document_store_namespace_id_fingerprint";
+    public static final String KEY_ICING_OPTIMIZE_REBUILD_INDEX_THRESHOLD =
+            "icing_optimize_rebuild_index_threshold";
+    public static final String KEY_ICING_COMPRESSION_LEVEL = "icing_compression_level";
+    public static final String KEY_ICING_USE_READ_ONLY_SEARCH = "icing_use_read_only_search";
+    public static final String KEY_ICING_USE_PRE_MAPPING_WITH_FILE_BACKED_VECTOR =
+            "icing_use_pre_mapping_with_file_backed_vector";
+    public static final String KEY_ICING_USE_PERSISTENT_HASHMAP = "icing_use_persistent_hashmap";
+    public static final String KEY_ICING_MAX_PAGE_BYTES_LIMIT = "icing_max_page_bytes_limit";
+
+    /**
+     * This config does not need to be cached in FrameworkAppSearchConfig as it is only accessed
+     * statically. AppSearch retrieves this directly from DeviceConfig when needed.
+     */
+    public static final String KEY_USE_FIXED_EXECUTOR_SERVICE = "use_fixed_executor_service";
 
     // Array contains all the corresponding keys for the cached values.
     private static final String[] KEYS_TO_ALL_CACHED_VALUES = {
@@ -82,9 +115,26 @@ public final class FrameworkAppSearchConfig implements AppSearchConfig {
             KEY_SAMPLING_INTERVAL_FOR_OPTIMIZE_STATS,
             KEY_LIMIT_CONFIG_MAX_DOCUMENT_SIZE_BYTES,
             KEY_LIMIT_CONFIG_MAX_DOCUMENT_COUNT,
+            KEY_LIMIT_CONFIG_MAX_SUGGESTION_COUNT,
             KEY_BYTES_OPTIMIZE_THRESHOLD,
             KEY_TIME_OPTIMIZE_THRESHOLD_MILLIS,
-            KEY_DOC_COUNT_OPTIMIZE_THRESHOLD
+            KEY_DOC_COUNT_OPTIMIZE_THRESHOLD,
+            KEY_MIN_TIME_OPTIMIZE_THRESHOLD_MILLIS,
+            KEY_API_CALL_STATS_LIMIT,
+            KEY_DENYLIST,
+            KEY_RATE_LIMIT_ENABLED,
+            KEY_RATE_LIMIT_TASK_QUEUE_TOTAL_CAPACITY,
+            KEY_RATE_LIMIT_TASK_QUEUE_PER_PACKAGE_CAPACITY_PERCENTAGE,
+            KEY_RATE_LIMIT_API_COSTS,
+            KEY_ICING_MAX_TOKEN_LENGTH,
+            KEY_ICING_INDEX_MERGE_SIZE,
+            KEY_ICING_DOCUMENT_STORE_NAMESPACE_ID_FINGERPRINT,
+            KEY_ICING_OPTIMIZE_REBUILD_INDEX_THRESHOLD,
+            KEY_ICING_COMPRESSION_LEVEL,
+            KEY_ICING_USE_READ_ONLY_SEARCH,
+            KEY_ICING_USE_PRE_MAPPING_WITH_FILE_BACKED_VECTOR,
+            KEY_ICING_USE_PERSISTENT_HASHMAP,
+            KEY_ICING_MAX_PAGE_BYTES_LIMIT
     };
 
     // Lock needed for all the operations in this class.
@@ -97,6 +147,14 @@ public final class FrameworkAppSearchConfig implements AppSearchConfig {
     @GuardedBy("mLock")
     private final Bundle mBundleLocked = new Bundle();
 
+    @GuardedBy("mLock")
+    private Denylist mDenylistLocked = Denylist.EMPTY_INSTANCE;
+
+    @GuardedBy("mLock")
+    private AppSearchRateLimitConfig mRateLimitConfigLocked = AppSearchRateLimitConfig.create(
+            DEFAULT_RATE_LIMIT_TASK_QUEUE_TOTAL_CAPACITY,
+            DEFAULT_RATE_LIMIT_TASK_QUEUE_PER_PACKAGE_CAPACITY_PERCENTAGE,
+            DEFAULT_RATE_LIMIT_API_COSTS_STRING);
 
     @GuardedBy("mLock")
     private boolean mIsClosedLocked = false;
@@ -146,6 +204,15 @@ public final class FrameworkAppSearchConfig implements AppSearchConfig {
             }
         }
         return sConfig;
+    }
+
+    /**
+     * Returns whether or not to use a fixed executor service for AppSearch. This config is only
+     * queried statically and is therefore retrieved directly from DeviceConfig.
+     */
+    public static boolean getUseFixedExecutorService() {
+        return DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_APPSEARCH,
+                KEY_USE_FIXED_EXECUTOR_SERVICE, DEFAULT_USE_FIXED_EXECUTOR_SERVICE);
     }
 
     /**
@@ -254,7 +321,7 @@ public final class FrameworkAppSearchConfig implements AppSearchConfig {
     }
 
     @Override
-    public int getCachedLimitConfigMaxDocumentSizeBytes() {
+    public int getMaxDocumentSizeBytes() {
         synchronized (mLock) {
             throwIfClosedLocked();
             return mBundleLocked.getInt(KEY_LIMIT_CONFIG_MAX_DOCUMENT_SIZE_BYTES,
@@ -263,11 +330,20 @@ public final class FrameworkAppSearchConfig implements AppSearchConfig {
     }
 
     @Override
-    public int getCachedLimitConfigMaxDocumentCount() {
+    public int getMaxDocumentCount() {
         synchronized (mLock) {
             throwIfClosedLocked();
             return mBundleLocked.getInt(KEY_LIMIT_CONFIG_MAX_DOCUMENT_COUNT,
                     DEFAULT_LIMIT_CONFIG_MAX_DOCUMENT_COUNT);
+        }
+    }
+
+    @Override
+    public int getMaxSuggestionCount() {
+        synchronized (mLock) {
+            throwIfClosedLocked();
+            return mBundleLocked.getInt(KEY_LIMIT_CONFIG_MAX_SUGGESTION_COUNT,
+                    DEFAULT_LIMIT_CONFIG_MAX_SUGGESTION_COUNT);
         }
     }
 
@@ -298,6 +374,138 @@ public final class FrameworkAppSearchConfig implements AppSearchConfig {
         }
     }
 
+    @Override
+    public int getCachedMinTimeOptimizeThresholdMs() {
+        synchronized (mLock) {
+            throwIfClosedLocked();
+            return mBundleLocked.getInt(KEY_MIN_TIME_OPTIMIZE_THRESHOLD_MILLIS,
+                    DEFAULT_MIN_TIME_OPTIMIZE_THRESHOLD_MILLIS);
+        }
+    }
+
+    @Override
+    public int getCachedApiCallStatsLimit() {
+        synchronized (mLock) {
+            throwIfClosedLocked();
+            return mBundleLocked.getInt(KEY_API_CALL_STATS_LIMIT,
+                    DEFAULT_API_CALL_STATS_LIMIT);
+        }
+    }
+
+    @Override
+    public Denylist getCachedDenylist() {
+        synchronized (mLock) {
+            throwIfClosedLocked();
+            return mDenylistLocked;
+        }
+    }
+
+    @Override
+    public int getMaxTokenLength() {
+        synchronized (mLock) {
+            throwIfClosedLocked();
+            return mBundleLocked.getInt(KEY_ICING_MAX_TOKEN_LENGTH,
+                    IcingOptionsConfig.DEFAULT_MAX_TOKEN_LENGTH);
+        }
+    }
+
+    @Override
+    public int getIndexMergeSize() {
+        synchronized (mLock) {
+            throwIfClosedLocked();
+            return mBundleLocked.getInt(KEY_ICING_INDEX_MERGE_SIZE,
+                    IcingOptionsConfig.DEFAULT_INDEX_MERGE_SIZE);
+        }
+    }
+
+    @Override
+    public boolean getDocumentStoreNamespaceIdFingerprint() {
+        synchronized (mLock) {
+            throwIfClosedLocked();
+            return mBundleLocked.getBoolean(KEY_ICING_DOCUMENT_STORE_NAMESPACE_ID_FINGERPRINT,
+                    IcingOptionsConfig.DEFAULT_DOCUMENT_STORE_NAMESPACE_ID_FINGERPRINT);
+        }
+    }
+
+    @Override
+    public float getOptimizeRebuildIndexThreshold() {
+        synchronized (mLock) {
+            throwIfClosedLocked();
+            return mBundleLocked.getFloat(KEY_ICING_OPTIMIZE_REBUILD_INDEX_THRESHOLD,
+                    IcingOptionsConfig.DEFAULT_OPTIMIZE_REBUILD_INDEX_THRESHOLD);
+        }
+    }
+
+    @Override
+    public int getCompressionLevel() {
+        synchronized (mLock) {
+            throwIfClosedLocked();
+            return mBundleLocked.getInt(KEY_ICING_COMPRESSION_LEVEL,
+                    IcingOptionsConfig.DEFAULT_COMPRESSION_LEVEL);
+        }
+    }
+
+    @Override
+    public boolean getAllowCircularSchemaDefinitions() {
+        // TODO(b/282108040) add flag(default on) to cover this feature in case a bug is discovered.
+        synchronized (mLock) {
+            throwIfClosedLocked();
+            return Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
+        }
+    }
+
+    @Override
+    public boolean getUseReadOnlySearch() {
+        synchronized (mLock) {
+            throwIfClosedLocked();
+            return mBundleLocked.getBoolean(KEY_ICING_USE_READ_ONLY_SEARCH,
+                    DEFAULT_ICING_CONFIG_USE_READ_ONLY_SEARCH);
+        }
+    }
+
+    @Override
+    public boolean getUsePreMappingWithFileBackedVector() {
+        synchronized (mLock) {
+            throwIfClosedLocked();
+            return mBundleLocked.getBoolean(KEY_ICING_USE_PRE_MAPPING_WITH_FILE_BACKED_VECTOR,
+                    IcingOptionsConfig.DEFAULT_USE_PREMAPPING_WITH_FILE_BACKED_VECTOR);
+        }
+    }
+
+    @Override
+    public boolean getUsePersistentHashMap() {
+        synchronized (mLock) {
+            throwIfClosedLocked();
+            return mBundleLocked.getBoolean(KEY_ICING_USE_PERSISTENT_HASHMAP,
+                    IcingOptionsConfig.DEFAULT_USE_PERSISTENT_HASH_MAP);
+        }
+    }
+
+    @Override
+    public int getMaxPageBytesLimit() {
+        synchronized (mLock) {
+            throwIfClosedLocked();
+            return mBundleLocked.getInt(KEY_ICING_MAX_PAGE_BYTES_LIMIT,
+                    IcingOptionsConfig.DEFAULT_MAX_PAGE_BYTES_LIMIT);
+        }
+    }
+
+    @Override
+    public boolean getCachedRateLimitEnabled() {
+        synchronized (mLock) {
+            throwIfClosedLocked();
+            return mBundleLocked.getBoolean(KEY_RATE_LIMIT_ENABLED, DEFAULT_RATE_LIMIT_ENABLED);
+        }
+    }
+
+    @Override
+    public AppSearchRateLimitConfig getCachedRateLimitConfig() {
+        synchronized (mLock) {
+            throwIfClosedLocked();
+            return mRateLimitConfigLocked;
+        }
+    }
+
     @GuardedBy("mLock")
     private void throwIfClosedLocked() {
         if (mIsClosedLocked) {
@@ -309,6 +517,7 @@ public final class FrameworkAppSearchConfig implements AppSearchConfig {
         for (String key : properties.getKeyset()) {
             updateCachedValue(key, properties);
         }
+        updateDerivedClasses();
     }
 
     private void updateCachedValue(@NonNull String key,
@@ -358,6 +567,13 @@ public final class FrameworkAppSearchConfig implements AppSearchConfig {
                             properties.getInt(key, DEFAULT_LIMIT_CONFIG_MAX_DOCUMENT_COUNT));
                 }
                 break;
+            case KEY_LIMIT_CONFIG_MAX_SUGGESTION_COUNT:
+                synchronized (mLock) {
+                    mBundleLocked.putInt(
+                            key,
+                            properties.getInt(key, DEFAULT_LIMIT_CONFIG_MAX_SUGGESTION_COUNT));
+                }
+                break;
             case KEY_BYTES_OPTIMIZE_THRESHOLD:
                 synchronized (mLock) {
                     mBundleLocked.putInt(key, properties.getInt(key,
@@ -376,8 +592,123 @@ public final class FrameworkAppSearchConfig implements AppSearchConfig {
                             DEFAULT_DOC_COUNT_OPTIMIZE_THRESHOLD));
                 }
                 break;
+            case KEY_MIN_TIME_OPTIMIZE_THRESHOLD_MILLIS:
+                synchronized (mLock) {
+                    mBundleLocked.putInt(key, properties.getInt(key,
+                            DEFAULT_MIN_TIME_OPTIMIZE_THRESHOLD_MILLIS));
+                }
+                break;
+            case KEY_API_CALL_STATS_LIMIT:
+                synchronized (mLock) {
+                    mBundleLocked.putInt(key,
+                            properties.getInt(key, DEFAULT_API_CALL_STATS_LIMIT));
+                }
+                break;
+            case KEY_DENYLIST:
+                String denylistString = properties.getString(key, /* defaultValue= */ "");
+                Denylist denylist =
+                        denylistString.isEmpty() ? Denylist.EMPTY_INSTANCE : Denylist.create(
+                                denylistString);
+                synchronized (mLock) {
+                    mDenylistLocked = denylist;
+                }
+            case KEY_RATE_LIMIT_ENABLED:
+                synchronized (mLock) {
+                    mBundleLocked.putBoolean(key, properties.getBoolean(key,
+                            DEFAULT_RATE_LIMIT_ENABLED));
+                }
+                break;
+            case KEY_RATE_LIMIT_TASK_QUEUE_TOTAL_CAPACITY:
+                synchronized (mLock) {
+                    mBundleLocked.putInt(key, properties.getInt(key,
+                            DEFAULT_RATE_LIMIT_TASK_QUEUE_TOTAL_CAPACITY));
+                }
+                break;
+            case KEY_RATE_LIMIT_TASK_QUEUE_PER_PACKAGE_CAPACITY_PERCENTAGE:
+                synchronized (mLock) {
+                    mBundleLocked.putFloat(key, properties.getFloat(key,
+                            DEFAULT_RATE_LIMIT_TASK_QUEUE_PER_PACKAGE_CAPACITY_PERCENTAGE));
+                }
+                break;
+            case KEY_RATE_LIMIT_API_COSTS:
+                synchronized (mLock) {
+                    mBundleLocked.putString(key, properties.getString(key,
+                            DEFAULT_RATE_LIMIT_API_COSTS_STRING));
+                }
+                break;
+            case KEY_ICING_MAX_TOKEN_LENGTH:
+                synchronized (mLock) {
+                    mBundleLocked.putInt(key, properties.getInt(key,
+                            IcingOptionsConfig.DEFAULT_MAX_TOKEN_LENGTH));
+                }
+                break;
+            case KEY_ICING_INDEX_MERGE_SIZE:
+                synchronized (mLock) {
+                    mBundleLocked.putInt(key, properties.getInt(key,
+                            IcingOptionsConfig.DEFAULT_INDEX_MERGE_SIZE));
+                }
+                break;
+            case KEY_ICING_DOCUMENT_STORE_NAMESPACE_ID_FINGERPRINT:
+                synchronized (mLock) {
+                    mBundleLocked.putBoolean(key, properties.getBoolean(key,
+                            IcingOptionsConfig.DEFAULT_DOCUMENT_STORE_NAMESPACE_ID_FINGERPRINT));
+                }
+                break;
+            case KEY_ICING_OPTIMIZE_REBUILD_INDEX_THRESHOLD:
+                synchronized (mLock) {
+                    mBundleLocked.putFloat(key, properties.getFloat(key,
+                            IcingOptionsConfig.DEFAULT_OPTIMIZE_REBUILD_INDEX_THRESHOLD));
+                }
+                break;
+            case KEY_ICING_COMPRESSION_LEVEL:
+                synchronized (mLock) {
+                    mBundleLocked.putInt(key, properties.getInt(key,
+                            IcingOptionsConfig.DEFAULT_COMPRESSION_LEVEL));
+                }
+                break;
+            case KEY_ICING_USE_READ_ONLY_SEARCH:
+                synchronized (mLock) {
+                    mBundleLocked.putBoolean(key, properties.getBoolean(key,
+                            DEFAULT_ICING_CONFIG_USE_READ_ONLY_SEARCH));
+                }
+                break;
+            case KEY_ICING_USE_PRE_MAPPING_WITH_FILE_BACKED_VECTOR:
+                synchronized (mLock) {
+                    mBundleLocked.putBoolean(key, properties.getBoolean(key,
+                            IcingOptionsConfig.DEFAULT_USE_PREMAPPING_WITH_FILE_BACKED_VECTOR));
+                }
+                break;
+            case KEY_ICING_USE_PERSISTENT_HASHMAP:
+                synchronized (mLock) {
+                    mBundleLocked.putBoolean(key, properties.getBoolean(key,
+                            IcingOptionsConfig.DEFAULT_USE_PERSISTENT_HASH_MAP));
+                }
+                break;
+            case KEY_ICING_MAX_PAGE_BYTES_LIMIT:
+                synchronized (mLock) {
+                    mBundleLocked.putInt(key, properties.getInt(key,
+                            IcingOptionsConfig.DEFAULT_MAX_PAGE_BYTES_LIMIT));
+                }
+                break;
             default:
                 break;
+        }
+    }
+
+    private void updateDerivedClasses() {
+        if (getCachedRateLimitEnabled()) {
+            synchronized (mLock) {
+                int taskQueueTotalCapacity = mBundleLocked.getInt(
+                        KEY_RATE_LIMIT_TASK_QUEUE_TOTAL_CAPACITY,
+                        DEFAULT_RATE_LIMIT_TASK_QUEUE_TOTAL_CAPACITY);
+                float taskQueuePerPackagePercentage = mBundleLocked.getFloat(
+                        KEY_RATE_LIMIT_TASK_QUEUE_PER_PACKAGE_CAPACITY_PERCENTAGE,
+                        DEFAULT_RATE_LIMIT_TASK_QUEUE_PER_PACKAGE_CAPACITY_PERCENTAGE);
+                String apiCostsString = mBundleLocked.getString(KEY_RATE_LIMIT_API_COSTS,
+                        DEFAULT_RATE_LIMIT_API_COSTS_STRING);
+                mRateLimitConfigLocked = mRateLimitConfigLocked.rebuildIfNecessary(
+                        taskQueueTotalCapacity, taskQueuePerPackagePercentage, apiCostsString);
+            }
         }
     }
 }

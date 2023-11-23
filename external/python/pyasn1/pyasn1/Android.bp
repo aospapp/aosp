@@ -33,13 +33,5 @@ python_library {
         "compat/*.py",
         "type/*.py",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     pkg_path: "pyasn1",
 }

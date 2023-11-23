@@ -8,12 +8,14 @@
 
 #include "libANGLE/renderer/d3d/ShaderD3D.h"
 
+#include "common/system_utils.h"
 #include "common/utilities.h"
 #include "libANGLE/Caps.h"
 #include "libANGLE/Compiler.h"
 #include "libANGLE/Context.h"
 #include "libANGLE/Shader.h"
 #include "libANGLE/features.h"
+#include "libANGLE/renderer/ContextImpl.h"
 #include "libANGLE/renderer/d3d/ProgramD3D.h"
 #include "libANGLE/renderer/d3d/RendererD3D.h"
 #include "libANGLE/trace.h"
@@ -25,7 +27,7 @@ class TranslateTaskD3D : public angle::Closure
 {
   public:
     TranslateTaskD3D(ShHandle handle,
-                     ShCompileOptions options,
+                     const ShCompileOptions &options,
                      const std::string &source,
                      const std::string &sourcePath)
         : mHandle(handle),
@@ -87,52 +89,10 @@ class WaitableCompileEventD3D final : public WaitableCompileEvent
     std::shared_ptr<TranslateTaskD3D> mTranslateTask;
 };
 
-ShaderD3D::ShaderD3D(const gl::ShaderState &state,
-                     const angle::FeaturesD3D &features,
-                     const gl::Extensions &extensions)
-    : ShaderImpl(state), mAdditionalOptions(0)
+ShaderD3D::ShaderD3D(const gl::ShaderState &state, RendererD3D *renderer)
+    : ShaderImpl(state), mRenderer(renderer)
 {
     uncompile();
-
-    if (features.expandIntegerPowExpressions.enabled)
-    {
-        mAdditionalOptions |= SH_EXPAND_SELECT_HLSL_INTEGER_POW_EXPRESSIONS;
-    }
-
-    if (features.getDimensionsIgnoresBaseLevel.enabled)
-    {
-        mAdditionalOptions |= SH_HLSL_GET_DIMENSIONS_IGNORES_BASE_LEVEL;
-    }
-
-    if (features.preAddTexelFetchOffsets.enabled)
-    {
-        mAdditionalOptions |= SH_REWRITE_TEXELFETCHOFFSET_TO_TEXELFETCH;
-    }
-    if (features.rewriteUnaryMinusOperator.enabled)
-    {
-        mAdditionalOptions |= SH_REWRITE_INTEGER_UNARY_MINUS_OPERATOR;
-    }
-    if (features.emulateIsnanFloat.enabled)
-    {
-        mAdditionalOptions |= SH_EMULATE_ISNAN_FLOAT_FUNCTION;
-    }
-    if (features.skipVSConstantRegisterZero.enabled &&
-        mState.getShaderType() == gl::ShaderType::Vertex)
-    {
-        mAdditionalOptions |= SH_SKIP_D3D_CONSTANT_REGISTER_ZERO;
-    }
-    if (features.forceAtomicValueResolution.enabled)
-    {
-        mAdditionalOptions |= SH_FORCE_ATOMIC_VALUE_RESOLUTION;
-    }
-    if (features.allowTranslateUniformBlockToStructuredBuffer.enabled)
-    {
-        mAdditionalOptions |= SH_ALLOW_TRANSLATE_UNIFORM_BLOCK_TO_STRUCTUREDBUFFER;
-    }
-    if (extensions.multiviewOVR || extensions.multiview2OVR)
-    {
-        mAdditionalOptions |= SH_INITIALIZE_BUILTINS_FOR_INSTANCED_MULTIVIEW;
-    }
 }
 
 ShaderD3D::~ShaderD3D() {}
@@ -164,13 +124,15 @@ void ShaderD3D::uncompile()
     mUsesPointSize               = false;
     mUsesPointCoord              = false;
     mUsesDepthRange              = false;
-    mUsesFragDepth               = false;
     mHasANGLEMultiviewEnabled    = false;
     mUsesVertexID                = false;
     mUsesViewID                  = false;
     mUsesDiscardRewriting        = false;
     mUsesNestedBreak             = false;
     mRequiresIEEEStrictCompiling = false;
+    mFragDepthUsage              = FragDepthUsage::Unused;
+    mClipDistanceSize            = 0;
+    mCullDistanceSize            = 0;
 
     mDebugInfo.clear();
 }
@@ -268,27 +230,69 @@ const std::set<std::string> &GetUsedImage2DFunctionNames(
 
 std::shared_ptr<WaitableCompileEvent> ShaderD3D::compile(const gl::Context *context,
                                                          gl::ShCompilerInstance *compilerInstance,
-                                                         ShCompileOptions options)
+                                                         ShCompileOptions *options)
 {
     std::string sourcePath;
     uncompile();
 
-    ShCompileOptions additionalOptions = 0;
+    const angle::FeaturesD3D &features = mRenderer->getFeatures();
+    const gl::Extensions &extensions   = mRenderer->getNativeExtensions();
 
     const std::string &source = mState.getSource();
 
 #if !defined(ANGLE_ENABLE_WINDOWS_UWP)
-    if (gl::DebugAnnotationsActive())
+    if (gl::DebugAnnotationsActive(context))
     {
-        sourcePath = getTempPath();
+        sourcePath = angle::CreateTemporaryFile().value();
         writeFile(sourcePath.c_str(), source.c_str(), source.length());
-        additionalOptions |= SH_LINE_DIRECTIVES | SH_SOURCE_PATH;
+        options->lineDirectives = true;
+        options->sourcePath     = true;
     }
 #endif
 
-    additionalOptions |= mAdditionalOptions;
+    if (features.expandIntegerPowExpressions.enabled)
+    {
+        options->expandSelectHLSLIntegerPowExpressions = true;
+    }
 
-    options |= additionalOptions;
+    if (features.getDimensionsIgnoresBaseLevel.enabled)
+    {
+        options->HLSLGetDimensionsIgnoresBaseLevel = true;
+    }
+
+    if (features.preAddTexelFetchOffsets.enabled)
+    {
+        options->rewriteTexelFetchOffsetToTexelFetch = true;
+    }
+    if (features.rewriteUnaryMinusOperator.enabled)
+    {
+        options->rewriteIntegerUnaryMinusOperator = true;
+    }
+    if (features.emulateIsnanFloat.enabled)
+    {
+        options->emulateIsnanFloatFunction = true;
+    }
+    if (features.skipVSConstantRegisterZero.enabled &&
+        mState.getShaderType() == gl::ShaderType::Vertex)
+    {
+        options->skipD3DConstantRegisterZero = true;
+    }
+    if (features.forceAtomicValueResolution.enabled)
+    {
+        options->forceAtomicValueResolution = true;
+    }
+    if (features.allowTranslateUniformBlockToStructuredBuffer.enabled)
+    {
+        options->allowTranslateUniformBlockToStructuredBuffer = true;
+    }
+    if (extensions.multiviewOVR || extensions.multiview2OVR)
+    {
+        options->initializeBuiltinsForInstancedMultiview = true;
+    }
+    if (extensions.shaderPixelLocalStorageANGLE)
+    {
+        options->pls = mRenderer->getNativePixelLocalStorageOptions();
+    }
 
     auto postTranslateFunctor = [this](gl::ShCompilerInstance *compiler, std::string *infoLog) {
         // TODO(jmadill): We shouldn't need to cache this.
@@ -307,7 +311,6 @@ std::shared_ptr<WaitableCompileEvent> ShaderD3D::compile(const gl::Context *cont
         mUsesPointSize  = translatedSource.find("GL_USES_POINT_SIZE") != std::string::npos;
         mUsesPointCoord = translatedSource.find("GL_USES_POINT_COORD") != std::string::npos;
         mUsesDepthRange = translatedSource.find("GL_USES_DEPTH_RANGE") != std::string::npos;
-        mUsesFragDepth  = translatedSource.find("GL_USES_FRAG_DEPTH") != std::string::npos;
         mHasANGLEMultiviewEnabled =
             translatedSource.find("GL_ANGLE_MULTIVIEW_ENABLED") != std::string::npos;
         mUsesVertexID = translatedSource.find("GL_USES_VERTEX_ID") != std::string::npos;
@@ -320,6 +323,20 @@ std::shared_ptr<WaitableCompileEvent> ShaderD3D::compile(const gl::Context *cont
 
         ShHandle compilerHandle = compiler->getHandle();
 
+        if (translatedSource.find("GL_USES_FRAG_DEPTH_GREATER") != std::string::npos)
+        {
+            mFragDepthUsage = FragDepthUsage::Greater;
+        }
+        else if (translatedSource.find("GL_USES_FRAG_DEPTH_LESS") != std::string::npos)
+        {
+            mFragDepthUsage = FragDepthUsage::Less;
+        }
+        else if (translatedSource.find("GL_USES_FRAG_DEPTH") != std::string::npos)
+        {
+            mFragDepthUsage = FragDepthUsage::Any;
+        }
+        mClipDistanceSize   = sh::GetClipDistanceArraySize(compilerHandle);
+        mCullDistanceSize   = sh::GetCullDistanceArraySize(compilerHandle);
         mUniformRegisterMap = GetUniformRegisterMap(sh::GetUniformRegisterMap(compilerHandle));
         mReadonlyImage2DRegisterIndex = sh::GetReadonlyImage2DRegisterIndex(compilerHandle);
         mImage2DRegisterIndex         = sh::GetImage2DRegisterIndex(compilerHandle);
@@ -368,11 +385,11 @@ std::shared_ptr<WaitableCompileEvent> ShaderD3D::compile(const gl::Context *cont
     };
 
     auto workerThreadPool = context->getWorkerThreadPool();
-    auto translateTask = std::make_shared<TranslateTaskD3D>(compilerInstance->getHandle(), options,
+    auto translateTask = std::make_shared<TranslateTaskD3D>(compilerInstance->getHandle(), *options,
                                                             source, sourcePath);
 
     return std::make_shared<WaitableCompileEventD3D>(
-        angle::WorkerThreadPool::PostWorkerTask(workerThreadPool, translateTask), compilerInstance,
+        workerThreadPool->postWorkerTask(translateTask), compilerInstance,
         std::move(postTranslateFunctor), translateTask);
 }
 

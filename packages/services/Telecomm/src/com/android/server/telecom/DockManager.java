@@ -76,6 +76,7 @@ public class DockManager {
 
         // Register for misc other intent broadcasts.
         IntentFilter intentFilter = new IntentFilter(Intent.ACTION_DOCK_EVENT);
+        intentFilter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
         context.registerReceiver(mReceiver, intentFilter);
     }
 

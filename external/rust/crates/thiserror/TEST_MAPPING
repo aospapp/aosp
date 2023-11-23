@@ -9,142 +9,60 @@
     },
     {
       "path": "external/rust/crates/serde-xml-rs"
-    }
-  ],
-  "presubmit": [
-    {
-      "name": "ZipFuseTest"
     },
     {
-      "name": "apkdmverity.test"
+      "path": "external/uwb/src"
     },
     {
-      "name": "authfs_device_test_src_lib"
+      "path": "packages/modules/DnsResolver"
     },
     {
-      "name": "diced_open_dice_cbor_test"
+      "path": "packages/modules/Virtualization/apkdmverity"
     },
     {
-      "name": "diced_sample_inputs_test"
+      "path": "packages/modules/Virtualization/authfs"
     },
     {
-      "name": "diced_test"
+      "path": "packages/modules/Virtualization/avmd"
     },
     {
-      "name": "diced_utils_test"
+      "path": "packages/modules/Virtualization/encryptedstore"
     },
     {
-      "name": "diced_vendor_test"
+      "path": "packages/modules/Virtualization/libs/apexutil"
     },
     {
-      "name": "doh_unit_test"
+      "path": "packages/modules/Virtualization/libs/devicemapper"
     },
     {
-      "name": "keystore2_crypto_test_rust"
+      "path": "packages/modules/Virtualization/microdroid_manager"
     },
     {
-      "name": "keystore2_selinux_concurrency_test"
+      "path": "packages/modules/Virtualization/virtualizationmanager"
     },
     {
-      "name": "keystore2_selinux_test"
+      "path": "packages/modules/Virtualization/vm"
     },
     {
-      "name": "keystore2_test"
+      "path": "packages/modules/Virtualization/zipfuse"
     },
     {
-      "name": "keystore2_test_utils_test"
+      "path": "system/keymint/hal"
     },
     {
-      "name": "keystore2_vintf_test"
+      "path": "system/security/diced"
     },
     {
-      "name": "legacykeystore_test"
+      "path": "system/security/keystore2"
     },
     {
-      "name": "libapkverify.integration_test"
+      "path": "system/security/keystore2/legacykeystore"
     },
     {
-      "name": "libapkverify.test"
+      "path": "system/security/keystore2/selinux"
     },
     {
-      "name": "libcert_request_validator_tests"
-    },
-    {
-      "name": "librustutils_test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
-    {
-      "name": "virtualizationservice_device_test"
-    }
-  ],
-  "presubmit-rust": [
-    {
-      "name": "ZipFuseTest"
-    },
-    {
-      "name": "apkdmverity.test"
-    },
-    {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "diced_open_dice_cbor_test"
-    },
-    {
-      "name": "diced_sample_inputs_test"
-    },
-    {
-      "name": "diced_test"
-    },
-    {
-      "name": "diced_utils_test"
-    },
-    {
-      "name": "diced_vendor_test"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "keystore2_crypto_test_rust"
-    },
-    {
-      "name": "keystore2_selinux_concurrency_test"
-    },
-    {
-      "name": "keystore2_selinux_test"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "keystore2_test_utils_test"
-    },
-    {
-      "name": "keystore2_vintf_test"
-    },
-    {
-      "name": "legacykeystore_test"
-    },
-    {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "libcert_request_validator_tests"
-    },
-    {
-      "name": "librustutils_test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
-    {
-      "name": "virtualizationservice_device_test"
+      "path": "system/security/keystore2/src/crypto"
     }
   ]
 }

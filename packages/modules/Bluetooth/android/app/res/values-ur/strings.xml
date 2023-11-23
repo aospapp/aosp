@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"بلوٹوتھ"</string>
     <string name="unknown_device" msgid="2317679521750821654">"نامعلوم آلہ"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"نامعلوم"</string>
+    <string name="not_provided" msgid="6938740494380012614">"فراہم نہیں کیا گیا"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"ہوائی جہاز وضع"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"آپ ہوائی جہاز وضع میں بلوٹوتھ استعمال نہیں کر سکتے ہیں۔"</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"بلوٹوتھ آڈیو"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"‏4GB سے بڑی فائلیں منتقل نہیں کی جا سکتیں"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"بلوٹوتھ سے منسلک کریں"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"ہوائی جہاز وضع میں بلوٹوتھ آن ہے"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"اگر آپ بلوٹوتھ کو آن رکھتے ہیں تو آپ کا آلہ آپ کے اگلی مرتبہ ہوائی جہاز وضع میں ہونے پر اسے آن رکھنا یاد رکھے گا"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"بلوٹوتھ آن رہتا ہے"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"آپ کا آلہ ہوائی جہاز وضع میں بلوٹوتھ کو آن رکھنا یاد رکھتا ہے۔ اگر آپ نہیں چاہتے ہیں کہ بلوٹوتھ آن رہے تو اسے آف کریں۔"</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"‏Wi-Fi اور بلوٹوتھ آن رہنے دیں"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"‏آپ کا آلہ ہوائی جہاز وضع میں Wi-Fi اور بلوٹوتھ کو آن رکھنا یاد رکھتا ہے۔ اگر آپ نہیں چاہتے ہیں کہ Wi-Fi اور بلوٹوتھ آن رہیں تو انہیں آف کریں۔"</string>
 </resources>

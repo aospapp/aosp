@@ -18,10 +18,14 @@
 # TV emulator-related modules to PRODUCT_PACKAGES.
 #
 
-# ATV SDK is not designed to have a GNSS-receiver by default
 EMULATOR_VENDOR_NO_GNSS := true
+EMULATOR_VENDOR_NO_BIOMETRICS := true
+EMULATOR_VENDOR_NO_SENSORS := true
 
 $(call inherit-product, device/google/atv/products/atv_vendor.mk)
+
+# Sets HDMI CEC as Playback Device.
+PRODUCT_PROPERTY_OVERRIDES += ro.hdmi.device_type=4
 
 # need this for gles libraries to load properly
 # after moving to /vendor/lib/
@@ -42,12 +46,8 @@ PRODUCT_COPY_FILES += \
 
 PRODUCT_COPY_FILES += \
     device/generic/goldfish/data/etc/apns-conf.xml:$(TARGET_COPY_OUT_VENDOR)/etc/apns-conf.xml \
-    device/generic/goldfish/camera/media_codecs.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs.xml \
-    frameworks/av/media/libstagefright/data/media_codecs_google_audio.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_google_audio.xml \
+    device/generic/goldfish/camera/media/media_codecs_google_tv.xml:${TARGET_COPY_OUT_VENDOR}/etc/media_codecs_google_tv.xml \
     frameworks/native/data/etc/android.hardware.ethernet.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.ethernet.xml \
-    frameworks/av/media/libstagefright/data/media_codecs_google_telephony.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_google_telephony.xml \
-    frameworks/av/media/libstagefright/data/media_codecs_google_tv.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_google_tv.xml \
-    frameworks/av/media/libstagefright/data/media_codecs_google_video.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_google_video.xml \
     hardware/libhardware_legacy/audio/audio_policy.conf:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy.conf
 
 # Exclude all non-default hardware features on ATV SDK.
@@ -56,7 +56,7 @@ PRODUCT_COPY_FILES += \
     device/google/atv/permissions/tv_sdk_excluded_core_hardware.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/tv_sdk_excluded_core_hardware.xml
 
 # goldfish vendor partition configurations
-$(call inherit-product-if-exists, device/generic/goldfish/vendor.mk)
+$(call inherit-product-if-exists, device/generic/goldfish/64bitonly/product/vendor.mk)
 
 #watchdog tiggers reboot because location service is not
 #responding, disble it for now.

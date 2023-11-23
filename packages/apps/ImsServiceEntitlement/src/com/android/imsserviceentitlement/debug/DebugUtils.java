@@ -25,6 +25,7 @@ import java.util.Optional;
 /** Provides API for debugging and not allow to debug on user build. */
 public final class DebugUtils {
     private static final String PROP_PII_LOGGABLE = "dbg.imsse.pii_loggable";
+    private static final String PROP_BYPASS_EAP_AKA_RESPONSE = "dbg.imsse.bypass_eap_aka_response";
     private static final String PROP_SERVER_URL_OVERRIDE = "persist.dbg.imsse.server_url";
     private static final String BUILD_TYPE_USER = "user";
 
@@ -46,6 +47,15 @@ public final class DebugUtils {
         }
 
         return SystemProperties.getBoolean(PROP_PII_LOGGABLE, false);
+    }
+
+    /** Returns a non empty string if bypass EAP-AKA authentication is enabled. */
+    public static String getBypassEapAkaResponse() {
+        if (!isDebugBuild()) {
+            return "";
+        }
+
+        return SystemProperties.get(PROP_BYPASS_EAP_AKA_RESPONSE);
     }
 
     /**

@@ -23,7 +23,8 @@ option java_outer_classname = "Protos";
 
 message ApexManifest {
 
-  // Package Name
+  // APEX Name. Note that this can be different from what PackageManager sees.
+  // This is used to identify an APEX and to mount under /apex directory.
   string name = 1;
 
   // Version Number
@@ -82,4 +83,7 @@ message ApexManifest {
 
   // Indicates that this APEX can be updated without rebooting device.
   bool supportsRebootlessUpdate = 13;
+
+  // VNDK version for apexes depending on a specific version of VNDK libs.
+  string vndkVersion = 14;
 }

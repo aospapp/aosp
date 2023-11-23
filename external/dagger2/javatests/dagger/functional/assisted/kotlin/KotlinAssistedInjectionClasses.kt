@@ -21,6 +21,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import javax.inject.Inject
 
+
 class Dep @Inject constructor()
 
 class AssistedDep
@@ -29,7 +30,9 @@ class AssistedDep
 class Foo @AssistedInject constructor(val dep: Dep, @Assisted val assistedDep: AssistedDep)
 
 /** Assisted injection for a kotlin data class. */
-data class FooData @AssistedInject constructor(val dep: Dep, @Assisted val assistedDep: AssistedDep)
+data class FooData
+@AssistedInject
+constructor(val dep: Dep, @Assisted val assistedDep: AssistedDep)
 
 /** Assisted factory for a kotlin class */
 @AssistedFactory
@@ -42,3 +45,15 @@ interface FooFactory {
 interface FooDataFactory {
   fun create(assistedDep: AssistedDep): FooData
 }
+
+/** Kotlin classes for regression test of https://github.com/google/dagger/issues/3065. */
+class BarManager
+@AssistedInject
+internal constructor(@Assisted val bar: Bar, @Assisted val name: String) {
+  @AssistedFactory
+  interface Factory {
+    operator fun Bar.invoke(name: String): BarManager
+  }
+}
+
+class Bar

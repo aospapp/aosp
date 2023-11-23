@@ -27,6 +27,7 @@
 #include "perfetto/protozero/scattered_heap_buffer.h"
 #include "src/base/test/test_task_runner.h"
 #include "src/base/test/utils.h"
+#include "src/perfetto_cmd/bugreport_path.h"
 #include "test/gtest_and_gmock.h"
 #include "test/test_helper.h"
 
@@ -45,6 +46,7 @@ namespace {
 using ::testing::ContainsRegex;
 using ::testing::Each;
 using ::testing::ElementsAreArray;
+using ::testing::Eq;
 using ::testing::HasSubstr;
 using ::testing::Property;
 using ::testing::SizeIs;
@@ -65,6 +67,26 @@ std::string RandomTraceFileName() {
   path.append(std::to_string(suffix++));
   return path;
 }
+
+// For the SaveForBugreport* tests.
+TraceConfig CreateTraceConfigForBugreportTest() {
+  TraceConfig trace_config;
+  trace_config.add_buffers()->set_size_kb(4096);
+  trace_config.set_duration_ms(60000);  // Will never hit this.
+  trace_config.set_bugreport_score(10);
+  auto* ds_config = trace_config.add_data_sources()->mutable_config();
+  ds_config->set_name("android.perfetto.FakeProducer");
+  ds_config->mutable_for_testing()->set_message_count(3);
+  ds_config->mutable_for_testing()->set_message_size(10);
+  return trace_config;
+}
+
+class ScopedFileRemove {
+ public:
+  explicit ScopedFileRemove(const std::string& path) : path_(path) {}
+  ~ScopedFileRemove() { remove(path_.c_str()); }
+  std::string path_;
+};
 
 class PerfettoCmdlineTest : public ::testing::Test {
  public:
@@ -118,6 +140,71 @@ class PerfettoCmdlineTest : public ::testing::Test {
     // deadlocks.
     PERFETTO_CHECK(exec_allowed_);
     return Exec("trigger_perfetto", std::move(args), std::move(std_in));
+  }
+
+  // This is in common to the 3 TEST_F SaveForBugreport* fixtures, which differ
+  // only in the config, passed here as input.
+  void RunBugreportTest(protos::gen::TraceConfig trace_config,
+                        bool check_original_trace = true,
+                        bool use_explicit_clone = false) {
+    const std::string path = RandomTraceFileName();
+    ScopedFileRemove remove_on_test_exit(path);
+
+    auto perfetto_proc = ExecPerfetto(
+        {
+            "-o",
+            path,
+            "-c",
+            "-",
+        },
+        trace_config.SerializeAsString());
+
+    Exec perfetto_br_proc =
+        use_explicit_clone
+            ? ExecPerfetto({"--out", GetBugreportTracePath(), "--clone", "-1"})
+            : ExecPerfetto({"--save-for-bugreport"});
+
+    // Start the service and connect a simple fake producer.
+    StartServiceIfRequiredNoNewExecsAfterThis();
+
+    auto* fake_producer = ConnectFakeProducer();
+    ASSERT_TRUE(fake_producer);
+
+    std::thread background_trace([&perfetto_proc]() {
+      std::string stderr_str;
+      ASSERT_EQ(0, perfetto_proc.Run(&stderr_str)) << stderr_str;
+    });
+
+    // Wait for the producer to start, and then write out packets.
+    WaitForProducerEnabled();
+    auto on_data_written = task_runner_.CreateCheckpoint("data_written");
+    fake_producer->ProduceEventBatch(WrapTask(on_data_written));
+    task_runner_.RunUntilCheckpoint("data_written");
+
+    ASSERT_EQ(0, perfetto_br_proc.Run(&stderr_)) << "stderr: " << stderr_;
+    perfetto_proc.SendSigterm();
+    background_trace.join();
+
+    auto check_trace_contents = [](std::string trace_path) {
+      // Read the trace written in the fixed location
+      // (/data/misc/perfetto-traces/ on Android, /tmp/ on Linux/Mac) and make
+      // sure it has the right contents.
+      std::string trace_str;
+      base::ReadFile(trace_path, &trace_str);
+      ASSERT_FALSE(trace_str.empty());
+      protos::gen::Trace trace;
+      ASSERT_TRUE(trace.ParseFromString(trace_str));
+      int test_packets = 0;
+      for (const auto& p : trace.packet())
+        test_packets += p.has_for_testing() ? 1 : 0;
+      ASSERT_EQ(test_packets, 3) << trace_path;
+    };
+
+    // Verify that both the original trace and the cloned bugreport contain
+    // the expected contents.
+    check_trace_contents(GetBugreportTracePath());
+    if (check_original_trace)
+      check_trace_contents(path);
   }
 
   // Tests are allowed to freely use these variables.
@@ -288,6 +375,7 @@ TEST_F(PerfettoCmdlineTest, StartTracingTrigger) {
   // (could deadlock) to fork after we've spawned some threads which might
   // printf (and thus hold locks).
   const std::string path = RandomTraceFileName();
+  ScopedFileRemove remove_on_test_exit(path);
   auto perfetto_proc = ExecPerfetto(
       {
           "-o",
@@ -382,6 +470,7 @@ TEST_F(PerfettoCmdlineTest, StopTracingTrigger) {
   // (could deadlock) to fork after we've spawned some threads which might
   // printf (and thus hold locks).
   const std::string path = RandomTraceFileName();
+  ScopedFileRemove remove_on_test_exit(path);
   auto perfetto_proc = ExecPerfetto(
       {
           "-o",
@@ -486,6 +575,7 @@ TEST_F(PerfettoCmdlineTest, AndroidOnly(NoDataNoFileWithoutTrigger)) {
   // (could deadlock) to fork after we've spawned some threads which might
   // printf (and thus hold locks).
   const std::string path = RandomTraceFileName();
+  ScopedFileRemove remove_on_test_exit(path);
   auto perfetto_proc = ExecPerfetto(
       {
           "--dropbox",
@@ -540,6 +630,7 @@ TEST_F(PerfettoCmdlineTest, StopTracingTriggerFromConfig) {
   // (could deadlock) to fork after we've spawned some threads which might
   // printf (and thus hold locks).
   const std::string path = RandomTraceFileName();
+  ScopedFileRemove remove_on_test_exit(path);
   auto perfetto_proc = ExecPerfetto(
       {
           "-o",
@@ -643,6 +734,7 @@ TEST_F(PerfettoCmdlineTest, TriggerFromConfigStopsFileOpening) {
   // (could deadlock) to fork after we've spawned some threads which might
   // printf (and thus hold locks).
   const std::string path = RandomTraceFileName();
+  ScopedFileRemove remove_on_test_exit(path);
   std::string triggers = R"(
     activate_triggers: "trigger_name_2"
     activate_triggers: "trigger_name"
@@ -706,6 +798,7 @@ TEST_F(PerfettoCmdlineTest, AndroidOnly(CmdTriggerWithUploadFlag)) {
   // (could deadlock) to fork after we've spawned some threads which might
   // printf (and thus hold locks).
   const std::string path = RandomTraceFileName();
+  ScopedFileRemove remove_on_test_exit(path);
   auto perfetto_proc = ExecPerfetto(
       {
           "-o",
@@ -753,11 +846,148 @@ TEST_F(PerfettoCmdlineTest, AndroidOnly(CmdTriggerWithUploadFlag)) {
   protos::gen::Trace trace;
   ASSERT_TRUE(trace.ParseFromString(trace_str));
   EXPECT_LT(static_cast<int>(kMessageCount), trace.packet_size());
-  for (const auto& packet : trace.packet()) {
-    if (packet.has_trigger()) {
-      EXPECT_EQ("trigger_name", packet.trigger().trigger_name());
-    }
+  EXPECT_THAT(trace.packet(),
+              Contains(Property(&protos::gen::TracePacket::trigger,
+                                Property(&protos::gen::Trigger::trigger_name,
+                                         Eq("trigger_name")))));
+}
+
+TEST_F(PerfettoCmdlineTest, TriggerCloneSnapshot) {
+  constexpr size_t kMessageCount = 2;
+  constexpr size_t kMessageSize = 2;
+  protos::gen::TraceConfig trace_config;
+  trace_config.add_buffers()->set_size_kb(1024);
+  auto* ds_config = trace_config.add_data_sources()->mutable_config();
+  ds_config->set_name("android.perfetto.FakeProducer");
+  ds_config->mutable_for_testing()->set_message_count(kMessageCount);
+  ds_config->mutable_for_testing()->set_message_size(kMessageSize);
+  auto* trigger_cfg = trace_config.mutable_trigger_config();
+  trigger_cfg->set_trigger_mode(
+      protos::gen::TraceConfig::TriggerConfig::CLONE_SNAPSHOT);
+  trigger_cfg->set_trigger_timeout_ms(600000);
+  auto* trigger = trigger_cfg->add_triggers();
+  trigger->set_name("trigger_name");
+  // |stop_delay_ms| must be long enough that we can write the packets in
+  // before the trace finishes. This has to be long enough for the slowest
+  // emulator. But as short as possible to prevent the test running a long
+  // time.
+  trigger->set_stop_delay_ms(500);
+
+  // We have to construct all the processes we want to fork before we start the
+  // service with |StartServiceIfRequired()|. this is because it is unsafe
+  // (could deadlock) to fork after we've spawned some threads which might
+  // printf (and thus hold locks).
+  const std::string path = RandomTraceFileName();
+  ScopedFileRemove remove_on_test_exit(path);
+  auto perfetto_proc = ExecPerfetto(
+      {
+          "-o",
+          path,
+          "-c",
+          "-",
+      },
+      trace_config.SerializeAsString());
+
+  std::string triggers = R"(
+    activate_triggers: "trigger_name"
+  )";
+  auto trigger_proc = ExecPerfetto(
+      {
+          "-c",
+          "-",
+          "--txt",
+      },
+      triggers);
+
+  // Start the service and connect a simple fake producer.
+  StartServiceIfRequiredNoNewExecsAfterThis();
+  auto* fake_producer = ConnectFakeProducer();
+  EXPECT_TRUE(fake_producer);
+
+  std::thread background_trace([&perfetto_proc]() {
+    std::string stderr_str;
+    EXPECT_EQ(0, perfetto_proc.Run(&stderr_str)) << stderr_str;
+  });
+
+  WaitForProducerEnabled();
+  // Wait for the producer to start, and then write out 11 packets, before the
+  // trace actually starts (the trigger is seen).
+  auto on_data_written = task_runner_.CreateCheckpoint("data_written_1");
+  fake_producer->ProduceEventBatch(WrapTask(on_data_written));
+  task_runner_.RunUntilCheckpoint("data_written_1");
+
+  EXPECT_EQ(0, trigger_proc.Run(&stderr_)) << "stderr: " << stderr_;
+
+  // Now we need to wait that the `perfetto_proc` creates the snapshot trace
+  // file in the trace/path.0 file (appending .0). Once that is done we can
+  // kill the perfetto cmd (otherwise it will keep running for the whole
+  // trigger_timeout_ms, unlike the case of STOP_TRACING.
+  std::string snapshot_path = path + ".0";
+  for (int i = 0; i < 100 && !base::FileExists(snapshot_path); i++) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
+  ASSERT_TRUE(base::FileExists(snapshot_path));
+
+  perfetto_proc.SendSigterm();
+  background_trace.join();
+
+  std::string trace_str;
+  base::ReadFile(snapshot_path, &trace_str);
+  protos::gen::Trace trace;
+  ASSERT_TRUE(trace.ParseFromString(trace_str));
+  EXPECT_LT(static_cast<int>(kMessageCount), trace.packet_size());
+  EXPECT_THAT(trace.packet(),
+              Contains(Property(&protos::gen::TracePacket::trigger,
+                                Property(&protos::gen::Trigger::trigger_name,
+                                         Eq("trigger_name")))));
+}
+
+TEST_F(PerfettoCmdlineTest, SaveForBugreport) {
+  TraceConfig trace_config = CreateTraceConfigForBugreportTest();
+  RunBugreportTest(std::move(trace_config));
+}
+
+TEST_F(PerfettoCmdlineTest, SaveForBugreport_WriteIntoFile) {
+  TraceConfig trace_config = CreateTraceConfigForBugreportTest();
+  trace_config.set_file_write_period_ms(60000);  // Will never hit this.
+  trace_config.set_write_into_file(true);
+  RunBugreportTest(std::move(trace_config));
+}
+
+TEST_F(PerfettoCmdlineTest, Clone) {
+  TraceConfig trace_config = CreateTraceConfigForBugreportTest();
+  RunBugreportTest(std::move(trace_config), /*check_original_trace=*/true,
+                   /*use_explicit_clone=*/true);
+}
+
+// Regression test for b/279753347 .
+TEST_F(PerfettoCmdlineTest, UnavailableBugreportLeavesNoEmptyFiles) {
+  ScopedFileRemove remove_on_test_exit(GetBugreportTracePath());
+  Exec perfetto_br_proc = ExecPerfetto({"--save-for-bugreport"});
+  StartServiceIfRequiredNoNewExecsAfterThis();
+  perfetto_br_proc.Run(&stderr_);
+  ASSERT_FALSE(base::FileExists(GetBugreportTracePath()));
+}
+
+// Tests that SaveTraceForBugreport() works also if the trace has triggers
+// defined and those triggers have not been hit. This is a regression test for
+// b/188008375 .
+#if PERFETTO_BUILDFLAG(PERFETTO_ANDROID_BUILD)
+// Disabled due to b/191940560
+#define MAYBE_SaveForBugreport_Triggers DISABLED_SaveForBugreport_Triggers
+#else
+#define MAYBE_SaveForBugreport_Triggers SaveForBugreport_Triggers
+#endif
+TEST_F(PerfettoCmdlineTest, MAYBE_SaveForBugreport_Triggers) {
+  TraceConfig trace_config = CreateTraceConfigForBugreportTest();
+  trace_config.set_duration_ms(0);  // set_trigger_timeout_ms is used instead.
+  auto* trigger_config = trace_config.mutable_trigger_config();
+  trigger_config->set_trigger_timeout_ms(8.64e+7);
+  trigger_config->set_trigger_mode(TraceConfig::TriggerConfig::STOP_TRACING);
+  auto* trigger = trigger_config->add_triggers();
+  trigger->set_name("trigger_name");
+  trigger->set_stop_delay_ms(1);
+  RunBugreportTest(std::move(trace_config), /*check_original_trace=*/false);
 }
 
 }  // namespace perfetto

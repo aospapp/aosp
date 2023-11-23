@@ -19,10 +19,8 @@
 
 #include "common_runtime_test.h"
 #include "dex2oat_environment_test.h"
-
 #include "vdex_file.h"
 #include "verifier/verifier_deps.h"
-#include "ziparchive/zip_writer.h"
 
 namespace art {
 
@@ -51,7 +49,7 @@ class Dex2oatVdexTest : public Dex2oatEnvironmentTest {
       args.push_back("--public-sdk=" + *public_sdk);
     }
     args.push_back("--compiler-filter=" +
-        CompilerFilter::NameOfFilter(CompilerFilter::Filter::kVerify));
+                   CompilerFilter::NameOfFilter(CompilerFilter::Filter::kVerify));
     args.push_back("--runtime-arg");
     args.push_back("-Xnorelocate");
     if (!copy_dex_files) {
@@ -67,12 +65,12 @@ class Dex2oatVdexTest : public Dex2oatEnvironmentTest {
     return Dex2Oat(args, &output_, &error_msg_) == 0;
   }
 
-  std::unique_ptr<VerifierDeps> GetVerifierDeps(
-        const std::string& vdex_location, const DexFile* dex_file) {
+  std::unique_ptr<VerifierDeps> GetVerifierDeps(const std::string& vdex_location,
+                                                const DexFile* dex_file) {
     // Verify the vdex file content: only the classes using public APIs should be verified.
-    std::unique_ptr<VdexFile> vdex(VdexFile::Open(vdex_location.c_str(),
-                                                  /*writable=*/ false,
-                                                  /*low_4gb=*/ false,
+    std::unique_ptr<VdexFile> vdex(VdexFile::Open(vdex_location,
+                                                  /*writable=*/false,
+                                                  /*low_4gb=*/false,
                                                   &error_msg_));
     // Check the vdex doesn't have dex.
     if (vdex->HasDexSection()) {
@@ -87,7 +85,7 @@ class Dex2oatVdexTest : public Dex2oatEnvironmentTest {
 
     std::vector<const DexFile*> dex_files;
     dex_files.push_back(dex_file);
-    std::unique_ptr<VerifierDeps> deps(new VerifierDeps(dex_files, /*output_only=*/ false));
+    std::unique_ptr<VerifierDeps> deps(new VerifierDeps(dex_files, /*output_only=*/false));
 
     if (!deps->ParseStoredData(dex_files, vdex->GetVerifierDepsData())) {
       ::testing::AssertionFailure() << error_msg_;
@@ -111,23 +109,6 @@ class Dex2oatVdexTest : public Dex2oatEnvironmentTest {
                         const DexFile& dex_file) {
     uint16_t class_def_idx = GetClassDefIndex(cls, dex_file);
     return deps->GetVerifiedClasses(dex_file)[class_def_idx];
-  }
-
-  void CreateDexMetadata(const std::string& vdex, const std::string& out_dm) {
-    // Read the vdex bytes.
-    std::unique_ptr<File> vdex_file(OS::OpenFileForReading(vdex.c_str()));
-    std::vector<uint8_t> data(vdex_file->GetLength());
-    ASSERT_TRUE(vdex_file->ReadFully(data.data(), data.size()));
-
-    // Zip the content.
-    FILE* file = fopen(out_dm.c_str(), "wb");
-    ZipWriter writer(file);
-    writer.StartEntry("primary.vdex", ZipWriter::kAlign32);
-    writer.WriteBytes(data.data(), data.size());
-    writer.FinishEntry();
-    writer.Finish();
-    fflush(file);
-    fclose(file);
   }
 
   std::string GetFilename(const std::unique_ptr<const DexFile>& dex_file) {
@@ -219,11 +200,10 @@ TEST_F(Dex2oatVdexTest, VerifyPublicSdkStubsWithDexFiles) {
   std::unique_ptr<const DexFile> dex_file(OpenTestDexFile("Dex2oatVdexTestDex"));
 
   // Compile the subject app using the predefined API-stubs
-  ASSERT_TRUE(RunDex2oat(
-      dex_file->GetLocation(),
-      GetOdex(dex_file),
-      /*public_sdk=*/ nullptr,
-      /*copy_dex_files=*/ true));
+  ASSERT_TRUE(RunDex2oat(dex_file->GetLocation(),
+                         GetOdex(dex_file),
+                         /*public_sdk=*/nullptr,
+                         /*copy_dex_files=*/true));
 
   // Create the .dm file with the output.
   std::string dm_file = GetScratchDir() + "/base.dm";
@@ -233,12 +213,11 @@ TEST_F(Dex2oatVdexTest, VerifyPublicSdkStubsWithDexFiles) {
 
   // Recompile again with the .dm file which contains a vdex with code.
   // The compilation will pass, but dex2oat will not use the vdex file.
-  ASSERT_TRUE(RunDex2oat(
-      dex_file->GetLocation(),
-      GetOdex(dex_file, "v2"),
-      /*public_sdk=*/ nullptr,
-      /*copy_dex_files=*/ true,
-      extra_args));
+  ASSERT_TRUE(RunDex2oat(dex_file->GetLocation(),
+                         GetOdex(dex_file, "v2"),
+                         /*public_sdk=*/nullptr,
+                         /*copy_dex_files=*/true,
+                         extra_args));
 }
 
 // Check that corrupt vdex files from .dm archives are ignored.
@@ -257,12 +236,12 @@ TEST_F(Dex2oatVdexTest, VerifyCorruptVdexFile) {
   extra_args.push_back("--dm-file=" + dm_file);
 
   // Compile the dex file. Despite having a corrupt input .vdex, we should not crash.
-  ASSERT_TRUE(RunDex2oat(
-      dex_file->GetLocation(),
-      GetOdex(dex_file),
-      /*public_sdk=*/ nullptr,
-      /*copy_dex_files=*/ true,
-      extra_args)) << output_;
+  ASSERT_TRUE(RunDex2oat(dex_file->GetLocation(),
+                         GetOdex(dex_file),
+                         /*public_sdk=*/nullptr,
+                         /*copy_dex_files=*/true,
+                         extra_args))
+      << output_;
 }
 
 // Check that if the input dm a vdex with mismatching checksums the compilation fails
@@ -272,11 +251,10 @@ TEST_F(Dex2oatVdexTest, VerifyInputDmWithMismatchedChecksums) {
   // Generate a vdex file for Dex2oatVdexTestDex.
   std::unique_ptr<const DexFile> dex_file(OpenTestDexFile("Dex2oatVdexTestDex"));
 
-  ASSERT_TRUE(RunDex2oat(
-      dex_file->GetLocation(),
-      GetOdex(dex_file),
-      /*public_sdk=*/ nullptr,
-      /*copy_dex_files=*/ false));
+  ASSERT_TRUE(RunDex2oat(dex_file->GetLocation(),
+                         GetOdex(dex_file),
+                         /*public_sdk=*/nullptr,
+                         /*copy_dex_files=*/false));
 
   // Create the .dm file with the output.
   std::string dm_file = GetScratchDir() + "/base.dm";
@@ -287,12 +265,12 @@ TEST_F(Dex2oatVdexTest, VerifyInputDmWithMismatchedChecksums) {
   // Try to compile Main using an input dm which contains the vdex for
   // Dex2oatVdexTestDex. It should fail.
   std::unique_ptr<const DexFile> dex_file2(OpenTestDexFile("Main"));
-  ASSERT_FALSE(RunDex2oat(
-      dex_file2->GetLocation(),
-      GetOdex(dex_file2, "v2"),
-      /*public_sdk=*/ nullptr,
-      /*copy_dex_files=*/ false,
-      extra_args)) << output_;
+  ASSERT_FALSE(RunDex2oat(dex_file2->GetLocation(),
+                          GetOdex(dex_file2, "v2"),
+                          /*public_sdk=*/nullptr,
+                          /*copy_dex_files=*/false,
+                          extra_args))
+      << output_;
 }
 
 }  // namespace art

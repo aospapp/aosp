@@ -18,10 +18,9 @@ from acts.controllers.fuchsia_lib.base_lib import BaseLib
 
 
 class FuchsiaProfileServerLib(BaseLib):
-    def __init__(self, addr, tc, client_id):
-        self.address = addr
-        self.test_counter = tc
-        self.client_id = client_id
+
+    def __init__(self, addr: str) -> None:
+        super().__init__(addr, "profile_server")
 
     def addService(self, record):
         """Publishes an SDP service record specified by input args
@@ -37,10 +36,8 @@ class FuchsiaProfileServerLib(BaseLib):
         test_args = {
             "record": record,
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def addSearch(self, attribute_list, profile_id):
         """Publishes services specified by input args
@@ -56,10 +53,8 @@ class FuchsiaProfileServerLib(BaseLib):
             "attribute_list": attribute_list,
             "profile_id": profile_id
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def removeService(self, service_id):
         """Removes a service.
@@ -75,10 +70,8 @@ class FuchsiaProfileServerLib(BaseLib):
         test_args = {
             "service_id": service_id,
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def init(self):
         """Initializes the ProfileServerFacade's proxy object.
@@ -90,10 +83,8 @@ class FuchsiaProfileServerLib(BaseLib):
         """
         test_cmd = "profile_server_facade.ProfileServerInit"
         test_args = {}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def cleanUp(self):
         """Cleans up all objects related to SDP.
@@ -103,10 +94,8 @@ class FuchsiaProfileServerLib(BaseLib):
         """
         test_cmd = "profile_server_facade.ProfileServerCleanup"
         test_args = {}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def connectL2cap(self, identifier, psm, mode):
         """ Sends an outgoing l2cap connection to a connected peer device.
@@ -143,7 +132,5 @@ class FuchsiaProfileServerLib(BaseLib):
         """
         test_cmd = "profile_server_facade.ProfileServerConnectL2cap"
         test_args = {"identifier": identifier, "psm": psm, "mode": mode}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)

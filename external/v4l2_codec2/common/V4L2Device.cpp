@@ -50,6 +50,11 @@
 #define V4L2_PIX_FMT_H264_SLICE v4l2_fourcc('S', '2', '6', '4')
 #endif
 
+// HEVC parsed slices
+#ifndef V4L2_PIX_FMT_HEVC_SLICE
+#define V4L2_PIX_FMT_HEVC_SLICE v4l2_fourcc('S', '2', '6', '5')
+#endif
+
 namespace android {
 
 struct v4l2_format buildV4L2Format(const enum v4l2_buf_type type, uint32_t fourcc,
@@ -1237,6 +1242,13 @@ uint32_t V4L2Device::C2ProfileToV4L2PixFmt(C2Config::profile_t profile, bool sli
         } else {
             return V4L2_PIX_FMT_VP9;
         }
+    } else if (profile >= C2Config::PROFILE_HEVC_MAIN &&
+               profile <= C2Config::PROFILE_HEVC_3D_MAIN) {
+        if (sliceBased) {
+            return V4L2_PIX_FMT_HEVC_SLICE;
+        } else {
+            return V4L2_PIX_FMT_HEVC;
+        }
     } else {
         ALOGE("Unknown profile: %s", profileToString(profile));
         return 0;
@@ -1283,6 +1295,16 @@ C2Config::profile_t V4L2Device::v4L2ProfileToC2Profile(VideoCodec codec, uint32_
             return C2Config::PROFILE_VP9_3;
         }
         break;
+    case VideoCodec::HEVC:
+        switch (profile) {
+        case V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN:
+            return C2Config::PROFILE_HEVC_MAIN;
+        case V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_STILL_PICTURE:
+            return C2Config::PROFILE_HEVC_MAIN_STILL;
+        case V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_10:
+            return C2Config::PROFILE_HEVC_MAIN_10;
+        }
+        break;
     default:
         ALOGE("Unknown codec: %u", codec);
     }
@@ -1304,6 +1326,9 @@ std::vector<C2Config::profile_t> V4L2Device::v4L2PixFmtToC2Profiles(uint32_t pix
             break;
         case VideoCodec::VP9:
             queryId = V4L2_CID_MPEG_VIDEO_VP9_PROFILE;
+            break;
+        case VideoCodec::HEVC:
+            queryId = V4L2_CID_MPEG_VIDEO_HEVC_PROFILE;
             break;
         default:
             return false;
@@ -1353,6 +1378,16 @@ std::vector<C2Config::profile_t> V4L2Device::v4L2PixFmtToC2Profiles(uint32_t pix
         if (!getSupportedProfiles(VideoCodec::VP9, &profiles)) {
             ALOGW("Driver doesn't support QUERY VP9 profiles, use default values, Profile0");
             profiles = {C2Config::PROFILE_VP9_0};
+        }
+        break;
+    case V4L2_PIX_FMT_HEVC:
+    case V4L2_PIX_FMT_HEVC_SLICE:
+        if (!getSupportedProfiles(VideoCodec::HEVC, &profiles)) {
+            ALOGW("Driver doesn't support QUERY HEVC profiles, "
+                  "use default values, Main");
+            profiles = {
+                    C2Config::PROFILE_HEVC_MAIN,
+            };
         }
         break;
     default:

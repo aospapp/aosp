@@ -30,14 +30,15 @@ cc_fuzz {
         "btdevice_esco_fuzzer.cpp",
     ],
     shared_libs: [
-        "liblog",
         "libdl",
+        "liblog",
     ],
     static_libs: [
-        "libbtdevice",
-        "libbtcore",
-        "libosi",
         "libbluetooth-types",
+        "libbtcore",
+        "libbtdevice",
+        "libchrome",
+        "libosi",
     ],
     include_dirs: [
         "packages/modules/Bluetooth/system",
@@ -47,9 +48,7 @@ cc_fuzz {
         "-DBUILDCFG",
     ],
     fuzz_config: {
-        cc: [
-            "android-media-fuzzing-reports@google.com",
-        ],
-        componentid: 155276,
+        cc: ["android-bluetooth-security@google.com"],
+        componentid: 27441,
     },
 }

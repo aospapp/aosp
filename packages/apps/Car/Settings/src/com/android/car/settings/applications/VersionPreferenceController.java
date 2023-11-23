@@ -61,7 +61,7 @@ public class VersionPreferenceController extends PreferenceController<Preference
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return AVAILABLE_FOR_VIEWING;
     }
 }

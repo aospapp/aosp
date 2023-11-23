@@ -399,6 +399,7 @@ public class VibratorTest {
     @Test
     public void testVibrateComposed() {
         boolean[] supported = mVibrator.arePrimitivesSupported(PRIMITIVE_EFFECTS);
+        int[] durations = mVibrator.getPrimitiveDurations(PRIMITIVE_EFFECTS);
         for (int i = 0; i < PRIMITIVE_EFFECTS.length; i++) {
             mVibrator.vibrate(VibrationEffect.startComposition()
                     .addPrimitive(PRIMITIVE_EFFECTS[i])
@@ -406,7 +407,7 @@ public class VibratorTest {
                     .addPrimitive(PRIMITIVE_EFFECTS[i], 0.8f, 10)
                     .compose());
             if (supported[i]) {
-                assertStartsVibrating();
+                assertStartsThenStopsVibrating(durations[i] * 3 + 10);
             }
         }
     }

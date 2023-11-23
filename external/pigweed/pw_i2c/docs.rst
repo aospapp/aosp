@@ -59,18 +59,21 @@ list. An example of this is shown below:
   constexpr auto kExpectWrite1 = pw::bytes::Array<1, 2, 3, 4, 5>();
   constexpr auto kExpectWrite2 = pw::bytes::Array<3, 4, 5>();
   auto expected_transactions = MakeExpectedTransactionArray(
-      {WriteTransaction(pw::OkStatus(), kAddress1, kExpectWrite1, 1ms),
+      {ProbeTransaction(pw::OkStatus, kAddress1, 2ms),
+       WriteTransaction(pw::OkStatus(), kAddress1, kExpectWrite1, 1ms),
        WriteTransaction(pw::OkStatus(), kAddress2, kExpectWrite2, 1ms)});
   MockInitiator i2c_mock(expected_transactions);
 
   // Begin driver code
+  Status status = i2c_mock.ProbeDeviceFor(kAddress1, 2ms);
+
   ConstByteSpan write1 = kExpectWrite1;
   // write1 is ok as i2c_mock expects {1, 2, 3, 4, 5} == {1, 2, 3, 4, 5}
   Status status = i2c_mock.WriteFor(kAddress1, write1, 2ms);
 
   // Takes the first two bytes from the expected array to build a mismatching
   // span to write.
-  ConstByteSpan write2 = std::span(kExpectWrite2).first(2);
+  ConstByteSpan write2 = pw::span(kExpectWrite2).first(2);
   // write2 fails as i2c_mock expects {3, 4, 5} != {3, 4}
   status = i2c_mock.WriteFor(kAddress2, write2, 2ms);
   // End driver code

@@ -27,13 +27,13 @@
 
 #include <cinttypes>
 
-#include <chre.h>
 #include <pb_encode.h>
 
 #include "chre/util/macros.h"
 #include "chre/util/nanoapp/callbacks.h"
 #include "chre/util/nanoapp/log.h"
 #include "chre/util/time.h"
+#include "chre_api/chre.h"
 #include "pts_chre.nanopb.h"
 
 #define LOG_TAG "[PtsAudioEnableDisable]"

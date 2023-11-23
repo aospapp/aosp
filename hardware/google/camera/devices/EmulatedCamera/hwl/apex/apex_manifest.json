@@ -1,4 +1,5 @@
 {
   "name": "com.google.emulated.camera.provider.hal",
-  "version": 1
+  "version": 1,
+  "supportsRebootlessUpdate": true
 }

@@ -35,7 +35,7 @@ import com.android.internal.widget.SubtitleView;
 import com.android.settingslib.accessibility.AccessibilityUtils;
 import com.android.tv.settings.BaseSettingsFragment;
 import com.android.tv.settings.R;
-import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 import java.util.Locale;
 

@@ -1,4 +1,11 @@
 {
+  "dependency-blocklist": [
+    "debugger_test",
+    "debugger_test_parser"
+  ],
+  "test-blocklist": [
+    "tests/debugger_visualizer.rs"
+  ],
   "apex-available": [
     "//apex_available:platform",
     "com.android.resolv"

@@ -14,10 +14,41 @@
 pub use arbitrary;
 use once_cell::sync::OnceCell;
 
+/// Indicates whether the input should be kept in the corpus or rejected. This
+/// should be returned by your fuzz target. If your fuzz target does not return
+/// a value (i.e., returns `()`), then the input will be kept in the corpus.
+#[derive(Debug)]
+pub enum Corpus {
+    /// Keep the input in the corpus.
+    Keep,
+
+    /// Reject the input and do not keep it in the corpus.
+    Reject,
+}
+
+impl From<()> for Corpus {
+    fn from(_: ()) -> Self {
+        Self::Keep
+    }
+}
+
+impl Corpus {
+    #[doc(hidden)]
+    /// Convert this Corpus result into the [integer codes used by
+    /// `libFuzzer`](https://llvm.org/docs/LibFuzzer.html#rejecting-unwanted-inputs).
+    /// This is -1 for reject, 0 for keep.
+    pub fn to_libfuzzer_code(self) -> i32 {
+        match self {
+            Corpus::Keep => 0,
+            Corpus::Reject => -1,
+        }
+    }
+}
+
 extern "C" {
     // We do not actually cross the FFI bound here.
     #[allow(improper_ctypes)]
-    fn rust_fuzzer_test_input(input: &[u8]);
+    fn rust_fuzzer_test_input(input: &[u8]) -> i32;
 
     fn LLVMFuzzerMutate(data: *mut u8, size: usize, max_size: usize) -> usize;
 }
@@ -27,14 +58,17 @@ extern "C" {
 pub fn test_input_wrap(data: *const u8, size: usize) -> i32 {
     let test_input = ::std::panic::catch_unwind(|| unsafe {
         let data_slice = ::std::slice::from_raw_parts(data, size);
-        rust_fuzzer_test_input(data_slice);
+        rust_fuzzer_test_input(data_slice)
     });
-    if test_input.err().is_some() {
-        // hopefully the custom panic hook will be called before and abort the
-        // process before the stack frames are unwinded.
-        ::std::process::abort();
+
+    match test_input {
+        Ok(i) => i,
+        Err(_) => {
+            // hopefully the custom panic hook will be called before and abort the
+            // process before the stack frames are unwinded.
+            ::std::process::abort();
+        }
     }
-    0
 }
 
 #[doc(hidden)]
@@ -84,6 +118,39 @@ pub fn initialize(_argc: *const isize, _argv: *const *const *const u8) -> isize 
 ///     let _result: Result<_, _> = my_crate::parse(input);
 /// });
 /// # mod my_crate { pub fn parse(_: &[u8]) -> Result<(), ()> { unimplemented!() } }
+/// ```
+///
+/// ## Rejecting Inputs
+///
+/// It may be desirable to reject some inputs, i.e. to not add them to the
+/// corpus.
+///
+/// For example, when fuzzing an API consisting of parsing and other logic,
+/// one may want to allow only those inputs into the corpus that parse
+/// successfully. To indicate whether an input should be kept in or rejected
+/// from the corpus, return either [Corpus::Keep] or [Corpus::Reject] from your
+/// fuzz target. The default behavior (e.g. if `()` is returned) is to keep the
+/// input in the corpus.
+///
+/// For example:
+///
+/// ```no_run
+/// #![no_main]
+///
+/// use libfuzzer_sys::{Corpus, fuzz_target};
+///
+/// fuzz_target!(|input: String| -> Corpus {
+///     let parts: Vec<&str> = input.splitn(2, '=').collect();
+///     if parts.len() != 2 {
+///         return Corpus::Reject;
+///     }
+///
+///     let key = parts[0];
+///     let value = parts[1];
+///     let _result: Result<_, _> = my_crate::parse(key, value);
+///     Corpus::Keep
+/// });
+/// # mod my_crate { pub fn parse(_key: &str, _value: &str) -> Result<(), ()> { unimplemented!() } }
 /// ```
 ///
 /// ## Arbitrary Input Types
@@ -136,74 +203,107 @@ pub fn initialize(_argc: *const isize, _argv: *const *const *const u8) -> isize 
 #[macro_export]
 macro_rules! fuzz_target {
     (|$bytes:ident| $body:block) => {
-        /// Auto-generated function
-        #[no_mangle]
-        pub extern "C" fn rust_fuzzer_test_input($bytes: &[u8]) {
-            // When `RUST_LIBFUZZER_DEBUG_PATH` is set, write the debug
-            // formatting of the input to that file. This is only intended for
-            // `cargo fuzz`'s use!
+        const _: () = {
+            /// Auto-generated function
+            #[no_mangle]
+            pub extern "C" fn rust_fuzzer_test_input(bytes: &[u8]) -> i32 {
+                // When `RUST_LIBFUZZER_DEBUG_PATH` is set, write the debug
+                // formatting of the input to that file. This is only intended for
+                // `cargo fuzz`'s use!
 
-            // `RUST_LIBFUZZER_DEBUG_PATH` is set in initialization.
-            if let Some(path) = $crate::RUST_LIBFUZZER_DEBUG_PATH.get() {
-                use std::io::Write;
-                let mut file = std::fs::File::create(path)
-                    .expect("failed to create `RUST_LIBFUZZER_DEBUG_PATH` file");
-                writeln!(&mut file, "{:?}", $bytes)
-                    .expect("failed to write to `RUST_LIBFUZZER_DEBUG_PATH` file");
-                return;
+                // `RUST_LIBFUZZER_DEBUG_PATH` is set in initialization.
+                if let Some(path) = $crate::RUST_LIBFUZZER_DEBUG_PATH.get() {
+                    use std::io::Write;
+                    let mut file = std::fs::File::create(path)
+                        .expect("failed to create `RUST_LIBFUZZER_DEBUG_PATH` file");
+                    writeln!(&mut file, "{:?}", bytes)
+                        .expect("failed to write to `RUST_LIBFUZZER_DEBUG_PATH` file");
+                    return 0;
+                }
+
+                __libfuzzer_sys_run(bytes);
+                0
             }
 
-            $body
-        }
+            // Split out the actual fuzzer into a separate function which is
+            // tagged as never being inlined. This ensures that if the fuzzer
+            // panics there's at least one stack frame which is named uniquely
+            // according to this specific fuzzer that this is embedded within.
+            //
+            // Systems like oss-fuzz try to deduplicate crashes and without this
+            // panics in separate fuzzers can accidentally appear the same
+            // because each fuzzer will have a function called
+            // `rust_fuzzer_test_input`. By using a normal Rust function here
+            // it's named something like `the_fuzzer_name::_::__libfuzzer_sys_run` which should
+            // ideally help prevent oss-fuzz from deduplicate fuzz bugs across
+            // distinct targets accidentally.
+            #[inline(never)]
+            fn __libfuzzer_sys_run($bytes: &[u8]) {
+                $body
+            }
+        };
     };
 
     (|$data:ident: &[u8]| $body:block) => {
-        fuzz_target!(|$data| $body);
+        $crate::fuzz_target!(|$data| $body);
     };
 
     (|$data:ident: $dty: ty| $body:block) => {
-        /// Auto-generated function
-        #[no_mangle]
-        pub extern "C" fn rust_fuzzer_test_input(bytes: &[u8]) {
-            use $crate::arbitrary::{Arbitrary, Unstructured};
+        $crate::fuzz_target!(|$data: $dty| -> () $body);
+    };
 
-            // Early exit if we don't have enough bytes for the `Arbitrary`
-            // implementation. This helps the fuzzer avoid exploring all the
-            // different not-enough-input-bytes paths inside the `Arbitrary`
-            // implementation. Additionally, it exits faster, letting the fuzzer
-            // get to longer inputs that actually lead to interesting executions
-            // quicker.
-            if bytes.len() < <$dty as Arbitrary>::size_hint(0).0 {
-                return;
+    (|$data:ident: $dty: ty| -> $rty: ty $body:block) => {
+        const _: () = {
+            /// Auto-generated function
+            #[no_mangle]
+            pub extern "C" fn rust_fuzzer_test_input(bytes: &[u8]) -> i32 {
+                use $crate::arbitrary::{Arbitrary, Unstructured};
+
+                // Early exit if we don't have enough bytes for the `Arbitrary`
+                // implementation. This helps the fuzzer avoid exploring all the
+                // different not-enough-input-bytes paths inside the `Arbitrary`
+                // implementation. Additionally, it exits faster, letting the fuzzer
+                // get to longer inputs that actually lead to interesting executions
+                // quicker.
+                if bytes.len() < <$dty as Arbitrary>::size_hint(0).0 {
+                    return -1;
+                }
+
+                let mut u = Unstructured::new(bytes);
+                let data = <$dty as Arbitrary>::arbitrary_take_rest(u);
+
+                // When `RUST_LIBFUZZER_DEBUG_PATH` is set, write the debug
+                // formatting of the input to that file. This is only intended for
+                // `cargo fuzz`'s use!
+
+                // `RUST_LIBFUZZER_DEBUG_PATH` is set in initialization.
+                if let Some(path) = $crate::RUST_LIBFUZZER_DEBUG_PATH.get() {
+                    use std::io::Write;
+                    let mut file = std::fs::File::create(path)
+                        .expect("failed to create `RUST_LIBFUZZER_DEBUG_PATH` file");
+                    (match data {
+                        Ok(data) => writeln!(&mut file, "{:#?}", data),
+                        Err(err) => writeln!(&mut file, "Arbitrary Error: {}", err),
+                    })
+                    .expect("failed to write to `RUST_LIBFUZZER_DEBUG_PATH` file");
+                    return -1;
+                }
+
+                let data = match data {
+                    Ok(d) => d,
+                    Err(_) => return -1,
+                };
+
+                let result = ::libfuzzer_sys::Corpus::from(__libfuzzer_sys_run(data));
+                result.to_libfuzzer_code()
             }
 
-            let mut u = Unstructured::new(bytes);
-            let data = <$dty as Arbitrary>::arbitrary_take_rest(u);
-
-            // When `RUST_LIBFUZZER_DEBUG_PATH` is set, write the debug
-            // formatting of the input to that file. This is only intended for
-            // `cargo fuzz`'s use!
-
-            // `RUST_LIBFUZZER_DEBUG_PATH` is set in initialization.
-            if let Some(path) = $crate::RUST_LIBFUZZER_DEBUG_PATH.get() {
-                use std::io::Write;
-                let mut file = std::fs::File::create(path)
-                    .expect("failed to create `RUST_LIBFUZZER_DEBUG_PATH` file");
-                (match data {
-                    Ok(data) => writeln!(&mut file, "{:#?}", data),
-                    Err(err) => writeln!(&mut file, "Arbitrary Error: {}", err),
-                })
-                .expect("failed to write to `RUST_LIBFUZZER_DEBUG_PATH` file");
-                return;
+            // See above for why this is split to a separate function.
+            #[inline(never)]
+            fn __libfuzzer_sys_run($data: $dty) -> $rty {
+                $body
             }
-
-            let $data = match data {
-                Ok(d) => d,
-                Err(_) => return,
-            };
-
-            $body
-        }
+        };
     };
 }
 

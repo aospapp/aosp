@@ -64,7 +64,8 @@ public class StatusBarManagerApi30Test {
 
     @Test
     public void testHandleSystemKey_withoutStatusBarPermission_doesNotThrow() throws Exception {
-        mStatusBarManager.handleSystemKey(KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP);
+        mStatusBarManager.handleSystemKey(
+                new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP));
 
         // Nothing thrown, passed
     }

@@ -20,46 +20,40 @@
 
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <uses-permission android:name="android.permission.FORCE_STOP_PACKAGES" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application android:description="@string/app_description">
         <uses-library android:name="android.test.runner" />
 
-        <activity android:name="android.car.cts.builtin.activity.SimpleActivity"
-                  android:exported="true">
-        </activity>
+        <activity android:name="android.car.cts.builtin.activity.SimpleActivity" />
 
         <activity android:name="android.car.cts.builtin.activity.VirtualDisplayIdTestActivity"
-                  android:exported="true">
-        </activity>
+                  android:exported="true"/>
 
         <activity android:name="android.car.cts.builtin.activity.TaskInfoTestActivity"
                   android:label="@string/task_info_test_activity"
-                  android:taskAffinity=""
-                  android:exported="true">
-        </activity>
+                  android:taskAffinity="" />
 
-        <service android:name="android.car.cts.builtin.os.SharedMemoryTestService"
-            android:process=":shdmemservice">
-        </service>
+        <activity android:name="android.car.cts.builtin.activity.SingleUseActivity" />
 
         <activity android:name="android.car.cts.builtin.app.ActivityManagerHelperTest$ActivityA"
-                  android:taskAffinity="android.car.cts.builtin.amTestTask1"
-                  android:exported="true">
-        </activity>
+                  android:taskAffinity="android.car.cts.builtin.amTestTask1" />
 
         <activity android:name="android.car.cts.builtin.app.ActivityManagerHelperTest$ActivityB"
-                  android:taskAffinity="android.car.cts.builtin.amTestTask1"
-                  android:exported="true">
-        </activity>
+                  android:taskAffinity="android.car.cts.builtin.amTestTask1" />
 
         <activity android:name="android.car.cts.builtin.app.ActivityManagerHelperTest$ActivityC"
-                  android:taskAffinity="android.car.cts.builtin.amTestTask2"
-                  android:exported="true">
-        </activity>
+                  android:taskAffinity="android.car.cts.builtin.amTestTask2" />
+
+        <activity android:name="android.car.cts.builtin.view.TouchableInsetsProviderTest$TestActivity"
+                  android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
 
         <service android:name="android.car.cts.builtin.os.ServiceManagerTestService"
-            android:process=":testservice">
-        </service>
+            android:process=":testservice" />
+
+        <service android:name="android.car.cts.builtin.os.SharedMemoryTestService"
+            android:process=":shdmemservice" />
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

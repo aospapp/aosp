@@ -16,18 +16,23 @@
 
 package android.app.cts;
 
-import static android.app.ActivityManager.PROCESS_CAPABILITY_ALL;
-import static android.app.ActivityManager.PROCESS_CAPABILITY_ALL_IMPLICIT;
+import static android.app.ActivityManager.PROCESS_CAPABILITY_FOREGROUND_CAMERA;
 import static android.app.ActivityManager.PROCESS_CAPABILITY_FOREGROUND_LOCATION;
-import static android.app.ActivityManager.PROCESS_CAPABILITY_NETWORK;
+import static android.app.ActivityManager.PROCESS_CAPABILITY_FOREGROUND_MICROPHONE;
 import static android.app.ActivityManager.PROCESS_CAPABILITY_NONE;
+import static android.app.ActivityManager.PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK;
+import static android.app.ActivityManager.PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE;
+import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
+import static android.app.cts.ActivityManagerFgsBgStartTest.toggleBgFgsTypeStartPermissionEnforcement;
 import static android.app.stubs.LocalForegroundService.ACTION_START_FGS_RESULT;
 import static android.app.stubs.LocalForegroundServiceSticky.ACTION_RESTART_FGS_STICKY_RESULT;
+
+import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertTrue;
@@ -36,6 +41,7 @@ import static junit.framework.Assert.fail;
 import android.accessibilityservice.AccessibilityService;
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.ActivityOptions;
 import android.app.AppOpsManager;
 import android.app.Instrumentation;
 import android.app.Service;
@@ -65,23 +71,26 @@ import android.os.SystemClock;
 import android.os.UserHandle;
 import android.permission.cts.PermissionUtils;
 import android.platform.test.annotations.Presubmit;
-import android.server.wm.WindowManagerState;
-import android.support.test.uiautomator.BySelector;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiSelector;
+import android.server.wm.WindowManagerStateHelper;
 import android.util.Log;
-import android.view.accessibility.AccessibilityEvent;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiSelector;
 
 import com.android.compatibility.common.util.AmMonitor;
 import com.android.compatibility.common.util.SystemUtil;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
@@ -149,6 +158,12 @@ public class ActivityManagerProcessStateTest {
     private ApplicationInfo[] mAppInfo;
     private WatchUidRunner[] mWatchers;
 
+    private static final int PROCESS_CAPABILITY_ALL = PROCESS_CAPABILITY_FOREGROUND_LOCATION
+            | PROCESS_CAPABILITY_FOREGROUND_CAMERA
+            | PROCESS_CAPABILITY_FOREGROUND_MICROPHONE
+            | PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+            | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK;
+
     @Before
     public void setUp() throws Exception {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
@@ -187,6 +202,28 @@ public class ActivityManagerProcessStateTest {
                 am.forceStopPackage(pkgName);
             });
         }
+
+        // Override the memory pressure level, force it staying at normal.
+        runShellCommand(mInstrumentation, "am memory-factor set NORMAL");
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        // Stop all the packages
+        final List<String> allPackageNames = new ArrayList<>();
+        allPackageNames.addAll(Arrays.asList(PACKAGE_NAMES));
+        allPackageNames.add(SIMPLE_PACKAGE_NAME);
+        allPackageNames.add(CANT_SAVE_STATE_1_PACKAGE_NAME);
+        allPackageNames.add(CANT_SAVE_STATE_2_PACKAGE_NAME);
+        final ActivityManager am = mContext.getSystemService(ActivityManager.class);
+        for (final String pkgName : allPackageNames) {
+            SystemUtil.runWithShellPermissionIdentity(() -> {
+                am.forceStopPackage(pkgName);
+            });
+        }
+
+        // Reset the memory pressure override
+        runShellCommand(mInstrumentation, "am memory-factor reset");
     }
 
     /**
@@ -218,7 +255,7 @@ public class ActivityManagerProcessStateTest {
             mAppInfo[i] = mContext.getPackageManager().getApplicationInfo(
                     PACKAGE_NAMES[i], 0);
             mWatchers[i] = new WatchUidRunner(mInstrumentation, mAppInfo[i].uid,
-                    WAITFOR_MSEC);
+                    WAITFOR_MSEC, PROCESS_CAPABILITY_ALL);
         }
     }
 
@@ -239,9 +276,9 @@ public class ActivityManagerProcessStateTest {
     }
 
     private void waitForAppFocus(String waitForApp, long waitTime) {
+        final WindowManagerStateHelper wms = new WindowManagerStateHelper();
         long waitUntil = SystemClock.elapsedRealtime() + waitTime;
         while (true) {
-            WindowManagerState wms = new WindowManagerState();
             wms.computeState();
             String appName = wms.getFocusedApp();
             if (appName != null) {
@@ -262,17 +299,19 @@ public class ActivityManagerProcessStateTest {
         }
     }
 
-    private void startActivityAndWaitForShow(final Intent intent) throws Exception {
-        mInstrumentation.getUiAutomation().executeAndWaitForEvent(
-                () -> {
-                    try {
-                        mTargetContext.startActivity(intent);
-                    } catch (Exception e) {
-                        fail("Cannot start activity: " + intent);
-                    }
-                }, (AccessibilityEvent event) -> event.getEventType()
-                        == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-                , WAIT_TIME);
+    private void startActivity(Context context, final Intent intent) {
+        ActivityOptions activityOptions = ActivityOptions.makeBasic();
+        activityOptions.setLaunchWindowingMode(WINDOWING_MODE_FULLSCREEN);
+        context.startActivity(intent, activityOptions.toBundle());
+    }
+
+    private void startAndWaitForHeavyWeightSwitcherActivity(final Intent intent)  {
+        startActivity(mTargetContext, intent);
+        // Assume there was another CANT_SAVE_STATE app, so it will redirect to the switch activity.
+        new WindowManagerStateHelper().waitAndAssertWindowSurfaceShown(
+                "android/com.android.internal.app.HeavyWeightSwitcherActivity", true);
+        // Wait for the transition animation to complete.
+        mInstrumentation.getUiAutomation().syncInputTransactions();
     }
 
     private void maybeClick(UiDevice device, UiSelector sel) {
@@ -976,7 +1015,7 @@ public class ActivityManagerProcessStateTest {
             WaitForBroadcast waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
             waiter.prepare(ACTION_SIMPLE_ACTIVITY_START_SERVICE_RESULT);
             activityIntent.putExtra("service", mServiceIntent);
-            mTargetContext.startActivity(activityIntent);
+            startActivity(mTargetContext, activityIntent);
             Intent resultIntent = waiter.doWait(WAIT_TIME * 2);
             int brCode = resultIntent.getIntExtra("result", Activity.RESULT_CANCELED);
             if (brCode != Activity.RESULT_FIRST_USER) {
@@ -1236,7 +1275,7 @@ public class ActivityManagerProcessStateTest {
             waiter.prepare(ACTION_SIMPLE_ACTIVITY_START_FG_SERVICE_RESULT);
 
             activityIntent.setAction(ACTION_SIMPLE_ACTIVITY_START_FG);
-            mTargetContext.startActivity(activityIntent);
+            startActivity(mTargetContext, activityIntent);
             activityStarted = true;
 
             Intent resultIntent = waiter.doWait(WAIT_TIME);
@@ -1330,7 +1369,7 @@ public class ActivityManagerProcessStateTest {
 
         try {
             // Start the heavy-weight app, should launch like a normal app.
-            mTargetContext.startActivity(activityIntent);
+            startActivity(mTargetContext, activityIntent);
             waitForAppFocus(CANT_SAVE_STATE_1_PACKAGE_NAME, WAIT_TIME);
             device.waitForIdle();
 
@@ -1348,6 +1387,8 @@ public class ActivityManagerProcessStateTest {
 
             // Now go to home, leaving the app.  It should be put in the heavy weight state.
             mTargetContext.startActivity(homeIntent);
+            final WindowManagerStateHelper wms = new WindowManagerStateHelper();
+            wms.waitForHomeActivityVisible();
 
             final int expectedImportance =
                     (mContext.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.O)
@@ -1358,17 +1399,17 @@ public class ActivityManagerProcessStateTest {
             assertEquals(expectedImportance,
                     am.getPackageImportance(CANT_SAVE_STATE_1_PACKAGE_NAME));
 
-            uidWatcher.expect(WatchUidRunner.CMD_CACHED, null);
-            uidWatcher.expect(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_HEAVY_WEIGHT);
+            uidWatcher.waitFor(WatchUidRunner.CMD_CACHED, null);
+            uidWatcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_HEAVY_WEIGHT);
 
             // While in background, should go in to normal idle state.
             // Force app to go idle now
             cmd = "am make-uid-idle " + CANT_SAVE_STATE_1_PACKAGE_NAME;
             result = SystemUtil.runShellCommand(mInstrumentation, cmd);
-            uidWatcher.expect(WatchUidRunner.CMD_IDLE, null);
+            uidWatcher.waitFor(WatchUidRunner.CMD_IDLE, null);
 
             // Switch back to heavy-weight app to see if it correctly returns to foreground.
-            mTargetContext.startActivity(activityIntent);
+            startActivity(mTargetContext, activityIntent);
 
             // Wait for process state to reflect running activity.
             uidForegroundListener.waitForValue(
@@ -1443,7 +1484,6 @@ public class ActivityManagerProcessStateTest {
         homeIntent.addCategory(Intent.CATEGORY_HOME);
         homeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
-        ActivityManager am = mContext.getSystemService(ActivityManager.class);
         UiDevice device = UiDevice.getInstance(mInstrumentation);
 
         PermissionUtils.grantPermission(
@@ -1467,7 +1507,7 @@ public class ActivityManagerProcessStateTest {
 
         try {
             // Start the first heavy-weight app, should launch like a normal app.
-            mTargetContext.startActivity(activity1Intent);
+            startActivity(mTargetContext, activity1Intent);
             waitForAppFocus(CANT_SAVE_STATE_1_PACKAGE_NAME, WAIT_TIME);
             device.waitForIdle();
 
@@ -1478,13 +1518,15 @@ public class ActivityManagerProcessStateTest {
 
             // Now go to home, leaving the app.  It should be put in the heavy weight state.
             mTargetContext.startActivity(homeIntent);
+            final WindowManagerStateHelper wms = new WindowManagerStateHelper();
+            wms.waitForHomeActivityVisible();
 
             // Wait for process to go down to background heavy-weight.
             uid1Watcher.expect(WatchUidRunner.CMD_CACHED, null);
             uid1Watcher.expect(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_HEAVY_WEIGHT);
 
             // Start the second heavy-weight app, should ask us what to do with the two apps
-            startActivityAndWaitForShow(activity2Intent);
+            startAndWaitForHeavyWeightSwitcherActivity(activity2Intent);
 
             // First, let's try returning to the original app.
             maybeClick(device, new UiSelector().resourceId("android:id/switch_old"));
@@ -1501,7 +1543,7 @@ public class ActivityManagerProcessStateTest {
             uid1Watcher.expect(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_HEAVY_WEIGHT);
 
             // Again try starting second heavy-weight app to get prompt.
-            startActivityAndWaitForShow(activity2Intent);
+            startAndWaitForHeavyWeightSwitcherActivity(activity2Intent);
 
             // Now we'll switch to the new app.
             maybeClick(device, new UiSelector().resourceId("android:id/switch_new"));
@@ -1509,7 +1551,7 @@ public class ActivityManagerProcessStateTest {
             device.waitForIdle();
 
             // The original app should now become cached.
-            uid1Watcher.expect(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_RECENT);
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_RECENT);
 
             // And the new app should start.
             uid2Watcher.waitFor(WatchUidRunner.CMD_ACTIVE, null);
@@ -1527,7 +1569,7 @@ public class ActivityManagerProcessStateTest {
             uid2Watcher.expect(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_HEAVY_WEIGHT);
 
             // Try starting the first heavy weight app, but return to the existing second.
-            startActivityAndWaitForShow(activity1Intent);
+            startAndWaitForHeavyWeightSwitcherActivity(activity1Intent);
             maybeClick(device, new UiSelector().resourceId("android:id/switch_old"));
             waitForAppFocus(CANT_SAVE_STATE_2_PACKAGE_NAME, WAIT_TIME);
             device.waitForIdle();
@@ -1540,13 +1582,13 @@ public class ActivityManagerProcessStateTest {
             uid2Watcher.expect(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_HEAVY_WEIGHT);
 
             // Again start the first heavy weight app, this time actually switching to it
-            startActivityAndWaitForShow(activity1Intent);
+            startAndWaitForHeavyWeightSwitcherActivity(activity1Intent);
             maybeClick(device, new UiSelector().resourceId("android:id/switch_new"));
             waitForAppFocus(CANT_SAVE_STATE_1_PACKAGE_NAME, WAIT_TIME);
             device.waitForIdle();
 
             // The second app should now become cached.
-            uid2Watcher.expect(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_RECENT);
+            uid2Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_RECENT);
 
             // And the first app should start.
             uid1Watcher.waitFor(WatchUidRunner.CMD_ACTIVE, null);
@@ -1820,6 +1862,12 @@ public class ActivityManagerProcessStateTest {
     public void testFgsLocationBind() throws Exception {
         setupWatchers(3);
 
+        Bundle bundle = new Bundle();
+        bundle.putInt(LocalForegroundServiceLocation.EXTRA_FOREGROUND_SERVICE_TYPE,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+                | ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+        final boolean origFgTypePermissionEnforceValue =
+                toggleBgFgsTypeStartPermissionEnforcement(false);
         try {
             // Put Package1 in TOP state, now it gets all capability (because the TOP process
             // gets all while-in-use permission (not from FGSL).
@@ -1828,18 +1876,18 @@ public class ActivityManagerProcessStateTest {
                     PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
             mWatchers[0].waitFor(WatchUidRunner.CMD_PROCSTATE,
                     WatchUidRunner.STATE_TOP,
-                    new Integer(PROCESS_CAPABILITY_FOREGROUND_LOCATION
-                            | PROCESS_CAPABILITY_ALL));
+                    new Integer(PROCESS_CAPABILITY_ALL));
 
             // Start a FGS
             CommandReceiver.sendCommand(mContext,
                     CommandReceiver.COMMAND_START_FOREGROUND_SERVICE,
-                    mAppInfo[0].packageName, mAppInfo[0].packageName, 0, null);
+                    mAppInfo[0].packageName, mAppInfo[0].packageName, 0, bundle);
 
             // Start a FGSL
-            Bundle bundle = new Bundle();
             bundle.putInt(LocalForegroundServiceLocation.EXTRA_FOREGROUND_SERVICE_TYPE,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                    | ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+                    | ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
             CommandReceiver.sendCommand(mContext,
                     CommandReceiver.COMMAND_START_FOREGROUND_SERVICE_LOCATION,
                     mAppInfo[0].packageName, mAppInfo[0].packageName, 0, bundle);
@@ -1848,11 +1896,15 @@ public class ActivityManagerProcessStateTest {
             CommandReceiver.sendCommand(mContext,
                     CommandReceiver.COMMAND_STOP_ACTIVITY,
                     PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
-
+            // LocalForegroundServiceLocation's forergroundServiceType
+            // has location|camemra|microphone.
             mWatchers[0].waitFor(WatchUidRunner.CMD_PROCSTATE,
                     WatchUidRunner.STATE_FG_SERVICE,
-                    new Integer(PROCESS_CAPABILITY_NETWORK | PROCESS_CAPABILITY_FOREGROUND_LOCATION
-                            | PROCESS_CAPABILITY_ALL_IMPLICIT));
+                    new Integer(PROCESS_CAPABILITY_FOREGROUND_LOCATION
+                            | PROCESS_CAPABILITY_FOREGROUND_CAMERA
+                            | PROCESS_CAPABILITY_FOREGROUND_MICROPHONE
+                            | PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+                            | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK));
 
             // Bind App 0 -> App 1, verify doesn't include capability.
             CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
@@ -1860,7 +1912,8 @@ public class ActivityManagerProcessStateTest {
             // Verify app1 does NOT have capability.
             mWatchers[1].waitFor(WatchUidRunner.CMD_PROCSTATE,
                     WatchUidRunner.STATE_FG_SERVICE,
-                    new Integer(PROCESS_CAPABILITY_ALL_IMPLICIT | PROCESS_CAPABILITY_NETWORK));
+                    new Integer(PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+                            | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK));
 
             // Bind App 0 -> App 2, include capability.
             bundle = new Bundle();
@@ -1870,17 +1923,24 @@ public class ActivityManagerProcessStateTest {
             // Verify app2 has FOREGROUND_LOCATION capability.
             mWatchers[2].waitFor(WatchUidRunner.CMD_PROCSTATE,
                     WatchUidRunner.STATE_FG_SERVICE,
-                    new Integer(PROCESS_CAPABILITY_FOREGROUND_LOCATION | PROCESS_CAPABILITY_NETWORK
-                            | PROCESS_CAPABILITY_ALL_IMPLICIT));
+                    new Integer(PROCESS_CAPABILITY_FOREGROUND_LOCATION
+                            | PROCESS_CAPABILITY_FOREGROUND_CAMERA
+                            | PROCESS_CAPABILITY_FOREGROUND_MICROPHONE
+                            | PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+                            | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK));
 
             // Back down to foreground service
             CommandReceiver.sendCommand(mContext,
                     CommandReceiver.COMMAND_STOP_FOREGROUND_SERVICE_LOCATION,
                     mAppInfo[0].packageName, mAppInfo[0].packageName, 0, null);
             // Verify app0 does NOT have FOREGROUND_LOCATION capability.
+            // LocalForegroundService's forergroundServiceType has camemra|microphone.
             mWatchers[0].waitFor(WatchUidRunner.CMD_PROCSTATE,
                     WatchUidRunner.STATE_FG_SERVICE,
-                    new Integer(PROCESS_CAPABILITY_ALL_IMPLICIT | PROCESS_CAPABILITY_NETWORK));
+                    new Integer(PROCESS_CAPABILITY_FOREGROUND_CAMERA
+                            | PROCESS_CAPABILITY_FOREGROUND_MICROPHONE
+                            | PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+                            | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK));
 
             // Remove foreground service as well
             CommandReceiver.sendCommand(mContext,
@@ -1890,6 +1950,7 @@ public class ActivityManagerProcessStateTest {
                     WatchUidRunner.STATE_CACHED_EMPTY,
                     new Integer(PROCESS_CAPABILITY_NONE));
         } finally {
+            toggleBgFgsTypeStartPermissionEnforcement(origFgTypePermissionEnforceValue);
             // Clean up: unbind services to avoid from interferences with other tests
             CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_UNBIND_SERVICE,
                     mAppInfo[0].packageName, mAppInfo[1].packageName, 0, null);
@@ -1919,7 +1980,8 @@ public class ActivityManagerProcessStateTest {
             CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
                     STUB_PACKAGE_NAME, mAppInfo[0].packageName, 0, null);
             mWatchers[0].waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_BOUND_TOP,
-                    new Integer(PROCESS_CAPABILITY_NETWORK));
+                    new Integer(PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+                            | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK));
 
             // Bind Stub -> App 1, include capability (TOP)
             Bundle bundle = new Bundle();
@@ -2335,9 +2397,11 @@ public class ActivityManagerProcessStateTest {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
                 PACKAGE_NAME_APP1, 0);
         WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
-                WAITFOR_MSEC);
+                WAITFOR_MSEC, PROCESS_CAPABILITY_ALL);
         AmMonitor monitor = new AmMonitor(mInstrumentation,
                 new String[]{AmMonitor.WAIT_FOR_EARLY_ANR, AmMonitor.WAIT_FOR_ANR});
+        final boolean origFgTypePermissionEnforceValue =
+                toggleBgFgsTypeStartPermissionEnforcement(false);
         try {
             // Start an activity in app1 to put app1 in TOP state, so the FGS it started can have
             // while-in-use capabilities.
@@ -2350,7 +2414,11 @@ public class ActivityManagerProcessStateTest {
 
             WaitForBroadcast waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
             waiter.prepare(ACTION_START_FGS_RESULT);
-            Bundle extras = new Bundle();
+            final Bundle extras = new Bundle();
+            extras.putInt(LocalForegroundServiceLocation.EXTRA_FOREGROUND_SERVICE_TYPE,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                    | ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+                    | ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
             extras.putInt(LocalForegroundServiceSticky.STICKY_FLAG, stickyFlag);
             CommandReceiver.sendCommand(mContext,
                     CommandReceiver.COMMAND_START_FOREGROUND_SERVICE_STICKY,
@@ -2359,6 +2427,7 @@ public class ActivityManagerProcessStateTest {
             // Launch home activity, so the activity in app1 will be stopped, app1 now only has FGS,
             // we're not "finishing" the activity because removing a task could result in service
             // restart.
+            waitForAppFocus(PACKAGE_NAME_APP1,WAITFOR_MSEC);
             final Intent homeIntent = new Intent();
             homeIntent.setAction(Intent.ACTION_MAIN);
             homeIntent.addCategory(Intent.CATEGORY_HOME);
@@ -2378,12 +2447,81 @@ public class ActivityManagerProcessStateTest {
             monitor.sendCommand(AmMonitor.CMD_KILL);
             checkKillResult.accept(uid1Watcher, waiter);
         } finally {
+            toggleBgFgsTypeStartPermissionEnforcement(origFgTypePermissionEnforceValue);
             final ActivityManager am = mContext.getSystemService(ActivityManager.class);
             SystemUtil.runWithShellPermissionIdentity(() -> {
                 am.forceStopPackage(PACKAGE_NAME_APP1);
             });
             uid1Watcher.finish();
             monitor.finish();
+        }
+    }
+
+    /**
+     * Test that process in foreground service state does not get an implicit capability except
+     * network.
+     * @throws Exception
+     */
+    @Test
+    public void testFgsDefaultCapabilityNone() throws Exception {
+        setupWatchers(2);
+
+        final Bundle bundle = new Bundle();
+        bundle.putInt(LocalForegroundServiceLocation.EXTRA_FOREGROUND_SERVICE_TYPE,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+                | ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+        final boolean origFgTypePermissionEnforceValue =
+                toggleBgFgsTypeStartPermissionEnforcement(false);
+
+        try {
+            // Put Package1 in TOP state.
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_START_ACTIVITY,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+            mWatchers[0].waitFor(WatchUidRunner.CMD_PROCSTATE,
+                    WatchUidRunner.STATE_TOP,
+                    new Integer(PROCESS_CAPABILITY_ALL));
+
+            // Start a FGS from TOP state.
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_START_FOREGROUND_SERVICE,
+                    mAppInfo[0].packageName, mAppInfo[0].packageName, 0, bundle);
+
+            // Stop the activity.
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_STOP_ACTIVITY,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+            // LocalForegroundService's forergroundServiceType has camemra|microphone.
+            mWatchers[0].waitFor(WatchUidRunner.CMD_PROCSTATE,
+                    WatchUidRunner.STATE_FG_SERVICE,
+                    new Integer(PROCESS_CAPABILITY_FOREGROUND_CAMERA
+                            | PROCESS_CAPABILITY_FOREGROUND_MICROPHONE
+                            | PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+                            | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK));
+
+            // Bind App 0 -> App 1.
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    mAppInfo[0].packageName, mAppInfo[1].packageName, 0, null);
+            // App1 is in foreground service state, app1 does NOT have implicit capability
+            // except network.
+            mWatchers[1].waitFor(WatchUidRunner.CMD_PROCSTATE,
+                    WatchUidRunner.STATE_FG_SERVICE,
+                    new Integer(PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK
+                            | PROCESS_CAPABILITY_USER_RESTRICTED_NETWORK));
+
+            // Stop App 0's foreground service.
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_STOP_FOREGROUND_SERVICE,
+                    mAppInfo[0].packageName, mAppInfo[0].packageName, 0, null);
+            mWatchers[0].waitFor(WatchUidRunner.CMD_PROCSTATE,
+                    WatchUidRunner.STATE_CACHED_EMPTY,
+                    new Integer(PROCESS_CAPABILITY_NONE));
+        } finally {
+            toggleBgFgsTypeStartPermissionEnforcement(origFgTypePermissionEnforceValue);
+            // Clean up: unbind services to avoid from interferences with other tests
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_UNBIND_SERVICE,
+                    mAppInfo[0].packageName, mAppInfo[1].packageName, 0, null);
+            shutdownWatchers();
         }
     }
 

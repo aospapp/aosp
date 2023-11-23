@@ -26,8 +26,9 @@
 
 #include "base/atomic.h"
 #include "base/globals.h"
+#include "base/macros.h"
 
-namespace art {
+namespace art HIDDEN {
 
 enum class MethodCompilationStat {
   kAttemptBytecodeCompilation = 0,
@@ -46,6 +47,7 @@ enum class MethodCompilationStat {
   kUnresolvedFieldNotAFastAccess,
   kRemovedCheckedCast,
   kRemovedDeadInstruction,
+  kRemovedTry,
   kRemovedNullCheck,
   kNotCompiledSkipped,
   kNotCompiledInvalidBytecode,
@@ -59,6 +61,7 @@ enum class MethodCompilationStat {
   kNotCompiledSpaceFilter,
   kNotCompiledUnhandledInstruction,
   kNotCompiledUnsupportedIsa,
+  kNotCompiledInliningIrreducibleLoop,
   kNotCompiledIrreducibleLoopAndStringInit,
   kNotCompiledPhiEquivalentInOsr,
   kInlinedMonomorphicCall,
@@ -73,11 +76,13 @@ enum class MethodCompilationStat {
   kLoopVectorizedIdiom,
   kSelectGenerated,
   kRemovedInstanceOf,
+  kPropagatedIfValue,
   kInlinedInvokeVirtualOrInterface,
   kInlinedLastInvokeVirtualOrInterface,
   kImplicitNullCheckGenerated,
   kExplicitNullCheckGenerated,
   kSimplifyIf,
+  kSimplifyIfAddedPhi,
   kSimplifyThrowingInvoke,
   kInstructionSunk,
   kNotInlinedUnresolvedEntrypoint,
@@ -88,16 +93,19 @@ enum class MethodCompilationStat {
   kNotInlinedEnvironmentBudget,
   kNotInlinedInstructionBudget,
   kNotInlinedLoopWithoutExit,
-  kNotInlinedIrreducibleLoop,
+  kNotInlinedIrreducibleLoopCallee,
+  kNotInlinedIrreducibleLoopCaller,
   kNotInlinedAlwaysThrows,
   kNotInlinedInfiniteLoop,
-  kNotInlinedTryCatchCaller,
   kNotInlinedTryCatchCallee,
+  kNotInlinedTryCatchDisabled,
   kNotInlinedRegisterAllocator,
   kNotInlinedCannotBuild,
+  kNotInlinedNeverInlineAnnotation,
   kNotInlinedNotCompilable,
   kNotInlinedNotVerified,
   kNotInlinedCodeItem,
+  kNotInlinedEndsWithThrow,
   kNotInlinedWont,
   kNotInlinedRecursiveBudget,
   kNotInlinedPolymorphicRecursiveBudget,
@@ -105,12 +113,15 @@ enum class MethodCompilationStat {
   kNotInlinedUnresolved,
   kNotInlinedPolymorphic,
   kNotInlinedCustom,
+  kNotVarAnalyzedPathological,
   kTryInline,
   kConstructorFenceGeneratedNew,
   kConstructorFenceGeneratedFinal,
   kConstructorFenceRemovedLSE,
   kConstructorFenceRemovedPFRA,
   kConstructorFenceRemovedCFRE,
+  kPossibleWriteBarrier,
+  kRemovedWriteBarrier,
   kBitstringTypeCheck,
   kJitOutOfMemoryForCommit,
   kFullLSEAllocationRemoved,

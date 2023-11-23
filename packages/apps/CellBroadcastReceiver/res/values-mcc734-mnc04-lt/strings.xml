@@ -16,6 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="pws_other_message_identifiers" msgid="3594437796498866115">"VE informacija"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="8589973943848979179">"Įprastas VE transliacijos kanalas"</string>
+    <string name="pws_other_message_identifiers" msgid="1136328633218138012">"Operatoriaus perspėjimas"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="1179764867218337219">"Operatoriaus perspėjimai"</string>
+    <string name="enable_emergency_alerts_message_summary" msgid="3149077347504309345">"Operatoriaus perspėjimų kanalas"</string>
 </resources>

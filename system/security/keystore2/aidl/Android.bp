@@ -24,7 +24,7 @@ package {
 aidl_interface {
     name: "android.security.attestationmanager",
     srcs: [ "android/security/attestationmanager/*.aidl", ],
-    imports: [ "android.hardware.security.keymint-V2" ],
+    imports: [ "android.hardware.security.keymint-V3" ],
     unstable: true,
     backend: {
         java: {
@@ -44,7 +44,7 @@ aidl_interface {
     name: "android.security.authorization",
     srcs: [ "android/security/authorization/*.aidl" ],
     imports: [
-        "android.hardware.security.keymint-V2",
+        "android.hardware.security.keymint-V3",
         "android.hardware.security.secureclock-V1",
     ],
     unstable: true,
@@ -83,7 +83,7 @@ aidl_interface {
     name: "android.security.compat",
     srcs: [ "android/security/compat/*.aidl" ],
     imports: [
-        "android.hardware.security.keymint-V2",
+        "android.hardware.security.keymint-V3",
         "android.hardware.security.secureclock-V1",
         "android.hardware.security.sharedsecret-V1",
     ],
@@ -103,31 +103,10 @@ aidl_interface {
 }
 
 aidl_interface {
-    name: "android.security.remoteprovisioning",
-    srcs: [ "android/security/remoteprovisioning/*.aidl" ],
-    imports: [
-        "android.hardware.security.keymint-V2",
-    ],
-    unstable: true,
-    backend: {
-        java: {
-            platform_apis: true,
-        },
-        ndk: {
-            enabled: true,
-            apps_enabled: false,
-        },
-        rust: {
-            enabled: true,
-        },
-    },
-}
-
-aidl_interface {
     name: "android.security.maintenance",
     srcs: [ "android/security/maintenance/*.aidl" ],
     imports: [
-        "android.system.keystore2-V2",
+        "android.system.keystore2-V3",
     ],
     unstable: true,
     backend: {
@@ -166,7 +145,7 @@ aidl_interface {
     name: "android.security.metrics",
     srcs: [ "android/security/metrics/*.aidl" ],
     imports: [
-        "android.system.keystore2-V2",
+        "android.system.keystore2-V3",
     ],
     unstable: true,
     backend: {
@@ -183,19 +162,68 @@ aidl_interface {
     },
 }
 
+// java_defaults that includes the latest Keystore2 AIDL library.
+// Modules that depend on KeyMint directly can include this java_defaults to avoid
+// managing dependency versions explicitly.
+java_defaults {
+    name: "keystore2_use_latest_aidl_java_static",
+    static_libs: [
+        "android.system.keystore2-V3-java-source"
+    ],
+}
+
+java_defaults {
+    name: "keystore2_use_latest_aidl_java_shared",
+    libs: [
+        "android.system.keystore2-V3-java-source"
+    ],
+}
+
+java_defaults {
+    name: "keystore2_use_latest_aidl_java",
+    libs: [
+        "android.system.keystore2-V3-java"
+    ],
+}
+
 // cc_defaults that includes the latest Keystore2 AIDL library.
 // Modules that depend on KeyMint directly can include this cc_defaults to avoid
 // managing dependency versions explicitly.
 cc_defaults {
     name: "keystore2_use_latest_aidl_ndk_static",
     static_libs: [
-        "android.system.keystore2-V2-ndk",
+        "android.system.keystore2-V3-ndk",
     ],
 }
 
 cc_defaults {
     name: "keystore2_use_latest_aidl_ndk_shared",
     shared_libs: [
-        "android.system.keystore2-V2-ndk",
+        "android.system.keystore2-V3-ndk",
+    ],
+}
+
+cc_defaults {
+    name: "keystore2_use_latest_aidl_cpp_shared",
+    shared_libs: [
+        "android.system.keystore2-V3-cpp",
+    ],
+}
+
+cc_defaults {
+    name: "keystore2_use_latest_aidl_cpp_static",
+    static_libs: [
+        "android.system.keystore2-V3-cpp",
+    ],
+}
+
+
+// A rust_defaults that includes the latest Keystore2 AIDL library.
+// Modules that depend on Keystore2 directly can include this rust_defaults to avoid
+// managing dependency versions explicitly.
+rust_defaults {
+    name: "keystore2_use_latest_aidl_rust",
+    rustlibs: [
+        "android.system.keystore2-V3-rust",
     ],
 }

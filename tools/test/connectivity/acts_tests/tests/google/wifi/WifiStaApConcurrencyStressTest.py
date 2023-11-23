@@ -15,7 +15,6 @@
 #   limitations under the License.
 
 import time
-import pprint
 import acts
 
 from acts import asserts
@@ -35,6 +34,7 @@ WIFI_NETWORK_AP_CHANNEL_2G = 1
 WIFI_NETWORK_AP_CHANNEL_5G = 36
 WIFI_NETWORK_AP_CHANNEL_5G_DFS = 132
 
+
 class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
     """Stress tests for STA + AP concurrency scenarios.
 
@@ -45,21 +45,23 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
 
     def __init__(self, controllers):
         WifiStaApConcurrencyTest.__init__(self, controllers)
-        self.tests = ("test_stress_wifi_connection_2G_softap_2G",
-                      "test_stress_wifi_connection_5G_softap_5G",
-                      "test_stress_wifi_connection_5G_DFS_softap_5G",
-                      "test_stress_wifi_connection_5G_softap_2G",
-                      "test_stress_wifi_connection_5G_DFS_softap_2G",
-                      "test_stress_wifi_connection_2G_softap_5G",
-                      "test_stress_wifi_connection_5G_softap_2G_with_location_scan_on",
-                      "test_stress_softap_2G_wifi_connection_2G",
-                      "test_stress_softap_5G_wifi_connection_5G",
-                      "test_stress_softap_5G_wifi_connection_5G_DFS",
-                      "test_stress_softap_5G_wifi_connection_2G",
-                      "test_stress_softap_2G_wifi_connection_5G",
-                      "test_stress_softap_2G_wifi_connection_5G_DFS",
-                      "test_stress_softap_5G_wifi_connection_2G_with_location_scan_on",
-                      "test_2g_sta_mode_and_hotspot_5g_on_off_stress_under_airplane_mode")
+        self.tests = (
+            "test_stress_wifi_connection_2G_softap_2G",
+            "test_stress_wifi_connection_5G_softap_5G",
+            "test_stress_wifi_connection_5G_DFS_softap_5G",
+            "test_stress_wifi_connection_5G_softap_2G",
+            "test_stress_wifi_connection_5G_DFS_softap_2G",
+            "test_stress_wifi_connection_2G_softap_5G",
+            "test_stress_wifi_connection_5G_softap_2G_with_location_scan_on",
+            "test_stress_softap_2G_wifi_connection_2G",
+            "test_stress_softap_5G_wifi_connection_5G",
+            "test_stress_softap_5G_wifi_connection_5G_DFS",
+            "test_stress_softap_5G_wifi_connection_2G",
+            "test_stress_softap_2G_wifi_connection_5G",
+            "test_stress_softap_2G_wifi_connection_5G_DFS",
+            "test_stress_softap_5G_wifi_connection_2G_with_location_scan_on",
+            "test_2g_sta_mode_and_hotspot_5g_on_off_stress_under_airplane_mode"
+        )
 
     def setup_class(self):
         super().setup_class()
@@ -88,6 +90,7 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
             "Can not turn airplane mode off: %s" % self.dut.serial)
 
     """Helper Functions"""
+
     def connect_to_wifi_network_and_verify(self, params):
         """Connection logic for open and psk wifi networks.
         Args:
@@ -105,23 +108,26 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
         wutils.wifi_toggle_state(self.dut, True)
         self.connect_to_wifi_network_and_verify((network, self.dut))
         if len(self.android_devices) > 2:
-            self.log.info("Testbed has extra android devices, do more validation")
-            self.verify_traffic_between_dut_clients(
-                    self.dut, self.android_devices[2])
+            self.log.info(
+                "Testbed has extra android devices, do more validation")
+            self.verify_traffic_between_dut_clients(self.dut,
+                                                    self.android_devices[2])
         wutils.wifi_toggle_state(self.dut, False)
 
     def verify_softap_full_on_off(self, network, softap_band):
         softap_config = self.start_softap_and_verify(softap_band)
         if len(self.android_devices) > 2:
-            self.log.info("Testbed has extra android devices, do more validation")
-            self.verify_traffic_between_dut_clients(
-                    self.dut_client, self.android_devices[2])
+            self.log.info(
+                "Testbed has extra android devices, do more validation")
+            self.verify_traffic_between_dut_clients(self.dut_client,
+                                                    self.android_devices[2])
         wutils.reset_wifi(self.dut_client)
         if len(self.android_devices) > 2:
             wutils.reset_wifi(self.android_devices[2])
         wutils.stop_wifi_tethering(self.dut)
 
     """Tests"""
+
     @test_tracker_info(uuid="615997cc-8290-4af3-b3ac-1f5bd5af6ed1")
     def test_stress_wifi_connection_2G_softap_2G(self):
         """Tests connection to 2G network the enable/disable SoftAp on 2G N times.
@@ -130,7 +136,7 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
         wutils.wifi_toggle_state(self.dut, True)
         self.connect_to_wifi_network_and_verify((self.open_2g, self.dut))
         for count in range(self.stress_count):
-            self.log.info("Iteration %d", count+1)
+            self.log.info("Iteration %d", count + 1)
             self.verify_softap_full_on_off(self.open_2g, WIFI_CONFIG_APBAND_2G)
 
     @test_tracker_info(uuid="03362d54-a624-4fb8-ad97-7abb9e6f655c")
@@ -141,7 +147,7 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
         wutils.wifi_toggle_state(self.dut, True)
         self.connect_to_wifi_network_and_verify((self.open_5g, self.dut))
         for count in range(self.stress_count):
-            self.log.info("Iteration %d", count+1)
+            self.log.info("Iteration %d", count + 1)
             self.verify_softap_full_on_off(self.open_5g, WIFI_CONFIG_APBAND_5G)
 
     @test_tracker_info(uuid="fdda4ff2-38d5-4398-9a59-c7cee407a2b3")
@@ -152,7 +158,7 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
         wutils.wifi_toggle_state(self.dut, True)
         self.connect_to_wifi_network_and_verify((self.open_5g, self.dut))
         for count in range(self.stress_count):
-            self.log.info("Iteration %d", count+1)
+            self.log.info("Iteration %d", count + 1)
             self.verify_softap_full_on_off(self.open_5g, WIFI_CONFIG_APBAND_5G)
 
     @test_tracker_info(uuid="b3621721-7714-43eb-8438-b578164b9194")
@@ -163,7 +169,7 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
         wutils.wifi_toggle_state(self.dut, True)
         self.connect_to_wifi_network_and_verify((self.open_5g, self.dut))
         for count in range(self.stress_count):
-            self.log.info("Iteration %d", count+1)
+            self.log.info("Iteration %d", count + 1)
             self.verify_softap_full_on_off(self.open_5g, WIFI_CONFIG_APBAND_2G)
 
     @test_tracker_info(uuid="bde1443f-f912-408e-b01a-537548dd023c")
@@ -184,7 +190,7 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
         wutils.wifi_toggle_state(self.dut, True)
         self.connect_to_wifi_network_and_verify((self.open_2g, self.dut))
         for count in range(self.stress_count):
-            self.log.info("Iteration %d", count+1)
+            self.log.info("Iteration %d", count + 1)
             self.verify_softap_full_on_off(self.open_2g, WIFI_CONFIG_APBAND_5G)
 
     @test_tracker_info(uuid="f28abf22-9df0-4500-b342-6682ca305e60")
@@ -197,7 +203,7 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
         wutils.wifi_toggle_state(self.dut, True)
         self.connect_to_wifi_network_and_verify((self.open_5g, self.dut))
         for count in range(self.stress_count):
-            self.log.info("Iteration %d", count+1)
+            self.log.info("Iteration %d", count + 1)
             self.verify_softap_full_on_off(self.open_5g, WIFI_CONFIG_APBAND_2G)
 
     @test_tracker_info(uuid="0edb1500-6c60-442e-9268-a2ad9ee2b55c")
@@ -205,10 +211,10 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
         """Tests enable SoftAp on 2G then connection/disconnection to 2G network for N times.
         """
         self.configure_ap(channel_2g=WIFI_NETWORK_AP_CHANNEL_2G)
-        softap_config = self.start_softap_and_verify(
-                WIFI_CONFIG_APBAND_2G, check_connectivity=False)
+        softap_config = self.start_softap_and_verify(WIFI_CONFIG_APBAND_2G,
+                                                     check_connectivity=False)
         for count in range(self.stress_count):
-            self.log.info("Iteration %d", count+1)
+            self.log.info("Iteration %d", count + 1)
             self.verify_wifi_full_on_off(self.open_2g, softap_config)
 
     @test_tracker_info(uuid="162a6679-edd5-4daa-9f25-75d79cf4bb4a")
@@ -216,10 +222,10 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
         """Tests enable SoftAp on 5G then connection/disconnection to 5G network for N times.
         """
         self.configure_ap(channel_5g=WIFI_NETWORK_AP_CHANNEL_5G)
-        softap_config = self.start_softap_and_verify(
-                WIFI_CONFIG_APBAND_5G, check_connectivity=False)
+        softap_config = self.start_softap_and_verify(WIFI_CONFIG_APBAND_5G,
+                                                     check_connectivity=False)
         for count in range(self.stress_count):
-            self.log.info("Iteration %d", count+1)
+            self.log.info("Iteration %d", count + 1)
             self.verify_wifi_full_on_off(self.open_5g, softap_config)
 
     @test_tracker_info(uuid="ee98f2dd-c4f9-4f48-ab59-f577267760d5")
@@ -227,10 +233,10 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
         """Tests enable SoftAp on 5G then connection/disconnection to 5G DFS network for N times.
         """
         self.configure_ap(channel_5g=WIFI_NETWORK_AP_CHANNEL_5G_DFS)
-        softap_config = self.start_softap_and_verify(
-                WIFI_CONFIG_APBAND_5G, check_connectivity=False)
+        softap_config = self.start_softap_and_verify(WIFI_CONFIG_APBAND_5G,
+                                                     check_connectivity=False)
         for count in range(self.stress_count):
-            self.log.info("Iteration %d", count+1)
+            self.log.info("Iteration %d", count + 1)
             self.verify_wifi_full_on_off(self.open_5g, softap_config)
 
     @test_tracker_info(uuid="b50750b5-d5b9-4687-b9e7-9fb15f54b428")
@@ -238,10 +244,10 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
         """Tests enable SoftAp on 5G then connection/disconnection to 2G network for N times.
         """
         self.configure_ap(channel_2g=WIFI_NETWORK_AP_CHANNEL_2G)
-        softap_config = self.start_softap_and_verify(
-                WIFI_CONFIG_APBAND_5G, check_connectivity=False)
+        softap_config = self.start_softap_and_verify(WIFI_CONFIG_APBAND_5G,
+                                                     check_connectivity=False)
         for count in range(self.stress_count):
-            self.log.info("Iteration %d", count+1)
+            self.log.info("Iteration %d", count + 1)
             self.verify_wifi_full_on_off(self.open_2g, softap_config)
 
     @test_tracker_info(uuid="9a2865db-8e4b-4339-9999-000ce9b6970b")
@@ -249,10 +255,10 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
         """Tests enable SoftAp on 2G then connection/disconnection to 5G network for N times.
         """
         self.configure_ap(channel_5g=WIFI_NETWORK_AP_CHANNEL_5G)
-        softap_config = self.start_softap_and_verify(
-                WIFI_CONFIG_APBAND_2G, check_connectivity=False)
+        softap_config = self.start_softap_and_verify(WIFI_CONFIG_APBAND_2G,
+                                                     check_connectivity=False)
         for count in range(self.stress_count):
-            self.log.info("Iteration %d", count+1)
+            self.log.info("Iteration %d", count + 1)
             self.verify_wifi_full_on_off(self.open_5g, softap_config)
 
     @test_tracker_info(uuid="add6609d-91d6-4b89-94c5-0ad8b941e3d1")
@@ -260,10 +266,10 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
         """Tests enable SoftAp on 2G then connection/disconnection to 5G DFS network for N times.
         """
         self.configure_ap(channel_5g=WIFI_NETWORK_AP_CHANNEL_5G_DFS)
-        softap_config = self.start_softap_and_verify(
-                WIFI_CONFIG_APBAND_2G, check_connectivity=False)
+        softap_config = self.start_softap_and_verify(WIFI_CONFIG_APBAND_2G,
+                                                     check_connectivity=False)
         for count in range(self.stress_count):
-            self.log.info("Iteration %d", count+1)
+            self.log.info("Iteration %d", count + 1)
             self.verify_wifi_full_on_off(self.open_5g, softap_config)
 
     @test_tracker_info(uuid="ee42afb6-99d0-4330-933f-d4dd8c3626c6")
@@ -273,14 +279,15 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
         """
         self.configure_ap(channel_2g=WIFI_NETWORK_AP_CHANNEL_2G)
         self.turn_location_on_and_scan_toggle_on()
-        softap_config = self.start_softap_and_verify(
-                WIFI_CONFIG_APBAND_5G, check_connectivity=False)
+        softap_config = self.start_softap_and_verify(WIFI_CONFIG_APBAND_5G,
+                                                     check_connectivity=False)
         for count in range(self.stress_count):
-            self.log.info("Iteration %d", count+1)
+            self.log.info("Iteration %d", count + 1)
             self.verify_wifi_full_on_off(self.open_2g, softap_config)
 
     @test_tracker_info(uuid="36c7f847-4b3e-4bb1-a280-cfe2b6afc903")
-    def test_2g_sta_mode_and_hotspot_5g_on_off_stress_under_airplane_mode(self):
+    def test_2g_sta_mode_and_hotspot_5g_on_off_stress_under_airplane_mode(
+            self):
         """Tests connection to 2G network followed by bringing up SoftAp on 5G
         under airplane mode
         """
@@ -294,5 +301,5 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
         self.connect_to_wifi_network_and_verify((self.open_2g, self.dut))
         time.sleep(DEFAULT_TIMEOUT)
         for count in range(self.stress_count):
-            self.log.info("Iteration %d", count+1)
+            self.log.info("Iteration %d", count + 1)
             self.verify_softap_full_on_off(self.open_2g, WIFI_CONFIG_APBAND_5G)

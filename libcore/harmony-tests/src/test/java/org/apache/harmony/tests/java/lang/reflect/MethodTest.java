@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.tests.java.lang.reflect;
@@ -743,7 +743,7 @@ public class MethodTest extends junit.framework.TestCase {
 
                 try {
                     methods[i].invoke(testMethod,
-                            new Object[] { new Integer(1) });
+                            new Object[] { Integer.valueOf(1) });
                     assertTrue("invalid invoke with Integer: " + methods[i],
                             param == Integer.TYPE || param == Long.TYPE
                                     || param == Float.TYPE
@@ -758,7 +758,7 @@ public class MethodTest extends junit.framework.TestCase {
                 }
 
                 try {
-                    methods[i].invoke(testMethod, new Object[] { new Long(1) });
+                    methods[i].invoke(testMethod, new Object[] { Long.valueOf(1) });
                     assertTrue("invalid invoke with Long: " + methods[i],
                             param == Long.TYPE || param == Float.TYPE
                                     || param == Double.TYPE);
@@ -790,7 +790,7 @@ public class MethodTest extends junit.framework.TestCase {
 
                 try {
                     methods[i]
-                            .invoke(testMethod, new Object[] { new Float(1) });
+                            .invoke(testMethod, new Object[] { Float.valueOf(1) });
                     assertTrue("invalid invoke with Float: " + methods[i],
                             param == Float.TYPE || param == Double.TYPE);
                 } catch (Exception e) {
@@ -806,7 +806,7 @@ public class MethodTest extends junit.framework.TestCase {
 
                 try {
                     methods[i].invoke(testMethod,
-                            new Object[] { new Double(1) });
+                            new Object[] { Double.valueOf(1) });
                     assertTrue("invalid invoke with Double: " + methods[i],
                             param == Double.TYPE);
                 } catch (Exception e) {

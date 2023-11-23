@@ -26,23 +26,24 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Original included files, if any
 // NOTE: Since this is a mock file with mock definitions some number of
 //       include files may not be required.  The include-what-you-use
 //       still applies, but crafting proper inclusion is out of scope
 //       for this effort.  This compilation unit may compile as-is, or
 //       may need attention to prune the inclusion set.
-#include <base/bind.h>
+#include <base/functional/bind.h>
+
 #include <cstdint>
 #include <unordered_map>
+
 #include "device/include/controller.h"
 #include "main/shim/acl_api.h"
 #include "main/shim/shim.h"
 #include "stack/btm/btm_dev.h"
 #include "stack/btm/btm_int_types.h"
 #include "stack/btm/security_device_record.h"
+#include "test/common/mock_functions.h"
 #include "types/raw_address.h"
 
 // Mocked compile conditionals, if any
@@ -130,6 +131,17 @@ struct BTM_AcceptlistAdd {
   bool operator()(const RawAddress& address) { return body(address); };
 };
 extern struct BTM_AcceptlistAdd BTM_AcceptlistAdd;
+// Name: BTM_AcceptlistAddDirect
+// Params: const RawAddress& address, bool is_direct
+// Returns: bool
+struct BTM_AcceptlistAddDirect {
+  std::function<bool(const RawAddress& address, bool is_direct)> body{
+      [](const RawAddress& address, bool is_direct) { return false; }};
+  bool operator()(const RawAddress& address, bool is_direct) {
+    return body(address, is_direct);
+  };
+};
+extern struct BTM_AcceptlistAddDirect BTM_AcceptlistAddDirect;
 // Name: BTM_AcceptlistRemove
 // Params: const RawAddress& address
 // Returns: void

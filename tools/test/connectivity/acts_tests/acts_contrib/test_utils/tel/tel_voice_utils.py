@@ -129,8 +129,13 @@ def check_call_status(ad, voice_type_init=None, voice_type_in_call=None):
         voice_call_type_dict = update_voice_call_type_dict(dut, "EPSFB")
     elif network_type == "LTE_LTE":
         voice_call_type_dict = update_voice_call_type_dict(dut, "VoLTE")
-    elif network_type == "LTE_WCDMA":
+    elif (network_type == "LTE_WCDMA" or network_type == "LTE_EDGE" or
+        network_type == "LTE_GSM"):
         voice_call_type_dict = update_voice_call_type_dict(dut, "CSFB")
+    elif network_type == "EDGE_EDGE":
+        voice_call_type_dict = update_voice_call_type_dict(dut, "EDGE")
+    elif network_type == "GSM_GSM":
+        voice_call_type_dict = update_voice_call_type_dict(dut, "GSM")
     else:
         voice_call_type_dict = update_voice_call_type_dict(dut, "UNKNOWN")
     return voice_call_type_dict
@@ -144,11 +149,11 @@ def update_voice_call_type_dict(dut, key):
     Return:
         voice_call_type: Voice call status
     """
-    if dut in voice_call_type.keys():
-        voice_call_type[dut][key] += 1
-    else:
+    if dut not in voice_call_type.keys():
         voice_call_type[dut] = {key:0}
-        voice_call_type[dut][key] += 1
+    if key not in voice_call_type[dut].keys():
+        voice_call_type[dut].update({key:0})
+    voice_call_type[dut][key] += 1
     return voice_call_type
 
 

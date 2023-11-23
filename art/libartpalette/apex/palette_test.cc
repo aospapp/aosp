@@ -21,7 +21,14 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#include "common_runtime_test.h"
+#include <filesystem>
+
+#ifdef ART_TARGET_ANDROID
+#include "android-modules-utils/sdk_level.h"
+#include "android/api-level.h"
+#endif
+
+#include "base/common_art_test.h"
 #include "gtest/gtest.h"
 
 namespace {
@@ -33,6 +40,17 @@ pid_t GetTid() {
   return syscall(__NR_gettid);
 #endif  // __BIONIC__
 }
+
+#ifdef ART_TARGET_ANDROID
+bool PaletteSetTaskProfilesIsSupported(palette_status_t res) {
+  if (android::modules::sdklevel::IsAtLeastU()) {
+    return true;
+  }
+  EXPECT_EQ(PALETTE_STATUS_NOT_SUPPORTED, res)
+      << "Device API level: " << android_get_device_api_level();
+  return false;
+}
+#endif
 
 }  // namespace
 
@@ -70,14 +88,81 @@ TEST_F(PaletteClientTest, Ashmem) {
 #endif
 }
 
-class PaletteClientJniTest : public art::CommonRuntimeTest {};
+class PaletteClientJniTest : public art::CommonArtTest {};
 
 TEST_F(PaletteClientJniTest, JniInvocation) {
   bool enabled;
   EXPECT_EQ(PALETTE_STATUS_OK, PaletteShouldReportJniInvocations(&enabled));
 
-  JNIEnv* env = art::Thread::Current()->GetJniEnv();
+  std::string boot_class_path_string =
+      GetClassPathOption("-Xbootclasspath:", GetLibCoreDexFileNames());
+  std::string boot_class_path_locations_string =
+      GetClassPathOption("-Xbootclasspath-locations:", GetLibCoreDexLocations());
+
+  JavaVMOption options[] = {
+      {.optionString = boot_class_path_string.c_str(), .extraInfo = nullptr},
+      {.optionString = boot_class_path_locations_string.c_str(), .extraInfo = nullptr},
+  };
+  JavaVMInitArgs vm_args = {
+      .version = JNI_VERSION_1_6,
+      .nOptions = std::size(options),
+      .options = options,
+      .ignoreUnrecognized = JNI_TRUE,
+  };
+
+  JavaVM* jvm = nullptr;
+  JNIEnv* env = nullptr;
+  EXPECT_EQ(JNI_OK, JNI_CreateJavaVM(&jvm, &env, &vm_args));
   ASSERT_NE(nullptr, env);
+
   PaletteNotifyBeginJniInvocation(env);
   PaletteNotifyEndJniInvocation(env);
+
+  EXPECT_EQ(JNI_OK, jvm->DestroyJavaVM());
+}
+
+TEST_F(PaletteClientTest, SetTaskProfiles) {
+#ifndef ART_TARGET_ANDROID
+  GTEST_SKIP() << "SetTaskProfiles is only supported on Android";
+#else
+  if (!std::filesystem::exists("/sys/fs/cgroup/cgroup.controllers")) {
+    // This is intended to detect ART chroot setups, where SetTaskProfiles won't work.
+    GTEST_SKIP() << "Kernel cgroup support missing";
+  }
+
+  const char* profiles[] = {"ProcessCapacityHigh", "TimerSlackNormal"};
+  palette_status_t res = PaletteSetTaskProfiles(GetTid(), &profiles[0], 2);
+  if (PaletteSetTaskProfilesIsSupported(res)) {
+    // SetTaskProfiles will only work fully if we run as root. Otherwise it'll
+    // return false which is mapped to PALETTE_STATUS_FAILED_CHECK_LOG.
+    if (getuid() == 0) {
+      EXPECT_EQ(PALETTE_STATUS_OK, res);
+    } else {
+      EXPECT_EQ(PALETTE_STATUS_FAILED_CHECK_LOG, res);
+    }
+  }
+#endif
+}
+
+TEST_F(PaletteClientTest, SetTaskProfilesCpp) {
+#ifndef ART_TARGET_ANDROID
+  GTEST_SKIP() << "SetTaskProfiles is only supported on Android";
+#else
+  if (!std::filesystem::exists("/sys/fs/cgroup/cgroup.controllers")) {
+    // This is intended to detect ART chroot setups, where SetTaskProfiles won't work.
+    GTEST_SKIP() << "Kernel cgroup support missing";
+  }
+
+  std::vector<std::string> profiles = {"ProcessCapacityHigh", "TimerSlackNormal"};
+  palette_status_t res = PaletteSetTaskProfiles(GetTid(), profiles);
+  if (PaletteSetTaskProfilesIsSupported(res)) {
+    // SetTaskProfiles will only work fully if we run as root. Otherwise it'll
+    // return false which is mapped to PALETTE_STATUS_FAILED_CHECK_LOG.
+    if (getuid() == 0) {
+      EXPECT_EQ(PALETTE_STATUS_OK, res);
+    } else {
+      EXPECT_EQ(PALETTE_STATUS_FAILED_CHECK_LOG, res);
+    }
+  }
+#endif
 }

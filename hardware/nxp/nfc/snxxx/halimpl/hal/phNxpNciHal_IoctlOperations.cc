@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,17 +15,21 @@
  */
 
 #include "phNxpNciHal_IoctlOperations.h"
+
 #include <android-base/file.h>
 #include <android-base/parseint.h>
 #include <android-base/strings.h>
+
 #include <map>
 #include <set>
+
 #include "EseAdaptation.h"
 #include "NfccTransport.h"
 #include "NfccTransportFactory.h"
 #include "phDnldNfc_Internal.h"
 #include "phNfcCommon.h"
 #include "phNxpNciHal_Adaptation.h"
+#include "phNxpNciHal_ULPDet.h"
 #include "phNxpNciHal_ext.h"
 #include "phNxpNciHal_extOperations.h"
 #include "phNxpNciHal_utils.h"
@@ -203,7 +207,8 @@ std::set<string> gNciConfigs = {"NXP_SE_COLD_TEMP_ERROR_DELAY",
                                 "NXP_RESTART_RF_FOR_NFCEE_RECOVERY",
                                 "NXP_NFCC_RECOVERY_SUPPORT",
                                 "NXP_AGC_DEBUG_ENABLE",
-                                "NXP_EXTENDED_FIELD_DETECT_MODE"};
+                                "NXP_EXTENDED_FIELD_DETECT_MODE",
+                                "LEGACY_MIFARE_READER"};
 
 /****************************************************************
  * Local Functions
@@ -333,6 +338,14 @@ bool phNxpNciHal_setSystemProperty(string key, string value) {
   } else if (strcmp(key.c_str(), "nfc.cmd_timeout") == 0) {
     NXPLOG_NCIHAL_E("%s : nci_timeout, sem post", __func__);
     sem_post(&(nxpncihal_ctrl.syncSpiNfc));
+  } else if (strcmp(key.c_str(), "nfc.ulpdet") == 0) {
+    NXPLOG_NCIHAL_E("%s : set ulpdet", __func__);
+    if (!phNxpNciHal_isULPDetSupported()) return false;
+    bool flag = false;
+    if (strcmp(value.c_str(), "1") == 0) {
+      flag = true;
+    }
+    phNxpNciHal_setULPDetFlag(flag);
   }
   gsystemProperty[key] = value;
   return stat;
@@ -374,7 +387,6 @@ string phNxpNciHal_getNxpConfigIf() {
 *******************************************************************************/
 static void phNxpNciHal_getFilteredConfig(string& config) {
   config = phNxpNciHal_extractConfig(config);
-
   if (phNxpNciHal_IsAutonmousModeSet(config)) {
     config = phNxpNciHal_UpdatePwrStateConfigs(config);
   }
@@ -414,6 +426,20 @@ static string phNxpNciHal_extractConfig(string& config) {
       continue;
     }
     string value_string(Trim(line.substr(search + 1, string::npos)));
+
+    if (value_string[0] == '{' &&
+        value_string[value_string.length() - 1] != '}') {
+      string line_append;
+
+      do {
+        getline(ss, line_append);
+        if (line_append.empty()) break;
+        if (line_append.at(0) == '#') break;
+        if (line_append.at(0) == 0) break;
+        line_append = Trim(line_append);
+        value_string.append(line_append);
+      } while (line_append[line_append.length() - 1] != '}');
+    }
 
     if (!phNxpNciHal_parseValueFromString(value_string)) continue;
 
@@ -613,6 +639,23 @@ NFCSTATUS phNxpNciHal_resetEse(uint64_t resetType) {
   return status;
 }
 
+/*******************************************************************************
+ **
+ ** Function:        phNxpNciHal_GetNfcGpiosStatus()
+ **
+ ** Description:     Sets the gpios status flag byte
+ **
+ ** Parameters       gpiostatus: flag byte
+ **
+ ** Returns:        returns 0 on success, < 0 on failure
+ **
+ ********************************************************************************/
+NFCSTATUS phNxpNciHal_GetNfcGpiosStatus(uint32_t* gpiosstatus) {
+  NFCSTATUS status = NFCSTATUS_FAILED;
+  status = gpTransportObj->NfcGetGpioStatus(gpphTmlNfc_Context->pDevHandle,
+                                            gpiosstatus);
+  return status;
+}
 /******************************************************************************
  * Function         phNxpNciHal_setNxpTransitConfig
  *
@@ -815,6 +858,14 @@ void phNxpNciHal_txNfccClockSetCmd(void) {
         pllCmdLen = sizeof(PN557_SET_CONFIG_CMD_PLL_38_4MHZ);
         pCmd4DpllSetting = (uint8_t*)PN557_SET_CONFIG_CMD_DPLL_38_4MHZ;
         dpllCmdLen = sizeof(PN557_SET_CONFIG_CMD_DPLL_38_4MHZ);
+        break;
+      }
+      case CLK_FREQ_48MHZ: {
+        NXPLOG_NCIHAL_D("PLL setting for CLK_FREQ_48MHZ");
+        pCmd4PllSetting = (uint8_t*)PN557_SET_CONFIG_CMD_PLL_48MHZ;
+        pllCmdLen = sizeof(PN557_SET_CONFIG_CMD_PLL_48MHZ);
+        pCmd4DpllSetting = (uint8_t*)PN557_SET_CONFIG_CMD_DPLL_48MHZ;
+        dpllCmdLen = sizeof(PN557_SET_CONFIG_CMD_DPLL_48MHZ);
         break;
       }
       default:

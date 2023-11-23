@@ -16,7 +16,9 @@
 
 package android.car.cluster;
 
+import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.SystemApi;
 import android.car.annotation.AddedInOrBefore;
 import android.graphics.Rect;
 import android.os.Bundle;
@@ -27,7 +29,8 @@ import android.os.Bundle;
  *
  * @hide
  */
-public class ClusterActivityState {
+@SystemApi
+public final class ClusterActivityState {
     private static final String KEY_VISIBLE = "android.car:activityState.visible";
     private static final String KEY_UNOBSCURED_BOUNDS = "android.car:activityState.unobscured";
     private static final String KEY_EXTRAS = "android.car:activityState.extras";
@@ -74,7 +77,7 @@ public class ClusterActivityState {
      * @return this instance for chaining.
      */
     @AddedInOrBefore(majorVersion = 33)
-    public ClusterActivityState setVisible(boolean visible) {
+    @NonNull public ClusterActivityState setVisible(boolean visible) {
         mVisible = visible;
         return this;
     }
@@ -90,7 +93,7 @@ public class ClusterActivityState {
      * @return this instance for chaining.
      */
     @AddedInOrBefore(majorVersion = 33)
-    public ClusterActivityState setUnobscuredBounds(Rect unobscuredBounds) {
+    @NonNull public ClusterActivityState setUnobscuredBounds(@NonNull Rect unobscuredBounds) {
         mUnobscuredBounds = unobscuredBounds;
         return this;
     }
@@ -101,7 +104,7 @@ public class ClusterActivityState {
      * @return this instance for chaining.
      */
     @AddedInOrBefore(majorVersion = 33)
-    public ClusterActivityState setExtras(Bundle bundle) {
+    @NonNull public ClusterActivityState setExtras(@NonNull Bundle bundle) {
         mExtras = bundle;
         return this;
     }
@@ -114,7 +117,8 @@ public class ClusterActivityState {
      * {@link #setVisible(boolean)} and {@link #setUnobscuredBounds(Rect)} for more details)
      */
     @AddedInOrBefore(majorVersion = 33)
-    public static ClusterActivityState create(boolean visible, Rect unobscuredBounds) {
+    @NonNull public static ClusterActivityState create(
+            boolean visible, @NonNull Rect unobscuredBounds) {
         return new ClusterActivityState()
                 .setVisible(visible)
                 .setUnobscuredBounds(unobscuredBounds);
@@ -124,7 +128,7 @@ public class ClusterActivityState {
      * Reconstructs a {@link ClusterActivityState} from a {@link Bundle}
      */
     @AddedInOrBefore(majorVersion = 33)
-    public static ClusterActivityState fromBundle(Bundle bundle) {
+    @NonNull public static ClusterActivityState fromBundle(@NonNull Bundle bundle) {
         return new ClusterActivityState()
                 .setVisible(bundle.getBoolean(KEY_VISIBLE, true))
                 .setUnobscuredBounds((Rect) bundle.getParcelable(KEY_UNOBSCURED_BOUNDS))
@@ -136,7 +140,7 @@ public class ClusterActivityState {
      * deserialized using {@link #fromBundle(Bundle)}.
      */
     @AddedInOrBefore(majorVersion = 33)
-    public Bundle toBundle() {
+    @NonNull public Bundle toBundle() {
         Bundle b = new Bundle();
         b.putBoolean(KEY_VISIBLE, mVisible);
         b.putParcelable(KEY_UNOBSCURED_BOUNDS, mUnobscuredBounds);
@@ -145,7 +149,6 @@ public class ClusterActivityState {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return this.getClass().getSimpleName() + " {"
                 + "visible: " + mVisible + ", "

@@ -38,13 +38,16 @@ class PureSoftRemoteProvisioningContext : public RemoteProvisioningContext {
     ~PureSoftRemoteProvisioningContext() override = default;
     std::vector<uint8_t> DeriveBytesFromHbk(const std::string& context,
                                             size_t numBytes) const override;
-    std::unique_ptr<cppbor::Map> CreateDeviceInfo() const override;
+    std::unique_ptr<cppbor::Map> CreateDeviceInfo(uint32_t csrVersion) const override;
     cppcose::ErrMsgOr<std::vector<uint8_t>>
     BuildProtectedDataPayload(bool isTestMode,                     //
                               const std::vector<uint8_t>& macKey,  //
                               const std::vector<uint8_t>& aad) const override;
     std::optional<cppcose::HmacSha256>
     GenerateHmacSha256(const cppcose::bytevec& input) const override;
+    void GetHwInfo(GetHwInfoResponse* hwInfo) const override;
+    cppcose::ErrMsgOr<cppbor::Array> BuildCsr(const std::vector<uint8_t>& challenge,
+                                              cppbor::Array keysToSign) const override;
 
     void SetSystemVersion(uint32_t os_version, uint32_t os_patchlevel);
     void SetVendorPatchlevel(uint32_t vendor_patchlevel);

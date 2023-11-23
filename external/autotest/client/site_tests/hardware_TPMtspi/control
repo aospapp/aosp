@@ -10,6 +10,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "Hardware"
 TEST_TYPE = "Client"
+PY_VERSION = 3
 
 DOC = """
 This test exercises the basic functionalities of the TPM

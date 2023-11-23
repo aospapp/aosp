@@ -1088,6 +1088,11 @@ public final class AES
             // addGMacAlgorithm(provider, "AES", PREFIX + "$AESGMAC", PREFIX + "$KeyGen128");
             // addPoly1305Algorithm(provider, "AES", PREFIX + "$Poly1305", PREFIX + "$Poly1305KeyGen");
             // END Android-removed: Unsupported algorithms
+
+            // Android-added: Private implementations needed to support PBKDF2 with PKCS#12
+            provider.addPrivateAlgorithm("Cipher", NISTObjectIdentifiers.id_aes128_CBC, PREFIX + "$CBC");
+            provider.addPrivateAlgorithm("Cipher", NISTObjectIdentifiers.id_aes192_CBC, PREFIX + "$CBC");
+            provider.addPrivateAlgorithm("Cipher", NISTObjectIdentifiers.id_aes256_CBC, PREFIX + "$CBC");
         }
     }
 }

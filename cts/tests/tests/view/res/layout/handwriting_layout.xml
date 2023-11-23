@@ -17,11 +17,6 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
               android:orientation="vertical" android:layout_width="match_parent"
               android:layout_height="match_parent">
-    <TextView
-        android:id="@+id/textview"
-        android:autoHandwritingEnabled="true"
-        android:layout_width="100dp"
-        android:layout_height="20dp" />
     <View
         android:id="@+id/auto_handwriting_enabled"
         android:autoHandwritingEnabled="true"
@@ -33,8 +28,23 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
     <View
-        android:id="@+id/auto_handwriting_default"
+        android:id="@+id/default_view"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
-
+    <TextView
+        android:id="@+id/default_textview"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+    <EditText
+        android:id="@+id/default_edittext"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+    <View
+        android:id="@+id/handwriting_bounds_offset"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:handwritingBoundsOffsetLeft="5px"
+        android:handwritingBoundsOffsetTop="10px"
+        android:handwritingBoundsOffsetRight="15px"
+        android:handwritingBoundsOffsetBottom="20px" />
 </LinearLayout>

@@ -38,6 +38,7 @@ public class VirtualTouchEventTest {
         final int pointerId = 1;
         final float pressure = 0.5f;
         final float majorAxisSize = 10f;
+        final long eventTimeNanos = 5000L;
         final VirtualTouchEvent originalEvent = new VirtualTouchEvent.Builder()
                 .setAction(VirtualTouchEvent.ACTION_DOWN)
                 .setToolType(VirtualTouchEvent.TOOL_TYPE_FINGER)
@@ -46,6 +47,7 @@ public class VirtualTouchEventTest {
                 .setPointerId(pointerId)
                 .setPressure(pressure)
                 .setMajorAxisSize(majorAxisSize)
+                .setEventTimeNanos(eventTimeNanos)
                 .build();
         final Parcel parcel = Parcel.obtain();
         originalEvent.writeToParcel(parcel, /* flags= */ 0);
@@ -66,6 +68,9 @@ public class VirtualTouchEventTest {
         assertWithMessage("Recreated event has different major axis size")
                 .that(originalEvent.getMajorAxisSize())
                 .isEqualTo(recreatedEvent.getMajorAxisSize());
+        assertWithMessage("Recreated event has different event time")
+                .that(originalEvent.getEventTimeNanos())
+                .isEqualTo(recreatedEvent.getEventTimeNanos());
     }
 
     @Test
@@ -124,6 +129,18 @@ public class VirtualTouchEventTest {
     }
 
     @Test
+    public void touchEvent_invalidEventTime_throwsIae() {
+        assertThrows(IllegalArgumentException.class, () -> new VirtualTouchEvent.Builder()
+                .setAction(VirtualTouchEvent.ACTION_DOWN)
+                .setToolType(VirtualTouchEvent.TOOL_TYPE_FINGER)
+                .setX(0f)
+                .setY(1f)
+                .setPointerId(1)
+                .setEventTimeNanos(-5L)
+                .build());
+    }
+
+    @Test
     public void touchEvent_cancelUsedImproperly_throwsIae() {
         assertThrows(IllegalArgumentException.class, () -> new VirtualTouchEvent.Builder()
                 .setAction(VirtualTouchEvent.ACTION_CANCEL)
@@ -178,12 +195,14 @@ public class VirtualTouchEventTest {
         final float x = 0f;
         final float y = 1f;
         final int pointerId = 1;
+        final long eventTimeNanos = 5000L;
         final VirtualTouchEvent event = new VirtualTouchEvent.Builder()
                 .setAction(VirtualTouchEvent.ACTION_DOWN)
                 .setToolType(VirtualTouchEvent.TOOL_TYPE_FINGER)
                 .setX(x)
                 .setY(y)
                 .setPointerId(pointerId)
+                .setEventTimeNanos(eventTimeNanos)
                 .build();
         assertWithMessage("Incorrect action").that(event.getAction()).isEqualTo(
                 VirtualTouchEvent.ACTION_DOWN);
@@ -192,6 +211,8 @@ public class VirtualTouchEventTest {
         assertWithMessage("Incorrect x").that(event.getX()).isEqualTo(x);
         assertWithMessage("Incorrect y").that(event.getY()).isEqualTo(y);
         assertWithMessage("Incorrect pointer id").that(event.getPointerId()).isEqualTo(pointerId);
+        assertWithMessage("Incorrect event time").that(event.getEventTimeNanos())
+                .isEqualTo(eventTimeNanos);
     }
 
     @Test

@@ -102,6 +102,9 @@ public final class CarrierConfigConverterV2 {
   @Parameter(names = "--version", description = "The version number for all output textpb.")
   private long version = 1L;
 
+  @Parameter(names = "--consider_parent_canonical_id", arity = 1, description = "To consider parent_canonical_id")
+  private static boolean considerParentCanonicalId = false;
+
   private static final String MCCMNC_FOR_DEFAULT_SETTINGS = "000000";
 
   // Resource file path to the AOSP carrier list file
@@ -125,13 +128,14 @@ public final class CarrierConfigConverterV2 {
 
   /** Entry point when invoked from other Java code, eg. the server side conversion tool. */
   public static void convert(
-      String vendorXmlFile, String assetsDirName, String outputDir, long version)
+      String vendorXmlFile, String assetsDirName, String outputDir, long version, boolean considerParentCanonicalId)
       throws IOException {
     CarrierConfigConverterV2 converter = new CarrierConfigConverterV2();
     converter.vendorXmlFiles = ImmutableList.of(vendorXmlFile);
     converter.assetsDirName = assetsDirName;
     converter.outputDir = outputDir;
     converter.version = version;
+    converter.considerParentCanonicalId = considerParentCanonicalId;
     converter.convert();
   }
 
@@ -147,6 +151,7 @@ public final class CarrierConfigConverterV2 {
     DocumentBuilder xmlDocBuilder = getDocumentBuilder();
     Multimap<Integer, CarrierId> aospCarrierList = loadAospCarrierList();
     Multimap<CarrierId, Integer> reverseAospCarrierList = reverseAospCarrierList(aospCarrierList);
+    Multimap<CarrierId, Integer> reverseAospCarrierListPerParentCanonicalId = reverseAospCarrierListPerParentCanonicalId();
 
     /*
      * High-level flow:
@@ -264,10 +269,11 @@ public final class CarrierConfigConverterV2 {
     }
 
     // 3. For each CarrierId, build its carrier configs, following AOSP DefaultCarrierConfigService.
+    loadUniqueRulesFromVendorXml(vendorXmls);
     for (CarrierId carrier : carriers) {
       Map<String, CarrierConfig.Config> config = ImmutableMap.of();
 
-      CarrierIdentifier id = getCid(carrier, reverseAospCarrierList);
+      CarrierIdentifier id = getCid(carrier, reverseAospCarrierList, reverseAospCarrierListPerParentCanonicalId);
       if (id.getCarrierId() != -1) {
         HashMap<String, CarrierConfig.Config> configBySpecificCarrierId =
             parseCarrierConfigFromXml(
@@ -404,6 +410,31 @@ public final class CarrierConfigConverterV2 {
             flatteningToMultimap(
                 cid -> cid.getCanonicalId(),
                 cid -> carrierAttributeToCarrierId(cid.getCarrierAttributeList()).stream(),
+                MultimapBuilder.linkedHashKeys().arrayListValues()::build));
+  }
+
+  private static Multimap<CarrierId, Integer> reverseAospCarrierListPerParentCanonicalId() throws IOException {
+
+    com.android.providers.telephony.CarrierIdProto.CarrierList.Builder aospCarrierList =
+            com.android.providers.telephony.CarrierIdProto.CarrierList.newBuilder();
+    try (InputStream textpb =
+                 CarrierConfigConverterV2.class.getResourceAsStream(RESOURCE_CARRIER_LIST);
+         BufferedReader textpbReader = new BufferedReader(new InputStreamReader(textpb, UTF_8))) {
+      TextFormat.getParser().merge(textpbReader, aospCarrierList);
+    }
+    Multimap<Integer, CarrierId> res = aospCarrierList.getCarrierIdList().stream()
+            .filter(cid -> cid.getParentCanonicalId() > 0)
+            .collect(
+                    flatteningToMultimap(
+                            cid -> cid.getParentCanonicalId(),
+                            cid -> carrierAttributeToCarrierId(cid.getCarrierAttributeList()).stream(),
+                            MultimapBuilder.linkedHashKeys().arrayListValues()::build));
+
+    return res.entries().stream()
+        .collect(
+            toMultimap(
+                entry -> entry.getValue(),
+                entry -> entry.getKey(),
                 MultimapBuilder.linkedHashKeys().arrayListValues()::build));
   }
 
@@ -566,13 +597,19 @@ public final class CarrierConfigConverterV2 {
    * @return a map, key being the carrier config key, value being a {@link CarrierConfig.Config}
    *     with one of the value set.
    */
-  private static HashMap<String, CarrierConfig.Config> parseCarrierConfigFromVendorXml(
+  private HashMap<String, CarrierConfig.Config> parseCarrierConfigFromVendorXml(
       Document xmlDoc, CarrierIdentifier carrier) throws IOException {
     HashMap<String, CarrierConfig.Config> configMap = new HashMap<>();
     for (Element element : getElementsByTagName(xmlDoc, TAG_CARRIER_CONFIG)) {
       if (carrier != null && !checkFilters(element, carrier)) {
         continue;
       }
+
+      Element parent_config = findParentConfigByUniqueRuleId(element);
+      if (parent_config != null) {
+        configMap.putAll(parseCarrierConfigToMap(parent_config));
+      }
+
       configMap.putAll(parseCarrierConfigToMap(element));
     }
     return configMap;
@@ -592,7 +629,8 @@ public final class CarrierConfigConverterV2 {
     nList = element.getElementsByTagName("boolean");
     for (int i = 0; i < nList.getLength(); i++) {
       Node nNode = nList.item(i);
-      if (nNode.getNodeType() != Node.ELEMENT_NODE) {
+      if (nNode.getNodeType() != Node.ELEMENT_NODE ||
+          !nNode.getParentNode().isSameNode(element)) {
         continue;
       }
       Element eElement = (Element) nNode;
@@ -604,7 +642,8 @@ public final class CarrierConfigConverterV2 {
     nList = element.getElementsByTagName("int");
     for (int i = 0; i < nList.getLength(); i++) {
       Node nNode = nList.item(i);
-      if (nNode.getNodeType() != Node.ELEMENT_NODE) {
+      if (nNode.getNodeType() != Node.ELEMENT_NODE ||
+          !nNode.getParentNode().isSameNode(element)) {
         continue;
       }
       Element eElement = (Element) nNode;
@@ -616,7 +655,8 @@ public final class CarrierConfigConverterV2 {
     nList = element.getElementsByTagName("long");
     for (int i = 0; i < nList.getLength(); i++) {
       Node nNode = nList.item(i);
-      if (nNode.getNodeType() != Node.ELEMENT_NODE) {
+      if (nNode.getNodeType() != Node.ELEMENT_NODE ||
+          !nNode.getParentNode().isSameNode(element)) {
         continue;
       }
       Element eElement = (Element) nNode;
@@ -624,11 +664,25 @@ public final class CarrierConfigConverterV2 {
       long value = Long.parseLong(eElement.getAttribute("value"));
       configMap.put(key, CarrierConfig.Config.newBuilder().setLongValue(value).build());
     }
+    // double value
+    nList = element.getElementsByTagName("double");
+    for (int i = 0; i < nList.getLength(); i++) {
+      Node nNode = nList.item(i);
+      if (nNode.getNodeType() != Node.ELEMENT_NODE ||
+          !nNode.getParentNode().isSameNode(element)) {
+        continue;
+      }
+      Element eElement = (Element) nNode;
+      String key = eElement.getAttribute("name");
+      double value = Double.parseDouble(eElement.getAttribute("value"));
+      configMap.put(key, CarrierConfig.Config.newBuilder().setDoubleValue(value).build());
+    }
     // text value
     nList = element.getElementsByTagName("string");
     for (int i = 0; i < nList.getLength(); i++) {
       Node nNode = nList.item(i);
-      if (nNode.getNodeType() != Node.ELEMENT_NODE) {
+      if (nNode.getNodeType() != Node.ELEMENT_NODE ||
+          !nNode.getParentNode().isSameNode(element)) {
         continue;
       }
       Element eElement = (Element) nNode;
@@ -643,7 +697,8 @@ public final class CarrierConfigConverterV2 {
     nList = element.getElementsByTagName("string-array");
     for (int i = 0; i < nList.getLength(); i++) {
       Node nNode = nList.item(i);
-      if (nNode.getNodeType() != Node.ELEMENT_NODE) {
+      if (nNode.getNodeType() != Node.ELEMENT_NODE ||
+          !nNode.getParentNode().isSameNode(element)) {
         continue;
       }
       Element eElement = (Element) nNode;
@@ -662,11 +717,12 @@ public final class CarrierConfigConverterV2 {
       }
       configMap.put(key, cccb.setTextArray(cctb.build()).build());
     }
-    // bool array
+    // int array
     nList = element.getElementsByTagName("int-array");
     for (int i = 0; i < nList.getLength(); i++) {
       Node nNode = nList.item(i);
-      if (nNode.getNodeType() != Node.ELEMENT_NODE) {
+      if (nNode.getNodeType() != Node.ELEMENT_NODE ||
+          !nNode.getParentNode().isSameNode(element)) {
         continue;
       }
       Element eElement = (Element) nNode;
@@ -684,6 +740,20 @@ public final class CarrierConfigConverterV2 {
         ccib.addItem(value);
       }
       configMap.put(key, cccb.setIntArray(ccib.build()).build());
+    }
+    // pbundle_as_map
+    nList = element.getElementsByTagName("pbundle_as_map");
+    for (int i = 0; i < nList.getLength(); i++) {
+      Node nNode = nList.item(i);
+      if (nNode.getNodeType() != Node.ELEMENT_NODE ||
+          !nNode.getParentNode().isSameNode(element)) {
+        continue;
+      }
+      Element eElement = (Element) nNode;
+      String key = eElement.getAttribute("name");
+      HashMap<String, CarrierConfig.Config> value = parseCarrierConfigToMap(eElement);
+      configMap.put(key, CarrierConfig.Config.newBuilder()
+          .setBundle(toCarrierConfigBuilder(value)).build());
     }
     return configMap;
   }
@@ -723,6 +793,8 @@ public final class CarrierConfigConverterV2 {
           break;
         case "name":
           // name is used together with cid for readability. ignore for filter.
+        case "unique_rule_id":
+        case "following":
           break;
         default:
           System.err.println("Unsupported attribute " + attribute + "=" + value);
@@ -838,32 +910,127 @@ public final class CarrierConfigConverterV2 {
   }
 
   private static CarrierIdentifier getCid(
-      CarrierId carrierId, Multimap<CarrierId, Integer> reverseAospCarrierList) {
+      CarrierId carrierId, Multimap<CarrierId, Integer> reverseAospCarrierList,
+        Multimap<CarrierId, Integer> reverseAospCarrierListPerParentCanonicalId) {
     // Mimic TelephonyManager#getCarrierIdFromMccMnc, which is implemented by
     // CarrierResolver#getCarrierIdFromMccMnc.
     CarrierId mccMnc = CarrierId.newBuilder().setMccMnc(carrierId.getMccMnc()).build();
     int mccMncCarrierId = reverseAospCarrierList.get(mccMnc).stream().findFirst().orElse(-1);
-
     List<Integer> cids = ImmutableList.copyOf(reverseAospCarrierList.get(carrierId));
+    int parentCanonicalId = getParentCanonicalId(carrierId, cids, reverseAospCarrierListPerParentCanonicalId);
     // No match: use -1
     if (cids.isEmpty()) {
-      return CarrierIdentifier.create(carrierId, -1, -1, mccMncCarrierId);
+      if (considerParentCanonicalId) {
+        return CarrierIdentifier.create(carrierId, parentCanonicalId, -1, mccMncCarrierId);
+      } else {
+	return CarrierIdentifier.create(carrierId, -1, -1, mccMncCarrierId);
+      }
     }
     // One match: use as both carrierId and specificCarrierId
     if (cids.size() == 1) {
-      return CarrierIdentifier.create(carrierId, cids.get(0), cids.get(0), mccMncCarrierId);
+      if (considerParentCanonicalId) {
+        return CarrierIdentifier.create(carrierId, parentCanonicalId, cids.get(0), mccMncCarrierId);
+      } else {
+        return CarrierIdentifier.create(carrierId, cids.get(0), cids.get(0), mccMncCarrierId);
+      }
     }
     // Two matches:  specificCarrierId is always bigger than carrierId
     if (cids.size() == 2) {
-      return CarrierIdentifier.create(
-          carrierId,
-          Math.min(cids.get(0), cids.get(1)),
-          Math.max(cids.get(0), cids.get(1)),
-          mccMncCarrierId);
+      if (considerParentCanonicalId) {
+        return CarrierIdentifier.create(
+            carrierId,
+            parentCanonicalId,
+            Math.max(cids.get(0), cids.get(1)),
+            mccMncCarrierId);
+      } else {
+        return CarrierIdentifier.create(
+            carrierId,
+            Math.min(cids.get(0), cids.get(1)),
+            Math.max(cids.get(0), cids.get(1)),
+            mccMncCarrierId);
+      }
     }
     // Cannot be more than 2 matches.
     throw new IllegalStateException("More than two cid's found for " + carrierId + ": " + cids);
   }
 
+  private static int getParentCanonicalId(
+      CarrierId carrierId,
+      List<Integer> cids,
+      Multimap<CarrierId, Integer> reverseAospCarrierListPerParentCanonicalId) {
+
+    List<Integer> parentCids = ImmutableList.copyOf(reverseAospCarrierListPerParentCanonicalId.get(carrierId));
+    if (cids.isEmpty()) {
+      if (parentCids.isEmpty()) {
+        return -1;
+      } else {
+        return parentCids.get(0);
+      }
+    } else if (cids.size() == 1) {
+      if (parentCids.isEmpty()) {
+        return cids.get(0);
+      } else {
+        return parentCids.get(0);
+      }
+    } else if (cids.size() == 2) {
+      if (parentCids.isEmpty()) {
+        return Math.min(cids.get(0), cids.get(1));
+      } else {
+        return parentCids.get(0);
+      }
+    } else {
+      return -1;
+    }
+  }
   private CarrierConfigConverterV2() {}
+
+  // The hash map to store all the configs with attribute "unique_rule_id".
+  // The config entry with attribute "following" can inherit from the config
+  // with matching "unique_rule_id".
+  // Both "unique_rule_id" and "following" attributes can only appear in vendor xml.
+  private HashMap<String, Element> mUniqueRules = new HashMap<>();
+
+  private void loadUniqueRulesFromVendorXml(List<Document> vendorXmls)
+      throws IOException {
+    for (Document vendorXml : vendorXmls) {
+      for (Element element : getElementsByTagName(vendorXml, TAG_CARRIER_CONFIG)) {
+        NamedNodeMap attributes = element.getAttributes();
+        boolean uniqueRuleIdSeen = false;
+        for (int i = 0; i < attributes.getLength(); i++) {
+          String attribute = attributes.item(i).getNodeName();
+          String value = attributes.item(i).getNodeValue();
+          switch (attribute) {
+            case "unique_rule_id":
+              if (mUniqueRules.containsKey(value)) {
+                throw new IOException("The carrier_config has duplicated unique_rule_id: " + attributes);
+              } else if (uniqueRuleIdSeen) {
+                throw new IOException("The carrier_config has more than 1 unique_rule_id: " + attributes);
+              }
+              mUniqueRules.put(value, element);
+              uniqueRuleIdSeen = true;
+              break;
+            default:
+              break;
+          }
+        }
+      }
+    }
+  }
+
+  private Element findParentConfigByUniqueRuleId(Element childElement) {
+    NamedNodeMap attributes = childElement.getAttributes();
+    for (int i = 0; i < attributes.getLength(); i++) {
+      String attribute = attributes.item(i).getNodeName();
+      String value = attributes.item(i).getNodeValue();
+      switch (attribute) {
+        case "following":
+          return mUniqueRules.get(value);
+          //break;
+        default:
+          break;
+      }
+    }
+    return null;
+  }
+
 }

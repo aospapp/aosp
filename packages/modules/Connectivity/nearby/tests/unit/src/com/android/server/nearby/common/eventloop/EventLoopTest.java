@@ -36,7 +36,6 @@ public class EventLoopTest {
     @Rule
     public ExpectedException thrown = ExpectedException.none();
 
-    /*
     @Test
     public void remove() {
         mEventLoop.postRunnable(new NumberedRunnable(0));
@@ -44,10 +43,8 @@ public class EventLoopTest {
         mEventLoop.postRunnable(runnableToAddAndRemove);
         mEventLoop.removeRunnable(runnableToAddAndRemove);
         mEventLoop.postRunnable(new NumberedRunnable(2));
-
-        assertThat(mExecutedRunnables).containsExactly(0, 2);
+        assertThat(mExecutedRunnables).doesNotContain(1);
     }
-    */
 
     @Test
     @SdkSuppress(minSdkVersion = 32, codeName = "T")

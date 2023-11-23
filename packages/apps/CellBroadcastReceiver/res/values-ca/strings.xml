@@ -168,7 +168,7 @@
     <string name="message_coordinates" msgid="356333576818059052">"Coordenades:"</string>
     <string name="maximum_waiting_time" msgid="3504809124079381356">"Temps màxim d\'espera:"</string>
     <string name="seconds" msgid="141450721520515025">"segons"</string>
-    <string name="message_copied" msgid="6922953753733166675">"El missatge s\'ha copiat"</string>
+    <string name="message_copied" msgid="6922953753733166675">"Missatge copiat"</string>
     <string name="top_intro_default_text" msgid="1922926733152511202"></string>
     <string name="top_intro_roaming_text" msgid="186872150397081032">"Mentre utilitzes la itinerància, és possible que rebis algunes alertes que no s\'inclouen en aquesta configuració"</string>
     <string name="notification_cb_settings_changed_title" msgid="7664799881479966932">"L\'operador ha canviat la configuració"</string>

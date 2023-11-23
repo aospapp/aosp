@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.nullable;
@@ -675,6 +676,30 @@ public class CallAudioManagerTest extends TelecomTestCase {
 
         assertTrue(mCallAudioManager.isCallVoip(conference));
         assertTrue(mCallAudioManager.isCallVoip(child));
+    }
+
+    @SmallTest
+    @Test
+    public void testOnCallStreamingStateChanged() {
+        Call call = mock(Call.class);
+        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor = makeNewCaptor();
+
+        // non-streaming call
+        mCallAudioManager.onCallStreamingStateChanged(call, false /* isStreamingCall */);
+        verify(mCallAudioModeStateMachine, never()).sendMessageWithArgs(anyInt(),
+                any(MessageArgs.class));
+
+        // start streaming
+        mCallAudioManager.onCallStreamingStateChanged(call, true /* isStreamingCall */);
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.START_CALL_STREAMING), captor.capture());
+        assertTrue(captor.getValue().isStreaming);
+
+        // stop streaming
+        mCallAudioManager.onCallStreamingStateChanged(call, false /* isStreamingCall */);
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.STOP_CALL_STREAMING), captor.capture());
+        assertFalse(captor.getValue().isStreaming);
     }
 
     private Call createSimulatedRingingCall() {

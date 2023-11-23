@@ -395,7 +395,15 @@ class DhcpHandlingRule_RespondToRequest(DhcpHandlingRule):
 
         self.logger.info("Received REQUEST packet, checking fields...")
         server_ip = query_packet.get_option(dhcp_packet.OPTION_SERVER_ID)
-        requested_ip = query_packet.get_option(dhcp_packet.OPTION_REQUESTED_IP)
+        if dhcp_packet.OPTION_REQUESTED_IP in self.options:
+            requested_ip = query_packet.get_option(
+                    dhcp_packet.OPTION_REQUESTED_IP)
+        else:
+            cli_ip = query_packet.get_field(dhcp_packet.FIELD_CLIENT_IP)
+            if cli_ip != dhcp_packet.IPV4_NULL_ADDRESS:
+                requested_ip = cli_ip
+            else:
+                requested_ip = None
         server_ip_provided = server_ip is not None
         if ((server_ip_provided != self._expect_server_ip_set) or
             (requested_ip is None)):
@@ -446,7 +454,7 @@ class DhcpHandlingRule_RespondToPostT2Request(
     """
     This handler is a lot like DhcpHandlingRule_RespondToRequest except that it
     expects request packets like those sent after the T2 deadline (see RFC
-    2131).  This is the only time that you can find a request packet without the
+    2131).  This is the time that you can find a request packet without the
     SERVER_ID option.  It responds to packets in exactly the same way.
     """
     def __init__(self,
@@ -461,14 +469,15 @@ class DhcpHandlingRule_RespondToPostT2Request(
 
         |additional_options| is handled as explained by DhcpHandlingRule.
         """
-        super(DhcpHandlingRule_RespondToPostT2Request, self).__init__(
-                expected_requested_ip,
-                None,
-                additional_options,
-                custom_fields,
-                should_respond=should_respond,
-                response_server_ip=response_server_ip,
-                response_granted_ip=response_granted_ip)
+        super(DhcpHandlingRule_RespondToPostT2Request,
+              self).__init__(expected_requested_ip,
+                             None,
+                             additional_options,
+                             custom_fields,
+                             should_respond=should_respond,
+                             response_server_ip=response_server_ip,
+                             response_granted_ip=response_granted_ip,
+                             expect_server_ip_set=False)
 
     def handle_impl(self, query_packet):
         if not self.is_our_message_type(query_packet):
@@ -480,8 +489,14 @@ class DhcpHandlingRule_RespondToPostT2Request(
                              "is not expected to have, discarding.")
             return RESPONSE_NO_ACTION
 
-        requested_ip = query_packet.get_option(dhcp_packet.OPTION_REQUESTED_IP)
-        if requested_ip is None:
+        if query_packet.get_option(
+                dhcp_packet.OPTION_REQUESTED_IP) is not None:
+            self.logger.info("REQUEST packet had a REQUESTED_IP_ID option, "
+                             "which it is not expected to have, discarding.")
+            return RESPONSE_NO_ACTION
+
+        requested_ip = query_packet.get_field(dhcp_packet.FIELD_CLIENT_IP)
+        if requested_ip == dhcp_packet.IPV4_NULL_ADDRESS:
             self.logger.info("REQUEST packet did not have the expected "
                              "request ip option at all, discarding.")
             return RESPONSE_NO_ACTION

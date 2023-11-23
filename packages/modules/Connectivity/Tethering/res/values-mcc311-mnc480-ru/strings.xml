@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="no_upstream_notification_title" msgid="611650570559011140">"Режим модема используется без доступа к Интернету"</string>
-    <string name="no_upstream_notification_message" msgid="6508394877641864863">"Невозможно подключить устройства."</string>
-    <string name="no_upstream_notification_disable_button" msgid="7609346639290990508">"Отключить режим модема"</string>
-    <string name="upstream_roaming_notification_title" msgid="6032901176124830787">"Включены точка доступа или режим модема"</string>
-    <string name="upstream_roaming_notification_message" msgid="7599056263326217523">"За использование услуг связи в роуминге может взиматься дополнительная плата."</string>
+    <string name="no_upstream_notification_title" msgid="5897815458155858594">"Режим модема используется без доступа к интернету"</string>
+    <string name="no_upstream_notification_message" msgid="9037716118606459874">"Невозможно подключить устройства."</string>
+    <string name="no_upstream_notification_disable_button" msgid="5284024068281565456">"Отключить режим модема"</string>
+    <string name="upstream_roaming_notification_title" msgid="186331286017243006">"Включена точка доступа или режим модема"</string>
+    <string name="upstream_roaming_notification_message" msgid="7692641323940316538">"За использование услуг связи в роуминге может взиматься дополнительная плата."</string>
 </resources>

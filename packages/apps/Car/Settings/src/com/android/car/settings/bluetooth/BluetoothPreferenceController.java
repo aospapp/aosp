@@ -81,7 +81,7 @@ public abstract class BluetoothPreferenceController<V extends Preference> extend
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         if (!getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)) {
             return UNSUPPORTED_ON_DEVICE;
         }

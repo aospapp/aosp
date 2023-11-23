@@ -44,9 +44,9 @@ import androidx.preference.PreferenceFragmentCompat;
 
 import com.android.permissioncontroller.PermissionControllerStatsLog;
 import com.android.permissioncontroller.R;
-import com.android.permissioncontroller.permission.ui.model.ReviewOngoingUsageViewModel;
-import com.android.permissioncontroller.permission.ui.model.ReviewOngoingUsageViewModel.PackageAttribution;
-import com.android.permissioncontroller.permission.ui.model.ReviewOngoingUsageViewModelFactory;
+import com.android.permissioncontroller.permission.ui.model.v31.ReviewOngoingUsageViewModel;
+import com.android.permissioncontroller.permission.ui.model.v31.ReviewOngoingUsageViewModel.PackageAttribution;
+import com.android.permissioncontroller.permission.ui.model.v31.ReviewOngoingUsageViewModelFactory;
 import com.android.permissioncontroller.permission.utils.KotlinUtils;
 import com.android.permissioncontroller.permission.utils.Utils;
 

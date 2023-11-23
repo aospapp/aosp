@@ -1,22 +1,20 @@
 [package]
 name = "data_model"
-version = "0.1.0"
+version = "0.1.1-alpha.1"
 authors = ["The Chromium OS Authors"]
 edition = "2021"
-include = ["src/**/*", "Cargo.toml"]
+include = ["src/**/*", "Cargo.toml", "LICENSE"]
+description = "[highly unstable] data model for virtualization"
+license-file = "LICENSE"
 
 [dependencies]
-assertions = { path = "../assertions" } # provided by ebuild
+static_assertions = "1.1"
 cfg-if = "1.0.0"
-libc = "*"
+libc = "0.2.116"
 remain = "0.2"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1.0.20"
+zerocopy = "*"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "*", features = ["everything", "std", "impl-default"] }
-
-[target.'cfg(unix)'.dependencies]
-libc = "*"
-
-[workspace]
+winapi = { version = "0.3.9", features = ["everything", "std", "impl-default"] }

@@ -30,6 +30,7 @@ from acloud.create import local_image_local_instance
 from acloud.internal import constants
 from acloud.internal.lib import android_build_client
 from acloud.internal.lib import auth
+from acloud.internal.lib import cvd_utils
 from acloud.internal.lib import ota_tools
 from acloud.internal.lib import utils
 from acloud.setup import setup_common
@@ -52,9 +53,34 @@ _HOME_FOLDER = os.path.expanduser("~")
 # for the downloaded image artifacts.
 _REQUIRED_SPACE = 10
 
-_SYSTEM_IMAGE_NAME_PATTERN = r"system\.img"
 _SYSTEM_MIX_IMAGE_DIR = "mix_image_{build_id}"
-_DOWNLOAD_MIX_IMAGE_NAME = "{build_target}-target_files-{build_id}.zip"
+
+
+def _ShouldClearFetchDir(fetch_dir, avd_spec, fetch_cvd_args_str,
+                         fetch_cvd_args_file):
+    """Check if the previous fetch directory should be removed.
+
+    The fetch directory would be removed when the user explicitly sets the
+    --force-sync flag, or when the fetch_cvd_args_str changed.
+
+    Args:
+        fetch_dir: String, path to the fetch directory.
+        avd_spec: AVDSpec object that tells us what we're going to create.
+        fetch_cvd_args_str: String, args for current fetch_cvd command.
+        fetch_cvd_args_file: String, path to file of previous fetch_cvd args.
+
+    Returns:
+        Boolean. True if the fetch directory should be removed.
+    """
+    if not os.path.exists(fetch_dir):
+        return False
+    if avd_spec.force_sync:
+        return True
+
+    if not os.path.exists(fetch_cvd_args_file):
+        return True
+    with open(fetch_cvd_args_file, "r") as f:
+        return fetch_cvd_args_str != f.read()
 
 
 @utils.TimeExecute(function_description="Downloading Android Build image")
@@ -62,7 +88,11 @@ def DownloadAndProcessImageFiles(avd_spec):
     """Download the CF image artifacts and process them.
 
     To download rom images, Acloud would download the tool fetch_cvd that can
-    help process mixed build images.
+    help process mixed build images, and store the fetch_cvd_build_args in
+    FETCH_CVD_ARGS_FILE when the fetch command executes successfully. Next
+    time when this function is called with the same image_download_dir, the
+    FETCH_CVD_ARGS_FILE would be used to check whether this image_download_dir
+    can be reused or not.
 
     Args:
         avd_spec: AVDSpec object that tells us what we're going to create.
@@ -75,7 +105,6 @@ def DownloadAndProcessImageFiles(avd_spec):
     """
     cfg = avd_spec.cfg
     build_id = avd_spec.remote_image[constants.BUILD_ID]
-    build_branch = avd_spec.remote_image[constants.BUILD_BRANCH]
     build_target = avd_spec.remote_image[constants.BUILD_TARGET]
 
     extract_path = os.path.join(
@@ -85,30 +114,29 @@ def DownloadAndProcessImageFiles(avd_spec):
 
     logger.debug("Extract path: %s", extract_path)
 
-    if avd_spec.force_sync and os.path.exists(extract_path):
+    build_api = (
+        android_build_client.AndroidBuildClient(auth.CreateCredentials(cfg)))
+    fetch_cvd_build_args = build_api.GetFetchBuildArgs(
+        avd_spec.remote_image,
+        avd_spec.system_build_info,
+        avd_spec.kernel_build_info,
+        avd_spec.boot_build_info,
+        avd_spec.bootloader_build_info,
+        avd_spec.ota_build_info)
+
+    fetch_cvd_args_str = " ".join(fetch_cvd_build_args)
+    fetch_cvd_args_file = os.path.join(extract_path,
+                                       constants.FETCH_CVD_ARGS_FILE)
+    if _ShouldClearFetchDir(extract_path, avd_spec, fetch_cvd_args_str,
+                            fetch_cvd_args_file):
         shutil.rmtree(extract_path)
+
     if not os.path.exists(extract_path):
         os.makedirs(extract_path)
-        build_api = (
-            android_build_client.AndroidBuildClient(auth.CreateCredentials(cfg)))
 
         # Download rom images via fetch_cvd
         fetch_cvd = os.path.join(extract_path, constants.FETCH_CVD)
-        build_api.DownloadFetchcvd(fetch_cvd, cfg.fetch_cvd_version)
-        fetch_cvd_build_args = build_api.GetFetchBuildArgs(
-            build_id, build_branch, build_target,
-            avd_spec.system_build_info.get(constants.BUILD_ID),
-            avd_spec.system_build_info.get(constants.BUILD_BRANCH),
-            avd_spec.system_build_info.get(constants.BUILD_TARGET),
-            avd_spec.kernel_build_info.get(constants.BUILD_ID),
-            avd_spec.kernel_build_info.get(constants.BUILD_BRANCH),
-            avd_spec.kernel_build_info.get(constants.BUILD_TARGET),
-            avd_spec.bootloader_build_info.get(constants.BUILD_ID),
-            avd_spec.bootloader_build_info.get(constants.BUILD_BRANCH),
-            avd_spec.bootloader_build_info.get(constants.BUILD_TARGET),
-            avd_spec.ota_build_info.get(constants.BUILD_ID),
-            avd_spec.ota_build_info.get(constants.BUILD_BRANCH),
-            avd_spec.ota_build_info.get(constants.BUILD_TARGET))
+        build_api.DownloadFetchcvd(fetch_cvd, avd_spec.fetch_cvd_version)
         creds_cache_file = os.path.join(_HOME_FOLDER, cfg.creds_cache_file)
         fetch_cvd_cert_arg = build_api.GetFetchCertArg(creds_cache_file)
         fetch_cvd_args = [fetch_cvd, "-directory=%s" % extract_path,
@@ -119,6 +147,10 @@ def DownloadAndProcessImageFiles(avd_spec):
             subprocess.check_call(fetch_cvd_args)
         except subprocess.CalledProcessError as e:
             raise errors.GetRemoteImageError("Fails to download images: %s" % e)
+
+        # Save the fetch cvd build args when the fetch command succeeds
+        with open(fetch_cvd_args_file, "w") as output:
+            output.write(fetch_cvd_args_str)
 
     return extract_path
 
@@ -160,21 +192,6 @@ def ConfirmDownloadRemoteImageDir(download_dir):
             return download_dir
 
 
-def GetMixBuildTargetFilename(build_target, build_id):
-    """Get the mix build target filename.
-
-    Args:
-        build_id: String, Build id, e.g. "2263051", "P2804227"
-        build_target: String, the build target, e.g. cf_x86_phone-userdebug
-
-    Returns:
-        String, a file name, e.g. "cf_x86_phone-target_files-2263051.zip"
-    """
-    return _DOWNLOAD_MIX_IMAGE_NAME.format(
-        build_target=build_target.split('-')[0],
-        build_id=build_id)
-
-
 class RemoteImageLocalInstance(local_image_local_instance.LocalImageLocalInstance):
     """Create class for a remote image local instance AVD.
 
@@ -212,7 +229,15 @@ class RemoteImageLocalInstance(local_image_local_instance.LocalImageLocalInstanc
                 % image_dir)
 
         mix_image_dir = None
-        if avd_spec.local_system_image:
+        misc_info_path = None
+        ota_tools_dir = None
+        system_image_path = None
+        vendor_image_path = None
+        vendor_dlkm_image_path = None
+        odm_image_path = None
+        odm_dlkm_image_path = None
+        host_bins_path = image_dir
+        if avd_spec.local_system_image or avd_spec.local_vendor_image:
             build_id = avd_spec.remote_image[constants.BUILD_ID]
             build_target = avd_spec.remote_image[constants.BUILD_TARGET]
             mix_image_dir =os.path.join(
@@ -221,31 +246,51 @@ class RemoteImageLocalInstance(local_image_local_instance.LocalImageLocalInstanc
                 os.makedirs(mix_image_dir)
                 create_common.DownloadRemoteArtifact(
                     avd_spec.cfg, build_target, build_id,
-                    GetMixBuildTargetFilename(build_target, build_id),
+                    cvd_utils.GetMixBuildTargetFilename(build_target, build_id),
                     mix_image_dir, decompress=True)
-            misc_info_path = super().FindMiscInfo(mix_image_dir)
-            mix_image_dir = super().FindImageDir(mix_image_dir)
+            misc_info_path = cvd_utils.FindMiscInfo(mix_image_dir)
+            mix_image_dir = cvd_utils.FindImageDir(mix_image_dir)
             tool_dirs = (avd_spec.local_tool_dirs +
                          create_common.GetNonEmptyEnvVars(
                              constants.ENV_ANDROID_SOONG_HOST_OUT,
                              constants.ENV_ANDROID_HOST_OUT))
             ota_tools_dir = os.path.abspath(
                 ota_tools.FindOtaToolsDir(tool_dirs))
-            system_image_path = create_common.FindLocalImage(
-                avd_spec.local_system_image, _SYSTEM_IMAGE_NAME_PATTERN)
-        else:
-            misc_info_path = None
-            ota_tools_dir = None
-            system_image_path = None
+
+            # When using local vendor image, use cvd in local-tool if it
+            # exists. Fall back to downloaded tools in case it's missing
+
+            if avd_spec.local_vendor_image and avd_spec.local_tool_dirs:
+                try:
+                    host_bins_path = self._FindCvdHostBinaries(tool_dirs)
+                except errors.GetCvdLocalHostPackageError:
+                    logger.debug("fall back to downloaded cvd host binaries")
+        if avd_spec.local_system_image:
+            system_image_path = create_common.FindSystemImage(
+                avd_spec.local_system_image)
+        if avd_spec.local_vendor_image:
+            vendor_image_paths = cvd_utils.FindVendorImages(
+                avd_spec.local_vendor_image)
+            vendor_image_path = vendor_image_paths.vendor
+            vendor_dlkm_image_path = vendor_image_paths.vendor_dlkm
+            odm_image_path = vendor_image_paths.odm
+            odm_dlkm_image_path = vendor_image_paths.odm_dlkm
+
 
         # This method does not set the optional fields because launch_cvd loads
         # the paths from the fetcher config in image_dir.
         return local_image_local_instance.ArtifactPaths(
             image_dir=mix_image_dir or image_dir,
-            host_bins=image_dir,
+            host_bins=host_bins_path,
             host_artifacts=image_dir,
             misc_info=misc_info_path,
             ota_tools_dir=ota_tools_dir,
             system_image=system_image_path,
+            vendor_image=vendor_image_path,
+            vendor_dlkm_image=vendor_dlkm_image_path,
+            odm_image=odm_image_path,
+            odm_dlkm_image=odm_dlkm_image_path,
             boot_image=None,
-            vendor_boot_image=None)
+            vendor_boot_image=None,
+            kernel_image=None,
+            initramfs_image=None)

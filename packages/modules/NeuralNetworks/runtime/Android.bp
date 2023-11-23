@@ -54,6 +54,7 @@ cc_library_headers {
     host_supported: true,
     vendor_available: true,
     export_include_dirs: ["include"],
+    min_sdk_version: "30",
     apex_available: [
         "com.android.neuralnetworks",
         "test_com.android.neuralnetworks", // Due to the dependency from libneuralnetworks_common
@@ -105,7 +106,6 @@ cc_defaults {
             version_script: "libneuralnetworks.map.txt",
             generated_sources: ["statslog_neuralnetworks.cpp"],
             generated_headers: ["statslog_neuralnetworks.h"],
-            export_generated_headers: ["statslog_neuralnetworks.h"],
             srcs: [
                 "TelemetryStatsd.cpp",
             ],
@@ -170,6 +170,35 @@ cc_defaults {
     ],
 }
 
+cc_defaults {
+    name: "libneuralnetworks_v2_defaults",
+    defaults: ["libneuralnetworks_defaults"],
+    srcs: [
+        "FlatbufferModelBuilder.cpp",
+        "NeuralNetworksV2.cpp",
+        "operation_converters/AddOperationConverter.cpp",
+        "operation_converters/ArithmeticOperationConverter.cpp",
+        "operation_converters/Conv2DOperationConverter.cpp",
+        "operation_converters/DepthwiseConv2DOperationConverter.cpp",
+        "operation_converters/LogisticOperationConverter.cpp",
+        "operation_converters/OperationConverterResolver.cpp",
+        "operation_converters/SubGraphContext.cpp",
+    ],
+
+    exclude_srcs: [
+        "NeuralNetworks.cpp",
+    ],
+
+    static_libs: [
+        "libtflite_static",
+    ],
+
+    include_dirs: [
+        "external/flatbuffers/include",
+        "external/tensorflow",
+    ],
+}
+
 cc_library_shared {
     name: "libneuralnetworks",
     llndk: {
@@ -180,11 +209,11 @@ cc_library_shared {
         "libneuralnetworks_defaults",
         "neuralnetworks_defaults",
     ],
+    min_sdk_version: "30",
     apex_available: [
         "com.android.neuralnetworks",
         "test_com.android.neuralnetworks",
     ],
-
     stubs: {
         versions: [
             "30",
@@ -222,6 +251,24 @@ cc_library_static {
     ],
     cflags: ["-DNN_EXPERIMENTAL_FEATURE"],
     apex_available: ["//apex_available:platform"],
+}
+
+cc_library_static {
+    name: "libneuralnetworks_v2_static_experimental",
+    defaults: [
+        "libneuralnetworks_v2_defaults",
+        "neuralnetworks_defaults",
+    ],
+    exclude_static_libs: [
+        "libneuralnetworks_common",
+        "neuralnetworks_types",
+        "server_configurable_flags",
+    ],
+    static_libs: [
+        "libneuralnetworks_common_experimental",
+        "neuralnetworks_types_experimental",
+    ],
+    cflags: ["-DNN_EXPERIMENTAL_FEATURE"],
 }
 
 cc_library_static {
@@ -285,6 +332,9 @@ ndk_library {
     symbol_file: "libneuralnetworks.map.txt",
     // Android O-MR1
     first_version: "27",
+    export_header_libs: [
+        "libneuralnetworks_ndk_headers",
+    ],
 }
 
 genrule {

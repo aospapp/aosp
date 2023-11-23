@@ -17,15 +17,17 @@
 package android.view.cts.input;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 
 import android.app.Instrumentation;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.view.InputDevice;
 import android.view.KeyEvent;
+import android.view.WindowManager;
 import android.view.cts.R;
 
-import androidx.annotation.NonNull;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -45,8 +47,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.Arrays;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * CTS test case for generic.kl key layout mapping.
@@ -74,14 +77,50 @@ public class InputDeviceKeyLayoutMapTest {
     private static final int UI_SET_KEYBIT = 101;
     private static final int GOOGLE_VENDOR_ID = 0x18d1;
     private static final int GOOGLE_VIRTUAL_KEYBOARD_ID = 0x001f;
-    private static final int POLL_EVENT_TIMEOUT_SECONDS = 1;
-    private static final int RETRY_COUNT = 10;
+    private static final int POLL_EVENT_TIMEOUT_SECONDS = 5;
+
+    private static final Set<String> EXCLUDED_KEYS = new HashSet<>(Arrays.asList(
+                // Meta control keys.
+                "META_LEFT",
+                "META_RIGHT",
+                // KeyEvents not delivered to apps.
+                "APP_SWITCH",
+                "ASSIST",
+                "BRIGHTNESS_DOWN",
+                "BRIGHTNESS_UP",
+                "HOME",
+                "KEYBOARD_BACKLIGHT_DOWN",
+                "KEYBOARD_BACKLIGHT_TOGGLE",
+                "KEYBOARD_BACKLIGHT_UP",
+                "MACRO_1",
+                "MACRO_2",
+                "MACRO_3",
+                "MACRO_4",
+                "MUTE",
+                "POWER",
+                "RECENT_APPS",
+                "SEARCH",
+                "SLEEP",
+                "SOFT_SLEEP",
+                "SYSRQ",
+                "WAKEUP",
+                "VOICE_ASSIST",
+                // Keys that cause the test activity to lose focus
+                "CALCULATOR",
+                "CALENDAR",
+                "CONTACTS",
+                "ENVELOPE",
+                "EXPLORER",
+                "MUSIC"
+                ));
 
     private Map<String, Integer> mKeyLayout;
     private Instrumentation mInstrumentation;
     private UinputDevice mUinputDevice;
-    private int mMetaState;
     private InputJsonParser mParser;
+    private WindowManager mWindowManager;
+    private boolean mIsLeanback;
+    private boolean mVolumeKeysHandledInWindowManager;
 
     private static native Map<String, Integer> nativeLoadKeyLayout(String genericKeyLayout);
 
@@ -97,13 +136,17 @@ public class InputDeviceKeyLayoutMapTest {
     public void setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         WindowUtil.waitForFocus(mActivityRule.getActivity());
-        mParser = new InputJsonParser(mInstrumentation.getTargetContext());
+        Context context = mInstrumentation.getTargetContext();
+        mParser = new InputJsonParser(context);
+        mWindowManager = context.getSystemService(WindowManager.class);
+        mIsLeanback = context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
+        mVolumeKeysHandledInWindowManager = context.getResources().getBoolean(
+                Resources.getSystem().getIdentifier("config_handleVolumeKeysInWindowManager",
+                        "bool", "android"));
         mKeyLayout = nativeLoadKeyLayout(mParser.readRegisterCommand(R.raw.Generic));
         mUinputDevice = new UinputDevice(mInstrumentation, DEVICE_ID, GOOGLE_VENDOR_ID,
                 GOOGLE_VIRTUAL_KEYBOARD_ID, InputDevice.SOURCE_KEYBOARD,
                 createDeviceRegisterCommand());
-
-        mMetaState = KeyEvent.META_NUM_LOCK_ON;
     }
 
     @After
@@ -115,49 +158,18 @@ public class InputDeviceKeyLayoutMapTest {
 
     /**
      * Get a KeyEvent from event queue or timeout.
-     * The test activity instance may change in the middle, calling getKeyEvent with the old
-     * activity instance will get timed out when test activity instance changed. Rather than
-     * doing a long wait for timeout with same activity instance, break the polling into a number
-     * of retries and each time of retry call the ActivityTestRule.getActivity for current activity
-     * instance to avoid the test failure because of polling the old activity instance get timed
-     * out consequently failed the test.
-     *
-     * @param retryCount The times to retry get KeyEvent from test activity.
      *
      * @return KeyEvent delivered to test activity, null if timeout.
      */
-    private KeyEvent getKeyEvent(int retryCount) {
-        for (int i = 0; i < retryCount; i++) {
-            KeyEvent event = mActivityRule.getActivity().getKeyEvent(POLL_EVENT_TIMEOUT_SECONDS);
-            if (event != null) {
-                return event;
-            }
-        }
-        return null;
+    private KeyEvent getKeyEvent() {
+        return mActivityRule.getActivity().getKeyEvent(POLL_EVENT_TIMEOUT_SECONDS);
     }
 
-    /**
-     * Asserts that the application received a {@link android.view.KeyEvent} with the given
-     * metadata.
-     *
-     * If other KeyEvents are received by the application prior to the expected KeyEvent, or no
-     * KeyEvents are received within a reasonable amount of time, then this will throw an
-     * {@link AssertionError}.
-     *
-     * Only action, source, keyCode and metaState are being compared.
-     */
-    private void assertReceivedKeyEvent(@NonNull KeyEvent expectedKeyEvent) {
-        if (expectedKeyEvent.getKeyCode() == KeyEvent.KEYCODE_UNKNOWN) {
-            return;
-        }
-
-        KeyEvent receivedKeyEvent = getKeyEvent(RETRY_COUNT);
-        String log = "Expected " + expectedKeyEvent + " Received " + receivedKeyEvent;
-        assertNotNull(log, receivedKeyEvent);
-        assertEquals(log, expectedKeyEvent.getAction(), receivedKeyEvent.getAction());
-        assertEquals(log, expectedKeyEvent.getSource(), receivedKeyEvent.getSource());
-        assertEquals(log, expectedKeyEvent.getKeyCode(), receivedKeyEvent.getKeyCode());
-        assertEquals(log, expectedKeyEvent.getMetaState(), receivedKeyEvent.getMetaState());
+    private void assertReceivedKeyEvent(int action, int keyCode) {
+        KeyEvent receivedKeyEvent = getKeyEvent();
+        assertNotNull("Did not receive " + KeyEvent.keyCodeToString(keyCode), receivedKeyEvent);
+        assertEquals(action, receivedKeyEvent.getAction());
+        assertEquals(keyCode, receivedKeyEvent.getKeyCode());
     }
 
     /**
@@ -202,80 +214,6 @@ public class InputDeviceKeyLayoutMapTest {
     }
 
     /**
-     * Update expected meta state for incoming key event.
-     * @param action KeyEvent.ACTION_DOWN or KeyEvent.ACTION_UP
-     * @param label Key label from key layout mapping definition
-     * @return updated meta state
-     */
-
-    private int updateMetaState(int action, String label) {
-
-        int metaState = 0;
-        int metaStateToggle = 0;
-        if (label.equals("CTRL_LEFT")) {
-            metaState = KeyEvent.META_CTRL_ON | KeyEvent.META_CTRL_LEFT_ON;
-        }
-        if (label.equals("CTRL_RIGHT")) {
-            metaState = KeyEvent.META_CTRL_ON | KeyEvent.META_CTRL_RIGHT_ON;
-        }
-        if (label.equals("SHIFT_LEFT")) {
-            metaState = KeyEvent.META_SHIFT_ON | KeyEvent.META_SHIFT_LEFT_ON;
-        }
-        if (label.equals("SHIFT_RIGHT")) {
-            metaState = KeyEvent.META_SHIFT_ON | KeyEvent.META_SHIFT_RIGHT_ON;
-        }
-        if (label.equals("ALT_LEFT")) {
-            metaState = KeyEvent.META_ALT_ON | KeyEvent.META_ALT_LEFT_ON;
-        }
-        if (label.equals("ALT_RIGHT")) {
-            metaState = KeyEvent.META_ALT_ON | KeyEvent.META_ALT_RIGHT_ON;
-        }
-        if (label.equals("CAPS_LOCK")) {
-            metaStateToggle =  KeyEvent.META_CAPS_LOCK_ON;
-        }
-        if (label.equals("NUM_LOCK")) {
-            metaStateToggle =  KeyEvent.META_NUM_LOCK_ON;
-        }
-        if (label.equals("SCROLL_LOCK")) {
-            metaStateToggle =  KeyEvent.META_SCROLL_LOCK_ON;
-        }
-
-        if (action == KeyEvent.ACTION_DOWN) {
-            mMetaState |= metaState;
-        } else if (action == KeyEvent.ACTION_UP) {
-            mMetaState &= ~metaState;
-        }
-
-        if (action == KeyEvent.ACTION_UP) {
-            if ((mMetaState & metaStateToggle) == 0) {
-                mMetaState |= metaStateToggle;
-            } else {
-                mMetaState &= ~metaStateToggle;
-            }
-        }
-        return mMetaState;
-    }
-
-    /**
-     * Generate a key event from the key label and action.
-     * @param action KeyEvent.ACTION_DOWN or KeyEvent.ACTION_UP
-     * @param label Key label from key layout mapping definition
-     * @return KeyEvent expected to receive
-     */
-    private KeyEvent generateKeyEvent(int action, String label) {
-        int source = InputDevice.SOURCE_KEYBOARD | InputDevice.SOURCE_GAMEPAD
-                | InputDevice.SOURCE_DPAD;
-        int keyCode = KeyEvent.keyCodeFromString(LABEL_PREFIX + label);
-        int metaState = updateMetaState(action, label);
-        // We will only check select fields of the KeyEvent. Times are not checked.
-        KeyEvent event = new KeyEvent(/* downTime */ 0, /* eventTime */ 0, action, keyCode,
-                /* repeat */ 0, metaState, /* deviceId */ 0, /* scanCode */ 0,
-                /* flags */ 0, source);
-
-        return event;
-    }
-
-    /**
      * Simulate pressing a key.
      * @param evKeyCode The key scan code
      */
@@ -292,67 +230,47 @@ public class InputDeviceKeyLayoutMapTest {
     }
 
     /**
-     * Check the initial global meta key state.
-     * @param label Key label from key layout mapping definition
-     * @param metaState The meta state that the meta key changes
+     * Whether one key code is a volume key code.
+     * @param keyCode The key code
      */
-    private void checkMetaKeyState(String label, int metaState) {
-        int eveKeyCode = mKeyLayout.get(label);
-        pressKey(eveKeyCode);
-        // Get 2 key events for up and down.
-        KeyEvent keyDownEvent = getKeyEvent(RETRY_COUNT);
-        assertNotNull("Didn't get KeyDown event " + label, keyDownEvent);
-        KeyEvent keyUpEvent = getKeyEvent(RETRY_COUNT);
-        assertNotNull("Didn't get KeyUp event " + label, keyUpEvent);
-
-        if (keyUpEvent.getKeyCode() == KeyEvent.keyCodeFromString(label)
-                && keyUpEvent.getAction() == KeyEvent.ACTION_UP) {
-            mMetaState &= ~metaState;
-            mMetaState |= (keyUpEvent.getMetaState() & metaState);
-        }
+    private static boolean isVolumeKey(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_VOLUME_UP
+                || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
+                || keyCode == KeyEvent.KEYCODE_VOLUME_MUTE;
     }
 
     /**
-     * Initialize NUM_LOCK, CAPS_LOCK, SCROLL_LOCK state as they are global meta state
+     * Whether one key code should be forwarded to apps.
+     * @param keyCode The key code
      */
-    private void initializeMetaKeysState() {
-        // Detect NUM_LOCK key state before test.
-        checkMetaKeyState("NUM_LOCK", KeyEvent.META_NUM_LOCK_ON);
-        // Detect CAPS_LOCK key state before test.
-        checkMetaKeyState("CAPS_LOCK", KeyEvent.META_CAPS_LOCK_ON);
-        // Detect CAPS_LOCK key state before test.
-        checkMetaKeyState("SCROLL_LOCK", KeyEvent.META_SCROLL_LOCK_ON);
+    private boolean isForwardedToApps(int keyCode) {
+        if (mWindowManager.isGlobalKey(keyCode)) {
+            return false;
+        }
+        if (isVolumeKey(keyCode) && (mIsLeanback || mVolumeKeysHandledInWindowManager)) {
+            return false;
+        }
+        return true;
     }
 
     @Test
     public void testLayoutKeyEvents() {
-        final List<String> excludedKeys = Arrays.asList(
-                // Meta control keys.
-                "CAPS_LOCK", "NUM_LOCK", "SCROLL_LOCK", "META_LEFT", "META_RIGHT", "FUNCTION",
-                // KeyEvents not delivered to apps.
-                "APP_SWITCH", "SYSRQ", "ASSIST", "VOICE_ASSIST",
-                "HOME", "POWER", "SLEEP", "WAKEUP",
-                "BRIGHTNESS_UP", "BRIGHTNESS_DOWN");
-
-        initializeMetaKeysState();
-
         for (Map.Entry<String, Integer> entry : mKeyLayout.entrySet()) {
-            String label = LABEL_PREFIX + entry.getKey();
-            int evKeyCode = entry.getValue();
-
-            if (excludedKeys.contains(label)) {
+            if (EXCLUDED_KEYS.contains(entry.getKey())) {
                 continue;
             }
 
-            assertNotEquals(KeyEvent.keyCodeFromString(label), KeyEvent.KEYCODE_UNKNOWN);
-            // Press the key
-            pressKey(evKeyCode);
-            // Generate expected key down event and verify
-            KeyEvent expectedDownEvent = generateKeyEvent(KeyEvent.ACTION_DOWN,  label);
-            assertReceivedKeyEvent(expectedDownEvent);
-            // Generate expected key up event and verify
-            KeyEvent expectedUpEvent = generateKeyEvent(KeyEvent.ACTION_UP,  label);
-            assertReceivedKeyEvent(expectedUpEvent);
+            String label = LABEL_PREFIX + entry.getKey();
+            final int evKey = entry.getValue();
+            final int keyCode = KeyEvent.keyCodeFromString(label);
+
+            if (!isForwardedToApps(keyCode)) {
+                continue;
+            }
+
+            pressKey(evKey);
+            assertReceivedKeyEvent(KeyEvent.ACTION_DOWN, keyCode);
+            assertReceivedKeyEvent(KeyEvent.ACTION_UP, keyCode);
         }
     }
 

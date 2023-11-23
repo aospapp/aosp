@@ -16,59 +16,6 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-java_plugin {
-    name: "java_api_finder",
-
-    static_libs: [
-        "java_api_used_by_mainline_module",
-    ],
-}
-
-java_library_host {
-    name: "java_api_used_by_mainline_module",
-
-    srcs: ["src/main/**/*.java"],
-
-    static_libs: [
-        "//external/error_prone:error_prone_core",
-    ],
-
-    libs: [
-        "//external/auto:auto_service_annotations",
-    ],
-
-    plugins: [
-        "//external/auto:auto_service_plugin",
-    ],
-
-    javacflags: ["-verbose"],
-}
-
-java_test_host {
-    name: "JavaApiUsedByMainlineModuleTest",
-    srcs: ["src/test/**/JavaApiUsedByMainlineModuleTest.java"],
-    java_resource_dirs: ["src/test/res"],
-    java_resources: [":java_api_used_by_mainline_module_testdata"],
-    static_libs: [
-        "java_api_used_by_mainline_module",
-        "error_prone_test_helpers",
-        "hamcrest-library",
-        "hamcrest",
-        "platform-test-annotations",
-        "junit",
-        "truth-prebuilt",
-    ],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-filegroup {
-    name: "java_api_used_by_mainline_module_testdata",
-    path: "src/test/res",
-    srcs: ["src/test/res/**/*.java"],
-}
-
 // ------------------------- AndroidLint Checkers ----------------------------------
 
 java_library_host {
@@ -79,6 +26,7 @@ java_library_host {
         "auto_service_annotations",
         "lint_api",
     ],
+    kotlincflags: ["-Xjvm-default=all"],
 }
 
 // TODO: (b/162368644) Implement these (working in gradle) Kotlin Tests to run on Soong

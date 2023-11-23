@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Thiết bị không xác định"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Không xác định"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Chưa cung cấp"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Chế độ trên máy bay"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Bạn không thể sử dụng Bluetooth trong chế độ trên máy bay."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -108,7 +109,7 @@
     <string name="no_transfers" msgid="740521199933899821">"Nhật ký truyền hiện đang trống."</string>
     <string name="transfer_clear_dlg_msg" msgid="586117930961007311">"Tất cả các mục sẽ bị xóa khỏi danh sách."</string>
     <string name="outbound_noti_title" msgid="2045560896819618979">"Chia sẻ qua Bluetooth: Tệp đã gửi"</string>
-    <string name="inbound_noti_title" msgid="3730993443609581977">"Chia sẻ qua Bluetooth: Tệp đã nhận"</string>
+    <string name="inbound_noti_title" msgid="3730993443609581977">"Chia sẻ qua Bluetooth: Đã nhận tệp"</string>
     <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{# không thành công.}other{# không thành công.}}"</string>
     <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{# thành công, %1$s}other{# thành công, %1$s}}"</string>
     <string name="transfer_menu_clear_all" msgid="3014459758656427076">"Xóa danh sách"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Âm thanh Bluetooth"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Không thể chuyển những tệp lớn hơn 4 GB"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Kết nối với Bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth đang bật ở chế độ trên máy bay"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Nếu bạn không tắt Bluetooth, thiết bị sẽ luôn bật Bluetooth vào lần tiếp theo bạn dùng chế độ trên máy bay"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth luôn bật"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Thiết bị của bạn sẽ luôn bật Bluetooth ở chế độ trên máy bay. Nếu không muốn như vậy thì bạn có thể tắt Bluetooth."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi và Bluetooth vẫn đang bật"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Thiết bị của bạn sẽ luôn bật Wi-Fi và Bluetooth ở chế độ trên máy bay. Nếu không muốn như vậy thì bạn có thể tắt Wi-Fi và Bluetooth."</string>
 </resources>

@@ -135,6 +135,9 @@ enum
     ISLICE = 2,
     SPSLICE = 3,
     SISLICE = 4,
+    EPSLICE = 5,
+    EBSLICE = 6,
+    EISLICE = 7,
     MAXSLICE_TYPE,
 };
 
@@ -144,27 +147,28 @@ enum
  *  @brief Defines the set of possible nal unit types
 ******************************************************************************
 */
-enum
+typedef enum NAL_UNIT_TYPE_T
 {
-    NAL_UNSPEC_0        = 0,
-    NAL_SLICE_NON_IDR   = 1,
-    NAL_SLICE_DPA       = 2,
-    NAL_SLICE_DPB       = 3,
-    NAL_SLICE_DPC       = 4,
-    NAL_SLICE_IDR       = 5,
-    NAL_SEI             = 6,
-    NAL_SPS             = 7,
-    NAL_PPS             = 8,
-    NAL_AUD             = 9,
-    NAL_EOSEQ           = 10,
-    NAL_EOSTR           = 11,
-    NAL_FILLER          = 12,
-    NAL_SPSE            = 13,
-    NAL_RES_18          = 14,
-    NAL_AUX_PIC         = 19,
-    NAL_RES_23          = 20,
-    NAL_UNSPEC_31       = 24,
-};
+    NAL_UNSPEC_0 = 0,
+    NAL_SLICE_NON_IDR = 1,
+    NAL_SLICE_DPA = 2,
+    NAL_SLICE_DPB = 3,
+    NAL_SLICE_DPC = 4,
+    NAL_SLICE_IDR = 5,
+    NAL_SEI = 6,
+    NAL_SPS = 7,
+    NAL_PPS = 8,
+    NAL_AUD = 9,
+    NAL_EOSEQ = 10,
+    NAL_EOSTR = 11,
+    NAL_FILLER = 12,
+    NAL_SPSE = 13,
+    NAL_PREFIX = 14,
+    NAL_SUBSET_SPS = 15,
+    NAL_AUX_PIC = 19,
+    NAL_CODED_SLICE_EXTENSION = 20,
+    NAL_UNSPEC_31 = 24,
+} NAL_UNIT_TYPE_T;
 
 /**
 ******************************************************************************
@@ -261,20 +265,30 @@ typedef enum
 */
 typedef enum
 {
-    I16x16      = 0,
-    I4x4        = 1,
-    I8x8        = 2,
-    P16x16      = 3,
-    P16x8       = 4,
-    P8x16       = 5,
-    P8x8        = 6,
-    PSKIP       = 7,
-    IPCM        = 8,
-    B16x16      = 9,
-    BSKIP       = 10,
-    BDIRECT     = 11,
+    INVALID_MB_TYPE = -1,
+    I16x16 = 0,
+    I4x4 = 1,
+    I8x8 = 2,
+    P16x16 = 3,
+    P16x8 = 4,
+    P8x16 = 5,
+    P8x8 = 6,
+    PSKIP = 7,
+    IPCM = 8,
+    B16x16 = 9,
+    BSKIP = 10,
+    BDIRECT = 11,
+    BASE_MODE = 12,
     MAX_MBTYPES,
-}MBTYPES_T;
+} MBTYPES_T;
+
+/* Pred Modes */
+enum
+{
+    BLOCK_TYPE_INTER_MB = 0,
+    BLOCK_TYPE_INTRA_MB = 1,
+    BLOCK_TYPE_SKIP_MB = 2
+};
 
 /* Prediction list */
 /* Do not change enum values */
@@ -513,9 +527,16 @@ typedef enum
 /* Number of max TU in a MB row */
 #define MAX_TU_IN_MB_ROW   ((MB_SIZE / MIN_TU_SIZE))
 
+#define MIN_TU_IN_MB_ROW ((MB_SIZE / MAX_TU_SIZE))
+
 /* Number of max PU in a CTb row */
 #define MAX_PU_IN_MB_ROW   ((MB_SIZE / MIN_PU_SIZE))
 
+#define MAX_TU_IN_MB_COL MAX_TU_IN_MB_ROW
+
+#define MIN_TU_IN_MB_COL MIN_TU_IN_MB_ROW
+
+#define MAX_PU_IN_MB_COL MAX_PU_IN_MB_ROW
 
 /* Number of max PU in a MB */
 /*****************************************************************************/
@@ -529,7 +550,11 @@ typedef enum
 #define MAX_TU_IN_MB       ((MB_SIZE / MIN_TU_SIZE) * \
                              (MB_SIZE / MIN_TU_SIZE))
 
+#define MIN_TU_IN_MB (MIN_TU_IN_MB_ROW * MIN_TU_IN_MB_COL)
 
+#define NUM_4x4_IN_8x8 4
+
+#define NUM_COEFFS_IN_MIN_TU (MIN_TU_SIZE * MIN_TU_SIZE)
 
 /**
  * Maximum transform depths
@@ -745,5 +770,26 @@ typedef enum
 #define CCV_PRIMARIES_X_LOWER_LIMIT        -5000000
 #define CCV_PRIMARIES_Y_UPPER_LIMIT        5000000
 #define CCV_PRIMARIES_Y_LOWER_LIMIT        -5000000
+
+#define RSD_MAX 255
+#define RSD_MIN -255
+#define CLIP_RSD(x) CLIP3(RSD_MIN, RSD_MAX, (x))
+
+#define SII_MAX_SUB_LAYERS 8
+#define SII_SUB_LAYER_IDX 0
+#define SHUTTER_INTERVAL_INFO_PRESENT_FLAG 1
+#define SII_TIME_SCALE 24000000
+#define FIXED_SHUTTER_INTERVAL_WITHIN_CVS_FLAG 0
+#define SII_NUM_UNITS_IN_SHUTTER_INTERVAL 480000
+#define SII_MAX_SUB_LAYERS_MINUS1 (SII_MAX_SUB_LAYERS - 1)
+#define SUB_LAYER_NUM_UNITS_IN_SHUTTER_INTERVAL_HFR 480000
+#define SUB_LAYER_NUM_UNITS_IN_SHUTTER_INTERVAL_SFR 240000
+
+/*
+ * @brief Below macros related to film grain characteristics SEI
+ */
+#define SEI_FGC_NUM_COLOUR_COMPONENTS 3
+#define SEI_FGC_MAX_NUM_MODEL_VALUES 6
+#define SEI_FGC_MAX_NUM_INTENSITY_INTERVALS 256
 
 #endif /* IH264_DEFS_H_ */

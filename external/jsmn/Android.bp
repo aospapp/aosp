@@ -50,4 +50,9 @@ cc_library_static {
     srcs: ["jsmn.c"],
     cflags: ["-Wall", "-Werror"],
     export_include_dirs: ["."],
+    min_sdk_version: "apex_inherit",
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
 }

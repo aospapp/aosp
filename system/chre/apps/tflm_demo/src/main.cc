@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-#include <chre.h>
-
 #include "chre/util/nanoapp/log.h"
+#include "chre_api/chre.h"
 #include "model.h"
 
 #define LOG_TAG "[TFLM demo]"

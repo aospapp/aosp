@@ -3,10 +3,8 @@ package org.unicode.cldr.util;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import org.unicode.cldr.test.CheckCLDR.CheckStatus.Subtype;
-import org.unicode.cldr.tool.GenerateXMB;
 import org.unicode.cldr.util.RegexLookup.Merger;
 
 import com.google.common.collect.ImmutableMap;
@@ -19,7 +17,8 @@ public class PatternPlaceholders {
         DISALLOWED("No placeholders allowed."),//
         REQUIRED("Specific number of placeholders allowed."),//
         LOCALE_DEPENDENT("Some placeholders may be omitted in certain locales"),//
-        MULTIPLE("May have multiple instances of the same placeholder, eg “{0} cats and {0} dogs”.")//
+        MULTIPLE("May have multiple instances of the same placeholder, eg “{0} cats and {0} dogs”."),//
+        OPTIONAL("Any specific placeholder is optional (and non-numeric); there must be at least one.")//
         ;
 
         private final String message;
@@ -96,6 +95,9 @@ public class PatternPlaceholders {
                     case "multiple":
                         result.status = PlaceholderStatus.MULTIPLE;
                         continue;
+                    case "optional":
+                        result.status = PlaceholderStatus.OPTIONAL;
+                        continue;
                     default:
                         int equalsPos = part.indexOf('=');
                         String id = part.substring(0, equalsPos).trim();
@@ -108,6 +110,12 @@ public class PatternPlaceholders {
                         } else {
                             example = "";
                         }
+                        // TODO Some normalization of personName namePattern placeholder ids.
+                        // Hack for now, later do something maybe using PersonNameFormatter.ModifiedField
+                        id = id.replace("-allCaps", "");
+                        id = id.replace("-initialCap", "");
+                        id = id.replace("-initial", "");
+                        id = id.replace("-monogram", "");
 
                         PlaceholderInfo old = result.data.get(id);
                         if (old != null) {
@@ -118,9 +126,6 @@ public class PatternPlaceholders {
                 }
             } catch (Exception e) {
                 throw new IllegalArgumentException("Failed to parse " + source, e);
-            }
-            for (Entry<String, PlaceholderInfo> entry : result.data.entrySet()) {
-                if (GenerateXMB.DEBUG) System.out.println(entry);
             }
             return result;
         }

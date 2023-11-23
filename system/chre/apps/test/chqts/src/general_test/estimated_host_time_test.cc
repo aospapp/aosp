@@ -20,7 +20,7 @@
 #include <shared/nano_string.h>
 #include <shared/send_message.h>
 
-#include <chre.h>
+#include "chre_api/chre.h"
 
 namespace general_test {
 
@@ -44,39 +44,17 @@ void EstimatedHostTimeTest::setUp(uint32_t /* messageSize */,
   }
 }
 
-void EstimatedHostTimeTest::handleEvent(uint32_t senderInstanceId,
+void EstimatedHostTimeTest::handleEvent(uint32_t /* senderInstanceId */,
                                         uint16_t eventType,
-                                        const void *eventData) {
+                                        const void * /* eventData */) {
   if (eventType == CHRE_EVENT_TIMER) {
     verifyIncreasingTime();
   } else {
-    // Verify application processor time is within reason
+    // Send the estimated host time to the AP for validation.
     uint64_t currentHostTime = chreGetEstimatedHostTime();
-
-    // TODO: Estimate message RTT to allow stricter accuracy check
-    constexpr uint64_t timeDelta = 50000000;  // 50 ms
-
-    uint64_t givenHostTime;
-    const void *message = getMessageDataFromHostEvent(
-        senderInstanceId, eventType, eventData,
-        nanoapp_testing::MessageType::kContinue, sizeof(givenHostTime));
-
-    nanoapp_testing::memcpy(&givenHostTime, message, sizeof(givenHostTime));
-    givenHostTime = nanoapp_testing::littleEndianToHost(givenHostTime);
-
-    if (currentHostTime >= givenHostTime) {
-      if ((currentHostTime - givenHostTime) <= timeDelta) {
-        nanoapp_testing::sendSuccessToHost();
-      } else {
-        nanoapp_testing::sendFatalFailureToHost(
-            "Current time is too far behind of host time");
-      }
-    } else if ((givenHostTime - currentHostTime) <= timeDelta) {
-      nanoapp_testing::sendSuccessToHost();
-    } else {
-      nanoapp_testing::sendFatalFailureToHost(
-          "Current time is too far ahead of host time");
-    }
+    nanoapp_testing::sendMessageToHost(nanoapp_testing::MessageType::kContinue,
+                                       &currentHostTime,
+                                       sizeof(currentHostTime));
   }
 }
 

@@ -1,10 +1,11 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
-load("@rules_rust//rust:rust.bzl", "rust_binary")
+load("@rules_rust//rust:defs.bzl", "rust_binary")
 load("//tools/bazel:rust_cxx_bridge.bzl", "rust_cxx_bridge")
 
 rust_binary(
     name = "demo",
     srcs = glob(["src/**/*.rs"]),
+    edition = "2018",
     deps = [
         ":blobstore-sys",
         ":bridge",

@@ -18,6 +18,10 @@
      package="com.android.cts.dexmetadata.splitapp"
      android:isolatedSplits="true">
 
+    <!--
+      The application is intentionally set to debuggable because the shell can
+      only snapshot the profiles of debuggable apps on user builds.
+    -->
     <application android:debuggable="true">
         <activity android:name=".BaseActivity"
              android:exported="true">

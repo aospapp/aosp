@@ -16,8 +16,8 @@
 #define LOG_TAG "BtGdModule"
 
 #include "module.h"
+
 #include "common/init_flags.h"
-#include "dumpsys/init_flags.h"
 #include "os/wakelock_manager.h"
 
 using ::bluetooth::os::Handler;
@@ -82,21 +82,21 @@ Module* ModuleRegistry::Start(const ModuleFactory* module, Thread* thread) {
     return started_instance->second;
   }
 
-  LOG_DEBUG("Constructing next module");
+  LOG_INFO("Constructing next module");
   Module* instance = module->ctor_();
-  last_instance_ = "starting " + instance->ToString();
   set_registry_and_handler(instance, thread);
 
-  LOG_DEBUG("Starting dependencies of %s", instance->ToString().c_str());
+  LOG_INFO("Starting dependencies of %s", instance->ToString().c_str());
   instance->ListDependencies(&instance->dependencies_);
   Start(&instance->dependencies_, thread);
 
-  LOG_DEBUG("Finished starting dependencies and calling Start() of %s", instance->ToString().c_str());
+  LOG_INFO("Finished starting dependencies and calling Start() of %s", instance->ToString().c_str());
 
+  last_instance_ = "starting " + instance->ToString();
   instance->Start();
   start_order_.push_back(module);
   started_modules_[module] = instance;
-  LOG_DEBUG("Started %s", instance->ToString().c_str());
+  LOG_INFO("Started %s", instance->ToString().c_str());
   return instance;
 }
 
@@ -140,7 +140,18 @@ void ModuleDumper::DumpState(std::string* output) const {
   flatbuffers::FlatBufferBuilder builder(1024);
   auto title = builder.CreateString(title_);
 
-  auto init_flags_offset = dumpsys::InitFlags::Dump(&builder);
+  common::InitFlagsDataBuilder init_flags_builder(builder);
+  init_flags_builder.add_title(builder.CreateString("----- Init Flags -----"));
+  std::vector<flatbuffers::Offset<common::InitFlagValue>> flags;
+  for (const auto& flag : common::init_flags::dump()) {
+    flags.push_back(common::CreateInitFlagValue(
+        builder,
+        builder.CreateString(std::string(flag.flag)),
+        builder.CreateString(std::string(flag.value))));
+  }
+  init_flags_builder.add_values(builder.CreateVector(flags));
+  auto init_flags_offset = init_flags_builder.Finish();
+
   auto wakelock_offset = WakelockManager::Get().GetDumpsysData(&builder);
 
   std::queue<DumpsysDataFinisher> queue;

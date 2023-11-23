@@ -21,6 +21,8 @@ import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.os.PersistableBundle;
+import android.uwb.util.PersistableBundleUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,9 +36,12 @@ import java.util.Objects;
 @SystemApi
 public final class RangingReport implements Parcelable {
     private final List<RangingMeasurement> mRangingMeasurements;
+    private final PersistableBundle mRangingReportMetadata;
 
-    private RangingReport(@NonNull List<RangingMeasurement> rangingMeasurements) {
+    private RangingReport(@NonNull List<RangingMeasurement> rangingMeasurements,
+            PersistableBundle rangingReportMetadata) {
         mRangingMeasurements = rangingMeasurements;
+        mRangingReportMetadata = rangingReportMetadata;
     }
 
     /**
@@ -55,6 +60,16 @@ public final class RangingReport implements Parcelable {
     }
 
     /**
+     * Gets ranging report metadata passed by vendor
+     *
+     * @return vendor data for ranging report
+     */
+    @NonNull
+    public PersistableBundle getRangingReportMetadata() {
+        return mRangingReportMetadata;
+    }
+
+    /**
      * @hide
      */
     @Override
@@ -65,9 +80,10 @@ public final class RangingReport implements Parcelable {
 
         if (obj instanceof RangingReport) {
             RangingReport other = (RangingReport) obj;
-            return mRangingMeasurements.equals(other.getMeasurements());
+            return mRangingMeasurements.equals(other.getMeasurements())
+                    && PersistableBundleUtils.isEqual(mRangingReportMetadata,
+                    other.getRangingReportMetadata());
         }
-
         return false;
     }
 
@@ -76,7 +92,8 @@ public final class RangingReport implements Parcelable {
      */
     @Override
     public int hashCode() {
-        return Objects.hash(mRangingMeasurements);
+        return Objects.hash(mRangingMeasurements, PersistableBundleUtils
+                .getHashCode(mRangingReportMetadata));
     }
 
     @Override
@@ -87,6 +104,7 @@ public final class RangingReport implements Parcelable {
     @Override
     public void writeToParcel(@NonNull Parcel dest, int flags) {
         dest.writeTypedList(mRangingMeasurements);
+        dest.writePersistableBundle(mRangingReportMetadata);
     }
 
     public static final @android.annotation.NonNull Creator<RangingReport> CREATOR =
@@ -95,6 +113,9 @@ public final class RangingReport implements Parcelable {
                 public RangingReport createFromParcel(Parcel in) {
                     Builder builder = new Builder();
                     builder.addMeasurements(in.createTypedArrayList(RangingMeasurement.CREATOR));
+                    PersistableBundle metadata =
+                            in.readPersistableBundle(getClass().getClassLoader());
+                    if (metadata != null) builder.addRangingReportMetadata(metadata);
                     return builder.build();
                 }
 
@@ -109,6 +130,7 @@ public final class RangingReport implements Parcelable {
     public String toString() {
         return "RangingReport["
                 + "measurements: " + mRangingMeasurements
+                + ", ranging report measurement: " + mRangingReportMetadata
                 + "]";
     }
 
@@ -117,6 +139,7 @@ public final class RangingReport implements Parcelable {
      */
     public static final class Builder {
         List<RangingMeasurement> mMeasurements = new ArrayList<>();
+        private PersistableBundle mRangingReportMetadata = new PersistableBundle();
 
         /**
          * Add a single {@link RangingMeasurement}
@@ -141,6 +164,22 @@ public final class RangingReport implements Parcelable {
         }
 
         /**
+         * Add ranging report metadata
+         *
+         * @param rangingReportMetadata vendor data per ranging report
+         *
+         * @throws IllegalStateException if rangingReportMetadata is null
+         */
+        @NonNull
+        public Builder addRangingReportMetadata(@NonNull PersistableBundle rangingReportMetadata) {
+            if (rangingReportMetadata == null) {
+                throw new IllegalStateException("Expected non-null rangingReportMetadata");
+            }
+            mRangingReportMetadata = rangingReportMetadata;
+            return this;
+        }
+
+        /**
          * Build the {@link RangingReport} object
          *
          * @throws IllegalStateException if measurements are not in monotonically increasing order
@@ -161,7 +200,7 @@ public final class RangingReport implements Parcelable {
                 }
                 prevMeasurement = curMeasurement;
             }
-            return new RangingReport(mMeasurements);
+            return new RangingReport(mMeasurements, mRangingReportMetadata);
         }
     }
 }

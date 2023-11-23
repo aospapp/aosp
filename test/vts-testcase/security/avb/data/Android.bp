@@ -36,3 +36,10 @@ filegroup {
         "qcar-gsi.avbpubkey",
     ],
 }
+
+filegroup {
+    name: "kernel_version_matrix.textproto",
+    srcs: [
+        "kernel_version_matrix.textproto"
+    ],
+}

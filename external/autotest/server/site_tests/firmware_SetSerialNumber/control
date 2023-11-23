@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_SetSerialNumber"
 PURPOSE = "Servo based test to set serial number in firmware."
 CRITERIA = """
@@ -14,11 +14,13 @@ This test will fail if after setting the serial number in firmware:
 * Flash write protect is not enabled
 """
 ATTRIBUTES = ""
+DEPENDENCIES = "servo_state:WORKING"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
-JOB_RETRIES = 1
+JOB_RETRIES = 0
+PY_VERSION = 3
 
 DOC = """
 Test that setting the serial number in firmware during an onsite RMA works.

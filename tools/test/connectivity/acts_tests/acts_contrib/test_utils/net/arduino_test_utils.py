@@ -14,13 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-import time
-import pprint
-
-from enum import IntEnum
-from queue import Empty
-
 from acts import asserts
 from acts import signals
 from acts import utils
@@ -34,6 +27,7 @@ CONNECT_WIFI = "/arduino/connect_wifi/connect_wifi.ino"
 DISCONNECT_WIFI = "/arduino/disconnect_wifi/disconnect_wifi.ino"
 SSID = wutils.WifiEnums.SSID_KEY
 PWD = wutils.WifiEnums.PWD_KEY
+
 
 def connect_wifi(wd, network=None):
     """Connect wifi on arduino wifi dongle
@@ -52,6 +46,7 @@ def connect_wifi(wd, network=None):
     asserts.assert_true(wifi_status, "Failed to connect to %s" % network)
     ping_status = wd.ping_status()
     asserts.assert_true(ping_status, "Failed to connect to internet")
+
 
 def disconnect_wifi(wd):
     """Disconnect wifi on arduino wifi dongle

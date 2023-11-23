@@ -165,7 +165,9 @@ class JavaVMExt : public JavaVM {
 
   void SweepJniWeakGlobals(IsMarkedVisitor* visitor)
       REQUIRES_SHARED(Locks::mutator_lock_)
-      REQUIRES(!Locks::jni_weak_globals_lock_);
+      REQUIRES(!Locks::jni_weak_globals_lock_) {
+    weak_globals_.SweepJniWeakGlobals(visitor);
+  }
 
   ObjPtr<mirror::Object> DecodeGlobal(IndirectRef ref)
       REQUIRES_SHARED(Locks::mutator_lock_);
@@ -181,6 +183,11 @@ class JavaVMExt : public JavaVM {
   ObjPtr<mirror::Object> DecodeWeakGlobalLocked(Thread* self, IndirectRef ref)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(Locks::jni_weak_globals_lock_);
+
+  // Decode weak global as strong. Use only if the target object is known to be alive.
+  ObjPtr<mirror::Object> DecodeWeakGlobalAsStrong(IndirectRef ref)
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES(!Locks::jni_weak_globals_lock_);
 
   // Like DecodeWeakGlobal() but to be used only during a runtime shutdown where self may be
   // null.
@@ -218,9 +225,12 @@ class JavaVMExt : public JavaVM {
   static jstring GetLibrarySearchPath(JNIEnv* env, jobject class_loader);
 
  private:
-  // The constructor should not be called directly. It may leave the object in
-  // an erroneous state, and the result needs to be checked.
-  JavaVMExt(Runtime* runtime, const RuntimeArgumentMap& runtime_options, std::string* error_msg);
+  // The constructor should not be called directly. Use `Create()` that initializes
+  // the new `JavaVMExt` object by calling `Initialize()`.
+  JavaVMExt(Runtime* runtime, const RuntimeArgumentMap& runtime_options);
+
+  // Initialize the `JavaVMExt` object.
+  bool Initialize(std::string* error_msg);
 
   // Return true if self can currently access weak globals.
   bool MayAccessWeakGlobals(Thread* self) const REQUIRES_SHARED(Locks::mutator_lock_);
@@ -248,7 +258,6 @@ class JavaVMExt : public JavaVM {
   // Extra diagnostics.
   const std::string trace_;
 
-  // Not guarded by globals_lock since we sometimes use SynchronizedGet in Thread::DecodeJObject.
   IndirectReferenceTable globals_;
 
   // No lock annotation since UnloadNativeLibraries is called on libraries_ but locks the
@@ -260,10 +269,8 @@ class JavaVMExt : public JavaVM {
 
   // Since weak_globals_ contain weak roots, be careful not to
   // directly access the object references in it. Use Get() with the
-  // read barrier enabled.
-  // Not guarded by weak_globals_lock since we may use SynchronizedGet in DecodeWeakGlobal.
+  // read barrier enabled or disabled based on the use case.
   IndirectReferenceTable weak_globals_;
-  // Not guarded by weak_globals_lock since we may use SynchronizedGet in DecodeWeakGlobal.
   Atomic<bool> allow_accessing_weak_globals_;
   ConditionVariable weak_globals_add_condition_ GUARDED_BY(Locks::jni_weak_globals_lock_);
 

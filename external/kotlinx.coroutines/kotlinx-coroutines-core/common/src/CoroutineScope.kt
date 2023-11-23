@@ -12,7 +12,7 @@ import kotlin.coroutines.*
 import kotlin.coroutines.intrinsics.*
 
 /**
- * Defines a scope for new coroutines. Every **coroutine builder** (like [launch], [async], etc)
+ * Defines a scope for new coroutines. Every **coroutine builder** (like [launch], [async], etc.)
  * is an extension on [CoroutineScope] and inherits its [coroutineContext][CoroutineScope.coroutineContext]
  * to automatically propagate all its elements and cancellation.
  *
@@ -28,8 +28,8 @@ import kotlin.coroutines.intrinsics.*
  * By convention, the [context of a scope][CoroutineScope.coroutineContext] should contain an instance of a
  * [job][Job] to enforce the discipline of **structured concurrency** with propagation of cancellation.
  *
- * Every coroutine builder (like [launch], [async], etc)
- * and every scoping function (like [coroutineScope], [withContext], etc) provides _its own_ scope
+ * Every coroutine builder (like [launch], [async], and others)
+ * and every scoping function (like [coroutineScope] and [withContext]) provides _its own_ scope
  * with its own [Job] instance into the inner block of code it runs.
  * By convention, they all wait for all the coroutines inside their block to complete before completing themselves,
  * thus enforcing the structured concurrency. See [Job] documentation for more details.
@@ -42,14 +42,14 @@ import kotlin.coroutines.intrinsics.*
  * ### Custom usage
  *
  * `CoroutineScope` should be declared as a property on entities with a well-defined lifecycle that are
- * responsible for launching children coroutines. The corresponding instance of `CoroutineScope` shall be created
- * with either `CoroutineScope()` or `MainScope()` functions. The difference between them is only in the
- * [CoroutineDispatcher]:
+ * responsible for launching child coroutines. The corresponding instance of `CoroutineScope` shall be created
+ * with either `CoroutineScope()` or `MainScope()`:
  *
- * * `CoroutineScope()` uses [Dispatchers.Default] for its coroutines.
- * * `MainScope()` uses [Dispatchers.Main] for its coroutines.
+ * * `CoroutineScope()` uses the [context][CoroutineContext] provided to it as a parameter for its coroutines 
+ *   and adds a [Job] if one is not provided as part of the context.
+ * * `MainScope()` uses [Dispatchers.Main] for its coroutines and has a [SupervisorJob].
  *
- * **The key part of custom usage of `CustomScope` is cancelling it at the end of the lifecycle.**
+ * **The key part of custom usage of `CoroutineScope` is cancelling it at the end of the lifecycle.**
  * The [CoroutineScope.cancel] extension function shall be used when the entity that was launching coroutines
  * is no longer needed. It cancels all the coroutines that might still be running on behalf of it.
  *
@@ -178,7 +178,7 @@ public val CoroutineScope.isActive: Boolean
  * ```
  * // concurrently load configuration and data
  * suspend fun loadConfigurationAndData() {
- *     coroutinesScope {
+ *     coroutineScope {
  *         launch { loadConfiguration() }
  *         launch { loadData() }
  *     }
@@ -269,8 +269,8 @@ public suspend fun <R> coroutineScope(block: suspend CoroutineScope.() -> R): R 
  * Creates a [CoroutineScope] that wraps the given coroutine [context].
  *
  * If the given [context] does not contain a [Job] element, then a default `Job()` is created.
- * This way, cancellation or failure of any child coroutine in this scope cancels all the other children,
- * just like inside [coroutineScope] block.
+ * This way, failure of any child coroutine in this scope or [cancellation][CoroutineScope.cancel] of the scope itself
+ * cancels all the scope's children, just like inside [coroutineScope] block.
  */
 @Suppress("FunctionName")
 public fun CoroutineScope(context: CoroutineContext): CoroutineScope =

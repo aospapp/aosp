@@ -137,6 +137,7 @@ final class CarVolumeGroupMuting {
         writer.decreaseIndent();
     }
 
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     private void dumpCarMutingInfo(IndentingPrintWriter writer, MutingInfo info) {
         writer.printf("Zone ID: %d\n", info.zoneId);
 
@@ -151,6 +152,7 @@ final class CarVolumeGroupMuting {
         writer.decreaseIndent();
     }
 
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     private static void dumpDeviceAddresses(IndentingPrintWriter writer, String[] devices) {
         for (int index = 0; index < devices.length; index++) {
             writer.printf("%d %s\n", index, devices[index]);
@@ -165,7 +167,7 @@ final class CarVolumeGroupMuting {
 
         List<String> mutedDevices = new ArrayList<>();
         List<String> unMutedDevices = new ArrayList<>();
-        CarVolumeGroup[] groups = audioZone.getVolumeGroups();
+        CarVolumeGroup[] groups = audioZone.getCurrentVolumeGroups();
 
         for (int groupIndex = 0; groupIndex < groups.length; groupIndex++) {
             CarVolumeGroup group = groups[groupIndex];

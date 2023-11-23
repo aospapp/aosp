@@ -1,0 +1,6 @@
+# b/185723618
+dontaudit dumpstate hal_power_stats_vendor_service:service_manager { find };
+# b/237491813
+dontaudit dumpstate app_zygote:process { signal };
+# b/277155245
+dontaudit dumpstate default_android_service:service_manager { find };

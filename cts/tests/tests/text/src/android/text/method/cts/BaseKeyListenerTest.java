@@ -23,18 +23,19 @@ import static org.junit.Assert.assertTrue;
 import android.os.SystemClock;
 import android.text.Editable;
 import android.text.InputType;
+import android.text.Layout;
 import android.text.Selection;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
+import android.text.StaticLayout;
 import android.text.method.BaseKeyListener;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
+import android.widget.TextView;
 import android.widget.TextView.BufferType;
 
 import androidx.test.filters.MediumTest;
 import androidx.test.runner.AndroidJUnit4;
-
-import com.android.compatibility.common.util.CtsKeyEventUtil;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -115,29 +116,52 @@ public class BaseKeyListenerTest extends KeyListenerTestCase {
         verifyBackspace(KeyEvent.META_SHIFT_ON | KeyEvent.META_SHIFT_LEFT_ON);
     }
 
+    private static final String LONG_TEXT_FOR_ALT_BACKSPACE = "Hello, world. This is Android. Alt"
+            + " Backspace should work as removing text from head of the text until cursor position."
+            + " Alt ForwardDelete should work as removing text from cursor position until end of"
+            + " the text.";
+
     @Test
     public void testBackspace_withAlt() throws Throwable {
         final BaseKeyListener mockBaseKeyListener = new MockBaseKeyListener();
-        Editable content = Editable.Factory.getInstance().newEditable(TEST_STRING);
 
-        // Delete the entire line with ALT + DEL, even if we're at the head...
-        prepTextViewSync(content, mockBaseKeyListener, false, 0, 0);
-        executeAltBackspace(content, mockBaseKeyListener);
-        assertEquals("", content.toString());
 
-        // ...or the tail...
-        content = Editable.Factory.getInstance().newEditable(TEST_STRING);
-        final int end = TEST_STRING.length();
-        prepTextViewSync(content, mockBaseKeyListener, false, end, end);
-        executeAltBackspace(content, mockBaseKeyListener);
-        assertEquals("", content.toString());
+        Editable content = Editable.Factory.getInstance().newEditable(LONG_TEXT_FOR_ALT_BACKSPACE);
 
-        // ...or somewhere in the middle.
-        content = Editable.Factory.getInstance().newEditable(TEST_STRING);
-        final int middle = end / 2;
-        prepTextViewSync(content, mockBaseKeyListener, false, middle, middle);
+        int middleIndex = LONG_TEXT_FOR_ALT_BACKSPACE.length() / 2;
+        prepTextViewWithLinesSync(content, mockBaseKeyListener, false, middleIndex, middleIndex, 3);
+
+        Layout layout = mTextView.getLayout();
+        int lineIndex = layout.getLineForOffset(middleIndex);
+        int lineStartOffset = layout.getLineStart(lineIndex);
+
         executeAltBackspace(content, mockBaseKeyListener);
-        assertEquals("", content.toString());
+
+        String expectedText = LONG_TEXT_FOR_ALT_BACKSPACE.substring(0, lineStartOffset)
+                + LONG_TEXT_FOR_ALT_BACKSPACE.substring(middleIndex);
+
+        assertEquals(expectedText, content.toString());
+    }
+
+    @Test
+    public void testForwardDelete_withAlt() throws Throwable {
+        final BaseKeyListener mockBaseKeyListener = new MockBaseKeyListener();
+
+        Editable content = Editable.Factory.getInstance().newEditable(LONG_TEXT_FOR_ALT_BACKSPACE);
+
+        int middleIndex = LONG_TEXT_FOR_ALT_BACKSPACE.length() / 2;
+        prepTextViewWithLinesSync(content, mockBaseKeyListener, false, middleIndex, middleIndex, 3);
+
+        Layout layout = mTextView.getLayout();
+        int lineIndex = layout.getLineForOffset(middleIndex);
+        int lineEndOffset = layout.getLineEnd(lineIndex);
+
+        executeAltForwardDelete(content, mockBaseKeyListener);
+
+        String expectedText = LONG_TEXT_FOR_ALT_BACKSPACE.substring(0, middleIndex)
+                + LONG_TEXT_FOR_ALT_BACKSPACE.substring(lineEndOffset);
+
+        assertEquals(expectedText, content.toString());
     }
 
     @Test
@@ -146,29 +170,27 @@ public class BaseKeyListenerTest extends KeyListenerTestCase {
 
         // Delete the first character '1'
         prepTextViewSync(TEST_STRING, mockBaseKeyListener, true, 1, 1);
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mTextView, KeyEvent.KEYCODE_DEL);
+        sendKeys(mTextView, KeyEvent.KEYCODE_DEL);
         assertEquals("23456", mTextView.getText().toString());
 
         // Delete character '2' and '3'
         prepTextViewSync(TEST_STRING, mockBaseKeyListener, true, 1, 3);
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mTextView, KeyEvent.KEYCODE_DEL);
+        sendKeys(mTextView, KeyEvent.KEYCODE_DEL);
         assertEquals("1456", mTextView.getText().toString());
 
-        // Delete everything on the line the cursor is on.
-        prepTextViewSync(TEST_STRING, mockBaseKeyListener, true, 0, 0);
-        CtsKeyEventUtil.sendKeyWhileHoldingModifier(
-                mInstrumentation, mTextView, KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_ALT_LEFT);
-        assertEquals("", mTextView.getText().toString());
+        // Alt+DEL deletes everything preceding from the cursor.
+        prepTextViewSync(TEST_STRING, mockBaseKeyListener, true, 3, 3);
+        sendKeyWhileHoldingModifier(mTextView, KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_ALT_LEFT);
+        assertEquals("456", mTextView.getText().toString());
 
         // ALT+DEL deletes the selection only.
         prepTextViewSync(TEST_STRING, mockBaseKeyListener, true, 2, 4);
-        CtsKeyEventUtil.sendKeyWhileHoldingModifier(
-                mInstrumentation, mTextView, KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_ALT_LEFT);
+        sendKeyWhileHoldingModifier(mTextView, KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_ALT_LEFT);
         assertEquals("1256", mTextView.getText().toString());
 
         // DEL key does not take effect when TextView does not have BaseKeyListener.
         prepTextViewSync(TEST_STRING, null, true, 1, 1);
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mTextView, KeyEvent.KEYCODE_DEL);
+        sendKeys(mTextView, KeyEvent.KEYCODE_DEL);
         assertEquals(TEST_STRING, mTextView.getText().toString());
     }
 
@@ -521,19 +543,19 @@ public class BaseKeyListenerTest extends KeyListenerTestCase {
 
         // press '0' key.
         prepTextViewSync(TEST_STRING, mockBaseKeyListener, true, 0, 0);
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mTextView, KeyEvent.KEYCODE_0);
+        sendKeys(mTextView, KeyEvent.KEYCODE_0);
         assertEquals("123456", mTextView.getText().toString());
 
         // delete character '2'
         prepTextViewSync(mTextView.getText(), mockBaseKeyListener, true, 1, 2);
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mTextView, KeyEvent.KEYCODE_DEL);
+        sendKeys(mTextView, KeyEvent.KEYCODE_DEL);
         assertEquals("13456", mTextView.getText().toString());
 
         // test ACTION_MULTIPLE KEYCODE_UNKNOWN key event.
         KeyEvent event = new KeyEvent(SystemClock.uptimeMillis(), "abcd",
                 KeyCharacterMap.BUILT_IN_KEYBOARD, 0);
         prepTextViewSync(mTextView.getText(), mockBaseKeyListener, true, 2, 2);
-        CtsKeyEventUtil.sendKey(mInstrumentation, mTextView, event);
+        sendKey(mTextView, event);
         mInstrumentation.waitForIdleSync();
         // the text of TextView is never changed, onKeyOther never works.
 //        assertEquals("13abcd456", mTextView.getText().toString());
@@ -569,6 +591,12 @@ public class BaseKeyListenerTest extends KeyListenerTestCase {
         listener.backspace(mTextView, content, KeyEvent.KEYCODE_DEL, delKeyEvent);
     }
 
+    private void executeAltForwardDelete(Editable content, BaseKeyListener listener) {
+        final KeyEvent delKeyEvent = getKey(KeyEvent.KEYCODE_FORWARD_DEL,
+                KeyEvent.META_ALT_ON | KeyEvent.META_ALT_LEFT_ON);
+        listener.forwardDelete(mTextView, content, KeyEvent.KEYCODE_FORWARD_DEL, delKeyEvent);
+    }
+
     private void executeCtrlBackspace(Editable content, BaseKeyListener listener) {
         final KeyEvent delKeyEvent = getKey(KeyEvent.KEYCODE_DEL,
                 KeyEvent.META_CTRL_ON | KeyEvent.META_CTRL_LEFT_ON);
@@ -589,6 +617,39 @@ public class BaseKeyListenerTest extends KeyListenerTestCase {
             final boolean selectInTextView, final int selectionStart, final int selectionEnd)
                     throws Throwable {
         mActivityRule.runOnUiThread(() -> {
+            mTextView.setText(content, BufferType.EDITABLE);
+            mTextView.setKeyListener(keyListener);
+            Selection.setSelection(
+                    selectInTextView ? mTextView.getText() : (Spannable) content,
+                    selectionStart, selectionEnd);
+        });
+        mInstrumentation.waitForIdleSync();
+        assertTrue(mTextView.hasWindowFocus());
+    }
+
+    private static int getLineCount(CharSequence content, TextView tv) {
+        return StaticLayout.Builder.obtain(content, 0, content.length(), tv.getPaint(),
+                        tv.getWidth())
+                .setBreakStrategy(tv.getBreakStrategy())
+                .setHyphenationFrequency(tv.getHyphenationFrequency())
+                .build().getLineCount();
+    }
+
+    private void prepTextViewWithLinesSync(final CharSequence content,
+            final BaseKeyListener keyListener, final boolean selectInTextView,
+            final int selectionStart, final int selectionEnd, int lineCount)
+            throws Throwable {
+        mActivityRule.runOnUiThread(() -> {
+
+            if (getLineCount(content, mTextView) < lineCount) {
+                for (float textSize = mTextView.getTextSize(); textSize < 1024f; textSize += 5f) {
+                    mTextView.setTextSize(textSize);
+                    if (getLineCount(content, mTextView) >= lineCount) {
+                        break;
+                    }
+                }
+            }
+
             mTextView.setText(content, BufferType.EDITABLE);
             mTextView.setKeyListener(keyListener);
             Selection.setSelection(

@@ -18,11 +18,21 @@
 
 #include "chre/util/time.h"
 
+extern "C" {
+
+#include "uTimetick.h"
+
+}  // extern "C"
+
 namespace chre {
 
-uint64_t getNanosecondsFromQTimerTicks(uint64_t ticks) {
-  constexpr uint64_t kClockFreq = 19200000;  // 19.2MHz QTimer clock
+namespace {
 
+const uint64_t kClockFreq = uTimetick_CvtToTicks(1, T_SEC);
+
+}  // anonymous namespace
+
+uint64_t getNanosecondsFromQTimerTicks(uint64_t ticks) {
   uint64_t nsec = 0;
   if (ticks >= kClockFreq) {
     uint64_t seconds = (ticks / kClockFreq);

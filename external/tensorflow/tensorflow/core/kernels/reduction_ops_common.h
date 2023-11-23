@@ -60,7 +60,6 @@ struct Constants {
   }
 };
 
-#if defined(EIGEN_HAS_INDEX_LIST)
 struct ConstantsBase {
   const Eigen::IndexList<Eigen::type2index<0>> kZero;
   const Eigen::IndexList<Eigen::type2index<1>> kOne;
@@ -68,7 +67,6 @@ struct ConstantsBase {
 };
 template <>
 struct Constants<CPUDevice> : ConstantsBase {};
-#endif  // EIGEN_HAS_INDEX_LIST
 
 class ReductionHelper {
  public:
@@ -120,9 +118,10 @@ class ReductionHelper {
 
  private:
   bool reduce_first_axis_;  // True if need to reduce the 0-th dimension.
-  gtl::InlinedVector<int64, 4> data_reshape_;  // Reshape data before reduction.
-  gtl::InlinedVector<int64, 4> out_shape_;     // The final output shape.
-  gtl::InlinedVector<int64, 4> out_reshape_;   // Reshape output for reduction.
+  gtl::InlinedVector<int64_t, 4>
+      data_reshape_;                          // Reshape data before reduction.
+  gtl::InlinedVector<int64_t, 4> out_shape_;  // The final output shape.
+  gtl::InlinedVector<int64_t, 4> out_reshape_;  // Reshape output for reduction.
 };
 
 // For operations where the output is a reduction function along some

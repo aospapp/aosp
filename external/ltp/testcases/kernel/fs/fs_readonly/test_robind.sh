@@ -192,13 +192,15 @@ shift $((OPTIND-1))
 
 setup $*
 
-# Executes the tests for differnt FS's
+# Executes the tests for different FS's
 for fstype in $FSTYPES; do
 	if [ "$fstype" = "reiserfs" ]; then
 		opts="-f --journal-size 513 -q"
 	elif echo "$fstype" | grep -q "ext"; then
 		opts="-F"
 	elif [ "$fstype" = "xfs" ]; then
+		opts="-f"
+	elif [ "$fstype" = "f2fs" ]; then
 		opts="-f"
 	elif [ "$fstype" = "btrfs" ]; then
 		opts="-f"

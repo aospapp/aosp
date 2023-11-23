@@ -43,6 +43,11 @@ public class ServiceEntitlementException extends Exception {
      * synchronization" procedure as defined in RFC 4187.
      */
     public static final int ERROR_EAP_AKA_SYNCHRONIZATION_FAILURE = 21;
+    /**
+     * EAP-AKA failure that happens when the client fails to authenticate within the maximum number
+     * of attempts
+     */
+    public static final int ERROR_EAP_AKA_FAILURE = 21;
 
     // HTTP related failures
     /**

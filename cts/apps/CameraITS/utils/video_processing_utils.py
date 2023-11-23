@@ -18,8 +18,13 @@
 # only if supported by the camera device.
 import logging
 import os.path
+import re
 import subprocess
+import error_util
 
+
+HR_TO_SEC = 3600
+MIN_TO_SEC = 60
 
 ITS_SUPPORTED_QUALITIES = (
     'HIGH',
@@ -33,7 +38,84 @@ ITS_SUPPORTED_QUALITIES = (
     'LOW',
     'VGA'
 )
-QCIF_SIZE = '176x144'
+
+LOW_RESOLUTION_SIZES = (
+    '176x144',
+    '192x144',
+    '352x288',
+    '384x288',
+    '320x240',
+)
+
+LOWEST_RES_TESTED_AREA = 640*360
+
+
+VIDEO_QUALITY_SIZE = {
+    # '480P', '1080P', HIGH' and 'LOW' are not included as they are DUT-dependent
+    '2160P': '3840x2160',
+    '720P': '1280x720',
+    'VGA': '640x480',
+    'CIF': '352x288',
+    'QVGA': '320x240',
+    'QCIF': '176x144',
+}
+
+
+def get_lowest_preview_video_size(
+    supported_preview_sizes, supported_video_qualities, min_area):
+  """Returns the common, smallest size above minimum in preview and video.
+
+  Args:
+    supported_preview_sizes: str; preview size (ex. '1920x1080')
+    supported_video_qualities: str; video recording quality and id pair
+    (ex. '480P:4', '720P:5'')
+    min_area: int; filter to eliminate smaller sizes (ex. 640*480)
+  Returns:
+    smallest_common_size: str; smallest, common size between preview and video
+    smallest_common_video_quality: str; video recording quality such as 480P
+  """
+
+  # Make dictionary on video quality and size according to compatibility
+  supported_video_size_to_quality = {}
+  for quality in supported_video_qualities:
+    video_quality = quality.split(':')[0]
+    if video_quality in VIDEO_QUALITY_SIZE:
+      video_size = VIDEO_QUALITY_SIZE[video_quality]
+      supported_video_size_to_quality[video_size] = video_quality
+  logging.debug(
+      'Supported video size to quality: %s', supported_video_size_to_quality)
+
+  # Use areas of video sizes to find the smallest, common size
+  size_to_area = lambda s: int(s.split('x')[0])*int(s.split('x')[1])
+  smallest_common_size = ''
+  smallest_area = float('inf')
+  for size in supported_preview_sizes:
+    if size in supported_video_size_to_quality:
+      area = size_to_area(size)
+      if smallest_area > area >= min_area:
+        smallest_area = area
+        smallest_common_size = size
+  logging.debug('Lowest common size: %s', smallest_common_size)
+
+  # Find video quality of resolution with resolution as key
+  smallest_common_video_quality = (
+      supported_video_size_to_quality[smallest_common_size])
+  logging.debug(
+      'Lowest common size video quality: %s', smallest_common_video_quality)
+
+  return smallest_common_size, smallest_common_video_quality
+
+
+def log_ffmpeg_version():
+  """Logs the ffmpeg version being used."""
+
+  ffmpeg_version_cmd = ('ffmpeg -version')
+  p = subprocess.Popen(ffmpeg_version_cmd, shell=True, stdout=subprocess.PIPE)
+  output, _ = p.communicate()
+  if p.poll() != 0:
+    raise error_util.CameraItsError('Error running ffmpeg version cmd.')
+  decoded_output = output.decode('utf-8')
+  logging.debug('ffmpeg version: %s', decoded_output.split(' ')[2])
 
 
 def extract_key_frames_from_video(log_path, video_file_name):
@@ -136,6 +218,7 @@ def extract_all_frames_from_video(log_path, video_file_name, img_format):
       f'{os.path.join(log_path, ffmpeg_image_name)}_%03d.{img_format}')
   cmd = [
       'ffmpeg', '-i', os.path.join(log_path, video_file_name),
+      '-vsync', 'vfr', # force ffmpeg to use video fps instead of inferred fps
       ffmpeg_image_file_names, '-loglevel', 'quiet'
   ]
   _ = subprocess.call(cmd)
@@ -147,3 +230,83 @@ def extract_all_frames_from_video(log_path, video_file_name, img_format):
     raise AssertionError('No frames extracted. Check source video.')
 
   return file_list
+
+
+def get_average_frame_rate(video_file_name_with_path):
+  """Get average frame rate assuming variable frame rate video.
+
+  Args:
+    video_file_name_with_path: path to the video to be analyzed
+  Returns:
+    Float. average frames per second.
+  """
+
+  cmd = ['ffmpeg',
+         '-i',
+         video_file_name_with_path,
+         '-vf',
+         'vfrdet',
+         '-f',
+         'null',
+         '-',
+        ]
+  logging.debug('Getting frame rate')
+  raw_output = ''
+  try:
+    raw_output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+  except subprocess.CalledProcessError as e:
+    raise AssertionError(str(e.output)) from e
+  if raw_output:
+    output = str(raw_output.decode('utf-8')).strip()
+    logging.debug('FFmpeg command %s output: %s', ' '.join(cmd), output)
+    fps_data = output.splitlines()[-3]  # frames printed on third to last line
+    frames = int(re.search(r'frame= *([0-9]+)', fps_data).group(1))
+    duration = re.search(r'time= *([0-9][0-9:\.]*)', fps_data).group(1)
+    time_parts = [float(t) for t in duration.split(':')]
+    seconds = time_parts[0] * HR_TO_SEC + time_parts[
+        1] * MIN_TO_SEC + time_parts[2]
+    logging.debug('Average FPS: %d / %d = %.4f',
+                  frames, seconds, frames / seconds)
+    return frames / seconds
+  else:
+    raise AssertionError('ffmpeg failed to provide frame rate data')
+
+
+def get_frame_deltas(video_file_name_with_path, timestamp_type='pts'):
+  """Get list of time diffs between frames.
+
+  Args:
+    video_file_name_with_path: path to the video to be analyzed
+    timestamp_type: 'pts' or 'dts'
+  Returns:
+    List of floats. Time diffs between frames in seconds.
+  """
+
+  cmd = ['ffprobe',
+         '-show_entries',
+         f'frame=pkt_{timestamp_type}_time',
+         '-select_streams',
+         'v',
+         video_file_name_with_path
+         ]
+  logging.debug('Getting frame deltas')
+  raw_output = ''
+  try:
+    raw_output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+  except subprocess.CalledProcessError as e:
+    raise AssertionError(str(e.output)) from e
+  if raw_output:
+    output = str(raw_output.decode('utf-8')).strip().split('\n')
+    deltas = []
+    prev_time = None
+    for line in output:
+      if timestamp_type not in line:
+        continue
+      curr_time = float(re.search(r'time= *([0-9][0-9\.]*)', line).group(1))
+      if prev_time is not None:
+        deltas.append(curr_time - prev_time)
+      prev_time = curr_time
+    logging.debug('Frame deltas: %s', deltas)
+    return deltas
+  else:
+    raise AssertionError('ffprobe failed to provide frame delta data')

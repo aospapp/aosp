@@ -47,7 +47,6 @@ import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 
-
 /**
  * This class provides a public APIs to control the Bluetooth Hearing Access Profile client service.
  *
@@ -65,6 +64,43 @@ public final class BluetoothHapClient implements BluetoothProfile, AutoCloseable
     private final Map<Callback, Executor> mCallbackExecutorMap = new HashMap<>();
 
     private CloseGuard mCloseGuard;
+
+    private final class HapClientServiceListener extends ForwardingServiceListener {
+        HapClientServiceListener(ServiceListener listener) {
+            super(listener);
+        }
+
+        @Override
+        public void onServiceConnected(int profile, BluetoothProfile proxy) {
+            try {
+                if (profile == HAP_CLIENT) {
+                    // re-register the service-to-app callback
+                    synchronized (mCallbackExecutorMap) {
+                        if (mCallbackExecutorMap.isEmpty()) {
+                            return;
+                        }
+
+                        try {
+                            final IBluetoothHapClient service = getService();
+                            if (service != null) {
+                                final SynchronousResultReceiver<Integer> recv =
+                                        SynchronousResultReceiver.get();
+                                service.registerCallback(mCallback, mAttributionSource, recv);
+                                recv.awaitResultNoInterrupt(getSyncTimeout()).getValue(null);
+                            }
+                        } catch (TimeoutException e) {
+                            Log.e(TAG, e.toString() + "\n"
+                                    + Log.getStackTraceString(new Throwable()));
+                        } catch (RemoteException e) {
+                            throw e.rethrowFromSystemServer();
+                        }
+                    }
+                }
+            } finally {
+                super.onServiceConnected(profile, proxy);
+            }
+        }
+    }
 
     /**
      * This class provides callbacks mechanism for the BluetoothHapClient profile.
@@ -357,7 +393,7 @@ public final class BluetoothHapClient implements BluetoothProfile, AutoCloseable
     public static final String EXTRA_HAP_FEATURES = "android.bluetooth.extra.HAP_FEATURES";
 
     /**
-     * Represets an invalid index value. This is usually value returned in a currently
+     * Represents an invalid index value. This is usually value returned in a currently
      * active preset request for a device which is not connected. This value shouldn't be used
      * in the API calls.
      * @hide
@@ -365,45 +401,84 @@ public final class BluetoothHapClient implements BluetoothProfile, AutoCloseable
     public static final int PRESET_INDEX_UNAVAILABLE = IBluetoothHapClient.PRESET_INDEX_UNAVAILABLE;
 
     /**
-     * Feature value.
+     * Hearing aid type value. Indicates this Bluetooth device is belongs to a binaural hearing aid
+     * set. A binaural hearing aid set is two hearing aids that form a Coordinated Set, one for the
+     * right ear and one for the left ear of the user. Typically used by a user with bilateral
+     * hearing loss.
      * @hide
      */
-    public static final int FEATURE_TYPE_MONAURAL =
-            1 << IBluetoothHapClient.FEATURE_BIT_NUM_TYPE_MONAURAL;
+    @SystemApi
+    public static final int TYPE_BINAURAL = 0b00;
 
     /**
-     * Feature value.
+     * Hearing aid type value. Indicates this Bluetooth device is a single hearing aid for the left
+     * or the right ear. Typically used by a user with unilateral hearing loss.
      * @hide
      */
-    public static final int FEATURE_TYPE_BANDED =
-            1 << IBluetoothHapClient.FEATURE_BIT_NUM_TYPE_BANDED;
+    @SystemApi
+    public static final int TYPE_MONAURAL = 0b01;
 
     /**
-     * Feature value.
+     * Hearing aid type value. Indicates this Bluetooth device is two hearing aids with a connection
+     * to one another that expose a single Bluetooth radio interface.
      * @hide
      */
-    public static final int FEATURE_SYNCHRONIZATED_PRESETS =
+    @SystemApi
+    public static final int TYPE_BANDED = 0b10;
+
+    /**
+     * Hearing aid type value. This value is reserved for future use.
+     * @hide
+     */
+    @SystemApi
+    public static final int TYPE_RFU = 0b11;
+
+    /**
+     * @hide
+     */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(
+        flag = true,
+        value = {
+            TYPE_BINAURAL,
+            TYPE_MONAURAL,
+            TYPE_BANDED,
+            TYPE_RFU,
+    })
+    @interface HearingAidType {}
+
+    /**
+     * Feature mask value.
+     * @hide
+     */
+    public static final int FEATURE_HEARING_AID_TYPE_MASK = 0b11;
+
+    /**
+     * Feature mask value.
+     * @hide
+     */
+    public static final int FEATURE_SYNCHRONIZATED_PRESETS_MASK =
             1 << IBluetoothHapClient.FEATURE_BIT_NUM_SYNCHRONIZATED_PRESETS;
 
     /**
-     * Feature value.
+     * Feature mask value.
      * @hide
      */
-    public static final int FEATURE_INDEPENDENT_PRESETS =
+    public static final int FEATURE_INDEPENDENT_PRESETS_MASK =
             1 << IBluetoothHapClient.FEATURE_BIT_NUM_INDEPENDENT_PRESETS;
 
     /**
-     * Feature value.
+     * Feature mask value.
      * @hide
      */
-    public static final int FEATURE_DYNAMIC_PRESETS =
+    public static final int FEATURE_DYNAMIC_PRESETS_MASK =
             1 << IBluetoothHapClient.FEATURE_BIT_NUM_DYNAMIC_PRESETS;
 
     /**
-     * Feature value.
+     * Feature mask value.
      * @hide
      */
-    public static final int FEATURE_WRITABLE_PRESETS =
+    public static final int FEATURE_WRITABLE_PRESETS_MASK =
             1 << IBluetoothHapClient.FEATURE_BIT_NUM_WRITABLE_PRESETS;
 
     /**
@@ -413,13 +488,13 @@ public final class BluetoothHapClient implements BluetoothProfile, AutoCloseable
     @IntDef(
         flag = true,
         value = {
-            FEATURE_TYPE_MONAURAL,
-            FEATURE_TYPE_BANDED,
-            FEATURE_SYNCHRONIZATED_PRESETS,
-            FEATURE_DYNAMIC_PRESETS,
-            FEATURE_WRITABLE_PRESETS,
+            FEATURE_HEARING_AID_TYPE_MASK,
+            FEATURE_SYNCHRONIZATED_PRESETS_MASK,
+            FEATURE_INDEPENDENT_PRESETS_MASK,
+            FEATURE_DYNAMIC_PRESETS_MASK,
+            FEATURE_WRITABLE_PRESETS_MASK,
     })
-    @interface Feature {}
+    @interface FeatureMask {}
 
     private final BluetoothAdapter mAdapter;
     private final AttributionSource mAttributionSource;
@@ -432,34 +507,6 @@ public final class BluetoothHapClient implements BluetoothProfile, AutoCloseable
                 }
             };
 
-    @SuppressLint("AndroidFrameworkBluetoothPermission")
-    private final IBluetoothStateChangeCallback mBluetoothStateChangeCallback =
-            new IBluetoothStateChangeCallback.Stub() {
-                public void onBluetoothStateChange(boolean up) {
-                    if (DBG) Log.d(TAG, "onBluetoothStateChange: up=" + up);
-                    if (up) {
-                        // re-register the service-to-app callback
-                        synchronized (mCallbackExecutorMap) {
-                            if (mCallbackExecutorMap.isEmpty()) return;
-
-                            try {
-                                final IBluetoothHapClient service = getService();
-                                if (service != null) {
-                                    final SynchronousResultReceiver<Integer> recv =
-                                            SynchronousResultReceiver.get();
-                                    service.registerCallback(mCallback, mAttributionSource, recv);
-                                    recv.awaitResultNoInterrupt(getSyncTimeout()).getValue(null);
-                                }
-                            } catch (TimeoutException e) {
-                                Log.e(TAG, e.toString() + "\n"
-                                        + Log.getStackTraceString(new Throwable()));
-                            } catch (RemoteException e) {
-                                throw e.rethrowFromSystemServer();
-                            }
-                        }
-                    }
-                }
-            };
 
     /**
      * Create a BluetoothHapClient proxy object for interacting with the local
@@ -468,16 +515,7 @@ public final class BluetoothHapClient implements BluetoothProfile, AutoCloseable
     /*package*/ BluetoothHapClient(Context context, ServiceListener listener) {
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         mAttributionSource = mAdapter.getAttributionSource();
-        mProfileConnector.connect(context, listener);
-
-        IBluetoothManager mgr = mAdapter.getBluetoothManager();
-        if (mgr != null) {
-            try {
-                mgr.registerStateChangeCallback(mBluetoothStateChangeCallback);
-            } catch (RemoteException e) {
-                throw e.rethrowFromSystemServer();
-            }
-        }
+        mProfileConnector.connect(context, new HapClientServiceListener(listener));
 
         mCloseGuard = new CloseGuard();
         mCloseGuard.open("close");
@@ -493,20 +531,10 @@ public final class BluetoothHapClient implements BluetoothProfile, AutoCloseable
         close();
     }
 
-    /**
-     * @hide
-     */
+    /** @hide */
+    @Override
     public void close() {
         if (VDBG) log("close()");
-
-        IBluetoothManager mgr = mAdapter.getBluetoothManager();
-        if (mgr != null) {
-            try {
-                mgr.unregisterStateChangeCallback(mBluetoothStateChangeCallback);
-            } catch (RemoteException e) {
-                Log.e(TAG, "", e);
-            }
-        }
 
         mProfileConnector.disconnect();
     }
@@ -632,7 +660,7 @@ public final class BluetoothHapClient implements BluetoothProfile, AutoCloseable
      *
      * @param device Paired bluetooth device
      * @param connectionPolicy is the connection policy to set to for this profile
-     * @return true if connectionPolicy is set, false on error
+     * @return {@code true} if connectionPolicy is set, {@code false} on error
      * @hide
      */
     @SystemApi
@@ -750,8 +778,8 @@ public final class BluetoothHapClient implements BluetoothProfile, AutoCloseable
             android.Manifest.permission.BLUETOOTH_PRIVILEGED,
     })
     @Override
-    public @NonNull List<BluetoothDevice> getDevicesMatchingConnectionStates(
-            @NonNull int[] states) {
+    @NonNull
+    public List<BluetoothDevice> getDevicesMatchingConnectionStates(@NonNull int[] states) {
         if (VDBG) Log.d(TAG, "getDevicesMatchingConnectionStates()");
         final IBluetoothHapClient service = getService();
         final List defaultValue = new ArrayList<BluetoothDevice>();
@@ -785,8 +813,8 @@ public final class BluetoothHapClient implements BluetoothProfile, AutoCloseable
             android.Manifest.permission.BLUETOOTH_PRIVILEGED,
     })
     @Override
-    public @BluetoothProfile.BtProfileState int getConnectionState(
-            @NonNull BluetoothDevice device) {
+    @BluetoothProfile.BtProfileState
+    public int getConnectionState(@NonNull BluetoothDevice device) {
         if (VDBG) Log.d(TAG, "getConnectionState(" + device + ")");
         final IBluetoothHapClient service = getService();
         final int defaultValue = BluetoothProfile.STATE_DISCONNECTED;
@@ -1113,8 +1141,8 @@ public final class BluetoothHapClient implements BluetoothProfile, AutoCloseable
             android.Manifest.permission.BLUETOOTH_CONNECT,
             android.Manifest.permission.BLUETOOTH_PRIVILEGED
     })
-    public @Nullable BluetoothHapPresetInfo getPresetInfo(@NonNull BluetoothDevice device,
-            int presetIndex) {
+    @Nullable
+    public BluetoothHapPresetInfo getPresetInfo(@NonNull BluetoothDevice device, int presetIndex) {
         final IBluetoothHapClient service = getService();
         final BluetoothHapPresetInfo defaultValue = null;
         if (service == null) {
@@ -1181,7 +1209,7 @@ public final class BluetoothHapClient implements BluetoothProfile, AutoCloseable
             android.Manifest.permission.BLUETOOTH_CONNECT,
             android.Manifest.permission.BLUETOOTH_PRIVILEGED
     })
-    public @Feature int getFeatures(@NonNull BluetoothDevice device) {
+    public int getFeatures(@NonNull BluetoothDevice device) {
         final IBluetoothHapClient service = getService();
         final int defaultValue = 0x00;
         if (service == null) {
@@ -1199,6 +1227,96 @@ public final class BluetoothHapClient implements BluetoothProfile, AutoCloseable
             }
         }
         return defaultValue;
+    }
+
+    /**
+     * Retrieves hearing aid type from feature value.
+     *
+     * @param device is the device for which we want to get the hearing aid type
+     * @return hearing aid type
+     * @hide
+     */
+    @SystemApi
+    @RequiresBluetoothConnectPermission
+    @RequiresPermission(allOf = {
+            android.Manifest.permission.BLUETOOTH_CONNECT,
+            android.Manifest.permission.BLUETOOTH_PRIVILEGED
+    })
+    @HearingAidType
+    public int getHearingAidType(@NonNull BluetoothDevice device) {
+        return getFeatures(device) & FEATURE_HEARING_AID_TYPE_MASK;
+    }
+
+    /**
+     * Retrieves if this device supports synchronized presets or not from feature value.
+     *
+     * @param device is the device for which we want to know if it supports synchronized presets
+     * @return {@code true} if the device supports synchronized presets, {@code false} otherwise
+     * @hide
+     */
+    @SystemApi
+    @RequiresBluetoothConnectPermission
+    @RequiresPermission(allOf = {
+            android.Manifest.permission.BLUETOOTH_CONNECT,
+            android.Manifest.permission.BLUETOOTH_PRIVILEGED
+    })
+    public boolean supportsSynchronizedPresets(@NonNull BluetoothDevice device) {
+        return (getFeatures(device) & FEATURE_SYNCHRONIZATED_PRESETS_MASK)
+                == FEATURE_SYNCHRONIZATED_PRESETS_MASK;
+    }
+
+    /**
+     * Retrieves if this device supports independent presets or not from feature value.
+     *
+     * @param device is the device for which we want to know if it supports independent presets
+     * @return {@code true} if the device supports independent presets, {@code false} otherwise
+     * @hide
+     */
+    @SystemApi
+    @RequiresBluetoothConnectPermission
+    @RequiresPermission(allOf = {
+            android.Manifest.permission.BLUETOOTH_CONNECT,
+            android.Manifest.permission.BLUETOOTH_PRIVILEGED
+    })
+    public boolean supportsIndependentPresets(@NonNull BluetoothDevice device) {
+        return (getFeatures(device) & FEATURE_INDEPENDENT_PRESETS_MASK)
+                == FEATURE_INDEPENDENT_PRESETS_MASK;
+    }
+
+    /**
+     * Retrieves if this device supports dynamic presets or not from feature value.
+     *
+     * @param device is the device for which we want to know if it supports dynamic presets
+     * @return {@code true} if the device supports dynamic presets, {@code false} otherwise
+     * @hide
+     */
+    @SystemApi
+    @RequiresBluetoothConnectPermission
+    @RequiresPermission(allOf = {
+            android.Manifest.permission.BLUETOOTH_CONNECT,
+            android.Manifest.permission.BLUETOOTH_PRIVILEGED
+    })
+    public boolean supportsDynamicPresets(@NonNull BluetoothDevice device) {
+        return (getFeatures(device) & FEATURE_DYNAMIC_PRESETS_MASK)
+                == FEATURE_DYNAMIC_PRESETS_MASK;
+    }
+
+    /**
+     * Retrieves if this device supports writable presets or not from feature value.
+     *
+     * @param device is the device for which we want to know if it supports writable presets
+     * @return {@code true} if the device supports writable presets, {@code false} otherwise
+     * @hide
+     */
+    @SystemApi
+    @RequiresBluetoothConnectPermission
+    @RequiresPermission(allOf = {
+            android.Manifest.permission.BLUETOOTH_CONNECT,
+            android.Manifest.permission.BLUETOOTH_PRIVILEGED
+    })
+    public boolean supportsWritablePresets(@NonNull BluetoothDevice device) {
+        return (getFeatures(device) & FEATURE_WRITABLE_PRESETS_MASK)
+                == FEATURE_WRITABLE_PRESETS_MASK;
     }
 
     /**

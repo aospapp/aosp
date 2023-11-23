@@ -16,6 +16,7 @@
 
 #include "MockIoOveruseMonitor.h"
 #include "MockResourceOveruseListener.h"
+#include "MockWatchdogInternalHandler.h"
 #include "MockWatchdogPerfService.h"
 #include "MockWatchdogProcessService.h"
 #include "MockWatchdogServiceHelper.h"
@@ -33,34 +34,33 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
+using ::aidl::android::automotive::watchdog::ICarWatchdogClient;
+using ::aidl::android::automotive::watchdog::ICarWatchdogClientDefault;
+using ::aidl::android::automotive::watchdog::IoOveruseStats;
+using ::aidl::android::automotive::watchdog::IResourceOveruseListener;
+using ::aidl::android::automotive::watchdog::ResourceOveruseStats;
+using ::aidl::android::automotive::watchdog::ResourceType;
+using ::aidl::android::automotive::watchdog::StateType;
+using ::aidl::android::automotive::watchdog::TimeoutLength;
 using ::android::sp;
 using ::android::String16;
 using ::android::base::Result;
 using ::android::base::StringAppendF;
-using ::android::binder::Status;
+using ::ndk::ICInterface;
+using ::ndk::ScopedAStatus;
+using ::ndk::SharedRefBase;
 using ::testing::_;
+using ::testing::ByMove;
 using ::testing::DoAll;
 using ::testing::Return;
-using ::testing::SaveArg;
 using ::testing::SetArgPointee;
 using ::testing::UnorderedElementsAreArray;
 
 namespace {
 
-const std::function<android::base::Result<void>(const char*, const android::sp<android::IBinder>&)>
+const std::function<android::base::Result<void>(ICInterface*, const char*)>
         kAddServiceFunctionStub =
-                [](const char*, const android::sp<android::IBinder>&) -> Result<void> {
-    return Result<void>{};
-};
-
-class MockICarWatchdogClient : public ICarWatchdogClient {
-public:
-    MOCK_METHOD(Status, checkIfAlive, (int32_t sessionId, TimeoutLength timeout), (override));
-    MOCK_METHOD(Status, prepareProcessTermination, (), (override));
-    MOCK_METHOD(IBinder*, onAsBinder, (), (override));
-    MOCK_METHOD(int32_t, getInterfaceVersion, (), (override));
-    MOCK_METHOD(std::string, getInterfaceHash, (), (override));
-};
+                [](ICInterface*, const char*) -> Result<void> { return Result<void>{}; };
 
 std::string toString(const std::vector<ResourceOveruseStats>& resourceOveruseStats) {
     std::string buffer;
@@ -76,54 +76,57 @@ namespace internal {
 
 class WatchdogBinderMediatorPeer final {
 public:
-    explicit WatchdogBinderMediatorPeer(const sp<WatchdogBinderMediator>& mediator) :
-          mMediator(mediator) {}
-    ~WatchdogBinderMediatorPeer() { mMediator.clear(); }
+    explicit WatchdogBinderMediatorPeer(WatchdogBinderMediator* mediator) : mMediator(mediator) {}
 
-    Result<void> init(const sp<IoOveruseMonitorInterface>& ioOveruseMonitor) {
-        mMediator->mIoOveruseMonitor = ioOveruseMonitor;
-        return mMediator->init();
+    void setWatchdogInternalHandler(
+            const std::shared_ptr<WatchdogInternalHandlerInterface>& watchdogInternalHandler) {
+        mMediator->mWatchdogInternalHandler = watchdogInternalHandler;
     }
 
 private:
-    sp<WatchdogBinderMediator> mMediator;
+    WatchdogBinderMediator* mMediator;
 };
 
-}  // namespace internal
+};  // namespace internal
 
 class WatchdogBinderMediatorTest : public ::testing::Test {
 protected:
     virtual void SetUp() {
         mMockWatchdogProcessService = sp<MockWatchdogProcessService>::make();
         mMockWatchdogPerfService = sp<MockWatchdogPerfService>::make();
-        mWatchdogBinderMediator =
-                sp<WatchdogBinderMediator>::make(mMockWatchdogProcessService,
-                                                 mMockWatchdogPerfService,
-                                                 sp<MockWatchdogServiceHelper>::make(),
-                                                 kAddServiceFunctionStub);
-        internal::WatchdogBinderMediatorPeer mediatorPeer(mWatchdogBinderMediator);
         mMockIoOveruseMonitor = sp<MockIoOveruseMonitor>::make();
-        ASSERT_RESULT_OK(mediatorPeer.init(mMockIoOveruseMonitor));
+        mWatchdogBinderMediator =
+                SharedRefBase::make<WatchdogBinderMediator>(mMockWatchdogProcessService,
+                                                            mMockWatchdogPerfService,
+                                                            sp<MockWatchdogServiceHelper>::make(),
+                                                            mMockIoOveruseMonitor,
+                                                            kAddServiceFunctionStub);
+        mMockWatchdogInternalHandler = SharedRefBase::make<MockWatchdogInternalHandler>();
+        internal::WatchdogBinderMediatorPeer peer(mWatchdogBinderMediator.get());
+        peer.setWatchdogInternalHandler(mMockWatchdogInternalHandler);
     }
+
     virtual void TearDown() {
         mMockWatchdogProcessService.clear();
         mMockWatchdogPerfService.clear();
         mMockIoOveruseMonitor.clear();
-        mWatchdogBinderMediator.clear();
+        mWatchdogBinderMediator.reset();
     }
 
     sp<MockWatchdogProcessService> mMockWatchdogProcessService;
     sp<MockWatchdogPerfService> mMockWatchdogPerfService;
     sp<MockIoOveruseMonitor> mMockIoOveruseMonitor;
-    sp<WatchdogBinderMediator> mWatchdogBinderMediator;
+    std::shared_ptr<MockWatchdogInternalHandler> mMockWatchdogInternalHandler;
+    std::shared_ptr<WatchdogBinderMediator> mWatchdogBinderMediator;
 };
 
 TEST_F(WatchdogBinderMediatorTest, TestInit) {
-    sp<WatchdogBinderMediator> mediator =
-            sp<WatchdogBinderMediator>::make(sp<MockWatchdogProcessService>::make(),
-                                             sp<MockWatchdogPerfService>::make(),
-                                             sp<MockWatchdogServiceHelper>::make(),
-                                             kAddServiceFunctionStub);
+    std::shared_ptr<WatchdogBinderMediator> mediator =
+            SharedRefBase::make<WatchdogBinderMediator>(sp<MockWatchdogProcessService>::make(),
+                                                        sp<MockWatchdogPerfService>::make(),
+                                                        sp<MockWatchdogServiceHelper>::make(),
+                                                        sp<MockIoOveruseMonitor>::make(),
+                                                        kAddServiceFunctionStub);
 
     ASSERT_RESULT_OK(mediator->init());
 
@@ -137,138 +140,103 @@ TEST_F(WatchdogBinderMediatorTest, TestErrorOnInitWithNullServiceInstances) {
     auto mockWatchdogProcessService = sp<MockWatchdogProcessService>::make();
     auto mockWatchdogPerfservice = sp<MockWatchdogPerfService>::make();
     auto mockWatchdogServiceHelper = sp<MockWatchdogServiceHelper>::make();
-    sp<WatchdogBinderMediator> mediator =
-            sp<WatchdogBinderMediator>::make(nullptr, mockWatchdogPerfservice,
-                                             mockWatchdogServiceHelper, kAddServiceFunctionStub);
+    auto mockIoOveruseMonitor = sp<MockIoOveruseMonitor>::make();
+    std::shared_ptr<WatchdogBinderMediator> mediator =
+            SharedRefBase::make<WatchdogBinderMediator>(nullptr, mockWatchdogPerfservice,
+                                                        mockWatchdogServiceHelper,
+                                                        mockIoOveruseMonitor,
+                                                        kAddServiceFunctionStub);
 
     EXPECT_FALSE(mediator->init().ok()) << "No error returned on nullptr watchdog process service";
-    mediator.clear();
+    mediator.reset();
 
-    mediator = sp<WatchdogBinderMediator>::make(mockWatchdogProcessService, nullptr,
-                                                mockWatchdogServiceHelper, kAddServiceFunctionStub);
+    mediator = SharedRefBase::make<WatchdogBinderMediator>(mockWatchdogProcessService, nullptr,
+                                                           mockWatchdogServiceHelper,
+                                                           mockIoOveruseMonitor,
+                                                           kAddServiceFunctionStub);
 
     EXPECT_FALSE(mediator->init().ok()) << "No error returned on nullptr watchdog perf service";
-    mediator.clear();
+    mediator.reset();
 
-    mediator = sp<WatchdogBinderMediator>::make(mockWatchdogProcessService, mockWatchdogPerfservice,
-                                                nullptr, kAddServiceFunctionStub);
+    mediator = SharedRefBase::make<WatchdogBinderMediator>(mockWatchdogProcessService,
+                                                           mockWatchdogPerfservice, nullptr,
+                                                           mockIoOveruseMonitor,
+                                                           kAddServiceFunctionStub);
 
     EXPECT_FALSE(mediator->init().ok()) << "No error returned on nullptr watchdog service helper";
-    mediator.clear();
+    mediator.reset();
 
-    mediator = sp<WatchdogBinderMediator>::make(nullptr, nullptr, nullptr, kAddServiceFunctionStub);
+    mediator = SharedRefBase::make<WatchdogBinderMediator>(mockWatchdogProcessService,
+                                                           mockWatchdogPerfservice,
+                                                           mockWatchdogServiceHelper, nullptr,
+                                                           kAddServiceFunctionStub);
+
+    EXPECT_FALSE(mediator->init().ok()) << "No error returned on nullptr I/O overuse monitor";
+    mediator.reset();
+
+    mediator = SharedRefBase::make<WatchdogBinderMediator>(nullptr, nullptr, nullptr, nullptr,
+                                                           kAddServiceFunctionStub);
 
     EXPECT_FALSE(mediator->init().ok()) << "No error returned on null services";
-    mediator.clear();
+    mediator.reset();
 }
 
-TEST_F(WatchdogBinderMediatorTest, TestTerminate) {
-    EXPECT_NE(mWatchdogBinderMediator->mWatchdogProcessService, nullptr);
-    EXPECT_NE(mWatchdogBinderMediator->mWatchdogPerfService, nullptr);
-    EXPECT_NE(mWatchdogBinderMediator->mIoOveruseMonitor, nullptr);
-    EXPECT_NE(mWatchdogBinderMediator->mWatchdogInternalHandler, nullptr);
+TEST_F(WatchdogBinderMediatorTest, TestDump) {
+    const char* args[] = {kStartCustomCollectionFlag, kIntervalFlag, "10", kMaxDurationFlag, "200"};
+    EXPECT_CALL(*mMockWatchdogInternalHandler, dump(-1, args, /*numArgs=*/5)).WillOnce(Return(OK));
 
-    mWatchdogBinderMediator->terminate();
-
-    EXPECT_EQ(mWatchdogBinderMediator->mWatchdogProcessService, nullptr);
-    EXPECT_EQ(mWatchdogBinderMediator->mWatchdogPerfService, nullptr);
-    EXPECT_EQ(mWatchdogBinderMediator->mIoOveruseMonitor, nullptr);
-    EXPECT_EQ(mWatchdogBinderMediator->mWatchdogInternalHandler, nullptr);
-}
-
-TEST_F(WatchdogBinderMediatorTest, TestDumpWithEmptyArgs) {
-    EXPECT_CALL(*mMockWatchdogProcessService, dump(-1, _)).WillOnce(Return(Result<void>()));
-    EXPECT_CALL(*mMockWatchdogPerfService, onDump(-1)).WillOnce(Return(Result<void>()));
-    mWatchdogBinderMediator->dump(-1, Vector<String16>());
-}
-
-TEST_F(WatchdogBinderMediatorTest, TestDumpWithStartCustomPerfCollection) {
-    EXPECT_CALL(*mMockWatchdogPerfService, onCustomCollection(-1, _))
-            .WillOnce(Return(Result<void>()));
-
-    Vector<String16> args;
-    args.push_back(String16(kStartCustomCollectionFlag));
-    ASSERT_EQ(mWatchdogBinderMediator->dump(-1, args), OK);
-}
-
-TEST_F(WatchdogBinderMediatorTest, TestDumpWithStopCustomPerfCollection) {
-    EXPECT_CALL(*mMockWatchdogPerfService, onCustomCollection(-1, _))
-            .WillOnce(Return(Result<void>()));
-
-    Vector<String16> args;
-    args.push_back(String16(kEndCustomCollectionFlag));
-    ASSERT_EQ(mWatchdogBinderMediator->dump(-1, args), OK);
-}
-
-TEST_F(WatchdogBinderMediatorTest, TestDumpWithResetResourceOveruseStats) {
-    std::vector<std::string> actualPackages;
-    EXPECT_CALL(*mMockIoOveruseMonitor, resetIoOveruseStats(_))
-            .WillOnce(DoAll(SaveArg<0>(&actualPackages), Return(Result<void>())));
-
-    Vector<String16> args;
-    args.push_back(String16(kResetResourceOveruseStatsFlag));
-    args.push_back(String16("packageA,packageB"));
-    ASSERT_EQ(mWatchdogBinderMediator->dump(-1, args), OK);
-    ASSERT_EQ(actualPackages, std::vector<std::string>({"packageA", "packageB"}));
-}
-
-TEST_F(WatchdogBinderMediatorTest, TestFailsDumpWithInvalidResetResourceOveruseStatsArg) {
-    EXPECT_CALL(*mMockIoOveruseMonitor, resetIoOveruseStats(_)).Times(0);
-
-    Vector<String16> args;
-    args.push_back(String16(kResetResourceOveruseStatsFlag));
-    args.push_back(String16(""));
-    ASSERT_EQ(mWatchdogBinderMediator->dump(-1, args), BAD_VALUE);
-}
-
-TEST_F(WatchdogBinderMediatorTest, TestDumpWithInvalidDumpArgs) {
-    Vector<String16> args;
-    args.push_back(String16("--invalid_option"));
-    int nullFd = open("/dev/null", O_RDONLY);
-    EXPECT_CALL(*mMockWatchdogProcessService, dump(nullFd, _)).WillOnce(Return(Result<void>()));
-    EXPECT_CALL(*mMockWatchdogPerfService, onDump(nullFd)).WillOnce(Return(Result<void>()));
-
-    EXPECT_EQ(mWatchdogBinderMediator->dump(nullFd, args), OK) << "Error returned on invalid args";
-    close(nullFd);
+    ASSERT_EQ(mWatchdogBinderMediator->dump(-1, args, /*numArgs=*/5), OK);
 }
 
 TEST_F(WatchdogBinderMediatorTest, TestRegisterClient) {
-    sp<ICarWatchdogClient> client = sp<MockICarWatchdogClient>::make();
+    std::shared_ptr<ICarWatchdogClient> client = SharedRefBase::make<ICarWatchdogClientDefault>();
     TimeoutLength timeout = TimeoutLength::TIMEOUT_MODERATE;
+
     EXPECT_CALL(*mMockWatchdogProcessService, registerClient(client, timeout))
-            .WillOnce(Return(Status::ok()));
-    Status status = mWatchdogBinderMediator->registerClient(client, timeout);
-    ASSERT_TRUE(status.isOk()) << status;
+            .WillOnce(Return(ByMove(ScopedAStatus::ok())));
+
+    auto status = mWatchdogBinderMediator->registerClient(client, timeout);
+
+    ASSERT_TRUE(status.isOk()) << status.getMessage();
 }
 
 TEST_F(WatchdogBinderMediatorTest, TestUnregisterClient) {
-    sp<ICarWatchdogClient> client = sp<MockICarWatchdogClient>::make();
+    std::shared_ptr<ICarWatchdogClient> client = SharedRefBase::make<ICarWatchdogClientDefault>();
+
     EXPECT_CALL(*mMockWatchdogProcessService, unregisterClient(client))
-            .WillOnce(Return(Status::ok()));
-    Status status = mWatchdogBinderMediator->unregisterClient(client);
-    ASSERT_TRUE(status.isOk()) << status;
+            .WillOnce(Return(ByMove(ScopedAStatus::ok())));
+
+    auto status = mWatchdogBinderMediator->unregisterClient(client);
+
+    ASSERT_TRUE(status.isOk()) << status.getMessage();
 }
 
 TEST_F(WatchdogBinderMediatorTest, TestTellClientAlive) {
-    sp<ICarWatchdogClient> client = sp<MockICarWatchdogClient>::make();
+    std::shared_ptr<ICarWatchdogClient> client = SharedRefBase::make<ICarWatchdogClientDefault>();
+
     EXPECT_CALL(*mMockWatchdogProcessService, tellClientAlive(client, 456))
-            .WillOnce(Return(Status::ok()));
-    Status status = mWatchdogBinderMediator->tellClientAlive(client, 456);
-    ASSERT_TRUE(status.isOk()) << status;
+            .WillOnce(Return(ByMove(ScopedAStatus::ok())));
+
+    auto status = mWatchdogBinderMediator->tellClientAlive(client, 456);
+
+    ASSERT_TRUE(status.isOk()) << status.getMessage();
 }
 
 TEST_F(WatchdogBinderMediatorTest, TestAddResourceOveruseListener) {
-    sp<IResourceOveruseListener> listener = sp<MockResourceOveruseListener>::make();
+    std::shared_ptr<IResourceOveruseListener> listener =
+            SharedRefBase::make<MockResourceOveruseListener>();
+
     EXPECT_CALL(*mMockIoOveruseMonitor, addIoOveruseListener(listener))
             .WillOnce(Return(Result<void>{}));
 
-    Status status =
-            mWatchdogBinderMediator->addResourceOveruseListener({ResourceType::IO}, listener);
-    ASSERT_TRUE(status.isOk()) << status;
+    auto status = mWatchdogBinderMediator->addResourceOveruseListener({ResourceType::IO}, listener);
+
+    ASSERT_TRUE(status.isOk()) << status.getMessage();
 }
 
 TEST_F(WatchdogBinderMediatorTest, TestErrorsAddResourceOveruseListenerOnInvalidArgs) {
-    sp<IResourceOveruseListener> listener = sp<MockResourceOveruseListener>::make();
+    std::shared_ptr<IResourceOveruseListener> listener =
+            SharedRefBase::make<MockResourceOveruseListener>();
     EXPECT_CALL(*mMockIoOveruseMonitor, addIoOveruseListener(listener)).Times(0);
 
     ASSERT_FALSE(mWatchdogBinderMediator->addResourceOveruseListener({}, listener).isOk())
@@ -280,12 +248,15 @@ TEST_F(WatchdogBinderMediatorTest, TestErrorsAddResourceOveruseListenerOnInvalid
 }
 
 TEST_F(WatchdogBinderMediatorTest, TestRemoveResourceOveruseListener) {
-    sp<IResourceOveruseListener> listener = sp<MockResourceOveruseListener>::make();
+    std::shared_ptr<IResourceOveruseListener> listener =
+            SharedRefBase::make<MockResourceOveruseListener>();
+
     EXPECT_CALL(*mMockIoOveruseMonitor, removeIoOveruseListener(listener))
             .WillOnce(Return(Result<void>{}));
 
-    Status status = mWatchdogBinderMediator->removeResourceOveruseListener(listener);
-    ASSERT_TRUE(status.isOk()) << status;
+    auto status = mWatchdogBinderMediator->removeResourceOveruseListener(listener);
+
+    ASSERT_TRUE(status.isOk()) << status.getMessage();
 }
 
 TEST_F(WatchdogBinderMediatorTest, TestGetResourceOveruseStats) {
@@ -303,14 +274,14 @@ TEST_F(WatchdogBinderMediatorTest, TestGetResourceOveruseStats) {
             .WillOnce(DoAll(SetArgPointee<0>(ioOveruseStats), Return(Result<void>{})));
 
     std::vector<ResourceOveruseStats> actual;
-    Status status = mWatchdogBinderMediator->getResourceOveruseStats({ResourceType::IO}, &actual);
-    ASSERT_TRUE(status.isOk()) << status;
+    auto status = mWatchdogBinderMediator->getResourceOveruseStats({ResourceType::IO}, &actual);
+
+    ASSERT_TRUE(status.isOk()) << status.getMessage();
     EXPECT_THAT(actual, UnorderedElementsAreArray(expected))
             << "Expected: " << toString(expected) << "\nActual: " << toString(actual);
 }
 
 TEST_F(WatchdogBinderMediatorTest, TestErrorsGetResourceOveruseStatsOnInvalidArgs) {
-    sp<IResourceOveruseListener> listener = sp<MockResourceOveruseListener>::make();
     EXPECT_CALL(*mMockIoOveruseMonitor, getIoOveruseStats(_)).Times(0);
 
     std::vector<ResourceOveruseStats> actual;
@@ -323,38 +294,38 @@ TEST_F(WatchdogBinderMediatorTest, TestErrorsGetResourceOveruseStatsOnInvalidArg
 }
 
 TEST_F(WatchdogBinderMediatorTest, TestRegisterMediator) {
-    Status status = mWatchdogBinderMediator->registerMediator(nullptr);
-    ASSERT_EQ(status.exceptionCode(), Status::EX_UNSUPPORTED_OPERATION);
+    auto status = mWatchdogBinderMediator->registerMediator(nullptr);
+    ASSERT_EQ(status.getExceptionCode(), EX_UNSUPPORTED_OPERATION);
 }
 
 TEST_F(WatchdogBinderMediatorTest, TestUnregisterMediator) {
-    Status status = mWatchdogBinderMediator->unregisterMediator(nullptr);
-    ASSERT_EQ(status.exceptionCode(), Status::EX_UNSUPPORTED_OPERATION);
+    auto status = mWatchdogBinderMediator->unregisterMediator(nullptr);
+    ASSERT_EQ(status.getExceptionCode(), EX_UNSUPPORTED_OPERATION);
 }
 
 TEST_F(WatchdogBinderMediatorTest, TestRegisterMonitor) {
-    Status status = mWatchdogBinderMediator->registerMonitor(nullptr);
-    ASSERT_EQ(status.exceptionCode(), Status::EX_UNSUPPORTED_OPERATION);
+    auto status = mWatchdogBinderMediator->registerMonitor(nullptr);
+    ASSERT_EQ(status.getExceptionCode(), EX_UNSUPPORTED_OPERATION);
 }
 
 TEST_F(WatchdogBinderMediatorTest, TestUnregisterMonitor) {
-    Status status = mWatchdogBinderMediator->unregisterMonitor(nullptr);
-    ASSERT_EQ(status.exceptionCode(), Status::EX_UNSUPPORTED_OPERATION);
+    auto status = mWatchdogBinderMediator->unregisterMonitor(nullptr);
+    ASSERT_EQ(status.getExceptionCode(), EX_UNSUPPORTED_OPERATION);
 }
 
 TEST_F(WatchdogBinderMediatorTest, TestTellMediatorAlive) {
-    Status status = mWatchdogBinderMediator->tellMediatorAlive(nullptr, {}, 0);
-    ASSERT_EQ(status.exceptionCode(), Status::EX_UNSUPPORTED_OPERATION);
+    auto status = mWatchdogBinderMediator->tellMediatorAlive(nullptr, {}, 0);
+    ASSERT_EQ(status.getExceptionCode(), EX_UNSUPPORTED_OPERATION);
 }
 
 TEST_F(WatchdogBinderMediatorTest, TestTellDumpFinished) {
-    Status status = mWatchdogBinderMediator->tellDumpFinished(nullptr, 0);
-    ASSERT_EQ(status.exceptionCode(), Status::EX_UNSUPPORTED_OPERATION);
+    auto status = mWatchdogBinderMediator->tellDumpFinished(nullptr, 0);
+    ASSERT_EQ(status.getExceptionCode(), EX_UNSUPPORTED_OPERATION);
 }
 
 TEST_F(WatchdogBinderMediatorTest, TestNotifySystemStateChange) {
-    Status status = mWatchdogBinderMediator->notifySystemStateChange(StateType::POWER_CYCLE, 0, 0);
-    ASSERT_EQ(status.exceptionCode(), Status::EX_UNSUPPORTED_OPERATION);
+    auto status = mWatchdogBinderMediator->notifySystemStateChange(StateType::POWER_CYCLE, 0, 0);
+    ASSERT_EQ(status.getExceptionCode(), EX_UNSUPPORTED_OPERATION);
 }
 
 }  // namespace watchdog

@@ -113,6 +113,8 @@ bool SpvToolsDisassembler = false;
 bool SpvToolsValidate = false;
 bool NaNClamp = false;
 bool stripDebugInfo = false;
+bool emitNonSemanticShaderDebugInfo = false;
+bool emitNonSemanticShaderDebugSource = false;
 bool beQuiet = false;
 bool VulkanRulesRelaxed = false;
 bool autoSampledTextures = false;
@@ -178,6 +180,7 @@ const char* variableName = nullptr;
 bool HlslEnable16BitTypes = false;
 bool HlslDX9compatible = false;
 bool HlslDxPositionW = false;
+bool EnhancedMsgs = false;
 bool DumpBuiltinSymbols = false;
 std::vector<std::string> IncludeDirectoryList;
 
@@ -190,6 +193,9 @@ glslang::EShClient Client = glslang::EShClientNone;  // will stay EShClientNone 
 glslang::EShTargetClientVersion ClientVersion;       // not valid until Client is set
 glslang::EShTargetLanguage TargetLanguage = glslang::EShTargetNone;
 glslang::EShTargetLanguageVersion TargetVersion;     // not valid until TargetLanguage is set
+
+// GLSL version
+int GlslVersion = 0; // GLSL version specified on CLI, overrides #version in shader source
 
 std::vector<std::string> Processes;                     // what should be recorded by OpModuleProcessed, or equivalent
 
@@ -289,8 +295,8 @@ const char* GetBinaryName(EShLanguage stage)
         case EShLangClosestHit:      name = "rchit.spv";   break;
         case EShLangMiss:            name = "rmiss.spv";   break;
         case EShLangCallable:        name = "rcall.spv";   break;
-        case EShLangMeshNV:          name = "mesh.spv";    break;
-        case EShLangTaskNV:          name = "task.spv";    break;
+        case EShLangMesh :           name = "mesh.spv";    break;
+        case EShLangTask :           name = "task.spv";    break;
         default:                     name = "unknown";     break;
         }
     } else
@@ -653,6 +659,48 @@ void ProcessArguments(std::vector<std::unique_ptr<glslang::TWorkItem>>& workItem
                                lowerword == "flatten-uniform-array"  ||
                                lowerword == "fua") {
                         Options |= EOptionFlattenUniformArrays;
+                    } else if (lowerword == "glsl-version") {
+                        if (argc > 1) {
+                            if (strcmp(argv[1], "100") == 0) {
+                                GlslVersion = 100;
+                            } else if (strcmp(argv[1], "110") == 0) {
+                                GlslVersion = 110;
+                            } else if (strcmp(argv[1], "120") == 0) {
+                                GlslVersion = 120;
+                            } else if (strcmp(argv[1], "130") == 0) {
+                                GlslVersion = 130;
+                            } else if (strcmp(argv[1], "140") == 0) {
+                                GlslVersion = 140;
+                            } else if (strcmp(argv[1], "150") == 0) {
+                                GlslVersion = 150;
+                            } else if (strcmp(argv[1], "300es") == 0) {
+                                GlslVersion = 300;
+                            } else if (strcmp(argv[1], "310es") == 0) {
+                                GlslVersion = 310;
+                            } else if (strcmp(argv[1], "320es") == 0) {
+                                GlslVersion = 320;
+                            } else if (strcmp(argv[1], "330") == 0) {
+                                GlslVersion = 330;
+                            } else if (strcmp(argv[1], "400") == 0) {
+                                GlslVersion = 400;
+                            } else if (strcmp(argv[1], "410") == 0) {
+                                GlslVersion = 410;
+                            } else if (strcmp(argv[1], "420") == 0) {
+                                GlslVersion = 420;
+                            } else if (strcmp(argv[1], "430") == 0) {
+                                GlslVersion = 430;
+                            } else if (strcmp(argv[1], "440") == 0) {
+                                GlslVersion = 440;
+                            } else if (strcmp(argv[1], "450") == 0) {
+                                GlslVersion = 450;
+                            } else if (strcmp(argv[1], "460") == 0) {
+                                GlslVersion = 460;
+                            } else
+                                Error("--glsl-version expected one of: 100, 110, 120, 130, 140, 150,\n"
+                                      "300es, 310es, 320es, 330\n"
+                                      "400, 410, 420, 430, 440, 450, 460");
+                        }
+                        bumpArg();
                     } else if (lowerword == "hlsl-offsets") {
                         Options |= EOptionHlslOffsets;
                     } else if (lowerword == "hlsl-iomap" ||
@@ -665,6 +713,8 @@ void ProcessArguments(std::vector<std::unique_ptr<glslang::TWorkItem>>& workItem
                         HlslDX9compatible = true;
                     } else if (lowerword == "hlsl-dx-position-w") {
                         HlslDxPositionW = true;
+                    } else if (lowerword == "enhanced-msgs") {
+                        EnhancedMsgs = true;
                     } else if (lowerword == "auto-sampled-textures") { 
                         autoSampledTextures = true;
                     } else if (lowerword == "invert-y" ||  // synonyms
@@ -921,11 +971,21 @@ void ProcessArguments(std::vector<std::unique_ptr<glslang::TWorkItem>>& workItem
             case 'g':
                 // Override previous -g or -g0 argument
                 stripDebugInfo = false;
+                emitNonSemanticShaderDebugInfo = false;
                 Options &= ~EOptionDebug;
                 if (argv[0][2] == '0')
                     stripDebugInfo = true;
-                else
+                else {
                     Options |= EOptionDebug;
+                    if (argv[0][2] == 'V') {
+                        emitNonSemanticShaderDebugInfo = true;
+                        if (argv[0][3] == 'S') {
+                            emitNonSemanticShaderDebugSource = true;
+                        } else {
+                            emitNonSemanticShaderDebugSource = false;
+                        }
+                    }
+                }
                 break;
             case 'h':
                 usage();
@@ -1073,6 +1133,8 @@ void SetMessageOptions(EShMessages& messages)
         messages = (EShMessages)(messages | EShMsgHlslDX9Compatible);
     if (DumpBuiltinSymbols)
         messages = (EShMessages)(messages | EShMsgBuiltinSymbolTable);
+    if (EnhancedMsgs)
+        messages = (EShMessages)(messages | EShMsgEnhanced);
 }
 
 //
@@ -1163,6 +1225,27 @@ struct ShaderCompUnit {
     }
 };
 
+// Writes a string into a depfile, escaping some special characters following the Makefile rules.
+static void writeEscapedDepString(std::ofstream& file, const std::string& str)
+{
+    for (char c : str) {
+        switch (c) {
+        case ' ':
+        case ':':
+        case '#':
+        case '[':
+        case ']':
+        case '\\':
+            file << '\\';
+            break;
+        case '$':
+            file << '$';
+            break;
+        }
+        file << c;
+    }
+}
+
 // Writes a depfile similar to gcc -MMD foo.c
 bool writeDepFile(std::string depfile, std::vector<std::string>& binaryFiles, const std::vector<std::string>& sources)
 {
@@ -1170,10 +1253,12 @@ bool writeDepFile(std::string depfile, std::vector<std::string>& binaryFiles, co
     if (file.fail())
         return false;
 
-    for (auto it = binaryFiles.begin(); it != binaryFiles.end(); it++) {
-        file << *it << ":";
-        for (auto it = sources.begin(); it != sources.end(); it++) {
-            file << " " << *it;
+    for (auto binaryFile = binaryFiles.begin(); binaryFile != binaryFiles.end(); binaryFile++) {
+        writeEscapedDepString(file, *binaryFile);
+        file << ":";
+        for (auto sourceFile = sources.begin(); sourceFile != sources.end(); sourceFile++) {
+            file << " ";
+            writeEscapedDepString(file, *sourceFile);
         }
         file << std::endl;
     }
@@ -1222,6 +1307,8 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
                        "Use '-e <name>'.\n");
             shader->setSourceEntryPoint(sourceEntryPointName);
         }
+
+        shader->setOverrideVersion(GlslVersion);
 
         std::string intrinsicString = getIntrinsic(compUnit.text, compUnit.count);
 
@@ -1300,6 +1387,12 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
 
         if (HlslDxPositionW)
             shader->setDxPositionW(true);
+
+        if (EnhancedMsgs)
+            shader->setEnhancedMsgs();
+
+        if (emitNonSemanticShaderDebugInfo)
+            shader->setDebugInfo(true);
 
         // Set up the environment, some subsettings take precedence over earlier
         // ways of setting things.
@@ -1392,9 +1485,15 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
                     std::vector<unsigned int> spirv;
                     spv::SpvBuildLogger logger;
                     glslang::SpvOptions spvOptions;
-                    if (Options & EOptionDebug)
+                    if (Options & EOptionDebug) {
                         spvOptions.generateDebugInfo = true;
-                    else if (stripDebugInfo)
+                        if (emitNonSemanticShaderDebugInfo) {
+                            spvOptions.emitNonSemanticShaderDebugInfo = true;
+                            if (emitNonSemanticShaderDebugSource) {
+                                spvOptions.emitNonSemanticShaderDebugSource = true;
+                            }
+                        }
+                    } else if (stripDebugInfo)
                         spvOptions.stripDebugInfo = true;
                     spvOptions.disableOptimizer = (Options & EOptionOptimizeDisable) != 0;
                     spvOptions.optimizeSize = (Options & EOptionOptimizeSize) != 0;
@@ -1702,9 +1801,9 @@ EShLanguage FindLanguage(const std::string& name, bool parseStageName)
     else if (stageName == "rcall")
         return EShLangCallable;
     else if (stageName == "mesh")
-        return EShLangMeshNV;
+        return EShLangMesh;
     else if (stageName == "task")
-        return EShLangTaskNV;
+        return EShLangTask;
 
     usage();
     return EShLangVertex;
@@ -1828,6 +1927,8 @@ void usage()
            "              SPV_GOOGLE_hlsl_functionality1 extension\n"
            "  -g          generate debug information\n"
            "  -g0         strip debug information\n"
+           "  -gV         generate nonsemantic shader debug information\n"
+           "  -gVS        generate nonsemantic shader debug information with source\n"
            "  -h          print this usage message\n"
            "  -i          intermediate tree (glslang AST) is printed out\n"
            "  -l          link all input files together to form a single module\n"
@@ -1857,6 +1958,11 @@ void usage()
            "  -dumpfullversion | -dumpversion   print bare major.minor.patchlevel\n"
            "  --flatten-uniform-arrays | --fua  flatten uniform texture/sampler arrays to\n"
            "                                    scalars\n"
+           "  --glsl-version {100 | 110 | 120 | 130 | 140 | 150 |\n"
+           "                300es | 310es | 320es | 330\n"
+           "                400 | 410 | 420 | 430 | 440 | 450 | 460}\n"
+           "                                    set GLSL version, overrides #version\n"
+           "                                    in shader sourcen\n"
            "  --hlsl-offsets                    allow block offsets to follow HLSL rules\n"
            "                                    works independently of source language\n"
            "  --hlsl-iomap                      perform IO mapping in HLSL register space\n"
@@ -1867,6 +1973,7 @@ void usage()
            "  --hlsl-dx-position-w              W component of SV_Position in HLSL fragment\n"
            "                                    shaders compatible with DirectX\n"
            "  --invert-y | --iy                 invert position.Y output in vertex shader\n"
+           "  --enhanced-msgs                   print more readable error messages (GLSL only)\n"
            "  --keep-uncalled | --ku            don't eliminate uncalled functions\n"
            "  --nan-clamp                       favor non-NaN operand in min, max, and clamp\n"
            "  --no-storage-format | --nsf       use Unknown image format\n"

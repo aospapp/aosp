@@ -16,6 +16,8 @@ syntax = "proto2";
 
 package icing.lib;
 
+import "icing/proto/term.proto";
+
 option java_package = "com.google.android.icing.proto";
 option java_multiple_files = true;
 option objc_class_prefix = "ICNG";
@@ -23,7 +25,7 @@ option objc_class_prefix = "ICNG";
 // Encapsulates the configurations on how Icing should score and rank the search
 // results.
 // TODO(b/170347684): Change all timestamps to seconds.
-// Next tag: 4
+// Next tag: 12
 message ScoringSpecProto {
   // OPTIONAL: Indicates how the search results will be ranked.
   message RankingStrategy {
@@ -66,6 +68,12 @@ message ScoringSpecProto {
 
       // Ranked by relevance score, currently computed as BM25F score.
       RELEVANCE_SCORE = 9;
+
+      // Ranked by the aggregated score of the joined documents.
+      JOIN_AGGREGATE_SCORE = 10;
+
+      // Ranked by the advanced scoring expression provided.
+      ADVANCED_SCORING_EXPRESSION = 11;
     }
   }
   optional RankingStrategy.Code rank_by = 1;
@@ -94,6 +102,42 @@ message ScoringSpecProto {
   // all properties that are not specified are given a raw, pre-normalized
   // weight of 1.0 when scoring.
   repeated TypePropertyWeights type_property_weights = 3;
+
+  // OPTIONAL: Specifies the scoring expression for ADVANCED_SCORING_EXPRESSION
+  // RankingStrategy.
+  optional string advanced_scoring_expression = 4;
+}
+
+// Next tag: 3
+message SuggestionScoringSpecProto {
+  message SuggestionRankingStrategy {
+    enum Code {
+      // No ranking strategy specified, terms may be returned in an arbitrary
+      // order.
+      NONE = 0;
+
+      // Ranked by the term's hit count.
+      DOCUMENT_COUNT = 1;
+
+      // Ranked by the term's frequency.
+      TERM_FREQUENCY = 2;
+    }
+  }
+
+  // TermMatchType.Code=UNKNOWN
+  // Should never purposely be set and may lead to undefined behavior. This is
+  // used for backwards compatibility reasons.
+  //
+  // TermMatchType.Code=EXACT_ONLY
+  // Only exact hits will be counted to score a suggestion term.
+  //
+  // TermMatchType.Code=PREFIX
+  // Both exact hits and prefix hits will be counted to score a suggestion
+  // term.
+  optional TermMatchType.Code scoring_match_type = 1;
+
+  // Rank the output suggested result by given SuggestionRankingStrategy.
+  optional SuggestionRankingStrategy.Code rank_by = 2;
 }
 
 // Next tag: 3

@@ -48,7 +48,8 @@ T ParseSystemProperty(const char* name, T defaultValue)
 {
     try
     {
-        const prop_info *pInfo = __system_property_find(name);
+        auto const prefixedName = std::string("ro.vendor.") + name;
+        const prop_info *pInfo = __system_property_find(prefixedName.c_str());
         if (!pInfo)
         {
             ALOGW("ArmnnDriver::ParseSystemProperty(): Could not find property [%s].", name);

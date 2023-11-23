@@ -18,24 +18,16 @@ package android.media.cts;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.TestResult.TestStatus;
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.CollectingTestListener;
-import com.android.tradefed.result.TestDescription;
-import com.android.tradefed.result.TestResult;
 import com.android.tradefed.result.TestRunResult;
-import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.tradefed.testtype.IBuildReceiver;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -85,8 +77,14 @@ public class BaseMultiUserTest extends BaseMediaHostSideTest {
                 USER_ALL);
 
         mExistingUsers = new ArrayList<>();
-        int primaryUserId = getDevice().getPrimaryUserId();
-        mExistingUsers.add(primaryUserId);
+        Integer primaryUserId = getDevice().getPrimaryUserId();
+        if (primaryUserId != null) {
+            mExistingUsers.add(primaryUserId);
+        }
+        Integer mainUserId = getDevice().getMainUserId();
+        if (mainUserId != null) {
+            mExistingUsers.add(mainUserId);
+        }
         mExistingUsers.add(USER_SYSTEM);
 
         executeShellCommand("am switch-user " + primaryUserId);
@@ -102,10 +100,19 @@ public class BaseMultiUserTest extends BaseMediaHostSideTest {
                 mPackageVerifier,
                 USER_ALL);
 
+        // We want to fail if something goes wrong in tearDown, but we want to complete as many
+        // cleanup steps as we can to reduce the chances of leaving the device in an inconsistent
+        // state.
+        Throwable lastTearDownError = null;
+
         // Remove users created during the test.
         for (int userId : getDevice().listUsers()) {
             if (!mExistingUsers.contains(userId)) {
-                removeUser(userId);
+                try {
+                    removeUser(userId);
+                } catch (Throwable t) {
+                    lastTearDownError = t;
+                }
             }
         }
         // Remove packages installed during the test.
@@ -114,19 +121,32 @@ public class BaseMultiUserTest extends BaseMediaHostSideTest {
                 continue;
             }
             CLog.d("Removing leftover package: " + packageName);
-            getDevice().uninstallPackage(packageName);
+            try {
+                getDevice().uninstallPackage(packageName);
+            } catch (Throwable t) {
+                lastTearDownError = t;
+            }
         }
         super.tearDown();
+        if (lastTearDownError != null) {
+            throw new AssertionError("Something went wrong while cleaning up.", lastTearDownError);
+        }
     }
 
     /**
      * Installs the app as if the user of the ID {@param userId} has installed the app.
      *
      * @param appFileName file name of the app.
+     * @param packageName the app's package name.
      * @param userId user ID to install the app against.
+     * @param asInstantApp whether to install the app as an instant app.
      */
-    protected void installAppAsUser(String appFileName, int userId, boolean asInstantApp)
+    protected void installAppAsUser(
+            String appFileName, String packageName, int userId, boolean asInstantApp)
             throws FileNotFoundException, DeviceNotAvailableException {
+        // Installation may fail if the package already exists.
+        getDevice().uninstallPackage(packageName);
+
         CLog.d("Installing app " + appFileName + " for user " + userId);
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
         String result = getDevice().installPackageForUser(

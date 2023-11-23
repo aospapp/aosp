@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include <keymaster/km_openssl/asymmetric_key.h>
 #include <keymaster/km_openssl/openssl_utils.h>
 
@@ -36,10 +38,10 @@ class Curve25519Key : public AsymmetricKey {
   public:
     Curve25519Key(AuthorizationSet hw_enforced, AuthorizationSet sw_enforced,
                   const KeyFactory* factory)
-        : AsymmetricKey(move(hw_enforced), move(sw_enforced), factory) {}
+        : AsymmetricKey(std::move(hw_enforced), std::move(sw_enforced), factory) {}
     Curve25519Key(AuthorizationSet hw_enforced, AuthorizationSet sw_enforced,
                   const KeyFactory* factory, const KeymasterKeyBlob& key_material)
-        : AsymmetricKey(move(hw_enforced), move(sw_enforced), factory) {
+        : AsymmetricKey(std::move(hw_enforced), std::move(sw_enforced), factory) {
         key_material_ = key_material;
     }
 

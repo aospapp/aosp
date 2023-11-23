@@ -64,7 +64,7 @@ const char* const ROUTE_TABLE_NAME_MAIN  = "main";
 
 const char* const RouteController::LOCAL_MANGLE_INPUT = "routectrl_mangle_INPUT";
 
-const IPPrefix V4_LOCAL_ADDR[] = {
+const IPPrefix V4_LOCAL_PREFIXES[] = {
         IPPrefix::forString("169.254.0.0/16"),  // Link Local
         IPPrefix::forString("100.64.0.0/10"),   // CGNAT
         IPPrefix::forString("10.0.0.0/8"),      // RFC1918
@@ -595,6 +595,34 @@ int modifyIncomingPacketMark(unsigned netId, const char* interface, Permission p
                         mask.intValue, IIF_LOOPBACK, OIF_NONE, uidStart, uidEnd);
 }
 
+// A rule to route traffic based on an local network.
+//
+// Supports apps that send traffic to local IPs without binding to a particular network.
+//
+[[nodiscard]] static int modifyLocalNetworkRule(uint32_t table, bool add) {
+    Fwmark fwmark;
+    Fwmark mask;
+
+    fwmark.explicitlySelected = false;
+    mask.explicitlySelected = true;
+
+    if (const int ret = modifyIpRule(add ? RTM_NEWRULE : RTM_DELRULE, RULE_PRIORITY_LOCAL_NETWORK,
+                                     table, fwmark.intValue, mask.intValue, IIF_NONE, OIF_NONE,
+                                     INVALID_UID, INVALID_UID)) {
+        return ret;
+    }
+
+    fwmark.explicitlySelected = true;
+    mask.explicitlySelected = true;
+
+    fwmark.netId = INetd::LOCAL_NET_ID;
+    mask.netId = FWMARK_NET_ID_MASK;
+
+    return modifyIpRule(add ? RTM_NEWRULE : RTM_DELRULE, RULE_PRIORITY_EXPLICIT_NETWORK, table,
+                        fwmark.intValue, mask.intValue, IIF_LOOPBACK, OIF_NONE, INVALID_UID,
+                        INVALID_UID);
+}
+
 // A rule to route traffic based on a chosen outgoing interface.
 //
 // Supports apps that use SO_BINDTODEVICE or IP_PKTINFO options and the kernel that already knows
@@ -665,6 +693,19 @@ int RouteController::modifyVpnLocalExclusionRule(bool add, const char* physicalI
     return modifyIpRule(add ? RTM_NEWRULE : RTM_DELRULE, RULE_PRIORITY_LOCAL_ROUTES, table,
                         fwmark.intValue, mask.intValue, IIF_LOOPBACK, OIF_NONE, INVALID_UID,
                         INVALID_UID);
+}
+
+int RouteController::addFixedLocalRoutes(const char* interface) {
+    for (size_t i = 0; i < ARRAY_SIZE(V4_FIXED_LOCAL_PREFIXES); ++i) {
+        if (int ret = modifyRoute(RTM_NEWROUTE, NETLINK_ROUTE_CREATE_FLAGS, interface,
+                                  V4_FIXED_LOCAL_PREFIXES[i], nullptr /* nexthop */,
+                                  RouteController::INTERFACE, 0 /* mtu */, 0 /* priority */,
+                                  true /* isLocal */)) {
+            return ret;
+        }
+    }
+
+    return 0;
 }
 
 // A rule to enable split tunnel VPNs.
@@ -845,7 +886,7 @@ int RouteController::configureDummyNetwork() {
 /* static */
 int RouteController::modifyPhysicalNetwork(unsigned netId, const char* interface,
                                            const UidRangeMap& uidRangeMap, Permission permission,
-                                           bool add, bool modifyNonUidBasedRules) {
+                                           bool add, bool modifyNonUidBasedRules, bool local) {
     uint32_t table = getRouteTableForInterface(interface, false /* local */);
     if (table == RT_TABLE_UNSPEC) {
         return -ESRCH;
@@ -890,6 +931,11 @@ int RouteController::modifyPhysicalNetwork(unsigned netId, const char* interface
     if (int ret = modifyExplicitNetworkRule(netId, table, permission, INVALID_UID, INVALID_UID,
                                             UidRanges::SUB_PRIORITY_HIGHEST, add)) {
         return ret;
+    }
+    if (local) {
+        if (const int ret = modifyLocalNetworkRule(table, add)) {
+            return ret;
+        }
     }
     if (int ret = modifyOutputInterfaceRules(interface, table, permission, INVALID_UID, INVALID_UID,
                                              UidRanges::SUB_PRIORITY_HIGHEST, add)) {
@@ -1289,22 +1335,28 @@ int RouteController::removeInterfaceFromLocalNetwork(unsigned netId, const char*
 
 int RouteController::addInterfaceToPhysicalNetwork(unsigned netId, const char* interface,
                                                    Permission permission,
-                                                   const UidRangeMap& uidRangeMap) {
+                                                   const UidRangeMap& uidRangeMap, bool local) {
     if (int ret = modifyPhysicalNetwork(netId, interface, uidRangeMap, permission, ACTION_ADD,
-                                        MODIFY_NON_UID_BASED_RULES)) {
+                                        MODIFY_NON_UID_BASED_RULES, local)) {
         return ret;
     }
 
     maybeModifyQdiscClsact(interface, ACTION_ADD);
     updateTableNamesFile();
+
+    if (int ret = addFixedLocalRoutes(interface)) {
+        return ret;
+    }
+
     return 0;
 }
 
 int RouteController::removeInterfaceFromPhysicalNetwork(unsigned netId, const char* interface,
                                                         Permission permission,
-                                                        const UidRangeMap& uidRangeMap) {
+                                                        const UidRangeMap& uidRangeMap,
+                                                        bool local) {
     if (int ret = modifyPhysicalNetwork(netId, interface, uidRangeMap, permission, ACTION_DEL,
-                                        MODIFY_NON_UID_BASED_RULES)) {
+                                        MODIFY_NON_UID_BASED_RULES, local)) {
         return ret;
     }
 
@@ -1348,17 +1400,17 @@ int RouteController::removeInterfaceFromVirtualNetwork(unsigned netId, const cha
 
 int RouteController::modifyPhysicalNetworkPermission(unsigned netId, const char* interface,
                                                      Permission oldPermission,
-                                                     Permission newPermission) {
+                                                     Permission newPermission, bool local) {
     // Physical network rules either use permission bits or UIDs, but not both.
     // So permission changes don't affect any UID-based rules.
     UidRangeMap emptyUidRangeMap;
     // Add the new rules before deleting the old ones, to avoid race conditions.
     if (int ret = modifyPhysicalNetwork(netId, interface, emptyUidRangeMap, newPermission,
-                                        ACTION_ADD, MODIFY_NON_UID_BASED_RULES)) {
+                                        ACTION_ADD, MODIFY_NON_UID_BASED_RULES, local)) {
         return ret;
     }
     return modifyPhysicalNetwork(netId, interface, emptyUidRangeMap, oldPermission, ACTION_DEL,
-                                 MODIFY_NON_UID_BASED_RULES);
+                                 MODIFY_NON_UID_BASED_RULES, local);
 }
 
 int RouteController::addUsersToRejectNonSecureNetworkRule(const UidRanges& uidRanges) {
@@ -1392,8 +1444,8 @@ int RouteController::removeInterfaceFromDefaultNetwork(const char* interface,
     return modifyDefaultNetwork(RTM_DELRULE, interface, permission);
 }
 
-bool RouteController::isTargetV4LocalRange(const char* dst) {
-    for (IPPrefix addr : V4_LOCAL_ADDR) {
+bool RouteController::isWithinIpv4LocalPrefix(const char* dst) {
+    for (IPPrefix addr : V4_LOCAL_PREFIXES) {
         if (addr.contains(IPPrefix::forString(dst))) {
             return true;
         }
@@ -1401,14 +1453,14 @@ bool RouteController::isTargetV4LocalRange(const char* dst) {
     return false;
 }
 
-bool RouteController::isLocalAddress(TableType tableType, const char* destination,
-                                     const char* nexthop) {
+bool RouteController::isLocalRoute(TableType tableType, const char* destination,
+                                   const char* nexthop) {
     IPPrefix prefix = IPPrefix::forString(destination);
     return nexthop == nullptr && tableType == RouteController::INTERFACE &&
            // Skip default route to prevent network being modeled as point-to-point interfaces.
            ((prefix.family() == AF_INET6 && prefix != IPPrefix::forString("::/0")) ||
             // Skip adding non-target local network range.
-            (prefix.family() == AF_INET && isTargetV4LocalRange(destination)));
+            (prefix.family() == AF_INET && isWithinIpv4LocalPrefix(destination)));
 }
 
 int RouteController::addRoute(const char* interface, const char* destination, const char* nexthop,
@@ -1418,7 +1470,7 @@ int RouteController::addRoute(const char* interface, const char* destination, co
         return ret;
     }
 
-    if (isLocalAddress(tableType, destination, nexthop)) {
+    if (isLocalRoute(tableType, destination, nexthop)) {
         return modifyRoute(RTM_NEWROUTE, NETLINK_ROUTE_CREATE_FLAGS, interface, destination,
                            nexthop, tableType, mtu, priority, true /* isLocal */);
     }
@@ -1433,7 +1485,7 @@ int RouteController::removeRoute(const char* interface, const char* destination,
         return ret;
     }
 
-    if (isLocalAddress(tableType, destination, nexthop)) {
+    if (isLocalRoute(tableType, destination, nexthop)) {
         return modifyRoute(RTM_DELROUTE, NETLINK_REQUEST_FLAGS, interface, destination, nexthop,
                            tableType, 0 /* mtu */, priority, true /* isLocal */);
     }
@@ -1447,7 +1499,7 @@ int RouteController::updateRoute(const char* interface, const char* destination,
         return ret;
     }
 
-    if (isLocalAddress(tableType, destination, nexthop)) {
+    if (isLocalRoute(tableType, destination, nexthop)) {
         return modifyRoute(RTM_NEWROUTE, NETLINK_ROUTE_REPLACE_FLAGS, interface, destination,
                            nexthop, tableType, mtu, 0 /* priority */, true /* isLocal */);
     }
@@ -1482,15 +1534,15 @@ int RouteController::removeVirtualNetworkFallthrough(unsigned vpnNetId,
 }
 
 int RouteController::addUsersToPhysicalNetwork(unsigned netId, const char* interface,
-                                               const UidRangeMap& uidRangeMap) {
+                                               const UidRangeMap& uidRangeMap, bool local) {
     return modifyPhysicalNetwork(netId, interface, uidRangeMap, PERMISSION_NONE, ACTION_ADD,
-                                 !MODIFY_NON_UID_BASED_RULES);
+                                 !MODIFY_NON_UID_BASED_RULES, local);
 }
 
 int RouteController::removeUsersFromPhysicalNetwork(unsigned netId, const char* interface,
-                                                    const UidRangeMap& uidRangeMap) {
+                                                    const UidRangeMap& uidRangeMap, bool local) {
     return modifyPhysicalNetwork(netId, interface, uidRangeMap, PERMISSION_NONE, ACTION_DEL,
-                                 !MODIFY_NON_UID_BASED_RULES);
+                                 !MODIFY_NON_UID_BASED_RULES, local);
 }
 
 int RouteController::addUsersToUnreachableNetwork(unsigned netId, const UidRangeMap& uidRangeMap) {

@@ -25,7 +25,7 @@ android_test_helper_app {
     defaults: ["cts_support_defaults"],
     sdk_version: "test_current",
     static_libs: [
-        "device_time_shell_utils",
+        "device-time-shell-utils",
     ],
     srcs: ["src/**/*.java"],
 }

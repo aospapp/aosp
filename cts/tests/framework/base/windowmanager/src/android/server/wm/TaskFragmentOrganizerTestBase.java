@@ -17,7 +17,15 @@
 package android.server.wm;
 
 import static android.app.WindowConfiguration.WINDOWING_MODE_UNDEFINED;
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.server.wm.WindowManagerState.STATE_RESUMED;
+import static android.window.TaskFragmentOrganizer.TASK_FRAGMENT_TRANSIT_OPEN;
+import static android.window.TaskFragmentTransaction.TYPE_ACTIVITY_REPARENTED_TO_TASK;
+import static android.window.TaskFragmentTransaction.TYPE_TASK_FRAGMENT_APPEARED;
+import static android.window.TaskFragmentTransaction.TYPE_TASK_FRAGMENT_ERROR;
+import static android.window.TaskFragmentTransaction.TYPE_TASK_FRAGMENT_INFO_CHANGED;
+import static android.window.TaskFragmentTransaction.TYPE_TASK_FRAGMENT_PARENT_INFO_CHANGED;
+import static android.window.TaskFragmentTransaction.TYPE_TASK_FRAGMENT_VANISHED;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -25,32 +33,40 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import android.app.Activity;
+import android.app.Instrumentation;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.os.Binder;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.server.wm.WindowContextTests.TestActivity;
 import android.server.wm.WindowManagerState.WindowContainer;
 import android.util.ArrayMap;
+import android.util.Log;
 import android.window.TaskFragmentCreationParams;
 import android.window.TaskFragmentInfo;
 import android.window.TaskFragmentOrganizer;
+import android.window.TaskFragmentTransaction;
 import android.window.WindowContainerTransaction;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.test.InstrumentationRegistry;
 
 import org.junit.After;
 import org.junit.Before;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 public class TaskFragmentOrganizerTestBase extends WindowManagerTestBase {
+    private static final String TAG = "TaskFragmentOrganizerTestBase";
+
     public BasicTaskFragmentOrganizer mTaskFragmentOrganizer;
     Activity mOwnerActivity;
     IBinder mOwnerToken;
@@ -160,8 +176,8 @@ public class TaskFragmentOrganizerTestBase extends WindowManagerTestBase {
      * new task fragment.
      */
     TaskFragmentInfo createTaskFragment(@Nullable ComponentName componentName,
-            @NonNull Rect bounds) {
-        return createTaskFragment(componentName, bounds, new WindowContainerTransaction());
+            @NonNull Rect relativeBounds) {
+        return createTaskFragment(componentName, relativeBounds, new WindowContainerTransaction());
     }
 
     /**
@@ -169,15 +185,16 @@ public class TaskFragmentOrganizerTestBase extends WindowManagerTestBase {
      * {@link WindowContainerTransaction} to use.
      */
     TaskFragmentInfo createTaskFragment(@Nullable ComponentName componentName,
-            @NonNull Rect bounds, @NonNull WindowContainerTransaction wct) {
-        final TaskFragmentCreationParams params = generateTaskFragCreationParams(bounds);
+            @NonNull Rect relativeBounds, @NonNull WindowContainerTransaction wct) {
+        final TaskFragmentCreationParams params = generateTaskFragCreationParams(relativeBounds);
         final IBinder taskFragToken = params.getFragmentToken();
         wct.createTaskFragment(params);
         if (componentName != null) {
             wct.startActivityInTaskFragment(taskFragToken, mOwnerToken,
                     new Intent().setComponent(componentName), null /* activityOptions */);
         }
-        mTaskFragmentOrganizer.applyTransaction(wct);
+        mTaskFragmentOrganizer.applyTransaction(wct, TASK_FRAGMENT_TRANSIT_OPEN,
+                false /* shouldApplyIndependently */);
         mTaskFragmentOrganizer.waitForTaskFragmentCreated();
 
         if (componentName != null) {
@@ -193,9 +210,20 @@ public class TaskFragmentOrganizerTestBase extends WindowManagerTestBase {
     }
 
     @NonNull
-    TaskFragmentCreationParams generateTaskFragCreationParams(@NonNull Rect bounds) {
-        return mTaskFragmentOrganizer.generateTaskFragParams(mOwnerToken, bounds,
+    TaskFragmentCreationParams generateTaskFragCreationParams(@NonNull Rect relativeBounds) {
+        return mTaskFragmentOrganizer.generateTaskFragParams(mOwnerToken, relativeBounds,
                 WINDOWING_MODE_UNDEFINED);
+    }
+
+    static Activity startNewActivity() {
+        return startNewActivity(TestActivity.class);
+    }
+
+    static Activity startNewActivity(Class<?> className) {
+        final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        final Intent intent = new Intent(instrumentation.getTargetContext(), className)
+                .addFlags(FLAG_ACTIVITY_NEW_TASK);
+        return instrumentation.startActivitySync(intent);
     }
 
     public static class BasicTaskFragmentOrganizer extends TaskFragmentOrganizer {
@@ -203,7 +231,7 @@ public class TaskFragmentOrganizerTestBase extends WindowManagerTestBase {
 
         private final Map<IBinder, TaskFragmentInfo> mInfos = new ArrayMap<>();
         private final Map<IBinder, TaskFragmentInfo> mRemovedInfos = new ArrayMap<>();
-        private IBinder mTaskFragToken;
+        private int mParentTaskId;
         private Configuration mParentConfig;
         private IBinder mErrorToken;
         private Throwable mThrowable;
@@ -256,10 +284,16 @@ public class TaskFragmentOrganizerTestBase extends WindowManagerTestBase {
 
         @NonNull
         public TaskFragmentCreationParams generateTaskFragParams(@NonNull IBinder ownerToken,
-                @NonNull Rect bounds, int windowingMode) {
-            return new TaskFragmentCreationParams.Builder(getOrganizerToken(), new Binder(),
+                @NonNull Rect relativeBounds, int windowingMode) {
+            return generateTaskFragParams(new Binder(), ownerToken, relativeBounds, windowingMode);
+        }
+
+        @NonNull
+        public TaskFragmentCreationParams generateTaskFragParams(@NonNull IBinder fragmentToken,
+                @NonNull IBinder ownerToken, @NonNull Rect relativeBounds, int windowingMode) {
+            return new TaskFragmentCreationParams.Builder(getOrganizerToken(), fragmentToken,
                     ownerToken)
-                    .setInitialBounds(bounds)
+                    .setInitialRelativeBounds(relativeBounds)
                     .setWindowingMode(windowingMode)
                     .build();
         }
@@ -322,9 +356,10 @@ public class TaskFragmentOrganizerTestBase extends WindowManagerTestBase {
         private void removeAllTaskFragments() {
             final WindowContainerTransaction wct = new WindowContainerTransaction();
             for (TaskFragmentInfo info : mInfos.values()) {
-                wct.deleteTaskFragment(info.getToken());
+                wct.deleteTaskFragment(info.getFragmentToken());
             }
-            applyTransaction(wct);
+            applyTransaction(wct, TASK_FRAGMENT_TRANSIT_CLOSE,
+                    false /* shouldApplyIndependently */);
         }
 
         @Override
@@ -335,43 +370,89 @@ public class TaskFragmentOrganizerTestBase extends WindowManagerTestBase {
         }
 
         @Override
-        public void onTaskFragmentAppeared(@NonNull TaskFragmentInfo taskFragmentInfo) {
-            super.onTaskFragmentAppeared(taskFragmentInfo);
+        public void onTransactionReady(@NonNull TaskFragmentTransaction transaction) {
+            final List<TaskFragmentTransaction.Change> changes = transaction.getChanges();
+            for (TaskFragmentTransaction.Change change : changes) {
+                final int taskId = change.getTaskId();
+                final TaskFragmentInfo info = change.getTaskFragmentInfo();
+                switch (change.getType()) {
+                    case TYPE_TASK_FRAGMENT_APPEARED:
+                        onTaskFragmentAppeared(info);
+                        break;
+                    case TYPE_TASK_FRAGMENT_INFO_CHANGED:
+                        onTaskFragmentInfoChanged(info);
+                        break;
+                    case TYPE_TASK_FRAGMENT_VANISHED:
+                        onTaskFragmentVanished(info);
+                        break;
+                    case TYPE_TASK_FRAGMENT_PARENT_INFO_CHANGED:
+                        onTaskFragmentParentInfoChanged(taskId, change.getTaskConfiguration());
+                        break;
+                    case TYPE_TASK_FRAGMENT_ERROR:
+                        final Bundle errorBundle = change.getErrorBundle();
+                        final IBinder errorToken = change.getErrorCallbackToken();
+                        final TaskFragmentInfo errorTaskFragmentInfo = errorBundle.getParcelable(
+                                KEY_ERROR_CALLBACK_TASK_FRAGMENT_INFO, TaskFragmentInfo.class);
+                        final int opType = errorBundle.getInt(KEY_ERROR_CALLBACK_OP_TYPE);
+                        final Throwable exception = errorBundle.getSerializable(
+                                KEY_ERROR_CALLBACK_THROWABLE, Throwable.class);
+                        onTaskFragmentError(errorToken, errorTaskFragmentInfo, opType,
+                                exception);
+                        break;
+                    case TYPE_ACTIVITY_REPARENTED_TO_TASK:
+                        onActivityReparentedToTask(
+                                taskId,
+                                change.getActivityIntent(),
+                                change.getActivityToken());
+                        break;
+                    default:
+                        // Log instead of throwing exception in case we will add more types between
+                        // releases.
+                        Log.w(TAG, "Unknown TaskFragmentEvent=" + change.getType());
+                }
+            }
+            onTransactionHandled(transaction.getTransactionToken(),
+                    new WindowContainerTransaction(), TASK_FRAGMENT_TRANSIT_NONE,
+                    false /* shouldApplyIndependently */);
+        }
+
+        private void onTaskFragmentAppeared(@NonNull TaskFragmentInfo taskFragmentInfo) {
             mInfos.put(taskFragmentInfo.getFragmentToken(), taskFragmentInfo);
             mAppearedLatch.countDown();
         }
 
-        @Override
-        public void onTaskFragmentInfoChanged(@NonNull TaskFragmentInfo taskFragmentInfo) {
-            super.onTaskFragmentInfoChanged(taskFragmentInfo);
+        private void onTaskFragmentInfoChanged(@NonNull TaskFragmentInfo taskFragmentInfo) {
             mInfos.put(taskFragmentInfo.getFragmentToken(), taskFragmentInfo);
             mChangedLatch.countDown();
         }
 
-        @Override
-        public void onTaskFragmentVanished(@NonNull TaskFragmentInfo taskFragmentInfo) {
-            super.onTaskFragmentVanished(taskFragmentInfo);
+        private void onTaskFragmentVanished(@NonNull TaskFragmentInfo taskFragmentInfo) {
             mInfos.remove(taskFragmentInfo.getFragmentToken());
             mRemovedInfos.put(taskFragmentInfo.getFragmentToken(), taskFragmentInfo);
             mVanishedLatch.countDown();
         }
 
-        @Override
-        public void onTaskFragmentParentInfoChanged(@NonNull IBinder fragmentToken,
+        private void onTaskFragmentParentInfoChanged(int taskId,
                 @NonNull Configuration parentConfig) {
-            super.onTaskFragmentParentInfoChanged(fragmentToken, parentConfig);
-            mTaskFragToken = fragmentToken;
+            mParentTaskId = taskId;
             mParentConfig = parentConfig;
             mParentChangedLatch.countDown();
         }
 
-        @Override
-        public void onTaskFragmentError(@NonNull IBinder errorCallbackToken,
+        private void onTaskFragmentError(@NonNull IBinder errorCallbackToken,
+                @Nullable TaskFragmentInfo taskFragmentInfo, int opType,
                 @NonNull Throwable exception) {
-            super.onTaskFragmentError(errorCallbackToken, exception);
             mErrorToken = errorCallbackToken;
+            if (taskFragmentInfo != null) {
+                mInfos.put(taskFragmentInfo.getFragmentToken(), taskFragmentInfo);
+            }
             mThrowable = exception;
             mErrorLatch.countDown();
+        }
+
+        private void onActivityReparentedToTask(int taskId, @NonNull Intent activityIntent,
+                @NonNull IBinder activityToken) {
+            // TODO(b/232476698) Add CTS to verify PIP behavior with ActivityEmbedding
         }
     }
 }

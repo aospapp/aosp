@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -60,10 +60,15 @@ package java.time.chrono;
 import static java.time.temporal.ChronoField.EPOCH_DAY;
 
 import java.io.FilePermission;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
@@ -81,6 +86,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.function.Supplier;
 
 import sun.util.logging.PlatformLogger;
 
@@ -189,9 +195,15 @@ import sun.util.logging.PlatformLogger;
  * </tr>
  * </tbody>
  * </table>
+ * <p>
+ * Additional variants may be added by providing configuration properties files in
+ * {@code <JAVA_HOME>/conf/chronology} directory. The properties
+ * files should follow the naming convention of
+ * {@code hijrah-config-<chronology id>_<calendar type>.properties}.
  *
  * @since 1.8
  */
+@SuppressWarnings("removal")
 public final class HijrahChronology extends AbstractChronology implements Serializable {
 
     /**
@@ -205,6 +217,7 @@ public final class HijrahChronology extends AbstractChronology implements Serial
     /**
      * Serialization version.
      */
+    @java.io.Serial
     private static final long serialVersionUID = 3127340209035924785L;
     /**
      * Singleton instance of the Islamic Umm Al-Qura calendar of Saudi Arabia.
@@ -277,6 +290,11 @@ public final class HijrahChronology extends AbstractChronology implements Serial
         // Register it by its aliases
         AbstractChronology.registerChrono(INSTANCE, "Hijrah");
         AbstractChronology.registerChrono(INSTANCE, "islamic");
+
+        // custom config chronologies
+        CONF_PATH = Path.of(AccessController.doPrivileged((PrivilegedAction<String>)
+                () -> System.getProperty("java.home")), "conf", "chronology");
+        registerCustomChrono();
     }
 
     /**
@@ -482,7 +500,7 @@ public final class HijrahChronology extends AbstractChronology implements Serial
 
     @Override
     public int prolepticYear(Era era, int yearOfEra) {
-        if (era instanceof HijrahEra == false) {
+        if (!(era instanceof HijrahEra)) {
             throw new ClassCastException("Era must be HijrahEra");
         }
         return yearOfEra;
@@ -799,32 +817,47 @@ public final class HijrahChronology extends AbstractChronology implements Serial
     private static final String KEY_TYPE = "type";
     private static final String KEY_VERSION = "version";
     private static final String KEY_ISO_START = "iso-start";
+    private static final Path CONF_PATH;
 
     /**
      * Return the configuration properties from the resource.
      * <p>
      * The location of the variant configuration resource is:
      * <pre>
-     *   "/java/time/chrono/hijrah-config-" + calendarType + ".properties"
+     *   "/java/time/chrono/" (for "islamic-umalqura" type), or
+     *   "<JAVA_HOME>/conf/chronology/" +
+     *   "hijrah-config-" + chronologyId + "_" + calendarType + ".properties"
      * </pre>
      *
+     * @param chronologyId the chronology ID of the calendar variant
      * @param calendarType the calendarType of the calendar variant
      * @return a Properties containing the properties read from the resource.
      * @throws Exception if access to the property resource fails
      */
-    private Properties readConfigProperties(final String calendarType) throws Exception {
-        String resourceName = RESOURCE_PREFIX + calendarType + RESOURCE_SUFFIX;
+    private static Properties readConfigProperties(final String chronologyId, final String calendarType) throws Exception {
+        String resourceName = RESOURCE_PREFIX + chronologyId + "_" + calendarType + RESOURCE_SUFFIX;
+        // Android-changed: Load system resources.
+        // PrivilegedAction<InputStream> getResourceAction =  calendarType.equals("islamic-umalqura") ?
+        Supplier<InputStream> getResourceAction = calendarType.equals("islamic-umalqura") ?
+            () -> HijrahChronology.class.getResourceAsStream(resourceName) :
+            () -> {
+                try {
+                    return Files.newInputStream(CONF_PATH.resolve(resourceName),
+                            StandardOpenOption.READ);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            };
         // BEGIN Android-changed: Load system resources.
         /*
-        PrivilegedAction<InputStream> getResourceAction =  () -> HijrahChronology.class.getResourceAsStream(resourceName);
         FilePermission perm1 = new FilePermission("<<ALL FILES>>", "read");
         RuntimePermission perm2 = new RuntimePermission("accessSystemModules");
         try (InputStream is = AccessController.doPrivileged(getResourceAction, null, perm1, perm2)) {
         */
-        try (InputStream is = HijrahChronology.class.getResourceAsStream(resourceName)) {
+        try (InputStream is = getResourceAction.get()) {
         // END Android-changed: Load system resources.
             if (is == null) {
-                throw new RuntimeException("Hijrah calendar resource not found: /java/time/chrono/" + resourceName);
+                throw new RuntimeException("Hijrah calendar resource not found: " + resourceName);
             }
             Properties props = new Properties();
             props.load(is);
@@ -845,7 +878,7 @@ public final class HijrahChronology extends AbstractChronology implements Serial
      */
     private void loadCalendarData() {
         try {
-            Properties props = readConfigProperties(calendarType);
+            Properties props = readConfigProperties(typeId, calendarType);
 
             Map<Integer, int[]> years = new HashMap<>();
             int minYear = Integer.MAX_VALUE;
@@ -1013,10 +1046,48 @@ public final class HijrahChronology extends AbstractChronology implements Serial
         }
     }
 
+    /**
+     * Look for Hijrah chronology variant properties files in
+     * <JAVA_HOME>/conf/chronology directory. Then register its chronology, if any.
+     */
+    private static void registerCustomChrono() {
+        AccessController.doPrivileged(
+            (PrivilegedAction<Void>)() -> {
+                if (Files.isDirectory(CONF_PATH)) {
+                    try {
+                        Files.list(CONF_PATH)
+                            .map(p -> p.getFileName().toString())
+                            .filter(fn -> fn.matches("hijrah-config-[^\\.]+\\.properties"))
+                            .map(fn -> fn.replaceAll("(hijrah-config-|\\.properties)", ""))
+                            .forEach(idtype -> {
+                                int delimiterPos = idtype.indexOf('_');
+                                // '_' should be somewhere in the middle of idtype
+                                if (delimiterPos > 1 && delimiterPos < idtype.length() - 1) {
+                                    AbstractChronology.registerChrono(
+                                        new HijrahChronology(
+                                                idtype.substring(0, delimiterPos),
+                                                idtype.substring(delimiterPos + 1)));
+                                } else {
+                                    PlatformLogger.getLogger("java.time.chrono")
+                                            .warning("Hijrah custom config init failed." +
+                                                    "'<id>_<type>' name convention not followed: " + idtype);
+                                }
+                            });
+                    } catch (IOException e) {
+                        PlatformLogger.getLogger("java.time.chrono")
+                                .warning("Hijrah custom config init failed.", e);
+                    }
+                }
+                return null;
+            },
+            null,
+            new FilePermission("<<ALL FILES>>", "read"));
+    }
+
     //-----------------------------------------------------------------------
     /**
      * Writes the Chronology using a
-     * <a href="../../../serialized-form.html#java.time.chrono.Ser">dedicated serialized form</a>.
+     * <a href="{@docRoot}/serialized-form.html#java.time.chrono.Ser">dedicated serialized form</a>.
      * @serialData
      * <pre>
      *  out.writeByte(1);     // identifies a Chronology
@@ -1026,6 +1097,7 @@ public final class HijrahChronology extends AbstractChronology implements Serial
      * @return the instance of {@code Ser}, not null
      */
     @Override
+    @java.io.Serial
     Object writeReplace() {
         return super.writeReplace();
     }
@@ -1036,6 +1108,7 @@ public final class HijrahChronology extends AbstractChronology implements Serial
      * @param s the stream to read
      * @throws InvalidObjectException always
      */
+    @java.io.Serial
     private void readObject(ObjectInputStream s) throws InvalidObjectException {
         throw new InvalidObjectException("Deserialization via serialization delegate");
     }

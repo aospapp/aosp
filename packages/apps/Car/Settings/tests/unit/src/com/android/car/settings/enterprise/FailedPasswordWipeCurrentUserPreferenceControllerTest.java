@@ -51,11 +51,65 @@ public final class FailedPasswordWipeCurrentUserPreferenceControllerTest
     }
 
     @Test
+    public void testGetAvailabilityStatus_maxNotSet_zoneWrite() throws Exception {
+        mController.setAvailabilityStatusForZone("write");
+        mockGetMaximumFailedPasswordsForWipe(0);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_maxNotSet_zoneRead() throws Exception {
+        mController.setAvailabilityStatusForZone("read");
+        mockGetMaximumFailedPasswordsForWipe(0);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_maxNotSet_zoneHidden() throws Exception {
+        mController.setAvailabilityStatusForZone("hidden");
+        mockGetMaximumFailedPasswordsForWipe(0);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_maxSet() throws Exception {
         mockGetMaximumFailedPasswordsForWipe(42);
 
         PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 PreferenceController.AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_maxSet_zoneWrite() throws Exception {
+        mController.setAvailabilityStatusForZone("write");
+        mockGetMaximumFailedPasswordsForWipe(42);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_maxSet_zoneRead() throws Exception {
+        mController.setAvailabilityStatusForZone("read");
+        mockGetMaximumFailedPasswordsForWipe(42);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_maxSet_zoneHidden() throws Exception {
+        mController.setAvailabilityStatusForZone("hidden");
+        mockGetMaximumFailedPasswordsForWipe(42);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

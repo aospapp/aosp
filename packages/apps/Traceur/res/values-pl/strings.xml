@@ -4,6 +4,9 @@
     <string name="system_tracing" msgid="4719188511746319848">"Śledzenie systemu"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"Rejestruj aktywność systemu i analizuj ją później, by zwiększyć wydajność"</string>
     <string name="record_trace" msgid="6416875085186661845">"Rejestruj ślad"</string>
+    <string name="record_trace_summary" msgid="6705357754827849292">"Zapisuje ślad systemu, używając konfiguracji zdefiniowanej w „Ustawieniach monitorowania”"</string>
+    <string name="record_stack_samples" msgid="3498368637185702335">"Nagrywaj profil CPU"</string>
+    <string name="record_stack_samples_summary" msgid="7827953921526410478">"Próbkowanie stosu wywołań można też włączyć w śladach, zaznaczając kategorię „cpu”"</string>
     <string name="start_new_trace" msgid="8177130420802170353">"Rozpocznij nowe śledzenie"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"Śledź aplikacje z możliwością debugowania"</string>
     <string name="categories" msgid="2280163673538611008">"Kategorie"</string>
@@ -17,7 +20,9 @@
     <string name="show_quick_settings_tile" msgid="4971147332635291585">"Pokazuj kafelek Szybkich ustawień"</string>
     <string name="saving_trace" msgid="1468692734770800541">"Zapisuję ślad"</string>
     <string name="trace_saved" msgid="5869970594780992309">"Ślad został zapisany"</string>
-    <string name="tap_to_share" msgid="6766732404489536899">"Udostępnij ślad kliknięciem"</string>
+    <string name="saving_stack_samples" msgid="8174915522390525221">"Zapisuję próbki stosu"</string>
+    <string name="stack_samples_saved" msgid="8863295751647724616">"Próbki stosu zostały zapisane"</string>
+    <string name="tap_to_share" msgid="4440713575852187545">"Kliknij nagranie, aby je udostępnić"</string>
     <string name="attaching_to_report" msgid="2629202947947275886">"Dołączam log do raportu o błędzie"</string>
     <string name="attached_to_report" msgid="5806905349184608870">"Dołączono log do raportu o błędzie"</string>
     <string name="attached_to_report_summary" msgid="7665675771190391355">"Kliknij, by otworzyć BetterBug"</string>
@@ -25,18 +30,19 @@
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"Niektóre kategorie śledzenia są niedostępne:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"Ślad jest rejestrowany"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"Kliknij, by zatrzymać śledzenie"</string>
-    <string name="clear_saved_traces" msgid="4809195654452260944">"Usuń zapisane ślady"</string>
-    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"Ślady są usuwane po okresie jednego miesiąca"</string>
-    <string name="clear_saved_traces_question" msgid="2184026613055303818">"Usunąć zapisane ślady?"</string>
-    <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"Wszystkie ślady zostaną usunięte z katalogu /data/local/traces"</string>
+    <string name="stack_samples_are_being_recorded" msgid="8669254939248349583">"Trwa zapisywanie próbek stosu"</string>
+    <string name="tap_to_stop_stack_sampling" msgid="5911317684139059415">"Kliknij, aby zatrzymać próbkowanie stosu"</string>
+    <string name="clear_saved_files" msgid="9156079311231446825">"Usuń zapisane pliki"</string>
+    <string name="clear_saved_files_summary" msgid="109751867417553670">"Nagrania są usuwane po miesiącu"</string>
+    <string name="clear_saved_files_question" msgid="8586686617760838834">"Usunąć zapisane pliki?"</string>
+    <string name="all_recordings_will_be_deleted" msgid="7731693738485947891">"Wszystkie nagrania zostaną usunięte z katalogu /data/local/traces"</string>
     <string name="clear" msgid="5484761795406948056">"Wyczyść"</string>
     <string name="system_traces_storage_title" msgid="8294090839883366871">"Ślady systemu"</string>
     <string name="keywords" msgid="736547007949049535">"systrace, śledzenie, wydajność"</string>
-    <string name="share_trace" msgid="4528525067822044385">"Udostępnić śledzenie?"</string>
+    <string name="share_file" msgid="1982029143280382271">"Udostępnić plik?"</string>
     <string name="system_trace_sensitive_data" msgid="3069389866696009549">"Pliki śledzenia systemu mogą zawierać poufne dane dotyczące systemu i aplikacji (np. o użyciu aplikacji). Śledzenie systemu i aplikacji udostępniaj tylko zaufanym osobom."</string>
     <string name="share" msgid="8443979083706282338">"Udostępnij"</string>
     <string name="dont_show_again" msgid="6662492041164390600">"Nie pokazuj ponownie"</string>
-    <string name="use_perfetto_beta" msgid="2725630143916520160">"Użyj Perfetto (beta)"</string>
     <string name="long_traces" msgid="5110949471775966329">"Długie ślady"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Zapisywane ciągle w pamięci urządzenia"</string>
     <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Nieprzerwanie zapisywane w pamięci urządzenia (nie będzie automatycznie załączane do raportów o błędach)"</string>
@@ -58,9 +64,12 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16 384 KB"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32 768 KB"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65 536 KB"</string>
-    <string name="stop_on_bugreport" msgid="2045328149107284734">"Zatrzymaj dołączanie logów do raportów o błędach"</string>
-    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"Kończy aktywną sesję rejestrowania logów po rozpoczęciu tworzenia raportu o błędzie"</string>
-    <string name="attach_to_bug_report" msgid="2953745117960948415">"Dołącz logi do raportów o błędach"</string>
-    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"Automatycznie przesyłaj logi działania do BetterBug podczas tworzenia raportu o błędzie"</string>
-    <string name="link_to_traces" msgid="6569969595898995517">"Wyświetl pliki śledzenia"</string>
+    <string name="stop_on_bugreport" msgid="4591832600597126422">"Zatrzymaj nagrywanie na potrzeby raportów o błędach"</string>
+    <string name="stop_on_bugreport_summary" msgid="1601834864982891381">"Kończy aktywne sesje nagrywania, gdy rozpoczyna się tworzenie raportu o błędzie"</string>
+    <string name="attach_to_bug_report" msgid="5388986830016247490">"Załączaj nagrania do raportów o błędach"</string>
+    <string name="attach_to_bug_report_summary" msgid="4213730623971240002">"Automatycznie przesyłaj przetwarzanie nagrania do BetterBug podczas tworzenia raportu o błędzie"</string>
+    <string name="link_to_traces" msgid="1404687523304348490">"Wyświetl zapisane pliki"</string>
+    <string name="pref_category_trace_settings" msgid="6507535407023329628">"Ustawienia monitorowania"</string>
+    <string name="pref_category_saved_files" msgid="1477491400970413291">"Zapisane pliki"</string>
+    <string name="pref_category_misc" msgid="6217624054980014683">"Inne"</string>
 </resources>

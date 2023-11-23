@@ -25,8 +25,6 @@ SL4A. The script does the following:
       2.1 Check that devices are disconnected.
 """
 
-import time
-
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.base_test import BaseTestClass
@@ -46,8 +44,9 @@ class BtCarPairedConnectDisconnectTest(BluetoothBaseTest):
 
         # Pair the devices.
         # This call may block until some specified timeout in bt_test_utils.py.
-        result = bt_test_utils.pair_pri_to_sec(
-            self.car, self.ph, auto_confirm=False)
+        result = bt_test_utils.pair_pri_to_sec(self.car,
+                                               self.ph,
+                                               auto_confirm=False)
 
         asserts.assert_true(result, "pair_pri_to_sec returned false.")
 
@@ -114,8 +113,8 @@ class BtCarPairedConnectDisconnectTest(BluetoothBaseTest):
         failure = 0
         addr = self.ph.droid.bluetoothGetLocalAddress()
         for i in range(NUM_TEST_RUNS):
-            self.log.info("Running test [" + str(i) + "/" + str(NUM_TEST_RUNS)
-                          + "]")
+            self.log.info("Running test [" + str(i) + "/" +
+                          str(NUM_TEST_RUNS) + "]")
             success = bt_test_utils.connect_pri_to_sec(
                 self.car, self.ph,
                 set([
@@ -126,10 +125,10 @@ class BtCarPairedConnectDisconnectTest(BluetoothBaseTest):
             # Check if we got connected.
             if not success:
                 self.car.log.info("Not all profiles connected.")
-                if (bt_test_utils.is_hfp_client_device_connected(self.car,
-                                                                 addr) and
-                        bt_test_utils.is_a2dp_snk_device_connected(self.car,
-                                                                   addr)):
+                if (bt_test_utils.is_hfp_client_device_connected(
+                        self.car, addr)
+                        and bt_test_utils.is_a2dp_snk_device_connected(
+                            self.car, addr)):
                     self.car.log.info(
                         "HFP Client or A2DP SRC connected successfully.")
                 else:
@@ -145,17 +144,17 @@ class BtCarPairedConnectDisconnectTest(BluetoothBaseTest):
 
             if success is False:
                 self.car.log.info("Disconnect failed.")
-                if (bt_test_utils.is_hfp_client_device_connected(self.car,
-                                                                 addr) or
-                        bt_test_utils.is_a2dp_snk_device_connected(self.car,
-                                                                   addr)):
+                if (bt_test_utils.is_hfp_client_device_connected(
+                        self.car, addr)
+                        or bt_test_utils.is_a2dp_snk_device_connected(
+                            self.car, addr)):
                     self.car.log.info(
                         "HFP Client or A2DP SRC failed to disconnect.")
                     failure = failure + 1
                 continue
 
-        self.log.info("Failure {} total tests {}".format(failure,
-                                                         NUM_TEST_RUNS))
+        self.log.info("Failure {} total tests {}".format(
+            failure, NUM_TEST_RUNS))
         if failure > 0:
             return False
         return True

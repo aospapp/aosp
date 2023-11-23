@@ -37,6 +37,7 @@ import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
+import android.util.EventLog;
 import android.util.Log;
 
 import androidx.annotation.RequiresApi;
@@ -69,8 +70,42 @@ public final class PasspointConfiguration implements Parcelable {
 
     /**
      * Maximum bytes for URL string.
+     * @hide
      */
-    private static final int MAX_URL_BYTES = 1023;
+    public static final int MAX_URL_BYTES = 2048;
+
+    /**
+     * Maximum size for match entry, just to limit the size of the Passpoint config.
+     * @hide
+     */
+    public static final int MAX_NUMBER_OF_ENTRIES = 16;
+
+    /**
+     * Maximum size for OI entry.
+     * The spec allows a string of up to 255 characters, with comma delimited numbers like
+     * 001122,334455. So with minimum OI size of 7, the maximum amount of OIs is 36.
+     * @hide
+     */
+    public static final int MAX_NUMBER_OF_OI = 36;
+
+
+    /**
+     * Maximum bytes for a string entry like FQDN and friendly name.
+     * @hide
+     */
+    public static final int MAX_STRING_LENGTH = 255;
+
+    /**
+     * HESSID is 48 bit.
+     * @hide
+     */
+    public static final long MAX_HESSID_VALUE = ((long) 1 << 48)  - 1;
+
+    /**
+     * Organization Identifiers is 3 or 5 Octets. 24 or 36 bit.
+     * @hide
+     */
+    public static final long MAX_OI_VALUE = ((long) 1 << 40)  - 1;
 
     /**
      * Integer value used for indicating null value in the Parcel.
@@ -952,28 +987,88 @@ public final class PasspointConfiguration implements Parcelable {
         if (mPolicy != null && !mPolicy.validate()) {
             return false;
         }
+        // Optional: DecoratedIdentityPrefix
+        if (!TextUtils.isEmpty(mDecoratedIdentityPrefix)) {
+            if (!mDecoratedIdentityPrefix.endsWith("!")) {
+                EventLog.writeEvent(0x534e4554, "246539931", -1,
+                    "Invalid decorated identity prefix");
+                return false;
+            }
+            String[] decoratedIdentityPrefixArray = mDecoratedIdentityPrefix.split("!");
+            if (decoratedIdentityPrefixArray.length > MAX_NUMBER_OF_ENTRIES) {
+                Log.e(TAG, "too many decoratedIdentityPrefix");
+                return false;
+            }
+            for (String prefix : decoratedIdentityPrefixArray) {
+                if (prefix.length() > MAX_STRING_LENGTH) {
+                    Log.e(TAG, "The decoratedIdentityPrefix is too long: " + prefix);
+                    return false;
+                }
+            }
+        }
+
+        if (mAaaServerTrustedNames != null) {
+            if (mAaaServerTrustedNames.length > MAX_NUMBER_OF_ENTRIES) {
+                Log.e(TAG, "Too many AaaServerTrustedNames");
+                return false;
+            }
+            for (String fqdn : mAaaServerTrustedNames) {
+                if (fqdn.getBytes(StandardCharsets.UTF_8).length > MAX_STRING_LENGTH) {
+                    Log.e(TAG, "AaaServerTrustedNames is too long");
+                    return false;
+                }
+            }
+        }
+        if (mSubscriptionType != null) {
+            if (mSubscriptionType.getBytes(StandardCharsets.UTF_8).length > MAX_STRING_LENGTH) {
+                Log.e(TAG, "SubscriptionType is too long");
+                return false;
+            }
+        }
 
         if (mTrustRootCertList != null) {
+            if (mTrustRootCertList.size() > MAX_NUMBER_OF_ENTRIES) {
+                Log.e(TAG, "Too many TrustRootCert");
+                return false;
+            }
             for (Map.Entry<String, byte[]> entry : mTrustRootCertList.entrySet()) {
                 String url = entry.getKey();
                 byte[] certFingerprint = entry.getValue();
                 if (TextUtils.isEmpty(url)) {
-                    Log.d(TAG, "Empty URL");
+                    Log.e(TAG, "Empty URL");
                     return false;
                 }
                 if (url.getBytes(StandardCharsets.UTF_8).length > MAX_URL_BYTES) {
-                    Log.d(TAG, "URL bytes exceeded the max: "
+                    Log.e(TAG, "URL bytes exceeded the max: "
                             + url.getBytes(StandardCharsets.UTF_8).length);
                     return false;
                 }
 
                 if (certFingerprint == null) {
-                    Log.d(TAG, "Fingerprint not specified");
+                    Log.e(TAG, "Fingerprint not specified");
                     return false;
                 }
                 if (certFingerprint.length != CERTIFICATE_SHA256_BYTES) {
-                    Log.d(TAG, "Incorrect size of trust root certificate SHA-256 fingerprint: "
+                    Log.e(TAG, "Incorrect size of trust root certificate SHA-256 fingerprint: "
                             + certFingerprint.length);
+                    return false;
+                }
+            }
+        }
+
+        if (mServiceFriendlyNames != null) {
+            if (mServiceFriendlyNames.size() > MAX_NUMBER_OF_ENTRIES) {
+                Log.e(TAG, "ServiceFriendlyNames exceed the max!");
+                return false;
+            }
+            for (Map.Entry<String, String> names : mServiceFriendlyNames.entrySet()) {
+                if (names.getKey() == null || names.getValue() == null) {
+                    Log.e(TAG, "Service friendly name entry should not be null");
+                    return false;
+                }
+                if (names.getKey().length() > MAX_STRING_LENGTH
+                        || names.getValue().length() > MAX_STRING_LENGTH) {
+                    Log.e(TAG, "Service friendly name is to long");
                     return false;
                 }
             }

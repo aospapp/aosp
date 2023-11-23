@@ -24,6 +24,7 @@ import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
@@ -44,8 +45,10 @@ import android.hardware.wifi.supplicant.NetworkRequestEapSimUmtsAuthParams;
 import android.hardware.wifi.supplicant.NetworkResponseEapSimGsmAuthParams;
 import android.hardware.wifi.supplicant.NetworkResponseEapSimUmtsAuthParams;
 import android.hardware.wifi.supplicant.PairwiseCipherMask;
+import android.hardware.wifi.supplicant.ProtoMask;
 import android.hardware.wifi.supplicant.SaeH2eMode;
 import android.hardware.wifi.supplicant.SupplicantStatusCode;
+import android.hardware.wifi.supplicant.TlsVersion;
 import android.net.wifi.SecurityParams;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
@@ -99,6 +102,7 @@ public class SupplicantStaNetworkHalAidlImplTest extends WifiBaseTest {
     @Mock private WifiMonitor mWifiMonitor;
     @Mock private WifiGlobals mWifiGlobals;
     private long mAdvanceKeyMgmtFeatures = 0;
+    private long mWpaDriverFeatures = 0;
 
     private SupplicantNetworkVariables mSupplicantVariables;
     private MockResources mResources;
@@ -113,11 +117,12 @@ public class SupplicantStaNetworkHalAidlImplTest extends WifiBaseTest {
         mResources = new MockResources();
         when(mContext.getResources()).thenReturn(mResources);
         when(mWifiGlobals.isWpa3SaeUpgradeOffloadEnabled()).thenReturn(true);
+        when(mWifiGlobals.isWpaPersonalDeprecated()).thenReturn(false);
 
         mAdvanceKeyMgmtFeatures |= WifiManager.WIFI_FEATURE_WPA3_SUITE_B;
-        mSupplicantNetwork = new SupplicantStaNetworkHalAidlImpl(
+        mSupplicantNetwork = new SupplicantStaNetworkHalAidlImpl(1,
                 mISupplicantStaNetworkMock, IFACE_NAME, mContext, mWifiMonitor,
-                mWifiGlobals, mAdvanceKeyMgmtFeatures);
+                mWifiGlobals, mAdvanceKeyMgmtFeatures, mWpaDriverFeatures);
     }
 
     /**
@@ -188,6 +193,25 @@ public class SupplicantStaNetworkHalAidlImplTest extends WifiBaseTest {
         verify(mISupplicantStaNetworkMock).getPsk();
         verify(mISupplicantStaNetworkMock, never()).setPskPassphrase(anyString());
         verify(mISupplicantStaNetworkMock).getPskPassphrase();
+        verify(mISupplicantStaNetworkMock).setProto(ProtoMask.RSN | ProtoMask.WPA);
+    }
+
+    /**
+     * Tests the saving/loading of WifiConfiguration to wpa_supplicant with raw psk - WPA
+     * deprecated.
+     */
+    @Test
+    public void testPskNetworkWifiConfigurationSaveLoadWpaDeprecated() throws Exception {
+        when(mWifiGlobals.isWpaPersonalDeprecated()).thenReturn(true);
+
+        WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork();
+        config.preSharedKey = "945ef00c463c2a7c2496376b13263d1531366b46377179a4b17b393687450779";
+        testWifiConfigurationSaveLoad(config);
+        verify(mISupplicantStaNetworkMock).setPsk(any(byte[].class));
+        verify(mISupplicantStaNetworkMock).getPsk();
+        verify(mISupplicantStaNetworkMock, never()).setPskPassphrase(anyString());
+        verify(mISupplicantStaNetworkMock).getPskPassphrase();
+        verify(mISupplicantStaNetworkMock).setProto(ProtoMask.RSN);
     }
 
     /**
@@ -751,6 +775,98 @@ public class SupplicantStaNetworkHalAidlImplTest extends WifiBaseTest {
     }
 
     /**
+     * Tests ciphers are merged when the device supports auto upgrade offload feature
+     * and when candidate security type is PSK.
+     */
+    @Test
+    public void testCiphersMergedWhenAutoUpgradeOffloadIsSupportedAndPskSelected()
+            throws Exception {
+        when(mWifiGlobals.isWpa3SaeUpgradeOffloadEnabled()).thenReturn(true);
+
+        WifiConfiguration config = WifiConfigurationTestUtil.createPskSaeNetwork();
+        config.getNetworkSelectionStatus().setCandidateSecurityParams(
+                SecurityParams.createSecurityParamsBySecurityType(
+                        WifiConfiguration.SECURITY_TYPE_PSK));
+        assertTrue(mSupplicantNetwork.saveWifiConfiguration(config));
+
+        assertEquals(PairwiseCipherMask.CCMP | PairwiseCipherMask.TKIP
+                | PairwiseCipherMask.GCMP_128 | PairwiseCipherMask.GCMP_256,
+                mSupplicantVariables.pairwiseCipherMask);
+        assertEquals(GroupCipherMask.CCMP | GroupCipherMask.TKIP
+                | GroupCipherMask.WEP40 | GroupCipherMask.WEP104
+                | GroupCipherMask.GCMP_128 | GroupCipherMask.GCMP_256,
+                mSupplicantVariables.groupCipherMask);
+    }
+
+    /**
+     * Tests ciphers are not changed when the device does not supports auto upgrade offload feature
+     * and when candidate security type is PSK.
+     */
+    @Test
+    public void testCiphersNotChangedWhenAutoUpgradeOffloadNotSupportedAndPskSelected()
+            throws Exception {
+        when(mWifiGlobals.isWpa3SaeUpgradeOffloadEnabled()).thenReturn(false);
+
+        WifiConfiguration config = WifiConfigurationTestUtil.createPskSaeNetwork();
+        config.getNetworkSelectionStatus().setCandidateSecurityParams(
+                SecurityParams.createSecurityParamsBySecurityType(
+                        WifiConfiguration.SECURITY_TYPE_PSK));
+        assertTrue(mSupplicantNetwork.saveWifiConfiguration(config));
+
+        assertEquals(PairwiseCipherMask.CCMP | PairwiseCipherMask.TKIP,
+                mSupplicantVariables.pairwiseCipherMask);
+        assertEquals(GroupCipherMask.CCMP | GroupCipherMask.TKIP
+                | GroupCipherMask.WEP40 | GroupCipherMask.WEP104,
+                mSupplicantVariables.groupCipherMask);
+    }
+
+    /**
+     * Tests ciphers are merged when the device supports auto upgrade offload feature
+     * and when candidate security type is SAE.
+     */
+    @Test
+    public void testCiphersMergedWhenAutoUpgradeOffloadIsSupportedAndSaeSelected()
+            throws Exception {
+        when(mWifiGlobals.isWpa3SaeUpgradeOffloadEnabled()).thenReturn(true);
+
+        WifiConfiguration config = WifiConfigurationTestUtil.createPskSaeNetwork();
+        config.getNetworkSelectionStatus().setCandidateSecurityParams(
+                SecurityParams.createSecurityParamsBySecurityType(
+                        WifiConfiguration.SECURITY_TYPE_SAE));
+        assertTrue(mSupplicantNetwork.saveWifiConfiguration(config));
+
+        assertEquals(PairwiseCipherMask.CCMP | PairwiseCipherMask.TKIP
+                | PairwiseCipherMask.GCMP_128 | PairwiseCipherMask.GCMP_256,
+                mSupplicantVariables.pairwiseCipherMask);
+        assertEquals(GroupCipherMask.CCMP | GroupCipherMask.TKIP
+                | GroupCipherMask.WEP40 | GroupCipherMask.WEP104
+                | GroupCipherMask.GCMP_128 | GroupCipherMask.GCMP_256,
+                mSupplicantVariables.groupCipherMask);
+    }
+
+    /**
+     * Tests ciphers are not changed when the device does not supports auto upgrade offload feature
+     * and when candidate security type is SAE.
+     */
+    @Test
+    public void testCiphersNotChangedWhenAutoUpgradeOffloadNotSupportedAndSaeSelected()
+            throws Exception {
+        when(mWifiGlobals.isWpa3SaeUpgradeOffloadEnabled()).thenReturn(false);
+
+        WifiConfiguration config = WifiConfigurationTestUtil.createPskSaeNetwork();
+        config.getNetworkSelectionStatus().setCandidateSecurityParams(
+                SecurityParams.createSecurityParamsBySecurityType(
+                        WifiConfiguration.SECURITY_TYPE_SAE));
+        assertTrue(mSupplicantNetwork.saveWifiConfiguration(config));
+
+        assertEquals(PairwiseCipherMask.CCMP | PairwiseCipherMask.GCMP_128
+                | PairwiseCipherMask.GCMP_256,
+                mSupplicantVariables.pairwiseCipherMask);
+        assertEquals(GroupCipherMask.CCMP | GroupCipherMask.GCMP_128 | GroupCipherMask.GCMP_256,
+                mSupplicantVariables.groupCipherMask);
+    }
+
+    /**
      * Tests the retrieval of WPS NFC token.
      */
     @Test
@@ -1075,9 +1191,9 @@ public class SupplicantStaNetworkHalAidlImplTest extends WifiBaseTest {
     public void testSupportedCiphersNoGcmp256() throws Exception {
         // Reinitialize mSupplicantNetwork without support for WPA3 SUITE-B
         mAdvanceKeyMgmtFeatures = 0;
-        mSupplicantNetwork = new SupplicantStaNetworkHalAidlImpl(
+        mSupplicantNetwork = new SupplicantStaNetworkHalAidlImpl(1,
                 mISupplicantStaNetworkMock, IFACE_NAME, mContext, mWifiMonitor,
-                mWifiGlobals, mAdvanceKeyMgmtFeatures);
+                mWifiGlobals, mAdvanceKeyMgmtFeatures, mWpaDriverFeatures);
         WifiConfiguration config = WifiConfigurationTestUtil.createSaeNetwork();
         int expectedHalPairwiseCiphers = getExpectedPairwiseCiphers(config);
         expectedHalPairwiseCiphers &= ~PairwiseCipherMask.GCMP_256;
@@ -1132,6 +1248,114 @@ public class SupplicantStaNetworkHalAidlImplTest extends WifiBaseTest {
                 config.getDefaultSecurityParams());
         assertTrue(mSupplicantNetwork.saveWifiConfiguration(config));
         assertTrue(Arrays.equals(TEST_SELECTED_RCOI_BYTE_ARRAY, mSupplicantVariables.selectedRcoi));
+    }
+
+    @Test
+    public void testSetStrictConservativePeerModeToNonEapSimConfiguration() throws Exception {
+        WifiConfiguration config = WifiConfigurationTestUtil
+                .createEapNetwork(WifiEnterpriseConfig.Eap.PEAP, WifiEnterpriseConfig.Phase2.AKA);
+        config.enterpriseConfig.setStrictConservativePeerMode(true);
+        when(mISupplicantStaNetworkMock.getInterfaceVersion()).thenReturn(2);
+        // Assume that the default params is used for this test.
+        config.getNetworkSelectionStatus().setCandidateSecurityParams(
+                config.getDefaultSecurityParams());
+        assertTrue(mSupplicantNetwork.saveWifiConfiguration(config));
+        verify(mISupplicantStaNetworkMock, never()).setStrictConservativePeerMode(anyBoolean());
+    }
+
+    @Test
+    public void testStrictConservativePeerModeIsSupported() throws Exception {
+        WifiConfiguration config = WifiConfigurationTestUtil
+                .createEapNetwork(WifiEnterpriseConfig.Eap.AKA, WifiEnterpriseConfig.Phase2.NONE);
+        config.enterpriseConfig.setStrictConservativePeerMode(true);
+        when(mISupplicantStaNetworkMock.getInterfaceVersion()).thenReturn(2);
+        // Assume that the default params is used for this test.
+        config.getNetworkSelectionStatus().setCandidateSecurityParams(
+                config.getDefaultSecurityParams());
+        assertTrue(mSupplicantNetwork.saveWifiConfiguration(config));
+        verify(mISupplicantStaNetworkMock).setStrictConservativePeerMode(eq(true));
+    }
+
+    @Test
+    public void testStrictConservativePeerModeIsNotSupported() throws Exception {
+        WifiConfiguration config = WifiConfigurationTestUtil
+                .createEapNetwork(WifiEnterpriseConfig.Eap.AKA, WifiEnterpriseConfig.Phase2.NONE);
+        config.enterpriseConfig.setStrictConservativePeerMode(true);
+        when(mISupplicantStaNetworkMock.getInterfaceVersion()).thenReturn(1);
+        // Assume that the default params is used for this test.
+        config.getNetworkSelectionStatus().setCandidateSecurityParams(
+                config.getDefaultSecurityParams());
+        assertTrue(mSupplicantNetwork.saveWifiConfiguration(config));
+        verify(mISupplicantStaNetworkMock, never()).setStrictConservativePeerMode(anyBoolean());
+    }
+
+    @Test
+    public void testStrictConservativePeerModeNeverSetFalse() throws Exception {
+        WifiConfiguration config = WifiConfigurationTestUtil
+                .createEapNetwork(WifiEnterpriseConfig.Eap.AKA, WifiEnterpriseConfig.Phase2.NONE);
+        config.enterpriseConfig.setStrictConservativePeerMode(false);
+        when(mISupplicantStaNetworkMock.getInterfaceVersion()).thenReturn(2);
+        // Assume that the default params is used for this test.
+        config.getNetworkSelectionStatus().setCandidateSecurityParams(
+                config.getDefaultSecurityParams());
+        assertTrue(mSupplicantNetwork.saveWifiConfiguration(config));
+        verify(mISupplicantStaNetworkMock, never()).setStrictConservativePeerMode(anyBoolean());
+    }
+
+    /**
+     * Tests setting TLS minimum version API with AIDL v1
+     */
+    @Test
+    public void testEapMinimumTlsVersionWifiConfigurationSaveLoadWithAidlV1() throws Exception {
+        // Default is AIDL v1
+        WifiConfiguration config = WifiConfigurationTestUtil.createEapNetwork();
+        config.enterpriseConfig.setMinimumTlsVersion(WifiEnterpriseConfig.TLS_V1_3);
+        // Assume that the default params is used for this test.
+        config.getNetworkSelectionStatus().setCandidateSecurityParams(
+                config.getDefaultSecurityParams());
+        assertTrue(mSupplicantNetwork.saveWifiConfiguration(config));
+        verify(mISupplicantStaNetworkMock, never()).setMinimumTlsVersionEapPhase1Param(anyInt());
+    }
+
+    /**
+     * Tests setting TLS minimum version API with AIDL v2, but TLS v1.3 is not supported.
+     */
+    @Test
+    public void testEapMinimumTlsVersionWifiConfigurationSaveLoadWithAidlV2TlsV13NotSupported()
+            throws Exception {
+        // Re-init mock to AIDL v2 without TLS v1.3 support.
+        mSupplicantNetwork = new SupplicantStaNetworkHalAidlImpl(2,
+                mISupplicantStaNetworkMock, IFACE_NAME, mContext, mWifiMonitor,
+                mWifiGlobals, mAdvanceKeyMgmtFeatures, 0);
+        WifiConfiguration config = WifiConfigurationTestUtil.createEapNetwork();
+        config.enterpriseConfig.setMinimumTlsVersion(WifiEnterpriseConfig.TLS_V1_3);
+        // Assume that the default params is used for this test.
+        config.getNetworkSelectionStatus().setCandidateSecurityParams(
+                config.getDefaultSecurityParams());
+        assertTrue(mSupplicantNetwork.saveWifiConfiguration(config));
+        // Should fallback to TLS v1.2
+        verify(mISupplicantStaNetworkMock).setMinimumTlsVersionEapPhase1Param(TlsVersion.TLS_V1_2);
+    }
+
+    /**
+     * Tests setting TLS minimum version API with AIDL v2, and TLS v1.3 is supported.
+     */
+    @Test
+    public void testEapMinimumTlsVersionWifiConfigurationSaveLoadWithAidlV2TlsV13Supported()
+            throws Exception {
+        // Re-init mock to AIDL v2 with TLS v1.3 support.
+        mSupplicantNetwork = new SupplicantStaNetworkHalAidlImpl(2,
+                mISupplicantStaNetworkMock, IFACE_NAME, mContext, mWifiMonitor,
+                mWifiGlobals, mAdvanceKeyMgmtFeatures,
+                WifiManager.WIFI_FEATURE_TLS_V1_3);
+        WifiConfiguration config = WifiConfigurationTestUtil.createEapNetwork();
+        config.enterpriseConfig.setMinimumTlsVersion(WifiEnterpriseConfig.TLS_V1_3);
+        // Assume that the default params is used for this test.
+        config.getNetworkSelectionStatus().setCandidateSecurityParams(
+                config.getDefaultSecurityParams());
+        assertTrue(mSupplicantNetwork.saveWifiConfiguration(config));
+        // Should set minimum TLS version to TLS v1.3
+        verify(mISupplicantStaNetworkMock).setMinimumTlsVersionEapPhase1Param(TlsVersion.TLS_V1_3);
     }
 
     /**

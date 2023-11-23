@@ -20,6 +20,7 @@ import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePoli
 import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIED_BY_PROFILE_OWNER;
 import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIES_TO_OWN_USER;
 import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIES_TO_PARENT;
+import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.CANNOT_BE_APPLIED_BY_ROLE_HOLDER;
 
 import com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy;
 
@@ -31,7 +32,9 @@ import com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy;
  * <p>This is used by methods such as
  * {@code DevicePolicyManager#setPasswordQuality(ComponentName, int)}
  */
-@EnterprisePolicy(dpc = {APPLIED_BY_DEVICE_OWNER | APPLIES_TO_OWN_USER,
-        APPLIED_BY_PROFILE_OWNER | APPLIES_TO_OWN_USER | APPLIES_TO_PARENT})
+@EnterprisePolicy(dpc = {APPLIED_BY_DEVICE_OWNER | APPLIES_TO_OWN_USER
+        | CANNOT_BE_APPLIED_BY_ROLE_HOLDER,
+        APPLIED_BY_PROFILE_OWNER | APPLIES_TO_OWN_USER | APPLIES_TO_PARENT
+                | CANNOT_BE_APPLIED_BY_ROLE_HOLDER})
 public class LockscreenPolicyWithUnifiedChallenge {
 }

@@ -18,10 +18,12 @@ package android.telephony.ims.cts;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 import android.os.Parcel;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.ims.ImsRegistrationAttributes;
+import android.telephony.ims.SipDetails;
 import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.util.ArraySet;
 
@@ -35,14 +37,29 @@ public class ImsRegistrationAttributesTest {
 
     @Test
     public void testRegistrationTypeToTransportAttr() {
+        int cseq = 1;
+        int sipCode = 200;
+        String responsePhrase = "OK";
+        String callId = "call-id";
+        int reasonHeaderCause = 10;
+        String reasonHeaderText = "reasonHeaderText";
+
         ArraySet<String> featureTags = new ArraySet<>();
         featureTags.add("+g.3gpp.icsi-ref=\"urn%3Aurn-7%3A3gpp-service.ims.icsi.oma.cpm.msg\"");
         featureTags.add("+g.3gpp.icsi-ref=\"urn%3Aurn-7%3A3gpp-service.ims.icsi.oma.cpm.session\"");
         featureTags.add("+g.gsma.callcomposer");
 
+        SipDetails debugInfo = new SipDetails.Builder(SipDetails.METHOD_REGISTER)
+                .setCSeq(cseq)
+                .setSipResponseCode(sipCode, responsePhrase)
+                .setSipResponseReasonHeader(reasonHeaderCause, reasonHeaderText)
+                .setCallId(callId)
+                .build();
+
         // IWLAN
         ImsRegistrationAttributes attr = new ImsRegistrationAttributes.Builder(
                 ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN).setFeatureTags(featureTags)
+                .setSipDetails(debugInfo)
                 .build();
         assertEquals(ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN,
                 attr.getRegistrationTechnology());
@@ -51,6 +68,15 @@ public class ImsRegistrationAttributesTest {
         assertEquals(0, (attr.getAttributeFlags()
                 & ImsRegistrationAttributes.ATTR_EPDG_OVER_CELL_INTERNET));
         assertEquals(featureTags, attr.getFeatureTags());
+
+        assertNotNull(attr.getSipDetails());
+        assertEquals(SipDetails.METHOD_REGISTER, attr.getSipDetails().getMethod());
+        assertEquals(cseq, attr.getSipDetails().getCSeq());
+        assertEquals(sipCode, attr.getSipDetails().getResponseCode());
+        assertEquals(responsePhrase, attr.getSipDetails().getResponsePhrase());
+        assertEquals(reasonHeaderCause, attr.getSipDetails().getReasonHeaderCause());
+        assertEquals(reasonHeaderText, attr.getSipDetails().getReasonHeaderText());
+        assertEquals(callId, attr.getSipDetails().getCallId());
 
         //LTE
         attr = new ImsRegistrationAttributes.Builder(
@@ -63,6 +89,7 @@ public class ImsRegistrationAttributesTest {
                 & ImsRegistrationAttributes.ATTR_EPDG_OVER_CELL_INTERNET));
         assertNotNull(attr.getFeatureTags());
         assertEquals(0, attr.getFeatureTags().size());
+        assertNull(attr.getSipDetails());
 
         // cross sim
         attr = new ImsRegistrationAttributes.Builder(
@@ -76,6 +103,7 @@ public class ImsRegistrationAttributesTest {
                         & ImsRegistrationAttributes.ATTR_EPDG_OVER_CELL_INTERNET));
         assertNotNull(attr.getFeatureTags());
         assertEquals(0, attr.getFeatureTags().size());
+        assertNull(attr.getSipDetails());
 
         // NR
         attr = new ImsRegistrationAttributes.Builder(
@@ -89,11 +117,11 @@ public class ImsRegistrationAttributesTest {
                         & ImsRegistrationAttributes.ATTR_EPDG_OVER_CELL_INTERNET));
         assertNotNull(attr.getFeatureTags());
         assertEquals(0, attr.getFeatureTags().size());
+        assertNull(attr.getSipDetails());
     }
 
     @Test
     public void testParcelUnparcel() {
-
         ArraySet<String> featureTags = new ArraySet<>();
         featureTags.add("+g.3gpp.icsi-ref=\"urn%3Aurn-7%3A3gpp-service.ims.icsi.oma.cpm.msg\"");
         featureTags.add("+g.3gpp.icsi-ref=\"urn%3Aurn-7%3A3gpp-service.ims.icsi.oma.cpm.session\"");
@@ -113,5 +141,47 @@ public class ImsRegistrationAttributesTest {
         assertEquals(attr.getTransportType(), unparcelledAttr.getTransportType());
         assertEquals(attr.getAttributeFlags(), unparcelledAttr.getAttributeFlags());
         assertEquals(attr.getFeatureTags(), unparcelledAttr.getFeatureTags());
+        assertNull(unparcelledAttr.getSipDetails());
+    }
+
+    @Test
+    public void testParcelUnparcelWithSipDebugInfo() {
+        SipDetails debugInfo = new SipDetails.Builder(SipDetails.METHOD_REGISTER)
+                .setCSeq(1)
+                .setSipResponseCode(200, "OK")
+                .setSipResponseReasonHeader(10, "CallBusy")
+                .setCallId("callId")
+                .build();
+
+        ArraySet<String> featureTags = new ArraySet<>();
+        featureTags.add("+g.3gpp.icsi-ref=\"urn%3Aurn-7%3A3gpp-service.ims.icsi.oma.cpm.msg\"");
+        featureTags.add("+g.3gpp.icsi-ref=\"urn%3Aurn-7%3A3gpp-service.ims.icsi.oma.cpm.session\"");
+        featureTags.add("+g.gsma.callcomposer");
+        ImsRegistrationAttributes attr = new ImsRegistrationAttributes.Builder(
+                ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN).setFeatureTags(featureTags)
+                .setSipDetails(debugInfo)
+                .build();
+
+        Parcel parcel = Parcel.obtain();
+        attr.writeToParcel(parcel, 0);
+        parcel.setDataPosition(0);
+        ImsRegistrationAttributes unparcelledAttr =
+                ImsRegistrationAttributes.CREATOR.createFromParcel(parcel);
+        parcel.recycle();
+
+        assertEquals(attr.getRegistrationTechnology(), unparcelledAttr.getRegistrationTechnology());
+        assertEquals(attr.getTransportType(), unparcelledAttr.getTransportType());
+        assertEquals(attr.getAttributeFlags(), unparcelledAttr.getAttributeFlags());
+        assertEquals(attr.getFeatureTags(), unparcelledAttr.getFeatureTags());
+
+        SipDetails unparcelledDetails = unparcelledAttr.getSipDetails();
+
+        assertEquals(debugInfo.getMethod(), unparcelledDetails.getMethod());
+        assertEquals(debugInfo.getCSeq(), unparcelledDetails.getCSeq());
+        assertEquals(debugInfo.getResponseCode(), unparcelledDetails.getResponseCode());
+        assertEquals(debugInfo.getResponsePhrase(), unparcelledDetails.getResponsePhrase());
+        assertEquals(debugInfo.getReasonHeaderCause(), unparcelledDetails.getReasonHeaderCause());
+        assertEquals(debugInfo.getReasonHeaderText(), unparcelledDetails.getReasonHeaderText());
+        assertEquals(debugInfo.getCallId(), unparcelledDetails.getCallId());
     }
 }

@@ -16,8 +16,8 @@ limitations under the License.
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <utility>
 
-#include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "tensorflow/compiler/xla/array2d.h"
@@ -34,9 +34,7 @@ limitations under the License.
 #include "tensorflow/compiler/xla/tests/test_macros.h"
 #include "tensorflow/compiler/xla/tests/test_utils.h"
 #include "tensorflow/compiler/xla/xla_data.pb.h"
-#include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/platform/test.h"
-#include "tensorflow/core/platform/types.h"
 
 namespace xla {
 namespace {
@@ -82,7 +80,7 @@ XLA_TYPED_TEST(MatOpsSimpleTest_F16F32, MapTwoByTwo) {
     Add(x_value, half);
     auto computation_status = builder.Build();
     ASSERT_IS_OK(computation_status.status());
-    add_half = computation_status.ConsumeValueOrDie();
+    add_half = std::move(computation_status).value();
   }
 
   XlaBuilder builder("map_2x2");
@@ -118,8 +116,8 @@ XLA_TYPED_TEST(MatOpsSimpleTest_F16F32, MaxTwoByTwoValues) {
 }
 
 struct TestLinspaceMaxParam {
-  int64 rows;
-  int64 cols;
+  int64_t rows;
+  int64_t cols;
 };
 
 class TestLinspaceMaxParametric
@@ -134,7 +132,7 @@ class TestLinspaceMaxParametric
     float from = -128.0, to = 256.0;
     std::unique_ptr<Array2D<T>> alhs =
         MakeLinspaceArray2D<T>(from, to, rows, cols);
-    auto arhs = absl::make_unique<Array2D<T>>(rows, cols, static_cast<T>(1.0f));
+    auto arhs = std::make_unique<Array2D<T>>(rows, cols, static_cast<T>(1.0f));
 
     XlaBuilder builder(absl::StrFormat("max_%dx%d_linspace", rows, cols));
     auto lhs = ConstantR2FromArray2D<T>(&builder, *alhs);
@@ -155,7 +153,7 @@ class TestLinspaceMaxParametric
   }
 };
 
-string PrintTestLinspaceMaxParam(
+std::string PrintTestLinspaceMaxParam(
     const ::testing::TestParamInfo<TestLinspaceMaxParam>& test_param) {
   const TestLinspaceMaxParam& param = test_param.param;
   return absl::StrCat(param.rows, "r", param.cols, "c");
@@ -188,7 +186,7 @@ class MatOpsDotAddTest
     Array2D<T> lhs({{1.0f, 2.0f}, {3.0f, 4.0f}});
     Array2D<T> rhs({{10.0f, 11.0f}, {12.0f, 13.0f}});
 
-    auto minor_to_major = [](bool row_major) -> std::vector<int64> {
+    auto minor_to_major = [](bool row_major) -> std::vector<int64_t> {
       return {row_major ? 1 : 0, row_major ? 0 : 1};
     };
 

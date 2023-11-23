@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-# Copyright 2021 The Chromium OS Authors. All rights reserved.
+# Copyright 2021 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
+
 # Usage:
 #
 # To get an interactive shell for development:
@@ -19,89 +19,309 @@
 # is cleaned up afterwards (e.g. when run by Kokoro):
 #
 #   ./tools/dev_container --hermetic CMD
+#
+# There's an alternative container which can be used to test crosvm in crOS tree.
+# It can be launched with:
+#   ./tools/dev_container --cros
 
 import argparse
+from argh import arg  # type: ignore
+from impl.common import (
+    chdir,
+    cmd,
+    cros_repo_root,
+    CROSVM_ROOT,
+    is_cros_repo,
+    is_kiwi_repo,
+    kiwi_repo_root,
+    quoted,
+    run_main,
+)
+from typing import Optional, Tuple, List
 import getpass
-from argh import arg
-from impl.common import CROSVM_ROOT, run_main, cmd, chdir, quoted
+import shutil
 import sys
+import unittest
 import os
+import zlib
 
-CONTAINER_NAME = f"crosvm_dev_{getpass.getuser()}"
-IMAGE_VERSION = (CROSVM_ROOT / "tools/impl/dev_container/version").read_text().strip()
+DEV_CONTAINER_NAME = (
+    f"crosvm_dev_{getpass.getuser()}_{zlib.crc32(os.path.realpath(__file__).encode('utf-8')):x}"
+)
+CROS_CONTAINER_NAME = (
+    f"crosvm_cros_{getpass.getuser()}_{zlib.crc32(os.path.realpath(__file__).encode('utf-8')):x}"
+)
 
-try:
-    docker = cmd(os.environ.get("DOCKER", "docker"))
-except ValueError:
-    docker = cmd("podman")
+DEV_IMAGE_NAME = "gcr.io/crosvm-infra/crosvm_dev_user"
+CROS_IMAGE_NAME = "gcr.io/crosvm-infra/crosvm_cros_cloudbuild"
+DEV_IMAGE_VERSION = (CROSVM_ROOT / "tools/impl/dev_container/version").read_text().strip()
 
-is_podman = docker.executable.name == "podman"
-
-# Enable interactive mode when running in an interactive terminal.
-TTY_ARGS = "--interactive --tty" if sys.stdin.isatty() else None
-
+CACHE_DIR = os.environ.get("CROSVM_CONTAINER_CACHE", None)
 
 DOCKER_ARGS = [
-    TTY_ARGS,
-    # Podman will not share devices when `--privileged` is specified
-    "--privileged" if not is_podman else None,
-    # Share crosvm source
-    f"--volume {quoted(CROSVM_ROOT)}:/workspace:rw",
-    # Share devices and syslog
+    # Share cache dir
+    f"--volume {CACHE_DIR}:/cache:rw" if CACHE_DIR else None,
+    # Use tmpfs in the container for faster performance.
+    "--mount type=tmpfs,destination=/tmp",
+    # KVM is required to run a VM for testing.
     "--device /dev/kvm",
+]
+
+if sys.platform == "linux":
+    DOCKER_ARGS.extend(
+        [
+            f"--env OUTSIDE_UID={os.getuid()}",
+            f"--env OUTSIDE_GID={os.getgid()}",
+            f"--env TERM={os.environ.get('TERM', 'xterm-256color')}",
+        ]
+    )
+
+PODMAN_ARGS = [
+    # Share cache dir
+    f"--volume {CACHE_DIR}:/cache:rw" if CACHE_DIR else None,
+    # Use tmpfs in the container for faster performance.
+    "--mount type=tmpfs,destination=/tmp",
+    # KVM is required to run a VM for testing.
+    "--device /dev/kvm",
+    # Allow access to group permissions of the user (e.g. for kvm access).
+    "--group-add keep-groups",
+]
+
+PRIVILEGED_ARGS = [
+    # Share devices and syslog
     "--volume /dev/log:/dev/log",
     "--device /dev/net/tun",
     "--device /dev/vhost-net",
     "--device /dev/vhost-vsock",
-    # Use tmpfs in the container for faster performance.
-    "--mount type=tmpfs,destination=/tmp",
     # For plugin process jail
     "--mount type=tmpfs,destination=/var/empty",
-    f"gcr.io/crosvm-packages/crosvm_dev:{IMAGE_VERSION}",
 ]
 
 
-def container_revision(container_id: str):
+PODMAN_IS_DEFAULT = shutil.which("docker") == None
+
+
+def container_name(cros: bool):
+    if cros:
+        return CROS_CONTAINER_NAME
+    else:
+        return DEV_CONTAINER_NAME
+
+
+def container_revision(docker: cmd, container_id: str):
     image = docker("container inspect -f {{.Config.Image}}", container_id).stdout()
     parts = image.split(":")
     assert len(parts) == 2, f"Invalid image name {image}"
     return parts[1]
 
 
+def container_id(docker: cmd, cros: bool):
+    return docker(f"ps -a -q -f name={container_name(cros)}").stdout()
+
+
+def container_is_running(docker: cmd, cros: bool):
+    return bool(docker(f"ps -q -f name={container_name(cros)}").stdout())
+
+
+def delete_container(docker: cmd, cros: bool):
+    cid = container_id(docker, cros)
+    if cid:
+        print(f"Deleting dev-container {cid}.")
+        docker("rm -f", cid).fg(quiet=True)
+        return True
+    return False
+
+
+def workspace_mount_args(cros: bool):
+    """
+    Returns arguments for mounting the crosvm sources to /workspace.
+
+    In ChromeOS checkouts the crosvm repo uses a symlink or worktree checkout, which links to a
+    different folder in the ChromeOS checkout. So we need to mount the whole CrOS checkout.
+    """
+    if cros:
+        return ["--workdir /home/crosvmdev/chromiumos/src/platform/crosvm"]
+    elif is_cros_repo():
+        return [
+            f"--volume {quoted(cros_repo_root())}:/workspace:rw",
+            "--workdir /workspace/src/platform/crosvm",
+        ]
+    elif is_kiwi_repo():
+        return [
+            f"--volume {quoted(kiwi_repo_root())}:/workspace:rw",
+            # We override /scratch because we run out of memory if we use memory to back the
+            # `/scratch` mount point.
+            f"--volume {quoted(kiwi_repo_root())}/scratch:/scratch/cargo_target:rw",
+            "--workdir /workspace/platform/crosvm",
+        ]
+    else:
+        return [
+            f"--volume {quoted(CROSVM_ROOT)}:/workspace:rw",
+        ]
+
+
+def ensure_container_is_alive(docker: cmd, docker_args: List[Optional[str]], cros: bool):
+    cid = container_id(docker, cros)
+    if cid and not container_is_running(docker, cros):
+        print("Existing container is not running.")
+        delete_container(docker, cros)
+    elif cid and not cros and container_revision(docker, cid) != DEV_IMAGE_VERSION:
+        print(f"New image is available.")
+        delete_container(docker, cros)
+
+    if not container_is_running(docker, cros):
+        # Run neverending sleep to keep container alive while we 'docker exec' commands.
+        docker(
+            f"run --detach --name {container_name(cros)}",
+            *docker_args,
+            "sleep infinity",
+        ).fg(quiet=True)
+        cid = container_id(docker, cros)
+        print(f"Started container ({cid}).")
+    else:
+        cid = container_id(docker, cros)
+        print(f"Using existing container ({cid}).")
+    return cid
+
+
 @arg("command", nargs=argparse.REMAINDER)
-def main(command: tuple[str, ...], stop: bool = False, hermetic: bool = False):
+def main(
+    command: Tuple[str, ...],
+    stop: bool = False,
+    clean: bool = False,
+    hermetic: bool = False,
+    interactive: bool = False,
+    podman: bool = PODMAN_IS_DEFAULT,
+    self_test: bool = False,
+    pull: bool = False,
+    unprivileged: bool = False,
+    cros: bool = False,
+):
     chdir(CROSVM_ROOT)
-    container_id = docker(f"ps -q -f name={CONTAINER_NAME}").stdout()
 
-    # Start an interactive shell by default
-    if not command:
-        command = ("/bin/bash",)
+    if cros and unprivileged:
+        print("ERROR: crOS container must be run in privileged mode")
+        sys.exit(1)
 
-    command = list(map(quoted, command))
+    if unprivileged:
+        print("WARNING: Running dev_container with --unprivileged is a work in progress.")
+        print("Not all tests are expected to pass.")
+        print()
 
-    if stop:
-        if container_id:
-            print(f"Stopping dev-container {container_id}.")
-            docker("rm -f", container_id).fg(quiet=True)
-        else:
-            print(f"Dev-container is not running.")
+    docker_args = [
+        *workspace_mount_args(cros),
+        *(PRIVILEGED_ARGS if not unprivileged else []),
+    ]
+    if podman:
+        print("WARNING: Running dev_container with podman is experimental.")
+        print("It is strongly recommended to use docker.")
+        print()
+        docker = cmd("podman")
+        docker_args += [*PODMAN_ARGS]
+    else:
+        docker = cmd("docker")
+        docker_args += [
+            "--privileged" if not unprivileged else None,
+            *DOCKER_ARGS,
+        ]
+
+    if cros:
+        docker_args.append(CROS_IMAGE_NAME)
+    else:
+        docker_args.append(DEV_IMAGE_NAME + ":" + DEV_IMAGE_VERSION)
+
+    if self_test:
+        TestDevContainer.docker = docker
+        suite = unittest.defaultTestLoader.loadTestsFromTestCase(TestDevContainer)
+        unittest.TextTestRunner().run(suite)
         return
 
-    if hermetic:
-        docker(f"run --rm", *DOCKER_ARGS, *command).fg()
-    else:
-        if container_id and container_revision(container_id) != IMAGE_VERSION:
-            print(f"New image is available. Stopping old container ({container_id}).")
-            docker("rm -f", container_id).fg(quiet=True)
-            container_id = None
+    if stop:
+        if not delete_container(docker, cros):
+            print(f"container is not running.")
+        return
 
-        if not container_id:
-            container_id = docker(f"run --detach --name {CONTAINER_NAME}", *DOCKER_ARGS).stdout()
-            print(f"Started dev-container ({container_id}).")
+    if clean:
+        delete_container(docker, cros)
+
+    if pull:
+        if cros:
+            docker("pull", CROS_IMAGE_NAME).fg()
         else:
-            print(f"Using existing dev-container instance ({container_id}).")
+            docker("pull", f"gcr.io/crosvm-infra/crosvm_dev:{DEV_IMAGE_VERSION}").fg()
+            docker("pull", f"gcr.io/crosvm-infra/crosvm_dev_user:{DEV_IMAGE_VERSION}").fg()
+        return
 
-        docker("exec", TTY_ARGS, container_id, *command).fg()
+    # If a command is provided run non-interactive unless explicitly asked for.
+    tty_args = []
+    if not command or interactive:
+        if not sys.stdin.isatty():
+            raise Exception("Trying to run an interactive session in a non-interactive terminal.")
+        tty_args = ["--interactive", "--tty"]
+    elif sys.stdin.isatty():
+        # Even if run non-interactively, we do want to pass along a tty for proper output.
+        tty_args = ["--tty"]
+
+    # Start an interactive shell by default
+    if hermetic:
+        # cmd is passed to entrypoint
+        quoted_cmd = list(map(quoted, command))
+        docker(f"run --rm", *tty_args, *docker_args, *quoted_cmd).fg()
+    else:
+        # cmd is executed directly
+        cid = ensure_container_is_alive(docker, docker_args, cros)
+        if podman:
+            if not command:
+                command = ("/bin/bash",)
+        else:
+            if not command:
+                command = ("/tools/entrypoint.sh",)
+            else:
+                command = ("/tools/entrypoint.sh",) + tuple(command)
+        quoted_cmd = list(map(quoted, command))
+        docker("exec", *tty_args, cid, *quoted_cmd).fg()
 
 
-run_main(main)
+class TestDevContainer(unittest.TestCase):
+    """
+    Runs live tests using the docker service.
+
+    Note: This test is not run by health-check since it cannot be run inside the
+    container. It is run by infra/recipes/health_check.py before running health checks.
+    """
+
+    docker: cmd
+    docker_args = [
+        *workspace_mount_args(cros=False),
+        *DOCKER_ARGS,
+    ]
+
+    def setUp(self):
+        # Start with a stopped container for each test.
+        delete_container(self.docker, cros=False)
+
+    def test_stopped_container(self):
+        # Create but do not run a new container.
+        self.docker(
+            f"create --name {DEV_CONTAINER_NAME}", *self.docker_args, "sleep infinity"
+        ).stdout()
+        self.assertTrue(container_id(self.docker, cros=False))
+        self.assertFalse(container_is_running(self.docker, cros=False))
+
+    def test_container_reuse(self):
+        cid = ensure_container_is_alive(self.docker, self.docker_args, cros=False)
+        cid2 = ensure_container_is_alive(self.docker, self.docker_args, cros=False)
+        self.assertEqual(cid, cid2)
+
+    def test_handling_of_stopped_container(self):
+        cid = ensure_container_is_alive(self.docker, self.docker_args, cros=False)
+        self.docker("kill", cid).fg()
+
+        # Make sure we can get back into a good state and execute commands.
+        ensure_container_is_alive(self.docker, self.docker_args, cros=False)
+        self.assertTrue(container_is_running(self.docker, cros=False))
+        main(("true",))
+
+
+if __name__ == "__main__":
+    run_main(main)

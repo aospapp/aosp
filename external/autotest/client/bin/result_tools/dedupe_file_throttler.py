@@ -12,8 +12,8 @@ import os
 import re
 
 try:
+    from autotest_lib.client.bin.result_tools import delete_file_throttler
     from autotest_lib.client.bin.result_tools import result_info_lib
-
     from autotest_lib.client.bin.result_tools import throttler_lib
     from autotest_lib.client.bin.result_tools import utils_lib
 except ImportError:
@@ -88,9 +88,13 @@ def throttle(summary, max_result_size_KB):
     @param max_result_size_KB: Maximum test result size in KB.
     """
     _, grouped_files = throttler_lib.sort_result_files(summary)
+    # Respect the non-delete patterns in the delete throttler.
+    keep_patterns = (NO_DEDUPE_FILE_PATTERNS +
+                     delete_file_throttler.NON_DELETABLE_FILE_PATH_PATTERNS)
     for pattern in throttler_lib.RESULT_THROTTLE_PRIORITY:
-        throttable_files = list(throttler_lib.get_throttleable_files(
-                grouped_files[pattern], NO_DEDUPE_FILE_PATTERNS))
+        throttable_files = list(
+                throttler_lib.get_throttleable_files(grouped_files[pattern],
+                                                     keep_patterns))
 
         for info in throttable_files:
             info.parent_dir = os.path.dirname(info.path)

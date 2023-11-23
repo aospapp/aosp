@@ -1,11 +1,12 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2021 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use data_model::DataInit;
+use zerocopy::AsBytes;
+use zerocopy::FromBytes;
 
-#[repr(packed)]
-#[derive(Clone, Copy, Default)]
+#[repr(C, packed)]
+#[derive(Clone, Copy, Default, FromBytes, AsBytes)]
 pub struct FACS {
     pub signature: [u8; 4],
     pub length: u32,
@@ -19,9 +20,6 @@ pub struct FACS {
     pub ospm_flags: u32,
     pub _reserved2: [u8; 24],
 }
-
-// Safe as FACS structure only contains raw data
-unsafe impl DataInit for FACS {}
 
 impl FACS {
     pub fn new() -> Self {

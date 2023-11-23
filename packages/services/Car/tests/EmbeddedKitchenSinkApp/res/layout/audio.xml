@@ -16,7 +16,87 @@
 <LinearLayout
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
-    xmlns:android="http://schemas.android.com/apk/res/android">
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical" >
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal" >
+        <Space
+            android:layout_width="3dp"
+            android:layout_height="match_parent" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/volume_key_events" />
+        <Space
+            android:layout_width="3dp"
+            android:layout_height="match_parent" />
+        <Button
+            android:id="@+id/volume_plus_key_event_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/volume_up" />
+        <Space
+            android:layout_width="3dp"
+            android:layout_height="match_parent" />
+        <Button
+            android:id="@+id/volume_minus_key_event_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/volume_down" />
+        <Space
+            android:layout_width="3dp"
+            android:layout_height="match_parent" />
+        <Button
+            android:id="@+id/volume_mute_key_event_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/volume_mute" />
+        <Space
+            android:layout_width="3dp"
+            android:layout_height="match_parent" />
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:id="@+id/audio_zone_configuration_layout" >
+        <Space
+            android:layout_width="3dp"
+            android:layout_height="match_parent" />
+        <TextView
+            android:id="@+id/select_zone_configuration_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/zone_configuration" />
+        <Space
+            android:layout_width="3dp"
+            android:layout_height="match_parent" />
+        <Spinner
+            android:id="@+id/zone_configuration_spinner"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <Space
+            android:layout_width="3dp"
+            android:layout_height="match_parent" />
+        <Button
+            android:id="@+id/switch_zone_configuration_key_event_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/switch_zone_configuration" />
+        <Space
+            android:layout_width="3dp"
+            android:layout_height="match_parent" />
+        <TextView
+            android:id="@+id/text_current_configuration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/empty" />
+        <Space
+            android:layout_width="3dp"
+            android:layout_height="match_parent" />
+    </LinearLayout>
     <ScrollView
         android:layout_width="fill_parent"
         android:layout_height="wrap_content">
@@ -266,22 +346,43 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/media_with_delayed_focus" />
+                <Space
+                    android:layout_width="3dp"
+                    android:layout_height="match_parent" />
                 <Button
                     android:id="@+id/media_delayed_focus_start"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/play" />
+                <Space
+                    android:layout_width="3dp"
+                    android:layout_height="match_parent" />
                 <Button
                     android:id="@+id/media_delayed_focus_stop"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/stop" />
+                <Space
+                    android:layout_width="3dp"
+                    android:layout_height="match_parent" />
                 <TextView
                     android:id="@+id/media_delayed_player_status"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:paddingLeft="8dp"
                     android:text="@string/player_not_started" />
+                <Space
+                    android:layout_width="6dp"
+                    android:layout_height="match_parent" />
+                <TextView
+                    android:id="@+id/media_delayed_player_device"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingLeft="8dp"
+                    android:text="@string/audio_device_selected" />
+                <Space
+                    android:layout_width="3dp"
+                    android:layout_height="match_parent" />
             </LinearLayout>
             <LinearLayout
                 android:layout_width="match_parent"

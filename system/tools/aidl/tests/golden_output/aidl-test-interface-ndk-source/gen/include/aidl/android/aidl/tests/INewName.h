@@ -14,8 +14,11 @@ namespace aidl {
 namespace android {
 namespace aidl {
 namespace tests {
+class INewNameDelegator;
+
 class INewName : public ::ndk::ICInterface {
 public:
+  typedef INewNameDelegator DefaultDelegator;
   static const char* descriptor;
   INewName();
   virtual ~INewName();

@@ -1,5 +1,5 @@
 // Automatically generated with:
-// go2bp -rewrite github.com/google/go-cmp/cmp=go-cmp -exclude-src cmp/cmpopts/util_test.go -exclude-dep golang.org/x/xerrors
+// go2bp -rewrite github.com/google/go-cmp/cmp=go-cmp
 
 bootstrap_go_package {
     name: "go-cmp",
@@ -38,11 +38,13 @@ bootstrap_go_package {
     ],
     srcs: [
         "cmp/cmpopts/equate.go",
-        "cmp/cmpopts/errors_go113.go",
         "cmp/cmpopts/ignore.go",
         "cmp/cmpopts/sort.go",
         "cmp/cmpopts/struct_filter.go",
         "cmp/cmpopts/xform.go",
+    ],
+    testSrcs: [
+        "cmp/cmpopts/util_test.go",
     ],
 }
 
@@ -126,10 +128,8 @@ bootstrap_go_package {
         "cmp/internal/value/name.go",
         "cmp/internal/value/pointer_unsafe.go",
         "cmp/internal/value/sort.go",
-        "cmp/internal/value/zero.go",
     ],
     testSrcs: [
         "cmp/internal/value/name_test.go",
-        "cmp/internal/value/zero_test.go",
     ],
 }

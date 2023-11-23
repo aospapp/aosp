@@ -57,12 +57,13 @@ class RadvdServer(object):
     manages startup and cleanup of the process.
     """
 
-    def __init__(self, interface = None):
+    def __init__(self, interface=None, namespace=None):
         if not os.path.exists(RADVD_EXECUTABLE):
             raise error.TestNAError('Could not find executable %s; '
                                     'this is likely an old version of '
                                     'ChromiumOS' %
                                     RADVD_EXECUTABLE)
+        self._namespace = namespace
         self._options = {
             OPTION_INTERFACE: interface,
             OPTION_ADV_ON_LINK: RADVD_DEFAULT_ADV_ON_LINK,
@@ -131,7 +132,10 @@ class RadvdServer(object):
         """
         self._cleanup()
         self._write_config_file()
-        utils.system('%s -p %s -C %s' %
+        cmd = '%s -p %s -C %s'
+        if self._namespace:
+            cmd = ('ip netns exec %s ' % self._namespace) + cmd
+        utils.system(cmd %
                      (RADVD_EXECUTABLE, RADVD_PID_FILE, RADVD_CONFIG_FILE))
 
     def stop_server(self):

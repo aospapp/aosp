@@ -31,20 +31,25 @@ int apply_overlay_files(const char *out_filename, const char *base_filename,
 
   size_t base_len;
   base_buf = load_file(base_filename, &base_len);
-  if (!base_buf) {
+  if (!base_buf || fdt_check_full(base_buf, base_len)) {
     fprintf(stderr, "Can not load base file: %s\n", base_filename);
     goto end;
   }
 
   size_t overlay_len;
   overlay_buf = load_file(overlay_filename, &overlay_len);
-  if (!overlay_buf) {
+  if (!overlay_buf || fdt_check_full(overlay_buf, overlay_len)) {
     fprintf(stderr, "Can not load overlay file: %s\n", overlay_filename);
     goto end;
   }
 
   size_t merged_buf_len = base_len + overlay_len;
   merged_buf = dto_malloc(merged_buf_len);
+  if (!merged_buf) {
+    fprintf(stderr, "Malloc failed: %zu bytes needed\n", merged_buf_len);
+    goto end;
+  }
+
   fdt_open_into(base_buf, merged_buf, merged_buf_len);
 
   clock_t start = clock();

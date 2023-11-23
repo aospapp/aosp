@@ -39,9 +39,44 @@ import com.google.uwb.support.ccc.CccStartRangingParams;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.List;
+
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class CccTests {
+    private static final CccProtocolVersion[] PROTOCOL_VERSIONS =
+            new CccProtocolVersion[] {
+                    new CccProtocolVersion(1, 0),
+                    new CccProtocolVersion(2, 0),
+                    new CccProtocolVersion(2, 1)
+            };
+
+    private static final  Integer[] UWB_CONFIGS =
+            new Integer[] {CccParams.UWB_CONFIG_0, CccParams.UWB_CONFIG_1};
+    private static final CccPulseShapeCombo[] PULSE_SHAPE_COMBOS =
+            new CccPulseShapeCombo[] {
+                    new CccPulseShapeCombo(
+                            CccParams.PULSE_SHAPE_SYMMETRICAL_ROOT_RAISED_COSINE,
+                            CccParams.PULSE_SHAPE_SYMMETRICAL_ROOT_RAISED_COSINE),
+                    new CccPulseShapeCombo(
+                            CccParams.PULSE_SHAPE_PRECURSOR_FREE,
+                            CccParams.PULSE_SHAPE_PRECURSOR_FREE),
+                    new CccPulseShapeCombo(
+                            CccParams.PULSE_SHAPE_PRECURSOR_FREE_SPECIAL,
+                            CccParams.PULSE_SHAPE_PRECURSOR_FREE_SPECIAL)
+            };
+    private static final int RAN_MULTIPLIER = 200;
+    private static final Integer[] CHAPS_PER_SLOTS =
+            new Integer[] {CccParams.CHAPS_PER_SLOT_4, CccParams.CHAPS_PER_SLOT_12};
+    private static final Integer[] SYNC_CODES = new Integer[] {10, 23};
+    private static final Integer[] CHANNELS =
+            new Integer[] {CccParams.UWB_CHANNEL_5, CccParams.UWB_CHANNEL_9};
+    private static final Integer[] HOPPING_CONFIG_MODES =
+            new Integer[] {
+                    CccParams.HOPPING_CONFIG_MODE_ADAPTIVE, CccParams.HOPPING_CONFIG_MODE_CONTINUOUS
+            };
+    private static final Integer[] HOPPING_SEQUENCES =
+            new Integer[] {CccParams.HOPPING_SEQUENCE_AES, CccParams.HOPPING_SEQUENCE_DEFAULT};
 
     @Test
     public void testOpenRangingParams() {
@@ -83,6 +118,7 @@ public class CccTests {
         assertEquals(
                 params.getPulseShapeCombo().getResponderTx(), pulseShapeCombo.getResponderTx());
         assertEquals(params.getSessionId(), sessionId);
+        assertEquals(params.getSessionType(), CccParams.SESSION_TYPE_CCC);
         assertEquals(params.getRanMultiplier(), ranMultiplier);
         assertEquals(params.getChannel(), channel);
         assertEquals(params.getNumChapsPerSlot(), chapsPerSlot);
@@ -142,20 +178,24 @@ public class CccTests {
     public void testStartRangingParams() {
         int sessionId = 10;
         int ranMultiplier = 128;
+        long initiationTimeMs = 10;
 
         CccStartRangingParams params =
                 new CccStartRangingParams.Builder()
                         .setSessionId(sessionId)
                         .setRanMultiplier(ranMultiplier)
+                        .setInitiationTimeMs(initiationTimeMs)
                         .build();
 
         assertEquals(params.getSessionId(), sessionId);
         assertEquals(params.getRanMultiplier(), ranMultiplier);
+        assertEquals(params.getInitiationTimeMs(), initiationTimeMs);
 
         CccStartRangingParams fromBundle = CccStartRangingParams.fromBundle(params.toBundle());
 
         assertEquals(fromBundle.getSessionId(), sessionId);
         assertEquals(fromBundle.getRanMultiplier(), ranMultiplier);
+        assertEquals(fromBundle.getInitiationTimeMs(), initiationTimeMs);
 
         verifyProtocolPresent(params);
         verifyBundlesEqual(params, fromBundle);
@@ -198,95 +238,62 @@ public class CccTests {
 
     @Test
     public void testSpecificationParams() {
-        CccProtocolVersion[] protocolVersions =
-                new CccProtocolVersion[] {
-                    new CccProtocolVersion(1, 0),
-                    new CccProtocolVersion(2, 0),
-                    new CccProtocolVersion(2, 1)
-                };
-
-        Integer[] uwbConfigs = new Integer[] {CccParams.UWB_CONFIG_0, CccParams.UWB_CONFIG_1};
-        CccPulseShapeCombo[] pulseShapeCombos =
-                new CccPulseShapeCombo[] {
-                    new CccPulseShapeCombo(
-                            CccParams.PULSE_SHAPE_SYMMETRICAL_ROOT_RAISED_COSINE,
-                            CccParams.PULSE_SHAPE_SYMMETRICAL_ROOT_RAISED_COSINE),
-                    new CccPulseShapeCombo(
-                            CccParams.PULSE_SHAPE_PRECURSOR_FREE,
-                            CccParams.PULSE_SHAPE_PRECURSOR_FREE),
-                    new CccPulseShapeCombo(
-                            CccParams.PULSE_SHAPE_PRECURSOR_FREE_SPECIAL,
-                            CccParams.PULSE_SHAPE_PRECURSOR_FREE_SPECIAL)
-                };
-        int ranMultiplier = 200;
-        Integer[] chapsPerSlots =
-                new Integer[] {CccParams.CHAPS_PER_SLOT_4, CccParams.CHAPS_PER_SLOT_12};
-        Integer[] syncCodes =
-                new Integer[] {10, 23};
-        Integer[] channels = new Integer[] {CccParams.UWB_CHANNEL_5, CccParams.UWB_CHANNEL_9};
-        Integer[] hoppingConfigModes =
-                new Integer[] {
-                    CccParams.HOPPING_CONFIG_MODE_ADAPTIVE, CccParams.HOPPING_CONFIG_MODE_CONTINUOUS
-                };
-        Integer[] hoppingSequences =
-                new Integer[] {CccParams.HOPPING_SEQUENCE_AES, CccParams.HOPPING_SEQUENCE_DEFAULT};
-
         CccSpecificationParams.Builder paramsBuilder = new CccSpecificationParams.Builder();
-        for (CccProtocolVersion p : protocolVersions) {
+        for (CccProtocolVersion p : PROTOCOL_VERSIONS) {
             paramsBuilder.addProtocolVersion(p);
         }
 
-        for (int uwbConfig : uwbConfigs) {
+        for (int uwbConfig : UWB_CONFIGS) {
             paramsBuilder.addUwbConfig(uwbConfig);
         }
 
-        for (CccPulseShapeCombo pulseShapeCombo : pulseShapeCombos) {
+        for (CccPulseShapeCombo pulseShapeCombo : PULSE_SHAPE_COMBOS) {
             paramsBuilder.addPulseShapeCombo(pulseShapeCombo);
         }
 
-        paramsBuilder.setRanMultiplier(ranMultiplier);
+        paramsBuilder.setRanMultiplier(RAN_MULTIPLIER);
 
-        for (int chapsPerSlot : chapsPerSlots) {
+        for (int chapsPerSlot : CHAPS_PER_SLOTS) {
             paramsBuilder.addChapsPerSlot(chapsPerSlot);
         }
 
-        for (int syncCode : syncCodes) {
+        for (int syncCode : SYNC_CODES) {
             paramsBuilder.addSyncCode(syncCode);
         }
 
-        for (int channel : channels) {
+        for (int channel : CHANNELS) {
             paramsBuilder.addChannel(channel);
         }
 
-        for (int hoppingConfigMode : hoppingConfigModes) {
+        for (int hoppingConfigMode : HOPPING_CONFIG_MODES) {
             paramsBuilder.addHoppingConfigMode(hoppingConfigMode);
         }
 
-        for (int hoppingSequence : hoppingSequences) {
+        for (int hoppingSequence : HOPPING_SEQUENCES) {
             paramsBuilder.addHoppingSequence(hoppingSequence);
         }
 
         CccSpecificationParams params = paramsBuilder.build();
-        assertArrayEquals(params.getProtocolVersions().toArray(), protocolVersions);
-        assertArrayEquals(params.getUwbConfigs().toArray(), uwbConfigs);
-        assertArrayEquals(params.getPulseShapeCombos().toArray(), pulseShapeCombos);
-        assertEquals(params.getRanMultiplier(), ranMultiplier);
-        assertArrayEquals(params.getChapsPerSlot().toArray(), chapsPerSlots);
-        assertArrayEquals(params.getSyncCodes().toArray(), syncCodes);
-        assertArrayEquals(params.getChannels().toArray(), channels);
-        assertArrayEquals(params.getHoppingConfigModes().toArray(), hoppingConfigModes);
-        assertArrayEquals(params.getHoppingSequences().toArray(), hoppingSequences);
+        assertArrayEquals(params.getProtocolVersions().toArray(), PROTOCOL_VERSIONS);
+        assertArrayEquals(params.getUwbConfigs().toArray(), UWB_CONFIGS);
+        assertArrayEquals(params.getPulseShapeCombos().toArray(), PULSE_SHAPE_COMBOS);
+        assertEquals(params.getRanMultiplier(), RAN_MULTIPLIER);
+        assertArrayEquals(params.getChapsPerSlot().toArray(), CHAPS_PER_SLOTS);
+        assertArrayEquals(params.getSyncCodes().toArray(), SYNC_CODES);
+        assertArrayEquals(params.getChannels().toArray(), CHANNELS);
+        assertArrayEquals(params.getHoppingConfigModes().toArray(), HOPPING_CONFIG_MODES);
+        assertArrayEquals(params.getHoppingSequences().toArray(), HOPPING_SEQUENCES);
 
         CccSpecificationParams fromBundle = CccSpecificationParams.fromBundle(params.toBundle());
-        assertArrayEquals(fromBundle.getProtocolVersions().toArray(), protocolVersions);
-        assertArrayEquals(fromBundle.getUwbConfigs().toArray(), uwbConfigs);
-        assertArrayEquals(fromBundle.getPulseShapeCombos().toArray(), pulseShapeCombos);
-        assertEquals(fromBundle.getRanMultiplier(), ranMultiplier);
-        assertArrayEquals(fromBundle.getChapsPerSlot().toArray(), chapsPerSlots);
-        assertArrayEquals(fromBundle.getSyncCodes().toArray(), syncCodes);
-        assertArrayEquals(fromBundle.getChannels().toArray(), channels);
-        assertArrayEquals(fromBundle.getHoppingConfigModes().toArray(), hoppingConfigModes);
-        assertArrayEquals(fromBundle.getHoppingSequences().toArray(), hoppingSequences);
+        assertArrayEquals(fromBundle.getProtocolVersions().toArray(), PROTOCOL_VERSIONS);
+        assertArrayEquals(fromBundle.getUwbConfigs().toArray(), UWB_CONFIGS);
+        assertArrayEquals(fromBundle.getPulseShapeCombos().toArray(), PULSE_SHAPE_COMBOS);
+        assertEquals(fromBundle.getRanMultiplier(), RAN_MULTIPLIER);
+        assertArrayEquals(fromBundle.getChapsPerSlot().toArray(), CHAPS_PER_SLOTS);
+        assertArrayEquals(fromBundle.getSyncCodes().toArray(), SYNC_CODES);
+        assertArrayEquals(fromBundle.getChannels().toArray(), CHANNELS);
+        assertArrayEquals(fromBundle.getHoppingConfigModes().toArray(), HOPPING_CONFIG_MODES);
+        assertArrayEquals(fromBundle.getHoppingSequences().toArray(), HOPPING_SEQUENCES);
 
         verifyProtocolPresent(params);
         assertTrue(params.equals(fromBundle));
@@ -297,6 +304,38 @@ public class CccTests {
         params = paramsBuilder.build();
         // Test that params and fromBundle are not equal.
         assertTrue(!params.equals(fromBundle));
+    }
+
+    @Test
+    public void testSpecificationParams_whenNoChannelsSet() {
+        CccSpecificationParams.Builder paramsBuilder = new CccSpecificationParams.Builder();
+        for (CccProtocolVersion p : PROTOCOL_VERSIONS) {
+            paramsBuilder.addProtocolVersion(p);
+        }
+        for (int uwbConfig : UWB_CONFIGS) {
+            paramsBuilder.addUwbConfig(uwbConfig);
+        }
+        for (CccPulseShapeCombo pulseShapeCombo : PULSE_SHAPE_COMBOS) {
+            paramsBuilder.addPulseShapeCombo(pulseShapeCombo);
+        }
+        paramsBuilder.setRanMultiplier(RAN_MULTIPLIER);
+        for (int chapsPerSlot : CHAPS_PER_SLOTS) {
+            paramsBuilder.addChapsPerSlot(chapsPerSlot);
+        }
+        for (int syncCode : SYNC_CODES) {
+            paramsBuilder.addSyncCode(syncCode);
+        }
+        for (int hoppingConfigMode : HOPPING_CONFIG_MODES) {
+            paramsBuilder.addHoppingConfigMode(hoppingConfigMode);
+        }
+        for (int hoppingSequence : HOPPING_SEQUENCES) {
+            paramsBuilder.addHoppingSequence(hoppingSequence);
+        }
+        CccSpecificationParams params = paramsBuilder.build();
+        assertEquals(List.of(), params.getChannels());
+
+        CccSpecificationParams fromBundle = CccSpecificationParams.fromBundle(params.toBundle());
+        assertEquals(List.of(), fromBundle.getChannels());
     }
 
     private void verifyProtocolPresent(Params params) {

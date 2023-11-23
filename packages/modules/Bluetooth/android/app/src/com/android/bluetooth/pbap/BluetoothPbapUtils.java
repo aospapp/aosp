@@ -34,6 +34,8 @@ import android.provider.ContactsContract.Profile;
 import android.provider.ContactsContract.RawContactsEntity;
 import android.util.Log;
 
+import com.android.bluetooth.BluetoothMethodProxy;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.vcard.VCardComposer;
 import com.android.vcard.VCardConfig;
 
@@ -68,13 +70,17 @@ class BluetoothPbapUtils {
 
     static long sPrimaryVersionCounter = 0;
     static long sSecondaryVersionCounter = 0;
-    private static long sTotalContacts = 0;
+    @VisibleForTesting
+    static long sTotalContacts = 0;
 
     /* totalFields and totalSvcFields used to update primary/secondary version
      * counter between pbap sessions*/
-    private static long sTotalFields = 0;
-    private static long sTotalSvcFields = 0;
-    private static long sContactsLastUpdated = 0;
+    @VisibleForTesting
+    static long sTotalFields = 0;
+    @VisibleForTesting
+    static long sTotalSvcFields = 0;
+    @VisibleForTesting
+    static long sContactsLastUpdated = 0;
 
     private static class ContactData {
         private String mName;
@@ -97,14 +103,20 @@ class BluetoothPbapUtils {
         }
     }
 
-    private static HashMap<String, ContactData> sContactDataset = new HashMap<>();
+    @VisibleForTesting
+    static HashMap<String, ContactData> sContactDataset = new HashMap<>();
 
-    private static HashSet<String> sContactSet = new HashSet<>();
+    @VisibleForTesting
+    static HashSet<String> sContactSet = new HashSet<>();
 
-    private static final String TYPE_NAME = "name";
-    private static final String TYPE_PHONE = "phone";
-    private static final String TYPE_EMAIL = "email";
-    private static final String TYPE_ADDRESS = "address";
+    @VisibleForTesting
+    static final String TYPE_NAME = "name";
+    @VisibleForTesting
+    static final String TYPE_PHONE = "phone";
+    @VisibleForTesting
+    static final String TYPE_EMAIL = "email";
+    @VisibleForTesting
+    static final String TYPE_ADDRESS = "address";
 
     private static boolean hasFilter(byte[] filter) {
         return filter != null && filter.length > 0;
@@ -171,8 +183,9 @@ class BluetoothPbapUtils {
     }
 
     public static String getProfileName(Context context) {
-        Cursor c = context.getContentResolver()
-                .query(Profile.CONTENT_URI, new String[]{Profile.DISPLAY_NAME}, null, null, null);
+        Cursor c = BluetoothMethodProxy.getInstance().contentResolverQuery(
+                context.getContentResolver(), Profile.CONTENT_URI,
+                new String[]{Profile.DISPLAY_NAME}, null, null, null);
         String ownerName = null;
         if (c != null && c.moveToFirst()) {
             ownerName = c.getString(0);
@@ -267,8 +280,8 @@ class BluetoothPbapUtils {
         HashSet<String> currentContactSet = new HashSet<>();
 
         String[] projection = {Contacts._ID, Contacts.CONTACT_LAST_UPDATED_TIMESTAMP};
-        Cursor c = context.getContentResolver()
-                .query(Contacts.CONTENT_URI, projection, null, null, null);
+        Cursor c = BluetoothMethodProxy.getInstance().contentResolverQuery(
+                context.getContentResolver(), Contacts.CONTENT_URI, projection, null, null, null);
 
         if (c == null) {
             Log.d(TAG, "Failed to fetch data from contact database");
@@ -320,8 +333,9 @@ class BluetoothPbapUtils {
             for (String deletedContact : deletedContacts) {
                 sContactSet.remove(deletedContact);
                 String[] selectionArgs = {deletedContact};
-                Cursor dataCursor = context.getContentResolver()
-                        .query(Data.CONTENT_URI, dataProjection, whereClause, selectionArgs, null);
+                Cursor dataCursor = BluetoothMethodProxy.getInstance().contentResolverQuery(
+                        context.getContentResolver(), Data.CONTENT_URI, dataProjection, whereClause,
+                        selectionArgs, null);
 
                 if (dataCursor == null) {
                     Log.d(TAG, "Failed to fetch data from contact database");
@@ -350,8 +364,9 @@ class BluetoothPbapUtils {
                 boolean updated = false;
 
                 String[] selectionArgs = {contact};
-                Cursor dataCursor = context.getContentResolver()
-                        .query(Data.CONTENT_URI, dataProjection, whereClause, selectionArgs, null);
+                Cursor dataCursor = BluetoothMethodProxy.getInstance().contentResolverQuery(
+                        context.getContentResolver(), Data.CONTENT_URI, dataProjection, whereClause,
+                        selectionArgs, null);
 
                 if (dataCursor == null) {
                     Log.d(TAG, "Failed to fetch data from contact database");
@@ -419,7 +434,8 @@ class BluetoothPbapUtils {
     /* checkFieldUpdates checks update contact fields of a particular contact.
      * Field update can be a field updated/added/deleted in an existing contact.
      * Returns true if any contact field is updated else return false. */
-    private static boolean checkFieldUpdates(ArrayList<String> oldFields,
+    @VisibleForTesting
+    static boolean checkFieldUpdates(ArrayList<String> oldFields,
             ArrayList<String> newFields) {
         if (newFields != null && oldFields != null) {
             if (newFields.size() != oldFields.size()) {
@@ -451,11 +467,13 @@ class BluetoothPbapUtils {
     /* fetchAndSetContacts reads contacts and caches them
      * isLoad = true indicates its loading all contacts
      * isLoad = false indiacates its caching recently added contact in database*/
-    private static int fetchAndSetContacts(Context context, Handler handler, String[] projection,
+    @VisibleForTesting
+    static int fetchAndSetContacts(Context context, Handler handler, String[] projection,
             String whereClause, String[] selectionArgs, boolean isLoad) {
         long currentTotalFields = 0, currentSvcFieldCount = 0;
-        Cursor c = context.getContentResolver()
-                .query(Data.CONTENT_URI, projection, whereClause, selectionArgs, null);
+        Cursor c = BluetoothMethodProxy.getInstance().contentResolverQuery(
+                context.getContentResolver(), Data.CONTENT_URI, projection, whereClause,
+                selectionArgs, null);
 
         /* send delayed message to loadContact when ContentResolver is unable
          * to fetch data from contact database using the specified URI at that
@@ -540,8 +558,8 @@ class BluetoothPbapUtils {
      * email or address which is required for updating Secondary Version counter).
      * contactsFieldData - List of field data for phone/email/address.
      * contactId - Contact ID, data1 - field value from data table for phone/email/address*/
-
-    private static void setContactFields(String fieldType, String contactId, String data) {
+    @VisibleForTesting
+    static void setContactFields(String fieldType, String contactId, String data) {
         ContactData cData;
         if (sContactDataset.containsKey(contactId)) {
             cData = sContactDataset.get(contactId);

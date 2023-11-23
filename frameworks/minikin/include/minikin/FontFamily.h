@@ -19,7 +19,6 @@
 
 #include <memory>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 #include "minikin/FamilyVariant.h"
@@ -33,32 +32,19 @@ namespace minikin {
 
 class FontFamily {
 public:
-    explicit FontFamily(std::vector<std::shared_ptr<Font>>&& fonts);
-    FontFamily(FamilyVariant variant, std::vector<std::shared_ptr<Font>>&& fonts);
-    FontFamily(uint32_t localeListId, FamilyVariant variant,
-               std::vector<std::shared_ptr<Font>>&& fonts, bool isCustomFallback);
+    static std::shared_ptr<FontFamily> create(std::vector<std::shared_ptr<Font>>&& fonts);
+    static std::shared_ptr<FontFamily> create(FamilyVariant variant,
+                                              std::vector<std::shared_ptr<Font>>&& fonts);
+    static std::shared_ptr<FontFamily> create(uint32_t localeListId, FamilyVariant variant,
+                                              std::vector<std::shared_ptr<Font>>&& fonts,
+                                              bool isCustomFallback, bool isDefaultFallback);
 
-    template <Font::TypefaceReader typefaceReader>
-    static std::shared_ptr<FontFamily> readFrom(BufferReader* reader) {
-        uint32_t localeListId = readLocaleListInternal(reader);
-        uint32_t fontsCount = reader->read<uint32_t>();
-        std::vector<std::shared_ptr<Font>> fonts;
-        fonts.reserve(fontsCount);
-        for (uint32_t i = 0; i < fontsCount; i++) {
-            fonts.emplace_back(Font::readFrom<typefaceReader>(reader, localeListId));
-        }
-        return readFromInternal(reader, std::move(fonts), localeListId);
-    }
+    FontFamily(FontFamily&&) = default;
+    FontFamily& operator=(FontFamily&&) = default;
 
-    template <Font::TypefaceWriter typefaceWriter>
-    void writeTo(BufferWriter* writer) const {
-        writeLocaleListInternal(writer);
-        writer->write<uint32_t>(mFonts.size());
-        for (const std::shared_ptr<Font>& font : mFonts) {
-            font->writeTo<typefaceWriter>(writer);
-        }
-        writeToInternal(writer);
-    }
+    static std::vector<std::shared_ptr<FontFamily>> readVector(BufferReader* reader);
+    static void writeVector(BufferWriter* writer,
+                            const std::vector<std::shared_ptr<FontFamily>>& families);
 
     FakedFont getClosestMatch(FontStyle style) const;
 
@@ -66,13 +52,15 @@ public:
     FamilyVariant variant() const { return mVariant; }
 
     // API's for enumerating the fonts in a family. These don't guarantee any particular order
-    size_t getNumFonts() const { return mFonts.size(); }
+    size_t getNumFonts() const { return mFontsCount; }
     const Font* getFont(size_t index) const { return mFonts[index].get(); }
     const std::shared_ptr<Font>& getFontRef(size_t index) const { return mFonts[index]; }
     FontStyle getStyle(size_t index) const { return mFonts[index]->style(); }
     bool isColorEmojiFamily() const { return mIsColorEmoji; }
-    const std::unordered_set<AxisTag>& supportedAxes() const { return mSupportedAxes; }
+    size_t getSupportedAxesCount() const { return mSupportedAxesCount; }
+    AxisTag getSupportedAxisAt(size_t index) const { return mSupportedAxes[index]; }
     bool isCustomFallback() const { return mIsCustomFallback; }
+    bool isDefaultFallback() const { return mIsDefaultFallback; }
 
     // Get Unicode coverage.
     const SparseBitSet& getCoverage() const { return mCoverage; }
@@ -82,7 +70,7 @@ public:
     bool hasGlyph(uint32_t codepoint, uint32_t variationSelector) const;
 
     // Returns true if this font family has a variaion sequence table (cmap format 14 subtable).
-    bool hasVSTable() const { return !mCmapFmt14Coverage.empty(); }
+    bool hasVSTable() const { return mCmapFmt14CoverageCount != 0; }
 
     // Creates new FontFamily based on this family while applying font variations. Returns nullptr
     // if none of variations apply to this family.
@@ -91,29 +79,30 @@ public:
 
 private:
     FontFamily(uint32_t localeListId, FamilyVariant variant,
-               std::vector<std::shared_ptr<Font>>&& fonts,
-               std::unordered_set<AxisTag>&& supportedAxes, bool isColorEmoji,
-               bool isCustomFallback, SparseBitSet&& coverage,
-               std::vector<std::unique_ptr<SparseBitSet>>&& cmapFmt14Coverage);
+               std::vector<std::shared_ptr<Font>>&& fonts, bool isCustomFallback,
+               bool isDefaultFallback);
+    explicit FontFamily(BufferReader* reader, const std::shared_ptr<std::vector<Font>>& fonts);
 
-    static uint32_t readLocaleListInternal(BufferReader* reader);
-    static std::shared_ptr<FontFamily> readFromInternal(BufferReader* reader,
-                                                        std::vector<std::shared_ptr<Font>>&& fonts,
-                                                        uint32_t localeListId);
-    void writeLocaleListInternal(BufferWriter* writer) const;
-    void writeToInternal(BufferWriter* writer) const;
+    void writeTo(BufferWriter* writer, uint32_t* fontIndex) const;
 
     void computeCoverage();
 
-    uint32_t mLocaleListId;
-    FamilyVariant mVariant;
-    std::vector<std::shared_ptr<Font>> mFonts;
-    std::unordered_set<AxisTag> mSupportedAxes;
-    bool mIsColorEmoji;
-    bool mIsCustomFallback;
-
+    // Note: to minimize padding, small member fields are grouped at the end.
+    std::unique_ptr<std::shared_ptr<Font>[]> mFonts;
+    // mSupportedAxes is sorted.
+    std::unique_ptr<AxisTag[]> mSupportedAxes;
     SparseBitSet mCoverage;
-    std::vector<std::unique_ptr<SparseBitSet>> mCmapFmt14Coverage;
+    std::unique_ptr<SparseBitSet[]> mCmapFmt14Coverage;
+    uint32_t mLocaleListId;  // 4 bytes
+    uint32_t mFontsCount;    // 4 bytes
+    // OpenType supports up to 2^16-1 (uint16) axes.
+    // https://docs.microsoft.com/en-us/typography/opentype/spec/fvar
+    uint16_t mSupportedAxesCount;      // 2 bytes
+    uint16_t mCmapFmt14CoverageCount;  // 2 bytes
+    FamilyVariant mVariant;            // 1 byte
+    bool mIsColorEmoji;                // 1 byte
+    bool mIsCustomFallback;            // 1 byte
+    bool mIsDefaultFallback;           // 1 byte
 
     MINIKIN_PREVENT_COPY_AND_ASSIGN(FontFamily);
 };

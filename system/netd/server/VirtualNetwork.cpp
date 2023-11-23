@@ -33,7 +33,7 @@ VirtualNetwork::VirtualNetwork(unsigned netId, bool secure, bool excludeLocalRou
 VirtualNetwork::~VirtualNetwork() {}
 
 int VirtualNetwork::addUsers(const UidRanges& uidRanges, int32_t subPriority) {
-    if (!isValidSubPriority(subPriority) || !canAddUidRanges(uidRanges, subPriority)) {
+    if (!isValidSubPriority(subPriority) || !canAddUidRanges(uidRanges)) {
         return -EINVAL;
     }
 

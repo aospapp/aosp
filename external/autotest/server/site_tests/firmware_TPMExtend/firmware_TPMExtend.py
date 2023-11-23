@@ -7,6 +7,8 @@ import hashlib, logging
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 
+def _encode_text(text):
+    return text.encode('utf-8')
 
 class firmware_TPMExtend(FirmwareTest):
     """Test to ensure TPM PCRs are extended correctly."""
@@ -31,7 +33,8 @@ class firmware_TPMExtend(FirmwareTest):
                         'cat %s' % pcrs_file))
         logging.debug('Dumping PCRs read from device: \n%s', pcrs)
         extended = hashlib.sha1(b'\0' * 20 + hash_obj.digest()[:20]).hexdigest()
-        spaced = ' '.join(extended[i:i+2] for i in xrange(0, len(extended), 2))
+        spaced = ' '.join(extended[i:i + 2]
+                          for i in range(0, len(extended), 2))
         logging.debug('PCR %d should contain hash: %s', num, spaced)
         return ('PCR-%.2d: %s' % (num, spaced.upper())) in pcrs
 
@@ -51,6 +54,15 @@ class firmware_TPMExtend(FirmwareTest):
         else:
             return self._tpm2_check_pcr(num, hash_obj)
 
+    def _check_pcr_bootmode(self, dev_mode, rec_mode, keyblock_flags):
+        bootmode = _encode_text(chr(dev_mode) +
+                                chr(rec_mode) +
+                                chr(keyblock_flags))
+        if not self._check_pcr(0, hashlib.sha1(bootmode)):
+            msg = 'PCR0 was not extended with bootmode %d|%d|%d!' % (
+                    dev_mode, rec_mode, keyblock_flags)
+            raise error.TestFail(msg)
+
     def run_once(self):
         """Runs a single iteration of the test."""
         if self.disable_hwid_check:
@@ -61,7 +73,7 @@ class firmware_TPMExtend(FirmwareTest):
             hwid = self.faft_client.system.run_shell_command_get_output(
                     'crossystem hwid')[0]
             logging.debug('HWID reported by device is: %s', hwid)
-            if not self._check_pcr(1, hashlib.sha256(hwid)):
+            if not self._check_pcr(1, hashlib.sha256(_encode_text(hwid))):
                 raise error.TestFail(
                     'PCR1 was not extended with SHA256 of HWID!')
 
@@ -71,8 +83,7 @@ class firmware_TPMExtend(FirmwareTest):
                             'mainfw_type': 'normal'
                             }))
         # dev_mode: 0, rec_mode: 0, keyblock_flags: "normal" (1)
-        if not self._check_pcr(0, hashlib.sha1(chr(0) + chr(0) + chr(1))):
-            raise error.TestFail('PCR0 was not extended with bootmode 0|0|1!')
+        self._check_pcr_bootmode(0, 0, 1)
 
         logging.info('Verifying bootmode digest in PCR0 in recovery mode')
         self.switcher.reboot_to_mode(to_mode='rec')
@@ -81,8 +92,7 @@ class firmware_TPMExtend(FirmwareTest):
                             'mainfw_type': 'recovery'
                             }))
         # dev_mode: 0, rec_mode: 1, keyblock_flags: "unknown" (0)
-        if not self._check_pcr(0, hashlib.sha1(chr(0) + chr(1) + chr(0))):
-            raise error.TestFail('PCR0 was not extended with bootmode 0|1|0!')
+        self._check_pcr_bootmode(0, 1, 0)
 
         logging.info('Transitioning to dev mode for next test')
         self.switcher.reboot_to_mode(to_mode='dev')
@@ -93,8 +103,7 @@ class firmware_TPMExtend(FirmwareTest):
                             'mainfw_type': 'developer'
                             }))
         # dev_mode: 1, rec_mode: 0, keyblock_flags: "normal" (1)
-        if not self._check_pcr(0, hashlib.sha1(chr(1) + chr(0) + chr(1))):
-            raise error.TestFail('PCR0 was not extended with bootmode 1|0|1!')
+        self._check_pcr_bootmode(1, 0, 1)
 
         logging.info('Verifying bootmode digest in PCR0 in dev-recovery mode')
         self.switcher.reboot_to_mode(to_mode='rec')
@@ -103,8 +112,7 @@ class firmware_TPMExtend(FirmwareTest):
                             'mainfw_type': 'recovery'
                             }))
         # dev_mode: 1, rec_mode: 1, keyblock_flags: "unknown" (0)
-        if not self._check_pcr(0, hashlib.sha1(chr(1) + chr(1) + chr(0))):
-            raise error.TestFail('PCR0 was not extended with bootmode 1|1|0!')
+        self._check_pcr_bootmode(1, 1, 0)
 
         logging.info('All done, returning to normal mode')
         self.switcher.reboot_to_mode(to_mode='normal')

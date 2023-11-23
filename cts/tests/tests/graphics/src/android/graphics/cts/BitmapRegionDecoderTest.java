@@ -517,6 +517,33 @@ public class BitmapRegionDecoderTest {
     }
 
     @Test
+    public void testReusedColorSpaceCropped() throws IOException {
+        Bitmap b = Bitmap.createBitmap(SMALL_TILE_SIZE, SMALL_TILE_SIZE, Config.ARGB_8888,
+                false, ColorSpace.get(ColorSpace.Named.ADOBE_RGB));
+
+        Options opts = new BitmapFactory.Options();
+        opts.inBitmap = b;
+
+        // sRGB
+        BitmapRegionDecoder decoder = BitmapRegionDecoder.newInstance(
+                obtainInputStream(ASSET_NAMES[3]));
+        Bitmap region = decoder.decodeRegion(
+                new Rect(0, 0, TILE_SIZE, TILE_SIZE), opts);
+        decoder.recycle();
+
+        assertSame(b, region);
+        assertEquals(ColorSpace.get(ColorSpace.Named.SRGB), region.getColorSpace());
+
+        // DisplayP3
+        decoder = BitmapRegionDecoder.newInstance(obtainInputStream(ASSET_NAMES[1]));
+        region = decoder.decodeRegion(new Rect(0, 0, TILE_SIZE, TILE_SIZE), opts);
+        decoder.recycle();
+
+        assertSame(b, region);
+        assertEquals(ColorSpace.get(ColorSpace.Named.DISPLAY_P3), region.getColorSpace());
+    }
+
+    @Test
     public void testInColorSpace() throws IOException {
         Options opts = new BitmapFactory.Options();
         for (int i = 0; i < NUM_TEST_IMAGES; ++i) {

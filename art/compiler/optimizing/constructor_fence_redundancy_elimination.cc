@@ -20,12 +20,12 @@
 #include "base/scoped_arena_allocator.h"
 #include "base/scoped_arena_containers.h"
 
-namespace art {
+namespace art HIDDEN {
 
 static constexpr bool kCfreLogFenceInputCount = false;
 
 // TODO: refactor this code by reusing escape analysis.
-class CFREVisitor : public HGraphVisitor {
+class CFREVisitor final : public HGraphVisitor {
  public:
   CFREVisitor(HGraph* graph, OptimizingCompilerStats* stats)
       : HGraphVisitor(graph),
@@ -147,16 +147,6 @@ class CFREVisitor : public HGraphVisitor {
   void VisitAlias(HInstruction* aliasing_inst) {
     // An object is considered "published" if it becomes aliased by other instructions.
     if (HasInterestingPublishTargetAsInput(aliasing_inst))  {
-      // Note that constructing a "NullCheck" for new-instance, new-array,
-      // or a 'this' (receiver) reference is impossible.
-      //
-      // If by some reason we actually encounter such a NullCheck(FenceTarget),
-      // we LOG(WARNING).
-      if (UNLIKELY(aliasing_inst->IsNullCheck())) {
-        LOG(kIsDebugBuild ? FATAL : WARNING)
-            << "Unexpected instruction: NullCheck; should not be legal in graph";
-        // We then do a best-effort to handle this case.
-      }
       MergeCandidateFences();
     }
   }

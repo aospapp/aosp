@@ -127,6 +127,8 @@ std::ostream& operator<<(std::ostream&, const Flag&);
 
 std::vector<std::string> ArgsToVec(int argc, char** argv);
 
+std::string BoolToString(bool val);
+
 /* Handles a list of flags. Flags are matched in the order given in case two
  * flags match the same argument. Matched flags are removed, leaving only
  * unmatched arguments. */
@@ -141,6 +143,11 @@ bool WriteGflagsCompatXml(const std::vector<Flag>&, std::ostream&);
 
 /* If a "-help" or "--help" flag is present, prints all the flags and fails. */
 Flag HelpFlag(const std::vector<Flag>& flags, const std::string& text = "");
+
+/* If a "-helpxml" is present, prints all the flags in XML and fails. */
+Flag HelpXmlFlag(const std::vector<Flag>& flags, std::ostream&, bool& value,
+                 const std::string& text = "");
+
 /* Catches unrecognized arguments that begin with `-`, and errors out. This
  * effectively denies unknown flags. */
 Flag InvalidFlagGuard();

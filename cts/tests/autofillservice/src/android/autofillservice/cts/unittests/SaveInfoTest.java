@@ -17,7 +17,6 @@
 package android.autofillservice.cts.unittests;
 
 import static android.service.autofill.SaveInfo.FLAG_DELAY_SAVE;
-import static android.service.autofill.SaveInfo.FLAG_DONT_SAVE_ON_FINISH;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -61,12 +60,6 @@ public class SaveInfoTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC,
                         new AutofillId[] { null }));
-    }
-
-    @Test
-    public void testBuild_noOptionalIds() {
-        final SaveInfo.Builder builder = new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC);
-        assertThrows(IllegalStateException.class, ()-> builder.build());
     }
 
     @Test
@@ -121,15 +114,6 @@ public class SaveInfoTest {
         assertThrows(IllegalArgumentException.class, () -> builder.addSanitizer(mSanitizer, mId));
     }
 
-    @Test
-    public void testBuild_invalid() {
-        // No nothing
-        assertThrows(IllegalStateException.class, () -> new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC)
-                .build());
-        // Flag only, but invalid flag
-        assertThrows(IllegalStateException.class, () -> new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC)
-                .setFlags(FLAG_DONT_SAVE_ON_FINISH).build());
-    }
 
     @Test
     public void testBuild_valid() {

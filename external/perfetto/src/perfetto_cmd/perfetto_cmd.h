@@ -22,17 +22,18 @@
 #include <vector>
 
 #include <time.h>
+#include <optional>
 
 #include "perfetto/base/build_config.h"
 #include "perfetto/ext/base/event_fd.h"
-#include "perfetto/ext/base/optional.h"
 #include "perfetto/ext/base/pipe.h"
 #include "perfetto/ext/base/scoped_file.h"
+#include "perfetto/ext/base/thread_task_runner.h"
 #include "perfetto/ext/base/unix_task_runner.h"
+#include "perfetto/ext/base/weak_ptr.h"
 #include "perfetto/ext/tracing/core/consumer.h"
 #include "perfetto/ext/tracing/ipc/consumer_ipc_client.h"
 #include "src/android_stats/perfetto_atoms.h"
-#include "src/perfetto_cmd/rate_limiter.h"
 
 namespace perfetto {
 
@@ -52,10 +53,10 @@ class PerfettoCmd : public Consumer {
   // with traced. This is to allow tools like tracebox to avoid spawning the
   // service for no reason if the cmdline parsing fails.
   // Return value:
-  //   nullopt: no error, the caller should call
+  //   std::nullopt: no error, the caller should call
   //   ConnectToServiceRunAndMaybeNotify.
   //   0-N: the caller should exit() with the given exit code.
-  base::Optional<int> ParseCmdlineAndMaybeDaemonize(int argc, char** argv);
+  std::optional<int> ParseCmdlineAndMaybeDaemonize(int argc, char** argv);
   int ConnectToServiceRunAndMaybeNotify();
 
   // perfetto::Consumer implementation.
@@ -67,6 +68,7 @@ class PerfettoCmd : public Consumer {
   void OnAttach(bool, const TraceConfig&) override;
   void OnTraceStats(bool, const TraceStats&) override;
   void OnObservableEvents(const ObservableEvents&) override;
+  void OnSessionCloned(const OnSessionClonedArgs&) override;
 
   void SignalCtrlC() { ctrl_c_evt_.Notify(); }
 
@@ -89,6 +91,8 @@ class PerfettoCmd : public Consumer {
   void CheckTraceDataTimeout();
 
   int ConnectToServiceAndRun();
+
+  void ReadbackTraceDataAndQuit(const std::string& error);
 
   enum BgProcessStatus : char {
     kBackgroundOk = 0,
@@ -113,6 +117,8 @@ class PerfettoCmd : public Consumer {
   // will have no effect.
   void NotifyBgProcessPipe(BgProcessStatus status);
 
+  void OnCloneSnapshotTriggerReceived(TracingSessionID);
+
 #if PERFETTO_BUILDFLAG(PERFETTO_OS_ANDROID)
   static base::ScopedFile CreateUnlinkedTmpFile();
   void SaveTraceIntoIncidentOrCrash();
@@ -134,6 +140,7 @@ class PerfettoCmd : public Consumer {
   std::vector<std::string> triggers_to_activate_;
   std::string trace_out_path_;
   base::EventFd ctrl_c_evt_;
+  bool ctrl_c_handler_installed_ = false;
   base::Pipe background_wait_pipe_;
   bool save_to_incidentd_ = false;
   bool report_to_android_framework_ = false;
@@ -151,11 +158,22 @@ class PerfettoCmd : public Consumer {
   bool background_wait_ = false;
   bool ignore_guardrails_ = false;
   bool upload_flag_ = false;
+  bool connected_ = false;
   std::string uuid_;
+  std::optional<TracingSessionID> clone_tsid_{};
 
   // How long we expect to trace for or 0 if the trace is indefinite.
   uint32_t expected_duration_ms_ = 0;
   bool trace_data_timeout_armed_ = false;
+
+  // The aux thread that is used to invoke secondary instances of PerfettoCmd
+  // to create snapshots. This is used only when the trace config involves a
+  // CLONE_SNAPSHOT trigger.
+  std::unique_ptr<base::ThreadTaskRunner> snapshot_thread_;
+  int snapshot_count_ = 0;
+  std::string snapshot_config_;
+
+  base::WeakPtrFactory<PerfettoCmd> weak_factory_{this};
 };
 
 }  // namespace perfetto

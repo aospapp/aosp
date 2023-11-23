@@ -73,7 +73,7 @@ public abstract class AbstractModeTest {
         androidSdk = new AndroidSdk(console, mkdir,
                 new File[] {new File("classpath")}, "android.jar", "desugar.jar",
                 new HostFileCache(console, mkdir),
-                Language.CUR);
+                Language.CUR, false, false);
         Target target = createTarget();
 
         final Vogar vogar = new Vogar();
@@ -83,7 +83,7 @@ public abstract class AbstractModeTest {
                     + ". Please check stdout.");
         }
 
-        run = new Run(vogar, Toolchain.DX, console, mkdir, androidSdk, new Rm(console), target,
+        run = new Run(vogar, Toolchain.D8, console, mkdir, androidSdk, new Rm(console), target,
                 new File("runner/dir"));
 
         classpath = new Classpath();

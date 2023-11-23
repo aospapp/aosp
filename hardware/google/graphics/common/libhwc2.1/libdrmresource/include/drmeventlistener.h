@@ -17,10 +17,12 @@
 #ifndef ANDROID_DRM_EVENT_LISTENER_H_
 #define ANDROID_DRM_EVENT_LISTENER_H_
 
+#include <sys/epoll.h>
+
+#include <map>
+
 #include "autofd.h"
 #include "worker.h"
-
-#include <sys/epoll.h>
 
 namespace android {
 
@@ -41,7 +43,7 @@ public:
     DrmHistogramEventHandler() {}
     virtual ~DrmHistogramEventHandler() {}
 
-    virtual void handleHistogramEvent(void *) = 0;
+    virtual void handleHistogramEvent(uint32_t crtc_id, void *) = 0;
 };
 
 class DrmTUIEventHandler {
@@ -62,9 +64,19 @@ class DrmPanelIdleEventHandler {
   virtual void handleIdleEnterEvent(char const *event) = 0;
 };
 
+class DrmSysfsEventHandler {
+ public:
+  DrmSysfsEventHandler() {}
+  virtual ~DrmSysfsEventHandler() {}
+
+  virtual void handleSysfsEvent() = 0;
+  virtual int getFd() = 0;
+};
+
 class DrmEventListener : public Worker {
- static constexpr const char kTUIStatusPath[] = "/sys/devices/platform/exynos-drm/tui_status";
- static const uint32_t maxFds = 3;
+  static constexpr const char kTUIStatusPath[] = "/sys/devices/platform/exynos-drm/tui_status";
+  static const uint32_t maxFds = 4;
+
  public:
   DrmEventListener(DrmDevice *drm);
   virtual ~DrmEventListener();
@@ -79,11 +91,13 @@ class DrmEventListener : public Worker {
   void UnRegisterTUIHandler(DrmTUIEventHandler *handler);
   void RegisterPanelIdleHandler(DrmPanelIdleEventHandler *handler);
   void UnRegisterPanelIdleHandler(DrmPanelIdleEventHandler *handler);
+  int RegisterSysfsHandler(std::shared_ptr<DrmSysfsEventHandler> handler);
+  int UnRegisterSysfsHandler(int sysfs_fd);
 
   bool IsDrmInTUI();
 
-  static void FlipHandler(int fd, unsigned int sequence, unsigned int tv_sec,
-                          unsigned int tv_usec, void *user_data);
+  static void FlipHandler(int fd, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec,
+                          void *user_data);
 
  protected:
   virtual void Routine();
@@ -92,6 +106,7 @@ class DrmEventListener : public Worker {
   void UEventHandler();
   void DRMEventHandler();
   void TUIEventHandler();
+  void SysfsEventHandler(int fd);
 
   UniqueFd epoll_fd_;
   UniqueFd uevent_fd_;
@@ -102,7 +117,10 @@ class DrmEventListener : public Worker {
   std::unique_ptr<DrmHistogramEventHandler> histogram_handler_;
   std::unique_ptr<DrmTUIEventHandler> tui_handler_;
   std::unique_ptr<DrmPanelIdleEventHandler> panel_idle_handler_;
+  std::mutex mutex_;
+  std::map<int, std::shared_ptr<DrmSysfsEventHandler>> sysfs_handlers_;
 };
+
 }  // namespace android
 
 #endif

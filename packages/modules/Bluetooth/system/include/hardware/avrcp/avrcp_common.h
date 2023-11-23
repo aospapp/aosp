@@ -50,7 +50,10 @@ enum class Opcode : uint8_t {
 // Searching can be done in the spec by Camel Casing the constant name
 enum class CommandPdu : uint8_t {
   GET_CAPABILITIES = 0x10,
-  LIST_APPLICATION_SETTING_ATTRIBUTES = 0x11,
+  LIST_PLAYER_APPLICATION_SETTING_ATTRIBUTES = 0x11,
+  LIST_PLAYER_APPLICATION_SETTING_VALUES = 0x12,
+  GET_CURRENT_PLAYER_APPLICATION_SETTING_VALUE = 0x13,
+  SET_PLAYER_APPLICATION_SETTING_VALUE = 0x14,
   GET_ELEMENT_ATTRIBUTES = 0x20,
   GET_PLAY_STATUS = 0x30,
   REGISTER_NOTIFICATION = 0x31,
@@ -142,6 +145,26 @@ enum class Direction : uint8_t {
 enum class KeyState : uint8_t {
   PUSHED = 0x00,
   RELEASED = 0x01,
+};
+
+enum class PlayerAttribute : uint8_t {
+  EQUALIZER = 0x01,
+  REPEAT = 0x02,
+  SHUFFLE = 0x03,
+  SCAN = 0x04,
+};
+
+enum class PlayerRepeatValue : uint8_t {
+  OFF = 0x01,
+  SINGLE = 0x02,
+  ALL = 0x03,
+  GROUP = 0x04,
+};
+
+enum class PlayerShuffleValue : uint8_t {
+  OFF = 0x01,
+  ALL = 0x02,
+  GROUP = 0x03,
 };
 
 class AttributeEntry {

@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"藍牙"</string>
     <string name="unknown_device" msgid="2317679521750821654">"未知的裝置"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"不明"</string>
+    <string name="not_provided" msgid="6938740494380012614">"未提供"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"飛行模式"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"手機處於飛行模式時，無法使用藍牙功能。"</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"藍牙音訊"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"無法轉移大於 4GB 的檔案"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"使用藍牙連線"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"在飛航模式下保持藍牙開啟狀態"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"如果不關閉藍牙，下次裝置進入飛航模式時，藍牙將保持開啟狀態"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"藍牙會保持開啟狀態"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"裝置會記得在飛航模式下讓藍牙保持開啟狀態。如果不要保持開啟狀態，請關閉藍牙。"</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi 和藍牙會保持開啟狀態"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"裝置會記得在飛航模式下讓 Wi-Fi 和藍牙保持開啟狀態。如果不要保持開啟狀態，請關閉 Wi-Fi 和藍牙。"</string>
 </resources>

@@ -28,6 +28,7 @@
 #include "WriteThread.h"
 
 using android::status_t;
+using android::hardware::hidl_memory;
 
 namespace audio_proxy::service {
 
@@ -73,12 +74,11 @@ uint64_t estimatePlayedFramesSince(const TimeSpec& timestamp,
 }  // namespace
 
 StreamOutImpl::StreamOutImpl(std::shared_ptr<BusOutputStream> stream,
-                             const StreamOutConfig& config,
-                             uint32_t bufferSizeMs, uint32_t latencyMs)
+                             const StreamOutConfig& config)
     : mStream(std::move(stream)),
       mConfig(config),
-      mBufferSizeMs(bufferSizeMs),
-      mLatencyMs(latencyMs),
+      mBufferSizeBytes(mStream->getConfig().bufferSizeBytes),
+      mLatencyMs(mStream->getConfig().latencyMs),
       mEventFlag(nullptr, deleteEventFlag) {}
 
 StreamOutImpl::~StreamOutImpl() {
@@ -98,12 +98,10 @@ Return<uint64_t> StreamOutImpl::getFrameSize() {
 }
 
 Return<uint64_t> StreamOutImpl::getFrameCount() {
-  return mBufferSizeMs * mConfig.sampleRateHz / 1000;
+  return mBufferSizeBytes / mStream->getFrameSize();
 }
 
-Return<uint64_t> StreamOutImpl::getBufferSize() {
-  return mBufferSizeMs * mConfig.sampleRateHz * mStream->getFrameSize() / 1000;
-}
+Return<uint64_t> StreamOutImpl::getBufferSize() { return mBufferSizeBytes; }
 
 #if MAJOR_VERSION >= 7
 Return<void> StreamOutImpl::getSupportedProfiles(
@@ -441,18 +439,51 @@ Return<void> StreamOutImpl::getPresentationPosition(
   return Void();
 }
 
-Return<Result> StreamOutImpl::start() { return Result::NOT_SUPPORTED; }
+Return<Result> StreamOutImpl::start() {
+  return mStream->start() ? Result::OK : Result::NOT_SUPPORTED;
+}
 
-Return<Result> StreamOutImpl::stop() { return Result::NOT_SUPPORTED; }
+Return<Result> StreamOutImpl::stop() {
+  return mStream->stop() ? Result::OK : Result::NOT_SUPPORTED;
+}
 
 Return<void> StreamOutImpl::createMmapBuffer(int32_t minSizeFrames,
                                              createMmapBuffer_cb _hidl_cb) {
-  _hidl_cb(Result::NOT_SUPPORTED, MmapBufferInfo());
+  MmapBufferInfo hidlInfo;
+  AidlMmapBufferInfo info = mStream->createMmapBuffer(minSizeFrames);
+  int sharedMemoryFd = info.sharedMemoryFd.get();
+  if (sharedMemoryFd == -1) {
+    _hidl_cb(Result::NOT_SUPPORTED, hidlInfo);
+    return Void();
+  }
+
+  native_handle_t* hidlHandle = nullptr;
+  hidlHandle = native_handle_create(1, 0);
+  hidlHandle->data[0] = sharedMemoryFd;
+
+  hidlInfo.sharedMemory =
+      hidl_memory("audio_proxy_mmap_buffer", hidlHandle,
+                  mStream->getFrameSize() * info.bufferSizeFrames);
+  hidlInfo.bufferSizeFrames = info.bufferSizeFrames;
+  hidlInfo.burstSizeFrames = info.burstSizeFrames;
+  hidlInfo.flags = static_cast<hidl_bitfield<MmapBufferFlag>>(info.flags);
+  _hidl_cb(Result::OK, hidlInfo);
   return Void();
 }
 
 Return<void> StreamOutImpl::getMmapPosition(getMmapPosition_cb _hidl_cb) {
-  _hidl_cb(Result::NOT_SUPPORTED, MmapPosition());
+  MmapPosition hidlPosition;
+
+  AidlPresentationPosition position = mStream->getMmapPosition();
+  if (position.timestamp.tvSec == 0 && position.timestamp.tvNSec == 0) {
+    _hidl_cb(Result::NOT_SUPPORTED, hidlPosition);
+    return Void();
+  }
+
+  hidlPosition.timeNanoseconds =
+      position.timestamp.tvSec * kOneSecInNs + position.timestamp.tvNSec;
+  hidlPosition.positionFrames = position.frames;
+  _hidl_cb(Result::OK, hidlPosition);
   return Void();
 }
 
@@ -505,6 +536,10 @@ uint64_t StreamOutImpl::estimateTotalPlayedFrames() const {
   }
 
   auto [frames, timestamp] = mWriteThread->getPresentationPosition();
+  if (frames == 0) {
+    return 0;
+  }
+
   return frames + estimatePlayedFramesSince(timestamp, mConfig.sampleRateHz);
 }
 

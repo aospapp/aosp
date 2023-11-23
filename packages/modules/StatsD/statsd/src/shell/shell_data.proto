@@ -26,4 +26,5 @@ import "frameworks/proto_logging/stats/atoms.proto";
 // The output of shell subscription, including both pulled and pushed subscriptions.
 message ShellData {
     repeated Atom atom = 1;
+    repeated int64 elapsed_timestamp_nanos = 2 [packed = true];
 }

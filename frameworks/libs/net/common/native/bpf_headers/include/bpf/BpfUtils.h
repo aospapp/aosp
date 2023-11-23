@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <errno.h>
 #include <linux/if_ether.h>
 #include <linux/pfkeyv2.h>
 #include <net/if.h>
@@ -25,32 +26,33 @@
 #include <sys/socket.h>
 #include <sys/utsname.h>
 
-#include <string>
-
-#include <android-base/unique_fd.h>
 #include <log/log.h>
 
-#include "BpfSyscallWrappers.h"
-
-// The buffer size for the buffer that records program loading logs, needs to be large enough for
-// the largest kernel program.
+#include "KernelUtils.h"
 
 namespace android {
 namespace bpf {
 
-constexpr const int OVERFLOW_COUNTERSET = 2;
-
+// See kernel's net/core/sock_diag.c __sock_gen_cookie()
+// the implementation of which guarantees 0 will never be returned,
+// primarily because 0 is used to mean not yet initialized,
+// and socket cookies are only assigned on first fetch.
 constexpr const uint64_t NONEXISTENT_COOKIE = 0;
 
 static inline uint64_t getSocketCookie(int sockFd) {
     uint64_t sock_cookie;
     socklen_t cookie_len = sizeof(sock_cookie);
-    int res = getsockopt(sockFd, SOL_SOCKET, SO_COOKIE, &sock_cookie, &cookie_len);
-    if (res < 0) {
-        res = -errno;
-        ALOGE("Failed to get socket cookie: %s\n", strerror(errno));
-        errno = -res;
-        // 0 is an invalid cookie. See sock_gen_cookie.
+    if (getsockopt(sockFd, SOL_SOCKET, SO_COOKIE, &sock_cookie, &cookie_len)) {
+        // Failure is almost certainly either EBADF or ENOTSOCK
+        const int err = errno;
+        ALOGE("Failed to get socket cookie: %s\n", strerror(err));
+        errno = err;
+        return NONEXISTENT_COOKIE;
+    }
+    if (cookie_len != sizeof(sock_cookie)) {
+        // This probably cannot actually happen, but...
+        ALOGE("Failed to get socket cookie: len %d != 8\n", cookie_len);
+        errno = 523; // EBADCOOKIE: kernel internal, seems reasonable enough...
         return NONEXISTENT_COOKIE;
     }
     return sock_cookie;
@@ -60,19 +62,23 @@ static inline int synchronizeKernelRCU() {
     // This is a temporary hack for network stats map swap on devices running
     // 4.9 kernels. The kernel code of socket release on pf_key socket will
     // explicitly call synchronize_rcu() which is exactly what we need.
-    int pfSocket = socket(AF_KEY, SOCK_RAW | SOCK_CLOEXEC, PF_KEY_V2);
+    //
+    // Linux 4.14/4.19/5.4/5.10/5.15/6.1 (and 6.3-rc5) still have this same behaviour.
+    // see net/key/af_key.c: pfkey_release() -> synchronize_rcu()
+    // https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/net/key/af_key.c?h=v6.3-rc5#n185
+    const int pfSocket = socket(AF_KEY, SOCK_RAW | SOCK_CLOEXEC, PF_KEY_V2);
 
     if (pfSocket < 0) {
-        int ret = -errno;
-        ALOGE("create PF_KEY socket failed: %s", strerror(errno));
-        return ret;
+        const int err = errno;
+        ALOGE("create PF_KEY socket failed: %s", strerror(err));
+        return -err;
     }
 
     // When closing socket, synchronize_rcu() gets called in sock_release().
     if (close(pfSocket)) {
-        int ret = -errno;
-        ALOGE("failed to close the PF_KEY socket: %s", strerror(errno));
-        return ret;
+        const int err = errno;
+        ALOGE("failed to close the PF_KEY socket: %s", strerror(err));
+        return -err;
     }
     return 0;
 }
@@ -83,63 +89,10 @@ static inline int setrlimitForTest() {
             .rlim_cur = 1073741824,  // 1 GiB
             .rlim_max = 1073741824,  // 1 GiB
     };
-    int res = setrlimit(RLIMIT_MEMLOCK, &limit);
-    if (res) {
-        ALOGE("Failed to set the default MEMLOCK rlimit: %s", strerror(errno));
-    }
+    const int res = setrlimit(RLIMIT_MEMLOCK, &limit);
+    if (res) ALOGE("Failed to set the default MEMLOCK rlimit: %s", strerror(errno));
     return res;
 }
-
-#define KVER(a, b, c) (((a) << 24) + ((b) << 16) + (c))
-
-static inline unsigned uncachedKernelVersion() {
-    struct utsname buf;
-    int ret = uname(&buf);
-    if (ret) return 0;
-
-    unsigned kver_major;
-    unsigned kver_minor;
-    unsigned kver_sub;
-    char unused;
-    ret = sscanf(buf.release, "%u.%u.%u%c", &kver_major, &kver_minor, &kver_sub, &unused);
-    // Check the device kernel version
-    if (ret < 3) return 0;
-
-    return KVER(kver_major, kver_minor, kver_sub);
-}
-
-static inline unsigned kernelVersion() {
-    static unsigned kver = uncachedKernelVersion();
-    return kver;
-}
-
-static inline bool isAtLeastKernelVersion(unsigned major, unsigned minor, unsigned sub) {
-    return kernelVersion() >= KVER(major, minor, sub);
-}
-
-#define SKIP_IF_BPF_SUPPORTED                              \
-    do {                                                   \
-        if (android::bpf::isAtLeastKernelVersion(4, 9, 0)) \
-            GTEST_SKIP() << "Skip: bpf is supported.";     \
-    } while (0)
-
-#define SKIP_IF_BPF_NOT_SUPPORTED                           \
-    do {                                                    \
-        if (!android::bpf::isAtLeastKernelVersion(4, 9, 0)) \
-            GTEST_SKIP() << "Skip: bpf is not supported.";  \
-    } while (0)
-
-#define SKIP_IF_EXTENDED_BPF_NOT_SUPPORTED                               \
-    do {                                                                 \
-        if (!android::bpf::isAtLeastKernelVersion(4, 14, 0))             \
-            GTEST_SKIP() << "Skip: extended bpf feature not supported."; \
-    } while (0)
-
-#define SKIP_IF_XDP_NOT_SUPPORTED                           \
-    do {                                                    \
-        if (!android::bpf::isAtLeastKernelVersion(5, 9, 0)) \
-            GTEST_SKIP() << "Skip: xdp not supported.";     \
-    } while (0)
 
 }  // namespace bpf
 }  // namespace android

@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"Изчакващите обаждания за CDMA с IMS са изключени"</string>
     <string name="updating_title" msgid="6130548922615719689">"Настройки за обаждане"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Само администраторът може да променя настройките за обаждане."</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"Настройките на профилите в телефона могат да се променят само от администратора или служебния потребител."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Настройки (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"Грешка в настройките за обаждане"</string>
     <string name="reading_settings" msgid="1605904432450871183">"Извършва се четене на настройки…"</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"Не може да се извършват обаждания."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"Свържете се с безжична мрежа, за да осъществите обаждане."</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"За да извършите обаждане, активирайте обажданията през Wi-Fi."</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"Деактивирайте сателитния режим, за да извършите обаждане."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"Информация за спешни случаи"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"Собственик"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"Докоснете отново, за да видите информация"</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"Самолетният режим е включен"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"Няма достъп до SIM картата"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"Мобилната мрежа не е налице"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"Сателитният режим е включен"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"Има проблем с телефонния номер, който набирате. Код на грешка 1."</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"Обаждането не можа да завърши. Код на грешка 3."</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"Обаждането не можа да завърши. Код на грешка 6."</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Отказ"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"Задаване на електронната SIM карта с изваждащ се чип като основна"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Мощност на мобилното радио"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"Симулиране на липса на услуга (само в компилацията за отстраняване на грешки)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Преглед на указателя на SIM картата"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Преглед на номера за фиксирано набиране"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"Преглед на номера за набиране на услуги"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"Установена е връзка"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"Спрени"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"Неизвестно"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"Основна"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"пакета"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"байта"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"Изпратени данни:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"Изчакващо съобщение:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"Телефонен номер:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"Избиране на радиодиапазон"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Тип на гласовата мрежа:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Тип на мрежата за данни:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Замяна на типа на мрежата:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"Необработено състояние на регистрация за глас:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"Необработено състояние на регистрация за данни:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"Необработено състояние на регистрация за данни за WLAN:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Избиране на индекс за телефон"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Задаване на предпочитан тип мрежа:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Име на хост за позив (www.google.com) IPv4:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Сигналът ви за Bluetooth е слаб. Опитайте да превключите на високоговорител."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"Известия за качеството на обаждането"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"Оттеглени профили за SIP"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"Не можете да изпращате съобщения от лично приложение"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"Организацията ви разрешава да изпращате съобщения само от служебни приложения"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"Отказ"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"Превключване към служебния потребителски профил"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"Инсталиране на служебно приложение за съобщения"</string>
 </resources>

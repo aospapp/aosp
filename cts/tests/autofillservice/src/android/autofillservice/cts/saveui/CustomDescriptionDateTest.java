@@ -34,10 +34,11 @@ import android.platform.test.annotations.AppModeFull;
 import android.service.autofill.CustomDescription;
 import android.service.autofill.DateTransformation;
 import android.service.autofill.DateValueSanitizer;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiObject2;
 import android.view.autofill.AutofillId;
 import android.widget.RemoteViews;
+
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Test;
 

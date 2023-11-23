@@ -22,6 +22,8 @@
 
 #include <log/log_read.h>
 
+using namespace std::string_literals;
+
 size_t convertPrintable(char* p, const char* message, size_t messageLen);
 
 TEST(liblog, convertPrintable_ascii) {
@@ -37,20 +39,27 @@ TEST(liblog, convertPrintable_ascii) {
 }
 
 TEST(liblog, convertPrintable_escapes) {
+  std::string input = "escape\x00\a\b\t\v\f\r\\"s;
+  // We want to test escaping of ASCII NUL at the end too.
+  auto input_size = input.size() + 1;
+
   // Note that \t is not escaped.
-  auto input = "escape\a\b\t\v\f\r\\";
-  auto expected_output = "escape\\a\\b\t\\v\\f\\r\\\\";
-  auto output_size = convertPrintable(nullptr, input, strlen(input));
-  EXPECT_EQ(output_size, strlen(expected_output));
+  std::string expected_output = "escape\\x00\\a\\b\t\\v\\f\\r\\\\\\x00"s;
+  auto expected_output_size = expected_output.size();
+
+  auto output_size = convertPrintable(nullptr, input.c_str(), input_size);
+  EXPECT_EQ(output_size, expected_output_size) << input_size;
 
   char output[output_size + 1];
 
-  output_size = convertPrintable(output, input, strlen(input));
-  EXPECT_EQ(output_size, strlen(expected_output));
-  EXPECT_STREQ(expected_output, output);
+  output_size = convertPrintable(output, input.c_str(), input_size);
+  EXPECT_EQ(output_size, expected_output_size);
+  EXPECT_STREQ(expected_output.c_str(), output);
 }
 
 TEST(liblog, convertPrintable_validutf8) {
+  setlocale(LC_ALL, "C.UTF-8");
+
   auto input = u8"¢ह€𐍈";
   auto output_size = convertPrintable(nullptr, input, strlen(input));
   EXPECT_EQ(output_size, strlen(input));
@@ -77,6 +86,8 @@ TEST(liblog, convertPrintable_invalidutf8) {
 }
 
 TEST(liblog, convertPrintable_mixed) {
+  setlocale(LC_ALL, "C.UTF-8");
+
   auto input =
       u8"\x80\xC2¢ह€𐍈\x01\xE0\xA4\x06¢ह€𐍈\xE0\x06\a\b\xF0\x90¢ह€𐍈\x8D\x06\xF0\t\t\x90\x06\xF0\x0E";
   auto expected_output =

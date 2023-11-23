@@ -22,7 +22,7 @@
 #include <optional>
 #include <type_traits>
 
-#include "base/callback.h"
+#include "base/functional/callback.h"
 #include "broadcaster_types.h"
 #include "bta_le_audio_broadcaster_api.h"
 
@@ -94,9 +94,13 @@ struct BigConfig {
 };
 
 struct BroadcastStateMachineConfig {
+  bool is_public;
   bluetooth::le_audio::BroadcastId broadcast_id;
+  std::string broadcast_name;
   uint8_t streaming_phy;
   BroadcastCodecWrapper codec_wrapper;
+  BroadcastQosConfig qos_config;
+  bluetooth::le_audio::PublicBroadcastAnnouncementData public_announcement;
   bluetooth::le_audio::BasicAudioAnnouncementData announcement;
   std::optional<bluetooth::le_audio::BroadcastCode> broadcast_code;
 };
@@ -153,6 +157,14 @@ class BroadcastStateMachine : public StateMachine<5> {
   GetBroadcastAnnouncement() const = 0;
   virtual void UpdateBroadcastAnnouncement(
       bluetooth::le_audio::BasicAudioAnnouncementData announcement) = 0;
+  virtual bool IsPublicBroadcast() = 0;
+  virtual std::string GetBroadcastName() = 0;
+  virtual const bluetooth::le_audio::PublicBroadcastAnnouncementData&
+  GetPublicBroadcastAnnouncement() const = 0;
+  virtual void UpdatePublicBroadcastAnnouncement(
+      uint32_t broadcast_id, const std::string& broadcast_name,
+      const bluetooth::le_audio::PublicBroadcastAnnouncementData&
+          announcement) = 0;
   void SetMuted(bool muted) { is_muted_ = muted; };
   bool IsMuted() const { return is_muted_; };
 
@@ -190,9 +202,7 @@ class IBroadcastStateMachineCallbacks {
                                    const void* data = nullptr) = 0;
   virtual void OnOwnAddressResponse(uint32_t broadcast_id, uint8_t addr_type,
                                     RawAddress address) = 0;
-  virtual uint8_t GetNumRetransmit(uint32_t broadcast_id) = 0;
-  virtual uint32_t GetSduItv(uint32_t broadcast_id) = 0;
-  virtual uint16_t GetMaxTransportLatency(uint32_t broadcast_id) = 0;
+  virtual void OnBigCreated(const std::vector<uint16_t>& conn_handle) = 0;
 };
 
 std::ostream& operator<<(

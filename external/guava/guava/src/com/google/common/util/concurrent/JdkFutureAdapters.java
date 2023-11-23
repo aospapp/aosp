@@ -56,7 +56,7 @@ public final class JdkFutureAdapters {
     if (future instanceof ListenableFuture) {
       return (ListenableFuture<V>) future;
     }
-    return new ListenableFutureAdapter<V>(future);
+    return new ListenableFutureAdapter<>(future);
   }
 
   /**
@@ -85,7 +85,7 @@ public final class JdkFutureAdapters {
     if (future instanceof ListenableFuture) {
       return (ListenableFuture<V>) future;
     }
-    return new ListenableFutureAdapter<V>(future, executor);
+    return new ListenableFutureAdapter<>(future, executor);
   }
 
   /**
@@ -150,22 +150,19 @@ public final class JdkFutureAdapters {
 
         // TODO(lukes): handle RejectedExecutionException
         adapterExecutor.execute(
-            new Runnable() {
-              @Override
-              public void run() {
-                try {
-                  /*
-                   * Threads from our private pool are never interrupted. Threads from a
-                   * user-supplied executor might be, but... what can we do? This is another reason
-                   * to return a proper ListenableFuture instead of using listenInPoolThread.
-                   */
-                  getUninterruptibly(delegate);
-                } catch (Throwable e) {
-                  // ExecutionException / CancellationException / RuntimeException / Error
-                  // The task is presumably done, run the listeners.
-                }
-                executionList.execute();
+            () -> {
+              try {
+                /*
+                 * Threads from our private pool are never interrupted. Threads from a
+                 * user-supplied executor might be, but... what can we do? This is another reason
+                 * to return a proper ListenableFuture instead of using listenInPoolThread.
+                 */
+                getUninterruptibly(delegate);
+              } catch (Throwable e) {
+                // ExecutionException / CancellationException / RuntimeException / Error
+                // The task is presumably done, run the listeners.
               }
+              executionList.execute();
             });
       }
     }

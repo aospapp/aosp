@@ -15,8 +15,6 @@
  */
 package android.media.decoder.cts;
 
-import android.media.decoder.cts.R;
-
 import android.app.Activity;
 import android.os.Bundle;
 import android.view.WindowManager;

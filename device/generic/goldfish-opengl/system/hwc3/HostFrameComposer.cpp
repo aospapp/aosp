@@ -204,11 +204,11 @@ HWC3::Error HostFrameComposer::init() {
   mUseAngle = useAngleFromProperty();
 
   if (mIsMinigbm) {
-    mDrmPresenter.emplace();
+    mDrmClient.emplace();
 
-    HWC3::Error error = mDrmPresenter->init();
+    HWC3::Error error = mDrmClient->init();
     if (error != HWC3::Error::None) {
-      ALOGE("%s: failed to initialize DrmPresenter", __FUNCTION__);
+      ALOGE("%s: failed to initialize DrmClient", __FUNCTION__);
       return error;
     }
   } else {
@@ -220,15 +220,15 @@ HWC3::Error HostFrameComposer::init() {
 
 HWC3::Error HostFrameComposer::registerOnHotplugCallback(
     const HotplugCallback& cb) {
-  if (mDrmPresenter) {
-    mDrmPresenter->registerOnHotplugCallback(cb);
+  if (mDrmClient) {
+    mDrmClient->registerOnHotplugCallback(cb);
   }
   return HWC3::Error::None;
 }
 
 HWC3::Error HostFrameComposer::unregisterOnHotplugCallback() {
-  if (mDrmPresenter) {
-    mDrmPresenter->unregisterOnHotplugCallback();
+  if (mDrmClient) {
+    mDrmClient->unregisterOnHotplugCallback();
   }
   return HWC3::Error::None;
 }
@@ -280,9 +280,9 @@ HWC3::Error HostFrameComposer::createHostComposerDisplayInfo(
     return HWC3::Error::NoResources;
   }
 
-  if (mDrmPresenter) {
+  if (mDrmClient) {
     auto [drmBufferCreateError, drmBuffer] =
-        mDrmPresenter->create(displayInfo.compositionResultBuffer);
+        mDrmClient->create(displayInfo.compositionResultBuffer);
     if (drmBufferCreateError != HWC3::Error::None) {
       ALOGE("%s: display:%" PRIu64 " failed to create target drm buffer",
             __FUNCTION__, displayId);
@@ -384,8 +384,8 @@ HWC3::Error HostFrameComposer::onDisplayCreate(Display* display) {
   }
 
   std::optional<std::vector<uint8_t>> edid;
-  if (mDrmPresenter) {
-    edid = mDrmPresenter->getEdid(displayId);
+  if (mDrmClient) {
+    edid = mDrmClient->getEdid(displayId);
     if (edid) {
       display->setEdid(*edid);
     }
@@ -436,7 +436,7 @@ HWC3::Error HostFrameComposer::onDisplayClientTargetSet(Display* display) {
     FencedBuffer& clientTargetFencedBuffer = display->getClientTarget();
 
     auto [drmBufferCreateError, drmBuffer] =
-        mDrmPresenter->create(clientTargetFencedBuffer.getBuffer());
+        mDrmClient->create(clientTargetFencedBuffer.getBuffer());
     if (drmBufferCreateError != HWC3::Error::None) {
       ALOGE("%s: display:%" PRIu64 " failed to create client target drm buffer",
             __FUNCTION__, displayId);
@@ -487,13 +487,13 @@ HWC3::Error HostFrameComposer::validateDisplay(Display* display,
       switch (layerCompositionType) {
         case Composition::CLIENT:
         case Composition::SIDEBAND:
-          ALOGI("%s: layer %" PRIu32 " CompositionType %d, fallback to client",
+          ALOGV("%s: layer %" PRIu32 " CompositionType %d, fallback to client",
                 __FUNCTION__, static_cast<uint32_t>(layer->getId()),
                 layerCompositionType);
           layerFallBackTo = Composition::CLIENT;
           break;
         case Composition::CURSOR:
-          ALOGI("%s: layer %" PRIu32 " CompositionType %d, fallback to device",
+          ALOGV("%s: layer %" PRIu32 " CompositionType %d, fallback to device",
                 __FUNCTION__, static_cast<uint32_t>(layer->getId()),
                 layerCompositionType);
           layerFallBackTo = Composition::DEVICE;
@@ -578,7 +578,7 @@ HWC3::Error HostFrameComposer::presentDisplay(
               displayId, static_cast<int>(layers.size()));
 
     if (numLayer == 0) {
-      ALOGW(
+      ALOGV(
           "%s display has no layers to compose, flushing client target buffer.",
           __FUNCTION__);
 
@@ -586,8 +586,8 @@ HWC3::Error HostFrameComposer::presentDisplay(
       if (displayClientTarget.getBuffer() != nullptr) {
         ::android::base::unique_fd fence = displayClientTarget.getFence();
         if (mIsMinigbm) {
-          auto [_, flushCompleteFence] = mDrmPresenter->flushToDisplay(
-              displayId, *displayInfo.clientTargetDrmBuffer, fence);
+          auto [_, flushCompleteFence] = mDrmClient->flushToDisplay(
+              displayId, displayInfo.clientTargetDrmBuffer, fence);
 
           *outDisplayFence = std::move(flushCompleteFence);
         } else {
@@ -730,8 +730,8 @@ HWC3::Error HostFrameComposer::presentDisplay(
     }
 
     if (mIsMinigbm) {
-      auto [_, fence] = mDrmPresenter->flushToDisplay(
-          displayId, *displayInfo.compositionResultDrmBuffer, -1);
+      auto [_, fence] = mDrmClient->flushToDisplay(
+          displayId, displayInfo.compositionResultDrmBuffer, -1);
       retire_fd = std::move(fence);
     } else {
       int fd;
@@ -761,8 +761,8 @@ HWC3::Error HostFrameComposer::presentDisplay(
     ::android::base::unique_fd displayClientTargetFence =
         displayClientTarget.getFence();
     if (mIsMinigbm) {
-      auto [_, flushFence] = mDrmPresenter->flushToDisplay(
-          displayId, *displayInfo.compositionResultDrmBuffer,
+      auto [_, flushFence] = mDrmClient->flushToDisplay(
+          displayId, displayInfo.compositionResultDrmBuffer,
           displayClientTargetFence);
       *outDisplayFence = std::move(flushFence);
     } else {

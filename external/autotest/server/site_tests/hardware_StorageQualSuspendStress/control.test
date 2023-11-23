@@ -2,15 +2,17 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-NAME = 'hardware_StorageSuspendStress.test'
+NAME = 'hardware_StorageQualSuspendStress.test'
 AUTHOR = 'grundler, gwendal, puthik'
 PURPOSE = 'Test StorageSuspendStress code'
 TIME = 'MEDIUM'
 TEST_CLASS = 'hardware'
 TEST_TYPE = 'server'
+PY_VERSION = 3
+FAST = False
 
 DOC = """
-Test hardware_StorageSuspendStress section.
+Test hardware_StorageQualSuspendStress section.
 """
 
 def run_hardware_storage_stress(machine):

@@ -171,10 +171,9 @@ config_t BtifConfigCache::PersistentSectionCopy() {
 
 void BtifConfigCache::SetString(std::string section_name, std::string key,
                                 std::string value) {
-  if (trim_new_line(section_name) || trim_new_line(key) ||
-      trim_new_line(value)) {
-    android_errorWriteLog(0x534e4554, "70808273");
-  }
+  trim_new_line(section_name);
+  trim_new_line(key);
+  trim_new_line(value);
   if (section_name.empty()) {
     LOG(FATAL) << "Empty section not allowed";
     return;

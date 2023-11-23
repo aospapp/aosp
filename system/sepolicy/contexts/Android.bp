@@ -23,6 +23,51 @@ package {
     default_applicable_licenses: ["system_sepolicy_license"],
 }
 
+se_build_files {
+    name: "file_contexts_files",
+    srcs: ["file_contexts"],
+}
+
+se_build_files {
+    name: "file_contexts_asan_files",
+    srcs: ["file_contexts_asan"],
+}
+
+se_build_files {
+    name: "file_contexts_overlayfs_files",
+    srcs: ["file_contexts_overlayfs"],
+}
+
+se_build_files {
+    name: "hwservice_contexts_files",
+    srcs: ["hwservice_contexts"],
+}
+
+se_build_files {
+    name: "property_contexts_files",
+    srcs: ["property_contexts"],
+}
+
+se_build_files {
+    name: "service_contexts_files",
+    srcs: ["service_contexts"],
+}
+
+se_build_files {
+    name: "keystore2_key_contexts_files",
+    srcs: ["keystore2_key_contexts"],
+}
+
+se_build_files {
+    name: "seapp_contexts_files",
+    srcs: ["seapp_contexts"],
+}
+
+se_build_files {
+    name: "vndservice_contexts_files",
+    srcs: ["vndservice_contexts"],
+}
+
 file_contexts {
     name: "plat_file_contexts",
     srcs: [":file_contexts_files{.plat_private}"],
@@ -229,6 +274,15 @@ service_contexts {
         ":service_contexts_files{.reqd_mask_for_vendor}",
     ],
     soc_specific: true,
+    recovery_available: true,
+}
+
+service_contexts {
+    name: "odm_service_contexts",
+    srcs: [
+        ":service_contexts_files{.odm}",
+    ],
+    device_specific: true,
     recovery_available: true,
 }
 
@@ -470,8 +524,19 @@ service_contexts_test {
     sepolicy: ":precompiled_sepolicy",
 }
 
+service_contexts_test {
+    name: "odm_service_contexts_test",
+    srcs: [":odm_service_contexts"],
+    sepolicy: ":precompiled_sepolicy",
+}
+
 vndservice_contexts_test {
     name: "vndservice_contexts_test",
     srcs: [":vndservice_contexts"],
     sepolicy: ":precompiled_sepolicy",
+}
+
+fuzzer_bindings_test {
+    name: "fuzzer_bindings_test",
+    srcs: [":plat_service_contexts"],
 }

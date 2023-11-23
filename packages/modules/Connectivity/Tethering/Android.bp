@@ -21,8 +21,29 @@ package {
 java_defaults {
     name: "TetheringApiLevel",
     sdk_version: "module_current",
-    target_sdk_version: "33",
     min_sdk_version: "30",
+}
+
+java_defaults {
+    name: "TetheringReleaseTargetSdk",
+    target_sdk_version: "33",
+}
+
+java_defaults {
+    name: "TetheringExternalLibs",
+    // Libraries not including Tethering's own framework-tethering (different flavors of that one
+    // are needed depending on the build rule)
+    libs: [
+        "connectivity-internal-api-util",
+        "framework-configinfrastructure",
+        "framework-connectivity.stubs.module_lib",
+        "framework-connectivity-t.stubs.module_lib",
+        "framework-statsd.stubs.module_lib",
+        "framework-wifi",
+        "framework-bluetooth",
+        "unsupportedappusage",
+    ],
+    defaults_visibility: ["//visibility:private"],
 }
 
 java_defaults {
@@ -31,34 +52,34 @@ java_defaults {
         "apishim/**/*.java",
         "src/**/*.java",
         ":framework-connectivity-shared-srcs",
-        ":tethering-module-utils-srcs",
         ":services-tethering-shared-srcs",
+        ":statslog-tethering-java-gen",
     ],
     static_libs: [
         "androidx.annotation_annotation",
+        "connectivity-net-module-utils-bpf",
         "modules-utils-build",
         "modules-utils-statemachine",
         "networkstack-client",
+        // AIDL tetheroffload implementation
+        "android.hardware.tetheroffload-V1-java",
+        // HIDL tetheroffload implementation
         "android.hardware.tetheroffload.config-V1.0-java",
         "android.hardware.tetheroffload.control-V1.0-java",
         "android.hardware.tetheroffload.control-V1.1-java",
+        "android.hidl.manager-V1.2-java",
         "net-utils-framework-common",
         "net-utils-device-common",
         "net-utils-device-common-bpf",
+        "net-utils-device-common-ip",
         "net-utils-device-common-netlink",
         "netd-client",
         "tetheringstatsprotos",
     ],
+    defaults: ["TetheringExternalLibs"],
     libs: [
-        "framework-connectivity",
-        "framework-connectivity-t.stubs.module_lib",
-        "framework-statsd.stubs.module_lib",
         "framework-tethering.impl",
-        "framework-wifi",
-        "framework-bluetooth",
-        "unsupportedappusage",
     ],
-    plugins: ["java_api_finder"],
     manifest: "AndroidManifestBase.xml",
     lint: { strict_updatability_linting: true },
 }
@@ -69,7 +90,8 @@ android_library {
     defaults: [
         "ConnectivityNextEnableDefaults",
         "TetheringAndroidLibraryDefaults",
-        "TetheringApiLevel"
+        "TetheringApiLevel",
+        "TetheringReleaseTargetSdk"
     ],
     static_libs: [
         "NetworkStackApiCurrentShims",
@@ -82,7 +104,8 @@ android_library {
     name: "TetheringApiStableLib",
     defaults: [
         "TetheringAndroidLibraryDefaults",
-        "TetheringApiLevel"
+        "TetheringApiLevel",
+        "TetheringReleaseTargetSdk"
     ],
     static_libs: [
         "NetworkStackApiStableShims",
@@ -96,7 +119,6 @@ cc_library {
     name: "libcom_android_networkstack_tethering_util_jni",
     sdk_version: "30",
     apex_available: [
-        "//apex_available:platform", // Used by InProcessTethering
         "com.android.tethering",
     ],
     min_sdk_version: "30",
@@ -133,7 +155,7 @@ cc_library {
         "-Wthread-safety",
     ],
 
-    ldflags: ["-Wl,--exclude-libs=ALL,-error-limit=0"],
+    ldflags: ["-Wl,--exclude-libs=ALL,--error-limit=0"],
 }
 
 // Common defaults for compiling the actual APK.
@@ -146,27 +168,22 @@ java_defaults {
     resource_dirs: [
         "res",
     ],
+    // Libs are not actually needed to build here since build rules using these defaults are just
+    // packaging the TetheringApiXLibs in APKs, but they are necessary so that R8 has the right
+    // references to optimize the code. Without these, there will be missing class warnings and code
+    // may be wrongly optimized.
+    // R8 runs after jarjar, so the framework-X libraries need to be the post-jarjar artifacts
+    // (framework-tethering.impl), if they are not just stubs, so that the name of jarjared
+    // classes match.
+    // TODO(b/229727645): ensure R8 fails the build fully if libraries are missing
+    defaults: ["TetheringExternalLibs"],
     libs: [
-        "framework-tethering",
-        "framework-wifi",
+        "framework-tethering.impl",
     ],
     jarjar_rules: "jarjar-rules.txt",
     optimize: {
         proguard_flags_files: ["proguard.flags"],
     },
-    lint: { strict_updatability_linting: true },
-}
-
-// Non-updatable tethering running in the system server process for devices not using the module
-android_app {
-    name: "InProcessTethering",
-    defaults: ["TetheringAppDefaults", "TetheringApiLevel", "ConnectivityNextEnableDefaults"],
-    static_libs: ["TetheringApiCurrentLib"],
-    certificate: "platform",
-    manifest: "AndroidManifest_InProcess.xml",
-    // InProcessTethering is a replacement for Tethering
-    overrides: ["Tethering"],
-    apex_available: ["com.android.tethering"],
     lint: { strict_updatability_linting: true },
 }
 
@@ -209,8 +226,14 @@ android_app {
 
 sdk {
     name: "tethering-module-sdk",
-    bootclasspath_fragments: ["com.android.tethering-bootclasspath-fragment"],
-    systemserverclasspath_fragments: ["com.android.tethering-systemserverclasspath-fragment"],
+    apexes: [
+        // Adds exportable dependencies of the APEX to the sdk,
+        // e.g. *classpath_fragments.
+        "com.android.tethering",
+    ],
+    native_shared_libs: [
+        "libnetd_updatable",
+    ],
 }
 
 java_library_static {
@@ -222,4 +245,12 @@ java_library_static {
     static_libs: ["tetheringprotos"],
     apex_available: ["com.android.tethering"],
     min_sdk_version: "30",
+}
+
+genrule {
+    name: "statslog-tethering-java-gen",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --java $(out) --module network_tethering" +
+         " --javaPackage com.android.networkstack.tethering.metrics --javaClass TetheringStatsLog",
+    out: ["com/android/networkstack/tethering/metrics/TetheringStatsLog.java"],
 }

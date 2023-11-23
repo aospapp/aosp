@@ -8,9 +8,14 @@ import os, logging, time
 import six
 from six.moves import urllib
 import re
+
+import common
+
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib.global_config import global_config
 from autotest_lib.server import utils
 from autotest_lib.server.hosts import base_classes
+from autotest_lib.server.hosts.tls_client.connection import TLSConnection
 
 
 class RemoteHost(base_classes.Host):
@@ -45,6 +50,13 @@ class RemoteHost(base_classes.Host):
         self.autodir = autodir
         self.tmp_dirs = []
 
+        get_value = global_config.get_config_value
+
+        self.tls_connection = None
+        try:
+            self.tls_connection = TLSConnection()
+        except Exception as e:
+            logging.warning("Could not establish TLS connection %s", e)
 
     def __repr__(self):
         return "<remote host: %s>" % self.hostname
@@ -61,7 +73,9 @@ class RemoteHost(base_classes.Host):
                     self.run('rm -rf "%s"' % (utils.sh_escape(dir)))
                 except error.AutoservRunError:
                     pass
-
+        if self.tls_connection:
+            self.tls_connection.close()
+            self.tls_connection = None
 
     def job_start(self):
         """
@@ -265,6 +279,7 @@ class RemoteHost(base_classes.Host):
         it.
         """
         template = os.path.join(parent, self.TMP_DIR_TEMPLATE)
+        parent = os.path.dirname(template)
         dir_name = self.run('mkdir -p %s && mktemp -d %s' % (parent, template)).stdout.rstrip()
         self.tmp_dirs.append(dir_name)
         return dir_name

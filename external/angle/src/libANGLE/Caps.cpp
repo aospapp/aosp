@@ -650,8 +650,7 @@ static bool DetermineDepthTextureANGLESupport(const TextureCapsMap &textureCaps)
 {
     constexpr GLenum requiredFormats[] = {
         GL_DEPTH_COMPONENT16,
-#if !defined(ANGLE_PLATFORM_IOS) && \
-    (!defined(ANGLE_PLATFORM_MACCATALYST) || !defined(ANGLE_CPU_ARM64))
+#if !ANGLE_PLATFORM_IOS_FAMILY
         // anglebug.com/6082
         // TODO(dino): Temporarily Removing the need for GL_DEPTH_COMPONENT32_OES
         // because it is not supported on iOS.
@@ -669,8 +668,7 @@ static bool DetermineDepthTextureOESSupport(const TextureCapsMap &textureCaps)
 {
     constexpr GLenum requiredFormats[] = {
         GL_DEPTH_COMPONENT16,
-#if !defined(ANGLE_PLATFORM_IOS) && \
-    (!defined(ANGLE_PLATFORM_MACCATALYST) || !defined(ANGLE_CPU_ARM64))
+#if !ANGLE_PLATFORM_IOS_FAMILY
         // anglebug.com/6082
         // TODO(dino): Temporarily Removing the need for GL_DEPTH_COMPONENT32_OES
         // because it is not supported on iOS.
@@ -835,7 +833,40 @@ static bool DetermineStencilIndex8Support(const TextureCapsMap &textureCaps)
         GL_STENCIL_INDEX8,
     };
 
-    return GetFormatSupport(textureCaps, requiredFormats, false, false, true, false, false);
+    return GetFormatSupport(textureCaps, requiredFormats, true, false, true, false, false);
+}
+
+// Checks for GL_QCOM_render_shared_exponent support
+static bool DetermineRenderSharedExponentSupport(const TextureCapsMap &textureCaps)
+{
+    constexpr GLenum requiredFormats[] = {
+        GL_RGB9_E5,
+    };
+
+    return GetFormatSupport(textureCaps, requiredFormats, false, false, true, true, true);
+}
+
+static bool DetermineRenderSnormSupport(const TextureCapsMap &textureCaps, bool textureNorm16EXT)
+{
+    constexpr GLenum requiredSnorm8Formats[] = {
+        GL_R8_SNORM,
+        GL_RG8_SNORM,
+        GL_RGBA8_SNORM,
+    };
+
+    constexpr GLenum requiredSnorm16Formats[] = {
+        GL_R16_SNORM_EXT,
+        GL_RG16_SNORM_EXT,
+        GL_RGBA16_SNORM_EXT,
+    };
+
+    if (textureNorm16EXT &&
+        !GetFormatSupport(textureCaps, requiredSnorm16Formats, false, false, true, true, true))
+    {
+        return false;
+    }
+
+    return GetFormatSupport(textureCaps, requiredSnorm8Formats, false, false, true, true, true);
 }
 
 void Extensions::setTextureExtensionSupport(const TextureCapsMap &textureCaps)
@@ -896,6 +927,8 @@ void Extensions::setTextureExtensionSupport(const TextureCapsMap &textureCaps)
     textureCompressionPvrtcIMG          = DeterminePVRTCTextureSupport(textureCaps);
     pvrtcSRGBEXT                        = DeterminePVRTCsRGBTextureSupport(textureCaps);
     textureStencil8OES                  = DetermineStencilIndex8Support(textureCaps);
+    renderSharedExponentQCOM            = DetermineRenderSharedExponentSupport(textureCaps);
+    renderSnormEXT = DetermineRenderSnormSupport(textureCaps, textureNorm16EXT);
 }
 
 TypePrecision::TypePrecision() = default;
@@ -940,9 +973,9 @@ void TypePrecision::get(GLint *returnRange, GLint *returnPrecision) const
     *returnPrecision = precision;
 }
 
-Caps::Caps()                  = default;
-Caps::Caps(const Caps &other) = default;
-Caps::~Caps()                 = default;
+Caps::Caps()                             = default;
+Caps::Caps(const Caps &other)            = default;
+Caps::~Caps()                            = default;
 Caps &Caps::operator=(const Caps &other) = default;
 
 Caps GenerateMinimumCaps(const Version &clientVersion, const Extensions &extensions)
@@ -1245,6 +1278,7 @@ std::vector<std::string> DisplayExtensions::getStrings() const
     InsertExtensionString("EGL_EXT_gl_colorspace_display_p3",                    glColorspaceDisplayP3,              &extensionStrings);
     InsertExtensionString("EGL_EXT_gl_colorspace_display_p3_linear",             glColorspaceDisplayP3Linear,        &extensionStrings);
     InsertExtensionString("EGL_EXT_gl_colorspace_display_p3_passthrough",        glColorspaceDisplayP3Passthrough,   &extensionStrings);
+    InsertExtensionString("EGL_ANGLE_colorspace_attribute_passthrough",          eglColorspaceAttributePassthroughANGLE,  &extensionStrings);
     InsertExtensionString("EGL_KHR_gl_texture_2D_image",                         glTexture2DImage,                   &extensionStrings);
     InsertExtensionString("EGL_KHR_gl_texture_cubemap_image",                    glTextureCubemapImage,              &extensionStrings);
     InsertExtensionString("EGL_KHR_gl_texture_3D_image",                         glTexture3DImage,                   &extensionStrings);
@@ -1276,8 +1310,10 @@ std::vector<std::string> DisplayExtensions::getStrings() const
     InsertExtensionString("EGL_ANDROID_framebuffer_target",                      framebufferTargetANDROID,           &extensionStrings);
     InsertExtensionString("EGL_ANDROID_image_native_buffer",                     imageNativeBuffer,                  &extensionStrings);
     InsertExtensionString("EGL_ANDROID_get_frame_timestamps",                    getFrameTimestamps,                 &extensionStrings);
+    InsertExtensionString("EGL_ANGLE_timestamp_surface_attribute",               timestampSurfaceAttributeANGLE,     &extensionStrings);
     InsertExtensionString("EGL_ANDROID_recordable",                              recordable,                         &extensionStrings);
     InsertExtensionString("EGL_ANGLE_power_preference",                          powerPreference,                    &extensionStrings);
+    InsertExtensionString("EGL_ANGLE_wait_until_work_scheduled",                 waitUntilWorkScheduled,             &extensionStrings);
     InsertExtensionString("EGL_ANGLE_image_d3d11_texture",                       imageD3D11Texture,                  &extensionStrings);
     InsertExtensionString("EGL_ANDROID_create_native_client_buffer",             createNativeClientBufferANDROID,    &extensionStrings);
     InsertExtensionString("EGL_ANDROID_get_native_client_buffer",                getNativeClientBufferANDROID,       &extensionStrings);
@@ -1301,6 +1337,7 @@ std::vector<std::string> DisplayExtensions::getStrings() const
     InsertExtensionString("EGL_ANGLE_vulkan_image",                              vulkanImageANGLE,                   &extensionStrings);
     InsertExtensionString("EGL_ANGLE_metal_create_context_ownership_identity",   metalCreateContextOwnershipIdentityANGLE, &extensionStrings);
     InsertExtensionString("EGL_KHR_partial_update",                              partialUpdateKHR,                   &extensionStrings);
+    InsertExtensionString("EGL_ANGLE_metal_shared_event_sync",                   mtlSyncSharedEventANGLE,            &extensionStrings);
     // clang-format on
 
     return extensionStrings;
@@ -1319,6 +1356,8 @@ std::vector<std::string> DeviceExtensions::getStrings() const
     InsertExtensionString("EGL_ANGLE_device_eagl",                         deviceEAGL,                     &extensionStrings);
     InsertExtensionString("EGL_ANGLE_device_metal",                        deviceMetal,                    &extensionStrings);
     InsertExtensionString("EGL_ANGLE_device_vulkan",                       deviceVulkan,                   &extensionStrings);
+    InsertExtensionString("EGL_EXT_device_drm",                            deviceDrmEXT,                   &extensionStrings);
+    InsertExtensionString("EGL_EXT_device_drm_render_node",                deviceDrmRenderNodeEXT,         &extensionStrings);
 
     // clang-format on
 
@@ -1335,9 +1374,11 @@ std::vector<std::string> ClientExtensions::getStrings() const
     // clang-format off
     //                   | Extension name                                    | Supported flag                   | Output vector   |
     InsertExtensionString("EGL_EXT_client_extensions",                        clientExtensions,                   &extensionStrings);
-    InsertExtensionString("EGL_EXT_device_query",                             deviceQueryEXT,                        &extensionStrings);
+    InsertExtensionString("EGL_EXT_device_query",                             deviceQueryEXT,                     &extensionStrings);
     InsertExtensionString("EGL_EXT_platform_base",                            platformBase,                       &extensionStrings);
     InsertExtensionString("EGL_EXT_platform_device",                          platformDevice,                     &extensionStrings);
+    InsertExtensionString("EGL_KHR_platform_gbm",                             platformGbmKHR,                     &extensionStrings);
+    InsertExtensionString("EGL_EXT_platform_wayland",                         platformWaylandEXT,                 &extensionStrings);
     InsertExtensionString("EGL_ANGLE_platform_angle",                         platformANGLE,                      &extensionStrings);
     InsertExtensionString("EGL_ANGLE_platform_angle_d3d",                     platformANGLED3D,                   &extensionStrings);
     InsertExtensionString("EGL_ANGLE_platform_angle_d3d11on12",               platformANGLED3D11ON12,             &extensionStrings);
@@ -1349,7 +1390,7 @@ std::vector<std::string> ClientExtensions::getStrings() const
     InsertExtensionString("EGL_ANGLE_platform_angle_metal",                   platformANGLEMetal,                 &extensionStrings);
     InsertExtensionString("EGL_ANGLE_platform_device_context_volatile_eagl",  platformANGLEDeviceContextVolatileEagl, &extensionStrings);
     InsertExtensionString("EGL_ANGLE_platform_device_context_volatile_cgl",   platformANGLEDeviceContextVolatileCgl, &extensionStrings);
-    InsertExtensionString("EGL_ANGLE_platform_angle_device_id",   platformANGLEDeviceId, &extensionStrings);
+    InsertExtensionString("EGL_ANGLE_platform_angle_device_id",               platformANGLEDeviceId,              &extensionStrings);
     InsertExtensionString("EGL_ANGLE_device_creation",                        deviceCreation,                     &extensionStrings);
     InsertExtensionString("EGL_ANGLE_device_creation_d3d11",                  deviceCreationD3D11,                &extensionStrings);
     InsertExtensionString("EGL_ANGLE_x11_visual",                             x11Visual,                          &extensionStrings);

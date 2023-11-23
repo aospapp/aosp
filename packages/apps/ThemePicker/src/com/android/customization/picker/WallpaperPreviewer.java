@@ -19,6 +19,8 @@ import android.app.Activity;
 import android.app.WallpaperColors;
 import android.content.Intent;
 import android.graphics.Rect;
+import android.graphics.RenderEffect;
+import android.graphics.Shader.TileMode;
 import android.service.wallpaper.WallpaperService;
 import android.view.Surface;
 import android.view.SurfaceView;
@@ -38,6 +40,7 @@ import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.util.ResourceUtils;
 import com.android.wallpaper.util.ScreenSizeCalculator;
 import com.android.wallpaper.util.SizeCalculator;
+import com.android.wallpaper.util.VideoWallpaperUtils;
 import com.android.wallpaper.util.WallpaperConnection;
 import com.android.wallpaper.util.WallpaperConnection.WallpaperConnectionListener;
 import com.android.wallpaper.util.WallpaperSurfaceCallback;
@@ -53,6 +56,7 @@ public class WallpaperPreviewer implements LifecycleObserver {
     private final Activity mActivity;
     private final ImageView mHomePreview;
     private final SurfaceView mWallpaperSurface;
+    @Nullable private final ImageView mFadeInScrim;
 
     private WallpaperSurfaceCallback mWallpaperSurfaceCallback;
     private WallpaperInfo mWallpaper;
@@ -67,11 +71,17 @@ public class WallpaperPreviewer implements LifecycleObserver {
 
     public WallpaperPreviewer(Lifecycle lifecycle, Activity activity, ImageView homePreview,
                               SurfaceView wallpaperSurface) {
+        this(lifecycle, activity, homePreview, wallpaperSurface, null);
+    }
+
+    public WallpaperPreviewer(Lifecycle lifecycle, Activity activity, ImageView homePreview,
+                              SurfaceView wallpaperSurface, @Nullable ImageView fadeInScrim) {
         lifecycle.addObserver(this);
 
         mActivity = activity;
         mHomePreview = homePreview;
         mWallpaperSurface = wallpaperSurface;
+        mFadeInScrim = fadeInScrim;
         mWallpaperSurfaceCallback = new WallpaperSurfaceCallback(activity, mHomePreview,
                 mWallpaperSurface, this::setUpWallpaperPreview);
         mWallpaperSurface.setZOrderMediaOverlay(true);
@@ -139,6 +149,11 @@ public class WallpaperPreviewer implements LifecycleObserver {
                              @Nullable WallpaperColorsListener listener) {
         mWallpaper = wallpaperInfo;
         mWallpaperColorsListener = listener;
+        if (mFadeInScrim != null && VideoWallpaperUtils.needsFadeIn(wallpaperInfo)) {
+            mFadeInScrim.animate().cancel();
+            mFadeInScrim.setAlpha(1f);
+            mFadeInScrim.setVisibility(View.VISIBLE);
+        }
         setUpWallpaperPreview();
     }
 
@@ -154,14 +169,22 @@ public class WallpaperPreviewer implements LifecycleObserver {
                         .loadPreviewImage(mActivity,
                                 renderInImageWallpaperSurface ? homeImageWallpaper : mHomePreview,
                                 ResourceUtils.getColorAttr(
-                                        mActivity, android.R.attr.colorSecondary));
+                                        mActivity, android.R.attr.colorSecondary),
+                                /* offsetToStart= */ true);
                 if (mWallpaper instanceof LiveWallpaperInfo) {
+                    ImageView preview = homeImageWallpaper;
+                    if (VideoWallpaperUtils.needsFadeIn(mWallpaper) && mFadeInScrim != null) {
+                        preview = mFadeInScrim;
+                        preview.setRenderEffect(
+                                RenderEffect.createBlurEffect(150f, 150f, TileMode.CLAMP));
+                    }
                     mWallpaper.getThumbAsset(mActivity.getApplicationContext())
                             .loadPreviewImage(
                                     mActivity,
-                                    homeImageWallpaper,
+                                    preview,
                                     ResourceUtils.getColorAttr(
-                                            mActivity, android.R.attr.colorSecondary));
+                                            mActivity, android.R.attr.colorSecondary),
+                                    /* offsetToStart= */ true);
                     setUpLiveWallpaperPreview(mWallpaper);
                 } else {
                     // Ensure live wallpaper connection is disconnected.
@@ -205,6 +228,17 @@ public class WallpaperPreviewer implements LifecycleObserver {
                                 int displayId) {
                             if (mWallpaperColorsListener != null) {
                                 mWallpaperColorsListener.onWallpaperColorsChanged(colors);
+                            }
+                        }
+
+                        @Override
+                        public void onEngineShown() {
+                            if (mFadeInScrim != null && VideoWallpaperUtils.needsFadeIn(
+                                    homeWallpaper)) {
+                                mFadeInScrim.animate().alpha(0.0f)
+                                        .setDuration(VideoWallpaperUtils.TRANSITION_MILLIS)
+                                        .withEndAction(
+                                                () -> mFadeInScrim.setVisibility(View.INVISIBLE));
                             }
                         }
                     }, mWallpaperSurface);

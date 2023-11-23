@@ -18,6 +18,7 @@
 
 #include <assert.h>
 #include <memory>
+#include <utility>
 
 #include <openssl/aes.h>
 #include <openssl/evp.h>
@@ -324,8 +325,8 @@ keymaster_error_t PureSoftKeymasterContext::ParseKeyBlob(const KeymasterKeyBlob&
         }
 
         auto factory = GetKeyFactory(algorithm);
-        return factory->LoadKey(move(key_material), additional_params, move(hw_enforced),
-                                move(sw_enforced), key);
+        return factory->LoadKey(std::move(key_material), additional_params, std::move(hw_enforced),
+                                std::move(sw_enforced), key);
     };
 
     AuthorizationSet hidden;
@@ -416,7 +417,8 @@ PureSoftKeymasterContext::GenerateAttestation(const Key& key,                   
     AttestKeyInfo attest_key_info(attest_key, &issuer_subject, error);
     if (*error != KM_ERROR_OK) return {};
 
-    return generate_attestation(asymmetric_key, attest_params, move(attest_key_info), *this, error);
+    return generate_attestation(asymmetric_key, attest_params, std::move(attest_key_info), *this,
+                                error);
 }
 
 CertificateChain PureSoftKeymasterContext::GenerateSelfSignedCertificate(
@@ -452,8 +454,10 @@ keymaster::Buffer PureSoftKeymasterContext::GenerateUniqueId(uint64_t creation_d
     // The secret must contain at least 128 bits of entropy and be unique to the individual device"
     const std::vector<uint8_t> fake_hbk = {'M', 'u', 's', 't', 'B', 'e', 'R', 'a',
                                            'n', 'd', 'o', 'm', 'B', 'i', 't', 's'};
-    return keymaster::generate_unique_id(fake_hbk, creation_date_time, application_id,
-                                         reset_since_rotation);
+    Buffer unique_id;
+    *error = keymaster::generate_unique_id(fake_hbk, creation_date_time, application_id,
+                                           reset_since_rotation, &unique_id);
+    return unique_id;
 }
 
 static keymaster_error_t TranslateAuthorizationSetError(AuthorizationSet::Error err) {
@@ -508,7 +512,7 @@ keymaster_error_t PureSoftKeymasterContext::UnwrapKey(
 
     AuthorizationSet out_params;
     OperationPtr operation(
-        operation_factory->CreateOperation(move(*key), wrapping_key_params, &error));
+        operation_factory->CreateOperation(std::move(*key), wrapping_key_params, &error));
     if (!operation.get()) return error;
 
     error = operation->Begin(wrapping_key_params, &out_params);
@@ -559,15 +563,16 @@ keymaster_error_t PureSoftKeymasterContext::UnwrapKey(
     if (!aes_factory) return KM_ERROR_UNKNOWN_ERROR;
 
     UniquePtr<Key> aes_key;
-    error = aes_factory->LoadKey(move(key_material), gcm_params, move(transit_key_authorizations),
-                                 AuthorizationSet(), &aes_key);
+    error = aes_factory->LoadKey(std::move(key_material), gcm_params,
+                                 std::move(transit_key_authorizations), AuthorizationSet(),
+                                 &aes_key);
     if (error != KM_ERROR_OK) return error;
 
     auto aes_operation_factory = GetOperationFactory(KM_ALGORITHM_AES, KM_PURPOSE_DECRYPT);
     if (!aes_operation_factory) return KM_ERROR_UNKNOWN_ERROR;
 
     OperationPtr aes_operation(
-        aes_operation_factory->CreateOperation(move(*aes_key), gcm_params, &error));
+        aes_operation_factory->CreateOperation(std::move(*aes_key), gcm_params, &error));
     if (!aes_operation.get()) return error;
 
     error = aes_operation->Begin(gcm_params, &out_params);

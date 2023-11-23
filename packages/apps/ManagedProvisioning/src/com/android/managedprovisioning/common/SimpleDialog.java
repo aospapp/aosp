@@ -18,10 +18,12 @@ package com.android.managedprovisioning.common;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.Dialog;
 import android.app.DialogFragment;
-import android.content.DialogInterface;
 import android.os.Bundle;
+
+import androidx.annotation.StringRes;
+
+import com.android.managedprovisioning.util.LazyStringResource;
 
 /**
  * Utility class wrapping a {@link AlertDialog} in a {@link DialogFragment}
@@ -46,41 +48,30 @@ public class SimpleDialog extends DialogFragment {
 
     @Override
     public AlertDialog onCreateDialog(Bundle savedInstanceState) {
+        var context = getContext();
         final SimpleDialogListener dialogListener = (SimpleDialogListener) getActivity();
 
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
 
         Bundle args = getArguments();
         if (args.containsKey(TITLE)) {
-            builder.setTitle(args.getInt(TITLE));
+            builder.setTitle(LazyStringResource.of(args.getBundle(TITLE)).value(context));
         }
 
         if (args.containsKey(MESSAGE)) {
-            builder.setMessage(args.getInt(MESSAGE));
-        }
-
-        if (args.containsKey(LOCALIZED_MESSAGE)) {
-            builder.setMessage(args.getString(LOCALIZED_MESSAGE));
+            builder.setMessage(LazyStringResource.of(args.getBundle(MESSAGE)).value(context));
         }
 
         if (args.containsKey(NEGATIVE_BUTTON_MESSAGE)) {
-            builder.setNegativeButton(args.getInt(NEGATIVE_BUTTON_MESSAGE),
-                    new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialog, int which) {
-                    dialogListener.onNegativeButtonClick(SimpleDialog.this);
-                }
-            });
+            builder.setNegativeButton(
+                    LazyStringResource.of(args.getBundle(NEGATIVE_BUTTON_MESSAGE)).value(context),
+                    (dialog, which) -> dialogListener.onNegativeButtonClick(SimpleDialog.this));
         }
 
         if (args.containsKey(POSITIVE_BUTTON_MESSAGE)) {
-            builder.setPositiveButton(args.getInt(POSITIVE_BUTTON_MESSAGE),
-                    new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialog, int which) {
-                    dialogListener.onPositiveButtonClick(SimpleDialog.this);
-                }
-            });
+            builder.setPositiveButton(
+                    LazyStringResource.of(args.getBundle(POSITIVE_BUTTON_MESSAGE)).value(context),
+                    (dialog, which) -> dialogListener.onPositiveButtonClick(SimpleDialog.this));
         }
 
         return builder.create();
@@ -95,99 +86,138 @@ public class SimpleDialog extends DialogFragment {
                 + dialog.getTag());
     }
 
+    /**
+     * A builder for SimpleDialog
+     */
     public static class Builder implements DialogBuilder {
-        private Integer mTitle;
-        private Integer mMessage;
-        private String mLocalizedMessage;
-        private Integer mNegativeButtonMessage;
-        private Integer mPositiveButtonMessage;
+        private LazyStringResource mTitle;
+        private LazyStringResource mMessage;
+        private LazyStringResource mNegativeButtonMessage;
+        private LazyStringResource mPositiveButtonMessage;
         private Boolean mCancelable;
 
         /**
          * Sets the title
-         * @param title Title resource id.
+         *
+         * @param title Title resource.
          */
-        public Builder setTitle(Integer title) {
-            mTitle = title;
+        public Builder setTitle(LazyStringResource title) {
+            this.mTitle = title;
+            return this;
+        }
+
+        /**
+         * Sets the title
+         *
+         * @param titleId Title resource id.
+         */
+        public Builder setTitle(@StringRes int titleId) {
+            return setTitle(LazyStringResource.of(titleId));
+        }
+
+        /**
+         * Sets the message
+         *
+         * @param message Message resource.
+         */
+        public Builder setMessage(LazyStringResource message) {
+            this.mMessage = message;
             return this;
         }
 
         /**
          * Sets the message
-         * @param message Message resource id.
+         *
+         * @param messageId Message resource id.
          */
-        public Builder setMessage(int message) {
-            mMessage = message;
-            return this;
+        public Builder setMessage(@StringRes int messageId) {
+            return setMessage(LazyStringResource.of(messageId));
         }
 
         /**
-         * Sets the message
-         * @param localizedMessage Message resource id.
+         * Sets a message for the button.
+         *
+         * <p>Makes the button appear (without setting a button message, a button is not displayed)
+         *
+         * <p>Callback must be handled by a creator {@link Activity}, which must implement {@link
+         * SimpleDialogListener}.
+         *
+         * @param negativeButtonMessage Message resource.
          */
-        public Builder setMessage(String localizedMessage) {
-            mLocalizedMessage = localizedMessage;
+        public Builder setNegativeButtonMessage(LazyStringResource negativeButtonMessage) {
+            this.mNegativeButtonMessage = negativeButtonMessage;
             return this;
         }
 
         /**
          * Sets a message for the button.
-         * <p> Makes the button appear (without setting a button message, a button is not displayed)
-         * <p> Callback must be handled by a creator {@link Activity},
-         * which must implement {@link SimpleDialogListener}.
-         * @param negativeButtonMessage Message resource id.
+         *
+         * <p>Makes the button appear (without setting a button message, a button is not displayed)
+         *
+         * <p>Callback must be handled by a creator {@link Activity}, which must implement {@link
+         * SimpleDialogListener}.
+         *
+         * @param negativeButtonMessageId Message resource id.
          */
-        public Builder setNegativeButtonMessage(int negativeButtonMessage) {
-            mNegativeButtonMessage = negativeButtonMessage;
+        public Builder setNegativeButtonMessage(@StringRes int negativeButtonMessageId) {
+            return setNegativeButtonMessage(LazyStringResource.of(negativeButtonMessageId));
+        }
+
+        /**
+         * Sets a message for the button.
+         *
+         * <p>Makes the button appear (without setting a button message, a button is not displayed)
+         *
+         * <p>Callback must be handled by a creator {@link Activity}, which must implement {@link
+         * SimpleDialogListener}.
+         *
+         * @param positiveButtonMessage Message resource.
+         */
+        public Builder setPositiveButtonMessage(LazyStringResource positiveButtonMessage) {
+            this.mPositiveButtonMessage = positiveButtonMessage;
             return this;
         }
 
         /**
          * Sets a message for the button.
-         * <p> Makes the button appear (without setting a button message, a button is not displayed)
-         * <p> Callback must be handled by a creator {@link Activity},
-         * which must implement {@link SimpleDialogListener}.
-         * @param positiveButtonMessage Message resource id.
+         *
+         * <p>Makes the button appear (without setting a button message, a button is not displayed)
+         *
+         * <p>Callback must be handled by a creator {@link Activity}, which must implement {@link
+         * SimpleDialogListener}.
+         *
+         * @param positiveButtonMessageId Message resource id.
          */
-        public Builder setPositiveButtonMessage(int positiveButtonMessage) {
-            mPositiveButtonMessage = positiveButtonMessage;
-            return this;
+        public Builder setPositiveButtonMessage(@StringRes int positiveButtonMessageId) {
+            return setPositiveButtonMessage(LazyStringResource.of(positiveButtonMessageId));
         }
 
-        /**
-         * Sets whether the dialog is cancelable or not.  Default is true.
-         */
+        /** Sets whether the dialog is cancelable or not. Default is true. */
         public Builder setCancelable(boolean cancelable) {
             mCancelable = cancelable;
             return this;
         }
 
-        /**
-         * Creates an {@link SimpleDialog} with the arguments supplied to this builder.
-         */
+        /** Creates an {@link SimpleDialog} with the arguments supplied to this builder. */
         @Override
         public SimpleDialog build() {
             SimpleDialog instance = new SimpleDialog();
             Bundle args = new Bundle();
 
             if (mTitle != null) {
-                args.putInt(TITLE, mTitle);
+                args.putBundle(TITLE, mTitle.toBundle());
             }
 
             if (mMessage != null) {
-                args.putInt(MESSAGE, mMessage);
-            }
-
-            if (mLocalizedMessage != null) {
-                args.putString(LOCALIZED_MESSAGE, mLocalizedMessage);
+                args.putBundle(MESSAGE, mMessage.toBundle());
             }
 
             if (mNegativeButtonMessage != null) {
-                args.putInt(NEGATIVE_BUTTON_MESSAGE, mNegativeButtonMessage);
+                args.putBundle(NEGATIVE_BUTTON_MESSAGE, mNegativeButtonMessage.toBundle());
             }
 
             if (mPositiveButtonMessage != null) {
-                args.putInt(POSITIVE_BUTTON_MESSAGE, mPositiveButtonMessage);
+                args.putBundle(POSITIVE_BUTTON_MESSAGE, mPositiveButtonMessage.toBundle());
             }
 
             if (mCancelable != null) {

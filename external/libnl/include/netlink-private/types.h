@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * netlink-private/types.h	Netlink Types (Private)
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2013 Thomas Graf <tgraf@suug.ch>
  * Copyright (c) 2013 Sassano Systems LLC <joe@sassanosystems.com>
  */
@@ -33,6 +27,9 @@
 #include <linux/tc_act/tc_vlan.h>
 #include <linux/sock_diag.h>
 #include <linux/fib_rules.h>
+#include <linux/if_ether.h>
+
+#include <netinet/in.h>
 
 #define NL_SOCK_PASSCRED	(1<<1)
 #define NL_OWN_PORT		(1<<2)
@@ -616,6 +613,27 @@ struct rtnl_mall
 	int              m_mask;
 };
 
+struct rtnl_flower
+{
+	struct rtnl_act *cf_act;
+	int              cf_mask;
+	uint32_t         cf_flags;
+	uint16_t         cf_proto;
+	uint16_t         cf_vlan_id;
+	uint16_t         cf_vlan_ethtype;
+	uint8_t          cf_vlan_prio;
+	uint8_t          cf_src_mac[ETH_ALEN];
+	uint8_t          cf_src_mac_mask[ETH_ALEN];
+	uint8_t          cf_dst_mac[ETH_ALEN];
+	uint8_t          cf_dst_mac_mask[ETH_ALEN];
+	in_addr_t        cf_ipv4_src;
+	in_addr_t        cf_ipv4_src_mask;
+	in_addr_t        cf_ipv4_dst;
+	in_addr_t        cf_ipv4_dst_mask;
+	uint8_t          cf_ip_dscp;
+	uint8_t          cf_ip_dscp_mask;
+};
+
 struct rtnl_cgroup
 {
 	struct rtnl_ematch_tree *cg_ematch;
@@ -1015,6 +1033,14 @@ struct nfnl_log_msg {
 	uint32_t		log_msg_gid;
 	uint32_t		log_msg_seq;
 	uint32_t		log_msg_seq_global;
+	uint16_t		log_msg_hwtype;
+	uint16_t		log_msg_hwlen;
+	void *			log_msg_hwheader;
+	int			log_msg_hwheader_len;
+	uint16_t		log_msg_vlan_tag;
+	uint16_t		log_msg_vlan_proto;
+	uint32_t		log_msg_ct_info;
+	struct nfnl_ct *	log_msg_ct;
 };
 
 struct nfnl_queue {
@@ -1237,6 +1263,11 @@ struct xfrmnl_encap_tmpl {
 	struct nl_addr* encap_oa;
 };
 
+struct xfrmnl_user_offload {
+	int             ifindex;
+	uint8_t         flags;
+};
+
 struct xfrmnl_sa {
 	NLHDR_COMMON
 
@@ -1266,6 +1297,7 @@ struct xfrmnl_sa {
 	struct xfrmnl_replay_state      replay_state;
 	struct xfrmnl_replay_state_esn* replay_state_esn;
 	uint8_t                         hard;
+	struct xfrmnl_user_offload*     user_offload;
 };
 
 struct xfrmnl_usersa_flush {
@@ -1338,4 +1370,19 @@ struct rtnl_vlan
 	uint32_t       v_flags;
 };
 
+struct rtnl_mdb {
+	NLHDR_COMMON
+	uint32_t ifindex;
+
+	struct nl_list_head mdb_entry_list;
+};
+
+struct rtnl_mdb_entry {
+	struct nl_list_head mdb_list;
+	struct nl_addr *addr;
+	uint32_t ifindex;
+	uint16_t vid;
+	uint16_t proto;
+	uint8_t state;
+};
 #endif

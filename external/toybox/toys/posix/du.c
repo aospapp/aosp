@@ -89,17 +89,15 @@ static int seen_inode(void **list, struct stat *st)
   else if (!S_ISDIR(st->st_mode) && st->st_nlink > 1) {
     struct inode_list {
       struct inode_list *next;
-      ino_t ino;
-      dev_t dev;
+      struct dev_ino di;
     } *new;
 
     for (new = *list; new; new = new->next)
-      if(new->ino == st->st_ino && new->dev == st->st_dev)
-        return 1;
+      if(same_dev_ino(st, &new->di)) return 1;
 
     new = xzalloc(sizeof(*new));
-    new->ino = st->st_ino;
-    new->dev = st->st_dev;
+    new->di.ino = st->st_ino;
+    new->di.dev = st->st_dev;
     new->next = *list;
     *list = new;
   }
@@ -116,16 +114,13 @@ static int do_du(struct dirtree *node)
   else if (!dirtree_notdotdot(node)) return 0;
 
   // detect swiching filesystems
-  if (FLAG(x) && (TT.st_dev != node->st.st_dev))
-    return 0;
+  if (FLAG(x) && TT.st_dev != node->st.st_dev) return 0;
 
   // Don't loop endlessly on recursive directory symlink
   if (FLAG(L)) {
     struct dirtree *try = node;
 
-    while ((try = try->parent))
-      if (node->st.st_dev==try->st.st_dev && node->st.st_ino==try->st.st_ino)
-        return 0;
+    while ((try = try->parent)) if (same_file(&node->st, &try->st)) return 0;
   }
 
   // Don't count hard links twice
@@ -136,7 +131,7 @@ static int do_du(struct dirtree *node)
   if (S_ISDIR(node->st.st_mode)) {
     if (!node->again) {
       TT.depth++;
-      return DIRTREE_COMEAGAIN|(DIRTREE_SYMFOLLOW*!!FLAG(L));
+      return DIRTREE_COMEAGAIN|DIRTREE_SYMFOLLOW*FLAG(L);
     } else TT.depth--;
   }
 

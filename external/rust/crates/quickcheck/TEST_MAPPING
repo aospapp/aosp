@@ -8,6 +8,9 @@
       "path": "external/rust/crates/crc32fast"
     },
     {
+      "path": "external/rust/crates/flate2"
+    },
+    {
       "path": "external/rust/crates/regex"
     }
   ],

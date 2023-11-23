@@ -33,6 +33,8 @@
 #include "config.h"
 #endif
 
+#include "util/macros.h"
+
 #include "virglrenderer.h"
 
 #define TRACE_WITH_PERFETTO 1
@@ -56,9 +58,9 @@ static inline bool is_only_bit(uint32_t mask, uint32_t bit)
     return (mask == bit);
 }
 
-unsigned hash_func_u32(void *key);
+uint32_t hash_func_u32(const void *key);
 
-int compare_func(void *key1, void *key2);
+bool equal_func(const void *key1, const void *key2);
 
 bool has_eventfd(void);
 int create_eventfd(unsigned int initval);
@@ -68,7 +70,7 @@ void flush_eventfd(int fd);
 virgl_debug_callback_type virgl_log_set_logger(virgl_debug_callback_type logger);
 void virgl_logv(const char *fmt, va_list va);
 
-static inline void virgl_log(const char *fmt, ...)
+static inline void PRINTFLIKE(1, 2) virgl_log(const char *fmt, ...)
 {
    va_list va;
    va_start(va, fmt);
@@ -120,7 +122,7 @@ void trace_end(const char **scope);
 #define TRACE_FUNC()
 #define TRACE_SCOPE(SCOPE)
 #define TRACE_SCOPE_SLOW(SCOPE)
-#define TRACE_SCOPE_BEGIN(SCOPE, VAR)
+#define TRACE_SCOPE_BEGIN(SCOPE)
 #define TRACE_SCOPE_END(VAR)
 #endif /* ENABLE_TRACING */
 

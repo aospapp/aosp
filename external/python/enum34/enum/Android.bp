@@ -35,10 +35,5 @@ python_library {
     srcs: [
         "__init__.py",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-    },
     pkg_path: "enum",
 }

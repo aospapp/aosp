@@ -64,8 +64,8 @@ The steps below describe how to test wake sources manually.
     :INFO:powerd_dbus_suspend.cc(57)] Wakeup type : other`.
 
 
-[Dark Resume]: https://chromium.googlesource.com/chromiumos/platform2/+/master/power_manager/docs/dark_resume.md
-[dark resume is disabled]: https://chromium.googlesource.com/chromiumos/platform2/+/master/power_manager/docs/dark_resume.md#Disabling-Dark-Resume
-[keyboard.hex]: https://chromium.googlesource.com/chromiumos/third_party/hdctools/+/refs/heads/master/servo/firmware/usbkm/KeyboardSerial/Keyboard.hex
-[firmware_FlashServoKeyboardMap]: https://chromium.googlesource.com/chromiumos/third_party/autotest/+/refs/heads/master/server/site_tests/firmware_FlashServoKeyboardMap/
-[chromeos-platform-power]: chromeos-platform-power@google.com
+\[Dark Resume\]: https://chromium.googlesource.com/chromiumos/platform2/+/main/power_manager/docs/dark_resume.md <br>
+\[dark resume is disabled\]: https://chromium.googlesource.com/chromiumos/platform2/+/main/power_manager/docs/dark_resume.md#Disabling-Dark-Resume <br>
+\[keyboard.hex\]: https://chromium.googlesource.com/chromiumos/third_party/hdctools/+/refs/heads/main/servo/firmware/usbkm/KeyboardSerial/Keyboard.hex <br>
+\[firmware_FlashServoKeyboardMap\]: https://chromium.googlesource.com/chromiumos/third_party/autotest/+/refs/heads/main/server/site_tests/firmware_FlashServoKeyboardMap/ <br>
+\[chromeos-platform-power\]: chromeos-platform-power@google.com <br>

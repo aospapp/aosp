@@ -19,11 +19,17 @@ package com.android.car.settings.notifications;
 import static android.app.NotificationManager.IMPORTANCE_NONE;
 import static android.app.NotificationManager.IMPORTANCE_UNSPECIFIED;
 
+import android.Manifest;
 import android.app.INotificationManager;
 import android.app.NotificationChannel;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.ServiceManager;
+import android.os.UserHandle;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
@@ -96,5 +102,53 @@ public abstract class BaseNotificationsPreferenceController<T extends Preference
             LOG.w("Error querying notification setting for package");
             return false;
         }
+    }
+
+    /**
+     * Checks whether notification permission can be changed for a specified app
+     *
+     * @param appInfo ApplicationInfo of the app
+     * @return Whether notification permissions can be changed for the specified app
+     */
+    public boolean areNotificationsChangeable(ApplicationInfo appInfo) {
+        String packageName = appInfo.packageName;
+        int uid = appInfo.uid;
+
+        try {
+            if (mNotificationManager.isImportanceLocked(packageName, uid)) {
+                return false;
+            }
+
+            PackageManager packageManager = getContext().getPackageManager();
+
+            if (appInfo.targetSdkVersion < Build.VERSION_CODES.TIRAMISU) {
+                return doesNotHavePermissionFixedFlags(packageManager, packageName,
+                        UserHandle.getUserHandleForUid(uid));
+            }
+
+            PackageInfo packageInfo = packageManager.getPackageInfoAsUser(
+                    packageName, PackageManager.GET_PERMISSIONS, UserHandle.getUserId(uid));
+            String[] permissions = packageInfo.requestedPermissions;
+            for (String permission : permissions) {
+                if (permission.equals(Manifest.permission.POST_NOTIFICATIONS)) {
+                    return doesNotHavePermissionFixedFlags(packageManager, packageName,
+                            UserHandle.getUserHandleForUid(uid));
+                }
+            }
+
+            return false;
+        } catch (Exception e) {
+            LOG.w("Error querying notification setting for package");
+            return false;
+        }
+    }
+
+    private boolean doesNotHavePermissionFixedFlags(PackageManager packageManager,
+            String packageName, UserHandle userHandle) {
+        int flags = packageManager.getPermissionFlags(
+                Manifest.permission.POST_NOTIFICATIONS, packageName, userHandle);
+
+        return (flags & (PackageManager.FLAG_PERMISSION_SYSTEM_FIXED
+                | PackageManager.FLAG_PERMISSION_POLICY_FIXED)) == 0;
     }
 }

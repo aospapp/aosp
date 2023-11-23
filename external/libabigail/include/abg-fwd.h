@@ -349,6 +349,9 @@ is_at_global_scope(const decl_base&);
 bool
 is_at_global_scope(const decl_base_sptr);
 
+bool
+is_at_global_scope(const decl_base*);
+
 class_or_union*
 is_at_class_scope(const decl_base_sptr);
 

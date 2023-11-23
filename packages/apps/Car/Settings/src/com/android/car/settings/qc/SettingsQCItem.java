@@ -16,6 +16,12 @@
 
 package com.android.car.settings.qc;
 
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING_FOR_ZONE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_ZONE;
+import static com.android.car.settings.common.PreferenceController.HIDDEN_FOR_ZONE;
+import static com.android.car.settings.common.PreferenceXmlParser.PREF_AVAILABILITY_STATUS_HIDDEN;
+import static com.android.car.settings.common.PreferenceXmlParser.PREF_AVAILABILITY_STATUS_READ;
+
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -33,9 +39,20 @@ import java.lang.reflect.InvocationTargetException;
 public abstract class SettingsQCItem {
 
     private final Context mContext;
+    private int mAvailabilityStatusForZone;
 
     public SettingsQCItem(Context context) {
         mContext = context;
+    }
+
+    protected void setAvailabilityStatusForZone(String availabilityStatusForZone) {
+        if (PREF_AVAILABILITY_STATUS_READ.equals(availabilityStatusForZone)) {
+            mAvailabilityStatusForZone = AVAILABLE_FOR_VIEWING_FOR_ZONE;
+        } else if (PREF_AVAILABILITY_STATUS_HIDDEN.equals(availabilityStatusForZone)) {
+            mAvailabilityStatusForZone = HIDDEN_FOR_ZONE;
+        } else {
+            mAvailabilityStatusForZone = AVAILABLE_FOR_ZONE;
+        }
     }
 
     /**
@@ -54,6 +71,27 @@ public abstract class SettingsQCItem {
      */
     protected Context getContext() {
         return mContext;
+    }
+
+    /**
+     * @return a boolean that indicates whether the QCItem is hidden for the current zone.
+     */
+    protected boolean isHiddenForZone() {
+        return mAvailabilityStatusForZone == HIDDEN_FOR_ZONE;
+    }
+
+    /**
+     * @return a boolean that indicates whether the QCItem is only readable for the current zone.
+     */
+    protected boolean isReadOnlyForZone() {
+        return mAvailabilityStatusForZone == AVAILABLE_FOR_VIEWING_FOR_ZONE;
+    }
+
+    /**
+     * @return a boolean that indicates whether the QCItem is writable for the current zone.
+     */
+    protected boolean isWritableForZone() {
+        return mAvailabilityStatusForZone == AVAILABLE_FOR_ZONE;
     }
 
     /**

@@ -41,7 +41,6 @@ int MDnsEventReporter::removeEventListener(const sp<IMDnsEventListener>& listene
 }
 
 const MDnsEventReporter::EventListenerSet& MDnsEventReporter::getEventListenersImpl() const {
-    std::lock_guard lock(mMutex);
     return mEventListeners;
 }
 

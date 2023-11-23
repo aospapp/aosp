@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"投影サービスへのバインド"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"投影サービスのトップレベル インターフェースにバインドすることをホルダーに許可。通常のアプリでは不要です。"</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"VMS クライアント サービス"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"VMS クライアントにバインド"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"インストルメント クラスタのレンダリング"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"インストルメント クラスタ データを受信します"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"車の入力サービス"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"入力イベントを処理します"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"運転中はこの機能を利用できません"</string>
     <string name="exit_button_message" msgid="5375678491245394542">"アプリをセーフモードで再起動するには、<xliff:g id="EXIT_BUTTON">%s</xliff:g> を選択します。"</string>
     <string name="exit_button" msgid="3491899413031549265">"戻る"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"デバイスのデータが消去されます"</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"管理アプリを使用できません。デバイスのデータはこれから消去されます。\n\nご不明な点がある場合は、組織の管理者にお問い合わせください。"</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> がシステムのパフォーマンスに影響しています"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"システムのパフォーマンスを改善するには、アプリを無効にしてください。[設定] でアプリを有効に戻すことができます。"</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"アプリを引き続き使用するには、優先アプリとして指定してください。"</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"システムのパフォーマンスを改善するには、アプリをアンインストールしてください。"</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"アプリを無効にする"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"このアプリはバックグラウンドでの実行を許可されていません。バックグラウンドで使用するには、優先アプリとして指定してください。"</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"閉じる"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"優先アプリとして指定する"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"アプリをアンインストールする"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> を無効にしました。[設定] で有効に戻すことができます。"</string>
 </resources>

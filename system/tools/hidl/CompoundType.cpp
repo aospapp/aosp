@@ -1751,7 +1751,7 @@ void CompoundType::emitJavaTypeDeclarations(Formatter& out, bool atTopLevel) con
     }
 
     out.unindent();
-    out << "};\n\n";
+    out << "}\n\n";
 }
 
 void CompoundType::emitStructReaderWriter(

@@ -20,17 +20,17 @@ import android.host.test.composer.Shuffle;
 import android.host.test.longevity.listener.ErrorTerminator;
 import android.host.test.longevity.listener.TimeoutTerminator;
 
-import java.util.List;
-import java.util.Map;
-import java.util.function.BiFunction;
-import java.util.stream.Collectors;
-
 import org.junit.runner.Runner;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runner.notification.StoppedByUserException;
 import org.junit.runners.Suite;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.RunnerBuilder;
+
+import java.util.List;
+import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 /**
  * Using the {@code LongevitySuite} as a runner allows you to run test sequences repeatedly and with

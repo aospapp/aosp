@@ -116,7 +116,7 @@ public class ImsMmTelManagerTest {
         sReceiver = new CarrierConfigReceiver(sTestSub);
         IntentFilter filter = new IntentFilter(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED);
         // ACTION_CARRIER_CONFIG_CHANGED is sticky, so we will get a callback right away.
-        getContext().registerReceiver(sReceiver, filter);
+        getContext().registerReceiver(sReceiver, filter, Context.RECEIVER_EXPORTED_UNAUDITED);
     }
 
     @AfterClass

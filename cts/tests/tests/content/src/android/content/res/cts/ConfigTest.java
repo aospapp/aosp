@@ -58,6 +58,7 @@ public class ConfigTest {
         COUNTRY,
         SCRIPT,
         VARIANT,
+        GRAMMATICAL_GENDER,
         MCC,
         MNC,
         TOUCHSCREEN,
@@ -117,6 +118,9 @@ public class ConfigTest {
 
         public void setProperty(final Properties p, final int value) {
             switch(p) {
+                case GRAMMATICAL_GENDER:
+                    mConfig.setGrammaticalGender(value);
+                    break;
                 case MCC:
                     mConfig.mcc = value;
                     break;
@@ -496,6 +500,30 @@ public class ConfigTest {
         checkValue(res, R.configVarying.simple, "simple h670");
         checkValue(res, R.configVarying.bag,
                 R.styleable.TestConfig, new String[]{"bag h670"});
+
+        config = makeEmptyConfig();
+        config.setProperty(Properties.GRAMMATICAL_GENDER,
+                Configuration.GRAMMATICAL_GENDER_FEMININE);
+        res = config.getResources();
+        checkValue(res, R.configVarying.simple, "simple feminine");
+        checkValue(res, R.configVarying.bag,
+                R.styleable.TestConfig, new String[]{"bag feminine"});
+
+        config = makeEmptyConfig();
+        config.setProperty(Properties.GRAMMATICAL_GENDER,
+                Configuration.GRAMMATICAL_GENDER_MASCULINE);
+        res = config.getResources();
+        checkValue(res, R.configVarying.simple, "simple masculine");
+        checkValue(res, R.configVarying.bag,
+                R.styleable.TestConfig, new String[]{"bag masculine"});
+
+        config = makeEmptyConfig();
+        config.setProperty(Properties.GRAMMATICAL_GENDER,
+                Configuration.GRAMMATICAL_GENDER_NEUTRAL);
+        res = config.getResources();
+        checkValue(res, R.configVarying.simple, "simple neuter");
+        checkValue(res, R.configVarying.bag,
+                R.styleable.TestConfig, new String[]{"bag neuter"});
     }
 
     @Test
@@ -1020,6 +1048,13 @@ public class ConfigTest {
         checkValue(res, R.configVarying.simple, "simple sw720");
         checkValue(res, R.configVarying.bag,
                 R.styleable.TestConfig, new String[]{"bag sw720"});
+
+        config.setProperty(Properties.GRAMMATICAL_GENDER,
+                Configuration.GRAMMATICAL_GENDER_FEMININE);
+        res = config.getResources();
+        checkValue(res, R.configVarying.simple, "simple feminine");
+        checkValue(res, R.configVarying.bag,
+                R.styleable.TestConfig, new String[]{"bag feminine"});
 
         config.setProperty(Properties.LANGUAGE, "xx");
         config.setProperty(Properties.COUNTRY, "YY");

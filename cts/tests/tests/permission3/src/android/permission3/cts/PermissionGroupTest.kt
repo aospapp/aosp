@@ -73,7 +73,9 @@ class PermissionGroupTest : BaseUsePermissionTest() {
 
         // Request only one permission from the 'SMS' permission group at runtime,
         // but two from this group are <uses-permission> in the manifest
-        requestAppPermissionsAndAssertResult(android.Manifest.permission.RECEIVE_SMS to true) {
+        requestAppPermissionsAndAssertResult(
+            android.Manifest.permission.RECEIVE_SMS to true,
+        ) {
             clickPermissionRequestAllowButton()
         }
 

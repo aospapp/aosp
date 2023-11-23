@@ -2,6 +2,7 @@ use crate::parse::Error;
 use core::fmt::{self, Debug, Display};
 
 pub(crate) enum ErrorKind {
+    Empty,
     UnexpectedEnd(Position),
     UnexpectedChar(Position, char),
     UnexpectedCharAfter(Position, char),
@@ -31,21 +32,33 @@ impl std::error::Error for Error {}
 impl Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         match &self.kind {
+            ErrorKind::Empty => formatter.write_str("empty string, expected a semver version"),
             ErrorKind::UnexpectedEnd(pos) => {
                 write!(formatter, "unexpected end of input while parsing {}", pos)
             }
             ErrorKind::UnexpectedChar(pos, ch) => {
                 write!(
                     formatter,
-                    "unexpected character {:?} while parsing {}",
-                    ch, pos,
+                    "unexpected character {} while parsing {}",
+                    QuotedChar(*ch),
+                    pos,
                 )
             }
             ErrorKind::UnexpectedCharAfter(pos, ch) => {
-                write!(formatter, "unexpected character {:?} after {}", ch, pos)
+                write!(
+                    formatter,
+                    "unexpected character {} after {}",
+                    QuotedChar(*ch),
+                    pos,
+                )
             }
             ErrorKind::ExpectedCommaFound(pos, ch) => {
-                write!(formatter, "expected comma after {}, found {:?}", pos, ch)
+                write!(
+                    formatter,
+                    "expected comma after {}, found {}",
+                    pos,
+                    QuotedChar(*ch),
+                )
             }
             ErrorKind::LeadingZero(pos) => {
                 write!(formatter, "invalid leading zero in {}", pos)
@@ -94,5 +107,20 @@ impl Debug for Error {
         Display::fmt(self, formatter)?;
         formatter.write_str("\")")?;
         Ok(())
+    }
+}
+
+struct QuotedChar(char);
+
+impl Display for QuotedChar {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        // Standard library versions prior to https://github.com/rust-lang/rust/pull/95345
+        // print character 0 as '\u{0}'. We prefer '\0' to keep error messages
+        // the same across all supported Rust versions.
+        if self.0 == '\0' {
+            formatter.write_str("'\\0'")
+        } else {
+            write!(formatter, "{:?}", self.0)
+        }
     }
 }

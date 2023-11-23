@@ -62,15 +62,17 @@ string ImportResolver::FindImportFile(const string& canonical_name) const {
       continue;
     }
     if (candidates.size() == 1) {
-      // found!
+      // found! ("legacy" logic: may still be ambiguous path if we try other relative paths)
       return *candidates.begin();
     }
     if (candidates.size() > 1) {
       AIDL_ERROR(input_file_name_) << "Duplicate files found for " << canonical_name << " from:\n"
                                    << base::Join(candidates, "\n");
-      break;
+      return "";
     }
   }
+  AIDL_ERROR(input_file_name_) << "Couldn't find import for class " << canonical_name
+                               << ". Searched here:\n - " << base::Join(import_paths_, "\n - ");
   return "";
 }
 

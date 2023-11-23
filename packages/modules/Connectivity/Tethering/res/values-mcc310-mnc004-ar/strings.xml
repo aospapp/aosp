@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="no_upstream_notification_title" msgid="5030042590486713460">"ما مِن اتصال بالإنترنت خلال التوصيل"</string>
-    <string name="no_upstream_notification_message" msgid="3843613362272973447">"تعذّر اتصال الأجهزة"</string>
-    <string name="no_upstream_notification_disable_button" msgid="6385491461813507624">"إيقاف التوصيل"</string>
-    <string name="upstream_roaming_notification_title" msgid="3015912166812283303">"نقطة الاتصال أو التوصيل مفعّلان"</string>
-    <string name="upstream_roaming_notification_message" msgid="6724434706748439902">"قد يتم تطبيق رسوم إضافية أثناء التجوال."</string>
+    <string name="no_upstream_notification_title" msgid="3584617491053416666">"ما مِن اتصال بالإنترنت خلال التوصيل"</string>
+    <string name="no_upstream_notification_message" msgid="5626323795587558017">"يتعذّر اتصال الأجهزة"</string>
+    <string name="no_upstream_notification_disable_button" msgid="868677179945695858">"إيقاف التوصيل"</string>
+    <string name="upstream_roaming_notification_title" msgid="2870229486619751829">"نقطة الاتصال مفعَّلة أو التوصيل مفعَّل"</string>
+    <string name="upstream_roaming_notification_message" msgid="5229740963392849544">"قد يتم تحصيل رسوم إضافية أثناء التجوال."</string>
 </resources>

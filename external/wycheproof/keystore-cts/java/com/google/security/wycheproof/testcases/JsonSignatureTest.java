@@ -15,16 +15,16 @@ package com.google.security.wycheproof;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.security.wycheproof.WycheproofRunner.ExcludedTest;
-import com.google.security.wycheproof.WycheproofRunner.NoPresubmitTest;
-import com.google.security.wycheproof.WycheproofRunner.ProviderType;
 import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
+import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Signature;
@@ -33,17 +33,38 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.HashSet;
 import java.util.Set;
+import org.junit.After;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.Ignore;
+import android.security.keystore.KeyProtection;
+import android.security.keystore.KeyProperties;
+import android.keystore.cts.util.KeyStoreUtil;
 
 /**
  * This test uses test vectors in JSON format to check digital signature schemes. There are still a
  * lot of open questions, e.g. the format for the test vectors is not yet finalized. Therefore, we
  * are not integrating the tests here into other tests
  */
-@RunWith(JUnit4.class)
 public class JsonSignatureTest {
+  private static final String EXPECTED_PROVIDER_NAME = TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
+  private static final String KEY_ALIAS_1 = "TestKey";
+
+  @After
+  public void tearDown() throws Exception {
+    KeyStoreUtil.cleanUpKeyStore();
+  }
+
+  private static PrivateKey getKeystorePrivateKey(PublicKey pubKey, PrivateKey privKey, String digest,
+                                                  boolean isStrongBox) throws Exception {
+    KeyProtection keyProtection = new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN)
+	      .setDigests(digest)
+	      .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+              .setIsStrongBoxBacked(isStrongBox)
+	      .build();
+    KeyStore keyStore =
+                       KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey, keyProtection);
+    return (PrivateKey) keyStore.getKey(KEY_ALIAS_1, null);
+  }
 
   /** 
    * Defines the format of the signatures. RAW is used when the signature scheme already
@@ -105,14 +126,14 @@ public class JsonSignatureTest {
    */
   protected static Signature getSignatureInstance(
       JsonObject group, String signatureAlgorithm, Format signatureFormat)
-      throws NoSuchAlgorithmException {
+      throws NoSuchAlgorithmException, NoSuchProviderException {
     String md = "";
     if (group.has("sha")) {
       md = convertMdName(getString(group, "sha"));
     }
     if (signatureAlgorithm.equals("ECDSA") || signatureAlgorithm.equals("DSA")) {
       if (signatureFormat == Format.ASN) {
-        return Signature.getInstance(md + "WITH" + signatureAlgorithm);
+        return Signature.getInstance(md + "WITH" + signatureAlgorithm, EXPECTED_PROVIDER_NAME);
       } else if (signatureFormat == Format.P1363) {
         // The algorithm names for signature schemes with P1363 format have distinct names
         // in distinct providers. This is mainly the case since the P1363 format has only
@@ -120,32 +141,28 @@ public class JsonSignatureTest {
         // than that. Hence the code below just tries known algorithm names.
         try {
           String jdkName = md + "WITH" + signatureAlgorithm + "inP1363Format";
-          return Signature.getInstance(jdkName);
+          return Signature.getInstance(jdkName, EXPECTED_PROVIDER_NAME);
         } catch (NoSuchAlgorithmException ex) {
           // jdkName is not known.
         }
-        try {
-          String bcName = md + "WITHPLAIN-" + signatureAlgorithm;
-          return Signature.getInstance(bcName);
-        } catch (NoSuchAlgorithmException ex) {
-          // bcName is not known.
-        }
+        String bcName = md + "WITHPLAIN-" + signatureAlgorithm;
+        return Signature.getInstance(bcName, EXPECTED_PROVIDER_NAME);
       }
     } else if (signatureAlgorithm.equals("RSA")) {
       if (signatureFormat == Format.RAW) {
-        return Signature.getInstance(md + "WITH" + signatureAlgorithm);
+        return Signature.getInstance(md + "WITH" + signatureAlgorithm, EXPECTED_PROVIDER_NAME);
       }
     } else if (signatureAlgorithm.equals("ED25519") || signatureAlgorithm.equals("ED448")) {
       if (signatureFormat == Format.RAW) {
         // http://openjdk.java.net/jeps/339
         try {
-          return Signature.getInstance(signatureAlgorithm);
+          return Signature.getInstance(signatureAlgorithm, EXPECTED_PROVIDER_NAME);
         } catch (NoSuchAlgorithmException ex) {
           // signatureAlgorithm is not known.
         }
         // An alternative name (e.g. used by BouncyCastle) is "EDDSA".
         try {
-          return Signature.getInstance("EDDSA");
+          return Signature.getInstance("EDDSA", EXPECTED_PROVIDER_NAME);
         } catch (NoSuchAlgorithmException ex) {
           // "EDDSA" is not known either.
         }
@@ -245,12 +262,18 @@ public class JsonSignatureTest {
    */
   // This is a false positive, since errorprone cannot track values passed into a method.
   @SuppressWarnings("InsecureCryptoUsage")
-  protected static PrivateKey getPrivateKey(JsonObject object, String algorithm) throws Exception {
+  protected static PrivateKey getPrivateKey(JsonObject object, String algorithm,
+                                            boolean isStrongBox) throws Exception {
     if (algorithm.equals("RSA")) {
       KeyFactory kf = KeyFactory.getInstance(algorithm);
       byte[] encoded = TestUtil.hexToBytes(getString(object, "privateKeyPkcs8"));
+      byte[] pubEncoded = TestUtil.hexToBytes(getString(object, "keyDer"));
+      String digest = getString(object, "sha");
       PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
-      return kf.generatePrivate(keySpec);
+      PrivateKey intermediateKey = kf.generatePrivate(keySpec);
+      X509EncodedKeySpec x509keySpec = new X509EncodedKeySpec(pubEncoded);
+      PublicKey pubKey = kf.generatePublic(x509keySpec);
+      return getKeystorePrivateKey(pubKey, intermediateKey, digest, isStrongBox);
     } else {
       throw new NoSuchAlgorithmException("Algorithm " + algorithm + " is not supported");
     }
@@ -298,19 +321,18 @@ public class JsonSignatureTest {
   public void testVerification(
       String filename, String signatureAlgorithm, Format signatureFormat, boolean allowSkippingKeys)
       throws Exception {
-    JsonObject test = JsonUtil.getTestVectors(filename); 
+    JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename); 
     // Checks whether the test vectors in the file use the expected algorithm and the expected
     // format for the signatures.
     String schema = expectedSchema(signatureAlgorithm, signatureFormat, true);
     String actualSchema = getString(test, "schema");
-    if (!schema.isEmpty() && !schema.equals(actualSchema)) {
-      System.out.println(
+    assertFalse(
           signatureAlgorithm
               + ": expecting test vectors with schema "
               + schema
               + " found vectors with schema "
-              + actualSchema);
-    }
+              + actualSchema,
+          !schema.isEmpty() && !schema.equals(actualSchema));
     int numTests = test.get("numberOfTests").getAsInt();
     int cntTests = 0;
     int verifiedSignatures = 0;
@@ -376,72 +398,19 @@ public class JsonSignatureTest {
         } catch (Exception ex) {
           // Other exceptions (i.e. unchecked exceptions) are considered as error
           // since a third party should never be able to cause such exceptions.
-          System.out.println(
-              signatureAlgorithm
-                  + " signature throws "
-                  + ex.toString()
-                  + " "
-                  + filename
-                  + " tcId:"
-                  + tcid
-                  + " sig:"
-                  + sig);
           verified = false;
           failure = ex;
           errors++;
         }
         if (!verified && result.equals("valid")) {
-          String reason = "";
-          if (failure != null) {
-            reason = " reason:" + failure;
-          }
-          System.out.println(
-              "Valid "
-                  + signatureAlgorithm
-                  + " signature not verified."
-                  + " "
-                  + filename
-                  + " tcId:"
-                  + tcid
-                  + " sig:"
-                  + sig
-                  + reason);
           errors++;
         } else if (verified) {
           if (result.equals("invalid")) {
-            System.out.println(
-                "Invalid"
-                    + signatureAlgorithm
-                    + " signature verified."
-                    + " "
-                    + filename
-                    + " tcId:"
-                    + tcid
-                    + " sig:"
-                    + sig);
             errors++;
           } else {
             verifiedSignatures++;
           }
         }
-      }
-    }
-    // Prints some information if tests were skipped. This avoids giving
-    // the impression that algorithms are supported.
-    if (skippedKeys > 0 || skippedAlgorithms > 0 || verifiedSignatures == 0) {
-      System.out.println(
-          "File:"
-              + filename
-              + " number of skipped keys:"
-              + skippedKeys
-              + " number of skipped algorithms:"
-              + skippedAlgorithms
-              + " number of supported keys:"
-              + supportedKeys
-              + " verified signatures:"
-              + verifiedSignatures);
-      for (String s : skippedGroups) {
-        System.out.println("Skipped groups where " + s);
       }
     }
     assertEquals(0, errors);
@@ -464,21 +433,14 @@ public class JsonSignatureTest {
    * @param allowSkippingKeys if true then keys that cannot be constructed will not fail the test.
    */
   public void testSigning(
+          String filename, String signatureAlgorithm, Format signatureFormat,
+          boolean allowSkippingKeys) throws Exception {
+    testSigning(filename, signatureAlgorithm, signatureFormat, allowSkippingKeys, false);
+  }
+  public void testSigning(
       String filename, String signatureAlgorithm, Format signatureFormat,
-      boolean allowSkippingKeys) throws Exception {
-    JsonObject test = JsonUtil.getTestVectors(filename); 
-    // Checks whether the test vectors in the file use the expected algorithm and the expected
-    // format for the signatures.
-    String schema = expectedSchema(signatureAlgorithm, signatureFormat, false);
-    String actualSchema = getString(test, "schema");
-    if (!schema.isEmpty() && !schema.equals(actualSchema)) {
-      System.out.println(
-          signatureAlgorithm
-              + ": expecting test vectors with schema "
-              + schema
-              + " found vectors with schema "
-              + actualSchema);
-    }
+      boolean allowSkippingKeys, boolean isStrongBox) throws Exception {
+    JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename);
     int cntTests = 0;
     int errors = 0;
     int skippedKeys = 0;
@@ -486,7 +448,7 @@ public class JsonSignatureTest {
       JsonObject group = g.getAsJsonObject();
       PrivateKey key;
       try {
-        key = getPrivateKey(group, signatureAlgorithm);
+        key = getPrivateKey(group, signatureAlgorithm, isStrongBox);
       } catch (GeneralSecurityException ex) {
         skippedKeys++;
         continue;
@@ -510,39 +472,23 @@ public class JsonSignatureTest {
           signer.update(message);
           String sig = TestUtil.bytesToHex(signer.sign());
           if (!sig.equals(expectedSig)) {
-            System.out.println(
-                "Incorrect signature generated "
-                    + filename
-                    + " tcId:"
-                    + tcid
-                    + " expected:"
-                    + expectedSig
-                    + " sig:"
-                    + sig);
+            android.util.Log.e("JsonSignatureTest", "Signature mismatch error for test id " + tcid);
             errors++;
           } else {
             cntTests++;
           }
         } catch (InvalidKeyException | SignatureException ex) {
           if (result.equals("valid")) {
-            System.out.println(
-                "Failed to sign "
-                    + filename
-                    + " tcId:"
-                    + tcid
-                    + " with exception:"
-                    + ex);
-            
-            errors++;
+            android.util.Log.e("JsonSignatureTest", "Unexpected exception for test id " + tcid, ex);
+            if (!isStrongBox) {
+              errors++;
+            }
           }
         }
       }
     }
     assertEquals(0, errors);
     if (skippedKeys > 0) {
-      System.out.println("File:" + filename);
-      System.out.println("Number of signatures verified:" + cntTests);
-      System.out.println("Number of skipped keys:" + skippedKeys);
       assertTrue(allowSkippingKeys);
     }
   }
@@ -594,179 +540,208 @@ public class JsonSignatureTest {
 
   // Testing curves that may not be supported by a provider.
   @Test
+  @Ignore // Secp256k1 curve not supported in AndroidKeystore
   public void testSecp256k1Sha256() throws Exception {
     testVerification("ecdsa_secp256k1_sha256_test.json", "ECDSA", Format.ASN, true);
   }
 
   @Test
+  @Ignore // Secp256k1 curve not supported in AndroidKeystore
   public void testSecp256k1Sha512() throws Exception {
     testVerification("ecdsa_secp256k1_sha512_test.json", "ECDSA", Format.ASN, true);
   }
 
-  @NoPresubmitTest(
-    providers = {ProviderType.OPENJDK},
-    bugs = {"b/117643131"}
-  )
   @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeyStore
   public void testBrainpoolP224r1Sha224() throws Exception {
     testVerification("ecdsa_brainpoolP224r1_sha224_test.json", "ECDSA", Format.ASN, true);
   }
 
   @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeyStore
   public void testBrainpoolP256r1Sha256() throws Exception {
     testVerification("ecdsa_brainpoolP256r1_sha256_test.json", "ECDSA", Format.ASN, true);
   }
 
   @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeyStore
   public void testBrainpoolP320r1Sha384() throws Exception {
     testVerification("ecdsa_brainpoolP320r1_sha384_test.json", "ECDSA", Format.ASN, true);
   }
 
   @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeyStore
   public void testBrainpoolP384r1Sha384() throws Exception {
     testVerification("ecdsa_brainpoolP384r1_sha384_test.json", "ECDSA", Format.ASN, true);
   }
 
   @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeyStore
   public void testBrainpoolP512r1Sha512() throws Exception {
     testVerification("ecdsa_brainpoolP512r1_sha512_test.json", "ECDSA", Format.ASN, true);
   }
 
   // SHA-3 signatures
   @Test
+  @Ignore // SHA3 algorithms are not supported in AndroidKeyStore
   public void testSecp224r1Sha3_224 () throws Exception {
     testVerification("ecdsa_secp224r1_sha3_224_test.json", "ECDSA", Format.ASN, true);
   }
 
   @Test
+  @Ignore // SHA3 algorithms are not supported in AndroidKeyStore
   public void testSecp224r1Sha3_256 () throws Exception {
     testVerification("ecdsa_secp224r1_sha3_256_test.json", "ECDSA", Format.ASN, true);
   }
 
   @Test
+  @Ignore // SHA3 algorithms are not supported in AndroidKeyStore
   public void testSecp224r1Sha3_512 () throws Exception {
     testVerification("ecdsa_secp224r1_sha3_512_test.json", "ECDSA", Format.ASN, true);
   }
 
   @Test
+  @Ignore // SHA3 algorithms are not supported in AndroidKeyStore
   public void testSecp256r1Sha3_256 () throws Exception {
     testVerification("ecdsa_secp256r1_sha3_256_test.json", "ECDSA", Format.ASN, true);
   }
 
   @Test
+  @Ignore // SHA3 algorithms are not supported in AndroidKeyStore
   public void testSecp256r1Sha3_512 () throws Exception {
     testVerification("ecdsa_secp256r1_sha3_512_test.json", "ECDSA", Format.ASN, true);
   }
 
   @Test
+  @Ignore // Secp256k1 curve and SHA3 algorithms not supported in AndroidKeystore
   public void testSecp256k1Sha3_256 () throws Exception {
     testVerification("ecdsa_secp256k1_sha3_256_test.json", "ECDSA", Format.ASN, true);
   }
 
   @Test
+  @Ignore // Secp256k1 curve and SHA3 algorithms not supported in AndroidKeystore
   public void testSecp256k1Sha3_512 () throws Exception {
     testVerification("ecdsa_secp256k1_sha3_512_test.json", "ECDSA", Format.ASN, true);
   }
 
   @Test
+  @Ignore // SHA3 algorithms are not supported in AndroidKeyStore
   public void testSecp384r1Sha3_384 () throws Exception {
     testVerification("ecdsa_secp384r1_sha3_384_test.json", "ECDSA", Format.ASN, true);
   }
 
   @Test
+  @Ignore // SHA3 algorithms are not supported in AndroidKeyStore
   public void testSecp384r1Sha3_512 () throws Exception {
     testVerification("ecdsa_secp384r1_sha3_512_test.json", "ECDSA", Format.ASN, true);
   }
 
   @Test
+  @Ignore // SHA3 algorithms are not supported in AndroidKeyStore
   public void testSecp521r1Sha3_512 () throws Exception {
     testVerification("ecdsa_secp521r1_sha3_512_test.json", "ECDSA", Format.ASN, true);
   }
 
   // jdk11 adds P1363 encoded signatures.
   @Test
+  @Ignore // P1363 encoding not supported in AndroidKeyStore
   public void testSecp224r1Sha224inP1363Format() throws Exception {
     testVerification("ecdsa_secp224r1_sha224_p1363_test.json", "ECDSA", Format.P1363, true);
   }
 
   @Test
+  @Ignore // P1363 encoding not supported in AndroidKeyStore
   public void testSecp224r1Sha256inP1363Format() throws Exception {
     testVerification("ecdsa_secp224r1_sha256_p1363_test.json", "ECDSA", Format.P1363, true);
   }
 
   @Test
+  @Ignore // P1363 encoding not supported in AndroidKeyStore
   public void testSecp224r1Sha512inP1363Format() throws Exception {
     testVerification("ecdsa_secp224r1_sha512_p1363_test.json", "ECDSA", Format.P1363, true);
   }
 
   @Test
+  @Ignore // P1363 encoding not supported in AndroidKeyStore
   public void testSecp256r1Sha256inP1363Format() throws Exception {
     testVerification("ecdsa_secp256r1_sha256_p1363_test.json", "ECDSA", Format.P1363, true);
   }
 
   @Test
+  @Ignore // P1363 encoding not supported in AndroidKeyStore
   public void testSecp256r1Sha512inP1363Format() throws Exception {
     testVerification("ecdsa_secp256r1_sha512_p1363_test.json", "ECDSA", Format.P1363, true);
   }
 
   @Test
+  @Ignore // P1363 encoding not supported in AndroidKeyStore
   public void testSecp384r1Sha384inP1363Format() throws Exception {
     testVerification("ecdsa_secp384r1_sha384_p1363_test.json", "ECDSA", Format.P1363, true);
   }
 
   @Test
+  @Ignore // P1363 encoding not supported in AndroidKeyStore
   public void testSecp384r1Sha512inP1363Format() throws Exception {
     testVerification("ecdsa_secp384r1_sha512_p1363_test.json", "ECDSA", Format.P1363, true);
   }
 
   @Test
+  @Ignore // P1363 encoding not supported in AndroidKeyStore
   public void testSecp521r1Sha512inP1363Format() throws Exception {
     testVerification("ecdsa_secp521r1_sha512_p1363_test.json", "ECDSA", Format.P1363, true);
   }
 
   @Test
+  @Ignore // Secp256k1 curve not supported in AndroidKeystore
   public void testSecp256k1Sha256inP1363Format() throws Exception {
     testVerification("ecdsa_secp256k1_sha256_p1363_test.json", "ECDSA", Format.P1363, true);
   }
 
   @Test
+  @Ignore // Secp256k1 curve not supported in AndroidKeystore
   public void testSecp256k1Sha512inP1363Format() throws Exception {
     testVerification("ecdsa_secp256k1_sha512_p1363_test.json", "ECDSA", Format.P1363, true);
   }
 
-  @NoPresubmitTest(
-    providers = {ProviderType.OPENJDK},
-    bugs = {"b/117643131"}
-  )
   @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeyStore
   public void testBrainpoolP224r1Sha224inP1363Format() throws Exception {
     testVerification("ecdsa_brainpoolP224r1_sha224_p1363_test.json", "ECDSA", Format.P1363, true);
   }
 
   @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeyStore
   public void testBrainpoolP256r1Sha256inP1363Format() throws Exception {
     testVerification("ecdsa_brainpoolP256r1_sha256_p1363_test.json", "ECDSA", Format.P1363, true);
   }
 
   @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeyStore
   public void testBrainpoolP320r1Sha384inP1363Format() throws Exception {
     testVerification("ecdsa_brainpoolP320r1_sha384_p1363_test.json", "ECDSA", Format.P1363, true);
   }
 
   @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeyStore
   public void testBrainpoolP384r1Sha384inP1363Format() throws Exception {
     testVerification("ecdsa_brainpoolP384r1_sha384_p1363_test.json", "ECDSA", Format.P1363, true);
   }
 
   @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeyStore
   public void testBrainpoolP512r1Sha512inP1363Format() throws Exception {
     testVerification("ecdsa_brainpoolP512r1_sha512_p1363_test.json", "ECDSA", Format.P1363, true);
   }
 
   // Testing RSA PKCS#1 v1.5 signatures.
   @Test
-  public void testRsaSigning() throws Exception { 
+  public void testRsaSigning() throws Exception {
     testSigning("rsa_sig_gen_misc_test.json", "RSA", Format.RAW, true);
+  }
+  @Test
+  public void testRsaSigning_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testSigning("rsa_sig_gen_misc_test.json", "RSA", Format.RAW, true, true);
   }
 
   @Test
@@ -822,21 +797,25 @@ public class JsonSignatureTest {
   // RSA signatures with truncated hashes. Tests may be skipped if the provider
   // does not support the hash.
   @Test
+  @Ignore // SHA-512/224 algorithm not supported in AndrdoiKeyStore
   public void testRsaSignatures2048sha512_224() throws Exception {
     testVerification("rsa_signature_2048_sha512_224_test.json", "RSA", Format.RAW, true);
   }
 
   @Test
+  @Ignore // SHA-512/256 algorithm not supported in AndrdoiKeyStore
   public void testRsaSignatures2048sha512_256() throws Exception {
     testVerification("rsa_signature_2048_sha512_256_test.json", "RSA", Format.RAW, true);
   }
 
   @Test
+  @Ignore // SHA-512/256 algorithm not supported in AndrdoiKeyStore
   public void testRsaSignatures3072sha512_256() throws Exception {
     testVerification("rsa_signature_3072_sha512_256_test.json", "RSA", Format.RAW, true);
   }
 
   @Test
+  @Ignore // SHA-512/256 algorithm not supported in AndrdoiKeyStore
   public void testRsaSignatures4096sha512_256() throws Exception {
     testVerification("rsa_signature_4096_sha512_256_test.json", "RSA", Format.RAW, true);
   }
@@ -844,48 +823,50 @@ public class JsonSignatureTest {
   // RSA signatures with SHA-3. Not every provider supports SHA-3. Hence the tests
   // may be skipped.
   @Test
+  @Ignore // SHA3 algorithms are not supported in AndroidKeyStore
   public void testRsaSignature2048sha3_224() throws Exception {
     testVerification("rsa_signature_2048_sha3_224_test.json", "RSA", Format.RAW, true);
   }
 
   @Test
+  @Ignore // SHA3 algorithms are not supported in AndroidKeyStore
   public void testRsaSignatures2048sha3_256() throws Exception {
     testVerification("rsa_signature_2048_sha3_256_test.json", "RSA", Format.RAW, true);
   }
 
   @Test
+  @Ignore // SHA3 algorithms are not supported in AndroidKeyStore
   public void testRsaSignatures2048sha3_512() throws Exception {
     testVerification("rsa_signature_2048_sha3_512_test.json", "RSA", Format.RAW, true);
   }
 
   @Test
+  @Ignore // SHA3 algorithms are not supported in AndroidKeyStore
   public void testRsaSignatures3072sha3_256() throws Exception {
     testVerification("rsa_signature_3072_sha3_256_test.json", "RSA", Format.RAW, true);
   }
 
   @Test
+  @Ignore // SHA3 algorithms are not supported in AndroidKeyStore
   public void testRsaSignatures3072sha3_384() throws Exception {
     testVerification("rsa_signature_3072_sha3_384_test.json", "RSA", Format.RAW, true);
   }
 
   @Test
+  @Ignore // SHA3 algorithms are not supported in AndroidKeyStore
   public void testRsaSignatures3072sha3_512() throws Exception {
     testVerification("rsa_signature_3072_sha3_512_test.json", "RSA", Format.RAW, true);
   }
 
   // EdDSA
-  @NoPresubmitTest(
-      providers = {ProviderType.BOUNCY_CASTLE},
-      bugs = {"https://github.com/bcgit/bc-java/issues/508"})
   @Test
+  @Ignore // Ed25519 algorithm not supported in AndroidKeyStore
   public void testEd25519Verify() throws Exception {
     testVerification("eddsa_test.json", "ED25519", Format.RAW, true);
   }
 
-  @NoPresubmitTest(
-      providers = {ProviderType.BOUNCY_CASTLE},
-      bugs = {"https://github.com/bcgit/bc-java/issues/508"})
   @Test
+  @Ignore // Ed448 algorithm not supported in AndroidKeyStore
   public void testEd448Verify() throws Exception {
     testVerification("ed448_test.json", "ED448", Format.RAW, true);
   }
@@ -893,10 +874,8 @@ public class JsonSignatureTest {
   // DSA
   // Two signature encodings for DSA are tested below: ASN encoded signatures
   // and P1363 encoded signatures.
-  @ExcludedTest(
-    providers = {ProviderType.CONSCRYPT},
-    comment = "Conscrypt does not support DSA.")
   @Test
+  @Ignore // DSA algorithm not supported in AndroidKeyStore
   public void testDsa2048Sha224() throws Exception {
     testVerification("dsa_2048_224_sha224_test.json", "DSA", Format.ASN, true);
   }
@@ -904,63 +883,48 @@ public class JsonSignatureTest {
   // NIST allows 2048-bit DSA keys with either a 224-bit q or a 256-bit q.
   // In both cases the security level is 112-bit.
   // Jdk generates DSA keys with a 224-bit q (unless specified).
-  @ExcludedTest(
-    providers = {ProviderType.CONSCRYPT},
-    comment = "Conscrypt does not support DSA.")
   @Test
+  @Ignore // DSA algorithm not supported in AndroidKeyStore
   public void testDsa2048JdkSha256() throws Exception {
     testVerification("dsa_2048_224_sha256_test.json", "DSA", Format.ASN, true);
   }
 
   // OpenSSL generates DSA keys with a 256-bit q (unless specified).
-  @ExcludedTest(
-    providers = {ProviderType.CONSCRYPT},
-    comment = "Conscrypt does not support DSA.")
   @Test
+  @Ignore // DSA algorithm not supported in AndroidKeyStore
   public void testDsa2048Sha256() throws Exception {
     testVerification("dsa_2048_256_sha256_test.json", "DSA", Format.ASN, true);
   }
 
-  @ExcludedTest(
-    providers = {ProviderType.CONSCRYPT},
-    comment = "Conscrypt does not support DSA.")
   @Test
+  @Ignore // DSA algorithm not supported in AndroidKeyStore
   public void testDsa3072Sha256() throws Exception {
     testVerification("dsa_3072_256_sha256_test.json", "DSA", Format.ASN, true);
   }
 
   // DSA tests using P1363 formated signatures.
-  @ExcludedTest(
-    providers = {ProviderType.CONSCRYPT},
-    comment = "Conscrypt does not support DSA.")
   @Test
+  @Ignore // DSA algorithm not supported in AndroidKeyStore
   public void testDsa2048Sha224inP1363Format() throws Exception {
     testVerification("dsa_2048_224_sha224_p1363_test.json", "DSA", Format.P1363, true);
   }
 
-  @ExcludedTest(
-    providers = {ProviderType.CONSCRYPT},
-    comment = "Conscrypt does not support DSA.")
   @Test
+  @Ignore // DSA algorithm not supported in AndroidKeyStore
   public void testDsa2048JdkSha256inP1363Format() throws Exception {
     testVerification("dsa_2048_224_sha256_p1363_test.json", "DSA", Format.P1363, true);
   }
 
-  @ExcludedTest(
-    providers = {ProviderType.CONSCRYPT},
-    comment = "Conscrypt does not support DSA.")
   @Test
+  @Ignore // DSA algorithm not supported in AndroidKeyStore
   public void testDsa2048Sha256inP1363Format() throws Exception {
     testVerification("dsa_2048_256_sha256_p1363_test.json", "DSA", Format.P1363, true);
   }
 
-  @ExcludedTest(
-    providers = {ProviderType.CONSCRYPT},
-    comment = "Conscrypt does not support DSA.")
   @Test
+  @Ignore // DSA algorithm not supported in AndroidKeyStore
   public void testDsa3072Sha256inP1363Format() throws Exception {
     testVerification("dsa_3072_256_sha256_p1363_test.json", "DSA", Format.P1363, true);
   }
-
 }
 

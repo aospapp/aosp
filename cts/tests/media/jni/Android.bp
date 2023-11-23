@@ -16,65 +16,17 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-cc_test_library {
-    name: "libctsmediav2muxer_jni",
-    srcs: [
-        "NativeMediaCommon.cpp",
-        "NativeMuxerTest.cpp",
-        "NativeMuxerUnitTest.cpp",
-    ],
-    shared_libs: [
-        "libmediandk",
-        "liblog",
-    ],
-    header_libs: ["liblog_headers"],
-    stl: "libc++_static",
-    cflags: [
-        "-Werror",
-        "-Wall",
-    ],
-    gtest: false,
-    sdk_version: "29",
-}
-
-cc_test_library {
-    name: "libctsmediav2extractor_jni",
-    srcs: [
-        "NativeMediaCommon.cpp",
-        "NativeExtractorTest.cpp",
-        "NativeExtractorUnitTest.cpp",
-    ],
-    shared_libs: [
-        "libmediandk",
-        "liblog",
-        "libz",
-    ],
-    header_libs: ["liblog_headers"],
-    stl: "libc++_static",
-    cflags: [
-        "-Werror",
-        "-Wall",
-    ],
-    gtest: false,
-    sdk_version: "29",
-}
-
-cc_test_library {
-    name: "libctsmediav2codec_jni",
-    srcs: [
-        "NativeMediaCommon.cpp",
-        "NativeCodecDecoderTest.cpp",
-        "NativeCodecEncoderTest.cpp",
-        "NativeCodecTestBase.cpp",
-        "NativeCodecUnitTest.cpp",
-        "NativeCodecEncoderSurfaceTest.cpp",
-    ],
+cc_defaults {
+    name: "cts_mediav2_jni_defaults",
     shared_libs: [
         "libmediandk",
         "liblog",
         "libandroid",
         "libz",
     ],
+    srcs: [
+        "NativeMediaCommon.cpp",
+    ],
     header_libs: ["liblog_headers"],
     stl: "libc++_static",
     cflags: [
@@ -86,20 +38,90 @@ cc_test_library {
 }
 
 cc_test_library {
+    name: "libctsmediav2muxer_jni",
+    defaults: [
+        "cts_mediav2_jni_defaults",
+    ],
+    srcs: [
+        "NativeMuxerTest.cpp",
+        "NativeMuxerUnitTest.cpp",
+    ],
+}
+
+cc_test_library {
+    name: "libctsmediav2extractor_jni",
+    defaults: [
+        "cts_mediav2_jni_defaults",
+    ],
+    srcs: [
+        "NativeExtractorTest.cpp",
+        "NativeExtractorUnitTest.cpp",
+    ],
+}
+
+cc_test_library {
+    name: "libctsmediav2codecapiunit_jni",
+    defaults: [
+        "cts_mediav2_jni_defaults",
+    ],
+    srcs: [
+        "NativeCodecTestBase.cpp",
+        "NativeCodecUnitTest.cpp",
+    ],
+}
+
+cc_test_library {
+    name: "libctsmediav2codecdec_jni",
+    defaults: [
+        "cts_mediav2_jni_defaults",
+    ],
+    srcs: [
+        "NativeCodecDecoderTestCommon.cpp",
+        "NativeCodecDecoderTest.cpp",
+        "NativeCodecTestBase.cpp",
+    ],
+}
+
+cc_test_library {
+    name: "libctsmediav2codecdecsurface_jni",
+    defaults: [
+        "cts_mediav2_jni_defaults",
+    ],
+    srcs: [
+        "NativeCodecDecoderTestCommon.cpp",
+        "NativeCodecDecoderSurfaceTest.cpp",
+        "NativeCodecTestBase.cpp",
+    ],
+}
+
+cc_test_library {
+    name: "libctsmediav2codecenc_jni",
+    defaults: [
+        "cts_mediav2_jni_defaults",
+    ],
+    srcs: [
+        "NativeCodecEncoderTest.cpp",
+        "NativeCodecTestBase.cpp",
+    ],
+}
+
+cc_test_library {
+    name: "libctsmediav2codecencsurface_jni",
+    defaults: [
+        "cts_mediav2_jni_defaults",
+    ],
+    srcs: [
+        "NativeCodecTestBase.cpp",
+        "NativeCodecEncoderSurfaceTest.cpp",
+    ],
+}
+
+cc_test_library {
     name: "libctsmediav2utils_jni",
+    defaults: [
+        "cts_mediav2_jni_defaults",
+    ],
     srcs: [
         "NativeMediaFormatUnitTest.cpp",
     ],
-    shared_libs: [
-        "libmediandk",
-        "liblog",
-    ],
-    header_libs: ["liblog_headers"],
-    stl: "libc++_static",
-    cflags: [
-        "-Werror",
-        "-Wall",
-    ],
-    gtest: false,
-    sdk_version: "29",
 }

@@ -3,9 +3,9 @@ package com.airbnb.lottie;
 import android.animation.Animator;
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
-import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
@@ -14,19 +14,19 @@ import android.os.Parcelable;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
-import android.view.View;
 
+import androidx.annotation.AttrRes;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.FloatRange;
 import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RawRes;
+import androidx.annotation.RequiresApi;
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.appcompat.widget.AppCompatImageView;
-import androidx.core.view.ViewCompat;
 
 import com.airbnb.lottie.model.KeyPath;
-import com.airbnb.lottie.parser.moshi.JsonReader;
 import com.airbnb.lottie.utils.Logger;
 import com.airbnb.lottie.utils.Utils;
 import com.airbnb.lottie.value.LottieFrameInfo;
@@ -39,8 +39,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static com.airbnb.lottie.RenderMode.HARDWARE;
-
 /**
  * This view will load, deserialize, and display an After Effects animation exported with
  * bodymovin (https://github.com/bodymovin/bodymovin).
@@ -48,38 +46,33 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
  * You may set the animation in one of two ways:
  * 1) Attrs: {@link R.styleable#LottieAnimationView_lottie_fileName}
  * 2) Programmatically:
- *      {@link #setAnimation(String)}
- *      {@link #setAnimation(JsonReader, String)}
- *      {@link #setAnimationFromJson(String, String)}
- *      {@link #setAnimationFromUrl(String)}
- *      {@link #setComposition(LottieComposition)}
+ * {@link #setAnimation(String)}
+ * {@link #setAnimation(int)}
+ * {@link #setAnimation(InputStream, String)}
+ * {@link #setAnimationFromJson(String, String)}
+ * {@link #setAnimationFromUrl(String)}
+ * {@link #setComposition(LottieComposition)}
  * <p>
- * You can set a default cache strategy with {@link R.attr#lottie_cacheStrategy}.
+ * You can set a default cache strategy with {@link R.attr#lottie_cacheComposition}.
  * <p>
  * You can manually set the progress of the animation with {@link #setProgress(float)} or
  * {@link R.attr#lottie_progress}
  *
  * @see <a href="http://airbnb.io/lottie">Full Documentation</a>
  */
-@SuppressWarnings({"unused", "WeakerAccess"}) public class LottieAnimationView extends AppCompatImageView {
+@SuppressWarnings({"WeakerAccess", "unused"}) public class LottieAnimationView extends AppCompatImageView {
 
   private static final String TAG = LottieAnimationView.class.getSimpleName();
-  private static final LottieListener<Throwable> DEFAULT_FAILURE_LISTENER = new LottieListener<Throwable>() {
-    @Override public void onResult(Throwable throwable) {
-      // By default, fail silently for network errors.
-      if (Utils.isNetworkException(throwable)) {
-        Logger.warning("Unable to load composition.", throwable);
-        return;
-      }
-      throw new IllegalStateException("Unable to parse composition", throwable);
+  private static final LottieListener<Throwable> DEFAULT_FAILURE_LISTENER = throwable -> {
+    // By default, fail silently for network errors.
+    if (Utils.isNetworkException(throwable)) {
+      Logger.warning("Unable to load composition.", throwable);
+      return;
     }
+    throw new IllegalStateException("Unable to parse composition", throwable);
   };
 
-  private final LottieListener<LottieComposition> loadedListener = new LottieListener<LottieComposition>() {
-    @Override public void onResult(LottieComposition composition) {
-      setComposition(composition);
-    }
-  };
+  private final LottieListener<LottieComposition> loadedListener = this::setComposition;
 
   private final LottieListener<Throwable> wrappedFailureListener = new LottieListener<Throwable>() {
     @Override
@@ -95,74 +88,72 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   @DrawableRes private int fallbackResource = 0;
 
   private final LottieDrawable lottieDrawable = new LottieDrawable();
-  private boolean isInitialized;
   private String animationName;
   private @RawRes int animationResId;
-  private boolean wasAnimatingWhenNotShown = false;
-  private boolean wasAnimatingWhenDetached = false;
+
+  /**
+   * When we set a new composition, we set LottieDrawable to null then back again so that ImageView re-checks its bounds.
+   * However, this causes the drawable to get unscheduled briefly. Normally, we would pause the animation but in this case, we don't want to.
+   */
+  private boolean ignoreUnschedule = false;
+
   private boolean autoPlay = false;
   private boolean cacheComposition = true;
-  private RenderMode renderMode = RenderMode.AUTOMATIC;
-  private Set<LottieOnCompositionLoadedListener> lottieOnCompositionLoadedListeners = new HashSet<>();
   /**
-   * Prevents a StackOverflowException on 4.4 in which getDrawingCache() calls buildDrawingCache().
-   * This isn't a great solution but it works and has very little performance overhead.
-   * At some point in the future, the original goal of falling back to hardware rendering when
-   * the animation is set to software rendering but it is too large to fit in a software bitmap
-   * should be reevaluated.
+   * Keeps track of explicit user actions taken and prevents onRestoreInstanceState from overwriting already set values.
    */
-  private int buildDrawingCacheDepth = 0;
+  private final Set<UserActionTaken> userActionsTaken = new HashSet<>();
+  private final Set<LottieOnCompositionLoadedListener> lottieOnCompositionLoadedListeners = new HashSet<>();
 
   @Nullable private LottieTask<LottieComposition> compositionTask;
-  /** Can be null because it is created async */
+  /**
+   * Can be null because it is created async
+   */
   @Nullable private LottieComposition composition;
 
   public LottieAnimationView(Context context) {
     super(context);
-    init(null);
+    init(null, R.attr.lottieAnimationViewStyle);
   }
 
   public LottieAnimationView(Context context, AttributeSet attrs) {
     super(context, attrs);
-    init(attrs);
+    init(attrs, R.attr.lottieAnimationViewStyle);
   }
 
   public LottieAnimationView(Context context, AttributeSet attrs, int defStyleAttr) {
     super(context, attrs, defStyleAttr);
-    init(attrs);
+    init(attrs, defStyleAttr);
   }
 
-  private void init(@Nullable AttributeSet attrs) {
-    TypedArray ta = getContext().obtainStyledAttributes(attrs, R.styleable.LottieAnimationView);
-    if (!isInEditMode()) {
-      cacheComposition = ta.getBoolean(R.styleable.LottieAnimationView_lottie_cacheComposition, true);
-      boolean hasRawRes = ta.hasValue(R.styleable.LottieAnimationView_lottie_rawRes);
-      boolean hasFileName = ta.hasValue(R.styleable.LottieAnimationView_lottie_fileName);
-      boolean hasUrl = ta.hasValue(R.styleable.LottieAnimationView_lottie_url);
-      if (hasRawRes && hasFileName) {
-        throw new IllegalArgumentException("lottie_rawRes and lottie_fileName cannot be used at " +
-            "the same time. Please use only one at once.");
-      } else if (hasRawRes) {
-        int rawResId = ta.getResourceId(R.styleable.LottieAnimationView_lottie_rawRes, 0);
-        if (rawResId != 0) {
-          setAnimation(rawResId);
-        }
-      } else if (hasFileName) {
-        String fileName = ta.getString(R.styleable.LottieAnimationView_lottie_fileName);
-        if (fileName != null) {
-          setAnimation(fileName);
-        }
-      } else if (hasUrl) {
-        String url = ta.getString(R.styleable.LottieAnimationView_lottie_url);
-        if (url != null) {
-          setAnimationFromUrl(url);
-        }
+  private void init(@Nullable AttributeSet attrs, @AttrRes int defStyleAttr) {
+    TypedArray ta = getContext().obtainStyledAttributes(attrs, R.styleable.LottieAnimationView, defStyleAttr, 0);
+    cacheComposition = ta.getBoolean(R.styleable.LottieAnimationView_lottie_cacheComposition, true);
+    boolean hasRawRes = ta.hasValue(R.styleable.LottieAnimationView_lottie_rawRes);
+    boolean hasFileName = ta.hasValue(R.styleable.LottieAnimationView_lottie_fileName);
+    boolean hasUrl = ta.hasValue(R.styleable.LottieAnimationView_lottie_url);
+    if (hasRawRes && hasFileName) {
+      throw new IllegalArgumentException("lottie_rawRes and lottie_fileName cannot be used at " +
+          "the same time. Please use only one at once.");
+    } else if (hasRawRes) {
+      int rawResId = ta.getResourceId(R.styleable.LottieAnimationView_lottie_rawRes, 0);
+      if (rawResId != 0) {
+        setAnimation(rawResId);
       }
-
-      setFallbackResource(ta.getResourceId(R.styleable.LottieAnimationView_lottie_fallbackRes, 0));
+    } else if (hasFileName) {
+      String fileName = ta.getString(R.styleable.LottieAnimationView_lottie_fileName);
+      if (fileName != null) {
+        setAnimation(fileName);
+      }
+    } else if (hasUrl) {
+      String url = ta.getString(R.styleable.LottieAnimationView_lottie_url);
+      if (url != null) {
+        setAnimationFromUrl(url);
+      }
     }
+
+    setFallbackResource(ta.getResourceId(R.styleable.LottieAnimationView_lottie_fallbackRes, 0));
     if (ta.getBoolean(R.styleable.LottieAnimationView_lottie_autoPlay, false)) {
-      wasAnimatingWhenDetached = true;
       autoPlay = true;
     }
 
@@ -184,19 +175,21 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
       setSpeed(ta.getFloat(R.styleable.LottieAnimationView_lottie_speed, 1f));
     }
 
+    if (ta.hasValue(R.styleable.LottieAnimationView_lottie_clipToCompositionBounds)) {
+      setClipToCompositionBounds(ta.getBoolean(R.styleable.LottieAnimationView_lottie_clipToCompositionBounds, true));
+    }
+
     setImageAssetsFolder(ta.getString(R.styleable.LottieAnimationView_lottie_imageAssetsFolder));
     setProgress(ta.getFloat(R.styleable.LottieAnimationView_lottie_progress, 0));
     enableMergePathsForKitKatAndAbove(ta.getBoolean(
         R.styleable.LottieAnimationView_lottie_enableMergePathsForKitKatAndAbove, false));
     if (ta.hasValue(R.styleable.LottieAnimationView_lottie_colorFilter)) {
-      SimpleColorFilter filter = new SimpleColorFilter(
-          ta.getColor(R.styleable.LottieAnimationView_lottie_colorFilter, Color.TRANSPARENT));
+      int colorRes = ta.getResourceId(R.styleable.LottieAnimationView_lottie_colorFilter, -1);
+      ColorStateList csl = AppCompatResources.getColorStateList(getContext(), colorRes);
+      SimpleColorFilter filter = new SimpleColorFilter(csl.getDefaultColor());
       KeyPath keyPath = new KeyPath("**");
-      LottieValueCallback<ColorFilter> callback = new LottieValueCallback<ColorFilter>(filter);
+      LottieValueCallback<ColorFilter> callback = new LottieValueCallback<>(filter);
       addValueCallback(keyPath, LottieProperty.COLOR_FILTER, callback);
-    }
-    if (ta.hasValue(R.styleable.LottieAnimationView_lottie_scale)) {
-      lottieDrawable.setScale(ta.getFloat(R.styleable.LottieAnimationView_lottie_scale, 1f));
     }
 
     if (ta.hasValue(R.styleable.LottieAnimationView_lottie_renderMode)) {
@@ -207,15 +200,16 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
       setRenderMode(RenderMode.values()[renderModeOrdinal]);
     }
 
-    if (getScaleType() != null) {
-      lottieDrawable.setScaleType(getScaleType());
-    }
+    setIgnoreDisabledSystemAnimations(
+        ta.getBoolean(
+            R.styleable.LottieAnimationView_lottie_ignoreDisabledSystemAnimations,
+            false
+        )
+    );
+
     ta.recycle();
 
     lottieDrawable.setSystemAnimationsAreEnabled(Utils.getAnimationScale(getContext()) != 0f);
-
-    enableOrDisableHardwareLayer();
-    isInitialized = true;
   }
 
   @Override public void setImageResource(int resId) {
@@ -231,6 +225,28 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   @Override public void setImageBitmap(Bitmap bm) {
     cancelLoaderTask();
     super.setImageBitmap(bm);
+  }
+
+  @Override public void unscheduleDrawable(Drawable who) {
+    if (!ignoreUnschedule && who == lottieDrawable && lottieDrawable.isAnimating()) {
+      pauseAnimation();
+    } else if (!ignoreUnschedule && who instanceof LottieDrawable && ((LottieDrawable) who).isAnimating()) {
+      ((LottieDrawable) who).pauseAnimation();
+    }
+    super.unscheduleDrawable(who);
+  }
+
+  @Override public void invalidate() {
+    super.invalidate();
+    Drawable d = getDrawable();
+    if (d instanceof LottieDrawable && ((LottieDrawable) d).getRenderMode() == RenderMode.SOFTWARE) {
+      // This normally isn't needed. However, when using software rendering, Lottie caches rendered bitmaps
+      // and updates it when the animation changes internally.
+      // If you have dynamic properties with a value callback and want to update the value of the dynamic property, you need a way
+      // to tell Lottie that the bitmap is dirty and it needs to be re-rendered. Normal drawables always re-draw the actual shapes
+      // so this isn't an issue but for this path, we have to take the extra step of setting the dirty flag.
+      lottieDrawable.invalidateSelf();
+    }
   }
 
   @Override public void invalidateDrawable(@NonNull Drawable dr) {
@@ -250,7 +266,7 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
     ss.animationName = animationName;
     ss.animationResId = animationResId;
     ss.progress = lottieDrawable.getProgress();
-    ss.isAnimating = lottieDrawable.isAnimating() || (!ViewCompat.isAttachedToWindow(this) && wasAnimatingWhenDetached);
+    ss.isAnimating = lottieDrawable.isAnimatingOrWillAnimateOnVisible();
     ss.imageAssetsFolder = lottieDrawable.getImageAssetsFolder();
     ss.repeatMode = lottieDrawable.getRepeatMode();
     ss.repeatCount = lottieDrawable.getRepeatCount();
@@ -266,75 +282,51 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
     SavedState ss = (SavedState) state;
     super.onRestoreInstanceState(ss.getSuperState());
     animationName = ss.animationName;
-    if (!TextUtils.isEmpty(animationName)) {
+    if (!userActionsTaken.contains(UserActionTaken.SET_ANIMATION) && !TextUtils.isEmpty(animationName)) {
       setAnimation(animationName);
     }
     animationResId = ss.animationResId;
-    if (animationResId != 0) {
+    if (!userActionsTaken.contains(UserActionTaken.SET_ANIMATION) && animationResId != 0) {
       setAnimation(animationResId);
     }
-    setProgress(ss.progress);
-    if (ss.isAnimating) {
+    if (!userActionsTaken.contains(UserActionTaken.SET_PROGRESS)) {
+      setProgress(ss.progress);
+    }
+    if (!userActionsTaken.contains(UserActionTaken.PLAY_OPTION) && ss.isAnimating) {
       playAnimation();
     }
-    lottieDrawable.setImagesAssetsFolder(ss.imageAssetsFolder);
-    setRepeatMode(ss.repeatMode);
-    setRepeatCount(ss.repeatCount);
-  }
-
-  @Override
-  protected void onVisibilityChanged(@NonNull View changedView, int visibility) {
-    // This can happen on older versions of Android because onVisibilityChanged gets called from the
-    // constructor of View so this will get called before lottieDrawable gets initialized.
-    // https://github.com/airbnb/lottie-android/issues/1143
-    // A simple null check on lottieDrawable would not work because when using Proguard optimization, a
-    // null check on a final field gets removed. As "usually" final fields cannot be null.
-    // However because this is called by super (View) before the initializer of the LottieAnimationView
-    // is called, it actually can be null here.
-    // Working around this by using a non final boolean that is set to true after the class initializer
-    // has run.
-    if (!isInitialized) {
-      return;
+    if (!userActionsTaken.contains(UserActionTaken.SET_IMAGE_ASSETS)) {
+      setImageAssetsFolder(ss.imageAssetsFolder);
     }
-    if (isShown()) {
-      if (wasAnimatingWhenNotShown) {
-        resumeAnimation();
-        wasAnimatingWhenNotShown = false;
-      }
-    } else {
-      if (isAnimating()) {
-        pauseAnimation();
-        wasAnimatingWhenNotShown = true;
-      }
+    if (!userActionsTaken.contains(UserActionTaken.SET_REPEAT_MODE)) {
+      setRepeatMode(ss.repeatMode);
+    }
+    if (!userActionsTaken.contains(UserActionTaken.SET_REPEAT_COUNT)) {
+      setRepeatCount(ss.repeatCount);
     }
   }
 
   @Override protected void onAttachedToWindow() {
     super.onAttachedToWindow();
-    if (autoPlay || wasAnimatingWhenDetached) {
-      playAnimation();
-      // Autoplay from xml should only apply once.
-      autoPlay = false;
-      wasAnimatingWhenDetached = false;
-    }
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-      // This is needed to mimic newer platform behavior.
-      // https://stackoverflow.com/a/53625860/715633
-      onVisibilityChanged(this, getVisibility());
+    if (!isInEditMode() && autoPlay) {
+      lottieDrawable.playAnimation();
     }
   }
 
-  @Override protected void onDetachedFromWindow() {
-    if (isAnimating()) {
-      cancelAnimation();
-      wasAnimatingWhenDetached = true;
-    }
-    super.onDetachedFromWindow();
+  /**
+   * Allows ignoring system animations settings, therefore allowing animations to run even if they are disabled.
+   * <p>
+   * Defaults to false.
+   *
+   * @param ignore if true animations will run even when they are disabled in the system settings.
+   */
+  public void setIgnoreDisabledSystemAnimations(boolean ignore) {
+    lottieDrawable.setIgnoreDisabledSystemAnimations(ignore);
   }
 
   /**
    * Enable this to get merge path support for devices running KitKat (19) and above.
-   *
+   * <p>
    * Merge paths currently don't work if the the operand shape is entirely contained within the
    * first shape. If you need to cut out one shape from another shape, use an even-odd fill type
    * instead of using merge paths.
@@ -351,15 +343,45 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   }
 
   /**
-   * If set to true, all future compositions that are set will be cached so that they don't need to be parsed
-   * next time they are loaded. This won't apply to compositions that have already been loaded.
+   * Sets whether or not Lottie should clip to the original animation composition bounds.
+   *
+   * When set to true, the parent view may need to disable clipChildren so Lottie can render outside of the LottieAnimationView bounds.
    *
    * Defaults to true.
+   */
+  public void setClipToCompositionBounds(boolean clipToCompositionBounds) {
+    lottieDrawable.setClipToCompositionBounds(clipToCompositionBounds);
+  }
+
+  /**
+   * Gets whether or not Lottie should clip to the original animation composition bounds.
    *
+   * Defaults to true.
+   */
+  public boolean getClipToCompositionBounds() {
+    return lottieDrawable.getClipToCompositionBounds();
+  }
+
+  /**
+   * If set to true, all future compositions that are set will be cached so that they don't need to be parsed
+   * next time they are loaded. This won't apply to compositions that have already been loaded.
+   * <p>
+   * Defaults to true.
+   * <p>
    * {@link R.attr#lottie_cacheComposition}
    */
-  public void  setCacheComposition(boolean cacheComposition) {
+  public void setCacheComposition(boolean cacheComposition) {
     this.cacheComposition = cacheComposition;
+  }
+
+  /**
+   * Enable this to debug slow animations by outlining masks and mattes. The performance overhead of the masks and mattes will
+   * be proportional to the surface area of all of the masks/mattes combined.
+   * <p>
+   * DO NOT leave this enabled in production.
+   */
+  public void setOutlineMasksAndMattes(boolean outline) {
+    lottieDrawable.setOutlineMasksAndMattes(outline);
   }
 
   /**
@@ -369,17 +391,34 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   public void setAnimation(@RawRes final int rawRes) {
     this.animationResId = rawRes;
     animationName = null;
-    LottieTask<LottieComposition> task = cacheComposition ?
-        LottieCompositionFactory.fromRawRes(getContext(), rawRes) : LottieCompositionFactory.fromRawRes(getContext(), rawRes, null);
-    setCompositionTask(task);
+    setCompositionTask(fromRawRes(rawRes));
+  }
+
+
+  private LottieTask<LottieComposition> fromRawRes(@RawRes final int rawRes) {
+    if (isInEditMode()) {
+      return new LottieTask<>(() -> cacheComposition
+          ? LottieCompositionFactory.fromRawResSync(getContext(), rawRes) : LottieCompositionFactory.fromRawResSync(getContext(), rawRes, null), true);
+    } else {
+      return cacheComposition ?
+          LottieCompositionFactory.fromRawRes(getContext(), rawRes) : LottieCompositionFactory.fromRawRes(getContext(), rawRes, null);
+    }
   }
 
   public void setAnimation(final String assetName) {
     this.animationName = assetName;
     animationResId = 0;
-    LottieTask<LottieComposition> task = cacheComposition ?
-        LottieCompositionFactory.fromAsset(getContext(), assetName) : LottieCompositionFactory.fromAsset(getContext(), assetName, null);
-    setCompositionTask(task);
+    setCompositionTask(fromAssets(assetName));
+  }
+
+  private LottieTask<LottieComposition> fromAssets(final String assetName) {
+    if (isInEditMode()) {
+      return new LottieTask<>(() -> cacheComposition ?
+          LottieCompositionFactory.fromAssetSync(getContext(), assetName) : LottieCompositionFactory.fromAssetSync(getContext(), assetName, null), true);
+    } else {
+      return cacheComposition ?
+          LottieCompositionFactory.fromAsset(getContext(), assetName) : LottieCompositionFactory.fromAsset(getContext(), assetName, null);
+    }
   }
 
   /**
@@ -411,12 +450,18 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   }
 
   /**
-   * Load a lottie animation from a url. The url can be a json file or a zip file. Use a zip file if you have images. Simply zip them together and lottie
+   * Load a lottie animation from a url. The url can be a json file or a zip file. Use a zip file if you have images. Simply zip them together and
+   * lottie
    * will unzip and link the images automatically.
-   *
+   * <p>
    * Under the hood, Lottie uses Java HttpURLConnection because it doesn't require any transitive networking dependencies. It will download the file
    * to the application cache under a temporary name. If the file successfully parses to a composition, it will rename the temporary file to one that
    * can be accessed immediately for subsequent requests. If the file does not parse to a composition, the temporary file will be deleted.
+   * <p>
+   * You can replace the default network stack or cache handling with a global {@link LottieConfig}
+   *
+   * @see LottieConfig.Builder
+   * @see Lottie#initialize(LottieConfig)
    */
   public void setAnimationFromUrl(String url) {
     LottieTask<LottieComposition> task = cacheComposition ?
@@ -425,17 +470,36 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   }
 
   /**
+   * Load a lottie animation from a url. The url can be a json file or a zip file. Use a zip file if you have images. Simply zip them together and
+   * lottie
+   * will unzip and link the images automatically.
+   * <p>
+   * Under the hood, Lottie uses Java HttpURLConnection because it doesn't require any transitive networking dependencies. It will download the file
+   * to the application cache under a temporary name. If the file successfully parses to a composition, it will rename the temporary file to one that
+   * can be accessed immediately for subsequent requests. If the file does not parse to a composition, the temporary file will be deleted.
+   * <p>
+   * You can replace the default network stack or cache handling with a global {@link LottieConfig}
+   *
+   * @see LottieConfig.Builder
+   * @see Lottie#initialize(LottieConfig)
+   */
+  public void setAnimationFromUrl(String url, @Nullable String cacheKey) {
+    LottieTask<LottieComposition> task = LottieCompositionFactory.fromUrl(getContext(), url, cacheKey);
+    setCompositionTask(task);
+  }
+
+  /**
    * Set a default failure listener that will be called if any of the setAnimation APIs fail for any reason.
    * This can be used to replace the default behavior.
-   *
+   * <p>
    * The default behavior will log any network errors and rethrow all other exceptions.
-   *
+   * <p>
    * If you are loading an animation from the network, errors may occur if your user has no internet.
    * You can use this listener to retry the download or you can have it default to an error drawable
    * with {@link #setFallbackResource(int)}.
-   *
+   * <p>
    * Unless you are using {@link #setAnimationFromUrl(String)}, errors are unexpected.
-   *
+   * <p>
    * Set the listener to null to revert to the default behavior.
    */
   public void setFailureListener(@Nullable LottieListener<Throwable> failureListener) {
@@ -446,7 +510,7 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
    * Set a drawable that will be rendered if the LottieComposition fails to load for any reason.
    * Unless you are using {@link #setAnimationFromUrl(String)}, this is an unexpected error and
    * you should handle it with {@link #setFailureListener(LottieListener)}.
-   *
+   * <p>
    * If this is a network animation, you may use this to show an error to the user or
    * you can use a failure listener to retry the download.
    */
@@ -455,11 +519,12 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   }
 
   private void setCompositionTask(LottieTask<LottieComposition> compositionTask) {
+    userActionsTaken.add(UserActionTaken.SET_ANIMATION);
     clearComposition();
     cancelLoaderTask();
     this.compositionTask = compositionTask
-            .addListener(loadedListener)
-            .addFailureListener(wrappedFailureListener);
+        .addListener(loadedListener)
+        .addFailureListener(wrappedFailureListener);
   }
 
   private void cancelLoaderTask() {
@@ -472,7 +537,7 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   /**
    * Sets a composition.
    * You can set a default cache strategy if this view was inflated with xml by
-   * using {@link R.attr#lottie_cacheStrategy}.
+   * using {@link R.attr#lottie_cacheComposition}.
    */
   public void setComposition(@NonNull LottieComposition composition) {
     if (L.DBG) {
@@ -481,18 +546,17 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
     lottieDrawable.setCallback(this);
 
     this.composition = composition;
+    ignoreUnschedule = true;
     boolean isNewComposition = lottieDrawable.setComposition(composition);
-    enableOrDisableHardwareLayer();
+    ignoreUnschedule = false;
     if (getDrawable() == lottieDrawable && !isNewComposition) {
       // We can avoid re-setting the drawable, and invalidating the view, since the composition
       // hasn't changed.
       return;
+    } else if (!isNewComposition) {
+      // The current drawable isn't lottieDrawable but the drawable already has the right composition.
+      setLottieDrawable();
     }
-
-    // If you set a different composition on the view, the bounds will not update unless
-    // the drawable is different than the original.
-    setImageDrawable(null);
-    setImageDrawable(lottieDrawable);
 
     // This is needed to makes sure that the animation is properly played/paused for the current visibility state.
     // It is possible that the drawable had a lazy composition task to play the animation but this view subsequently
@@ -502,7 +566,7 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
     requestLayout();
 
     for (LottieOnCompositionLoadedListener lottieOnCompositionLoadedListener : lottieOnCompositionLoadedListeners) {
-        lottieOnCompositionLoadedListener.onCompositionLoaded(composition);
+      lottieOnCompositionLoadedListener.onCompositionLoaded(composition);
     }
 
   }
@@ -526,31 +590,23 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   }
 
   /**
-   * Plays the animation from the beginning. If speed is < 0, it will start at the end
+   * Plays the animation from the beginning. If speed is {@literal <} 0, it will start at the end
    * and play towards the beginning
    */
   @MainThread
   public void playAnimation() {
-    if (isShown()) {
-      lottieDrawable.playAnimation();
-      enableOrDisableHardwareLayer();
-    } else {
-      wasAnimatingWhenNotShown = true;
-    }
+    userActionsTaken.add(UserActionTaken.PLAY_OPTION);
+    lottieDrawable.playAnimation();
   }
 
   /**
-   * Continues playing the animation from its current position. If speed < 0, it will play backwards
+   * Continues playing the animation from its current position. If speed {@literal <} 0, it will play backwards
    * from the current position.
    */
   @MainThread
   public void resumeAnimation() {
-    if (isShown()) {
-      lottieDrawable.resumeAnimation();
-      enableOrDisableHardwareLayer();
-    } else {
-      wasAnimatingWhenNotShown = true;
-    }
+    userActionsTaken.add(UserActionTaken.PLAY_OPTION);
+    lottieDrawable.resumeAnimation();
   }
 
   /**
@@ -576,6 +632,9 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
 
   /**
    * Sets the maximum frame that the animation will end at when playing or looping.
+   * <p>
+   * The value will be clamped to the composition bounds. For example, setting Integer.MAX_VALUE would result in the same
+   * thing as composition.endFrame.
    */
   public void setMaxFrame(int endFrame) {
     lottieDrawable.setMaxFrame(endFrame);
@@ -597,6 +656,7 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
 
   /**
    * Sets the minimum frame to the start time of the specified marker.
+   *
    * @throws IllegalArgumentException if the marker is not found.
    */
   public void setMinFrame(String markerName) {
@@ -605,6 +665,7 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
 
   /**
    * Sets the maximum frame to the start time + duration of the specified marker.
+   *
    * @throws IllegalArgumentException if the marker is not found.
    */
   public void setMaxFrame(String markerName) {
@@ -614,6 +675,7 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   /**
    * Sets the minimum and maximum frame to the start time and start time + duration
    * of the specified marker.
+   *
    * @throws IllegalArgumentException if the marker is not found.
    */
   public void setMinAndMaxFrame(String markerName) {
@@ -652,6 +714,7 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
 
   /**
    * Reverses the current animation speed. This does NOT play the animation.
+   *
    * @see #setSpeed(float)
    * @see #playAnimation()
    * @see #resumeAnimation()
@@ -661,14 +724,14 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   }
 
   /**
-   * Sets the playback speed. If speed < 0, the animation will play backwards.
+   * Sets the playback speed. If speed {@literal <} 0, the animation will play backwards.
    */
   public void setSpeed(float speed) {
     lottieDrawable.setSpeed(speed);
   }
 
   /**
-   * Returns the current playback speed. This will be < 0 if the animation is playing backwards.
+   * Returns the current playback speed. This will be {@literal <} 0 if the animation is playing backwards.
    */
   public float getSpeed() {
     return lottieDrawable.getSpeed();
@@ -698,6 +761,16 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
     lottieDrawable.removeAllAnimatorListeners();
   }
 
+  @RequiresApi(api = Build.VERSION_CODES.KITKAT)
+  public void addAnimatorPauseListener(Animator.AnimatorPauseListener listener) {
+    lottieDrawable.addAnimatorPauseListener(listener);
+  }
+
+  @RequiresApi(api = Build.VERSION_CODES.KITKAT)
+  public void removeAnimatorPauseListener(Animator.AnimatorPauseListener listener) {
+    lottieDrawable.removeAnimatorPauseListener(listener);
+  }
+
   /**
    * @see #setRepeatCount(int)
    */
@@ -714,6 +787,7 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
    * @param mode {@link LottieDrawable#RESTART} or {@link LottieDrawable#REVERSE}
    */
   public void setRepeatMode(@LottieDrawable.RepeatMode int mode) {
+    userActionsTaken.add(UserActionTaken.SET_REPEAT_MODE);
     lottieDrawable.setRepeatMode(mode);
   }
 
@@ -736,6 +810,7 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
    * @param count the number of times the animation should be repeated
    */
   public void setRepeatCount(int count) {
+    userActionsTaken.add(UserActionTaken.SET_REPEAT_COUNT);
     lottieDrawable.setRepeatCount(count);
   }
 
@@ -757,10 +832,10 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
    * If you use image assets, you must explicitly specify the folder in assets/ in which they are
    * located because bodymovin uses the name filenames across all compositions (img_#).
    * Do NOT rename the images themselves.
-   *
+   * <p>
    * If your images are located in src/main/assets/airbnb_loader/ then call
    * `setImageAssetsFolder("airbnb_loader/");`.
-   *
+   * <p>
    * Be wary if you are using many images, however. Lottie is designed to work with vector shapes
    * from After Effects. If your images look like they could be represented with vector shapes,
    * see if it is possible to convert them to shape layers and re-export your animation. Check
@@ -774,6 +849,26 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   @Nullable
   public String getImageAssetsFolder() {
     return lottieDrawable.getImageAssetsFolder();
+  }
+
+  /**
+   * When true, dynamically set bitmaps will be drawn with the exact bounds of the original animation, regardless of the bitmap size.
+   * When false, dynamically set bitmaps will be drawn at the top left of the original image but with its own bounds.
+   *
+   * Defaults to false.
+   */
+  public void setMaintainOriginalImageBounds(boolean maintainOriginalImageBounds) {
+    lottieDrawable.setMaintainOriginalImageBounds(maintainOriginalImageBounds);
+  }
+
+  /**
+   * When true, dynamically set bitmaps will be drawn with the exact bounds of the original animation, regardless of the bitmap size.
+   * When false, dynamically set bitmaps will be drawn at the top left of the original image but with its own bounds.
+   *
+   * Defaults to false.
+   */
+  public boolean getMaintainOriginalImageBounds() {
+    return lottieDrawable.getMaintainOriginalImageBounds();
   }
 
   /**
@@ -791,7 +886,7 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
    * Use this if you can't bundle images with your app. This may be useful if you download the
    * animations from the network or have the images saved to an SD Card. In that case, Lottie
    * will defer the loading of the bitmap to this delegate.
-   *
+   * <p>
    * Be wary if you are using many images, however. Lottie is designed to work with vector shapes
    * from After Effects. If your images look like they could be represented with vector shapes,
    * see if it is possible to convert them to shape layers and re-export your animation. Check
@@ -805,8 +900,7 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   /**
    * Use this to manually set fonts.
    */
-  public void setFontAssetDelegate(
-      @SuppressWarnings("NullableProblems") FontAssetDelegate assetDelegate) {
+  public void setFontAssetDelegate(FontAssetDelegate assetDelegate) {
     lottieDrawable.setFontAssetDelegate(assetDelegate);
   }
 
@@ -820,7 +914,7 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   /**
    * Takes a {@link KeyPath}, potentially with wildcards or globstars and resolve it to a list of
    * zero or more actual {@link KeyPath Keypaths} that exist in the current animation.
-   *
+   * <p>
    * If you want to set value callbacks for any of these values, it is recommended to use the
    * returned {@link KeyPath} objects because they will be internally resolved to their content
    * and won't trigger a tree walk of the animation contents when applied.
@@ -832,7 +926,7 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   /**
    * Add a property callback for the specified {@link KeyPath}. This {@link KeyPath} can resolve
    * to multiple contents. In that case, the callback's value will apply to all of them.
-   *
+   * <p>
    * Internally, this will check if the {@link KeyPath} has already been resolved with
    * {@link #resolveKeyPath(KeyPath)} and will resolve it if it hasn't.
    */
@@ -854,51 +948,16 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
     });
   }
 
-  /**
-   * Set the scale on the current composition. The only cost of this function is re-rendering the
-   * current frame so you may call it frequent to scale something up or down.
-   *
-   * The smaller the animation is, the better the performance will be. You may find that scaling an
-   * animation down then rendering it in a larger ImageView and letting ImageView scale it back up
-   * with a scaleType such as centerInside will yield better performance with little perceivable
-   * quality loss.
-   *
-   * You can also use a fixed view width/height in conjunction with the normal ImageView
-   * scaleTypes centerCrop and centerInside.
-   */
-  public void setScale(float scale) {
-    lottieDrawable.setScale(scale);
-    if (getDrawable() == lottieDrawable) {
-      setImageDrawable(null);
-      setImageDrawable(lottieDrawable);
-    }
-  }
-
-  public float getScale() {
-    return lottieDrawable.getScale();
-  }
-
-  @Override public void setScaleType(ScaleType scaleType) {
-    super.setScaleType(scaleType);
-    if (lottieDrawable != null) {
-      lottieDrawable.setScaleType(scaleType);
-    }
-  }
-
   @MainThread
   public void cancelAnimation() {
-    wasAnimatingWhenNotShown = false;
+    userActionsTaken.add(UserActionTaken.PLAY_OPTION);
     lottieDrawable.cancelAnimation();
-    enableOrDisableHardwareLayer();
   }
 
   @MainThread
   public void pauseAnimation() {
     autoPlay = false;
-    wasAnimatingWhenDetached = false;
-    wasAnimatingWhenNotShown = false;
     lottieDrawable.pauseAnimation();
-    enableOrDisableHardwareLayer();
   }
 
   /**
@@ -918,6 +977,7 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   }
 
   public void setProgress(@FloatRange(from = 0f, to = 1f) float progress) {
+    userActionsTaken.add(UserActionTaken.SET_PROGRESS);
     lottieDrawable.setProgress(progress);
   }
 
@@ -947,10 +1007,10 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
    * If you are experiencing a device specific crash that happens during drawing, you can set this to true
    * for those devices. If set to true, draw will be wrapped with a try/catch which will cause Lottie to
    * render an empty frame rather than crash your app.
-   *
+   * <p>
    * Ideally, you will never need this and the vast majority of apps and animations won't. However, you may use
    * this for very specific cases if absolutely necessary.
-   *
+   * <p>
    * There is no XML attr for this because it should be set programmatically and only for specific devices that
    * are known to be problematic.
    */
@@ -959,42 +1019,31 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   }
 
   /**
-   * If rendering via software, Android will fail to generate a bitmap if the view is too large. Rather than displaying
-   * nothing, fallback on hardware acceleration which may incur a performance hit.
-   *
-   * @see #setRenderMode(RenderMode)
-   * @see com.airbnb.lottie.LottieDrawable#draw(android.graphics.Canvas)
-   */
-  @Override
-  public void buildDrawingCache(boolean autoScale) {
-    L.beginSection("buildDrawingCache");
-    buildDrawingCacheDepth++;
-    super.buildDrawingCache(autoScale);
-    if (buildDrawingCacheDepth == 1 && getWidth() > 0 && getHeight() > 0 &&
-        getLayerType() == LAYER_TYPE_SOFTWARE && getDrawingCache(autoScale) == null) {
-      setRenderMode(HARDWARE);
-    }
-    buildDrawingCacheDepth--;
-    L.endSection("buildDrawingCache");
-  }
-
-  /**
    * Call this to set whether or not to render with hardware or software acceleration.
    * Lottie defaults to Automatic which will use hardware acceleration unless:
    * 1) There are dash paths and the device is pre-Pie.
    * 2) There are more than 4 masks and mattes and the device is pre-Pie.
-   *    Hardware acceleration is generally faster for those devices unless
-   *    there are many large mattes and masks in which case there is a ton
-   *    of GPU uploadTexture thrashing which makes it much slower.
-   *
+   * Hardware acceleration is generally faster for those devices unless
+   * there are many large mattes and masks in which case there is a lot
+   * of GPU uploadTexture thrashing which makes it much slower.
+   * <p>
    * In most cases, hardware rendering will be faster, even if you have mattes and masks.
-   * However, if you have multiple mattes and masks (especially large ones) then you
+   * However, if you have multiple mattes and masks (especially large ones), you
    * should test both render modes. You should also test on pre-Pie and Pie+ devices
-   * because the underlying rendering enginge changed significantly.
+   * because the underlying rendering engine changed significantly.
+   *
+   * @see <a href="https://developer.android.com/guide/topics/graphics/hardware-accel#unsupported">Android Hardware Acceleration</a>
    */
   public void setRenderMode(RenderMode renderMode) {
-    this.renderMode = renderMode;
-    enableOrDisableHardwareLayer();
+    lottieDrawable.setRenderMode(renderMode);
+  }
+
+  /**
+   * Returns the actual render mode being used. It will always be {@link RenderMode#HARDWARE} or {@link RenderMode#SOFTWARE}.
+   * When the render mode is set to AUTOMATIC, the value will be derived from {@link RenderMode#useSoftwareRendering(int, boolean, int)}.
+   */
+  public RenderMode getRenderMode() {
+    return lottieDrawable.getRenderMode();
   }
 
   /**
@@ -1014,44 +1063,12 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
   }
 
   /**
-   * Disable the extraScale mode in {@link #draw(Canvas)} function when scaleType is FitXY. It doesn't affect the rendering with other scaleTypes.
-   *
-   * <p>When there are 2 animation layout side by side, the default extra scale mode might leave 1 pixel not drawn between 2 animation, and
-   * disabling the extraScale mode can fix this problem</p>
-   *
-   * <b>Attention:</b> Disable the extra scale mode can downgrade the performance and may lead to larger memory footprint. Please only disable this
-   * mode when using animation with a reasonable dimension (smaller than screen size).
-   *
-   * @see LottieDrawable#drawWithNewAspectRatio(Canvas)
+   * This API no longer has any effect.
    */
+  @Deprecated
   public void disableExtraScaleModeInFitXY() {
+    //noinspection deprecation
     lottieDrawable.disableExtraScaleModeInFitXY();
-  }
-
-  private void enableOrDisableHardwareLayer() {
-    int layerType = LAYER_TYPE_SOFTWARE;
-    switch (renderMode) {
-      case HARDWARE:
-        layerType = LAYER_TYPE_HARDWARE;
-        break;
-      case SOFTWARE:
-        layerType = LAYER_TYPE_SOFTWARE;
-        break;
-      case AUTOMATIC:
-        boolean useHardwareLayer = true;
-        if (composition != null && composition.hasDashPattern() && Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-          useHardwareLayer = false;
-        } else if (composition != null && composition.getMaskAndMatteCount() > 4) {
-          useHardwareLayer = false;
-        } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-          useHardwareLayer = false;
-        }
-        layerType = useHardwareLayer ? LAYER_TYPE_HARDWARE : LAYER_TYPE_SOFTWARE;
-        break;
-    }
-    if (layerType != getLayerType()) {
-      setLayerType(layerType, null);
-    }
   }
 
   public boolean addLottieOnCompositionLoadedListener(@NonNull LottieOnCompositionLoadedListener lottieOnCompositionLoadedListener) {
@@ -1068,6 +1085,18 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
 
   public void removeAllLottieOnCompositionLoadedListener() {
     lottieOnCompositionLoadedListeners.clear();
+  }
+
+  private void setLottieDrawable() {
+    boolean wasAnimating = isAnimating();
+    // Set the drawable to null first because the underlying LottieDrawable's intrinsic bounds can change
+    // if the composition changes.
+    setImageDrawable(null);
+    setImageDrawable(lottieDrawable);
+    if (wasAnimating) {
+      // This is necessary because lottieDrawable will get unscheduled and canceled when the drawable is set to null.
+      lottieDrawable.resumeAnimation();
+    }
   }
 
   private static class SavedState extends BaseSavedState {
@@ -1116,5 +1145,14 @@ import static com.airbnb.lottie.RenderMode.HARDWARE;
             return new SavedState[size];
           }
         };
+  }
+
+  private enum UserActionTaken {
+    SET_ANIMATION,
+    SET_PROGRESS,
+    SET_REPEAT_MODE,
+    SET_REPEAT_COUNT,
+    SET_IMAGE_ASSETS,
+    PLAY_OPTION,
   }
 }

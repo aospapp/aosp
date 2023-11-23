@@ -47,12 +47,15 @@
       <option name="push" value="aidl_test_java_client_sdk1.jar->/data/framework/aidl_test_java_client_sdk1.jar" />
       <option name="push" value="aidl_test_java_service_sdk1.jar->/data/framework/aidl_test_java_service_sdk1.jar" />
 
+      <option name="push" value="aidl_test_java_client_permission.jar->/data/framework/aidl_test_java_client_permission.jar" />
+      <option name="push" value="aidl_test_java_service_permission.jar->/data/framework/aidl_test_java_service_permission.jar" />
+
       <option name="cleanup" value="true" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.python.PythonBinaryHostTest" >
         <option name="par-file-name" value="aidl_integration_test" />
-        <option name="test-timeout" value="2m" />
+        <option name="test-timeout" value="5m" />
     </test>
 </configuration>
 

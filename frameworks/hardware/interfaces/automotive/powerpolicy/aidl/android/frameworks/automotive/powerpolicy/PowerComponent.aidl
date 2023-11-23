@@ -103,4 +103,9 @@ enum PowerComponent {
    * state when system gets out of sleep state.
    */
   CPU = 16,
+
+  /**
+   * This is minimal value for custom OEM component values.
+   */
+  MINIMUM_CUSTOM_COMPONENT_VALUE = 1000,
 }

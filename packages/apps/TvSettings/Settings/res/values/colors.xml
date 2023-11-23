@@ -169,4 +169,17 @@
     <color name="sensor_physical_privacy_enabled_info_background">#2BD93025</color>
     <!-- Background color of physical privacy enabled info box when focused -->
     <color name="sensor_physical_privacy_enabled_info_background_focused">#4FFF5C5C</color>
+
+    <!-- Color correction palette list preference colors -->
+    <color name="color_correction_palette_gradient_background_twopanel">#222730</color>
+    <color name="color_correction_palette_color_red">#d93025</color> <!-- Material Red 600 -->
+    <color name="color_correction_palette_color_orange">#e8710a</color> <!-- Material Orange 600 -->
+    <color name="color_correction_palette_color_yellow">#f9ab00</color> <!-- Material Yellow 600 -->
+    <color name="color_correction_palette_color_green">#1e8e3e</color> <!-- Material Green 600 -->
+    <color name="color_correction_palette_color_cyan">#12b5cb</color> <!-- Material Cyan 600 -->
+    <color name="color_correction_palette_color_blue">#1a73e8</color> <!-- Material Blue 600 -->
+    <color name="color_correction_palette_color_purple">#9334e6</color> <!-- Material Purple 600 -->
+    <color name="color_correction_palette_color_gray">#80868b</color> <!-- Material Gray 600 -->
+
+    <color name="preference_icon_color">#ffffff</color>
 </resources>

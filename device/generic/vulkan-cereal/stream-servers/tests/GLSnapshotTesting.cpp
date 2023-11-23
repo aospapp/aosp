@@ -14,10 +14,9 @@
 
 #include "GLSnapshotTesting.h"
 
-#include "base/PathUtils.h"
-#include "base/StdioStream.h"
-#include "base/System.h"
-#include "base/testing/TestSystem.h"
+#include "aemu/base/files/PathUtils.h"
+#include "aemu/base/files/StdioStream.h"
+#include "aemu/base/system/System.h"
 #include "snapshot/TextureLoader.h"
 #include "snapshot/TextureSaver.h"
 
@@ -30,7 +29,8 @@
 #include <GLES2/gl2.h>
 #include <GLES3/gl31.h>
 
-namespace emugl {
+namespace gfxstream {
+namespace gl {
 
 using android::base::StdioStream;
 using android::snapshot::TextureLoader;
@@ -86,6 +86,19 @@ testing::AssertionResult compareGlobalGlInt(const GLESv2Dispatch* gl,
     return compareValue<GLint>(expected, current,
                                "GL global int mismatch for parameter " +
                                        describeGlEnum(name) + ":");
+}
+
+testing::AssertionResult compareGlobalGlInt_i(const GLESv2Dispatch* gl,
+                                              GLenum name,
+                                              GLuint index,
+                                              GLint expected) {
+    GLint current;
+    gl->glGetIntegeri_v(name, index, &current);
+    EXPECT_EQ(GL_NO_ERROR, gl->glGetError());
+    return compareValue<GLint>(expected, current,
+                               "GL global int_i mismatch for parameter " +
+                                       describeGlEnum(name) + ":" + std::to_string(index));
+
 }
 
 testing::AssertionResult compareGlobalGlFloat(const GLESv2Dispatch* gl,
@@ -174,6 +187,22 @@ testing::AssertionResult compareGlobalGlBooleanv(
             "GL global booleanv parameter " + describeGlEnum(name));
 }
 
+
+testing::AssertionResult compareGlobalGlBooleanv_i(
+        const GLESv2Dispatch* gl,
+        GLenum name,
+        GLuint index,
+        const std::vector<GLboolean>& expected,
+        GLuint size) {
+    std::vector<GLboolean> current;
+    current.resize(std::max(size, static_cast<GLuint>(expected.size())));
+    gl->glGetBooleani_v(name, index,  &current[0]);
+    EXPECT_EQ(GL_NO_ERROR, gl->glGetError());
+    return compareVector<GLboolean>(
+            expected, current,
+            "GL global booleanv_i parameter " + describeGlEnum(name) + ":" + std::to_string(index) );
+}
+
 testing::AssertionResult compareGlobalGlIntv(const GLESv2Dispatch* gl,
                                              GLenum name,
                                              const std::vector<GLint>& expected,
@@ -186,6 +215,7 @@ testing::AssertionResult compareGlobalGlIntv(const GLESv2Dispatch* gl,
             expected, current,
             "GL global intv parameter " + describeGlEnum(name));
 }
+
 
 testing::AssertionResult compareGlobalGlFloatv(
         const GLESv2Dispatch* gl,
@@ -213,7 +243,7 @@ void SnapshotTest::saveSnapshot(const std::string streamFile,
 
     std::unique_ptr<StdioStream> m_stream(new StdioStream(
             android_fopen(streamFile.c_str(), "wb"), StdioStream::kOwner));
-    auto egl_stream = static_cast<EGLStream>(m_stream.get());
+    auto egl_stream = static_cast<EGLStreamKHR>(m_stream.get());
     std::unique_ptr<TextureSaver> m_texture_saver(new TextureSaver(StdioStream(
             android_fopen(textureFile.c_str(), "wb"), StdioStream::kOwner)));
 
@@ -242,7 +272,7 @@ void SnapshotTest::loadSnapshot(const std::string streamFile,
 
     std::unique_ptr<StdioStream> m_stream(new StdioStream(
             android_fopen(streamFile.c_str(), "rb"), StdioStream::kOwner));
-    auto egl_stream = static_cast<EGLStream>(m_stream.get());
+    auto egl_stream = static_cast<EGLStreamKHR>(m_stream.get());
     std::shared_ptr<TextureLoader> m_texture_loader(
             new TextureLoader(StdioStream(android_fopen(textureFile.c_str(), "rb"),
                                           StdioStream::kOwner)));
@@ -315,4 +345,5 @@ void SnapshotPreserveTest::doCheckedSnapshot() {
     }
 }
 
-}  // namespace emugl
+}  // namespace gl
+}  // namespace gfxstream

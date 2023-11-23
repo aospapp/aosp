@@ -4,6 +4,9 @@
     <string name="system_tracing" msgid="4719188511746319848">"Rastreio do sistema"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"Registe a atividade do sistema e analise-a mais tarde para melhorar o desempenho"</string>
     <string name="record_trace" msgid="6416875085186661845">"Gravar rastreio"</string>
+    <string name="record_trace_summary" msgid="6705357754827849292">"Capta um rastreio do sistema através da configuração definida em \"Definições de rastreio\""</string>
+    <string name="record_stack_samples" msgid="3498368637185702335">"Gravar perfil de CPU"</string>
+    <string name="record_stack_samples_summary" msgid="7827953921526410478">"A amostragem da pilha de chamadas também pode ser ativada nos rastreios ao selecionar a categoria \"CPU\""</string>
     <string name="start_new_trace" msgid="8177130420802170353">"Iniciar novo rastreio"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"Rastrear aplicações disponíveis para depuração"</string>
     <string name="categories" msgid="2280163673538611008">"Categorias"</string>
@@ -17,7 +20,9 @@
     <string name="show_quick_settings_tile" msgid="4971147332635291585">"Mostrar o mosaico de Definições rápidas"</string>
     <string name="saving_trace" msgid="1468692734770800541">"A guardar o rastreio…"</string>
     <string name="trace_saved" msgid="5869970594780992309">"Rastreio guardado"</string>
-    <string name="tap_to_share" msgid="6766732404489536899">"Toque para partilhar o rastreio."</string>
+    <string name="saving_stack_samples" msgid="8174915522390525221">"A guardar amostras de pilhas"</string>
+    <string name="stack_samples_saved" msgid="8863295751647724616">"Amostras de pilhas guardadas"</string>
+    <string name="tap_to_share" msgid="4440713575852187545">"Toque para partilhar a sua gravação"</string>
     <string name="attaching_to_report" msgid="2629202947947275886">"A anexar o rastreio ao relatório de erro…"</string>
     <string name="attached_to_report" msgid="5806905349184608870">"Rastreio anexado ao relatório de erro"</string>
     <string name="attached_to_report_summary" msgid="7665675771190391355">"Toque para abrir o BetterBug."</string>
@@ -25,18 +30,19 @@
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"Algumas categorias de rastreio não estão disponíveis:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"O rastreio está a ser gravado"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"Toque para parar o rastreio."</string>
-    <string name="clear_saved_traces" msgid="4809195654452260944">"Limpar rastreios guardados"</string>
-    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"Os vestígios são limpos após um mês."</string>
-    <string name="clear_saved_traces_question" msgid="2184026613055303818">"Pretende limpar os rastreios guardados?"</string>
-    <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"Todos os rastreios serão eliminados de /data/local/traces."</string>
+    <string name="stack_samples_are_being_recorded" msgid="8669254939248349583">"As amostras de pilhas estão a ser gravadas"</string>
+    <string name="tap_to_stop_stack_sampling" msgid="5911317684139059415">"Toque para parar a amostragem de pilhas"</string>
+    <string name="clear_saved_files" msgid="9156079311231446825">"Limpar ficheiros guardados"</string>
+    <string name="clear_saved_files_summary" msgid="109751867417553670">"As gravações são limpas após um mês"</string>
+    <string name="clear_saved_files_question" msgid="8586686617760838834">"Limpar ficheiros guardados?"</string>
+    <string name="all_recordings_will_be_deleted" msgid="7731693738485947891">"Todas as gravações vão ser apagadas de /data/local/traces"</string>
     <string name="clear" msgid="5484761795406948056">"Limpar"</string>
     <string name="system_traces_storage_title" msgid="8294090839883366871">"Rastreios do sistema"</string>
     <string name="keywords" msgid="736547007949049535">"systrace, rastreio, desempenho"</string>
-    <string name="share_trace" msgid="4528525067822044385">"Pretende partilhar o rastreio?"</string>
+    <string name="share_file" msgid="1982029143280382271">"Partilhar ficheiro?"</string>
     <string name="system_trace_sensitive_data" msgid="3069389866696009549">"Os ficheiros de rastreio do sistema podem incluir dados confidenciais do sistema e de aplicações (por exemplo, a utilização de aplicações). Partilhe os rastreios do sistema apenas com pessoas e aplicações de confiança."</string>
     <string name="share" msgid="8443979083706282338">"Partilhar"</string>
     <string name="dont_show_again" msgid="6662492041164390600">"Não mostrar de novo"</string>
-    <string name="use_perfetto_beta" msgid="2725630143916520160">"Utilizar o Perfetto (beta)"</string>
     <string name="long_traces" msgid="5110949471775966329">"Rastreios longos"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Guardado continuamente no armazenamento do dispositivo"</string>
     <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Guardados de forma contínua no armazenamento do dispositivo (não serão anexados automaticamente aos relatórios de erros)"</string>
@@ -58,9 +64,12 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16 384 kB"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32768 kB"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65 536 kB"</string>
-    <string name="stop_on_bugreport" msgid="2045328149107284734">"Parar de rastrear para relatórios de erros"</string>
-    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"Termina as gravações de rastreios ativas quando é iniciado um relatório de erro."</string>
-    <string name="attach_to_bug_report" msgid="2953745117960948415">"Anexar rastreios a relatórios de erros"</string>
-    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"Envie automaticamente rastreios em curso para o BetterBug quando é recolhido um relatório de erro."</string>
-    <string name="link_to_traces" msgid="6569969595898995517">"Ver ficheiros de rastreio"</string>
+    <string name="stop_on_bugreport" msgid="4591832600597126422">"Pare a gravação de relatórios de erros"</string>
+    <string name="stop_on_bugreport_summary" msgid="1601834864982891381">"Termina as gravações ativas quando é iniciado um relatório de erro"</string>
+    <string name="attach_to_bug_report" msgid="5388986830016247490">"Anexe gravações aos relatórios de erros"</string>
+    <string name="attach_to_bug_report_summary" msgid="4213730623971240002">"Envie automaticamente gravações em curso para o BetterBug quando é recolhido um relatório de erro"</string>
+    <string name="link_to_traces" msgid="1404687523304348490">"Veja ficheiros guardados"</string>
+    <string name="pref_category_trace_settings" msgid="6507535407023329628">"Definições de rastreio"</string>
+    <string name="pref_category_saved_files" msgid="1477491400970413291">"Ficheiros guardados"</string>
+    <string name="pref_category_misc" msgid="6217624054980014683">"Diversos"</string>
 </resources>

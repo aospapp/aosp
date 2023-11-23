@@ -116,6 +116,7 @@ static void bta_hf_client_mgmt_cback(uint32_t code, uint16_t port_handle) {
       if (client_cb == NULL) {
         APPL_TRACE_ERROR("%s: error allocating a new handle", __func__);
         p_buf->hdr.event = BTA_HF_CLIENT_RFC_CLOSE_EVT;
+        RFCOMM_RemoveConnection(port_handle);
       } else {
         // Set the connection fields for this new CB
         client_cb->conn_handle = port_handle;

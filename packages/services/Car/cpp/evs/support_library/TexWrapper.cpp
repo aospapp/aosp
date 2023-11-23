@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #include "TexWrapper.h"
-#include "glError.h"
 
+#include "glError.h"
 #include "log/log.h"
 
 #include <fcntl.h>
@@ -36,20 +36,18 @@ TexWrapper::TexWrapper() {
     } else {
         // Store the basic texture properties
         id = textureId;
-        w  = 0;
-        h  = 0;
+        w = 0;
+        h = 0;
     }
 }
-
 
 /* Wrap a texture that already allocated.  The wrapper takes ownership. */
 TexWrapper::TexWrapper(GLuint textureId, unsigned width, unsigned height) {
     // Store the basic texture properties
     id = textureId;
-    w  = width;
-    h  = height;
+    w = width;
+    h = height;
 }
-
 
 TexWrapper::~TexWrapper() {
     // Give the texture ID back
@@ -59,14 +57,11 @@ TexWrapper::~TexWrapper() {
     id = -1;
 }
 
-
 /* Factory to build TexWrapper objects from a given PNG file */
-TexWrapper* createTextureFromPng(const char * filename)
-{
+TexWrapper* createTextureFromPng(const char* filename) {
     // Open the PNG file
-    FILE *inputFile = fopen(filename, "rb");
-    if (inputFile == 0)
-    {
+    FILE* inputFile = fopen(filename, "rb");
+    if (inputFile == 0) {
         perror(filename);
         return nullptr;
     }
@@ -83,8 +78,7 @@ TexWrapper* createTextureFromPng(const char * filename)
 
     // Set up our control structure
     png_structp pngControl = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-    if (!pngControl)
-    {
+    if (!pngControl) {
         printf("png_create_read_struct failed.\n");
         fclose(inputFile);
         return nullptr;
@@ -92,8 +86,7 @@ TexWrapper* createTextureFromPng(const char * filename)
 
     // Set up our image info structure
     png_infop pngInfo = png_create_info_struct(pngControl);
-    if (!pngInfo)
-    {
+    if (!pngInfo) {
         printf("error: png_create_info_struct returned 0.\n");
         png_destroy_read_struct(&pngControl, nullptr, nullptr);
         fclose(inputFile);
@@ -118,14 +111,10 @@ TexWrapper* createTextureFromPng(const char * filename)
     int colorFormat;
     png_uint_32 width;
     png_uint_32 height;
-    png_get_IHDR(pngControl, pngInfo,
-                 &width, &height,
-                 &bitDepth, &colorFormat,
-                 NULL, NULL, NULL);
+    png_get_IHDR(pngControl, pngInfo, &width, &height, &bitDepth, &colorFormat, NULL, NULL, NULL);
 
     GLint format;
-    switch(colorFormat)
-    {
+    switch (colorFormat) {
         case PNG_COLOR_TYPE_RGB:
             format = GL_RGB;
             break;
@@ -140,12 +129,11 @@ TexWrapper* createTextureFromPng(const char * filename)
     // Refresh the values in the png info struct in case any transformation shave been applied.
     png_read_update_info(pngControl, pngInfo);
     int stride = png_get_rowbytes(pngControl, pngInfo);
-    stride += 3 - ((stride-1) % 4);   // glTexImage2d requires rows to be 4-byte aligned
+    stride += 3 - ((stride - 1) % 4);  // glTexImage2d requires rows to be 4-byte aligned
 
     // Allocate storage for the pixel data
-    png_byte * buffer = (png_byte*)malloc(stride * height);
-    if (buffer == NULL)
-    {
+    png_byte* buffer = (png_byte*)malloc(stride * height);
+    if (buffer == NULL) {
         printf("error: could not allocate memory for PNG image data\n");
         png_destroy_read_struct(&pngControl, &pngInfo, nullptr);
         fclose(inputFile);
@@ -153,25 +141,21 @@ TexWrapper* createTextureFromPng(const char * filename)
     }
 
     // libpng needs an array of pointers into the image data for each row
-    png_byte ** rowPointers = (png_byte**)malloc(height * sizeof(png_byte*));
-    if (rowPointers == NULL)
-    {
+    png_byte** rowPointers = (png_byte**)malloc(height * sizeof(png_byte*));
+    if (rowPointers == NULL) {
         printf("Failed to allocate temporary row pointers\n");
         png_destroy_read_struct(&pngControl, &pngInfo, nullptr);
         free(buffer);
         fclose(inputFile);
         return nullptr;
     }
-    for (unsigned int r = 0; r < height; r++)
-    {
-        rowPointers[r] = buffer + r*stride;
+    for (unsigned int r = 0; r < height; r++) {
+        rowPointers[r] = buffer + r * stride;
     }
-
 
     // Read in the actual image bytes
     png_read_image(pngControl, rowPointers);
     png_read_end(pngControl, nullptr);
-
 
     // Set up the OpenGL texture to contain this image
     GLuint textureId;
@@ -195,7 +179,6 @@ TexWrapper* createTextureFromPng(const char * filename)
     fclose(inputFile);
 
     glBindTexture(GL_TEXTURE_2D, 0);
-
 
     // Return the texture
     return new TexWrapper(textureId, width, height);

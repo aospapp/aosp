@@ -61,6 +61,7 @@
  * filter_palm - driver supports disabling underlying palm rejection
  * num_sensitivity_settings - number of sensitivity options provided
  * auto_reporting - report heatmap when screen is not touched
+ * coord_filter - driver supports disabling underlying coordinate filter
  */
 struct TouchOffloadCaps {
 	/* Version info */
@@ -95,7 +96,8 @@ struct TouchOffloadCaps {
 	__u8 filter_palm;
 	__u8 num_sensitivity_settings;
 	__u8 auto_reporting;
-	__u8 reserved4[32];
+	__u8 coord_filter;
+	__u8 reserved4[31];
 } __attribute__((packed));
 
 /* TouchOffloadConfig
@@ -107,6 +109,7 @@ struct TouchOffloadCaps {
  * filter_palm - enable underlying palm rejection
  * sensitivity_setting - selected sensitivity
  * auto_reporting - enable reporting when screen is not touched
+ * coord_filter - enable underlying coordinate filter
  * read_coords - allocate a channel to coordinate data
  * mutual_data_types - bitfield of mutual data types to collect
  * self_data_types - bitfield of self data types to collect
@@ -122,7 +125,8 @@ struct TouchOffloadConfig {
 	__u8 filter_palm;
 	__u8 sensitivity_setting;
 	__u8 auto_reporting;
-	__u8 reserved1[16];
+	__u8 coord_filter;
+	__u8 reserved1[15];
 
 	/* Data to read */
 	__u8 read_coords;

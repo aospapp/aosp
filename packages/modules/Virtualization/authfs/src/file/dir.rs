@@ -28,7 +28,7 @@ use super::{validate_basename, VirtFdService, VirtFdServiceStatus};
 use crate::fsverity::VerifiedFileEditor;
 use crate::fusefs::{AuthFsDirEntry, Inode};
 
-const MAX_ENTRIES: u16 = 100; // Arbitrary limit
+const MAX_ENTRIES: u16 = 1000; // Arbitrary limit
 
 struct InodeInfo {
     inode: Inode,

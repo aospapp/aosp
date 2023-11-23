@@ -16,7 +16,7 @@
 
 from acts import asserts
 from acts import utils
-from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
+from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
 
 AP_ROLE = 'Ap'
@@ -29,8 +29,9 @@ TEST_MAC_ADDR = '12:34:56:78:9a:bc'
 TEST_MAC_ADDR_SECONDARY = 'bc:9a:78:56:34:12'
 
 
-class WlanDeprecatedConfigurationTest(AbstractDeviceWlanDeviceBaseTest):
+class WlanDeprecatedConfigurationTest(WifiBaseTest):
     """Tests for WlanDeprecatedConfigurationFacade"""
+
     def setup_class(self):
         super().setup_class()
         self.dut = create_wlan_device(self.fuchsia_devices[0])
@@ -51,21 +52,27 @@ class WlanDeprecatedConfigurationTest(AbstractDeviceWlanDeviceBaseTest):
             ConnectionError, if SL4F calls fail
             AttributeError, if no interface has role 'Ap'
         """
-        wlan_ifaces = self.dut.device.wlan_lib.wlanGetIfaceIdList()
+        wlan_ifaces = self.dut.device.sl4f.wlan_lib.wlanGetIfaceIdList()
         if wlan_ifaces.get('error'):
             raise ConnectionError('Failed to get wlan interface IDs: %s' %
                                   wlan_ifaces['error'])
 
         for wlan_iface in wlan_ifaces['result']:
-            iface_info = self.dut.device.wlan_lib.wlanQueryInterface(
+            iface_info = self.dut.device.sl4f.wlan_lib.wlanQueryInterface(
                 wlan_iface)
             if iface_info.get('error'):
                 raise ConnectionError('Failed to query wlan iface: %s' %
                                       iface_info['error'])
 
             if iface_info['result']['role'] == AP_ROLE:
-                return utils.mac_address_list_to_str(
-                    iface_info['result']['mac_addr'])
+                if 'mac_addr' in iface_info['result']:
+                    return utils.mac_address_list_to_str(
+                            iface_info['result']['mac_addr'])
+                elif 'sta_addr' in iface_info['result']:
+                    return utils.mac_address_list_to_str(
+                            iface_info['result']['sta_addr'])
+                raise AttributeError(
+                    'AP iface info does not contain MAC address.')
         raise AttributeError(
             'Failed to get ap interface mac address. No AP interface found.')
 
@@ -77,7 +84,7 @@ class WlanDeprecatedConfigurationTest(AbstractDeviceWlanDeviceBaseTest):
         """
         self.log.info('Starting SoftAP on Fuchsia device (%s).' %
                       self.dut.device.ip)
-        response = self.dut.device.wlan_ap_policy_lib.wlanStartAccessPoint(
+        response = self.dut.device.sl4f.wlan_ap_policy_lib.wlanStartAccessPoint(
             DEFAULT_SSID, DEFAULT_SECURITY, DEFAULT_PASSWORD,
             DEFAULT_CONNECTIVITY_MODE, DEFAULT_OPERATING_BAND)
         if response.get('error'):
@@ -91,7 +98,8 @@ class WlanDeprecatedConfigurationTest(AbstractDeviceWlanDeviceBaseTest):
             ConnectionError, if SL4F call fails.
         """
         self.log.info('Stopping SoftAP.')
-        response = self.dut.device.wlan_ap_policy_lib.wlanStopAllAccessPoint()
+        response = self.dut.device.sl4f.wlan_ap_policy_lib.wlanStopAllAccessPoint(
+        )
         if response.get('error'):
             raise ConnectionError('Failed to stop SoftAP: %s' %
                                   response['error'])
@@ -107,7 +115,7 @@ class WlanDeprecatedConfigurationTest(AbstractDeviceWlanDeviceBaseTest):
         self.log.info(
             'Suggesting AP mac addr (%s) via wlan_deprecated_configuration_lib.'
             % mac_addr)
-        response = (self.dut.device.wlan_deprecated_configuration_lib.
+        response = (self.dut.device.sl4f.wlan_deprecated_configuration_lib.
                     wlanSuggestAccessPointMacAddress(mac_addr))
         if response.get('error'):
             asserts.fail('Failed to suggest AP mac address (%s): %s' %

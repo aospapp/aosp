@@ -27,6 +27,7 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
+        "automotive-general-tests",
     ],
     static_libs: [
         "compatibility-device-util-axt",
@@ -37,4 +38,6 @@ android_test_helper_app {
         "android.test.base",
         "android.car-test-stubs",
     ],
+    min_sdk_version: "33", //CTS tests needs to run upto N-2 version to support mainline
+    target_sdk_version: "34",
 }

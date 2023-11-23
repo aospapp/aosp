@@ -1,8 +1,10 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import os
+import shutil
 import time
 
 from autotest_lib.client.bin import test, utils
@@ -17,6 +19,7 @@ class power_VideoDetector(test.test):
     """
 
     version = 1
+    tmp_path = '/tmp'
 
     def run_once(self, run_time_sec=60):
         """
@@ -24,6 +27,14 @@ class power_VideoDetector(test.test):
         """
         if run_time_sec < 30:
             raise error.TestError('Must run for at least 30 seconds')
+
+
+        # https://crbug.com/1288417, b/215442780
+        # Copy file to tmpdir to avoid the need of setting up local http server.
+        file_path = os.path.join(self.bindir, 'fade.html')
+        self.dest_path = os.path.join(self.tmp_path, 'fade.html')
+        shutil.copy(file_path, self.dest_path)
+        http_path = 'file://' + self.dest_path
 
         with chrome.Chrome(init_network_controller=True) as cr:
             # Start powerd if not started.  Set timeouts for quick idle events.
@@ -49,11 +60,10 @@ class power_VideoDetector(test.test):
                 utils.wait_for_value(backlight.get_max_level)
 
             # Open a tab to play video.
-            cr.browser.platform.SetHTTPServerDirectories(self.bindir)
             tab = cr.browser.tabs[0]
-            tab.Navigate(cr.browser.platform.http_server.UrlOf(
-                os.path.join(self.bindir, 'fade.html')))
+            tab.Navigate(http_path)
             tab.WaitForDocumentReadyStateToBeComplete()
+
 
             # Sleep until the runtime is up.
             time.sleep(run_time_sec)
@@ -79,4 +89,6 @@ class power_VideoDetector(test.test):
         """
         Cleanup powerd after test.
         """
+        if hasattr(self, 'dest_path'):
+            os.remove(self.dest_path)
         upstart.restart_job('powerd')

@@ -27,6 +27,7 @@ const char *update_error_str[] = {
 	"checksum does not match image",				// UPDATE_FAIL_VERIFY_CHECKSUM
 	"image firmware size does not match device",			// UPDATE_FAIL_VERIFY_FIRMWARE_SIZE
 	"image config size does not match device",			// UPDATE_FAIL_VERIFY_CONFIG_SIZE
+	"image product ID does not match device",			// UPDATE_FAIL_VERIFY_IMAGE_PRODUCTID_NOT_MATCH
 	"image version is unsupported",					// UPDATE_FAIL_UNSUPPORTED_IMAGE_VERSION
 	"failed to find F01 on device",					// UPDATE_FAIL_NO_FUNCTION_01
 	"failed to find F34 on device",					// UPDATE_FAIL_NO_FUNCTION_34
@@ -51,6 +52,7 @@ const char *update_error_str[] = {
 	"the firmware image is older then the firmware on the device",	// UPDATE_FAIL_FIRMWARE_IMAGE_IS_OLDER
 	"invalid parameter",						// UPDATE_FAIL_INVALID_PARAMETER
 	"failed to open firmware image file",				// UPDATE_FAIL_OPEN_FIRMWARE_IMAGE
+	"write protection is activated",			// UPDATE_FAIL_WRITE_PROTECTED
 };
 
 const char * update_err_to_string(int err)

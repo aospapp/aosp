@@ -159,6 +159,7 @@ public class ActivityRecordInputSinkTests extends ActivityManagerTestBase {
 
     private void launchActivityInSameTask(ComponentName componentName, @Nullable Bundle extras) {
         Intent intent = new Intent(ActivityRecordInputSinkTestsActivity.LAUNCH_ACTIVITY_ACTION);
+        intent.setPackage(APP_SELF);
         intent.putExtra(ActivityRecordInputSinkTestsActivity.COMPONENT_EXTRA, componentName);
         intent.putExtra(ActivityRecordInputSinkTestsActivity.EXTRA_EXTRA, extras);
         mContext.sendBroadcast(intent);

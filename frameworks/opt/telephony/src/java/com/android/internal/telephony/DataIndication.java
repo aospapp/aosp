@@ -16,6 +16,8 @@
 
 package com.android.internal.telephony;
 
+import static android.telephony.TelephonyManager.HAL_SERVICE_DATA;
+
 import static com.android.internal.telephony.RILConstants.RIL_UNSOL_DATA_CALL_LIST_CHANGED;
 import static com.android.internal.telephony.RILConstants.RIL_UNSOL_KEEPALIVE_STATUS;
 import static com.android.internal.telephony.RILConstants.RIL_UNSOL_PCO_DATA;
@@ -53,9 +55,9 @@ public class DataIndication extends IRadioDataIndication.Stub {
      */
     public void dataCallListChanged(int indicationType,
             android.hardware.radio.data.SetupDataCallResult[] dcList) {
-        mRil.processIndication(RIL.DATA_SERVICE, indicationType);
+        mRil.processIndication(HAL_SERVICE_DATA, indicationType);
 
-        if (RIL.RILJ_LOGD) mRil.unsljLogRet(RIL_UNSOL_DATA_CALL_LIST_CHANGED, dcList);
+        if (mRil.isLogOrTrace()) mRil.unsljLogRet(RIL_UNSOL_DATA_CALL_LIST_CHANGED, dcList);
         ArrayList<DataCallResponse> response = RILUtils.convertHalDataCallResultList(dcList);
         mRil.mDataCallListChangedRegistrants.notifyRegistrants(
                 new AsyncResult(null, response, null));
@@ -68,11 +70,12 @@ public class DataIndication extends IRadioDataIndication.Stub {
      */
     public void keepaliveStatus(int indicationType,
             android.hardware.radio.data.KeepaliveStatus halStatus) {
-        mRil.processIndication(RIL.DATA_SERVICE, indicationType);
+        mRil.processIndication(HAL_SERVICE_DATA, indicationType);
 
-        if (RIL.RILJ_LOGD) {
-            mRil.unsljLogRet(RIL_UNSOL_KEEPALIVE_STATUS, "handle=" + halStatus.sessionHandle
-                    + " code=" +  halStatus.code);
+        if (mRil.isLogOrTrace()) {
+            mRil.unsljLogRet(
+                    RIL_UNSOL_KEEPALIVE_STATUS,
+                    "handle=" + halStatus.sessionHandle + " code=" + halStatus.code);
         }
 
         KeepaliveStatus ks = new KeepaliveStatus(
@@ -86,11 +89,11 @@ public class DataIndication extends IRadioDataIndication.Stub {
      * @param pco New PcoData
      */
     public void pcoData(int indicationType, android.hardware.radio.data.PcoDataInfo pco) {
-        mRil.processIndication(RIL.DATA_SERVICE, indicationType);
+        mRil.processIndication(HAL_SERVICE_DATA, indicationType);
 
         PcoData response = new PcoData(pco.cid, pco.bearerProto, pco.pcoId, pco.contents);
 
-        if (RIL.RILJ_LOGD) mRil.unsljLogRet(RIL_UNSOL_PCO_DATA, response);
+        if (mRil.isLogOrTrace()) mRil.unsljLogRet(RIL_UNSOL_PCO_DATA, response);
 
         mRil.mPcoDataRegistrants.notifyRegistrants(new AsyncResult(null, response, null));
     }
@@ -103,10 +106,10 @@ public class DataIndication extends IRadioDataIndication.Stub {
      */
     public void unthrottleApn(int indicationType, android.hardware.radio.data.DataProfileInfo dpi)
             throws RemoteException {
-        mRil.processIndication(RIL.DATA_SERVICE, indicationType);
+        mRil.processIndication(HAL_SERVICE_DATA, indicationType);
         DataProfile response = RILUtils.convertToDataProfile(dpi);
 
-        if (RIL.RILJ_LOGD) mRil.unsljLogRet(RIL_UNSOL_UNTHROTTLE_APN, response);
+        if (mRil.isLogOrTrace()) mRil.unsljLogRet(RIL_UNSOL_UNTHROTTLE_APN, response);
 
         mRil.mApnUnthrottledRegistrants.notifyRegistrants(new AsyncResult(null, response, null));
     }
@@ -119,8 +122,10 @@ public class DataIndication extends IRadioDataIndication.Stub {
      */
     public void slicingConfigChanged(int indicationType,
             android.hardware.radio.data.SlicingConfig slicingConfig) throws RemoteException {
-        mRil.processIndication(RIL.DATA_SERVICE, indicationType);
-        if (RIL.RILJ_LOGD) mRil.unsljLogRet(RIL_UNSOL_SLICING_CONFIG_CHANGED, slicingConfig);
+        mRil.processIndication(HAL_SERVICE_DATA, indicationType);
+        if (mRil.isLogOrTrace()) {
+            mRil.unsljLogRet(RIL_UNSOL_SLICING_CONFIG_CHANGED, slicingConfig);
+        }
         NetworkSlicingConfig ret = RILUtils.convertHalSlicingConfig(slicingConfig);
         mRil.mSlicingConfigChangedRegistrants.notifyRegistrants(
                 new AsyncResult(null, ret, null));

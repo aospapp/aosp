@@ -2,6 +2,7 @@
     clippy::cast_sign_loss,
     clippy::cognitive_complexity,
     clippy::default_trait_access,
+    clippy::derive_partial_eq_without_eq,
     clippy::enum_glob_use,
     clippy::if_same_then_else,
     clippy::inherent_to_string,
@@ -29,14 +30,17 @@
 )]
 
 mod app;
+mod cfg;
 mod gen;
 mod output;
 mod syntax;
 
+use crate::cfg::{CfgValue, FlagsCfgEvaluator};
 use crate::gen::error::{report, Result};
 use crate::gen::fs;
 use crate::gen::include::{self, Include};
 use crate::output::Output;
+use std::collections::{BTreeMap as Map, BTreeSet as Set};
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process;
@@ -48,6 +52,7 @@ struct Opt {
     cxx_impl_annotations: Option<String>,
     include: Vec<Include>,
     outputs: Vec<Output>,
+    cfg: Map<String, Set<CfgValue>>,
 }
 
 fn main() {
@@ -91,6 +96,7 @@ fn try_main() -> Result<()> {
         cxx_impl_annotations: opt.cxx_impl_annotations,
         gen_header,
         gen_implementation,
+        cfg_evaluator: Box::new(FlagsCfgEvaluator::new(opt.cfg)),
         ..Default::default()
     };
 

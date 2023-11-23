@@ -54,8 +54,6 @@ public class PbapParserTest {
     @Before
     public void setUp() {
         mTargetContext = InstrumentationRegistry.getTargetContext();
-        Assume.assumeTrue("Ignore test when PbapClientService is not enabled",
-                PbapClientService.isEnabled());
         mAccount = new Account(TEST_ACCOUNT_NAME,
                 mTargetContext.getString(com.android.bluetooth.R.string.pbap_account_type));
         mTestResources = TestUtils.getTestApplicationResources(mTargetContext);

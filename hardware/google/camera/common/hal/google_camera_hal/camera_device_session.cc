@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
+// #define LOG_NDEBUG 0
 #define LOG_TAG "GCH_CameraDeviceSession"
 #define ATRACE_TAG ATRACE_TAG_CAMERA
 #include "camera_device_session.h"
@@ -1858,9 +1858,9 @@ status_t CameraDeviceSession::RequestStreamBuffers(
       ALOGI("%s: stream %d, buffer request error %d", __FUNCTION__,
             buffer_return.stream_id, buffer_return.val.error);
     }
-
     pending_requests_tracker_->TrackBufferAcquisitionFailure(stream_id,
                                                              num_buffers);
+    pending_requests_tracker_->DumpStatus();
     // TODO(b/129362905): Return partial buffers.
     return UNKNOWN_ERROR;
   }

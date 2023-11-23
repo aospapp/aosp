@@ -1,11 +1,11 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Clean Staged Images.
 
-This script is responsible for removing older builds from the Chrome OS
+This script is responsible for removing older builds from the ChromeOS
 devserver. It walks through the files in the images folder, check each found
 staged.timestamp and do following.
 1. Check if the build target is in the list of targets that need to keep the

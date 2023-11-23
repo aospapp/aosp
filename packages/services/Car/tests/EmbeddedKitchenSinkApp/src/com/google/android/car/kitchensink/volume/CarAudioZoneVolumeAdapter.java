@@ -56,6 +56,10 @@ public final class CarAudioZoneVolumeAdapter extends ArrayAdapter<CarAudioZoneVo
             vh.id = convertView.findViewById(R.id.stream_id);
             vh.maxVolume = convertView.findViewById(R.id.volume_limit);
             vh.currentVolume = convertView.findViewById(R.id.current_volume);
+            vh.isMuted = convertView.findViewById(R.id.is_muted);
+            vh.isBlocked = convertView.findViewById(R.id.is_blocked);
+            vh.isAttenuated = convertView.findViewById(R.id.is_attenuated);
+            vh.isHalMuted = convertView.findViewById(R.id.is_hal_muted);
             vh.muteButton = convertView.findViewById(R.id.volume_mute);
             vh.upButton = convertView.findViewById(R.id.volume_up);
             vh.downButton = convertView.findViewById(R.id.volume_down);
@@ -71,12 +75,20 @@ public final class CarAudioZoneVolumeAdapter extends ArrayAdapter<CarAudioZoneVo
             vh.requestButton.setBackgroundColor(color);
             if (position == 0) {
                 vh.maxVolume.setText("Max");
+                vh.isMuted.setText(String.valueOf("Muted?"));
+                vh.isAttenuated.setText(String.valueOf("Attenuated?"));
+                vh.isBlocked.setText(String.valueOf("Blocked?"));
+                vh.isHalMuted.setText(String.valueOf("Hal Muted?"));
                 vh.upButton.setVisibility(View.INVISIBLE);
                 vh.downButton.setVisibility(View.INVISIBLE);
                 vh.requestButton.setVisibility(View.INVISIBLE);
                 vh.muteButton.setVisibility(View.INVISIBLE);
             } else {
                 vh.maxVolume.setText(String.valueOf(mVolumeList[position].maxGain));
+                vh.isMuted.setText(String.valueOf(mVolumeList[position].isMuted));
+                vh.isAttenuated.setText(String.valueOf(mVolumeList[position].isAttenuated));
+                vh.isBlocked.setText(String.valueOf(mVolumeList[position].isBlocked));
+                vh.isHalMuted.setText(String.valueOf(mVolumeList[position].isHalMuted));
                 vh.upButton.setVisibility(View.VISIBLE);
                 vh.downButton.setVisibility(View.VISIBLE);
                 vh.requestButton.setVisibility(View.VISIBLE);
@@ -114,6 +126,10 @@ public final class CarAudioZoneVolumeAdapter extends ArrayAdapter<CarAudioZoneVo
         public TextView id;
         public TextView maxVolume;
         public TextView currentVolume;
+        public TextView isMuted;
+        public TextView isBlocked;
+        public TextView isAttenuated;
+        public TextView isHalMuted;
         public ToggleButton muteButton;
         public Button upButton;
         public Button downButton;

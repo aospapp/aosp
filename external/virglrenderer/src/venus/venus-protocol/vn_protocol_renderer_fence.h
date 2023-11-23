@@ -14,6 +14,13 @@
 #pragma GCC diagnostic ignored "-Wpointer-arith"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 
+/*
+ * These structs/unions/commands are not included
+ *
+ *   vkGetFenceFdKHR
+ *   vkImportFenceFdKHR
+ */
+
 /* struct VkExportFenceCreateInfo chain */
 
 static inline void *
@@ -324,6 +331,26 @@ static inline void vn_encode_vkWaitForFences_reply(struct vn_cs_encoder *enc, co
     /* skip args->timeout */
 }
 
+static inline void vn_decode_vkResetFenceResource100000MESA_args_temp(struct vn_cs_decoder *dec, struct vn_command_vkResetFenceResource100000MESA *args)
+{
+    vn_decode_VkDevice_lookup(dec, &args->device);
+    vn_decode_VkFence_lookup(dec, &args->fence);
+}
+
+static inline void vn_replace_vkResetFenceResource100000MESA_args_handle(struct vn_command_vkResetFenceResource100000MESA *args)
+{
+    vn_replace_VkDevice_handle(&args->device);
+    vn_replace_VkFence_handle(&args->fence);
+}
+
+static inline void vn_encode_vkResetFenceResource100000MESA_reply(struct vn_cs_encoder *enc, const struct vn_command_vkResetFenceResource100000MESA *args)
+{
+    vn_encode_VkCommandTypeEXT(enc, &(VkCommandTypeEXT){VK_COMMAND_TYPE_vkResetFenceResource100000MESA_EXT});
+
+    /* skip args->device */
+    /* skip args->fence */
+}
+
 static inline void vn_dispatch_vkCreateFence(struct vn_dispatch_context *ctx, VkCommandFlagsEXT flags)
 {
     struct vn_command_vkCreateFence args;
@@ -461,6 +488,31 @@ static inline void vn_dispatch_vkWaitForFences(struct vn_dispatch_context *ctx, 
 
     if (!vn_cs_decoder_get_fatal(ctx->decoder) && (flags & VK_COMMAND_GENERATE_REPLY_BIT_EXT))
        vn_encode_vkWaitForFences_reply(ctx->encoder, &args);
+
+    vn_cs_decoder_reset_temp_pool(ctx->decoder);
+}
+
+static inline void vn_dispatch_vkResetFenceResource100000MESA(struct vn_dispatch_context *ctx, VkCommandFlagsEXT flags)
+{
+    struct vn_command_vkResetFenceResource100000MESA args;
+
+    if (!ctx->dispatch_vkResetFenceResource100000MESA) {
+        vn_cs_decoder_set_fatal(ctx->decoder);
+        return;
+    }
+
+    vn_decode_vkResetFenceResource100000MESA_args_temp(ctx->decoder, &args);
+    if (!args.device) {
+        vn_cs_decoder_set_fatal(ctx->decoder);
+        return;
+    }
+
+    if (!vn_cs_decoder_get_fatal(ctx->decoder))
+        ctx->dispatch_vkResetFenceResource100000MESA(ctx, &args);
+
+
+    if (!vn_cs_decoder_get_fatal(ctx->decoder) && (flags & VK_COMMAND_GENERATE_REPLY_BIT_EXT))
+       vn_encode_vkResetFenceResource100000MESA_reply(ctx->encoder, &args);
 
     vn_cs_decoder_reset_temp_pool(ctx->decoder);
 }

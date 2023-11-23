@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"ອຸປະກອນທີ່ບໍ່ຮູ້ຈັກ"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"ບໍ່ຮູ້ຈັກ"</string>
+    <string name="not_provided" msgid="6938740494380012614">"ບໍ່ໄດ້ລະບຸ"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"ໂໝດຢູ່ເທິງຍົນ"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"ທ່ານບໍ່ສາມາດໃຊ້ Bluetooth ໃນໂໝດຢູ່ເທິງຍົນໄດ້."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -31,7 +32,7 @@
     <string name="bt_enable_cancel" msgid="6770180540581977614">"ຍົກເລີກ"</string>
     <string name="bt_enable_ok" msgid="4224374055813566166">"ເປີດ"</string>
     <string name="incoming_file_confirm_title" msgid="938251186275547290">"ການໂອນໄຟລ໌"</string>
-    <string name="incoming_file_confirm_content" msgid="6573502088511901157">"ຮັບເອົາ​ໄຟລ໌​ທີ່​ເຂົາ​ມາ​ບໍ?"</string>
+    <string name="incoming_file_confirm_content" msgid="6573502088511901157">"ຮັບເອົາໄຟລ໌ທີ່ເຂົ້າມາບໍ?"</string>
     <string name="incoming_file_confirm_cancel" msgid="9205906062663982692">"ປະຕິເສດ"</string>
     <string name="incoming_file_confirm_ok" msgid="5046926299036238623">"ຮັບເອົາ"</string>
     <string name="incoming_file_confirm_timeout_ok" msgid="8612187577686515660">"ຕົກລົງ"</string>
@@ -107,8 +108,8 @@
     <string name="outbound_history_title" msgid="7614166584551065036">"ການໂອນອອກ"</string>
     <string name="no_transfers" msgid="740521199933899821">"ປະຫວັດການໂອນຫວ່າງເປົ່າ."</string>
     <string name="transfer_clear_dlg_msg" msgid="586117930961007311">"ລາຍການທັງໝົດຈະຖືກລຶບອອກຈາກລາຍການດັ່ງກ່າວ."</string>
-    <string name="outbound_noti_title" msgid="2045560896819618979">"ແບ່ງປັນໃນ Bluetooth: ໄຟລ໌ສົ່ງແລ້ວ"</string>
-    <string name="inbound_noti_title" msgid="3730993443609581977">"ແບ່ງປັນໃນ Bluetooth: ໄຟລ໌ໄດ້ຮັບແລ້ວ"</string>
+    <string name="outbound_noti_title" msgid="2045560896819618979">"ແບ່ງປັນໃນ Bluetooth: ສົ່ງໄຟລ໌ແລ້ວ"</string>
+    <string name="inbound_noti_title" msgid="3730993443609581977">"ແບ່ງປັນໃນ Bluetooth: ໄດ້ຮັບໄຟລ໌ແລ້ວ"</string>
     <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{# ບໍ່ສຳເລັດ.}other{# ບໍ່ສຳເລັດ.}}"</string>
     <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{# ສຳເລັດ, %1$s}other{# ສຳເລັດ, %1$s}}"</string>
     <string name="transfer_menu_clear_all" msgid="3014459758656427076">"ລຶບລາຍການ"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"ສຽງ Bluetooth"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"ບໍ່ສາມາດໂອນຍ້າຍໄຟລ໌ທີ່ໃຫຍກວ່າ 4GB ໄດ້"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"ເຊື່ອມຕໍ່ກັບ Bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"ເປີດ Bluetooth ໃນໂໝດຢູ່ໃນຍົນ"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"ຫາກທ່ານເປີດ Bluetooth ປະໄວ້, ອຸປະກອນຂອງທ່ານຈະຈື່ວ່າຕ້ອງເປີດມັນໃນເທື່ອຕໍ່ໄປທີ່ທ່ານຢູ່ໃນໂໝດຢູ່ໃນຍົນ"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth ເປີດຢູ່"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"ອຸປະກອນຂອງທ່ານຈື່ວ່າຈະຕ້ອງເປີດ Bluetooth ປະໄວ້ໃນໂໝດຢູ່ໃນຍົນ. ປິດ Bluetooth ຫາກທ່ານບໍ່ຕ້ອງການໃຫ້ເປີດປະໄວ້."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi ແລະ Bluetooth ຈະເປີດປະໄວ້"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"ອຸປະກອນຂອງທ່ານຈື່ວ່າຈະຕ້ອງເປີດ Wi-Fi ແລະ Bluetooth ປະໄວ້ໃນໂໝດຢູ່ໃນຍົນ. ປິດ Wi-Fi ແລະ Bluetooth ຫາກທ່ານບໍ່ຕ້ອງການໃຫ້ເປີດປະໄວ້."</string>
 </resources>

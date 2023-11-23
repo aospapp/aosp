@@ -15,7 +15,6 @@ cc_test {
     name: "libgui_test",
     test_suites: ["device-tests"],
 
-    clang: true,
     cflags: [
         "-Wall",
         "-Werror",
@@ -25,6 +24,7 @@ cc_test {
         "BLASTBufferQueue_test.cpp",
         "BufferItemConsumer_test.cpp",
         "BufferQueue_test.cpp",
+        "CompositorTiming_test.cpp",
         "CpuConsumer_test.cpp",
         "EndToEndNativeInputTest.cpp",
         "DisplayInfo_test.cpp",
@@ -75,7 +75,6 @@ cc_test {
     name: "libgui_multilib_test",
     test_suites: ["device-tests"],
 
-    clang: true,
     cflags: [
         "-Wall",
         "-Werror",
@@ -92,46 +91,14 @@ cc_test {
     compile_multilib: "both",
 
     header_libs: ["libsurfaceflinger_headers"],
-}
-
-// Build a separate binary to $(TARGET_OUT_DATA_NATIVE_TESTS)/$(LOCAL_MODULE)
-// This test has a main method, and requires a separate binary to be built.
-// To add move tests like this, just add additional cc_test statements,
-// as opposed to adding more source files to this one.
-cc_test {
-    name: "SurfaceParcelable_test",
-    test_suites: ["device-tests"],
-
-    clang: true,
-    cflags: [
-        "-Wall",
-        "-Werror",
-    ],
-
-    srcs: [
-        "SurfaceParcelable_test.cpp",
-    ],
-
-    shared_libs: [
-        "liblog",
-        "libbinder",
-        "libcutils",
-        "libgui",
-        "libui",
-        "libutils",
-        "libbufferhubqueue", // TODO(b/70046255): Remove these once BufferHub is integrated into libgui.
-        "libpdx_default_transport",
-    ],
-
-    header_libs: [
-        "libdvr_headers",
+    data: [
+        ":libgui_test",
     ],
 }
 
 cc_test {
     name: "SamplingDemo",
 
-    clang: true,
     cflags: [
         "-Wall",
         "-Werror",

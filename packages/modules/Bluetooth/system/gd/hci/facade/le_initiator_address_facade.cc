@@ -79,7 +79,7 @@ class LeInitiatorAddressFacadeService : public LeInitiatorAddressFacade::Service
       ::grpc::ServerContext* context,
       const ::google::protobuf::Empty* request,
       ::blueberry::facade::BluetoothAddressWithType* response) override {
-    AddressWithType current = address_manager_->GetCurrentAddress();
+    AddressWithType current = address_manager_->GetInitiatorAddress();
     auto bluetooth_address = new ::blueberry::facade::BluetoothAddress();
     bluetooth_address->set_address(current.GetAddress().ToString());
     response->set_type(static_cast<::blueberry::facade::BluetoothAddressTypeEnum>(current.GetAddressType()));
@@ -87,11 +87,11 @@ class LeInitiatorAddressFacadeService : public LeInitiatorAddressFacade::Service
     return ::grpc::Status::OK;
   }
 
-  ::grpc::Status GetAnotherAddress(
+  ::grpc::Status NewResolvableAddress(
       ::grpc::ServerContext* context,
       const ::google::protobuf::Empty* request,
       ::blueberry::facade::BluetoothAddressWithType* response) override {
-    AddressWithType another = address_manager_->GetAnotherAddress();
+    AddressWithType another = address_manager_->NewResolvableAddress();
     auto bluetooth_address = new ::blueberry::facade::BluetoothAddress();
     bluetooth_address->set_address(another.GetAddress().ToString());
     response->set_type(static_cast<::blueberry::facade::BluetoothAddressTypeEnum>(another.GetAddressType()));

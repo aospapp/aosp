@@ -15,9 +15,11 @@
  */
 package com.google.android.enterprise.connectedapps.processor;
 
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.append;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.prepend;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.transformClassName;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.EXCEPTION_CALLBACK_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PROFILE_CLASSNAME;
-import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PROFILE_CONNECTOR_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PROFILE_RUNTIME_EXCEPTION_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.UNAVAILABLE_PROFILE_EXCEPTION_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.GeneratorUtilities.generateMethodReference;
@@ -26,15 +28,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.stream.Collectors.toList;
 
 import com.google.android.enterprise.connectedapps.annotations.CrossProfile;
-import com.google.android.enterprise.connectedapps.annotations.CustomProfileConnector;
-import com.google.android.enterprise.connectedapps.annotations.CustomProfileConnector.ProfileType;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileCallbackInterfaceInfo;
+import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileCallbackParameterInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileMethodInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileTypeInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.GeneratorContext;
-import com.google.common.base.Ascii;
-import com.squareup.javapoet.AnnotationSpec;
-import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
@@ -45,8 +43,6 @@ import com.squareup.javapoet.TypeSpec;
 import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
@@ -70,202 +66,9 @@ final class InterfaceGenerator {
     }
     generated = true;
 
-    generateCrossProfileTypeInterface();
     generateSingleSenderInterface();
     generateSingleSenderCanThrowInterface();
     generateMultipleSenderInterface();
-  }
-
-  private void generateCrossProfileTypeInterface() {
-    ClassName interfaceName =
-        getCrossProfileTypeInterfaceClassName(generatorContext, crossProfileType);
-
-    TypeSpec.Builder interfaceBuilder =
-        TypeSpec.interfaceBuilder(interfaceName)
-            .addJavadoc(
-                "Entry point for cross-profile calls to {@link $T}.\n",
-                crossProfileType.className())
-            .addModifiers(Modifier.PUBLIC);
-
-    ClassName connectorClassName =
-        crossProfileType.profileConnector().isPresent()
-            ? crossProfileType.profileConnector().get().connectorClassName()
-            : PROFILE_CONNECTOR_CLASSNAME;
-
-    interfaceBuilder.addMethod(
-        MethodSpec.methodBuilder("create")
-            .returns(interfaceName)
-            .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-            .addParameter(connectorClassName, "connector")
-            .addStatement(
-                "return new $T(connector)",
-                DefaultProfileClassGenerator.getDefaultProfileClassName(
-                    generatorContext, crossProfileType))
-            .build());
-
-    interfaceBuilder.addMethod(
-        MethodSpec.methodBuilder("current")
-            .addJavadoc("Run a method on the current profile.\n")
-            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-            .returns(getSingleSenderInterfaceClassName(generatorContext, crossProfileType))
-            .build());
-
-    interfaceBuilder.addMethod(
-        MethodSpec.methodBuilder("other")
-            .addJavadoc("Run a method on the other profile, if accessible.\n")
-            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-            .returns(getSingleSenderCanThrowInterfaceClassName(generatorContext, crossProfileType))
-            .build());
-
-    interfaceBuilder.addMethod(
-        MethodSpec.methodBuilder("personal")
-            .addJavadoc("Run a method on the personal profile, if accessible.\n")
-            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-            .returns(getSingleSenderCanThrowInterfaceClassName(generatorContext, crossProfileType))
-            .build());
-
-    interfaceBuilder.addMethod(
-        MethodSpec.methodBuilder("work")
-            .addJavadoc("Run a method on the work profile, if accessible.\n")
-            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-            .returns(getSingleSenderCanThrowInterfaceClassName(generatorContext, crossProfileType))
-            .build());
-
-    interfaceBuilder.addMethod(
-        MethodSpec.methodBuilder("profile")
-            .addJavadoc("Run a method on the given profile, if accessible.\n")
-            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-            .addParameter(PROFILE_CLASSNAME, "profile")
-            .returns(getSingleSenderCanThrowInterfaceClassName(generatorContext, crossProfileType))
-            .build());
-
-    interfaceBuilder.addMethod(
-        MethodSpec.methodBuilder("profiles")
-            .addJavadoc(
-                CodeBlock.builder()
-                    .add("Run a method on the given profiles, if accessible.\n\n")
-                    .add(
-                        "<p>This will deduplicate profiles to ensure that the method is only run"
-                            + " at most once on each profile.\n")
-                    .build())
-            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-            .addParameter(ArrayTypeName.of(PROFILE_CLASSNAME), "profiles")
-            .varargs(true)
-            .returns(getMultipleSenderInterfaceClassName(generatorContext, crossProfileType))
-            .build());
-
-    interfaceBuilder.addMethod(
-        MethodSpec.methodBuilder("both")
-            .addJavadoc("Run a method on both the personal and work profile, if accessible.\n")
-            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-            .returns(getMultipleSenderInterfaceClassName(generatorContext, crossProfileType))
-            .build());
-
-    if (!crossProfileType.profileConnector().isPresent()
-        || crossProfileType.profileConnector().get().primaryProfile() != ProfileType.NONE) {
-      generatePrimarySecondaryMethods(interfaceBuilder);
-    }
-
-    generatorUtilities.writeClassToFile(interfaceName.packageName(), interfaceBuilder);
-  }
-
-  private void generatePrimarySecondaryMethods(TypeSpec.Builder interfaceBuilder) {
-    generatePrimaryMethod(interfaceBuilder);
-    generateSecondaryMethod(interfaceBuilder);
-    generateSuppliersMethod(interfaceBuilder);
-  }
-
-  private void generatePrimaryMethod(TypeSpec.Builder interfaceBuilder) {
-    MethodSpec.Builder methodBuilder =
-        MethodSpec.methodBuilder("primary")
-            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-            .returns(getSingleSenderCanThrowInterfaceClassName(generatorContext, crossProfileType));
-
-    if (crossProfileType.profileConnector().isPresent()) {
-      methodBuilder.addJavadoc(
-          "Run a method on the primary ("
-              + Ascii.toLowerCase(crossProfileType.profileConnector().get().primaryProfile().name())
-              + ") profile, if accessible.\n\n@see $T#primaryProfile()\n",
-          CustomProfileConnector.class);
-    } else {
-      methodBuilder.addJavadoc(
-          "Run a method on the primary profile, if accessible.\n\n"
-              + "@throws $1T if the {@link $2T} does not have a primary profile set\n"
-              + "@see $2T#primaryProfile()\n",
-          IllegalStateException.class,
-          CustomProfileConnector.class);
-    }
-
-    interfaceBuilder.addMethod(methodBuilder.build());
-  }
-
-  private void generateSecondaryMethod(TypeSpec.Builder interfaceBuilder) {
-    MethodSpec.Builder methodBuilder =
-        MethodSpec.methodBuilder("secondary")
-            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-            .returns(getSingleSenderCanThrowInterfaceClassName(generatorContext, crossProfileType));
-
-    if (crossProfileType.profileConnector().isPresent()) {
-      String secondaryProfileName =
-          crossProfileType.profileConnector().get().primaryProfile().equals(ProfileType.WORK)
-              ? Ascii.toLowerCase(ProfileType.PERSONAL.name())
-              : Ascii.toLowerCase(ProfileType.WORK.name());
-      methodBuilder.addJavadoc(
-          "Run a method on the secondary ("
-              + secondaryProfileName
-              + ") profile, if accessible.\n\n@see $T#primaryProfile()\n",
-          CustomProfileConnector.class);
-    } else {
-      methodBuilder.addJavadoc(
-          "Run a method on the secondary profile, if accessible.\n\n"
-              + "@throws $1T if the {@link $2T} does not have a primary profile set\n"
-              + "@see $2T#primaryProfile()\n",
-          IllegalStateException.class,
-          CustomProfileConnector.class);
-    }
-
-    interfaceBuilder.addMethod(methodBuilder.build());
-  }
-
-  private void generateSuppliersMethod(TypeSpec.Builder interfaceBuilder) {
-    MethodSpec.Builder methodBuilder =
-        MethodSpec.methodBuilder("suppliers")
-            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-            .returns(getMultipleSenderInterfaceClassName(generatorContext, crossProfileType));
-
-    if (crossProfileType.profileConnector().isPresent()) {
-      String primaryProfileName =
-          crossProfileType.profileConnector().get().primaryProfile().equals(ProfileType.WORK)
-              ? Ascii.toLowerCase(ProfileType.WORK.name())
-              : Ascii.toLowerCase(ProfileType.PERSONAL.name());
-      String secondaryProfileName =
-          crossProfileType.profileConnector().get().primaryProfile().equals(ProfileType.WORK)
-              ? Ascii.toLowerCase(ProfileType.PERSONAL.name())
-              : Ascii.toLowerCase(ProfileType.WORK.name());
-      methodBuilder
-          .addJavadoc("Run a method on supplier profiles, if accessible.\n\n")
-          .addJavadoc(
-              "<p>When run from the primary ($1L) profile, supplier profiles are the primary ($1L)"
-                  + " and secondary ($2L) profiles. When run from the secondary ($2L) profile,"
-                  + " supplier profiles includes only the secondary ($2L) profile.\n\n",
-              primaryProfileName,
-              secondaryProfileName)
-          .addJavadoc("@see $T#primaryProfile()\n", CustomProfileConnector.class);
-    } else {
-      methodBuilder
-          .addJavadoc("Run a method on supplier profiles, if accessible.\n\n")
-          .addJavadoc(
-              "<p>When run from the primary profile, supplier profiles are the primary and"
-                  + " secondary profiles. When run from the secondary profile, supplier profiles"
-                  + " includes only the secondary profile.\n\n")
-          .addJavadoc(
-              "@throws $1T if the {@link $2T} does not have a primary profile set\n",
-              IllegalStateException.class,
-              CustomProfileConnector.class)
-          .addJavadoc("@see $T#primaryProfile()\n", CustomProfileConnector.class);
-    }
-
-    interfaceBuilder.addMethod(methodBuilder.build());
   }
 
   private void generateSingleSenderInterface() {
@@ -347,20 +150,6 @@ final class InterfaceGenerator {
             .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
             .returns(
                 IfAvailableGenerator.getIfAvailableClassName(generatorContext, crossProfileType))
-            .build());
-
-    interfaceBuilder.addMethod(
-        MethodSpec.methodBuilder("timeout")
-            .addJavadoc(
-                "Set a timeout to be used when making asynchronous calls to other profiles.\n\n"
-                    + "<p>This overrides any timeout set on the type or method being called.\n")
-            .addAnnotation(
-                AnnotationSpec.builder(SuppressWarnings.class)
-                    .addMember("value", "$S", "GoodTime")
-                    .build())
-            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-            .returns(interfaceName)
-            .addParameter(long.class, "timeout")
             .build());
 
     generatorUtilities.writeClassToFile(interfaceName.packageName(), interfaceBuilder);
@@ -459,20 +248,6 @@ final class InterfaceGenerator {
       }
     }
 
-    interfaceBuilder.addMethod(
-        MethodSpec.methodBuilder("timeout")
-            .addJavadoc(
-                "Set a timeout to be used when making asynchronous calls to other profiles.\n\n"
-                    + "<p>This overrides any timeout set on the type or method being called.")
-            .addAnnotation(
-                AnnotationSpec.builder(SuppressWarnings.class)
-                    .addMember("value", "$S", "GoodTime")
-                    .build())
-            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-            .returns(interfaceName)
-            .addParameter(long.class, "timeout")
-            .build());
-
     generatorUtilities.writeClassToFile(interfaceName.packageName(), interfaceBuilder);
   }
 
@@ -543,20 +318,13 @@ final class InterfaceGenerator {
       return;
     }
 
-    VariableElement callbackParameter = method.getCrossProfileCallbackParam(generatorContext).get();
-    TypeElement callbackType =
-        generatorContext.elements().getTypeElement(callbackParameter.asType().toString());
-    CrossProfileCallbackInterfaceInfo callbackInterface =
-        CrossProfileCallbackInterfaceInfo.create(callbackType);
-
     List<ParameterSpec> parameters =
         convertCallbackParametersIntoMulti(
             GeneratorUtilities.extractParametersFromMethod(
                 crossProfileType.supportedTypes(),
                 method.methodElement(),
                 REMOVE_AUTOMATICALLY_RESOLVED_PARAMETERS),
-            callbackParameter,
-            callbackInterface);
+            method.getCrossProfileCallbackParam(generatorContext).get());
 
     CodeBlock methodReference = generateMethodReference(crossProfileType, method);
 
@@ -636,20 +404,22 @@ final class InterfaceGenerator {
                 + " a {@link $T} will be thrown on another thread with the original exception"
                 + " as the cause.\n\n",
             PROFILE_RUNTIME_EXCEPTION_CLASSNAME)
+        .addJavadoc(
+            "<p>Only the first result passed in for each profile will be passed into the "
+                + "callback.\n\n"
+        )
         .addJavadoc("@see $L\n", methodReference);
 
     interfaceBuilder.addMethod(methodBuilder.build());
   }
 
   private List<ParameterSpec> convertCallbackParametersIntoMulti(
-      List<ParameterSpec> parameters,
-      VariableElement callbackParameter,
-      CrossProfileCallbackInterfaceInfo callbackInterface) {
+      List<ParameterSpec> parameters, CrossProfileCallbackParameterInfo callbackParameter) {
     return parameters.stream()
         .map(
             e ->
                 e.name.equals(callbackParameter.getSimpleName().toString())
-                    ? convertCallbackToMulti(e, callbackInterface)
+                    ? convertCallbackToMulti(e, callbackParameter.crossProfileCallbackInterface())
                     : e)
         .collect(toList());
   }
@@ -667,24 +437,22 @@ final class InterfaceGenerator {
 
   static ClassName getCrossProfileTypeInterfaceClassName(
       GeneratorContext generatorContext, CrossProfileTypeInfo crossProfileType) {
-    return crossProfileType.profileClassName();
+    return transformClassName(crossProfileType.generatedClassName(), prepend("Profile"));
   }
 
   static ClassName getSingleSenderInterfaceClassName(
       GeneratorContext generatorContext, CrossProfileTypeInfo crossProfileType) {
-    return GeneratorUtilities.appendToClassName(
-        crossProfileType.profileClassName(), "_SingleSender");
+    return transformClassName(crossProfileType.generatedClassName(), append("_SingleSender"));
   }
 
   static ClassName getSingleSenderCanThrowInterfaceClassName(
       GeneratorContext generatorContext, CrossProfileTypeInfo crossProfileType) {
-    return GeneratorUtilities.appendToClassName(
-        crossProfileType.profileClassName(), "_SingleSenderCanThrow");
+    return transformClassName(
+        crossProfileType.generatedClassName(), append("_SingleSenderCanThrow"));
   }
 
   static ClassName getMultipleSenderInterfaceClassName(
       GeneratorContext generatorContext, CrossProfileTypeInfo crossProfileType) {
-    return GeneratorUtilities.appendToClassName(
-        crossProfileType.profileClassName(), "_MultipleSender");
+    return transformClassName(crossProfileType.generatedClassName(), append("_MultipleSender"));
   }
 }

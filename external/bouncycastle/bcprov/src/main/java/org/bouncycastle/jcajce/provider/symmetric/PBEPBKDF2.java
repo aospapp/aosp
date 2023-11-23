@@ -40,14 +40,14 @@ public class PBEPBKDF2
 
     static
     {
-        // BEGIN Android-removed: Unsupported algorithm
-        /*
-        prfCodes.put(CryptoProObjectIdentifiers.gostR3411Hmac, Integers.valueOf(PBE.GOST3411));
         prfCodes.put(PKCSObjectIdentifiers.id_hmacWithSHA1, Integers.valueOf(PBE.SHA1));
         prfCodes.put(PKCSObjectIdentifiers.id_hmacWithSHA256, Integers.valueOf(PBE.SHA256));
         prfCodes.put(PKCSObjectIdentifiers.id_hmacWithSHA224, Integers.valueOf(PBE.SHA224));
         prfCodes.put(PKCSObjectIdentifiers.id_hmacWithSHA384, Integers.valueOf(PBE.SHA384));
         prfCodes.put(PKCSObjectIdentifiers.id_hmacWithSHA512, Integers.valueOf(PBE.SHA512));
+        // BEGIN Android-removed: Unsupported algorithms
+        /*
+        prfCodes.put(CryptoProObjectIdentifiers.gostR3411Hmac, Integers.valueOf(PBE.GOST3411));
         prfCodes.put(NISTObjectIdentifiers.id_hmacWithSHA3_256, Integers.valueOf(PBE.SHA3_256));
         prfCodes.put(NISTObjectIdentifiers.id_hmacWithSHA3_224, Integers.valueOf(PBE.SHA3_224));
         prfCodes.put(NISTObjectIdentifiers.id_hmacWithSHA3_384, Integers.valueOf(PBE.SHA3_384));
@@ -62,8 +62,6 @@ public class PBEPBKDF2
 
     }
 
-    // BEGIN Android-removed: Unsupported algorithms
-    /*
     public static class AlgParams
         extends BaseAlgorithmParameters
     {
@@ -146,8 +144,6 @@ public class PBEPBKDF2
             return "PBKDF2 Parameters";
         }
     }
-    */
-    // END Android-removed: Unsupported algorithms
 
     public static class BasePBKDF2
         extends BaseSecretKeyFactory
@@ -273,8 +269,6 @@ public class PBEPBKDF2
         }
     }
 
-    // BEGIN Android-removed: Unsupported algorithms
-    /*
     public static class PBKDF2withUTF8
         extends BasePBKDF2
     {
@@ -284,6 +278,8 @@ public class PBEPBKDF2
         }
     }
 
+    // BEGIN Android-removed: Unsupported algorithms
+    /*
     public static class PBKDF2withSHA224
         extends BasePBKDF2
     {
@@ -614,6 +610,9 @@ public class PBEPBKDF2
             provider.addAlgorithm("SecretKeyFactory.PBEWithHmacSHA512AndAES_256", PREFIX + "$PBEWithHmacSHA512AndAES_256");
             provider.addAlgorithm("SecretKeyFactory.PBKDF2WithHmacSHA1And8BIT", PREFIX + "$PBKDF2WithHmacSHA18BIT");
             // END Android-added: Android versions of algorithms.
+            // Android-added: Private implementations needed to support PBKDF2 with PKCS#12
+            provider.addPrivateAlgorithm("SecretKeyFactory.PBKDF2", PREFIX + "$PBKDF2withUTF8");
+            provider.addPrivateAlgorithm("Alg.Alias.SecretKeyFactory.1.2.840.113549.1.5.12", "PBKDF2");
         }
     }
 }

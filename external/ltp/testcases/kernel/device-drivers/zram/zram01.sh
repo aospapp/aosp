@@ -1,6 +1,6 @@
 #!/bin/sh
 # Copyright (c) 2015 Oracle and/or its affiliates. All Rights Reserved.
-# Copyright (c) 2019-2021 Petr Vorel <pvorel@suse.cz>
+# Copyright (c) 2019-2022 Petr Vorel <pvorel@suse.cz>
 # Author: Alexey Kodanev <alexey.kodanev@oracle.com>
 #
 # Test creates several zram devices with different filesystems on them.
@@ -9,16 +9,16 @@
 TST_CNT=7
 TST_TESTFUNC="do_test"
 TST_NEEDS_CMDS="awk bc dd"
-. zram_lib.sh
 TST_SETUP="setup"
 
-check_space_for_btrfs()
+check_space_for_fs()
 {
+	local fs="$1"
 	local ram_size
 
 	ram_size=$(awk '/MemTotal:/ {print $2}' /proc/meminfo)
 	if [ "$ram_size" -lt 1048576 ]; then
-		tst_res TINFO "not enough space for Btrfs"
+		tst_res TINFO "not enough space for $fs"
 		return 1
 	fi
 	return 0
@@ -39,13 +39,18 @@ initialize_vars()
 	local fs limit size stream=-1
 	dev_num=0
 
-	for fs in $(tst_supported_fs); do
-		[ "$fs" = "tmpfs" ] && continue
+	for fs in $(tst_supported_fs -s tmpfs); do
 		size="26214400"
 		limit="25M"
-		if [ "$fs" = "btrfs" ]; then
-			check_space_for_btrfs || continue
-			size="402653184"
+
+		if [ "$fs" = "btrfs" -o "$fs" = "xfs" ]; then
+			check_space_for_fs "$fs" || continue
+
+			if [ "$fs" = "btrfs" ]; then
+				size="402653184"
+			elif [ "$fs" = "xfs" ]; then
+				size=314572800
+			fi
 			limit="$((size/1024/1024))M"
 		fi
 
@@ -69,7 +74,7 @@ setup()
 
 zram_makefs()
 {
-	local i=0
+	local i=$dev_start
 	local fs
 
 	for fs in $zram_filesystems; do
@@ -88,9 +93,9 @@ zram_makefs()
 
 zram_mount()
 {
-	local i=0
+	local i
 
-	for i in $(seq 0 $(($dev_num - 1))); do
+	for i in $(seq $dev_start $dev_end); do
 		tst_res TINFO "mount /dev/zram$i"
 		mkdir zram$i
 		ROD mount /dev/zram$i zram$i
@@ -102,9 +107,12 @@ zram_mount()
 
 zram_fill_fs()
 {
-	for i in $(seq 0 $(($dev_num - 1))); do
+	local mem_used_total
+	local b i r v
+
+	for i in $(seq $dev_start $dev_end); do
 		tst_res TINFO "filling zram$i (it can take long time)"
-		local b=0
+		b=0
 		while true; do
 			dd conv=notrunc if=/dev/zero of=zram${i}/file \
 				oflag=append count=1 bs=1024 status=none \
@@ -125,9 +133,9 @@ zram_fill_fs()
 			continue
 		fi
 
-		local compr_size=`awk '{print $2}' "/sys/block/zram$i/mm_stat"`
-		local v=$((100 * 1024 * $b / $compr_size))
-		local r=`echo "scale=2; $v / 100 " | bc`
+		mem_used_total=`awk '{print $3}' "/sys/block/zram$i/mm_stat"`
+		v=$((100 * 1024 * $b / $mem_used_total))
+		r=`echo "scale=2; $v / 100 " | bc`
 
 		if [ "$v" -lt 100 ]; then
 			tst_res TFAIL "compression ratio: $r:1"
@@ -151,4 +159,5 @@ do_test()
 	esac
 }
 
+. zram_lib.sh
 tst_run

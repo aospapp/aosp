@@ -14,9 +14,9 @@
 
 #pragma once
 
-#include "base/PathUtils.h"
-#include "base/System.h"
-#include "base/testing/TestSystem.h"
+#include "aemu/base/files/PathUtils.h"
+#include "aemu/base/system/System.h"
+#include "aemu/base/testing/TestSystem.h"
 
 #include "OpenGLTestContext.h"
 
@@ -25,7 +25,8 @@
 #include <memory>
 #include <vector>
 
-namespace emugl {
+namespace gfxstream {
+namespace gl {
 
 struct GlValues {
     std::vector<GLint> ints;
@@ -113,6 +114,10 @@ testing::AssertionResult compareGlobalGlInt(const GLESv2Dispatch* gl,
                                             GLenum name,
                                             GLint expected);
 
+testing::AssertionResult compareGlobalGlInt_i(const GLESv2Dispatch* gl,
+                                              GLenum name,
+                                              GLuint index,
+                                              GLint expected);
 // Compares a global GL value, known by |name| and retrieved as a float, against
 // an |expected| value.
 testing::AssertionResult compareGlobalGlFloat(const GLESv2Dispatch* gl,
@@ -139,6 +144,14 @@ testing::AssertionResult compareGlobalGlBooleanv(
         const std::vector<GLboolean>& expected,
         GLuint size = 0);
 
+testing::AssertionResult compareGlobalGlBooleanv_i(
+        const GLESv2Dispatch* gl,
+        GLenum name,
+        GLuint index,
+        const std::vector<GLboolean>& expected,
+        GLuint size = 0);
+
+
 // Compares a vector of global GL values, known by |name| and retrieved as an
 // integer array, against |expected| values.
 // Specify |size| if more space is needed than the size of |expected|.
@@ -146,6 +159,12 @@ testing::AssertionResult compareGlobalGlIntv(const GLESv2Dispatch* gl,
                                              GLenum name,
                                              const std::vector<GLint>& expected,
                                              GLuint size = 0);
+
+testing::AssertionResult compareGlobalGlIntv_i(const GLESv2Dispatch* gl,
+                                               GLenum name,
+                                               GLuint index,
+                                               const std::vector<GLint>& expected,
+                                               GLuint size = 0);
 
 // Compares a vector of global GL values, known by |name| and retrieved as a
 // float array, against |expected| values.
@@ -174,8 +193,8 @@ testing::AssertionResult compareGlobalGlFloatv(
 //         EXPECT_FALSE(fooBarState());  // Snapshot preserved the state change
 //     }
 //
-class SnapshotTest : public emugl::GLTest {
-public:
+class SnapshotTest : public gfxstream::gl::GLTest {
+   public:
     SnapshotTest() = default;
 
     void SetUp() override;
@@ -302,4 +321,5 @@ protected:
     std::unique_ptr<T> m_changed_value;
 };
 
-}  // namespace emugl
+}  // namespace gl
+}  // namespace gfxstream

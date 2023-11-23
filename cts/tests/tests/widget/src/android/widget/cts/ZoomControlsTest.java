@@ -26,6 +26,7 @@ import android.widget.ZoomControls;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.annotation.UiThreadTest;
+import androidx.test.core.app.ActivityScenario;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
@@ -119,13 +120,23 @@ public class ZoomControlsTest {
         zoomControls.setIsZoomOutEnabled(true);
     }
 
-    @UiThreadTest
     @Test
     public void testHasFocus() {
-        ZoomControls zoomControls = new ZoomControls(mContext);
-        assertFalse(zoomControls.hasFocus());
+        // ZoomControl must not be in touch mode, otherwise zoom buttons won't get focus
+        InstrumentationRegistry.getInstrumentation().setInTouchMode(false);
 
-        zoomControls.requestFocus();
-        assertTrue(zoomControls.hasFocus());
+        ZoomControls zoomControls = new ZoomControls(mContext);
+        try (ActivityScenario<ZoomButtonCtsActivity> scenario =
+                     ActivityScenario.launch(ZoomButtonCtsActivity.class)) {
+
+            // Attach ZoomControl to an activity in order to set zoom control not in touch mode
+            scenario.onActivity(activity -> {
+                activity.setContentView(zoomControls);
+                assertFalse(zoomControls.hasFocus());
+
+                assertTrue(zoomControls.requestFocus());
+                assertTrue(zoomControls.hasFocus());
+            });
+        }
     }
 }

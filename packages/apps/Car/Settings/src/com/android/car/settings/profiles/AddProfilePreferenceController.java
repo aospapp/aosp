@@ -111,7 +111,7 @@ public class AddProfilePreferenceController extends PreferenceController<Prefere
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return mAddProfileHandler
                 .getAddProfilePreferenceAvailabilityStatus(getContext());
     }

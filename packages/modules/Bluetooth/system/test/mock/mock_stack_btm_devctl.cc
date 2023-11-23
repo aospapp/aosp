@@ -18,16 +18,15 @@
  * Generated mock file from original source file
  *   Functions generated:21
  */
-
-#include <map>
-#include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
+#include "test/mock/mock_stack_btm_devctl.h"
 
 #include <base/logging.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <map>
+#include <string>
 
 #include "bta/dm/bta_dm_int.h"
 #include "bta/sys/bta_sys.h"
@@ -44,79 +43,86 @@ extern std::map<std::string, int> mock_function_count_map;
 #include "stack/gatt/connection_manager.h"
 #include "stack/include/acl_api.h"
 #include "stack/include/l2cap_controller_interface.h"
+#include "test/common/mock_functions.h"
 #include "types/raw_address.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
 #endif
 
-bool BTM_IsDeviceUp(void) {
-  mock_function_count_map[__func__]++;
-  return false;
+namespace test {
+namespace mock {
+namespace stack_btm_devctl {
+
+struct BTM_IsDeviceUp BTM_IsDeviceUp;
+
 }
+}  // namespace mock
+}  // namespace test
+
+bool BTM_IsDeviceUp(void) {
+  inc_func_call_count(__func__);
+  return test::mock::stack_btm_devctl::BTM_IsDeviceUp();
+}
+
 tBTM_STATUS BTM_BT_Quality_Report_VSE_Register(
     bool is_register, tBTM_BT_QUALITY_REPORT_RECEIVER* p_bqr_report_receiver) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS BTM_DeleteStoredLinkKey(const RawAddress* bd_addr,
                                     tBTM_CMPL_CB* p_cb) {
-  mock_function_count_map[__func__]++;
-  return BTM_SUCCESS;
-}
-tBTM_STATUS BTM_EnableTestMode(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS BTM_ReadLocalDeviceName(const char** p_name) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS BTM_ReadLocalDeviceNameFromController(
     tBTM_CMPL_CB* p_rln_cmpl_cback) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS BTM_RegisterForVSEvents(tBTM_VS_EVT_CB* p_cb, bool is_register) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS BTM_SetDeviceClass(DEV_CLASS dev_class) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 tBTM_STATUS BTM_SetLocalDeviceName(const char* p_name) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return BTM_SUCCESS;
 }
 uint8_t* BTM_ReadDeviceClass(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }
 void BTM_VendorSpecificCommand(uint16_t opcode, uint8_t param_len,
                                uint8_t* p_param_buf, tBTM_VSC_CMPL_CB* p_cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
-void BTM_WritePageTimeout(uint16_t timeout) {
-  mock_function_count_map[__func__]++;
-}
+void BTM_WritePageTimeout(uint16_t timeout) { inc_func_call_count(__func__); }
 void BTM_WriteVoiceSettings(uint16_t settings) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
-void BTM_db_reset(void) { mock_function_count_map[__func__]++; }
-void BTM_reset_complete() { mock_function_count_map[__func__]++; }
-void btm_delete_stored_link_key_complete(uint8_t* p) {
-  mock_function_count_map[__func__]++;
+void BTM_db_reset(void) { inc_func_call_count(__func__); }
+void BTM_reset_complete() { inc_func_call_count(__func__); }
+void btm_delete_stored_link_key_complete(uint8_t* p,
+                                         UNUSED_ATTR uint16_t evt_len) {
+  inc_func_call_count(__func__);
 }
-void btm_dev_free() { mock_function_count_map[__func__]++; }
-void btm_dev_init() { mock_function_count_map[__func__]++; }
+void btm_dev_free() { inc_func_call_count(__func__); }
+void btm_dev_init() { inc_func_call_count(__func__); }
 void btm_read_local_name_complete(uint8_t* p, UNUSED_ATTR uint16_t evt_len) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void btm_vendor_specific_evt(const uint8_t* p, uint8_t evt_len) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void btm_vsc_complete(uint8_t* p, uint16_t opcode, uint16_t evt_len,
                       tBTM_VSC_CMPL_CB* p_vsc_cplt_cback) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }

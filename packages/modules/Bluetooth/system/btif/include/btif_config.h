@@ -42,6 +42,8 @@ static const std::string BT_CONFIG_KEY_SDP_DI_VENDOR_ID_SRC =
 static const std::string BT_CONFIG_KEY_REMOTE_VER_MFCT = "Manufacturer";
 static const std::string BT_CONFIG_KEY_REMOTE_VER_VER = "LmpVer";
 static const std::string BT_CONFIG_KEY_REMOTE_VER_SUBVER = "LmpSubVer";
+static const std::string BT_CONFIG_KEY_PBAP_PCE_VERSION = "PbapPceVersion";
+static const std::string BT_CONFIG_KEY_DIS_MODEL_NUM = "ModelName";
 
 bool btif_config_exist(const std::string& section, const std::string& key);
 bool btif_config_get_int(const std::string& section, const std::string& key,
@@ -67,7 +69,5 @@ size_t btif_config_get_bin_length(const std::string& section,
 
 std::vector<RawAddress> btif_config_get_paired_devices();
 
-void btif_config_save(void);
-void btif_config_flush(void);
 bool btif_config_clear(void);
 void btif_debug_config_dump(int fd);

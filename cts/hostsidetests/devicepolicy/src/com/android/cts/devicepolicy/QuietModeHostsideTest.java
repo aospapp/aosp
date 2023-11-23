@@ -20,7 +20,7 @@ import java.util.Map;
  * {@link android.os.UserManager#requestQuietModeEnabled(boolean, android.os.UserHandle)}.
  */
 @RequiresAdditionalFeatures({FEATURE_MANAGED_USERS})
-public class QuietModeHostsideTest extends BaseDevicePolicyTest {
+public final class QuietModeHostsideTest extends BaseDevicePolicyTest {
     private static final String TEST_PACKAGE = "com.android.cts.launchertests";
     private static final String TEST_CLASS = ".QuietModeTest";
     private static final String PARAM_TARGET_USER = "TARGET_USER";

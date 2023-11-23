@@ -165,6 +165,13 @@ public class CurrencyTest extends junit.framework.TestCase {
         assertEquals(0, Currency.getInstance("XFU").getNumericCode());
     }
 
+    public void test_getNumericCodeAsString() {
+        assertEquals("840", Currency.getInstance("USD").getNumericCodeAsString());
+        assertEquals("826", Currency.getInstance("GBP").getNumericCodeAsString());
+        assertEquals("999", Currency.getInstance("XXX").getNumericCodeAsString());
+        assertEquals("000", Currency.getInstance("XFU").getNumericCodeAsString());
+    }
+
     /**
     * It tests the current behavior, but the current behavior may not be expected.
     */
@@ -198,8 +205,7 @@ public class CurrencyTest extends junit.framework.TestCase {
     public void test_localeExtension() {
         // Language=en, Country=US, Currency=Euro
         Locale locale = Locale.forLanguageTag("en-US-u-cu-eur");
-        // This is expected because Currency.getInstance only considers country code, not extension.
-        assertEquals("USD", getCurrency(locale).getCurrencyCode());
+        assertEquals("EUR", getCurrency(locale).getCurrencyCode());
     }
 
     private static Currency getCurrency(Locale l) {

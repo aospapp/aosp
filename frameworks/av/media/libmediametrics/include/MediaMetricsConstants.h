@@ -57,6 +57,10 @@
 // The Audio Spatializer key appends the spatializerId (currently 0)
 #define AMEDIAMETRICS_KEY_PREFIX_AUDIO_SPATIALIZER AMEDIAMETRICS_KEY_PREFIX_AUDIO "spatializer."
 
+// The Audio Spatializer device key appends the device type.
+#define AMEDIAMETRICS_KEY_PREFIX_AUDIO_SPATIALIZER_DEVICE \
+        AMEDIAMETRICS_KEY_PREFIX_AUDIO_SPATIALIZER "device."
+
 // The AudioStream key appends the "streamId" to the prefix.
 #define AMEDIAMETRICS_KEY_PREFIX_AUDIO_STREAM  AMEDIAMETRICS_KEY_PREFIX_AUDIO "stream."
 
@@ -68,6 +72,7 @@
 
 // Keys are strings used for MediaMetrics Item Keys
 #define AMEDIAMETRICS_KEY_AUDIO_FLINGER       AMEDIAMETRICS_KEY_PREFIX_AUDIO "flinger"
+#define AMEDIAMETRICS_KEY_AUDIO_MIDI          AMEDIAMETRICS_KEY_PREFIX_AUDIO "midi"
 #define AMEDIAMETRICS_KEY_AUDIO_POLICY        AMEDIAMETRICS_KEY_PREFIX_AUDIO "policy"
 
 // Error keys
@@ -83,6 +88,7 @@
 #define AMEDIAMETRICS_PROP_PREFIX_EFFECTIVE "effective."
 #define AMEDIAMETRICS_PROP_PREFIX_HAL       "hal."
 #define AMEDIAMETRICS_PROP_PREFIX_HAPTIC    "haptic."
+#define AMEDIAMETRICS_PROP_PREFIX_LAST      "last."
 #define AMEDIAMETRICS_PROP_PREFIX_SERVER    "server."
 
 // Properties within mediametrics are string constants denoted by
@@ -107,6 +113,7 @@
 // of suppressed in the Time Machine.
 #define AMEDIAMETRICS_PROP_SUFFIX_CHAR_DUPLICATES_ALLOWED '#'
 
+#define AMEDIAMETRICS_PROP_ADDRESS        "address"        // string, for example MAC address
 #define AMEDIAMETRICS_PROP_ALLOWUID       "_allowUid"      // int32_t, allow client uid to post
 #define AMEDIAMETRICS_PROP_AUDIOMODE      "audioMode"      // string (audio.flinger)
 #define AMEDIAMETRICS_PROP_AUXEFFECTID    "auxEffectId"    // int32 (AudioTrack)
@@ -115,10 +122,17 @@
 #define AMEDIAMETRICS_PROP_BURSTFRAMES    "burstFrames"    // int32
 #define AMEDIAMETRICS_PROP_CALLERNAME     "callerName"     // string, eg. "aaudio"
 #define AMEDIAMETRICS_PROP_CHANNELCOUNT   "channelCount"   // int32
+#define AMEDIAMETRICS_PROP_CHANNELCOUNTHARDWARE "channelCountHardware" // int32
 #define AMEDIAMETRICS_PROP_CHANNELMASK    "channelMask"    // int32
+#define AMEDIAMETRICS_PROP_CHANNELMASKS   "channelMasks"   // string with channelMask values
+                                                           // separated by |.
+#define AMEDIAMETRICS_PROP_CLOSEDCOUNT   "closedCount"    // int32 (MIDI)
 #define AMEDIAMETRICS_PROP_CONTENTTYPE    "contentType"    // string attributes (AudioTrack)
 #define AMEDIAMETRICS_PROP_CUMULATIVETIMENS "cumulativeTimeNs" // int64_t playback/record time
                                                            // since start
+#define AMEDIAMETRICS_PROP_DEVICEDISCONNECTED "deviceDisconnected" // string true/false (MIDI)
+#define AMEDIAMETRICS_PROP_DEVICEID       "deviceId"       // int32 device id (MIDI)
+
 // DEVICE values are averaged since starting on device
 #define AMEDIAMETRICS_PROP_DEVICELATENCYMS "deviceLatencyMs" // double - avg latency time
 #define AMEDIAMETRICS_PROP_DEVICESTARTUPMS "deviceStartupMs" // double - avg startup time
@@ -132,7 +146,9 @@
 
 #define AMEDIAMETRICS_PROP_DIRECTION      "direction"      // string AAudio input or output
 #define AMEDIAMETRICS_PROP_DURATIONNS     "durationNs"     // int64 duration time span
+#define AMEDIAMETRICS_PROP_ENABLED        "enabled"        // string true/false.
 #define AMEDIAMETRICS_PROP_ENCODING       "encoding"       // string value of format
+#define AMEDIAMETRICS_PROP_ENCODINGHARDWARE "encodingHardware" // string value of hardware format
 
 #define AMEDIAMETRICS_PROP_EVENT          "event#"         // string value (often func name)
 #define AMEDIAMETRICS_PROP_EXECUTIONTIMENS "executionTimeNs"  // time to execute the event
@@ -141,10 +157,15 @@
 #define AMEDIAMETRICS_PROP_FLAGS          "flags"
 
 #define AMEDIAMETRICS_PROP_FRAMECOUNT     "frameCount"     // int32
+#define AMEDIAMETRICS_PROP_HARDWARETYPE   "hardwareType"   // int32 (MIDI)
+#define AMEDIAMETRICS_PROP_HASHEADTRACKER  "hasHeadTracker" // string true/false
+#define AMEDIAMETRICS_PROP_HEADTRACKERENABLED "headTrackerEnabled" // string true/false
 #define AMEDIAMETRICS_PROP_HEADTRACKINGMODES "headTrackingModes" // string |, like modes.
 #define AMEDIAMETRICS_PROP_INPUTDEVICES   "inputDevices"   // string value
+#define AMEDIAMETRICS_PROP_INPUTPORTCOUNT  "inputPortCount" // int32 (MIDI)
 #define AMEDIAMETRICS_PROP_INTERNALTRACKID "internalTrackId" // int32
 #define AMEDIAMETRICS_PROP_INTERVALCOUNT  "intervalCount"  // int32
+#define AMEDIAMETRICS_PROP_ISSHARED      "isShared"       // string true/false (MIDI)
 #define AMEDIAMETRICS_PROP_LATENCYMS      "latencyMs"      // double value
 #define AMEDIAMETRICS_PROP_LEVELS         "levels"          // string | with levels
 #define AMEDIAMETRICS_PROP_LOGSESSIONID   "logSessionId"   // hex string, "" none
@@ -154,13 +175,16 @@
 #define AMEDIAMETRICS_PROP_MODES          "modes"          // string | with modes
 #define AMEDIAMETRICS_PROP_NAME           "name"           // string value
 #define AMEDIAMETRICS_PROP_ORIGINALFLAGS  "originalFlags"  // int32
+#define AMEDIAMETRICS_PROP_OPENEDCOUNT   "openedCount"    // int32 (MIDI)
 #define AMEDIAMETRICS_PROP_OUTPUTDEVICES  "outputDevices"  // string value
+#define AMEDIAMETRICS_PROP_OUTPUTPORTCOUNT "outputPortCount" // int32 (MIDI)
 #define AMEDIAMETRICS_PROP_PERFORMANCEMODE "performanceMode"    // string value, "none", lowLatency"
 #define AMEDIAMETRICS_PROP_PLAYBACK_PITCH "playback.pitch" // double value (AudioTrack)
 #define AMEDIAMETRICS_PROP_PLAYBACK_SPEED "playback.speed" // double value (AudioTrack)
 #define AMEDIAMETRICS_PROP_PLAYERIID      "playerIId"      // int32 (-1 invalid/unset IID)
 #define AMEDIAMETRICS_PROP_ROUTEDDEVICEID "routedDeviceId" // int32
 #define AMEDIAMETRICS_PROP_SAMPLERATE     "sampleRate"     // int32
+#define AMEDIAMETRICS_PROP_SAMPLERATEHARDWARE "sampleRateHardware" // int32
 #define AMEDIAMETRICS_PROP_SELECTEDDEVICEID "selectedDeviceId" // int32
 #define AMEDIAMETRICS_PROP_SELECTEDMICDIRECTION "selectedMicDirection" // int32
 #define AMEDIAMETRICS_PROP_SELECTEDMICFIELDDIRECTION "selectedMicFieldDimension" // double
@@ -183,6 +207,13 @@
                                                            // Treated as "debug" information.
 
 #define AMEDIAMETRICS_PROP_STREAMTYPE     "streamType"     // string (AudioTrack)
+#define AMEDIAMETRICS_PROP_SUPPORTSMIDIUMP "supportsMidiUmp" // string true/false (MIDI).
+                                                             // Universal MIDI Packets is a new
+                                                             // format to transport packets.
+                                                             // Raw byte streams are used if this
+                                                             // is false.
+#define AMEDIAMETRICS_PROP_TOTALINPUTBYTES "totalInputBytes" // int32 (MIDI)
+#define AMEDIAMETRICS_PROP_TOTALOUTPUTBYTES "totalOutputBytes" // int32 (MIDI)
 #define AMEDIAMETRICS_PROP_THREADID       "threadId"       // int32 value io handle
 #define AMEDIAMETRICS_PROP_THROTTLEMS     "throttleMs"     // double
 #define AMEDIAMETRICS_PROP_TRACKID        "trackId"        // int32 port id of track/record
@@ -191,6 +222,7 @@
 #define AMEDIAMETRICS_PROP_UNDERRUN       "underrun"       // int32
 #define AMEDIAMETRICS_PROP_UNDERRUNFRAMES "underrunFrames" // int64_t from Thread
 #define AMEDIAMETRICS_PROP_USAGE          "usage"          // string attributes (ATrack)
+#define AMEDIAMETRICS_PROP_USINGALSA     "usingAlsa"      // string true/false (MIDI)
 #define AMEDIAMETRICS_PROP_VOICEVOLUME    "voiceVolume"    // double (audio.flinger)
 #define AMEDIAMETRICS_PROP_VOLUME_LEFT    "volume.left"    // double (AudioTrack)
 #define AMEDIAMETRICS_PROP_VOLUME_RIGHT   "volume.right"   // double (AudioTrack)
@@ -215,6 +247,7 @@
 #define AMEDIAMETRICS_PROP_EVENT_VALUE_CREATE     "create"
 #define AMEDIAMETRICS_PROP_EVENT_VALUE_CREATEAUDIOPATCH "createAudioPatch"
 #define AMEDIAMETRICS_PROP_EVENT_VALUE_CTOR       "ctor"
+#define AMEDIAMETRICS_PROP_EVENT_VALUE_DEVICECLOSED "deviceClosed" // MIDI
 #define AMEDIAMETRICS_PROP_EVENT_VALUE_DISCONNECT "disconnect"
 #define AMEDIAMETRICS_PROP_EVENT_VALUE_DTOR       "dtor"
 #define AMEDIAMETRICS_PROP_EVENT_VALUE_ENDAAUDIOSTREAM "endAAudioStream" // AAudioStream

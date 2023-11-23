@@ -15,8 +15,10 @@
  */
 
 #include <unistd.h>
+
 #include <cerrno>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -27,10 +29,8 @@
 #include <vector>
 
 #include "declarations.h"
-#include "struct_parser_generator.h"
-
 #include "language_y.h"
-
+#include "struct_parser_generator.h"
 
 int yylex_init(void**);
 int yylex_destroy(void*);
@@ -39,6 +39,8 @@ void yyset_in(FILE*, void*);
 
 bool generate_cpp_headers_one_file(
     const Declarations& decls,
+    bool generate_fuzzing,
+    bool generate_tests,
     const std::filesystem::path& input_file,
     const std::filesystem::path& include_dir,
     const std::filesystem::path& out_dir,
@@ -134,6 +136,8 @@ int main(int argc, const char** argv) {
   // Number of shards per output pybind11 cc file
   size_t num_shards = 1;
   bool generate_rust = false;
+  bool generate_fuzzing = false;
+  bool generate_tests = false;
   std::queue<std::filesystem::path> input_files;
 
   const std::string arg_out = "--out=";
@@ -141,6 +145,8 @@ int main(int argc, const char** argv) {
   const std::string arg_namespace = "--root_namespace=";
   const std::string arg_num_shards = "--num_shards=";
   const std::string arg_rust = "--rust";
+  const std::string arg_fuzzing = "--fuzzing";
+  const std::string arg_testing = "--testing";
   const std::string arg_source_root = "--source_root=";
 
   // Parse the source root first (if it exists) since it will be used for other
@@ -164,6 +170,10 @@ int main(int argc, const char** argv) {
       num_shards = std::stoul(arg.substr(arg_num_shards.size()));
     } else if (arg.find(arg_rust) == 0) {
       generate_rust = true;
+    } else if (arg.find(arg_fuzzing) == 0) {
+      generate_fuzzing = true;
+    } else if (arg.find(arg_testing) == 0) {
+      generate_tests = true;
     } else if (arg.find(arg_source_root) == 0) {
       // Do nothing (just don't treat it as input_files)
     } else {
@@ -192,7 +202,14 @@ int main(int argc, const char** argv) {
       }
     } else {
       std::cout << "generating c++ and pybind11" << std::endl;
-      if (!generate_cpp_headers_one_file(declarations, input_files.front(), include_dir, out_dir, root_namespace)) {
+      if (!generate_cpp_headers_one_file(
+              declarations,
+              generate_fuzzing,
+              generate_tests,
+              input_files.front(),
+              include_dir,
+              out_dir,
+              root_namespace)) {
         std::cerr << "Didn't generate cpp headers for " << input_files.front() << std::endl;
         return 3;
       }

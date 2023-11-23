@@ -17,6 +17,7 @@
 #include "ap_config.h"
 #include "ap_drv_ops.h"
 #include "wpa_auth.h"
+#include "dpp_hostapd.h"
 #include "ieee802_11.h"
 
 
@@ -339,7 +340,8 @@ void ieee802_11_sa_query_action(struct hostapd_data *hapd,
 }
 
 
-static void hostapd_ext_capab_byte(struct hostapd_data *hapd, u8 *pos, int idx)
+static void hostapd_ext_capab_byte(struct hostapd_data *hapd, u8 *pos, int idx,
+				   bool mbssid_complete)
 {
 	*pos = 0x00;
 
@@ -363,6 +365,8 @@ static void hostapd_ext_capab_byte(struct hostapd_data *hapd, u8 *pos, int idx)
 			*pos |= 0x02; /* Bit 17 - WNM-Sleep Mode */
 		if (hapd->conf->bss_transition)
 			*pos |= 0x08; /* Bit 19 - BSS Transition */
+		if (hapd->iconf->mbssid)
+			*pos |= 0x40; /* Bit 22 - Multiple BSSID */
 		break;
 	case 3: /* Bits 24-31 */
 #ifdef CONFIG_WNM_AP
@@ -412,8 +416,7 @@ static void hostapd_ext_capab_byte(struct hostapd_data *hapd, u8 *pos, int idx)
 			*pos |= 0x01;
 #endif /* CONFIG_FILS */
 #ifdef CONFIG_IEEE80211AX
-		if (hapd->iconf->ieee80211ax &&
-		    hostapd_get_he_twt_responder(hapd, IEEE80211_MODE_AP))
+		if (hostapd_get_he_twt_responder(hapd, IEEE80211_MODE_AP))
 			*pos |= 0x40; /* Bit 78 - TWT responder */
 #endif /* CONFIG_IEEE80211AX */
 		break;
@@ -435,6 +438,11 @@ static void hostapd_ext_capab_byte(struct hostapd_data *hapd, u8 *pos, int idx)
 		    (hapd->iface->drv_flags &
 		     WPA_DRIVER_FLAGS_BEACON_PROTECTION))
 			*pos |= 0x10; /* Bit 84 - Beacon Protection Enabled */
+		if (hapd->iconf->mbssid == ENHANCED_MBSSID_ENABLED)
+			*pos |= 0x08; /* Bit 83 - Enhanced multiple BSSID */
+		if (mbssid_complete)
+			*pos |= 0x01; /* Bit 80 - Complete List of NonTxBSSID
+				       * Profiles */
 		break;
 	case 11: /* Bits 88-95 */
 #ifdef CONFIG_SAE_PK
@@ -448,7 +456,8 @@ static void hostapd_ext_capab_byte(struct hostapd_data *hapd, u8 *pos, int idx)
 }
 
 
-u8 * hostapd_eid_ext_capab(struct hostapd_data *hapd, u8 *eid)
+u8 * hostapd_eid_ext_capab(struct hostapd_data *hapd, u8 *eid,
+			   bool mbssid_complete)
 {
 	u8 *pos = eid;
 	u8 len = EXT_CAPA_MAX_LEN, i;
@@ -459,7 +468,7 @@ u8 * hostapd_eid_ext_capab(struct hostapd_data *hapd, u8 *eid)
 	*pos++ = WLAN_EID_EXT_CAPAB;
 	*pos++ = len;
 	for (i = 0; i < len; i++, pos++) {
-		hostapd_ext_capab_byte(hapd, pos, i);
+		hostapd_ext_capab_byte(hapd, pos, i, mbssid_complete);
 
 		if (i < hapd->iface->extended_capa_len) {
 			*pos &= ~hapd->iface->extended_capa_mask[i];
@@ -470,6 +479,13 @@ u8 * hostapd_eid_ext_capab(struct hostapd_data *hapd, u8 *eid)
 			*pos &= ~hapd->conf->ext_capa_mask[i];
 			*pos |= hapd->conf->ext_capa[i];
 		}
+
+		/* Clear bits 83 and 22 if EMA and MBSSID are not enabled
+		 * otherwise association fails with some clients */
+		if (i == 10 && hapd->iconf->mbssid < ENHANCED_MBSSID_ENABLED)
+			*pos &= ~0x08;
+		if (i == 2 && !hapd->iconf->mbssid)
+			*pos &= ~0x40;
 	}
 
 	while (len > 0 && eid[1 + len] == 0) {
@@ -873,7 +889,7 @@ u8 * hostapd_eid_owe_trans(struct hostapd_data *hapd, u8 *eid,
 size_t hostapd_eid_dpp_cc_len(struct hostapd_data *hapd)
 {
 #ifdef CONFIG_DPP2
-	if (hapd->conf->dpp_configurator_connectivity)
+	if (hostapd_dpp_configurator_connectivity(hapd))
 		return 6;
 #endif /* CONFIG_DPP2 */
 	return 0;
@@ -885,7 +901,7 @@ u8 * hostapd_eid_dpp_cc(struct hostapd_data *hapd, u8 *eid, size_t len)
 	u8 *pos = eid;
 
 #ifdef CONFIG_DPP2
-	if (!hapd->conf->dpp_configurator_connectivity || len < 6)
+	if (!hostapd_dpp_configurator_connectivity(hapd) || len < 6)
 		return pos;
 
 	*pos++ = WLAN_EID_VENDOR_SPECIFIC;
@@ -998,7 +1014,7 @@ int get_tx_parameters(struct sta_info *sta, int ap_max_chanwidth,
 		 * If a VHT Operation element was present, use it to determine
 		 * the supported channel bandwidth.
 		 */
-		if (oper->vht_op_info_chwidth == 0) {
+		if (oper->vht_op_info_chwidth == CHANWIDTH_USE_HT) {
 			requested_bw = ht_40mhz ? 40 : 20;
 		} else if (oper->vht_op_info_chan_center_freq_seg1_idx == 0) {
 			requested_bw = 80;
@@ -1062,9 +1078,11 @@ u8 * hostapd_eid_rsnxe(struct hostapd_data *hapd, u8 *eid, size_t len)
 #endif /* CONFIG_SAE_PK */
 
 	if (wpa_key_mgmt_sae(hapd->conf->wpa_key_mgmt) &&
-	    (hapd->conf->sae_pwe == 1 || hapd->conf->sae_pwe == 2 ||
-	     hostapd_sae_pw_id_in_use(hapd->conf) || sae_pk) &&
-	    hapd->conf->sae_pwe != 3) {
+	    (hapd->conf->sae_pwe == SAE_PWE_HASH_TO_ELEMENT ||
+	     hapd->conf->sae_pwe == SAE_PWE_BOTH ||
+	     hostapd_sae_pw_id_in_use(hapd->conf) || sae_pk ||
+	     wpa_key_mgmt_sae_ext_key(hapd->conf->wpa_key_mgmt)) &&
+	    hapd->conf->sae_pwe != SAE_PWE_FORCE_HUNT_AND_PECK) {
 		capab |= BIT(WLAN_RSNX_CAPAB_SAE_H2E);
 #ifdef CONFIG_SAE_PK
 		if (sae_pk)
@@ -1072,12 +1090,12 @@ u8 * hostapd_eid_rsnxe(struct hostapd_data *hapd, u8 *eid, size_t len)
 #endif /* CONFIG_SAE_PK */
 	}
 
-	if (hapd->iface->drv_flags2 & WPA_DRIVER_FLAGS2_SEC_LTF)
+	if (hapd->iface->drv_flags2 & WPA_DRIVER_FLAGS2_SEC_LTF_AP)
 		capab |= BIT(WLAN_RSNX_CAPAB_SECURE_LTF);
-	if (hapd->iface->drv_flags2 & WPA_DRIVER_FLAGS2_SEC_RTT)
+	if (hapd->iface->drv_flags2 & WPA_DRIVER_FLAGS2_SEC_RTT_AP)
 		capab |= BIT(WLAN_RSNX_CAPAB_SECURE_RTT);
-	if (hapd->iface->drv_flags2 & WPA_DRIVER_FLAGS2_PROT_RANGE_NEG)
-		capab |= BIT(WLAN_RSNX_CAPAB_PROT_RANGE_NEG);
+	if (hapd->iface->drv_flags2 & WPA_DRIVER_FLAGS2_PROT_RANGE_NEG_AP)
+		capab |= BIT(WLAN_RSNX_CAPAB_URNM_MFPR);
 
 	flen = (capab & 0xff00) ? 2 : 1;
 	if (len < 2 + flen || !capab)
@@ -1092,4 +1110,30 @@ u8 * hostapd_eid_rsnxe(struct hostapd_data *hapd, u8 *eid, size_t len)
 		*pos++ = capab;
 
 	return pos;
+}
+
+
+u16 check_ext_capab(struct hostapd_data *hapd, struct sta_info *sta,
+		    const u8 *ext_capab_ie, size_t ext_capab_ie_len)
+{
+#ifdef CONFIG_INTERWORKING
+	/* check for QoS Map support */
+	if (ext_capab_ie_len >= 5) {
+		if (ext_capab_ie[4] & 0x01)
+			sta->qos_map_enabled = 1;
+	}
+#endif /* CONFIG_INTERWORKING */
+
+	if (ext_capab_ie_len > 0) {
+		sta->ecsa_supported = !!(ext_capab_ie[0] & BIT(2));
+		os_free(sta->ext_capability);
+		sta->ext_capability = os_malloc(1 + ext_capab_ie_len);
+		if (sta->ext_capability) {
+			sta->ext_capability[0] = ext_capab_ie_len;
+			os_memcpy(sta->ext_capability + 1, ext_capab_ie,
+				  ext_capab_ie_len);
+		}
+	}
+
+	return WLAN_STATUS_SUCCESS;
 }

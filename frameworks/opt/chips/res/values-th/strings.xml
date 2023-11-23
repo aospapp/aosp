@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="more_string" msgid="643992135011109762">"+<xliff:g id="COUNT">%1$d</xliff:g>"</string>
-    <string name="copy_email" msgid="1084563757174121331">"คัดลอกที่อยู่อีเมล"</string>
+    <string name="copy_email" msgid="1084563757174121331">"คัดลอกอีเมล"</string>
     <string name="copy_number" msgid="8860802152973030914">"คัดลอกหมายเลขโทรศัพท์"</string>
     <string name="action_label" msgid="7172664623795021857">"เสร็จสิ้น"</string>
     <string name="accessbility_suggestion_dropdown_opened" msgid="9015267358421989409">"คำแนะนำเกี่ยวกับข้อมูลติดต่อที่เปิดอยู่"</string>

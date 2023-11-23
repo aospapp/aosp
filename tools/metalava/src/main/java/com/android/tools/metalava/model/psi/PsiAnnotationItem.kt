@@ -51,7 +51,7 @@ class PsiAnnotationItem private constructor(
     val psiAnnotation: PsiAnnotation,
     override val originalName: String?
 ) : DefaultAnnotationItem(codebase) {
-    override val qualifiedName: String? = AnnotationItem.mapName(codebase, originalName)
+    override val qualifiedName: String? = AnnotationItem.mapName(originalName)
 
     override fun toString(): String = toSource()
 
@@ -137,7 +137,7 @@ class PsiAnnotationItem private constructor(
             target: AnnotationTarget,
             showDefaultAttrs: Boolean
         ) {
-            val qualifiedName = AnnotationItem.mapName(codebase, originalName, null, target) ?: return
+            val qualifiedName = AnnotationItem.mapName(originalName, target) ?: return
 
             val attributes = getAttributes(psiAnnotation, showDefaultAttrs)
             if (attributes.isEmpty()) {

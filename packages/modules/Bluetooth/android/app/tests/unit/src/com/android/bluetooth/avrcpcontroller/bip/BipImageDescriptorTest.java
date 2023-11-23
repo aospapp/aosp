@@ -216,4 +216,34 @@ public class BipImageDescriptorTest {
         BipImageDescriptor descriptor = builder.build();
         Assert.assertEquals(null, descriptor.toString());
     }
+
+    @Test
+    public void testEquals_sameInstance() {
+        BipImageDescriptor.Builder builder = new BipImageDescriptor.Builder();
+
+        BipImageDescriptor descriptor = builder.build();
+
+        Assert.assertTrue(descriptor.equals(descriptor));
+    }
+
+    @Test
+    public void testEquals_differentClass() {
+        BipImageDescriptor.Builder builder = new BipImageDescriptor.Builder();
+
+        BipImageDescriptor descriptor = builder.build();
+        String notDescriptor = "notDescriptor";
+
+        Assert.assertFalse(descriptor.equals(notDescriptor));
+    }
+
+    @Test
+    public void testEquals_sameInfo() {
+        BipImageDescriptor.Builder builder = new BipImageDescriptor.Builder();
+        BipImageDescriptor.Builder builderEqual = new BipImageDescriptor.Builder();
+
+        BipImageDescriptor descriptor = builder.build();
+        BipImageDescriptor descriptorEqual = builderEqual.build();
+
+        Assert.assertTrue(descriptor.equals(descriptorEqual));
+    }
 }

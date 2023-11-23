@@ -49,7 +49,7 @@ public class ProcessorCrossProfileConfigurationTest {
           + " ProfileConnector";
   private static final String CONNECTOR_MUST_BE_INTERFACE = "Connectors must be interfaces";
   private static final String CONNECTOR_MUST_EXTEND_CONNECTOR =
-      "Interfaces specified as a connector must extend ProfileConnector";
+      "Interfaces specified as a connector must extend ProfileConnector or UserConnector";
 
   private final AnnotationStrings annotationStrings;
 
@@ -435,7 +435,7 @@ public class ProcessorCrossProfileConfigurationTest {
   }
 
   @Test
-  public void specifiesConnectorNotExtendingProfileConnector_hasError() {
+  public void specifiesConnectorNotExtendingConnectorInterface_hasError() {
     final JavaFileObject configuration =
         JavaFileObjects.forSourceLines(
             NOTES_PACKAGE + ".NotesConfiguration",

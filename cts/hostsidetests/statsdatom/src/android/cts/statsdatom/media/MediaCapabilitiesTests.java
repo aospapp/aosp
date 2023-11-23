@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.media;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.cts.statsdatom.lib.AtomTestUtils;
@@ -52,7 +53,7 @@ public class MediaCapabilitiesTests extends DeviceTestCase implements IBuildRece
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         cacheOriginalSettings();
     }
 
@@ -83,11 +84,11 @@ public class MediaCapabilitiesTests extends DeviceTestCase implements IBuildRece
         getDevice().executeShellCommand(
                 "cmd audio set-surround-format-enabled 14 false");
         getDevice().executeShellCommand("cmd audio set-encoded-surround-mode 2");
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         // Trigger atom pull.
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         // The list of atoms will be empty if the atom is not supported.
         List<AtomsProto.Atom> atoms = ReportUtils.getGaugeMetricAtoms(getDevice());
@@ -118,11 +119,11 @@ public class MediaCapabilitiesTests extends DeviceTestCase implements IBuildRece
                 "cmd display set-user-preferred-display-mode 720 1020 60.0f");
         getDevice().executeShellCommand("cmd display set-match-content-frame-rate-pref 2");
         getDevice().executeShellCommand("cmd display set-user-disabled-hdr-types 1 2");
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         // Trigger atom pull.
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         // The list of atoms will be empty if the atom is not supported.
         List<AtomsProto.Atom> atoms = ReportUtils.getGaugeMetricAtoms(getDevice());

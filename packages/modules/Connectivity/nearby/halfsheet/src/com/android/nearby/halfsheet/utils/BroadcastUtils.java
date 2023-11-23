@@ -31,6 +31,13 @@ public class BroadcastUtils {
         context.sendBroadcast(intent);
     }
 
+    /**
+     * Helps send a broadcast with specified receiver permission.
+     */
+    public static void sendBroadcast(Context context, Intent intent, String receiverPermission) {
+        context.sendBroadcast(intent, receiverPermission);
+    }
+
     private BroadcastUtils() {
     }
 }

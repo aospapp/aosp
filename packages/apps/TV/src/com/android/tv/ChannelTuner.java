@@ -36,7 +36,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * It manages the current tuned channel among browsable channels. And it determines the next channel
+ * Manages the current tuned channel among browsable channels, and determines the next channel
  * by channel up/down. But, it doesn't actually tune through TvView.
  */
 @MainThread

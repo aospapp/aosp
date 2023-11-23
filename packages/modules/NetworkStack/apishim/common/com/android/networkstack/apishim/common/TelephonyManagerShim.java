@@ -16,6 +16,8 @@
 
 package com.android.networkstack.apishim.common;
 
+import androidx.annotation.Nullable;
+
 import java.util.List;
 import java.util.concurrent.Executor;
 
@@ -30,12 +32,17 @@ import java.util.concurrent.Executor;
  */
 public interface TelephonyManagerShim {
     /** See android.telephony.TelephonyManager.CarrierPrivilegesListener */
-    public interface CarrierPrivilegesListenerShim {
+    interface CarrierPrivilegesListenerShim {
         /** See android.telephony.TelephonyManager
-         * .CarrierPrivilegesListener#onCarrierPrivilegesChanged */
-        void onCarrierPrivilegesChanged(
+         * .CarrierPrivilegesCallback#onCarrierPrivilegesChanged */
+        default void onCarrierPrivilegesChanged(
                 List<String> privilegedPackageNames,
-                int[] privilegedUids);
+                int[] privilegedUids) {}
+        // TODO : remove the default implementation of this method once all changes are in
+        /** See CarrierPrivilegesCallback#onCarrierServiceChanged */
+        default void onCarrierServiceChanged(
+                @Nullable String carrierServicePackageName,
+                int carrierServiceUid) {}
     }
 
     /** See android.telephony.TelephonyManager#addCarrierPrivilegesListener */
@@ -54,6 +61,7 @@ public interface TelephonyManagerShim {
         throw new UnsupportedApiLevelException("Only supported starting from API 33");
     }
 
+    // TODO : remove this method when all changes are in
     /** See android.telephony.TelephonyManager#getCarrierServicePackageNameForLogicalSlot */
     default String getCarrierServicePackageNameForLogicalSlot(int logicalSlotIndex)
             throws UnsupportedApiLevelException {

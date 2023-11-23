@@ -8,6 +8,7 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
+#include "absl/functional/bind_front.h"
 #include "modules/congestion_controller/include/receive_side_congestion_controller.h"
 #include "modules/pacing/packet_router.h"
 #include "modules/remote_bitrate_estimator/include/remote_bitrate_estimator.h"
@@ -21,8 +22,10 @@ void FuzzOneInput(const uint8_t* data, size_t size) {
     return;
   SimulatedClock clock(data[i++]);
   PacketRouter packet_router;
-  ReceiveSideCongestionController cc(&clock, &packet_router);
-  RemoteBitrateEstimator* rbe = cc.GetRemoteBitrateEstimator(true);
+  ReceiveSideCongestionController cc(
+      &clock,
+      absl::bind_front(&PacketRouter::SendCombinedRtcpPacket, &packet_router),
+      absl::bind_front(&PacketRouter::SendRemb, &packet_router), nullptr);
   RTPHeader header;
   header.ssrc = ByteReader<uint32_t>::ReadBigEndian(&data[i]);
   i += sizeof(uint32_t);
@@ -39,11 +42,11 @@ void FuzzOneInput(const uint8_t* data, size_t size) {
     header.extension.transportSequenceNumber =
         ByteReader<uint16_t>::ReadBigEndian(&data[i]);
     i += sizeof(uint16_t);
-    rbe->IncomingPacket(arrival_time_ms, payload_size, header);
+    cc.OnReceivedPacket(arrival_time_ms, payload_size, header);
     clock.AdvanceTimeMilliseconds(5);
     arrival_time_ms += ByteReader<uint8_t>::ReadBigEndian(&data[i]);
     i += sizeof(uint8_t);
+    cc.MaybeProcess();
   }
-  rbe->Process();
 }
 }  // namespace webrtc

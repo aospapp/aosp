@@ -111,12 +111,14 @@ INSTANCE_NAME = "instance_name"
 GCE_USER = "vsoc-01"
 VNC_PORT = "vnc_port"
 ADB_PORT = "adb_port"
+FASTBOOT_PORT = "fastboot_port"
 WEBRTC_PORT = "webrtc_port"
 DEVICE_SERIAL = "device_serial"
 LOGS = "logs"
 BASE_INSTANCE_NUM = "base_instance_num"
 # For cuttlefish remote instances
 CF_ADB_PORT = 6520
+CF_FASTBOOT_PORT = 7520
 CF_VNC_PORT = 6444
 # For cheeps remote instances
 CHEEPS_ADB_PORT = 9222
@@ -124,6 +126,8 @@ CHEEPS_VNC_PORT = 5900
 # For gce_x86_phones remote instances
 GCE_ADB_PORT = 5555
 GCE_VNC_PORT = 6444
+# For ssh connect with GCE hostname
+GCE_HOSTNAME = "gce_hostname"
 # For goldfish remote instances
 GF_ADB_PORT = 5555
 GF_VNC_PORT = 6444
@@ -131,6 +135,10 @@ GF_VNC_PORT = 6444
 FVP_ADB_PORT = 5555
 # Maximum port number
 MAX_PORT = 65535
+# Time info to write in report.
+TIME_ARTIFACT = "fetch_artifact_time"
+TIME_GCE = "gce_create_time"
+TIME_LAUNCH = "launch_cvd_time"
 
 COMMAND_PS = ["ps", "aux"]
 CMD_CVD = "cvd"
@@ -146,6 +154,7 @@ ENV_ANDROID_PRODUCT_OUT = "ANDROID_PRODUCT_OUT"
 ENV_ANDROID_SOONG_HOST_OUT = "ANDROID_SOONG_HOST_OUT"
 ENV_ANDROID_TMP = "ANDROID_TMP"
 ENV_BUILD_TARGET = "TARGET_PRODUCT"
+ENV_CVD_ACQUIRE_FILE_LOCK = "CVD_ACQUIRE_FILE_LOCK"
 
 LOCALHOST = "0.0.0.0"
 LOCALHOST_ADB_SERIAL = LOCALHOST + ":%d"
@@ -167,9 +176,11 @@ INS_KEY_STATUS = "status"
 INS_KEY_DISPLAY = "display"
 INS_KEY_IP = "ip"
 INS_KEY_ADB = "adb"
+INS_KEY_FASTBOOT = "fastboot"
 INS_KEY_VNC = "vnc"
 INS_KEY_WEBRTC = "webrtc"
 INS_KEY_WEBRTC_PORT = "webrtc_port"
+INS_KEY_WEBRTC_DEVICE_ID = "webrtc_device_id"
 INS_KEY_CREATETIME = "creationTimestamp"
 INS_KEY_AVD_TYPE = "avd_type"
 INS_KEY_AVD_FLAVOR = "flavor"
@@ -183,7 +194,8 @@ ANDROID_INFO_FILE = "android-info.txt"
 CUTTLEFISH_CONFIG_FILE = "cuttlefish_config.json"
 
 TEMP_ARTIFACTS_FOLDER = "acloud_image_artifacts"
-CVD_HOST_PACKAGE = "cvd-host_package.tar.gz"
+CVD_HOST_PACKAGE = "cvd-host_package"
+CVD_HOST_TARBALL = "cvd-host_package.tar.gz"
 # cvd tools symbolic link name of local instance.
 CVD_TOOLS_LINK_NAME = "host_bins"
 TOOL_NAME = "acloud"
@@ -218,6 +230,7 @@ LOG_TYPE_DIR = "DIR"
 LOG_TYPE_KERNEL_LOG = "KERNEL_LOG"
 LOG_TYPE_LOGCAT = "LOGCAT"
 LOG_TYPE_TEXT = "TEXT"
+LOG_TYPE_CUTTLEFISH_LOG = "CUTTLEFISH_LOG"
 
 # Stages for create progress
 STAGE_INIT = 0
@@ -244,9 +257,17 @@ ACLOUD_OXYGEN_RELEASE_ERROR = "ACLOUD_OXYGEN_RELEASE_ERROR"
 # Key words of error messages.
 ERROR_MSG_VNC_NOT_SUPPORT = "unknown command line flag 'start_vnc_server'"
 ERROR_MSG_WEBRTC_NOT_SUPPORT = "unknown command line flag 'start_webrtc'"
+ERROR_MSG_SSO_INVALID = "stuck at SSO"
 
 # The name of download image tool.
 FETCH_CVD = "fetch_cvd"
+FETCH_CVD_ARGS_FILE = "fetch-cvd-args.txt"
+# Last known good build
+LKGB = "LKGB"
+
+# The name of credential source key json file, a copy of
+# cfg.service_account_json_private_key_path for remote host case.
+FETCH_CVD_CREDENTIAL_SOURCE = "credential_key.json"
 
 # For setup and cleanup
 # Packages "devscripts" and "equivs" are required for "mk-build-deps".

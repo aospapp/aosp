@@ -1,0 +1,7 @@
+genfscon sysfs /devices/platform/111d0000.spi/spi_master/spi20/spi20.0  u:object_r:sysfs_touch:s0
+genfscon sysfs /devices/platform/10d40000.spi/spi_master/spi11/spi11.0  u:object_r:sysfs_touch:s0
+genfscon sysfs /devices/platform/10950000.spi/spi_master/spi6/spi6.0    u:object_r:sysfs_touch:s0
+
+genfscon proc  /fts/driver_test                                         u:object_r:proc_touch:s0
+genfscon proc  /fts_ext/driver_test                                     u:object_r:proc_touch:s0
+

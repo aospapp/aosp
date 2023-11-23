@@ -25,8 +25,6 @@ if [ ! -d art ]; then
   exit 1
 fi
 
-TARGET_ARCH=$(source build/envsetup.sh > /dev/null; get_build_var TARGET_ARCH)
-
 # Logic for setting out_dir from build/make/core/envsetup.mk:
 if [[ -z $OUT_DIR ]]; then
   if [[ -z $OUT_DIR_COMMON_BASE ]]; then
@@ -69,6 +67,9 @@ while true; do
   elif [[ "$1" == "--showcommands" ]]; then
     showcommands="showcommands"
     shift
+  elif [[ "$1" == "--dist" ]]; then
+    common_targets="$common_targets dist"
+    shift
   elif [[ "$1" == "" ]]; then
     break
   else
@@ -83,11 +84,25 @@ if [[ $build_host == "no" ]] && [[ $build_target == "no" ]]; then
   build_target="yes"
 fi
 
-# Allow to build successfully in master-art.
-extra_args="SOONG_ALLOW_MISSING_DEPENDENCIES=true"
+implementation_libs=(
+  "heapprofd_client_api"
+  "libandroid_runtime_lazy"
+  "libartpalette-system"
+  "libbinder"
+  "libbinder_ndk"
+  "libcutils"
+  "libutils"
+  "libvndksupport"
+)
 
-# Switch the build system to unbundled mode in the reduced manifest branch.
-if [ ! -d frameworks/base ]; then
+if [ -d frameworks/base ]; then
+  # In full manifest branches, build the implementation libraries from source
+  # instead of using prebuilts.
+  common_targets="$common_targets ${implementation_libs[*]}"
+else
+  # Allow to build successfully in master-art.
+  extra_args="SOONG_ALLOW_MISSING_DEPENDENCIES=true BUILD_BROKEN_DISABLE_BAZEL=true"
+  # Switch the build system to unbundled mode in the reduced manifest branch.
   extra_args="$extra_args TARGET_BUILD_UNBUNDLED=true"
 fi
 
@@ -120,13 +135,12 @@ if [[ $build_target == "yes" ]]; then
   # Indirect dependencies in the platform, e.g. through heapprofd_client_api.
   # These are built to go into system/lib(64) to be part of the system linker
   # namespace.
-  make_command+=" libbacktrace libnetd_client-target libprocinfo libtombstoned_client libunwindstack"
+  make_command+=" libnetd_client-target libprocinfo libtombstoned_client libunwindstack"
   # Stubs for other APEX SDKs, for use by vogar. Referenced from DEVICE_JARS in
   # external/vogar/src/vogar/ModeId.java.
   # Note these go into out/target/common/obj/JAVA_LIBRARIES which isn't removed
   # by "m installclean".
   make_command+=" i18n.module.public.api.stubs conscrypt.module.public.api.stubs"
-  make_command+=" ${ANDROID_PRODUCT_OUT#"${ANDROID_BUILD_TOP}/"}/system/etc/public.libraries.txt"
   # Targets required to generate a linker configuration for device within the
   # chroot environment. The *.libraries.txt targets are required by
   # the source linkerconfig but not included in the prebuilt one.
@@ -166,6 +180,8 @@ if [[ $build_target == "yes" ]]; then
 
   # Extract prebuilt APEXes.
   debugfs=$ANDROID_HOST_OUT/bin/debugfs_static
+  fsckerofs=$ANDROID_HOST_OUT/bin/fsck.erofs
+  blkid=$ANDROID_HOST_OUT/bin/blkid_static
   for apex in ${apexes[@]}; do
     dir="$ANDROID_PRODUCT_OUT/system/apex/${apex}"
     apexbase="$ANDROID_PRODUCT_OUT/system/apex/${apex}"
@@ -179,20 +195,16 @@ if [[ $build_target == "yes" ]]; then
       msginfo "Extracting APEX file:" "${file}"
       rm -rf $dir
       mkdir -p $dir
-      $ANDROID_HOST_OUT/bin/deapexer --debugfs_path $debugfs extract $file $dir
+      $ANDROID_HOST_OUT/bin/deapexer --debugfs_path $debugfs --fsckerofs_path $fsckerofs \
+        --blkid_path $blkid extract $file $dir
     fi
   done
 
-  # Replace stub libraries with implemenation libraries: because we do chroot
+  # Replace stub libraries with implementation libraries: because we do chroot
   # testing, we need to install an implementation of the libraries (and cannot
   # rely on the one already installed on the device, if the device is post R and
   # has it).
-  implementation_libs=(
-    "heapprofd_client_api.so"
-    "libartpalette-system.so"
-    "liblog.so"
-  )
-  if [ -d prebuilts/runtime/mainline/platform/impl ]; then
+  if [ -d prebuilts/runtime/mainline/platform/impl -a ! -d frameworks/base ]; then
     if [[ $TARGET_ARCH = arm* ]]; then
       arch32=arm
       arch64=arm64
@@ -200,18 +212,22 @@ if [[ $build_target == "yes" ]]; then
       arch32=x86
       arch64=x86_64
     fi
-    for so in ${implementation_libs[@]}; do
-      if [ -d "$ANDROID_PRODUCT_OUT/system/lib" ]; then
-        cmd="cp -p prebuilts/runtime/mainline/platform/impl/$arch32/$so $ANDROID_PRODUCT_OUT/system/lib/$so"
-        msginfo "Executing" "$cmd"
-        eval "$cmd"
-      fi
-      if [ -d "$ANDROID_PRODUCT_OUT/system/lib64" ]; then
-        cmd="cp -p prebuilts/runtime/mainline/platform/impl/$arch64/$so $ANDROID_PRODUCT_OUT/system/lib64/$so"
-        msginfo "Executing" "$cmd"
-        eval "$cmd"
-      fi
-   done
+    if [ "$TARGET_ARCH" = riscv64 ]; then
+      true # no 32-bit arch for RISC-V
+    else
+      for so in ${implementation_libs[@]}; do
+        if [ -d "$ANDROID_PRODUCT_OUT/system/lib" ]; then
+          cmd="cp -p prebuilts/runtime/mainline/platform/impl/$arch32/${so}.so $ANDROID_PRODUCT_OUT/system/lib/${so}.so"
+          msginfo "Executing" "$cmd"
+          eval "$cmd"
+        fi
+        if [ -d "$ANDROID_PRODUCT_OUT/system/lib64" ]; then
+          cmd="cp -p prebuilts/runtime/mainline/platform/impl/$arch64/${so}.so $ANDROID_PRODUCT_OUT/system/lib64/${so}.so"
+          msginfo "Executing" "$cmd"
+          eval "$cmd"
+        fi
+      done
+    fi
   fi
 
   # Create canonical name -> file name symlink in the symbol directory for the
@@ -298,6 +314,11 @@ if [[ $build_target == "yes" ]]; then
   # Linkerconfig reads files from /system/etc
   mkdir -p $linkerconfig_root/system
   cp -r $ANDROID_PRODUCT_OUT/system/etc $linkerconfig_root/system
+
+  # Use our smaller public.libraries.txt that contains only the public libraries
+  # pushed to the chroot directory.
+  cp $ANDROID_BUILD_TOP/art/tools/public.libraries.buildbot.txt \
+    $linkerconfig_root/system/etc/public.libraries.txt
 
   # For linkerconfig to pick up the APEXes correctly we need to make them
   # available in $linkerconfig_root/apex.

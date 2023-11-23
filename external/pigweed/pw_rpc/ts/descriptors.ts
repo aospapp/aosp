@@ -12,7 +12,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-import {ProtoCollection} from '@pigweed/pw_protobuf_compiler';
+import {ProtoCollection} from 'pigweedjs/pw_protobuf_compiler';
 import {
   MethodDescriptorProto,
   ServiceDescriptorProto,
@@ -78,6 +78,7 @@ export class Method {
   readonly serverStreaming: boolean;
   readonly requestType: any;
   readonly responseType: any;
+  readonly descriptor: MethodDescriptorProto;
 
   constructor(
     descriptor: MethodDescriptorProto,
@@ -87,6 +88,7 @@ export class Method {
     this.name = descriptor.getName()!;
     this.id = hash(this.name);
     this.service = service;
+    this.descriptor = descriptor;
     this.serverStreaming = descriptor.getServerStreaming()!;
     this.clientStreaming = descriptor.getClientStreaming()!;
 

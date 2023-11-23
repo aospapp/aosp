@@ -4,91 +4,79 @@
 
 #include <algorithm>
 #include <array>
+#include <filesystem>
 #include <glm/gtx/matrix_transform_2d.hpp>
 #include <memory>
 #include <optional>
 
-#include "base/Lock.h"
+#include "BorrowedImageVk.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "tests/ImageUtils.h"
 #include "tests/VkTestUtils.h"
 #include "vulkan/VulkanDispatch.h"
 #include "vulkan/vk_util.h"
 
+namespace gfxstream {
+namespace vk {
+namespace {
+
+static constexpr const bool kDefaultSaveImageIfComparisonFailed = false;
+
+std::string GetTestDataPath(const std::string& basename) {
+    const std::filesystem::path currentPath = android::base::getProgramDirectory();
+    return (currentPath / "tests" / "testdata" / basename).string();
+}
+
+static constexpr const uint32_t kColorBlack = 0xFF000000;
+static constexpr const uint32_t kColorRed = 0xFF0000FF;
+static constexpr const uint32_t kColorGreen = 0xFF00FF00;
+static constexpr const uint32_t kDefaultImageWidth = 256;
+static constexpr const uint32_t kDefaultImageHeight = 256;
+
 class CompositorVkTest : public ::testing::Test {
    protected:
-    using RenderTarget = emugl::RenderResourceVk<VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                                 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT>;
-    using RenderTexture = emugl::RenderTextureVk;
+    using TargetImage = RenderResourceVk<VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT>;
+    using SourceImage = RenderTextureVk;
 
-    static void SetUpTestCase() { k_vk = emugl::vkDispatch(false); }
-
-    static constexpr uint32_t k_numOfRenderTargets = 10;
-    static constexpr uint32_t k_renderTargetWidth = 255;
-    static constexpr uint32_t k_renderTargetHeight = 255;
-    static constexpr uint32_t k_renderTargetNumOfPixels =
-        k_renderTargetWidth * k_renderTargetHeight;
+    static void SetUpTestCase() { k_vk = vkDispatch(false); }
 
     void SetUp() override {
+#if defined(__APPLE__) && defined(__arm64__)
+        GTEST_SKIP() << "Skipping all test on Apple M2, as they are failing, see b/263494782";
+#endif
         ASSERT_NE(k_vk, nullptr);
         createInstance();
         pickPhysicalDevice();
         createLogicalDevice();
 
-        VkFormatProperties formatProperties;
-        k_vk->vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, RenderTarget::k_vkFormat,
-                                                  &formatProperties);
-        if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT)) {
-            GTEST_SKIP();
+        if (!supportsFeatures(TargetImage::k_vkFormat, VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT)) {
+            GTEST_SKIP() << "Skipping test as format " << TargetImage::k_vkFormat
+                         << " does not support VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT";
         }
-        k_vk->vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, RenderTexture::k_vkFormat,
-                                                  &formatProperties);
-        if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)) {
-            GTEST_SKIP();
+        if (!supportsFeatures(SourceImage::k_vkFormat, VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)) {
+            GTEST_SKIP() << "Skipping test as format " << SourceImage::k_vkFormat
+                         << " does not support VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT";
         }
 
-        VkCommandPoolCreateInfo commandPoolCi = {
+        const VkCommandPoolCreateInfo commandPoolCi = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-            .queueFamilyIndex = m_compositorQueueFamilyIndex};
+            .queueFamilyIndex = m_compositorQueueFamilyIndex,
+        };
         ASSERT_EQ(k_vk->vkCreateCommandPool(m_vkDevice, &commandPoolCi, nullptr, &m_vkCommandPool),
                   VK_SUCCESS);
 
-        VkCommandBufferAllocateInfo cmdBuffAllocInfo = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            .commandPool = m_vkCommandPool,
-            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            .commandBufferCount = k_numOfRenderTargets};
-        m_vkCommandBuffers.resize(k_numOfRenderTargets);
-        VK_CHECK(k_vk->vkAllocateCommandBuffers(m_vkDevice, &cmdBuffAllocInfo,
-                                                m_vkCommandBuffers.data()));
-
         k_vk->vkGetDeviceQueue(m_vkDevice, m_compositorQueueFamilyIndex, 0, &m_compositorVkQueue);
-        ASSERT_TRUE(m_compositorVkQueue != VK_NULL_HANDLE);
+        ASSERT_NE(m_compositorVkQueue, VK_NULL_HANDLE);
 
         m_compositorVkQueueLock = std::make_shared<android::base::Lock>();
-
-        for (uint32_t i = 0; i < k_numOfRenderTargets; i++) {
-            auto renderTarget =
-                RenderTarget::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
-                                     m_vkCommandPool, k_renderTargetHeight, k_renderTargetWidth);
-            ASSERT_NE(renderTarget, nullptr);
-            m_renderTargets.emplace_back(std::move(renderTarget));
-        }
-
-        m_renderTargetImageViews.resize(m_renderTargets.size());
-        ASSERT_EQ(std::transform(m_renderTargets.begin(), m_renderTargets.end(),
-                                 m_renderTargetImageViews.begin(),
-                                 [](const std::unique_ptr<const RenderTarget> &renderTarget) {
-                                     return renderTarget->m_vkImageView;
-                                 }),
-                  m_renderTargetImageViews.end());
-        setUpRGBASampler();
     }
 
     void TearDown() override {
-        k_vk->vkDestroySampler(m_vkDevice, m_rgbaVkSampler, nullptr);
-        k_vk->vkFreeCommandBuffers(m_vkDevice, m_vkCommandPool, m_vkCommandBuffers.size(),
-                                   m_vkCommandBuffers.data());
-        m_vkCommandBuffers.clear();
-        m_renderTargets.clear();
+#if defined(__APPLE__) && defined(__arm64__)
+        return;
+#endif
+
         k_vk->vkDestroyCommandPool(m_vkDevice, m_vkCommandPool, nullptr);
         k_vk->vkDestroyDevice(m_vkDevice, nullptr);
         m_vkDevice = VK_NULL_HANDLE;
@@ -97,70 +85,207 @@ class CompositorVkTest : public ::testing::Test {
     }
 
     std::unique_ptr<CompositorVk> createCompositor() {
-        return CompositorVk::create(
-            *k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue, m_compositorVkQueueLock,
-            RenderTarget::k_vkFormat, RenderTarget::k_vkImageLayout, RenderTarget::k_vkImageLayout,
-            m_renderTargetImageViews.size(), m_vkCommandPool, m_rgbaVkSampler);
+        return CompositorVk::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
+                                    m_compositorVkQueueLock, m_compositorQueueFamilyIndex,
+                                    /*maxFramesInFlight=*/3);
     }
 
-    std::vector<std::unique_ptr<CompositorVkRenderTarget>> createCompositorRenderTargets(
-        CompositorVk &compositor) {
-        std::vector<std::unique_ptr<CompositorVkRenderTarget>> res;
-        for (VkImageView imageView : m_renderTargetImageViews) {
-            res.emplace_back(compositor.createRenderTarget(imageView, k_renderTargetWidth,
-                                                           k_renderTargetHeight));
+    template <typename SourceOrTargetImage>
+    std::unique_ptr<const SourceOrTargetImage> createImageWithColor(uint32_t sourceWidth,
+                                                                    uint32_t sourceHeight,
+                                                                    uint32_t sourceColor) {
+        auto source =
+            SourceOrTargetImage::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
+                                        m_vkCommandPool, sourceWidth, sourceHeight);
+        if (source == nullptr) {
+            return nullptr;
         }
-        return res;
+
+        std::vector<uint32_t> sourcePixels(sourceWidth * sourceHeight, sourceColor);
+        if (!source->write(sourcePixels)) {
+            return nullptr;
+        }
+
+        return source;
     }
 
-    void setUpRGBASampler() {
-        VkSamplerCreateInfo samplerCi = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-                                         .magFilter = VK_FILTER_NEAREST,
-                                         .minFilter = VK_FILTER_NEAREST,
-                                         .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-                                         .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                                         .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                                         .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                                         .mipLodBias = 0.0f,
-                                         .anisotropyEnable = VK_FALSE,
-                                         .maxAnisotropy = 1.0f,
-                                         .compareEnable = VK_FALSE,
-                                         .compareOp = VK_COMPARE_OP_ALWAYS,
-                                         .minLod = 0.0f,
-                                         .maxLod = 0.0f,
-                                         .borderColor = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK,
-                                         .unnormalizedCoordinates = VK_FALSE};
-        VK_CHECK(k_vk->vkCreateSampler(m_vkDevice, &samplerCi, nullptr, &m_rgbaVkSampler));
+    std::unique_ptr<const SourceImage> createSourceImageFromPng(const std::string& filename) {
+        uint32_t sourceWidth;
+        uint32_t sourceHeight;
+        std::vector<uint32_t> sourcePixels;
+        if (!LoadRGBAFromPng(filename, &sourceWidth, &sourceHeight, &sourcePixels)) {
+            return nullptr;
+        }
+
+        auto source =
+            SourceImage::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
+                                m_vkCommandPool, sourceWidth, sourceHeight);
+        if (source == nullptr) {
+            return nullptr;
+        }
+
+        if (!source->write(sourcePixels)) {
+            return nullptr;
+        }
+
+        return source;
     }
 
-    static const goldfish_vk::VulkanDispatch *k_vk;
+    bool isRGBAPixelNear(uint32_t actualPixel, uint32_t expectedPixel) {
+        const uint8_t* actualRGBA = reinterpret_cast<const uint8_t*>(&actualPixel);
+        const uint8_t* expectedRGBA = reinterpret_cast<const uint8_t*>(&expectedPixel);
+
+        constexpr const uint32_t kRGBA8888Tolerance = 2;
+        for (uint32_t channel = 0; channel < 4; channel++) {
+            const uint8_t actualChannel = actualRGBA[channel];
+            const uint8_t expectedChannel = expectedRGBA[channel];
+
+            if ((std::max(actualChannel, expectedChannel) -
+                 std::min(actualChannel, expectedChannel)) > kRGBA8888Tolerance) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool compareRGBAPixels(const uint32_t* actualPixels, const uint32_t* expectedPixels,
+                           const uint32_t width, const uint32_t height) {
+        bool comparisonFailed = false;
+
+        uint32_t reportedIncorrectPixels = 0;
+        constexpr const uint32_t kMaxReportedIncorrectPixels = 10;
+
+        for (uint32_t y = 0; y < width; y++) {
+            for (uint32_t x = 0; x < height; x++) {
+                const uint32_t actualPixel = actualPixels[y * height + x];
+                const uint32_t expectedPixel = expectedPixels[y * width + x];
+                if (!isRGBAPixelNear(actualPixel, expectedPixel)) {
+                    comparisonFailed = true;
+                    if (reportedIncorrectPixels < kMaxReportedIncorrectPixels) {
+                        reportedIncorrectPixels++;
+                        const uint8_t* actualRGBA = reinterpret_cast<const uint8_t*>(&actualPixel);
+                        const uint8_t* expectedRGBA =
+                            reinterpret_cast<const uint8_t*>(&expectedPixel);
+                        ADD_FAILURE()
+                            << "Pixel comparison failed at (" << x << ", " << y << ") "
+                            << " with actual "
+                            << " r:" << static_cast<int>(actualRGBA[0])
+                            << " g:" << static_cast<int>(actualRGBA[1])
+                            << " b:" << static_cast<int>(actualRGBA[2])
+                            << " a:" << static_cast<int>(actualRGBA[3]) << " but expected "
+                            << " r:" << static_cast<int>(expectedRGBA[0])
+                            << " g:" << static_cast<int>(expectedRGBA[1])
+                            << " b:" << static_cast<int>(expectedRGBA[2])
+                            << " a:" << static_cast<int>(expectedRGBA[3]);
+                    }
+                }
+            }
+        }
+        return comparisonFailed;
+    }
+
+    void compareImageWithGoldenPng(const TargetImage* target, const std::string& filename,
+                                   const bool saveImageIfComparisonFailed) {
+        const uint32_t targetWidth = target->m_width;
+        const uint32_t targetHeight = target->m_height;
+        const auto targetPixelsOpt = target->read();
+        ASSERT_TRUE(targetPixelsOpt.has_value());
+        const auto& targetPixels = *targetPixelsOpt;
+
+        uint32_t goldenWidth;
+        uint32_t goldenHeight;
+        std::vector<uint32_t> goldenPixels;
+        const bool loadedGolden =
+            LoadRGBAFromPng(filename, &goldenWidth, &goldenHeight, &goldenPixels);
+        EXPECT_TRUE(loadedGolden) << "Failed to load golden image from " << filename;
+
+        bool comparisonFailed = !loadedGolden;
+
+        if (loadedGolden) {
+            EXPECT_EQ(target->m_width, goldenWidth)
+                << "Invalid width comparison with golden image from " << filename;
+            EXPECT_EQ(target->m_height, goldenHeight)
+                << "Invalid height comparison with golden image from " << filename;
+            if (targetWidth != goldenWidth || targetHeight != goldenHeight) {
+                comparisonFailed = true;
+            }
+            if (!comparisonFailed) {
+                comparisonFailed = compareRGBAPixels(targetPixels.data(), goldenPixels.data(),
+                                                     goldenWidth, goldenHeight);
+            }
+        }
+
+        if (saveImageIfComparisonFailed && comparisonFailed) {
+            const std::string output = (std::filesystem::temp_directory_path() /
+                                        std::filesystem::path(filename).filename())
+                                           .string();
+            SaveRGBAToPng(targetWidth, targetHeight, targetPixels.data(), output);
+            ADD_FAILURE() << "Saved composition result to " << output;
+        }
+    }
+
+    template <typename SourceOrTargetImage>
+    std::unique_ptr<BorrowedImageInfoVk> createBorrowedImageInfo(const SourceOrTargetImage* image) {
+        static int sImageId = 0;
+
+        auto ret = std::make_unique<BorrowedImageInfoVk>();
+        ret->id = sImageId++;
+        ret->width = image->m_width;
+        ret->height = image->m_height;
+        ret->image = image->m_vkImage;
+        ret->imageCreateInfo = image->m_vkImageCreateInfo;
+        ret->imageView = image->m_vkImageView;
+        ret->preBorrowLayout = SourceOrTargetImage::k_vkImageLayout;
+        ret->preBorrowQueueFamilyIndex = m_compositorQueueFamilyIndex;
+        ret->postBorrowLayout = SourceOrTargetImage::k_vkImageLayout;
+        ret->postBorrowQueueFamilyIndex = m_compositorQueueFamilyIndex;
+        return ret;
+    }
+
+    void checkImageFilledWith(const TargetImage* image, uint32_t expectedColor) {
+        auto actualPixelsOpt = image->read();
+        ASSERT_TRUE(actualPixelsOpt.has_value());
+        auto& actualPixels = *actualPixelsOpt;
+
+        const std::vector<uint32_t> expectedPixels(image->numOfPixels(), expectedColor);
+        compareRGBAPixels(actualPixels.data(), expectedPixels.data(), image->m_width,
+                          image->m_height);
+    }
+
+    void fillImageWith(const TargetImage* image, uint32_t color) {
+        const std::vector<uint32_t> pixels(image->numOfPixels(), color);
+        ASSERT_TRUE(image->write(pixels)) << "Failed to fill image with color:" << color;
+        checkImageFilledWith(image, color);
+    }
+
+    static const VulkanDispatch* k_vk;
     VkInstance m_vkInstance = VK_NULL_HANDLE;
     VkPhysicalDevice m_vkPhysicalDevice = VK_NULL_HANDLE;
     uint32_t m_compositorQueueFamilyIndex = 0;
     VkDevice m_vkDevice = VK_NULL_HANDLE;
-    std::vector<std::unique_ptr<const RenderTarget>> m_renderTargets;
-    std::vector<VkImageView> m_renderTargetImageViews;
     VkCommandPool m_vkCommandPool = VK_NULL_HANDLE;
     VkQueue m_compositorVkQueue = VK_NULL_HANDLE;
     std::shared_ptr<android::base::Lock> m_compositorVkQueueLock;
-    std::vector<VkCommandBuffer> m_vkCommandBuffers;
-    VkSampler m_rgbaVkSampler = VK_NULL_HANDLE;
 
    private:
     void createInstance() {
-        VkApplicationInfo appInfo = {.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-                                     .pNext = nullptr,
-                                     .pApplicationName = "emulator CompositorVk unittest",
-                                     .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
-                                     .pEngineName = "No Engine",
-                                     .engineVersion = VK_MAKE_VERSION(1, 0, 0),
-                                     .apiVersion = VK_API_VERSION_1_1};
-        VkInstanceCreateInfo instanceCi = {.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-                                           .pApplicationInfo = &appInfo,
-                                           .enabledExtensionCount = 0,
-                                           .ppEnabledExtensionNames = nullptr};
+        const VkApplicationInfo appInfo = {
+            .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+            .pNext = nullptr,
+            .pApplicationName = "emulator CompositorVk unittest",
+            .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
+            .pEngineName = "No Engine",
+            .engineVersion = VK_MAKE_VERSION(1, 0, 0),
+            .apiVersion = VK_API_VERSION_1_1,
+        };
+        const VkInstanceCreateInfo instanceCi = {
+            .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+            .pApplicationInfo = &appInfo,
+            .enabledExtensionCount = 0,
+            .ppEnabledExtensionNames = nullptr,
+        };
         ASSERT_EQ(k_vk->vkCreateInstance(&instanceCi, nullptr, &m_vkInstance), VK_SUCCESS);
-        ASSERT_TRUE(m_vkInstance != VK_NULL_HANDLE);
+        ASSERT_NE(m_vkInstance, VK_NULL_HANDLE);
     }
 
     void pickPhysicalDevice() {
@@ -181,7 +306,7 @@ class CompositorVkTest : public ::testing::Test {
                                                            queueFamilyProperties.data());
             uint32_t queueFamilyIndex = 0;
             for (; queueFamilyIndex < queueFamilyCount; queueFamilyIndex++) {
-                if (CompositorVk::validateQueueFamilyProperties(
+                if (CompositorVk::queueSupportsComposition(
                         queueFamilyProperties[queueFamilyIndex])) {
                     break;
                 }
@@ -199,291 +324,501 @@ class CompositorVkTest : public ::testing::Test {
 
     void createLogicalDevice() {
         const float queuePriority = 1.0f;
-        VkDeviceQueueCreateInfo queueCi = {.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                                           .queueFamilyIndex = m_compositorQueueFamilyIndex,
-                                           .queueCount = 1,
-                                           .pQueuePriorities = &queuePriority};
-        VkPhysicalDeviceFeatures2 features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-                                              .pNext = nullptr};
-        VkDeviceCreateInfo deviceCi = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-                                       .pNext = &features,
-                                       .queueCreateInfoCount = 1,
-                                       .pQueueCreateInfos = &queueCi,
-                                       .enabledLayerCount = 0,
-                                       .enabledExtensionCount = 0,
-                                       .ppEnabledExtensionNames = nullptr};
+        const VkDeviceQueueCreateInfo queueCi = {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .queueFamilyIndex = m_compositorQueueFamilyIndex,
+            .queueCount = 1,
+            .pQueuePriorities = &queuePriority,
+        };
+        const VkPhysicalDeviceFeatures2 features = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+            .pNext = nullptr,
+        };
+        const VkDeviceCreateInfo deviceCi = {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+            .pNext = &features,
+            .queueCreateInfoCount = 1,
+            .pQueueCreateInfos = &queueCi,
+            .enabledLayerCount = 0,
+            .enabledExtensionCount = 0,
+            .ppEnabledExtensionNames = nullptr,
+        };
         ASSERT_EQ(k_vk->vkCreateDevice(m_vkPhysicalDevice, &deviceCi, nullptr, &m_vkDevice),
                   VK_SUCCESS);
-        ASSERT_TRUE(m_vkDevice != VK_NULL_HANDLE);
+        ASSERT_NE(m_vkDevice, VK_NULL_HANDLE);
+    }
+
+    bool supportsFeatures(VkFormat format, VkFormatFeatureFlags features) {
+        VkFormatProperties formatProperties = {};
+        k_vk->vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, format, &formatProperties);
+        return (formatProperties.optimalTilingFeatures & features) == features;
     }
 };
 
-const goldfish_vk::VulkanDispatch *CompositorVkTest::k_vk = nullptr;
+const VulkanDispatch* CompositorVkTest::k_vk = nullptr;
+
+TEST_F(CompositorVkTest, QueueSupportsComposition) {
+    VkQueueFamilyProperties properties = {};
+
+    properties.queueFlags &= ~VK_QUEUE_GRAPHICS_BIT;
+    ASSERT_FALSE(CompositorVk::queueSupportsComposition(properties));
+
+    properties.queueFlags |= VK_QUEUE_GRAPHICS_BIT;
+    ASSERT_TRUE(CompositorVk::queueSupportsComposition(properties));
+}
 
 TEST_F(CompositorVkTest, Init) { ASSERT_NE(createCompositor(), nullptr); }
 
-TEST_F(CompositorVkTest, ValidateQueueFamilyProperties) {
-    VkQueueFamilyProperties properties = {};
-    properties.queueFlags &= ~VK_QUEUE_GRAPHICS_BIT;
-    ASSERT_FALSE(CompositorVk::validateQueueFamilyProperties(properties));
-    properties.queueFlags |= VK_QUEUE_GRAPHICS_BIT;
-    ASSERT_TRUE(CompositorVk::validateQueueFamilyProperties(properties));
-}
-
 TEST_F(CompositorVkTest, EmptyCompositionShouldDrawABlackFrame) {
-    std::vector<uint32_t> pixels(k_renderTargetNumOfPixels);
-    for (uint32_t i = 0; i < k_renderTargetNumOfPixels; i++) {
-        uint8_t v = static_cast<uint8_t>((i / 4) & 0xff);
-        uint8_t *pixel = reinterpret_cast<uint8_t *>(&pixels[i]);
-        pixel[0] = v;
-        pixel[1] = v;
-        pixel[2] = v;
-        pixel[3] = 0xff;
-    }
-    for (uint32_t i = 0; i < k_numOfRenderTargets; i++) {
-        ASSERT_TRUE(m_renderTargets[i]->write(pixels));
-        auto maybeImageBytes = m_renderTargets[i]->read();
-        ASSERT_TRUE(maybeImageBytes.has_value());
-        for (uint32_t i = 0; i < k_renderTargetNumOfPixels; i++) {
-            ASSERT_EQ(pixels[i], maybeImageBytes.value()[i]);
-        }
-    }
-
     auto compositor = createCompositor();
-    auto renderTargets = createCompositorRenderTargets(*compositor);
     ASSERT_NE(compositor, nullptr);
 
-    // render to render targets with event index
-    std::vector<VkCommandBuffer> cmdBuffs = {};
-    for (uint32_t i = 0; i < k_numOfRenderTargets; i++) {
-        VkCommandBufferBeginInfo beginInfo = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-        };
-        VK_CHECK(k_vk->vkBeginCommandBuffer(m_vkCommandBuffers[i], &beginInfo));
-        compositor->recordCommandBuffers(i, m_vkCommandBuffers[i], *renderTargets[i]);
-        VK_CHECK(k_vk->vkEndCommandBuffer(m_vkCommandBuffers[i]));
-        if (i % 2 == 0) {
-            cmdBuffs.emplace_back(m_vkCommandBuffers[i]);
-        }
+    std::vector<std::unique_ptr<const TargetImage>> targets;
+    constexpr const uint32_t kNumImages = 10;
+    for (uint32_t i = 0; i < kNumImages; i++) {
+        auto target =
+            TargetImage::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
+                                m_vkCommandPool, kDefaultImageWidth, kDefaultImageHeight);
+        ASSERT_NE(target, nullptr);
+        fillImageWith(target.get(), kColorRed);
+        targets.emplace_back(std::move(target));
     }
-    VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-                               .commandBufferCount = static_cast<uint32_t>(cmdBuffs.size()),
-                               .pCommandBuffers = cmdBuffs.data()};
-    ASSERT_EQ(k_vk->vkQueueSubmit(m_compositorVkQueue, 1, &submitInfo, VK_NULL_HANDLE), VK_SUCCESS);
 
-    ASSERT_EQ(k_vk->vkQueueWaitIdle(m_compositorVkQueue), VK_SUCCESS);
-    for (uint32_t i = 0; i < k_numOfRenderTargets; i++) {
-        auto maybeImagePixels = m_renderTargets[i]->read();
-        ASSERT_TRUE(maybeImagePixels.has_value());
-        const auto &imagePixels = maybeImagePixels.value();
-        for (uint32_t j = 0; j < k_renderTargetNumOfPixels; j++) {
-            const auto pixel = reinterpret_cast<const uint8_t *>(&imagePixels[j]);
-            // should only render to render targets with even index
-            if (i % 2 == 0) {
-                ASSERT_EQ(pixel[0], 0);
-                ASSERT_EQ(pixel[1], 0);
-                ASSERT_EQ(pixel[2], 0);
-                ASSERT_EQ(pixel[3], 0xff);
-            } else {
-                ASSERT_EQ(pixels[j], imagePixels[j]);
-            }
-        }
+    for (uint32_t i = 0; i < kNumImages; i++) {
+        const Compositor::CompositionRequest compositionRequest = {
+            .target = createBorrowedImageInfo(targets[i].get()),
+            .layers = {},  // Note: this is empty!
+        };
+
+        auto compositionCompleteWaitable = compositor->compose(compositionRequest);
+        compositionCompleteWaitable.wait();
+    }
+
+    for (const auto& target : targets) {
+        checkImageFilledWith(target.get(), kColorBlack);
     }
 }
 
 TEST_F(CompositorVkTest, SimpleComposition) {
-    constexpr uint32_t textureLeft = 30;
-    constexpr uint32_t textureRight = 50;
-    constexpr uint32_t textureTop = 10;
-    constexpr uint32_t textureBottom = 40;
-    constexpr uint32_t textureWidth = textureRight - textureLeft;
-    constexpr uint32_t textureHeight = textureBottom - textureTop;
-    auto texture = RenderTexture::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
-                                         m_vkCommandPool, textureWidth, textureHeight);
-    uint32_t textureColor;
-    uint8_t *textureColor_ = reinterpret_cast<uint8_t *>(&textureColor);
-    textureColor_[0] = 0xff;
-    textureColor_[1] = 0;
-    textureColor_[2] = 0;
-    textureColor_[3] = 0xff;
-    std::vector<uint32_t> pixels(textureWidth * textureHeight, textureColor);
-    ASSERT_TRUE(texture->write(pixels));
     auto compositor = createCompositor();
     ASSERT_NE(compositor, nullptr);
 
-    ComposeLayer composeLayer = {
-        0 /* No color buffer handle */,
-        HWC2_COMPOSITION_DEVICE,
-        {
-            /* frame in which the texture shows up on the display */
-            textureLeft,
-            textureTop,
-            textureRight,
-            textureBottom,
-        },
-        {
-            /* how much of the texture itself to show */
-            0.0,
-            0.0,
-            static_cast<float>(textureWidth),
-            static_cast<float>(textureHeight),
-        },
-        HWC2_BLEND_MODE_PREMULTIPLIED /* blend mode */,
-        1.0 /* alpha */,
-        {0, 0, 0, 0} /* color (N/A) */,
-        HWC_TRANSFORM_NONE /* transform (no rotation */,
+    auto source = createSourceImageFromPng(GetTestDataPath("256x256_android.png"));
+    ASSERT_NE(source, nullptr);
+
+    auto target = TargetImage::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
+                                      m_vkCommandPool, source->m_width, source->m_height);
+    ASSERT_NE(target, nullptr);
+    fillImageWith(target.get(), kColorBlack);
+
+    Compositor::CompositionRequest compositionRequest = {
+        .target = createBorrowedImageInfo(target.get()),
     };
+    compositionRequest.layers.emplace_back(Compositor::CompositionRequestLayer{
+        .source = createBorrowedImageInfo(source.get()),
+        .props =
+            {
+                .composeMode = HWC2_COMPOSITION_DEVICE,
+                .displayFrame =
+                    {
+                        .left = 64,
+                        .top = 32,
+                        .right = 128,
+                        .bottom = 160,
+                    },
+                .crop =
+                    {
+                        .left = 0,
+                        .top = 0,
+                        .right = static_cast<float>(source->m_width),
+                        .bottom = static_cast<float>(source->m_height),
+                    },
+                .blendMode = HWC2_BLEND_MODE_PREMULTIPLIED,
+                .alpha = 1.0,
+                .color =
+                    {
+                        .r = 0,
+                        .g = 0,
+                        .b = 0,
+                        .a = 0,
+                    },
+                .transform = HWC_TRANSFORM_NONE,
+            },
+    });
 
-    std::unique_ptr<ComposeLayerVk> composeLayerVkPtr = ComposeLayerVk::createFromHwc2ComposeLayer(
-        m_rgbaVkSampler, texture->m_vkImageView, composeLayer, textureWidth, textureHeight,
-        k_renderTargetWidth, k_renderTargetHeight);
+    auto compositionCompleteWaitable = compositor->compose(compositionRequest);
+    compositionCompleteWaitable.wait();
 
-    std::vector<std::unique_ptr<ComposeLayerVk>> layers;
-    layers.emplace_back(std::move(composeLayerVkPtr));
-
-    auto composition = std::make_unique<Composition>(std::move(layers));
-    auto renderTargets = createCompositorRenderTargets(*compositor);
-    compositor->setComposition(0, std::move(composition));
-
-    VkCommandBuffer cmdBuff = m_vkCommandBuffers[0];
-    VkCommandBufferBeginInfo beginInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-    };
-    VK_CHECK(k_vk->vkBeginCommandBuffer(cmdBuff, &beginInfo));
-    compositor->recordCommandBuffers(0, cmdBuff, *renderTargets[0]);
-    VK_CHECK(k_vk->vkEndCommandBuffer(cmdBuff));
-
-    VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-                               .commandBufferCount = 1,
-                               .pCommandBuffers = &cmdBuff};
-    ASSERT_EQ(k_vk->vkQueueSubmit(m_compositorVkQueue, 1, &submitInfo, VK_NULL_HANDLE), VK_SUCCESS);
-    ASSERT_EQ(k_vk->vkQueueWaitIdle(m_compositorVkQueue), VK_SUCCESS);
-
-    auto maybeImagePixels = m_renderTargets[0]->read();
-    ASSERT_TRUE(maybeImagePixels.has_value());
-    const auto &imagePixels = maybeImagePixels.value();
-
-    for (uint32_t i = 0; i < k_renderTargetHeight; i++) {
-        for (uint32_t j = 0; j < k_renderTargetWidth; j++) {
-            uint32_t offset = i * k_renderTargetWidth + j;
-            const uint8_t *pixel = reinterpret_cast<const uint8_t *>(&imagePixels[offset]);
-            EXPECT_EQ(pixel[1], 0);
-            EXPECT_EQ(pixel[2], 0);
-            EXPECT_EQ(pixel[3], 0xff);
-            if (i >= textureTop && i < textureBottom && j >= textureLeft && j < textureRight) {
-                EXPECT_EQ(pixel[0], 0xff);
-            } else {
-                EXPECT_EQ(pixel[0], 0);
-            }
-        }
-    }
+    compareImageWithGoldenPng(target.get(),
+                              GetTestDataPath("256x256_golden_simple_composition.png"),
+                              kDefaultSaveImageIfComparisonFailed);
 }
 
-TEST_F(CompositorVkTest, CompositingWithDifferentCompositionOnMultipleTargets) {
-    constexpr uint32_t textureWidth = 20;
-    constexpr uint32_t textureHeight = 30;
-
-    ComposeLayer defaultComposeLayer = {
-        0 /* No color buffer handle */,
-        HWC2_COMPOSITION_DEVICE,
-        {
-            /* display frame (to be replaced for each of k_numOfRenderTargets */
-            0,
-            0,
-            0,
-            0,
-        },
-        {
-            /* how much of the texture itself to show */
-            0.0,
-            0.0,
-            static_cast<float>(textureWidth),
-            static_cast<float>(textureHeight),
-        },
-        HWC2_BLEND_MODE_PREMULTIPLIED /* blend mode */,
-        1.0 /* alpha */,
-        {0, 0, 0, 0} /* color (N/A) */,
-        HWC_TRANSFORM_NONE /* transform (no rotation */,
-    };
-
-    std::vector<ComposeLayer> composeLayers(k_numOfRenderTargets);
-    for (int i = 0; i < k_numOfRenderTargets; i++) {
-        composeLayers[i] = defaultComposeLayer;
-        int left = (i * 30) % (k_renderTargetWidth - textureWidth);
-        int top = (i * 20) % (k_renderTargetHeight - textureHeight);
-        int right = left + textureWidth;
-        int bottom = top + textureHeight;
-        composeLayers[i].displayFrame = {
-            left,
-            top,
-            right,
-            bottom,
-        };
-    }
-
-    auto texture = RenderTexture::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
-                                         m_vkCommandPool, textureWidth, textureHeight);
-    uint32_t textureColor;
-    uint8_t *textureColor_ = reinterpret_cast<uint8_t *>(&textureColor);
-    textureColor_[0] = 0xff;
-    textureColor_[1] = 0;
-    textureColor_[2] = 0;
-    textureColor_[3] = 0xff;
-    std::vector<uint32_t> pixels(textureWidth * textureHeight, textureColor);
-    ASSERT_TRUE(texture->write(pixels));
+TEST_F(CompositorVkTest, BlendPremultiplied) {
     auto compositor = createCompositor();
     ASSERT_NE(compositor, nullptr);
-    auto renderTargets = createCompositorRenderTargets(*compositor);
-    for (int i = 0; i < k_numOfRenderTargets; i++) {
-        std::unique_ptr<ComposeLayerVk> composeLayerVkPtr =
-            ComposeLayerVk::createFromHwc2ComposeLayer(
-                m_rgbaVkSampler, texture->m_vkImageView, composeLayers[i], textureWidth,
-                textureHeight, k_renderTargetWidth, k_renderTargetHeight);
 
-        std::vector<std::unique_ptr<ComposeLayerVk>> layers;
-        layers.emplace_back(std::move(composeLayerVkPtr));
+    auto source =
+        createSourceImageFromPng(GetTestDataPath("256x256_android_with_transparency.png"));
+    ASSERT_NE(source, nullptr);
 
-        auto composition = std::make_unique<Composition>(std::move(layers));
-        compositor->setComposition(i, std::move(composition));
+    auto target = TargetImage::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
+                                      m_vkCommandPool, source->m_width, source->m_height);
+    ASSERT_NE(target, nullptr);
+    fillImageWith(target.get(), kColorBlack);
 
-        VkCommandBuffer cmdBuff = m_vkCommandBuffers[i];
-        VkCommandBufferBeginInfo beginInfo = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-        };
-        VK_CHECK(k_vk->vkBeginCommandBuffer(cmdBuff, &beginInfo));
-        compositor->recordCommandBuffers(i, cmdBuff, *renderTargets[i]);
-        VK_CHECK(k_vk->vkEndCommandBuffer(cmdBuff));
+    Compositor::CompositionRequest compositionRequest = {
+        .target = createBorrowedImageInfo(target.get()),
+    };
+    compositionRequest.layers.emplace_back(Compositor::CompositionRequestLayer{
+        .source = createBorrowedImageInfo(source.get()),
+        .props =
+            {
+                .composeMode = HWC2_COMPOSITION_DEVICE,
+                .displayFrame =
+                    {
+                        .left = 0,
+                        .top = 0,
+                        .right = static_cast<int>(target->m_width),
+                        .bottom = static_cast<int>(target->m_height),
+                    },
+                .crop =
+                    {
+                        .left = 0,
+                        .top = 0,
+                        .right = static_cast<float>(source->m_width),
+                        .bottom = static_cast<float>(source->m_height),
+                    },
+                .blendMode = HWC2_BLEND_MODE_PREMULTIPLIED,
+                .alpha = 1.0,
+                .color =
+                    {
+                        .r = 0,
+                        .g = 0,
+                        .b = 0,
+                        .a = 0,
+                    },
+                .transform = HWC_TRANSFORM_NONE,
+            },
+    });
 
-        VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-                                   .commandBufferCount = 1,
-                                   .pCommandBuffers = &cmdBuff};
-        ASSERT_EQ(k_vk->vkQueueSubmit(m_compositorVkQueue, 1, &submitInfo, VK_NULL_HANDLE),
-                  VK_SUCCESS);
-        ASSERT_EQ(k_vk->vkQueueWaitIdle(m_compositorVkQueue), VK_SUCCESS);
+    auto compositionCompleteWaitable = compositor->compose(compositionRequest);
+    compositionCompleteWaitable.wait();
 
-        auto maybeImagePixels = m_renderTargets[i]->read();
-        ASSERT_TRUE(maybeImagePixels.has_value());
-        const auto &imagePixels = maybeImagePixels.value();
+    compareImageWithGoldenPng(target.get(),
+                              GetTestDataPath("256x256_golden_blend_premultiplied.png"),
+                              kDefaultSaveImageIfComparisonFailed);
+}
 
-        for (uint32_t j = 0; j < k_renderTargetHeight; j++) {
-            for (uint32_t k = 0; k < k_renderTargetWidth; k++) {
-                uint32_t offset = j * k_renderTargetWidth + k;
-                const uint8_t *pixel = reinterpret_cast<const uint8_t *>(&imagePixels[offset]);
-                EXPECT_EQ(pixel[1], 0);
-                EXPECT_EQ(pixel[2], 0);
-                EXPECT_EQ(pixel[3], 0xff);
-                if (j >= composeLayers[i].displayFrame.top &&
-                    j < composeLayers[i].displayFrame.bottom &&
-                    k >= composeLayers[i].displayFrame.left &&
-                    k < composeLayers[i].displayFrame.right) {
-                    EXPECT_EQ(pixel[0], 0xff);
-                } else {
-                    EXPECT_EQ(pixel[0], 0);
-                }
-            }
-        }
+TEST_F(CompositorVkTest, Crop) {
+    auto compositor = createCompositor();
+    ASSERT_NE(compositor, nullptr);
+
+    auto source = createSourceImageFromPng(GetTestDataPath("256x256_android.png"));
+    ASSERT_NE(source, nullptr);
+
+    auto target = TargetImage::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
+                                      m_vkCommandPool, source->m_width, source->m_height);
+    ASSERT_NE(target, nullptr);
+    fillImageWith(target.get(), kColorBlack);
+
+    Compositor::CompositionRequest compositionRequest = {
+        .target = createBorrowedImageInfo(target.get()),
+    };
+    compositionRequest.layers.emplace_back(Compositor::CompositionRequestLayer{
+        .source = createBorrowedImageInfo(source.get()),
+        .props =
+            {
+                .composeMode = HWC2_COMPOSITION_DEVICE,
+                .displayFrame =
+                    {
+                        .left = 0,
+                        .top = 0,
+                        .right = static_cast<int>(target->m_width),
+                        .bottom = static_cast<int>(target->m_height),
+                    },
+                .crop =
+                    {
+                        .left = 0,
+                        .top = 0,
+                        .right = static_cast<float>(source->m_width) / 2.0f,
+                        .bottom = static_cast<float>(source->m_height) / 2.0f,
+                    },
+                .blendMode = HWC2_BLEND_MODE_PREMULTIPLIED,
+                .alpha = 1.0,
+                .color =
+                    {
+                        .r = 0,
+                        .g = 0,
+                        .b = 0,
+                        .a = 0,
+                    },
+                .transform = HWC_TRANSFORM_NONE,
+            },
+    });
+
+    auto compositionCompleteWaitable = compositor->compose(compositionRequest);
+    compositionCompleteWaitable.wait();
+
+    compareImageWithGoldenPng(target.get(), GetTestDataPath("256x256_golden_crop.png"),
+                              kDefaultSaveImageIfComparisonFailed);
+}
+
+TEST_F(CompositorVkTest, Transformations) {
+    auto compositor = createCompositor();
+    ASSERT_NE(compositor, nullptr);
+
+    auto source = createSourceImageFromPng(GetTestDataPath("256x256_android.png"));
+    ASSERT_NE(source, nullptr);
+
+    Compositor::CompositionRequest compositionRequest;
+    compositionRequest.layers.emplace_back(Compositor::CompositionRequestLayer{
+        .props =
+            {
+                .composeMode = HWC2_COMPOSITION_DEVICE,
+                .displayFrame =
+                    {
+                        .left = 32,
+                        .top = 32,
+                        .right = 224,
+                        .bottom = 224,
+                    },
+                .crop =
+                    {
+                        .left = 0,
+                        .top = 0,
+                        .right = static_cast<float>(source->m_width),
+                        .bottom = static_cast<float>(source->m_height),
+                    },
+                .blendMode = HWC2_BLEND_MODE_PREMULTIPLIED,
+                .alpha = 1.0,
+                .color =
+                    {
+                        .r = 0,
+                        .g = 0,
+                        .b = 0,
+                        .a = 0,
+                    },
+                .transform = HWC_TRANSFORM_NONE,
+            },
+    });
+
+    const std::unordered_map<hwc_transform_t, std::string> transformToGolden = {
+        {HWC_TRANSFORM_NONE, "256x256_golden_transform_none.png"},
+        {HWC_TRANSFORM_FLIP_H, "256x256_golden_transform_fliph.png"},
+        {HWC_TRANSFORM_FLIP_V, "256x256_golden_transform_flipv.png"},
+        {HWC_TRANSFORM_ROT_90, "256x256_golden_transform_rot90.png"},
+        {HWC_TRANSFORM_ROT_180, "256x256_golden_transform_rot180.png"},
+        {HWC_TRANSFORM_ROT_270, "256x256_golden_transform_rot270.png"},
+        {HWC_TRANSFORM_FLIP_H_ROT_90, "256x256_golden_transform_fliphrot90.png"},
+        {HWC_TRANSFORM_FLIP_V_ROT_90, "256x256_golden_transform_flipvrot90.png"},
+    };
+
+    for (const auto [transform, golden] : transformToGolden) {
+        auto target = TargetImage::create(*k_vk, m_vkDevice, m_vkPhysicalDevice,
+                                          m_compositorVkQueue, m_vkCommandPool, 256, 256);
+        ASSERT_NE(target, nullptr);
+        fillImageWith(target.get(), kColorBlack);
+
+        compositionRequest.target = createBorrowedImageInfo(target.get());
+        compositionRequest.layers[0].props.transform = transform;
+        compositionRequest.layers[0].source = createBorrowedImageInfo(source.get());
+
+        auto compositionCompleteWaitable = compositor->compose(compositionRequest);
+        compositionCompleteWaitable.wait();
+
+        compareImageWithGoldenPng(target.get(), GetTestDataPath(golden),
+                                  kDefaultSaveImageIfComparisonFailed);
     }
 }
+
+TEST_F(CompositorVkTest, MultipleTargetsComposition) {
+    auto compositor = createCompositor();
+    ASSERT_NE(compositor, nullptr);
+
+    constexpr const uint32_t kNumCompostions = 10;
+
+    auto source = createImageWithColor<SourceImage>(256, 256, kColorGreen);
+    ASSERT_NE(source, nullptr);
+
+    std::vector<std::unique_ptr<const TargetImage>> targets;
+    for (uint32_t i = 0; i < kNumCompostions; i++) {
+        auto target = createImageWithColor<TargetImage>(256, 256, kColorBlack);
+        ASSERT_NE(target, nullptr);
+        targets.emplace_back(std::move(target));
+    }
+
+    Compositor::CompositionRequest compositionRequest = {};
+    compositionRequest.layers.emplace_back(Compositor::CompositionRequestLayer{
+        .props =
+            {
+                .composeMode = HWC2_COMPOSITION_DEVICE,
+                .displayFrame =
+                    {
+                        .left = 0,
+                        .top = 0,
+                        .right = 0,
+                        .bottom = static_cast<int>(source->m_height),
+                    },
+                .crop =
+                    {
+                        .left = 0,
+                        .top = 0,
+                        .right = static_cast<float>(source->m_width),
+                        .bottom = static_cast<float>(source->m_height),
+                    },
+                .blendMode = HWC2_BLEND_MODE_PREMULTIPLIED,
+                .alpha = 1.0,
+                .color =
+                    {
+                        .r = 0,
+                        .g = 0,
+                        .b = 0,
+                        .a = 0,
+                    },
+                .transform = HWC_TRANSFORM_NONE,
+            },
+    });
+
+    const uint32_t displayFrameWidth = 256 / kNumCompostions;
+    for (uint32_t i = 0; i < kNumCompostions; i++) {
+        const auto& target = targets[i];
+
+        compositionRequest.target = createBorrowedImageInfo(target.get());
+        compositionRequest.layers[0].source = createBorrowedImageInfo(source.get()),
+        compositionRequest.layers[0].props.displayFrame.left = (i + 0) * displayFrameWidth;
+        compositionRequest.layers[0].props.displayFrame.right = (i + 1) * displayFrameWidth;
+
+        auto compositionCompleteWaitable = compositor->compose(compositionRequest);
+        compositionCompleteWaitable.wait();
+
+        compareImageWithGoldenPng(
+            target.get(),
+            GetTestDataPath("256x256_golden_multiple_targets_" + std::to_string(i) + ".png"),
+            kDefaultSaveImageIfComparisonFailed);
+    }
+}
+
+TEST_F(CompositorVkTest, MultipleLayers) {
+    auto compositor = createCompositor();
+    ASSERT_NE(compositor, nullptr);
+
+    auto source1 = createSourceImageFromPng(GetTestDataPath("256x256_android.png"));
+    ASSERT_NE(source1, nullptr);
+
+    auto source2 =
+        createSourceImageFromPng(GetTestDataPath("256x256_android_with_transparency.png"));
+    ASSERT_NE(source2, nullptr);
+
+    auto target = TargetImage::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
+                                      m_vkCommandPool, kDefaultImageWidth, kDefaultImageHeight);
+    ASSERT_NE(target, nullptr);
+    fillImageWith(target.get(), kColorBlack);
+
+    Compositor::CompositionRequest compositionRequest = {
+        .target = createBorrowedImageInfo(target.get()),
+    };
+    compositionRequest.layers.emplace_back(Compositor::CompositionRequestLayer{
+        .source = createBorrowedImageInfo(source1.get()),
+        .props =
+            {
+                .composeMode = HWC2_COMPOSITION_DEVICE,
+                .displayFrame =
+                    {
+                        .left = 0,
+                        .top = 0,
+                        .right = static_cast<int>(target->m_width),
+                        .bottom = static_cast<int>(target->m_height),
+                    },
+                .crop =
+                    {
+                        .left = 32.0,
+                        .top = 32.0,
+                        .right = static_cast<float>(source1->m_width) - 32.0f,
+                        .bottom = static_cast<float>(source1->m_height) - 32.0f,
+                    },
+                .blendMode = HWC2_BLEND_MODE_PREMULTIPLIED,
+                .alpha = 1.0,
+                .color =
+                    {
+                        .r = 0,
+                        .g = 0,
+                        .b = 0,
+                        .a = 0,
+                    },
+                .transform = HWC_TRANSFORM_NONE,
+            },
+    });
+    compositionRequest.layers.emplace_back(Compositor::CompositionRequestLayer{
+        .source = createBorrowedImageInfo(source2.get()),
+        .props =
+            {
+                .composeMode = HWC2_COMPOSITION_DEVICE,
+                .displayFrame =
+                    {
+                        .left = 0,
+                        .top = 0,
+                        .right = static_cast<int>(target->m_width),
+                        .bottom = static_cast<int>(target->m_height),
+                    },
+                .crop =
+                    {
+                        .left = 0,
+                        .top = 0,
+                        .right = static_cast<float>(source2->m_width) / 2.0f,
+                        .bottom = static_cast<float>(source2->m_height) / 2.0f,
+                    },
+                .blendMode = HWC2_BLEND_MODE_PREMULTIPLIED,
+                .alpha = 1.0,
+                .color =
+                    {
+                        .r = 0,
+                        .g = 0,
+                        .b = 0,
+                        .a = 0,
+                    },
+                .transform = HWC_TRANSFORM_ROT_90,
+            },
+    });
+    compositionRequest.layers.emplace_back(Compositor::CompositionRequestLayer{
+        .source = createBorrowedImageInfo(source2.get()),
+        .props =
+            {
+                .composeMode = HWC2_COMPOSITION_DEVICE,
+                .displayFrame =
+                    {
+                        .left = 0,
+                        .top = 0,
+                        .right = static_cast<int>(target->m_width) / 2,
+                        .bottom = static_cast<int>(target->m_height),
+                    },
+                .crop =
+                    {
+                        .left = 0,
+                        .top = 0,
+                        .right = static_cast<float>(source2->m_width),
+                        .bottom = static_cast<float>(source2->m_height),
+                    },
+                .blendMode = HWC2_BLEND_MODE_PREMULTIPLIED,
+                .alpha = 1.0,
+                .color =
+                    {
+                        .r = 0,
+                        .g = 0,
+                        .b = 0,
+                        .a = 0,
+                    },
+                .transform = HWC_TRANSFORM_FLIP_V_ROT_90,
+            },
+    });
+
+    auto compositionCompleteWaitable = compositor->compose(compositionRequest);
+    compositionCompleteWaitable.wait();
+
+    compareImageWithGoldenPng(target.get(), GetTestDataPath("256x256_golden_multiple_layers.png"),
+                              kDefaultSaveImageIfComparisonFailed);
+}
+
+}  // namespace
+}  // namespace vk
+}  // namespace gfxstream

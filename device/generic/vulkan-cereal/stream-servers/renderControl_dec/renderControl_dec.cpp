@@ -16,6 +16,8 @@
 
 #include <stdio.h>
 
+namespace gfxstream {
+
 typedef unsigned int tsize_t; // Target "size_t", which is 32-bit for now. It may or may not be the same as host's size_t when emugen is compiled.
 
 #ifdef CHECK_GL_ERRORS
@@ -23,8 +25,6 @@ typedef unsigned int tsize_t; // Target "size_t", which is 32-bit for now. It ma
 #else
 #  define SET_LASTCALL(name)
 #endif
-using namespace emugl;
-
 size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, ChecksumCalculator* checksumCalc) {
 	if (len < 8) return 0;
 #ifdef CHECK_GL_ERRORS
@@ -1421,6 +1421,47 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			android::base::endTrace();
 			break;
 		}
+		case OP_rcSetProcessMetadata: {
+			android::base::beginTrace("rcSetProcessMetadata decode");
+			uint32_t size_key __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8);
+			InputBuffer inptr_key(ptr + 8 + 4, size_key);
+			uint32_t size_valuePtr __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + size_key);
+			InputBuffer inptr_valuePtr(ptr + 8 + 4 + size_key + 4, size_valuePtr);
+			uint32_t var_valueSize = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + size_key + 4 + size_valuePtr);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_key + 4 + size_valuePtr + 4, ptr + 8 + 4 + size_key + 4 + size_valuePtr + 4, checksumSize,
+					"renderControl_decoder_context_t::decode, OP_rcSetProcessMetadata: GL checksumCalculator failure\n");
+			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcSetProcessMetadata(key:%p(%u) valuePtr:%p(%u) valueSize:0x%08x )", stream, (char*)(inptr_key.get()), size_key, (RenderControlByte*)(inptr_valuePtr.get()), size_valuePtr, var_valueSize);
+			this->rcSetProcessMetadata((char*)(inptr_key.get()), (RenderControlByte*)(inptr_valuePtr.get()), var_valueSize);
+			SET_LASTCALL("rcSetProcessMetadata");
+			android::base::endTrace();
+			break;
+		}
+		case OP_rcGetHostExtensionsString: {
+			android::base::beginTrace("rcGetHostExtensionsString decode");
+			uint32_t var_bufferSize = Unpack<uint32_t,uint32_t>(ptr + 8);
+			uint32_t size_buffer __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
+					"renderControl_decoder_context_t::decode, OP_rcGetHostExtensionsString: GL checksumCalculator failure\n");
+			}
+			size_t totalTmpSize = size_buffer;
+			totalTmpSize += sizeof(int);
+			totalTmpSize += checksumSize;
+			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			OutputBuffer outptr_buffer(&tmpBuf[0], size_buffer);
+			DECODER_DEBUG_LOG("renderControl(%p): rcGetHostExtensionsString(bufferSize:0x%08x buffer:%p(%u) )", stream, var_bufferSize, (void*)(outptr_buffer.get()), size_buffer);
+			*(int *)(&tmpBuf[0 + size_buffer]) = 			this->rcGetHostExtensionsString(var_bufferSize, (void*)(outptr_buffer.get()));
+			outptr_buffer.flush();
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
+			}
+			stream->flush();
+			SET_LASTCALL("rcGetHostExtensionsString");
+			android::base::endTrace();
+			break;
+		}
 		default:
 			return ptr - (unsigned char*)buf;
 		} //switch
@@ -1428,3 +1469,4 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 	} // while
 	return ptr - (unsigned char*)buf;
 }
+}  // namespace gfxstream

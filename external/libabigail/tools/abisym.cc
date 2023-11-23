@@ -10,6 +10,7 @@
 /// This program takes parameters to open an elf file, lookup a symbol
 /// in its symbol tables and report what it sees.
 
+#include <libgen.h>
 #include <elf.h>
 #include <cstring>
 #include <iostream>

@@ -23,8 +23,6 @@ import android.os.Binder;
 import android.os.RemoteException;
 import android.util.Log;
 
-import com.android.modules.utils.build.SdkLevel;
-
 /**
  * A convenience wrapper for INetworkMonitor.
  *
@@ -150,15 +148,25 @@ public class NetworkMonitorManager {
         }
     }
 
+    // This should not be called starting from S
+    @Deprecated
+    public boolean notifyNetworkConnected(LinkProperties lp, NetworkCapabilities nc) {
+        final long token = Binder.clearCallingIdentity();
+        try {
+            mNetworkMonitor.notifyNetworkConnected(lp, nc);
+            return true;
+        } catch (RemoteException e) {
+            log("Error in notifyNetworkConnected", e);
+            return false;
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+    }
+
     public boolean notifyNetworkConnected(NetworkMonitorParameters params) {
         final long token = Binder.clearCallingIdentity();
         try {
-            if (SdkLevel.isAtLeastT()) {
-                mNetworkMonitor.notifyNetworkConnectedParcel(params);
-            } else {
-                mNetworkMonitor.notifyNetworkConnected(params.linkProperties,
-                        params.networkCapabilities);
-            }
+            mNetworkMonitor.notifyNetworkConnectedParcel(params);
             return true;
         } catch (RemoteException e) {
             log("Error in notifyNetworkConnected", e);

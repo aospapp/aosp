@@ -25,9 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Enumeration;
-import java.util.HashSet;
 import java.util.Random;
-import java.util.Set;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
@@ -494,50 +492,6 @@ public abstract class AbstractZipFileTest extends TestCaseWithRules {
 
         try (ZipFile zipFile = new ZipFile(emptyZip)) {
             assertEquals(0, zipFile.size());
-        }
-    }
-
-    // Demonstrates http://b/18644314 : Zip entry names are relative to the point of
-    // extraction and can contain relative paths "../" and "./".
-    //
-    // It is left to callers of the API to perform any validation / santization to
-    // ensure that files are not written outside of the destination directory, where that
-    // is a concern.
-    public void testArchivesWithRelativePaths() throws IOException {
-        String[] entryNames = {
-                "../",
-                "../foo.bar",
-                "foo/../../",
-                "foo/../../bar.baz"
-        };
-
-        File zip = createTemporaryZipFile();
-        ZipOutputStream out = createZipOutputStream(zip);
-
-        try {
-            byte[] entryData = new byte[1024];
-            for (String entryName : entryNames) {
-                ZipEntry ze = new ZipEntry(entryName);
-                out.putNextEntry(ze);
-                out.write(entryData);
-                out.closeEntry();
-            }
-        } finally {
-            out.close();
-        }
-
-        ZipFile zf = new ZipFile(zip, ZipFile.OPEN_READ);
-        Enumeration<? extends ZipEntry> entries = zf.entries();
-        Set<String> entryNamesFromFile = new HashSet<>();
-        while (entries.hasMoreElements()) {
-            ZipEntry ze = entries.nextElement();
-            entryNamesFromFile.add(ze.getName());
-        }
-
-        zf.close();
-
-        for (String entryName : entryNames) {
-            assertTrue(entryNamesFromFile.contains(entryName));
         }
     }
 

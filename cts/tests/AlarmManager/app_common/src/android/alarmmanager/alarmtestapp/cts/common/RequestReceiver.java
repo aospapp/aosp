@@ -89,7 +89,7 @@ public class RequestReceiver extends BroadcastReceiver {
             case ACTION_SET_EXACT_CALLBACK:
                 try {
                     am.setExact(AlarmManager.ELAPSED_REALTIME, 1234, TAG,
-                            () -> Log.w(TAG, "Listener alarm fired!"), null);
+                            () -> Log.i(TAG, "Listener alarm fired!"), null);
                     setResult(Activity.RESULT_OK, null, null);
                 } catch (SecurityException se) {
                     setResult(RESULT_SECURITY_EXCEPTION, se.getMessage(), null);

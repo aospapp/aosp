@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -77,7 +78,7 @@ class display_SwitchMode(test.test):
             self.connector_used = (
                     self.display_facade.get_external_connector_name())
 
-            for i in xrange(repeat):
+            for i in range(repeat):
                 logging.info("Iteration %d", (i + 1))
                 self.set_mode_and_check(True, no_check)
                 self.set_mode_and_check(False, no_check)

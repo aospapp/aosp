@@ -20,28 +20,19 @@
 #include <utility>
 #include <vector>
 
-#include <android/hardware/boot/1.2/IBootControl.h>
 #include <base/bind.h>
 #include <base/logging.h>
 #include <bootloader_message/bootloader_message.h>
 #include <brillo/message_loops/message_loop.h>
 
 #include "update_engine/aosp/dynamic_partition_control_android.h"
-#include "update_engine/common/utils.h"
 
 using std::string;
 
-using android::hardware::Return;
-using android::hardware::boot::V1_0::BoolResult;
-using android::hardware::boot::V1_0::CommandResult;
-using android::hardware::boot::V1_0::IBootControl;
 using Slot = chromeos_update_engine::BootControlInterface::Slot;
 
 namespace {
 
-auto StoreResultCallback(CommandResult* dest) {
-  return [dest](const CommandResult& result) { *dest = result; };
-}
 }  // namespace
 
 namespace chromeos_update_engine {
@@ -59,14 +50,18 @@ std::unique_ptr<BootControlInterface> CreateBootControl() {
 
 }  // namespace boot_control
 
+using android::hal::BootControlClient;
+using android::hal::CommandResult;
+using android::hal::BootControlVersion;
+
 bool BootControlAndroid::Init() {
-  module_ = IBootControl::getService();
+  module_ = BootControlClient::WaitForService();
   if (module_ == nullptr) {
-    LOG(ERROR) << "Error getting bootctrl HIDL module.";
+    LOG(ERROR) << "Error getting bootctrl module.";
     return false;
   }
 
-  LOG(INFO) << "Loaded boot control hidl hal.";
+  LOG(INFO) << "Loaded boot control hal.";
 
   dynamic_control_ =
       std::make_unique<DynamicPartitionControlAndroid>(GetCurrentSlot());
@@ -75,11 +70,11 @@ bool BootControlAndroid::Init() {
 }
 
 unsigned int BootControlAndroid::GetNumSlots() const {
-  return module_->getNumberSlots();
+  return module_->GetNumSlots();
 }
 
 BootControlInterface::Slot BootControlAndroid::GetCurrentSlot() const {
-  return module_->getCurrentSlot();
+  return module_->GetCurrentSlot();
 }
 
 bool BootControlAndroid::GetPartitionDevice(const std::string& partition_name,
@@ -103,40 +98,30 @@ bool BootControlAndroid::GetPartitionDevice(const string& partition_name,
 }
 
 bool BootControlAndroid::IsSlotBootable(Slot slot) const {
-  Return<BoolResult> ret = module_->isSlotBootable(slot);
-  if (!ret.isOk()) {
+  const auto ret = module_->IsSlotBootable(slot);
+  if (!ret.has_value()) {
     LOG(ERROR) << "Unable to determine if slot " << SlotName(slot)
-               << " is bootable: " << ret.description();
+               << " is bootable";
     return false;
   }
-  if (ret == BoolResult::INVALID_SLOT) {
-    LOG(ERROR) << "Invalid slot: " << SlotName(slot);
-    return false;
-  }
-  return ret == BoolResult::TRUE;
+  return ret.value();
 }
 
 bool BootControlAndroid::MarkSlotUnbootable(Slot slot) {
-  CommandResult result;
-  auto ret = module_->setSlotAsUnbootable(slot, StoreResultCallback(&result));
-  if (!ret.isOk()) {
+  const auto ret = module_->MarkSlotUnbootable(slot);
+  if (!ret.IsOk()) {
     LOG(ERROR) << "Unable to call MarkSlotUnbootable for slot "
-               << SlotName(slot) << ": " << ret.description();
+               << SlotName(slot) << ": " << ret.errMsg;
     return false;
   }
-  if (!result.success) {
-    LOG(ERROR) << "Unable to mark slot " << SlotName(slot)
-               << " as unbootable: " << result.errMsg.c_str();
-  }
-  return result.success;
+  return ret.success;
 }
 
 bool BootControlAndroid::SetActiveBootSlot(Slot slot) {
-  CommandResult result;
-  auto ret = module_->setActiveBootSlot(slot, StoreResultCallback(&result));
-  if (!ret.isOk()) {
+  const auto result = module_->SetActiveBootSlot(slot);
+  if (!result.IsOk()) {
     LOG(ERROR) << "Unable to call SetActiveBootSlot for slot " << SlotName(slot)
-               << ": " << ret.description();
+               << ": " << result.errMsg;
     return false;
   }
   if (!result.success) {
@@ -148,42 +133,31 @@ bool BootControlAndroid::SetActiveBootSlot(Slot slot) {
 
 bool BootControlAndroid::MarkBootSuccessfulAsync(
     base::Callback<void(bool)> callback) {
-  CommandResult result;
-  auto ret = module_->markBootSuccessful(StoreResultCallback(&result));
-  if (!ret.isOk()) {
-    LOG(ERROR) << "Unable to call MarkBootSuccessful: " << ret.description();
+  auto ret = module_->MarkBootSuccessful();
+  if (!ret.IsOk()) {
+    LOG(ERROR) << "Unable to MarkBootSuccessful: " << ret.errMsg;
     return false;
   }
-  if (!result.success) {
-    LOG(ERROR) << "Unable to mark boot successful: " << result.errMsg.c_str();
-  }
   return brillo::MessageLoop::current()->PostTask(
-             FROM_HERE, base::Bind(callback, result.success)) !=
+             FROM_HERE, base::Bind(callback, ret.success)) !=
          brillo::MessageLoop::kTaskIdNull;
 }
 
 bool BootControlAndroid::IsSlotMarkedSuccessful(
     BootControlInterface::Slot slot) const {
-  Return<BoolResult> ret = module_->isSlotMarkedSuccessful(slot);
+  const auto ret = module_->IsSlotMarkedSuccessful(slot);
   CommandResult result;
-  if (!ret.isOk()) {
+  if (!ret.has_value()) {
     LOG(ERROR) << "Unable to determine if slot " << SlotName(slot)
-               << " is marked successful: " << ret.description();
+               << " is marked successful";
     return false;
   }
-  if (ret == BoolResult::INVALID_SLOT) {
-    LOG(ERROR) << "Invalid slot: " << SlotName(slot);
-    return false;
-  }
-  return ret == BoolResult::TRUE;
+  return ret.value();
 }
 
 Slot BootControlAndroid::GetActiveBootSlot() {
-  namespace V1_2 = android::hardware::boot::V1_2;
-  using android::sp;
-  sp<V1_2::IBootControl> v1_2_module = V1_2::IBootControl::castFrom(module_);
-  if (v1_2_module != nullptr) {
-    return v1_2_module->getActiveBootSlot();
+  if (module_->GetVersion() >= android::hal::BootControlVersion::BOOTCTL_V1_2) {
+    return module_->GetActiveBootSlot();
   }
   LOG(WARNING) << "BootControl module version is lower than 1.2, "
                << __FUNCTION__ << " failed";

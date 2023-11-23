@@ -63,8 +63,11 @@ public:
       return os.str();
     }
   };
+  class IRepeatFixedSizeArrayDelegator;
+
   class IRepeatFixedSizeArray : public ::ndk::ICInterface {
   public:
+    typedef IRepeatFixedSizeArrayDelegator DefaultDelegator;
     static const char* descriptor;
     IRepeatFixedSizeArray();
     virtual ~IRepeatFixedSizeArray();
@@ -141,8 +144,11 @@ public:
     A = 0L,
   };
 
+  class IEmptyInterfaceDelegator;
+
   class IEmptyInterface : public ::ndk::ICInterface {
   public:
+    typedef IEmptyInterfaceDelegator DefaultDelegator;
     static const char* descriptor;
     IEmptyInterface();
     virtual ~IEmptyInterface();

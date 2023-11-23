@@ -1,16 +1,45 @@
 ifndef TARGET_KERNEL_USE
-TARGET_KERNEL_USE=5.4
+TARGET_KERNEL_USE=5.10
 endif
 LOCAL_KERNEL_HOME ?= device/linaro/hikey-kernel/hikey960/$(TARGET_KERNEL_USE)
 TARGET_PREBUILT_KERNEL := $(LOCAL_KERNEL_HOME)/Image.gz-dtb
 TARGET_PREBUILT_DTB := $(LOCAL_KERNEL_HOME)/hi3660-hikey960.dtb
 
 ifndef HIKEY_USES_GKI
-  ifeq ($(TARGET_KERNEL_USE), 5.4)
+  ifeq ($(TARGET_KERNEL_USE), mainline)
     HIKEY_USES_GKI := true
+  else
+    KERNEL_MAJ := $(word 1, $(subst ., ,$(TARGET_KERNEL_USE)))
+    # kernel since 5.X should support GKI
+    # only 4.X kernels do not support GKI
+    ifneq ($(KERNEL_MAJ), 4)
+      HIKEY_USES_GKI := true
+    endif
   endif
 endif
 
+# only kernels after 5.10 support KVM
+ifndef HIKEY960_ENABLE_AVF
+  ifeq ($(TARGET_KERNEL_USE), mainline)
+    HIKEY960_ENABLE_AVF := true
+  else
+    KERNEL_MAJ := $(word 1, $(subst ., ,$(TARGET_KERNEL_USE)))
+    KERNEL_MIN := $(word 2, $(subst ., ,$(TARGET_KERNEL_USE)))
+    KER_GT_5 := $(shell [ $(KERNEL_MAJ) -gt 5 ] && echo true)
+    KER_GE_5_10 := $(shell [ $(KERNEL_MIN) -ge 10 ] && echo true)
+
+    ifeq ($(KER_GT_5), true)
+      HIKEY960_ENABLE_AVF := true
+    else
+      ifeq ($(KERNEL_MAJ), 5)
+        # for kernel after 5.10
+        ifeq ($(KER_GE_5_10),true)
+          HIKEY960_ENABLE_AVF := true
+        endif
+      endif # end for 5.10
+    endif # end for 5.X
+  endif # end for mainline
+endif # end for HIKEY960_ENABLE_AVF
 
 include $(LOCAL_PATH)/vendor-package-ver.mk
 

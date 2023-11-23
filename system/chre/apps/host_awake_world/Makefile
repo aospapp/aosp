@@ -28,6 +28,7 @@ COMMON_CFLAGS += -I.
 
 # Defines
 COMMON_CFLAGS += -DNANOAPP_MINIMUM_LOG_LEVEL=CHRE_LOG_LEVEL_DEBUG
+COMMON_CFLAGS += -DCHRE_ASSERTIONS_ENABLED
 
 # Common Source Files ##########################################################
 

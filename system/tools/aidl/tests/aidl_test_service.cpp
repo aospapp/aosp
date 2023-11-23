@@ -15,6 +15,7 @@
  */
 
 #include <map>
+#include <mutex>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -56,6 +57,9 @@
 
 #include "android/aidl/tests/nested/BnNestedService.h"
 
+#include "android/aidl/tests/BnCircular.h"
+#include "android/aidl/tests/ICircular.h"
+
 #include "android/aidl/loggable/BnLoggableInterface.h"
 #include "android/aidl/loggable/Data.h"
 
@@ -88,19 +92,23 @@ using android::binder::Status;
 // Generated code:
 using android::aidl::tests::BackendType;
 using android::aidl::tests::BadParcelable;
+using android::aidl::tests::BnCircular;
 using android::aidl::tests::BnCppJavaTests;
 using android::aidl::tests::BnNamedCallback;
 using android::aidl::tests::BnNewName;
 using android::aidl::tests::BnOldName;
 using android::aidl::tests::BnTestService;
 using android::aidl::tests::ByteEnum;
+using android::aidl::tests::CircularParcelable;
 using android::aidl::tests::ConstantExpressionEnum;
 using android::aidl::tests::GenericStructuredParcelable;
+using android::aidl::tests::ICircular;
 using android::aidl::tests::ICppJavaTests;
 using android::aidl::tests::INamedCallback;
 using android::aidl::tests::INewName;
 using android::aidl::tests::IntEnum;
 using android::aidl::tests::IOldName;
+using android::aidl::tests::ITestService;
 using android::aidl::tests::LongEnum;
 using android::aidl::tests::RecursiveList;
 using android::aidl::tests::SimpleParcelable;
@@ -161,6 +169,20 @@ class NewName : public BnNewName {
     *output = String16("NewName");
     return Status::ok();
   }
+};
+
+class Circular : public BnCircular {
+ public:
+  Circular(sp<ITestService> srv) : mSrv(srv) {}
+  ~Circular() = default;
+
+  Status GetTestService(sp<ITestService>* _aidl_return) override {
+    *_aidl_return = mSrv;
+    return Status::ok();
+  }
+
+ private:
+  sp<ITestService> mSrv;
 };
 
 template <typename T>
@@ -400,8 +422,25 @@ class NativeService : public BnTestService {
     return ReverseArray(input, repeated, _aidl_return);
   }
 
+  Status SetOtherTestService(const String16& name, const sp<INamedCallback>& service,
+                             bool* _aidl_return) override {
+    std::lock_guard<std::mutex> guard(service_map_mutex_);
+    const auto& existing = service_map_.find(name);
+    if (existing != service_map_.end() && existing->second == service) {
+      *_aidl_return = true;
+
+      return Status::ok();
+    } else {
+      *_aidl_return = false;
+      service_map_[name] = service;
+
+      return Status::ok();
+    }
+  }
+
   Status GetOtherTestService(const String16& name,
                              sp<INamedCallback>* returned_service) override {
+    std::lock_guard<std::mutex> guard(service_map_mutex_);
     if (service_map_.find(name) == service_map_.end()) {
       sp<INamedCallback> new_item(new NamedCallback(name));
       service_map_[name] = new_item;
@@ -761,6 +800,13 @@ class NativeService : public BnTestService {
     return Status::ok();
   }
 
+  Status GetCircular(CircularParcelable* cp, sp<ICircular>* _aidl_return) override {
+    auto srv = sp<ITestService>::fromExisting(this);
+    cp->testService = srv;
+    *_aidl_return = new Circular(srv);
+    return Status::ok();
+  }
+
   android::status_t onTransact(uint32_t code, const Parcel& data, Parcel* reply,
                                uint32_t flags) override {
     if (code == ::android::IBinder::FIRST_CALL_TRANSACTION + 0 /* UnimplementedMethod */) {
@@ -773,6 +819,7 @@ class NativeService : public BnTestService {
 
  private:
   map<String16, sp<INamedCallback>> service_map_;
+  std::mutex service_map_mutex_;
 };
 
 class VersionedService : public android::aidl::versioned::tests::BnFooInterface {

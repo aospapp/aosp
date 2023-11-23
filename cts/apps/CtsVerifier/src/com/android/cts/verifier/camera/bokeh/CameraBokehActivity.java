@@ -15,16 +15,8 @@
  */
 package com.android.cts.verifier.camera.bokeh;
 
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
-
-import com.android.ex.camera2.blocking.BlockingCameraManager;
-import com.android.ex.camera2.blocking.BlockingCameraManager.BlockingOpenException;
-import com.android.ex.camera2.blocking.BlockingStateCallback;
-import com.android.ex.camera2.blocking.BlockingSessionCallback;
-
 import android.app.AlertDialog;
-import android.content.res.Configuration;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
@@ -32,6 +24,7 @@ import android.graphics.ColorFilter;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
+import android.graphics.PointF;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
@@ -43,9 +36,9 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
+import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.Capability;
 import android.hardware.camera2.params.StreamConfigurationMap;
-import android.hardware.camera2.TotalCaptureResult;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.Bundle;
@@ -56,9 +49,10 @@ import android.util.Size;
 import android.util.SparseArray;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
+import android.view.OrientationEventListener;
 import android.view.Surface;
 import android.view.TextureView;
+import android.view.View;
 import android.widget.Adapter;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -68,14 +62,19 @@ import android.widget.ImageView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.content.Context;
 
-import java.lang.Math;
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
+import com.android.ex.camera2.blocking.BlockingCameraManager;
+import com.android.ex.camera2.blocking.BlockingCameraManager.BlockingOpenException;
+import com.android.ex.camera2.blocking.BlockingSessionCallback;
+import com.android.ex.camera2.blocking.BlockingStateCallback;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -131,6 +130,8 @@ public class CameraBokehActivity extends PassFailButtons.Activity
     private HashMap<String, ArrayList<Capability>> mTestCases = new HashMap<>();
     private int mCurrentCameraIndex = -1;
     private String mCameraId;
+    private int mCameraSensorOrientation;
+    private int mCameraLensFacing;
     private CameraCaptureSession mCaptureSession;
     private CameraDevice mCameraDevice;
 
@@ -203,6 +204,8 @@ public class CameraBokehActivity extends PassFailButtons.Activity
             // Don't need to do anything here.
         }
     };
+
+    private OrientationEventListener mOrientationEventListener = null;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -305,6 +308,13 @@ public class CameraBokehActivity extends PassFailButtons.Activity
 
         mBlockingCameraManager = new BlockingCameraManager(mCameraManager);
         mCameraListener = new BlockingStateCallback();
+
+        mOrientationEventListener = new OrientationEventListener(getApplicationContext()) {
+            @Override
+            public void onOrientationChanged(int orientation) {
+                configurePreviewTextureTransform();
+            }
+        };
     }
 
     /**
@@ -414,6 +424,12 @@ public class CameraBokehActivity extends PassFailButtons.Activity
         stopBackgroundThread();
 
         super.onPause();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mOrientationEventListener.disable();
     }
 
     @Override
@@ -532,6 +548,19 @@ public class CameraBokehActivity extends PassFailButtons.Activity
                 byte[] jpegData = new byte[jpegBuffer.limit()];
                 jpegBuffer.get(jpegData);
                 imgBitmap = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.length);
+
+                // apply correct rotation when create bitmap for jpeg, such that
+                // the image will not be displayed rotated if the phone orientation
+                // is not same with the sensor orientation when captured.
+                int displayRotation = getDisplayRotation();
+                int rotation = (360 + mCameraSensorOrientation - displayRotation) % 360;
+                if (mCameraLensFacing == CameraMetadata.LENS_FACING_FRONT) {
+                    rotation = (mCameraSensorOrientation + displayRotation) % 360;
+                }
+                Matrix m = new Matrix();
+                m.postRotate(rotation);
+                imgBitmap = Bitmap.createBitmap(imgBitmap, 0, 0, imgBitmap.getWidth(),
+                                                imgBitmap.getHeight(), m, true);
                 img.close();
             } else {
                 Log.i(TAG, "Unsupported image format: " + format);
@@ -550,7 +579,15 @@ public class CameraBokehActivity extends PassFailButtons.Activity
                             mCurrentColorFilter = null;
                             mImageView.clearColorFilter();
                         }
+
                         mImageView.setImageBitmap(bitmap);
+                        if (format == ImageFormat.YUV_420_888) {
+                            configureImageViewTransform();
+                        }
+
+                        if (format == ImageFormat.JPEG) {
+                            mImageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                        }
                     }
                 });
             }
@@ -610,6 +647,10 @@ public class CameraBokehActivity extends PassFailButtons.Activity
 
         // Update untested cameras
         mUntestedCameras.remove("All combinations for Camera " + mCameraId);
+
+        mCameraSensorOrientation =
+                mCameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+        mCameraLensFacing = mCameraCharacteristics.get(CameraCharacteristics.LENS_FACING);
 
         StreamConfigurationMap config =
                 mCameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
@@ -691,9 +732,8 @@ public class CameraBokehActivity extends PassFailButtons.Activity
         }
     }
 
-    private void configurePreviewTextureTransform() {
+    private int getDisplayRotation() {
         int rotation = getWindowManager().getDefaultDisplay().getRotation();
-        Configuration config = getResources().getConfiguration();
         int degrees = 0;
         switch (rotation) {
             case Surface.ROTATION_0: degrees = 0; break;
@@ -701,42 +741,117 @@ public class CameraBokehActivity extends PassFailButtons.Activity
             case Surface.ROTATION_180: degrees = 180; break;
             case Surface.ROTATION_270: degrees = 270; break;
         }
-        Matrix matrix = mPreviewView.getTransform(null);
-        int deviceOrientation = Configuration.ORIENTATION_PORTRAIT;
-        if ((degrees % 180 == 0 && config.orientation == Configuration.ORIENTATION_LANDSCAPE) ||
-                (degrees % 180 == 90 && config.orientation == Configuration.ORIENTATION_PORTRAIT)) {
-            deviceOrientation = Configuration.ORIENTATION_LANDSCAPE;
-        }
-        int effectiveWidth = mPreviewSize.getWidth();
-        int effectiveHeight = mPreviewSize.getHeight();
-        if (deviceOrientation == Configuration.ORIENTATION_PORTRAIT) {
-            int temp = effectiveWidth;
-            effectiveWidth = effectiveHeight;
-            effectiveHeight = temp;
+        return degrees;
+    }
+
+    /**
+     * Calculate the matrix required to center the preview with the correct rotation, such that
+     * the image is not cropped and either the width or height perfectly fills the available space.
+     * This is to compensate for the default behavior of TextureView, which is to not rotate the
+     * image and to completely fill the texture in both dimensions.
+     */
+    private void configurePreviewTextureTransform() {
+        int displayRotation = getDisplayRotation();
+
+        Matrix matrix = new Matrix();
+
+        mPreviewView.getSurfaceTexture().setDefaultBufferSize(mPreviewSize.getWidth(),
+                mPreviewSize.getHeight());
+        RectF viewRect = new RectF(0, 0, mPreviewView.getWidth(), mPreviewView.getHeight());
+
+        float expectedPreviewWidth, expectedPreviewHeight;
+        if ((360 + mCameraSensorOrientation - displayRotation) % 180 == 0) {
+            expectedPreviewWidth = mPreviewSize.getWidth();
+            expectedPreviewHeight = mPreviewSize.getHeight();
+        } else {
+            expectedPreviewWidth = mPreviewSize.getHeight();
+            expectedPreviewHeight = mPreviewSize.getWidth();
         }
 
-        RectF viewRect = new RectF(0, 0, mPreviewTexWidth, mPreviewTexHeight);
-        RectF bufferRect = new RectF(0, 0, effectiveWidth, effectiveHeight);
-        float centerX = viewRect.centerX();
-        float centerY = viewRect.centerY();
-        bufferRect.offset(centerX - bufferRect.centerX(),
-                centerY - bufferRect.centerY());
+        float viewAspectRatio = viewRect.width() / viewRect.height();
+        float imageAspectRatio = expectedPreviewWidth / expectedPreviewHeight;
+        final PointF scale;
 
-        matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL);
-
-        matrix.postRotate((360 - degrees) % 360, centerX, centerY);
-        if ((degrees % 180) == 90) {
-            int temp = effectiveWidth;
-            effectiveWidth = effectiveHeight;
-            effectiveHeight = temp;
+        if (viewAspectRatio > imageAspectRatio) {
+            scale = new PointF((viewRect.height() / viewRect.width())
+                    * ((float) mPreviewSize.getHeight() / (float) mPreviewSize.getWidth()), 1f);
+        } else {
+            scale = new PointF(1f, (viewRect.width() / viewRect.height())
+                    * ((float) mPreviewSize.getWidth() / (float) mPreviewSize.getHeight()));
         }
-        // Scale to fit view, avoiding any crop
-        float scale = Math.min(mPreviewTexWidth / (float) effectiveWidth,
-                mPreviewTexHeight / (float) effectiveHeight);
-        matrix.postScale(scale, scale, centerX, centerY);
+
+        if (displayRotation % 180 != 0) {
+            float multiplier = viewAspectRatio > imageAspectRatio
+                    ? expectedPreviewWidth / expectedPreviewHeight
+                    : expectedPreviewHeight / expectedPreviewWidth;
+            scale.x *= multiplier;
+            scale.y *= multiplier;
+        }
+
+        matrix.setScale(scale.x, scale.y, viewRect.centerX(), viewRect.centerY());
+        if (displayRotation != 0) {
+            matrix.postRotate(360 - displayRotation, viewRect.centerX(), viewRect.centerY());
+        }
 
         mPreviewView.setTransform(matrix);
     }
+
+    /**
+     * Calculate the matrix required to center the capture with the correct rotation, such that
+     * the image is not cropped and either the width or height perfectly fills the available space.
+     * This is to compensate for the default behavior of ImageView, which is to not rotate the
+     * image and to render it in its original size, positioned at 0, 0.
+     */
+    private void configureImageViewTransform() {
+        int displayRotation = getDisplayRotation();
+        int rotation = (360 + mCameraSensorOrientation - displayRotation) % 360;
+        if (mCameraLensFacing == CameraMetadata.LENS_FACING_FRONT) {
+            rotation = (mCameraSensorOrientation + displayRotation) % 360;
+        }
+
+        Matrix matrix = new Matrix();
+
+        RectF viewRect = new RectF(0, 0, mImageView.getMeasuredWidth(),
+                mImageView.getMeasuredHeight());
+
+        float expectedPreviewWidth, expectedPreviewHeight;
+        if (rotation % 180 == 0) {
+            expectedPreviewWidth = mPreviewSize.getWidth();
+            expectedPreviewHeight = mPreviewSize.getHeight();
+        } else {
+            expectedPreviewWidth = mPreviewSize.getHeight();
+            expectedPreviewHeight = mPreviewSize.getWidth();
+        }
+
+        final PointF scale = new PointF(0, 0);
+
+        float widthRatio = expectedPreviewWidth / viewRect.width();
+        float heightRatio = expectedPreviewHeight / viewRect.height();
+        if (widthRatio / heightRatio > 1.0f) {
+            // Scale width to fit
+            scale.x = 1.0f / widthRatio;
+            scale.y = 1.0f / widthRatio;
+        } else {
+            // Scale height to fit
+            scale.x = 1.0f / heightRatio;
+            scale.y = 1.0f / heightRatio;
+        }
+
+        matrix.setScale(scale.x, scale.y, 0, 0);
+        if (rotation % 360 != 0) {
+            matrix.postRotate(rotation, 0, 0);
+        }
+
+        RectF imageRect = new RectF(0, 0, mPreviewSize.getWidth(), mPreviewSize.getHeight());
+        matrix.mapRect(imageRect, imageRect);
+        matrix.postTranslate(-imageRect.left, -imageRect.top);
+        matrix.postTranslate(viewRect.width() / 2 - imageRect.width() / 2,
+                viewRect.height() / 2 - imageRect.height() / 2);
+
+        mImageView.setScaleType(ImageView.ScaleType.MATRIX);
+        mImageView.setImageMatrix(matrix);
+    }
+
     /**
      * Starts a background thread and its {@link Handler}.
      */
@@ -762,6 +877,8 @@ public class CameraBokehActivity extends PassFailButtons.Activity
 
     private void startPreview() {
         try {
+            mOrientationEventListener.disable();
+
             if (mPreviewSize == null || !mPreviewSize.equals(mNextCombination.mPreviewSize) ||
                     mYuvImageReader == null) {
                 mPreviewSize = mNextCombination.mPreviewSize;
@@ -800,6 +917,10 @@ public class CameraBokehActivity extends PassFailButtons.Activity
             mStillCaptureRequest = mStillCaptureRequestBuilder.build();
 
             mCaptureSession.setRepeatingRequest(mPreviewRequest, mCaptureCallback, mCameraHandler);
+
+            if (mOrientationEventListener.canDetectOrientation()) {
+                mOrientationEventListener.enable();
+            }
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }

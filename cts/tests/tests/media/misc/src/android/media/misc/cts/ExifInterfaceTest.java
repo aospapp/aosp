@@ -18,22 +18,37 @@ package android.media.misc.cts;
 
 import static android.media.ExifInterface.TAG_SUBJECT_AREA;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.ExifInterface;
-import android.media.cts.NonMediaMainlineTest;
-import android.media.cts.Preconditions;
 import android.os.FileUtils;
 import android.os.StrictMode;
 import android.platform.test.annotations.AppModeFull;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
-import android.test.AndroidTestCase;
 import android.util.Log;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.NonMainlineTest;
+import com.android.compatibility.common.util.Preconditions;
+
 import libcore.io.IoUtils;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
@@ -44,10 +59,12 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 @AppModeFull(reason = "Instant apps cannot access the SD card")
-public class ExifInterfaceTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class ExifInterfaceTest {
     private static final String TAG = ExifInterface.class.getSimpleName();
     private static final boolean VERBOSE = false;  // lots of logging
 
@@ -218,6 +235,10 @@ public class ExifInterfaceTest extends AndroidTestCase {
 
             typedArray.recycle();
         }
+    }
+
+    private Context getContext() {
+        return InstrumentationRegistry.getInstrumentation().getContext();
     }
 
     private void printExifTagsAndValues(String fileName, ExifInterface exifInterface) {
@@ -523,8 +544,10 @@ public class ExifInterfaceTest extends AndroidTestCase {
         exifInterface.saveAttributes();
         exifInterface = new ExifInterface(imageFile.getAbsolutePath());
         compareWithExpectedValue(exifInterface, expectedValue, verboseTag, false);
+        assertBitmapsEquivalent(srcFile, imageFile);
 
         // Test for modifying one attribute.
+        exifInterface = new ExifInterface(imageFile.getAbsolutePath());
         String backupValue = exifInterface.getAttribute(ExifInterface.TAG_MAKE);
         exifInterface.setAttribute(ExifInterface.TAG_MAKE, "abc");
         exifInterface.saveAttributes();
@@ -532,7 +555,6 @@ public class ExifInterfaceTest extends AndroidTestCase {
         if (expectedValue.hasThumbnail) {
             testThumbnail(expectedValue, exifInterface);
         }
-        exifInterface = new ExifInterface(imageFile.getAbsolutePath());
         assertEquals("abc", exifInterface.getAttribute(ExifInterface.TAG_MAKE));
         // Check if thumbnail bytes can be retrieved from the new thumbnail range.
         if (expectedValue.hasThumbnail) {
@@ -599,12 +621,14 @@ public class ExifInterfaceTest extends AndroidTestCase {
     private void writeToFilesWithoutExif(String fileName) throws IOException {
         // Test for reading from external data storage.
         Preconditions.assertTestFileExists(mInpPrefix + fileName);
-        File imageFile = clone(new File(mInpPrefix, fileName));
+        File srcFile = new File(mInpPrefix, fileName);
+        File imageFile = clone(srcFile);
 
         ExifInterface exifInterface = new ExifInterface(imageFile.getAbsolutePath());
         exifInterface.setAttribute(ExifInterface.TAG_MAKE, "abc");
         exifInterface.saveAttributes();
 
+        assertBitmapsEquivalent(srcFile, imageFile);
         exifInterface = new ExifInterface(imageFile.getAbsolutePath());
         String make = exifInterface.getAttribute(ExifInterface.TAG_MAKE);
         assertEquals("abc", make);
@@ -623,36 +647,38 @@ public class ExifInterfaceTest extends AndroidTestCase {
         assertEquals(expectedValue.isThumbnailCompressed, exifInterface.isThumbnailCompressed());
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
+    @Before
+    public void setUp() {
         StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder()
                 .detectUnbufferedIo()
                 .penaltyDeath()
                 .build());
     }
 
+    @Test
     public void testReadExifDataFromExifByteOrderIIJpeg() throws Throwable {
         readFromFilesWithExif(JPEG_WITH_EXIF_BYTE_ORDER_II, R.array.jpeg_with_exif_byte_order_ii);
         writeToFilesWithExif(JPEG_WITH_EXIF_BYTE_ORDER_II, R.array.jpeg_with_exif_byte_order_ii);
     }
 
+    @Test
     public void testReadExifDataFromExifByteOrderMMJpeg() throws Throwable {
         readFromFilesWithExif(JPEG_WITH_EXIF_BYTE_ORDER_MM, R.array.jpeg_with_exif_byte_order_mm);
         writeToFilesWithExif(JPEG_WITH_EXIF_BYTE_ORDER_MM, R.array.jpeg_with_exif_byte_order_mm);
     }
 
+    @Test
     public void testReadExifDataFromLgG4Iso800Dng() throws Throwable {
         readFromFilesWithExif(DNG_WITH_EXIF_WITH_XMP, R.array.dng_with_exif_with_xmp);
-        writeToFilesWithExif(DNG_WITH_EXIF_WITH_XMP, R.array.dng_with_exif_with_xmp);
     }
 
+    @Test
     public void testReadExifDataFromLgG4Iso800Jpg() throws Throwable {
         readFromFilesWithExif(JPEG_WITH_EXIF_WITH_XMP, R.array.jpeg_with_exif_with_xmp);
         writeToFilesWithExif(JPEG_WITH_EXIF_WITH_XMP, R.array.jpeg_with_exif_with_xmp);
     }
 
+    @Test
     public void testDoNotFailOnCorruptedImage() throws Throwable {
         // To keep the compatibility with old versions of ExifInterface, even on a corrupted image,
         // it shouldn't raise any exceptions except an IOException when unable to open a file.
@@ -665,53 +691,65 @@ public class ExifInterfaceTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testReadExifDataFromVolantisJpg() throws Throwable {
         // Test if it is possible to parse the volantis generated JPEG smoothly.
         readFromFilesWithExif(JPEG_VOLANTIS, R.array.volantis_jpg);
         writeToFilesWithExif(JPEG_VOLANTIS, R.array.volantis_jpg);
     }
 
+    @Test
     public void testReadExifDataFromSonyRX100Arw() throws Throwable {
         readFromFilesWithExif(ARW_SONY_RX_100, R.array.sony_rx_100_arw);
     }
 
+    @Test
     public void testReadExifDataFromCanonG7XCr2() throws Throwable {
         readFromFilesWithExif(CR2_CANON_G7X, R.array.canon_g7x_cr2);
     }
 
+    @Test
     public void testReadExifDataFromFujiX20Raf() throws Throwable {
         readFromFilesWithExif(RAF_FUJI_X20, R.array.fuji_x20_raf);
     }
 
+    @Test
     public void testReadExifDataFromNikon1AW1Nef() throws Throwable {
         readFromFilesWithExif(NEF_NIKON_1AW1, R.array.nikon_1aw1_nef);
     }
 
+    @Test
     public void testReadExifDataFromNikonP330Nrw() throws Throwable {
         readFromFilesWithExif(NRW_NIKON_P330, R.array.nikon_p330_nrw);
     }
 
+    @Test
     public void testReadExifDataFromOlympusEPL3Orf() throws Throwable {
         readFromFilesWithExif(ORF_OLYMPUS_E_PL3, R.array.olympus_e_pl3_orf);
     }
 
+    @Test
     public void testReadExifDataFromPanasonicGM5Rw2() throws Throwable {
         readFromFilesWithExif(RW2_PANASONIC_GM5, R.array.panasonic_gm5_rw2);
     }
 
+    @Test
     public void testReadExifDataFromPentaxK5Pef() throws Throwable {
         readFromFilesWithExif(PEF_PENTAX_K5, R.array.pentax_k5_pef);
     }
 
+    @Test
     public void testReadExifDataFromSamsungNX3000Srw() throws Throwable {
         readFromFilesWithExif(SRW_SAMSUNG_NX3000, R.array.samsung_nx3000_srw);
     }
 
+    @Test
     public void testPngFiles() throws Throwable {
         readFromFilesWithExif(PNG_WITH_EXIF_BYTE_ORDER_II, R.array.png_with_exif_byte_order_ii);
         writeToFilesWithoutExif(PNG_WITHOUT_EXIF);
     }
 
+    @Test
     public void testStandaloneData() throws Throwable {
         readFromStandaloneDataWithExif(JPEG_WITH_EXIF_BYTE_ORDER_II,
                 R.array.standalone_data_with_exif_byte_order_ii);
@@ -719,6 +757,7 @@ public class ExifInterfaceTest extends AndroidTestCase {
                 R.array.standalone_data_with_exif_byte_order_mm);
     }
 
+    @Test
     public void testWebpFiles() throws Throwable {
         readFromFilesWithExif(WEBP_WITH_EXIF, R.array.webp_with_exif);
         writeToFilesWithExif(WEBP_WITH_EXIF, R.array.webp_with_exif);
@@ -727,6 +766,7 @@ public class ExifInterfaceTest extends AndroidTestCase {
         writeToFilesWithoutExif(WEBP_WITHOUT_EXIF_WITH_LOSSLESS_ENCODING);
     }
 
+    @Test
     public void testGetSetDateTime() throws Throwable {
         final long expectedDatetimeValue = 1454059947000L;
         final String dateTimeValue = "2017:02:02 22:22:22";
@@ -761,6 +801,7 @@ public class ExifInterfaceTest extends AndroidTestCase {
         imageFile.delete();
     }
 
+    @Test
     public void testIsSupportedMimeType() {
         try {
             ExifInterface.isSupportedMimeType(null);
@@ -786,6 +827,7 @@ public class ExifInterfaceTest extends AndroidTestCase {
         assertFalse(ExifInterface.isSupportedMimeType("image/gif"));
     }
 
+    @Test
     public void testSetAttribute() throws Throwable {
         Preconditions.assertTestFileExists(mInpPrefix + JPEG_WITH_EXIF_BYTE_ORDER_MM);
         File srcFile = new File(mInpPrefix, JPEG_WITH_EXIF_BYTE_ORDER_MM);
@@ -907,6 +949,7 @@ public class ExifInterfaceTest extends AndroidTestCase {
         imageFile.delete();
     }
 
+    @Test
     public void testGetAttributeForNullAndNonExistentTag() throws Throwable {
         // JPEG_WITH_EXIF_BYTE_ORDER_MM does not have a value for TAG_SUBJECT_AREA tag.
         Preconditions.assertTestFileExists(mInpPrefix + JPEG_WITH_EXIF_BYTE_ORDER_MM);
@@ -962,5 +1005,38 @@ public class ExifInterfaceTest extends AndroidTestCase {
             throw new EOFException();
         }
         return (short) ((ch1 << 8) + (ch2));
+    }
+
+    /**
+     * Asserts that {@code expectedImageFile} and {@code actualImageFile} can be decoded by
+     * {@link BitmapFactory} and the results have the same width, height and MIME type.
+     *
+     * <p>This does not check the image itself for similarity/equality.
+     */
+    private void assertBitmapsEquivalent(File expectedImageFile, File actualImageFile) {
+        BitmapFactory.Options expectedOptions = new BitmapFactory.Options();
+        Bitmap expectedBitmap = Objects.requireNonNull(
+                decodeBitmap(expectedImageFile, expectedOptions));
+        BitmapFactory.Options actualOptions = new BitmapFactory.Options();
+        Bitmap actualBitmap = Objects.requireNonNull(decodeBitmap(actualImageFile, actualOptions));
+
+        assertEquals(expectedOptions.outWidth, actualOptions.outWidth);
+        assertEquals(expectedOptions.outHeight, actualOptions.outHeight);
+        assertEquals(expectedOptions.outMimeType, actualOptions.outMimeType);
+        assertEquals(expectedBitmap.getWidth(), actualBitmap.getWidth());
+        assertEquals(expectedBitmap.getHeight(), actualBitmap.getHeight());
+    }
+
+    /**
+     * Equivalent to {@link BitmapFactory#decodeFile(String, BitmapFactory.Options)} but uses a
+     * {@link BufferedInputStream} to avoid violating
+     * {@link StrictMode.ThreadPolicy.Builder#detectUnbufferedIo()}.
+     */
+    private static Bitmap decodeBitmap(File file, BitmapFactory.Options options) {
+        try (BufferedInputStream inputStream = new BufferedInputStream(new FileInputStream(file))) {
+            return BitmapFactory.decodeStream(inputStream, /* outPadding= */ null, options);
+        } catch (IOException e) {
+            return null;
+        }
     }
 }

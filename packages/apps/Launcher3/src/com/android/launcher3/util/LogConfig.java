@@ -40,4 +40,29 @@ public class LogConfig {
      * When turned on, we enable suggest related logging.
      */
     public static final String SEARCH_LOGGING = "SearchLogging";
+
+    /**
+     * When turned on, we enable IME related latency related logging.
+     */
+    public static final String IME_LATENCY_LOGGING = "ImeLatencyLogging";
+
+    /**
+     * When turned on, we enable web suggest appSearch related logging.
+     */
+    public static final String WEB_APP_SEARCH_LOGGING = "WebAppSearchLogging";
+
+    /**
+     * When turned on, we enable quick launch v2 related logging.
+     */
+    public static final String QUICK_LAUNCH_V2 = "QuickLaunchV2";
+
+    /**
+     * When turned on, we enable Gms Play related logging.
+     */
+    public static final String GMS_PLAY = "GmsPlay";
+
+    /**
+     * When turned on, we enable AGA related session summary logging.
+     */
+    public static final String AGA_SESSION_SUMMARY_LOG = "AGASessionSummaryLog";
 }

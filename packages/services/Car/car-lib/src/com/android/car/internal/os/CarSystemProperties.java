@@ -29,10 +29,6 @@ import java.util.Optional;
 public final class CarSystemProperties {
     private static final String PROP_BOOT_USER_OVERRIDE_ID =
             "android.car.systemuser.bootuseroverrideid";
-    private static final String PROP_NUMBER_PRE_CREATED_USERS =
-            "android.car.number_pre_created_users";
-    private static final String PROP_NUMBER_PRE_CREATED_GUESTS =
-            "android.car.number_pre_created_guests";
     private static final String PROP_USER_HAL_ENABLED = "android.car.user_hal_enabled";
     private static final String PROP_USER_HAL_TIMEOUT = "android.car.user_hal_timeout";
     private static final String PROP_DEVICE_POLICY_MANAGER_TIMEOUT =
@@ -47,19 +43,6 @@ public final class CarSystemProperties {
         return Optional.ofNullable(tryParseInteger(SystemProperties.get(
                 PROP_BOOT_USER_OVERRIDE_ID)));
     }
-
-    /** Check {@code system/libsysprop/srcs/android/sysprop/CarProperties.sysprop} */
-    public static Optional<Integer> getNumberPreCreatedUsers() {
-        return Optional.ofNullable(tryParseInteger(SystemProperties.get(
-                PROP_NUMBER_PRE_CREATED_USERS)));
-    }
-
-    /** Check {@code system/libsysprop/srcs/android/sysprop/CarProperties.sysprop} */
-    public static Optional<Integer> getNumberPreCreatedGuests() {
-        return Optional.ofNullable(tryParseInteger(SystemProperties.get(
-                PROP_NUMBER_PRE_CREATED_GUESTS)));
-    }
-
 
     /** Check {@code system/libsysprop/srcs/android/sysprop/CarProperties.sysprop} */
     public static Optional<Boolean> getUserHalEnabled() {

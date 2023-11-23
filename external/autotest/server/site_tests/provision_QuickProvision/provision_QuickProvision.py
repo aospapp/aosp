@@ -4,6 +4,7 @@
 
 import logging
 import re
+import six
 import sys
 import time
 
@@ -17,7 +18,7 @@ from autotest_lib.server.cros import provision
 from autotest_lib.server.cros import provisioner
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
 
@@ -140,7 +141,7 @@ class provision_QuickProvision(test.test):
         try:
             ds = dev_server.ImageServer.resolve(image, host.hostname)
         except dev_server.DevServerException as e:
-            raise error.TestFail, str(e), sys.exc_info()[2]
+            six.reraise(error.TestFail, str(e), sys.exc_info()[2])
 
         url = _IMAGE_URL_PATTERN % (ds.url(), image)
 

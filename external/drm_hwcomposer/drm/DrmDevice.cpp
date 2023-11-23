@@ -18,7 +18,6 @@
 
 #include "DrmDevice.h"
 
-#include <fcntl.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
@@ -28,12 +27,29 @@
 
 #include "drm/DrmAtomicStateManager.h"
 #include "drm/DrmPlane.h"
+#include "drm/ResourceManager.h"
 #include "utils/log.h"
 #include "utils/properties.h"
 
 namespace android {
 
-DrmDevice::DrmDevice() {
+auto DrmDevice::CreateInstance(std::string const &path,
+                               ResourceManager *res_man)
+    -> std::unique_ptr<DrmDevice> {
+  if (!IsKMSDev(path.c_str())) {
+    return {};
+  }
+
+  auto device = std::unique_ptr<DrmDevice>(new DrmDevice(res_man));
+
+  if (device->Init(path.c_str()) != 0) {
+    return {};
+  }
+
+  return device;
+}
+
+DrmDevice::DrmDevice(ResourceManager *res_man) : res_man_(res_man) {
   drm_fb_importer_ = std::make_unique<DrmFbImporter>(*this);
 }
 

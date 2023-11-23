@@ -54,6 +54,7 @@ cc_library_static {
     ramdisk_available: true,
     vendor_ramdisk_available: true,
 
+    min_sdk_version: "apex_inherit",
     apex_available: [
         "//apex_available:platform",
         "com.android.adbd",
@@ -102,6 +103,21 @@ cc_binary {
     static_libs: ["libbrotli"],
 }
 
+cc_library_shared {
+    name: "libbrotli_encoder_jni",
+    host_supported: true,
+    srcs: [
+        "java/org/brotli/wrapper/enc/encoder_jni.cc",
+    ],
+    static_libs: [
+      "libnativehelper_lazy",
+      "libbrotli",
+    ],
+    cflags: [
+        "-Wno-unused-parameter",
+    ],
+}
+
 //
 // Support for brotli in java code.
 //
@@ -113,6 +129,10 @@ java_library {
     srcs: ["java/**/*.java"],
     exclude_srcs: ["java/**/*Test.java"],
     sdk_version: "current",
+    // TODO(b/237039251) use "apex_inherit" when Java modules support it
+    min_sdk_version: "29",
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
 }
 
 // TODO(b/171429704): Remove this genrule and use the fuzz_data.zip

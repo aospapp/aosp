@@ -16,18 +16,20 @@
 
 package dagger.internal.codegen.binding;
 
-import static com.google.auto.common.AnnotationMirrors.getAnnotationElementAndValue;
 import static dagger.internal.codegen.binding.ConfigurationAnnotations.getSubcomponentCreator;
+import static dagger.internal.codegen.extension.DaggerCollectors.toOptional;
+import static dagger.internal.codegen.xprocessing.XElements.getSimpleName;
 
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.collect.ImmutableSet;
+import dagger.internal.codegen.base.DaggerSuperficialValidation;
 import dagger.internal.codegen.base.ModuleAnnotation;
-import dagger.model.Key;
+import dagger.spi.model.Key;
 import java.util.Optional;
 import javax.inject.Inject;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.TypeElement;
 
 /**
  * A declaration for a subcomponent that is included in a module via {@link
@@ -46,7 +48,7 @@ public abstract class SubcomponentDeclaration extends BindingDeclaration {
    * The type element that defines the {@link dagger.Subcomponent} or {@link
    * dagger.producers.ProductionSubcomponent} for this declaration.
    */
-  abstract TypeElement subcomponentType();
+  abstract XTypeElement subcomponentType();
 
   /** The module annotation. */
   public abstract ModuleAnnotation moduleAnnotation();
@@ -61,24 +63,31 @@ public abstract class SubcomponentDeclaration extends BindingDeclaration {
   /** A {@link SubcomponentDeclaration} factory. */
   public static class Factory {
     private final KeyFactory keyFactory;
+    private final DaggerSuperficialValidation superficialValidation;
 
     @Inject
-    Factory(KeyFactory keyFactory) {
+    Factory(KeyFactory keyFactory, DaggerSuperficialValidation superficialValidation) {
       this.keyFactory = keyFactory;
+      this.superficialValidation = superficialValidation;
     }
 
-    ImmutableSet<SubcomponentDeclaration> forModule(TypeElement module) {
+    ImmutableSet<SubcomponentDeclaration> forModule(XTypeElement module) {
+      ModuleAnnotation moduleAnnotation =
+          ModuleAnnotation.moduleAnnotation(module, superficialValidation).get();
+      XElement subcomponentAttribute =
+          moduleAnnotation.annotation().getType().getTypeElement().getDeclaredMethods().stream()
+              .filter(method -> getSimpleName(method).contentEquals("subcomponents"))
+              .collect(toOptional())
+              .get();
+
       ImmutableSet.Builder<SubcomponentDeclaration> declarations = ImmutableSet.builder();
-      ModuleAnnotation moduleAnnotation = ModuleAnnotation.moduleAnnotation(module).get();
-      Element subcomponentAttribute =
-          getAnnotationElementAndValue(moduleAnnotation.annotation(), "subcomponents").getKey();
-      for (TypeElement subcomponent : moduleAnnotation.subcomponents()) {
+      for (XTypeElement subcomponent : moduleAnnotation.subcomponents()) {
         declarations.add(
             new AutoValue_SubcomponentDeclaration(
                 Optional.of(subcomponentAttribute),
                 Optional.of(module),
                 keyFactory.forSubcomponentCreator(
-                    getSubcomponentCreator(subcomponent).get().asType()),
+                    getSubcomponentCreator(subcomponent).get().getType()),
                 subcomponent,
                 moduleAnnotation));
       }

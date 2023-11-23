@@ -18,6 +18,7 @@
 
 #include <algorithm> // for std::find_if
 #include <sstream>
+#include <set>
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
@@ -44,6 +45,7 @@ using std::endl;
 using std::optional;
 using std::placeholders::_1;
 using std::placeholders::_2;
+using std::set;
 using std::string;
 using std::stringstream;
 using std::unique_ptr;
@@ -487,6 +489,30 @@ bool Server::SetupInterface(const std::string& iface_name,
   return false;
 }
 
+void Server::handleCountryCodeChanged() {
+  uint32_t wiphy_index;
+  set<uint32_t> handled_wiphy_index;
+  for (auto& it : client_interfaces_) {
+    it.second->UpdateBandInfo();
+    if (netlink_utils_->GetWiphyIndex(&wiphy_index, it.first)) {
+      if (handled_wiphy_index.find(wiphy_index) == handled_wiphy_index.end()) {
+        UpdateBandWiphyIndexMap(wiphy_index);
+        LogSupportedBands(wiphy_index);
+        handled_wiphy_index.insert(wiphy_index);
+      }
+    }
+  }
+  for (auto& it : ap_interfaces_) {
+    if (netlink_utils_->GetWiphyIndex(&wiphy_index, it.first)) {
+      if (handled_wiphy_index.find(wiphy_index) == handled_wiphy_index.end()) {
+        UpdateBandWiphyIndexMap(wiphy_index);
+        LogSupportedBands(wiphy_index);
+        handled_wiphy_index.insert(wiphy_index);
+      }
+    }
+  }
+}
+
 void Server::OnRegDomainChanged(uint32_t wiphy_index, std::string& country_code) {
   string current_country_code;
   if (country_code.empty()) {
@@ -506,26 +532,13 @@ void Server::OnRegDomainChanged(uint32_t wiphy_index, std::string& country_code)
   // interfaces. So update band - wiphy index mapping only if an
   // interface exists
   if (!hasNoIfaceForWiphyIndex(wiphy_index)) {
-    UpdateBandWiphyIndexMap(wiphy_index);
+    handleCountryCodeChanged();
   }
-  LogSupportedBands(wiphy_index);
 }
 
 android::binder::Status Server::notifyCountryCodeChanged() {
   LOG(INFO) << "Receive notifyCountryCodeChanged";
-  uint32_t wiphy_index;
-  for (auto& it : client_interfaces_) {
-    if (netlink_utils_->GetWiphyIndex(&wiphy_index, it.first)) {
-      UpdateBandWiphyIndexMap(wiphy_index);
-      LogSupportedBands(wiphy_index);
-    }
-  }
-  for (auto& it : ap_interfaces_) {
-    if (netlink_utils_->GetWiphyIndex(&wiphy_index, it.first)) {
-      UpdateBandWiphyIndexMap(wiphy_index);
-      LogSupportedBands(wiphy_index);
-    }
-  }
+  handleCountryCodeChanged();
   return Status::ok();
 }
 

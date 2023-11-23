@@ -17,52 +17,59 @@
 import("//common-mk/cxxbridge.gni")
 
 config("rust_topshim_config") {
-  include_dirs = [
-    "//bt/system/gd/rust/topshim"
-  ]
+  include_dirs = [ "//bt/system/gd/rust/topshim" ]
 }
 
 cxxbridge_header("btif_bridge_header") {
   sources = [
     "src/btif.rs",
+    "src/controller.rs",
+    "src/metrics.rs",
     "src/profiles/a2dp.rs",
     "src/profiles/avrcp.rs",
-    "src/profiles/hfp.rs",
     "src/profiles/gatt.rs",
-    "src/controller.rs",
+    "src/profiles/hfp.rs",
   ]
   all_dependent_configs = [ ":rust_topshim_config" ]
-  deps = [":cxxlibheader"]
+  deps = [ ":cxxlibheader" ]
 }
 
 cxxbridge_cc("btif_bridge_code") {
   sources = [
     "src/btif.rs",
+    "src/controller.rs",
+    "src/metrics.rs",
     "src/profiles/a2dp.rs",
     "src/profiles/avrcp.rs",
-    "src/profiles/hfp.rs",
     "src/profiles/gatt.rs",
-    "src/controller.rs",
+    "src/profiles/hfp.rs",
   ]
-  deps = [":btif_bridge_header", "//bt/system/gd:BluetoothGeneratedPackets_h"]
+  deps = [
+    ":btif_bridge_header",
+    "//bt/system/gd:BluetoothGeneratedPackets_h",
+  ]
   configs = [ "//bt/system/gd:gd_defaults" ]
 }
 
 source_set("btif_cxx_bridge_code") {
   sources = [
-    "btif/btif_shim.cc",
     "btav/btav_shim.cc",
     "btav_sink/btav_sink_shim.cc",
-    "hfp/hfp_shim.cc",
-    "gatt/gatt_shim.cc",
-    "gatt/gatt_ble_scanner_shim.cc",
-    "gatt/gatt_ble_advertiser_shim.cc",
+    "btif/btif_shim.cc",
     "controller/controller_shim.cc",
-    "common/utils.cc",
+    "gatt/gatt_ble_advertiser_shim.cc",
+    "gatt/gatt_ble_scanner_shim.cc",
+    "gatt/gatt_shim.cc",
+    "hfp/hfp_shim.cc",
+    "metrics/metrics_shim.cc",
   ]
 
-  deps = [":btif_bridge_header", "//bt/system/gd:BluetoothGeneratedPackets_h"]
-  configs += ["//bt/system/gd:gd_defaults"]
+  deps = [
+    ":btif_bridge_header",
+    "//bt/system/gd:BluetoothGeneratedPackets_h",
+    "//bt/system/gd/metrics:BluetoothMetricsSources",
+  ]
+  configs += [ "//bt/system/gd:gd_defaults" ]
 }
 
 cxxbridge_libheader("cxxlibheader") {

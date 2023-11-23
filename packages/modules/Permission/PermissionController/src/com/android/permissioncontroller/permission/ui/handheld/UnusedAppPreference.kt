@@ -50,10 +50,10 @@ class UnusedAppPreference(
         super.onBindViewHolder(holder)
 
         val removeButton = holder.findViewById(R.id.uninstall_button) as ImageButton
-        removeButton?.setOnClickListener {
+        removeButton.setOnClickListener {
             removeRunnable?.run()
         }
-        removeButton?.isEnabled = removeButtonEnabled
+        removeButton.isEnabled = removeButtonEnabled
     }
 
     override fun setRemoveClickRunnable(runnable: Runnable) {

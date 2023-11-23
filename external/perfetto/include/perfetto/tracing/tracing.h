@@ -23,6 +23,8 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include "perfetto/base/compiler.h"
@@ -42,7 +44,8 @@ class TracingMuxerImpl;
 
 class TracingBackend;
 class Platform;
-class TracingSession;  // Declared below.
+class StartupTracingSession;  // Declared below.
+class TracingSession;         // Declared below.
 
 struct TracingError {
   enum ErrorCode : uint32_t {
@@ -115,33 +118,59 @@ struct TracingInitArgs {
   // callback instead of being logged directly.
   LogMessageCallback log_message_callback = nullptr;
 
+  // When this flag is set to false, it overrides
+  // `DataSource::kSupportsMultipleInstances` for all the data sources.
+  // As a result when a tracing session is already running and if we attempt to
+  // start another session, it will fail to start the data source which were
+  // already active.
+  bool supports_multiple_data_source_instances = true;
+
+  // If this flag is set the default clock for taking timestamps is overridden
+  // with CLOCK_MONOTONIC (for use in Chrome).
+  bool use_monotonic_clock = false;
+
+  // If this flag is set the default clock for taking timestamps is overridden
+  // with CLOCK_MONOTONIC_RAW on platforms that support it.
+  bool use_monotonic_raw_clock = false;
+
+  // This flag can be set to false in order to avoid enabling the system
+  // consumer in Tracing::Initialize(), so that the linker can remove the unused
+  // consumer IPC implementation to reduce binary size. This setting only has an
+  // effect if kSystemBackend is specified in |backends|. When this option is
+  // false, Tracing::NewTrace() will instatiate the system backend only if
+  // explicitly specified as kSystemBackend: kUndefinedBackend will consider
+  // only already instantiated backends.
+  bool enable_system_consumer = true;
+
+  // When true, sets disallow_merging_with_system_tracks in TrackDescriptor,
+  // making sure that Trace Processor doesn't merge track event and system
+  // event tracks for the same thread.
+  bool disallow_merging_with_system_tracks = false;
+
  protected:
   friend class Tracing;
   friend class internal::TracingMuxerImpl;
 
-  // Used only by the DCHECK in tracing.cc, to check that the config is the
-  // same in case of re-initialization.
-  bool operator==(const TracingInitArgs& other) const {
-    return std::tie(backends, custom_backend, platform, shmem_size_hint_kb,
-                    shmem_page_size_hint_kb, in_process_backend_factory_,
-                    system_backend_factory_, dcheck_is_on_) ==
-           std::tie(other.backends, other.custom_backend, other.platform,
-                    other.shmem_size_hint_kb, other.shmem_page_size_hint_kb,
-                    other.in_process_backend_factory_,
-                    other.system_backend_factory_, other.dcheck_is_on_);
-  }
-
   using BackendFactoryFunction = TracingBackend* (*)();
+  using ProducerBackendFactoryFunction = TracingProducerBackend* (*)();
+  using ConsumerBackendFactoryFunction = TracingConsumerBackend* (*)();
+
   BackendFactoryFunction in_process_backend_factory_ = nullptr;
-  BackendFactoryFunction system_backend_factory_ = nullptr;
+  ProducerBackendFactoryFunction system_producer_backend_factory_ = nullptr;
+  ConsumerBackendFactoryFunction system_consumer_backend_factory_ = nullptr;
   bool dcheck_is_on_ = PERFETTO_DCHECK_IS_ON();
 };
 
 // The entry-point for using perfetto.
-class PERFETTO_EXPORT Tracing {
+class PERFETTO_EXPORT_COMPONENT Tracing {
  public:
   // Initializes Perfetto with the given backends in the calling process and/or
-  // with a user-provided backend. No-op if called more than once.
+  // with a user-provided backend. It's possible to call this function more than
+  // once to initialize different backends. If a backend was already initialized
+  // the call will have no effect on it. All the members of `args` will be
+  // ignored in subsequent calls, except those require to initialize new
+  // backends (`backends`, `enable_system_consumer`, `shmem_size_hint_kb`,
+  // `shmem_page_size_hint_kb` and `shmem_batch_commits_duration_ms`).
   static inline void Initialize(const TracingInitArgs& args)
       PERFETTO_ALWAYS_INLINE {
     TracingInitArgs args_copy(args);
@@ -161,8 +190,12 @@ class PERFETTO_EXPORT Tracing {
           &internal::InProcessTracingBackend::GetInstance;
     }
     if (args.backends & kSystemBackend) {
-      args_copy.system_backend_factory_ =
-          &internal::SystemTracingBackend::GetInstance;
+      args_copy.system_producer_backend_factory_ =
+          &internal::SystemProducerTracingBackend::GetInstance;
+      if (args.enable_system_consumer) {
+        args_copy.system_consumer_backend_factory_ =
+            &internal::SystemConsumerTracingBackend::GetInstance;
+      }
     }
     InitializeInternal(args_copy);
   }
@@ -172,23 +205,129 @@ class PERFETTO_EXPORT Tracing {
 
   // Start a new tracing session using the given tracing backend. Use
   // |kUnspecifiedBackend| to select an available backend automatically.
-  // For the moment this can be used only when initializing tracing in
-  // kInProcess mode. For the system mode use the 'bin/perfetto' cmdline client.
-  static std::unique_ptr<TracingSession> NewTrace(
-      BackendType = kUnspecifiedBackend);
+  static inline std::unique_ptr<TracingSession> NewTrace(
+      BackendType backend = kUnspecifiedBackend) PERFETTO_ALWAYS_INLINE {
+    // This code is inlined to allow dead-code elimination for unused consumer
+    // implementation. The logic behind it is the following:
+    // Nothing other than the code below references the GetInstance() method
+    // below. From a linker-graph viewpoint, those GetInstance() pull in many
+    // other pieces of the codebase (ConsumerOnlySystemTracingBackend pulls
+    // ConsumerIPCClient). Due to the inline, the compiler can see through the
+    // code and realize that some branches are always not taken. When that
+    // happens, no reference to the backends' GetInstance() is emitted and that
+    // allows the linker GC to get rid of the entire set of dependencies.
+    TracingConsumerBackend* (*system_backend_factory)();
+    system_backend_factory = nullptr;
+    // In case PERFETTO_IPC is disabled, a fake system backend is used, which
+    // always panics. NewTrace(kSystemBackend) should fail if PERFETTO_IPC is
+    // diabled, not panic.
+#if PERFETTO_BUILDFLAG(PERFETTO_IPC)
+    if (backend & kSystemBackend) {
+      system_backend_factory =
+          &internal::SystemConsumerTracingBackend::GetInstance;
+    }
+#endif
+    return NewTraceInternal(backend, system_backend_factory);
+  }
+
+  // Shut down Perfetto, releasing any allocated OS resources (threads, files,
+  // sockets, etc.). Note that Perfetto cannot be reinitialized again in the
+  // same process[1]. Instead, this function is meant for shutting down all
+  // Perfetto-related code so that it can be safely unloaded, e.g., with
+  // dlclose().
+  //
+  // It is only safe to call this function when all threads recording trace
+  // events have been terminated or otherwise guaranteed to not make any further
+  // calls into Perfetto.
+  //
+  // [1] Unless static data is also cleared through other means.
+  static void Shutdown();
 
   // Uninitialize Perfetto. Only exposed for testing scenarios where it can be
   // guaranteed that no tracing sessions or other operations are happening when
   // this call is made.
   static void ResetForTesting();
 
+  // Start a new startup tracing session in the current process. Startup tracing
+  // can be used in anticipation of a session that will be started by the
+  // specified backend in the near future. The data source configs in the
+  // supplied TraceConfig have to (mostly) match those in the config that will
+  // later be provided by the backend.
+  // Learn more about config matching at ComputeStartupConfigHash.
+  //
+  // Note that startup tracing requires that either:
+  //  (a) the service backend already has an SMB set up, or
+  //  (b) the service backend to support producer-provided SMBs if the backend
+  //      is not yet connected or no SMB has been set up yet
+  //      (See `use_producer_provided_smb`). If necessary, the
+  //      client library will briefly disconnect and reconnect the backend to
+  //      supply an SMB to the backend. If the service does not accept the SMB,
+  //      startup tracing will be aborted, but the service may still start the
+  //      corresponding tracing session later.
+  //
+  // Startup tracing is NOT supported with the in-process backend. For this
+  // backend, you can just start a regular tracing session and block until it is
+  // set up instead.
+  //
+  // The client library will start the data sources instances specified in the
+  // config with a placeholder target buffer. Once the backend starts a matching
+  // tracing session, the session will resume as normal. If no matching session
+  // is started after a timeout (or the backend doesn't accept the
+  // producer-provided SMB), the startup tracing session will be aborted
+  // and the data source instances stopped.
+  struct OnStartupTracingSetupCallbackArgs {
+    int num_data_sources_started;
+  };
+  struct SetupStartupTracingOpts {
+    BackendType backend = kUnspecifiedBackend;
+    uint32_t timeout_ms = 10000;
+
+    // If set, this callback is executed (on an internal Perfetto thread) when
+    // startup tracing was set up.
+    std::function<void(OnStartupTracingSetupCallbackArgs)> on_setup;
+
+    // If set, this callback is executed (on an internal Perfetto thread) if any
+    // data sources were aborted, e.g. due to exceeding the timeout or as a
+    // response to Abort().
+    std::function<void()> on_aborted;
+
+    // If set, this callback is executed (on an internal Perfetto thread) after
+    // all data sources were adopted by a tracing session initiated by the
+    // backend.
+    std::function<void()> on_adopted;
+  };
+
+  static std::unique_ptr<StartupTracingSession> SetupStartupTracing(
+      const TraceConfig& config,
+      SetupStartupTracingOpts);
+
+  // Blocking version of above method, so callers can ensure that tracing is
+  // active before proceeding with app startup. Calls into
+  // DataSource::Trace() or trace macros right after this method are written
+  // into the startup session.
+  static std::unique_ptr<StartupTracingSession> SetupStartupTracingBlocking(
+      const TraceConfig& config,
+      SetupStartupTracingOpts);
+
+  // Informs the tracing services to activate any of these triggers if any
+  // tracing session was waiting for them.
+  //
+  // Sends the trigger signal to all the initialized backends that are currently
+  // connected and that connect in the next `ttl_ms` milliseconds (but
+  // returns immediately anyway).
+  static void ActivateTriggers(const std::vector<std::string>& triggers,
+                               uint32_t ttl_ms);
+
  private:
   static void InitializeInternal(const TracingInitArgs&);
+  static std::unique_ptr<TracingSession> NewTraceInternal(
+      BackendType,
+      TracingConsumerBackend* (*system_backend_factory)());
 
   Tracing() = delete;
 };
 
-class PERFETTO_EXPORT TracingSession {
+class PERFETTO_EXPORT_COMPONENT TracingSession {
  public:
   virtual ~TracingSession();
 
@@ -351,6 +490,23 @@ class PERFETTO_EXPORT TracingSession {
 
   // Synchronous version of QueryServiceState() for convenience.
   QueryServiceStateCallbackArgs QueryServiceStateBlocking();
+};
+
+class PERFETTO_EXPORT_COMPONENT StartupTracingSession {
+ public:
+  // Note that destroying the StartupTracingSession object will not abort the
+  // startup session automatically. Call Abort() explicitly to do so.
+  virtual ~StartupTracingSession();
+
+  // Abort any active but still unbound data source instances that belong to
+  // this startup tracing session. Does not affect data source instances that
+  // were already bound to a service-controlled session.
+  virtual void Abort() = 0;
+
+  // Same as above, but blocks the current thread until aborted.
+  // Note some of the internal (non observable from public APIs) cleanup might
+  // be done even after this method returns.
+  virtual void AbortBlocking() = 0;
 };
 
 }  // namespace perfetto

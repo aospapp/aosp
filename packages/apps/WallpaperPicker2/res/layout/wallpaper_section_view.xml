@@ -16,7 +16,6 @@
 -->
 <com.android.wallpaper.picker.WallpaperSectionView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -71,10 +70,10 @@
             android:layout_marginVertical="@dimen/wallpaper_picker_entry_margin_vertical"
             android:paddingHorizontal="@dimen/wallpaper_picker_entry_horizontal_padding"
             android:background="@drawable/btn_transparent_background"
-            android:textColor="?androidprv:attr/colorAccentPrimaryVariant"
+            android:textColor="@color/color_accent_primary_variant"
             android:drawablePadding="@dimen/wallpaper_picker_entry_drawable_padding"
             android:drawableStart="@drawable/ic_nav_wallpaper"
-            android:drawableTint="?androidprv:attr/colorAccentPrimaryVariant"
+            android:drawableTint="@color/color_accent_primary_variant"
             android:text="@string/wallpaper_picker_entry_title"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"

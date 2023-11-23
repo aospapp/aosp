@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,6 +7,7 @@ import logging
 import time
 
 from autotest_lib.client.common_lib import error
+from autotest_lib.server.cros import vboot_constants as vboot
 
 DEBOUNCE_STATE = 'debouncing'
 
@@ -21,12 +23,13 @@ class _BaseFwBypasser(object):
     # warning screen in tablets/detachables.
     HOLD_VOL_DOWN_BUTTON_BYPASS = 3
 
-    def __init__(self, faft_framework):
+    def __init__(self, faft_framework, menu_navigator):
         self.faft_framework = faft_framework
         self.servo = faft_framework.servo
         self.faft_config = faft_framework.faft_config
         self.client_host = faft_framework._client
         self.ec = getattr(faft_framework, 'ec', None)
+        self.menu = menu_navigator
 
 
     def bypass_dev_mode(self):
@@ -68,7 +71,8 @@ class _BaseFwBypasser(object):
     def check_vbus_and_pd_state(self):
         """Perform PD power and data swap, if DUT is SRC and doesn't supply
         Vbus"""
-        if self.ec and self.faft_config.ec_ro_vbus_bug:
+        if (self.ec and self.faft_config.ec_ro_vbus_bug
+                    and self.servo.is_servo_v4_type_c()):
             time.sleep(self.faft_framework.PD_RESYNC_DELAY)
             servo_pr_role = self.servo.get_servo_v4_role()
             if servo_pr_role == 'snk':
@@ -79,15 +83,28 @@ class _BaseFwBypasser(object):
                     # Make servo SRC to supply Vbus correctly
                     self.servo.set_servo_v4_role('src')
                     time.sleep(self.faft_framework.PD_RESYNC_DELAY)
+
             # After reboot, EC can be UFP so check that
-            if not self.ec.is_dfp():
+            MAX_PORTS = 2
+            ec_is_dfp = False
+            for port in range(0, MAX_PORTS):
+                if self.ec.is_dfp(port):
+                    ec_is_dfp = True
+                    break
+
+            if not ec_is_dfp:
                 # EC is UFP, perform PD Data Swap
-                self.ec.send_command("pd 0 swap data")
-                time.sleep(self.faft_framework.PD_RESYNC_DELAY)
-                # Make sure EC is DFP now
-                if not self.ec.is_dfp():
-                    # EC is still UFP
-                    raise error.TestError('DUT is not DFP in recovery mode.')
+                for port in range(0, MAX_PORTS):
+                    self.ec.send_command("pd %d swap data" % port)
+                    time.sleep(self.faft_framework.PD_RESYNC_DELAY)
+                    # Make sure EC is DFP now
+                    if self.ec.is_dfp(port):
+                        ec_is_dfp = True
+                        break
+
+            if not ec_is_dfp:
+                # EC is still UFP
+                raise error.TestError('DUT is not DFP in recovery mode.')
 
 
 class _KeyboardBypasser(_BaseFwBypasser):
@@ -120,7 +137,7 @@ class _KeyboardBypasser(_BaseFwBypasser):
     def bypass_dev_default_boot(self):
         """Bypass the dev mode firmware logic to boot from default target."""
         self.faft_framework.wait_for('firmware_screen', 'Pressing enter')
-        self.servo.enter_key()
+        self.menu.select()
 
 
     def bypass_rec_mode(self):
@@ -130,13 +147,18 @@ class _KeyboardBypasser(_BaseFwBypasser):
         self.check_vbus_and_pd_state()
         self.servo.switch_usbkey('dut')
         logging.info('Enabled dut_sees_usb')
-        if not self.client_host.ping_wait_up(
-                timeout=self.faft_config.delay_reboot_to_ping):
-            logging.info('ping timed out, try REC_ON')
+        tries = 3
+        while tries > 0 and not self.client_host.wait_up(
+                timeout=self.faft_config.delay_reboot_to_ping,
+                host_is_down=True):
+            tries = tries - 1
+            logging.info('connect timed out, try REC_ON, retries left: %d',
+                         tries)
             psc = self.servo.get_power_state_controller()
             psc.power_on(psc.REC_ON)
             # Check Vbus after reboot again
             self.check_vbus_and_pd_state()
+        logging.info('bypass_rec_mode DONE')
 
 
     def trigger_dev_to_rec(self):
@@ -149,7 +171,8 @@ class _KeyboardBypasser(_BaseFwBypasser):
         """Trigger to the dev mode from the rec screen."""
         self.faft_framework.wait_for('firmware_screen', 'Pressing ctrl+d')
         self.servo.ctrl_d()
-        self.faft_framework.wait_for('confirm_screen', 'Pressing button to switch to dev mode')
+        self.faft_framework.wait_for('keypress_delay',
+                                     'Pressing button to switch to dev mode')
         if self.faft_config.rec_button_dev_switch:
             logging.info('RECOVERY button pressed to switch to dev mode')
             self.servo.toggle_recovery_switch()
@@ -158,7 +181,7 @@ class _KeyboardBypasser(_BaseFwBypasser):
             self.servo.power_normal_press()
         else:
             logging.info('ENTER pressed to switch to dev mode')
-            self.servo.enter_key()
+            self.menu.select()
 
 
     def trigger_dev_to_normal(self):
@@ -167,8 +190,8 @@ class _KeyboardBypasser(_BaseFwBypasser):
         self.faft_framework.wait_for('firmware_screen', 'Pressing ctrl+s')
         self.servo.ctrl_s()
         # Select "Confirm"
-        self.faft_framework.wait_for('confirm_screen', 'Pressing enter')
-        self.servo.enter_key()
+        self.faft_framework.wait_for('keypress_delay', 'Pressing enter')
+        self.menu.select()
 
 
 class _LegacyKeyboardBypasser(_KeyboardBypasser):
@@ -177,14 +200,14 @@ class _LegacyKeyboardBypasser(_KeyboardBypasser):
     def trigger_dev_to_rec(self):
         """Trigger to the to-norm screen from the dev screen."""
         self.faft_framework.wait_for('firmware_screen', 'Pressing enter')
-        self.servo.enter_key()
+        self.menu.select()
 
     def trigger_dev_to_normal(self):
         """Trigger to the normal mode from the dev screen."""
         self.faft_framework.wait_for('firmware_screen', 'Pressing enter')
-        self.servo.enter_key()
-        self.faft_framework.wait_for('confirm_screen', 'Pressing enter')
-        self.servo.enter_key()
+        self.menu.select()
+        self.faft_framework.wait_for('keypress_delay', 'Pressing enter')
+        self.menu.select()
 
 
 class _JetstreamBypasser(_BaseFwBypasser):
@@ -242,7 +265,7 @@ class _TabletDetachableBypasser(_BaseFwBypasser):
     def set_button(self, button, duration, info):
         """Helper method that sets the button hold time for UI selections"""
         self.servo.set_nocheck(button, duration)
-        self.faft_framework.wait_for('confirm_screen')
+        self.faft_framework.wait_for('keypress_delay')
         logging.info(info)
 
 
@@ -275,7 +298,7 @@ class _TabletDetachableBypasser(_BaseFwBypasser):
         self.faft_framework.wait_for('firmware_screen', 'Pressing volume up')
         self.set_button('volume_up_hold', 100, ('Selecting power as'
                         ' enter key to select Boot USB Image'))
-        self.servo.power_short_press()
+        self.menu.select()
 
     def bypass_dev_default_boot(self):
         """Open the Developer Options menu, and accept the default boot device
@@ -301,7 +324,7 @@ class _TabletDetachableBypasser(_BaseFwBypasser):
         self.faft_framework.wait_for('firmware_screen', 'Pressing power button')
         logging.info('Selecting power as enter key to accept the default'
                      ' boot option.')
-        self.servo.power_short_press()
+        self.menu.select()
 
     def bypass_rec_mode(self):
         """Bypass the rec mode firmware logic to boot USB."""
@@ -366,12 +389,12 @@ class _TabletDetachableBypasser(_BaseFwBypasser):
         """
         self.faft_framework.wait_for('firmware_screen', 'Pressing volume up')
         self.servo.set_nocheck('volume_up_hold', 100)
-        self.faft_framework.wait_for('confirm_screen', 'Pressing volume up')
+        self.faft_framework.wait_for('keypress_delay', 'Pressing volume up')
         self.servo.set_nocheck('volume_up_hold', 100)
-        self.faft_framework.wait_for('confirm_screen', 'Pressing volume up')
+        self.faft_framework.wait_for('keypress_delay', 'Pressing volume up')
         self.set_button('volume_up_hold', 100, ('Selecting power '
                         'as enter key to select Developer Options'))
-        self.servo.power_short_press()
+        self.menu.select()
 
 
     def trigger_rec_to_dev(self):
@@ -390,10 +413,10 @@ class _TabletDetachableBypasser(_BaseFwBypasser):
         """
         self.faft_framework.wait_for('firmware_screen', 'Pressing volume up + volume down')
         self.set_button('volume_up_down_hold', 100, ('Enter Recovery Menu.'))
-        self.faft_framework.wait_for('confirm_screen', 'Pressing volume up')
+        self.faft_framework.wait_for('keypress_delay', 'Pressing volume up')
         self.set_button('volume_up_hold', 100, ('Selecting power as '
                         'enter key to select Confirm Enabling Developer Mode'))
-        self.servo.power_short_press()
+        self.menu.select()
         self.faft_framework.wait_for('firmware_screen')
 
 
@@ -418,13 +441,13 @@ class _TabletDetachableBypasser(_BaseFwBypasser):
         self.set_button('volume_up_hold', 100, ('Selecting '
                         'Enable Root Verification using pwr '
                         'button to enter TO_NORM screen'))
-        self.servo.power_short_press()
+        self.menu.select()
         logging.info('Transitioning from DEV to TO_NORM screen.')
         self.faft_framework.wait_for('firmware_screen', 'Pressing power button')
         logging.info('Selecting Confirm Enabling Verified '
                         'Boot using pwr button in '
                         'TO_NORM screen')
-        self.servo.power_short_press()
+        self.menu.select()
 
     def trigger_dev_to_rec(self):
         """Trigger to the TO_NORM screen from the dev screen.
@@ -446,7 +469,7 @@ class _TabletDetachableBypasser(_BaseFwBypasser):
         self.set_button('volume_up_hold', 100, ('Selecting '
                         'Enable Root Verification using pwr '
                         'button to enter TO_NORM screen'))
-        self.servo.power_short_press()
+        self.menu.select()
         logging.info('Transitioning from DEV to TO_NORM screen.')
         self.faft_framework.wait_for('firmware_screen', 'Pressing volume down')
 
@@ -456,9 +479,9 @@ class _TabletDetachableBypasser(_BaseFwBypasser):
         # a generic action and wait for next action of either Lid close or
         # power button press.
         self.servo.set_nocheck('volume_down_hold', 100)
-        self.faft_framework.wait_for('confirm_screen', 'Pressing volume down')
+        self.faft_framework.wait_for('keypress_delay', 'Pressing volume down')
         self.servo.set_nocheck('volume_down_hold', 100)
-        self.faft_framework.wait_for('confirm_screen')
+        self.faft_framework.wait_for('keypress_delay')
 
 
 class _BaseModeSwitcher(object):
@@ -468,66 +491,89 @@ class _BaseModeSwitcher(object):
 
     FW_BYPASSER_CLASS = _BaseFwBypasser
 
-    def __init__(self, faft_framework):
+    def __init__(self, faft_framework, menu_navigator):
         self.faft_framework = faft_framework
         self.client_host = faft_framework._client
         self.faft_client = faft_framework.faft_client
         self.servo = faft_framework.servo
         self.faft_config = faft_framework.faft_config
         self.checkers = faft_framework.checkers
+        self.menu = menu_navigator
         self.bypasser = self._create_fw_bypasser()
-        self._backup_mode = None
+        original_boot_mode = self.faft_client.system.get_boot_mode()
+        # Only resume to normal/dev mode after test, not recovery.
+        self._backup_mode = 'dev' if original_boot_mode == 'dev' else 'normal'
 
     def _create_fw_bypasser(self):
         """Creates a proper firmware bypasser.
 
         @rtype: _BaseFwBypasser
         """
-        return self.FW_BYPASSER_CLASS(self.faft_framework)
+        return self.FW_BYPASSER_CLASS(self.faft_framework, self.menu)
 
-    def setup_mode(self, mode):
-        """Setup for the requested mode.
+    def setup_mode(self, to_mode, allow_gbb_force=False):
+        """Setup for the requested boot mode.
 
         It makes sure the system in the requested mode. If not, it tries to
         do so.
 
-        @param mode: A string of mode, one of 'normal', 'dev', or 'rec'.
+        @param to_mode: A string of boot mode, one of 'normal', 'dev', or 'rec'.
+        @param allow_gbb_force: Bool. If True, allow forcing dev mode via GBB
+                                flags. This is more reliable, but it can prevent
+                                testing other mode-switch workflows.
         @raise TestFail: If the system not switched to expected mode after
                          reboot_to_mode.
 
         """
-        if not self.checkers.mode_checker(mode):
-            logging.info('System not in expected %s mode. Reboot into it.',
-                         mode)
-            if self._backup_mode is None:
-                # Only resume to normal/dev mode after test, not recovery.
-                self._backup_mode = 'dev' if mode == 'normal' else 'normal'
-            self.reboot_to_mode(mode)
-            if not self.checkers.mode_checker(mode):
-                raise error.TestFail('System not switched to expected %s'
-                        ' mode after setup_mode.' % mode)
+        current_mode = self.faft_client.system.get_boot_mode()
+        if current_mode == to_mode:
+            logging.debug('System already in expected %s mode.', to_mode)
+            return
+        logging.info('System not in expected %s mode. Reboot into it.',
+                     to_mode)
+
+        self.reboot_to_mode(to_mode, allow_gbb_force=allow_gbb_force)
+        current_mode = self.faft_client.system.get_boot_mode()
+        if current_mode != to_mode:
+            raise error.TestFail(
+                    'After setup_mode, wanted mode=%s but got %s' %
+                    (to_mode, current_mode))
 
     def restore_mode(self):
         """Restores original dev mode status if it has changed.
 
         @raise TestFail: If the system not restored to expected mode.
         """
-        if (self._backup_mode is not None and
-            not self.checkers.mode_checker(self._backup_mode)):
-            self.reboot_to_mode(self._backup_mode)
-            if not self.checkers.mode_checker(self._backup_mode):
-                raise error.TestFail('System not restored to expected %s'
-                        ' mode in cleanup.' % self._backup_mode)
+        if self._backup_mode is None:
+            logging.debug('No backup mode to restore.')
+            return
+        current_mode = self.faft_client.system.get_boot_mode()
+        if current_mode == self._backup_mode:
+            logging.debug('System already in backup %s mode.', current_mode)
+            return
 
+        self.reboot_to_mode(self._backup_mode, allow_gbb_force=True)
+        current_mode = self.faft_client.system.get_boot_mode()
+        if current_mode != self._backup_mode:
+            raise error.TestFail(
+                    'After restore_mode, wanted mode=%s but got %s' %
+                    (self._backup_mode, current_mode))
+        self._backup_mode = None
 
-
-    def reboot_to_mode(self, to_mode, from_mode=None, sync_before_boot=True,
-                       wait_for_dut_up=True):
+    def reboot_to_mode(self,
+                       to_mode,
+                       allow_gbb_force=False,
+                       sync_before_boot=True,
+                       wait_for_dut_up=True,
+                       rec_usb_state='dut'):
         """Reboot and execute the mode switching sequence.
 
-        This method simulates what a user would do to switch between different
-        modes of ChromeOS.  Note that the modes are end-states where the OS is
-        booted up to the Welcome screen, so it takes care of navigating through
+        Normally this method simulates what a user would do to switch between
+        different modes of ChromeOS. However, if allow_gbb_force is True, then
+        booting to dev mode will instead be forced by GBB flags.
+
+        Note that the modes are end-states where the OS is booted up
+        to the Welcome screen, so it takes care of navigating through
         intermediate steps such as various boot confirmation screens.
 
         From the user perspective, these are the states (note that there's also
@@ -537,9 +583,6 @@ class _BaseModeSwitcher(object):
           ^                         ^
           |                         |
           +-------------------------+
-
-        This is the implementation, note that "from_mode" is only used for
-        logging purposes.
 
         Normal <-----> Dev:
           _enable_dev_mode_and_reboot()
@@ -551,31 +594,36 @@ class _BaseModeSwitcher(object):
           _enable_normal_mode_and_reboot()
 
         Normal <-----> rec:
-          enable_rec_mode_and_reboot(usb_state='dut')
+          enable_rec_mode_and_reboot(usb_state=rec_usb_state)
 
         Normal <-----> rec_force_mrc:
-          _enable_rec_mode_force_mrc_and_reboot(usb_state='dut')
+          _enable_rec_mode_force_mrc_and_reboot(usb_state=rec_usb_state)
 
         Note that one shouldn't transition to dev again without going through the
         normal mode.  This is because trying to disable os_verification when it's
         already off is not supported by reboot_to_mode.
 
         @param to_mode: The target mode, one of 'normal', 'dev', or 'rec'.
-        @param from_mode: The original mode, optional, one of 'normal, 'dev',
-                          or 'rec'.
+        @param allow_gbb_force: Bool. If True, allow forcing dev mode via GBB
+                                flags. This is more reliable, but it can prevent
+                                testing other mode-switch workflows.
         @param sync_before_boot: True to sync to disk before booting.
         @param wait_for_dut_up: True to wait DUT online again. False to do the
                                 reboot and mode switching sequence only and may
                                 need more operations to pass the firmware
                                 screen.
+        @param rec_usb_state: None or a string, one of 'dut', 'host', or 'off'.
+                              This parameter is only valid when to_mode is 'rec'
+                              or 'rec_force_mrc'. Set this to None to prevent
+                              changing the USB state before rebooting.
         """
-        logging.info('-[ModeSwitcher]-[ start reboot_to_mode(%r, %r, %r) ]-',
-                     to_mode, from_mode, wait_for_dut_up)
+        logging.info(
+                '-[ModeSwitcher]-[ start reboot_to_mode(%r, %r, %r, %r)]-',
+                to_mode, sync_before_boot, allow_gbb_force, wait_for_dut_up)
 
-        if from_mode:
-            note = 'reboot_to_mode: to=%s, from=%s' % (from_mode, to_mode)
-        else:
-            note = 'reboot_to_mode: to=%s' % to_mode
+        from_mode = self.faft_client.system.get_boot_mode()
+        note = 'reboot_to_mode: from=%s, to=%s' % (from_mode, to_mode)
+
         if sync_before_boot:
             lines = self.faft_client.system.run_shell_command_get_output(
                 'crossystem')
@@ -587,30 +635,36 @@ class _BaseModeSwitcher(object):
             self.faft_framework.blocking_sync(freeze_for_reset=True)
         note += '.'
 
+        # If booting to anything but dev mode, make sure we're not forcing dev.
+        # This is irrespective of allow_gbb_force: disabling the flag doesn't
+        # force a mode, it just stops forcing dev.
+        if to_mode != 'dev':
+            self.faft_framework.clear_set_gbb_flags(
+                    vboot.GBB_FLAG_FORCE_DEV_SWITCH_ON, 0, reboot=False)
+
         if to_mode == 'rec':
-            self.enable_rec_mode_and_reboot(usb_state='dut')
-
+            self.enable_rec_mode_and_reboot(usb_state=rec_usb_state)
         elif to_mode == 'rec_force_mrc':
-            self._enable_rec_mode_force_mrc_and_reboot(usb_state='dut')
-
+            self._enable_rec_mode_force_mrc_and_reboot(usb_state=rec_usb_state)
         elif to_mode == 'dev':
-            self._enable_dev_mode_and_reboot()
-            if wait_for_dut_up:
-                self.bypass_dev_mode()
-
+            if allow_gbb_force:
+                self.faft_framework.clear_set_gbb_flags(
+                        0, vboot.GBB_FLAG_FORCE_DEV_SWITCH_ON, reboot=True)
+            else:
+                self._enable_dev_mode_and_reboot()
+                if wait_for_dut_up:
+                    self.bypass_dev_mode()
         elif to_mode == 'normal':
             self._enable_normal_mode_and_reboot()
-
         else:
-            raise NotImplementedError(
-                    'Not supported mode switching from %s to %s' %
-                     (str(from_mode), to_mode))
-
+            raise NotImplementedError('Unexpected boot mode param: %s',
+                                      to_mode)
         if wait_for_dut_up:
             self.wait_for_client(retry_power_on=True, note=note)
 
-        logging.info('-[ModeSwitcher]-[ end reboot_to_mode(%r, %r, %r) ]-',
-                     to_mode, from_mode, wait_for_dut_up)
+        logging.info('-[ModeSwitcher]-[ end reboot_to_mode(%r, %r, %r, %r)]-',
+                     to_mode, sync_before_boot, allow_gbb_force,
+                     wait_for_dut_up)
 
     def simple_reboot(self, reboot_type='warm', sync_before_boot=True):
         """Simple reboot method
@@ -870,9 +924,10 @@ class _BaseModeSwitcher(object):
             raise ConnectionError(msg)
 
         # Wait for the system to respond to ping before attempting ssh
-        if not self.client_host.ping_wait_up(timeout):
+        if self.client_host.use_icmp and not self.client_host.ping_wait_up(
+                timeout):
             logging.warning("-[FAFT]-[ system did not respond to ping ]")
-        if self.client_host.wait_up(timeout):
+        if self.client_host.wait_up(timeout, host_is_down=True):
             # Check the FAFT client is avaiable.
             self.faft_client.system.is_available()
             # Stop update-engine as it may change firmware/kernel.
@@ -896,18 +951,35 @@ class _BaseModeSwitcher(object):
         @param orig_boot_id: A string containing the original boot id.
         @raise ConnectionError: Failed to wait DUT offline.
         """
-        # When running against panther, we see that sometimes
-        # ping_wait_down() does not work correctly. There needs to
-        # be some investigation to the root cause.
-        # If we sleep for 120s before running get_boot_id(), it
-        # does succeed. But if we change this to ping_wait_down()
-        # there are implications on the wait time when running
-        # commands at the fw screens.
         if not self.client_host.ping_wait_down(timeout):
             if orig_boot_id and self.client_host.get_boot_id() != orig_boot_id:
-                logging.warn('Reboot done very quickly.')
+                logging.warning('Reboot done very quickly.')
                 return
             raise ConnectionError('DUT is still up unexpectedly')
+
+
+    def launch_minios(self, minios_priority=None):
+        """Reboot to recovery mode and launch MiniOS with specified priority.
+        The DUT must have the config 'minios_enabled'.
+
+        @param minios_priority: Set to 'a' or 'b' for specified priority; Set to
+                                None to skip assigning the priority.
+        @raise ConnectionError: Failed to wait DUT offline.
+        @raise NotImplementedError: DUT does not support MiniOS.
+        """
+        raise NotImplementedError
+
+    def leave_minios(self, is_devsw_boot=False):
+        """Leave MiniOS and use a mode-aware way to reboot DUT.
+
+        The DUT must have the config 'minios_enabled'.
+        This method will reboot DUT to leave MiniOS.
+
+        @param is_devsw_boot: True to bypass the developer screen.
+        @raise ConnectionError: Failed to wait DUT offline.
+        @raise NotImplementedError: DUT does not support MiniOS.
+        """
+        raise NotImplementedError
 
 
 class _MenuSwitcher(_BaseModeSwitcher):
@@ -930,6 +1002,56 @@ class _MenuSwitcher(_BaseModeSwitcher):
         self.disable_rec_mode_and_reboot()
         self.wait_for_client_offline()
         self.bypasser.trigger_dev_to_normal()
+
+    def launch_minios(self, minios_priority=None):
+        """Reboot to recovery mode and launch MiniOS with specified priority.
+        The DUT must have the config 'minios_enabled'.
+
+        @param minios_priority: Set to 'a' or 'b' for specified priority; Set to
+                                None to skip assigning the priority.
+        @raise ConnectionError: Failed to wait DUT offline.
+        @raise NotImplementedError: DUT does not support MiniOS.
+        """
+        # Validity check
+        if not self.faft_config.minios_enabled:
+            raise NotImplementedError
+
+        # Set MiniOS priority
+        if minios_priority:
+            logging.info('Set the MiniOS priority to %s', minios_priority)
+            self.faft_client.system.set_minios_priority(minios_priority)
+        else:
+            logging.info('Use the original MiniOS priority setting')
+
+        # Boot to recovery mode to launch MiniOS. We do not want to change the
+        # usb state since it will disturb the MiniOS booting flow.
+        logging.info('Boot into recovery mode')
+        self.reboot_to_mode(to_mode="rec",
+                            wait_for_dut_up=False,
+                            rec_usb_state=None)
+        self.faft_framework.wait_for('firmware_screen')
+
+        # Use Ctrl+R shortcut to boot MiniOS
+        logging.info('Try to boot MiniOS')
+        self.servo.ctrl_r()
+        self.faft_framework.wait_for('minios_screen')
+
+    def leave_minios(self, is_devsw_boot=False):
+        """Leave MiniOS and use a mode-aware way to reboot DUT.
+
+        The DUT must have the config 'minios_enabled'.
+        This method will reboot DUT to leave MiniOS.
+
+        @param is_devsw_boot: True to bypass the developer screen.
+        @raise ConnectionError: Failed to wait DUT offline.
+        @raise NotImplementedError: DUT does not support MiniOS.
+        """
+        # mode_aware_reboot() cannot be used here since it leverages autotest
+        # libraries which don't exist within MiniOS.
+        self.simple_reboot(sync_before_boot=False)
+        if is_devsw_boot:
+            self.faft_framework.wait_for('firmware_screen')
+            self.bypass_dev_mode()
 
 
 class _KeyboardDevSwitcher(_MenuSwitcher):
@@ -1010,10 +1132,11 @@ _SWITCHER_CLASSES = {
 }
 
 
-def create_mode_switcher(faft_framework):
+def create_mode_switcher(faft_framework, menu_navigator):
     """Creates a proper mode switcher.
 
     @param faft_framework: The main FAFT framework object.
+    @param menu_navigator: The menu navigator for base logic of navigation.
     """
     switcher_type = faft_framework.faft_config.mode_switcher_type
     switcher_class = _SWITCHER_CLASSES.get(switcher_type, None)
@@ -1021,4 +1144,4 @@ def create_mode_switcher(faft_framework):
         raise NotImplementedError('Not supported mode_switcher_type: %s',
                                   switcher_type)
     else:
-        return switcher_class(faft_framework)
+        return switcher_class(faft_framework, menu_navigator)

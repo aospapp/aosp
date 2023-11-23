@@ -22,6 +22,7 @@ import com.code_intelligence.jazzer.api.MethodHooks
 import java.lang.invoke.MethodHandle
 import javax.naming.CommunicationException
 
+@Suppress("unused")
 object NamingContextLookup {
 
     // The particular URL g.co is used here since it is:
@@ -31,6 +32,7 @@ object NamingContextLookup {
     private const val LDAP_MARKER = "ldap://g.co/"
     private const val RMI_MARKER = "rmi://g.co/"
 
+    @Suppress("UNUSED_PARAMETER")
     @MethodHooks(
         MethodHook(
             type = HookType.REPLACE,
@@ -40,43 +42,7 @@ object NamingContextLookup {
         ),
         MethodHook(
             type = HookType.REPLACE,
-            targetClassName = "javax.naming.InitialContext",
-            targetMethod = "lookup",
-            targetMethodDescriptor = "(Ljava/lang/String;)Ljava/lang/Object;",
-        ),
-        MethodHook(
-            type = HookType.REPLACE,
-            targetClassName = "javax.naming.InitialDirContext",
-            targetMethod = "lookup",
-            targetMethodDescriptor = "(Ljava/lang/String;)Ljava/lang/Object;",
-        ),
-        MethodHook(
-            type = HookType.REPLACE,
-            targetClassName = "javax.naming.InitialLdapContext",
-            targetMethod = "lookup",
-            targetMethodDescriptor = "(Ljava/lang/String;)Ljava/lang/Object;",
-        ),
-        MethodHook(
-            type = HookType.REPLACE,
             targetClassName = "javax.naming.Context",
-            targetMethod = "lookupLink",
-            targetMethodDescriptor = "(Ljava/lang/String;)Ljava/lang/Object;",
-        ),
-        MethodHook(
-            type = HookType.REPLACE,
-            targetClassName = "javax.naming.InitialContext",
-            targetMethod = "lookupLink",
-            targetMethodDescriptor = "(Ljava/lang/String;)Ljava/lang/Object;",
-        ),
-        MethodHook(
-            type = HookType.REPLACE,
-            targetClassName = "javax.naming.InitialDirContext",
-            targetMethod = "lookupLink",
-            targetMethodDescriptor = "(Ljava/lang/String;)Ljava/lang/Object;",
-        ),
-        MethodHook(
-            type = HookType.REPLACE,
-            targetClassName = "javax.naming.InitialLdapContext",
             targetMethod = "lookupLink",
             targetMethodDescriptor = "(Ljava/lang/String;)Ljava/lang/Object;",
         ),

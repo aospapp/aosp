@@ -360,6 +360,7 @@ package android.net {
     field public static final int TRANSPORT_CELLULAR = 0; // 0x0
     field public static final int TRANSPORT_ETHERNET = 3; // 0x3
     field public static final int TRANSPORT_LOWPAN = 6; // 0x6
+    field public static final int TRANSPORT_THREAD = 9; // 0x9
     field public static final int TRANSPORT_USB = 8; // 0x8
     field public static final int TRANSPORT_VPN = 4; // 0x4
     field public static final int TRANSPORT_WIFI = 1; // 0x1
@@ -520,6 +521,295 @@ package android.net {
   }
 
   public interface TransportInfo {
+  }
+
+}
+
+package android.net.http {
+
+  public abstract class BidirectionalStream {
+    ctor public BidirectionalStream();
+    method public abstract void cancel();
+    method public abstract void flush();
+    method @NonNull public abstract android.net.http.HeaderBlock getHeaders();
+    method @NonNull public abstract String getHttpMethod();
+    method public abstract int getPriority();
+    method public abstract int getTrafficStatsTag();
+    method public abstract int getTrafficStatsUid();
+    method public abstract boolean hasTrafficStatsTag();
+    method public abstract boolean hasTrafficStatsUid();
+    method public abstract boolean isDelayRequestHeadersUntilFirstFlushEnabled();
+    method public abstract boolean isDone();
+    method public abstract void read(@NonNull java.nio.ByteBuffer);
+    method public abstract void start();
+    method public abstract void write(@NonNull java.nio.ByteBuffer, boolean);
+    field public static final int STREAM_PRIORITY_HIGHEST = 4; // 0x4
+    field public static final int STREAM_PRIORITY_IDLE = 0; // 0x0
+    field public static final int STREAM_PRIORITY_LOW = 2; // 0x2
+    field public static final int STREAM_PRIORITY_LOWEST = 1; // 0x1
+    field public static final int STREAM_PRIORITY_MEDIUM = 3; // 0x3
+  }
+
+  public abstract static class BidirectionalStream.Builder {
+    ctor public BidirectionalStream.Builder();
+    method @NonNull public abstract android.net.http.BidirectionalStream.Builder addHeader(@NonNull String, @NonNull String);
+    method @NonNull public abstract android.net.http.BidirectionalStream build();
+    method @NonNull public abstract android.net.http.BidirectionalStream.Builder setDelayRequestHeadersUntilFirstFlushEnabled(boolean);
+    method @NonNull public abstract android.net.http.BidirectionalStream.Builder setHttpMethod(@NonNull String);
+    method @NonNull public abstract android.net.http.BidirectionalStream.Builder setPriority(int);
+    method @NonNull public abstract android.net.http.BidirectionalStream.Builder setTrafficStatsTag(int);
+    method @NonNull public abstract android.net.http.BidirectionalStream.Builder setTrafficStatsUid(int);
+  }
+
+  public static interface BidirectionalStream.Callback {
+    method public void onCanceled(@NonNull android.net.http.BidirectionalStream, @Nullable android.net.http.UrlResponseInfo);
+    method public void onFailed(@NonNull android.net.http.BidirectionalStream, @Nullable android.net.http.UrlResponseInfo, @NonNull android.net.http.HttpException);
+    method public void onReadCompleted(@NonNull android.net.http.BidirectionalStream, @NonNull android.net.http.UrlResponseInfo, @NonNull java.nio.ByteBuffer, boolean);
+    method public void onResponseHeadersReceived(@NonNull android.net.http.BidirectionalStream, @NonNull android.net.http.UrlResponseInfo);
+    method public void onResponseTrailersReceived(@NonNull android.net.http.BidirectionalStream, @NonNull android.net.http.UrlResponseInfo, @NonNull android.net.http.HeaderBlock);
+    method public void onStreamReady(@NonNull android.net.http.BidirectionalStream);
+    method public void onSucceeded(@NonNull android.net.http.BidirectionalStream, @NonNull android.net.http.UrlResponseInfo);
+    method public void onWriteCompleted(@NonNull android.net.http.BidirectionalStream, @NonNull android.net.http.UrlResponseInfo, @NonNull java.nio.ByteBuffer, boolean);
+  }
+
+  public abstract class CallbackException extends android.net.http.HttpException {
+    ctor protected CallbackException(@Nullable String, @Nullable Throwable);
+  }
+
+  public class ConnectionMigrationOptions {
+    method public int getAllowNonDefaultNetworkUsage();
+    method public int getDefaultNetworkMigration();
+    method public int getPathDegradationMigration();
+    field public static final int MIGRATION_OPTION_DISABLED = 2; // 0x2
+    field public static final int MIGRATION_OPTION_ENABLED = 1; // 0x1
+    field public static final int MIGRATION_OPTION_UNSPECIFIED = 0; // 0x0
+  }
+
+  public static final class ConnectionMigrationOptions.Builder {
+    ctor public ConnectionMigrationOptions.Builder();
+    method @NonNull public android.net.http.ConnectionMigrationOptions build();
+    method @NonNull public android.net.http.ConnectionMigrationOptions.Builder setAllowNonDefaultNetworkUsage(int);
+    method @NonNull public android.net.http.ConnectionMigrationOptions.Builder setDefaultNetworkMigration(int);
+    method @NonNull public android.net.http.ConnectionMigrationOptions.Builder setPathDegradationMigration(int);
+  }
+
+  public final class DnsOptions {
+    method public int getPersistHostCache();
+    method @Nullable public java.time.Duration getPersistHostCachePeriod();
+    method public int getPreestablishConnectionsToStaleDnsResults();
+    method public int getStaleDns();
+    method @Nullable public android.net.http.DnsOptions.StaleDnsOptions getStaleDnsOptions();
+    method public int getUseHttpStackDnsResolver();
+    field public static final int DNS_OPTION_DISABLED = 2; // 0x2
+    field public static final int DNS_OPTION_ENABLED = 1; // 0x1
+    field public static final int DNS_OPTION_UNSPECIFIED = 0; // 0x0
+  }
+
+  public static final class DnsOptions.Builder {
+    ctor public DnsOptions.Builder();
+    method @NonNull public android.net.http.DnsOptions build();
+    method @NonNull public android.net.http.DnsOptions.Builder setPersistHostCache(int);
+    method @NonNull public android.net.http.DnsOptions.Builder setPersistHostCachePeriod(@NonNull java.time.Duration);
+    method @NonNull public android.net.http.DnsOptions.Builder setPreestablishConnectionsToStaleDnsResults(int);
+    method @NonNull public android.net.http.DnsOptions.Builder setStaleDns(int);
+    method @NonNull public android.net.http.DnsOptions.Builder setStaleDnsOptions(@NonNull android.net.http.DnsOptions.StaleDnsOptions);
+    method @NonNull public android.net.http.DnsOptions.Builder setUseHttpStackDnsResolver(int);
+  }
+
+  public static class DnsOptions.StaleDnsOptions {
+    method public int getAllowCrossNetworkUsage();
+    method @Nullable public java.time.Duration getFreshLookupTimeout();
+    method @Nullable public java.time.Duration getMaxExpiredDelay();
+    method public int getUseStaleOnNameNotResolved();
+  }
+
+  public static final class DnsOptions.StaleDnsOptions.Builder {
+    ctor public DnsOptions.StaleDnsOptions.Builder();
+    method @NonNull public android.net.http.DnsOptions.StaleDnsOptions build();
+    method @NonNull public android.net.http.DnsOptions.StaleDnsOptions.Builder setAllowCrossNetworkUsage(int);
+    method @NonNull public android.net.http.DnsOptions.StaleDnsOptions.Builder setFreshLookupTimeout(@NonNull java.time.Duration);
+    method @NonNull public android.net.http.DnsOptions.StaleDnsOptions.Builder setMaxExpiredDelay(@NonNull java.time.Duration);
+    method @NonNull public android.net.http.DnsOptions.StaleDnsOptions.Builder setUseStaleOnNameNotResolved(int);
+  }
+
+  public abstract class HeaderBlock {
+    ctor public HeaderBlock();
+    method @NonNull public abstract java.util.List<java.util.Map.Entry<java.lang.String,java.lang.String>> getAsList();
+    method @NonNull public abstract java.util.Map<java.lang.String,java.util.List<java.lang.String>> getAsMap();
+  }
+
+  public abstract class HttpEngine {
+    method public void bindToNetwork(@Nullable android.net.Network);
+    method @NonNull public abstract java.net.URLStreamHandlerFactory createUrlStreamHandlerFactory();
+    method @NonNull public static String getVersionString();
+    method @NonNull public abstract android.net.http.BidirectionalStream.Builder newBidirectionalStreamBuilder(@NonNull String, @NonNull java.util.concurrent.Executor, @NonNull android.net.http.BidirectionalStream.Callback);
+    method @NonNull public abstract android.net.http.UrlRequest.Builder newUrlRequestBuilder(@NonNull String, @NonNull java.util.concurrent.Executor, @NonNull android.net.http.UrlRequest.Callback);
+    method @NonNull public abstract java.net.URLConnection openConnection(@NonNull java.net.URL) throws java.io.IOException;
+    method public abstract void shutdown();
+  }
+
+  public static class HttpEngine.Builder {
+    ctor public HttpEngine.Builder(@NonNull android.content.Context);
+    method @NonNull public android.net.http.HttpEngine.Builder addPublicKeyPins(@NonNull String, @NonNull java.util.Set<byte[]>, boolean, @NonNull java.time.Instant);
+    method @NonNull public android.net.http.HttpEngine.Builder addQuicHint(@NonNull String, int, int);
+    method @NonNull public android.net.http.HttpEngine build();
+    method @NonNull public String getDefaultUserAgent();
+    method @NonNull public android.net.http.HttpEngine.Builder setConnectionMigrationOptions(@NonNull android.net.http.ConnectionMigrationOptions);
+    method @NonNull public android.net.http.HttpEngine.Builder setDnsOptions(@NonNull android.net.http.DnsOptions);
+    method @NonNull public android.net.http.HttpEngine.Builder setEnableBrotli(boolean);
+    method @NonNull public android.net.http.HttpEngine.Builder setEnableHttp2(boolean);
+    method @NonNull public android.net.http.HttpEngine.Builder setEnableHttpCache(int, long);
+    method @NonNull public android.net.http.HttpEngine.Builder setEnablePublicKeyPinningBypassForLocalTrustAnchors(boolean);
+    method @NonNull public android.net.http.HttpEngine.Builder setEnableQuic(boolean);
+    method @NonNull public android.net.http.HttpEngine.Builder setQuicOptions(@NonNull android.net.http.QuicOptions);
+    method @NonNull public android.net.http.HttpEngine.Builder setStoragePath(@NonNull String);
+    method @NonNull public android.net.http.HttpEngine.Builder setUserAgent(@NonNull String);
+    field public static final int HTTP_CACHE_DISABLED = 0; // 0x0
+    field public static final int HTTP_CACHE_DISK = 3; // 0x3
+    field public static final int HTTP_CACHE_DISK_NO_HTTP = 2; // 0x2
+    field public static final int HTTP_CACHE_IN_MEMORY = 1; // 0x1
+  }
+
+  public class HttpException extends java.io.IOException {
+    ctor public HttpException(@Nullable String, @Nullable Throwable);
+  }
+
+  public final class InlineExecutionProhibitedException extends java.util.concurrent.RejectedExecutionException {
+    ctor public InlineExecutionProhibitedException();
+  }
+
+  public abstract class NetworkException extends android.net.http.HttpException {
+    ctor public NetworkException(@Nullable String, @Nullable Throwable);
+    method public abstract int getErrorCode();
+    method public abstract boolean isImmediatelyRetryable();
+    field public static final int ERROR_ADDRESS_UNREACHABLE = 9; // 0x9
+    field public static final int ERROR_CONNECTION_CLOSED = 5; // 0x5
+    field public static final int ERROR_CONNECTION_REFUSED = 7; // 0x7
+    field public static final int ERROR_CONNECTION_RESET = 8; // 0x8
+    field public static final int ERROR_CONNECTION_TIMED_OUT = 6; // 0x6
+    field public static final int ERROR_HOSTNAME_NOT_RESOLVED = 1; // 0x1
+    field public static final int ERROR_INTERNET_DISCONNECTED = 2; // 0x2
+    field public static final int ERROR_NETWORK_CHANGED = 3; // 0x3
+    field public static final int ERROR_OTHER = 11; // 0xb
+    field public static final int ERROR_QUIC_PROTOCOL_FAILED = 10; // 0xa
+    field public static final int ERROR_TIMED_OUT = 4; // 0x4
+  }
+
+  public abstract class QuicException extends android.net.http.NetworkException {
+    ctor protected QuicException(@Nullable String, @Nullable Throwable);
+  }
+
+  public class QuicOptions {
+    method @NonNull public java.util.Set<java.lang.String> getAllowedQuicHosts();
+    method @Nullable public String getHandshakeUserAgent();
+    method @Nullable public java.time.Duration getIdleConnectionTimeout();
+    method public int getInMemoryServerConfigsCacheSize();
+    method public boolean hasInMemoryServerConfigsCacheSize();
+  }
+
+  public static final class QuicOptions.Builder {
+    ctor public QuicOptions.Builder();
+    method @NonNull public android.net.http.QuicOptions.Builder addAllowedQuicHost(@NonNull String);
+    method @NonNull public android.net.http.QuicOptions build();
+    method @NonNull public android.net.http.QuicOptions.Builder setHandshakeUserAgent(@NonNull String);
+    method @NonNull public android.net.http.QuicOptions.Builder setIdleConnectionTimeout(@NonNull java.time.Duration);
+    method @NonNull public android.net.http.QuicOptions.Builder setInMemoryServerConfigsCacheSize(int);
+  }
+
+  public abstract class UploadDataProvider implements java.io.Closeable {
+    ctor public UploadDataProvider();
+    method public void close() throws java.io.IOException;
+    method public abstract long getLength() throws java.io.IOException;
+    method public abstract void read(@NonNull android.net.http.UploadDataSink, @NonNull java.nio.ByteBuffer) throws java.io.IOException;
+    method public abstract void rewind(@NonNull android.net.http.UploadDataSink) throws java.io.IOException;
+  }
+
+  public abstract class UploadDataSink {
+    ctor public UploadDataSink();
+    method public abstract void onReadError(@NonNull Exception);
+    method public abstract void onReadSucceeded(boolean);
+    method public abstract void onRewindError(@NonNull Exception);
+    method public abstract void onRewindSucceeded();
+  }
+
+  public abstract class UrlRequest {
+    method public abstract void cancel();
+    method public abstract void followRedirect();
+    method @NonNull public abstract android.net.http.HeaderBlock getHeaders();
+    method @Nullable public abstract String getHttpMethod();
+    method public abstract int getPriority();
+    method public abstract void getStatus(@NonNull android.net.http.UrlRequest.StatusListener);
+    method public abstract int getTrafficStatsTag();
+    method public abstract int getTrafficStatsUid();
+    method public abstract boolean hasTrafficStatsTag();
+    method public abstract boolean hasTrafficStatsUid();
+    method public abstract boolean isCacheDisabled();
+    method public abstract boolean isDirectExecutorAllowed();
+    method public abstract boolean isDone();
+    method public abstract void read(@NonNull java.nio.ByteBuffer);
+    method public abstract void start();
+    field public static final int REQUEST_PRIORITY_HIGHEST = 4; // 0x4
+    field public static final int REQUEST_PRIORITY_IDLE = 0; // 0x0
+    field public static final int REQUEST_PRIORITY_LOW = 2; // 0x2
+    field public static final int REQUEST_PRIORITY_LOWEST = 1; // 0x1
+    field public static final int REQUEST_PRIORITY_MEDIUM = 3; // 0x3
+  }
+
+  public abstract static class UrlRequest.Builder {
+    method @NonNull public abstract android.net.http.UrlRequest.Builder addHeader(@NonNull String, @NonNull String);
+    method @NonNull public abstract android.net.http.UrlRequest.Builder bindToNetwork(@Nullable android.net.Network);
+    method @NonNull public abstract android.net.http.UrlRequest build();
+    method @NonNull public abstract android.net.http.UrlRequest.Builder setCacheDisabled(boolean);
+    method @NonNull public abstract android.net.http.UrlRequest.Builder setDirectExecutorAllowed(boolean);
+    method @NonNull public abstract android.net.http.UrlRequest.Builder setHttpMethod(@NonNull String);
+    method @NonNull public abstract android.net.http.UrlRequest.Builder setPriority(int);
+    method @NonNull public abstract android.net.http.UrlRequest.Builder setTrafficStatsTag(int);
+    method @NonNull public abstract android.net.http.UrlRequest.Builder setTrafficStatsUid(int);
+    method @NonNull public abstract android.net.http.UrlRequest.Builder setUploadDataProvider(@NonNull android.net.http.UploadDataProvider, @NonNull java.util.concurrent.Executor);
+  }
+
+  public static interface UrlRequest.Callback {
+    method public void onCanceled(@NonNull android.net.http.UrlRequest, @Nullable android.net.http.UrlResponseInfo);
+    method public void onFailed(@NonNull android.net.http.UrlRequest, @Nullable android.net.http.UrlResponseInfo, @NonNull android.net.http.HttpException);
+    method public void onReadCompleted(@NonNull android.net.http.UrlRequest, @NonNull android.net.http.UrlResponseInfo, @NonNull java.nio.ByteBuffer) throws java.lang.Exception;
+    method public void onRedirectReceived(@NonNull android.net.http.UrlRequest, @NonNull android.net.http.UrlResponseInfo, @NonNull String) throws java.lang.Exception;
+    method public void onResponseStarted(@NonNull android.net.http.UrlRequest, @NonNull android.net.http.UrlResponseInfo) throws java.lang.Exception;
+    method public void onSucceeded(@NonNull android.net.http.UrlRequest, @NonNull android.net.http.UrlResponseInfo);
+  }
+
+  public static class UrlRequest.Status {
+    field public static final int CONNECTING = 10; // 0xa
+    field public static final int DOWNLOADING_PAC_FILE = 5; // 0x5
+    field public static final int ESTABLISHING_PROXY_TUNNEL = 8; // 0x8
+    field public static final int IDLE = 0; // 0x0
+    field public static final int INVALID = -1; // 0xffffffff
+    field public static final int READING_RESPONSE = 14; // 0xe
+    field public static final int RESOLVING_HOST = 9; // 0x9
+    field public static final int RESOLVING_HOST_IN_PAC_FILE = 7; // 0x7
+    field public static final int RESOLVING_PROXY_FOR_URL = 6; // 0x6
+    field public static final int SENDING_REQUEST = 12; // 0xc
+    field public static final int SSL_HANDSHAKE = 11; // 0xb
+    field public static final int WAITING_FOR_AVAILABLE_SOCKET = 2; // 0x2
+    field public static final int WAITING_FOR_CACHE = 4; // 0x4
+    field public static final int WAITING_FOR_DELEGATE = 3; // 0x3
+    field public static final int WAITING_FOR_RESPONSE = 13; // 0xd
+    field public static final int WAITING_FOR_STALLED_SOCKET_POOL = 1; // 0x1
+  }
+
+  public static interface UrlRequest.StatusListener {
+    method public void onStatus(int);
+  }
+
+  public abstract class UrlResponseInfo {
+    ctor public UrlResponseInfo();
+    method @NonNull public abstract android.net.http.HeaderBlock getHeaders();
+    method public abstract int getHttpStatusCode();
+    method @NonNull public abstract String getHttpStatusText();
+    method @NonNull public abstract String getNegotiatedProtocol();
+    method public abstract long getReceivedByteCount();
+    method @NonNull public abstract String getUrl();
+    method @NonNull public abstract java.util.List<java.lang.String> getUrlChain();
+    method public abstract boolean wasCached();
   }
 
 }

@@ -40,7 +40,7 @@ class TextBackedAnnotationItem(
         else source.substring(1, index)
 
         originalName = annotationClass
-        qualifiedName = if (mapName) AnnotationItem.mapName(codebase, annotationClass) else annotationClass
+        qualifiedName = if (mapName) AnnotationItem.mapName(annotationClass) else annotationClass
         full = when {
             qualifiedName == null -> ""
             index == -1 -> "@$qualifiedName"

@@ -19,8 +19,9 @@ package android.security.cts;
 
 import android.platform.test.annotations.AsbSecurityTest;
 
-import com.android.compatibility.common.util.CrashUtils;
-import com.android.compatibility.common.util.CrashUtils.Config.BacktraceFilterPattern;
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
+import com.android.sts.common.util.TombstoneUtils;
+import com.android.sts.common.util.TombstoneUtils.Config.BacktraceFilterPattern;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
 import org.junit.Test;
@@ -29,7 +30,7 @@ import org.junit.runner.RunWith;
 import java.util.regex.Pattern;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2018_9558 extends SecurityTestCase {
+public class CVE_2018_9558 extends NonRootSecurityTestCase {
 
     /**
      * b/112161557
@@ -43,10 +44,10 @@ public class CVE_2018_9558 extends SecurityTestCase {
         AdbUtils.assumeHasNfc(getDevice());
         assumeIsSupportedNfcDevice(getDevice());
         pocPusher.only64();
-        String[] signals = {CrashUtils.SIGABRT};
+        String[] signals = {TombstoneUtils.Signals.SIGABRT};
         String binaryName = "CVE-2018-9558";
         AdbUtils.pocConfig testConfig = new AdbUtils.pocConfig(binaryName, getDevice());
-        testConfig.config = new CrashUtils.Config().setProcessPatterns(Pattern.compile(binaryName))
+        testConfig.config = new TombstoneUtils.Config().setProcessPatterns(Pattern.compile(binaryName))
                 .setBacktraceIncludes(new BacktraceFilterPattern("libnfc-nci",
                         "rw_t2t_handle_tlv_detect_rsp"));
         testConfig.config

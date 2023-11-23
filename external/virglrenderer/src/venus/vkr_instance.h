@@ -14,9 +14,6 @@ struct vkr_instance {
    uint32_t api_version;
    PFN_vkCreateDebugUtilsMessengerEXT create_debug_utils_messenger;
    PFN_vkDestroyDebugUtilsMessengerEXT destroy_debug_utils_messenger;
-   PFN_vkGetMemoryFdKHR get_memory_fd;
-   PFN_vkGetFenceFdKHR get_fence_fd;
-
    VkDebugUtilsMessengerEXT validation_messenger;
 
    uint32_t physical_device_count;

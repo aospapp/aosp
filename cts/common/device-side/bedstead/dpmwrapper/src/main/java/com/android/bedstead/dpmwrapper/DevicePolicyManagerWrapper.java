@@ -191,11 +191,6 @@ final class DevicePolicyManagerWrapper
             doAnswer(answer).when(spy).setDelegatedScopes(any(), any(), any());
             doAnswer(answer).when(spy).retrieveSecurityLogs(any());
 
-            // Used by TimeManagementTest
-            doAnswer(answer).when(spy).setAutoTimeZoneEnabled(any(), anyBoolean());
-            doAnswer(answer).when(spy).setAutoTimeEnabled(any(), anyBoolean());
-            doAnswer(answer).when(spy).getAutoTimeZoneEnabled(any());
-
             // Used by WifiTest
             doAnswer(answer).when(spy).getWifiMacAddress(any());
 
@@ -287,6 +282,9 @@ final class DevicePolicyManagerWrapper
 
             // Used by AffiliationTest (GTS)
             doAnswer(answer).when(spy).getAffiliationIds(any());
+
+            // Used by LockScreenInfoTest
+            doAnswer(answer).when(spy).getDeviceOwnerLockScreenInfo();
 
             // TODO(b/176993670): add more methods below as tests are converted
         } catch (Exception e) {

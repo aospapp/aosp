@@ -55,6 +55,7 @@ status_t SingleScanSettings::writeToParcel(::android::Parcel* parcel) const {
     RETURN_IF_FAILED(parcel->writeInt32(1));
     RETURN_IF_FAILED(network.writeToParcel(parcel));
   }
+  RETURN_IF_FAILED(parcel->writeByteVector(vendor_ies_));
   return ::android::OK;
 }
 
@@ -107,6 +108,7 @@ status_t SingleScanSettings::readFromParcel(const ::android::Parcel* parcel) {
     RETURN_IF_FAILED(network.readFromParcel(parcel));
     hidden_networks_.push_back(network);
   }
+  RETURN_IF_FAILED(parcel->readByteVector(&vendor_ies_));
   return ::android::OK;
 }
 

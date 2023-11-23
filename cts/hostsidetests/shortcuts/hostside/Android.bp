@@ -24,14 +24,12 @@ java_test_host {
         "tools-common-prebuilt",
         "cts-tradefed",
         "tradefed",
+        "CtsBackupHostTestCases",
     ],
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
-    ],
-    required: [
-        "CtsBackupHostTestCases",
     ],
     data: [
         ":CtsShortcutBackupLauncher1",

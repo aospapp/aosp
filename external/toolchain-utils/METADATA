@@ -1,3 +1,19 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update toolchain-utils
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
+name: "toolchain-utils"
+description: "Various utilities used by the ChromeOS toolchain team."
 third_party {
+  url {
+    type: GIT
+    value: "https://chromium.googlesource.com/chromiumos/third_party/toolchain-utils/"
+  }
+  version: "2c474af4f370b143032144aff1ff1985f789e20f"
   license_type: NOTICE
+  last_upgrade_date {
+    year: 2022
+    month: 11
+    day: 8
+  }
 }

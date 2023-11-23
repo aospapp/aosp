@@ -76,7 +76,7 @@ KllMetricProducer::DumpProtoFields KllMetricProducer::getDumpProtoFields() const
 }
 
 void KllMetricProducer::writePastBucketAggregateToProto(
-        const int aggIndex, const unique_ptr<KllQuantile>& kll,
+        const int aggIndex, const unique_ptr<KllQuantile>& kll, const int sampleSize,
         ProtoOutputStream* const protoOutput) const {
     uint64_t sketchesToken =
             protoOutput->start(FIELD_TYPE_MESSAGE | FIELD_COUNT_REPEATED | FIELD_ID_SKETCHES);

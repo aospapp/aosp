@@ -174,10 +174,11 @@ static void _span(oggpack_buffer *b){
     }else{
       /* we've either met the end of decode, or gone past it. halt
 	 only if we're past */
-      if(b->headend*8<b->headbit)
+      if(b->headend*8<b->headbit) {
 	/* read has fallen off the end */
 	b->headend=-1;
-        break;
+      }
+      break;
     }
   }
 }

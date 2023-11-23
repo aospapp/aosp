@@ -18,7 +18,7 @@
     <!-- Whether to display presidential alert in the settings -->
     <bool name="show_presidential_alerts_settings">true</bool>
     <!-- Append date-time to the alert title -->
-    <string name="date_time_format" translatable="false">MMM dd, HH:mm a</string>
+    <string name="date_time_format" translatable="false">MMM dd, hh:mm a</string>
     <!-- Whether to show CMAS messages by in a different order than received by prioritizing them -->
     <bool name="show_cmas_messages_in_priority_order">true</bool>
     <!-- AT&T want to show separate testing toggles for monthly test, operator defined and exercise -->

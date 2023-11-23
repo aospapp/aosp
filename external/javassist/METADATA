@@ -13,6 +13,6 @@ third_party {
   }
   version: "rel_3_27_0_ga"
   last_upgrade_date { year: 2020 month: 9 day: 10 }
-  // The project can be licensed under one of MPL, LGPL or AL, and Apache 2.0 is a "notice" license.
+  license_note: 'The project can be licensed under one of MPL, LGPL or AL, and Apache 2.0 is a "notice" license.'
   license_type: NOTICE
 }

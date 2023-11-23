@@ -61,6 +61,7 @@ public class Formatting {
     /**
      * Format the date portion of a {@link System.currentTimeMillis} as a user-visible string.
      */
+    @SuppressWarnings("JavaUtilDate")
     String getDate(long wallTimeMs) {
         return mDateFormat.format(new Date(wallTimeMs));
     }
@@ -68,6 +69,7 @@ public class Formatting {
     /**
      * Format the time portion of a {@link System.currentTimeMillis} as a user-visible string.
      */
+    @SuppressWarnings("JavaUtilDate")
     String getTime(long wallTimeMs) {
         return mTimeFormat.format(new Date(wallTimeMs));
     }

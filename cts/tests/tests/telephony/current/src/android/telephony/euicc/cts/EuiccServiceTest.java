@@ -44,6 +44,7 @@ import android.service.euicc.IOtaStatusChangedCallback;
 import android.service.euicc.IRetainSubscriptionsForFactoryResetCallback;
 import android.service.euicc.ISwitchToSubscriptionCallback;
 import android.service.euicc.IUpdateSubscriptionNicknameCallback;
+import android.telephony.TelephonyManager;
 import android.telephony.euicc.DownloadableSubscription;
 import android.telephony.euicc.EuiccInfo;
 import android.telephony.euicc.EuiccManager;
@@ -100,6 +101,13 @@ public class EuiccServiceTest {
         @Override
         public GetDownloadableSubscriptionMetadataResult onGetDownloadableSubscriptionMetadata(
                 int slotId, DownloadableSubscription subscription, boolean forceDeactivateSim) {
+            return null;
+        }
+
+        @Override
+        public GetDownloadableSubscriptionMetadataResult onGetDownloadableSubscriptionMetadata(
+                int slotId, int portIndex, DownloadableSubscription subscription,
+                boolean forceDeactivateSim) {
             return null;
         }
 
@@ -248,7 +256,39 @@ public class EuiccServiceTest {
 
         mEuiccServiceBinder.getDownloadableSubscriptionMetadata(
                 MOCK_SLOT_ID,
+                TelephonyManager.DEFAULT_PORT_INDEX,
                 subscription,
+                false /* switchAfterDownload */,
+                true /*forceDeactivateSim*/,
+                new IGetDownloadableSubscriptionMetadataCallback.Stub() {
+                    @Override
+                    public void onComplete(GetDownloadableSubscriptionMetadataResult result) {
+                        assertNotNull(result);
+                        assertEquals(EuiccService.RESULT_OK, result.getResult());
+                    }
+                });
+
+        try {
+            mCountDownLatch.await(CALLBACK_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            fail(e.toString());
+        }
+
+        assertTrue(mCallback.isMethodCalled());
+    }
+
+    @Test
+    public void testOnGetDownloadableSubscriptionMetadataWithPortIndex() throws Exception {
+        DownloadableSubscription subscription =
+                DownloadableSubscription.forActivationCode(ACTIVATION_CODE);
+
+        mCountDownLatch = new CountDownLatch(1);
+
+        mEuiccServiceBinder.getDownloadableSubscriptionMetadata(
+                MOCK_SLOT_ID,
+                TelephonyManager.DEFAULT_PORT_INDEX,
+                subscription,
+                true /* switchAfterDownload */,
                 true /*forceDeactivateSim*/,
                 new IGetDownloadableSubscriptionMetadataCallback.Stub() {
                     @Override

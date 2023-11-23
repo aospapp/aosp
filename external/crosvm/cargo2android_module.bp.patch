@@ -1,0 +1,31 @@
+arch: {
+    x86_64: {
+        rustlibs: ["libx86_64_rust"],
+    },
+    arm64: {
+        rustlibs: ["libaarch64"],
+    },
+},
+target: {
+    host: {
+        features: [
+            "gfxstream",
+            "gpu",
+            "virgl_renderer_next",
+        ],
+    },
+    android: {
+        shared_libs: [
+            "libprocessgroup",
+        ],
+    },
+    host_linux: {
+        shared_libs: [
+            "libprocessgroup",
+        ],
+    },
+},
+ld_flags: [
+    "-Wl,--rpath,\\$$ORIGIN",
+    "-Wl,--rpath,\\$$ORIGIN/../../lib64",
+]

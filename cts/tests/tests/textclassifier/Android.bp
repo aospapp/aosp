@@ -25,7 +25,7 @@ android_test {
     test_suites: [
         "cts",
         "general-tests",
-        "mts-extservices"
+        "mts-extservices",
     ],
     libs: ["android.test.base"],
     static_libs: [
@@ -35,9 +35,8 @@ android_test {
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
         "truth-prebuilt",
-        "androidx.test.espresso.core",
         "androidx.test.ext.junit",
-        "androidx.test.uiautomator",
+        "androidx.test.uiautomator_uiautomator",
     ],
     srcs: [
         "src/**/*.java",

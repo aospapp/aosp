@@ -42,7 +42,6 @@ public class CredentialElementTest {
     @SdkSuppress(minSdkVersion = 32, codeName = "T")
     public void testBuilder() {
         CredentialElement element = new CredentialElement(KEY, VALUE);
-
         assertThat(element.getKey()).isEqualTo(KEY);
         assertThat(Arrays.equals(element.getValue(), VALUE)).isTrue();
     }
@@ -58,9 +57,31 @@ public class CredentialElementTest {
         CredentialElement elementFromParcel = element.CREATOR.createFromParcel(
                 parcel);
         parcel.recycle();
-
         assertThat(elementFromParcel.getKey()).isEqualTo(KEY);
         assertThat(Arrays.equals(elementFromParcel.getValue(), VALUE)).isTrue();
     }
 
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void describeContents() {
+        CredentialElement element = new CredentialElement(KEY, VALUE);
+        assertThat(element.describeContents()).isEqualTo(0);
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void testEqual() {
+        CredentialElement element1 = new CredentialElement(KEY, VALUE);
+        CredentialElement element2 = new CredentialElement(KEY, VALUE);
+        assertThat(element1.equals(element2)).isTrue();
+        assertThat(element1.hashCode()).isEqualTo(element2.hashCode());
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void testCreatorNewArray() {
+        CredentialElement [] elements =
+                CredentialElement.CREATOR.newArray(2);
+        assertThat(elements.length).isEqualTo(2);
+    }
 }

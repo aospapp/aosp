@@ -27,9 +27,11 @@ import static android.car.hardware.power.PowerComponentUtil.powerComponentToStri
 import static android.car.hardware.power.PowerComponentUtil.toPowerComponent;
 
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+import static com.android.car.internal.util.VersionUtils.isPlatformVersionAtLeastU;
 
 import android.annotation.Nullable;
 import android.bluetooth.BluetoothAdapter;
+import android.car.builtin.app.AppOpsManagerHelper;
 import android.car.builtin.app.VoiceInteractionHelper;
 import android.car.builtin.util.Slogf;
 import android.car.hardware.power.CarPowerPolicy;
@@ -38,7 +40,9 @@ import android.car.hardware.power.PowerComponent;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.wifi.WifiManager;
+import android.os.Process;
 import android.os.RemoteException;
+import android.util.ArrayMap;
 import android.util.AtomicFile;
 import android.util.SparseArray;
 import android.util.SparseBooleanArray;
@@ -46,9 +50,9 @@ import android.util.SparseBooleanArray;
 import com.android.car.CarLog;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.car.internal.util.IndentingPrintWriter;
+import com.android.car.internal.util.IntArray;
 import com.android.car.systeminterface.SystemInterface;
 import com.android.internal.annotations.GuardedBy;
-import com.android.internal.annotations.VisibleForTesting;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -65,7 +69,6 @@ import java.nio.charset.StandardCharsets;
  * power component is created and registered to this class. A power component mediator encapsulates
  * the function of powering on/off.
  */
-@VisibleForTesting
 public final class PowerComponentHandler {
     private static final String TAG = CarLog.tagFor(PowerComponentHandler.class);
     private static final String FORCED_OFF_COMPONENTS_FILENAME =
@@ -84,6 +87,8 @@ public final class PowerComponentHandler {
     private final SparseBooleanArray mComponentsOffByPolicy = new SparseBooleanArray();
     @GuardedBy("mLock")
     private final SparseBooleanArray mLastModifiedComponents = new SparseBooleanArray();
+    @GuardedBy("mLock")
+    private final IntArray mRegisteredComponents = new IntArray();
     private final PackageManager mPackageManager;
 
     @GuardedBy("mLock")
@@ -102,20 +107,32 @@ public final class PowerComponentHandler {
         mOffComponentsByUserFile = componentStateFile;
     }
 
-    void init() {
+    void init(ArrayMap<String, Integer> customComponents) {
+        if (isPlatformVersionAtLeastU()) {
+            // Before Android U, this permission is not needed.
+            // And, AppOpsManagerHelper.setTurnScreenOnAllowed is added in UDC.
+            AppOpsManagerHelper.setTurnScreenOnAllowed(mContext, Process.myUid(),
+                    mContext.getOpPackageName(), /* isAllowed= */ true);
+        }
         PowerComponentMediatorFactory factory = new PowerComponentMediatorFactory();
         synchronized (mLock) {
             readUserOffComponentsLocked();
             for (int component = FIRST_POWER_COMPONENT; component <= LAST_POWER_COMPONENT;
                     component++) {
+                // initialize set of known components with pre-defined components
+                mRegisteredComponents.add(component);
                 mComponentStates.put(component, false);
                 PowerComponentMediator mediator = factory.createPowerComponent(component);
-                String componentName = powerComponentToString(component);
                 if (mediator == null || !mediator.isComponentAvailable()) {
                     // We don't not associate a mediator with the component.
                     continue;
                 }
                 mPowerComponentMediators.put(component, mediator);
+            }
+            if (customComponents != null) {
+                for (int i = 0; i < customComponents.size(); ++i)  {
+                    mRegisteredComponents.add(customComponents.valueAt(i));
+                }
             }
         }
     }
@@ -124,9 +141,9 @@ public final class PowerComponentHandler {
         synchronized (mLock) {
             int enabledComponentsCount = 0;
             int disabledComponentsCount = 0;
-            for (int component = FIRST_POWER_COMPONENT; component <= LAST_POWER_COMPONENT;
-                    component++) {
-                if (mComponentStates.get(component, /* valueIfKeyNotFound= */ false)) {
+            for (int i = 0; i < mRegisteredComponents.size(); ++i) {
+                if (mComponentStates.get(mRegisteredComponents.get(i), /* valueIfKeyNotFound= */
+                        false)) {
                     enabledComponentsCount++;
                 } else {
                     disabledComponentsCount++;
@@ -136,8 +153,8 @@ public final class PowerComponentHandler {
             int[] disabledComponents = new int[disabledComponentsCount];
             int enabledIndex = 0;
             int disabledIndex = 0;
-            for (int component = FIRST_POWER_COMPONENT; component <= LAST_POWER_COMPONENT;
-                    component++) {
+            for (int i = 0; i < mRegisteredComponents.size(); ++i) {
+                int component = mRegisteredComponents.get(i);
                 if (mComponentStates.get(component, /* valueIfKeyNotFound= */ false)) {
                     enabledComponents[enabledIndex++] = component;
                 } else {
@@ -161,12 +178,20 @@ public final class PowerComponentHandler {
             mLastModifiedComponents.clear();
             for (int i = 0; i < enabledComponents.length; i++) {
                 int component = enabledComponents[i];
+                if (mRegisteredComponents.indexOf(component) == -1) {
+                    throw new IllegalStateException(
+                            "Component with id " + component + " is not registered");
+                }
                 if (setComponentEnabledLocked(component, /* enabled= */ true)) {
                     mLastModifiedComponents.put(component, /* value= */ true);
                 }
             }
             for (int i = 0; i < disabledComponents.length; i++) {
                 int component = disabledComponents[i];
+                if (mRegisteredComponents.indexOf(component) == -1) {
+                    throw new IllegalStateException(
+                            "Component with id " + component + " is not registered");
+                }
                 if (setComponentEnabledLocked(component, /* enabled= */ false)) {
                     mLastModifiedComponents.put(component, /* value= */ true);
                 }
@@ -192,8 +217,8 @@ public final class PowerComponentHandler {
         synchronized (mLock) {
             writer.println("Power components state:");
             writer.increaseIndent();
-            for (int component = FIRST_POWER_COMPONENT; component <= LAST_POWER_COMPONENT;
-                    component++) {
+            for (int i = 0; i < mRegisteredComponents.size(); ++i) {
+                int component = mRegisteredComponents.get(i);
                 writer.printf("%s: %s\n", powerComponentToString(component),
                         mComponentStates.get(component, /* valueIfKeyNotFound= */ false)
                                 ? "on" : "off");
@@ -223,8 +248,11 @@ public final class PowerComponentHandler {
      */
     @GuardedBy("mLock")
     private boolean setComponentEnabledLocked(int component, boolean enabled) {
+        int componentIndex = mComponentStates.indexOfKey(component); // check if component exists
         boolean oldState = mComponentStates.get(component, /* valueIfKeyNotFound= */ false);
-        if (oldState == enabled) {
+        // If components is not in mComponentStates and enabled is false, oldState will be false,
+        // as result function will return false without adding component to mComponentStates
+        if (oldState == enabled && componentIndex >= 0) {
             return false;
         }
 
@@ -312,6 +340,21 @@ public final class PowerComponentHandler {
         }
     }
 
+    /**
+     * Method to be used from tests and when policy is defined through command line
+     */
+    public void registerCustomComponents(Integer[] components) {
+        synchronized (mLock) {
+            for (int i = 0; i < components.length; i++) {
+                int componentId = components[i];
+                // Add only new components
+                if (mRegisteredComponents.indexOf(componentId) == -1) {
+                    mRegisteredComponents.add(componentId);
+                }
+            }
+        }
+    }
+
     abstract static class PowerComponentMediator {
         protected int mComponentId;
 
@@ -349,12 +392,12 @@ public final class PowerComponentHandler {
 
         @Override
         public boolean isEnabled() {
-            return mSystemInterface.isDisplayEnabled();
+            return mSystemInterface.isAnyDisplayEnabled();
         }
 
         @Override
         public void setEnabled(boolean enabled) {
-            mSystemInterface.setDisplayState(enabled);
+            mSystemInterface.setAllDisplayState(enabled);
             Slogf.d(TAG, "Display power component is %s", enabled ? "on" : "off");
         }
     }
@@ -433,6 +476,11 @@ public final class PowerComponentHandler {
         }
 
         @Override
+        public boolean isUserControllable() {
+            return true;
+        }
+
+        @Override
         public boolean isEnabled() {
             return mBluetoothAdapter.isEnabled();
         }
@@ -493,12 +541,6 @@ public final class PowerComponentHandler {
                     Slogf.w(TAG, "Unknown component(%d)", component);
                     return null;
             }
-        }
-    }
-
-    static class PowerComponentException extends Exception {
-        PowerComponentException(String message) {
-            super(message);
         }
     }
 }

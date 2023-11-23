@@ -36,10 +36,11 @@ import android.autofillservice.cts.testcore.CannedFillResponse.CannedDataset;
 import android.autofillservice.cts.testcore.InstrumentedAutoFillService.FillRequest;
 import android.autofillservice.cts.testcore.InstrumentedAutoFillService.SaveRequest;
 import android.service.autofill.FillContext;
-import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
 import android.view.autofill.AutofillId;
 import android.widget.EditText;
+
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Test;
 

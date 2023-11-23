@@ -283,7 +283,11 @@ cc_benchmark {
     name: "libbase_benchmark",
     defaults: ["libbase_cflags_defaults"],
 
-    srcs: ["format_benchmark.cpp"],
+    srcs: [
+        "file_benchmark.cpp",
+        "format_benchmark.cpp",
+        "function_ref_benchmark.cpp",
+    ],
     shared_libs: ["libbase"],
 
     compile_multilib: "both",

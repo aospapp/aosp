@@ -15,7 +15,6 @@
 package bp2build
 
 import (
-	"fmt"
 	"testing"
 
 	"android/soong/android"
@@ -35,17 +34,18 @@ func registerCcLibrarySharedModuleTypes(ctx android.RegistrationContext) {
 	ctx.RegisterModuleType("cc_library", cc.LibraryFactory)
 }
 
-func runCcLibrarySharedTestCase(t *testing.T, tc bp2buildTestCase) {
+func runCcLibrarySharedTestCase(t *testing.T, tc Bp2buildTestCase) {
 	t.Helper()
-	(&tc).moduleTypeUnderTest = "cc_library_shared"
-	(&tc).moduleTypeUnderTestFactory = cc.LibrarySharedFactory
-	runBp2BuildTestCase(t, registerCcLibrarySharedModuleTypes, tc)
+	t.Parallel()
+	(&tc).ModuleTypeUnderTest = "cc_library_shared"
+	(&tc).ModuleTypeUnderTestFactory = cc.LibrarySharedFactory
+	RunBp2BuildTestCase(t, registerCcLibrarySharedModuleTypes, tc)
 }
 
 func TestCcLibrarySharedSimple(t *testing.T) {
-	runCcLibrarySharedTestCase(t, bp2buildTestCase{
-		description: "cc_library_shared simple overall test",
-		filesystem: map[string]string{
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared simple overall test",
+		Filesystem: map[string]string{
 			// NOTE: include_dir headers *should not* appear in Bazel hdrs later (?)
 			"include_dir_1/include_dir_1_a.h": "",
 			"include_dir_1/include_dir_1_b.h": "",
@@ -65,7 +65,7 @@ func TestCcLibrarySharedSimple(t *testing.T) {
 			"implicit_include_1.h": "",
 			"implicit_include_2.h": "",
 		},
-		blueprint: soongCcLibrarySharedPreamble + `
+		Blueprint: soongCcLibrarySharedPreamble + `
 cc_library_headers {
     name: "header_lib_1",
     export_include_dirs: ["header_lib_1"],
@@ -141,8 +141,8 @@ cc_library_shared {
 
     // TODO: Also support export_header_lib_headers
 }`,
-		expectedBazelTargets: []string{
-			makeBazelTarget("cc_library_shared", "foo_shared", attrNameToString{
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo_shared", AttrNameToString{
 				"absolute_includes": `[
         "include_dir_1",
         "include_dir_2",
@@ -176,18 +176,18 @@ cc_library_shared {
         ":whole_static_lib_1",
         ":whole_static_lib_2",
     ]`,
-        "sdk_version": `"current"`,
-        "min_sdk_version": `"29"`,
+				"sdk_version":     `"current"`,
+				"min_sdk_version": `"29"`,
 			}),
 		},
 	})
 }
 
 func TestCcLibrarySharedArchSpecificSharedLib(t *testing.T) {
-	runCcLibrarySharedTestCase(t, bp2buildTestCase{
-		description: "cc_library_shared arch-specific shared_libs with whole_static_libs",
-		filesystem:  map[string]string{},
-		blueprint: soongCcLibrarySharedPreamble + `
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared arch-specific shared_libs with whole_static_libs",
+		Filesystem:  map[string]string{},
+		Blueprint: soongCcLibrarySharedPreamble + `
 cc_library_static {
     name: "static_dep",
     bazel_module: { bp2build_available: false },
@@ -201,8 +201,8 @@ cc_library_shared {
     arch: { arm64: { shared_libs: ["shared_dep"], whole_static_libs: ["static_dep"] } },
     include_build_directory: false,
 }`,
-		expectedBazelTargets: []string{
-			makeBazelTarget("cc_library_shared", "foo_shared", attrNameToString{
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo_shared", AttrNameToString{
 				"implementation_dynamic_deps": `select({
         "//build/bazel/platforms/arch:arm64": [":shared_dep"],
         "//conditions:default": [],
@@ -217,10 +217,10 @@ cc_library_shared {
 }
 
 func TestCcLibrarySharedOsSpecificSharedLib(t *testing.T) {
-	runCcLibrarySharedTestCase(t, bp2buildTestCase{
-		description: "cc_library_shared os-specific shared_libs",
-		filesystem:  map[string]string{},
-		blueprint: soongCcLibrarySharedPreamble + `
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared os-specific shared_libs",
+		Filesystem:  map[string]string{},
+		Blueprint: soongCcLibrarySharedPreamble + `
 cc_library_shared {
     name: "shared_dep",
     bazel_module: { bp2build_available: false },
@@ -230,8 +230,8 @@ cc_library_shared {
     target: { android: { shared_libs: ["shared_dep"], } },
     include_build_directory: false,
 }`,
-		expectedBazelTargets: []string{
-			makeBazelTarget("cc_library_shared", "foo_shared", attrNameToString{
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo_shared", AttrNameToString{
 				"implementation_dynamic_deps": `select({
         "//build/bazel/platforms/os:android": [":shared_dep"],
         "//conditions:default": [],
@@ -242,10 +242,10 @@ cc_library_shared {
 }
 
 func TestCcLibrarySharedBaseArchOsSpecificSharedLib(t *testing.T) {
-	runCcLibrarySharedTestCase(t, bp2buildTestCase{
-		description: "cc_library_shared base, arch, and os-specific shared_libs",
-		filesystem:  map[string]string{},
-		blueprint: soongCcLibrarySharedPreamble + `
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared base, arch, and os-specific shared_libs",
+		Filesystem:  map[string]string{},
+		Blueprint: soongCcLibrarySharedPreamble + `
 cc_library_shared {
     name: "shared_dep",
     bazel_module: { bp2build_available: false },
@@ -265,8 +265,8 @@ cc_library_shared {
     arch: { arm64: { shared_libs: ["shared_dep3"] } },
     include_build_directory: false,
 }`,
-		expectedBazelTargets: []string{
-			makeBazelTarget("cc_library_shared", "foo_shared", attrNameToString{
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo_shared", AttrNameToString{
 				"implementation_dynamic_deps": `[":shared_dep"] + select({
         "//build/bazel/platforms/arch:arm64": [":shared_dep3"],
         "//conditions:default": [],
@@ -280,22 +280,22 @@ cc_library_shared {
 }
 
 func TestCcLibrarySharedSimpleExcludeSrcs(t *testing.T) {
-	runCcLibrarySharedTestCase(t, bp2buildTestCase{
-		description: "cc_library_shared simple exclude_srcs",
-		filesystem: map[string]string{
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared simple exclude_srcs",
+		Filesystem: map[string]string{
 			"common.c":       "",
 			"foo-a.c":        "",
 			"foo-excluded.c": "",
 		},
-		blueprint: soongCcLibrarySharedPreamble + `
+		Blueprint: soongCcLibrarySharedPreamble + `
 cc_library_shared {
     name: "foo_shared",
     srcs: ["common.c", "foo-*.c"],
     exclude_srcs: ["foo-excluded.c"],
     include_build_directory: false,
 }`,
-		expectedBazelTargets: []string{
-			makeBazelTarget("cc_library_shared", "foo_shared", attrNameToString{
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo_shared", AttrNameToString{
 				"srcs_c": `[
         "common.c",
         "foo-a.c",
@@ -306,10 +306,10 @@ cc_library_shared {
 }
 
 func TestCcLibrarySharedStrip(t *testing.T) {
-	runCcLibrarySharedTestCase(t, bp2buildTestCase{
-		description: "cc_library_shared stripping",
-		filesystem:  map[string]string{},
-		blueprint: soongCcLibrarySharedPreamble + `
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared stripping",
+		Filesystem:  map[string]string{},
+		Blueprint: soongCcLibrarySharedPreamble + `
 cc_library_shared {
     name: "foo_shared",
     strip: {
@@ -321,8 +321,8 @@ cc_library_shared {
     },
     include_build_directory: false,
 }`,
-		expectedBazelTargets: []string{
-			makeBazelTarget("cc_library_shared", "foo_shared", attrNameToString{
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo_shared", AttrNameToString{
 				"strip": `{
         "all": True,
         "keep_symbols": False,
@@ -338,34 +338,78 @@ cc_library_shared {
 	})
 }
 
-func TestCcLibrarySharedVersionScript(t *testing.T) {
-	runCcLibrarySharedTestCase(t, bp2buildTestCase{
-		description: "cc_library_shared version script",
-		filesystem: map[string]string{
+func TestCcLibrarySharedVersionScriptAndDynamicList(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared version script and dynamic list",
+		Filesystem: map[string]string{
 			"version_script": "",
+			"dynamic.list":   "",
 		},
-		blueprint: soongCcLibrarySharedPreamble + `
+		Blueprint: soongCcLibrarySharedPreamble + `
 cc_library_shared {
     name: "foo_shared",
     version_script: "version_script",
+    dynamic_list: "dynamic.list",
     include_build_directory: false,
 }`,
-		expectedBazelTargets: []string{
-			makeBazelTarget("cc_library_shared", "foo_shared", attrNameToString{
-				"additional_linker_inputs": `["version_script"]`,
-				"linkopts":                 `["-Wl,--version-script,$(location version_script)"]`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo_shared", AttrNameToString{
+				"additional_linker_inputs": `[
+        "version_script",
+        "dynamic.list",
+    ]`,
+				"linkopts": `[
+        "-Wl,--version-script,$(location version_script)",
+        "-Wl,--dynamic-list,$(location dynamic.list)",
+    ]`,
+			}),
+		},
+	})
+}
+
+func TestCcLibraryLdflagsSplitBySpaceSoongAdded(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "ldflags are split by spaces except for the ones added by soong (version script and dynamic list)",
+		Filesystem: map[string]string{
+			"version_script": "",
+			"dynamic.list":   "",
+		},
+		Blueprint: `
+cc_library_shared {
+    name: "foo",
+    ldflags: [
+        "--nospace_flag",
+        "-z spaceflag",
+    ],
+    version_script: "version_script",
+    dynamic_list: "dynamic.list",
+    include_build_directory: false,
+}`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
+				"additional_linker_inputs": `[
+        "version_script",
+        "dynamic.list",
+    ]`,
+				"linkopts": `[
+        "--nospace_flag",
+        "-z",
+        "spaceflag",
+        "-Wl,--version-script,$(location version_script)",
+        "-Wl,--dynamic-list,$(location dynamic.list)",
+    ]`,
 			}),
 		},
 	})
 }
 
 func TestCcLibrarySharedNoCrtTrue(t *testing.T) {
-	runCcLibrarySharedTestCase(t, bp2buildTestCase{
-		description: "cc_library_shared - nocrt: true emits attribute",
-		filesystem: map[string]string{
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared - nocrt: true disables feature",
+		Filesystem: map[string]string{
 			"impl.cpp": "",
 		},
-		blueprint: soongCcLibraryPreamble + `
+		Blueprint: soongCcLibraryPreamble + `
 cc_library_shared {
     name: "foo_shared",
     srcs: ["impl.cpp"],
@@ -373,9 +417,9 @@ cc_library_shared {
     include_build_directory: false,
 }
 `,
-		expectedBazelTargets: []string{
-			makeBazelTarget("cc_library_shared", "foo_shared", attrNameToString{
-				"link_crt": `False`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo_shared", AttrNameToString{
+				"features": `["-link_crt"]`,
 				"srcs":     `["impl.cpp"]`,
 			}),
 		},
@@ -383,12 +427,12 @@ cc_library_shared {
 }
 
 func TestCcLibrarySharedNoCrtFalse(t *testing.T) {
-	runCcLibrarySharedTestCase(t, bp2buildTestCase{
-		description: "cc_library_shared - nocrt: false doesn't emit attribute",
-		filesystem: map[string]string{
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared - nocrt: false doesn't disable feature",
+		Filesystem: map[string]string{
 			"impl.cpp": "",
 		},
-		blueprint: soongCcLibraryPreamble + `
+		Blueprint: soongCcLibraryPreamble + `
 cc_library_shared {
     name: "foo_shared",
     srcs: ["impl.cpp"],
@@ -396,8 +440,8 @@ cc_library_shared {
     include_build_directory: false,
 }
 `,
-		expectedBazelTargets: []string{
-			makeBazelTarget("cc_library_shared", "foo_shared", attrNameToString{
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo_shared", AttrNameToString{
 				"srcs": `["impl.cpp"]`,
 			}),
 		},
@@ -405,12 +449,12 @@ cc_library_shared {
 }
 
 func TestCcLibrarySharedNoCrtArchVariant(t *testing.T) {
-	runCcLibrarySharedTestCase(t, bp2buildTestCase{
-		description: "cc_library_shared - nocrt in select",
-		filesystem: map[string]string{
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared - nocrt in select",
+		Filesystem: map[string]string{
 			"impl.cpp": "",
 		},
-		blueprint: soongCcLibraryPreamble + `
+		Blueprint: soongCcLibraryPreamble + `
 cc_library_shared {
     name: "foo_shared",
     srcs: ["impl.cpp"],
@@ -425,13 +469,21 @@ cc_library_shared {
     include_build_directory: false,
 }
 `,
-		expectedErr: fmt.Errorf("module \"foo_shared\": nocrt is not supported for arch variants"),
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo_shared", AttrNameToString{
+				"features": `select({
+        "//build/bazel/platforms/arch:arm": ["-link_crt"],
+        "//conditions:default": [],
+    })`,
+				"srcs": `["impl.cpp"]`,
+			}),
+		},
 	})
 }
 
 func TestCcLibrarySharedProto(t *testing.T) {
-	runCcLibrarySharedTestCase(t, bp2buildTestCase{
-		blueprint: soongCcProtoPreamble + `cc_library_shared {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Blueprint: soongCcProtoPreamble + `cc_library_shared {
 	name: "foo",
 	srcs: ["foo.proto"],
 	proto: {
@@ -439,12 +491,12 @@ func TestCcLibrarySharedProto(t *testing.T) {
 	},
 	include_build_directory: false,
 }`,
-		expectedBazelTargets: []string{
-			makeBazelTarget("proto_library", "foo_proto", attrNameToString{
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("proto_library", "foo_proto", AttrNameToString{
 				"srcs": `["foo.proto"]`,
-			}), makeBazelTarget("cc_lite_proto_library", "foo_cc_proto_lite", attrNameToString{
+			}), MakeBazelTarget("cc_lite_proto_library", "foo_cc_proto_lite", AttrNameToString{
 				"deps": `[":foo_proto"]`,
-			}), makeBazelTarget("cc_library_shared", "foo", attrNameToString{
+			}), MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
 				"dynamic_deps":       `[":libprotobuf-cpp-lite"]`,
 				"whole_archive_deps": `[":foo_cc_proto_lite"]`,
 			}),
@@ -453,27 +505,31 @@ func TestCcLibrarySharedProto(t *testing.T) {
 }
 
 func TestCcLibrarySharedUseVersionLib(t *testing.T) {
-	runCcLibrarySharedTestCase(t, bp2buildTestCase{
-		blueprint: soongCcProtoPreamble + `cc_library_shared {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Filesystem: map[string]string{
+			soongCcVersionLibBpPath: soongCcVersionLibBp,
+		},
+		Blueprint: soongCcProtoPreamble + `cc_library_shared {
         name: "foo",
         use_version_lib: true,
         include_build_directory: false,
 }`,
-		expectedBazelTargets: []string{
-			makeBazelTarget("cc_library_shared", "foo", attrNameToString{
-				"use_version_lib": "True",
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
+				"use_version_lib":                   "True",
+				"implementation_whole_archive_deps": `["//build/soong/cc/libbuildversion:libbuildversion"]`,
 			}),
 		},
 	})
 }
 
 func TestCcLibrarySharedStubs(t *testing.T) {
-	runCcLibrarySharedTestCase(t, bp2buildTestCase{
-		description:                "cc_library_shared stubs",
-		moduleTypeUnderTest:        "cc_library_shared",
-		moduleTypeUnderTestFactory: cc.LibrarySharedFactory,
-		dir:                        "foo/bar",
-		filesystem: map[string]string{
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description:                "cc_library_shared stubs",
+		ModuleTypeUnderTest:        "cc_library_shared",
+		ModuleTypeUnderTestFactory: cc.LibrarySharedFactory,
+		Dir:                        "foo/bar",
+		Filesystem: map[string]string{
 			"foo/bar/Android.bp": `
 cc_library_shared {
 	name: "a",
@@ -483,16 +539,777 @@ cc_library_shared {
 }
 `,
 		},
-		blueprint: soongCcLibraryPreamble,
-		expectedBazelTargets: []string{makeBazelTarget("cc_library_shared", "a", attrNameToString{
-			"stubs_symbol_file": `"a.map.txt"`,
+		Blueprint: soongCcLibraryPreamble,
+		ExpectedBazelTargets: []string{makeCcStubSuiteTargets("a", AttrNameToString{
+			"soname":               `"a.so"`,
+			"source_library_label": `"//foo/bar:a"`,
+			"stubs_symbol_file":    `"a.map.txt"`,
 			"stubs_versions": `[
         "28",
         "29",
         "current",
     ]`,
 		}),
+			MakeBazelTarget("cc_library_shared", "a", AttrNameToString{
+				"stubs_symbol_file": `"a.map.txt"`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedStubs_UseImplementationInSameApex(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description:                "cc_library_shared stubs",
+		ModuleTypeUnderTest:        "cc_library_shared",
+		ModuleTypeUnderTestFactory: cc.LibrarySharedFactory,
+		Blueprint: soongCcLibrarySharedPreamble + `
+cc_library_shared {
+	name: "a",
+	stubs: { symbol_file: "a.map.txt", versions: ["28", "29", "current"] },
+	bazel_module: { bp2build_available: false },
+	include_build_directory: false,
+	apex_available: ["made_up_apex"],
+}
+cc_library_shared {
+	name: "b",
+	shared_libs: [":a"],
+	include_build_directory: false,
+	apex_available: ["made_up_apex"],
+}
+`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "b", AttrNameToString{
+				"implementation_dynamic_deps": `[":a"]`,
+				"tags":                        `["apex_available=made_up_apex"]`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedStubs_UseStubsInDifferentApex(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description:                "cc_library_shared stubs",
+		ModuleTypeUnderTest:        "cc_library_shared",
+		ModuleTypeUnderTestFactory: cc.LibrarySharedFactory,
+		Blueprint: soongCcLibrarySharedPreamble + `
+cc_library_shared {
+	name: "a",
+	stubs: { symbol_file: "a.map.txt", versions: ["28", "29", "current"] },
+	bazel_module: { bp2build_available: false },
+	include_build_directory: false,
+	apex_available: ["apex_a"],
+}
+cc_library_shared {
+	name: "b",
+	shared_libs: [":a"],
+	include_build_directory: false,
+	apex_available: ["apex_b"],
+}
+`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "b", AttrNameToString{
+				"implementation_dynamic_deps": `select({
+        "//build/bazel/rules/apex:android-in_apex": ["@api_surfaces//module-libapi/current:a"],
+        "//conditions:default": [":a"],
+    })`,
+				"tags": `["apex_available=apex_b"]`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedStubs_IgnorePlatformAvailable(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description:                "cc_library_shared stubs",
+		ModuleTypeUnderTest:        "cc_library_shared",
+		ModuleTypeUnderTestFactory: cc.LibrarySharedFactory,
+		Blueprint: soongCcLibrarySharedPreamble + `
+cc_library_shared {
+	name: "a",
+	stubs: { symbol_file: "a.map.txt", versions: ["28", "29", "current"] },
+	bazel_module: { bp2build_available: false },
+	include_build_directory: false,
+	apex_available: ["//apex_available:platform", "apex_a"],
+}
+cc_library_shared {
+	name: "b",
+	shared_libs: [":a"],
+	include_build_directory: false,
+	apex_available: ["//apex_available:platform", "apex_b"],
+}
+`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "b", AttrNameToString{
+				"implementation_dynamic_deps": `select({
+        "//build/bazel/rules/apex:android-in_apex": ["@api_surfaces//module-libapi/current:a"],
+        "//conditions:default": [":a"],
+    })`,
+				"tags": `[
+        "apex_available=//apex_available:platform",
+        "apex_available=apex_b",
+    ]`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedStubs_MultipleApexAvailable(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		ModuleTypeUnderTest:        "cc_library_shared",
+		ModuleTypeUnderTestFactory: cc.LibrarySharedFactory,
+		Blueprint: soongCcLibrarySharedPreamble + `
+cc_library_shared {
+	name: "a",
+	stubs: { symbol_file: "a.map.txt", versions: ["28", "29", "current"] },
+	bazel_module: { bp2build_available: false },
+	include_build_directory: false,
+	apex_available: ["//apex_available:platform", "apex_a", "apex_b"],
+}
+cc_library_shared {
+	name: "b",
+	shared_libs: [":a"],
+	include_build_directory: false,
+	apex_available: ["//apex_available:platform", "apex_b"],
+}
+
+cc_library_shared {
+	name: "c",
+	shared_libs: [":a"],
+	include_build_directory: false,
+	apex_available: ["//apex_available:platform", "apex_a", "apex_b"],
+}
+`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "b", AttrNameToString{
+				"implementation_dynamic_deps": `select({
+        "//build/bazel/rules/apex:android-in_apex": ["@api_surfaces//module-libapi/current:a"],
+        "//conditions:default": [":a"],
+    })`,
+				"tags": `[
+        "apex_available=//apex_available:platform",
+        "apex_available=apex_b",
+    ]`,
+			}),
+			MakeBazelTarget("cc_library_shared", "c", AttrNameToString{
+				"implementation_dynamic_deps": `[":a"]`,
+				"tags": `[
+        "apex_available=//apex_available:platform",
+        "apex_available=apex_a",
+        "apex_available=apex_b",
+    ]`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedSystemSharedLibsSharedEmpty(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description:                "cc_library_shared system_shared_libs empty shared default",
+		ModuleTypeUnderTest:        "cc_library_shared",
+		ModuleTypeUnderTestFactory: cc.LibrarySharedFactory,
+		Blueprint: soongCcLibrarySharedPreamble + `
+cc_defaults {
+    name: "empty_defaults",
+    shared: {
+        system_shared_libs: [],
+    },
+    include_build_directory: false,
+}
+cc_library_shared {
+    name: "empty",
+    defaults: ["empty_defaults"],
+}
+`,
+		ExpectedBazelTargets: []string{MakeBazelTarget("cc_library_shared", "empty", AttrNameToString{
+			"system_dynamic_deps": "[]",
+		})},
+	})
+}
+
+func TestCcLibrarySharedConvertLex(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description:                "cc_library_shared with lex files",
+		ModuleTypeUnderTest:        "cc_library_shared",
+		ModuleTypeUnderTestFactory: cc.LibrarySharedFactory,
+		Filesystem: map[string]string{
+			"foo.c":   "",
+			"bar.cc":  "",
+			"foo1.l":  "",
+			"bar1.ll": "",
+			"foo2.l":  "",
+			"bar2.ll": "",
+		},
+		Blueprint: `cc_library_shared {
+	name: "foo_lib",
+	srcs: ["foo.c", "bar.cc", "foo1.l", "foo2.l", "bar1.ll", "bar2.ll"],
+	lex: { flags: ["--foo_flags"] },
+	include_build_directory: false,
+	bazel_module: { bp2build_available: true },
+}`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("genlex", "foo_lib_genlex_l", AttrNameToString{
+				"srcs": `[
+        "foo1.l",
+        "foo2.l",
+    ]`,
+				"lexopts": `["--foo_flags"]`,
+			}),
+			MakeBazelTarget("genlex", "foo_lib_genlex_ll", AttrNameToString{
+				"srcs": `[
+        "bar1.ll",
+        "bar2.ll",
+    ]`,
+				"lexopts": `["--foo_flags"]`,
+			}),
+			MakeBazelTarget("cc_library_shared", "foo_lib", AttrNameToString{
+				"srcs": `[
+        "bar.cc",
+        ":foo_lib_genlex_ll",
+    ]`,
+				"srcs_c": `[
+        "foo.c",
+        ":foo_lib_genlex_l",
+    ]`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedClangUnknownFlags(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Blueprint: soongCcProtoPreamble + `cc_library_shared {
+	name: "foo",
+	conlyflags: ["-a", "-finline-functions"],
+	cflags: ["-b","-finline-functions"],
+	cppflags: ["-c", "-finline-functions"],
+	ldflags: ["-d","-finline-functions", "-e"],
+	include_build_directory: false,
+}`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
+				"conlyflags": `["-a"]`,
+				"copts":      `["-b"]`,
+				"cppflags":   `["-c"]`,
+				"linkopts": `[
+        "-d",
+        "-e",
+    ]`,
+			}),
+		},
+	})
+}
+
+func TestCCLibraryFlagSpaceSplitting(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Blueprint: soongCcProtoPreamble + `cc_library_shared {
+	name: "foo",
+	conlyflags: [ "-include header.h"],
+	cflags: ["-include header.h"],
+	cppflags: ["-include header.h"],
+	version_script: "version_script",
+	include_build_directory: false,
+}`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
+				"additional_linker_inputs": `["version_script"]`,
+				"conlyflags": `[
+        "-include",
+        "header.h",
+    ]`,
+				"copts": `[
+        "-include",
+        "header.h",
+    ]`,
+				"cppflags": `[
+        "-include",
+        "header.h",
+    ]`,
+				"linkopts": `["-Wl,--version-script,$(location version_script)"]`,
+			}),
+		},
+	})
+}
+
+func TestCCLibrarySharedRuntimeDeps(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Blueprint: `cc_library_shared {
+	name: "bar",
+}
+
+cc_library_shared {
+  name: "foo",
+  runtime_libs: ["foo"],
+}`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "bar", AttrNameToString{
+				"local_includes": `["."]`,
+			}),
+			MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
+				"runtime_deps":   `[":foo"]`,
+				"local_includes": `["."]`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedEmptySuffix(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared with empty suffix",
+		Filesystem: map[string]string{
+			"foo.c": "",
+		},
+		Blueprint: soongCcLibrarySharedPreamble + `
+cc_library_shared {
+    name: "foo_shared",
+    suffix: "",
+    srcs: ["foo.c"],
+    include_build_directory: false,
+}`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo_shared", AttrNameToString{
+				"srcs_c": `["foo.c"]`,
+				"suffix": `""`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedSuffix(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared with suffix",
+		Filesystem: map[string]string{
+			"foo.c": "",
+		},
+		Blueprint: soongCcLibrarySharedPreamble + `
+cc_library_shared {
+    name: "foo_shared",
+    suffix: "-suf",
+    srcs: ["foo.c"],
+    include_build_directory: false,
+}`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo_shared", AttrNameToString{
+				"srcs_c": `["foo.c"]`,
+				"suffix": `"-suf"`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedArchVariantSuffix(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared with arch-variant suffix",
+		Filesystem: map[string]string{
+			"foo.c": "",
+		},
+		Blueprint: soongCcLibrarySharedPreamble + `
+cc_library_shared {
+    name: "foo_shared",
+    arch: {
+        arm64: { suffix: "-64" },
+        arm:   { suffix: "-32" },
+		},
+    srcs: ["foo.c"],
+    include_build_directory: false,
+}`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo_shared", AttrNameToString{
+				"srcs_c": `["foo.c"]`,
+				"suffix": `select({
+        "//build/bazel/platforms/arch:arm": "-32",
+        "//build/bazel/platforms/arch:arm64": "-64",
+        "//conditions:default": None,
+    })`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedWithSyspropSrcs(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared with sysprop sources",
+		Blueprint: `
+cc_library_shared {
+	name: "foo",
+	srcs: [
+		"bar.sysprop",
+		"baz.sysprop",
+		"blah.cpp",
+	],
+	min_sdk_version: "5",
+}`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("sysprop_library", "foo_sysprop_library", AttrNameToString{
+				"srcs": `[
+        "bar.sysprop",
+        "baz.sysprop",
+    ]`,
+			}),
+			MakeBazelTarget("cc_sysprop_library_static", "foo_cc_sysprop_library_static", AttrNameToString{
+				"dep":             `":foo_sysprop_library"`,
+				"min_sdk_version": `"5"`,
+			}),
+			MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
+				"srcs":               `["blah.cpp"]`,
+				"local_includes":     `["."]`,
+				"min_sdk_version":    `"5"`,
+				"whole_archive_deps": `[":foo_cc_sysprop_library_static"]`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedWithSyspropSrcsSomeConfigs(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared with sysprop sources in some configs but not others",
+		Blueprint: `
+cc_library_shared {
+	name: "foo",
+	srcs: [
+		"blah.cpp",
+	],
+	target: {
+		android: {
+			srcs: ["bar.sysprop"],
 		},
 	},
-	)
+	min_sdk_version: "5",
+}`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("sysprop_library", "foo_sysprop_library", AttrNameToString{
+				"srcs": `select({
+        "//build/bazel/platforms/os:android": ["bar.sysprop"],
+        "//conditions:default": [],
+    })`,
+			}),
+			MakeBazelTarget("cc_sysprop_library_static", "foo_cc_sysprop_library_static", AttrNameToString{
+				"dep":             `":foo_sysprop_library"`,
+				"min_sdk_version": `"5"`,
+			}),
+			MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
+				"srcs":            `["blah.cpp"]`,
+				"local_includes":  `["."]`,
+				"min_sdk_version": `"5"`,
+				"whole_archive_deps": `select({
+        "//build/bazel/platforms/os:android": [":foo_cc_sysprop_library_static"],
+        "//conditions:default": [],
+    })`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedHeaderAbiChecker(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared with header abi checker",
+		Blueprint: `cc_library_shared {
+    name: "foo",
+    header_abi_checker: {
+        enabled: true,
+        symbol_file: "a.map.txt",
+        exclude_symbol_versions: [
+						"29",
+						"30",
+				],
+        exclude_symbol_tags: [
+						"tag1",
+						"tag2",
+				],
+        check_all_apis: true,
+        diff_flags: ["-allow-adding-removing-weak-symbols"],
+    },
+    include_build_directory: false,
+}`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
+				"abi_checker_enabled":     `True`,
+				"abi_checker_symbol_file": `"a.map.txt"`,
+				"abi_checker_exclude_symbol_versions": `[
+        "29",
+        "30",
+    ]`,
+				"abi_checker_exclude_symbol_tags": `[
+        "tag1",
+        "tag2",
+    ]`,
+				"abi_checker_check_all_apis": `True`,
+				"abi_checker_diff_flags":     `["-allow-adding-removing-weak-symbols"]`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedWithIntegerOverflowProperty(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared has correct features when integer_overflow property is provided",
+		Blueprint: `
+cc_library_shared {
+		name: "foo",
+		sanitize: {
+				integer_overflow: true,
+		},
+}
+`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
+				"features":       `["ubsan_integer_overflow"]`,
+				"local_includes": `["."]`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedWithMiscUndefinedProperty(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared has correct features when misc_undefined property is provided",
+		Blueprint: `
+cc_library_shared {
+		name: "foo",
+		sanitize: {
+				misc_undefined: ["undefined", "nullability"],
+		},
+}
+`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
+				"features": `[
+        "ubsan_undefined",
+        "ubsan_nullability",
+    ]`,
+				"local_includes": `["."]`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedWithUBSanPropertiesArchSpecific(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared has correct feature select when UBSan props are specified in arch specific blocks",
+		Blueprint: `
+cc_library_shared {
+		name: "foo",
+		sanitize: {
+				misc_undefined: ["undefined", "nullability"],
+		},
+		target: {
+				android: {
+						sanitize: {
+								misc_undefined: ["alignment"],
+						},
+				},
+				linux_glibc: {
+						sanitize: {
+								integer_overflow: true,
+						},
+				},
+		},
+}
+`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
+				"features": `[
+        "ubsan_undefined",
+        "ubsan_nullability",
+    ] + select({
+        "//build/bazel/platforms/os:android": ["ubsan_alignment"],
+        "//build/bazel/platforms/os:linux_glibc": ["ubsan_integer_overflow"],
+        "//conditions:default": [],
+    })`,
+				"local_includes": `["."]`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedWithThinLto(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared has correct features when thin lto is enabled",
+		Blueprint: `
+cc_library_shared {
+	name: "foo",
+	lto: {
+		thin: true,
+	},
+}
+`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
+				"features":       `["android_thin_lto"]`,
+				"local_includes": `["."]`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedWithLtoNever(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared has correct features when thin lto is enabled",
+		Blueprint: `
+cc_library_shared {
+	name: "foo",
+	lto: {
+		never: true,
+	},
+}
+`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
+				"features":       `["-android_thin_lto"]`,
+				"local_includes": `["."]`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedWithThinLtoArchSpecific(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared has correct features when LTO differs across arch and os variants",
+		Blueprint: `
+cc_library_shared {
+	name: "foo",
+	target: {
+		android: {
+			lto: {
+				thin: true,
+			},
+		},
+	},
+	arch: {
+		riscv64: {
+			lto: {
+				thin: false,
+			},
+		},
+	},
+}`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
+				"local_includes": `["."]`,
+				"features": `select({
+        "//build/bazel/platforms/os_arch:android_arm": ["android_thin_lto"],
+        "//build/bazel/platforms/os_arch:android_arm64": ["android_thin_lto"],
+        "//build/bazel/platforms/os_arch:android_riscv64": ["-android_thin_lto"],
+        "//build/bazel/platforms/os_arch:android_x86": ["android_thin_lto"],
+        "//build/bazel/platforms/os_arch:android_x86_64": ["android_thin_lto"],
+        "//conditions:default": [],
+    })`}),
+		},
+	})
+}
+
+func TestCcLibrarySharedWithThinLtoDisabledDefaultEnabledVariant(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared with thin lto disabled by default but enabled on a particular variant",
+		Blueprint: `
+cc_library_shared {
+	name: "foo",
+	lto: {
+		never: true,
+	},
+	target: {
+		android: {
+			lto: {
+				thin: true,
+				never: false,
+			},
+		},
+	},
+}`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
+				"local_includes": `["."]`,
+				"features": `select({
+        "//build/bazel/platforms/os:android": ["android_thin_lto"],
+        "//conditions:default": ["-android_thin_lto"],
+    })`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedWithThinLtoAndWholeProgramVtables(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared has correct features when thin LTO is enabled with whole_program_vtables",
+		Blueprint: `
+cc_library_shared {
+	name: "foo",
+	lto: {
+		thin: true,
+	},
+	whole_program_vtables: true,
+}
+`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("cc_library_shared", "foo", AttrNameToString{
+				"features": `[
+        "android_thin_lto",
+        "android_thin_lto_whole_program_vtables",
+    ]`,
+				"local_includes": `["."]`,
+			}),
+		},
+	})
+}
+
+func TestCcLibrarySharedStubsDessertVersionConversion(t *testing.T) {
+	runCcLibrarySharedTestCase(t, Bp2buildTestCase{
+		Description: "cc_library_shared converts dessert codename versions to numerical versions",
+		Blueprint: `
+cc_library_shared {
+	name: "a",
+	include_build_directory: false,
+	stubs: {
+		symbol_file: "a.map.txt",
+		versions: [
+			"Q",
+			"R",
+			"31",
+		],
+	},
+}
+cc_library_shared {
+	name: "b",
+	include_build_directory: false,
+	stubs: {
+		symbol_file: "b.map.txt",
+		versions: [
+			"Q",
+			"R",
+			"31",
+			"current",
+		],
+	},
+}
+`,
+		ExpectedBazelTargets: []string{
+			makeCcStubSuiteTargets("a", AttrNameToString{
+				"soname":               `"a.so"`,
+				"source_library_label": `"//:a"`,
+				"stubs_symbol_file":    `"a.map.txt"`,
+				"stubs_versions": `[
+        "29",
+        "30",
+        "31",
+        "current",
+    ]`,
+			}),
+			MakeBazelTarget("cc_library_shared", "a", AttrNameToString{
+				"stubs_symbol_file": `"a.map.txt"`,
+			}),
+			makeCcStubSuiteTargets("b", AttrNameToString{
+				"soname":               `"b.so"`,
+				"source_library_label": `"//:b"`,
+				"stubs_symbol_file":    `"b.map.txt"`,
+				"stubs_versions": `[
+        "29",
+        "30",
+        "31",
+        "current",
+    ]`,
+			}),
+			MakeBazelTarget("cc_library_shared", "b", AttrNameToString{
+				"stubs_symbol_file": `"b.map.txt"`,
+			}),
+		},
+	})
 }

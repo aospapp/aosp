@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "servo_Verification.local"
 PURPOSE = "Ensure a dut/servo pair provide required lab functionality."
 ATTRIBUTES = "suite:servo_verification"
@@ -12,6 +12,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
+PY_VERSION = 3
 
 DOC = """
 The local version of servo_Verification. Local in this context means that

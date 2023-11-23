@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "test/mock/mock_device_esco_parameters.h"
 
@@ -46,7 +44,12 @@ struct esco_parameters_for_codec esco_parameters_for_codec;
 
 // Mocked functions, if any
 enh_esco_params_t esco_parameters_for_codec(esco_codec_t codec) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
+  return test::mock::device_esco_parameters::esco_parameters_for_codec(codec);
+}
+
+enh_esco_params_t esco_parameters_for_codec(esco_codec_t codec, bool b) {
+  inc_func_call_count(__func__);
   return test::mock::device_esco_parameters::esco_parameters_for_codec(codec);
 }
 // Mocked functions complete

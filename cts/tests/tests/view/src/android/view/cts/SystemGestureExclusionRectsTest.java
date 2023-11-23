@@ -105,10 +105,12 @@ public class SystemGestureExclusionRectsTest {
         final CountDownLatch doneAnimating = new CountDownLatch(1);
 
         final Consumer<List<Rect>> vtoListener = results::add;
+        int[] location = new int[2];
 
         mActivityRule.runOnUiThread(() -> {
             final View v = activity.findViewById(R.id.animating_view);
             final ViewTreeObserver vto = v.getViewTreeObserver();
+            v.getLocationInWindow(location);
             vto.addOnSystemGestureExclusionRectsChangedListener(vtoListener);
 
             v.setSystemGestureExclusionRects(
@@ -133,8 +135,8 @@ public class SystemGestureExclusionRectsTest {
             assertTrue("rect had expected height", sizeRange.contains(first.height()));
             prev = first;
         }
-
-        assertEquals("reached expected animated destination", prev.right, 35);
+        // Consideration of left system bar
+        assertEquals("reached expected animated destination", prev.right, 35 + location[0]);
 
         // Make sure we don't get any more callbacks after removing the VTO listener.
         // Capture values on the UI thread to avoid races.

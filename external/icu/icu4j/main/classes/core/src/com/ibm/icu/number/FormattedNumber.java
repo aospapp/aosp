@@ -10,6 +10,7 @@ import com.ibm.icu.impl.FormattedValueStringBuilderImpl;
 import com.ibm.icu.impl.Utility;
 import com.ibm.icu.impl.number.DecimalQuantity;
 import com.ibm.icu.text.ConstrainedFieldPosition;
+import com.ibm.icu.text.DisplayOptions;
 import com.ibm.icu.text.FormattedValue;
 import com.ibm.icu.text.PluralRules.IFixedDecimal;
 import com.ibm.icu.util.MeasureUnit;
@@ -134,6 +135,17 @@ public class FormattedNumber implements FormattedValue {
      */
     public MeasureUnit getOutputUnit() {
         return this.outputUnit;
+    }
+
+    /**
+     * Gets the noun class of the formatted output. Returns `UNDEFINED` when the noun class is not
+     * supported yet.
+     *
+     * @return NounClass
+     * @draft ICU 71.
+     */
+    public DisplayOptions.NounClass getNounClass() {
+        return DisplayOptions.NounClass.fromIdentifier(this.gender);
     }
 
     /**

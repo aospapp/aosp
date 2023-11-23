@@ -131,6 +131,31 @@ public class HotspotTileTest extends BaseSettingsQCItemTestCase {
                 any(Executor.class), any(TetheringManager.StartTetheringCallback.class));
     }
 
+    @Test
+    public void getQCItem_createsTile_zoneWrite() {
+        mHotspotTile.setAvailabilityStatusForZone("write");
+        when(mWifiManager.getWifiApState()).thenReturn(WifiManager.WIFI_AP_STATE_ENABLED);
+        QCTile tile = getTile();
+        assertThat(tile.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsTile_zoneRead() {
+        mHotspotTile.setAvailabilityStatusForZone("read");
+        when(mWifiManager.getWifiApState()).thenReturn(WifiManager.WIFI_AP_STATE_ENABLED);
+        QCTile tile = getTile();
+        assertThat(tile.isEnabled()).isFalse();
+        assertThat(tile.isClickableWhileDisabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsTile_zoneHidden() {
+        mHotspotTile.setAvailabilityStatusForZone("hidden");
+        when(mWifiManager.getWifiApState()).thenReturn(WifiManager.WIFI_AP_STATE_ENABLED);
+        QCItem item = mHotspotTile.getQCItem();
+        assertThat(item).isNull();
+    }
+
     private QCTile getTile() {
         QCItem item = mHotspotTile.getQCItem();
         assertThat(item).isNotNull();

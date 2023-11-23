@@ -73,8 +73,8 @@ public class ContextCrossProfileHostTest extends BaseContextCrossProfileTest
         assumeTrue(mSupportsMultiUser);
 
         mParentUserId = getDevice().getCurrentUser();
-        // Automotive uses non-system user as current user always
-        if (!getDevice().hasFeature("feature:android.hardware.type.automotive")) {
+        // Headless mode always uses non-system user as current user.
+        if (!getDevice().isHeadlessSystemUserMode()) {
             assertEquals(USER_SYSTEM, mParentUserId);
         }
 

@@ -24,17 +24,14 @@ package {
 
 cc_binary {
     name: "android.hardware.bluetooth@1.1-service.btlinux",
+    defaults: ["fluoride_common_options"],
     proprietary: true,
     relative_install_path: "hw",
     srcs: [
-        "hci_packetizer.cc",
-        "h4_protocol.cc",
         "bluetooth_hci.cc",
+        "h4_protocol.cc",
+        "hci_packetizer.cc",
         "service.cc",
-    ],
-    cflags: [
-        "-Wall",
-        "-Werror",
     ],
     header_libs: ["libbluetooth_headers"],
     shared_libs: [
@@ -57,13 +54,10 @@ cc_binary {
 
 cc_library_static {
     name: "async_fd_watcher",
+    defaults: ["fluoride_common_options"],
     proprietary: true,
     srcs: [
         "async_fd_watcher.cc",
-    ],
-    cflags: [
-        "-Wall",
-        "-Werror",
     ],
     shared_libs: [
         "liblog",
@@ -71,4 +65,33 @@ cc_library_static {
     export_include_dirs: [
         ".",
     ],
+}
+
+cc_test_host {
+    name: "bluetooth-btlinux-hci-test",
+    srcs: [
+        "async_fd_watcher.cc",
+        "h4_protocol.cc",
+        "h4_protocol_unittest.cc",
+        "hci_packetizer.cc",
+    ],
+    cflags: [
+        "-DNO_THREAD_PRIORITY",
+        "-Wall",
+        "-Werror",
+    ],
+    shared_libs: [
+        "libbase",
+        "libhidlbase",
+        "liblog",
+        "libutils",
+    ],
+    static_libs: [
+        "libgmock",
+    ],
+    sanitize: {
+        address: true,
+        cfi: true,
+    },
+    test_suites: ["general-tests"],
 }

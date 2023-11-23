@@ -28,7 +28,7 @@ def AddCommonArguments(parser):
     parser.add_argument("--email",
                         type=str,
                         dest="email",
-                        help="Email account to use for authentcation.")
+                        help="Email account to use for authentication.")
     parser.add_argument("--config-file",
                         type=str,
                         dest="config_file",

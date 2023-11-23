@@ -66,6 +66,11 @@ cc_library {
             local_include_dirs: ["config/arm64"],
         },
 
+        riscv64: {
+            srcs: libvpx_generic_c_srcs,
+            local_include_dirs: ["config/generic"],
+        },
+
         x86: {
             srcs: libvpx_x86_c_srcs + libvpx_x86_asm_srcs,
             local_include_dirs: ["config/x86"],
@@ -88,7 +93,7 @@ cc_library {
         "-Wno-unused-parameter",
     ],
 
-    export_include_dirs: ["libvpx"],
+    export_include_dirs: ["."],
 
     sanitize: {
         integer_overflow: true,
@@ -102,11 +107,19 @@ cc_library {
     ],
 }
 
+cc_library_headers {
+    name: "libvpx_headers",
+    vendor_available: true,
+    host_supported: true,
+
+    export_include_dirs: ["."],
+}
+
 cc_fuzz {
     name: "vp9_dec_fuzzer",
     host_supported: true,
     srcs: [
-        "libvpx/examples/vpx_dec_fuzzer.cc",
+        "examples/vpx_dec_fuzzer.cc",
     ],
     target: {
         darwin: {
@@ -142,7 +155,7 @@ cc_fuzz {
     name: "vp8_dec_fuzzer",
     host_supported: true,
     srcs: [
-        "libvpx/examples/vpx_dec_fuzzer.cc",
+        "examples/vpx_dec_fuzzer.cc",
     ],
     target: {
         darwin: {

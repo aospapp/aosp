@@ -33,7 +33,9 @@
 #define EGL_EGLEXT_PROTOTYPES
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <xf86drm.h>
 
 #include "util/u_memory.h"
@@ -140,10 +142,7 @@ static bool virgl_egl_get_interface(struct egl_funcs *funcs)
 
    assert(funcs);
 
-   if (virgl_egl_has_extension_in_string(client_extensions, "EGL_KHR_platform_base")) {
-      funcs->eglGetPlatformDisplay =
-         (PFNEGLGETPLATFORMDISPLAYEXTPROC) eglGetProcAddress ("eglGetPlatformDisplay");
-   } else if (virgl_egl_has_extension_in_string(client_extensions, "EGL_EXT_platform_base")) {
+   if (virgl_egl_has_extension_in_string(client_extensions, "EGL_EXT_platform_base")) {
       funcs->eglGetPlatformDisplay =
          (PFNEGLGETPLATFORMDISPLAYEXTPROC) eglGetProcAddress ("eglGetPlatformDisplayEXT");
    }
@@ -310,20 +309,7 @@ struct virgl_egl *virgl_egl_init(struct virgl_gbm *gbm, bool surfaceless, bool g
      /* Make -Wdangling-else happy. */
    } else /* Fallback to surfaceless. */
 #endif
-   if (virgl_egl_has_extension_in_string(client_extensions, "EGL_KHR_platform_base")) {
-      PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display =
-         (PFNEGLGETPLATFORMDISPLAYEXTPROC) eglGetProcAddress ("eglGetPlatformDisplay");
-
-      if (!get_platform_display)
-        goto fail;
-
-      if (surfaceless) {
-         egl->egl_display = get_platform_display (EGL_PLATFORM_SURFACELESS_MESA,
-                                                  EGL_DEFAULT_DISPLAY, NULL);
-      } else
-         egl->egl_display = get_platform_display (EGL_PLATFORM_GBM_KHR,
-                                                  (EGLNativeDisplayType)egl->gbm->device, NULL);
-   } else if (virgl_egl_has_extension_in_string(client_extensions, "EGL_EXT_platform_base")) {
+   if (virgl_egl_has_extension_in_string(client_extensions, "EGL_EXT_platform_base")) {
       PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display =
          (PFNEGLGETPLATFORMDISPLAYEXTPROC) eglGetProcAddress ("eglGetPlatformDisplayEXT");
 
@@ -419,6 +405,37 @@ void virgl_egl_destroy(struct virgl_egl *egl)
    free(egl);
 }
 
+struct virgl_egl *virgl_egl_init_external(EGLDisplay egl_display)
+{
+   const char *extensions;
+   struct virgl_egl *egl;
+
+   egl = calloc(1, sizeof(struct virgl_egl));
+   if (!egl)
+      return NULL;
+
+   egl->egl_display = egl_display;
+
+   extensions = eglQueryString(egl->egl_display, EGL_EXTENSIONS);
+#ifdef VIRGL_EGL_DEBUG
+   vrend_printf( "EGL version: %s\n",
+           eglQueryString(egl->egl_display, EGL_VERSION));
+   vrend_printf( "EGL vendor: %s\n",
+           eglQueryString(egl->egl_display, EGL_VENDOR));
+   vrend_printf( "EGL extensions: %s\n", extensions);
+#endif
+
+   if (virgl_egl_init_extensions(egl, extensions)) {
+      free(egl);
+      return NULL;
+   }
+
+   gbm = virgl_gbm_init(-1);
+   egl->gbm = gbm;
+
+   return egl;
+}
+
 virgl_renderer_gl_context virgl_egl_create_context(struct virgl_egl *egl, struct virgl_gl_ctx_param *vparams)
 {
    EGLContext egl_ctx;
@@ -445,7 +462,7 @@ int virgl_egl_make_context_current(struct virgl_egl *egl, virgl_renderer_gl_cont
    EGLContext egl_ctx = (EGLContext)virglctx;
 
    return eglMakeCurrent(egl->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE,
-                         egl_ctx);
+                         egl_ctx) ? 0 : -1;
 }
 
 virgl_renderer_gl_context virgl_egl_get_current_context(UNUSED struct virgl_egl *egl)
@@ -468,7 +485,7 @@ int virgl_egl_get_fourcc_for_texture(struct virgl_egl *egl, uint32_t tex_id, uin
    }
 
    image = eglCreateImageKHR(egl->egl_display, eglGetCurrentContext(), EGL_GL_TEXTURE_2D_KHR,
-                            (EGLClientBuffer)(unsigned long)tex_id, NULL);
+                            (EGLClientBuffer)(uintptr_t)tex_id, NULL);
 
    if (!image)
       return EINVAL;
@@ -493,7 +510,7 @@ int virgl_egl_get_fd_for_texture2(struct virgl_egl *egl, uint32_t tex_id, int *f
    int ret = EINVAL;
    EGLImageKHR image = eglCreateImageKHR(egl->egl_display, eglGetCurrentContext(),
                                          EGL_GL_TEXTURE_2D_KHR,
-                                         (EGLClientBuffer)(unsigned long)tex_id, NULL);
+                                         (EGLClientBuffer)(uintptr_t)tex_id, NULL);
    if (!image)
       return EINVAL;
    if (!has_bit(egl->extension_bits, EGL_MESA_IMAGE_DMA_BUF_EXPORT))
@@ -518,7 +535,7 @@ int virgl_egl_get_fd_for_texture(struct virgl_egl *egl, uint32_t tex_id, int *fd
    EGLBoolean success;
    int ret;
    image = eglCreateImageKHR(egl->egl_display, eglGetCurrentContext(), EGL_GL_TEXTURE_2D_KHR,
-                            (EGLClientBuffer)(unsigned long)tex_id, NULL);
+                            (EGLClientBuffer)(uintptr_t)tex_id, NULL);
 
    if (!image)
       return EINVAL;
@@ -719,13 +736,38 @@ void virgl_egl_fence_destroy(struct virgl_egl *egl, EGLSyncKHR fence) {
    eglDestroySyncKHR(egl->egl_display, fence);
 }
 
-bool virgl_egl_client_wait_fence(struct virgl_egl *egl, EGLSyncKHR fence, uint64_t timeout)
+bool virgl_egl_client_wait_fence(struct virgl_egl *egl, EGLSyncKHR fence, bool blocking)
 {
-   EGLint ret = eglClientWaitSyncKHR(egl->egl_display, fence, 0, timeout);
-   if (ret == EGL_FALSE) {
-      vrend_printf("wait sync failed\n");
+   /* attempt to poll the native fence fd instead of eglClientWaitSyncKHR() to
+    * avoid Mesa's eglapi global-display-lock synchronizing vrend's sync_thread.
+    */
+   int fd = -1;
+   if (!virgl_egl_export_fence(egl, fence, &fd)) {
+      EGLint egl_result = eglClientWaitSyncKHR(egl->egl_display, fence, 0,
+                                               blocking ? EGL_FOREVER_KHR : 0);
+      if (egl_result == EGL_FALSE)
+         vrend_printf("wait sync failed\n");
+      return egl_result != EGL_TIMEOUT_EXPIRED_KHR;
    }
-   return ret != EGL_TIMEOUT_EXPIRED_KHR;
+   assert(fd >= 0);
+
+   int ret;
+   struct pollfd pfd = {
+      .fd = fd,
+      .events = POLLIN,
+   };
+   do {
+      ret = poll(&pfd, 1, blocking ? -1 : 0);
+      if (ret > 0 && (pfd.revents & (POLLERR | POLLNVAL))) {
+         ret = -1;
+         break;
+      }
+   } while (ret == -1 && (errno == EINTR || errno == EAGAIN));
+   close(fd);
+
+   if (ret < 0)
+      vrend_printf("wait sync failed\n");
+   return ret != 0;
 }
 
 bool virgl_egl_export_signaled_fence(struct virgl_egl *egl, int *out_fd) {
@@ -740,4 +782,28 @@ bool virgl_egl_export_fence(struct virgl_egl *egl, EGLSyncKHR fence, int *out_fd
 bool virgl_egl_different_gpu(struct virgl_egl *egl)
 {
    return egl->different_gpu;
+}
+
+const char *virgl_egl_error_string(EGLint error)
+{
+    switch (error) {
+#define CASE_STR( value ) case value: return #value;
+    CASE_STR( EGL_SUCCESS             )
+    CASE_STR( EGL_NOT_INITIALIZED     )
+    CASE_STR( EGL_BAD_ACCESS          )
+    CASE_STR( EGL_BAD_ALLOC           )
+    CASE_STR( EGL_BAD_ATTRIBUTE       )
+    CASE_STR( EGL_BAD_CONTEXT         )
+    CASE_STR( EGL_BAD_CONFIG          )
+    CASE_STR( EGL_BAD_CURRENT_SURFACE )
+    CASE_STR( EGL_BAD_DISPLAY         )
+    CASE_STR( EGL_BAD_SURFACE         )
+    CASE_STR( EGL_BAD_MATCH           )
+    CASE_STR( EGL_BAD_PARAMETER       )
+    CASE_STR( EGL_BAD_NATIVE_PIXMAP   )
+    CASE_STR( EGL_BAD_NATIVE_WINDOW   )
+    CASE_STR( EGL_CONTEXT_LOST        )
+#undef CASE_STR
+    default: return "Unknown error";
+    }
 }

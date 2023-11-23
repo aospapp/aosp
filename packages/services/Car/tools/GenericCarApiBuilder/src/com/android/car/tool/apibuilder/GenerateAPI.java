@@ -16,85 +16,314 @@
 
 package com.android.car.tool.apibuilder;
 
-import com.github.javaparser.StaticJavaParser;
-import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.NodeList;
-import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
-import com.github.javaparser.ast.body.FieldDeclaration;
-import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.body.Parameter;
-import com.github.javaparser.ast.expr.AnnotationExpr;
-import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
+import com.android.car.tool.data.ParsedData;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-/**
- * Class to generate API txt file.
- */
 public final class GenerateAPI {
 
     private static final boolean DBG = false;
-    private static final String ANDROID_BUILD_TOP = "ANDROID_BUILD_TOP";
-    private static final String CAR_API_PATH = "/packages/services/Car/car-lib/src/android/car";
-    private static final String API_TXT_SAVE_PATH =
-            "/packages/services/Car/tools/GenericCarApiBuilder/";
-    private static final String COMPLETE_API_LIST = "complete_api_list.txt";
-    private static final String UN_ANNOTATED_API_LIST = "un_annotated_api_list.txt";
-    private static final String TAB = "    ";
 
-    /**
-     * Main method for generate API txt file.
-     */
+    private static final String ANDROID_BUILD_TOP = "ANDROID_BUILD_TOP";
+    private static final String CAR_API_PATH =
+            "/packages/services/Car/car-lib/src/android/car";
+    private static final String CAR_SERVICE_PATH =
+            "/packages/services/Car/service/src";
+    private static final String CAR_BUILT_IN_API_PATH =
+            "/packages/services/Car/car-builtin-lib/src/android/car/builtin";
+    private static final String CSHS_PATH =
+            "/frameworks/opt/car/services/builtInServices/src";
+    private static final String CAR_API_ANNOTATION_TEST_FILE =
+            "/packages/services/Car/tests/carservice_unit_test/res/raw/car_api_classes.txt";
+    private static final String CAR_BUILT_IN_ANNOTATION_TEST_FILE =
+            "/packages/services/Car/tests/carservice_unit_test/res/raw/"
+            + "car_built_in_api_classes.txt";
+    private static final String CAR_HIDDEN_API_FILE =
+            "/packages/services/Car/tests/carservice_unit_test/res/raw/"
+            + "car_hidden_apis.txt";
+    private static final String CAR_ADDEDINORBEFORE_API_FILE =
+            "/packages/services/Car/tests/carservice_unit_test/res/raw/"
+                    + "car_addedinorbefore_apis.txt";
+    private static final String CSHS_NON_HIDDEN_CLASSES_FILE =
+            "/frameworks/opt/car/services/builtInServices/tests/res/raw/CSHS_classes.txt";
+
+    private static final String PRINT_CLASSES = "--print-classes";
+    private static final String PRINT_NON_HIDDEN_CLASSES_CSHS = "--print-non-hidden-classes-CSHS";
+    private static final String UPDATE_CLASSES = "--update-classes";
+    private static final String UPDATE_NON_HIDDEN_CLASSES_CSHS = "--update-non-hidden-classes-CSHS";
+    private static final String PRINT_HIDDEN_APIS = "--print-hidden-apis";
+    private static final String PRINT_HIDDEN_APIS_WITH_CONSTR = "--print-hidden-apis-with-constr";
+    private static final String UPDATE_HIDDEN_APIS = "--update-hidden-apis";
+    private static final String PRINT_ALL_APIS = "--print-all-apis";
+    private static final String PRINT_ALL_APIS_WITH_CONSTR = "--print-all-apis-with-constr";
+    private static final String UPDATE_APIS_WITH_ADDEDINORBEFORE =
+            "--update-apis-with-addedinorbefore";
+    private static final String PLATFORM_VERSION_ASSERTION_CHECK =
+            "--platform-version-assertion-check";
+    private static final String PRINT_ALL_APIS_WITH_CAR_VERSION =
+            "--print-all-apis-with-car-version";
+    private static final String PRINT_INCORRECT_REQUIRES_API_USAGE_IN_CAR_SERVICE =
+            "--print-incorrect-requires-api-usage-in-car-service";
+    private static final String PRINT_ADDEDIN_WITHOUT_REQUIRES_API_IN_CAR_BUILT_IN =
+            "--print-addedin-without-requires-api-in-car-built-in";
+    private static final String PRINT_ADDEDIN_WITHOUT_REQUIRES_API_IN_CSHS =
+            "--print-addedin-without-requires-api-in-CSHS";
+    private static final String ROOT_DIR = "--root-dir";
+
     public static void main(final String[] args) throws Exception {
         try {
-            String rootDir = System.getenv(ANDROID_BUILD_TOP);
-            String carLibPath = rootDir + CAR_API_PATH;
-            List<File> allJavaFiles = getAllFiles(new File(carLibPath));
+            if (args.length == 0) {
+                printHelp();
+                return;
+            }
 
-            if  (args.length > 0 &&  args[0].equalsIgnoreCase("--classes-only")) {
-                for (int i = 0; i < allJavaFiles.size(); i++) {
-                    printAllClasses(allJavaFiles.get(i));
+            boolean runForCSHS = false;
+            boolean printClasses = false;
+            boolean printNonHiddenClassesCSHS = false;
+            boolean updateClasses = false;
+            boolean updateNonHiddenClassesCSHS = false;
+            boolean printHiddenApis = false;
+            boolean printHiddenApisWithConstr = false;
+            boolean updateHiddenApis = false;
+            boolean printAllApis = false;
+            boolean printAllApisWithConstr = false;
+            boolean updateApisWithAddedinorbefore = false;
+            boolean platformVersionCheck = false;
+            boolean printAllApisWithCarVersion = false;
+            boolean printIncorrectRequiresApiUsageInCarService = false;
+            boolean printAddedinWithoutRequiresApiInCarBuiltIn = false;
+            boolean printAddedinWithoutRequiresApiInCSHS = false;
+            String rootDir = System.getenv(ANDROID_BUILD_TOP);
+            // If print request is more than one. Use marker to separate data. This would be useful
+            // for executing multiple requests in one go.
+            int printRequests = 0;
+
+            for (int i = 0; i < args.length; i++) {
+                String arg = args[i];
+                switch (arg) {
+                    case PRINT_CLASSES:
+                        printClasses = true;
+                        printRequests++;
+                        break;
+                    case PRINT_NON_HIDDEN_CLASSES_CSHS:
+                        printNonHiddenClassesCSHS = true;
+                        runForCSHS = true;
+                        printRequests++;
+                        break;
+                    case UPDATE_CLASSES:
+                        updateClasses = true;
+                        break;
+                    case UPDATE_NON_HIDDEN_CLASSES_CSHS:
+                        updateNonHiddenClassesCSHS = true;
+                        runForCSHS = true;
+                        break;
+                    case PRINT_HIDDEN_APIS:
+                        printHiddenApis = true;
+                        printRequests++;
+                        break;
+                    case PRINT_HIDDEN_APIS_WITH_CONSTR:
+                        printHiddenApisWithConstr = true;
+                        printRequests++;
+                        break;
+                    case UPDATE_HIDDEN_APIS:
+                        updateHiddenApis = true;
+                        break;
+                    case PRINT_ALL_APIS:
+                        printAllApis = true;
+                        printRequests++;
+                        break;
+                    case PRINT_ALL_APIS_WITH_CONSTR:
+                        printAllApisWithConstr = true;
+                        printRequests++;
+                        break;
+                    case UPDATE_APIS_WITH_ADDEDINORBEFORE:
+                        updateApisWithAddedinorbefore = true;
+                        break;
+                    case ROOT_DIR:
+                        rootDir = args[++i];
+                        break;
+                    case PLATFORM_VERSION_ASSERTION_CHECK:
+                        platformVersionCheck = true;
+                        break;
+                    case PRINT_ALL_APIS_WITH_CAR_VERSION:
+                        printAllApisWithCarVersion = true;
+                        break;
+                    case PRINT_INCORRECT_REQUIRES_API_USAGE_IN_CAR_SERVICE:
+                        printIncorrectRequiresApiUsageInCarService = true;
+                        break;
+                    case PRINT_ADDEDIN_WITHOUT_REQUIRES_API_IN_CAR_BUILT_IN:
+                        printAddedinWithoutRequiresApiInCarBuiltIn = true;
+                        break;
+                    case PRINT_ADDEDIN_WITHOUT_REQUIRES_API_IN_CSHS:
+                        printAddedinWithoutRequiresApiInCSHS = true;
+                        runForCSHS = true;
+                        printRequests++;
+                        break;
+                    default:
+                        System.out.println("Incorrect Arguments.");
+                        printHelp();
+                        return;
+                }
+            }
+
+            // rootDir must be set.
+            if (rootDir == null || rootDir.isEmpty()) {
+                System.out.println("Root dir not set.");
+                printHelp();
+                return;
+            }
+
+            // Do CarServiceHelperService related stuff here
+            if (runForCSHS) {
+                List<File> allJavaFiles_CSHS = getAllFiles(new File(rootDir + CSHS_PATH));
+                ParsedData parsedDataCSHS = new ParsedData();
+                ParsedDataBuilder.populateParsedData(allJavaFiles_CSHS, parsedDataCSHS);
+                if (printNonHiddenClassesCSHS) {
+                    printMarker(printRequests, PRINT_NON_HIDDEN_CLASSES_CSHS);
+                    print(ParsedDataHelper.getNonHiddenClassNamesOnly(parsedDataCSHS));
+                }
+                if (printAddedinWithoutRequiresApiInCSHS) {
+                    printMarker(printRequests, PRINT_ADDEDIN_WITHOUT_REQUIRES_API_IN_CSHS);
+                    print(ParsedDataHelper.getIncorrectRequiresApi(parsedDataCSHS));
+                }
+                if (updateNonHiddenClassesCSHS) {
+                    write(rootDir + CSHS_NON_HIDDEN_CLASSES_FILE,
+                            ParsedDataHelper.getNonHiddenClassNamesOnly(parsedDataCSHS));
                 }
                 return;
             }
 
-            List<String> allAPIs = new ArrayList<>();
-            for (int i = 0; i < allJavaFiles.size(); i++) {
-                allAPIs.addAll(parseJavaFile(allJavaFiles.get(i), /* onlyUnannotated= */ false));
+            List<File> allJavaFiles_carLib = getAllFiles(new File(rootDir + CAR_API_PATH));
+            List<File> allJavaFiles_carBuiltInLib = getAllFiles(
+                    new File(rootDir + CAR_BUILT_IN_API_PATH));
+
+            ParsedData parsedDataCarLib = new ParsedData();
+            ParsedData parsedDataCarBuiltinLib = new ParsedData();
+            ParsedDataBuilder.populateParsedData(allJavaFiles_carLib, parsedDataCarLib);
+            ParsedDataBuilder.populateParsedData(allJavaFiles_carBuiltInLib,
+                    parsedDataCarBuiltinLib);
+
+            if (printClasses) {
+                printMarker(printRequests, PRINT_CLASSES);
+                print(ParsedDataHelper.getClassNamesOnly(parsedDataCarLib));
+                print(ParsedDataHelper.getClassNamesOnly(parsedDataCarBuiltinLib));
             }
 
-            // write all APIs by default.
-            String toolPath = rootDir + API_TXT_SAVE_PATH;
-            Path file = Paths.get(toolPath + COMPLETE_API_LIST);
-            Files.write(file, allAPIs, StandardCharsets.UTF_8);
-
-            // create only un-annotated file for manual work
-            allAPIs = new ArrayList<>();
-            for (int i = 0; i < allJavaFiles.size(); i++) {
-                allAPIs.addAll(parseJavaFile(allJavaFiles.get(i), /* onlyUnannotated= */ true));
+            if (updateClasses) {
+                write(rootDir + CAR_API_ANNOTATION_TEST_FILE,
+                        ParsedDataHelper.getClassNamesOnly(parsedDataCarLib));
+                write(rootDir + CAR_BUILT_IN_ANNOTATION_TEST_FILE,
+                        ParsedDataHelper.getClassNamesOnly(parsedDataCarBuiltinLib));
             }
 
-            // write all un-annotated APIs.
-            if (allAPIs.size() > 0) {
-                if (args.length > 0 && args[0].equalsIgnoreCase("--write-un-annotated-to-file")) {
-                    file = Paths.get(toolPath + UN_ANNOTATED_API_LIST);
-                    Files.write(file, allAPIs, StandardCharsets.UTF_8);
-                } else {
-                    System.out.println("*********Un-annotated APIs************");
-                    for (int i = 0; i < allAPIs.size(); i++) {
-                        System.out.println(allAPIs.get(i));
-                    }
-                }
+            if (updateHiddenApis) {
+                write(rootDir + CAR_HIDDEN_API_FILE,
+                        ParsedDataHelper.getHiddenApisOnly(parsedDataCarLib));
+            }
+
+            if (printHiddenApis) {
+                printMarker(printRequests, PRINT_HIDDEN_APIS);
+                print(ParsedDataHelper.getHiddenApisOnly(parsedDataCarLib));
+            }
+
+            if (printHiddenApisWithConstr) {
+                printMarker(printRequests, PRINT_HIDDEN_APIS_WITH_CONSTR);
+                print(ParsedDataHelper.getHiddenApisWithHiddenConstructor(parsedDataCarLib));
+            }
+
+            if (printAllApis) {
+                printMarker(printRequests, PRINT_ALL_APIS);
+                print(ParsedDataHelper.getAllApis(parsedDataCarLib));
+            }
+
+            if (printAllApisWithConstr) {
+                printMarker(printRequests, PRINT_ALL_APIS_WITH_CONSTR);
+                print(ParsedDataHelper.getAllApisWithConstructor(parsedDataCarLib));
+            }
+
+            if (updateApisWithAddedinorbefore) {
+                write(rootDir + CAR_ADDEDINORBEFORE_API_FILE,
+                        ParsedDataHelper.getAddedInOrBeforeApisOnly(parsedDataCarLib));
+            }
+            if (platformVersionCheck) {
+                printMarker(printRequests, PLATFORM_VERSION_ASSERTION_CHECK);
+                print(ParsedDataHelper.checkAssertPlatformVersionAtLeast(parsedDataCarLib));
+            }
+            if (printAllApisWithCarVersion) {
+                printMarker(printRequests, PRINT_ALL_APIS_WITH_CAR_VERSION);
+                print(ParsedDataHelper.getApisWithVersion(parsedDataCarLib));
+                print(ParsedDataHelper.getApisWithVersion(parsedDataCarBuiltinLib));
+            }
+            if (printIncorrectRequiresApiUsageInCarService) {
+                printMarker(printRequests, PRINT_INCORRECT_REQUIRES_API_USAGE_IN_CAR_SERVICE);
+                List<File> allJavaFiles_CarService =
+                        getAllFiles(new File(rootDir + CAR_SERVICE_PATH));
+                ParsedData parsedDataCarService = new ParsedData();
+                ParsedDataBuilder.populateParsedData(allJavaFiles_CarService, parsedDataCarService);
+                print(ParsedDataHelper.getIncorrectRequiresApiUsage(parsedDataCarService));
+            }
+            if (printAddedinWithoutRequiresApiInCarBuiltIn) {
+                printMarker(printRequests, PRINT_ADDEDIN_WITHOUT_REQUIRES_API_IN_CAR_BUILT_IN);
+                print(ParsedDataHelper.getIncorrectRequiresApi(parsedDataCarBuiltinLib));
             }
         } catch (Exception e) {
             throw e;
         }
+    }
+
+    private static void printMarker(int printRequests, String request) {
+        if (printRequests > 1) {
+            // Should not change this marker since it would break the other script.
+            System.out.println("Start-" + request);
+        }
+    }
+
+    private static void print(List<String> data) {
+        for (String string : data) {
+            System.out.println(string);
+        }
+    }
+
+    private static void write(String filePath, List<String> data) throws IOException {
+        Path file = Paths.get(filePath);
+        Files.write(file, data, StandardCharsets.UTF_8);
+    }
+
+    private static void printHelp() {
+        System.out.println("**** Help ****");
+        System.out.println("At least one argument is required. Supported arguments - ");
+        System.out.println(PRINT_CLASSES + " prints the list of valid class and"
+                + " interfaces.");
+        System.out.println(UPDATE_CLASSES + " updates the test file with the list"
+                + " of valid class and interfaces. These files are updated"
+                + " tests/carservice_unit_test/res/raw/car_api_classes.txt and"
+                + " tests/carservice_unit_test/res/raw/car_built_in_api_classes.txt");
+        System.out.println(PRINT_HIDDEN_APIS + " prints hidden api list.");
+        System.out.println(PRINT_HIDDEN_APIS_WITH_CONSTR + " generates hidden api list with"
+                + " hidden constructors.");
+        System.out.println(UPDATE_HIDDEN_APIS + " generates hidden api list. "
+                + "Results would be updated in " + CAR_HIDDEN_API_FILE);
+        System.out.println(PRINT_ALL_APIS + " prints all apis");
+        System.out.println(PRINT_ALL_APIS + " prints all apis and constructors.");
+        System.out.println(UPDATE_APIS_WITH_ADDEDINORBEFORE
+                + " generates the api list that contains the @AddedInOrBefore annotation. "
+                + "Results would be updated in " + CAR_ADDEDINORBEFORE_API_FILE);
+        System.out.println(PLATFORM_VERSION_ASSERTION_CHECK
+                + " : Iterates through APIs to ensure that APIs added after TIRAMISU_x have call "
+                + "assertPlatformVersionAtLeast with the correct minPlatformVersion.");
+        System.out.println(PRINT_ALL_APIS_WITH_CAR_VERSION
+                + " : Prints a list of all apis along with their min car version.");
+        System.out.println("Second argument is value of Git Root Directory. By default, "
+                + "it is environment variable ANDROID_BUILD_TOP. If environment variable is not set"
+                + "then provide using" + ROOT_DIR + " <directory>");
     }
 
     private static List<File> getAllFiles(File folderName) {
@@ -112,242 +341,8 @@ public final class GenerateAPI {
                 allFiles.addAll(getAllFiles(files[i]));
             }
         }
+        // List files doesn't guarantee fixed order on all systems. It is better to sort the list.
+        Collections.sort(allFiles);
         return allFiles;
-    }
-
-    private static void printAllClasses(File file) throws Exception {
-        CompilationUnit cu = StaticJavaParser.parse(file);
-        String packageName = cu.getPackageDeclaration().get().getNameAsString();
-
-        new VoidVisitorAdapter<Object>() {
-            @Override
-            public void visit(ClassOrInterfaceDeclaration classOrInterfaceDeclaration, Object arg) {
-                if (classOrInterfaceDeclaration.isPrivate()) {
-                    return;
-                }
-
-                String className = classOrInterfaceDeclaration.getFullyQualifiedName().get()
-                        .substring(packageName.length() + 1);
-                System.out.println("\"" + packageName + "." + className.replace(".", "$") + "\",");
-            }
-        }.visit(cu, null);
-    }
-
-    private static List<String> parseJavaFile(File file, boolean onlyUnannotated) throws Exception {
-        List<String> parsedList = new ArrayList<>();
-
-        // Add code to parse file
-        CompilationUnit cu = StaticJavaParser.parse(file);
-        String packageName = cu.getPackageDeclaration().get().getNameAsString();
-
-        new VoidVisitorAdapter<Object>() {
-            @Override
-            public void visit(ClassOrInterfaceDeclaration n, Object arg) {
-                if (n.isPrivate()) {
-                    return;
-                }
-
-                String className =
-                        n.getFullyQualifiedName().get().substring(packageName.length() + 1);
-                String classType = n.isInterface() ? "interface" : "class";
-                boolean hiddenClass = false;
-
-                if (!n.getJavadoc().isEmpty()) {
-                    hiddenClass = n.getJavadoc().get().toText().contains("@hide");
-                }
-
-                boolean isClassSystemAPI = false;
-
-                NodeList<AnnotationExpr> classAnnotations = n.getAnnotations();
-                for (int j = 0; j < classAnnotations.size(); j++) {
-                    if (classAnnotations.get(j).getName().asString().contains("SystemApi")) {
-                        isClassSystemAPI = true;
-                    }
-                }
-
-                String classDeclaration = classType + " " + (hiddenClass ? "@hide " : "")
-                        + (isClassSystemAPI ? "@SystemApi " : "") + className + " package "
-                        + packageName;
-
-                parsedList.add(classDeclaration);
-                if (DBG) {
-                    System.out.println(classDeclaration);
-                }
-
-                int originalSizeOfParseList = parsedList.size();
-
-                List<FieldDeclaration> fields = n.getFields();
-                for (int i = 0; i < fields.size(); i++) {
-                    FieldDeclaration field = fields.get(i);
-                    if (field.isPrivate()) {
-                        continue;
-                    }
-
-                    String fieldName = field.getVariables().get(0).getName().asString();
-                    String fieldType = field.getVariables().get(0).getTypeAsString();
-                    boolean fieldInitialized =
-                            !field.getVariables().get(0).getInitializer().isEmpty();
-                    String fieldInitializedValue = "";
-                    if (fieldInitialized) {
-                        fieldInitializedValue =
-                                field.getVariables().get(0).getInitializer().get().toString();
-                    }
-
-                    // special case
-                    if (fieldName.equalsIgnoreCase("CREATOR")) {
-                        fieldInitialized = false;
-                    }
-
-                    boolean isSystem = false;
-                    boolean isAddedIn = false;
-                    boolean isAddedInOrBefore = false;
-                    boolean isHidden = false;
-
-                    if (!field.getJavadoc().isEmpty()) {
-                        isHidden = field.getJavadoc().get().toText().contains("@hide");
-                    }
-
-                    NodeList<AnnotationExpr> annotations = field.getAnnotations();
-                    for (int j = 0; j < annotations.size(); j++) {
-                        String annotationString = annotations.get(j).getName().asString();
-                        if (annotationString.contains("SystemApi")) {
-                            isSystem = true;
-                        }
-                        if (annotationString.contains("AddedInOrBefore")) {
-                            isAddedInOrBefore = true;
-                        }
-                        if (annotationString.equals("AddedIn")) {
-                            isAddedIn = true;
-                        }
-                    }
-
-                    if ((isAddedInOrBefore || isAddedIn) && onlyUnannotated) {
-                        continue;
-                    }
-
-                    StringBuilder sb = new StringBuilder();
-                    sb.append("field ");
-                    if (isHidden) {
-                        sb.append("@hide ");
-                    }
-
-                    if (isSystem) {
-                        sb.append("@SystemApi ");
-                    }
-
-                    if (isAddedInOrBefore) {
-                        sb.append("@AddedInOrBefore ");
-                    }
-
-                    if (isAddedIn) {
-                        sb.append("@AddedIn ");
-                    }
-
-                    sb.append(fieldType);
-                    sb.append(" ");
-                    sb.append(fieldName);
-
-                    if (fieldInitialized) {
-                        sb.append(" = ");
-                        sb.append(fieldInitializedValue);
-                    }
-                    sb.append(";");
-
-
-                    if (DBG) {
-                        System.out.printf("%s%s\n", TAB, sb);
-                    }
-                    parsedList.add(TAB + sb);
-                }
-
-                // get all the methods
-                List<MethodDeclaration> methods = n.getMethods();
-                for (int i = 0; i < methods.size(); i++) {
-                    MethodDeclaration method = methods.get(i);
-                    if (method.isPrivate()) {
-                        continue;
-                    }
-                    String returnType = method.getTypeAsString();
-                    String methodName = method.getName().asString();
-
-                    boolean isSystem = false;
-                    boolean isAddedIn = false;
-                    boolean isAddedInOrBefore = false;
-                    boolean isHidden = false;
-                    if (!method.getJavadoc().isEmpty()) {
-                        isHidden = method.getJavadoc().get().toText().contains("@hide");
-                    }
-
-                    NodeList<AnnotationExpr> annotations = method.getAnnotations();
-                    for (int j = 0; j < annotations.size(); j++) {
-                        String annotationString = annotations.get(j).getName().asString();
-                        if (annotationString.contains("SystemApi")) {
-                            isSystem = true;
-                        }
-                        if (annotationString.contains("AddedInOrBefore")) {
-                            isAddedInOrBefore = true;
-                        }
-                        if (annotationString.equals("AddedIn")) {
-                            isAddedInOrBefore = true;
-                        }
-                    }
-
-                    if ((isAddedInOrBefore || isAddedIn) && onlyUnannotated) {
-                        continue;
-                    }
-
-                    StringBuilder sb = new StringBuilder();
-                    sb.append("method ");
-
-                    if (isHidden) {
-                        sb.append("@hide ");
-                    }
-
-                    if (isSystem) {
-                        sb.append("@SystemApi ");
-                    }
-
-                    if (isAddedInOrBefore) {
-                        sb.append("@AddedInOrBefore ");
-                    }
-
-                    if (isAddedIn) {
-                        sb.append("@AddedIn ");
-                    }
-
-                    sb.append(returnType);
-                    sb.append(" ");
-                    sb.append(methodName);
-                    sb.append("(");
-
-                    List<Parameter> parameters = method.getParameters();
-                    for (int j = 0; j < parameters.size(); j++) {
-                        Parameter parameter = parameters.get(j);
-                        sb.append(parameter.getTypeAsString());
-                        sb.append(" ");
-                        sb.append(parameter.getNameAsString());
-                        if (j < parameters.size() - 1) {
-                            sb.append(", ");
-                        }
-                    }
-                    sb.append(");");
-                    if (DBG) {
-                        System.out.printf("%s%s\n", TAB, sb);
-                    }
-                    parsedList.add(TAB + sb);
-                }
-
-                if (parsedList.size() == originalSizeOfParseList) {
-                    // no method or field is added
-                    if (onlyUnannotated) {
-                        parsedList.remove(originalSizeOfParseList - 1);
-                    }
-                }
-
-                super.visit(n, arg);
-            }
-        }.visit(cu, null);
-
-        return parsedList;
     }
 }

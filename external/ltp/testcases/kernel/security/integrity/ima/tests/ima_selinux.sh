@@ -11,10 +11,7 @@
 
 TST_NEEDS_CMDS="awk cut grep tail"
 TST_CNT=2
-TST_NEEDS_DEVICE=1
 TST_SETUP="setup"
-
-. ima_setup.sh
 
 FUNC_CRITICAL_DATA='func=CRITICAL_DATA'
 REQUIRED_POLICY="^measure.*$FUNC_CRITICAL_DATA"
@@ -100,8 +97,6 @@ test1()
 # configuration.
 test2()
 {
-	tst_check_cmds xxd || return
-
 	local measured_data state_file="$TST_TMPDIR/selinux_state.txt"
 	local data_source_name="selinux"
 	local pattern="data_sources=[^[:space:]]*$data_source_name"
@@ -127,7 +122,7 @@ test2()
 	digest=$(echo "$line" | cut -d' ' -f4 | cut -d':' -f2)
 	algorithm=$(echo "$line" | cut -d' ' -f4 | cut -d':' -f1)
 
-	echo "$line" | cut -d' ' -f6 | xxd -r -p > $state_file
+	echo "$line" | cut -d' ' -f6 | tst_hexdump -d > $state_file
 
 	expected_digest="$(compute_digest $algorithm $state_file)" || \
 	tst_brk TCONF "cannot compute digest for $algorithm"
@@ -170,4 +165,5 @@ test2()
 	validate_policy_capabilities $measured_data
 }
 
+. ima_setup.sh
 tst_run

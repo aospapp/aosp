@@ -20,6 +20,7 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <android-base/unique_fd.h>
 #include <ext4_utils/ext4_utils.h>
 #include <fs_mgr.h>
@@ -350,8 +351,10 @@ int PartitionInstaller::WipeWritable(const std::string& active_dsu, const std::s
 
 std::optional<uint64_t> PartitionInstaller::GetMinimumFreeSpaceThreshold(
         const std::string& install_dir) {
-    // No need to retain any space if we were not installing to the internal storage.
-    if (!android::base::StartsWith(install_dir, "/data"s)) {
+    // No need to retain any space if we were not installing to the internal storage
+    // or device is not using VAB.
+    if (!android::base::StartsWith(install_dir, "/data"s)
+            || !android::base::GetBoolProperty("ro.virtual_ab.enabled", false)) {
         return 0;
     }
     // Dynamic Partitions device must have a "super" block device.

@@ -16,7 +16,8 @@
 
 from acts_contrib.test_utils.gnss import LabTtffTestBase as lttb
 from acts_contrib.test_utils.gnss.gnss_test_utils import launch_eecoexer
-from acts_contrib.test_utils.gnss.gnss_test_utils import excute_eecoexer_function
+from acts_contrib.test_utils.gnss.gnss_test_utils import execute_eecoexer_function
+
 
 
 class LabTtffGeneralCoexTest(lttb.LabTtffTestBase):
@@ -26,6 +27,8 @@ class LabTtffGeneralCoexTest(lttb.LabTtffTestBase):
         super().setup_class()
         req_params = ['coex_testcase_ls']
         self.unpack_userparams(req_param_names=req_params)
+        self.test_cmd = ''
+        self.stop_cmd = ''
 
     def setup_test(self):
         super().setup_test()
@@ -34,16 +37,9 @@ class LabTtffGeneralCoexTest(lttb.LabTtffTestBase):
         self.dut.adb.shell(
             'setprop persist.com.google.eecoexer.cellular.temperature_limit 60')
 
-    def exe_eecoexer_loop_cmd(self, cmd_list=list()):
-        """
-        Function for execute EECoexer command list
-            Args:
-                cmd_list: a list of EECoexer function command.
-                Type, list.
-        """
-        for cmd in cmd_list:
-            self.log.info('Execute EEcoexer Command: {}'.format(cmd))
-            excute_eecoexer_function(self.dut, cmd)
+    def teardown_test(self):
+        super().teardown_test()
+        self.exe_eecoexer_loop_cmd(self.stop_cmd)
 
     def gnss_ttff_ffpe_coex_base(self, mode):
         """
@@ -54,28 +50,34 @@ class LabTtffGeneralCoexTest(lttb.LabTtffTestBase):
                 cs(cold start), ws(warm start), hs(hot start)
         """
         # Loop all test case in coex_testcase_ls
-        for test_item in self.coex_testcase_ls:
+        for i, test_item in enumerate(self.coex_testcase_ls):
+
+            if i > 0:
+                self.setup_test()
 
             # get test_log_path from coex_testcase_ls['test_name']
             test_log_path = test_item['test_name']
 
             # get test_cmd from coex_testcase_ls['test_cmd']
-            test_cmd = test_item['test_cmd']
+            self.test_cmd = test_item['test_cmd']
 
             # get stop_cmd from coex_testcase_ls['stop_cmd']
-            stop_cmd = test_item['stop_cmd']
+            self.stop_cmd = test_item['stop_cmd']
 
             # Start aggressor Tx by EEcoexer
-            self.exe_eecoexer_loop_cmd(test_cmd)
+            # self.exe_eecoexer_loop_cmd(test_cmd)
 
             # Start GNSS TTFF FFPE testing
-            self.gnss_ttff_ffpe(mode, test_log_path)
+            self.gnss_ttff_ffpe(mode, test_log_path, self.test_cmd, self.stop_cmd)
 
             # Stop aggressor Tx by EEcoexer
-            self.exe_eecoexer_loop_cmd(stop_cmd)
+            # self.exe_eecoexer_loop_cmd(stop_cmd)
 
             # Clear GTW GPSTool log. Need to clean the log every round of the test.
             self.clear_gps_log()
+
+            if i < len(self.coex_testcase_ls) - 1:
+                self.teardown_test()
 
     def test_gnss_cold_ttff_ffpe_coex(self):
         """

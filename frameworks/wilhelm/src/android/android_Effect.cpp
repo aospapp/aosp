@@ -677,8 +677,7 @@ bool android_fx_initEffectObj(audio_session_t sessionId, android::sp<android::Au
 
     effect->set(type, EFFECT_UUID_NULL,
             0,// priority
-            0,// effect callback
-            0,// callback data
+            nullptr,// effect callback
             sessionId,// session ID
             0); // output
 
@@ -826,8 +825,7 @@ SLresult android_genericFx_createEffect(IAndroidEffect* iae, SLInterfaceID pUuid
     pFx->set(NULL, // not using type to create effect
             (const effect_uuid_t*)pUuid,
             0,// priority
-            0,// effect callback
-            0,// callback data
+            nullptr,// effect callback
             sessionId,
             0 );// output
 

@@ -16,6 +16,24 @@
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_title" translatable="false">Car service</string>
 
+    <!-- Permission text: allows framework to bind to the services in projection apps[CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_bind_projection_service">bind to a projection service</string>
+    <!-- Permission text: allows framework to bind to the services in projection apps[CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_bind_projection_service">Allows the holder to bind to the top-level interface of a projection service. Should never be needed for normal apps."</string>
+
+    <!-- Permission text: apps can act as VMS router core [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_bind_vms_client">VMS Client Service</string>
+    <!-- Permission text: apps can act as VMS router core [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_bind_vms_client">Bind to VMS clients</string>
+
+    <string name="car_permission_label_bind_instrument_cluster_rendering">Instrument Cluster Rendering</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering">Receive instrument cluster data</string>
+
+    <!-- Permission text: apps can handle input events [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_bind_input_service">Car Input Service</string>
+    <!-- Permission text: apps can handle input events [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_bind_input_service">Handle input events</string>
+
     <!-- Blocking activity: Message to show to user when a feature of current application is not allowed. [CHAR LIMIT=120] -->
     <string name="activity_blocked_text">You can\u2019t use this feature while driving</string>
     <!-- Blocking activity: Message to accompany the exit_button that restarts the blocked app. [CHAR LIMIT=120] -->
@@ -62,17 +80,9 @@
     <!-- Title of notification shown when an app overuses system resources [CHAR LIMIT=100] -->
     <string name="resource_overuse_notification_title"><xliff:g name="app_name" example="Maps">^1</xliff:g> is affecting your system performance</string>
     <!-- Message of notification shown when an app overuses system resources [CHAR LIMIT=NONE] -->
-    <string name="resource_overuse_notification_text_disable_app">Disable app to improve system performance. You can enable the app once again in Settings.</string>
-    <!-- Message of notification shown when an app overuses system resources [CHAR LIMIT=NONE] -->
-    <string name="resource_overuse_notification_text_prioritize_app">Prioritize app to keep using app.</string>
-    <!-- Message of notification shown when an app overuses system resources [CHAR LIMIT=NONE] -->
-    <string name="resource_overuse_notification_text_uninstall_app">Uninstall app to improve system performance.</string>
+    <string name="resource_overuse_notification_text_disabled_app">This app has been prevented from running in the background. Prioritize app to continue background usage.</string>
     <!-- Label for button that will disable the app now [CHAR LIMIT=30] -->
-    <string name="resource_overuse_notification_button_disable_app">Disable app</string>
+    <string name="resource_overuse_notification_button_close_app">Close</string>
     <!-- Label for button that will redirect user to prioritize app setting [CHAR LIMIT=30] -->
     <string name="resource_overuse_notification_button_prioritize_app">Prioritize app</string>
-    <!-- Label for button that will redirect user to uninstall app setting [CHAR LIMIT=30] -->
-    <string name="resource_overuse_notification_button_uninstall_app">Uninstall app</string>
-    <!-- Text of the toast shown when the app is disabled [CHAR_LIMIT=100]-->
-    <string name="resource_overuse_toast_disable_app_now"><xliff:g name="app_name" example="Maps">^1</xliff:g> has been disabled. You can enable it again in Settings.</string>
 </resources>

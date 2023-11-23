@@ -28,8 +28,9 @@ PRODUCT_PACKAGES += \
     adbd_system_api \
     android.hardware.confirmationui@1.0-service.trusty \
     android.hidl.allocator@1.0-service \
-    android.system.suspend@1.0-service \
+    android.system.suspend-service \
     apexd \
+    cgroups.json \
     com.android.art \
     com.android.i18n \
     com.android.runtime \
@@ -40,6 +41,7 @@ PRODUCT_PACKAGES += \
     init_vendor \
     init.environ.rc \
     keymaster_soft_wrapped_attestation_keys.xml \
+    keystore2 \
     libandroid_servers \
     libc.bootstrap \
     libdl.bootstrap \
@@ -47,7 +49,6 @@ PRODUCT_PACKAGES += \
     libm.bootstrap \
     linker \
     linker64 \
-    linkerconfig \
     logcat \
     logd \
     logwrapper \
@@ -111,6 +112,7 @@ PRODUCT_COPY_FILES += \
     device/generic/trusty/fstab.ranchu:root/fstab.qemu_trusty \
     device/generic/trusty/init.qemu_trusty.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.qemu_trusty.rc \
     device/generic/trusty/ueventd.qemu_trusty.rc:$(TARGET_COPY_OUT_VENDOR)/etc/ueventd.rc \
+    system/core/libprocessgroup/profiles/task_profiles.json:$(TARGET_COPY_OUT_VENDOR)/etc/task_profiles.json \
 
 PRODUCT_COPY_FILES += \
     device/generic/goldfish/data/etc/config.ini:config.ini \
@@ -123,9 +125,10 @@ $(call inherit-product, system/core/trusty/trusty-test.mk)
 
 # Test Utilities
 PRODUCT_PACKAGES += \
+    binderRpcToTrustyTest \
     tipc-test \
-    libtrusty_metrics_test \
     trusty-ut-ctrl \
+    trusty_stats_test \
     VtsAidlKeyMintTargetTest \
     VtsHalConfirmationUIV1_0TargetTest \
     VtsHalGatekeeperV1_0TargetTest \

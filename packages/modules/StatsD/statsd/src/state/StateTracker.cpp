@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define STATSD_DEBUG true  // STOPSHIP if true
+#define STATSD_DEBUG false  // STOPSHIP if true
 #include "Log.h"
 
 #include "stats_util.h"

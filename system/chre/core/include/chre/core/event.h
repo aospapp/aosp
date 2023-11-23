@@ -47,7 +47,7 @@ class Event : public NonCopyable {
 
   // Events targeted at nanoapps
   Event(uint16_t eventType_, void *eventData_,
-        chreEventCompleteFunction *freeCallback_,
+        chreEventCompleteFunction *freeCallback_, bool isLowPriority_,
         uint16_t senderInstanceId_ = kSystemInstanceId,
         uint16_t targetInstanceId_ = kBroadcastInstanceId,
         uint16_t targetAppGroupMask_ = kDefaultTargetGroupMask)
@@ -57,7 +57,8 @@ class Event : public NonCopyable {
         freeCallback(freeCallback_),
         senderInstanceId(senderInstanceId_),
         targetInstanceId(targetInstanceId_),
-        targetAppGroupMask(targetAppGroupMask_) {
+        targetAppGroupMask(targetAppGroupMask_),
+        isLowPriority(isLowPriority_) {
     // Sending events to the system must only be done via the other constructor
     CHRE_ASSERT(targetInstanceId_ != kSystemInstanceId);
     CHRE_ASSERT(targetAppGroupMask_ > 0);
@@ -73,7 +74,8 @@ class Event : public NonCopyable {
         systemEventCallback(systemEventCallback_),
         extraData(extraData_),
         targetInstanceId(kSystemInstanceId),
-        targetAppGroupMask(kDefaultTargetGroupMask) {
+        targetAppGroupMask(kDefaultTargetGroupMask),
+        isLowPriority(false) {
     // Posting events to the system must always have a corresponding callback
     CHRE_ASSERT(systemEventCallback_ != nullptr);
   }
@@ -143,8 +145,10 @@ class Event : public NonCopyable {
   // all registered listeners.
   const uint16_t targetAppGroupMask;
 
+  const bool isLowPriority;
+
  private:
-  uint16_t mRefCount = 0;
+  uint8_t mRefCount = 0;
 
   //! @return Monotonic time reference for initializing receivedTimeMillis
   static uint16_t getTimeMillis();

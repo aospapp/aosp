@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!--Whether the Face enroll confirmation page show finish large icon. -->
+    <bool name="config_face_enroll_confirmation_show_illustration">false</bool>
+</resources>

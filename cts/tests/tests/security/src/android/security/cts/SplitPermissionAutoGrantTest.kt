@@ -18,7 +18,10 @@ package android.security.cts
 
 import android.platform.test.annotations.AsbSecurityTest
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.android.compatibility.common.util.mainline.MainlineModule
+import com.android.compatibility.common.util.mainline.ModuleDetector
 import org.junit.After
+import org.junit.Assume.assumeFalse
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,6 +38,8 @@ class SplitPermissionAutoGrantTest : BasePermissionUiTest() {
     @Test
     @AsbSecurityTest(cveBugId = [223907044])
     fun testAutoGrant() {
+        assumeFalse(ModuleDetector.moduleIsPlayManaged(
+                mContext.getPackageManager(), MainlineModule.PERMISSION_CONTROLLER))
         installPackage(SPLIT_PERMISSION_APK_PATH)
         assertAppHasPermission(android.Manifest.permission.BLUETOOTH, true)
         assertAppHasPermission(android.Manifest.permission.BLUETOOTH_CONNECT, true)

@@ -1,4 +1,4 @@
-# $MirOS: src/bin/mksh/check.t,v 1.845 2020/05/16 22:19:15 tg Exp $
+# $MirOS: src/bin/mksh/check.t,v 1.853 2020/10/31 03:53:03 tg Exp $
 # -*- mode: sh -*-
 #-
 # Copyright © 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
@@ -31,7 +31,7 @@
 # (2013/12/02 20:39:44) http://cvsweb.openbsd.org/cgi-bin/cvsweb/src/regress/bin/ksh/?sortby=date
 
 expected-stdout:
-	KSH R59 2020/05/16
+	KSH R59 2020/10/31
 description:
 	Check base version of full shell
 stdin:
@@ -6109,7 +6109,7 @@ expected-stderr-pattern: /does\/not\/exist/
 ---
 name: regression-28
 description:
-	variable assignements not detected well
+	variable assignments not detected well
 stdin:
 	a.x=1 echo hi
 expected-exit: e != 0
@@ -6184,7 +6184,7 @@ expected-stdout:
 ---
 name: regression-35
 description:
-	Tempory files used for here-docs in functions get trashed after
+	Temporay files used for here-docs in functions get trashed after
 	the function is parsed (before it is executed)
 stdin:
 	f1() {
@@ -7457,7 +7457,7 @@ expected-stdout:
 name: xxx-param-subst-qmark-1
 description:
 	Check suppresion of error message with null string.  According to
-	POSIX, it shouldn't print the error as 'word' isn't ommitted.
+	POSIX, it shouldn't print the error as 'word' isn't omitted.
 	ksh88/93, Solaris /bin/sh and /usr/xpg4/bin/sh all print the error.
 stdin:
 	unset foo
@@ -8853,9 +8853,10 @@ description:
 	XXX if the OS can already execute them, we lose
 	note: cygwin execve(2) doesn't return to us with ENOEXEC, we lose
 	note: Ultrix perl5 t4 returns 65280 (exit-code 255) and no text
+	note: A/UX perl5 returns 6400 (exit-code 25), passes #1-3
 	XXX fails when LD_PRELOAD is set with -e and Perl chokes it (ASan)
 need-pass: no
-category: !os:cygwin,!os:midipix,!os:msys,!os:ultrix,!os:uwin-nt,!smksh
+category: !os:aux,!os:cygwin,!os:midipix,!os:msys,!os:ultrix,!os:uwin-nt,!smksh
 env-setup: !FOO=BAR!
 stdin:
 	print '#!'"$__progname"'\nprint "1 a=$ENV{FOO}";' >t1
@@ -11489,13 +11490,11 @@ name: fd-cloexec-1
 description:
 	Verify that file descriptors > 2 are private for Korn shells
 	AT&T ksh93 does this still, which means we must keep it as well
-	XXX fails on some old Perl installations
-need-pass: no
 stdin:
 	cat >cld <<-EOF
 		#!$__perlname
-		open(my \$fh, ">&", 9) or die "E: open \$!";
-		syswrite(\$fh, "Fowl\\n", 5) or die "E: write \$!";
+		open(FH, ">&9") or die "E: open \$!";
+		syswrite(FH, "Fowl\\n", 5) or die "E: write \$!";
 	EOF
 	chmod +x cld
 	exec 9>&1
@@ -11508,13 +11507,11 @@ name: fd-cloexec-2
 description:
 	Verify that file descriptors > 2 are not private for POSIX shells
 	See Debian Bug #154540, Closes: #499139
-	XXX fails on some old Perl installations
-need-pass: no
 stdin:
 	cat >cld <<-EOF
 		#!$__perlname
-		open(my \$fh, ">&", 9) or die "E: open \$!";
-		syswrite(\$fh, "Fowl\\n", 5) or die "E: write \$!";
+		open(FH, ">&9") or die "E: open \$!";
+		syswrite(FH, "Fowl\\n", 5) or die "E: write \$!";
 	EOF
 	chmod +x cld
 	test -n "$POSH_VERSION" || set -o posix
@@ -12079,10 +12076,10 @@ expected-stdout:
 	EOFN
 	)|tr u x); }
 	function reread_IOWRITE_IOCLOB_IOHERE_noIOSKIP {
-		x=$( ( \cat >|bar <<"EOFN" 
+		x=$( ( \cat >|bar <<"EOFN" ) | \tr u x 
 		foo
 	EOFN
-	) | \tr u x ) 
+	) 
 	} 
 	inline_IOWRITE_noIOCLOB_IOHERE_IOSKIP() {
 		cat  1>bar  <<-EOFI
@@ -12112,10 +12109,10 @@ expected-stdout:
 		EOFI
 	)|tr u x); }
 	function reread_IOWRITE_noIOCLOB_IOHERE_IOSKIP {
-		x=$( ( \cat >bar <<-EOFI 
+		x=$( ( \cat >bar <<-EOFI ) | \tr u x 
 	foo
 	EOFI
-	) | \tr u x ) 
+	) 
 	} 
 	inline_IORDWR_IODUP() {
 		sh  1<>/dev/console  0<&1  2>&1
@@ -13640,6 +13637,11 @@ description:
 	words, and command -p[vV] should find aliases, reserved words, and
 	builtins over external commands.
 stdin:
+	# extra checks prep
+	mkdir mrr
+	:>mrr/miau
+	chmod +x mrr/miau
+	# priorities
 	PATH=/bin:/usr/bin
 	alias foo="bar baz"
 	alias '[ab]=:'
@@ -13653,6 +13655,14 @@ stdin:
 	# extra checks
 	alias '[ab]'
 	whence '[ab]'
+	PATH=mrr
+	case $(command -v miau) {
+	(mrr/miau) echo fail ;;
+	(!(/*|[A-Z]:/*)) echo fail2 ;;
+	($PWD/mrr/miau) echo ok ;;
+	(/*|[A-Z]:/*) echo pwd bad? ;;
+	(*) echo not reached ;;
+	}
 expected-stdout:
 	if
 	if
@@ -13680,6 +13690,7 @@ expected-stdout:
 	'[ab]' is an alias for :
 	'[ab]'=:
 	:
+	ok
 ---
 name: whence-preserve-tradition
 description:

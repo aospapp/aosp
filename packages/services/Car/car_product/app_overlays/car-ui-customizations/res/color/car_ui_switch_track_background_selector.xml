@@ -24,7 +24,7 @@
       android:color="#75757575" />
   <item
       android:state_checked="true" android:state_enabled="false"
-      android:color="#7566B5" />
+      android:color="#7566B5FF" />
   <item
       android:state_enabled="false"
       android:color="#75757575" />

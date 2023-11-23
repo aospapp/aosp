@@ -115,5 +115,5 @@ def create_base_ec(servo):
     if base_board:
         return ChromeBaseEC(servo, base_board)
     else:
-        logging.warn('No Base EC found on the servo board')
+        logging.warning('No Base EC found on the servo board')
         return None

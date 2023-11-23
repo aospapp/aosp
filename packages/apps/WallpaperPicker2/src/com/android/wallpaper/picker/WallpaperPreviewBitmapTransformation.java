@@ -77,7 +77,7 @@ public class WallpaperPreviewBitmapTransformation extends BitmapTransformation {
                     cropSize.width(), cropSize.height());
         }
 
-        return BitmapProcessor.blur(mContext, cropped, cropped.getWidth(), cropped.getHeight());
+        return BitmapProcessor.createLowResBitmap(cropped, cropped.getWidth(), cropped.getHeight());
     }
 
     @Override

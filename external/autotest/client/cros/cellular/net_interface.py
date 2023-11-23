@@ -1,10 +1,15 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import os
-import urlparse
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
+import os
+import six
+import six.moves.urllib.parse
 
 import common
 from autotest_lib.client.bin import utils
@@ -69,11 +74,11 @@ class PseudoNetInterface(object):
                 (PseudoNetInterface.IFACE_IP_BASE,
                  PseudoNetInterface.IFACE_IP_BASE))
         test_fetch_url_host = \
-                urlparse.urlparse(network.FETCH_URL_PATTERN_FOR_TEST).netloc
+                six.moves.urllib.parse.urlparse(network.FETCH_URL_PATTERN_FOR_TEST).netloc
         dns_lookup_table = {
                 PseudoNetInterface.SHILL_PORTAL_DETECTION_SERVER: peer_ip,
                 test_fetch_url_host: peer_ip }
-        for host, ip in dns_lookup_table.iteritems():
+        for host, ip in six.iteritems(dns_lookup_table):
             dnsmasq_command += '--address=/%s/%s ' % (host, ip)
         return dnsmasq_command
 
@@ -140,4 +145,3 @@ class PseudoNetInterface(object):
         """
         self.Teardown()
         self.Setup()
-

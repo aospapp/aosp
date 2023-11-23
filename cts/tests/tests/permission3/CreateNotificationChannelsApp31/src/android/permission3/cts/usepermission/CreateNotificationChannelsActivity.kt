@@ -22,6 +22,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 
@@ -36,16 +37,20 @@ const val SECONDARY_APP_INTENT = "emptyactivity.main"
 const val SECONDARY_APP_PKG = "android.permission3.cts.usepermissionother"
 const val CHANNEL_ID_31 = "test_channel_id"
 const val BROADCAST_ACTION = "usepermission.createchannels.BROADCAST"
-const val DELAY_MS = 1000L
+const val DELAY_MS = 3000L
 const val LONG_DELAY_MS = 2000L
 
 class CreateNotificationChannelsActivity : Activity() {
     lateinit var notificationManager: NotificationManager
     var launchActivityOnSecondResume = false
     var isFirstResume = true
+    var windowHasFocus = false
+    var pendingCreateChannel = false
     val handler = Handler(Looper.getMainLooper())
 
-    override fun onStart() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
         val launchSecondActivity = intent.getBooleanExtra(EXTRA_START_SECOND_ACTIVITY, false)
         notificationManager = baseContext.getSystemService(NotificationManager::class.java)!!
         if (intent.getBooleanExtra(EXTRA_START_SECOND_APP, false)) {
@@ -73,7 +78,6 @@ class CreateNotificationChannelsActivity : Activity() {
             }
         }
 
-
         if (intent.getBooleanExtra(EXTRA_REQUEST_OTHER_PERMISSIONS, false)) {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 0)
         } else if (intent.getBooleanExtra(EXTRA_REQUEST_OTHER_PERMISSIONS_DELAYED, false)) {
@@ -85,8 +89,6 @@ class CreateNotificationChannelsActivity : Activity() {
         if (intent.getBooleanExtra(EXTRA_REQUEST_NOTIF_PERMISSION, false)) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
         }
-
-        super.onStart()
     }
 
     private fun launchSecondActivity() {
@@ -99,7 +101,21 @@ class CreateNotificationChannelsActivity : Activity() {
                             }, LONG_DELAY_MS)
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        windowHasFocus = hasFocus
+        if (windowHasFocus && pendingCreateChannel) {
+            pendingCreateChannel = false
+            createChannel()
+        }
+    }
+
     private fun createChannel() {
+        // Wait until window has focus so the permission prompt can be displayed
+        if (!windowHasFocus) {
+            pendingCreateChannel = true
+            return
+        }
+
         if (notificationManager.getNotificationChannel(CHANNEL_ID_31) == null) {
             notificationManager.createNotificationChannel(NotificationChannel(CHANNEL_ID_31,
                 "Foreground Services", NotificationManager.IMPORTANCE_HIGH))

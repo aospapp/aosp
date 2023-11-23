@@ -1,6 +1,6 @@
 #pragma once
 
-#include "base/Tracing.h"
+#include "aemu/base/Tracing.h"
 
 #include <assert.h>
 #include <stddef.h>
@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-namespace emugl {
+namespace gfxstream {
 
 // A helper template to extract values form the wire protocol stream
 // and convert them to appropriate host values.
@@ -178,4 +178,4 @@ private:
 using InputBuffer = GenericInputBuffer<>;
 using OutputBuffer = GenericOutputBuffer<>;
 
-}  // namespace emugl
+}  // namespace gfxstream

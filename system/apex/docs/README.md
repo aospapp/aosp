@@ -237,7 +237,7 @@ To support APEX, make sure the kernel command line parameters meet the following
 requirements.
 
 -   `loop.max_loop` must NOT be set
--   `loop.max_part` must be <= 8
+-   `loop.max_part` must be <= 7
 
 ## Building an APEX
 

@@ -18,18 +18,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.devicepolicy.cts"
           android:targetSandboxVersion="2">
+    <uses-sdk minSdkVersion="29" targetSdkVersion="29"/>
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
     <!-- TODO(b/191637162): This is required for
             canInteractAcrossProfiles_permissionIsSet_returnsTrue -->
     <uses-permission android:name="android.permission.INTERACT_ACROSS_PROFILES"/>
 
-    <!-- Seemingly the INTERNET permission cannot be adopted. -->
+    <!-- Seemingly the these permissions cannot be adopted. -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Required for QuietModeTest#quietMode_sensitiveAppOpsNotAllowed -->
+    <uses-permission android:name="android.permission.BODY_SENSORS"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"/>
 
     <!-- Add a network security config that trusts user added CAs for tests -->
     <application android:testOnly="true"
                  android:appComponentFactory="com.android.eventlib.premade.EventLibAppComponentFactory"
-                 android:networkSecurityConfig="@xml/network_security_config">
+                 android:networkSecurityConfig="@xml/network_security_config"
+                 android:requestLegacyExternalStorage="true">
         <uses-library android:name="android.test.runner" />
 
         <activity android:name=".MainActivity"

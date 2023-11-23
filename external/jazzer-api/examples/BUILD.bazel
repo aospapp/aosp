@@ -5,6 +5,7 @@ load("//bazel:fuzz_target.bzl", "java_fuzz_target_test")
 
 java_fuzz_target_test(
     name = "Autofuzz",
+    expected_findings = ["java.lang.ArrayIndexOutOfBoundsException"],
     fuzzer_args = [
         "--autofuzz=com.google.json.JsonSanitizer::sanitize",
         # Exit after the first finding for testing purposes.
@@ -46,6 +47,8 @@ java_fuzz_target_test(
     fuzzer_args = ["--jvm_args=-Djazzer.native_lib=native_asan"],
     sanitizer = "address",
     target_class = "com.example.ExampleFuzzerWithNative",
+    target_compatible_with = SKIP_ON_WINDOWS,
+    verify_crash_reproducer = False,
     runtime_deps = [
         ":example_fuzzer_with_native_lib",
     ],
@@ -58,6 +61,7 @@ java_fuzz_target_test(
     target_class = "com.example.ExampleFuzzerWithNative",
     # Crashes at runtime without an error message.
     target_compatible_with = SKIP_ON_WINDOWS,
+    verify_crash_reproducer = False,
     runtime_deps = [
         ":example_fuzzer_with_native_lib",
     ],
@@ -78,9 +82,20 @@ java_fuzz_target_test(
     srcs = [
         "src/main/java/com/example/ExampleValueProfileFuzzer.java",
     ],
+    expected_findings = ["com.code_intelligence.jazzer.api.FuzzerSecurityIssueLow"],
     # Comment out the next line to keep the fuzzer running indefinitely.
     fuzzer_args = ["-use_value_profile=1"],
     target_class = "com.example.ExampleValueProfileFuzzer",
+)
+
+java_fuzz_target_test(
+    name = "MazeFuzzer",
+    srcs = [
+        "src/main/java/com/example/MazeFuzzer.java",
+    ],
+    expected_findings = ["com.example.MazeFuzzer$$TreasureFoundException"],
+    fuzzer_args = ["-use_value_profile=1"],
+    target_class = "com.example.MazeFuzzer",
 )
 
 java_fuzz_target_test(
@@ -88,6 +103,7 @@ java_fuzz_target_test(
     srcs = [
         "src/main/java/com/example/ExampleOutOfMemoryFuzzer.java",
     ],
+    expected_findings = ["java.lang.OutOfMemoryError"],
     fuzzer_args = ["--jvm_args=-Xmx512m"],
     target_class = "com.example.ExampleOutOfMemoryFuzzer",
 )
@@ -97,6 +113,7 @@ java_fuzz_target_test(
     srcs = [
         "src/main/java/com/example/ExampleStackOverflowFuzzer.java",
     ],
+    expected_findings = ["java.lang.StackOverflowError"],
     target_class = "com.example.ExampleStackOverflowFuzzer",
     # Crashes with a segfault before any stack trace printing is reached.
     target_compatible_with = SKIP_ON_MACOS,
@@ -126,18 +143,14 @@ java_fuzz_target_test(
 
 java_fuzz_target_test(
     name = "JpegImageParserFuzzer",
+    size = "enormous",
     srcs = [
         "src/main/java/com/example/JpegImageParserFuzzer.java",
     ],
+    expected_findings = ["java.lang.NegativeArraySizeException"],
     fuzzer_args = [
-        "-fork=5",
-        "--additional_jvm_args=-Dbaz=baz",
-    ] + select({
-        # \\\\ becomes \\ when evaluated as a Starlark string literal, then \ in
-        # java_fuzz_target_test.
-        "@platforms//os:windows": ["--jvm_args=-Dfoo=foo;-Dbar=b\\\\;ar"],
-        "//conditions:default": ["--jvm_args=-Dfoo=foo:-Dbar=b\\\\:ar"],
-    }),
+        "-fork=2",
+    ],
     target_class = "com.example.JpegImageParserFuzzer",
     # The exit codes of the forked libFuzzer processes are not picked up correctly.
     target_compatible_with = SKIP_ON_MACOS,
@@ -150,6 +163,11 @@ java_fuzz_target_test(
     name = "GifImageParserFuzzer",
     srcs = [
         "src/main/java/com/example/GifImageParserFuzzer.java",
+    ],
+    expected_findings = [
+        "java.lang.ArrayIndexOutOfBoundsException",
+        "java.lang.IllegalArgumentException",
+        "java.lang.OutOfMemoryError",
     ],
     target_class = "com.example.GifImageParserFuzzer",
     deps = [
@@ -174,6 +192,7 @@ java_fuzz_target_test(
     srcs = [
         "src/main/java/com/example/JsonSanitizerCrashFuzzer.java",
     ],
+    expected_findings = ["java.lang.IndexOutOfBoundsException"],
     target_class = "com.example.JsonSanitizerCrashFuzzer",
     deps = [
         "@maven//:com_mikesamuel_json_sanitizer",
@@ -185,6 +204,7 @@ java_fuzz_target_test(
     srcs = [
         "src/main/java/com/example/JsonSanitizerDenylistFuzzer.java",
     ],
+    expected_findings = ["java.lang.AssertionError"],
     target_class = "com.example.JsonSanitizerDenylistFuzzer",
     deps = [
         "@maven//:com_mikesamuel_json_sanitizer",
@@ -225,6 +245,7 @@ java_fuzz_target_test(
     srcs = [
         "src/main/java/com/example/JsonSanitizerIdempotenceFuzzer.java",
     ],
+    expected_findings = ["java.lang.AssertionError"],
     target_class = "com.example.JsonSanitizerIdempotenceFuzzer",
     deps = [
         "@maven//:com_mikesamuel_json_sanitizer",
@@ -236,6 +257,7 @@ java_fuzz_target_test(
     srcs = [
         "src/main/java/com/example/JsonSanitizerValidJsonFuzzer.java",
     ],
+    expected_findings = ["com.code_intelligence.jazzer.api.FuzzerSecurityIssueLow"],
     target_class = "com.example.JsonSanitizerValidJsonFuzzer",
     deps = [
         "@maven//:com_google_code_gson_gson",
@@ -248,6 +270,7 @@ java_fuzz_target_test(
     srcs = [
         "src/main/java/com/example/JacksonCborFuzzer.java",
     ],
+    expected_findings = ["java.lang.NullPointerException"],
     target_class = "com.example.JacksonCborFuzzer",
     deps = [
         "@maven//:com_fasterxml_jackson_core_jackson_core",
@@ -261,6 +284,7 @@ java_fuzz_target_test(
     srcs = [
         "src/main/java/com/example/FastJsonFuzzer.java",
     ],
+    expected_findings = ["java.lang.NumberFormatException"],
     target_class = "com.example.FastJsonFuzzer",
     deps = [
         "@maven//:com_alibaba_fastjson",
@@ -280,6 +304,11 @@ kt_jvm_library(
 
 java_fuzz_target_test(
     name = "KlaxonFuzzer",
+    expected_findings = [
+        "java.lang.ClassCastException",
+        "java.lang.IllegalStateException",
+        "java.lang.NumberFormatException",
+    ],
     fuzzer_args = [
         "--keep_going=7",
     ],
@@ -292,11 +321,12 @@ java_fuzz_target_test(
     srcs = [
         "src/main/java/com/example/TurboJpegFuzzer.java",
     ],
+    data = [
+        "@libjpeg_turbo//:turbojpeg_native",
+    ],
     fuzzer_args = [
         "-rss_limit_mb=8196",
-    ],
-    native_libs = [
-        "@libjpeg_turbo//:turbojpeg_native",
+        "--jvm_args=-Djava.library.path=../libjpeg_turbo",
     ],
     sanitizer = "address",
     tags = ["manual"],

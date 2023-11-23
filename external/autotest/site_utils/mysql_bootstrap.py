@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,7 +7,7 @@
 
 The purpose of this module is to grant access to a new-user/host/password
 combination on a remote db server. For example, if we were bootstrapping
-a new autotest master A1 with a remote database server A2, the scheduler
+a new autotest main A1 with a remote database server A2, the scheduler
 running on A1 needs to access the database on A2 with the credentials
 specified in the shadow_config of A1 (A1_user, A1_pass). To achieve this
 we ssh into A2 and execute the grant privileges command for (A1_user,

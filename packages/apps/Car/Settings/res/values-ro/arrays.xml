@@ -18,8 +18,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string-array name="premium_sms_access_values">
-    <item msgid="1035030245423608806">"Întrebați"</item>
-    <item msgid="933409503308401889">"Nu permiteți niciodată"</item>
-    <item msgid="1154273129608299386">"Permiteți întotdeauna"</item>
+    <item msgid="1035030245423608806">"Întreabă"</item>
+    <item msgid="933409503308401889">"Nu permite niciodată"</item>
+    <item msgid="1154273129608299386">"Permite întotdeauna"</item>
   </string-array>
 </resources>

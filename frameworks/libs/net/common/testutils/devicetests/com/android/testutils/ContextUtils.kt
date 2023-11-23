@@ -53,3 +53,15 @@ fun mockContextAsUser(context: Context, functor: ((Context, UserHandle) -> Unit)
         asUserContext
     }.`when`(context).createContextAsUser(any(UserHandle::class.java), anyInt() /* flags */)
 }
+
+/**
+ * Helper function to mock the desired system service.
+ *
+ * @param context the mock context to set up the getSystemService and getSystemServiceName.
+ * @param clazz the system service class that intents to mock.
+ * @param service the system service name that intents to mock.
+ */
+fun <T> mockService(context: Context, clazz: Class<T>, name: String, service: T) {
+    doReturn(service).`when`(context).getSystemService(name)
+    doReturn(name).`when`(context).getSystemServiceName(clazz)
+}

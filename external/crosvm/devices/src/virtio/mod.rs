@@ -1,39 +1,43 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 //! Implements virtio devices, queues, and transport mechanisms.
 
+mod async_device;
 mod async_utils;
+#[cfg(feature = "balloon")]
 mod balloon;
 mod descriptor_utils;
+pub mod device_constants;
 mod input;
 mod interrupt;
 mod iommu;
-mod p9;
-mod pmem;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+pub mod pvclock;
 mod queue;
 mod rng;
-#[cfg(feature = "tpm")]
+mod sys;
+#[cfg(any(feature = "tpm", feature = "vtpm"))]
 mod tpm;
 #[cfg(any(feature = "video-decoder", feature = "video-encoder"))]
 mod video;
 mod virtio_device;
+mod virtio_mmio_device;
 mod virtio_pci_common_config;
 mod virtio_pci_device;
-pub mod wl;
 
 pub mod block;
 pub mod console;
-pub mod fs;
 #[cfg(feature = "gpu")]
 pub mod gpu;
-pub mod net;
 pub mod resource_bridge;
 #[cfg(feature = "audio")]
 pub mod snd;
 pub mod vhost;
+pub mod vsock;
 
+#[cfg(feature = "balloon")]
 pub use self::balloon::*;
 pub use self::block::*;
 pub use self::console::*;
@@ -44,103 +48,122 @@ pub use self::gpu::*;
 pub use self::input::*;
 pub use self::interrupt::*;
 pub use self::iommu::*;
-pub use self::net::*;
-pub use self::p9::*;
-pub use self::pmem::*;
 pub use self::queue::*;
 pub use self::rng::*;
-#[cfg(feature = "audio")]
-pub use self::snd::*;
-#[cfg(feature = "tpm")]
+#[cfg(any(feature = "tpm", feature = "vtpm"))]
 pub use self::tpm::*;
 #[cfg(any(feature = "video-decoder", feature = "video-encoder"))]
 pub use self::video::*;
 pub use self::virtio_device::*;
+pub use self::virtio_mmio_device::*;
 pub use self::virtio_pci_device::*;
-pub use self::wl::*;
+cfg_if::cfg_if! {
+    if #[cfg(unix)] {
+        mod p9;
+        mod pmem;
 
+        pub mod wl;
+        pub mod fs;
+        pub mod net;
+
+        pub use self::iommu::sys::unix::vfio_wrapper;
+        pub use self::net::*;
+        pub use self::p9::*;
+        pub use self::pmem::*;
+        #[cfg(feature = "audio")]
+        pub use self::snd::*;
+        pub use self::wl::*;
+
+    } else if #[cfg(windows)] {
+        #[cfg(feature = "slirp")]
+        pub mod net;
+
+        #[cfg(feature = "slirp")]
+        pub use self::net::*;
+        #[cfg(feature = "slirp")]
+        pub use self::sys::windows::NetExt;
+        pub use self::vsock::*;
+    } else {
+        compile_error!("Unsupported platform");
+    }
+}
 use std::cmp;
 use std::convert::TryFrom;
 
 use hypervisor::ProtectionType;
+use virtio_sys::virtio_config::VIRTIO_F_ACCESS_PLATFORM;
+use virtio_sys::virtio_config::VIRTIO_F_VERSION_1;
+use virtio_sys::virtio_ids;
 use virtio_sys::virtio_ring::VIRTIO_RING_F_EVENT_IDX;
 
 const DEVICE_RESET: u32 = 0x0;
-const DEVICE_ACKNOWLEDGE: u32 = 0x01;
-const DEVICE_DRIVER: u32 = 0x02;
-const DEVICE_DRIVER_OK: u32 = 0x04;
-const DEVICE_FEATURES_OK: u32 = 0x08;
-const DEVICE_FAILED: u32 = 0x80;
-
-// Types taken from linux/virtio_ids.h
-const TYPE_NET: u32 = 1;
-const TYPE_BLOCK: u32 = 2;
-const TYPE_CONSOLE: u32 = 3;
-const TYPE_RNG: u32 = 4;
-const TYPE_BALLOON: u32 = 5;
-const TYPE_RPMSG: u32 = 7;
-const TYPE_SCSI: u32 = 8;
-const TYPE_9P: u32 = 9;
-const TYPE_RPROC_SERIAL: u32 = 11;
-const TYPE_CAIF: u32 = 12;
-const TYPE_GPU: u32 = 16;
-const TYPE_INPUT: u32 = 18;
-const TYPE_VSOCK: u32 = 19;
-const TYPE_CRYPTO: u32 = 20;
-const TYPE_IOMMU: u32 = 23;
-const TYPE_SOUND: u32 = 25;
-const TYPE_FS: u32 = 26;
-const TYPE_PMEM: u32 = 27;
-const TYPE_MAC80211_HWSIM: u32 = 29;
-const TYPE_VIDEO_ENC: u32 = 30;
-const TYPE_VIDEO_DEC: u32 = 31;
-// Additional types invented by crosvm
-const MAX_VIRTIO_DEVICE_ID: u32 = 63;
-const TYPE_WL: u32 = MAX_VIRTIO_DEVICE_ID;
-const TYPE_TPM: u32 = MAX_VIRTIO_DEVICE_ID - 1;
-// TODO(abhishekbh): Fix this after this device is accepted upstream.
-const TYPE_VHOST_USER: u32 = MAX_VIRTIO_DEVICE_ID - 2;
-
-pub const VIRTIO_F_VERSION_1: u32 = 32;
-pub const VIRTIO_F_ACCESS_PLATFORM: u32 = 33;
 
 const INTERRUPT_STATUS_USED_RING: u32 = 0x1;
 const INTERRUPT_STATUS_CONFIG_CHANGED: u32 = 0x2;
 
 const VIRTIO_MSI_NO_VECTOR: u16 = 0xffff;
 
-/// Offset from the base MMIO address of a virtio device used by the guest to notify the device of
-/// queue events.
-pub const NOTIFY_REG_OFFSET: u32 = 0x50;
+#[derive(Copy, Clone, Eq, PartialEq)]
+#[repr(u32)]
+pub enum DeviceType {
+    Net = virtio_ids::VIRTIO_ID_NET,
+    Block = virtio_ids::VIRTIO_ID_BLOCK,
+    Console = virtio_ids::VIRTIO_ID_CONSOLE,
+    Rng = virtio_ids::VIRTIO_ID_RNG,
+    Balloon = virtio_ids::VIRTIO_ID_BALLOON,
+    Rpmsg = virtio_ids::VIRTIO_ID_RPMSG,
+    Scsi = virtio_ids::VIRTIO_ID_SCSI,
+    P9 = virtio_ids::VIRTIO_ID_9P,
+    RprocSerial = virtio_ids::VIRTIO_ID_RPROC_SERIAL,
+    Caif = virtio_ids::VIRTIO_ID_CAIF,
+    Gpu = virtio_ids::VIRTIO_ID_GPU,
+    Input = virtio_ids::VIRTIO_ID_INPUT,
+    Vsock = virtio_ids::VIRTIO_ID_VSOCK,
+    Crypto = virtio_ids::VIRTIO_ID_CRYPTO,
+    Iommu = virtio_ids::VIRTIO_ID_IOMMU,
+    Sound = virtio_ids::VIRTIO_ID_SOUND,
+    Fs = virtio_ids::VIRTIO_ID_FS,
+    Pmem = virtio_ids::VIRTIO_ID_PMEM,
+    Mac80211HwSim = virtio_ids::VIRTIO_ID_MAC80211_HWSIM,
+    VideoEnc = virtio_ids::VIRTIO_ID_VIDEO_ENCODER,
+    VideoDec = virtio_ids::VIRTIO_ID_VIDEO_DECODER,
+    Wl = virtio_ids::VIRTIO_ID_WL,
+    Tpm = virtio_ids::VIRTIO_ID_TPM,
+    Pvclock = virtio_ids::VIRTIO_ID_PVCLOCK,
+    VhostUser = virtio_ids::VIRTIO_ID_VHOST_USER,
+}
 
-/// Returns a string representation of the given virtio device type number.
-pub fn type_to_str(type_: u32) -> Option<&'static str> {
-    Some(match type_ {
-        TYPE_NET => "net",
-        TYPE_BLOCK => "block",
-        TYPE_CONSOLE => "console",
-        TYPE_RNG => "rng",
-        TYPE_BALLOON => "balloon",
-        TYPE_RPMSG => "rpmsg",
-        TYPE_SCSI => "scsi",
-        TYPE_9P => "9p",
-        TYPE_RPROC_SERIAL => "rproc-serial",
-        TYPE_CAIF => "caif",
-        TYPE_INPUT => "input",
-        TYPE_GPU => "gpu",
-        TYPE_VSOCK => "vsock",
-        TYPE_CRYPTO => "crypto",
-        TYPE_IOMMU => "iommu",
-        TYPE_VHOST_USER => "vhost-user",
-        TYPE_SOUND => "snd",
-        TYPE_FS => "fs",
-        TYPE_PMEM => "pmem",
-        TYPE_WL => "wl",
-        TYPE_TPM => "tpm",
-        TYPE_VIDEO_DEC => "video-decoder",
-        TYPE_VIDEO_ENC => "video-encoder",
-        _ => return None,
-    })
+/// Prints a string representation of the given virtio device type.
+impl std::fmt::Display for DeviceType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match &self {
+            DeviceType::Net => write!(f, "net"),
+            DeviceType::Block => write!(f, "block"),
+            DeviceType::Console => write!(f, "console"),
+            DeviceType::Rng => write!(f, "rng"),
+            DeviceType::Balloon => write!(f, "balloon"),
+            DeviceType::Rpmsg => write!(f, "rpmsg"),
+            DeviceType::Scsi => write!(f, "scsi"),
+            DeviceType::P9 => write!(f, "9p"),
+            DeviceType::RprocSerial => write!(f, "rproc-serial"),
+            DeviceType::Caif => write!(f, "caif"),
+            DeviceType::Input => write!(f, "input"),
+            DeviceType::Gpu => write!(f, "gpu"),
+            DeviceType::Vsock => write!(f, "vsock"),
+            DeviceType::Crypto => write!(f, "crypto"),
+            DeviceType::Iommu => write!(f, "iommu"),
+            DeviceType::VhostUser => write!(f, "vhost-user"),
+            DeviceType::Sound => write!(f, "snd"),
+            DeviceType::Fs => write!(f, "fs"),
+            DeviceType::Pmem => write!(f, "pmem"),
+            DeviceType::Wl => write!(f, "wl"),
+            DeviceType::Tpm => write!(f, "tpm"),
+            DeviceType::Pvclock => write!(f, "pvclock"),
+            DeviceType::VideoDec => write!(f, "video-decoder"),
+            DeviceType::VideoEnc => write!(f, "video-encoder"),
+            DeviceType::Mac80211HwSim => write!(f, "mac-80211-hw-sim"),
+        }
+    }
 }
 
 /// Copy virtio device configuration data from a subslice of `src` to a subslice of `dst`.
@@ -168,12 +191,37 @@ pub fn copy_config(dst: &mut [u8], dst_offset: u64, src: &[u8], src_offset: u64)
 }
 
 /// Returns the set of reserved base features common to all virtio devices.
-pub fn base_features(protected_vm: ProtectionType) -> u64 {
+pub fn base_features(protection_type: ProtectionType) -> u64 {
     let mut features: u64 = 1 << VIRTIO_F_VERSION_1 | 1 << VIRTIO_RING_F_EVENT_IDX;
 
-    if protected_vm != ProtectionType::Unprotected {
+    if protection_type != ProtectionType::Unprotected {
         features |= 1 << VIRTIO_F_ACCESS_PLATFORM;
     }
 
     features
+}
+
+/// Type of virtio transport.
+///
+/// The virtio protocol can be transported by several means, which affects a few things for device
+/// creation - for instance, the seccomp policy we need to use when jailing the device.
+pub enum VirtioDeviceType {
+    /// A regular (in-VMM) virtio device.
+    Regular,
+    /// Socket-backed vhost-user device.
+    VhostUser,
+    /// Virtio-backed vhost-user device, aka virtio-vhost-user.
+    Vvu,
+}
+
+impl VirtioDeviceType {
+    /// Returns the seccomp policy file that we will want to load for device `base`, depending on
+    /// the virtio transport type.
+    pub fn seccomp_policy_file(&self, base: &str) -> String {
+        match self {
+            VirtioDeviceType::Regular => format!("{base}_device"),
+            VirtioDeviceType::VhostUser => format!("{base}_device_vhost_user"),
+            VirtioDeviceType::Vvu => format!("{base}_device_vvu"),
+        }
+    }
 }

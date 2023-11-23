@@ -35,15 +35,13 @@ import com.android.internal.os.SomeArgs;
 
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 public class EmbmsTestStreamingService extends Service {
-    private static final Set<String> ALLOWED_PACKAGES = new HashSet<String>() {{
-        add("com.android.phone.testapps.embmsfrontend");
-    }};
+    private static final Set<String> ALLOWED_PACKAGES = Set.of(
+            "com.android.phone.testapps.embmsfrontend");
 
     private static final String TAG = "EmbmsTestStreaming";
 

@@ -57,6 +57,7 @@ import android.app.UiAutomation;
 import android.content.pm.PackageManager;
 import android.graphics.PointF;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.FlakyTest;
 import android.platform.test.annotations.Presubmit;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
@@ -70,6 +71,8 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.CddTest;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -90,6 +93,7 @@ import java.util.concurrent.Executors;
 @RunWith(AndroidJUnit4.class)
 @AppModeFull
 @Presubmit
+@CddTest(requirements = {"3.10/C-1-1,C-1-2"})
 public class TouchInteractionControllerTest {
     // Constants
     private static final float GESTURE_LENGTH_MM = 15.0f;
@@ -237,6 +241,7 @@ public class TouchInteractionControllerTest {
     /** Test whether we can initiate a drag. */
     @Test
     @AppModeFull
+    @FlakyTest
     public void testTwoFingerDrag_sendsTouchEvents() {
         if (!mHasTouchscreen || !mScreenBigEnough) return;
         assertBasicConsistency();
@@ -317,6 +322,7 @@ public class TouchInteractionControllerTest {
      */
     @Test
     @AppModeFull
+    @FlakyTest
     public void testPerformClickAccessibilityFocus_performsClick() {
         if (!mHasTouchscreen || !mScreenBigEnough) return;
         assertBasicConsistency();
@@ -398,6 +404,37 @@ public class TouchInteractionControllerTest {
         dispatch(click(mTapLocation));
         mHoverListener.assertPropagated(ACTION_HOVER_ENTER, ACTION_HOVER_EXIT);
         mTouchListener.assertNonePropagated();
+    }
+
+    /** Test whether service gesture detection remains active when we rebuild the input filter. */
+    @Test
+    @AppModeFull
+    public void testRebuildInputFilter_shouldRetainState() {
+        if (!mHasTouchscreen || !mScreenBigEnough) return;
+        assertBasicConsistency();
+        // Set up a touch interaction controller that records incoming motion events.
+        mController.registerCallback(
+                Executors.newSingleThreadExecutor(),
+                new BaseCallback() {
+                    public void onMotionEvent(MotionEvent event) {
+                        mTouchListener.onTouch(null, event);
+                    }
+                });
+        dispatch(click(mTapLocation));
+        mTouchListener.assertPropagated(ACTION_DOWN, ACTION_UP);
+        // Start another service
+        StubMagnificationAccessibilityService secondService;
+        secondService =
+                InstrumentedAccessibilityService.enableService(
+                        StubMagnificationAccessibilityService.class);
+        try {
+            // We should still be recording incoming motion events.
+            dispatch(click(mTapLocation));
+            mHoverListener.assertNonePropagated();
+            mTouchListener.assertPropagated(ACTION_DOWN, ACTION_UP);
+        } finally {
+            secondService.disableSelfAndRemove();
+        }
     }
 
     private void syncAccessibilityFocusToInputFocus() {

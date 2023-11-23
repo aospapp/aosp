@@ -19,6 +19,11 @@
      package="android.sensorprivacy.cts"
      android:targetSandboxVersion="2">
 
+    <queries>
+        <package android:name="android.sensorprivacy.cts.usemiccamera" />
+        <package android:name="android.sensorprivacy.cts.usemiccamera.overlay" />
+    </queries>
+
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
          android:targetPackage="android.sensorprivacy.cts"
          android:label="CTS tests of android.sensorprivacy">

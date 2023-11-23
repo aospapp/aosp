@@ -67,6 +67,8 @@ public class MatchContentFrameRateFragmentTest {
         mMatchContentFrameRateFragment.onAttach(RuntimeEnvironment.application);
 
         doReturn(mPreferenceGroup).when(mMatchContentFrameRateFragment).getPreferenceGroup();
+        doReturn(true).when(mMatchContentFrameRateFragment)
+                .isSeamlessSwitchingSupported();
 
         mAutoPreference = new RadioPreference(mMatchContentFrameRateFragment.getContext());
         mAutoPreference.setKey(KEY_MATCH_CONTENT_FRAME_RATE_SEAMLESS);

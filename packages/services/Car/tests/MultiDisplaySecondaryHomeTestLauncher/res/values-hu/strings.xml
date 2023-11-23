@@ -25,4 +25,5 @@
     <string name="set_wallpaper" msgid="3650915172749345197">"Háttérkép beállítása"</string>
     <string name="new_instance" msgid="1924479866055190730">"Új munkamenetben való indítás kérése"</string>
     <string name="wallpaper_description" msgid="5885164573334720996">"Háttérképminta több kijelzőhöz"</string>
+    <string name="exit" msgid="3648703694102318310">"Kilépés"</string>
 </resources>

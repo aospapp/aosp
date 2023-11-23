@@ -20,8 +20,6 @@ Bluetooth adapter libraries
 from acts_contrib.test_utils.bt.bt_constants import bt_rfcomm_uuids
 from acts_contrib.test_utils.bt.bt_test_utils import set_bt_scan_mode
 
-import pprint
-
 
 class RfcommLib():
     def __init__(self, log, dut, target_mac_addr=None):

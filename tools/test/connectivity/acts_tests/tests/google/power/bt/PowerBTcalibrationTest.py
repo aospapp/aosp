@@ -73,3 +73,9 @@ class PowerBTcalibrationTest(PBtBT.PowerBTBaseTest):
         with open(self.log_file, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(self.cal_matrix)
+
+    def teardown_test(self):
+        """
+        Clean up in teardown_test : Disable BQR
+        """
+        btutils.disable_bqr(self.dut)

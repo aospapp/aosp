@@ -120,7 +120,7 @@ public final class FakeContext extends MockContext {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(
-                    "Interrupted while waiting for Broadcast Intent to be received");
+                    "Interrupted while waiting for Broadcast Intent to be received", e);
         } finally {
             mHandler.getLooper().getQueue().removeIdleHandler(queueIdleHandler);
         }

@@ -41,6 +41,7 @@ import static android.telephony.ims.stub.ImsRegistrationImplBase.REGISTRATION_TE
 import android.annotation.Nullable;
 import android.content.Context;
 import android.os.AsyncResult;
+import android.os.Binder;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -55,6 +56,7 @@ import android.telephony.TelephonyRegistryManager;
 import android.telephony.ims.ProvisioningManager;
 import android.telephony.ims.aidl.IFeatureProvisioningCallback;
 import android.telephony.ims.aidl.IImsConfig;
+import android.telephony.ims.aidl.IImsConfigCallback;
 import android.telephony.ims.feature.MmTelFeature.MmTelCapabilities;
 import android.telephony.ims.feature.RcsFeature.RcsImsCapabilities;
 import android.telephony.ims.stub.ImsConfigImplBase;
@@ -89,6 +91,7 @@ public class ImsProvisioningController {
     private static final int EVENT_PROVISIONING_CAPABILITY_CHANGED = 2;
     @VisibleForTesting
     protected static final int EVENT_MULTI_SIM_CONFIGURATION_CHANGE = 3;
+    private static final int EVENT_PROVISIONING_VALUE_CHANGED = 4;
 
     // Provisioning Keys that are handled via AOSP cache and not sent to the ImsService
     private static final int[] LOCAL_IMS_CONFIG_KEYS = {
@@ -245,6 +248,11 @@ public class ImsProvisioningController {
                     int activeModemCount = (int) ((AsyncResult) msg.obj).result;
                     onMultiSimConfigChanged(activeModemCount);
                     break;
+                case EVENT_PROVISIONING_VALUE_CHANGED:
+                    log("subId " + msg.arg1 + " changed provisioning value item : " + msg.arg2
+                            + " value : " + (int) msg.obj);
+                    updateCapabilityTechFromKey(msg.arg1, msg.arg2, (int) msg.obj);
+                    break;
                 default:
                     log("unknown message " + msg);
                     break;
@@ -366,12 +374,15 @@ public class ImsProvisioningController {
         private boolean mRequiredNotify = false;
         private int mSubId;
         private int mSlotId;
+        private ConfigCallback mConfigCallback;
 
         MmTelFeatureListener(int slotId) {
             log(LOG_PREFIX, slotId, "created");
 
             mSlotId = slotId;
             mSubId = getSubId(slotId);
+            mConfigCallback = new ConfigCallback(mSubId);
+
             mConnector = mMmTelFeatureConnector.create(
                     mApp, slotId, TAG, this, new HandlerExecutor(mHandler));
             mConnector.connect();
@@ -389,10 +400,22 @@ public class ImsProvisioningController {
 
             mSubId = subId;
             mSlotId = getSlotId(subId);
+            mConfigCallback.setSubId(subId);
         }
 
         public void destroy() {
             log("destroy");
+            if (mImsManager != null) {
+                try {
+                    ImsConfig imsConfig = getImsConfig(mImsManager);
+                    if (imsConfig != null) {
+                        imsConfig.removeConfigCallback(mConfigCallback);
+                    }
+                } catch (ImsException e) {
+                    logw(LOG_PREFIX, mSlotId, "destroy : " + e.getMessage());
+                }
+            }
+            mConfigCallback = null;
             mConnector.disconnect();
             mConnector = null;
             mReady = false;
@@ -408,6 +431,17 @@ public class ImsProvisioningController {
             log(LOG_PREFIX, mSlotId, "connection ready");
             mReady = true;
             mImsManager = manager;
+
+            if (mImsManager != null) {
+                try {
+                    ImsConfig imsConfig = getImsConfig(mImsManager);
+                    if (imsConfig != null) {
+                        imsConfig.addConfigCallback(mConfigCallback);
+                    }
+                } catch (ImsException e) {
+                    logw(LOG_PREFIX, mSlotId, "addConfigCallback : " + e.getMessage());
+                }
+            }
 
             onMmTelAvailable();
         }
@@ -572,12 +606,15 @@ public class ImsProvisioningController {
         private boolean mRequiredNotify = false;
         private int mSubId;
         private int mSlotId;
+        private ConfigCallback mConfigCallback;
 
         RcsFeatureListener(int slotId) {
             log(LOG_PREFIX, slotId, "created");
 
             mSlotId = slotId;
             mSubId = getSubId(slotId);
+            mConfigCallback = new ConfigCallback(mSubId);
+
             mConnector = mRcsFeatureConnector.create(
                     mApp, slotId, this, new HandlerExecutor(mHandler), TAG);
             mConnector.connect();
@@ -595,10 +632,22 @@ public class ImsProvisioningController {
 
             mSubId = subId;
             mSlotId = getSlotId(subId);
+            mConfigCallback.setSubId(subId);
         }
 
         public void destroy() {
             log(LOG_PREFIX, mSlotId, "destroy");
+            if (mRcsFeatureManager != null) {
+                try {
+                    ImsConfig imsConfig = getImsConfig(mRcsFeatureManager.getConfig());
+                    if (imsConfig != null) {
+                        imsConfig.removeConfigCallback(mConfigCallback);
+                    }
+                } catch (ImsException e) {
+                    logw(LOG_PREFIX, mSlotId, "destroy :" + e.getMessage());
+                }
+            }
+            mConfigCallback = null;
             mConnector.disconnect();
             mConnector = null;
             mReady = false;
@@ -610,6 +659,17 @@ public class ImsProvisioningController {
             log(LOG_PREFIX, mSlotId, "connection ready");
             mReady = true;
             mRcsFeatureManager = manager;
+
+            if (mRcsFeatureManager != null) {
+                try {
+                    ImsConfig imsConfig = getImsConfig(mRcsFeatureManager.getConfig());
+                    if (imsConfig != null) {
+                        imsConfig.addConfigCallback(mConfigCallback);
+                    }
+                } catch (ImsException e) {
+                    logw(LOG_PREFIX, mSlotId, "addConfigCallback :" + e.getMessage());
+                }
+            }
 
             onRcsAvailable();
         }
@@ -723,6 +783,42 @@ public class ImsProvisioningController {
                     setProvisioningValue(KEY_EAB_PROVISIONING_STATUS, value);
                 }
             }
+        }
+    }
+
+    // When vendor ImsService changed provisioning data, which should be updated in AOSP.
+    // Catch the event using IImsConfigCallback.
+    private final class ConfigCallback extends IImsConfigCallback.Stub {
+        private int mSubId;
+
+        ConfigCallback(int subId) {
+            mSubId = subId;
+        }
+
+        public void setSubId(int subId) {
+            mSubId = subId;
+        }
+
+        @Override
+        public void onIntConfigChanged(int item, int value) throws RemoteException {
+            if (!Arrays.stream(LOCAL_IMS_CONFIG_KEYS).anyMatch(keyValue -> keyValue == item)) {
+                return;
+            }
+
+            final long callingIdentity = Binder.clearCallingIdentity();
+            try {
+                if (mHandler != null) {
+                    mHandler.sendMessage(mHandler.obtainMessage(
+                            EVENT_PROVISIONING_VALUE_CHANGED, mSubId, item, (Object) value));
+                }
+            } finally {
+                Binder.restoreCallingIdentity(callingIdentity);
+            }
+        }
+
+        @Override
+        public void onStringConfigChanged(int item, String value) throws RemoteException {
+            // Ignore this callback.
         }
     }
 
@@ -1468,13 +1564,7 @@ public class ImsProvisioningController {
     }
 
     protected int getSubId(int slotId) {
-        final int[] subIds = mSubscriptionManager.getSubscriptionIds(slotId);
-        int subId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
-        if (subIds != null && subIds.length >= 1) {
-            subId = subIds[0];
-        }
-
-        return subId;
+        return SubscriptionManager.getSubscriptionId(slotId);
     }
 
     protected int getSlotId(int subId) {

@@ -45,11 +45,13 @@ import static android.net.wifi.WifiManager.WIFI_FEATURE_DECORATED_IDENTITY;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_DPP;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_DPP_AKM;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_DPP_ENROLLEE_RESPONDER;
+import static android.net.wifi.WifiManager.WIFI_FEATURE_DUAL_BAND_SIMULTANEOUS;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_OWE;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_P2P;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_PASSPOINT;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_PASSPOINT_TERMS_AND_CONDITIONS;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_SCANNER;
+import static android.net.wifi.WifiManager.WIFI_FEATURE_T2LM_NEGOTIATION;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_TRUST_ON_FIRST_USE;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_WPA3_SAE;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_WPA3_SUITE_B;
@@ -60,6 +62,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
@@ -108,6 +111,7 @@ import android.net.wifi.WifiManager.SuggestionUserApprovalStatusListener;
 import android.net.wifi.WifiManager.TrafficStateCallback;
 import android.net.wifi.WifiManager.WifiConnectedNetworkScorer;
 import android.net.wifi.WifiUsabilityStatsEntry.ContentionTimeStats;
+import android.net.wifi.WifiUsabilityStatsEntry.LinkStats;
 import android.net.wifi.WifiUsabilityStatsEntry.RadioStats;
 import android.net.wifi.WifiUsabilityStatsEntry.RateStats;
 import android.os.Build;
@@ -134,6 +138,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -142,6 +147,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /**
  * Unit tests for {@link android.net.wifi.WifiManager}.
@@ -171,6 +177,7 @@ public class WifiManagerTest {
             MacAddress.fromString("22:bb:cc:11:aa:ff")};
     private static final String TEST_SSID = "\"Test WiFi Networks\"";
     private static final byte[] TEST_OUI = new byte[]{0x01, 0x02, 0x03};
+    private static final int TEST_LINK_LAYER_STATS_POLLING_INTERVAL_MS = 1000;
 
     @Mock Context mContext;
     @Mock android.net.wifi.IWifiManager mWifiService;
@@ -182,6 +189,8 @@ public class WifiManagerTest {
     @Mock OnWifiUsabilityStatsListener mOnWifiUsabilityStatsListener;
     @Mock OnWifiActivityEnergyInfoListener mOnWifiActivityEnergyInfoListener;
     @Mock SuggestionConnectionStatusListener mSuggestionConnectionListener;
+    @Mock
+    WifiManager.LocalOnlyConnectionFailureListener mLocalOnlyConnectionFailureListener;
     @Mock Runnable mRunnable;
     @Mock Executor mExecutor;
     @Mock Executor mAnotherExecutor;
@@ -509,6 +518,29 @@ public class WifiManagerTest {
 
         when(mWifiService.stopSoftAp()).thenReturn(false);
         assertFalse(mWifiManager.stopSoftAp());
+    }
+
+    /**
+     * Check the call to validateSoftApConfiguration calls WifiService to
+     * validateSoftApConfiguration.
+     */
+    @Test
+    public void testValidateSoftApConfigurationCallsService() throws Exception {
+        SoftApConfiguration apConfig = generatorTestSoftApConfig();
+        when(mWifiService.validateSoftApConfiguration(any())).thenReturn(true);
+        assertTrue(mWifiManager.validateSoftApConfiguration(apConfig));
+
+        when(mWifiService.validateSoftApConfiguration(any())).thenReturn(false);
+        assertFalse(mWifiManager.validateSoftApConfiguration(apConfig));
+    }
+
+    /**
+     * Throws  IllegalArgumentException when calling validateSoftApConfiguration with null.
+     */
+    @Test
+    public void testValidateSoftApConfigurationWithNullConfiguration() throws Exception {
+        assertThrows(IllegalArgumentException.class,
+                () -> mWifiManager.validateSoftApConfiguration(null));
     }
 
     /**
@@ -2438,11 +2470,21 @@ public class WifiManagerTest {
         RadioStats[] radioStats = new RadioStats[2];
         radioStats[0] = new RadioStats(0, 10, 11, 12, 13, 14, 15, 16, 17, 18);
         radioStats[1] = new RadioStats(1, 20, 21, 22, 23, 24, 25, 26, 27, 28);
+        SparseArray<LinkStats> linkStats = new SparseArray<>();
+        linkStats.put(0,
+                new LinkStats(0, WifiUsabilityStatsEntry.LINK_STATE_NOT_IN_USE, 0, -50, 300,
+                        200,
+                        188, 2, 2, 100, 300, 100, 100, 200,
+                        contentionTimeStats, rateStats));
+        linkStats.put(1,
+                new LinkStats(0, WifiUsabilityStatsEntry.LINK_STATE_IN_USE, 0, -40, 860, 600,
+                        388, 2, 2, 200, 400, 100, 100, 200,
+                        contentionTimeStats, rateStats));
         callbackCaptor.getValue().onWifiUsabilityStats(1, true,
                 new WifiUsabilityStatsEntry(System.currentTimeMillis(), -50, 100, 10, 0, 5, 5,
                         100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 1, 100, 10,
                         100, 27, contentionTimeStats, rateStats, radioStats, 101, true, true, true,
-                        0, 10, 10, true));
+                        0, 10, 10, true, linkStats));
         verify(mOnWifiUsabilityStatsListener).onWifiUsabilityStats(anyInt(), anyBoolean(),
                 any(WifiUsabilityStatsEntry.class));
     }
@@ -3085,7 +3127,8 @@ public class WifiManagerTest {
         ArgumentCaptor<ISuggestionConnectionStatusListener.Stub> callbackCaptor =
                 ArgumentCaptor.forClass(ISuggestionConnectionStatusListener.Stub.class);
         Executor executor = new SynchronousExecutor();
-        mWifiManager.addSuggestionConnectionStatusListener(executor, mSuggestionConnectionListener);
+        mWifiManager.addSuggestionConnectionStatusListener(executor,
+                mSuggestionConnectionListener);
         verify(mWifiService).registerSuggestionConnectionStatusListener(callbackCaptor.capture(),
                 anyString(), nullable(String.class));
         callbackCaptor.getValue().onConnectionStatus(mWifiNetworkSuggestion, errorCode);
@@ -3573,7 +3616,7 @@ public class WifiManagerTest {
                 | WifiAvailableChannel.OP_MODE_WIFI_DIRECT_CLI;
         mWifiManager.getAllowedChannels(band, mode);
         verify(mWifiService).getUsableChannels(eq(band), eq(mode),
-                eq(WifiAvailableChannel.FILTER_REGULATORY));
+                eq(WifiAvailableChannel.FILTER_REGULATORY), eq(TEST_PACKAGE_NAME), any());
     }
 
     /**
@@ -3588,7 +3631,8 @@ public class WifiManagerTest {
         mWifiManager.getUsableChannels(band, mode);
         verify(mWifiService).getUsableChannels(eq(band), eq(mode),
                 eq(WifiAvailableChannel.FILTER_CONCURRENCY
-                    | WifiAvailableChannel.FILTER_CELLULAR_COEXISTENCE));
+                    | WifiAvailableChannel.FILTER_CELLULAR_COEXISTENCE),
+                eq(TEST_PACKAGE_NAME), any());
     }
 
     /**
@@ -3596,6 +3640,7 @@ public class WifiManagerTest {
      */
     @Test
     public void testRegisterActiveCountryCodeChangedCallbackThrowsExceptionOnNullCallback() {
+        assumeTrue(SdkLevel.isAtLeastT());
         try {
             mWifiManager.registerActiveCountryCodeChangedCallback(
                     new HandlerExecutor(mHandler), null);
@@ -3609,6 +3654,7 @@ public class WifiManagerTest {
      */
     @Test
     public void testRegisterActiveCountryCodeChangedCallbackThrowsExceptionOnNullExecutor() {
+        assumeTrue(SdkLevel.isAtLeastT());
         try {
             mWifiManager.registerActiveCountryCodeChangedCallback(null,
                     mActiveCountryCodeChangedCallback);
@@ -3622,6 +3668,7 @@ public class WifiManagerTest {
      */
     @Test
     public void testUnregisterActiveCountryCodeChangedCallbackThrowsExceptionOnNullCallback() {
+        assumeTrue(SdkLevel.isAtLeastT());
         try {
             mWifiManager.unregisterActiveCountryCodeChangedCallback(null);
             fail("expected IllegalArgumentException");
@@ -3635,6 +3682,7 @@ public class WifiManagerTest {
     @Test
     public void testRegisterActiveCountryCodeChangedCallbackCallGoesToWifiServiceImpl()
             throws Exception {
+        assumeTrue(SdkLevel.isAtLeastT());
         mWifiManager.registerActiveCountryCodeChangedCallback(new HandlerExecutor(mHandler),
                 mActiveCountryCodeChangedCallback);
         verify(mWifiService).registerDriverCountryCodeChangedListener(
@@ -3648,6 +3696,7 @@ public class WifiManagerTest {
     @Test
     public void testUnregisterActiveCountryCodeChangedCallbackCallGoesToWifiServiceImpl()
             throws Exception {
+        assumeTrue(SdkLevel.isAtLeastT());
         ArgumentCaptor<IOnWifiDriverCountryCodeChangedListener.Stub> listenerCaptor =
                 ArgumentCaptor.forClass(IOnWifiDriverCountryCodeChangedListener.Stub.class);
         mWifiManager.registerActiveCountryCodeChangedCallback(new HandlerExecutor(mHandler),
@@ -3666,6 +3715,7 @@ public class WifiManagerTest {
     @Test
     public void testDriverCountryCodeChangedCallbackProxyCallsOnActiveCountryCodeChanged()
             throws Exception {
+        assumeTrue(SdkLevel.isAtLeastT());
         ArgumentCaptor<IOnWifiDriverCountryCodeChangedListener.Stub> listenerCaptor =
                 ArgumentCaptor.forClass(IOnWifiDriverCountryCodeChangedListener.Stub.class);
         mWifiManager.registerActiveCountryCodeChangedCallback(new HandlerExecutor(mHandler),
@@ -3684,6 +3734,7 @@ public class WifiManagerTest {
     @Test
     public void testDriverCountryCodeChangedCallbackProxyCallsOnCountryCodeInactiveWhenNull()
             throws Exception {
+        assumeTrue(SdkLevel.isAtLeastT());
         ArgumentCaptor<IOnWifiDriverCountryCodeChangedListener.Stub> listenerCaptor =
                 ArgumentCaptor.forClass(IOnWifiDriverCountryCodeChangedListener.Stub.class);
         mWifiManager.registerActiveCountryCodeChangedCallback(new HandlerExecutor(mHandler),
@@ -3845,6 +3896,29 @@ public class WifiManagerTest {
                 WifiManager.WIFI_MULTI_INTERNET_MODE_DBS_AP);
     }
 
+    /*
+     * Verify call to {@link WifiManager#isDualBandSimultaneousSupported}.
+     */
+    @Test
+    public void testIsDualBandSimultaneousSupported() throws Exception {
+        when(mWifiService.getSupportedFeatures())
+                .thenReturn(new Long(WIFI_FEATURE_DUAL_BAND_SIMULTANEOUS));
+        assertTrue(mWifiManager.isDualBandSimultaneousSupported());
+        when(mWifiService.getSupportedFeatures())
+                .thenReturn(new Long(~WIFI_FEATURE_DUAL_BAND_SIMULTANEOUS));
+        assertFalse(mWifiManager.isDualBandSimultaneousSupported());
+    }
+    /*
+     * Verify call to {@link WifiManager#isTidToLinkMappingSupported()}
+     */
+    @Test
+    public void testIsTidToLinkMappingSupported() throws Exception {
+        when(mWifiService.getSupportedFeatures()).thenReturn(WIFI_FEATURE_T2LM_NEGOTIATION);
+        assertTrue(mWifiManager.isTidToLinkMappingNegotiationSupported());
+        when(mWifiService.getSupportedFeatures()).thenReturn(~WIFI_FEATURE_T2LM_NEGOTIATION);
+        assertFalse(mWifiManager.isTidToLinkMappingNegotiationSupported());
+    }
+
     /**
      * Verify call to
      * {@link WifiManager#reportCreateInterfaceImpact(int, boolean, Executor, BiConsumer)}.
@@ -3882,5 +3956,117 @@ public class WifiManagerTest {
         cbCaptor.getValue().onResults(canCreate, interfaces, packagesForInterfaces);
         verify(resultCallback).accept(eq(canCreate), resultCaptor.capture());
         assertEquals(interfacePairs, resultCaptor.getValue());
+    }
+
+    /**
+     * Verify call to getChannelData goes to WifiServiceImpl
+     */
+    @Test
+    public void testChannelData() throws Exception {
+        assumeTrue(SdkLevel.isAtLeastT());
+        Consumer<List<Bundle>> resultsCallback = mock(Consumer.class);
+        SynchronousExecutor executor = mock(SynchronousExecutor.class);
+        mWifiManager.getChannelData(executor, resultsCallback);
+        verify(mWifiService).getChannelData(any(IListListener.Stub.class), eq(TEST_PACKAGE_NAME),
+                any(Bundle.class));
+    }
+
+    /**
+     * Verify call to {@link WifiManager#addQosPolicies(List, Executor, Consumer)}.
+     */
+    @Test
+    public void testAddQosPolicies() throws Exception {
+        assumeTrue(SdkLevel.isAtLeastU());
+
+        final int policyId = 2;
+        final int direction = QosPolicyParams.DIRECTION_DOWNLINK;
+        final int userPriority = QosPolicyParams.USER_PRIORITY_VIDEO_LOW;
+        final int ipVersion = QosPolicyParams.IP_VERSION_4;
+        QosPolicyParams policyParams = new QosPolicyParams.Builder(policyId, direction)
+                .setUserPriority(userPriority)
+                .setIpVersion(ipVersion)
+                .build();
+        SynchronousExecutor executor = mock(SynchronousExecutor.class);
+        Consumer<List<Integer>> resultsCallback = mock(Consumer.class);
+
+        mWifiManager.addQosPolicies(Arrays.asList(policyParams), executor, resultsCallback);
+        verify(mWifiService).addQosPolicies(any(), any(), eq(TEST_PACKAGE_NAME),
+                any(IListListener.Stub.class));
+    }
+
+    /**
+     * Verify call to {@link WifiManager#removeQosPolicies(int[])}
+     */
+    @Test
+    public void testRemoveQosPolicies() throws Exception {
+        assumeTrue(SdkLevel.isAtLeastU());
+        final int[] policyIdList = new int[]{127, 128};
+        mWifiManager.removeQosPolicies(policyIdList);
+        verify(mWifiService).removeQosPolicies(any(), eq(TEST_PACKAGE_NAME));
+    }
+
+    @Test
+    public void testAddRemoveLocaOnlyConnectionListener() throws RemoteException {
+        assertThrows(IllegalArgumentException.class, () -> mWifiManager
+                .addLocalOnlyConnectionFailureListener(null, mLocalOnlyConnectionFailureListener));
+        assertThrows(IllegalArgumentException.class, () -> mWifiManager
+                .addLocalOnlyConnectionFailureListener(mExecutor, null));
+        mWifiManager.addLocalOnlyConnectionFailureListener(mExecutor,
+                mLocalOnlyConnectionFailureListener);
+        verify(mWifiService).addLocalOnlyConnectionStatusListener(any(), eq(TEST_PACKAGE_NAME),
+                nullable(String.class));
+        mWifiManager.removeLocalOnlyConnectionFailureListener(mLocalOnlyConnectionFailureListener);
+        verify(mWifiService).removeLocalOnlyConnectionStatusListener(any(), eq(TEST_PACKAGE_NAME));
+    }
+
+    /**
+     * Verify if the call for set / get link layer stats polling interval goes to WifiServiceImpl
+     */
+    @Test
+    public void testSetAndGetLinkLayerStatsPollingInterval() throws Exception {
+        assumeTrue(SdkLevel.isAtLeastT());
+        mWifiManager.setLinkLayerStatsPollingInterval(TEST_LINK_LAYER_STATS_POLLING_INTERVAL_MS);
+        verify(mWifiService).setLinkLayerStatsPollingInterval(
+                eq(TEST_LINK_LAYER_STATS_POLLING_INTERVAL_MS));
+
+        SynchronousExecutor executor = mock(SynchronousExecutor.class);
+        Consumer<Integer> resultsCallback = mock(Consumer.class);
+        mWifiManager.getLinkLayerStatsPollingInterval(executor, resultsCallback);
+        verify(mWifiService).getLinkLayerStatsPollingInterval(any(IIntegerListener.class));
+
+        // null executor
+        assertThrows(NullPointerException.class,
+                () -> mWifiManager.getLinkLayerStatsPollingInterval(null, resultsCallback));
+        // null resultsCallback
+        assertThrows(NullPointerException.class,
+                () -> mWifiManager.getLinkLayerStatsPollingInterval(executor, null));
+    }
+
+    /**
+     * Verify {@link WifiManager#setMloMode(int)} and {@link WifiManager#getMloMode()}.
+     */
+    @Test
+    public void testMloMode() throws RemoteException {
+        Consumer<Boolean> resultsSetCallback = mock(Consumer.class);
+        SynchronousExecutor executor = mock(SynchronousExecutor.class);
+        // Out of range values.
+        assertThrows(IllegalArgumentException.class,
+                () -> mWifiManager.setMloMode(-1, executor, resultsSetCallback));
+        assertThrows(IllegalArgumentException.class,
+                () -> mWifiManager.setMloMode(1000, executor, resultsSetCallback));
+        // Null executor/callback exception.
+        assertThrows("null executor should trigger exception", NullPointerException.class,
+                () -> mWifiManager.setMloMode(WifiManager.MLO_MODE_DEFAULT, null,
+                        resultsSetCallback));
+        assertThrows("null listener should trigger exception", NullPointerException.class,
+                () -> mWifiManager.setMloMode(WifiManager.MLO_MODE_DEFAULT, executor, null));
+        // Set and verify.
+        mWifiManager.setMloMode(WifiManager.MLO_MODE_LOW_POWER, executor, resultsSetCallback);
+        verify(mWifiService).setMloMode(eq(WifiManager.MLO_MODE_LOW_POWER),
+                any(IBooleanListener.Stub.class));
+        // Get and verify.
+        Consumer<Integer> resultsGetCallback = mock(Consumer.class);
+        mWifiManager.getMloMode(executor, resultsGetCallback);
+        verify(mWifiService).getMloMode(any(IIntegerListener.Stub.class));
     }
 }

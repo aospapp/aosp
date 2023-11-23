@@ -16,67 +16,57 @@
 
 package dagger.internal.codegen;
 
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static dagger.internal.codegen.langmodel.DaggerElements.closestEnclosingTypeElement;
+import static androidx.room.compiler.processing.XElementKt.isConstructor;
+import static androidx.room.compiler.processing.XElementKt.isMethod;
+import static dagger.internal.codegen.binding.AssistedInjectionAnnotations.assistedFactoryMethod;
+import static dagger.internal.codegen.binding.AssistedInjectionAnnotations.isAssistedFactoryType;
+import static dagger.internal.codegen.xprocessing.XElements.asMethod;
+import static dagger.internal.codegen.xprocessing.XElements.closestEnclosingTypeElement;
+import static dagger.internal.codegen.xprocessing.XElements.getSimpleName;
 
-import com.google.auto.common.MoreElements;
+import androidx.room.compiler.processing.XExecutableElement;
+import androidx.room.compiler.processing.XExecutableParameterElement;
+import androidx.room.compiler.processing.XMessager;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.common.collect.ImmutableSet;
-import dagger.assisted.Assisted;
-import dagger.assisted.AssistedInject;
-import dagger.internal.codegen.binding.AssistedInjectionAnnotations;
+import com.squareup.javapoet.ClassName;
 import dagger.internal.codegen.binding.InjectionAnnotations;
-import dagger.internal.codegen.kotlin.KotlinMetadataUtil;
-import dagger.internal.codegen.langmodel.DaggerElements;
+import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.internal.codegen.validation.TypeCheckingProcessingStep;
 import dagger.internal.codegen.validation.ValidationReport;
-import java.lang.annotation.Annotation;
-import javax.annotation.processing.Messager;
 import javax.inject.Inject;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
 
 /**
  * An annotation processor for {@link dagger.assisted.Assisted}-annotated types.
  *
  * <p>This processing step should run after {@link AssistedFactoryProcessingStep}.
  */
-final class AssistedProcessingStep extends TypeCheckingProcessingStep<VariableElement> {
-  private final KotlinMetadataUtil kotlinMetadataUtil;
+final class AssistedProcessingStep extends TypeCheckingProcessingStep<XExecutableParameterElement> {
   private final InjectionAnnotations injectionAnnotations;
-  private final DaggerElements elements;
-  private final Messager messager;
+  private final XMessager messager;
 
   @Inject
-  AssistedProcessingStep(
-      KotlinMetadataUtil kotlinMetadataUtil,
-      InjectionAnnotations injectionAnnotations,
-      DaggerElements elements,
-      Messager messager) {
-    super(MoreElements::asVariable);
-    this.kotlinMetadataUtil = kotlinMetadataUtil;
+  AssistedProcessingStep(InjectionAnnotations injectionAnnotations, XMessager messager) {
     this.injectionAnnotations = injectionAnnotations;
-    this.elements = elements;
     this.messager = messager;
   }
 
   @Override
-  public ImmutableSet<Class<? extends Annotation>> annotations() {
-    return ImmutableSet.of(Assisted.class);
+  public ImmutableSet<ClassName> annotationClassNames() {
+    return ImmutableSet.of(TypeNames.ASSISTED);
   }
 
   @Override
   protected void process(
-      VariableElement assisted, ImmutableSet<Class<? extends Annotation>> annotations) {
+      XExecutableParameterElement assisted, ImmutableSet<ClassName> annotations) {
     new AssistedValidator().validate(assisted).printMessagesTo(messager);
   }
 
   private final class AssistedValidator {
-    ValidationReport<VariableElement> validate(VariableElement assisted) {
-      ValidationReport.Builder<VariableElement> report = ValidationReport.about(assisted);
+    ValidationReport validate(XExecutableParameterElement assisted) {
+      ValidationReport.Builder report = ValidationReport.about(assisted);
 
-      Element enclosingElement = assisted.getEnclosingElement();
+      XExecutableElement enclosingElement = assisted.getEnclosingMethodElement();
       if (!isAssistedInjectConstructor(enclosingElement)
           && !isAssistedFactoryCreateMethod(enclosingElement)
           // The generated java stubs for kotlin data classes contain a "copy" method that has
@@ -99,30 +89,29 @@ final class AssistedProcessingStep extends TypeCheckingProcessingStep<VariableEl
     }
   }
 
-  private boolean isAssistedInjectConstructor(Element element) {
-    return element.getKind() == ElementKind.CONSTRUCTOR
-        && isAnnotationPresent(element, AssistedInject.class);
+  private boolean isAssistedInjectConstructor(XExecutableElement executableElement) {
+    return isConstructor(executableElement)
+        && executableElement.hasAnnotation(TypeNames.ASSISTED_INJECT);
   }
 
-  private boolean isAssistedFactoryCreateMethod(Element element) {
-    if (element.getKind() == ElementKind.METHOD) {
-      TypeElement enclosingElement = closestEnclosingTypeElement(element);
-      return AssistedInjectionAnnotations.isAssistedFactoryType(enclosingElement)
+  private boolean isAssistedFactoryCreateMethod(XExecutableElement executableElement) {
+    if (isMethod(executableElement)) {
+      XTypeElement enclosingElement = closestEnclosingTypeElement(executableElement);
+      return isAssistedFactoryType(enclosingElement)
           // This assumes we've already validated AssistedFactory and that a valid method exists.
-          && AssistedInjectionAnnotations.assistedFactoryMethod(enclosingElement, elements)
-              .equals(element);
+          && assistedFactoryMethod(enclosingElement).equals(executableElement);
     }
     return false;
   }
 
-  private boolean isKotlinDataClassCopyMethod(Element element) {
+  private boolean isKotlinDataClassCopyMethod(XExecutableElement executableElement) {
     // Note: This is a best effort. Technically, we could check the return type and parameters of
     // the copy method to verify it's the one associated with the constructor, but I'd rather keep
     // this simple to avoid encoding too many details of kapt's stubs. At worst, we'll be allowing
     // an @Assisted annotation that has no affect, which is already true for many of Dagger's other
     // annotations.
-    return element.getKind() == ElementKind.METHOD
-        && element.getSimpleName().contentEquals("copy")
-        && kotlinMetadataUtil.isDataClass(closestEnclosingTypeElement(element));
+    return isMethod(executableElement)
+        && getSimpleName(asMethod(executableElement)).contentEquals("copy")
+        && closestEnclosingTypeElement(executableElement.getEnclosingElement()).isDataClass();
   }
 }

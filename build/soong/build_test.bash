@@ -25,14 +25,24 @@
 
 # Products that are broken or otherwise don't work with multiproduct_kati
 SKIPPED_PRODUCTS=(
-    # Both of these products are for soong-only builds, and will fail the kati stage.
+    # These products are for soong-only builds, and will fail the kati stage.
+    linux_bionic
     mainline_sdk
     ndk
+
+    # New architecture bringup, fails without ALLOW_MISSING_DEPENDENCIES=true
+    aosp_riscv64
 )
 
-# To track how long we took to startup. %N isn't supported on Darwin, but
-# that's detected in the Go code, which skips calculating the startup time.
-export TRACE_BEGIN_SOONG=$(date +%s%N)
+# To track how long we took to startup.
+case $(uname -s) in
+  Darwin)
+    export TRACE_BEGIN_SOONG=`$T/prebuilts/build-tools/path/darwin-x86/date +%s%3N`
+    ;;
+  *)
+    export TRACE_BEGIN_SOONG=$(date +%s%N)
+    ;;
+esac
 
 # Remove BUILD_NUMBER so that incremental builds on build servers don't
 # re-read makefiles every time.
@@ -44,8 +54,10 @@ source "${TOP}/build/soong/scripts/microfactory.bash"
 
 case $(uname) in
   Linux)
-    export LD_PRELOAD=/lib/x86_64-linux-gnu/libSegFault.so
-    export SEGFAULT_USE_ALTSTACK=1
+    if [[ -f /lib/x86_64-linux-gnu/libSegFault.so ]]; then
+      export LD_PRELOAD=/lib/x86_64-linux-gnu/libSegFault.so
+      export SEGFAULT_USE_ALTSTACK=1
+    fi
     ulimit -a
     ;;
 esac
@@ -58,7 +70,7 @@ df -h || true
 
 echo
 echo "Running Bazel smoke test..."
-STANDALONE_BAZEL=true "${TOP}/tools/bazel" --batch --max_idle_secs=1 info
+STANDALONE_BAZEL=true "${TOP}/build/bazel/bin/bazel" --batch --max_idle_secs=1 help
 
 echo
 echo "Running Soong test..."

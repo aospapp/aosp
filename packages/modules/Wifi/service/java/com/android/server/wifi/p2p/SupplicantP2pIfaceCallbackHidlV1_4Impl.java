@@ -24,6 +24,7 @@ import android.util.Log;
 import com.android.server.wifi.util.NativeUtil;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * Class used for processing all P2P callbacks.
@@ -320,7 +321,7 @@ public class SupplicantP2pIfaceCallbackHidlV1_4Impl
         }
 
         logd("R2 Device discovered on " + mInterface + ": "
-                + device + " R2 Info:" + wfdR2DeviceInfo);
+                + device + " R2 Info:" + Arrays.toString(wfdR2DeviceInfo));
         mMonitor.broadcastP2pDeviceFound(mInterface, device);
     }
 

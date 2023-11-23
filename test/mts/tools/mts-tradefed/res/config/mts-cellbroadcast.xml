@@ -18,6 +18,7 @@
     <include name="mts" />
 
     <include name="mts-cellbroadcast-tests-list" />
+    <include name="mts-cellbroadcast-tests-list-eng-only" />
 
     <option name="plan" value="mts-cellbroadcast" />
 </configuration>

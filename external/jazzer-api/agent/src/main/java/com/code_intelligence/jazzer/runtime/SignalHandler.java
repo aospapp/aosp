@@ -14,13 +14,18 @@
 
 package com.code_intelligence.jazzer.runtime;
 
+import com.github.fmeum.rules_jni.RulesJni;
 import sun.misc.Signal;
 
-@SuppressWarnings({"unused", "sunapi"})
-final class SignalHandler {
-  public static native void handleInterrupt();
-
-  public static void setupSignalHandlers() {
+public final class SignalHandler {
+  static {
+    RulesJni.loadLibrary("jazzer_signal_handler", SignalHandler.class);
     Signal.handle(new Signal("INT"), sig -> handleInterrupt());
   }
+
+  public static void initialize() {
+    // Implicitly runs the static initializer.
+  }
+
+  private static native void handleInterrupt();
 }

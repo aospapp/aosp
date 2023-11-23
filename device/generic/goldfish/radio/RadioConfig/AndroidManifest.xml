@@ -20,12 +20,15 @@
     <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
     <uses-permission android:name="android.permission.MANAGE_SUBSCRIPTION_PLANS"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <application>
         <service
             android:name=".MeterService"
             android:enabled="true"
+            android:foregroundServiceType="specialUse"
             android:exported="true">
-            </service>
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="com.android.emulator.radio.config" />
+        </service>
     </application>
 </manifest>
 

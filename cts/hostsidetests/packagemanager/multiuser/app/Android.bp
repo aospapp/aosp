@@ -28,6 +28,6 @@ android_test_helper_app {
         "vts10",
         "general-tests",
     ],
-    static_libs: ["androidx.test.rules"],
+    static_libs: ["androidx.test.rules", "cts-install-lib"],
     compile_multilib: "both",
 }

@@ -83,7 +83,7 @@ _KEY_RELATIVE = 'relative_file_path'
 # Constants for CMakeLists.txt.
 _MIN_VERSION_TOKEN = '@MINVERSION@'
 _PROJECT_NAME_TOKEN = '@PROJNAME@'
-_ANDOIR_ROOT_TOKEN = '@ANDROIDROOT@'
+_ANDROID_ROOT_TOKEN = '@ANDROIDROOT@'
 _MINI_VERSION_SUPPORT = 'cmake_minimum_required(VERSION {})\n'
 _MINI_VERSION = '3.5'
 _KEY_CLANG = 'clang'
@@ -228,13 +228,13 @@ class CLionProjectFileGenerator:
 
     def generate_cmakelists_file(self):
         """Generates CLion project file from the target module's info."""
-        with open(self.cc_path, 'w') as hfile:
+        with open(self.cc_path, 'w', encoding='utf-8') as hfile:
             self._write_cmakelists_file(hfile)
 
     @common_util.check_args(hfile=(TextIOWrapper, StringIO))
     @common_util.io_error_handle
     def _write_cmakelists_file(self, hfile):
-        """Writes CLion project file content with neccessary info.
+        """Writes CLion project file content with necessary info.
 
         Args:
             hfile: A file handler instance.
@@ -257,7 +257,7 @@ class CLionProjectFileGenerator:
             _MIN_VERSION_TOKEN, _MINI_VERSION)
         content = content.replace(_PROJECT_NAME_TOKEN, self.mod_name)
         content = content.replace(
-            _ANDOIR_ROOT_TOKEN, common_util.get_android_root_dir())
+            _ANDROID_ROOT_TOKEN, common_util.get_android_root_dir())
         hfile.write(content)
 
     @common_util.check_args(hfile=(TextIOWrapper, StringIO))
@@ -403,7 +403,7 @@ def generate_base_cmakelists_file(cc_module_info, rel_project_path, mod_names):
     src_path = os.path.join(cc_dir, constant.CLION_PROJECT_FILE_NAME)
     if os.path.isfile(src_path):
         os.remove(src_path)
-    with open(src_path, 'w') as hfile:
+    with open(src_path, 'w', encoding='utf-8') as hfile:
         _write_base_cmakelists_file(hfile, cc_module_info, src_path, mod_names)
     os.symlink(src_path, dst_path)
     return dst_path
@@ -522,7 +522,7 @@ def _write_all_relative_file_path_flags(hfile, rel_paths_dict, tag):
 @common_util.check_args(hfile=(TextIOWrapper, StringIO), flags=list, tag=str)
 @common_util.io_error_handle
 def _write_all_flags(hfile, flags, tag):
-    """Wrties all flags to the project file.
+    """Writes all flags to the project file.
 
     Args:
         hfile: A file handler instance.

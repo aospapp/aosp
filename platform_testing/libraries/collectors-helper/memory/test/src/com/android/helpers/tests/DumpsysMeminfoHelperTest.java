@@ -28,6 +28,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -42,8 +45,28 @@ public class DumpsysMeminfoHelperTest {
     private static final String TEST_PROCESS_NAME = "com.android.systemui";
     // Second process name used for testing
     private static final String TEST_PROCESS_NAME_2 = "init";
-    // A process that does not exists
+    // Third process name used for testing
+    private static final String TEST_PROCESS_NAME_3 = "com.google.android.apps.nexuslauncher";
+    // A process that does not exist
     private static final String PROCESS_NOT_FOUND = "process_not_found";
+    // A object category that does not exist
+    private static final String OBJECT_NOT_FOUND = "object_not_found";
+    // First valid test object category that does exist
+    private static final String OBJECT_VIEW = "View";
+    // Second valid test object category that does exist
+    private static final String OBJECT_VIEW_ROOT_IMPL = "ViewRootImpl";
+    // com.android.systemui view object key.
+    private static final String SYSTEMUI_VIEW_KEY = "com.android.systemui_View";
+    // com.android.systemui ViewRootImpl object key.
+    private static final String SYSTEMUI_VIEW_ROOT_KEY = "com.android.systemui_ViewRootImpl";
+    // com.google.android.apps.nexuslauncher view object key.
+    private static final String LAUNCHER_VIEW_KEY = "com.google.android.apps.nexuslauncher_View";
+    // com.google.android.apps.nexuslauncher ViewRootImpl object key.
+    private static final String LAUNCHER_VIEW_ROOT_KEY =
+            "com.google.android.apps.nexuslauncher_ViewRootImpl";
+    // Invalid object key for the valid process name.
+    private static final String INVALID_PROCESS_OBJECT_KEY =
+            "com.android.systemui_object_not_found";
 
     private static final String[] CATEGORIES = {"native", "dalvik"};
 
@@ -72,7 +95,15 @@ public class DumpsysMeminfoHelperTest {
 
     @Test
     public void testCollectMeminfo_nullProcess() {
-        mDumpsysMeminfoHelper.setUp(null);
+        mDumpsysMeminfoHelper.setProcessNames(null);
+        mDumpsysMeminfoHelper.startCollecting();
+        Map<String, Long> results = mDumpsysMeminfoHelper.getMetrics();
+        assertTrue(results.isEmpty());
+    }
+
+    @Test
+    public void testCollectMeminfo_nullProcessObjectMap() {
+        mDumpsysMeminfoHelper.setProcessObjectNamesMap(null);
         mDumpsysMeminfoHelper.startCollecting();
         Map<String, Long> results = mDumpsysMeminfoHelper.getMetrics();
         assertTrue(results.isEmpty());
@@ -80,15 +111,40 @@ public class DumpsysMeminfoHelperTest {
 
     @Test
     public void testCollectMeminfo_wrongProcesses() {
-        mDumpsysMeminfoHelper.setUp(PROCESS_NOT_FOUND, null, "");
+        mDumpsysMeminfoHelper.setProcessNames(PROCESS_NOT_FOUND, null, "");
         mDumpsysMeminfoHelper.startCollecting();
         Map<String, Long> results = mDumpsysMeminfoHelper.getMetrics();
         assertTrue(results.isEmpty());
     }
 
     @Test
+    public void testCollectMeminfo_wrongProcessesNameInProcessObjectMap() {
+        Map<String, List<String>> processObjectMap = new HashMap<>();
+        List<String> objectList = new ArrayList<>();
+        objectList.add("View");
+        processObjectMap.put(PROCESS_NOT_FOUND, objectList);
+        mDumpsysMeminfoHelper.setProcessObjectNamesMap(processObjectMap);
+        mDumpsysMeminfoHelper.startCollecting();
+        Map<String, Long> results = mDumpsysMeminfoHelper.getMetrics();
+        assertTrue(results.isEmpty());
+    }
+
+    @Test
+    public void testCollectMeminfo_wrongObjectNameInProcessObjectMap() {
+        Map<String, List<String>> processObjectMap = new HashMap<>();
+        List<String> objectList = new ArrayList<>();
+        objectList.add(OBJECT_NOT_FOUND);
+        processObjectMap.put(TEST_PROCESS_NAME, objectList);
+        mDumpsysMeminfoHelper.setProcessObjectNamesMap(processObjectMap);
+        mDumpsysMeminfoHelper.startCollecting();
+        Map<String, Long> results = mDumpsysMeminfoHelper.getMetrics();
+        // Reporting -1 for the invalid object for alerting purpose.
+        assertTrue(results.get(INVALID_PROCESS_OBJECT_KEY) == -1L);
+    }
+
+    @Test
     public void testCollectMeminfo_oneProcess() {
-        mDumpsysMeminfoHelper.setUp(TEST_PROCESS_NAME);
+        mDumpsysMeminfoHelper.setProcessNames(TEST_PROCESS_NAME);
         mDumpsysMeminfoHelper.startCollecting();
         Map<String, Long> results = mDumpsysMeminfoHelper.getMetrics();
         mDumpsysMeminfoHelper.stopCollecting();
@@ -98,13 +154,60 @@ public class DumpsysMeminfoHelperTest {
 
     @Test
     public void testCollectMeminfo_multipleProcesses() {
-        mDumpsysMeminfoHelper.setUp(TEST_PROCESS_NAME, TEST_PROCESS_NAME_2);
+        mDumpsysMeminfoHelper.setProcessNames(TEST_PROCESS_NAME, TEST_PROCESS_NAME_2);
         mDumpsysMeminfoHelper.startCollecting();
         Map<String, Long> results = mDumpsysMeminfoHelper.getMetrics();
         mDumpsysMeminfoHelper.stopCollecting();
         assertFalse(results.isEmpty());
         verifyKeysForProcess(results, TEST_PROCESS_NAME);
         verifyKeysForProcess(results, TEST_PROCESS_NAME_2);
+    }
+
+    @Test
+    public void testCollectMeminfo_oneProcessObjectMap() {
+        Map<String, List<String>> processObjectMap = new HashMap<>();
+        List<String> objectList = new ArrayList<>();
+        objectList.add(OBJECT_VIEW);
+        objectList.add(OBJECT_VIEW_ROOT_IMPL);
+        processObjectMap.put(TEST_PROCESS_NAME, objectList);
+        mDumpsysMeminfoHelper.setProcessObjectNamesMap(processObjectMap);
+        mDumpsysMeminfoHelper.startCollecting();
+        Map<String, Long> results = mDumpsysMeminfoHelper.getMetrics();
+        assertTrue(results.keySet().contains(SYSTEMUI_VIEW_KEY));
+        assertTrue(results.keySet().contains(SYSTEMUI_VIEW_ROOT_KEY));
+    }
+
+    @Test
+    public void testCollectMeminfo_twoProcessObjectMap() {
+        Map<String, List<String>> processObjectMap = new HashMap<>();
+        List<String> objectList = new ArrayList<>();
+        objectList.add(OBJECT_VIEW);
+        objectList.add(OBJECT_VIEW_ROOT_IMPL);
+        processObjectMap.put(TEST_PROCESS_NAME, objectList);
+        processObjectMap.put(TEST_PROCESS_NAME_3, objectList);
+        mDumpsysMeminfoHelper.setProcessObjectNamesMap(processObjectMap);
+        mDumpsysMeminfoHelper.startCollecting();
+        Map<String, Long> results = mDumpsysMeminfoHelper.getMetrics();
+        assertTrue(results.keySet().contains(SYSTEMUI_VIEW_KEY));
+        assertTrue(results.keySet().contains(SYSTEMUI_VIEW_ROOT_KEY));
+        assertTrue(results.keySet().contains(LAUNCHER_VIEW_KEY));
+        assertTrue(results.keySet().contains(LAUNCHER_VIEW_ROOT_KEY));
+    }
+
+    @Test
+    public void testCollectMeminfo_oneProcessAndProcessObjectMap() {
+        Map<String, List<String>> processObjectMap = new HashMap<>();
+        List<String> objectList = new ArrayList<>();
+        objectList.add(OBJECT_VIEW);
+        objectList.add(OBJECT_VIEW_ROOT_IMPL);
+        processObjectMap.put(TEST_PROCESS_NAME, objectList);
+        mDumpsysMeminfoHelper.setProcessNames(TEST_PROCESS_NAME);
+        mDumpsysMeminfoHelper.setProcessObjectNamesMap(processObjectMap);
+        mDumpsysMeminfoHelper.startCollecting();
+        Map<String, Long> results = mDumpsysMeminfoHelper.getMetrics();
+        verifyKeysForProcess(results, TEST_PROCESS_NAME);
+        assertTrue(results.keySet().contains(SYSTEMUI_VIEW_KEY));
+        assertTrue(results.keySet().contains(SYSTEMUI_VIEW_ROOT_KEY));
     }
 
     private void verifyKeysForProcess(Map<String, Long> results, String processName) {

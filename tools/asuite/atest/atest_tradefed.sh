@@ -42,7 +42,8 @@ if [[ ! -z "$ANDROID_HOST_OUT" ]]; then
           csuite-harness.jar
           tradefed-isolation.jar
           host-libprotobuf-java-full.jar
-          cts-dalvik-host-test-runner.jar"
+          cts-dalvik-host-test-runner.jar
+          compatibility-tradefed.jar"
     for dep in $deps; do
         if [ -f "$ANDROID_HOST_OUT/framework/$dep" ]; then
           TF_PATH+=":$ANDROID_HOST_OUT/framework/$dep"
@@ -71,7 +72,7 @@ if [ "$(uname)" == "Darwin" ]; then
 fi
 
 # Note: must leave $RDBG_FLAG and $TRADEFED_OPTS unquoted so that they go away when unset
-${TF_JAVA} $RDBG_FLAG \
+LOCAL_MODE=1 START_FEATURE_SERVER=1 ${TF_JAVA} $RDBG_FLAG \
     -XX:+HeapDumpOnOutOfMemoryError \
     -XX:-OmitStackTraceInFastThrow \
     $TRADEFED_OPTS \

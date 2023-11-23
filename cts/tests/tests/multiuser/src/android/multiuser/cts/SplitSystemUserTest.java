@@ -23,18 +23,14 @@ import com.android.compatibility.common.util.SystemUtil;
 import java.io.IOException;
 
 import android.app.Instrumentation;
-import android.os.UserManager;
 import android.test.InstrumentationTestCase;
 
-public class SplitSystemUserTest extends InstrumentationTestCase {
+public final class SplitSystemUserTest extends InstrumentationTestCase {
 
     public void testSplitSystemUserIsDisabled() throws Exception {
         // Check that ro.fw.system_user_split property is not set.
         boolean splitEnabled = getBooleanProperty(getInstrumentation(),
             "ro.fw.system_user_split");
         assertFalse("ro.fw.system_user_split must not be enabled", splitEnabled);
-
-        // Check UserManager.isSplitSystemUser returns false as well.
-        assertFalse("UserManager.isSplitSystemUser must be false", UserManager.isSplitSystemUser());
     }
 }

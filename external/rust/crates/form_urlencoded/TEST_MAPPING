@@ -6,16 +6,9 @@
     },
     {
       "path": "external/rust/crates/url"
-    }
-  ],
-  "presubmit": [
+    },
     {
-      "name": "doh_unit_test"
-    }
-  ],
-  "presubmit-rust": [
-    {
-      "name": "doh_unit_test"
+      "path": "packages/modules/DnsResolver"
     }
   ]
 }

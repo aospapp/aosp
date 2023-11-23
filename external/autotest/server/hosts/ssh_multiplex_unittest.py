@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -13,7 +13,7 @@ from autotest_lib.server.hosts import ssh_multiplex
 class ConnectionPoolTest(unittest.TestCase):
     """ Test for SSH Connection Pool """
     def test_get(self):
-        """ We can get MasterSsh object for a host from the pool """
+        """ We can get MainSsh object for a host from the pool """
         p = ssh_multiplex.ConnectionPool()
         conn1 = p.get('host', 'user', 22)
         self.assertIsNotNone(conn1)

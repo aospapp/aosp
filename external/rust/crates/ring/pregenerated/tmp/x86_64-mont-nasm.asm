@@ -5,19 +5,21 @@ default	rel
 %define XMMWORD
 %define YMMWORD
 %define ZMMWORD
+
+%include "ring_core_generated/prefix_symbols_nasm.inc"
 section	.text code align=64
 
 
-EXTERN	GFp_ia32cap_P
+EXTERN	OPENSSL_ia32cap_P
 
-global	GFp_bn_mul_mont
+global	bn_mul_mont
 
 ALIGN	16
-GFp_bn_mul_mont:
+bn_mul_mont:
 	mov	QWORD[8+rsp],rdi	;WIN64 prologue
 	mov	QWORD[16+rsp],rsi
 	mov	rax,rsp
-$L$SEH_begin_GFp_bn_mul_mont:
+$L$SEH_begin_bn_mul_mont:
 	mov	rdi,rcx
 	mov	rsi,rdx
 	mov	rdx,r8
@@ -34,7 +36,7 @@ $L$SEH_begin_GFp_bn_mul_mont:
 	jnz	NEAR $L$mul_enter
 	cmp	r9d,8
 	jb	NEAR $L$mul_enter
-	mov	r11d,DWORD[((GFp_ia32cap_P+8))]
+	mov	r11d,DWORD[((OPENSSL_ia32cap_P+8))]
 	cmp	rdx,rsi
 	jne	NEAR $L$mul4x_enter
 	test	r9d,7
@@ -276,7 +278,7 @@ $L$mul_epilogue:
 	mov	rsi,QWORD[16+rsp]
 	DB	0F3h,0C3h		;repret
 
-$L$SEH_end_GFp_bn_mul_mont:
+$L$SEH_end_bn_mul_mont:
 
 ALIGN	16
 bn_mul4x_mont:
@@ -725,8 +727,8 @@ $L$mul4x_epilogue:
 	DB	0F3h,0C3h		;repret
 
 $L$SEH_end_bn_mul4x_mont:
-EXTERN	GFp_bn_sqrx8x_internal
-EXTERN	GFp_bn_sqr8x_internal
+EXTERN	bn_sqrx8x_internal
+EXTERN	bn_sqr8x_internal
 
 
 ALIGN	32
@@ -821,12 +823,12 @@ DB	102,72,15,110,209
 	pxor	xmm0,xmm0
 DB	102,72,15,110,207
 DB	102,73,15,110,218
-	mov	eax,DWORD[((GFp_ia32cap_P+8))]
+	mov	eax,DWORD[((OPENSSL_ia32cap_P+8))]
 	and	eax,0x80100
 	cmp	eax,0x80100
 	jne	NEAR $L$sqr8x_nox
 
-	call	GFp_bn_sqrx8x_internal
+	call	bn_sqrx8x_internal
 
 
 
@@ -840,7 +842,7 @@ DB	102,72,15,126,207
 
 ALIGN	32
 $L$sqr8x_nox:
-	call	GFp_bn_sqr8x_internal
+	call	bn_sqr8x_internal
 
 
 
@@ -1439,9 +1441,9 @@ $L$common_seh_tail:
 
 section	.pdata rdata align=4
 ALIGN	4
-	DD	$L$SEH_begin_GFp_bn_mul_mont wrt ..imagebase
-	DD	$L$SEH_end_GFp_bn_mul_mont wrt ..imagebase
-	DD	$L$SEH_info_GFp_bn_mul_mont wrt ..imagebase
+	DD	$L$SEH_begin_bn_mul_mont wrt ..imagebase
+	DD	$L$SEH_end_bn_mul_mont wrt ..imagebase
+	DD	$L$SEH_info_bn_mul_mont wrt ..imagebase
 
 	DD	$L$SEH_begin_bn_mul4x_mont wrt ..imagebase
 	DD	$L$SEH_end_bn_mul4x_mont wrt ..imagebase
@@ -1455,7 +1457,7 @@ ALIGN	4
 	DD	$L$SEH_info_bn_mulx4x_mont wrt ..imagebase
 section	.xdata rdata align=8
 ALIGN	8
-$L$SEH_info_GFp_bn_mul_mont:
+$L$SEH_info_bn_mul_mont:
 DB	9,0,0,0
 	DD	mul_handler wrt ..imagebase
 	DD	$L$mul_body wrt ..imagebase,$L$mul_epilogue wrt ..imagebase

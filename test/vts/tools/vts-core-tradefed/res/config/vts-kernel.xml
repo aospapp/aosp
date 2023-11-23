@@ -24,7 +24,6 @@
     <option name="compatibility:include-filter" value="binderSafeInterfaceTest  " />
     <option name="compatibility:include-filter" value="bpf_module_test" />
     <option name="compatibility:include-filter" value="drop_caches_test" />
-    <option name="compatibility:include-filter" value="ion-unit-tests" />
     <option name="compatibility:include-filter" value="KernelApiSysfsTest" />
     <option name="compatibility:include-filter" value="KernelDynamicPartitionsTest  " />
     <option name="compatibility:include-filter" value="KernelLibcutilsTest" />

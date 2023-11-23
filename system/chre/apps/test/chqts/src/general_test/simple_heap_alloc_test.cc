@@ -24,7 +24,7 @@
 #include <shared/nano_string.h>
 #include <shared/send_message.h>
 
-#include <chre.h>
+#include "chre_api/chre.h"
 
 using nanoapp_testing::MessageType;
 using nanoapp_testing::sendFatalFailureToHost;
@@ -145,7 +145,7 @@ void SimpleHeapAllocTest::setUp(uint32_t messageSize,
     // Make sure all of the bytes are addressable.  Our assumption
     // is we'll crash here if that's not the case.  Not the most
     // friendly test, but it's better than allowing a bad CHRE.
-    // TODO: If we convince ourselves that chreLog() should be
+    // TODO: If we convince ourselves that LOGI() should be
     //     safe enough to use here, we could log an 'info' message
     //     prior to each memset attempt.
     nanoapp_testing::memset(mPtrs[i], 0xFF, kSizes[i]);

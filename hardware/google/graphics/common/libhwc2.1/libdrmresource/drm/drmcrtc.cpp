@@ -95,6 +95,10 @@ int DrmCrtc::Init() {
       ALOGI("Failed to get &histogram_weights property");
   if (drm_->GetCrtcProperty(*this, "histogram_threshold", &histogram_threshold_property_))
       ALOGI("Failed to get &histogram_threshold property");
+  if (drm_->GetCrtcProperty(*this, "histogram_pos", &histogram_position_property_))
+      ALOGI("Failed to get &histogram_position property");
+  if (drm_->GetCrtcProperty(*this, "rcd_plane_id", &rcd_plane_id_property_))
+      ALOGI("Failed to get &rcd_plane_id property");
 
   properties_.push_back(&active_property_);
   properties_.push_back(&mode_property_);
@@ -122,6 +126,9 @@ int DrmCrtc::Init() {
   properties_.push_back(&histogram_roi_property_);
   properties_.push_back(&histogram_weights_property_);
   properties_.push_back(&histogram_threshold_property_);
+  properties_.push_back(&histogram_position_property_);
+
+  properties_.push_back(&rcd_plane_id_property_);
 
   return 0;
 }
@@ -253,6 +260,14 @@ const DrmProperty &DrmCrtc::histogram_weights_property() const {
 
 const DrmProperty &DrmCrtc::histogram_threshold_property() const {
     return histogram_threshold_property_;
+}
+
+const DrmProperty &DrmCrtc::histogram_position_property() const {
+    return histogram_position_property_;
+}
+
+const DrmProperty &DrmCrtc::rcd_plane_id_property() const {
+    return rcd_plane_id_property_;
 }
 
 }  // namespace android

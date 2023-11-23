@@ -15,8 +15,10 @@
 
 #include <iostream>
 
-#include <android-base/strings.h>
 #include <android-base/logging.h>
+#include <android-base/parsebool.h>
+#include <android-base/parseint.h>
+#include <android-base/strings.h>
 #include <gflags/gflags.h>
 
 #include "common/libs/fs/shared_buf.h"
@@ -29,42 +31,62 @@
 #include "host/commands/assemble_cvd/disk_flags.h"
 #include "host/commands/assemble_cvd/flag_feature.h"
 #include "host/commands/assemble_cvd/flags.h"
+#include "host/commands/assemble_cvd/flags_defaults.h"
 #include "host/libs/config/adb/adb.h"
 #include "host/libs/config/config_flag.h"
 #include "host/libs/config/custom_actions.h"
+#include "host/libs/config/fastboot/fastboot.h"
 #include "host/libs/config/fetcher_config.h"
+#include "host/libs/config/inject.h"
 
 using cuttlefish::StringFromEnv;
 
-DEFINE_string(assembly_dir, StringFromEnv("HOME", ".") + "/cuttlefish_assembly",
+DEFINE_string(assembly_dir, CF_DEFAULTS_ASSEMBLY_DIR,
               "A directory to put generated files common between instances");
-DEFINE_string(instance_dir, StringFromEnv("HOME", ".") + "/cuttlefish",
+DEFINE_string(instance_dir, CF_DEFAULTS_INSTANCE_DIR,
               "This is a directory that will hold the cuttlefish generated"
               "files, including both instance-specific and common files");
-DEFINE_bool(resume, true, "Resume using the disk from the last session, if "
-                          "possible. i.e., if --noresume is passed, the disk "
-                          "will be reset to the state it was initially launched "
-                          "in. This flag is ignored if the underlying partition "
-                          "images have been updated since the first launch.");
-DEFINE_int32(modem_simulator_count, 1,
-             "Modem simulator count corresponding to maximum sim number");
+DEFINE_bool(resume, CF_DEFAULTS_RESUME,
+            "Resume using the disk from the last session, if "
+            "possible. i.e., if --noresume is passed, the disk "
+            "will be reset to the state it was initially launched "
+            "in. This flag is ignored if the underlying partition "
+            "images have been updated since the first launch.");
+
+DECLARE_bool(use_overlay);
 
 namespace cuttlefish {
 namespace {
 
 std::string kFetcherConfigFile = "fetcher_config.json";
 
-FetcherConfig FindFetcherConfig(const std::vector<std::string>& files) {
+struct LocatedFetcherConfig {
   FetcherConfig fetcher_config;
+  std::optional<std::string> working_dir;
+};
+
+LocatedFetcherConfig FindFetcherConfig(const std::vector<std::string>& files) {
+  LocatedFetcherConfig located_fetcher_config;
   for (const auto& file : files) {
     if (android::base::EndsWith(file, kFetcherConfigFile)) {
-      if (fetcher_config.LoadFromFile(file)) {
-        return fetcher_config;
+      std::string home_directory = StringFromEnv("HOME", CurrentDirectory());
+      std::string fetcher_file = file;
+      if (!FileExists(file) &&
+          FileExists(home_directory + "/" + fetcher_file)) {
+        LOG(INFO) << "Found " << fetcher_file << " in HOME directory ('"
+                  << home_directory << "') and not current working directory";
+
+        located_fetcher_config.working_dir = home_directory;
+        fetcher_file = home_directory + "/" + fetcher_file;
+      }
+
+      if (located_fetcher_config.fetcher_config.LoadFromFile(fetcher_file)) {
+        return located_fetcher_config;
       }
       LOG(ERROR) << "Could not load fetcher config file.";
     }
   }
-  return fetcher_config;
+  return located_fetcher_config;
 }
 
 std::string GetLegacyConfigFilePath(const CuttlefishConfig& config) {
@@ -96,10 +118,13 @@ Result<void> SaveConfig(const CuttlefishConfig& tmp_config_obj) {
 
 Result<void> CreateLegacySymlinks(
     const CuttlefishConfig::InstanceSpecific& instance) {
-  std::string log_files[] = {
-      "kernel.log",  "launcher.log",        "logcat",
-      "metrics.log", "modem_simulator.log", "crosvm_openwrt.log",
-  };
+  std::string log_files[] = {"kernel.log",
+                             "launcher.log",
+                             "logcat",
+                             "metrics.log",
+                             "modem_simulator.log",
+                             "crosvm_openwrt.log",
+                             "crosvm_openwrt_boot.log"};
   for (const auto& log_file : log_files) {
     auto symlink_location = instance.PerInstancePath(log_file.c_str());
     auto log_target = "logs/" + log_file;  // Relative path
@@ -128,11 +153,24 @@ Result<void> CreateLegacySymlinks(
     return CF_ERRNO("symlink(\"" << instance.instance_dir() << "\", \""
                                  << legacy_instance_path << "\") failed");
   }
+
+  const auto mac80211_uds_name = "vhost_user_mac80211";
+
+  const auto mac80211_uds_path =
+      instance.PerInstanceInternalUdsPath(mac80211_uds_name);
+  const auto legacy_mac80211_uds_path =
+      instance.PerInstanceInternalPath(mac80211_uds_name);
+
+  if (symlink(mac80211_uds_path.c_str(), legacy_mac80211_uds_path.c_str())) {
+    return CF_ERRNO("symlink(\"" << mac80211_uds_path << "\", \""
+                                 << legacy_mac80211_uds_path << "\") failed");
+  }
+
   return {};
 }
 
 Result<const CuttlefishConfig*> InitFilesystemAndCreateConfig(
-    FetcherConfig fetcher_config, KernelConfig kernel_config,
+    FetcherConfig fetcher_config, const std::vector<GuestConfig>& guest_configs,
     fruit::Injector<>& injector) {
   std::string runtime_dir_parent = AbsolutePath(FLAGS_instance_dir);
   while (runtime_dir_parent[runtime_dir_parent.size() - 1] == '/') {
@@ -158,12 +196,36 @@ Result<const CuttlefishConfig*> InitFilesystemAndCreateConfig(
     // SaveConfig line below. Don't launch cuttlefish subprocesses between these
     // two operations, as those will assume they can read the config object from
     // disk.
-    auto config = InitializeCuttlefishConfiguration(FLAGS_instance_dir,
-                                                    FLAGS_modem_simulator_count,
-                                                    kernel_config, injector);
+    auto config = CF_EXPECT(
+        InitializeCuttlefishConfiguration(FLAGS_instance_dir, guest_configs,
+                                          injector, fetcher_config),
+        "cuttlefish configuration initialization failed");
+
+    // take the max value of modem_simulator_instance_number in each instance
+    // which is used for preserving/deleting iccprofile_for_simX.xml files
+    int modem_simulator_count = 0;
+
     std::set<std::string> preserving;
-    auto os_builder = OsCompositeDiskBuilder(config);
-    bool creating_os_disk = CF_EXPECT(os_builder.WillRebuildCompositeDisk());
+    bool creating_os_disk = false;
+    // if any device needs to rebuild its composite disk,
+    // then don't preserve any files and delete everything.
+    for (const auto& instance : config.Instances()) {
+      auto os_builder = OsCompositeDiskBuilder(config, instance);
+      creating_os_disk |= CF_EXPECT(os_builder.WillRebuildCompositeDisk());
+      if (instance.ap_boot_flow() != CuttlefishConfig::InstanceSpecific::APBootFlow::None) {
+        auto ap_builder = ApCompositeDiskBuilder(config, instance);
+        creating_os_disk |= CF_EXPECT(ap_builder.WillRebuildCompositeDisk());
+      }
+      if (instance.modem_simulator_instance_number() > modem_simulator_count) {
+        modem_simulator_count = instance.modem_simulator_instance_number();
+      }
+    }
+    // TODO(schuffelen): Add smarter decision for when to delete runtime files.
+    // Files like NVChip are tightly bound to Android keymint and should be
+    // deleted when userdata is reset. However if the user has ever run without
+    // the overlay, then we want to keep this until userdata.img was externally
+    // replaced.
+    creating_os_disk &= FLAGS_use_overlay;
     if (FLAGS_resume && creating_os_disk) {
       LOG(INFO) << "Requested resuming a previous session (the default behavior) "
                 << "but the base images have changed under the overlay, making the "
@@ -177,6 +239,7 @@ Result<const CuttlefishConfig*> InitFilesystemAndCreateConfig(
       preserving.insert("os_composite.img");
       preserving.insert("sdcard.img");
       preserving.insert("boot_repacked.img");
+      preserving.insert("vendor_dlkm_repacked.img");
       preserving.insert("vendor_boot_repacked.img");
       preserving.insert("access-kregistry");
       preserving.insert("hwcomposer-pmem");
@@ -192,7 +255,7 @@ Result<const CuttlefishConfig*> InitFilesystemAndCreateConfig(
       preserving.insert("uboot_env.img");
       preserving.insert("factory_reset_protected.img");
       std::stringstream ss;
-      for (int i = 0; i < FLAGS_modem_simulator_count; i++) {
+      for (int i = 0; i < modem_simulator_count; i++) {
         ss.clear();
         ss << "iccprofile_for_sim" << i << ".xml";
         preserving.insert(ss.str());
@@ -203,25 +266,21 @@ Result<const CuttlefishConfig*> InitFilesystemAndCreateConfig(
                               config.instance_dirs()),
               "Failed to clean prior files");
 
+    auto defaultGroup = "cvdnetwork";
+    const mode_t defaultMode = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
+
     CF_EXPECT(EnsureDirectoryExists(config.root_dir()));
     CF_EXPECT(EnsureDirectoryExists(config.assembly_dir()));
     CF_EXPECT(EnsureDirectoryExists(config.instances_dir()));
+    CF_EXPECT(EnsureDirectoryExists(config.instances_uds_dir(), defaultMode,
+                                    defaultGroup));
+
+    LOG(INFO) << "Path for instance UDS: " << config.instances_uds_dir();
+
     if (log->LinkAtCwd(config.AssemblyPath("assemble_cvd.log"))) {
       LOG(ERROR) << "Unable to persist assemble_cvd log at "
                   << config.AssemblyPath("assemble_cvd.log")
                   << ": " << log->StrError();
-    }
-
-    auto disk_config = GetOsCompositeDiskConfig();
-    if (auto it = std::find_if(disk_config.begin(), disk_config.end(),
-                               [](const auto& partition) {
-                                 return partition.label == "ap_rootfs";
-                               });
-        it != disk_config.end()) {
-      auto ap_image_idx = std::distance(disk_config.begin(), it) + 1;
-      std::stringstream ss;
-      ss << "/dev/vda" << ap_image_idx;
-      config.set_ap_image_dev_path(ss.str());
     }
     for (const auto& instance : config.Instances()) {
       // Create instance directory if it doesn't exist.
@@ -233,13 +292,22 @@ Result<const CuttlefishConfig*> InitFilesystemAndCreateConfig(
       auto recording_dir = instance.instance_dir() + "/recording";
       CF_EXPECT(EnsureDirectoryExists(recording_dir));
       CF_EXPECT(EnsureDirectoryExists(instance.PerInstanceLogPath("")));
+
+      CF_EXPECT(EnsureDirectoryExists(instance.instance_uds_dir(), defaultMode,
+                                      defaultGroup));
+      CF_EXPECT(EnsureDirectoryExists(instance.instance_internal_uds_dir(),
+                                      defaultMode, defaultGroup));
+      CF_EXPECT(EnsureDirectoryExists(instance.PerInstanceGrpcSocketPath(""),
+                                      defaultMode, defaultGroup));
+
       // TODO(schuffelen): Move this code somewhere better
       CF_EXPECT(CreateLegacySymlinks(instance));
     }
     CF_EXPECT(SaveConfig(config), "Failed to initialize configuration");
   }
 
-  // Do this early so that the config object is ready for anything that needs it
+  // Do this early so that the config object is ready for anything that needs
+  // it
   auto config = CuttlefishConfig::Get();
   CF_EXPECT(config != nullptr, "Failed to obtain config singleton");
 
@@ -250,7 +318,8 @@ Result<const CuttlefishConfig*> InitFilesystemAndCreateConfig(
     CF_EXPECT(RemoveFile(FLAGS_assembly_dir),
               "Failed to remove file" << FLAGS_assembly_dir);
   }
-  if (symlink(config->assembly_dir().c_str(), FLAGS_assembly_dir.c_str())) {
+  if (symlink(config->assembly_dir().c_str(),
+              FLAGS_assembly_dir.c_str())) {
     return CF_ERRNO("symlink(\"" << config->assembly_dir() << "\", \""
                                  << FLAGS_assembly_dir << "\") failed");
   }
@@ -263,7 +332,8 @@ Result<const CuttlefishConfig*> InitFilesystemAndCreateConfig(
   }
   if (symlink(first_instance.c_str(), double_legacy_instance_dir.c_str())) {
     return CF_ERRNO("symlink(\"" << first_instance << "\", \""
-                                 << double_legacy_instance_dir << "\") failed");
+                                 << double_legacy_instance_dir
+                                 << "\") failed");
   }
 
   CF_EXPECT(CreateDynamicDiskFiles(fetcher_config, *config));
@@ -292,6 +362,9 @@ fruit::Component<> FlagsComponent() {
       .install(AdbConfigComponent)
       .install(AdbConfigFlagComponent)
       .install(AdbConfigFragmentComponent)
+      .install(FastbootConfigComponent)
+      .install(FastbootConfigFlagComponent)
+      .install(FastbootConfigFragmentComponent)
       .install(GflagsComponent)
       .install(ConfigFlagComponent)
       .install(CustomActionsComponent);
@@ -321,9 +394,18 @@ Result<int> AssembleCvdMain(int argc, char** argv) {
   }
   std::vector<std::string> input_files = android::base::Split(input_files_str, "\n");
 
-  FetcherConfig fetcher_config = FindFetcherConfig(input_files);
+  LocatedFetcherConfig located_fetcher_config = FindFetcherConfig(input_files);
+  if (located_fetcher_config.working_dir) {
+    LOG(INFO) << "Changing current working dircetory to '"
+              << *located_fetcher_config.working_dir << "'";
+    CF_EXPECT(chdir((*located_fetcher_config.working_dir).c_str()) == 0,
+              "Unable to change working dir to '"
+                  << *located_fetcher_config.working_dir
+                  << "': " << strerror(errno));
+  }
+
   // set gflags defaults to point to kernel/RD from fetcher config
-  ExtractKernelParamsFromFetcherConfig(fetcher_config);
+  ExtractKernelParamsFromFetcherConfig(located_fetcher_config.fetcher_config);
 
   auto args = ArgsToVec(argc - 1, argv + 1);
 
@@ -348,6 +430,11 @@ Result<int> AssembleCvdMain(int argc, char** argv) {
   }
 
   fruit::Injector<> injector(FlagsComponent);
+
+  for (auto& late_injected : injector.getMultibindings<LateInjected>()) {
+    CF_EXPECT(late_injected->LateInject(injector));
+  }
+
   auto flag_features = injector.getMultibindings<FlagFeature>();
   CF_EXPECT(FlagFeature::ProcessFlags(flag_features, args),
             "Failed to parse flags.");
@@ -366,13 +453,13 @@ Result<int> AssembleCvdMain(int argc, char** argv) {
   // gflags either consumes all arguments that start with - or leaves all of
   // them in place, and either errors out on unknown flags or accepts any flags.
 
-  auto kernel_config =
-      CF_EXPECT(GetKernelConfigAndSetDefaults(), "Failed to parse arguments");
+  auto guest_configs =
+      CF_EXPECT(GetGuestConfigAndSetDefaults(), "Failed to parse arguments");
 
-  auto config =
-      CF_EXPECT(InitFilesystemAndCreateConfig(std::move(fetcher_config),
-                                              kernel_config, injector),
-                "Failed to create config");
+  auto config = CF_EXPECT(InitFilesystemAndCreateConfig(
+                              std::move(located_fetcher_config.fetcher_config),
+                              guest_configs, injector),
+                          "Failed to create config");
 
   std::cout << GetConfigFilePath(*config) << "\n";
   std::cout << std::flush;
@@ -384,6 +471,10 @@ Result<int> AssembleCvdMain(int argc, char** argv) {
 
 int main(int argc, char** argv) {
   auto res = cuttlefish::AssembleCvdMain(argc, argv);
-  CHECK(res.ok()) << "assemble_cvd failed: \n" << res.error();
-  return *res;
+  if (res.ok()) {
+    return *res;
+  }
+  LOG(ERROR) << "assemble_cvd failed: \n" << res.error().Message();
+  LOG(DEBUG) << "assemble_cvd failed: \n" << res.error().Trace();
+  abort();
 }

@@ -18,7 +18,7 @@
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
                   android:title="@string/reset_app_pref_title"
                   android:key="@string/psk_reset_app_pref">
-    <Preference
+    <com.android.car.ui.preference.CarUiPreference
         android:selectable="false"
         android:title="@string/reset_app_pref_desc"
         settings:singleLineTitle="false"/>

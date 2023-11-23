@@ -20,7 +20,6 @@
 #include <android-base/stringprintf.h>
 
 #include "matchers/SimpleAtomMatchingTracker.h"
-#include "stats_annotations.h"
 #include "stats_event.h"
 #include "stats_util.h"
 
@@ -33,6 +32,25 @@ using zetasketch::android::AggregatorStateProto;
 namespace android {
 namespace os {
 namespace statsd {
+
+bool StatsServiceConfigTest::sendConfig(const StatsdConfig& config) {
+    string str;
+    config.SerializeToString(&str);
+    std::vector<uint8_t> configAsVec(str.begin(), str.end());
+    return service->addConfiguration(kConfigKey, configAsVec, kCallingUid).isOk();
+}
+
+ConfigMetricsReport StatsServiceConfigTest::getReports(sp<StatsLogProcessor> processor,
+                                                       int64_t timestamp, bool include_current) {
+    vector<uint8_t> output;
+    ConfigKey configKey(kCallingUid, kConfigKey);
+    processor->onDumpReport(configKey, timestamp, include_current /* include_current_bucket*/,
+                            true /* erase_data */, ADB_DUMP, NO_TIME_CONSTRAINTS, &output);
+    ConfigMetricsReportList reports;
+    reports.ParseFromArray(output.data(), output.size());
+    EXPECT_EQ(1, reports.reports_size());
+    return reports.reports(0);
+}
 
 StatsLogReport outputStreamToProto(ProtoOutputStream* proto) {
     vector<uint8_t> bytes;
@@ -84,6 +102,11 @@ AtomMatcher CreateStartScheduledJobAtomMatcher() {
 AtomMatcher CreateFinishScheduledJobAtomMatcher() {
     return CreateScheduledJobStateChangedAtomMatcher("ScheduledJobFinish",
                                                      ScheduledJobStateChanged::FINISHED);
+}
+
+AtomMatcher CreateScheduleScheduledJobAtomMatcher() {
+    return CreateScheduledJobStateChangedAtomMatcher("ScheduledJobSchedule",
+                                                     ScheduledJobStateChanged::SCHEDULED);
 }
 
 AtomMatcher CreateScreenBrightnessChangedAtomMatcher() {
@@ -255,10 +278,8 @@ AtomMatcher CreateAppStartOccurredAtomMatcher() {
 AtomMatcher CreateTestAtomRepeatedStateAtomMatcher(const string& name,
                                                    TestAtomReported::State state,
                                                    Position position) {
-    AtomMatcher atom_matcher;
-    atom_matcher.set_id(StringToId(name));
+    AtomMatcher atom_matcher = CreateSimpleAtomMatcher(name, util::TEST_ATOM_REPORTED);
     auto simple_atom_matcher = atom_matcher.mutable_simple_atom_matcher();
-    simple_atom_matcher->set_atom_id(util::TEST_ATOM_REPORTED);
     auto field_value_matcher = simple_atom_matcher->add_field_value_matcher();
     field_value_matcher->set_field(14);  // Repeated enum field.
     field_value_matcher->set_eq_int(state);
@@ -319,7 +340,7 @@ Predicate CreateScreenIsOnPredicate() {
 
 Predicate CreateScreenIsOffPredicate() {
     Predicate predicate;
-    predicate.set_id(1111123);
+    predicate.set_id(StringToId("ScreenIsOff"));
     predicate.mutable_simple_predicate()->set_start(StringToId("ScreenTurnedOff"));
     predicate.mutable_simple_predicate()->set_stop(StringToId("ScreenTurnedOn"));
     return predicate;
@@ -335,7 +356,7 @@ Predicate CreateHoldingWakelockPredicate() {
 
 Predicate CreateIsSyncingPredicate() {
     Predicate predicate;
-    predicate.set_id(33333333333333);
+    predicate.set_id(StringToId("IsSyncing"));
     predicate.mutable_simple_predicate()->set_start(StringToId("SyncStart"));
     predicate.mutable_simple_predicate()->set_stop(StringToId("SyncEnd"));
     return predicate;
@@ -592,14 +613,14 @@ ValueMetric createValueMetric(const string& name, const AtomMatcher& what, const
     return metric;
 }
 
-KllMetric createKllMetric(const string& name, const AtomMatcher& what, const int valueField,
+KllMetric createKllMetric(const string& name, const AtomMatcher& what, const int kllField,
                           const optional<int64_t>& condition) {
     KllMetric metric;
     metric.set_id(StringToId(name));
     metric.set_what(what.id());
     metric.set_bucket(TEN_MINUTES);
     metric.mutable_kll_field()->set_field(what.simple_atom_matcher().atom_id());
-    metric.mutable_kll_field()->add_child()->set_field(valueField);
+    metric.mutable_kll_field()->add_child()->set_field(kllField);
     if (condition) {
         metric.set_condition(condition.value());
     }
@@ -790,7 +811,7 @@ AStatsEvent* makeUidStatsEvent(int atomId, int64_t eventTimeNs, int uid, int dat
     AStatsEvent_overwriteTimestamp(statsEvent, eventTimeNs);
 
     AStatsEvent_writeInt32(statsEvent, uid);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_IS_UID, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_IS_UID, true);
     AStatsEvent_writeInt32(statsEvent, data1);
     AStatsEvent_writeInt32(statsEvent, data2);
 
@@ -803,7 +824,7 @@ AStatsEvent* makeUidStatsEvent(int atomId, int64_t eventTimeNs, int uid, int dat
     AStatsEvent_setAtomId(statsEvent, atomId);
     AStatsEvent_overwriteTimestamp(statsEvent, eventTimeNs);
     AStatsEvent_writeInt32(statsEvent, uid);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_IS_UID, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_IS_UID, true);
     AStatsEvent_writeInt32(statsEvent, data1);
     AStatsEvent_writeInt32Array(statsEvent, data2.data(), data2.size());
 
@@ -833,7 +854,7 @@ shared_ptr<LogEvent> makeExtraUidsLogEvent(int atomId, int64_t eventTimeNs, int 
     AStatsEvent* statsEvent = makeUidStatsEvent(atomId, eventTimeNs, uid1, data1, data2);
     for (const int extraUid : extraUids) {
         AStatsEvent_writeInt32(statsEvent, extraUid);
-        AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_IS_UID, true);
+        AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_IS_UID, true);
     }
 
     shared_ptr<LogEvent> logEvent = std::make_shared<LogEvent>(/*uid=*/0, /*pid=*/0);
@@ -847,7 +868,7 @@ shared_ptr<LogEvent> makeRepeatedUidLogEvent(int atomId, int64_t eventTimeNs,
     AStatsEvent_setAtomId(statsEvent, atomId);
     AStatsEvent_overwriteTimestamp(statsEvent, eventTimeNs);
     AStatsEvent_writeInt32Array(statsEvent, uids.data(), uids.size());
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_IS_UID, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_IS_UID, true);
 
     shared_ptr<LogEvent> logEvent = std::make_shared<LogEvent>(/*uid=*/0, /*pid=*/0);
     parseStatsEventToLogEvent(statsEvent, logEvent.get());
@@ -861,7 +882,7 @@ shared_ptr<LogEvent> makeRepeatedUidLogEvent(int atomId, int64_t eventTimeNs,
     AStatsEvent_setAtomId(statsEvent, atomId);
     AStatsEvent_overwriteTimestamp(statsEvent, eventTimeNs);
     AStatsEvent_writeInt32Array(statsEvent, uids.data(), uids.size());
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_IS_UID, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_IS_UID, true);
     AStatsEvent_writeInt32(statsEvent, data1);
     AStatsEvent_writeInt32(statsEvent, data2);
 
@@ -878,7 +899,7 @@ shared_ptr<LogEvent> makeRepeatedUidLogEvent(int atomId, int64_t eventTimeNs,
     AStatsEvent_setAtomId(statsEvent, atomId);
     AStatsEvent_overwriteTimestamp(statsEvent, eventTimeNs);
     AStatsEvent_writeInt32Array(statsEvent, uids.data(), uids.size());
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_IS_UID, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_IS_UID, true);
     AStatsEvent_writeInt32(statsEvent, data1);
     AStatsEvent_writeInt32Array(statsEvent, data2.data(), data2.size());
 
@@ -931,8 +952,8 @@ std::unique_ptr<LogEvent> CreateScreenStateChangedEvent(uint64_t timestampNs,
     AStatsEvent_setAtomId(statsEvent, util::SCREEN_STATE_CHANGED);
     AStatsEvent_overwriteTimestamp(statsEvent, timestampNs);
     AStatsEvent_writeInt32(statsEvent, state);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_EXCLUSIVE_STATE, true);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_STATE_NESTED, false);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_EXCLUSIVE_STATE, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_STATE_NESTED, false);
 
     std::unique_ptr<LogEvent> logEvent = std::make_unique<LogEvent>(loggerUid, /*pid=*/0);
     parseStatsEventToLogEvent(statsEvent, logEvent.get());
@@ -944,8 +965,8 @@ std::unique_ptr<LogEvent> CreateBatterySaverOnEvent(uint64_t timestampNs) {
     AStatsEvent_setAtomId(statsEvent, util::BATTERY_SAVER_MODE_STATE_CHANGED);
     AStatsEvent_overwriteTimestamp(statsEvent, timestampNs);
     AStatsEvent_writeInt32(statsEvent, BatterySaverModeStateChanged::ON);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_EXCLUSIVE_STATE, true);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_STATE_NESTED, false);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_EXCLUSIVE_STATE, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_STATE_NESTED, false);
 
     std::unique_ptr<LogEvent> logEvent = std::make_unique<LogEvent>(/*uid=*/0, /*pid=*/0);
     parseStatsEventToLogEvent(statsEvent, logEvent.get());
@@ -957,8 +978,8 @@ std::unique_ptr<LogEvent> CreateBatterySaverOffEvent(uint64_t timestampNs) {
     AStatsEvent_setAtomId(statsEvent, util::BATTERY_SAVER_MODE_STATE_CHANGED);
     AStatsEvent_overwriteTimestamp(statsEvent, timestampNs);
     AStatsEvent_writeInt32(statsEvent, BatterySaverModeStateChanged::OFF);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_EXCLUSIVE_STATE, true);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_STATE_NESTED, false);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_EXCLUSIVE_STATE, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_STATE_NESTED, false);
 
     std::unique_ptr<LogEvent> logEvent = std::make_unique<LogEvent>(/*uid=*/0, /*pid=*/0);
     parseStatsEventToLogEvent(statsEvent, logEvent.get());
@@ -1018,6 +1039,15 @@ std::unique_ptr<LogEvent> CreateFinishScheduledJobEvent(uint64_t timestampNs,
                                                         const string& jobName) {
     return CreateScheduledJobStateChangedEvent(attributionUids, attributionTags, jobName,
                                                ScheduledJobStateChanged::FINISHED, timestampNs);
+}
+
+// Create log event when scheduled job is scheduled.
+std::unique_ptr<LogEvent> CreateScheduleScheduledJobEvent(uint64_t timestampNs,
+                                                          const vector<int>& attributionUids,
+                                                          const vector<string>& attributionTags,
+                                                          const string& jobName) {
+    return CreateScheduledJobStateChangedEvent(attributionUids, attributionTags, jobName,
+                                               ScheduledJobStateChanged::SCHEDULED, timestampNs);
 }
 
 std::unique_ptr<LogEvent> CreateTestAtomReportedEventVariableRepeatedFields(
@@ -1081,14 +1111,15 @@ std::unique_ptr<LogEvent> CreateWakelockStateChangedEvent(uint64_t timestampNs,
     AStatsEvent_overwriteTimestamp(statsEvent, timestampNs);
 
     writeAttribution(statsEvent, attributionUids, attributionTags);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_PRIMARY_FIELD_FIRST_UID, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD_FIRST_UID,
+                                  true);
     AStatsEvent_writeInt32(statsEvent, android::os::WakeLockLevelEnum::PARTIAL_WAKE_LOCK);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_PRIMARY_FIELD, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD, true);
     AStatsEvent_writeString(statsEvent, wakelockName.c_str());
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_PRIMARY_FIELD, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD, true);
     AStatsEvent_writeInt32(statsEvent, state);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_EXCLUSIVE_STATE, true);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_STATE_NESTED, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_EXCLUSIVE_STATE, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_STATE_NESTED, true);
 
     std::unique_ptr<LogEvent> logEvent = std::make_unique<LogEvent>(/*uid=*/0, /*pid=*/0);
     parseStatsEventToLogEvent(statsEvent, logEvent.get());
@@ -1227,11 +1258,11 @@ std::unique_ptr<LogEvent> CreateUidProcessStateChangedEvent(
     AStatsEvent_overwriteTimestamp(statsEvent, timestampNs);
 
     AStatsEvent_writeInt32(statsEvent, uid);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_IS_UID, true);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_PRIMARY_FIELD, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_IS_UID, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD, true);
     AStatsEvent_writeInt32(statsEvent, state);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_EXCLUSIVE_STATE, true);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_STATE_NESTED, false);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_EXCLUSIVE_STATE, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_STATE_NESTED, false);
 
     std::unique_ptr<LogEvent> logEvent = std::make_unique<LogEvent>(/*uid=*/0, /*pid=*/0);
     parseStatsEventToLogEvent(statsEvent, logEvent.get());
@@ -1249,20 +1280,21 @@ std::unique_ptr<LogEvent> CreateBleScanStateChangedEvent(uint64_t timestampNs,
     AStatsEvent_overwriteTimestamp(statsEvent, timestampNs);
 
     writeAttribution(statsEvent, attributionUids, attributionTags);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_PRIMARY_FIELD_FIRST_UID, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD_FIRST_UID,
+                                  true);
     AStatsEvent_writeInt32(statsEvent, state);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_EXCLUSIVE_STATE, true);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_STATE_NESTED, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_EXCLUSIVE_STATE, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_STATE_NESTED, true);
     if (state == util::BLE_SCAN_STATE_CHANGED__STATE__RESET) {
-        AStatsEvent_addInt32Annotation(statsEvent, ANNOTATION_ID_TRIGGER_STATE_RESET,
+        AStatsEvent_addInt32Annotation(statsEvent, ASTATSLOG_ANNOTATION_ID_TRIGGER_STATE_RESET,
                                        util::BLE_SCAN_STATE_CHANGED__STATE__OFF);
     }
     AStatsEvent_writeBool(statsEvent, filtered);  // filtered
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_PRIMARY_FIELD, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD, true);
     AStatsEvent_writeBool(statsEvent, firstMatch);  // first match
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_PRIMARY_FIELD, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD, true);
     AStatsEvent_writeBool(statsEvent, opportunistic);  // opportunistic
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_PRIMARY_FIELD, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD, true);
 
     std::unique_ptr<LogEvent> logEvent = std::make_unique<LogEvent>(/*uid=*/0, /*pid=*/0);
     parseStatsEventToLogEvent(statsEvent, logEvent.get());
@@ -1278,14 +1310,14 @@ std::unique_ptr<LogEvent> CreateOverlayStateChangedEvent(int64_t timestampNs, co
     AStatsEvent_overwriteTimestamp(statsEvent, timestampNs);
 
     AStatsEvent_writeInt32(statsEvent, uid);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_IS_UID, true);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_PRIMARY_FIELD, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_IS_UID, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD, true);
     AStatsEvent_writeString(statsEvent, packageName.c_str());
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_PRIMARY_FIELD, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD, true);
     AStatsEvent_writeBool(statsEvent, usingAlertWindow);
     AStatsEvent_writeInt32(statsEvent, state);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_EXCLUSIVE_STATE, true);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_STATE_NESTED, false);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_EXCLUSIVE_STATE, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_STATE_NESTED, false);
 
     std::unique_ptr<LogEvent> logEvent = std::make_unique<LogEvent>(/*uid=*/0, /*pid=*/0);
     parseStatsEventToLogEvent(statsEvent, logEvent.get());
@@ -1313,10 +1345,62 @@ std::unique_ptr<LogEvent> CreateAppStartOccurredEvent(
     return logEvent;
 }
 
+std::unique_ptr<LogEvent> CreateBleScanResultReceivedEvent(uint64_t timestampNs,
+                                                           const vector<int>& attributionUids,
+                                                           const vector<string>& attributionTags,
+                                                           const int numResults) {
+    AStatsEvent* statsEvent = AStatsEvent_obtain();
+    AStatsEvent_setAtomId(statsEvent, util::BLE_SCAN_RESULT_RECEIVED);
+    AStatsEvent_overwriteTimestamp(statsEvent, timestampNs);
+
+    writeAttribution(statsEvent, attributionUids, attributionTags);
+    AStatsEvent_writeInt32(statsEvent, numResults);
+
+    std::unique_ptr<LogEvent> logEvent = std::make_unique<LogEvent>(/*uid=*/0, /*pid=*/0);
+    parseStatsEventToLogEvent(statsEvent, logEvent.get());
+    return logEvent;
+}
+
+std::unique_ptr<LogEvent> CreateRestrictedLogEvent(int atomTag, int64_t timestampNs) {
+    AStatsEvent* statsEvent = AStatsEvent_obtain();
+    AStatsEvent_setAtomId(statsEvent, atomTag);
+    AStatsEvent_addInt32Annotation(statsEvent, ASTATSLOG_ANNOTATION_ID_RESTRICTION_CATEGORY,
+                                   ASTATSLOG_RESTRICTION_CATEGORY_DIAGNOSTIC);
+    AStatsEvent_writeInt32(statsEvent, 10);
+    AStatsEvent_overwriteTimestamp(statsEvent, timestampNs);
+    std::unique_ptr<LogEvent> logEvent = std::make_unique<LogEvent>(/*uid=*/0, /*pid=*/0);
+    parseStatsEventToLogEvent(statsEvent, logEvent.get());
+    return logEvent;
+}
+
+std::unique_ptr<LogEvent> CreateNonRestrictedLogEvent(int atomTag, int64_t timestampNs) {
+    AStatsEvent* statsEvent = AStatsEvent_obtain();
+    AStatsEvent_setAtomId(statsEvent, atomTag);
+    AStatsEvent_writeInt32(statsEvent, 10);
+    AStatsEvent_overwriteTimestamp(statsEvent, timestampNs);
+    std::unique_ptr<LogEvent> logEvent = std::make_unique<LogEvent>(/*uid=*/0, /*pid=*/0);
+    parseStatsEventToLogEvent(statsEvent, logEvent.get());
+    return logEvent;
+}
+
+std::unique_ptr<LogEvent> CreatePhoneSignalStrengthChangedEvent(
+        int64_t timestampNs, ::telephony::SignalStrengthEnum state) {
+    AStatsEvent* statsEvent = AStatsEvent_obtain();
+    AStatsEvent_setAtomId(statsEvent, util::PHONE_SIGNAL_STRENGTH_CHANGED);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_TRUNCATE_TIMESTAMP, true);
+    AStatsEvent_overwriteTimestamp(statsEvent, timestampNs);
+    AStatsEvent_writeInt32(statsEvent, state);
+
+    std::unique_ptr<LogEvent> logEvent = std::make_unique<LogEvent>(/*uid=*/0, /*pid=*/0);
+    parseStatsEventToLogEvent(statsEvent, logEvent.get());
+    return logEvent;
+}
+
 sp<StatsLogProcessor> CreateStatsLogProcessor(const int64_t timeBaseNs, const int64_t currentTimeNs,
                                               const StatsdConfig& config, const ConfigKey& key,
                                               const shared_ptr<IPullAtomCallback>& puller,
-                                              const int32_t atomTag, const sp<UidMap> uidMap) {
+                                              const int32_t atomTag, const sp<UidMap> uidMap,
+                                              const shared_ptr<LogEventFilter>& logEventFilter) {
     sp<StatsPullerManager> pullerManager = new StatsPullerManager();
     if (puller != nullptr) {
         pullerManager->RegisterPullAtomCallback(/*uid=*/0, atomTag, NS_PER_SEC, NS_PER_SEC * 10, {},
@@ -1330,12 +1414,43 @@ sp<StatsLogProcessor> CreateStatsLogProcessor(const int64_t timeBaseNs, const in
         new AlarmMonitor(1,
                          [](const shared_ptr<IStatsCompanionService>&, int64_t){},
                          [](const shared_ptr<IStatsCompanionService>&){});
-    sp<StatsLogProcessor> processor =
-            new StatsLogProcessor(uidMap, pullerManager, anomalyAlarmMonitor, periodicAlarmMonitor,
-                                  timeBaseNs, [](const ConfigKey&) { return true; },
-                                  [](const int&, const vector<int64_t>&) {return true;});
+    sp<StatsLogProcessor> processor = new StatsLogProcessor(
+            uidMap, pullerManager, anomalyAlarmMonitor, periodicAlarmMonitor, timeBaseNs,
+            [](const ConfigKey&) { return true; },
+            [](const int&, const vector<int64_t>&) { return true; },
+            [](const ConfigKey&, const string&, const vector<int64_t>&) {}, logEventFilter);
+
     processor->OnConfigUpdated(currentTimeNs, key, config);
     return processor;
+}
+
+LogEventFilter::AtomIdSet CreateAtomIdSetDefault() {
+    LogEventFilter::AtomIdSet resultList(std::move(StatsLogProcessor::getDefaultAtomIdSet()));
+    StateManager::getInstance().addAllAtomIds(resultList);
+    return resultList;
+}
+
+LogEventFilter::AtomIdSet CreateAtomIdSetFromConfig(const StatsdConfig& config) {
+    LogEventFilter::AtomIdSet resultList(std::move(StatsLogProcessor::getDefaultAtomIdSet()));
+
+    // Parse the config for atom ids. A combination atom matcher is a combination of (in the end)
+    // simple atom matchers. So by adding all the atoms from the simple atom matchers
+    // function adds all of the atoms.
+    for (int i = 0; i < config.atom_matcher_size(); i++) {
+        const AtomMatcher& matcher = config.atom_matcher(i);
+        if (matcher.has_simple_atom_matcher()) {
+            EXPECT_TRUE(matcher.simple_atom_matcher().has_atom_id());
+            resultList.insert(matcher.simple_atom_matcher().atom_id());
+        }
+    }
+
+    for (int i = 0; i < config.state_size(); i++) {
+        const State& state = config.state(i);
+        EXPECT_TRUE(state.has_atom_id());
+        resultList.insert(state.atom_id());
+    }
+
+    return resultList;
 }
 
 void sortLogEventsByTimestamp(std::vector<std::unique_ptr<LogEvent>> *events) {
@@ -1487,17 +1602,19 @@ void ValidateStateValue(const google::protobuf::RepeatedPtrField<StateValue>& st
 }
 
 void ValidateCountBucket(const CountBucketInfo& countBucket, int64_t startTimeNs, int64_t endTimeNs,
-                         int64_t count) {
+                         int64_t count, int64_t conditionTrueNs) {
     EXPECT_EQ(countBucket.start_bucket_elapsed_nanos(), startTimeNs);
     EXPECT_EQ(countBucket.end_bucket_elapsed_nanos(), endTimeNs);
     EXPECT_EQ(countBucket.count(), count);
+    EXPECT_EQ(countBucket.condition_true_nanos(), conditionTrueNs);
 }
 
 void ValidateDurationBucket(const DurationBucketInfo& bucket, int64_t startTimeNs,
-                            int64_t endTimeNs, int64_t durationNs) {
+                            int64_t endTimeNs, int64_t durationNs, int64_t conditionTrueNs) {
     EXPECT_EQ(bucket.start_bucket_elapsed_nanos(), startTimeNs);
     EXPECT_EQ(bucket.end_bucket_elapsed_nanos(), endTimeNs);
     EXPECT_EQ(bucket.duration_nanos(), durationNs);
+    EXPECT_EQ(bucket.condition_true_nanos(), conditionTrueNs);
 }
 
 void ValidateGaugeBucketTimes(const GaugeBucketInfo& gaugeBucket, int64_t startTimeNs,
@@ -1692,6 +1809,8 @@ void backfillStringInReport(ConfigMetricsReport *config_report) {
             backfillStringInDimension(str_map, metric_report->mutable_gauge_metrics());
         } else if (metric_report->has_value_metrics()) {
             backfillStringInDimension(str_map, metric_report->mutable_value_metrics());
+        } else if (metric_report->has_kll_metrics()) {
+            backfillStringInDimension(str_map, metric_report->mutable_kll_metrics());
         }
     }
     // Backfill the package names.
@@ -1764,20 +1883,20 @@ bool backfillDimensionPath(const DimensionsValue& path,
 }
 
 void backfillDimensionPath(StatsLogReport* report) {
-    if (report->has_dimensions_path_in_what() || report->has_dimensions_path_in_condition()) {
+    if (report->has_dimensions_path_in_what()) {
         auto whatPath = report->dimensions_path_in_what();
-        auto conditionPath = report->dimensions_path_in_condition();
         if (report->has_count_metrics()) {
-            backfillDimensionPath(whatPath, conditionPath, report->mutable_count_metrics());
+            backfillDimensionPath(whatPath, report->mutable_count_metrics());
         } else if (report->has_duration_metrics()) {
-            backfillDimensionPath(whatPath, conditionPath, report->mutable_duration_metrics());
+            backfillDimensionPath(whatPath, report->mutable_duration_metrics());
         } else if (report->has_gauge_metrics()) {
-            backfillDimensionPath(whatPath, conditionPath, report->mutable_gauge_metrics());
+            backfillDimensionPath(whatPath, report->mutable_gauge_metrics());
         } else if (report->has_value_metrics()) {
-            backfillDimensionPath(whatPath, conditionPath, report->mutable_value_metrics());
+            backfillDimensionPath(whatPath, report->mutable_value_metrics());
+        } else if (report->has_kll_metrics()) {
+            backfillDimensionPath(whatPath, report->mutable_kll_metrics());
         }
         report->clear_dimensions_path_in_what();
-        report->clear_dimensions_path_in_condition();
     }
 }
 
@@ -1972,6 +2091,131 @@ void writeBootFlag(const string& flagName, const string& flagValue) {
                              flagName.c_str()),
                 flagValue);
 }
+
+PackageInfoSnapshot getPackageInfoSnapshot(const sp<UidMap> uidMap) {
+    ProtoOutputStream protoOutputStream;
+    uidMap->writeUidMapSnapshot(/* timestamp */ 1, /* includeVersionStrings */ true,
+                                /* includeInstaller */ true, /* certificateHashSize */ UINT8_MAX,
+                                /* interestingUids */ {},
+                                /* installerIndices */ nullptr, /* str_set */ nullptr,
+                                &protoOutputStream);
+
+    PackageInfoSnapshot packageInfoSnapshot;
+    outputStreamToProto(&protoOutputStream, &packageInfoSnapshot);
+    return packageInfoSnapshot;
+}
+
+PackageInfo buildPackageInfo(const string& name, const int32_t uid, const int64_t version,
+                             const string& versionString, const optional<string> installer,
+                             const vector<uint8_t>& certHash, const bool deleted,
+                             const bool hashStrings, const optional<uint32_t> installerIndex) {
+    PackageInfo packageInfo;
+    packageInfo.set_version(version);
+    packageInfo.set_uid(uid);
+    packageInfo.set_deleted(deleted);
+    if (!certHash.empty()) {
+        packageInfo.set_truncated_certificate_hash(certHash.data(), certHash.size());
+    }
+    if (hashStrings) {
+        packageInfo.set_name_hash(Hash64(name));
+        packageInfo.set_version_string_hash(Hash64(versionString));
+    } else {
+        packageInfo.set_name(name);
+        packageInfo.set_version_string(versionString);
+    }
+    if (installer) {
+        if (installerIndex) {
+            packageInfo.set_installer_index(*installerIndex);
+        } else if (hashStrings) {
+            packageInfo.set_installer_hash(Hash64(*installer));
+        } else {
+            packageInfo.set_installer(*installer);
+        }
+    }
+    return packageInfo;
+}
+
+vector<PackageInfo> buildPackageInfos(
+        const vector<string>& names, const vector<int32_t>& uids, const vector<int64_t>& versions,
+        const vector<string>& versionStrings, const vector<string>& installers,
+        const vector<vector<uint8_t>>& certHashes, const vector<bool>& deleted,
+        const vector<uint32_t>& installerIndices, const bool hashStrings) {
+    vector<PackageInfo> packageInfos;
+    for (int i = 0; i < uids.size(); i++) {
+        const optional<uint32_t> installerIndex =
+                installerIndices.empty() ? nullopt : optional<uint32_t>(installerIndices[i]);
+        const optional<string> installer =
+                installers.empty() ? nullopt : optional<string>(installers[i]);
+        vector<uint8_t> certHash;
+        if (!certHashes.empty()) {
+            certHash = certHashes[i];
+        }
+        packageInfos.emplace_back(buildPackageInfo(names[i], uids[i], versions[i],
+                                                   versionStrings[i], installer, certHash,
+                                                   deleted[i], hashStrings, installerIndex));
+    }
+    return packageInfos;
+}
+
+StatsdStatsReport_PulledAtomStats getPulledAtomStats(int32_t atom_id) {
+    vector<uint8_t> statsBuffer;
+    StatsdStats::getInstance().dumpStats(&statsBuffer, false /*reset stats*/);
+    StatsdStatsReport statsReport;
+    StatsdStatsReport_PulledAtomStats pulledAtomStats;
+    if (!statsReport.ParseFromArray(&statsBuffer[0], statsBuffer.size())) {
+        return pulledAtomStats;
+    }
+    if (statsReport.pulled_atom_stats_size() == 0) {
+        return pulledAtomStats;
+    }
+    for (size_t i = 0; i < statsReport.pulled_atom_stats_size(); i++) {
+        if (statsReport.pulled_atom_stats(i).atom_id() == atom_id) {
+            return statsReport.pulled_atom_stats(i);
+        }
+    }
+    return pulledAtomStats;
+}
+
+void createStatsEvent(AStatsEvent* statsEvent, uint8_t typeId, uint32_t atomId) {
+    AStatsEvent_setAtomId(statsEvent, atomId);
+    fillStatsEventWithSampleValue(statsEvent, typeId);
+}
+
+void fillStatsEventWithSampleValue(AStatsEvent* statsEvent, uint8_t typeId) {
+    int int32Array[2] = {3, 6};
+    uint32_t uids[] = {1001, 1002};
+    const char* tags[] = {"tag1", "tag2"};
+
+    switch (typeId) {
+        case INT32_TYPE:
+            AStatsEvent_writeInt32(statsEvent, 10);
+            break;
+        case INT64_TYPE:
+            AStatsEvent_writeInt64(statsEvent, 1000L);
+            break;
+        case STRING_TYPE:
+            AStatsEvent_writeString(statsEvent, "test");
+            break;
+        case LIST_TYPE:
+            AStatsEvent_writeInt32Array(statsEvent, int32Array, 2);
+            break;
+        case FLOAT_TYPE:
+            AStatsEvent_writeFloat(statsEvent, 1.3f);
+            break;
+        case BOOL_TYPE:
+            AStatsEvent_writeBool(statsEvent, 1);
+            break;
+        case BYTE_ARRAY_TYPE:
+            AStatsEvent_writeByteArray(statsEvent, (uint8_t*)"test", strlen("test"));
+            break;
+        case ATTRIBUTION_CHAIN_TYPE:
+            AStatsEvent_writeAttributionChain(statsEvent, uids, tags, 2);
+            break;
+        default:
+            break;
+    }
+}
+
 }  // namespace statsd
 }  // namespace os
 }  // namespace android

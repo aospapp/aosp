@@ -41,6 +41,6 @@
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="5809488930429106172">"این خودرو را بازنشانی و به مدیر سازمان برگردانید یا برای ادامه راه‌اندازی به صفحه قبلی برگردید."</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4113790677940440998">"لغو راه‌اندازی"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="4951274590516561428">"بازنشانی و برگرداندن"</string>
-    <string name="fully_managed_device_provisioning_privacy_title" msgid="4789425994893472324">"اعلان حریم‌خصوصی"</string>
+    <string name="fully_managed_device_provisioning_privacy_title" msgid="4789425994893472324">"اعلان حریم خصوصی"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="5549745709511179391">"ممکن است مدیر سازمان بتواند داده‌ها و فعالیتتان را در این خودرو ببیند."</string>
 </resources>

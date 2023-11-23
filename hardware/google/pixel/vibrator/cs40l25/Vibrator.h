@@ -89,9 +89,9 @@ class Vibrator : public BnVibrator {
         // Indicates the number of 0.125-dB steps of attenuation to apply to
         // waveforms triggered in response to a GPIO1 rising edge.
         virtual bool setGpioRiseScale(uint32_t value) = 0;
-        // Blocks until vibrator reaches desired state
+        // Blocks until timeout or vibrator reaches desired state
         // (true = enabled, false = disabled).
-        virtual bool pollVibeState(bool value) = 0;
+        virtual bool pollVibeState(uint32_t value, int32_t timeoutMs = -1) = 0;
         // Enables/disables closed-loop active braking.
         virtual bool setClabEnable(bool value) = 0;
         // Reports the number of available PWLE segments.
@@ -143,8 +143,27 @@ class Vibrator : public BnVibrator {
         virtual void debug(int fd) = 0;
     };
 
+    // APIs for logging data to statistics backend
+    class StatsApi {
+      public:
+        virtual ~StatsApi() = default;
+        // Increment count for effect
+        virtual bool logPrimitive(uint16_t effectIndex) = 0;
+        // Increment count for long/short waveform and duration bucket
+        virtual bool logWaveform(uint16_t effectIndex, int32_t duration) = 0;
+        // Increment count for error
+        virtual bool logError(uint16_t errorIndex) = 0;
+        // Start new latency measurement
+        virtual bool logLatencyStart(uint16_t latencyIndex) = 0;
+        // Finish latency measurement and update latency statistics with result
+        virtual bool logLatencyEnd() = 0;
+        // Emit diagnostic information to the given file.
+        virtual void debug(int fd) = 0;
+    };
+
   public:
-    Vibrator(std::unique_ptr<HwApi> hwapi, std::unique_ptr<HwCal> hwcal);
+    Vibrator(std::unique_ptr<HwApi> hwapi, std::unique_ptr<HwCal> hwcal,
+             std::unique_ptr<StatsApi> statsapi);
 
     ndk::ScopedAStatus getCapabilities(int32_t *_aidl_return) override;
     ndk::ScopedAStatus off() override;
@@ -214,6 +233,7 @@ class Vibrator : public BnVibrator {
 
     std::unique_ptr<HwApi> mHwApi;
     std::unique_ptr<HwCal> mHwCal;
+    std::unique_ptr<StatsApi> mStatsApi;
     uint32_t mF0Offset;
     std::array<uint32_t, 2> mTickEffectVol;
     std::array<uint32_t, 2> mClickEffectVol;
@@ -232,6 +252,8 @@ class Vibrator : public BnVibrator {
     bool mIsChirpEnabled;
     std::vector<float> mBandwidthAmplitudeMap;
     bool mGenerateBandwidthAmplitudeMapDone;
+    uint32_t mTotalDuration{0};
+    std::mutex mTotalDurationMutex;
 };
 
 }  // namespace vibrator

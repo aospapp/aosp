@@ -45,6 +45,7 @@ import androidx.test.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.BackupUtils;
 import com.android.compatibility.common.util.ShellUtils;
+import com.android.modules.utils.build.SdkLevel;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -358,7 +359,9 @@ public class PermissionTest extends BaseBackupCtsTest {
     }
 
     private void install(String apk) {
-        ShellUtils.runShellCommand("pm install -r " + apk);
+        ShellUtils.runShellCommand("pm install -r "
+                + (SdkLevel.isAtLeastU() ? "--bypass-low-target-sdk-block " : "")
+                + apk);
     }
 
     private void uninstall(String packageName) {

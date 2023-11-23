@@ -832,9 +832,9 @@ class TelLabGFTVoWifiTest(GFTInOutBaseTest):
             self.adjust_wifi_signal(IN_SERVICE_POWER_LEVEL)
             self.check_network()
 
-            if not self._enable_wifi_calling(wfc_mode, call_type=WFC_CALL,
+            if not self._enable_wifi_calling(wfc_mode, call_type=VOLTE_CALL,
                 end_call=False):
-                raise signals.TestFailure("VoWiFi call failure: %s"
+                raise signals.TestFailure("VoLTE call failure: %s"
                     %(self.my_error_msg))
             self.log.info(" Move to no service area for 1 minute during incall.")
             self.adjust_cellular_signal(NO_SERVICE_POWER_LEVEL)
@@ -1087,7 +1087,7 @@ class TelLabGFTVoWifiTest(GFTInOutBaseTest):
         return True
 
 
-    @test_tracker_info(uuid="fb431706-737d-4020-b3d1-347dc4d7ce03")
+    @test_tracker_info(uuid="9b586a06-3b33-41be-ae0f-aacf157212b9")
     @TelephonyBaseTest.tel_test_wrap
     def test_wifi_rove_out_wfc(self,loop=1, wfc_mode=WFC_MODE_WIFI_PREFERRED, idle_time=180):
         '''

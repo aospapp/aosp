@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -217,7 +217,7 @@ class ContainerTests(lxc_utils.LXCTests):
         """Verifies that files are correctly copied into the container."""
         control_string = 'amazingly few discotheques provide jukeboxes'
         with tempfile.NamedTemporaryFile() as tmpfile:
-            tmpfile.write(control_string)
+            tmpfile.write(control_string.encode('utf-8'))
             tmpfile.flush()
 
             with self.createContainer() as container:

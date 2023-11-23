@@ -75,6 +75,15 @@ public class FastAdvertisementTest {
         assertThat(originalAdvertisement.getVersion()).isEqualTo(
                 BroadcastRequest.PRESENCE_VERSION_V0);
         assertThat(originalAdvertisement.getSalt()).isEqualTo(SALT);
+        assertThat(originalAdvertisement.getTxPower()).isEqualTo(TX_POWER);
+        assertThat(originalAdvertisement.toString())
+                .isEqualTo("FastAdvertisement:<VERSION: 0, length: 19,"
+                        + " ltvFieldCount: 4,"
+                        + " identityType: 1,"
+                        + " identity: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],"
+                        + " salt: [2, 3],"
+                        + " actions: [123],"
+                        + " txPower: 4");
     }
 
     @Test

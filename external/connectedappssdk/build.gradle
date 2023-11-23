@@ -8,7 +8,9 @@ buildscript {
             autoservice: "com.google.auto.service:auto-service:1.0-rc6",
             autoserviceAnnotations: "com.google.auto.service:auto-service-annotations:1.0-rc6",
             javapoet: "com.squareup:javapoet:1.13.0",
-            guava: "com.google.guava:guava:29.0-jre"
+            guava: "com.google.guava:guava:29.0-jre",
+            errorprone: "com.google.errorprone:error_prone_core:2.8.1",
+            robolectric: "org.robolectric:robolectric:4.7.2"
     ]
     repositories {
         jcenter()

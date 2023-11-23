@@ -98,14 +98,17 @@ print interval.
 $ simpleperf stat -p 7394 --duration 10
 Performance counter statistics:
 
- 1,320,496,145  cpu-cycles         # 0.131736 GHz                     (100%)
-   510,426,028  instructions       # 2.587047 cycles per instruction  (100%)
-     4,692,338  branch-misses      # 468.118 K/sec                    (100%)
-886.008130(ms)  task-clock         # 0.088390 cpus used               (100%)
-           753  context-switches   # 75.121 /sec                      (100%)
-           870  page-faults        # 86.793 /sec                      (100%)
+#         count  event_name                # count / runtime
+     16,513,564  cpu-cycles                # 1.612904 GHz
+      4,564,133  stalled-cycles-frontend   # 341.490 M/sec
+      6,520,383  stalled-cycles-backend    # 591.666 M/sec
+      4,900,403  instructions              # 612.859 M/sec
+         47,821  branch-misses             # 6.085 M/sec
+  25.274251(ms)  task-clock                # 0.002520 cpus used
+              4  context-switches          # 158.264 /sec
+            466  page-faults               # 18.438 K/sec
 
-Total test time: 10.023829 seconds.
+Total test time: 10.027923 seconds.
 ```
 
 ### Select events to stat
@@ -122,9 +125,8 @@ $ simpleperf stat -e cache-references,cache-misses -p 11904 --duration 10
 
 When running the stat command, if the number of hardware events is larger than the number of
 hardware counters available in the PMU, the kernel shares hardware counters between events, so each
-event is only monitored for part of the total time. In the example below, there is a percentage at
-the end of each row, showing the percentage of the total time that each event was actually
-monitored.
+event is only monitored for part of the total time. As a result, the number of events shown is
+smaller than the number of events that actually happened. The following is an example.
 
 ```sh
 # Stat using event cache-references, cache-references:u,....
@@ -132,37 +134,66 @@ $ simpleperf stat -p 7394 -e cache-references,cache-references:u,cache-reference
       -e cache-misses,cache-misses:u,cache-misses:k,instructions --duration 1
 Performance counter statistics:
 
-4,331,018  cache-references     # 4.861 M/sec    (87%)
-3,064,089  cache-references:u   # 3.439 M/sec    (87%)
-1,364,959  cache-references:k   # 1.532 M/sec    (87%)
-   91,721  cache-misses         # 102.918 K/sec  (87%)
-   45,735  cache-misses:u       # 51.327 K/sec   (87%)
-   38,447  cache-misses:k       # 43.131 K/sec   (87%)
-9,688,515  instructions         # 10.561 M/sec   (89%)
+#   count  event_name           # count / runtime
+  490,713  cache-references     # 151.682 M/sec
+  899,652  cache-references:u   # 130.152 M/sec
+  855,218  cache-references:k   # 111.356 M/sec
+   61,602  cache-misses         # 7.710 M/sec
+   33,282  cache-misses:u       # 5.050 M/sec
+   11,662  cache-misses:k       # 4.478 M/sec
+        0  instructions         #
 
-Total test time: 1.026802 seconds.
+Total test time: 1.000867 seconds.
+simpleperf W cmd_stat.cpp:946] It seems the number of hardware events are more than the number of
+available CPU PMU hardware counters. That will trigger hardware counter
+multiplexing. As a result, events are not counted all the time processes
+running, and event counts are smaller than what really happens.
+Use --print-hw-counter to show available hardware counters.
 ```
 
-In the example above, each event is monitored about 87% of the total time. But there is no
-guarantee that any pair of events are always monitored at the same time. If we want to have some
-events monitored at the same time, we can use --group.
+In the example above, we monitor 7 events. Each event is only monitored part of the total time.
+Because the number of cache-references is smaller than the number of cache-references:u
+(cache-references only in userspace) and cache-references:k (cache-references only in kernel).
+The number of instructions is zero. After printing the result, simpleperf checks if CPUs have
+enough hardware counters to count hardware events at the same time. If not, it prints a warning.
+
+To avoid hardware counter multiplexing, we can use `simpleperf stat --print-hw-counter` to show
+available counters on each CPU. Then don't monitor more hardware events than counters available.
+
+```sh
+$ simpleperf stat --print-hw-counter
+There are 2 CPU PMU hardware counters available on cpu 0.
+There are 2 CPU PMU hardware counters available on cpu 1.
+There are 2 CPU PMU hardware counters available on cpu 2.
+There are 2 CPU PMU hardware counters available on cpu 3.
+There are 2 CPU PMU hardware counters available on cpu 4.
+There are 2 CPU PMU hardware counters available on cpu 5.
+There are 2 CPU PMU hardware counters available on cpu 6.
+There are 2 CPU PMU hardware counters available on cpu 7.
+```
+
+When counter multiplexing happens, there is no guarantee of which events will be monitored at
+which time. If we want to ensure some events are always monitored at the same time, we can use
+`--group`.
 
 ```sh
 # Stat using event cache-references, cache-references:u,....
 $ simpleperf stat -p 7964 --group cache-references,cache-misses \
       --group cache-references:u,cache-misses:u --group cache-references:k,cache-misses:k \
-      -e instructions --duration 1
+      --duration 1
 Performance counter statistics:
 
-3,638,900  cache-references     # 4.786 M/sec          (74%)
-   65,171  cache-misses         # 1.790953% miss rate  (74%)
-2,390,433  cache-references:u   # 3.153 M/sec          (74%)
-   32,280  cache-misses:u       # 1.350383% miss rate  (74%)
-  879,035  cache-references:k   # 1.251 M/sec          (68%)
-   30,303  cache-misses:k       # 3.447303% miss rate  (68%)
-8,921,161  instructions         # 10.070 M/sec         (86%)
+#     count  event_name           # count / runtime
+  2,088,463  cache-references     # 181.360 M/sec
+     47,871  cache-misses         # 2.292164% miss rate
+  1,277,600  cache-references:u   # 136.419 M/sec
+     25,977  cache-misses:u       # 2.033265% miss rate
+    326,305  cache-references:k   # 74.724 M/sec
+     13,596  cache-misses:k       # 4.166654% miss rate
 
-Total test time: 1.029843 seconds.
+Total test time: 1.029729 seconds.
+simpleperf W cmd_stat.cpp:946] It seems the number of hardware events are more than the number of
+...
 ```
 
 ### Select target to stat
@@ -175,15 +206,23 @@ process to run the new command and then monitor the child process.
 # Stat process 11904 and 11905.
 $ simpleperf stat -p 11904,11905 --duration 10
 
+# Stat processes with name containing "chrome".
+$ simpleperf stat -p chrome --duration 10
+# Stat processes with name containing part matching regex "chrome:(privileged|sandboxed)".
+$ simpleperf stat -p "chrome:(privileged|sandboxed)" --duration 10
+
 # Stat thread 11904 and 11905.
 $ simpleperf stat -t 11904,11905 --duration 10
 
 # Start a child process running `ls`, and stat it.
 $ simpleperf stat ls
 
-# Stat the process of an Android application. This only works for debuggable apps on non-rooted
-# devices.
-$ simpleperf stat --app simpleperf.example.cpp
+# Stat the process of an Android application. On non-root devices, this only works for debuggable
+# or profileable from shell apps.
+$ simpleperf stat --app simpleperf.example.cpp --duration 10
+
+# Stat only selected thread 11904 in an app.
+$ simpleperf stat --app simpleperf.example.cpp -t 11904 --duration 10
 
 # Stat system wide using -a.
 $ simpleperf stat -a --duration 10
@@ -274,17 +313,18 @@ affected by hardware counter multiplexing. Check simpleperf log output for ways 
 ```sh
 # Print event counts for each cpu running threads in process 11904.
 # A percentage shows runtime_on_a_cpu / runtime_on_all_cpus.
-$ simpleperf stat --per-core -p 11904 --duration 1
+$ simpleperf stat -e cpu-cycles --per-core -p 1057 --duration 3
 Performance counter statistics:
 
-# cpu       count  event_name   # percentage = event_run_time / enabled_time
-  7    56,552,838  cpu-cycles   #   (60%)
-  3    25,958,605  cpu-cycles   #   (20%)
-  0    22,822,698  cpu-cycles   #   (15%)
-  1     6,661,495  cpu-cycles   #   (5%)
-  4     1,519,093  cpu-cycles   #   (0%)
+# cpu        count  event_name   # count / runtime
+  0      1,667,660  cpu-cycles   # 1.571565 GHz
+  1      3,850,440  cpu-cycles   # 1.736958 GHz
+  2      2,463,792  cpu-cycles   # 1.701367 GHz
+  3      2,350,528  cpu-cycles   # 1.700841 GHz
+  5      7,919,520  cpu-cycles   # 2.377081 GHz
+  6    105,622,673  cpu-cycles   # 2.381331 GHz
 
-Total test time: 1.001082 seconds.
+Total test time: 3.002703 seconds.
 
 # Print event counts for each cpu system wide.
 $ su 0 simpleperf stat --per-core -a --duration 1
@@ -330,15 +370,23 @@ The way to select target in record command is similar to that in the stat comman
 # Record process 11904 and 11905.
 $ simpleperf record -p 11904,11905 --duration 10
 
+# Record processes with name containing "chrome".
+$ simpleperf record -p chrome --duration 10
+# Record processes with name containing part matching regex "chrome:(privileged|sandboxed)".
+$ simpleperf record -p "chrome:(privileged|sandboxed)" --duration 10
+
 # Record thread 11904 and 11905.
 $ simpleperf record -t 11904,11905 --duration 10
 
 # Record a child process running `ls`.
 $ simpleperf record ls
 
-# Record the process of an Android application. This only works for debuggable apps on non-rooted
-# devices.
-$ simpleperf record --app simpleperf.example.cpp
+# Record the process of an Android application. On non-root devices, this only works for debuggable
+# or profileable from shell apps.
+$ simpleperf record --app simpleperf.example.cpp --duration 10
+
+# Record only selected thread 11904 in an app.
+$ simpleperf record --app simpleperf.example.cpp -t 11904 --duration 10
 
 # Record system wide.
 $ simpleperf record -a --duration 10

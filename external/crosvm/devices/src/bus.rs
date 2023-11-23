@@ -1,21 +1,40 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 //! Handles routing to devices in an address space.
 
-use std::cmp::{Ord, Ordering, PartialEq, PartialOrd};
+use std::cmp::Ord;
+use std::cmp::Ordering;
+use std::cmp::PartialEq;
+use std::cmp::PartialOrd;
 use std::collections::btree_map::BTreeMap;
+use std::collections::hash_map::HashMap;
+use std::collections::VecDeque;
 use std::fmt;
 use std::result;
 use std::sync::Arc;
 
+use anyhow::anyhow;
+use anyhow::Context;
+use base::error;
 use remain::sorted;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use sync::Mutex;
 use thiserror::Error;
 
-use crate::{PciAddress, PciDevice, VfioPlatformDevice};
+#[cfg(feature = "stats")]
+use crate::bus_stats::BusOperation;
+#[cfg(feature = "stats")]
+use crate::BusStatistics;
+use crate::DeviceId;
+use crate::PciAddress;
+use crate::PciDevice;
+use crate::Suspendable;
+#[cfg(unix)]
+use crate::VfioPlatformDevice;
+use crate::VirtioMmioDevice;
 
 /// Information about how a device was accessed.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
@@ -37,7 +56,7 @@ impl std::fmt::Display for BusAccessInfo {
 
 /// Result of a write to a device's PCI configuration space.
 /// This value represents the state change(s) that occurred due to the write.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ConfigWriteResult {
     /// The BusRange in the vector will be removed from mmio_bus
     pub mmio_remove: Vec<BusRange>,
@@ -56,7 +75,7 @@ pub struct ConfigWriteResult {
     pub removed_pci_devices: Vec<PciAddress>,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BusType {
     Mmio,
     Io,
@@ -67,15 +86,11 @@ pub enum BusType {
 /// The device does not care where it exists in address space as each method is only given an offset
 /// into its allocated portion of address space.
 #[allow(unused_variables)]
-pub trait BusDevice: Send {
+pub trait BusDevice: Send + Suspendable {
     /// Returns a label suitable for debug output.
     fn debug_label(&self) -> String;
-
     /// Returns a unique id per device type suitable for metrics gathering.
-    // TODO(225991065): Remove this default implementation when all of the crate is upstreamed.
-    fn device_id(&self) -> u32 {
-        0
-    }
+    fn device_id(&self) -> DeviceId;
     /// Reads at `offset` from this device
     fn read(&mut self, offset: BusAccessInfo, data: &mut [u8]) {}
     /// Writes at `offset` into this device
@@ -117,11 +132,45 @@ pub trait BusDevice: Send {
 
     /// Invoked when the device is destroyed
     fn destroy_device(&mut self) {}
+
+    /// Returns the secondary bus number if this bus device is pci bridge
+    fn is_bridge(&self) -> Option<u8> {
+        None
+    }
 }
 
 pub trait BusDeviceSync: BusDevice + Sync {
     fn read(&self, offset: BusAccessInfo, data: &mut [u8]);
     fn write(&self, offset: BusAccessInfo, data: &[u8]);
+    fn snapshot_sync(&self) -> anyhow::Result<serde_json::Value> {
+        Err(anyhow!(
+            "snapshot_sync not implemented for {}",
+            std::any::type_name::<Self>()
+        ))
+    }
+    /// Load a saved snapshot of an image.
+    fn restore_sync(&self, _data: serde_json::Value) -> anyhow::Result<()> {
+        Err(anyhow!(
+            "restore_sync not implemented for {}",
+            std::any::type_name::<Self>()
+        ))
+    }
+    /// Stop all threads related to the device.
+    /// Sleep should be idempotent.
+    fn sleep_sync(&self) -> anyhow::Result<()> {
+        Err(anyhow!(
+            "sleep_sync not implemented for {}",
+            std::any::type_name::<Self>()
+        ))
+    }
+    /// Create/Resume all threads related to the device.
+    /// Wake should be idempotent.
+    fn wake_sync(&self) -> anyhow::Result<()> {
+        Err(anyhow!(
+            "wake_sync not implemented for {}",
+            std::any::type_name::<Self>()
+        ))
+    }
 }
 
 pub trait BusResumeDevice: Send {
@@ -133,8 +182,10 @@ pub trait BusResumeDevice: Send {
 /// The key to identify hotplug device from host view.
 /// like host sysfs path for vfio pci device, host disk file
 /// path for virtio block device
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum HostHotPlugKey {
+    UpstreamPort { host_addr: PciAddress },
+    DownstreamPort { host_addr: PciAddress },
     Vfio { host_addr: PciAddress },
 }
 
@@ -157,6 +208,10 @@ pub trait HotPlugBus {
     fn add_hotplug_device(&mut self, host_key: HostHotPlugKey, guest_addr: PciAddress);
     /// get guest pci address from the specified host_key
     fn get_hotplug_device(&self, host_key: HostHotPlugKey) -> Option<PciAddress>;
+    /// Check whether this hotplug bus is empty
+    fn is_empty(&self) -> bool;
+    /// Get hotplug key of this hotplug bus
+    fn get_hotplug_key(&self) -> Option<HostHotPlugKey>;
 }
 
 /// Trait for generic device abstraction, that is, all devices that reside on BusDevice and want
@@ -172,14 +227,25 @@ pub trait BusDeviceObj {
     fn into_pci_device(self: Box<Self>) -> Option<Box<dyn PciDevice>> {
         None
     }
-
+    #[cfg(unix)]
     fn as_platform_device(&self) -> Option<&VfioPlatformDevice> {
         None
     }
+    #[cfg(unix)]
     fn as_platform_device_mut(&mut self) -> Option<&mut VfioPlatformDevice> {
         None
     }
+    #[cfg(unix)]
     fn into_platform_device(self: Box<Self>) -> Option<Box<VfioPlatformDevice>> {
+        None
+    }
+    fn as_virtio_mmio_device(&self) -> Option<&VirtioMmioDevice> {
+        None
+    }
+    fn as_virtio_mmio_device_mut(&mut self) -> Option<&mut VirtioMmioDevice> {
+        None
+    }
+    fn into_virtio_mmio_device(self: Box<Self>) -> Option<Box<VirtioMmioDevice>> {
         None
     }
 }
@@ -190,8 +256,13 @@ pub enum Error {
     #[error("Bus Range not found")]
     Empty,
     /// The insertion failed because the new device overlapped with an old device.
-    #[error("new device overlaps with an old device")]
-    Overlap,
+    #[error("new device {base},{len} overlaps with an old device {other_base},{other_len}")]
+    Overlap {
+        base: u64,
+        len: u64,
+        other_base: u64,
+        other_len: u64,
+    },
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -239,6 +310,13 @@ impl PartialOrd for BusRange {
 }
 
 #[derive(Clone)]
+struct BusEntry {
+    #[cfg(feature = "stats")]
+    index: usize,
+    device: BusDeviceEntry,
+}
+
+#[derive(Clone)]
 enum BusDeviceEntry {
     OuterSync(Arc<Mutex<dyn BusDevice>>),
     InnerSync(Arc<dyn BusDeviceSync>),
@@ -250,8 +328,10 @@ enum BusDeviceEntry {
 /// only restriction is that no two devices can overlap in this address space.
 #[derive(Clone)]
 pub struct Bus {
-    devices: Arc<Mutex<BTreeMap<BusRange, BusDeviceEntry>>>,
+    devices: Arc<Mutex<BTreeMap<BusRange, BusEntry>>>,
     access_id: usize,
+    #[cfg(feature = "stats")]
+    pub stats: Arc<Mutex<BusStatistics>>,
 }
 
 impl Bus {
@@ -260,6 +340,8 @@ impl Bus {
         Bus {
             devices: Arc::new(Mutex::new(BTreeMap::new())),
             access_id: 0,
+            #[cfg(feature = "stats")]
+            stats: Arc::new(Mutex::new(BusStatistics::new())),
         }
     }
 
@@ -268,45 +350,193 @@ impl Bus {
         self.access_id = id;
     }
 
-    fn first_before(&self, addr: u64) -> Option<(BusRange, BusDeviceEntry)> {
+    fn first_before(&self, addr: u64) -> Option<(BusRange, BusEntry)> {
         let devices = self.devices.lock();
-        let (range, dev) = devices
+        let (range, entry) = devices
             .range(..=BusRange { base: addr, len: 1 })
             .rev()
             .next()?;
-        Some((*range, dev.clone()))
+        Some((*range, entry.clone()))
     }
 
-    fn get_device(&self, addr: u64) -> Option<(u64, u64, BusDeviceEntry)> {
-        if let Some((range, dev)) = self.first_before(addr) {
+    fn get_device(&self, addr: u64) -> Option<(u64, u64, BusEntry)> {
+        if let Some((range, entry)) = self.first_before(addr) {
             let offset = addr - range.base;
             if offset < range.len {
-                return Some((offset, addr, dev));
+                return Some((offset, addr, entry));
             }
         }
         None
     }
 
+    pub fn sleep_devices(&self) -> anyhow::Result<()> {
+        let devices_lock = &(self.devices).lock();
+        for (_, device_entry) in devices_lock.iter() {
+            match &(device_entry.device) {
+                BusDeviceEntry::OuterSync(dev) => {
+                    let mut device_lock = (*dev).lock();
+                    if let Err(e) = device_lock.sleep() {
+                        //TODO: Enable this line when b/232437513 is done
+                        // return Err(anyhow!("Failed to sleep {}.", (*device_lock).debug_label()));
+                        error!("Failed to sleep {}: {}", (*device_lock).debug_label(), e);
+                    }
+                }
+                BusDeviceEntry::InnerSync(dev) => {
+                    (**dev).sleep_sync().context("failed to sleep device")?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn wake_devices(&self) -> anyhow::Result<()> {
+        let devices_lock = &(self.devices).lock();
+        for (_, device_entry) in devices_lock.iter() {
+            match &(device_entry.device) {
+                BusDeviceEntry::OuterSync(dev) => {
+                    let mut device_lock = (*dev).lock();
+                    if let Err(e) = device_lock.wake() {
+                        //TODO: Enable this line when b/232437513 is done
+                        // return Err(anyhow!("Failed to wake {}.", (*device_lock).debug_label()));
+                        error!("Failed to wake {}: {}", (*device_lock).debug_label(), e);
+                    };
+                }
+                BusDeviceEntry::InnerSync(dev) => {
+                    (**dev).wake_sync().context("failed to wake device")?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn snapshot_devices(
+        &self,
+        mut add_snapshot: impl FnMut(u32, serde_json::Value),
+    ) -> anyhow::Result<()> {
+        let devices_lock = &(self.devices).lock();
+        for (_, device_entry) in devices_lock.iter() {
+            let (device_id, serialized_device, device_label) = match &(device_entry.device) {
+                BusDeviceEntry::OuterSync(dev) => {
+                    let device_lock = (*dev).lock();
+                    (
+                        u32::from(device_lock.device_id()),
+                        (*device_lock).snapshot(),
+                        (*device_lock).debug_label(),
+                    )
+                }
+                BusDeviceEntry::InnerSync(dev) => (
+                    u32::from((dev).device_id()),
+                    (**dev).snapshot_sync(),
+                    (**dev).debug_label(),
+                ),
+            };
+            match serialized_device {
+                Ok(snapshot) => {
+                    add_snapshot(device_id, snapshot);
+                }
+                Err(e) => {
+                    //TODO: Enable this line when b/232437513 is done
+                    // return Err(anyhow!("Failed to snapshot {}.", (*device_lock).debug_label()));
+                    error!("Failed to snapshot {}: {}.", device_label, e);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn restore_devices(
+        &self,
+        devices_map: &mut HashMap<u32, VecDeque<serde_json::Value>>,
+    ) -> anyhow::Result<()> {
+        let devices_lock = &(self.devices).lock();
+        for (_, device_entry) in devices_lock.iter() {
+            match &(device_entry.device) {
+                BusDeviceEntry::OuterSync(dev) => {
+                    let mut device_lock = (*dev).lock();
+                    let device_id = u32::from(device_lock.device_id());
+                    let device_data = devices_map.get_mut(&device_id);
+                    match device_data {
+                        Some(dev_dq) => {
+                            match dev_dq.pop_front() {
+                                Some(dev_data) => {
+                                    (*device_lock).restore(dev_data).context("device failed to restore snapshot")?;
+                                }
+                                None => base::info!("no data found in snapshot for {}", device_lock.debug_label()),
+                            }
+                        },
+                        None => base::info!("device {} does not have stored data in the snapshot. Device data will not change.", (*device_lock).debug_label()),
+                    }
+                }
+                BusDeviceEntry::InnerSync(dev) => {
+                    let device_id = u32::from(dev.device_id());
+                    let device_data = devices_map.get_mut(&device_id);
+                    match device_data {
+                        Some(dev_dq) => {
+                            match dev_dq.pop_front() {
+                                Some(dev_data) => {
+                                    (**dev).restore_sync(dev_data).context("device failed to restore snapshot")?;
+                                }
+                                None => base::info!("no data found in snapshot for {}", (**dev).debug_label()),
+                            }
+                        },
+                        None => base::info!("device {} does not have stored data in the snapshot. Device data will not change.", dev.debug_label()),
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Puts the given device at the given address space.
     pub fn insert(&self, device: Arc<Mutex<dyn BusDevice>>, base: u64, len: u64) -> Result<()> {
         if len == 0 {
-            return Err(Error::Overlap);
+            return Err(Error::Overlap {
+                base,
+                len,
+                other_base: 0,
+                other_len: 0,
+            });
         }
 
         // Reject all cases where the new device's range overlaps with an existing device.
         let mut devices = self.devices.lock();
-        if devices
-            .iter()
-            .any(|(range, _dev)| range.overlaps(base, len))
-        {
-            return Err(Error::Overlap);
-        }
+        devices.iter().try_for_each(|(range, _dev)| {
+            if range.overlaps(base, len) {
+                Err(Error::Overlap {
+                    base,
+                    len,
+                    other_base: range.base,
+                    other_len: range.len,
+                })
+            } else {
+                Ok(())
+            }
+        })?;
 
+        #[cfg(feature = "stats")]
+        let name = device.lock().debug_label();
+        #[cfg(feature = "stats")]
+        let device_id = device.lock().device_id();
         if devices
-            .insert(BusRange { base, len }, BusDeviceEntry::OuterSync(device))
+            .insert(
+                BusRange { base, len },
+                BusEntry {
+                    #[cfg(feature = "stats")]
+                    index: self
+                        .stats
+                        .lock()
+                        .next_device_index(name, device_id.into(), base, len),
+                    device: BusDeviceEntry::OuterSync(device),
+                },
+            )
             .is_some()
         {
-            return Err(Error::Overlap);
+            return Err(Error::Overlap {
+                base,
+                len,
+                other_base: base,
+                other_len: len,
+            });
         }
 
         Ok(())
@@ -317,23 +547,51 @@ impl Bus {
     /// by multiple threads simultaneously.
     pub fn insert_sync(&self, device: Arc<dyn BusDeviceSync>, base: u64, len: u64) -> Result<()> {
         if len == 0 {
-            return Err(Error::Overlap);
+            return Err(Error::Overlap {
+                base,
+                len,
+                other_base: 0,
+                other_len: 0,
+            });
         }
 
         // Reject all cases where the new device's range overlaps with an existing device.
         let mut devices = self.devices.lock();
-        if devices
-            .iter()
-            .any(|(range, _dev)| range.overlaps(base, len))
-        {
-            return Err(Error::Overlap);
-        }
+        devices.iter().try_for_each(|(range, _dev)| {
+            if range.overlaps(base, len) {
+                Err(Error::Overlap {
+                    base,
+                    len,
+                    other_base: range.base,
+                    other_len: range.len,
+                })
+            } else {
+                Ok(())
+            }
+        })?;
 
         if devices
-            .insert(BusRange { base, len }, BusDeviceEntry::InnerSync(device))
+            .insert(
+                BusRange { base, len },
+                BusEntry {
+                    #[cfg(feature = "stats")]
+                    index: self.stats.lock().next_device_index(
+                        device.debug_label(),
+                        device.device_id().into(),
+                        base,
+                        len,
+                    ),
+                    device: BusDeviceEntry::InnerSync(device),
+                },
+            )
             .is_some()
         {
-            return Err(Error::Overlap);
+            return Err(Error::Overlap {
+                base,
+                len,
+                other_base: base,
+                other_len: len,
+            });
         }
 
         Ok(())
@@ -342,7 +600,12 @@ impl Bus {
     /// Remove the given device at the given address space.
     pub fn remove(&self, base: u64, len: u64) -> Result<()> {
         if len == 0 {
-            return Err(Error::Overlap);
+            return Err(Error::Overlap {
+                base,
+                len,
+                other_base: 0,
+                other_len: 0,
+            });
         }
 
         let mut devices = self.devices.lock();
@@ -365,59 +628,128 @@ impl Bus {
     ///
     /// Returns true on success, otherwise `data` is untouched.
     pub fn read(&self, addr: u64, data: &mut [u8]) -> bool {
-        if let Some((offset, address, dev)) = self.get_device(addr) {
+        #[cfg(feature = "stats")]
+        let start = self.stats.lock().start_stat();
+
+        let device_index = if let Some((offset, address, entry)) = self.get_device(addr) {
             let io = BusAccessInfo {
                 address,
                 offset,
                 id: self.access_id,
             };
-            match dev {
+
+            match &entry.device {
                 BusDeviceEntry::OuterSync(dev) => dev.lock().read(io, data),
                 BusDeviceEntry::InnerSync(dev) => dev.read(io, data),
             }
-            true
+            #[cfg(feature = "stats")]
+            let index = Some(entry.index);
+            #[cfg(not(feature = "stats"))]
+            let index = Some(());
+            index
         } else {
-            false
+            None
+        };
+
+        #[cfg(feature = "stats")]
+        if let Some(device_index) = device_index {
+            self.stats
+                .lock()
+                .end_stat(BusOperation::Write, start, device_index);
+            return true;
         }
+
+        device_index.is_some()
     }
 
     /// Writes `data` to the device that owns the range containing `addr`.
     ///
     /// Returns true on success, otherwise `data` is untouched.
     pub fn write(&self, addr: u64, data: &[u8]) -> bool {
-        if let Some((offset, address, dev)) = self.get_device(addr) {
+        #[cfg(feature = "stats")]
+        let start = self.stats.lock().start_stat();
+
+        let device_index = if let Some((offset, address, entry)) = self.get_device(addr) {
             let io = BusAccessInfo {
                 address,
                 offset,
                 id: self.access_id,
             };
-            match dev {
+
+            match &entry.device {
                 BusDeviceEntry::OuterSync(dev) => dev.lock().write(io, data),
                 BusDeviceEntry::InnerSync(dev) => dev.write(io, data),
             }
-            true
+
+            #[cfg(feature = "stats")]
+            let index = Some(entry.index);
+            #[cfg(not(feature = "stats"))]
+            let index = Some(());
+            index
         } else {
-            false
+            None
+        };
+
+        #[cfg(feature = "stats")]
+        if let Some(device_index) = device_index {
+            self.stats
+                .lock()
+                .end_stat(BusOperation::Write, start, device_index);
         }
+        device_index.is_some()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use anyhow::Result as AnyhowResult;
 
+    use super::*;
+    use crate::pci::CrosvmDeviceId;
+    use crate::suspendable::Suspendable;
+    use crate::suspendable_tests;
+
+    #[derive(Copy, Clone, Serialize, Deserialize, Eq, PartialEq, Debug)]
     struct DummyDevice;
+
     impl BusDevice for DummyDevice {
+        fn device_id(&self) -> DeviceId {
+            CrosvmDeviceId::Cmos.into()
+        }
         fn debug_label(&self) -> String {
             "dummy device".to_owned()
         }
     }
 
+    impl Suspendable for DummyDevice {
+        fn snapshot(&self) -> AnyhowResult<serde_json::Value> {
+            serde_json::to_value(self).context("error serializing")
+        }
+
+        fn restore(&mut self, data: serde_json::Value) -> AnyhowResult<()> {
+            *self = serde_json::from_value(data).context("error deserializing")?;
+            Ok(())
+        }
+
+        fn sleep(&mut self) -> AnyhowResult<()> {
+            Ok(())
+        }
+
+        fn wake(&mut self) -> AnyhowResult<()> {
+            Ok(())
+        }
+    }
+
+    #[derive(Copy, Clone, Serialize, Deserialize, Eq, PartialEq, Debug)]
     struct ConstantDevice {
         uses_full_addr: bool,
     }
 
     impl BusDevice for ConstantDevice {
+        fn device_id(&self) -> DeviceId {
+            CrosvmDeviceId::Cmos.into()
+        }
+
         fn debug_label(&self) -> String {
             "constant device".to_owned()
         }
@@ -443,6 +775,29 @@ mod tests {
                 assert_eq!(*v, (addr as u8) + (i as u8))
             }
         }
+    }
+
+    impl Suspendable for ConstantDevice {
+        fn snapshot(&self) -> AnyhowResult<serde_json::Value> {
+            serde_json::to_value(self).context("error serializing")
+        }
+
+        fn restore(&mut self, data: serde_json::Value) -> AnyhowResult<()> {
+            *self = serde_json::from_value(data).context("error deserializing")?;
+            Ok(())
+        }
+
+        fn sleep(&mut self) -> AnyhowResult<()> {
+            Ok(())
+        }
+
+        fn wake(&mut self) -> AnyhowResult<()> {
+            Ok(())
+        }
+    }
+
+    fn modify_constant_device(constant: &mut ConstantDevice) {
+        constant.uses_full_addr = !constant.uses_full_addr;
     }
 
     #[test]
@@ -529,6 +884,22 @@ mod tests {
         assert_eq!(values, [0x15, 0x16, 0x17, 0x18]);
         assert!(bus.write(0x15, &values));
     }
+
+    suspendable_tests!(
+        constant_device_true,
+        ConstantDevice {
+            uses_full_addr: true,
+        },
+        modify_constant_device
+    );
+
+    suspendable_tests!(
+        constant_device_false,
+        ConstantDevice {
+            uses_full_addr: false,
+        },
+        modify_constant_device
+    );
 
     #[test]
     fn bus_range_contains() {

@@ -21,7 +21,6 @@ import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE;
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT;
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
-import static android.provider.Settings.Secure.IMMERSIVE_MODE_CONFIRMATIONS;
 import static android.server.wm.DisplayCutoutTests.TestActivity.EXTRA_CUTOUT_MODE;
 import static android.server.wm.DisplayCutoutTests.TestActivity.EXTRA_ORIENTATION;
 import static android.server.wm.DisplayCutoutTests.TestDef.Which.DISPATCHED;
@@ -56,13 +55,13 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Insets;
 import android.graphics.Path;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.platform.test.annotations.Presubmit;
-import android.provider.Settings;
-import android.server.wm.settings.SettingsSession;
+import android.util.Size;
 import android.view.DisplayCutout;
 import android.view.View;
 import android.view.ViewGroup;
@@ -72,6 +71,7 @@ import android.view.WindowInsets.Type;
 
 import androidx.test.rule.ActivityTestRule;
 
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.WindowUtil;
 
 import org.hamcrest.CustomTypeSafeMatcher;
@@ -81,6 +81,7 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
@@ -102,8 +103,6 @@ import java.util.stream.Collectors;
 @android.server.wm.annotation.Group3
 @RunWith(Parameterized.class)
 public class DisplayCutoutTests {
-    private static SettingsSession<String> sImmersiveModeConfirmationSetting;
-
     static final String LEFT = "left";
     static final String TOP = "top";
     static final String RIGHT = "right";
@@ -131,6 +130,15 @@ public class DisplayCutoutTests {
     @Parameter(1)
     public String orientationName;
 
+    @ClassRule
+    public static ActivityManagerTestBase.DisableImmersiveModeConfirmationRule
+            sDisableImmersiveModeConfirmationRule =
+            new ActivityManagerTestBase.DisableImmersiveModeConfirmationRule();
+
+    @ClassRule
+    public static SetRequestedOrientationRule sSetRequestedOrientationRule =
+            new SetRequestedOrientationRule();
+
     @Rule
     public final ErrorCollector mErrorCollector = new ErrorCollector();
 
@@ -143,18 +151,29 @@ public class DisplayCutoutTests {
     // 16 dp with app windows/contents for the apps using DEFAULT and SHORT_EDGES.
     private int mMaximumSizeForNoLetterbox;
 
+    private static DisplayMetricsSession sDisplayMetricsSession;
+
     @BeforeClass
     public static void setUpClass() {
-        sImmersiveModeConfirmationSetting = new SettingsSession<>(
-                Settings.Secure.getUriFor(IMMERSIVE_MODE_CONFIRMATIONS),
-                Settings.Secure::getString, Settings.Secure::putString);
-        sImmersiveModeConfirmationSetting.set("confirmed");
+        if (!ActivityManagerTestBase.isCloseToSquareDisplay(getInstrumentation().getContext())) {
+            return;
+        }
+        // If the display size is close to square, the activity bounds may be shrunk to match its
+        // requested orientation (see ActivityRecord#orientationRespectedWithInsets). Then its
+        // insets may not contain the cutout path, so resize the display to avoid the case.
+        sDisplayMetricsSession = new DisplayMetricsSession(DEFAULT_DISPLAY);
+        final Size displaySize = sDisplayMetricsSession.getDisplayMetrics().getSize();
+        final int orientation = displaySize.getHeight() <= displaySize.getWidth()
+                ? Configuration.ORIENTATION_PORTRAIT : Configuration.ORIENTATION_LANDSCAPE;
+        sDisplayMetricsSession.changeAspectRatio(1.77 /* 16:9 */, orientation);
+        getInstrumentation().getUiAutomation().syncInputTransactions();
     }
 
     @AfterClass
     public static void tearDownClass() {
-        if (sImmersiveModeConfirmationSetting != null) {
-            sImmersiveModeConfirmationSetting.close();
+        if (sDisplayMetricsSession != null) {
+            sDisplayMetricsSession.close();
+            sDisplayMetricsSession = null;
         }
     }
 
@@ -249,6 +268,7 @@ public class DisplayCutoutTests {
     }
 
     @Test
+    @CddTest(requirements = {"3.8.15/C-1-2,C-1-3,C-1-4"})
     public void testDisplayCutout_default() {
         runTest(LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT,
                 (activity, insets, displayCutout, which) -> {
@@ -267,6 +287,7 @@ public class DisplayCutoutTests {
     }
 
     @Test
+    @CddTest(requirements = {"3.8.15/C-1-2,C-1-3,C-1-4"})
     public void testDisplayCutout_shortEdges() {
         runTest(LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES, (a, insets, cutout, which) -> {
             if (which == ROOT) {
@@ -292,6 +313,7 @@ public class DisplayCutoutTests {
     }
 
     @Test
+    @CddTest(requirements = {"3.8.15/C-1-2,C-1-3,C-1-4"})
     public void testDisplayCutout_never() {
         runTest(LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER, (a, insets, displayCutout, which) -> {
             assertThat("must not layout in cutout area in never mode", displayCutout, nullValue());
@@ -299,6 +321,7 @@ public class DisplayCutoutTests {
     }
 
     @Test
+    @CddTest(requirements = {"3.8.15/C-1-2,C-1-3,C-1-4"})
     public void testDisplayCutout_always() {
         runTest(LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS, (a, insets, displayCutout, which) -> {
             if (which == ROOT) {
@@ -672,8 +695,6 @@ public class DisplayCutoutTests {
             super.onCreate(savedInstanceState);
             getWindow().requestFeature(Window.FEATURE_NO_TITLE);
             if (getIntent() != null) {
-                getWindow().getAttributes().layoutInDisplayCutoutMode = getIntent().getIntExtra(
-                        EXTRA_CUTOUT_MODE, LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT);
                 setRequestedOrientation(getIntent().getIntExtra(
                         EXTRA_ORIENTATION, SCREEN_ORIENTATION_UNSPECIFIED));
             }
@@ -681,6 +702,13 @@ public class DisplayCutoutTests {
             view.setLayoutParams(new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
             view.setOnApplyWindowInsetsListener((v, insets) -> mDispatchedInsets = insets);
             setContentView(view);
+            // Because the PhoneWindow.java will set the CutoutMode
+            // So we have to set the CutoutMode after the setContentView method
+            if (getIntent() != null) {
+                int mode = getIntent().getIntExtra(EXTRA_CUTOUT_MODE,
+                        LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT);
+                getWindow().getAttributes().layoutInDisplayCutoutMode = mode;
+            }
         }
 
         @Override

@@ -41,8 +41,17 @@
     <!-- usesCleartextTraffic is needed by WifiManagerTest#sendTraffic to send HTTP traffic
          (as opposed to HTTPS). -->
     <application android:usesCleartextTraffic="true">
-        <uses-library android:name="android.test.runner" />
-        <activity android:name=".WaitForResultActivity" />
+        <uses-library android:name="android.test.runner"/>
+        <activity android:name=".WaitForResultActivity"/>
+        <service
+            android:name="android.net.wifi.sharedconnectivity.service.cts.TestSharedConnectivityService"
+            android:exported="true">
+            <intent-filter>
+                <action
+                    android:name="android.net.wifi.sharedconnectivity.service.cts.TestSharedConnectivityService.BIND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </service>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

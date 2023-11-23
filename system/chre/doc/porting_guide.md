@@ -216,6 +216,63 @@ be linked into the CHRE framework at build time by adding it to
 `TARGET_SO_LATE_LIBS` in the build variant’s makefile - see the build system
 documentation for more details.
 
+#### Recommended Implementation flow
+
+While there may be minor differences, most CHRE PAL [API][CHRE_PAL_DIR_URL]
+implementations follow the following pattern:
+
+1. **Implement the Module API for CHRE**
+
+CHRE provides a standardized structure containing various interfaces for
+calling into the vendor's closed source code in _pal/<feature>.h_. These
+functions must be implemented by the platform, and provided to CHRE when a call
+to _chrePal<feature>GetApi_ function is called. Functions to be implemented are
+of two broad categories:
+
+* _Access functions_
+
+      CHRE provides feature specific callbacks (see 2. below) to the PAL by
+      invoking the _open()_ function in the Module API provided above. The
+      structures returned by this function call must be stored somewhere by the
+      PAL, and used as necessary to call into the CHRE core. Typically, one or
+      more of these callbacks need to be invoked in response to a request from
+      CHRE using the Module API provided above.
+
+      The _close()_ function, when invoked by CHRE, indicates that CHRE is
+      shutting down. It is now the PAL's responsibility to perform cleanup,
+      cancel active requests, and not invoke any CHRE callbacks from this point
+      on.
+
+* _Request functions_
+
+      These are interfaces in the PAL API that are module specific, and used by
+      CHRE to call into the vendor PAL code.
+
+2. ** Use CHRE's callbacks **
+
+CHRE provides a set of module specific callbacks by invoking the _open()_ access
+function provided by the Module API. It then starts performing control or data
+requests as needed, by invoking the request functions in the Module API. The PAL
+is expected to process these requests, and invoke the appropriate CHRE provided
+callback in response. Note that some callbacks might require memory ownership
+to be held until explicitly released. For example, upon an audio request from
+CHRE via a call to the `requestAudioDataEvent` audio PAL API, the platform
+might invoke the `audioDataEventCallback` when the audio data is ready and
+packaged approapriately into a `chreAudioDataEvent` structure. The platform
+must ensure that the memory associated with this data structure remains in
+context until CHRE explicitly releases it via a call to `releaseAudioDataEvent`.
+
+Please refer to the appropriate PAL documentation to ensure that such
+dependencies are understood early in the development phase.
+
+#### Reference implementations
+
+Please refer to the various reference implementations that are
+[available][CHRE_LINUX_DIR_URL] for CHRE PALS for the Linux platform. Note that
+this implementation is meant to highlight the usage of the PAL APIs and
+callbacks, and might not necessarily port directly over into a resource
+constrained embedded context.
+
 ### PAL Verification
 
 There are several ways to test the PAL implementation beyond manual testing.
@@ -251,3 +308,56 @@ already be a part of the underlying OS/system capabilities, the CHRE team is
 working on a reference implementation for a future release. Please reach out via
 your TAM if you are interested in integrating this reference code prior to its
 public release.
+
+[CHRE_PAL_DIR_URL]:  https://cs.android.com/android/platform/superproject/+/master:system/chre/pal/include/chre/pal/
+[CHRE_LINUX_DIR_URL]: https://cs.android.com/android/platform/superproject/+/master:system/chre/platform/linux/
+
+## Adding Context Hub support
+
+Once you have implemented the necessary pieces described previously, you are
+now ready to add the Context Hub support on the device! Here are the necessary
+steps to do this:
+
+1. Add the HAL implementation on the device
+
+Add the build target of the Context Hub HAL implementation to your device .mk
+file. For example, if the default generic Context Hub HAL is being used, you
+can add the following:
+
+```
+PRODUCT_PACKAGES += \
+    android.hardware.contexthub-service.generic
+```
+
+
+Currently, the generic Context Hub HAL relies on the CHRE daemon to communicate
+with CHRE. If you are using one of our existing platforms, you can add one of
+the following CHRE daemon build targets to your PRODUCT_PACKAGES as you did the
+generic HAL above.
+
+Qualcomm target: `chre`\
+Exynos target: `chre_daemon_exynos`\
+MediaTek target: `TBD`
+
+Otherwise, you can look at those target definitions to define a new one for
+your specific platform.
+
+2. Add the relevant SElinux policies for the device
+
+Resolve any missing SElinux violations by using the relevant tools such as
+audit2allow, and updating the SElinux policies for your device. You may follow
+the directions in [the official Android page](https://source.android.com/docs/security/features/selinux/validate)
+for additional guidance.
+
+3. Add the Context Hub feature flag for the device
+
+Add the following in your device.mk file:
+
+```
+PRODUCT_COPY_FILES += \
+    frameworks/native/data/etc/android.hardware.context_hub.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.context_hub.xml
+```
+
+The above change will enable the Context Hub Service on the device, and expects
+that the Context Hub HAL comes up. If (1) and (2) are not performed, the device
+may fail to boot to the Android home screen.

@@ -1,0 +1,4 @@
+userdebug_or_eng(`
+  allow wifi_sniffer self:capability { setuid setgid };
+  allow wifi_sniffer vendor_wifi_vendor_data_file:dir rw_dir_perms;
+')

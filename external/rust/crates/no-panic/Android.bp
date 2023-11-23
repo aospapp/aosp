@@ -41,7 +41,7 @@ rust_proc_macro {
     name: "libno_panic",
     crate_name: "no_panic",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.1.15",
+    cargo_pkg_version: "0.1.21",
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
@@ -50,4 +50,6 @@ rust_proc_macro {
         "libsyn",
     ],
     compile_multilib: "first",
+    product_available: true,
+    vendor_available: true,
 }

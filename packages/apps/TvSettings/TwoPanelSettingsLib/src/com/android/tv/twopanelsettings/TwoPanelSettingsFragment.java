@@ -489,7 +489,11 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
             if (a.get(key) == null || b.get(key) == null) {
                 return false;
             }
-            if (!a.get(key).equals(b.get(key))) {
+            if (a.get(key) instanceof Icon && b.get(key) instanceof Icon) {
+                if (!((Icon) a.get(key)).sameAs((Icon) b.get(key))) {
+                    return false;
+                }
+            } else if (!a.get(key).equals(b.get(key))) {
                 return false;
             }
         }
@@ -761,6 +765,10 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
             }
 
             if (event.getAction() == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_BACK) {
+                if (event.getRepeatCount() > 0) {
+                    // Ignore long press on back button.
+                    return false;
+                }
                 return back(true);
             }
 

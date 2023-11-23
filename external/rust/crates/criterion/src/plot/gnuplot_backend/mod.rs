@@ -26,7 +26,7 @@ use super::{PlotContext, PlotData, Plotter};
 use crate::format;
 
 fn gnuplot_escape(string: &str) -> String {
-    string.replace("_", "\\_").replace("'", "''")
+    string.replace('_', "\\_").replace('\'', "''")
 }
 
 static DEFAULT_FONT: &str = "Helvetica";
@@ -248,7 +248,7 @@ impl Plotter for Gnuplot {
         info!(
             "Waiting for {} gnuplot processes took {}",
             child_count,
-            format::time(crate::DurationExt::to_nanos(elapsed) as f64)
+            format::time(elapsed.as_nanos() as f64)
         );
     }
 }

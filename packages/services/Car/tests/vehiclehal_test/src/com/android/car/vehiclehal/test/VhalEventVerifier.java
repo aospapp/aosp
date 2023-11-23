@@ -18,6 +18,8 @@ package com.android.car.vehiclehal.test;
 import android.car.hardware.CarPropertyValue;
 import android.os.ConditionVariable;
 
+import com.android.internal.annotations.GuardedBy;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,30 +30,21 @@ import java.util.List;
  * The verifier will provide formatted result for all mismatched events in sequence.
  */
 class VhalEventVerifier {
+    private final Object mLock = new Object();
+    @GuardedBy("mLock")
     private List<CarPropertyValue> mExpectedEvents;
+    @GuardedBy("mLock")
+    private List<CarPropertyValue> mReceivedEvents;
     // A pointer to keep track of the next expected event in the list
+    @GuardedBy("mLock")
     private int mIdx;
-    private List<MismatchedEventPair> mMismatchedEvents;
     // Condition variable to notify waiting threads when verification is done or timeout.
     private ConditionVariable mCond;
 
-    static class MismatchedEventPair {
-        public final int idx;
-        public final CarPropertyValue expectedEvent;
-        public final CarPropertyValue mismatchedEvent;
-
-        MismatchedEventPair(CarPropertyValue expectedEvent, CarPropertyValue mismatchedEvent,
-                                   int idx) {
-            this.idx = idx;
-            this.expectedEvent = expectedEvent;
-            this.mismatchedEvent = mismatchedEvent;
-        }
-    }
-
     VhalEventVerifier(List<CarPropertyValue> expectedEvents) {
         mExpectedEvents = expectedEvents;
+        mReceivedEvents = new ArrayList<>();
         mIdx = 0;
-        mMismatchedEvents = new ArrayList<>();
         mCond = new ConditionVariable(expectedEvents.isEmpty());
     }
 
@@ -63,33 +56,35 @@ class VhalEventVerifier {
      * @param nextEvent to be verified
      */
     public void verify(CarPropertyValue nextEvent) {
-        if (mIdx >= mExpectedEvents.size()) {
-            return;
-        }
-        CarPropertyValue expectedEvent = mExpectedEvents.get(mIdx);
-        if (!Utils.areCarPropertyValuesEqual(expectedEvent, nextEvent)) {
-            mMismatchedEvents.add(new MismatchedEventPair(expectedEvent, nextEvent, mIdx));
-        }
-        if (++mIdx == mExpectedEvents.size()) {
-            mCond.open();
+        synchronized (mLock) {
+            mReceivedEvents.add(nextEvent);
+            if (mIdx >= mExpectedEvents.size()) {
+                return;
+            }
+            CarPropertyValue expectedEvent = mExpectedEvents.get(mIdx);
+            if (!Utils.areCarPropertyValuesEqual(expectedEvent, nextEvent)) {
+                // We are not expecting this event, ignore this.
+                return;
+            }
+            mIdx++;
+            if (mIdx == mExpectedEvents.size()) {
+                mCond.open();
+            }
         }
     }
 
-    public List<MismatchedEventPair> getMismatchedEvents() {
-        return mMismatchedEvents;
-    }
-
-    public void waitForEnd(long timeout) {
-        mCond.block(timeout);
+    public boolean waitForEnd(long timeout) {
+        return mCond.block(timeout);
     }
 
     public String getResultString() {
-        StringBuilder resultBuilder = new StringBuilder();
-        for (MismatchedEventPair pair : mMismatchedEvents) {
-            resultBuilder.append("Index " + pair.idx + ": Expected "
-                    + pair.expectedEvent + ", Received "
-                    + pair.mismatchedEvent + "\n");
+        synchronized (mLock) {
+            if (mIdx >= mExpectedEvents.size()) {
+                return "";
+            }
+            return "Expected event: " + mExpectedEvents.get(mIdx) + " never received\n"
+                    + "Received events: \n" + mReceivedEvents + "\n"
+                    + "Expected events: \n" + mExpectedEvents;
         }
-        return resultBuilder.toString();
     }
 }

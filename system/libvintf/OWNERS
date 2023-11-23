@@ -3,3 +3,6 @@ smoreland@google.com
 elsk@google.com
 malchev@google.com
 sspatil@google.com
+
+per-file Apex* = rseymour@google.com
+per-file include/vintf/Apex* = rseymour@google.com

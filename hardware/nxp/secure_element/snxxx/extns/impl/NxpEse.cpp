@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2018-2021 NXP Semiconductors
+ *  Copyright 2018-2022 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #endif
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
+#include <memunreachable/memunreachable.h>
 
 #include "phNxpEse_Api.h"
 
@@ -217,6 +218,12 @@ Return<void> NxpEse::ioctl(uint64_t ioctlType,
 }
 
 // Methods from ::android::hidl::base::V1_0::IBase follow.
+Return<void> NxpEse::debug(const hidl_handle& /* fd */,
+                           const hidl_vec<hidl_string>& /* options */) {
+  LOG(INFO) << "\n SecureElement-NxpEse HAL MemoryLeak Info = \n"
+            << ::android::GetUnreachableMemoryString(true, 10000).c_str();
+  return Void();
+}
 
 }  // namespace implementation
 }  // namespace V1_0

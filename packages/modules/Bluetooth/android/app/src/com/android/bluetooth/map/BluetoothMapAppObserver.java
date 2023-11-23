@@ -241,6 +241,7 @@ public class BluetoothMapAppObserver {
             Log.d(TAG, "createReceiver()\n");
         }
         IntentFilter intentFilter = new IntentFilter();
+        intentFilter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
         intentFilter.addAction(Intent.ACTION_PACKAGE_ADDED);
         intentFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
         intentFilter.addDataScheme("package");

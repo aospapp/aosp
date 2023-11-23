@@ -12,6 +12,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
+PY_VERSION = 3
 ATTRIBUTES = "suite:bvt-perbuild"
 
 DOC = """

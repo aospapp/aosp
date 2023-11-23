@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2017 The Android Open Source Project
 #
@@ -63,7 +63,7 @@ class GenericNetlink(netlink.NetlinkSocket):
 
   def _Dump(self, family, command, version):
     msg = Genlmsghdr((command, version))
-    return super(GenericNetlink, self)._Dump(family, msg, Genlmsghdr, "")
+    return super(GenericNetlink, self)._Dump(family, msg, Genlmsghdr)
 
 
 class GenericNetlinkControl(GenericNetlink):
@@ -75,6 +75,7 @@ class GenericNetlinkControl(GenericNetlink):
   def _DecodeOps(self, data):
     ops = []
     Op = collections.namedtuple("Op", ["id", "flags"])
+    # TODO: call _ParseAttributes on the nested data instead of manual parsing.
     while data:
       # Skip the nest marker.
       datalen, index, data = data[:2], data[2:4], data[4:]
@@ -92,7 +93,7 @@ class GenericNetlinkControl(GenericNetlink):
       ops.append(Op(op_id, op_flags))
     return ops
 
-  def _Decode(self, command, msg, nla_type, nla_data):
+  def _Decode(self, command, msg, nla_type, nla_data, nested):
     """Decodes generic netlink control attributes to human-readable format."""
 
     name = self._GetConstantName(__name__, nla_type, "CTRL_ATTR_")
@@ -100,7 +101,7 @@ class GenericNetlinkControl(GenericNetlink):
     if name == "CTRL_ATTR_FAMILY_ID":
       data = struct.unpack("=H", nla_data)[0]
     elif name == "CTRL_ATTR_FAMILY_NAME":
-      data = nla_data.strip("\x00")
+      data = nla_data.strip(b"\x00")
     elif name in ["CTRL_ATTR_VERSION", "CTRL_ATTR_HDRSIZE", "CTRL_ATTR_MAXATTR"]:
       data = struct.unpack("=I", nla_data)[0]
     elif name == "CTRL_ATTR_OPS":

@@ -20,10 +20,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.testng.Assert.assertThrows;
 
+import android.Manifest;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -35,14 +36,11 @@ import android.media.AudioRecord.OnRecordPositionUpdateListener;
 import android.media.AudioRecordingConfiguration;
 import android.media.AudioSystem;
 import android.media.AudioTimestamp;
-import android.media.AudioTrack;
 import android.media.MediaFormat;
 import android.media.MediaRecorder;
-import android.media.MediaSyncEvent;
 import android.media.MicrophoneDirection;
 import android.media.MicrophoneInfo;
 import android.media.cts.AudioHelper;
-import android.media.cts.NonMediaMainlineTest;
 import android.media.cts.StreamUtils;
 import android.media.metrics.LogSessionId;
 import android.media.metrics.MediaMetricsManager;
@@ -61,6 +59,7 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.DeviceReportLog;
+import com.android.compatibility.common.util.NonMainlineTest;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 import com.android.compatibility.common.util.SystemUtil;
@@ -74,11 +73,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayList;
-import java.util.concurrent.Executor;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 @RunWith(AndroidJUnit4.class)
 public class AudioRecordTest {
     private final static String TAG = "AudioRecordTest";
@@ -544,6 +543,95 @@ public class AudioRecordTest {
                 observedChannelCount);
         assertEquals(TEST_NAME + ": configured source", expectedSource, observedSource);
         assertEquals(TEST_NAME + ": state", expectedState, observedState);
+    }
+    // Test AudioRecord.Builder.setRequestHotwordStream, and hotword capture
+    @Test
+    public void testAudioRecordBuilderHotword() throws Exception {
+        if (!hasMicrophone()) {
+            return;
+        }
+        // Verify typical behavior continues to work, and clearing works
+        AudioRecord regularRecord = new AudioRecord.Builder()
+                                    .setRequestHotwordStream(true)
+                                    .setRequestHotwordStream(false)
+                                    .build();
+
+        assertEquals(regularRecord.getState(), AudioRecord.STATE_INITIALIZED);
+        assertFalse(regularRecord.isHotwordStream());
+        assertFalse(regularRecord.isHotwordLookbackStream());
+        regularRecord.startRecording();
+        regularRecord.read(ByteBuffer.allocateDirect(4096), 4096);
+        regularRecord.stop();
+        regularRecord.release();
+
+        regularRecord = new AudioRecord.Builder()
+                                    .setRequestHotwordLookbackStream(true)
+                                    .setRequestHotwordLookbackStream(false)
+                                    .build();
+
+        assertEquals(regularRecord.getState(), AudioRecord.STATE_INITIALIZED);
+        assertFalse(regularRecord.isHotwordStream());
+        assertFalse(regularRecord.isHotwordLookbackStream());
+        regularRecord.startRecording();
+        regularRecord.read(ByteBuffer.allocateDirect(4096), 4096);
+        regularRecord.stop();
+        regularRecord.release();
+
+        // Should fail due to incompatible arguments
+        assertThrows(UnsupportedOperationException.class,
+               () ->  new AudioRecord.Builder()
+                                    .setRequestHotwordStream(true)
+                                    .setRequestHotwordLookbackStream(true)
+                                    .build());
+
+        // Should fail due to permission issues
+        assertThrows(UnsupportedOperationException.class,
+                   () -> new AudioRecord.Builder()
+                                    .setRequestHotwordStream(true)
+                                    .build());
+        assertThrows(UnsupportedOperationException.class,
+                   () -> new AudioRecord.Builder()
+                                    .setRequestHotwordLookbackStream(true)
+                                    .build());
+
+        // Adopt permissions to access query APIs and test functionality
+        InstrumentationRegistry.getInstrumentation()
+                               .getUiAutomation()
+                               .adoptShellPermissionIdentity(
+                                Manifest.permission.CAPTURE_AUDIO_HOTWORD);
+
+
+        for (final boolean lookbackOn : new boolean[] { false, true} ) {
+            AudioRecord audioRecord = null;
+            if (!mAudioManager.isHotwordStreamSupported(lookbackOn)) {
+                // Hardware does not support capturing hotword content
+                continue;
+            }
+            try {
+                AudioRecord.Builder builder = new AudioRecord.Builder();
+                if (lookbackOn) {
+                    builder.setRequestHotwordLookbackStream(true);
+                } else {
+                    builder.setRequestHotwordStream(true);
+                }
+                audioRecord = builder.build();
+                if (lookbackOn) {
+                    assertTrue(audioRecord.isHotwordLookbackStream());
+                } else {
+                    assertTrue(audioRecord.isHotwordStream());
+                }
+                audioRecord.startRecording();
+                audioRecord.read(ByteBuffer.allocateDirect(4096), 4096);
+                audioRecord.stop();
+            } finally {
+                if (audioRecord != null) {
+                    audioRecord.release();
+                }
+            }
+        }
+        InstrumentationRegistry.getInstrumentation()
+                               .getUiAutomation()
+                               .dropShellPermissionIdentity();
     }
 
     // Test AudioRecord to ensure we can build after a failure.

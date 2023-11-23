@@ -20,6 +20,7 @@ import com.google.gson.JsonObject;
 import java.math.BigInteger;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
+import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -27,13 +28,24 @@ import java.security.spec.ECPrivateKeySpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import javax.crypto.KeyAgreement;
+import org.junit.After;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.Ignore;
+import android.security.keystore.KeyProtection;
+import android.security.keystore.KeyProperties;
+import android.keystore.cts.util.KeyStoreUtil;
+import android.util.Log;
 
 /** This test uses test vectors in JSON format to check implementations of ECDH. */
-@RunWith(JUnit4.class)
 public class JsonEcdhTest {
+  private static final String TAG = "JsonEcdhTest";
+  private static final String EXPECTED_PROVIDER_NAME = TestUtil.EXPECTED_PROVIDER_NAME;
+  private static final String KEY_ALIAS_1 = "Key1";
+
+  @After
+  public void tearDown() throws Exception {
+    KeyStoreUtil.cleanUpKeyStore();
+  }
 
   /** Convenience mehtod to get a String from a JsonObject */
   protected static String getString(JsonObject object, String name) throws Exception {
@@ -76,7 +88,10 @@ public class JsonEcdhTest {
    *     ...
    **/
   public void testEcdhComp(String filename) throws Exception {
-    JsonObject test = JsonUtil.getTestVectors(filename);
+    testEcdhComp(filename, false);
+  }
+  public void testEcdhComp(String filename, boolean isStrongBox) throws Exception {
+    JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename);
 
     // This test expects test vectors as defined in wycheproof/schemas/ecdh_test_schema.json.
     // In particular, this means that the public keys use X509 encoding.
@@ -107,12 +122,20 @@ public class JsonEcdhTest {
           PrivateKey privKey = kf.generatePrivate(spec);
           X509EncodedKeySpec x509keySpec = new X509EncodedKeySpec(publicEncoded);
           PublicKey pubKey = kf.generatePublic(x509keySpec);
-          KeyAgreement ka = KeyAgreement.getInstance("ECDH");
-          ka.init(privKey);
-          ka.doPhase(pubKey, true);
+
+          KeyStore keyStore = KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey,
+                                 new KeyProtection.Builder(KeyProperties.PURPOSE_AGREE_KEY)
+                                 .setIsStrongBoxBacked(isStrongBox)
+                                 .build());
+          KeyAgreement ka = KeyAgreement.getInstance("ECDH", EXPECTED_PROVIDER_NAME);
+          PrivateKey keyStorePrivateKey = (PrivateKey) keyStore.getKey(KEY_ALIAS_1, null);
+          PublicKey publicKey = keyStore.getCertificate(KEY_ALIAS_1).getPublicKey();
+
+          ka.init(keyStorePrivateKey);
+          ka.doPhase(publicKey, true);
           String sharedHex = TestUtil.bytesToHex(ka.generateSecret());
           if (result.equals("invalid")) {
-            System.out.println(
+            Log.e(TAG,
                 "Computed ECDH with invalid parameters"
                     + " tcId:"
                     + tcid
@@ -122,7 +145,7 @@ public class JsonEcdhTest {
                     + sharedHex);
             errors++;
           } else if (!expectedHex.equals(sharedHex)) {
-            System.out.println(
+            Log.e(TAG,
                 "Incorrect ECDH computation"
                     + " tcId:"
                     + tcid
@@ -137,6 +160,8 @@ public class JsonEcdhTest {
             passedTests++;
           }
         } catch (InvalidKeySpecException | InvalidKeyException | NoSuchAlgorithmException ex) {
+          Log.e(TAG,
+                  "Test vector with tcId:" + tcid + " comment:" + comment + " throws:" + ex.toString());
           // These are the exception that we expect to see when a curve is not implemented
           // or when a key is not valid.
           if (result.equals("valid")) {
@@ -146,14 +171,14 @@ public class JsonEcdhTest {
           }
         } catch (Exception ex) {
           // Other exceptions typically indicate that something is wrong with the implementation.
-          System.out.println(
+          Log.e(TAG,
               "Test vector with tcId:" + tcid + " comment:" + comment + " throws:" + ex.toString());
           errors++;
         }
       }
     }
     assertEquals(0, errors);
-    assertEquals(numTests, passedTests + rejectedTests + skippedTests);
+    assertEquals(numTests, passedTests + rejectedTests);
   }
 
   @Test
@@ -164,6 +189,12 @@ public class JsonEcdhTest {
   @Test
   public void testSecp256r1() throws Exception {
     testEcdhComp("ecdh_secp256r1_test.json");
+  }
+  @Test
+  @Ignore //TODO Reverify after bug b/215175472 is fixed.
+  public void testSecp256r1_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testEcdhComp("ecdh_secp256r1_test.json", true);
   }
 
   @Test
@@ -177,31 +208,37 @@ public class JsonEcdhTest {
   }
 
   @Test
+  @Ignore // Secp256k1 curve not supported in AndroidKeystore
   public void testSecp256k1() throws Exception {
     testEcdhComp("ecdh_secp256k1_test.json");
   }
 
   @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeystore
   public void testBrainpoolP224r1() throws Exception {
     testEcdhComp("ecdh_brainpoolP224r1_test.json");
   }
 
   @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeystore
   public void testBrainpoolP256r1() throws Exception {
     testEcdhComp("ecdh_brainpoolP256r1_test.json");
   }
 
   @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeystore
   public void testBrainpoolP320r1() throws Exception {
     testEcdhComp("ecdh_brainpoolP320r1_test.json");
   }
 
   @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeystore
   public void testBrainpoolP384r1() throws Exception {
     testEcdhComp("ecdh_brainpoolP384r1_test.json");
   }
 
   @Test
+  @Ignore // Brainpool curves are not supported in AndroidKeystore
   public void testBrainpoolP512r1() throws Exception {
     testEcdhComp("ecdh_brainpoolP512r1_test.json");
   }

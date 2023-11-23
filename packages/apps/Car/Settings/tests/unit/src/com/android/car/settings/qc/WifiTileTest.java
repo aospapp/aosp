@@ -200,6 +200,55 @@ public class WifiTileTest extends BaseSettingsQCItemTestCase {
         verify(mWifiManager).setWifiEnabled(true);
     }
 
+    @Test
+    public void getQCItem_createsTile_zoneWrite() {
+        mWifiTile.setAvailabilityStatusForZone("write");
+        String testSSID = "TEST_SSID";
+        when(mWifiManager.isWifiEnabled()).thenReturn(true);
+        when(mWifiManager.getWifiState()).thenReturn(WifiManager.WIFI_STATE_ENABLED);
+        WifiInfo wifiInfo = mock(WifiInfo.class);
+        when(wifiInfo.getSSID()).thenReturn(testSSID);
+        when(wifiInfo.getNetworkId()).thenReturn(1);
+        when(wifiInfo.getRssi()).thenReturn(-90);
+        when(mWifiManager.getConnectionInfo()).thenReturn(wifiInfo);
+        when(mWifiManager.calculateSignalLevel(anyInt())).thenReturn(4);
+        QCTile tile = getWifiTile();
+        assertThat(tile.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsTile_zoneRead() {
+        mWifiTile.setAvailabilityStatusForZone("read");
+        String testSSID = "TEST_SSID";
+        when(mWifiManager.isWifiEnabled()).thenReturn(true);
+        when(mWifiManager.getWifiState()).thenReturn(WifiManager.WIFI_STATE_ENABLED);
+        WifiInfo wifiInfo = mock(WifiInfo.class);
+        when(wifiInfo.getSSID()).thenReturn(testSSID);
+        when(wifiInfo.getNetworkId()).thenReturn(1);
+        when(wifiInfo.getRssi()).thenReturn(-90);
+        when(mWifiManager.getConnectionInfo()).thenReturn(wifiInfo);
+        when(mWifiManager.calculateSignalLevel(anyInt())).thenReturn(4);
+        QCTile tile = getWifiTile();
+        assertThat(tile.isEnabled()).isFalse();
+        assertThat(tile.isClickableWhileDisabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsTile_zoneHidden() {
+        mWifiTile.setAvailabilityStatusForZone("hidden");
+        String testSSID = "TEST_SSID";
+        when(mWifiManager.isWifiEnabled()).thenReturn(true);
+        when(mWifiManager.getWifiState()).thenReturn(WifiManager.WIFI_STATE_ENABLED);
+        WifiInfo wifiInfo = mock(WifiInfo.class);
+        when(wifiInfo.getSSID()).thenReturn(testSSID);
+        when(wifiInfo.getNetworkId()).thenReturn(1);
+        when(wifiInfo.getRssi()).thenReturn(-90);
+        when(mWifiManager.getConnectionInfo()).thenReturn(wifiInfo);
+        when(mWifiManager.calculateSignalLevel(anyInt())).thenReturn(4);
+        QCItem item = mWifiTile.getQCItem();
+        assertThat(item).isNull();
+    }
+
     private QCTile getWifiTile() {
         QCItem item = mWifiTile.getQCItem();
         assertThat(item).isNotNull();

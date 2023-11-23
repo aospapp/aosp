@@ -45,29 +45,25 @@
 
         <activity
             android:name=".preprovisioning.terms.CarTermsActivity"
-            android:immersive="true"
-            android:exported="true">
+            android:immersive="true">
         </activity>
 
         <activity
             android:name=".provisioning.CarLandingActivity"
-            android:immersive="true"
-            android:exported="true">
+            android:immersive="true">
         </activity>
 
         <activity
             android:name=".provisioning.CarProvisioningActivity"
             android:excludeFromRecents="true"
             android:immersive="true"
-            android:launchMode="singleTop"
-            android:exported="true">
+            android:launchMode="singleTop">
         </activity>
 
         <activity
             android:name=".provisioning.CarResetAndReturnDeviceActivity"
             android:excludeFromRecents="true"
-            android:immersive="true"
-            android:exported="true">
+            android:immersive="true">
         </activity>
     </application>
 </manifest>

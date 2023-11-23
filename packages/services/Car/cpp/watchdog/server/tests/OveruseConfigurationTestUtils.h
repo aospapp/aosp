@@ -17,14 +17,14 @@
 #ifndef CPP_WATCHDOG_SERVER_TESTS_OVERUSECONFIGURATIONTESTUTILS_H_
 #define CPP_WATCHDOG_SERVER_TESTS_OVERUSECONFIGURATIONTESTUTILS_H_
 
-#include <android/automotive/watchdog/PerStateBytes.h>
-#include <android/automotive/watchdog/internal/ApplicationCategoryType.h>
-#include <android/automotive/watchdog/internal/ComponentType.h>
-#include <android/automotive/watchdog/internal/IoOveruseAlertThreshold.h>
-#include <android/automotive/watchdog/internal/IoOveruseConfiguration.h>
-#include <android/automotive/watchdog/internal/PackageMetadata.h>
-#include <android/automotive/watchdog/internal/PerStateIoOveruseThreshold.h>
-#include <android/automotive/watchdog/internal/ResourceOveruseConfiguration.h>
+#include <aidl/android/automotive/watchdog/PerStateBytes.h>
+#include <aidl/android/automotive/watchdog/internal/ApplicationCategoryType.h>
+#include <aidl/android/automotive/watchdog/internal/ComponentType.h>
+#include <aidl/android/automotive/watchdog/internal/IoOveruseAlertThreshold.h>
+#include <aidl/android/automotive/watchdog/internal/IoOveruseConfiguration.h>
+#include <aidl/android/automotive/watchdog/internal/PackageMetadata.h>
+#include <aidl/android/automotive/watchdog/internal/PerStateIoOveruseThreshold.h>
+#include <aidl/android/automotive/watchdog/internal/ResourceOveruseConfiguration.h>
 #include <gmock/gmock.h>
 
 #include <string>
@@ -34,52 +34,60 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
-android::automotive::watchdog::internal::ResourceOveruseConfiguration
+aidl::android::automotive::watchdog::internal::ResourceOveruseConfiguration
 constructResourceOveruseConfig(
-        const android::automotive::watchdog::internal::ComponentType type,
+        const aidl::android::automotive::watchdog::internal::ComponentType type,
         const std::vector<std::string>&& safeToKill,
         const std::vector<std::string>&& vendorPrefixes,
-        const std::vector<android::automotive::watchdog::internal::PackageMetadata> packageMetadata,
-        const android::automotive::watchdog::internal::IoOveruseConfiguration&
+        const std::vector<aidl::android::automotive::watchdog::internal::PackageMetadata>
+                packageMetadata,
+        const aidl::android::automotive::watchdog::internal::IoOveruseConfiguration&
                 ioOveruseConfiguration);
 
-android::automotive::watchdog::internal::IoOveruseConfiguration constructIoOveruseConfig(
-        android::automotive::watchdog::internal::PerStateIoOveruseThreshold componentLevel,
-        const std::vector<android::automotive::watchdog::internal::PerStateIoOveruseThreshold>&
+aidl::android::automotive::watchdog::internal::IoOveruseConfiguration constructIoOveruseConfig(
+        aidl::android::automotive::watchdog::internal::PerStateIoOveruseThreshold componentLevel,
+        const std::vector<
+                aidl::android::automotive::watchdog::internal::PerStateIoOveruseThreshold>&
                 packageSpecific,
-        const std::vector<android::automotive::watchdog::internal::PerStateIoOveruseThreshold>&
+        const std::vector<
+                aidl::android::automotive::watchdog::internal::PerStateIoOveruseThreshold>&
                 categorySpecific,
-        const std::vector<android::automotive::watchdog::internal::IoOveruseAlertThreshold>&
+        const std::vector<aidl::android::automotive::watchdog::internal::IoOveruseAlertThreshold>&
                 systemWide);
 
-PerStateBytes toPerStateBytes(const int64_t fgBytes, const int64_t bgBytes,
-                              const int64_t garageModeBytes);
+aidl::android::automotive::watchdog::PerStateBytes toPerStateBytes(const int64_t fgBytes,
+                                                                   const int64_t bgBytes,
+                                                                   const int64_t garageModeBytes);
 
-android::automotive::watchdog::internal::PerStateIoOveruseThreshold toPerStateIoOveruseThreshold(
-        const std::string& name, const PerStateBytes& perStateBytes);
+aidl::android::automotive::watchdog::internal::PerStateIoOveruseThreshold
+toPerStateIoOveruseThreshold(
+        const std::string& name,
+        const aidl::android::automotive::watchdog::PerStateBytes& perStateBytes);
 
-android::automotive::watchdog::internal::PerStateIoOveruseThreshold toPerStateIoOveruseThreshold(
-        const std::string& name, const int64_t fgBytes, const int64_t bgBytes,
-        const int64_t garageModeBytes);
+aidl::android::automotive::watchdog::internal::PerStateIoOveruseThreshold
+toPerStateIoOveruseThreshold(const std::string& name, const int64_t fgBytes, const int64_t bgBytes,
+                             const int64_t garageModeBytes);
 
-android::automotive::watchdog::internal::PerStateIoOveruseThreshold toPerStateIoOveruseThreshold(
-        const android::automotive::watchdog::internal::ComponentType type,
-        const PerStateBytes& perStateBytes);
+aidl::android::automotive::watchdog::internal::PerStateIoOveruseThreshold
+toPerStateIoOveruseThreshold(
+        const aidl::android::automotive::watchdog::internal::ComponentType type,
+        const aidl::android::automotive::watchdog::PerStateBytes& perStateBytes);
 
-android::automotive::watchdog::internal::PerStateIoOveruseThreshold toPerStateIoOveruseThreshold(
-        const android::automotive::watchdog::internal::ComponentType type, const int64_t fgBytes,
-        const int64_t bgBytes, const int64_t garageModeBytes);
+aidl::android::automotive::watchdog::internal::PerStateIoOveruseThreshold
+toPerStateIoOveruseThreshold(
+        const aidl::android::automotive::watchdog::internal::ComponentType type,
+        const int64_t fgBytes, const int64_t bgBytes, const int64_t garageModeBytes);
 
-android::automotive::watchdog::internal::PackageMetadata toPackageMetadata(
+aidl::android::automotive::watchdog::internal::PackageMetadata toPackageMetadata(
         std::string packageName,
-        android::automotive::watchdog::internal::ApplicationCategoryType type);
+        aidl::android::automotive::watchdog::internal::ApplicationCategoryType type);
 
-android::automotive::watchdog::internal::IoOveruseAlertThreshold toIoOveruseAlertThreshold(
+aidl::android::automotive::watchdog::internal::IoOveruseAlertThreshold toIoOveruseAlertThreshold(
         const int64_t durationInSeconds, const int64_t writtenBytesPerSecond);
 
-testing::Matcher<const android::automotive::watchdog::internal::ResourceOveruseConfiguration&>
+testing::Matcher<const aidl::android::automotive::watchdog::internal::ResourceOveruseConfiguration&>
 ResourceOveruseConfigurationMatcher(
-        const android::automotive::watchdog::internal::ResourceOveruseConfiguration& config);
+        const aidl::android::automotive::watchdog::internal::ResourceOveruseConfiguration& config);
 
 }  // namespace watchdog
 }  // namespace automotive

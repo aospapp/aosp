@@ -57,14 +57,6 @@ std::vector<SdpVideoFormat> MultiplexEncoderFactory::GetSupportedFormats()
   return formats;
 }
 
-VideoEncoderFactory::CodecInfo MultiplexEncoderFactory::QueryVideoEncoder(
-    const SdpVideoFormat& format) const {
-  if (!IsMultiplexCodec(cricket::VideoCodec(format)))
-    return factory_->QueryVideoEncoder(format);
-  return factory_->QueryVideoEncoder(
-      SdpVideoFormat(kMultiplexAssociatedCodecName));
-}
-
 std::unique_ptr<VideoEncoder> MultiplexEncoderFactory::CreateVideoEncoder(
     const SdpVideoFormat& format) {
   if (!IsMultiplexCodec(cricket::VideoCodec(format)))
@@ -90,16 +82,17 @@ MultiplexDecoderFactory::MultiplexDecoderFactory(
 std::vector<SdpVideoFormat> MultiplexDecoderFactory::GetSupportedFormats()
     const {
   std::vector<SdpVideoFormat> formats = factory_->GetSupportedFormats();
+  std::vector<SdpVideoFormat> augmented_formats = formats;
   for (const auto& format : formats) {
     if (absl::EqualsIgnoreCase(format.name, kMultiplexAssociatedCodecName)) {
       SdpVideoFormat multiplex_format = format;
       multiplex_format.parameters[cricket::kCodecParamAssociatedCodecName] =
           format.name;
       multiplex_format.name = cricket::kMultiplexCodecName;
-      formats.push_back(multiplex_format);
+      augmented_formats.push_back(multiplex_format);
     }
   }
-  return formats;
+  return augmented_formats;
 }
 
 std::unique_ptr<VideoDecoder> MultiplexDecoderFactory::CreateVideoDecoder(

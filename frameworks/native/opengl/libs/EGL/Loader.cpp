@@ -21,6 +21,7 @@
 
 #include <android-base/properties.h>
 #include <android/dlext.h>
+#include <cutils/properties.h>
 #include <dirent.h>
 #include <dlfcn.h>
 #include <graphicsenv/GraphicsEnv.h>
@@ -138,9 +139,10 @@ static void* load_wrapper(const char* path) {
 
 static const char* DRIVER_SUFFIX_PROPERTY = "ro.hardware.egl";
 
-static const char* HAL_SUBNAME_KEY_PROPERTIES[2] = {
-    DRIVER_SUFFIX_PROPERTY,
-    "ro.board.platform",
+static const char* HAL_SUBNAME_KEY_PROPERTIES[3] = {
+        "persist.graphics.egl",
+        DRIVER_SUFFIX_PROPERTY,
+        "ro.board.platform",
 };
 
 static bool should_unload_system_driver(egl_connection_t* cnx) {
@@ -218,6 +220,7 @@ void* Loader::open(egl_connection_t* cnx)
 
     // Firstly, try to load ANGLE driver.
     driver_t* hnd = attempt_to_load_angle(cnx);
+
     if (!hnd) {
         // Secondly, try to load from driver apk.
         hnd = attempt_to_load_updated_driver(cnx);
@@ -230,8 +233,9 @@ void* Loader::open(egl_connection_t* cnx)
             LOG_ALWAYS_FATAL("couldn't find an OpenGL ES implementation from %s",
                              android::GraphicsEnv::getInstance().getDriverPath().c_str());
         }
-        // Finally, try to load system driver, start by searching for the library name appended by
-        // the system properties of the GLES userspace driver in both locations.
+        // Finally, try to load system driver.
+        // Start by searching for the library name appended by the system
+        // properties of the GLES userspace driver in both locations.
         // i.e.:
         //      libGLES_${prop}.so, or:
         //      libEGL_${prop}.so, libGLESv1_CM_${prop}.so, libGLESv2_${prop}.so
@@ -258,7 +262,10 @@ void* Loader::open(egl_connection_t* cnx)
         hnd = attempt_to_load_system_driver(cnx, nullptr, true);
     }
 
-    if (!hnd && !failToLoadFromDriverSuffixProperty) {
+    if (!hnd && !failToLoadFromDriverSuffixProperty &&
+        property_get_int32("ro.vendor.api_level", 0) < __ANDROID_API_U__) {
+        // Still can't find the graphics drivers with the exact name. This time try to use wildcard
+        // matching if the device is launched before Android 14.
         hnd = attempt_to_load_system_driver(cnx, nullptr, false);
     }
 
@@ -274,8 +281,10 @@ void* Loader::open(egl_connection_t* cnx)
     }
 
     LOG_ALWAYS_FATAL_IF(!hnd,
-                        "couldn't find an OpenGL ES implementation, make sure you set %s or %s",
-                        HAL_SUBNAME_KEY_PROPERTIES[0], HAL_SUBNAME_KEY_PROPERTIES[1]);
+                        "couldn't find an OpenGL ES implementation, make sure one of %s, %s and %s "
+                        "is set",
+                        HAL_SUBNAME_KEY_PROPERTIES[0], HAL_SUBNAME_KEY_PROPERTIES[1],
+                        HAL_SUBNAME_KEY_PROPERTIES[2]);
 
     if (!cnx->libEgl) {
         cnx->libEgl = load_wrapper(EGL_WRAPPER_DIR "/libEGL.so");
@@ -488,7 +497,6 @@ static void* load_angle(const char* kind, android_namespace_t* ns) {
     void* so = do_android_dlopen_ext(name.c_str(), RTLD_LOCAL | RTLD_NOW, &dlextinfo);
 
     if (so) {
-        ALOGD("dlopen_ext from APK (%s) success at %p", name.c_str(), so);
         return so;
     } else {
         ALOGE("dlopen_ext(\"%s\") failed: %s", name.c_str(), dlerror());

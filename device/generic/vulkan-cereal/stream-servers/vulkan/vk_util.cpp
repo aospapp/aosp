@@ -16,13 +16,36 @@
 
 #include "vk_util.h"
 
+namespace gfxstream {
+namespace vk {
 namespace vk_util {
 namespace {
+
 std::unique_ptr<CallbacksWrapper<VkCheckCallbacks>> gVkCheckCallbacks =
     std::make_unique<CallbacksWrapper<VkCheckCallbacks>>(nullptr);
+
 }  // namespace
+
 void setVkCheckCallbacks(std::unique_ptr<VkCheckCallbacks> callbacks) {
     gVkCheckCallbacks = std::make_unique<CallbacksWrapper<VkCheckCallbacks>>(std::move(callbacks));
 }
+
 const CallbacksWrapper<VkCheckCallbacks>& getVkCheckCallbacks() { return *gVkCheckCallbacks; }
+
+std::optional<uint32_t> findMemoryType(const VulkanDispatch* ivk, VkPhysicalDevice physicalDevice,
+                                       uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+    VkPhysicalDeviceMemoryProperties memProperties;
+    ivk->vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter & (1 << i)) &&
+            (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+    return std::nullopt;
+}
+
 }  // namespace vk_util
+}  // namespace vk
+}  // namespace gfxstream

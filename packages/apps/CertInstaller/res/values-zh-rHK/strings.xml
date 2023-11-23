@@ -43,7 +43,7 @@
     <string name="action_missing_user_cert" msgid="3727411730202316771">"需要憑證才能安裝私人密鑰"</string>
     <string name="select_certificate_usage_title" msgid="8853023485944920851">"選擇憑證類型"</string>
     <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"在「設定」中安裝 CA 憑證"</string>
-    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"必須在「設定」中安裝「<xliff:g id="REQUESTING_APP">%1$s</xliff:g>」提供的憑證。請只安裝由您信任的機構提供的 CA 憑證。"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"必須在「設定」中安裝「<xliff:g id="REQUESTING_APP">%1$s</xliff:g>」提供的憑證。請只安裝由你信任的機構提供的 CA 憑證。"</string>
     <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"關閉"</string>
     <string name="invalid_certificate_title" msgid="6500315398016809635">"無法使用此檔案"</string>
     <string name="invalid_certificate_close_button" msgid="350986774973653102">"關閉"</string>

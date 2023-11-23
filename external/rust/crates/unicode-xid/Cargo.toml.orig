@@ -1,7 +1,7 @@
 [package]
 
 name = "unicode-xid"
-version = "0.2.2"
+version = "0.2.4"
 authors = ["erick.tryzelaar <erick.tryzelaar@gmail.com>",
            "kwantam <kwantam@gmail.com>",
            "Manish Goregaokar <manishsmail@gmail.com>"
@@ -18,10 +18,8 @@ Determine whether characters have the XID_Start
 or XID_Continue properties according to
 Unicode Standard Annex #31.
 """
-exclude = ["/scripts/*", "/.travis.yml"]
-
-[badges]
-travis-ci = { repository = "unicode-rs/unicode-xid" }
+exclude = ["/.github/**", "/scripts/*"]
+rust-version = "1.17"
 
 [features]
 default = []

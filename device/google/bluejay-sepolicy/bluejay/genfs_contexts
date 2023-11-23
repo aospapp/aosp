@@ -4,3 +4,8 @@ genfscon sysfs /devices/platform/10970000.hsi2c/i2c-5/i2c-cs40l26a      u:object
 genfscon sysfs /devices/platform/10970000.hsi2c/i2c-6/i2c-cs40l26a      u:object_r:sysfs_vibrator:s0
 genfscon sysfs /devices/platform/10970000.hsi2c/i2c-7/i2c-cs40l26a      u:object_r:sysfs_vibrator:s0
 genfscon sysfs /devices/platform/10970000.hsi2c/i2c-8/i2c-cs40l26a      u:object_r:sysfs_vibrator:s0
+
+# Storage
+genfscon sysfs /devices/platform/14700000.ufs/vendor                    u:object_r:sysfs_scsi_devices_0000:s0
+genfscon sysfs /devices/platform/14700000.ufs/model                     u:object_r:sysfs_scsi_devices_0000:s0
+genfscon sysfs /devices/platform/14700000.ufs/rev                       u:object_r:sysfs_scsi_devices_0000:s0

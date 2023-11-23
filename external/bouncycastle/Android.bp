@@ -72,6 +72,17 @@ java_defaults {
             },
         },
     },
+
+    lint: {
+        warning_checks: ["SuspiciousIndentation"],
+    },
+    errorprone: {
+        javacflags: [
+            "-Xep:BoxedPrimitiveEquality:WARN",
+            "-Xep:DoubleBraceInitialization:WARN",
+            "-Xep:HashtableContains:WARN",
+        ],
+    },
 }
 
 // The src files for bouncycastle, used to generate core platform / intra-core
@@ -94,7 +105,7 @@ java_library {
         "//art/build/apex",
         "//art/build/sdk",
         "//external/wycheproof",
-        "//libcore",
+        "//libcore:__subpackages__",
         "//packages/modules/ArtPrebuilt",
     ],
     apex_available: [
@@ -130,7 +141,10 @@ java_library {
     defaults: ["bouncycastle-defaults"],
     installable: true,
     sdk_version: "core_current",
-    srcs: ["repackaged_platform/bcprov/src/main/java/**/*.java"],
+    srcs: [
+        "repackaged_platform/bcpkix/src/main/java/**/*.java",
+        "repackaged_platform/bcprov/src/main/java/**/*.java",
+    ],
 }
 
 unbundled_visibility = [
@@ -141,12 +155,17 @@ unbundled_visibility = [
     "//cts/tests/libcore/okhttp",
     "//cts/tests/security",
     "//cts/tests/tests/keystore",
+    "//external/android-key-attestation",
     "//external/conscrypt",
     "//external/okhttp",
     "//external/robolectric-shadows",
     "//external/robolectric-shadows/robolectric",
     "//external/robolectric-shadows/shadows/supportv4",
     "//external/robolectric-shadows/shadows/httpclient",
+    "//external/robolectric",
+    "//external/robolectric/robolectric",
+    "//external/robolectric/shadows/supportv4",
+    "//external/robolectric/shadows/httpclient",
     "//external/wycheproof",
     "//frameworks/opt/net/wifi/service",
     "//frameworks/opt/net/wifi/tests/wifitests",
@@ -154,6 +173,7 @@ unbundled_visibility = [
     "//packages/apps/KeyChain",
     "//packages/apps/RemoteProvisioner/tests/unittests",
     "//packages/modules/Connectivity/tests/cts/net",
+    "//packages/modules/RemoteKeyProvisioning/app/tests/unit",
     "//packages/modules/Wifi/service",
     "//packages/modules/Wifi/service/tests/wifitests",
     "//libcore",
@@ -194,6 +214,8 @@ java_library {
     libs: ["bouncycastle-unbundled"],
 
     sdk_version: "core_current",
+    // b/267608166: Allow to be used by components targeting Java 11.
+    java_version: "11",
 }
 
 // Bouncycastle OCSP classes in the original org.bouncycastle package for use
@@ -275,4 +297,35 @@ java_library {
         "bcprov/src/main/java/org/bouncycastle/iana/**/*.java",
     ],
     sdk_version: "core_current",
+    lint: {
+        warning_checks: ["SuspiciousIndentation"],
+    },
+}
+
+// Bouncycastle for use by packages/modules/Uwb project.
+//
+//Excludes directories not needed.
+java_library {
+    name: "bouncycastle-uwb",
+    visibility: [
+        "//packages/modules/Uwb/service",
+    ],
+    apex_available: [
+        "com.android.uwb",
+    ],
+    srcs: [
+        "bcprov/src/main/java/org/bouncycastle/**/*.java",
+        "bcpkix/src/main/java/org/bouncycastle/cert/**/*.java",
+        "bcpkix/src/main/java/org/bouncycastle/cms/**/*.java",
+        "bcpkix/src/main/java/org/bouncycastle/operator/**/*.java",
+    ],
+
+    exclude_srcs: [
+        "bcprov/src/main/java/org/bouncycastle/iana/**/*.java",
+        "bcprov/src/main/java/org/bouncycastle/its/**/*.java",
+    ],
+    sdk_version: "core_current",
+    lint: {
+        warning_checks: ["SuspiciousIndentation"],
+    },
 }

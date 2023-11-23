@@ -17,26 +17,28 @@
 package com.google.android.setupdesign;
 
 import static com.google.android.setupcompat.partnerconfig.Util.isNightMode;
+import static java.lang.Math.min;
 
 import android.animation.Animator;
 import android.animation.Animator.AnimatorListener;
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.content.res.TypedArray;
-import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.os.Build;
+import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
+import android.os.PersistableBundle;
 import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.View.MeasureSpec;
 import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.widget.LinearLayout;
@@ -50,7 +52,6 @@ import androidx.annotation.VisibleForTesting;
 import com.airbnb.lottie.LottieAnimationView;
 import com.airbnb.lottie.LottieDrawable;
 import com.airbnb.lottie.LottieProperty;
-import com.airbnb.lottie.SimpleColorFilter;
 import com.airbnb.lottie.model.KeyPath;
 import com.airbnb.lottie.value.LottieValueCallback;
 import com.airbnb.lottie.value.SimpleLottieValueCallback;
@@ -62,14 +63,13 @@ import com.google.android.setupcompat.template.FooterBarMixin;
 import com.google.android.setupcompat.util.BuildCompatUtils;
 import com.google.android.setupdesign.lottieloadinglayout.R;
 import com.google.android.setupdesign.util.LayoutStyler;
+import com.google.android.setupdesign.util.LottieAnimationHelper;
 import com.google.android.setupdesign.view.IllustrationVideoView;
 import java.io.InputStream;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * A GLIF themed layout with a {@link com.airbnb.lottie.LottieAnimationView} to showing lottie
@@ -88,11 +88,11 @@ public class GlifLoadingLayout extends GlifLayout {
 
   @VisibleForTesting @RawRes int customLottieResource = 0;
 
-  @VisibleForTesting Map<KeyPath, SimpleColorFilter> customizationMap = new HashMap<>();
-
   private AnimatorListener animatorListener;
   private Runnable nextActionRunnable;
   private boolean workFinished;
+  protected static final String GLIF_LAYOUT_TYPE = "GlifLayoutType";
+  protected static final String LOADING_LAYOUT = "LoadingLayout";
   @VisibleForTesting public boolean runRunnable;
 
   @VisibleForTesting
@@ -116,7 +116,6 @@ public class GlifLoadingLayout extends GlifLayout {
     init(attrs, R.attr.sudLayoutTheme);
   }
 
-  @TargetApi(VERSION_CODES.HONEYCOMB)
   public GlifLoadingLayout(Context context, AttributeSet attrs, int defStyleAttr) {
     super(context, attrs, defStyleAttr);
     init(attrs, defStyleAttr);
@@ -230,7 +229,6 @@ public class GlifLoadingLayout extends GlifLayout {
 
     if (!illustrationType.equals(type)) {
       illustrationType = type;
-      customizationMap.clear();
     }
 
     switch (type) {
@@ -453,7 +451,7 @@ public class GlifLoadingLayout extends GlifLayout {
           paddingBottom =
               (int) configPaddingBottom
                   - (int)
-                      Math.min(
+                      min(
                           configPaddingBottom,
                           getButtonContainerHeight(footerBarMixin.getButtonContainer()));
         }
@@ -521,7 +519,13 @@ public class GlifLoadingLayout extends GlifLayout {
         lottieView.playAnimation();
         setLottieLayoutVisibility(View.VISIBLE);
         setIllustrationLayoutVisibility(View.GONE);
-        applyThemeCustomization();
+        LottieAnimationHelper.get()
+            .applyColor(
+                getContext(),
+                findLottieAnimationView(),
+                isNightMode(getResources().getConfiguration())
+                    ? animationConfig.getDarkThemeCustomization()
+                    : animationConfig.getLightThemeCustomization());
       } else {
         setLottieLayoutVisibility(View.GONE);
         setIllustrationLayoutVisibility(View.VISIBLE);
@@ -654,43 +658,6 @@ public class GlifLoadingLayout extends GlifLayout {
     }
   }
 
-  @VisibleForTesting
-  protected void loadCustomization() {
-    if (customizationMap.isEmpty()) {
-      PartnerConfigHelper helper = PartnerConfigHelper.get(getContext());
-      List<String> lists =
-          helper.getStringArray(
-              getContext(),
-              isNightMode(getResources().getConfiguration())
-                  ? animationConfig.getDarkThemeCustomization()
-                  : animationConfig.getLightThemeCustomization());
-      for (String item : lists) {
-        String[] splitItem = item.split(":");
-        if (splitItem.length == 2) {
-          customizationMap.put(
-              new KeyPath("**", splitItem[0], "**"),
-              new SimpleColorFilter(Color.parseColor(splitItem[1])));
-        } else {
-          Log.w(TAG, "incorrect format customization, value=" + item);
-        }
-      }
-    }
-  }
-
-  @VisibleForTesting
-  protected void applyThemeCustomization() {
-    LottieAnimationView animationView = findLottieAnimationView();
-    if (animationView != null) {
-      loadCustomization();
-      for (KeyPath keyPath : customizationMap.keySet()) {
-        animationView.addValueCallback(
-            keyPath,
-            LottieProperty.COLOR_FILTER,
-            new LottieValueCallback<>(customizationMap.get(keyPath)));
-      }
-    }
-  }
-
   @Nullable
   private View peekLottieLayout() {
     return findViewById(R.id.sud_layout_lottie_illustration);
@@ -703,17 +670,28 @@ public class GlifLoadingLayout extends GlifLayout {
 
   @Override
   protected View onInflateTemplate(LayoutInflater inflater, int template) {
+    Context context = getContext();
     if (template == 0) {
       boolean useFullScreenIllustration =
-          PartnerConfigHelper.get(getContext())
+          PartnerConfigHelper.get(context)
               .getBoolean(
-                  getContext(),
+                  context,
                   PartnerConfig.CONFIG_LOADING_LAYOUT_FULL_SCREEN_ILLUSTRATION_ENABLED,
                   false);
       if (useFullScreenIllustration) {
         template = R.layout.sud_glif_fullscreen_loading_template;
+
+        // if the activity is embedded should apply an embedded layout.
+        if (isEmbeddedActivityOnePaneEnabled(context)) {
+          template = R.layout.sud_glif_fullscreen_loading_embedded_template;
+        }
       } else {
         template = R.layout.sud_glif_loading_template;
+
+        // if the activity is embedded should apply an embedded layout.
+        if (isEmbeddedActivityOnePaneEnabled(context)) {
+          template = R.layout.sud_glif_loading_embedded_template;
+        }
       }
     }
     return inflateTemplate(inflater, R.style.SudThemeGlif_Light, template);
@@ -725,6 +703,16 @@ public class GlifLoadingLayout extends GlifLayout {
       containerId = R.id.sud_layout_content;
     }
     return super.findContainer(containerId);
+  }
+
+  @Override
+  protected void onDetachedFromWindow() {
+    if (VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      PersistableBundle bundle = new PersistableBundle();
+      bundle.putString(GLIF_LAYOUT_TYPE, LOADING_LAYOUT);
+      setLayoutTypeMetrics(bundle);
+      super.onDetachedFromWindow();
+    }
   }
 
   /** The progress config used to maps to different animation */

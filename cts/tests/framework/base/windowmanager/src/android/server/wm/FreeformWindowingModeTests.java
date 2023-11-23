@@ -18,15 +18,24 @@ package android.server.wm;
 
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_STANDARD;
 import static android.app.WindowConfiguration.WINDOWING_MODE_FREEFORM;
+import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
+import static android.content.pm.PackageManager.FEATURE_PC;
 import static android.server.wm.WindowManagerState.dpToPx;
 import static android.server.wm.app.Components.FREEFORM_ACTIVITY;
+import static android.server.wm.app.Components.MULTI_WINDOW_FULLSCREEN_ACTIVITY;
+import static android.server.wm.app.Components.MultiWindowFullscreenActivity.ACTION_REQUEST_FULLSCREEN;
+import static android.server.wm.app.Components.MultiWindowFullscreenActivity.ACTION_RESTORE_FREEFORM;
 import static android.server.wm.app.Components.NON_RESIZEABLE_ACTIVITY;
 import static android.server.wm.app.Components.NO_RELAUNCH_ACTIVITY;
 import static android.server.wm.app.Components.TEST_ACTIVITY;
-
 import static android.server.wm.app.Components.TestActivity.TEST_ACTIVITY_ACTION_FINISH_SELF;
-import static org.junit.Assert.assertEquals;
+import static android.view.WindowManager.DISPLAY_IME_POLICY_LOCAL;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
+
+import android.content.ComponentName;
 import android.graphics.Rect;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.WindowManagerState.Task;
@@ -59,6 +68,7 @@ public class FreeformWindowingModeTests extends MultiDisplayTestBase {
             displayId = createManagedVirtualDisplaySession()
                     .setSimulateDisplay(true)
                     .setSimulationDisplaySize(1920 /* width */, 1080 /* height */)
+                    .setDisplayImePolicy(DISPLAY_IME_POLICY_LOCAL)
                     .createDisplay().mId;
         }
         launchActivityOnDisplay(FREEFORM_ACTIVITY, WINDOWING_MODE_FREEFORM, displayId);
@@ -153,5 +163,83 @@ public class FreeformWindowingModeTests extends MultiDisplayTestBase {
 
         assertActivityLifecycle(TEST_ACTIVITY, true /* relaunched */);
         assertActivityLifecycle(NO_RELAUNCH_ACTIVITY, false /* relaunched */);
+    }
+
+    @Test
+    public void testMultiWindowFullscreenRequest() throws Exception {
+        assumeTrue("Only test on device guaranteed with a freeform display",
+                supportsFreeform() && hasDeviceFeature(FEATURE_PC));
+        int displayId = Display.DEFAULT_DISPLAY;
+        launchActivityOnDisplay(MULTI_WINDOW_FULLSCREEN_ACTIVITY, displayId);
+        mWmState.computeState(MULTI_WINDOW_FULLSCREEN_ACTIVITY);
+
+        mWmState.assertContainsStack("Must has a freeform stack.",
+                WINDOWING_MODE_FREEFORM, ACTIVITY_TYPE_STANDARD);
+
+        mBroadcastActionTrigger.doAction(ACTION_REQUEST_FULLSCREEN);
+        mWmState.waitForAppTransitionIdleOnDisplay(displayId);
+        assertTrue(waitForEnterFullscreen(MULTI_WINDOW_FULLSCREEN_ACTIVITY));
+
+        mBroadcastActionTrigger.doAction(ACTION_RESTORE_FREEFORM);
+        mWmState.waitForAppTransitionIdleOnDisplay(displayId);
+        assertTrue(waitForExitFullscreen(MULTI_WINDOW_FULLSCREEN_ACTIVITY));
+    }
+
+    @Test
+    public void testMultiWindowFullscreenRequestRejection() throws Exception {
+        assumeTrue("Only test on device guaranteed with a freeform display",
+                supportsFreeform() && hasDeviceFeature(FEATURE_PC));
+        int displayId = Display.DEFAULT_DISPLAY;
+        launchActivityOnDisplay(
+                MULTI_WINDOW_FULLSCREEN_ACTIVITY, WINDOWING_MODE_FULLSCREEN, displayId);
+        mWmState.computeState(MULTI_WINDOW_FULLSCREEN_ACTIVITY);
+        mWmState.assertDoesNotContainStack("Must has no freeform stack.",
+                WINDOWING_MODE_FREEFORM, ACTIVITY_TYPE_STANDARD);
+
+        mBroadcastActionTrigger.doAction(ACTION_RESTORE_FREEFORM);
+        mWmState.assertDoesNotContainStack("Must has no freeform stack.",
+                WINDOWING_MODE_FREEFORM, ACTIVITY_TYPE_STANDARD);
+    }
+
+    @Test
+    public void testMultiWindowFullscreenOnNonPcDevice() throws Exception {
+        assumeTrue("Only test on non-PC device",
+                !supportsFreeform() || !hasDeviceFeature(FEATURE_PC));
+        int displayId = Display.DEFAULT_DISPLAY;
+        launchActivityOnDisplay(MULTI_WINDOW_FULLSCREEN_ACTIVITY, displayId);
+        mWmState.computeState(MULTI_WINDOW_FULLSCREEN_ACTIVITY);
+        mWmState.assertDoesNotContainStack("Must has no freeform stack.",
+                WINDOWING_MODE_FREEFORM, ACTIVITY_TYPE_STANDARD);
+
+        mBroadcastActionTrigger.doAction(ACTION_RESTORE_FREEFORM);
+        mWmState.assertDoesNotContainStack("Must has no freeform stack.",
+                WINDOWING_MODE_FREEFORM, ACTIVITY_TYPE_STANDARD);
+
+        if (supportsFreeform()) {
+            removeRootTasksWithActivityTypes(ACTIVITY_TYPE_STANDARD);
+            waitAndAssertStoppedActivity(MULTI_WINDOW_FULLSCREEN_ACTIVITY,
+                    "Needs to remove the fullscreen activity to run the following test.");
+            launchActivityOnDisplay(MULTI_WINDOW_FULLSCREEN_ACTIVITY, WINDOWING_MODE_FREEFORM,
+                    displayId);
+            mWmState.assertContainsStack("Must has a freeform stack.",
+                    WINDOWING_MODE_FREEFORM, ACTIVITY_TYPE_STANDARD);
+            mBroadcastActionTrigger.doAction(ACTION_REQUEST_FULLSCREEN);
+            mWmState.assertContainsStack("Must has a freeform stack.",
+                    WINDOWING_MODE_FREEFORM, ACTIVITY_TYPE_STANDARD);
+        }
+    }
+
+    private boolean waitForEnterFullscreen(ComponentName activityName) {
+        return mWmState.waitForWithAmState(wmState -> {
+            Task task = wmState.getTaskByActivity(activityName);
+            return task != null && task.getWindowingMode() == WINDOWING_MODE_FULLSCREEN;
+        }, "checking task windowing mode");
+    }
+
+    private boolean waitForExitFullscreen(ComponentName activityName) {
+        return mWmState.waitForWithAmState(wmState -> {
+            Task task = wmState.getTaskByActivity(activityName);
+            return task != null && task.getWindowingMode() != WINDOWING_MODE_FULLSCREEN;
+        }, "checking task windowing mode");
     }
 }

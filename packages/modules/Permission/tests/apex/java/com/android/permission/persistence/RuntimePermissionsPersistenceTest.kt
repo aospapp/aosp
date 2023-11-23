@@ -24,6 +24,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSession
 import com.google.common.truth.Truth.assertThat
+import java.io.File
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -35,7 +36,6 @@ import org.mockito.Mockito.`when`
 import org.mockito.MockitoAnnotations.initMocks
 import org.mockito.MockitoSession
 import org.mockito.quality.Strictness
-import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class RuntimePermissionsPersistenceTest {
@@ -44,15 +44,17 @@ class RuntimePermissionsPersistenceTest {
     private lateinit var mockDataDirectory: File
 
     private lateinit var mockitoSession: MockitoSession
-    @Mock
-    lateinit var apexEnvironment: ApexEnvironment
+    @Mock lateinit var apexEnvironment: ApexEnvironment
 
-    private val persistence = RuntimePermissionsPersistence.createInstance()
+    private val persistence = RuntimePermissionsPersistenceImpl {}
     private val permissionState = RuntimePermissionsState.PermissionState("permission", true, 3)
-    private val state = RuntimePermissionsState(
-        1, "fingerprint", mapOf("package" to listOf(permissionState)),
-        mapOf("sharedUser" to listOf(permissionState))
-    )
+    private val state =
+        RuntimePermissionsState(
+            1,
+            "fingerprint",
+            mapOf("package" to listOf(permissionState)),
+            mapOf("sharedUser" to listOf(permissionState))
+        )
     private val user = Process.myUserHandle()
 
     @Before
@@ -64,10 +66,11 @@ class RuntimePermissionsPersistenceTest {
     @Before
     fun mockApexEnvironment() {
         initMocks(this)
-        mockitoSession = mockitoSession()
-            .mockStatic(ApexEnvironment::class.java)
-            .strictness(Strictness.LENIENT)
-            .startMocking()
+        mockitoSession =
+            mockitoSession()
+                .mockStatic(ApexEnvironment::class.java)
+                .strictness(Strictness.LENIENT)
+                .startMocking()
         `when`(ApexEnvironment.getApexEnvironment(eq(APEX_MODULE_NAME))).thenReturn(apexEnvironment)
         `when`(apexEnvironment.getDeviceProtectedDataDirForUser(any(UserHandle::class.java))).then {
             File(mockDataDirectory, it.arguments[0].toString()).also { it.mkdirs() }
@@ -80,19 +83,24 @@ class RuntimePermissionsPersistenceTest {
     }
 
     @Test
-    fun testReadWrite() {
+    fun testWriteRead() {
         persistence.writeForUser(state, user)
         val persistedState = persistence.readForUser(user)
 
-        assertThat(persistedState).isEqualTo(state)
-        assertThat(persistedState!!.version).isEqualTo(state.version)
-        assertThat(persistedState.fingerprint).isEqualTo(state.fingerprint)
-        assertThat(persistedState.packagePermissions).isEqualTo(state.packagePermissions)
-        val persistedPermissionState = persistedState.packagePermissions.values.first().first()
-        assertThat(persistedPermissionState.name).isEqualTo(permissionState.name)
-        assertThat(persistedPermissionState.isGranted).isEqualTo(permissionState.isGranted)
-        assertThat(persistedPermissionState.flags).isEqualTo(permissionState.flags)
-        assertThat(persistedState.sharedUserPermissions).isEqualTo(state.sharedUserPermissions)
+        checkPersistedState(persistedState!!)
+    }
+
+    @Test
+    fun testWriteCorruptReadFromReserveCopy() {
+        persistence.writeForUser(state, user)
+        // Corrupt the primary file.
+        RuntimePermissionsPersistenceImpl.getFile(user)
+            .writeText(
+                "<runtime-permissions version=\"10\"><package name=\"com.foo.bar\"><permission"
+            )
+        val persistedState = persistence.readForUser(user)
+
+        checkPersistedState(persistedState!!)
     }
 
     @Test
@@ -102,6 +110,18 @@ class RuntimePermissionsPersistenceTest {
         val persistedState = persistence.readForUser(user)
 
         assertThat(persistedState).isNull()
+    }
+
+    private fun checkPersistedState(persistedState: RuntimePermissionsState) {
+        assertThat(persistedState).isEqualTo(state)
+        assertThat(persistedState.version).isEqualTo(state.version)
+        assertThat(persistedState.fingerprint).isEqualTo(state.fingerprint)
+        assertThat(persistedState.packagePermissions).isEqualTo(state.packagePermissions)
+        val persistedPermissionState = persistedState.packagePermissions.values.first().first()
+        assertThat(persistedPermissionState.name).isEqualTo(permissionState.name)
+        assertThat(persistedPermissionState.isGranted).isEqualTo(permissionState.isGranted)
+        assertThat(persistedPermissionState.flags).isEqualTo(permissionState.flags)
+        assertThat(persistedState.sharedUserPermissions).isEqualTo(state.sharedUserPermissions)
     }
 
     companion object {

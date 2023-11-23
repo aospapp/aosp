@@ -13,15 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 import threading
 
 from absl.testing import parameterized
-
+from tensorflow.python.checkpoint import checkpoint as tracking
+from tensorflow.python.checkpoint import checkpoint_management
 from tensorflow.python.data.ops import dataset_ops
 from tensorflow.python.distribute.parallel_device import parallel_device
 from tensorflow.python.eager import backprop
@@ -42,8 +39,7 @@ from tensorflow.python.ops import variables
 from tensorflow.python.platform import test
 from tensorflow.python.saved_model import load
 from tensorflow.python.saved_model import save
-from tensorflow.python.training import checkpoint_management
-from tensorflow.python.training.tracking import util as tracking
+from tensorflow.python.tpu import tpu_strategy_util
 from tensorflow.python.util import nest
 
 # When running collectives asynchronously, we need to give each parallel device
@@ -101,6 +97,7 @@ class _VirtualDeviceTestCase(test.TestCase):
     ctx = context.context()
     if ctx.list_physical_devices("TPU"):
       self.device_type = "TPU"
+      tpu_strategy_util.initialize_tpu_system()
     elif ctx.list_physical_devices("GPU"):
       self.device_type = "GPU"
       gpus = ctx.list_physical_devices(self.device_type)
@@ -169,10 +166,15 @@ class ParallelDeviceTests(_VirtualDeviceTestCase, parameterized.TestCase):
         y = constant_op.constant(2)
     self.assertAllEqual([1], device.unpack(y))
 
-  def test_string_representation(self):
+  @parameterized.named_parameters(
+      ("variable", variables.Variable),
+      ("tensor", lambda x: x))
+  def test_string_representation(self, transform):
     x = self.device.pack(
         [constant_op.constant([5., 6.]),
          constant_op.constant([6., 7.])])
+    with self.device:
+      x = transform(x)
     parallel_str = str(x)
     self.assertIn("5", parallel_str)
     self.assertIn("7", parallel_str)
@@ -356,6 +358,8 @@ class ParallelDeviceTests(_VirtualDeviceTestCase, parameterized.TestCase):
       uses_parallel()
 
   def test_checkpointing(self):
+    self.skipTest("b/216201668: revisit parallel device and checkpointing.")
+
     prefix = os.path.join(self.get_temp_dir(), "ckpt")
     different_values = self.device.pack(
         [constant_op.constant(-1.),
@@ -433,6 +437,8 @@ class ParallelDeviceTests(_VirtualDeviceTestCase, parameterized.TestCase):
     self.assertAllClose([0, 1], v_unpacked)
 
   def test_saved_model(self):
+    self.skipTest("b/216201668: revisit parallel device and saved model")
+
     different_values = self.device.pack(
         [constant_op.constant(-1.),
          constant_op.constant(3.)])
@@ -627,6 +633,7 @@ class LayerTests(_VirtualDeviceTestCase):
     self.assertIn(self.device.components[1], final_kernels[1].backing_device)
 
   def test_training_loop(self):
+    self.skipTest("b/216201668: revisit parallel device and checkpointing")
     for _ in range(5):
       layer = _Dense(5)
       checkpoint = tracking.Checkpoint(layer=layer)

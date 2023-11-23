@@ -39,7 +39,7 @@ TEST(configparser, apex_contents) {
 
   auto result = ParseLinkerConfig(kBaseDir + "linker.config.apex.pb");
 
-  ASSERT_TRUE(result.ok());
+  ASSERT_TRUE(result.ok()) << result.error().message();
   std::vector<std::string> permitted_paths = {result->permittedpaths().begin(),
                                               result->permittedpaths().end()};
   ASSERT_EQ(permitted_paths, expected_permitted_paths);

@@ -27,6 +27,14 @@ import java.lang.annotation.RetentionPolicy;
 public class CommonComponents {
 
     public static final String EVENT_NOTIFIER_EXTRA = "EVENT_NOTIFIER_EXTRA";
+    public static final CommonForegroundActivityExtras COMMON_FOREGROUND_ACTIVITY_EXTRAS =
+            new CommonForegroundActivityExtras();
+
+    public static class CommonForegroundActivityExtras {
+        public final String ACTIVITY_ID = "ACTIVITY_ID_EXTRA";
+        public final String LAUNCH_INTENTS = "LAUNCH_INTENTS_EXTRA";
+        public final String FINISH_FIRST = "FINISH_FIRST_EXTRA";
+    }
 
     @IntDef({
             Event.APP_A_SEND_PENDING_INTENT_BROADCAST_RECEIVED,

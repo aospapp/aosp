@@ -22,9 +22,9 @@ from blueberry.facade.hci import hci_facade_pb2 as hci_facade
 from blueberry.facade.hci import le_advertising_manager_facade_pb2 as le_advertising_facade
 from blueberry.facade.hci import le_initiator_address_facade_pb2 as le_initiator_address_facade
 from blueberry.facade.hci import le_scanning_manager_facade_pb2 as le_scanning_facade
-from bluetooth_packets_python3 import hci_packets
 from blueberry.facade import common_pb2 as common
 from mobly import test_runner
+import hci_packets as hci
 
 
 class LeScanningWithSecurityTest(gd_base_test.GdBaseTestClass):
@@ -41,7 +41,7 @@ class LeScanningWithSecurityTest(gd_base_test.GdBaseTestClass):
         self.cert.hci.RegisterLeEventHandler(msg)
 
     def enqueue_hci_command(self, command, expect_complete):
-        cmd_bytes = bytes(command.Serialize())
+        cmd_bytes = bytes(command.serialize())
         cmd = common.Data(command=cmd_bytes)
         if (expect_complete):
             self.cert.hci.EnqueueCommandWithComplete(cmd)
@@ -63,18 +63,14 @@ class LeScanningWithSecurityTest(gd_base_test.GdBaseTestClass):
         self.cert.hci_le_initiator_address.SetPrivacyPolicyForInitiatorAddress(cert_privacy_policy)
         with EventStream(
                 # DUT Scans
-                self.dut.hci_le_scanning_manager.FetchAdvertisingReports(
-                    empty_proto.Empty())) as advertising_event_stream:
+                self.dut.hci_le_scanning_manager.FetchAdvertisingReports(empty_proto.Empty()
+                                                                        )) as advertising_event_stream:
 
             # CERT Advertises
-            gap_name = hci_packets.GapData()
-            gap_name.data_type = hci_packets.GapDataType.COMPLETE_LOCAL_NAME
-            gap_name.data = list(bytes(b'Im_The_CERT!'))
-            gap_data = le_advertising_facade.GapDataMsg(data=bytes(gap_name.Serialize()))
-            gap_scan_name = hci_packets.GapData()
-            gap_scan_name.data_type = hci_packets.GapDataType.SHORTENED_LOCAL_NAME
-            gap_scan_name.data = list(bytes(b'CERT!'))
-            gap_scan_data = le_advertising_facade.GapDataMsg(data=bytes(gap_scan_name.Serialize()))
+            gap_name = hci.GapData(data_type=hci.GapDataType.COMPLETE_LOCAL_NAME, data=list(bytes(b'Im_The_CERT!')))
+            gap_data = le_advertising_facade.GapDataMsg(data=gap_name.serialize())
+            gap_scan_name = hci.GapData(data_type=hci.GapDataType.SHORTENED_LOCAL_NAME, data=list(bytes(b'CERT!')))
+            gap_scan_data = le_advertising_facade.GapDataMsg(data=gap_scan_name.serialize())
             config = le_advertising_facade.AdvertisingConfig(
                 advertisement=[gap_data],
                 scan_response=[gap_scan_data],

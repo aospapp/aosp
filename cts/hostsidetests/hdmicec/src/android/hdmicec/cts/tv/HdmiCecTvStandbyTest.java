@@ -61,7 +61,7 @@ public class HdmiCecTvStandbyTest extends BaseHdmiCecCtsTest {
         String value = getSettingsValue(TV_SEND_STANDBY_ON_SLEEP);
         setSettingsValue(TV_SEND_STANDBY_ON_SLEEP, TV_SEND_STANDBY_ON_SLEEP_ENABLED);
         try {
-            sendDeviceToSleep();
+            sendDeviceToSleepWithoutWait();
             hdmiCecClient.checkExpectedOutput(LogicalAddress.BROADCAST, CecOperand.STANDBY);
         } finally {
             wakeUpDevice();

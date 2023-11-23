@@ -50,12 +50,12 @@ struct resampler {
 static void resampler_reset(struct resampler_itfe *resampler)
 {
     struct resampler *rsmp = (struct resampler *)resampler;
-
-    rsmp->frames_in = 0;
-    rsmp->frames_rq = 0;
-
-    if (rsmp != NULL && rsmp->speex_resampler != NULL) {
-        speex_resampler_reset_mem(rsmp->speex_resampler);
+    if (rsmp != NULL) {
+        rsmp->frames_in = 0;
+        rsmp->frames_rq = 0;
+        if (rsmp->speex_resampler != NULL) {
+            speex_resampler_reset_mem(rsmp->speex_resampler);
+        }
     }
 }
 

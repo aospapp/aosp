@@ -18,10 +18,12 @@
 
 <configuration description="Runs unit tests for the Safety Center Config library.">
     <option name="test-tag" value="SafetyCenterConfigTests" />
-    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.Sdk30ModuleController" />
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.Sdk33ModuleController" />
+
+    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
 
     <!-- Install test -->
-    <target_preparer class="com.android.tradefed.targetprep.TestAppInstallSetup">
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="test-file-name" value="SafetyCenterConfigTests.apk" />
         <option name="cleanup-apks" value="true" />
     </target_preparer>
@@ -41,5 +43,6 @@
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="com.android.safetycenter.config.tests" />
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
+        <option name="exclude-annotation" value="org.junit.Ignore"/>
     </test>
 </configuration>

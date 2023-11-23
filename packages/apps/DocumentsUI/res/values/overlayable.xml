@@ -41,6 +41,7 @@
             <!-- START COLOR -->
             <item type="color" name="primary"/>
             <item type="color" name="list_item_selected_background_color"/>
+            <item type="color" name="color_surface_header"/>
             <!-- END COLOR -->
 
             <!-- START DIMEN -->
@@ -67,6 +68,8 @@
             <!-- START STRING CONFIG -->
             <item type="string" name="config_fontFamily"/>
             <item type="string" name="config_fontFamilyMedium"/>
+            <item type="string" name="config_headerFontFamily"/>
+            <item type="string" name="config_headerFontFamilyMedium"/>
             <item type="string" name="default_root_uri"/>
             <item type="string" name="preferred_root_package"/>
             <item type="string" name="trusted_quick_viewer_package"/>

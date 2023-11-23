@@ -24,6 +24,8 @@ import static android.appenumeration.cts.Constants.ACTION_GET_PACKAGES_FOR_UID;
 import static android.appenumeration.cts.Constants.ACTION_GET_PACKAGE_INFO;
 import static android.appenumeration.cts.Constants.ACTION_HAS_SIGNING_CERTIFICATE;
 import static android.appenumeration.cts.Constants.ACTION_JUST_FINISH;
+import static android.appenumeration.cts.Constants.ACTION_MANIFEST_SERVICE;
+import static android.appenumeration.cts.Constants.ACTION_MEDIA_SESSION_MANAGER_IS_TRUSTED_FOR_MEDIA_CONTROL;
 import static android.appenumeration.cts.Constants.ACTION_QUERY_ACTIVITIES;
 import static android.appenumeration.cts.Constants.ACTION_QUERY_PROVIDERS;
 import static android.appenumeration.cts.Constants.ACTION_QUERY_SERVICES;
@@ -46,9 +48,11 @@ import static android.appenumeration.cts.Constants.EXTRA_DATA;
 import static android.appenumeration.cts.Constants.EXTRA_ERROR;
 import static android.appenumeration.cts.Constants.EXTRA_FLAGS;
 import static android.appenumeration.cts.Constants.EXTRA_ID;
+import static android.appenumeration.cts.Constants.EXTRA_INPUT_METHOD_INFO;
 import static android.appenumeration.cts.Constants.EXTRA_PENDING_INTENT;
 import static android.appenumeration.cts.Constants.EXTRA_REMOTE_CALLBACK;
 import static android.appenumeration.cts.Constants.EXTRA_REMOTE_READY_CALLBACK;
+import static android.appenumeration.cts.Constants.SERVICE_CLASS_DUMMY_SERVICE;
 import static android.content.Intent.EXTRA_COMPONENT_NAME;
 import static android.content.Intent.EXTRA_PACKAGES;
 import static android.content.Intent.EXTRA_RETURN_RESULT;
@@ -58,7 +62,9 @@ import static android.os.Process.INVALID_UID;
 import static android.os.Process.ROOT_UID;
 
 import android.accounts.Account;
+import android.accounts.AccountManager;
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.AppOpsManager;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
@@ -71,6 +77,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentSender;
+import android.content.PeriodicSync;
 import android.content.ServiceConnection;
 import android.content.SyncAdapterType;
 import android.content.SyncStatusObserver;
@@ -79,8 +86,12 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageInstaller.SessionCallback;
 import android.content.pm.PackageInstaller.SessionInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.ApplicationInfoFlags;
+import android.content.pm.PackageManager.PackageInfoFlags;
+import android.content.pm.PackageManager.ResolveInfoFlags;
 import android.content.pm.SharedLibraryInfo;
 import android.database.Cursor;
+import android.media.session.MediaSessionManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -93,10 +104,16 @@ import android.os.RemoteCallback;
 import android.os.UserHandle;
 import android.util.SparseArray;
 import android.view.accessibility.AccessibilityManager;
+import android.view.inputmethod.InputMethodInfo;
+import android.view.inputmethod.InputMethodManager;
+import android.view.inputmethod.InputMethodSubtype;
+import android.view.textservice.SpellCheckerInfo;
+import android.view.textservice.TextServicesManager;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -141,10 +158,11 @@ public class TestActivity extends Activity {
     }
 
     private void handleIntent(Intent intent) {
-        RemoteCallback remoteCallback = intent.getParcelableExtra(EXTRA_REMOTE_CALLBACK);
+        final RemoteCallback remoteCallback = intent.getParcelableExtra(EXTRA_REMOTE_CALLBACK,
+                RemoteCallback.class);
         try {
             final String action = intent.getAction();
-            final Intent queryIntent = intent.getParcelableExtra(Intent.EXTRA_INTENT);
+            final Intent queryIntent = intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent.class);
             if (ACTION_GET_PACKAGE_INFO.equals(action)) {
                 final String packageName = intent.getStringExtra(Intent.EXTRA_PACKAGE_NAME);
                 sendPackageInfo(remoteCallback, packageName);
@@ -159,7 +177,7 @@ public class TestActivity extends Activity {
                 sendNamesForUids(remoteCallback, uid);
             } else if (ACTION_CHECK_SIGNATURES.equals(action)) {
                 final int uid1 = getPackageManager().getApplicationInfo(
-                        getPackageName(), /* flags */ 0).uid;
+                        getPackageName(), ApplicationInfoFlags.of(0)).uid;
                 final int uid2 = intent.getIntExtra(EXTRA_UID, INVALID_UID);
                 sendCheckSignatures(remoteCallback, uid1, uid2);
             } else if (ACTION_HAS_SIGNING_CERTIFICATE.equals(action)) {
@@ -180,7 +198,8 @@ public class TestActivity extends Activity {
                     setResult(RESULT_OK,
                             getIntent().putExtra(
                                     Intent.EXTRA_RETURN_RESULT,
-                                    getPackageManager().getPackageInfo(getCallingPackage(), 0)));
+                                    getPackageManager().getPackageInfo(getCallingPackage(),
+                                            PackageInfoFlags.of(0))));
                 } catch (PackageManager.NameNotFoundException e) {
                     setResult(RESULT_FIRST_USER, new Intent().putExtra("error", e));
                 }
@@ -204,7 +223,8 @@ public class TestActivity extends Activity {
             } else if (ACTION_GET_INSTALLED_PACKAGES.equals(action)) {
                 sendGetInstalledPackages(remoteCallback, queryIntent.getIntExtra(EXTRA_FLAGS, 0));
             } else if (ACTION_START_SENDER_FOR_RESULT.equals(action)) {
-                PendingIntent pendingIntent = intent.getParcelableExtra(EXTRA_PENDING_INTENT);
+                final PendingIntent pendingIntent = intent.getParcelableExtra(EXTRA_PENDING_INTENT,
+                        PendingIntent.class);
                 int requestCode = RESULT_FIRST_USER + callbacks.size();
                 callbacks.put(requestCode, remoteCallback);
                 try {
@@ -263,13 +283,53 @@ public class TestActivity extends Activity {
                 final String authority = intent.getBundleExtra(EXTRA_DATA)
                         .getString(EXTRA_AUTHORITY);
                 final Account account = intent.getBundleExtra(EXTRA_DATA)
-                        .getParcelable(EXTRA_ACCOUNT);
+                        .getParcelable(EXTRA_ACCOUNT, Account.class);
                 awaitRequestSyncStatus(remoteCallback, action, account, authority,
                         EXTENDED_TIMEOUT_MS);
+            } else if (Constants.ACTION_GET_SYNCADAPTER_CONTROL_PANEL.equals(action)) {
+                final String authority = intent.getBundleExtra(EXTRA_DATA)
+                        .getString(EXTRA_AUTHORITY);
+                final Account account = intent.getBundleExtra(EXTRA_DATA)
+                        .getParcelable(EXTRA_ACCOUNT, Account.class);
+                final ComponentName componentName = intent.getBundleExtra(EXTRA_DATA)
+                        .getParcelable(EXTRA_COMPONENT_NAME, ComponentName.class);
+                sendGetSyncAdapterControlPanel(remoteCallback, account, authority, componentName);
+            } else if (Constants.ACTION_REQUEST_PERIODIC_SYNC.equals(action)) {
+                final Account account = intent.getBundleExtra(EXTRA_DATA)
+                        .getParcelable(EXTRA_ACCOUNT, Account.class);
+                final String authority = intent.getBundleExtra(EXTRA_DATA)
+                        .getString(EXTRA_AUTHORITY);
+                awaitRequestPeriodicSync(remoteCallback, account, authority,
+                        TimeUnit.SECONDS.toMillis(15));
+            } else if (Constants.ACTION_SET_SYNC_AUTOMATICALLY.equals(action)) {
+                final Account account = intent.getBundleExtra(EXTRA_DATA)
+                        .getParcelable(EXTRA_ACCOUNT, Account.class);
+                final String authority = intent.getBundleExtra(EXTRA_DATA)
+                        .getString(EXTRA_AUTHORITY);
+                setSyncAutomatically(remoteCallback, account, authority);
+            } else if (Constants.ACTION_GET_SYNC_AUTOMATICALLY.equals(action)) {
+                final String authority = intent.getBundleExtra(EXTRA_DATA)
+                        .getString(EXTRA_AUTHORITY);
+                getSyncAutomatically(remoteCallback, authority);
+            } else if (Constants.ACTION_GET_IS_SYNCABLE.equals(action)) {
+                final Account account = intent.getBundleExtra(EXTRA_DATA)
+                        .getParcelable(EXTRA_ACCOUNT, Account.class);
+                final String authority = intent.getBundleExtra(EXTRA_DATA)
+                        .getString(EXTRA_AUTHORITY);
+                getIsSyncable(remoteCallback, account, authority);
+            } else if (Constants.ACTION_GET_PERIODIC_SYNCS.equals(action)) {
+                final Account account = intent.getBundleExtra(EXTRA_DATA)
+                        .getParcelable(EXTRA_ACCOUNT, Account.class);
+                final String authority = intent.getBundleExtra(EXTRA_DATA)
+                        .getString(EXTRA_AUTHORITY);
+                getPeriodicSyncs(remoteCallback, account, authority);
             } else if (Constants.ACTION_AWAIT_LAUNCHER_APPS_CALLBACK.equals(action)) {
                 final int expectedEventCode = intent.getBundleExtra(EXTRA_DATA)
                         .getInt(EXTRA_FLAGS, CALLBACK_EVENT_INVALID);
-                awaitLauncherAppsCallback(remoteCallback, expectedEventCode, EXTENDED_TIMEOUT_MS);
+                final String[] expectedPackages = intent.getBundleExtra(EXTRA_DATA)
+                        .getStringArray(EXTRA_PACKAGES);
+                awaitLauncherAppsCallback(remoteCallback, expectedEventCode, expectedPackages,
+                        EXTENDED_TIMEOUT_MS);
             } else if (Constants.ACTION_GET_SHAREDLIBRARY_DEPENDENT_PACKAGES.equals(action)) {
                 final String sharedLibName = intent.getStringExtra(Intent.EXTRA_PACKAGE_NAME);
                 sendGetSharedLibraryDependentPackages(remoteCallback, sharedLibName);
@@ -298,7 +358,8 @@ public class TestActivity extends Activity {
                         targetUid);
             } else if (Constants.ACTION_TAKE_PERSISTABLE_URI_PERMISSION.equals(action)) {
                 final Uri uri = intent.getData();
-                final int modeFlags = intent.getFlags();
+                final int modeFlags = intent.getFlags() & (Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        | Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 if (uri != null) {
                     getContentResolver().takePersistableUriPermission(uri, modeFlags);
                 }
@@ -308,6 +369,11 @@ public class TestActivity extends Activity {
                 final String targetPackageName = intent.getBundleExtra(EXTRA_DATA)
                         .getString(Intent.EXTRA_PACKAGE_NAME);
                 sendCanPackageQuery(remoteCallback, sourcePackageName, targetPackageName);
+            } else if (Constants.ACTION_CAN_PACKAGE_QUERIES.equals(action)) {
+                final String sourcePackageName = intent.getStringExtra(Intent.EXTRA_PACKAGE_NAME);
+                final String[] targetPackageNames = intent.getBundleExtra(EXTRA_DATA)
+                        .getStringArray(EXTRA_PACKAGES);
+                sendCanPackageQueries(remoteCallback, sourcePackageName, targetPackageNames);
             } else if (Constants.ACTION_GET_ALL_PACKAGE_INSTALLER_SESSIONS.equals(action)) {
                 final List<SessionInfo> infos = getSystemService(LauncherApps.class)
                         .getAllPackageInstallerSessions();
@@ -336,7 +402,7 @@ public class TestActivity extends Activity {
                 sendPendingIntentGetActivity(remoteCallback);
             } else if (Constants.ACTION_PENDING_INTENT_GET_CREATOR_PACKAGE.equals(action)) {
                 sendPendingIntentGetCreatorPackage(remoteCallback,
-                        intent.getParcelableExtra(EXTRA_PENDING_INTENT));
+                        intent.getParcelableExtra(EXTRA_PENDING_INTENT, PendingIntent.class));
             } else if (Constants.ACTION_CHECK_PACKAGE.equals(action)) {
                 // Using ROOT_UID as default value here to pass the check in #verifyAndGetBypass,
                 // this is intended by design.
@@ -352,6 +418,31 @@ public class TestActivity extends Activity {
                 final String sourceAuthority = intent.getBundleExtra(EXTRA_DATA)
                         .getString(EXTRA_AUTHORITY);
                 sendRevokeUriPermission(remoteCallback, sourceAuthority);
+            } else if (Constants.ACTION_AWAIT_PACKAGE_RESTARTED.equals(action)) {
+                final String packageName = intent.getBundleExtra(EXTRA_DATA).getString(
+                        Intent.EXTRA_PACKAGE_NAME);
+                awaitPackageRestartedBroadcast(remoteCallback, packageName,
+                        Intent.ACTION_PACKAGE_RESTARTED, TIMEOUT_MS);
+            } else if (Constants.ACTION_GET_CONTENT_PROVIDER_MIME_TYPE.equals(action)) {
+                final String authority = intent.getBundleExtra(EXTRA_DATA)
+                        .getString(EXTRA_AUTHORITY);
+                sendGetContentProviderMimeType(remoteCallback, authority);
+            } else if (Constants.ACTION_GET_ENABLED_SPELL_CHECKER_INFOS.equals(action)) {
+                sendGetEnabledSpellCheckerInfos(remoteCallback);
+            } else if (Constants.ACTION_GET_INPUT_METHOD_LIST.equals(action)) {
+                sendGetInputMethodList(remoteCallback);
+            } else if (Constants.ACTION_GET_ENABLED_INPUT_METHOD_LIST.equals(action)) {
+                sendGetEnabledInputMethodList(remoteCallback);
+            } else if (Constants.ACTION_GET_ENABLED_INPUT_METHOD_SUBTYPE_LIST.equals(action)) {
+                final InputMethodInfo info = intent.getBundleExtra(EXTRA_DATA)
+                        .getParcelable(EXTRA_INPUT_METHOD_INFO, InputMethodInfo.class);
+                sendGetEnabledInputMethodSubtypeList(remoteCallback, info);
+            } else if (Constants.ACTION_ACCOUNT_MANAGER_GET_AUTHENTICATOR_TYPES.equals(action)) {
+                sendAccountManagerGetAuthenticatorTypes(remoteCallback);
+            } else if (ACTION_MEDIA_SESSION_MANAGER_IS_TRUSTED_FOR_MEDIA_CONTROL.equals(action)) {
+                final String packageName = intent.getStringExtra(Intent.EXTRA_PACKAGE_NAME);
+                final int uid = intent.getIntExtra(EXTRA_UID, INVALID_UID);
+                sendMediaSessionManagerIsTrustedForMediaControl(remoteCallback, packageName, uid);
             } else {
                 sendError(remoteCallback, new Exception("unknown action " + action));
             }
@@ -371,7 +462,8 @@ public class TestActivity extends Activity {
     }
 
     private void onCommandReady(Intent intent) {
-        final RemoteCallback callback = intent.getParcelableExtra(EXTRA_REMOTE_READY_CALLBACK);
+        final RemoteCallback callback = intent.getParcelableExtra(EXTRA_REMOTE_READY_CALLBACK,
+                RemoteCallback.class);
         if (callback != null) {
             callback.sendResult(null);
         }
@@ -392,11 +484,33 @@ public class TestActivity extends Activity {
                 mainHandler.removeCallbacksAndMessages(token);
                 finish();
             }
-        }, filter, Context.RECEIVER_EXPORTED_UNAUDITED);
+        }, filter, Context.RECEIVER_EXPORTED);
         mainHandler.postDelayed(
                 () -> sendError(remoteCallback,
                         new MissingBroadcastException(action, timeoutMs)),
                 token, timeoutMs);
+    }
+
+    private void awaitPackageRestartedBroadcast(RemoteCallback remoteCallback,
+            String expectedPkgName, String action, long timeoutMs) {
+        final IntentFilter filter = new IntentFilter(action);
+        filter.addDataScheme(IntentFilter.SCHEME_PACKAGE);
+        final Object token = new Object();
+        final Bundle result = new Bundle();
+        final Uri expectedData = Uri.fromParts("package", expectedPkgName, null /* fragment */);
+        registerReceiver(new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                final String intentData = intent.getDataString();
+                if (expectedData.toString().equals(intentData)) {
+                    mainHandler.removeCallbacksAndMessages(token);
+                    result.putString(Intent.EXTRA_PACKAGE_NAME, expectedPkgName);
+                    remoteCallback.sendResult(result);
+                    finish();
+                }
+            }
+        }, filter, Context.RECEIVER_EXPORTED);
+        mainHandler.postDelayed(() -> remoteCallback.sendResult(result), token, timeoutMs);
     }
 
     private void awaitSuspendedPackagesBroadcast(RemoteCallback remoteCallback,
@@ -423,12 +537,18 @@ public class TestActivity extends Activity {
                     sendResult.run();
                 }
             }
-        }, filter, Context.RECEIVER_EXPORTED_UNAUDITED);
+        }, filter, Context.RECEIVER_EXPORTED);
         mainHandler.postDelayed(() -> sendResult.run(), token, timeoutMs);
     }
 
+    private boolean matchPackageNames(String[] expectedPackages, String[] actualPackages) {
+        Arrays.sort(expectedPackages);
+        Arrays.sort(actualPackages);
+        return Arrays.equals(expectedPackages, actualPackages);
+    }
+
     private void awaitLauncherAppsCallback(RemoteCallback remoteCallback, int expectedEventCode,
-            long timeoutMs) {
+            String[] expectedPackages, long timeoutMs) {
         final Object token = new Object();
         final Bundle result = new Bundle();
         final LauncherApps launcherApps = getSystemService(LauncherApps.class);
@@ -436,6 +556,9 @@ public class TestActivity extends Activity {
 
             private void onPackageStateUpdated(String[] packageNames, int resultCode) {
                 if (resultCode != expectedEventCode) {
+                    return;
+                }
+                if (!matchPackageNames(expectedPackages, packageNames)) {
                     return;
                 }
 
@@ -502,7 +625,7 @@ public class TestActivity extends Activity {
 
     private void sendGetInstalledPackages(RemoteCallback remoteCallback, int flags) {
         String[] packages =
-                getPackageManager().getInstalledPackages(flags)
+                getPackageManager().getInstalledPackages(PackageInfoFlags.of(flags))
                         .stream().map(p -> p.packageName).distinct().toArray(String[]::new);
         Bundle result = new Bundle();
         result.putStringArray(EXTRA_RETURN_RESULT, packages);
@@ -512,7 +635,7 @@ public class TestActivity extends Activity {
 
     private void sendQueryIntentActivities(RemoteCallback remoteCallback, Intent queryIntent) {
         final String[] resolveInfos = getPackageManager().queryIntentActivities(
-                queryIntent, 0 /* flags */).stream()
+                queryIntent, ResolveInfoFlags.of(0)).stream()
                 .map(ri -> ri.activityInfo.applicationInfo.packageName)
                 .distinct()
                 .toArray(String[]::new);
@@ -524,7 +647,7 @@ public class TestActivity extends Activity {
 
     private void sendQueryIntentServices(RemoteCallback remoteCallback, Intent queryIntent) {
         final String[] resolveInfos = getPackageManager().queryIntentServices(
-                queryIntent, 0 /* flags */).stream()
+                queryIntent, ResolveInfoFlags.of(0)).stream()
                 .map(ri -> ri.serviceInfo.applicationInfo.packageName)
                 .distinct()
                 .toArray(String[]::new);
@@ -536,7 +659,7 @@ public class TestActivity extends Activity {
 
     private void sendQueryIntentProviders(RemoteCallback remoteCallback, Intent queryIntent) {
         final String[] resolveInfos = getPackageManager().queryIntentContentProviders(
-                queryIntent, 0 /* flags */).stream()
+                queryIntent, ResolveInfoFlags.of(0)).stream()
                 .map(ri -> ri.providerInfo.applicationInfo.packageName)
                 .distinct()
                 .toArray(String[]::new);
@@ -576,14 +699,16 @@ public class TestActivity extends Activity {
     private void sendError(RemoteCallback remoteCallback, Exception failure) {
         Bundle result = new Bundle();
         result.putSerializable(EXTRA_ERROR, failure);
-        remoteCallback.sendResult(result);
+        if (remoteCallback != null) {
+            remoteCallback.sendResult(result);
+        }
         finish();
     }
 
     private void sendPackageInfo(RemoteCallback remoteCallback, String packageName) {
         final PackageInfo pi;
         try {
-            pi = getPackageManager().getPackageInfo(packageName, 0);
+            pi = getPackageManager().getPackageInfo(packageName, PackageInfoFlags.of(0));
         } catch (PackageManager.NameNotFoundException e) {
             sendError(remoteCallback, e);
             return;
@@ -723,6 +848,87 @@ public class TestActivity extends Activity {
                 token, timeoutMs);
     }
 
+    private void sendGetSyncAdapterControlPanel(RemoteCallback remoteCallback, Account account,
+            String authority, ComponentName componentName) {
+        ContentResolver.cancelSync(account, authority);
+        ContentResolver.requestSync(account, authority, new Bundle());
+        final ActivityManager activityManager = getSystemService(ActivityManager.class);
+        final PendingIntent pendingIntent =
+                activityManager.getRunningServiceControlPanel(componentName);
+        final Bundle result = new Bundle();
+        result.putParcelable(EXTRA_RETURN_RESULT, pendingIntent);
+        remoteCallback.sendResult(result);
+        finish();
+    }
+
+    private void awaitRequestPeriodicSync(RemoteCallback remoteCallback, Account account,
+            String authority, long timeoutMs) {
+        ContentResolver.addPeriodicSync(account, authority, Bundle.EMPTY,
+                TimeUnit.HOURS.toSeconds(1));
+        final Object token = new Object();
+        final Bundle result = new Bundle();
+        final Runnable pollingPeriodicSync = new Runnable() {
+            @Override
+            public void run() {
+                if (!ContentResolver.getPeriodicSyncs(account, authority).stream()
+                        .anyMatch(sync -> sync.authority.equals(authority))) {
+                    mainHandler.postDelayed(this, 100 /* delayMillis */);
+                    return;
+                }
+                mainHandler.removeCallbacksAndMessages(token);
+                result.putBoolean(EXTRA_RETURN_RESULT, true);
+                remoteCallback.sendResult(result);
+                finish();
+            }
+        };
+
+        mainHandler.post(pollingPeriodicSync);
+        mainHandler.postDelayed(() -> {
+            mainHandler.removeCallbacks(pollingPeriodicSync);
+            result.putBoolean(EXTRA_RETURN_RESULT, false);
+            remoteCallback.sendResult(result);
+            finish();
+        }, token, timeoutMs);
+    }
+
+    private void setSyncAutomatically(RemoteCallback remoteCallback, Account account,
+            String authority) {
+        ContentResolver.setSyncAutomatically(account, authority, true /* sync */);
+        remoteCallback.sendResult(null);
+        finish();
+    }
+
+    private void getSyncAutomatically(RemoteCallback remoteCallback, String authority) {
+        final boolean ret = ContentResolver.getSyncAutomatically(null /* account */, authority);
+        final Bundle result = new Bundle();
+        result.putBoolean(EXTRA_RETURN_RESULT, ret);
+        remoteCallback.sendResult(result);
+        finish();
+    }
+
+    private void getIsSyncable(RemoteCallback remoteCallback, Account account,
+            String authority) {
+        final int ret = ContentResolver.getIsSyncable(account, authority);
+        final Bundle result = new Bundle();
+        result.putInt(EXTRA_RETURN_RESULT, ret);
+        remoteCallback.sendResult(result);
+        finish();
+    }
+
+    private void getPeriodicSyncs(RemoteCallback remoteCallback, Account account,
+            String authority) {
+        final List<PeriodicSync> periodicSyncList =
+                ContentResolver.getPeriodicSyncs(account, authority);
+        final ArrayList<Parcelable> parcelables = new ArrayList<>();
+        for (PeriodicSync sync : periodicSyncList) {
+            parcelables.add(sync);
+        }
+        final Bundle result = new Bundle();
+        result.putParcelableArrayList(EXTRA_RETURN_RESULT, parcelables);
+        remoteCallback.sendResult(result);
+        finish();
+    }
+
     private void sendGetSharedLibraryDependentPackages(RemoteCallback remoteCallback,
             String sharedLibName) {
         final List<SharedLibraryInfo> sharedLibraryInfos = getPackageManager()
@@ -816,6 +1022,20 @@ public class TestActivity extends Activity {
         }
     }
 
+    private void sendCanPackageQueries(RemoteCallback remoteCallback, String sourcePackageName,
+            String[] targetPackageNames) {
+        try {
+            final boolean[] visibilities = getPackageManager().canPackageQuery(sourcePackageName,
+                    targetPackageNames);
+            final Bundle result = new Bundle();
+            result.putBooleanArray(EXTRA_RETURN_RESULT, visibilities);
+            remoteCallback.sendResult(result);
+            finish();
+        } catch (PackageManager.NameNotFoundException e) {
+            sendError(remoteCallback, e);
+        }
+    }
+
     private void sendSessionInfosListResult(RemoteCallback remoteCallback,
             List<SessionInfo> infos) {
         final ArrayList<Parcelable> parcelables = new ArrayList<>(infos);
@@ -824,6 +1044,16 @@ public class TestActivity extends Activity {
         }
         final Bundle result = new Bundle();
         result.putParcelableArrayList(EXTRA_RETURN_RESULT, parcelables);
+        remoteCallback.sendResult(result);
+        finish();
+    }
+
+    private void sendGetContentProviderMimeType(RemoteCallback remoteCallback, String authority) {
+        final Uri uri = Uri.parse("content://" + authority);
+        final ContentResolver resolver = getContentResolver();
+        final String mimeType = resolver.getType(uri);
+        final Bundle result = new Bundle();
+        result.putString(EXTRA_RETURN_RESULT, mimeType);
         remoteCallback.sendResult(result);
         finish();
     }
@@ -912,12 +1142,74 @@ public class TestActivity extends Activity {
         }
     }
 
+    private void sendGetEnabledSpellCheckerInfos(RemoteCallback remoteCallback) {
+        final TextServicesManager tsm = getSystemService(TextServicesManager.class);
+        final ArrayList<SpellCheckerInfo> infos =
+                new ArrayList<>(tsm.getEnabledSpellCheckerInfos());
+        final Bundle result = new Bundle();
+        result.putParcelableArrayList(EXTRA_RETURN_RESULT, infos);
+        remoteCallback.sendResult(result);
+        finish();
+    }
+
+    private void sendGetInputMethodList(RemoteCallback remoteCallback) {
+        final InputMethodManager inputMethodManager = getSystemService(InputMethodManager.class);
+        final ArrayList<InputMethodInfo> infos =
+                new ArrayList<>(inputMethodManager.getInputMethodList());
+        final Bundle result = new Bundle();
+        result.putParcelableArrayList(EXTRA_RETURN_RESULT, infos);
+        remoteCallback.sendResult(result);
+        finish();
+    }
+
+    private void sendGetEnabledInputMethodList(RemoteCallback remoteCallback) {
+        final InputMethodManager inputMethodManager = getSystemService(InputMethodManager.class);
+        final ArrayList<InputMethodInfo> infos =
+                new ArrayList<>(inputMethodManager.getEnabledInputMethodList());
+        final Bundle result = new Bundle();
+        result.putParcelableArrayList(EXTRA_RETURN_RESULT, infos);
+        remoteCallback.sendResult(result);
+        finish();
+    }
+
+    private void sendGetEnabledInputMethodSubtypeList(RemoteCallback remoteCallback,
+            InputMethodInfo targetImi) {
+        final InputMethodManager inputMethodManager = getSystemService(InputMethodManager.class);
+        final ArrayList<InputMethodSubtype> infos = new ArrayList<>(
+                inputMethodManager.getEnabledInputMethodSubtypeList(targetImi, true));
+        final Bundle result = new Bundle();
+        result.putParcelableArrayList(EXTRA_RETURN_RESULT, infos);
+        remoteCallback.sendResult(result);
+        finish();
+    }
+
+    private void sendAccountManagerGetAuthenticatorTypes(RemoteCallback remoteCallback) {
+        final AccountManager accountManager = AccountManager.get(this);
+        final Bundle result = new Bundle();
+        result.putParcelableArray(EXTRA_RETURN_RESULT, accountManager.getAuthenticatorTypes());
+        remoteCallback.sendResult(result);
+        finish();
+    }
+
+    private void sendMediaSessionManagerIsTrustedForMediaControl(RemoteCallback remoteCallback,
+            String packageName, int uid) {
+        final MediaSessionManager mediaSessionManager =
+                getSystemService(MediaSessionManager.class);
+        final MediaSessionManager.RemoteUserInfo userInfo =
+                new MediaSessionManager.RemoteUserInfo(packageName, 0 /* pid */, uid);
+        final boolean isTrusted = mediaSessionManager.isTrustedForMediaControl(userInfo);
+        final Bundle result = new Bundle();
+        result.putBoolean(EXTRA_RETURN_RESULT, isTrusted);
+        remoteCallback.sendResult(result);
+        finish();
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         final RemoteCallback remoteCallback = callbacks.get(requestCode);
         if (resultCode != RESULT_OK) {
-            Exception e = (Exception) data.getSerializableExtra(EXTRA_ERROR);
+            final Exception e = data.getSerializableExtra(EXTRA_ERROR, Exception.class);
             sendError(remoteCallback, e == null ? new Exception("Result was " + resultCode) : e);
             return;
         }
@@ -928,9 +1220,8 @@ public class TestActivity extends Activity {
     }
 
     private void bindService(RemoteCallback remoteCallback, String packageName) {
-        final String SERVICE_NAME = "android.appenumeration.testapp.DummyService";
-        final Intent intent = new Intent();
-        intent.setClassName(packageName, SERVICE_NAME);
+        final Intent intent = new Intent(ACTION_MANIFEST_SERVICE);
+        intent.setClassName(packageName, SERVICE_CLASS_DUMMY_SERVICE);
         final ServiceConnection serviceConnection = new ServiceConnection() {
             @Override
             public void onServiceConnected(ComponentName className, IBinder service) {
@@ -965,7 +1256,7 @@ public class TestActivity extends Activity {
         result.putBoolean(EXTRA_RETURN_RESULT, bound);
         remoteCallback.sendResult(result);
         // Don't invoke finish() right here if service is bound successfully to keep the service
-        // connection alive since the ServiceRecord would be remove from the ServiceMap once no
+        // connection alive since the ServiceRecord would be removed from the ServiceMap once no
         // client is binding the service.
         if (!bound) finish();
     }

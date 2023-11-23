@@ -1,6 +1,6 @@
 ## Introduction
 
-`test_that` is the supported mechanism to run autotests against Chrome OS
+`test_that` is the supported mechanism to run autotests against ChromeOS
 devices at your desk.  `test_that` replaces an older script, `run_remote_tests`.
 
 Features for testing a local device:
@@ -22,16 +22,16 @@ that were uploaded to google storage.
 
 ### Example uses (inside the chroot)
 
-Run the test(s) named dummy\_Pass:
+Run the test(s) named stub\_Pass:
 
 ```
-$ test_that -b ${board} ${host} dummy_Pass
+$ test_that -b ${board} ${host} stub_Pass
 ```
 
-Run the test(s) named dummy\_Pass.suspend:
+Run the test(s) named stub\_Pass.suspend:
 
 ```
-$ test_that -b ${board} ${host} dummy_Pass.suspend
+$ test_that -b ${board} ${host} stub_Pass.suspend
 ```
 
 Run the bvt-inline suite against dut:
@@ -49,10 +49,10 @@ $ test_that -b ${board} ${host} e:login_.*
 ```
 
 Run all tests whose control file filename matches the regular expression
-`^.*control.dummy$`:
+`^.*control.stub$`:
 
 ```
-$ test_that -b ${board} ${host} f:.*control.dummy
+$ test_that -b ${board} ${host} f:.*control.stub
 ```
 
 ### Running jobs in the lab
@@ -69,10 +69,10 @@ guide.
 For instance:
 
 ```
-$ test_that -b lumpy -i lumpy-paladin/R38-6009.0.0-rc4 :lab: dummy_Pass
+$ test_that -b lumpy -i lumpy-paladin/R38-6009.0.0-rc4 :lab: stub_Pass
 ```
 
-This will kick off a suite in the lab that consists of just 1 job, dummy\_Pass,
+This will kick off a suite in the lab that consists of just 1 job, stub\_Pass,
 to run in this case on board lumpy using the image
 lumpy-paladin/R38-6009.0.0-rc4. The lab's scheduler will take responsibility
 for finding a suitable set of hosts, provisioning them to the correct image,
@@ -83,7 +83,7 @@ You can specify multiple tests or test-matching expressions in the same way as
 before:
 
 ```
-$ test_that -b lumpy -i ${latest_image} :lab: dummy_Pass dummy_Fail
+$ test_that -b lumpy -i ${latest_image} :lab: stub_Pass dummy_Fail
 $ test_that -b lumpy -i ${latest_image} :lab: e:login_.*
 ```
 
@@ -125,8 +125,8 @@ run tests within.
 For instance:
 ```
 $ test_that -b lumpy -i lumpy-paladin/R38-6009.0.0-rc4 --web 100.96.51.136 :lab:
-dummy_Pass
+stub_Pass
 ```
 
-This will kick off the dummy_Pass test on a lumpy device on the Autotest
+This will kick off the stub_Pass test on a lumpy device on the Autotest
 instance located at 100.96.51.136

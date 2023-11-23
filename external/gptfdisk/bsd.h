@@ -3,13 +3,13 @@
 /* This program is copyright (c) 2009 by Roderick W. Smith. It is distributed
   under the terms of the GNU GPL version 2, as detailed in the COPYING file. */
 
+#ifndef __BSD_STRUCTS
+#define __BSD_STRUCTS
+
 #include <stdint.h>
 #include <sys/types.h>
 #include "gptpart.h"
 #include "diskio.h"
-
-#ifndef __BSD_STRUCTS
-#define __BSD_STRUCTS
 
 #define BSD_SIGNATURE UINT32_C(0x82564557)  /* BSD disklabel signature ("magic") */
 
@@ -29,9 +29,6 @@
 // theoretical maximum of 118.75 partitions that the program can handle before
 // memory errors will occur.
 #define MAX_BSD_PARTS 64
-
-
-using namespace std;
 
 /****************************************
  *                                      *
@@ -75,7 +72,7 @@ class BSDData {
    public:
       BSDData(void);
       ~BSDData(void);
-      int ReadBSDData(const string & deviceFilename, uint64_t startSector, uint64_t endSector);
+      int ReadBSDData(const std::string & deviceFilename, uint64_t startSector, uint64_t endSector);
       int ReadBSDData(DiskIO *myDisk, uint64_t startSector, uint64_t endSector);
       void ReverseMetaBytes(void);
       void DisplayBSDData(void);

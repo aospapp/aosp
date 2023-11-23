@@ -76,6 +76,5 @@ cc_binary {
         "-Wno-missing-field-initializers",
         "-DPACKAGE=\"ethtool\"",
         "-DVERSION=\"5.3\"",
-        "-std=gnu11",
     ]
 }

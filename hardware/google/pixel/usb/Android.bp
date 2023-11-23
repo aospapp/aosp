@@ -21,12 +21,16 @@ package {
 cc_library_static {
     name: "libpixelusb",
     vendor_available: true,
-    export_include_dirs: ["include"],
+    export_include_dirs: [
+        "hidl/include",
+        "include",
+    ],
 
     srcs: [
-        "UsbGadgetUtils.cpp",
+        "hidl/UsbGadgetUtils.cpp",
+        "UsbOverheatEvent.cpp",
+        "CommonUtils.cpp",
         "MonitorFfs.cpp",
-        "UsbOverheatEvent.cpp"
     ],
 
     cflags: [
@@ -40,10 +44,52 @@ cc_library_static {
         "libcutils",
         "libhidlbase",
         "libutils",
+        "libbinder_ndk",
         "android.hardware.usb.gadget@1.0",
         "android.hardware.thermal@1.0",
         "android.hardware.thermal@2.0",
+        "android.hardware.thermal-V1-ndk"
     ],
+
+    static_libs: [
+        "libthermalutils",
+    ]
+}
+
+cc_library_static {
+    name: "libpixelusb-aidl",
+    vendor_available: true,
+    export_include_dirs: [
+        "aidl/include",
+        "include",
+    ],
+
+    srcs: [
+        "aidl/UsbGadgetAidlUtils.cpp",
+        "UsbOverheatEvent.cpp",
+        "CommonUtils.cpp",
+        "MonitorFfs.cpp",
+    ],
+
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+
+    shared_libs: [
+        "libbase",
+        "libbinder",
+        "libcutils",
+        "libutils",
+        "android.hardware.usb.gadget-V1-ndk",
+        "android.hardware.thermal@1.0",
+        "android.hardware.thermal@2.0",
+        "android.hardware.thermal-V1-ndk"
+    ],
+
+    static_libs: [
+        "libthermalutils",
+    ]
 }
 
 cc_fuzz {

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Copyright 2020 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -51,18 +51,18 @@ Turns into
 The rendering functions should never mutate your input.
 """
 
-from __future__ import print_function
 
 import collections
 import html
 import typing as t
 
-Bold = collections.namedtuple('Bold', ['inner'])
-LineBreak = collections.namedtuple('LineBreak', [])
-Link = collections.namedtuple('Link', ['href', 'inner'])
-UnorderedList = collections.namedtuple('UnorderedList', ['items'])
+
+Bold = collections.namedtuple("Bold", ["inner"])
+LineBreak = collections.namedtuple("LineBreak", [])
+Link = collections.namedtuple("Link", ["href", "inner"])
+UnorderedList = collections.namedtuple("UnorderedList", ["items"])
 # Outputs different data depending on whether we're emitting text or HTML.
-Switch = collections.namedtuple('Switch', ['text', 'html'])
+Switch = collections.namedtuple("Switch", ["text", "html"])
 
 line_break = LineBreak()
 
@@ -85,97 +85,98 @@ line_break = LineBreak()
 Piece = t.Any  # pylint: disable=invalid-name
 
 
-def _render_text_pieces(piece: Piece, indent_level: int,
-                        into: t.List[str]) -> None:
-  """Helper for |render_text_pieces|. Accumulates strs into |into|."""
-  if isinstance(piece, LineBreak):
-    into.append('\n' + indent_level * ' ')
-    return
+def _render_text_pieces(
+    piece: Piece, indent_level: int, into: t.List[str]
+) -> None:
+    """Helper for |render_text_pieces|. Accumulates strs into |into|."""
+    if isinstance(piece, LineBreak):
+        into.append("\n" + indent_level * " ")
+        return
 
-  if isinstance(piece, str):
-    into.append(piece)
-    return
+    if isinstance(piece, str):
+        into.append(piece)
+        return
 
-  if isinstance(piece, Bold):
-    into.append('**')
-    _render_text_pieces(piece.inner, indent_level, into)
-    into.append('**')
-    return
+    if isinstance(piece, Bold):
+        into.append("**")
+        _render_text_pieces(piece.inner, indent_level, into)
+        into.append("**")
+        return
 
-  if isinstance(piece, Link):
-    # Don't even try; it's ugly more often than not.
-    _render_text_pieces(piece.inner, indent_level, into)
-    return
+    if isinstance(piece, Link):
+        # Don't even try; it's ugly more often than not.
+        _render_text_pieces(piece.inner, indent_level, into)
+        return
 
-  if isinstance(piece, UnorderedList):
-    for p in piece.items:
-      _render_text_pieces([line_break, '- ', p], indent_level + 2, into)
-    return
+    if isinstance(piece, UnorderedList):
+        for p in piece.items:
+            _render_text_pieces([line_break, "- ", p], indent_level + 2, into)
+        return
 
-  if isinstance(piece, Switch):
-    _render_text_pieces(piece.text, indent_level, into)
-    return
+    if isinstance(piece, Switch):
+        _render_text_pieces(piece.text, indent_level, into)
+        return
 
-  if isinstance(piece, (list, tuple)):
-    for p in piece:
-      _render_text_pieces(p, indent_level, into)
-    return
+    if isinstance(piece, (list, tuple)):
+        for p in piece:
+            _render_text_pieces(p, indent_level, into)
+        return
 
-  raise ValueError('Unknown piece type: %s' % type(piece))
+    raise ValueError("Unknown piece type: %s" % type(piece))
 
 
 def render_text_pieces(piece: Piece) -> str:
-  """Renders the given Pieces into text."""
-  into = []
-  _render_text_pieces(piece, 0, into)
-  return ''.join(into)
+    """Renders the given Pieces into text."""
+    into = []
+    _render_text_pieces(piece, 0, into)
+    return "".join(into)
 
 
 def _render_html_pieces(piece: Piece, into: t.List[str]) -> None:
-  """Helper for |render_html_pieces|. Accumulates strs into |into|."""
-  if piece is line_break:
-    into.append('<br />\n')
-    return
+    """Helper for |render_html_pieces|. Accumulates strs into |into|."""
+    if piece is line_break:
+        into.append("<br />\n")
+        return
 
-  if isinstance(piece, str):
-    into.append(html.escape(piece))
-    return
+    if isinstance(piece, str):
+        into.append(html.escape(piece))
+        return
 
-  if isinstance(piece, Bold):
-    into.append('<b>')
-    _render_html_pieces(piece.inner, into)
-    into.append('</b>')
-    return
+    if isinstance(piece, Bold):
+        into.append("<b>")
+        _render_html_pieces(piece.inner, into)
+        into.append("</b>")
+        return
 
-  if isinstance(piece, Link):
-    into.append('<a href="' + piece.href + '">')
-    _render_html_pieces(piece.inner, into)
-    into.append('</a>')
-    return
+    if isinstance(piece, Link):
+        into.append('<a href="' + piece.href + '">')
+        _render_html_pieces(piece.inner, into)
+        into.append("</a>")
+        return
 
-  if isinstance(piece, UnorderedList):
-    into.append('<ul>\n')
-    for p in piece.items:
-      into.append('<li>')
-      _render_html_pieces(p, into)
-      into.append('</li>\n')
-    into.append('</ul>\n')
-    return
+    if isinstance(piece, UnorderedList):
+        into.append("<ul>\n")
+        for p in piece.items:
+            into.append("<li>")
+            _render_html_pieces(p, into)
+            into.append("</li>\n")
+        into.append("</ul>\n")
+        return
 
-  if isinstance(piece, Switch):
-    _render_html_pieces(piece.html, into)
-    return
+    if isinstance(piece, Switch):
+        _render_html_pieces(piece.html, into)
+        return
 
-  if isinstance(piece, (list, tuple)):
-    for p in piece:
-      _render_html_pieces(p, into)
-    return
+    if isinstance(piece, (list, tuple)):
+        for p in piece:
+            _render_html_pieces(p, into)
+        return
 
-  raise ValueError('Unknown piece type: %s' % type(piece))
+    raise ValueError("Unknown piece type: %s" % type(piece))
 
 
 def render_html_pieces(piece: Piece) -> str:
-  """Renders the given Pieces into HTML."""
-  into = []
-  _render_html_pieces(piece, into)
-  return ''.join(into)
+    """Renders the given Pieces into HTML."""
+    into = []
+    _render_html_pieces(piece, into)
+    return "".join(into)

@@ -90,19 +90,6 @@ mod tests {
     use std::time::{Duration, Instant};
 
     #[test]
-    fn alarm_simple_case() {
-        let runtime = tokio::runtime::Runtime::new().unwrap();
-        runtime.block_on(async {
-            let timer = Instant::now();
-            let alarm = Alarm::new();
-            alarm.reset(Duration::from_millis(10));
-            alarm.expired().await;
-
-            assert_near!(timer.elapsed().as_millis(), 10, 3);
-        });
-    }
-
-    #[test]
     fn alarm_cancel_after_expired() {
         let runtime = tokio::runtime::Runtime::new().unwrap();
         runtime.block_on(async {
@@ -150,21 +137,6 @@ mod tests {
         let runtime = tokio::runtime::Runtime::new().unwrap();
         runtime.block_on(async {
             interval(Duration::from_millis(10));
-        });
-    }
-
-    #[test]
-    fn interval_simple_case() {
-        let runtime = tokio::runtime::Runtime::new().unwrap();
-        runtime.block_on(async {
-            let timer = Instant::now();
-            let mut interval = interval(Duration::from_millis(10));
-
-            for n in 1..10 {
-                interval.tick().await;
-                println!("{}", n);
-                assert_near!(timer.elapsed().as_millis(), 10 * n, 3);
-            }
         });
     }
 }

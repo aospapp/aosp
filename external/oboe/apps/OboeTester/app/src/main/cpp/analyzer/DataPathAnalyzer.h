@@ -38,14 +38,14 @@ public:
 
     DataPathAnalyzer() : BaseSineAnalyzer() {
         // Add a little bit of noise to reduce blockage by speaker protection and DRC.
-        setNoiseAmplitude(0.05);
+        setNoiseAmplitude(0.02);
     }
 
     /**
      * @param frameData contains microphone data with sine signal feedback
      * @param channelCount
      */
-    result_code processInputFrame(float *frameData, int /* channelCount */) override {
+    result_code processInputFrame(const float *frameData, int /* channelCount */) override {
         result_code result = RESULT_OK;
 
         float sample = frameData[getInputChannel()];
@@ -53,14 +53,13 @@ public:
 
         if (transformSample(sample, mOutputPhase)) {
             resetAccumulator();
+            // Analyze magnitude and phase on every period.
+            double diff = abs(mPhaseOffset - mPreviousPhaseOffset);
+            if (diff < mPhaseTolerance) {
+                mMaxMagnitude = std::max(mMagnitude, mMaxMagnitude);
+            }
+            mPreviousPhaseOffset = mPhaseOffset;
         }
-
-        // Update MaxMagnitude if we are locked.
-        double diff = abs(mPhaseOffset - mPreviousPhaseOffset);
-        if (diff < mPhaseTolerance) {
-            mMaxMagnitude = std::max(mMagnitude, mMaxMagnitude);
-        }
-        mPreviousPhaseOffset = mPhaseOffset;
         return result;
     }
 

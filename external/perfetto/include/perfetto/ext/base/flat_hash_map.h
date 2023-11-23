@@ -19,6 +19,7 @@
 
 #include "perfetto/base/compiler.h"
 #include "perfetto/base/logging.h"
+#include "perfetto/ext/base/hash.h"
 #include "perfetto/ext/base/utils.h"
 
 #include <algorithm>
@@ -81,7 +82,7 @@ struct QuadraticHalfProbe {
 
 template <typename Key,
           typename Value,
-          typename Hasher = std::hash<Key>,
+          typename Hasher = base::Hash<Key>,
           typename Probe = QuadraticProbe,
           bool AppendOnly = false>
 class FlatHashMap {
@@ -213,7 +214,7 @@ class FlatHashMap {
       }  // for (idx)
 
       // If we got to this point the key does not exist (otherwise we would have
-      // hit the the return above) and we are going to insert a new entry.
+      // hit the return above) and we are going to insert a new entry.
       // Before doing so, ensure we stay under the target load limit.
       if (PERFETTO_UNLIKELY(size_ >= load_limit_)) {
         MaybeGrowAndRehash(/*grow=*/true);

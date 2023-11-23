@@ -12,6 +12,7 @@ TIME = "SHORT"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING, board:sarien"
 JOB_RETRIES = 0
+PY_VERSION = 3
 
 DOC = """Make sure Cr50's factory mode sets GPIOs correctly.
 

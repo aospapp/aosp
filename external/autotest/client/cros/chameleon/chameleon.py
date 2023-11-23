@@ -8,6 +8,7 @@ from __future__ import division
 from __future__ import print_function
 import atexit
 import six.moves.http_client
+import six
 import logging
 import os
 import socket
@@ -483,6 +484,12 @@ class ChameleonBoard(object):
         """
         return self._chameleond_proxy.bluetooth_keyboard
 
+    def get_ble_fast_pair(self):
+        """Gets the emulated Bluetooth Fast Pair device on Chameleon.
+
+        @return: A RaspiBLEFastPair object.
+        """
+        return self._chameleond_proxy.ble_fast_pair
 
     def get_bluetooth_ref_controller(self):
         """Gets the emulated BluetoothRefController.
@@ -506,14 +513,6 @@ class ChameleonBoard(object):
         @return: An MotorBoard object.
         """
         return self._chameleond_proxy.motor_board
-
-
-    def get_usb_printer(self):
-        """Gets the printer device on Chameleon.
-
-        @return: A printer object.
-        """
-        return self._chameleond_proxy.printer
 
 
     def get_mac_address(self):
@@ -835,7 +834,12 @@ class ChameleonVideoInput(ChameleonPort):
 
         @return An Image object.
         """
-        return Image.fromstring(
+        if six.PY2:
+            return Image.fromstring(
+                    'RGB',
+                    self.get_resolution(),
+                    self.chameleond_proxy.DumpPixels(self.port_id).data)
+        return Image.frombytes(
                 'RGB',
                 self.get_resolution(),
                 self.chameleond_proxy.DumpPixels(self.port_id).data)

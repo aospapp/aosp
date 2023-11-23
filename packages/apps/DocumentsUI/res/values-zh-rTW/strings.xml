@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="missing_rename_error" msgid="9098952207447981103">"請重新命名"</string>
     <string name="add_folder_name_error" msgid="6014615052491406810">"請新增資料夾名稱"</string>
-    <string name="files_label" msgid="771781190045103748">"檔案"</string>
+    <string name="files_label" msgid="771781190045103748">"Files"</string>
     <string name="downloads_label" msgid="5462789470049501103">"下載"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
     <skip />
@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"無法儲存文件"</string>
     <string name="create_error" msgid="3092144450044861994">"無法建立資料夾"</string>
     <string name="query_error" msgid="6625421453613879336">"目前無法載入內容"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"工作資料夾已暫停"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"開啟"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"系統已暫停工作應用程式"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"開啟工作應用程式"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"無法選取工作檔案"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"你的 IT 管理員不允許你透過個人應用程式存取工作檔案"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"無法選取個人檔案"</string>

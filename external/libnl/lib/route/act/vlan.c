@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/act/vlan.c        vlan action
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation version 2.1
- * of the License.
- *
  * Copyright (c) 2018 Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
  */
 
@@ -107,14 +101,6 @@ nla_put_failure:
 
 static void vlan_free_data(struct rtnl_tc *tc, void *data)
 {
-}
-
-static int vlan_clone(void *_dst, void *_src)
-{
-	struct rtnl_vlan *dst = _dst, *src = _src;
-
-	memcpy(&dst->v_parm, &src->v_parm, sizeof(src->v_parm));
-	return 0;
 }
 
 static void vlan_dump_line(struct rtnl_tc *tc, void *data,
@@ -405,7 +391,7 @@ static struct rtnl_tc_ops vlan_ops = {
 	.to_size                = sizeof(struct rtnl_vlan),
 	.to_msg_parser          = vlan_msg_parser,
 	.to_free_data           = vlan_free_data,
-	.to_clone               = vlan_clone,
+	.to_clone               = NULL,
 	.to_msg_fill            = vlan_msg_fill,
 	.to_dump = {
 	    [NL_DUMP_LINE]      = vlan_dump_line,

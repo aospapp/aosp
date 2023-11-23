@@ -179,3 +179,5 @@ r_dir_file(hal_dumpstate_impl, sysfs_thermal)
 
 # Access to /sys/devices/soc0/serial_number
 r_dir_file(hal_dumpstate_impl, sysfs_soc)
+
+dontaudit hal_dumpstate_impl rootfs:dir rw_dir_perms;

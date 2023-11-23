@@ -16,6 +16,7 @@
 package android.system.virtualizationservice;
 
 import android.system.virtualizationservice.IVirtualMachineCallback;
+import android.system.virtualizationservice.MemoryTrimLevel;
 import android.system.virtualizationservice.VirtualMachineState;
 
 interface IVirtualMachine {
@@ -33,6 +34,16 @@ interface IVirtualMachine {
 
     /** Starts running the VM. */
     void start();
+
+    /**
+     * Stops this virtual machine. Stopping a virtual machine is like pulling the plug on a real
+     * computer; the machine halts immediately. Software running on the virtual machine is not
+     * notified with the event.
+     */
+    void stop();
+
+    /** Communicate app low-memory notifications to the VM. */
+    void onTrimMemory(MemoryTrimLevel level);
 
     /** Open a vsock connection to the CID of the VM on the given port. */
     ParcelFileDescriptor connectVsock(int port);

@@ -48,12 +48,6 @@ int main(int argc, const char** argv) {
             return -1;
         }
     } else if (command == "--lock") {
-        // Requires files backed by fs-verity to be verified with a key in .fs-verity
-        // keyring.
-        if (!android::base::WriteStringToFile("1", "/proc/sys/fs/verity/require_signatures")) {
-            PLOG(ERROR) << "Failed to enforce fs-verity signature";
-        }
-
         if (!android::base::GetBoolProperty("ro.debuggable", false)) {
             if (keyctl_restrict_keyring(keyring_id, nullptr, nullptr) < 0) {
                 PLOG(ERROR) << "Cannot restrict .fs-verity keyring";

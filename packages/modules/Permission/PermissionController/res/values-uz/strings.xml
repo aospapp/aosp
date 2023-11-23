@@ -23,6 +23,8 @@
     <string name="back" msgid="6249950659061523680">"Orqaga"</string>
     <string name="available" msgid="6007778121920339498">"Mavjud"</string>
     <string name="blocked" msgid="9195547604866033708">"Bloklangan"</string>
+    <string name="on" msgid="280241003226755921">"Yoniq"</string>
+    <string name="off" msgid="1438489226422866263">"Oʻchiq"</string>
     <string name="uninstall_or_disable" msgid="4496612999740858933">"Oʻchirish yoki faolsizlantirish"</string>
     <string name="app_not_found_dlg_title" msgid="6029482906093859756">"Ilova topilmadi"</string>
     <string name="grant_dialog_button_deny" msgid="88262611492697192">"Rad etish"</string>
@@ -30,6 +32,11 @@
     <string name="grant_dialog_button_no_upgrade" msgid="8344732743633736625">"“Ilova ishlatilganda” rejimida qolsin"</string>
     <string name="grant_dialog_button_no_upgrade_one_time" msgid="5125892775684968694">"“Faqat shu safar” ruxsat berish"</string>
     <string name="grant_dialog_button_more_info" msgid="213350268561945193">"Batafsil"</string>
+    <string name="grant_dialog_button_allow_all" msgid="5939066403732409516">"Hammasiga ruxsat"</string>
+    <string name="grant_dialog_button_always_allow_all" msgid="1719900027660252167">"Doim hammasiga ruxsat berish"</string>
+    <string name="grant_dialog_button_allow_selected_photos" msgid="5497042471576153842">"Surat va videolarni tanlash"</string>
+    <string name="grant_dialog_button_allow_more_selected_photos" msgid="5145657877588697709">"Yana"</string>
+    <string name="grant_dialog_button_dont_select_more" msgid="6643552729129461268">"Boshqa tanlanmasin"</string>
     <string name="grant_dialog_button_deny_anyway" msgid="7225905870668915151">"Baribir rad etilsin"</string>
     <string name="grant_dialog_button_dismiss" msgid="1930399742250226393">"Yopish"</string>
     <string name="current_permission_template" msgid="7452035392573329375">"<xliff:g id="CURRENT_PERMISSION_INDEX">%1$s</xliff:g> / <xliff:g id="PERMISSION_COUNT">%2$s</xliff:g>"</string>
@@ -107,9 +114,6 @@
     <string name="all_permissions" msgid="6911125611996872522">"Barcha ruxsatlar"</string>
     <string name="other_permissions" msgid="2901186127193849594">"Ilovaning boshqa imkoniyatlari"</string>
     <string name="permission_request_title" msgid="8790310151025020126">"Ruxsat olish talabi"</string>
-    <string name="screen_overlay_title" msgid="6977038513913222078">"Ekran ustidan ochiladigan ilova aniqlandi"</string>
-    <string name="screen_overlay_message" msgid="5622563069757142102">"Bu ruxsat parametrini o‘zgartirish uchun avval Sozlamalar &gt; Ilovalar ruknidan ekran ustidan ochilish funksiyasini faolsizlantiring"</string>
-    <string name="screen_overlay_button" msgid="4655005928054025250">"Sozlamalarni ochish"</string>
     <string name="wear_not_allowed_dlg_title" msgid="1429467891296932713">"Android Wear"</string>
     <string name="wear_not_allowed_dlg_text" msgid="512340555334769098">"Wear qurilmasi o‘rnatish/o‘chirish amallarini qo‘llab-quvvatlamaydi."</string>
     <string name="permission_review_title_template_install" msgid="1284337937156289081">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; uchun beriladigan ruxsatlarni tanlang"</string>
@@ -120,7 +124,7 @@
     <string name="current_permissions_category" msgid="4292990083585728880">"Joriy ruxsatlar"</string>
     <string name="message_staging" msgid="9110563899955511866">"Kutib turing…"</string>
     <string name="app_name_unknown" msgid="1319665005754048952">"Noaniq"</string>
-    <string name="permission_usage_title" msgid="1568233336351734538">"Maxfiylik boshqaruv paneli"</string>
+    <string name="permission_usage_title" msgid="1568233336351734538">"Maxfiylik boshqaruvi"</string>
     <string name="auto_permission_usage_summary" msgid="7335667266743337075">"Ruxsatlardan yaqinda foydalangan ilovalarni koʻrish"</string>
     <string name="permission_group_usage_title" msgid="2595013198075285173">"<xliff:g id="PERMGROUP">%1$s</xliff:g> ruxsatidan foydalanish"</string>
     <string name="perm_usage_adv_info_title" msgid="3357831829538873708">"Boshqa ruxsatlarni koʻrish"</string>
@@ -130,21 +134,20 @@
     <string name="permission_group_usage_subtitle_7d" msgid="1465828402260324654">"Oxirgi 7 soat ichida ishlatilgan ilovalar xronologiyasi (<xliff:g id="PERMGROUP">%1$s</xliff:g>)"</string>
     <string name="permission_usage_access_dialog_subtitle" msgid="4171772805196955753">"Bu ilova <xliff:g id="PERMGROUP">%1$s</xliff:g> ruxsatidan foydalanganda"</string>
     <string name="permission_usage_access_dialog_learn_more" msgid="7121468469493184613">"Batafsil"</string>
+    <string name="learn_more_content_description" msgid="8673699744544502539">"<xliff:g id="PERMGROUP">%1$s</xliff:g> haqida batafsil"</string>
     <string name="manage_permission_summary" msgid="4117555482684114317">"Ilovaning <xliff:g id="PERMGROUP">%1$s</xliff:g> uchun ruxsatini boshqarish"</string>
     <string name="auto_permission_usage_timeline_summary" msgid="2713135806453218703">"<xliff:g id="ACCESS_TIME">%1$s</xliff:g> • <xliff:g id="SUMMARY_TEXT">%2$s</xliff:g>"</string>
     <string name="history_preference_subtext_2" msgid="1521763591164293683">"<xliff:g id="APP_NAME">%1$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%2$s</xliff:g>"</string>
     <string name="history_preference_subtext_3" msgid="758761785983094351">"<xliff:g id="ATTRIBUTION_NAME">%1$s</xliff:g> • <xliff:g id="APP_NAME">%2$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%3$s</xliff:g>"</string>
-    <string name="duration_used_days" msgid="8293010131040301793">"{count,plural, =1{1 kun}other{# kun}}"</string>
-    <string name="duration_used_hours" msgid="1128716208752263576">"{count,plural, =1{1 soat}other{# soat}}"</string>
-    <string name="duration_used_minutes" msgid="5335824115042576567">"{count,plural, =1{1 daq}other{# daq}}"</string>
-    <string name="duration_used_seconds" msgid="6543746449171675028">"{count,plural, =1{1 son}other{# son}}"</string>
+    <string name="duration_used_days" msgid="8238355545812998877">"{count,plural, =1{# kun}other{# kun}}"</string>
+    <string name="duration_used_hours" msgid="4983814806123370332">"{count,plural, =1{# soat}other{# soat}}"</string>
+    <string name="duration_used_minutes" msgid="1701379522897227819">"{count,plural, =1{# daq}other{# daq}}"</string>
+    <string name="duration_used_seconds" msgid="4067390990568727715">"{count,plural, =1{# son}other{# son}}"</string>
     <string name="permission_usage_any_permission" msgid="6358023078298106997">"Har qanday ruxsat"</string>
     <string name="permission_usage_any_time" msgid="3802087027301631827">"Har qanday vaqt"</string>
-    <string name="permission_usage_last_7_days" msgid="7386221251886130065">"Oxirgi 7 kun"</string>
-    <string name="permission_usage_last_day" msgid="1512880889737305115">"Oxirgi 24 soat"</string>
-    <string name="permission_usage_last_hour" msgid="3866005205535400264">"Oxirgi 1 soat"</string>
-    <string name="permission_usage_last_15_minutes" msgid="9077554653436200702">"Oxirgi 15 daqiqa"</string>
-    <string name="permission_usage_last_minute" msgid="7297055967335176238">"Oxirgi 1 daqiqa"</string>
+    <string name="permission_usage_last_n_days" msgid="7882626467375714145">"{count,plural, =1{Oxirgi # kun}other{Oxirgi # kun}}"</string>
+    <string name="permission_usage_last_n_hours" msgid="8490466053680267858">"{count,plural, =1{Oxirgi # soat}other{Oxirgi # soat}}"</string>
+    <string name="permission_usage_last_n_minutes" msgid="7817864229878281983">"{count,plural, =1{Oxirgi # daqiqa}other{Oxirgi # daqiqa}}"</string>
     <string name="no_permission_usages" msgid="9119517454177289331">"Ruxsatlardan foydalanilmagan"</string>
     <string name="permission_usage_list_title_any_time" msgid="8718257027381592407">"Butun vaqtda ruxsatlardan foydalanish"</string>
     <string name="permission_usage_list_title_last_7_days" msgid="9048542342670890615">"Oxirgi 7 kunda ruxsatlardan foydalanish"</string>
@@ -158,8 +161,8 @@
     <string name="permission_usage_bar_chart_title_last_hour" msgid="6571647509660009185">"Oxirgi 1 soatda ishlatilgan ruxsatlar"</string>
     <string name="permission_usage_bar_chart_title_last_15_minutes" msgid="2743143675412824819">"Oxirgi 15 daqiqada ishlatilgan ruxsatlar"</string>
     <string name="permission_usage_bar_chart_title_last_minute" msgid="820450867183487607">"Oxirgi 1 daqiqada ishlatilgan ruxsatlar"</string>
-    <string name="permission_usage_preference_summary_not_used_24h" msgid="3087783232178611025">"Oxirgi 24 soatda foydalanilmagan"</string>
-    <string name="permission_usage_preference_summary_not_used_7d" msgid="4592301300810120096">"Oxirgi 7 kunda foydalanilmagan"</string>
+    <string name="permission_usage_preference_summary_not_used_in_past_n_days" msgid="4771868094611359651">"{count,plural, =1{Oxirgi # kunda foydalanilmagan}other{Oxirgi # kunda foydalanilmagan}}"</string>
+    <string name="permission_usage_preference_summary_not_used_in_past_n_hours" msgid="3828973177433435742">"{count,plural, =1{Oxirgi # soatda foydalanilmagan}other{Oxirgi # soatda foydalanilmagan}}"</string>
     <string name="permission_usage_preference_label" msgid="8343167938128676378">"{count,plural, =1{1 ta ilova ishlatyapti}other{# ta ilova ishlatyapti}}"</string>
     <string name="permission_usage_view_details" msgid="6675335735468752787">"Boshqaruv panelida ochish"</string>
     <string name="app_permission_usage_filter_label" msgid="7182861154638631550">"Filtrlar: <xliff:g id="PERM">%1$s</xliff:g>"</string>
@@ -185,6 +188,7 @@
     <string name="app_permission_button_allow_media_only" msgid="2834282724426046154">"Faqat media fayllarga ruxsat"</string>
     <string name="app_permission_button_allow_always" msgid="4573292371734011171">"Har doim ruxsat"</string>
     <string name="app_permission_button_allow_foreground" msgid="1991570451498943207">"Faqat ilova faolligida ruxsat"</string>
+    <string name="app_permission_button_always_allow_all" msgid="4905699259378428855">"Doim hammasiga ruxsat"</string>
     <string name="app_permission_button_ask" msgid="3342950658789427">"Har safar soʻralsin"</string>
     <string name="app_permission_button_deny" msgid="6016454069832050300">"Rad etish"</string>
     <string name="precise_image_description" msgid="6349638632303619872">"Aniq joylashuv"</string>
@@ -192,14 +196,14 @@
     <string name="app_permission_location_accuracy" msgid="7166912915040018669">"Aniq joylashuv axborotidan foydalanish"</string>
     <string name="app_permission_location_accuracy_subtitle" msgid="2654077606404987210">"Aniq joylashuv yoqilmasa, ilovalar taxminiy joylashuvingiz axborotidan foydalanadi"</string>
     <string name="app_permission_title" msgid="2090897901051370711">"<xliff:g id="PERM">%1$s</xliff:g> ruxsati"</string>
-    <string name="app_permission_header" msgid="2951363137032603806">"<xliff:g id="PERM">%1$s</xliff:g>: bu ilova uchun ruxsat"</string>
+    <string name="app_permission_header" msgid="2951363137032603806">"Bu ilova uchun <xliff:g id="PERM">%1$s</xliff:g> ruxsati"</string>
     <string name="app_permission_footer_app_permissions_link" msgid="4926890342636587393">"<xliff:g id="APP">%1$s</xliff:g> uchun berilgan barcha ruxsatlar"</string>
     <string name="app_permission_footer_permission_apps_link" msgid="3941988129992794327">"Bu ruxsatga ega barcha ilovalar"</string>
     <string name="assistant_mic_label" msgid="1011432357152323896">"Assistent uchun mikrofondan foydalanishni koʻrsatish"</string>
     <string name="unused_apps_category_title" msgid="2988455616845243901">"Ishlatilmagan ilova sozlamalari"</string>
     <string name="auto_revoke_label" msgid="5068393642936571656">"Ishlatilmayotgan ilovalardan ruxsatlarni olib tashlash"</string>
     <string name="unused_apps_label" msgid="2595428768404901064">"Ruxsatlarni olib tashlash va joy ochish"</string>
-    <string name="unused_apps_label_v2" msgid="7058776770056517980">"Ishlatilmaydigan ilovalarni toʻxtating"</string>
+    <string name="unused_apps_label_v2" msgid="7058776770056517980">"Ishlatilmayotgan ilovalarni pauzalash"</string>
     <string name="unused_apps_summary" msgid="8839466950318403115">"Ruxsatlarni olib tashlash, vaqtinchalik fayllarni oʻchirish va bildirishnomalarni toʻxtatish"</string>
     <string name="auto_revoke_summary" msgid="5867548789805911683">"Xavfsizlik yuzasidan, bir necha oydan beri ishlatilmagan ilovalardan ruxsatlar olib tashlanadi"</string>
     <string name="auto_revoke_summary_with_permissions" msgid="389712086597285013">"Agar bu ilova bir necha oy ishlatilmasa, quyidagi ruxsatlar olib tashlanadi: <xliff:g id="PERMS">%1$s</xliff:g>"</string>
@@ -211,14 +215,13 @@
     <string name="auto_revocable_permissions_two" msgid="4874067408752041716">"<xliff:g id="PERM_0">%1$s</xliff:g> va <xliff:g id="PERM_1">%2$s</xliff:g> ruxsatlari olib tashlanadi."</string>
     <string name="auto_revocable_permissions_many" msgid="1521807896206032992">"Olib tashlanadigan ruxsatlar: <xliff:g id="PERMS">%1$s</xliff:g>."</string>
     <string name="auto_manage_title" msgid="7693181026874842935">"Ruxsatlarni avtomatik boshqarish"</string>
-    <string name="off" msgid="1438489226422866263">"Yoqilmagan"</string>
     <string name="auto_revoked_app_summary_one" msgid="7093213590301252970">"<xliff:g id="PERMISSION_NAME">%s</xliff:g> ruxsati olib tashlandi"</string>
     <string name="auto_revoked_app_summary_two" msgid="1910545340763709389">"<xliff:g id="PERMISSION_NAME_0">%1$s</xliff:g> va yana <xliff:g id="PERMISSION_NAME_1">%2$s</xliff:g> ta ruxsat olib tashlandi"</string>
     <string name="auto_revoked_app_summary_many" msgid="5930976230827378798">"<xliff:g id="PERMISSION_NAME">%1$s</xliff:g> va yana <xliff:g id="NUMBER">%2$s</xliff:g> ta ruxsat olib tashlandi"</string>
     <string name="unused_apps_page_title" msgid="6986983535677572559">"Ishlatilmagan ilovalar"</string>
     <string name="unused_apps_page_summary" msgid="1867593913217272155">"Ilova bir necha oy ishlatilmasa:\n\n• Maxfiyligingizni himoyalash uchun ruxsatlar bekor qilinadi\n• Batareyani tejash uchun bildirishnomalar toʻxtatiladi\n• Boʻsh joy ochish uchun vaqtinchalik fayllar tozalab tashlanadi\n\nRuxsat va bildirishnomalarga yana ruxsat berish uchun ilovani oching."</string>
-    <string name="unused_apps_page_tv_summary" msgid="3685907153054355671">"Ilova bir necha oy ishlatilmasa:\n\n• Maxfiyligingizni himoyalash uchun ruxsatlar bekor qilinadi\n• Boʻsh joy ochish uchun vaqtinchalik fayllar tozalab tashlanadi\n\nRuxsatlarni qayta berish uchun ilovani oching."</string>
-    <string name="last_opened_category_title" msgid="7871347400611202595">"Oxirgi marta <xliff:g id="NUMBER">%s</xliff:g> oy oldin ochilgan"</string>
+    <string name="unused_apps_page_tv_summary" msgid="2624911608663778308">"Ilova bir oy ishlatilmasa:\n\n• Maxfiyligingizni himoyalash uchun ruxsatlar bekor qilinadi\n• Boʻsh joy ochish uchun vaqtinchalik fayllar tozalab tashlanadi\n\nRuxsatlarni qayta berish uchun ilovani oching."</string>
+    <string name="last_opened_category_title" msgid="8796557894614236128">"{count,plural, =1{Oxirgi marta # oy oldinroq ochilgan}other{Oxirgi marta # oy oldinroq ochilgan}}"</string>
     <string name="last_opened_summary" msgid="5248984030024968808">"Ilova oxirgi marta ochilgan: <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="last_opened_summary_short" msgid="1646067226191176825">"Oxirgi marta ochilgan: <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="app_permission_footer_special_file_access" msgid="1884202176147657788">"Barcha fayllarni boshqarishga ruxsat berilsa, ilova bu qurilmadagi yoki ulangan xotira omborlaridagi barcha fayllarni ochishi, tahrirlashi yoki oʻchirib tashlashi mumkin. Ilova fayllar bilan sizga xabar qilmay ishlay oladi."</string>
@@ -251,9 +254,9 @@
     <string name="denied_header" msgid="903209608358177654">"Ruxsat berilmagan"</string>
     <string name="storage_footer_hyperlink_text" msgid="8873343987957834810">"Barcha fayllarga kirish uchun koʻproq ilovalarni koʻring"</string>
     <string name="days" msgid="609563020985571393">"{count,plural, =1{1 kun}other{# kun}}"</string>
-    <string name="hours" msgid="3447767892295843282">"{count,plural, =1{1 soat}other{# soat}}"</string>
-    <string name="minutes" msgid="4408293038068503157">"{count,plural, =1{1 daqiqa}other{# daqiqa}}"</string>
-    <string name="seconds" msgid="5397771912131132690">"{count,plural, =1{1 soniya}other{# soniya}}"</string>
+    <string name="hours" msgid="7302866489666950038">"{count,plural, =1{# soat}other{# soat}}"</string>
+    <string name="minutes" msgid="4868414855445375753">"{count,plural, =1{# daqiqa}other{# daqiqa}}"</string>
+    <string name="seconds" msgid="5893958182059842734">"{count,plural, =1{# soniya}other{# soniya}}"</string>
     <string name="permission_reminders" msgid="6528257957664832636">"Ruxsat eslatmalari"</string>
     <string name="auto_revoke_permission_reminder_notification_title_one" msgid="6690347469376854137">"1 ta ishlatilmagan ilova"</string>
     <string name="auto_revoke_permission_reminder_notification_title_many" msgid="6062217713645069960">"<xliff:g id="NUMBER_OF_APPS">%s</xliff:g> ta ishlatilmagan ilova"</string>
@@ -262,6 +265,9 @@
     <string name="auto_revoke_permission_notification_content" msgid="5125990886047799375">"Ayrim ilovalar bir necha oydan beri ishlatilmadi. Tekshirish uchun bosing."</string>
     <string name="unused_apps_notification_title" msgid="4314832015894238019">"{count,plural, =1{# ta ishlatilmagan ilova}other{# ta ishlatilmagan ilova}}"</string>
     <string name="unused_apps_notification_content" msgid="9195026773244581246">"Ruxsatlar va vaqtinchalik fayllar olib tashlandi hamda bildirishnomalar toʻxtatildi. Tekshirish uchun bosing."</string>
+    <string name="unused_apps_safety_center_card_title" msgid="5638409355530099149">"Ruxsat olib tashlangan ilovalarni tekshirish"</string>
+    <string name="unused_apps_safety_center_card_content" msgid="1088557243627427820">"Ruxsatlarni bekor qildik, vaqtinchalik fayllarni oʻchirib tashladik va siz anchadan beri foydalanmayotgan ilovalaringiz uchun bildirishnomalarni faolsizlantirdik."</string>
+    <string name="unused_apps_safety_center_action_title" msgid="8865914432518993194">"Ilovalarni tekshirish"</string>
     <string name="post_drive_permission_decision_reminder_title" msgid="1290697371418139976">"Oxirgi ruxsatlarni tekshirish"</string>
     <string name="post_drive_permission_decision_reminder_summary_1_app_1_permission" msgid="670521503734140711">"Haydash vaqtida <xliff:g id="APP">%1$s</xliff:g> ilovasiga <xliff:g id="PERMISSION">%2$s</xliff:g> ruxsatini bergansiz"</string>
     <string name="post_drive_permission_decision_reminder_summary_1_app_2_permissions" msgid="671791184670801301">"Haydash vaqtida <xliff:g id="APP">%1$s</xliff:g> ilovasiga <xliff:g id="PERMISSION_1">%2$s</xliff:g> va <xliff:g id="PERMISSION_2">%3$s</xliff:g> ruxsatlarini bergansiz"</string>
@@ -276,6 +282,19 @@
     <string name="auto_revoke_preference_summary" msgid="5517958331781391481">"Xavfsizlik yuzasidan, ruxsatlar olib tashlandi"</string>
     <string name="background_location_access_reminder_notification_title" msgid="1140797924301941262">"<xliff:g id="APP_NAME">%s</xliff:g> geolokatsiyangizni fonda aniqladi"</string>
     <string name="background_location_access_reminder_notification_content" msgid="7787084707336546245">"Bu ilova joylashuv axborotingizdan foydalana oladi. Oʻzgartirish uchun bosing."</string>
+    <string name="notification_listener_reminder_notification_title" msgid="3747210460187479091">"Bildirishnomalaringizga ruxsati bor ilovani tekshiring"</string>
+    <string name="notification_listener_reminder_notification_content" msgid="831476101108863427">"<xliff:g id="APP_NAME">%s</xliff:g> ilovasining bildirishnomalar ichidagi kontentni ochish va yopishga ruxsati bor"</string>
+    <string name="notification_listener_warning_card_content" msgid="7840973324284115893">"Bu ilovaning bildirishnomalar ichidagi kontentni ochishi va yopishiga ruxsat berilgan. Bu uning xatosiz ishlashi uchun zarur."</string>
+    <string name="notification_listener_remove_access_button_label" msgid="7101898782417817097">"Ruxsatni olib tashlash"</string>
+    <string name="notification_listener_review_app_button_label" msgid="3433073281029143924">"Boshqa variantlarni tanlash"</string>
+    <string name="notification_listener_remove_access_success_label" msgid="2477611529875633107">"Ruxsat olib tashlandi"</string>
+    <string name="accessibility_access_reminder_notification_title" msgid="2971317234668807566">"Toʻliq kirish imkoniyati bilan ilovani tekshiring"</string>
+    <string name="accessibility_access_reminder_notification_content" msgid="7389454158175306720">"<xliff:g id="APP_NAME">%s</xliff:g> ekraningizni koʻra oladi va qurilmangizda amallarni bajara oladi. Qulayliklar ilovalari kutilganidek ishlashi uchun bunday ruxsatni talab qiladi."</string>
+    <string name="accessibility_access_warning_card_content" msgid="4370327190293217358">"Bu ilova ekraningizni koʻra oladi va qurilmangizda amallarni bajara oladi. Qulayliklar ilovalari kutilganidek ishlashi uchun bunday ruxsatni talab qiladi, lekin ilovaning ishonchli ekanini tekshiring."</string>
+    <string name="accessibility_remove_access_button_label" msgid="44145801526711640">"Ruxsatni olib tashlash"</string>
+    <string name="accessibility_show_all_apps_button_label" msgid="960067249326392280">"Toʻliq ruxsatga ega ilovalarni koʻrsatish"</string>
+    <string name="accessibility_remove_access_success_label" msgid="4380995302917014670">"Ruxsat olib tashlandi"</string>
+    <string name="safety_center_notification_app_label" msgid="2457720616141926534">"Android tizimi"</string>
     <string name="auto_revoke_after_notification_title" msgid="5417761027669887431">"Xavfsizlik himoyasi uchun ilova ruxsatlari olib tashlandi"</string>
     <string name="auto_revoke_after_notification_content_one" msgid="6804038707453662753">"<xliff:g id="APP_NAME">%s</xliff:g> bir necha oydan beri ishlatilmadi. Tekshirish uchun bosing."</string>
     <string name="auto_revoke_after_notification_content_two" msgid="9108709764831425172">"<xliff:g id="APP_NAME">%s</xliff:g> va yana 1 ta ilova bir necha oydan beri ishlatilmadi. Tekshirish uchun bosing."</string>
@@ -378,6 +397,10 @@
     <string name="role_watch_description" msgid="267003778693177779">"<xliff:g id="APP_NAME">%1$s</xliff:g> ilovasiga bildirishnomalar bilan ishlash va telefon, SMS, kontaktlar va taqvimga kirishga ruxsat beriladi"</string>
     <string name="role_app_streaming_description" msgid="7341638576226183992">"<xliff:g id="APP_NAME">%1$s</xliff:g> ilovasiga bildirishnomalar bilan ishlash va ulangan qurilmalarga ilovalarni translatsiya qilishga ruxsat beriladi"</string>
     <string name="role_companion_device_computer_description" msgid="416099879217066377">"Bu xizmat telefoningizdagi suratlar, media va bildirishnomalarni boshqa qurilmalarga ulashadi."</string>
+    <string name="role_notes_label" msgid="7451627001058089536">"Birlamchi qaydlar ilovasi"</string>
+    <string name="role_notes_short_label" msgid="8796604147546125285">"Qaydlar ilovasi"</string>
+    <string name="role_notes_description" msgid="8496852798616883551">"Qurilmangizda qaydlar olish imkonini beruvchi ilovalar"</string>
+    <string name="role_notes_search_keywords" msgid="7710756695666744631">"qaydlar"</string>
     <string name="request_role_current_default" msgid="738722892438247184">"Hozirda asosiy ilova"</string>
     <string name="request_role_dont_ask_again" msgid="3556017886029520306">"Boshqa soʻralmasin"</string>
     <string name="request_role_set_as_default" msgid="4253949643984172880">"Birlamchi deb belgilash"</string>
@@ -451,7 +474,8 @@
     <string name="permgrouprequest_storage_q_to_s" msgid="8213701872983685505">"<xliff:g id="APP_NAME">%1$s</xliff:g> uchun ushbu qurilmadagi surat, video, musiqa va audiolarga kirish ruxsati berilsinmi?"</string>
     <string name="permgrouprequest_storage_pre_q" msgid="168130651144569428">"<xliff:g id="APP_NAME">%1$s</xliff:g> uchun ushbu qurilmadagi surat, video, musiqa, audio va fayllarga kirish ruxsati berilsinmi?"</string>
     <string name="permgrouprequest_read_media_aural" msgid="2593365397347577812">"<xliff:g id="APP_NAME">%1$s</xliff:g> uchun ushbu qurilmadagi musiqa va audio fayllarga kirish ruxsati berilsinmi?"</string>
-    <string name="permgrouprequest_read_media_visual" msgid="5548780620779729975">"<xliff:g id="APP_NAME">%1$s</xliff:g> uchun qurilmadagi rasm va videolarga kirish ruxsati berilsinmi?"</string>
+    <string name="permgrouprequest_read_media_visual" msgid="5548780620779729975">"<xliff:g id="APP_NAME">%1$s</xliff:g> uchun qurilmadagi suratlar va videolarga kirish ruxsati berilsinmi?"</string>
+    <string name="permgrouprequest_more_photos" msgid="128933814654231321">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; uchun qurilmadagi boshqa surat va videolarga kirish ruxsati berilsinmi?"</string>
     <string name="permgrouprequest_microphone" msgid="2825208549114811299">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; uchun audio yozib olish ruxsati berilsinmi?"</string>
     <string name="permgrouprequestdetail_microphone" msgid="8510456971528228861">"Bu ilova faqat undan foydalanganingizda ovozlarni yozib oladi"</string>
     <string name="permgroupbackgroundrequest_microphone" msgid="8874462606796368183">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; uchun audio yozib olishga ruxsat berilsinmi?"</string>
@@ -474,8 +498,8 @@
     <string name="permgroupupgraderequest_sensors" msgid="7576527638411370468">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ilovasining tanadagi sensor maʼlumotlaridan foydalanishiga ruxsat berilsinmi?"</string>
     <string name="permgrouprequest_notifications" msgid="6396739062335106181">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ilovasiga sizga bildirishnomalar yuborishi uchun ruxsat berilsinmi?"</string>
     <string name="auto_granted_permissions" msgid="6009452264824455892">"Boshqariluvchi ruxsatlar"</string>
-    <string name="auto_granted_location_permission_notification_title" msgid="1438871159268985993">"Joylashuv axborotiga ruxsati bor"</string>
-    <string name="auto_granted_permission_notification_body" msgid="6919835973190443695">"AT administratori <xliff:g id="APP_NAME">%s</xliff:g> ilovasiga joylashuvingiz haqidagi axborotdan foydalanishga ruxsat bergan"</string>
+    <string name="auto_granted_location_permission_notification_title" msgid="7570818224669050377">"<xliff:g id="APP_NAME">%1$s</xliff:g> joylashuvga kira oladi"</string>
+    <string name="auto_granted_permission_notification_body" msgid="5040234389205471318">"Tashkilotingiz <xliff:g id="APP_NAME">%1$s</xliff:g> ilovasiga joylashuvingizga kirishga ruxsat bergan"</string>
     <string name="other_permissions_label" msgid="8986184335503271992">"Boshqa ruxsatlar"</string>
     <string name="not_used_permissions_label" msgid="3939839426115141264">"Tizim ishlatadigan ruxsatlar"</string>
     <string name="not_used_permissions_description" msgid="7595514824169388718">"Faqat tizim ilovalari ishlatadigan ruxsatlar"</string>
@@ -496,17 +520,28 @@
     <string name="blocked_sensor_summary" msgid="4443707628305027375">"Ilovalar va xizmatlar uchun"</string>
     <string name="blocked_mic_summary" msgid="8960466941528458347">"Favqulodda xizmat raqamiga telefon qilganingizda mikrofon maʼlumotlari hamon ulashilishi mumkin."</string>
     <string name="blocked_sensor_button_label" msgid="6742092634984289658">"Oʻzgartirish"</string>
-    <string name="safety_center_dashboard_page_title" msgid="7514620345152008005">"Xavfsizlik va maxfiylik"</string>
-    <string name="safety_center_rescan_button" msgid="8047036829052958144">"Qidiruv"</string>
+    <string name="safety_center_dashboard_page_title" msgid="2810774008694315854">"Xavfsizlik va maxfiylik"</string>
+    <string name="safety_center_rescan_button" msgid="4517514567809409596">"Qurilmani tekshirish"</string>
     <string name="safety_center_issue_card_dismiss_button" msgid="5113965506144222402">"Yopish"</string>
+    <string name="safety_center_issue_card_dismiss_confirmation_title" msgid="2734809473425036382">"Bu ogohlantirish yopilsinmi?"</string>
+    <string name="safety_center_issue_card_dismiss_confirmation_message" msgid="3775418736671093563">"Himoyani kuchaytirish uchun xavfsizlik va maxfiylik sozlamalarini istalgan vaqt tekshiring"</string>
+    <string name="safety_center_issue_card_confirm_dismiss_button" msgid="5884137843083634556">"Yopish"</string>
+    <string name="safety_center_issue_card_cancel_dismiss_button" msgid="2874578798877712346">"Bekor qilish"</string>
+    <string name="safety_center_entries_category_title" msgid="34356964062813115">"Sozlamalar"</string>
+    <string name="safety_status_preference_title_and_summary_content_description" msgid="3511373256505058464">"Xavfsizlik va maxfiylik holati. <xliff:g id="OVERALL_SAFETY_STATUS">%1$s</xliff:g>. <xliff:g id="SUMMARY_OF_DEVICE_STATUS">%2$s</xliff:g>"</string>
     <string name="security_settings" msgid="3808106921175271317">"Xavfsizlik sozlamalari"</string>
-    <string name="sensor_permissions_qs" msgid="4365989229426201877">"Sensorlarga ruxsatlar"</string>
-    <string name="privacy_controls_qs" msgid="471793881466080745">"Maxfiylik boshqaruvi"</string>
+    <string name="sensor_permissions_qs" msgid="1022267900031317472">"Ruxsatlar"</string>
+    <string name="safety_privacy_qs_tile_title" msgid="727301867710374052">"Xavfsizlik va maxfiylik"</string>
+    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"Holatini tekshirish"</string>
+    <string name="privacy_controls_qs" msgid="5780144882040591169">"Daxlsizlik nazorati"</string>
+    <string name="security_settings_button_label_qs" msgid="8280343822465962330">"Boshqa sozlamalar"</string>
+    <string name="camera_toggle_label_qs" msgid="3880261453066157285">"Kameraga ruxsat"</string>
+    <string name="microphone_toggle_label_qs" msgid="8132912469813396552">"Mikrofondan foydalanish"</string>
     <string name="permissions_removed_qs" msgid="8957319130625294572">"Ruxsat olib tashlandi"</string>
-    <string name="camera_usage_qs" msgid="7943349178368641820">"Kamera ishlatgan boshqa ilovalar"</string>
-    <string name="microphone_usage_qs" msgid="2393193350541830472">"Mikrofon ishlatgan boshqa ilovalar"</string>
-    <string name="remove_camera_qs" msgid="8209716677879809162">"Kameraga ruxsatni olib tashlash"</string>
-    <string name="remove_microphone_qs" msgid="2893536836641560183">"Mikrofonga ruxsatni olib tashlash"</string>
+    <string name="camera_usage_qs" msgid="4394233566086665994">"Oxirgi kameradan foydalanish axborotini koʻrsatish"</string>
+    <string name="microphone_usage_qs" msgid="8527666682168170417">"Oxirgi mikrofondan foydalanish axborotini koʻrsatish"</string>
+    <string name="remove_camera_qs" msgid="3649996161066883350">"Bu ilova uchun ruxsatni olib tashlash"</string>
+    <string name="remove_microphone_qs" msgid="1276551965129953198">"Bu ilova uchun ruxsatni olib tashlash"</string>
     <string name="manage_service_qs" msgid="7862555549364153805">"Xizmatni boshqarish"</string>
     <string name="manage_permissions_qs" msgid="3780541819763475434">"Ruxsatlarni boshqarish"</string>
     <string name="active_call_usage_qs" msgid="8559974395932523391">"Telefon chaqiruvi ishlatmoqda"</string>
@@ -517,8 +552,6 @@
     <string name="recent_app_usage_1_qs" msgid="261450184773310741">"Yaqinda <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g>) ishlatgan"</string>
     <string name="active_app_usage_2_qs" msgid="6107866785243565283">"<xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>) ishlatmoqda"</string>
     <string name="recent_app_usage_2_qs" msgid="3591205954235694403">"Yaqinda <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>) ishlatgan"</string>
-    <string name="safety_privacy_qs_tile_title" msgid="5431148204168066203">"Xavfsizlik va maxfiylik"</string>
-    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"Holatini tekshirish"</string>
     <string name="media_confirm_dialog_positive_button" msgid="9020793594051526399">"OK"</string>
     <string name="media_confirm_dialog_negative_button" msgid="226987376924861785">"Orqaga"</string>
     <string name="media_confirm_dialog_title_a_to_p_aural_allow" msgid="8560601114044699903">"Boshqa fayllarga kirishga ham ruxsat beriladi"</string>
@@ -537,4 +570,53 @@
     <string name="media_confirm_dialog_message_q_to_s_aural_deny" msgid="6832087393653561911">"Bu ilova eng oxirgi Android versiyasi bilan ishlamaydi. Agar bu ilova musiqa va audio fayllarga kira olmasa, unga suratlar va videolarga ham kirishiga ruxsat berilmaydi."</string>
     <string name="media_confirm_dialog_message_q_to_s_visual_allow" msgid="3504335060843147760">"Bu ilova eng oxirgi Android versiyasi bilan ishlamaydi. Agar bu ilova suratlar va videolarga kira olsa, unga musiqa, va audio fayllarga ham kirishiga ruxsat beriladi."</string>
     <string name="media_confirm_dialog_message_q_to_s_visual_deny" msgid="2145973462806481992">"Bu ilova eng oxirgi Android versiyasi bilan ishlamaydi. Agar bu ilova musiqa va audio fayllarga kira olmasa, unga suratlar va videolarga ham kirishiga ruxsat berilmaydi."</string>
+    <string name="safety_center_background_location_access_notification_title" msgid="8933610618810588237">"Joylashuv axborotidan fonda foydalanish ruxsati bor ilovani tekshiring"</string>
+    <string name="safety_center_background_location_access_reminder_notification_content" msgid="4066560182507301022">"Ilova yopiq boʻlsa ham <xliff:g id="APP_NAME">%s</xliff:g> doim joylashuv axborotiga kira oladi"</string>
+    <string name="safety_center_background_location_access_reminder_title" msgid="5477847038103863843">"Joylashuv axborotidan fonda foydalanish ruxsati bor ilovani tekshiring"</string>
+    <string name="safety_center_background_location_access_reminder_summary" msgid="7431657777510537658">"Bu ilova yopiq ekanligida ham har doim joylashuv axborotiga kira oladi.\n\nAyrim xavfsizlik va favqulodda holatlar ilovalari maqsadga muvofiq ishlashi uchun fonda joylashuv axborotidan foydalanishni talab qiladi."</string>
+    <string name="safety_center_background_location_access_revoked" msgid="6972274943343442213">"Ruxsat oʻzgartirildi"</string>
+    <string name="safety_center_view_recent_location_access" msgid="3524391299490678243">"Oxirgi joylashuvdan foydalanish maʼlumotlarini koʻrsatish"</string>
+    <string name="privacy_controls_title" msgid="7605929972256835199">"Maxfiylik sozlamalari"</string>
+    <string name="camera_toggle_title" msgid="1251201397431837666">"Kameraga ruxsat"</string>
+    <string name="mic_toggle_title" msgid="2649991093496110162">"Mikrofonga ruxsat"</string>
+    <string name="perm_toggle_description" msgid="7801326363741451379">"Ilovalar va xizmatlar uchun"</string>
+    <string name="mic_toggle_description" msgid="9163104307990677157">"Ilovalar va xizmatlar uchun. Bu sozlama yoqilmasa, favqulodda xizmat raqamiga telefon qilganingizda mikrofon maʼlumotlari hamon ulashilishi mumkin."</string>
+    <string name="location_settings_subtitle" msgid="2328360561197430695">"Joylashuv axborotiga ruxsati bor ilovalar va xizmatlari"</string>
+    <string name="show_clip_access_notification_title" msgid="5168467637351109096">"Vaqtinchalik xotiraga kirish haqida ogohlantirish"</string>
+    <string name="show_clip_access_notification_summary" msgid="3532020182782112687">"Ilovalar siz nusxa olgan matn, rasmlar yoki boshqa kontentdan foydalanganda xabar chiqarish"</string>
+    <string name="show_password_title" msgid="2877269286984684659">"Parollar ochiq tursin"</string>
+    <string name="show_password_summary" msgid="1110166488865981610">"Parolni kiritishda belgilar qisqa muddat ochiq turadi"</string>
+    <string name="permission_rationale_message_location" msgid="2153841534298068414">"Bu ilovaning maʼlumotlarini begonalarga ulashishi mumkinligi xabar berildi"</string>
+    <string name="permission_rationale_location_title" msgid="2404797182678793506">"Maʼlumotlar ulashuvi va joylashuv axboroti"</string>
+    <string name="permission_rationale_data_sharing_source_title" msgid="6874604543125814316">"Maʼlumotlar ulashuvi haqidagi axborot manbasi"</string>
+    <string name="permission_rationale_data_sharing_device_manufacturer_message" msgid="7569261218145653185">"Dasturchi bu qurilma ishlab chiqaruvchisiga ushbu ilova maʼlumotlarni qanday ulashishi haqida axborot berdi. Bu axborot keyinchalik yangilanishi mumkin."</string>
+    <string name="permission_rationale_data_sharing_source_message" msgid="8330794595417986883">"Dasturchi "<annotation id="link"><annotation id="install_source" example="App Store">"%1$s"</annotation></annotation>" ga bu ilovadagi maʼlumotlar qanday ulashilishi haqida axborot bergan. Bu axborot keyinchalik yangilanishi mumkin."</string>
+    <string name="permission_rationale_location_purpose_title" msgid="5115877143670012618">"Ilova joylashuv axborotini quyidagicha ulashadi:"</string>
+    <string name="permission_rationale_permission_data_sharing_varies_title" msgid="9103718980919908316">"Maʼlumotlarning turlicha ulashuvi"</string>
+    <string name="permission_rationale_data_sharing_varies_message" msgid="4224469559084489222">"Axborot bilan ishlash amaliyotlari ilova versiyasi, foydalanish, hudud va yoshga qarab farq qilishi mumkin. "<annotation id="link">"Maʼlumotlar ulashuvi haqida batafsil"</annotation></string>
+    <string name="permission_rationale_data_sharing_varies_message_without_link" msgid="4912763761399025094">"Axborot bilan ishlash amaliyotlari ilova versiyasi, foydalanish, hudud va yoshga qarab farq qilishi mumkin."</string>
+    <string name="permission_rationale_location_settings_title" msgid="7204145004850190953">"Joylashuvingiz axboroti"</string>
+    <string name="permission_rationale_permission_settings_message" msgid="631286040979660267">"Bu ilovaning "<annotation id="link">"maxfiylik sozlamalariga"</annotation>" ruxsatini oʻzgartiring"</string>
+    <string name="permission_rationale_purpose_app_functionality" msgid="8397736681065841405">"Ilova funksiyalari"</string>
+    <string name="permission_rationale_purpose_analytics" msgid="2070800501189620712">"Analitika"</string>
+    <string name="permission_rationale_purpose_developer_communications" msgid="6453047018892062374">"Dasturchidan axborot"</string>
+    <string name="permission_rationale_purpose_advertising" msgid="7156966429245180236">"Reklama yoki marketing"</string>
+    <string name="permission_rationale_purpose_fraud_prevention_security" msgid="4262104770357031902">"Firibgarlikning oldini olish, xavfsizlik va unga rioya qilish"</string>
+    <string name="permission_rationale_purpose_personalization" msgid="1589973273682238708">"Moslashtirish"</string>
+    <string name="permission_rationale_purpose_account_management" msgid="2985772421946688879">"Hisob boshqaruvi"</string>
+    <string name="app_permission_rationale_message" msgid="8511466916077100713">"Maʼlumotlar xavfsizligi"</string>
+    <string name="app_location_permission_rationale_title" msgid="925420340572401350">"Joylashuv axboroti ulashilishi mumkin"</string>
+    <string name="app_location_permission_rationale_subtitle" msgid="6986985722752868692">"Bu ilova tashqariga joylashuv axborotini ulashishi mumkinligi aniqlandi"</string>
+    <string name="data_sharing_updates_title" msgid="7996933386875213859">"Joylashuv axboroti ulashuvidagi oʻzgarishlar"</string>
+    <string name="data_sharing_updates_summary" msgid="764113985772233889">"Joylashuv axboroti ulashuviga oʻzgartirish kiritgan ilovalarni tekshiring"</string>
+    <string name="data_sharing_updates_subtitle" msgid="6311537708950632329">"Quyidagi ilovalarda joylashuv axboroti ulashuvi oʻzgardi. Avval ulashilmagan boʻlishi yoki endi reklama va marketing maqsadlarida ulashilishi mumkin"</string>
+    <string name="data_sharing_updates_footer_message" msgid="1582711655172892107">"Quyidagi ilovalar dasturchilari ilova doʻkoniga maʼlumotlar qanday ulashilishi haqida axborot bergan. Bu axborot keyinchalik yangilanishi mumkin.\n\nMaʼlumotlar ilova versiyasi, foydalanishi, mamlakat va yosh asosida ulashiladi."</string>
+    <string name="learn_about_data_sharing" msgid="4200480587079488045">"Maʼlumotlar ulashuvi haqida batafsil"</string>
+    <string name="shares_location_with_third_parties" msgid="2278051743742057767">"Joylashuvingiz axboroti endi tashqariga ulashilmoqda"</string>
+    <string name="shares_location_with_third_parties_for_advertising" msgid="1918588064014480513">"Joylashuvingizga oid axborotlar endi reklama yoki marketing maqsadlarida tashqariga ulashilmoqda"</string>
+    <string name="updated_in_last_days" msgid="8371811947153042322">"{count,plural, =0{Oxirgi bir kunda yangilandi}=1{Oxirgi bir kunda yangilandi}other{Oxirgi # kunda yangilandi}}"</string>
+    <string name="no_updates_at_this_time" msgid="9031085635689982935">"Hozircha yangilanishlar mavjud emas"</string>
+    <string name="safety_label_changes_notification_title" msgid="4479955083472203839">"Axborot ulashuvi yangilanishi"</string>
+    <string name="safety_label_changes_notification_desc" msgid="7808764283266234675">"Ayrim ilovalarda joylashuv axboroti ulashuvi oʻzgardi"</string>
+    <string name="safety_label_changes_gear_description" msgid="2655887555599138509">"Sozlamalar"</string>
 </resources>

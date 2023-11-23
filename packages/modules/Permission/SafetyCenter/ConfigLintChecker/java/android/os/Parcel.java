@@ -29,6 +29,8 @@ public interface Parcel {
     int readInt();
     /** Method used in the Safety Center config data structures. */
     String readString();
+    /** Method used in the Safety Center config data structures. */
+    ArrayList<String> createStringArrayList();
 
     /** Method used in the Safety Center config data structures. */
     void writeBoolean(boolean value);
@@ -36,6 +38,8 @@ public interface Parcel {
     void writeInt(int value);
     /** Method used in the Safety Center config data structures. */
     void writeString(String value);
+    /** Method used in the Safety Center config data structures. */
+    void writeStringList(List<String> value);
     /** Method used in the Safety Center config data structures. */
     <T extends Parcelable> void writeTypedList(List<T> value);
 }

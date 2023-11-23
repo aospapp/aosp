@@ -42,7 +42,6 @@ import org.jetbrains.uast.UElement
 import org.jetbrains.uast.UField
 import org.jetbrains.uast.UMethod
 import org.jetbrains.uast.getUastParentOfType
-import org.jetbrains.uast.kotlin.KotlinUClass
 import org.jetbrains.uast.toUElement
 
 /**
@@ -61,7 +60,9 @@ import org.jetbrains.uast.toUElement
  * `@Module` when the parent class is _not_ also annotated with `@Module`. While technically legal,
  * these should be moved up to top-level objects to avoid confusion.
  */
-@Suppress("UnstableApiUsage") // Lots of Lint APIs are marked with @Beta.
+@Suppress(
+  "UnstableApiUsage" // Lots of Lint APIs are marked with @Beta.
+)
 class DaggerKotlinIssueDetector : Detector(), SourceCodeScanner {
 
   companion object {
@@ -164,9 +165,9 @@ class DaggerKotlinIssueDetector : Detector(), SourceCodeScanner {
         }
         // Can't use hasAnnotation because it doesn't capture all annotations!
         val injectAnnotation =
-          node.annotations.find { it.qualifiedName == INJECT_ANNOTATION } ?: return
+          node.uAnnotations.find { it.qualifiedName == INJECT_ANNOTATION } ?: return
         // Look for qualifier annotations
-        node.annotations.forEach { annotation ->
+        node.uAnnotations.forEach { annotation ->
           if (annotation === injectAnnotation) {
             // Skip the inject annotation
             return@forEach
@@ -257,6 +258,6 @@ class DaggerKotlinIssueDetector : Detector(), SourceCodeScanner {
 
   /** @return whether or not the [this] is a Kotlin `object` type. */
   private fun UClass.isObject(): Boolean {
-    return this is KotlinUClass && ktClass is KtObjectDeclaration
+    return sourcePsi is KtObjectDeclaration
   }
 }

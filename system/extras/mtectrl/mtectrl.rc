@@ -13,4 +13,15 @@
 # limitations under the License.
 
 on property:arm64.memtag.bootctl=*
-  exec -- /system/bin/mtectrl ${arm64.memtag.bootctl}
+  exec -- /system/bin/mtectrl ${arm64.memtag.bootctl:-none} ${persist.device_config.runtime_native_boot.bootloader_override:-default}
+
+on property:persist.device_config.runtime_native_boot.bootloader_override=*
+  exec -- /system/bin/mtectrl ${arm64.memtag.bootctl:-none} ${persist.device_config.runtime_native_boot.bootloader_override:-default}
+
+# adbd gets initialized in init, so run before that. this makes sure that the
+# user does not change the value before we initialize it
+on early-init && property:ro.arm64.memtag.bootctl_supported=1
+  exec -- /system/bin/mtectrl -s arm64.memtag.bootctl
+
+on shutdown && property:ro.arm64.memtag.bootctl_supported=1
+  exec -- /system/bin/mtectrl ${arm64.memtag.bootctl:-none} ${persist.device_config.runtime_native_boot.bootloader_override:-default}

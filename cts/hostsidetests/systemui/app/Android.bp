@@ -17,7 +17,7 @@ package {
 }
 
 android_test_helper_app {
-    name: "CtsSystemUiDeviceApp",
+    name: "CtsSystemUiDeviceApp33",
     defaults: ["cts_support_defaults"],
     srcs: ["src/**/*.java"],
     // tag this module as a cts test artifact
@@ -26,4 +26,6 @@ android_test_helper_app {
         "general-tests",
     ],
     sdk_version: "current",
+    // target version 33 so the test app can have its compat change disabled
+    target_sdk_version: "33",
 }

@@ -79,17 +79,11 @@ static void setup(void)
 {
 	int i;
 
-	if (tst_fs_type(".") == TST_NFS_MAGIC) {
-		if  (tst_kvercmp(2, 6, 32) < 0)
-			tst_brk(TCONF, "Cannot do splice on a file"
-				" on NFS filesystem before 2.6.32");
-	}
-
 	for (i = 0; i < TEST_BLOCK_SIZE; i++)
 		buffer[i] = i & 0xff;
 
 	fd_in = SAFE_OPEN(TESTFILE1, O_WRONLY | O_CREAT | O_TRUNC, 0777);
-	SAFE_WRITE(1, fd_in, buffer, TEST_BLOCK_SIZE);
+	SAFE_WRITE(SAFE_WRITE_ALL, fd_in, buffer, TEST_BLOCK_SIZE);
 	SAFE_CLOSE(fd_in);
 }
 
@@ -107,5 +101,4 @@ static struct tst_test test = {
 	.cleanup = cleanup,
 	.test_all = splice_test,
 	.needs_tmpdir = 1,
-	.min_kver = "2.6.17",
 };

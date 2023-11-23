@@ -43,6 +43,7 @@ import android.util.Log;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.metrics.CarrierIdMatchStats;
 import com.android.internal.telephony.metrics.TelephonyMetrics;
+import com.android.internal.telephony.subscription.SubscriptionManagerService;
 import com.android.internal.telephony.uicc.IccRecords;
 import com.android.internal.telephony.uicc.UiccController;
 import com.android.internal.telephony.util.TelephonyUtils;
@@ -54,6 +55,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * CarrierResolver identifies the subscription carrier and returns a canonical carrier Id
@@ -191,14 +193,14 @@ public class CarrierResolver extends Handler {
     }
 
     /**
-     * This is triggered from SubscriptionInfoUpdater after sim state change.
+     * This is triggered from UiccController after sim state change.
      * The sequence of sim loading would be
-     *  1. ACTION_SUBINFO_CONTENT_CHANGE
+     *  1. OnSubscriptionsChangedListener
      *  2. ACTION_SIM_STATE_CHANGED/ACTION_SIM_CARD_STATE_CHANGED
      *  /ACTION_SIM_APPLICATION_STATE_CHANGED
      *  3. ACTION_SUBSCRIPTION_CARRIER_IDENTITY_CHANGED
      *
-     *  For SIM refresh either reset or init refresh type, SubscriptionInfoUpdater will re-trigger
+     *  For SIM refresh either reset or init refresh type, UiccController will re-trigger
      *  carrier identification with sim loaded state. Framework today silently handle single file
      *  refresh type.
      *  TODO: check fileId from single file refresh, if the refresh file is IMSI, gid1 or other
@@ -547,7 +549,7 @@ public class CarrierResolver extends Handler {
         // subscriptioninfo db to make sure we have correct carrier id set.
         if (SubscriptionManager.isValidSubscriptionId(mPhone.getSubId()) && !isSimOverride) {
             // only persist carrier id to simInfo db when subId is valid.
-            SubscriptionController.getInstance().setCarrierId(mCarrierId, mPhone.getSubId());
+            SubscriptionManagerService.getInstance().setCarrierId(mPhone.getSubId(), mCarrierId);
         }
     }
 
@@ -751,7 +753,8 @@ public class CarrierResolver extends Handler {
         // Ideally we should do full string match. However due to SIM manufacture issues
         // gid from some SIM might has garbage tail.
         private boolean gidMatch(String gidFromSim, String gid) {
-            return (gidFromSim != null) && gidFromSim.toLowerCase().startsWith(gid.toLowerCase());
+            return (gidFromSim != null) && gidFromSim.toLowerCase(Locale.ROOT)
+                    .startsWith(gid.toLowerCase(Locale.ROOT));
         }
 
         private boolean carrierPrivilegeRulesMatch(List<String> certsFromSubscription,

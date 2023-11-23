@@ -18,17 +18,17 @@ package android.security.cts;
 
 import android.platform.test.annotations.AsbSecurityTest;
 
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
+import com.android.sts.common.util.TombstoneUtils;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import com.android.compatibility.common.util.CrashUtils;
-
 import java.util.Arrays;
-import java.util.ArrayList;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2020_0034 extends SecurityTestCase {
+public class CVE_2020_0034 extends NonRootSecurityTestCase {
 
     /**
      * b/62458770
@@ -40,9 +40,9 @@ public class CVE_2020_0034 extends SecurityTestCase {
         pocPusher.only32();
         String binaryName = "CVE-2020-0034";
         String inputFiles[] = {"cve_2020_0034.ivf"};
-        String signals[] = {CrashUtils.SIGABRT};
+        String signals[] = {TombstoneUtils.Signals.SIGABRT};
         AdbUtils.pocConfig testConfig = new AdbUtils.pocConfig(binaryName, getDevice());
-        testConfig.config = new CrashUtils.Config().setProcessPatterns(binaryName);
+        testConfig.config = new TombstoneUtils.Config().setProcessPatterns(binaryName);
         testConfig.inputFiles = Arrays.asList(inputFiles);
         testConfig.inputFilesDestination = AdbUtils.TMP_PATH;
         testConfig.arguments = AdbUtils.TMP_PATH + inputFiles[0];

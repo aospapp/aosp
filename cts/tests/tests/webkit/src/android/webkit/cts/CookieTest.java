@@ -17,29 +17,44 @@
 package android.webkit.cts;
 
 import android.platform.test.annotations.Presubmit;
-import android.test.ActivityInstrumentationTestCase2;
 import android.webkit.CookieManager;
-import android.webkit.CookieSyncManager;
 
 import com.android.compatibility.common.util.NullWebViewUtils;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import android.webkit.WebView;
+
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.MediumTest;
+
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Original framework tests for CookieManager
  */
-public class CookieTest extends ActivityInstrumentationTestCase2<CookieSyncManagerCtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class CookieTest extends SharedWebViewTest {
 
     private CookieManager mCookieManager;
     private static final long WAIT_TIME = 50;
 
-    public CookieTest() {
-        super("android.webkit.cts", CookieSyncManagerCtsActivity.class);
-    }
+    @Rule
+    public ActivityScenarioRule mActivityScenarioRule =
+            new ActivityScenarioRule(CookieSyncManagerCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        if (getActivity().getWebView() == null) {
+    @Before
+    public void setUp() throws Exception {
+        if (getTestEnvironment().getWebView() == null) {
             return;
         }
 
@@ -58,11 +73,30 @@ public class CookieTest extends ActivityInstrumentationTestCase2<CookieSyncManag
         assertFalse(mCookieManager.hasCookies());
     }
 
+    @Override
+    protected SharedWebViewTestEnvironment createTestEnvironment() {
+        Assume.assumeTrue("WebView is not available", NullWebViewUtils.isWebViewAvailable());
+
+        SharedWebViewTestEnvironment.Builder builder = new SharedWebViewTestEnvironment.Builder();
+
+        mActivityScenarioRule
+                .getScenario()
+                .onActivity(
+                        activity -> {
+                            WebView webView = ((CookieSyncManagerCtsActivity) activity)
+                                        .getWebView();
+                            builder.setHostAppInvoker(
+                                            SharedWebViewTestEnvironment.createHostAppInvoker(
+                                                activity))
+                                    .setWebView(webView);
+                        });
+
+        return builder.build();
+    }
+
     @Presubmit
+    @Test
     public void testDomain() {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         String url = "http://www.foo.com";
 
         // basic
@@ -100,10 +134,8 @@ public class CookieTest extends ActivityInstrumentationTestCase2<CookieSyncManag
         assertEquals("c=d", cookie);
     }
 
+    @Test
     public void testSubDomain() {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         String url_abcd = "http://a.b.c.d.com";
         String url_bcd = "http://b.c.d.com";
         String url_cd = "http://c.d.com";
@@ -144,10 +176,8 @@ public class CookieTest extends ActivityInstrumentationTestCase2<CookieSyncManag
         assertTrue(cookie.contains("x=cd"));
     }
 
+    @Test
     public void testInvalidDomain() {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         String url = "http://foo.bar.com";
 
         mCookieManager.setCookie(url, "a=1; domain=.yo.foo.bar.com");
@@ -183,10 +213,8 @@ public class CookieTest extends ActivityInstrumentationTestCase2<CookieSyncManag
         assertNull(cookie);
     }
 
+    @Test
     public void testPath() {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         String url = "http://www.foo.com";
 
         mCookieManager.setCookie(url, "a=b; path=/wee");
@@ -215,10 +243,8 @@ public class CookieTest extends ActivityInstrumentationTestCase2<CookieSyncManag
         assertEquals("a=b; a=d", cookie);
     }
 
+    @Test
     public void testEmptyValue() {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         String url = "http://www.foobar.com";
 
         mCookieManager.setCookie(url, "bar=");

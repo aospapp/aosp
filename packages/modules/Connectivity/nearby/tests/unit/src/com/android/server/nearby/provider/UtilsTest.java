@@ -110,8 +110,6 @@ public class UtilsTest {
     private static final byte[] ICON_PNG = new byte[]{2, 5};
     private static final String ID = "ID";
     private static final long LAST_OBSERVATION_TIMESTAMP_MILLIS = 934234L;
-    private static final int LAST_USER_EXPERIENCE = 1;
-    private static final long LOST_MILLIS = 393284L;
     private static final String MAC_ADDRESS = "MAC_ADDRESS";
     private static final String NAME = "NAME";
     private static final String PACKAGE_NAME = "PACKAGE_NAME";
@@ -121,7 +119,6 @@ public class UtilsTest {
     private static final String TITLE = "TITLE";
     private static final String TRIGGER_ID = "TRIGGER_ID";
     private static final int TX_POWER = 63;
-    private static final int TYPE = 1;
 
     @Test
     @SdkSuppress(minSdkVersion = 32, codeName = "T")

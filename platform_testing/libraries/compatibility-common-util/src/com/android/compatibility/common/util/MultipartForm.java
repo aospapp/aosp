@@ -16,6 +16,8 @@
 
 package com.android.compatibility.common.util;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -52,6 +54,7 @@ class MultipartForm {
      * @param value the attribute's value.
      * @return the {@link MultipartForm} for easy chaining.
      */
+    @CanIgnoreReturnValue
     public MultipartForm addFormValue(String name, String value) {
         mFormValues.put(name, value);
         return this;
@@ -65,6 +68,7 @@ class MultipartForm {
      * @param data The file's data
      * @return the {@link MultipartForm} for easy chaining.
      */
+    @CanIgnoreReturnValue
     public MultipartForm addFormFile(String name, String fileName, byte[] data) {
         mName = name;
         mFileName = fileName;

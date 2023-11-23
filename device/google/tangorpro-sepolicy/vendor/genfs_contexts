@@ -1,0 +1,27 @@
+# Dock
+genfscon sysfs /devices/platform/google,dock/power_supply/dock         u:object_r:sysfs_batteryinfo:s0
+
+# Touch
+genfscon sysfs /devices/platform/10d10000.spi/spi_master/spi0/spi0.0   u:object_r:sysfs_touch:s0
+
+# system suspend wakeup files
+genfscon sysfs /devices/platform/acpm_mfd_bus@18100000/i2c-6/i2c-s2mpg12mfd/s2mpg12-rtc/wakeup                            u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/acpm_mfd_bus@18100000/i2c-6/i2c-s2mpg12mfd/s2mpg12-rtc/rtc/rtc0/alarmtimer.1.auto/wakeup u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/acpm_mfd_bus@18100000/i2c-6/i2c-s2mpg12mfd/s2mpg12-power-keys/wakeup                     u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/acpm_mfd_bus@18100000/i2c-6/i2c-s2mpg12mfd/wakeup                                        u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/acpm_mfd_bus@18110000/i2c-7/i2c-s2mpg13mfd/wakeup                                        u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/google,dock/power_supply/dock/wakeup                                                     u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10d10000.spi/spi_master/spi0/spi0.0/power_supply/nvt-pen-battery/wakeup                  u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10d10000.spi/spi_master/spi0/spi0.0/input/input2/wakeup                                  u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10d10000.spi/spi_master/spi0/spi0.0/wakeup                                               u:object_r:sysfs_wakeup:s0
+
+# Pogo usb control & status
+genfscon sysfs /devices/platform/google,pogo/pogo_usb_active           u:object_r:sysfs_pogo_usb:s0
+genfscon sysfs /devices/platform/google,pogo/pogo_usb_capable          u:object_r:sysfs_pogo_usb:s0
+genfscon sysfs /devices/platform/google,pogo/pogo_docked               u:object_r:sysfs_pogo_usb:s0
+genfscon sysfs /devices/platform/google,pogo/equal_priority            u:object_r:sysfs_pogo_usb:s0
+genfscon sysfs /devices/platform/google,pogo/move_data_to_usb          u:object_r:sysfs_pogo_usb:s0
+genfscon sysfs /devices/platform/google,pogo/extcon                    u:object_r:sysfs_extcon:s0
+genfscon sysfs /devices/platform/google,pogo/hall1_s                   u:object_r:sysfs_pogo_usb:s0
+genfscon sysfs /devices/platform/google,pogo/hall1_n                   u:object_r:sysfs_pogo_usb:s0
+genfscon sysfs /devices/platform/google,pogo/hall2_s                   u:object_r:sysfs_pogo_usb:s0

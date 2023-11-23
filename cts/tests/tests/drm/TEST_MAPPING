@@ -3,5 +3,16 @@
     {
       "name": "CtsDrmTestCases"
     }
+  ],
+  "kernel-presubmit": [
+    {
+      "name": "CtsDrmTestCases",
+      "options": [
+        {
+          // TODO(b/244594813)
+          "exclude-filter": "android.drm.cts.DRMTest#testForwardLockAccess"
+        }
+      ]
+    }
   ]
 }

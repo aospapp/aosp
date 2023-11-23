@@ -74,7 +74,8 @@ public class AccessibilityEndToEndActivity extends AccessibilityTestActivity {
         ListView listView = (ListView) findViewById(R.id.listview);
         listView.setAdapter(listAdapter);
 
-        final int touchableSize = 48;
+        final int touchableSize = getResources().getDimensionPixelSize(
+                R.dimen.button_touchable_width_increment_amount);
         Button button = findViewById(R.id.button);
         Function<View, Rect> withTouchableAtRight = (v) -> new Rect(
                 v.getLeft(), 0, v.getRight() + touchableSize, v.getHeight());

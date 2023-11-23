@@ -26,6 +26,7 @@
 #include <vector>
 
 #include <android-base/logging.h>
+#include <fruit/fruit.h>
 #include <teeui/utils.h>
 
 #include "common/libs/concurrency/multiplexer.h"
@@ -35,31 +36,30 @@
 #include "host/commands/kernel_log_monitor/utils.h"
 #include "host/libs/config/logging.h"
 #include "host/libs/confui/host_mode_ctrl.h"
-#include "host/libs/confui/host_virtual_input.h"
+#include "host/libs/confui/host_renderer.h"
 #include "host/libs/confui/server_common.h"
 #include "host/libs/confui/session.h"
-#include "host/libs/screen_connector/screen_connector.h"
 
 namespace cuttlefish {
 namespace confui {
-class HostServer : public HostVirtualInput {
+struct PipeConnectionPair {
+  SharedFD from_guest_;
+  SharedFD to_guest_;
+};
+
+class HostServer {
  public:
-  static HostServer& Get(
-      HostModeCtrl& host_mode_ctrl,
-      cuttlefish::ScreenConnectorFrameRenderer& screen_connector);
+  INJECT(HostServer(HostModeCtrl& host_mode_ctrl, ConfUiRenderer& host_renderer,
+                    const PipeConnectionPair& fd_pair));
 
   void Start();  // start this server itself
   virtual ~HostServer() {}
 
   // implement input interfaces. called by webRTC
-  void TouchEvent(const int x, const int y, const bool is_down) override;
-  void UserAbortEvent() override;
-  bool IsConfUiActive() override;
+  void TouchEvent(const int x, const int y, const bool is_down);
+  void UserAbortEvent();
 
  private:
-  explicit HostServer(
-      cuttlefish::HostModeCtrl& host_mode_ctrl,
-      cuttlefish::ScreenConnectorFrameRenderer& screen_connector);
   HostServer() = delete;
 
   /**
@@ -112,8 +112,9 @@ class HostServer : public HostVirtualInput {
   [[noreturn]] void MainLoop();
   void HalCmdFetcherLoop();
 
-  SharedFD EstablishHalConnection();
-
+  bool IsVirtioConsoleOpen() const;
+  // If !IsVirtioConsoleOpen(), LOG(FATAL) and return false
+  bool CheckVirtioConsole();
   std::shared_ptr<Session> CreateSession(const std::string& session_name);
   void SendUserSelection(std::unique_ptr<ConfUiMessage>& input);
 
@@ -133,17 +134,13 @@ class HostServer : public HostVirtualInput {
   }
 
   const std::uint32_t display_num_;
+  ConfUiRenderer& host_renderer_;
   HostModeCtrl& host_mode_ctrl_;
-  ScreenConnectorFrameRenderer& screen_connector_;
-
-  std::string input_socket_path_;
-  int hal_vsock_port_;
 
   std::shared_ptr<Session> curr_session_;
 
-  SharedFD guest_hal_socket_;
-  // ACCEPTED fd on guest_hal_socket_
-  SharedFD hal_cli_socket_;
+  SharedFD from_guest_fifo_fd_;
+  SharedFD to_guest_fifo_fd_;
 
   using Multiplexer =
       Multiplexer<std::unique_ptr<ConfUiMessage>,
@@ -162,10 +159,6 @@ class HostServer : public HostVirtualInput {
 
   std::thread main_loop_thread_;
   std::thread hal_input_fetcher_thread_;
-
-  std::mutex socket_flag_mtx_;
-  std::condition_variable socket_flag_cv_;
-  bool is_socket_ok_;
 };
 
 }  // end of namespace confui

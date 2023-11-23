@@ -15,10 +15,11 @@
  */
 package com.android.compatibility.common.util;
 
+import static com.android.compatibility.common.util.UserSettings.Namespace;
+
 import android.content.Context;
 import android.provider.Settings;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 /**
@@ -36,9 +37,8 @@ public class SettingsStateChangerRule extends StateChangerRule<String> {
      * @param key prefence key.
      * @param value value to be set before the test is run.
      */
-    public SettingsStateChangerRule(@NonNull Context context, @NonNull String key,
-            @Nullable String value) {
-        this(context, SettingsUtils.NAMESPACE_SECURE, key, value);
+    public SettingsStateChangerRule(Context context, String key, @Nullable String value) {
+        this(context, Namespace.SECURE, key, value);
     }
 
     /**
@@ -46,11 +46,11 @@ public class SettingsStateChangerRule extends StateChangerRule<String> {
      *
      * @param context context used to retrieve the {@link Settings} provider.
      * @param namespace settings namespace.
-     * @param key prefence key.
+     * @param key preference key.
      * @param value value to be set before the test is run.
      */
-    public SettingsStateChangerRule(@NonNull Context context, @NonNull String namespace,
-            @NonNull String key, @Nullable String value) {
+    public SettingsStateChangerRule(Context context, Namespace namespace, String key,
+            @Nullable String value) {
         super(new SettingsStateManager(context, namespace, key), value);
     }
 }

@@ -16,17 +16,21 @@
 
 package android.hardware.input.cts.tests;
 
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
 import android.hardware.cts.R;
+import android.view.InputDevice;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SmallTest;
+import androidx.test.filters.MediumTest;
+
+import com.android.cts.kernelinfo.KernelInfo;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-@SmallTest
+@MediumTest
 @RunWith(AndroidJUnit4.class)
 public class SonyDualSenseBluetoothTest extends InputHidTestCase {
 
@@ -36,24 +40,47 @@ public class SonyDualSenseBluetoothTest extends InputHidTestCase {
     }
 
     @Override
-    public void setUp() throws Exception {
-        // Do not run this test for kernel versions 4.19 and below
-        assumeTrue(isKernelVersionGreaterThan("4.19"));
-        super.setUp();
+    protected int getAdditionalSources() {
+        if (KernelInfo.hasConfig("CONFIG_HID_PLAYSTATION")) {
+            return InputDevice.SOURCE_MOUSE | InputDevice.SOURCE_SENSOR;
+        }
+        return 0;
+    }
+
+    /**
+     * Basic support is required on all kernels. After kernel 4.19, devices must have
+     * CONFIG_HID_PLAYSTATION enabled, which supports advanced features like haptics.
+     */
+    @Test
+    public void kernelModule() {
+        if (KernelInfo.isKernelVersionGreaterThan("4.19")) {
+            assertTrue(KernelInfo.hasConfig("CONFIG_HID_PLAYSTATION"));
+        }
+        assertTrue(KernelInfo.hasConfig("CONFIG_HID_GENERIC"));
     }
 
     @Test
     public void testAllKeys() {
-        testInputEvents(R.raw.sony_dualsense_bluetooth_keyeventtests);
+        if (KernelInfo.hasConfig("CONFIG_HID_PLAYSTATION")) {
+            testInputEvents(R.raw.sony_dualsense_bluetooth_keyeventtests);
+        } else {
+            testInputEvents(R.raw.sony_dualsense_bluetooth_keyeventtests_hid_generic);
+        }
     }
 
     @Test
     public void testAllMotions() {
-        testInputEvents(R.raw.sony_dualsense_bluetooth_motioneventtests);
+        if (KernelInfo.hasConfig("CONFIG_HID_PLAYSTATION")) {
+            testInputEvents(R.raw.sony_dualsense_bluetooth_motioneventtests);
+        } else {
+            testInputEvents(R.raw.sony_dualsense_bluetooth_motioneventtests_hid_generic);
+        }
     }
 
     @Test
     public void testVibrator() throws Exception {
+        // hid-generic does not support vibration for this device
+        assumeTrue(KernelInfo.hasConfig("CONFIG_HID_PLAYSTATION"));
         testInputVibratorEvents(R.raw.sony_dualsense_bluetooth_vibratortests);
     }
 }

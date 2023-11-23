@@ -15,7 +15,7 @@ if sys.version_info.major == 3:
 # pylint: disable=import-error,g-bad-import-order,g-import-not-at-top
 import apiclient
 from googleapiclient.discovery import build
-from six.moves import http_client
+from googleapiclient.errors import HttpError
 
 import httplib2
 from oauth2client.service_account import ServiceAccountCredentials
@@ -80,7 +80,7 @@ def _simple_execute(http_request,
   for _ in range(max_tries):
     try:
       return http_request.execute()
-    except http_client.errors.HttpError as e:
+    except HttpError as e:
       last_error = e
       if e.resp.status in masked_errors:
         return None
@@ -103,7 +103,7 @@ def create_client(http):
   Returns:
     An authorized android build api client.
   """
-  return build(serviceName='androidbuildinternal', version='v2beta1', http=http,
+  return build(serviceName='androidbuildinternal', version='v3', http=http,
                static_discovery=False)
 
 
@@ -201,14 +201,12 @@ def list_artifacts(client, regex, **kwargs):
   """
   matching_artifacts = []
   kwargs.setdefault('attemptId', 'latest')
-  regex = re.compile(regex)
-  req = client.buildartifact().list(**kwargs)
+  req = client.buildartifact().list(nameRegexp=regex, **kwargs)
   while req:
     result = _simple_execute(req)
     if result and 'artifacts' in result:
       for a in result['artifacts']:
-        if regex.match(a['name']):
-          matching_artifacts.append(a['name'])
+        matching_artifacts.append(a['name'])
     req = client.buildartifact().list_next(req, result)
   return matching_artifacts
 

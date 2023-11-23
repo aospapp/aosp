@@ -7,6 +7,8 @@
 #define TST_SAFE_FILE_AT_H
 
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <stdarg.h>
 
 #define SAFE_OPENAT(dirfd, path, oflags, ...)			\
@@ -24,6 +26,13 @@
 
 #define SAFE_UNLINKAT(dirfd, path, flags)				\
 	safe_unlinkat(__FILE__, __LINE__, (dirfd), (path), (flags))
+
+#define SAFE_FCHOWNAT(dirfd, path, owner, group, flags)			\
+	safe_fchownat(__FILE__, __LINE__,				\
+			(dirfd), (path), (owner), (group), (flags))
+
+#define SAFE_FSTATAT(dirfd, path, statbuf, flags)			\
+	safe_fstatat(__FILE__, __LINE__, (dirfd), (path), (statbuf), (flags))
 
 const char *tst_decode_fd(const int fd)
 			  __attribute__((warn_unused_result));
@@ -58,4 +67,13 @@ int safe_unlinkat(const char *const file, const int lineno,
 		  const int dirfd, const char *const path, const int flags)
 		  __attribute__ ((nonnull));
 
+int safe_fchownat(const char *const file, const int lineno,
+		  const int dirfd, const char *const path, uid_t owner,
+		  gid_t group, int flags)
+		  __attribute__ ((nonnull));
+
+int safe_fstatat(const char *const file, const int lineno,
+		 const int dirfd, const char *const path, struct stat *statbuf,
+		 int flags)
+		 __attribute__ ((nonnull));
 #endif

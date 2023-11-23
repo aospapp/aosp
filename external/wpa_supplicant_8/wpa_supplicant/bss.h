@@ -108,6 +108,8 @@ struct wpa_bss {
 	int level;
 	/** Timestamp of last Beacon/Probe Response frame */
 	u64 tsf;
+	/** Whether the Beacon frame data is known to be newer */
+	bool beacon_newer;
 	/** Time of the last update (i.e., Beacon or Probe Response RX) */
 	struct os_reltime last_update;
 	/** Estimated throughput in kbps */
@@ -120,6 +122,8 @@ struct wpa_bss {
 	size_t ie_len;
 	/** Length of the following Beacon IE field in octets */
 	size_t beacon_ie_len;
+	/** MLD address of the AP */
+	u8 mld_addr[ETH_ALEN];
 	/* followed by ie_len octets of IEs */
 	/* followed by beacon_ie_len octets of IEs */
 	u8 ies[];
@@ -196,5 +200,7 @@ static inline void wpa_bss_update_level(struct wpa_bss *bss, int new_level)
 void calculate_update_time(const struct os_reltime *fetch_time,
 			   unsigned int age_ms,
 			   struct os_reltime *update_time);
+
+struct wpabuf * wpa_bss_defrag_mle(const struct wpa_bss *bss, u8 type);
 
 #endif /* BSS_H */

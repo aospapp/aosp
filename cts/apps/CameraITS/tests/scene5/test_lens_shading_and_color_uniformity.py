@@ -18,10 +18,10 @@ import logging
 import math
 import os.path
 
+import cv2
 from mobly import test_runner
 import numpy
 
-import cv2
 import its_base_test
 import camera_properties_utils
 import capture_request_utils
@@ -145,7 +145,8 @@ class LensShadingAndColorUniformityTest(its_base_test.ItsBaseTest):
         hidden_physical_id=self.hidden_physical_id) as cam:
       props = cam.get_camera_properties()
       props = cam.override_with_hidden_physical_camera_props(props)
-      log_path = self.log_path
+      debug_mode = self.debug_mode
+      name_with_log_path = os.path.join(self.log_path, _NAME)
 
       # Check SKIP conditions.
       camera_properties_utils.skip_unless(
@@ -163,12 +164,21 @@ class LensShadingAndColorUniformityTest(its_base_test.ItsBaseTest):
       req = capture_request_utils.auto_capture_request()
       w, h = capture_request_utils.get_available_output_sizes('yuv', props)[0]
       out_surface = {'format': 'yuv', 'width': w, 'height': h}
-      cap = cam.do_capture(req, out_surface)
+      if debug_mode:
+        out_surfaces = [{'format': 'raw'}, out_surface]
+        cap_raw, cap = cam.do_capture(req, out_surfaces)
+        img_raw = image_processing_utils.convert_capture_to_rgb_image(
+            cap_raw, props=props)
+        image_processing_utils.write_image(
+            img_raw, f'{name_with_log_path}_raw.png', True)
+        logging.debug('Captured RAW %dx%d', img_raw.shape[1], img_raw.shape[0])
+      else:
+        cap = cam.do_capture(req, out_surface)
       logging.debug('Captured YUV %dx%d', w, h)
       # Get Y channel
       img_y = image_processing_utils.convert_capture_to_planes(cap)[0]
-      image_processing_utils.write_image(img_y, '%s_y_plane.png' %
-                                         (os.path.join(log_path, _NAME)), True)
+      image_processing_utils.write_image(
+          img_y, f'{name_with_log_path}_y_plane.png', True)
       # Convert RGB image & calculate R/G, R/B ratioed images
       img_rgb = image_processing_utils.convert_capture_to_rgb_image(cap)
       img_r_g, img_b_g = _calc_color_plane_ratios(img_rgb)
@@ -253,7 +263,7 @@ class LensShadingAndColorUniformityTest(its_base_test.ItsBaseTest):
           text_bottom = bottom - text_offset
           cv2.rectangle(img_lens_shading, (left, top), (right, bottom),
                         legend_color, line_width)
-          _draw_legend(img_lens_shading, ['Y: %.2f' % block_y],
+          _draw_legend(img_lens_shading, [f'Y: {block_y:.2f}'],
                        [left+text_offset, text_bottom], font_scale,
                        text_offset, legend_color, int(line_width/2))
 
@@ -274,8 +284,8 @@ class LensShadingAndColorUniformityTest(its_base_test.ItsBaseTest):
           top, bottom, left, right = block['position']
           cv2.rectangle(img_uniformity, (left, top), (right, bottom),
                         legend_color, line_width)
-          texts = ['R/G: %.2f' % block['block_r_g'],
-                   'B/G: %.2f' % block['block_b_g']]
+          texts = [f"R/G: {block['block_r_g']:.2f}",
+                   f"B/G: {block['block_b_g']:.2f}"]
           text_bottom = bottom - text_offset * 2
           _draw_legend(img_uniformity, texts,
                        [left+text_offset, text_bottom], font_scale,
@@ -283,11 +293,11 @@ class LensShadingAndColorUniformityTest(its_base_test.ItsBaseTest):
 
       # Save images
       image_processing_utils.write_image(
-          img_uniformity, '%s_color_uniformity_result.png' %
-          (os.path.join(log_path, _NAME)), True)
+          img_uniformity, f'{name_with_log_path}_color_uniformity_result.png',
+          True)
       image_processing_utils.write_image(
-          img_lens_shading, '%s_lens_shading_result.png' %
-          (os.path.join(log_path, _NAME)), True)
+          img_lens_shading, f'{name_with_log_path}_lens_shading_result.png',
+          True)
 
       # Assert results
       _assert_results(ls_test_failed, cu_test_failed, center_luma, ls_thresh_h)

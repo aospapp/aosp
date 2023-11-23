@@ -23,5 +23,6 @@ interface ICrossProcessSurfaceControlViewHostTestService {
     SurfaceControlViewHost.SurfacePackage getSurfacePackage(IBinder hostInputToken);
     boolean getViewIsTouched();
     boolean getViewIsTouchedAndObscured();
-    void resetViewIsTouched();
+    IBinder getWindowToken();
+    boolean waitForFocus(boolean waitForFocus);
 }

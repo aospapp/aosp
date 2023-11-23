@@ -19,8 +19,10 @@
 
 #include <algorithm>
 #include <iostream>
+#include <limits>
 #include <random>
 #include <string>
+#include <type_traits>
 
 #include "utils/strings/stringpiece.h"
 
@@ -32,8 +34,11 @@ class TestDataGenerator {
   template <typename T,
             typename std::enable_if_t<std::is_integral<T>::value>* = nullptr>
   T generate() {
-    std::uniform_int_distribution<T> dist;
-    return dist(random_engine_);
+    typedef typename std::conditional<sizeof(T) >= sizeof(int16_t), T,
+                                      std::int16_t>::type rand_type;
+    std::uniform_int_distribution<rand_type> dist(
+        std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
+    return static_cast<T>(dist(random_engine_));
   }
 
   template <>

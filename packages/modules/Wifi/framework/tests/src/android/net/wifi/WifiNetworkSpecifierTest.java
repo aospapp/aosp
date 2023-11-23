@@ -16,14 +16,17 @@
 
 package android.net.wifi;
 
+import static android.net.wifi.ScanResult.WIFI_BAND_5_GHZ;
 import static android.os.PatternMatcher.PATTERN_LITERAL;
 import static android.os.PatternMatcher.PATTERN_PREFIX;
 import static android.os.PatternMatcher.PATTERN_SIMPLE_GLOB;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
@@ -653,8 +656,8 @@ public class WifiNetworkSpecifierTest {
                 new WifiNetworkSpecifier(new PatternMatcher(TEST_SSID, PATTERN_LITERAL),
                         Pair.create(MacAddress.fromString(TEST_BSSID_OUI_BASE_ADDRESS),
                                 MacAddress.fromString(TEST_BSSID_OUI_MASK)),
-                        ScanResult.WIFI_BAND_5_GHZ,
-                        wifiConfiguration);
+                        WIFI_BAND_5_GHZ,
+                        wifiConfiguration, new int[0]);
 
         Parcel parcelW = Parcel.obtain();
         specifier.writeToParcel(parcelW, 0);
@@ -686,7 +689,7 @@ public class WifiNetworkSpecifierTest {
                         Pair.create(MacAddress.fromString(TEST_BSSID_OUI_BASE_ADDRESS),
                                 MacAddress.fromString(TEST_BSSID_OUI_MASK)),
                         ScanResult.UNSPECIFIED,  /* band */
-                        wifiConfiguration);
+                        wifiConfiguration, new int[0]);
 
         assertFalse(specifier.canBeSatisfiedBy(null));
         assertFalse(specifier.canBeSatisfiedBy(new MatchAllNetworkSpecifier()));
@@ -708,15 +711,15 @@ public class WifiNetworkSpecifierTest {
                 new WifiNetworkSpecifier(new PatternMatcher(TEST_SSID, PATTERN_LITERAL),
                         Pair.create(MacAddress.fromString(TEST_BSSID_OUI_BASE_ADDRESS),
                                 MacAddress.fromString(TEST_BSSID_OUI_MASK)),
-                        ScanResult.WIFI_BAND_5_GHZ,
-                        wifiConfiguration);
+                        WIFI_BAND_5_GHZ,
+                        wifiConfiguration, new int[0]);
 
         WifiNetworkSpecifier specifier2 =
                 new WifiNetworkSpecifier(new PatternMatcher(TEST_SSID, PATTERN_LITERAL),
                         Pair.create(MacAddress.fromString(TEST_BSSID_OUI_BASE_ADDRESS),
                                 MacAddress.fromString(TEST_BSSID_OUI_MASK)),
-                        ScanResult.WIFI_BAND_5_GHZ,
-                        wifiConfiguration);
+                        WIFI_BAND_5_GHZ,
+                        wifiConfiguration, new int[0]);
 
         assertTrue(specifier2.canBeSatisfiedBy(specifier1));
     }
@@ -738,7 +741,7 @@ public class WifiNetworkSpecifierTest {
                         Pair.create(MacAddress.fromString(TEST_BSSID_OUI_BASE_ADDRESS),
                                 MacAddress.fromString(TEST_BSSID_OUI_MASK)),
                         ScanResult.WIFI_BAND_24_GHZ,
-                        wifiConfiguration1);
+                        wifiConfiguration1, new int[0]);
 
         WifiConfiguration wifiConfiguration2 = new WifiConfiguration();
         wifiConfiguration2.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
@@ -747,7 +750,7 @@ public class WifiNetworkSpecifierTest {
                         Pair.create(MacAddress.fromString(TEST_BSSID_OUI_BASE_ADDRESS),
                                 MacAddress.fromString(TEST_BSSID_OUI_MASK)),
                         ScanResult.WIFI_BAND_24_GHZ,
-                        wifiConfiguration2);
+                        wifiConfiguration2, new int[0]);
 
         assertFalse(specifier2.canBeSatisfiedBy(specifier1));
     }
@@ -768,15 +771,15 @@ public class WifiNetworkSpecifierTest {
                 new WifiNetworkSpecifier(new PatternMatcher("", PATTERN_LITERAL),
                         Pair.create(MacAddress.fromString(TEST_BSSID_OUI_BASE_ADDRESS),
                                 MacAddress.fromString(TEST_BSSID_OUI_MASK)),
-                        ScanResult.WIFI_BAND_5_GHZ,
-                        wifiConfiguration);
+                        WIFI_BAND_5_GHZ,
+                        wifiConfiguration, new int[0]);
 
         WifiNetworkSpecifier specifier2 =
                 new WifiNetworkSpecifier(new PatternMatcher(TEST_SSID, PATTERN_LITERAL),
                         Pair.create(MacAddress.fromString(TEST_BSSID_OUI_BASE_ADDRESS),
                                 MacAddress.fromString(TEST_BSSID_OUI_MASK)),
-                        ScanResult.WIFI_BAND_5_GHZ,
-                        wifiConfiguration);
+                        WIFI_BAND_5_GHZ,
+                        wifiConfiguration, new int[0]);
 
         assertFalse(specifier2.canBeSatisfiedBy(specifier1));
     }
@@ -798,14 +801,14 @@ public class WifiNetworkSpecifierTest {
                         Pair.create(MacAddress.fromString(TEST_BSSID_OUI_BASE_ADDRESS),
                                 MacAddress.fromString(TEST_BSSID_OUI_MASK)),
                         ScanResult.WIFI_BAND_24_GHZ,
-                        wifiConfiguration);
+                        wifiConfiguration, new int[0]);
 
         WifiNetworkSpecifier specifier2 =
                 new WifiNetworkSpecifier(new PatternMatcher(TEST_SSID, PATTERN_LITERAL),
                         Pair.create(WifiManager.ALL_ZEROS_MAC_ADDRESS,
                                 WifiManager.ALL_ZEROS_MAC_ADDRESS),
                         ScanResult.WIFI_BAND_24_GHZ,
-                        wifiConfiguration);
+                        wifiConfiguration, new int[0]);
 
         assertFalse(specifier2.canBeSatisfiedBy(specifier1));
     }
@@ -824,14 +827,14 @@ public class WifiNetworkSpecifierTest {
                         Pair.create(MacAddress.fromString(TEST_BSSID_OUI_BASE_ADDRESS),
                                 MacAddress.fromString(TEST_BSSID_OUI_MASK)),
                         ScanResult.WIFI_BAND_24_GHZ,
-                        wifiConfiguration);
+                        wifiConfiguration, new int[0]);
 
         WifiNetworkSpecifier specifier2 =
                 new WifiNetworkSpecifier(new PatternMatcher(TEST_SSID, PATTERN_LITERAL),
                         Pair.create(MacAddress.fromString(TEST_BSSID_OUI_BASE_ADDRESS),
                                 MacAddress.fromString(TEST_BSSID_OUI_MASK)),
                         ScanResult.WIFI_BAND_24_GHZ,
-                        wifiConfiguration);
+                        wifiConfiguration, new int[0]);
 
         // Same band matches.
         assertTrue(specifier2.canBeSatisfiedBy(specifier1));
@@ -841,8 +844,8 @@ public class WifiNetworkSpecifierTest {
                 new WifiNetworkSpecifier(new PatternMatcher(TEST_SSID, PATTERN_LITERAL),
                         Pair.create(WifiManager.ALL_ZEROS_MAC_ADDRESS,
                                 WifiManager.ALL_ZEROS_MAC_ADDRESS),
-                        ScanResult.WIFI_BAND_5_GHZ,
-                        wifiConfiguration);
+                        WIFI_BAND_5_GHZ,
+                        wifiConfiguration, new int[0]);
 
         // Different band does not match.
         assertFalse(specifier2.canBeSatisfiedBy(specifier1));
@@ -853,7 +856,7 @@ public class WifiNetworkSpecifierTest {
                         Pair.create(WifiManager.ALL_ZEROS_MAC_ADDRESS,
                                 WifiManager.ALL_ZEROS_MAC_ADDRESS),
                         ScanResult.UNSPECIFIED,
-                        wifiConfiguration);
+                        wifiConfiguration, new int[0]);
 
         // An UNSPECIFIED band does not match a specified band, because a WifiNetworkSpecifier
         // satisfies another only if they are equal.
@@ -874,16 +877,29 @@ public class WifiNetworkSpecifierTest {
                 new WifiNetworkSpecifier(new PatternMatcher(TEST_SSID, PATTERN_LITERAL),
                         Pair.create(MacAddress.fromString(TEST_BSSID_OUI_BASE_ADDRESS),
                                 MacAddress.fromString(TEST_BSSID_OUI_MASK)),
-                        ScanResult.WIFI_BAND_5_GHZ,
-                        wifiConfiguration);
+                        WIFI_BAND_5_GHZ,
+                        wifiConfiguration, new int[0]);
 
         final NetworkSpecifier redacted = specifier.redact();
         if (SdkLevel.isAtLeastS()) {
             assertEquals(
-                    new WifiNetworkSpecifier.Builder().setBand(ScanResult.WIFI_BAND_5_GHZ).build(),
+                    new WifiNetworkSpecifier.Builder().setBand(WIFI_BAND_5_GHZ).build(),
                     redacted);
         } else {
             assertTrue(redacted == specifier);
         }
+    }
+
+    @Test
+    public void testSetPreferredChannel() {
+        WifiNetworkSpecifier.Builder builder = new WifiNetworkSpecifier.Builder()
+                .setSsidPattern(new PatternMatcher(TEST_SSID, PATTERN_PREFIX));
+        assertThrows(IllegalArgumentException.class, () -> builder
+                .setPreferredChannelsFrequenciesMhz(new int[]{0}));
+        WifiNetworkSpecifier networkSpecifier = builder
+                .setPreferredChannelsFrequenciesMhz(new int[]{5180}).build();
+        assertArrayEquals(new int[]{5180}, networkSpecifier.getPreferredChannelFrequenciesMhz());
+        builder.setBand(WIFI_BAND_5_GHZ);
+        assertThrows(IllegalStateException.class, builder::build);
     }
 }

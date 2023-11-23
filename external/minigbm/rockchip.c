@@ -107,7 +107,8 @@ static int rockchip_init(struct driver *drv)
 	 */
 	drv_add_combination(drv, DRM_FORMAT_R8, &metadata,
 			    BO_USE_CAMERA_READ | BO_USE_CAMERA_WRITE | BO_USE_SW_MASK |
-				BO_USE_LINEAR | BO_USE_HW_VIDEO_DECODER | BO_USE_HW_VIDEO_ENCODER);
+				BO_USE_LINEAR | BO_USE_HW_VIDEO_DECODER | BO_USE_HW_VIDEO_ENCODER |
+				BO_USE_GPU_DATA_BUFFER | BO_USE_SENSOR_DIRECT_DATA);
 
 	return 0;
 }
@@ -135,7 +136,7 @@ static int rockchip_bo_create_with_modifiers(struct bo *bo, uint32_t width, uint
 		uint32_t aligned_width = w_mbs * 16;
 		uint32_t aligned_height = h_mbs * 16;
 
-		drv_bo_from_format(bo, aligned_width, aligned_height, format);
+		drv_bo_from_format(bo, aligned_width, 1, aligned_height, format);
 		/*
 		 * drv_bo_from_format updates total_size. Add an extra data space for rockchip video
 		 * driver to store motion vectors.
@@ -148,7 +149,7 @@ static int rockchip_bo_create_with_modifiers(struct bo *bo, uint32_t width, uint
 	} else {
 		if (!drv_has_modifier(modifiers, count, DRM_FORMAT_MOD_LINEAR)) {
 			errno = EINVAL;
-			drv_log("no usable modifier found\n");
+			drv_loge("no usable modifier found\n");
 			return -errno;
 		}
 
@@ -165,15 +166,15 @@ static int rockchip_bo_create_with_modifiers(struct bo *bo, uint32_t width, uint
 		else
 			stride = ALIGN(stride, 64);
 
-		drv_bo_from_format(bo, stride, height, format);
+		drv_bo_from_format(bo, stride, 1, height, format);
 	}
 
 	gem_create.size = bo->meta.total_size;
 	ret = drmIoctl(bo->drv->fd, DRM_IOCTL_ROCKCHIP_GEM_CREATE, &gem_create);
 
 	if (ret) {
-		drv_log("DRM_IOCTL_ROCKCHIP_GEM_CREATE failed (size=%" PRIu64 ")\n",
-			gem_create.size);
+		drv_loge("DRM_IOCTL_ROCKCHIP_GEM_CREATE failed (size=%" PRIu64 ")\n",
+			 gem_create.size);
 		return -errno;
 	}
 
@@ -191,7 +192,7 @@ static int rockchip_bo_create(struct bo *bo, uint32_t width, uint32_t height, ui
 						 ARRAY_SIZE(modifiers));
 }
 
-static void *rockchip_bo_map(struct bo *bo, struct vma *vma, size_t plane, uint32_t map_flags)
+static void *rockchip_bo_map(struct bo *bo, struct vma *vma, uint32_t map_flags)
 {
 	int ret;
 	struct rockchip_private_map_data *priv;
@@ -207,7 +208,7 @@ static void *rockchip_bo_map(struct bo *bo, struct vma *vma, size_t plane, uint3
 	gem_map.handle = bo->handles[0].u32;
 	ret = drmIoctl(bo->drv->fd, DRM_IOCTL_ROCKCHIP_GEM_MAP_OFFSET, &gem_map);
 	if (ret) {
-		drv_log("DRM_IOCTL_ROCKCHIP_GEM_MAP_OFFSET failed\n");
+		drv_loge("DRM_IOCTL_ROCKCHIP_GEM_MAP_OFFSET failed\n");
 		return MAP_FAILED;
 	}
 

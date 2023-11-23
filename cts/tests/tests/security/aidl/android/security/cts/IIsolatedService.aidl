@@ -20,4 +20,5 @@ interface IIsolatedService {
     String[] getCachedSystemServices();
     IBinder getSystemService(String serviceName);
     boolean getProcessIsIsolated();
+    void registerBroadcastReceiver();
 }

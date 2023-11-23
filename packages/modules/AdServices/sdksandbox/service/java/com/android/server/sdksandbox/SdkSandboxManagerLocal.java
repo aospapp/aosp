@@ -20,7 +20,10 @@ import android.annotation.NonNull;
 import android.annotation.SdkConstant;
 import android.annotation.SystemApi;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.ProviderInfo;
+import android.os.IBinder;
 
 /**
  * Exposes APIs to {@code system_server} components outside of the module boundaries.
@@ -44,11 +47,20 @@ public interface SdkSandboxManagerLocal {
     /**
      * Enforces that the sdk sandbox process is allowed to broadcast a given intent.
      *
+     * @deprecated Use {@link SdkSandboxManagerLocal#canSendBroadcast(Intent)} instead.
      * @param intent the intent to check.
      * @throws SecurityException if the intent is not allowed to be broadcast.
      */
+    @Deprecated
     void enforceAllowedToSendBroadcast(@NonNull Intent intent);
 
+    /**
+     * Whether the sdk sandbox process is allowed to broadcast a given intent.
+     *
+     * @param intent the intent to check.
+     * @return true if the intent is allowed to be broadcast, otherwise false
+     */
+    boolean canSendBroadcast(@NonNull Intent intent);
 
     /**
      * Enforces that the sdk sandbox process is allowed to start an activity with a given intent.
@@ -67,6 +79,40 @@ public interface SdkSandboxManagerLocal {
      * @throws SecurityException if the service is not allowed to be started or bound to.
      */
     void enforceAllowedToStartOrBindService(@NonNull Intent intent);
+
+    /**
+     * Whether the sdk sandbox process is allowed to access a given ContentProvider.
+     *
+     * @param providerInfo info about the Content Provider being accessed.
+     * @return true if the sandbox uid is allowed to access the ContentProvider, false otherwise.
+     */
+    boolean canAccessContentProviderFromSdkSandbox(@NonNull ProviderInfo providerInfo);
+
+    /**
+     * Enforces that the caller app is allowed to start a {@code SandboxedActivity} inside its
+     * sandbox process.
+     *
+     * @param intent the activity intent
+     * @param clientAppUid uid of the client app
+     * @param clientAppPackageName package name of the client app
+     * @throws SecurityException if the caller app is not allowed to start {@code
+     *     SandboxedActivity}.
+     */
+    void enforceAllowedToHostSandboxedActivity(
+            @NonNull Intent intent, int clientAppUid, @NonNull String clientAppPackageName);
+
+    /**
+     * Whether the sdk sandbox process is allowed to register a broadcast receiver with a given
+     * intentFilter.
+     *
+     * @param intentFilter the intentFilter to check.
+     * @param flags flags that the ActivityManagerService.registerReceiver method was called with.
+     * @param onlyProtectedBroadcasts true if all actions in {@link android.content.IntentFilter}
+     *     are protected broadcasts
+     * @return true if sandbox is allowed to register a broadcastReceiver, otherwise false.
+     */
+    boolean canRegisterBroadcastReceiver(
+            @NonNull IntentFilter intentFilter, int flags, boolean onlyProtectedBroadcasts);
 
     /**
      * Returns name of the sdk sandbox process that corresponds to the given client app.
@@ -103,4 +149,23 @@ public interface SdkSandboxManagerLocal {
      * @param clientAppUid         uid of the client app
      */
     void notifyInstrumentationFinished(@NonNull String clientAppPackageName, int clientAppUid);
+
+    /**
+     * Returns true if instrumentation of the sdk sandbox process belonging to the client app is
+     * currently running, false otherwise.
+     *
+     * @param clientAppPackageName package name of the client app
+     * @param clientAppUid uid of the client app
+     * @hide
+     */
+    boolean isInstrumentationRunning(@NonNull String clientAppPackageName, int clientAppUid);
+
+    // TODO(b/282239822): Remove this workaround on Android VIC
+    /**
+     * Register the AdServicesManager System Service
+     *
+     * @param iBinder The AdServicesManagerService Binder.
+     * @hide
+     */
+    void registerAdServicesManagerService(IBinder iBinder, boolean published);
 }

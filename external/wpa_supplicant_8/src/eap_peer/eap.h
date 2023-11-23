@@ -233,6 +233,15 @@ struct eapol_callbacks {
 			    const char *cert_hash);
 
 	/**
+	 * notify_permanent_id_req_denied - Notify that the
+	 * AT_PERMANENT_ID_REQ from the server was denied. This
+	 * notification happens when the peer is in strict
+	 * conservative mode.
+	 * @ctx: eapol_ctx from eap_peer_sm_init() call
+	*/
+	void (*notify_permanent_id_req_denied)(void* ctx);
+
+	/**
 	 * notify_status - Notification of the current EAP state
 	 * @ctx: eapol_ctx from eap_peer_sm_init() call
 	 * @status: Step in the process of EAP authentication
@@ -295,6 +304,16 @@ struct eapol_callbacks {
 	 * @reason_string: Information to log about the event
 	 */
 	void (*notify_open_ssl_failure)(void *ctx, const char* reason_string);
+
+	/**
+	 * get_certificate - Retrieve a certificate from the certificate store
+	 * @ctx: eapol_ctx from eap_peer_sm_init() call
+	 * @alias: key into the certificate key-value store
+	 * @value: pointer reference - pointer to the retrieved certificate will
+	 *         be stored here on success
+	 * Returns: size of the retrieved certificate or -1 on error
+	 */
+	ssize_t (*get_certificate)(void* ctx, const char* alias, uint8_t** value);
 };
 
 /**
@@ -366,11 +385,13 @@ void eap_set_workaround(struct eap_sm *sm, unsigned int workaround);
 void eap_set_force_disabled(struct eap_sm *sm, int disabled);
 void eap_set_external_sim(struct eap_sm *sm, int external_sim);
 int eap_key_available(struct eap_sm *sm);
+void eap_notify_permanent_id_req_denied(struct eap_sm *sm);
 void eap_notify_success(struct eap_sm *sm);
 void eap_notify_lower_layer_success(struct eap_sm *sm);
 const u8 * eap_get_eapSessionId(struct eap_sm *sm, size_t *len);
 const u8 * eap_get_eapKeyData(struct eap_sm *sm, size_t *len);
 struct wpabuf * eap_get_eapRespData(struct eap_sm *sm);
+int eap_get_config_strict_conservative_peer_mode(struct eap_sm *sm);
 void eap_register_scard_ctx(struct eap_sm *sm, void *ctx);
 void eap_invalidate_cached_session(struct eap_sm *sm);
 

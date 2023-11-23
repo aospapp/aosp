@@ -15,15 +15,6 @@
 module: "android.sysprop.InputProperties"
 owner: Platform
 
-# The default VelocityTracker strategy.
-prop {
-    api_name: "velocitytracker_strategy"
-    type: String
-    scope: Internal
-    access: ReadWrite
-    prop_name: "persist.input.velocitytracker.strategy"
-}
-
 # A debug flag that converts all touch pointers to stylus pointers.
 # Requires a reboot to take effect.
 prop {
@@ -33,3 +24,43 @@ prop {
     access: Readonly
     prop_name: "persist.debug.input.simulate_stylus_with_touch"
 }
+
+# A flag to enable the new touchpad input mapper introduced in Android U, based around the ChromeOS
+# gestures library.
+prop {
+    api_name: "enable_touchpad_gestures_library"
+    type: Boolean
+    scope: Internal
+    access: Readonly
+    prop_name: "persist.input.touchpad.gestures_library.enabled"
+}
+
+# A flag to enable or disable system motion prediction.
+prop {
+    api_name: "enable_motion_prediction"
+    type: Boolean
+    scope: Internal
+    access: Readonly
+    prop_name: "persist.input.enable_motion_prediction"
+}
+
+# A flag to enable the new Keyboard backlight controller introduced in Android U, that allows
+# Framework to control keyboard backlight on supported devices.
+prop {
+    api_name: "enable_keyboard_backlight_control"
+    type: Boolean
+    scope: Internal
+    access: Readonly
+    prop_name: "persist.input.keyboard.backlight_control.enabled"
+}
+
+# A flag to force showing a pointer icon for stylus pointers, even when the device is not
+# configured for it. Used for debugging stylus pointer icons. Requires restart.
+prop {
+    api_name: "force_enable_stylus_pointer_icon"
+    type: Boolean
+    scope: Internal
+    access: Readonly
+    prop_name: "persist.debug.input.force_enable_stylus_pointer_icon"
+}
+

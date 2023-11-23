@@ -26,9 +26,8 @@ from acts.controllers.ap_lib.radvd_config import RadvdConfig
 from acts.controllers.ap_lib.hostapd_security import Security
 from acts.controllers.attenuator import get_attenuators_for_device
 from acts.controllers.iperf_server import IPerfResult
-from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
-from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
+from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
 from acts.utils import rand_ascii_str
 
 from bokeh.plotting import ColumnDataSource
@@ -37,7 +36,6 @@ from bokeh.plotting import output_file
 from bokeh.plotting import save
 
 AP_11ABG_PROFILE_NAME = 'whirlwind_11ag_legacy'
-RADVD_PREFIX = 'fd00::/64'
 REPORTING_SPEED_UNITS = 'Mbps'
 
 RVR_GRAPH_SUMMARY_FILE = 'rvr_summary.html'
@@ -101,7 +99,7 @@ def write_csv_rvr_data(test_name, csv_path, csv_data):
                                           throughput[csv_loop_counter]))
 
 
-class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
+class WlanRvrTest(WifiBaseTest):
     """Tests running WLAN RvR.
 
     Test Bed Requirement:
@@ -112,11 +110,11 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
     """
 
     def __init__(self, controllers):
-        WifiBaseTest.__init__(self, controllers)
+        super().__init__(controllers)
         self.rvr_graph_summary = []
 
     def setup_class(self):
-        super(WlanRvrTest, self).setup_class()
+        super().setup_class()
         if 'dut' in self.user_params:
             if self.user_params['dut'] == 'fuchsia_devices':
                 self.dut = create_wlan_device(self.fuchsia_devices[0])
@@ -210,9 +208,7 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
                         title='RvR Sumamry')
             save(list(self.rvr_graph_summary))
         except Exception as e:
-            self.log.info('Unable to generate RvR summary file due '
-                          'to Exception')
-            self.log.info(e)
+            self.log.error(f'Unable to generate RvR summary file: {e}')
 
         super().teardown_class()
 
@@ -262,7 +258,7 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
             iperf_server_ip_addresses = (
                 self.iperf_server.get_interface_ip_addresses(
                     self.iperf_server.test_interface))
-            dut_ip_addresses = self.dut.get_interface_ip_addresses(
+            dut_ip_addresses = self.dut.device.get_interface_ip_addresses(
                 self.dut_iperf_client.test_interface)
 
             self.log.info(
@@ -289,6 +285,7 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
             'IPv4 addresses are not available on both the DUT and iperf server.'
         )
 
+    # TODO (b/258264565): Merge with fuchsia_device wait_for_ipv6_addr.
     def _wait_for_dad(self, device, test_interface):
         """Wait for Duplicate Address Detection to resolve so that an
         private-local IPv6 address is available for test.
@@ -351,17 +348,13 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
         else:
             raise ValueError('Invalid WLAN band specified: %s' % band)
         if ip_version == 6:
-            radvd_config = RadvdConfig(
-                prefix=RADVD_PREFIX,
-                adv_send_advert=radvd_constants.ADV_SEND_ADVERT_ON,
-                adv_on_link=radvd_constants.ADV_ON_LINK_ON,
-                adv_autonomous=radvd_constants.ADV_AUTONOMOUS_ON)
             self.router_adv_daemon = Radvd(
                 self.access_point.ssh,
                 self.access_point.interfaces.get_bridge_interface()[0])
+            radvd_config = RadvdConfig()
             self.router_adv_daemon.start(radvd_config)
 
-        for rvr_loop_counter in range(0, self.debug_loop_count):
+        for _ in range(0, self.debug_loop_count):
             for rvr_attenuator in rvr_attenuators:
                 rvr_attenuator.set_atten(self.starting_attn)
 
@@ -394,7 +387,7 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
                 self.log.info('Waiting for DUT to complete Duplicate Address '
                               'Detection for "{}"...'.format(
                                   self.dut_iperf_client.test_interface))
-                _ = self._wait_for_dad(self.dut,
+                _ = self._wait_for_dad(self.dut.device,
                                        self.dut_iperf_client.test_interface)
             else:
                 raise ValueError('Invalid IP version: {}'.format(ip_version))
@@ -474,9 +467,10 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
             try:
                 for attenuator in rvr_attenuators:
                     attenuator.set_atten(step)
-            except ValueError:
-                self.log.info('%s is beyond the max or min of the testbed '
-                              'attenuator\'s capability. Stopping.')
+            except ValueError as e:
+                self.log.error(
+                    f'{step} is beyond the max or min of the testbed '
+                    f'attenuator\'s capability. Stopping. {e}')
                 break
             self.log.info('Set relative attenuation to %s db' % step)
 
@@ -514,7 +508,7 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
                     relative_attn.append(value_to_insert)
                     attn_value_inserted = True
 
-            dut_ip_addresses = self.dut.get_interface_ip_addresses(
+            dut_ip_addresses = self.dut.device.get_interface_ip_addresses(
                 self.dut_iperf_client.test_interface)
             if ip_version == 4:
                 if not dut_ip_addresses['ipv4_private']:
@@ -567,10 +561,11 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
                         '%s_%s_%s' %
                         (iperf_tag, traffic_dir, self.starting_attn),
                         timeout=(self.dwell_time_in_secs * 2))
-                except TimeoutError:
+                except TimeoutError as e:
                     iperf_results_file = None
-                    self.log.info('Iperf traffic timed out. Marking 0 %s for '
-                                  'throughput.' % REPORTING_SPEED_UNITS)
+                    self.log.error(
+                        f'Iperf traffic timed out. Marking 0 {REPORTING_SPEED_UNITS} for '
+                        f'throughput. {e}')
 
                 if not iperf_results_file:
                     throughput.append(0)
@@ -582,24 +577,26 @@ class WlanRvrTest(AbstractDeviceWlanDeviceBaseTest):
                         if iperf_results.error:
                             self.iperf_server.stop()
                             self.iperf_server.start()
-                            self.log.info('\nErrors in iperf logs:\n%s' %
-                                          iperf_results.error)
+                            self.log.error(
+                                f'Errors in iperf logs:\n{iperf_results.error}'
+                            )
                         if not iperf_results.avg_send_rate:
                             throughput.append(0)
                         else:
                             throughput.append(iperf_results.avg_send_rate)
-                    except ValueError:
+                    except ValueError as e:
                         self.iperf_server.stop()
                         self.iperf_server.start()
-                        self.log.info(
-                            'No data in Iperf file. Marking 0 %s for '
-                            'throughput.' % REPORTING_SPEED_UNITS)
+                        self.log.error(
+                            f'No data in iPerf3 file. Marking 0 {REPORTING_SPEED_UNITS} '
+                            f'for throughput: {e}')
                         throughput.append(0)
                     except Exception as e:
                         self.iperf_server.stop()
                         self.iperf_server.start()
-                        self.log.info('Unknown exception. Marking 0 %s for '
-                                      'throughput.' % REPORTING_SPEED_UNITS)
+                        self.log.error(
+                            f'Unknown exception. Marking 0 {REPORTING_SPEED_UNITS} for '
+                            f'throughput: {e}')
                         self.log.error(e)
                         throughput.append(0)
 

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -36,7 +37,7 @@ class hardware_UnsafeMemory(test.test):
                 '/sys/devices/virtual/thermal/thermal_zone1/temp')
         except:
             pass
-        return (therm0, therm1)
+        return ' '.join([therm0, therm1])
 
     def run_once(self, sec=(60*25)):
         """
@@ -46,17 +47,17 @@ class hardware_UnsafeMemory(test.test):
         """
         self._hammer_path = os.path.join(self.srcdir, self._DIR_NAME,
                                          'rowhammer_test')
-        logging.info('cmd: %s %d' % (self._hammer_path, sec))
+        logging.info('cmd: %s %d', self._hammer_path, sec)
         # Grab the CPU temperature before hand if possible.
-        logging.info('start temp: %s %s' % self.get_thermals())
+        logging.info('start temp: %s', self.get_thermals())
         try:
             output = subprocess.check_output([self._hammer_path, '%d' % sec])
             logging.info("run complete. Output below:")
             logging.info(output)
-        except subprocess.CalledProcessError, e:
+        except subprocess.CalledProcessError as e:
             logging.error("Unsafe memory found!")
             logging.error(e.output)
-            logging.info('end temp: %s %s' % self.get_thermals())
+            logging.info('end temp: %s', self.get_thermals())
             raise error.TestFail('Unsafe memory found!')
-        logging.info('end temp: %s %s' % self.get_thermals())
+        logging.info('end temp: %s', self.get_thermals())
         return True

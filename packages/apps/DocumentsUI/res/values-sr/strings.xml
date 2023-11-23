@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"Чување документа није успело"</string>
     <string name="create_error" msgid="3092144450044861994">"Прављење фолдера није успело"</string>
     <string name="query_error" msgid="6625421453613879336">"Учитавање садржаја тренутно није могуће"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Пословни профил је паузиран"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Укључи"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"Пословне апликације су паузиране"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"Укључи пословне апликације"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Не можете да изаберете пословне фајлове"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"ИТ администратор вам не дозвољава да приступате датотекама за посао из личне апликације"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Избор личних датотека није успео"</string>

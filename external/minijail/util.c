@@ -1,4 +1,4 @@
-/* Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+/* Copyright 2012 The ChromiumOS Authors
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
@@ -33,42 +33,47 @@
  * sendto(...)                                     <- important
  * exit_group(0)                                   <- finish!
  */
+const char *const log_syscalls[] = {
 #if defined(__x86_64__)
-#if defined(__ANDROID__)
-const char *const log_syscalls[] = {"socket", "connect", "fcntl", "writev"};
-#else
-const char *const log_syscalls[] = {"socket", "connect", "sendto", "writev"};
-#endif
+# if defined(__ANDROID__)
+  "socket", "connect", "fcntl", "writev",
+# else
+  "socket", "connect", "sendto", "writev",
+# endif
 #elif defined(__i386__)
-#if defined(__ANDROID__)
-const char *const log_syscalls[] = {"socketcall", "writev", "fcntl64",
-				    "clock_gettime"};
-#else
-const char *const log_syscalls[] = {"socketcall", "time", "writev"};
-#endif
+# if defined(__ANDROID__)
+  "socketcall", "writev", "fcntl64", "clock_gettime",
+# else
+  "socketcall", "time", "writev",
+# endif
 #elif defined(__arm__)
-#if defined(__ANDROID__)
-const char *const log_syscalls[] = {"clock_gettime", "connect", "fcntl64",
-				    "socket", "writev"};
-#else
-const char *const log_syscalls[] = {"socket", "connect", "gettimeofday", "send",
-				    "writev"};
-#endif
+# if defined(__ANDROID__)
+  "clock_gettime", "connect", "fcntl64", "socket", "writev",
+# else
+  "socket", "connect", "gettimeofday", "send", "writev",
+# endif
 #elif defined(__aarch64__)
-#if defined(__ANDROID__)
-const char *const log_syscalls[] = {"connect", "fcntl", "sendto", "socket",
-				    "writev"};
-#else
-const char *const log_syscalls[] = {"socket", "connect", "send", "writev"};
-#endif
-#elif defined(__powerpc__) || defined(__ia64__) || defined(__hppa__) ||        \
-    defined(__sparc__) || defined(__mips__)
-const char *const log_syscalls[] = {"socket", "connect", "send"};
+# if defined(__ANDROID__)
+  "connect", "fcntl", "sendto", "socket", "writev",
+# else
+  "socket", "connect", "send", "writev",
+# endif
+#elif defined(__hppa__) || \
+      defined(__ia64__) || \
+      defined(__mips__) || \
+      defined(__powerpc__) || \
+      defined(__sparc__)
+  "socket", "connect", "send",
 #elif defined(__riscv)
-const char *const log_syscalls[] = {"socket", "connect", "sendto"};
+# if defined(__ANDROID__)
+  "connect", "fcntl", "sendto", "socket", "writev",
+# else
+  "socket", "connect", "sendto",
+# endif
 #else
-#error "Unsupported platform"
+# error "Unsupported platform"
 #endif
+};
 
 const size_t log_syscalls_len = ARRAY_SIZE(log_syscalls);
 
@@ -161,7 +166,7 @@ int lookup_syscall(const char *name, size_t *ind)
 	size_t ind_tmp = 0;
 	const struct syscall_entry *entry = syscall_table;
 	for (; entry->name && entry->nr >= 0; ++entry) {
-		if (!strcmp(entry->name, name)) {
+		if (streq(entry->name, name)) {
 			if (ind != NULL)
 				*ind = ind_tmp;
 			return entry->nr;
@@ -187,7 +192,7 @@ long int parse_single_constant(char *constant_str, char **endptr)
 	const struct constant_entry *entry = constant_table;
 	long int res = 0;
 	for (; entry->name; ++entry) {
-		if (!strcmp(entry->name, constant_str)) {
+		if (streq(entry->name, constant_str)) {
 			*endptr = constant_str + strlen(constant_str);
 			return entry->value;
 		}
@@ -447,6 +452,22 @@ char *path_join(const char *external_path, const char *internal_path)
 	return asprintf(&path, "%s/%s", external_path, internal_path) < 0
 		   ? NULL
 		   : path;
+}
+
+bool path_is_parent(const char *parent, const char *child)
+{
+	/*
+	 * -Make sure |child| starts with |parent|.
+	 * -Make sure that if |child| is longer than |parent|, either:
+	 * --the last character in |parent| is a path separator, or
+	 * --the character immediately following |parent| in |child| is a path
+	 *  separator.
+	 */
+	size_t parent_len = strlen(parent);
+	return strncmp(parent, child, parent_len) == 0 &&
+	       (strlen(child) > parent_len ? (parent[parent_len - 1] == '/' ||
+					      child[parent_len] == '/')
+					   : false);
 }
 
 void *consumebytes(size_t length, char **buf, size_t *buflength)

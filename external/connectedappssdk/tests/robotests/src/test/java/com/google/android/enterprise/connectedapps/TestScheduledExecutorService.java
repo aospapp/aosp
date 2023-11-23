@@ -17,11 +17,13 @@ package com.google.android.enterprise.connectedapps;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Delayed;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -37,7 +39,9 @@ import java.util.concurrent.TimeUnit;
 public class TestScheduledExecutorService extends AbstractExecutorService implements ScheduledExecutorService {
 
   private long millisPast = 0;
-  private final Queue<SimpleScheduledFuture<?>> executeQueue = new ConcurrentLinkedQueue<>();
+  private final Set<SimpleScheduledFuture<?>> executeQueue =
+      Collections.newSetFromMap(new ConcurrentHashMap<>());
+
   public TestScheduledExecutorService() {}
 
   @Override
@@ -107,8 +111,14 @@ public class TestScheduledExecutorService extends AbstractExecutorService implem
 
   private void advanceTimeByMillis(long timeoutMillis) throws Exception {
     millisPast += timeoutMillis;
-    while (!executeQueue.isEmpty() && executeQueue.peek().getDelay(MILLISECONDS) <= millisPast) {
-      executeQueue.remove().complete();
+    Iterator<SimpleScheduledFuture<?>> scheduledFutures = executeQueue.iterator();
+
+    while (scheduledFutures.hasNext()) {
+      SimpleScheduledFuture<?> next = scheduledFutures.next();
+      if (next.getDelay(MILLISECONDS) <= millisPast) {
+        scheduledFutures.remove();
+        next.complete();
+      }
     }
   }
 

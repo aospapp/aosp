@@ -51,4 +51,6 @@ rust_proc_macro {
         "libquote",
     ],
     compile_multilib: "first",
+    product_available: true,
+    vendor_available: true,
 }

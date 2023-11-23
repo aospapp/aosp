@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"ஆவணத்தைச் சேமிக்க முடியவில்லை"</string>
     <string name="create_error" msgid="3092144450044861994">"ஃபோல்டரை உருவாக்க முடியவில்லை"</string>
     <string name="query_error" msgid="6625421453613879336">"தற்போது உள்ளடக்கத்தை ஏற்ற முடியவில்லை"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"பணிக் கணக்கு இடைநிறுத்தப்பட்டது"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"ஆன் செய்"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"பணி ஆப்ஸ் இடைநிறுத்தப்பட்டுள்ளன"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"பணி ஆப்ஸை இயக்கு"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"பணி ஃபைல்களைத் தேர்ந்தெடுக்க முடியாது"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"பணி ஃபைல்களைத் தனிப்பட்ட பணி ஆப்ஸில் இருந்து அணுகுவதை உங்கள் IT நிர்வாகி அனுமதிக்கவில்லை"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"தனிப்பட்ட ஃபைல்களைத் தேர்ந்தெடுக்க முடியாது"</string>

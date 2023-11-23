@@ -37,7 +37,7 @@ class firmware_ECSharedMem(FirmwareTest):
         match = self.ec.send_command_get_output("shmem",
                                                 ["Size:\s*([0-9-]+)\r"])[0]
         shmem_size = int(match[1])
-        logging.info("EC shared memory size if %d bytes", shmem_size)
+        logging.info("EC shared memory size is %d bytes", shmem_size)
         if shmem_size <= 0:
             return False
         elif shmem_size <= 256:
@@ -45,10 +45,20 @@ class firmware_ECSharedMem(FirmwareTest):
         return True
 
     def jump_checker(self):
-        """Check for available EC shared memory after jumping to RW image.
+        """Check for available EC shared memory after jumping to RW image, if
+        necessary.
+
+        Does not jump to RW if the EC is already in RW or RW_B.
         """
-        self.ec.send_command("sysjump RW")
-        time.sleep(self.faft_config.ec_boot_to_console)
+        ec_image = self.servo.get_ec_active_copy()
+        # If we are not currently in RW, switch there first before testing.
+        if ec_image != 'RW' and ec_image != 'RW_B':
+            self.ec.send_command("sysjump RW")
+            time.sleep(self.faft_config.ec_boot_to_console)
+            ec_image = self.servo.get_ec_active_copy()
+            if ec_image != 'RW':
+                raise error.TestFail('Expected EC to be in RW, but was ' +
+                                     ec_image)
         return self.shared_mem_checker()
 
     def run_once(self):

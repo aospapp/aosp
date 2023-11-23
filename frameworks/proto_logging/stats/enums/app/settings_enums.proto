@@ -313,21 +313,6 @@ enum Action {
     // VALUE: The package name of the app
     ACTION_SETTINGS_CLEAR_INSTANT_APP = 923;
 
-    // OPEN: Assist Gesture training intro in Settings
-    // CATEGORY: SETTINGS
-    // OS: O DR
-    SETTINGS_ASSIST_GESTURE_TRAINING_INTRO = 991;
-
-    // OPEN: Assist Gesture training enrolling in Settings
-    // CATEGORY: SETTINGS
-    // OS: O DR
-    SETTINGS_ASSIST_GESTURE_TRAINING_ENROLLING = 992;
-
-    // OPEN: Assist Gesture training finished in Settings
-    // CATEGORY: SETTINGS
-    // OS: O DR
-    SETTINGS_ASSIST_GESTURE_TRAINING_FINISHED = 993;
-
     // ACTION: Update default app from Settings
     ACTION_SETTINGS_UPDATE_DEFAULT_APP = 1000;
 
@@ -992,7 +977,7 @@ enum Action {
     // OS: T
     ACTION_COLUMBUS_ACTION_FLASHLIGHT = 1787;
 
-    // ACTION: Settings > Display > Daydream ("Screen Saver")
+    // ACTION: Settings > Display > Daydream (Screen saver) > Choose a screen saver
     // CATEGORY: SETTINGS
     // OS: T
     ACTION_DREAM_SELECT_TYPE = 1788;
@@ -1013,6 +998,235 @@ enum Action {
     // CATEGORY: SETTINGS
     // OS: T
     ACTION_DISABLE_AUTO_ROTATION_DEVICE_STATE = 1791;
+
+    // ACTION: Settings > Apps > Battery optimized apps > filter set to
+    // <All apps>
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_BATTERY_OPTIMIZED_APPS_FILTER_ALL_APPS = 1792;
+
+    // ACTION: Settings > Apps > Battery optimized apps > filter set to
+    // <restricted>
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_BATTERY_OPTIMIZED_APPS_FILTER_RESTRICTED = 1793;
+
+    // ACTION: Settings > Apps > Battery optimized apps > filter set to
+    // <unrestricted>
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_BATTERY_OPTIMIZED_APPS_FILTER_UNRESTRICTED = 1794;
+
+    // ACTION: Settings > Apps > Battery optimized apps > filter set to
+    // <optimized>
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_BATTERY_OPTIMIZED_APPS_FILTER_OPTIMIZED = 1795;
+
+    // Custom tag to log changes to the dock setup flow state
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_DOCK_SETUP_STATE_CHANGED = 1796;
+
+    // Custom tag to log the start of each step in the dock setup flow
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_DOCK_SETUP_STEP_START = 1797;
+
+    // Custom tag to log the result of each step in the dock setup flow
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_DOCK_SETUP_STEP_COMPLETE = 1798;
+
+    // ACTION: Settings > Battery Usage > Click daily chart time slot
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_BATTERY_USAGE_DAILY_TIME_SLOT = 1799;
+
+    // ACTION: Settings > Battery Usage > Click daily chart show all
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_BATTERY_USAGE_DAILY_SHOW_ALL = 1800;
+
+    // Custom tag to log the battery history is loaded
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_BATTERY_HISTORY_LOADED = 1801;
+
+    // Custom tag to log the count of shown apps when battery usage is opened.
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_BATTERY_USAGE_SHOWN_APP_COUNT = 1802;
+
+    // Custom tag to log the count of hidden apps when battery usage is opened.
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_BATTERY_USAGE_HIDDEN_APP_COUNT = 1803;
+
+    // ACTION: Allow or deny an app to run long jobs
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_LONG_BACKGROUND_TASKS_TOGGLE = 1804;
+
+    // ACTION: Settings > Battery settings > Battery tip > Dock Defender tip
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_DOCK_DEFENDER_TIP = 1805;
+
+    // ACTION: Settings > System > Multi User > Add user
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_USER_ADD = 1806;
+
+    // ACTION: Settings > Apps > Cloned Apps > Click on add icon to create clone
+    // app.
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_CREATE_CLONE_APP = 1807;
+
+    // ACTION: Settings > Apps > Cloned Apps > Click on trash icon to delete
+    // clone app.
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_DELETE_CLONE_APP = 1808;
+
+    // ACTION: Settings > System > Multi User > User > Remove user
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_REMOVE_USER = 1809;
+
+    // ACTION: Settings > System > Multi User > Guest User > Remove user
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_REMOVE_GUEST_USER = 1810;
+
+    // ACTION: Settings > System > Multi User > Restricted User > Remove user
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_REMOVE_RESTRICTED_USER = 1811;
+
+    // ACTION: Settings > System > Multi User > Restricted User > Remove user
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_SWITCH_TO_RESTRICTED_USER = 1812;
+
+    // ACTION: Settings > System > Multi User > Restricted User > Remove user
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_SWITCH_TO_USER = 1813;
+
+    // ACTION: Settings > System > Multi User > User > enable call
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_ENABLE_USER_CALL = 1814;
+
+    // ACTION: Settings > System > Multi User > User > disable call
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_DISABLE_USER_CALL = 1815;
+
+    // Custom tag to log the total screen-on time when battery usage is opened.
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_BATTERY_USAGE_SCREEN_ON_TIME = 1816;
+
+    // Custom tag to log the total foreground time when battery usage is opened.
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_BATTERY_USAGE_FOREGROUND_USAGE_TIME = 1817;
+
+    // Action: Settings > System > Multiple users > Add user > OK > Give this user admin privileges
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_GRANT_ADMIN_FROM_SETTINGS_CREATION_DIALOG = 1818;
+
+    // Action: Settings > System > Multiple users > Add user > OK > Don't give user admin privileges
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_NOT_GRANT_ADMIN_FROM_SETTINGS_CREATION_DIALOG = 1819;
+
+    // Action: Settings > System > Multiple users > User > Give this user admin privileges > Toggle on
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_GRANT_ADMIN_FROM_SETTINGS = 1820;
+
+    // Action: Settings > System > Multiple users > User > Give this user admin privileges > Toggle off
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_REVOKE_ADMIN_FROM_SETTINGS = 1821;
+
+    // Custom tag to log selected item change of the spinner in battery usage page
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_BATTERY_USAGE_SPINNER = 1822;
+
+    // ACTION: Settings > Battery settings > Battery tip > Incompatible charging
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_INCOMPATIBLE_CHARGING_TIP = 1823;
+
+    // ACTION: Settings > Network & Internet > SIMs > non-data SIM -> Toggle Switch Mobile Data automatically
+    // SUBTYPE: false is disabled, true is enabled
+    // OS: U
+    // CATEGORY: SETTINGS
+    ACTION_UPDATE_CROSS_SIM_CALLING_ON_AUTO_DATA_SWITCH_EVENT = 1824;
+
+    // ACTION: SIM setup dialog on Settings > Network & Internet > SIMs > Enable 2nd SIM, or inserting 2nd SIM
+    // SUBTYPE: false is disabled, true is enabled
+    // OS: U
+    ACTION_UPDATE_CROSS_SIM_CALLING_ON_2ND_SIM_ENABLE = 1825;
+
+    // ACTION: Settings > System > Languages > Regional preferences > Temperature > Set the
+    // preferred temperature unit.
+    // VALUE: temperature unit
+    // OS: U
+    ACTION_SET_TEMPERATURE_UNIT = 1826;
+
+    // ACTION: Settings > System > Languages > Regional preferences > First day of week > Set the
+    // preferred first day of week.
+    // VALUE: first day of week.
+    // OS: U
+    ACTION_SET_FIRST_DAY_OF_WEEK = 1827;
+
+    // ACTION: Settings > System > Languages > Regional preferences > Numbers preference >
+    // Choose the language
+    // VALUE: language.
+    // OS: U
+    ACTION_CHOOSE_LANGUAGE_FOR_NUMBERS_PREFERENCES = 1828;
+
+    // ACTION: Settings > System > Languages > Regional preferences > Numbers preference >
+    // Choose the language > Set the preferred numbers preferences.
+    // VALUE: numbers preferences.
+    // OS: U
+    ACTION_SET_NUMBERS_PREFERENCES = 1829;
+
+    // ACTION: Settings > System > Languages > System Languages > Click Learn more link
+    // OS: U
+    ACTION_LANGUAGES_LEARN_MORE = 1830;
+
+    // ACTION: Settings > System > Languages > System Languages > Add a language
+    // VALUE: language.
+    // OS: U
+    ACTION_ADD_LANGUAGE = 1831;
+
+    // ACTION: Settings > System > Languages > System Languages > Remove a language
+    // VALUE: language.
+    // OS: U
+    ACTION_REMOVE_LANGUAGE = 1832;
+
+    // ACTION: Settings > System > Languages > System Languages > Re-order a language
+    // VALUE: language.
+    // OS: U
+    ACTION_REORDER_LANGUAGE = 1833;
+
+    // ACTION: Settings > System > Languages > System Languages > Change system language
+    // VALUE: 1 for language changed, 0 for not changed
+    // OS: U
+    ACTION_CHANGE_LANGUAGE = 1834;
+
+    // ACTION: A group tile in Settings information architecture is added to the screen
+    // OS: U
+    ACTION_SETTINGS_GROUP_TILE_ADDED_TO_SCREEN = 1835;
 }
 
 /**
@@ -1179,7 +1393,7 @@ enum PageId {
     // OS: 6.0
     DISPLAY = 46;
 
-    // OPEN: Settings > Display > Daydream
+    // OPEN: Settings > Display > Daydream (Screen saver)
     // CATEGORY: SETTINGS
     // OS: 6.0
     DREAM = 47;
@@ -1825,7 +2039,7 @@ enum PageId {
     // OPEN: Settings > Apps > Dialog that informs user to allow service access for app.
     DIALOG_SERVICE_ACCESS_WARNING = 557;
 
-    // OPEN: Settings > Apps > Dialog for app actions (such as force stop/clear data)
+    // OPEN: Settings > Apps > Dialog for app actions (such as force stop/disable)
     DIALOG_APP_INFO_ACTION = 558;
 
     // OPEN: Settings > Storage > Dialog for forgetting a storage device
@@ -1908,44 +2122,41 @@ enum PageId {
     // OPEN: Settings > Display > Night light > Set end time dialog
     DIALOG_NIGHT_DISPLAY_SET_END_TIME = 589;
 
+    // OPEN: Settings > User > Edit info dialog
+    DIALOG_USER_EDIT = 590;
 
+    // OPEN: Settings > User > Confirm remove dialog
+    DIALOG_USER_REMOVE = 591;
 
-        // OPEN: Settings > User > Edit info dialog
-        DIALOG_USER_EDIT = 590;
+    // OPEN: Settings > User > Enable calling dialog
+    DIALOG_USER_ENABLE_CALLING = 592;
 
-        // OPEN: Settings > User > Confirm remove dialog
-        DIALOG_USER_REMOVE = 591;
+    // OPEN: Settings > User > Enable calling and sms dialog
+    DIALOG_USER_ENABLE_CALLING_AND_SMS = 593;
 
-        // OPEN: Settings > User > Enable calling dialog
-        DIALOG_USER_ENABLE_CALLING = 592;
+    // OPEN: Settings > User > Cannot manage device message dialog
+    DIALOG_USER_CANNOT_MANAGE = 594;
 
-        // OPEN: Settings > User > Enable calling and sms dialog
-        DIALOG_USER_ENABLE_CALLING_AND_SMS = 593;
+    // OPEN: Settings > User > Add user dialog
+    DIALOG_USER_ADD = 595;
 
-        // OPEN: Settings > User > Cannot manage device message dialog
-        DIALOG_USER_CANNOT_MANAGE = 594;
+    // OPEN: Settings > User > Setup user dialog
+    DIALOG_USER_SETUP = 596;
 
-        // OPEN: Settings > User > Add user dialog
-        DIALOG_USER_ADD = 595;
+    // OPEN: Settings > User > Setup profile dialog
+    DIALOG_USER_SETUP_PROFILE = 597;
 
-        // OPEN: Settings > User > Setup user dialog
-        DIALOG_USER_SETUP = 596;
+    // OPEN: Settings > User > Choose user type dialog
+    DIALOG_USER_CHOOSE_TYPE = 598;
 
-        // OPEN: Settings > User > Setup profile dialog
-        DIALOG_USER_SETUP_PROFILE = 597;
+    // OPEN: Settings > User > Need lockscreen dialog
+    DIALOG_USER_NEED_LOCKSCREEN = 599;
 
-        // OPEN: Settings > User > Choose user type dialog
-        DIALOG_USER_CHOOSE_TYPE = 598;
+    // OPEN: Settings > User > Confirm exit guest mode dialog
+    DIALOG_USER_CONFIRM_EXIT_GUEST = 600;
 
-        // OPEN: Settings > User > Need lockscreen dialog
-        DIALOG_USER_NEED_LOCKSCREEN = 599;
-
-        // OPEN: Settings > User > Confirm exit guest mode dialog
-        DIALOG_USER_CONFIRM_EXIT_GUEST = 600;
-
-        // OPEN: Settings > User > Edit user profile dialog
-        DIALOG_USER_EDIT_PROFILE = 601;
-
+    // OPEN: Settings > User > Edit user profile dialog
+    DIALOG_USER_EDIT_PROFILE = 601;
 
     // OPEN: Settings > Wifi > Saved AP > Edit dialog
     DIALOG_WIFI_SAVED_AP_EDIT = 602;
@@ -2008,6 +2219,7 @@ enum PageId {
 
     // OPEN: Settings > Apps > Default Apps > Default browser
     DEFAULT_BROWSER_PICKER = 785;
+
     // OPEN: Settings > Apps > Default Apps > Default emergency app
     DEFAULT_EMERGENCY_APP_PICKER = 786;
 
@@ -2022,7 +2234,6 @@ enum PageId {
 
     // OPEN: Settings > Apps > Notification > Notification Assistant
     DEFAULT_NOTIFICATION_ASSISTANT = 790;
-
 
     // OPEN: Settings > Apps > Default Apps > Warning dialog to confirm selection
     DEFAULT_APP_PICKER_CONFIRMATION_DIALOG = 791;
@@ -2102,7 +2313,6 @@ enum PageId {
     // CATEGORY: SETTINGS
     SETTINGS_LOCK_SCREEN_PREFERENCES = 882;
 
-
     // OPEN: Settings -> Display -> When in VR Mode
     VR_DISPLAY_PREFERENCE = 921;
 
@@ -2134,7 +2344,6 @@ enum PageId {
     // OS: O
     ENTERPRISE_PRIVACY_PERMISSIONS = 939;
 
-
     // OPEN: Settings > Security > Managed Device Info > Default apps
     // CATEGORY: SETTINGS
     // OS: O
@@ -2144,6 +2353,21 @@ enum PageId {
     // CATEGORY: SETTINGS
     // OS: O DR
     SETTINGS_CHOOSE_LOCK_DIALOG = 990;
+
+    // OPEN: Assist Gesture training intro in Settings
+    // CATEGORY: SETTINGS
+    // OS: O DR
+    SETTINGS_ASSIST_GESTURE_TRAINING_INTRO = 991;
+
+    // OPEN: Assist Gesture training enrolling in Settings
+    // CATEGORY: SETTINGS
+    // OS: O DR
+    SETTINGS_ASSIST_GESTURE_TRAINING_ENROLLING = 992;
+
+    // OPEN: Assist Gesture training finished in Settings
+    // CATEGORY: SETTINGS
+    // OS: O DR
+    SETTINGS_ASSIST_GESTURE_TRAINING_FINISHED = 993;
 
     // OPEN: Settings > System > Languages & input > Assist gesture
     // CATEGORY: SETTINGS
@@ -2507,7 +2731,6 @@ enum PageId {
     // OS: Q
     NOTIFICATION_ZEN_MODE_OVERRIDING_APPS = 1588;
 
-
     // OPEN: Settings > Sound & notification > Do Not Disturb > See all exceptions >
     // Allow apps to override > Choose app
     // CATEGORY: SETTINGS
@@ -2525,8 +2748,6 @@ enum PageId {
 
     // OPEN: Settings > Apps & Notifications -> Special app access -> Financial Apps Sms Access
     SETTINGS_FINANCIAL_APPS_SMS_ACCESS = 1597;
-
-
 
     // OPEN: Settings > Sound > Do Not Disturb > Schedules > (Click on system rule)
     // > Do Not Disturb behavior
@@ -3293,7 +3514,7 @@ enum PageId {
     // OS: T
     ACCESSIBILITY_TEXT_READING_OPTIONS = 1912;
 
-    // OPEN: Settings > Developer options > Reboot with MTE > Info dialog
+    // OPEN: Settings > Developer options > Reboot with MTE
     // CATEGORY: SETTINGS
     // OS: T
     REBOOT_WITH_MTE = 1913;
@@ -3366,6 +3587,442 @@ enum PageId {
     // CATEGORY: SETTINGS
     // OS: T
     LE_AUDIO_BROADCAST_SCAN_QR_CODE = 1926;
+
+    // OPEN: Settings > About phone > Limited Warranty
+    // CATEGORY: SETTINGS
+    // OS: T
+    LIMITED_WARRANTY_COUNTRY_LIST = 1927;
+
+    // OPEN: Settings > About phone > Limited Warranty > Click any country
+    // CATEGORY: SETTINGS
+    // OS: T
+    LIMITED_WARRANTY_DETAILS = 1928;
+
+    // OPEN: Settings > Sound > Clear Calling
+    CLEAR_CALLING = 1929;
+
+    // The dialog will show after successfully pairing one of the binaural hearing aids
+    // CATEGORY: SETTINGS
+    // OS: T
+    DIALOG_ACCESSIBILITY_HEARING_AID_PAIR_ANOTHER = 1930;
+
+    // OPEN: Settings > Apps > Battery optimized apps
+    // CATEGORY: SETTINGS
+    // OS: T
+    BATTERY_OPTIMIZED_APPS_LIST = 1931;
+
+    // OPEN: Settings -> Developer Options -> Enable full NFC Snoop or verbose
+    // Log > NfcRebootDialog
+    // CATEGORY: SETTINGS
+    // OS: T
+    DIALOG_NFC_ENABLE_DETAIL_LOG = 1932;
+
+    // OPEN: Settings > Network & internet > Mobile network > Backup Calling > Dialog
+    // CATEGORY: SETTINGS
+    // OS: U
+    BACKUP_CALLING_DIALOG = 1934;
+
+    // OPEN: SUW choose a screen saver
+    // OS: T
+    SUW_DREAM = 1935;
+
+    // OPEN: Settings > Connected devices > Connection preferences > NFC >
+    // Contactless payments > Default payment app
+    // CATEGORY: SETTINGS
+    // OS: T
+    NFC_DEFAULT_PAYMENT = 1936;
+
+    // OPEN: Active Unlock Enroll (if there is no face or fingerprint enrolled)
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTIVE_UNLOCK_REQUIRE_BIOMETRIC_SETUP = 1940;
+
+    // OPEN: Settings > System > Languages
+    // CATEGORY: SETTINGS
+    // OS: U
+    SETTINGS_LANGUAGES_CATEGORY = 1950;
+
+    // OPEN: Settings > System > Keyboard > Physical keyboard
+    //       > Show enabled input method locales page > Show keyboard layout picker title
+    // CATEGORY: SETTINGS
+    // OS: U
+    SETTINGS_KEYBOARDS_LAYOUT_PICKER_TITLE = 1957;
+
+    // OPEN: Settings > System > Keyboard > Physical keyboard
+    //       > Show enabled input method locales page > Show keyboard layout picker page
+    // CATEGORY: SETTINGS
+    // OS: U
+    SETTINGS_KEYBOARDS_LAYOUT_PICKER = 1958;
+
+    // OPEN: Settings > System > Keyboard > Physical keyboard
+    //       > Show enabled input method locales page
+    // CATEGORY: SETTINGS
+    // OS: U
+    SETTINGS_KEYBOARDS_ENABLED_LOCALES = 1959;
+
+    // OPEN: Settings > System > Keyboard
+    // CATEGORY: SETTINGS
+    // OS: U
+    SETTINGS_KEYBOARDS_CATEGORY = 1960;
+
+    // OPEN: Settings > System > Keyboard > Physical keyboard > Modifier keys
+    // CATEGORY: SETTINGS
+    // OS: U
+    SETTINGS_KEYBOARDS_MODIFIER_KEYS = 1961;
+
+    // OPEN: Settings > Network & internet > Mobile network > ContactDiscovery
+    // CATEGORY: SETTINGS
+    // OS: U
+    SETTINGS_CONTACT_DISCOVERY = 1963;
+
+    // OPEN: Settings > Network & Internet
+    // ACTION: Create the mobile network database.
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_MOBILE_NETWORK_DB_CREATED = 1964;
+
+    // OPEN: Settings > Network & Internet
+    // ACTION: Delete mobile network data to the mobile network database.
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_MOBILE_NETWORK_DB_DELETE_DATA = 1965;
+
+    // OPEN: Settings > Network & Internet
+    // ACTION: Insert the framework's subscription info into subscription table.
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_MOBILE_NETWORK_DB_INSERT_SUB_INFO = 1966;
+
+    // OPEN: Settings > Network & Internet
+    // ACTION: Insert the framework's UICC info into UICC table.
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_MOBILE_NETWORK_DB_INSERT_UICC_INFO = 1967;
+
+    // OPEN: Settings > Network & Internet
+    // ACTION: Insert the mobile network info into mobile network table.
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_MOBILE_NETWORK_DB_INSERT_MOBILE_NETWORK_INFO = 1969;
+
+    // OPEN: Settings > Network & Internet
+    // ACTION: Get the UICC info from framework's subscription info.
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_MOBILE_NETWORK_DB_GET_UICC_INFO = 1970;
+
+    // OPEN: Settings > Network & Internet
+    // ACTION: Send the change of subscription entity to UI.
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_MOBILE_NETWORK_DB_NOTIFY_SUB_INFO_IS_CHANGED = 1971;
+
+    // OPEN: Settings > Network & Internet
+    // ACTION: Send the change of UICC entity to UI.
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_MOBILE_NETWORK_DB_NOTIFY_UICC_INFO_IS_CHANGED = 1972;
+
+    // OPEN: Settings > Network & Internet
+    // ACTION: Send the change of mobile network entity to UI.
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACTION_MOBILE_NETWORK_DB_NOTIFY_MOBILE_NETWORK_INFO_IS_CHANGED = 1973;
+
+    // OPEN: Settings > Security > Advanced Memory Protection (beta)
+    // CATEGORY: SETTINGS
+    // OS: U
+    SETTINGS_MEMTAG_CATEGORY = 1974;
+
+    // OPEN: Settings > Apps > Gear > Special Access > Long background tasks
+    // CATEGORY: SETTINGS
+    // OS: U
+    LONG_BACKGROUND_TASKS = 1975;
+
+    // OPEN: Settings > Apps > Special app access > Modify system settings
+    // CATEGORY: SETTINGS
+    // OS: U
+    MODIFY_SYSTEM_SETTINGS = 1976;
+
+    // OPEN: Settings > Battery > Battery Saver > Set a schedule
+    // CATEGORY: SETTINGS
+    // OS: U
+    FUELGAUGE_BATTERY_SAVER_SCHEDULE = 1977;
+
+    // OPEN: Settings > Apps > All apps > one of any app > Open by default
+    // CATEGORY: SETTINGS
+    // OS: U
+    PROGRESS_DIALOG = 1978;
+
+    // OPEN: Settings > Apps > All apps > one of any app > Open by default
+    // CATEGORY: SETTINGS
+    // OS: U
+    SUPPORTED_LINKS_DIALOG = 1979;
+
+    // OPEN: Settings > Storage > option menu > Forget
+    // CATEGORY: SETTINGS
+    // OS: U
+    PRIVATE_VOLUME_FORGET = 1980;
+
+    // OPEN: Settings > Storage > option menu > Format
+    // CATEGORY: SETTINGS
+    // OS: U
+    PRIVATE_VOLUME_FORMAT = 1981;
+
+    // OPEN: Settings > Storage > option menu > Unmount
+    // CATEGORY: SETTINGS
+    // OS: U
+    PRIVATE_VOLUME_UNMOUNT = 1982;
+
+    // OPEN: PublicVolumeSettingsActivity (android.provider.action.DOCUMENT_ROOT_SETTINGS action Intent)
+    // CATEGORY: SETTINGS
+    // OS: U
+    PUBLIC_VOLUME_SETTINGS = 1983;
+
+    // OPEN: Settings > Developer options > Reboot with MTE > Info dialog
+    // CATEGORY: SETTINGS
+    // OS: U
+    REBOOT_WITH_MTE_DIALOG = 1984;
+
+    // OPEN: Settings > Apps > All apps > one of any app > Dialog for base app actions
+    // CATEGORY: SETTINGS
+    // OS: U
+    DIALOG_BASE_APP_INFO_ACTION = 1985;
+
+    // OPEN: Settings > Apps > All apps > one of any app > Dialog for clearing the instant app
+    // CATEGORY: SETTINGS
+    // OS: U
+    DIALOG_INSTANT_APP_INFO_ACTION = 1986;
+
+    // OPEN: Settings > Pick specific DDS SIM dialog
+    // CATEGORY: SETTINGS
+    // OS: U
+    DIALOG_SPECIFIC_DDS_SIM_PICKER = 1987;
+
+    // OPEN: Settings > Storage -> Work profile tab
+    // CATEGORY: SETTINGS
+    // OS: U
+    SETTINGS_STORAGE_CATEGORY_WORK = 1988;
+
+    // OPEN: Settings > Apps > Cloned Apps
+    // CATEGORY: SETTINGS
+    // OS: U
+    CLONED_APPS = 1989;
+
+    // OPEN: Settings > Apps > Special app access > Picture-in-picture > on of any app
+    // CATEGORY: SETTINGS
+    // OS: U
+    SETTINGS_MANAGE_PICTURE_IN_PICTURE_DETAIL = 1990;
+
+    // OPEN: Settings > Storage (When work profile exists)
+    // CATEGORY: SETTINGS
+    // OS: U
+    SETTINGS_STORAGE_PROFILE_SELECTOR = 1991;
+
+    // OPEN: Settings > Location > Location Services > Bluetooth scanning
+    // CATEGORY: SETTINGS
+    // OS: U
+    LOCATION_SERVICES_BLUETOOTH_SCANNING = 1992;
+
+    // OPEN: Settings > Location > Location Services > Wi-Fi scanning
+    // CATEGORY: SETTINGS
+    // OS: U
+    LOCATION_SERVICES_WIFI_SCANNING = 1993;
+
+    // OPEN: Settings > Location > Location Services > Work
+    // CATEGORY: SETTINGS
+    // OS: U
+    LOCATION_SERVICES_FOR_WORK = 1994;
+
+    // OPEN: Settings > Location
+    // CATEGORY: SETTINGS
+    // OS: U
+    LOCATION_PERSONAL = 1995;
+
+    // OPEN: Settings > Location > See All
+    // CATEGORY: SETTINGS
+    // OS: U
+    LOCATION_RECENT_ACCESS_ALL = 1996;
+
+    // OPEN: Settings > Network & internet > Calls & SMS.
+    NETWORK_PROVIDER_CALLS_SMS = 1997;
+
+    // OPEN: Settings > System > Reset options > Reset Bluetooth & Wi-Fi >
+    //       (confirmation dialog) > Reset
+    // CATEGORY: SETTINGS
+    // OS: U
+    RESET_BLUETOOTH_WIFI_CONFIRM = 1998;
+
+    // OPEN: Settings > Privacy & Security > Privacy Controls
+    // CATEGORY: SETTINGS
+    // OS: U
+    PRIVACY_CONTROLS = 1999;
+
+    // OPEN: Settings > System > Multi user > Add user > Grant admin privileges?
+    // CATEGORY: SETTINGS
+    // OS: U
+    DIALOG_GRANT_USER_ADMIN = 2000;
+
+    // OPEN: Settings > System > Multi user > User > Grant admin privileges (Toggle off)
+    // CATEGORY: SETTINGS
+    // OS: U
+    DIALOG_REVOKE_USER_ADMIN = 2001;
+
+    // OPEN: Settings > Display > Auto-rotate screen
+    // CATEGORY: SETTINGS
+    // OS: U
+    DISPLAY_DEVICE_STATE_AUTO_ROTATE_SETTINGS = 2002;
+
+    // OPEN: Settings > System > Touchpad
+    // CATEGORY: SETTINGS
+    // OS: U
+    SETTINGS_KEYBOARDS_TOUCHPAD = 2003;
+
+    // OPEN: Settings > System > Touchpad > Touchpad gestures
+    // CATEGORY: SETTINGS
+    // OS: U
+    SETTINGS_KEYBOARDS_TOUCHPAD_GESTURE = 2004;
+
+    // OPEN: Settings > Privacy & Security > More Settings
+    // CATEGORY: SETTINGS
+    // OS: U
+    MORE_SECURITY_PRIVACY_SETTINGS = 2005;
+
+    // OPEN: Settings > About phone > Device name > confirm dialog
+    // CATEGORY: SETTINGS
+    // OS: U
+    DIALOG_DEVICENAME_WARNING = 2006;
+
+    // OPEN: Settings > System > Language & input > Regional preferences
+    // CATEGORY: SETTINGS
+    // OS: U
+    REGIONAL_PREFERENCE = 2007;
+
+    // OPEN: Settings > Pick SIM dialog > Choose default data SIM
+    // CATEGORY: SETTINGS
+    // OS: U
+    DIALOG_AUTO_DATA_SWITCH = 2008;
+
+    // OPEN: Settings > System > Language & input > Regional preferences > Temperature
+    // CATEGORY: SETTINGS
+    // OS: U
+    TEMPERATURE_PREFERENCE = 2009;
+
+    // OPEN: Settings > System > Language & input > Regional preferences > Calendar
+    // CATEGORY: SETTINGS
+    // OS: U
+    CALENDAR_PREFERENCE = 2010;
+
+    // OPEN: Settings > System > Language & input > Regional preferences > First day of week
+    // CATEGORY: SETTINGS
+    // OS: U
+    FIRST_DAY_OF_WEEK_PREFERENCE = 2011;
+
+    // OPEN: Settings > System > Language & input > Regional preferences > Numbers
+    // CATEGORY: SETTINGS
+    // OS: U
+    NUMBERING_SYSTEM_LANGUAGE_SELECTION_PREFERENCE = 2012;
+
+    // OPEN: Settings > System > Language & input > Regional preferences > Numbers -> Languages
+    // CATEGORY: SETTINGS
+    // OS: U
+    NUMBERING_SYSTEM_NUMBER_FORMAT_SELECTION_PREFERENCE = 2013;
+
+    // OPEN: Settings > Developer Options > Snoop Logger Filters
+    // CATEGORY: SETTINGS
+    SETTINGS_SNOOP_LOGGER_DASHBOARD = 2014;
+
+    // OPEN: Settings > System > Developer options > Memory Tagging Extension
+    // CATEGORY: SETTINGS
+    // OS: U
+    SETTINGS_DEVELOPMENT_MEMTAG_CATEGORY = 2015;
+
+    // OPEN: Settings > Apps > Special app access > NFC Tag App Preference
+    // CATEGORY: SETTINGS
+    // OS: U
+    CONFIG_NFC_TAG_APP_PREF = 2016;
+
+    // Open: Settings : Apps > Special App Access > Device & app notifications > Not allowed > allow
+    // CATEGORY: SETTINGS
+    // OS: U
+    // Pre-U, shared DIALOG_SERVICE_ACCESS_WARNING with the VR Listeners approval dialog
+    DIALOG_NOTIFICATION_ACCESS_GRANT = 2017;
+
+    // Open: LE audio broadcast dialog
+    // CATEGORY: SETTINGS
+    // OS: U
+    DIALOG_LE_AUDIO_BROADCAST = 2018;
+
+    // Open: LE audio broadcast dialog > Find a broadcast
+    // CATEGORY: SETTINGS
+    // OS: U
+    LE_AUDIO_BROADCAST_FIND_BROADCAST = 2019;
+
+    // OPEN: Settings > Apps > Special app access > Turn screen on
+    // CATEGORY: SETTINGS
+    // OS: U
+    SETTINGS_TURN_SCREEN_ON_ACCESS = 2020;
+
+    // OPEN: Settings > Connected Devices > Stylus > (click on the USI stylus link for the device)
+    // CATEGORY: SETTINGS
+    // OS: U
+    USI_DEVICE_DETAILS = 2021;
+
+    // OPEN: Settings > System > Language and input > Languages > (Select a new locale to be system default)
+    // CATEGORY: SETTINGS
+    // OS: U
+    DIALOG_SYSTEM_LOCALE_CHANGE = 2022;
+
+    // OPEN: Settings > System > Language and input > Languages > (Select a unavailable locale)
+    // CATEGORY: SETTINGS
+    // OS: U
+    DIALOG_SYSTEM_LOCALE_UNAVAILABLE = 2023;
+
+    // OPEN: Settings > Accessibility > Hearing devices
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACCESSIBILITY_HEARING_AID_SETTINGS = 2024;
+
+    // OPEN: Settings > Accessibility > Hearing devices > Pair new device
+    // CATEGORY: SETTINGS
+    // OS: U
+    HEARING_AID_PAIRING = 2025;
+
+    // OPEN: Settings > Accessibility > Hearing devices > Audio output
+    // CATEGORY: SETTINGS
+    // OS: U
+    HEARING_AID_AUDIO_ROUTING = 2026;
+
+    // OPEN: Settings > Accessibility > Flash notifications
+    // OPEN: Settings > Notifications > Flash notifications
+    // CATEGORY: SETTINGS
+    // OS: U
+    FLASH_NOTIFICATION_SETTINGS = 2027;
+
+    // OPEN: Settings > Add fingerprint > Error dialog in split mode
+    // CATEGORY: SETTINGS
+    // OS: U
+    DIALOG_ADD_FINGERPRINT_ERROR_IN_SPLIT_MODE = 2028;
+
+    // OPEN: Settings > Add face > Error dialog in split mode
+    // CATEGORY: SETTINGS
+    // OS: U
+    DIALOG_ADD_FACE_ERROR_IN_SPLIT_MODE = 2029;
+
+    // OPEN: Settings > Account -> personal profile tab
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACCOUNT_PERSONAL = 2030;
+
+    // OPEN: Settings > Account -> account detail
+    // CATEGORY: SETTINGS
+    // OS: U
+    ACCOUNT_DETAIL = 2031;
+
+    // OPEN: Settings > Wireless > VPN
+    // CATEGORY: SETTINGS
+    // OS: U
+    VPN_APP_MANAGEMENT = 2033;
 }
 
 // Battery Saver schedule types.
@@ -3374,4 +4031,18 @@ enum BatterySaverScheduleType {
     BATTERY_SAVER_SCHEDULE_TYPE_NO_SCHEDULE = 1;
     BATTERY_SAVER_SCHEDULE_TYPE_BASED_ON_ROUTINE = 2;
     BATTERY_SAVER_SCHEDULE_TYPE_BASED_ON_PERCENTAGE = 3;
+}
+
+// Settings SPA session type of the from source.
+enum SessionType {
+    // The client app doesn't set session source.
+    SESSION_UNKNOWN = 0;
+    // The session start from opening the Settings app.
+    BROWSE = 1;
+    // The session start from Settings Search result.
+    SEARCH = 2;
+    // The session start from other app via Intent.
+    EXTERNAL = 3;
+    // The session start from the Slice invoking.
+    SLICE_TYPE = 4;
 }

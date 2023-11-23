@@ -23,31 +23,43 @@ pw_python_package("py") {
       version = "0.0.1"
     }
     options = {
-      install_requires = [ "cryptography" ]
+      install_requires = [
+        "cryptography",
+        "google-cloud-storage",
+      ]
+      tests_require = [
+        "cryptography",
+        "google-cloud-storage",
+      ]
     }
   }
 
   sources = [
     "pw_software_update/__init__.py",
+    "pw_software_update/cli.py",
     "pw_software_update/dev_sign.py",
     "pw_software_update/generate_test_bundle.py",
     "pw_software_update/keys.py",
     "pw_software_update/metadata.py",
+    "pw_software_update/remote_sign.py",
     "pw_software_update/root_metadata.py",
     "pw_software_update/update_bundle.py",
     "pw_software_update/verify.py",
   ]
 
   tests = [
+    "cli_test.py",
     "dev_sign_test.py",
     "keys_test.py",
     "metadata_test.py",
+    "remote_sign_test.py",
     "root_metadata_test.py",
     "update_bundle_test.py",
     "verify_test.py",
   ]
 
   pylintrc = "$dir_pigweed/.pylintrc"
+  mypy_ini = "$dir_pigweed/.mypy.ini"
 
   proto_library = "..:protos"
 }

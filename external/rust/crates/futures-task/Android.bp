@@ -42,7 +42,7 @@ rust_test {
     host_supported: true,
     crate_name: "futures_task",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.3.21",
+    cargo_pkg_version: "0.3.26",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
@@ -62,7 +62,7 @@ rust_library {
     host_supported: true,
     crate_name: "futures_task",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.3.21",
+    cargo_pkg_version: "0.3.26",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -72,9 +72,11 @@ rust_library {
     ],
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth",
+        "com.android.btservices",
         "com.android.resolv",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
     min_sdk_version: "29",
 }

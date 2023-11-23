@@ -3,6 +3,9 @@
     package="com.google.android.sample.testsliceapp">
 
   <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+  <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
+  <uses-permission android:name="android.permission.READ_BASIC_PHONE_STATE" />
+  <uses-permission android:name="android.permission.INTERNET" />
   <application
       android:allowBackup="true"
       android:icon="@mipmap/ic_launcher"
@@ -10,7 +13,8 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:supportsRtl="true"
       android:theme="@style/Theme.AppCompat"
-      android:versionCode="34">
+      android:versionCode="34"
+      android:usesCleartextTraffic="true">
     <activity
         android:name=".MainActivity"
         android:exported="true">
@@ -28,5 +32,7 @@
       <meta-data android:name="android.service.carrier.LONG_LIVED_BINDING"
           android:value="true" />
     </service>
+    <property android:name="android.net.PROPERTY_SELF_CERTIFIED_NETWORK_CAPABILITIES"
+              android:resource="@xml/self_certified_network_capabilities_both" />
   </application>
 </manifest>

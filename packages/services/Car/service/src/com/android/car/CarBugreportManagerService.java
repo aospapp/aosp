@@ -77,8 +77,10 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
     /**
      * The services are defined in {@code packages/services/Car/cpp/bugreport/carbugreportd.rc}.
      */
-    private static final String BUGREPORTD_SERVICE = "carbugreportd";
-    private static final String DUMPSTATEZ_SERVICE = "cardumpstatez";
+    @VisibleForTesting
+    static final String BUGREPORTD_SERVICE = "carbugreportd";
+    @VisibleForTesting
+    static final String DUMPSTATEZ_SERVICE = "cardumpstatez";
 
     // The socket definitions must match the actual socket names defined in car_bugreportd service
     // definition.
@@ -96,7 +98,8 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
     private final HandlerThread mHandlerThread = CarServiceUtils.getHandlerThread(
             getClass().getSimpleName());
     private final Handler mHandler = new Handler(mHandlerThread.getLooper());
-    private final AtomicBoolean mIsServiceRunning = new AtomicBoolean(false);
+    @VisibleForTesting
+    final AtomicBoolean mIsServiceRunning = new AtomicBoolean(false);
     private boolean mIsDumpstateDryRun = false;
 
     /**
@@ -212,7 +215,7 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
                 }
             }
         }
-        throw new SecurityException("Caller " +  pm.getNameForUid(callingUid)
+        throw new SecurityException("Caller " + pm.getNameForUid(callingUid)
                 + " is not a designated bugreport app");
     }
 

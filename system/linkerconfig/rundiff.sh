@@ -21,18 +21,19 @@ shopt -s globstar
 # to use relative paths
 cd $(dirname $0)
 
+RUN_FROM_SERVER=0
+
 # when executed directly from commandline, build dependencies
 if [[ $(basename $0) == "rundiff.sh" ]]; then
   if [ -z $ANDROID_BUILD_TOP ]; then
     echo "You need to source and lunch before you can use this script"
     exit 1
   fi
-  $ANDROID_BUILD_TOP/build/soong/soong_ui.bash --make-mode linkerconfig conv_apex_manifest
+  $ANDROID_BUILD_TOP/build/soong/soong_ui.bash --make-mode linkerconfig conv_apex_manifest conv_linker_config
 else
-  # workaround to use host tools(conv_apex_manifest, linkerconfig) on build server
-  unzip -qqo linkerconfig_diff_test_host_tools.zip -d tools
-  export PATH=$(realpath tools)/bin:$PATH
-  export LD_LIBRARY_PATH=$(realpath tools)/lib64:$LD_LIBRARY_PATH
+  # workaround to use host tools on build server
+  export PATH=$(dirname $0):$PATH
+  RUN_FROM_SERVER=1
 fi
 
 # $1: target libraries.txt file
@@ -62,54 +63,118 @@ function build_root {
   done
 }
 
+function run_linkerconfig_stage0 {
+  # prepare root
+
+  echo "Prepare root for stage 0"
+  TMP_PATH=$2/stage0
+  mkdir $TMP_PATH
+  build_root testdata/root $TMP_PATH
+  ./testdata/prepare_root.sh --root $TMP_PATH
+
+  mkdir -p $1/stage0
+  echo "Running linkerconfig for stage 0"
+  linkerconfig -v R -r $TMP_PATH -t $1/stage0
+
+  echo "Stage 0 completed"
+}
+
+function run_linkerconfig_stage1 {
+  # prepare root
+  echo "Prepare root for stage 1"
+  TMP_PATH=$2/stage1
+  mkdir $TMP_PATH
+  build_root testdata/root $TMP_PATH
+  ./testdata/prepare_root.sh --bootstrap --root $TMP_PATH
+
+  mkdir -p $1/stage1
+  echo "Running linkerconfig for stage 1"
+  linkerconfig -v R -r $TMP_PATH -t $1/stage1
+
+  echo "Stage 1 completed"
+}
+
+function run_linkerconfig_stage2 {
+  # prepare root
+  echo "Prepare root for stage 2"
+  TMP_PATH=$2/stage2
+  mkdir $TMP_PATH
+  build_root testdata/root $TMP_PATH
+  ./testdata/prepare_root.sh --all --root $TMP_PATH
+
+  mkdir -p $1/stage2
+  echo "Running linkerconfig for stage 2"
+  linkerconfig -v R -r $TMP_PATH -t $1/stage2
+
+  # skip prepare_root in order to use the same apexs
+  mkdir -p $1/product-enabled
+  echo "Running linkerconfig for product-enabled"
+  linkerconfig -v R -p R -r $TMP_PATH -t $1/product-enabled
+
+  # skip prepare_root (reuse the previous setup)
+  mkdir -p $1/gen-only-a-single-apex
+  echo "Running linkerconfig for gen-only-a-single-apex"
+  linkerconfig -v R -r $TMP_PATH --apex com.vendor.service2 -t $1/gen-only-a-single-apex
+
+  # skip prepare_root in order to use the same apexs
+  # but with system/etc/vndkcorevariant.libraries.txt
+  vndk_core_variant_libs_file=$TMP_PATH/system/etc/vndkcorevariant.libraries.txt
+  write_libraries_txt $vndk_core_variant_libs_file libevent.so:libexif.so:libfmq.so
+  mkdir -p $1/vndk-in-system
+  echo "Running linkerconfig for vndk-in-system"
+  linkerconfig -v R -p R -r $TMP_PATH -t $1/vndk-in-system
+  # clean up
+  rm -if $vndk_core_variant_libs_file
+  vndk_core_variant_libs_file=
+
+  echo "Stage 2 completed"
+}
+
+function run_linkerconfig_others {
+  # prepare root
+  echo "Prepare root for stage others"
+  TMP_PATH=$2/others
+  mkdir $TMP_PATH
+  build_root testdata/root $TMP_PATH
+  ./testdata/prepare_root.sh --all --block com.android.art:com.android.vndk.vR --root $TMP_PATH
+
+  mkdir -p $1/guest
+  echo "Running linkerconfig for guest"
+  linkerconfig -v R -p R -r $TMP_PATH -t $1/guest
+
+  # skip prepare_root in order to use the same apexes except VNDK
+  rm -iRf $TMP_PATH/apex/com.android.vndk.vR
+  mkdir -p $1/legacy
+  echo "Running linkerconfig for legacy"
+  linkerconfig -r $TMP_PATH -t $1/legacy
+
+  echo "Stage others completed"
+}
+
 # $1: target output directory
 function run_linkerconfig_to {
   # delete old output
   rm -rf $1
 
   TMP_ROOT=$(mktemp -d -t linkerconfig-root-XXXXXXXX)
-  # Build the root
-  build_root testdata/root $TMP_ROOT
 
-  # Run linkerconfig with various configurations
+  run_linkerconfig_stage0 $1 $TMP_ROOT &
 
-  ./testdata/prepare_root.sh --root $TMP_ROOT
-  mkdir -p $1/stage0
-  linkerconfig -v R -r $TMP_ROOT -t $1/stage0
+  run_linkerconfig_stage1 $1 $TMP_ROOT &
 
-  ./testdata/prepare_root.sh --bootstrap --root $TMP_ROOT
-  mkdir -p $1/stage1
-  linkerconfig -v R -r $TMP_ROOT -t $1/stage1
+  run_linkerconfig_stage2 $1 $TMP_ROOT &
 
-  ./testdata/prepare_root.sh --all --root $TMP_ROOT
-  mkdir -p $1/stage2
-  linkerconfig -v R -r $TMP_ROOT -t $1/stage2
+  run_linkerconfig_others $1 $TMP_ROOT &
 
-  # skip prepare_root in order to use the same apexs
-  mkdir -p $1/product-enabled
-  linkerconfig -v R -p R -r $TMP_ROOT -t $1/product-enabled
+  for job in `jobs -p`
+  do
+    wait $job
+  done
 
-  # skip prepare_root in order to use the same apexs
-  # but with system/etc/vndkcorevariant.libraries.txt
-  vndk_core_variant_libs_file=$TMP_ROOT/system/etc/vndkcorevariant.libraries.txt
-  write_libraries_txt $vndk_core_variant_libs_file libevent.so:libexif.so:libfmq.so
-  mkdir -p $1/vndk-in-system
-  linkerconfig -v R -p R -r $TMP_ROOT -t $1/vndk-in-system
-  # clean up
-  rm -if $vndk_core_variant_libs_file
-  vndk_core_variant_libs_file=
-
-  ./testdata/prepare_root.sh --all --block com.android.art:com.android.vndk.vR --root $TMP_ROOT
-  mkdir -p $1/guest
-  linkerconfig -v R -p R -r $TMP_ROOT -t $1/guest
-
-  # skip prepare_root in order to use the same apexes except VNDK
-  rm -iRf $TMP_ROOT/apex/com.android.vndk.vR
-  mkdir -p $1/legacy
-  linkerconfig -r $TMP_ROOT -t $1/legacy
-
-  # clean up testdata root
-  rm -rf $TMP_ROOT
+  # Remove temp root if required
+  if [[ $RUN_FROM_SERVER -ne 1 ]]; then
+    rm -rf $TMP_ROOT
+  fi
 }
 
 # update golden_output
@@ -122,6 +187,8 @@ fi
 echo "Running linkerconfig diff test..."
 
 run_linkerconfig_to ./testdata/output
+
+echo "Running diff from test output"
 if diff -ruN ./testdata/golden_output ./testdata/output ; then
   echo "No changes."
 else

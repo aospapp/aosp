@@ -4,17 +4,12 @@
  */
 
 /*
- * Tests .request_hugepages + .save_restore
+ * Tests .hugepages + .save_restore
  */
 
 #include "tst_test.h"
 #include "tst_hugepage.h"
 #include "tst_sys_conf.h"
-
-static const char * const save_restore[] = {
-	"!/proc/sys/kernel/numa_balancing",
-	NULL,
-};
 
 static void do_test(void) {
 
@@ -23,23 +18,28 @@ static void do_test(void) {
 	tst_res(TINFO, "tst_hugepages = %lu", tst_hugepages);
 	SAFE_FILE_PRINTF("/proc/sys/kernel/numa_balancing", "1");
 
-	hpages = test.request_hugepages;
+	hpages = test.hugepages.number;
 	SAFE_FILE_SCANF(PATH_NR_HPAGES, "%lu", &val);
 	if (val != hpages)
 		tst_brk(TBROK, "nr_hugepages = %lu, but expect %lu", val, hpages);
 	else
-		tst_res(TPASS, "test .needs_hugepges");
+		tst_res(TPASS, "test .hugepges");
 
-	hpages = tst_request_hugepages(3);
+	struct tst_hugepage hp = { 1000000000000, TST_REQUEST };
+	hpages = tst_reserve_hugepages(&hp);
+
 	SAFE_FILE_SCANF(PATH_NR_HPAGES, "%lu", &val);
 	if (val != hpages)
 		tst_brk(TBROK, "nr_hugepages = %lu, but expect %lu", val, hpages);
 	else
-		tst_res(TPASS, "tst_request_hugepages");
+		tst_res(TPASS, "tst_reserve_hugepages");
 }
 
 static struct tst_test test = {
 	.test_all = do_test,
-	.request_hugepages = 2,
-	.save_restore = save_restore,
+	.hugepages = {2, TST_NEEDS},
+	.save_restore = (const struct tst_path_val[]) {
+		{"/proc/sys/kernel/numa_balancing", "0", TST_SR_TBROK},
+		{}
+	},
 };

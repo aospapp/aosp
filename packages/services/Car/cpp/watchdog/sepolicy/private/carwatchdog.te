@@ -26,9 +26,16 @@ allow carwatchdogd proc_stat:file r_file_perms;
 # Read /proc/diskstats file.
 allow carwatchdogd proc_diskstats:file r_file_perms;
 
+# Read /proc/uid_cputime/show_uid_stat file.
+allow carwatchdogd proc_uid_cputime_showstat:file r_file_perms;
+
 # List HALs to get pid of vehicle HAL.
 allow carwatchdogd hwservicemanager:hwservice_manager list;
 
 # R/W /data/system/car for resource overuse configurations.
 allow carwatchdogd system_car_data_file:dir create_dir_perms;
 allow carwatchdogd system_car_data_file:{ file lnk_file } create_file_perms;
+
+# Allow carwatchdogd to set thread scheduling policy and priority.
+allow carwatchdogd self:capability sys_nice;
+allow carwatchdogd appdomain:process { setsched getsched };

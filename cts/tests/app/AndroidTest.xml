@@ -19,6 +19,8 @@
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user_on_secondary_display" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.LocationCheck" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="force-install-mode" value="FULL"/>
@@ -33,18 +35,14 @@
         <option name="test-file-name" value="CtsBadProviderStubs.apk" />
         <option name="test-file-name" value="CtsCantSaveState1.apk" />
         <option name="test-file-name" value="CtsCantSaveState2.apk" />
-        <option name="test-file-name" value="NotificationApp.apk" />
-        <option name="test-file-name" value="NotificationProvider.apk" />
-        <option name="test-file-name" value="NotificationListener.apk" />
         <option name="test-file-name" value="StorageDelegator.apk" />
         <option name="test-file-name" value="CtsActivityManagerApi29.apk" />
-        <option name="test-file-name" value="NotificationTrampoline.apk" />
-        <option name="test-file-name" value="NotificationTrampolineApi30.apk" />
-        <option name="test-file-name" value="NotificationTrampolineApi32.apk" />
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="input keyevent KEYCODE_WAKEUP" />
         <option name="run-command" value="wm dismiss-keyguard" />
+        <option name="run-command" value="settings put secure immersive_mode_confirmations confirmed" />
+        <option name="run-command" value="input keyevent KEYCODE_HOME" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />

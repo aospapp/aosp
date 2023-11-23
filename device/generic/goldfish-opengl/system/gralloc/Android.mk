@@ -11,11 +11,7 @@ LOCAL_CFLAGS += -DLOG_TAG=\"gralloc_$(1)\"
 LOCAL_CFLAGS += -Wno-missing-field-initializers
 LOCAL_CFLAGS += -Wno-gnu-designator
 
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 30; echo $$?), 0)
-LOCAL_SRC_FILES := gralloc_30.cpp
-else
 LOCAL_SRC_FILES := gralloc_old.cpp
-endif
 
 ifneq (true,$(GOLDFISH_OPENGL_BUILD_FOR_HOST))
 LOCAL_SHARED_LIBRARIES += libdl

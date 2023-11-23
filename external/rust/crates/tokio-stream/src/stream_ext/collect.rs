@@ -66,17 +66,17 @@ where
         use Poll::Ready;
 
         loop {
-            let mut me = self.as_mut().project();
+            let me = self.as_mut().project();
 
             let item = match ready!(me.stream.poll_next(cx)) {
                 Some(item) => item,
                 None => {
-                    return Ready(U::finalize(sealed::Internal, &mut me.collection));
+                    return Ready(U::finalize(sealed::Internal, me.collection));
                 }
             };
 
-            if !U::extend(sealed::Internal, &mut me.collection, item) {
-                return Ready(U::finalize(sealed::Internal, &mut me.collection));
+            if !U::extend(sealed::Internal, me.collection, item) {
+                return Ready(U::finalize(sealed::Internal, me.collection));
             }
         }
     }
@@ -195,11 +195,7 @@ where
         } else {
             let res = mem::replace(collection, Ok(U::initialize(sealed::Internal, 0, Some(0))));
 
-            if let Err(err) = res {
-                Err(err)
-            } else {
-                unreachable!();
-            }
+            Err(res.map(drop).unwrap_err())
         }
     }
 }

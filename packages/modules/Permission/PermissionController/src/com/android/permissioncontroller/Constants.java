@@ -21,7 +21,8 @@ import android.os.Build;
 import androidx.annotation.RequiresApi;
 
 import com.android.permissioncontroller.hibernation.HibernationJobService;
-import com.android.permissioncontroller.permission.service.v33.PermissionEventCleanupJobService;
+import com.android.permissioncontroller.permission.service.PermissionEventCleanupJobService;
+import com.android.permissioncontroller.permission.service.v34.SafetyLabelChangesJobService;
 
 /**
  * App-global constants
@@ -65,20 +66,37 @@ public class Constants {
     public static final int NOTIFICATION_LISTENER_CHECK_JOB_ID = 5;
 
     /**
+     * ID for the periodic job in
+     * {@link com.android.permissioncontroller.privacysources.AccessibilitySourceService}.
+     */
+    public static final int PERIODIC_ACCESSIBILITY_CHECK_JOB_ID = 6;
+
+     /**
+     * ID for Safety Centers periodic background refresh job, scheduled after boot and after Safety
+     * Center is enabled, in {@link
+     * com.android.permissioncontroller.safetycenter.service.SafetyCenterBackgroundRefreshJobService
+     * }.
+     */
+    public static final int SAFETY_CENTER_BACKGROUND_REFRESH_JOB_ID = 7;
+
+
+    /**
+     * ID for the detect updates job in {@link SafetyLabelChangesJobService}.
+     */
+    public static final int SAFETY_LABEL_CHANGES_DETECT_UPDATES_JOB_ID = 8;
+
+    /**
+     * ID for the periodic notification job in {@link SafetyLabelChangesJobService}.
+     */
+    public static final int SAFETY_LABEL_CHANGES_PERIODIC_NOTIFICATION_JOB_ID = 9;
+
+    /**
      * Name of file to containing the packages we already showed a notification for.
      *
      * @see com.android.permissioncontroller.permission.service.LocationAccessCheck
      */
     public static final String LOCATION_ACCESS_CHECK_ALREADY_NOTIFIED_FILE =
             "packages_already_notified_location_access";
-
-    /**
-     * Name of file to containing the packages we already showed a notification for.
-     *
-     * @see com.android.permissioncontroller.privacysources.NotificationListenerCheck
-     */
-    public static final String NOTIFICATION_LISTENER_CHECK_ALREADY_NOTIFIED_FILE =
-            "packages_already_notified_notification_listener";
 
     /**
      * ID for notification shown by
@@ -105,6 +123,35 @@ public class Constants {
     public static final int NOTIFICATION_LISTENER_CHECK_NOTIFICATION_ID = 3;
 
     /**
+     * ID for notification shown by
+     * {@link com.android.permissioncontroller.privacysources.AccessibilitySourceService}.
+     */
+    public static final int ACCESSIBILITY_CHECK_NOTIFICATION_ID = 4;
+
+    /**
+     * ID for notification shown by
+     * {@link SafetyLabelChangesJobService}.
+     */
+    public static final int SAFETY_LABEL_CHANGES_NOTIFICATION_ID = 5;
+
+    /**
+     * ID for notification of auto-granted permissions shown by
+     * {@link com.android.permissioncontroller.permission.ui.AutoGrantPermissionsNotifier}.
+     */
+    public static final int PERMISSION_GRANTED_BY_ADMIN_NOTIFICATION_ID = 6;
+
+    /**
+     * Summary notification ID for the group of admin auto-granted permission notifications
+     */
+    public static final int ADMIN_AUTO_GRANTED_PERMISSIONS_NOTIFICATION_SUMMARY_ID = 7;
+
+    /**
+     * Group ID for all admin auto-granted permission notifications
+     */
+    public static final String ADMIN_AUTO_GRANTED_PERMISSIONS_NOTIFICATION_GROUP_ID =
+            "auto granted permission group id";
+
+    /**
      * String action for navigating to the auto revoke screen.
      */
     public static final String ACTION_MANAGE_AUTO_REVOKE = "manageAutoRevoke";
@@ -128,8 +175,9 @@ public class Constants {
      * Channel of the notifications shown by
      * {@link com.android.permissioncontroller.permission.service.LocationAccessCheck},
      * {@link com.android.permissioncontroller.privacysources.NotificationListenerCheck},
-     * {@link com.android.permissioncontroller.hibernation.HibernationPolicyKt}, and
-     * {@link com.android.permissioncontroller.auto.DrivingDecisionReminderService}
+     * {@link com.android.permissioncontroller.hibernation.HibernationPolicyKt},
+     * {@link com.android.permissioncontroller.auto.DrivingDecisionReminderService}, and
+     * {@link SafetyLabelChangesJobService}
      */
     public static final String PERMISSION_REMINDER_CHANNEL_ID = "permission reminders";
 
@@ -228,6 +276,12 @@ public class Constants {
             "com.android.permissioncontroller.extra.SESSION_ID";
 
     /**
+     * Intent extra used to pass privacy source details to safety center.
+     */
+    public static final String EXTRA_PRIVACY_SOURCE =
+            "com.android.permissioncontroller.extra.PRIVACY_SOURCE";
+
+    /**
      * Invalid session id.
      */
     public static final long INVALID_SESSION_ID = 0;
@@ -245,19 +299,44 @@ public class Constants {
      */
     public static final String ADMIN_AUTO_GRANTED_PERMISSIONS_ALERTING_NOTIFICATION_CHANNEL_ID =
             "alerting auto granted permissions";
-    /**
-     * ID for notification of auto-granted permissions shown by
-     * {@link com.android.permissioncontroller.permission.ui.AutoGrantPermissionsNotifier}.
-     */
-    public static final int PERMISSION_GRANTED_BY_ADMIN_NOTIFICATION_ID = 1;
 
     /**
      * Package name of the Android platform.
      */
     public static final String OS_PACKAGE_NAME = "android";
 
+    /**
+     * Source id for safety center source for unused apps.
+     */
+    public static final String UNUSED_APPS_SAFETY_CENTER_SOURCE_ID = "AndroidPermissionAutoRevoke";
+
+    /**
+     * Issue id for safety center issue for unused apps.
+     */
+    public static final String UNUSED_APPS_SAFETY_CENTER_ISSUE_ID = "unused_apps_issue";
+
+    /**
+     * Action id for safety center "See unused apps" action.
+     */
+    public static final String UNUSED_APPS_SAFETY_CENTER_SEE_UNUSED_APPS_ID = "see_unused_apps";
+
     // TODO(b/231624295) add to API
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     public static final String OPSTR_RECEIVE_AMBIENT_TRIGGER_AUDIO =
             "android:receive_ambient_trigger_audio";
+
+    /**
+     * Extra used by Settings to indicate an Intent should be treated as if opened directly by
+     * Settings app itself.
+     */
+    public static final String EXTRA_FROM_SETTINGS = "is_from_settings_homepage";
+
+    /**
+     * Extra used by Settings to indicate an Intent should be treated as if opened by a slice
+     * within Settings.
+     *
+     * <p>Slices are opened within settings by firing a PendingIntent, so we can use this extra to
+     * allow the same UX path to be taken as for slices.
+     */
+    public static final String EXTRA_IS_FROM_SLICE = "is_from_slice";
 }

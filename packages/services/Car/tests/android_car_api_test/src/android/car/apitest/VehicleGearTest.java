@@ -20,12 +20,21 @@ import android.test.suitebuilder.annotation.SmallTest;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.android.compatibility.common.util.ApiTest;
+
 import org.junit.Test;
 
 @SmallTest
-public class VehicleGearTest {
+public final class VehicleGearTest extends CarLessApiTestBase {
 
     @Test
+    @ApiTest(apis = {"android.car.VehicleGear#GEAR_UNKNOWN", "android.car.VehicleGear#GEAR_NEUTRAL",
+            "android.car.VehicleGear#GEAR_REVERSE", "android.car.VehicleGear#GEAR_DRIVE",
+            "android.car.VehicleGear#GEAR_FIRST", "android.car.VehicleGear#GEAR_SECOND",
+            "android.car.VehicleGear#GEAR_THIRD", "android.car.VehicleGear#GEAR_FOURTH",
+            "android.car.VehicleGear#GEAR_FIFTH", "android.car.VehicleGear#GEAR_SIXTH",
+            "android.car.VehicleGear#GEAR_SEVENTH", "android.car.VehicleGear#GEAR_EIGHTH",
+            "android.car.VehicleGear#GEAR_NINTH"})
     public void testMatchWithVehicleHal() {
         assertThat(VehicleGear.GEAR_UNKNOWN)
                 .isEqualTo(android.hardware.automotive.vehicle.VehicleGear.GEAR_UNKNOWN);
@@ -71,6 +80,7 @@ public class VehicleGearTest {
     }
 
     @Test
+    @ApiTest(apis = {"android.car.VehicleGear#toString"})
     public void testToString() {
         assertThat(VehicleGear.toString(VehicleGear.GEAR_UNKNOWN)).isEqualTo("GEAR_UNKNOWN");
 

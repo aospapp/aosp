@@ -9,7 +9,7 @@
  * TODO: -L	Max number of lines of input per command
  * TODO: -x	Exit if can't fit everything in one command
 
-USE_XARGS(NEWTOY(xargs, "^E:P#<0=1optrn#<1(max-args)s#0[!0E]", TOYFLAG_USR|TOYFLAG_BIN))
+USE_XARGS(NEWTOY(xargs, "^E:P#<0(null)=1optr(no-run-if-empty)n#<1(max-args)s#0[!0E]", TOYFLAG_USR|TOYFLAG_BIN))
 
 config XARGS
   bool "xargs"
@@ -184,7 +184,7 @@ void xargs_main(void)
 
     if (!(pid = XVFORK())) {
       close(0);
-      xopen_stdio(FLAG(o) ? "/dev/tty" : "/dev/null", O_RDONLY);
+      xopen_stdio(FLAG(o) ? "/dev/tty" : "/dev/null", O_RDONLY|O_CLOEXEC);
       xexec(out);
     }
     TT.np++;

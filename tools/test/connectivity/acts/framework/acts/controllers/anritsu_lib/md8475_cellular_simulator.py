@@ -93,7 +93,7 @@ class MD8475CellularSimulator(cc.AbstractCellularSimulator):
             self.anritsu.get_BTS(md8475a.BtsNumber.BTS2)
         ]
 
-    def set_band_combination(self, bands):
+    def set_band_combination(self, bands, mimo_modes):
         """ Prepares the test equipment for the indicated band combination.
 
         The reason why this is implemented in a separate method and not calling
@@ -104,6 +104,7 @@ class MD8475CellularSimulator(cc.AbstractCellularSimulator):
 
         Args:
             bands: a list of bands represented as ints or strings
+            mimo_modes: a list of LteSimulation.MimoMode to use for each carrier
         """
         self.num_carriers = len(bands)
 
@@ -706,7 +707,7 @@ class MD8475BCellularSimulator(MD8475CellularSimulator):
     LTE_MAX_CARRIERS = 4
 
     # The maximum power that the equipment is able to transmit
-    MAX_DL_POWER = -30
+    MAX_DL_POWER = -10
 
     # Simulation config files in the callbox computer.
     # These should be replaced in the future by setting up

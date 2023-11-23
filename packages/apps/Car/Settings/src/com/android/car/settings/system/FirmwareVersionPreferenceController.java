@@ -46,7 +46,7 @@ public class FirmwareVersionPreferenceController extends PreferenceController<Pr
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return AVAILABLE_FOR_VIEWING;
     }
 }

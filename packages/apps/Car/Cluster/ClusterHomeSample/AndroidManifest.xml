@@ -21,6 +21,8 @@
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
     <!-- for IActivityManager.registerTaskStackListener() -->
     <uses-permission android:name="android.permission.MANAGE_ACTIVITY_TASKS"/>
+    <!-- for PackageManager.queryIntentActivitiesAsUser() -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <!-- for ClusterHomeManager -->
     <uses-permission android:name="android.car.permission.CAR_INSTRUMENT_CLUSTER_CONTROL"/>
     <!-- for CarInputManager.requestInputEventCapture() -->

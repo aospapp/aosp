@@ -26,7 +26,7 @@ import com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.RequiresProfi
  * Tests that should be run identically in both cases are added in DeviceAndProfileOwnerTestApi25.
  */
 @RequiresProfileOwnerSupport
-public class MixedProfileOwnerTestApi25 extends DeviceAndProfileOwnerTestApi25 {
+public final class MixedProfileOwnerTestApi25 extends DeviceAndProfileOwnerTestApi25 {
 
     @Override
     public void setUp() throws Exception {

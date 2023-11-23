@@ -29,6 +29,8 @@ public class LocalActivityInvoker implements ActivityInvoker {
 
   @Nullable private ActivityController<? extends Activity> controller;
 
+  private boolean isActivityLaunchedForResult = false;
+
   @Override
   public void startActivity(Intent intent, @Nullable Bundle activityOptions) {
     startActivity(intent);
@@ -54,7 +56,23 @@ public class LocalActivityInvoker implements ActivityInvoker {
   }
 
   @Override
+  public void startActivityForResult(Intent intent, @Nullable Bundle activityOptions) {
+   startActivityForResult(intent);
+  }
+
+  @Override
+  public void startActivityForResult(Intent intent) {
+    isActivityLaunchedForResult = true;
+    startActivity(intent);
+  }
+
+  @Override
   public ActivityResult getActivityResult() {
+    if (!isActivityLaunchedForResult) {
+      throw new IllegalStateException(
+          "You must start Activity first. Make sure you are using launchActivityForResult() to"
+          + " launch an Activity.");
+    }
     checkNotNull(controller);
     checkState(controller.get().isFinishing(), "You must finish your Activity first");
     ShadowActivity shadowActivity = Shadow.extract(controller.get());

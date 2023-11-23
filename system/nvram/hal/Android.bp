@@ -97,6 +97,9 @@ prebuilt_usr_share {
         arm64: {
             src: "fake-nvram-seccomp-arm64.policy",
         },
+        riscv64: {
+            src: "fake-nvram-seccomp-riscv64.policy",
+        },
         x86: {
             src: "fake-nvram-seccomp-x86.policy",
         },

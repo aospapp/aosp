@@ -304,7 +304,7 @@ void tBTA_AV_SCB::OnConnected(const RawAddress& peer_address) {
 
   if (peer_address.IsEmpty()) {
     LOG_ERROR("%s: Invalid peer address: %s", __func__,
-              peer_address.ToString().c_str());
+              ADDRESS_TO_LOGGABLE_CSTR(peer_address));
     return;
   }
 
@@ -314,7 +314,7 @@ void tBTA_AV_SCB::OnConnected(const RawAddress& peer_address) {
   if (!btif_config_get_bin(peer_address_.ToString(), AVDTP_VERSION_CONFIG_KEY,
                            (uint8_t*)&avdtp_version, &version_value_size)) {
     LOG_WARN("%s: Failed to read cached peer AVDTP version for %s", __func__,
-             peer_address_.ToString().c_str());
+             ADDRESS_TO_LOGGABLE_CSTR(peer_address_));
   } else {
     SetAvdtpVersion(avdtp_version);
   }
@@ -328,7 +328,7 @@ void tBTA_AV_SCB::OnDisconnected() {
 void tBTA_AV_SCB::SetAvdtpVersion(uint16_t avdtp_version) {
   avdtp_version_ = avdtp_version;
   LOG_INFO("%s: AVDTP version for %s set to 0x%x", __func__,
-           peer_address_.ToString().c_str(), avdtp_version_);
+           ADDRESS_TO_LOGGABLE_CSTR(peer_address_), avdtp_version_);
 }
 
 /*******************************************************************************
@@ -361,7 +361,7 @@ void bta_av_conn_cback(UNUSED_ATTR uint8_t handle, const RawAddress& bd_addr,
                        p_scb->role);
     }
     LOG_INFO("%s: conn_cback bd_addr: %s", __func__,
-             bd_addr.ToString().c_str());
+             ADDRESS_TO_LOGGABLE_CSTR(bd_addr));
     bta_sys_sendmsg(p_msg);
   }
 }
@@ -432,7 +432,7 @@ static void bta_av_api_register(tBTA_AV_DATA* p_data) {
 
   uint16_t profile_initialized = p_data->api_reg.service_uuid;
   if (profile_initialized == UUID_SERVCLASS_AUDIO_SINK) {
-    p_bta_av_cfg = &bta_avk_cfg;
+    p_bta_av_cfg = get_bta_avk_cfg();
   } else if (profile_initialized == UUID_SERVCLASS_AUDIO_SOURCE) {
     p_bta_av_cfg = &bta_av_cfg;
 
@@ -773,7 +773,7 @@ bool bta_av_chk_start(tBTA_AV_SCB* p_scb) {
   LOG_INFO(
       "%s: peer %s channel:%d bta_av_cb.audio_open_cnt:%d role:0x%x "
       "features:0x%x start:%s",
-      __func__, p_scb->PeerAddress().ToString().c_str(), p_scb->chnl,
+      __func__, ADDRESS_TO_LOGGABLE_CSTR(p_scb->PeerAddress()), p_scb->chnl,
       bta_av_cb.audio_open_cnt, p_scb->role, bta_av_cb.features,
       logbool(start).c_str());
   return start;
@@ -825,7 +825,7 @@ static void bta_av_sys_rs_cback(UNUSED_ATTR tBTA_SYS_CONN_STATUS status,
 
   APPL_TRACE_DEBUG(
       "%s: peer %s new_role:%d hci_status:0x%x bta_av_cb.rs_idx:%d", __func__,
-      peer_addr.ToString().c_str(), id, app_id, bta_av_cb.rs_idx);
+      ADDRESS_TO_LOGGABLE_CSTR(peer_addr), id, app_id, bta_av_cb.rs_idx);
 
   for (i = 0; i < BTA_AV_NUM_STRS; i++) {
     /* loop through all the SCBs to find matching peer addresses and report the
@@ -837,7 +837,8 @@ static void bta_av_sys_rs_cback(UNUSED_ATTR tBTA_SYS_CONN_STATUS status,
           (tBTA_AV_ROLE_RES*)osi_malloc(sizeof(tBTA_AV_ROLE_RES));
       APPL_TRACE_DEBUG(
           "%s: peer %s found: new_role:%d, hci_status:0x%x bta_handle:0x%x",
-          __func__, peer_addr.ToString().c_str(), id, app_id, p_scb->hndl);
+          __func__, ADDRESS_TO_LOGGABLE_CSTR(peer_addr), id, app_id,
+          p_scb->hndl);
       p_buf->hdr.event = BTA_AV_ROLE_CHANGE_EVT;
       p_buf->hdr.layer_specific = p_scb->hndl;
       p_buf->new_role = id;
@@ -864,7 +865,7 @@ static void bta_av_sys_rs_cback(UNUSED_ATTR tBTA_SYS_CONN_STATUS status,
     }
     if (p_scb && p_scb->q_tag == BTA_AV_Q_TAG_OPEN) {
       APPL_TRACE_DEBUG("%s: peer %s rs_idx:%d, bta_handle:0x%x q_tag:%d",
-                       __func__, p_scb->PeerAddress().ToString().c_str(),
+                       __func__, ADDRESS_TO_LOGGABLE_CSTR(p_scb->PeerAddress()),
                        bta_av_cb.rs_idx, p_scb->hndl, p_scb->q_tag);
 
       if (HCI_SUCCESS == app_id || HCI_ERR_NO_CONNECTION == app_id) {
@@ -873,8 +874,8 @@ static void bta_av_sys_rs_cback(UNUSED_ATTR tBTA_SYS_CONN_STATUS status,
         APPL_TRACE_ERROR(
             "%s: peer %s (p_scb peer %s) role switch failed: new_role:%d "
             "hci_status:0x%x",
-            __func__, peer_addr.ToString().c_str(),
-            p_scb->PeerAddress().ToString().c_str(), id, app_id);
+            __func__, ADDRESS_TO_LOGGABLE_CSTR(peer_addr),
+            ADDRESS_TO_LOGGABLE_CSTR(p_scb->PeerAddress()), id, app_id);
         p_scb->q_info.open.switch_res = BTA_AV_RS_FAIL;
       }
 
@@ -908,7 +909,7 @@ static void bta_av_sco_chg_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
             << ", num_links=" << +id;
   if (id) {
     bta_av_cb.sco_occupied = true;
-    LOG_DEBUG("SCO occupied peer:%s status:%s", PRIVATE_ADDRESS(peer_addr),
+    LOG_DEBUG("SCO occupied peer:%s status:%s", ADDRESS_TO_LOGGABLE_CSTR(peer_addr),
               bta_sys_conn_status_text(status).c_str());
 
     if (bta_av_cb.features & BTA_AV_FEAT_NO_SCO_SSPD) {
@@ -931,7 +932,7 @@ static void bta_av_sco_chg_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
     }
   } else {
     bta_av_cb.sco_occupied = false;
-    LOG_DEBUG("SCO unoccupied peer:%s status:%s", PRIVATE_ADDRESS(peer_addr),
+    LOG_DEBUG("SCO unoccupied peer:%s status:%s", ADDRESS_TO_LOGGABLE_CSTR(peer_addr),
               bta_sys_conn_status_text(status).c_str());
 
     if (bta_av_cb.features & BTA_AV_FEAT_NO_SCO_SSPD) {
@@ -1017,7 +1018,7 @@ bool bta_av_link_role_ok(tBTA_AV_SCB* p_scb, uint8_t bits) {
   tHCI_ROLE role;
   if (BTM_GetRole(p_scb->PeerAddress(), &role) != BTM_SUCCESS) {
     LOG_WARN("Unable to find link role for device:%s",
-             PRIVATE_ADDRESS(p_scb->PeerAddress()));
+             ADDRESS_TO_LOGGABLE_CSTR(p_scb->PeerAddress()));
     return true;
   }
 
@@ -1025,7 +1026,7 @@ bool bta_av_link_role_ok(tBTA_AV_SCB* p_scb, uint8_t bits) {
     LOG_INFO(
         "Switch link role to central peer:%s bta_handle:0x%x current_role:%s"
         " conn_audio:0x%x bits:%d features:0x%x",
-        PRIVATE_ADDRESS(p_scb->PeerAddress()), p_scb->hndl,
+        ADDRESS_TO_LOGGABLE_CSTR(p_scb->PeerAddress()), p_scb->hndl,
         RoleText(role).c_str(), bta_av_cb.conn_audio, bits, bta_av_cb.features);
     const tBTM_STATUS status = BTM_SwitchRoleToCentral(p_scb->PeerAddress());
     switch (status) {
@@ -1037,13 +1038,13 @@ bool bta_av_link_role_ok(tBTA_AV_SCB* p_scb, uint8_t bits) {
         // a result such that a timer will not start to repeatedly
         // try something not possible.
         LOG_ERROR("Link can never role switch to central device:%s",
-                  PRIVATE_ADDRESS(p_scb->PeerAddress()));
+                  ADDRESS_TO_LOGGABLE_CSTR(p_scb->PeerAddress()));
         break;
       default:
         /* can not switch role on SCB - start the timer on SCB */
         p_scb->wait |= BTA_AV_WAIT_ROLE_SW_RES_START;
         LOG_ERROR("Unable to switch role to central device:%s error:%s",
-                  PRIVATE_ADDRESS(p_scb->PeerAddress()),
+                  ADDRESS_TO_LOGGABLE_CSTR(p_scb->PeerAddress()),
                   btm_status_text(status).c_str());
         return false;
     }
@@ -1104,6 +1105,9 @@ static void bta_av_non_state_machine_event(uint16_t event,
       break;
     case BTA_AV_API_DISCONNECT_EVT:
       bta_av_api_disconnect(p_data);
+      break;
+    case BTA_AV_API_SET_LATENCY_EVT:
+      bta_av_api_set_latency(p_data);
       break;
     case BTA_AV_CI_SRC_DATA_READY_EVT:
       bta_av_ci_data(p_data);
@@ -1428,7 +1432,7 @@ void bta_debug_av_dump(int fd) {
       continue;
     }
     dprintf(fd, "\n  Link control block: %zu peer: %s\n", i,
-            lcb.addr.ToString().c_str());
+            ADDRESS_TO_LOGGABLE_CSTR(lcb.addr));
     dprintf(fd, "    Connected stream handle mask: 0x%x\n", lcb.conn_msk);
     dprintf(fd, "    Index(+1) to LCB: %d\n", lcb.lidx);
   }
@@ -1441,7 +1445,7 @@ void bta_debug_av_dump(int fd) {
       continue;
     }
     dprintf(fd, "\n  BTA ID: %zu peer: %s\n", i,
-            p_scb->PeerAddress().ToString().c_str());
+            ADDRESS_TO_LOGGABLE_CSTR(p_scb->PeerAddress()));
     dprintf(fd, "    SDP discovery started: %s\n",
             p_scb->sdp_discovery_started ? "true" : "false");
     for (size_t j = 0; j < BTAV_A2DP_CODEC_INDEX_MAX; j++) {
@@ -1456,13 +1460,13 @@ void bta_debug_av_dump(int fd) {
     }
     dprintf(fd, "    BTA info tag: %d\n", p_scb->q_tag);
     dprintf(fd, "    API Open peer: %s\n",
-            p_scb->q_info.open.bd_addr.ToString().c_str());
+            ADDRESS_TO_LOGGABLE_CSTR(p_scb->q_info.open.bd_addr));
     dprintf(fd, "      Use AVRCP: %s\n",
             p_scb->q_info.open.use_rc ? "true" : "false");
     dprintf(fd, "      Switch result: %d\n", p_scb->q_info.open.switch_res);
     dprintf(fd, "      Initiator UUID: 0x%x\n", p_scb->q_info.open.uuid);
     dprintf(fd, "    Saved API Open peer: %s\n",
-            p_scb->open_api.bd_addr.ToString().c_str());
+            ADDRESS_TO_LOGGABLE_CSTR(p_scb->open_api.bd_addr));
     dprintf(fd, "      Use AVRCP: %s\n",
             p_scb->open_api.use_rc ? "true" : "false");
     dprintf(fd, "      Switch result: %d\n", p_scb->open_api.switch_res);

@@ -1,5 +1,5 @@
-VIXL: ARMv8 Runtime Code Generation Library, Development Version
-================================================================
+VIXL: ARMv8 Runtime Code Generation Library
+===========================================
 
 Contents:
 
@@ -24,10 +24,14 @@ VIXL contains three components.
     assembler. The simulator allows generated code to be run on another
     architecture without the need for a full ISA model.
 
-The VIXL git repository can be found [on 'https://git.linaro.org'][vixl].
+The VIXL git repository can be found [on GitHub][vixl].
 
-Changes from previous versions of VIXL can be found in the
-[Changelog](doc/changelog.md).
+Build and Test Status
+---------------------
+
+  * [![Build Status](https://ci.linaro.org/buildStatus/icon?job=linaro-art-vixlpresubmit)](https://ci.linaro.org/job/linaro-art-vixlpresubmit/) Simulator
+  * [![Build Status](https://ci.linaro.org/buildStatus/icon?job=linaro-art-vixlpresubmit-native-armv8)](https://ci.linaro.org/job/linaro-art-vixlpresubmit-native-armv8/) Native
+  * [![Build Status](https://ci.linaro.org/buildStatus/icon?job=linaro-art-vixlpresubmit-macos)](https://ci.linaro.org/job/linaro-art-vixlpresubmit-macos/) MacOS
 
 
 Licence
@@ -36,6 +40,8 @@ Licence
 This software is covered by the licence described in the [LICENCE](LICENCE)
 file.
 
+Contributions, as pull requests or via other means, are accepted under the terms
+of the same [LICENCE](LICENCE).
 
 Requirements
 ============
@@ -62,6 +68,41 @@ Refer to the 'Usage' section for details.
 
 Note that in Ubuntu 18.04, clang-tidy-4.0 will only work if the clang-4.0
 package is also installed.
+
+Supported Arm Architecture Features
+===================================
+
+| Feature    | VIXL CPUFeatures Flag | Notes                           |
+|------------|-----------------------|---------------------------------|
+| BTI        | kBTI                  | Per-page enabling not supported |
+| DotProd    | kDotProduct           |                                 |
+| FCMA       | kFcma                 |                                 |
+| FHM        | kFHM                  |                                 |
+| FP16       | kFPHalf, kNEONHalf    |                                 |
+| FRINTTS    | kFrintToFixedSizedInt |                                 |
+| FlagM      | kFlagM                |                                 |
+| FlagM2     | kAXFlag               |                                 |
+| I8MM       | kI8MM                 |                                 |
+| JSCVT      | kJSCVT                |                                 |
+| LOR        | kLORegions            |                                 |
+| LRCPC      | kRCpc                 |                                 |
+| LRCPC2     | kRCpcImm              |                                 |
+| LSE        | kAtomics              |                                 |
+| PAuth      | kPAuth, kPAuthGeneric | Not ERETAA, ERETAB              |
+| RAS        | kRAS                  |                                 |
+| RDM        | kRDM                  |                                 |
+| SVE        | kSVE                  |                                 |
+| SVE2       | kSVE2                 |                                 |
+| SVEBitPerm | kSVEBitPerm           |                                 |
+| SVEF32MM   | kSVEF32MM             |                                 |
+| SVEF64MM   | kSVEF64MM             |                                 |
+| SVEI8MM    | kSVEI8MM              |                                 |
+
+Enable generating code for an architecture feature by combining a flag with
+the MacroAssembler's defaults. For example, to generate code for SVE, use
+`masm.GetCPUFeatures()->Combine(CPUFeatures::kSVE);`.
+
+See [the cpu features header file](src/cpu-features.h) for more information.
 
 
 Known Limitations
@@ -161,9 +202,9 @@ selection.
 Bug reports
 ===========
 
-Bug reports may be sent to vixl@arm.com. Please provide any steps required to
-recreate a bug, along with build environment and host system information.
-
+Bug reports may be made in the Issues section of GitHub, or sent to
+vixl@arm.com. Please provide any steps required to recreate a bug, along with
+build environment and host system information.
 
 Usage
 =====
@@ -213,11 +254,11 @@ aarch32_examples` or `scons aarch64_examples` from the root directory, or use
 
 
 
-[cpplint]: http://google-styleguide.googlecode.com/svn/trunk/cpplint/cpplint.py
+[cpplint]: https://github.com/google/styleguide/tree/gh-pages/cpplint
            "Google's cpplint.py script."
 
-[vixl]: https://git.linaro.org/arm/vixl.git
-        "The VIXL repository at 'https://git.linaro.org'."
+[vixl]: https://github.com/Linaro/vixl
+        "The VIXL repository on GitHub."
 
 [getting-started-aarch32]: doc/aarch32/getting-started-aarch32.md
                            "Introduction to VIXL for AArch32."

@@ -1,10 +1,10 @@
 {
     "presubmit": [
         {
-            "name": "CtsOsTestCases",
+            "name": "CtsHibernationTestCases",
             "options": [
                 {
-                    "include-filter": "android.os.cts.AppHibernationIntegrationTest"
+                    "include-filter": "android.hibernation.cts.AppHibernationIntegrationTest"
                 }
             ]
         }

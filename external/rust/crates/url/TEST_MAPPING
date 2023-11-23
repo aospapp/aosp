@@ -3,12 +3,12 @@
   "imports": [
     {
       "path": "external/rust/crates/quiche"
+    },
+    {
+      "path": "packages/modules/DnsResolver"
     }
   ],
   "presubmit": [
-    {
-      "name": "doh_unit_test"
-    },
     {
       "name": "url_test_tests_data"
     },
@@ -17,9 +17,6 @@
     }
   ],
   "presubmit-rust": [
-    {
-      "name": "doh_unit_test"
-    },
     {
       "name": "url_test_tests_data"
     },

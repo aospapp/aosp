@@ -247,6 +247,15 @@ public class SecureComponentInfo {
         return sb.toString();
     }
 
+    /**
+     * Get the raw byte size of the secure component info.
+     *
+     * @return The raw byte size of the secure component info.
+     */
+    public static int size() {
+        return SECURE_COMPONENT_INFO_SIZE;
+    }
+
     private static void logw(String log) {
         Log.w(LOG_TAG, log);
     }

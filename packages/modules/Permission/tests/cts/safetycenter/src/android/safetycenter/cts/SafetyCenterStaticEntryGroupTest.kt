@@ -19,28 +19,28 @@ package android.safetycenter.cts
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build.VERSION_CODES.TIRAMISU
 import android.safetycenter.SafetyCenterStaticEntry
 import android.safetycenter.SafetyCenterStaticEntryGroup
-import android.safetycenter.cts.testing.EqualsHashCodeToStringTester
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.ext.truth.os.ParcelableSubject.assertThat
-import androidx.test.filters.SdkSuppress
+import com.android.safetycenter.testing.EqualsHashCodeToStringTester
 import com.google.common.truth.Truth.assertThat
+import kotlin.test.assertFailsWith
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/** CTS tests for [SafetyCenterStaticEntryGroup]. */
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = TIRAMISU, codeName = "Tiramisu")
 class SafetyCenterStaticEntryGroupTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
 
     private val pendingIntent1 =
-        PendingIntent.getActivity(context, 0, Intent("Fake Data"), PendingIntent.FLAG_IMMUTABLE)
+        PendingIntent.getActivity(context, 0, Intent("Fake Data 1"), PendingIntent.FLAG_IMMUTABLE)
     private val pendingIntent2 =
-        PendingIntent.getActivity(
-            context, 0, Intent("Fake Different Data"), PendingIntent.FLAG_IMMUTABLE)
+        PendingIntent.getActivity(context, 0, Intent("Fake Data 2"), PendingIntent.FLAG_IMMUTABLE)
+    private val pendingIntent3 =
+        PendingIntent.getActivity(context, 0, Intent("Fake Data 3"), PendingIntent.FLAG_IMMUTABLE)
 
     private val staticEntry1 =
         SafetyCenterStaticEntry.Builder("an entry title")
@@ -51,6 +51,11 @@ class SafetyCenterStaticEntryGroupTest {
         SafetyCenterStaticEntry.Builder("another entry title")
             .setSummary("another entry summary")
             .setPendingIntent(pendingIntent2)
+            .build()
+    private val staticEntry3 =
+        SafetyCenterStaticEntry.Builder("yet another entry title")
+            .setSummary("yet another entry summary")
+            .setPendingIntent(pendingIntent3)
             .build()
 
     private val staticEntryGroup =
@@ -68,10 +73,18 @@ class SafetyCenterStaticEntryGroupTest {
         assertThat(SafetyCenterStaticEntryGroup("", listOf(staticEntry1)).staticEntries)
             .containsExactly(staticEntry1)
         assertThat(
-                SafetyCenterStaticEntryGroup("", listOf(staticEntry1, staticEntry2)).staticEntries)
+                SafetyCenterStaticEntryGroup("", listOf(staticEntry1, staticEntry2)).staticEntries
+            )
             .containsExactly(staticEntry1, staticEntry2)
             .inOrder()
         assertThat(SafetyCenterStaticEntryGroup("", listOf()).staticEntries).isEmpty()
+    }
+
+    @Test
+    fun getStaticEntries_mutationsAreNotAllowed() {
+        val staticEntries = staticEntryGroup.staticEntries
+
+        assertFailsWith(UnsupportedOperationException::class) { staticEntries.add(staticEntry3) }
     }
 
     @Test
@@ -86,15 +99,20 @@ class SafetyCenterStaticEntryGroupTest {
 
     @Test
     fun equalsHashCodeToString_usingEqualsHashCodeToStringTester() {
-        EqualsHashCodeToStringTester()
+        EqualsHashCodeToStringTester.ofParcelable(
+                parcelableCreator = SafetyCenterStaticEntryGroup.CREATOR
+            )
             .addEqualityGroup(
                 staticEntryGroup,
-                SafetyCenterStaticEntryGroup("a title", listOf(staticEntry1, staticEntry2)))
+                SafetyCenterStaticEntryGroup("a title", listOf(staticEntry1, staticEntry2))
+            )
             .addEqualityGroup(
                 SafetyCenterStaticEntryGroup("a title", listOf(staticEntry1)),
-                SafetyCenterStaticEntryGroup("a title", listOf(staticEntry1)))
+                SafetyCenterStaticEntryGroup("a title", listOf(staticEntry1))
+            )
             .addEqualityGroup(
-                SafetyCenterStaticEntryGroup("a different title", listOf(staticEntry1)))
+                SafetyCenterStaticEntryGroup("a different title", listOf(staticEntry1))
+            )
             .addEqualityGroup(SafetyCenterStaticEntryGroup("a title", listOf(staticEntry2)))
             .test()
     }

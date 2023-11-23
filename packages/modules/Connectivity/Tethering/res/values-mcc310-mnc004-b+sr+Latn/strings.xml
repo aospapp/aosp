@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="no_upstream_notification_title" msgid="5030042590486713460">"Privezivanje nema pristup internetu"</string>
-    <string name="no_upstream_notification_message" msgid="3843613362272973447">"Povezivanje uređaja nije uspelo"</string>
-    <string name="no_upstream_notification_disable_button" msgid="6385491461813507624">"Isključi privezivanje"</string>
-    <string name="upstream_roaming_notification_title" msgid="3015912166812283303">"Uključen je hotspot ili privezivanje"</string>
-    <string name="upstream_roaming_notification_message" msgid="6724434706748439902">"Možda važe dodatni troškovi u romingu"</string>
+    <string name="no_upstream_notification_title" msgid="3584617491053416666">"Privezivanje nema pristup internetu"</string>
+    <string name="no_upstream_notification_message" msgid="5626323795587558017">"Povezivanje uređaja nije uspelo"</string>
+    <string name="no_upstream_notification_disable_button" msgid="868677179945695858">"Isključi privezivanje"</string>
+    <string name="upstream_roaming_notification_title" msgid="2870229486619751829">"Uključen je hotspot ili privezivanje"</string>
+    <string name="upstream_roaming_notification_message" msgid="5229740963392849544">"Možda važe dodatni troškovi u romingu"</string>
 </resources>

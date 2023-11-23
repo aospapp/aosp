@@ -68,9 +68,13 @@ class BaseSimulation(object):
     # the simulations inheriting from this class.
     DOWNLINK_SIGNAL_LEVEL_UNITS = None
 
-    def __init__(
-        self, simulator, log, dut, test_config, calibration_table,
-        nr_mode=None):
+    def __init__(self,
+                 simulator,
+                 log,
+                 dut,
+                 test_config,
+                 calibration_table,
+                 nr_mode=None):
         """ Initializes the Simulation object.
 
         Keeps a reference to the callbox, log and dut handlers and
@@ -737,5 +741,13 @@ class BaseSimulation(object):
 
         Returns:
             Maximum throughput in mbps
+        """
+        raise NotImplementedError()
+
+    def send_sms(self, message):
+        """ Sends an SMS message to the DUT.
+
+        Args:
+            message: the SMS message to send.
         """
         raise NotImplementedError()

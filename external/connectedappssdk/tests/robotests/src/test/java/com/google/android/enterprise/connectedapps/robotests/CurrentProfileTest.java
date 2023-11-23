@@ -95,13 +95,13 @@ public class CurrentProfileTest {
     testUtilities.setRunningOnPersonalProfile();
     testUtilities.setRequestsPermissions(INTERACT_ACROSS_USERS);
     testUtilities.grantPermissions(INTERACT_ACROSS_USERS);
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
   }
 
   @Test
   public void current_isBound_callsMethod() throws UnavailableProfileException {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     assertThat(profileTestCrossProfileType.current().identityStringMethod(STRING))
         .isEqualTo(STRING);
@@ -118,7 +118,7 @@ public class CurrentProfileTest {
   @Test
   public void current_async_isBound_callsMethod() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType.current().asyncVoidMethod(voidCallbackListener);
 
@@ -128,7 +128,7 @@ public class CurrentProfileTest {
   @Test
   public void current_synchronous_isBound_automaticConnectionManagement_callsMethod() {
     testUtilities.turnOnWorkProfile();
-    testProfileConnector.stopManualConnectionManagement();
+    testProfileConnector.clearConnectionHolders();
     ListenableFuture<Void> ignored =
         profileTestCrossProfileType.other().listenableFutureVoidMethod(); // Causes it to bind
 
@@ -191,7 +191,7 @@ public class CurrentProfileTest {
   public void current_listenableFuture_isBound_callsMethod()
       throws ExecutionException, InterruptedException {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType.current().listenableFutureVoidMethod().get();
 
@@ -268,9 +268,7 @@ public class CurrentProfileTest {
   @Test
   public void current_listenableFuture_doesNotTimeout() {
     ListenableFuture<Void> future =
-        profileTestCrossProfileType
-            .current()
-            .listenableFutureMethodWhichNeverSetsTheValueWith5SecondTimeout();
+        profileTestCrossProfileType.current().listenableFutureMethodWhichNeverSetsTheValue();
     testUtilities.advanceTimeBySeconds(10);
 
     assertFutureDoesNotHaveException(future, UnavailableProfileException.class);
@@ -278,10 +276,8 @@ public class CurrentProfileTest {
 
   @Test
   public void current_async_doesNotTimeout() {
-    profileTestCrossProfileType
-        .current()
-        .asyncMethodWhichNeverCallsBackWith5SecondTimeout(stringCallbackListener);
-    testUtilities.advanceTimeBySeconds(10);
+    profileTestCrossProfileType.current().asyncMethodWhichNeverCallsBack(stringCallbackListener);
+    testUtilities.advanceTimeBySeconds(100);
 
     assertThat(stringCallbackListener.callbackMethodCalls).isEqualTo(0);
   }

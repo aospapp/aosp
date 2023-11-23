@@ -13,38 +13,41 @@
 // limitations under the License.
 #include "VkReconstruction.h"
 
-#include "base/EntityManager.h"
-
-#include "VkDecoder.h"
-#include "IOStream.h"
+#include <string.h>
 
 #include <unordered_map>
 
-#include <string.h>
+#include "FrameBuffer.h"
+#include "IOStream.h"
+#include "VkDecoder.h"
+#include "aemu/base/containers/EntityManager.h"
+
+namespace gfxstream {
+namespace vk {
 
 #define DEBUG_RECONSTRUCTION 0
 
 #if DEBUG_RECONSTRUCTION
 
-#define DEBUG_RECON(fmt,...) fprintf(stderr, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
+#define DEBUG_RECON(fmt, ...) fprintf(stderr, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
 
 #else
 
-#define DEBUG_RECON(fmt,...)
+#define DEBUG_RECON(fmt, ...)
 
 #endif
 
 VkReconstruction::VkReconstruction() = default;
 
 std::vector<uint64_t> typeTagSortedHandles(const std::vector<uint64_t>& handles) {
-    using EntityManagerTypeForHandles =
-        android::base::EntityManager<32, 16, 16, int>;
+    using EntityManagerTypeForHandles = android::base::EntityManager<32, 16, 16, int>;
 
     std::vector<uint64_t> res = handles;
 
     std::sort(res.begin(), res.end(), [](uint64_t lhs, uint64_t rhs) {
         return EntityManagerTypeForHandles::getHandleType(lhs) <
-               EntityManagerTypeForHandles::getHandleType(rhs); });
+               EntityManagerTypeForHandles::getHandleType(rhs);
+    });
 
     return res;
 }
@@ -59,23 +62,24 @@ void VkReconstruction::save(android::base::Stream* stream) {
     std::unordered_map<uint64_t, uint64_t> backDeps;
 
     mHandleReconstructions.forEachLiveComponent_const(
-        [&backDeps](bool live, uint64_t componentHandle, uint64_t entityHandle, const HandleReconstruction& item) {
-        for (auto handle : item.childHandles) {
-            backDeps[handle] = entityHandle;
-        }
-    });
+        [&backDeps](bool live, uint64_t componentHandle, uint64_t entityHandle,
+                    const HandleReconstruction& item) {
+            for (auto handle : item.childHandles) {
+                backDeps[handle] = entityHandle;
+            }
+        });
 
     std::vector<uint64_t> topoOrder;
 
     mHandleReconstructions.forEachLiveComponent_const(
-        [&topoOrder, &backDeps](bool live, uint64_t componentHandle, uint64_t entityHandle, const HandleReconstruction& item) {
-        // Start with populating the roots
-        if (backDeps.find(entityHandle) == backDeps.end()) {
-            DEBUG_RECON("found root: 0x%llx",
-                        (unsigned long long)entityHandle);
-            topoOrder.push_back(entityHandle);
-        }
-    });
+        [&topoOrder, &backDeps](bool live, uint64_t componentHandle, uint64_t entityHandle,
+                                const HandleReconstruction& item) {
+            // Start with populating the roots
+            if (backDeps.find(entityHandle) == backDeps.end()) {
+                DEBUG_RECON("found root: 0x%llx", (unsigned long long)entityHandle);
+                topoOrder.push_back(entityHandle);
+            }
+        });
 
     std::vector<uint64_t> next;
 
@@ -88,19 +92,15 @@ void VkReconstruction::save(android::base::Stream* stream) {
     topoOrder = typeTagSortedHandles(topoOrder);
 
     while (!topoOrder.empty()) {
-
         next.clear();
 
         for (auto handle : topoOrder) {
             auto item = mHandleReconstructions.get(handle);
 
             for (auto apiHandle : item->apiRefs) {
-
                 if (uniqApiRefsToTopoOrder.find(apiHandle) == uniqApiRefsToTopoOrder.end()) {
-                    DEBUG_RECON("level %zu: 0x%llx api ref: 0x%llx",
-                                topoLevel,
-                                (unsigned long long)handle,
-                                (unsigned long long)apiHandle);
+                    DEBUG_RECON("level %zu: 0x%llx api ref: 0x%llx", topoLevel,
+                                (unsigned long long)handle, (unsigned long long)apiHandle);
                     auto& refs = uniqApiRefsByTopoOrder[topoLevel];
                     refs.push_back(apiHandle);
                 }
@@ -122,20 +122,18 @@ void VkReconstruction::save(android::base::Stream* stream) {
     uniqApiRefsByTopoOrder[topoLevel] = getOrderedUniqueModifyApis();
     ++topoLevel;
 
-    size_t totalApiTraceSize = 0; // 4 bytes to store size of created handles
+    size_t totalApiTraceSize = 0;  // 4 bytes to store size of created handles
 
     for (size_t i = 0; i < topoLevel; ++i) {
         for (auto apiHandle : uniqApiRefsByTopoOrder[i]) {
             auto item = mApiTrace.get(apiHandle);
-            totalApiTraceSize += 4; // opcode
-            totalApiTraceSize += 4; // buffer size of trace
-            totalApiTraceSize += item->traceBytes; // the actual trace
+            totalApiTraceSize += 4;                 // opcode
+            totalApiTraceSize += 4;                 // buffer size of trace
+            totalApiTraceSize += item->traceBytes;  // the actual trace
         }
     }
 
-    DEBUG_RECON(
-        "total api trace size: %zu",
-        totalApiTraceSize);
+    DEBUG_RECON("total api trace size: %zu", totalApiTraceSize);
 
     std::vector<uint64_t> createdHandleBuffer;
 
@@ -161,33 +159,34 @@ void VkReconstruction::save(android::base::Stream* stream) {
             memcpy(apiTracePtr, &item->opCode, sizeof(uint32_t));
             apiTracePtr += 4;
             uint32_t traceBytesForSnapshot = item->traceBytes + 8;
-            memcpy(apiTracePtr, &traceBytesForSnapshot, sizeof(uint32_t)); // and 8 bytes for 'self' struct of { opcode, packetlen } as that is what decoder expects
+            memcpy(apiTracePtr, &traceBytesForSnapshot,
+                   sizeof(uint32_t));  // and 8 bytes for 'self' struct of { opcode, packetlen } as
+                                       // that is what decoder expects
             apiTracePtr += 4;
             memcpy(apiTracePtr, item->trace.data(), item->traceBytes);
             apiTracePtr += item->traceBytes;
         }
     }
 
-    DEBUG_RECON(
-        "created handle buffer size: %zu trace: %zu",
-        createdHandleBuffer.size(), apiTraceBuffer.size());
+    DEBUG_RECON("created handle buffer size: %zu trace: %zu", createdHandleBuffer.size(),
+                apiTraceBuffer.size());
 
-    android::base::saveBufferRaw(stream, (char*)(createdHandleBuffer.data()), createdHandleBuffer.size() * sizeof(uint64_t));
+    android::base::saveBufferRaw(stream, (char*)(createdHandleBuffer.data()),
+                                 createdHandleBuffer.size() * sizeof(uint64_t));
     android::base::saveBufferRaw(stream, (char*)(apiTraceBuffer.data()), apiTraceBuffer.size());
 }
 
 class TrivialStream : public IOStream {
-public:
-    TrivialStream() : IOStream(4) { }
+   public:
+    TrivialStream() : IOStream(4) {}
     virtual ~TrivialStream() = default;
 
     void* allocBuffer(size_t minSize) {
         size_t allocSize = (m_bufsize < minSize ? minSize : m_bufsize);
         if (!m_buf) {
-            m_buf = (unsigned char *)malloc(allocSize);
-        }
-        else if (m_bufsize < allocSize) {
-            unsigned char *p = (unsigned char *)realloc(m_buf, allocSize);
+            m_buf = (unsigned char*)malloc(allocSize);
+        } else if (m_bufsize < allocSize) {
+            unsigned char* p = (unsigned char*)realloc(m_buf, allocSize);
             if (p != NULL) {
                 m_buf = p;
                 m_bufsize = allocSize;
@@ -207,26 +206,21 @@ public:
         return writeFully(m_buf, size);
     }
 
-    int writeFully(const void *buf, size_t len) {
-        return 0;
-    }
+    int writeFully(const void* buf, size_t len) { return 0; }
 
-    const unsigned char* readFully(void *buf, size_t len) {
-        return NULL;
-    }
+    const unsigned char* readFully(void* buf, size_t len) { return NULL; }
 
     virtual void* getDmaForReading(uint64_t guest_paddr) { return nullptr; }
-    virtual void unlockDma(uint64_t guest_paddr) { }
+    virtual void unlockDma(uint64_t guest_paddr) {}
 
-protected:
-    virtual const unsigned char *readRaw(void *buf, size_t *inout_len) {
-        return nullptr;
-    }
-    virtual void onSave(android::base::Stream* stream) { }
+   protected:
+    virtual const unsigned char* readRaw(void* buf, size_t* inout_len) { return nullptr; }
+    virtual void onSave(android::base::Stream* stream) {}
     virtual unsigned char* onLoad(android::base::Stream* stream) { return nullptr; }
 };
 
-void VkReconstruction::load(android::base::Stream* stream) {
+void VkReconstruction::load(android::base::Stream* stream, emugl::GfxApiLogger& gfxLogger,
+                            emugl::HealthMonitor<>* healthMonitor) {
     DEBUG_RECON("start. assuming VkDecoderGlobalState has been cleared for loading already");
     mApiTrace.clear();
     mHandleReconstructions.clear();
@@ -237,20 +231,19 @@ void VkReconstruction::load(android::base::Stream* stream) {
     android::base::loadBuffer(stream, &createdHandleBuffer);
     android::base::loadBuffer(stream, &apiTraceBuffer);
 
-    DEBUG_RECON(
-        "created handle buffer size: %zu trace: %zu",
-        createdHandleBuffer.size(), apiTraceBuffer.size());
+    DEBUG_RECON("created handle buffer size: %zu trace: %zu", createdHandleBuffer.size(),
+                apiTraceBuffer.size());
 
     uint32_t createdHandleBufferSize = createdHandleBuffer.size();
 
     mLoadedTrace.resize(4 + createdHandleBufferSize + apiTraceBuffer.size());
 
-    unsigned char* finalTraceData =
-        (unsigned char*)(mLoadedTrace.data());
+    unsigned char* finalTraceData = (unsigned char*)(mLoadedTrace.data());
 
     memcpy(finalTraceData, &createdHandleBufferSize, sizeof(uint32_t));
     memcpy(finalTraceData + 4, createdHandleBuffer.data(), createdHandleBufferSize);
-    memcpy(finalTraceData + 4 + createdHandleBufferSize, apiTraceBuffer.data(), apiTraceBuffer.size());
+    memcpy(finalTraceData + 4 + createdHandleBufferSize, apiTraceBuffer.data(),
+           apiTraceBuffer.size());
 
     VkDecoder decoderForLoading;
     // A decoder that is set for snapshot load will load up the created handles first,
@@ -261,8 +254,14 @@ void VkReconstruction::load(android::base::Stream* stream) {
     DEBUG_RECON("start decoding trace");
 
     // TODO: This needs to be the puid seqno ptr
-    uint32_t seqno;
-    decoderForLoading.decode(mLoadedTrace.data(), mLoadedTrace.size(), &trivialStream, &seqno);
+    auto resources = ProcessResources::create();
+    VkDecoderContext context = {
+        .processName = nullptr,
+        .gfxApiLogger = &gfxLogger,
+        .healthMonitor = healthMonitor,
+    };
+    decoderForLoading.decode(mLoadedTrace.data(), mLoadedTrace.size(), &trivialStream, resources.get(),
+                             context);
 
     DEBUG_RECON("finished decoding trace");
 }
@@ -287,7 +286,8 @@ VkReconstruction::ApiInfo* VkReconstruction::getApiInfo(VkReconstruction::ApiHan
     return mApiTrace.get(h);
 }
 
-void VkReconstruction::setApiTrace(VkReconstruction::ApiInfo* apiInfo, uint32_t opCode, const uint8_t* traceBegin, size_t traceBytes) {
+void VkReconstruction::setApiTrace(VkReconstruction::ApiInfo* apiInfo, uint32_t opCode,
+                                   const uint8_t* traceBegin, size_t traceBytes) {
     if (apiInfo->trace.size() < traceBytes) apiInfo->trace.resize(traceBytes);
     apiInfo->opCode = opCode;
     memcpy(apiInfo->trace.data(), traceBegin, traceBytes);
@@ -299,29 +299,40 @@ void VkReconstruction::dump() {
 
     size_t traceBytesTotal = 0;
 
-    mApiTrace.forEachLiveEntry_const([&traceBytesTotal](bool live, uint64_t handle, const ApiInfo& info) {
-         fprintf(stderr, "VkReconstruction::%s: api handle 0x%llx: %s\n", __func__, (unsigned long long)handle, goldfish_vk::api_opcode_to_string(info.opCode));
-         traceBytesTotal += info.traceBytes;
-    });
+    mApiTrace.forEachLiveEntry_const(
+        [&traceBytesTotal](bool live, uint64_t handle, const ApiInfo& info) {
+            fprintf(stderr, "VkReconstruction::%s: api handle 0x%llx: %s\n", __func__,
+                    (unsigned long long)handle, api_opcode_to_string(info.opCode));
+            traceBytesTotal += info.traceBytes;
+        });
 
-    mHandleReconstructions.forEachLiveComponent_const([this](bool live, uint64_t componentHandle, uint64_t entityHandle, const HandleReconstruction& reconstruction) {
-        fprintf(stderr, "VkReconstruction::%s: %p handle 0x%llx api refs:\n", __func__, this, (unsigned long long)entityHandle);
-        for (auto apiHandle : reconstruction.apiRefs) {
-            auto apiInfo = mApiTrace.get(apiHandle);
-            const char* apiName = apiInfo ? goldfish_vk::api_opcode_to_string(apiInfo->opCode) : "unalloced";
-            fprintf(stderr, "VkReconstruction::%s:     0x%llx: %s\n", __func__, (unsigned long long)apiHandle, apiName);
-            for (auto createdHandle : apiInfo->createdHandles) {
-                fprintf(stderr, "VkReconstruction::%s:         created 0x%llx\n", __func__, (unsigned long long)createdHandle);
+    mHandleReconstructions.forEachLiveComponent_const(
+        [this](bool live, uint64_t componentHandle, uint64_t entityHandle,
+               const HandleReconstruction& reconstruction) {
+            fprintf(stderr, "VkReconstruction::%s: %p handle 0x%llx api refs:\n", __func__, this,
+                    (unsigned long long)entityHandle);
+            for (auto apiHandle : reconstruction.apiRefs) {
+                auto apiInfo = mApiTrace.get(apiHandle);
+                const char* apiName = apiInfo ? api_opcode_to_string(apiInfo->opCode) : "unalloced";
+                fprintf(stderr, "VkReconstruction::%s:     0x%llx: %s\n", __func__,
+                        (unsigned long long)apiHandle, apiName);
+                for (auto createdHandle : apiInfo->createdHandles) {
+                    fprintf(stderr, "VkReconstruction::%s:         created 0x%llx\n", __func__,
+                            (unsigned long long)createdHandle);
+                }
             }
-        }
-    });
+        });
 
-    mHandleModifications.forEachLiveComponent_const([this](bool live, uint64_t componentHandle, uint64_t entityHandle, const HandleModification& modification) {
-        fprintf(stderr, "VkReconstruction::%s: mod: %p handle 0x%llx api refs:\n", __func__, this, (unsigned long long)entityHandle);
+    mHandleModifications.forEachLiveComponent_const([this](bool live, uint64_t componentHandle,
+                                                           uint64_t entityHandle,
+                                                           const HandleModification& modification) {
+        fprintf(stderr, "VkReconstruction::%s: mod: %p handle 0x%llx api refs:\n", __func__, this,
+                (unsigned long long)entityHandle);
         for (auto apiHandle : modification.apiRefs) {
             auto apiInfo = mApiTrace.get(apiHandle);
-            const char* apiName = apiInfo ? goldfish_vk::api_opcode_to_string(apiInfo->opCode) : "unalloced";
-            fprintf(stderr, "VkReconstruction::%s: mod:     0x%llx: %s\n", __func__, (unsigned long long)apiHandle, apiName);
+            const char* apiName = apiInfo ? api_opcode_to_string(apiInfo->opCode) : "unalloced";
+            fprintf(stderr, "VkReconstruction::%s: mod:     0x%llx: %s\n", __func__,
+                    (unsigned long long)apiHandle, apiName);
         }
     });
 
@@ -356,7 +367,8 @@ void VkReconstruction::removeHandles(const uint64_t* toRemove, uint32_t count) {
     }
 }
 
-void VkReconstruction::forEachHandleAddApi(const uint64_t* toProcess, uint32_t count, uint64_t apiHandle) {
+void VkReconstruction::forEachHandleAddApi(const uint64_t* toProcess, uint32_t count,
+                                           uint64_t apiHandle) {
     if (!toProcess) return;
 
     for (uint32_t i = 0; i < count; ++i) {
@@ -372,7 +384,6 @@ void VkReconstruction::forEachHandleDeleteApi(const uint64_t* toProcess, uint32_
     if (!toProcess) return;
 
     for (uint32_t i = 0; i < count; ++i) {
-
         auto item = mHandleReconstructions.get(toProcess[i]);
 
         if (!item) continue;
@@ -391,7 +402,8 @@ void VkReconstruction::forEachHandleDeleteApi(const uint64_t* toProcess, uint32_
     }
 }
 
-void VkReconstruction::addHandleDependency(const uint64_t* handles, uint32_t count, uint64_t parentHandle) {
+void VkReconstruction::addHandleDependency(const uint64_t* handles, uint32_t count,
+                                           uint64_t parentHandle) {
     if (!handles) return;
 
     auto item = mHandleReconstructions.get(parentHandle);
@@ -403,7 +415,8 @@ void VkReconstruction::addHandleDependency(const uint64_t* handles, uint32_t cou
     }
 }
 
-void VkReconstruction::setCreatedHandlesForApi(uint64_t apiHandle, const uint64_t* created, uint32_t count) {
+void VkReconstruction::setCreatedHandlesForApi(uint64_t apiHandle, const uint64_t* created,
+                                               uint32_t count) {
     if (!created) return;
 
     auto item = mApiTrace.get(apiHandle);
@@ -415,7 +428,8 @@ void VkReconstruction::setCreatedHandlesForApi(uint64_t apiHandle, const uint64_
     }
 }
 
-void VkReconstruction::forEachHandleAddModifyApi(const uint64_t* toProcess, uint32_t count, uint64_t apiHandle) {
+void VkReconstruction::forEachHandleAddModifyApi(const uint64_t* toProcess, uint32_t count,
+                                                 uint64_t apiHandle) {
     if (!toProcess) return;
 
     for (uint32_t i = 0; i < count; ++i) {
@@ -434,18 +448,17 @@ std::vector<uint64_t> VkReconstruction::getOrderedUniqueModifyApis() const {
 
     // Now add all handle modifications to the trace, ordered by the .order field.
     mHandleModifications.forEachLiveComponent_const(
-        [&orderedModifies](bool live, uint64_t componentHandle, uint64_t entityHandle, const HandleModification& mod) {
-        orderedModifies.push_back(mod);
-    });
+        [&orderedModifies](bool live, uint64_t componentHandle, uint64_t entityHandle,
+                           const HandleModification& mod) { orderedModifies.push_back(mod); });
 
     // Sort by the |order| field for each modify API
     // since it may be important to apply modifies in a particular
     // order (e.g., when dealing with descriptor set updates
     // or commands in a command buffer).
     std::sort(orderedModifies.begin(), orderedModifies.end(),
-        [](const HandleModification& lhs, const HandleModification& rhs) {
-        return lhs.order < rhs.order;
-    });
+              [](const HandleModification& lhs, const HandleModification& rhs) {
+                  return lhs.order < rhs.order;
+              });
 
     std::unordered_set<uint64_t> usedModifyApis;
     std::vector<uint64_t> orderedUniqueModifyApis;
@@ -461,3 +474,6 @@ std::vector<uint64_t> VkReconstruction::getOrderedUniqueModifyApis() const {
 
     return orderedUniqueModifyApis;
 }
+
+}  // namespace vk
+}  // namespace gfxstream

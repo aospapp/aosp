@@ -21,7 +21,6 @@ import static android.autofillservice.cts.activities.SimpleSaveActivity.ID_INPUT
 import static android.autofillservice.cts.activities.SimpleSaveActivity.ID_PASSWORD;
 import static android.autofillservice.cts.testcore.Helper.assertTextAndValue;
 import static android.autofillservice.cts.testcore.Helper.findNodeByResourceId;
-import static android.autofillservice.cts.testcore.Helper.getContext;
 import static android.autofillservice.cts.testcore.InstrumentedAutoFillServiceInlineEnabled.SERVICE_NAME;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC;
 
@@ -33,9 +32,9 @@ import android.autofillservice.cts.testcore.Helper;
 import android.autofillservice.cts.testcore.InlineUiBot;
 import android.autofillservice.cts.testcore.InstrumentedAutoFillService;
 import android.platform.test.annotations.Presubmit;
-import android.support.test.uiautomator.UiObject2;
 
 import androidx.annotation.NonNull;
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Test;
 import org.junit.rules.TestRule;
@@ -53,7 +52,7 @@ public class InlineSimpleSaveActivityTest
 
     @Override
     protected void enableService() {
-        Helper.enableAutofillService(getContext(), SERVICE_NAME);
+        Helper.enableAutofillService(SERVICE_NAME);
     }
 
     @NonNull

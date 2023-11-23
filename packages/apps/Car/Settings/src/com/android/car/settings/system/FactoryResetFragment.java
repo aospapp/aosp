@@ -23,15 +23,17 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.ViewTreeObserver;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.annotation.XmlRes;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.ActivityResultCallback;
+import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.SettingsFragment;
 import com.android.car.settings.security.CheckLockActivity;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 import com.android.car.ui.toolbar.MenuItem;
 
 import java.util.Collections;
@@ -45,6 +47,7 @@ import java.util.List;
  */
 public class FactoryResetFragment extends SettingsFragment implements ActivityResultCallback {
 
+    private static final Logger LOG = new Logger(FactoryResetFragment.class);
     // Arbitrary request code for starting CheckLockActivity when the reset button is clicked.
     @VisibleForTesting
     static final int CHECK_LOCK_REQUEST_CODE = 88;
@@ -76,23 +79,38 @@ public class FactoryResetFragment extends SettingsFragment implements ActivityRe
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
 
-        RecyclerView recyclerView = getListView();
-        recyclerView.getViewTreeObserver().addOnGlobalLayoutListener(
-                new ViewTreeObserver.OnGlobalLayoutListener() {
-                    @Override
-                    public void onGlobalLayout() {
-                        mFactoryResetButton.setEnabled(isAtEnd());
-                        recyclerView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                    }
-                });
-        recyclerView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
-            if (isAtEnd()) {
-                mFactoryResetButton.setEnabled(true);
-            }
-        });
+        CarUiRecyclerView recyclerView = view.findViewById(R.id.settings_recycler_view);
+        if (recyclerView != null) {
+            recyclerView.getViewTreeObserver().addOnGlobalLayoutListener(
+                    new ViewTreeObserver.OnGlobalLayoutListener() {
+                        @Override
+                        public void onGlobalLayout() {
+                            mFactoryResetButton.setEnabled(isAtEnd(recyclerView));
+                            recyclerView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                        }
+                    });
+            recyclerView.addOnScrollListener(
+                    new CarUiRecyclerView.OnScrollListener() {
+                        @Override
+                        public void onScrolled(CarUiRecyclerView recyclerView, int dx, int dy) {
+                            if (isAtEnd(recyclerView)) {
+                                mFactoryResetButton.setEnabled(true);
+                            }
+                        }
+
+                        @Override
+                        public void onScrollStateChanged(CarUiRecyclerView recyclerView,
+                                int newState) {
+                            // no-op
+                        }
+                    });
+        } else {
+            LOG.e("No RecyclerView found");
+            requireActivity().onBackPressed();
+        }
     }
 
     @Override
@@ -103,19 +121,12 @@ public class FactoryResetFragment extends SettingsFragment implements ActivityRe
     }
 
     /** Returns {@code true} if the RecyclerView is completely displaying the last item. */
-    private boolean isAtEnd() {
-        RecyclerView recyclerView = getListView();
-        RecyclerView.LayoutManager layoutManager = recyclerView.getLayoutManager();
-        if (layoutManager == null || layoutManager.getChildCount() == 0) {
+    private boolean isAtEnd(CarUiRecyclerView recyclerView) {
+        if (recyclerView.getAdapter().getItemCount() == 0) {
             return true;
         }
 
-        int childCount = layoutManager.getChildCount();
-        View lastVisibleChild = layoutManager.getChildAt(childCount - 1);
-
-        // The list has reached the bottom if the last child that is visible is the last item
-        // in the list and it's fully shown.
-        return layoutManager.getPosition(lastVisibleChild) == (layoutManager.getItemCount() - 1)
-                && layoutManager.getDecoratedBottom(lastVisibleChild) <= layoutManager.getHeight();
+        return recyclerView.findLastCompletelyVisibleItemPosition()
+                == recyclerView.getAdapter().getItemCount() - 1;
     }
 }

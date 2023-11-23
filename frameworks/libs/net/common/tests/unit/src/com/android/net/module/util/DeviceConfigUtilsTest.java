@@ -16,25 +16,30 @@
 
 package com.android.net.module.util;
 
+import static android.content.pm.PackageManager.MATCH_SYSTEM_ONLY;
+
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSession;
-import static com.android.net.module.util.DeviceConfigUtils.FIXED_PACKAGE_VERSION;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
-import android.content.pm.ModuleInfo;
+import android.content.pm.ActivityInfo;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.provider.DeviceConfig;
 
@@ -48,6 +53,8 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.MockitoSession;
+
+import java.util.Arrays;
 
 
 /**
@@ -66,14 +73,23 @@ public class DeviceConfigUtilsTest {
     private static final int TEST_MIN_FLAG_VALUE = 100;
     private static final long TEST_PACKAGE_VERSION = 290000000;
     private static final String TEST_PACKAGE_NAME = "test.package.name";
-    private static final String TETHERING_AOSP_PACKAGE_NAME = "com.android.networkstack.tethering";
-    private static final String TEST_APEX_NAME = "test.apex.name";
+    // The APEX name is the name of the APEX module, as in android.content.pm.ModuleInfo, and is
+    // used for its mount point in /apex. APEX packages are actually APKs with a different
+    // file extension, so they have an AndroidManifest: the APEX package name is the package name in
+    // that manifest, and is reflected in android.content.pm.ApplicationInfo. Contrary to the APEX
+    // (module) name, different package names are typically used to identify the organization that
+    // built and signed the APEX modules.
+    private static final String TEST_APEX_NAME = "com.android.tethering";
+    private static final String TEST_APEX_PACKAGE_NAME = "com.prefix.android.tethering";
+    private static final String TEST_GO_APEX_PACKAGE_NAME = "com.prefix.android.go.tethering";
+    private static final String TEST_CONNRES_PACKAGE_NAME =
+            "com.prefix.android.connectivity.resources";
+    private final PackageInfo mPackageInfo = new PackageInfo();
+    private final PackageInfo mApexPackageInfo = new PackageInfo();
     private MockitoSession mSession;
 
     @Mock private Context mContext;
     @Mock private PackageManager mPm;
-    @Mock private ModuleInfo mMi;
-    @Mock private PackageInfo mPi;
     @Mock private Resources mResources;
 
     @Before
@@ -81,15 +97,26 @@ public class DeviceConfigUtilsTest {
         MockitoAnnotations.initMocks(this);
         mSession = mockitoSession().spyStatic(DeviceConfig.class).startMocking();
 
-        final PackageInfo pi = new PackageInfo();
-        pi.setLongVersionCode(TEST_PACKAGE_VERSION);
+        mPackageInfo.setLongVersionCode(TEST_PACKAGE_VERSION);
+        mApexPackageInfo.setLongVersionCode(TEST_PACKAGE_VERSION);
 
         doReturn(mPm).when(mContext).getPackageManager();
         doReturn(TEST_PACKAGE_NAME).when(mContext).getPackageName();
-        doReturn(mMi).when(mPm).getModuleInfo(eq(TEST_APEX_NAME), anyInt());
-        doReturn(TEST_PACKAGE_NAME).when(mMi).getPackageName();
-        doReturn(pi).when(mPm).getPackageInfo(anyString(), anyInt());
+        doThrow(NameNotFoundException.class).when(mPm).getPackageInfo(anyString(), anyInt());
+        doReturn(mPackageInfo).when(mPm).getPackageInfo(eq(TEST_PACKAGE_NAME), anyInt());
+        doReturn(mApexPackageInfo).when(mPm).getPackageInfo(eq(TEST_APEX_PACKAGE_NAME), anyInt());
+
         doReturn(mResources).when(mContext).getResources();
+
+        final ResolveInfo ri = new ResolveInfo();
+        ri.activityInfo = new ActivityInfo();
+        ri.activityInfo.applicationInfo = new ApplicationInfo();
+        ri.activityInfo.applicationInfo.packageName = TEST_CONNRES_PACKAGE_NAME;
+        ri.activityInfo.applicationInfo.sourceDir =
+                "/apex/com.android.tethering/priv-app/ServiceConnectivityResources@version";
+        doReturn(Arrays.asList(ri)).when(mPm).queryIntentActivities(argThat(
+                intent -> intent.getAction().equals(DeviceConfigUtils.RESOURCES_APK_INTENT)),
+                eq(MATCH_SYSTEM_ONLY));
     }
 
     @After
@@ -223,35 +250,32 @@ public class DeviceConfigUtilsTest {
                 TEST_EXPERIMENT_FLAG));
         assertFalse(DeviceConfigUtils.isFeatureEnabled(mContext, TEST_NAME_SPACE,
                 TEST_EXPERIMENT_FLAG, TEST_APEX_NAME, false /* defaultEnabled */));
-        doThrow(NameNotFoundException.class).when(mPm).getModuleInfo(anyString(), anyInt());
-        assertFalse(DeviceConfigUtils.isFeatureEnabled(mContext, TEST_NAME_SPACE,
-                TEST_EXPERIMENT_FLAG, TEST_APEX_NAME, false /* defaultEnabled */));
     }
 
-
     @Test
-    public void testFeatureIsEnabledUsingFixedVersion() throws Exception {
-        doReturn(TETHERING_AOSP_PACKAGE_NAME).when(mContext).getPackageName();
-        doThrow(NameNotFoundException.class).when(mPm).getModuleInfo(anyString(), anyInt());
-
-        doReturn(Long.toString(FIXED_PACKAGE_VERSION)).when(() -> DeviceConfig.getProperty(
+    public void testFeatureIsEnabledOnGo() throws Exception {
+        doThrow(NameNotFoundException.class).when(mPm).getPackageInfo(
+                eq(TEST_APEX_PACKAGE_NAME), anyInt());
+        doReturn(mApexPackageInfo).when(mPm).getPackageInfo(
+                eq(TEST_GO_APEX_PACKAGE_NAME), anyInt());
+        doReturn("0").when(() -> DeviceConfig.getProperty(
                 eq(TEST_NAME_SPACE), eq(TEST_EXPERIMENT_FLAG)));
-        assertTrue(DeviceConfigUtils.isFeatureEnabled(mContext, TEST_NAME_SPACE,
-                TEST_EXPERIMENT_FLAG, TEST_APEX_NAME, false /* defaultEnabled */));
 
-        doReturn(Long.toString(FIXED_PACKAGE_VERSION + 1)).when(() -> DeviceConfig.getProperty(
-                eq(TEST_NAME_SPACE), eq(TEST_EXPERIMENT_FLAG)));
+        assertFalse(DeviceConfigUtils.isFeatureEnabled(mContext, TEST_NAME_SPACE,
+                TEST_EXPERIMENT_FLAG));
         assertFalse(DeviceConfigUtils.isFeatureEnabled(mContext, TEST_NAME_SPACE,
                 TEST_EXPERIMENT_FLAG, TEST_APEX_NAME, false /* defaultEnabled */));
+        assertTrue(DeviceConfigUtils.isFeatureEnabled(mContext, TEST_NAME_SPACE,
+                TEST_EXPERIMENT_FLAG, TEST_APEX_NAME, true /* defaultEnabled */));
 
-        doReturn(Long.toString(FIXED_PACKAGE_VERSION - 1)).when(() -> DeviceConfig.getProperty(
-                eq(TEST_NAME_SPACE), eq(TEST_EXPERIMENT_FLAG)));
+        doReturn(TEST_FLAG_VALUE_STRING).when(() -> DeviceConfig.getProperty(eq(TEST_NAME_SPACE),
+                eq(TEST_EXPERIMENT_FLAG)));
         assertTrue(DeviceConfigUtils.isFeatureEnabled(mContext, TEST_NAME_SPACE,
                 TEST_EXPERIMENT_FLAG, TEST_APEX_NAME, false /* defaultEnabled */));
     }
 
     @Test
-    public void testFeatureIsEnabledCaching() throws Exception {
+    public void testFeatureIsEnabledCaching_APK() throws Exception {
         doReturn(TEST_FLAG_VALUE_STRING).when(() -> DeviceConfig.getProperty(eq(TEST_NAME_SPACE),
                 eq(TEST_EXPERIMENT_FLAG)));
         assertTrue(DeviceConfigUtils.isFeatureEnabled(mContext, TEST_NAME_SPACE,
@@ -263,14 +287,20 @@ public class DeviceConfigUtilsTest {
         verify(mContext, times(1)).getPackageManager();
         verify(mContext, times(1)).getPackageName();
         verify(mPm, times(1)).getPackageInfo(anyString(), anyInt());
+    }
 
+    @Test
+    public void testFeatureIsEnabledCaching_APEX() throws Exception {
+        doReturn(TEST_FLAG_VALUE_STRING).when(() -> DeviceConfig.getProperty(eq(TEST_NAME_SPACE),
+                eq(TEST_EXPERIMENT_FLAG)));
         assertTrue(DeviceConfigUtils.isFeatureEnabled(mContext, TEST_NAME_SPACE,
                 TEST_EXPERIMENT_FLAG, TEST_APEX_NAME, false /* defaultEnabled */));
         assertTrue(DeviceConfigUtils.isFeatureEnabled(mContext, TEST_NAME_SPACE,
                 TEST_EXPERIMENT_FLAG, TEST_APEX_NAME, false /* defaultEnabled */));
 
-        // Module info is only queried once
-        verify(mPm, times(1)).getModuleInfo(anyString(), anyInt());
+        // Package info is only queried once
+        verify(mPm, times(1)).getPackageInfo(anyString(), anyInt());
+        verify(mContext, never()).getPackageName();
     }
 
     @Test
@@ -282,5 +312,14 @@ public class DeviceConfigUtilsTest {
         assertFalse(DeviceConfigUtils.getResBooleanConfig(mContext, someResId, false));
         doThrow(new Resources.NotFoundException()).when(mResources).getBoolean(someResId);
         assertFalse(DeviceConfigUtils.getResBooleanConfig(mContext, someResId, false));
+    }
+
+    @Test
+    public void testGetResIntegerConfig() {
+        final int someResId = 1234;
+        doReturn(2097).when(mResources).getInteger(someResId);
+        assertEquals(2097, DeviceConfigUtils.getResIntegerConfig(mContext, someResId, 2098));
+        doThrow(new Resources.NotFoundException()).when(mResources).getInteger(someResId);
+        assertEquals(2098, DeviceConfigUtils.getResIntegerConfig(mContext, someResId, 2098));
     }
 }

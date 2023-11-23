@@ -30,7 +30,5 @@
   <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
       android:targetPackage="android.nearby.cts"
       android:label="CTS tests for android.nearby Fast Pair">
-    <meta-data android:name="listener"
-        android:value="com.android.cts.runner.CtsTestRunListener"/>
   </instrumentation>
 </manifest>

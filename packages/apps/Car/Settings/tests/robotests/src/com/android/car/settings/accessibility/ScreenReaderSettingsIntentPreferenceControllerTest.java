@@ -94,4 +94,76 @@ public class ScreenReaderSettingsIntentPreferenceControllerTest {
         assertThat(mPreferenceControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
                 CONDITIONALLY_UNAVAILABLE);
     }
+
+    @Test
+    public void testUpdateState_noSettingsActivity_hidesSettings_zoneWrite()
+            throws XmlPullParserException, IOException {
+        ResolveInfo resolveInfo = new ResolveInfo();
+        resolveInfo.labelRes = R.string.fake_title;
+        resolveInfo.nonLocalizedLabel = mContext.getString(R.string.fake_title);
+        ServiceInfo serviceInfo = new ServiceInfo();
+        serviceInfo.packageName = mScreenReaderComponent.getPackageName();
+        serviceInfo.name = mScreenReaderComponent.getClassName();
+        resolveInfo.serviceInfo = serviceInfo;
+        serviceInfo.applicationInfo = new ApplicationInfo();
+        serviceInfo.applicationInfo.name = mScreenReaderComponent.getPackageName();
+        AccessibilityServiceInfo accessibilityServiceInfo = new AccessibilityServiceInfo(
+                resolveInfo, mContext);
+        mShadowAccessibilityManager.setInstalledAccessibilityServiceList(
+                ImmutableList.of(accessibilityServiceInfo));
+
+        mPreferenceControllerHelper.getController().setAvailabilityStatusForZone("write");
+        mPreferenceControllerHelper.getController().refreshUi();
+
+        assertThat(mPreferenceControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testUpdateState_noSettingsActivity_hidesSettings_zoneRead()
+            throws XmlPullParserException, IOException {
+        ResolveInfo resolveInfo = new ResolveInfo();
+        resolveInfo.labelRes = R.string.fake_title;
+        resolveInfo.nonLocalizedLabel = mContext.getString(R.string.fake_title);
+        ServiceInfo serviceInfo = new ServiceInfo();
+        serviceInfo.packageName = mScreenReaderComponent.getPackageName();
+        serviceInfo.name = mScreenReaderComponent.getClassName();
+        resolveInfo.serviceInfo = serviceInfo;
+        serviceInfo.applicationInfo = new ApplicationInfo();
+        serviceInfo.applicationInfo.name = mScreenReaderComponent.getPackageName();
+        AccessibilityServiceInfo accessibilityServiceInfo = new AccessibilityServiceInfo(
+                resolveInfo, mContext);
+        mShadowAccessibilityManager.setInstalledAccessibilityServiceList(
+                ImmutableList.of(accessibilityServiceInfo));
+
+        mPreferenceControllerHelper.getController().setAvailabilityStatusForZone("read");
+        mPreferenceControllerHelper.getController().refreshUi();
+
+        assertThat(mPreferenceControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
+                CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testUpdateState_noSettingsActivity_hidesSettings_zoneHidden()
+            throws XmlPullParserException, IOException {
+        ResolveInfo resolveInfo = new ResolveInfo();
+        resolveInfo.labelRes = R.string.fake_title;
+        resolveInfo.nonLocalizedLabel = mContext.getString(R.string.fake_title);
+        ServiceInfo serviceInfo = new ServiceInfo();
+        serviceInfo.packageName = mScreenReaderComponent.getPackageName();
+        serviceInfo.name = mScreenReaderComponent.getClassName();
+        resolveInfo.serviceInfo = serviceInfo;
+        serviceInfo.applicationInfo = new ApplicationInfo();
+        serviceInfo.applicationInfo.name = mScreenReaderComponent.getPackageName();
+        AccessibilityServiceInfo accessibilityServiceInfo = new AccessibilityServiceInfo(
+                resolveInfo, mContext);
+        mShadowAccessibilityManager.setInstalledAccessibilityServiceList(
+                ImmutableList.of(accessibilityServiceInfo));
+
+        mPreferenceControllerHelper.getController().setAvailabilityStatusForZone("hidden");
+        mPreferenceControllerHelper.getController().refreshUi();
+
+        assertThat(mPreferenceControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
+                CONDITIONALLY_UNAVAILABLE);
+    }
 }

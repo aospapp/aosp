@@ -17,6 +17,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
      package="android.suspendapps.cts">
 
+    <queries>
+        <package android:name="com.android.suspendapps.suspendtestapp" />
+        <package android:name="com.android.suspendapps.suspendtestapp2" />
+        <package android:name="com.android.suspendapps.testdeviceadmin" />
+    </queries>
+
     <application android:label="CTS Suspend Apps Test">
         <activity android:name=".SuspendedDetailsActivity"
              android:permission="android.permission.SEND_SHOW_SUSPENDED_APP_DETAILS"

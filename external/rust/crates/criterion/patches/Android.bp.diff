@@ -1,0 +1,13 @@
+diff --git a/Android.bp b/Android.bp
+index 4356b43..699cf37 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -56,7 +56,7 @@ rust_library {
+         "libatty",
+         "libcast",
+         "libciborium",
+-        "libclap",
++        "libclap_3.2.23",
+         "libcriterion_plot",
+         "libitertools",
+         "liblazy_static",

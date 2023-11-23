@@ -1,24 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (c) 2019 FUJITSU LIMITED. All rights reserved.
- * Author: Yang Xu <xuyang2018.jy@cn.fujitsu.com>
+ * Copyright (c) 2019-2021 FUJITSU LIMITED. All rights reserved.
+ * Author: Yang Xu <xuyang2018.jy@fujitsu.com>
+ */
+
+/*\
+ * [Description]
  *
- * This testcase checks the basic flag of quotactl(2) for project quota on
- * non-XFS filesystems.
+ * This testcase checks that quotactl(2) on ext4 filesystem succeeds to:
  *
- * 1) quotactl(2) succeeds to turn on quota with Q_QUOTAON flag for project.
- * 2) quotactl(2) succeeds to set disk quota limits with Q_SETQUOTA flag
- *    for project.
- * 3) quotactl(2) succeeds to get disk quota limits with Q_GETQUOTA flag
- *    for project.
- * 4) quotactl(2) succeeds to set information about quotafile with Q_SETINFO
- *    flag for project.
- * 5) quotactl(2) succeeds to get information about quotafile with Q_GETINFO
- *    flag for project.
- * 6) quotactl(2) succeeds to get quota format with Q_GETFMT flag for project.
- * 7) quotactl(2) succeeds to get disk quota limit greater than or equal to
- *    ID with Q_GETNEXTQUOTA flag for project.
- * 8) quotactl(2) succeeds to turn off quota with Q_QUOTAOFF flag for project.
+ * - turn on quota with Q_QUOTAON flag for project
+ * - set disk quota limits with Q_SETQUOTA flag for project
+ * - get disk quota limits with Q_GETQUOTA flag for project
+ * - set information about quotafile with Q_SETINFO flag for project
+ * - get information about quotafile with Q_GETINFO flag for project
+ * - get quota format with Q_GETFMT flag for project
+ * - get disk quota limit greater than or equal to ID with Q_GETNEXTQUOTA flag for project
+ * - turn off quota with Q_QUOTAOFF flag for project
  *
  * Minimum e2fsprogs version required is 1.43.
  */
@@ -26,20 +24,13 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
-#include "config.h"
-#include "lapi/quotactl.h"
-#include "tst_safe_stdio.h"
 #include "tst_test.h"
-
-#ifndef QFMT_VFS_V1
-# define QFMT_VFS_V1 4
-#endif
+#include "quotactl_syscall_var.h"
 
 #define FMTID QFMT_VFS_V1
-#define MNTPOINT	"mntpoint"
+
 static int32_t fmt_id = FMTID;
 static int test_id, mount_flag;
 static struct dqblk set_dq = {
@@ -56,6 +47,7 @@ static struct dqinfo res_qf;
 static int32_t fmt_buf;
 
 static struct if_nextdqblk res_ndq;
+static int getnextquota_nsup;
 
 static struct tcase {
 	int cmd;
@@ -104,48 +96,26 @@ static struct tcase {
 
 };
 
-static void do_mount(const char *source, const char *target,
-	const char *filesystemtype, unsigned long mountflags,
-	const void *data)
-{
-	TEST(mount(source, target, filesystemtype, mountflags, data));
-
-	if (TST_RET == -1 && TST_ERR == ESRCH)
-		tst_brk(TCONF, "Kernel or device does not support FS quotas");
-
-	if (TST_RET == -1) {
-		tst_brk(TBROK | TTERRNO, "mount(%s, %s, %s, %lu, %p) failed",
-			source, target, filesystemtype, mountflags, data);
-	}
-
-	if (TST_RET) {
-		tst_brk(TBROK | TTERRNO, "mount(%s, %s, %s, %lu, %p) failed",
-			source, target, filesystemtype, mountflags, data);
-	}
-
-	mount_flag = 1;
-}
-
 static void setup(void)
 {
-	FILE *f;
 	const char *const fs_opts[] = {"-I 256", "-O quota,project", NULL};
-	int rc, major, minor, patch;
 
-	test_id = geteuid();
-	f = SAFE_POPEN("mkfs.ext4 -V 2>&1", "r");
-	rc = fscanf(f, "mke2fs %d.%d.%d", &major, &minor, &patch);
-	if (rc != 3)
-		tst_res(TWARN, "Unable parse version number");
-	else if (major * 10000 + minor * 100 + patch < 14300)
-		tst_brk(TCONF, "Test needs mkfs.ext4 >= 1.43 for quota,project option, test skipped");
-	pclose(f);
+	quotactl_info();
 	SAFE_MKFS(tst_device->dev, tst_device->fs_type, fs_opts, NULL);
-	do_mount(tst_device->dev, MNTPOINT, tst_device->fs_type, 0, "quota");
+	SAFE_MOUNT(tst_device->dev, MNTPOINT, tst_device->fs_type, 0, NULL);
+	mount_flag = 1;
+	fd = SAFE_OPEN(MNTPOINT, O_RDONLY);
+
+	TEST(do_quotactl(fd, QCMD(Q_GETNEXTQUOTA, PRJQUOTA), tst_device->dev,
+		test_id, (void *) &res_ndq));
+	if (TST_ERR == EINVAL || TST_ERR == ENOSYS)
+		getnextquota_nsup = 1;
 }
 
 static void cleanup(void)
 {
+	if (fd > -1)
+		SAFE_CLOSE(fd);
 	if (mount_flag && tst_umount(MNTPOINT))
 		tst_res(TWARN | TERRNO, "umount(%s)", MNTPOINT);
 }
@@ -160,11 +130,15 @@ static void verify_quota(unsigned int n)
 
 	tst_res(TINFO, "Test #%d: %s", n, tc->tname);
 
-	TEST(quotactl(tc->cmd, tst_device->dev, *tc->id, tc->addr));
-	if (TST_RET == -1) {
-		tst_res(TFAIL | TTERRNO, "quotactl failed to %s", tc->des);
+	if (tc->cmd == QCMD(Q_GETNEXTQUOTA, PRJQUOTA) && getnextquota_nsup) {
+		tst_res(TCONF, "current system doesn't support this cmd");
 		return;
 	}
+
+	TST_EXP_PASS_SILENT(do_quotactl(fd, tc->cmd, tst_device->dev, *tc->id, tc->addr),
+			"do_quotactl to %s", tc->des);
+	if (!TST_PASS)
+		return;
 
 	if (memcmp(tc->res_data, tc->set_data, tc->sz)) {
 		tst_res(TFAIL, "quotactl failed to %s", tc->des);
@@ -178,11 +152,11 @@ static void verify_quota(unsigned int n)
 
 static struct tst_test test = {
 	.needs_root = 1,
-	.needs_kconfigs = (const char *[]) {
-		"CONFIG_QFMT_V2",
+	.needs_drivers = (const char *const []) {
+		"quota_v2",
 		NULL
 	},
-	.min_kver = "4.10", /* commit 689c958cbe6b (ext4: add project quota support) */
+	.min_kver = "4.5", /* commit 689c958cbe6b (ext4: add project quota support) */
 	.test = verify_quota,
 	.tcnt = ARRAY_SIZE(tcases),
 	.setup = setup,
@@ -190,8 +164,9 @@ static struct tst_test test = {
 	.needs_device = 1,
 	.dev_fs_type = "ext4",
 	.mntpoint = MNTPOINT,
+	.test_variants = QUOTACTL_SYSCALL_VARIANTS,
 	.needs_cmds = (const char *[]) {
-		"mkfs.ext4",
+		"mkfs.ext4 >= 1.43.0",
 		NULL
 	}
 };

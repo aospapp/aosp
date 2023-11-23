@@ -74,13 +74,13 @@ class EndianInserter {
 
     for (size_t i = 0; i < num_bits / 8; i++) {
       if (little_endian == true) {
-        it.insert_byte(static_cast<uint8_t>(value >> (i * 8)));
+        it.insert_byte(static_cast<uint8_t>(static_cast<uint64_t>(value) >> (i * 8)));
       } else {
-        it.insert_byte(static_cast<uint8_t>(value >> (((num_bits / 8) - i - 1) * 8)));
+        it.insert_byte(static_cast<uint8_t>(static_cast<uint64_t>(value) >> (((num_bits / 8) - i - 1) * 8)));
       }
     }
     if (num_bits % 8) {
-      it.insert_bits(static_cast<uint8_t>(value >> ((num_bits / 8) * 8)), num_bits % 8);
+      it.insert_bits(static_cast<uint8_t>(static_cast<uint64_t>(value) >> ((num_bits / 8) * 8)), num_bits % 8);
     }
   }
 

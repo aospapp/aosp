@@ -18,5 +18,8 @@
 <!-- Resources to configure based on each OEM's preference. -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!--  DisplayPort to launch ClusterOsDouble -->
-    <integer name="config_clusterDisplayPort">1</integer>
+    <integer name="config_clusterDisplayPort">-1</integer>
+    <!--  Display uniqueId to launch ClusterOsDouble. -->
+    <!--  To use this values, set config_clusterDisplayPort to -1. -->
+    <string name="config_clusterDisplayUniqueId" />
 </resources>

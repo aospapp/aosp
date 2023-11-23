@@ -15,13 +15,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-11, windows-latest]
-        jdk: [8, 15, 17]
-        exclude:
-          # Only test against JDK 15 with Ubuntu since this is what OSS-Fuzz uses.
-          - os: macos-11
-            jdk: 15
-          - os: windows-latest
-            jdk: 15
+        jdk: [8, 17]
         include:
           - os: ubuntu-latest
             arch: "linux"
@@ -29,7 +23,7 @@ jobs:
           - os: macos-11
             arch: "macos-x86_64"
             # Always use the toolchain as UBSan produces linker errors with Apple LLVM 13.
-            bazel_args: "--config=toolchain --extra_toolchains=@llvm_toolchain//:cc-toolchain-x86_64-darwin"
+            bazel_args: "--config=toolchain --extra_toolchains=@llvm_toolchain//:cc-toolchain-x86_64-darwin --xcode_version_config=//.github:host_xcodes"
             cache: "/private/var/tmp/bazel-disk"
           - os: windows-latest
             arch: "windows"
@@ -49,11 +43,15 @@ jobs:
           path: ${{ matrix.cache }}
           key: bazel-disk-cache-${{ matrix.arch }}-${{ matrix.jdk }}
 
+      - name: Set Build Buddy config
+        run: .github/scripts/echoBuildBuddyConfig.sh ${{ secrets.BUILDBUDDY_API_KEY }} >> $GITHUB_ENV
+        shell: bash
+
       - name: Build
-        run: bazelisk build --config=ci --remote_header=x-buildbuddy-api-key=${{ secrets.BUILDBUDDY_API_KEY }} --disk_cache=${{ matrix.cache }} --java_runtime_version=localjdk_${{ matrix.jdk }} ${{ matrix.bazel_args }} //...
+        run: bazelisk build ${{env.BUILD_BUDDY_CONFIG}} --java_runtime_version=local_jdk_${{ matrix.jdk }} --disk_cache=${{ matrix.cache }} ${{ matrix.bazel_args }} //...
 
       - name: Test
-        run: bazelisk test --config=ci --remote_header=x-buildbuddy-api-key=${{ secrets.BUILDBUDDY_API_KEY }} --disk_cache=${{ matrix.cache }} --java_runtime_version=localjdk_${{ matrix.jdk }} ${{ matrix.bazel_args }} //...
+        run: bazelisk test ${{env.BUILD_BUDDY_CONFIG}} --java_runtime_version=local_jdk_${{ matrix.jdk }} --disk_cache=${{ matrix.cache }} ${{ matrix.bazel_args }} //...
 
       - name: Upload test logs
         if: always()

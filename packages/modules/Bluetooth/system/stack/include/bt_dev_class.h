@@ -96,11 +96,17 @@ inline constexpr DEV_CLASS kDevClassEmpty = {};
 #define BTM_COD_SERVICE_TELEPHONY 0x4000
 #define BTM_COD_SERVICE_INFORMATION 0x8000
 
+/* the COD masks */
+#define BTM_COD_MINOR_CLASS_MASK 0xFC
+#define BTM_COD_MAJOR_CLASS_MASK 0x1F
+#define BTM_COD_SERVICE_CLASS_LO_B 0x00E0
+#define BTM_COD_SERVICE_CLASS_MASK 0xFFE0
+
 /* class of device field macros */
 #define BTM_COD_MINOR_CLASS(u8, pd) \
-  { (u8) = (pd)[2] & 0xFC; }
+  { (u8) = (pd)[2] & BTM_COD_MINOR_CLASS_MASK; }
 #define BTM_COD_MAJOR_CLASS(u8, pd) \
-  { (u8) = (pd)[1] & 0x1F; }
+  { (u8) = (pd)[1] & BTM_COD_MAJOR_CLASS_MASK; }
 #define BTM_COD_SERVICE_CLASS(u16, pd) \
   {                                    \
     (u16) = (pd)[0];                   \
@@ -116,11 +122,20 @@ inline constexpr DEV_CLASS kDevClassEmpty = {};
     (pd)[0] = (sv) >> 8;                                \
   }
 
-/* the COD masks */
-#define BTM_COD_MINOR_CLASS_MASK 0xFC
-#define BTM_COD_MAJOR_CLASS_MASK 0x1F
-#define BTM_COD_SERVICE_CLASS_LO_B 0x00E0
-#define BTM_COD_SERVICE_CLASS_MASK 0xFFE0
+#ifdef __cplusplus
+#include <sstream>
+inline std::string dev_class_text(const DEV_CLASS& dev_class) {
+  std::ostringstream oss;
+  uint8_t mj, mn;
+  uint16_t sv;
+  BTM_COD_MINOR_CLASS(mn, dev_class);
+  BTM_COD_MAJOR_CLASS(mj, dev_class);
+  BTM_COD_SERVICE_CLASS(sv, dev_class);
+  oss << std::to_string(mj) << "-" << std::to_string(mn) << "-"
+      << std::to_string(sv);
+  return oss.str();
+}
+#endif  // __cplusplus
 
 #define DEVCLASS_TO_STREAM(p, a)                      \
   {                                                   \

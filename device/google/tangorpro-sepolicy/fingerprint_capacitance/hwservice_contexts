@@ -1,0 +1,2 @@
+com.fingerprints42.extension::IFingerprintEngineering  u:object_r:hal_fingerprint_capacitance_ext_hwservice:s0
+com.fingerprints42.extension::IFingerprintSensorTest   u:object_r:hal_fingerprint_capacitance_ext_hwservice:s0

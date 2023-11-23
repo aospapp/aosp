@@ -21,6 +21,7 @@ import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
 import android.os.Environment;
 import android.mediapc.cts.common.Utils;
+import android.mediapc.cts.common.PerformanceClassEvaluator;
 
 import androidx.test.runner.AndroidJUnit4;
 
@@ -30,7 +31,9 @@ import com.android.compatibility.common.util.DeviceReportLog;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.After;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
@@ -38,19 +41,9 @@ public class RandomRWTest {
     private static final String DIR_RANDOM_WR = "RANDOM_WR";
     private static final String DIR_RANDOM_RD = "RANDOM_RD";
     private static final String REPORT_LOG_NAME = "CtsFileSystemTestCases";
-    private static final double MIN_READ_MBPS;
-    private static final double MIN_WRITE_MBPS;
 
-    static {
-        if (Utils.isRPerfClass()) {
-            MIN_READ_MBPS = 25;
-            MIN_WRITE_MBPS = 10;
-        } else {
-            // Performance class Build.VERSION_CODES.S and beyond
-            MIN_READ_MBPS = 40;
-            MIN_WRITE_MBPS = 10;
-        }
-    }
+    @Rule
+    public final TestName mTestName = new TestName();
 
     @After
     public void tearDown() throws Exception {
@@ -58,7 +51,7 @@ public class RandomRWTest {
         FileUtil.removeFileOrDir(getContext(), DIR_RANDOM_RD);
     }
 
-    @CddTest(requirement="8.2")
+    @CddTest(requirements = {"8.2/H-1-4"})
     @Test
     public void testRandomRead() throws Exception {
         final int READ_BUFFER_SIZE = 4 * 1024;
@@ -72,14 +65,18 @@ public class RandomRWTest {
         double mbps = FileUtil.doRandomReadTest(getContext(), DIR_RANDOM_RD, report, fileSize,
                 READ_BUFFER_SIZE);
         report.submit(getInstrumentation());
-        if (Utils.isPerfClass()) {
-            assertTrue("measured " + mbps + " is less than target (" + MIN_READ_MBPS + " MBPS)",
-                       mbps >= MIN_READ_MBPS);
-        }
+
+        PerformanceClassEvaluator pce = new PerformanceClassEvaluator(this.mTestName);
+        PerformanceClassEvaluator.FileSystemRequirement r8_2__H_1_4 = pce.addR8_2__H_1_4();
+        PerformanceClassEvaluator.FileSystemRequirement r8_2__H_2_4 = pce.addR8_2__H_2_4();
+        r8_2__H_1_4.setFilesystemIoRate(mbps);
+        r8_2__H_2_4.setFilesystemIoRate(mbps);
+
+        pce.submitAndCheck();
     }
 
     // It is taking too long in some device, and thus cannot run multiple times
-    @CddTest(requirement="8.2")
+    @CddTest(requirements = {"8.2/H-1-2"})
     @Test
     public void testRandomUpdate() throws Exception {
         final int WRITE_BUFFER_SIZE = 4 * 1024;
@@ -98,10 +95,13 @@ public class RandomRWTest {
                 WRITE_BUFFER_SIZE);
         }
         report.submit(getInstrumentation());
-        if (Utils.isPerfClass()) {
-            // for performance class devices we must be able to write 256MB
-            assertTrue("measured " + mbps + " is less than target (" + MIN_WRITE_MBPS + " MBPS)",
-                       mbps >= MIN_WRITE_MBPS);
-        }
+
+        PerformanceClassEvaluator pce = new PerformanceClassEvaluator(this.mTestName);
+        PerformanceClassEvaluator.FileSystemRequirement r8_2__H_1_2 = pce.addR8_2__H_1_2();
+        PerformanceClassEvaluator.FileSystemRequirement r8_2__H_2_2 = pce.addR8_2__H_2_2();
+        r8_2__H_1_2.setFilesystemIoRate(mbps);
+        r8_2__H_2_2.setFilesystemIoRate(mbps);
+
+        pce.submitAndCheck();
     }
 }

@@ -61,7 +61,7 @@ OI_STATUS OI_CODEC_SBC_DecoderConfigureRaw(
     return OI_STATUS_INVALID_PARAMETERS;
   }
 
-  if (blocks > SBC_BLOCKS_16) {
+  if (blocks > SBC_BLOCKS_15) {
     return OI_STATUS_INVALID_PARAMETERS;
   }
 

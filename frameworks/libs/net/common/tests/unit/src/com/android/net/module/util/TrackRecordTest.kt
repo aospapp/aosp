@@ -17,6 +17,7 @@
 package com.android.net.module.util
 
 import com.android.testutils.ConcurrentInterpreter
+import com.android.testutils.INTERPRET_TIME_UNIT
 import com.android.testutils.InterpretException
 import com.android.testutils.InterpretMatcher
 import com.android.testutils.SyntaxException
@@ -420,7 +421,7 @@ private val interpretTable = listOf<InterpretMatcher<TrackRecord<Int>>>(
     // the test code to not compile instead of throw, but it's vastly more complex and this will
     // fail 100% at runtime any test that would not have compiled.
     Regex("""poll\((\d+)?\)\s*(\{.*\})?""") to { i, t, r ->
-        (if (r.strArg(1).isEmpty()) i.interpretTimeUnit else r.timeArg(1)).let { time ->
+        (if (r.strArg(1).isEmpty()) INTERPRET_TIME_UNIT else r.timeArg(1)).let { time ->
             (t as ArrayTrackRecord<Int>.ReadHead).poll(time, makePredicate(r.strArg(2)))
         }
     },

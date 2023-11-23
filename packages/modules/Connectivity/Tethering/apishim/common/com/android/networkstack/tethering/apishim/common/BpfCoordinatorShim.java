@@ -172,16 +172,24 @@ public abstract class BpfCoordinatorShim {
     /**
      * Attach BPF program.
      *
+     * @param iface the interface name to attach program.
+     * @param downstream indicate the datapath. true if downstream, false if upstream.
+     * @param ipv4 indicate the protocol family. true if ipv4, false if ipv6.
+     *
      * TODO: consider using InterfaceParams to replace interface name.
      */
-    public abstract boolean attachProgram(@NonNull String iface, boolean downstream);
+    public abstract boolean attachProgram(@NonNull String iface, boolean downstream,
+            boolean ipv4);
 
     /**
      * Detach BPF program.
      *
+     * @param iface the interface name to detach program.
+     * @param ipv4 indicate the protocol family. true if ipv4, false if ipv6.
+     *
      * TODO: consider using InterfaceParams to replace interface name.
      */
-    public abstract boolean detachProgram(@NonNull String iface);
+    public abstract boolean detachProgram(@NonNull String iface, boolean ipv4);
 
     /**
      * Add interface index mapping.

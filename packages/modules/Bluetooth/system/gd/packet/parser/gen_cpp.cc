@@ -52,6 +52,8 @@ void generate_namespace_close(const std::vector<std::string>& token, std::ostrea
 
 bool generate_cpp_headers_one_file(
     const Declarations& decls,
+    bool generate_fuzzing,
+    bool generate_tests,
     const std::filesystem::path& input_file,
     const std::filesystem::path& include_dir,
     const std::filesystem::path& out_dir,
@@ -84,7 +86,6 @@ bool generate_cpp_headers_one_file(
 #include <string>
 #include <type_traits>
 
-#include "os/log.h"
 #include "packet/base_packet_builder.h"
 #include "packet/bit_inserter.h"
 #include "packet/custom_field_fixed_size_interface.h"
@@ -92,14 +93,20 @@ bool generate_cpp_headers_one_file(
 #include "packet/packet_builder.h"
 #include "packet/packet_struct.h"
 #include "packet/packet_view.h"
+#include "packet/checksum_type_checker.h"
+#include "packet/custom_type_checker.h"
+#include "os/log.h"
+)";
+
+  if (generate_fuzzing || generate_tests) {
+    out_file <<
+        R"(
 
 #if defined(PACKET_FUZZ_TESTING) || defined(PACKET_TESTING) || defined(FUZZ_TARGET)
 #include "packet/raw_builder.h"
 #endif
-#include "packet/parser/checksum_type_checker.h"
-#include "packet/parser/custom_type_checker.h"
-
 )";
+  }
 
   for (const auto& c : decls.type_defs_queue_) {
     if (c.second->GetDefinitionType() == TypeDef::Type::CUSTOM ||
@@ -120,6 +127,7 @@ bool generate_cpp_headers_one_file(
       ((CustomFieldDef*)c.second)->GenUsing(out_file);
     }
   }
+
   out_file <<
       R"(
 
@@ -132,14 +140,17 @@ using ::bluetooth::packet::kLittleEndian;
 using ::bluetooth::packet::PacketBuilder;
 using ::bluetooth::packet::PacketStruct;
 using ::bluetooth::packet::PacketView;
+using ::bluetooth::packet::parser::ChecksumTypeChecker;
+)";
 
+  if (generate_fuzzing || generate_tests) {
+    out_file <<
+        R"(
 #if defined(PACKET_FUZZ_TESTING) || defined(PACKET_TESTING) || defined(FUZZ_TARGET)
 using ::bluetooth::packet::RawBuilder;
 #endif
-
-using ::bluetooth::packet::parser::ChecksumTypeChecker;
-
 )";
+  }
 
   for (const auto& e : decls.type_defs_queue_) {
     if (e.second->GetDefinitionType() == TypeDef::Type::ENUM) {
@@ -193,12 +204,12 @@ using ::bluetooth::packet::parser::ChecksumTypeChecker;
   }
 
   for (const auto& packet_def : decls.packet_defs_queue_) {
-    packet_def.second->GenParserDefinition(out_file);
+    packet_def.second->GenParserDefinition(out_file, generate_fuzzing, generate_tests);
     out_file << "\n\n";
   }
 
   for (const auto& packet_def : decls.packet_defs_queue_) {
-    packet_def.second->GenBuilderDefinition(out_file);
+    packet_def.second->GenBuilderDefinition(out_file, generate_fuzzing, generate_tests);
     out_file << "\n\n";
   }
 

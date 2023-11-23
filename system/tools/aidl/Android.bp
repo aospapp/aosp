@@ -41,7 +41,6 @@ cc_defaults {
     header_libs: ["libgtest_prod_headers"],
     static_libs: [
         "libbase",
-        "libcutils",
         "libgtest",
     ],
     // TODO(b/174366536): basic_stringbuf::overflow causes "ubsan: implicit-conversion"
@@ -65,6 +64,7 @@ cc_defaults {
             cflags: ["-DPLATFORM_SDK_VERSION=%d"],
         },
     },
+    defaults_visibility: [":__subpackages__"],
 }
 
 // Logic shared between aidl and its unittests
@@ -94,6 +94,7 @@ cc_library_static {
         "diagnostics.cpp",
         "generate_aidl_mappings.cpp",
         "generate_cpp.cpp",
+        "generate_cpp_analyzer.cpp",
         "generate_java_binder.cpp",
         "generate_java.cpp",
         "generate_ndk.cpp",
@@ -111,6 +112,7 @@ cc_library_static {
         gen_location_hh: true,
         gen_position_hh: true,
     },
+    visibility: [":__subpackages__"],
 }
 
 // aidl executable
@@ -241,6 +243,8 @@ python_test_host {
         "aidl_test_java_service_sdk1",
         "aidl_test_java_client_sdk29",
         "aidl_test_java_service_sdk29",
+        "aidl_test_java_client_permission",
+        "aidl_test_java_service_permission",
     ],
     test_suites: ["general-tests"],
     test_options: {
@@ -291,11 +295,13 @@ filegroup {
         "tests/android/aidl/tests/ArrayOfInterfaces.aidl",
         "tests/android/aidl/tests/BackendType.aidl",
         "tests/android/aidl/tests/ByteEnum.aidl",
+        "tests/android/aidl/tests/CircularParcelable.aidl",
         "tests/android/aidl/tests/ConstantExpressionEnum.aidl",
         "tests/android/aidl/tests/DeprecatedEnum.aidl",
         "tests/android/aidl/tests/DeprecatedParcelable.aidl",
         "tests/android/aidl/tests/GenericStructuredParcelable.aidl",
         "tests/android/aidl/tests/FixedSize.aidl",
+        "tests/android/aidl/tests/ICircular.aidl",
         "tests/android/aidl/tests/IDeprecated.aidl",
         "tests/android/aidl/tests/INamedCallback.aidl",
         "tests/android/aidl/tests/INewName.aidl",
@@ -330,9 +336,7 @@ filegroup {
 filegroup {
     name: "libaidl-integration-permission-test-files",
     srcs: [
-        "tests/android/aidl/tests/permission/IProtected.aidl",
-        "tests/android/aidl/tests/permission/IProtectedInterface.aidl",
-        "tests/android/aidl/tests/permission/platform/*.aidl",
+        "tests/android/aidl/tests/permission/**/*.aidl",
     ],
     path: "tests",
 }
@@ -344,10 +348,7 @@ aidl_interface {
     srcs: [
         "tests/versioned/**/*.aidl",
     ],
-    versions: [
-        "1",
-        "2",
-    ],
+
     backend: {
         java: {
             gen_rpc: true,
@@ -356,6 +357,23 @@ aidl_interface {
             enabled: true,
         },
     },
+    versions_with_info: [
+        {
+            version: "1",
+            imports: [],
+        },
+        {
+            version: "2",
+            imports: [],
+        },
+        {
+            version: "3",
+            imports: [],
+        },
+
+    ],
+    frozen: true,
+
 }
 
 cc_library_static {
@@ -471,11 +489,11 @@ aidl_interface {
         rust: {
             enabled: true,
         },
-    }
+    },
 }
 
 java_defaults {
-    name: "aidl_test_java_defaults",
+    name: "aidl_test_java_integration_defaults",
     platform_apis: true,
     // Turn off Java optimization tools to speed up our test iterations.
     optimize: {
@@ -487,6 +505,19 @@ java_defaults {
     static_libs: [
         "androidx.test.core",
         "androidx.test.runner",
+    ],
+    aidl: {
+        include_dirs: [
+            "frameworks/native/aidl/binder",
+        ],
+    },
+    test_suites: ["general-tests"],
+}
+
+java_defaults {
+    name: "aidl_test_java_defaults",
+    defaults: ["aidl_test_java_integration_defaults"],
+    static_libs: [
         "aidl_test_nonvintf_parcelable-V1-java",
         "aidl_test_unstable_parcelable-java",
         "aidl_test_vintf_parcelable-V1-java",
@@ -510,11 +541,9 @@ java_defaults {
     aidl: {
         include_dirs: [
             "system/tools/aidl/tests/",
-            "frameworks/native/aidl/binder",
         ],
         generate_traces: true,
     },
-    test_suites: ["general-tests"],
 }
 
 java_test {
@@ -540,6 +569,9 @@ java_test {
         "tests/java/src/android/aidl/tests/NullableTests.java",
         "tests/java/src/android/aidl/tests/VintfTests.java",
     ],
+    data: [
+        ":cts-dalvik-device-test-runner",
+    ],
 }
 
 java_test {
@@ -551,6 +583,9 @@ java_test {
     ],
     srcs: [
         "tests/java/src/android/aidl/service/**/*.java",
+    ],
+    data: [
+        ":cts-dalvik-device-test-runner",
     ],
 }
 
@@ -564,33 +599,19 @@ filegroup {
 
 java_defaults {
     name: "aidl_test_java_sdkversion_defaults",
-    platform_apis: true,
-    // Turn off Java optimization tools to speed up our test iterations.
-    optimize: {
-        enabled: false,
-    },
-    dex_preopt: {
-        enabled: false,
-    },
-    static_libs: [
-        "androidx.test.core",
-        "androidx.test.runner",
-    ],
+    defaults: ["aidl_test_java_integration_defaults"],
     srcs: [
         ":aidl-for-sdkversion-tests",
     ],
-    aidl: {
-        include_dirs: [
-            "frameworks/native/aidl/binder",
-        ],
-    },
-    test_suites: ["general-tests"],
 }
 
 java_test {
     name: "aidl_test_java_client_sdk29",
     defaults: ["aidl_test_java_sdkversion_defaults"],
     min_sdk_version: "29",
+    data: [
+        ":cts-dalvik-device-test-runner",
+    ],
     srcs: [
         "tests/java/src/android/aidl/sdkversion/tests/*.java",
     ],
@@ -603,6 +624,9 @@ java_test {
     srcs: [
         "tests/java/src/android/aidl/sdkversion/service/*.java",
     ],
+    data: [
+        ":cts-dalvik-device-test-runner",
+    ],
 }
 
 java_test {
@@ -612,14 +636,49 @@ java_test {
     srcs: [
         "tests/java/src/android/aidl/sdkversion/tests/*.java",
     ],
+    data: [
+        ":cts-dalvik-device-test-runner",
+    ],
 }
 
 java_test {
     name: "aidl_test_java_service_sdk1",
     defaults: ["aidl_test_java_sdkversion_defaults"],
     min_sdk_version: "1",
+    data: [
+        ":cts-dalvik-device-test-runner",
+    ],
     srcs: [
         "tests/java/src/android/aidl/sdkversion/service/*.java",
+    ],
+}
+
+java_test {
+    name: "aidl_test_java_client_permission",
+    defaults: ["aidl_test_java_integration_defaults"],
+    static_libs: [
+        "aidl-test-interface-permission-java",
+    ],
+    srcs: [
+        "tests/java/src/android/aidl/permission/tests/*.java",
+        "tests/java/src/android/aidl/permission/service/*.java",
+    ],
+    data: [
+        ":cts-dalvik-device-test-runner",
+    ],
+}
+
+java_test {
+    name: "aidl_test_java_service_permission",
+    defaults: ["aidl_test_java_integration_defaults"],
+    static_libs: [
+        "aidl-test-interface-permission-java",
+    ],
+    data: [
+        ":cts-dalvik-device-test-runner",
+    ],
+    srcs: [
+        "tests/java/src/android/aidl/permission/service/*.java",
     ],
 }
 
@@ -655,6 +714,7 @@ genrule {
         ":aidl-test-fixedsizearray-java-source",
         ":aidl-test-fixedsizearray-ndk-source",
         ":aidl-test-fixedsizearray-rust-source",
+        ":aidl-test-interface-cpp-analyzer-source",
         "tests/golden_output/**/*",
     ],
     out: ["TODO_b_37575883.cpp"],
@@ -706,7 +766,6 @@ aidl_interface {
         },
         java: {
             platform_apis: true,
-            gen_rpc: true,
         },
         rust: {
             enabled: true,
@@ -827,4 +886,29 @@ rust_test {
         },
     },
     test_suites: ["general-tests"],
+}
+
+cc_library_static {
+    name: "aidl-analyzer-main",
+    host_supported: true,
+    vendor_available: true,
+    shared_libs: [
+        "libbase",
+        "libbinder",
+    ],
+    srcs: [
+        "analyzer/analyzerMain.cpp",
+        "analyzer/Analyzer.cpp",
+    ],
+    export_include_dirs: ["analyzer/include"],
+}
+
+cc_binary {
+    name: "record_binder",
+    whole_static_libs: ["aidl-analyzer-main"],
+    shared_libs: [
+        "libbase",
+        "libbinder",
+        "libutils",
+    ],
 }

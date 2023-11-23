@@ -40,4 +40,7 @@ android_test {
     certificate: "platform",
     test_suites: ["device-tests"],
 
+    data: [
+        ":PresencePolling",
+    ],
 }

@@ -34,11 +34,15 @@ android_test {
         "hamcrest-library",
         "junit",
         "junit-params",
+        "SurfaceFlingerProperties",
         "testng",
         "androidx.core_core",
     ],
     jni_libs: ["libctsgraphics_jni"],
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.kt",
+        "src/**/*.java",
+    ],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",

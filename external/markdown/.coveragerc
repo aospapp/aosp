@@ -1,0 +1,5 @@
+[run]
+omit=
+    *site-packages*
+    tests/*
+    markdown/test_tools.py

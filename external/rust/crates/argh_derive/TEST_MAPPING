@@ -3,6 +3,9 @@
   "imports": [
     {
       "path": "external/rust/crates/argh"
+    },
+    {
+      "path": "packages/modules/Virtualization/virtualizationmanager"
     }
   ]
 }

@@ -36,7 +36,7 @@ impl TraceProvider for LoggingTraceProvider {
         true
     }
 
-    fn trace(&self, trace_dir: &Path, tag: &str, sampling_period: &Duration) {
+    fn trace(&self, trace_dir: &Path, tag: &str, sampling_period: &Duration, binary_filter: &str) {
         let trace_file = trace_provider::get_path(trace_dir, tag, LOGGING_TRACEFILE_EXTENSION);
 
         log::info!(
@@ -51,6 +51,9 @@ impl TraceProvider for LoggingTraceProvider {
         log::info!("Process event triggered");
         Ok(())
     }
+
+    fn set_log_file(&self, filename: &Path) {}
+    fn reset_log_file(&self) {}
 }
 
 impl LoggingTraceProvider {

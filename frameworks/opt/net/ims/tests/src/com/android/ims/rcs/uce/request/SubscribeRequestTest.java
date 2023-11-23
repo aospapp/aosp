@@ -19,7 +19,9 @@ package com.android.ims.rcs.uce.request;
 import static android.telephony.ims.stub.RcsCapabilityExchangeImplBase.COMMAND_CODE_NOT_SUPPORTED;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
@@ -28,6 +30,7 @@ import static org.mockito.Mockito.verify;
 import android.net.Uri;
 import android.telephony.ims.RcsContactTerminatedReason;
 import android.telephony.ims.RcsUceAdapter;
+import android.telephony.ims.SipDetails;
 import android.telephony.ims.aidl.ISubscribeResponseCallback;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -36,16 +39,15 @@ import androidx.test.filters.SmallTest;
 import com.android.ims.ImsTestBase;
 import com.android.ims.rcs.uce.presence.subscribe.SubscribeController;
 import com.android.ims.rcs.uce.request.UceRequestManager.RequestManagerCallback;
-import com.android.ims.rcs.uce.util.NetworkSipCode;
-
-import java.util.ArrayList;
-import java.util.List;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @RunWith(AndroidJUnit4.class)
 public class SubscribeRequestTest extends ImsTestBase {
@@ -88,6 +90,7 @@ public class SubscribeRequestTest extends ImsTestBase {
         subscribeRequest.requestCapabilities(uriList);
 
         verify(mRequestResponse).setRequestInternalError(RcsUceAdapter.ERROR_GENERIC_FAILURE);
+        verify(mRequestResponse, never()).setSipDetails(any());
         verify(mRequestManagerCallback).notifyRequestError(eq(mCoordId), anyLong());
         verify(mSubscribeController, never()).requestCapabilities(any(), any());
     }
@@ -101,6 +104,7 @@ public class SubscribeRequestTest extends ImsTestBase {
         callback.onCommandError(COMMAND_CODE_NOT_SUPPORTED);
 
         verify(mRequestResponse).setCommandError(COMMAND_CODE_NOT_SUPPORTED);
+        verify(mRequestResponse, never()).setSipDetails(any(SipDetails.class));
         verify(mRequestManagerCallback).notifyCommandError(eq(mCoordId), anyLong());
     }
 
@@ -109,12 +113,16 @@ public class SubscribeRequestTest extends ImsTestBase {
     public void testNetworkResponse() throws Exception {
         SubscribeRequest subscribeRequest = getSubscribeRequest();
 
-        int sipCode = NetworkSipCode.SIP_CODE_FORBIDDEN;
-        String reason = "forbidden";
-        ISubscribeResponseCallback callback = subscribeRequest.getResponseCallback();
-        callback.onNetworkResponse(sipCode, reason);
+        int sipCode = 200;
+        String reason = "OK";
+        SipDetails details = new SipDetails.Builder(SipDetails.METHOD_SUBSCRIBE).setCSeq(1)
+                .setSipResponseCode(sipCode, reason).setCallId("callId").build();
 
-        verify(mRequestResponse).setNetworkResponseCode(sipCode, reason);
+        ISubscribeResponseCallback callback = subscribeRequest.getResponseCallback();
+        callback.onNetworkResponse(details);
+
+        verify(mRequestResponse).setSipDetails(eq(details));
+        verify(mRequestResponse, never()).setNetworkResponseCode(anyInt(), anyString());
         verify(mRequestManagerCallback).notifyNetworkResponse(eq(mCoordId), anyLong());
     }
 
@@ -130,6 +138,7 @@ public class SubscribeRequestTest extends ImsTestBase {
         callback.onResourceTerminated(list);
 
         verify(mRequestResponse).addTerminatedResource(list);
+        verify(mRequestResponse, never()).setSipDetails(any());
         verify(mRequestManagerCallback).notifyResourceTerminated(eq(mCoordId), anyLong());
     }
 
@@ -144,6 +153,7 @@ public class SubscribeRequestTest extends ImsTestBase {
         callback.onNotifyCapabilitiesUpdate(pidfXml);
 
         verify(mRequestResponse).addUpdatedCapabilities(any());
+        verify(mRequestResponse, never()).setSipDetails(any());
         verify(mRequestManagerCallback).notifyCapabilitiesUpdated(eq(mCoordId), anyLong());
     }
 
@@ -159,6 +169,7 @@ public class SubscribeRequestTest extends ImsTestBase {
         callback.onTerminated(reason, retryAfterMillis);
 
         verify(mRequestResponse).setTerminated(reason, retryAfterMillis);
+        verify(mRequestResponse, never()).setSipDetails(any());
         verify(mRequestManagerCallback).notifyTerminated(eq(mCoordId), anyLong());
     }
 

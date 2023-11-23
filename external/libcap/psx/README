@@ -23,6 +23,6 @@ The official release announcement site for libcap and libpsx is:
 
 Like libcap/libpsx itself, the "psx" package is distributed with a
 "you choose" License. Specifically: BSD three clause, or GPL2. See the
-LICENSE file.
+License file.
 
 Andrew G. Morgan <morgan@kernel.org>

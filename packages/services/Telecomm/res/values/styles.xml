@@ -29,19 +29,21 @@
    <style name="Theme.Telecom.DialerSettings" parent="@android:style/Theme.DeviceDefault.Light">
         <item name="android:forceDarkAllowed">true</item>
         <item name="android:actionBarStyle">@style/TelecomDialerSettingsActionBarStyle</item>
-        <item name="android:actionOverflowButtonStyle">@style/TelecomDialerSettingsActionOverflowButtonStyle</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <style name="Theme.Telecom.EnableAccount" parent="Theme.Telecom.DialerSettings">
+        <item name="android:actionOverflowButtonStyle">
+            @style/TelecomDialerSettingsActionOverflowButtonStyle
+        </item>
         <item name="android:windowContentOverlay">@null</item>
     </style>
 
-    <style name="Theme.Telecom.BlockedNumbers" parent="@android:style/Theme.DeviceDefault.Light">
-        <item name="android:forceDarkAllowed">true</item>
-        <item name="android:actionBarStyle">@style/TelecomDialerSettingsActionBarStyle</item>
-        <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowLightNavigationBar">true</item>
-        <item name="android:windowContentOverlay">@null</item>
+    <style name="Theme.Telecom.BlockedNumbers" parent="Theme.Telecom.DialerSettings">
         <item name="android:listDivider">@null</item>
+        <item name="android:windowContentOverlay">@null</item>
     </style>
 
     <style name="TelecomDialerSettingsActionBarStyle" parent="android:Widget.DeviceDefault.ActionBar">

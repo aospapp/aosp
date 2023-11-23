@@ -285,6 +285,7 @@ public final class PreProvisioningViewModel extends ViewModel {
         }
 
         @Override
+        @SuppressWarnings("unchecked")
         public <T extends ViewModel> T create(Class<T> modelClass) {
             if (!PreProvisioningViewModel.class.isAssignableFrom(modelClass)) {
                 throw new IllegalArgumentException("Invalid class for creating a "

@@ -9,12 +9,13 @@
 #include <deque>
 #include <vector>
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(__ANDROID_HOST__)
 #undef LOG_INFO
 #undef LOG_WARNING
+#include <chrome_to_android_compatibility.h>
 #endif
 #include "base/time/time.h"
-#if !defined(__ANDROID__)
+#if !defined(__ANDROID__) && !defined(__ANDROID_HOST__)
 #include "ui/events/ozone/evdev/event_device_info.h"
 #endif
 #include "ui/events/ozone/evdev/touch_evdev_types.h"
@@ -31,12 +32,14 @@ struct COMPONENT_EXPORT(EVDEV) PalmFilterDeviceInfo {
   float major_radius_res = 1.f;
   float minor_radius_res = 1.f;
   bool minor_radius_supported = false;
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(__ANDROID_HOST__)
   auto operator<=>(const PalmFilterDeviceInfo&) const = default;
 #endif
 };
 
-#if !defined(__ANDROID__)
+std::ostream& operator<<(std::ostream& out, const PalmFilterDeviceInfo& info);
+
+#if !defined(__ANDROID__) && !defined(__ANDROID_HOST__)
 COMPONENT_EXPORT(EVDEV)
 PalmFilterDeviceInfo CreatePalmFilterDeviceInfo(const EventDeviceInfo& devinfo);
 #endif
@@ -50,7 +53,16 @@ struct COMPONENT_EXPORT(EVDEV) PalmFilterSample {
   int tracking_id = 0;
   gfx::PointF point;
   base::TimeTicks time;
+
+  bool operator==(const PalmFilterSample& other) const {
+    return major_radius == other.major_radius &&
+           minor_radius == other.minor_radius && pressure == other.pressure &&
+           edge == other.edge && tracking_id == other.tracking_id &&
+           point == other.point && time == other.time;
+  }
 };
+
+std::ostream& operator<<(std::ostream& out, const PalmFilterSample& sample);
 
 COMPONENT_EXPORT(EVDEV)
 PalmFilterSample CreatePalmFilterSample(
@@ -61,35 +73,80 @@ PalmFilterSample CreatePalmFilterSample(
 
 class COMPONENT_EXPORT(EVDEV) PalmFilterStroke {
  public:
-  explicit PalmFilterStroke(size_t max_length);
+  explicit PalmFilterStroke(
+      const NeuralStylusPalmDetectionFilterModelConfig& model_config,
+      int tracking_id);
   PalmFilterStroke(const PalmFilterStroke& other);
   PalmFilterStroke(PalmFilterStroke&& other);
-  PalmFilterStroke& operator=(const PalmFilterStroke& other);
-  PalmFilterStroke& operator=(PalmFilterStroke&& other);
   ~PalmFilterStroke();
 
-  void AddSample(const PalmFilterSample& sample);
+  void ProcessSample(const PalmFilterSample& sample);
   gfx::PointF GetCentroid() const;
   float BiggestSize() const;
   // If no elements in stroke, returns 0.0;
   float MaxMajorRadius() const;
-  void SetTrackingId(int tracking_id);
+  /**
+   * Return the time duration of this stroke.
+   */
+  base::TimeDelta Duration() const;
+  /**
+   * Provide a (potentially resampled) sample at the requested time.
+   * Only interpolation is allowed.
+   * The requested time must be within the window at which the gesture occurred.
+   */
+  PalmFilterSample GetSampleAt(base::TimeTicks time) const;
+
+  /**
+   * Return true if the provided duration is between the duration of the
+   * previous sample and the current sample. In other words, if the addition of
+   * the last sample caused the total stroke duration to exceed the provided
+   * duration. Return false otherwise.
+   */
+  bool LastSampleCrossed(base::TimeDelta duration) const;
+
   const std::deque<PalmFilterSample>& samples() const;
   uint64_t samples_seen() const;
   int tracking_id() const;
 
  private:
   void AddToUnscaledCentroid(const gfx::Vector2dF point);
+  void AddSample(const PalmFilterSample& sample);
+
+  base::TimeDelta PreviousDuration() const;
 
   std::deque<PalmFilterSample> samples_;
-  int tracking_id_ = 0;
+  const int tracking_id_;
+  /**
+   * How many total samples have been reported for this stroke. This is
+   * different from samples_.size() because samples_ will get pruned to only
+   * keep a certain number of last samples.
+   * When resampling is enabled, this value will be equal to the number of
+   * resampled values that this stroke has received. It may not be equal to the
+   * number of times 'AddSample' has been called.
+   */
   uint64_t samples_seen_ = 0;
-  uint64_t max_length_;
+
+  const uint64_t max_sample_count_;
+  base::TimeTicks first_sample_time_;
+  const base::Optional<base::TimeDelta> resample_period_;
+
   gfx::PointF unscaled_centroid_ = gfx::PointF(0., 0.);
   // Used in part of the kahan summation.
   gfx::Vector2dF unscaled_centroid_sum_error_ =
       gfx::PointF(0., 0.).OffsetFromOrigin();
+  friend std::ostream& operator<<(std::ostream& out,
+                                  const PalmFilterStroke& stroke);
 };
+
+template <typename T>
+std::ostream& operator<<(std::ostream& out, const std::deque<T>& queue) {
+  for (const auto& entry : queue) {
+    out << entry << "\n";
+  }
+  return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const PalmFilterStroke& filter);
 
 }  // namespace ui
 

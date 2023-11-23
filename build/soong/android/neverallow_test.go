@@ -324,7 +324,32 @@ var neverallowTests = []struct {
 			`),
 		},
 		expectedErrors: []string{
-			"Only boot images may be imported as a makefile goal.",
+			"Only boot images.* may be imported as a makefile goal",
+		},
+	},
+	{
+		name: "disallowed makefile_goal outside external",
+		fs: map[string][]byte{
+			"project/Android.bp": []byte(`
+				makefile_goal {
+					name: "foo",
+					product_out_path: "obj/EXE/foo",
+				}
+			`),
+		},
+		expectedErrors: []string{
+			"not in allowed projects",
+		},
+	},
+	{
+		name: "allow makefile_goal within external",
+		fs: map[string][]byte{
+			"frameworks/opt/net/wifi/libwifi_hal/Android.bp": []byte(`
+				makefile_goal {
+					name: "foo",
+					product_out_path: "obj/EXE/foo",
+				}
+			`),
 		},
 	},
 	// Tests for the rule prohibiting the use of framework
@@ -340,6 +365,22 @@ var neverallowTests = []struct {
 		},
 		expectedErrors: []string{
 			"framework can't be used when building against SDK",
+		},
+	},
+	// Test for the rule restricting use of implementation_installable
+	{
+		name: `"implementation_installable" outside allowed list`,
+		fs: map[string][]byte{
+			"Android.bp": []byte(`
+				cc_library {
+					name: "outside_allowed_list",
+					stubs: {
+                                                implementation_installable: true,
+					},
+				}`),
+		},
+		expectedErrors: []string{
+			`module "outside_allowed_list": violates neverallow`,
 		},
 	},
 }
@@ -393,6 +434,10 @@ type mockCcLibraryProperties struct {
 
 	Platform struct {
 		Shared_libs []string
+	}
+
+	Stubs struct {
+		Implementation_installable *bool
 	}
 }
 

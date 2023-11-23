@@ -78,7 +78,8 @@ class Credential : public BnCredential {
                       bool allowUsingExpiredKeys, bool incrementUsageCount,
                       GetEntriesResultParcel* _aidl_return) override;
 
-    Status setAvailableAuthenticationKeys(int32_t keyCount, int32_t maxUsesPerKey) override;
+    Status setAvailableAuthenticationKeys(int32_t keyCount, int32_t maxUsesPerKey,
+                                          int64_t minValidTimeMillis) override;
     Status getAuthKeysNeedingCertification(vector<AuthKeyParcel>* _aidl_return) override;
     Status storeStaticAuthenticationData(const AuthKeyParcel& authenticationKey,
                                          const vector<uint8_t>& staticAuthData) override;
@@ -87,6 +88,7 @@ class Credential : public BnCredential {
                                                 int64_t expirationDateMillisSinceEpoch,
                                                 const vector<uint8_t>& staticAuthData) override;
     Status getAuthenticationDataUsageCount(vector<int32_t>* _aidl_return) override;
+    Status getAuthenticationDataExpirations(vector<int64_t>* _aidl_return) override;
 
     Status update(sp<IWritableCredential>* _aidl_return) override;
 

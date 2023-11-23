@@ -93,7 +93,7 @@ struct VendorSpecificEventManager::impl {
   os::Handler* module_handler_;
   hci::HciLayer* hci_layer_;
   hci::Controller* controller_;
-  VendorCapabilities vendor_capabilities_;
+  Controller::VendorCapabilities vendor_capabilities_;
   std::map<VseSubeventCode, common::ContextualCallback<void(VendorSpecificEventView)>> subevent_handlers_;
 };
 

@@ -100,7 +100,7 @@
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Телефон иесі туралы ақпарат жоқ"</string>
     <string name="tap_pencil" msgid="3429817710241457947">"Телефон құлпы ашылғанда, қарындаш белгішесін түрту арқылы төтенше жағдай кезінде осы жерде көрсетілетін ақпаратты қосыңыз."</string>
-    <string name="clear_all" msgid="8899013032870561633">"Барлығын тазалау"</string>
+    <string name="clear_all" msgid="8899013032870561633">"Барлығын тазарту"</string>
     <string name="clear" msgid="3648880442502887163">"Тазалау"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Бүкіл ақпаратты және контактілерді тазалау керек пе?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Медициналық ақпарат пен төтенше жағдай контактілері алғашқы жәрдем берушілерге көмектеседі.\n\nБұл ақпаратты кез келген адам құлыптау экранынан оқи алады және телефон құлпын ашпастан аттарды түрте отырып, контактілерге хабарласа алады."</string>

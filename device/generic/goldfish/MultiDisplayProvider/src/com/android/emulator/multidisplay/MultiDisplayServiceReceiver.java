@@ -29,8 +29,9 @@ public class MultiDisplayServiceReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         if (!isMyServiceRunning(context)) {
-            Log.v(TAG, "startService");
-            context.startService(new Intent(context, MultiDisplayService.class));
+            Intent serviceIntent = new Intent(context, MultiDisplayService.class);
+            Log.v(TAG, "starting service using intent " + serviceIntent.getAction());
+            context.startService(serviceIntent);
         }
     }
 

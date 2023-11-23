@@ -34,7 +34,8 @@ void hostapd_aidl_sock_handler(
 
 int hostapd_aidl_init(struct hapd_interfaces *interfaces)
 {
-	wpa_printf(MSG_DEBUG, "Initializing aidl control");
+	wpa_printf(MSG_INFO, "Initializing aidl control");
+	wpa_printf(MSG_INFO, "Interface version: %d", Hostapd::version);
 	std::string instance;   // declared here to allow use of goto
 
 	ABinderProcess_setupPolling(&aidl_fd);

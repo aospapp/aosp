@@ -1,0 +1,15 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "//device/google/gs201:device_google_gs201_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: [
+        "//device/google/gs201:device_google_gs201_license",
+    ],
+}
+
+runtime_resource_overlay {
+    name: "FactoryOverlayLauncher3",
+    product_specific: true,
+}

@@ -20,6 +20,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <string_view>
 
 #include "CompatibilityMatrix.h"
 #include "RuntimeInfo.h"
@@ -127,6 +128,8 @@ std::string toFQNameString(const std::string& interface, const std::string& inst
 
 std::string toAidlFqnameString(const std::string& package, const std::string& interface,
                                const std::string& instance = "");
+
+std::string_view parseApexName(std::string_view path);
 
 } // namespace vintf
 } // namespace android

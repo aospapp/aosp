@@ -38,18 +38,17 @@ class ExynosMPP;
 
 #define MAX_OVERLAY_LAYER_NUM       20
 
-#ifndef USE_MODULE_SW_FEATURE
 const std::map<mpp_phycal_type_t, uint64_t> sw_feature_table =
 {
     {MPP_DPP_G, MPP_ATTR_DIM},
     {MPP_DPP_GF, MPP_ATTR_DIM},
+    {MPP_DPP_GFS, MPP_ATTR_DIM},
     {MPP_DPP_VG, MPP_ATTR_DIM},
     {MPP_DPP_VGS, MPP_ATTR_DIM},
     {MPP_DPP_VGF, MPP_ATTR_DIM},
     {MPP_DPP_VGFS, MPP_ATTR_DIM},
     {MPP_DPP_VGRFS, MPP_ATTR_DIM},
 };
-#endif
 
 #ifndef USE_MODULE_DPU_ATTR_MAP
 const dpu_attr_map_t dpu_attr_map_table [] =
@@ -133,12 +132,18 @@ class ExynosResourceManager {
         int32_t updateSupportedMPPFlag(ExynosDisplay * display);
         int32_t resetResources();
         int32_t preAssignResources();
-        void preAssignWindows();
+        void preAssignWindows(ExynosDisplay *display);
         int32_t preProcessLayer(ExynosDisplay *display);
         int32_t resetAssignedResources(ExynosDisplay *display, bool forceReset = false);
         virtual int32_t assignCompositionTarget(ExynosDisplay *display, uint32_t targetType);
         int32_t validateLayer(uint32_t index, ExynosDisplay *display, ExynosLayer *layer);
         int32_t assignLayers(ExynosDisplay *display, uint32_t priority);
+        virtual int32_t otfMppReordering(ExynosDisplay *__unused display,
+                                         ExynosMPPVector __unused &otfMPPs,
+                                         struct exynos_image __unused &src,
+                                         struct exynos_image __unused &dst) {
+            return 0;
+        }
         virtual int32_t assignLayer(ExynosDisplay *display, ExynosLayer *layer, uint32_t layer_index,
                 exynos_image &m2m_out_img, ExynosMPP **m2mMPP, ExynosMPP **otfMPP, uint32_t &overlayInfo);
         virtual int32_t assignWindow(ExynosDisplay *display);
@@ -178,6 +183,8 @@ class ExynosResourceManager {
 
         void dump(String8 &result) const;
         void setM2MCapa(uint32_t physicalType, uint32_t capa);
+        bool isAssignable(ExynosMPP *candidateMPP, ExynosDisplay *display, struct exynos_image &src,
+                          struct exynos_image &dst, ExynosMPPSource *mppSrc);
 
     private:
         int32_t changeLayerFromClientToDevice(ExynosDisplay *display, ExynosLayer *layer,
@@ -195,11 +202,47 @@ class ExynosResourceManager {
         exynos_image getAlignedImage(exynos_image image, const ExynosMPP *m2mMpp,
                                      const ExynosMPP *otfMpp) const;
         int32_t validateRCDLayer(const ExynosDisplay &display, const ExynosLayer &layer,
-                                 const exynos_image &srcImg, const exynos_image &dstImg);
+                                 const uint32_t layerIndex, const exynos_image &srcImg,
+                                 const exynos_image &dstImg);
         static ExynosMPPVector mOtfMPPs;
         static ExynosMPPVector mM2mMPPs;
         uint32_t mResourceReserved; /* Set MPP logical type for bit operation */
         float mMinimumSdrDimRatio;
+
+        android::Vector<ExynosDisplay *> mDisplays;
+        std::map<uint32_t, ExynosDisplay *> mDisplayMap;
+
+    protected:
+        bool mDeviceSupportWCG = false;
+
+    public:
+        void initDisplays(android::Vector<ExynosDisplay *> displays,
+                          std::map<uint32_t, ExynosDisplay *> displayMap) {
+            mDisplays = displays;
+            mDisplayMap = displayMap;
+        }
+        ExynosDisplay *getDisplay(uint32_t displayId) { return mDisplayMap[displayId]; }
+
+        virtual void updateSupportWCG();
+        virtual bool deviceSupportWCG() { return mDeviceSupportWCG; }
+
+        /* return 1 if it's needed */
+        bool needHdrProcessing(ExynosDisplay *display, exynos_image &srcImg, exynos_image &dstImg);
+        uint32_t needHWResource(ExynosDisplay *display, exynos_image &srcImg, exynos_image &dstImg,
+                                tdm_attr_t attr);
+
+        /* TDM (Time-Division Multiplexing) based Resource Management */
+        virtual bool isHWResourceAvailable(ExynosDisplay __unused *display,
+                                           ExynosMPP __unused *currentMPP,
+                                           ExynosMPPSource __unused *mppSrc) {
+            return true;
+        }
+        virtual uint32_t setDisplaysTDMInfo() { return 0; }
+        virtual uint32_t initDisplaysTDMInfo() { return 0; }
+        virtual uint32_t calculateHWResourceAmount(ExynosDisplay __unused *display,
+                                                   ExynosMPPSource __unused *mppSrc) {
+            return 0;
+        }
 };
 
 #endif //_EXYNOSRESOURCEMANAGER_H

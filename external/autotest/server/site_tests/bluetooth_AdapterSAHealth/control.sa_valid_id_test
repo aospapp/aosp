@@ -16,6 +16,7 @@ TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
 DEPENDENCIES = 'bluetooth'
+PY_VERSION = 3
 
 DOC = """
 Checks the Bluetooth ID of the system.  If the ID is not "00E0:24..:0400" the

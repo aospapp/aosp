@@ -1,11 +1,12 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::{
-    alloc::{alloc, alloc_zeroed, dealloc, Layout},
-    cmp::min,
-};
+use std::alloc::alloc;
+use std::alloc::alloc_zeroed;
+use std::alloc::dealloc;
+use std::alloc::Layout;
+use std::cmp::min;
 
 /// A contiguous memory allocation with a specified size and alignment, with a
 /// Drop impl to perform the deallocation.
@@ -18,7 +19,7 @@ use std::{
 /// ```
 /// use std::alloc::Layout;
 /// use std::mem;
-/// use crate::LayoutAllocation;
+/// use base::LayoutAllocation;
 ///
 /// #[repr(C)]
 /// struct Header {
@@ -168,8 +169,10 @@ impl Drop for LayoutAllocation {
 
 #[cfg(test)]
 mod tests {
+    use std::mem::align_of;
+    use std::mem::size_of;
+
     use super::*;
-    use std::mem::{align_of, size_of};
 
     #[test]
     fn test_as_slice_u32() {

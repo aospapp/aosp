@@ -16,6 +16,11 @@
 
 package com.android.car.settings.wifi;
 
+import static android.os.UserManager.DISALLOW_ADD_WIFI_CONFIG;
+
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByDpm;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByUm;
+
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.net.wifi.WifiManager;
@@ -37,6 +42,32 @@ public class AddWifiPreferenceController extends WifiBasePreferenceController<Pr
     @Override
     protected Class<Preference> getPreferenceType() {
         return Preference.class;
+    }
+
+    @Override
+    protected void onCreateInternal() {
+        super.onCreateInternal();
+
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p -> {
+            WifiUtil.runClickableWhileDisabled(getContext(), DISALLOW_ADD_WIFI_CONFIG,
+                    getFragmentController());
+        });
+    }
+
+    @Override
+    public int getDefaultAvailabilityStatus() {
+        // If the base controller is not available, so is this controller.
+        int superStatus = super.getDefaultAvailabilityStatus();
+        if (superStatus != AVAILABLE) return superStatus;
+
+        // Check the DISALLOW_ADD_WIFI_CONFIG restriction.
+        Context context = getContext();
+        if (hasUserRestrictionByUm(context, DISALLOW_ADD_WIFI_CONFIG)
+                || hasUserRestrictionByDpm(context, DISALLOW_ADD_WIFI_CONFIG)) {
+            return AVAILABLE_FOR_VIEWING;
+        }
+
+        return AVAILABLE;
     }
 
     @Override

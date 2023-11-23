@@ -75,6 +75,10 @@ class SAXParserTestSupport {
             KEY_START_PREFIX_MAPPING};
 
     static {
+        createTempDirectories();
+    }
+
+    static void createTempDirectories() {
         String tmp = System.getProperty("java.io.tmpdir", ".");
 
         new File(tmp).mkdirs();

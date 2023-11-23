@@ -21,6 +21,8 @@
 #include <fstream>
 #include <string>
 
+#include "bpf/KernelUtils.h"
+
 namespace android {
 namespace net {
 
@@ -58,6 +60,7 @@ bool isGsiImage() {
  * CONFIG_NET_CLS_MATCHALL=y
  * CONFIG_NET_ACT_POLICE=y
  * CONFIG_NET_ACT_BPF=y
+ * CONFIG_BPF_JIT=y
  */
 TEST(KernelTest, TestRateLimitingSupport) {
     if (isGsiImage()) {
@@ -68,6 +71,24 @@ TEST(KernelTest, TestRateLimitingSupport) {
     ASSERT_TRUE(configVerifier.hasOption("CONFIG_NET_CLS_MATCHALL"));
     ASSERT_TRUE(configVerifier.hasOption("CONFIG_NET_ACT_POLICE"));
     ASSERT_TRUE(configVerifier.hasOption("CONFIG_NET_ACT_BPF"));
+    ASSERT_TRUE(configVerifier.hasOption("CONFIG_BPF_JIT"));
+}
+
+TEST(KernelTest, TestBpfJitAlwaysOn) {
+    // 32-bit arm & x86 kernels aren't capable of JIT-ing all of our BPF code,
+    if (bpf::isKernel32Bit()) GTEST_SKIP() << "Exempt on 32-bit kernel.";
+    KernelConfigVerifier configVerifier;
+    ASSERT_TRUE(configVerifier.hasOption("CONFIG_BPF_JIT_ALWAYS_ON"));
+}
+
+/* Android 14/U should only launch on 64-bit kernels
+ *   T launches on 5.10/5.15
+ *   U launches on 5.15/6.1
+ * So >=5.16 implies isKernel64Bit()
+ */
+TEST(KernelTest, TestKernel64Bit) {
+    if (!bpf::isAtLeastKernelVersion(5, 16, 0)) GTEST_SKIP() << "Exempt on < 5.16 kernel.";
+    ASSERT_TRUE(bpf::isKernel64Bit());
 }
 
 }  // namespace net

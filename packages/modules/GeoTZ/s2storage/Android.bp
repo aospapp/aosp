@@ -26,6 +26,7 @@ java_library {
         "src/readonly/java/**/*.java",
     ],
     apex_available: [
+        "//apex_available:platform",
         "com.android.geotz",
     ],
 }

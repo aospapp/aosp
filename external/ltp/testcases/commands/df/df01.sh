@@ -1,45 +1,21 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (c) 2015 Fujitsu Ltd.
+# Copyright (c) 2018-2022 Petr Vorel <pvorel@suse.cz>
 # Author: Zhang Jin <jy_zhangjin@cn.fujitsu.com>
 #
 # Test df command with some basic options.
 
+TST_ALL_FILESYSTEMS=1
+TST_MOUNT_DEVICE=1
 TST_CNT=12
 TST_SETUP=setup
-TST_CLEANUP=tst_umount
 TST_TESTFUNC=test
-TST_OPTS="f:"
-TST_USAGE=usage
-TST_PARSE_ARGS=parse_args
 TST_NEEDS_ROOT=1
-TST_NEEDS_DEVICE=1
-. tst_test.sh
-
-usage()
-{
-	cat << EOF
-usage: $0 [-f <ext2|ext3|ext4|vfat|...>]
-
-OPTIONS
--f	Specify the type of filesystem to be built.  If not
-	specified, the default filesystem type (currently ext2)
-	is used.
-EOF
-}
-
-TST_FS_TYPE=ext2
-
-parse_args()
-{
-	TST_FS_TYPE="$2"
-}
 
 setup()
 {
-	tst_mkfs
-	tst_mount
-	DF_FS_TYPE=$(mount | grep "$TST_DEVICE" | awk 'NR==1{print $5}')
+	DF_FS_TYPE="$(grep -E "$TST_MNTPOINT ($TST_FS_TYPE|fuseblk)" /proc/mounts | awk 'NR==1{print $3}')"
 }
 
 df_test()
@@ -57,7 +33,7 @@ df_test()
 		return
 	fi
 
-	ROD_SILENT dd if=/dev/zero of=mntpoint/testimg bs=1024 count=1024
+	ROD_SILENT dd if=/dev/zero of=$TST_MNTPOINT/testimg bs=1024 count=1024
 
 	df_verify $cmd
 
@@ -68,7 +44,7 @@ df_test()
 		tst_res TFAIL "'$cmd' failed."
 	fi
 
-	ROD_SILENT rm -rf mntpoint/testimg
+	ROD_SILENT rm -rf $TST_MNTPOINT/testimg
 
 	# flush file system buffers, then we can get the actual sizes.
 	sync
@@ -93,20 +69,25 @@ df_verify()
 df_check()
 {
 	if [ "$(echo $@)" = "df -i -P" ]; then
-		local total=$(stat -f mntpoint --printf=%c)
-		local free=$(stat -f mntpoint --printf=%d)
+		local total=$(stat -f $TST_MNTPOINT --printf=%c)
+		local free=$(stat -f $TST_MNTPOINT --printf=%d)
 		local used=$((total-free))
 	else
-		local total=$(stat -f mntpoint --printf=%b)
-		local free=$(stat -f mntpoint --printf=%f)
+		local total=$(stat -f $TST_MNTPOINT --printf=%b)
+		local free=$(stat -f $TST_MNTPOINT --printf=%f)
 		local used=$((total-free))
-		local bsize=$(stat -f mntpoint --printf=%s)
+		local bsize=$(stat -f $TST_MNTPOINT --printf=%s)
 		total=$((($total * $bsize + 512)/ 1024))
 		used=$((($used * $bsize + 512) / 1024))
 	fi
 
-	grep ${TST_DEVICE} output | grep -q "${total}.*${used}"
+	grep $TST_DEVICE output | grep -q "${total}.*${used}"
 	if [ $? -ne 0 ]; then
+		echo "total: ${total}, used: ${used}"
+		echo "df saved output:"
+		cat output
+		echo "df output:"
+		$@
 		return 1
 	fi
 }
@@ -133,7 +114,7 @@ test4()
 
 test5()
 {
-	df_test "df -t ${DF_FS_TYPE}"
+	df_test "df -t $DF_FS_TYPE"
 }
 
 test6()
@@ -143,7 +124,7 @@ test6()
 
 test7()
 {
-	df_test "df -v ${TST_DEVICE}"
+	df_test "df -v $TST_DEVICE"
 }
 
 test8()
@@ -180,14 +161,16 @@ test11()
 
 test12()
 {
-	local cmd="df -x ${DF_FS_TYPE} -P"
+	local fs="$DF_FS_TYPE"
+
+	local cmd="df -x $fs -P"
 
 	df_verify $cmd
 	if [ $? -ne 0 ]; then
 		return
 	fi
 
-	grep ${TST_DEVICE} output | grep -q mntpoint
+	grep $TST_DEVICE output | grep -q $TST_MNTPOINT
 	if [ $? -ne 0 ]; then
 		tst_res TPASS "'$cmd' passed."
 	else
@@ -195,4 +178,5 @@ test12()
 	fi
 }
 
+. tst_test.sh
 tst_run

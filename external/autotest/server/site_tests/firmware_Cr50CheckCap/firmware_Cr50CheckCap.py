@@ -2,8 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import pprint
 import logging
+import pprint
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.cr50_test import Cr50Test
@@ -19,16 +19,21 @@ class firmware_Cr50CheckCap(Cr50Test):
     EXPECTED_REQ_PREPVT = 'Always'
     EXPECTED_REQ_PROD = 'IfOpened'
 
-    def check_cap_command(self, command, enable_factory, reset_caps):
+    def check_cap_command(self, enable_factory, reset_caps):
         """Verify the cr50 cap response after running the given command"""
-        self.cr50.send_command(command)
+        if enable_factory:
+            self.cr50.ccd_reset_factory()
+        else:
+            # Testlab mode is enabled, so it's ok to reset ccd without enabling
+            # capabilities necessary for ccd.
+            self.cr50.ccd_reset(servo_en=False)
         caps = self.cr50.get_cap_dict()
         logging.info(caps)
         in_factory_mode, is_reset = self.cr50.get_cap_overview(caps)
         if reset_caps and not is_reset:
-            raise error.TestFail('%r did not reset capabilities' % command)
+            raise error.TestFail('did not reset capabilities')
         if enable_factory and not in_factory_mode:
-            raise error.TestFail('%r did not enable factory mode' % command)
+            raise error.TestFail('did not enable factory mode')
 
 
     def check_cap_req(self, cap_dict, cap, expected_req):
@@ -66,6 +71,11 @@ class firmware_Cr50CheckCap(Cr50Test):
         Raises:
             TestFail if expect_accessible doesn't match the accessibility state.
         """
+
+        if (ccd_level == 'unlock' or cap_setting == 'UnlessLocked') \
+            and not self.cr50.unlock_is_supported():
+            return
+
         # Run testlab open, so we won't have to do physical presence stuff.
         self.cr50.send_command('ccd testlab open')
 
@@ -83,7 +93,7 @@ class firmware_Cr50CheckCap(Cr50Test):
                      cap_setting, pprint.pformat(cap_dict))
 
         # Check the accessiblity
-        for cap, cap_info in cap_dict.iteritems():
+        for cap, cap_info in cap_dict.items():
             if cap_info[self.cr50.CAP_IS_ACCESSIBLE] != expect_accessible:
                 raise error.TestFail('%r is %raccessible' % (cap,
                                      'not ' if expect_accessible else ''))
@@ -99,24 +109,27 @@ class firmware_Cr50CheckCap(Cr50Test):
         """Check cr50 capabilities work correctly."""
         self.fast_ccd_open(enable_testlab=True)
 
-        self._ec_prefix = '' if self.servo.main_device_is_ccd() else 'ccd_cr50'
+
+        # Check servo monitoring before changing the active device. There's no
+        # need for servo detection if ccd is the only device.
+        servo_detect_ok = (self.servo.main_device_is_ccd()
+                           or self.cr50.check_servo_monitor())
+
+        set_ccd = self.servo.enable_ccd_servo_device()
+        self._ec_prefix = self.servo.get_active_device_prefix()
         # Only check EC uart if the board has a working EC and cr50 can detect
         # servo connect/disconnect.
         self.check_ec_uart = (
-                self.check_ec_capability(suppress_warning=True) and
-                self.cr50.check_servo_monitor() and
-                self.servo.has_control('ec_board', self._ec_prefix))
-        if self.check_ec_uart and self._ec_prefix:
-            try:
-                self.servo.set('active_v4_device', self._ec_prefix)
-            except:
-                self.check_ec_uart = False
+                set_ccd and servo_detect_ok
+                and self.check_ec_capability(suppress_warning=True)
+                and self.servo.active_device_is_ccd()
+                and self.servo.has_control('ec_board', self._ec_prefix))
 
         # Make sure factory reset sets all capabilities to Always
-        self.check_cap_command('ccd reset factory', True, False)
+        self.check_cap_command(True, False)
 
-        # Make sure ccd reset sets all capabilites to Default
-        self.check_cap_command('ccd reset', False, True)
+        # Make sure ccd reset sets all capabilities to Default
+        self.check_cap_command(False, True)
 
         expected_req = (self.EXPECTED_REQ_PROD if ccd_open_restricted else
                         self.EXPECTED_REQ_PREPVT)
@@ -127,7 +140,9 @@ class firmware_Cr50CheckCap(Cr50Test):
 
         # Set the password so we can change the ccd level from the console
         self.cr50.send_command('ccd testlab open')
-        self.cr50.send_command('ccd reset')
+        # Testlab mode is enabled, so it's ok to reset ccd without enabling
+        # capabilities necessary for ccd.
+        self.cr50.ccd_reset(servo_en=False)
         self.set_ccd_password(self.CCD_PASSWORD)
 
         # Make sure ccd accessiblity behaves as expected based on the cap

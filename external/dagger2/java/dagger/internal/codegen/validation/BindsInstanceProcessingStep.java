@@ -16,51 +16,50 @@
 
 package dagger.internal.codegen.validation;
 
-import com.google.auto.common.MoreElements;
+import static androidx.room.compiler.processing.XElementKt.isMethod;
+import static androidx.room.compiler.processing.XElementKt.isMethodParameter;
+
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XExecutableParameterElement;
+import androidx.room.compiler.processing.XMessager;
+import androidx.room.compiler.processing.XMethodElement;
 import com.google.common.collect.ImmutableSet;
-import dagger.BindsInstance;
-import java.lang.annotation.Annotation;
-import java.util.Set;
-import javax.annotation.processing.Messager;
+import com.squareup.javapoet.ClassName;
+import dagger.internal.codegen.javapoet.TypeNames;
 import javax.inject.Inject;
-import javax.lang.model.element.Element;
 
 /**
  * Processing step that validates that the {@code BindsInstance} annotation is applied to the
  * correct elements.
  */
-public final class BindsInstanceProcessingStep extends TypeCheckingProcessingStep<Element> {
+public final class BindsInstanceProcessingStep extends TypeCheckingProcessingStep<XElement> {
   private final BindsInstanceMethodValidator methodValidator;
   private final BindsInstanceParameterValidator parameterValidator;
-  private final Messager messager;
+  private final XMessager messager;
 
   @Inject
   BindsInstanceProcessingStep(
       BindsInstanceMethodValidator methodValidator,
       BindsInstanceParameterValidator parameterValidator,
-      Messager messager) {
-    super(element -> element);
+      XMessager messager) {
     this.methodValidator = methodValidator;
     this.parameterValidator = parameterValidator;
     this.messager = messager;
   }
 
   @Override
-  public Set<? extends Class<? extends Annotation>> annotations() {
-    return ImmutableSet.of(BindsInstance.class);
+  public ImmutableSet<ClassName> annotationClassNames() {
+    return ImmutableSet.of(TypeNames.BINDS_INSTANCE);
   }
 
   @Override
-  protected void process(Element element, ImmutableSet<Class<? extends Annotation>> annotations) {
-    switch (element.getKind()) {
-      case PARAMETER:
-        parameterValidator.validate(MoreElements.asVariable(element)).printMessagesTo(messager);
-        break;
-      case METHOD:
-        methodValidator.validate(MoreElements.asExecutable(element)).printMessagesTo(messager);
-        break;
-      default:
-        throw new AssertionError(element);
+  protected void process(XElement element, ImmutableSet<ClassName> annotations) {
+    if (isMethod(element)) {
+      methodValidator.validate((XMethodElement) element).printMessagesTo(messager);
+    } else if (isMethodParameter(element)) {
+      parameterValidator.validate((XExecutableParameterElement) element).printMessagesTo(messager);
+    } else {
+      throw new AssertionError(element);
     }
   }
 }

@@ -17,11 +17,10 @@ package com.android.car.audio;
 
 import static android.car.media.CarAudioManager.PRIMARY_AUDIO_ZONE;
 
+import static com.android.car.audio.CarAudioService.CAR_DEFAULT_AUDIO_ATTRIBUTE;
 import static com.android.car.audio.CarAudioUtils.isMicrophoneInputDevice;
-import static com.android.car.audio.CarAudioZonesHelper.LEGACY_CONTEXTS;
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DEPRECATED_CODE;
 
-import android.annotation.NonNull;
 import android.annotation.XmlRes;
 import android.car.builtin.util.Slogf;
 import android.content.Context;
@@ -58,6 +57,8 @@ class CarAudioZonesHelperLegacy {
     private static final String TAG_GROUP = "group";
     private static final String TAG_CONTEXT = "context";
 
+    private static final int ZONE_CONFIG_ID = 0;
+
     private static final int NO_BUS_FOR_CONTEXT = -1;
 
     private final Context mContext;
@@ -65,14 +66,16 @@ class CarAudioZonesHelperLegacy {
     private final SparseIntArray mLegacyAudioContextToBus;
     private final SparseArray<CarAudioDeviceInfo> mBusToCarAudioDeviceInfo;
     private final CarAudioSettings mCarAudioSettings;
+    private final CarAudioContext mCarAudioContext;
     private final AudioDeviceInfo[] mInputDevices;
 
-    CarAudioZonesHelperLegacy(@NonNull Context context, @XmlRes int xmlConfiguration,
-            @NonNull List<CarAudioDeviceInfo> carAudioDeviceInfos,
-            @NonNull AudioControlWrapperV1 audioControlWrapper,
-            @NonNull CarAudioSettings carAudioSettings,
+    CarAudioZonesHelperLegacy(Context context, CarAudioContext carAudioContext,
+            @XmlRes int xmlConfiguration, List<CarAudioDeviceInfo> carAudioDeviceInfos,
+            AudioControlWrapperV1 audioControlWrapper, CarAudioSettings carAudioSettings,
             AudioDeviceInfo[] inputDevices) {
         Objects.requireNonNull(context, "Context must not be null.");
+        mCarAudioContext = Objects.requireNonNull(carAudioContext,
+                "Car audio context must not be null");
         Objects.requireNonNull(carAudioDeviceInfos,
                 "Car Audio Device Info must not be null.");
         Objects.requireNonNull(audioControlWrapper,
@@ -86,7 +89,7 @@ class CarAudioZonesHelperLegacy {
                 generateBusToCarAudioDeviceInfo(carAudioDeviceInfos);
 
         mLegacyAudioContextToBus =
-                loadBusesForLegacyContexts(audioControlWrapper);
+                loadBusesForLegacyContexts(audioControlWrapper, carAudioContext);
         mInputDevices = inputDevices;
     }
 
@@ -97,25 +100,30 @@ class CarAudioZonesHelperLegacy {
      * {@code android.hardware.automotive.audiocontrol.V1_0.ContextNumber}
      *
      * @param audioControl wrapper for IAudioControl HAL interface.
+     * @param carAudioContext car audio context the defines the logical group of audio usages
      * @return SparseIntArray mapping from {@link CarAudioContext} to bus number.
      */
     private static SparseIntArray loadBusesForLegacyContexts(
-            @NonNull AudioControlWrapperV1 audioControlWrapper) {
+            AudioControlWrapperV1 audioControlWrapper,
+            CarAudioContext carAudioContext) {
         SparseIntArray contextToBus = new SparseIntArray();
+        List<Integer> nonSystemContexts = CarAudioContext.getNonCarSystemContextIds();
 
-        for (int legacyContext : LEGACY_CONTEXTS) {
+        for (int index = 0; index < nonSystemContexts.size(); index++) {
+            int legacyContext = nonSystemContexts.get(index);
             int bus = audioControlWrapper.getBusForContext(legacyContext);
-            validateBusNumber(legacyContext, bus);
+            validateBusNumber(carAudioContext, legacyContext, bus);
             contextToBus.put(legacyContext, bus);
         }
         return contextToBus;
     }
 
-    private static void validateBusNumber(int legacyContext, int bus) {
+    private static void validateBusNumber(CarAudioContext carAudioContext,
+            int legacyContext, int bus) {
         if (bus == NO_BUS_FOR_CONTEXT) {
             throw new IllegalArgumentException(
                     String.format("Invalid bus %d was associated with context %s", bus,
-                            CarAudioContext.toString(legacyContext)));
+                            carAudioContext.toString(legacyContext)));
         }
     }
 
@@ -140,10 +148,16 @@ class CarAudioZonesHelperLegacy {
     }
 
     SparseArray<CarAudioZone> loadAudioZones() {
-        CarAudioZone zone = new CarAudioZone(PRIMARY_AUDIO_ZONE, "Primary zone");
-        for (CarVolumeGroup volumeGroup : loadVolumeGroups()) {
-            zone.addVolumeGroup(volumeGroup);
+        String zoneName = "Primary zone";
+        CarAudioZoneConfig.Builder zoneConfigBuilder = new CarAudioZoneConfig.Builder(zoneName,
+                PRIMARY_AUDIO_ZONE, ZONE_CONFIG_ID, /* isDefault= */ true);
+        List<CarVolumeGroup> volumeGroups = loadVolumeGroups();
+        for (int index = 0; index < volumeGroups.size(); index++) {
+            zoneConfigBuilder.addVolumeGroup(volumeGroups.get(index));
         }
+        CarAudioZone zone = new CarAudioZone(mCarAudioContext, zoneName, PRIMARY_AUDIO_ZONE);
+        zone.addZoneConfig(zoneConfigBuilder.build());
+
         SparseArray<CarAudioZone> carAudioZones = new SparseArray<>();
         addMicrophonesToPrimaryZone(zone);
         carAudioZones.put(PRIMARY_AUDIO_ZONE, zone);
@@ -189,26 +203,28 @@ class CarAudioZonesHelperLegacy {
 
     private CarVolumeGroup parseVolumeGroup(int id, AttributeSet attrs,
             XmlResourceParser parser) throws XmlPullParserException, IOException {
-        CarVolumeGroup.Builder builder = new CarVolumeGroup.Builder(PRIMARY_AUDIO_ZONE, id,
-                mCarAudioSettings, /* useCarVolumeGroupMute= */ false);
+        CarVolumeGroupFactory groupFactory =
+                new CarVolumeGroupFactory(/* audioManager= */ null, mCarAudioSettings,
+                        mCarAudioContext, PRIMARY_AUDIO_ZONE, ZONE_CONFIG_ID, id,
+                        String.valueOf(id), /* useCarVolumeGroupMute= */ false);
 
         List<Integer> audioContexts = parseAudioContexts(parser, attrs);
 
         for (int i = 0; i < audioContexts.size(); i++) {
-            bindContextToBuilder(builder, audioContexts.get(i));
+            bindContextToBuilder(groupFactory, audioContexts.get(i));
         }
 
-        return builder.build();
+        return groupFactory.getCarVolumeGroup(/* useCoreAudioVolume= */ false);
     }
 
-
-    private void bindContextToBuilder(CarVolumeGroup.Builder groupBuilder, int legacyAudioContext) {
+    private void bindContextToBuilder(CarVolumeGroupFactory groupFactory, int legacyAudioContext) {
         int busNumber = mLegacyAudioContextToBus.get(legacyAudioContext);
         CarAudioDeviceInfo info = mBusToCarAudioDeviceInfo.get(busNumber);
-        groupBuilder.setDeviceInfoForContext(legacyAudioContext, info);
+        groupFactory.setDeviceInfoForContext(legacyAudioContext, info);
 
-        if (legacyAudioContext == CarAudioService.DEFAULT_AUDIO_CONTEXT) {
-            CarAudioZonesHelper.setNonLegacyContexts(groupBuilder, info);
+        if (legacyAudioContext == mCarAudioContext
+                .getContextForAudioAttribute(CAR_DEFAULT_AUDIO_ATTRIBUTE)) {
+            groupFactory.setNonLegacyContexts(info);
         }
     }
 

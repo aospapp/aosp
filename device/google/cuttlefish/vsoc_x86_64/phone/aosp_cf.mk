@@ -45,7 +45,6 @@ $(call inherit-product, packages/modules/Virtualization/apex/product_packages.mk
 #
 # Special settings for the target
 #
-$(call inherit-product, device/google/cuttlefish/vsoc_x86_64/kernel.mk)
 $(call inherit-product, device/google/cuttlefish/vsoc_x86_64/bootloader.mk)
 
 # Exclude features that are not available on AOSP devices.
@@ -61,11 +60,8 @@ PRODUCT_DEVICE := vsoc_x86_64
 PRODUCT_MANUFACTURER := Google
 PRODUCT_MODEL := Cuttlefish x86_64 phone
 
-# Window sidecar and extensions to enhance activity embedding, multi-display,
-# tablet, and foldable support.
-PRODUCT_PACKAGES += \
-    androidx.window.extensions \
-    androidx.window.sidecar \
+# Window Extensions
+$(call inherit-product, $(SRC_TARGET_DIR)/product/window_extensions.mk)
 
 PRODUCT_VENDOR_PROPERTIES += \
     ro.soc.manufacturer=$(PRODUCT_MANUFACTURER) \

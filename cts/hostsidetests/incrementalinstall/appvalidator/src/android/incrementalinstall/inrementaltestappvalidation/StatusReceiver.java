@@ -42,11 +42,11 @@ final class StatusReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         String targetComponent = intent.getStringExtra(TARGET_COMPONENT_KEY);
-        boolean status = intent.getBooleanExtra(COMPONENT_STATUS_KEY, false);
+        String status = intent.getStringExtra(COMPONENT_STATUS_KEY);
         mStatusLatchMap.get(targetComponent).releaseWithStatus(status);
     }
 
-    public boolean verifyComponentInvoked(String component) throws InterruptedException {
+    public String verifyComponentInvoked(String component) throws InterruptedException {
         return mStatusLatchMap.get(component).awaitForStatus();
     }
 
@@ -57,14 +57,14 @@ final class StatusReceiver extends BroadcastReceiver {
     private static class StatusLatch {
 
         private final CountDownLatch mCountDownLatch = new CountDownLatch(1);
-        private boolean mStatus = false;
+        private String mStatus = null;
 
-        void releaseWithStatus(boolean status) {
+        void releaseWithStatus(String status) {
             mStatus = status;
             mCountDownLatch.countDown();
         }
 
-        boolean awaitForStatus() throws InterruptedException {
+        String awaitForStatus() throws InterruptedException {
             mCountDownLatch.await();
             return mStatus;
         }

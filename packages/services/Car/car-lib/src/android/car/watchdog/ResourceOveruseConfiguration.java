@@ -46,24 +46,28 @@ public final class ResourceOveruseConfiguration implements Parcelable {
     /**
      * System component.
      */
+    @ComponentType
     @AddedInOrBefore(majorVersion = 33)
     public static final int COMPONENT_TYPE_SYSTEM = 1;
 
     /**
      * Vendor component.
      */
+    @ComponentType
     @AddedInOrBefore(majorVersion = 33)
     public static final int COMPONENT_TYPE_VENDOR = 2;
 
     /**
      * Third party component.
      */
+    @ComponentType
     @AddedInOrBefore(majorVersion = 33)
     public static final int COMPONENT_TYPE_THIRD_PARTY = 3;
 
     /**
      * Map applications.
      */
+    @ApplicationCategoryType
     @AddedInOrBefore(majorVersion = 33)
     public static final String APPLICATION_CATEGORY_TYPE_MAPS =
             "android.car.watchdog.app.category.MAPS";
@@ -71,6 +75,7 @@ public final class ResourceOveruseConfiguration implements Parcelable {
     /**
      * Media applications.
      */
+    @ApplicationCategoryType
     @AddedInOrBefore(majorVersion = 33)
     public static final String APPLICATION_CATEGORY_TYPE_MEDIA =
             "android.car.watchdog.app.category.MEDIA";
@@ -131,6 +136,7 @@ public final class ResourceOveruseConfiguration implements Parcelable {
     //
     // To regenerate run:
     // $ codegen $ANDROID_BUILD_TOP/packages/services/Car/car-lib/src/android/car/watchdog/ResourceOveruseConfiguration.java
+    // Added AddedInOrBefore or ApiRequirement Annotation manually
     //
     // To exclude the generated code from IntelliJ auto-formatting enable (one-time):
     //   Settings > Editor > Code Style > Formatter Control
@@ -272,7 +278,6 @@ public final class ResourceOveruseConfiguration implements Parcelable {
 
     @Override
     @DataClass.Generated.Member
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         // You can override field toString logic by defining methods like:
         // String fieldNameToString() { ... }
@@ -586,10 +591,10 @@ public final class ResourceOveruseConfiguration implements Parcelable {
     }
 
     @DataClass.Generated(
-            time = 1628099327759L,
+            time = 1673057073656L,
             codegenVersion = "1.0.23",
             sourceFile = "packages/services/Car/car-lib/src/android/car/watchdog/ResourceOveruseConfiguration.java",
-            inputSignatures = "public static final  int COMPONENT_TYPE_SYSTEM\npublic static final  int COMPONENT_TYPE_VENDOR\npublic static final  int COMPONENT_TYPE_THIRD_PARTY\npublic static final  java.lang.String APPLICATION_CATEGORY_TYPE_MAPS\npublic static final  java.lang.String APPLICATION_CATEGORY_TYPE_MEDIA\nprivate @android.car.watchdog.ResourceOveruseConfiguration.ComponentType int mComponentType\nprivate @android.annotation.NonNull java.util.List<java.lang.String> mSafeToKillPackages\nprivate @android.annotation.NonNull java.util.List<java.lang.String> mVendorPackagePrefixes\nprivate @android.annotation.NonNull java.util.Map<java.lang.String,java.lang.String> mPackagesToAppCategoryTypes\nprivate @android.annotation.Nullable android.car.watchdog.IoOveruseConfiguration mIoOveruseConfiguration\nclass ResourceOveruseConfiguration extends java.lang.Object implements [android.os.Parcelable]\n@com.android.car.internal.util.DataClass(genToString=true, genBuilder=true, genHiddenConstDefs=true)")
+            inputSignatures = "public static final @android.car.watchdog.ResourceOveruseConfiguration.ComponentType @android.car.annotation.AddedInOrBefore int COMPONENT_TYPE_SYSTEM\npublic static final @android.car.watchdog.ResourceOveruseConfiguration.ComponentType @android.car.annotation.AddedInOrBefore int COMPONENT_TYPE_VENDOR\npublic static final @android.car.watchdog.ResourceOveruseConfiguration.ComponentType @android.car.annotation.AddedInOrBefore int COMPONENT_TYPE_THIRD_PARTY\npublic static final @android.car.watchdog.ResourceOveruseConfiguration.ApplicationCategoryType @android.car.annotation.AddedInOrBefore java.lang.String APPLICATION_CATEGORY_TYPE_MAPS\npublic static final @android.car.watchdog.ResourceOveruseConfiguration.ApplicationCategoryType @android.car.annotation.AddedInOrBefore java.lang.String APPLICATION_CATEGORY_TYPE_MEDIA\nprivate @android.car.watchdog.ResourceOveruseConfiguration.ComponentType int mComponentType\nprivate @android.annotation.NonNull java.util.List<java.lang.String> mSafeToKillPackages\nprivate @android.annotation.NonNull java.util.List<java.lang.String> mVendorPackagePrefixes\nprivate @android.annotation.NonNull java.util.Map<java.lang.String,java.lang.String> mPackagesToAppCategoryTypes\nprivate @android.annotation.Nullable android.car.watchdog.IoOveruseConfiguration mIoOveruseConfiguration\nclass ResourceOveruseConfiguration extends java.lang.Object implements [android.os.Parcelable]\n@com.android.car.internal.util.DataClass(genToString=true, genBuilder=true, genHiddenConstDefs=true)")
     @Deprecated
     @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
     private void __metadata() {}

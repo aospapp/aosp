@@ -36,14 +36,15 @@ using namespace cppcose;
 using namespace keymaster;
 
 using ::aidl::android::hardware::security::keymint::km_utils::kmBlob2vector;
+using ::aidl::android::hardware::security::keymint::km_utils::
+    kmError2ScopedAStatus;
 using ::ndk::ScopedAStatus;
 
 // Error codes from the provisioning stack are negated.
 ndk::ScopedAStatus toKeymasterError(const KeymasterResponse& response) {
   auto error =
       static_cast<keymaster_error_t>(-static_cast<int32_t>(response.error));
-  return ::aidl::android::hardware::security::keymint::km_utils::
-      kmError2ScopedAStatus(error);
+  return kmError2ScopedAStatus(error);
 }
 
 }  // namespace
@@ -54,10 +55,16 @@ RemoteRemotelyProvisionedComponent::RemoteRemotelyProvisionedComponent(
 
 ScopedAStatus RemoteRemotelyProvisionedComponent::getHardwareInfo(
     RpcHardwareInfo* info) {
-  info->versionNumber = 2;
-  info->rpcAuthorName = "Google";
-  info->supportedEekCurve = RpcHardwareInfo::CURVE_25519;
-  info->uniqueId = "remote keymint";
+  GetHwInfoResponse response = impl_.GetHwInfo();
+  if (response.error != KM_ERROR_OK) {
+    return toKeymasterError(response);
+  }
+
+  info->versionNumber = response.version;
+  info->rpcAuthorName = response.rpcAuthorName;
+  info->supportedEekCurve = response.supportedEekCurve;
+  info->uniqueId = response.uniqueId;
+  info->supportedNumKeysInCsr = response.supportedNumKeysInCsr;
   return ScopedAStatus::ok();
 }
 
@@ -103,6 +110,30 @@ ScopedAStatus RemoteRemotelyProvisionedComponent::generateCertificateRequest(
   protectedData->protectedData =
       km_utils::kmBlob2vector(response.protected_data_blob);
   *keysToSignMac = km_utils::kmBlob2vector(response.keys_to_sign_mac);
+  return ScopedAStatus::ok();
+}
+
+ScopedAStatus RemoteRemotelyProvisionedComponent::generateCertificateRequestV2(
+    const std::vector<MacedPublicKey>& keysToSign,
+    const std::vector<uint8_t>& challenge, std::vector<uint8_t>* csr) {
+  GenerateCsrV2Request request(impl_.message_version());
+  if (!request.InitKeysToSign(keysToSign.size())) {
+    return kmError2ScopedAStatus(static_cast<keymaster_error_t>(
+        BnRemotelyProvisionedComponent::STATUS_FAILED));
+  }
+
+  for (size_t i = 0; i < keysToSign.size(); i++) {
+    request.SetKeyToSign(i, keysToSign[i].macedKey.data(),
+                         keysToSign[i].macedKey.size());
+  }
+  request.SetChallenge(challenge.data(), challenge.size());
+  GenerateCsrV2Response response(impl_.message_version());
+  impl_.GenerateCsrV2(request, &response);
+
+  if (response.error != KM_ERROR_OK) {
+    return toKeymasterError(response);
+  }
+  *csr = km_utils::kmBlob2vector(response.csr);
   return ScopedAStatus::ok();
 }
 

@@ -29,29 +29,11 @@ license {
     ],
 }
 
-python_defaults {
-    name: "acloud_default",
-    pkg_path: "acloud",
-    version: {
-        py2: {
-            enabled: false,
-            embedded_launcher: false,
-            libs: [
-                "py-pyopenssl",
-            ]
-        },
-        py3: {
-            enabled: true,
-            embedded_launcher: false,
-        },
-    },
-}
-
 python_binary_host {
     name: "acloud",
     // Make acloud's built name to acloud-dev default build python3 binary.
     stem: "acloud-dev",
-    defaults: ["acloud_default"],
+    pkg_path: "acloud",
     main: "public/acloud_main.py",
     srcs: [
         "public/acloud_main.py",
@@ -88,8 +70,8 @@ python_binary_host {
 
 python_test_host {
     name: "acloud_test",
+    pkg_path: "acloud",
     main: "acloud_test.py",
-    defaults: ["acloud_default"],
     data: [
         "public/data/default.config",
     ],
@@ -125,13 +107,15 @@ python_test_host {
         "general-tests",
     ],
     test_options: {
-        unit_test: true,
+        // TODO(b/270225397)
+        unit_test: false,
+        tags: ["no-remote"],
     }
 }
 
 python_library_host {
     name: "acloud_public",
-    defaults: ["acloud_default"],
+    pkg_path: "acloud",
     srcs: [
         "public/*.py",
         "public/actions/*.py",
@@ -145,7 +129,7 @@ python_library_host {
 
 python_library_host {
     name: "acloud_internal",
-    defaults: ["acloud_default"],
+    pkg_path: "acloud",
     srcs: [
         "internal/*.py",
         "internal/lib/*.py",
@@ -157,7 +141,7 @@ python_library_host {
 
 python_library_host {
     name: "acloud_proto",
-    defaults: ["acloud_default"],
+    pkg_path: "acloud",
     srcs: [
         "internal/proto/*.proto",
     ],
@@ -168,7 +152,7 @@ python_library_host {
 
 python_library_host{
     name: "acloud_setup",
-    defaults: ["acloud_default"],
+    pkg_path: "acloud",
     srcs: [
          "setup/*.py",
     ],
@@ -179,7 +163,7 @@ python_library_host{
 
 python_library_host{
     name: "acloud_create",
-    defaults: ["acloud_default"],
+    pkg_path: "acloud",
     srcs: [
          "create/*.py",
     ],
@@ -187,7 +171,7 @@ python_library_host{
 
 python_library_host{
     name: "acloud_delete",
-    defaults: ["acloud_default"],
+    pkg_path: "acloud",
     srcs: [
          "delete/*.py",
     ],
@@ -195,7 +179,7 @@ python_library_host{
 
 python_library_host{
     name: "acloud_list",
-    defaults: ["acloud_default"],
+    pkg_path: "acloud",
     srcs: [
          "list/*.py",
     ],
@@ -203,7 +187,7 @@ python_library_host{
 
 python_library_host{
     name: "acloud_reconnect",
-    defaults: ["acloud_default"],
+    pkg_path: "acloud",
     srcs: [
          "reconnect/*.py",
     ],
@@ -211,7 +195,7 @@ python_library_host{
 
 python_library_host{
     name: "acloud_pull",
-    defaults: ["acloud_default"],
+    pkg_path: "acloud",
     srcs: [
          "pull/*.py",
     ],
@@ -219,7 +203,7 @@ python_library_host{
 
 python_library_host{
     name: "acloud_powerwash",
-    defaults: ["acloud_default"],
+    pkg_path: "acloud",
     srcs: [
          "powerwash/*.py",
     ],
@@ -227,7 +211,7 @@ python_library_host{
 
 python_library_host{
     name: "acloud_restart",
-    defaults: ["acloud_default"],
+    pkg_path: "acloud",
     srcs: [
          "restart/*.py",
     ],
@@ -235,7 +219,7 @@ python_library_host{
 
 python_library_host{
     name: "acloud_hostcleanup",
-    defaults: ["acloud_default"],
+    pkg_path: "acloud",
     srcs: [
          "hostcleanup/*.py",
     ],
@@ -243,13 +227,12 @@ python_library_host{
 
 python_library_host{
     name: "acloud_metrics",
-    defaults: ["acloud_default"],
+    pkg_path: "acloud",
     srcs: [
          "metrics/*.py",
     ],
     libs: [
          "asuite_cc_client",
-         "asuite_metrics",
     ],
 }
 

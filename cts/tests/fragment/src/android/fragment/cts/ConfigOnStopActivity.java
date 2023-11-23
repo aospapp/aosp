@@ -17,7 +17,7 @@ package android.fragment.cts;
 
 import android.app.Fragment;
 
-public class ConfigOnStopActivity extends RecreatedActivity {
+public class ConfigOnStopActivity extends FragmentTestActivity {
     @Override
     protected void onStop() {
         super.onStop();

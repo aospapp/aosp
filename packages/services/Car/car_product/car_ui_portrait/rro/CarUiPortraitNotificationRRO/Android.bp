@@ -24,5 +24,6 @@ android_app {
     ],
     static_libs: [
         "CarNotificationLib",
+        "car-portrait-ui-common"
     ],
 }

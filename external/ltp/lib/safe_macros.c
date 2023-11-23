@@ -13,7 +13,6 @@
 #include <sys/xattr.h>
 #include <sys/sysinfo.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <libgen.h>
 #include <limits.h>
 #include <pwd.h>
@@ -21,6 +20,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <malloc.h>
+#include <math.h>
+#include "lapi/fcntl.h"
 #include "test.h"
 #include "safe_macros.h"
 
@@ -236,18 +237,21 @@ int safe_munmap(const char *file, const int lineno, void (*cleanup_fn) (void),
 int safe_open(const char *file, const int lineno, void (*cleanup_fn) (void),
               const char *pathname, int oflags, ...)
 {
-	va_list ap;
 	int rval;
-	mode_t mode;
+	mode_t mode = 0;
 
-	va_start(ap, oflags);
+	if (TST_OPEN_NEEDS_MODE(oflags)) {
+		va_list ap;
 
-	/* Android's NDK's mode_t is smaller than an int, which results in
-	 * SIGILL here when passing the mode_t type.
-	 */
-	mode = va_arg(ap, int);
+		va_start(ap, oflags);
 
-	va_end(ap);
+		/* Android's NDK's mode_t is smaller than an int, which results in
+		 * SIGILL here when passing the mode_t type.
+		 */
+		mode = va_arg(ap, int);
+
+		va_end(ap);
+	}
 
 	rval = open(pathname, oflags, mode);
 
@@ -524,20 +528,42 @@ int safe_symlink(const char *file, const int lineno,
 }
 
 ssize_t safe_write(const char *file, const int lineno, void (cleanup_fn) (void),
-                   char len_strict, int fildes, const void *buf, size_t nbyte)
+		   enum safe_write_opts len_strict, int fildes, const void *buf,
+		   size_t nbyte)
 {
 	ssize_t rval;
+	const void *wbuf = buf;
+	size_t len = nbyte;
+	int iter = 0;
 
-	rval = write(fildes, buf, nbyte);
+	do {
+		iter++;
+		rval = write(fildes, wbuf, len);
+		if (rval == -1) {
+			if (len_strict == SAFE_WRITE_RETRY)
+				tst_resm_(file, lineno, TINFO,
+					"write() wrote %zu bytes in %d calls",
+					nbyte-len, iter);
+			tst_brkm_(file, lineno, TBROK | TERRNO,
+				cleanup_fn, "write(%d,%p,%zu) failed",
+				fildes, buf, nbyte);
+		}
 
-	if (rval == -1 || (len_strict && (size_t)rval != nbyte)) {
-		tst_brkm_(file, lineno, TBROK | TERRNO, cleanup_fn,
-			"write(%d,%p,%zu) failed", fildes, buf, nbyte);
-	} else if (rval < 0) {
-		tst_brkm_(file, lineno, TBROK | TERRNO, cleanup_fn,
-			"Invalid write(%d,%p,%zu) return value %zd", fildes,
-			buf, nbyte, rval);
-	}
+		if (len_strict == SAFE_WRITE_ANY)
+			return rval;
+
+		if (len_strict == SAFE_WRITE_ALL) {
+			if ((size_t)rval != nbyte)
+				tst_brkm_(file, lineno, TBROK | TERRNO,
+					cleanup_fn, "short write(%d,%p,%zu) "
+					"return value %zd",
+					fildes, buf, nbyte, rval);
+			return rval;
+		}
+
+		wbuf += rval;
+		len -= rval;
+	} while (len > 0);
 
 	return rval;
 }
@@ -591,6 +617,12 @@ unsigned long safe_strtoul(const char *file, const int lineno,
 		return rval;
 	}
 
+	if (endptr == str || (*endptr != '\0' && *endptr != '\n')) {
+		tst_brkm_(file, lineno, TBROK, cleanup_fn,
+			"Invalid value: '%s'", str);
+		return 0;
+	}
+
 	if (rval > max || rval < min) {
 		tst_brkm_(file, lineno, TBROK, cleanup_fn,
 			"strtoul(%s): %lu is out of range %lu - %lu",
@@ -598,9 +630,35 @@ unsigned long safe_strtoul(const char *file, const int lineno,
 		return 0;
 	}
 
+	return rval;
+}
+
+float safe_strtof(const char *file, const int lineno,
+		  void (cleanup_fn) (void), char *str,
+		  float min, float max)
+{
+	float rval;
+	char *endptr;
+
+	errno = 0;
+	rval = strtof(str, &endptr);
+
+	if (errno) {
+		tst_brkm_(file, lineno, TBROK | TERRNO, cleanup_fn,
+			"strtof(%s) failed", str);
+		return rval;
+	}
+
 	if (endptr == str || (*endptr != '\0' && *endptr != '\n')) {
 		tst_brkm_(file, lineno, TBROK, cleanup_fn,
 			"Invalid value: '%s'", str);
+		return 0;
+	}
+
+	if (rval > max || rval < min) {
+		tst_brkm_(file, lineno, TBROK, cleanup_fn,
+			"strtof(%s): %f is out of range %f - %f",
+			str, rval, min, max);
 		return 0;
 	}
 
@@ -1011,7 +1069,8 @@ int safe_setxattr(const char *file, const int lineno, const char *path,
 	if (rval == -1) {
 		if (errno == ENOTSUP) {
 			tst_brkm_(file, lineno, TCONF, NULL,
-				"no xattr support in fs or mounted without user_xattr option");
+				"no xattr support in fs, mounted without user_xattr option "
+				"or invalid namespace/name format");
 			return rval;
 		}
 
@@ -1037,7 +1096,8 @@ int safe_lsetxattr(const char *file, const int lineno, const char *path,
 	if (rval == -1) {
 		if (errno == ENOTSUP) {
 			tst_brkm_(file, lineno, TCONF, NULL,
-				"no xattr support in fs or mounted without user_xattr option");
+				"no xattr support in fs, mounted without user_xattr option "
+				"or invalid namespace/name format");
 			return rval;
 		}
 
@@ -1063,7 +1123,8 @@ int safe_fsetxattr(const char *file, const int lineno, int fd, const char *name,
 	if (rval == -1) {
 		if (errno == ENOTSUP) {
 			tst_brkm_(file, lineno, TCONF, NULL,
-				"no xattr support in fs or mounted without user_xattr option");
+				"no xattr support in fs, mounted without user_xattr option "
+				"or invalid namespace/name format");
 			return rval;
 		}
 

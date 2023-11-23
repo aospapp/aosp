@@ -125,7 +125,7 @@ angle::Result IOSurfaceSurfaceVkMac::initializeImpl(DisplayVk *displayVk)
                                           mState.hasProtectedContent()));
 
     mColorRenderTarget.init(&mColorAttachment.image, &mColorAttachment.imageViews, nullptr, nullptr,
-                            gl::LevelIndex(0), 0, 1, RenderTargetTransience::Default);
+                            {}, gl::LevelIndex(0), 0, 1, RenderTargetTransience::Default);
 
     return angle::Result::Continue;
 }
@@ -233,8 +233,6 @@ bool IOSurfaceSurfaceVkMac::ValidateAttributes(const DisplayVk *displayVk,
                                                const egl::AttributeMap &attribs)
 {
     ASSERT(displayVk != nullptr);
-    RendererVk *renderer = displayVk->getRenderer();
-
     IOSurfaceRef ioSurface = reinterpret_cast<IOSurfaceRef>(buffer);
 
     // The plane must exist for this IOSurface. IOSurfaceGetPlaneCount can return 0 for non-planar
@@ -270,13 +268,6 @@ bool IOSurfaceSurfaceVkMac::ValidateAttributes(const DisplayVk *displayVk,
     // Check that the format matches this IOSurface plane
     if (IOSurfaceGetBytesPerElementOfPlane(ioSurface, plane) !=
         kIOSurfaceFormats[formatIndex].componentBytes)
-    {
-        return false;
-    }
-
-    void *pointer          = IOSurfaceGetBaseAddressOfPlane(ioSurface, plane);
-    VkDeviceSize alignment = renderer->getMinImportedHostPointerAlignment();
-    if (reinterpret_cast<size_t>(pointer) % alignment != 0)
     {
         return false;
     }

@@ -19,20 +19,18 @@ package android.safetycenter.cts
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build.VERSION_CODES.TIRAMISU
 import android.safetycenter.SafetyCenterEntry
-import android.safetycenter.cts.testing.EqualsHashCodeToStringTester
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.ext.truth.os.ParcelableSubject.assertThat
-import androidx.test.filters.SdkSuppress
+import com.android.safetycenter.testing.EqualsHashCodeToStringTester
 import com.google.common.truth.Truth.assertThat
 import kotlin.test.assertFailsWith
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/** CTS tests for [SafetyCenterEntry]. */
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = TIRAMISU, codeName = "Tiramisu")
 class SafetyCenterEntryTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
 
@@ -40,14 +38,22 @@ class SafetyCenterEntryTest {
         PendingIntent.getActivity(context, 0, Intent("Fake Data"), PendingIntent.FLAG_IMMUTABLE)
     private val pendingIntent2 =
         PendingIntent.getActivity(
-            context, 0, Intent("Fake Different Data"), PendingIntent.FLAG_IMMUTABLE)
+            context,
+            0,
+            Intent("Fake Different Data"),
+            PendingIntent.FLAG_IMMUTABLE
+        )
 
     private val iconAction1 =
         SafetyCenterEntry.IconAction(
-            SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_GEAR, pendingIntent1)
+            SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_GEAR,
+            pendingIntent1
+        )
     private val iconAction2 =
         SafetyCenterEntry.IconAction(
-            SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_INFO, pendingIntent2)
+            SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_INFO,
+            pendingIntent2
+        )
 
     private val entry1 =
         SafetyCenterEntry.Builder("eNtRy_iD", "a title")
@@ -86,13 +92,15 @@ class SafetyCenterEntryTest {
                 SafetyCenterEntry.Builder(entry1)
                     .setSeverityLevel(SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_RECOMMENDATION)
                     .build()
-                    .severityLevel)
+                    .severityLevel
+            )
             .isEqualTo(SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_RECOMMENDATION)
         assertThat(
                 SafetyCenterEntry.Builder(entry1)
                     .setSeverityLevel(SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_OK)
                     .build()
-                    .severityLevel)
+                    .severityLevel
+            )
             .isEqualTo(SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_OK)
     }
 
@@ -103,9 +111,11 @@ class SafetyCenterEntryTest {
         assertThat(
                 SafetyCenterEntry.Builder(entry1)
                     .setSeverityUnspecifiedIconType(
-                        SafetyCenterEntry.SEVERITY_UNSPECIFIED_ICON_TYPE_PRIVACY)
+                        SafetyCenterEntry.SEVERITY_UNSPECIFIED_ICON_TYPE_PRIVACY
+                    )
                     .build()
-                    .severityUnspecifiedIconType)
+                    .severityUnspecifiedIconType
+            )
             .isEqualTo(SafetyCenterEntry.SEVERITY_UNSPECIFIED_ICON_TYPE_PRIVACY)
     }
 
@@ -122,7 +132,8 @@ class SafetyCenterEntryTest {
                     .setPendingIntent(pendingIntent1)
                     .setSeverityLevel(SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_UNKNOWN)
                     .build()
-                    .isEnabled)
+                    .isEnabled
+            )
             .isTrue()
     }
 
@@ -132,13 +143,15 @@ class SafetyCenterEntryTest {
                 SafetyCenterEntry.Builder(entry1)
                     .setPendingIntent(pendingIntent1)
                     .build()
-                    .pendingIntent)
+                    .pendingIntent
+            )
             .isEqualTo(pendingIntent1)
         assertThat(
                 SafetyCenterEntry.Builder(entry1)
                     .setPendingIntent(pendingIntent2)
                     .build()
-                    .pendingIntent)
+                    .pendingIntent
+            )
             .isEqualTo(pendingIntent2)
         assertThat(SafetyCenterEntry.Builder(entry1).setPendingIntent(null).build().pendingIntent)
             .isNull()
@@ -191,50 +204,67 @@ class SafetyCenterEntryTest {
                     .setSummary(null)
                     .setPendingIntent(null)
                     .setIconAction(null)
-                    .build())
+                    .build()
+            )
             .recreatesEqual(SafetyCenterEntry.CREATOR)
     }
 
     @Test
     fun equalsHashCodeToString_usingEqualsHashCodeToStringTester() {
-        EqualsHashCodeToStringTester()
-            .addEqualityGroup(entry1, SafetyCenterEntry.Builder(entry1).build())
+        EqualsHashCodeToStringTester.ofParcelable(
+                parcelableCreator = SafetyCenterEntry.CREATOR,
+                createCopy = { SafetyCenterEntry.Builder(it).build() }
+            )
+            .addEqualityGroup(entry1)
             .addEqualityGroup(
                 SafetyCenterEntry.Builder("id", "a title")
                     .setSummary("a summary")
                     .setSeverityLevel(SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_OK)
                     .setSeverityUnspecifiedIconType(
-                        SafetyCenterEntry.SEVERITY_UNSPECIFIED_ICON_TYPE_PRIVACY)
+                        SafetyCenterEntry.SEVERITY_UNSPECIFIED_ICON_TYPE_PRIVACY
+                    )
                     .setPendingIntent(pendingIntent1)
                     .setIconAction(
-                        SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_INFO, pendingIntent2)
+                        SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_INFO,
+                        pendingIntent2
+                    )
                     .build(),
                 SafetyCenterEntry.Builder("id", "a title")
                     .setSummary("a summary")
                     .setSeverityLevel(SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_OK)
                     .setSeverityUnspecifiedIconType(
-                        SafetyCenterEntry.SEVERITY_UNSPECIFIED_ICON_TYPE_PRIVACY)
+                        SafetyCenterEntry.SEVERITY_UNSPECIFIED_ICON_TYPE_PRIVACY
+                    )
                     .setPendingIntent(pendingIntent1)
                     .setIconAction(
-                        SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_INFO, pendingIntent2)
-                    .build())
+                        SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_INFO,
+                        pendingIntent2
+                    )
+                    .build()
+            )
             .addEqualityGroup(SafetyCenterEntry.Builder(entry1).setId("a different id").build())
             .addEqualityGroup(
-                SafetyCenterEntry.Builder(entry1).setTitle("a different title").build())
+                SafetyCenterEntry.Builder(entry1).setTitle("a different title").build()
+            )
             .addEqualityGroup(
-                SafetyCenterEntry.Builder(entry1).setSummary("a different summary").build())
+                SafetyCenterEntry.Builder(entry1).setSummary("a different summary").build()
+            )
             .addEqualityGroup(
                 SafetyCenterEntry.Builder(entry1)
                     .setSeverityLevel(SafetyCenterEntry.ENTRY_SEVERITY_LEVEL_CRITICAL_WARNING)
-                    .build())
+                    .build()
+            )
             .addEqualityGroup(
                 SafetyCenterEntry.Builder(entry1)
                     .setSeverityUnspecifiedIconType(
-                        SafetyCenterEntry.SEVERITY_UNSPECIFIED_ICON_TYPE_PRIVACY)
-                    .build())
+                        SafetyCenterEntry.SEVERITY_UNSPECIFIED_ICON_TYPE_PRIVACY
+                    )
+                    .build()
+            )
             .addEqualityGroup(SafetyCenterEntry.Builder(entry1).setEnabled(false).build())
             .addEqualityGroup(
-                SafetyCenterEntry.Builder(entry1).setPendingIntent(pendingIntent2).build())
+                SafetyCenterEntry.Builder(entry1).setPendingIntent(pendingIntent2).build()
+            )
             .addEqualityGroup(SafetyCenterEntry.Builder(entry1).setIconAction(iconAction2).build())
             .test()
     }
@@ -243,13 +273,19 @@ class SafetyCenterEntryTest {
     fun iconAction_getType_returnsType() {
         assertThat(
                 SafetyCenterEntry.IconAction(
-                        SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_GEAR, pendingIntent1)
-                    .type)
+                        SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_GEAR,
+                        pendingIntent1
+                    )
+                    .type
+            )
             .isEqualTo(SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_GEAR)
         assertThat(
                 SafetyCenterEntry.IconAction(
-                        SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_INFO, pendingIntent1)
-                    .type)
+                        SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_INFO,
+                        pendingIntent1
+                    )
+                    .type
+            )
             .isEqualTo(SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_INFO)
     }
 
@@ -257,13 +293,19 @@ class SafetyCenterEntryTest {
     fun iconAction_getPendingIntent_returnsPendingIntent() {
         assertThat(
                 SafetyCenterEntry.IconAction(
-                        SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_GEAR, pendingIntent1)
-                    .pendingIntent)
+                        SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_GEAR,
+                        pendingIntent1
+                    )
+                    .pendingIntent
+            )
             .isEqualTo(pendingIntent1)
         assertThat(
                 SafetyCenterEntry.IconAction(
-                        SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_GEAR, pendingIntent2)
-                    .pendingIntent)
+                        SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_GEAR,
+                        pendingIntent2
+                    )
+                    .pendingIntent
+            )
             .isEqualTo(pendingIntent2)
     }
 
@@ -291,21 +333,35 @@ class SafetyCenterEntryTest {
 
     @Test
     fun iconAction_equalsHashCodeToString_usingEqualsHashCodeToStringTester() {
-        EqualsHashCodeToStringTester()
+        EqualsHashCodeToStringTester.ofParcelable(
+                parcelableCreator = SafetyCenterEntry.IconAction.CREATOR
+            )
             .addEqualityGroup(
                 iconAction1,
                 SafetyCenterEntry.IconAction(
-                    SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_GEAR, pendingIntent1))
+                    SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_GEAR,
+                    pendingIntent1
+                )
+            )
             .addEqualityGroup(
                 iconAction2,
                 SafetyCenterEntry.IconAction(
-                    SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_INFO, pendingIntent2))
+                    SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_INFO,
+                    pendingIntent2
+                )
+            )
             .addEqualityGroup(
                 SafetyCenterEntry.IconAction(
-                    SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_INFO, pendingIntent1))
+                    SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_INFO,
+                    pendingIntent1
+                )
+            )
             .addEqualityGroup(
                 SafetyCenterEntry.IconAction(
-                    SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_GEAR, pendingIntent2))
+                    SafetyCenterEntry.IconAction.ICON_ACTION_TYPE_GEAR,
+                    pendingIntent2
+                )
+            )
             .test()
     }
 }

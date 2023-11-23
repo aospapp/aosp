@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # -*- coding: utf-8 -*-
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -8,7 +9,10 @@
 This module handles terminal interaction including ANSI color codes.
 """
 
+from __future__ import absolute_import
+from __future__ import division
 from __future__ import print_function
+from six.moves import range
 
 
 class Color(object):

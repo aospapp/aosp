@@ -18,6 +18,7 @@ package com.android.car.settings.display;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
 
@@ -158,11 +159,68 @@ public class AdaptiveBrightnessTogglePreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_supportedd_notRestricted_available_zoneWrite() {
+        mockSupportsAdaptiveBrightness(true);
+        mockUserRestrictionSetByDpm(false);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_supportedd_notRestricted_available_zoneRead() {
+        mockSupportsAdaptiveBrightness(true);
+        mockUserRestrictionSetByDpm(false);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_supportedd_notRestricted_available_zoneHidden() {
+        mockSupportsAdaptiveBrightness(true);
+        mockUserRestrictionSetByDpm(false);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_notSupported_unsupportOnDevice() {
         mockSupportsAdaptiveBrightness(false);
 
         assertThat(mPreferenceController.getAvailabilityStatus())
                 .isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_notSupported_unsupportOnDevice_zoneWrite() {
+        mockSupportsAdaptiveBrightness(false);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_notSupported_unsupportOnDevice_zoneRead() {
+        mockSupportsAdaptiveBrightness(false);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_notSupported_unsupportOnDevice_zoneHidden() {
+        mockSupportsAdaptiveBrightness(false);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
     }
 
     @Test
@@ -172,6 +230,36 @@ public class AdaptiveBrightnessTogglePreferenceControllerTest {
 
         assertThat(mPreferenceController.getAvailabilityStatus())
                 .isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_supported_restricted_availableForViewing_zoneWrite() {
+        mockSupportsAdaptiveBrightness(true);
+        mockUserRestrictionSetByDpm(true);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_supported_restricted_availableForViewing_zoneRead() {
+        mockSupportsAdaptiveBrightness(true);
+        mockUserRestrictionSetByDpm(true);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_supported_restricted_availableForViewing_zoneHidden() {
+        mockSupportsAdaptiveBrightness(true);
+        mockUserRestrictionSetByDpm(true);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

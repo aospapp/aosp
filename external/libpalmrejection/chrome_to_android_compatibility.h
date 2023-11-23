@@ -10,6 +10,14 @@
 // Add missing templates here as a temporary solution
 namespace base {
 
+/**
+ * Workaround for the error in unit tests: ISO C++20 considers use of overloaded
+ * operator '==' (with operand types 'const base::TimeTicks'
+ * and 'const base::TimeTicks') to be ambiguous despite there being a unique
+ * best viable function [-Werror,-Wambiguous-reversed-operator]
+ */
+bool operator==(const TimeTicks& t1, const TimeTicks& t2);
+
 namespace time_internal {
 
 // clang-format off

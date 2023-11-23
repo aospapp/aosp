@@ -26,8 +26,6 @@ import android.platform.test.annotations.Presubmit;
 import android.server.wm.WindowManagerState.DisplayContent;
 import android.util.Size;
 
-import androidx.test.filters.FlakyTest;
-
 import org.junit.Before;
 import org.junit.Test;
 
@@ -191,7 +189,6 @@ public class MultiDisplayKeyguardTests extends MultiDisplayTestBase {
     }
 
     @Test
-    @FlakyTest(bugId = 185566696)
     public void testUnlockScreen_decoredSystemDisplayChanged_dismissesKeyguardOnUnlock() {
         final LockScreenSession lockScreenSession = createManagedLockScreenSession();
         final VirtualDisplaySession virtualDisplaySession = createManagedVirtualDisplaySession();
@@ -215,7 +212,9 @@ public class MultiDisplayKeyguardTests extends MultiDisplayTestBase {
         final Size overrideSize = new Size(
                 (int) (displayMetrics.physicalSize.getWidth() * 0.5),
                 (int) (displayMetrics.physicalSize.getHeight() * 0.5));
-        displayMetrics.setDisplayMetrics(overrideSize, displayMetrics.physicalDensity);
+        final DisplayMetricsSession displayMetricsSession =
+                createManagedDisplayMetricsSession(decoredSystemDisplayId);
+        displayMetricsSession.overrideDisplayMetrics(overrideSize, displayMetrics.physicalDensity);
         mWmState.computeState();
         mWmState.waitAndAssertKeyguardShownOnSecondaryDisplay(decoredSystemDisplayId);
 

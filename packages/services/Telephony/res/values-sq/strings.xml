@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"Telefonatat në pritje CDMA në sistemin IMS janë joaktive"</string>
     <string name="updating_title" msgid="6130548922615719689">"Cilësimet e telefonatës"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Cilësimet e telefonatës mund të ndryshohen vetëm nga administratori."</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"Cilësimet e llogarisë të telefonit mund të ndryshohen vetëm nga administratori ose një përdorues në punë."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Cilësimet (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"Gabim në cilësimet e telefonatës"</string>
     <string name="reading_settings" msgid="1605904432450871183">"Po lexon cilësimet…"</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"Telefonatat nuk mund të mbahen në pritje."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"Lidhu me një rrjet me valë për të bërë një telefonatë."</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"Aktivizo telefonatat nëpërmjet rrjetit Wi-Fi për të bërë një telefonatë."</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"Çaktivizo modalitetin e satelitit për të bërë një telefonatë."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"Informacioni i urgjencës"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"Zotëruesi"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"Trokit përsëri për të shikuar informacionet"</string>
@@ -660,7 +662,7 @@
     <string name="description_dialpad_button" msgid="7395114120463883623">"shfaq bllokun e formimit të numrit"</string>
     <string name="pane_title_emergency_dialpad" msgid="3627372514638694401">"Blloku i formimit të numrit të urgjencës"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="6610414098912832120">"Posta zanore vizuale"</string>
-    <string name="voicemail_set_pin_dialog_title" msgid="7005128605986960003">"Konfiguro kodin PIN"</string>
+    <string name="voicemail_set_pin_dialog_title" msgid="7005128605986960003">"Cakto kodin PIN"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="4633077715231764435">"Ndrysho kodin PIN"</string>
     <string name="preference_category_ringtone" msgid="8787281191375434976">"Me zile dhe me dridhje"</string>
     <string name="pstn_connection_service_label" msgid="9200102709997537069">"Kartat e integruara SIM"</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"Modaliteti i aeroplanit është aktiv"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"Nuk ka qasje te karta SIM"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"Rrjeti celular nuk ofrohet"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"Modaliteti i satelitit është aktiv"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"Problem me numrin e telefonit që po përpiqesh të telefonosh. Kodi i gabimit 1."</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"Telefonata nuk mund të kryhej. Kodi i gabimit 3."</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"Telefonata nuk mund të kryhej. Kodi i gabimit 6."</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Anulo"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"Caktoje kartën e lëvizshme eSIM si të parazgjedhur"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Fuqia e radios së rrjetit celular"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"Simulo gjendjen jashtë shërbimit (vetëm versioni i korrigjimit)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Shiko librin e adresave të kartës SIM"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Shiko numrat me telefonim të përzgjedhur"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"Shiko numrat e telefonit të shërbimit"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"Lidhur"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"Pezulluar"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"E panjohur"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"Kryesore"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"paketa"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"bajte"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"Të dhënat e dërguara:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"Mesazh në pritje:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"Numri i telefonit:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"Përzgjidh brezin e radios"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Lloji i rrjetit të zërit:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Lloji i rrjetit të të dhënave:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Anulo llojin e rrjetit:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"Gjendja e regjistrimit e telefonatave të papërpunuara:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"Gjendja e regjistrimit e të dhënave të papërpunuara:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"Gjendja e regjistrimit e të dhënave të papërpunuara të WLAN:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Zgjidh indeksin e telefonit"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Cakto llojin e preferuar të rrjetit:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Verifiko emrin e pritësit (www.google.com) IPv4:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Sinjali i Bluetooth-it është i dobët. Provo të kalosh te altoparlanti."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"Njoftim për cilësinë e telefonatës"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"Llogaritë e zhvlerësuara SIP"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"Nuk mund të dërgohen mesazhe nga një aplikacion personal"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"Organizata jote të lejon që të dërgosh mesazhe vetëm nga aplikacionet e punës"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"Anulo"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"Kalo te profili i punës"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"Instalo një aplikacion të mesazheve të punës"</string>
 </resources>

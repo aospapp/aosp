@@ -16,11 +16,13 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 namespace android {
 namespace linkerconfig {
 namespace modules {
 std::string TrimPrefix(const std::string& s, const std::string& prefix);
+std::string MergeLibs(const std::vector<std::string>& libs);
 }
 }  // namespace linkerconfig
 }  // namespace android

@@ -15,6 +15,7 @@
  */
 package com.android.cts.graphics;
 
+import com.android.tradefed.util.RunUtil;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -90,15 +91,15 @@ public class GpuWorkDumpsysTest extends BaseHostJUnit4Test {
 
     // Turn screen on.
     assertShellCommand("input keyevent KEYCODE_WAKEUP");
-    Thread.sleep(PAUSE_MILLIS);
+    RunUtil.getDefault().sleep(PAUSE_MILLIS);
 
     // Skip lock screen.
     assertShellCommand("wm dismiss-keyguard");
-    Thread.sleep(PAUSE_MILLIS);
+    RunUtil.getDefault().sleep(PAUSE_MILLIS);
 
     // Start basic app.
     assertShellCommand("am start -W -S " + TEST_PKG);
-    Thread.sleep(PAUSE_MILLIS);
+    RunUtil.getDefault().sleep(PAUSE_MILLIS);
 
     // Get the UID of the test app.
     long appUid = getTestAppUid();

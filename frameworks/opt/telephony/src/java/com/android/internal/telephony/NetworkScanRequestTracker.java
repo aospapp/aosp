@@ -42,6 +42,8 @@ import android.telephony.SubscriptionInfo;
 import android.telephony.TelephonyScanManager;
 import android.util.Log;
 
+import com.android.internal.telephony.subscription.SubscriptionManagerService;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -195,7 +197,7 @@ public final class NetworkScanRequestTracker {
     public static Set<String> getAllowedMccMncsForLocationRestrictedScan(Context context) {
         final long token = Binder.clearCallingIdentity();
         try {
-            return SubscriptionController.getInstance()
+            return SubscriptionManagerService.getInstance()
                     .getAvailableSubscriptionInfoList(context.getOpPackageName(),
                             context.getAttributionTag()).stream()
                     .flatMap(NetworkScanRequestTracker::getAllowableMccMncsFromSubscriptionInfo)
@@ -472,21 +474,21 @@ public final class NetworkScanRequestTracker {
                     notifyMessenger(nsri, notifyMsg,
                             rilErrorToScanError(nsr.scanError), nsr.networkInfos);
                     if (nsr.scanStatus == NetworkScanResult.SCAN_STATUS_COMPLETE) {
-                        deleteScanAndMayNotify(nsri, NetworkScan.SUCCESS, true);
                         nsri.mPhone.mCi.unregisterForNetworkScanResult(mHandler);
+                        deleteScanAndMayNotify(nsri, NetworkScan.SUCCESS, true);
                     }
                 } else {
                     if (nsr.networkInfos != null) {
                         notifyMessenger(nsri, notifyMsg,
                                 rilErrorToScanError(nsr.scanError), nsr.networkInfos);
                     }
-                    deleteScanAndMayNotify(nsri, rilErrorToScanError(nsr.scanError), true);
                     nsri.mPhone.mCi.unregisterForNetworkScanResult(mHandler);
+                    deleteScanAndMayNotify(nsri, rilErrorToScanError(nsr.scanError), true);
                 }
             } else {
                 logEmptyResultOrException(ar);
-                deleteScanAndMayNotify(nsri, NetworkScan.ERROR_RADIO_INTERFACE_ERROR, true);
                 nsri.mPhone.mCi.unregisterForNetworkScanResult(mHandler);
+                deleteScanAndMayNotify(nsri, NetworkScan.ERROR_RADIO_INTERFACE_ERROR, true);
             }
         }
 
@@ -514,6 +516,7 @@ public final class NetworkScanRequestTracker {
                 Log.e(TAG, "EVENT_STOP_NETWORK_SCAN_DONE: nsri is null");
                 return;
             }
+            nsri.mPhone.mCi.unregisterForNetworkScanResult(mHandler);
             if (ar.exception == null && ar.result != null) {
                 deleteScanAndMayNotify(nsri, NetworkScan.SUCCESS, true);
             } else {
@@ -526,7 +529,6 @@ public final class NetworkScanRequestTracker {
                     Log.wtf(TAG, "EVENT_STOP_NETWORK_SCAN_DONE: ar.exception can not be null!");
                 }
             }
-            nsri.mPhone.mCi.unregisterForNetworkScanResult(mHandler);
         }
 
         // Interrupts the live scan is the scanId matches the mScanId of the mLiveRequestInfo.

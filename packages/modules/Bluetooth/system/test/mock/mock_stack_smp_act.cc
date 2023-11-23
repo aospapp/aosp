@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Original included files, if any
 // NOTE: Since this is a mock file with mock definitions some number of
 //       include files may not be required.  The include-what-you-use
@@ -135,296 +133,296 @@ struct smp_br_pairing_complete smp_br_pairing_complete;
 
 // Mocked functions, if any
 void smp_send_app_cback(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_send_app_cback(p_cb, p_data);
 }
 void smp_send_pair_fail(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_send_pair_fail(p_cb, p_data);
 }
 void smp_send_pair_req(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_send_pair_req(p_cb, p_data);
 }
 void smp_send_pair_rsp(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_send_pair_rsp(p_cb, p_data);
 }
 void smp_send_confirm(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_send_confirm(p_cb, p_data);
 }
 void smp_send_init(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_send_init(p_cb, p_data);
 }
 void smp_send_rand(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_send_rand(p_cb, p_data);
 }
 void smp_send_pair_public_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_send_pair_public_key(p_cb, p_data);
 }
 void smp_send_commitment(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_send_commitment(p_cb, p_data);
 }
 void smp_send_dhkey_check(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_send_dhkey_check(p_cb, p_data);
 }
 void smp_send_keypress_notification(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_send_keypress_notification(p_cb, p_data);
 }
 void smp_send_enc_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_send_enc_info(p_cb, p_data);
 }
 void smp_send_id_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_send_id_info(p_cb, p_data);
 }
 void smp_send_csrk_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_send_csrk_info(p_cb, p_data);
 }
 void smp_send_ltk_reply(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_send_ltk_reply(p_cb, p_data);
 }
 void smp_proc_sec_req(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_proc_sec_req(p_cb, p_data);
 }
 void smp_proc_sec_grant(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_proc_sec_grant(p_cb, p_data);
 }
 void smp_proc_pair_fail(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_proc_pair_fail(p_cb, p_data);
 }
 void smp_proc_pair_cmd(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_proc_pair_cmd(p_cb, p_data);
 }
 void smp_proc_confirm(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_proc_confirm(p_cb, p_data);
 }
 void smp_proc_init(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_proc_init(p_cb, p_data);
 }
 void smp_proc_rand(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_proc_rand(p_cb, p_data);
 }
 void smp_process_pairing_public_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_process_pairing_public_key(p_cb, p_data);
 }
 void smp_process_pairing_commitment(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_process_pairing_commitment(p_cb, p_data);
 }
 void smp_process_dhkey_check(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_process_dhkey_check(p_cb, p_data);
 }
 void smp_process_keypress_notification(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_process_keypress_notification(p_cb, p_data);
 }
 void smp_br_process_pairing_command(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_br_process_pairing_command(p_cb, p_data);
 }
 void smp_br_process_security_grant(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_br_process_security_grant(p_cb, p_data);
 }
 void smp_br_check_authorization_request(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_br_check_authorization_request(p_cb, p_data);
 }
 void smp_br_select_next_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_br_select_next_key(p_cb, p_data);
 }
 void smp_proc_enc_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_proc_enc_info(p_cb, p_data);
 }
 void smp_proc_central_id(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_proc_central_id(p_cb, p_data);
 }
 void smp_proc_id_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_proc_id_info(p_cb, p_data);
 }
 void smp_proc_id_addr(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_proc_id_addr(p_cb, p_data);
 }
 void smp_proc_srk_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_proc_srk_info(p_cb, p_data);
 }
 void smp_proc_compare(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_proc_compare(p_cb, p_data);
 }
 void smp_proc_sl_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_proc_sl_key(p_cb, p_data);
 }
 void smp_start_enc(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_start_enc(p_cb, p_data);
 }
 void smp_proc_discard(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_proc_discard(p_cb, p_data);
 }
 void smp_enc_cmpl(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_enc_cmpl(p_cb, p_data);
 }
 void smp_check_auth_req(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_check_auth_req(p_cb, p_data);
 }
 void smp_key_pick_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_key_pick_key(p_cb, p_data);
 }
 void smp_key_distribution(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_key_distribution(p_cb, p_data);
 }
 void smp_decide_association_model(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_decide_association_model(p_cb, p_data);
 }
 void smp_process_io_response(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_process_io_response(p_cb, p_data);
 }
 void smp_br_process_peripheral_keys_response(tSMP_CB* p_cb,
                                              tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_br_process_peripheral_keys_response(p_cb,
                                                                      p_data);
 }
 void smp_br_send_pair_response(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_br_send_pair_response(p_cb, p_data);
 }
 void smp_pairing_cmpl(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_pairing_cmpl(p_cb, p_data);
 }
 void smp_pair_terminate(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_pair_terminate(p_cb, p_data);
 }
 void smp_idle_terminate(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_idle_terminate(p_cb, p_data);
 }
 void smp_both_have_public_keys(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_both_have_public_keys(p_cb, p_data);
 }
 void smp_start_secure_connection_phase1(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_start_secure_connection_phase1(p_cb, p_data);
 }
 void smp_process_local_nonce(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_process_local_nonce(p_cb, p_data);
 }
 void smp_process_peer_nonce(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_process_peer_nonce(p_cb, p_data);
 }
 void smp_match_dhkey_checks(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_match_dhkey_checks(p_cb, p_data);
 }
 void smp_move_to_secure_connections_phase2(tSMP_CB* p_cb,
                                            tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_move_to_secure_connections_phase2(p_cb,
                                                                    p_data);
 }
 void smp_phase_2_dhkey_checks_are_present(tSMP_CB* p_cb,
                                           tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_phase_2_dhkey_checks_are_present(p_cb, p_data);
 }
 void smp_wait_for_both_public_keys(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_wait_for_both_public_keys(p_cb, p_data);
 }
 void smp_start_passkey_verification(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_start_passkey_verification(p_cb, p_data);
 }
 void smp_process_secure_connection_oob_data(tSMP_CB* p_cb,
                                             tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_process_secure_connection_oob_data(p_cb,
                                                                     p_data);
 }
 void smp_set_local_oob_keys(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_set_local_oob_keys(p_cb, p_data);
 }
 void smp_set_local_oob_random_commitment(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_set_local_oob_random_commitment(p_cb, p_data);
 }
 void smp_link_encrypted(const RawAddress& bda, uint8_t encr_enable) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_link_encrypted(bda, encr_enable);
 }
 void smp_cancel_start_encryption_attempt() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_cancel_start_encryption_attempt();
 }
 bool smp_proc_ltk_request(const RawAddress& bda) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_smp_act::smp_proc_ltk_request(bda);
 }
 void smp_process_secure_connection_long_term_key(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_process_secure_connection_long_term_key();
 }
 void smp_set_derive_link_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_set_derive_link_key(p_cb, p_data);
 }
 void smp_derive_link_key_from_long_term_key(tSMP_CB* p_cb,
                                             tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_derive_link_key_from_long_term_key(p_cb,
                                                                     p_data);
 }
 void smp_br_process_link_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_br_process_link_key(p_cb, p_data);
 }
 void smp_key_distribution_by_transport(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_key_distribution_by_transport(p_cb, p_data);
 }
 void smp_br_pairing_complete(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::stack_smp_act::smp_br_pairing_complete(p_cb, p_data);
 }
 

@@ -8,6 +8,8 @@
 
 #include "vkr_common.h"
 
+#include "vkr_context.h"
+
 struct vkr_descriptor_set_layout {
    struct vkr_object base;
 };
@@ -49,5 +51,11 @@ vkr_context_init_descriptor_set_dispatch(struct vkr_context *ctx);
 
 void
 vkr_context_init_descriptor_update_template_dispatch(struct vkr_context *ctx);
+
+static inline void
+vkr_descriptor_pool_release(struct vkr_context *ctx, struct vkr_descriptor_pool *pool)
+{
+   vkr_context_remove_objects(ctx, &pool->descriptor_sets);
+}
 
 #endif /* VKR_DESCRIPTOR_SET_H */

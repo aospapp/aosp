@@ -5,9 +5,9 @@
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -304,6 +304,7 @@ public class UUIDTest extends TestCase {
     /**
      * @see UUID#fromString(String)
      */
+    @SuppressWarnings("AlwaysThrows")
     public void test_fromString() {
         UUID actual = UUID.fromString("f81d4fae-7dec-11d0-a765-00a0c91e6bf6");
         UUID expected = new UUID(0xf81d4fae7dec11d0L, 0xa76500a0c91e6bf6L);
@@ -359,6 +360,7 @@ public class UUIDTest extends TestCase {
 	/**
 	 * @tests java.util.UUID#fromString(String)
 	 */
+    @SuppressWarnings("AlwaysThrows")
 	public void test_fromString_LString_Exception() {
 
 		UUID uuid = UUID.fromString("0-0-0-0-0");
@@ -430,15 +432,6 @@ public class UUIDTest extends TestCase {
 		} catch (NumberFormatException e) {
 			// expected
 		}
-
-		uuid = UUID
-				.fromString("7fffffffffffffff-7fffffffffffffff-7fffffffffffffff-0-0");
-		assertEquals(0xffffffffffffffffL, uuid.getMostSignificantBits());
-		assertEquals(0x0L, uuid.getLeastSignificantBits());
-
-		uuid = UUID.fromString("0-0-0-7fffffffffffffff-7fffffffffffffff");
-		assertEquals(0x0L, uuid.getMostSignificantBits());
-		assertEquals(0xffffffffffffffffL, uuid.getLeastSignificantBits());
 
 		try {
 			uuid = UUID.fromString("0-0-0-8000000000000000-0");

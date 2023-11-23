@@ -13,25 +13,24 @@
 // limitations under the License.
 #include "VulkanStream.h"
 
-#include "IOStream.h"
-
-#include "base/BumpPool.h"
-
-#include "host-common/feature_control.h"
-#include "host-common/GfxstreamFatalError.h"
+#include <inttypes.h>
 
 #include <vector>
 
-#include <inttypes.h>
+#include "IOStream.h"
+#include "aemu/base/BumpPool.h"
+#include "host-common/GfxstreamFatalError.h"
+#include "host-common/feature_control.h"
 
-#define E(fmt,...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
+namespace gfxstream {
+namespace vk {
+
+#define E(fmt, ...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
 
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
 
-namespace goldfish_vk {
-
-VulkanStream::VulkanStream(IOStream *stream) : mStream(stream) {
+VulkanStream::VulkanStream(IOStream* stream) : mStream(stream) {
     unsetHandleMapping();
 
     if (feature_is_enabled(kFeature_VulkanNullOptionalStrings)) {
@@ -47,13 +46,9 @@ VulkanStream::VulkanStream(IOStream *stream) : mStream(stream) {
 
 VulkanStream::~VulkanStream() = default;
 
-void VulkanStream::setStream(IOStream* stream) {
-    mStream = stream;
-}
+void VulkanStream::setStream(IOStream* stream) { mStream = stream; }
 
-bool VulkanStream::valid() {
-    return true;
-}
+bool VulkanStream::valid() { return true; }
 
 void VulkanStream::alloc(void** ptrAddr, size_t bytes) {
     if (!bytes) {
@@ -64,8 +59,7 @@ void VulkanStream::alloc(void** ptrAddr, size_t bytes) {
     *ptrAddr = mPool.alloc(bytes);
 
     if (!*ptrAddr) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
-                "alloc failed. Wanted size: " << bytes;
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "alloc failed. Wanted size: " << bytes;
     }
 }
 
@@ -89,7 +83,7 @@ void VulkanStream::loadStringArrayInPlace(char*** forOutput) {
 
     alloc((void**)forOutput, count * sizeof(char*));
 
-    char **stringsForOutput = *forOutput;
+    char** stringsForOutput = *forOutput;
 
     for (size_t i = 0; i < count; i++) {
         loadStringInPlace(stringsForOutput + i);
@@ -103,8 +97,8 @@ void VulkanStream::loadStringInPlaceWithStreamPtr(char** forOutput, uint8_t** st
     android::base::Stream::fromBe32((uint8_t*)&len);
 
     if (len == UINT32_MAX) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
-                "VulkanStream can't allocate UINT32_MAX bytes";
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "VulkanStream can't allocate UINT32_MAX bytes";
     }
 
     alloc((void**)forOutput, len + 1);
@@ -129,14 +123,14 @@ void VulkanStream::loadStringArrayInPlaceWithStreamPtr(char*** forOutput, uint8_
 
     alloc((void**)forOutput, count * sizeof(char*));
 
-    char **stringsForOutput = *forOutput;
+    char** stringsForOutput = *forOutput;
 
     for (size_t i = 0; i < count; i++) {
         loadStringInPlaceWithStreamPtr(stringsForOutput + i, streamPtr);
     }
 }
 
-ssize_t VulkanStream::read(void *buffer, size_t size) {
+ssize_t VulkanStream::read(void* buffer, size_t size) {
     commitWrite();
     if (!mStream->readFully(buffer, size)) {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
@@ -145,11 +139,9 @@ ssize_t VulkanStream::read(void *buffer, size_t size) {
     return size;
 }
 
-size_t VulkanStream::remainingWriteBufferSize() const {
-    return mWriteBuffer.size() - mWritePos;
-}
+size_t VulkanStream::remainingWriteBufferSize() const { return mWriteBuffer.size() - mWritePos; }
 
-ssize_t VulkanStream::bufferedWrite(const void *buffer, size_t size) {
+ssize_t VulkanStream::bufferedWrite(const void* buffer, size_t size) {
     if (size > remainingWriteBufferSize()) {
         mWriteBuffer.resize((mWritePos + size) << 1);
     }
@@ -158,18 +150,15 @@ ssize_t VulkanStream::bufferedWrite(const void *buffer, size_t size) {
     return size;
 }
 
-ssize_t VulkanStream::write(const void *buffer, size_t size) {
-    return bufferedWrite(buffer, size);
-}
+ssize_t VulkanStream::write(const void* buffer, size_t size) { return bufferedWrite(buffer, size); }
 
 void VulkanStream::commitWrite() {
     if (!valid()) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
-                            "Tried to commit write to vulkan pipe with invalid pipe!";
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Tried to commit write to vulkan pipe with invalid pipe!";
     }
 
-    int written =
-        mStream->writeFully(mWriteBuffer.data(), mWritePos);
+    int written = mStream->writeFully(mWriteBuffer.data(), mWritePos);
 
     if (written) {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
@@ -178,34 +167,24 @@ void VulkanStream::commitWrite() {
     mWritePos = 0;
 }
 
-void VulkanStream::clearPool() {
-    mPool.freeAll();
-}
+void VulkanStream::clearPool() { mPool.freeAll(); }
 
 void VulkanStream::setHandleMapping(VulkanHandleMapping* mapping) {
     mCurrentHandleMapping = mapping;
 }
 
-void VulkanStream::unsetHandleMapping() {
-    mCurrentHandleMapping = &mDefaultHandleMapping;
-}
+void VulkanStream::unsetHandleMapping() { mCurrentHandleMapping = &mDefaultHandleMapping; }
 
-VulkanHandleMapping* VulkanStream::handleMapping() const {
-    return mCurrentHandleMapping;
-}
+VulkanHandleMapping* VulkanStream::handleMapping() const { return mCurrentHandleMapping; }
 
-uint32_t VulkanStream::getFeatureBits() const {
-    return mFeatureBits;
-}
+uint32_t VulkanStream::getFeatureBits() const { return mFeatureBits; }
 
-android::base::BumpPool* VulkanStream::pool() {
-    return &mPool;
-}
+android::base::BumpPool* VulkanStream::pool() { return &mPool; }
 
 VulkanMemReadingStream::VulkanMemReadingStream(uint8_t* start)
     : VulkanStream(nullptr), mStart(start) {}
 
-VulkanMemReadingStream::~VulkanMemReadingStream() { }
+VulkanMemReadingStream::~VulkanMemReadingStream() {}
 
 void VulkanMemReadingStream::setBuf(uint8_t* buf) {
     mStart = buf;
@@ -213,13 +192,9 @@ void VulkanMemReadingStream::setBuf(uint8_t* buf) {
     resetTrace();
 }
 
-uint8_t* VulkanMemReadingStream::getBuf() {
-    return mStart;
-}
+uint8_t* VulkanMemReadingStream::getBuf() { return mStart; }
 
-void VulkanMemReadingStream::setReadPos(uintptr_t pos) {
-    mReadPos = pos;
-}
+void VulkanMemReadingStream::setReadPos(uintptr_t pos) { mReadPos = pos; }
 
 ssize_t VulkanMemReadingStream::read(void* buffer, size_t size) {
     memcpy(buffer, mStart + mReadPos, size);
@@ -228,8 +203,8 @@ ssize_t VulkanMemReadingStream::read(void* buffer, size_t size) {
 }
 
 ssize_t VulkanMemReadingStream::write(const void* buffer, size_t size) {
-    GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
-            "VulkanMemReadingStream does not support writing";
+    GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+        << "VulkanMemReadingStream does not support writing";
 }
 
 uint8_t* VulkanMemReadingStream::beginTrace() {
@@ -243,8 +218,7 @@ size_t VulkanMemReadingStream::endTrace() {
     return res;
 }
 
-void VulkanMemReadingStream::resetTrace() {
-    mTraceStart = mStart + mReadPos;
-}
+void VulkanMemReadingStream::resetTrace() { mTraceStart = mStart + mReadPos; }
 
-} // namespace goldfish_vk
+}  // namespace vk
+}  // namespace gfxstream

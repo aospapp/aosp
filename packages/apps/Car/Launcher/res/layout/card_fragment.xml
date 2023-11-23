@@ -108,4 +108,6 @@
                       android:layout="@layout/card_content_media"/>
         </FrameLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
+    <include layout="@layout/optional_seek_bar_with_times"
+             android:id="@+id/optional_seek_bar_with_times_container"/>
 </androidx.cardview.widget.CardView>

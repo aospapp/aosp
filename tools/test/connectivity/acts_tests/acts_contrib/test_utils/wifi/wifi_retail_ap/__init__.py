@@ -18,11 +18,17 @@ import collections.abc
 import copy
 import fcntl
 import importlib
+import logging
 import os
 import selenium
-import splinter
 import time
 from acts import logger
+from selenium.webdriver.support.ui import Select
+from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as expected_conditions
+from webdriver_manager.chrome import ChromeDriverManager
+
 
 BROWSER_WAIT_SHORT = 1
 BROWSER_WAIT_MED = 3
@@ -106,7 +112,7 @@ def destroy(objs):
         obj.teardown()
 
 
-class BlockingBrowser(splinter.driver.webdriver.chrome.WebDriver):
+class BlockingBrowser(selenium.webdriver.chrome.webdriver.WebDriver):
     """Class that implements a blocking browser session on top of selenium.
 
     The class inherits from and builds upon splinter/selenium's webdriver class
@@ -115,6 +121,7 @@ class BlockingBrowser(splinter.driver.webdriver.chrome.WebDriver):
     The class is to be used within context managers (e.g. with statements) to
     ensure locks are always properly released.
     """
+
     def __init__(self, headless, timeout):
         """Constructor for BlockingBrowser class.
 
@@ -122,10 +129,14 @@ class BlockingBrowser(splinter.driver.webdriver.chrome.WebDriver):
             headless: boolean to control visible/headless browser operation
             timeout: maximum time allowed to launch browser
         """
+        if int(selenium.__version__[0]) < 4:
+            raise RuntimeError(
+                'BlockingBrowser now requires selenium==4.0.0 or later. ')
         self.log = logger.create_tagged_trace_logger('ChromeDriver')
-        self.chrome_options = splinter.driver.webdriver.chrome.Options()
+        self.chrome_options = selenium.webdriver.chrome.webdriver.Options()
         self.chrome_options.add_argument('--no-proxy-server')
         self.chrome_options.add_argument('--no-sandbox')
+        self.chrome_options.add_argument('--crash-dumps-dir=/tmp')
         self.chrome_options.add_argument('--allow-running-insecure-content')
         self.chrome_options.add_argument('--ignore-certificate-errors')
         self.chrome_capabilities = selenium.webdriver.common.desired_capabilities.DesiredCapabilities.CHROME.copy(
@@ -135,7 +146,8 @@ class BlockingBrowser(splinter.driver.webdriver.chrome.WebDriver):
         if headless:
             self.chrome_options.add_argument('--headless')
             self.chrome_options.add_argument('--disable-gpu')
-        self.lock_file_path = '/usr/local/bin/chromedriver'
+        os.environ['WDM_LOG'] = str(logging.NOTSET)
+        self.executable_path = ChromeDriverManager().install()
         self.timeout = timeout
 
     def __enter__(self):
@@ -146,7 +158,7 @@ class BlockingBrowser(splinter.driver.webdriver.chrome.WebDriver):
         session. If an exception occurs while starting the browser, the lock
         file is released.
         """
-        self.lock_file = open(self.lock_file_path, 'r')
+        self.lock_file = open(self.executable_path, 'r')
         start_time = time.time()
         while time.time() < start_time + self.timeout:
             try:
@@ -156,14 +168,11 @@ class BlockingBrowser(splinter.driver.webdriver.chrome.WebDriver):
                 continue
             try:
                 self.driver = selenium.webdriver.Chrome(
+                    service=ChromeService(self.executable_path),
                     options=self.chrome_options,
                     desired_capabilities=self.chrome_capabilities)
-                self.element_class = splinter.driver.webdriver.WebDriverElement
-                self._cookie_manager = splinter.driver.webdriver.cookie_manager.CookieManager(
-                    self.driver)
-                super(splinter.driver.webdriver.chrome.WebDriver,
-                      self).__init__(2)
-                return super(BlockingBrowser, self).__enter__()
+                self.session_id = self.driver.session_id
+                return self
             except:
                 fcntl.flock(self.lock_file, fcntl.LOCK_UN)
                 self.lock_file.close()
@@ -178,8 +187,7 @@ class BlockingBrowser(splinter.driver.webdriver.chrome.WebDriver):
         releases the lock file.
         """
         try:
-            super(BlockingBrowser, self).__exit__(exc_type, exc_value,
-                                                  traceback)
+            self.driver.quit()
         except:
             raise RuntimeError('Failed to quit browser. Releasing lock file.')
         finally:
@@ -188,7 +196,7 @@ class BlockingBrowser(splinter.driver.webdriver.chrome.WebDriver):
 
     def restart(self):
         """Method to restart browser session without releasing lock file."""
-        self.quit()
+        self.driver.quit()
         self.__enter__()
 
     def visit_persistent(self,
@@ -214,21 +222,25 @@ class BlockingBrowser(splinter.driver.webdriver.chrome.WebDriver):
         self.driver.set_page_load_timeout(page_load_timeout)
         for idx in range(num_tries):
             try:
-                self.visit(url)
+                self.driver.get(url)
             except:
                 self.restart()
 
-            page_reached = self.url.split('/')[-1] == url.split('/')[-1]
-            if check_for_element:
-                time.sleep(BROWSER_WAIT_MED)
-                element = self.find_by_id(check_for_element)
-                if not element:
-                    page_reached = 0
+            page_reached = self.driver.current_url.split('/')[-1] == url.split(
+                '/')[-1]
             if page_reached:
-                break
+                if check_for_element:
+                    time.sleep(BROWSER_WAIT_MED)
+                    if self.is_element_visible(check_for_element):
+                        break
+                    else:
+                        raise RuntimeError(
+                            'Page reached but expected element not found.')
+                else:
+                    break
             else:
                 try:
-                    self.visit(backup_url)
+                    self.driver.get(backup_url)
                 except:
                     self.restart()
 
@@ -236,6 +248,125 @@ class BlockingBrowser(splinter.driver.webdriver.chrome.WebDriver):
                 self.log.error('URL unreachable. Current URL: {}'.format(
                     self.url))
                 raise RuntimeError('URL unreachable.')
+
+    def get_element_value(self, element_name):
+        """Function to look up and get webpage element value.
+
+        Args:
+            element_name: name of element to look up
+        Returns:
+            Value of element
+        """
+        #element = self.driver.find_element_by_name(element_name)
+        element = self.driver.find_element(By.NAME, element_name)
+        element_type = self.get_element_type(element_name)
+        if element_type == 'checkbox':
+            return element.is_selected()
+        elif element_type == 'radio':
+            items = self.driver.find_elements(By.NAME, element_name)
+            for item in items:
+                if item.is_selected():
+                    return item.get_attribute('value')
+        else:
+            return element.get_attribute('value')
+
+    def get_element_type(self, element_name):
+        """Function to look up and get webpage element type.
+
+        Args:
+            element_name: name of element to look up
+        Returns:
+            Type of element
+        """
+        item = self.driver.find_element(By.NAME, element_name)
+        type = item.get_attribute('type')
+        return type
+
+    def is_element_enabled(self, element_name):
+        """Function to check if element is enabled/interactable.
+
+        Args:
+            element_name: name of element to look up
+        Returns:
+            Boolean indicating if element is interactable
+        """
+        item = self.driver.find_element(By.NAME, element_name)
+        return item.is_enabled()
+
+    def is_element_visible(self, element_name):
+        """Function to check if element is visible.
+
+        Args:
+            element_name: name of element to look up
+        Returns:
+            Boolean indicating if element is visible
+        """
+        item = self.driver.find_element(By.NAME, element_name)
+        return item.is_displayed()
+
+    def set_element_value(self, element_name, value, select_method='value'):
+        """Function to set webpage element value.
+
+        Args:
+            element_name: name of element to set
+            value: value of element
+            select_method: select method for dropdown lists (value/index/text)
+        """
+        element_type = self.get_element_type(element_name)
+        if element_type == 'text' or element_type == 'password':
+            item = self.driver.find_element(By.NAME, element_name)
+            item.clear()
+            item.send_keys(value)
+        elif element_type == 'checkbox':
+            item = self.driver.find_element(By.NAME, element_name)
+            if value != item.is_selected():
+                item.click()
+        elif element_type == 'radio':
+            items = self.driver.find_elements(By.NAME, element_name)
+            for item in items:
+                if item.get_attribute('value') == value:
+                    item.click()
+        elif element_type == 'select-one':
+            select = Select(self.driver.find_element(By.NAME, element_name))
+            if select_method == 'value':
+                select.select_by_value(str(value))
+            elif select_method == 'text':
+                select.select_by_visible_text(value)
+            elif select_method == 'index':
+                select.select_by_index(value)
+            else:
+                raise RuntimeError(
+                    '{} is not a valid select method.'.format(select_method))
+        else:
+            raise RuntimeError(
+                'Element type {} not supported.'.format(element_type))
+
+    def click_button(self, button_name):
+        """Function to click button on webpage
+
+        Args:
+            button_name: name of button to click
+        """
+        button = self.driver.find_element(By.NAME, button_name)
+        if button.get_attribute('type') == 'submit':
+            button.click()
+        else:
+            raise RuntimeError('{} is not a button.'.format(button_name))
+
+    def accept_alert_if_present(self, wait_for_alert=1):
+        """Function to check for alert and accept if present
+
+        Args:
+            wait_for_alert: time (seconds) to wait for alert
+        """
+        try:
+            selenium.webdriver.support.ui.WebDriverWait(
+                self.driver,
+                wait_for_alert).until(expected_conditions.alert_is_present())
+            alert = self.driver.switch_to.alert
+            alert.accept()
+        except selenium.common.exceptions.TimeoutException:
+            pass
 
 
 class WifiRetailAP(object):
@@ -245,6 +376,7 @@ class WifiRetailAP(object):
     If some functions such as set_power not supported by ap, checks will raise
     exceptions.
     """
+
     def __init__(self, ap_settings):
         self.ap_settings = ap_settings.copy()
         self.log = logger.create_tagged_trace_logger('AccessPoint|{}'.format(
@@ -274,7 +406,6 @@ class WifiRetailAP(object):
         Function implementation is AP dependent and intended to perform any
         necessary reset operations as part of controller destroy.
         """
-        pass
 
     def read_ap_settings(self):
         """Function that reads current ap settings.

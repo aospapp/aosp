@@ -17,15 +17,13 @@
 from acts import asserts
 from acts import utils
 from acts.controllers.access_point import setup_ap
-from acts.controllers.ap_lib import hostapd_ap_preset
 from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.ap_lib.hostapd_security import Security
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
-from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 
 
-class VapeInteropTest(AbstractDeviceWlanDeviceBaseTest):
+class VapeInteropTest(WifiBaseTest):
     """Tests interoperability with mock third party AP profiles.
 
     Test Bed Requirement:

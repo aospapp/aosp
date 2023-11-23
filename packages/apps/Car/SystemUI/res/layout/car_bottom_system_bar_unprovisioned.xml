@@ -36,6 +36,7 @@
             android:layout_width="@*android:dimen/car_touch_target_size"
             android:layout_height="match_parent"
             android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="@string/system_bar_home_label"
             systemui:icon="@drawable/car_ic_overview"
             systemui:intent="intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.HOME;launchFlags=0x14000000;end"
             systemui:selectedIcon="@drawable/car_ic_overview_selected"

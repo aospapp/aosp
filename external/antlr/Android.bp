@@ -53,6 +53,9 @@ java_library_host {
     //Remove DOTTreeGenerator.java, so that we don't have the StringTemplate library as a dependency
     exclude_srcs: ["runtime/Java/src/main/java/org/antlr/runtime/tree/DOTTreeGenerator.java"],
     errorprone: {
-        javacflags: ["-Xep:MissingOverride:OFF"],  // b/73499927
+        javacflags: [
+            "-Xep:MissingOverride:OFF", // b/73499927
+            "-Xep:EqualsHashCode:WARN",
+        ],
     },
 }

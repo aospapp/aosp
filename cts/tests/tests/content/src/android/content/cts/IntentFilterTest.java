@@ -39,6 +39,7 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.Uri;
 import android.os.Parcel;
 import android.os.PatternMatcher;
+import android.platform.test.annotations.PlatinumTest;
 import android.provider.Contacts.People;
 import android.test.AndroidTestCase;
 import android.util.Printer;
@@ -63,6 +64,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 
+@PlatinumTest(focusArea = "pm")
 public class IntentFilterTest extends AndroidTestCase {
 
     private IntentFilter mIntentFilter;

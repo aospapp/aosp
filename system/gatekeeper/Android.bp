@@ -33,17 +33,21 @@ cc_library_shared {
         "-Wall",
         "-Werror",
         "-g",
+        "-fno-sanitize-coverage=edge,indirect-calls,8bit-counters,trace-cmp",
     ],
     header_libs: [
         "libhardware_headers",
     ],
-
+    target: {
+        windows: {
+            enabled: true,
+            host_ldlibs: [
+                "-lws2_32",
+            ],
+        },
+    },
     export_include_dirs: ["include"],
 
-    // TODO(krasin): reenable coverage flags, when the new Clang toolchain is released.
-    // Currently, if enabled, these flags will cause an internal error in Clang.
-    // Bug: 25119481
-    clang_cflags: ["-fno-sanitize-coverage=edge,indirect-calls,8bit-counters,trace-cmp"],
 }
 
 // libgatekeeper_static is an empty static library that exports

@@ -19,6 +19,8 @@ package com.android.car.telemetry.sessioncontroller;
 import android.annotation.NonNull;
 import android.os.PersistableBundle;
 
+import com.android.car.telemetry.publisher.Constants;
+
 import java.util.Objects;
 
 /**
@@ -27,13 +29,6 @@ import java.util.Objects;
  * respective public fields are equal by value.
  */
 public class SessionAnnotation {
-    public static final String ANNOTATION_BUNDLE_KEY_SESSION_ID = "sessionId";
-    public static final String ANNOTATION_BUNDLE_KEY_SESSION_STATE = "sessionState";
-    public static final String ANNOTATION_BUNDLE_KEY_CREATED_AT_SINCE_BOOT_MILLIS =
-            "createdAtSinceBootMillis";
-    public static final String ANNOTATION_BUNDLE_KEY_CREATED_AT_MILLIS = "createdAtMillis";
-    public static final String ANNOTATION_BUNDLE_KEY_BOOT_REASON = "bootReason";
-
     public final int sessionId;
     public final int sessionState;
     public final long createdAtSinceBootMillis; // Milliseconds since boot.
@@ -41,41 +36,46 @@ public class SessionAnnotation {
     // to capture situations in later analysis when the data might be affected by a sudden reboot
     // due to a crash. Populated from sys.boot.reason property.
     public final String bootReason;
+    public final int bootCount;
 
     public SessionAnnotation(
             int sessionId,
             @SessionController.SessionControllerState int sessionState,
             long createdAtSinceBootMillis,
             long createdAtMillis,
-            String bootReason) {
+            String bootReason,
+            int bootCount) {
         this.sessionId = sessionId;
         this.sessionState = sessionState;
         // including deep sleep, similar to SystemClock.elapsedRealtime()
         this.createdAtSinceBootMillis = createdAtSinceBootMillis;
         this.createdAtMillis = createdAtMillis; // unix time
         this.bootReason = bootReason;
+        this.bootCount = bootCount;
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(sessionId, sessionState, createdAtSinceBootMillis, createdAtMillis,
-                bootReason);
+                bootReason, bootCount);
     }
 
     @Override
     public String toString() {
         return new StringBuilder()
                 .append("{")
-                .append(ANNOTATION_BUNDLE_KEY_SESSION_ID).append(": ")
+                .append(Constants.ANNOTATION_BUNDLE_KEY_SESSION_ID).append(": ")
                 .append(sessionId).append(", ")
-                .append(ANNOTATION_BUNDLE_KEY_SESSION_STATE).append(": ")
+                .append(Constants.ANNOTATION_BUNDLE_KEY_SESSION_STATE).append(": ")
                 .append(sessionState).append(", ")
-                .append(ANNOTATION_BUNDLE_KEY_CREATED_AT_SINCE_BOOT_MILLIS).append(": ")
+                .append(Constants.ANNOTATION_BUNDLE_KEY_CREATED_AT_SINCE_BOOT_MILLIS).append(": ")
                 .append(createdAtSinceBootMillis).append(", ")
-                .append(ANNOTATION_BUNDLE_KEY_CREATED_AT_MILLIS).append(": ")
+                .append(Constants.ANNOTATION_BUNDLE_KEY_CREATED_AT_MILLIS).append(": ")
                 .append(createdAtMillis).append(", ")
-                .append(ANNOTATION_BUNDLE_KEY_BOOT_REASON).append(": ")
+                .append(Constants.ANNOTATION_BUNDLE_KEY_BOOT_REASON).append(": ")
                 .append(bootReason)
+                .append(Constants.ANNOTATION_BUNDLE_KEY_BOOT_COUNT).append(": ")
+                .append(bootCount)
                 .append("}")
                 .toString();
     }
@@ -98,7 +98,8 @@ public class SessionAnnotation {
                 && sessionState == other.sessionState
                 && createdAtSinceBootMillis == other.createdAtSinceBootMillis
                 && createdAtMillis == other.createdAtMillis
-                && Objects.equals(bootReason, other.bootReason);
+                && Objects.equals(bootReason, other.bootReason)
+                && bootCount == other.bootCount;
     }
 
     /**
@@ -107,12 +108,13 @@ public class SessionAnnotation {
      * @param bundle A {@link PersistableBundle} that we want to get the annotations to.
      */
     public void addAnnotationsToBundle(@NonNull PersistableBundle bundle) {
-        bundle.putInt(ANNOTATION_BUNDLE_KEY_SESSION_ID, sessionId);
-        bundle.putInt(ANNOTATION_BUNDLE_KEY_SESSION_STATE, sessionState);
-        bundle.putLong(ANNOTATION_BUNDLE_KEY_CREATED_AT_SINCE_BOOT_MILLIS,
+        bundle.putInt(Constants.ANNOTATION_BUNDLE_KEY_SESSION_ID, sessionId);
+        bundle.putInt(Constants.ANNOTATION_BUNDLE_KEY_SESSION_STATE, sessionState);
+        bundle.putLong(Constants.ANNOTATION_BUNDLE_KEY_CREATED_AT_SINCE_BOOT_MILLIS,
                 createdAtSinceBootMillis);
-        bundle.putLong(ANNOTATION_BUNDLE_KEY_CREATED_AT_MILLIS, createdAtMillis);
-        bundle.putString(ANNOTATION_BUNDLE_KEY_BOOT_REASON, bootReason);
+        bundle.putLong(Constants.ANNOTATION_BUNDLE_KEY_CREATED_AT_MILLIS, createdAtMillis);
+        bundle.putString(Constants.ANNOTATION_BUNDLE_KEY_BOOT_REASON, bootReason);
+        bundle.putInt(Constants.ANNOTATION_BUNDLE_KEY_BOOT_COUNT, bootCount);
     }
 
 }

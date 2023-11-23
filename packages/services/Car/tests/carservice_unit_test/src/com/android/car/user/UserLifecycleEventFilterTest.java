@@ -23,7 +23,7 @@ import static com.android.car.internal.common.CommonConstants.USER_LIFECYCLE_EVE
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.testng.Assert.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import android.app.ActivityManager;
 import android.car.test.mocks.AbstractExtendedMockitoTestCase;

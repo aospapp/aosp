@@ -35,8 +35,6 @@
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.netlegacy22.api.cts"
                      android:label="CTS tests of legacy android.net APIs as of API 22">
-        <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>
 
 </manifest>

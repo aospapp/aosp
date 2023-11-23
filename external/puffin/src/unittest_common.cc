@@ -4,6 +4,8 @@
 
 #include "puffin/src/unittest_common.h"
 
+#include <unistd.h>
+
 using std::string;
 using std::vector;
 

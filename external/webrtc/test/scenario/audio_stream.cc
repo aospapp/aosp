@@ -129,10 +129,8 @@ SendAudioStream::SendAudioStream(
 
   sender_->SendTask([&] {
     send_stream_ = sender_->call_->CreateAudioSendStream(send_config);
-    if (field_trial::IsEnabled("WebRTC-SendSideBwe-WithOverhead")) {
-      sender->call_->OnAudioTransportOverheadChanged(
-          sender_->transport_->packet_overhead().bytes());
-    }
+    sender->call_->OnAudioTransportOverheadChanged(
+        sender_->transport_->packet_overhead().bytes());
   });
 }
 
@@ -175,7 +173,7 @@ ReceiveAudioStream::ReceiveAudioStream(
     rtc::scoped_refptr<AudioDecoderFactory> decoder_factory,
     Transport* feedback_transport)
     : receiver_(receiver), config_(config) {
-  AudioReceiveStream::Config recv_config;
+  AudioReceiveStreamInterface::Config recv_config;
   recv_config.rtp.local_ssrc = receiver_->GetNextAudioLocalSsrc();
   recv_config.rtcp_send_transport = feedback_transport;
   recv_config.rtp.remote_ssrc = send_stream->ssrc_;
@@ -185,7 +183,6 @@ ReceiveAudioStream::ReceiveAudioStream(
     recv_config.rtp.extensions = {{RtpExtension::kTransportSequenceNumberUri,
                                    kTransportSequenceNumberExtensionId}};
   }
-  receiver_->AddExtensions(recv_config.rtp.extensions);
   recv_config.decoder_factory = decoder_factory;
   recv_config.decoder_map = {
       {CallTest::kAudioSendPayloadType, {"opus", 48000, 2}}};
@@ -210,9 +207,11 @@ void ReceiveAudioStream::Stop() {
   receiver_->SendTask([&] { receive_stream_->Stop(); });
 }
 
-AudioReceiveStream::Stats ReceiveAudioStream::GetStats() const {
-  AudioReceiveStream::Stats result;
-  receiver_->SendTask([&] { result = receive_stream_->GetStats(); });
+AudioReceiveStreamInterface::Stats ReceiveAudioStream::GetStats() const {
+  AudioReceiveStreamInterface::Stats result;
+  receiver_->SendTask([&] {
+    result = receive_stream_->GetStats(/*get_and_clear_legacy_stats=*/true);
+  });
   return result;
 }
 

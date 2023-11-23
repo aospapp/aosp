@@ -1,28 +1,40 @@
 # external_updater
 
-external updater is a tool to automatically updates libraries in external/ .
+external updater is a tool to automatically update libraries in external/.
 
 ## Usage
 
-Check updates for a library, or verify METADATA is valid:
+Check updates for a library or verify METADATA is valid:
 
 ```shell
 tools/external_updater/updater.sh check ${LIBNAME}
 ```
 
-Check updates for all libraries in external/:
-
-```shell
-tools/external_updater/updater.sh check --all
-```
-
-Update a library:
+Update a library, commit, and upload the change to Gerrit:
 
 ```shell
 tools/external_updater/updater.sh update ${LIBNAME}
 ```
 
-LIBNAME can be the path to a library under external/. E.g. kotlinc, or
+Update a library without committing and uploading to Gerrit:
+
+```shell
+tools/external_updater/updater.sh update --no-upload ${LIBNAME}
+```
+
+Update a library on top of the local changes in the current branch, commit, and upload the change to Gerrit:
+
+```shell
+tools/external_updater/updater.sh update --keep-local-changes ${LIBNAME}
+```
+
+Update a library without building:
+
+```shell
+tools/external_updater/updater.sh update --no-build ${LIBNAME}
+```
+
+LIBNAME can be the path to a library under external/, e.g. kotlinc, or
 python/cpython3.
 
 ## Configure
@@ -105,8 +117,10 @@ If more files need to be reserved, a post_update.sh can be created to copy
 these files over.
 See [example](https://android.googlesource.com/platform/external/kotlinc/+/refs/heads/master/post_update.sh).
 
+#### Local patches
+
 Local patches can be kept as patches/*.diff. They will be applied after
-upgrade. [example](https://cs.corp.google.com/android/external/jsmn/patches/header.diff)
+upgrade. [example](https://cs.android.com/android/platform/superproject/+/master:external/jsmn/patches/header.diff)
 
 ## Email notification
 

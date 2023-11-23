@@ -39,7 +39,11 @@ public class A2dpDeviceCriteria extends BluetoothDeviceCriteria {
                 majorMinorClass == BluetoothClass.Device.AUDIO_VIDEO_LOUDSPEAKER ||
                 majorMinorClass == BluetoothClass.Device.AUDIO_VIDEO_PORTABLE_AUDIO ||
                 majorMinorClass == BluetoothClass.Device.AUDIO_VIDEO_HIFI_AUDIO ||
-                majorMinorClass == BluetoothClass.Device.AUDIO_VIDEO_VIDEO_DISPLAY_AND_LOUDSPEAKER
+                majorMinorClass ==
+                        BluetoothClass.Device.AUDIO_VIDEO_VIDEO_DISPLAY_AND_LOUDSPEAKER ||
+                majorMinorClass == BluetoothClass.Device.AUDIO_VIDEO_HANDSFREE ||
+                majorMinorClass == BluetoothClass.Device.AUDIO_VIDEO_SET_TOP_BOX ||
+                majorMinorClass == 1036 // AUDIO_VIDEO_RESERVED
         );
     }
 }

@@ -34,3 +34,11 @@ license {
         "NOTICE",
     ],
 }
+
+prebuilt_etc {
+    name: "preinstalled-packages-product-gs101-device-debug.xml",
+    src: "preinstalled-packages-product-gs101-device-debug.xml",
+    product_specific: true,
+    sub_dir: "sysconfig",
+    filename_from_src: true,
+}

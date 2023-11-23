@@ -17,8 +17,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.car.caruiportrait.rro">
     <application android:hasCode="false" />
-    <overlay android:priority="20"
-             android:targetPackage="com.android.car"
+    <overlay android:priority="2500"
+             android:targetName="CarServiceCustomization"
+             android:targetPackage="com.android.car.updatable"
              android:resourcesMap="@xml/overlays"
-             android:isStatic="true" />
+             android:category="caruiportrait.car"
+             android:isStatic="false" />
 </manifest>

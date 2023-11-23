@@ -1,12 +1,93 @@
 If you want to import files from the OpenJDK into `libcore/`, you are reading
 the right documentation.
 
+# Concept
+
+```text
+---------A----------C------------   expected_upstream
+          \          \
+-----------B----------D----------   master
+```
+
 The general idea is to get a change from OpenJDK into libcore in AOSP by
 `git merge` from an OpenJDK branch. However, each file in `ojluni/` can come
 from a different OpenJDK version. `expected_upstream` is a staging branch
 storing the OpenJDK version of each file. Thus, we can use `git merge` when
 we update an `ojluni/` file from a new upstream version, and the command should
 automatically merge the file if no merge conflict.
+
+# Workflow
+
+## Prerequisite
+* python3
+* pip3
+* A remote `aosp` is setup in your local git repository
+
+## 1. Setup
+```shell
+cd $ANDROID_BUILD_TOP/libcore
+source ./tools/expected_upstream/install_tools.sh
+```
+
+## 2. Upgrade a java class to a higher OpenJDK version
+For example, upgrade `java.lang.String` to 11.0.13-ga version:
+
+```shell
+ojluni_modify_expectation modify java.lang.String jdk11u/jdk-11.0.13-ga
+ojluni_merge_to_master # -b <bug id> if it fixes any bug
+```
+
+or if `java.lang.String` is missing in the EXPECTED_UPSTREAM file:
+```shell
+ojluni_modify_expectation add jdk11u/jdk-11.0.13-ga java.lang.String
+ojluni_merge_to_master # -b <bug id> if it fixes any bug
+```
+
+`ojluni_merge_to_master` will `git-merge` from the upstream branch.
+If you see any merge conflicts, please resolve the merge conflicts as usual,
+and then run `git commit` to finalize the commit.
+
+### Iteration
+You can build and test the change. If you need to import more files,
+```shell
+ojluni_modify_expectation ...
+# -a imports more files into the last merge commit instead of a new commit
+ojluni_merge_to_master -a
+```
+
+### Bash Autocompletion
+For auto-completion, `ojluni_modify_expectation` supports bash autocompletion.
+```shell
+$ ojluni_modify_expectation modify java.lang.Str    # <tab>
+java.lang.StrictMath                       java.lang.StringBuilder                    java.lang.StringUTF16
+java.lang.String                           java.lang.StringCoding                     
+java.lang.StringBuffer                     java.lang.StringIndexOutOfBoundsException 
+```
+
+## 2a. Add a java test from the upstream
+
+The process is similar to the above commands, but needs to run
+`ojluni_modify_expectation` with an `add` subcommand.
+
+For example, add a test for `String.isEmpty()` method:
+```shell
+ojluni_modify_expectation add jdk8u/jdk8u121-b13 java.lang.String.IsEmpty
+# -a imports more files into the last merge commit instead of a new commit
+ojluni_merge_to_master -a
+```
+Note: `java.lang.String.IsEmpty` is a test class in the upstream repository.
+
+# 3. Upload your changes for code reviews
+
+After you build and test, you are satisfied with your change, you can upload
+the change with the following commands
+
+```shell
+# Upload the original upstream files to the expected_upstream branch
+$ git push aosp HEAD^2:refs/for/expected_upstream
+# Upload the merge commit to the master branch
+$ repo upload --cbr .
+```
 
 # Directory Layout
 in the `aosp/expected_upstream` branch.
@@ -22,6 +103,25 @@ in the `aosp/expected_upstream` branch.
     * Contains the tools
 
 # Understanding your change
+
+## Changes that should be made via the `aosp/expected_upstream` branch
+1. Add or upgrade a file from the upstream OpenJDK
+    * You are reading the right document! This documentation tells you how to
+      import the file from the upstream. Later, you can merge the file and
+      `expected_upstream` into `aosp/master` branch.
+2. Remove an `ojluni/` file that originally came from the OpenJDK
+    * Please remove the file on both `aosp/master` and `aosp/expected_upstream`
+      branches. Don't forget to remove the entry in the `EXPECTED_UPSTREAM` too.
+3. Revert the merge commit on `aosp/master` from `expected_upstream`
+    * If you don't plan to re-land your change on `aosp/master`, you should
+      probably revert the change `aosp/expected_upstream` as well.
+    * If you plan to re-land your change, your re-landing commit won't be
+      a merge commit, because `git` doesn't allow you to merge the same commit
+      twice into the same branch. You have 2 options
+        1. Revert your change on `expected_upsteam` too and start over again
+          when you reland your change
+        2. Just accept that the re-landing commit won't be a merge commit.
+
 ## Changes that shouldn't happen in the `aosp/expected_upstream` branch
 In general, if you want to change an `ojluni/` file by a text editor / IDE
 manually, you should make the change on `aosp/master`.
@@ -40,26 +140,36 @@ manually, you should make the change on `aosp/master`.
     * Files, e.g. Android.bp, don't come from the upstream. You can make the
       change directly on `aosp/master`.
 
-## Changes that should be made via the `aosp/expected_upstream` branch
 
-1. Add or upgrade a file from the upstream OpenJDK
-    * You are reading the right document! This documentation tells you how to
-      import the file from the upstream. Later, you can merge the file and
-      `expected_upstream` into `aosp/master` branch.
-2. Remove an `ojluni/` file that originally came from the OpenJDK
-    * Please remove the file on both `aosp/master` and `aosp/expected_upstream`
-      branches. Don't forget to remove the entry in the `EXPECTED_UPSTREAM` too.
-3. Revert the merge commit on `aosp/master` from `expected_upstream`
-    * If you don't plan to re-land your change on `aosp/master`, you should
-      probably revert the change `aosp/expected_upstream` as well.
-    * If you plan to re-land your change, your re-landing commit won't be
-      a merge commit, because `git` doesn't allow you to merge the same commit
-      twice into the same branch. You have 2 options
-        1. Revert your change on `expected_upsteam` too and start over again
-          when you reland your change
-        2. Just accept that the re-landing commit won't be a merge commit.
 
-## Life of a typical change
+# [Only relevant if using `ojluni_refresh_files`] Submit your change in [AOSP gerrit](http://r.android.com/)
+```text
+----11.0.13-ga----------------   openjdk/jdk11u
+         \
+          A
+           \
+------------B-----C------------   expected_upstream
+                   \
+--------------------D---E------   master
+```
+Here are the order of events / votes required to submit your CL on gerrit as of
+Nov 2021.
+1. `Presubmit-Verified +2` on all 5 CLs
+    * Due to [b/204973624](http://b/204973624), you may `Bypass-Presubmit +1`
+      on commit `A` and `B` if the presubmit fails.
+2. `Code-review +2` on all 5 CLs from an Android Core Library team member
+3. If needed, `API-review +1` on commit `E` from an Android API council member
+4. Click the submit button / `Autosubmit +1` on commit `B`, `C` and `E`
+    * Never submit commit `A` individually without submitting `B` together.
+        * Otherwise, gerrit will create another merge commit from `A` without
+          submitting `B`.
+    * Due a Gerrit bug, you can't submit the commit `C` before submitting `B`
+      first manually, even though `B` is the direct parent of `C`. So just
+      submit `B` yourself manually.
+    * If you can't submit the CL due a permission issue, ask an Android Core
+      Library member to submit.
+
+## [Only relevant if using `ojluni_refresh_files`] Life of a typical change
 
 Commit graph of a typical change
 ```text
@@ -87,120 +197,7 @@ Typically, you will need 5 CLs
 * Preserve the upstream history. We can later `git blame` with the upstream
   history.
 
-# Tools
-
-## Prerequisite
-* python3
-* pip3
-* A remote `aosp` is setup in your local git repository
-
-## List of the scripts
-### tools/expected_upstream/install_tools.sh
-* Installs the dependency libraries
-* Installs the other tools into your current shell process
-
-### ojluni_modify_expectation
-* Command line tool that can help modify the EXPECTED_UPSTREAM file
-
-### ojluni_refresh_files
-* Reads the EXPECTED_UPSTREAM file and updates the files contents in ojluni/
-accordingly
-
-## Workflow in command lines
-### Setup
-1. Switch to the expected_upstream branch
-```shell
-git branch <local_branch> aosp/expected_upstream
-git checkout <local_branch>
-```
-
-2. Install tools
-```shell
-source ./tools/expected_upstream/install_tools.sh
-```
-## Upgrade a java class to a higher OpenJDK version
-For example, upgrade `java.lang.String` to 11.0.13-ga version:
-
-```shell
-ojluni_modify_expectation modify java.lang.String jdk11u/jdk-11.0.13-ga
-ojluni_refresh_files
-```
-
-or if `java.lang.String` is missing in EXPECTED_UPSTREAM:
-```shell
-ojluni_modify_expectation add jdk11u/jdk-11.0.13-ga java.lang.String
-ojluni_refresh_files
-```
-2 commits should be created to update the `ojluni/src/main/java/java/lang/String.java`.
-You can verify and view the diff by the following command
-
-```shell
-git diff aosp/expected_upstream -- ojluni/src/main/java/java/lang/String.java
-```
-
-You can then upload your change to AOSP gerrit.
-```shell
-repo upload --cbr -t . # -t sets a topic to the CLs in the gerrit
-```
-
-Remember to commit your EXPECTED_UPSTREAM file change into a new commit
-```shell
-git commit -- EXPECTED_UPSTREAM
-```
-
-Then upload your change to AOSP gerrit.
-```shell
-repo upload --cbr .
-```
-
-Then you can switch back to your local `master` branch to apply the changes
-```shell
-git checkout <local_master_branch>
-git merge local_expected_upstream
-# Resolve any merge conflict
-git commit --amend # Amend the commit message and add the bug number you are working on
-repo upload .
-```
-
-### Add a java test from the upstream
-
-The process is similar to the above commands, but needs to run
-`ojluni_modify_expectation` with an `add` subcommand.
-
-For example, add a test for `String.isEmpty()` method:
-```shell
-ojluni_modify_expectation add jdk8u/jdk8u121-b13 java.lang.String.IsEmpty
-```
-Note: `java.lang.String.IsEmpty` is a test class in the upstream repository.
-
-# Submit your change in [AOSP gerrit](http://r.android.com/)
-```text
-----11.0.13-ga----------------   openjdk/jdk11u
-         \
-          A
-           \
-------------B-----C------------   expected_upstream
-                   \
---------------------D---E------   master
-```
-Here are the order of events / votes required to submit your CL on gerrit as of
-Nov 2021.
-1. `Presubmit-Verified +2` on all 5 CLs
-   * Due to [b/204973624](http://b/204973624), you may `Bypass-Presubmit +1`
-     on commit `A` and `B` if the presubmit fails.
-2. `Code-review +2` on all 5 CLs from an Android Core Library team member
-3. If needed, `API-review +1` on commit `E` from an Android API council member
-4. Click the submit button / `Autosubmit +1` on commit `B`, `C` and `E`
-    * Never submit commit `A` individually without submitting `B` together.
-        * Otherwise, gerrit will create another merge commit from `A` without
-          submitting `B`.
-    * Due a Gerrit bug, you can't submit the commit `C` before submitting `B`
-      first manually, even though `B` is the direct parent of `C`. So just
-      submit `B` yourself manually.
-    * If you can't submit the CL due a permission issue, ask an Android Core
-      Library member to submit.
-
-# Known bugs
+# [Only relevant if using `ojluni_refresh_files`] Known bugs
 * `repo upload` may not succeed because gerrit returns error.
     1. Just try to run `repo upload` again!
         * The initial upload takes a long time because it tries to sync with the
@@ -225,5 +222,5 @@ Nov 2021.
     4. Commit the updated EXPECTED_UPSTREAM and proceed
 
 # Report bugs
-* Report bugs if the git repository is corrupt!
+* Report bugs if the git repository is corrupted!
     * Sometimes, you can recover the repository by running `git reset aosp/expected_upstream`

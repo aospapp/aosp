@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.UserHandle;
 
+import androidx.annotation.NonNull;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 import androidx.lifecycle.ViewModelProvider;
@@ -97,7 +98,12 @@ public final class EstablishNetworkConnectionViewModel extends ViewModel impleme
         requireNonNull(context);
         requireNonNull(params);
         mSharedPreferences.setIsEstablishNetworkConnectionRun(true);
-        if (params.wifiInfo == null
+        var networkCapabilities = mUtils.getActiveNetworkCapabilities(context);
+        if (networkCapabilities != null
+                && mUtils.isNetworkConnectedToInternetViaEthernet(networkCapabilities)) {
+            updateState(STATE_CONNECTED);
+            return;
+        } else if (params.wifiInfo == null
                 && !params.useMobileData) {
             updateState(STATE_SHOW_NETWORK_PICKER);
             return;
@@ -154,7 +160,8 @@ public final class EstablishNetworkConnectionViewModel extends ViewModel impleme
     }
 
     @Override
-    public void preFinalizationCompleted() {}
+    public void preFinalizationCompleted() {
+    }
 
     static class EstablishNetworkConnectionViewModelFactory implements ViewModelProvider.Factory {
         private final Utils mUtils;
@@ -170,8 +177,10 @@ public final class EstablishNetworkConnectionViewModel extends ViewModel impleme
             mSharedPreferences = requireNonNull(sharedPreferences);
         }
 
+        @NonNull
         @Override
-        public <T extends ViewModel> T create(Class<T> modelClass) {
+        @SuppressWarnings("unchecked")
+        public <T extends ViewModel> T create(@NonNull Class<T> modelClass) {
             if (!EstablishNetworkConnectionViewModel.class.isAssignableFrom(modelClass)) {
                 throw new IllegalArgumentException("Invalid class for creating a "
                         + "EstablishNetworkConnectionViewModel: " + modelClass);

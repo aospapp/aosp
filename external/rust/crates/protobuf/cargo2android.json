@@ -1,9 +1,7 @@
 {
   "apex-available": [
     "//apex_available:platform",
-    "com.android.bluetooth",
-    "com.android.compos",
-    "com.android.virt"
+    "//apex_available:anyapex"
   ],
   "copy-out": true,
   "dependencies": true,

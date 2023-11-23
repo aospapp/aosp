@@ -49,6 +49,11 @@ class RemoteBusOutputStream : public BusOutputStream {
                                   const uint8_t* secondMem,
                                   size_t secondLength) override;
 
+  bool start() override;
+  bool stop() override;
+  AidlMmapBufferInfo createMmapBuffer(int32_t minBufferSizeFrames) override;
+  AidlPresentationPosition getMmapPosition() override;
+
  protected:
   bool prepareForWritingImpl(uint32_t frameSize, uint32_t frameCount) override;
 

@@ -4,5 +4,5 @@
     <config identifier="1" />
 
     <!-- Display settings for cluster -->
-    <display name="port:1" forcedDensity="120" dontMoveToTop="true" />
+    <display name="port:1" forcedDensity="160" dontMoveToTop="true" />
 </display-settings>

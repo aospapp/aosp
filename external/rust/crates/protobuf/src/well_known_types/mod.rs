@@ -1,26 +1,19 @@
 // This file is generated. Do not edit
+// @generated
 //! Generated code for "well known types"
 //!
 //! [This document](https://developers.google.com/protocol-buffers/docs/reference/google.protobuf) describes these types.
 
-mod any;
-mod api;
-mod duration;
-mod empty;
-mod field_mask;
-mod source_context;
-mod struct_pb;
-mod timestamp;
-mod type_pb;
-mod wrappers;
+#![allow(unused_attributes)]
+#![cfg_attr(rustfmt, rustfmt::skip)]
 
-pub use self::any::*;
-pub use self::api::*;
-pub use self::duration::*;
-pub use self::empty::*;
-pub use self::field_mask::*;
-pub use self::source_context::*;
-pub use self::struct_pb::*;
-pub use self::timestamp::*;
-pub use self::type_pb::*;
-pub use self::wrappers::*;
+pub mod any;
+pub mod api;
+pub mod duration;
+pub mod empty;
+pub mod field_mask;
+pub mod source_context;
+pub mod struct_;
+pub mod timestamp;
+pub mod type_;
+pub mod wrappers;

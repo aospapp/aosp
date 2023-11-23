@@ -61,5 +61,4 @@ public class PresencePublishTask extends PresenceTask{
                 " mCreateTimestamp=" + mCreateTimestamp +
                 " mRetryCount=" + mRetryCount;
     }
-};
-
+}

@@ -17,6 +17,8 @@
 package android.car.builtin.view;
 
 import android.annotation.SystemApi;
+import android.car.builtin.annotation.AddedIn;
+import android.car.builtin.annotation.PlatformVersion;
 import android.view.Display;
 import android.view.DisplayAddress;
 
@@ -27,13 +29,17 @@ import android.view.DisplayAddress;
 @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
 public final class DisplayHelper {
 
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static final int INVALID_PORT = -1;
 
     /** Display type: Physical display connected through an internal port. */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static final int TYPE_INTERNAL = Display.TYPE_INTERNAL;
     /** Display type: Physical display connected through an external port. */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static final int TYPE_EXTERNAL = Display.TYPE_EXTERNAL;
     /** Display type: Virtual display. */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static final int TYPE_VIRTUAL = Display.TYPE_VIRTUAL;
 
     private DisplayHelper() {
@@ -44,6 +50,7 @@ public final class DisplayHelper {
      * @return the physical port number of the display, or {@code INVALID_PORT} if the display isn't
      *         the physical one.
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static int getPhysicalPort(Display display) {
         DisplayAddress address = display.getAddress();
         if (address instanceof DisplayAddress.Physical) {
@@ -58,6 +65,7 @@ public final class DisplayHelper {
     /**
      * @return the uniqueId of the given display.
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static String getUniqueId(Display display) {
         return display.getUniqueId();
     }
@@ -66,6 +74,7 @@ public final class DisplayHelper {
      * Gets the display type.
      * @see Display.getType()
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static int getType(Display display) {
         return display.getType();
     }

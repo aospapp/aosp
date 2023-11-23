@@ -47,6 +47,25 @@
 typedef uint8_t tBTA_JV_STATUS;
 #define BTA_JV_INTERNAL_ERR (-1) /* internal error. */
 
+/* L2CAP errors from underlying layers propagated via callbacks. */
+#define BTA_JV_L2CAP_REASON_EMPTY 0
+#define BTA_JV_L2CAP_REASON_UNKNOWN 1
+#define BTA_JV_L2CAP_REASON_ACL_FAILURE 2
+#define BTA_JV_L2CAP_REASON_CL_SEC_FAILURE 3
+#define BTA_JV_L2CAP_REASON_INSUFFICIENT_AUTHENTICATION 4
+#define BTA_JV_L2CAP_REASON_INSUFFICIENT_AUTHORIZATION 5
+#define BTA_JV_L2CAP_REASON_INSUFFICIENT_ENCRYP_KEY_SIZE 6
+#define BTA_JV_L2CAP_REASON_INSUFFICIENT_ENCRYP 7
+#define BTA_JV_L2CAP_REASON_INVALID_SOURCE_CID 8
+#define BTA_JV_L2CAP_REASON_SOURCE_CID_ALREADY_ALLOCATED 9
+#define BTA_JV_L2CAP_REASON_UNACCEPTABLE_PARAMETERS 10
+#define BTA_JV_L2CAP_REASON_INVALID_PARAMETERS 11
+#define BTA_JV_L2CAP_REASON_NO_RESOURCES 12
+#define BTA_JV_L2CAP_REASON_NO_PSM 13
+#define BTA_JV_L2CAP_REASON_TIMEOUT 14
+
+typedef uint8_t tBTA_JV_L2CAP_REASON;
+
 #define BTA_JV_MAX_UUIDS SDP_MAX_UUID_FILTERS
 #define BTA_JV_MAX_ATTRS SDP_MAX_ATTR_FILTERS
 #define BTA_JV_MAX_SDP_REC SDP_MAX_RECORDS
@@ -208,6 +227,9 @@ typedef struct {
   tBTA_JV_STATUS status; /* Whether the operation succeeded or failed. */
   uint32_t handle;       /* The connection handle */
   bool async;            /* false, if local initiates disconnect */
+  /* Reason that triggered the L2CAP connection close callback.
+  Used when L2CAP close callback was triggered due to a GAP error. */
+  tBTA_JV_L2CAP_REASON reason;
 } tBTA_JV_L2CAP_CLOSE;
 
 /* data associated with BTA_JV_L2CAP_START_EVT */

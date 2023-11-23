@@ -30,8 +30,13 @@ license {
 java_library {
     name: "ctstestserver",
 
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+    ],
+
+    static_libs: [
+        "androidx.annotation_annotation",
+    ],
 
     sdk_version: "16",
-
 }

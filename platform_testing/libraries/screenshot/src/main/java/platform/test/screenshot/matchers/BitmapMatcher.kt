@@ -18,6 +18,7 @@ package platform.test.screenshot.matchers
 
 import android.graphics.Bitmap
 import android.graphics.Rect
+import kotlin.collections.List
 import platform.test.screenshot.proto.ScreenshotResultProto.DiffResult.ComparisonStatistics
 
 /**
@@ -40,11 +41,11 @@ abstract class BitmapMatcher {
         given: IntArray,
         width: Int,
         height: Int,
-        regions: Array<Rect>? = null
+        regions: List<Rect> = emptyList<Rect>()
     ): MatchResult
 
-    protected fun getFilter(width: Int, height: Int, regions: Array<Rect>?): IntArray {
-        if (regions == null) { return IntArray(width * height) { 1 } }
+    protected fun getFilter(width: Int, height: Int, regions: List<Rect>): IntArray {
+        if (regions.isEmpty()) { return IntArray(width * height) { 1 } }
         val bitmapArray = IntArray(width * height) { 0 }
         for (region in regions) {
             for (i in region.top..region.bottom) {

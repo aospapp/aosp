@@ -70,4 +70,13 @@ public @interface CustomProfileConnector {
    * <p>By default, this will require that a user be running, unlocked, and not in quiet mode.
    */
   AvailabilityRestrictions availabilityRestrictions() default AvailabilityRestrictions.DEFAULT;
+
+  /**
+   * Determines what to do when a cross-profile method has an uncaught exception.
+   *
+   * <p>By default, the exception will be caught, communicated back to the calling process, then
+   * rethrown in the target process.
+   */
+  UncaughtExceptionsPolicy uncaughtExceptionsPolicy() default
+      UncaughtExceptionsPolicy.NOTIFY_RETHROW;
 }

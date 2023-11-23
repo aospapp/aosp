@@ -22,6 +22,7 @@ import android.content.res.Resources;
 import android.util.Log;
 
 import com.android.bluetooth.R;
+import com.android.internal.annotations.VisibleForTesting;
 
 public class BluetoothPbapConfig {
     private static boolean sUseProfileForOwnerVcard = true;
@@ -56,5 +57,10 @@ public class BluetoothPbapConfig {
      */
     public static boolean includePhotosInVcard() {
         return sIncludePhotosInVcard;
+    }
+
+    @VisibleForTesting
+    public static void setIncludePhotosInVcard(boolean includePhotosInVcard) {
+        sIncludePhotosInVcard = includePhotosInVcard;
     }
 }

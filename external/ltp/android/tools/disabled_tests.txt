@@ -114,6 +114,10 @@ shmctl01
 shmctl02
 shmctl03
 shmctl04
+shmctl05
+shmctl06
+shmctl07
+shmctl08
 shmdt01
 shmdt02
 shmem_2nstest
@@ -129,6 +133,7 @@ shmget02
 shmget03
 shmget04
 shmget05
+shmget06
 shmnstest
 shmt02
 shmt03
@@ -307,6 +312,7 @@ userns05
 userns06
 userns06_capcheck
 userns07
+userns08
 utstest
 
 # Following test require 'syslogd' running on device which Android doesn't
@@ -331,6 +337,9 @@ chown04_16
 creat06
 df01.sh
 mkfs01.sh
+
+# Requires mksquashfs
+squashfs01
 
 # Requires glob()
 epoll-test
@@ -485,10 +494,10 @@ statx07
 # Needs pthread_cancel() and friends
 af_alg02
 
-# Depends on DNOTIFY (not enabled in Android).
-# b/191236494
-fcntl38
-fcntl38_64
+# Disabled from LTP20230127
+# b/277959438
+# Needs pthread_cancel() and friends
+nice05
 
 # Depends on HDLC line discipline (not enabled on Android).
 # b/191224903
@@ -592,3 +601,23 @@ rpc_svcudp_create_performance
 rpc_svcudp_create_stress
 rpc_xprt_register
 rpc_xprt_unregister
+
+# Depends on /proc/net/connector and /dev/shm (not available on Android)
+# b/229724819
+cn_pec.sh
+
+# numa
+set_mempolicy01
+set_mempolicy02
+set_mempolicy03
+set_mempolicy04
+set_mempolicy05
+
+# Needs build script updates to support this test
+# b/246845416
+kvm_pagefault01
+kvm_pagefault01-payload.elf
+
+# Redefines cacheflush
+# b/277960476
+hugemmap15

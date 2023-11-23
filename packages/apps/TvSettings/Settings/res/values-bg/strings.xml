@@ -31,6 +31,8 @@
     <string name="enabled" msgid="5127188665060746381">"Активирано"</string>
     <string name="disabled" msgid="4589065923272201387">"Деактивирано"</string>
     <string name="unavailable" msgid="1610732303812180196">"Не е налице"</string>
+    <string name="allow" msgid="6982558814345894019">"Разрешаване"</string>
+    <string name="deny" msgid="8291577308813053917">"Отказ"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"Предложения"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"Бързи настройки"</string>
     <string name="header_category_general_settings" msgid="3897615781153506434">"Общи настройки"</string>
@@ -51,6 +53,7 @@
     <string name="sound_category_title" msgid="7899816751041939518">"Звук"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"Приложения"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"Предпочитания за устройството"</string>
+    <string name="accessibility_category_title" msgid="1552664829936369592">"Достъпност"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"Дистанционни управления и аксесоари"</string>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"Дисплей и звук"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"Помощ и отзиви"</string>
@@ -109,7 +112,8 @@
     <string name="device_backup_restore" msgid="3634531946308269398">"Резервно копие и възстановяване"</string>
     <string name="device_factory_reset" msgid="1110189450013225971">"Възстановяване на фабричните настройки"</string>
     <string name="device_calibration" msgid="2907914144048739705">"Калибриране"</string>
-    <string name="device_energy_saver" msgid="1105023232841036991">"Икономия на енергия"</string>
+    <string name="device_energy_saver" msgid="6611757996220443028">"Таймер за изключване"</string>
+    <string name="device_energy_saver_summary" msgid="5306058475316008429">"Задайте таймери за изключване на телевизора и пестете електроенергия"</string>
     <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
     <string name="device_fastpair" msgid="1235240814051277047">"Устройства"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"Избиране на формати"</string>
@@ -118,7 +122,7 @@
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="4268947520371740146">"DTS-HD"</string>
-    <string name="surround_sound_format_dts_uhd" msgid="2844983210044263719">"DTS-UHD"</string>
+    <string name="surround_sound_format_dts_uhd" msgid="4340749818133578788">"DTS:X"</string>
     <string name="surround_sound_format_dolby_mat" msgid="3029804841912462928">"Dolby Atmos с Dolby TrueHD"</string>
     <string name="surround_sound_format_dolby_truehd" msgid="5113046743572967088">"Dolby TrueHD"</string>
     <string name="surround_sound_format_e_ac3_joc" msgid="3360344066462262996">"Dolby Atmos с Dolby Digital Plus"</string>
@@ -147,11 +151,39 @@
     <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"CEC за HDMI"</string>
     <string name="advanced_sound_settings_title" msgid="319921303039469139">"Разширени настройки за звука"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"Разрешаване на режима на игра"</string>
-    <string name="match_content_frame_rate_title" msgid="153291168560947689">"Намиране на съответствие на скоростта на кадрите на съдърж."</string>
-    <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"Безпроблемно"</string>
+    <string name="match_content_dynamic_range_title" msgid="2794980556561655838">"Намиране на съответствие на динамичния обхват на съдържанието"</string>
+    <string name="match_content_dynamic_range_summary" msgid="2255683926227355398">"Когато активирате тази опция, системата ще премине през различните формати за динамичен обхват, за да намери съответствие за съдържанието. По време на превключването екранът може да стане черен.\n\nЗа още опции за динамичен обхват кликнете върху разширените настройки за дисплея."</string>
+    <string name="preferred_dynamic_range_title" msgid="5064883672337010588">"Предпочитан динамичен обхват"</string>
+    <string name="preferred_dynamic_range_selection_system_title" msgid="4505030483876080996">"Предпочитано от системата преобразуване"</string>
+    <string name="preferred_dynamic_range_selection_system_desc" msgid="5712920601553613576">"Преобразуването на формата да се управлява от системата"</string>
+    <string name="preferred_dynamic_range_selection_system_summary" msgid="4509062596428781094">"Когато е избрана тази опция, системата ще определя подходящ динамичен обхват за сигнала към екрана ви и при необходимост ще преобразува съдържанието към този динамичен обхват."</string>
+    <string name="preferred_dynamic_range_selection_passthrough_desc" msgid="4831260397179583737">"Винаги съответства на формата на съдържанието"</string>
+    <string name="preferred_dynamic_range_selection_force_title" msgid="4448836594133973103">"Принудително преобразуване"</string>
+    <string name="preferred_dynamic_range_selection_force_desc" msgid="1418542349290684513">"Принудително преобразуване към предпочитания формат"</string>
+    <string name="preferred_dynamic_range_selection_force_summary" msgid="8381058061765216239">"Принудително преобразуване към предпочитан формат. Принудителното преобразуване може да засегне други настройки в „Режим на показване“ или в секцията за HDR форматите."</string>
+    <string name="preferred_dynamic_range_selection_force_sdr_title" msgid="3135104063034317252">"Винаги към SDR"</string>
+    <string name="preferred_dynamic_range_selection_force_hdr_title" msgid="1032587815433139859">"Винаги към <xliff:g id="HDR_TYPE">%s</xliff:g>"</string>
+    <string name="preferred_dynamic_range_force_dialog_title" msgid="6865110024863661702">"Искате ли принудително да се зададе изходящ HDR формат?"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc" msgid="7758323258282201656">"По подразбиране преобразуването принудително ще бъде към <xliff:g id="HDR_TYPE">%s</xliff:g>."</string>
+    <string name="preferred_dynamic_range_force_dialog_desc_4k30_issue" msgid="4938418395391206131">"Екранът ви ще работи с разделителна способност 1080p (60 Hz). Тази опция не е съвместима с екрана ви, когато работи с разделителна способност 4K (60 Hz)."</string>
+    <string name="selection_dolby_vision_not_supported_sidebar" msgid="8994591316574824115">"Режимът Dolby Vision не се поддържа при текущата разделителна способност. Ако го активирате ръчно, разделителната способност на екрана ви ще бъде променена на 1080p (60 Hz)"</string>
+    <string name="manual_dolby_vision_format_on_4k60_title" msgid="4172263676512376500">"Искате ли да промените разделителната способност на 1080p (60 Hz)?"</string>
+    <string name="dynamic_range_selection_force_dv_title" msgid="8070148109262327094">"Винаги да се преобразува в Dolby Vision"</string>
+    <string name="dynamic_range_selection_force_dv_summary" msgid="1052851029985095562">"Ако форматът Dolby Vision е деактивиран в списъка с HDR формати в разширените настройки за дисплея, той ще бъде активиран при принудително преобразуване в Dolby Vision."</string>
+    <string name="dynamic_range_selection_force_hdr10_title" msgid="1221688206945051384">"Винаги да се преобразува в HDR10"</string>
+    <string name="dynamic_range_selection_force_hdr10_summary" msgid="7784573527636502784">"Ако форматът HDR10 е деактивиран в списъка с HDR формати в разширените настройки за дисплея, той ще бъде активиран при принудително преобразуване в HDR10."</string>
+    <string name="dynamic_range_selection_force_hlg_title" msgid="3976190987768712696">"Принудително преобразуване в HLG"</string>
+    <string name="dynamic_range_selection_force_hlg_summary" msgid="5371949016689544001">"Ако форматът HLG е деактивиран в списъка с HDR формати в разширените настройки за дисплея, той ще бъде активиран при принудително преобразуване в HLG."</string>
+    <string name="dynamic_range_selection_force_hdr10plus_title" msgid="1305556000063625735">"Винаги да се преобразува в HDR10+"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_summary" msgid="918038386222537401">"Ако форматът HDR10+ е деактивиран в списъка с HDR формати в разширените настройки за дисплея, той ще бъде активиран при принудително преобразуване в HDR10+."</string>
+    <string name="dynamic_range_selection_force_sdr_title" msgid="1063579223517652945">"Винаги да се преобразува в SDR"</string>
+    <string name="dynamic_range_selection_force_sdr_summary" msgid="2874771365465898941">"Принудителното преобразуване в SDR ще деактивира всички HDR формати в разширените настройки за дисплея."</string>
+    <string name="match_content_frame_rate_title" msgid="153291168560947689">"Съответствие със скоростта на кадрите на съдържанието"</string>
+    <string name="match_content_frame_rate_seamless" msgid="5577846750811067585">"Изцяло без прекъсвания"</string>
     <string name="match_content_frame_rate_seamless_summary" msgid="2737466163964133210">"Ако приложението поиска това, устройството ви ще намери съответствие между изхода си и оригиналната скорост на кадрите на съдържанието, което гледате, САМО ако телевизорът ви може да извърши безпроблемен преход."</string>
-    <string name="match_content_frame_rate_non_seamless" msgid="1534300397118594640">"Небезпроблемно"</string>
-    <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Ако прилож. поиска това, у-вото ви ще намери съответствие между изхода си и оригиналната скорост на кадрите на съдърж., което гледате. Възможно е екранът ви да остане празен за секунда при приключ./стартиране на възпроизвеждането на видеосъдържание."</string>
+    <string name="match_content_frame_rate_seamless_not_supported_summary" msgid="98559950465123792">"Свързаният ви екран не поддържа функцията за автоматична промяна на честотата на опресняване. Тя няма да има ефект, освен ако не преминете към екран, който я поддържа."</string>
+    <string name="match_content_frame_rate_non_seamless" msgid="2702658727234710031">"Винаги"</string>
+    <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Ако прилож. поиска това, у-вото ви ще намери съответствие между изходните си данни и оригиналната скорост на кадрите на съдърж., което гледате. Екранът може да остане празен за секунда при приключ./стартиране на възпроизвеждането на видеосъдържание."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Никога"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Дори ако приложението поиска това, устройството ви никога няма да опита да намери съответствие между изхода си и оригиналната скорост на кадрите на съдържанието, което гледате."</string>
     <string name="font_scale_settings_title" msgid="4114019544800225980">"Промяна на мащаба на текста"</string>
@@ -167,6 +199,7 @@
     <string name="hdr_format_selection_manual_desc" msgid="8865649615882146772">"Изберете ръчно от наличните формати"</string>
     <string name="hdr_format_supported_title" msgid="1458594819224612431">"ПОДДЪРЖАНИ ФОРМАТИ"</string>
     <string name="hdr_format_unsupported_title" msgid="715318408107924941">"НЕПОДДЪРЖАНИ ФОРМАТИ"</string>
+    <string name="hdr_format_sdr" msgid="7211377112392255102">"SDR"</string>
     <string name="hdr_format_hdr10" msgid="8063543267227491062">"HDR10"</string>
     <string name="hdr_format_hlg" msgid="454510079939620321">"HLG"</string>
     <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"HDR10+"</string>
@@ -182,10 +215,14 @@
     <string name="resolution_selection_title" msgid="2873993320284587853">"Разделителна способност"</string>
     <string name="resolution_selection_auto_title" msgid="4738671207331027385">"Автоматично"</string>
     <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"Разделителната способност е променена"</string>
+    <string name="resolution_selection_with_mode_dialog_title" msgid="5011192408613100514">"Искате ли да промените разделителната способност на %1$s?"</string>
     <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"Изберете OK, за да използвате %1$s занапред."</string>
+    <string name="resolution_selection_disabled_dolby_vision_dialog_desc" msgid="7952404018654828187">"Режимът Dolby Vision не се поддържа при %1$s и ще бъде деактивиран в „Разширени настройки за дисплея“"</string>
+    <string name="resolution_hdr_description_info" msgid="2408761621976850238">"Този режим поддържа: %1$s\nНа някои телевизори може да се наложи да включите подобрения HDMI режим, за да активирате още HDR формати. Проверете дали той се поддържа в настройките на телевизора."</string>
     <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"Отказ"</string>
     <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"OK"</string>
     <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
+    <string name="resolution_display_mode" msgid="6633857172598855480">"<xliff:g id="RESOLUTION">%1$s</xliff:g> (<xliff:g id="REFRESH_RATE">%2$s</xliff:g> Hz)"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"Да се изчистят ли кешираните данни?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"Това ще изчисти кешираните данни за всички прил."</string>
     <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
@@ -257,7 +294,6 @@
     <string name="system_inputs" msgid="5552840337357572096">"Входове"</string>
     <string name="system_inputs_devices" msgid="2158421111699829399">"Входове и устройства"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"Управление на домашното кино"</string>
-    <string name="system_accessibility" msgid="3081009195560501010">"Достъпност"</string>
     <string name="system_developer_options" msgid="8480844257066475479">"Опции за програмисти"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"Няма"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"Употреба и диагностика"</string>
@@ -307,6 +343,7 @@
     <string name="do_disclosure_generic" msgid="8390478119591845948">"Това устройство се управлява от организацията ви."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"Това устройство се управлява от <xliff:g id="ORGANIZATION_NAME">%s</xliff:g>."</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
+    <string name="hdr_capability" msgid="3331021013422460270">"– %1$s"</string>
     <string name="learn_more" msgid="820336467414665686">"Научете повече"</string>
     <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{Приложение за камера}other{Приложения за камера}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"Приложение за календар"</string>
@@ -590,6 +627,7 @@
     <string name="recently_accessed_show_all" msgid="5234849189704717855">"Преглед на всички"</string>
     <string name="microphone" msgid="7893752847683941214">"Микрофон"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"Достъп до микрофона"</string>
+    <string name="mic_remote_toggle_title" msgid="7153283895012570080">"Достъп до микрофона на дистанционното ви управление"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"Достъп на приложенията до микрофона"</string>
     <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"Достъпът до микрофона е блокиран"</string>
     <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"За да го отблокирате, преместете превключвателя за поверителността на устройството си във включено положение за микрофона, за да разрешите достъпа до него."</string>
@@ -599,7 +637,11 @@
     <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"Достъпът до камерата е блокиран"</string>
     <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"За да я отблокирате, преместете превключвателя за поверителността на устройството си във включено положение за камерата, за да разрешите достъпа до нея."</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"Достъп до микрофона: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
-    <string name="mic_toggle_info_content" msgid="4699624900513326055">"Когато настройката е включена, всички приложения и услуги, които имат разрешение, ще получат достъп до всички микрофони на това устройство.\n\nПериферните аудиоустройства с персонализиран протокол няма да бъдат засегнати от тази настройка."</string>
+    <string name="mic_toggle_info_content" msgid="3187791167208947239">"Когато е включен, всички приложения и услуги, които имат разрешение за използване на микрофона, ще имат достъп до него.\n\nКогато е изключен, приложенията и услугите няма да имат достъп до микрофона. Възможно е обаче да можете да взаимодействате с Google Асистент, като натиснете съответния бутон на дистанционното си управление.\n\nАудиоустройствата, използващи персонализирани протоколи за комуникация с телевизора, може да не бъдат засегнати от тази настройка."</string>
+    <string name="mic_remote_toggle_on_info_title" msgid="8503441878870972046">"Микрофонът на дистанционното управление е активиран"</string>
+    <string name="mic_remote_toggle_on_info_content" msgid="2715872916376493679">"Google Асистент има достъп до микрофона на дистанционното ви управление. Ще можете да взаимодействате с Асистент, като натиснете съответния бутон на дистанционното си управление."</string>
+    <string name="mic_remote_toggle_off_info_title" msgid="4902909833546393713">"Микрофонът на дистанционното управление е деактивиран"</string>
+    <string name="mic_remote_toggle_off_info_content" msgid="8062526350553191004">"Няма да имате възможност да взаимодействате с Google Асистент посредством дистанционното си управление. Активирайте достъпа до микрофона, за да можете да използвате бутона за Google Асистент."</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"Достъп до камерата: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="camera_toggle_info_content" msgid="2999965953853204003">"Когато настройката е включена, всички приложения и услуги, които имат разрешение, ще получат достъп до всички камери на това устройство.\n\nПериферните камери с персонализиран протокол няма да бъдат засегнати от тази настройка."</string>
     <string name="sensor_toggle_info_on" msgid="4568111889147132257">"Вкл."</string>
@@ -625,9 +667,34 @@
     <string name="location_history_desc" msgid="926674012916014270">"Когато История на местоположенията е включена за този профил, можем да съхраняваме данните за местоположението на устройството ви, за да се ползват от приложенията.\n\nНапример Google Карти може да ви предостави упътвания, а Google Now – информация за трафика по пътя до работното място.\n\nПо всяко време можете да изключите функцията, но така няма да изтриете записите в нея. За да ги прегледате и управлявате, посетете maps.google.com/locationhistory."</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"Изтриване на История на местоположенията"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"Ще изтриете от у-вото всичко за този профил в Google, съхранено в История на местопол. Не можете да отмените действието. Някои приложения, вкл. Now, ще спрат да работят."</string>
-    <string name="system_services" msgid="5754310941186053151">"Услуги"</string>
+    <string name="accessibility_screen_readers_category_title" msgid="7742526514873922018">"Екранни четци"</string>
+    <string name="accessibility_display_category_title" msgid="593444602101558017">"Екран"</string>
+    <string name="accessibility_interaction_controls_category_title" msgid="5290687835178852745">"Контроли за взаимодействие"</string>
+    <string name="accessibility_audio_and_onscreen_text_category_title" msgid="113841605896486212">"Аудио и екранен текст"</string>
+    <string name="accessibility_experimental_category_title" msgid="3401773834179170206">"Експериментални"</string>
+    <string name="accessibility_services_category_title" msgid="8813843874978910442">"Услуги"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"Настройки на услугите"</string>
+    <string name="accessibility_screen_reader_flattened_component_name" msgid="6834614827111101213">"com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"Текст с висок контраст"</string>
+    <string name="accessibility_toggle_bold_text_preference_title" msgid="3328992531170432669">"Удебелен текст"</string>
+    <string name="accessibility_color_correction" msgid="6765093204922184119">"Корекция на цветове"</string>
+    <string name="color_correction_usage" msgid="4160611639548748657">"Използване на корекция на цветовете"</string>
+    <string name="color_correction_color_mode" msgid="5081377780734779169">"Цветови режим"</string>
+    <string name="color_correction_mode_deuteranomaly" msgid="1513793544554228224">"Деутераномалия"</string>
+    <string name="color_correction_mode_deuteranomaly_summary" msgid="5991561481464520986">"Червено-зелено"</string>
+    <string name="color_correction_mode_protanomaly" msgid="8105793166015115037">"Протаномалия"</string>
+    <string name="color_correction_mode_protanomaly_summary" msgid="3247619910784115563">"Червено-зелено"</string>
+    <string name="color_correction_mode_tritanomaly" msgid="757769418392736089">"Тританомалия"</string>
+    <string name="color_correction_mode_tritanomaly_summary" msgid="137712354510881252">"Синьо-жълто"</string>
+    <string name="color_correction_mode_grayscale" msgid="2592973844160514484">"Сива скала"</string>
+    <string name="palette_color_red" msgid="507196433434979086">"червено"</string>
+    <string name="palette_color_orange" msgid="6209196069366109835">"оранжево"</string>
+    <string name="palette_color_yellow" msgid="298466132578870590">"жълто"</string>
+    <string name="palette_color_green" msgid="4904783063036825668">"зелено"</string>
+    <string name="palette_color_cyan" msgid="3212217287628948203">"синьозелено"</string>
+    <string name="palette_color_blue" msgid="8836682634988540630">"синьо"</string>
+    <string name="palette_color_purple" msgid="2123828754639683555">"лилаво"</string>
+    <string name="palette_color_gray" msgid="4014534773994261194">"сиво"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"Пряк път към функцията за достъпност"</string>
     <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"Активиране на пряк път към функцията за достъпност"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"Услуга за прекия път"</string>
@@ -885,12 +952,24 @@
     <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"Скрийнсейвърът започва след този период на неактивност. Ако не е избран скрийнсейвър, дисплеят се изключва."</string>
     <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"След <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> на неактивност"</string>
     <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"Изключване на екрана"</string>
-    <string name="device_energy_saver_screen_off_description" msgid="4469679706899396071">"След <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
-    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"Изключване на екрана след"</string>
-    <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"Разрешете изключването на екрана"</string>
-    <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"По време на възпроизвеждане на мултимедия"</string>
-    <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"Потвърждаване на настройката за пестене на енергия"</string>
-    <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"Моля, потвърдете новата настройка за <xliff:g id="SLEEP_TIME">%1$s</xliff:g>. Тя може да доведе до по-голям разход на енергия."</string>
+    <!-- no translation found for device_energy_saver_timeout_description (3206609135199137514) -->
+    <skip />
+    <string name="device_energy_saver_confirmation_title" msgid="7614859812773584773">"Потвърдете настройката „Включване и захранване“"</string>
+    <string name="device_energy_saver_confirmation_message" msgid="7789453187001013951">"Ако оставите телевизора си включен продължително време, енергопотреблението може да се увеличи"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_title" msgid="1468097048101593731">"Деактивиране на настройката за пестене на енергия"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_text" msgid="6334963903866002164">"Моля, потвърдете, за да предотвратите изключването на екрана, докато гледате, което може да доведе до по-голям разход на енергия."</string>
+    <string name="device_energy_saver_sleep_timeout" msgid="1841900768718452039">"При неактивност"</string>
+    <string name="device_energy_saver_attentive_timeout" msgid="3649486668821348087">"При гледане"</string>
+    <string name="device_energy_saver_category_title" msgid="170076161677525986">"Автоматично изключване"</string>
+    <string name="device_energy_saver_sleep_timeout_dialog_title" msgid="6588352532253294558">"Автоматично изключване при неактивност"</string>
+    <string name="device_energy_saver_attentive_timeout_dialog_title" msgid="3273988875711109352">"Автоматично изключване при гледане"</string>
+    <string name="device_energy_saver_validation_sleep" msgid="7490897287741107840">"Времето на таймера „При неактивност“ трябва да бъде по-кратко от това на таймера „При гледане“"</string>
+    <string name="device_energy_saver_validation_attentive" msgid="1461105528087097435">"Времето на таймера „При гледане“ трябва да бъде по-дълго от това на таймера „При неактивност“"</string>
+    <string name="limit_network_in_standby_toggle_title" msgid="6587185599397355336">"Огранич. на връзката с мрежата в режим на готовност"</string>
+    <string name="limit_network_in_standby_toggle_summary" msgid="9127792748675581174">"Използва по-малко електроенергия в режим на готовност"</string>
+    <string name="limit_network_in_standby_toggle_info" msgid="566947772381093991">"В режим на готовност връзката на телевизора ви с мрежата ще бъде прекратена – освен за получаването на автоматични актуализации. Това може да намали използването на електроенергия от телевизора ви, но също така означава, че в режим на готовност може да не сте в състояние да използвате различни функции, като например Google Cast и Асистент."</string>
+    <string name="limit_network_in_standby_confirm_title" msgid="789232987058850322">"Разрешаване на връзка с мрежата в режим на готовност"</string>
+    <string name="limit_network_in_standby_confirm_message" msgid="7176699480768019689">"Разрешаването на връзка с мрежата в режим на готовност ще увеличи използването на електроенергия в този режим."</string>
     <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"Понастоящем няма профил, който да съхранява данните от резервното копие"</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"Да се спре ли създаването на резервни копия на вашите пароли за Wi-Fi, отметки, други настройки и данните за приложенията ви и да се изтрият всички копия от сървърите на Google?"</string>
@@ -978,12 +1057,17 @@
     <string name="time_to_start_read_title" msgid="6565449163802837806">"Време до стартиране на четенето"</string>
     <string name="time_to_valid_audio_title" msgid="7246101824813414348">"Време до валидни аудиоданни"</string>
     <string name="empty_audio_duration_title" msgid="9024377320171450683">"Продължителност на празния аудиофайл"</string>
+    <string name="record_audio_source_title" msgid="9087784503276397929">"Записан аудиоизточник"</string>
+    <string name="record_audio_source_dialog_title" msgid="6556408220589197097">"Изберете записан аудиоизточник за следващия запис"</string>
+    <string name="recorded_microphones_title" msgid="5466988146086215426">"Записани микрофони"</string>
     <string name="show_audio_recording_start_failed" msgid="9131762831381326605">"Стартирането на записването на аудио не бе успешно."</string>
     <string name="show_audio_recording_failed" msgid="8128216664039868681">"Записването на аудио не бе успешно."</string>
     <string name="title_data_saver" msgid="7500278996154002792">"Икономия на данни"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"Автомат. коригиране на видеокачеството с цел използване на по-малко моб. данни"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"Пренос на данни и сигнали"</string>
     <string name="data_saver_header_info" msgid="2706725187498535785">"Можете да се свържете с интернет посредством Wi-Fi, Ethernet или точката за достъп на телефона ви."</string>
+    <string name="bluetooth_ask_discovery_title" msgid="4955540555242269694">"Да се направи ли видимо за други устройства с Bluetooth?"</string>
+    <string name="bluetooth_ask_discovery_message" msgid="8609666862877703398">"Приложение иска да направи телевизора ви видим за други устройства с Bluetooth за <xliff:g id="TIMEOUT">%1$d</xliff:g> секунди."</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"Непозволено действие"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"Силата на звука не може да бъде променена"</string>
@@ -1034,4 +1118,9 @@
     <string name="power_on_behavior" msgid="927607372303160716">"Поведение при включване"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"Нулиране"</string>
     <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"Код за сдвояване с Ethernet"</string>
+    <string name="energy_modes" msgid="1331693860386361744">"Енергийни режими"</string>
+    <string name="energy_modes_summary" msgid="7196407759836930799">"Подобряване на енергийната ефективност, когато телевизорът не се използва"</string>
+    <string name="energy_mode_enables" msgid="357960364751477627">"Активира:"</string>
+    <string name="energy_mode_eco_hint" msgid="1461517905015359947">"Имайте предвид, че този режим може да увеличи консумацията на енергия на устройството."</string>
+    <string name="energy_modes_confirmation_title" msgid="4520280098781914825">"Активиране на „<xliff:g id="ENERGYMODENAME">%s</xliff:g>“"</string>
 </resources>

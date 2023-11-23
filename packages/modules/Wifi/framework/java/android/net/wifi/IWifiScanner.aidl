@@ -18,15 +18,50 @@ package android.net.wifi;
 
 import android.os.Messenger;
 import android.os.Bundle;
+import android.os.WorkSource;
+import android.net.wifi.WifiScanner;
+import android.net.wifi.ScanResult;
+import android.net.wifi.IWifiScannerListener;
 
 /**
  * {@hide}
  */
 interface IWifiScanner
 {
-    Messenger getMessenger();
-
-    Bundle getAvailableChannels(int band, String packageName, String featureId);
+    Bundle getAvailableChannels(int band, String packageName, String featureId, in Bundle extras);
 
     boolean isScanning();
+
+    boolean setScanningEnabled(boolean enable, int tid, String packageName);
+
+    void registerScanListener(in IWifiScannerListener listener, String packageName,
+            String featureId);
+
+    void unregisterScanListener(in IWifiScannerListener listener, String packageName,
+           String featureId);
+
+    void startBackgroundScan(in IWifiScannerListener listener,
+            in WifiScanner.ScanSettings settings, in WorkSource workSource,
+            String packageName, String featureId);
+
+    void stopBackgroundScan(in IWifiScannerListener listener, String packageName, String featureId);
+
+    boolean getScanResults(String packageName, String featureId);
+
+    void startScan(in IWifiScannerListener listener,
+            in WifiScanner.ScanSettings settings, in WorkSource workSource,
+            String packageName, String featureId);
+
+    void stopScan(in IWifiScannerListener listener, String packageName, String featureId);
+
+    List<ScanResult> getSingleScanResults(String packageName, String featureId);
+
+    void startPnoScan(in IWifiScannerListener listener,
+            in WifiScanner.ScanSettings scanSettings,
+            in WifiScanner.PnoSettings pnoSettings,
+            String packageName, String featureId);
+
+    void stopPnoScan(in IWifiScannerListener listener, String packageName, String featureId);
+
+    void enableVerboseLogging(boolean enabled);
 }

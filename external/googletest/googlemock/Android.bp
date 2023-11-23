@@ -34,6 +34,9 @@ cc_defaults {
         "-Wno-missing-field-initializers",
         "-Wno-sign-compare",
         "-Wno-unused-parameter",
+        // We need to generate exception tables, otherwise any users of this
+        // library that use testing::Throw will trigger undefined behaviour.
+        "-fexceptions",
     ],
 }
 
@@ -87,6 +90,8 @@ cc_library_static {
     rtti: true,
     static_libs: ["libgtest"],
     vendor_available: true,
+    product_available: true,
+    native_bridge_supported: true,
 }
 
 cc_library_static {
@@ -98,6 +103,8 @@ cc_library_static {
     srcs: ["src/gmock_main.cc"],
     static_libs: ["libgtest"],
     vendor_available: true,
+    product_available: true,
+    native_bridge_supported: true,
 }
 
 // Deprecated: use libgmock instead

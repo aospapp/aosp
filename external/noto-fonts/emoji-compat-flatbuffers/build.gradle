@@ -30,7 +30,7 @@ compileJava {
 }
 
 dependencies {
-    implementation("com.google.flatbuffers:flatbuffers-java:1.12.0")
+    implementation("com.google.flatbuffers:flatbuffers-java:2.0.0")
 }
 
 // The "javadoc" task is unused so we don't want it to appear in the output of `./gradlew tasks`

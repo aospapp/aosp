@@ -30,7 +30,11 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
+
 import androidx.test.platform.app.InstrumentationRegistry;
+
+import junit.framework.Assert;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -39,8 +43,6 @@ import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import junit.framework.Assert;
 
 public class Utils {
     private static final String TAG = "CtsMediaTestUtil";

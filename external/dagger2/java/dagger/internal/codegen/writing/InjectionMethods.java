@@ -16,6 +16,7 @@
 
 package dagger.internal.codegen.writing;
 
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
 import static com.google.auto.common.MoreElements.asExecutable;
 import static com.google.auto.common.MoreElements.asType;
 import static com.google.auto.common.MoreElements.asVariable;
@@ -23,7 +24,7 @@ import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
-import static dagger.internal.codegen.base.RequestKinds.requestTypeName;
+import static dagger.internal.codegen.binding.AssistedInjectionAnnotations.isAssistedParameter;
 import static dagger.internal.codegen.binding.ConfigurationAnnotations.getNullableType;
 import static dagger.internal.codegen.binding.SourceFiles.generatedClassNameForBinding;
 import static dagger.internal.codegen.binding.SourceFiles.memberInjectedFieldSignatureForVariable;
@@ -38,11 +39,15 @@ import static dagger.internal.codegen.langmodel.Accessibility.isElementAccessibl
 import static dagger.internal.codegen.langmodel.Accessibility.isRawTypeAccessible;
 import static dagger.internal.codegen.langmodel.Accessibility.isRawTypePubliclyAccessible;
 import static dagger.internal.codegen.langmodel.Accessibility.isTypeAccessibleFrom;
+import static dagger.internal.codegen.xprocessing.XElements.asExecutable;
+import static dagger.internal.codegen.xprocessing.XElements.asMethodParameter;
 import static java.util.stream.Collectors.toList;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 import static javax.lang.model.type.TypeKind.VOID;
 
+import androidx.room.compiler.processing.XExecutableElement;
+import androidx.room.compiler.processing.XExecutableParameterElement;
 import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -56,7 +61,6 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeVariableName;
 import dagger.internal.Preconditions;
 import dagger.internal.codegen.base.UniqueNameSet;
-import dagger.internal.codegen.binding.AssistedInjectionAnnotations;
 import dagger.internal.codegen.binding.MembersInjectionBinding.InjectionSite;
 import dagger.internal.codegen.binding.ProvisionBinding;
 import dagger.internal.codegen.compileroption.CompilerOptions;
@@ -65,8 +69,8 @@ import dagger.internal.codegen.javapoet.CodeBlocks;
 import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.internal.codegen.kotlin.KotlinMetadataUtil;
 import dagger.internal.codegen.langmodel.DaggerTypes;
-import dagger.model.DependencyRequest;
-import dagger.model.RequestKind;
+import dagger.spi.model.DaggerAnnotation;
+import dagger.spi.model.DependencyRequest;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -76,7 +80,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Parameterizable;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
 /** Convenience methods for creating and invoking {@link InjectionMethod}s. */
@@ -119,7 +122,7 @@ final class InjectionMethods {
         ProvisionBinding binding,
         CompilerOptions compilerOptions,
         KotlinMetadataUtil metadataUtil) {
-      ExecutableElement element = asExecutable(binding.bindingElement().get());
+      ExecutableElement element = asExecutable(toJavac(binding.bindingElement().get()));
       switch (element.getKind()) {
         case CONSTRUCTOR:
           return constructorProxy(element);
@@ -142,13 +145,15 @@ final class InjectionMethods {
     static CodeBlock invoke(
         ProvisionBinding binding,
         Function<DependencyRequest, CodeBlock> dependencyUsage,
+        Function<VariableElement, String> uniqueAssistedParameterName,
         ClassName requestingClass,
         Optional<CodeBlock> moduleReference,
         CompilerOptions compilerOptions,
         KotlinMetadataUtil metadataUtil) {
       ImmutableList.Builder<CodeBlock> arguments = ImmutableList.builder();
       moduleReference.ifPresent(arguments::add);
-      invokeArguments(binding, dependencyUsage, requestingClass).forEach(arguments::add);
+      invokeArguments(binding, dependencyUsage, uniqueAssistedParameterName)
+          .forEach(arguments::add);
 
       ClassName enclosingClass = generatedClassNameForBinding(binding);
       MethodSpec methodSpec = create(binding, compilerOptions, metadataUtil);
@@ -158,23 +163,22 @@ final class InjectionMethods {
     static ImmutableList<CodeBlock> invokeArguments(
         ProvisionBinding binding,
         Function<DependencyRequest, CodeBlock> dependencyUsage,
-        ClassName requestingClass) {
-      ImmutableMap<VariableElement, DependencyRequest> dependencyRequestMap =
+        Function<VariableElement, String> uniqueAssistedParameterName) {
+      ImmutableMap<XExecutableParameterElement, DependencyRequest> dependencyRequestMap =
           binding.provisionDependencies().stream()
               .collect(
                   toImmutableMap(
-                      request -> MoreElements.asVariable(request.requestElement().get()),
+                      request -> asMethodParameter(request.requestElement().get().xprocessing()),
                       request -> request));
 
       ImmutableList.Builder<CodeBlock> arguments = ImmutableList.builder();
-      for (VariableElement parameter :
-          asExecutable(binding.bindingElement().get()).getParameters()) {
-        if (AssistedInjectionAnnotations.isAssistedParameter(parameter)) {
-          arguments.add(CodeBlock.of("$L", parameter.getSimpleName()));
+      XExecutableElement method = asExecutable(binding.bindingElement().get());
+      for (XExecutableParameterElement parameter : method.getParameters()) {
+        if (isAssistedParameter(parameter)) {
+          arguments.add(CodeBlock.of("$L", uniqueAssistedParameterName.apply(toJavac(parameter))));
         } else if (dependencyRequestMap.containsKey(parameter)) {
           DependencyRequest request = dependencyRequestMap.get(parameter);
-          arguments.add(
-              injectionMethodArgument(request, dependencyUsage.apply(request), requestingClass));
+          arguments.add(dependencyUsage.apply(request));
         } else {
           throw new AssertionError("Unexpected parameter: " + parameter);
         }
@@ -205,7 +209,7 @@ final class InjectionMethods {
      */
     static boolean requiresInjectionMethod(
         ProvisionBinding binding, CompilerOptions compilerOptions, ClassName requestingClass) {
-      ExecutableElement method = MoreElements.asExecutable(binding.bindingElement().get());
+      ExecutableElement method = asExecutable(toJavac(binding.bindingElement().get()));
       return !binding.injectionSites().isEmpty()
           || binding.shouldCheckForNull(compilerOptions)
           || !isElementAccessibleFrom(method, requestingClass.packageName())
@@ -276,7 +280,8 @@ final class InjectionMethods {
                   // methods for fields have a single dependency request
                   .collect(DaggerCollectors.onlyElement())
                   .key()
-                  .qualifier();
+                  .qualifier()
+                  .map(DaggerAnnotation::java);
           return fieldProxy(asVariable(injectionSite.element()), methodName, qualifier);
       }
       throw new AssertionError(injectionSite);
@@ -369,44 +374,6 @@ final class InjectionMethods {
           + LOWER_CAMEL.to(UPPER_CAMEL, injectionSite.element().getSimpleName().toString())
           + indexString;
     }
-  }
-
-  private static CodeBlock injectionMethodArgument(
-      DependencyRequest dependency, CodeBlock argument, ClassName generatedTypeName) {
-    TypeMirror keyType = dependency.key().type();
-    CodeBlock.Builder codeBlock = CodeBlock.builder();
-    if (!isRawTypeAccessible(keyType, generatedTypeName.packageName())
-        && isTypeAccessibleFrom(keyType, generatedTypeName.packageName())) {
-      if (!dependency.kind().equals(RequestKind.INSTANCE)) {
-        TypeName usageTypeName = accessibleType(dependency);
-        codeBlock.add("($T) ($T)", usageTypeName, rawTypeName(usageTypeName));
-      } else if (dependency.requestElement().get().asType().getKind().equals(TypeKind.TYPEVAR)) {
-        codeBlock.add("($T)", keyType);
-      }
-    }
-    return codeBlock.add(argument).build();
-  }
-
-  /**
-   * Returns the parameter type for {@code dependency}. If the raw type is not accessible, returns
-   * {@link Object}.
-   */
-  private static TypeName accessibleType(DependencyRequest dependency) {
-    TypeName typeName = requestTypeName(dependency.kind(), accessibleType(dependency.key().type()));
-    return dependency
-            .requestElement()
-            .map(element -> element.asType().getKind().isPrimitive())
-            .orElse(false)
-        ? typeName.unbox()
-        : typeName;
-  }
-
-  /**
-   * Returns the accessible type for {@code type}. If the raw type is not accessible, returns {@link
-   * Object}.
-   */
-  private static TypeName accessibleType(TypeMirror type) {
-    return isRawTypePubliclyAccessible(type) ? TypeName.get(type) : TypeName.OBJECT;
   }
 
   private enum InstanceCastPolicy {

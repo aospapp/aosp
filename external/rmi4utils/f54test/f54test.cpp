@@ -695,7 +695,7 @@ int F54Test::ReadF54Queries()
 				sizeof(m_f54Query_61.data));
 		if (retval < 0)
 			return retval;
-			offset += 1;
+		offset += 1;
 	}
 
 	/* query 62 63 */

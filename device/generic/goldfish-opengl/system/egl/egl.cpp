@@ -20,8 +20,10 @@
 #endif
 
 #include <assert.h>
+
 #include "HostConnection.h"
 #include "ThreadInfo.h"
+#include "aemu/base/threads/AndroidThread.h"
 #include "eglDisplay.h"
 #include "eglSync.h"
 #include "egl_ftable.h"
@@ -56,11 +58,14 @@
 #endif // VIRTIO_GPU
 
 #ifdef GFXSTREAM
-#include "android/base/Tracing.h"
+#include "aemu/base/Tracing.h"
 #endif
 #include <cutils/trace.h>
 
 #include <system/window.h>
+
+using android::base::guest::getCurrentThreadId;
+
 #define DEBUG_EGL 0
 
 #if DEBUG_EGL
@@ -101,15 +106,17 @@ const char *  eglStrError(EGLint err)
 
 #ifdef LOG_EGL_ERRORS
 
-#define setErrorReturn(error, retVal)     \
-    {                                                \
-        ALOGE("tid %d: %s(%d): error 0x%x (%s)", getCurrentThreadId(), __FUNCTION__, __LINE__, error, eglStrError(error));     \
-        return setErrorFunc(error, retVal);            \
+#define setErrorReturn(error, retVal)                                                           \
+    {                                                                                           \
+        ALOGE("tid %lu: %s(%d): error 0x%x (%s)", getCurrentThreadId(), __FUNCTION__, __LINE__, \
+              error, eglStrError(error));                                                       \
+        return setErrorFunc(error, retVal);                                                     \
     }
 
-#define RETURN_ERROR(ret,err)           \
-    ALOGE("tid %d: %s(%d): error 0x%x (%s)", getCurrentThreadId(), __FUNCTION__, __LINE__, err, eglStrError(err));    \
-    getEGLThreadInfo()->eglError = err;    \
+#define RETURN_ERROR(ret, err)                                                                   \
+    ALOGE("tid %lu: %s(%d): error 0x%x (%s)", getCurrentThreadId(), __FUNCTION__, __LINE__, err, \
+          eglStrError(err));                                                                     \
+    getEGLThreadInfo()->eglError = err;                                                          \
     return ret;
 
 #else //!LOG_EGL_ERRORS
@@ -337,6 +344,7 @@ struct app_time_metric_t {
             float avgMs = ns2ms(totalAppTime) / numSamples;
             float minMs = ns2ms(minAppTime);
             float maxMs = ns2ms(maxAppTime);
+            // B* needs the following log.
             ALOGD("app_time_stats: avg=%0.2fms min=%0.2fms max=%0.2fms count=%u", avgMs, minMs, maxMs, numSamples);
             totalAppTime = 0;
             minAppTime = 0;
@@ -976,7 +984,6 @@ static std::vector<std::string> getExtStringArray() {
     // find the number of extensions
     int extStart = 0;
     int extEnd = 0;
-    int currentExtIndex = 0;
 
     if (sWantES30OrAbove(hostStr) &&
         !strstr(hostStr, kOESEGLImageExternalEssl3)) {
@@ -988,7 +995,6 @@ static std::vector<std::string> getExtStringArray() {
         if (hostStr[extEnd] == ' ') {
             int extSz = extEnd - extStart;
             res.push_back(std::string(hostStr + extStart, extSz));
-            currentExtIndex++;
             extStart = extEnd + 1;
         }
         extEnd++;
@@ -1250,7 +1256,7 @@ EGLBoolean eglGetConfigAttrib(EGLDisplay dpy, EGLConfig config, EGLint attribute
     }
     else
     {
-        ALOGD("%s: bad attrib 0x%x", __FUNCTION__, attribute);
+        DPRINT("%s: bad attrib 0x%x", __FUNCTION__, attribute);
         RETURN_ERROR(EGL_FALSE, EGL_BAD_ATTRIBUTE);
     }
 }
@@ -1628,7 +1634,7 @@ EGLBoolean eglSurfaceAttrib(EGLDisplay dpy, EGLSurface surface, EGLint attribute
         }
         return true;
     case EGL_TIMESTAMPS_ANDROID:
-        ALOGD("%s: set frame timestamps collecting %d\n", __func__, value);
+        DPRINT("%s: set frame timestamps collecting %d\n", __func__, value);
         p_surface->setCollectingTimestamps(value);
         return true;
     default:
@@ -1724,9 +1730,9 @@ EGLContext eglCreateContext(EGLDisplay dpy, EGLConfig config, EGLContext share_c
             wantedMinorVersion = true;
             break;
         case EGL_CONTEXT_FLAGS_KHR:
-            if ((attrib_val | EGL_CONTEXT_OPENGL_DEBUG_BIT_KHR) ||
-                (attrib_val | EGL_CONTEXT_OPENGL_FORWARD_COMPATIBLE_BIT_KHR)  ||
-                (attrib_val | EGL_CONTEXT_OPENGL_ROBUST_ACCESS_BIT_KHR)) {
+            if ((attrib_val & EGL_CONTEXT_OPENGL_DEBUG_BIT_KHR) ||
+                (attrib_val & EGL_CONTEXT_OPENGL_FORWARD_COMPATIBLE_BIT_KHR)  ||
+                (attrib_val & EGL_CONTEXT_OPENGL_ROBUST_ACCESS_BIT_KHR)) {
                 context_flags = attrib_val;
             } else {
                 RETURN_ERROR(EGL_NO_CONTEXT,EGL_BAD_ATTRIBUTE);
@@ -1850,7 +1856,7 @@ EGLContext eglCreateContext(EGLDisplay dpy, EGLConfig config, EGLContext share_c
     }
 
     EGLContext_t * context = new EGLContext_t(dpy, config, shareCtx, majorVersion, minorVersion);
-    ALOGD("%s: %p: maj %d min %d rcv %d", __FUNCTION__, context, majorVersion, minorVersion, rcMajorVersion);
+    DPRINT("%s: %p: maj %d min %d rcv %d", __FUNCTION__, context, majorVersion, minorVersion, rcMajorVersion);
     if (!context) {
         ALOGE("could not alloc egl context!");
         setErrorReturn(EGL_BAD_ALLOC, EGL_NO_CONTEXT);
@@ -1959,7 +1965,7 @@ EGLBoolean eglMakeCurrent(EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGLC
             context->getClientState();
 
         if (!hostCon->gl2Encoder()->isInitialized()) {
-            ALOGD("%s: %p: ver %d %d (tinfo %p) (first time)",
+            DPRINT("%s: %p: ver %d %d (tinfo %p) (first time)",
                   __FUNCTION__,
                   context, context->majorVersion, context->minorVersion, tInfo);
             s_display.gles2_iface()->init();
@@ -2049,7 +2055,7 @@ EGLBoolean eglMakeCurrent(EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGLC
         }
         else {
             if (!hostCon->glEncoder()->isInitialized()) {
-                ALOGD("%s: %p: ver %d %d (tinfo %p) (first time)",
+                DPRINT("%s: %p: ver %d %d (tinfo %p) (first time)",
                       __FUNCTION__,
                       context, context->majorVersion, context->minorVersion, tInfo);
                 s_display.gles_iface()->init();
@@ -2194,6 +2200,9 @@ EGLBoolean eglUnlockSurfaceKHR(EGLDisplay display, EGLSurface surface)
     return 0;
 }
 
+/* Define to match AIDL PixelFormat::R_8. */
+#define HAL_PIXEL_FORMAT_R8 0x38
+
 EGLImageKHR eglCreateImageKHR(EGLDisplay dpy, EGLContext ctx, EGLenum target, EGLClientBuffer buffer, const EGLint *attrib_list)
 {
     (void)attrib_list;
@@ -2213,9 +2222,13 @@ EGLImageKHR eglCreateImageKHR(EGLDisplay dpy, EGLContext ctx, EGLenum target, EG
         if (native_buffer->common.version != sizeof(android_native_buffer_t))
             setErrorReturn(EGL_BAD_PARAMETER, EGL_NO_IMAGE_KHR);
 
+        if (native_buffer->handle == NULL)
+            setErrorReturn(EGL_BAD_PARAMETER, EGL_NO_IMAGE_KHR);
+
         DEFINE_AND_VALIDATE_HOST_CONNECTION(EGL_FALSE);
         int format = grallocHelper->getFormat(native_buffer->handle);
         switch (format) {
+            case HAL_PIXEL_FORMAT_R8:
             case HAL_PIXEL_FORMAT_RGBA_8888:
             case HAL_PIXEL_FORMAT_RGBX_8888:
             case HAL_PIXEL_FORMAT_RGB_888:

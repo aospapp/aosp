@@ -30,26 +30,28 @@ import android.graphics.RectF;
 import android.os.IBinder;
 import android.os.UserHandle;
 import android.util.Size;
+import android.view.RemoteAnimationTarget;
 import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.android.launcher3.BaseQuickstepLauncher;
 import com.android.launcher3.LauncherState;
 import com.android.launcher3.anim.AnimatorPlaybackController;
+import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.states.StateAnimationConfig;
+import com.android.launcher3.uioverrides.QuickstepLauncher;
 import com.android.launcher3.util.ObjectWrapper;
 import com.android.launcher3.views.FloatingIconView;
 import com.android.launcher3.views.FloatingView;
 import com.android.launcher3.widget.LauncherAppWidgetHostView;
 import com.android.quickstep.util.RectFSpringAnim;
 import com.android.quickstep.util.StaggeredWorkspaceAnim;
+import com.android.quickstep.util.TaskViewSimulator;
 import com.android.quickstep.views.FloatingWidgetView;
 import com.android.quickstep.views.RecentsView;
 import com.android.quickstep.views.TaskView;
 import com.android.systemui.shared.system.InputConsumerController;
-import com.android.systemui.shared.system.RemoteAnimationTargetCompat;
 
 import java.util.ArrayList;
 
@@ -57,7 +59,7 @@ import java.util.ArrayList;
  * Temporary class to allow easier refactoring
  */
 public class LauncherSwipeHandlerV2 extends
-        AbsSwipeUpHandler<BaseQuickstepLauncher, RecentsView, LauncherState> {
+        AbsSwipeUpHandler<QuickstepLauncher, RecentsView, LauncherState> {
 
     public LauncherSwipeHandlerV2(Context context, RecentsAnimationDeviceState deviceState,
             TaskAnimationManager taskAnimationManager, GestureState gestureState, long touchTimeMs,
@@ -70,7 +72,7 @@ public class LauncherSwipeHandlerV2 extends
     @Override
     protected HomeAnimationFactory createHomeAnimationFactory(ArrayList<IBinder> launchCookies,
             long duration, boolean isTargetTranslucent, boolean appCanEnterPip,
-            RemoteAnimationTargetCompat runningTaskTarget) {
+            RemoteAnimationTarget runningTaskTarget) {
         if (mActivity == null) {
             mStateCallback.addChangeListener(STATE_LAUNCHER_PRESENT | STATE_HANDLER_INVALIDATED,
                     isPresent -> mRecentsView.startHome());
@@ -84,14 +86,15 @@ public class LauncherSwipeHandlerV2 extends
 
         final View workspaceView = findWorkspaceView(launchCookies,
                 mRecentsView.getRunningTaskView());
-        boolean canUseWorkspaceView = workspaceView != null && workspaceView.isAttachedToWindow();
+        boolean canUseWorkspaceView = workspaceView != null && workspaceView.isAttachedToWindow()
+                && workspaceView.getHeight() > 0;
 
         mActivity.getRootView().setForceHideBackArrow(true);
         if (!TaskAnimationManager.ENABLE_SHELL_TRANSITIONS) {
             mActivity.setHintUserWillBeActive();
         }
 
-        if (!canUseWorkspaceView || appCanEnterPip || mIsSwipeForStagedSplit) {
+        if (!canUseWorkspaceView || appCanEnterPip || mIsSwipeForSplit) {
             return new LauncherHomeAnimationFactory();
         }
         if (workspaceView instanceof LauncherAppWidgetHostView) {
@@ -103,7 +106,10 @@ public class LauncherSwipeHandlerV2 extends
 
     private HomeAnimationFactory createIconHomeAnimationFactory(View workspaceView) {
         RectF iconLocation = new RectF();
-        FloatingIconView floatingIconView = getFloatingIconView(mActivity, workspaceView,
+        FloatingIconView floatingIconView = getFloatingIconView(mActivity, workspaceView, null,
+                mActivity.getTaskbarUIController() == null
+                        ? null
+                        : mActivity.getTaskbarUIController().findMatchingView(workspaceView),
                 true /* hideOriginal */, iconLocation, false /* isOpening */);
 
         // We want the window alpha to be 0 once this threshold is met, so that the
@@ -116,6 +122,12 @@ public class LauncherSwipeHandlerV2 extends
             @Override
             protected View getViewIgnoredInWorkspaceRevealAnimation() {
                 return workspaceView;
+            }
+
+            @Override
+            public boolean isInHotseat() {
+                return workspaceView.getTag() instanceof ItemInfo
+                        && ((ItemInfo) workspaceView.getTag()).isInHotseat();
             }
 
             @NonNull
@@ -135,27 +147,30 @@ public class LauncherSwipeHandlerV2 extends
             @Override
             public void update(RectF currentRect, float progress, float radius) {
                 super.update(currentRect, progress, radius);
-                floatingIconView.update(1f /* alpha */, 255 /* fgAlpha */, currentRect, progress,
-                        windowAlphaThreshold, radius, false);
+                floatingIconView.update(1f /* alpha */, currentRect, progress, windowAlphaThreshold,
+                        radius, false);
             }
         };
     }
 
     private HomeAnimationFactory createWidgetHomeAnimationFactory(
             LauncherAppWidgetHostView hostView, boolean isTargetTranslucent,
-            RemoteAnimationTargetCompat runningTaskTarget) {
+            RemoteAnimationTarget runningTaskTarget) {
         final float floatingWidgetAlpha = isTargetTranslucent ? 0 : 1;
         RectF backgroundLocation = new RectF();
         Rect crop = new Rect();
         // We can assume there is only one remote target here because staged split never animates
         // into the app icon, only into the homescreen
-        mRemoteTargetHandles[0].getTaskViewSimulator().getCurrentCropRect().roundOut(crop);
+        RemoteTargetGluer.RemoteTargetHandle remoteTargetHandle = mRemoteTargetHandles[0];
+        TaskViewSimulator tvs = remoteTargetHandle.getTaskViewSimulator();
+        // This is to set up the inverse matrix in the simulator
+        tvs.apply(remoteTargetHandle.getTransformParams());
+        tvs.getCurrentCropRect().roundOut(crop);
         Size windowSize = new Size(crop.width(), crop.height());
         int fallbackBackgroundColor =
                 FloatingWidgetView.getDefaultBackgroundColor(mContext, runningTaskTarget);
         FloatingWidgetView floatingWidgetView = FloatingWidgetView.getFloatingWidgetView(mActivity,
-                hostView, backgroundLocation, windowSize,
-                mRemoteTargetHandles[0].getTaskViewSimulator().getCurrentCornerRadius(),
+                hostView, backgroundLocation, windowSize, tvs.getCurrentCornerRadius(),
                 isTargetTranslucent, fallbackBackgroundColor);
 
         return new FloatingViewHomeAnimationFactory(floatingWidgetView) {

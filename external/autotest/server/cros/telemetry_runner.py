@@ -1,4 +1,4 @@
-# Lint as: python2, python3
+# Lint as: python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,17 +7,20 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import abc
 import json
 import logging
 import numbers
 import os
 import tempfile
 import six
+import sys
 
 import numpy
 
+import common
 from autotest_lib.client.common_lib import error, utils
-from autotest_lib.client.common_lib.cros import dev_server
+from autotest_lib.server.cros import telemetry_setup
 
 TELEMETRY_RUN_BENCHMARKS_SCRIPT = 'tools/perf/run_benchmark'
 TELEMETRY_RUN_TESTS_SCRIPT = 'tools/telemetry/run_tests'
@@ -66,108 +69,71 @@ class TelemetryResult(object):
         self.output = '\n'.join([stdout, stderr])
 
 
-class TelemetryRunner(object):
+class TelemetryRunnerFactory(object):
+    """A factory class to determine TelemetryRunner subclass to be used.
+
+    The TelemetryRunner class, today, has various ways to execute the telemetry
+    test. The test can be executed locally (using a tool like test_that) or can
+    be executed in the Lab environment - for this usecase, either the drone OR
+    the devserver can be used.
+
+    A Factory class offloads this determination overhead from the clients. Users
+    of the TelemetryRunner class are highly encouraged to go through this
+    Factory class while determining the correct TelemetryRunner subclass.
+    """
+
+    def get_runner(self,
+                   host,
+                   local=False,
+                   telemetry_on_dut=True,
+                   is_lacros=False):
+        """Method to determine which TelemetryRunner subclass to use."""
+        if local:
+            return LocalTelemetryRunner(host, telemetry_on_dut)
+        else:
+            return DroneTelemetryRunner(host, telemetry_on_dut, is_lacros)
+
+
+class TelemetryRunner(six.with_metaclass(abc.ABCMeta, object)):
     """Class responsible for telemetry for a given build.
 
-    This class will extract and install telemetry on the devserver and is
+    This class will extract and install telemetry environment and is
     responsible for executing the telemetry benchmarks and returning their
     output to the caller.
     """
 
-    def __init__(self, host, local=False, telemetry_on_dut=True):
+    def __init__(self, host, telemetry_on_dut=True, is_lacros=False):
         """Initializes this telemetry runner instance.
 
         If telemetry is not installed for this build, it will be.
 
-        Basically, the following commands on the local pc on which test_that
-        will be executed, depending on the 4 possible combinations of
-        local x telemetry_on_dut:
-
-        local=True, telemetry_on_dut=False:
-        python2 run_benchmark --browser=cros-chrome --remote=[dut] [test]
-
-        local=True, telemetry_on_dut=True:
-        ssh [dut] python2 run_benchmark --browser=system [test]
-
-        local=False, telemetry_on_dut=False:
-        ssh [devserver] python2 run_benchmark --browser=cros-chrome
-        --remote=[dut] [test]
-
-        local=False, telemetry_on_dut=True:
-        ssh [devserver] ssh [dut] python2 run_benchmark --browser=system [test]
-
         @param host: Host where the test will be run.
-        @param local: If set, no devserver will be used, test will be run
-                      locally.
-                      If not set, "ssh [devserver] " will be appended to test
-                      commands.
         @param telemetry_on_dut: If set, telemetry itself (the test harness)
                                  will run on dut.
                                  It decides browser=[system|cros-chrome]
+        @param is_lacros: If true, run telemetry on lacros chrome, by defining
+                          browser=lacros-chrome. It is only valid for remote
+                          test mode.
         """
         self._host = host
-        self._devserver = None
         self._telemetry_path = None
         self._perf_value_writer = None
+        self._setup_telemetry()
         self._telemetry_on_dut = telemetry_on_dut
-        # TODO (llozano crbug.com/324964). Remove conditional code.
-        # Use a class hierarchy instead.
-        if local:
-            self._setup_local_telemetry()
-        else:
-            self._setup_devserver_telemetry()
         self._benchmark_deps = None
-
+        self._is_lacros = is_lacros
         logging.debug('Telemetry Path: %s', self._telemetry_path)
 
-    def _setup_devserver_telemetry(self):
-        """Setup Telemetry to use the devserver."""
-        logging.debug('Setting up telemetry for devserver testing')
-        logging.debug('Grabbing build from AFE.')
-        info = self._host.host_info_store.get()
-        if not info.build:
-            logging.error('Unable to locate build label for host: %s.',
-                          self._host.host_port)
-            raise error.AutotestError(
-                    'Failed to grab build for host %s.' % self._host.host_port)
+    def __enter__(self):
+        """Called while entering context manager; does nothing."""
+        return self
 
-        logging.debug('Setting up telemetry for build: %s', info.build)
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Called while exiting context manager."""
 
-        self._devserver = dev_server.ImageServer.resolve(
-                info.build, hostname=self._host.hostname)
-        self._devserver.stage_artifacts(info.build, ['autotest_packages'])
-        self._telemetry_path = self._devserver.setup_telemetry(
-                build=info.build)
-
-    def _setup_local_telemetry(self):
-        """Setup Telemetry to use local path to its sources.
-
-        First look for chrome source root, either externally mounted, or inside
-        the chroot.  Prefer chrome-src-internal source tree to chrome-src.
-        """
-        TELEMETRY_DIR = 'src'
-        CHROME_LOCAL_SRC = '/var/cache/chromeos-cache/distfiles/target/'
-        CHROME_EXTERNAL_SRC = os.path.expanduser('~/chrome_root/')
-
-        logging.debug('Setting up telemetry for local testing')
-
-        sources_list = ('chrome-src-internal', 'chrome-src')
-        dir_list = [CHROME_EXTERNAL_SRC]
-        dir_list.extend(
-                [os.path.join(CHROME_LOCAL_SRC, x) for x in sources_list])
-        if 'CHROME_ROOT' in os.environ:
-            dir_list.insert(0, os.environ['CHROME_ROOT'])
-
-        telemetry_src = ''
-        for dir in dir_list:
-            if os.path.exists(dir):
-                telemetry_src = os.path.join(dir, TELEMETRY_DIR)
-                break
-        else:
-            raise error.TestError('Telemetry source directory not found.')
-
-        self._devserver = None
-        self._telemetry_path = telemetry_src
+    @abc.abstractmethod
+    def _setup_telemetry(self):
+        """Set up telemetry environment."""
 
     def _get_telemetry_cmd(self, script, test_or_benchmark, output_format,
                            *args, **kwargs):
@@ -187,10 +153,6 @@ class TelemetryRunner(object):
         @returns Full telemetry command to execute the script.
         """
         telemetry_cmd = []
-        if self._devserver:
-            devserver_hostname = self._devserver.hostname
-            telemetry_cmd.extend(['ssh', devserver_hostname])
-
         no_verbose = kwargs.get('no_verbose', False)
 
         output_dir = (DUT_CHROME_ROOT
@@ -202,24 +164,25 @@ class TelemetryRunner(object):
 
         if self._telemetry_on_dut:
             telemetry_cmd.extend([
-                    self._host.ssh_command(
-                            alive_interval=900, connection_attempts=4),
-                    'python2',
+                    self._host.ssh_command(alive_interval=900,
+                                           connection_attempts=4),
+                    sys.executable,
                     script,
                     '--output-format=%s' % output_format,
                     '--output-dir=%s' % output_dir,
                     '--browser=system',
             ])
         else:
+            browser = 'lacros-chrome' if self._is_lacros else 'cros-chrome'
             telemetry_cmd.extend([
-                    'python2',
+                    sys.executable,
                     script,
-                    '--browser=cros-chrome',
+                    '--browser=%s' % browser,
                     '--output-format=%s' % output_format,
                     '--output-dir=%s' % output_dir,
                     '--remote=%s' % self._host.hostname,
             ])
-            if self._host.host_port != self._host.hostname:
+            if self._host.host_port != self._host.hostname and self._host.host_port:
                 # If the user specify a different port for the DUT, we should
                 # use different telemetry argument to set it up.
                 #
@@ -238,7 +201,7 @@ class TelemetryRunner(object):
 
     def _scp_telemetry_results_cmd(self, perf_results_dir, output_format,
                                    artifacts):
-        """Build command to copy the telemetry results from the devserver.
+        """Build command to copy the telemetry results from the work directory.
 
         @param perf_results_dir: directory path where test output is to be
                                  collected.
@@ -266,16 +229,13 @@ class TelemetryRunner(object):
             src = 'root@%s:%s' % (self._host.hostname, DUT_CHROME_ROOT)
         else:
             # Use rsync --remove-source-file to move rather than copy from
-            # server. This is because each run will generate certain artifacts
+            # work dir. This is because each run will generate certain artifacts
             # and will not be removed after, making result size getting larger.
             # We don't do this for results on DUT because 1) rsync doesn't work
             # 2) DUT will be reflashed frequently and no need to worry about
             # result size.
             scp_cmd.extend(['rsync', '-avz', '--remove-source-files'])
-            devserver_hostname = ''
-            if self._devserver:
-                devserver_hostname = self._devserver.hostname + ':'
-            src = '%s%s' % (devserver_hostname, self._telemetry_path)
+            src = self._telemetry_path
 
         if self._perf_value_writer:
             src = os.path.join(src, self._perf_value_writer.tmpdir.strip('/'))
@@ -375,7 +335,7 @@ class TelemetryRunner(object):
         """Runs a telemetry test on a dut.
 
         @param script: Which telemetry test script we want to run. Can be
-                       telemetry's base test script or the Chrome OS specific
+                       telemetry's base test script or the ChromeOS specific
                        test script.
         @param test: Telemetry test we want to run.
         @param args: additional list of arguments to pass to the script.
@@ -475,16 +435,11 @@ class TelemetryRunner(object):
                  execution.
         """
         script = os.path.join(DUT_CHROME_ROOT, TELEMETRY_RUN_GPU_TESTS_SCRIPT)
-        cmd = []
-        if self._devserver:
-            devserver_hostname = self._devserver.hostname
-            cmd.extend(['ssh', devserver_hostname])
-
-        cmd.extend([
-                self._host.ssh_command(
-                        alive_interval=900, connection_attempts=4), 'python2',
+        cmd = [
+                self._host.ssh_command(alive_interval=900,
+                                       connection_attempts=4), sys.executable,
                 script
-        ])
+        ]
         cmd.extend(args)
         cmd.append(test)
         cmd = ' '.join(cmd)
@@ -515,15 +470,9 @@ class TelemetryRunner(object):
         self._benchmark_deps = tempfile.NamedTemporaryFile(
                 prefix='fetch_benchmark_deps_result.', suffix='.json')
         deps_path = self._benchmark_deps.name
-        format_fetch = ('python2 %s --output-deps=%s %s')
-        command_fetch = format_fetch % (fetch_path, deps_path, test_name)
-        command_get = 'cat %s' % deps_path
-
-        if self._devserver:
-            devserver_hostname = self._devserver.url().split(
-                    'http://')[1].split(':')[0]
-            command_fetch = 'ssh %s %s' % (devserver_hostname, command_fetch)
-            command_get = 'ssh %s %s' % (devserver_hostname, command_get)
+        command_fetch = (f'{sys.executable} {fetch_path} '
+                         f'--output-deps={deps_path} {test_name}')
+        command_get = f'cat {deps_path}'
 
         logging.info('Getting DEPs: %s', command_fetch)
         _, _, exit_code = self._run_cmd(command_fetch)
@@ -539,17 +488,10 @@ class TelemetryRunner(object):
         for dep in deps[test_name]:
             src = os.path.join(self._telemetry_path, dep)
             dst = os.path.join(DUT_CHROME_ROOT, dep)
-            if self._devserver:
-                logging.info('Copying: %s -> %s', src, dst)
-                rsync_cmd = utils.sh_escape(
-                        'rsync %s %s %s:%s' % (self._host.rsync_options(), src,
-                                               self._host.hostname, dst))
-                utils.run('ssh %s "%s"' % (devserver_hostname, rsync_cmd))
-            else:
-                if not os.path.isfile(src):
-                    raise error.TestFail('Error occurred while saving DEPs.')
-                logging.info('Copying: %s -> %s', src, dst)
-                dut.send_file(src, dst)
+            if not os.path.isfile(src):
+                raise error.TestFail('Error occurred while saving DEPs.')
+            logging.info('Copying: %s -> %s', src, dst)
+            dut.send_file(src, dst)
 
     @staticmethod
     def convert_chart_json(histogram_set):
@@ -659,3 +601,116 @@ class TelemetryRunner(object):
                 'charts': charts,
                 'format_version': 1.0
         }
+
+
+class LocalTelemetryRunner(TelemetryRunner):
+    """Specialized TelemetryRunner to handle local telemetry test runs."""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize LocalTelemetryRunner.
+
+        The telemetry test will run locally. Depending on whether
+        telemetry_on_dut is True or False, there can be possible combinations
+        for the execution of this test:
+
+        telemetry_on_dut=False:
+        python run_benchmark --browser=cros-chrome --remote=[dut] [test]
+
+        telemetry_on_dut=True:
+        ssh [dut] python run_benchmark --browser=system [test]
+
+        @param args: The list of arguments to be passed. See Base class for a
+                     complete list of accepted arguments.
+        @param kwargs: Any keyword arguments to be passed. See Base class for a
+                       complete list of accepted keyword arguments.
+        """
+        super(LocalTelemetryRunner, self).__init__(*args, **kwargs)
+
+    def _setup_telemetry(self):
+        """Setup Telemetry to use local path to its sources.
+
+        First look for chrome source root, either externally mounted, or inside
+        the chroot.  Prefer chrome-src-internal source tree to chrome-src.
+        """
+        TELEMETRY_DIR = 'src'
+        CHROME_LOCAL_SRC = '/var/cache/chromeos-cache/distfiles/target/'
+        CHROME_EXTERNAL_SRC = os.path.expanduser('~/chrome_root/')
+
+        logging.debug('Setting up telemetry for local testing')
+
+        sources_list = ('chrome-src-internal', 'chrome-src')
+        dir_list = [CHROME_EXTERNAL_SRC]
+        dir_list.extend(
+                [os.path.join(CHROME_LOCAL_SRC, x) for x in sources_list])
+        if 'CHROME_ROOT' in os.environ:
+            dir_list.insert(0, os.environ['CHROME_ROOT'])
+
+        telemetry_src = ''
+        for dir in dir_list:
+            if os.path.exists(dir):
+                telemetry_src = os.path.join(dir, TELEMETRY_DIR)
+                break
+        else:
+            raise error.TestError('Telemetry source directory not found.')
+
+        self._telemetry_path = telemetry_src
+
+
+class DroneTelemetryRunner(TelemetryRunner):
+    """Handle telemetry test setup on the drone.
+
+    Users of this class are strongly advised to use this class as a context
+    manager. Since the setup for telemetry environment happens on the drone, it
+    is imperative that this setup be cleaned up once the test is done. Using
+    this class as a context manager will transfer the burden of clean up from
+    the user to Python.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """Initialize DroneTelemetryRunner.
+
+        The telemetry test will run on the drone. Depending on whether
+        telemetry_on_dut is True or False, there can be possible combinations
+        for the execution of this test:
+
+        telemetry_on_dut=False:
+        python run_benchmark --browser=cros-chrome --remote=[dut] [test]
+
+        telemetry_on_dut=True:
+        ssh [dut] python run_benchmark --browser=system [test]
+
+        @param args: The list of arguments to be passed. See Base class for a
+                     complete list of accepted arguments.
+        @param kwargs: Any keyword arguments to be passed. See Base class for a
+                       complete list of accepted keyword arguments.
+        """
+        self._telemetry_setup = None
+        super(DroneTelemetryRunner, self).__init__(*args, **kwargs)
+
+    def __enter__(self):
+        """Called while entering context manager; does nothing."""
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Called while exiting context manager; cleans up temp files."""
+        logging.info('Cleaning up the telemetry environment on the drone.')
+        self._telemetry_setup.Cleanup()
+
+    def _setup_telemetry(self):
+        """Setup Telemetry on the drone."""
+        logging.debug('Setting up telemetry on the drone')
+        info = self._host.host_info_store.get()
+        if not info.build:
+            logging.error('Unable to locate build label for host: %s.',
+                          self._host.host_port)
+            raise error.AutotestError('Failed to grab build for host %s.' %
+                                      self._host.host_port)
+
+        logging.debug('Setting up telemetry for build: %s', info.build)
+        try:
+            self._telemetry_setup = telemetry_setup.TelemetrySetup(
+                    hostname=self._host.hostname, build=info.build)
+            self._telemetry_path = self._telemetry_setup.Setup()
+        except telemetry_setup.TelemetrySetupError as e:
+            raise error.AutotestError('Telemetry Environment could not be '
+                                      'setup: %s.' % e)

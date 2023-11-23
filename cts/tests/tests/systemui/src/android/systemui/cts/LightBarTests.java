@@ -16,6 +16,9 @@
 
 package android.systemui.cts;
 
+import static android.Manifest.permission.POST_NOTIFICATIONS;
+import static android.Manifest.permission.REVOKE_POST_NOTIFICATIONS_WITHOUT_KILL;
+import static android.Manifest.permission.REVOKE_RUNTIME_PERMISSIONS;
 import static android.server.wm.BarTestUtils.assumeHasColoredNavigationBar;
 import static android.server.wm.BarTestUtils.assumeHasColoredStatusBar;
 import static android.server.wm.BarTestUtils.assumeStatusBarContainsCutout;
@@ -33,8 +36,12 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Insets;
+import android.os.Process;
 import android.os.SystemClock;
+import android.permission.PermissionManager;
+import android.permission.cts.PermissionUtils;
 import android.platform.test.annotations.AppModeFull;
+import android.server.wm.IgnoreOrientationRequestSession;
 import android.view.Gravity;
 import android.view.InputDevice;
 import android.view.MotionEvent;
@@ -45,8 +52,11 @@ import android.view.WindowMetrics;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.SystemUtil;
 import com.android.compatibility.common.util.ThrowingRunnable;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -79,12 +89,35 @@ public class LightBarTests extends LightBarTestBase {
     private final String NOTIFICATION_CHANNEL_ID = "test_channel";
     private final String NOTIFICATION_GROUP_KEY = "test_group";
     private NotificationManager mNm;
+    private IgnoreOrientationRequestSession mOrientationRequestSession;
 
     @Rule
     public ActivityTestRule<LightBarActivity> mActivityRule = new ActivityTestRule<>(
             LightBarActivity.class);
     @Rule
     public TestName mTestName = new TestName();
+
+
+
+    @Before
+    public void setUp() {
+        // We need to prevent letterboxing because when an activity is letterboxed, then the status
+        // bar icons are outside the activity space so our verification will fail. See b/246515090.
+        //
+        // When ignore_orientation_request is set to true and the device is in landscape but the
+        // activity is in portrait, then the device remains in landscape but letterboxes the
+        // activity (so the activity is *not* full screen). Setting ignore_orientation_request to
+        // false will cause the device to instead rotate to portrait to match the activity, thus
+        // preventing letterboxing.
+        mOrientationRequestSession = new IgnoreOrientationRequestSession(false /* enable */);
+    }
+
+    @After
+    public void tearDown() {
+        if (mOrientationRequestSession != null) {
+            mOrientationRequestSession.close();
+        }
+    }
 
     @Test
     @AppModeFull // Instant apps cannot create notifications
@@ -244,22 +277,23 @@ public class LightBarTests extends LightBarTestBase {
     }
 
     private void runInNotificationSession(ThrowingRunnable task) throws Exception {
+        Context context = getInstrumentation().getContext();
+        String packageName = getInstrumentation().getTargetContext().getPackageName();
         try {
-            mNm = (NotificationManager) getInstrumentation().getContext()
-                    .getSystemService(Context.NOTIFICATION_SERVICE);
+            PermissionUtils.grantPermission(packageName, POST_NOTIFICATIONS);
+            mNm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
             NotificationChannel channel1 = new NotificationChannel(NOTIFICATION_CHANNEL_ID,
                     NOTIFICATION_CHANNEL_ID, NotificationManager.IMPORTANCE_LOW);
             mNm.createNotificationChannel(channel1);
 
             // post 10 notifications to ensure enough icons in the status bar
             for (int i = 0; i < 10; i++) {
-                Notification.Builder noti1 = new Notification.Builder(
-                        getInstrumentation().getContext(),
-                        NOTIFICATION_CHANNEL_ID)
-                        .setSmallIcon(R.drawable.ic_save)
-                        .setChannelId(NOTIFICATION_CHANNEL_ID)
-                        .setPriority(Notification.PRIORITY_LOW)
-                        .setGroup(NOTIFICATION_GROUP_KEY);
+                Notification.Builder noti1 =
+                        new Notification.Builder(context, NOTIFICATION_CHANNEL_ID)
+                                .setSmallIcon(R.drawable.ic_save)
+                                .setChannelId(NOTIFICATION_CHANNEL_ID)
+                                .setPriority(Notification.PRIORITY_LOW)
+                                .setGroup(NOTIFICATION_GROUP_KEY);
                 mNm.notify(NOTIFICATION_TAG, i, noti1.build());
             }
 
@@ -267,6 +301,16 @@ public class LightBarTests extends LightBarTestBase {
         } finally {
             mNm.cancelAll();
             mNm.deleteNotificationChannel(NOTIFICATION_CHANNEL_ID);
+
+            // Use test API to prevent PermissionManager from killing the test process when revoking
+            // permission.
+            SystemUtil.runWithShellPermissionIdentity(
+                    () -> context.getSystemService(PermissionManager.class)
+                            .revokePostNotificationPermissionWithoutKillForTest(
+                                    packageName,
+                                    Process.myUserHandle().getIdentifier()),
+                    REVOKE_POST_NOTIFICATIONS_WITHOUT_KILL,
+                    REVOKE_RUNTIME_PERMISSIONS);
         }
     }
 

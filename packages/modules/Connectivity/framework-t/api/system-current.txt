@@ -59,10 +59,28 @@ package android.nearby {
   }
 
   public class NearbyManager {
+    method public void queryOffloadCapability(@NonNull java.util.concurrent.Executor, @NonNull java.util.function.Consumer<android.nearby.OffloadCapability>);
     method @RequiresPermission(allOf={android.Manifest.permission.BLUETOOTH_ADVERTISE, android.Manifest.permission.BLUETOOTH_PRIVILEGED}) public void startBroadcast(@NonNull android.nearby.BroadcastRequest, @NonNull java.util.concurrent.Executor, @NonNull android.nearby.BroadcastCallback);
     method @RequiresPermission(allOf={android.Manifest.permission.BLUETOOTH_SCAN, android.Manifest.permission.BLUETOOTH_PRIVILEGED}) public int startScan(@NonNull android.nearby.ScanRequest, @NonNull java.util.concurrent.Executor, @NonNull android.nearby.ScanCallback);
     method @RequiresPermission(allOf={android.Manifest.permission.BLUETOOTH_ADVERTISE, android.Manifest.permission.BLUETOOTH_PRIVILEGED}) public void stopBroadcast(@NonNull android.nearby.BroadcastCallback);
     method @RequiresPermission(allOf={android.Manifest.permission.BLUETOOTH_SCAN, android.Manifest.permission.BLUETOOTH_PRIVILEGED}) public void stopScan(@NonNull android.nearby.ScanCallback);
+  }
+
+  public final class OffloadCapability implements android.os.Parcelable {
+    method public int describeContents();
+    method public long getVersion();
+    method public boolean isFastPairSupported();
+    method public boolean isNearbyShareSupported();
+    method public void writeToParcel(@NonNull android.os.Parcel, int);
+    field @NonNull public static final android.os.Parcelable.Creator<android.nearby.OffloadCapability> CREATOR;
+  }
+
+  public static final class OffloadCapability.Builder {
+    ctor public OffloadCapability.Builder();
+    method @NonNull public android.nearby.OffloadCapability build();
+    method @NonNull public android.nearby.OffloadCapability.Builder setFastPairSupported(boolean);
+    method @NonNull public android.nearby.OffloadCapability.Builder setNearbyShareSupported(boolean);
+    method @NonNull public android.nearby.OffloadCapability.Builder setVersion(long);
   }
 
   public final class PresenceBroadcastRequest extends android.nearby.BroadcastRequest implements android.os.Parcelable {
@@ -175,8 +193,14 @@ package android.nearby {
 
   public interface ScanCallback {
     method public void onDiscovered(@NonNull android.nearby.NearbyDevice);
+    method public default void onError(int);
     method public void onLost(@NonNull android.nearby.NearbyDevice);
     method public void onUpdated(@NonNull android.nearby.NearbyDevice);
+    field public static final int ERROR_INVALID_ARGUMENT = 2; // 0x2
+    field public static final int ERROR_PERMISSION_DENIED = 3; // 0x3
+    field public static final int ERROR_RESOURCE_EXHAUSTED = 4; // 0x4
+    field public static final int ERROR_UNKNOWN = 0; // 0x0
+    field public static final int ERROR_UNSUPPORTED = 1; // 0x1
   }
 
   public abstract class ScanFilter {
@@ -191,6 +215,7 @@ package android.nearby {
     method public int getScanType();
     method @NonNull public android.os.WorkSource getWorkSource();
     method public boolean isBleEnabled();
+    method public boolean isOffloadOnly();
     method public static boolean isValidScanMode(int);
     method public static boolean isValidScanType(int);
     method @NonNull public static String scanModeToString(int);
@@ -209,6 +234,7 @@ package android.nearby {
     method @NonNull public android.nearby.ScanRequest.Builder addScanFilter(@NonNull android.nearby.ScanFilter);
     method @NonNull public android.nearby.ScanRequest build();
     method @NonNull public android.nearby.ScanRequest.Builder setBleEnabled(boolean);
+    method @NonNull public android.nearby.ScanRequest.Builder setOffloadOnly(boolean);
     method @NonNull public android.nearby.ScanRequest.Builder setScanMode(int);
     method @NonNull public android.nearby.ScanRequest.Builder setScanType(int);
     method @NonNull @RequiresPermission(android.Manifest.permission.UPDATE_DEVICE_STATS) public android.nearby.ScanRequest.Builder setWorkSource(@Nullable android.os.WorkSource);
@@ -260,6 +286,7 @@ package android.net {
   public class IpSecManager {
     method @RequiresPermission(android.Manifest.permission.MANAGE_IPSEC_TUNNELS) public void applyTunnelModeTransform(@NonNull android.net.IpSecManager.IpSecTunnelInterface, int, @NonNull android.net.IpSecTransform) throws java.io.IOException;
     method @NonNull @RequiresPermission(android.Manifest.permission.MANAGE_IPSEC_TUNNELS) public android.net.IpSecManager.IpSecTunnelInterface createIpSecTunnelInterface(@NonNull java.net.InetAddress, @NonNull java.net.InetAddress, @NonNull android.net.Network) throws java.io.IOException, android.net.IpSecManager.ResourceUnavailableException;
+    method @RequiresPermission(android.Manifest.permission.MANAGE_IPSEC_TUNNELS) public void startTunnelModeTransformMigration(@NonNull android.net.IpSecTransform, @NonNull java.net.InetAddress, @NonNull java.net.InetAddress);
   }
 
   public static final class IpSecManager.IpSecTunnelInterface implements java.lang.AutoCloseable {

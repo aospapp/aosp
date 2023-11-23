@@ -14,9 +14,16 @@
  * limitations under the License.
  */
 
+#include <binder/ProcessState.h>
 #include <gtest/gtest.h>
+
+using android::ProcessState;
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
+
+  ProcessState::self()->setThreadPoolMaxThreadCount(1);
+  ProcessState::self()->startThreadPool();
+
   return RUN_ALL_TESTS();
 }

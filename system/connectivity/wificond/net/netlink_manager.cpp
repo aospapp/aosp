@@ -48,7 +48,7 @@ namespace {
 // netlink.h suggests NLMSG_GOODSIZE to be at most 8192 bytes.
 constexpr int kReceiveBufferSize = 8 * 1024;
 constexpr uint32_t kBroadcastSequenceNumber = 0;
-constexpr int kMaximumNetlinkMessageWaitMilliSeconds = 1000;
+constexpr int kMaximumNetlinkMessageWaitMilliSeconds = 4000;
 uint8_t ReceiveBuffer[kReceiveBufferSize];
 
 void AppendPacket(vector<unique_ptr<const NL80211Packet>>* vec,
@@ -99,7 +99,8 @@ uint32_t NetlinkManager::GetSequenceNumber() {
 void NetlinkManager::ReceivePacketAndRunHandler(int fd) {
   ssize_t len = read(fd, ReceiveBuffer, kReceiveBufferSize);
   if (len == -1) {
-    LOG(ERROR) << "Failed to read packet from buffer on fd: " << fd;
+    LOG(ERROR) << "Failed to read packet from buffer on fd: " << fd
+               << ", error is " << strerror(errno);
     perror(" netlink error ");
     return;
   }
@@ -136,7 +137,8 @@ void NetlinkManager::ReceivePacketAndRunHandler(int fd) {
     auto itr = message_handlers_.find(sequence_number);
     // There is no handler for this sequence number.
     if (itr == message_handlers_.end()) {
-      LOG(WARNING) << "No handler for message: " << sequence_number;
+      LOG(WARNING) << "No handler for message: " << sequence_number
+                   << ", packet len = " << len;
       return;
     }
     // A multipart message is terminated by NLMSG_DONE.
@@ -308,11 +310,13 @@ bool NetlinkManager::SendMessageAndGetResponses(
                            time_remaining);
 
     if (poll_return == 0) {
-      LOG(ERROR) << "Failed to poll netlink fd:" << sync_netlink_fd_.get() << "time out ";
+      LOG(ERROR) << "Failed to poll netlink fd:" << sync_netlink_fd_.get()
+                 << "time out, sequence is " << sequence ;
       message_handlers_.erase(sequence);
       return false;
     } else if (poll_return == -1) {
-      PLOG(ERROR) << "Failed to poll netlink fd";
+      LOG(ERROR) << "Failed to poll netlink fd:" << sync_netlink_fd_.get()
+                 << ", sequence is " << sequence;
       message_handlers_.erase(sequence);
       return false;
     }
@@ -321,7 +325,7 @@ bool NetlinkManager::SendMessageAndGetResponses(
     time_remaining -= static_cast<int>(ns2ms(interval));
   }
   if (time_remaining <= 0) {
-    LOG(ERROR) << "Timeout waiting for netlink reply messages";
+    LOG(ERROR) << "Timeout waiting for netlink reply messages, sequence is " << sequence;
     message_handlers_.erase(sequence);
     return false;
   }

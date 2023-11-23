@@ -10,3 +10,7 @@
 /update_engine_unittests
 *.pyc
 .vscode
+.git
+.cache
+.xmake
+

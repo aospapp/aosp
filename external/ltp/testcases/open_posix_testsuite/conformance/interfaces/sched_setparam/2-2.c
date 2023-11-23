@@ -98,8 +98,7 @@ int main(void)
 	if (rc) {
 		nb_child = get_ncpu();
 		if (nb_child == -1) {
-			printf("Can not get the number of"
-			       "CPUs of your machine.\n");
+			printf("Can not get the number of CPUs of your machine\n");
 			return PTS_UNRESOLVED;
 		}
 	} else {
@@ -130,7 +129,10 @@ int main(void)
 		return PTS_UNRESOLVED;
 	}
 
-	pipe(the_pipe);
+	if (pipe(the_pipe)) {
+		perror("pipe");
+		return PTS_UNRESOLVED;
+	}
 
 	for (i = 0; i < nb_child; i++) {
 		child_pid[i] = fork();

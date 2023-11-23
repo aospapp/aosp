@@ -55,9 +55,11 @@ type ccProperties struct {
 	Product_available         *bool
 	Recovery_available        *bool
 	Host_supported            *bool
+	Installable               *bool
 	Generated_sources         []string
 	Generated_headers         []string
 	Shared_libs               []string
+	Static_libs               []string
 	Export_shared_lib_headers []string
 	Export_generated_headers  []string
 	Header_libs               []string
@@ -72,6 +74,7 @@ type ccProperties struct {
 	Tidy                      *bool
 	Tidy_flags                []string
 	Tidy_checks_as_errors     []string
+	Include_build_directory   *bool
 }
 
 type javaProperties struct {
@@ -88,18 +91,26 @@ type javaProperties struct {
 }
 
 type rustProperties struct {
-	Name             *string
-	Crate_name       string
-	Owner            *string
-	Defaults         []string
-	Host_supported   *bool
-	Vendor_available *bool
-	Srcs             []string
-	Rustlibs         []string
-	Stem             *string
-	Target           rustTargetProperties
-	Apex_available   []string
-	Min_sdk_version  *string
+	Name              *string
+	Crate_name        string
+	Owner             *string
+	Defaults          []string
+	Host_supported    *bool
+	Vendor_available  *bool
+	Product_available *bool
+	Srcs              []string
+	Rustlibs          []string
+	Stem              *string
+	Target            rustTargetProperties
+	Apex_available    []string
+	Min_sdk_version   *string
+}
+
+type Bazel_module struct {
+	Bp2build_available *bool
+}
+type bazelProperties struct {
+	*Bazel_module
 }
 
 type phonyProperties struct {

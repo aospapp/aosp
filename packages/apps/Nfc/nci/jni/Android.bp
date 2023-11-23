@@ -15,6 +15,7 @@ cc_library_shared {
     ],
 
     srcs: ["**/*.cpp"],
+    exclude_srcs: ["NfcTagTest.cpp"],
 
     include_dirs: [
         "system/nfc/src/nfa/include",
@@ -25,14 +26,7 @@ cc_library_shared {
         "system/nfc/utils/include",
     ],
 
-    local_include_dirs: [
-        "extns/pn54x/inc",
-        "extns/pn54x/src/common",
-        "extns/pn54x/src/mifare",
-    ],
-
     shared_libs: [
-        "libandroidicu",
         "libnativehelper",
         "libcutils",
         "libutils",
@@ -40,6 +34,7 @@ cc_library_shared {
         "libnfc-nci",
         "libchrome",
         "libbase",
+        "libstatslog_nfc",
     ],
 
     static_libs: ["libxml2"],
@@ -57,4 +52,35 @@ cc_library_shared {
         misc_undefined: ["bounds"],
         scs: true,
     },
+}
+
+cc_test {
+    name: "nfc.nci.jni.tests",
+
+    srcs: ["NfcTagTest.cpp"],
+
+    shared_libs: [
+        "libnfc-nci",
+        "libnfc_nci_jni",
+        "libstatslog_nfc",
+    ],
+
+    static_libs: [
+        "libgmock",
+        "libgtest",
+    ],
+
+    header_libs: [
+        "jni_headers"
+    ],
+
+    include_dirs: [
+        "packages/apps/Nfc/nci/jni",
+        "system/nfc/src/include",
+        "system/nfc/src/gki/common",
+        "system/nfc/src/gki/ulinux",
+        "system/nfc/src/nfa/include",
+        "system/nfc/src/nfc/include",
+        "system/nfc/utils/include",
+    ],
 }

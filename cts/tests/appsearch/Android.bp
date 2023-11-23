@@ -40,6 +40,7 @@ android_test {
         ":CtsAppSearchTestHelperB",
     ],
     per_testcase_directory: true,
+    min_sdk_version: "31",
 }
 
 android_test_helper_app {
@@ -57,7 +58,6 @@ android_test_helper_app {
         ":CtsAppSearchTestsAidl",
     ],
     test_suites: [
-        "cts",
         "general-tests",
         "mts-appsearch",
     ],
@@ -67,6 +67,7 @@ android_test_helper_app {
     ],
     certificate: ":cts-appsearch-helper-cert-a",
     sdk_version: "test_current",
+    min_sdk_version: "31",
 }
 
 android_test_helper_app {
@@ -84,7 +85,6 @@ android_test_helper_app {
         ":CtsAppSearchTestsAidl",
     ],
     test_suites: [
-        "cts",
         "general-tests",
         "mts-appsearch",
     ],
@@ -94,6 +94,7 @@ android_test_helper_app {
     ],
     certificate: ":cts-appsearch-helper-cert-b",
     sdk_version: "test_current",
+    min_sdk_version: "31",
 }
 
 filegroup {

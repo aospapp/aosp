@@ -233,7 +233,7 @@ class ProfilerBase(object):
         raise NotImplementedError
 
     def start_profiling(self, target_args):
-        """Start simpleperf reocrd process on device."""
+        """Start simpleperf record process on device."""
         args = ['/data/local/tmp/simpleperf', 'record', '-o', '/data/local/tmp/perf.data',
                 self.args.record_options]
         if self.adb.run(['shell', 'ls', NATIVE_LIBS_DIR_ON_DEVICE]):

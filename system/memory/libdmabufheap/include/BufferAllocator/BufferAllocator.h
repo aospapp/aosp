@@ -118,7 +118,7 @@ class BufferAllocator {
      * For a legacy ion interface, syncs a shared dmabuf fd with memory either using
      * ION_IOC_SYNC ioctl or using callback @legacy_ion_cpu_sync if specified. For
      * non-legacy ION and dmabuf heap interfaces, DMA_BUF_IOCTL_SYNC is used.
-     * @fd: dmabuf fd. When the legacy version of ion is in use and a callback
+     * @dmabuf_fd: dmabuf fd. When the legacy version of ion is in use and a callback
      * function is supplied, this is passed as the second argument to legacy_ion_cpu_sync.
      * @sync_type: specifies if the sync is for read, write or read/write.
      * @legacy_ion_cpu_sync: optional callback for legacy ion interfaces. If
@@ -172,6 +172,16 @@ class BufferAllocator {
      * @return true if /dev/ion is present on the device, otherwise false.
      */
     static bool CheckIonSupport();
+
+    /**
+     * Set the name of a dma buffer.
+     *
+     * @dmabuf_fd: dmabuf file descriptor.
+     * @name: The name for the dmabuf. Length should not exceed DMA_BUF_NAME_LEN.
+     *
+     * @return Returns 0 on success, otherwise -1 and sets errno.
+     */
+    static int DmabufSetName(unsigned int dmabuf_fd, const std::string& name);
 
   private:
     int OpenDmabufHeap(const std::string& name);

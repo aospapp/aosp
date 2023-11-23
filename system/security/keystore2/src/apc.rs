@@ -22,6 +22,7 @@ use std::{
 };
 
 use crate::error::anyhow_error_to_cstring;
+use crate::ks_err;
 use crate::utils::{compat_2_response_code, ui_opts_2_compat, watchdog as wd};
 use android_security_apc::aidl::android::security::apc::{
     IConfirmationCallback::IConfirmationCallback,
@@ -39,7 +40,7 @@ use std::time::{Duration, Instant};
 
 /// This is the main APC error type, it wraps binder exceptions and the
 /// APC ResponseCode.
-#[derive(Debug, thiserror::Error, PartialEq)]
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Error {
     /// Wraps an Android Protected Confirmation (APC) response code as defined by the
     /// android.security.apc AIDL interface specification.
@@ -259,13 +260,10 @@ impl ApcManager {
 
         if let Ok(listener) = callback.into_interface::<dyn IConfirmationCallback>() {
             if let Err(e) = listener.onCompleted(rc, data_confirmed) {
-                log::error!(
-                    "In ApcManagerCallback::result: Reporting completion to client failed {:?}",
-                    e
-                )
+                log::error!("Reporting completion to client failed {:?}", e)
             }
         } else {
-            log::error!("In ApcManagerCallback::result: SpIBinder is not a IConfirmationCallback.");
+            log::error!("SpIBinder is not a IConfirmationCallback.");
         }
     }
 
@@ -279,8 +277,7 @@ impl ApcManager {
     ) -> Result<()> {
         let mut state = self.state.lock().unwrap();
         if state.session.is_some() {
-            return Err(Error::pending())
-                .context("In ApcManager::present_prompt: Session pending.");
+            return Err(Error::pending()).context(ks_err!("APC Session pending."));
         }
 
         // Perform rate limiting.
@@ -289,8 +286,8 @@ impl ApcManager {
             None => {}
             Some(rate_info) => {
                 if let Some(back_off) = rate_info.get_remaining_back_off() {
-                    return Err(Error::sys()).context(format!(
-                        "In ApcManager::present_prompt: Cooling down. Remaining back-off: {}s",
+                    return Err(Error::sys()).context(ks_err!(
+                        "APC Cooling down. Remaining back-off: {}s",
                         back_off.as_secs()
                     ));
                 }
@@ -300,8 +297,7 @@ impl ApcManager {
         let hal = ApcHal::try_get_service();
         let hal = match hal {
             None => {
-                return Err(Error::unimplemented())
-                    .context("In ApcManager::present_prompt: APC not supported.")
+                return Err(Error::unimplemented()).context(ks_err!("APC not supported."));
             }
             Some(h) => Arc::new(h),
         };
@@ -319,7 +315,7 @@ impl ApcManager {
             },
         )
         .map_err(|rc| Error::Rc(compat_2_response_code(rc)))
-        .context("In present_prompt: Failed to present prompt.")?;
+        .context(ks_err!("APC Failed to present prompt."))?;
         state.session = Some(ApcSessionState {
             hal,
             cb: listener.as_binder(),
@@ -335,13 +331,12 @@ impl ApcManager {
         let hal = match &mut state.session {
             None => {
                 return Err(Error::ignored())
-                    .context("In cancel_prompt: Attempt to cancel non existing session. Ignoring.")
+                    .context(ks_err!("Attempt to cancel non existing session. Ignoring."));
             }
             Some(session) => {
                 if session.cb != listener.as_binder() {
-                    return Err(Error::ignored()).context(concat!(
-                        "In cancel_prompt: Attempt to cancel session not belonging to caller. ",
-                        "Ignoring."
+                    return Err(Error::ignored()).context(ks_err!(
+                        "Attempt to cancel session not belonging to caller. Ignoring."
                     ));
                 }
                 session.client_aborted = true;

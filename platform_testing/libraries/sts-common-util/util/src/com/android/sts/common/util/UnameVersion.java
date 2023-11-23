@@ -45,7 +45,7 @@ public final class UnameVersion {
                         // weekday
                         "(Sun|Mon|Tue|Wed|Thu|Fri|Sat) "
                                 // month
-                                + "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) "
+                                + "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) *"
                                 // day of month
                                 + "\\d{1,2} "
                                 // HH:MM:SS
@@ -59,6 +59,10 @@ public final class UnameVersion {
                     DateTimeFormatter.ofPattern("E MMM d H:m:s X u"),
                     DateTimeFormatter.ofPattern("E MMM d H:m:s O u"),
                     DateTimeFormatter.ofPattern("E MMM d H:m:s u"),
+                    DateTimeFormatter.ofPattern("E MMM  d H:m:s z u"),
+                    DateTimeFormatter.ofPattern("E MMM  d H:m:s X u"),
+                    DateTimeFormatter.ofPattern("E MMM  d H:m:s O u"),
+                    DateTimeFormatter.ofPattern("E MMM  d H:m:s u"),
                 });
 
         // matches:

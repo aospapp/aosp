@@ -33,7 +33,7 @@ class XXX {
 
     private $type$ get$Type$(long a) {
         try {
-            $memtype$ x = UNSAFE.get$Memtype$Unaligned(null, a, bigEndian);
+            $memtype$ x = SCOPED_MEMORY_ACCESS.get$Memtype$Unaligned(scope(), null, a, bigEndian);
             return $fromBits$(x);
         } finally {
             Reference.reachabilityFence(this);
@@ -62,7 +62,7 @@ class XXX {
 #if[rw]
         try {
             $memtype$ y = $toBits$(x);
-            UNSAFE.put$Memtype$Unaligned(null, a, y, bigEndian);
+            SCOPED_MEMORY_ACCESS.put$Memtype$Unaligned(scope(), null, a, y, bigEndian);
         } finally {
             Reference.reachabilityFence(this);
         }
@@ -104,13 +104,13 @@ class XXX {
                                                                        0,
                                                                        size,
                                                                        size,
-                                                                       address + off))
+                                                                       address + off, segment))
                     : ($Type$Buffer)(new ByteBufferAs$Type$Buffer$RW$L(this,
                                                                        -1,
                                                                        0,
                                                                        size,
                                                                        size,
-                                                                       address + off)));
+                                                                       address + off, segment)));
         } else {
             return (nativeByteOrder
                     ? ($Type$Buffer)(new Direct$Type$Buffer$RW$U(this,
@@ -118,13 +118,13 @@ class XXX {
                                                                  0,
                                                                  size,
                                                                  size,
-                                                                 off))
+                                                                 off, segment))
                     : ($Type$Buffer)(new Direct$Type$Buffer$RW$S(this,
                                                                  -1,
                                                                  0,
                                                                  size,
                                                                  size,
-                                                                 off)));
+                                                                 off, segment)));
         }
     }
 

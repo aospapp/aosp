@@ -28,7 +28,6 @@ java_library {
     name: "safety-center-config",
     sdk_version: "module_current",
     min_sdk_version: "30",
-    target_sdk_version: "32",
     srcs: [
         ":safetycenter-config-parser-sources",
     ],
@@ -36,10 +35,18 @@ java_library {
         "androidx.annotation_annotation",
         "framework-annotations-lib",
         "framework-permission-s",
+        "safety-center-annotations",
+    ],
+    static_libs: [
+        "modules-utils-build",
     ],
     apex_available: [
         "com.android.permission",
         "test_com.android.permission",
     ],
     installable: false,
+    visibility: [
+        "//packages/modules/Permission:__subpackages__",
+        "//vendor:__subpackages__",
+    ],
 }

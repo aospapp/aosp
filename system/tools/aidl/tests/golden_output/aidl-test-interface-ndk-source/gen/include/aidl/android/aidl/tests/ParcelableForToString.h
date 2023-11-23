@@ -17,6 +17,12 @@
 #include <android/binder_stability.h>
 #endif  // BINDER_STABILITY_SUPPORT
 
+namespace aidl::android::aidl::tests {
+template <typename T, typename U, typename B>
+class GenericStructuredParcelable;
+class OtherParcelableForToString;
+class StructuredParcelable;
+}  // namespace aidl::android::aidl::tests
 namespace aidl {
 namespace android {
 namespace aidl {

@@ -91,6 +91,21 @@ public interface ImageCaptureExtenderImpl extends ExtenderStateListener {
     List<Pair<Integer, Size[]>> getSupportedResolutions();
 
     /**
+     * Returns the customized supported postview resolutions for a still capture using
+     * its size.
+     *
+     * <p>Pair list composed with {@link ImageFormat} and {@link Size} array will be returned.
+     *
+     * <p>The returned resolutions should be subset of the supported sizes retrieved from
+     * {@link android.hardware.camera2.params.StreamConfigurationMap} for the camera device.
+     *
+     * @return the customized supported resolutions, or null to support all sizes retrieved from
+     *         {@link android.hardware.camera2.params.StreamConfigurationMap}.
+     * @since 1.4
+     */
+    List<Pair<Integer, Size[]>> getSupportedPostviewResolutions(Size captureSize);
+
+    /**
      * Returns the estimated capture latency range in milliseconds for the target capture
      * resolution.
      *
@@ -138,5 +153,44 @@ public interface ImageCaptureExtenderImpl extends ExtenderStateListener {
      * @since 1.3
      */
     List<CaptureResult.Key> getAvailableCaptureResultKeys();
-}
 
+    /**
+     * Advertise support for {@link ProcessResultImpl#onCaptureProcessProgressed}.
+     *
+     * @return {@code true} in case the process progress callback is supported and is expected to
+     * be triggered, {@code false} otherwise.
+     * @since 1.4
+     */
+    boolean isCaptureProcessProgressAvailable();
+
+    /**
+     * Returns the dynamically calculated capture latency pair in milliseconds.
+     *
+     * <p>In contrast to {@link #getEstimatedCaptureLatencyRange} this method is guaranteed to be
+     * called after the camera capture session is initialized and camera preview is enabled.
+     * The measurement is expected to take in to account dynamic parameters such as the current
+     * scene, the state of 3A algorithms, the state of internal HW modules and return a more
+     * accurate assessment of the still capture latency.</p>
+     *
+     * @return pair that includes the estimated input frame/frames camera capture latency as the
+     * first field and the estimated post-processing latency {@link CaptureProcessorImpl#process}
+     * as the second pair field. Both first and second fields will be in milliseconds. The total
+     * still capture latency will be the sum of both the first and second values.
+     * The pair is expected to be null if the dynamic latency estimation is not supported.
+     * If clients have not configured a still capture output, then this method can also return a
+     * null pair.
+     * @since 1.4
+     */
+    Pair<Long, Long> getRealtimeCaptureLatency();
+
+    /**
+     * Indicates whether the extension supports the postview for still capture feature.
+     * If the extension is using HAL processing, false should be returned since the
+     * postview feature is not currently supported for this case.
+     *
+     * @return {@code true} in case postview for still capture is supported
+     * {@code false} otherwise.
+     * @since 1.4
+     */
+    boolean isPostviewAvailable();
+}

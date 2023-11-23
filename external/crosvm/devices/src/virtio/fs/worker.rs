@@ -1,21 +1,37 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
+use std::convert::TryInto;
 use std::fs::File;
 use std::io;
 use std::os::unix::io::AsRawFd;
 use std::sync::Arc;
 
-use base::{error, syscall, Event, PollToken, SafeDescriptor, Tube, WaitContext};
-use fuse::filesystem::{FileSystem, ZeroCopyReader, ZeroCopyWriter};
+use base::error;
+use base::syscall;
+use base::Event;
+use base::EventToken;
+use base::Protection;
+use base::SafeDescriptor;
+use base::Tube;
+use base::WaitContext;
+use fuse::filesystem::FileSystem;
+use fuse::filesystem::ZeroCopyReader;
+use fuse::filesystem::ZeroCopyWriter;
 use sync::Mutex;
-use vm_control::{FsMappingRequest, VmResponse};
+use vm_control::FsMappingRequest;
+use vm_control::VmResponse;
 use vm_memory::GuestMemory;
 
-use crate::virtio::fs::{Error, Result};
-use crate::virtio::{Interrupt, Queue, Reader, SignalableInterrupt, Writer};
+use crate::virtio::fs::Error;
+use crate::virtio::fs::Result;
+use crate::virtio::Interrupt;
+use crate::virtio::Queue;
+use crate::virtio::Reader;
+use crate::virtio::SignalableInterrupt;
+use crate::virtio::Writer;
 
 impl fuse::Reader for Reader {}
 
@@ -97,7 +113,7 @@ impl fuse::Mapper for Mapper {
             fd,
             size,
             file_offset,
-            prot,
+            prot: Protection::from(prot as libc::c_int),
             mem_offset,
         };
 
@@ -128,7 +144,7 @@ pub struct Worker<F: FileSystem + Sync> {
     mem: GuestMemory,
     queue: Queue,
     server: Arc<fuse::Server<F>>,
-    irq: Arc<Interrupt>,
+    irq: Interrupt,
     tube: Arc<Mutex<Tube>>,
     slot: u32,
 }
@@ -151,7 +167,7 @@ pub fn process_fs_queue<I: SignalableInterrupt, F: FileSystem + Sync>(
         let total = server.handle_message(reader, writer, &mapper)?;
 
         queue.add_used(mem, avail_desc.index, total as u32);
-        queue.trigger_interrupt(mem, &*interrupt);
+        queue.trigger_interrupt(mem, interrupt);
     }
 
     Ok(())
@@ -162,7 +178,7 @@ impl<F: FileSystem + Sync> Worker<F> {
         mem: GuestMemory,
         queue: Queue,
         server: Arc<fuse::Server<F>>,
-        irq: Arc<Interrupt>,
+        irq: Interrupt,
         tube: Arc<Mutex<Tube>>,
         slot: u32,
     ) -> Worker<F> {
@@ -202,7 +218,7 @@ impl<F: FileSystem + Sync> Worker<F> {
         // Safe because this doesn't modify any memory and we check the return value.
         syscall!(unsafe { libc::unshare(libc::CLONE_FS) }).map_err(Error::UnshareFromParent)?;
 
-        #[derive(PollToken)]
+        #[derive(EventToken)]
         enum Token {
             // A request is ready on the queue.
             QueueReady,
@@ -229,10 +245,10 @@ impl<F: FileSystem + Sync> Worker<F> {
             for event in events.iter().filter(|e| e.is_readable) {
                 match event.token {
                     Token::QueueReady => {
-                        queue_evt.read().map_err(Error::ReadQueueEvent)?;
+                        queue_evt.wait().map_err(Error::ReadQueueEvent)?;
                         if let Err(e) = process_fs_queue(
                             &self.mem,
-                            &*self.irq,
+                            &self.irq,
                             &mut self.queue,
                             &self.server,
                             &self.tube,

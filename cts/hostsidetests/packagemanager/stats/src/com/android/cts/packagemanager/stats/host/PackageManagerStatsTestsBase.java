@@ -76,7 +76,8 @@ public class PackageManagerStatsTestsBase extends DeviceTestCase implements IBui
     protected int getAppUid(String pkgName) throws Exception {
         final int currentUser = getDevice().getCurrentUser();
         final String uidLine = getDevice().executeShellCommand(
-                "cmd package list packages -U --user " + currentUser + " " + pkgName);
+                "cmd package list packages --match-libraries -U --user " + currentUser + " "
+                        + pkgName);
         final Pattern pattern = Pattern.compile("package:" + pkgName + " uid:(\\d+)");
         final Matcher matcher = pattern.matcher(uidLine);
         if (matcher.find()) {
@@ -90,5 +91,12 @@ public class PackageManagerStatsTestsBase extends DeviceTestCase implements IBui
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
         final File file = buildHelper.getTestFile(fileName);
         return file.length();
+    }
+
+    protected boolean isLibraryInstalled(String libraryName) throws Exception {
+        final String uidLine = getDevice().executeShellCommand("cmd package list libraries");
+        final Pattern pattern = Pattern.compile("library:" + libraryName);
+        final Matcher matcher = pattern.matcher(uidLine);
+        return matcher.find();
     }
 }

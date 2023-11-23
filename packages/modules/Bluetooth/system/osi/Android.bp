@@ -15,7 +15,6 @@ cc_defaults {
         "packages/modules/Bluetooth/system",
         "packages/modules/Bluetooth/system/gd",
         "packages/modules/Bluetooth/system/internal_include",
-        "packages/modules/Bluetooth/system/utils/include",
         "packages/modules/Bluetooth/system/stack/include",
     ],
 }
@@ -46,20 +45,29 @@ cc_test_library {
 }
 
 filegroup {
-  name: "OsiCompatSources",
-  srcs: [
-    "src/compat.cc",
-  ],
+    name: "OsiCompatSources",
+    srcs: [
+        "src/compat.cc",
+    ],
 }
 
 // libosi static library for target
 cc_library_static {
     name: "libosi",
-    visibility:[
+    visibility: [
         "//packages/apps/Test/connectivity/sl4n",
         "//packages/modules/Bluetooth:__subpackages__",
     ],
-    defaults: ["fluoride_osi_defaults", "fluoride_basic_defaults"],
+    export_include_dirs: [
+        "include",
+    ],
+    local_include_dirs: [
+        "include_internal",
+    ],
+    defaults: [
+        "fluoride_basic_defaults",
+        "fluoride_osi_defaults",
+    ],
     // TODO(mcchou): Remove socket_utils sources after platform specific
     // dependencies are abstracted.
     srcs: [
@@ -79,13 +87,15 @@ cc_library_static {
         "src/properties.cc",
         "src/reactor.cc",
         "src/ringbuffer.cc",
-        "src/semaphore.cc",
         "src/socket.cc",
         "src/socket_utils/socket_local_client.cc",
         "src/socket_utils/socket_local_server.cc",
         "src/thread.cc",
         "src/thread_scheduler.cc",
         "src/wakelock.cc",
+
+        // internal source that should not be used outside of libosi
+        "src/internal/semaphore.cc",
     ],
     host_supported: true,
     // TODO(armansito): Setting _GNU_SOURCE isn't very platform-independent but
@@ -95,13 +105,15 @@ cc_library_static {
         host_linux: {
             cflags: [
                 "-D_GNU_SOURCE",
-                "-DOS_GENERIC",
             ],
         },
     },
+    cflags: [
+        "-DLIB_OSI_INTERNAL",
+    ],
     min_sdk_version: "Tiramisu",
     apex_available: [
-        "com.android.bluetooth",
+        "com.android.btservices",
     ],
 }
 
@@ -110,6 +122,7 @@ cc_test {
     name: "net_test_osi",
     test_suites: ["device-tests"],
     defaults: [
+        "bluetooth_gtest_x86_asan_workaround",
         "fluoride_osi_defaults",
         "mts_defaults",
     ],
@@ -130,31 +143,34 @@ cc_test {
         "test/rand_test.cc",
         "test/reactor_test.cc",
         "test/ringbuffer_test.cc",
-        "test/semaphore_test.cc",
         "test/thread_test.cc",
-        "test/wakelock_test.cc",
+        "test/wakelock_test.cc", // test internal sources only used inside the libosi
+
+        "test/internal/semaphore_test.cc",
     ],
     shared_libs: [
-        "android.hardware.bluetooth@1.0",
-        "android.hardware.bluetooth@1.1",
         "libbase",
-        "liblog",
-        "libprotobuf-cpp-lite",
-        "libcutils",
         "libcrypto",
+        "libcutils",
+        "liblog",
+    ],
+    local_include_dirs: [
+        "include_internal",
+        "test",
     ],
     static_libs: [
         "libbt-common",
         "libbt-protos-lite",
+        "libc++fs",
+        "libchrome",
+        "libevent",
         "libgmock",
         "libosi",
-        "libc++fs",
+        "libprotobuf-cpp-lite",
     ],
-    target: {
-        host_linux: {
-            cflags: ["-DOS_GENERIC"],
-        },
-    },
+    cflags: [
+        "-DLIB_OSI_INTERNAL",
+    ],
     sanitize: {
         cfi: false,
     },

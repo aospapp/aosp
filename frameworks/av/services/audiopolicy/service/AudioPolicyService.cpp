@@ -46,6 +46,7 @@
 
 #include <system/audio.h>
 #include <system/audio_policy.h>
+#include <AudioPolicyConfig.h>
 #include <AudioPolicyManager.h>
 
 namespace android {
@@ -137,6 +138,7 @@ BINDER_METHOD_ENTRY(setA11yServicesUids) \
 BINDER_METHOD_ENTRY(setCurrentImeUid) \
 BINDER_METHOD_ENTRY(isHapticPlaybackSupported) \
 BINDER_METHOD_ENTRY(isUltrasoundSupported) \
+BINDER_METHOD_ENTRY(isHotwordStreamSupported) \
 BINDER_METHOD_ENTRY(listAudioProductStrategies) \
 BINDER_METHOD_ENTRY(getProductStrategyFromAudioAttributes) \
 BINDER_METHOD_ENTRY(listAudioVolumeGroups) \
@@ -145,6 +147,7 @@ BINDER_METHOD_ENTRY(setRttEnabled) \
 BINDER_METHOD_ENTRY(isCallScreenModeSupported) \
 BINDER_METHOD_ENTRY(setDevicesRoleForStrategy) \
 BINDER_METHOD_ENTRY(removeDevicesRoleForStrategy) \
+BINDER_METHOD_ENTRY(clearDevicesRoleForStrategy) \
 BINDER_METHOD_ENTRY(getDevicesForRoleAndStrategy) \
 BINDER_METHOD_ENTRY(setDevicesRoleForCapturePreset) \
 BINDER_METHOD_ENTRY(addDevicesRoleForCapturePreset) \
@@ -155,7 +158,11 @@ BINDER_METHOD_ENTRY(registerSoundTriggerCaptureStateListener) \
 BINDER_METHOD_ENTRY(getSpatializer) \
 BINDER_METHOD_ENTRY(canBeSpatialized) \
 BINDER_METHOD_ENTRY(getDirectPlaybackSupport) \
-BINDER_METHOD_ENTRY(getDirectProfilesForAttributes) \
+BINDER_METHOD_ENTRY(getDirectProfilesForAttributes)  \
+BINDER_METHOD_ENTRY(getSupportedMixerAttributes) \
+BINDER_METHOD_ENTRY(setPreferredMixerAttributes) \
+BINDER_METHOD_ENTRY(getPreferredMixerAttributes) \
+BINDER_METHOD_ENTRY(clearPreferredMixerAttributes) \
 
 // singleton for Binder Method Statistics for IAudioPolicyService
 static auto& getIAudioPolicyServiceStatistics() {
@@ -179,7 +186,10 @@ static auto& getIAudioPolicyServiceStatistics() {
 
 static AudioPolicyInterface* createAudioPolicyManager(AudioPolicyClientInterface *clientInterface)
 {
-    AudioPolicyManager *apm = new AudioPolicyManager(clientInterface);
+    auto config = AudioPolicyConfig::loadFromApmXmlConfigWithFallback();  // This can't fail.
+    AudioPolicyManager *apm = new AudioPolicyManager(
+            config, loadApmEngineLibraryAndCreateEngine(config->getEngineLibraryNameSuffix()),
+            clientInterface);
     status_t status = apm->initialize();
     if (status != NO_ERROR) {
         delete apm;
@@ -201,7 +211,9 @@ AudioPolicyService::AudioPolicyService()
       mPhoneState(AUDIO_MODE_INVALID),
       mCaptureStateNotifier(false),
       mCreateAudioPolicyManager(createAudioPolicyManager),
-      mDestroyAudioPolicyManager(destroyAudioPolicyManager) {
+      mDestroyAudioPolicyManager(destroyAudioPolicyManager),
+      mUsecaseValidator(media::createUsecaseValidator()) {
+      setMinSchedulerPolicy(SCHED_NORMAL, ANDROID_PRIORITY_AUDIO);
 }
 
 void AudioPolicyService::loadAudioPolicyManager()
@@ -251,7 +263,8 @@ void AudioPolicyService::onFirstRef()
     }
 
     // load audio processing modules
-    sp<AudioPolicyEffects> audioPolicyEffects = new AudioPolicyEffects();
+    const sp<EffectsFactoryHalInterface> effectsFactoryHal = EffectsFactoryHalInterface::create();
+    sp<AudioPolicyEffects> audioPolicyEffects = new AudioPolicyEffects(effectsFactoryHal);
     sp<UidPolicy> uidPolicy = new UidPolicy(this);
     sp<SensorPrivacyPolicy> sensorPrivacyPolicy = new SensorPrivacyPolicy(this);
     {
@@ -270,7 +283,12 @@ void AudioPolicyService::onFirstRef()
         AudioDeviceTypeAddrVector devices;
         bool hasSpatializer = mAudioPolicyManager->canBeSpatialized(&attr, nullptr, devices);
         if (hasSpatializer) {
-            mSpatializer = Spatializer::create(this);
+            mSpatializer = Spatializer::create(this, effectsFactoryHal);
+        }
+        if (mSpatializer == nullptr) {
+            // No spatializer created, signal the reason: NO_INIT a failure, OK means intended.
+            const status_t createStatus = hasSpatializer ? NO_INIT : OK;
+            Spatializer::sendEmptyCreateSpatializerMetricWithStatus(createStatus);
         }
     }
     AudioSystem::audioPolicyReady();
@@ -516,9 +534,8 @@ void AudioPolicyService::onCheckSpatializer_l()
 
 void AudioPolicyService::doOnCheckSpatializer()
 {
-    Mutex::Autolock _l(mLock);
-
-    ALOGI("%s mSpatializer %p level %d", __func__, mSpatializer.get(), (int)mSpatializer->getLevel());
+    ALOGV("%s mSpatializer %p level %d",
+        __func__, mSpatializer.get(), (int)mSpatializer->getLevel());
 
     if (mSpatializer != nullptr) {
         // Note: mSpatializer != nullptr =>  mAudioPolicyManager != nullptr
@@ -527,6 +544,8 @@ void AudioPolicyService::doOnCheckSpatializer()
             audio_io_handle_t newOutput;
             const audio_attributes_t attr = attributes_initializer(AUDIO_USAGE_MEDIA);
             audio_config_base_t config = mSpatializer->getAudioInConfig();
+
+            Mutex::Autolock _l(mLock);
             status_t status =
                     mAudioPolicyManager->getSpatializerOutput(&config, &attr, &newOutput);
             ALOGV("%s currentOutput %d newOutput %d channel_mask %#x",
@@ -538,21 +557,19 @@ void AudioPolicyService::doOnCheckSpatializer()
             mLock.unlock();
             // It is OK to call detachOutput() is none is already attached.
             mSpatializer->detachOutput();
-            if (status != NO_ERROR || newOutput == AUDIO_IO_HANDLE_NONE) {
-                mLock.lock();
-                return;
+            if (status == NO_ERROR && newOutput != AUDIO_IO_HANDLE_NONE) {
+                status = mSpatializer->attachOutput(newOutput, numActiveTracks);
             }
-            status = mSpatializer->attachOutput(newOutput, numActiveTracks);
             mLock.lock();
             if (status != NO_ERROR) {
                 mAudioPolicyManager->releaseSpatializerOutput(newOutput);
             }
         } else if (mSpatializer->getLevel() == media::SpatializationLevel::NONE
                                && mSpatializer->getOutput() != AUDIO_IO_HANDLE_NONE) {
-            mLock.unlock();
             audio_io_handle_t output = mSpatializer->detachOutput();
-            mLock.lock();
+
             if (output != AUDIO_IO_HANDLE_NONE) {
+                Mutex::Autolock _l(mLock);
                 mAudioPolicyManager->releaseSpatializerOutput(output);
             }
         }
@@ -581,19 +598,16 @@ void AudioPolicyService::onUpdateActiveSpatializerTracks_l() {
 
 void AudioPolicyService::doOnUpdateActiveSpatializerTracks()
 {
-    sp<Spatializer> spatializer;
+    if (mSpatializer == nullptr) {
+        return;
+    }
+    audio_io_handle_t output = mSpatializer->getOutput();
     size_t activeClients;
     {
         Mutex::Autolock _l(mLock);
-        if (mSpatializer == nullptr) {
-            return;
-        }
-        spatializer = mSpatializer;
-        activeClients = countActiveClientsOnOutput_l(mSpatializer->getOutput());
+        activeClients = countActiveClientsOnOutput_l(output);
     }
-    if (spatializer != nullptr) {
-        spatializer->updateActiveTracks(activeClients);
-    }
+    mSpatializer->updateActiveTracks(activeClients);
 }
 
 status_t AudioPolicyService::clientCreateAudioPatch(const struct audio_patch *patch,
@@ -1005,10 +1019,11 @@ void AudioPolicyService::updateUidStates_l()
         //     AND is on TOP or latest started
         //     AND there is no active privacy sensitive capture or call
         //             OR client has CAPTURE_AUDIO_OUTPUT privileged permission
+        bool allowSensitiveCapture =
+            !isSensitiveActive || isTopOrLatestSensitive || current->canCaptureOutput;
         bool allowCapture = !isAssistantOnTop
                 && (isTopOrLatestActive || isTopOrLatestSensitive)
-                && !(isSensitiveActive
-                    && !(isTopOrLatestSensitive || current->canCaptureOutput))
+                && allowSensitiveCapture
                 && canCaptureIfInCallOrCommunication(current);
 
         if (!current->hasOp()) {
@@ -1031,7 +1046,7 @@ void AudioPolicyService::updateUidStates_l()
                 if (source == AUDIO_SOURCE_HOTWORD || source == AUDIO_SOURCE_VOICE_RECOGNITION) {
                     allowCapture = true;
                 }
-            } else if (!(isSensitiveActive && !current->canCaptureOutput)
+            } else if (allowSensitiveCapture
                     && canCaptureIfInCallOrCommunication(current)) {
                 if (isTopOrLatestAssistant
                     && (source == AUDIO_SOURCE_VOICE_RECOGNITION
@@ -1052,7 +1067,7 @@ void AudioPolicyService::updateUidStates_l()
                 if (source == AUDIO_SOURCE_HOTWORD || source == AUDIO_SOURCE_VOICE_RECOGNITION) {
                     allowCapture = true;
                 }
-            } else if (!(isSensitiveActive && !current->canCaptureOutput)
+            } else if (allowSensitiveCapture
                         && canCaptureIfInCallOrCommunication(current)) {
                 if ((source == AUDIO_SOURCE_VOICE_RECOGNITION) || (source == AUDIO_SOURCE_HOTWORD))
                 {
@@ -1067,7 +1082,7 @@ void AudioPolicyService::updateUidStates_l()
             //     OR
             //         Is on TOP AND the source is VOICE_RECOGNITION or HOTWORD
             if (!isAssistantOnTop
-                    && !(isSensitiveActive && !current->canCaptureOutput)
+                    && allowSensitiveCapture
                     && canCaptureIfInCallOrCommunication(current)) {
                 allowCapture = true;
             }
@@ -1215,6 +1230,14 @@ status_t AudioPolicyService::dump(int fd, const Vector<String16>& args __unused)
 
         dumpReleaseLock(mLock, locked);
 
+        if (mSpatializer != nullptr) {
+            std::string dumpString = mSpatializer->toString(1 /* level */);
+            write(fd, dumpString.c_str(), dumpString.size());
+        } else {
+            String8 spatializerPtr = String8::format("Spatializer no supportted on this device\n");
+            write(fd, spatializerPtr.c_str(), spatializerPtr.size());
+        }
+
         {
             std::string timeCheckStats = getIAudioPolicyServiceStatistics().dump();
             dprintf(fd, "\nIAudioPolicyService binder call profile\n");
@@ -1297,11 +1320,13 @@ status_t AudioPolicyService::onTransact(
         case TRANSACTION_getVolumeGroupFromAudioAttributes:
         case TRANSACTION_acquireSoundTriggerSession:
         case TRANSACTION_releaseSoundTriggerSession:
+        case TRANSACTION_isHotwordStreamSupported:
         case TRANSACTION_setRttEnabled:
         case TRANSACTION_isCallScreenModeSupported:
         case TRANSACTION_setDevicesRoleForStrategy:
         case TRANSACTION_setSupportedSystemUsages:
         case TRANSACTION_removeDevicesRoleForStrategy:
+        case TRANSACTION_clearDevicesRoleForStrategy:
         case TRANSACTION_getDevicesForRoleAndStrategy:
         case TRANSACTION_getDevicesForAttributes:
         case TRANSACTION_setAllowedCapturePolicy:
@@ -1313,7 +1338,9 @@ status_t AudioPolicyService::onTransact(
         case TRANSACTION_removeDevicesRoleForCapturePreset:
         case TRANSACTION_clearDevicesRoleForCapturePreset:
         case TRANSACTION_getDevicesForRoleAndCapturePreset:
-        case TRANSACTION_getSpatializer: {
+        case TRANSACTION_getSpatializer:
+        case TRANSACTION_setPreferredMixerAttributes:
+        case TRANSACTION_clearPreferredMixerAttributes: {
             if (!isServiceUid(IPCThreadState::self()->getCallingUid())) {
                 ALOGW("%s: transaction %d received from PID %d unauthorized UID %d",
                       __func__, code, IPCThreadState::self()->getCallingPid(),
@@ -1338,7 +1365,9 @@ status_t AudioPolicyService::onTransact(
         } else {
             getIAudioPolicyServiceStatistics().event(code, elapsedMs);
         }
-    });
+    }, mediautils::TimeCheck::kDefaultTimeoutDuration,
+    mediautils::TimeCheck::kDefaultSecondChanceDuration,
+    true /* crashOnTimeout */);
 
     switch (code) {
         case SHELL_COMMAND_TRANSACTION: {
@@ -1518,6 +1547,16 @@ status_t AudioPolicyService::printHelp(int out) {
         "  help print this message\n");
 }
 
+status_t AudioPolicyService::registerOutput(audio_io_handle_t output,
+                        const audio_config_base_t& config,
+                        const audio_output_flags_t flags) {
+    return mUsecaseValidator->registerStream(output, config, flags);
+}
+
+status_t AudioPolicyService::unregisterOutput(audio_io_handle_t output) {
+    return mUsecaseValidator->unregisterStream(output);
+}
+
 // -----------  AudioPolicyService::UidPolicy implementation ----------
 
 void AudioPolicyService::UidPolicy::registerSelf() {
@@ -1660,7 +1699,7 @@ void AudioPolicyService::UidPolicy::onUidStateChanged(uid_t uid,
     }
 }
 
-void AudioPolicyService::UidPolicy::onUidProcAdjChanged(uid_t uid __unused) {
+void AudioPolicyService::UidPolicy::onUidProcAdjChanged(uid_t uid __unused, int32_t adj __unused) {
 }
 
 void AudioPolicyService::UidPolicy::updateOverrideUid(uid_t uid, bool active, bool insert) {
@@ -1721,6 +1760,7 @@ void AudioPolicyService::UidPolicy::updateUidLocked(std::unordered_map<uid_t,
 }
 
 bool AudioPolicyService::UidPolicy::isA11yOnTop() {
+    Mutex::Autolock _l(mLock);
     for (const auto &uid : mCachedUids) {
         if (!isA11yUid(uid.first)) {
             continue;

@@ -194,6 +194,28 @@ public class WindowTest {
     }
 
     @Test
+    public void testAddSystemFlags() {
+        mWindow = new MockWindow(mActivity);
+        final WindowManager.LayoutParams attrs = mWindow.getAttributes();
+        assertEquals(0, attrs.privateFlags);
+
+        mWindow.setCallback(mWindowCallback);
+        verify(mWindowCallback, never()).onWindowAttributesChanged(any());
+
+        mWindow.addSystemFlags(WindowManager.LayoutParams.SYSTEM_FLAG_SHOW_FOR_ALL_USERS);
+        assertEquals(WindowManager.LayoutParams.SYSTEM_FLAG_SHOW_FOR_ALL_USERS, attrs.privateFlags);
+
+        mWindow.addSystemFlags(
+                WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
+        assertEquals(WindowManager.LayoutParams.SYSTEM_FLAG_SHOW_FOR_ALL_USERS
+                        | WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS,
+                attrs.privateFlags);
+
+        // Test if the callback method is called by system
+        verify(mWindowCallback, times(2)).onWindowAttributesChanged(attrs);
+    }
+
+    @Test
     public void testFindViewById() {
         TextView v = mWindow.findViewById(R.id.listview_window);
         assertNotNull(v);
@@ -676,17 +698,20 @@ public class WindowTest {
     @Test
     public void testSetFitsContentForInsets_displayCutoutInsets_areApplied()
             throws Throwable {
-        setMayAffectDisplayRotation();
-        mActivityRule.runOnUiThread(() -> {
-            mActivity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-            mWindow.setDecorFitsSystemWindows(true);
-            WindowManager.LayoutParams attrs = mWindow.getAttributes();
-            attrs.layoutInDisplayCutoutMode = LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
-            mWindow.setAttributes(attrs);
-        });
-        mInstrumentation.waitForIdleSync();
-        assertEquals(mActivity.getContentView().getRootWindowInsets().getSystemWindowInsets(),
-                mActivity.getAppliedInsets());
+        try (IgnoreOrientationRequestSession session =
+                     new IgnoreOrientationRequestSession(false /* enable */)) {
+            setMayAffectDisplayRotation();
+            mActivityRule.runOnUiThread(() -> {
+                mActivity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+                mWindow.setDecorFitsSystemWindows(true);
+                WindowManager.LayoutParams attrs = mWindow.getAttributes();
+                attrs.layoutInDisplayCutoutMode = LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+                mWindow.setAttributes(attrs);
+            });
+            mInstrumentation.waitForIdleSync();
+            assertEquals(mActivity.getContentView().getRootWindowInsets().getSystemWindowInsets(),
+                    mActivity.getAppliedInsets());
+        }
     }
 
     @Test

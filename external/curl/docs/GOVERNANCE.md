@@ -8,7 +8,7 @@ This project was started by and has to some extent been pushed forward over
 the years with Daniel Stenberg as the driving force. It matches a standard
 BDFL (Benevolent Dictator For Life) style project.
 
-This setup has been used due to convenience and the fact that is has worked
+This setup has been used due to convenience and the fact that it has worked
 fine this far. It is not because someone thinks of it as a superior project
 leadership model. It will also only continue working as long as Daniel manages
 to listen in to what the project and the general user population wants and
@@ -45,7 +45,7 @@ non-profit organization that holds on to funds for us. This fund is then used
 for paying the curl security bug bounties, to reimburse project related
 expenses etc.
 
-Donations to the project can also come in form of server hosting, providing
+Donations to the project can also come in the form of server hosting, providing
 services and paying for people to work on curl related code etc. Usually, such
 donations are services paid for directly by the sponsors.
 
@@ -116,7 +116,7 @@ admin of all things curl related server stuff, but Björn Stenberg and Linus
 Feltzing serve as backup admins for when Daniel is gone or unable.
 
 The primary server is paid for by Haxx. The machine is physically located in a
-server bunker in Stockholm Sweden, operated by the company Portlane.
+server bunker in Stockholm Sweden, operated by the company Glesys.
 
 The website contents are served to the web via Fastly and Daniel is the
 primary curl contact with Fastly.
@@ -152,14 +152,14 @@ within the area of personal expertise and experience.
 
 ### Merge advice
 
-When you are merging patches/PRs...
+When you are merging patches/pull requests...
 
 - make sure the commit messages follow our template
 - squash patch sets into a few logical commits even if the PR did not, if
   necessary
 - avoid the "merge" button on GitHub, do it "manually" instead to get full
-  control and full audit trail (github leaves out you as "Committer:")
-- remember to credit the reporter and the helpers!
+  control and full audit trail (GitHub leaves out you as "Committer:")
+- remember to credit the reporter and the helpers.
 
 ## Who are maintainers?
 

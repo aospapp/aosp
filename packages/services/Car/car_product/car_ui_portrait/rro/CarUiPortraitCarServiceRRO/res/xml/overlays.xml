@@ -15,4 +15,5 @@
   -->
 <overlay>
     <item target="array/config_allowed_optional_car_features" value="@array/config_allowed_optional_car_features"/>
+    <item target="array/config_occupant_display_mapping" value="@array/config_occupant_display_mapping" />
 </overlay>

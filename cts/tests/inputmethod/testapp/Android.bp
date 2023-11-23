@@ -16,6 +16,17 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+java_test_helper_library {
+    name: "CtsInputMethodStandaloneTestLib",
+    sdk_version: "test_current",
+    srcs: ["src/**/*.java"],
+    libs: ["junit"],
+    static_libs: [
+        "androidx.annotation_annotation",
+        "compatibility-device-util-axt",
+    ],
+}
+
 android_test_helper_app {
     name: "CtsInputMethodStandaloneTestApp",
     defaults: ["cts_defaults"],

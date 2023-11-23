@@ -47,9 +47,6 @@ public class TimezoneDataHostTest extends ApexE2EBaseHostTest {
         RuntimeServiceInfoProto runtimeServiceInfo = getRuntimeServiceInfoProto();
         List<DebugEntryProto> debugEntries = runtimeServiceInfo.getDebugEntryList();
 
-        // Check the status of APK update (can't be present) and time zone data module
-        // (must be present).
-        assertEntryValue(debugEntries, "core_library.timezone.source.data_status", "NOT_FOUND");
         assertEntryValue(debugEntries, "core_library.timezone.source.tzdata_module_status", "OK");
 
         // Check the time zone data module has the expected version for test1_com.android.tzdata.

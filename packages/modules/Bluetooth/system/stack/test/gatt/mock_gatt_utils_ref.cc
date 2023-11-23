@@ -19,10 +19,6 @@
 #include "stack/include/bt_hdr.h"
 #include "types/bluetooth/uuid.h"
 #include "types/raw_address.h"
-#include "utils/include/bt_utils.h"
-
-/** stack/btu/btu_task.cc, indirect reference, gatt_utils.cc -> libosi */
-bluetooth::common::MessageLoopThread* get_main_thread() { return nullptr; }
 
 /** stack/gatt/connection_manager.cc */
 namespace connection_manager {
@@ -32,11 +28,12 @@ bool background_connect_remove(uint8_t app_id, const RawAddress& address) {
 bool direct_connect_remove(uint8_t app_id, const RawAddress& address) {
   return false;
 }
+bool is_background_connection(const RawAddress& address) { return false; }
 }  // namespace connection_manager
 
 /** stack/gatt/att_protocol.cc */
-BT_HDR* attp_build_sr_msg(tGATT_TCB& tcb, uint8_t op_code,
-                          tGATT_SR_MSG* p_msg) {
+BT_HDR* attp_build_sr_msg(tGATT_TCB& tcb, uint8_t op_code, tGATT_SR_MSG* p_msg,
+                          uint16_t payload_size) {
   return nullptr;
 }
 tGATT_STATUS attp_send_cl_confirmation_msg(tGATT_TCB& tcb, uint16_t cid) {

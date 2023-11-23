@@ -36,7 +36,7 @@ namespace gsi {
 
 class GsiService : public BinderService<GsiService>, public BnGsiService {
   public:
-    static void Register();
+    static void Register(const std::string& name);
 
     binder::Status openInstall(const std::string& install_dir, int* _aidl_return) override;
     binder::Status closeInstall(int32_t* _aidl_return) override;

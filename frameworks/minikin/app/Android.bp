@@ -33,5 +33,5 @@ cc_binary_host {
 
     srcs: ["HyphTool.cpp"],
 
-    cflags: ["-Wall", "-Werror"],
+    defaults: ["libminikin_defaults"],
 }

@@ -26,6 +26,7 @@ genrule {
         ":apex_service_contexts-33",
         ":apex_seapp_contexts-33",
         ":apex_sepolicy-33.cil",
+        ":apex_sepolicy-33.decompiled.cil",
         ":apex_sepolicy.sha256",
         ":sepolicy_apex_test_file",
 
@@ -66,6 +67,20 @@ prebuilt_etc {
     src: ":SEPolicy-33.zip.fsv_sig.gen",
     installable: false,
     filename: "SEPolicy-33.zip.fsv_sig",
+}
+
+genrule {
+    name: "SEPolicy-33.pb.gen",
+    defaults: ["sepolicy_info_bin_gen_default"],
+    srcs: ["SEPolicy-33.textproto"],
+    out: ["SEPolicy-33.pb.gen"],
+}
+
+prebuilt_etc {
+    name: "SEPolicy-33.pb",
+    src: ":SEPolicy-33.pb.gen",
+    installable: false,
+    filename: "SEPolicy-33.pb",
 }
 
 // Versions of the most up-to-date apex sepolicies are installed on /system.

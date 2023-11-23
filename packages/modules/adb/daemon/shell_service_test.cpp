@@ -29,6 +29,9 @@
 #include "adb_io.h"
 #include "shell_protocol.h"
 #include "sysdeps.h"
+#include "test_utils/test_utils.h"
+
+using namespace test_utils;
 
 class ShellServiceTest : public ::testing::Test {
   public:
@@ -73,81 +76,6 @@ void ShellServiceTest::StartTestCommandInProcess(std::string name, Command comma
     command_fd_ = StartCommandInProcess(std::move(name), std::move(command), protocol);
     ASSERT_TRUE(command_fd_ >= 0);
 }
-
-namespace {
-
-// Reads raw data from |fd| until it closes or errors.
-std::string ReadRaw(borrowed_fd fd) {
-    char buffer[1024];
-    char *cur_ptr = buffer, *end_ptr = buffer + sizeof(buffer);
-
-    while (1) {
-        int bytes = adb_read(fd, cur_ptr, end_ptr - cur_ptr);
-        if (bytes <= 0) {
-            return std::string(buffer, cur_ptr);
-        }
-        cur_ptr += bytes;
-    }
-}
-
-// Reads shell protocol data from |fd| until it closes or errors. Fills
-// |stdout| and |stderr| with their respective data, and returns the exit code
-// read from the protocol or -1 if an exit code packet was not received.
-int ReadShellProtocol(borrowed_fd fd, std::string* stdout, std::string* stderr) {
-    int exit_code = -1;
-    stdout->clear();
-    stderr->clear();
-
-    auto protocol = std::make_unique<ShellProtocol>(fd.get());
-    while (protocol->Read()) {
-        switch (protocol->id()) {
-            case ShellProtocol::kIdStdout:
-                stdout->append(protocol->data(), protocol->data_length());
-                break;
-            case ShellProtocol::kIdStderr:
-                stderr->append(protocol->data(), protocol->data_length());
-                break;
-            case ShellProtocol::kIdExit:
-                EXPECT_EQ(-1, exit_code) << "Multiple exit packets received";
-                EXPECT_EQ(1u, protocol->data_length());
-                exit_code = protocol->data()[0];
-                break;
-            default:
-                ADD_FAILURE() << "Unidentified packet ID: " << protocol->id();
-        }
-    }
-
-    return exit_code;
-}
-
-// Checks if each line in |lines| exists in the same order in |output|. Blank
-// lines in |output| are ignored for simplicity.
-bool ExpectLinesEqual(const std::string& output,
-                      const std::vector<std::string>& lines) {
-    auto output_lines = android::base::Split(output, "\r\n");
-    size_t i = 0;
-
-    for (const std::string& line : lines) {
-        // Skip empty lines in output.
-        while (i < output_lines.size() && output_lines[i].empty()) {
-            ++i;
-        }
-        if (i >= output_lines.size()) {
-            ADD_FAILURE() << "Ran out of output lines";
-            return false;
-        }
-        EXPECT_EQ(line, output_lines[i]);
-        ++i;
-    }
-
-    while (i < output_lines.size() && output_lines[i].empty()) {
-        ++i;
-    }
-    EXPECT_EQ(i, output_lines.size()) << "Found unmatched output lines";
-    return true;
-}
-
-}  // namespace
 
 // Tests a raw subprocess with no protocol.
 TEST_F(ShellServiceTest, RawNoProtocolSubprocess) {

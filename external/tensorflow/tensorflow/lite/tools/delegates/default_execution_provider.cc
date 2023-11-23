@@ -98,7 +98,14 @@ void DefaultExecutionProvider::LogParams(const ToolParams& params,
 
 TfLiteDelegatePtr DefaultExecutionProvider::CreateTfLiteDelegate(
     const ToolParams& params) const {
-  return TfLiteDelegatePtr(nullptr, [](TfLiteDelegate*) {});
+  return CreateNullDelegate();
+}
+
+std::pair<TfLiteDelegatePtr, int>
+DefaultExecutionProvider::CreateRankedTfLiteDelegate(
+    const ToolParams& params) const {
+  auto ptr = CreateTfLiteDelegate(params);
+  return std::make_pair(std::move(ptr), 0);
 }
 
 std::pair<TfLiteDelegatePtr, int>

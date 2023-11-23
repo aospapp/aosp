@@ -24,6 +24,7 @@ import java.io.File;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Implementation of {@link ExternalResource} and {@link TestRule}. This rule allows to log logs
@@ -85,6 +86,23 @@ public class TestLogData extends ExternalResource {
         public Class<? extends Annotation> annotationType() {
             return null;
         }
+
+        @Override
+        public boolean equals(Object other) {
+            if (other == this) {
+                return true;
+            }
+            if (!(other instanceof LogAnnotation)) {
+                return false;
+            }
+            LogAnnotation o = (LogAnnotation) other;
+            return Objects.equals(mLogs, o.mLogs);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(mLogs);
+        }
     }
 
     /** Structure to hold a log file to be reported. */
@@ -95,6 +113,23 @@ public class TestLogData extends ExternalResource {
         public LogHolder(String dataName, File logFile) {
             mDataName = dataName;
             mLogFile = logFile;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (other == this) {
+                return true;
+            }
+            if (!(other instanceof LogHolder)) {
+                return false;
+            }
+            LogHolder o = (LogHolder) other;
+            return Objects.equals(mDataName, o.mDataName) && Objects.equals(mLogFile, o.mLogFile);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(mDataName, mLogFile);
         }
     }
 }

@@ -24,7 +24,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /** Holds metadata for a DTC. The intended use case is to map this to a DTC code. */
-public class DTCMetadata {
+public final class DTCMetadata {
 
     private static final String TAG = "DTCMetadata";
     private static final String SHORT_DESCRIPTION_KEY = "short_description";

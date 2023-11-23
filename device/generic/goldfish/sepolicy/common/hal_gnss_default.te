@@ -1,3 +1,4 @@
 #============= hal_gnss_default ==============
-allow hal_gnss_default vndbinder_device:chr_file { ioctl open read write map };
+vndbinder_use(hal_gnss_default);
+binder_call(servicemanager, hal_gnss_default);
 allow hal_gnss_default self:vsock_socket create_socket_perms_no_ioctl;

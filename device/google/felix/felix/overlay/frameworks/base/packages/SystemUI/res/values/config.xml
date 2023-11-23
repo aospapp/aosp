@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+/*
+** Copyright 2021, The Android Open Source Project
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+-->
+
+<!-- These resources are around just to allow their values to be customized
+     for different hardware and product builds. -->
+<resources>
+    <!-- Override value to use for proximity sensor. By default, don't register for prox if nothing
+         is specified in the prox_sensor_posture_mapping. -->
+    <string name="proximity_sensor_type" translatable="false"></string>
+
+    <!-- Sensor type per posture state to use for proximity sensor -->
+    <string-array name="proximity_sensor_posture_mapping" translatable="false">
+        <item></item> <!-- UNKNOWN, don't register for prox -->
+        <item>android.sensor.light</item> <!-- CLOSED, register for ALS before checking prox -->
+        <item></item> <!-- HALF_OPENED, don't register for prox -->
+        <item></item> <!-- OPENED, don't register for prox -->
+      </string-array>
+
+    <!-- If using proximity_sensor_type, specifies a threshold value to distinguish near and
+         far break points. A sensor value less than this is considered "near". -->
+    <item name="proximity_sensor_threshold" translatable="false" format="float" type="dimen">12</item>
+
+    <!-- If using proximity_sensor_type, specifies a threshold value to distinguish near and
+         far break points. A sensor value more than this is considered "far". If not set,
+         proximity_sensor_threshold is used. This allows one to implement a latching mechanism for
+         noisy sensors. -->
+    <item name="proximity_sensor_threshold_latch" translatable="false" format="float" type="dimen">24</item>
+
+    <!-- By default, don't register for a secondary prox sensor if nothing is specified in the
+         proximity_sensor_secondary_threshold-->
+    <string name="proximity_sensor_secondary_type" translatable="false"></string>
+
+    <item name="proximity_sensor_secondary_threshold" translatable="false" format="float"
+      type="dimen">5</item>
+
+    <!-- Sensor type per posture state to use for proximity sensor as a confirmation for
+    proximity_sensor_type. -->
+    <string-array name="proximity_sensor_secondary_posture_mapping" translatable="false">
+        <item></item> <!-- UNKNOWN, don't register for prox-->
+        <item>android.sensor.proximity</item> <!-- CLOSED, register for prox -->
+        <item></item> <!-- HALF_OPENED, don't register for prox -->
+        <item></item> <!-- OPENED, don't register for prox -->
+    </string-array>
+
+    <!-- Doze: whether the single tap sensor uses the proximity sensor in the given posture.
+               See doze_single_tap_uses_prox for usage. -->
+    <integer-array name="doze_single_tap_uses_prox_posture_mapping">
+        <item>1</item> <!-- UNKNOWN -->
+        <item>1</item> <!-- CLOSED -->
+        <item>0</item> <!-- HALF_OPENED -->
+        <item>0</item> <!-- OPENED -->
+    </integer-array>
+
+    <!-- Default rounded corner curve (a Bezier). Must match (the curved path in) rounded.xml.
+         Note that while rounded.xml includes the entire path (including the horizontal and vertical
+         corner edges), this pulls out just the curve.
+     -->
+    <string name="config_rounded_mask" translatable="false">M 71,0 C 33,0 22,-1 10,10 -1,22 0,33 0,71</string>
+
+    <!-- Configure 13px of extra protection around the front-facing camera -->
+    <string translatable="false" name="config_frontBuiltInDisplayCutoutProtection">
+      m 589.2,66.53 a 49.5,49.5 0 0 1 -49.5,49.5 49.5,49.5 0 0 1 -49.5,-49.5 49.5,49.5 0 0 1 49.5,-49.5 49.5,49.5 0 0 1 49.5,49.5 z
+    </string>
+
+    <!-- Camera 0 is the front camera -->
+    <string translatable="false" name="config_protectedCameraId">1</string>
+
+    <!-- Comma-separated list of packages to exclude from camera protection. In our case,
+    ignore the gaze detection package -->
+    <string translatable="false" name="config_cameraProtectionExcludedPackages">com.google.android.as</string>
+
+    <bool name="config_enableDisplayCutoutProtection">true</bool>
+
+    <!-- Type of a sensor that provides a low-power estimate of the desired display
+         brightness, suitable to listen to while the device is asleep (e.g. during
+         always-on display) -->
+    <string name="doze_brightness_sensor_type" translatable="false">com.google.sensor.binned_brightness</string>
+
+    <!-- Doze: can we assume the pickup sensor includes a proximity check? -->
+    <bool name="doze_pickup_performs_proximity_check">true</bool>
+
+    <!-- Doze: whether the double tap sensor reports 2D touch coordinates -->
+    <bool name="doze_double_tap_reports_touch_coordinates">true</bool>
+
+    <!-- Doze: Table that translates sensor values from the doze_brightness_sensor_type sensor
+               to brightness values; -1 means keeping the current brightness. -->
+    <integer-array name="config_doze_brightness_sensor_to_brightness">
+        <item>-1</item> <!-- 0: OFF -->
+        <item>3</item>  <!-- 1: NIGHT -->
+        <item>3</item>  <!-- 2: LOW -->
+        <item>13</item> <!-- 3: HIGH -->
+        <item>13</item> <!-- 4: SUN -->
+    </integer-array>
+
+    <!-- Doze: Table that translates sensor values from the doze_brightness_sensor_type sensor
+               to an opacity value for a black scrim that is overlaid in AOD1.
+               Valid range is from 0 (transparent) to 255 (opaque).
+               -1 means keeping the current opacity. -->
+    <integer-array name="config_doze_brightness_sensor_to_scrim_opacity">
+        <item>-1</item>   <!-- 0: OFF -->
+        <item>133</item>  <!-- 1: NIGHT -->
+        <item>0</item>    <!-- 2: LOW -->
+        <item>0</item>    <!-- 3: HIGH -->
+        <item>0</item>    <!-- 4: SUN -->
+    </integer-array>
+
+    <!-- Doze: Name of a sensor per posture state that provides a low-power estimate of the desired
+               display brightness, suitable to listen to while the device is asleep (e.g. during
+               always-on display) -->
+    <string-array name="doze_brightness_sensor_name_posture_mapping" translatable="false">
+        <item></item> <!-- UNKNOWN -->
+        <item>Binned Brightness 1 (wake-up)</item> <!-- CLOSED -->
+        <item>Binned Brightness 0 (wake-up)</item> <!-- HALF_OPENED -->
+        <item>Binned Brightness 0 (wake-up)</item> <!-- OPENED -->
+    </string-array>
+
+    <!-- Whether to only support face auth on specific posture, default 0(DEVICE_POSTURE_UNKNOWN)
+         to support face all postures.
+         0 : DEVICE_POSTURE_UNKNOWN
+         1 : DEVICE_POSTURE_CLOSED
+         2 : DEVICE_POSTURE_HALF_OPENED
+         3 : DEVICE_POSTURE_OPENED
+         4 : DEVICE_POSTURE_FLIPPED
+    -->
+    <integer name="config_face_auth_supported_posture">1</integer>
+</resources>
+

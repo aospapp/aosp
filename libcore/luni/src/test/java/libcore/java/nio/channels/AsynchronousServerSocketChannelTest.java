@@ -160,7 +160,7 @@ public class AsynchronousServerSocketChannelTest extends TestCaseWithRules {
         FutureLikeCompletionHandler<AsynchronousSocketChannel> acceptCompletionHandler =
             new FutureLikeCompletionHandler<AsynchronousSocketChannel>();
 
-        Integer attachment = new Integer(123);
+        Integer attachment = Integer.valueOf(123);
         assc.accept(attachment, acceptCompletionHandler);
 
         Socket s = new Socket();

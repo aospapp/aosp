@@ -70,7 +70,7 @@ struct CompatibilityMatrix : public HalGroup<MatrixHal>,
 
     std::vector<VersionRange> getSepolicyVersions() const;
 
-    bool add(MatrixHal&&, std::string* error = nullptr) override;
+    bool add(MatrixHal&&, std::string* error = nullptr);
     // Move all hals from another CompatibilityMatrix to this.
     bool addAllHals(CompatibilityMatrix* other, std::string* error = nullptr);
 
@@ -151,6 +151,10 @@ struct CompatibilityMatrix : public HalGroup<MatrixHal>,
     // Return the level of the matrixKernel object that it is originally from.
     // Prerequisite: matrixKernel is in mKernels.
     Level getSourceMatrixLevel(const MatrixKernel* matrixKernel) const;
+
+    // Return the minlts of the latest <kernel>, or empty value if any error (e.g. this is not an
+    // FCM, or there are no <kernel> tags).
+    [[nodiscard]] KernelVersion getLatestKernelMinLts() const;
 
     friend struct HalManifest;
     friend struct RuntimeInfo;

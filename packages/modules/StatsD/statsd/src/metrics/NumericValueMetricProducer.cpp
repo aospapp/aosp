@@ -50,6 +50,7 @@ const int FIELD_ID_VALUE_METRICS = 7;
 const int FIELD_ID_VALUE_INDEX = 1;
 const int FIELD_ID_VALUE_LONG = 2;
 const int FIELD_ID_VALUE_DOUBLE = 3;
+const int FIELD_ID_VALUE_SAMPLESIZE = 4;
 const int FIELD_ID_VALUES = 9;
 const int FIELD_ID_BUCKET_NUM = 4;
 const int FIELD_ID_START_BUCKET_ELAPSED_MILLIS = 5;
@@ -71,6 +72,9 @@ NumericValueMetricProducer::NumericValueMetricProducer(
                           conditionOptions, stateOptions, activationOptions, guardrailOptions),
       mUseAbsoluteValueOnReset(metric.use_absolute_value_on_reset()),
       mAggregationType(metric.aggregation_type()),
+      mIncludeSampleSize(metric.has_include_sample_size()
+                                 ? metric.include_sample_size()
+                                 : metric.aggregation_type() == ValueMetric_AggregationType_AVG),
       mUseDiff(metric.has_use_diff() ? metric.use_diff() : isPulled()),
       mValueDirection(metric.value_direction()),
       mSkipZeroDiffOutput(metric.skip_zero_diff_output()),
@@ -112,10 +116,14 @@ void NumericValueMetricProducer::resetBase() {
 }
 
 void NumericValueMetricProducer::writePastBucketAggregateToProto(
-        const int aggIndex, const Value& value, ProtoOutputStream* const protoOutput) const {
+        const int aggIndex, const Value& value, const int sampleSize,
+        ProtoOutputStream* const protoOutput) const {
     uint64_t valueToken =
             protoOutput->start(FIELD_TYPE_MESSAGE | FIELD_COUNT_REPEATED | FIELD_ID_VALUES);
     protoOutput->write(FIELD_TYPE_INT32 | FIELD_ID_VALUE_INDEX, aggIndex);
+    if (mIncludeSampleSize) {
+        protoOutput->write(FIELD_TYPE_INT32 | FIELD_ID_VALUE_SAMPLESIZE, sampleSize);
+    }
     if (value.getType() == LONG) {
         protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_VALUE_LONG, (long long)value.long_value);
         VLOG("\t\t value %d: %lld", aggIndex, (long long)value.long_value);
@@ -128,10 +136,11 @@ void NumericValueMetricProducer::writePastBucketAggregateToProto(
     protoOutput->end(valueToken);
 }
 
-void NumericValueMetricProducer::onActiveStateChangedInternalLocked(const int64_t eventTimeNs) {
+void NumericValueMetricProducer::onActiveStateChangedInternalLocked(const int64_t eventTimeNs,
+                                                                    const bool isActive) {
     // When active state changes from true to false for pulled metric, clear diff base but don't
     // reset other counters as we may accumulate more value in the bucket.
-    if (mUseDiff && !mIsActive) {
+    if (mUseDiff && !isActive) {
         resetBase();
     }
 }
@@ -174,14 +183,14 @@ int64_t NumericValueMetricProducer::calcPreviousBucketEndTime(const int64_t curr
 // By design, statsd pulls data at bucket boundaries using AlarmManager. These pulls are likely
 // to be delayed. Other events like condition changes or app upgrade which are not based on
 // AlarmManager might have arrived earlier and close the bucket.
-void NumericValueMetricProducer::onDataPulled(const vector<shared_ptr<LogEvent>>& allData,
-                                              bool pullSuccess, int64_t originalPullTimeNs) {
+void NumericValueMetricProducer::onDataPulled(const std::vector<std::shared_ptr<LogEvent>>& allData,
+                                              PullResult pullResult, int64_t originalPullTimeNs) {
     lock_guard<mutex> lock(mMutex);
     if (mCondition == ConditionState::kTrue) {
         // If the pull failed, we won't be able to compute a diff.
-        if (!pullSuccess) {
+        if (pullResult == PullResult::PULL_RESULT_FAIL) {
             invalidateCurrentBucket(originalPullTimeNs, BucketDropReason::PULL_FAILED);
-        } else {
+        } else if (pullResult == PullResult::PULL_RESULT_SUCCESS) {
             bool isEventLate = originalPullTimeNs < getCurrentBucketEndTimeNs();
             if (isEventLate) {
                 // If the event is late, we are in the middle of a bucket. Just
@@ -332,8 +341,7 @@ void NumericValueMetricProducer::accumulateEvents(const vector<shared_ptr<LogEve
     }
 }
 
-bool NumericValueMetricProducer::hitFullBucketGuardRailLocked(
-        const MetricDimensionKey& newKey) const {
+bool NumericValueMetricProducer::hitFullBucketGuardRailLocked(const MetricDimensionKey& newKey) {
     // ===========GuardRail==============
     // 1. Report the tuple count if the tuple count > soft limit
     if (mCurrentFullBucket.find(newKey) != mCurrentFullBucket.end()) {
@@ -343,8 +351,11 @@ bool NumericValueMetricProducer::hitFullBucketGuardRailLocked(
         size_t newTupleCount = mCurrentFullBucket.size() + 1;
         // 2. Don't add more tuples, we are above the allowed threshold. Drop the data.
         if (newTupleCount > mDimensionHardLimit) {
-            ALOGE("ValueMetric %lld dropping data for full bucket dimension key %s",
-                  (long long)mMetricId, newKey.toString().c_str());
+            if (!mHasHitGuardrail) {
+                ALOGE("ValueMetric %lld dropping data for full bucket dimension key %s",
+                      (long long)mMetricId, newKey.toString().c_str());
+                mHasHitGuardrail = true;
+            }
             return true;
         }
     }
@@ -524,6 +535,9 @@ PastBucket<Value> NumericValueMetricProducer::buildPartialBucket(int64_t bucketE
 
         bucket.aggIndex.push_back(interval.aggIndex);
         bucket.aggregates.push_back(getFinalValue(interval));
+        if (mIncludeSampleSize) {
+            bucket.sampleSizes.push_back(interval.sampleSize);
+        }
     }
     return bucket;
 }

@@ -32,6 +32,12 @@
         <option name="test-file-name" value="CtsAssistApp.apk" />
         <option name="test-file-name" value="CtsAssistTestCases.apk" />
     </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <!-- Collapse notifications -->
+        <option name="run-command" value="cmd statusbar collapse" />
+        <!-- Dismiss all system dialogs before launch test -->
+        <option name="run-command" value="am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS" />
+    </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.assist.cts" />
         <option name="runtime-hint" value="12m30s" />

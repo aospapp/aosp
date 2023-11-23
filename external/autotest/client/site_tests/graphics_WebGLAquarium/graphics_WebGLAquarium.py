@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -11,6 +12,8 @@ Description of some of the test result output:
             submit all the GL commands. It is the time it takes for a render()
             function call to complete.
 """
+
+from __future__ import print_function
 
 import functools
 import logging
@@ -191,9 +194,9 @@ class graphics_WebGLAquarium(graphics_utils.GraphicsTest):
                 'rapl_%04d_fishes' % num_fishes)
             # Remove entries that we don't care about.
             rapl_rate = {key: rapl_rate[key]
-                         for key in rapl_rate.keys() if key.endswith('pwr')}
+                         for key in list(rapl_rate.keys()) if key.endswith('pwr')}
             # Report to chromeperf/ dashboard.
-            for key, values in rapl_rate.iteritems():
+            for key, values in list(rapl_rate.items()):
                 self.output_perf_value(
                     description=key,
                     value=values,
@@ -263,9 +266,9 @@ class graphics_WebGLAquarium(graphics_utils.GraphicsTest):
             now = time.time()
             results = {}
             info_str = ['\nfb_id wait_kds flipped']
-            for value in sampler_obj.frame_buffers.itervalues():
+            for value in list(sampler_obj.frame_buffers.values()):
                 results[value.fb] = {}
-                for state, stats in value.states.iteritems():
+                for state, stats in list(value.states.items()):
                     results[value.fb][state] = (stats.avg, stats.stdev)
                 info_str.append('%s: %s %s' % (value.fb,
                                                results[value.fb]['wait_kds'][0],
@@ -295,7 +298,7 @@ class graphics_WebGLAquarium(graphics_utils.GraphicsTest):
                     f.write('%s %s %s\n' %
                             (t, self.flip_stats[t]['avg_fps'],
                              self.flip_stats[t]['avg_render_time']))
-                for fb, stats in self.flip_stats[t].iteritems():
+                for fb, stats in list(self.flip_stats[t].items()):
                     if not isinstance(fb, int):
                         continue
                     f.write('%s %s ' % (t, fb))
@@ -317,7 +320,7 @@ class graphics_WebGLAquarium(graphics_utils.GraphicsTest):
         out_file = os.path.join(self.resultsdir, filename)
         with open(out_file, 'w') as f:
             for sample in samples:
-                print >> f, sample
+                print(sample, file=f)
 
     def run_fish_test_with_memory_pressure(
         self, browser, test_url, num_fishes, memory_pressure):

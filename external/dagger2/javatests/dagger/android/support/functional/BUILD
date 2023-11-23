@@ -40,7 +40,7 @@ android_library(
         "//:android",
         "//:android-support",
         # TODO(ronshapiro): figure out why strict deps is failing without this
-        "@google_bazel_common//third_party/java/jsr250_annotations",
+        "//third_party/java/jsr250_annotations",
     ],
 )
 
@@ -55,7 +55,7 @@ GenRobolectricTests(
         "//:android",
         "//:android-support",
         "//:dagger_with_compiler",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/truth",
         "@maven//:androidx_activity_activity",
         "@maven//:androidx_fragment_fragment",
         "@maven//:androidx_lifecycle_lifecycle_common",

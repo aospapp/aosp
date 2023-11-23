@@ -1,5 +1,0 @@
-# Radio
-type radio_vendor_data_file, file_type, data_file_type;
-userdebug_or_eng(`
-  typeattribute radio_vendor_data_file mlstrustedobject;
-')

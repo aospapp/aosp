@@ -63,7 +63,7 @@ public class ManualConnectionManagementTest {
   public void connect_doesNotHavePermission_doesNotConnect() throws Exception {
     testUtilities.denyPermissions(INTERACT_ACROSS_USERS);
 
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
     testUtilities.advanceTimeBySeconds(60);
 
     assertThat(testProfileConnector.isConnected()).isFalse();
@@ -72,7 +72,7 @@ public class ManualConnectionManagementTest {
   @Test
   public void connect_getsPermissionAfterStartingConnecting_connects() throws Exception {
     testUtilities.denyPermissions(INTERACT_ACROSS_USERS);
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     testUtilities.grantPermissions(INTERACT_ACROSS_USERS);
     testUtilities.advanceTimeBySeconds(5);

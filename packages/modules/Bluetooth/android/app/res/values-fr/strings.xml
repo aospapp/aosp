@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Périphérique inconnu"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Inconnu"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Non fourni"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Mode Avion"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Bluetooth ne peut être utilisé en mode Avion."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Audio Bluetooth"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Impossible de transférer les fichiers supérieurs à 4 Go"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Se connecter au Bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth activé en mode Avion"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Si vous laissez le Bluetooth activé, votre appareil s\'en souviendra et le Bluetooth restera activé la prochaine fois que vous serez en mode Avion"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Le Bluetooth reste activé"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Le Bluetooth de votre appareil restera activé en mode Avion, mais vous pouvez le désactiver."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Le Wi-Fi et le Bluetooth restent activés"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Le Wi‑Fi et le Bluetooth de votre appareil resteront activés en mode Avion, mais vous pouvez les désactivez."</string>
 </resources>

@@ -23,6 +23,7 @@ android_test {
     test_suites: [
         "cts",
         "general-tests",
+        "automotive-tests",
     ],
     srcs: ["src/**/*.java"],
     static_libs: [

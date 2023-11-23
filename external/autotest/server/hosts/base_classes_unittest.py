@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # pylint: disable=missing-docstring
 
 import unittest
@@ -36,7 +36,7 @@ class test_host_class(unittest.TestCase):
 
     def test_install(self):
         host = base_classes.Host()
-        # create a dummy installable class
+        # create a stub installable class
         class installable(object):
             def install(self, host):
                 pass

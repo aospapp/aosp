@@ -27,6 +27,7 @@
     <string name="notification_channel_network_status" msgid="1631786866932924838">"நெட்வொர்க்கின் நிலை"</string>
     <string name="notification_channel_network_alerts" msgid="1391603215241200880">"நெட்வொர்க் விழிப்பூட்டல்கள்"</string>
     <string name="notification_channel_network_available" msgid="8454366142428864948">"நெட்வொர்க் உள்ளது"</string>
+    <string name="notification_channel_apm_alerts" msgid="6775293475896473489">"APM விழிப்பூட்டல்கள்"</string>
     <string name="wifi_suggestion_title" msgid="2564179935989099139">"பரிந்துரைக்கப்பட்ட வைஃபை நெட்வொர்க்குகளை அனுமதிக்க வேண்டுமா?"</string>
     <string name="wifi_suggestion_content" msgid="6985149577828091835">"<xliff:g id="NAME">%s</xliff:g> பரிந்துரைக்கும் நெட்வொர்க்குகள். சாதனம் தானாக இணைக்கப்படக்கூடும்."</string>
     <string name="wifi_suggestion_action_allow_app" msgid="7757859972144671588">"அனுமதி"</string>
@@ -54,6 +55,7 @@
     <string name="ok" msgid="847575529546290102">"சரி"</string>
     <string name="wifi_p2p_invitation_sent_title" msgid="6552639940428040869">"அழைப்பு அனுப்பப்பட்டது"</string>
     <string name="wifi_p2p_invitation_to_connect_title" msgid="8917157937652519251">"இணைவதற்கான அழைப்பு"</string>
+    <string name="wifi_p2p_invitation_seconds_remaining" msgid="4214101104506918344">"{0,plural, =1{# வினாடியில் ஏற்கவும்.}other{# வினாடிகளில் ஏற்கவும்.}}"</string>
     <string name="wifi_p2p_from_message" msgid="5921308150192756898">"அனுப்புநர்:"</string>
     <string name="wifi_p2p_to_message" msgid="3809923305696994787">"பெறுநர்:"</string>
     <string name="wifi_p2p_enter_pin_message" msgid="5200220251738047620">"பின்வரும் அவசியமான பின்னை உள்ளிடவும்:"</string>
@@ -102,19 +104,19 @@
   </string-array>
     <string name="wifi_eap_error_message_code_32767" msgid="7094289719914089006">"<xliff:g id="SSID">%1$s</xliff:g> : EAP அங்கீகரிப்புப் பிழை 32767"</string>
   <string-array name="wifi_eap_error_message_code_32767_carrier_overrides">
-    <item msgid="873264900678243330">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Accessஸுடன் இணைப்பதில் சிக்கல் உள்ளது. சிறிது நேரம் கழித்து மீண்டும் முயலவும் அல்லது வேறு இடத்திலிருந்து முயலவும்."</item>
+    <item msgid="3756793972687282940">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Accessஸுடன் இணைப்பதில் சிக்கல் உள்ளது. சிறிது நேரம் கழித்து மீண்டும் முயலவும் அல்லது வேறு இடத்திலிருந்து முயலவும். (பிழை = 32767)"</item>
   </string-array>
     <string name="wifi_eap_error_message_code_16384" msgid="575394783233092922">"<xliff:g id="SSID">%1$s</xliff:g> : EAP அங்கீகரிப்புப் பிழை 16384"</string>
   <string-array name="wifi_eap_error_message_code_16384_carrier_overrides">
-    <item msgid="5042774904407799226">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : 16384 பிழை காரணமாக Verizon Wi-Fi Accessஸுடன் இணைப்பதில் சிக்கல் உள்ளது."</item>
+    <item msgid="270219697600808218">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Verizon வைஃபையுடன் இணைப்பதில் சிக்கல் உள்ளது. (பிழை = 16384)"</item>
   </string-array>
     <string name="wifi_eap_error_message_code_16385" msgid="8392878664662215609">"<xliff:g id="SSID">%1$s</xliff:g> : EAP அங்கீகரிப்புப் பிழை 16385"</string>
   <string-array name="wifi_eap_error_message_code_16385_carrier_overrides">
-    <item msgid="1251122579833932025">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : 16385 பிழை காரணமாக Verizon Wi-Fi Accessஸுடன் இணைப்பதில் சிக்கல் உள்ளது."</item>
+    <item msgid="50575315771146940">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Verizon வைஃபையுடன் இணைப்பதில் சிக்கல் உள்ளது. (பிழை = 16385)"</item>
   </string-array>
     <string name="wifi_eap_error_message_unknown_error_code" msgid="4480884285384231323">"<xliff:g id="SSID">%1$s</xliff:g> : EAP அங்கீகரிப்புப் பிழை, தெரியாத பிழைக் குறியீடு"</string>
   <string-array name="wifi_eap_error_message_unknown_error_code_carrier_overrides">
-    <item msgid="6141795443609380009">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Accessஸுடன் இணைப்பதில் சிக்கல் உள்ளது."</item>
+    <item msgid="2705387186478280792">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Verizon வைஃபையுடன் இணைப்பதில் சிக்கல் உள்ளது. (பிழை = தெரியவில்லை)"</item>
   </string-array>
     <string name="wifi_softap_auto_shutdown_timeout_expired_title" msgid="4896534374569504484">"ஹாட்ஸ்பாட் முடக்கப்பட்டது"</string>
     <string name="wifi_softap_auto_shutdown_timeout_expired_summary" msgid="7975476698140267728">"சாதனங்கள் எதுவும் இணைக்கப்படவில்லை. மாற்ற, தட்டவும்."</string>
@@ -125,6 +127,11 @@
     <string name="wifi_interface_priority_message_plural" msgid="8178086373318831859">"இந்த ஆப்ஸுக்கு இது சிக்கல்களை ஏற்படுத்தக்கூடும்: <xliff:g id="APPS">%3$s</xliff:g>."</string>
     <string name="wifi_interface_priority_approve" msgid="7877379614986261096">"அனுமதி"</string>
     <string name="wifi_interface_priority_reject" msgid="1378461018835886777">"அனுமதிக்க வேண்டாம்"</string>
+    <string name="wifi_interface_priority_interface_name_sta" msgid="5107477901500010776">"STA"</string>
+    <string name="wifi_interface_priority_interface_name_ap" msgid="161777054136866061">"வைஃபை ஹாட்ஸ்பாட்"</string>
+    <string name="wifi_interface_priority_interface_name_ap_bridge" msgid="1270364818879977821">"வைஃபை ஹாட்ஸ்பாட்"</string>
+    <string name="wifi_interface_priority_interface_name_p2p" msgid="1278122698099149708">"வைஃபை டைரக்ட்"</string>
+    <string name="wifi_interface_priority_interface_name_nan" msgid="8812888073122966870">"Wi‑Fi Aware"</string>
     <string name="wifi_ca_cert_dialog_title" msgid="3872340345882915806">"இந்த நெட்வொர்க் நம்பகமானதா?"</string>
     <string name="wifi_ca_cert_dialog_continue_text" msgid="1674156611893471003">"ஆம். இணைக்கவும்"</string>
     <string name="wifi_ca_cert_dialog_abort_text" msgid="1303170595421648059">"இல்லை. இணைக்க வேண்டாம்"</string>
@@ -132,14 +139,18 @@
     <string name="wifi_ca_cert_dialog_message_server_name_text" msgid="3707809865604348289">"சேவையகத்தின் பெயர்:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_issuer_name_text" msgid="1147216922475192304">"வழங்குநர் பெயர்:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_organization_text" msgid="4936354600863239487">"நிறுவனம்:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_expiration_text" msgid="1612917217606436217">"சான்றிதழ் காலாவதியாகும் தேதி:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="8455163626514894233">"SHA-256 கைரேகை:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_contact_text" msgid="5799083318641183815">"தொடர்பு:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
-    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="704614002854299776">"கையொப்பம்:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_notification_title" msgid="537569884930429796">"நெட்வொர்க் சரிபார்க்கப்பட வேண்டும்"</string>
     <string name="wifi_ca_cert_notification_message" msgid="6413248690626616961">"இணைப்பதற்கு முன்பு <xliff:g id="SSID">%1$s</xliff:g> இன் நெட்வொர்க் விவரங்களைப் பாருங்கள். தொடர தட்டவும்."</string>
     <string name="wifi_ca_cert_failed_to_install_ca_cert" msgid="4864192219789736195">"சான்றிதழை நிறுவ முடியவில்லை."</string>
+    <string name="wifi_tofu_invalid_cert_chain_title" msgid="332710627417595752">"<xliff:g id="VALUE">%1$s</xliff:g> உடன் இணைக்க முடியவில்லை"</string>
+    <string name="wifi_tofu_invalid_cert_chain_message" msgid="7047987920029432392">"சேவையகச் சான்றிதழ் தொடர் தவறாக உள்ளது."</string>
+    <string name="wifi_tofu_invalid_cert_chain_ok_text" msgid="9098567577510279854">"சரி"</string>
     <string name="wifi_ca_cert_dialog_preT_title" msgid="6916320484037009061">"இந்த நெட்வொர்க்கைச் சரிபார்க்க முடியவில்லை"</string>
-    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="3181614240421159530">"பரவாயில்லை, இணை"</string>
-    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1195575129023960325">"இணைக்க வேண்டாம்"</string>
+    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="9118713368838029797">"இணைந்திரு"</string>
+    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1331309662999405224">"இப்போது துண்டி"</string>
     <string name="wifi_ca_cert_dialog_preT_message_hint" msgid="5682518783200852031">"நெட்வொர்க் <xliff:g id="SSID">%1$s</xliff:g> இல் சான்றிதழ் இல்லை."</string>
     <string name="wifi_ca_cert_dialog_preT_message_link" msgid="6325483132538546884">"சான்றிதழ்களைச் சேர்ப்பது எப்படியென அறிக"</string>
     <string name="wifi_ca_cert_notification_preT_title" msgid="7255129934648316663">"இந்த நெட்வொர்க்கைச் சரிபார்க்க முடியவில்லை"</string>
@@ -150,4 +161,15 @@
     <string name="wifi_enable_request_dialog_message" msgid="6395169178524938278">"விரைவு அமைப்புகளில் நீங்கள் வைஃபையை முடக்கிக்கொள்ளலாம்"</string>
     <string name="wifi_enable_request_dialog_positive_button" msgid="6050832555821470466">"அனுமதி"</string>
     <string name="wifi_enable_request_dialog_negative_button" msgid="4754219902374918882">"அனுமதிக்க வேண்டாம்"</string>
+    <string name="wifi_enabled_apm_first_time_title" msgid="4814302384637588804">"விமானப் பயன்முறையில் வைஃபை இயக்கத்திலேயே இருக்கும்"</string>
+    <string name="wifi_enabled_apm_first_time_message" msgid="6416193199042203037">"நீங்கள் வைஃபையை இயக்கத்தில் வைத்திருந்தால், அடுத்த முறை நீங்கள் விமானப் பயன்முறையில் இருக்கும்போது உங்கள் சாதனம் அதை இயக்கத்திலேயே வைத்திருக்கும்"</string>
+    <string name="apm_enabled_first_time_title" msgid="2534167413190488009">"வைஃபை இயக்கத்திலேயே இருக்கும்"</string>
+    <string name="apm_enabled_first_time_message" msgid="6093911536874954410">"உங்கள் சாதனம் விமானப் பயன்முறையில் வைஃபையை இயக்கத்திலேயே வைத்திருக்கும். வைஃபையை இயக்கத்தில் வைத்திருக்க விரும்பவில்லை எனில் நீங்கள் அதை முடக்கலாம்."</string>
+    <string name="wifi_network_disabled_by_admin_title" msgid="9057697656855227293">"நெட்வொர்க் கிடைக்கவில்லை"</string>
+    <string name="wifi_network_disabled_by_admin_message" msgid="7830360441333155462">"<xliff:g id="SSID">%1$s</xliff:g> உங்கள் நிர்வாகியால் முடக்கப்பட்டுள்ளது."</string>
+    <string name="wifi_network_disabled_by_admin_button" msgid="3350310756265122689">"மூடுக"</string>
+    <string name="wifi_network_switch_dialog_title_no_internet" msgid="4116969009784041242">"<xliff:g id="SSID_0">%1$s</xliff:g> இணையத்துடன் இணைக்கப்படவில்லை. <xliff:g id="SSID_1">%2$s</xliff:g>க்கு மாற்றவா?"</string>
+    <string name="wifi_network_switch_dialog_title_bad_internet" msgid="6013385270249705547">"<xliff:g id="SSID_0">%1$s</xliff:g> தரம் குறைவாக உள்ளது. <xliff:g id="SSID_1">%2$s</xliff:g>க்கு மாற்றவா?"</string>
+    <string name="wifi_network_switch_dialog_positive_button" msgid="7845507995422722454">"மாற்று"</string>
+    <string name="wifi_network_switch_dialog_negative_button" msgid="1496665895689498806">"மாற்ற வேண்டாம்"</string>
 </resources>

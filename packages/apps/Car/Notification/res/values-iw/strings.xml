@@ -39,18 +39,23 @@
     <string name="show_more_from_app" msgid="4270626118092846628">"עוד <xliff:g id="COUNT">%1$d</xliff:g> מ-<xliff:g id="APP">%2$s</xliff:g>"</string>
     <string name="show_count_more" msgid="480555295700318609">"הצגת עוד <xliff:g id="COUNT">%d</xliff:g> פריטים"</string>
     <plurals name="message_unshown_count" formatted="false" msgid="2454776257150137504">
+      <item quantity="one">עוד <xliff:g id="COUNT_1">%d</xliff:g> הודעות</item>
       <item quantity="two">עוד <xliff:g id="COUNT_1">%d</xliff:g> הודעות</item>
-      <item quantity="many">עוד <xliff:g id="COUNT_1">%d</xliff:g> הודעות</item>
       <item quantity="other">עוד <xliff:g id="COUNT_1">%d</xliff:g> הודעות</item>
-      <item quantity="one">עוד הודעה אחת (<xliff:g id="COUNT_0">%d</xliff:g>)</item>
     </plurals>
     <plurals name="restricted_numbered_message_content" formatted="false" msgid="232398073855919710">
+      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> הודעות חדשות</item>
       <item quantity="two"><xliff:g id="COUNT_1">%d</xliff:g> הודעות חדשות</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> הודעות חדשות</item>
       <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> הודעות חדשות</item>
-      <item quantity="one">הודעה אחת (<xliff:g id="COUNT_0">%d</xliff:g>) חדשה</item>
     </plurals>
     <string name="see_more_message" msgid="6343183827924395955">"עוד"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"הודעה חדשה"</string>
     <string name="manage_text" msgid="4225197445283791757">"ניהול"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"navigation"</string>
+    <string name="category_call" msgid="2249490790700877973">"call"</string>
+    <string name="category_message" msgid="451360226248504859">"msg"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"ביטול התכונה \'שימו לב\'"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"אפשר להתעדכן בחדשות האחרונות"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"התמקדות בנהיגה"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"חלק מההתראות החדשות נשמרות במרכז ההתראות"</string>
 </resources>

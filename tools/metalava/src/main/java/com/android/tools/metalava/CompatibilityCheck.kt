@@ -56,14 +56,11 @@ class CompatibilityCheck(
      * Request for compatibility checks.
      * [file] represents the signature file to be checked. [apiType] represents which
      * part of the API should be checked, [releaseType] represents what kind of codebase
-     * we are comparing it against. If [codebase] is specified, compare the signature file
-     * against the codebase instead of metalava's current source tree configured via the
-     * normal source path flags.
+     * we are comparing it against.
      */
     data class CheckRequest(
         val file: File,
-        val apiType: ApiType,
-        val codebase: File? = null
+        val apiType: ApiType
     ) {
         override fun toString(): String {
             return "--check-compatibility:${apiType.flagName}:released $file"
@@ -357,7 +354,7 @@ class CompatibilityCheck(
 
         val oldReturnType = old.returnType()
         val newReturnType = new.returnType()
-        if (!new.isConstructor() && oldReturnType != null && newReturnType != null) {
+        if (!new.isConstructor()) {
             val oldTypeParameter = oldReturnType.asTypeParameter(old)
             val newTypeParameter = newReturnType.asTypeParameter(new)
             var compatible = true
@@ -509,6 +506,16 @@ class CompatibilityCheck(
                         Issues.ADDED_FINAL,
                         new,
                         "${describe(new, capitalize = true)} has added 'final' qualifier"
+                    )
+                } else if (old.isEffectivelyFinal() && !new.isEffectivelyFinal()) {
+                    // Disallowed removing final: If an app inherits the class and starts overriding
+                    // the method it's going to crash on earlier versions where the method is final
+                    // It doesn't break compatibility in the strict sense, but does make it very
+                    // difficult to extend this method in practice.
+                    report(
+                        Issues.REMOVED_FINAL,
+                        new,
+                        "${describe(new, capitalize = true)} has removed 'final' qualifier"
                     )
                 }
             }
@@ -920,26 +927,31 @@ class CompatibilityCheck(
 
     companion object {
         fun checkCompatibility(
-            codebase: Codebase,
-            previous: Codebase,
+            newCodebase: Codebase,
+            oldCodebase: Codebase,
             apiType: ApiType,
-            oldBase: Codebase? = null,
-            newBase: Codebase? = null
+            baseApi: Codebase? = null,
         ) {
             val filter = apiType.getReferenceFilter()
                 .or(apiType.getEmitFilter())
                 .or(ApiType.PUBLIC_API.getReferenceFilter())
                 .or(ApiType.PUBLIC_API.getEmitFilter())
-            val checker = CompatibilityCheck(filter, previous, apiType, newBase, options.reporterCompatibilityReleased)
-            // newBase is considered part of the current codebase
-            val currentFullCodebase = MergedCodebase(listOf(newBase, codebase).filterNotNull())
-            // oldBase is considered part of the previous codebase
-            val previousFullCodebase = MergedCodebase(listOf(oldBase, previous).filterNotNull())
 
-            CodebaseComparator().compare(checker, previousFullCodebase, currentFullCodebase, filter)
+            val checker = CompatibilityCheck(filter, oldCodebase, apiType, baseApi, options.reporterCompatibilityReleased)
+
+            val oldFullCodebase = if (options.showUnannotated && apiType == ApiType.PUBLIC_API) {
+                MergedCodebase(listOfNotNull(oldCodebase, baseApi))
+            } else {
+                // To avoid issues with partial oldCodeBase we fill gaps with newCodebase, the
+                // first parameter is master, so we don't change values of oldCodeBase
+                MergedCodebase(listOfNotNull(oldCodebase, newCodebase))
+            }
+            val newFullCodebase = MergedCodebase(listOfNotNull(newCodebase, baseApi))
+
+            CodebaseComparator().compare(checker, oldFullCodebase, newFullCodebase, filter)
 
             val message = "Found compatibility problems checking " +
-                "the ${apiType.displayName} API (${codebase.location}) against the API in ${previous.location}"
+                "the ${apiType.displayName} API (${newCodebase.location}) against the API in ${oldCodebase.location}"
 
             if (checker.foundProblems) {
                 throw DriverException(exitCode = -1, stderr = message)

@@ -49,12 +49,13 @@ import android.annotation.SuppressLint;
 import android.net.IpPrefix;
 import android.net.MacAddress;
 import android.net.dhcp.DhcpServer.Clock;
-import android.net.util.SharedLog;
 import android.os.Binder;
 import android.os.RemoteException;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.net.module.util.SharedLog;
 
 import org.junit.Before;
 import org.junit.Test;

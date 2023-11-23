@@ -33,13 +33,15 @@ public class SiteMapPair {
     private final String mParentTitle;
     private final String mChildClass;
     private final String mChildTitle;
+    private final String mHighlightableMenuKey;
 
-    public SiteMapPair(String parentClass, String parentTitle, String childClass,
-            String childTitle) {
+    public SiteMapPair(String parentClass, String parentTitle, String childClass, String childTitle,
+            String highlightableMenuKey) {
         mParentClass = parentClass;
         mParentTitle = parentTitle;
         mChildClass = childClass;
         mChildTitle = childTitle;
+        mHighlightableMenuKey = highlightableMenuKey;
     }
 
     @Override
@@ -72,6 +74,10 @@ public class SiteMapPair {
         return mChildTitle;
     }
 
+    public String getHighlightableMenuKey() {
+        return mHighlightableMenuKey;
+    }
+
     /**
      * Converts this object into {@link ContentValues}. The content follows schema in
      * {@link IndexDatabaseHelper.SiteMapColumns}.
@@ -83,6 +89,8 @@ public class SiteMapPair {
         values.put(IndexDatabaseHelper.SiteMapColumns.PARENT_TITLE, mParentTitle);
         values.put(IndexDatabaseHelper.SiteMapColumns.CHILD_CLASS, mChildClass);
         values.put(IndexDatabaseHelper.SiteMapColumns.CHILD_TITLE, mChildTitle);
+        values.put(IndexDatabaseHelper.SiteMapColumns.HIGHLIGHTABLE_MENU_KEY,
+                mHighlightableMenuKey);
         return values;
     }
 }

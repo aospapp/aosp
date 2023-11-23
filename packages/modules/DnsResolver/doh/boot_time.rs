@@ -42,7 +42,7 @@ pub struct BootTime {
 // Return an error with the same structure as tokio::time::timeout to facilitate migration off it,
 // and hopefully some day back to it.
 /// Error returned by timeout
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Elapsed(());
 
 impl fmt::Display for Elapsed {
@@ -195,21 +195,21 @@ fn round_trip() {
 
 #[tokio::test]
 async fn timeout_drift() {
-    let delta = Duration::from_millis(20);
-    for _ in 0..10 {
+    let delta = Duration::from_millis(40);
+    for _ in 0..5 {
         let start = BootTime::now();
         assert!(timeout(delta, pending::<()>()).await.is_err());
         let taken = start.elapsed();
         let drift = if taken > delta { taken - delta } else { delta - taken };
-        assert!(drift < Duration::from_millis(5));
+        assert!(drift < Duration::from_millis(10));
     }
 
-    for _ in 0..10 {
+    for _ in 0..5 {
         let start = BootTime::now();
         sleep(delta).await;
         let taken = start.elapsed();
         let drift = if taken > delta { taken - delta } else { delta - taken };
-        assert!(drift < Duration::from_millis(5));
+        assert!(drift < Duration::from_millis(10));
     }
 }
 

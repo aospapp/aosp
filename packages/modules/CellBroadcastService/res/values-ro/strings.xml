@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="etws_primary_default_message_earthquake" msgid="6322509321590329419">"Păstrați-vă calmul și căutați un adăpost în apropiere."</string>
-    <string name="etws_primary_default_message_tsunami" msgid="2521384573822842618">"Părăsiți imediat zonele de coastă și din apropierea râurilor și îndreptați-vă spre un loc mai sigur, cum ar fi o zonă aflată la înălțime."</string>
-    <string name="etws_primary_default_message_earthquake_and_tsunami" msgid="7826176257527823396">"Păstrați-vă calmul și căutați un adăpost în apropiere."</string>
+    <string name="etws_primary_default_message_earthquake" msgid="6322509321590329419">"Păstrează-ți calmul și caută un adăpost în apropiere."</string>
+    <string name="etws_primary_default_message_tsunami" msgid="2521384573822842618">"Părăsește imediat zonele de coastă și din apropierea râurilor și îndreaptă-te spre un loc mai sigur, cum ar fi o zonă aflată la înălțime."</string>
+    <string name="etws_primary_default_message_earthquake_and_tsunami" msgid="7826176257527823396">"Păstrează-ți calmul și caută un adăpost în apropiere."</string>
     <string name="etws_primary_default_message_test" msgid="2739829278266087553">"Testarea mesajelor de urgență"</string>
     <string name="etws_primary_default_message_others" msgid="3271611843755121534">"Alertă emisă de guvernul local. În curând vor fi disponibile mai multe informații."</string>
 </resources>

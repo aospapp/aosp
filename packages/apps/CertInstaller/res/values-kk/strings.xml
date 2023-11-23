@@ -72,7 +72,7 @@
     <string name="wifi_install_label" msgid="1449629407724323233">"Орнату"</string>
     <string name="wifi_installing_label" msgid="8387393993627129025">"Орнатылуда"</string>
     <string name="wifi_cancel_label" msgid="1328748037608392134">"Бас тарту"</string>
-    <string name="wifi_dismiss_label" msgid="1916684434873972698">"Қабылдамау"</string>
+    <string name="wifi_dismiss_label" msgid="1916684434873972698">"Жабу"</string>
     <string name="wifi_no_config" msgid="1835743123288916755">"Жоқ"</string>
     <string name="wifi_config_text" msgid="8259587306773310314">"Атауы: %1$s\nFQDN: %2$s\nРоуминг консорциумдары: %3$s\nRealm: %4$s\nАут. әдісі: EAP-%5$s\n"</string>
     <string name="wifi_ttls_config_text" msgid="2002413183253872168">"Пайдаланушы аты: %s\n"</string>

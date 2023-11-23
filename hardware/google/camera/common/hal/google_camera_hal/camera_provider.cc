@@ -23,6 +23,9 @@
 #include <log/log.h>
 #include <utils/Trace.h>
 
+#if !GCH_HWL_USE_DLOPEN
+#include "lyric_hwl/madvise_library_list.h"
+#endif
 #include "vendor_tag_defs.h"
 #include "vendor_tag_utils.h"
 
@@ -282,6 +285,8 @@ status_t CameraProvider::CreateCameraDevice(
 #if GCH_HWL_USE_DLOPEN
   configure_streams_libs = reinterpret_cast<decltype(configure_streams_libs)>(
       dlsym(hwl_lib_handle_, "configure_streams_libraries"));
+#else
+  configure_streams_libs = &configure_streams_libraries;
 #endif
   *device =
       CameraDevice::Create(std::move(camera_device_hwl),

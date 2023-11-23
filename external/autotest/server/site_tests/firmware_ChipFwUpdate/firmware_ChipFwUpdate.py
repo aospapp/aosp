@@ -73,7 +73,7 @@ class firmware_ChipFwUpdate(FirmwareTest):
 
         self.clear_set_gbb_flags(
             vboot.GBB_FLAG_DISABLE_EC_SOFTWARE_SYNC |
-            vboot.GBB_FLAG_DISABLE_PD_SOFTWARE_SYNC, 0)
+            vboot.GBB_FLAG_DISABLE_AUXFW_SOFTWARE_SYNC, 0)
 
         self.dut_bios_path = None
         self.cbfs_work_dir = None
@@ -126,7 +126,7 @@ class firmware_ChipFwUpdate(FirmwareTest):
         cbfs_work_dir.
         """
 
-        for chip in self.req_chip_updates.itervalues():
+        for chip in self.req_chip_updates.values():
             logging.info('checking for %s firmware in CBFS', chip.chip_name)
 
             if not self.faft_client.updater.cbfs_extract_chip(

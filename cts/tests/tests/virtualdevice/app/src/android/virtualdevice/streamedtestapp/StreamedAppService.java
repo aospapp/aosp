@@ -70,7 +70,8 @@ public class StreamedAppService extends Service {
                         .setClass(StreamedAppService.this, MainActivity.class);
                 intent.putExtra(MainActivity.EXTRA_ACTIVITY_LAUNCHED_RECEIVER, resultReceiver);
                 return PendingIntent.getActivity(
-                        StreamedAppService.this, 1, intent, PendingIntent.FLAG_IMMUTABLE);
+                        StreamedAppService.this, 1, intent,
+                        PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_ONE_SHOT);
             }
 
             @Override
@@ -80,7 +81,8 @@ public class StreamedAppService extends Service {
                         .setClass(StreamedAppService.this, StreamedAppService.class);
                 intent.putExtra(MainActivity.EXTRA_ACTIVITY_LAUNCHED_RECEIVER, resultReceiver);
                 return PendingIntent.getService(
-                        StreamedAppService.this, 1, intent, PendingIntent.FLAG_IMMUTABLE);
+                        StreamedAppService.this, 1, intent,
+                        PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_ONE_SHOT);
             }
         };
     }

@@ -1,0 +1,51 @@
+binder_use(pixelstats_vendor)
+
+get_prop(pixelstats_vendor, hwservicemanager_prop)
+hwbinder_use(pixelstats_vendor)
+
+allow pixelstats_vendor sysfs_scsi_devices_0000:file rw_file_perms;
+allow pixelstats_vendor sysfs_pixelstats:file r_file_perms;
+
+# Wireless charge
+allow pixelstats_vendor sysfs_wlc:dir search;
+allow pixelstats_vendor sysfs_wlc:file rw_file_perms;
+# Wireless charge/OrientationCollector
+get_prop(pixelstats_vendor, hwservicemanager_prop);
+hwbinder_use(pixelstats_vendor);
+allow pixelstats_vendor fwk_sensor_hwservice:hwservice_manager find;
+# android.frameworks.sensorservice through libsensorndkbridge
+allow pixelstats_vendor fwk_sensor_service:service_manager find;
+
+
+# Batery history
+allow pixelstats_vendor battery_history_device:chr_file r_file_perms;
+
+# storage smart idle maintenance
+get_prop(pixelstats_vendor, smart_idle_maint_enabled_prop);
+
+# Pca charge
+allow pixelstats_vendor sysfs_pca:file rw_file_perms;
+
+#Thermal
+r_dir_file(pixelstats_vendor, sysfs_thermal)
+allow pixelstats_vendor sysfs_thermal:lnk_file r_file_perms;
+
+# BCL
+allow pixelstats_vendor sysfs_bcl:dir search;
+allow pixelstats_vendor sysfs_bcl:file r_file_perms;
+
+# PCIe statistics
+allow pixelstats_vendor sysfs_exynos_pcie_stats:dir search;
+allow pixelstats_vendor sysfs_exynos_pcie_stats:file rw_file_perms;
+
+#perf-metrics
+r_dir_file(pixelstats_vendor, sysfs_vendor_metrics)
+allow pixelstats_vendor sysfs_vendor_metrics:lnk_file r_file_perms;
+allow pixelstats_vendor sysfs_vendor_metrics:file w_file_perms;
+
+# BCL
+allow pixelstats_vendor sysfs_bcl:dir search;
+allow pixelstats_vendor sysfs_bcl:file r_file_perms;
+allow pixelstats_vendor mitigation_vendor_data_file:dir search;
+allow pixelstats_vendor mitigation_vendor_data_file:file { read write };
+get_prop(pixelstats_vendor, vendor_brownout_reason_prop);

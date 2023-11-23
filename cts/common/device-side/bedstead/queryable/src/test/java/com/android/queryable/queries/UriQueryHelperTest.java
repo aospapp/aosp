@@ -22,16 +22,23 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
 import com.android.queryable.Queryable;
 
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
-public class UriQueryHelperTest {
+@RunWith(BedsteadJUnit4.class)
+public final class UriQueryHelperTest {
 
-    private static final Queryable QUERY = null;
+    @ClassRule @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
+
+    private final Queryable mQuery = null;
     private static final String URI_STRING_VALUE = "http://uri";
     private static final Uri URI_VALUE = Uri.parse(URI_STRING_VALUE);
     private static final String DIFFERENT_URI_STRING_VALUE = "http://uri2";
@@ -39,14 +46,14 @@ public class UriQueryHelperTest {
 
     @Test
     public void matches_noRestrictions_returnsTrue() {
-        UriQueryHelper<Queryable> uriQueryHelper = new UriQueryHelper<>(QUERY);
+        UriQueryHelper<Queryable> uriQueryHelper = new UriQueryHelper<>(mQuery);
 
         assertThat(uriQueryHelper.matches(URI_VALUE)).isTrue();
     }
 
     @Test
     public void matches_isEqualTo_meetsRestriction_returnsTrue() {
-        UriQueryHelper<Queryable> uriQueryHelper = new UriQueryHelper<>(QUERY);
+        UriQueryHelper<Queryable> uriQueryHelper = new UriQueryHelper<>(mQuery);
 
         uriQueryHelper.isEqualTo(URI_VALUE);
 
@@ -55,7 +62,7 @@ public class UriQueryHelperTest {
 
     @Test
     public void matches_isEqualTo_doesNotMeetRestriction_returnsFalse() {
-        UriQueryHelper<Queryable> uriQueryHelper = new UriQueryHelper<>(QUERY);
+        UriQueryHelper<Queryable> uriQueryHelper = new UriQueryHelper<>(mQuery);
 
         uriQueryHelper.isEqualTo(DIFFERENT_URI_VALUE);
 
@@ -64,7 +71,7 @@ public class UriQueryHelperTest {
 
     @Test
     public void matches_stringValue_meetsRestriction_returnsTrue() {
-        UriQueryHelper<Queryable> uriQueryHelper = new UriQueryHelper<>(QUERY);
+        UriQueryHelper<Queryable> uriQueryHelper = new UriQueryHelper<>(mQuery);
 
         uriQueryHelper.stringValue().isEqualTo(URI_STRING_VALUE);
 
@@ -73,7 +80,7 @@ public class UriQueryHelperTest {
 
     @Test
     public void matches_stringValue_doesNotMeetRestriction_returnsFalse() {
-        UriQueryHelper<Queryable> uriQueryHelper = new UriQueryHelper<>(QUERY);
+        UriQueryHelper<Queryable> uriQueryHelper = new UriQueryHelper<>(mQuery);
 
         uriQueryHelper.stringValue().isEqualTo(DIFFERENT_URI_STRING_VALUE);
 
@@ -82,11 +89,46 @@ public class UriQueryHelperTest {
 
     @Test
     public void parcel_parcelsCorrectly() {
-        UriQueryHelper<Queryable> uriQueryHelper = new UriQueryHelper<>(QUERY);
+        UriQueryHelper<Queryable> uriQueryHelper = new UriQueryHelper<>(mQuery);
 
         uriQueryHelper.isEqualTo(null);
         uriQueryHelper.stringValue().isEqualTo(DIFFERENT_URI_STRING_VALUE);
 
         assertParcelsCorrectly(UriQueryHelper.class, uriQueryHelper);
+    }
+
+    @Test
+    public void uriQueryHelper_queries() {
+        assertThat(UriQuery.uri()
+                .where().stringValue().isEqualTo(URI_STRING_VALUE)
+                .matches(URI_VALUE)).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_isEmpty_returnsTrue() {
+        UriQueryHelper<Queryable> uriQueryHelper =
+                new UriQueryHelper<>(mQuery);
+
+        assertThat(uriQueryHelper.isEmptyQuery()).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_hasEqualToQuery_returnsFalse() {
+        UriQueryHelper<Queryable> uriQueryHelper =
+                new UriQueryHelper<>(mQuery);
+
+        uriQueryHelper.isEqualTo(URI_VALUE);
+
+        assertThat(uriQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasStringValueQuery_returnsFalse() {
+        UriQueryHelper<Queryable> uriQueryHelper =
+                new UriQueryHelper<>(mQuery);
+
+        uriQueryHelper.stringValue().isNull();
+
+        assertThat(uriQueryHelper.isEmptyQuery()).isFalse();
     }
 }

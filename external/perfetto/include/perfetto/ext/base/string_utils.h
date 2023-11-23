@@ -22,10 +22,10 @@
 #include <string.h>
 
 #include <cinttypes>
+#include <optional>
 #include <string>
 #include <vector>
 
-#include "perfetto/ext/base/optional.h"
 #include "perfetto/ext/base/string_view.h"
 
 namespace perfetto {
@@ -39,59 +39,63 @@ inline char Uppercase(char c) {
   return ('a' <= c && c <= 'z') ? static_cast<char>(c + ('A' - 'a')) : c;
 }
 
-inline Optional<uint32_t> CStringToUInt32(const char* s, int base = 10) {
+inline std::optional<uint32_t> CStringToUInt32(const char* s, int base = 10) {
   char* endptr = nullptr;
   auto value = static_cast<uint32_t>(strtoul(s, &endptr, base));
-  return (*s && !*endptr) ? base::make_optional(value) : base::nullopt;
+  return (*s && !*endptr) ? std::make_optional(value) : std::nullopt;
 }
 
-inline Optional<int32_t> CStringToInt32(const char* s, int base = 10) {
+inline std::optional<int32_t> CStringToInt32(const char* s, int base = 10) {
   char* endptr = nullptr;
   auto value = static_cast<int32_t>(strtol(s, &endptr, base));
-  return (*s && !*endptr) ? base::make_optional(value) : base::nullopt;
+  return (*s && !*endptr) ? std::make_optional(value) : std::nullopt;
 }
 
 // Note: it saturates to 7fffffffffffffff if parsing a hex number >= 0x8000...
-inline Optional<int64_t> CStringToInt64(const char* s, int base = 10) {
+inline std::optional<int64_t> CStringToInt64(const char* s, int base = 10) {
   char* endptr = nullptr;
   auto value = static_cast<int64_t>(strtoll(s, &endptr, base));
-  return (*s && !*endptr) ? base::make_optional(value) : base::nullopt;
+  return (*s && !*endptr) ? std::make_optional(value) : std::nullopt;
 }
 
-inline Optional<uint64_t> CStringToUInt64(const char* s, int base = 10) {
+inline std::optional<uint64_t> CStringToUInt64(const char* s, int base = 10) {
   char* endptr = nullptr;
   auto value = static_cast<uint64_t>(strtoull(s, &endptr, base));
-  return (*s && !*endptr) ? base::make_optional(value) : base::nullopt;
+  return (*s && !*endptr) ? std::make_optional(value) : std::nullopt;
 }
 
 double StrToD(const char* nptr, char** endptr);
 
-inline Optional<double> CStringToDouble(const char* s) {
+inline std::optional<double> CStringToDouble(const char* s) {
   char* endptr = nullptr;
   double value = StrToD(s, &endptr);
-  Optional<double> result(base::nullopt);
+  std::optional<double> result(std::nullopt);
   if (*s != '\0' && *endptr == '\0')
     result = value;
   return result;
 }
 
-inline Optional<uint32_t> StringToUInt32(const std::string& s, int base = 10) {
+inline std::optional<uint32_t> StringToUInt32(const std::string& s,
+                                              int base = 10) {
   return CStringToUInt32(s.c_str(), base);
 }
 
-inline Optional<int32_t> StringToInt32(const std::string& s, int base = 10) {
+inline std::optional<int32_t> StringToInt32(const std::string& s,
+                                            int base = 10) {
   return CStringToInt32(s.c_str(), base);
 }
 
-inline Optional<uint64_t> StringToUInt64(const std::string& s, int base = 10) {
+inline std::optional<uint64_t> StringToUInt64(const std::string& s,
+                                              int base = 10) {
   return CStringToUInt64(s.c_str(), base);
 }
 
-inline Optional<int64_t> StringToInt64(const std::string& s, int base = 10) {
+inline std::optional<int64_t> StringToInt64(const std::string& s,
+                                            int base = 10) {
   return CStringToInt64(s.c_str(), base);
 }
 
-inline Optional<double> StringToDouble(const std::string& s) {
+inline std::optional<double> StringToDouble(const std::string& s) {
   return CStringToDouble(s.c_str());
 }
 
@@ -109,6 +113,7 @@ std::vector<std::string> SplitString(const std::string& text,
                                      const std::string& delimiter);
 std::string StripPrefix(const std::string& str, const std::string& prefix);
 std::string StripSuffix(const std::string& str, const std::string& suffix);
+std::string TrimWhitespace(const std::string& str);
 std::string ToLower(const std::string& str);
 std::string ToUpper(const std::string& str);
 std::string StripChars(const std::string& str,
@@ -167,6 +172,20 @@ inline void StringCopy(char* dst, const char* src, size_t dst_size) {
 size_t SprintfTrunc(char* dst, size_t dst_size, const char* fmt, ...)
     PERFETTO_PRINTF_FORMAT(3, 4);
 
+// Line number starts from 1
+struct LineWithOffset {
+  base::StringView line;
+  uint32_t line_offset;
+  uint32_t line_num;
+};
+
+// For given string and offset Pfinds a line with character for
+// which offset points, what number is this line (starts from 1), and the offset
+// inside this line. returns std::nullopt if the offset points to
+// line break character or exceeds string length.
+std::optional<LineWithOffset> FindLineWithOffset(base::StringView str,
+                                                 uint32_t offset);
+
 // A helper class to facilitate construction and usage of write-once stack
 // strings.
 // Example usage:
@@ -196,6 +215,7 @@ class StackString {
   std::string ToStdString() const { return std::string(buf_, len_); }
   const char* c_str() const { return buf_; }
   size_t len() const { return len_; }
+  char* mutable_data() { return buf_; }
 
  private:
   char buf_[N];

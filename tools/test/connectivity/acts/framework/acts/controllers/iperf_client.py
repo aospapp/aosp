@@ -24,19 +24,14 @@ from acts import context
 from acts import utils
 from acts.controllers.adb_lib.error import AdbCommandError
 from acts.controllers.android_device import AndroidDevice
+from acts.controllers.fuchsia_lib.ssh import SSHProvider
 from acts.controllers.iperf_server import _AndroidDeviceBridge
-from acts.controllers.fuchsia_lib.utils_lib import create_ssh_connection
-from acts.controllers.fuchsia_lib.utils_lib import ssh_is_connected
-from acts.controllers.fuchsia_lib.utils_lib import SshResults
 from acts.controllers.utils_lib.ssh import connection
 from acts.controllers.utils_lib.ssh import settings
-from acts.event import event_bus
-from acts.event.decorators import subscribe_static
-from acts.event.event import TestClassBeginEvent
-from acts.event.event import TestClassEndEvent
 from acts.libs.proc import job
 from paramiko.buffered_pipe import PipeTimeout
 from paramiko.ssh_exception import SSHException
+
 MOBLY_CONTROLLER_CONFIG_NAME = 'IPerfClient'
 ACTS_CONTROLLER_REFERENCE_NAME = 'iperf_clients'
 
@@ -65,7 +60,6 @@ def create(configs):
         elif type(c) is dict and 'ssh_config' in c:
             results.append(
                 IPerfClientOverSsh(c['ssh_config'],
-                                   use_paramiko=c.get('use_paramiko'),
                                    test_interface=c.get('test_interface')))
         else:
             results.append(IPerfClient())
@@ -142,6 +136,7 @@ class IPerfClientBase(object):
 
 class IPerfClient(IPerfClientBase):
     """Class that handles iperf3 client operations."""
+
     def start(self, ip, iperf_args, tag, timeout=3600, iperf_binary=None):
         """Starts iperf client, and waits for completion.
 
@@ -174,21 +169,23 @@ class IPerfClient(IPerfClientBase):
 
 class IPerfClientOverSsh(IPerfClientBase):
     """Class that handles iperf3 client operations on remote machines."""
-    def __init__(self, ssh_config, use_paramiko=False, test_interface=None):
-        self._ssh_settings = settings.from_config(ssh_config)
-        if not (utils.is_valid_ipv4_address(self._ssh_settings.hostname)
-                or utils.is_valid_ipv6_address(self._ssh_settings.hostname)):
-            mdns_ip = utils.get_fuchsia_mdns_ipv6_address(
-                self._ssh_settings.hostname)
-            if mdns_ip:
-                self._ssh_settings.hostname = mdns_ip
-        # use_paramiko may be passed in as a string (from JSON), so this line
-        # guarantees it is a converted to a bool.
-        self._use_paramiko = str(use_paramiko).lower() == 'true'
+
+    def __init__(self,
+                 ssh_config: str,
+                 test_interface: str = None,
+                 ssh_provider: SSHProvider = None):
+        self._ssh_provider = ssh_provider
+        if not self._ssh_provider:
+            self._ssh_settings = settings.from_config(ssh_config)
+            if not (utils.is_valid_ipv4_address(self._ssh_settings.hostname) or
+                    utils.is_valid_ipv6_address(self._ssh_settings.hostname)):
+                mdns_ip = utils.get_fuchsia_mdns_ipv6_address(
+                    self._ssh_settings.hostname)
+                if mdns_ip:
+                    self._ssh_settings.hostname = mdns_ip
         self._ssh_session = None
         self.start_ssh()
 
-        self.hostname = self._ssh_settings.hostname
         self.test_interface = test_interface
 
     def start(self, ip, iperf_args, tag, timeout=3600, iperf_binary=None):
@@ -216,22 +213,10 @@ class IPerfClientOverSsh(IPerfClientBase):
         full_out_path = self._get_full_file_path(tag)
 
         try:
-            if not self._ssh_session:
-                self.start_ssh()
-            if self._use_paramiko:
-                if not ssh_is_connected(self._ssh_session):
-                    logging.info('Lost SSH connection to %s. Reconnecting.' %
-                                 self._ssh_settings.hostname)
-                    self._ssh_session.close()
-                    self._ssh_session = create_ssh_connection(
-                        ip_address=self._ssh_settings.hostname,
-                        ssh_username=self._ssh_settings.username,
-                        ssh_config=self._ssh_settings.ssh_config)
-                cmd_result_stdin, cmd_result_stdout, cmd_result_stderr = (
-                    self._ssh_session.exec_command(iperf_cmd, timeout=timeout))
-                iperf_process = SshResults(cmd_result_stdin, cmd_result_stdout,
-                                           cmd_result_stderr,
-                                           cmd_result_stdout.channel)
+            self.start_ssh()
+            if self._ssh_provider:
+                iperf_process = self._ssh_provider.run(iperf_cmd,
+                                                       timeout_sec=timeout)
             else:
                 iperf_process = self._ssh_session.run(iperf_cmd,
                                                       timeout=timeout)
@@ -253,15 +238,11 @@ class IPerfClientOverSsh(IPerfClientBase):
 
     def start_ssh(self):
         """Starts an ssh session to the iperf client."""
+        if self._ssh_provider:
+            # SSH sessions are created by the provider.
+            return
         if not self._ssh_session:
-            if self._use_paramiko:
-                self._ssh_session = create_ssh_connection(
-                    ip_address=self._ssh_settings.hostname,
-                    ssh_username=self._ssh_settings.username,
-                    ssh_config=self._ssh_settings.ssh_config)
-            else:
-                self._ssh_session = connection.SshConnection(
-                    self._ssh_settings)
+            self._ssh_session = connection.SshConnection(self._ssh_settings)
 
     def close_ssh(self):
         """Closes the ssh session to the iperf client, if one exists, preventing
@@ -274,6 +255,7 @@ class IPerfClientOverSsh(IPerfClientBase):
 
 class IPerfClientOverAdb(IPerfClientBase):
     """Class that handles iperf3 operations over ADB devices."""
+
     def __init__(self, android_device_or_serial, test_interface=None):
         """Creates a new IPerfClientOverAdb object.
 

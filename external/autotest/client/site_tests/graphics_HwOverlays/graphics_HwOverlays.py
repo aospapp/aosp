@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,18 +8,17 @@ import os
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import chrome_binary_test
 from autotest_lib.client.cros.graphics import graphics_utils
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros import constants
-from autotest_lib.client.cros.multimedia import display_facade_native
+from autotest_lib.client.cros.multimedia import display_facade as display_facade_lib
 from autotest_lib.client.cros.multimedia import facade_resource
 
 EXTRA_BROWSER_ARGS = ['--enable-experimental-web-platform-features',
                       '--force-tablet-mode=clamshell']
 
-class graphics_HwOverlays(graphics_utils.GraphicsTest,
-                          chrome_binary_test.ChromeBinaryTest):
+
+class graphics_HwOverlays(graphics_utils.GraphicsTest):
     """Runs a given html and measures stuff."""
     version = 1
 
@@ -46,22 +46,23 @@ class graphics_HwOverlays(graphics_utils.GraphicsTest,
         logging.info("Internal display ID is %s", internal_display_id)
         display_facade.set_display_rotation(internal_display_id, rotation=0)
 
-    def run_once(self, html_file, data_file_url = None, is_video = False,
+    def run_once(self, html_file, data_file_url = None,
                  use_skia_renderer = False):
         """Normalizes the environment, starts a Chrome environment, and
         executes the test in `html_file`.
         """
         if not graphics_utils.is_drm_atomic_supported():
-            logging.info('Skipping test: platform does not support DRM atomic')
-            return
+            raise error.TestNAError(
+                    'Skipping test: platform does not support DRM atomic')
 
         if graphics_utils.get_max_num_available_drm_planes() <= 2:
-            logging.info('Skipping test: platform supports 2 or less planes')
-            return
+            raise error.TestNAError(
+                    'Skipping test: platform supports 2 or less planes')
 
+        is_video = "video" in html_file
         if is_video and not graphics_utils.is_nv12_supported_by_drm_planes():
-            logging.info('Skipping test: platform does not support NV12 planes')
-            return
+            raise error.TestNAError(
+                    'Skipping test: platform does not support NV12 planes')
 
         extra_browser_args = EXTRA_BROWSER_ARGS
         if use_skia_renderer:
@@ -75,12 +76,12 @@ class graphics_HwOverlays(graphics_utils.GraphicsTest,
                            autotest_ext=True,
                            init_network_controller=True) as cr:
             facade = facade_resource.FacadeResource(cr)
-            display_facade = display_facade_native.DisplayFacadeNative(facade)
+            display_facade = display_facade_lib.DisplayFacadeLocal(facade)
             # TODO(crbug.com/927103): Run on an external monitor if one is
             # present.
             if not display_facade.has_internal_display():
-                logging.info('Skipping test: platform has no internal display')
-                return
+                raise error.TestNAError(
+                        'Skipping test: platform has no internal display')
 
             self.set_rotation_to_zero(display_facade)
 

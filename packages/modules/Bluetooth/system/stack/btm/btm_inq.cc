@@ -27,10 +27,13 @@
 
 #define LOG_TAG "bluetooth"
 
+#include <base/logging.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <mutex>
 
 #include "advertise_data_parser.h"
 #include "common/time_util.h"
@@ -40,7 +43,9 @@
 #include "osi/include/allocator.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
+#include "osi/include/properties.h"
 #include "stack/btm/btm_ble_int.h"
+#include "stack/btm/btm_dev.h"
 #include "stack/btm/btm_int_types.h"
 #include "stack/include/acl_api.h"
 #include "stack/include/bt_hdr.h"
@@ -50,23 +55,45 @@
 #include "types/bluetooth/uuid.h"
 #include "types/raw_address.h"
 
-#include <base/logging.h>
-
 namespace {
 constexpr char kBtmLogTag[] = "SCAN";
+
+void btm_log_history_scan_mode(uint8_t scan_mode) {
+  static uint8_t scan_mode_cached_ = 0xff;
+  if (scan_mode_cached_ == scan_mode) return;
+
+  BTM_LogHistory(
+      kBtmLogTag, RawAddress::kEmpty, "Classic updated",
+      base::StringPrintf("inquiry_scan_enable:%c page_scan_enable:%c",
+                         (scan_mode & HCI_INQUIRY_SCAN_ENABLED) ? 'T' : 'F',
+                         (scan_mode & HCI_PAGE_SCAN_ENABLED) ? 'T' : 'F'));
+  scan_mode_cached_ = scan_mode;
 }
+
+// Inquiry database lock
+std::mutex inq_db_lock_;
+// Inquiry database
+tINQ_DB_ENT inq_db_[BTM_INQ_DB_SIZE];
+
+// Inquiry bluetooth device database lock
+std::mutex bd_db_lock_;
+tINQ_BDADDR* p_bd_db_;    /* Pointer to memory that holds bdaddrs */
+uint16_t num_bd_entries_; /* Number of entries in database */
+uint16_t max_bd_entries_; /* Maximum number of entries that can be stored */
+
+}  // namespace
 
 extern tBTM_CB btm_cb;
 
-extern void btm_inq_remote_name_timer_timeout(void* data);
-extern tBTM_STATUS btm_ble_read_remote_name(const RawAddress& remote_bda,
-                                            tBTM_CMPL_CB* p_cb);
-extern bool btm_ble_cancel_remote_name(const RawAddress& remote_bda);
-extern tBTM_STATUS btm_ble_set_discoverability(uint16_t combined_mode);
-extern tBTM_STATUS btm_ble_set_connectability(uint16_t combined_mode);
+void btm_inq_remote_name_timer_timeout(void* data);
+tBTM_STATUS btm_ble_read_remote_name(const RawAddress& remote_bda,
+                                     tBTM_NAME_CMPL_CB* p_cb);
+bool btm_ble_cancel_remote_name(const RawAddress& remote_bda);
+tBTM_STATUS btm_ble_set_discoverability(uint16_t combined_mode);
+tBTM_STATUS btm_ble_set_connectability(uint16_t combined_mode);
 
-extern tBTM_STATUS btm_ble_start_inquiry(uint8_t duration);
-extern void btm_ble_stop_inquiry(void);
+tBTM_STATUS btm_ble_start_inquiry(uint8_t duration);
+void btm_ble_stop_inquiry(void);
 
 using bluetooth::Uuid;
 
@@ -76,6 +103,30 @@ using bluetooth::Uuid;
 /* TRUE to enable DEBUG traces for btm_inq */
 #ifndef BTM_INQ_DEBUG
 #define BTM_INQ_DEBUG FALSE
+#endif
+
+#ifndef PROPERTY_PAGE_SCAN_TYPE
+#define PROPERTY_PAGE_SCAN_TYPE "bluetooth.core.classic.page_scan_type"
+#endif
+
+#ifndef PROPERTY_PAGE_SCAN_INTERVAL
+#define PROPERTY_PAGE_SCAN_INTERVAL "bluetooth.core.classic.page_scan_interval"
+#endif
+
+#ifndef PROPERTY_PAGE_SCAN_WINDOW
+#define PROPERTY_PAGE_SCAN_WINDOW "bluetooth.core.classic.page_scan_window"
+#endif
+
+#ifndef PROPERTY_INQ_SCAN_TYPE
+#define PROPERTY_INQ_SCAN_TYPE "bluetooth.core.classic.inq_scan_type"
+#endif
+
+#ifndef PROPERTY_INQ_SCAN_INTERVAL
+#define PROPERTY_INQ_SCAN_INTERVAL "bluetooth.core.classic.inq_scan_interval"
+#endif
+
+#ifndef PROPERTY_INQ_SCAN_WINDOW
+#define PROPERTY_INQ_SCAN_WINDOW "bluetooth.core.classic.inq_scan_window"
 #endif
 
 #define BTIF_DM_DEFAULT_INQ_MAX_DURATION 10
@@ -140,11 +191,12 @@ const uint16_t BTM_EIR_UUID_LKUP_TBL[BTM_EIR_MAX_SERVICES] = {
 /*            L O C A L    F U N C T I O N     P R O T O T Y P E S            */
 /******************************************************************************/
 static void btm_clr_inq_db(const RawAddress* p_bda);
+static void btm_init_inq_result_flt(void);
 void btm_clr_inq_result_flt(void);
 static void btm_inq_rmt_name_failed_cancelled(void);
 static tBTM_STATUS btm_initiate_rem_name(const RawAddress& remote_bda,
                                          uint8_t origin, uint64_t timeout_ms,
-                                         tBTM_CMPL_CB* p_cb);
+                                         tBTM_NAME_CMPL_CB* p_cb);
 
 static uint8_t btm_convert_uuid_to_eir_service(uint16_t uuid16);
 void btm_set_eir_uuid(const uint8_t* p_eir, tBTM_INQ_RESULTS* p_results);
@@ -154,12 +206,8 @@ static const uint8_t* btm_eir_get_uuid_list(const uint8_t* p_eir,
                                             uint8_t* p_uuid_list_type);
 
 void SendRemoteNameRequest(const RawAddress& raw_address) {
-  if (bluetooth::shim::is_gd_shim_enabled()) {
-    return bluetooth::shim::SendRemoteNameRequest(raw_address);
-  } else {
-    btsnd_hcic_rmt_name_req(raw_address, HCI_PAGE_SCAN_REP_MODE_R1,
-                            HCI_MANDATARY_PAGE_SCAN_MODE, 0);
-  }
+  btsnd_hcic_rmt_name_req(raw_address, HCI_PAGE_SCAN_REP_MODE_R1,
+                          HCI_MANDATARY_PAGE_SCAN_MODE, 0);
 }
 /*******************************************************************************
  *
@@ -178,10 +226,6 @@ void SendRemoteNameRequest(const RawAddress& raw_address) {
  *
  ******************************************************************************/
 tBTM_STATUS BTM_SetDiscoverability(uint16_t inq_mode) {
-  if (bluetooth::shim::is_gd_shim_enabled()) {
-    return bluetooth::shim::BTM_SetDiscoverability(inq_mode, 0, 0);
-  }
-
   uint8_t scan_mode = 0;
   uint16_t service_class;
   uint8_t* p_cod;
@@ -228,6 +272,11 @@ tBTM_STATUS BTM_SetDiscoverability(uint16_t inq_mode) {
     scan_mode |= HCI_INQUIRY_SCAN_ENABLED;
   }
 
+  window =
+      osi_property_get_int32(PROPERTY_INQ_SCAN_WINDOW, BTM_DEFAULT_DISC_WINDOW);
+  interval = osi_property_get_int32(PROPERTY_INQ_SCAN_INTERVAL,
+                                    BTM_DEFAULT_DISC_INTERVAL);
+
   /* Send down the inquiry scan window and period if changed */
   if ((window != btm_cb.btm_inq_vars.inq_scan_window) ||
       (interval != btm_cb.btm_inq_vars.inq_scan_period)) {
@@ -239,6 +288,7 @@ tBTM_STATUS BTM_SetDiscoverability(uint16_t inq_mode) {
   if (btm_cb.btm_inq_vars.connectable_mode & BTM_CONNECTABLE_MASK)
     scan_mode |= HCI_PAGE_SCAN_ENABLED;
 
+  btm_log_history_scan_mode(scan_mode);
   btsnd_hcic_write_scan_enable(scan_mode);
   btm_cb.btm_inq_vars.discoverable_mode &= (~BTM_DISCOVERABLE_MASK);
   btm_cb.btm_inq_vars.discoverable_mode |= inq_mode;
@@ -264,12 +314,13 @@ tBTM_STATUS BTM_SetDiscoverability(uint16_t inq_mode) {
 }
 
 void BTM_EnableInterlacedInquiryScan() {
-  if (bluetooth::shim::is_gd_shim_enabled()) {
-    bluetooth::shim::BTM_EnableInterlacedInquiryScan();
-  }
-
   BTM_TRACE_API("BTM_EnableInterlacedInquiryScan");
+
+  uint16_t inq_scan_type =
+      osi_property_get_int32(PROPERTY_INQ_SCAN_TYPE, BTM_SCAN_TYPE_INTERLACED);
+
   if (!controller_get_interface()->supports_interlaced_inquiry_scan() ||
+      inq_scan_type != BTM_SCAN_TYPE_INTERLACED ||
       btm_cb.btm_inq_vars.inq_scan_type == BTM_SCAN_TYPE_INTERLACED) {
     return;
   }
@@ -279,13 +330,13 @@ void BTM_EnableInterlacedInquiryScan() {
 }
 
 void BTM_EnableInterlacedPageScan() {
-  if (bluetooth::shim::is_gd_shim_enabled()) {
-    bluetooth::shim::BTM_EnableInterlacedPageScan();
-    return;
-  }
-
   BTM_TRACE_API("BTM_EnableInterlacedPageScan");
+
+  uint16_t page_scan_type =
+      osi_property_get_int32(PROPERTY_PAGE_SCAN_TYPE, BTM_SCAN_TYPE_INTERLACED);
+
   if (!controller_get_interface()->supports_interlaced_inquiry_scan() ||
+      page_scan_type != BTM_SCAN_TYPE_INTERLACED ||
       btm_cb.btm_inq_vars.page_scan_type == BTM_SCAN_TYPE_INTERLACED) {
     return;
   }
@@ -310,10 +361,6 @@ void BTM_EnableInterlacedPageScan() {
  *
  ******************************************************************************/
 tBTM_STATUS BTM_SetInquiryMode(uint8_t mode) {
-  if (bluetooth::shim::is_gd_shim_enabled()) {
-    return bluetooth::shim::BTM_SetInquiryMode(mode);
-  }
-
   const controller_t* controller = controller_get_interface();
   BTM_TRACE_API("BTM_SetInquiryMode");
   if (mode == BTM_INQ_RESULT_STANDARD) {
@@ -349,16 +396,15 @@ tBTM_STATUS BTM_SetInquiryMode(uint8_t mode) {
  *
  ******************************************************************************/
 tBTM_STATUS BTM_SetConnectability(uint16_t page_mode) {
-  if (bluetooth::shim::is_gd_shim_enabled()) {
-    return bluetooth::shim::BTM_SetConnectability(page_mode, 0, 0);
-  }
-
   uint8_t scan_mode = 0;
   uint16_t window = BTM_DEFAULT_CONN_WINDOW;
-  uint16_t interval = BTM_DEFAULT_CONN_INTERVAL;
+  uint16_t interval = (uint16_t)osi_property_get_int32(
+      BTM_PAGE_SCAN_INTERVAL_PROPERTY, BTM_DEFAULT_CONN_INTERVAL);
+
   tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
 
-  BTM_TRACE_API("BTM_SetConnectability");
+  BTM_TRACE_API("BTM_SetConnectability page scan interval  = (%d * 0.625)ms",
+                interval);
 
   if (controller_get_interface()->supports_ble()) {
     if (btm_ble_set_connectability(page_mode) != BTM_SUCCESS) {
@@ -384,6 +430,11 @@ tBTM_STATUS BTM_SetConnectability(uint16_t page_mode) {
     scan_mode |= HCI_PAGE_SCAN_ENABLED;
   }
 
+  window = osi_property_get_int32(PROPERTY_PAGE_SCAN_WINDOW,
+                                  BTM_DEFAULT_CONN_WINDOW);
+  interval = osi_property_get_int32(PROPERTY_PAGE_SCAN_INTERVAL,
+                                    BTM_DEFAULT_CONN_INTERVAL);
+
   if ((window != p_inq->page_scan_window) ||
       (interval != p_inq->page_scan_period)) {
     p_inq->page_scan_window = window;
@@ -395,6 +446,7 @@ tBTM_STATUS BTM_SetConnectability(uint16_t page_mode) {
   if (p_inq->discoverable_mode & BTM_DISCOVERABLE_MASK)
     scan_mode |= HCI_INQUIRY_SCAN_ENABLED;
 
+  btm_log_history_scan_mode(scan_mode);
   btsnd_hcic_write_scan_enable(scan_mode);
   p_inq->connectable_mode &= (~BTM_CONNECTABLE_MASK);
   p_inq->connectable_mode |= page_mode;
@@ -413,10 +465,6 @@ tBTM_STATUS BTM_SetConnectability(uint16_t page_mode) {
  *
  ******************************************************************************/
 uint16_t BTM_IsInquiryActive(void) {
-  if (bluetooth::shim::is_gd_shim_enabled()) {
-    return bluetooth::shim::BTM_IsInquiryActive();
-  }
-
   BTM_TRACE_API("BTM_IsInquiryActive");
 
   return (btm_cb.btm_inq_vars.inq_active);
@@ -430,17 +478,38 @@ uint16_t BTM_IsInquiryActive(void) {
  *
  ******************************************************************************/
 void BTM_CancelInquiry(void) {
-  if (bluetooth::shim::is_gd_shim_enabled()) {
-    bluetooth::shim::BTM_CancelInquiry();
-    return;
-  }
-
-  BTM_LogHistory(kBtmLogTag, RawAddress::kEmpty, "Classic inquiry stopped");
-
   tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
   BTM_TRACE_API("BTM_CancelInquiry called");
 
   CHECK(BTM_IsDeviceUp());
+
+  btm_cb.neighbor.inquiry_history_->Push({
+      .status = tBTM_INQUIRY_CMPL::CANCELED,
+      .num_resp = btm_cb.btm_inq_vars.inq_cmpl_info.num_resp,
+      .resp_type =
+          {
+              btm_cb.btm_inq_vars.inq_cmpl_info
+                  .resp_type[BTM_INQ_RESULT_STANDARD],
+              btm_cb.btm_inq_vars.inq_cmpl_info
+                  .resp_type[BTM_INQ_RESULT_WITH_RSSI],
+              btm_cb.btm_inq_vars.inq_cmpl_info
+                  .resp_type[BTM_INQ_RESULT_EXTENDED],
+          },
+      .start_time_ms = btm_cb.neighbor.classic_inquiry.start_time_ms,
+  });
+
+  const auto end_time_ms = timestamper_in_milliseconds.GetTimestamp();
+  BTM_LogHistory(
+      kBtmLogTag, RawAddress::kEmpty, "Classic inquiry canceled",
+      base::StringPrintf(
+          "duration_s:%6.3f results:%lu std:%u rssi:%u ext:%u",
+          (end_time_ms - btm_cb.neighbor.classic_inquiry.start_time_ms) /
+              1000.0,
+          btm_cb.neighbor.classic_inquiry.results,
+          p_inq->inq_cmpl_info.resp_type[BTM_INQ_RESULT_STANDARD],
+          p_inq->inq_cmpl_info.resp_type[BTM_INQ_RESULT_WITH_RSSI],
+          p_inq->inq_cmpl_info.resp_type[BTM_INQ_RESULT_EXTENDED]));
+  btm_cb.neighbor.classic_inquiry = {};
 
   /* Only cancel if not in periodic mode, otherwise the caller should call
    * BTM_CancelPeriodicMode */
@@ -453,24 +522,23 @@ void BTM_CancelInquiry(void) {
     if ((p_inq->inqparms.mode & BTM_BR_INQUIRY_MASK) != 0) {
       bluetooth::legacy::hci::GetInterface().InquiryCancel();
     }
-    if ((p_inq->inqparms.mode & BTM_BLE_INQUIRY_MASK) != 0)
-      btm_ble_stop_inquiry();
+
+    if (!bluetooth::shim::is_classic_discovery_only_enabled()) {
+      if ((p_inq->inqparms.mode & BTM_BLE_INQUIRY_MASK) != 0)
+        btm_ble_stop_inquiry();
+    }
 
     p_inq->inq_counter++;
     btm_clr_inq_result_flt();
   }
 }
 
-void BTM_CancelInquiryNotifyWhenComplete(
-    std::function<void()> notify_when_complete_cb) {
-  if (btm_cb.notify_when_complete_cb) {
-    LOG_ERROR(
-        "Please do not overwrite a previous cancel inquiry notification "
-        "callback");
-    return;
-  }
-  btm_cb.notify_when_complete_cb = notify_when_complete_cb;
-  BTM_CancelInquiry();
+static void btm_classic_inquiry_timeout(UNUSED_ATTR void* data) {
+  // When the Inquiry Complete event is received, the classic inquiry
+  // will be marked as completed. Therefore, we only need to mark
+  // the BLE inquiry as completed here to stop processing BLE results
+  // as inquiry results.
+  btm_process_inq_complete(HCI_SUCCESS, BTM_BLE_INQUIRY_MASK);
 }
 
 /*******************************************************************************
@@ -510,53 +578,73 @@ void BTM_CancelInquiryNotifyWhenComplete(
  ******************************************************************************/
 tBTM_STATUS BTM_StartInquiry(tBTM_INQ_RESULTS_CB* p_results_cb,
                              tBTM_CMPL_CB* p_cmpl_cb) {
-  tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
-
-  if (bluetooth::shim::is_gd_shim_enabled()) {
-    return bluetooth::shim::BTM_StartInquiry(p_results_cb, p_cmpl_cb);
-  }
-
   /* Only one active inquiry is allowed in this implementation.
      Also do not allow an inquiry if the inquiry filter is being updated */
-  if (p_inq->inq_active) {
-    LOG(ERROR) << __func__ << ": BTM_BUSY";
-    return (BTM_BUSY);
+  if (btm_cb.btm_inq_vars.inq_active) {
+    LOG_WARN(
+        "Active device discovery already in progress inq_active:0x%02x"
+        " state:%hhu counter:%u",
+        btm_cb.btm_inq_vars.inq_active, btm_cb.btm_inq_vars.state,
+        btm_cb.btm_inq_vars.inq_counter);
+    btm_cb.neighbor.inquiry_history_->Push({
+        .status = tBTM_INQUIRY_CMPL::NOT_STARTED,
+    });
+    return BTM_BUSY;
   }
 
   /*** Make sure the device is ready ***/
   if (!BTM_IsDeviceUp()) {
     LOG(ERROR) << __func__ << ": adapter is not up";
+    btm_cb.neighbor.inquiry_history_->Push({
+        .status = tBTM_INQUIRY_CMPL::NOT_STARTED,
+    });
     return BTM_WRONG_MODE;
   }
 
-  BTM_LogHistory(kBtmLogTag, RawAddress::kEmpty, "Classic inquiry started");
+  BTM_LogHistory(kBtmLogTag, RawAddress::kEmpty, "Classic inquiry started",
+                 base::StringPrintf(
+                     "%s", (btm_cb.neighbor.classic_inquiry.start_time_ms == 0)
+                               ? ""
+                               : "ERROR Already in progress"));
 
   /* Save the inquiry parameters to be used upon the completion of
    * setting/clearing the inquiry filter */
-  p_inq->inqparms = {};
-  p_inq->inqparms.mode = BTM_GENERAL_INQUIRY | BTM_BLE_GENERAL_INQUIRY;
-  p_inq->inqparms.duration = BTIF_DM_DEFAULT_INQ_MAX_DURATION;
+  btm_cb.btm_inq_vars.inqparms = {
+      // tBTM_INQ_PARMS
+      .mode = BTM_GENERAL_INQUIRY | BTM_BLE_GENERAL_INQUIRY,
+      .duration = BTIF_DM_DEFAULT_INQ_MAX_DURATION,
+  };
 
   /* Initialize the inquiry variables */
-  p_inq->state = BTM_INQ_ACTIVE_STATE;
-  p_inq->p_inq_cmpl_cb = p_cmpl_cb;
-  p_inq->p_inq_results_cb = p_results_cb;
-  p_inq->inq_cmpl_info.num_resp = 0; /* Clear the results counter */
-  p_inq->inq_active = p_inq->inqparms.mode;
+  btm_cb.btm_inq_vars.state = BTM_INQ_ACTIVE_STATE;
+  btm_cb.btm_inq_vars.p_inq_cmpl_cb = p_cmpl_cb;
+  btm_cb.btm_inq_vars.p_inq_results_cb = p_results_cb;
+  btm_cb.btm_inq_vars.inq_cmpl_info = {}; /* Clear the results counter */
+  btm_cb.btm_inq_vars.inq_active = btm_cb.btm_inq_vars.inqparms.mode;
+  btm_cb.neighbor.classic_inquiry = {
+      .start_time_ms = timestamper_in_milliseconds.GetTimestamp(),
+      .results = 0,
+  };
 
-  BTM_TRACE_DEBUG("BTM_StartInquiry: p_inq->inq_active = 0x%02x",
-                  p_inq->inq_active);
+  LOG_DEBUG("Starting device discovery inq_active:0x%02x",
+            btm_cb.btm_inq_vars.inq_active);
 
-  if (controller_get_interface()->supports_ble()) {
-    btm_ble_start_inquiry(p_inq->inqparms.duration);
-  } else {
-    LOG_WARN("Trying to do LE scan on a non-LE adapter");
-    p_inq->inqparms.mode &= ~BTM_BLE_INQUIRY_MASK;
+  // Also do BLE scanning here if we aren't limiting discovery to classic only.
+  // This path does not play nicely with GD BLE scanning and may cause issues
+  // with other scanners.
+  if (!bluetooth::shim::is_classic_discovery_only_enabled()) {
+    if (controller_get_interface()->supports_ble()) {
+      btm_ble_start_inquiry(btm_cb.btm_inq_vars.inqparms.duration);
+    } else {
+      LOG_WARN("Trying to do LE scan on a non-LE adapter");
+      btm_cb.btm_inq_vars.inqparms.mode &= ~BTM_BLE_INQUIRY_MASK;
+    }
   }
 
   btm_acl_update_inquiry_status(BTM_INQUIRY_STARTED);
 
-  if (p_inq->inq_active & BTM_SSP_INQUIRY_ACTIVE) {
+  if (btm_cb.btm_inq_vars.inq_active & BTM_SSP_INQUIRY_ACTIVE) {
+    LOG_INFO("Not starting inquiry as SSP is in progress");
     btm_process_inq_complete(HCI_ERR_MAX_NUM_OF_CONNECTIONS,
                              BTM_GENERAL_INQUIRY);
     return BTM_CMD_STARTED;
@@ -564,13 +652,21 @@ tBTM_STATUS BTM_StartInquiry(tBTM_INQ_RESULTS_CB* p_results_cb,
 
   btm_clr_inq_result_flt();
 
-  /* Allocate memory to hold bd_addrs responding */
-  p_inq->p_bd_db = (tINQ_BDADDR*)osi_calloc(BT_DEFAULT_BUFFER_SIZE);
-  p_inq->max_bd_entries =
-      (uint16_t)(BT_DEFAULT_BUFFER_SIZE / sizeof(tINQ_BDADDR));
+  btm_init_inq_result_flt();
 
   bluetooth::legacy::hci::GetInterface().StartInquiry(
-      general_inq_lap, p_inq->inqparms.duration, 0);
+      general_inq_lap, btm_cb.btm_inq_vars.inqparms.duration, 0);
+
+  // If we are only doing classic discovery, we should also set a timeout for
+  // the inquiry if a duration is set.
+  if (bluetooth::shim::is_classic_discovery_only_enabled() &&
+      btm_cb.btm_inq_vars.inqparms.duration != 0) {
+    /* start inquiry timer */
+    uint64_t duration_ms = btm_cb.btm_inq_vars.inqparms.duration * 1280;
+    alarm_set_on_mloop(btm_cb.btm_inq_vars.classic_inquiry_timer, duration_ms,
+                       btm_classic_inquiry_timeout, NULL);
+  }
+
   return BTM_CMD_STARTED;
 }
 
@@ -599,13 +695,8 @@ tBTM_STATUS BTM_StartInquiry(tBTM_INQ_RESULTS_CB* p_results_cb,
  *
  ******************************************************************************/
 tBTM_STATUS BTM_ReadRemoteDeviceName(const RawAddress& remote_bda,
-                                     tBTM_CMPL_CB* p_cb,
+                                     tBTM_NAME_CMPL_CB* p_cb,
                                      tBT_TRANSPORT transport) {
-  if (bluetooth::shim::is_gd_shim_enabled()) {
-    return bluetooth::shim::BTM_ReadRemoteDeviceName(remote_bda, p_cb,
-                                                     transport);
-  }
-
   VLOG(1) << __func__ << ": bd addr " << remote_bda;
   /* Use LE transport when LE is the only available option */
   if (transport == BT_TRANSPORT_LE) {
@@ -652,6 +743,11 @@ tBTM_STATUS BTM_CancelRemoteDeviceName(void) {
     return (BTM_WRONG_MODE);
 }
 
+bool BTM_IsRemoteNameKnown(const RawAddress& bd_addr, tBT_TRANSPORT transport) {
+  tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(bd_addr);
+  return (p_dev_rec == nullptr) ? false : p_dev_rec->is_name_known();
+}
+
 /*******************************************************************************
  *
  * Function         BTM_InqDbRead
@@ -684,8 +780,9 @@ tBTM_INQ_INFO* BTM_InqDbRead(const RawAddress& p_bda) {
  ******************************************************************************/
 tBTM_INQ_INFO* BTM_InqDbFirst(void) {
   uint16_t xx;
-  tINQ_DB_ENT* p_ent = btm_cb.btm_inq_vars.inq_db;
 
+  std::lock_guard<std::mutex> lock(inq_db_lock_);
+  tINQ_DB_ENT* p_ent = inq_db_;
   for (xx = 0; xx < BTM_INQ_DB_SIZE; xx++, p_ent++) {
     if (p_ent->in_use) return (&p_ent->inq_info);
   }
@@ -706,15 +803,16 @@ tBTM_INQ_INFO* BTM_InqDbFirst(void) {
  *
  ******************************************************************************/
 tBTM_INQ_INFO* BTM_InqDbNext(tBTM_INQ_INFO* p_cur) {
-  tINQ_DB_ENT* p_ent;
   uint16_t inx;
 
-  if (p_cur) {
-    p_ent = (tINQ_DB_ENT*)((uint8_t*)p_cur - offsetof(tINQ_DB_ENT, inq_info));
-    inx = (uint16_t)((p_ent - btm_cb.btm_inq_vars.inq_db) + 1);
+  std::lock_guard<std::mutex> lock(inq_db_lock_);
 
-    for (p_ent = &btm_cb.btm_inq_vars.inq_db[inx]; inx < BTM_INQ_DB_SIZE;
-         inx++, p_ent++) {
+  if (p_cur) {
+    tINQ_DB_ENT* p_ent =
+        (tINQ_DB_ENT*)((uint8_t*)p_cur - offsetof(tINQ_DB_ENT, inq_info));
+    inx = (uint16_t)((p_ent - inq_db_) + 1);
+
+    for (p_ent = &inq_db_[inx]; inx < BTM_INQ_DB_SIZE; inx++, p_ent++) {
       if (p_ent->in_use) return (&p_ent->inq_info);
     }
 
@@ -750,6 +848,31 @@ tBTM_STATUS BTM_ClearInqDb(const RawAddress* p_bda) {
 }
 
 /*******************************************************************************
+ *
+ * Function         btm_clear_all_pending_le_entry
+ *
+ * Description      This function is called to clear all LE pending entry in
+ *                  inquiry database.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void btm_clear_all_pending_le_entry(void) {
+  uint16_t xx;
+  std::lock_guard<std::mutex> lock(inq_db_lock_);
+  tINQ_DB_ENT* p_ent = inq_db_;
+
+  for (xx = 0; xx < BTM_INQ_DB_SIZE; xx++, p_ent++) {
+    /* mark all pending LE entry as unused if an LE only device has scan
+     * response outstanding */
+    if ((p_ent->in_use) &&
+        (p_ent->inq_info.results.device_type == BT_DEVICE_TYPE_BLE) &&
+        !p_ent->scan_rsp)
+      p_ent->in_use = false;
+  }
+}
+
+/*******************************************************************************
  *******************************************************************************
  *                                                                            **
  *                    BTM Internal Inquiry Functions                          **
@@ -767,10 +890,12 @@ tBTM_STATUS BTM_ClearInqDb(const RawAddress* p_bda) {
  *
  ******************************************************************************/
 void btm_inq_db_reset(void) {
-  tBTM_REMOTE_DEV_NAME rem_name;
+  tBTM_REMOTE_DEV_NAME rem_name = {};
   tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
   uint8_t num_responses;
   uint8_t temp_inq_active;
+
+  LOG_DEBUG("Resetting inquiry database");
 
   /* If an inquiry or periodic inquiry is active, reset the mode to inactive */
   if (p_inq->inq_active != BTM_INQUIRY_INACTIVE) {
@@ -797,6 +922,7 @@ void btm_inq_db_reset(void) {
 
     if (p_inq->p_remname_cmpl_cb) {
       rem_name.status = BTM_DEV_RESET;
+      rem_name.hci_status = HCI_SUCCESS;
 
       (*p_inq->p_remname_cmpl_cb)(&rem_name);
       p_inq->p_remname_cmpl_cb = NULL;
@@ -897,14 +1023,14 @@ void btm_inq_clear_ssp(void) {
  *
  ******************************************************************************/
 void btm_clr_inq_db(const RawAddress* p_bda) {
-  tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
-  tINQ_DB_ENT* p_ent = p_inq->inq_db;
   uint16_t xx;
 
 #if (BTM_INQ_DEBUG == TRUE)
   BTM_TRACE_DEBUG("btm_clr_inq_db: inq_active:0x%x state:%d",
                   btm_cb.btm_inq_vars.inq_active, btm_cb.btm_inq_vars.state);
 #endif
+  std::lock_guard<std::mutex> lock(inq_db_lock_);
+  tINQ_DB_ENT* p_ent = inq_db_;
   for (xx = 0; xx < BTM_INQ_DB_SIZE; xx++, p_ent++) {
     if (p_ent->in_use) {
       /* If this is the specified BD_ADDR or clearing all devices */
@@ -921,20 +1047,35 @@ void btm_clr_inq_db(const RawAddress* p_bda) {
 
 /*******************************************************************************
  *
- * Function         btm_clr_inq_result_flt
+ * Function         btm_[init|clr]_inq_result_flt
  *
- * Description      This function looks through the bdaddr database for a match
- *                  based on Bluetooth Device Address
+ * Description      These functions initialize and clear the bdaddr
+ *                  database for a match based on Bluetooth Device Address
  *
- * Returns          true if found, else false (new entry)
+ * Returns          None
  *
  ******************************************************************************/
-void btm_clr_inq_result_flt(void) {
-  tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
+static void btm_init_inq_result_flt(void) {
+  std::lock_guard<std::mutex> lock(bd_db_lock_);
 
-  osi_free_and_reset((void**)&p_inq->p_bd_db);
-  p_inq->num_bd_entries = 0;
-  p_inq->max_bd_entries = 0;
+  if (p_bd_db_ != nullptr) {
+    LOG_ERROR("Memory leak with bluetooth device database");
+  }
+
+  /* Allocate memory to hold bd_addrs responding */
+  p_bd_db_ = (tINQ_BDADDR*)osi_calloc(BT_DEFAULT_BUFFER_SIZE);
+  max_bd_entries_ = (uint16_t)(BT_DEFAULT_BUFFER_SIZE / sizeof(tINQ_BDADDR));
+}
+
+void btm_clr_inq_result_flt(void) {
+  std::lock_guard<std::mutex> lock(bd_db_lock_);
+  if (p_bd_db_ == nullptr) {
+    LOG_WARN("Memory being reset multiple times");
+  }
+
+  osi_free_and_reset((void**)&p_bd_db_);
+  num_bd_entries_ = 0;
+  max_bd_entries_ = 0;
 }
 
 /*******************************************************************************
@@ -948,22 +1089,23 @@ void btm_clr_inq_result_flt(void) {
  *
  ******************************************************************************/
 bool btm_inq_find_bdaddr(const RawAddress& p_bda) {
-  tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
-  tINQ_BDADDR* p_db = &p_inq->p_bd_db[0];
+  std::lock_guard<std::mutex> lock(bd_db_lock_);
+  tINQ_BDADDR* p_db = p_bd_db_;
   uint16_t xx;
 
   /* Don't bother searching, database doesn't exist or periodic mode */
   if (!p_db) return (false);
 
-  for (xx = 0; xx < p_inq->num_bd_entries; xx++, p_db++) {
-    if (p_db->bd_addr == p_bda && p_db->inq_count == p_inq->inq_counter)
+  for (xx = 0; xx < num_bd_entries_; xx++, p_db++) {
+    if (p_db->bd_addr == p_bda &&
+        p_db->inq_count == btm_cb.btm_inq_vars.inq_counter)
       return (true);
   }
 
-  if (xx < p_inq->max_bd_entries) {
-    p_db->inq_count = p_inq->inq_counter;
+  if (xx < max_bd_entries_) {
+    p_db->inq_count = btm_cb.btm_inq_vars.inq_counter;
     p_db->bd_addr = p_bda;
-    p_inq->num_bd_entries++;
+    num_bd_entries_++;
   }
 
   /* If here, New Entry */
@@ -982,7 +1124,8 @@ bool btm_inq_find_bdaddr(const RawAddress& p_bda) {
  ******************************************************************************/
 tINQ_DB_ENT* btm_inq_db_find(const RawAddress& p_bda) {
   uint16_t xx;
-  tINQ_DB_ENT* p_ent = btm_cb.btm_inq_vars.inq_db;
+  std::lock_guard<std::mutex> lock(inq_db_lock_);
+  tINQ_DB_ENT* p_ent = inq_db_;
 
   for (xx = 0; xx < BTM_INQ_DB_SIZE; xx++, p_ent++) {
     if (p_ent->in_use && p_ent->inq_info.results.remote_bd_addr == p_bda)
@@ -1006,9 +1149,11 @@ tINQ_DB_ENT* btm_inq_db_find(const RawAddress& p_bda) {
  ******************************************************************************/
 tINQ_DB_ENT* btm_inq_db_new(const RawAddress& p_bda) {
   uint16_t xx;
-  tINQ_DB_ENT* p_ent = btm_cb.btm_inq_vars.inq_db;
-  tINQ_DB_ENT* p_old = btm_cb.btm_inq_vars.inq_db;
   uint64_t ot = UINT64_MAX;
+
+  std::lock_guard<std::mutex> lock(inq_db_lock_);
+  tINQ_DB_ENT* p_ent = inq_db_;
+  tINQ_DB_ENT* p_old = inq_db_;
 
   for (xx = 0; xx < BTM_INQ_DB_SIZE; xx++, p_ent++) {
     if (!p_ent->in_use) {
@@ -1068,12 +1213,14 @@ void btm_process_inq_results(const uint8_t* p, uint8_t hci_evt_len,
   uint16_t clock_offset;
   const uint8_t* p_eir_data = NULL;
 
-#if (BTM_INQ_DEBUG == TRUE)
-  BTM_TRACE_DEBUG("btm_process_inq_results inq_active:0x%x state:%d",
-                  btm_cb.btm_inq_vars.inq_active, btm_cb.btm_inq_vars.state);
-#endif
+  LOG_DEBUG("Received inquiry result inq_active:0x%x state:%d",
+            btm_cb.btm_inq_vars.inq_active, btm_cb.btm_inq_vars.state);
+
   /* Only process the results if the BR inquiry is still active */
-  if (!(p_inq->inq_active & BTM_BR_INQ_ACTIVE_MASK)) return;
+  if (!(p_inq->inq_active & BTM_BR_INQ_ACTIVE_MASK)) {
+    LOG_INFO("Inquiry is inactive so dropping inquiry result");
+    return;
+  }
 
   STREAM_TO_UINT8(num_resp, p);
 
@@ -1086,7 +1233,6 @@ void btm_process_inq_results(const uint8_t* p, uint8_t hci_evt_len,
 
     constexpr uint16_t extended_inquiry_result_size = 254;
     if (hci_evt_len - 1 != extended_inquiry_result_size) {
-      android_errorWriteLog(0x534e4554, "141620271");
       BTM_TRACE_ERROR("%s: can't fit %d results in %d bytes", __func__,
                       num_resp, hci_evt_len);
       return;
@@ -1095,13 +1241,13 @@ void btm_process_inq_results(const uint8_t* p, uint8_t hci_evt_len,
              inq_res_mode == BTM_INQ_RESULT_WITH_RSSI) {
     constexpr uint16_t inquiry_result_size = 14;
     if (hci_evt_len < num_resp * inquiry_result_size) {
-      android_errorWriteLog(0x534e4554, "141620271");
       BTM_TRACE_ERROR("%s: can't fit %d results in %d bytes", __func__,
                       num_resp, hci_evt_len);
       return;
     }
   }
 
+  btm_cb.neighbor.classic_inquiry.results += num_resp;
   for (xx = 0; xx < num_resp; xx++) {
     update = false;
     /* Extract inquiry results */
@@ -1123,7 +1269,8 @@ void btm_process_inq_results(const uint8_t* p, uint8_t hci_evt_len,
 
     /* Check if this address has already been processed for this inquiry */
     if (btm_inq_find_bdaddr(bda)) {
-      /* BTM_TRACE_DEBUG("BDA seen before %s", bda.ToString().c_str()); */
+      /* BTM_TRACE_DEBUG("BDA seen before %s", ADDRESS_TO_LOGGABLE_CSTR(bda));
+       */
 
       /* By default suppose no update needed */
       i_rssi = (int8_t)rssi;
@@ -1188,8 +1335,21 @@ void btm_process_inq_results(const uint8_t* p, uint8_t hci_evt_len,
 
       p_i->time_of_resp = bluetooth::common::time_get_os_boottime_ms();
 
-      if (p_i->inq_count != p_inq->inq_counter)
-        p_inq->inq_cmpl_info.num_resp++; /* A new response was found */
+      if (p_i->inq_count != p_inq->inq_counter) {
+        /* A new response was found */
+        btm_cb.btm_inq_vars.inq_cmpl_info.num_resp++;
+        switch (static_cast<tBTM_INQ_RESULT>(inq_res_mode)) {
+          case BTM_INQ_RESULT_STANDARD:
+          case BTM_INQ_RESULT_WITH_RSSI:
+          case BTM_INQ_RESULT_EXTENDED:
+            btm_cb.btm_inq_vars.inq_cmpl_info.resp_type[inq_res_mode]++;
+            break;
+          case BTM_INQ_RES_IGNORE_RSSI:
+            btm_cb.btm_inq_vars.inq_cmpl_info
+                .resp_type[BTM_INQ_RESULT_STANDARD]++;
+            break;
+        }
+      }
 
       p_cur->inq_result_type |= BTM_INQ_RESULT_BR;
       if (p_i->inq_count != p_inq->inq_counter) {
@@ -1218,7 +1378,7 @@ void btm_process_inq_results(const uint8_t* p, uint8_t hci_evt_len,
         (p_inq_results_cb)((tBTM_INQ_RESULTS*)p_cur, p_eir_data,
                            HCI_EXT_INQ_RESPONSE_LEN);
       } else {
-        BTM_TRACE_DEBUG("No callback is registered");
+        LOG_WARN("No callback is registered for inquiry result");
       }
     }
   }
@@ -1236,8 +1396,9 @@ void btm_process_inq_results(const uint8_t* p, uint8_t hci_evt_len,
  ******************************************************************************/
 void btm_sort_inq_result(void) {
   uint8_t xx, yy, num_resp;
-  tINQ_DB_ENT* p_ent = btm_cb.btm_inq_vars.inq_db;
-  tINQ_DB_ENT* p_next = btm_cb.btm_inq_vars.inq_db + 1;
+  std::lock_guard<std::mutex> lock(inq_db_lock_);
+  tINQ_DB_ENT* p_ent = inq_db_;
+  tINQ_DB_ENT* p_next = inq_db_ + 1;
   int size;
   tINQ_DB_ENT* p_tmp = (tINQ_DB_ENT*)osi_malloc(sizeof(tINQ_DB_ENT));
 
@@ -1275,39 +1436,21 @@ void btm_sort_inq_result(void) {
  *
  ******************************************************************************/
 void btm_process_inq_complete(tHCI_STATUS status, uint8_t mode) {
-  if (mode == 0) {
-    LOG_WARN("Inquiry completed but no modes were specified");
-    return;
-  }
-
-  // The mode parameters may be a bitmask with only 2 valid bits indicating
-  // completion
-  if (mode & ~(BTM_INQUIRY_ACTIVE_MASK)) {
-    LOG_WARN("Calling with illegal mode:0x%02x", mode);
-  }
-
-  if (mode == BTM_GENERAL_INQUIRY && btm_cb.notify_when_complete_cb) {
-    LOG_DEBUG(
-        "Cleaning up previous inquiry cancel with proper completion callback "
-        "inq_active:0x%02x inqparms.mode:0x%02x",
-        btm_cb.btm_inq_vars.inq_active, btm_cb.btm_inq_vars.inqparms.mode);
-    btm_cb.notify_when_complete_cb();
-    btm_cb.notify_when_complete_cb = {};
-    return;
-  }
   tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
 
   p_inq->inqparms.mode &= ~(mode);
+  const auto inq_active = p_inq->inq_active;
 
-#if (BTM_INQ_DEBUG == TRUE)
-  BTM_TRACE_DEBUG("btm_process_inq_complete inq_active:0x%x state:%d",
-                  btm_cb.btm_inq_vars.inq_active, btm_cb.btm_inq_vars.state);
-#endif
   btm_acl_update_inquiry_status(BTM_INQUIRY_COMPLETE);
+
+  if (status != HCI_SUCCESS) {
+    LOG_WARN("Received unexpected hci status:%s",
+             hci_error_code_text(status).c_str());
+  }
+
   /* Ignore any stray or late complete messages if the inquiry is not active */
   if (p_inq->inq_active) {
-    p_inq->inq_cmpl_info.status = (tBTM_STATUS)(
-        (status == HCI_SUCCESS) ? BTM_SUCCESS : BTM_ERR_PROCESSING);
+    p_inq->inq_cmpl_info.hci_status = status;
 
     /* Notify caller that the inquiry has completed; (periodic inquiries do not
      * send completion events */
@@ -1320,29 +1463,60 @@ void btm_process_inq_complete(tHCI_STATUS status, uint8_t mode) {
 
       btm_clr_inq_result_flt();
 
-      if ((p_inq->inq_cmpl_info.status == BTM_SUCCESS) &&
+      if ((status == HCI_SUCCESS) &&
           controller_get_interface()->supports_rssi_with_inquiry_results()) {
         btm_sort_inq_result();
       }
 
+      if (btm_cb.btm_inq_vars.p_inq_cmpl_cb) {
+        (btm_cb.btm_inq_vars.p_inq_cmpl_cb)(
+            (tBTM_INQUIRY_CMPL*)&p_inq->inq_cmpl_info);
+      } else {
+        LOG_WARN("No callback to return inquiry result");
+      }
+
+      btm_cb.neighbor.inquiry_history_->Push({
+          .status = tBTM_INQUIRY_CMPL::TIMER_POPPED,
+          .num_resp = btm_cb.btm_inq_vars.inq_cmpl_info.num_resp,
+          .resp_type =
+              {
+                  btm_cb.btm_inq_vars.inq_cmpl_info
+                      .resp_type[BTM_INQ_RESULT_STANDARD],
+                  btm_cb.btm_inq_vars.inq_cmpl_info
+                      .resp_type[BTM_INQ_RESULT_WITH_RSSI],
+                  btm_cb.btm_inq_vars.inq_cmpl_info
+                      .resp_type[BTM_INQ_RESULT_EXTENDED],
+              },
+          .start_time_ms = btm_cb.neighbor.classic_inquiry.start_time_ms,
+      });
+      const auto end_time_ms = timestamper_in_milliseconds.GetTimestamp();
+      BTM_LogHistory(
+          kBtmLogTag, RawAddress::kEmpty, "Classic inquiry complete",
+          base::StringPrintf(
+              "duration_s:%6.3f results:%lu inq_active:0x%02x std:%u rssi:%u "
+              "ext:%u status:%s",
+              (end_time_ms - btm_cb.neighbor.classic_inquiry.start_time_ms) /
+                  1000.0,
+              btm_cb.neighbor.classic_inquiry.results, inq_active,
+              p_inq->inq_cmpl_info.resp_type[BTM_INQ_RESULT_STANDARD],
+              p_inq->inq_cmpl_info.resp_type[BTM_INQ_RESULT_WITH_RSSI],
+              p_inq->inq_cmpl_info.resp_type[BTM_INQ_RESULT_EXTENDED],
+              hci_error_code_text(status).c_str()));
+
+      btm_cb.neighbor.classic_inquiry.start_time_ms = 0;
       /* Clear the results callback if set */
       p_inq->p_inq_results_cb = NULL;
       p_inq->inq_active = BTM_INQUIRY_INACTIVE;
-      tBTM_CMPL_CB* p_inq_cb = btm_cb.btm_inq_vars.p_inq_cmpl_cb;
       p_inq->p_inq_cmpl_cb = NULL;
 
-      /* If we have a callback registered for inquiry complete, call it */
-      BTM_TRACE_DEBUG("BTM Inq Compl Callback: status 0x%02x, num results %d",
-                      p_inq->inq_cmpl_info.status,
-                      p_inq->inq_cmpl_info.num_resp);
-
-      if (p_inq_cb) (p_inq_cb)((tBTM_INQUIRY_CMPL*)&p_inq->inq_cmpl_info);
+    } else {
+      LOG_INFO(
+          "Inquiry params is not clear so not sending callback inq_parms:%u",
+          btm_cb.btm_inq_vars.inqparms.mode);
     }
+  } else {
+    LOG_ERROR("Received inquiry complete when no inquiry was active");
   }
-#if (BTM_INQ_DEBUG == TRUE)
-  BTM_TRACE_DEBUG("inq_active:0x%x state:%d", btm_cb.btm_inq_vars.inq_active,
-                  btm_cb.btm_inq_vars.state);
-#endif
 }
 
 /*******************************************************************************
@@ -1383,7 +1557,8 @@ void btm_process_cancel_complete(tHCI_STATUS status, uint8_t mode) {
  *
  ******************************************************************************/
 tBTM_STATUS btm_initiate_rem_name(const RawAddress& remote_bda, uint8_t origin,
-                                  uint64_t timeout_ms, tBTM_CMPL_CB* p_cb) {
+                                  uint64_t timeout_ms,
+                                  tBTM_NAME_CMPL_CB* p_cb) {
   tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
 
   /*** Make sure the device is ready ***/
@@ -1437,14 +1612,19 @@ void btm_process_remote_name(const RawAddress* bda, const BD_NAME bdn,
                              uint16_t evt_len, tHCI_STATUS hci_status) {
   tBTM_REMOTE_DEV_NAME rem_name;
   tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
-  tBTM_CMPL_CB* p_cb = p_inq->p_remname_cmpl_cb;
+  tBTM_NAME_CMPL_CB* p_cb = p_inq->p_remname_cmpl_cb;
   uint8_t* p_n1;
 
   uint16_t temp_evt_len;
 
   if (bda) {
-    VLOG(2) << "BDA " << *bda;
+    rem_name.bd_addr = *bda;
+  } else {
+    rem_name.bd_addr = RawAddress::kEmpty;
   }
+
+  LOG_INFO("btm_process_remote_name for %s",
+           ADDRESS_TO_LOGGABLE_CSTR(rem_name.bd_addr));
 
   VLOG(2) << "Inquire BDA " << p_inq->remname_bda;
 
@@ -1469,6 +1649,7 @@ void btm_process_remote_name(const RawAddress* bda, const BD_NAME bdn,
       rem_name.length = (evt_len < BD_NAME_LEN) ? evt_len : BD_NAME_LEN;
       rem_name.remote_bd_name[rem_name.length] = 0;
       rem_name.status = BTM_SUCCESS;
+      rem_name.hci_status = hci_status;
       temp_evt_len = rem_name.length;
 
       while (temp_evt_len > 0) {
@@ -1476,12 +1657,11 @@ void btm_process_remote_name(const RawAddress* bda, const BD_NAME bdn,
         temp_evt_len--;
       }
       rem_name.remote_bd_name[rem_name.length] = 0;
-    }
-
-    /* If processing a stand alone remote name then report the error in the
-       callback */
-    else {
+    } else {
+      /* If processing a stand alone remote name then report the error in the
+         callback */
       rem_name.status = BTM_BAD_VALUE_RET;
+      rem_name.hci_status = hci_status;
       rem_name.length = 0;
       rem_name.remote_bd_name[0] = 0;
     }

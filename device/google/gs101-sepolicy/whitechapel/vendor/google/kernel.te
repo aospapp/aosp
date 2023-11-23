@@ -9,3 +9,5 @@ allow kernel self:capability2 perfmon;
 allow kernel self:perf_event cpu;
 
 dontaudit kernel vendor_battery_debugfs:dir search;
+dontaudit kernel vendor_maxfg_debugfs:dir { search };
+dontaudit kernel vendor_votable_debugfs:dir { search };

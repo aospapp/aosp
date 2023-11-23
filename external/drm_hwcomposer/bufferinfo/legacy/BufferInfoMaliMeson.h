@@ -26,7 +26,7 @@ namespace android {
 class BufferInfoMaliMeson : public LegacyBufferInfoGetter {
  public:
   using LegacyBufferInfoGetter::LegacyBufferInfoGetter;
-  int ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
+  auto GetBoInfo(buffer_handle_t handle) -> std::optional<BufferInfo> override;
 
  private:
   uint64_t ConvertGrallocFormatToDrmModifiers(uint64_t flags);

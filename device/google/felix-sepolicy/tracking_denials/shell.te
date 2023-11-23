@@ -1,0 +1,2 @@
+# b/277155366
+dontaudit shell sysfs_net:file { read };

@@ -23,7 +23,7 @@
     <string name="inspector_metadata_section" msgid="6077622515328240575">"Detalii despre conținutul media"</string>
     <string name="handler_app_file_opens_with" msgid="5272329600389613550">"Acest tip de fișier se deschide cu"</string>
     <string name="handler_app_belongs_to" msgid="5444507329303253553">"Acest fișier este furnizat de"</string>
-    <string name="handler_app_not_selected" msgid="1294439257183908786">"Nu ați selectat"</string>
+    <string name="handler_app_not_selected" msgid="1294439257183908786">"Nu ai selectat"</string>
     <string name="handler_app_unknown" msgid="5911661530593229287">"Necunoscut"</string>
     <string name="metadata_dimensions" msgid="6112907724016659801">"Dimensiuni"</string>
     <string name="metadata_dimensions_format" msgid="6138765871412005962">"<xliff:g id="WIDTH">%1$d</xliff:g> x <xliff:g id="HEIGHT">%2$d</xliff:g> - <xliff:g id="MEGAPIXELS">%3$,.1f</xliff:g>MP"</string>

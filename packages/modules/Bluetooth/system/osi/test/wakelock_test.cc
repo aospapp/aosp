@@ -49,11 +49,11 @@ class WakelockTest : public AllocationTestHarness {
     AllocationTestHarness::SetUp();
 
 // TODO (jamuraa): maybe use base::CreateNewTempDirectory instead?
-#if defined(OS_GENERIC)
-    tmp_dir_ = "/tmp/btwlXXXXXX";
-#else
+#ifdef __ANDROID__
     tmp_dir_ = "/data/local/tmp/btwlXXXXXX";
-#endif  // !defined(OS_GENERIC)
+#else   // !__ANDROID__
+    tmp_dir_ = "/tmp/btwlXXXXXX";
+#endif  // __ANDROID__
 
     char* buffer = const_cast<char*>(tmp_dir_.c_str());
     char* dtemp = mkdtemp(buffer);

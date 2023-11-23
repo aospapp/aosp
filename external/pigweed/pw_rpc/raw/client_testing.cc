@@ -18,19 +18,23 @@
 #include "pw_rpc/raw/client_testing.h"
 // clang-format on
 
+#include <mutex>
+
 #include "pw_assert/check.h"
 #include "pw_log/log.h"
 #include "pw_rpc/client.h"
+#include "pw_rpc/internal/lock.h"
 
 namespace pw::rpc {
 
-void FakeServer::CheckProcessPacket(internal::PacketType type,
+void FakeServer::CheckProcessPacket(internal::pwpb::PacketType type,
                                     uint32_t service_id,
                                     uint32_t method_id,
+                                    std::optional<uint32_t> call_id,
                                     ConstByteSpan payload,
                                     Status status) const {
   if (Status process_packet_status =
-          ProcessPacket(type, service_id, method_id, payload, status);
+          ProcessPacket(type, service_id, method_id, call_id, payload, status);
       !process_packet_status.ok()) {
     PW_LOG_CRITICAL("Failed to process packet in pw::rpc::FakeServer");
     PW_LOG_CRITICAL(
@@ -46,25 +50,36 @@ void FakeServer::CheckProcessPacket(internal::PacketType type,
   }
 }
 
-Status FakeServer::ProcessPacket(internal::PacketType type,
+Status FakeServer::ProcessPacket(internal::pwpb::PacketType type,
                                  uint32_t service_id,
                                  uint32_t method_id,
+                                 std::optional<uint32_t> call_id,
                                  ConstByteSpan payload,
                                  Status status) const {
-  auto view = internal::test::PacketsView(
-      output_.packets(),
-      internal::test::PacketFilter(internal::PacketType::REQUEST,
-                                   internal::PacketType::RESPONSE,
-                                   channel_id_,
-                                   service_id,
-                                   method_id));
+  if (!call_id.has_value()) {
+    std::lock_guard lock(output_.mutex_);
+    auto view = internal::test::PacketsView(
+        output_.packets(),
+        internal::test::PacketFilter(internal::pwpb::PacketType::REQUEST,
+                                     internal::pwpb::PacketType::RESPONSE,
+                                     channel_id_,
+                                     service_id,
+                                     method_id));
 
-  // Re-use the call ID of the most recent packet for this RPC.
-  uint32_t call_id = view.empty() ? 0 : view.back().call_id();
+    // Re-use the call ID of the most recent packet for this RPC.
+    if (!view.empty()) {
+      call_id = view.back().call_id();
+    }
+  }
 
   auto packet_encoding_result =
-      internal::Packet(
-          type, channel_id_, service_id, method_id, call_id, payload, status)
+      internal::Packet(type,
+                       channel_id_,
+                       service_id,
+                       method_id,
+                       call_id.value_or(internal::Packet::kUnassignedId),
+                       payload,
+                       status)
           .Encode(packet_buffer_);
   PW_CHECK_OK(packet_encoding_result.status());
   return client_.ProcessPacket(*packet_encoding_result);

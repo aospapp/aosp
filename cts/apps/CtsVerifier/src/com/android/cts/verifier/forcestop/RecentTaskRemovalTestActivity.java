@@ -121,12 +121,13 @@ public class RecentTaskRemovalTestActivity extends PassFailButtons.Activity impl
                     .setPackage(getPackageName())
                     .addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY);
             final PendingIntent onTaskRemoved = PendingIntent.getBroadcast(this, 0,
-                    reportTaskRemovedIntent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
+                    reportTaskRemovedIntent, PendingIntent.FLAG_IMMUTABLE);
 
             final Intent reportAlarmIntent = new Intent(ACTION_REPORT_ALARM)
                     .setPackage(getPackageName())
                     .addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY);
-            final PendingIntent onAlarm = PendingIntent.getBroadcast(this, 0, reportAlarmIntent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
+            final PendingIntent onAlarm = PendingIntent.getBroadcast(this, 0, reportAlarmIntent,
+                    PendingIntent.FLAG_IMMUTABLE);
 
             final Intent testActivity = new Intent()
                     .setClassName(HELPER_APP_NAME, HELPER_ACTIVITY_NAME)
@@ -207,7 +208,7 @@ public class RecentTaskRemovalTestActivity extends PassFailButtons.Activity impl
             final IntentFilter commsFilter = new IntentFilter();
             commsFilter.addAction(ACTION_REPORT_TASK_REMOVED);
             commsFilter.addAction(ACTION_REPORT_ALARM);
-            registerReceiver(this, commsFilter, null, handler);
+            registerReceiver(this, commsFilter, null, handler, RECEIVER_EXPORTED);
         }
 
         void unregister() {

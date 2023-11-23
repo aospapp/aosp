@@ -48,6 +48,10 @@ public class EnqueueJobWorkTest extends ConstraintTest {
 
         mBuilder = new JobInfo.Builder(ENQUEUE_WORK_JOB_ID, kJobServiceComponent);
         mProvider = getContext().getContentResolver().acquireContentProviderClient(mFirstUri);
+
+        SystemUtil.runShellCommand(getInstrumentation(), "cmd tare set-vip "
+                + getCurrentUser() + " "
+                + kJobServiceComponent.getPackageName() + " true");
     }
 
     @Override
@@ -55,6 +59,9 @@ public class EnqueueJobWorkTest extends ConstraintTest {
         super.tearDown();
         mProvider.close();
         mJobScheduler.cancel(ENQUEUE_WORK_JOB_ID);
+        SystemUtil.runShellCommand(getInstrumentation(), "cmd tare set-vip "
+                + getCurrentUser() + " "
+                + kJobServiceComponent.getPackageName() + " default");
     }
 
     private boolean intentEquals(Intent i1, Intent i2) {

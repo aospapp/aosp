@@ -396,7 +396,7 @@ std::vector<uint8_t> ProtoBuilder::SerializeToProtoBuilderResult() {
   result->set_is_repeated(false);
 
   auto* single = result->set_single();
-  single->set_type(protos::pbzero::FieldDescriptorProto_Type_TYPE_MESSAGE);
+  single->set_type(protos::pbzero::FieldDescriptorProto::Type::TYPE_MESSAGE);
   single->set_type_name(type_name.c_str(), type_name.size());
   single->set_protobuf(serialized.data(), serialized.size());
   return result.SerializeAsArray();
@@ -631,9 +631,9 @@ base::Status RunMetric::Run(RunMetric::Context* ctx,
     if (sqlite3_value_type(argv[i]) != SQLITE_TEXT)
       return base::ErrStatus("RUN_METRIC: all keys must be strings");
 
-    base::Optional<std::string> key_str = sqlite_utils::SqlValueToString(
+    std::optional<std::string> key_str = sqlite_utils::SqlValueToString(
         sqlite_utils::SqliteValueToSqlValue(argv[i]));
-    base::Optional<std::string> value_str = sqlite_utils::SqlValueToString(
+    std::optional<std::string> value_str = sqlite_utils::SqlValueToString(
         sqlite_utils::SqliteValueToSqlValue(argv[i + 1]));
 
     if (!value_str) {
@@ -732,9 +732,9 @@ base::Status ComputeMetrics(TraceProcessor* tp,
 
     auto output_query =
         "SELECT * FROM " + sql_metric.output_table_name.value() + ";";
-    PERFETTO_TP_TRACE("COMPUTE_METRIC_QUERY", [&](metatrace::Record* r) {
-      r->AddArg("SQL", output_query);
-    });
+    PERFETTO_TP_TRACE(
+        metatrace::Category::QUERY, "COMPUTE_METRIC_QUERY",
+        [&](metatrace::Record* r) { r->AddArg("SQL", output_query); });
 
     auto it = tp->ExecuteQuery(output_query.c_str());
     auto has_next = it.Next();

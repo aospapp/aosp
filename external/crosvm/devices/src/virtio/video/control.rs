@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,10 @@ use std::io;
 
 use data_model::Le32;
 
-use crate::virtio::video::format::{BitrateMode, Format, Level, Profile};
+use crate::virtio::video::format::BitrateMode;
+use crate::virtio::video::format::Format;
+use crate::virtio::video::format::Level;
+use crate::virtio::video::format::Profile;
 use crate::virtio::video::protocol::*;
 use crate::virtio::video::response::Response;
 use crate::virtio::Writer;

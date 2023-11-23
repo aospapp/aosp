@@ -16,6 +16,8 @@
 
 package com.android.calllogbackup;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.eq;
@@ -41,6 +43,7 @@ import org.mockito.MockitoAnnotations;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.EOFException;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -57,10 +60,37 @@ public class CallLogBackupAgentTest extends AndroidTestCase {
     static final String TEST_PHONE_ACCOUNT_HANDLE_SUB_ID = "666";
     static final int TEST_PHONE_ACCOUNT_HANDLE_SUB_ID_INT = 666;
     static final String TEST_PHONE_ACCOUNT_HANDLE_ICC_ID = "891004234814455936F";
+
+    public int backupRestoreLoggerSuccessCount = 0;
+    public int backupRestoreLoggerFailCount = 0;
+
     @Mock DataInput mDataInput;
     @Mock DataOutput mDataOutput;
     @Mock BackupDataOutput mBackupDataOutput;
     @Mock Cursor mCursor;
+
+    private CallLogBackupAgent.BackupRestoreEventLoggerProxy mBackupRestoreEventLoggerProxy =
+            new CallLogBackupAgent.BackupRestoreEventLoggerProxy() {
+        @Override
+        public void logItemsBackedUp(String dataType, int count) {
+            backupRestoreLoggerSuccessCount += count;
+        }
+
+        @Override
+        public void logItemsBackupFailed(String dataType, int count, String error) {
+            backupRestoreLoggerFailCount += count;
+        }
+
+        @Override
+        public void logItemsRestored(String dataType, int count) {
+            backupRestoreLoggerSuccessCount += count;
+        }
+
+        @Override
+        public void logItemsRestoreFailed(String dataType, int count, String error) {
+            backupRestoreLoggerFailCount += count;
+        }
+    };
 
     CallLogBackupAgent mCallLogBackupAgent;
 
@@ -77,6 +107,7 @@ public class CallLogBackupAgentTest extends AndroidTestCase {
         MockitoAnnotations.initMocks(this);
 
         mCallLogBackupAgent = new CallLogBackupAgent();
+        mCallLogBackupAgent.setBackupRestoreEventLoggerProxy(mBackupRestoreEventLoggerProxy);
     }
 
     @Override
@@ -178,7 +209,43 @@ public class CallLogBackupAgentTest extends AndroidTestCase {
 
         mCallLogBackupAgent.runBackup(state, mBackupDataOutput, calls);
 
+        // Ensure the {@link BackupRestoreEventLogger} is not notified as no calls were backed up:
+        assertEquals(backupRestoreLoggerSuccessCount, 0);
+        assertEquals(backupRestoreLoggerFailCount, 0);
+
         Mockito.verifyNoMoreInteractions(mBackupDataOutput);
+    }
+
+    public void testRunBackup_OneNewCall_ErrorAddingCall() throws Exception {
+        CallLogBackupState state = new CallLogBackupState();
+        state.version = CallLogBackupAgent.VERSION;
+        state.callIds = new TreeSet<>();
+        List<Call> calls = new LinkedList<>();
+        calls.add(makeCall(101, 0L, 0L, "555-5555"));
+
+        // Throw an exception when the call is added to the backup:
+        when(mBackupDataOutput.writeEntityData(any(byte[].class), anyInt()))
+                .thenThrow(IOException.class);
+        mCallLogBackupAgent.runBackup(state, mBackupDataOutput, calls);
+
+        // Ensure the {@link BackupRestoreEventLogger} is informed of the failed backed up call:
+        assertEquals(backupRestoreLoggerSuccessCount, 0);
+        assertEquals(backupRestoreLoggerFailCount, 1);
+    }
+
+    public void testRunBackup_OneNewCall_NullBackupDataOutput() throws Exception {
+        CallLogBackupState state = new CallLogBackupState();
+        state.version = CallLogBackupAgent.VERSION;
+        state.callIds = new TreeSet<>();
+        List<Call> calls = new LinkedList<>();
+        calls.add(makeCall(101, 0L, 0L, "555-5555"));
+
+        // Invoke runBackup() with a null value for BackupDataOutput causing an exception:
+        mCallLogBackupAgent.runBackup(state, null, calls);
+
+        // Ensure the {@link BackupRestoreEventLogger} is informed of the failed backed up call:
+        assertEquals(backupRestoreLoggerSuccessCount, 0);
+        assertEquals(backupRestoreLoggerFailCount, 1);
     }
 
     public void testRunBackup_OneNewCall() throws Exception {
@@ -188,6 +255,10 @@ public class CallLogBackupAgentTest extends AndroidTestCase {
         List<Call> calls = new LinkedList<>();
         calls.add(makeCall(101, 0L, 0L, "555-5555"));
         mCallLogBackupAgent.runBackup(state, mBackupDataOutput, calls);
+
+        // Ensure the {@link BackupRestoreEventLogger} is informed of the backed up call:
+        assertEquals(backupRestoreLoggerSuccessCount, 1);
+        assertEquals(backupRestoreLoggerFailCount, 0);
 
         verify(mBackupDataOutput).writeEntityHeader(eq("101"), Matchers.anyInt());
         verify(mBackupDataOutput).writeEntityData((byte[]) Matchers.any(), Matchers.anyInt());
@@ -274,6 +345,10 @@ public class CallLogBackupAgentTest extends AndroidTestCase {
 
         mCallLogBackupAgent.runBackup(state, mBackupDataOutput, calls);
 
+        // Ensure the {@link BackupRestoreEventLogger} is informed of the 2 backed up calls:
+        assertEquals(backupRestoreLoggerSuccessCount, 2);
+        assertEquals(backupRestoreLoggerFailCount, 0);
+
         InOrder inOrder = Mockito.inOrder(mBackupDataOutput);
         inOrder.verify(mBackupDataOutput).writeEntityHeader(eq("101"), Matchers.anyInt());
         inOrder.verify(mBackupDataOutput).
@@ -295,6 +370,10 @@ public class CallLogBackupAgentTest extends AndroidTestCase {
         calls.add(makeCall(102, 0L, 0L, "555-5555"));
 
         mCallLogBackupAgent.runBackup(state, mBackupDataOutput, calls);
+
+        // Ensure the {@link BackupRestoreEventLogger} is informed of the 2 backed up calls:
+        assertEquals(backupRestoreLoggerSuccessCount, 2);
+        assertEquals(backupRestoreLoggerFailCount, 0);
 
         InOrder inOrder = Mockito.inOrder(mBackupDataOutput);
         inOrder.verify(mBackupDataOutput).writeEntityHeader(eq("102"), Matchers.anyInt());

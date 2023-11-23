@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -16,28 +17,28 @@ class graphics_KernelConfig(GraphicsTest):
     userspace_arch = None
 
     IS_BUILTIN = [
-        # Sanity checks; should be present in builds as builtins.
+            # Confidence checks; should be present in builds as builtins.
     ]
     IS_MODULE = [
-        # Sanity checks; should be present in builds as modules.
+            # Confidence checks; should be present in builds as modules.
     ]
     IS_ENABLED = [
-        # Sanity checks; should be enabled.
+            # Confidence checks; should be enabled.
     ]
     IS_MISSING = [
-        # Sanity checks; should be disabled.
-        'DRM_KMS_FB_HELPER'
-        'FB',
-        'FB_CFB_COPYAREA',
-        'FB_CFB_FILLRECT',
-        'FB_CFB_IMAGEBLIT',
-        'FB_CFB_REV_PIXELS_IN_BYTE',
-        'FB_SIMPLE',
-        'FB_SYS_COPYAREA',
-        'FB_SYS_FOPS',
-        'FB_SYS_FILLRECT',
-        'FB_SYS_IMAGEBLIT',
-        'FB_VIRTUAL'
+            # Confidence checks; should be disabled.
+            'DRM_KMS_FB_HELPER'
+            'FB',
+            'FB_CFB_COPYAREA',
+            'FB_CFB_FILLRECT',
+            'FB_CFB_IMAGEBLIT',
+            'FB_CFB_REV_PIXELS_IN_BYTE',
+            'FB_SIMPLE',
+            'FB_SYS_COPYAREA',
+            'FB_SYS_FOPS',
+            'FB_SYS_FILLRECT',
+            'FB_SYS_IMAGEBLIT',
+            'FB_VIRTUAL'
     ]
 
     def setup(self):
@@ -60,10 +61,10 @@ class graphics_KernelConfig(GraphicsTest):
         logging.debug(config._config)
 
         # Run the static checks.
-        map(config.has_builtin, self.IS_BUILTIN)
-        map(config.has_module, self.IS_MODULE)
-        map(config.is_enabled, self.IS_ENABLED)
-        map(config.is_missing, self.IS_MISSING)
+        list(map(config.has_builtin, self.IS_BUILTIN))
+        list(map(config.has_module, self.IS_MODULE))
+        list(map(config.is_enabled, self.IS_ENABLED))
+        list(map(config.is_missing, self.IS_MISSING))
 
         # Raise a failure if anything unexpected was seen.
         if len(config.failures()):

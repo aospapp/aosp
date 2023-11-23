@@ -3,6 +3,7 @@ package org.robolectric.shadows;
 import static android.os.Build.VERSION_CODES.KITKAT;
 
 import android.hardware.input.InputManager;
+import android.hardware.input.InputManagerGlobal;
 import android.view.InputEvent;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
@@ -25,6 +26,7 @@ public class ShadowInputManager {
 
   @Resetter
   public static void reset() {
-    ReflectionHelpers.setStaticField(InputManager.class, "sInstance", null);
+    ReflectionHelpers.setStaticField(InputManagerGlobal.class,
+            "sInstance", null);
   }
 }

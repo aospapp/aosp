@@ -41,6 +41,11 @@ var (
 		"armv8-2a-dotprod": []string{
 			"-march=armv8.2-a+dotprod",
 		},
+		"armv9-a": []string{
+			"-march=armv8.2-a+dotprod",
+			"-mbranch-protection=standard",
+			"-fno-stack-protector",
+		},
 	}
 
 	arm64Ldflags = []string{
@@ -48,8 +53,7 @@ var (
 		"-Wl,-z,separate-code",
 	}
 
-	arm64Lldflags = append(arm64Ldflags,
-		"-Wl,-z,max-page-size=4096")
+	arm64Lldflags = arm64Ldflags
 
 	arm64Cppflags = []string{}
 
@@ -74,7 +78,7 @@ var (
 			"-mcpu=kryo",
 		},
 		"kryo385": []string{
-			// Use cortex-a53 because kryo385 is not supported in GCC/clang.
+			// Use cortex-a53 because kryo385 is not supported in clang.
 			"-mcpu=cortex-a53",
 		},
 		"exynos-m1": []string{
@@ -86,18 +90,15 @@ var (
 	}
 )
 
-const (
-	arm64GccVersion = "4.9"
-)
-
 func init() {
-	pctx.StaticVariable("arm64GccVersion", arm64GccVersion)
-
-	pctx.SourcePathVariable("Arm64GccRoot",
-		"prebuilts/gcc/${HostPrebuiltTag}/aarch64/aarch64-linux-android-${arm64GccVersion}")
-
 	exportedVars.ExportStringListStaticVariable("Arm64Ldflags", arm64Ldflags)
-	exportedVars.ExportStringListStaticVariable("Arm64Lldflags", arm64Lldflags)
+
+	exportedVars.ExportStringList("Arm64Lldflags", arm64Lldflags)
+	pctx.VariableFunc("Arm64Lldflags", func(ctx android.PackageVarContext) string {
+		maxPageSizeFlag := "-Wl,-z,max-page-size=" + ctx.Config().MaxPageSizeSupported()
+		flags := append(arm64Lldflags, maxPageSizeFlag)
+		return strings.Join(flags, " ")
+	})
 
 	exportedVars.ExportStringListStaticVariable("Arm64Cflags", arm64Cflags)
 	exportedVars.ExportStringListStaticVariable("Arm64Cppflags", arm64Cppflags)
@@ -110,6 +111,7 @@ func init() {
 	exportedVars.ExportStringListStaticVariable("Arm64Armv8ABranchProtCflags", arm64ArchVariantCflags["armv8-a-branchprot"])
 	exportedVars.ExportStringListStaticVariable("Arm64Armv82ACflags", arm64ArchVariantCflags["armv8-2a"])
 	exportedVars.ExportStringListStaticVariable("Arm64Armv82ADotprodCflags", arm64ArchVariantCflags["armv8-2a-dotprod"])
+	exportedVars.ExportStringListStaticVariable("Arm64Armv9ACflags", arm64ArchVariantCflags["armv9-a"])
 
 	exportedVars.ExportStringListStaticVariable("Arm64CortexA53Cflags", arm64CpuVariantCflags["cortex-a53"])
 	exportedVars.ExportStringListStaticVariable("Arm64CortexA55Cflags", arm64CpuVariantCflags["cortex-a55"])
@@ -126,6 +128,7 @@ var (
 		"armv8-a-branchprot": "${config.Arm64Armv8ABranchProtCflags}",
 		"armv8-2a":           "${config.Arm64Armv82ACflags}",
 		"armv8-2a-dotprod":   "${config.Arm64Armv82ADotprodCflags}",
+		"armv9-a":            "${config.Arm64Armv9ACflags}",
 	}
 
 	arm64CpuVariantCflagsVar = map[string]string{
@@ -164,24 +167,12 @@ func (t *toolchainArm64) Name() string {
 	return "arm64"
 }
 
-func (t *toolchainArm64) GccRoot() string {
-	return "${config.Arm64GccRoot}"
-}
-
-func (t *toolchainArm64) GccTriple() string {
-	return "aarch64-linux-android"
-}
-
-func (t *toolchainArm64) GccVersion() string {
-	return arm64GccVersion
-}
-
 func (t *toolchainArm64) IncludeFlags() string {
 	return ""
 }
 
 func (t *toolchainArm64) ClangTriple() string {
-	return t.GccTriple()
+	return "aarch64-linux-android"
 }
 
 func (t *toolchainArm64) Cflags() string {
@@ -214,6 +205,7 @@ func arm64ToolchainFactory(arch android.Arch) Toolchain {
 	case "armv8-a-branchprot":
 	case "armv8-2a":
 	case "armv8-2a-dotprod":
+	case "armv9-a":
 		// Nothing extra for armv8-a/armv8-2a
 	default:
 		panic(fmt.Sprintf("Unknown ARM architecture version: %q", arch.ArchVariant))

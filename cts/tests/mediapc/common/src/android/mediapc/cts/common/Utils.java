@@ -17,21 +17,29 @@
 package android.mediapc.cts.common;
 
 import static android.util.DisplayMetrics.DENSITY_400;
+
 import static org.junit.Assume.assumeTrue;
 
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Rect;
+import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecInfo.VideoCapabilities.PerformancePoint;
+import android.media.MediaFormat;
 import android.os.Build;
 import android.os.SystemProperties;
-import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.WindowManager;
+import android.view.WindowMetrics;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
 
+import java.io.IOException;
+import java.util.List;
 
 /**
  * Test utilities.
@@ -56,33 +64,59 @@ public class Utils {
     // Android T Media performance requires 8 GB min RAM, so setting lower as above
     public static final long MIN_MEMORY_PERF_CLASS_T_MB = 7 * 1024;
 
+    private static final boolean MEETS_AVC_CODEC_PRECONDITIONS;
     static {
         // with a default-media-performance-class that can be configured through a command line
         // argument.
-        android.os.Bundle args = InstrumentationRegistry.getArguments();
-        String mediaPerfClassArg = args.getString(MEDIA_PERF_CLASS_KEY);
-        if (mediaPerfClassArg != null) {
-            Log.d(TAG, "Running the tests with performance class set to " + mediaPerfClassArg);
-            sPc = Integer.parseInt(mediaPerfClassArg);
-        } else {
-            sPc = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.S)
-                    ? Build.VERSION.MEDIA_PERFORMANCE_CLASS
-                    : SystemProperties.getInt("ro.odm.build.media_performance_class", 0);
+        android.os.Bundle args;
+        try {
+            args = InstrumentationRegistry.getArguments();
+        } catch (Exception e) {
+            args = null;
         }
-        Log.d(TAG, "performance class is " + sPc);
+        if (args != null) {
+            String mediaPerfClassArg = args.getString(MEDIA_PERF_CLASS_KEY);
+            if (mediaPerfClassArg != null) {
+                Log.d(TAG, "Running the tests with performance class set to " + mediaPerfClassArg);
+                sPc = Integer.parseInt(mediaPerfClassArg);
+            } else {
+                sPc = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.S)
+                        ? Build.VERSION.MEDIA_PERFORMANCE_CLASS
+                        : SystemProperties.getInt("ro.odm.build.media_performance_class", 0);
+            }
+            Log.d(TAG, "performance class is " + sPc);
+        } else {
+            sPc = 0;
+        }
 
-        Context context = InstrumentationRegistry.getInstrumentation().getContext();
-        DisplayMetrics metrics = new DisplayMetrics();
-        WindowManager windowManager = context.getSystemService(WindowManager.class);
-        windowManager.getDefaultDisplay().getMetrics(metrics);
-        DISPLAY_DPI = metrics.densityDpi;
-        DISPLAY_LONG_PIXELS = Math.max(metrics.widthPixels, metrics.heightPixels);
-        DISPLAY_SHORT_PIXELS = Math.min(metrics.widthPixels, metrics.heightPixels);
+        Context context;
+        try {
+            context = InstrumentationRegistry.getInstrumentation().getContext();
+        } catch (Exception e) {
+            context = null;
+        }
+        // When used from ItsService, context will be null
+        if (context != null) {
+            WindowManager windowManager = context.getSystemService(WindowManager.class);
+            WindowMetrics metrics = windowManager.getMaximumWindowMetrics();
+            Rect displayBounds = metrics.getBounds();
+            int widthPixels = displayBounds.width();
+            int heightPixels = displayBounds.height();
+            DISPLAY_DPI = context.getResources().getConfiguration().densityDpi;
+            DISPLAY_LONG_PIXELS = Math.max(widthPixels, heightPixels);
+            DISPLAY_SHORT_PIXELS = Math.min(widthPixels, heightPixels);
 
-        ActivityManager activityManager = context.getSystemService(ActivityManager.class);
-        ActivityManager.MemoryInfo memoryInfo = new ActivityManager.MemoryInfo();
-        activityManager.getMemoryInfo(memoryInfo);
-        TOTAL_MEMORY_MB = memoryInfo.totalMem / 1024 / 1024;
+            ActivityManager activityManager = context.getSystemService(ActivityManager.class);
+            ActivityManager.MemoryInfo memoryInfo = new ActivityManager.MemoryInfo();
+            activityManager.getMemoryInfo(memoryInfo);
+            TOTAL_MEMORY_MB = memoryInfo.totalMem / 1024 / 1024;
+        } else {
+            DISPLAY_DPI = 0;
+            DISPLAY_LONG_PIXELS = 0;
+            DISPLAY_SHORT_PIXELS = 0;
+            TOTAL_MEMORY_MB = 0;
+        }
+        MEETS_AVC_CODEC_PRECONDITIONS = meetsAvcCodecPreconditions();
     }
 
     /**
@@ -102,10 +136,18 @@ public class Utils {
         return sPc == Build.VERSION_CODES.TIRAMISU;
     }
 
+    public static boolean isBeforeTPerfClass() {
+        return sPc < Build.VERSION_CODES.TIRAMISU;
+    }
+
+    public static boolean isUPerfClass() {
+        return sPc == Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
+    }
+
     /**
      * Latest defined media performance class.
      */
-    private static final int LAST_PERFORMANCE_CLASS = Build.VERSION_CODES.TIRAMISU;
+    private static final int LAST_PERFORMANCE_CLASS = Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
 
     public static boolean isHandheld() {
         // handheld nature is not exposed to package manager, for now
@@ -118,6 +160,70 @@ public class Utils {
                 && !pm.hasSystemFeature(pm.FEATURE_AUTOMOTIVE);
     }
 
+    private static boolean meetsAvcCodecPreconditions(boolean isEncoder) {
+        // Latency tests need the following instances of codecs at 30 fps
+        // 1920x1080 encoder in MediaRecorder for load conditions
+        // 1920x1080 decoder and 1920x1080 encoder for load conditions
+        // 1920x1080 encoder for initialization test
+        // Since there is no way to know if encoder and decoder are supported concurrently at their
+        // maximum load, we will test the above combined requirements are met for both encoder and
+        // decoder (so a minimum of 4 instances required for both encoder and decoder)
+        int minInstancesRequired = 4;
+        int width = 1920;
+        int height = 1080;
+        double fps = 30 /* encoder for media recorder */
+                + 30 /* 1080p decoder for transcoder */
+                + 30 /* 1080p encoder for transcoder */
+                + 30 /* 1080p encoder for latency test */;
+
+        String avcMediaType = MediaFormat.MIMETYPE_VIDEO_AVC;
+        PerformancePoint pp1080p = new PerformancePoint(width, height, (int) fps);
+        MediaCodec codec;
+        try {
+            codec = isEncoder ? MediaCodec.createEncoderByType(avcMediaType) :
+                    MediaCodec.createDecoderByType(avcMediaType);
+        } catch (IOException e) {
+            Log.d(TAG, "Unable to create codec " + e);
+            return false;
+        }
+        MediaCodecInfo info = codec.getCodecInfo();
+        MediaCodecInfo.CodecCapabilities caps = info.getCapabilitiesForType(avcMediaType);
+        List<PerformancePoint> pps =
+                caps.getVideoCapabilities().getSupportedPerformancePoints();
+        if (pps == null || pps.size() == 0) {
+            Log.w(TAG, info.getName() + " doesn't advertise performance points. Assuming codec "
+                    + "meets the requirements");
+            codec.release();
+            return true;
+        }
+        boolean supportsRequiredRate = false;
+        for (PerformancePoint pp : pps) {
+            if (pp.covers(pp1080p)) {
+                supportsRequiredRate = true;
+            }
+        }
+
+        boolean supportsRequiredSize = caps.getVideoCapabilities().isSizeSupported(width, height);
+        boolean supportsRequiredInstances = caps.getMaxSupportedInstances() >= minInstancesRequired;
+        codec.release();
+        Log.d(TAG, info.getName() + " supports required FPS : " + supportsRequiredRate
+                + ", supports required size : " + supportsRequiredSize
+                + ", supports required instances : " + supportsRequiredInstances);
+        return supportsRequiredRate && supportsRequiredSize && supportsRequiredInstances;
+    }
+
+    private static boolean meetsAvcCodecPreconditions() {
+        return meetsAvcCodecPreconditions(/* isEncoder */ true)
+                && meetsAvcCodecPreconditions(/* isEncoder */ false);
+    }
+
+    private static boolean meetsMemoryPrecondition() {
+        if (isBeforeTPerfClass()) {
+            return TOTAL_MEMORY_MB >= MIN_MEMORY_PERF_CLASS_CANDIDATE_MB;
+        } else {
+            return TOTAL_MEMORY_MB >= MIN_MEMORY_PERF_CLASS_T_MB;
+        }
+    }
 
     public static int getPerfClass() {
         return sPc;
@@ -135,11 +241,12 @@ public class Utils {
 
         // If device doesn't advertise performance class, check if this can be ruled out as a
         // candidate for performance class tests.
-        if (!isHandheld() ||
-                TOTAL_MEMORY_MB < MIN_MEMORY_PERF_CLASS_CANDIDATE_MB ||
-                DISPLAY_DPI < MIN_DISPLAY_CANDIDATE_DPI ||
-                DISPLAY_LONG_PIXELS < MIN_DISPLAY_LONG_CANDIDATE_PIXELS ||
-                DISPLAY_SHORT_PIXELS < MIN_DISPLAY_SHORT_CANDIDATE_PIXELS) {
+        if (!isHandheld()
+                || !meetsMemoryPrecondition()
+                || DISPLAY_DPI < MIN_DISPLAY_CANDIDATE_DPI
+                || DISPLAY_LONG_PIXELS < MIN_DISPLAY_LONG_CANDIDATE_PIXELS
+                || DISPLAY_SHORT_PIXELS < MIN_DISPLAY_SHORT_CANDIDATE_PIXELS
+                || !MEETS_AVC_CODEC_PRECONDITIONS) {
             return false;
         }
         return true;

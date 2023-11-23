@@ -14,7 +14,8 @@
 
 #![allow(missing_docs)]
 #![no_main]
-#[macro_use] extern crate libfuzzer_sys;
+
+use libfuzzer_sys::fuzz_target;
 
 fn heap_oob() {
     let xs = vec![0, 1, 2, 3];

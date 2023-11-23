@@ -34,6 +34,10 @@
 #include "SDE.h"
 #include "FrameID.h"
 
+// ANDROID-CHANGED: Need to sent metrics before doExit
+#include "timing.h"
+
+
 static char *versionName = "Java Debug Wire Protocol (Reference Implementation)";
 static int majorVersion = 1;  /* JDWP major version */
 static int minorVersion = 8;  /* JDWP minor version */
@@ -613,6 +617,10 @@ resume(PacketInputStream *in, PacketOutputStream *out)
 static jboolean
 doExit(PacketInputStream *in, PacketOutputStream *out)
 {
+    // ANDROID-CHANGED: We are about to exit(). Send ART cmd processing time,
+    // if there are any remaining.
+    timings_flush();
+
     jint exitCode;
 
     exitCode = inStream_readInt(in);

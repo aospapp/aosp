@@ -39,7 +39,7 @@ import java.util.Base64;
  */
 @SmallTest
 public class WifiConfigurationProviderTest {
-    private static final String TEST_SSID = "test_ssid";
+    private static final String TEST_SSID = "\"test_ssid\"";
     private static final boolean TEST_HIDDEN = true;
     private static final String TEST_PAC_URL = "test.pac.url";
     private static final String TEST_PROXY_BYPASS_HOST = "testProxyBypassHost";

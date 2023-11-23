@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,16 +6,38 @@
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 pub mod aarch64;
 pub mod caps;
+
+#[cfg(all(
+    unix,
+    any(target_arch = "arm", target_arch = "aarch64"),
+    feature = "gunyah"
+))]
+pub mod gunyah;
+#[cfg(all(windows, feature = "haxm"))]
+pub mod haxm;
+#[cfg(unix)]
 pub mod kvm;
+#[cfg(all(windows, feature = "whpx"))]
+pub mod whpx;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub mod x86_64;
 
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(all(unix, feature = "geniezone"))]
+pub mod geniezone;
+
 use std::os::raw::c_int;
 
-use serde::{Deserialize, Serialize};
-
-use base::{AsRawDescriptor, Event, MappedRegion, Protection, Result, SafeDescriptor};
-use vm_memory::{GuestAddress, GuestMemory};
+use base::AsRawDescriptor;
+use base::Event;
+use base::MappedRegion;
+use base::Protection;
+use base::Result;
+use base::SafeDescriptor;
+use serde::Deserialize;
+use serde::Serialize;
+use vm_memory::GuestAddress;
+use vm_memory::GuestMemory;
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 pub use crate::aarch64::*;
@@ -50,6 +72,11 @@ pub trait Vm: Send {
     /// on the particular `Vm` instance. This method is encouraged because it more accurately
     /// reflects the usable capabilities.
     fn check_capability(&self, c: VmCap) -> bool;
+
+    /// Enable the VM capabilities.
+    fn enable_capability(&self, _capability: VmCap, _flags: u32) -> Result<bool> {
+        Err(std::io::Error::from(std::io::ErrorKind::Unsupported).into())
+    }
 
     /// Get the guest physical address size in bits.
     fn get_guest_phys_addr_bits(&self) -> u8;
@@ -159,6 +186,25 @@ pub trait Vm: Send {
 
     /// Remove `size`-byte mapping starting at `offset`.
     fn remove_mapping(&mut self, slot: u32, offset: usize, size: usize) -> Result<()>;
+
+    /// Frees the given segment of guest memory to be reclaimed by the host OS.
+    /// This is intended for use with virtio-balloon, where a guest driver determines
+    /// unused ranges and requests they be freed. Use without the guest's knowledge is sure
+    /// to break something. As per virtio-balloon spec, the given address and size
+    /// are intended to be page-aligned.
+    ///
+    /// # Arguments
+    /// * `guest_address` - Address in the guest's "physical" memory to begin the unmapping
+    /// * `size` - The size of the region to unmap, in bytes
+    fn handle_inflate(&mut self, guest_address: GuestAddress, size: u64) -> Result<()>;
+
+    /// Reallocates memory and maps it to provide to the guest. This is intended to be used
+    /// exclusively in tandem with `handle_inflate`, and will return an `Err` Result otherwise.
+    ///
+    /// # Arguments
+    /// * `guest_address` - Address in the guest's "physical" memory to begin the mapping
+    /// * `size` - The size of the region to map, in bytes
+    fn handle_deflate(&mut self, guest_address: GuestAddress, size: u64) -> Result<()>;
 }
 
 /// A unique fingerprint for a particular `VcpuRunHandle`, used in `Vcpu` impls to ensure the
@@ -188,7 +234,8 @@ impl VcpuRunHandle {
     /// `drop_fn`.
     pub fn new(drop_fn: fn()) -> Self {
         // Creates a probably unique number with a hash of the current thread id and epoch time.
-        use std::hash::{Hash, Hasher};
+        use std::hash::Hash;
+        use std::hash::Hasher;
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         std::time::Instant::now().hash(&mut hasher);
         std::thread::current().id().hash(&mut hasher);
@@ -209,6 +256,26 @@ impl Drop for VcpuRunHandle {
     fn drop(&mut self) {
         (self.drop_fn)();
     }
+}
+
+/// Operation for Io and Mmio
+#[derive(Copy, Clone, Debug)]
+pub enum IoOperation {
+    Read,
+    Write {
+        /// Data to be written.
+        ///
+        /// For 64 bit architecture, Mmio and Io only work with at most 8 bytes of data.
+        data: [u8; 8],
+    },
+}
+
+/// Parameters describing an MMIO or PIO from the guest.
+#[derive(Copy, Clone, Debug)]
+pub struct IoParams {
+    pub address: u64,
+    pub size: usize,
+    pub operation: IoOperation,
 }
 
 /// A virtual CPU holding a virtualized hardware thread's state, such as registers and interrupt
@@ -239,7 +306,7 @@ pub trait Vcpu: downcast_rs::DowncastSync {
     /// Note that the state of the VCPU and associated VM must be setup first for this to do
     /// anything useful. The given `run_handle` must be the same as the one returned by
     /// `take_run_handle` for this `Vcpu`.
-    fn run(&self, run_handle: &VcpuRunHandle) -> Result<VcpuExit>;
+    fn run(&mut self, run_handle: &VcpuRunHandle) -> Result<VcpuExit>;
 
     /// Returns the vcpu id.
     fn id(&self) -> usize;
@@ -256,11 +323,48 @@ pub trait Vcpu: downcast_rs::DowncastSync {
     /// signal-safe way when called.
     fn set_local_immediate_exit_fn(&self) -> extern "C" fn();
 
-    /// Sets the data received by a mmio read, ioport in, or hypercall instruction.
+    /// Handles an incoming MMIO request from the guest.
     ///
-    /// This function should be called after `Vcpu::run` returns an `VcpuExit::IoIn`,
-    /// `VcpuExit::MmioRead`, or 'VcpuExit::HypervHcall`.
-    fn set_data(&self, data: &[u8]) -> Result<()>;
+    /// This function should be called after `Vcpu::run` returns `VcpuExit::Mmio`, and in the same
+    /// thread as run().
+    ///
+    /// Once called, it will determine whether a MMIO read or MMIO write was the reason for the MMIO
+    /// exit, call `handle_fn` with the respective IoParams to perform the MMIO read or write, and
+    /// set the return data in the vcpu so that the vcpu can resume running.
+    fn handle_mmio(&self, handle_fn: &mut dyn FnMut(IoParams) -> Option<[u8; 8]>) -> Result<()>;
+
+    /// Handles an incoming PIO from the guest.
+    ///
+    /// This function should be called after `Vcpu::run` returns `VcpuExit::Io`, and in the same
+    /// thread as run().
+    ///
+    /// Once called, it will determine whether an input or output was the reason for the Io exit,
+    /// call `handle_fn` with the respective IoParams to perform the input/output operation, and set
+    /// the return data in the vcpu so that the vcpu can resume running.
+    fn handle_io(&self, handle_fn: &mut dyn FnMut(IoParams) -> Option<[u8; 8]>) -> Result<()>;
+
+    /// Handles the HYPERV_HYPERCALL exit from a vcpu.
+    ///
+    /// This function should be called after `Vcpu::run` returns `VcpuExit::HypervHcall`, and in the
+    /// same thread as run.
+    ///
+    /// Once called, it will parse the appropriate input parameters to the provided function to
+    /// handle the hyperv call, and then set the return data into the vcpu so it can resume running.
+    fn handle_hyperv_hypercall(&self, func: &mut dyn FnMut(HypervHypercall) -> u64) -> Result<()>;
+
+    /// Handles a RDMSR exit from the guest.
+    ///
+    /// This function should be called after `Vcpu::run` returns `VcpuExit::RdMsr`,
+    /// and in the same thread as run.
+    ///
+    /// It will put `data` into the guest buffer and return.
+    fn handle_rdmsr(&self, data: u64) -> Result<()>;
+
+    /// Handles a WRMSR exit from the guest by removing any error indication for the operation.
+    ///
+    /// This function should be called after `Vcpu::run` returns `VcpuExit::WrMsr`,
+    /// and in the same thread as run.
+    fn handle_wrmsr(&self);
 
     /// Signals to the hypervisor that this guest is being paused by userspace.  Only works on Vms
     /// that support `VmCap::PvClockSuspend`.
@@ -291,7 +395,7 @@ pub enum IoEventAddress {
 }
 
 /// Used in `Vm::register_ioevent` to indicate a size and optionally value to match.
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Datamatch {
     AnyLength,
     U8(Option<u8>),
@@ -301,49 +405,18 @@ pub enum Datamatch {
 }
 
 /// A reason why a VCPU exited. One of these returns every time `Vcpu::run` is called.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum VcpuExit {
-    /// An out port instruction was run on the given port with the given data.
-    IoOut {
-        port: u16,
-        size: usize,
-        data: [u8; 8],
-    },
-    /// An in port instruction was run on the given port.
-    ///
-    /// The data that the instruction receives should be set with `set_data` before `Vcpu::run` is
-    /// called again.
-    IoIn {
-        port: u16,
-        size: usize,
-    },
-    /// A read instruction was run against the given MMIO address.
-    ///
-    /// The data that the instruction receives should be set with `set_data` before `Vcpu::run` is
-    /// called again.
-    MmioRead {
-        address: u64,
-        size: usize,
-    },
-    /// A write instruction was run against the given MMIO address with the given data.
-    MmioWrite {
-        address: u64,
-        size: usize,
-        data: [u8; 8],
-    },
+    /// An io instruction needs to be emulated.
+    /// vcpu handle_io should be called to handle the io operation
+    Io,
+    /// A mmio instruction needs to be emulated.
+    /// vcpu handle_mmio should be called to handle the mmio operation
+    Mmio,
     IoapicEoi {
         vector: u8,
     },
-    HypervSynic {
-        msr: u32,
-        control: u64,
-        evt_page: u64,
-        msg_page: u64,
-    },
-    HypervHcall {
-        input: u64,
-        params: [u64; 2],
-    },
+    HypervHypercall,
     Unknown,
     Exception,
     Hypercall,
@@ -379,10 +452,48 @@ pub enum VcpuExit {
         index: u32,
         data: u64,
     },
+    /// An invalid vcpu register was set while running.
+    InvalidVpRegister,
+    /// incorrect setup for vcpu requiring an unsupported feature
+    UnsupportedFeature,
+    /// vcpu run was user cancelled
+    Canceled,
+    /// an unrecoverable exception was encountered (different from Exception)
+    UnrecoverableException,
+    /// vcpu stopped due to an msr access.
+    MsrAccess,
+    /// vcpu stopped due to a cpuid request.
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    Cpuid {
+        entry: CpuIdEntry,
+    },
+    /// vcpu stopped due to calling rdtsc
+    RdTsc,
+    /// vcpu stopped for an apic smi trap
+    ApicSmiTrap,
+    /// vcpu stopped due to an apic trap
+    ApicInitSipiTrap,
+    /// vcpu stoppted due to bus lock
+    BusLock,
+}
+
+/// A hypercall with parameters being made from the guest.
+#[derive(Debug)]
+pub enum HypervHypercall {
+    HypervSynic {
+        msr: u32,
+        control: u64,
+        evt_page: u64,
+        msg_page: u64,
+    },
+    HypervHcall {
+        input: u64,
+        params: [u64; 2],
+    },
 }
 
 /// A device type to create with `Vm.create_device`.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DeviceKind {
     /// VFIO device for direct access to devices from userspace
     Vfio,
@@ -449,14 +560,62 @@ pub enum MPState {
 }
 
 /// Whether the VM should be run in protected mode or not.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum ProtectionType {
     /// The VM should be run in the unprotected mode, where the host has access to its memory.
     Unprotected,
     /// The VM should be run in protected mode, so the host cannot access its memory directly. It
     /// should be booted via the protected VM firmware, so that it can access its secrets.
     Protected,
+    /// The VM should be run in protected mode, so the host cannot access its memory directly. It
+    /// should be booted via a custom VM firmware, useful for debugging and testing.
+    ProtectedWithCustomFirmware,
     /// The VM should be run in protected mode, but booted directly without pVM firmware. The host
     /// will still be unable to access the VM memory, but it won't be given any secrets.
     ProtectedWithoutFirmware,
+    /// The VM should be run in unprotected mode, but with the same memory layout as protected mode,
+    /// protected VM firmware loaded, and simulating protected mode as much as possible. This is
+    /// useful for debugging the protected VM firmware and other protected mode issues.
+    UnprotectedWithFirmware,
+}
+
+impl ProtectionType {
+    /// Returns whether the hypervisor will prevent us from accessing the VM's memory.
+    pub fn isolates_memory(&self) -> bool {
+        matches!(
+            self,
+            Self::Protected | Self::ProtectedWithCustomFirmware | Self::ProtectedWithoutFirmware
+        )
+    }
+
+    /// Returns whether the VMM needs to load the pVM firmware.
+    pub fn loads_firmware(&self) -> bool {
+        matches!(
+            self,
+            Self::UnprotectedWithFirmware | Self::ProtectedWithCustomFirmware
+        )
+    }
+
+    /// Returns whether the VM runs a pVM firmware.
+    pub fn runs_firmware(&self) -> bool {
+        self.loads_firmware() || matches!(self, Self::Protected)
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Config {
+    #[cfg(target_arch = "aarch64")]
+    /// enable the Memory Tagging Extension in the guest
+    pub mte: bool,
+    pub protection_type: ProtectionType,
+}
+
+impl Default for Config {
+    fn default() -> Config {
+        Config {
+            #[cfg(target_arch = "aarch64")]
+            mte: false,
+            protection_type: ProtectionType::Unprotected,
+        }
+    }
 }

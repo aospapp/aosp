@@ -1,0 +1,50 @@
+From bc2a97ef4b165f7a432cc9cf8d5714b94e120051 Mon Sep 17 00:00:00 2001
+From: Edward Liaw <edliaw@google.com>
+Date: Tue, 10 May 2022 18:06:01 +0000
+Subject: [PATCH 22/24] userfaultfd: infinite loop in faulting_process
+
+The local variables steps and signalled were being reset to 1 and 0
+respectively after every jump back to sigsetjmp by siglongjmp in the
+signal handler. The test was incrementing them and expecting them to
+retain their incremented values. The documentation for siglongjmp says:
+
+All accessible objects have values as of the time sigsetjmp() was
+called, except that the values of objects of automatic storage duration
+which are local to the function containing the invocation of the
+corresponding sigsetjmp() which do not have volatile-qualified type and
+which are changed between the sigsetjmp() invocation and siglongjmp()
+call are indeterminate.
+
+Tagging steps and signalled with volatile enabled the test to pass.
+
+Bug: 232026677
+Signed-off-by: Edward Liaw <edliaw@google.com>
+---
+ tools/testing/selftests/vm/userfaultfd.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/tools/testing/selftests/vm/userfaultfd.c b/tools/testing/selftests/vm/userfaultfd.c
+index e7a79f120cbde..b37642be42054 100644
+--- a/tools/testing/selftests/vm/userfaultfd.c
++++ b/tools/testing/selftests/vm/userfaultfd.c
+@@ -944,7 +944,7 @@ static int faulting_process(int signal_test)
+ 	unsigned long split_nr_pages;
+ 	unsigned long lastnr;
+ 	struct sigaction act;
+-	unsigned long signalled = 0;
++	volatile unsigned long signalled = 0;
+ 
+ 	if (test_type != TEST_HUGETLB)
+ 		split_nr_pages = (nr_pages + 1) / 2;
+@@ -962,7 +962,7 @@ static int faulting_process(int signal_test)
+ 	}
+ 
+ 	for (nr = 0; nr < split_nr_pages; nr++) {
+-		int steps = 1;
++		volatile int steps = 1;
+ 		unsigned long offset = nr * page_size;
+ 
+ 		if (signal_test) {
+-- 
+2.36.0.550.gb090851708-goog
+

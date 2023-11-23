@@ -18,6 +18,10 @@ package com.android.tv.settings;
 
 import android.app.Application;
 
+import androidx.annotation.Nullable;
+
+import com.android.tv.settings.device.eco.EnergyModesStatsLogJobService;
+
 /**
  * Application class that instantiates system sound player singleton so sound effects are only
  * loaded once and shared between components.
@@ -28,9 +32,14 @@ public class TvSettingsApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
-        mSystemSoundsPlayer = new SystemSoundsPlayer(this);
+        if (getResources().getBoolean(R.bool.config_enableSystemSounds)) {
+            mSystemSoundsPlayer = new SystemSoundsPlayer(this);
+        }
+
+        EnergyModesStatsLogJobService.scheduleEnergyModesStatsLog(this);
     }
 
+    @Nullable
     public SystemSoundsPlayer getSystemSoundsPlayer() {
         return mSystemSoundsPlayer;
     }

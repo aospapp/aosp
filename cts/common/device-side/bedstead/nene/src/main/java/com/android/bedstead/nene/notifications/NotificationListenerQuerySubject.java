@@ -59,10 +59,10 @@ public final class NotificationListenerQuerySubject extends Subject {
      */
     public void wasPosted() {
         if (mActual.poll() == null) {
-            // TODO(b/197315353): Add non-matching notifications
             failWithoutActual(
                     Fact.simpleFact("Expected notification to have been posted matching: "
-                            + mActual + " but it was not posted."));
+                            + mActual + " but it was not posted. Did see: "
+                            + mActual.nonMatchingNotifications()));
         }
     }
 

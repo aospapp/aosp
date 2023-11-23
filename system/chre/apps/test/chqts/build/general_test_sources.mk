@@ -4,6 +4,7 @@
 GENERAL_TEST_SRC_FILES = \
     app.cc \
     basic_audio_test.cc \
+    basic_ble_test.cc \
     basic_flush_async_test.cc \
     basic_gnss_test.cc \
     basic_sensor_test_base.cc \

@@ -22,7 +22,7 @@ import dagger.Provides;
 import dagger.internal.codegen.compileroption.CompilerOptions;
 import dagger.internal.codegen.validation.CompositeBindingGraphPlugin;
 import dagger.internal.codegen.validation.Validation;
-import dagger.spi.BindingGraphPlugin;
+import dagger.spi.model.BindingGraphPlugin;
 
 /** Binds the set of {@link BindingGraphPlugin}s used to implement Dagger validation. */
 @Module
@@ -42,7 +42,8 @@ public interface BindingGraphValidationModule {
       MissingBindingValidator validation7,
       NullableBindingValidator validation8,
       ProvisionDependencyOnProducerBindingValidator validation9,
-      SubcomponentFactoryMethodValidator validation10) {
+      SetMultibindingValidator validation10,
+      SubcomponentFactoryMethodValidator validation11) {
     ImmutableSet<BindingGraphPlugin> plugins = ImmutableSet.of(
         validation1,
         validation2,
@@ -53,7 +54,8 @@ public interface BindingGraphValidationModule {
         validation7,
         validation8,
         validation9,
-        validation10);
+        validation10,
+        validation11);
     if (compilerOptions.experimentalDaggerErrorMessages()) {
       return ImmutableSet.of(factory.create(plugins, "Dagger/Validation"));
     } else {

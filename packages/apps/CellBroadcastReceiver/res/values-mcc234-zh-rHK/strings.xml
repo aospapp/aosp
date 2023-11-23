@@ -33,7 +33,7 @@
     <string name="sms_cb_settings" msgid="4187131985831792308">"緊急警示"</string>
     <string name="enable_alerts_master_toggle_summary" msgid="805446672915814777">"接收緊急警示通知"</string>
     <string name="enable_alert_speech_summary" msgid="5021926525240750702">"使用文字轉語音功能說出緊急警示訊息"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="1972978578760513449">"您目前有接收緊急警示，要繼續接收嗎？"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="1972978578760513449">"你目前有接收緊急警示，要繼續接收嗎？"</string>
     <string name="emergency_alert_settings_title_watches" msgid="5299419351642118203">"緊急警示"</string>
     <string name="notification_cb_settings_changed_text" msgid="6861845802821634203">"輕按即可查看緊急警示設定"</string>
 </resources>

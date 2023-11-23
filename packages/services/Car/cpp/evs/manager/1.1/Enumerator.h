@@ -38,6 +38,9 @@
 
 namespace android::automotive::evs::V1_1::implementation {
 
+using ::android::hardware::automotive::evs::V1_1::IEvsEnumerator;
+using ::android::hardware::automotive::evs::V1_1::IEvsUltrasonicsArray;
+
 // Passthrough to remove static cling and allow for mocking.
 class ProdServiceFactory : public ServiceFactory {
 public:

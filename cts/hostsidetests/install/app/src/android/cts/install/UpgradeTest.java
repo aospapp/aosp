@@ -16,6 +16,8 @@
 
 package android.cts.install;
 
+import static com.android.cts.install.lib.PackageInstallerSessionInfoSubject.assertThat;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import com.android.cts.install.lib.Install;
@@ -105,7 +107,7 @@ public final class UpgradeTest {
     /** Confirms versions after staged samegrades applied. */
     @Test
     public void assert_postReboot_phase() throws Exception {
-        assertThat(mSessionRule.retrieveSessionInfo().isStagedSessionApplied()).isTrue();
+        assertThat(mSessionRule.retrieveSessionInfo()).isStagedSessionApplied();
         mInstallRule.assertPackageVersion(mInstallType, VERSION_CODE_UPGRADE);
     }
 

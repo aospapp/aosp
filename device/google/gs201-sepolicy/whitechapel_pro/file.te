@@ -1,0 +1,101 @@
+# Data
+type rild_vendor_data_file, file_type, data_file_type;
+type vendor_log_file, file_type, data_file_type;
+type vendor_rfsd_log_file, file_type, data_file_type;
+type modem_stat_data_file, file_type, data_file_type;
+type vendor_slog_file, file_type, data_file_type;
+type updated_wifi_firmware_data_file, file_type, data_file_type;
+type vendor_media_data_file, file_type, data_file_type;
+type vendor_misc_data_file, file_type, data_file_type;
+type sensor_debug_data_file, file_type, data_file_type;
+type sensor_reg_data_file, file_type, data_file_type;
+type per_boot_file, file_type, data_file_type, core_data_file_type;
+type uwb_vendor_data_file, file_type, data_file_type, app_data_file_type;
+type uwb_data_vendor, file_type, data_file_type;
+type powerstats_vendor_data_file, file_type, data_file_type;
+type vendor_gps_file, file_type, data_file_type;
+userdebug_or_eng(`
+  typeattribute vendor_gps_file mlstrustedobject;
+  typeattribute vendor_slog_file mlstrustedobject;
+')
+
+# Exynos Firmware
+type vendor_fw_file, vendor_file_type, file_type;
+
+# Trusty
+type sysfs_trusty, sysfs_type, fs_type;
+
+# EM Profile
+type sysfs_em_profile, sysfs_type, fs_type;
+
+# sysfs
+type sysfs_chosen, sysfs_type, fs_type;
+type sysfs_ota, sysfs_type, fs_type;
+type bootdevice_sysdev, dev_type;
+type sysfs_fabric, sysfs_type, fs_type;
+type sysfs_acpm_stats, sysfs_type, fs_type;
+type sysfs_wifi, sysfs_type, fs_type;
+type sysfs_exynos_pcie_stats, sysfs_type, fs_type;
+type sysfs_bcmdhd, sysfs_type, fs_type;
+type sysfs_chargelevel, sysfs_type, fs_type;
+type sysfs_mfc, sysfs_type, fs_type;
+type sysfs_camera, sysfs_type, fs_type;
+type sysfs_write_leds, sysfs_type, fs_type;
+type sysfs_pca, sysfs_type, fs_type;
+type sysfs_ptracker, sysfs_type, fs_type;
+# debugfs
+type vendor_maxfg_debugfs, fs_type, debugfs_type;
+type vendor_pm_genpd_debugfs, fs_type, debugfs_type;
+type vendor_regmap_debugfs, fs_type, debugfs_type;
+type vendor_usb_debugfs, fs_type, debugfs_type;
+type vendor_charger_debugfs, fs_type, debugfs_type;
+type vendor_votable_debugfs, fs_type, debugfs_type;
+type vendor_battery_debugfs, fs_type, debugfs_type;
+
+# vendor extra images
+type modem_img_file, contextmount_type, file_type, vendor_file_type;
+allow modem_img_file self:filesystem associate;
+
+# persist
+type persist_battery_file, file_type, vendor_persist_type;
+type persist_camera_file, file_type, vendor_persist_type;
+type persist_modem_file, file_type, vendor_persist_type;
+type persist_sensor_reg_file, file_type, vendor_persist_type;
+type persist_ss_file, file_type, vendor_persist_type;
+type persist_uwb_file, file_type, vendor_persist_type;
+type persist_display_file, file_type, vendor_persist_type;
+
+# CHRE
+type chre_socket, file_type;
+
+# Storage Health HAL
+type proc_f2fs, proc_type, fs_type;
+
+# Vendor tools
+type vendor_dumpsys, vendor_file_type, file_type;
+
+# Modem
+type modem_efs_file, file_type;
+type modem_userdata_file, file_type;
+type sysfs_modem, sysfs_type, fs_type;
+
+# SecureElement
+type sysfs_st33spi, sysfs_type, fs_type;
+typeattribute sysfs_st33spi mlstrustedobject;
+
+# Vendor sched files
+userdebug_or_eng(`
+    typeattribute proc_vendor_sched mlstrustedobject;
+')
+
+# SJTAG
+type sysfs_sjtag, fs_type, sysfs_type;
+userdebug_or_eng(`
+    typeattribute sysfs_sjtag mlstrustedobject;
+')
+
+# USB-C throttling stats
+type sysfs_usbc_throttling_stats, sysfs_type, fs_type;
+
+# WLC
+type sysfs_wlc, sysfs_type, fs_type;

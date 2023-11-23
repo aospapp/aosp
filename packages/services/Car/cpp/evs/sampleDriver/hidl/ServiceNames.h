@@ -18,4 +18,4 @@
 
 const static char kEnumeratorServiceName[] = "hw/1";
 
-#endif // ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_SERVICENAMES_H
+#endif  // ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_1_SERVICENAMES_H

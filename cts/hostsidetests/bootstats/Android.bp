@@ -21,13 +21,15 @@ java_test_host {
     defaults: ["cts_defaults"],
     // Only compile source java files in this apk.
     srcs: ["src/**/*.java"],
-    static_libs: ["framework-protos"],
+    static_libs: [
+        "framework-protos",
+        "platformprotos",
+    ],
     libs: [
         "cts-tradefed",
         "tradefed",
         "compatibility-host-util",
         "libprotobuf-java-full",
-        "platformprotos",
     ],
     // tag this module as a cts test artifact
     test_suites: [

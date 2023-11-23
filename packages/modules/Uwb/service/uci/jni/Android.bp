@@ -8,15 +8,17 @@ rust_defaults {
     lints: "android",
     clippy_lints: "android",
     min_sdk_version: "Tiramisu",
-    srcs: ["rust/lib.rs"],
+    srcs: ["src/lib.rs"],
     rustlibs: [
-        "libjni",
         "libbinder_rs",
+        "libjni",
+        "liblazy_static",
         "liblog_rust",
         "liblogger",
         "libnum_traits",
+        "libthiserror",
+        "libtokio",
         "libuwb_uci_packets",
-        "libuwb_uci_rust",
     ],
     prefer_rlib: true,
     apex_available: [
@@ -28,11 +30,22 @@ rust_defaults {
 rust_ffi_shared {
     name: "libuwb_uci_jni_rust",
     defaults: ["libuwb_uci_jni_rust_defaults"],
+    rustlibs: [
+        "libuci_hal_android",
+        "libuwb_core",
+    ],
+    sanitize: {
+        hwaddress: false,
+    },
 }
 
 rust_test {
     name: "libuwb_uci_jni_rust_tests",
     defaults: ["libuwb_uci_jni_rust_defaults"],
+    rustlibs: [
+        "libuci_hal_android_with_mock",
+        "libuwb_core_with_mock",
+    ],
     target: {
         android: {
             test_suites: [
@@ -56,6 +69,9 @@ rust_test {
             ],
         },
     },
+    test_options: {
+        unit_test: true,
+    },
     // Support multilib variants (using different suffix per sub-architecture), which is needed on
     // build targets with secondary architectures, as the MTS test suite packaging logic flattens
     // all test artifacts into a single `testcases` directory.
@@ -65,7 +81,7 @@ rust_test {
             suffix: "32",
         },
         lib64: {
-            suffix: "",
+            suffix: "64",
         },
     },
     auto_gen_config: true,

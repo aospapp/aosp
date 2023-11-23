@@ -14,7 +14,7 @@
 
 include($ENV{PW_ROOT}/pw_build/pigweed.cmake)
 
-pw_add_module_library(pw_stream
+pw_add_library(pw_stream STATIC
   HEADERS
     public/pw_stream/memory_stream.h
     public/pw_stream/null_stream.h
@@ -28,15 +28,15 @@ pw_add_module_library(pw_stream
     pw_assert
     pw_bytes
     pw_polyfill
-    pw_polyfill.span
     pw_result
+    pw_span
     pw_status
 )
 if(Zephyr_FOUND AND CONFIG_PIGWEED_STREAM)
   zephyr_link_libraries(pw_stream)
 endif()
 
-pw_add_module_library(pw_stream.socket_stream
+pw_add_library(pw_stream.socket_stream STATIC
   HEADERS
     public/pw_stream/socket_stream.h
   PUBLIC_INCLUDES
@@ -47,9 +47,10 @@ pw_add_module_library(pw_stream.socket_stream
     socket_stream.cc
   PRIVATE_DEPS
     pw_log
+    pw_string
 )
 
-pw_add_module_library(pw_stream.sys_io_stream
+pw_add_library(pw_stream.sys_io_stream INTERFACE
   HEADERS
     public/pw_stream/sys_io_stream.h
   PUBLIC_INCLUDES
@@ -59,7 +60,7 @@ pw_add_module_library(pw_stream.sys_io_stream
     pw_sys_io
 )
 
-pw_add_module_library(pw_stream.std_file_stream
+pw_add_library(pw_stream.std_file_stream STATIC
   HEADERS
     public/pw_stream/std_file_stream.h
   PUBLIC_INCLUDES
@@ -70,7 +71,7 @@ pw_add_module_library(pw_stream.std_file_stream
     std_file_stream.cc
 )
 
-pw_add_module_library(pw_stream.interval_reader
+pw_add_library(pw_stream.interval_reader STATIC
   HEADERS
     public/pw_stream/interval_reader.h
   PUBLIC_INCLUDES
@@ -86,7 +87,17 @@ pw_add_module_library(pw_stream.interval_reader
 pw_add_test(pw_stream.memory_stream_test
   SOURCES
     memory_stream_test.cc
-  DEPS
+  PRIVATE_DEPS
+    pw_stream
+  GROUPS
+    modules
+    pw_stream
+)
+
+pw_add_test(pw_stream.null_stream_test
+  SOURCES
+    null_stream_test.cc
+  PRIVATE_DEPS
     pw_stream
   GROUPS
     modules
@@ -96,7 +107,7 @@ pw_add_test(pw_stream.memory_stream_test
 pw_add_test(pw_stream.seek_test
   SOURCES
     seek_test.cc
-  DEPS
+  PRIVATE_DEPS
     pw_stream
   GROUPS
     modules
@@ -106,7 +117,7 @@ pw_add_test(pw_stream.seek_test
 pw_add_test(pw_stream.stream_test
   SOURCES
     stream_test.cc
-  DEPS
+  PRIVATE_DEPS
     pw_stream
   GROUPS
     modules
@@ -116,7 +127,7 @@ pw_add_test(pw_stream.stream_test
 pw_add_test(pw_stream.interval_reader_test
   SOURCES
     interval_reader_test.cc
-  DEPS
+  PRIVATE_DEPS
     pw_stream.interval_reader
   GROUPS
     modules

@@ -81,6 +81,10 @@ public class McpServiceTest {
 
     @After
     public void tearDown() throws Exception {
+        if (mMcpService == null) {
+            return;
+        }
+
         doReturn(false).when(mAdapterService).isStartedProfile(anyString());
         TestUtils.stopService(mServiceRule, McpService.class);
         mMcpService = McpService.getMcpService();
@@ -131,5 +135,10 @@ public class McpServiceTest {
                 Assert.assertTrue(mMcpService.start());
             }
         });
+    }
+
+    @Test
+    public void testDumpDoesNotCrash() {
+        mMcpService.dump(new StringBuilder());
     }
 }

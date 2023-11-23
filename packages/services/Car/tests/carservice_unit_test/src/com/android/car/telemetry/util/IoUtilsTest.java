@@ -19,7 +19,7 @@ package com.android.car.telemetry.util;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import static org.testng.Assert.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import android.car.telemetry.TelemetryProto;
 import android.os.PersistableBundle;

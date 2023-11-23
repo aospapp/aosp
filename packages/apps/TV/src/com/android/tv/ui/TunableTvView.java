@@ -19,6 +19,7 @@ package com.android.tv.ui;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.TimeInterpolator;
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -28,12 +29,14 @@ import android.graphics.PorterDuff;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.media.PlaybackParams;
+import android.media.tv.AitInfo;
 import android.media.tv.TvContentRating;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
 import android.media.tv.TvTrackInfo;
 import android.media.tv.TvView;
 import android.media.tv.TvView.OnUnhandledInputEventListener;
+import android.media.tv.interactive.TvInteractiveAppView;
 import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -194,6 +197,7 @@ public class TunableTvView extends FrameLayout implements StreamInfo, TunableTvV
     private final InputSessionManager mInputSessionManager;
 
     private int mChannelSignalStrength;
+    private TvInteractiveAppView mTvIAppView;
 
     private final TvInputCallbackCompat mCallback =
             new TvInputCallbackCompat() {
@@ -413,6 +417,25 @@ public class TunableTvView extends FrameLayout implements StreamInfo, TunableTvV
                         mOnTuneListener.onChannelSignalStrength();
                     }
                 }
+
+                @TargetApi(Build.VERSION_CODES.TIRAMISU)
+                @Override
+                public void onAitInfoUpdated(String inputId, AitInfo aitInfo) {
+                    if (!TvFeatures.HAS_TIAF.isEnabled(getContext())) {
+                        return;
+                    }
+                    if (DEBUG) {
+                        Log.d(TAG,
+                                "onAitInfoUpdated: {inputId="
+                                + inputId
+                                + ", AitInfo=("
+                                + aitInfo
+                                +")}");
+                    }
+                    if (mOnTuneListener != null) {
+                        mOnTuneListener.onAitInfoUpdated(inputId, aitInfo);
+                    }
+                }
             };
 
     public TunableTvView(Context context) {
@@ -476,18 +499,26 @@ public class TunableTvView extends FrameLayout implements StreamInfo, TunableTvV
                         });
         mAccessibilityManager = context.getSystemService(AccessibilityManager.class);
     }
+    public void initialize(
+            ProgramDataManager programDataManager,
+            TvInputManagerHelper tvInputManagerHelper,
+            LegacyFlags legacyFlags) {
+        initialize(programDataManager, tvInputManagerHelper, legacyFlags, null);
+    }
 
     public void initialize(
             ProgramDataManager programDataManager,
             TvInputManagerHelper tvInputManagerHelper,
-            LegacyFlags mLegacyFlags) {
+            LegacyFlags legacyFlags,
+            TvInteractiveAppView tvIAppView) {
         mTvView = findViewById(R.id.tv_view);
-        mTvView.setUseSecureSurface(!BuildConfig.ENG && !mLegacyFlags.enableDeveloperFeatures());
+        mTvView.setUseSecureSurface(!BuildConfig.ENG && !legacyFlags.enableDeveloperFeatures());
 
         mProgramDataManager = programDataManager;
         mInputManagerHelper = tvInputManagerHelper;
         mContentRatingsManager = tvInputManagerHelper.getContentRatingsManager();
         mParentalControlSettings = tvInputManagerHelper.getParentalControlSettings();
+        mTvIAppView = tvIAppView;
         if (mInputSessionManager != null) {
             mTvViewSession = mInputSessionManager.createTvViewSession(mTvView, this, mCallback);
         } else {
@@ -715,6 +746,13 @@ public class TunableTvView extends FrameLayout implements StreamInfo, TunableTvV
         }
     }
 
+    @Override
+    public float getStreamVolume() {
+        return mIsMuted
+                ? 0
+                : mVolume;
+    }
+
     /**
      * Sets fixed size for the internal {@link android.view.Surface} of {@link
      * android.media.tv.TvView}. If either {@code width} or {@code height} is non positive, the
@@ -773,6 +811,9 @@ public class TunableTvView extends FrameLayout implements StreamInfo, TunableTvV
         void onContentAllowed();
 
         void onChannelSignalStrength();
+
+        @TargetApi(Build.VERSION_CODES.TIRAMISU)
+        void onAitInfoUpdated(String inputId, AitInfo aitInfo);
     }
 
     public void unblockContent(TvContentRating rating) {
@@ -976,6 +1017,9 @@ public class TunableTvView extends FrameLayout implements StreamInfo, TunableTvV
                 return;
             }
             mBlockScreenView.setVisibility(VISIBLE);
+            if (mTvIAppView != null) {
+                mTvIAppView.setVisibility(INVISIBLE);
+            }
             mBlockScreenView.setBackgroundImage(null);
             if (blockReason == VIDEO_UNAVAILABLE_REASON_SCREEN_BLOCKED) {
                 mBlockScreenView.setIconVisibility(true);
@@ -1006,6 +1050,9 @@ public class TunableTvView extends FrameLayout implements StreamInfo, TunableTvV
             mBufferingSpinnerView.setVisibility(GONE);
             if (mBlockScreenView.getVisibility() == VISIBLE) {
                 mBlockScreenView.fadeOut();
+            }
+            if (mTvIAppView != null) {
+                mTvIAppView.setVisibility(VISIBLE);
             }
         }
     }

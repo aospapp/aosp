@@ -63,7 +63,7 @@ string FormatMemory(int64_t bytes) {
   }
 }
 
-string FormatShapes(const std::vector<int64>& shape) {
+string FormatShapes(const std::vector<int64_t>& shape) {
   return absl::StrJoin(shape, "x");
 }
 
@@ -286,7 +286,7 @@ tensorflow::Status ParseCmdLine(const string& line, string* cmd,
       return ReturnError(pieces, i);
     }
   }
-  return tensorflow::Status::OK();
+  return OkStatus();
 }
 
 void PrintHelp() {

@@ -22,31 +22,21 @@
 #include "pw_log/log.h"
 #include "pw_protobuf/decoder.h"
 #include "pw_rpc/internal/config.h"
+#include "pw_rpc/internal/encoding_buffer.h"
 
 namespace pw::rpc {
-namespace {
-
-// TODO(pwbug/615): Dynamically allocate this buffer if
-//     PW_RPC_DYNAMIC_ALLOCATION is enabled.
-std::array<std::byte, cfg::kEncodingBufferSizeBytes> encoding_buffer
-    PW_GUARDED_BY(internal::rpc_lock());
-
-}  // namespace
 
 Result<uint32_t> ExtractChannelId(ConstByteSpan packet) {
   protobuf::Decoder decoder(packet);
 
   while (decoder.Next().ok()) {
-    switch (static_cast<internal::RpcPacket::Fields>(decoder.FieldNumber())) {
-      case internal::RpcPacket::Fields::CHANNEL_ID: {
-        uint32_t channel_id;
-        PW_TRY(decoder.ReadUint32(&channel_id));
-        return channel_id;
-      }
-
-      default:
-        continue;
+    if (static_cast<internal::pwpb::RpcPacket::Fields>(decoder.FieldNumber()) !=
+        internal::pwpb::RpcPacket::Fields::kChannelId) {
+      continue;
     }
+    uint32_t channel_id;
+    PW_TRY(decoder.ReadUint32(&channel_id));
+    return channel_id;
   }
 
   return Status::DataLoss();
@@ -54,15 +44,12 @@ Result<uint32_t> ExtractChannelId(ConstByteSpan packet) {
 
 namespace internal {
 
-ByteSpan GetPayloadBuffer() PW_EXCLUSIVE_LOCKS_REQUIRED(rpc_lock()) {
-  return ByteSpan(encoding_buffer)
-      .subspan(Packet::kMinEncodedSizeWithoutPayload);
-}
-
 Status Channel::Send(const Packet& packet) {
-  Result encoded = packet.Encode(encoding_buffer);
+  ByteSpan buffer = encoding_buffer.GetPacketBuffer(packet.payload().size());
+  Result encoded = packet.Encode(buffer);
 
   if (!encoded.ok()) {
+    encoding_buffer.Release();
     PW_LOG_ERROR(
         "Failed to encode RPC packet type %u to channel %u buffer, status %u",
         static_cast<unsigned>(packet.type()),
@@ -72,6 +59,7 @@ Status Channel::Send(const Packet& packet) {
   }
 
   Status sent = output().Send(encoded.value());
+  encoding_buffer.Release();
 
   if (!sent.ok()) {
     PW_LOG_DEBUG("Channel %u failed to send packet with status %u",

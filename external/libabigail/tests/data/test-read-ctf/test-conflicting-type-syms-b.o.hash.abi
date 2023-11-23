@@ -7,7 +7,7 @@
     <type-decl name='long int' size-in-bits='64' alignment-in-bits='64' id='bd54fe1a'/>
     <typedef-decl name='a_t' type-id='bd54fe1a' id='40acc204'/>
     <typedef-decl name='b_t' type-id='bd54fe1a' id='b3d2db81'/>
-    <var-decl name='b' type-id='40acc204' mangled-name='b' visibility='default'/>
-    <var-decl name='ignore1' type-id='b3d2db81' mangled-name='ignore1' visibility='default'/>
+    <var-decl name='b' type-id='40acc204' mangled-name='b' visibility='default' elf-symbol-id='b'/>
+    <var-decl name='ignore1' type-id='b3d2db81' mangled-name='ignore1' visibility='default' elf-symbol-id='ignore1'/>
   </abi-instr>
 </abi-corpus>

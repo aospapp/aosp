@@ -28,7 +28,9 @@
 #include <mutex>
 #include <queue>
 
+#include "gd/common/init_flags.h"
 #include "hal/hci_hal.h"
+#include "hal/mgmt.h"
 #include "hal/snoop_logger.h"
 #include "metrics/counter_metrics.h"
 #include "os/log.h"
@@ -61,8 +63,8 @@ constexpr uint16_t HCI_DEV_NONE = 0xffff;
 #define MGMT_EV_INDEX_ADDED 0x0004
 #define MGMT_EV_COMMAND_COMP 0x0001
 #define MGMT_EV_SIZE_MAX 1024
-#define WRITE_NO_INTR(fn) \
-  do {                    \
+#define REPEAT_ON_INTR(fn) \
+  do {                     \
   } while ((fn) == -1 && errno == EINTR)
 
 struct sockaddr_hci {
@@ -90,7 +92,7 @@ int waitHciDev(int hci_interface) {
   struct pollfd fds[1];
   struct mgmt_pkt ev;
   int fd;
-  int ret = 0;
+  int ret;
 
   fd = socket(PF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI);
   if (fd < 0) {
@@ -101,8 +103,10 @@ int waitHciDev(int hci_interface) {
   addr.hci_family = AF_BLUETOOTH;
   addr.hci_dev = HCI_DEV_NONE;
   addr.hci_channel = HCI_CHANNEL_CONTROL;
-  if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-    LOG_ERROR("HCI Channel Control: %s", strerror(errno));
+
+  ret = bind(fd, (struct sockaddr*)&addr, sizeof(addr));
+  if (ret < 0) {
+    LOG_ERROR("HCI Channel Control: %d %s", errno, strerror(errno));
     close(fd);
     return -1;
   }
@@ -116,7 +120,7 @@ int waitHciDev(int hci_interface) {
   ev.len = 0;
 
   ssize_t wrote;
-  WRITE_NO_INTR(wrote = write(fd, &ev, 6));
+  REPEAT_ON_INTR(wrote = write(fd, &ev, 6));
   if (wrote != 6) {
     LOG_ERROR("Unable to write mgmt command: %s", strerror(errno));
     close(fd);
@@ -125,22 +129,19 @@ int waitHciDev(int hci_interface) {
   /* validate mentioned hci interface is present and registered with sock system */
   while (1) {
     int n;
-    WRITE_NO_INTR(n = poll(fds, 1, -1));
+    REPEAT_ON_INTR(n = poll(fds, 1, -1));
     if (n == -1) {
       LOG_ERROR("Poll error: %s", strerror(errno));
-      ret = -1;
       break;
     } else if (n == 0) {
       LOG_ERROR("Timeout, no HCI device detected");
-      ret = -1;
       break;
     }
 
     if (fds[0].revents & POLLIN) {
-      WRITE_NO_INTR(n = read(fd, &ev, sizeof(struct mgmt_pkt)));
+      REPEAT_ON_INTR(n = read(fd, &ev, sizeof(struct mgmt_pkt)));
       if (n < 0) {
         LOG_ERROR("Error reading control channel: %s", strerror(errno));
-        ret = -1;
         break;
       }
 
@@ -171,13 +172,16 @@ int waitHciDev(int hci_interface) {
 
 // Connect to Linux HCI socket
 int ConnectToSocket() {
+  int ret = 0;
+
   int socket_fd = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI);
-  if (socket_fd < 1) {
+  if (socket_fd < 0) {
     LOG_ERROR("can't create socket: %s", strerror(errno));
     return INVALID_FD;
   }
 
-  int hci_interface = 0;  // Assume we only have HCI 0
+  // Determine which hci index we should connect to.
+  int hci_interface = bluetooth::common::InitFlags::GetAdapterIndex();
 
   if (waitHciDev(hci_interface) != 0) {
     ::close(socket_fd);
@@ -189,8 +193,10 @@ int ConnectToSocket() {
   addr.hci_family = AF_BLUETOOTH;
   addr.hci_dev = hci_interface;
   addr.hci_channel = HCI_CHANNEL_USER;
-  if (bind(socket_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-    LOG_ERROR("HCI Channel Control: %s", strerror(errno));
+
+  ret = bind(socket_fd, (struct sockaddr*)&addr, sizeof(addr));
+  if (ret < 0) {
+    LOG_ERROR("HCI Channel Control: %d %s", errno, strerror(errno));
     ::close(socket_fd);
     return INVALID_FD;
   }
@@ -261,6 +267,10 @@ class HciHalHost : public HciHal {
     write_to_fd(packet);
   }
 
+  uint16_t getMsftOpcode() override {
+    return Mgmt().get_vs_opcode(MGMT_VS_OPCODE_MSFT);
+  }
+
  protected:
   void ListDependencies(ModuleList* list) const {
     list->add<metrics::CounterMetrics>();
@@ -273,7 +283,10 @@ class HciHalHost : public HciHal {
     sock_fd_ = ConnectToSocket();
     ASSERT(sock_fd_ != INVALID_FD);
     reactable_ = hci_incoming_thread_.GetReactor()->Register(
-        sock_fd_, common::Bind(&HciHalHost::incoming_packet_received, common::Unretained(this)), common::Closure());
+        sock_fd_,
+        common::Bind(&HciHalHost::incoming_packet_received, common::Unretained(this)),
+        common::Bind(&HciHalHost::send_packet_ready, common::Unretained(this)));
+    hci_incoming_thread_.GetReactor()->ModifyRegistration(reactable_, os::Reactor::REACT_ON_READ_ONLY);
     btsnoop_logger_ = GetDependency<SnoopLogger>();
     LOG_INFO("HAL opened successfully");
   }
@@ -319,26 +332,21 @@ class HciHalHost : public HciHal {
     // TODO: replace this with new queue when it's ready
     hci_outgoing_queue_.emplace(packet);
     if (hci_outgoing_queue_.size() == 1) {
-      hci_incoming_thread_.GetReactor()->ModifyRegistration(
-          reactable_,
-          common::Bind(&HciHalHost::incoming_packet_received, common::Unretained(this)),
-          common::Bind(&HciHalHost::send_packet_ready, common::Unretained(this)));
+      hci_incoming_thread_.GetReactor()->ModifyRegistration(reactable_, os::Reactor::REACT_ON_READ_WRITE);
     }
   }
 
   void send_packet_ready() {
-    std::lock_guard<std::mutex> lock(this->api_mutex_);
-    auto packet_to_send = this->hci_outgoing_queue_.front();
-    auto bytes_written = write(this->sock_fd_, (void*)packet_to_send.data(), packet_to_send.size());
-    this->hci_outgoing_queue_.pop();
+    std::lock_guard<std::mutex> lock(api_mutex_);
+    if (hci_outgoing_queue_.empty()) return;
+    auto packet_to_send = hci_outgoing_queue_.front();
+    auto bytes_written = write(sock_fd_, (void*)packet_to_send.data(), packet_to_send.size());
+    hci_outgoing_queue_.pop();
     if (bytes_written == -1) {
       abort();
     }
     if (hci_outgoing_queue_.empty()) {
-      this->hci_incoming_thread_.GetReactor()->ModifyRegistration(
-          this->reactable_,
-          common::Bind(&HciHalHost::incoming_packet_received, common::Unretained(this)),
-          common::Closure());
+      hci_incoming_thread_.GetReactor()->ModifyRegistration(reactable_, os::Reactor::REACT_ON_READ_ONLY);
     }
   }
 
@@ -357,6 +365,8 @@ class HciHalHost : public HciHal {
     ASSERT_LOG(received_size != -1, "Can't receive from socket: %s", strerror(errno));
     if (received_size == 0) {
       LOG_WARN("Can't read H4 header. EOF received");
+      // First close sock fd before raising sigint
+      close(sock_fd_);
       raise(SIGINT);
       return;
     }

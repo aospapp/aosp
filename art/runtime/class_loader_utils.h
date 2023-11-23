@@ -26,46 +26,36 @@
 #include "mirror/object.h"
 #include "native/dalvik_system_DexFile.h"
 #include "scoped_thread_state_change-inl.h"
-#include "well_known_classes.h"
+#include "well_known_classes-inl.h"
 
 namespace art {
 
 // Returns true if the given class loader derives from BaseDexClassLoader.
-inline bool IsInstanceOfBaseDexClassLoader(ScopedObjectAccessAlreadyRunnable& soa,
-                                           Handle<mirror::ClassLoader> class_loader)
+inline bool IsInstanceOfBaseDexClassLoader(Handle<mirror::ClassLoader> class_loader)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  return class_loader->InstanceOf(
-      soa.Decode<mirror::Class>(WellKnownClasses::dalvik_system_BaseDexClassLoader));
+  return class_loader->InstanceOf(WellKnownClasses::dalvik_system_BaseDexClassLoader.Get());
 }
 
 // Returns true if the given class loader is either a PathClassLoader or a DexClassLoader.
 // (they both have the same behaviour with respect to class lookup order)
-inline bool IsPathOrDexClassLoader(ScopedObjectAccessAlreadyRunnable& soa,
-                                   Handle<mirror::ClassLoader> class_loader)
+inline bool IsPathOrDexClassLoader(Handle<mirror::ClassLoader> class_loader)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   ObjPtr<mirror::Class> class_loader_class = class_loader->GetClass();
-  return
-      (class_loader_class ==
-          soa.Decode<mirror::Class>(WellKnownClasses::dalvik_system_PathClassLoader)) ||
-      (class_loader_class ==
-          soa.Decode<mirror::Class>(WellKnownClasses::dalvik_system_DexClassLoader));
+  return (class_loader_class == WellKnownClasses::dalvik_system_PathClassLoader) ||
+         (class_loader_class == WellKnownClasses::dalvik_system_DexClassLoader);
 }
 
 // Returns true if the given class loader is an InMemoryDexClassLoader.
-inline bool IsInMemoryDexClassLoader(ScopedObjectAccessAlreadyRunnable& soa,
-                                     Handle<mirror::ClassLoader> class_loader)
+inline bool IsInMemoryDexClassLoader(Handle<mirror::ClassLoader> class_loader)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   ObjPtr<mirror::Class> class_loader_class = class_loader->GetClass();
-  return (class_loader_class ==
-      soa.Decode<mirror::Class>(WellKnownClasses::dalvik_system_InMemoryDexClassLoader));
+  return (class_loader_class == WellKnownClasses::dalvik_system_InMemoryDexClassLoader);
 }
 
-inline bool IsDelegateLastClassLoader(ScopedObjectAccessAlreadyRunnable& soa,
-                                      Handle<mirror::ClassLoader> class_loader)
+inline bool IsDelegateLastClassLoader(Handle<mirror::ClassLoader> class_loader)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   ObjPtr<mirror::Class> class_loader_class = class_loader->GetClass();
-  return class_loader_class ==
-      soa.Decode<mirror::Class>(WellKnownClasses::dalvik_system_DelegateLastClassLoader);
+  return class_loader_class == WellKnownClasses::dalvik_system_DelegateLastClassLoader;
 }
 
 // Visit the DexPathList$Element instances in the given classloader with the given visitor.
@@ -75,20 +65,17 @@ inline bool IsDelegateLastClassLoader(ScopedObjectAccessAlreadyRunnable& soa,
 //     when the visitor ends the visit (by returning false).
 // This function assumes that the given classloader is a subclass of BaseDexClassLoader!
 template <typename Visitor, typename RetType>
-inline RetType VisitClassLoaderDexElements(ScopedObjectAccessAlreadyRunnable& soa,
+inline RetType VisitClassLoaderDexElements(Thread* self,
                                            Handle<mirror::ClassLoader> class_loader,
                                            Visitor fn,
                                            RetType defaultReturn)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  Thread* self = soa.Self();
   ObjPtr<mirror::Object> dex_path_list =
-      jni::DecodeArtField(WellKnownClasses::dalvik_system_BaseDexClassLoader_pathList)->
-          GetObject(class_loader.Get());
+      WellKnownClasses::dalvik_system_BaseDexClassLoader_pathList->GetObject(class_loader.Get());
   if (dex_path_list != nullptr) {
     // DexPathList has an array dexElements of Elements[] which each contain a dex file.
     ObjPtr<mirror::Object> dex_elements_obj =
-        jni::DecodeArtField(WellKnownClasses::dalvik_system_DexPathList_dexElements)->
-            GetObject(dex_path_list);
+        WellKnownClasses::dalvik_system_DexPathList_dexElements->GetObject(dex_path_list);
     // Loop through each dalvik.system.DexPathList$Element's dalvik.system.DexFile and look
     // at the mCookie which is a DexFile vector.
     if (dex_elements_obj != nullptr) {
@@ -117,15 +104,13 @@ inline RetType VisitClassLoaderDexElements(ScopedObjectAccessAlreadyRunnable& so
 //     when the visitor ends the visit (by returning false).
 // This function assumes that the given classloader is a subclass of BaseDexClassLoader!
 template <typename Visitor, typename RetType>
-inline RetType VisitClassLoaderDexFiles(ScopedObjectAccessAlreadyRunnable& soa,
+inline RetType VisitClassLoaderDexFiles(Thread* self,
                                         Handle<mirror::ClassLoader> class_loader,
                                         Visitor fn,
                                         RetType defaultReturn)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  ArtField* const cookie_field =
-      jni::DecodeArtField(WellKnownClasses::dalvik_system_DexFile_cookie);
-  ArtField* const dex_file_field =
-      jni::DecodeArtField(WellKnownClasses::dalvik_system_DexPathList__Element_dexFile);
+  ArtField* const cookie_field = WellKnownClasses::dalvik_system_DexFile_cookie;
+  ArtField* const dex_file_field = WellKnownClasses::dalvik_system_DexPathList__Element_dexFile;
   if (dex_file_field == nullptr || cookie_field == nullptr) {
     return defaultReturn;
   }
@@ -133,7 +118,9 @@ inline RetType VisitClassLoaderDexFiles(ScopedObjectAccessAlreadyRunnable& soa,
       REQUIRES_SHARED(Locks::mutator_lock_) {
     ObjPtr<mirror::Object> dex_file = dex_file_field->GetObject(element);
     if (dex_file != nullptr) {
-      ObjPtr<mirror::LongArray> long_array = cookie_field->GetObject(dex_file)->AsLongArray();
+      StackHandleScope<1> hs(self);
+      Handle<mirror::LongArray> long_array =
+          hs.NewHandle(cookie_field->GetObject(dex_file)->AsLongArray());
       if (long_array == nullptr) {
         // This should never happen so log a warning.
         LOG(WARNING) << "Null DexFile::mCookie";
@@ -155,12 +142,12 @@ inline RetType VisitClassLoaderDexFiles(ScopedObjectAccessAlreadyRunnable& soa,
     return true;
   };
 
-  return VisitClassLoaderDexElements(soa, class_loader, visit_dex_files, defaultReturn);
+  return VisitClassLoaderDexElements(self, class_loader, visit_dex_files, defaultReturn);
 }
 
 // Simplified version of the above, w/o out argument.
 template <typename Visitor>
-inline void VisitClassLoaderDexFiles(ScopedObjectAccessAlreadyRunnable& soa,
+inline void VisitClassLoaderDexFiles(Thread* self,
                                      Handle<mirror::ClassLoader> class_loader,
                                      Visitor fn)
     REQUIRES_SHARED(Locks::mutator_lock_) {
@@ -174,10 +161,10 @@ inline void VisitClassLoaderDexFiles(ScopedObjectAccessAlreadyRunnable& soa,
 
     return fn(dex_file);
   };
-  VisitClassLoaderDexFiles<decltype(helper), void*>(soa,
+  VisitClassLoaderDexFiles<decltype(helper), void*>(self,
                                                     class_loader,
                                                     helper,
-                                                    /* default= */ nullptr);
+                                                    /* defaultReturn= */ nullptr);
 }
 
 }  // namespace art

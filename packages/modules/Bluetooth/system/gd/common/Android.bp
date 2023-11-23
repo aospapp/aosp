@@ -10,10 +10,10 @@ package {
 filegroup {
     name: "BluetoothCommonSources",
     srcs: [
-        "init_flags.cc",
+        "audit_log.cc",
         "metric_id_manager.cc",
-        "strings.cc",
         "stop_watch.cc",
+        "strings.cc",
     ],
 }
 

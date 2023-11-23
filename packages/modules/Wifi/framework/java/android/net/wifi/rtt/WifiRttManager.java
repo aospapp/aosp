@@ -27,9 +27,11 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.SdkConstant;
+import android.annotation.StringDef;
 import android.annotation.SystemApi;
 import android.annotation.SystemService;
 import android.content.Context;
+import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
 import android.os.Binder;
 import android.os.Bundle;
@@ -39,6 +41,8 @@ import android.util.Log;
 
 import com.android.modules.utils.build.SdkLevel;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.List;
 import java.util.concurrent.Executor;
 
@@ -80,6 +84,39 @@ public class WifiRttManager {
     @SdkConstant(SdkConstant.SdkConstantType.BROADCAST_INTENT_ACTION)
     public static final String ACTION_WIFI_RTT_STATE_CHANGED =
             "android.net.wifi.rtt.action.WIFI_RTT_STATE_CHANGED";
+
+    /**
+     * Bundle key to access if one-sided Wi-Fi RTT is supported. When it is not supported, only
+     * two-sided RTT can be performed, which requires responder supports IEEE 802.11mc and this can
+     * be determined by the method {@link ScanResult#is80211mcResponder()}
+     */
+    public static final String CHARACTERISTICS_KEY_BOOLEAN_ONE_SIDED_RTT = "key_one_sided_rtt";
+     /**
+     * Bundle key to access if getting the Location Configuration Information(LCI) from responder is
+      * supported.
+     * @see ResponderLocation
+     */
+    public static final String CHARACTERISTICS_KEY_BOOLEAN_LCI = "key_lci";
+    /**
+     * Bundle key to access if getting the Location Civic Report(LCR) from responder is supported.
+     * @see ResponderLocation
+     */
+    public static final String CHARACTERISTICS_KEY_BOOLEAN_LCR = "key_lcr";
+
+    /**
+     * Bundle key to access if device supports to be a responder in station mode
+     */
+    public static final String CHARACTERISTICS_KEY_BOOLEAN_STA_RESPONDER = "key_sta_responder";
+
+    /** @hide */
+    @StringDef(prefix = { "CHARACTERISTICS_KEY_"}, value = {
+            CHARACTERISTICS_KEY_BOOLEAN_ONE_SIDED_RTT,
+            CHARACTERISTICS_KEY_BOOLEAN_LCI,
+            CHARACTERISTICS_KEY_BOOLEAN_LCR,
+            CHARACTERISTICS_KEY_BOOLEAN_STA_RESPONDER,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface RttCharacteristicsKey {}
 
     /** @hide */
     public WifiRttManager(@NonNull Context context, @NonNull IWifiRttManager service) {
@@ -206,6 +243,25 @@ public class WifiRttManager {
 
         try {
             mService.cancelRanging(workSource);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Returns a Bundle which represents the characteristics of the Wi-Fi RTT interface: a set of
+     * parameters which specify feature support. Each parameter can be accessed by the specified
+     * Bundle key, one of the {@code CHARACTERISTICS_KEY_*} value.
+     * <p>
+     * May return an empty Bundle if the Wi-Fi RTT service is not initialized.
+     *
+     * @return A Bundle specifying feature support of RTT.
+     */
+    @RequiresPermission(ACCESS_WIFI_STATE)
+    @NonNull
+    public Bundle getRttCharacteristics() {
+        try {
+            return mService.getRttCharacteristics();
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }

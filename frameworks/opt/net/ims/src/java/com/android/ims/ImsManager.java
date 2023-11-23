@@ -49,9 +49,12 @@ import android.telephony.ims.ImsCallSession;
 import android.telephony.ims.ImsMmTelManager;
 import android.telephony.ims.ImsReasonInfo;
 import android.telephony.ims.ImsService;
+import android.telephony.ims.MediaQualityStatus;
+import android.telephony.ims.MediaThreshold;
 import android.telephony.ims.ProvisioningManager;
 import android.telephony.ims.RegistrationManager;
 import android.telephony.ims.RtpHeaderExtensionType;
+import android.telephony.ims.SrvccCall;
 import android.telephony.ims.aidl.IImsCapabilityCallback;
 import android.telephony.ims.aidl.IImsConfig;
 import android.telephony.ims.aidl.IImsConfigCallback;
@@ -60,6 +63,7 @@ import android.telephony.ims.aidl.IImsRegistration;
 import android.telephony.ims.aidl.IImsRegistrationCallback;
 import android.telephony.ims.aidl.IImsSmsListener;
 import android.telephony.ims.aidl.ISipTransport;
+import android.telephony.ims.aidl.ISrvccStartedCallback;
 import android.telephony.ims.feature.CapabilityChangeRequest;
 import android.telephony.ims.feature.ImsFeature;
 import android.telephony.ims.feature.MmTelFeature;
@@ -257,7 +261,7 @@ public class ImsManager implements FeatureUpdates {
     @VisibleForTesting
     public interface SubscriptionManagerProxy {
         boolean isValidSubscriptionId(int subId);
-        int[] getSubscriptionIds(int slotIndex);
+        int getSubscriptionId(int slotIndex);
         int getDefaultVoicePhoneId();
         int getIntegerSubscriptionProperty(int subId, String propKey, int defValue);
         void setSubscriptionProperty(int subId, String propKey, String propValue);
@@ -292,8 +296,8 @@ public class ImsManager implements FeatureUpdates {
         }
 
         @Override
-        public int[] getSubscriptionIds(int slotIndex) {
-            return getSubscriptionManager().getSubscriptionIds(slotIndex);
+        public int getSubscriptionId(int slotIndex) {
+            return SubscriptionManager.getSubscriptionId(slotIndex);
         }
 
         @Override
@@ -1433,12 +1437,7 @@ public class ImsManager implements FeatureUpdates {
     }
 
     private int getSubId() {
-        int[] subIds = mSubscriptionManagerProxy.getSubscriptionIds(mPhoneId);
-        int subId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
-        if (subIds != null && subIds.length >= 1) {
-            subId = subIds[0];
-        }
-        return subId;
+        return mSubscriptionManagerProxy.getSubscriptionId(mPhoneId);
     }
 
     private void setWfcModeInternal(int wfcMode) {
@@ -2689,9 +2688,137 @@ public class ImsManager implements FeatureUpdates {
         }
     }
 
+    /**
+     * Notifies the change of user setting.
+     *
+     * @param enabled indicates whether the user setting for call waiting is enabled or not.
+     */
+    public void setTerminalBasedCallWaitingStatus(boolean enabled) throws ImsException {
+        MmTelFeatureConnection c = getOrThrowExceptionIfServiceUnavailable();
+        try {
+            c.setTerminalBasedCallWaitingStatus(enabled);
+        } catch (ServiceSpecificException se) {
+            if (se.errorCode
+                    == android.telephony.ims.ImsException.CODE_ERROR_UNSUPPORTED_OPERATION) {
+                throw new ImsException("setTerminalBasedCallWaitingStatus()", se,
+                        ImsReasonInfo.CODE_LOCAL_IMS_NOT_SUPPORTED_ON_DEVICE);
+            } else {
+                throw new ImsException("setTerminalBasedCallWaitingStatus()", se,
+                        ImsReasonInfo.CODE_LOCAL_INTERNAL_ERROR);
+            }
+        } catch (RemoteException e) {
+            throw new ImsException("setTerminalBasedCallWaitingStatus()", e,
+                    ImsReasonInfo.CODE_LOCAL_IMS_SERVICE_DOWN);
+        }
+    }
+
+    /**
+     * Returns whether all of the capabilities specified are capable or not.
+     */
+    public boolean isCapable(@ImsService.ImsServiceCapability long capabilities)
+            throws ImsException {
+        MmTelFeatureConnection c = getOrThrowExceptionIfServiceUnavailable();
+        try {
+            return c.isCapable(capabilities);
+        } catch (RemoteException e) {
+            throw new ImsException("isCapable()", e,
+                    ImsReasonInfo.CODE_LOCAL_IMS_SERVICE_DOWN);
+        }
+    }
+
+    /**
+     * Notifies SRVCC started.
+     * @param cb The callback to receive the list of {@link SrvccCall}.
+     */
+    public void notifySrvccStarted(ISrvccStartedCallback cb)
+            throws ImsException {
+        MmTelFeatureConnection c = getOrThrowExceptionIfServiceUnavailable();
+        try {
+            c.notifySrvccStarted(cb);
+        } catch (RemoteException e) {
+            throw new ImsException("notifySrvccStarted", e,
+                    ImsReasonInfo.CODE_LOCAL_IMS_SERVICE_DOWN);
+        }
+    }
+
+    /**
+     * Notifies SRVCC is completed, IMS service will hang up all calls.
+     */
+    public void notifySrvccCompleted() throws ImsException {
+        MmTelFeatureConnection c = getOrThrowExceptionIfServiceUnavailable();
+        try {
+            c.notifySrvccCompleted();
+        } catch (RemoteException e) {
+            throw new ImsException("notifySrvccCompleted", e,
+                    ImsReasonInfo.CODE_LOCAL_IMS_SERVICE_DOWN);
+        }
+    }
+
+    /**
+     * Notifies SRVCC failed. IMS service will recover and continue calls over IMS.
+     */
+    public void notifySrvccFailed() throws ImsException {
+        MmTelFeatureConnection c = getOrThrowExceptionIfServiceUnavailable();
+        try {
+            c.notifySrvccFailed();
+        } catch (RemoteException e) {
+            throw new ImsException("notifySrvccFailed", e,
+                    ImsReasonInfo.CODE_LOCAL_IMS_SERVICE_DOWN);
+        }
+    }
+
+    /**
+     * Notifies SRVCC is canceled. IMS service will recover and continue calls over IMS.
+     */
+    public void notifySrvccCanceled() throws ImsException {
+        MmTelFeatureConnection c = getOrThrowExceptionIfServiceUnavailable();
+        try {
+            c.notifySrvccCanceled();
+        } catch (RemoteException e) {
+            throw new ImsException("notifySrvccCanceled", e,
+                    ImsReasonInfo.CODE_LOCAL_IMS_SERVICE_DOWN);
+        }
+    }
+
+    /**
+     * Notifies that radio triggered IMS deregistration.
+     * @param reason the reason why the deregistration is triggered.
+     */
+    public void triggerDeregistration(@ImsRegistrationImplBase.ImsDeregistrationReason int reason)
+            throws ImsException {
+        MmTelFeatureConnection c = getOrThrowExceptionIfServiceUnavailable();
+        try {
+            c.triggerDeregistration(reason);
+        } catch (RemoteException e) {
+            throw new ImsException("triggerDeregistration", e,
+                    ImsReasonInfo.CODE_LOCAL_IMS_SERVICE_DOWN);
+        }
+    }
+
     public int getImsServiceState() throws ImsException {
         MmTelFeatureConnection c = getOrThrowExceptionIfServiceUnavailable();
         return c.getFeatureState();
+    }
+
+    public void setMediaThreshold(@MediaQualityStatus.MediaSessionType int sessionType,
+            MediaThreshold threshold) throws ImsException {
+        MmTelFeatureConnection c = getOrThrowExceptionIfServiceUnavailable();
+        try {
+            c.setMediaThreshold(sessionType, threshold);
+        } catch (RemoteException e) {
+            loge("setMediaThreshold Failed.");
+        }
+    }
+
+    public MediaQualityStatus queryMediaQualityStatus (
+            @MediaQualityStatus.MediaSessionType int sessionType) throws ImsException {
+        MmTelFeatureConnection c = getOrThrowExceptionIfServiceUnavailable();
+        try {
+            return c.queryMediaQualityStatus(sessionType);
+        } catch (RemoteException e) {
+            loge("queryMediaQualityStatus Failed.");
+            return null;
+        }
     }
 
     @Override
@@ -2975,9 +3102,27 @@ public class ImsManager implements FeatureUpdates {
         }
     }
 
+    public void onMemoryAvailable(int token) throws ImsException {
+        try {
+            mMmTelConnectionRef.get().onMemoryAvailable(token);
+        } catch (RemoteException e) {
+            throw new ImsException("onMemoryAvailable()", e,
+                ImsReasonInfo.CODE_LOCAL_IMS_SERVICE_DOWN);
+        }
+    }
+
     public void acknowledgeSms(int token, int messageRef, int result) throws ImsException {
         try {
             mMmTelConnectionRef.get().acknowledgeSms(token, messageRef, result);
+        } catch (RemoteException e) {
+            throw new ImsException("acknowledgeSms()", e,
+                    ImsReasonInfo.CODE_LOCAL_IMS_SERVICE_DOWN);
+        }
+    }
+
+    public void acknowledgeSms(int token, int messageRef, int result, byte[] pdu) throws ImsException {
+        try {
+            mMmTelConnectionRef.get().acknowledgeSms(token, messageRef, result, pdu);
         } catch (RemoteException e) {
             throw new ImsException("acknowledgeSms()", e,
                     ImsReasonInfo.CODE_LOCAL_IMS_SERVICE_DOWN);

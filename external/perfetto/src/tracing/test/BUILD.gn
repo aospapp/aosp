@@ -50,16 +50,16 @@ perfetto_unittest_source_set("test_support") {
   # has no implementation for Windows or NaCL.
   if (!is_win && !is_nacl) {
     sources += [
-      "fake_producer_endpoint.h",
       "mock_consumer.cc",
       "mock_consumer.h",
       "mock_producer.cc",
       "mock_producer.h",
+      "mock_producer_endpoint.h",
     ]
   }
 }
 
-if (enable_perfetto_ipc) {
+if (enable_perfetto_ipc && enable_perfetto_system_consumer) {
   perfetto_unittest_source_set("tracing_integration_test") {
     testonly = true
     deps = [
@@ -118,9 +118,11 @@ if (enable_perfetto_integration_tests) {
     ]
     sources = [
       "api_integrationtest.cc",
+      "api_integrationtest_main.cc",
       "tracing_module.cc",
       "tracing_module.h",
       "tracing_module2.cc",
+      "tracing_module3.cc",
       "tracing_module_categories.h",
     ]
   }

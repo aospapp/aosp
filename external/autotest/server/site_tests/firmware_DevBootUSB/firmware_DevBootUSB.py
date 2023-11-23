@@ -12,7 +12,7 @@ class firmware_DevBootUSB(FirmwareTest):
     """
     Servo based Ctrl-U developer USB boot test.
 
-    This test requires a USB disk plugged-in, which contains a Chrome OS test
+    This test requires a USB disk plugged-in, which contains a ChromeOS test
     image (built by "build_image test"). On runtime, this test first switches
     DUT to developer mode. When dev_boot_usb=0, pressing Ctrl-U on developer
     screen should not boot the USB disk. When dev_boot_usb=1, pressing Ctrl-U

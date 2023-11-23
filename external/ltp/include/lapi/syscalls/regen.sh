@@ -37,32 +37,28 @@ cat << EOF > "${output_pid}"
  * Licensed under the GPLv2 or later, see the COPYING file.
  */
 
-#ifndef __LAPI_SYSCALLS_H__
-#define __LAPI_SYSCALLS_H__
+#ifndef LAPI_SYSCALLS_H__
+#define LAPI_SYSCALLS_H__
 
 #include <errno.h>
 #include <sys/syscall.h>
 #include <asm/unistd.h>
 #include "cleanup.c"
 
-#define ltp_syscall(NR, ...) ({ \\
-	int __ret; \\
-	if (NR == __LTP__NR_INVALID_SYSCALL) { \\
-		errno = ENOSYS; \\
-		__ret = -1; \\
-	} else { \\
-		__ret = syscall(NR, ##__VA_ARGS__); \\
-	} \\
-	if (__ret == -1 && errno == ENOSYS) { \\
-		tst_brkm(TCONF, CLEANUP, \\
-			"syscall(%d) " #NR " not supported on your arch", \\
-			NR); \\
-	} \\
-	__ret; \\
+#ifdef TST_TEST_H__
+#define TST_SYSCALL_BRK__(NR, SNR) ({ \\
+	tst_brk(TCONF, \\
+		"syscall(%d) " SNR " not supported on your arch", NR); \\
 })
+#else
+#define TST_SYSCALL_BRK__(NR, SNR) ({ \\
+	tst_brkm(TCONF, CLEANUP, \\
+		"syscall(%d) " SNR " not supported on your arch", NR); \\
+})
+#endif
 
 #define tst_syscall(NR, ...) ({ \\
-	int tst_ret; \\
+	intptr_t tst_ret; \\
 	if (NR == __LTP__NR_INVALID_SYSCALL) { \\
 		errno = ENOSYS; \\
 		tst_ret = -1; \\
@@ -70,7 +66,7 @@ cat << EOF > "${output_pid}"
 		tst_ret = syscall(NR, ##__VA_ARGS__); \\
 	} \\
 	if (tst_ret == -1 && errno == ENOSYS) { \\
-		tst_brk(TCONF, "syscall(%d) " #NR " not supported", NR); \\
+		TST_SYSCALL_BRK__(NR, #NR); \\
 	} \\
 	tst_ret; \\
 })
@@ -90,7 +86,7 @@ for arch in $(cat "${srcdir}/order") ; do
 		s390) echo "#if defined(__s390__) && !defined(__s390x__)" ;;
 		mips_n32) echo "#if defined(__mips__) && defined(_ABIN32)" ;;
 		mips_n64) echo "#if defined(__mips__) && defined(_ABI64)" ;;
-		mips_o32) echo "#if defined(__mips__) && defined(_ABIO32)" ;;
+		mips_o32) echo "#if defined(__mips__) && defined(_ABIO32) && _MIPS_SZLONG == 32" ;;
 		*) echo "#ifdef __${arch}__" ;;
 	esac
 	while read line ; do

@@ -34,6 +34,7 @@ import android.graphics.Bitmap.Config;
 import android.graphics.BitmapFactory;
 import android.graphics.BitmapFactory.Options;
 import android.graphics.Color;
+import android.graphics.ImageDecoder;
 import android.graphics.Rect;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
@@ -41,6 +42,7 @@ import android.media.MediaFormat;
 import android.os.Build;
 import android.os.Parcel;
 import android.os.ParcelFileDescriptor;
+import android.os.SystemProperties;
 import android.platform.test.annotations.LargeTest;
 import android.platform.test.annotations.RequiresDevice;
 import android.system.ErrnoException;
@@ -101,9 +103,12 @@ public class BitmapFactoryTest {
                 new TestImage(R.drawable.bmp_test, 320, 240),
                 new TestImage(R.drawable.webp_test, 640, 480)
         }));
-        if (MediaUtils.hasDecoder(MediaFormat.MIMETYPE_VIDEO_HEVC)) {
+        if (ImageDecoder.isMimeTypeSupported("image/heif")) {
             // HEIF support is optional when HEVC decoder is not supported.
             testImages.add(new TestImage(R.raw.heifwriter_input, 1920, 1080));
+        }
+        if (ImageDecoder.isMimeTypeSupported("image/avif")) {
+            testImages.add(new TestImage(R.raw.avif_yuv_420_8bit, 120, 160));
         }
         return testImages.toArray(new Object[] {});
     }
@@ -1009,10 +1014,24 @@ public class BitmapFactoryTest {
 
     @Test
     @RequiresDevice
-    public void testDecode10BitHEIFTo10BitBitmap() {
+    public void testDecode10BitHEIF10BitBitmap() {
         assumeTrue(
             "Test needs Android T.", ApiLevelUtil.isFirstApiAtLeast(Build.VERSION_CODES.TIRAMISU));
+        assumeTrue(
+            "Test needs VNDK at least T.",
+            SystemProperties.getInt("ro.vndk.version", Build.VERSION_CODES.CUR_DEVELOPMENT)
+                >= Build.VERSION_CODES.TIRAMISU);
         assumeTrue("No 10-bit HEVC decoder, skip the test.", has10BitHEVCDecoder());
+
+        Config expectedConfig = Config.RGBA_1010102;
+
+        // For TVs, even if the device advertises that 10 bits profile is supported, the output
+        // format might not be CPU readable, but the video can still be displayed. When the TV's
+        // hevc decoder doesn't support YUVP010 format, and inPreferredConfig is RGBA_1010102,
+        // then the color type of output falls back to RGBA_8888 automatically.
+        if (MediaUtils.isTv() && !hasHEVCDecoderSupportsYUVP010()) {
+            expectedConfig = Config.ARGB_8888;
+        }
 
         BitmapFactory.Options opt = new BitmapFactory.Options();
         opt.inPreferredConfig = Config.RGBA_1010102;
@@ -1020,6 +1039,23 @@ public class BitmapFactoryTest {
         assertNotNull(bm);
         assertEquals(4096, bm.getWidth());
         assertEquals(3072, bm.getHeight());
+        assertEquals(expectedConfig, bm.getConfig());
+    }
+
+    @Test
+    @CddTest(requirements = {"5.1.5/C-0-7"})
+    @RequiresDevice
+    public void testDecode10BitAVIFTo10BitBitmap() {
+        assumeTrue("AVIF is not supported on this device, skip this test.",
+                ImageDecoder.isMimeTypeSupported("image/avif"));
+
+        BitmapFactory.Options opt = new BitmapFactory.Options();
+        opt.inPreferredConfig = Config.RGBA_1010102;
+        Bitmap bm = BitmapFactory.decodeStream(
+                obtainInputStream(R.raw.avif_yuv_420_10bit), null, opt);
+        assertNotNull(bm);
+        assertEquals(120, bm.getWidth());
+        assertEquals(160, bm.getHeight());
         assertEquals(Config.RGBA_1010102, bm.getConfig());
     }
 
@@ -1028,7 +1064,20 @@ public class BitmapFactoryTest {
     public void testDecode10BitHEIFTo8BitBitmap() {
         assumeTrue(
             "Test needs Android T.", ApiLevelUtil.isFirstApiAtLeast(Build.VERSION_CODES.TIRAMISU));
+        assumeTrue(
+            "Test needs VNDK at least T.",
+            SystemProperties.getInt("ro.vndk.version", Build.VERSION_CODES.CUR_DEVELOPMENT)
+                >= Build.VERSION_CODES.TIRAMISU);
         assumeTrue("No 10-bit HEVC decoder, skip the test.", has10BitHEVCDecoder());
+
+        // When TV does not support P010, color type of output is RGBA_8888 when decoding 10-bit
+        // heif, and this behavior is tested in testDecode10BitHEIF10BitBitmap. So skipping this
+        // test when P010 is not supported by TV.
+        if (MediaUtils.isTv()) {
+            assumeTrue(
+                "The TV does not support YUVP010 format, skip the test",
+                hasHEVCDecoderSupportsYUVP010());
+        }
 
         BitmapFactory.Options opt = new BitmapFactory.Options();
         opt.inPreferredConfig = Config.ARGB_8888;
@@ -1046,9 +1095,31 @@ public class BitmapFactoryTest {
     }
 
     @Test
+    @CddTest(requirements = {"5.1.5/C-0-7"})
+    @RequiresDevice
+    public void testDecode10BitAVIFTo8BitBitmap() {
+        assumeTrue("AVIF is not supported on this device, skip this test.",
+                ImageDecoder.isMimeTypeSupported("image/avif"));
+
+        BitmapFactory.Options opt = new BitmapFactory.Options();
+        opt.inPreferredConfig = Config.ARGB_8888;
+        Bitmap bm1 =
+            BitmapFactory.decodeStream(obtainInputStream(R.raw.avif_yuv_420_10bit), null, opt);
+        Bitmap bm2 = BitmapFactory.decodeStream(obtainInputStream(R.raw.avif_yuv_420_10bit));
+        assertNotNull(bm1);
+        assertEquals(120, bm1.getWidth());
+        assertEquals(160, bm1.getHeight());
+        assertEquals(Config.RGBA_1010102, bm1.getConfig());
+        assertNotNull(bm2);
+        assertEquals(120, bm2.getWidth());
+        assertEquals(160, bm2.getHeight());
+        assertEquals(Config.RGBA_1010102, bm2.getConfig());
+    }
+
+    @Test
     @RequiresDevice
     public void testDecode8BitHEIFTo10BitBitmap() {
-        if (!MediaUtils.hasDecoder(MediaFormat.MIMETYPE_VIDEO_HEVC)) {
+        if (!ImageDecoder.isMimeTypeSupported("image/heif")) {
             return;
         }
         BitmapFactory.Options opt = new BitmapFactory.Options();
@@ -1063,6 +1134,28 @@ public class BitmapFactoryTest {
         assertNotNull(bm2);
         assertEquals(1920, bm2.getWidth());
         assertEquals(1080, bm2.getHeight());
+        assertEquals(Config.ARGB_8888, bm2.getConfig());
+    }
+
+    @Test
+    @CddTest(requirements = {"5.1.5/C-0-7"})
+    @RequiresDevice
+    public void testDecode8BitAVIFTo10BitBitmap() {
+        assumeTrue("AVIF is not supported on this device, skip this test.",
+                ImageDecoder.isMimeTypeSupported("image/avif"));
+
+        BitmapFactory.Options opt = new BitmapFactory.Options();
+        opt.inPreferredConfig = Config.RGBA_1010102;
+        Bitmap bm1 =
+            BitmapFactory.decodeStream(obtainInputStream(R.raw.avif_yuv_420_8bit), null, opt);
+        Bitmap bm2 = BitmapFactory.decodeStream(obtainInputStream(R.raw.avif_yuv_420_8bit));
+        assertNotNull(bm1);
+        assertEquals(120, bm1.getWidth());
+        assertEquals(160, bm1.getHeight());
+        assertEquals(Config.ARGB_8888, bm1.getConfig());
+        assertNotNull(bm2);
+        assertEquals(120, bm2.getWidth());
+        assertEquals(160, bm2.getHeight());
         assertEquals(Config.ARGB_8888, bm2.getConfig());
     }
 
@@ -1105,5 +1198,27 @@ public class BitmapFactoryTest {
             return false;
         }
         return true;
+    }
+
+    private static boolean hasHEVCDecoderSupportsYUVP010() {
+        MediaCodecList codecList = new MediaCodecList(MediaCodecList.ALL_CODECS);
+        for (MediaCodecInfo mediaCodecInfo : codecList.getCodecInfos()) {
+            if (mediaCodecInfo.isEncoder()) {
+                continue;
+            }
+            for (String mediaType : mediaCodecInfo.getSupportedTypes()) {
+                if (mediaType.equalsIgnoreCase("video/hevc")) {
+                    MediaCodecInfo.CodecCapabilities codecCapabilities =
+                            mediaCodecInfo.getCapabilitiesForType(mediaType);
+                    for (int i = 0; i < codecCapabilities.colorFormats.length; ++i) {
+                        if (codecCapabilities.colorFormats[i]
+                                == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUVP010) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
     }
 }

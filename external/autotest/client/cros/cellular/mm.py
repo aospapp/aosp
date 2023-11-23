@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -28,13 +29,13 @@ def GetManager():
     for provider in MMPROVIDERS:
         try:
             return modem.ModemManager(provider)
-        except dbus.exceptions.DBusException, e:
+        except dbus.exceptions.DBusException as e:
             if e._dbus_error_name != SERVICE_UNKNOWN:
                 raise
 
     try:
         return modem1.ModemManager()
-    except dbus.exceptions.DBusException, e:
+    except dbus.exceptions.DBusException as e:
         if e._dbus_error_name != SERVICE_UNKNOWN:
             raise
 

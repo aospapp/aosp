@@ -32,7 +32,7 @@ public class PerUidCounter {
 
     // Map from UID to count that UID has filed.
     @VisibleForTesting
-    @GuardedBy("mUidToCount")
+    @GuardedBy("this")
     final SparseIntArray mUidToCount = new SparseIntArray();
 
     /**
@@ -57,15 +57,8 @@ public class PerUidCounter {
      *
      * @param uid the uid that the counter was made under
      */
-    public void incrementCountOrThrow(final int uid) {
-        incrementCountOrThrow(uid, 1 /* numToIncrement */);
-    }
-
-    public synchronized void incrementCountOrThrow(final int uid, final int numToIncrement) {
-        if (numToIncrement <= 0) {
-            throw new IllegalArgumentException("Increment count must be positive");
-        }
-        final long newCount = ((long) mUidToCount.get(uid, 0)) + numToIncrement;
+    public synchronized void incrementCountOrThrow(final int uid) {
+        final long newCount = ((long) mUidToCount.get(uid, 0)) + 1;
         if (newCount > mMaxCountPerUid) {
             throw new IllegalStateException("Uid " + uid + " exceeded its allowed limit");
         }
@@ -83,15 +76,8 @@ public class PerUidCounter {
      *
      * @param uid the uid that the count was made under
      */
-    public void decrementCountOrThrow(final int uid) {
-        decrementCountOrThrow(uid, 1 /* numToDecrement */);
-    }
-
-    public synchronized void decrementCountOrThrow(final int uid, final int numToDecrement) {
-        if (numToDecrement <= 0) {
-            throw new IllegalArgumentException("Decrement count must be positive");
-        }
-        final int newCount = mUidToCount.get(uid, 0) - numToDecrement;
+    public synchronized void decrementCountOrThrow(final int uid) {
+        final int newCount = mUidToCount.get(uid, 0) - 1;
         if (newCount < 0) {
             throw new IllegalStateException("BUG: too small count " + newCount + " for UID " + uid);
         } else if (newCount == 0) {
@@ -99,5 +85,10 @@ public class PerUidCounter {
         } else {
             mUidToCount.put(uid, newCount);
         }
+    }
+
+    @VisibleForTesting
+    public synchronized int get(int uid) {
+        return mUidToCount.get(uid, 0);
     }
 }

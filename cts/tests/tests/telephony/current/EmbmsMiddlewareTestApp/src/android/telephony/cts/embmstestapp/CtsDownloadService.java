@@ -50,7 +50,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -58,9 +57,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class CtsDownloadService extends Service {
-    private static final Set<String> ALLOWED_PACKAGES = new HashSet<String>() {{
-        add("android.telephony.cts");
-    }};
+    private static final Set<String> ALLOWED_PACKAGES = Set.of("android.telephony.cts");
     private static final String TAG = "EmbmsTestDownload";
 
     public static final String METHOD_NAME = "method_name";
@@ -118,18 +115,11 @@ public class CtsDownloadService extends Service {
 
     static {
         String id = "urn:3GPP:service_0-0";
-        Map<Locale, String> localeDict = new HashMap<Locale, String>() {{
-            put(Locale.US, "Entertainment Source 1");
-            put(Locale.CANADA, "Entertainment Source 1, eh?");
-        }};
-        List<Locale> locales = new ArrayList<Locale>() {{
-            add(Locale.CANADA);
-            add(Locale.US);
-        }};
-        List<FileInfo> files = new ArrayList<FileInfo>() {{
-            add(FILE_INFO_1);
-            add(FILE_INFO_2);
-        }};
+        Map<Locale, String> localeDict = Map.of(
+                Locale.US, "Entertainment Source 1",
+                Locale.CANADA, "Entertainment Source 1, eh?");
+        List<Locale> locales = Arrays.asList(Locale.CANADA, Locale.US);
+        List<FileInfo> files = Arrays.asList(FILE_INFO_1, FILE_INFO_2);
         FILE_SERVICE_INFO = new FileServiceInfo(localeDict, "class1", locales,
                 id, new Date(2017, 8, 21, 18, 20, 29),
                 new Date(2017, 8, 21, 18, 23, 9), files);

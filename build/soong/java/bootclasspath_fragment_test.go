@@ -15,6 +15,7 @@
 package java
 
 import (
+	"strings"
 	"testing"
 
 	"android/soong/android"
@@ -95,11 +96,6 @@ func TestBootclasspathFragmentInconsistentArtConfiguration_ApexMixture(t *testin
 }
 
 func TestBootclasspathFragment_Coverage(t *testing.T) {
-	prepareForTestWithFrameworkCoverage := android.FixtureMergeEnv(map[string]string{
-		"EMMA_INSTRUMENT":           "true",
-		"EMMA_INSTRUMENT_FRAMEWORK": "true",
-	})
-
 	prepareWithBp := android.FixtureWithRootAndroidBp(`
 		bootclasspath_fragment {
 			name: "myfragment",
@@ -120,6 +116,9 @@ func TestBootclasspathFragment_Coverage(t *testing.T) {
 						"mycoveragestubs",
 					],
 				},
+			},
+			hidden_api: {
+				split_packages: ["*"],
 			},
 		}
 
@@ -175,7 +174,7 @@ func TestBootclasspathFragment_Coverage(t *testing.T) {
 
 	t.Run("with coverage", func(t *testing.T) {
 		result := android.GroupFixturePreparers(
-			prepareForTestWithFrameworkCoverage,
+			prepareForTestWithFrameworkJacocoInstrumentation,
 			preparer,
 		).RunTest(t)
 		checkContents(t, result, "mybootlib", "coveragelib")
@@ -200,6 +199,9 @@ func TestBootclasspathFragment_StubLibs(t *testing.T) {
 			},
 			core_platform_api: {
 				stub_libs: ["mycoreplatform.stubs"],
+			},
+			hidden_api: {
+				split_packages: ["*"],
 			},
 		}
 
@@ -277,4 +279,156 @@ func TestBootclasspathFragment_StubLibs(t *testing.T) {
 	}
 
 	android.AssertPathsRelativeToTopEquals(t, "widest dex stubs jar", expectedWidestPaths, info.TransitiveStubDexJarsByScope.StubDexJarsForWidestAPIScope())
+}
+
+func TestSnapshotWithBootclasspathFragment_HiddenAPI(t *testing.T) {
+	result := android.GroupFixturePreparers(
+		prepareForTestWithBootclasspathFragment,
+		PrepareForTestWithJavaSdkLibraryFiles,
+		FixtureWithLastReleaseApis("mysdklibrary", "mynewlibrary"),
+		FixtureConfigureApexBootJars("myapex:mybootlib", "myapex:mynewlibrary"),
+		android.MockFS{
+			"my-blocked.txt":                   nil,
+			"my-max-target-o-low-priority.txt": nil,
+			"my-max-target-p.txt":              nil,
+			"my-max-target-q.txt":              nil,
+			"my-max-target-r-low-priority.txt": nil,
+			"my-removed.txt":                   nil,
+			"my-unsupported-packages.txt":      nil,
+			"my-unsupported.txt":               nil,
+			"my-new-max-target-q.txt":          nil,
+		}.AddToFixture(),
+		android.FixtureWithRootAndroidBp(`
+			bootclasspath_fragment {
+				name: "mybootclasspathfragment",
+				apex_available: ["myapex"],
+				contents: ["mybootlib", "mynewlibrary"],
+				hidden_api: {
+					unsupported: [
+							"my-unsupported.txt",
+					],
+					removed: [
+							"my-removed.txt",
+					],
+					max_target_r_low_priority: [
+							"my-max-target-r-low-priority.txt",
+					],
+					max_target_q: [
+							"my-max-target-q.txt",
+					],
+					max_target_p: [
+							"my-max-target-p.txt",
+					],
+					max_target_o_low_priority: [
+							"my-max-target-o-low-priority.txt",
+					],
+					blocked: [
+							"my-blocked.txt",
+					],
+					unsupported_packages: [
+							"my-unsupported-packages.txt",
+					],
+					split_packages: ["sdklibrary"],
+					package_prefixes: ["sdklibrary.all.mine"],
+					single_packages: ["sdklibrary.mine"],
+				},
+			}
+
+			java_library {
+				name: "mybootlib",
+				apex_available: ["myapex"],
+				srcs: ["Test.java"],
+				system_modules: "none",
+				sdk_version: "none",
+				min_sdk_version: "1",
+				compile_dex: true,
+				permitted_packages: ["mybootlib"],
+			}
+
+			java_sdk_library {
+				name: "mynewlibrary",
+				apex_available: ["myapex"],
+				srcs: ["Test.java"],
+				min_sdk_version: "10",
+				compile_dex: true,
+				public: {enabled: true},
+				permitted_packages: ["mysdklibrary"],
+				hidden_api: {
+					max_target_q: [
+							"my-new-max-target-q.txt",
+					],
+					split_packages: ["sdklibrary", "newlibrary"],
+					package_prefixes: ["newlibrary.all.mine"],
+					single_packages: ["newlibrary.mine"],
+				},
+			}
+		`),
+	).RunTest(t)
+
+	// Make sure that the library exports hidden API properties for use by the bootclasspath_fragment.
+	library := result.Module("mynewlibrary", "android_common")
+	info := result.ModuleProvider(library, hiddenAPIPropertyInfoProvider).(HiddenAPIPropertyInfo)
+	android.AssertArrayString(t, "split packages", []string{"sdklibrary", "newlibrary"}, info.SplitPackages)
+	android.AssertArrayString(t, "package prefixes", []string{"newlibrary.all.mine"}, info.PackagePrefixes)
+	android.AssertArrayString(t, "single packages", []string{"newlibrary.mine"}, info.SinglePackages)
+	for _, c := range HiddenAPIFlagFileCategories {
+		expectedMaxTargetQPaths := []string(nil)
+		if c.PropertyName == "max_target_q" {
+			expectedMaxTargetQPaths = []string{"my-new-max-target-q.txt"}
+		}
+		android.AssertPathsRelativeToTopEquals(t, c.PropertyName, expectedMaxTargetQPaths, info.FlagFilesByCategory[c])
+	}
+
+	// Make sure that the signature-patterns.csv is passed all the appropriate package properties
+	// from the bootclasspath_fragment and its contents.
+	fragment := result.ModuleForTests("mybootclasspathfragment", "android_common")
+	rule := fragment.Output("modular-hiddenapi/signature-patterns.csv")
+	expectedCommand := strings.Join([]string{
+		"--split-package newlibrary",
+		"--split-package sdklibrary",
+		"--package-prefix newlibrary.all.mine",
+		"--package-prefix sdklibrary.all.mine",
+		"--single-package newlibrary.mine",
+		"--single-package sdklibrary",
+	}, " ")
+	android.AssertStringDoesContain(t, "signature patterns command", rule.RuleParams.Command, expectedCommand)
+}
+
+func TestBootclasspathFragment_Test(t *testing.T) {
+	result := android.GroupFixturePreparers(
+		prepareForTestWithBootclasspathFragment,
+		PrepareForTestWithJavaSdkLibraryFiles,
+		FixtureWithLastReleaseApis("mysdklibrary"),
+	).RunTestWithBp(t, `
+		bootclasspath_fragment {
+			name: "myfragment",
+			contents: ["mysdklibrary"],
+			hidden_api: {
+				split_packages: [],
+			},
+		}
+
+		bootclasspath_fragment_test {
+			name: "a_test_fragment",
+			contents: ["mysdklibrary"],
+			hidden_api: {
+				split_packages: [],
+			},
+		}
+
+
+		java_sdk_library {
+			name: "mysdklibrary",
+			srcs: ["a.java"],
+			shared_library: false,
+			public: {enabled: true},
+			system: {enabled: true},
+		}
+	`)
+
+	fragment := result.Module("myfragment", "android_common").(*BootclasspathFragmentModule)
+	android.AssertBoolEquals(t, "not a test fragment", false, fragment.isTestFragment())
+
+	fragment = result.Module("a_test_fragment", "android_common").(*BootclasspathFragmentModule)
+	android.AssertBoolEquals(t, "is a test fragment by type", true, fragment.isTestFragment())
 }

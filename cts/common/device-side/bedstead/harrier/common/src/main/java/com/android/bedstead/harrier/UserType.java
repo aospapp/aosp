@@ -16,15 +16,87 @@
 
 package com.android.bedstead.harrier;
 
+/**
+ * A type of user for use with Harrier.
+ *
+ * <p>Generally, you should prefer to use the abstract user types (such as {@link #INITIAL_USER})
+ * over specific types such as {@link #PRIMARY_USER} to enable running the test on as many
+ * devices as possible.
+ */
 public enum UserType {
-    /** Only to be used with annotations. */
+    /** No restriction on user. */
     ANY,
+
+    // Basic user types
+
+    /**
+     * The system user. This contains all system services.
+     *
+     * <p>Note that the system user is not the same as the {@link UserType#INITIAL_USER} on all
+     * devices. If the intent is to run this test on a user with user apps and data, use
+     * {@link UserType#INITIAL_USER}.
+     */
     SYSTEM_USER,
-    INSTRUMENTED_USER,
-    PRIMARY_USER,
+
+    /**
+     * A user with type {@code android.os.UserManager#USER_TYPE_FULL_SECONDARY}.
+     *
+     * <p>Note that on some devices, this may be the same as {@link UserType#INITIAL_USER}. If you
+     * need a user that is different from {@link UserType#INITIAL_USER} you should use
+     * {@link UserType#ADDITIONAL_USER}.
+     */
     SECONDARY_USER,
+
+    /**
+     * A user with type {@code USER_TYPE_PROFILE_MANAGED} and which has a Profile Owner.
+     *
+     * <p>The parent of this profile will be {@link UserType#INITIAL_USER}.
+     */
+    // TODO(b/210869636): split work profile from managed_profile/profile
     WORK_PROFILE,
-    CURRENT_USER,
+
+    /**
+     * A user with type {@code com.android.tv.profile}.
+     *
+     * <p>The parent of this profile will be {@link UserType#INITIAL_USER}.
+     */
     TV_PROFILE,
-    DPC_USER;
+
+    /**
+     * A user with the "primary" flag set to true.
+     *
+     * @deprecated This type of user will not exist on some Android devices.
+     *  {@link UserType#INITIAL_USER} serves largely the same purpose but works on all devices. You
+     *  can continue to use {@link #PRIMARY_USER} but should make sure you absolutely want to only
+     *  support primary users.
+     */
+    @Deprecated
+    PRIMARY_USER,
+
+    // Abstract user types
+
+    /** The user running the instrumented test process. */
+    INSTRUMENTED_USER,
+
+    /** The user in the foreground. */
+    CURRENT_USER,
+
+    /** The user with the primary DPC installed. */
+    DPC_USER,
+
+    /** The user of the first person using the device. This will be the parent of any profiles. */
+    INITIAL_USER,
+
+    /** A {@link UserType#SECONDARY_USER} who is not the {@link UserType#INITIAL_USER}. */
+    ADDITIONAL_USER,
+
+    /** A user for whom {@code UserReference#isAdmin} returns true. */
+    ADMIN_USER,
+
+    /**
+     * A user with type {@code android.os.usertype.profile.CLONE}.
+     *
+     * <p>The parent of this profile will be {@link UserType#INITIAL_USER}.
+     */
+    CLONE_PROFILE
 }

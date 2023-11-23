@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -55,7 +56,7 @@ class hardware_MemoryZRAMThroughput(test.test):
         # First run memory-eater wth 60% of total memory size to measure the
         # page access throughput
         cmd = ("memory-eater --size %d --speed --repeat 4 --chunk 500 "
-               "--wait 0" % long(mem_size * 0.60 / 1024))
+               "--wait 0" % int(mem_size * 0.60 / 1024))
         logging.debug('cmd: %s', cmd)
         out = utils.system_output(cmd)
         self._log_results("60_Percent_RAM", out)
@@ -67,7 +68,7 @@ class hardware_MemoryZRAMThroughput(test.test):
         # by half and the test itself will fork a child process to double the
         # memory usage. Each process will take turns to access 500 pages
         # (via --chunk) until all pages are accessed 4 times (via --repeat).
-        half_mem_pressure_size = long((mem_size+swap_size * 0.3) / 1024) / 2;
+        half_mem_pressure_size = int((mem_size+swap_size * 0.3) / 1024) / 2;
         cmd = ("memory-eater --size %d --speed --fork --repeat 4 --chunk 500"
                "--wait 0" % half_mem_pressure_size)
         logging.debug('cmd: %s', cmd)
@@ -76,4 +77,3 @@ class hardware_MemoryZRAMThroughput(test.test):
 
     def cleanup(self):
         utils.system('start ui')
-

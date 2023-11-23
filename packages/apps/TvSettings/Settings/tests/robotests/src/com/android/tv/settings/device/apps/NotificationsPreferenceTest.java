@@ -51,9 +51,6 @@ public class NotificationsPreferenceTest {
     private static final String PACKAGE_NAME = "com.example.test";
     private static final int PACKAGE_UID = 20;
 
-    //    private final String[] mFilledNonBlockableAppsList = {PACKAGE_NAME};
-    private final String[] mEmptyNonBlockableAppsList = {};
-
     @Mock
     ApplicationInfo mApplicationInfo;
     @Mock
@@ -87,13 +84,15 @@ public class NotificationsPreferenceTest {
         mApplicationInfo.packageName = PACKAGE_NAME;
         mApplicationInfo.uid = PACKAGE_UID;
         mAppEntry.info = mApplicationInfo;
+        mPackageInfo.applicationInfo = mApplicationInfo;
+        mPackageInfo.packageName = PACKAGE_NAME;
     }
 
     @Test
     public void testNotificationsPreference_systemAppNotificationsEnabledInRes() {
         setSystemApp(true);
         setNotificationsEnabledForPackage(PACKAGE_NAME, true);
-        setNotificationsUnblockableByResList(PACKAGE_NAME, true);
+        setNotificationsUnblockableByImportanceLocked(mApplicationInfo, true);
         mNotificationsPreference = new NotificationsPreference(mContext, mAppEntry);
 
         mNotificationsPreference.refresh();
@@ -105,7 +104,7 @@ public class NotificationsPreferenceTest {
     public void testNotificationsPreference_systemAppNotificationsEnabledNotInRes() {
         setSystemApp(true);
         setNotificationsEnabledForPackage(PACKAGE_NAME, true);
-        setNotificationsUnblockableByResList(PACKAGE_NAME, false);
+        setNotificationsUnblockableByImportanceLocked(mApplicationInfo, false);
         mNotificationsPreference = new NotificationsPreference(mContext, mAppEntry);
 
         mNotificationsPreference.refresh();
@@ -117,7 +116,7 @@ public class NotificationsPreferenceTest {
     public void testNotificationsPreference_notSystemAppNotificationsEnabledInRes() {
         setSystemApp(false);
         setNotificationsEnabledForPackage(PACKAGE_NAME, true);
-        setNotificationsUnblockableByResList(PACKAGE_NAME, true);
+        setNotificationsUnblockableByImportanceLocked(mApplicationInfo, true);
         mNotificationsPreference = new NotificationsPreference(mContext, mAppEntry);
 
         mNotificationsPreference.refresh();
@@ -129,7 +128,7 @@ public class NotificationsPreferenceTest {
     public void testNotificationsPreference_notSystemAppNotificationsEnabledNotInRes() {
         setSystemApp(false);
         setNotificationsEnabledForPackage(PACKAGE_NAME, true);
-        setNotificationsUnblockableByResList(PACKAGE_NAME, false);
+        setNotificationsUnblockableByImportanceLocked(mApplicationInfo, false);
         mNotificationsPreference = new NotificationsPreference(mContext, mAppEntry);
 
         mNotificationsPreference.refresh();
@@ -141,7 +140,7 @@ public class NotificationsPreferenceTest {
     public void testNotificationsPreference_systemAppNotificationsDisabledNotInRes() {
         setSystemApp(true);
         setNotificationsEnabledForPackage(PACKAGE_NAME, false);
-        setNotificationsUnblockableByResList(PACKAGE_NAME, false);
+        setNotificationsUnblockableByImportanceLocked(mApplicationInfo, false);
         mNotificationsPreference = new NotificationsPreference(mContext, mAppEntry);
 
         mNotificationsPreference.refresh();
@@ -153,7 +152,7 @@ public class NotificationsPreferenceTest {
     public void testNotificationsPreference_notSystemAppNotificationsEDisabledInRes() {
         setSystemApp(false);
         setNotificationsEnabledForPackage(PACKAGE_NAME, false);
-        setNotificationsUnblockableByResList(PACKAGE_NAME, true);
+        setNotificationsUnblockableByImportanceLocked(mApplicationInfo, true);
         mNotificationsPreference = new NotificationsPreference(mContext, mAppEntry);
 
         mNotificationsPreference.refresh();
@@ -165,7 +164,7 @@ public class NotificationsPreferenceTest {
     public void testNotificationsPreference_notSystemAppNotificationsDisabledNotInRes() {
         setSystemApp(false);
         setNotificationsEnabledForPackage(PACKAGE_NAME, false);
-        setNotificationsUnblockableByResList(PACKAGE_NAME, false);
+        setNotificationsUnblockableByImportanceLocked(mApplicationInfo, false);
         mNotificationsPreference = new NotificationsPreference(mContext, mAppEntry);
 
         mNotificationsPreference.refresh();
@@ -177,7 +176,7 @@ public class NotificationsPreferenceTest {
     public void testNotificationsPreference_systemAppNotificationsDisabledInRes() {
         setSystemApp(true);
         setNotificationsEnabledForPackage(PACKAGE_NAME, false);
-        setNotificationsUnblockableByResList(PACKAGE_NAME, true);
+        setNotificationsUnblockableByImportanceLocked(mApplicationInfo, true);
         mNotificationsPreference = new NotificationsPreference(mContext, mAppEntry);
 
         mNotificationsPreference.refresh();
@@ -199,15 +198,14 @@ public class NotificationsPreferenceTest {
         }
     }
 
-    private void setNotificationsUnblockableByResList(String packageName,
-            boolean inUnblockableResList) {
-        String[] unblockableResList =
-                inUnblockableResList ? new String[]{packageName} : mEmptyNonBlockableAppsList;
-
-        when(mResources.getStringArray(
-                mResources.getIdentifier("config_nonBlockableNotificationPackages",
-                        "array", "android")
-        )).thenReturn(unblockableResList);
+    private void setNotificationsUnblockableByImportanceLocked(ApplicationInfo applicationInfo,
+            boolean isUnblockable) {
+        try {
+            when(mNotificationManager.isImportanceLocked(applicationInfo.packageName,
+                    applicationInfo.uid)).thenReturn(isUnblockable);
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
     }
 }
 

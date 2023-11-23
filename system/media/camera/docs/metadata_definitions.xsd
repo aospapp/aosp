@@ -206,6 +206,7 @@
                     <enumeration value="hidden" /> <!-- java as @hide. Not included in NDK -->
                     <enumeration value="public" /> <!-- public to both java and NDK -->
                     <enumeration value="fwk_only" /> <!-- java as @hide. Not included in NDK. Not included in hal interfaces. -->
+                    <enumeration value="fwk_java_public" /> <!-- public to java. Not included in NDK. Not included in hal interfaces. -->
                 </restriction>
             </simpleType>
         </attribute>

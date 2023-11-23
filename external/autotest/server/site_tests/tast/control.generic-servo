@@ -14,6 +14,7 @@ DEPENDENCIES = 'servo_state:WORKING'
 # via test_that.
 ATTRIBUTES = ''
 MAX_RESULT_SIZE_KB = 256 * 1024
+PY_VERSION = 3
 
 # tast.py uses binaries installed from autotest_server_package.tar.bz2.
 REQUIRE_SSP = True

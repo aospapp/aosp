@@ -1,7 +1,9 @@
 # PD FAFT
 
-PD FAFT is another set of firmware tests (FAFT), which targets testing USB-C and
-PD (Power Delivery) functionalities.
+_Self-link: [go/faft-pd](https://goto.google.com/faft-pd)_
+
+PD FAFT is another set of firmware tests (FAFT), which targets testing USB-C,
+PD (Power Delivery) functionalities, and ULP (Ultra Low Power) mode.
 
 [TOC]
 
@@ -10,7 +12,7 @@ PD (Power Delivery) functionalities.
 The USB-C and PD stack is complex that involves multiple hardware/firmware:
 
 *   TCPM (USB Type-C Port Manager),
-    [integrated in EC, using Chrome EC firmware](https://chromium.googlesource.com/chromiumos/platform/ec/+/master/docs/usb-c.md)
+    [integrated in EC, using Chrome EC firmware](https://chromium.googlesource.com/chromiumos/platform/ec/+/main/docs/usb-c.md)
 *   TCPC (USB Type-C Port Controller), usually using proprietary firmware, in
     the form of
     *   dedicated chip, like ANX74xx, PS8xxx,
@@ -35,7 +37,7 @@ power adapter, a USB-C hub, a USB-C debug accessory, a USB-C protocol converter,
 a USB-C monitor, etc. The first version of PD FAFT uses
 [Plankton](https://www.chromium.org/chromium-os/plankton) as PDTester. The
 latest version uses
-[ServoV4](https://chromium.googlesource.com/chromiumos/third_party/hdctools/+/master/docs/servo_v4.md)
+[ServoV4](https://chromium.googlesource.com/chromiumos/third_party/hdctools/+/main/docs/servo_v4.md)
 as PDTester.
 
 ## Test details {#test-details}
@@ -88,6 +90,11 @@ firmware\_PDVbusRequest, checks:
 *   Receiving Source Capability messages from PDTester
 *   If PD Dual role mode is operational in the DUT
 
+firmware\_ECWakefromULP, checks:
+
+*   Ability to wake AP and EC from ULP mode by PB, LID.
+*   Ability to wake EC from ULP mode by AC.
+
 The above tests may have multiple subtests, the same test body but different
 prerequisite.
 
@@ -105,10 +112,10 @@ prerequisite.
 ## How to run PD FAFT {#how-to-run-pd-faft}
 
 Hardware setup, check this
-[ServoV4 Type-C with servo micro setup](https://chromium.googlesource.com/chromiumos/third_party/autotest/+/refs/heads/master/docs/faft-how-to-run-doc.md#servov4-typec-micro).
+[ServoV4 Type-C with servo micro setup](https://chromium.googlesource.com/chromiumos/third_party/autotest/+/refs/heads/main/docs/faft-how-to-run-doc.md#servov4-typec-micro).
 
 Software setup, check this
-[Running Tests instructions](https://chromium.googlesource.com/chromiumos/third_party/autotest/+/refs/heads/master/docs/faft-how-to-run-doc.md#faft-running-tests).
+[Running Tests instructions](https://chromium.googlesource.com/chromiumos/third_party/autotest/+/refs/heads/main/docs/faft-how-to-run-doc.md#faft-running-tests).
 
 ## Known issues {#known-issues}
 

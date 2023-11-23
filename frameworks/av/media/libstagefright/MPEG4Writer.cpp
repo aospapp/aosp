@@ -51,7 +51,7 @@
 #include <media/mediarecorder.h>
 #include <cutils/properties.h>
 
-#include "include/ESDS.h"
+#include <media/esds/ESDS.h>
 #include "include/HevcUtils.h"
 
 #ifndef __predict_false
@@ -155,7 +155,10 @@ public:
     void bufferChunk(int64_t timestampUs);
     bool isAvc() const { return mIsAvc; }
     bool isHevc() const { return mIsHevc; }
+    bool isAv1() const { return mIsAv1; }
     bool isHeic() const { return mIsHeic; }
+    bool isAvif() const { return mIsAvif; }
+    bool isHeif() const { return mIsHeif; }
     bool isAudio() const { return mIsAudio; }
     bool isMPEG4() const { return mIsMPEG4; }
     bool usePrefix() const { return mIsAvc || mIsHevc || mIsHeic || mIsDovi; }
@@ -319,10 +322,13 @@ private:
     volatile bool mStarted;
     bool mIsAvc;
     bool mIsHevc;
+    bool mIsAv1;
     bool mIsDovi;
     bool mIsAudio;
     bool mIsVideo;
     bool mIsHeic;
+    bool mIsAvif;
+    bool mIsHeif;
     bool mIsMPEG4;
     bool mGotStartKeyFrame;
     bool mIsMalformed;
@@ -467,6 +473,7 @@ private:
     void writePaspBox();
     void writeAvccBox();
     void writeHvccBox();
+    void writeAv1cBox();
     void writeDoviConfigBox();
     void writeUrlBox();
     void writeDrefBox();
@@ -547,6 +554,7 @@ void MPEG4Writer::initInternal(int fd, bool isFirstSession) {
     mStreamableFile = false;
     mTimeScale = -1;
     mHasFileLevelMeta = false;
+    mIsAvif = false;
     mFileLevelMetaDataSize = 0;
     mPrimaryItemId = 0;
     mAssociationEntryCount = 0;
@@ -660,11 +668,15 @@ const char *MPEG4Writer::Track::getFourCCForMime(const char *mime) {
             return "avc1";
         } else if (!strcasecmp(MEDIA_MIMETYPE_VIDEO_HEVC, mime)) {
             return "hvc1";
+        } else if (!strcasecmp(MEDIA_MIMETYPE_VIDEO_AV1, mime)) {
+            return "av01";
         }
     } else if (!strncasecmp(mime, "application/", 12)) {
         return "mett";
     } else if (!strcasecmp(MEDIA_MIMETYPE_IMAGE_ANDROID_HEIC, mime)) {
         return "heic";
+    } else if (!strcasecmp(MEDIA_MIMETYPE_IMAGE_AVIF, mime)) {
+        return "avif";
     } else {
         ALOGE("Track (%s) other than video/audio/metadata is not supported", mime);
     }
@@ -709,8 +721,9 @@ status_t MPEG4Writer::addSource(const sp<MediaSource> &source) {
     Track *track = new Track(this, source, 1 + mTracks.size());
     mTracks.push_back(track);
 
-    mHasMoovBox |= !track->isHeic();
-    mHasFileLevelMeta |= track->isHeic();
+    mHasMoovBox |= !track->isHeif();
+    mHasFileLevelMeta |= track->isHeif();
+    mIsAvif |= track->isAvif();
 
     return OK;
 }
@@ -792,7 +805,7 @@ int64_t MPEG4Writer::estimateFileLevelMetaSize(MetaData *params) {
 
     for (List<Track *>::iterator it = mTracks.begin();
          it != mTracks.end(); ++it) {
-        if ((*it)->isHeic()) {
+        if ((*it)->isHeif()) {
             metaSize += (*it)->getMetaSizeIncrease(rotation, mTracks.size());
         }
     }
@@ -994,8 +1007,8 @@ status_t MPEG4Writer::start(MetaData *param) {
         return err;
     }
 
-    ALOGV("muxer starting: mHasMoovBox %d, mHasFileLevelMeta %d",
-            mHasMoovBox, mHasFileLevelMeta);
+    ALOGV("muxer starting: mHasMoovBox %d, mHasFileLevelMeta %d, mIsAvif %d",
+            mHasMoovBox, mHasFileLevelMeta, mIsAvif);
 
     err = startWriterThread();
     if (err != OK) {
@@ -1311,7 +1324,7 @@ status_t MPEG4Writer::reset(bool stopSource, bool waitForAnyPreviousCallToComple
         }
 
         // skip image tracks
-        if ((*it)->isHeic()) continue;
+        if ((*it)->isHeif()) continue;
         nonImageTrackCount++;
 
         int64_t durationUs = (*it)->getDurationUs();
@@ -1489,7 +1502,7 @@ void MPEG4Writer::writeMoovBox(int64_t durationUs) {
     int64_t minCttsOffsetTimeUs = kMaxCttsOffsetTimeUs;
     for (List<Track *>::iterator it = mTracks.begin();
         it != mTracks.end(); ++it) {
-        if (!(*it)->isHeic()) {
+        if (!(*it)->isHeif()) {
             minCttsOffsetTimeUs =
                 std::min(minCttsOffsetTimeUs, (*it)->getMinCttsOffsetTimeUs());
         }
@@ -1505,7 +1518,7 @@ void MPEG4Writer::writeMoovBox(int64_t durationUs) {
 
     for (List<Track *>::iterator it = mTracks.begin();
         it != mTracks.end(); ++it) {
-        if (!(*it)->isHeic()) {
+        if (!(*it)->isHeif()) {
             (*it)->writeTrackHeader();
         }
     }
@@ -1525,21 +1538,40 @@ void MPEG4Writer::writeFtypBox(MetaData *param) {
         writeFourcc("isom");
         writeFourcc("3gp4");
     } else {
-        // Only write "heic" as major brand if the client specified HEIF
-        // AND we indeed receive some image heic tracks.
+        // Only write "heic"/"avif" as major brand if the client specified HEIF/AVIF
+        // AND we indeed receive some image heic/avif tracks.
         if (fileType == OUTPUT_FORMAT_HEIF && mHasFileLevelMeta) {
-            writeFourcc("heic");
+            if (mIsAvif) {
+                writeFourcc("avif");
+            } else {
+                writeFourcc("heic");
+            }
         } else {
             writeFourcc("mp42");
         }
         writeInt32(0);
         if (mHasFileLevelMeta) {
-            writeFourcc("mif1");
-            writeFourcc("heic");
+            if (mIsAvif) {
+                writeFourcc("mif1");
+                writeFourcc("miaf");
+                writeFourcc("avif");
+            } else {
+                writeFourcc("mif1");
+                writeFourcc("heic");
+            }
         }
         if (mHasMoovBox) {
             writeFourcc("isom");
             writeFourcc("mp42");
+        }
+        // If an AV1 video track is present, write "av01" as one of the
+        // compatible brands.
+        for (List<Track *>::iterator it = mTracks.begin(); it != mTracks.end();
+             ++it) {
+            if ((*it)->isAv1()) {
+                writeFourcc("av01");
+                break;
+            }
         }
     }
 
@@ -2103,7 +2135,8 @@ bool MPEG4Writer::exceedsFileDurationLimit() {
 
     for (List<Track *>::iterator it = mTracks.begin();
          it != mTracks.end(); ++it) {
-        if (!(*it)->isHeic() && (*it)->getDurationUs() >= mMaxFileDurationLimitUs) {
+        if (!(*it)->isHeif() &&
+                (*it)->getDurationUs() >= mMaxFileDurationLimitUs) {
             return true;
         }
     }
@@ -2205,10 +2238,13 @@ MPEG4Writer::Track::Track(
     mMeta->findCString(kKeyMIMEType, &mime);
     mIsAvc = !strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_AVC);
     mIsHevc = !strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_HEVC);
+    mIsAv1 = !strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_AV1);
     mIsDovi = !strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_DOLBY_VISION);
     mIsAudio = !strncasecmp(mime, "audio/", 6);
     mIsVideo = !strncasecmp(mime, "video/", 6);
     mIsHeic = !strcasecmp(mime, MEDIA_MIMETYPE_IMAGE_ANDROID_HEIC);
+    mIsAvif = !strcasecmp(mime, MEDIA_MIMETYPE_IMAGE_AVIF);
+    mIsHeif = mIsHeic || mIsAvif;
     mIsMPEG4 = !strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_MPEG4) ||
                !strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AAC);
 
@@ -2220,7 +2256,7 @@ MPEG4Writer::Track::Track(
         }
     }
 
-    if (!mIsHeic) {
+    if (!mIsHeif) {
         setTimeScale();
     } else {
         CHECK(mMeta->findInt32(kKeyWidth, &mWidth) && (mWidth > 0));
@@ -2301,7 +2337,7 @@ int64_t MPEG4Writer::Track::trackMetaDataSize() {
 
 void MPEG4Writer::Track::updateTrackSizeEstimate() {
     mEstimatedTrackSizeBytes = mMdatSizeBytes;  // media data size
-    if (!isHeic() && !mOwner->isFileStreamable()) {
+    if (!isHeif() && !mOwner->isFileStreamable()) {
         mEstimatedTrackSizeBytes += trackMetaDataSize();
     }
 }
@@ -2384,7 +2420,7 @@ status_t MPEG4Writer::setNextFd(int fd) {
 
 bool MPEG4Writer::Track::isExifData(
         MediaBufferBase *buffer, uint32_t *tiffHdrOffset) const {
-    if (!mIsHeic) {
+    if (!mIsHeif) {
         return false;
     }
 
@@ -2413,12 +2449,12 @@ bool MPEG4Writer::Track::isExifData(
 }
 
 void MPEG4Writer::Track::addChunkOffset(off64_t offset) {
-    CHECK(!mIsHeic);
+    CHECK(!mIsHeif);
     mCo64TableEntries->add(hton64(offset));
 }
 
 void MPEG4Writer::Track::addItemOffsetAndSize(off64_t offset, size_t size, bool isExif) {
-    CHECK(mIsHeic);
+    CHECK(mIsHeif);
 
     if (offset > UINT32_MAX || size > UINT32_MAX) {
         ALOGE("offset or size is out of range: %lld, %lld",
@@ -2464,8 +2500,10 @@ void MPEG4Writer::Track::addItemOffsetAndSize(off64_t offset, size_t size, bool 
 
     if (mProperties.empty()) {
         mProperties.push_back(mOwner->addProperty_l({
-            .type = FOURCC('h', 'v', 'c', 'C'),
-            .hvcc = ABuffer::CreateAsCopy(mCodecSpecificData, mCodecSpecificDataSize)
+            .type = static_cast<uint32_t>(mIsAvif ?
+                  FOURCC('a', 'v', '1', 'C') :
+                  FOURCC('h', 'v', 'c', 'C')),
+            .data = ABuffer::CreateAsCopy(mCodecSpecificData, mCodecSpecificDataSize)
         }));
 
         mProperties.push_back(mOwner->addProperty_l({
@@ -2485,7 +2523,7 @@ void MPEG4Writer::Track::addItemOffsetAndSize(off64_t offset, size_t size, bool 
     mTileIndex++;
     if (hasGrid) {
         mDimgRefs.value.push_back(mOwner->addItem_l({
-            .itemType = "hvc1",
+            .itemType = mIsAvif ? "av01" : "hvc1",
             .itemId = mItemIdBase++,
             .isPrimary = false,
             .isHidden = true,
@@ -2521,7 +2559,7 @@ void MPEG4Writer::Track::addItemOffsetAndSize(off64_t offset, size_t size, bool 
         }
     } else {
         mImageItemId = mOwner->addItem_l({
-            .itemType = "hvc1",
+            .itemType = mIsAvif ? "av01" : "hvc1",
             .itemId = mItemIdBase++,
             .isPrimary = (mIsPrimary != 0),
             .isHidden = false,
@@ -2538,7 +2576,7 @@ void MPEG4Writer::Track::addItemOffsetAndSize(off64_t offset, size_t size, bool 
 // it affects the 'dimg' refs for tiled image, as we only have the refs after the
 // last tile sample is written.
 void MPEG4Writer::Track::flushItemRefs() {
-    CHECK(mIsHeic);
+    CHECK(mIsHeif);
 
     if (mImageItemId > 0) {
         mOwner->addRefs_l(mImageItemId, mDimgRefs);
@@ -2639,6 +2677,9 @@ void MPEG4Writer::Track::getCodecSpecificDataFromInputFormatIfPossible() {
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_HEVC) ||
                !strcasecmp(mime, MEDIA_MIMETYPE_IMAGE_ANDROID_HEIC)) {
         mMeta->findData(kKeyHVCC, &type, &data, &size);
+    } else if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_AV1) ||
+               !strcasecmp(mime, MEDIA_MIMETYPE_IMAGE_AVIF)) {
+        mMeta->findData(kKeyAV1C, &type, &data, &size);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_DOLBY_VISION)) {
         getDolbyVisionProfile();
         if (!mMeta->findData(kKeyAVCC, &type, &data, &size) &&
@@ -2749,7 +2790,7 @@ void MPEG4Writer::writeChunkToFile(Chunk* chunk) {
         size_t bytesWritten;
         off64_t offset = addSample_l(*it, usePrefix, tiffHdrOffset, &bytesWritten);
 
-        if (chunk->mTrack->isHeic()) {
+        if (chunk->mTrack->isHeif()) {
             chunk->mTrack->addItemOffsetAndSize(offset, bytesWritten, isExif);
         } else if (isFirstSample) {
             chunk->mTrack->addChunkOffset(offset);
@@ -2901,11 +2942,11 @@ status_t MPEG4Writer::Track::start(MetaData *params) {
     mStartTimeRealUs = startTimeUs;
 
     int32_t rotationDegrees;
-    if ((mIsVideo || mIsHeic) && params &&
+    if ((mIsVideo || mIsHeif) && params &&
             params->findInt32(kKeyRotation, &rotationDegrees)) {
         mRotation = rotationDegrees;
     }
-    if (mIsHeic) {
+    if (mIsHeif) {
         // Reserve the item ids, so that the item ids are ordered in the same
         // order that the image tracks are added.
         // If we leave the item ids to be assigned when the sample is written out,
@@ -3540,7 +3581,7 @@ status_t MPEG4Writer::Track::threadEntry() {
                             (const uint8_t *)buffer->data()
                                 + buffer->range_offset(),
                             buffer->range_length());
-                } else if (mIsMPEG4) {
+                } else if (mIsMPEG4 || mIsAv1) {
                     err = copyCodecSpecificData((const uint8_t *)buffer->data() + buffer->range_offset(),
                             buffer->range_length());
                 }
@@ -3581,7 +3622,7 @@ status_t MPEG4Writer::Track::threadEntry() {
         }
 
         // Per-frame metadata sample's size must be smaller than max allowed.
-        if (!mIsVideo && !mIsAudio && !mIsHeic &&
+        if (!mIsVideo && !mIsAudio && !mIsHeif &&
                 buffer->range_length() >= kMaxMetadataSize) {
             ALOGW("Buffer size is %zu. Maximum metadata buffer size is %lld for %s track",
                     buffer->range_length(), (long long)kMaxMetadataSize, trackName);
@@ -3705,7 +3746,7 @@ status_t MPEG4Writer::Track::threadEntry() {
             mGotStartKeyFrame = true;
         }
 ////////////////////////////////////////////////////////////////////////////////
-        if (!mIsHeic) {
+        if (!mIsHeif) {
             if (mStszTableEntries->count() == 0) {
                 mFirstSampleTimeRealUs = systemTime() / 1000;
                 if (timestampUs < 0 && mFirstSampleStartOffsetUs == 0) {
@@ -3925,7 +3966,7 @@ status_t MPEG4Writer::Track::threadEntry() {
             off64_t offset = mOwner->addSample_l(
                     copy, usePrefix, tiffHdrOffset, &bytesWritten);
 
-            if (mIsHeic) {
+            if (mIsHeif) {
                 addItemOffsetAndSize(offset, bytesWritten, isExif);
             } else {
                 if (mCo64TableEntries->count() == 0) {
@@ -3938,7 +3979,7 @@ status_t MPEG4Writer::Track::threadEntry() {
         }
 
         mChunkSamples.push_back(copy);
-        if (mIsHeic) {
+        if (mIsHeif) {
             bufferChunk(0 /*timestampUs*/);
             ++nChunks;
         } else if (interleaveDurationUs == 0) {
@@ -3976,7 +4017,7 @@ status_t MPEG4Writer::Track::threadEntry() {
 
     // Add final entries only for non-empty tracks.
     if (mStszTableEntries->count() > 0) {
-        if (mIsHeic) {
+        if (mIsHeif) {
             if (!mChunkSamples.empty()) {
                 bufferChunk(0);
                 ++nChunks;
@@ -4049,7 +4090,7 @@ bool MPEG4Writer::Track::isTrackMalFormed() {
         mOwner->mStartMeta->findInt32(kKeyEmptyTrackMalFormed, &emptyTrackMalformed) &&
         emptyTrackMalformed) {
         // MediaRecorder(sets kKeyEmptyTrackMalFormed by default) report empty tracks as malformed.
-        if (!mIsHeic && mStszTableEntries->count() == 0) {  // no samples written
+        if (!mIsHeif && mStszTableEntries->count() == 0) {  // no samples written
             ALOGE("The number of recorded samples is 0");
             mIsMalformed = true;
             return true;
@@ -4212,7 +4253,7 @@ int64_t MPEG4Writer::Track::getEstimatedTrackSizeBytes() const {
 
 int32_t MPEG4Writer::Track::getMetaSizeIncrease(
         int32_t angle, int32_t trackCount) const {
-    CHECK(mIsHeic);
+    CHECK(mIsHeif);
 
     int32_t grid = (mTileWidth > 0);
     int32_t rotate = (angle > 0);
@@ -4262,8 +4303,10 @@ status_t MPEG4Writer::Track::checkCodecSpecificData() const {
         !strcasecmp(MEDIA_MIMETYPE_VIDEO_MPEG4, mime) ||
         !strcasecmp(MEDIA_MIMETYPE_VIDEO_AVC, mime) ||
         !strcasecmp(MEDIA_MIMETYPE_VIDEO_HEVC, mime) ||
+        !strcasecmp(MEDIA_MIMETYPE_VIDEO_AV1, mime) ||
         !strcasecmp(MEDIA_MIMETYPE_VIDEO_DOLBY_VISION, mime) ||
-        !strcasecmp(MEDIA_MIMETYPE_IMAGE_ANDROID_HEIC, mime)) {
+        !strcasecmp(MEDIA_MIMETYPE_IMAGE_ANDROID_HEIC, mime) ||
+        !strcasecmp(MEDIA_MIMETYPE_IMAGE_AVIF, mime)) {
         if (!mCodecSpecificData ||
             mCodecSpecificDataSize <= 0) {
             ALOGE("Missing codec specific data");
@@ -4282,7 +4325,7 @@ status_t MPEG4Writer::Track::checkCodecSpecificData() const {
 const char *MPEG4Writer::Track::getTrackType() const {
     return mIsAudio ? "Audio" :
            mIsVideo ? "Video" :
-           mIsHeic  ? "Image" :
+           mIsHeif  ? "Image" :
                       "Metadata";
 }
 
@@ -4433,6 +4476,8 @@ void MPEG4Writer::Track::writeVideoFourCCBox() {
         writeAvccBox();
     } else if (!strcasecmp(MEDIA_MIMETYPE_VIDEO_HEVC, mime)) {
         writeHvccBox();
+    } else if (!strcasecmp(MEDIA_MIMETYPE_VIDEO_AV1, mime)) {
+        writeAv1cBox();
     } else if (!strcasecmp(MEDIA_MIMETYPE_VIDEO_DOLBY_VISION, mime)) {
         if (mDoviProfile <= DolbyVisionProfileDvheSt) {
             writeHvccBox();
@@ -5000,6 +5045,15 @@ void MPEG4Writer::Track::writeHvccBox() {
     mOwner->endBox();  // hvcC
 }
 
+void MPEG4Writer::Track::writeAv1cBox() {
+    CHECK(mCodecSpecificData);
+    CHECK_GE(mCodecSpecificDataSize, 4u);
+
+    mOwner->beginBox("av1C");
+    mOwner->write(mCodecSpecificData, mCodecSpecificDataSize);
+    mOwner->endBox();  // av1C
+}
+
 void MPEG4Writer::Track::writeDoviConfigBox() {
     CHECK_NE(mDoviProfile, 0u);
 
@@ -5384,12 +5438,20 @@ void MPEG4Writer::writeIpcoBox() {
             case FOURCC('h', 'v', 'c', 'C'):
             {
                 beginBox("hvcC");
-                sp<ABuffer> hvcc = mProperties[propIndex].hvcc;
+                sp<ABuffer> hvcc = mProperties[propIndex].data;
                 // Patch avcc's lengthSize field to match the number
                 // of bytes we use to indicate the size of a nal unit.
                 uint8_t *ptr = (uint8_t *)hvcc->data();
                 ptr[21] = (ptr[21] & 0xfc) | (useNalLengthFour() ? 3 : 1);
                 write(hvcc->data(), hvcc->size());
+                endBox();
+                break;
+            }
+            case FOURCC('a', 'v', '1', 'C'):
+            {
+                beginBox("av1C");
+                sp<ABuffer> av1c = mProperties[propIndex].data;
+                write(av1c->data(), av1c->size());
                 endBox();
                 break;
             }
@@ -5496,7 +5558,7 @@ void MPEG4Writer::writeFileLevelMetaBox() {
 
     for (List<Track *>::iterator it = mTracks.begin();
         it != mTracks.end(); ++it) {
-        if ((*it)->isHeic()) {
+        if ((*it)->isHeif()) {
             (*it)->flushItemRefs();
         }
     }

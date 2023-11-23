@@ -16,6 +16,7 @@
 
 package com.android.apksig.internal.apk.v2;
 
+import static com.android.apksig.Constants.MAX_APK_SIGNERS;
 import static com.android.apksig.internal.apk.ApkSigningBlockUtils.encodeAsSequenceOfLengthPrefixedElements;
 import static com.android.apksig.internal.apk.ApkSigningBlockUtils.encodeAsSequenceOfLengthPrefixedPairsOfIntAndLengthPrefixedBytes;
 import static com.android.apksig.internal.apk.ApkSigningBlockUtils.encodeCertificates;
@@ -28,6 +29,7 @@ import com.android.apksig.internal.apk.SignatureAlgorithm;
 import com.android.apksig.internal.util.Pair;
 import com.android.apksig.util.DataSource;
 import com.android.apksig.util.RunnablesExecutor;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -183,6 +185,12 @@ public abstract class V2SchemeSigner {
             throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
         // FORMAT:
         // * length-prefixed sequence of length-prefixed signer blocks.
+
+        if (signerConfigs.size() > MAX_APK_SIGNERS) {
+            throw new IllegalArgumentException(
+                    "APK Signature Scheme v2 only supports a maximum of " + MAX_APK_SIGNERS + ", "
+                            + signerConfigs.size() + " provided");
+        }
 
         List<byte[]> signerBlocks = new ArrayList<>(signerConfigs.size());
         if (preservedV2SignerBlocks != null && preservedV2SignerBlocks.size() > 0) {

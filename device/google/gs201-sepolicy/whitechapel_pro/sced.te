@@ -1,0 +1,23 @@
+type sced, domain;
+type sced_exec, vendor_file_type, exec_type, file_type;
+
+userdebug_or_eng(`
+  init_daemon_domain(sced)
+  typeattribute sced vendor_executes_system_violators;
+
+  hwbinder_use(sced)
+  binder_call(sced, dmd)
+  binder_call(sced, vendor_telephony_silentlogging_app)
+
+  get_prop(sced, hwservicemanager_prop)
+  allow sced self:packet_socket create_socket_perms_no_ioctl;
+
+  allow sced self:capability net_raw;
+  allow sced shell_exec:file rx_file_perms;
+  allow sced tcpdump_exec:file rx_file_perms;
+  allow sced vendor_shell_exec:file x_file_perms;
+  allow sced vendor_slog_file:dir create_dir_perms;
+  allow sced vendor_slog_file:file create_file_perms;
+  allow sced hidl_base_hwservice:hwservice_manager add;
+  allow sced hal_vendor_oem_hwservice:hwservice_manager { add find };
+')

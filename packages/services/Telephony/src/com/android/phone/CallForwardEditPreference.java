@@ -28,6 +28,7 @@ import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.Phone;
 
 import java.util.HashMap;
+import java.util.Locale;
 
 public class CallForwardEditPreference extends EditPhoneNumberPreference {
     private static final String LOG_TAG = "CallForwardEditPreference";
@@ -209,8 +210,9 @@ public class CallForwardEditPreference extends EditPhoneNumberPreference {
         // 3gpp spec. This can cause us to receive "numbers" that are sequences of letters. In this
         // case, we must detect these series of characters and replace them with "Voicemail".
         // PhoneNumberUtils#formatNumber returns null if the number is not valid.
-        if (mReplaceInvalidCFNumber && (PhoneNumberUtils.formatNumber(callForwardInfo.number,
-                getCurrentCountryIso()) == null)) {
+        if (mReplaceInvalidCFNumber && !TextUtils.isEmpty(callForwardInfo.number)
+                && (PhoneNumberUtils.formatNumber(callForwardInfo.number, getCurrentCountryIso())
+                == null)) {
             callForwardInfo.number = getContext().getString(R.string.voicemail);
             Log.i(LOG_TAG, "handleGetCFResponse: Overridding CF number");
         }
@@ -287,7 +289,7 @@ public class CallForwardEditPreference extends EditPhoneNumberPreference {
         if (telephonyManager == null) {
             return "";
         }
-        return telephonyManager.getNetworkCountryIso().toUpperCase();
+        return telephonyManager.getNetworkCountryIso().toUpperCase(Locale.ROOT);
     }
 
     // Message protocol:

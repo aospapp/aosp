@@ -43,6 +43,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
@@ -53,6 +54,8 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
     @VisibleForTesting static final String RECORD_SCREEN = "record-screen";
     @Rule public TestLogData mLogData = new TestLogData();
     private ApkInstaller mApkInstaller;
+    private boolean mIsLastTestPass;
+    private boolean mIsApkSaved = false;
 
     @Option(name = RECORD_SCREEN, description = "Whether to record screen during test.")
     private boolean mRecordScreen;
@@ -88,6 +91,11 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
             description = "Arguments for the 'adb install-multiple' package installation command.")
     private final List<String> mInstallArgs = new ArrayList<>();
 
+    @Option(
+            name = "save-apk-when",
+            description = "When to save apk files to the test result artifacts.")
+    private TestUtils.TakeEffectWhen mSaveApkWhen = TestUtils.TakeEffectWhen.NEVER;
+
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
 
@@ -99,16 +107,14 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
     @Before
     public void setUp() throws DeviceNotAvailableException, ApkInstallerException, IOException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
+        mIsLastTestPass = false;
 
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
         mApkInstaller = ApkInstaller.getInstance(getDevice());
-        for (File apkPath : mApkPaths) {
-            CLog.d("Installing " + apkPath);
-            mApkInstaller.install(
-                    apkPath.toPath(), mInstallArgs.toArray(new String[mInstallArgs.size()]));
-        }
+        mApkInstaller.install(
+                mApkPaths.stream().map(File::toPath).collect(Collectors.toList()), mInstallArgs);
 
         if (mCollectGmsVersion) {
             testUtils.collectGmsVersion(mPackageName);
@@ -118,7 +124,6 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
             testUtils.collectAppVersion(mPackageName);
         }
 
-        deviceUtils.resetPackage(mPackageName);
         deviceUtils.freezeRotation();
     }
 
@@ -135,12 +140,18 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
         } else {
             launchPackageAndCheckForCrash();
         }
+        mIsLastTestPass = true;
     }
 
     @After
     public void tearDown() throws DeviceNotAvailableException, ApkInstallerException {
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
+
+        if (!mIsApkSaved) {
+            mIsApkSaved =
+                    testUtils.saveApks(mSaveApkWhen, mIsLastTestPass, mPackageName, mApkPaths);
+        }
 
         if (mScreenshotAfterLaunch) {
             testUtils.collectScreenshot(mPackageName);
@@ -158,11 +169,22 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
+        try {
+            if (!deviceUtils.isPackageInstalled(mPackageName)) {
+                Assert.fail(
+                        "Package "
+                                + mPackageName
+                                + " is not installed on the device. Aborting the test.");
+            }
+        } catch (DeviceUtilsException e) {
+            Assert.fail("Failed to check the installed package list: " + e.getMessage());
+        }
+
         DeviceTimestamp startTime = deviceUtils.currentTimeMillis();
         try {
             deviceUtils.launchPackage(mPackageName);
         } catch (DeviceUtilsException e) {
-            Assert.fail(e.getMessage());
+            Assert.fail("Failed to launch package " + mPackageName + ": " + e.getMessage());
         }
 
         CLog.d("Waiting %s milliseconds for the app to launch fully.", mAppLaunchTimeoutMs);

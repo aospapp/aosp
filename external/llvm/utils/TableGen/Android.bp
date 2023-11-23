@@ -16,7 +16,7 @@ cc_binary_host {
         "libLLVMSupport",
         "libLLVMTableGen",
     ],
-    clang_cflags: [
+    cflags: [
         "-Wno-user-defined-warnings",
     ],
     target: {

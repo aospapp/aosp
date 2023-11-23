@@ -16,6 +16,9 @@
 
 package android.mediapc.cts;
 
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
@@ -27,9 +30,6 @@ import android.view.Surface;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.Callable;
-
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 public class CodecTranscoderTestBase {
     private static final String LOG_TAG = CodecTranscoderTestBase.class.getSimpleName();

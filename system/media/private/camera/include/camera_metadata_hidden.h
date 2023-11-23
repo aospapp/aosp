@@ -17,6 +17,9 @@
 #ifndef SYSTEM_MEDIA_PRIVATE_INCLUDE_CAMERA_METADATA_HIDDEN_H
 #define SYSTEM_MEDIA_PRIVATE_INCLUDE_CAMERA_METADATA_HIDDEN_H
 
+#include <stdint.h>
+#include <cutils/compiler.h>
+#include <system/camera_metadata.h>
 #include <system/camera_vendor_tags.h>
 
 /**

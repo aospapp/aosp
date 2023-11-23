@@ -228,6 +228,7 @@ class Dso {
 
 const char* DsoTypeToString(DsoType dso_type);
 bool GetBuildIdFromDsoPath(const std::string& dso_path, BuildId* build_id);
+bool GetBuildId(const Dso& dso, BuildId& build_id);
 
 }  // namespace simpleperf
 

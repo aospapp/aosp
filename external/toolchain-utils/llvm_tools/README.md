@@ -19,10 +19,9 @@ password)**
 ### Usage
 
 This script is used for updating a package's LLVM hash (sys-devel/llvm,
-sys-libs/compiler-rt, sys-libs/libcxx, sys-libs/libcxxabi, and
-sys-libs/llvm-libunwind) and then run tests after updating the git hash.
-There are three ways to test the change, including starting tryjobs,
-recipe builders or using cq+1.
+sys-libs/compiler-rt, sys-libs/libcxx, and sys-libs/llvm-libunwind)
+and then run tests after updating the git hash. There are three ways to test
+the change, including starting tryjobs, recipe builders or using cq+1.
 
 An example when this script should be run is when certain boards would like
 to be tested with the updated `LLVM_NEXT_HASH`.
@@ -118,39 +117,10 @@ For example, to create a roll CL to the git hash of revision 367622:
 ```
 $ ./update_chromeos_llvm_hash.py \
   --update_packages sys-devel/llvm sys-libs/compiler-rt \
-  sys-libs/libcxx sys-libs/libcxxabi sys-libs/llvm-libunwind \
+  sys-libs/libcxx sys-libs/llvm-libunwind \
   'dev-util/lldb-server' \
   --llvm_version 367622 \
   --failure_mode disable_patches
-```
-
-## `llvm_patch_management.py`
-
-### Usage
-
-This script is used to test whether a newly added patch in a package's patch
-metadata file would apply successfully. The script is also used to make sure
-the patches of a package applied successfully, failed, etc., depending on the
-failure mode specified.
-
-An example of using this script is when multiple packages would like to be
-tested when a new patch was added to their patch metadata file.
-
-For example:
-
-```
-$ ./llvm_patch_management.py \
-  --packages sys-devel/llvm sys-libs/compiler-rt \
-  --failure_mode continue
-```
-
-The above example tests sys-devel/llvm and sys-libs/compiler-rt patch metadata
-file with the failure mode `continue`.
-
-For help with the command line arguments of the script, run:
-
-```
-$ ./llvm_patch_management.py --help
 ```
 
 ## `patch_manager.py`
@@ -172,7 +142,6 @@ For example, to see all the failed (if any) patches:
 $ ./patch_manager.py \
   --svn_version 367622 \
   --patch_metadata_file /abs/path/to/patch/file \
-  --filesdir_path /abs/path/to/$FILESDIR \
   --src_path /abs/path/to/src/tree \
   --failure_mode continue
 ```
@@ -183,7 +152,6 @@ For example, to disable all patches that failed to apply:
 $ ./patch_manager.py \
   --svn_version 367622 \
   --patch_metadata_file /abs/path/to/patch/file \
-  --filesdir_path /abs/path/to/$FILESDIR \
   --src_path /abs/path/to/src/tree \
   --failure_mode disable_patches
 ```
@@ -194,7 +162,6 @@ For example, to remove all patches that no longer apply:
 $ ./patch_manager.py \
   --svn_version 367622 \
   --patch_metadata_file /abs/path/to/patch/file \
-  --filesdir_path /abs/path/to/$FILESDIR \
   --src_path /abs/path/to/src/tree \
   --failure_mode remove_patches
 ```
@@ -205,7 +172,6 @@ For example, to bisect a failing patch and stop at the first bisected patch:
 $ ./patch_manager.py \
   --svn_version 367622 \
   --patch_metadata_file /abs/path/to/patch/file \
-  --filesdir_path /abs/path/to/$FILESDIR \
   --src_path /abs/path/to/src/tree \
   --failure_mode bisect_patches \
   --good_svn_version 365631
@@ -218,7 +184,6 @@ the failed patches:
 $ ./patch_manager.py \
   --svn_version 367622 \
   --patch_metadata_file /abs/path/to/patch/file \
-  --filesdir_path /abs/path/to/$FILESDIR \
   --src_path /abs/path/to/src/tree \
   --failure_mode bisect_patches \
   --good_svn_version 365631 \

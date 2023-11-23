@@ -23,9 +23,10 @@ android_test {
     libs: ["android.test.runner"],
     static_libs: [
         "androidx.test.rules",
+        "compatibility-device-util-axt",
         "hamcrest",
         "hamcrest-library",
-        "ub-uiautomator",
+        "androidx.test.uiautomator_uiautomator",
         "CtsInputMethodServiceCommon",
         "CtsInputMethodServiceLib",
     ],

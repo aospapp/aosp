@@ -25,7 +25,9 @@ import android.content.res.Resources;
 
 import androidx.annotation.RequiresApi;
 
+import java.util.Collection;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 @RequiresApi(TIRAMISU)
 final class BuilderUtils {
@@ -39,12 +41,12 @@ final class BuilderUtils {
             boolean prohibited,
             @Nullable Object defaultValue) {
         if (attribute == null && required) {
-            throw new IllegalStateException(String.format("Required attribute %s missing", name));
+            throwRequiredAttributeMissing(name);
         }
         boolean nonDefaultValueProvided = !Objects.equals(attribute, defaultValue);
         boolean checkProhibited = prohibited && nonDefaultValueProvided;
         if (attribute != null && checkProhibited) {
-            throw new IllegalStateException(String.format("Prohibited attribute %s present", name));
+            throwProhibitedAttributePresent(name);
         }
     }
 
@@ -54,6 +56,17 @@ final class BuilderUtils {
             boolean required,
             boolean prohibited) {
         validateAttribute(attribute, name, required, prohibited, null);
+    }
+
+    static void validateId(
+            @Nullable String id,
+            @NonNull String name,
+            boolean required,
+            boolean prohibited) {
+        validateAttribute(id, name, required, prohibited, null);
+        if (!Pattern.compile("[0-9a-zA-Z_]+").matcher(id).matches()) {
+            throw new IllegalStateException("Attribute " + name + " invalid");
+        }
     }
 
     @AnyRes
@@ -67,7 +80,7 @@ final class BuilderUtils {
             return Resources.ID_NULL;
         }
         if (required && value == Resources.ID_NULL) {
-            throw new IllegalStateException(String.format("Required attribute %s invalid", name));
+            throwRequiredAttributeInvalid(name);
         }
         return value;
     }
@@ -89,7 +102,7 @@ final class BuilderUtils {
             found |= (value == validValues[i]);
         }
         if (!found) {
-            throw new IllegalStateException(String.format("Attribute %s invalid", name));
+            throw new IllegalStateException("Attribute " + name + " invalid");
         }
         return value;
     }
@@ -118,5 +131,38 @@ final class BuilderUtils {
             return defaultValue;
         }
         return value;
+    }
+
+    /**
+     * Validates a collection argument from a builder.
+     *
+     * <ul>
+     *   <li>If {@code required}, a non-empty collection must be supplied.
+     *   <li>If {@code prohibited}, an empty collection must be supplied.
+     * </ul>
+     */
+    static <T> void validateCollection(
+            @NonNull Collection<T> value,
+            @NonNull String name,
+            boolean required,
+            boolean prohibited) {
+        if (value.isEmpty() && required) {
+            throwRequiredAttributeMissing(name);
+        }
+        if (!value.isEmpty() && prohibited) {
+            throwProhibitedAttributePresent(name);
+        }
+    }
+
+    static void throwRequiredAttributeMissing(@NonNull String attribute) {
+        throw new IllegalStateException("Required attribute " + attribute + " missing");
+    }
+
+    static void throwProhibitedAttributePresent(@NonNull String attribute) {
+        throw new IllegalStateException("Prohibited attribute " + attribute + " present");
+    }
+
+    static void throwRequiredAttributeInvalid(@NonNull String attribute) {
+        throw new IllegalStateException("Required attribute " + attribute + " invalid");
     }
 }

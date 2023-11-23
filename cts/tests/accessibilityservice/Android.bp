@@ -21,12 +21,15 @@ android_test {
     defaults: ["cts_defaults"],
     static_libs: [
         "ctstestrunner-axt",
+        "cts-wm-util",
         "hamcrest-library",
         "mockito-target-minus-junit4",
         "compatibility-device-util-axt",
         "platform-test-annotations",
         "CtsAccessibilityCommon",
         "CtsInputMethodServiceCommon",
+        "CtsVirtualDeviceCommonLib",
+        "sts-device-util",
     ],
     libs: [
         "android.test.runner",
@@ -37,10 +40,24 @@ android_test {
     test_suites: [
         "cts",
         "general-tests",
+        "sts",
     ],
     sdk_version: "test_current",
     per_testcase_directory: true,
     data: [
         ":CtsInputMethod1",
-        ":CtsAccessibilityWidgetProvider"],
+        ":CtsAccessibilityMultipleServicesApp",
+        ":CtsAccessibilityWidgetProvider",
+        ":CtsAccessibilityProxyApp",
+    ],
+}
+
+java_library_static {
+    name: "CtsAccessibilityServiceUtils",
+    sdk_version: "test_current",
+    static_libs: [
+        "compatibility-device-util-axt",
+        "CtsAccessibilityCommon",
+    ],
+    srcs: ["src/**/utils/*.java"],
 }

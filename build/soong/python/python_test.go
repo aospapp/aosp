@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"testing"
 
 	"android/soong/android"
+	"android/soong/cc"
 )
 
 type pyModule struct {
@@ -33,8 +33,10 @@ type pyModule struct {
 }
 
 var (
-	buildNamePrefix          = "soong_python_test"
-	moduleVariantErrTemplate = "%s: module %q variant %q: "
+	buildNamePrefix = "soong_python_test"
+	// We allow maching almost anything before the actual variant so that the os/arch variant
+	// is matched.
+	moduleVariantErrTemplate = `%s: module %q variant "[a-zA-Z0-9_]*%s": `
 	pkgPathErrTemplate       = moduleVariantErrTemplate +
 		"pkg_path: %q must be a relative path contained in par file."
 	badIdentifierErrTemplate = moduleVariantErrTemplate +
@@ -300,8 +302,6 @@ var (
 				filepath.Join("dir", "file2.py"):       nil,
 				filepath.Join("dir", "bin.py"):         nil,
 				filepath.Join("dir", "file4.py"):       nil,
-				StubTemplateHost: []byte(`PYTHON_BINARY = '%interpreter%'
-				MAIN_FILE = '%main%'`),
 			},
 			expectedBinaries: []pyModule{
 				{
@@ -314,10 +314,6 @@ var (
 						"e/file4.py",
 					},
 					srcsZip: "out/soong/.intermediates/dir/bin/PY3/bin.py.srcszip",
-					depsSrcsZips: []string{
-						"out/soong/.intermediates/dir/lib5/PY3/lib5.py.srcszip",
-						"out/soong/.intermediates/dir/lib6/PY3/lib6.py.srcszip",
-					},
 				},
 			},
 		},
@@ -329,17 +325,26 @@ func TestPythonModule(t *testing.T) {
 		if d.desc != "module with duplicate runfile path" {
 			continue
 		}
-		errorPatterns := make([]string, len(d.errors))
-		for i, s := range d.errors {
-			errorPatterns[i] = regexp.QuoteMeta(s)
-		}
+		d.mockFiles[filepath.Join("common", bpFile)] = []byte(`
+python_library {
+  name: "py3-stdlib",
+  host_supported: true,
+}
+cc_binary {
+  name: "py3-launcher",
+  host_supported: true,
+}
+`)
 
 		t.Run(d.desc, func(t *testing.T) {
 			result := android.GroupFixturePreparers(
 				android.PrepareForTestWithDefaults,
+				android.PrepareForTestWithArchMutator,
+				android.PrepareForTestWithAllowMissingDependencies,
+				cc.PrepareForTestWithCcDefaultModules,
 				PrepareForTestWithPythonBuildComponents,
 				d.mockFiles.AddToFixture(),
-			).ExtendWithErrorHandler(android.FixtureExpectsAllErrorsToMatchAPattern(errorPatterns)).
+			).ExtendWithErrorHandler(android.FixtureExpectsAllErrorsToMatchAPattern(d.errors)).
 				RunTest(t)
 
 			if len(result.Errs) > 0 {
@@ -348,17 +353,17 @@ func TestPythonModule(t *testing.T) {
 
 			for _, e := range d.expectedBinaries {
 				t.Run(e.name, func(t *testing.T) {
-					expectModule(t, result.TestContext, e.name, e.actualVersion, e.srcsZip, e.pyRunfiles, e.depsSrcsZips)
+					expectModule(t, result.TestContext, e.name, e.actualVersion, e.srcsZip, e.pyRunfiles)
 				})
 			}
 		})
 	}
 }
 
-func expectModule(t *testing.T, ctx *android.TestContext, name, variant, expectedSrcsZip string, expectedPyRunfiles, expectedDepsSrcsZips []string) {
+func expectModule(t *testing.T, ctx *android.TestContext, name, variant, expectedSrcsZip string, expectedPyRunfiles []string) {
 	module := ctx.ModuleForTests(name, variant)
 
-	base, baseOk := module.Module().(*Module)
+	base, baseOk := module.Module().(*PythonLibraryModule)
 	if !baseOk {
 		t.Fatalf("%s is not Python module!", name)
 	}
@@ -371,8 +376,6 @@ func expectModule(t *testing.T, ctx *android.TestContext, name, variant, expecte
 	android.AssertDeepEquals(t, "pyRunfiles", expectedPyRunfiles, actualPyRunfiles)
 
 	android.AssertPathRelativeToTopEquals(t, "srcsZip", expectedSrcsZip, base.srcsZip)
-
-	android.AssertPathsRelativeToTopEquals(t, "depsSrcsZips", expectedDepsSrcsZips, base.depsSrcsZips)
 }
 
 func TestMain(m *testing.M) {

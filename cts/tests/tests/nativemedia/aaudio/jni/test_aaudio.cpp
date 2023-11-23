@@ -45,7 +45,8 @@ static std::string getTestName(const ::testing::TestParamInfo<StreamTestParams>&
 }
 
 template<typename T>
-class AAudioStreamTest : public ::testing::TestWithParam<StreamTestParams> {
+class AAudioStreamTest : public AAudioCtsBase,
+                         public ::testing::WithParamInterface<StreamTestParams> {
   protected:
     AAudioStreamBuilder* builder() const { return mHelper->builder(); }
     AAudioStream* stream() const { return mHelper->stream(); }
@@ -95,7 +96,7 @@ class AAudioStreamTest : public ::testing::TestWithParam<StreamTestParams> {
         EXPECT_EQ(AAUDIO_OK, AAudioStream_waitForStateChange(stream(),
                                                              AAUDIO_STREAM_STATE_UNKNOWN,
                                                              &state,
-                                                             500 * NANOS_PER_MILLISECOND));
+                                                             DEFAULT_STATE_TIMEOUT));
         EXPECT_EQ(AAUDIO_STREAM_STATE_CLOSING, state);
     }
 
@@ -206,6 +207,8 @@ protected:
 };
 
 void AAudioInputStreamTest::SetUp() {
+    AAudioCtsBase::SetUp();
+
     mSetupSuccessful = false;
     if (!deviceSupportsFeature(FEATURE_RECORDING)) return;
     mHelper.reset(new InputStreamBuilderHelper(
@@ -262,17 +265,25 @@ TEST_P(AAudioInputStreamTest, testGetTimestamp) {
 TEST_P(AAudioInputStreamTest, testStartReadStop) {
     if (!mSetupSuccessful) return;
 
-    // Use 1/8 second as start-stops take a lot more time than just recording.
+    // Use 1/8 second as start-stops takes more time than just recording. This is 125 ms of data.
     const int32_t framesToRecord = actual().sampleRate / 8;
+    // Since starting and stopping streams takes time, stream starts and stops should be limited.
+    // For example, if a certain MMAP stream uses 2 ms bursts, there are 125 ms / 2 ms = 63 reads.
+    // kFramesPerReadMultiple is 63 / 10 = 6, so open/close will only be called 63 / 6 = 11 times.
+    constexpr int32_t kTargetReadCount = 10;
+    const int32_t kFramesPerReadMultiple =
+            std::max(1, framesToRecord / mFramesPerRead / kTargetReadCount);
     EXPECT_EQ(0, AAudioStream_getFramesRead(stream()));
     EXPECT_EQ(0, AAudioStream_getFramesWritten(stream()));
     for (int32_t framesLeft = framesToRecord; framesLeft > 0; ) {
         mHelper->startStream();
-        aaudio_result_t result = AAudioStream_read(
-                stream(), getDataBuffer(), std::min(framesToRecord, mFramesPerRead),
-                DEFAULT_READ_TIMEOUT);
-        ASSERT_GT(result, 0);
-        framesLeft -= result;
+        for (int i = 0; i < kFramesPerReadMultiple; i++) {
+            aaudio_result_t result = AAudioStream_read(stream(), getDataBuffer(),
+                                                       std::min(framesToRecord, mFramesPerRead),
+                                                       DEFAULT_READ_TIMEOUT);
+            ASSERT_GT(result, 0);
+            framesLeft -= result;
+        }
         mHelper->stopStream();
     }
     EXPECT_GE(AAudioStream_getFramesRead(stream()), framesToRecord);
@@ -353,6 +364,8 @@ class AAudioOutputStreamTest : public AAudioStreamTest<OutputStreamBuilderHelper
 };
 
 void AAudioOutputStreamTest::SetUp() {
+    AAudioCtsBase::SetUp();
+
     mSetupSuccessful = false;
     if (!deviceSupportsFeature(FEATURE_PLAYBACK)) return;
     mHelper.reset(new OutputStreamBuilderHelper(

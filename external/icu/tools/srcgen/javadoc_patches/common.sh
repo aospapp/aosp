@@ -23,7 +23,7 @@ if [[ -z ${ANDROID_BUILD_TOP} ]]; then
 fi
 
 relpath() {
-  python -c "import os.path; print os.path.relpath('$1','${2:-$PWD}')" ;
+  python3 -c "import os.path; print(os.path.relpath('$1','${2:-$PWD}'))" ;
 }
 
 ICU_DIR=${ANDROID_BUILD_TOP}/external/icu

@@ -37,10 +37,7 @@ cc_library_static {
 
     srcs: ["utils/Worker.cpp"],
 
-    include_dirs: [
-        "external/drm_hwcomposer",
-        "external/drm_hwcomposer/include",
-    ],
+    include_dirs: ["external/drm_hwcomposer"],
 
     cflags: [
         "-Wall",
@@ -68,10 +65,7 @@ cc_defaults {
         "libutils",
     ],
 
-    include_dirs: [
-        "external/drm_hwcomposer",
-        "external/drm_hwcomposer/include",
-    ],
+    include_dirs: ["external/drm_hwcomposer"],
 
     static_libs: ["libdrmhwc_utils"],
 
@@ -117,8 +111,6 @@ filegroup {
         "drm/ResourceManager.cpp",
         "drm/UEventListener.cpp",
         "drm/VSyncWorker.cpp",
-
-        "utils/hwcutils.cpp",
 
         "backend/Backend.cpp",
         "backend/BackendClient.cpp",

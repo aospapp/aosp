@@ -390,17 +390,8 @@ TEST_P(LogBufferTest, tail100_blocking_1000total_then1000more) {
     std::vector<LogMessage> expected_log_messages{log_messages.end() - kTailCount,
                                                   log_messages.end()};
 
-    // Wait for the reader to have read the messages.
-    int retry_count = 1s / 5000us;
-    while (retry_count--) {
-        usleep(5000);
-        auto lock = std::lock_guard{logd_lock};
-        if (blocking_reader.read_log_messages().size() == expected_log_messages.size()) {
-            CompareLogMessages(expected_log_messages, blocking_reader.read_log_messages());
-            break;
-        }
-    }
-    ASSERT_GT(retry_count, 0);
+    std::vector<LogMessage> actual = blocking_reader.WaitForMessages(expected_log_messages.size());
+    CompareLogMessages(expected_log_messages, actual);
 
     // Log more messages
     log_messages = GenerateRandomLogMessages(1000);
@@ -409,16 +400,8 @@ TEST_P(LogBufferTest, tail100_blocking_1000total_then1000more) {
                                  log_messages.end());
 
     // Wait for the reader to have read the new messages.
-    retry_count = 1s / 5000us;
-    while (retry_count--) {
-        usleep(5000);
-        auto lock = std::lock_guard{logd_lock};
-        if (blocking_reader.read_log_messages().size() == expected_log_messages.size()) {
-            CompareLogMessages(expected_log_messages, blocking_reader.read_log_messages());
-            break;
-        }
-    }
-    ASSERT_GT(retry_count, 0);
+    actual = blocking_reader.WaitForMessages(expected_log_messages.size());
+    CompareLogMessages(expected_log_messages, actual);
 
     ReleaseAndJoinReaders();
 
@@ -445,16 +428,8 @@ TEST_P(LogBufferTest, tail100_blocking_50total_then1000more) {
     std::vector<LogMessage> expected_log_messages = log_messages;
 
     // Wait for the reader to have read the messages.
-    int retry_count = 1s / 5000us;
-    while (retry_count--) {
-        usleep(5000);
-        auto lock = std::lock_guard{logd_lock};
-        if (blocking_reader.read_log_messages().size() == expected_log_messages.size()) {
-            CompareLogMessages(expected_log_messages, blocking_reader.read_log_messages());
-            break;
-        }
-    }
-    ASSERT_GT(retry_count, 0);
+    std::vector<LogMessage> actual = blocking_reader.WaitForMessages(expected_log_messages.size());
+    CompareLogMessages(expected_log_messages, actual);
 
     // Log more messages
     log_messages = GenerateRandomLogMessages(1000);
@@ -463,17 +438,8 @@ TEST_P(LogBufferTest, tail100_blocking_50total_then1000more) {
                                  log_messages.end());
 
     // Wait for the reader to have read the new messages.
-    retry_count = 1s / 5000us;
-    while (retry_count--) {
-        usleep(5000);
-        auto lock = std::lock_guard{logd_lock};
-        if (blocking_reader.read_log_messages().size() == expected_log_messages.size()) {
-            CompareLogMessages(expected_log_messages, blocking_reader.read_log_messages());
-
-            break;
-        }
-    }
-    ASSERT_GT(retry_count, 0);
+    actual = blocking_reader.WaitForMessages(expected_log_messages.size());
+    CompareLogMessages(expected_log_messages, actual);
 
     ReleaseAndJoinReaders();
 
@@ -481,5 +447,4 @@ TEST_P(LogBufferTest, tail100_blocking_50total_then1000more) {
     CompareLogMessages(expected_log_messages, blocking_reader.read_log_messages());
 }
 
-INSTANTIATE_TEST_CASE_P(LogBufferTests, LogBufferTest,
-                        testing::Values("chatty", "serialized", "simple"));
+INSTANTIATE_TEST_CASE_P(LogBufferTests, LogBufferTest, testing::Values("serialized", "simple"));

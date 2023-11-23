@@ -25,6 +25,7 @@ package {
 cc_library_static {
     name: "libneuralnetworks_fuzzer_proto",
     host_supported: true,
+    vendor_available: true,
     owner: "google",
     srcs: ["Model.proto"],
     proto: {
@@ -37,6 +38,7 @@ cc_library_static {
 cc_library_static {
     name: "libneuralnetworks_fuzzer_harness",
     host_supported: true,
+    vendor_available: true,
     owner: "google",
     srcs: [
         "Converter.cpp",

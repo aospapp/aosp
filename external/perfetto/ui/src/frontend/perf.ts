@@ -13,41 +13,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as m from 'mithril';
+import m from 'mithril';
 
 import {Actions} from '../common/actions';
 import {globals} from './globals';
 import {PanelContainer} from './panel_container';
 
-/**
- * Shorthand for if globals perf debug mode is on.
- */
+// Shorthand for if globals perf debug mode is on.
 export const perfDebug = () => globals.state.perfDebug;
 
-/**
- * Returns performance.now() if perfDebug is enabled, otherwise 0.
- * This is needed because calling performance.now is generally expensive
- * and should not be done for every frame.
- */
+// Returns performance.now() if perfDebug is enabled, otherwise 0.
+// This is needed because calling performance.now is generally expensive
+// and should not be done for every frame.
 export const debugNow = () => perfDebug() ? performance.now() : 0;
 
-/**
- * Returns execution time of |fn| if perf debug mode is on. Returns 0 otherwise.
- */
+// Returns execution time of |fn| if perf debug mode is on. Returns 0 otherwise.
 export function measure(fn: () => void): number {
   const start = debugNow();
   fn();
   return debugNow() - start;
 }
 
-/**
- * Stores statistics about samples, and keeps a fixed size buffer of most recent
- * samples.
- */
+// Stores statistics about samples, and keeps a fixed size buffer of most recent
+// samples.
 export class RunningStatistics {
   private _count = 0;
   private _mean = 0;
   private _lastValue = 0;
+  private _ptr = 0;
 
   private buffer: number[] = [];
 
@@ -55,10 +48,15 @@ export class RunningStatistics {
 
   addValue(value: number) {
     this._lastValue = value;
-    this.buffer.push(value);
-    if (this.buffer.length > this._maxBufferSize) {
-      this.buffer.shift();
+    if (this.buffer.length >= this._maxBufferSize) {
+      this.buffer[this._ptr++] = value;
+      if (this._ptr >= this.buffer.length) {
+        this._ptr -= this.buffer.length;
+      }
+    } else {
+      this.buffer.push(value);
     }
+
     this._mean = (this._mean * this._count + value) / (this._count + 1);
     this._count++;
   }
@@ -83,18 +81,14 @@ export class RunningStatistics {
   }
 }
 
-/**
- * Returns a summary string representation of a RunningStatistics object.
- */
+// Returns a summary string representation of a RunningStatistics object.
 export function runningStatStr(stat: RunningStatistics) {
   return `Last: ${stat.last.toFixed(2)}ms | ` +
       `Avg: ${stat.mean.toFixed(2)}ms | ` +
       `Avg${stat.maxBufferSize}: ${stat.bufferMean.toFixed(2)}ms`;
 }
 
-/**
- * Globals singleton class that renders performance stats for the whole app.
- */
+// Globals singleton class that renders performance stats for the whole app.
 class PerfDisplay {
   private containers: PanelContainer[] = [];
   addContainer(container: PanelContainer) {
@@ -117,7 +111,7 @@ class PerfDisplay {
           onclick: () => globals.dispatch(Actions.togglePerfDebug({})),
         },
         m('i.material-icons', 'close')),
-      this.containers.map((c, i) => m('section', c.renderPerfStats(i)))
+      this.containers.map((c, i) => m('section', c.renderPerfStats(i))),
     ]);
   }
 }

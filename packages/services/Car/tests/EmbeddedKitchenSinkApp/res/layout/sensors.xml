@@ -154,6 +154,16 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"/>
         </TableRow>
+        <TableRow
+                android:id="@+id/heading_info_row"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="5dp">
+            <TextView
+                android:id="@+id/heading_info"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+        </TableRow>
 
         <!-- Car Sensor Rows -->
         <TableRow

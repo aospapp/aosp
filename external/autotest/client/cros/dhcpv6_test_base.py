@@ -16,6 +16,7 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
+import six
 from six.moves import filter
 from six.moves import range
 import time
@@ -83,7 +84,10 @@ class Dhcpv6TestBase(test.test):
         if device is None:
             return []
 
-        device_properties = device.GetProperties(utf8_strings=True)
+        if six.PY2:
+            device_properties = device.GetProperties(utf8_strings=True)
+        else:
+            device_properties = device.GetProperties()
         proxy = self.shill_proxy
 
         ipconfig_object = proxy.DBUS_TYPE_IPCONFIG
@@ -106,18 +110,21 @@ class Dhcpv6TestBase(test.test):
         """
         dhcp_properties = None
         for ipconfig in self.get_interface_ipconfig_objects(interface_name):
-          logging.info('Looking at ipconfig %r', ipconfig)
-          ipconfig_properties = ipconfig.GetProperties(utf8_strings=True)
-          if 'Method' not in ipconfig_properties:
-              logging.info('Found ipconfig object with no method field')
-              continue
-          if ipconfig_properties['Method'] != 'dhcp6':
-              logging.info('Found ipconfig object with method != dhcp6')
-              continue
-          if dhcp_properties != None:
-              raise error.TestFail('Found multiple ipconfig objects '
-                                   'with method == dhcp6')
-          dhcp_properties = ipconfig_properties
+            logging.info('Looking at ipconfig %r', ipconfig)
+            if six.PY2:
+                ipconfig_properties = ipconfig.GetProperties(utf8_strings=True)
+            else:
+                ipconfig_properties = ipconfig.GetProperties()
+            if 'Method' not in ipconfig_properties:
+                logging.info('Found ipconfig object with no method field')
+                continue
+            if ipconfig_properties['Method'] != 'dhcp6':
+                logging.info('Found ipconfig object with method != dhcp6')
+                continue
+            if dhcp_properties != None:
+                raise error.TestFail('Found multiple ipconfig objects '
+                                     'with method == dhcp6')
+            dhcp_properties = ipconfig_properties
         if dhcp_properties is None:
             logging.info('Did not find IPConfig object with method == dhcp6')
             return None

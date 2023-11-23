@@ -25,8 +25,8 @@ package {
 cc_binary {
     name: "android.hardware.bluetooth@1.1-service.sim",
     defaults: [
-      "gd_defaults",
-      "libchrome_support_defaults"
+        "gd_defaults",
+        "libchrome_support_defaults",
     ],
     proprietary: true,
     relative_install_path: "hw",
@@ -35,30 +35,25 @@ cc_binary {
         "service.cc",
     ],
     visibility: [
-        "//platform_testing/libraries/sts-common-util/host-side/rootcanal"
+        "//platform_testing/libraries/sts-common-util/host-side/rootcanal",
     ],
     header_libs: ["libbluetooth_headers"],
     shared_libs: [
         "android.hardware.bluetooth@1.0",
         "android.hardware.bluetooth@1.1",
         "libbase",
+        "libcrypto",
         "libcutils",
         "libhidlbase",
         "libjsoncpp",
         "liblog",
+        "libprotobuf-cpp-full",
         "libutils",
-        "libprotobuf-cpp-lite",
     ],
     cflags: [
         "-fvisibility=hidden",
-        "-Wall",
-        "-Wextra",
-        "-Werror",
-        "-DHAS_NO_BDROID_BUILDCFG",
     ],
     generated_headers: [
-        "RootCanalGeneratedPackets_h",
-        "BluetoothGeneratedPackets_h",
         "libbt_init_flags_bridge_header",
     ],
     whole_static_libs: [
@@ -71,19 +66,17 @@ cc_binary {
     ],
     include_dirs: [
         "packages/modules/Bluetooth/system",
-        "packages/modules/Bluetooth/system/gd",
         "packages/modules/Bluetooth/system/internal_include",
         "packages/modules/Bluetooth/system/stack/include",
     ],
     init_rc: ["android.hardware.bluetooth@1.1-service.sim.rc"],
-    required: ["bt_controller_properties"],
 }
 
 cc_library_shared {
     name: "android.hardware.bluetooth@1.1-impl-sim",
     defaults: [
-      "gd_defaults",
-      "libchrome_support_defaults"
+        "gd_defaults",
+        "libchrome_support_defaults",
     ],
     proprietary: true,
     relative_install_path: "hw",
@@ -91,33 +84,26 @@ cc_library_shared {
         "bluetooth_hci.cc",
     ],
     visibility: [
-        "//platform_testing/libraries/sts-common-util/host-side/rootcanal"
+        "//platform_testing/libraries/sts-common-util/host-side/rootcanal",
     ],
     header_libs: ["libbluetooth_headers"],
     shared_libs: [
         "android.hardware.bluetooth@1.0",
         "android.hardware.bluetooth@1.1",
         "libbase",
+        "libcrypto",
         "libcutils",
         "libhidlbase",
         "libjsoncpp",
         "liblog",
+        "libprotobuf-cpp-full",
         "libutils",
-        "libprotobuf-cpp-lite",
-    ],
-    cflags: [
-        "-Wall",
-        "-Wextra",
-        "-Werror",
-        "-DHAS_NO_BDROID_BUILDCFG",
     ],
     generated_headers: [
-        "RootCanalGeneratedPackets_h",
-        "BluetoothGeneratedPackets_h",
         "libbt_init_flags_bridge_header",
     ],
     whole_static_libs: [
-        "libbt-rootcanal"
+        "libbt-rootcanal",
     ],
     static_libs: [
         "android.hardware.bluetooth-async",
@@ -126,7 +112,6 @@ cc_library_shared {
     ],
     include_dirs: [
         "packages/modules/Bluetooth/system",
-        "packages/modules/Bluetooth/system/gd",
         "packages/modules/Bluetooth/system/internal_include",
         "packages/modules/Bluetooth/system/stack/include",
     ],

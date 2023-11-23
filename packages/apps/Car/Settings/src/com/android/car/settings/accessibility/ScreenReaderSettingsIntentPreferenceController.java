@@ -60,7 +60,7 @@ public class ScreenReaderSettingsIntentPreferenceController extends
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         ComponentName screenReaderSettingsActivity =
                 ScreenReaderUtils.getScreenReaderSettingsActivity(getContext());
         return screenReaderSettingsActivity != null ? AVAILABLE : CONDITIONALLY_UNAVAILABLE;

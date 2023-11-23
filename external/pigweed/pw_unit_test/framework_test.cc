@@ -12,9 +12,10 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#include "pw_unit_test/framework.h"
-
 #include <cstring>
+
+#include "gtest/gtest.h"
+#include "pw_assert/check.h"
 
 namespace pw {
 namespace {
@@ -180,9 +181,9 @@ TEST_F(PigweedTestFixture, YupTheNumberIs35) {
 
 class Expectations : public ::testing::Test {
  protected:
-  Expectations() : cool_number_(3) { ASSERT_EQ(cool_number_, 3); }
+  Expectations() : cool_number_(3) { PW_CHECK_INT_EQ(cool_number_, 3); }
 
-  ~Expectations() { ASSERT_EQ(cool_number_, 14159); }
+  ~Expectations() override { PW_CHECK_INT_EQ(cool_number_, 14159); }
 
   int cool_number_;
 };
@@ -193,7 +194,7 @@ class SetUpAndTearDown : public ::testing::Test {
  protected:
   SetUpAndTearDown() : value_(0) { EXPECT_EQ(value_, 0); }
 
-  ~SetUpAndTearDown() { EXPECT_EQ(value_, 1); }
+  ~SetUpAndTearDown() override { EXPECT_EQ(value_, 1); }
 
   void SetUp() override { value_ = 1337; }
 

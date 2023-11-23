@@ -52,7 +52,8 @@ cc_library {
 
 cc_test {
     name: "traffic_controller_unit_test",
-    test_suites: ["general-tests"],
+    test_suites: ["general-tests", "mts-tethering"],
+    test_config_template: ":net_native_test_config_template",
     require_root: true,
     local_include_dirs: ["include"],
     header_libs: [
@@ -71,4 +72,13 @@ cc_test {
         "libnetd_updatable",
         "netd_aidl_interface-lateststable-ndk",
     ],
+    compile_multilib: "both",
+    multilib: {
+        lib32: {
+            suffix: "32",
+        },
+        lib64: {
+            suffix: "64",
+        },
+    },
 }

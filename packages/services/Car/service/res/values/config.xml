@@ -26,6 +26,16 @@
           during initial development where audio hal does not support bus based addressing yet. -->
     <bool name="audioUseDynamicRouting">false</bool>
 
+    <!--  Configuration to enable usage of core audio volume API, aka using AudioManager's
+          AudioAttributes based volume API.
+          Volume application is delegated to AudioPolicyManager. -->
+    <bool name="audioUseCoreVolume">false</bool>
+
+    <!--  Configuration to enable usage of core audio routing API.
+          It may also be enabled with Dynamic Routing enabled, thus, overriding policy routing rules
+          when Dynamic rules can be effectively established. -->
+    <bool name="audioUseCoreRouting">false</bool>
+
     <!--  Configuration to enable muting of individual volume groups. If this is set to
           false, muting of individual volume groups is disabled, instead muting will toggle master
           mute. If this is set to true, car volume group muting is enabled and each individual
@@ -64,6 +74,18 @@
           - The timeout will also be used as the pause duration required in between automatic volume
             adjustments to change what user is adjusting. -->
     <integer name="audioVolumeKeyEventTimeoutMs">3000</integer>
+
+    <!--  Configuration to enable callback events to volume groups. If this is set to true, clients
+          will receive callback through ICarVolumeGroupEvent to events impacting volume groups.
+          When enabled:
+          - It is strongly recommended that the vendors also support
+            IAudioControl#setModuleChangeCallback, IAudioControl#registerGainCallback for events
+            and changes to audio hardware.
+          - If both CarVolumeCallback and CarVolumeGroupEventCallback are registered by the same
+            application, then the volume group index and volume group mute callbacks shall be
+            through CarVolumeGroupEventCallback ONLY. Therefore, it is strongly recommended that
+            all the applications migrate to the new callback interface for consistent behavior. -->
+    <bool name="audioUseCarVolumeGroupEvent">false</bool>
 
     <!-- Whether to block other audio while media audio is muted with display off. When set to true,
          other sounds cannot be played either while display is off. If false, only media is muted
@@ -178,6 +200,11 @@
     <integer name="maxExcessiveIoSamplesInWindow">11</integer>
 
     <!-- The number of days past until the current day considered by car watchdog to
+         reset the killable state of a package back to KILLABLE_STATE_YES if the package
+         was set to prioritize performance by the user. -->
+    <integer name="watchdogUserPackageSettingsResetDays">90</integer>
+
+    <!-- The number of days past until the current day considered by car watchdog to
          attribute recurring overuse to a package.  -->
     <integer name="recurringResourceOverusePeriodInDays">14</integer>
 
@@ -227,25 +254,32 @@
          duration and this should not be made shorter. -->
     <integer name="maxGarageModeRunningDurationInSecs">900</integer>
 
-    <!-- The services that needs to be started earlier in the boot sequence and in particular order.
+    <!-- The services that need to be started earlier in the boot sequence and in particular order.
          Every item in this array contains a flatten component name of a service that needs to be
          started and a list of parameters after hashtag symbol. Here's the format:
 
-         <item>com.bar.foo/.Service#bind={bind|start|startForeground},user={all|system|foreground},
-         trigger={asap,userUnlocked}</item>
+         <item>com.bar.foo/.Service#bind={bind|start|startForeground},
+         user={all|system|foreground|visible|backgroundVisible},
+         trigger={asap|resume|userUnlocked|userPostUnlocked}</item>
 
          bind: bind - start service with Context#bindService
                start - start service with Context#startService
                startForeground - start service with Context#startForegroundService
                If service was bound it will be restarted unless it is constantly crashing.
                The default value is 'start'
-         user: all - the service will be bound/started for system and all foreground users
+         user: all - the service will be bound/started for system and all visible users
                system - the service will be started/bound only for system user (u0)
                foreground - the service will be bound/started only for foreground users
+               visible - the service will be bound/started only for visible users (as defined by
+                         `UserManager#isUserVisible()`).
+               backgroundVisible - the service will be bound/started only for background users that
+                                   are visible.
                The default value is 'all'
          trigger: indicates when the service needs to be started/bound
                asap - the service might be bound when user is not fully loaded, be careful with
                       this value, the service also needs to have directBootAware flag set to true
+               resume - start service when the device resumes from suspend (suspend-to-RAM, or
+                        suspend-to-disk).
                userUnlocked - start service when user unlocked the device
                userPostUnlocked - start service later after user unlocked. This is used when the
                                   service is not urgent and can wait to start.
@@ -259,18 +293,26 @@
     </string-array>
 
     <!-- The consent activity that must be shown for every unknown mobile device before projection
-         gets started.  The format is: com.your.package/com.your.Activity  -->
+         gets started.  The format is: com.your.package/com.your.Activity
+         NOTE: deprecated for aareceiver, see integration guide to use aareceiver specific RROs.
+    -->
     <string name="config_projectionConsentActivity" translatable="false"/>
 
     <!-- Display Id where projection rendering activity needs to be shown, Specify -1 to use system
-         defaults -->
+         defaults
+         NOTE: deprecated for aareceiver, see integration guide to use aareceiver specific RROs.
+     -->
     <integer name="config_projectionActivityDisplayId" translatable="false">-1</integer>
 
     <!-- Bounds of the projection activity on the screen. It should be in the pixels and screen
-         coordinates in the following order: left, top, right, bottom. -->
+         coordinates in the following order: left, top, right, bottom.
+         NOTE: deprecated for aareceiver, see integration guide to use aareceiver specific RROs.
+    -->
     <integer-array name="config_projectionActivityLaunchBounds" translatable="false"/>
 
-    <!-- UI mode for projection activity. See ProjectionOptions class for possible values. -->
+    <!-- UI mode for projection activity. See ProjectionOptions class for possible values.
+         NOTE: deprecated for aareceiver, see integration guide to use aareceiver specific RROs.
+    -->
     <integer name="config_projectionUiMode" translatable="false">0</integer>
 
     <!-- Configure whether access point created for wireless projection should be in tethered mode.
@@ -284,7 +326,7 @@
          whether Wi-Fi configuration will persist reboots. By default new Wi-Fi credentials are
          created for every local-only hotspot (LOHS) instantiation, changing this flag to true
          will make LOHS credentials persistent. -->
-    <bool name="config_stableLocalOnlyHotspotConfig" translatable="false">false</bool>
+    <bool name="config_stableLocalOnlyHotspotConfig" translatable="false">true</bool>
 
     <!-- The package name of a service to be launched by CarService to bind to an active media
          service on the current  user.
@@ -322,11 +364,16 @@
         occupant. DEFAULT_DISPLAY, if assigned here, should be always assigned to the DRIVER zone.
 
         Some examples are:
-        <item>displayPort=0,displayType=MAIN,occupantZoneId=0</item>
-        <item>displayPort=1,displayType=INSTRUMENT_CLUSTER,occupantZoneId=0</item>
-        <item>displayPort=2,displayType=MAIN,occupantZoneId=1</item>
-        <item>displayPort=3,displayType=MAIN,occupantZoneId=2</item>
-        <item>displayUniqueId=virtual:com.example:MainD,displayType=MAIN,occupantZoneId=3</item>
+        <item>displayPort=0,displayType=MAIN,occupantZoneId=0,inputTypes=DPAD_KEYS|
+            NAVIGATE_KEYS|ROTARY_NAVIGATION</item>
+        <item>displayPort=1,displayType=INSTRUMENT_CLUSTER,occupantZoneId=0,
+            inputTypes=DPAD_KEYS</item>
+        <item>displayPort=2,displayType=MAIN,occupantZoneId=1,
+            inputTypes=NAVIGATE_KEYS</item>
+        <item>displayPort=3,displayType=MAIN,occupantZoneId=2,
+            inputTypes=NAVIGATE_KEYS</item>
+        <item>displayUniqueId=virtual:com.example:MainD,displayType=MAIN,occupantZoneId=3,
+            inputTypes=NAVIGATE_KEYS</item>
 
         NOTE: each item should have displayPort or displayUniqueId, if it has both, displayPort
           will be used.
@@ -337,6 +384,7 @@
                        CarOccupantZoneManager.DISPLAY_TYPE_* like MAIN, INSTRUMENT_CLUSTER and
                        etc.
         occupantZoneId: occupantZoneId specified from config_occupant_zones.
+        inputTypes: supported input types for the corresponding display.
 
     -->
     <string-array translatable="false" name="config_occupant_display_mapping">
@@ -344,16 +392,15 @@
 
     <!--
         Specifies whether CarLaunchParamControl prefers source. If prefer-source is enabled,
-        CarLaunchParamControl tries to launch Activities without any desiganted display to
+        CarLaunchParamControl tries to launch Activities without any designated display to
         the display where the source is located.
 
-        This can be configured 3 ways:
+        This can be configured in 3 ways:
         A. No items - don't prefer source for any components.
         B. 1 items with "*" - prefer source for all components.
         C. enumerate items of "packageName/activityName" - prefer source for the specified ones.
     -->
     <string-array translatable="false" name="config_sourcePreferredComponents">
-        <item>com.google.android.apps.maps/com.google.android.maps.MapsActivity</item>
     </string-array>
 
     <!-- Specifies notice UI that will be launched when user starts a car or do user
@@ -363,6 +410,11 @@
          resolve permission by itself to use any higher priority window type.
          Setting this string to empty will disable the feature. -->
     <string name="config_userNoticeUiService" translatable="false">com.google.android.car.kitchensink/.UserNoticeDemoUiService</string>
+
+    <!-- Specifies the user picker to be launched on a secondary display when there is no user
+         allocation when the system boots and when a visible user stops.
+    -->
+    <string name="config_userPickerActivity" translatable="false">com.android.systemui/.car.userpicker.UserPickerActivity</string>
 
     <!-- Configuration to enable media center to autoplay when the media source is changed.
          There are 3 supported configurations:
@@ -447,6 +499,16 @@
          notified -->
     <integer name="config_postShutdownEnterTimeout">5000</integer>
 
+    <!-- A configuration flag to enable auto power saving for passenger displays.
+         When it's true, the driver display is not affected and always on. When it's false, auto
+         power saving is not applied. OEMs can implement their own auto power saving logic.
+         -->
+    <bool name="config_enablePassengerDisplayPowerSaving">true</bool>
+
+    <!-- Number of milliseconds to wait until screen is automatically turned off.
+         The default duration is 1 min (= 1 * 60 * 1000). -->
+    <integer name="config_noUserScreenOffTimeout">60000</integer>
+
     <!-- A name of a camera device that provides the rearview through EVS service -->
     <string name="config_evsRearviewCameraId" translatable="false">/dev/video10</string>
 
@@ -476,18 +538,46 @@
          ExternalTimeSuggestions to the Android TimeManager service. -->
     <bool name="config_enableExternalCarTimeToExternalTimeSuggestion">false</bool>
 
-    <!-- Configuration to set when pre-created users should be managed by CarService. Car Service
-         will make sure it has the number of pre-created users defined by the system properties
-         android.car.number_pre_created_users and android.car.number_pre_created_guests.
-         Supported flags:
-         1 - Before suspend
-         2 - After system start
-         Flags can be combined. In this case, 3 means manage pre-created users after system start
-         and before suspend. If pre-created users are managed after system start then
-         config_userPreCreationDelay will be used to wait before managing pre-created users. -->
-    <integer name="config_userPreCreationStage">3</integer>
+    <!-- This is the component name for the OEM customization service. OEM can choose to implement
+         this service to customize car service behavior for different policies. If OEMs choose to
+         implement it, they have to implement a service extending OemCarService exposed by car-lib,
+         and implement the needed component services.
+         If the component name is invalid, CarService would not connect to any OEM service.
+         Component name can not be a third party package. It should be pre-installed -->
+   <string name="config_oemCarService" translatable="false"></string>
 
-    <!-- How many milli-seconds CarService should wait before managing pre-created users after
-         system start. This property only applied when config_userPreCreationStage flag is 2. -->
-    <integer name="config_userPreCreationDelay">5000</integer>
+    <!-- Related to OEM customization service. How many milliseconds CarService should wait for
+         OEM service to connect. If `config_oemCarService` is set and oem service package exists,
+         then CarService would wait for this much time for OEM service to connect. If OEM service
+         doesn't connect within this time, CarService would crash itself. -->
+    <integer name="config_oemCarService_connection_timeout_ms">5000</integer>
+
+    <!-- Related to OEM customization service. How many milliseconds CarService should wait for
+         OEM service to be ready. This is the wait time after OEM service is connected to
+         CarService. CarService would poll OEM service for being ready, if OEM service not ready
+         within timeout, CarService would crash. -->
+    <integer name="config_oemCarService_serviceReady_timeout_ms">5000</integer>
+
+    <!-- Related to OEM customization service. Default timeout for calls made by CarService to
+         OEM service. After this, CarService would timeout the call. If OEM service returns the
+         results after timeout, it would be ignored. -->
+    <integer name="config_oemCarService_regularCall_timeout_ms">5000</integer>
+
+    <!-- Related to OEM customization service. Default timeout for critical calls made by CarService
+         to OEM service. After this timeout, CarService would itself and OEM Service. -->
+    <integer name="config_oemCarService_crashCall_timeout_ms">10000</integer>
+
+    <!-- Related to OEM customization service. Default thread pool size for communicating with the
+         OEM Service. The value can only be between 8 and 16. If value is higher than 16, thread
+         pool size will be 16. If value is lower than 8, thread pool size will be 8.-->
+    <integer name="config_oemCarService_thread_pool_size">8</integer>
+
+    <!-- Number of seconds to wait until all remote tasks are completed. Should be no smaller than
+         30 seconds -->
+    <integer name="config_allowedSystemUptimeForRemoteAccess">300</integer>
+
+    <!-- Assigns passenger Activities to foreground cpuset rather than the top app cpuset.
+         This is enabled only for a system having both driver and passenger zones. If the system
+         has only driver zone or passenger zones, this configuration will be ignored. -->
+    <bool name="config_assignPassengerActivityToForegroundCpuGroup">true</bool>
 </resources>

@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="grant_dialog_button_deny_dont_ask_again" msgid="747769682501286250">"Odbij i ne pitaj ponovo"</string>
-    <string name="grant_dialog_how_to_change" msgid="997462845048160559">"Ovo možete kasnije promijeniti u odjeljku Postavke i Aplikacije"</string>
+    <string name="grant_dialog_how_to_change" msgid="997462845048160559">"Ovo možete kasnije promijeniti u odjeljku Postavke &gt; Aplikacije"</string>
     <string name="current_permission_template" msgid="6240787325714651204">"<xliff:g id="CURRENT_PERMISSION_INDEX">%1$s</xliff:g>/<xliff:g id="PERMISSION_COUNT">%2$s</xliff:g>"</string>
     <string name="preference_show_system_apps" msgid="4262140518693221093">"Prikaži sistemske aplikacije"</string>
     <string name="app_permissions_decor_title" msgid="7438716722786036814">"Odobrenja za aplikaciju"</string>

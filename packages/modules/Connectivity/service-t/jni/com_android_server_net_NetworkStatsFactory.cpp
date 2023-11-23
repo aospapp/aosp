@@ -93,118 +93,6 @@ static jlongArray get_long_array(JNIEnv* env, jobject obj, jfieldID field, int s
     return env->NewLongArray(size);
 }
 
-static int legacyReadNetworkStatsDetail(std::vector<stats_line>* lines,
-                                        const std::vector<std::string>& limitIfaces,
-                                        int limitTag, int limitUid, const char* path) {
-    FILE* fp = fopen(path, "re");
-    if (fp == NULL) {
-        return -1;
-    }
-
-    int lastIdx = 1;
-    int idx;
-    char buffer[384];
-    while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-        stats_line s;
-        int64_t rawTag;
-        char* pos = buffer;
-        char* endPos;
-        // First field is the index.
-        idx = (int)strtol(pos, &endPos, 10);
-        //ALOGI("Index #%d: %s", idx, buffer);
-        if (pos == endPos) {
-            // Skip lines that don't start with in index.  In particular,
-            // this will skip the initial header line.
-            continue;
-        }
-        if (idx != lastIdx + 1) {
-            ALOGE("inconsistent idx=%d after lastIdx=%d: %s", idx, lastIdx, buffer);
-            fclose(fp);
-            return -1;
-        }
-        lastIdx = idx;
-        pos = endPos;
-        // Skip whitespace.
-        while (*pos == ' ') {
-            pos++;
-        }
-        // Next field is iface.
-        int ifaceIdx = 0;
-        while (*pos != ' ' && *pos != 0 && ifaceIdx < (int)(sizeof(s.iface)-1)) {
-            s.iface[ifaceIdx] = *pos;
-            ifaceIdx++;
-            pos++;
-        }
-        if (*pos != ' ') {
-            ALOGE("bad iface: %s", buffer);
-            fclose(fp);
-            return -1;
-        }
-        s.iface[ifaceIdx] = 0;
-        if (limitIfaces.size() > 0) {
-            // Is this an iface the caller is interested in?
-            int i = 0;
-            while (i < (int)limitIfaces.size()) {
-                if (limitIfaces[i] == s.iface) {
-                    break;
-                }
-                i++;
-            }
-            if (i >= (int)limitIfaces.size()) {
-                // Nothing matched; skip this line.
-                //ALOGI("skipping due to iface: %s", buffer);
-                continue;
-            }
-        }
-
-        // Ignore whitespace
-        while (*pos == ' ') pos++;
-
-        // Find end of tag field
-        endPos = pos;
-        while (*endPos != ' ') endPos++;
-
-        // Three digit field is always 0x0, otherwise parse
-        if (endPos - pos == 3) {
-            rawTag = 0;
-        } else {
-            if (sscanf(pos, "%" PRIx64, &rawTag) != 1) {
-                ALOGE("bad tag: %s", pos);
-                fclose(fp);
-                return -1;
-            }
-        }
-        s.tag = rawTag >> 32;
-        if (limitTag != -1 && s.tag != static_cast<uint32_t>(limitTag)) {
-            //ALOGI("skipping due to tag: %s", buffer);
-            continue;
-        }
-        pos = endPos;
-
-        // Ignore whitespace
-        while (*pos == ' ') pos++;
-
-        // Parse remaining fields.
-        if (sscanf(pos, "%u %u %" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64,
-                &s.uid, &s.set, &s.rxBytes, &s.rxPackets,
-                &s.txBytes, &s.txPackets) == 6) {
-            if (limitUid != -1 && static_cast<uint32_t>(limitUid) != s.uid) {
-                //ALOGI("skipping due to uid: %s", buffer);
-                continue;
-            }
-            lines->push_back(s);
-        } else {
-            //ALOGI("skipping due to bad remaining fields: %s", pos);
-        }
-    }
-
-    if (fclose(fp) != 0) {
-        ALOGE("Failed to close netstats file");
-        return -1;
-    }
-    return 0;
-}
-
 static int statsLinesToNetworkStats(JNIEnv* env, jclass clazz, jobject stats,
                             std::vector<stats_line>& lines) {
     int size = lines.size();
@@ -282,37 +170,11 @@ static int statsLinesToNetworkStats(JNIEnv* env, jclass clazz, jobject stats,
     return 0;
 }
 
-static int readNetworkStatsDetail(JNIEnv* env, jclass clazz, jobject stats, jstring path,
-                                  jint limitUid, jobjectArray limitIfacesObj, jint limitTag,
-                                  jboolean useBpfStats) {
-
-    std::vector<std::string> limitIfaces;
-    if (limitIfacesObj != NULL && env->GetArrayLength(limitIfacesObj) > 0) {
-        int num = env->GetArrayLength(limitIfacesObj);
-        for (int i = 0; i < num; i++) {
-            jstring string = (jstring)env->GetObjectArrayElement(limitIfacesObj, i);
-            ScopedUtfChars string8(env, string);
-            if (string8.c_str() != NULL) {
-                limitIfaces.push_back(std::string(string8.c_str()));
-            }
-        }
-    }
+static int readNetworkStatsDetail(JNIEnv* env, jclass clazz, jobject stats) {
     std::vector<stats_line> lines;
 
-
-    if (useBpfStats) {
-        if (parseBpfNetworkStatsDetail(&lines, limitIfaces, limitTag, limitUid) < 0)
-            return -1;
-    } else {
-        ScopedUtfChars path8(env, path);
-        if (path8.c_str() == NULL) {
-            ALOGE("the qtaguid legacy path is invalid: %s", path8.c_str());
-            return -1;
-        }
-        if (legacyReadNetworkStatsDetail(&lines, limitIfaces, limitTag,
-                                         limitUid, path8.c_str()) < 0)
-            return -1;
-    }
+    if (parseBpfNetworkStatsDetail(&lines) < 0)
+        return -1;
 
     return statsLinesToNetworkStats(env, clazz, stats, lines);
 }
@@ -327,15 +189,15 @@ static int readNetworkStatsDev(JNIEnv* env, jclass clazz, jobject stats) {
 }
 
 static const JNINativeMethod gMethods[] = {
-        { "nativeReadNetworkStatsDetail",
-                "(Landroid/net/NetworkStats;Ljava/lang/String;I[Ljava/lang/String;IZ)I",
+        { "nativeReadNetworkStatsDetail", "(Landroid/net/NetworkStats;)I",
                 (void*) readNetworkStatsDetail },
         { "nativeReadNetworkStatsDev", "(Landroid/net/NetworkStats;)I",
                 (void*) readNetworkStatsDev },
 };
 
 int register_android_server_net_NetworkStatsFactory(JNIEnv* env) {
-    int err = jniRegisterNativeMethods(env, "com/android/server/net/NetworkStatsFactory", gMethods,
+    int err = jniRegisterNativeMethods(env,
+            "android/net/connectivity/com/android/server/net/NetworkStatsFactory", gMethods,
             NELEM(gMethods));
     gStringClass = env->FindClass("java/lang/String");
     gStringClass = static_cast<jclass>(env->NewGlobalRef(gStringClass));

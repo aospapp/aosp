@@ -19,9 +19,9 @@ PROGRAM_PARAMETERS=""
 PROGRAM_DESCRIPTION=\
 "Regenerate static translator headers for EGL/GLES1/GLES2,3."
 
-ENTRIES_DIR=stream-servers/OpenGLESDispatch
-HEADER_OUT_DIR=stream-servers/OpenGLESDispatch
-IMPL_OUT_DIR=stream-servers/OpenGLESDispatch
+ENTRIES_DIR=stream-servers/gl/OpenGLESDispatch
+HEADER_OUT_DIR=include/OpenGLESDispatch
+IMPL_OUT_DIR=stream-servers/gl/OpenGLESDispatch
 
 function gen_entries_with_mode() {
     local mode=$1
@@ -44,6 +44,10 @@ function static_translator_namespaced_header() {
 
 function static_translator_namespaced_stubs() {
     gen_entries_with_mode static_translator_namespaced_stubs $1 $2
+}
+
+function dispatch_logging_wrappers() {
+    gen_entries_with_mode dispatch_logging_wrappers $1 $2
 }
 
 functions_header $ENTRIES_DIR/render_egl.entries $HEADER_OUT_DIR/RenderEGL_functions.h
@@ -77,3 +81,14 @@ static_translator_namespaced_header $ENTRIES_DIR/gles_extensions_for_gles2.entri
 
 static_translator_namespaced_stubs $ENTRIES_DIR/gles1_stubbed_in_translator_namespace.entries $IMPL_OUT_DIR/gles1_stubbed_in_translator_namespace.cpp
 static_translator_namespaced_stubs $ENTRIES_DIR/gles2_stubbed_in_translator_namespace.entries $IMPL_OUT_DIR/gles2_stubbed_in_translator_namespace.cpp
+
+dispatch_logging_wrappers $ENTRIES_DIR/gles_common.entries $IMPL_OUT_DIR/gles_common_dispatch_logging_wrappers.impl
+dispatch_logging_wrappers $ENTRIES_DIR/gles_extensions.entries $IMPL_OUT_DIR/gles_extensions_dispatch_logging_wrappers.impl
+dispatch_logging_wrappers $ENTRIES_DIR/gles1_extensions.entries $IMPL_OUT_DIR/gles1_extensions_dispatch_logging_wrappers.impl
+dispatch_logging_wrappers $ENTRIES_DIR/gles1_only.entries $IMPL_OUT_DIR/gles1_only_dispatch_logging_wrappers.impl
+dispatch_logging_wrappers $ENTRIES_DIR/gles2_extensions.entries $IMPL_OUT_DIR/gles2_extensions_dispatch_logging_wrappers.impl
+dispatch_logging_wrappers $ENTRIES_DIR/gles2_only.entries $IMPL_OUT_DIR/gles2_only_dispatch_logging_wrappers.impl
+dispatch_logging_wrappers $ENTRIES_DIR/gles3_extensions.entries $IMPL_OUT_DIR/gles3_extensions_dispatch_logging_wrappers.impl
+dispatch_logging_wrappers $ENTRIES_DIR/gles3_only.entries $IMPL_OUT_DIR/gles3_only_dispatch_logging_wrappers.impl
+dispatch_logging_wrappers $ENTRIES_DIR/gles31_only.entries $IMPL_OUT_DIR/gles31_only_dispatch_logging_wrappers.impl
+dispatch_logging_wrappers $ENTRIES_DIR/gles32_only.entries $IMPL_OUT_DIR/gles32_only_dispatch_logging_wrappers.impl

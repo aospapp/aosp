@@ -16,48 +16,17 @@
 
 package dagger.internal.codegen.base;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.base.DiagnosticFormatting.stripCommonTypePrefixes;
-import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSet;
 
-import com.google.auto.common.AnnotationMirrors;
-import com.google.common.collect.ImmutableSet;
-import dagger.internal.codegen.langmodel.DaggerElements;
-import dagger.model.Scope;
-import dagger.producers.ProductionScope;
-import java.lang.annotation.Annotation;
-import java.util.Optional;
-import javax.inject.Singleton;
-import javax.lang.model.element.Element;
+import androidx.room.compiler.processing.XProcessingEnv;
+import dagger.spi.model.DaggerAnnotation;
+import dagger.spi.model.Scope;
 
 /** Common names and convenience methods for {@link Scope}s. */
 public final class Scopes {
-
-  /** Returns a representation for {@link ProductionScope @ProductionScope} scope. */
-  public static Scope productionScope(DaggerElements elements) {
-    return scope(elements, ProductionScope.class);
-  }
-
-  /** Returns a representation for {@link Singleton @Singleton} scope. */
-  public static Scope singletonScope(DaggerElements elements) {
-    return scope(elements, Singleton.class);
-  }
-
-  /**
-   * Creates a {@link Scope} object from the {@link javax.inject.Scope}-annotated annotation type.
-   */
-  private static Scope scope(
-      DaggerElements elements, Class<? extends Annotation> scopeAnnotationClass) {
-    return Scope.scope(SimpleAnnotationMirror.of(elements.getTypeElement(scopeAnnotationClass)));
-  }
-
-  /**
-   * Returns at most one associated scoped annotation from the source code element, throwing an
-   * exception if there are more than one.
-   */
-  public static Optional<Scope> uniqueScopeOf(Element element) {
-    // TODO(ronshapiro): Use MoreCollectors.toOptional() once we can use guava-jre
-    return Optional.ofNullable(getOnlyElement(scopesOf(element), null));
+  /** Returns a representation for {@link dagger.producers.ProductionScope} scope. */
+  public static Scope productionScope(XProcessingEnv processingEnv) {
+    return Scope.scope(DaggerAnnotation.from(ProducerAnnotations.productionScope(processingEnv)));
   }
 
   /**
@@ -68,13 +37,5 @@ public final class Scopes {
    */
   public static String getReadableSource(Scope scope) {
     return stripCommonTypePrefixes(scope.toString());
-  }
-
-  /** Returns all of the associated scopes for a source code element. */
-  public static ImmutableSet<Scope> scopesOf(Element element) {
-    return AnnotationMirrors.getAnnotatedAnnotations(element, javax.inject.Scope.class)
-        .stream()
-        .map(Scope::scope)
-        .collect(toImmutableSet());
   }
 }

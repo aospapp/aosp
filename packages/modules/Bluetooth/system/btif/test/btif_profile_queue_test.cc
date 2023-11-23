@@ -17,8 +17,8 @@
  ******************************************************************************/
 #include "btif/include/btif_profile_queue.h"
 
-#include <base/bind.h>
-#include <base/callback.h>
+#include <base/functional/bind.h>
+#include <base/functional/callback.h>
 #include <base/location.h>
 #include <gtest/gtest.h>
 
@@ -27,7 +27,7 @@
 #include "types/raw_address.h"
 
 typedef void(tBTIF_CBACK)(uint16_t event, char* p_param);
-typedef void(tBTIF_COPY_CBACK)(uint16_t event, char* p_dest, char* p_src);
+typedef void(tBTIF_COPY_CBACK)(uint16_t event, char* p_dest, const char* p_src);
 
 // NOTE: Local re-implementation of functions to avoid thread context switching
 static bool sStackRunning;

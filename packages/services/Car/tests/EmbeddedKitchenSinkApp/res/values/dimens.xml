@@ -75,4 +75,7 @@
     <dimen name="users_button_text_size">24sp</dimen>
     <dimen name="users_checkbox_padding">5dp</dimen>
     <dimen name="users_checkbox_text_size">32sp</dimen>
+
+    <!-- Privacy -->
+    <dimen name="large_avatar_icon_size">182dp</dimen>
 </resources>

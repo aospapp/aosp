@@ -1,10 +1,17 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import argparse
 import logging
 import re
+import six
+from six.moves import range
 
 from autotest_lib.client.common_lib import error
 
@@ -19,7 +26,7 @@ CR50_VERSION = '/var/cache/cr50-version'
 GET_CR50_VERSION = 'cat %s' % CR50_VERSION
 GET_CR50_MESSAGES ='grep "cr50-.*\[" /var/log/messages'
 UPDATE_FAILURE = 'unexpected cr50-update exit code'
-DUMMY_VER = '-1.-1.-1'
+STUB_VER = '-1.-1.-1'
 # This dictionary is used to search the gsctool output for the version strings.
 # There are two gsctool commands that will return versions: 'fwver' and
 # 'binvers'.
@@ -93,10 +100,28 @@ gsctool.add_argument('-o', '--ccd_open', dest='ccd_open', action='store_true')
 # never timeout because they do not force cr50 to reboot. They should all just
 # return information about cr50 and should only have a nonzero exit status if
 # something went wrong.
-gsctool.add_argument('-b', '--binvers', '-f', '--fwver', '-g', '--getbootmode',
-                     '-i', '--board_id', '-r', '--rma_auth', '-F', '--factory',
-                     '-m', '--tpm_mode', '-L', '--flog',
-                     dest='info_cmd', action='store_true')
+gsctool.add_argument('-b',
+                     '--binvers',
+                     '-f',
+                     '--fwver',
+                     '-g',
+                     '--getbootmode',
+                     '-i',
+                     '--board_id',
+                     '-r',
+                     '--rma_auth',
+                     '-F',
+                     '--factory',
+                     '-m',
+                     '--tpm_mode',
+                     '-L',
+                     '--flog',
+                     '-A',
+                     '--get_apro_hash',
+                     '-H',
+                     '--erase_ap_ro_hash',
+                     dest='info_cmd',
+                     action='store_true')
 # upstart and post_reset will post resets instead of rebooting immediately
 gsctool.add_argument('-u', '--upstart', '-p', '--post_reset', dest='post_reset',
                      action='store_true')
@@ -149,9 +174,9 @@ def GetVersion(versions, name):
     """
     ver = None
     key = None
-    for k, v in versions.iteritems():
+    for k, v in six.iteritems(versions):
         if name in k:
-            if v == DUMMY_VER:
+            if v == STUB_VER:
                 logging.info('Detected invalid %s %s', name, v)
                 return v
             elif ver:
@@ -211,12 +236,14 @@ def StopTrunksd(client):
         client.run('stop trunksd')
 
 
-def GSCTool(client, args, ignore_status=False):
+def GSCTool(client, args, ignore_status=False, expect_reboot=False):
     """Run gsctool with the given args.
 
     Args:
         client: the object to run commands on
         args: a list of strings that contiain the gsctool args
+        ignore_status: Ignore the exit status
+        expect_reboot: Expect a reboot
 
     Returns:
         the result of gsctool
@@ -230,8 +257,9 @@ def GSCTool(client, args, ignore_status=False):
     # status so we should ignore it.
     ignore_status = not options.info_cmd or ignore_status
     # immediate reboots are only honored if the command is sent using /dev/tpm0
-    expect_reboot = ((options.systemdev or options.universal) and
-            not options.post_reset and not options.info_cmd)
+    expect_reboot = expect_reboot or ((options.systemdev or options.universal)
+                                      and not options.post_reset
+                                      and not options.info_cmd)
 
     result = client.run('gsctool %s' % ' '.join(args),
                         ignore_status=ignore_status,
@@ -371,7 +399,7 @@ def VerifyUpdate(client, ver='', last_message=''):
 
     new_ver = GetRunningVersion(client)
     if ver != '':
-        if DUMMY_VER != ver[0]:
+        if STUB_VER != ver[0]:
             AssertVersionsAreEqual('Old RO', ver[0], 'Updated RO', new_ver[0])
         AssertVersionsAreEqual('Old RW', ver[1], 'Updated RW', new_ver[1])
     return new_ver, last_message
@@ -455,7 +483,7 @@ def GetBoardIdInfoString(board_id_info, symbolic=False):
         None if if the given board id info is empty or is not valid
     """
     # Convert board_id_info to a tuple if it's a string.
-    if isinstance(board_id_info, str):
+    if isinstance(board_id_info, six.string_types):
         board_id_info = GetBoardIdInfoTuple(board_id_info)
 
     if not board_id_info:

@@ -26,6 +26,7 @@ import static android.net.NetworkCapabilities.transportNamesOf;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.net.CaptivePortalData;
 import android.net.DscpPolicy;
 import android.net.IDnsResolver;
@@ -60,12 +61,14 @@ import android.util.Log;
 import android.util.Pair;
 import android.util.SparseArray;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.IndentingPrintWriter;
 import com.android.internal.util.WakeupMessage;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.server.ConnectivityService;
 
 import java.io.PrintWriter;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -104,7 +107,7 @@ import java.util.TreeSet;
 //    for example:
 //    a. a captive portal is present, or
 //    b. a WiFi router whose Internet backhaul is down, or
-//    c. a wireless connection stops transfering packets temporarily (e.g. device is in elevator
+//    c. a wireless connection stops transferring packets temporarily (e.g. device is in elevator
 //       or tunnel) but does not disconnect from the AP/cell tower, or
 //    d. a stand-alone device offering a WiFi AP without an uplink for configuration purposes.
 // 5. registered, created, connected, validated
@@ -157,7 +160,7 @@ import java.util.TreeSet;
 // the network is no longer considered "lingering". After the linger timer expires, if the network
 // is satisfying one or more background NetworkRequests it is kept up in the background. If it is
 // not, ConnectivityService disconnects the NetworkAgent's AsyncChannel.
-public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRanker.Scoreable {
+public class NetworkAgentInfo implements NetworkRanker.Scoreable {
 
     @NonNull public NetworkInfo networkInfo;
     // This Network object should always be used if possible, so as to encourage reuse of the
@@ -181,45 +184,227 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
 
     // The capabilities originally announced by the NetworkAgent, regardless of any capabilities
     // that were added or removed due to this network's underlying networks.
-    // Only set if #propagateUnderlyingCapabilities is true.
-    public @Nullable NetworkCapabilities declaredCapabilities;
+    //
+    // As the name implies, these capabilities are not sanitized and are not to
+    // be trusted. Most callers should simply use the {@link networkCapabilities}
+    // field instead.
+    private @Nullable NetworkCapabilities mDeclaredCapabilitiesUnsanitized;
 
-    // Indicates if netd has been told to create this Network. From this point on the appropriate
-    // routing rules are setup and routes are added so packets can begin flowing over the Network.
-    // This is a sticky bit; once set it is never cleared.
-    public boolean created;
-    // Set to true after the first time this network is marked as CONNECTED. Once set, the network
-    // shows up in API calls, is able to satisfy NetworkRequests and can become the default network.
-    // This is a sticky bit; once set it is never cleared.
-    public boolean everConnected;
-    // Whether this network has been destroyed and is being kept temporarily until it is replaced.
-    public boolean destroyed;
-    // To check how long it has been since last roam.
-    public long lastRoamTimestamp;
+    // Timestamp (SystemClock.elapsedRealtime()) when netd has been told to create this Network, or
+    // 0 if it hasn't been done yet.
+    // From this point on, the appropriate routing rules are setup and routes are added so packets
+    // can begin flowing over the Network.
+    // This is a sticky value; once set != 0 it is never changed.
+    private long mCreatedTime;
 
-    // Set to true if this Network successfully passed validation or if it did not satisfy the
-    // default NetworkRequest in which case validation will not be attempted.
-    // This is a sticky bit; once set it is never cleared even if future validation attempts fail.
-    public boolean everValidated;
+    /** Notify this NAI that netd was just told to create this network */
+    public void setCreated() {
+        if (0L != mCreatedTime) throw new IllegalStateException("Already created");
+        mCreatedTime = SystemClock.elapsedRealtime();
+    }
 
-    // The result of the last validation attempt on this network (true if validated, false if not).
-    public boolean lastValidated;
+    /** Returns whether netd was told to create this network */
+    public boolean isCreated() {
+        return mCreatedTime != 0L;
+    }
 
-    // If true, becoming unvalidated will lower the network's score. This is only meaningful if the
-    // system is configured not to do this for certain networks, e.g., if the
-    // config_networkAvoidBadWifi option is set to 0 and the user has not overridden that via
-    // Settings.Global.NETWORK_AVOID_BAD_WIFI.
-    public boolean avoidUnvalidated;
+    // Get the time (SystemClock.elapsedRealTime) when this network was created (or 0 if never).
+    public long getCreatedTime() {
+        return mCreatedTime;
+    }
 
-    // Whether a captive portal was ever detected on this network.
-    // This is a sticky bit; once set it is never cleared.
-    public boolean everCaptivePortalDetected;
+    // Timestamp of the first time (SystemClock.elapsedRealtime()) this network is marked as
+    // connected, or 0 if this network has never been marked connected. Once set to non-zero, the
+    // network shows up in API calls, is able to satisfy NetworkRequests and can become the default
+    // network.
+    // This is a sticky value; once set != 0 it is never changed.
+    private long mConnectedTime;
 
-    // Whether a captive portal was found during the last network validation attempt.
-    public boolean lastCaptivePortalDetected;
+    /** Notify this NAI that this network just connected */
+    public void setConnected() {
+        if (0L != mConnectedTime) throw new IllegalStateException("Already connected");
+        mConnectedTime = SystemClock.elapsedRealtime();
+    }
 
-    // Set to true when partial connectivity was detected.
-    public boolean partialConnectivity;
+    /** Return whether this network ever connected */
+    public boolean everConnected() {
+        return mConnectedTime != 0L;
+    }
+
+    // Get the time (SystemClock.elapsedRealTime()) when this network was first connected, or 0 if
+    // never.
+    public long getConnectedTime() {
+        return mConnectedTime;
+    }
+
+    // When this network has been destroyed and is being kept temporarily until it is replaced,
+    // this is set to that timestamp (SystemClock.elapsedRealtime()). Zero otherwise.
+    private long mDestroyedTime;
+
+    /** Notify this NAI that this network was destroyed */
+    public void setDestroyed() {
+        if (0L != mDestroyedTime) throw new IllegalStateException("Already destroyed");
+        mDestroyedTime = SystemClock.elapsedRealtime();
+    }
+
+    /** Return whether this network was destroyed */
+    public boolean isDestroyed() {
+        return 0L != mDestroyedTime;
+    }
+
+    // Timestamp of the last roaming (SystemClock.elapsedRealtime()) or 0 if never roamed.
+    public long lastRoamTime;
+
+    // Timestamp (SystemClock.elapsedRealtime()) of the first time this network successfully
+    // passed validation or was deemed exempt of validation (see
+    // {@link NetworkMonitorUtils#isValidationRequired}). Zero if the network requires
+    // validation but never passed it successfully.
+    // This is a sticky value; once set it is never changed even if further validation attempts are
+    // made (whether they succeed or fail).
+    private long mFirstValidationTime;
+
+    // Timestamp (SystemClock.elapsedRealtime()) at which the latest validation attempt succeeded,
+    // or 0 if the latest validation attempt failed.
+    private long mCurrentValidationTime;
+
+    /** Notify this NAI that this network just finished a validation check */
+    public void setValidated(final boolean validated) {
+        final long nowOrZero = validated ? SystemClock.elapsedRealtime() : 0L;
+        if (validated && 0L == mFirstValidationTime) {
+            mFirstValidationTime = nowOrZero;
+        }
+        mCurrentValidationTime = nowOrZero;
+    }
+
+    /**
+     * Returns whether this network is currently validated.
+     *
+     * This is the result of the latest validation check. {@see #getCurrentValidationTime} for
+     * when that check was performed.
+     */
+    public boolean isValidated() {
+        return 0L != mCurrentValidationTime;
+    }
+
+    /**
+     * Returns whether this network ever passed the validation checks successfully.
+     *
+     * Note that the network may no longer be validated at this time ever if this is true.
+     * @see #isValidated
+     */
+    public boolean everValidated() {
+        return 0L != mFirstValidationTime;
+    }
+
+    // Get the time (SystemClock.elapsedRealTime()) when this network was most recently validated,
+    // or 0 if this network was found not to validate on the last attempt.
+    public long getCurrentValidationTime() {
+        return mCurrentValidationTime;
+    }
+
+    // Get the time (SystemClock.elapsedRealTime()) when this network was validated for the first
+    // time (or 0 if never).
+    public long getFirstValidationTime() {
+        return mFirstValidationTime;
+    }
+
+    // Timestamp (SystemClock.elapsedRealtime()) at which the user requested this network be
+    // avoided when unvalidated. Zero if this never happened for this network.
+    // This is only meaningful if the system is configured to have some cell networks yield
+    // to bad wifi, e.g., if the config_networkAvoidBadWifi option is set to 0 and the user has
+    // not overridden that via Settings.Global.NETWORK_AVOID_BAD_WIFI.
+    //
+    // Normally the system always prefers a validated network to a non-validated one, even if
+    // the non-validated one is cheaper. However, some cell networks may be configured by the
+    // setting above to yield to WiFi even if that WiFi network goes bad. When this configuration
+    // is active, specific networks can be marked to override this configuration so that the
+    // system will revert to preferring such a cell to this network when this network goes bad. This
+    // is achieved by calling {@link ConnectivityManager#setAvoidUnvalidated()}, and this field
+    // is set to non-zero when this happened to this network.
+    private long mAvoidUnvalidated;
+
+    /** Set this network as being avoided when unvalidated. {@see mAvoidUnvalidated} */
+    public void setAvoidUnvalidated() {
+        if (0L != mAvoidUnvalidated) throw new IllegalStateException("Already avoided unvalidated");
+        mAvoidUnvalidated = SystemClock.elapsedRealtime();
+    }
+
+    // Get the time (SystemClock.elapsedRealTime()) when this network was set to being avoided
+    // when unvalidated, or 0 if this never happened.
+    public long getAvoidUnvalidated() {
+        return mAvoidUnvalidated;
+    }
+
+    // Timestamp (SystemClock.elapsedRealtime()) at which a captive portal was first detected
+    // on this network, or zero if this never happened.
+    // This is a sticky value; once set != 0 it is never changed.
+    private long mFirstCaptivePortalDetectedTime;
+
+    // Timestamp (SystemClock.elapsedRealtime()) at which the latest validation attempt found a
+    // captive portal, or zero if the latest attempt didn't find a captive portal.
+    private long mCurrentCaptivePortalDetectedTime;
+
+    /** Notify this NAI that a captive portal has just been detected on this network */
+    public void setCaptivePortalDetected(final boolean hasCaptivePortal) {
+        if (!hasCaptivePortal) {
+            mCurrentCaptivePortalDetectedTime = 0L;
+            return;
+        }
+        final long now = SystemClock.elapsedRealtime();
+        if (0L == mFirstCaptivePortalDetectedTime) mFirstCaptivePortalDetectedTime = now;
+        mCurrentCaptivePortalDetectedTime = now;
+    }
+
+    /** Return whether a captive portal has ever been detected on this network */
+    public boolean everCaptivePortalDetected() {
+        return 0L != mFirstCaptivePortalDetectedTime;
+    }
+
+    /** Return whether this network has been detected to be behind a captive portal at the moment */
+    public boolean captivePortalDetected() {
+        return 0L != mCurrentCaptivePortalDetectedTime;
+    }
+
+    // Timestamp (SystemClock.elapsedRealtime()) at which the latest validation attempt found
+    // partial connectivity, or zero if the latest attempt didn't find partial connectivity.
+    private long mPartialConnectivityTime;
+
+    public void setPartialConnectivity(final boolean value) {
+        mPartialConnectivityTime = value ? SystemClock.elapsedRealtime() : 0L;
+    }
+
+    /** Return whether this NAI has partial connectivity */
+    public boolean partialConnectivity() {
+        return 0L != mPartialConnectivityTime;
+    }
+
+    // Timestamp (SystemClock.elapsedRealTime()) at which the first validation attempt concluded,
+    // or timed out after {@link ConnectivityService#PROMPT_UNVALIDATED_DELAY_MS}. 0 if not yet.
+    private long mFirstEvaluationConcludedTime;
+
+    /**
+     * Notify this NAI that this network has been evaluated.
+     *
+     * The stack considers that any result finding some working connectivity (valid, partial,
+     * captive portal) is an initial validation. Negative result (not valid), however, is not
+     * considered initial validation until {@link ConnectivityService#PROMPT_UNVALIDATED_DELAY_MS}
+     * have elapsed. This is because some networks may spuriously fail for a short time immediately
+     * after associating. If no positive result is found after the timeout has elapsed, then
+     * the network has been evaluated once.
+     *
+     * @return true the first time this is called on this object, then always returns false.
+     */
+    public boolean setEvaluated() {
+        if (0L != mFirstEvaluationConcludedTime) return false;
+        mFirstEvaluationConcludedTime = SystemClock.elapsedRealtime();
+        return true;
+    }
+
+    /** When this network ever concluded its first evaluation, or 0 if this never happened. */
+    @VisibleForTesting
+    public long getFirstEvaluationConcludedTime() {
+        return mFirstEvaluationConcludedTime;
+    }
 
     // Delay between when the network is disconnected and when the native network is destroyed.
     public int teardownDelayMs;
@@ -235,6 +420,55 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
     // non-RFC8908 sources, such as Wi-Fi Passpoint, which can provide information such as Venue
     // URL, Terms & Conditions URL, and network friendly name.
     public CaptivePortalData networkAgentPortalData;
+
+    // Indicate whether this device has the automotive feature.
+    private final boolean mHasAutomotiveFeature;
+
+    /**
+     * Sets the capabilities sent by the agent for later retrieval.
+     *
+     * This method does not sanitize the capabilities ; instead, use
+     * {@link #getDeclaredCapabilitiesSanitized} to retrieve a sanitized
+     * copy of the capabilities as they were passed here.
+     *
+     * This method makes a defensive copy to avoid issues where the passed object is later mutated.
+     *
+     * @param caps the caps sent by the agent
+     */
+    public void setDeclaredCapabilities(@NonNull final NetworkCapabilities caps) {
+        mDeclaredCapabilitiesUnsanitized = new NetworkCapabilities(caps);
+    }
+
+    /**
+     * Get the latest capabilities sent by the network agent, after sanitizing them.
+     *
+     * These are the capabilities as they were sent by the agent (but sanitized to conform to
+     * their restrictions). They are NOT the capabilities currently applying to this agent ;
+     * for that, use {@link #networkCapabilities}.
+     *
+     * Agents have restrictions on what capabilities they can send to Connectivity. For example,
+     * they can't change the owner UID from what they declared before, and complex restrictions
+     * apply to the allowedUids field.
+     * They also should not mutate immutable capabilities, although for backward-compatibility
+     * this is not enforced and limited to just a log.
+     *
+     * @param carrierPrivilegeAuthenticator the authenticator, to check access UIDs.
+     */
+    public NetworkCapabilities getDeclaredCapabilitiesSanitized(
+            final CarrierPrivilegeAuthenticator carrierPrivilegeAuthenticator) {
+        final NetworkCapabilities nc = new NetworkCapabilities(mDeclaredCapabilitiesUnsanitized);
+        if (nc.hasConnectivityManagedCapability()) {
+            Log.wtf(TAG, "BUG: " + this + " has CS-managed capability.");
+        }
+        if (networkCapabilities.getOwnerUid() != nc.getOwnerUid()) {
+            Log.e(TAG, toShortString() + ": ignoring attempt to change owner from "
+                    + networkCapabilities.getOwnerUid() + " to " + nc.getOwnerUid());
+            nc.setOwnerUid(networkCapabilities.getOwnerUid());
+        }
+        restrictCapabilitiesFromNetworkAgent(
+                nc, creatorUid, mHasAutomotiveFeature, carrierPrivilegeAuthenticator);
+        return nc;
+    }
 
     // Networks are lingered when they become unneeded as a result of their NetworkRequests being
     // satisfied by a higher-scoring network. so as to allow communication to wrap up before the
@@ -366,6 +600,8 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
     private final Handler mHandler;
     private final QosCallbackTracker mQosCallbackTracker;
 
+    private final long mCreationTime;
+
     public NetworkAgentInfo(INetworkAgent na, Network net, NetworkInfo info,
             @NonNull LinkProperties lp, @NonNull NetworkCapabilities nc,
             @NonNull NetworkScore score, Context context,
@@ -398,6 +634,9 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
         declaredUnderlyingNetworks = (nc.getUnderlyingNetworks() != null)
                 ? nc.getUnderlyingNetworks().toArray(new Network[0])
                 : null;
+        mCreationTime = System.currentTimeMillis();
+        mHasAutomotiveFeature =
+                mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
     }
 
     private class AgentDeathMonitor implements IBinder.DeathRecipient {
@@ -764,8 +1003,7 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
             @NonNull final NetworkCapabilities nc) {
         final NetworkCapabilities oldNc = networkCapabilities;
         networkCapabilities = nc;
-        mScore = mScore.mixInScore(networkCapabilities, networkAgentConfig, everValidatedForYield(),
-                yieldToBadWiFi(), destroyed);
+        updateScoreForNetworkAgentUpdate();
         final NetworkMonitorManager nm = mNetworkMonitor;
         if (nm != null) {
             nm.notifyNetworkCapabilitiesChanged(nc);
@@ -928,13 +1166,13 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
 
     // Does this network satisfy request?
     public boolean satisfies(NetworkRequest request) {
-        return created &&
-                request.networkCapabilities.satisfiedByNetworkCapabilities(networkCapabilities);
+        return everConnected()
+                && request.networkCapabilities.satisfiedByNetworkCapabilities(networkCapabilities);
     }
 
     public boolean satisfiesImmutableCapabilitiesOf(NetworkRequest request) {
-        return created &&
-                request.networkCapabilities.satisfiedByImmutableNetworkCapabilities(
+        return everConnected()
+                && request.networkCapabilities.satisfiedByImmutableNetworkCapabilities(
                         networkCapabilities);
     }
 
@@ -963,24 +1201,15 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
         return mScore;
     }
 
-    // Get the current score for this Network.  This may be modified from what the
-    // NetworkAgent sent, as it has modifiers applied to it.
-    public int getCurrentScore() {
-        return mScore.getLegacyInt();
-    }
-
-    // Get the current score for this Network as if it was validated.  This may be modified from
-    // what the NetworkAgent sent, as it has modifiers applied to it.
-    public int getCurrentScoreAsValidated() {
-        return mScore.getLegacyIntAsValidated();
-    }
-
     /**
      * Mix-in the ConnectivityService-managed bits in the score.
      */
     public void setScore(final NetworkScore score) {
+        final FullScore oldScore = mScore;
         mScore = FullScore.fromNetworkScore(score, networkCapabilities, networkAgentConfig,
-                everValidatedForYield(), yieldToBadWiFi(), destroyed);
+                everValidated(), 0L != getAvoidUnvalidated(), yieldToBadWiFi(),
+                0L != mFirstEvaluationConcludedTime, isDestroyed());
+        maybeLogDifferences(oldScore);
     }
 
     /**
@@ -989,12 +1218,22 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
      * Call this after changing any data that might affect the score (e.g., agent config).
      */
     public void updateScoreForNetworkAgentUpdate() {
+        final FullScore oldScore = mScore;
         mScore = mScore.mixInScore(networkCapabilities, networkAgentConfig,
-                everValidatedForYield(), yieldToBadWiFi(), destroyed);
+                everValidated(), 0L != getAvoidUnvalidated(), yieldToBadWiFi(),
+                0L != mFirstEvaluationConcludedTime, isDestroyed());
+        maybeLogDifferences(oldScore);
     }
 
-    private boolean everValidatedForYield() {
-        return everValidated && !avoidUnvalidated;
+    /**
+     * Prints score differences to logcat, if any.
+     * @param oldScore the old score. Differences from |oldScore| to |this| are logged, if any.
+     */
+    public void maybeLogDifferences(final FullScore oldScore) {
+        final String differences = mScore.describeDifferencesFrom(oldScore);
+        if (null != differences) {
+            Log.i(TAG, "Update score for net " + network + " : " + differences);
+        }
     }
 
     /**
@@ -1279,15 +1518,19 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
         return "NetworkAgentInfo{"
                 + "network{" + network + "}  handle{" + network.getNetworkHandle() + "}  ni{"
                 + networkInfo.toShortString() + "} "
+                + "created=" + Instant.ofEpochMilli(mCreationTime) + " "
                 + mScore + " "
-                + (created ? " created" : "")
-                + (destroyed ? " destroyed" : "")
+                + (isCreated() ? " created " + getCreatedTime() : "")
+                + (isDestroyed() ? " destroyed " + mDestroyedTime : "")
                 + (isNascent() ? " nascent" : (isLingering() ? " lingering" : ""))
-                + (everValidated ? " everValidated" : "")
-                + (lastValidated ? " lastValidated" : "")
-                + (partialConnectivity ? " partialConnectivity" : "")
-                + (everCaptivePortalDetected ? " everCaptivePortal" : "")
-                + (lastCaptivePortalDetected ? " isCaptivePortal" : "")
+                + (everValidated() ? " firstValidated " + getFirstValidationTime() : "")
+                + (isValidated() ? " lastValidated " + getCurrentValidationTime() : "")
+                + (partialConnectivity()
+                        ? " partialConnectivity " + mPartialConnectivityTime : "")
+                + (everCaptivePortalDetected()
+                        ? " firstCaptivePortalDetected " + mFirstCaptivePortalDetectedTime : "")
+                + (captivePortalDetected()
+                        ? " currentCaptivePortalDetected " + mCurrentCaptivePortalDetectedTime : "")
                 + (networkAgentConfig.explicitlySelected ? " explicitlySelected" : "")
                 + (networkAgentConfig.acceptUnvalidated ? " acceptUnvalidated" : "")
                 + (networkAgentConfig.acceptPartialConnectivity ? " acceptPartialConnectivity" : "")
@@ -1305,17 +1548,11 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
      *
      * This is often not enough for debugging purposes for anything complex, but the full form
      * is very long and hard to read, so this is useful when there isn't a lot of ambiguity.
-     * This represents the network with something like "[100 WIFI|VPN]" or "[108 MOBILE]".
+     * This represents the network with something like "[100 WIFI|VPN]" or "[108 CELLULAR]".
      */
     public String toShortString() {
         return "[" + network.getNetId() + " "
                 + transportNamesOf(networkCapabilities.getTransportTypes()) + "]";
-    }
-
-    // Enables sorting in descending order of score.
-    @Override
-    public int compareTo(NetworkAgentInfo other) {
-        return other.getCurrentScore() - getCurrentScore();
     }
 
     /**

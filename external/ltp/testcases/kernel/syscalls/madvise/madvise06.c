@@ -35,6 +35,12 @@
  * faults. Two faults are allowed incase some tasklet or something
  * else unexpected, but irrelevant procedure, registers a fault to
  * our process.
+ *
+ * It also can reproduce the MADV_WILLNEED preformance problem.
+ * It was introduced since 5.9 kernel with the following commit
+ *   e6e88712e43b ("mm: optimise madvise WILLNEED")
+ * and fixed since 5.10-rc5 kernel with the following commit
+ *   66383800df9c ("mm: fix madvise WILLNEED performance problem").
  */
 
 #include <errno.h>
@@ -42,15 +48,12 @@
 #include <sys/mount.h>
 #include <sys/sysinfo.h>
 #include "tst_test.h"
-#include "tst_cgroup.h"
 
 #define CHUNK_SZ (400*1024*1024L)
 #define MEM_LIMIT (CHUNK_SZ / 2)
 #define MEMSW_LIMIT (2 * CHUNK_SZ)
 #define PASS_THRESHOLD (CHUNK_SZ / 4)
 #define PASS_THRESHOLD_KB (PASS_THRESHOLD / 1024)
-
-static const struct tst_cgroup_group *cg;
 
 static const char drop_caches_fname[] = "/proc/sys/vm/drop_caches";
 static int pg_sz, stat_refresh_sup;
@@ -67,10 +70,10 @@ static void print_cgmem(const char *name)
 {
 	long ret;
 
-	if (!SAFE_CGROUP_HAS(cg, name))
+	if (!SAFE_CG_HAS(tst_cg, name))
 		return;
 
-	SAFE_CGROUP_SCANF(cg, name, "%ld", &ret);
+	SAFE_CG_SCANF(tst_cg, name, "%ld", &ret);
 	tst_res(TINFO, "\t%s: %ld Kb", name, ret / 1024);
 }
 
@@ -115,21 +118,18 @@ static void setup(void)
 	check_path("/proc/self/oom_score_adj");
 	SAFE_FILE_PRINTF("/proc/self/oom_score_adj", "%d", -1000);
 
-	tst_cgroup_require("memory", NULL);
-	cg = tst_cgroup_get_test_group();
+	SAFE_CG_PRINTF(tst_cg, "memory.max", "%ld", MEM_LIMIT);
+	if (SAFE_CG_HAS(tst_cg, "memory.swap.max"))
+		SAFE_CG_PRINTF(tst_cg, "memory.swap.max", "%ld", MEMSW_LIMIT);
 
-	SAFE_CGROUP_PRINTF(cg, "memory.max", "%ld", MEM_LIMIT);
-	if (SAFE_CGROUP_HAS(cg, "memory.swap.max"))
-		SAFE_CGROUP_PRINTF(cg, "memory.swap.max", "%ld", MEMSW_LIMIT);
-
-	if (SAFE_CGROUP_HAS(cg, "memory.swappiness")) {
-		SAFE_CGROUP_PRINT(cg, "memory.swappiness", "60");
+	if (SAFE_CG_HAS(tst_cg, "memory.swappiness")) {
+		SAFE_CG_PRINT(tst_cg, "memory.swappiness", "60");
 	} else {
 		check_path("/proc/sys/vm/swappiness");
 		SAFE_FILE_PRINTF("/proc/sys/vm/swappiness", "%d", 60);
 	}
 
-	SAFE_CGROUP_PRINTF(cg, "cgroup.procs", "%d", getpid());
+	SAFE_CG_PRINTF(tst_cg, "cgroup.procs", "%d", getpid());
 
 	meminfo_diag("Initial meminfo, later values are relative to this (except memcg)");
 	init_swap = SAFE_READ_MEMINFO("SwapTotal:") - SAFE_READ_MEMINFO("SwapFree:");
@@ -141,11 +141,6 @@ static void setup(void)
 
 	tst_res(TINFO, "mapping %ld Kb (%ld pages), limit %ld Kb, pass threshold %ld Kb",
 		CHUNK_SZ / 1024, CHUNK_SZ / pg_sz, MEM_LIMIT / 1024, PASS_THRESHOLD_KB);
-}
-
-static void cleanup(void)
-{
-	tst_cgroup_cleanup();
 }
 
 static void dirty_pages(char *ptr, long size)
@@ -169,7 +164,7 @@ static int get_page_fault_num(void)
 
 static void test_advice_willneed(void)
 {
-	int loops = 50, res;
+	int loops = 100, res;
 	char *target;
 	long swapcached_start, swapcached;
 	int page_fault_num_1, page_fault_num_2;
@@ -207,23 +202,32 @@ static void test_advice_willneed(void)
 		"%s than %ld Kb were moved to the swap cache",
 		res ? "more" : "less", PASS_THRESHOLD_KB);
 
-
-	TEST(madvise(target, PASS_THRESHOLD, MADV_WILLNEED));
+	loops = 100;
+	SAFE_FILE_LINES_SCANF("/proc/meminfo", "SwapCached: %ld", &swapcached_start);
+	TEST(madvise(target, pg_sz * 3, MADV_WILLNEED));
 	if (TST_RET == -1)
 		tst_brk(TBROK | TTERRNO, "madvise failed");
+	do {
+		loops--;
+		usleep(100000);
+		if (stat_refresh_sup)
+			SAFE_FILE_PRINTF("/proc/sys/vm/stat_refresh", "1");
+		SAFE_FILE_LINES_SCANF("/proc/meminfo", "SwapCached: %ld",
+				&swapcached);
+	} while (swapcached < swapcached_start + pg_sz*3/1024 && loops > 0);
 
 	page_fault_num_1 = get_page_fault_num();
 	tst_res(TINFO, "PageFault(madvice / no mem access): %d",
 			page_fault_num_1);
-	dirty_pages(target, PASS_THRESHOLD);
+	dirty_pages(target, pg_sz * 3);
 	page_fault_num_2 = get_page_fault_num();
 	tst_res(TINFO, "PageFault(madvice / mem access): %d",
 			page_fault_num_2);
 	meminfo_diag("After page access");
 
 	res = page_fault_num_2 - page_fault_num_1;
-	tst_res(res < 3 ? TPASS : TFAIL,
-		"%d pages were faulted out of 2 max", res);
+	tst_res(res == 0 ? TPASS : TFAIL,
+		"%d pages were faulted out of 3 max", res);
 
 	SAFE_MUNMAP(target, CHUNK_SZ);
 }
@@ -231,17 +235,18 @@ static void test_advice_willneed(void)
 static struct tst_test test = {
 	.test_all = test_advice_willneed,
 	.setup = setup,
-	.cleanup = cleanup,
-	.min_kver = "3.10.0",
 	.needs_tmpdir = 1,
 	.needs_root = 1,
-	.save_restore = (const char * const[]) {
-		"?/proc/sys/vm/swappiness",
-		NULL
+	.save_restore = (const struct tst_path_val[]) {
+		{"/proc/sys/vm/swappiness", NULL,
+			TST_SR_SKIP_MISSING | TST_SR_TCONF_RO},
+		{}
 	},
+	.needs_cgroup_ctrls = (const char *const []){ "memory", NULL },
 	.tags = (const struct tst_tag[]) {
 		{"linux-git", "55231e5c898c"},
 		{"linux-git", "8de15e920dc8"},
+		{"linux-git", "66383800df9c"},
 		{}
 	}
 };

@@ -1,3 +1,16 @@
+### 2022a rev. 2
+
+TZDB 2022b introduces `Europe/Kyiv` and merges more time zones which were
+alike since 1970. These changes require ICU patches.
+
+Though the reason why 2022b was released are changes in Chile. As they have
+to be delivered by the 3rd of September and ICU patches are not ready,
+decision was made to prepare smaller release which does not need ICU patches.
+
+tzdata archieve is prepared manually by applying Iran and Chile changes on
+top of 2022a tag.
+
+
 ### 2022a
 
 This update includes pre-1970

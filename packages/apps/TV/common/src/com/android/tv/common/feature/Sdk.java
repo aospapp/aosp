@@ -27,6 +27,8 @@ public final class Sdk {
 
     public static final Feature AT_LEAST_O = new AtLeast(VERSION_CODES.O);
 
+    public static final Feature AT_LEAST_T = new AtLeast(VERSION_CODES.TIRAMISU);
+
     private static final class AtLeast implements Feature {
 
         private final int versionCode;

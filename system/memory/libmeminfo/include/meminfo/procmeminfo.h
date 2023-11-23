@@ -19,6 +19,7 @@
 #include <sys/types.h>
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "meminfo.h"
@@ -49,14 +50,20 @@ class ProcMemInfo final {
     const std::vector<Vma>& MapsWithoutUsageStats();
 
     // If MapsWithoutUsageStats was called, this function will fill in
-    // usage stats for this single vma.
-    bool FillInVmaStats(Vma& vma);
+    // usage stats for this single vma. If 'use_kb' is true, the vma's
+    // usage will be populated in kilobytes instead of bytes.
+    bool FillInVmaStats(Vma& vma, bool use_kb = false);
 
-    // Collect all 'vma' or 'maps' from /proc/<pid>/smaps and store them in 'maps_'. Returns a
-    // constant reference to the vma vector after the collection is done.
+    // If ReadMaps (with get_usage_stats == false) or MapsWithoutUsageStats was
+    // called, this function will fill in usage stats for all vmas in 'maps_'.
+    bool GetUsageStats(bool get_wss, bool use_pageidle = false, bool swap_only = false);
+
+    // Collect all 'vma' or 'maps' from /proc/<pid>/smaps and store them in 'maps_'. If
+    // 'collect_usage' is 'true', this method will populate 'usage_' as vmas are being
+    // collected. Returns a constant reference to the vma vector after the collection is done.
     //
     // Each 'struct Vma' is *fully* populated by this method (unlike SmapsOrRollup).
-    const std::vector<Vma>& Smaps(const std::string& path = "");
+    const std::vector<Vma>& Smaps(const std::string& path = "", bool collect_usage = false);
 
     // If 'use_smaps' is 'true' this method reads /proc/<pid>/smaps and calls the callback()
     // for each vma or map that it finds, else if 'use_smaps' is false /proc/<pid>/maps is
@@ -68,6 +75,16 @@ class ProcMemInfo final {
     // Reads all VMAs from /proc/<pid>/maps and calls the callback() for each one of them.
     // Returns false in case of failure during parsing.
     bool ForEachVmaFromMaps(const VmaCallback& callback);
+
+    // Similar to other VMA reading methods, except this one allows passing a reusable buffer
+    // to store the /proc/<pid>/maps content
+    bool ForEachVmaFromMaps(const VmaCallback& callback, std::string& mapsBuffer);
+
+    // Takes the existing VMAs in 'maps_' and calls the callback() for each one
+    // of them. This is intended to avoid parsing /proc/<pid>/maps or
+    // /proc/<pid>/smaps twice.
+    // Returns false if 'maps_' is empty.
+    bool ForEachExistingVma(const VmaCallback& callback);
 
     // Used to parse either of /proc/<pid>/{smaps, smaps_rollup} and record the process's
     // Pss and Private memory usage in 'stats'.  In particular, the method only populates the fields
@@ -137,6 +154,15 @@ bool SmapsOrRollupFromFile(const std::string& path, MemUsage* stats);
 // from a file and returns total Pss in kB. The file MUST be in the same format
 // as /proc/<pid>/smaps or /proc/<pid>/smaps_rollup
 bool SmapsOrRollupPssFromFile(const std::string& path, uint64_t* pss);
+
+// The output format that can be specified by user.
+enum class Format { INVALID = 0, RAW, JSON, CSV };
+
+Format GetFormat(std::string_view arg);
+
+std::string EscapeCsvString(const std::string& raw);
+
+std::string EscapeJsonString(const std::string& raw);
 
 }  // namespace meminfo
 }  // namespace android

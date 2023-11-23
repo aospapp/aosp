@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -59,13 +59,16 @@
  */
 package test.java.time.format;
 
+import static java.time.temporal.ChronoField.AMPM_OF_DAY;
 import static java.time.temporal.ChronoField.EPOCH_DAY;
+import static java.time.temporal.ChronoField.HOUR_OF_AMPM;
 import static java.time.temporal.ChronoField.INSTANT_SECONDS;
 import static java.time.temporal.ChronoField.MICRO_OF_SECOND;
 import static java.time.temporal.ChronoField.MILLI_OF_SECOND;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.time.temporal.ChronoField.OFFSET_SECONDS;
 import static java.time.temporal.ChronoField.SECOND_OF_DAY;
+import static java.util.Locale.US;
 import static org.testng.Assert.assertEquals;
 
 import java.time.DateTimeException;
@@ -76,18 +79,21 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAccessor;
 
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /**
- * Test parsing of edge cases.
+ * @test
+ * @summary Test parsing of edge cases.
+ * @bug 8223773 8272473
  */
-@Test
 public class TestDateTimeParsing {
 
     private static final ZoneId PARIS = ZoneId.of("Europe/Paris");
+    private static final ZoneId NEW_YORK = ZoneId.of("America/New_York");
     private static final ZoneOffset OFFSET_0230 = ZoneOffset.ofHoursMinutes(2, 30);
 
     private static final DateTimeFormatter LOCALFIELDS = new DateTimeFormatterBuilder()
@@ -102,6 +108,7 @@ public class TestDateTimeParsing {
         .appendInstant().toFormatter();
     private static final DateTimeFormatter INSTANT_WITH_PARIS = INSTANT.withZone(PARIS);
     private static final DateTimeFormatter INSTANT_WITH_0230 = INSTANT.withZone(OFFSET_0230);
+    private static final DateTimeFormatter INSTANT_WITH_NEW_YORK = INSTANT.withZone(NEW_YORK);
     private static final DateTimeFormatter INSTANT_OFFSETID = new DateTimeFormatterBuilder()
         .appendInstant().appendLiteral(' ').appendOffsetId().toFormatter();
     private static final DateTimeFormatter INSTANT_OFFSETSECONDS = new DateTimeFormatterBuilder()
@@ -114,6 +121,10 @@ public class TestDateTimeParsing {
     private static final DateTimeFormatter INSTANTSECONDS_NOS_WITH_PARIS = INSTANTSECONDS_NOS.withZone(PARIS);
     private static final DateTimeFormatter INSTANTSECONDS_OFFSETSECONDS = new DateTimeFormatterBuilder()
         .appendValue(INSTANT_SECONDS).appendLiteral(' ').appendValue(OFFSET_SECONDS).toFormatter();
+    private static final DateTimeFormatter INSTANTSECONDS_WITH_NEW_YORK = INSTANTSECONDS.withZone(NEW_YORK);
+
+    private static final String DTPE_MESSAGE =
+        "Invalid value for HourOfAmPm (valid values 0 - 11): 12";
 
     @DataProvider(name = "instantZones")
     Object[][] data_instantZones() {
@@ -125,11 +136,15 @@ public class TestDateTimeParsing {
             {LOCALFIELDS_WITH_0230, "2014-06-30 01:02:03", ZonedDateTime.of(2014, 6, 30, 1, 2, 3, 0, OFFSET_0230)},
             {INSTANT_WITH_PARIS, "2014-06-30T01:02:03Z", ZonedDateTime.of(2014, 6, 30, 1, 2, 3, 0, ZoneOffset.UTC).withZoneSameInstant(PARIS)},
             {INSTANT_WITH_0230, "2014-06-30T01:02:03Z", ZonedDateTime.of(2014, 6, 30, 1, 2, 3, 0, ZoneOffset.UTC).withZoneSameInstant(OFFSET_0230)},
+            {INSTANT_WITH_NEW_YORK, "2020-11-01T05:00:00Z", ZonedDateTime.of(2020, 11, 1, 5, 0, 0, 0, ZoneOffset.UTC).withZoneSameInstant(NEW_YORK)},
+            {INSTANT_WITH_NEW_YORK, "2020-11-01T06:00:00Z", ZonedDateTime.of(2020, 11, 1, 6, 0, 0, 0, ZoneOffset.UTC).withZoneSameInstant(NEW_YORK)},
             {INSTANT_OFFSETID, "2014-06-30T01:02:03Z +02:30", ZonedDateTime.of(2014, 6, 30, 1, 2, 3, 0, ZoneOffset.UTC).withZoneSameInstant(OFFSET_0230)},
             {INSTANT_OFFSETSECONDS, "2014-06-30T01:02:03Z 9000", ZonedDateTime.of(2014, 6, 30, 1, 2, 3, 0, ZoneOffset.UTC).withZoneSameInstant(OFFSET_0230)},
             {INSTANTSECONDS_WITH_PARIS, "86402", Instant.ofEpochSecond(86402).atZone(PARIS)},
             {INSTANTSECONDS_NOS_WITH_PARIS, "86402.123456789", Instant.ofEpochSecond(86402, 123456789).atZone(PARIS)},
             {INSTANTSECONDS_OFFSETSECONDS, "86402 9000", Instant.ofEpochSecond(86402).atZone(OFFSET_0230)},
+            {INSTANTSECONDS_WITH_NEW_YORK, "1604206800", Instant.ofEpochSecond(1604206800).atZone(NEW_YORK)}, // 2020-11-01T05:00:00 UTC
+            {INSTANTSECONDS_WITH_NEW_YORK, "1604210400", Instant.ofEpochSecond(1604210400).atZone(NEW_YORK)}, // 2020-11-01T06:00:00 UTC
         };
     }
 
@@ -201,4 +216,25 @@ public class TestDateTimeParsing {
         assertEquals(actual.isSupported(MILLI_OF_SECOND), true);
     }
 
+    // Bug 8223773: validation check for the range of HourOfAmPm in SMART mode.
+    // Should throw a DateTimeParseException, as 12 is out of range for HourOfAmPm.
+    @Test(expectedExceptions = DateTimeParseException.class)
+    public void test_validateHourOfAmPm() {
+        try {
+            new DateTimeFormatterBuilder()
+                .appendValue(HOUR_OF_AMPM,2)
+                .appendText(AMPM_OF_DAY)
+                .toFormatter(US)
+                .parse("12PM");
+        } catch (DateTimeParseException e) {
+            Throwable cause = e.getCause();
+            if (cause == null ||
+                !DTPE_MESSAGE.equals(cause.getMessage())) {
+                throw new RuntimeException(
+                    "DateTimeParseException was thrown with different reason: " + e);
+            } else {
+                throw e;
+            }
+        }
+    }
 }

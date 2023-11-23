@@ -38,6 +38,8 @@ import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillValue;
 import android.widget.EditText;
 
+import androidx.test.filters.FlakyTest;
+
 import org.junit.Test;
 import org.junit.rules.TestRule;
 
@@ -165,6 +167,7 @@ public class InlineAugmentedAuthTest
         assertThat(unField.getText().toString()).isEqualTo("");
     }
 
+    @FlakyTest(bugId = 244112879)
     @Test
     public void testDatasetAuth_resultCancel() throws Exception {
         // Set services

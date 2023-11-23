@@ -1,0 +1,34 @@
+name: Test Libabigail
+
+on:
+  pull_request: []
+  push:
+    branches:
+      - develop
+
+jobs:
+  build:
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+
+        # Testing containers (build and run make check)
+        dockerfile: ["Dockerfile.test"]
+
+    runs-on: ubuntu-latest
+    name: Build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Make Space For Build
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+
+      - name: Build Test Container
+        env:
+          dockerfile: ${{ matrix.dockerfile }}
+        run: docker build -f docker/${dockerfile} -t libabigail-test .

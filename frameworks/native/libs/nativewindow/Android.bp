@@ -61,6 +61,9 @@ ndk_library {
 
     // Android O
     first_version: "26",
+    export_header_libs: [
+        "libnativewindow_ndk_headers",
+    ],
 }
 
 cc_library {
@@ -71,13 +74,14 @@ cc_library {
         override_export_include_dirs: [
             "include",
         ],
+        export_llndk_headers: [
+            "libarect_headers",
+        ],
     },
     export_include_dirs: [
         "include",
         "include-private",
     ],
-
-    clang: true,
 
     cflags: [
         "-Wall",
@@ -98,25 +102,27 @@ cc_library {
         "liblog",
         "libutils",
         "libui",
+        "libbinder",
+        "libbinder_ndk",
         "android.hardware.graphics.common@1.1",
     ],
 
     static_libs: [
         "libarect",
         "libgrallocusage",
+        "libgui_aidl_static",
     ],
 
     header_libs: [
+        "libgui_headers",
+        "libarect_headers",
         "libnativebase_headers",
         "libnativewindow_headers",
     ],
 
     // headers we include in our public headers
-    export_static_lib_headers: [
-        "libarect",
-    ],
-
     export_header_lib_headers: [
+        "libarect_headers",
         "libnativebase_headers",
     ],
 

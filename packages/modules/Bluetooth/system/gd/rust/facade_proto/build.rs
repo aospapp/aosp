@@ -13,7 +13,6 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-extern crate protobuf_codegen;
 extern crate protoc_grpcio;
 extern crate protoc_rust;
 

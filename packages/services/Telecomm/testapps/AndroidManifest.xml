@@ -259,6 +259,15 @@
           </intent-filter>
         </service>
 
+        <service android:name="com.android.server.telecom.testapps.OtherSelfManagedConnectionService"
+                 android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE"
+                 android:process="com.android.server.telecom.testapps.SelfMangingCallingApp"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="android.telecom.ConnectionService"/>
+            </intent-filter>
+        </service>
+
         <receiver android:exported="false"
              android:process="com.android.server.telecom.testapps.SelfMangingCallingApp"
              android:name="com.android.server.telecom.testapps.SelfManagedCallNotificationReceiver"/>

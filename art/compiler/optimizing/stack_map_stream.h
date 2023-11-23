@@ -21,6 +21,7 @@
 #include "base/arena_bit_vector.h"
 #include "base/bit_table.h"
 #include "base/bit_vector-inl.h"
+#include "base/macros.h"
 #include "base/memory_region.h"
 #include "base/scoped_arena_containers.h"
 #include "base/value_object.h"
@@ -28,7 +29,7 @@
 #include "nodes.h"
 #include "stack_map.h"
 
-namespace art {
+namespace art HIDDEN {
 
 class CodeGenerator;
 
@@ -64,15 +65,19 @@ class StackMapStream : public DeletableArenaObject<kArenaAllocStackMapStream> {
                    size_t core_spill_mask,
                    size_t fp_spill_mask,
                    uint32_t num_dex_registers,
-                   bool baseline = false);
+                   bool baseline,
+                   bool debuggable);
   void EndMethod(size_t code_size);
 
-  void BeginStackMapEntry(uint32_t dex_pc,
-                          uint32_t native_pc_offset,
-                          uint32_t register_mask = 0,
-                          BitVector* sp_mask = nullptr,
-                          StackMap::Kind kind = StackMap::Kind::Default,
-                          bool needs_vreg_info = true);
+  void BeginStackMapEntry(
+      uint32_t dex_pc,
+      uint32_t native_pc_offset,
+      uint32_t register_mask = 0,
+      BitVector* sp_mask = nullptr,
+      StackMap::Kind kind = StackMap::Kind::Default,
+      bool needs_vreg_info = true,
+      const std::vector<uint32_t>& dex_pc_list_for_catch_verification = std::vector<uint32_t>());
+
   void EndStackMapEntry();
 
   void AddDexRegisterEntry(DexRegisterLocation::Kind kind, int32_t value) {
@@ -125,6 +130,7 @@ class StackMapStream : public DeletableArenaObject<kArenaAllocStackMapStream> {
   uint32_t fp_spill_mask_ = 0;
   uint32_t num_dex_registers_ = 0;
   bool baseline_;
+  bool debuggable_;
   BitTableBuilder<StackMap> stack_maps_;
   BitTableBuilder<RegisterMask> register_masks_;
   BitmapTableBuilder stack_masks_;

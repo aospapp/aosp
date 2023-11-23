@@ -24,9 +24,11 @@ java_library(
     testonly = 1,
     srcs = ["CompilerTests.java"],
     deps = [
-        "//java/dagger/internal/guava:base",
-        "//java/dagger/internal/guava:collect",
-        "//java/dagger/internal/guava:io",
-        "@google_bazel_common//third_party/java/compile_testing",
+        "//third_party/java/guava/base",
+        "//third_party/java/guava/collect",
+        "//third_party/java/guava/io",
+        "//third_party/java/compile_testing",
+        "//java/dagger/internal/codegen:processor",
+        "@maven//:com_github_tschuchortdev_kotlin_compile_testing",
     ],
 )

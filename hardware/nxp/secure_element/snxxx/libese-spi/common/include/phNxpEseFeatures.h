@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2018-2020 NXP
+ *  Copyright 2018-2020, 2022 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -38,11 +38,12 @@ typedef enum OS_VERSION {
   OS_VERSION_5_2 = 3,
   OS_VERSION_5_2_2 = 4,
   OS_VERSION_6_2 = 5,
+  OS_VERSION_6_3 = 6,
   INVALID_OS_VERSION = 0xFF,
 } phNxpEse_OsVersion_t;
 
 extern phNxpEse_OsVersion_t phNxpEse_getOsVersion();
-extern bool ese_debug_enabled;
+
 #define GET_CHIP_OS_VERSION() phNxpEse_getOsVersion()
 
 #endif /* end of #ifndef NXP_ESE_FEATURES_H */

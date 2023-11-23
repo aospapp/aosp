@@ -29,14 +29,14 @@
 #define DICT_LIMIT_DEN 3
 
 static int _ufdt_prop_dict_str_hash(const char *str) {
-  int res = 0;
+  unsigned int res = 0;
 
   for (; *str != '\0'; str++) {
     res *= HASH_BASE;
     res += *str;
   }
 
-  return res;
+  return (int)res;
 }
 
 static const struct fdt_property **_ufdt_prop_dict_find_index_by_name(
@@ -52,7 +52,7 @@ static const struct fdt_property **_ufdt_prop_dict_find_index_by_name(
     if (prop == NULL) return prop_ptr;
 
     const char *prop_name = fdt_string(dict->fdtp, fdt32_to_cpu(prop->nameoff));
-    if (dto_strcmp(prop_name, name) == 0) return prop_ptr;
+    if (prop_name != NULL && dto_strcmp(prop_name, name) == 0) return prop_ptr;
 
     idx = (idx + 1) & (size - 1);
   }
@@ -62,6 +62,7 @@ static const struct fdt_property **_ufdt_prop_dict_find_index_by_name(
 static const struct fdt_property **_ufdt_prop_dict_find_index(
     struct ufdt_prop_dict *dict, const struct fdt_property *prop) {
   const char *name = fdt_string(dict->fdtp, fdt32_to_cpu(prop->nameoff));
+  if (name == NULL) return NULL;
 
   return _ufdt_prop_dict_find_index_by_name(dict, name);
 }

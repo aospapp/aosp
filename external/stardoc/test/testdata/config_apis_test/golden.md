@@ -1,6 +1,8 @@
 <!-- Generated with Stardoc: http://skydoc.bazel.build -->
 
-<a name="#int_setting"></a>
+
+
+<a id="int_setting"></a>
 
 ## int_setting
 
@@ -8,17 +10,17 @@
 int_setting(<a href="#int_setting-name">name</a>)
 </pre>
 
-
+An integer flag.
 
 **ATTRIBUTES**
 
 
 | Name  | Description | Type | Mandatory | Default |
-| :-------------: | :-------------: | :-------------: | :-------------: | :-------------: |
-| name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |  |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="int_setting-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
 
 
-<a name="#string_flag"></a>
+<a id="string_flag"></a>
 
 ## string_flag
 
@@ -26,17 +28,17 @@ int_setting(<a href="#int_setting-name">name</a>)
 string_flag(<a href="#string_flag-name">name</a>)
 </pre>
 
-
+A string flag.
 
 **ATTRIBUTES**
 
 
 | Name  | Description | Type | Mandatory | Default |
-| :-------------: | :-------------: | :-------------: | :-------------: | :-------------: |
-| name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |  |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="string_flag-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
 
 
-<a name="#exercise_the_api"></a>
+<a id="exercise_the_api"></a>
 
 ## exercise_the_api
 
@@ -46,11 +48,9 @@ exercise_the_api()
 
 
 
-**PARAMETERS**
 
 
-
-<a name="#transition_func"></a>
+<a id="transition_func"></a>
 
 ## transition_func
 
@@ -64,7 +64,7 @@ A no-op transition function.
 
 
 | Name  | Description | Default Value |
-| :-------------: | :-------------: | :-------------: |
-| settings |  <p align="center"> - </p>   |  none |
+| :------------- | :------------- | :------------- |
+| <a id="transition_func-settings"></a>settings |  <p align="center"> - </p>   |  none |
 
 

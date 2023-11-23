@@ -87,7 +87,7 @@ different user in the remote host name (the same passwordless requirement
 applies).
 
 The easiest way to set this up is to use the
-[Chrome OS testing keys](https://www.chromium.org/chromium-os/testing/autotest-developer-faq/ssh-test-keys-setup).
+[ChromeOS testing keys](https://www.chromium.org/chromium-os/testing/autotest-developer-faq/ssh-test-keys-setup).
 Add to your SSH config an entry that looks like the following:
 
 ```

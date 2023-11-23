@@ -307,7 +307,7 @@ struct DiagnosePermissionAnnotations : DiagnosticsVisitor {
         "required using @EnforcePermission. If permissions are manually "
         "verified within the implementation, use @PermissionManuallyEnforced. "
         "If no permissions are required, use @RequiresNoPermission.";
-    if (intf.EnforceExpression() || intf.IsPermissionManual() || intf.IsPermissionNone()) {
+    if (intf.IsPermissionAnnotated()) {
       return;
     }
     const auto& methods = intf.GetMethods();
@@ -317,8 +317,7 @@ struct DiagnosePermissionAnnotations : DiagnosticsVisitor {
       auto& m = methods[i];
       if (!m->IsUserDefined()) continue;
       num_user_defined_methods++;
-      if (m->GetType().EnforceExpression() || m->GetType().IsPermissionManual() ||
-          m->GetType().IsPermissionNone()) {
+      if (m->GetType().IsPermissionAnnotated()) {
         continue;
       }
       methods_without_annotations.push_back(i);

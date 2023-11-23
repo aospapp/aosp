@@ -34,7 +34,7 @@
     <string name="car_permission_desc_speed" msgid="2047965198165448241">"ಕಾರಿನ ವೇಗದ ಮಾಹಿತಿಯನ್ನು ಪಡೆಯಿರಿ."</string>
     <string name="car_permission_label_vehicle_dynamics_state" msgid="313779267420048367">"ಕಾರಿನ ಚಲನಶೀಲ ಸ್ಥಿತಿಯ ಮಾಹಿತಿಯನ್ನು ಪ್ರವೇಶಿಸಿ"</string>
     <string name="car_permission_desc_vehicle_dynamics_state" msgid="8891506193446375660">"ಕಾರಿನ ಚಲನಶೀಲ ಸ್ಥಿತಿಯ ಮಾಹಿತಿಯನ್ನು ಪಡೆಯಿರಿ."</string>
-    <string name="car_permission_label_vendor_extension" msgid="7141601811734127361">"ಕಾರಿನ ಪೂರೈಕೆದಾರ ಚಾನಲ್‌ಗೆ ಪ್ರವೇಶ"</string>
+    <string name="car_permission_label_vendor_extension" msgid="7141601811734127361">"ಕಾರಿನ ಪೂರೈಕೆದಾರ ಚಾನಲ್‌ಗೆ ಆ್ಯಕ್ಸೆಸ್"</string>
     <string name="car_permission_desc_vendor_extension" msgid="2970718502334714035">"ನಿಮ್ಮ ಕಾರಿನ ನಿರ್ದಿಷ್ಟ ಮಾಹಿತಿಯನ್ನು ವಿನಿಮಯ ಮಾಡಿಕೊಳ್ಳಲು, ನಿಮ್ಮ ಕಾರಿನ ಮಾರಾಟಗಾರ ಚಾನಲ್ ಅನ್ನು ಪ್ರವೇಶಿಸಿ"</string>
     <string name="car_permission_label_radio" msgid="6009465291685935112">"ಕಾರಿನ ರೇಡಿಯೊವನ್ನು ನಿರ್ವಹಿಸಿ"</string>
     <string name="car_permission_desc_radio" msgid="3385999027478186964">"ಕಾರಿನ ರೇಡಿಯೋವನ್ನು ನಿಯಂತ್ರಿಸಿ."</string>
@@ -42,12 +42,10 @@
     <string name="car_permission_desc_projection" msgid="2352178999656292944">"ಕಾರಿನ ಡಿಸ್‌ಪ್ಲೇನಲ್ಲಿರುವ ಫೋನ್‌ನಿಂದ ಇಂಟರ್ ಫೇಸ್ ಅನ್ನು ಪ್ರಾಜೆಕ್ಟ್ ಮಾಡಲು ಆ್ಯಪ್‌ಗೆ ಅನುಮತಿಸುತ್ತದೆ."</string>
     <string name="car_permission_label_access_projection_status" msgid="4231618890836627402">"ಪ್ರೊಜೆಕ್ಷನ್ ಸ್ಥಿತಿಯನ್ನು ಪ್ರವೇಶಿಸಿ"</string>
     <string name="car_permission_desc_access_projection_status" msgid="8497351979100616278">"ಕಾರಿನ ಡಿಸ್‌ಪ್ಲೇಗೆ ಪ್ರಾಜೆಕ್ಟ್ ಮಾಡುವ ಇತರ ಆ್ಯಪ್‌ಗಳ ಸ್ಥಿತಿಯನ್ನು ಪಡೆಯಲು ಆ್ಯಪ್‌ಗೆ ಅನುಮತಿಸುತ್ತದೆ."</string>
-    <string name="car_permission_label_bind_projection_service" msgid="5362076216606651526">"ಪ್ರೊಜೆಕ್ಷನ್ ಸೇವೆಗೆ ಪ್ರತಿಬಂಧಿಸಿ"</string>
-    <string name="car_permission_desc_bind_projection_service" msgid="2282657787853408639">"ಪ್ರೊಜೆಕ್ಷನ್ ಸೇವೆಯ ಉನ್ನತ ಮಟ್ಟದ ಇಂಟರ್ ಫೇಸ್‌ಗೆ ಪ್ರತಿಬಂಧಿಸಲು ಮಾಲೀಕರಿಗೆ ಅವಕಾಶ ನೀಡುತ್ತದೆ. ಸಾಮಾನ್ಯ ಆ್ಯಪ್‌ಗಳಿಗೆ ಎಂದಿಗೂ ಅಗತ್ಯವಿರುವುದಿಲ್ಲ."</string>
     <string name="car_permission_label_audio_volume" msgid="310587969373137690">"ಕಾರಿನ ಆಡಿಯೋ ವಾಲ್ಯೂಮ್ ಅನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
     <string name="car_permission_label_audio_settings" msgid="6524703796944023977">"ಕಾರಿನ ಆಡಿಯೋ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ನಿರ್ವಹಿಸಿ"</string>
     <string name="car_permission_label_mock_vehicle_hal" msgid="7198852512207405935">"ವಾಹನದ HAL ಸಂಪರ್ಕಸಾಧನವನ್ನು ಅನುಕರಿಸಿ"</string>
-    <string name="car_permission_label_receive_ducking" msgid="4884538660766756573">"ಆಡಿಯೋ ವಾಲ್ಯೂಮ್ ಕಡಿಮೆ ಆಗಿರುವ ಅಧಿಸೂಚನೆ ಸ್ವೀಕರಿಸಿ"</string>
+    <string name="car_permission_label_receive_ducking" msgid="4884538660766756573">"ಆಡಿಯೋ ವಾಲ್ಯೂಮ್ ಕಡಿಮೆ ಆಗಿರುವ ನೋಟಿಫಿಕೇಶನ್ ಸ್ವೀಕರಿಸಿ"</string>
     <string name="car_permission_desc_receive_ducking" msgid="776376388266656512">"ಕಾರಿನಲ್ಲಿರುವ ಇತರ ಆಡಿಯೋ ಪ್ಲೇ ಆಗುತ್ತಿರುವುದರ ಪರಿಣಾಮವಾಗಿ ವಾಲ್ಯೂಮ್ ಕಡಿಮೆ ಆದಾಗ  ಅದರ ಕುರಿತಂತೆ ಸೂಚನೆ ನೀಡಲು ಆ್ಯಪ್ ಗೆ ಅನುಮತಿಸುತ್ತದೆ."</string>
     <string name="car_permission_desc_mock_vehicle_hal" msgid="5235596491098649155">"ನಿಮ್ಮ ಕಾರಿನ ವಾಹನ ಎಚ್‌ಎಎಲ್ ಅನ್ನು ಆಂತರಿಕ ಪರೀಕ್ಷೆಗಾಗಿ ಅನುಕರಿಸಿ"</string>
     <string name="car_permission_desc_audio_volume" msgid="536626185654307889">"ಕಾರಿನ ಆಡಿಯೋ ವಾಲ್ಯೂಮ್ ಅನ್ನು ನಿಯಂತ್ರಿಸು."</string>
@@ -62,11 +60,9 @@
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"ಸಲಕರಣೆ ಸಂಚಯದಲ್ಲಿ ಆ್ಯಪ್‌ಗಳನ್ನು ಪ್ರಾರಂಭಿಸಿ"</string>
     <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"ಸಲಕರಣೆ ಕ್ಲಸ್ಟರ್ ನ್ಯಾವಿಗೇಷನ್ ಸ್ಥಿತಿ"</string>
     <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"ಸಲಕರಣೆ ಕ್ಲಸ್ಟರ್ ನ್ಯಾವಿಗೇಶನ್ ಸ್ಥಿತಿಯ ಬದಲಾವಣೆಗಳನ್ನು ಆಲಿಸಿ"</string>
-    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"ಸಲಕರಣೆ ಸಂಚಯ ತೋರಿಸು"</string>
-    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"ಸಲಕರಣೆ ಸಂಚಯ ಮಾಹಿತಿಯನ್ನು ಸ್ವೀಕರಿಸಿ"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"UX ನಿರ್ಬಂಧಗಳ ಸಂರಚನೆ"</string>
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"ಯುಎಕ್ಸ್ ನಿರ್ಬಂಧಗಳನ್ನು ಸಂರಚಿಸು"</string>
-    <string name="car_permission_label_access_private_display_id" msgid="6712116114341634316">"ಖಾಸಗಿ ಡಿಸ್‌ಪ್ಲೇ ಐಡಿಗೆ ಓದುವ ಪ್ರವೇಶ"</string>
+    <string name="car_permission_label_access_private_display_id" msgid="6712116114341634316">"ಖಾಸಗಿ ಡಿಸ್‌ಪ್ಲೇ ಐಡಿಗೆ ಓದುವ ಆ್ಯಕ್ಸೆಸ್"</string>
     <string name="car_permission_desc_access_private_display_id" msgid="8535974477610944721">"ಖಾಸಗಿ ಡಿಸ್‌ಪ್ಲೇ ಐಡಿಗೆ ಓದುವ ಪ್ರವೇಶವನ್ನು ಅನುಮತಿಸುತ್ತದೆ"</string>
     <string name="car_permission_label_car_handle_usb_aoap_device" msgid="72783989504378036">"AOAP ಮೋಡ್‌ನಲ್ಲಿ USB ಸಾಧನದ ಜೊತೆಗೆ ಸಂವಹನ ನಡೆಸಿ"</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device" msgid="273505990971317034">"AOAP ಮೋಡ್‌ನಲ್ಲಿ ಸಾಧನದ ಜೊತೆಗೆ ಸಂವಹನ ನಡೆಸಲು ಆ್ಯಪ್‌ಗೆ ಅನುಮತಿಸುತ್ತದೆ"</string>
@@ -74,8 +70,12 @@
     <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"Occupant Awareness System ಗಾಗಿ ಓದುವ ಸ್ಥಿತಿ ಮತ್ತು ಪತ್ತೆಹಚ್ಚುವಿಕೆ ಡೇಟಾವನ್ನು ಅನುಮತಿಸುತ್ತದೆ"</string>
     <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"Occupant Awareness System Graph ಅನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Occupant Awareness System ಪತ್ತೆಹಚ್ಚುವಿಕೆ ಗ್ರಾಫ್‌ನ ಪ್ರಾರಂಭಿಸಲು ಮತ್ತು ನಿಲ್ಲಿಸುವುದನ್ನು ನಿಯಂತ್ರಿಸಲು ನಿಮಗೆ ಅನುಮತಿಸುತ್ತದೆ"</string>
-    <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"ಕಾರಿನ ಇನ್‌ಪುಟ್ ಸೇವೆ"</string>
-    <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"ಊಡಿಕೆ ಘಟನೆಗಳನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
+    <string name="car_permission_label_read_driver_monitoring_settings" msgid="5208935577581001710">"ಕಾರ್‌ನ ಡ್ರೈವರ್‌ ಮಾನಿಟರಿಂಗ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳ ಕುರಿತ ಮಾಹಿತಿಯನ್ನು ಓದಿ"</string>
+    <string name="car_permission_desc_read_driver_monitoring_settings" msgid="3721117607024237175">"ಕಾರ್‌ನ ಡ್ರೈವರ್‌ ಮಾನಿಟರಿಂಗ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳ ಕುರಿತ ಮಾಹಿತಿಯನ್ನು ಓದಿ."</string>
+    <string name="car_permission_label_control_driver_monitoring_settings" msgid="239453247872865455">"ಕಾರ್‌ನ ಡ್ರೈವರ್‌ ಮಾನಿಟರಿಂಗ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳ ಕುರಿತ ಮಾಹಿತಿಯನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
+    <string name="car_permission_desc_control_driver_monitoring_settings" msgid="7244804817277236221">"ಕಾರ್‌ನ ಡ್ರೈವರ್‌ ಮಾನಿಟರಿಂಗ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳ ಕುರಿತ ಮಾಹಿತಿಯನ್ನು ನಿಯಂತ್ರಿಸಿ."</string>
+    <string name="car_permission_label_read_driver_monitoring_states" msgid="1555412806741155523">"ಕಾರ್‌ನ ಡ್ರೈವರ್‌ ಮಾನಿಟರಿಂಗ್ ಸ್ಥಿತಿಗಳ ಕುರಿತ ಮಾಹಿತಿಯನ್ನು ಓದಿ"</string>
+    <string name="car_permission_desc_read_driver_monitoring_states" msgid="3124328827934661489">"ಕಾರ್‌ನ ಡ್ರೈವರ್‌ ಮಾನಿಟರಿಂಗ್ ಸ್ಥಿತಿಗಳ ಕುರಿತ ಮಾಹಿತಿಯನ್ನು ಓದಿ."</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"ಡಯಾಗ್ನೋಸ್ಟಿಕ್ ಡೇಟಾವನ್ನು ಓದಿ"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"ಕಾರಿನಲ್ಲಿರುವ ಅದರ ಡಯಾಗ್ನೋಸ್ಟಿಕ್ ಡೇಟಾವನ್ನು ಓದಿ."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"ಡಯಾಗ್ನೋಸ್ಟಿಕ್ ಡೇಟಾವನ್ನು ತೆರವುಗೊಳಿಸಿ"</string>
@@ -84,8 +84,6 @@
     <string name="car_permission_desc_vms_publisher" msgid="5589489298597386828">"VMS ಸಂದೇಶಗಳನ್ನು ಪ್ರಕಟಿಸಿ"</string>
     <string name="car_permission_label_vms_subscriber" msgid="5648841182059222299">"VMS ಸಬ್‌ಸ್ಕ್ರೈಬರ್‌"</string>
     <string name="car_permission_desc_vms_subscriber" msgid="7551009457847673620">"VMS ಸಂದೇಶಗಳಿಗೆ ಸಬ್‌ಸ್ಕ್ರೈಬ್ ಮಾಡಿ"</string>
-    <string name="car_permission_label_bind_vms_client" msgid="4889732900973280313">"VMS ಕ್ಲೈಂಟ್ ಸೇವೆ"</string>
-    <string name="car_permission_desc_bind_vms_client" msgid="4062835325264330564">"VMS ಕ್ಲೈಂಟ್‌ಗಳಿಗೆ ಪ್ರತಿಬಂಧಿಸಿ"</string>
     <string name="car_permission_label_storage_monitoring" msgid="2327639346522530549">"ಫ್ಲಾಶ್ ಸಂಗ್ರಹದ ಉಸ್ತುವಾರಿ"</string>
     <string name="car_permission_desc_storage_monitoring" msgid="2075712271139671318">"ಫ್ಲಾಶ್ ಸಂಗ್ರಹ ಬಳಕೆಯ ಉಸ್ತುವಾರಿ"</string>
     <string name="car_permission_label_driving_state" msgid="7754624599537393650">"ಚಾಲನೆಯ ಸ್ಥಿತಿಯ ಬದಲಾವಣೆಯನ್ನು ಆಲಿಸಿ"</string>
@@ -118,6 +116,8 @@
     <string name="car_permission_desc_control_car_mirrors" msgid="1224135684068855032">"ಕಾರಿನ ಕನ್ನಡಿಗಳನ್ನು ನಿಯಂತ್ರಿಸಿ."</string>
     <string name="car_permission_label_control_car_seats" msgid="1826934820585497135">"ಕಾರಿನ ಆಸನಗಳನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"ಕಾರಿನ ಆಸನಗಳನ್ನು ನಿಯಂತ್ರಿಸಿ."</string>
+    <string name="car_permission_label_control_car_airbags" msgid="6823727183218389617">"ಕಾರ್‌ನ ಏರ್‌ಬ್ಯಾಗ್‌ಗಳನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
+    <string name="car_permission_desc_control_car_airbags" msgid="6181671903761622348">"ಕಾರ್‌ನ ಏರ್‌ಬ್ಯಾಗ್‌ಗಳನ್ನು ನಿಯಂತ್ರಿಸಿ."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"ಕಾರಿನ ಮೂಲ ಮಾಹಿತಿಯನ್ನು ಪಡೆಯಿರಿ"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"ಕಾರಿನ ಮೂಲ ಮಾಹಿತಿಯನ್ನು ಪ್ರವೇಶಿಸಿ."</string>
     <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"ಕಾರಿನ ವಿಶೇಷ ಮಾಹಿತಿಗೆ ಪ್ರವೇಶವನ್ನು ಪಡೆಯಿರಿ"</string>
@@ -126,10 +126,10 @@
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"ಕಾರಿನ ಮಾರಾಟಗಾರರ ಅನುಮತಿ ಮಾಹಿತಿಯನ್ನು ಪ್ರವೇಶಿಸಿ."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"ಕಾರಿನ ಹೊರಾಂಗಣ ಲೈಟ್‌ಗಳ ಸ್ಥಿತಿಯ ಮಾಹಿತಿಯನ್ನು ಓದಿ"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"ಕಾರಿನ ಹೊರಾಂಗಣ ಲೈಟ್‌ಗಳ ಸ್ಥಿತಿಯನ್ನು ಪ್ರವೇಶಿಸಿ."</string>
+    <string name="car_permission_label_control_glove_box" msgid="992118647212706782">"ಕಾರಿನ ಗ್ಲೋವ್ ಬಾಕ್ಸ್ ಸ್ಥಿತಿಯನ್ನು ಆ್ಯಕ್ಸೆಸ್ ಮಾಡಿ"</string>
+    <string name="car_permission_desc_control_glove_box" msgid="2888062136750123261">"ಕಾರಿನ ಗ್ಲೋವ್ ಬಾಕ್ಸ್ ಸ್ಥಿತಿಯನ್ನು ಆ್ಯಕ್ಸೆಸ್ ಮಾಡಿ."</string>
     <string name="car_permission_label_car_epoch_time" msgid="6303397910662625112">"ಕಾರ್‌ನ epoch ಸಮಯವನ್ನು ಪ್ರವೇಶಿಸಿ"</string>
     <string name="car_permission_desc_car_epoch_time" msgid="398907082895238558">"ಕಾರ್‌ನ epoch ಸಮಯವನ್ನು ಪ್ರವೇಶಿಸಿ."</string>
-    <string name="car_permission_label_encryption_binding_seed" msgid="4652180636501144684">"ಕಾರ್‌ನ ಎನ್‌ಕ್ರಿಪ್ಶನ್ ಬೈಡಿಂಗ್ ಸೀಡ್ ಅನ್ನು ಪ್ರವೇಶಿಸಿ"</string>
-    <string name="car_permission_desc_encryption_binding_seed" msgid="6290944678417286024">"ಕಾರ್‌ನ ಎನ್‌ಕ್ರಿಪ್ಶನ್ ಬೈಡಿಂಗ್ ಸೀಡ್ ಅನ್ನು ಪ್ರವೇಶಿಸಿ."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"ಕಾರಿನ ಹೊರಾಂಗಣ ಲೈಟ್‌ಗಳ ಮಾಹಿತಿಯನ್ನು ಓದಿ"</string>
     <string name="car_permission_desc_control_car_exterior_lights" msgid="6332252612685264180">"ಕಾರಿನ ಹೊರಾಂಗಣ ಲೈಟ್‌ಗಳನ್ನು ನಿಯಂತ್ರಿಸಿ."</string>
     <string name="car_permission_label_car_interior_lights" msgid="8506302199784427680">"ಕಾರಿನ ಒಳಾಂಗಣ ಲೈಟ್‌ಗಳ ಕುರಿತು ಓದಿ"</string>
@@ -146,6 +146,8 @@
     <string name="car_permission_desc_read_car_display_units" msgid="6891898275208542385">"ಓದುವಿಕೆ ಡಿಸ್‌ಪ್ಲೇ ಘಟಕಗಳು."</string>
     <string name="car_permission_label_control_car_display_units" msgid="4975303668183173076">"ಕಾರಿನ ಡಿಸ್‌ಪ್ಲೇ ಘಟಕಗಳನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
     <string name="car_permission_desc_control_car_display_units" msgid="8744397195158556945">"ಡಿಸ್‌ಪ್ಲೇ ಘಟಕಗಳನ್ನು ನಿಯಂತ್ರಿಸಿ."</string>
+    <string name="car_permission_label_control_car_powertrain" msgid="234831541490237603">"ಕಾರಿನ ಪವರ್‌ಟ್ರೇನ್ ಮಾಹಿತಿಯನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
+    <string name="car_permission_desc_control_car_powertrain" msgid="8205110385130069179">"ಕಾರಿನ ಪವರ್‌ಟ್ರೇನ್ ಮಾಹಿತಿಯನ್ನು ನಿಯಂತ್ರಿಸಿ."</string>
     <string name="car_permission_label_car_powertrain" msgid="4586122326622134886">"ಕಾರಿನ ಪವರ್‌ಟ್ರೈನ್ ಮಾಹಿತಿಯನ್ನು ಓದಿ"</string>
     <string name="car_permission_desc_car_powertrain" msgid="1116007372551797796">"ಕಾರಿನ ಪವರ್‌ಟ್ರೈನ್ ಮಾಹಿತಿಯನ್ನು ಪ್ರವೇಶಿಸಿ."</string>
     <string name="car_permission_label_car_power" msgid="8111448088314368268">"ಕಾರಿನ ವಿದ್ಯುತ್ ಸ್ಥಿತಿ ಮಾಹಿತಿಯನ್ನು ಓದಿ"</string>
@@ -172,6 +174,40 @@
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"ಟೆಂಪ್ಲೇಟ್‌ಗಳನ್ನು ರೆಂಡರ್ ಮಾಡಿ."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"ಪ್ರಾರಂಭಿಸುವ ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"ಪ್ರಾರಂಭಿಸುವ ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ನಿಯಂತ್ರಿಸಿ."</string>
+    <string name="car_permission_label_manage_thread_priority" msgid="6775846409863509575">"ಥ್ರೆಡ್ ಆದ್ಯತೆಯನ್ನು ನಿರ್ವಹಿಸಿ"</string>
+    <string name="car_permission_desc_manage_thread_priority" msgid="3833845502119615929">"ಥ್ರೆಡ್ ಆದ್ಯತೆಯನ್ನು ನಿರ್ವಹಿಸಿ."</string>
+    <string name="car_permission_label_manage_occupant_zone" msgid="1390420387640478679">"ಸಿಬ್ಬಂದಿ ವಲಯದ ನಿರ್ವಹಣೆ"</string>
+    <string name="car_permission_desc_manage_occupant_zone" msgid="1641484205694436465">"ಸಿಬ್ಬಂದಿ ವಲಯದ ನಿರ್ವಹಣೆ."</string>
+    <string name="car_permission_label_use_remote_access" msgid="4192095854784769805">"ರಿಮೋಟ್ ಆ್ಯಕ್ಸೆಸ್ ಬಳಸಿ"</string>
+    <string name="car_permission_desc_use_remote_access" msgid="7287637348044911791">"ರಿಮೋಟ್ ಆ್ಯಕ್ಸೆಸ್ ಬಳಸಿ."</string>
+    <string name="car_permission_label_control_remote_access" msgid="4247590162299914718">"ರಿಮೋಟ್ ಆ್ಯಕ್ಸೆಸ್ ನಿಯಂತ್ರಿಸಿ"</string>
+    <string name="car_permission_desc_control_remote_access" msgid="127215188256669260">"ರಿಮೋಟ್ ಆ್ಯಕ್ಸೆಸ್ ನಿಯಂತ್ರಿಸಿ."</string>
+    <string name="car_permission_label_control_steering_wheel" msgid="6244908950907824488">"ಕಾರಿನ ಸ್ಟೀರಿಂಗ್ ಚಕ್ರವನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
+    <string name="car_permission_desc_control_steering_wheel" msgid="8408970211196600423">"ಕಾರಿನ ಸ್ಟೀರಿಂಗ್ ಚಕ್ರವನ್ನು ನಿಯಂತ್ರಿಸಿ."</string>
+    <string name="car_permission_label_read_adas_settings" msgid="151296373212801328">"ಕಾರ್‌ನ ADAS ಸೆಟ್ಟಿಂಗ್‌ಗಳ ಮಾಹಿತಿಯನ್ನು ಓದಿ"</string>
+    <string name="car_permission_desc_read_adas_settings" msgid="8490545343454791279">"ಕಾರ್‌ನ ADAS ಸೆಟ್ಟಿಂಗ್‌ಗಳ ಮಾಹಿತಿಯನ್ನು ಓದಿ."</string>
+    <string name="car_permission_label_control_adas_settings" msgid="2535088218472880855">"ಕಾರ್‌ನ ADAS ಸೆಟ್ಟಿಂಗ್‌ಗಳ ಮಾಹಿತಿಯನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
+    <string name="car_permission_desc_control_adas_settings" msgid="8781131640392345285">"ಕಾರ್‌ನ ADAS ಸೆಟ್ಟಿಂಗ್‌ಗಳ ಮಾಹಿತಿಯನ್ನು ನಿಯಂತ್ರಿಸಿ."</string>
+    <string name="car_permission_label_read_adas_states" msgid="8968657466958098106">"ಕಾರ್‌ನ ADAS ಸ್ಥಿತಿಗಳ ಮಾಹಿತಿಯನ್ನು ಓದಿ"</string>
+    <string name="car_permission_desc_read_adas_states" msgid="5042430899788416991">"ಕಾರ್‌ನ ADAS ಸ್ಥಿತಿಗಳ ಮಾಹಿತಿಯನ್ನು ಓದಿ."</string>
+    <string name="car_permission_label_control_adas_states" msgid="758803765406463138">"ಕಾರ್‌ನ ADAS ಸ್ಥಿತಿಗಳ ಮಾಹಿತಿಯನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
+    <string name="car_permission_desc_control_adas_states" msgid="1893171217779342348">"ಕಾರ್‌ನ ADAS ಸ್ಥಿತಿಗಳ ಮಾಹಿತಿಯನ್ನು ನಿಯಂತ್ರಿಸಿ."</string>
+    <string name="car_permission_label_read_windshield_wipers" msgid="896867772546890348">"ಕಾರಿನ ವಿಂಡ್‌ಶೀಲ್ಡ್ ವೈಪರ್‌ಗಳ ಮಾಹಿತಿಯನ್ನು ಓದಿ"</string>
+    <string name="car_permission_desc_read_windshield_wipers" msgid="597300271560195986">"ಕಾರಿನ ವಿಂಡ್‌ಶೀಲ್ಡ್ ವೈಪರ್‌ಗಳ ಮಾಹಿತಿಯನ್ನು ಓದಿ."</string>
+    <string name="car_permission_label_control_windshield_wipers" msgid="7971852482734087493">"ಕಾರಿನ ವಿಂಡ್‌ಶೀಲ್ಡ್ ವೈಪರ್‌ಗಳನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
+    <string name="car_permission_desc_control_windshield_wipers" msgid="3803429825323199728">"ಕಾರಿನ ವಿಂಡ್‌ಶೀಲ್ಡ್ ವೈಪರ್‌ಗಳನ್ನು ನಿಯಂತ್ರಿಸಿ."</string>
+    <string name="car_permission_label_manage_remote_device" msgid="1144368625081074994">"ಕಾರ್‌ನಲ್ಲಿನ ಇತರ ಲಭ್ಯವಿರುವ ವಲಯಗಳ ಸ್ಥಿತಿಯನ್ನು ಮತ್ತು ಆ ವಲಯಗಳಲ್ಲಿ ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಲಾದ ಪೀಯರ್ ಆ್ಯಪ್‌ಗಳನ್ನು (ಕಾಲರ್ ಆ್ಯಪ್‌ಗಳ ಅದೇ ಪ್ಯಾಕೇಜ್ ಹೆಸರನ್ನು ಹೊಂದಿರುವ ಆ್ಯಪ್‌ಗಳು) ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಿ ಮತ್ತು ಆ ವಲಯಗಳ ಪವರ್ ಅನ್ನು ನಿರ್ವಹಿಸಿ."</string>
+    <string name="car_permission_desc_manage_remote_device" msgid="4802785901453919948">"ಕಾರ್‌ನಲ್ಲಿನ ಇತರ ಲಭ್ಯವಿರುವ ವಲಯಗಳ ಸ್ಥಿತಿಯನ್ನು ಮತ್ತು ಆ ವಲಯಗಳಲ್ಲಿ ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಲಾದ ಪೀಯರ್ ಆ್ಯಪ್‌ಗಳನ್ನು (ಕಾಲರ್ ಆ್ಯಪ್‌ಗಳ ಅದೇ ಪ್ಯಾಕೇಜ್ ಹೆಸರನ್ನು ಹೊಂದಿರುವ ಆ್ಯಪ್‌ಗಳು) ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಿ ಮತ್ತು ಆ ವಲಯಗಳ ಪವರ್ ಅನ್ನು ನಿರ್ವಹಿಸಿ."</string>
+    <string name="car_permission_label_manage_occupant_connection" msgid="6007579379849984187">"ಕಾರ್‌ನಲ್ಲಿನ ಇತರ ಲಭ್ಯವಿರುವ ವಲಯಗಳಲ್ಲಿ ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಲಾದ ಪೀಯರ್ ಆ್ಯಪ್‌ಗಳಿಗೆ (ಕಾಲರ್ ಆ್ಯಪ್‌ಗಳ ಅದೇ ಪ್ಯಾಕೇಜ್ ಹೆಸರನ್ನು ಹೊಂದಿರುವ ಆ್ಯಪ್‌ಗಳು) ಕನೆಕ್ಷನ್ ಅನ್ನು ಸ್ಥಾಪಿಸಿ ಮತ್ತು ಅವುಗಳ ಜೊತೆಗೆ ಸಂವಹನ ನಡೆಸಿ"</string>
+    <string name="car_permission_desc_manage_occupant_connection" msgid="6525045077082552965">"ಕಾರ್‌ನಲ್ಲಿನ ಇತರ ಲಭ್ಯವಿರುವ ವಲಯಗಳಲ್ಲಿ ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಲಾದ ಪೀಯರ್ ಆ್ಯಪ್‌ಗಳಿಗೆ (ಕಾಲರ್ ಆ್ಯಪ್‌ಗಳ ಅದೇ ಪ್ಯಾಕೇಜ್ ಹೆಸರನ್ನು ಹೊಂದಿರುವ ಆ್ಯಪ್‌ಗಳು) ಕನೆಕ್ಷನ್ ಅನ್ನು ಸ್ಥಾಪಿಸಿ ಮತ್ತು ಅವುಗಳ ಜೊತೆಗೆ ಸಂವಹನ ನಡೆಸಿ."</string>
+    <string name="car_permission_label_access_mirrored_surface" msgid="6235459468766618021">"ಇತರ ಆ್ಯಪ್‌ಗಳ ಸ್ಕ್ರೀನ್ ಅನ್ನು ಪ್ರತಿಬಿಂಬಿಸಿ."</string>
+    <string name="car_permission_desc_access_mirrored_surface" msgid="7701151689600074639">"ಇತರ ಆ್ಯಪ್‌ಗಳ ಸ್ಕ್ರೀನ್ ಅನ್ನು ಪ್ರತಿಬಿಂಬಿಸಿ."</string>
+    <string name="car_permission_label_mirror_display" msgid="7591958768912962529">"ಇತರ ಆ್ಯಪ್‌ಗಳ ಡಿಸ್‌ಪ್ಲೇ ಅನ್ನು ಪ್ರತಿಬಿಂಬಿಸಿ."</string>
+    <string name="car_permission_desc_mirror_display" msgid="2403249980834394896">"ಇತರ ಆ್ಯಪ್‌ಗಳ ಡಿಸ್‌ಪ್ಲೇ ಅನ್ನು ಪ್ರತಿಬಿಂಬಿಸಿ."</string>
+    <string name="car_permission_label_register_car_system_ui_proxy" msgid="4211405049007842422">"ಸಿಸ್ಟಂ UI ಅನ್ನು ನಿರ್ವಹಿಸಲು ಮತ್ತು ಕಾರ್ಯ ವೀಕ್ಷಣೆಗಳನ್ನು ರಚಿಸಲು ಇತರ ಆ್ಯಪ್‌ಗಳು ಬಳಸಬಹುದಾದ ಸಿಸ್ಟಂ UI ಪ್ರಾಕ್ಸಿಯನ್ನು ಒದಗಿಸಿ."</string>
+    <string name="car_permission_desc_register_car_system_ui_proxy" msgid="8863676956785764681">"ಸಿಸ್ಟಂ UI ಅನ್ನು ನಿರ್ವಹಿಸಲು ಮತ್ತು ಕಾರ್ಯ ವೀಕ್ಷಣೆಗಳನ್ನು ರಚಿಸಲು ಇತರ ಆ್ಯಪ್‌ಗಳು ಬಳಸಬಹುದಾದ ಸಿಸ್ಟಂ UI ಪ್ರಾಕ್ಸಿಯನ್ನು ಒದಗಿಸಿ."</string>
+    <string name="car_permission_label_manage_car_system_ui" msgid="1361615518679353414">"ಕಾರ್ಯ ವೀಕ್ಷಣೆಗಳನ್ನು ರಚಿಸಲು ಅಥವಾ ಸಿಸ್ಟಂ UI ಬದಲಾವಣೆಗಳ ಕುರಿತು ಅಧಿಸೂಚನೆಗಳನ್ನು ಪಡೆಯಲು ಕಾರ್ ಸಿಸ್ಟಂ UI ಮೂಲಕ ಸಂವಹನ ನಡೆಸಿ."</string>
+    <string name="car_permission_desc_manage_car_system_ui" msgid="6201733970421818637">"ಕಾರ್ಯ ವೀಕ್ಷಣೆಗಳನ್ನು ರಚಿಸಲು ಅಥವಾ ಸಿಸ್ಟಂ UI ಬದಲಾವಣೆಗಳ ಕುರಿತು ಅಧಿಸೂಚನೆಗಳನ್ನು ಪಡೆಯಲು ಕಾರ್ ಸಿಸ್ಟಂ UI ಮೂಲಕ ಸಂವಹನ ನಡೆಸಿ."</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"ಸಿಎಎನ್ ಬಸ್ ಕೆಟ್ಟಿದೆ"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN ಬಸ್ ಸ್ಪಂದಿಸುತ್ತಿಲ್ಲ. ಹೆಡ್ ಯುನಿಟ್ ಪೆಟ್ಟಿಗೆಯನ್ನು ಅನ್‌ಪ್ಲಗ್ ಮಾಡಿ ಮತ್ತೆ ಪ್ಲಗ್ ಮಾಡಿ ಕಾರನ್ನು ಪುನರಾರಂಭಿಸಿ"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"ನನ್ನ ಸಾಧನ"</string>

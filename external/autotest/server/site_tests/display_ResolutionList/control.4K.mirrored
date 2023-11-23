@@ -14,6 +14,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "display"
 TEST_TYPE = "server"
 DEPENDENCIES = 'chameleon, 4k_resolution'
+PY_VERSION = 3
 
 DOC = """
 This test remotely tests all display resolutions available from the display

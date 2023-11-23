@@ -20,12 +20,15 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.platform.test.annotations.AppModeFull;
 
+import com.android.modules.utils.build.testing.DeviceSdkLevel;
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.DeviceTestRunOptions;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -95,6 +98,16 @@ public class ScopedStorageHostTest extends BaseHostTestCase {
     }
 
     @Test
+    public void testManageExternalStorageCanReadRedactedContents() throws Exception {
+        allowAppOps("android:manage_external_storage");
+        try {
+            runDeviceTest("testManageExternalStorageCanReadRedactedContents");
+        } finally {
+            denyAppOps("android:manage_external_storage");
+        }
+    }
+
+    @Test
     public void testManageExternalStorageCanRenameOtherAppsContents() throws Exception {
         allowAppOps("android:manage_external_storage");
         try {
@@ -147,24 +160,36 @@ public class ScopedStorageHostTest extends BaseHostTestCase {
     @Test
     public void testCheckInstallerAppAccessToObbDirs() throws Exception {
         allowAppOps("android:request_install_packages");
-        grantPermissions("android.permission.WRITE_EXTERNAL_STORAGE");
+        // WRITE_EXTERNAL_STORAGE is no-op for Installers T onwards
+        if (isSdkLevelLessThanT()) {
+            grantPermissions("android.permission.WRITE_EXTERNAL_STORAGE");
+        }
         try {
             runDeviceTest("testCheckInstallerAppAccessToObbDirs");
         } finally {
             denyAppOps("android:request_install_packages");
-            revokePermissions("android.permission.WRITE_EXTERNAL_STORAGE");
+            // WRITE_EXTERNAL_STORAGE is no-op for Installers T onwards
+            if (isSdkLevelLessThanT()) {
+                revokePermissions("android.permission.WRITE_EXTERNAL_STORAGE");
+            }
         }
     }
 
     @Test
     public void testCheckInstallerAppCannotAccessDataDirs() throws Exception {
         allowAppOps("android:request_install_packages");
-        grantPermissions("android.permission.WRITE_EXTERNAL_STORAGE");
+        // WRITE_EXTERNAL_STORAGE is no-op for Installers T onwards
+        if (isSdkLevelLessThanT()) {
+            grantPermissions("android.permission.WRITE_EXTERNAL_STORAGE");
+        }
         try {
             runDeviceTest("testCheckInstallerAppCannotAccessDataDirs");
         } finally {
             denyAppOps("android:request_install_packages");
-            revokePermissions("android.permission.WRITE_EXTERNAL_STORAGE");
+            // WRITE_EXTERNAL_STORAGE is no-op for Installers T onwards
+            if (isSdkLevelLessThanT()) {
+                revokePermissions("android.permission.WRITE_EXTERNAL_STORAGE");
+            }
         }
     }
 
@@ -239,35 +264,6 @@ public class ScopedStorageHostTest extends BaseHostTestCase {
     }
 
     @Test
-    public void testWallpaperApisReadExternalStorage() throws Exception {
-        // First run without any permission
-        runDeviceTest("testWallpaperApisNoPermission");
-
-        // Then with RES.
-        grantPermissions("android.permission.READ_EXTERNAL_STORAGE");
-        try {
-            runDeviceTest("testWallpaperApisReadExternalStorage");
-        } finally {
-            revokePermissions("android.permission.READ_EXTERNAL_STORAGE");
-        }
-    }
-
-    @Test
-    public void testWallpaperApisManageExternalStorageAppOp() throws Exception {
-        allowAppOps("android:manage_external_storage");
-        try {
-            runDeviceTest("testWallpaperApisManageExternalStorageAppOp");
-        } finally {
-            denyAppOps("android:manage_external_storage");
-        }
-    }
-
-    @Test
-    public void testWallpaperApisManageExternalStoragePrivileged() throws Exception {
-        runDeviceTest("testWallpaperApisManageExternalStoragePrivileged");
-    }
-
-    @Test
     public void testNoIsolatedStorageInstrumentationFlag() throws Exception {
         grantPermissions("android.permission.READ_EXTERNAL_STORAGE",
                 "android.permission.WRITE_EXTERNAL_STORAGE");
@@ -300,6 +296,7 @@ public class ScopedStorageHostTest extends BaseHostTestCase {
     }
 
     @Test
+    @Ignore("b/247099819")
     public void testClearPackageData() throws Exception {
         grantPermissions("android.permission.READ_EXTERNAL_STORAGE");
         try {
@@ -388,5 +385,10 @@ public class ScopedStorageHostTest extends BaseHostTestCase {
         for (String op : ops) {
             executeShellCommand("cmd appops set --uid android.scopedstorage.cts " + op + " deny");
         }
+    }
+
+    private boolean isSdkLevelLessThanT() throws DeviceNotAvailableException {
+        DeviceSdkLevel deviceSdkLevel = new DeviceSdkLevel(getDevice());
+        return !deviceSdkLevel.isDeviceAtLeastT();
     }
 }

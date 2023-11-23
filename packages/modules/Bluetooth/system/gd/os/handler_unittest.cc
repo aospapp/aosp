@@ -70,19 +70,27 @@ TEST_F(HandlerTest, post_task_cleared) {
   auto closure_started_future = closure_started.get_future();
   std::promise<void> closure_can_continue;
   auto can_continue_future = closure_can_continue.get_future();
+  std::promise<void> closure_finished;
+  auto closure_finished_future = closure_finished.get_future();
   handler_->Post(common::BindOnce(
-      [](int* val, std::promise<void> closure_started, std::future<void> can_continue_future) {
+      [](int* val,
+         std::promise<void> closure_started,
+         std::future<void> can_continue_future,
+         std::promise<void> closure_finished) {
         closure_started.set_value();
         *val = *val + 1;
         can_continue_future.wait();
+        closure_finished.set_value();
       },
       common::Unretained(&val),
       std::move(closure_started),
-      std::move(can_continue_future)));
+      std::move(can_continue_future),
+      std::move(closure_finished)));
   handler_->Post(common::BindOnce([]() { ASSERT_TRUE(false); }));
   closure_started_future.wait();
   handler_->Clear();
   closure_can_continue.set_value();
+  closure_finished_future.wait();
   ASSERT_EQ(val, 1);
 }
 

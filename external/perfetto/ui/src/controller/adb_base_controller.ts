@@ -15,10 +15,10 @@
 import {extractDurationFromTraceConfig} from '../base/trace_config_utils';
 import {extractTraceConfig} from '../base/trace_config_utils';
 import {isAdbTarget} from '../common/state';
+import {globals} from '../frontend/globals';
 
 import {Adb} from './adb_interfaces';
 import {ReadBuffersResponse} from './consumer_port_types';
-import {globals} from './globals';
 import {Consumer, RpcConsumerPort} from './record_controller_interfaces';
 
 export enum AdbConnectionState {
@@ -124,7 +124,7 @@ export abstract class AdbBaseConsumerPort extends RpcConsumerPort {
       ReadBuffersResponse {
     return {
       type: 'ReadBuffersResponse',
-      slices: [{data, lastSliceForPacket: last}]
+      slices: [{data, lastSliceForPacket: last}],
     };
   }
 
@@ -133,6 +133,6 @@ export abstract class AdbBaseConsumerPort extends RpcConsumerPort {
     const connectedDevice = globals.state.recordingTarget;
     if (!isAdbTarget(connectedDevice)) return undefined;
     const devices = await navigator.usb.getDevices();
-    return devices.find(d => d.serialNumber === connectedDevice.serial);
+    return devices.find((d) => d.serialNumber === connectedDevice.serial);
   }
 }

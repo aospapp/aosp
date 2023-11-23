@@ -61,7 +61,7 @@ public:
     bool getSkipColorTransform() const override;
     compositionengine::Output::FrameFences presentAndGetFrameFences() override;
     void setExpensiveRenderingExpected(bool) override;
-    void finishFrame(const CompositionRefreshArgs&, GpuCompositionResult&&) override;
+    void finishFrame(GpuCompositionResult&&) override;
 
     // compositionengine::Display overrides
     DisplayId getId() const override;
@@ -72,6 +72,7 @@ public:
             const compositionengine::DisplayColorProfileCreationArgs&) override;
     void createRenderSurface(const compositionengine::RenderSurfaceCreationArgs&) override;
     void createClientCompositionCache(uint32_t cacheSize) override;
+    void applyDisplayBrightness(const bool applyImmediately) override;
 
     // Internal helpers used by chooseCompositionStrategy()
     using ChangedTypes = android::HWComposer::DeviceRequestedChanges::ChangedTypes;
@@ -89,6 +90,8 @@ public:
     std::unique_ptr<compositionengine::OutputLayer> createOutputLayer(const sp<LayerFE>&) const;
 
 private:
+    bool isPowerHintSessionEnabled() override;
+    void setHintSessionGpuFence(std::unique_ptr<FenceTime>&& gpuFence) override;
     DisplayId mId;
     bool mIsDisconnected = false;
     Hwc2::PowerAdvisor* mPowerAdvisor = nullptr;

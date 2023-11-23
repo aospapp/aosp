@@ -18,13 +18,13 @@
 #include "code_generator_x86.h"
 #include "intrinsics_x86.h"
 
-namespace art {
+namespace art HIDDEN {
 namespace x86 {
 
 /**
  * Finds instructions that need the constant area base as an input.
  */
-class PCRelativeHandlerVisitor : public HGraphVisitor {
+class PCRelativeHandlerVisitor final : public HGraphVisitor {
  public:
   PCRelativeHandlerVisitor(HGraph* graph, CodeGenerator* codegen)
       : HGraphVisitor(graph),

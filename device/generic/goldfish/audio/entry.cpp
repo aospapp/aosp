@@ -15,11 +15,14 @@
  */
 
 #include "device_factory.h"
+#include "talsa.h"
 
 using android::hardware::audio::CPP_VERSION::IDevicesFactory;
 using android::hardware::audio::CPP_VERSION::implementation::DevicesFactory;
+namespace talsa = android::hardware::audio::CPP_VERSION::implementation::talsa;
 
 extern "C" IDevicesFactory* HIDL_FETCH_IDevicesFactory(const char* name) {
     (void)name;
+    talsa::init();
     return new DevicesFactory();
 }

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -68,7 +69,7 @@ class Config(object):
             seen_platforms = [self.platform]
             self._add_cfg_to_precedence(self.platform, platform_config)
             model_configs = platform_config.get('models', {})
-            model_config = model_configs.get(model, None)
+            model_config = model_configs.get(str(model), None)
             if model_config is not None:
                 self._add_cfg_to_precedence(
                         'MODEL:%s' % model, model_config, prepend=True)

@@ -46,7 +46,6 @@
 #include "update_engine/payload_consumer/install_plan.h"
 #include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_consumer/payload_metadata.h"
-#include "update_engine/payload_consumer/payload_verifier.h"
 #include "update_engine/payload_generator/delta_diff_generator.h"
 #include "update_engine/payload_generator/payload_signer.h"
 #include "update_engine/update_metadata.pb.h"
@@ -221,7 +220,7 @@ static bool InsertSignaturePlaceholder(size_t signature_size,
 static void SignGeneratedPayload(const string& payload_path,
                                  uint64_t* out_metadata_size) {
   string private_key_path = GetBuildArtifactsPath(kUnittestPrivateKeyPath);
-  size_t signature_size;
+  size_t signature_size{};
   ASSERT_TRUE(PayloadSigner::GetMaximumSignatureSize(private_key_path,
                                                      &signature_size));
   brillo::Blob metadata_hash, payload_hash;
@@ -249,7 +248,7 @@ static void SignGeneratedShellPayloadWithKeys(
     bool verification_success) {
   vector<string> signature_size_strings;
   for (const auto& key_path : private_key_paths) {
-    size_t signature_size;
+    size_t signature_size{};
     ASSERT_TRUE(
         PayloadSigner::GetMaximumSignatureSize(key_path, &signature_size));
     signature_size_strings.push_back(base::StringPrintf("%zu", signature_size));
@@ -593,7 +592,7 @@ static void GenerateDeltaFile(bool full_kernel,
 
   if (signature_test == kSignatureGeneratedPlaceholder ||
       signature_test == kSignatureGeneratedPlaceholderMismatch) {
-    size_t signature_size;
+    size_t signature_size{};
     ASSERT_TRUE(PayloadSigner::GetMaximumSignatureSize(
         GetBuildArtifactsPath(kUnittestPrivateKeyPath), &signature_size));
     LOG(INFO) << "Inserting placeholder signature.";
@@ -603,7 +602,7 @@ static void GenerateDeltaFile(bool full_kernel,
     if (signature_test == kSignatureGeneratedPlaceholderMismatch) {
       signature_size -= 1;
       LOG(INFO) << "Inserting mismatched placeholder signature.";
-      ASSERT_FALSE(InsertSignaturePlaceholder(
+      ASSERT_TRUE(InsertSignaturePlaceholder(
           signature_size, state->delta_file->path(), &state->metadata_size));
       return;
     }
@@ -641,6 +640,7 @@ static void ApplyDeltaFile(bool full_kernel,
     ASSERT_TRUE(payload_metadata.ParsePayloadHeader(state->delta));
     state->metadata_size = payload_metadata.GetMetadataSize();
     LOG(INFO) << "Metadata size: " << state->metadata_size;
+    LOG(INFO) << "Payload size: " << state->delta.size();
     state->metadata_signature_size =
         payload_metadata.GetMetadataSignatureSize();
     LOG(INFO) << "Metadata signature size: " << state->metadata_signature_size;
@@ -828,8 +828,8 @@ static void ApplyDeltaFile(bool full_kernel,
                                                install_plan->target_slot,
                                                state->result_kernel->path());
 
-  ErrorCode expected_error, actual_error;
-  bool continue_writing;
+  ErrorCode expected_error{}, actual_error{};
+  bool continue_writing{};
   switch (op_hash_test) {
     case kInvalidOperationData: {
       // Muck with some random offset post the metadata size so that

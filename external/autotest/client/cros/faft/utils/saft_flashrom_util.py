@@ -20,6 +20,7 @@ In the saft_flashrom_util, we provide read and partial write abilities.
 For more information, see help(saft_flashrom_util.flashrom_util).
 """
 import re
+import logging
 
 
 class TestError(Exception):
@@ -85,8 +86,8 @@ class LayoutScraper(object):
             if section_base <= base or section_end + 1 < section_base:
                 # Overlapped section is possible, like the fwid which is
                 # inside the main fw section.
-                self.os_if.log('overlapped section at 0x%x..0x%x' %
-                               (section_base, section_end))
+                logging.info('overlapped section at 0x%x..0x%x', section_base,
+                             section_end)
             base = section_end
         if base > file_size:
             raise TestError('Section end 0x%x exceeds file size %x' %
@@ -221,7 +222,8 @@ class flashrom_util(object):
         ]
         layout_text.sort()  # XXX unstable if range exceeds 2^32
         tmpfn = self._get_temp_filename('lay_')
-        self.os_if.write_file(tmpfn, '\n'.join(layout_text) + '\n')
+        with open(tmpfn, "w") as file:
+            file.write('\n'.join(layout_text) + '\n')
         return tmpfn
 
     def check_target(self):
@@ -253,7 +255,7 @@ class flashrom_util(object):
         # the data to sign. Make it the same way as firmware creation.
         if section_name in ('FVMAIN', 'FVMAINB', 'ECMAINA', 'ECMAINB'):
             align = 4
-            pad = blob[-1]
+            pad = blob[-1:]
             blob = blob.rstrip(pad)
             blob = blob + ((align - 1) - (len(blob) - 1) % align) * pad
         return blob
@@ -272,7 +274,7 @@ class flashrom_util(object):
             if (len(data) < pos[1] - pos[0] + 1
                         and section_name in ('FVMAIN', 'FVMAINB', 'ECMAINA',
                                              'ECMAINB', 'RW_FWID')):
-                pad = base_image[pos[1]]
+                pad = base_image[pos[1]:pos[1] + 1]
                 data = data + pad * (pos[1] - pos[0] + 1 - len(data))
             else:
                 raise TestError('INTERNAL ERROR: unmatched data size.')
@@ -334,7 +336,7 @@ class flashrom_util(object):
         @param enabled: If True, run --wp-enable; if False, run --wp-disable.
                         If None (default), don't specify either one.
         """
-        cmd = 'flashrom %s --verbose --wp-range %s %s' % (
+        cmd = 'flashrom %s --verbose --wp-range %s,%s' % (
                 self._target_command, start, length)
         if enabled is not None:
             cmd += ' '
@@ -361,6 +363,8 @@ class flashrom_util(object):
 
         output = self.os_if.run_shell_command_get_output(
                 'flashrom %s --wp-status' % self._target_command)
+        logging.debug('`flashrom %s --wp-status` returned %s',
+                      self._target_command, output)
 
         wp_status = {}
         for line in output:
@@ -396,7 +400,7 @@ class flashrom_util(object):
     def dump_flash(self, filename):
         """Read the flash device's data into a file, but don't parse it."""
         cmd = 'flashrom %s -r "%s"' % (self._target_command, filename)
-        self.os_if.log('flashrom_util.dump_flash(): %s' % cmd)
+        logging.info('flashrom_util.dump_flash(): %s', cmd)
         self.os_if.run_shell_command(cmd)
 
     def read_whole(self):
@@ -406,7 +410,7 @@ class flashrom_util(object):
         """
         tmpfn = self._get_temp_filename('rd_')
         cmd = 'flashrom %s -r "%s"' % (self._target_command, tmpfn)
-        self.os_if.log('flashrom_util.read_whole(): %s' % cmd)
+        logging.info('flashrom_util.read_whole(): %s', cmd)
         self.os_if.run_shell_command(cmd)
         result = self.os_if.read_file(tmpfn)
         self.set_firmware_layout(tmpfn)
@@ -433,7 +437,7 @@ class flashrom_util(object):
         write_cmd = 'flashrom %s -l "%s" -i %s -w "%s"' % (
                 self._target_command, layout_fn, ' -i '.join(write_list),
                 tmpfn)
-        self.os_if.log('flashrom.write_partial(): %s' % write_cmd)
+        logging.info('flashrom.write_partial(): %s', write_cmd)
         self.os_if.run_shell_command(write_cmd, modifies_device=True)
 
         # clean temporary resources

@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="8832531644152117875">"Alertă de urgență locală"</string>
-    <string name="button_dismiss" msgid="5975841666550833732">"Închideți"</string>
+    <string name="button_dismiss" msgid="5975841666550833732">"Închide"</string>
     <string name="cmas_required_monthly_test" msgid="2287926047457291638">"Mesaj de test"</string>
     <string name="cmas_exercise_alert" msgid="998005154407142100">"Alertă de urgență – mesaj de exercițiu / simulare"</string>
     <string name="public_safety_message" msgid="6263179411117570932">"Mesaj informativ"</string>

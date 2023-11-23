@@ -17,6 +17,7 @@
 package com.android.car.settings.applications;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
 import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -82,6 +83,33 @@ public class RecentAppsGroupPreferenceControllerTest {
     }
 
     @Test
+    public void onCreate_isAvailableByDefault_zoneWrite() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void onCreate_isAvailableByDefault_zoneRead() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void onCreate_isAvailableByDefault_zoneHidden() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void onRecentAppsCallback_empty_isUnavailable() {
         List<UsageStats> usageStats = new ArrayList<>();
         mPreferenceController.onCreate(mLifecycleOwner);
@@ -89,6 +117,39 @@ public class RecentAppsGroupPreferenceControllerTest {
 
         assertThat(mPreferenceController.getAvailabilityStatus())
                 .isEqualTo(CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void onRecentAppsCallback_empty_isUnavailable_zoneWrite() {
+        List<UsageStats> usageStats = new ArrayList<>();
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onRecentAppStatsLoaded(usageStats);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void onRecentAppsCallback_empty_isUnavailable_zoneRead() {
+        List<UsageStats> usageStats = new ArrayList<>();
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onRecentAppStatsLoaded(usageStats);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void onRecentAppsCallback_empty_isUnavailable_zoneHidden() {
+        List<UsageStats> usageStats = new ArrayList<>();
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onRecentAppStatsLoaded(usageStats);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test
@@ -100,5 +161,41 @@ public class RecentAppsGroupPreferenceControllerTest {
 
         assertThat(mPreferenceController.getAvailabilityStatus())
                 .isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void onRecentAppsCallback_notEmpty_isUnavailable_zoneWrite() {
+        List<UsageStats> usageStats = new ArrayList<>();
+        usageStats.add(new UsageStats());
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onRecentAppStatsLoaded(usageStats);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void onRecentAppsCallback_notEmpty_isUnavailable_zoneRead() {
+        List<UsageStats> usageStats = new ArrayList<>();
+        usageStats.add(new UsageStats());
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onRecentAppStatsLoaded(usageStats);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void onRecentAppsCallback_notEmpty_isUnavailable_zoneHidden() {
+        List<UsageStats> usageStats = new ArrayList<>();
+        usageStats.add(new UsageStats());
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onRecentAppStatsLoaded(usageStats);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 }

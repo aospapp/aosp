@@ -72,7 +72,7 @@ abstract class BaseAsyncPreferenceController<P extends Preference, R,
     }
 
     @Override
-    protected final int getAvailabilityStatus() {
+    protected final int getDefaultAvailabilityStatus() {
         if (mAvailabilityStatus != null) {
             // Already calculated
             mLogger.d("getAvailabilityStatus(): returning cached result " + mAvailabilityStatus);

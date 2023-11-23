@@ -26,8 +26,6 @@ import org.junit.Test;
 
 public final class CustomInputEventTest {
 
-    private static final int INVALID_INPUT_CODE = -1;
-
     @Test
     public void testCustomInputEventWriteAndReadParcel() {
         CustomInputEvent original = new CustomInputEvent(

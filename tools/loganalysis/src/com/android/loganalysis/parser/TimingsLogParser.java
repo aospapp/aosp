@@ -61,7 +61,7 @@ public class TimingsLogParser implements IParser {
     /**
      * Match the line with system services duration info like:
      *
-     * <p>03-10 21:43:40.328 1005 1005 D SystemServerTiming:
+     * <p>03-10 21:43:40.328 1005 1005 V SystemServerTiming:
      * StartKeyAttestationApplicationIdProviderService took to complete: 3474ms
      */
     private static final Pattern SYSTEM_SERVICES_DURATION =

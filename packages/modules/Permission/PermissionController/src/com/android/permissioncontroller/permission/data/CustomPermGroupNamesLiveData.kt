@@ -19,7 +19,7 @@ package com.android.permissioncontroller.permission.data
 import android.app.Application
 import android.content.pm.PermissionInfo
 import com.android.permissioncontroller.PermissionControllerApplication
-import com.android.permissioncontroller.permission.utils.Utils
+import com.android.permissioncontroller.permission.utils.PermissionMapping
 
 /**
  * A class which tracks the names of all custom permission groups in the system, including
@@ -38,7 +38,7 @@ object CustomPermGroupNamesLiveData : SmartUpdateMediatorLiveData<List<String>>(
     }
 
     override fun onUpdate() {
-        val platformGroupNames = Utils.getPlatformPermissionGroups()
+        val platformGroupNames = PermissionMapping.getPlatformPermissionGroups()
         val groupNames = mutableListOf<String>()
 
         val allPackages = packagesLiveData.value ?: return

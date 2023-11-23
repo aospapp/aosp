@@ -41,6 +41,6 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.CLASS)
 @GeneratesRootInput
 public @interface AliasOf {
-  /** Returns the existing Hilt scope that the annotated scope is aliasing. */
-  Class<? extends Annotation> value();
+  /** Returns the existing Hilt scope(s) that the annotated scope is aliasing. */
+  Class<? extends Annotation>[] value();
 }

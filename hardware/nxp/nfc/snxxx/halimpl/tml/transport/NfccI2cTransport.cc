@@ -1,5 +1,5 @@
 /******************************************************************************
- *  Copyright 2020-2021 NXP
+ *  Copyright 2020-2022 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -342,7 +342,58 @@ int NfccI2cTransport::NfccReset(void* pDevHandle, NfccResetType eType) {
 
   return ret;
 }
+/*****************************************************************************
+ **
+ ** Function         UpdateReadPending
+ **
+ ** Description      Set/Reset Read Pending of NFC
+ **
+ ** Parameters       pDevHandle     - valid device handle
+ **                  eType          - set or clear the flag
+ **
+ ** Returns           0   - operation success
+ **                  -1   - operation failure
+ **
+ ****************************************************************************/
+int NfccI2cTransport::UpdateReadPending(void* pDevHandle,
+                                        NfcReadPending eType) {
+  int ret = -1;
+  if (NULL == pDevHandle) {
+    return -1;
+  }
+  NXPLOG_TML_D("%s, %u", __func__, eType);
+  ret = ioctl((int)(intptr_t)pDevHandle, NFC_SET_RESET_READ_PENDING, eType);
+  if (ret != 0) {
+    NXPLOG_TML_E("%s: %u ret = 0x%x", __func__, eType, ret);
+  }
+  return ret;
+}
 
+/*****************************************************************************
+ **
+ ** Function         NfcGetGpioStatus
+ **
+ ** Description      Get the gpio status flag byte from kernel space
+ **
+ ** Parameters       pDevHandle     - valid device handle
+ **
+ **
+ ** Returns           0   - operation success
+ **                  -1   - operation failure
+ **
+ ****************************************************************************/
+int NfccI2cTransport ::NfcGetGpioStatus(void* pDevHandle, uint32_t* status) {
+  int ret = -1;
+  if (NULL == pDevHandle) {
+    return ret;
+  }
+  ret = ioctl((int)(intptr_t)pDevHandle, NFC_GET_GPIO_STATUS, status);
+  if (ret != 0) {
+    NXPLOG_TML_E("%s: ret = 0x%x", __func__, ret);
+  }
+  NXPLOG_TML_D("%s, %d", __func__, *status);
+  return ret;
+}
 /*******************************************************************************
 **
 ** Function         EseReset

@@ -16,20 +16,21 @@
 
 #pragma once
 
+#include <unordered_map>
+
 #include "anomaly/AlarmMonitor.h"
 #include "anomaly/AlarmTracker.h"
 #include "anomaly/AnomalyTracker.h"
 #include "condition/ConditionTracker.h"
 #include "config/ConfigKey.h"
 #include "external/StatsPullerManager.h"
-#include "src/statsd_config.pb.h"
-#include "src/statsd_metadata.pb.h"
+#include "guardrail/StatsdStats.h"
 #include "logd/LogEvent.h"
 #include "matchers/AtomMatchingTracker.h"
 #include "metrics/MetricProducer.h"
 #include "packages/UidMap.h"
-
-#include <unordered_map>
+#include "src/statsd_config.pb.h"
+#include "src/statsd_metadata.pb.h"
 
 namespace android {
 namespace os {
@@ -57,7 +58,7 @@ public:
 
     bool eventSanityCheck(const LogEvent& event);
 
-    void onLogEvent(const LogEvent& event);
+    virtual void onLogEvent(const LogEvent& event);
 
     void onAnomalyAlarmFired(
         const int64_t& timestampNs,
@@ -160,6 +161,31 @@ public:
     void loadMetadata(const metadata::StatsMetadata& metadata,
                       int64_t currentWallClockTimeNs,
                       int64_t systemElapsedTimeNs);
+
+    inline bool hasRestrictedMetricsDelegate() const {
+        return mRestrictedMetricsDelegatePackageName.has_value();
+    }
+
+    inline string getRestrictedMetricsDelegate() const {
+        return hasRestrictedMetricsDelegate() ? mRestrictedMetricsDelegatePackageName.value() : "";
+    }
+
+    inline ConfigKey getConfigKey() const {
+        return mConfigKey;
+    }
+
+    void enforceRestrictedDataTtls(const int64_t wallClockNs);
+
+    bool validateRestrictedMetricsDelegate(const int32_t callingUid);
+
+    virtual void flushRestrictedData();
+
+    // Slow, should not be called in a hotpath.
+    vector<int64_t> getAllMetricIds() const;
+
+    // Adds all atom ids referenced by matchers in the MetricsManager's config
+    void addAllAtomIds(LogEventFilter::AtomIdSet& allIds) const;
+
 private:
     // For test only.
     inline int64_t getTtlEndNs() const { return mTtlEndNs; }
@@ -167,8 +193,6 @@ private:
     const ConfigKey mConfigKey;
 
     sp<UidMap> mUidMap;
-
-    bool mConfigValid = false;
 
     bool mHashStringsInReport = false;
     bool mVersionStringsInReport = false;
@@ -180,6 +204,8 @@ private:
 
     int64_t mLastReportTimeNs;
     int64_t mLastReportWallClockNs;
+
+    optional<InvalidConfigReason> mInvalidConfigReason;
 
     sp<StatsPullerManager> mPullerManager;
 
@@ -216,8 +242,8 @@ private:
 
     bool mShouldPersistHistory;
 
-    // All event tags that are interesting to my metrics.
-    std::set<int> mTagIds;
+    // All event tags that are interesting to config metrics matchers.
+    std::unordered_map<int, std::vector<int>> mTagIdsToMatchersMap;
 
     // We only store the sp of AtomMatchingTracker, MetricProducer, and ConditionTracker in
     // MetricsManager. There are relationships between them, and the relationships are denoted by
@@ -256,7 +282,7 @@ private:
     // To make the log processing more efficient, we want to do as much filtering as possible
     // before we go into individual trackers and conditions to match.
 
-    // 1st filter: check if the event tag id is in mTagIds.
+    // 1st filter: check if the event tag id is in mTagIdsToMatchersMap.
     // 2nd filter: if it is, we parse the event because there is at least one member is interested.
     //             then pass to all AtomMatchingTrackers (itself also filter events by ids).
     // 3nd filter: for AtomMatchingTrackers that matched this event, we pass this event to the
@@ -292,11 +318,12 @@ private:
     void initPullAtomSources();
 
     // Only called on config creation/update to initialize log sources from the config.
-    // Calls initAllowedLogSources and initPullAtomSources. Sets mConfigValid to false on error.
+    // Calls initAllowedLogSources and initPullAtomSources. Sets up mInvalidConfigReason on
+    // error.
     void createAllLogSourcesFromConfig(const StatsdConfig& config);
 
     // Verifies the config meets guardrails and updates statsdStats.
-    // Sets mConfigValid to false on error. Should be called on config creation/update
+    // Sets up mInvalidConfigReason on error. Should be called on config creation/update
     void verifyGuardrailsAndUpdateStatsdStats();
 
     // Initializes mIsAlwaysActive and mIsActive.
@@ -315,10 +342,16 @@ private:
     // Hashes of the States used in this config, keyed by the state id, used in config updates.
     std::map<int64_t, uint64_t> mStateProtoHashes;
 
+    // Optional package name of the delegate that processes restricted metrics
+    // If set, restricted metrics are only uploaded to the delegate.
+    optional<string> mRestrictedMetricsDelegatePackageName = nullopt;
+
     FRIEND_TEST(WakelockDurationE2eTest, TestAggregatedPredicateDimensions);
     FRIEND_TEST(MetricConditionLinkE2eTest, TestMultiplePredicatesAndLinks);
     FRIEND_TEST(AttributionE2eTest, TestAttributionMatchAndSliceByFirstUid);
     FRIEND_TEST(AttributionE2eTest, TestAttributionMatchAndSliceByChain);
+    FRIEND_TEST(GaugeMetricE2ePulledTest, TestFirstNSamplesPulledNoTrigger);
+    FRIEND_TEST(GaugeMetricE2ePulledTest, TestFirstNSamplesPulledNoTriggerWithActivation);
     FRIEND_TEST(GaugeMetricE2ePushedTest, TestMultipleFieldsForPushedEvent);
     FRIEND_TEST(GaugeMetricE2ePulledTest, TestRandomSamplePulledEvents);
     FRIEND_TEST(GaugeMetricE2ePulledTest, TestRandomSamplePulledEvent_LateAlarm);
@@ -326,15 +359,16 @@ private:
     FRIEND_TEST(GaugeMetricE2ePulledTest, TestRandomSamplePulledEventsNoCondition);
     FRIEND_TEST(GaugeMetricE2ePulledTest, TestConditionChangeToTrueSamplePulledEvents);
 
-    FRIEND_TEST(AnomalyDetectionE2eTest, TestSlicedCountMetric_single_bucket);
-    FRIEND_TEST(AnomalyDetectionE2eTest, TestSlicedCountMetric_multiple_buckets);
-    FRIEND_TEST(AnomalyDetectionE2eTest, TestCountMetric_save_refractory_to_disk_no_data_written);
-    FRIEND_TEST(AnomalyDetectionE2eTest, TestCountMetric_save_refractory_to_disk);
-    FRIEND_TEST(AnomalyDetectionE2eTest, TestCountMetric_load_refractory_from_disk);
-    FRIEND_TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_single_bucket);
-    FRIEND_TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_partial_bucket);
-    FRIEND_TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_multiple_buckets);
-    FRIEND_TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_long_refractory_period);
+    FRIEND_TEST(AnomalyCountDetectionE2eTest, TestSlicedCountMetric_single_bucket);
+    FRIEND_TEST(AnomalyCountDetectionE2eTest, TestSlicedCountMetric_multiple_buckets);
+    FRIEND_TEST(AnomalyCountDetectionE2eTest,
+                TestCountMetric_save_refractory_to_disk_no_data_written);
+    FRIEND_TEST(AnomalyCountDetectionE2eTest, TestCountMetric_save_refractory_to_disk);
+    FRIEND_TEST(AnomalyCountDetectionE2eTest, TestCountMetric_load_refractory_from_disk);
+    FRIEND_TEST(AnomalyDurationDetectionE2eTest, TestDurationMetric_SUM_single_bucket);
+    FRIEND_TEST(AnomalyDurationDetectionE2eTest, TestDurationMetric_SUM_partial_bucket);
+    FRIEND_TEST(AnomalyDurationDetectionE2eTest, TestDurationMetric_SUM_multiple_buckets);
+    FRIEND_TEST(AnomalyDurationDetectionE2eTest, TestDurationMetric_SUM_long_refractory_period);
 
     FRIEND_TEST(AlarmE2eTest, TestMultipleAlarms);
     FRIEND_TEST(ConfigTtlE2eTest, TestCountMetric);
@@ -347,6 +381,10 @@ private:
 
     FRIEND_TEST(MetricsManagerTest, TestLogSources);
     FRIEND_TEST(MetricsManagerTest, TestLogSourcesOnConfigUpdate);
+    FRIEND_TEST(MetricsManagerTest, TestOnMetricRemoveCalled);
+    FRIEND_TEST(MetricsManagerTest_SPlus, TestRestrictedMetricsConfig);
+    FRIEND_TEST(MetricsManagerTest_SPlus, TestRestrictedMetricsConfigUpdate);
+    FRIEND_TEST(MetricsManagerUtilTest, TestSampledMetrics);
 
     FRIEND_TEST(StatsLogProcessorTest, TestActiveConfigMetricDiskWriteRead);
     FRIEND_TEST(StatsLogProcessorTest, TestActivationOnBoot);
@@ -381,6 +419,7 @@ private:
     FRIEND_TEST(ValueMetricE2eTest, TestInitWithSlicedState);
     FRIEND_TEST(ValueMetricE2eTest, TestInitWithSlicedState_WithDimensions);
     FRIEND_TEST(ValueMetricE2eTest, TestInitWithSlicedState_WithIncorrectDimensions);
+    FRIEND_TEST(GaugeMetricE2ePushedTest, TestDimensionalSampling);
 };
 
 }  // namespace statsd

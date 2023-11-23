@@ -16,10 +16,10 @@
 
 package com.android.tv.settings.device;
 
-import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_CLASSIC;
-import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
-import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_VENDOR;
-import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_X;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_VENDOR;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_X;
 import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
 import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
 
@@ -49,20 +49,24 @@ import androidx.leanback.preference.LeanbackSettingsFragmentCompat;
 import androidx.preference.Preference;
 import androidx.preference.TwoStatePreference;
 
+import com.android.settingslib.applications.DefaultAppInfo;
 import com.android.settingslib.development.DevelopmentSettingsEnabler;
 import com.android.tv.settings.LongClickPreference;
 import com.android.tv.settings.MainFragment;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.about.RebootConfirmFragment;
-import com.android.tv.settings.library.overlay.FlavorUtils;
-import com.android.tv.settings.library.settingslib.AutofillHelper;
-import com.android.tv.settings.library.settingslib.DefaultAppInfo;
-import com.android.tv.settings.library.settingslib.InputMethodHelper;
-import com.android.tv.settings.library.util.SliceUtils;
+import com.android.tv.settings.autofill.AutofillHelper;
+import com.android.tv.settings.customization.CustomizationConstants;
+import com.android.tv.settings.customization.Partner;
+import com.android.tv.settings.customization.PartnerPreferencesMerger;
+import com.android.tv.settings.device.eco.PowerAndEnergyFragment;
+import com.android.tv.settings.inputmethod.InputMethodHelper;
+import com.android.tv.settings.overlay.FlavorUtils;
 import com.android.tv.settings.privacy.PrivacyToggle;
 import com.android.tv.settings.privacy.SensorFragment;
 import com.android.tv.settings.system.SecurityFragment;
+import com.android.tv.settings.util.SliceUtils;
 import com.android.tv.twopanelsettings.TwoPanelSettingsFragment;
 import com.android.tv.twopanelsettings.slices.SlicePreference;
 
@@ -94,6 +98,9 @@ public class DevicePrefFragment extends SettingsPreferenceFragment implements
     private static final String KEY_FASTPAIR_SETTINGS_SLICE = "fastpair_slice";
     private static final String KEY_OVERLAY_INTERNAL_SETTINGS_SLICE = "overlay_internal";
     private static final String KEY_ASSISTANT_BROADCAST = "assistant_broadcast";
+    private static final String KEY_AMBIENT_SETTINGS = "ambient_settings";
+    private static final String KEY_ENERGY_SAVER = "energysaver";
+    private static final String KEY_POWER_AND_ENERGY = "power_and_energy";
     private static final String RES_TOP_LEVEL_ASSISTANT_SLICE_URI = "top_level_assistant_slice_uri";
 
     private Preference mSoundsPref;
@@ -123,6 +130,13 @@ public class DevicePrefFragment extends SettingsPreferenceFragment implements
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         setPreferencesFromResource(getPreferenceScreenResId(), null);
+        if (Partner.getInstance(getContext()).isCustomizationPackageProvided()) {
+            PartnerPreferencesMerger.mergePreferences(
+                    getContext(),
+                    getPreferenceScreen(),
+                    CustomizationConstants.DEVICE_SCREEN
+            );
+        }
         mSoundsPref = findPreference(KEY_SOUNDS);
         mSoundsSwitchPref = findPreference(KEY_SOUNDS_SWITCH);
         if (mSoundsSwitchPref != null) {
@@ -183,6 +197,8 @@ public class DevicePrefFragment extends SettingsPreferenceFragment implements
         updateInternalSettings();
         updateFastpairSettings();
         updateKeyboardAutofillSettings();
+        updateAmbientSettings();
+        updatePowerAndEnergySettings();
         hideIfIntentUnhandled(findPreference(KEY_HOME_SETTINGS));
         hideIfIntentUnhandled(findPreference(KEY_CAST_SETTINGS));
         hideIfIntentUnhandled(findPreference(KEY_USAGE));
@@ -384,6 +400,29 @@ public class DevicePrefFragment extends SettingsPreferenceFragment implements
             }
         }
         keyboardPref.setSummary(summary);
+    }
+
+    private void updateAmbientSettings() {
+        final SlicePreference ambientSlicePref = findPreference(KEY_AMBIENT_SETTINGS);
+        if (ambientSlicePref != null) {
+            if (SliceUtils.isSliceProviderValid(getContext(), ambientSlicePref.getUri())) {
+                ambientSlicePref.setVisible(true);
+            }
+        }
+    }
+
+    private void updatePowerAndEnergySettings() {
+        final Preference energySaverPref = findPreference(KEY_ENERGY_SAVER);
+        final Preference powerAndEnergyPref = findPreference(KEY_POWER_AND_ENERGY);
+
+        if (energySaverPref == null || powerAndEnergyPref == null) {
+            return;
+        }
+
+        boolean showPowerAndEnergy =
+                !PowerAndEnergyFragment.hasOnlyEnergySaverPreference(getContext());
+        powerAndEnergyPref.setVisible(showPowerAndEnergy);
+        energySaverPref.setVisible(!showPowerAndEnergy);
     }
 
     @Override

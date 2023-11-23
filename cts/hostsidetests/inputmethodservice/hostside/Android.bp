@@ -36,6 +36,9 @@ java_test_host {
     ],
     data: [
         ":CtsInputMethodServiceEventProvider",
+        ":EditTextApp",
+        ":CtsInputMethod1",
+        ":CtsInputMethod2",
     ],
     per_testcase_directory: true,
 }

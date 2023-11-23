@@ -27,10 +27,8 @@ android_local_test(
     deps = [
         "//:android_local_test_exports",
         "//:dagger_with_compiler",
-        "@google_bazel_common//third_party/java/jsr330_inject",
         "@maven//:junit_junit",
-        "@google_bazel_common//third_party/java/truth",
-        "//java/dagger/hilt:entry_point",
+        "//third_party/java/truth",
         "//java/dagger/hilt:install_in",
         "//java/dagger/hilt/android:android_entry_point",
         "//java/dagger/hilt/android/lifecycle",

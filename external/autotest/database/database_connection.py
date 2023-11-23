@@ -266,7 +266,7 @@ class DatabaseConnection(object):
                 if self._reached_max_attempts(num_attempts):
                     raise
                 traceback.print_exc()
-                print ("Can't connect to database; reconnecting in %s sec" %
+                print("Can't connect to database; reconnecting in %s sec" %
                        self.reconnect_delay_sec)
                 time.sleep(self.reconnect_delay_sec)
                 self.disconnect()
@@ -298,7 +298,7 @@ class DatabaseConnection(object):
         passed, will override self.reconnect_enabled.
         """
         if self.debug:
-            print 'Executing %s, %s' % (query, parameters)
+            print('Executing %s, %s' % (query, parameters))
         # _connect_backend() contains a retry loop, so don't loop here
         try:
             results = self._backend.execute(query, parameters)
@@ -306,7 +306,7 @@ class DatabaseConnection(object):
             if not self._is_reconnect_enabled(try_reconnecting):
                 raise
             traceback.print_exc()
-            print ("MYSQL connection died; reconnecting")
+            print("MYSQL connection died; reconnecting")
             self.disconnect()
             self._connect_backend(try_reconnecting)
             results = self._backend.execute(query, parameters)

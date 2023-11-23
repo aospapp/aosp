@@ -46,8 +46,6 @@ import java.util.concurrent.TimeUnit;
 public final class BackupAndRestoreFragment extends Fragment {
 
     private static final String TAG = BackupAndRestoreFragment.class.getSimpleName();
-    private static final String TRANSPORT_DIR_NAME =
-            "com.google.android.car.kitchensink.backup.KitchenSinkBackupTransport";
     private static final long CURRENT_SET_TOKEN = 1;
 
     private final int mUserId = UserHandle.myUserId();

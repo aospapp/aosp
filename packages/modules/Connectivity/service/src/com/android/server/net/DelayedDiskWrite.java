@@ -21,6 +21,8 @@ import android.os.HandlerThread;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.FileOutputStream;
@@ -32,10 +34,41 @@ import java.io.IOException;
 public class DelayedDiskWrite {
     private static final String TAG = "DelayedDiskWrite";
 
+    private final Dependencies mDeps;
+
     private HandlerThread mDiskWriteHandlerThread;
     private Handler mDiskWriteHandler;
     /* Tracks multiple writes on the same thread */
     private int mWriteSequence = 0;
+
+    public DelayedDiskWrite() {
+        this(new Dependencies());
+    }
+
+    @VisibleForTesting
+    DelayedDiskWrite(Dependencies deps) {
+        mDeps = deps;
+    }
+
+    /**
+     * Dependencies class of DelayedDiskWrite, used for injection in tests.
+     */
+    @VisibleForTesting
+    static class Dependencies {
+        /**
+         * Create a HandlerThread to use in DelayedDiskWrite.
+         */
+        public HandlerThread makeHandlerThread() {
+            return new HandlerThread("DelayedDiskWriteThread");
+        }
+
+        /**
+         * Quit the HandlerThread looper.
+         */
+        public void quitHandlerThread(HandlerThread handlerThread) {
+            handlerThread.getLooper().quit();
+        }
+    }
 
     /**
      * Used to do a delayed data write to a given {@link OutputStream}.
@@ -65,7 +98,7 @@ public class DelayedDiskWrite {
         /* Do a delayed write to disk on a separate handler thread */
         synchronized (this) {
             if (++mWriteSequence == 1) {
-                mDiskWriteHandlerThread = new HandlerThread("DelayedDiskWriteThread");
+                mDiskWriteHandlerThread = mDeps.makeHandlerThread();
                 mDiskWriteHandlerThread.start();
                 mDiskWriteHandler = new Handler(mDiskWriteHandlerThread.getLooper());
             }
@@ -99,9 +132,9 @@ public class DelayedDiskWrite {
             // Quit if no more writes sent
             synchronized (this) {
                 if (--mWriteSequence == 0) {
-                    mDiskWriteHandler.getLooper().quit();
-                    mDiskWriteHandler = null;
+                    mDeps.quitHandlerThread(mDiskWriteHandlerThread);
                     mDiskWriteHandlerThread = null;
+                    mDiskWriteHandler = null;
                 }
             }
         }

@@ -18,6 +18,6 @@ package {
 
 csuite_test {
   name: "csuite-app-launch",
-  test_config_template: "default.xml",
-  extra_test_config_templates: ["pre-installed-apps.xml"]
+  test_config_template: "default-launch.xml",
+  extra_test_config_templates: ["pre-installed-launch.xml"]
 }

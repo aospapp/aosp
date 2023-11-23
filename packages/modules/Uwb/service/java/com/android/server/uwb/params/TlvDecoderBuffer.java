@@ -125,7 +125,7 @@ public class TlvDecoderBuffer {
     private Tlv getTlv(int tagType) {
         byte[] tagTypeByte = ConfigParam.getTagBytes(tagType);
         if (tagTypeByte.length > 1) {
-            throw new IllegalArgumentException("Invalid tagType: " + tagTypeByte);
+            throw new IllegalArgumentException("Invalid tagType: " + Arrays.toString(tagTypeByte));
         }
         Tlv tlv = mTlvs.get(tagTypeByte[0]);
         if (tlv == null) {

@@ -55,6 +55,9 @@
 struct connections {
     int sock;
 
+    struct sockaddr *local_addr;
+    socklen_t local_addr_len;
+
     struct conn_io *h;
 };
 
@@ -177,8 +180,11 @@ static uint8_t *gen_cid(uint8_t *cid, size_t cid_len) {
 
 static struct conn_io *create_conn(uint8_t *scid, size_t scid_len,
                                    uint8_t *odcid, size_t odcid_len,
+                                   struct sockaddr *local_addr,
+                                   socklen_t local_addr_len,
                                    struct sockaddr_storage *peer_addr,
-                                   socklen_t peer_addr_len) {
+                                   socklen_t peer_addr_len)
+{
     struct conn_io *conn_io = calloc(1, sizeof(*conn_io));
     if (conn_io == NULL) {
         fprintf(stderr, "failed to allocate connection IO\n");
@@ -193,6 +199,8 @@ static struct conn_io *create_conn(uint8_t *scid, size_t scid_len,
 
     quiche_conn *conn = quiche_accept(conn_io->cid, LOCAL_CONN_ID_LEN,
                                       odcid, odcid_len,
+                                      local_addr,
+                                      local_addr_len,
                                       (struct sockaddr *) peer_addr,
                                       peer_addr_len,
                                       config);
@@ -205,7 +213,7 @@ static struct conn_io *create_conn(uint8_t *scid, size_t scid_len,
     conn_io->sock = conns->sock;
     conn_io->conn = conn;
 
-    memcpy(&conn_io->peer_addr, &peer_addr, peer_addr_len);
+    memcpy(&conn_io->peer_addr, peer_addr, peer_addr_len);
     conn_io->peer_addr_len = peer_addr_len;
 
     ev_init(&conn_io->timer, timeout_cb);
@@ -347,6 +355,7 @@ static void recv_cb(EV_P_ ev_io *w, int revents) {
             }
 
             conn_io = create_conn(dcid, dcid_len, odcid, odcid_len,
+                                  conns->local_addr, conns->local_addr_len,
                                   &peer_addr, peer_addr_len);
 
             if (conn_io == NULL) {
@@ -355,9 +364,11 @@ static void recv_cb(EV_P_ ev_io *w, int revents) {
         }
 
         quiche_recv_info recv_info = {
-            (struct sockaddr *) &peer_addr,
-
+            (struct sockaddr *)&peer_addr,
             peer_addr_len,
+
+            conns->local_addr,
+            conns->local_addr_len,
         };
 
         ssize_t done = quiche_conn_recv(conn_io->conn, buf, read, &recv_info);
@@ -442,6 +453,12 @@ static void recv_cb(EV_P_ ev_io *w, int revents) {
                     case QUICHE_H3_EVENT_FINISHED:
                         break;
 
+                    case QUICHE_H3_EVENT_RESET:
+                        break;
+
+                    case QUICHE_H3_EVENT_PRIORITY_UPDATE:
+                        break;
+
                     case QUICHE_H3_EVENT_DATAGRAM:
                         break;
 
@@ -461,10 +478,13 @@ static void recv_cb(EV_P_ ev_io *w, int revents) {
 
         if (quiche_conn_is_closed(conn_io->conn)) {
             quiche_stats stats;
+            quiche_path_stats path_stats;
 
             quiche_conn_stats(conn_io->conn, &stats);
+            quiche_conn_path_stats(conn_io->conn, 0, &path_stats);
+
             fprintf(stderr, "connection closed, recv=%zu sent=%zu lost=%zu rtt=%" PRIu64 "ns cwnd=%zu\n",
-                    stats.recv, stats.sent, stats.lost, stats.rtt, stats.cwnd);
+                    stats.recv, stats.sent, stats.lost, path_stats.rtt, path_stats.cwnd);
 
             HASH_DELETE(hh, conns->h, conn_io);
 
@@ -486,10 +506,13 @@ static void timeout_cb(EV_P_ ev_timer *w, int revents) {
 
     if (quiche_conn_is_closed(conn_io->conn)) {
         quiche_stats stats;
+        quiche_path_stats path_stats;
 
         quiche_conn_stats(conn_io->conn, &stats);
+        quiche_conn_path_stats(conn_io->conn, 0, &path_stats);
+
         fprintf(stderr, "connection closed, recv=%zu sent=%zu lost=%zu rtt=%" PRIu64 "ns cwnd=%zu\n",
-                stats.recv, stats.sent, stats.lost, stats.rtt, stats.cwnd);
+                stats.recv, stats.sent, stats.lost, path_stats.rtt, path_stats.cwnd);
 
         HASH_DELETE(hh, conns->h, conn_io);
 
@@ -569,6 +592,8 @@ int main(int argc, char *argv[]) {
     struct connections c;
     c.sock = sock;
     c.h = NULL;
+    c.local_addr = local->ai_addr;
+    c.local_addr_len = local->ai_addrlen;
 
     conns = &c;
 

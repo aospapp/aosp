@@ -43,4 +43,4 @@ public class SummaryListPreference extends ListPreference {
     public CharSequence[] getSummaries() {
         return mSummaries;
     }
-};
+}

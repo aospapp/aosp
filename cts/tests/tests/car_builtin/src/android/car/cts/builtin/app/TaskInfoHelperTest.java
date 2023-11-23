@@ -31,14 +31,19 @@ import android.car.cts.builtin.activity.TaskInfoTestActivity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Rect;
 import android.server.wm.ActivityManagerTestBase;
 import android.util.Log;
+import android.view.View;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.google.common.truth.Expect;
+
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -60,6 +65,8 @@ public final class TaskInfoHelperTest extends ActivityManagerTestBase {
 
     private TaskInfoTestActivity mTestActivity = null;
     private ActivityManager mAm = null;
+
+    @Rule public final Expect expect = Expect.create();
 
     @Before
     public void setUp() throws Exception {
@@ -124,6 +131,18 @@ public final class TaskInfoHelperTest extends ActivityManagerTestBase {
         Matcher fieldMatcher = TASK_ID_FIELD_PATTERN.matcher(helperString);
         assertThat(fieldMatcher.find()).isTrue();
         assertThat(taskInfoString).contains(fieldMatcher.group());
+    }
+
+    @Test
+    public void testGetBounds() throws Exception {
+        TaskInfo taskInfo = getTaskInfo(mTestActivity.getTaskId());
+
+        Rect bounds = TaskInfoHelper.getBounds(taskInfo);
+
+        View testActivityDecorView = mTestActivity.getWindow().getDecorView();
+        assertThat(bounds).isNotNull();
+        expect.that(bounds.width()).isEqualTo(testActivityDecorView.getWidth());
+        expect.that(bounds.height()).isEqualTo(testActivityDecorView.getHeight());
     }
 
     private TaskInfo getTaskInfo(int taskId) {

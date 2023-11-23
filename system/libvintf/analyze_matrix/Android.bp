@@ -25,7 +25,6 @@ cc_binary_host {
     defaults: ["libvintf-defaults"],
     shared_libs: [
         "libbase",
-        "libhidl-gen-utils",
         "libgflags",
         "libvintf",
     ],

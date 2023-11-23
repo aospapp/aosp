@@ -19,16 +19,15 @@ package com.android.launcher3.widget;
 import android.appwidget.AppWidgetHostView;
 import android.appwidget.AppWidgetProviderInfo;
 import android.content.Context;
-import android.graphics.PointF;
 import android.graphics.Rect;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewDebug;
 import android.view.ViewGroup;
 
-import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.Reorderable;
 import com.android.launcher3.dragndrop.DraggableView;
+import com.android.launcher3.util.MultiTranslateDelegate;
 import com.android.launcher3.views.ActivityContext;
 
 import java.util.ArrayList;
@@ -39,28 +38,21 @@ import java.util.ArrayList;
 public abstract class NavigableAppWidgetHostView extends AppWidgetHostView
         implements DraggableView, Reorderable {
 
+    private final MultiTranslateDelegate mTranslateDelegate = new MultiTranslateDelegate(this);
+
     /**
      * The scaleX and scaleY value such that the widget fits within its cellspans, scaleX = scaleY.
      */
     private float mScaleToFit = 1f;
 
-    /**
-     * The translation values to center the widget within its cellspans.
-     */
-    private final PointF mTranslationForCentering = new PointF(0, 0);
-
-    private final PointF mTranslationForMoveFromCenterAnimation = new PointF(0, 0);
-
-    private final PointF mTranslationForReorderBounce = new PointF(0, 0);
-    private final PointF mTranslationForReorderPreview = new PointF(0, 0);
     private float mScaleForReorderBounce = 1f;
-
-    private final Rect mTempRect = new Rect();
 
     @ViewDebug.ExportedProperty(category = "launcher")
     private boolean mChildrenFocused;
 
     protected final ActivityContext mActivity;
+
+    private boolean mDisableSetPadding = false;
 
     public NavigableAppWidgetHostView(Context context) {
         super(context);
@@ -154,6 +146,22 @@ public abstract class NavigableAppWidgetHostView extends AppWidgetHostView
     }
 
     @Override
+    public void setAppWidget(int appWidgetId, AppWidgetProviderInfo info) {
+        // Prevent default padding being set on the view based on provider info. Launcher manages
+        // its own widget spacing
+        mDisableSetPadding = true;
+        super.setAppWidget(appWidgetId, info);
+        mDisableSetPadding = false;
+    }
+
+    @Override
+    public void setPadding(int left, int top, int right, int bottom) {
+        if (!mDisableSetPadding) {
+            super.setPadding(left, top, right, bottom);
+        }
+    }
+
+    @Override
     public boolean dispatchUnhandledMove(View focused, int direction) {
         return mChildrenFocused;
     }
@@ -163,57 +171,23 @@ public abstract class NavigableAppWidgetHostView extends AppWidgetHostView
         setSelected(childIsFocused);
     }
 
-    public View getView() {
-        return this;
-    }
-
-    private void updateTranslation() {
-        super.setTranslationX(mTranslationForReorderBounce.x + mTranslationForReorderPreview.x
-                + mTranslationForCentering.x + mTranslationForMoveFromCenterAnimation.x);
-        super.setTranslationY(mTranslationForReorderBounce.y + mTranslationForReorderPreview.y
-                + mTranslationForCentering.y + mTranslationForMoveFromCenterAnimation.y);
-    }
-
-    public void setTranslationForCentering(float x, float y) {
-        mTranslationForCentering.set(x, y);
-        updateTranslation();
-    }
-
-    public void setTranslationForMoveFromCenterAnimation(float x, float y) {
-        mTranslationForMoveFromCenterAnimation.set(x, y);
-        updateTranslation();
-    }
-
-    public void setReorderBounceOffset(float x, float y) {
-        mTranslationForReorderBounce.set(x, y);
-        updateTranslation();
-    }
-
-    public void getReorderBounceOffset(PointF offset) {
-        offset.set(mTranslationForReorderBounce);
-    }
-
-    @Override
-    public void setReorderPreviewOffset(float x, float y) {
-        mTranslationForReorderPreview.set(x, y);
-        updateTranslation();
-    }
-
-    @Override
-    public void getReorderPreviewOffset(PointF offset) {
-        offset.set(mTranslationForReorderPreview);
-    }
-
     private void updateScale() {
         super.setScaleX(mScaleToFit * mScaleForReorderBounce);
         super.setScaleY(mScaleToFit * mScaleForReorderBounce);
     }
 
+    @Override
+    public MultiTranslateDelegate getTranslateDelegate() {
+        return mTranslateDelegate;
+    }
+
+    @Override
     public void setReorderBounceScale(float scale) {
         mScaleForReorderBounce = scale;
         updateScale();
     }
 
+    @Override
     public float getReorderBounceScale() {
         return mScaleForReorderBounce;
     }
@@ -236,26 +210,6 @@ public abstract class NavigableAppWidgetHostView extends AppWidgetHostView
     public void getWorkspaceVisualDragBounds(Rect bounds) {
         int width = (int) (getMeasuredWidth() * mScaleToFit);
         int height = (int) (getMeasuredHeight() * mScaleToFit);
-
-        getWidgetInset(mActivity.getDeviceProfile(), mTempRect);
-        bounds.set(mTempRect.left, mTempRect.top, width - mTempRect.right,
-                height - mTempRect.bottom);
-    }
-
-    /**
-     * Widgets have padding added by the system. We may choose to inset this padding if the grid
-     * supports it.
-     */
-    public void getWidgetInset(DeviceProfile grid, Rect out) {
-        if (!grid.shouldInsetWidgets()) {
-            out.setEmpty();
-            return;
-        }
-        AppWidgetProviderInfo info = getAppWidgetInfo();
-        if (info == null) {
-            out.set(grid.inv.defaultWidgetPadding);
-        } else {
-            AppWidgetHostView.getDefaultPaddingForWidget(getContext(), info.provider, out);
-        }
+        bounds.set(0, 0, width, height);
     }
 }

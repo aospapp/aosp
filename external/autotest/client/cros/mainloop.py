@@ -3,7 +3,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import gobject, logging, sys, traceback
+import logging, sys, traceback
+# AU tests use ToT client code, but ToT -3 client version.
+try:
+    from gi.repository import GObject
+except ImportError:
+    import gobject as GObject
 
 import common
 
@@ -62,12 +67,12 @@ class ExceptionForwardingMainLoop(object):
     self.main_loop.quit()
 
   def run(self):
-    gobject.idle_add(self.idle)
+    GObject.idle_add(self.idle)
     if self.timeout_s > 0:
-      timeout_source = gobject.timeout_add(self.timeout_s * 1000, self._timeout)
+      timeout_source = GObject.timeout_add(self.timeout_s * 1000, self._timeout)
     self.main_loop.run()
     if self.timeout_s > 0:
-      gobject.source_remove(timeout_source)
+      GObject.source_remove(timeout_source)
 
     if self._forwarded_exception:
       raise self._forwarded_exception

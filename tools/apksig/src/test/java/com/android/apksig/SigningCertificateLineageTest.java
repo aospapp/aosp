@@ -18,6 +18,7 @@ package com.android.apksig;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -27,26 +28,26 @@ import com.android.apksig.apk.ApkFormatException;
 import com.android.apksig.internal.apk.ApkSigningBlockUtils;
 import com.android.apksig.internal.apk.v3.V3SchemeConstants;
 import com.android.apksig.internal.apk.v3.V3SchemeSigner;
+import com.android.apksig.internal.util.AndroidSdkVersion;
 import com.android.apksig.internal.util.ByteBufferUtils;
 import com.android.apksig.internal.util.Resources;
 import com.android.apksig.util.DataSource;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.security.PrivateKey;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class SigningCertificateLineageTest {
@@ -67,6 +68,17 @@ public class SigningCertificateLineageTest {
     @Before
     public void setUp() {
         mSigners = new ArrayList<>();
+    }
+
+    @Test
+    public void testLineageWithSingleSignerContainsExpectedSigner() throws Exception {
+        SignerConfig signerConfig = Resources.toLineageSignerConfig(getClass(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+
+        SigningCertificateLineage lineage = new SigningCertificateLineage.Builder(
+                signerConfig).build();
+
+        assertLineageContainsExpectedSigners(lineage, FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
     }
 
     @Test
@@ -219,6 +231,34 @@ public class SigningCertificateLineageTest {
     }
 
     @Test
+    public void testUpdatedCapabilitiesInLineageByCertificate() throws Exception {
+        SigningCertificateLineage lineage = createLineageWithSignersFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        X509Certificate oldSignerCertificate = mSigners.get(0).getCertificate();
+        List<Boolean> expectedCapabilityValues = Arrays.asList(false, false, false, false, false);
+        SignerCapabilities newCapabilities = buildSignerCapabilities(expectedCapabilityValues);
+
+        lineage.updateSignerCapabilities(oldSignerCertificate, newCapabilities);
+
+        assertExpectedCapabilityValues(lineage.getSignerCapabilities(oldSignerCertificate),
+                expectedCapabilityValues);
+    }
+
+    @Test
+    public void testUpdateSignerCapabilitiesCertificateNotInLineageThrowsException()
+            throws Exception {
+        SigningCertificateLineage lineage = createLineageWithSignersFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        X509Certificate certificate = getSignerConfigFromResources(
+                FIRST_RSA_1024_SIGNER_RESOURCE_NAME).getCertificate();
+        List<Boolean> expectedCapabilityValues = Arrays.asList(false, false, false, false, false);
+        SignerCapabilities newCapabilities = buildSignerCapabilities(expectedCapabilityValues);
+
+        assertThrows(IllegalArgumentException.class, () ->
+                lineage.updateSignerCapabilities(certificate, newCapabilities));
+    }
+
+    @Test
     public void testFirstRotationWitNonDefaultCapabilitiesForSigners() throws Exception {
         SignerConfig oldSigner = Resources.toLineageSignerConfig(getClass(),
                 FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
@@ -326,6 +366,38 @@ public class SigningCertificateLineageTest {
     }
 
     @Test
+    public void testIsCertificateLatestInLineageWithLatestCertReturnsTrue() throws Exception {
+        SigningCertificateLineage lineage = createLineageWithSignersFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+        DefaultApkSignerEngine.SignerConfig latestSigner =
+                getApkSignerEngineSignerConfigFromResources(THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+
+        assertTrue(lineage.isCertificateLatestInLineage(latestSigner.getCertificates().get(0)));
+    }
+
+    @Test
+    public void testIsCertificateLatestInLineageWithOlderCertReturnsFalse() throws Exception {
+        SigningCertificateLineage lineage = createLineageWithSignersFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+        DefaultApkSignerEngine.SignerConfig olderSigner =
+                getApkSignerEngineSignerConfigFromResources(SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+
+        assertFalse(lineage.isCertificateLatestInLineage(olderSigner.getCertificates().get(0)));
+    }
+
+    @Test
+    public void testIsCertificateLatestInLineageWithUnknownCertReturnsFalse() throws Exception {
+        SigningCertificateLineage lineage = createLineageWithSignersFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        DefaultApkSignerEngine.SignerConfig unknownSigner =
+                getApkSignerEngineSignerConfigFromResources(THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+
+        assertFalse(lineage.isCertificateLatestInLineage(unknownSigner.getCertificates().get(0)));
+    }
+
+    @Test
     public void testAllExpectedCertificatesAreInLineage() throws Exception {
         SigningCertificateLineage lineage = createLineageWithSignersFromResources(
                 FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
@@ -409,8 +481,23 @@ public class SigningCertificateLineageTest {
         SigningCertificateLineage lineageFromApk = SigningCertificateLineage.readFromApkDataSource(
                 apkDataSource);
         assertLineageContainsExpectedSigners(lineageFromApk, expectedSigners);
-
     }
+
+    @Test
+    public void testOnlyV31LineageFromAPKWithV31BlockContainsExpectedSigners() throws Exception {
+        SignerConfig firstSigner = getSignerConfigFromResources(
+            FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+        SignerConfig secondSigner = getSignerConfigFromResources(
+            SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        List<SignerConfig> expectedSigners = Arrays.asList(firstSigner, secondSigner);
+        DataSource apkDataSource = Resources.toDataSource(getClass(),
+            "v31-rsa-2048_2-tgt-34-1-tgt-28.apk");
+        SigningCertificateLineage lineageFromApk =
+            SigningCertificateLineage.readV31FromApkDataSource(
+                apkDataSource);
+        assertLineageContainsExpectedSigners(lineageFromApk, expectedSigners);
+    }
+
 
     @Test(expected = ApkFormatException.class)
     public void testLineageFromAPKWithInvalidZipCDSizeFails() throws Exception {
@@ -454,6 +541,407 @@ public class SigningCertificateLineageTest {
             fail("A failure should have been reported due to the APK containing a V3 signing "
                     + "block with a modified lineage attribute ID");
         } catch (IllegalArgumentException expected) {}
+    }
+
+    @Test
+    public void testV31LineageFromAPKWithNoV31LineageFails() throws Exception {
+        DataSource apkDataSource = Resources.toDataSource(getClass(),
+            "golden-aligned-v1v2-out.apk");
+        try {
+            SigningCertificateLineage.readV31FromApkDataSource(apkDataSource);
+            fail("A failure should have been reported due to the APK not containing a V3 signing "
+                + "block");
+        } catch (IllegalArgumentException expected) {}
+
+        // This is a valid APK signed with the V1, V2, and V3 signature schemes, but there is no
+        // lineage in the V3 signature block.
+        apkDataSource = Resources.toDataSource(getClass(), "golden-aligned-v1v2v3-out.apk");
+        try {
+            SigningCertificateLineage.readV31FromApkDataSource(apkDataSource);
+            fail("A failure should have been reported due to the APK containing a V3 signing "
+                + "block without the lineage attribute");
+        } catch (IllegalArgumentException expected) {}
+
+        // This is a valid APK signed with the V1, V2, and V3 signature schemes, with a valid
+        // lineage in the V3 signature block, but no V3.1 lineage.
+        apkDataSource = Resources.toDataSource(getClass(),
+            "v1v2v3-with-rsa-2048-lineage-3-signers.apk");
+        try {
+            SigningCertificateLineage.readV31FromApkDataSource(apkDataSource);
+            fail("A failure should have been reported due to the APK containing a V3 signing "
+                + "block without the lineage attribute");
+        } catch (IllegalArgumentException expected) {}
+    }
+
+    @Test
+    /**
+     * old lineage: A -> B
+     * new lineage: A -> B
+     */
+    public void testCheckLineagesCompatibilitySameLineages() throws Exception {
+        SigningCertificateLineage oldLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME));
+        SigningCertificateLineage newLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME));
+
+        assertTrue(SigningCertificateLineage.checkLineagesCompatibility(oldLineage, newLineage));
+    }
+
+    @Test
+    /**
+     * old lineage: A -> B
+     * new lineage: A -> B -> C
+     */
+    public void testCheckLineagesCompatibilityUpdateLonger() throws Exception {
+        SigningCertificateLineage oldLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME));
+        SigningCertificateLineage newLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                        THIRD_RSA_2048_SIGNER_RESOURCE_NAME));
+
+        assertTrue(SigningCertificateLineage.checkLineagesCompatibility(oldLineage, newLineage));
+    }
+
+    @Test
+    /**
+     * old lineage: A
+     * new lineage: A -> B -> C
+     */
+    public void testCheckLineagesCompatibilityUpdateExtended() throws Exception {
+        SigningCertificateLineage oldLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME));
+        SigningCertificateLineage newLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                        THIRD_RSA_2048_SIGNER_RESOURCE_NAME));
+
+        assertTrue(SigningCertificateLineage.checkLineagesCompatibility(oldLineage, newLineage));
+    }
+
+    @Test
+    /**
+     * old lineage: A -> B
+     * new lineage: C -> B
+     */
+    public void testCheckLineagesCompatibilityUpdateFirstMismatch() throws Exception {
+        SigningCertificateLineage oldLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME));
+        SigningCertificateLineage newLineage = createLineageWithSignersFromResources(
+                Arrays.asList(THIRD_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME));
+
+        assertFalse(SigningCertificateLineage.checkLineagesCompatibility(oldLineage, newLineage));
+    }
+
+    @Test
+    /**
+     * old lineage: A -> B
+     * new lineage: A -> C
+     */
+    public void testCheckLineagesCompatibilityUpdateSecondMismatch() throws Exception {
+        SigningCertificateLineage oldLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME));
+        SigningCertificateLineage newLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        THIRD_RSA_2048_SIGNER_RESOURCE_NAME));
+
+        assertFalse(SigningCertificateLineage.checkLineagesCompatibility(oldLineage, newLineage));
+    }
+
+    @Test
+    /**
+     * old lineage: A -> B -> C
+     * new lineage: A -> B
+     */
+    public void testCheckLineagesCompatibilityUpdateShorter() throws Exception {
+        SigningCertificateLineage oldLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                        THIRD_RSA_2048_SIGNER_RESOURCE_NAME));
+        SigningCertificateLineage newLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME));
+
+        assertFalse(SigningCertificateLineage.checkLineagesCompatibility(oldLineage, newLineage));
+    }
+
+    @Test
+    /**
+     * old lineage: A_withRollbackCapability -> B -> C
+     * new lineage: A -> B
+     */
+    public void testCheckLineagesCompatibilityUpdateShorterWithDifferentKeyRollback()
+        throws Exception {
+        SigningCertificateLineage oldLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                        THIRD_RSA_2048_SIGNER_RESOURCE_NAME), Arrays.asList(0));
+        SigningCertificateLineage newLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME));
+
+        assertFalse(SigningCertificateLineage.checkLineagesCompatibility(oldLineage, newLineage));
+    }
+    @Test
+    /**
+     * old lineage: A -> B_withRollbackCapability -> C
+     * new lineage: A -> B
+     */
+    public void testCheckLineagesCompatibilityUpdateShorterWithRollback() throws Exception {
+        SigningCertificateLineage oldLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                        THIRD_RSA_2048_SIGNER_RESOURCE_NAME), Arrays.asList(1));
+        SigningCertificateLineage newLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME));
+
+        assertTrue(SigningCertificateLineage.checkLineagesCompatibility(oldLineage, newLineage));
+    }
+
+    @Test
+    /**
+     * old lineage: A_withRollbackCapability -> B_withRollbackCapability -> C
+     * new lineage: A -> B
+     */
+    public void testCheckLineagesCompatibilityUpdateShorterWithMultipleRollbacks()
+        throws Exception {
+        SigningCertificateLineage oldLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                        THIRD_RSA_2048_SIGNER_RESOURCE_NAME), Arrays.asList(0, 1));
+        SigningCertificateLineage newLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME));
+
+        assertTrue(SigningCertificateLineage.checkLineagesCompatibility(oldLineage, newLineage));
+    }
+
+    @Test
+    /**
+     * old lineage: A_withRollbackCapability -> B
+     * new lineage: A -> C
+     */
+    public void testCheckLineagesCompatibilityUpdateShorterWithRollbackAdditionalCertificate()
+        throws Exception {
+        SigningCertificateLineage oldLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME), Arrays.asList(0));
+        SigningCertificateLineage newLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        THIRD_RSA_2048_SIGNER_RESOURCE_NAME));
+
+        assertFalse(SigningCertificateLineage.checkLineagesCompatibility(oldLineage, newLineage));
+    }
+
+    @Test
+    /**
+     * old lineage: empty
+     * new lineage: A -> B
+     */
+    public void testCheckLineagesCompatibilityOldNotV31Signed() throws Exception {
+        SigningCertificateLineage newLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_1024_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_1024_SIGNER_RESOURCE_NAME));
+
+            assertTrue(SigningCertificateLineage.checkLineagesCompatibility(
+                    /* oldLineage= */ null, newLineage));
+        }
+
+    @Test
+    /**
+     * old lineage: A -> B
+     * new lineage: empty
+     */
+    public void testCheckLineagesCompatibilityNewNotV31Signed() throws Exception {
+        SigningCertificateLineage oldLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_1024_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_1024_SIGNER_RESOURCE_NAME));
+
+        assertFalse(SigningCertificateLineage.checkLineagesCompatibility(
+                oldLineage, /* newLineage= */ null));
+    }
+
+    @Test
+    /**
+     * old lineage: empty
+     * new lineage: empty
+     */
+    public void testCheckLineagesCompatibilityBothNotV31Signed() throws Exception {
+        assertTrue(SigningCertificateLineage.checkLineagesCompatibility(
+                /* oldLineage= */ null, /* newLineage= */ null));
+    }
+
+    @Test
+    /**
+     * old lineage: A -> B -> C
+     * new lineage: B -> C
+     */
+    public void testCheckLineagesCompatibilityUpdateTrimmed()
+        throws Exception {
+        SigningCertificateLineage oldLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME, THIRD_RSA_2048_SIGNER_RESOURCE_NAME));
+        SigningCertificateLineage newLineage = createLineageWithSignersFromResources(
+                Arrays.asList(SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                        THIRD_RSA_2048_SIGNER_RESOURCE_NAME));
+
+        assertTrue(SigningCertificateLineage.checkLineagesCompatibility(oldLineage, newLineage));
+    }
+
+    @Test
+    /**
+     * old lineage: A -> B
+     * new lineage: B -> C
+     */
+    public void testCheckLineagesCompatibilityUpdateTrimmedAndExtended()
+        throws Exception {
+        SigningCertificateLineage oldLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME));
+        SigningCertificateLineage newLineage = createLineageWithSignersFromResources(
+                Arrays.asList(SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                        THIRD_RSA_2048_SIGNER_RESOURCE_NAME));
+
+        assertTrue(SigningCertificateLineage.checkLineagesCompatibility(oldLineage, newLineage));
+    }
+
+    @Test
+    /**
+     * old lineage: A -> B -> C
+     * new lineage: C
+     */
+    public void testCheckLineagesCompatibilityUpdateTrimmedToOne()
+        throws Exception {
+        SigningCertificateLineage oldLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME, THIRD_RSA_2048_SIGNER_RESOURCE_NAME));
+        SigningCertificateLineage newLineage = createLineageWithSignersFromResources(
+                Arrays.asList(THIRD_RSA_2048_SIGNER_RESOURCE_NAME));
+
+        assertTrue(SigningCertificateLineage.checkLineagesCompatibility(oldLineage, newLineage));
+    }
+
+    @Test
+    /**
+     * old lineage: A -> B -> C
+     * new lineage: A -> C
+     */
+    public void testCheckLineagesCompatibilityUpdateWronglyTrimmed()
+        throws Exception {
+        SigningCertificateLineage oldLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME, THIRD_RSA_2048_SIGNER_RESOURCE_NAME));
+        SigningCertificateLineage newLineage = createLineageWithSignersFromResources(
+                Arrays.asList(FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        THIRD_RSA_2048_SIGNER_RESOURCE_NAME));
+
+        assertFalse(SigningCertificateLineage.checkLineagesCompatibility(oldLineage, newLineage));
+    }
+
+    public void testMergeLineageWithTwoEqualLineagesReturnsMergedLineage() throws Exception {
+        // The mergeLineageWith method is intended to merge two separate lineages into a superset
+        // that spans both lineages. This method verifies if both lineages have the same signers,
+        // the merged lineage will have the same signers as well.
+        SigningCertificateLineage lineage1 = createLineageWithSignersFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        SigningCertificateLineage lineage2 = createLineageWithSignersFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+
+        SigningCertificateLineage mergedLineage = lineage1.mergeLineageWith(lineage2);
+
+        assertLineageContainsExpectedSigners(mergedLineage, FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+    }
+
+    @Test
+    public void testMergeLineageWithOverlappingLineageReturnsMergedLineage() throws Exception {
+        // When A -> B and B -> C are passed to mergeLineageWith, the merged lineage should be
+        // A -> B -> C.
+        SigningCertificateLineage lineage1 = createLineageWithSignersFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        SigningCertificateLineage lineage2 = createLineageWithSignersFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+
+        SigningCertificateLineage mergedLineage1 = lineage1.mergeLineageWith(lineage2);
+        SigningCertificateLineage mergedLineage2 = lineage2.mergeLineageWith(lineage1);
+
+        assertLineageContainsExpectedSigners(mergedLineage1, FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+        assertLineageContainsExpectedSigners(mergedLineage2, FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+    }
+
+    @Test
+    public void testMergeLineageWithNoOverlappingLineageThrowsException() throws Exception {
+        // When two lineages do not have any overlap, an exception should be thrown since the two
+        // lineages cannot be merged.
+        SigningCertificateLineage lineage1 = createLineageWithSignersFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        SigningCertificateLineage lineage2 = createLineageWithSignersFromResources(
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+
+        assertThrows(IllegalArgumentException.class, () -> lineage1.mergeLineageWith(lineage2));
+        assertThrows(IllegalArgumentException.class, () -> lineage2.mergeLineageWith(lineage1));
+    }
+
+    @Test
+    public void testMergeLineageWithDivergedLineageThrowsException() throws Exception {
+        // When two lineages share a common ancestor but diverge at later signers, an exception
+        // should be thrown since the two lineages cannot be merged.
+        SigningCertificateLineage lineage1 = createLineageWithSignersFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        SigningCertificateLineage lineage2 = createLineageWithSignersFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+
+        assertThrows(IllegalArgumentException.class, () -> lineage1.mergeLineageWith(lineage2));
+        assertThrows(IllegalArgumentException.class, () -> lineage2.mergeLineageWith(lineage1));
+    }
+
+    @Test
+    public void testMergeLineageWithSingleSublineageInLineageReturnsMergedLineage()
+            throws Exception {
+        // If A -> B -> C and B are passed to mergeLineageWith, then the merged lineage should be
+        // A -> B -> C.
+        SigningCertificateLineage lineage1 = createLineageWithSignersFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+        SigningCertificateLineage lineage2 = createLineageWithSignersFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+
+        SigningCertificateLineage mergedLineage1 = lineage1.mergeLineageWith(lineage2);
+        SigningCertificateLineage mergedLineage2 = lineage2.mergeLineageWith(lineage1);
+
+        assertLineageContainsExpectedSigners(mergedLineage1, FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+        assertLineageContainsExpectedSigners(mergedLineage2, FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+    }
+
+    @Test
+    public void testMergeLineageWithAncestorSublineageInLineageReturnsMergedLineage()
+            throws Exception {
+        // If A -> B -> C and A -> B are passed to mergeLineageWith, then the merged lineage should
+        // be A -> B -> C.
+        SigningCertificateLineage lineage1 = createLineageWithSignersFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+        SigningCertificateLineage lineage2 = createLineageWithSignersFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+
+        SigningCertificateLineage mergedLineage1 = lineage1.mergeLineageWith(lineage2);
+        SigningCertificateLineage mergedLineage2 = lineage2.mergeLineageWith(lineage1);
+
+        assertLineageContainsExpectedSigners(mergedLineage1, FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+        assertLineageContainsExpectedSigners(mergedLineage2, FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
     }
 
     /**
@@ -531,6 +1019,61 @@ public class SigningCertificateLineageTest {
         return new SigningCertificateLineage.Builder(oldSignerConfig, newSignerConfig).build();
     }
 
+    private SigningCertificateLineage createLineageWithSignersFromResources(
+            String signerResourceName) throws Exception {
+        SignerConfig signerConfig = Resources.toLineageSignerConfig(getClass(),
+            signerResourceName);
+        mSigners.add(signerConfig);
+        return new SigningCertificateLineage.Builder(signerConfig).build();
+    }
+
+    private SigningCertificateLineage createLineageWithSignersFromResources(
+            List<String> signerResourcesNames)
+            throws Exception {
+        if (signerResourcesNames.isEmpty()) {
+            throw new Exception();
+        }
+        SigningCertificateLineage lineage =
+                createLineageWithSignersFromResources(signerResourcesNames.get(0));
+        for (String resourceName : signerResourcesNames.subList(1, signerResourcesNames.size())) {
+            lineage = updateLineageWithSignerFromResources(lineage, resourceName);
+        }
+        return lineage;
+    }
+
+    private SigningCertificateLineage createLineageWithSignersFromResources(
+            List<String> signerResourcesNames,
+            List<Integer> rollbackCapabilityNodes)
+        throws Exception {
+        SigningCertificateLineage lineage =
+                createLineageWithSignersFromResources(signerResourcesNames);
+        for (Integer i : rollbackCapabilityNodes) {
+            if (i < mSigners.size()) {
+                SignerCapabilities newCapabilities = new SignerCapabilities.Builder()
+                    .setRollback(true).build();
+                lineage.updateSignerCapabilities(mSigners.get(i), newCapabilities);
+            }
+        }
+        return lineage;
+    }
+    /**
+     * Creates a new {@code SigningCertificateLineage} with the specified signers from the
+     * resources.
+     */
+    private SigningCertificateLineage createLineageWithSignersFromResources(String... signers)
+            throws Exception {
+        SignerConfig ancestorSignerConfig = Resources.toLineageSignerConfig(getClass(), signers[0]);
+        SigningCertificateLineage lineage = new SigningCertificateLineage.Builder(
+                ancestorSignerConfig).build();
+        for (int i = 1; i < signers.length; i++) {
+            SignerConfig descendantSignerConfig = Resources.toLineageSignerConfig(getClass(),
+                    signers[i]);
+            lineage = lineage.spawnDescendant(ancestorSignerConfig, descendantSignerConfig);
+            ancestorSignerConfig = descendantSignerConfig;
+        }
+        return lineage;
+    }
+
     /**
      * Updates the specified {@code SigningCertificateLineage} with the signer from the resources.
      * Requires that the {@code mSigners} list contains the previous signers in the lineage since
@@ -542,7 +1085,7 @@ public class SigningCertificateLineageTest {
         // specified. If this class was used to create the lineage then the last signer should
         // be in the mSigners list.
         assertTrue("The mSigners list did not contain the expected signers to update the lineage",
-                mSigners.size() >= 2);
+                mSigners.size() >= 1);
         SignerConfig oldSignerConfig = mSigners.get(mSigners.size() - 1);
         SignerConfig newSignerConfig = Resources.toLineageSignerConfig(getClass(),
                 newSignerResourceName);
@@ -554,13 +1097,19 @@ public class SigningCertificateLineageTest {
      * Asserts the provided {@code lineage} contains the {@code expectedSigners} from the test's
      * resources.
      */
-    static void assertLineageContainsExpectedSigners(SigningCertificateLineage lineage,
+    protected static void assertLineageContainsExpectedSigners(SigningCertificateLineage lineage,
             String... expectedSigners) throws Exception {
-        List<SignerConfig> signers = new ArrayList<>();
-        for (String expectedSigner : expectedSigners) {
-            signers.add(getSignerConfigFromResources(expectedSigner));
+        assertLineageContainsExpectedSigners(lineage,
+                getSignerConfigsFromResources(expectedSigners));
+    }
+
+    private static List<SignerConfig> getSignerConfigsFromResources(String... signers)
+            throws Exception {
+        List<SignerConfig> signerConfigs = new ArrayList<>();
+        for (String signer : signers) {
+            signerConfigs.add(getSignerConfigFromResources(signer));
         }
-        assertLineageContainsExpectedSigners(lineage, signers);
+        return signerConfigs;
     }
 
     private static void assertLineageContainsExpectedSigners(SigningCertificateLineage lineage,
@@ -570,6 +1119,23 @@ public class SigningCertificateLineageTest {
         for (SignerConfig signer : signers) {
             assertTrue("The signer " + signer.getCertificate().getSubjectDN()
                     + " is expected to be in the lineage", lineage.isSignerInLineage(signer));
+        }
+    }
+
+    protected static void assertLineageContainsExpectedSignersWithCapabilities(
+            SigningCertificateLineage lineage, String[] signers,
+            SignerCapabilities[] capabilities) throws Exception {
+        List<SignerConfig> signerConfigs = getSignerConfigsFromResources(signers);
+        assertEquals("The lineage does not contain the expected number of signers",
+                signerConfigs.size(), lineage.size());
+        assertEquals(
+                "The capabilities does not contain the expected number for the provided signers",
+                signerConfigs.size(), capabilities.length);
+        for (int i = 0; i < signerConfigs.size(); i++) {
+            SignerConfig signerConfig = signerConfigs.get(i);
+            assertTrue("The signer " + signerConfig.getCertificate().getSubjectDN()
+                    + " is expected to be in the lineage", lineage.isSignerInLineage(signerConfig));
+            assertEquals(lineage.getSignerCapabilities(signerConfig), capabilities[i]);
         }
     }
 
@@ -585,12 +1151,23 @@ public class SigningCertificateLineageTest {
 
     private static DefaultApkSignerEngine.SignerConfig getApkSignerEngineSignerConfigFromResources(
             String resourcePrefix) throws Exception {
+        return getApkSignerEngineSignerConfigFromResources(resourcePrefix, 0, null);
+    }
+
+    private static DefaultApkSignerEngine.SignerConfig getApkSignerEngineSignerConfigFromResources(
+            String resourcePrefix, int minSdkVersion, SigningCertificateLineage lineage)
+            throws Exception {
         PrivateKey privateKey =
                 Resources.toPrivateKey(SigningCertificateLineageTest.class,
                         resourcePrefix + ".pk8");
         X509Certificate cert = Resources.toCertificate(SigningCertificateLineageTest.class,
                 resourcePrefix + ".x509.pem");
-        return new DefaultApkSignerEngine.SignerConfig.Builder(resourcePrefix, privateKey,
-                Collections.singletonList(cert)).build();
+        DefaultApkSignerEngine.SignerConfig.Builder configBuilder =
+                new DefaultApkSignerEngine.SignerConfig.Builder(resourcePrefix, privateKey,
+                        Collections.singletonList(cert));
+        if (minSdkVersion > 0) {
+            configBuilder.setLineageForMinSdkVersion(lineage, minSdkVersion);
+        }
+        return configBuilder.build();
     }
 }

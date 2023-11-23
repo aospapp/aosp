@@ -16,6 +16,7 @@
 
 package android.net.dhcp;
 
+import static com.android.modules.utils.build.SdkLevel.isAtLeastR;
 import static com.android.net.module.util.NetworkStackConstants.IPV4_ADDR_ALL;
 import static com.android.net.module.util.NetworkStackConstants.IPV4_ADDR_ANY;
 
@@ -33,7 +34,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.net.module.util.Inet4AddressUtils;
-import com.android.networkstack.apishim.common.ShimUtils;
 
 import java.io.UnsupportedEncodingException;
 import java.net.Inet4Address;
@@ -799,8 +799,7 @@ public abstract class DhcpPacket {
      */
     @VisibleForTesting
     public String getHostname() {
-        if (mHostName == null
-                && !ShimUtils.isReleaseOrDevelopmentApiAbove(Build.VERSION_CODES.Q)) {
+        if (mHostName == null && !isAtLeastR()) {
             return SystemProperties.get("net.hostname");
         }
         return mHostName;
@@ -1345,11 +1344,6 @@ public abstract class DhcpPacket {
                 }
                 newPacket = new DhcpReleasePacket(
                         transactionId, serverIdentifier, clientIp, relayIp, clientMac);
-                break;
-            case DHCP_MESSAGE_TYPE_INFORM:
-                newPacket = new DhcpInformPacket(
-                    transactionId, secs, clientIp, yourIp, nextIp, relayIp,
-                    clientMac);
                 break;
             default:
                 throw new ParseException(DhcpErrorEvent.DHCP_UNKNOWN_MSG_TYPE,

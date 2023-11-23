@@ -12,33 +12,26 @@ static void
 vkr_dispatch_vkCreateImage(struct vn_dispatch_context *dispatch,
                            struct vn_command_vkCreateImage *args)
 {
-   struct vkr_context *ctx = dispatch->data;
-
-   struct vkr_device *dev = vkr_device_from_handle(args->device);
-
-#ifdef FORCE_ENABLE_DMABUF
-   /* Do not chain VkExternalMemoryImageCreateInfo with optimal tiling, so that
-    * guest Venus can pass memory requirement cts with dedicated allocation.
+   /* XXX If VkExternalMemoryImageCreateInfo is chained by the app, all is
+    * good.  If it is not chained, we might still bind an external memory to
+    * the image, because vkr_dispatch_vkAllocateMemory makes any HOST_VISIBLE
+    * memory external.  That is a spec violation.
+    *
+    * The discussions in vkr_dispatch_vkCreateBuffer are applicable to both
+    * buffers and images.  Additionally, drivers usually use
+    * VkExternalMemoryImageCreateInfo to pick a well-defined image layout for
+    * interoperability with foreign queues.  However, a well-defined layout
+    * might not exist for some images.  When it does, it might still require a
+    * dedicated allocation or might have a degraded performance.
+    *
+    * On the other hand, binding an external memory to an image created
+    * without VkExternalMemoryImageCreateInfo usually works.  Yes, it will
+    * explode if the external memory is accessed by foreign queues due to the
+    * lack of a well-defined image layout.  But we never end up in that
+    * situation because the app does not consider the memory external.
     */
-   VkExternalMemoryImageCreateInfo local_external_info;
-   if (args->pCreateInfo->tiling != VK_IMAGE_TILING_OPTIMAL &&
-       dev->physical_device->EXT_external_memory_dma_buf) {
-      VkExternalMemoryImageCreateInfo *external_info = vkr_find_pnext(
-         args->pCreateInfo->pNext, VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO);
-      if (external_info) {
-         external_info->handleTypes |= VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
-      } else {
-         local_external_info = (const VkExternalMemoryImageCreateInfo){
-            .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
-            .pNext = args->pCreateInfo->pNext,
-            .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
-         };
-         ((VkImageCreateInfo *)args->pCreateInfo)->pNext = &local_external_info;
-      }
-   }
-#endif
 
-   vkr_image_create_and_add(ctx, args);
+   vkr_image_create_and_add(dispatch->data, args);
 }
 
 static void
@@ -53,8 +46,11 @@ vkr_dispatch_vkGetImageMemoryRequirements(
    UNUSED struct vn_dispatch_context *dispatch,
    struct vn_command_vkGetImageMemoryRequirements *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkGetImageMemoryRequirements_args_handle(args);
-   vkGetImageMemoryRequirements(args->device, args->image, args->pMemoryRequirements);
+   vk->GetImageMemoryRequirements(args->device, args->image, args->pMemoryRequirements);
 }
 
 static void
@@ -62,8 +58,11 @@ vkr_dispatch_vkGetImageMemoryRequirements2(
    UNUSED struct vn_dispatch_context *dispatch,
    struct vn_command_vkGetImageMemoryRequirements2 *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkGetImageMemoryRequirements2_args_handle(args);
-   vkGetImageMemoryRequirements2(args->device, args->pInfo, args->pMemoryRequirements);
+   vk->GetImageMemoryRequirements2(args->device, args->pInfo, args->pMemoryRequirements);
 }
 
 static void
@@ -71,10 +70,13 @@ vkr_dispatch_vkGetImageSparseMemoryRequirements(
    UNUSED struct vn_dispatch_context *dispatch,
    struct vn_command_vkGetImageSparseMemoryRequirements *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkGetImageSparseMemoryRequirements_args_handle(args);
-   vkGetImageSparseMemoryRequirements(args->device, args->image,
-                                      args->pSparseMemoryRequirementCount,
-                                      args->pSparseMemoryRequirements);
+   vk->GetImageSparseMemoryRequirements(args->device, args->image,
+                                        args->pSparseMemoryRequirementCount,
+                                        args->pSparseMemoryRequirements);
 }
 
 static void
@@ -82,27 +84,36 @@ vkr_dispatch_vkGetImageSparseMemoryRequirements2(
    UNUSED struct vn_dispatch_context *dispatch,
    struct vn_command_vkGetImageSparseMemoryRequirements2 *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkGetImageSparseMemoryRequirements2_args_handle(args);
-   vkGetImageSparseMemoryRequirements2(args->device, args->pInfo,
-                                       args->pSparseMemoryRequirementCount,
-                                       args->pSparseMemoryRequirements);
+   vk->GetImageSparseMemoryRequirements2(args->device, args->pInfo,
+                                         args->pSparseMemoryRequirementCount,
+                                         args->pSparseMemoryRequirements);
 }
 
 static void
 vkr_dispatch_vkBindImageMemory(UNUSED struct vn_dispatch_context *dispatch,
                                struct vn_command_vkBindImageMemory *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkBindImageMemory_args_handle(args);
    args->ret =
-      vkBindImageMemory(args->device, args->image, args->memory, args->memoryOffset);
+      vk->BindImageMemory(args->device, args->image, args->memory, args->memoryOffset);
 }
 
 static void
 vkr_dispatch_vkBindImageMemory2(UNUSED struct vn_dispatch_context *dispatch,
                                 struct vn_command_vkBindImageMemory2 *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkBindImageMemory2_args_handle(args);
-   args->ret = vkBindImageMemory2(args->device, args->bindInfoCount, args->pBindInfos);
+   args->ret = vk->BindImageMemory2(args->device, args->bindInfoCount, args->pBindInfos);
 }
 
 static void
@@ -110,9 +121,12 @@ vkr_dispatch_vkGetImageSubresourceLayout(
    UNUSED struct vn_dispatch_context *dispatch,
    struct vn_command_vkGetImageSubresourceLayout *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkGetImageSubresourceLayout_args_handle(args);
-   vkGetImageSubresourceLayout(args->device, args->image, args->pSubresource,
-                               args->pLayout);
+   vk->GetImageSubresourceLayout(args->device, args->image, args->pSubresource,
+                                 args->pLayout);
 }
 
 static void
@@ -121,10 +135,11 @@ vkr_dispatch_vkGetImageDrmFormatModifierPropertiesEXT(
    struct vn_command_vkGetImageDrmFormatModifierPropertiesEXT *args)
 {
    struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
 
    vn_replace_vkGetImageDrmFormatModifierPropertiesEXT_args_handle(args);
-   args->ret = dev->get_image_drm_format_modifier_properties(args->device, args->image,
-                                                             args->pProperties);
+   args->ret = vk->GetImageDrmFormatModifierPropertiesEXT(args->device, args->image,
+                                                          args->pProperties);
 }
 
 static void
@@ -171,6 +186,33 @@ vkr_dispatch_vkDestroySamplerYcbcrConversion(
    vkr_sampler_ycbcr_conversion_destroy_and_remove(dispatch->data, args);
 }
 
+static void
+vkr_dispatch_vkGetDeviceImageMemoryRequirements(
+   UNUSED struct vn_dispatch_context *ctx,
+   struct vn_command_vkGetDeviceImageMemoryRequirements *args)
+{
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
+   vn_replace_vkGetDeviceImageMemoryRequirements_args_handle(args);
+   vk->GetDeviceImageMemoryRequirements(args->device, args->pInfo,
+                                        args->pMemoryRequirements);
+}
+
+static void
+vkr_dispatch_vkGetDeviceImageSparseMemoryRequirements(
+   UNUSED struct vn_dispatch_context *ctx,
+   struct vn_command_vkGetDeviceImageSparseMemoryRequirements *args)
+{
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
+   vn_replace_vkGetDeviceImageSparseMemoryRequirements_args_handle(args);
+   vk->GetDeviceImageSparseMemoryRequirements(args->device, args->pInfo,
+                                              args->pSparseMemoryRequirementCount,
+                                              args->pSparseMemoryRequirements);
+}
+
 void
 vkr_context_init_image_dispatch(struct vkr_context *ctx)
 {
@@ -193,6 +235,10 @@ vkr_context_init_image_dispatch(struct vkr_context *ctx)
 
    dispatch->dispatch_vkGetImageDrmFormatModifierPropertiesEXT =
       vkr_dispatch_vkGetImageDrmFormatModifierPropertiesEXT;
+   dispatch->dispatch_vkGetDeviceImageMemoryRequirements =
+      vkr_dispatch_vkGetDeviceImageMemoryRequirements;
+   dispatch->dispatch_vkGetDeviceImageSparseMemoryRequirements =
+      vkr_dispatch_vkGetDeviceImageSparseMemoryRequirements;
 }
 
 void

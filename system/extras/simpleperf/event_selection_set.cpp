@@ -367,16 +367,17 @@ bool EventSelectionSet::ExcludeKernel() const {
   return true;
 }
 
-std::vector<EventAttrWithId> EventSelectionSet::GetEventAttrWithId() const {
-  std::vector<EventAttrWithId> result;
+EventAttrIds EventSelectionSet::GetEventAttrWithId() const {
+  EventAttrIds result;
   for (const auto& group : groups_) {
     for (const auto& selection : group) {
-      EventAttrWithId attr_id;
-      attr_id.attr = &selection.event_attr;
+      std::vector<uint64_t> ids;
       for (const auto& fd : selection.event_fds) {
-        attr_id.ids.push_back(fd->Id());
+        ids.push_back(fd->Id());
       }
-      result.push_back(attr_id);
+      result.resize(result.size() + 1);
+      result.back().attr = selection.event_attr;
+      result.back().ids = std::move(ids);
     }
   }
   return result;

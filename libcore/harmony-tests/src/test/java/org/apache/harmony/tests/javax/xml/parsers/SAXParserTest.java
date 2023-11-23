@@ -148,6 +148,10 @@ public class SAXParserTest extends TestCase {
             fail("could not obtain a SAXParser");
         }
 
+        // Create the temp directories again despite the static init in SAXParserTestSupport.
+        // http://b/263794383
+        SAXParserTestSupport.createTempDirectories();
+
         String tmpPath = System.getProperty("java.io.tmpdir");
 
         // nwf = not well formed, wf = well formed

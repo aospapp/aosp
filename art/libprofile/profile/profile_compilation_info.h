@@ -463,10 +463,12 @@ class ProfileCompilationInfo {
   //   the dex_file they are in.
   bool VerifyProfileData(const std::vector<const DexFile*>& dex_files);
 
-  // Load profile information from the given file
+  // Loads profile information from the given file.
+  // Returns true on success, false otherwise.
   // If the current profile is non-empty the load will fail.
-  // If clear_if_invalid is true and the file is invalid the method clears the
-  // the file and returns true.
+  // If clear_if_invalid is true:
+  // - If the file is invalid, the method clears the file and returns true.
+  // - If the file doesn't exist, the method returns true.
   bool Load(const std::string& filename, bool clear_if_invalid);
 
   // Merge the data from another ProfileCompilationInfo into the current object. Only merges
@@ -480,8 +482,11 @@ class ProfileCompilationInfo {
   // Save the profile data to the given file descriptor.
   bool Save(int fd);
 
-  // Save the current profile into the given file. The file will be cleared before saving.
+  // Save the current profile into the given file. Overwrites any existing data.
   bool Save(const std::string& filename, uint64_t* bytes_written);
+
+  // A fallback implementation of `Save` that uses a flock.
+  bool SaveFallback(const std::string& filename, uint64_t* bytes_written);
 
   // Return the number of dex files referenced in the profile.
   size_t GetNumberOfDexFiles() const {
@@ -590,6 +595,10 @@ class ProfileCompilationInfo {
       /*out*/std::set<uint16_t>* post_startup_method_method_set,
       const ProfileSampleAnnotation& annotation = ProfileSampleAnnotation::kNone) const;
 
+  const ArenaSet<dex::TypeIndex>* GetClasses(
+      const DexFile& dex_file,
+      const ProfileSampleAnnotation& annotation = ProfileSampleAnnotation::kNone) const;
+
   // Returns true iff both profiles have the same version.
   bool SameVersion(const ProfileCompilationInfo& other) const;
 
@@ -645,7 +654,10 @@ class ProfileCompilationInfo {
   //
   // If the new profile key would collide with an existing key (for a different dex)
   // the method returns false. Otherwise it returns true.
-  bool UpdateProfileKeys(const std::vector<std::unique_ptr<const DexFile>>& dex_files);
+  //
+  // `matched` is set to true if any profile has matched any input dex file.
+  bool UpdateProfileKeys(const std::vector<std::unique_ptr<const DexFile>>& dex_files,
+                         /*out*/ bool* matched);
 
   // Checks if the profile is empty.
   bool IsEmpty() const;

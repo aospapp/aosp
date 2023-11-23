@@ -3,6 +3,8 @@
 *.gcno
 /*.tar.xz
 /*.md5sum
+/*.mbx
+/*.cover
 .deps/
 .libs/
 /Makefile
@@ -18,6 +20,7 @@
 /configure
 /cov-int
 /coverage
+/gtk-doc.make
 /kmod-*.tar.*
 /libtool
 /stamp-h1

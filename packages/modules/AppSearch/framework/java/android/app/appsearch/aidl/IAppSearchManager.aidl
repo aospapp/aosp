@@ -55,6 +55,8 @@ interface IAppSearchManager {
      * @param schemaVersion  The overall schema version number of the request.
      * @param userHandle Handle of the calling user
      * @param binderCallStartTimeMillis start timestamp of binder call in Millis
+     * @param schemaMigrationCallType Indicates how a SetSchema call relative to SchemaMigration
+     *     case.
      * @param callback {@link IAppSearchResultCallback#onResult} will be called with an
      *     {@link AppSearchResult}&lt;{@link Bundle}&gt;, where the value are
      *     {@link SetSchemaResponse} bundle.
@@ -68,6 +70,7 @@ interface IAppSearchManager {
         in int schemaVersion,
         in UserHandle userHandle,
         in long binderCallStartTimeMillis,
+        in int schemaMigrationCallType,
         in IAppSearchResultCallback callback);
 
     /**
@@ -77,6 +80,7 @@ interface IAppSearchManager {
      * @param targetPackageName The name of the package that owns the schema.
      * @param databaseName  The name of the database to retrieve.
      * @param userHandle Handle of the calling user
+     * @param binderCallStartTimeMillis start timestamp of binder call in Millis
      * @param callback {@link IAppSearchResultCallback#onResult} will be called with an
      *     {@link AppSearchResult}&lt;{@link Bundle}&gt; where the bundle is a GetSchemaResponse.
      */
@@ -85,6 +89,7 @@ interface IAppSearchManager {
         in String targetPackageName,
         in String databaseName,
         in UserHandle userHandle,
+        in long binderCallStartTimeMillis,
         in IAppSearchResultCallback callback);
 
     /**
@@ -93,6 +98,7 @@ interface IAppSearchManager {
      * @param callerAttributionSource The permission identity of the package that owns the schema.
      * @param databaseName  The name of the database to retrieve.
      * @param userHandle Handle of the calling user
+     * @param binderCallStartTimeMillis start timestamp of binder call in Millis
      * @param callback {@link IAppSearchResultCallback#onResult} will be called with an
      *     {@link AppSearchResult}&lt;{@link List}&lt;{@link String}&gt;&gt;.
      */
@@ -100,6 +106,7 @@ interface IAppSearchManager {
         in AttributionSource callerAttributionSource,
         in String databaseName,
         in UserHandle userHandle,
+        in long binderCallStartTimeMillis,
         in IAppSearchResultCallback callback);
 
     /**
@@ -204,15 +211,22 @@ interface IAppSearchManager {
      *
      * @param callerAttributionSource The permission identity of the package to persist to disk
      *     for.
+     * @param databaseName The nullable databaseName this query for. The databaseName will be null
+                           if the query is a global search.
      * @param nextPageToken The token of pre-loaded results of previously executed query.
+     * @param joinType the type of join performed. 0 if no join is performed
      * @param userHandle Handle of the calling user
+     * @param binderCallStartTimeMillis start timestamp of binder call in Millis
      * @param callback {@link AppSearchResult}&lt;{@link Bundle}&gt; of performing this
      *                  operation.
      */
     void getNextPage(
         in AttributionSource callerAttributionSource,
+        in String databaseName,
         in long nextPageToken,
+        in int joinType,
         in UserHandle userHandle,
+        in long binderCallStartTimeMillis,
         in IAppSearchResultCallback callback);
 
     /**
@@ -223,11 +237,13 @@ interface IAppSearchManager {
      * @param nextPageToken The token of pre-loaded results of previously executed query to be
      *                      Invalidated.
      * @param userHandle Handle of the calling user
+     * @param binderCallStartTimeMillis start timestamp of binder call in Millis
      */
     void invalidateNextPageToken(
         in AttributionSource callerAttributionSource,
         in long nextPageToken,
-        in UserHandle userHandle);
+        in UserHandle userHandle,
+        in long binderCallStartTimeMillis);
 
     /**
     * Searches a document based on a given specifications.
@@ -240,6 +256,7 @@ interface IAppSearchManager {
     * @param queryExpression String to search for.
     * @param searchSpecBundle SearchSpec bundle.
     * @param userHandle Handle of the calling user.
+    * @param binderCallStartTimeMillis start timestamp of binder call in Millis
     * @param callback {@link IAppSearchResultCallback#onResult} will be called with an
     *        {@link AppSearchResult}&lt;{@code Void}&gt;.
     */
@@ -250,6 +267,7 @@ interface IAppSearchManager {
         in String queryExpression,
         in Bundle searchSpecBundle,
         in UserHandle userHandle,
+        in long binderCallStartTimeMillis,
         in IAppSearchResultCallback callback);
 
     /**
@@ -264,6 +282,10 @@ interface IAppSearchManager {
     * @param databaseName  The name of the database where this document lives.
     * @param fileDescriptor The ParcelFileDescriptor where documents should be read from.
     * @param userHandle Handle of the calling user.
+    * @param schemaMigrationStatsBundle the Bundle contains SchemaMigrationStats information.
+    * @param totalLatencyStartTimeMillis start timestamp to calculate total migration latency in
+    *     Millis
+    * @param binderCallStartTimeMillis start timestamp of binder call in Millis
     * @param callback {@link IAppSearchResultCallback#onResult} will be called with an
     *     {@link AppSearchResult}&lt;{@link List}&lt;{@link Bundle}&gt;&gt;, where the value are
     *     MigrationFailure bundles.
@@ -273,7 +295,31 @@ interface IAppSearchManager {
         in String databaseName,
         in ParcelFileDescriptor fileDescriptor,
         in UserHandle userHandle,
+        in Bundle schemaMigrationStatsBundle,
+        in long totalLatencyStartTimeMillis,
+        in long binderCallStartTimeMillis,
         in IAppSearchResultCallback callback);
+
+    /**
+     * Retrieves suggested Strings that could be used as {@code queryExpression} in search API.
+     *
+     * @param callerAttributionSource The permission identity of the package to suggest over.
+     * @param databaseName The databaseName this suggest is for.
+     * @param suggestionQueryExpression the non empty query string to search suggestions
+     * @param searchSuggestionSpecBundle SearchSuggestionSpec bundle
+     * @param userHandle Handle of the calling user
+     * @param binderCallStartTimeMillis start timestamp of binder call in Millis
+     * @param callback {@link AppSearchResult}&lt;List&lt;{@link Bundle}&gt; of performing this
+     *   operation. List contains SearchSuggestionResult bundles.
+     */
+    void searchSuggestion(
+            in AttributionSource callerAttributionSource,
+            in String databaseName,
+            in String suggestionQueryExpression,
+            in Bundle searchSuggestionSpecBundle,
+            in UserHandle userHandle,
+            in long binderCallStartTimeMillis,
+            in IAppSearchResultCallback callback);
 
     /**
      * Reports usage of a particular document by namespace and id.
@@ -296,6 +342,7 @@ interface IAppSearchManager {
      * @param usageTimestampMillis The timestamp at which the document was used.
      * @param systemUsage Whether the usage was reported by a system app against another app's doc.
      * @param userHandle Handle of the calling user
+     * @param binderCallStartTimeMillis start timestamp of binder call in Millis
      * @param callback {@link IAppSearchResultCallback#onResult} will be called with an
      *     {@link AppSearchResult}&lt;{@link Void}&gt;.
      */
@@ -308,6 +355,7 @@ interface IAppSearchManager {
         in long usageTimestampMillis,
         in boolean systemUsage,
         in UserHandle userHandle,
+        in long binderCallStartTimeMillis,
         in IAppSearchResultCallback callback);
 
     /**
@@ -364,6 +412,7 @@ interface IAppSearchManager {
      *     info for.
      * @param databaseName The databaseName to get the storage info for.
      * @param userHandle Handle of the calling user
+     * @param binderCallStartTimeMillis start timestamp of binder call in Millis
      * @param callback {@link IAppSearchResultCallback#onResult} will be called with an
      *     {@link AppSearchResult}&lt;{@link Bundle}&gt;, where the value is a
      *     {@link StorageInfo}.
@@ -372,6 +421,7 @@ interface IAppSearchManager {
         in AttributionSource callerAttributionSource,
         in String databaseName,
         in UserHandle userHandle,
+        in long binderCallStartTimeMillis,
         in IAppSearchResultCallback callback);
 
     /**
@@ -395,6 +445,7 @@ interface IAppSearchManager {
      * @param targetPackageName Package whose changes to monitor
      * @param observerSpecBundle Bundle of ObserverSpec showing what types of changes to listen for
      * @param userHandle Handle of the calling user
+     * @param binderCallStartTimeMillis start timestamp of binder call in Millis
      * @param observerProxy Callback to trigger when a schema or document changes
      * @return the success or failure of this operation
      */
@@ -403,6 +454,7 @@ interface IAppSearchManager {
         in String targetPackageName,
         in Bundle observerSpecBundle,
         in UserHandle userHandle,
+        in long binderCallStartTimeMillis,
         in IAppSearchObserverProxy observerProxy);
 
     /**
@@ -411,6 +463,7 @@ interface IAppSearchManager {
      * @param callerAttributionSource The permission identity of the package that owns the observer
      * @param observedPackage Package whose changes are being monitored
      * @param userHandle Handle of the calling user
+     * @param binderCallStartTimeMillis start timestamp of binder call in Millis
      * @param observerProxy Observer callback to remove
      * @return the success or failure of this operation
      */
@@ -418,5 +471,6 @@ interface IAppSearchManager {
         in AttributionSource callerAttributionSource,
         in String observedPackage,
         in UserHandle userHandle,
+        in long binderCallStartTimeMillis,
         in IAppSearchObserverProxy observerProxy);
 }

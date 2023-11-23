@@ -23,7 +23,7 @@ option java_multiple_files = true;
 option objc_class_prefix = "ICNG";
 
 // Stats of the top-level function IcingSearchEngine::Initialize().
-// Next tag: 12
+// Next tag: 14
 message InitializeStatsProto {
   // Overall time used for the function call.
   optional int32 latency_ms = 1;
@@ -49,6 +49,9 @@ message InitializeStatsProto {
 
     // The document log is using legacy format.
     LEGACY_DOCUMENT_LOG_FORMAT = 5;
+
+    // The current code version is different from existing data version.
+    VERSION_CHANGED = 6;
   }
 
   // Possible recovery causes for document store:
@@ -99,10 +102,22 @@ message InitializeStatsProto {
   // Number of consecutive initialization failures that immediately preceded
   // this initialization.
   optional int32 num_previous_init_failures = 11;
+
+  // Possible recovery causes for integer index:
+  // - INCONSISTENT_WITH_GROUND_TRUTH
+  // - SCHEMA_CHANGES_OUT_OF_SYNC
+  // - IO_ERROR
+  optional RecoveryCause integer_index_restoration_cause = 12;
+
+  // Possible recovery causes for qualified id join index:
+  // - INCONSISTENT_WITH_GROUND_TRUTH
+  // - SCHEMA_CHANGES_OUT_OF_SYNC
+  // - IO_ERROR
+  optional RecoveryCause qualified_id_join_index_restoration_cause = 13;
 }
 
 // Stats of the top-level function IcingSearchEngine::Put().
-// Next tag: 7
+// Next tag: 10
 message PutDocumentStatsProto {
   // Overall time used for the function call.
   optional int32 latency_ms = 1;
@@ -110,8 +125,7 @@ message PutDocumentStatsProto {
   // Time used to store the document.
   optional int32 document_store_latency_ms = 2;
 
-  // Time used to index the document. It does not include the time to merge
-  // indices.
+  // Time used to index the document.
   optional int32 index_latency_ms = 3;
 
   // Time used to merge the indices.
@@ -127,11 +141,21 @@ message PutDocumentStatsProto {
     reserved 2;
   }
   optional TokenizationStats tokenization_stats = 6;
+
+  // Time used to index all indexable string terms in the document. It does not
+  // include the time to merge indices.
+  optional int32 term_index_latency_ms = 7;
+
+  // Time used to index all indexable integers in the document.
+  optional int32 integer_index_latency_ms = 8;
+
+  // Time used to index all qualified id join strings in the document.
+  optional int32 qualified_id_join_index_latency_ms = 9;
 }
 
 // Stats of the top-level function IcingSearchEngine::Search() and
 // IcingSearchEngine::GetNextPage().
-// Next tag: 17
+// Next tag: 23
 message QueryStatsProto {
   // The UTF-8 length of the query string
   optional int32 query_length = 16;
@@ -181,6 +205,25 @@ message QueryStatsProto {
   // Time used to fetch the document protos. Note that it includes the
   // time to snippet if ‘has_snippets’ is true.
   optional int32 document_retrieval_latency_ms = 14;
+
+  // Time passed while waiting to acquire the lock before query execution.
+  optional int32 lock_acquisition_latency_ms = 17;
+
+  // Timestamp taken just before sending proto across the JNI boundary from
+  // native to java side.
+  optional int64 native_to_java_start_timestamp_ms = 18;
+
+  // Time used to send protos across the JNI boundary from java to native side.
+  optional int32 java_to_native_jni_latency_ms = 19;
+
+  // Time used to send protos across the JNI boundary from native to java side.
+  optional int32 native_to_java_jni_latency_ms = 20;
+
+  // The native latency due to the join operation.
+  optional int32 join_latency_ms = 21;
+
+  // Number of documents scored.
+  optional int32 num_joined_results_returned_current_page = 22;
 
   reserved 9;
 }

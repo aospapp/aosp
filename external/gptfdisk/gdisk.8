@@ -1,6 +1,6 @@
-.\" Copyright 2011-2018 Roderick W. Smith (rodsmith@rodsbooks.com)
+.\" Copyright 2011-2022 Roderick W. Smith (rodsmith@rodsbooks.com)
 .\" May be distributed under the GNU General Public License
-.TH "GDISK" "8" "1.0.4" "Roderick W. Smith" "GPT fdisk Manual"
+.TH "GDISK" "8" "1.0.9" "Roderick W. Smith" "GPT fdisk Manual"
 .SH "NAME"
 gdisk \- Interactive GUID partition table (GPT) manipulator
 .SH "SYNOPSIS"
@@ -27,7 +27,7 @@ recovery options require you to understand the distinctions between the
 main and backup data, as well as between the GPT headers and the partition
 tables. For information on MBR vs. GPT, as well as GPT terminology and
 structure, see the extended \fBgdisk\fR documentation at
-\fIhttp://www.rodsbooks.com/gdisk/\fR or consult Wikipedia.
+\fIhttps://www.rodsbooks.com/gdisk/\fR or consult Wikipedia.
 
 The \fBgdisk\fR program employs a user interface similar to that of Linux's
 \fBfdisk\fR, but \fBgdisk\fR modifies GPT partitions. It also has the
@@ -191,9 +191,9 @@ more codes in GPT. For these, \fBgdisk\fR adds code numbers sequentially,
 such as 0xa500 for a FreeBSD disklabel, 0xa501 for FreeBSD boot, 0xa502 for
 FreeBSD swap, and so on. Note that these two\-byte codes are unique to
 \fBgdisk\fR. The type code list may optionally be filtered by a search
-string; for instance, entering \fI\fBLinux\fR\fR shows only partition type
+string; for instance, entering \fI\fBlinux\fR\fR shows only partition type
 codes with descriptions that include the string \fILinux\fR. This search is
-performed case\-sensitively.
+performed case\-insensitively.
 
 .TP 
 .B n
@@ -210,7 +210,8 @@ default start sector, or \fI\fB\-200M\fR\fR to specify a point 200MiB
 before the last available sector. Pressing the Enter key with no input
 specifies the default value, which is the start of the largest available
 block for the start sector and the end of the same block for the end
-sector.
+sector. Default start and end points may be adjusted to optimize partition
+alignment.
 
 .TP 
 .B o
@@ -420,6 +421,14 @@ aren't translated into anything useful. In practice, most OSes seem to
 ignore these attributes.
 
 .TP 
+.B b
+Swap the byte order for the name of the specified partition. Some
+partitioning tools, including GPT fdisk 1.0.7 and earlier, can write the
+partition name in the wrong byte order on big-endian computers, such as the
+IBM s390 mainframes and PowerPC-based Macs. This feature corrects this
+problem.
+
+.TP 
 .B c
 Change partition GUID. You can enter a custom unique GUID for a partition
 using this option. (Note this refers to the GUID that uniquely identifies a
@@ -483,13 +492,18 @@ Change the sector alignment value. Disks with more logical sectors per
 physical sectors (such as modern Advanced Format drives), some RAID
 configurations, and many SSD devices, can suffer performance problems if
 partitions are not aligned properly for their internal data structures. On
-new disks, GPT fdisk attempts to align partitions on 1 MiB boundaries
-(2048\-sectors on disks with 512-byte sectors) by default, which optimizes
+new disks, GPT fdisk attempts to align partitions on 1 MiB boundaries (2048
+sectors on disks with 512-byte sectors) by default, which optimizes
 performance for all of these disk types. On pre\-partitioned disks, GPT
 fdisk attempts to identify the alignment value used on that disk, but will
 set 8-sector alignment on disks larger than 300 GB even if lesser alignment
-values are detected. In either case, it can be changed by using this
-option.
+values are detected. In either case, it can be changed by using this option.
+The alignment value also affects the default end sector value when creating
+a new partition; it will be aligned to one less than a multiple of the
+alignment value, if possible. This should keep partitions a multiple of the
+alignment value in size. Some disk encryption tools require partitions to be
+sized to some value, typically 4096 bytes, so the default alignment of 1 MiB
+works well for them.
 
 .TP 
 .B m
@@ -673,7 +687,7 @@ Contributors:
 
 * Justin Maggard (justin.maggard@netgear.com)
 
-* Dwight Schauer (dschauer@gmail.com)
+* Dwight Schauer (das@teegra.net)
 
 * Florian Zumbiehl (florz@florz.de)
 
@@ -688,11 +702,11 @@ Contributors:
 .BR sgdisk (8),
 .BR fixparts (8).
 
-\fIhttp://en.wikipedia.org/wiki/GUID_Partition_Table\fR
+\fIhttps://en.wikipedia.org/wiki/GUID_Partition_Table\fR
 
-\fIhttp://developer.apple.com/technotes/tn2006/tn2166.html\fR
+\fIhttps://developer.apple.com/technotes/tn2006/tn2166.html\fR
 
-\fIhttp://www.rodsbooks.com/gdisk/\fR
+\fIhttps://www.rodsbooks.com/gdisk/\fR
 
 .SH "AVAILABILITY"
 The \fBgdisk\fR command is part of the \fIGPT fdisk\fR package and is

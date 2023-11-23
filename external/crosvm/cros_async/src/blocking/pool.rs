@@ -1,29 +1,30 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2021 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::{
-    collections::VecDeque,
-    mem,
-    sync::{
-        mpsc::{channel, Receiver, Sender},
-        Arc,
-    },
-    thread::{
-        JoinHandle, {self},
-    },
-    time::{Duration, Instant},
-};
+use std::collections::VecDeque;
+use std::future::Future;
+use std::mem;
+use std::sync::mpsc::channel;
+use std::sync::mpsc::Receiver;
+use std::sync::mpsc::Sender;
+use std::sync::Arc;
+use std::thread;
+use std::thread::JoinHandle;
+use std::time::Duration;
+use std::time::Instant;
 
-use async_task::{Runnable, Task};
-use base::{error, warn};
+use base::error;
+use base::warn;
+use futures::channel::oneshot;
 use slab::Slab;
-use sync::{Condvar, Mutex};
+use sync::Condvar;
+use sync::Mutex;
 
 const DEFAULT_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 
 struct State {
-    tasks: VecDeque<Runnable>,
+    tasks: VecDeque<Box<dyn FnOnce() + Send>>,
     num_threads: usize,
     num_idle: usize,
     num_notified: usize,
@@ -36,9 +37,9 @@ struct State {
 fn run_blocking_thread(idx: usize, inner: Arc<Inner>, exit: Sender<usize>) {
     let mut state = inner.state.lock();
     while !state.shutting_down {
-        if let Some(runnable) = state.tasks.pop_front() {
+        if let Some(f) = state.tasks.pop_front() {
             drop(state);
-            runnable.run();
+            f();
             state = inner.state.lock();
             continue;
         }
@@ -103,15 +104,25 @@ struct Inner {
 }
 
 impl Inner {
-    fn schedule(self: &Arc<Inner>, runnable: Runnable) {
+    pub fn spawn<F, R>(self: &Arc<Self>, f: F) -> impl Future<Output = R>
+    where
+        F: FnOnce() -> R + Send + 'static,
+        R: Send + 'static,
+    {
         let mut state = self.state.lock();
 
         // If we're shutting down then nothing is going to run this task.
         if state.shutting_down {
-            return;
+            error!("spawn called after shutdown");
+            return futures::future::Either::Left(async {
+                panic!("tried to poll BlockingPool task after shutdown")
+            });
         }
 
-        state.tasks.push_back(runnable);
+        let (send_chan, recv_chan) = oneshot::channel();
+        state.tasks.push_back(Box::new(|| {
+            let _ = send_chan.send(f());
+        }));
 
         if state.num_idle == 0 {
             // There are no idle threads.  Spawn a new one if possible.
@@ -134,6 +145,12 @@ impl Inner {
             state.num_notified += 1;
             self.condvar.notify_one();
         }
+
+        futures::future::Either::Right(async {
+            recv_chan
+                .await
+                .expect("BlockingThread task unexpectedly cancelled")
+        })
     }
 }
 
@@ -242,28 +259,19 @@ impl BlockingPool {
 
     /// Spawn a task to run in the `BlockingPool`.
     ///
-    /// Callers may `await` the returned `Task` to be notified when the work is completed.
+    /// Callers may `await` the returned `Future` to be notified when the work is completed.
+    /// Dropping the future will not cancel the task.
     ///
     /// # Panics
     ///
     /// `await`ing a `Task` after dropping the `BlockingPool` or calling `BlockingPool::shutdown`
     /// will panic if the work was not completed before the pool was shut down.
-    pub fn spawn<F, R>(&self, f: F) -> Task<R>
+    pub fn spawn<F, R>(&self, f: F) -> impl Future<Output = R>
     where
         F: FnOnce() -> R + Send + 'static,
         R: Send + 'static,
     {
-        let raw = Arc::downgrade(&self.inner);
-        let schedule = move |runnable| {
-            if let Some(i) = raw.upgrade() {
-                i.schedule(runnable);
-            }
-        };
-
-        let (runnable, task) = async_task::spawn(async move { f() }, schedule);
-        runnable.schedule();
-
-        task
+        self.inner.spawn(f)
     }
 
     /// Shut down the `BlockingPool`.
@@ -316,6 +324,11 @@ impl BlockingPool {
             Ok(())
         }
     }
+
+    #[cfg(test)]
+    pub(crate) fn shutting_down(&self) -> bool {
+        self.inner.state.lock().shutting_down
+    }
 }
 
 impl Default for BlockingPool {
@@ -334,16 +347,19 @@ impl Drop for BlockingPool {
 
 #[cfg(test)]
 mod test {
-    use std::{
-        sync::{Arc, Barrier},
-        thread,
-        time::{Duration, Instant},
-    };
+    use std::sync::Arc;
+    use std::sync::Barrier;
+    use std::thread;
+    use std::time::Duration;
+    use std::time::Instant;
 
-    use futures::{stream::FuturesUnordered, StreamExt};
-    use sync::{Condvar, Mutex};
+    use futures::executor::block_on;
+    use futures::stream::FuturesUnordered;
+    use futures::StreamExt;
+    use sync::Condvar;
+    use sync::Mutex;
 
-    use super::super::super::{block_on, BlockingPool};
+    use super::super::super::BlockingPool;
 
     #[test]
     fn blocking_sleep() {
@@ -443,13 +459,12 @@ mod test {
         // First spawn a thread that blocks the pool.
         let task_mu = mu.clone();
         let task_cv = cv.clone();
-        pool.spawn(move || {
+        let _ = pool.spawn(move || {
             let mut ready = task_mu.lock();
             while !*ready {
                 ready = task_cv.wait(ready);
             }
-        })
-        .detach();
+        });
 
         // This task will never finish because we will shut down the pool first.
         let unfinished = pool.spawn(|| 5);

@@ -122,7 +122,7 @@ public abstract class Scheduler {
 
                 // Sample random numbers until we get something coprime to our modulus
                 while (gcd(x, modulus) != 1) {
-                    x = mRandom.nextInt() % modulus;
+                    x = mRandom.nextInt(modulus);
                 }
 
                 return x % modulus;

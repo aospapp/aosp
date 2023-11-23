@@ -144,6 +144,36 @@ class Collections {
         *[]() { return new std::string("otp_code"); }();
     return value;
   }
+  static const std::string& Art() {
+    static const std::string& value =
+        *[]() { return new std::string("art"); }();
+    return value;
+  }
+  static const std::string& ConsumerGood() {
+    static const std::string& value =
+        *[]() { return new std::string("consumer_good"); }();
+    return value;
+  }
+  static const std::string& Event() {
+    static const std::string& value =
+        *[]() { return new std::string("event"); }();
+    return value;
+  }
+  static const std::string& Location() {
+    static const std::string& value =
+        *[]() { return new std::string("location"); }();
+    return value;
+  }
+  static const std::string& Organization() {
+    static const std::string& value =
+        *[]() { return new std::string("organization"); }();
+    return value;
+  }
+  static const std::string& Person() {
+    static const std::string& value =
+        *[]() { return new std::string("person"); }();
+    return value;
+  }
 };
 
 }  // namespace libtextclassifier3

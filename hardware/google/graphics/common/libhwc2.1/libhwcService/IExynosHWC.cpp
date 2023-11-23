@@ -50,9 +50,6 @@ enum {
     SET_DDISCALER,
     GET_EXTERNAL_HDR_CAPA,
     SET_SCALE_DOWN_RATIO,
-#if 0
-    NOTIFY_PSR_EXIT,
-#endif
     SET_HWC_DEBUG = 105,
     GET_HWC_DEBUG = 106,
     SET_HWC_FENCE_DEBUG = 107,
@@ -66,6 +63,9 @@ enum {
     SET_REFRESH_RATE_THROTTLE = 1006,
     SET_DISPLAY_RCDLAYER_ENABLED = 1007,
     TRIGGER_DISPLAY_IDLE_ENTER = 1008,
+    SET_DISPLAY_DBM = 1009,
+    SET_DISPLAY_MULTI_THREADED_PRESENT = 1010,
+    TRIGGER_REFRESH_RATE_INDICATOR_UPDATE = 1011,
 };
 
 class BpExynosHWCService : public BpInterface<IExynosHWCService> {
@@ -364,11 +364,12 @@ public:
         return result;
     };
 
-    virtual int setDDIScaler(uint32_t width, uint32_t height) {
+    virtual int setDDIScaler(uint32_t displayId, uint32_t width, uint32_t height) {
         Parcel data, reply;
         data.writeInterfaceToken(IExynosHWCService::getInterfaceDescriptor());
-        data.writeInt32(width);
-        data.writeInt32(height);
+        data.writeUint32(displayId);
+        data.writeUint32(width);
+        data.writeUint32(height);
         int result = remote()->transact(SET_DDISCALER, data, &reply);
         if (result == NO_ERROR)
             result = reply.readInt32();
@@ -376,15 +377,6 @@ public:
             ALOGE("SET_DDISCALER transact error(%d)", result);
         return result;
     }
-
-    /*
-    virtual void notifyPSRExit()
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IExynosHWCService::getInterfaceDescriptor());
-        remote()->transact(NOTIFY_PSR_EXIT, data, &reply);
-    }
-    */
 
     int32_t setDisplayDeviceMode(int32_t display_id, int32_t mode)
     {
@@ -455,8 +447,42 @@ public:
         data.writeUint32(displayIndex);
         data.writeUint32(idleTeRefreshRate);
 
-        auto result = remote()->transact(SET_DISPLAY_RCDLAYER_ENABLED, data, &reply);
+        auto result = remote()->transact(TRIGGER_DISPLAY_IDLE_ENTER, data, &reply);
         ALOGE_IF(result != NO_ERROR, "TRIGGER_DISPLAY_IDLE_ENTER transact error(%d)", result);
+        return result;
+    }
+
+    virtual int32_t setDisplayDbm(int32_t display_id, uint32_t on) {
+        Parcel data, reply;
+        data.writeInterfaceToken(IExynosHWCService::getInterfaceDescriptor());
+        data.writeInt32(display_id);
+        data.writeInt32(on);
+        int result = remote()->transact(SET_DISPLAY_DBM, data, &reply);
+        if (result) ALOGE("SET_DISPLAY_DBM transact error(%d)", result);
+        return result;
+    }
+
+    virtual int32_t setDisplayMultiThreadedPresent(const int32_t& displayId,
+                                                   const bool& enable) {
+        Parcel data, reply;
+        data.writeInterfaceToken(IExynosHWCService::getInterfaceDescriptor());
+        data.writeInt32(displayId);
+        data.writeBool(enable);
+        int result = remote()->transact(SET_DISPLAY_MULTI_THREADED_PRESENT, data, &reply);
+        if (result) ALOGE("SET_DISPLAY_MULTI_THREADED_PRESENT transact error(%d)", result);
+        return result;
+    }
+
+    virtual int32_t triggerRefreshRateIndicatorUpdate(uint32_t displayId,
+                                                      uint32_t refreshRate) override {
+        Parcel data, reply;
+        data.writeInterfaceToken(IExynosHWCService::getInterfaceDescriptor());
+        data.writeUint32(displayId);
+        data.writeUint32(refreshRate);
+
+        auto result = remote()->transact(TRIGGER_REFRESH_RATE_INDICATOR_UPDATE, data, &reply);
+        ALOGE_IF(result != NO_ERROR, "TRIGGER_REFRESH_RATE_INDICATOR_UPDATE transact error(%d)",
+                 result);
         return result;
     }
 };
@@ -624,50 +650,13 @@ status_t BnExynosHWCService::onTransact(
         } break;
         case SET_DDISCALER: {
             CHECK_INTERFACE(IExynosHWCService, data, reply);
-            uint32_t width = data.readInt32();
-            uint32_t height = data.readInt32();
-            int error = setDDIScaler(width, height);
+            uint32_t display_id = data.readUint32();
+            uint32_t width = data.readUint32();
+            uint32_t height = data.readUint32();
+            int error = setDDIScaler(display_id, width, height);
             reply->writeInt32(error);
             return NO_ERROR;
         } break;
-
-#if 0
-        case SET_HWC_CTL_MAX_OVLY_CNT: {
-            CHECK_INTERFACE(IExynosHWCService, data, reply);
-            int val = data.readInt32();
-            setHWCCtl(SET_HWC_CTL_MAX_OVLY_CNT, val);
-            return NO_ERROR;
-        } break;
-        case SET_HWC_CTL_VIDEO_OVLY_CNT: {
-            CHECK_INTERFACE(IExynosHWCService, data, reply);
-            int val = data.readInt32();
-            setHWCCtl(SET_HWC_CTL_VIDEO_OVLY_CNT, val);
-            return NO_ERROR;
-        } break;
-         case SET_HWC_CTL_DYNAMIC_RECOMP: {
-            CHECK_INTERFACE(IExynosHWCService, data, reply);
-            int val = data.readInt32();
-            setHWCCtl(SET_HWC_CTL_DYNAMIC_RECOMP, val);
-            return NO_ERROR;
-        } break;
-        case SET_HWC_CTL_SKIP_STATIC: {
-            CHECK_INTERFACE(IExynosHWCService, data, reply);
-            int val = data.readInt32();
-            setHWCCtl(SET_HWC_CTL_SKIP_STATIC, val);
-            return NO_ERROR;
-        } break;
-        case SET_HWC_CTL_SECURE_DMA: {
-            CHECK_INTERFACE(IExynosHWCService, data, reply);
-            int val = data.readInt32();
-            setHWCCtl(SET_HWC_CTL_SECURE_DMA, val);
-            return NO_ERROR;
-        } break;
-        case NOTIFY_PSR_EXIT: {
-            CHECK_INTERFACE(IExynosHWCService, data, reply);
-            notifyPSRExit();
-            return NO_ERROR;
-        }
-#endif
         case SET_DISPLAY_DEVICE_MODE: {
             CHECK_INTERFACE(IExynosHWCService, data, reply);
             int32_t display_id = data.readInt32();
@@ -739,6 +728,31 @@ status_t BnExynosHWCService::onTransact(
             uint32_t displayIndex = data.readUint32();
             uint32_t idleTeRefreshRate = data.readUint32();
             return triggerDisplayIdleEnter(displayIndex, idleTeRefreshRate);
+        } break;
+
+        case SET_DISPLAY_DBM: {
+            CHECK_INTERFACE(IExynosHWCService, data, reply);
+            int32_t display_id = data.readInt32();
+            uint32_t on = data.readInt32();
+            int32_t error = setDisplayDbm(display_id, on);
+            reply->writeInt32(error);
+            return NO_ERROR;
+        } break;
+
+        case SET_DISPLAY_MULTI_THREADED_PRESENT: {
+            CHECK_INTERFACE(IExynosHWCService, data, reply);
+            int32_t displayId = data.readInt32();
+            bool enable = data.readBool();
+            int32_t error = setDisplayMultiThreadedPresent(displayId, enable);
+            reply->writeInt32(error);
+            return NO_ERROR;
+        } break;
+
+        case TRIGGER_REFRESH_RATE_INDICATOR_UPDATE: {
+            CHECK_INTERFACE(IExynosHWCService, data, reply);
+            uint32_t displayId = data.readUint32();
+            uint32_t refreshRate = data.readUint32();
+            return triggerRefreshRateIndicatorUpdate(displayId, refreshRate);
         } break;
 
         default:

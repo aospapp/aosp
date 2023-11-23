@@ -15,6 +15,8 @@
  */
 package com.android.cts.verifier.nfc.hcef;
 
+import static android.content.Context.RECEIVER_EXPORTED;
+
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -58,7 +60,7 @@ public class HceFEmulatorActivity extends PassFailButtons.Activity{
     protected void onResume() {
         super.onResume();
         IntentFilter filter = new IntentFilter(ACTION_TEST_SUCCESS);
-        registerReceiver(mReceiver, filter);
+        registerReceiver(mReceiver, filter, RECEIVER_EXPORTED);
         ComponentName hceFService = new ComponentName("com.android.cts.verifier",
                 MyHostFelicaService.class.getName());
         mNfcFCardEmulation.enableService(this, hceFService);

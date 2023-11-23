@@ -25,4 +25,5 @@
     <string name="set_wallpaper" msgid="3650915172749345197">"နောက်ခံ သတ်မှတ်ရန်"</string>
     <string name="new_instance" msgid="1924479866055190730">"ဖြစ်ရပ်သစ်တွင် စတင်ရန်အတွက် တောင်းဆိုရန်"</string>
     <string name="wallpaper_description" msgid="5885164573334720996">"နမူနာ မျက်နှာပြင်မျိုးစုံ နောက်ခံ"</string>
+    <string name="exit" msgid="3648703694102318310">"ထွက်ရန်"</string>
 </resources>

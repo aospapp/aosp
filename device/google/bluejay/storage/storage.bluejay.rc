@@ -1,0 +1,7 @@
+on property:sys.boot_completed=1
+    # Copy ufs firmware to disk
+    start ufs_firmware_update
+
+service ufs_firmware_update /vendor/bin/ufs_firmware_update.sh
+    disabled
+    oneshot

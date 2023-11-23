@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as m from 'mithril';
+import m from 'mithril';
 
 import {Actions} from '../common/actions';
 import {
   AggregateData,
   Column,
-  ThreadStateExtra
+  ThreadStateExtra,
 } from '../common/aggregation_data';
 import {colorForState, textColorForState} from '../common/colorizer';
 import {translateState} from '../common/thread_state';
+import {tpTimeToMillis} from '../common/time';
 
 import {globals} from './globals';
 import {Panel} from './panel';
@@ -44,8 +45,8 @@ export class AggregationPanel extends Panel<AggregationPanelAttrs> {
           m('table',
             m('tr',
               attrs.data.columns.map(
-                  col => this.formatColumnHeading(col, attrs.kind))),
-            m('tr.sum', attrs.data.columnSums.map(sum => {
+                  (col) => this.formatColumnHeading(col, attrs.kind))),
+            m('tr.sum', attrs.data.columnSums.map((sum) => {
               const sumClass = sum === '' ? 'td' : 'td.sum-data';
               return m(sumClass, sum);
             })))),
@@ -68,7 +69,7 @@ export class AggregationPanel extends Panel<AggregationPanelAttrs> {
           onclick: () => {
             globals.dispatch(
                 Actions.updateAggregateSorting({id, column: col.columnId}));
-          }
+          },
         },
         col.title,
         m('i.material-icons', sortIcon));
@@ -111,7 +112,8 @@ export class AggregationPanel extends Panel<AggregationPanelAttrs> {
     const selection = globals.state.currentSelection;
     if (selection === null || selection.kind !== 'AREA') return undefined;
     const selectedArea = globals.state.areas[selection.areaId];
-    const rangeDurationMs = (selectedArea.endSec - selectedArea.startSec) * 1e3;
+    const rangeDurationMs =
+        tpTimeToMillis(selectedArea.end - selectedArea.start);
     return m('.time-range', `Selected range: ${rangeDurationMs.toFixed(6)} ms`);
   }
 
@@ -129,8 +131,8 @@ export class AggregationPanel extends Panel<AggregationPanelAttrs> {
               style: {
                 background: `hsl(${color.h},${color.s}%,${color.l}%)`,
                 color: `${textColor}`,
-                width: `${width}%`
-              }
+                width: `${width}%`,
+              },
             },
             `${data.states[i]}: ${data.values[i]} ms`));
     }

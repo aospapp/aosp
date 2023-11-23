@@ -17,7 +17,6 @@ limitations under the License.
 #define TENSORFLOW_COMPILER_XLA_CLIENT_LIB_CONV_GRAD_SIZE_UTIL_H_
 
 #include "tensorflow/compiler/xla/client/padding.h"
-#include "tensorflow/core/platform/types.h"
 
 namespace xla {
 
@@ -25,11 +24,11 @@ namespace xla {
 // windowed operations.
 struct SpatialDimensionOutputSizeAndPadding {
   // Effective size of the operation output (potentially expanded).
-  int64 output_size;
+  int64_t output_size;
   // Number of padding elements to be added before/after this dimension of
   // the input when computing the input gradient.
-  int64 pad_before;
-  int64 pad_after;
+  int64_t pad_before;
+  int64_t pad_after;
 };
 
 // Verifies that the dimensions all match, and computes the size and padding of

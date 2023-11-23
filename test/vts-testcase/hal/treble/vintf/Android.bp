@@ -75,6 +75,20 @@ cc_test {
     ],
 }
 
+// Check for HIDL services on device launching after Android 14.
+cc_test {
+    name: "vts_treble_no_hidl",
+
+    test_suites: [
+        "vts",
+        "general-tests",
+    ],
+    defaults: ["vts_treble_vintf_test_defaults"],
+    srcs: [
+        "VtsNoHidl.cpp",
+    ],
+}
+
 // Test a (potentially) compatible vendor image with framework dependency;
 // test the current framework.
 cc_test {

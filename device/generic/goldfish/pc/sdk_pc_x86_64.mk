@@ -23,4 +23,6 @@ PRODUCT_BRAND := Android
 PRODUCT_MODEL := PC on x86_64 emulator
 PRODUCT_PACKAGE_OVERLAYS := device/generic/goldfish/pc/overlay
 PRODUCT_COPY_FILES += \
+    frameworks/native/data/etc/pc_core_hardware.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/pc_core_hardware.xml \
     device/generic/goldfish/pc/data/etc/pc.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/pc.xml
+PRODUCT_SDK_ADDON_SYS_IMG_SOURCE_PROP := device/generic/goldfish/pc/images_source.prop_template

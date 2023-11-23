@@ -25,13 +25,17 @@
         android:persistent="false"
         android:title="@string/wifi_ssid"
         settings:controller="com.android.car.settings.wifi.NetworkNamePreferenceController"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"
         settings:showChevron="false"/>
     <ListPreference
         android:dialogTitle="@string/wifi_security"
         android:key="@string/pk_add_wifi_security"
         android:persistent="false"
         android:title="@string/wifi_security"
-        settings:controller="com.android.car.settings.wifi.NetworkSecurityPreferenceController"/>
+        settings:controller="com.android.car.settings.wifi.NetworkSecurityPreferenceController"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"/>
     <com.android.car.settings.wifi.NetworkNameRestrictedPasswordEditTextPreference
         android:dialogTitle="@string/wifi_password"
         android:key="@string/pk_add_wifi_password"
@@ -39,5 +43,7 @@
         android:summary="@string/default_password_summary"
         android:title="@string/wifi_password"
         settings:controller="com.android.car.settings.wifi.NetworkPasswordPreferenceController"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"
         settings:showChevron="false"/>
 </PreferenceScreen>

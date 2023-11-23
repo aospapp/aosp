@@ -30,5 +30,5 @@
     <string name="state_local_test_alert" msgid="7009393486453350790">"Testovací výstraha"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="3253477871276901425">"Varování"</string>
     <string name="enable_public_safety_messages_title" msgid="6164589595328113173">"Upozornění ohledně veřejné bezpečnosti"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="5347896880762045640">"Testovací výstrahy"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="5347896880762045640">"Testovací upozornění"</string>
 </resources>

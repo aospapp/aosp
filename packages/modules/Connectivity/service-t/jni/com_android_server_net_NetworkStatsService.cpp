@@ -30,9 +30,11 @@
 
 #include "bpf/BpfUtils.h"
 #include "netdbpf/BpfNetworkStats.h"
+#include "netdbpf/NetworkTraceHandler.h"
 
 using android::bpf::bpfGetUidStats;
 using android::bpf::bpfGetIfaceStats;
+using android::bpf::NetworkTraceHandler;
 
 namespace android {
 
@@ -67,7 +69,7 @@ static uint64_t getStatsType(Stats* stats, StatsType type) {
     }
 }
 
-static jlong getTotalStat(JNIEnv* env, jclass clazz, jint type) {
+static jlong nativeGetTotalStat(JNIEnv* env, jclass clazz, jint type) {
     Stats stats = {};
 
     if (bpfGetIfaceStats(NULL, &stats) == 0) {
@@ -77,7 +79,7 @@ static jlong getTotalStat(JNIEnv* env, jclass clazz, jint type) {
     }
 }
 
-static jlong getIfaceStat(JNIEnv* env, jclass clazz, jstring iface, jint type) {
+static jlong nativeGetIfaceStat(JNIEnv* env, jclass clazz, jstring iface, jint type) {
     ScopedUtfChars iface8(env, iface);
     if (iface8.c_str() == NULL) {
         return UNKNOWN;
@@ -92,7 +94,7 @@ static jlong getIfaceStat(JNIEnv* env, jclass clazz, jstring iface, jint type) {
     }
 }
 
-static jlong getUidStat(JNIEnv* env, jclass clazz, jint uid, jint type) {
+static jlong nativeGetUidStat(JNIEnv* env, jclass clazz, jint uid, jint type) {
     Stats stats = {};
 
     if (bpfGetUidStats(uid, &stats) == 0) {
@@ -102,15 +104,21 @@ static jlong getUidStat(JNIEnv* env, jclass clazz, jint uid, jint type) {
     }
 }
 
+static void nativeInitNetworkTracing(JNIEnv* env, jclass clazz) {
+    NetworkTraceHandler::InitPerfettoTracing();
+}
+
 static const JNINativeMethod gMethods[] = {
-        {"nativeGetTotalStat", "(I)J", (void*)getTotalStat},
-        {"nativeGetIfaceStat", "(Ljava/lang/String;I)J", (void*)getIfaceStat},
-        {"nativeGetUidStat", "(II)J", (void*)getUidStat},
+        {"nativeGetTotalStat", "(I)J", (void*)nativeGetTotalStat},
+        {"nativeGetIfaceStat", "(Ljava/lang/String;I)J", (void*)nativeGetIfaceStat},
+        {"nativeGetUidStat", "(II)J", (void*)nativeGetUidStat},
+        {"nativeInitNetworkTracing", "()V", (void*)nativeInitNetworkTracing},
 };
 
 int register_android_server_net_NetworkStatsService(JNIEnv* env) {
-    return jniRegisterNativeMethods(env, "com/android/server/net/NetworkStatsService", gMethods,
-                                    NELEM(gMethods));
+    return jniRegisterNativeMethods(env,
+            "android/net/connectivity/com/android/server/net/NetworkStatsService", gMethods,
+            NELEM(gMethods));
 }
 
 }

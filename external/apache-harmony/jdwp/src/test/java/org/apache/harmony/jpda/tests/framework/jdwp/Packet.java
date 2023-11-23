@@ -1252,6 +1252,10 @@ public class Packet {
         return reading_data_index == data.length;
     }
 
+    public int remainingData() {
+        return data.length - reading_data_index;
+    }
+
     /**
      * Writes value - val to the array of bytes ar[], beginning from index - to,
      * size of value is - size bytes. If size is less than 8, the appropriate

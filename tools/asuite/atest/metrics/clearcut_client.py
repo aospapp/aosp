@@ -24,6 +24,7 @@ This class is intended to be general-purpose, usable for any Clearcut LogSource.
 """
 
 import logging
+import ssl
 import threading
 import time
 
@@ -39,7 +40,7 @@ except ImportError:
     from urllib2 import HTTPError
     from urllib2 import URLError
 
-from proto import clientanalytics_pb2
+from atest.proto import clientanalytics_pb2
 
 _CLEARCUT_PROD_URL = 'https://play.googleapis.com/log'
 _DEFAULT_BUFFER_SIZE = 100  # Maximum number of events to be buffered.
@@ -150,6 +151,7 @@ class Clearcut:
         self._send_to_clearcut(log_request.SerializeToString())
 
     #pylint: disable=broad-except
+    #pylint: disable=protected-access
     def _send_to_clearcut(self, data):
         """Sends a POST request with data as the body.
 
@@ -158,6 +160,7 @@ class Clearcut:
         """
         request = Request(self._clearcut_url, data=data)
         try:
+            ssl._create_default_https_context = ssl._create_unverified_context
             response = urlopen(request)
             msg = response.read()
             logging.debug('LogRequest successfully sent to Clearcut.')
@@ -169,9 +172,9 @@ class Clearcut:
                                            / 1000 + time.time())
             logging.debug('LogResponse: %s', log_response)
         except HTTPError as e:
-            logging.debug('Failed to push events to Clearcut. Error code: %d',
+            logging.warning('Failed to push events to Clearcut. Error code: %d',
                           e.code)
-        except URLError:
-            logging.debug('Failed to push events to Clearcut.')
+        except URLError as e:
+            logging.warning('Failed to push events to Clearcut. Reason: %s', e)
         except Exception as e:
-            logging.debug(e)
+            logging.warning(e)

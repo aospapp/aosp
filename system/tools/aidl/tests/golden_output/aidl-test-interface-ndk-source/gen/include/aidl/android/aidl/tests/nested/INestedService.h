@@ -15,13 +15,19 @@
 #include <android/binder_stability.h>
 #endif  // BINDER_STABILITY_SUPPORT
 
+namespace aidl::android::aidl::tests::nested {
+class ParcelableWithNested;
+}  // namespace aidl::android::aidl::tests::nested
 namespace aidl {
 namespace android {
 namespace aidl {
 namespace tests {
 namespace nested {
+class INestedServiceDelegator;
+
 class INestedService : public ::ndk::ICInterface {
 public:
+  typedef INestedServiceDelegator DefaultDelegator;
   static const char* descriptor;
   INestedService();
   virtual ~INestedService();
@@ -64,8 +70,11 @@ public:
       return os.str();
     }
   };
+  class ICallbackDelegator;
+
   class ICallback : public ::ndk::ICInterface {
   public:
+    typedef ICallbackDelegator DefaultDelegator;
     static const char* descriptor;
     ICallback();
     virtual ~ICallback();

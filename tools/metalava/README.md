@@ -351,7 +351,7 @@ There are several key helpers that help with the implementation, detailed next.
 First, metalava provides an ItemVisitor. This lets you visit the API easily.
 For example, here's how you can visit every class:
 
-    coebase.accept(object : ItemVisitor() {
+    codebase.accept(object : ItemVisitor() {
         override fun visitClass(cls: ClassItem) {
             // code operating on the class here
         }

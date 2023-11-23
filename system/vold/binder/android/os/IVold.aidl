@@ -30,7 +30,7 @@ interface IVold {
     void reset();
     void shutdown();
 
-    void onUserAdded(int userId, int userSerial);
+    void onUserAdded(int userId, int userSerial, int sharesStorageWithUserId);
     void onUserRemoved(int userId);
     void onUserStarted(int userId);
     void onUserStopped(int userId);
@@ -69,7 +69,8 @@ interface IVold {
     int getStorageLifeTime();
     void setGCUrgentPace(int neededSegments, int minSegmentThreshold,
                          float dirtyReclaimRate, float reclaimWeight,
-                         int gcPeriod);
+                         int gcPeriod, int minGCSleepTime,
+                         int targetDirtyRatio);
     void refreshLatestWrite();
     int getWriteAmount();
 
@@ -79,17 +80,15 @@ interface IVold {
     void fbeEnable();
 
     void initUser0();
-    void mountFstab(@utf8InCpp String blkDevice, @utf8InCpp String mountPoint);
-    void encryptFstab(@utf8InCpp String blkDevice, @utf8InCpp String mountPoint, boolean shouldFormat, @utf8InCpp String fsType);
+    void mountFstab(@utf8InCpp String blkDevice, @utf8InCpp String mountPoint, @utf8InCpp String zonedDevice);
+    void encryptFstab(@utf8InCpp String blkDevice, @utf8InCpp String mountPoint, boolean shouldFormat, @utf8InCpp String fsType, @utf8InCpp String zonedDevice);
 
     void setStorageBindingSeed(in byte[] seed);
 
     void createUserKey(int userId, int userSerial, boolean ephemeral);
     void destroyUserKey(int userId);
 
-    void addUserKeyAuth(int userId, int userSerial, @utf8InCpp String secret);
-    void clearUserKeyAuth(int userId, int userSerial, @utf8InCpp String secret);
-    void fixateNewestUserKeyAuth(int userId);
+    void setUserKeyProtection(int userId, @utf8InCpp String secret);
 
     int[] getUnlockedUsers();
     void unlockUserKey(int userId, int userSerial, @utf8InCpp String secret);

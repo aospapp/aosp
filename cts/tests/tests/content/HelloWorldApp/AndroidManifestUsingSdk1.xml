@@ -17,9 +17,13 @@
              android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
-
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+        </activity>
+        <activity android:name="com.example.helloworld.MainActivityNoExit"
+            android:label="@string/app_name"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:exported="true">
         </activity>
 
         <uses-sdk-library android:name="com.test.sdk1" android:versionMajor="1" android:certDigest="" />

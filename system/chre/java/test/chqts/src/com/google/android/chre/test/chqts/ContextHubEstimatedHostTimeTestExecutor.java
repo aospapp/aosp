@@ -31,8 +31,14 @@ import java.nio.ByteOrder;
  * app to host: CONTINUE
  * host to app: CONTINUE, 64-bit time
  * app to host: SUCCESS
+ *
  */
 public class ContextHubEstimatedHostTimeTestExecutor extends ContextHubGeneralTestExecutor {
+    private static final long MAX_ALLOWED_TIME_DELTA_NS = 10000000;     // 10 ms.
+    private static final int NUM_RTT_SAMPLES = 5;
+    private long mMsgSendTimestampNs = 0;
+    private long mSmallestDelta = Long.MAX_VALUE;
+    private int mSamplesReceived = 0;
 
     public ContextHubEstimatedHostTimeTestExecutor(ContextHubManager manager, ContextHubInfo info,
             NanoAppBinary binary) {
@@ -46,13 +52,40 @@ public class ContextHubEstimatedHostTimeTestExecutor extends ContextHubGeneralTe
         if (type != ContextHubTestConstants.MessageType.CONTINUE) {
             fail("Unexpected message type " + type);
         } else {
-            ByteBuffer buffer = ByteBuffer.allocate(8)
-                    .order(ByteOrder.LITTLE_ENDIAN)
-                    .putLong(SystemClock.elapsedRealtimeNanos());
+            if (data.length != 0 && mMsgSendTimestampNs != 0) {
+                long currentTimestampNs = SystemClock.elapsedRealtimeNanos();
+                long chreTimestampNs = ByteBuffer.wrap(data)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .getLong();
 
-            sendMessageToNanoAppOrFail(nanoAppId,
-                    ContextHubTestConstants.MessageType.CONTINUE.asInt(),
-                    buffer.array());
+                // Identify the closest CHRE timestamp to the midpoint of RTT.
+                // This needs to be done across multiple rounds since RTT may not
+                // be evenly distributed in a single round
+                long middleTimestamp = (currentTimestampNs - mMsgSendTimestampNs) / 2
+                                       + mMsgSendTimestampNs;
+                long deltaNs = java.lang.Math.abs(chreTimestampNs - middleTimestamp);
+
+                mSmallestDelta = java.lang.Math.min(mSmallestDelta, deltaNs);
+                mSamplesReceived += 1;
+
+                if (mSamplesReceived == NUM_RTT_SAMPLES) {
+                    if (mSmallestDelta < MAX_ALLOWED_TIME_DELTA_NS) {
+                        pass();
+                    } else {
+                        fail("Inconsistent CHRE/AP timestamps- Current TS: "
+                                + currentTimestampNs + " CHRE TS: " + chreTimestampNs
+                                + " start TS: " + mMsgSendTimestampNs + " Smallest Delta: "
+                                + mSmallestDelta);
+                    }
+                }
+            }
+
+            if (mSamplesReceived < NUM_RTT_SAMPLES) {
+                mMsgSendTimestampNs = SystemClock.elapsedRealtimeNanos();
+                sendMessageToNanoAppOrFail(nanoAppId,
+                        ContextHubTestConstants.MessageType.CONTINUE.asInt(),
+                        new byte[0] /* data */);
+            }
         }
     }
 }

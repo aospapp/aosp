@@ -18,6 +18,9 @@ package android.net.wifi.aware;
 
 import android.app.PendingIntent;
 
+import android.net.wifi.IBooleanListener;
+import android.net.wifi.IIntegerListener;
+import android.net.wifi.IListListener;
 import android.net.wifi.aware.ConfigRequest;
 import android.net.wifi.aware.IWifiAwareDiscoverySessionCallback;
 import android.net.wifi.aware.IWifiAwareEventCallback;
@@ -46,12 +49,19 @@ interface IWifiAwareManager
     boolean isInstantCommunicationModeEnabled();
     boolean isSetChannelOnDataPathSupported();
     void setAwareParams(in AwareParams parameters);
+    void resetPairedDevices(in String callingPackage);
+    void removePairedDevice(in String callingPackage, in String alias);
+    void getPairedDevices(in String callingPackage, in IListListener value);
+    void setOpportunisticModeEnabled(in String callingPackage, boolean enable);
+    void isOpportunisticModeEnabled(in String callingPackage, in IBooleanListener value);
 
     // client API
     void connect(in IBinder binder, in String callingPackage, in String callingFeatureId,
             in IWifiAwareEventCallback callback, in ConfigRequest configRequest,
-            boolean notifyOnIdentityChanged, in Bundle extras);
+            boolean notifyOnIdentityChanged, in Bundle extras, boolean forAwareOffload);
     void disconnect(int clientId, in IBinder binder);
+    void setMasterPreference(int clientId, in IBinder binder, int mp);
+    void getMasterPreference(int clientId, in IBinder binder, in IIntegerListener listener);
 
     void publish(in String callingPackage, in String callingFeatureId, int clientId,
             in PublishConfig publishConfig, in IWifiAwareDiscoverySessionCallback callback,
@@ -66,6 +76,13 @@ interface IWifiAwareManager
     void sendMessage(int clientId, int discoverySessionId, int peerId, in byte[] message,
         int messageId, int retryCount);
     void terminateSession(int clientId, int discoverySessionId);
+    void initiateNanPairingSetupRequest(int clientId, int sessionId, int peerId,
+                String password, String pairingDeviceAlias, int cipherSuite);
+    void responseNanPairingSetupRequest(int clientId, int sessionId, int peerId, int requestId,
+                String password, String pairingDeviceAlias, boolean accept, int cipherSuite);
+    void initiateBootStrappingSetupRequest(int clientId, int sessionId, int peerId,int method);
+    void suspend(int clientId, int sessionId);
+    void resume(int clientId, int sessionId);
 
     // internal APIs: intended to be used between System Services (restricted permissions)
     void requestMacAddresses(int uid, in int[] peerIds, in IWifiAwareMacAddressProvider callback);

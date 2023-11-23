@@ -20,6 +20,8 @@
           package="android.app.appops.cts.appthatcanbeforcedintoforegroundstates">
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
 
     <application>
         <service android:name=".AppOpsForegroundControlService" android:exported="true"/>
@@ -27,7 +29,11 @@
         <service android:name=".AppOpsForegroundControlLocationForegroundService"
                  android:exported="true"
                  android:foregroundServiceType="location"/>
-        <service android:name=".AppOpsForegroundControlForegroundService" android:exported="true"/>
+        <service android:name=".AppOpsForegroundControlForegroundService"
+                 android:foregroundServiceType="specialUse"
+                 android:exported="true">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="cts" />
+        </service>
         <activity android:name=".AppOpsForegroundControlActivity" android:exported="true"/>
     </application>
 </manifest>

@@ -17,7 +17,6 @@
 package com.android.layoutlib.bridge.android;
 
 import com.android.ide.common.rendering.api.IImageFactory;
-import com.android.ide.common.rendering.api.LayoutlibCallback;
 import com.android.ide.common.rendering.api.RenderParams;
 import com.android.ide.common.rendering.api.SessionParams.Key;
 
@@ -38,19 +37,13 @@ public final class RenderParamsFlags {
             new Key<Boolean>("renderAllDrawableStates", Boolean.class);
 
     /**
-     * The application package name. Used via {@link LayoutlibCallback#getFlag(Key)}
-     */
-    public static final Key<String> FLAG_KEY_APPLICATION_PACKAGE =
-            new Key<String>("applicationPackage", String.class);
-
-    /**
      * To tell LayoutLib to not render when creating a new session. This allows controlling when the first
      * layout rendering will happen.
      */
     public static final Key<Boolean> FLAG_DO_NOT_RENDER_ON_CREATE =
             new Key<Boolean>("doNotRenderOnCreate", Boolean.class);
     /**
-     * The adaptive icon mask path. Used via {@link LayoutlibCallback#getFlag(Key)}
+     * To tell Layoutlib which path to use for the adaptive icon mask.
      */
     public static final Key<String> FLAG_KEY_ADAPTIVE_ICON_MASK_PATH =
             new Key<>("adaptiveIconMaskPath", String.class);
@@ -76,6 +69,19 @@ public final class RenderParamsFlags {
      */
     public static final Key<Boolean> FLAG_ENABLE_LAYOUT_VALIDATOR_IMAGE_CHECK =
             new Key<>("enableLayoutValidatorImageCheck", Boolean.class);
+
+    /**
+     * To tell Layoutlib the path of the image resource of the wallpaper to use for dynamic theming.
+     * If null, use default system colors.
+     */
+    public static final Key<String> FLAG_KEY_WALLPAPER_PATH =
+            new Key<>("wallpaperPath", String.class);
+
+    /**
+     * To tell Layoutlib to use the themed version of adaptive icons.
+     */
+    public static final Key<Boolean> FLAG_KEY_USE_THEMED_ICON =
+            new Key<>("useThemedIcon", Boolean.class);
 
     // Disallow instances.
     private RenderParamsFlags() {}

@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"Учурда шашылыш чалуудан улам, <xliff:g id="CALLER">%s</xliff:g> чалуу ажыратылган."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"Учурда шашылыш чалуудан улам, чалууңуз ажыратылган."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"Фондогу чалуу"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> чалууну фонго койгон. Бул колдонмо чалуу аркылуу аудиого кирип, ойното алат."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> чалууну фондо иштетип жатат. Бул колдонмо чалуунун аудиосуна кирип, ойното алат."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> жооп берүүнү токтотту"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"Чалууңуз түзмөгүңүз менен келген телефон колдонмосун пайдаланды"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"Чалуу үнсүз тартипте."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Фондогу чалуулар"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Ажыратылган чалуулар"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Катадан улам иштебей калган телефон колдонмолору"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"Чалууну берүү"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"Эгер чалып баштасаңыз, <xliff:g id="OTHER_APP">%1$s</xliff:g> чалууңуз аяктайт."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Чалуу жолун тандаңыз"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"<xliff:g id="OTHER_APP">%1$s</xliff:g> аркылуу чалуу багытын буруу"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Telecom иштеп чыгуучусунун менюсу"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Шашылыш учурунда чалуулар кабыл алынбайт."</string>
     <string name="cancel" msgid="6733466216239934756">"Жокко чыгаруу"</string>
+    <string name="back" msgid="6915955601805550206">"Артка"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"Кулакчын"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"Bluetooth"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"Зымдуу гарнитура"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"Динамик"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"Тышкы"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"Белгисиз"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"Аудио башка түзмөккө берилүүдө"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"Чалууну бүтүрүү"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"Бул жерге которулуу"</string>
 </resources>

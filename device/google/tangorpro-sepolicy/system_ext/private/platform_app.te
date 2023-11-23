@@ -1,0 +1,2 @@
+# Allow platform apps to access system_update_service (e.g. check if update info is available).
+allow platform_app system_update_service:service_manager find;

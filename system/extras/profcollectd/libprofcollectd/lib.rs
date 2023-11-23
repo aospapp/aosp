@@ -114,7 +114,7 @@ pub fn process() -> Result<()> {
 
 /// Process traces and report profile.
 pub fn report() -> Result<String> {
-    Ok(get_profcollectd_service()?.report()?)
+    Ok(get_profcollectd_service()?.report(report::NO_USAGE_SETTING)?)
 }
 
 /// Clear all local data.

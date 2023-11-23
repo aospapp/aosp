@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Tuntematon laite"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Tuntematon"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Ei saatavilla"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Lentokonetila"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Et voi käyttää Bluetoothia lentokonetilassa."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -42,7 +43,7 @@
     <string name="notification_received" msgid="2330252358543000567">"Bluetooth-jako: <xliff:g id="FILE">%1$s</xliff:g> vastaanotettu"</string>
     <string name="notification_received_fail" msgid="9059153354809379374">"Bluetooth-jako: tiedostoa <xliff:g id="FILE">%1$s</xliff:g> ei vastaanotettu"</string>
     <string name="notification_sending" msgid="8269912843286868700">"Bluetooth-jako: lähetetään tiedostoa <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="notification_sent" msgid="2685202778935769332">"Bluetooth-jako: lähetä <xliff:g id="FILE">%1$s</xliff:g>"</string>
+    <string name="notification_sent" msgid="2685202778935769332">"Bluetooth-jako: <xliff:g id="FILE">%1$s</xliff:g> lähetetty"</string>
     <string name="notification_sent_complete" msgid="6293391081175517098">"100 % valmis"</string>
     <string name="notification_sent_fail" msgid="7449832660578001579">"Bluetooth-jako: tiedostoa <xliff:g id="FILE">%1$s</xliff:g> ei lähetetty"</string>
     <string name="download_title" msgid="6449408649671518102">"Tiedostonsiirto"</string>
@@ -105,7 +106,7 @@
     <string name="upload_success" msgid="143787470859042049">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> lähetys valmis."</string>
     <string name="inbound_history_title" msgid="189623888169624862">"Saapuvat siirrot"</string>
     <string name="outbound_history_title" msgid="7614166584551065036">"Lähtevät siirrot"</string>
-    <string name="no_transfers" msgid="740521199933899821">"Lähetyshistoria on tyhjä."</string>
+    <string name="no_transfers" msgid="740521199933899821">"Lataushistoria on tyhjä."</string>
     <string name="transfer_clear_dlg_msg" msgid="586117930961007311">"Koko luettelo tyhjennetään."</string>
     <string name="outbound_noti_title" msgid="2045560896819618979">"Bluetooth-jako: Lähetetyt tiedostot"</string>
     <string name="inbound_noti_title" msgid="3730993443609581977">"Bluetooth-jako: Vastaanotetut tiedostot"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Bluetooth-ääni"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Yli 4 Gt:n kokoisia tiedostoja ei voi siirtää."</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Muodosta Bluetooth-yhteys"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth päällä lentokonetilassa"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Jos pidät Bluetooth-yhteyden päällä, laite pitää sen päällä, kun seuraavan kerran olet lentokonetilassa"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth pysyy päällä"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Laitteen Bluetooth pysyy päällä lentokonetilassa. Voit halutessasi laittaa Bluetooth-yhteyden pois päältä."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi ja Bluetooth pysyvät päällä"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Laitteen Wi-Fi-yhteys ja Bluetooth pysyvät päällä lentokonetilassa. Voit halutessasi laittaa ne pois päältä."</string>
 </resources>

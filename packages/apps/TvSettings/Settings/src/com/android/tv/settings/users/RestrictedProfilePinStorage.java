@@ -30,6 +30,8 @@ import com.android.internal.widget.LockPatternUtils;
 import com.android.internal.widget.LockPatternUtils.RequestThrottledException;
 import com.android.internal.widget.LockscreenCredential;
 
+import java.util.Arrays;
+
 /**
  * Utilities for saving restricted profile PINs. This class binds to a
  * {@link RestrictedProfilePinService} to store and retrieve pins.
@@ -183,7 +185,7 @@ public class RestrictedProfilePinStorage {
     private boolean checkPasswordLegacy(String pin) {
         try {
             LockscreenCredential credential = LockscreenCredential.createPin(pin);
-            Log.i(TAG, "checkPasswordLegacy " + credential.getCredential());
+            Log.i(TAG, "checkPasswordLegacy " + Arrays.toString(credential.getCredential()));
             boolean response = mLockPatternUtils.checkCredential(credential, mOwnerUserId, null);
             Log.i(TAG, "response " + response);
             if (response) {

@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="no_upstream_notification_title" msgid="611650570559011140">"Η σύνδεση δεν έχει πρόσβαση στο διαδίκτυο"</string>
-    <string name="no_upstream_notification_message" msgid="6508394877641864863">"Δεν είναι δυνατή η σύνδεση των συσκευών"</string>
-    <string name="no_upstream_notification_disable_button" msgid="7609346639290990508">"Απενεργοποιήστε τη σύνδεση"</string>
-    <string name="upstream_roaming_notification_title" msgid="6032901176124830787">"Ενεργό σημείο πρόσβασης Wi-Fi ή ενεργή σύνδεση"</string>
-    <string name="upstream_roaming_notification_message" msgid="7599056263326217523">"Ενδέχεται να ισχύουν επιπλέον χρεώσεις κατά την περιαγωγή."</string>
+    <string name="no_upstream_notification_title" msgid="5897815458155858594">"Η σύνδεση δεν έχει πρόσβαση στο διαδίκτυο"</string>
+    <string name="no_upstream_notification_message" msgid="9037716118606459874">"Δεν είναι δυνατή η σύνδεση των συσκευών"</string>
+    <string name="no_upstream_notification_disable_button" msgid="5284024068281565456">"Απενεργοποίηση σύνδεσης"</string>
+    <string name="upstream_roaming_notification_title" msgid="186331286017243006">"Ενεργό σημείο πρόσβασης Wi-Fi ή ενεργή σύνδεση"</string>
+    <string name="upstream_roaming_notification_message" msgid="7692641323940316538">"Ενδέχεται να ισχύουν επιπλέον χρεώσεις κατά την περιαγωγή."</string>
 </resources>

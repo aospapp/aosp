@@ -35,6 +35,7 @@ import android.telephony.euicc.EuiccManager;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.ons.ONSProfileDownloader.DownloadRetryResultCode;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,8 +49,6 @@ import java.util.Random;
 public class ONSProfileActivator implements ONSProfileConfigurator.ONSProfConfigListener,
         ONSProfileDownloader.IONSProfileDownloaderListener {
 
-    public static final String ACTION_CARRIER_CONFIG_CHANGED =
-            "android.telephony.action.CARRIER_CONFIG_CHANGED";
     private static final String TAG = ONSProfileActivator.class.getName();
     private final Context mContext;
     private final SubscriptionManager mSubManager;
@@ -59,13 +58,14 @@ public class ONSProfileActivator implements ONSProfileConfigurator.ONSProfConfig
     private final ONSProfileConfigurator mONSProfileConfig;
     private final ONSProfileDownloader mONSProfileDownloader;
     private final ConnectivityManager mConnectivityManager;
+    private final ONSStats mONSStats;
     @VisibleForTesting protected boolean mIsInternetConnAvailable = false;
     @VisibleForTesting protected boolean mRetryDownloadWhenNWConnected = false;
-    private int mDownloadRetryCount = 0;
+    @VisibleForTesting protected int mDownloadRetryCount = 0;
 
     @VisibleForTesting protected static final int REQUEST_CODE_DOWNLOAD_RETRY = 2;
 
-    public ONSProfileActivator(Context context) {
+    public ONSProfileActivator(Context context, ONSStats onsStats) {
         mContext = context;
         mSubManager = mContext.getSystemService(SubscriptionManager.class);
         mTelephonyManager = mContext.getSystemService(TelephonyManager.class);
@@ -78,7 +78,7 @@ public class ONSProfileActivator implements ONSProfileConfigurator.ONSProfConfig
 
         //Monitor internet connection.
         mConnectivityManager = context.getSystemService(ConnectivityManager.class);
-
+        mONSStats = onsStats;
         NetworkRequest request = new NetworkRequest.Builder().addCapability(
                 NetworkCapabilities.NET_CAPABILITY_VALIDATED).build();
         mConnectivityManager.registerNetworkCallback(request, new NetworkCallback());
@@ -92,7 +92,7 @@ public class ONSProfileActivator implements ONSProfileConfigurator.ONSProfConfig
                         TelephonyManager telephonyManager, CarrierConfigManager carrierConfigMgr,
                         EuiccManager euiccManager, ConnectivityManager connManager,
                         ONSProfileConfigurator onsProfileConfigurator,
-                        ONSProfileDownloader onsProfileDownloader) {
+                        ONSProfileDownloader onsProfileDownloader, ONSStats onsStats) {
         mContext = mockContext;
         mSubManager = subscriptionManager;
         mTelephonyManager = telephonyManager;
@@ -101,6 +101,7 @@ public class ONSProfileActivator implements ONSProfileConfigurator.ONSProfConfig
         mConnectivityManager = connManager;
         mONSProfileConfig = onsProfileConfigurator;
         mONSProfileDownloader = onsProfileDownloader;
+        mONSStats = onsStats;
     }
 
     ONSProfileConfigurator getONSProfileConfigurator() {
@@ -116,7 +117,9 @@ public class ONSProfileActivator implements ONSProfileConfigurator.ONSProfConfig
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case REQUEST_CODE_DOWNLOAD_RETRY: {
-                    provisionCBRS();
+                    Result res = provisionCBRS();
+                    Log.d(TAG, res.toString());
+                    mONSStats.logEvent(new ONSStatsInfo().setProvisioningResult(res));
                 }
                 break;
             }
@@ -127,19 +130,24 @@ public class ONSProfileActivator implements ONSProfileConfigurator.ONSProfConfig
      * Called when SIM state changes. Triggers CBRS Auto provisioning.
      */
     public Result handleCarrierConfigChange() {
-        /*final int simState = mTelephonyManager.getSimState();
-        if (simState != TelephonyManager.SIM_STATE_READY) {
-            return Result.ERR_SIM_NOT_READY;
-        }*/
-
         Result res = provisionCBRS();
         Log.d(TAG, res.toString());
+        mONSStats.logEvent(new ONSStatsInfo().setProvisioningResult(res));
+
+        // Reset mDownloadRetryCount as carrier config change event is received. Either new SIM card
+        // is inserted or carrier config values are updated.
+        if (res == Result.DOWNLOAD_REQUESTED || res == Result.SUCCESS) {
+            mDownloadRetryCount = 0;
+        }
+
         return res;
     }
 
     @Override
     public void onOppSubscriptionDeleted(int pSIMId) {
-        provisionCBRS();
+        Result res = provisionCBRS();
+        Log.d(TAG, res.toString());
+        mONSStats.logEvent(new ONSStatsInfo().setProvisioningResult(res));
     }
 
     /**
@@ -165,12 +173,13 @@ public class ONSProfileActivator implements ONSProfileConfigurator.ONSProfConfig
 
         //Check the number of active subscriptions.
         List<SubscriptionInfo> activeSubInfos = mSubManager.getActiveSubscriptionInfoList();
+        if (activeSubInfos == null || activeSubInfos.size() <= 0) {
+            return Result.ERR_NO_SIM_INSERTED;
+        }
         int activeSubCount = activeSubInfos.size();
         Log.d(TAG, "Active subscription count:" + activeSubCount);
 
-        if (activeSubCount <= 0) {
-            return Result.ERR_NO_SIM_INSERTED;
-        } else if (activeSubCount == 1) {
+        if (activeSubCount == 1) {
             SubscriptionInfo pSubInfo = activeSubInfos.get(0);
             if (pSubInfo.isOpportunistic()) {
                 //Only one SIM is active and its opportunistic SIM.
@@ -273,8 +282,16 @@ public class ONSProfileActivator implements ONSProfileConfigurator.ONSProfConfig
         }
 
         //Opportunistic subscription not found. Trigger Download.
-        mONSProfileDownloader.downloadProfile(primaryCBRSSubInfo.getSubscriptionId());
-        return Result.SUCCESS;
+        ONSProfileDownloader.DownloadProfileResult res = mONSProfileDownloader.downloadProfile(
+                primaryCBRSSubInfo.getSubscriptionId());
+
+        switch (res) {
+            case DUPLICATE_REQUEST: return Result.ERR_DUPLICATE_DOWNLOAD_REQUEST;
+            case INVALID_SMDP_ADDRESS: return Result.ERR_INVALID_CARRIER_CONFIG;
+            case SUCCESS: return Result.DOWNLOAD_REQUESTED;
+        }
+
+        return Result.ERR_UNKNOWN;
     }
 
     @Override
@@ -284,23 +301,37 @@ public class ONSProfileActivator implements ONSProfileConfigurator.ONSProfConfig
                 primarySubId);
         if (opportunisticESIM == null) {
             Log.e(TAG, "Downloaded Opportunistic eSIM not found. Unable to group with pSIM");
+            mONSStats.logEvent(new ONSStatsInfo()
+                    .setProvisioningResult(Result.ERR_DOWNLOADED_ESIM_NOT_FOUND)
+                    .setPrimarySimSubId(primarySubId)
+                    .setWifiConnected(isWiFiConnected()));
             return;
         }
 
         SubscriptionInfo pSIMSubInfo = mSubManager.getActiveSubscriptionInfo(primarySubId);
         if (pSIMSubInfo != null) {
+            // Group with same Primary SIM for which eSIM is downloaded.
             mONSProfileConfig.groupWithPSIMAndSetOpportunistic(
                     opportunisticESIM, pSIMSubInfo.getGroupUuid());
             Log.d(TAG, "eSIM downloaded and configured successfully");
+            mONSStats.logEvent(new ONSStatsInfo()
+                    .setProvisioningResult(Result.SUCCESS)
+                    .setRetryCount(mDownloadRetryCount)
+                    .setWifiConnected(isWiFiConnected()));
         } else {
             Log.d(TAG, "ESIM downloaded but pSIM is not active or removed");
+            mONSStats.logEvent(new ONSStatsInfo()
+                    .setProvisioningResult(Result.ERR_PSIM_NOT_FOUND)
+                    .setOppSimCarrierId(opportunisticESIM.getCarrierId())
+                    .setWifiConnected(isWiFiConnected()));
         }
     }
 
     @Override
-    public void onDownloadError(ONSProfileDownloader.DownloadRetryOperationCode operationCode,
-                                int pSIMSubId) {
-        switch (operationCode) {
+    public void onDownloadError(int pSIMSubId, DownloadRetryResultCode resultCode,
+            int detailedErrorCode) {
+        boolean logStats = true;
+        switch (resultCode) {
             case ERR_MEMORY_FULL: {
                 //eUICC Memory full occurred while downloading opportunistic eSIM.
 
@@ -340,34 +371,48 @@ public class ONSProfileActivator implements ONSProfileConfigurator.ONSProfConfig
             break;
 
             case ERR_RETRY_DOWNLOAD: {
-                startBackoffTimer(pSIMSubId, mDownloadRetryCount);
+                if (startBackoffTimer(pSIMSubId)) {
+                    // do not log the atom if download retry has not reached max limit.
+                    logStats = false;
+                }
             }
             break;
-
-            case ERR_UNRESOLVABLE: {
-                //Stop download until SIM change or device reboot.
+            default: {
+                // Stop download until SIM change or device reboot.
+                Log.e(TAG, "Download failed with cause=" + resultCode);
             }
+        }
+        if (logStats) {
+            mONSStats.logEvent(new ONSStatsInfo()
+                    .setDownloadResult(resultCode)
+                    .setPrimarySimSubId(pSIMSubId)
+                    .setRetryCount(mDownloadRetryCount)
+                    .setDetailedErrCode(detailedErrorCode)
+                    .setWifiConnected(isWiFiConnected()));
         }
     }
 
     /**
      * Called when eSIM download fails. Listener is called after a delay based on retry count with
      * the error code: BACKOFF_TIMER_EXPIRED
-     * @param pSIMSubId
-     * @param retryCount
+     *
+     * @param pSIMSubId Primary Subscription ID
+     * @return true if backoff timer starts; otherwise false.
      */
     @VisibleForTesting
-    protected void startBackoffTimer(int pSIMSubId, int retryCount) {
+    protected boolean startBackoffTimer(int pSIMSubId) {
         //retry logic
-        retryCount++;
-        Log.e(TAG, "Download retry count :" + retryCount);
-        if (retryCount >= getDownloadRetryMaxAttemptsVal(pSIMSubId)) {
+        mDownloadRetryCount++;
+        Log.e(TAG, "Download retry count :" + mDownloadRetryCount);
+
+        //Stop download retry if number of retries exceeded max configured value.
+        if (mDownloadRetryCount > getDownloadRetryMaxAttemptsVal(pSIMSubId)) {
             Log.e(TAG, "Max download retry attempted. Stopping retry");
-            return;
+            return false;
         }
 
         int backoffTimerVal = getDownloadRetryBackOffTimerVal(pSIMSubId);
-        int delay = calculateBackoffDelay(retryCount, backoffTimerVal);
+        int delay = calculateBackoffDelay(mDownloadRetryCount, backoffTimerVal);
 
         Message retryMsg = new Message();
         retryMsg.what = REQUEST_CODE_DOWNLOAD_RETRY;
@@ -375,6 +420,7 @@ public class ONSProfileActivator implements ONSProfileConfigurator.ONSProfConfig
         mHandler.sendMessageDelayed(retryMsg, delay);
 
         Log.d(TAG, "Download failed. Retry after :" + delay + "MilliSecs");
+        return true;
     }
 
     @VisibleForTesting
@@ -405,7 +451,7 @@ public class ONSProfileActivator implements ONSProfileConfigurator.ONSProfConfig
      * attempts will not be made until next device reboot.
      *
      * @param subscriptionId subscription Id of the primary SIM.
-     * @return
+     * @return integer value for maximum allowed retry attempts.
      */
     private int getDownloadRetryMaxAttemptsVal(int subscriptionId) {
         PersistableBundle config = mCarrierConfigMgr.getConfigForSubId(subscriptionId);
@@ -506,7 +552,9 @@ public class ONSProfileActivator implements ONSProfileConfigurator.ONSProfConfig
             Log.d(TAG, "Internet connection available");
             mIsInternetConnAvailable = true;
             if (mRetryDownloadWhenNWConnected) {
-                provisionCBRS();
+                Result res = provisionCBRS();
+                Log.d(TAG, res.toString());
+                mONSStats.logEvent(new ONSStatsInfo().setProvisioningResult(res));
             }
         }
 
@@ -518,20 +566,28 @@ public class ONSProfileActivator implements ONSProfileConfigurator.ONSProfConfig
         }
     }
 
+    /**
+     * Enum to map the results of the CBRS provisioning. The order of the defined enums must be kept
+     * intact and new entries should be appended at the end of the list.
+     */
     public enum Result {
         SUCCESS,
+        DOWNLOAD_REQUESTED,
         ERR_SWITCHING_TO_DUAL_SIM_MODE,
         ERR_AUTO_PROVISIONING_DISABLED,
         ERR_ESIM_NOT_SUPPORTED,
         ERR_MULTISIM_NOT_SUPPORTED,
         ERR_CARRIER_DOESNT_SUPPORT_CBRS,
-        ERR_DUAL_ACTIVE_SUBSCRIPTIONS,//Both the slots have primary SIMs
+        ERR_DUAL_ACTIVE_SUBSCRIPTIONS,
         ERR_NO_SIM_INSERTED,
         ERR_SINGLE_ACTIVE_OPPORTUNISTIC_SIM,
         ERR_CANNOT_SWITCH_TO_DUAL_SIM_MODE,
-        ERR_SIM_NOT_READY,
         ERR_WAITING_FOR_INTERNET_CONNECTION,
         ERR_WAITING_FOR_WIFI_CONNECTION,
+        ERR_DUPLICATE_DOWNLOAD_REQUEST,
+        ERR_INVALID_CARRIER_CONFIG,
+        ERR_DOWNLOADED_ESIM_NOT_FOUND,
+        ERR_PSIM_NOT_FOUND,
         ERR_UNKNOWN;
     }
 }

@@ -43,6 +43,7 @@ import android.view.View;
 import com.android.launcher3.CellLayout;
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.R;
+import com.android.launcher3.util.Themes;
 import com.android.launcher3.views.ActivityContext;
 
 /**
@@ -150,7 +151,7 @@ public class PreviewBackground extends CellLayout.DelegatedCellDrawing {
         mInvalidateDelegate = invalidateDelegate;
 
         TypedArray ta = context.getTheme().obtainStyledAttributes(R.styleable.FolderIconPreview);
-        mDotColor = ta.getColor(R.styleable.FolderIconPreview_folderDotColor, 0);
+        mDotColor = Themes.getAttrColor(context, R.attr.notificationDotColor);
         mStrokeColor = ta.getColor(R.styleable.FolderIconPreview_folderIconBorderColor, 0);
         mBgColor = ta.getColor(R.styleable.FolderIconPreview_folderPreviewColor, 0);
         ta.recycle();
@@ -333,12 +334,15 @@ public class PreviewBackground extends CellLayout.DelegatedCellDrawing {
                 getOffsetX() + inset, getOffsetY() + inset, getScaledRadius() - inset, mPaint);
     }
 
-    public void drawLeaveBehind(Canvas canvas) {
+    /**
+     * Draws the leave-behind circle on the given canvas and in the given color.
+     */
+    public void drawLeaveBehind(Canvas canvas, int color) {
         float originalScale = mScale;
         mScale = 0.5f;
 
         mPaint.setStyle(Paint.Style.FILL);
-        mPaint.setColor(Color.argb(160, 245, 245, 245));
+        mPaint.setColor(color);
         getShape().drawShape(canvas, getOffsetX(), getOffsetY(), getScaledRadius(), mPaint);
 
         mScale = originalScale;

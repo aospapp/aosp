@@ -20,6 +20,8 @@
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
+    <option name="config-descriptor:metadata" key="parameter" value="all_foldable_states" />
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -32,6 +34,7 @@
         <option name="push" value="CtsGameTestApp.apk->/data/local/tmp/cts/gamemanager/test/apps/CtsGameTestApp.apk" />
         <option name="push" value="CtsGameTestAppWithBatteryMode.apk->/data/local/tmp/cts/gamemanager/test/apps/CtsGameTestAppWithBatteryMode.apk" />
         <option name="push" value="CtsGameTestAppWithPerformanceMode.apk->/data/local/tmp/cts/gamemanager/test/apps/CtsGameTestAppWithPerformanceMode.apk" />
+        <option name="push" value="CtsGameTestAppWithTiramisuTarget.apk->/data/local/tmp/cts/gamemanager/test/apps/CtsGameTestAppWithTiramisuTarget.apk" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >

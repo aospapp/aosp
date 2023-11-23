@@ -43,9 +43,10 @@ bool SetSystemProperty(const std::string& property, const std::string& value) {
   return true;
 }
 
-void ClearSystemPropertiesForHost() {
+bool ClearSystemPropertiesForHost() {
   std::lock_guard<std::mutex> lock(properties_mutex);
   properties.clear();
+  return true;
 }
 
 bool IsRootCanalEnabled() {

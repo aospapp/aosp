@@ -89,12 +89,6 @@ AllocationManager* gAllocManager;
     }                           \
   } while (false)
 
-// Returns whether we are able to use all jvmti features.
-static bool IsFullJvmtiAvailable() {
-  art::Runtime* runtime = art::Runtime::Current();
-  return runtime->GetInstrumentation()->IsForcedInterpretOnly() || runtime->IsJavaDebuggable();
-}
-
 class JvmtiFunctions {
  private:
   static jvmtiError getEnvironmentError(jvmtiEnv* env) {
@@ -1474,19 +1468,21 @@ extern "C" bool ArtPlugin_Initialize() {
   FieldUtil::Register(gEventHandler);
   BreakpointUtil::Register(gEventHandler);
   Transformer::Register(gEventHandler);
-
-  {
-    // Make sure we can deopt anything we need to.
-    art::ScopedSuspendAll ssa(__FUNCTION__);
-    gDeoptManager->FinishSetup();
-  }
-
+  gDeoptManager->FinishSetup();
   runtime->GetJavaVM()->AddEnvironmentHook(GetEnvHandler);
 
   return true;
 }
 
 extern "C" bool ArtPlugin_Deinitialize() {
+  // When runtime is shutting down, it is not necessary to unregister callbacks or update
+  // instrumentation levels. Removing callbacks require a GC critical section in some cases and
+  // when runtime is shutting down we already stop GC and hence it is not safe to request to
+  // enter a GC critical section.
+  if (art::Runtime::Current()->IsShuttingDown(art::Thread::Current())) {
+    return true;
+  }
+
   gEventHandler->Shutdown();
   gDeoptManager->Shutdown();
   PhaseUtil::Unregister();

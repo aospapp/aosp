@@ -15,7 +15,7 @@
   ~ limitations under the License.
   -->
 <configuration description="Runs sdk sandbox lifecycle host tests">
-    <option name="test-suite-tag" value="SupplementalProcessLifecycleHostTest" />
+    <option name="test-suite-tag" value="SdkSandboxLifecycleHostTest" />
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -37,13 +37,23 @@
         <option name="test-file-name" value="SdkSandboxTestApp2.apk" />
     </target_preparer>
 
-    <!--
-      ~ TODO(b/214506422) Remove commands which handle hidden APIs when APIs are no longer hidden
-    -->
-    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
-        <option name="run-command" value="settings put global hidden_api_policy 1" />
-        <option name="teardown-command" value="settings delete global hidden_api_policy" />
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+        <option name="cleanup-apks" value="true" />
+        <option name="test-file-name" value="SdkSandboxTestSharedApp1.apk" />
     </target_preparer>
+
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+        <option name="cleanup-apks" value="true" />
+        <option name="test-file-name" value="SdkSandboxTestSharedApp2.apk" />
+    </target_preparer>
+
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="cmd sdk_sandbox set-state --enabled" />
+        <option name="run-command" value="device_config set_sync_disabled_for_tests persistent" />
+        <option name="teardown-command" value="device_config set_sync_disabled_for_tests none" />
+        <option name="teardown-command" value="cmd sdk_sandbox set-state --reset" />
+    </target_preparer>
+
 
     <test class="com.android.tradefed.testtype.HostTest" >
         <option
@@ -51,4 +61,12 @@
             value="com.android.tests.sdksandbox.host.SdkSandboxLifecycleHostTest"
         />
     </test>
+
+    <object type="module_controller"
+            class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController" >
+        <option name="mainline-module-package-name" value="com.google.android.adservices" />
+    </object>
+
+    <option name="config-descriptor:metadata" key="mainline-param"
+        value="com.google.android.adservices.apex" />
 </configuration>

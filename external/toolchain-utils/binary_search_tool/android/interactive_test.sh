@@ -1,6 +1,6 @@
 #!/bin/bash -u
 #
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2016 Google LLC
 #
 # This script pings the android device to determine if it successfully booted.
 # It then asks the user if the image is good or not, allowing the user to

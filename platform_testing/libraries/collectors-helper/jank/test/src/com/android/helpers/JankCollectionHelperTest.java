@@ -22,9 +22,9 @@ import static com.android.helpers.JankCollectionHelper.GfxInfoMetric.FRAME_TIME_
 import static com.android.helpers.JankCollectionHelper.GfxInfoMetric.FRAME_TIME_95TH;
 import static com.android.helpers.JankCollectionHelper.GfxInfoMetric.FRAME_TIME_99TH;
 import static com.android.helpers.JankCollectionHelper.GfxInfoMetric.JANKY_FRAMES_COUNT;
-import static com.android.helpers.JankCollectionHelper.GfxInfoMetric.JANKY_FRAMES_PRCNT;
 import static com.android.helpers.JankCollectionHelper.GfxInfoMetric.JANKY_FRAMES_LEGACY_COUNT;
 import static com.android.helpers.JankCollectionHelper.GfxInfoMetric.JANKY_FRAMES_LEGACY_PRCNT;
+import static com.android.helpers.JankCollectionHelper.GfxInfoMetric.JANKY_FRAMES_PRCNT;
 import static com.android.helpers.JankCollectionHelper.GfxInfoMetric.NUM_FRAME_DEADLINE_MISSED;
 import static com.android.helpers.JankCollectionHelper.GfxInfoMetric.NUM_FRAME_DEADLINE_MISSED_LEGACY;
 import static com.android.helpers.JankCollectionHelper.GfxInfoMetric.NUM_HIGH_INPUT_LATENCY;
@@ -158,10 +158,14 @@ public class JankCollectionHelperTest {
         mHelper.startCollecting();
         Map<String, Double> metrics = mHelper.getMetrics();
         for (String key : metrics.keySet()) {
-            assertWithMessage("All keys must contains the single watched package name.")
+            if (key.equals(JankCollectionHelper.FAILED_PACKAGES_COUNT_METRIC)) continue;
+            assertWithMessage(
+                            "All keys must contains the single watched package name, except for the"
+                                    + " failure count metric.")
                     .that(key)
                     .contains("pkg1");
         }
+        assertThat(metrics).containsEntry(JankCollectionHelper.FAILED_PACKAGES_COUNT_METRIC, 0d);
         mHelper.stopCollecting();
     }
 
@@ -180,10 +184,15 @@ public class JankCollectionHelperTest {
         Map<String, Double> metrics = mHelper.getMetrics();
         // Assert against all keys that they only match expected packages.
         for (String key : metrics.keySet()) {
-            assertWithMessage("All keys must contains one of the 2 watched package names.")
+            if (key.equals(JankCollectionHelper.FAILED_PACKAGES_COUNT_METRIC)) continue;
+            assertWithMessage(
+                            "All keys must contains one of the 2 watched package names, except for"
+                                    + " the failure count metric.")
                     .that(key)
                     .containsMatch(".*pkg(1|2).*");
-            assertWithMessage("The unwatched package should not be included in metrics.")
+            assertWithMessage(
+                            "The unwatched package should not be included in metrics, except for"
+                                    + " the failure count metric.")
                     .that(key)
                     .doesNotContain("pkg3");
         }
@@ -215,7 +224,10 @@ public class JankCollectionHelperTest {
         Map<String, Double> metrics = mHelper.getMetrics();
         // Assert against all keys that they only match expected packages.
         for (String key : metrics.keySet()) {
-            assertWithMessage("All keys must contains one of the output package names.")
+            if (key.equals(JankCollectionHelper.FAILED_PACKAGES_COUNT_METRIC)) continue;
+            assertWithMessage(
+                            "All keys must contains one of the output package names, except for the"
+                                    + " failed package count metric.")
                     .that(key)
                     .containsMatch(".*pkg(1|2|3).*");
         }
@@ -223,6 +235,8 @@ public class JankCollectionHelperTest {
         assertThat(metrics).containsKey(buildMetricKey("pkg1", TOTAL_FRAMES.getMetricId()));
         assertThat(metrics).containsKey(buildMetricKey("pkg2", TOTAL_FRAMES.getMetricId()));
         assertThat(metrics).containsKey(buildMetricKey("pkg3", TOTAL_FRAMES.getMetricId()));
+        // No failures.
+        assertThat(metrics).containsEntry(JankCollectionHelper.FAILED_PACKAGES_COUNT_METRIC, 0d);
         mHelper.stopCollecting();
     }
 
@@ -268,7 +282,8 @@ public class JankCollectionHelperTest {
                         buildMetricKey("pkg1", NUM_SLOW_UI_THREAD.getMetricId()),
                         buildMetricKey("pkg1", NUM_SLOW_BITMAP_UPLOADS.getMetricId()),
                         buildMetricKey("pkg1", NUM_SLOW_DRAW.getMetricId()),
-                        buildMetricKey("pkg1", NUM_FRAME_DEADLINE_MISSED.getMetricId()));
+                        buildMetricKey("pkg1", NUM_FRAME_DEADLINE_MISSED.getMetricId()),
+                        JankCollectionHelper.FAILED_PACKAGES_COUNT_METRIC);
         mHelper.stopCollecting();
     }
 
@@ -388,7 +403,8 @@ public class JankCollectionHelperTest {
                         buildMetricKey("pkg1", NUM_SLOW_BITMAP_UPLOADS.getMetricId()),
                         buildMetricKey("pkg1", NUM_SLOW_DRAW.getMetricId()),
                         buildMetricKey("pkg1", NUM_FRAME_DEADLINE_MISSED.getMetricId()),
-                        buildMetricKey("pkg1", NUM_FRAME_DEADLINE_MISSED_LEGACY.getMetricId()));
+                        buildMetricKey("pkg1", NUM_FRAME_DEADLINE_MISSED_LEGACY.getMetricId()),
+                        JankCollectionHelper.FAILED_PACKAGES_COUNT_METRIC);
         mHelper.stopCollecting();
     }
 
@@ -417,9 +433,9 @@ public class JankCollectionHelperTest {
         }
     }
 
-    /** Test that it continues collecting even if certain packages throw for some reason. */
+    /** Test that it reports successful packages even if certain packages throw for some reason. */
     @Test
-    public void testCollect_delayExceptions_onGet() throws Exception {
+    public void testCollect_withFailures_stillReportsSuccessfulPackages() throws Exception {
         // Package 1 is problematic to reset, but package 2 and 3 are good.
         mockResetCommand("pkg1", String.format(GFXINFO_RESET_FORMAT, "pkg1"));
         mockResetCommand("pkg2", String.format(GFXINFO_RESET_FORMAT, "pkg2"));
@@ -430,26 +446,23 @@ public class JankCollectionHelperTest {
         mockGetCommand("pkg3", String.format(GFXINFO_GET_FORMAT, "pkg3"));
 
         mHelper.addTrackedPackages("pkg1", "pkg2", "pkg3");
-        try {
-            mHelper.startCollecting();
-            mHelper.getMetrics();
-            fail("Should have thrown an exception getting pkg1.");
-        } catch (Exception e) {
-            // assert that all of the packages were reset and gotten and pass.
-            InOrder inOrder = inOrder(mUiDevice);
-            inOrder.verify(mUiDevice)
-                    .executeShellCommand(String.format(GFXINFO_COMMAND_RESET, "pkg1"));
-            inOrder.verify(mUiDevice)
-                    .executeShellCommand(String.format(GFXINFO_COMMAND_RESET, "pkg2"));
-            inOrder.verify(mUiDevice)
-                    .executeShellCommand(String.format(GFXINFO_COMMAND_RESET, "pkg3"));
-            inOrder.verify(mUiDevice)
-                    .executeShellCommand(String.format(GFXINFO_COMMAND_GET, "pkg1"));
-            inOrder.verify(mUiDevice)
-                    .executeShellCommand(String.format(GFXINFO_COMMAND_GET, "pkg2"));
-            inOrder.verify(mUiDevice)
-                    .executeShellCommand(String.format(GFXINFO_COMMAND_GET, "pkg3"));
-        }
+        mHelper.startCollecting();
+        Map<String, Double> metrics = mHelper.getMetrics();
+        // assert that all of the packages were reset and gotten and pass.
+        InOrder inOrder = inOrder(mUiDevice);
+        inOrder.verify(mUiDevice).executeShellCommand(String.format(GFXINFO_COMMAND_RESET, "pkg1"));
+        inOrder.verify(mUiDevice).executeShellCommand(String.format(GFXINFO_COMMAND_RESET, "pkg2"));
+        inOrder.verify(mUiDevice).executeShellCommand(String.format(GFXINFO_COMMAND_RESET, "pkg3"));
+        inOrder.verify(mUiDevice).executeShellCommand(String.format(GFXINFO_COMMAND_GET, "pkg1"));
+        inOrder.verify(mUiDevice).executeShellCommand(String.format(GFXINFO_COMMAND_GET, "pkg2"));
+        inOrder.verify(mUiDevice).executeShellCommand(String.format(GFXINFO_COMMAND_GET, "pkg3"));
+        // Assert that we got metrics for pkg2 and pkg3, but not pkg1.
+        // We don't verify the full set of metrics here since it's been checked in other tests.
+        assertThat(metrics).doesNotContainKey(buildMetricKey("pkg1", TOTAL_FRAMES.getMetricId()));
+        assertThat(metrics).containsKey(buildMetricKey("pkg2", TOTAL_FRAMES.getMetricId()));
+        assertThat(metrics).containsKey(buildMetricKey("pkg3", TOTAL_FRAMES.getMetricId()));
+        // We should report that one package failed to collect.
+        assertThat(metrics).containsEntry(JankCollectionHelper.FAILED_PACKAGES_COUNT_METRIC, 1d);
     }
 
     /** Test that it fails if the {@code gfxinfo} metrics cannot be cleared. */
@@ -492,20 +505,16 @@ public class JankCollectionHelperTest {
         }
     }
 
-    /** Test that it fails when the package does not show up on get. */
+    /** No metrics should be collected if the package does not show up on get. */
     @Test
-    public void testFailures_noPackageOnGet() throws Exception {
+    public void testFailures_noPackageOnGetReportsNoMetricsExceptFailureCount() throws Exception {
         mockResetCommand("pkg1", String.format(GFXINFO_RESET_FORMAT, "pkg1"));
         mockGetCommand("pkg1", String.format(GFXINFO_GET_FORMAT, "pkg2"));
 
         mHelper.addTrackedPackages("pkg1");
-        try {
-            mHelper.startCollecting();
-            mHelper.getMetrics();
-            fail("Should have thrown an exception.");
-        } catch (RuntimeException e) {
-            // pass
-        }
+        mHelper.startCollecting();
+        assertThat(mHelper.getMetrics())
+                .containsExactly(JankCollectionHelper.FAILED_PACKAGES_COUNT_METRIC, 1d);
     }
 
     private String buildMetricKey(String pkg, String id) {

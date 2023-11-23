@@ -34,5 +34,5 @@ android_test {
     jni_libs: ["libnativeaaudiotest"],
     srcs: ["src/**/*.java"],
     resource_dirs: ["res"],
-    sdk_version: "current",
+    platform_apis: true,
 }

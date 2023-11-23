@@ -38,7 +38,6 @@ import android.car.user.UserSwitchResult;
 import android.car.util.concurrent.AndroidFuture;
 import android.os.RemoteException;
 import android.os.UserHandle;
-import android.os.UserManager;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -52,8 +51,6 @@ public final class ExperimentalCarUserManagerUnitTest extends AbstractExtendedMo
 
     @Mock
     private Car mCar;
-    @Mock
-    private UserManager mUserManager;
     @Mock
     private IExperimentalCarUserService mService;
 

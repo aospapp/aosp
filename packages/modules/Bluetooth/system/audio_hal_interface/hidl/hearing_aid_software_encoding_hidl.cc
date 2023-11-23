@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "BTAudioClientHA_HIDL"
+#define LOG_TAG "BTAudioHearingAidHIDL"
 
 #include "hidl/hearing_aid_software_encoding_hidl.h"
 

@@ -7,14 +7,15 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
-use std::fmt;
-use std::rc::Rc;
-use std::str;
+use alloc::rc::Rc;
+use alloc::vec::Vec;
+use core::fmt;
+use core::str;
 
 use super::queueable_token::QueueableToken;
-use position;
-use token::Token;
-use RuleType;
+use crate::position;
+use crate::token::Token;
+use crate::RuleType;
 
 /// An iterator over [`Token`]s. It is created by [`Pair::tokens`] and [`Pairs::tokens`].
 ///
@@ -38,7 +39,7 @@ pub fn new<R: RuleType>(
     input: &str,
     start: usize,
     end: usize,
-) -> Tokens<R> {
+) -> Tokens<'_, R> {
     if cfg!(debug_assertions) {
         for tok in queue.iter() {
             match *tok {
@@ -122,7 +123,7 @@ impl<'i, R: RuleType> DoubleEndedIterator for Tokens<'i, R> {
 }
 
 impl<'i, R: RuleType> fmt::Debug for Tokens<'i, R> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_list().entries(self.clone()).finish()
     }
 }
@@ -132,13 +133,14 @@ mod tests {
     use super::super::super::macros::tests::*;
     use super::super::super::Parser;
     use super::Token;
+    use alloc::vec::Vec;
 
     #[test]
     fn double_ended_iter_for_tokens() {
         let pairs = AbcParser::parse(Rule::a, "abcde").unwrap();
-        let mut tokens = pairs.clone().tokens().collect::<Vec<Token<Rule>>>();
+        let mut tokens = pairs.clone().tokens().collect::<Vec<Token<'_, Rule>>>();
         tokens.reverse();
-        let reverse_tokens = pairs.tokens().rev().collect::<Vec<Token<Rule>>>();
+        let reverse_tokens = pairs.tokens().rev().collect::<Vec<Token<'_, Rule>>>();
         assert_eq!(tokens, reverse_tokens);
     }
 }

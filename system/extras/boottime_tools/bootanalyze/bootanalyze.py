@@ -16,7 +16,7 @@
 #
 """Tool to analyze logcat and dmesg logs.
 
-bootanalyze read logcat and dmesg loga and determines key points for boot.
+bootanalyze read logcat and dmesg logs and determines key points for boot.
 """
 
 import argparse
@@ -28,12 +28,11 @@ import os
 import re
 import select
 import subprocess
-import sys
 import time
 import threading
 import yaml
 
-from datetime import datetime, date
+from datetime import datetime
 
 TIME_DMESG = r"\[\s*(\d+\.\d+)\]"
 TIME_LOGCAT = r"[0-9]+\.?[0-9]*"
@@ -41,7 +40,9 @@ KERNEL_TIME_KEY = "kernel"
 BOOT_ANIM_END_TIME_KEY = "BootAnimEnd"
 KERNEL_BOOT_COMPLETE = "BootComplete_kernel"
 LOGCAT_BOOT_COMPLETE = "BootComplete"
+CARWATCHDOG_BOOT_COMPLETE = "CarWatchdogBootupProfilingComplete"
 LAUNCHER_START = "LauncherStart"
+CARWATCHDOG_DUMP_COMMAND = "adb shell dumpsys android.automotive.watchdog.ICarWatchdog/default"
 BOOT_TIME_TOO_BIG = 200.0
 MAX_RETRIES = 5
 DEBUG = False
@@ -50,6 +51,7 @@ ADB_CMD = "adb"
 TIMING_THRESHOLD = 5.0
 BOOT_PROP = r"\[ro\.boottime\.([^\]]+)\]:\s+\[(\d+)\]"
 BOOTLOADER_TIME_PROP = r"\[ro\.boot\.boottime\]:\s+\[([^\]]+)\]"
+CARWATCHDOG_PARSER_CMD = 'perf_stats_parser'
 
 max_wait_time = BOOT_TIME_TOO_BIG
 
@@ -84,7 +86,7 @@ def main():
       value = float(kv[1])
       components_to_monitor[key] = value
 
-  cfg = yaml.load(args.config, Loader=yaml.FullLoader)
+  cfg = yaml.load(args.config, Loader=yaml.SafeLoader)
 
   if args.stressfs:
     if run_adb_cmd('install -r -g ' + args.stressfs) != 0:
@@ -102,12 +104,18 @@ def main():
   if DEBUG_PATTERN:
     print("search event:{} timing event:{}".format(search_events_pattern, timing_events_pattern))
 
+  now = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+  boot_chart_file_path_prefix = "bootchart-" + now
+  systrace_file_path_prefix = "systrace-" + now
+
+  if args.output:
+    boot_chart_file_path_prefix = args.output + '/' + boot_chart_file_path_prefix
+    systrace_file_path_prefix = args.output + '/' + systrace_file_path_prefix
+
   data_points = {}
   kernel_timing_points = collections.OrderedDict()
   logcat_timing_points = collections.OrderedDict()
   boottime_points = collections.OrderedDict()
-  boot_chart_file_name_prefix = "bootchart-" + datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-  systrace_file_name_prefix = "systrace-" + datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
   shutdown_event_all = collections.OrderedDict()
   shutdown_timing_event_all = collections.OrderedDict()
   for it in range(0, args.iterate):
@@ -141,11 +149,16 @@ def main():
       # Processing error
       print("Failed to collect valid samples for run {0}".format(it))
       continue
+
     if args.bootchart:
-      grab_bootchart(boot_chart_file_name_prefix + "_run_" + str(it))
+      grab_bootchart(boot_chart_file_path_prefix + "_run_" + str(it))
 
     if args.systrace:
-      grab_systrace(systrace_file_name_prefix + "_run_" + str(it))
+      grab_systrace(systrace_file_path_prefix + "_run_" + str(it))
+
+    if args.carwatchdog:
+      grab_carwatchdog_bootstats(args.output)
+
     for k, v in processing_data.items():
       if k not in data_points:
         data_points[k] = []
@@ -332,6 +345,8 @@ def iterate(args, search_events_pattern, timings_pattern, shutdown_events_patter
   logcat_stop_events = [LOGCAT_BOOT_COMPLETE, LAUNCHER_START]
   if args.fs_check:
     logcat_stop_events.append("FsStat")
+  if args.carwatchdog:
+    logcat_stop_events.append(CARWATCHDOG_BOOT_COMPLETE)
   logcat_events, logcat_timing_events = collect_events(
     search_events_pattern, ADB_CMD + ' logcat -b all -v epoch', timings_pattern,\
     logcat_stop_events, False)
@@ -504,6 +519,8 @@ def init_arguments():
   parser.add_argument('-r', '--reboot', dest='reboot',
                       action='store_true',
                       help='reboot device for measurement', )
+  parser.add_argument('-o', '--output', dest='output', type=str,
+                      help='Output directory where results are stored')
   parser.add_argument('-c', '--config', dest='config',
                       default='config.yaml', type=argparse.FileType('r'),
                       help='config file for the tool', )
@@ -543,6 +560,8 @@ def init_arguments():
   parser.add_argument('-y', '--systrace', dest='systrace',
                       action='store_true',
                       help='collect systrace from the device. kernel trace should be already enabled', )
+  parser.add_argument('-W', '--carwatchdog', dest='carwatchdog', action='store_true',
+                      help='collect carwatchdog boot stats')
   parser.add_argument('-G', '--buffersize', dest='buffersize', action='store', type=str,
                       default=None,
                       help='set logcat buffersize')
@@ -677,6 +696,15 @@ def collect_events(search_events, command, timings, stop_events, disable_timing_
       log_timeout(time_left, stop_events, events, timing_events)
       break
     polled_events = read_poll.poll(time_left * 1000.0)
+    # adb logcat subprocess is auto-terminated when the adb connection is lost.
+    # Thus, check for the subprocess return code and reconnect to the device if
+    # needed. Otherwise, the logcat events cannot be polled completely.
+    if process.poll() is not None:
+      print("adb might be disconnected?\nRetrying to connect.")
+      run_adb_cmd('wait-for-device')
+      print(" reconnected")
+      init = True
+      continue
     if len(polled_events) == 0:
       log_timeout(time_left, stop_events, events, timing_events)
       break
@@ -830,14 +858,21 @@ def reboot(serial, use_stressfs, permissive, use_adb_reboot, adb_buffersize=None
     if run_adb_cmd('logcat -G {}'.format(adb_buffersize)) != 0:
       debug('Fail to set logcat buffer size as {}'.format(adb_buffersize))
 
-def run_adb_cmd(cmd):
-  return subprocess.call(ADB_CMD + ' ' + cmd, shell=True)
+'''
+Runs adb command. If do_return_result is true then output of command is
+returned otherwise an empty string is returned.
+'''
+def run_adb_cmd(cmd, do_return_result=False):
+  if do_return_result:
+    return subprocess.check_output(ADB_CMD + ' ' + cmd, shell=True).decode('utf-8', 'ignore').strip()
+  subprocess.call(ADB_CMD + ' ' + cmd, shell=True)
+  return ""
 
-def run_adb_shell_cmd(cmd):
-  return subprocess.call(ADB_CMD + ' shell ' + cmd, shell=True)
+def run_adb_shell_cmd(cmd, do_return_result=False):
+  return run_adb_cmd('shell ' + cmd, do_return_result)
 
-def run_adb_shell_cmd_as_root(cmd):
-  return subprocess.call(ADB_CMD + ' shell su root ' + cmd, shell=True)
+def run_adb_shell_cmd_as_root(cmd, do_return_result=False):
+  return run_adb_shell_cmd('su root ' + cmd, do_return_result)
 
 def logcat_time_func(offset_year):
   def f(date_str):
@@ -856,21 +891,95 @@ def stddev(data):
   variance = sq_diffs_sum / items_count
   return math.sqrt(variance)
 
-def grab_bootchart(boot_chart_file_name):
-  subprocess.call("$ANDROID_BUILD_TOP/system/core/init/grab-bootchart.sh", shell=True)
-  print("Saving boot chart as " + boot_chart_file_name + ".tgz")
-  subprocess.call('cp /tmp/android-bootchart/bootchart.tgz ./' + boot_chart_file_name + '.tgz',\
+def grab_bootchart(boot_chart_file_path):
+  subprocess.run("$ANDROID_BUILD_TOP/system/core/init/grab-bootchart.sh", shell=True,
+                 stdout=subprocess.DEVNULL)
+  print("Saving boot chart as " + boot_chart_file_path + ".tgz")
+  subprocess.call('cp /tmp/android-bootchart/bootchart.tgz ' + boot_chart_file_path + '.tgz', \
                   shell=True)
-  subprocess.call('cp ./bootchart.png ./' + boot_chart_file_name + '.png', shell=True)
+  subprocess.call('cp ./bootchart.png ' + boot_chart_file_path + '.png', shell=True)
 
-def grab_systrace(systrace_file_name):
-  trace_file = systrace_file_name + "_trace.txt"
+def grab_systrace(systrace_file_path_prefix):
+  trace_file = systrace_file_path_prefix + "_trace.txt"
   with open(trace_file, 'w') as f:
     f.write("TRACE:\n")
   run_adb_shell_cmd_as_root("cat /d/tracing/trace >> " + trace_file)
-  html_file = systrace_file_name + ".html"
+  html_file = systrace_file_path_prefix + ".html"
   subprocess.call("$ANDROID_BUILD_TOP/external/chromium-trace/systrace.py --from-file=" + trace_file + " -o " +\
                   html_file, shell=True)
+
+def capture_build_info(out_dir, build_info_file_name):
+  fingerprint = run_adb_shell_cmd('getprop ro.build.fingerprint', True)
+  brand = run_adb_shell_cmd('getprop ro.product.brand', True)
+  product = run_adb_shell_cmd('getprop ro.product.name', True)
+  device = run_adb_shell_cmd('getprop ro.product.device', True)
+  version_release = run_adb_shell_cmd('getprop ro.build.version.release', True)
+  id = run_adb_shell_cmd('getprop ro.build.id', True)
+  version_incremental = run_adb_shell_cmd('getprop ro.build.version.incremental', True)
+  type = run_adb_shell_cmd('getprop ro.build.type', True)
+  tags = run_adb_shell_cmd('getprop ro.build.tags', True)
+  sdk = run_adb_shell_cmd('getprop ro.build.version.sdk', True)
+  platform_minor = run_adb_shell_cmd('getprop ro.android.car.version.platform_minor', True)
+  codename = run_adb_shell_cmd('getprop ro.build.version.codename', True)
+  carwatchdog_collection_interval = run_adb_shell_cmd('getprop ro.carwatchdog.system_event_collection_interval', True)
+  carwatchdog_post_event_duration = run_adb_shell_cmd('getprop ro.carwatchdog.post_system_event_duration', True)
+  carwatchdog_top_n_category = run_adb_shell_cmd('getprop ro.carwatchdog.top_n_stats_per_category', True)
+  carwatchdog_top_n_subcategory = run_adb_shell_cmd('getprop ro.carwatchdog.top_n_stats_per_subcategory', True)
+
+  # TODO: Change file format to JSON to avoid custom parser
+  build_info = []
+  build_info.append('Build information: ')
+  build_info.append('-' * 20)
+  build_info.append('fingerprint: ' + fingerprint)
+  build_info.append('brand: ' + brand)
+  build_info.append('product: ' + product)
+  build_info.append('device: ' + device)
+  build_info.append('version.release: ' + version_release)
+  build_info.append('id: ' + id)
+  build_info.append('version.incremental: ' + version_incremental)
+  build_info.append('type: ' + type)
+  build_info.append('tags: ' + tags)
+  build_info.append('sdk: ' + sdk)
+  build_info.append('platform minor version: ' + platform_minor)
+  build_info.append('codename: ' + codename)
+  build_info.append('carwatchdog collection interval (s): ' + carwatchdog_collection_interval)
+  build_info.append('carwatchdog post event duration (s): ' + carwatchdog_post_event_duration)
+  build_info.append('carwatchdog top N packages: ' + carwatchdog_top_n_category)
+  build_info.append('carwatchdog top N processes: ' + carwatchdog_top_n_subcategory)
+
+  build_info_str = '\n'.join(build_info)
+
+  with open(out_dir + '/' + build_info_file_name, 'w') as f:
+    f.write(build_info_str)
+
+def generate_proto(dump_file, build_info_file, out_proto_file):
+  subprocess.run("{} -f {} -b {} -d {}".format(CARWATCHDOG_PARSER_CMD,
+                                               dump_file,
+                                               build_info_file,
+                                               out_proto_file),
+                  shell=True, stdout=subprocess.DEVNULL)
+
+def grab_carwatchdog_bootstats(result_dir):
+  carwatchdog_state = run_adb_shell_cmd_as_root('getprop init.svc.carwatchdogd', True)
+  if carwatchdog_state != "running":
+    print('carwatchdog (-d) flag set but CarWatchdog is not running on device')
+    return
+  elif not result_dir:
+    print('carwatchdog needs the output directory to be specified.')
+    return
+  print("Capturing carwatchdog stats")
+  build_info_file_name = "device_build_info.txt"
+  capture_build_info(result_dir, build_info_file_name)
+
+  # Capture CW dump and save dump to txt
+  dump_file_name = result_dir + '/carwatchdog_dump.txt'
+  subprocess.call(CARWATCHDOG_DUMP_COMMAND + " > " + dump_file_name, shell=True)
+
+  # Generate proto from dump
+  build_info_file_path = result_dir + '/' + build_info_file_name
+  out_proto_file_path = result_dir + '/carwatchdog_perf_stats_out.pb'
+  generate_proto(dump_file_name, build_info_file_path, out_proto_file_path)
+
 
 if __name__ == '__main__':
   main()

@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Onbekende toestel"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Onbekend"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Nie verskaf nie"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Vliegtuigmodus"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Jy kan nie Bluetooth in vliegtuigmodus gebruik nie."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Bluetooth-oudio"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Lêers groter as 4 GB kan nie oorgedra word nie"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Koppel aan Bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth is aan in vliegtuigmodus"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"As jy Bluetooth aangeskakel hou, sal jou toestel onthou om dit aan te hou wanneer jy weer in vliegtuigmodus is"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth bly aan"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Jou toestel onthou om Bluetooth aan te hou in vliegtuigmodus. Skakel Bluetooth af as jy nie wil hê dit moet aan bly nie."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-fi en Bluetooth bly aan"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Jou toestel onthou om wi‑fi en Bluetooth aan te hou in vliegtuigmodus. Skakel wi-fi en Bluetooth af as jy nie wil hê dit moet aan bly nie."</string>
 </resources>

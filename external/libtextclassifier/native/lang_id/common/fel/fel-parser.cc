@@ -22,6 +22,7 @@
 
 #include "lang_id/common/lite_base/logging.h"
 #include "lang_id/common/lite_strings/numbers.h"
+#include "absl/strings/string_view.h"
 
 namespace libtextclassifier3 {
 namespace mobile {
@@ -47,9 +48,9 @@ inline bool IsValidCharInsideNumber(char c) {
 }
 }  // namespace
 
-bool FELParser::Initialize(const std::string &source) {
+bool FELParser::Initialize(absl::string_view source) {
   // Initialize parser state.
-  source_ = source;
+  source_ = std::string(source);
   current_ = source_.begin();
   item_start_ = line_start_ = current_;
   line_number_ = item_line_number_ = 1;

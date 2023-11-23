@@ -2,19 +2,23 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_FWupdate.old"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
+DEPENDENCIES = "servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 RO+RW firmware update using chromeos-firmwareupdate --mode=recovery
 This variant is RO=old, RW=old (useful for comparing without changing args).
 
 Required arguments:
-    test_that ... --args "new_bios=/path/to/new.bin"
+    test_that ... --args "new_bios=/path/to/new.bin \
+                          servo_host=my_servo_host \
+			  servo_port=my_servo_port"
 
 The *_bios arguments can also be split into separate _bios_ro and _bios_rw args.
 """

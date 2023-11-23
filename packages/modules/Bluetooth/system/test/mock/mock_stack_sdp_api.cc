@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "test/mock/mock_stack_sdp_api.h"
 #include "types/bluetooth/uuid.h"
@@ -70,44 +68,44 @@ struct SDP_SetTraceLevel SDP_SetTraceLevel;
 
 // Mocked functions, if any
 bool SDP_CancelServiceSearch(const tSDP_DISCOVERY_DB* p_db) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_CancelServiceSearch(p_db);
 }
 bool SDP_FindProfileVersionInRec(const tSDP_DISC_REC* p_rec,
                                  uint16_t profile_uuid, uint16_t* p_version) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_FindProfileVersionInRec(
       p_rec, profile_uuid, p_version);
 }
 bool SDP_FindProtocolListElemInRec(const tSDP_DISC_REC* p_rec,
                                    uint16_t layer_uuid,
                                    tSDP_PROTOCOL_ELEM* p_elem) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_FindProtocolListElemInRec(
       p_rec, layer_uuid, p_elem);
 }
 bool SDP_FindServiceUUIDInRec(const tSDP_DISC_REC* p_rec,
                               bluetooth::Uuid* p_uuid) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_FindServiceUUIDInRec(p_rec, p_uuid);
 }
 bool SDP_FindServiceUUIDInRec_128bit(const tSDP_DISC_REC* p_rec,
                                      bluetooth::Uuid* p_uuid) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_FindServiceUUIDInRec_128bit(p_rec,
                                                                     p_uuid);
 }
 bool SDP_InitDiscoveryDb(tSDP_DISCOVERY_DB* p_db, uint32_t len,
                          uint16_t num_uuid, const bluetooth::Uuid* p_uuid_list,
                          uint16_t num_attr, const uint16_t* p_attr_list) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_InitDiscoveryDb(
       p_db, len, num_uuid, p_uuid_list, num_attr, p_attr_list);
 }
 bool SDP_ServiceSearchAttributeRequest(const RawAddress& p_bd_addr,
                                        tSDP_DISCOVERY_DB* p_db,
                                        tSDP_DISC_CMPL_CB* p_cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_ServiceSearchAttributeRequest(
       p_bd_addr, p_db, p_cb);
 }
@@ -115,68 +113,68 @@ bool SDP_ServiceSearchAttributeRequest2(const RawAddress& p_bd_addr,
                                         tSDP_DISCOVERY_DB* p_db,
                                         tSDP_DISC_CMPL_CB2* p_cb2,
                                         const void* user_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_ServiceSearchAttributeRequest2(
       p_bd_addr, p_db, p_cb2, user_data);
 }
 bool SDP_ServiceSearchRequest(const RawAddress& p_bd_addr,
                               tSDP_DISCOVERY_DB* p_db,
                               tSDP_DISC_CMPL_CB* p_cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_ServiceSearchRequest(p_bd_addr, p_db,
                                                              p_cb);
 }
 tSDP_DISC_ATTR* SDP_FindAttributeInRec(const tSDP_DISC_REC* p_rec,
                                        uint16_t attr_id) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_FindAttributeInRec(p_rec, attr_id);
 }
 tSDP_DISC_REC* SDP_FindServiceInDb(const tSDP_DISCOVERY_DB* p_db,
                                    uint16_t service_uuid,
                                    tSDP_DISC_REC* p_start_rec) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_FindServiceInDb(p_db, service_uuid,
                                                         p_start_rec);
 }
 tSDP_DISC_REC* SDP_FindServiceInDb_128bit(const tSDP_DISCOVERY_DB* p_db,
                                           tSDP_DISC_REC* p_start_rec) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_FindServiceInDb_128bit(p_db,
                                                                p_start_rec);
 }
 tSDP_DISC_REC* SDP_FindServiceUUIDInDb(const tSDP_DISCOVERY_DB* p_db,
                                        const bluetooth::Uuid& uuid,
                                        tSDP_DISC_REC* p_start_rec) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_FindServiceUUIDInDb(p_db, uuid,
                                                             p_start_rec);
 }
 tSDP_STATUS SDP_DiDiscover(const RawAddress& remote_device,
                            tSDP_DISCOVERY_DB* p_db, uint32_t len,
                            tSDP_DISC_CMPL_CB* p_cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_DiDiscover(remote_device, p_db, len,
                                                    p_cb);
 }
 uint16_t SDP_GetDiRecord(uint8_t get_record_index,
                          tSDP_DI_GET_RECORD* p_device_info,
                          const tSDP_DISCOVERY_DB* p_db) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_GetDiRecord(get_record_index,
                                                     p_device_info, p_db);
 }
 uint16_t SDP_SetLocalDiRecord(const tSDP_DI_RECORD* p_device_info,
                               uint32_t* p_handle) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_SetLocalDiRecord(p_device_info,
                                                          p_handle);
 }
 uint8_t SDP_GetNumDiRecords(const tSDP_DISCOVERY_DB* p_db) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_GetNumDiRecords(p_db);
 }
 uint8_t SDP_SetTraceLevel(uint8_t new_level) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::stack_sdp_api::SDP_SetTraceLevel(new_level);
 }
 

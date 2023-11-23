@@ -4,7 +4,7 @@
       "name": "libprocinfo_test"
     }
   ],
-  "hwasan-postsubmit": [
+  "hwasan-presubmit": [
     {
       "name": "libprocinfo_test"
     }

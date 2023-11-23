@@ -23,10 +23,10 @@ import org.junit.Test;
 import org.junit.Before;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import com.android.sts.common.tradefed.testtype.StsExtraBusinessLogicHostTestBase;
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public final class Bug_183613671 extends StsExtraBusinessLogicHostTestBase {
+public final class Bug_183613671 extends NonRootSecurityTestCase {
     private static final String TEST_PKG = "android.security.cts.BUG_183613671";
     private static final String TEST_CLASS = TEST_PKG + "." + "DeviceTest";
     private static final String TEST_APP = "BUG-183613671.apk";

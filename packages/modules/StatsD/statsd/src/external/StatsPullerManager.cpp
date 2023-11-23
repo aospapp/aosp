@@ -227,12 +227,22 @@ void StatsPullerManager::OnAlarmFired(int64_t elapsedTimeNs) {
         vector<ReceiverInfo*> receivers;
         if (pair.second.size() != 0) {
             for (ReceiverInfo& receiverInfo : pair.second) {
-                if (receiverInfo.nextPullTimeNs <= elapsedTimeNs) {
+                // If pullNecessary and enough time has passed for the next bucket, then add
+                // receiver to the list that will pull on this alarm.
+                // If pullNecessary is false, check if next pull time needs to be updated.
+                sp<PullDataReceiver> receiverPtr = receiverInfo.receiver.promote();
+                const bool pullNecessary = receiverPtr != nullptr && receiverPtr->isPullNeeded();
+                if (receiverInfo.nextPullTimeNs <= elapsedTimeNs && pullNecessary) {
                     receivers.push_back(&receiverInfo);
                 } else {
-                    if (receiverInfo.nextPullTimeNs < minNextPullTimeNs) {
-                        minNextPullTimeNs = receiverInfo.nextPullTimeNs;
+                    if (receiverInfo.nextPullTimeNs <= elapsedTimeNs) {
+                        receiverPtr->onDataPulled({}, PullResult::PULL_NOT_NEEDED, elapsedTimeNs);
+                        int numBucketsAhead = (elapsedTimeNs - receiverInfo.nextPullTimeNs) /
+                                              receiverInfo.intervalNs;
+                        receiverInfo.nextPullTimeNs +=
+                                (numBucketsAhead + 1) * receiverInfo.intervalNs;
                     }
+                    minNextPullTimeNs = min(receiverInfo.nextPullTimeNs, minNextPullTimeNs);
                 }
             }
             if (receivers.size() > 0) {
@@ -242,9 +252,11 @@ void StatsPullerManager::OnAlarmFired(int64_t elapsedTimeNs) {
     }
     for (const auto& pullInfo : needToPull) {
         vector<shared_ptr<LogEvent>> data;
-        bool pullSuccess = PullLocked(pullInfo.first->atomTag, pullInfo.first->configKey,
-                                      elapsedTimeNs, &data);
-        if (!pullSuccess) {
+        PullResult pullResult =
+                PullLocked(pullInfo.first->atomTag, pullInfo.first->configKey, elapsedTimeNs, &data)
+                        ? PullResult::PULL_RESULT_SUCCESS
+                        : PullResult::PULL_RESULT_FAIL;
+        if (pullResult == PullResult::PULL_RESULT_FAIL) {
             VLOG("pull failed at %lld, will try again later", (long long)elapsedTimeNs);
         }
 
@@ -263,14 +275,12 @@ void StatsPullerManager::OnAlarmFired(int64_t elapsedTimeNs) {
         for (const auto& receiverInfo : pullInfo.second) {
             sp<PullDataReceiver> receiverPtr = receiverInfo->receiver.promote();
             if (receiverPtr != nullptr) {
-                receiverPtr->onDataPulled(data, pullSuccess, elapsedTimeNs);
+                receiverPtr->onDataPulled(data, pullResult, elapsedTimeNs);
                 // We may have just come out of a coma, compute next pull time.
                 int numBucketsAhead =
                         (elapsedTimeNs - receiverInfo->nextPullTimeNs) / receiverInfo->intervalNs;
                 receiverInfo->nextPullTimeNs += (numBucketsAhead + 1) * receiverInfo->intervalNs;
-                if (receiverInfo->nextPullTimeNs < minNextPullTimeNs) {
-                    minNextPullTimeNs = receiverInfo->nextPullTimeNs;
-                }
+                minNextPullTimeNs = min(receiverInfo->nextPullTimeNs, minNextPullTimeNs);
             } else {
                 VLOG("receiver already gone.");
             }

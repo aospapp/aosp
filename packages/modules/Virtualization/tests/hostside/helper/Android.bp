@@ -3,10 +3,15 @@ package {
 }
 
 java_library_host {
-    name: "VirtualizationTestHelper",
+    name: "MicrodroidHostTestHelper",
     srcs: ["java/**/*.java"],
     libs: [
-        "tradefed",
+        "androidx.annotation_annotation",
         "compatibility-tradefed",
+        "tradefed",
+        "truth-prebuilt",
+    ],
+    static_libs: [
+        "MicrodroidTestHelper",
     ],
 }

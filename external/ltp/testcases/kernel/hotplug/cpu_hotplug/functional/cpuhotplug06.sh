@@ -49,6 +49,10 @@ done
 
 LOOP_COUNT=1
 
+if tst_virt_hyperv; then
+	tst_brkm TCONF "Microsoft Hyper-V detected, no support for CPU hotplug"
+fi
+
 if top -v | grep -q htop; then
 	tst_brkm TCONF "htop is used instead of top (workaround: alias top='/path/to/real/top')"
 fi
@@ -95,7 +99,10 @@ until [ $LOOP_COUNT -gt $HOTPLUG06_LOOPS ]; do
 		tst_exit
 	fi
 
-	online_cpu ${CPU_TO_TEST}
+	if ! online_cpu ${CPU_TO_TEST}; then
+		tst_brkm TBROK "CPU${CPU_TO_TEST} cannot be onlined"
+	fi
+
 	kill_pid ${TOP_PID}
 
 	LOOP_COUNT=$((LOOP_COUNT+1))

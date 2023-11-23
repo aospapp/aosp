@@ -60,7 +60,7 @@
     <string name="notification_channel_emergency_alerts_high_priority" msgid="3937475297436439073">"Ez ikusi egin zaien larrialdi-alertak"</string>
     <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"Larrialdien alertak ahots-deietan"</string>
     <string name="notification_channel_settings_updates" msgid="6779759372516475085">"Hari gabeko larrialdi-alerten ezarpenak automatikoki aldatu dira SIMean oinarrituta"</string>
-    <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Baimendu alertak"</string>
+    <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Eman alertak erabiltzeko baimena"</string>
     <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Jaso hari gabeko larrialdi-alerten jakinarazpenak"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Alerta-egoeraren abisua"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"Irakurri alerta-mezua ozen"</string>
@@ -161,7 +161,7 @@
     <string name="show_regular_messages" msgid="7376885150513522515">"Erakutsi mezu arruntak"</string>
     <string name="message_identifier" msgid="5558338496219327850">"Identifikatzailea:"</string>
     <string name="message_serial_number" msgid="3386553658712978964">"Serie-zenbakia:"</string>
-    <string name="data_coding_scheme" msgid="4628901196730870577">"Datuak kodetzeko eskema:"</string>
+    <string name="data_coding_scheme" msgid="4628901196730870577">"Datuak programatzeko eskema:"</string>
     <string name="message_content" msgid="6204502929879474632">"Mezuaren edukia:"</string>
     <string name="location_check_time" msgid="4105326161240531207">"Kokapena egiaztatu zen ordua:"</string>
     <string name="message_displayed" msgid="5091678195925617971">"Bistaratu al da mezurik?"</string>

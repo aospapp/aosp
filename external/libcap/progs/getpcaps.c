@@ -44,8 +44,9 @@ int main(int argc, char **argv)
 	    !strcmp(argv[0], "-h")) {
 	    usage(0);
 	} else if (!strcmp(argv[0], "--license")) {
-	    printf("%s has a you choose license: BSD 3-clause or GPL2\n"
-"[Copyright (c) 1997-8,2007,2019 Andrew G. Morgan <morgan@kernel.org>]\n",
+	    printf("%s see LICENSE file for details.\n"
+		   "[Copyright (c) 1997-8,2007,19,21"
+		   " Andrew G. Morgan <morgan@kernel.org>]\n",
 		   argv[0]);
 	    exit(0);
 	} else if (!strcmp(argv[0], "--verbose")) {

@@ -27,6 +27,7 @@ cc_library_shared {
 
    header_libs: [
     "libgralloc_cb.ranchu",
+    "libgralloc_cb3.ranchu",
     ],
 
    static_libs: ["libavcdec",

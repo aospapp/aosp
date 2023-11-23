@@ -22,7 +22,7 @@
     </application>
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.ondevicepersonalization"
-                     android:label="OnDevicePersonalization Manager Tests">
+                     android:label="OnDevicePersonalizationManager Tests">
     </instrumentation>
 
 </manifest>

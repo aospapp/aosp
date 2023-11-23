@@ -176,7 +176,7 @@ public class WakeupOnboardingTest extends WifiBaseTest {
 
         broadcastReceiver.onReceive(mContext, new Intent(ACTION_OPEN_WIFI_PREFERENCES));
 
-        verify(mContext).startActivity(any());
+        verify(mContext).startActivityAsUser(any(), any());
 
         verify(mWifiNotificationManager).cancel(WakeupNotificationFactory.ONBOARD_ID);
         assertTrue(mWakeupOnboarding.isOnboarded());

@@ -36,6 +36,8 @@ import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.DisclaimersParam;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
+import com.google.android.setupdesign.util.DeviceHelper;
+
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -85,6 +87,8 @@ public class TermsViewModelTest {
     private final Context mContext =
             InstrumentationRegistry.getInstrumentation().getTargetContext();
 
+    private final CharSequence TEST_DEVICE_NAME = DeviceHelper.getDeviceName(mContext);
+
     @Test
     public void getTerms_hasExpectedResults() {
         TermsViewModel viewModel = createViewModel(PARAMS_MANAGED_DEVICE_WITH_DISCLAIMERS);
@@ -105,7 +109,8 @@ public class TermsViewModelTest {
         assertThat(generalDisclaimer.getHeading())
                 .isEqualTo(mContext.getString(R.string.managed_device_info));
         assertThat(generalDisclaimer.getContent())
-                .isEqualTo(mContext.getString(R.string.admin_has_ability_to_monitor_device));
+                .isEqualTo(mContext.getString(
+                        R.string.admin_has_ability_to_monitor_device, TEST_DEVICE_NAME));
     }
 
     @Test

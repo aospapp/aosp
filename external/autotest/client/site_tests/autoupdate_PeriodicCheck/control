@@ -11,5 +11,6 @@ PURPOSE = 'Client side test for testing periodic update checks.'
 TEST_CLASS = 'platform'
 TEST_CATEGORY = 'Functional'
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 job.run_test('autoupdate_PeriodicCheck')

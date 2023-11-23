@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.tests.java.io;
@@ -462,7 +462,7 @@ public class ObjectOutputStreamTest extends TestCase implements Serializable {
         }
 
         protected Object writeReplace() throws ObjectStreamException {
-            return new Integer(42);
+            return Integer.valueOf(42);
         }
     }
 
@@ -491,7 +491,7 @@ public class ObjectOutputStreamTest extends TestCase implements Serializable {
         }
 
         protected Object writeReplace() throws ObjectStreamException {
-            return new Integer(42);
+            return Integer.valueOf(42);
         }
 
         public void writeExternal(ObjectOutput out) {
@@ -511,10 +511,10 @@ public class ObjectOutputStreamTest extends TestCase implements Serializable {
 
         protected Object replaceObject(Object obj) throws IOException {
             if (obj instanceof NotSerializable) {
-                return new Long(10);
+                return Long.valueOf(10);
             }
             if (obj instanceof Integer) {
-                return new Long(((Integer) obj).longValue());
+                return Long.valueOf(((Integer) obj).longValue());
             }
             return super.replaceObject(obj);
         }
@@ -529,7 +529,7 @@ public class ObjectOutputStreamTest extends TestCase implements Serializable {
         }
 
         protected Object replaceObject(Object obj) throws IOException {
-            return new Long(10);
+            return Long.valueOf(10);
         }
     }
 
@@ -1280,7 +1280,7 @@ public class ObjectOutputStreamTest extends TestCase implements Serializable {
         baos = new ByteArrayOutputStream();
         oos = new ObjectOutputStreamWithReplace(baos);
 
-        oos.writeObject(new Integer(99));
+        oos.writeObject(Integer.valueOf(99));
         oos.writeObject(Integer.class);
         oos.writeObject(ObjectStreamClass.lookup(Integer.class));
         oos.flush();

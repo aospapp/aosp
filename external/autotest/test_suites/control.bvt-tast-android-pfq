@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "bvt-tast-android-pfq"
 PURPOSE = "Tests critical ARC functionality for Android PFQ using Tast."
 
@@ -16,10 +16,12 @@ This suite verifies ARC's basic functionality for the Android Pre-Flight Queue
 by running ARC-specific Tast integration tests that must always pass against a
 DUT. See http://go/tast for more information about Tast.
 
-The only Autotest test executed by this suite is tast.critical-android, which is
-a server test that executes the tast executable. The tast executable runs
-individual Tast tests. If any of these Tast tests fail, then
-tast.critical-android (and this suite) fail. """
+The following Autotest tests are executed by this suite:
+- tast.critical-android, which is a server test that executes the tast
+executable. The tast executable runs individual Tast tests. If any of these Tast
+tests fail, then tast.critical-android (and this suite) fail.
+- tast.arc-data-collector, which launches the arc.DataCollector Tast test to
+collect runtime artifacts from the DUT for future optimization."""
 
 import common
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite

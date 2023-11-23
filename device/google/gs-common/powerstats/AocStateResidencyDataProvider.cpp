@@ -24,12 +24,12 @@ namespace hardware {
 namespace power {
 namespace stats {
 
-AocStateResidencyDataProvider::AocStateResidencyDataProvider(std::vector<std::pair<std::string,
-        std::string>> ids, std::vector<std::pair<std::string, std::string>> states) {
-    // AoC stats are reported in ticks of 244.140625ns. The transform
-    // function converts ticks to milliseconds.
-    // 1000000 / 244.140625 = 4096.
-    static const uint64_t AOC_CLK = 4096;
+AocStateResidencyDataProvider::AocStateResidencyDataProvider(
+        std::vector<std::pair<std::string, std::string>> ids,
+        std::vector<std::pair<std::string, std::string>> states,
+        const uint64_t aocClock) {
+    // AoC stats are reported in ticks.
+    static const uint64_t AOC_CLK = aocClock;
     std::function<uint64_t(uint64_t)> aocTickToMs = [](uint64_t a) { return a / AOC_CLK; };
     GenericStateResidencyDataProvider::StateResidencyConfig config = {
             .entryCountSupported = true,

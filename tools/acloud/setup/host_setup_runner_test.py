@@ -74,6 +74,8 @@ lrw                    16384  1 aesni_intel"""
     def testRun(self):
         """Test Run."""
         self.Patch(CuttlefishHostSetup, "ShouldRun", return_value=True)
+        self.Patch(CuttlefishHostSetup, "_GetProcessorType",
+                   return_value="intel")
         self.Patch(utils, "InteractWithQuestion", return_value="y")
         self.Patch(setup_common, "CheckCmdOutput")
         self.CuttlefishHostSetup.Run()
@@ -110,6 +112,7 @@ class AvdPkgInstallerTest(driver_test_lib.BaseDriverTest):
     def testShouldRun(self):
         """Test ShouldRun."""
         self.Patch(platform, "system", return_value="Linux")
+        self.Patch(platform, "version", return_value="Unsupport")
         self.assertFalse(self.AvdPkgInstaller.ShouldRun())
 
     def testShouldNotRun(self):
@@ -165,9 +168,15 @@ class CuttlefishCommonPkgInstallerTest(driver_test_lib.BaseDriverTest):
         self.Patch(tempfile, "mkdtemp", return_value=fake_tmp_folder)
         self.Patch(utils, "GetUserAnswerYes", return_value=True)
         self.Patch(CuttlefishCommonPkgInstaller, "ShouldRun", return_value=True)
+        self.Patch(setup_common, "IsPackageInAptList", return_value=False)
         self.CuttlefishCommonPkgInstaller.Run()
         self.assertEqual(mock_cmd.call_count, 1)
         mock_rmtree.assert_called_once_with(fake_tmp_folder)
+        # Install cuttlefish-common from rapture
+        self.Patch(setup_common, "IsPackageInAptList", return_value=True)
+        self.Patch(setup_common, "InstallPackage")
+        self.CuttlefishCommonPkgInstaller.Run()
+        setup_common.InstallPackage.assert_called()
 
         self.Patch(utils, "GetUserAnswerYes", return_value=False)
         self.Patch(sys, "exit")

@@ -34,8 +34,16 @@
         <option name="package" value="android.devicepolicy.cts" />
         <option name="exclude-annotation" value="com.android.bedstead.harrier.annotations.RequireRunOnWorkProfile" />
         <option name="exclude-annotation" value="com.android.bedstead.harrier.annotations.RequireRunOnSecondaryUser" />
+        <option name="exclude-annotation" value="com.android.bedstead.harrier.annotations.RequireRunOnCloneProfile" />
+        <option name="exclude-annotation" value="com.android.interactive.annotations.Interactive" />
         <option name="hidden-api-checks" value="false" />
         <!-- test-timeout unit is ms, value = 10 min -->
         <option name="test-timeout" value="600000" />
     </test>
+
+    <!-- Collects any debug artifacts produced during the run -->
+    <metrics_collector class="com.android.tradefed.device.metric.FilePullerLogCollector">
+        <option name="directory-keys" value="/sdcard/CtsDevicePolicyTestCases/" />
+        <option name="collect-on-run-ended-only" value="true" />
+    </metrics_collector>
 </configuration>

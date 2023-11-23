@@ -17,8 +17,6 @@
     Test Script for 5G SA MMS scenarios
 """
 
-import time
-
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_idle
@@ -41,9 +39,7 @@ class Sa5gMmsTest(TelephonyBaseTest):
     def teardown_test(self):
         ensure_phones_idle(self.log, self.android_devices)
 
-
     """ Tests Begin """
-
 
     @test_tracker_info(uuid="74e2ae79-aee4-46e0-9326-fcd3b7f19128")
     @TelephonyBaseTest.tel_test_wrap
@@ -71,7 +67,6 @@ class Sa5gMmsTest(TelephonyBaseTest):
         self.log.info("PASS - mms test over 5g sa validated")
         return True
 
-
     @test_tracker_info(uuid="6cd173f5-bd1d-44bb-aac2-ac63f37b9a62")
     @TelephonyBaseTest.tel_test_wrap
     def test_5g_sa_mms_long_message_mo_mt(self):
@@ -95,7 +90,6 @@ class Sa5gMmsTest(TelephonyBaseTest):
             return False
 
         return _long_mms_test_mo(self.log, ads)
-
 
     @test_tracker_info(uuid="83d24fb5-1ebd-42e0-a3d1-b85b607234e2")
     @TelephonyBaseTest.tel_test_wrap
@@ -124,6 +118,5 @@ class Sa5gMmsTest(TelephonyBaseTest):
                               self.wifi_network_pass)
 
         return _mms_test_mo(self.log, ads)
-
 
     """ Tests End """

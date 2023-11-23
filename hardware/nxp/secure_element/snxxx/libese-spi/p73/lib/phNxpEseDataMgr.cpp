@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2018-2019 NXP
+ *  Copyright 2018-2019,2022-2023 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 #define LOG_TAG "NxpEseHal"
+#include <ese_logs.h>
 #include <log/log.h>
 #include <phNxpEseDataMgr.h>
 #include <phNxpEsePal.h>
@@ -53,28 +54,27 @@ ESESTATUS phNxpEse_GetData(uint32_t* data_len, uint8_t** pbuffer) {
           total_len = 0;
           status = ESESTATUS_SUCCESS;
         } else {
-          ALOGD_IF(ese_debug_enabled,
-                   "%s Mismatch of len total_data_len %d total_len %d",
-                   __FUNCTION__, total_data_len, total_len);
+          NXP_LOG_ESE_D("%s Mismatch of len total_data_len %d total_len %d",
+                        __FUNCTION__, total_data_len, total_len);
           phNxpEse_free(pbuff);
         }
       } else {
-        ALOGE("%s phNxpEse_GetDataFromList failed", __FUNCTION__);
+        NXP_LOG_ESE_E("%s phNxpEse_GetDataFromList failed", __FUNCTION__);
         phNxpEse_free(pbuff);
       }
     } else {
-      ALOGE("%s Error in malloc ", __FUNCTION__);
+      NXP_LOG_ESE_E("%s Error in malloc ", __FUNCTION__);
       status = ESESTATUS_NOT_ENOUGH_MEMORY;
     }
   } else {
-    ALOGD_IF(ese_debug_enabled, "%s total_len = %d", __FUNCTION__, total_len);
+    NXP_LOG_ESE_D("%s total_len = %d", __FUNCTION__, total_len);
   }
 
   if (ESESTATUS_SUCCESS != status) {
     *pbuffer = NULL;
     *data_len = 0;
   }
-  ALOGD_IF(ese_debug_enabled, "%s exit status = %d", __FUNCTION__, status);
+  NXP_LOG_ESE_D("%s exit status = %d", __FUNCTION__, status);
   return status;
 }
 
@@ -92,7 +92,8 @@ ESESTATUS phNxpEse_StoreDatainList(uint32_t data_len, uint8_t* pbuff) {
   newNode = (phNxpEse_sCoreRecvBuff_List_t*)phNxpEse_memalloc(
       sizeof(phNxpEse_sCoreRecvBuff_List_t));
   if (newNode == NULL) {
-    ALOGE("%s Error in malloc ", __FUNCTION__);
+    NXP_LOG_ESE_E("%s Error in malloc ", __FUNCTION__);
+    phNxpEse_FlushData();
     return ESESTATUS_NOT_ENOUGH_MEMORY;
   }
   newNode->pNext = NULL;
@@ -120,7 +121,7 @@ ESESTATUS phNxpEse_StoreDatainList(uint32_t data_len, uint8_t* pbuff) {
 static ESESTATUS phNxpEse_GetDataFromList(uint32_t* data_len, uint8_t* pbuff) {
   phNxpEse_sCoreRecvBuff_List_t* new_node;
   uint32_t offset = 0;
-  ALOGD_IF(ese_debug_enabled, "%s Enter ", __FUNCTION__);
+  NXP_LOG_ESE_D("%s Enter ", __FUNCTION__);
   if (head == NULL || pbuff == NULL) {
     return ESESTATUS_FAILED;
   }
@@ -133,7 +134,7 @@ static ESESTATUS phNxpEse_GetDataFromList(uint32_t* data_len, uint8_t* pbuff) {
     new_node = new_node->pNext;
   }
   *data_len = offset;
-  ALOGD_IF(ese_debug_enabled, "%s Exit ", __FUNCTION__);
+  NXP_LOG_ESE_D("%s Exit ", __FUNCTION__);
   return ESESTATUS_SUCCESS;
 }
 
@@ -162,4 +163,27 @@ static ESESTATUS phNxpEse_DeletList(phNxpEse_sCoreRecvBuff_List_t* head) {
   }
   head = NULL;
   return status;
+}
+
+/******************************************************************************
+ * Function         phNxpEse_FlushData
+ *
+ * Description      This function flushes the data from the data list
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void phNxpEse_FlushData() {
+  phNxpEse_data pRes;
+  phNxpEse_memset(&pRes, 0x00, sizeof(phNxpEse_data));
+
+  /* read if any residual data is there */
+  if ((total_len > 0) &&
+      (ESESTATUS_SUCCESS == phNxpEse_GetData(&pRes.len, &pRes.p_data))) {
+    NXP_LOG_ESE_D("%s Flushed data DataLen = %d", __FUNCTION__, pRes.len);
+  }
+  if (pRes.p_data != NULL) {
+    phNxpEse_free(pRes.p_data);
+    pRes.p_data = NULL;
+  }
 }

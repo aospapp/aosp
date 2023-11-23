@@ -26,10 +26,12 @@ import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.content.pm.cts.shortcutmanager.common.Constants;
 import android.test.suitebuilder.annotation.SmallTest;
-import android.text.format.Time;
 
 import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.ShellIdentityUtils;
+
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
 @CddTest(requirement="3.8.1/C-4-1")
 @SmallTest
@@ -39,6 +41,9 @@ public class ShortcutManagerUsageTest extends ShortcutManagerCtsTestsBase {
 
     // We need some allowance due to b/30415390.
     private static long USAGE_STATS_RANGE_ALLOWANCE = 60 * 1000;
+
+    private static final DateTimeFormatter TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-M-d H-m-s");
 
     private UsageStatsManager mUsageStatsManager;
 
@@ -61,9 +66,7 @@ public class ShortcutManagerUsageTest extends ShortcutManagerCtsTestsBase {
     }
 
     private static String generateRandomId(String signature) {
-        Time tobj = new Time();
-        tobj.set(System.currentTimeMillis());
-        return tobj.format("%Y-%m-%d %H:%M:%S") + "." + signature + "."
+        return TIME_FORMATTER.format(ZonedDateTime.now()) + "." + signature + "."
                 + Constants.sRandom.nextLong();
     }
 

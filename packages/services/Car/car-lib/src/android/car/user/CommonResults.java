@@ -19,6 +19,7 @@ package android.car.user;
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
 
 import android.car.annotation.AddedInOrBefore;
+import android.car.annotation.ApiRequirements;
 
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 
@@ -62,6 +63,13 @@ final class CommonResults {
      */
     @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_UX_RESTRICTION_FAILURE = 6;
+
+    /**
+     * Operation failed because of old platform that does not support the specified action.
+     */
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static final int STATUS_UNSUPPORTED_PLATFORM_FAILURE = 7;
 
     /**
      * Reference for common status - anything higher than this can be used for custom status

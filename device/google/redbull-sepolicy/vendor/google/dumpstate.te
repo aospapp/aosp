@@ -15,3 +15,10 @@ allow dumpstate firmware_file:dir r_dir_perms;
 allow dumpstate firmware_file:filesystem getattr;
 
 dontaudit dumpstate debugfs_dma_buf:file r_file_perms;
+dontaudit dumpstate incidentd:process sigkill;
+
+# dumpstate may trigger a screen capture using /system/bin/screencap. In this
+# case, the gralloc implementation will attempt to retrieve information about
+# the GPU using /sys/class/kgsl/**/gpu_model.
+allow dumpstate sysfs_msm_subsys:dir search;
+allow dumpstate sysfs_msm_subsys:file rw_file_perms;

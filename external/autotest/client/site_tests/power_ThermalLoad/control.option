@@ -1,11 +1,13 @@
 AUTHOR = "puthik"
 NAME = "power_ThermalLoad.option"
 PURPOSE = "Run thermal workload and log temperature."
+
 CRITERIA = "This test is a benchmark."
 TIME = "SHORT"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This test is power_ThermalLoad that can use custom args.

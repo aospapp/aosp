@@ -4,3 +4,4 @@ service adbd /apex/com.android.adbd/bin/adbd --root_seclabel=u:r:su:s0
     disabled
     override
     seclabel u:r:adbd:s0
+    user root

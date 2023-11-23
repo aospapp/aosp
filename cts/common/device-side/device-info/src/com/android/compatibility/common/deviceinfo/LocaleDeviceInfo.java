@@ -20,17 +20,23 @@ import android.icu.util.VersionInfo;
 import android.util.Log;
 import androidx.annotation.Nullable;
 import com.android.compatibility.common.util.DeviceInfoStore;
+import com.google.common.base.Strings;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -39,6 +45,9 @@ import java.util.stream.Stream;
  */
 public final class LocaleDeviceInfo extends DeviceInfo {
     private static final String TAG = "LocaleDeviceInfo";
+
+    private static final Pattern HYPHEN_BINARY_PATTERN = Pattern.compile("hyph-(.*?).hyb");
+    private static final String HYPHEN_BINARY_LOCATION = "/system/usr/hyphen-data/";
 
     @Override
     protected void collectDeviceInfo(DeviceInfoStore store) throws Exception {
@@ -58,6 +67,26 @@ public final class LocaleDeviceInfo extends DeviceInfo {
             icuLocales.add(ULocale.US.toLanguageTag());
         }
         store.addListResult("icu_locale", icuLocales);
+
+        // Collect hyphenation supported locale
+        List<String> hyphenLocalesList = new ArrayList<>();
+        // Retrieve locale from the file name of binary
+        try (Stream<Path> stream = Files.walk(Paths.get(HYPHEN_BINARY_LOCATION))) {
+            hyphenLocalesList = stream
+                    .filter(file -> !Files.isDirectory(file))
+                    .map(Path::getFileName)
+                    .map(Path::toString)
+                    .filter(HYPHEN_BINARY_PATTERN.asPredicate())
+                    .map(s -> {
+                        Matcher matcher = HYPHEN_BINARY_PATTERN.matcher(s);
+                        return matcher.find() ? Strings.nullToEmpty(matcher.group(1)) : "";
+                    })
+                    .sorted()
+                    .collect(Collectors.toList());
+        } catch (IOException e) {
+            Log.w(TAG,"Hyphenation binary folder is not exist" , e);
+        }
+        store.addListResult("hyphenation_locale", hyphenLocalesList);
 
         collectLocaleDataFilesInfo(store);
     }

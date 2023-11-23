@@ -18,17 +18,7 @@
  * - a protected buffer is created by mmap with specifying protection
  */
 
-#include <stdio.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/stat.h>
 #include <sys/sendfile.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/mman.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
 #include "tst_test.h"
 
 static int in_fd;
@@ -68,7 +58,7 @@ static void run(unsigned int i)
 	if (tc[i].pass_unmapped_buffer)
 		SAFE_MUNMAP(protected_buffer, sizeof(*protected_buffer));
 
-	TST_EXP_FAIL(sendfile(out_fd, in_fd, protected_buffer, 1),
+	TST_EXP_FAIL2(sendfile(out_fd, in_fd, protected_buffer, 1),
 		     EFAULT, "sendfile(..) with %s, protection=%d",
 		     tc[i].desc, tc[i].protection);
 

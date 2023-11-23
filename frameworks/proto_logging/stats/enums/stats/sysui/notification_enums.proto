@@ -28,3 +28,17 @@ enum NotificationImportance {  // Constants from NotificationManager.java
   IMPORTANCE_HIGH = 4;  // Shows everywhere, makes noise, heads-up, may full-screen.
   IMPORTANCE_IMPORTANT_CONVERSATION = 5;  // High + isImportantConversation().
 }
+
+// Enum used in NotificationMemoryUse and NotificationDismissed protos.
+enum NotificationStyle {
+  STYLE_UNSPECIFIED = -1000;
+  STYLE_NONE = 0;
+  STYLE_BIG_PICTURE = 1;
+  STYLE_BIG_TEXT = 2;
+  STYLE_CALL = 3;
+  STYLE_DECORATED_CUSTOM_VIEW = 4;
+  STYLE_INBOX = 5;
+  STYLE_MEDIA = 6;
+  STYLE_MESSAGING = 7;
+  STYLE_RANKER_GROUP = 8;
+}

@@ -32,7 +32,7 @@ def _define_test(
         suites: A list of test suites this test belongs to, without the 'suite:'
                 prefix.
         main_package: Python package that contains the entry function.
-                e.g. autotest_lib.client.site_tests.dummy_Pass.dummy_Pass
+                e.g. autotest_lib.client.site_tests.stub_Pass.stub_Pass
         main_args: A list of arguments to the entry function.
     """
     test_args = google_pb.ListValue(values = [

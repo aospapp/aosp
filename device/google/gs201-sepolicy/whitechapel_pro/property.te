@@ -1,0 +1,46 @@
+vendor_internal_prop(vendor_diag_prop)
+vendor_internal_prop(vendor_slog_prop)
+vendor_internal_prop(vendor_modem_prop)
+vendor_internal_prop(vendor_persist_config_default_prop)
+vendor_internal_prop(vendor_cbd_prop)
+vendor_internal_prop(vendor_rild_prop)
+vendor_internal_prop(vendor_carrier_prop)
+vendor_internal_prop(vendor_ssrdump_prop)
+vendor_internal_prop(vendor_wifi_version)
+vendor_internal_prop(vendor_nfc_prop)
+vendor_internal_prop(vendor_secure_element_prop)
+vendor_internal_prop(vendor_battery_profile_prop)
+vendor_internal_prop(vendor_battery_defender_prop)
+vendor_internal_prop(vendor_shutdown_prop)
+vendor_internal_prop(vendor_imssvc_prop)
+vendor_internal_prop(vendor_camera_prop)
+vendor_internal_prop(vendor_camera_fatp_prop)
+vendor_internal_prop(vendor_usb_config_prop)
+vendor_internal_prop(vendor_tcpdump_log_prop)
+vendor_internal_prop(vendor_gps_prop)
+vendor_internal_prop(vendor_ro_sys_default_prop)
+vendor_internal_prop(vendor_persist_sys_default_prop)
+vendor_internal_prop(vendor_display_prop)
+
+# Fingerprint
+vendor_internal_prop(vendor_fingerprint_prop)
+
+# UWB calibration
+system_vendor_config_prop(vendor_uwb_calibration_prop)
+# Country code must be vendor_public to be written by UwbVendorService and read by NFC HAL
+vendor_internal_prop(vendor_uwb_calibration_country_code)
+
+# Dynamic sensor
+vendor_internal_prop(vendor_dynamic_sensor_prop)
+
+# Telephony debug app
+vendor_internal_prop(vendor_telephony_app_prop)
+
+# Trusty storage FS ready
+vendor_internal_prop(vendor_trusty_storage_prop)
+
+# Mali Integration
+vendor_restricted_prop(vendor_arm_runtime_option_prop)
+
+# ArmNN
+vendor_internal_prop(vendor_armnn_config_prop)

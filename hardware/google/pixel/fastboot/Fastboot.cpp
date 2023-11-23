@@ -16,15 +16,16 @@
 
 #include "fastboot/Fastboot.h"
 
-#include <string>
-#include <unordered_map>
-#include <vector>
-#include <map>
-
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
+#include <dlfcn.h>
+
+#include <map>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 // FS headers
 #include <ext4_utils/wipe.h>
@@ -169,10 +170,34 @@ enum WipeVolumeStatus wipe_volume(const std::string &volume) {
     return WIPE_OK;
 }
 
+// Attempt to reuse a WipeKeys function that might be found in the recovery
+// library in order to clear any digital car keys on the secure element.
+bool WipeDigitalCarKeys(void) {
+    static constexpr const char *kDefaultLibRecoveryUIExt = "librecovery_ui_ext.so";
+    void *librecovery_ui_ext = dlopen(kDefaultLibRecoveryUIExt, RTLD_NOW);
+    if (librecovery_ui_ext == nullptr) {
+        // Dynamic library not found. Returning true since this likely
+        // means target does not support DCK.
+        return true;
+    }
+
+    bool *(*WipeKeysFunc)(void *const);
+    reinterpret_cast<void *&>(WipeKeysFunc) = dlsym(librecovery_ui_ext, "WipeKeys");
+    if (WipeKeysFunc == nullptr) {
+        // No WipeKeys implementation found. Returning true since this likely
+        // means target does not support DCK.
+        return true;
+    }
+
+    return (*WipeKeysFunc)(nullptr);
+}
+
 Return<void> Fastboot::doOemSpecificErase(V1_1::IFastboot::doOemSpecificErase_cb _hidl_cb) {
     // Erase metadata partition along with userdata partition.
     // Keep erasing Titan M even if failing on this case.
     auto wipe_status = wipe_volume("/metadata");
+
+    bool dck_wipe_success = WipeDigitalCarKeys();
 
     // Connect to Titan M
     ::nos::NuggetClient client;
@@ -188,19 +213,27 @@ Return<void> Fastboot::doOemSpecificErase(V1_1::IFastboot::doOemSpecificErase_cb
     memcpy(magic.data(), &magicValue, sizeof(magicValue));
     const uint8_t retry_count = 5;
     uint32_t nugget_status;
-    for(uint8_t i = 0; i < retry_count; i++) {
+    for (uint8_t i = 0; i < retry_count; i++) {
         nugget_status = client.CallApp(APP_ID_NUGGET, NUGGET_PARAM_NUKE_FROM_ORBIT, magic, nullptr);
-        if (nugget_status == APP_SUCCESS && wipe_status == WIPE_OK) {
+        if (nugget_status == APP_SUCCESS && wipe_status == WIPE_OK && dck_wipe_success) {
             _hidl_cb({Status::SUCCESS, wipe_vol_ret_msg[wipe_status]});
             return Void();
         }
     }
 
     // Return exactly what happened
-    if (nugget_status != APP_SUCCESS && wipe_status != WIPE_OK) {
+    if (nugget_status != APP_SUCCESS && wipe_status != WIPE_OK && !dck_wipe_success) {
+        _hidl_cb({Status::FAILURE_UNKNOWN, "Fail on wiping metadata, Titan M user data, and DCK"});
+    } else if (nugget_status != APP_SUCCESS && wipe_status != WIPE_OK) {
         _hidl_cb({Status::FAILURE_UNKNOWN, "Fail on wiping metadata and Titan M user data"});
+    } else if (nugget_status != APP_SUCCESS && !dck_wipe_success) {
+        _hidl_cb({Status::FAILURE_UNKNOWN, "Titan M user data and DCK wipe failed"});
     } else if (nugget_status != APP_SUCCESS) {
         _hidl_cb({Status::FAILURE_UNKNOWN, "Titan M user data wipe failed"});
+    } else if (wipe_status != WIPE_OK && !dck_wipe_success) {
+        _hidl_cb({Status::FAILURE_UNKNOWN, "Fail on wiping metadata and DCK"});
+    } else if (!dck_wipe_success) {
+        _hidl_cb({Status::FAILURE_UNKNOWN, "DCK wipe failed"});
     } else {
         if (wipe_vol_ret_msg.find(wipe_status) != wipe_vol_ret_msg.end())
             _hidl_cb({Status::FAILURE_UNKNOWN, wipe_vol_ret_msg[wipe_status]});

@@ -63,6 +63,9 @@ impl Config {
             }
             None => config.verify_peer(false),
         }
+        if key.enable_early_data {
+            config.enable_early_data();
+        }
 
         // Some of these configs are necessary, or the server can't respond the HTTP/3 request.
         config.set_max_idle_timeout(key.max_idle_timeout);
@@ -126,6 +129,7 @@ pub struct Cache {
 pub struct Key {
     pub cert_path: Option<String>,
     pub max_idle_timeout: u64,
+    pub enable_early_data: bool,
 }
 
 impl Cache {
@@ -174,13 +178,15 @@ impl Cache {
 #[test]
 fn create_quiche_config() {
     assert!(
-        Config::from_key(&Key { cert_path: None, max_idle_timeout: 1000 }).is_ok(),
+        Config::from_key(&Key { cert_path: None, max_idle_timeout: 1000, enable_early_data: true })
+            .is_ok(),
         "quiche config without cert creating failed"
     );
     assert!(
         Config::from_key(&Key {
             cert_path: Some("data/local/tmp/".to_string()),
-            max_idle_timeout: 1000
+            max_idle_timeout: 1000,
+            enable_early_data: true,
         })
         .is_ok(),
         "quiche config with cert creating failed"
@@ -191,38 +197,53 @@ fn create_quiche_config() {
 fn shared_cache() {
     let cache_a = Cache::new();
     let cache_b = cache_a.clone();
-    let config_a = cache_a.get(&Key { cert_path: None, max_idle_timeout: 1000 }).unwrap();
+    let config_a = cache_a
+        .get(&Key { cert_path: None, max_idle_timeout: 1000, enable_early_data: true })
+        .unwrap();
     assert_eq!(Arc::strong_count(&config_a.0), 2);
-    let _config_b = cache_b.get(&Key { cert_path: None, max_idle_timeout: 1000 }).unwrap();
+    let _config_b = cache_b
+        .get(&Key { cert_path: None, max_idle_timeout: 1000, enable_early_data: true })
+        .unwrap();
     assert_eq!(Arc::strong_count(&config_a.0), 3);
 }
 
 #[test]
 fn different_keys() {
     let cache = Cache::new();
-    let key_a = Key { cert_path: None, max_idle_timeout: 1000 };
-    let key_b = Key { cert_path: Some("a".to_string()), max_idle_timeout: 1000 };
-    let key_c = Key { cert_path: Some("a".to_string()), max_idle_timeout: 5000 };
+    let key_a = Key { cert_path: None, max_idle_timeout: 1000, enable_early_data: false };
+    let key_b =
+        Key { cert_path: Some("a".to_string()), max_idle_timeout: 1000, enable_early_data: false };
+    let key_c =
+        Key { cert_path: Some("a".to_string()), max_idle_timeout: 5000, enable_early_data: false };
+    let key_d =
+        Key { cert_path: Some("a".to_string()), max_idle_timeout: 5000, enable_early_data: true };
     let config_a = cache.get(&key_a).unwrap();
     let config_b = cache.get(&key_b).unwrap();
     let _config_b = cache.get(&key_b).unwrap();
     let config_c = cache.get(&key_c).unwrap();
     let _config_c = cache.get(&key_c).unwrap();
+    let config_d = cache.get(&key_d).unwrap();
+    let _config_d = cache.get(&key_d).unwrap();
 
     assert_eq!(Arc::strong_count(&config_a.0), 1);
     assert_eq!(Arc::strong_count(&config_b.0), 2);
+    assert_eq!(Arc::strong_count(&config_c.0), 2);
 
-    // config_c was most recently created, so it should have an extra strong reference due to
+    // config_d was most recently created, so it should have an extra strong reference due to
     // keep-alive in the cache.
-    assert_eq!(Arc::strong_count(&config_c.0), 3);
+    assert_eq!(Arc::strong_count(&config_d.0), 3);
 }
 
 #[test]
 fn lifetimes() {
     let cache = Cache::new();
-    let key_a = Key { cert_path: Some("a".to_string()), max_idle_timeout: 1000 };
-    let key_b = Key { cert_path: Some("b".to_string()), max_idle_timeout: 1000 };
-    let config_none = cache.get(&Key { cert_path: None, max_idle_timeout: 1000 }).unwrap();
+    let key_a =
+        Key { cert_path: Some("a".to_string()), max_idle_timeout: 1000, enable_early_data: true };
+    let key_b =
+        Key { cert_path: Some("b".to_string()), max_idle_timeout: 1000, enable_early_data: true };
+    let config_none = cache
+        .get(&Key { cert_path: None, max_idle_timeout: 1000, enable_early_data: true })
+        .unwrap();
     let config_a = cache.get(&key_a).unwrap();
     let config_b = cache.get(&key_b).unwrap();
 
@@ -268,8 +289,12 @@ fn lifetimes() {
 #[tokio::test]
 async fn quiche_connect() {
     use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-    let mut config = Config::from_key(&Key { cert_path: None, max_idle_timeout: 10 }).unwrap();
-    let socket_addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 42));
+    let mut config =
+        Config::from_key(&Key { cert_path: None, max_idle_timeout: 10, enable_early_data: true })
+            .unwrap();
+    let local = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 42));
+    let peer = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 41));
     let conn_id = quiche::ConnectionId::from_ref(&[]);
-    quiche::connect(None, &conn_id, socket_addr, config.take().await.deref_mut()).unwrap();
+
+    quiche::connect(None, &conn_id, local, peer, config.take().await.deref_mut()).unwrap();
 }

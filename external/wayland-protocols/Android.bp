@@ -54,8 +54,10 @@ bootstrap_go_package {
         "soong-genrule",
     ],
     srcs: [
+        "locations.go",
         "wayland_protocol_codegen.go",
     ],
+    testSrcs: ["wayland_protocol_codegen_test.go"],
     pluginFor: ["soong_build"],
 }
 
@@ -120,31 +122,60 @@ filegroup {
     ],
 }
 
+// Common settings for processing these protocols
+wayland_protocol_codegen_defaults {
+    name: "wayland_extension_protocol_defaults",
+
+    // All the protocol files to generate code for.
+    srcs: [":wayland_extension_protocols"],
+
+    // Use "wayland_scanner" out of external/wayland.
+    tools: ["wayland_scanner"],
+}
+
 // Generate protocol source files used by both client and server
 wayland_protocol_codegen {
     name: "wayland_extension_protocol_sources",
+    defaults: ["wayland_extension_protocol_defaults"],
+
+    // Specifies the command to run to generate each output file for each input file.
     cmd: "$(location wayland_scanner) private-code < $(in) > $(out)",
-    suffix: ".c",
-    srcs: [":wayland_extension_protocols"],
-    tools: ["wayland_scanner"],
+
+    // There is a 1:1 correspondence between each generated output file and each source file.
+    // The output filename should use the base filename of the protocol file (no extension), and
+    // add a ".c" suffix. For example, "freedesktop.org/stable/xdg-shell/xdg-shell.xml" generates
+    // "xdg-shell.c".
+    output: "$(in).c",
 }
 
 // Generate protocol header files used by the client
 wayland_protocol_codegen {
     name: "wayland_extension_client_protocol_headers",
+    defaults: ["wayland_extension_protocol_defaults"],
+
+    // Specifies the command to run to generate each output file for each input file.
     cmd: "$(location wayland_scanner) client-header < $(in) > $(out)",
-    suffix: "-client-protocol.h",
-    srcs: [":wayland_extension_protocols"],
-    tools: ["wayland_scanner"],
+
+    // There is a 1:1 correspondence between each generated output file and each source file.
+    // The output filename should use the base filename of the protocol file (no extension), and
+    // add a "-client-protocol.h" suffix. For example,
+    // "freedesktop.org/stable/xdg-shell/xdg-shell.xml" generates "xdg-shell-client-protocol.h".
+    output: "$(in)-client-protocol.h",
 }
 
 // Generate protocol header files used by the server
 wayland_protocol_codegen {
     name: "wayland_extension_server_protocol_headers",
+    defaults: ["wayland_extension_protocol_defaults"],
+
+    // Specifies the command to run to generate each output file for each input file.
     cmd: "$(location wayland_scanner) server-header < $(in) > $(out)",
-    suffix: "-server-protocol.h",
-    srcs: [":wayland_extension_protocols"],
-    tools: ["wayland_scanner"],
+
+    // There is a 1:1 correspondence between each generated output file and each source file.
+    // The output filename should use the base filename of the protocol file (no extension), and
+    // add a "-server-protocol.h" suffix. For example,
+    // "freedesktop.org/stable/xdg-shell/xdg-shell.xml" generates "xdg-shell-server-protocol.h".
+    output: "$(in)-server-protocol.h",
 }
 
 // Generate a library with the protocol files, configured to export the client

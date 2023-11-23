@@ -36,4 +36,8 @@ SharedMemory::~SharedMemory() = default;
 SharedMemory::Factory::~Factory() = default;
 SharedMemoryArbiter::~SharedMemoryArbiter() = default;
 
+// TODO(primiano): make pure virtual after various 3way patches.
+void ConsumerEndpoint::CloneSession(TracingSessionID) {}
+void Consumer::OnSessionCloned(const OnSessionClonedArgs&) {}
+
 }  // namespace perfetto

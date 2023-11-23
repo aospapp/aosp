@@ -80,20 +80,20 @@ public class ProfileDetailsBasePreferenceControllerTest {
     }
 
     @Test
-    public void testOnCreate_registerListener() {
+    public void testOnStart_registerListener() {
         mPreferenceController.setUserInfo(mUserInfo);
         PreferenceControllerTestUtil.assignPreference(mPreferenceController, mPreference);
-        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
 
         verify(mContext).registerReceiver(eq(mPreferenceController.mProfileUpdateReceiver), any());
     }
 
     @Test
-    public void testOnDestroy_unregisterListener() {
+    public void testOnStop_unregisterListener() {
         mPreferenceController.setUserInfo(mUserInfo);
         PreferenceControllerTestUtil.assignPreference(mPreferenceController, mPreference);
-        mPreferenceController.onCreate(mLifecycleOwner);
-        mPreferenceController.onDestroy(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        mPreferenceController.onStop(mLifecycleOwner);
 
         verify(mContext).unregisterReceiver(mPreferenceController.mProfileUpdateReceiver);
     }

@@ -120,7 +120,8 @@ class GraphicsPowerThread(threading.Thread):
             if timeout and time.time() >= time_end:
                 self.stop()
                 raise self.InitTimeoutError(
-                    'The graphics_Power subtest initialization timed out')
+                    'The graphics_Power subtest initialization timed out after'
+                    ' %d second(s).' % timeout)
             if not self.is_alive():
                 raise RuntimeError(
                     'The graphics_Power subtest failed to initialize')

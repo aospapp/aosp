@@ -33,32 +33,34 @@ import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public class QCActionItemTest extends QCItemTestCase<QCActionItem> {
+    private static final String TEST_CONTENT_DESCRIPTION = "test_content_description";
 
     @Test
     public void onCreate_invalidType_throwsException() {
         assertThrows(IllegalArgumentException.class,
                 () -> createAction("INVALID_TYPE", /* action= */ null,
-                        /* disabledAction= */ null, /* icon= */ null));
+                        /* disabledAction= */ null, /* icon= */ null, /* contentDescription=*/
+                        null));
     }
 
     @Test
     public void onCreateSwitch_hasCorrectType() {
         QCActionItem action = createAction(QC_TYPE_ACTION_SWITCH, /* action= */ null,
-                /* disabledAction= */ null, /* icon= */null);
+                /* disabledAction= */ null, /* icon= */null, /* contentDescription=*/ null);
         assertThat(action.getType()).isEqualTo(QC_TYPE_ACTION_SWITCH);
     }
 
     @Test
     public void onCreateToggle_hasCorrectType() {
         QCActionItem action = createAction(QC_TYPE_ACTION_TOGGLE, /* action= */ null,
-                /* disabledAction= */ null, /* icon= */ null);
+                /* disabledAction= */ null, /* icon= */ null, /* contentDescription=*/ null);
         assertThat(action.getType()).isEqualTo(QC_TYPE_ACTION_TOGGLE);
     }
 
     @Test
     public void onBundle_nullActions_noCrash() {
         QCActionItem action = createAction(QC_TYPE_ACTION_TOGGLE, /* action= */ null,
-                /* disabledAction= */ null, mDefaultIcon);
+                /* disabledAction= */ null, mDefaultIcon, /* contentDescription=*/ null);
         writeAndLoadFromBundle(action);
         // Test passes if this doesn't crash
     }
@@ -66,7 +68,7 @@ public class QCActionItemTest extends QCItemTestCase<QCActionItem> {
     @Test
     public void onBundle_nullIcon_noCrash() {
         QCActionItem action = createAction(QC_TYPE_ACTION_TOGGLE, mDefaultAction,
-                mDefaultDisabledAction, /* icon= */ null);
+                mDefaultDisabledAction, /* icon= */ null, /* contentDescription=*/ null);
         writeAndLoadFromBundle(action);
         // Test passes if this doesn't crash
     }
@@ -74,7 +76,7 @@ public class QCActionItemTest extends QCItemTestCase<QCActionItem> {
     @Test
     public void onBundle_switch_accurateData() {
         QCActionItem action = createAction(QC_TYPE_ACTION_SWITCH, mDefaultAction,
-                mDefaultDisabledAction, /* icon= */ null);
+                mDefaultDisabledAction, /* icon= */ null, TEST_CONTENT_DESCRIPTION);
         QCActionItem newAction = writeAndLoadFromBundle(action);
         assertThat(newAction.getType()).isEqualTo(QC_TYPE_ACTION_SWITCH);
         assertThat(newAction.isChecked()).isTrue();
@@ -82,12 +84,13 @@ public class QCActionItemTest extends QCItemTestCase<QCActionItem> {
         assertThat(newAction.isClickableWhileDisabled()).isFalse();
         assertThat(newAction.getPrimaryAction()).isNotNull();
         assertThat(newAction.getIcon()).isNull();
+        assertThat(newAction.getContentDescription()).isEqualTo(TEST_CONTENT_DESCRIPTION);
     }
 
     @Test
     public void onBundle_toggle_accurateDate() {
         QCActionItem action = createAction(QC_TYPE_ACTION_TOGGLE, mDefaultAction,
-                mDefaultDisabledAction, mDefaultIcon);
+                mDefaultDisabledAction, mDefaultIcon, TEST_CONTENT_DESCRIPTION);
         QCActionItem newAction = writeAndLoadFromBundle(action);
         assertThat(newAction.getType()).isEqualTo(QC_TYPE_ACTION_TOGGLE);
         assertThat(newAction.isChecked()).isTrue();
@@ -95,16 +98,18 @@ public class QCActionItemTest extends QCItemTestCase<QCActionItem> {
         assertThat(newAction.isClickableWhileDisabled()).isFalse();
         assertThat(newAction.getPrimaryAction()).isNotNull();
         assertThat(newAction.getIcon()).isNotNull();
+        assertThat(newAction.getContentDescription()).isEqualTo(TEST_CONTENT_DESCRIPTION);
     }
 
     private QCActionItem createAction(String type, PendingIntent action,
-            PendingIntent disabledAction, Icon icon) {
+            PendingIntent disabledAction, Icon icon, String contentDescription) {
         return new QCActionItem.Builder(type)
                 .setChecked(true)
                 .setEnabled(true)
                 .setAction(action)
                 .setDisabledClickAction(disabledAction)
                 .setIcon(icon)
+                .setContentDescription(contentDescription)
                 .build();
     }
 }

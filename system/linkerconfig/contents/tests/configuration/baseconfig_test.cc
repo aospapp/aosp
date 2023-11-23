@@ -26,7 +26,8 @@ using android::linkerconfig::modules::ConfigWriter;
 
 TEST(linkerconfig_configuration_fulltest, baseconfig_test) {
   MockGenericVariables();
-  Context ctx = GenerateContextWithVndk();
+  Context ctx;
+  ctx.SetApexModules({CreateTestVndkApex()});
   auto base_config = CreateBaseConfiguration(ctx);
   ConfigWriter config_writer;
 
@@ -39,7 +40,8 @@ TEST(linkerconfig_configuration_fulltest,
      baseconfig_vndk_using_core_variant_test) {
   MockGenericVariables();
   MockVndkUsingCoreVariant();
-  Context ctx = GenerateContextWithVndk();
+  Context ctx;
+  ctx.SetApexModules({CreateTestVndkApex()});
   auto base_config = CreateBaseConfiguration(ctx);
   ConfigWriter config_writer;
 
@@ -51,7 +53,8 @@ TEST(linkerconfig_configuration_fulltest,
 TEST(linkerconfig_configuration_fulltest, baseconfig_vndk_27_test) {
   MockGenericVariables();
   MockVndkVersion("27");
-  Context ctx = GenerateContextWithVndk();
+  Context ctx;
+  ctx.SetApexModules({CreateTestVndkApex()});
   auto base_config = CreateBaseConfiguration(ctx);
   ConfigWriter config_writer;
 
@@ -64,8 +67,8 @@ TEST(linkerconfig_configuration_fulltest,
      apexes_with_jni_are_visible_to_system_section) {
   MockGenericVariables();
   Context ctx;
-  ctx.AddApexModule(ApexInfo(
-      "foo", "", {}, {}, {"libjni.so"}, {}, {}, false, true, false, false));
+  ctx.SetApexModules({ApexInfo(
+      "foo", "", {}, {}, {"libjni.so"}, {}, {}, false, true, false, false)});
   auto config = CreateBaseConfiguration(ctx);
 
   auto* section = config.GetSection("system");
@@ -102,20 +105,19 @@ TEST(linkerconfig_configuration_fulltest,
                               true,
                               false);
   vendor_apex.original_path = "/vendor/apex/com.android.vendor";
-  ctx.AddApexModule(vendor_apex);
-
-  // To generate vendor section
-  ctx.AddApexModule(ApexInfo("com.android.vndk.v",
-                             "/apex/com.android.vndk.v",
-                             {},
-                             {},
-                             {},
-                             {},
-                             {},
-                             false,
-                             true,
-                             true,
-                             false));
+  ctx.SetApexModules({vendor_apex,
+                      // To generate vendor section
+                      ApexInfo("com.android.vndk.v",
+                               "/apex/com.android.vndk.v",
+                               {},
+                               {},
+                               {},
+                               {},
+                               {},
+                               false,
+                               true,
+                               true,
+                               false)});
 
   auto config = CreateBaseConfiguration(ctx);
 

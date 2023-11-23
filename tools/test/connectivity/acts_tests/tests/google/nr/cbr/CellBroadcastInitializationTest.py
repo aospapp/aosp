@@ -18,8 +18,6 @@
 """
 
 import time
-import os
-
 
 from acts.logger import epoch_to_log_line_timestamp
 from acts.keys import Config
@@ -31,19 +29,21 @@ from acts_contrib.test_utils.tel.tel_test_utils import reboot_device
 from acts_contrib.test_utils.tel.tel_test_utils import get_device_epoch_time
 
 
-class CellBroadcastInitializationTest(BaseTestClass):
+class CellBroadcastInitializationTest(TelephonyBaseTest):
     def setup_test(self):
-        super().setup_class()
+        TelephonyBaseTest.setup_class()
         self.number_of_devices = 1
-        self.cbr_init_iteration = self.user_params.get("cbr_init_iteration", 50)
+        self.cbr_init_iteration = self.user_params.get("cbr_init_iteration",
+                                                       50)
 
     def teardown_class(self):
-        super().teardown_class(self)
+        TelephonyBaseTest.teardown_class(self)
 
     def _get_current_time_in_secs(self, ad):
         try:
             c_time = get_device_epoch_time(ad)
-            c_time = epoch_to_log_line_timestamp(c_time).split()[1].split('.')[0]
+            c_time = epoch_to_log_line_timestamp(c_time).split()[1].split(
+                '.')[0]
             return self._convert_formatted_time_to_secs(c_time)
         except Exception as e:
             ad.log.error(e)
@@ -51,7 +51,8 @@ class CellBroadcastInitializationTest(BaseTestClass):
     def _convert_formatted_time_to_secs(self, formatted_time):
         try:
             time_list = formatted_time.split(":")
-            return int(time_list[0]) * 3600 + int(time_list[1]) * 60 + int(time_list[2])
+            return int(time_list[0]) * 3600 + int(time_list[1]) * 60 + int(
+                time_list[2])
         except Exception as e:
             self.log.error(e)
 
@@ -72,13 +73,15 @@ class CellBroadcastInitializationTest(BaseTestClass):
         """
         ad = self.android_devices[0]
 
-        current_cbr_version = ad.get_apk_version('com.google.android.cellbroadcast')
+        current_cbr_version = ad.get_apk_version(
+            'com.google.android.cellbroadcast')
         ad.log.info("Current cbr apk version is %s.", current_cbr_version)
 
         failure_count = 0
         begin_time = self._get_current_time_in_secs(ad)
         for iteration in range(1, self.cbr_init_iteration + 1):
-            msg = "Stress CBR reboot initialization test Iteration: <%s>/<%s>" % (iteration, self.cbr_init_iteration)
+            msg = "Stress CBR reboot initialization test Iteration: <%s>/<%s>" % (
+                iteration, self.cbr_init_iteration)
             self.log.info(msg)
             ad.reboot()
             ad.wait_for_boot_completion()
@@ -93,7 +96,7 @@ class CellBroadcastInitializationTest(BaseTestClass):
         result = True
         if failure_count > 0:
             result = False
-            self.log.error('CBR reboot init stress test: <%s> failures in %s iterations',
-                           failure_count, self.cbr_init_iteration)
+            self.log.error(
+                'CBR reboot init stress test: <%s> failures in %s iterations',
+                failure_count, self.cbr_init_iteration)
         return result
-

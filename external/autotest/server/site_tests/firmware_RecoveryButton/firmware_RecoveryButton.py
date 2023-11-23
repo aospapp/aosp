@@ -13,7 +13,7 @@ class firmware_RecoveryButton(FirmwareTest):
     """
     Servo based recovery button test.
 
-    This test requires a USB disk plugged-in, which contains a Chrome OS test
+    This test requires a USB disk plugged-in, which contains a ChromeOS test
     image (built by "build_image --test"). On runtime, this test emulates
     recovery button pressed and reboots. It then triggers recovery mode in
     two cases: (1) plug in the USB disk before power-on (2) plug in the USB
@@ -63,8 +63,7 @@ class firmware_RecoveryButton(FirmwareTest):
         self.check_state((self.checkers.crossystem_checker, {
                 'mainfw_type': 'developer' if dev_mode else 'normal',
         }))
-        self.switcher.reboot_to_mode(
-                to_mode='rec', from_mode='dev' if dev_mode else 'normal')
+        self.switcher.reboot_to_mode(to_mode="rec")
 
         logging.info("Expect a recovery boot from the USB stick.")
         self.check_recovery_state()

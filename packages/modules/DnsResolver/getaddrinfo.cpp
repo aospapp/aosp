@@ -38,7 +38,6 @@
 #include <arpa/nameser.h>
 #include <assert.h>
 #include <ctype.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <net/if.h>
 #include <netdb.h>
@@ -57,6 +56,7 @@
 #include <future>
 
 #include <android-base/logging.h>
+#include <android-base/parseint.h>
 
 #include "Experiments.h"
 #include "netd_resolv/resolv.h"
@@ -64,10 +64,10 @@
 #include "res_debug.h"
 #include "resolv_cache.h"
 #include "resolv_private.h"
-#include "util.h"
 
 #define ANY 0
 
+using android::net::Experiments;
 using android::net::NetworkDnsEventReported;
 
 const char in_addrany[] = {0, 0, 0, 0};
@@ -123,7 +123,6 @@ struct res_target {
     int n = 0;                                                         // result length
 };
 
-static int str2number(const char*);
 static int explore_fqdn(const struct addrinfo*, const char*, const char*, struct addrinfo**,
                         const struct android_net_context*, NetworkDnsEventReported* event);
 static int explore_null(const struct addrinfo*, const char*, struct addrinfo**);
@@ -149,9 +148,9 @@ static struct addrinfo* _gethtent(FILE**, const char*, const struct addrinfo*);
 static struct addrinfo* getCustomHosts(const size_t netid, const char*, const struct addrinfo*);
 static bool files_getaddrinfo(const size_t netid, const char* name, const addrinfo* pai,
                               addrinfo** res);
-static int _find_src_addr(const struct sockaddr*, struct sockaddr*, unsigned, uid_t);
+static int _find_src_addr(const struct sockaddr*, struct sockaddr*, unsigned, uid_t,
+                          bool allow_v6_linklocal);
 
-static int res_queryN(const char* name, res_target* target, ResState* res, int* herrno);
 static int res_searchN(const char* name, res_target* target, ResState* res, int* herrno);
 static int res_querydomainN(const char* name, const char* domain, res_target* target, ResState* res,
                             int* herrno);
@@ -213,22 +212,6 @@ void freeaddrinfo(struct addrinfo* ai) {
     }
 }
 
-static int str2number(const char* p) {
-    char* ep;
-    unsigned long v;
-
-    assert(p != NULL);
-
-    if (*p == '\0') return -1;
-    ep = NULL;
-    errno = 0;
-    v = strtoul(p, &ep, 10);
-    if (errno == 0 && ep && *ep == '\0' && v <= UINT_MAX)
-        return v;
-    else
-        return -1;
-}
-
 /*
  * The following functions determine whether IPv4 or IPv6 connectivity is
  * available in order to implement AI_ADDRCONFIG.
@@ -238,13 +221,14 @@ static int str2number(const char* p) {
  * on the local system". However, bionic doesn't currently support getifaddrs,
  * so checking for connectivity is the next best thing.
  */
-static int have_ipv6(unsigned mark, uid_t uid) {
+static int have_ipv6(unsigned mark, uid_t uid, bool mdns) {
     static const struct sockaddr_in6 sin6_test = {
             .sin6_family = AF_INET6,
             .sin6_addr.s6_addr = {// 2000::
                                   0x20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
     sockaddr_union addr = {.sin6 = sin6_test};
-    return _find_src_addr(&addr.sa, NULL, mark, uid) == 1;
+    sockaddr sa;
+    return _find_src_addr(&addr.sa, &sa, mark, uid, /*allow_v6_linklocal=*/mdns) == 1;
 }
 
 static int have_ipv4(unsigned mark, uid_t uid) {
@@ -253,7 +237,8 @@ static int have_ipv4(unsigned mark, uid_t uid) {
             .sin_addr.s_addr = __constant_htonl(0x08080808L)  // 8.8.8.8
     };
     sockaddr_union addr = {.sin = sin_test};
-    return _find_src_addr(&addr.sa, NULL, mark, uid) == 1;
+    sockaddr sa;
+    return _find_src_addr(&addr.sa, &sa, mark, uid, /*(don't care) allow_v6_linklocal=*/false) == 1;
 }
 
 // Internal version of getaddrinfo(), but limited to AI_NUMERICHOST.
@@ -711,7 +696,7 @@ static int get_portmatch(const struct addrinfo* ai, const char* servname) {
 static int get_port(const struct addrinfo* ai, const char* servname, int matchonly) {
     const char* proto;
     struct servent* sp;
-    int port;
+    uint port;
     int allownumeric;
 
     assert(ai != NULL);
@@ -738,10 +723,9 @@ static int get_port(const struct addrinfo* ai, const char* servname, int matchon
             return EAI_SOCKTYPE;
     }
 
-    port = str2number(servname);
-    if (port >= 0) {
+    if (android::base::ParseUint(servname, &port)) {
         if (!allownumeric) return EAI_SERVICE;
-        if (port < 0 || port > 65535) return EAI_SERVICE;
+        if (port > 65535) return EAI_SERVICE;
         port = htons(port);
     } else {
         if (ai->ai_flags & AI_NUMERICSERV) return EAI_NONAME;
@@ -788,9 +772,7 @@ static const struct afd* find_afd(int af) {
 
 // Convert a string to a scope identifier.
 static int ip6_str2scopeid(const char* scope, struct sockaddr_in6* sin6, uint32_t* scopeid) {
-    uint64_t lscopeid;
     struct in6_addr* a6;
-    char* ep;
 
     assert(scope != NULL);
     assert(sin6 != NULL);
@@ -811,14 +793,10 @@ static int ip6_str2scopeid(const char* scope, struct sockaddr_in6* sin6, uint32_
         if (*scopeid != 0) return 0;
     }
 
-    // try to convert to a numeric id as a last resort
-    errno = 0;
-    lscopeid = strtoul(scope, &ep, 10);
-    *scopeid = (uint32_t)(lscopeid & 0xffffffffUL);
-    if (errno == 0 && ep && *ep == '\0' && *scopeid == lscopeid)
-        return 0;
-    else
-        return -1;
+    /* try to convert to a numeric id as a last resort*/
+    if (!android::base::ParseUint(scope, scopeid)) return -1;
+
+    return 0;
 }
 
 /* code duplicate with gethnamaddr.c */
@@ -1281,7 +1259,8 @@ static int _rfc6724_compare(const void* ptr1, const void* ptr2) {
 
 /*
  * Find the source address that will be used if trying to connect to the given
- * address. src_addr must be large enough to hold a struct sockaddr_in6.
+ * address. src_addr must be assigned and large enough to hold a struct sockaddr_in6.
+ * allow_v6_linklocal controls whether to accept link-local source addresses.
  *
  * Returns 1 if a source address was found, 0 if the address is unreachable,
  * and -1 if a fatal error occurred. If 0 or -1, the contents of src_addr are
@@ -1289,8 +1268,9 @@ static int _rfc6724_compare(const void* ptr1, const void* ptr2) {
  */
 
 static int _find_src_addr(const struct sockaddr* addr, struct sockaddr* src_addr, unsigned mark,
-                          uid_t uid) {
-    int sock;
+                          uid_t uid, bool allow_v6_linklocal) {
+    if (src_addr == nullptr) return -1;
+
     int ret;
     socklen_t len;
 
@@ -1306,8 +1286,8 @@ static int _find_src_addr(const struct sockaddr* addr, struct sockaddr* src_addr
             return 0;
     }
 
-    sock = socket(addr->sa_family, SOCK_DGRAM | SOCK_CLOEXEC, IPPROTO_UDP);
-    if (sock == -1) {
+    android::base::unique_fd sock(socket(addr->sa_family, SOCK_DGRAM | SOCK_CLOEXEC, IPPROTO_UDP));
+    if (sock.get() == -1) {
         if (errno == EAFNOSUPPORT) {
             return 0;
         } else {
@@ -1315,11 +1295,9 @@ static int _find_src_addr(const struct sockaddr* addr, struct sockaddr* src_addr
         }
     }
     if (mark != MARK_UNSET && setsockopt(sock, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)) < 0) {
-        close(sock);
         return 0;
     }
     if (uid > 0 && uid != NET_CONTEXT_INVALID_UID && fchown(sock, uid, (gid_t) -1) < 0) {
-        close(sock);
         return 0;
     }
     do {
@@ -1327,15 +1305,28 @@ static int _find_src_addr(const struct sockaddr* addr, struct sockaddr* src_addr
     } while (ret == -1 && errno == EINTR);
 
     if (ret == -1) {
-        close(sock);
         return 0;
     }
 
-    if (src_addr && getsockname(sock, src_addr, &len) == -1) {
-        close(sock);
+    if (getsockname(sock, src_addr, &len) == -1) {
         return -1;
     }
-    close(sock);
+
+    if (Experiments::getInstance()->getFlag("skip_4a_query_on_v6_linklocal_addr", 1) &&
+        src_addr->sa_family == AF_INET6) {
+        sockaddr_in6* sin6 = reinterpret_cast<sockaddr_in6*>(src_addr);
+        if (!allow_v6_linklocal && IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr)) {
+            // There is no point in sending an AAAA query because the device does not have a global
+            // IP address. The only thing that can be affected is the hostname "localhost". Devices
+            // with this setting will not be able to get the localhost v6 IP address ::1 via DNS
+            // lookups, which is accessible by host local. But it is expected that a DNS server that
+            // replies to "localhost" in AAAA should also reply in A. So it shouldn't cause issues.
+            // Also, the current behavior will not be changed because hostname “localhost” only gets
+            // 127.0.0.1 per etc/hosts configs.
+            return 0;
+        }
+    }
+
     return 1;
 }
 
@@ -1344,7 +1335,9 @@ static int _find_src_addr(const struct sockaddr* addr, struct sockaddr* src_addr
  * Will leave the list unchanged if an error occurs.
  */
 
-static void _rfc6724_sort(struct addrinfo* list_sentinel, unsigned mark, uid_t uid) {
+void resolv_rfc6724_sort(struct addrinfo* list_sentinel, unsigned mark, uid_t uid) {
+    if (list_sentinel == nullptr) return;
+
     struct addrinfo* cur;
     int nelem = 0, i;
     struct addrinfo_sort_elem* elems;
@@ -1355,7 +1348,7 @@ static void _rfc6724_sort(struct addrinfo* list_sentinel, unsigned mark, uid_t u
         cur = cur->ai_next;
     }
 
-    elems = (struct addrinfo_sort_elem*) malloc(nelem * sizeof(struct addrinfo_sort_elem));
+    elems = (struct addrinfo_sort_elem*) calloc(nelem, sizeof(struct addrinfo_sort_elem));
     if (elems == NULL) {
         goto error;
     }
@@ -1370,7 +1363,8 @@ static void _rfc6724_sort(struct addrinfo* list_sentinel, unsigned mark, uid_t u
         elems[i].ai = cur;
         elems[i].original_order = i;
 
-        has_src_addr = _find_src_addr(cur->ai_addr, &elems[i].src_addr.sa, mark, uid);
+        has_src_addr = _find_src_addr(cur->ai_addr, &elems[i].src_addr.sa, mark, uid,
+                                      /*allow_v6_linklocal=*/true);
         if (has_src_addr == -1) {
             goto error;
         }
@@ -1395,6 +1389,8 @@ static int dns_getaddrinfo(const char* name, const addrinfo* pai,
                            NetworkDnsEventReported* event) {
     res_target q = {};
     res_target q2 = {};
+    ResState res(netcontext, event);
+    setMdnsFlag(name, res.netid, &(res.flags));
 
     switch (pai->ai_family) {
         case AF_UNSPEC: {
@@ -1403,7 +1399,8 @@ static int dns_getaddrinfo(const char* name, const addrinfo* pai,
             q.qclass = C_IN;
             int query_ipv6 = 1, query_ipv4 = 1;
             if (pai->ai_flags & AI_ADDRCONFIG) {
-                query_ipv6 = have_ipv6(netcontext->app_mark, netcontext->uid);
+                query_ipv6 = have_ipv6(netcontext->app_mark, netcontext->uid,
+                                       isMdnsResolution(res.flags));
                 query_ipv4 = have_ipv4(netcontext->app_mark, netcontext->uid);
             }
             if (query_ipv6) {
@@ -1435,10 +1432,6 @@ static int dns_getaddrinfo(const char* name, const addrinfo* pai,
             return EAI_FAMILY;
     }
 
-    ResState res(netcontext, event);
-
-    setMdnsFlag(name, res.netid, &(res.flags));
-
     int he;
     if (res_searchN(name, &q, &res, &he) < 0) {
         // Return h_errno (he) to catch more detailed errors rather than EAI_NODATA.
@@ -1464,7 +1457,7 @@ static int dns_getaddrinfo(const char* name, const addrinfo* pai,
         return herrnoToAiErrno(he);
     }
 
-    _rfc6724_sort(&sentinel, netcontext->app_mark, netcontext->uid);
+    resolv_rfc6724_sort(&sentinel, netcontext->app_mark, netcontext->uid);
 
     *rv = sentinel.ai_next;
     return 0;
@@ -1609,6 +1602,8 @@ struct QueryResult {
     NetworkDnsEventReported event;
 };
 
+// Formulate a normal query, send, and await answer.
+// Caller must parse answer and determine whether it answers the question.
 QueryResult doQuery(const char* name, res_target* t, ResState* res,
                     std::chrono::milliseconds sleepTimeMs) {
     HEADER* hp = (HEADER*)(void*)t->answer.data();
@@ -1646,19 +1641,19 @@ QueryResult doQuery(const char* name, res_target* t, ResState* res,
     int rcode = NOERROR;
     n = res_nsend(&res_temp, {buf, n}, {t->answer.data(), anslen}, &rcode, 0, sleepTimeMs);
     if (n < 0 || hp->rcode != NOERROR || ntohs(hp->ancount) == 0) {
-        // To ensure that the rcode handling is identical to res_queryN().
         if (rcode != RCODE_TIMEOUT) rcode = hp->rcode;
         // if the query choked with EDNS0, retry without EDNS0
         if ((res_temp.netcontext_flags &
              (NET_CONTEXT_FLAG_USE_DNS_OVER_TLS | NET_CONTEXT_FLAG_USE_EDNS)) &&
             (res_temp.flags & RES_F_EDNS0ERR)) {
-            LOG(DEBUG) << __func__ << ": retry without EDNS0";
+            LOG(INFO) << __func__ << ": retry without EDNS0";
             n = res_nmkquery(QUERY, name, cl, type, {}, buf, res_temp.netcontext_flags);
             n = res_nsend(&res_temp, {buf, n}, {t->answer.data(), anslen}, &rcode, 0);
         }
     }
 
-    LOG(DEBUG) << __func__ << ": rcode=" << hp->rcode << ", ancount=" << ntohs(hp->ancount);
+    LOG(INFO) << __func__ << ": rcode=" << rcode << ", ancount=" << ntohs(hp->ancount)
+              << ", return value=" << n;
 
     t->n = n;
     return {
@@ -1671,6 +1666,8 @@ QueryResult doQuery(const char* name, res_target* t, ResState* res,
 
 }  // namespace
 
+// This function runs doQuery() for each res_target in parallel.
+// The `target`, which is set in dns_getaddrinfo(), contains at most two res_target.
 static int res_queryN_parallel(const char* name, res_target* target, ResState* res, int* herrno) {
     std::vector<std::future<QueryResult>> results;
     results.reserve(2);
@@ -1680,8 +1677,8 @@ static int res_queryN_parallel(const char* name, res_target* target, ResState* r
         // Avoiding gateways drop packets if queries are sent too close together
         // Only needed if we have multiple queries in a row.
         if (t->next) {
-            int sleepFlag = android::net::Experiments::getInstance()->getFlag(
-                    "parallel_lookup_sleep_time", SLEEP_TIME_MS);
+            int sleepFlag = Experiments::getInstance()->getFlag("parallel_lookup_sleep_time",
+                                                                SLEEP_TIME_MS);
             if (sleepFlag > 1000) sleepFlag = 1000;
             sleepTimeMs = std::chrono::milliseconds(sleepFlag);
         }
@@ -1707,92 +1704,6 @@ static int res_queryN_parallel(const char* name, res_target* target, ResState* r
         return -1;
     }
 
-    return ancount;
-}
-
-static int res_queryN_wrapper(const char* name, res_target* target, ResState* res, int* herrno) {
-    const bool parallel_lookup =
-            android::net::Experiments::getInstance()->getFlag("parallel_lookup_release", 1);
-    if (parallel_lookup) return res_queryN_parallel(name, target, res, herrno);
-
-    return res_queryN(name, target, res, herrno);
-}
-
-/*
- * Formulate a normal query, send, and await answer.
- * Returned answer is placed in supplied buffer "answer".
- * Perform preliminary check of answer, returning success only
- * if no error is indicated and the answer count is nonzero.
- * Return the size of the response on success, -1 on error.
- * Error number is left in *herrno.
- *
- * Caller must parse answer and determine whether it answers the question.
- */
-static int res_queryN(const char* name, res_target* target, ResState* res, int* herrno) {
-    uint8_t buf[MAXPACKET];
-    int n;
-    struct res_target* t;
-    int rcode;
-    int ancount;
-
-    assert(name != NULL);
-    /* XXX: target may be NULL??? */
-
-    rcode = NOERROR;
-    ancount = 0;
-
-    for (t = target; t; t = t->next) {
-        HEADER* hp = (HEADER*)(void*)t->answer.data();
-        bool retried = false;
-    again:
-        hp->rcode = NOERROR; /* default */
-
-        /* make it easier... */
-        int cl = t->qclass;
-        int type = t->qtype;
-        const int anslen = t->answer.size();
-
-        LOG(DEBUG) << __func__ << ": (" << cl << ", " << type << ")";
-        n = res_nmkquery(QUERY, name, cl, type, {}, buf, res->netcontext_flags);
-        if (n > 0 &&
-            (res->netcontext_flags &
-             (NET_CONTEXT_FLAG_USE_DNS_OVER_TLS | NET_CONTEXT_FLAG_USE_EDNS)) &&
-            !retried)  // TODO:  remove the retry flag and provide a sufficient test coverage.
-            n = res_nopt(res, n, buf, anslen);
-        if (n <= 0) {
-            LOG(ERROR) << __func__ << ": res_nmkquery failed";
-            *herrno = NO_RECOVERY;
-            return n;
-        }
-
-        n = res_nsend(res, {buf, n}, {t->answer.data(), anslen}, &rcode, 0);
-        if (n < 0 || hp->rcode != NOERROR || ntohs(hp->ancount) == 0) {
-            // Record rcode from DNS response header only if no timeout.
-            // Keep rcode timeout for reporting later if any.
-            if (rcode != RCODE_TIMEOUT) rcode = hp->rcode;  // record most recent error
-            // if the query choked with EDNS0, retry without EDNS0 that when the server
-            // has no response, resovler won't retry and do nothing. Even fallback to UDP,
-            // we also has the same symptom if EDNS is enabled.
-            if ((res->netcontext_flags &
-                 (NET_CONTEXT_FLAG_USE_DNS_OVER_TLS | NET_CONTEXT_FLAG_USE_EDNS)) &&
-                (res->flags & RES_F_EDNS0ERR) && !retried) {
-                LOG(DEBUG) << __func__ << ": retry without EDNS0";
-                retried = true;
-                goto again;
-            }
-            LOG(DEBUG) << __func__ << ": rcode=" << hp->rcode << ", ancount=" << ntohs(hp->ancount);
-            continue;
-        }
-
-        ancount += ntohs(hp->ancount);
-
-        t->n = n;
-    }
-
-    if (ancount == 0) {
-        *herrno = getHerrnoFromRcode(rcode);
-        return -1;
-    }
     return ancount;
 }
 
@@ -1839,8 +1750,6 @@ static int res_searchN(const char* name, res_target* target, ResState* res, int*
      * - this is not a .local mDNS lookup.
      */
     if ((!dots || (dots && !trailing_dot)) && !isMdnsResolution(res->flags)) {
-        int done = 0;
-
         /* Unfortunately we need to set stuff up before
          * the domain stuff is tried.  Will have a better
          * fix after thread pools are used.
@@ -1880,12 +1789,8 @@ static int res_searchN(const char* name, res_target* target, ResState* res, int*
                     if (hp->rcode == SERVFAIL) {
                         /* try next search element, if any */
                         got_servfail++;
-                        break;
                     }
-                    [[fallthrough]];
-                default:
-                    /* anything else implies that we're done */
-                    done++;
+                    break;
             }
         }
     }
@@ -1948,5 +1853,5 @@ static int res_querydomainN(const char* name, const char* domain, res_target* ta
         }
         snprintf(nbuf, sizeof(nbuf), "%s.%s", name, domain);
     }
-    return res_queryN_wrapper(longname, target, res, herrno);
+    return res_queryN_parallel(longname, target, res, herrno);
 }

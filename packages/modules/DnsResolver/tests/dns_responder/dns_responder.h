@@ -215,7 +215,7 @@ class DNSResponder {
         std::string name;
         unsigned type;
 
-        QueryKey(std::string n, unsigned t) : name(move(n)), type(t) {}
+        QueryKey(std::string n, unsigned t) : name(std::move(n)), type(t) {}
         bool operator==(const QueryKey& o) const { return name == o.name && type == o.type; }
         bool operator<(const QueryKey& o) const {
             if (name < o.name) return true;

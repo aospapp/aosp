@@ -16,6 +16,8 @@
 
 package android.mediav2.cts;
 
+import static org.junit.Assert.assertTrue;
+
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
@@ -25,8 +27,6 @@ import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.Assert.assertTrue;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)

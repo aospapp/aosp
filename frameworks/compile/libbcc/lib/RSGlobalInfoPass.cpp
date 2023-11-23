@@ -206,6 +206,10 @@ public:
     llvm::Value *V = M.getOrInsertGlobal(kRsGlobalEntries, Int32Ty);
     llvm::GlobalVariable *GlobalEntries =
         llvm::dyn_cast<llvm::GlobalVariable>(V);
+    if (!GlobalEntries) {
+        // Abort when dynamic_cast failed?
+        return false;
+    }
     llvm::Constant *GlobalEntriesInit =
         llvm::ConstantInt::get(Int32Ty, NumGlobals);
     GlobalEntries->setInitializer(GlobalEntriesInit);
@@ -215,6 +219,10 @@ public:
     V = M.getOrInsertGlobal(kRsGlobalNames, VoidPtrArrayTy);
     llvm::GlobalVariable *GlobalNames =
         llvm::dyn_cast<llvm::GlobalVariable>(V);
+    if (!GlobalNames) {
+        // Abort when dynamic_cast failed?
+        return false;
+    }
     llvm::Constant *GlobalNamesInit =
         llvm::ConstantArray::get(VoidPtrArrayTy, GVNames);
     GlobalNames->setInitializer(GlobalNamesInit);
@@ -224,6 +232,10 @@ public:
     V = M.getOrInsertGlobal(kRsGlobalAddresses, VoidPtrArrayTy);
     llvm::GlobalVariable *GlobalAddresses =
         llvm::dyn_cast<llvm::GlobalVariable>(V);
+    if (!GlobalAddresses) {
+        // Abort when dynamic_cast failed?
+        return false;
+    }
     llvm::Constant *GlobalAddressesInit =
         llvm::ConstantArray::get(VoidPtrArrayTy, GVAddresses);
     GlobalAddresses->setInitializer(GlobalAddressesInit);
@@ -234,6 +246,10 @@ public:
     V = M.getOrInsertGlobal(kRsGlobalSizes, SizeArrayTy);
     llvm::GlobalVariable *GlobalSizes =
         llvm::dyn_cast<llvm::GlobalVariable>(V);
+    if (!GlobalSizes) {
+        // Abort when dynamic_cast failed?
+        return false;
+    }
     llvm::Constant *GlobalSizesInit;
     if (PointerSizeInBits == 32) {
       GlobalSizesInit = llvm::ConstantDataArray::get(M.getContext(), GVSizes32);
@@ -247,6 +263,10 @@ public:
     V = M.getOrInsertGlobal(kRsGlobalProperties, Int32ArrayTy);
     llvm::GlobalVariable *GlobalProperties =
         llvm::dyn_cast<llvm::GlobalVariable>(V);
+    if (!GlobalProperties) {
+        // Abort when dynamic_cast failed?
+        return false;
+    }
     llvm::Constant *GlobalPropertiesInit =
         llvm::ConstantDataArray::get(M.getContext(), GVProperties);
     GlobalProperties->setInitializer(GlobalPropertiesInit);

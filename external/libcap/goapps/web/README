@@ -10,7 +10,7 @@ this code with
 
 A more complete walk through of what this code does is provided here:
 
-   https://sites.google.com/site/fullycapable/building-go-programs-that-manipulate-capabilities
+   https://sites.google.com/site/fullycapable/getting-started-with-go/building-go-programs-that-manipulate-capabilities
 
 Go compilers prior to go1.11.13 are not expected to work. Report more
 recent issues to:

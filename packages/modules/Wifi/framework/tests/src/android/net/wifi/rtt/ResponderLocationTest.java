@@ -256,41 +256,45 @@ public class ResponderLocationTest {
     @Test
     public void testLciValidSubelement() {
         byte[] testLciBuffer = concatenateArrays(sTestLciIeHeader, sTestLciSE);
-        ResponderLocation responderLocation =
-                new ResponderLocation(testLciBuffer, sTestLcrBufferHeader);
+        for (int i = 0; i < 8; i++) {
+            // Change the measurement token
+            testLciBuffer[0]++;
+            ResponderLocation responderLocation =
+                    new ResponderLocation(testLciBuffer, sTestLcrBufferHeader);
 
-        boolean valid = responderLocation.isValid();
-        boolean lciValid = responderLocation.isLciSubelementValid();
-        boolean zValid = responderLocation.isZaxisSubelementValid();
-        Location location = responderLocation.toLocation();
+            boolean valid = responderLocation.isValid();
+            boolean lciValid = responderLocation.isLciSubelementValid();
+            boolean zValid = responderLocation.isZaxisSubelementValid();
+            Location location = responderLocation.toLocation();
 
-        assertTrue(valid);
-        assertTrue(lciValid);
-        assertFalse(zValid);
-        assertEquals(0.0009765625D, responderLocation.getLatitudeUncertainty());
-        assertEquals(-33.8570095D, responderLocation.getLatitude(),
-                LATLNG_TOLERANCE_DEGREES);
-        assertEquals(0.0009765625D, responderLocation.getLongitudeUncertainty());
-        assertEquals(151.2152005D, responderLocation.getLongitude(),
-                LATLNG_TOLERANCE_DEGREES);
-        assertEquals(1, responderLocation.getAltitudeType());
-        assertEquals(64.0, responderLocation.getAltitudeUncertainty());
-        assertEquals(11.2, responderLocation.getAltitude(), ALT_TOLERANCE_METERS);
-        assertEquals(1, responderLocation.getDatum()); // WGS84
-        assertEquals(false, responderLocation.getRegisteredLocationAgreementIndication());
-        assertEquals(false, responderLocation.getRegisteredLocationDseIndication());
-        assertEquals(false, responderLocation.getDependentStationIndication());
-        assertEquals(1, responderLocation.getLciVersion());
+            assertTrue(valid);
+            assertTrue(lciValid);
+            assertFalse(zValid);
+            assertEquals(0.0009765625D, responderLocation.getLatitudeUncertainty());
+            assertEquals(-33.8570095D, responderLocation.getLatitude(),
+                    LATLNG_TOLERANCE_DEGREES);
+            assertEquals(0.0009765625D, responderLocation.getLongitudeUncertainty());
+            assertEquals(151.2152005D, responderLocation.getLongitude(),
+                    LATLNG_TOLERANCE_DEGREES);
+            assertEquals(1, responderLocation.getAltitudeType());
+            assertEquals(64.0, responderLocation.getAltitudeUncertainty());
+            assertEquals(11.2, responderLocation.getAltitude(), ALT_TOLERANCE_METERS);
+            assertEquals(1, responderLocation.getDatum()); // WGS84
+            assertEquals(false, responderLocation.getRegisteredLocationAgreementIndication());
+            assertEquals(false, responderLocation.getRegisteredLocationDseIndication());
+            assertEquals(false, responderLocation.getDependentStationIndication());
+            assertEquals(1, responderLocation.getLciVersion());
 
-        // Testing Location Object
-        assertEquals(-33.8570095D, location.getLatitude(),
-                LATLNG_TOLERANCE_DEGREES);
-        assertEquals(151.2152005D, location.getLongitude(),
-                LATLNG_TOLERANCE_DEGREES);
-        assertEquals((0.0009765625D + 0.0009765625D) / 2, location.getAccuracy(),
-                LATLNG_TOLERANCE_DEGREES);
-        assertEquals(11.2, location.getAltitude(), ALT_TOLERANCE_METERS);
-        assertEquals(64.0, location.getVerticalAccuracyMeters(), ALT_TOLERANCE_METERS);
+            // Testing Location Object
+            assertEquals(-33.8570095D, location.getLatitude(),
+                    LATLNG_TOLERANCE_DEGREES);
+            assertEquals(151.2152005D, location.getLongitude(),
+                    LATLNG_TOLERANCE_DEGREES);
+            assertEquals((0.0009765625D + 0.0009765625D) / 2, location.getAccuracy(),
+                    LATLNG_TOLERANCE_DEGREES);
+            assertEquals(11.2, location.getAltitude(), ALT_TOLERANCE_METERS);
+            assertEquals(64.0, location.getVerticalAccuracyMeters(), ALT_TOLERANCE_METERS);
+        }
     }
 
     /**

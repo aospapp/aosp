@@ -31,6 +31,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.base.Preconditions;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -66,6 +67,7 @@ public final class FakeContextBuilder {
    *
    * <p><strong>NOTE: </strong>By default, no component is set to handle any intent.
    */
+  @CanIgnoreReturnValue
   public FakeContextBuilder setIntentComponent(
       String intentAction, @Nullable ComponentName component) {
     Preconditions.checkNotNull(intentAction);
@@ -74,6 +76,7 @@ public final class FakeContextBuilder {
   }
 
   /** Sets the app label res for a specified package. */
+  @CanIgnoreReturnValue
   public FakeContextBuilder setAppLabel(String packageName, @Nullable CharSequence appLabel) {
     Preconditions.checkNotNull(packageName);
     appLabels.put(packageName, appLabel);
@@ -85,6 +88,7 @@ public final class FakeContextBuilder {
    *
    * <p><strong>NOTE: </strong>By default, no component is set to handle any intent.
    */
+  @CanIgnoreReturnValue
   public FakeContextBuilder setAllIntentComponent(@Nullable ComponentName component) {
     allIntentComponent = component;
     return this;

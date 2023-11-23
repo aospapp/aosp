@@ -14,7 +14,8 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License
   -->
-<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<resources
+    xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- The style for the volume icons in the volume dialog. This style makes the icon scale to
          fit its container since auto wants the icon to be larger. The padding is added to make it
@@ -28,7 +29,13 @@
     <style name="TextAppearance.SystemBar.Clock"
            parent="@*android:style/TextAppearance.StatusBar.Icon">
         <item name="android:textSize">@dimen/car_body1_size</item>
-        <item name="android:textColor">@*android:color/car_headline3</item>
+        <item name="android:textColor">@color/system_bar_clock_text_color</item>
+    </style>
+
+    <style name="TextAppearance.SystemBar.ClockWithSelection"
+           parent="@*android:style/TextAppearance.StatusBar.Icon">
+        <item name="android:textSize">@dimen/car_body1_size</item>
+        <item name="android:textColor">@color/system_bar_text_color_with_selection</item>
     </style>
 
     <style name="TextAppearance.SystemBar.Username"
@@ -44,9 +51,8 @@
     </style>
 
     <!-- The style for a Toast. -->
-    <style name="TextAppearance.Toast" parent="*android:TextAppearance">
-        <item name="android:fontFamily">Roboto</item>
-        <item name="android:textSize">24sp</item>
+    <style name="TextAppearance.Toast" parent="@*android:style/TextAppearance.DeviceDefault">
+        <item name="android:textSize">@*android:dimen/car_body2_size</item>
         <item name="android:textColor">@android:color/white</item>
     </style>
 
@@ -158,15 +164,47 @@
 
     <style name="QCFooterButtonStyle"
            parent="android:Widget.DeviceDefault.Button.Borderless.Colored">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
         <item name="android:minHeight">@dimen/car_quick_controls_footer_button_min_height</item>
+        <item name="android:gravity">start|center_vertical</item>
         <item name="android:layout_marginVertical">
             @dimen/car_quick_controls_footer_button_vertical_margin
-        </item>
-        <item name="android:layout_marginStart">
-            @dimen/car_quick_controls_footer_button_start_margin
         </item>
         <item name="android:paddingHorizontal">
             @dimen/car_quick_controls_footer_button_horizontal_padding
         </item>
+    </style>
+
+    <style name="QCFooterButtonViewStyle">
+        <item name="android:minHeight">@dimen/car_quick_controls_footer_button_min_height</item>
+        <item name="android:background">@drawable/car_quick_controls_button_background_pill</item>
+        <item name="android:layout_marginStart">@dimen/car_padding_2</item>
+        <item name="android:layout_marginEnd">@dimen/car_padding_2</item>
+        <item name="android:padding">
+            @dimen/car_quick_controls_panel_footer_button_view_padding
+        </item>
+    </style>
+
+    <!-- UserPicker -->
+    <!-- Style for message text of user picker alert dialog. -->
+    <style name="UserPickerDialogMessageNormalText">
+        <item name="android:textStyle">normal</item>
+        <item name="android:textSize">@dimen/car_body4_size</item>
+        <item name="android:textColor">@*android:color/car_body4</item>
+    </style>
+    <style name="UserPickerDialogMessageLargeText">
+        <item name="android:textStyle">normal</item>
+        <item name="android:textSize">@dimen/car_body2_size</item>
+        <item name="android:textColor">@*android:color/car_body4</item>
+    </style>
+    <!-- Style user picker snackbar. -->
+    <style name="UserPickerSnackBarText" parent="Widget.MaterialComponents.Snackbar.TextView">
+        <item name="android:textSize">@dimen/car_body3_size</item>
+        <item name="android:textColor">@color/car_ui_text_color_primary</item>
+        <item name="android:textColorPrimary">@color/car_ui_text_color_primary</item>
+        <item name="android:textColorLink">@color/car_ui_text_color_primary</item>
+        <item name="android:layout_margin">@dimen/car_padding_2</item>
+        <item name="android:maxLines">2</item>
     </style>
 </resources>

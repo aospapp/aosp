@@ -15,6 +15,8 @@ limitations under the License.
 
 #include "tensorflow/compiler/xla/service/rng_expander.h"
 
+#include <random>
+
 #include "tensorflow/compiler/xla/client/lib/prng.h"
 #include "tensorflow/compiler/xla/client/xla_builder.h"
 #include "tensorflow/compiler/xla/literal_util.h"
@@ -25,14 +27,14 @@ namespace xla {
 
 namespace {
 
-int64 GlobalRandomValue() {
-  static auto* mu = new tensorflow::mutex();
+int64_t GlobalRandomValue() {
+  static auto* mu = new absl::Mutex();
   static std::mt19937_64 rng{42};
-  tensorflow::mutex_lock l(*mu);
+  absl::MutexLock l(mu);
   return rng();
 }
 
-int64 GetNumberOf32bitUnits(const Shape& shape) {
+int64_t GetNumberOf32bitUnits(const Shape& shape) {
   int64_t bit_width = primitive_util::BitWidth(shape.element_type());
   CHECK(bit_width == 32 || bit_width == 64);
   int64_t num_elems = ShapeUtil::ElementsIn(shape);
@@ -151,7 +153,7 @@ StatusOr<HloInstruction*> RngExpander::ExpandInstruction(HloInstruction* rng) {
       module_config_seed != 0 ? module_config_seed : GlobalRandomValue();
 
   // Construct the key using the two random values above.
-  HloInstruction* key = MakeR0ConstantHlo<uint64>(
+  HloInstruction* key = MakeR0ConstantHlo<uint64_t>(
       computation, module_random_value ^ global_random_value);
 
   const Shape u128_shape = ShapeUtil::MakeShape(xla::U64, {2});

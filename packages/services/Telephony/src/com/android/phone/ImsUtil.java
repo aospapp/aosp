@@ -154,12 +154,7 @@ public class ImsUtil {
     }
 
     private static int getSubId(int phoneId) {
-        final int[] subIds = SubscriptionManager.getSubId(phoneId);
-        int subId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
-        if (subIds != null && subIds.length >= 1) {
-            subId = subIds[0];
-        }
-        return subId;
+        return SubscriptionManager.getSubscriptionId(phoneId);
     }
 
     private static boolean getLastKnownRoamingState(int phoneId) {

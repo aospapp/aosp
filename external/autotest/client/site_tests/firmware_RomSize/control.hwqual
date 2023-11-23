@@ -11,6 +11,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This test relies on dmidecode to find the ROM Size.

@@ -16,9 +16,9 @@
 
 package com.android.permissioncontroller.permissionui
 
-import android.support.test.uiautomator.By
+import androidx.test.uiautomator.By
 import com.android.compatibility.common.util.SystemUtil.getEventually
-import com.android.compatibility.common.util.UiAutomatorUtils.waitFindObject
+import com.android.compatibility.common.util.UiAutomatorUtils2.waitFindObject
 
 private const val SUMMARY_TEXT = "apps allowed"
 

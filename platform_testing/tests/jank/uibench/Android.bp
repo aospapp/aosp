@@ -22,8 +22,8 @@ android_test {
 
     static_libs: [
         "collector-device-lib",
-        "ub-uiautomator",
         "androidx.test.janktesthelper",
+        "androidx.test.uiautomator_uiautomator",
         "junit",
     ],
 
@@ -32,6 +32,9 @@ android_test {
     sdk_version: "current",
 
     test_suites: ["device-tests"],
+    data: [
+        ":UiBench",
+    ],
 }
 
 java_library {
@@ -44,8 +47,8 @@ java_library {
 
     static_libs: [
         "collector-device-lib",
-        "ub-uiautomator",
         "androidx.test.janktesthelper",
+        "androidx.test.uiautomator_uiautomator",
         "junit",
     ],
 

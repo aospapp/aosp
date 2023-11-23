@@ -20,31 +20,25 @@ import static org.junit.Assert.assertFalse;
 import static org.mockito.Mockito.*;
 
 import android.os.Looper;
-import android.os.PersistableBundle;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.AvailableNetworkInfo;
-import android.telephony.CarrierConfigManager;
 import android.telephony.CellIdentityLte;
+import android.telephony.CellIdentityNr;
 import android.telephony.CellInfo;
 import android.telephony.CellInfoLte;
+import android.telephony.CellInfoNr;
 import android.telephony.NetworkScan;
 import android.telephony.NetworkScanRequest;
 import android.telephony.RadioAccessSpecifier;
 import android.telephony.SubscriptionInfo;
-import android.telephony.TelephonyManager;
-import android.util.Log;
-
-import androidx.test.InstrumentationRegistry;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 
-import java.sql.Array;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class ONSNetworkScanCtlrTest extends ONSBaseTest {
@@ -340,5 +334,17 @@ public class ONSNetworkScanCtlrTest extends ONSBaseTest {
         // Wait till initialization is complete.
         waitUntilReady();
         mReady = false;
+    }
+
+    @Test
+    public void testGetMncMccFromCellInfoNr() {
+        mONSNetworkScanCtlr = new ONSNetworkScanCtlr(mContext, mMockTelephonyManager, null);
+
+        CellIdentityNr cellIdentityNr = new CellIdentityNr(0, 0, 0, new int[]{0}, "111", "222", 0,
+                "", "",  Collections.emptyList());
+
+        CellInfoNr cellinfoNr = new CellInfoNr(0, true, 0, cellIdentityNr, null);
+
+        assertEquals(mONSNetworkScanCtlr.getMccMnc(cellinfoNr), "111222");
     }
 }

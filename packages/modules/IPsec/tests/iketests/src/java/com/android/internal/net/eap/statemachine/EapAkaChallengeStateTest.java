@@ -27,6 +27,7 @@ import static com.android.internal.net.eap.test.message.EapTestMessageDefinition
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_AUTHENTICATION_REJECT;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_CHALLENGE_RESPONSE;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_CLIENT_ERROR_UNABLE_TO_PROCESS;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_NOTIFICATION_RESPONSE;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_SYNCHRONIZATION_FAILURE;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_UICC_RESP_INVALID_TAG;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_UICC_RESP_SUCCESS_BASE_64;
@@ -36,6 +37,9 @@ import static com.android.internal.net.eap.test.message.EapTestMessageDefinition
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.IK_BYTES;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSK;
 import static com.android.internal.net.eap.test.message.simaka.EapAkaTypeData.EAP_AKA_CHALLENGE;
+import static com.android.internal.net.eap.test.message.simaka.EapAkaTypeData.EAP_AKA_NOTIFICATION;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtNotification.GENERAL_FAILURE_PRE_CHALLENGE;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtNotification.SUCCESS;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AUTN_BYTES;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AUTS_BYTES;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.IDENTITY;
@@ -68,6 +72,7 @@ import com.android.internal.net.eap.test.message.simaka.EapAkaTypeData;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtAutn;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtBidding;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtMac;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtNotification;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtRandAka;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaTypeData.DecodeResult;
 import com.android.internal.net.eap.test.statemachine.EapAkaMethodStateMachine.ChallengeState;
@@ -429,5 +434,36 @@ public class EapAkaChallengeStateTest extends EapAkaStateTest {
                         TelephonyManager.AUTHTYPE_EAP_AKA,
                         BASE_64_CHALLENGE);
         verifyNoMoreInteractions(mMockEapAkaTypeDataDecoder, mMockTelephonyManager);
+    }
+
+    @Test
+    public void testHandleEapAkaNotificationPbitBeforeAuthenticated() throws Exception {
+        testHandleAkaNotificationBeforeAuthenticated(true, EAP_AKA_NOTIFICATION_RESPONSE);
+    }
+
+    @Test
+    public void testHandleEapAkaNotificationPBitZeroBeforeAuthenticated() throws Exception {
+        testHandleAkaNotificationBeforeAuthenticated(false, EAP_AKA_CLIENT_ERROR_UNABLE_TO_PROCESS);
+    }
+
+    private void testHandleAkaNotificationBeforeAuthenticated(
+            boolean isPreAuthNotification, byte[] expectedEapResponse) throws Exception {
+        EapData eapData = new EapData(EAP_TYPE_AKA, DUMMY_EAP_TYPE_DATA);
+        EapMessage eapMessage = new EapMessage(EAP_CODE_REQUEST, ID_INT, eapData);
+        EapAkaTypeData typeData =
+                new EapAkaTypeData(
+                        EAP_AKA_NOTIFICATION,
+                        Arrays.asList(
+                                isPreAuthNotification
+                                        ? new AtNotification(GENERAL_FAILURE_PRE_CHALLENGE)
+                                        : new AtNotification(SUCCESS)));
+        DecodeResult<EapAkaTypeData> decodeResult = new DecodeResult<>(typeData);
+        doReturn(decodeResult).when(mMockEapAkaTypeDataDecoder).decode(eq(DUMMY_EAP_TYPE_DATA));
+        EapResponse eapResponse = (EapResponse) mEapAkaMethodStateMachine.process(eapMessage);
+
+        assertArrayEquals(expectedEapResponse, eapResponse.packet);
+        assertTrue(mEapAkaMethodStateMachine.getState() instanceof ChallengeState);
+        verify(mMockEapAkaTypeDataDecoder).decode(DUMMY_EAP_TYPE_DATA);
+        verifyNoMoreInteractions(mMockTelephonyManager, mMockEapAkaTypeDataDecoder);
     }
 }

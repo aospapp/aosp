@@ -52,7 +52,7 @@ def define_tests():
         test_common.define_test(
             'policy/AutotestSanity',
             suites = ['bvt-perbuild', 'ent-nightly', 'policy', 'smoke'],
-            main_package = 'autotest_lib.client.site_tests.policy_AutotestSanity.policy_AutotestSanity',
+            main_package = 'autotest_lib.client.site_tests.policy_AutotestCheck.policy_AutotestCheck',
         ),
         test_common.define_test(
             'policy/BookmarkBarEnabled',

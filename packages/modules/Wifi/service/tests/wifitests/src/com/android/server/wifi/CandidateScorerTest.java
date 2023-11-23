@@ -21,16 +21,26 @@ import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
+import android.content.res.Resources;
+import android.net.MacAddress;
 import android.net.wifi.ScanResult;
+import android.net.wifi.WifiContext;
+import android.net.wifi.WifiNetworkSelectionConfig;
+import android.util.SparseArray;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.modules.utils.build.SdkLevel;
+import com.android.net.module.util.MacAddressUtils;
 import com.android.server.wifi.WifiCandidates.Candidate;
 import com.android.server.wifi.WifiCandidates.CandidateScorer;
 import com.android.server.wifi.WifiCandidates.ScoredCandidate;
+import com.android.wifi.resources.R;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -38,6 +48,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,6 +64,8 @@ import java.util.List;
 @SmallTest
 @RunWith(Parameterized.class)
 public class CandidateScorerTest extends WifiBaseTest {
+    static @Mock WifiContext sContext;
+    @Mock Resources mResources;
 
     @Parameters(name = "{index}: {0}")
     public static List<Object[]> listOfObjectArraysBecauseJUnitMadeUs() {
@@ -83,7 +97,7 @@ public class CandidateScorerTest extends WifiBaseTest {
         ans.add(new Object[]{
                 "Throughput Scorer",
                 ThroughputScorer.THROUGHPUT_SCORER_DEFAULT_EXPID,
-                new ThroughputScorer(sp),
+                new ThroughputScorer(sContext, sp),
                 sp});
 
         return ans;
@@ -105,21 +119,38 @@ public class CandidateScorerTest extends WifiBaseTest {
 
     private ConcreteCandidate mCandidate1;
     private ConcreteCandidate mCandidate2;
+    private WifiCandidates.Key mKey1;
+    private WifiCandidates.Key mKey2;
 
     /**
      * Sets up for unit test
      */
     @Before
     public void setUp() throws Exception {
+        MockitoAnnotations.initMocks(this);
+        when(sContext.getResources()).thenReturn(mResources);
+        when(mResources.getBoolean(
+                R.bool.config_wifiThroughputScorerBoostForRecentlyUserSelectedNetwork))
+                .thenReturn(true);
         if (mExpectedExpId == ThroughputScorer.THROUGHPUT_SCORER_DEFAULT_EXPID) {
             mScoringParams = spy(new ScoringParams());
-            mCandidateScorer = new ThroughputScorer(mScoringParams);
+            mCandidateScorer = new ThroughputScorer(sContext, mScoringParams);
+            ((ThroughputScorer) mCandidateScorer).enableVerboseLogging(true);
         }
         mScoringParams.update("");
+        ScanResultMatchInfo matchInfo1 = ScanResultMatchInfo
+                .fromWifiConfiguration(WifiConfigurationTestUtil.createOpenNetwork());
+        ScanResultMatchInfo matchInfo2 = ScanResultMatchInfo
+                .fromWifiConfiguration(WifiConfigurationTestUtil.createEphemeralNetwork());
+        MacAddress mac1 = MacAddressUtils.createRandomUnicastAddress();
+        MacAddress mac2 = MacAddressUtils.createRandomUnicastAddress();
+
+        mKey1 = new WifiCandidates.Key(matchInfo1, mac1, 1);
+        mKey2 = new WifiCandidates.Key(matchInfo2, mac2, 2);
         mCandidate1 = new ConcreteCandidate().setNominatorId(0)
-                .setScanRssi(-50).setFrequency(5180);
+                .setScanRssi(-50).setFrequency(5180).setKey(mKey1);
         mCandidate2 = new ConcreteCandidate().setNominatorId(0)
-                .setScanRssi(-50).setFrequency(5180);
+                .setScanRssi(-50).setFrequency(5180).setKey(mKey1);
     }
 
     /**
@@ -220,7 +251,7 @@ public class CandidateScorerTest extends WifiBaseTest {
      * Prefer current network when current network has low throughput and no internet (but expected)
      */
     @Test
-    public void testSwitchifCurrentNetworkHasNoInternetExceptedAndLowThroughput() throws Exception {
+    public void testSwitchifCurrentNetworkHasNoInternetExpectedAndLowThroughput() throws Exception {
         if (mExpectedExpId != ThroughputScorer.THROUGHPUT_SCORER_DEFAULT_EXPID) return;
         assertThat(evaluate(mCandidate1.setScanRssi(-57)
                         .setCurrentNetwork(true)
@@ -228,6 +259,36 @@ public class CandidateScorerTest extends WifiBaseTest {
                         .setNoInternetAccess(true)
                         .setNoInternetAccessExpected(true)),
                 greaterThan(evaluate(mCandidate2.setScanRssi(-57)
+                        .setPredictedThroughputMbps(560))));
+    }
+
+    /**
+     * Prefer to switch when current network has higher throughput but no internet access
+     */
+    @Test
+    public void testSwitchifCurrentNetworkNoInternetAndHighThroughput() throws Exception {
+        if (mExpectedExpId != ThroughputScorer.THROUGHPUT_SCORER_DEFAULT_EXPID) return;
+        assertThat(evaluate(mCandidate1.setScanRssi(-57)
+                        .setCurrentNetwork(true)
+                        .setPredictedThroughputMbps(560)
+                        .setNoInternetAccess(true)
+                        .setNoInternetAccessExpected(false)),
+                lessThan(evaluate(mCandidate2.setScanRssi(-57)
+                        .setPredictedThroughputMbps(433))));
+    }
+
+    /**
+     * Prefer to switch when current network has lower RSSI but no internet access
+     */
+    @Test
+    public void testSwitchifCurrentNetworkNoInternetAndLowRssi() throws Exception {
+        if (mExpectedExpId != ThroughputScorer.THROUGHPUT_SCORER_DEFAULT_EXPID) return;
+        assertThat(evaluate(mCandidate1.setScanRssi(-57)
+                        .setCurrentNetwork(true)
+                        .setPredictedThroughputMbps(560)
+                        .setNoInternetAccess(true)
+                        .setNoInternetAccessExpected(false)),
+                lessThan(evaluate(mCandidate2.setScanRssi(-70)
                         .setPredictedThroughputMbps(560))));
     }
 
@@ -456,11 +517,11 @@ public class CandidateScorerTest extends WifiBaseTest {
         if (mExpectedExpId == ThroughputScorer.THROUGHPUT_SCORER_DEFAULT_EXPID) {
             // setup a 5Ghz and a 6Ghz candidate with the same RSSI
             mCandidate1 = new ConcreteCandidate().setNominatorId(0)
-                    .setScanRssi(-77).setFrequency(5180)
+                    .setScanRssi(-77).setFrequency(5180).setKey(mKey1)
                     .setChannelWidth(ScanResult.CHANNEL_WIDTH_20MHZ);
             mCandidate2 = new ConcreteCandidate().setNominatorId(0)
                     .setScanRssi(-77).setFrequency(5975)
-                    .setChannelWidth(ScanResult.CHANNEL_WIDTH_20MHZ);
+                    .setChannelWidth(ScanResult.CHANNEL_WIDTH_20MHZ).setKey(mKey2);
 
             // both should be equal score when both networks have 20Mhz channel width
             assertEquals(evaluate(mCandidate2), evaluate(mCandidate1), TOL);
@@ -475,8 +536,8 @@ public class CandidateScorerTest extends WifiBaseTest {
     public void testThroughputBeforeAndAfter800Mbps() {
         if (mExpectedExpId == ThroughputScorer.THROUGHPUT_SCORER_DEFAULT_EXPID) {
             // setup candidate
-            mCandidate1 = new ConcreteCandidate().setNominatorId(0)
-                    .setScanRssi(-50).setFrequency(5180).setPredictedThroughputMbps(0);
+            mCandidate1 = new ConcreteCandidate().setNominatorId(0).setScanRssi(-50)
+                    .setFrequency(5180).setPredictedThroughputMbps(0).setKey(mKey1);
             double scoreThroughput0Mbps = evaluate(mCandidate1);
 
             mCandidate1.setPredictedThroughputMbps(800);
@@ -507,7 +568,7 @@ public class CandidateScorerTest extends WifiBaseTest {
 
             // setup a 6Ghz candidate
             mCandidate1 = new ConcreteCandidate().setNominatorId(0)
-                    .setScanRssi(-77).setFrequency(5975);
+                    .setScanRssi(-77).setFrequency(5975).setKey(mKey1);
             double scoreNoBandBonus = evaluate(mCandidate1);
 
             // Verify the 6Ghz band specific bonus is applied.
@@ -521,6 +582,32 @@ public class CandidateScorerTest extends WifiBaseTest {
             // Increasing the scoring bucket size should allow more band bonus to get applied.
             doReturn(1000).when(mScoringParams).getScoringBucketStepSize();
             assertEquals(scoreNoBandBonus + 500, evaluate(mCandidate1), TOL);
+        }
+    }
+
+    @Test
+    public void testFrequencyScore() {
+        assumeTrue(SdkLevel.isAtLeastT());
+        if (mExpectedExpId == ThroughputScorer.THROUGHPUT_SCORER_DEFAULT_EXPID) {
+            // setup two candidates with the same RSSI
+            mCandidate1 = new ConcreteCandidate().setNominatorId(0)
+                    .setScanRssi(-77).setFrequency(5180).setKey(mKey1);
+            mCandidate2 = new ConcreteCandidate().setNominatorId(0)
+                    .setScanRssi(-77).setFrequency(5975).setKey(mKey2);
+
+            // both should be equal score
+            assertEquals(evaluate(mCandidate2), evaluate(mCandidate1), TOL);
+
+            // set high frequency weight and verify candidate 2 has higher score
+            SparseArray<Integer> weights = new SparseArray<>();
+            weights.put(5975, WifiNetworkSelectionConfig.FREQUENCY_WEIGHT_HIGH);
+            mScoringParams.setFrequencyWeights(weights);
+            assertTrue(evaluate(mCandidate2) > evaluate(mCandidate1));
+
+            // set low frequency weight and verify candidate 2 has lower score
+            weights.put(5975, WifiNetworkSelectionConfig.FREQUENCY_WEIGHT_LOW);
+            mScoringParams.setFrequencyWeights(weights);
+            assertTrue(evaluate(mCandidate2) < evaluate(mCandidate1));
         }
     }
 }

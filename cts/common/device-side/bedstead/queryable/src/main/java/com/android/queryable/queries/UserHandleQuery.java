@@ -22,13 +22,12 @@ import androidx.annotation.CheckResult;
 
 import com.android.queryable.Queryable;
 
-import java.io.Serializable;
-
 /** Query for a {@link UserHandle}. */
 public interface UserHandleQuery<E extends Queryable> extends Query<UserHandle> {
 
-    static UserHandleQuery<UserHandleQuery<?>> userHandle() {
-        return new UserHandleQueryHelper<>();
+    /** Queries a {@link UserHandle}. */
+    static UserHandleQueryHelper.UserHandleQueryBase userHandle() {
+        return new UserHandleQueryHelper.UserHandleQueryBase();
     }
 
     /** Require the {@link UserHandle} is equal to {@code userHandle}. */

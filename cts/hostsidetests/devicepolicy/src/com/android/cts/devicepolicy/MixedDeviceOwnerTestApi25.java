@@ -23,7 +23,7 @@ import static org.junit.Assert.fail;
  * Set of tests for device owner use cases that also apply to profile owners.
  * Tests that should be run identically in both cases are added in DeviceAndProfileOwnerTestApi25.
  */
-public class MixedDeviceOwnerTestApi25 extends DeviceAndProfileOwnerTestApi25 {
+public final class MixedDeviceOwnerTestApi25 extends DeviceAndProfileOwnerTestApi25 {
 
     @Override
     public void setUp() throws Exception {

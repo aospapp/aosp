@@ -31,7 +31,6 @@
 #include "a2dp_vendor.h"
 #include "a2dp_vendor_ldac_decoder.h"
 #include "a2dp_vendor_ldac_encoder.h"
-#include "bt_utils.h"
 #include "btif_av_co.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
@@ -517,6 +516,11 @@ bool A2DP_VendorBuildCodecHeaderLdac(UNUSED_ATTR const uint8_t* p_codec_info,
                                      BT_HDR* p_buf,
                                      uint16_t frames_per_packet) {
   uint8_t* p;
+
+  // there is a 4 byte timestamp right following p_buf
+  if (p_buf->offset < 4 + A2DP_LDAC_MPL_HDR_LEN) {
+    return false;
+  }
 
   p_buf->offset -= A2DP_LDAC_MPL_HDR_LEN;
   p = (uint8_t*)(p_buf + 1) + p_buf->offset;

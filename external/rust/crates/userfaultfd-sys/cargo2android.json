@@ -1,0 +1,5 @@
+{
+    "add-toplevel-block": "cargo2android_consts.bp",
+    "device": true,
+    "run": true
+}

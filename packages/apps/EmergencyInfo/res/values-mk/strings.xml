@@ -88,7 +88,7 @@
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Контакти за итни случаи"</string>
-    <string name="add_emergency_contact" msgid="4063577069613981029">"Додај контакт"</string>
+    <string name="add_emergency_contact" msgid="4063577069613981029">"Додајте контакт"</string>
     <string name="fail_load_contact_picker" msgid="817205483833876726">"Не може да се најде избирач на контакти"</string>
     <string name="fail_display_contact" msgid="4128854688897045879">"Не може да се прикаже контактот"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Да се отстрани <xliff:g id="CONTACT_NAME">%1$s</xliff:g> од контактите за итни случаи?"</string>

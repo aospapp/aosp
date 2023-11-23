@@ -16,6 +16,8 @@
 
 #include <keymaster/km_openssl/rsa_operation.h>
 
+#include <utility>
+
 #include <limits.h>
 
 #include <openssl/err.h>
@@ -98,7 +100,7 @@ RsaOperation* RsaCryptingOperationFactory::CreateRsaOperation(Key&& key,
     *error = GetAndValidateMgfDigest(begin_params, key, &mgf_digest);
     if (*error != KM_ERROR_OK) return nullptr;
     UniquePtr<RsaOperation> op(
-        RsaOperationFactory::CreateRsaOperation(move(key), begin_params, error));
+        RsaOperationFactory::CreateRsaOperation(std::move(key), begin_params, error));
     if (op.get()) {
         switch (op->padding()) {
         case KM_PAD_NONE:
@@ -240,7 +242,7 @@ RsaDigestingOperation::RsaDigestingOperation(AuthorizationSet&& hw_enforced,
                                              AuthorizationSet&& sw_enforced,
                                              keymaster_purpose_t purpose, keymaster_digest_t digest,
                                              keymaster_padding_t padding, EVP_PKEY* key)
-    : RsaOperation(move(hw_enforced), move(sw_enforced), purpose, digest, padding, key) {
+    : RsaOperation(std::move(hw_enforced), std::move(sw_enforced), purpose, digest, padding, key) {
     EVP_MD_CTX_init(&digest_ctx_);
 }
 RsaDigestingOperation::~RsaDigestingOperation() {

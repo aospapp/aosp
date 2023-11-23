@@ -67,7 +67,7 @@ class LocationPlatinumTest(BaseTestClass):
         gutils.check_location_service(self.ad)
         if not self.ad.droid.wifiCheckState():
             wutils.wifi_toggle_state(self.ad, True)
-            gutils.connect_to_wifi_network(self.ad, self.wifi_network)
+        gutils.connect_to_wifi_network(self.ad, self.wifi_network)
 
     def get_and_verify_ttff(self, mode):
         """Retrieve ttff with designate mode.

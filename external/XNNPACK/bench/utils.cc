@@ -175,6 +175,14 @@ bool CheckVFP(benchmark::State& state) {
   return true;
 }
 
+bool CheckARMV6(benchmark::State& state) {
+  if (!cpuinfo_initialize() || !cpuinfo_has_arm_v6()) {
+    state.SkipWithError("no ARMv6 extension");
+    return false;
+  }
+  return true;
+}
+
 bool CheckNEON(benchmark::State& state) {
   if (!cpuinfo_initialize() || !cpuinfo_has_arm_neon()) {
     state.SkipWithError("no NEON extension");
@@ -210,6 +218,14 @@ bool CheckNEONV8(benchmark::State& state) {
 bool CheckNEONFP16ARITH(benchmark::State& state) {
   if (!cpuinfo_initialize() || !cpuinfo_has_arm_neon_fp16_arith()) {
     state.SkipWithError("no NEON-FP16-ARITH extension");
+    return false;
+  }
+  return true;
+}
+
+bool CheckNEONBF16(benchmark::State& state) {
+  if (!cpuinfo_initialize() || !cpuinfo_has_arm_neon_bf16()) {
+    state.SkipWithError("no NEON-BF16 extension");
     return false;
   }
   return true;

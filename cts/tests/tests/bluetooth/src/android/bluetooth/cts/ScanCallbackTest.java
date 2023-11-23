@@ -16,11 +16,22 @@
 
 package android.bluetooth.cts;
 
+import static org.junit.Assert.fail;
+
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
-import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.CddTest;
+
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.HashSet;
 import java.util.List;
@@ -29,7 +40,8 @@ import java.util.Set;
 /**
  * Test cases for {@link ScanCallback}.
  */
-public class ScanCallbackTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class ScanCallbackTest {
 
     // Scan types are used to determine which callback method is expected.
     private final static int SCAN_TYPE_SUCCESS = 0;
@@ -39,20 +51,32 @@ public class ScanCallbackTest extends AndroidTestCase {
     private MockScanner mMockScanner = new MockScanner();
     private BleScanCallback mMockScanCallback = new BleScanCallback();
 
+    @Before
+    public void setUp() {
+        Assume.assumeTrue(TestUtils.isBleSupported(
+                InstrumentationRegistry.getInstrumentation().getContext()));
+    }
+
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @SmallTest
+    @Test
     public void testScanSuccess() {
         mMockScanCallback.mScanType = SCAN_TYPE_SUCCESS;
         mMockScanner.startScan(new ScanSettings.Builder().build(), mMockScanCallback);
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @SmallTest
+    @Test
     public void testBatchScans() {
         ScanSettings settings = new ScanSettings.Builder().setReportDelay(1000).build();
         mMockScanCallback.mScanType = SCAN_TYPE_BATCH;
         mMockScanner.startScan(settings, mMockScanCallback);
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @SmallTest
+    @Test
     public void testScanFail() {
         ScanSettings settings = new ScanSettings.Builder().build();
         // The first scan is success.

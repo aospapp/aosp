@@ -1,6 +1,3 @@
-# Turn all the warnings from the checks above into errors.
-WarningsAsErrors: "*"
-
 #HeaderFilterRegex: "^.*external/drm_hwcomposer/.*.h$"
 
 FormatStyle: google

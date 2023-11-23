@@ -1,36 +1,35 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2021 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 //! Virtio device async helper functions.
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
-use anyhow::{Context, Result};
+use anyhow::Context;
+use anyhow::Result;
 use base::Event;
-use cros_async::{EventAsync, Executor};
+use cros_async::EventAsync;
+use cros_async::Executor;
 
-use super::{Interrupt, SignalableInterrupt};
+use super::Interrupt;
+use super::SignalableInterrupt;
 
 /// Async task that waits for a signal from `event`.  Once this event is readable, exit. Exiting
 /// this future will cause the main loop to break and the worker thread to exit.
 pub async fn await_and_exit(ex: &Executor, event: Event) -> Result<()> {
-    let event_async = EventAsync::new(event.0, ex).context("failed to create EventAsync")?;
+    let event_async = EventAsync::new(event, ex).context("failed to create EventAsync")?;
     let _ = event_async.next_val().await;
     Ok(())
 }
 
 /// Async task that resamples the status of the interrupt when the guest sends a request by
 /// signalling the resample event associated with the interrupt.
-pub async fn handle_irq_resample(ex: &Executor, interrupt: Rc<RefCell<Interrupt>>) -> Result<()> {
+pub async fn handle_irq_resample(ex: &Executor, interrupt: Interrupt) -> Result<()> {
     // Clone resample_evt if interrupt has one.
-    // This is a separate block so that we do not hold a RefCell borrow across await.
-    let resample_evt = if let Some(resample_evt) = interrupt.borrow().get_resample_evt() {
+    let resample_evt = if let Some(resample_evt) = interrupt.get_resample_evt() {
         let resample_evt = resample_evt
             .try_clone()
             .context("resample_evt.try_clone() failed")?;
-        Some(EventAsync::new(resample_evt.0, ex).context("failed to create async resample event")?)
+        Some(EventAsync::new(resample_evt, ex).context("failed to create async resample event")?)
     } else {
         None
     };
@@ -41,11 +40,11 @@ pub async fn handle_irq_resample(ex: &Executor, interrupt: Rc<RefCell<Interrupt>
                 .next_val()
                 .await
                 .context("failed to read resample event")?;
-            interrupt.borrow().do_interrupt_resample();
+            interrupt.do_interrupt_resample();
         }
     } else {
         // No resample event; park the future.
-        let () = futures::future::pending().await;
+        futures::future::pending::<()>().await;
     }
     Ok(())
 }

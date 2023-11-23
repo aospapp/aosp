@@ -61,7 +61,7 @@ static void free_object(void *value)
 struct util_hash_table *vrend_object_init_ctx_table(void)
 {
    struct util_hash_table *ctx_hash;
-   ctx_hash = util_hash_table_create(hash_func_u32, compare_func, free_object);
+   ctx_hash = util_hash_table_create(hash_func_u32, equal_func, free_object);
    return ctx_hash;
 }
 
@@ -82,7 +82,7 @@ struct util_hash_table *
 vrend_ctx_resource_init_table(void)
 {
    return util_hash_table_create(hash_func_u32,
-                                 compare_func,
+                                 equal_func,
                                  vrend_ctx_resource_destroy_func);
 }
 

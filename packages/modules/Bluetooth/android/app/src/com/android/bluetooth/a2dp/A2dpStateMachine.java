@@ -58,6 +58,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
 
+import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
@@ -169,6 +170,8 @@ final class A2dpStateMachine extends StateMachine {
                                         BluetoothA2dp.STATE_PLAYING);
                 }
             }
+
+            logFailureIfNeeded();
         }
 
         @Override
@@ -258,6 +261,26 @@ final class A2dpStateMachine extends StateMachine {
                 default:
                     Log.e(TAG, "Incorrect event: " + event + " device: " + mDevice);
                     break;
+            }
+        }
+
+        private void logFailureIfNeeded() {
+            if (mLastConnectionState == BluetoothProfile.STATE_CONNECTING
+                    || mLastConnectionState == BluetoothProfile.STATE_DISCONNECTED) {
+                // Result for disconnected -> disconnected is unknown as it should
+                // not have occurred.
+                int result =
+                        (mLastConnectionState == BluetoothProfile.STATE_CONNECTING)
+                                ? BluetoothProtoEnums.RESULT_FAILURE
+                                : BluetoothProtoEnums.RESULT_UNKNOWN;
+
+                BluetoothStatsLog.write(
+                        BluetoothStatsLog.BLUETOOTH_PROFILE_CONNECTION_ATTEMPTED,
+                        BluetoothProfile.A2DP,
+                        result,
+                        mLastConnectionState,
+                        BluetoothProfile.STATE_DISCONNECTED,
+                        BluetoothProtoEnums.REASON_UNEXPECTED_STATE);
             }
         }
     }
@@ -480,10 +503,12 @@ final class A2dpStateMachine extends StateMachine {
             // codecs (perhaps it's had a firmware update, etc.) and save that state if
             // it differs from what we had saved before.
             mA2dpService.updateOptionalCodecsSupport(mDevice);
+            mA2dpService.updateLowLatencyAudioSupport(mDevice);
+
             broadcastConnectionState(mConnectionState, mLastConnectionState);
             // Upon connected, the audio starts out as stopped
-            broadcastAudioState(BluetoothA2dp.STATE_NOT_PLAYING,
-                                BluetoothA2dp.STATE_PLAYING);
+            broadcastAudioState(BluetoothA2dp.STATE_NOT_PLAYING, BluetoothA2dp.STATE_PLAYING);
+            logSuccessIfNeeded();
         }
 
         @Override
@@ -592,6 +617,19 @@ final class A2dpStateMachine extends StateMachine {
                     break;
             }
         }
+
+        private void logSuccessIfNeeded() {
+            if (mLastConnectionState == BluetoothProfile.STATE_CONNECTING
+                    || mLastConnectionState == BluetoothProfile.STATE_DISCONNECTED) {
+                BluetoothStatsLog.write(
+                        BluetoothStatsLog.BLUETOOTH_PROFILE_CONNECTION_ATTEMPTED,
+                        BluetoothProfile.A2DP,
+                        BluetoothProtoEnums.RESULT_SUCCESS,
+                        mLastConnectionState,
+                        BluetoothProfile.STATE_CONNECTED,
+                        BluetoothProtoEnums.REASON_SUCCESS);
+            }
+        }
     }
 
     int getConnectionState() {
@@ -652,6 +690,7 @@ final class A2dpStateMachine extends StateMachine {
             // for this codec change event.
             mA2dpService.updateOptionalCodecsSupport(mDevice);
         }
+        mA2dpService.updateLowLatencyAudioSupport(mDevice);
         if (mA2dpOffloadEnabled) {
             boolean update = false;
             BluetoothCodecConfig newCodecConfig = mCodecStatus.getCodecConfig();
@@ -663,6 +702,13 @@ final class A2dpStateMachine extends StateMachine {
             } else if ((newCodecConfig.getCodecType()
                         == BluetoothCodecConfig.SOURCE_CODEC_TYPE_LDAC)
                     && (prevCodecConfig != null)
+                    && (prevCodecConfig.getCodecSpecific1()
+                        != newCodecConfig.getCodecSpecific1())) {
+                update = true;
+            } else if ((newCodecConfig.getCodecType()
+                        == BluetoothCodecConfig.SOURCE_CODEC_TYPE_OPUS)
+                    && (prevCodecConfig != null)
+                    // check framesize field
                     && (prevCodecConfig.getCodecSpecific1()
                         != newCodecConfig.getCodecSpecific1())) {
                 update = true;
@@ -689,7 +735,8 @@ final class A2dpStateMachine extends StateMachine {
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, mDevice);
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
                         | Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
-        mA2dpService.sendBroadcast(intent, BLUETOOTH_CONNECT,
+        mA2dpService.connectionStateChanged(mDevice, prevState, newState);
+        Utils.sendBroadcast(mA2dpService, intent, BLUETOOTH_CONNECT,
                 Utils.getTempAllowlistBroadcastOptions());
     }
 
@@ -701,7 +748,7 @@ final class A2dpStateMachine extends StateMachine {
         intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
         intent.putExtra(BluetoothProfile.EXTRA_STATE, newState);
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
-        mA2dpService.sendBroadcast(intent, BLUETOOTH_CONNECT,
+        Utils.sendBroadcast(mA2dpService, intent, BLUETOOTH_CONNECT,
                 Utils.getTempAllowlistBroadcastOptions());
     }
 

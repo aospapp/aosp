@@ -20,7 +20,7 @@ import static android.car.user.UserIdentificationAssociationResponse.forSuccess;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.testng.Assert.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import android.car.user.UserIdentificationAssociationResponse;
 

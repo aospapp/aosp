@@ -20,6 +20,8 @@ import static com.android.car.internal.common.CommonConstants.CAR_SERVICE_INTERF
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.verify;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.when;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -36,15 +38,18 @@ import android.os.UserHandle;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.android.car.internal.util.VersionUtils;
 import com.android.internal.car.CarServiceHelperInterface;
+import com.android.server.wm.CarActivityInterceptorInterface;
 import com.android.server.wm.CarLaunchParamsModifierInterface;
-
-import java.util.function.BiConsumer;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.MockitoSession;
+
+import java.util.function.BiConsumer;
 
 /**
  * This class contains unit tests for the {@link CarServiceHelperServiceUpdatableImpl}.
@@ -52,6 +57,8 @@ import org.mockito.Mock;
 @RunWith(AndroidJUnit4.class)
 public final class CarServiceHelperServiceUpdatableImplTest
         extends AbstractExtendedMockitoTestCase {
+
+    private MockitoSession mSession;
 
     @Mock
     private Context mMockContext;
@@ -61,6 +68,8 @@ public final class CarServiceHelperServiceUpdatableImplTest
     private CarServiceHelperInterface mCarServiceHelperInterface;
     @Mock
     private CarLaunchParamsModifierInterface mCarLaunchParamsModifierInterface;
+    @Mock
+    private CarActivityInterceptorInterface mCarActivityInterceptorInterface;
     @Mock
     private ICar mICarBinder;
     @Mock
@@ -78,7 +87,14 @@ public final class CarServiceHelperServiceUpdatableImplTest
                 mMockContext,
                 mCarServiceHelperInterface,
                 mCarLaunchParamsModifierInterface,
+                mCarActivityInterceptorInterface,
                 mCarServiceProxy);
+    }
+
+    @Override
+    protected void onSessionBuilder(
+            AbstractExtendedMockitoTestCase.CustomMockitoSessionBuilder builder) {
+        builder.spyStatic(VersionUtils.class);
     }
 
     @Test
@@ -156,6 +172,52 @@ public final class CarServiceHelperServiceUpdatableImplTest
 
         verify(mCarServiceProxy).sendUserLifecycleEvent(eventType, userFrom.getIdentifier(),
                 userTo.getIdentifier());
+    }
+
+    @Test
+    public void testGetProcessGroup() throws Exception {
+        when(mCarServiceHelperInterface.getProcessGroup(42)).thenReturn(108);
+
+        assertWithMessage("getProcessGroup(42)")
+                .that(mCarServiceHelperServiceUpdatableImpl.mHelper.getProcessGroup(42))
+                .isEqualTo(108);
+    }
+
+    @Test
+    public void testSetProcessGroup() throws Exception {
+        mCarServiceHelperServiceUpdatableImpl.mHelper.setProcessGroup(42, 108);
+
+        verify(mCarServiceHelperInterface).setProcessGroup(42, 108);
+    }
+
+    @Test
+    public void testStartUserInBackgroundVisibleOnDisplay() throws Exception {
+        int userId = 100;
+        int displayId = 2;
+
+        mCarServiceHelperServiceUpdatableImpl.mHelper.startUserInBackgroundVisibleOnDisplay(userId,
+                displayId);
+
+        verify(mCarServiceHelperInterface).startUserInBackgroundVisibleOnDisplay(userId,
+                displayId);
+    }
+
+    @Test
+    public void testGetMainDisplayAssignedToUser() throws Exception {
+        when(mCarServiceHelperInterface.getMainDisplayAssignedToUser(42)).thenReturn(108);
+        assertWithMessage("getMainDisplayAssignedToUser(42)")
+                .that(mCarServiceHelperServiceUpdatableImpl.mHelper
+                        .getMainDisplayAssignedToUser(42))
+                .isEqualTo(108);
+    }
+
+    @Test
+    public void testGetUserAssignedToDisplay() throws Exception {
+        when(mCarServiceHelperInterface.getUserAssignedToDisplay(42)).thenReturn(108);
+
+        assertWithMessage("getUserAssignedToDisplay(42)")
+                .that(mCarServiceHelperServiceUpdatableImpl.mHelper.getUserAssignedToDisplay(42))
+                .isEqualTo(108);
     }
 
     private void mockICarBinder() {

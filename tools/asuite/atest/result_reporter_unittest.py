@@ -24,10 +24,10 @@ import unittest
 from io import StringIO
 from unittest import mock
 
-import atest_configs
-import result_reporter
+from atest import atest_configs
+from atest import result_reporter
 
-from test_runners import test_runner_base
+from atest.test_runners import test_runner_base
 
 
 RESULT_PASSED_TEST = test_runner_base.TestResult(

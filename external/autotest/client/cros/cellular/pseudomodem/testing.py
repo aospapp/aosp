@@ -5,11 +5,10 @@
 import dbus
 import dbus.service
 
-import dbus_std_ifaces
-import pm_constants
-import utils
-
 from autotest_lib.client.cros.cellular import mm1_constants
+from autotest_lib.client.cros.cellular.pseudomodem import dbus_std_ifaces
+from autotest_lib.client.cros.cellular.pseudomodem import pm_constants
+from autotest_lib.client.cros.cellular.pseudomodem import utils
 
 class Testing(dbus_std_ifaces.DBusProperties):
     """

@@ -22,6 +22,7 @@ import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.admin.DevicePolicyManager;
 import android.app.tvsettings.TvSettingsEnums;
+import android.apphibernation.AppHibernationManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -63,8 +64,14 @@ public class ForceStopPreference extends AppActionPreference {
         setTitle(R.string.device_apps_app_management_force_stop);
         DevicePolicyManager dpm = (DevicePolicyManager) getContext().getSystemService(
                 Context.DEVICE_POLICY_SERVICE);
+        AppHibernationManager ahm = getContext().getSystemService(
+                AppHibernationManager.class);
+        boolean isPackageHibernated = ahm.isHibernatingForUser(mEntry.info.packageName);
         if (dpm.packageHasActiveAdmins(mEntry.info.packageName)) {
             // User can't force stop device admin.
+            setVisible(false);
+        } else if (isPackageHibernated) {
+            // Hibernated apps are always stopped.
             setVisible(false);
         } else if ((mEntry.info.flags & ApplicationInfo.FLAG_STOPPED) == 0) {
             // If the app isn't explicitly stopped, then always show the
@@ -77,12 +84,14 @@ public class ForceStopPreference extends AppActionPreference {
                     mEntry.info.packageName });
             intent.putExtra(Intent.EXTRA_UID, mEntry.info.uid);
             intent.putExtra(Intent.EXTRA_USER_HANDLE, UserHandle.getUserId(mEntry.info.uid));
-            getContext().sendOrderedBroadcast(intent, null, new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    setVisible(getResultCode() != Activity.RESULT_CANCELED);
-                }
-            }, null, Activity.RESULT_CANCELED, null, null);
+            getContext().sendOrderedBroadcast(intent,
+                    android.Manifest.permission.HANDLE_QUERY_PACKAGE_RESTART,
+                        new BroadcastReceiver() {
+                        @Override
+                        public void onReceive(Context context, Intent intent) {
+                            setVisible(getResultCode() != Activity.RESULT_CANCELED);
+                        }
+                    }, null, Activity.RESULT_CANCELED, null, null);
         }
         this.setOnPreferenceClickListener(
                 preference -> {

@@ -31,10 +31,10 @@ import android.os.RemoteException;
 import android.telephony.AvailableNetworkInfo;
 import android.telephony.CellInfo;
 import android.telephony.CellInfoLte;
+import android.telephony.CellInfoNr;
 import android.telephony.SignalStrength;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
-import android.telephony.TelephonyFrameworkInitializer;
 import android.telephony.TelephonyManager;
 import android.telephony.UiccCardInfo;
 import android.telephony.UiccPortInfo;
@@ -43,7 +43,6 @@ import android.text.TextUtils;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.ISetOpportunisticDataCallback;
-import com.android.internal.telephony.ISub;
 import com.android.internal.telephony.IUpdateAvailableNetworksCallback;
 import com.android.telephony.Rlog;
 
@@ -195,7 +194,7 @@ public class ONSProfileSelector {
                         }
                     } else {
                         logDebug("switch to sub:" + subId);
-                        switchToSubscription(subId);
+                        switchToSubscription(subId, getAvailableESIMPortIndex());
                     }
                 }
             };
@@ -267,19 +266,27 @@ public class ONSProfileSelector {
         }
     }
 
-    private String getMcc(CellInfo cellInfo) {
+    @VisibleForTesting
+    protected String getMcc(CellInfo cellInfo) {
         String mcc = "";
         if (cellInfo instanceof CellInfoLte) {
             mcc = ((CellInfoLte) cellInfo).getCellIdentity().getMccString();
+        }
+        else if (cellInfo instanceof CellInfoNr) {
+            mcc = ((CellInfoNr) cellInfo).getCellIdentity().getMccString();
         }
 
         return mcc;
     }
 
-    private String getMnc(CellInfo cellInfo) {
+    @VisibleForTesting
+    protected String getMnc(CellInfo cellInfo) {
         String mnc = "";
         if (cellInfo instanceof CellInfoLte) {
             mnc = ((CellInfoLte) cellInfo).getCellIdentity().getMncString();
+        }
+        else if (cellInfo instanceof CellInfoNr) {
+            mnc = ((CellInfoNr) cellInfo).getCellIdentity().getMncString();
         }
 
         return mnc;
@@ -350,7 +357,7 @@ public class ONSProfileSelector {
 
     private HashMap<Integer, IUpdateAvailableNetworksCallback> callbackStubs = new HashMap<>();
 
-    private void switchToSubscription(int subId) {
+    private void switchToSubscription(int subId, int availableSIMPortIndex) {
         Intent callbackIntent = new Intent(ACTION_SUB_SWITCH);
         callbackIntent.setClass(mContext, OpportunisticNetworkService.class);
         updateToken();
@@ -359,21 +366,22 @@ public class ONSProfileSelector {
         mSubId = subId;
         PendingIntent replyIntent = PendingIntent.getService(mContext,
                 1, callbackIntent, PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
-        int eSIMPortIndex = getAvailableESIMPortIndex();
-        if (eSIMPortIndex == TelephonyManager.INVALID_PORT_INDEX) {
+        if (availableSIMPortIndex == TelephonyManager.INVALID_PORT_INDEX) {
             sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
                     TelephonyManager.UPDATE_AVAILABLE_NETWORKS_SIM_PORT_NOT_AVAILABLE);
             return;
         }
-        mEuiccManager.switchToSubscription(subId, eSIMPortIndex, replyIntent);
+        mEuiccManager.switchToSubscription(subId, availableSIMPortIndex, replyIntent);
     }
 
-    private int getAvailableESIMPortIndex() {
-        //Check if an opportunistic subscription is already active. If yes then, use the same port.
+    @VisibleForTesting
+    protected int getAvailableESIMPortIndex() {
         //Check if an opportunistic subscription is already active. If yes then, use the same port.
         List<SubscriptionInfo> subscriptionInfos = mSubscriptionManager
-                .getActiveSubscriptionInfoList();
+                .getCompleteActiveSubscriptionInfoList();
         if (subscriptionInfos != null) {
+            logDebug("[getAvailableESIMPortIndex] subscriptionInfos size:"
+                    + subscriptionInfos.size());
             for (SubscriptionInfo subscriptionInfo : subscriptionInfos) {
                 if (subscriptionInfo.isEmbedded() && subscriptionInfo.isOpportunistic()) {
                     return subscriptionInfo.getPortIndex();
@@ -383,12 +391,14 @@ public class ONSProfileSelector {
 
         //Look for available port.
         for (UiccCardInfo uiccCardInfo : mTelephonyManager.getUiccCardsInfo()) {
+            logDebug("[getAvailableESIMPortIndex] CardInfo: " + uiccCardInfo.toString());
             if (!uiccCardInfo.isEuicc()) {
                 continue;
             }
 
             EuiccManager euiccManager = mEuiccManager.createForCardId(uiccCardInfo.getCardId());
             for (UiccPortInfo uiccPortInfo : uiccCardInfo.getPorts()) {
+                logDebug("[getAvailableESIMPortIndex] PortInfo: " + uiccPortInfo.toString());
                 //Port is available if no profiles enabled on it.
                 if (euiccManager.isSimPortAvailable(uiccPortInfo.getPortIndex())) {
                     return uiccPortInfo.getPortIndex();
@@ -396,6 +406,7 @@ public class ONSProfileSelector {
             }
         }
 
+        logDebug("[getAvailableESIMPortIndex] No Port is available.");
         return TelephonyManager.INVALID_PORT_INDEX;
     }
 
@@ -481,31 +492,6 @@ public class ONSProfileSelector {
         return new HashSet<>(availableNetworks1).equals(new HashSet<>(availableNetworks2));
     }
 
-    private boolean isPrimaryActiveOnOpportunisticSlot(
-            ArrayList<AvailableNetworkInfo> availableNetworks) {
-        /* Check if any of the available network is an embedded profile. if none are embedded,
-         * return false
-         * Todo <b/130535071> */
-        if (!isOpportunisticSubEmbedded(availableNetworks)) {
-            return false;
-        }
-
-        List<SubscriptionInfo> subscriptionInfos =
-            mSubscriptionManager.getActiveSubscriptionInfoList(false);
-        if (subscriptionInfos == null) {
-            return false;
-        }
-
-        /* if there is a primary subscription active on the eSIM, return true */
-        for (SubscriptionInfo subscriptionInfo : subscriptionInfos) {
-            if (!subscriptionInfo.isOpportunistic() && subscriptionInfo.isEmbedded()) {
-                return true;
-            }
-        }
-
-        return false;
-
-    }
     private void sendUpdateNetworksCallbackHelper(IUpdateAvailableNetworksCallback callback,
             int result) {
         if (callback == null) {
@@ -537,11 +523,12 @@ public class ONSProfileSelector {
             return;
         }
 
-        /* if primary subscription is active on opportunistic slot, do not switch out the same. */
-        if (isPrimaryActiveOnOpportunisticSlot(availableNetworks)) {
-            logDebug("primary subscription active on opportunistic sub");
+        /* Check if ports are available on the embedded slot */
+        int availSIMPortIndex = getAvailableESIMPortIndex();
+        if (availSIMPortIndex == TelephonyManager.INVALID_PORT_INDEX) {
+            logDebug("SIM port not available.");
             sendUpdateNetworksCallbackHelper(callbackStub,
-                TelephonyManager.UPDATE_AVAILABLE_NETWORKS_INVALID_ARGUMENTS);
+                    TelephonyManager.UPDATE_AVAILABLE_NETWORKS_SIM_PORT_NOT_AVAILABLE);
             return;
         }
 
@@ -574,7 +561,8 @@ public class ONSProfileSelector {
                 /* if subscription is not active, activate the sub */
                 if (!mSubscriptionManager.isActiveSubId(filteredAvailableNetworks.get(0).getSubId())) {
                     mNetworkScanCallback = callbackStub;
-                    switchToSubscription(filteredAvailableNetworks.get(0).getSubId());
+                    switchToSubscription(filteredAvailableNetworks.get(0).getSubId(),
+                            availSIMPortIndex);
                 } else {
                     if (enableModem(filteredAvailableNetworks.get(0).getSubId(), true)) {
                         sendUpdateNetworksCallbackHelper(callbackStub,
@@ -844,27 +832,12 @@ public class ONSProfileSelector {
             ISetOpportunisticDataCallback callbackStub) {
         if ((subId == SubscriptionManager.DEFAULT_SUBSCRIPTION_ID)
                 || (isOpprotunisticSub(subId) && mSubscriptionManager.isActiveSubId(subId))) {
-            ISub iSub = ISub.Stub.asInterface(
-                    TelephonyFrameworkInitializer
-                            .getTelephonyServiceManager()
-                            .getSubscriptionServiceRegisterer()
-                            .get());
-            if (iSub == null) {
-                log("Could not get Subscription Service handle");
-                if (Compatibility.isChangeEnabled(
-                        OpportunisticNetworkService.CALLBACK_ON_MORE_ERROR_CODE_CHANGE)) {
-                    sendSetOpptCallbackHelper(callbackStub,
-                            TelephonyManager.SET_OPPORTUNISTIC_SUB_REMOTE_SERVICE_EXCEPTION);
-                } else {
-                    sendSetOpptCallbackHelper(callbackStub,
-                            TelephonyManager.SET_OPPORTUNISTIC_SUB_VALIDATION_FAILED);
-                }
-                return;
-            }
             try {
-                iSub.setPreferredDataSubscriptionId(subId, needValidation, callbackStub);
-            } catch (RemoteException ex) {
-                log("Could not connect to Subscription Service");
+                mSubscriptionManager.setPreferredDataSubscriptionId(subId, needValidation,
+                        mHandler::post, result -> sendSetOpptCallbackHelper(callbackStub, result));
+            } catch (Exception ex) {
+                log("setPreferredDataSubscriptionId failed. subId=" + subId + ", needValidation="
+                        + needValidation + ", ex=" + ex);
                 if (Compatibility.isChangeEnabled(
                         OpportunisticNetworkService.CALLBACK_ON_MORE_ERROR_CODE_CHANGE)) {
                     sendSetOpptCallbackHelper(callbackStub,

@@ -16,8 +16,8 @@ def compute_empty_tree_auxilary_hashes(bits_per_level=2, height=6):
     empty path in a Merkle tree with the specified parameters.
     """
     num_siblings = 2 ^ bits_per_level - 1
-    child = '\0' * 32
-    result = ''
+    child = b'\0' * 32
+    result = b''
     for _ in range(height):
         part = child * num_siblings
         child = sha256(part + child).digest()
@@ -56,10 +56,13 @@ class firmware_Cr50PinWeaverServer(test.test):
         # Label 0 is guaranteed to be empty because the self test above resets
         # the tree and removes the leaf it adds.
         label = 0
-        h_aux = compute_empty_tree_auxilary_hashes().encode('hex')
-        le_secret = sha256('1234').hexdigest()
-        he_secret = sha256('ag3#l4Z9').hexdigest()
-        reset_secret = sha256('W8oE@Ja2mq.R1').hexdigest()
+        hashes = compute_empty_tree_auxilary_hashes()
+        # TODO(mruthven): always use hashes.hex() after python3 migration.
+        h_aux = hashes.hex() if hasattr(hashes,
+                                        'hex') else hashes.encode('hex')
+        le_secret = sha256(b'1234').hexdigest()
+        he_secret = sha256(b'ag3#l4Z9').hexdigest()
+        reset_secret = sha256(b'W8oE@Ja2mq.R1').hexdigest()
         delay_schedule = '5 %d' % 0x00ffffffff
         result = pinweaver_client.InsertLeaf(host, label, h_aux, le_secret,
                                              he_secret, reset_secret,

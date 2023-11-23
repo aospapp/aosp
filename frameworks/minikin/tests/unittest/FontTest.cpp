@@ -24,19 +24,121 @@
 
 namespace minikin {
 
+namespace {
+
+size_t getHeapSize() {
+    struct mallinfo info = mallinfo();
+    return info.uordblks;
+}
+
+}  // namespace
+
 TEST(FontTest, BufferTest) {
+    FreeTypeMinikinFontForTestFactory::init();
     auto minikinFont = std::make_shared<FreeTypeMinikinFontForTest>(getTestFontPath("Ascii.ttf"));
     std::shared_ptr<Font> original = Font::Builder(minikinFont).build();
-    std::vector<uint8_t> buffer = writeToBuffer<Font, writeFreeTypeMinikinFontForTest>(*original);
+    std::vector<uint8_t> buffer = writeToBuffer<Font>(*original);
 
     BufferReader reader(buffer.data());
-    std::shared_ptr<Font> font =
-            Font::readFrom<readFreeTypeMinikinFontForTest>(&reader, kEmptyLocaleListId);
-    EXPECT_EQ(minikinFont->GetFontPath(), font->typeface()->GetFontPath());
-    EXPECT_EQ(original->style(), font->style());
-    EXPECT_NE(nullptr, font->baseFont());
-    std::vector<uint8_t> newBuffer = writeToBuffer<Font, writeFreeTypeMinikinFontForTest>(*font);
+    Font font(&reader);
+    EXPECT_EQ(minikinFont->GetFontPath(), font.typeface()->GetFontPath());
+    EXPECT_EQ(original->style(), font.style());
+    EXPECT_EQ(original->getLocaleListId(), font.getLocaleListId());
+    // baseFont() should return the same non-null instance when called twice.
+    const auto& baseFont = font.baseFont();
+    EXPECT_NE(nullptr, baseFont);
+    EXPECT_EQ(baseFont, font.baseFont());
+    // typeface() should return the same non-null instance when called twice.
+    const auto& typeface = font.typeface();
+    EXPECT_NE(nullptr, typeface);
+    EXPECT_EQ(typeface, font.typeface());
+    std::vector<uint8_t> newBuffer = writeToBuffer<Font>(font);
     EXPECT_EQ(buffer, newBuffer);
+}
+
+TEST(FontTest, MoveConstructorTest) {
+    FreeTypeMinikinFontForTestFactory::init();
+    // Note: by definition, only BufferReader-based Font can be moved.
+    auto minikinFont = std::make_shared<FreeTypeMinikinFontForTest>(getTestFontPath("Ascii.ttf"));
+    std::shared_ptr<Font> original = Font::Builder(minikinFont).build();
+    std::vector<uint8_t> buffer = writeToBuffer<Font>(*original);
+
+    size_t baseHeapSize = getHeapSize();
+    {
+        BufferReader reader(buffer.data());
+        Font moveFrom(&reader);
+        Font moveTo(std::move(moveFrom));
+        EXPECT_EQ(nullptr, moveFrom.mExternalRefsHolder.load());
+        EXPECT_EQ(nullptr, moveTo.mExternalRefsHolder.load());
+    }
+    EXPECT_EQ(baseHeapSize, getHeapSize());
+    {
+        BufferReader reader(buffer.data());
+        Font moveFrom(&reader);
+        std::shared_ptr<MinikinFont> typeface = moveFrom.typeface();
+        Font moveTo(std::move(moveFrom));
+        EXPECT_EQ(nullptr, moveFrom.mExternalRefsHolder.load());
+        EXPECT_EQ(typeface, moveTo.typeface());
+    }
+    EXPECT_EQ(baseHeapSize, getHeapSize());
+}
+
+TEST(FontTest, MoveAssignmentTest) {
+    FreeTypeMinikinFontForTestFactory::init();
+    // Note: by definition, only BufferReader-based Font can be moved.
+    auto minikinFont = std::make_shared<FreeTypeMinikinFontForTest>(getTestFontPath("Ascii.ttf"));
+    std::shared_ptr<Font> original = Font::Builder(minikinFont).build();
+    std::vector<uint8_t> buffer = writeToBuffer<Font>(*original);
+
+    size_t baseHeapSize = getHeapSize();
+    {
+        // mExternalRefsHolder: null -> null
+        BufferReader reader(buffer.data());
+        Font moveFrom(&reader);
+        BufferReader reader2(buffer.data());
+        Font moveTo(&reader2);
+        moveTo = std::move(moveFrom);
+        EXPECT_EQ(nullptr, moveFrom.mExternalRefsHolder.load());
+        EXPECT_EQ(nullptr, moveTo.mExternalRefsHolder.load());
+    }
+    EXPECT_EQ(baseHeapSize, getHeapSize());
+    {
+        // mExternalRefsHolder: non-null -> null
+        BufferReader reader(buffer.data());
+        Font moveFrom(&reader);
+        std::shared_ptr<MinikinFont> typeface = moveFrom.typeface();
+        BufferReader reader2(buffer.data());
+        Font moveTo(&reader2);
+        moveTo = std::move(moveFrom);
+        EXPECT_EQ(nullptr, moveFrom.mExternalRefsHolder.load());
+        EXPECT_EQ(typeface, moveTo.typeface());
+    }
+    EXPECT_EQ(baseHeapSize, getHeapSize());
+    {
+        // mExternalRefsHolder: null -> non-null
+        BufferReader reader(buffer.data());
+        Font moveFrom(&reader);
+        BufferReader reader2(buffer.data());
+        Font moveTo(&reader2);
+        moveTo.typeface();
+        moveTo = std::move(moveFrom);
+        EXPECT_EQ(nullptr, moveFrom.mExternalRefsHolder.load());
+        EXPECT_EQ(nullptr, moveTo.mExternalRefsHolder.load());
+    }
+    EXPECT_EQ(baseHeapSize, getHeapSize());
+    {
+        // mExternalRefsHolder: non-null -> non-null
+        BufferReader reader(buffer.data());
+        Font moveFrom(&reader);
+        std::shared_ptr<MinikinFont> typeface = moveFrom.typeface();
+        BufferReader reader2(buffer.data());
+        Font moveTo(&reader2);
+        moveTo.typeface();
+        moveTo = std::move(moveFrom);
+        EXPECT_EQ(nullptr, moveFrom.mExternalRefsHolder.load());
+        EXPECT_EQ(typeface, moveTo.typeface());
+    }
+    EXPECT_EQ(baseHeapSize, getHeapSize());
 }
 
 }  // namespace minikin

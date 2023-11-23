@@ -37,8 +37,18 @@ public class ProfileConnectorUnsupportedTest {
   private final TestProfileConnector testProfileConnector = TestProfileConnector.create(context);
 
   @Test
-  public void startConnecting_doesNotCrash() {
-    testProfileConnector.startConnecting();
+  public void addConnectionHolder_doesNotCrash() {
+    testProfileConnector.addConnectionHolder(this);
+  }
+
+  @Test
+  public void removeConnectionHolder_doesNotCrash() {
+    testProfileConnector.removeConnectionHolder(this);
+  }
+
+  @Test
+  public void clearConnectionHolderS_doesNotCrash() {
+    testProfileConnector.clearConnectionHolders();
   }
 
   @Test
@@ -57,33 +67,28 @@ public class ProfileConnectorUnsupportedTest {
   }
 
   @Test
-  public void stopManualConnectionManagement_doesNotCrash() {
-    testProfileConnector.stopManualConnectionManagement();
-  }
-
-  @Test
   public void crossProfileSender_returnsNull() {
     assertThat(testProfileConnector.crossProfileSender()).isNull();
   }
 
   @Test
-  public void registerConnectionListener_doesNotCrash() {
-    testProfileConnector.registerConnectionListener(() -> {});
+  public void addConnectionListener_doesNotCrash() {
+    testProfileConnector.addConnectionListener(() -> {});
   }
 
   @Test
-  public void unregisterConnectionListener_doesNotCrash() {
-    testProfileConnector.unregisterConnectionListener(() -> {});
+  public void removeConnectionListener_doesNotCrash() {
+    testProfileConnector.removeConnectionListener(() -> {});
   }
 
   @Test
-  public void registerAvailabilityListener_doesNotCrash() {
-    testProfileConnector.registerAvailabilityListener(() -> {});
+  public void addAvailabilityListener_doesNotCrash() {
+    testProfileConnector.addAvailabilityListener(() -> {});
   }
 
   @Test
-  public void unregisterAvailabilityListener_doesNotCrash() {
-    testProfileConnector.unregisterAvailabilityListener(() -> {});
+  public void removeAvailabilityListener_doesNotCrash() {
+    testProfileConnector.removeAvailabilityListener(() -> {});
   }
 
   @Test

@@ -39,7 +39,7 @@ rust_library_rlib {
     host_supported: true,
     crate_name: "libfuzzer_sys",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.4.2",
+    cargo_pkg_version: "0.4.6",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: ["arbitrary-derive"],
@@ -47,4 +47,10 @@ rust_library_rlib {
         "libarbitrary",
         "libonce_cell",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }

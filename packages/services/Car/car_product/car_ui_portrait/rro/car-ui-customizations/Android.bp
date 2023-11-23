@@ -20,6 +20,9 @@ runtime_resource_overlay {
     name: "GoogleCarUiPortraitBase",
     manifest: "AndroidManifest.xml",
     resource_dirs: ["res"],
+    static_libs: [
+        "car-portrait-ui-common",
+    ],
 }
 
 override_runtime_resource_overlay {
@@ -27,20 +30,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.car.ui.paintbooth.googlecaruiportrait.rro",
     target_package_name: "com.android.car.ui.paintbooth",
-}
-
-override_runtime_resource_overlay {
-    name: "generated_caruiportrait_customization-com-google-android-car-ui-paintbooth",
-    base: "GoogleCarUiPortraitBase",
-    package_name: "com.android.car.ui.paintbooth.googlecaruiportrait.rro",
-    target_package_name: "com.google.android.car.ui.paintbooth",
-}
-
-override_runtime_resource_overlay {
-    name: "generated_caruiportrait_customization-com-google-android-carui-ats",
-    base: "GoogleCarUiPortraitBase",
-    package_name: "com.google.android.carui.ats.googlecaruiportrait.rro",
-    target_package_name: "com.google.android.carui.ats",
+    category: "caruiportrait.paintbooth",
 }
 
 override_runtime_resource_overlay {
@@ -48,6 +38,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.car.rotaryplayground.googlecaruiportrait.rro",
     target_package_name: "com.android.car.rotaryplayground",
+    category: "caruiportrait.rotaryplayground",
 }
 
 override_runtime_resource_overlay {
@@ -55,6 +46,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.car.themeplayground.googlecaruiportrait.rro",
     target_package_name: "com.android.car.themeplayground",
+    category: "caruiportrait.themeplayground",
 }
 
 override_runtime_resource_overlay {
@@ -62,6 +54,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.car.carlauncher.googlecaruiportrait.rro",
     target_package_name: "com.android.car.carlauncher",
+    category: "caruiportrait.carlauncher",
 }
 
 override_runtime_resource_overlay {
@@ -69,6 +62,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.car.home.googlecaruiportrait.rro",
     target_package_name: "com.android.car.home",
+    category: "caruiportrait.home",
 }
 
 override_runtime_resource_overlay {
@@ -76,6 +70,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.car.media.googlecaruiportrait.rro",
     target_package_name: "com.android.car.media",
+    category: "caruiportrait.media",
 }
 
 override_runtime_resource_overlay {
@@ -83,6 +78,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.car.messenger.googlecaruiportrait.rro",
     target_package_name: "com.android.car.messenger",
+    category: "caruiportrait.messenger",
 }
 
 override_runtime_resource_overlay {
@@ -90,6 +86,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.car.radio.googlecaruiportrait.rro",
     target_package_name: "com.android.car.radio",
+    category: "caruiportrait.radio",
 }
 
 override_runtime_resource_overlay {
@@ -97,6 +94,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.car.calendar.googlecaruiportrait.rro",
     target_package_name: "com.android.car.calendar",
+    category: "caruiportrait.calendar",
 }
 
 override_runtime_resource_overlay {
@@ -104,6 +102,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.car.systemupdater.googlecaruiportrait.rro",
     target_package_name: "com.android.car.systemupdater",
+    category: "caruiportrait.systemupdater",
 }
 
 override_runtime_resource_overlay {
@@ -111,6 +110,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.car.dialer.googlecaruiportrait.rro",
     target_package_name: "com.android.car.dialer",
+    category: "caruiportrait.dialer",
 }
 
 override_runtime_resource_overlay {
@@ -118,6 +118,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.car.linkviewer.googlecaruiportrait.rro",
     target_package_name: "com.android.car.linkviewer",
+    category: "caruiportrait.linkviewer",
 }
 
 override_runtime_resource_overlay {
@@ -125,6 +126,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.car.settings.googlecaruiportrait.rro",
     target_package_name: "com.android.car.settings",
+    category: "caruiportrait.settings",
 }
 
 override_runtime_resource_overlay {
@@ -132,6 +134,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.car.voicecontrol.googlecaruiportrait.rro",
     target_package_name: "com.android.car.voicecontrol",
+    category: "caruiportrait.voicecontrol",
 }
 
 override_runtime_resource_overlay {
@@ -139,6 +142,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.car.faceenroll.googlecaruiportrait.rro",
     target_package_name: "com.android.car.faceenroll",
+    category: "caruiportrait.faceenroll",
 }
 
 override_runtime_resource_overlay {
@@ -146,6 +150,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.car.developeroptions.googlecaruiportrait.rro",
     target_package_name: "com.android.car.developeroptions",
+    category: "caruiportrait.developeroptions",
 }
 
 override_runtime_resource_overlay {
@@ -153,6 +158,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.managedprovisioning.googlecaruiportrait.rro",
     target_package_name: "com.android.managedprovisioning",
+    category: "caruiportrait.managedprovisioning",
 }
 
 override_runtime_resource_overlay {
@@ -160,83 +166,7 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.settings.intelligence.googlecaruiportrait.rro",
     target_package_name: "com.android.settings.intelligence",
-}
-
-override_runtime_resource_overlay {
-    name: "generated_caruiportrait_customization-com-google-android-apps-automotive-inputmethod",
-    base: "GoogleCarUiPortraitBase",
-    package_name: "com.google.android.apps.automotive.inputmethod.googlecaruiportrait.rro",
-    target_package_name: "com.google.android.apps.automotive.inputmethod",
-}
-
-override_runtime_resource_overlay {
-    name: "generated_caruiportrait_customization-com-google-android-apps-automotive-inputmethod-dev",
-    base: "GoogleCarUiPortraitBase",
-    package_name: "com.google.android.apps.automotive.inputmethod.dev.googlecaruiportrait.rro",
-    target_package_name: "com.google.android.apps.automotive.inputmethod.dev",
-}
-
-override_runtime_resource_overlay {
-    name: "generated_caruiportrait_customization-com-google-android-apps-automotive-templates-host",
-    base: "GoogleCarUiPortraitBase",
-    package_name: "com.google.android.apps.automotive.templates.host.googlecaruiportrait.rro",
-    target_package_name: "com.google.android.apps.automotive.templates.host",
-}
-
-override_runtime_resource_overlay {
-    name: "generated_caruiportrait_customization-com-google-android-companiondevicesupport",
-    base: "GoogleCarUiPortraitBase",
-    package_name: "com.google.android.companiondevicesupport.googlecaruiportrait.rro",
-    target_package_name: "com.google.android.companiondevicesupport",
-}
-
-override_runtime_resource_overlay {
-    name: "generated_caruiportrait_customization-com-google-android-embedded-projection",
-    base: "GoogleCarUiPortraitBase",
-    package_name: "com.google.android.embedded.projection.googlecaruiportrait.rro",
-    target_package_name: "com.google.android.embedded.projection",
-}
-
-override_runtime_resource_overlay {
-    name: "generated_caruiportrait_customization-com-google-android-gms",
-    base: "GoogleCarUiPortraitBase",
-    package_name: "com.google.android.gms.googlecaruiportrait.rro",
-    target_package_name: "com.google.android.gms",
-}
-
-override_runtime_resource_overlay {
-    name: "generated_caruiportrait_customization-com-google-android-gsf",
-    base: "GoogleCarUiPortraitBase",
-    package_name: "com.google.android.gsf.googlecaruiportrait.rro",
-    target_package_name: "com.google.android.gsf",
-}
-
-override_runtime_resource_overlay {
-    name: "generated_caruiportrait_customization-com-google-android-packageinstaller",
-    base: "GoogleCarUiPortraitBase",
-    package_name: "com.google.android.packageinstaller.googlecaruiportrait.rro",
-    target_package_name: "com.google.android.packageinstaller",
-}
-
-override_runtime_resource_overlay {
-    name: "generated_caruiportrait_customization-com-google-android-permissioncontroller",
-    base: "GoogleCarUiPortraitBase",
-    package_name: "com.google.android.permissioncontroller.googlecaruiportrait.rro",
-    target_package_name: "com.google.android.permissioncontroller",
-}
-
-override_runtime_resource_overlay {
-    name: "generated_caruiportrait_customization-com-google-android-carassistant",
-    base: "GoogleCarUiPortraitBase",
-    package_name: "com.google.android.carassistant.googlecaruiportrait.rro",
-    target_package_name: "com.google.android.carassistant",
-}
-
-override_runtime_resource_overlay {
-    name: "generated_caruiportrait_customization-com-google-android-tts",
-    base: "GoogleCarUiPortraitBase",
-    package_name: "com.google.android.tts.googlecaruiportrait.rro",
-    target_package_name: "com.google.android.tts",
+    category: "caruiportrait.intelligence",
 }
 
 override_runtime_resource_overlay {
@@ -244,11 +174,29 @@ override_runtime_resource_overlay {
     base: "GoogleCarUiPortraitBase",
     package_name: "com.android.htmlviewer.googlecaruiportrait.rro",
     target_package_name: "com.android.htmlviewer",
+    category: "caruiportrait.htmlviewer",
 }
 
 override_runtime_resource_overlay {
-    name: "generated_caruiportrait_customization-com-android-vending",
+    name: "generated_caruiportrait_customization-com-android-permissioncontroller",
     base: "GoogleCarUiPortraitBase",
-    package_name: "com.android.vending.googlecaruiportrait.rro",
-    target_package_name: "com.android.vending",
+    package_name: "com.android.permissioncontroller.googlecaruiportrait.rro",
+    target_package_name: "com.android.permissioncontroller",
+    category: "caruiportrait.permissioncontroller",
+}
+
+override_runtime_resource_overlay {
+    name: "generated_caruiportrait_customization-com-google-android-car-portraitlauncher",
+    base: "GoogleCarUiPortraitBase",
+    package_name: "com.android.car.portraitlauncher.googlecaruiportrait.rro",
+    target_package_name: "com.android.car.portraitlauncher",
+    category: "caruiportrait.portraitlauncher",
+}
+
+override_runtime_resource_overlay {
+    name: "generated_caruiportrait_customization-com-google-car-ui-lib-sharedlibrary",
+    base: "GoogleCarUiPortraitBase",
+    package_name: "com.android.car.ui.sharedlibrary.googlecaruiportrait.rro",
+    target_package_name: "com.android.car.ui.sharedlibrary",
+    category: "caruiportrait.caruisharedlib",
 }

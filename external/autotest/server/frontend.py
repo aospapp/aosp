@@ -36,7 +36,7 @@ from autotest_lib.tko import db
 from six.moves import zip
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
 
@@ -301,9 +301,9 @@ def format_cros_image_name(board, version):
 
 class _CrosVersionMap(_OSVersionMap):
     """
-    Stable version mapping for Chrome OS release images.
+    Stable version mapping for ChromeOS release images.
 
-    This class manages a mapping of Chrome OS board names to known-good
+    This class manages a mapping of ChromeOS board names to known-good
     release (or canary) images.  The images selected can be installed on
     DUTs during repair tasks, as a way of getting a DUT into a known
     working state.
@@ -397,9 +397,9 @@ class _FAFTVersionMap(_SuffixHackVersionMap):
 
 class _FirmwareVersionMap(_SuffixHackVersionMap):
     """
-    Stable version mapping for firmware supplied in Chrome OS images.
+    Stable version mapping for firmware supplied in ChromeOS images.
 
-    A Chrome OS image bundles a version of the firmware that the
+    A ChromeOS image bundles a version of the firmware that the
     device should update to when the OS version is installed during
     AU.
 
@@ -427,7 +427,7 @@ class _FirmwareVersionMap(_SuffixHackVersionMap):
 class AFE(RpcClient):
 
     # Known image types for stable version mapping objects.
-    # CROS_IMAGE_TYPE - Mappings for Chrome OS images.
+    # CROS_IMAGE_TYPE - Mappings for ChromeOS images.
     # FAFT_IMAGE_TYPE - Mappings for Firmware images for FAFT repair.
     # FIRMWARE_IMAGE_TYPE - Mappings for released RW Firmware images.
     #

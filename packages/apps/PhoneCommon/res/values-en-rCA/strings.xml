@@ -35,7 +35,7 @@
     <string name="callFailed_limitExceeded" msgid="2877263157928717415">"ACM limit exceeded"</string>
     <string name="callFailed_powerOff" msgid="2212239757387143765">"Radio off"</string>
     <string name="callFailed_simError" msgid="510948380244092037">"No SIM or SIM error"</string>
-    <string name="callFailed_outOfService" msgid="2917536349269880601">"Mobile network not available"</string>
+    <string name="callFailed_outOfService" msgid="2917536349269880601">"Cellular network not available"</string>
     <string name="callFailed_fdn_only" msgid="584249308311672690">"Outgoing calls are restricted by FDN."</string>
     <string name="callFailed_dialToUssd" msgid="6794913139176808973">"Call changed to USSD request"</string>
     <string name="callFailed_dialToSs" msgid="6749473185855000519">"Call changed to SS request"</string>
@@ -55,8 +55,8 @@
     <string name="callEnded_pulled" msgid="4824518546417807865">"Call transferred to another device."</string>
     <string name="ringtone_silent" msgid="1173111569760233645">"None"</string>
     <string name="ringtone_unknown" msgid="3036191370493284036">"Unknown ringtone"</string>
-    <string name="callFailed_maximum_reached" msgid="6704266142192963900">"All available lines are in use. To make a call, disconnect one of the calls on this device or on one of your other devices."</string>
-    <string name="callFailed_data_disabled" msgid="8592999219489448277">"Call ended because mobile data was disabled."</string>
-    <string name="callFailed_data_limit_reached_description" msgid="3739097798746751739">"Call ended because the mobile data limit has been reached."</string>
+    <string name="callFailed_maximum_reached" msgid="6704266142192963900">"All available lines are in use. To make a call, disconnect one of the calls on this device, or on one of your other devices."</string>
+    <string name="callFailed_data_disabled" msgid="8592999219489448277">"Call ended because cellular data was disabled."</string>
+    <string name="callFailed_data_limit_reached_description" msgid="3739097798746751739">"Call ended because the cellular data limit has been reached."</string>
     <string name="callFailed_data_limit_reached" msgid="3018609096563149722">"Data limit reached. Call ended."</string>
 </resources>

@@ -56,7 +56,9 @@ func (t prebuiltDependencyTag) ExcludeFromApexContents() {}
 var _ ExcludeFromVisibilityEnforcementTag = PrebuiltDepTag
 var _ ExcludeFromApexContentsTag = PrebuiltDepTag
 
-type PrebuiltProperties struct {
+// UserSuppliedPrebuiltProperties contains the prebuilt properties that can be specified in an
+// Android.bp file.
+type UserSuppliedPrebuiltProperties struct {
 	// When prefer is set to true the prebuilt will be used instead of any source module with
 	// a matching name.
 	Prefer *bool `android:"arch_variant"`
@@ -70,6 +72,16 @@ type PrebuiltProperties struct {
 	// If specified then the prefer property is ignored in favor of the value of the Soong config
 	// variable.
 	Use_source_config_var *ConfigVarProperties
+}
+
+// CopyUserSuppliedPropertiesFromPrebuilt copies the user supplied prebuilt properties from the
+// prebuilt properties.
+func (u *UserSuppliedPrebuiltProperties) CopyUserSuppliedPropertiesFromPrebuilt(p *Prebuilt) {
+	*u = p.properties.UserSuppliedPrebuiltProperties
+}
+
+type PrebuiltProperties struct {
+	UserSuppliedPrebuiltProperties
 
 	SourceExists bool `blueprint:"mutated"`
 	UsePrebuilt  bool `blueprint:"mutated"`
@@ -108,6 +120,18 @@ type Prebuilt struct {
 // supplied name if it has one, or returns the name unmodified if it does not.
 func RemoveOptionalPrebuiltPrefix(name string) string {
 	return strings.TrimPrefix(name, "prebuilt_")
+}
+
+// RemoveOptionalPrebuiltPrefixFromBazelLabel removes the "prebuilt_" prefix from the *target name* of a Bazel label.
+// This differs from RemoveOptionalPrebuiltPrefix in that it does not remove it from the start of the string, but
+// instead removes it from the target name itself.
+func RemoveOptionalPrebuiltPrefixFromBazelLabel(label string) string {
+	splitLabel := strings.Split(label, ":")
+	bazelModuleNameNoPrebuilt := RemoveOptionalPrebuiltPrefix(splitLabel[1])
+	return strings.Join([]string{
+		splitLabel[0],
+		bazelModuleNameNoPrebuilt,
+	}, ":")
 }
 
 func (p *Prebuilt) Name(name string) string {

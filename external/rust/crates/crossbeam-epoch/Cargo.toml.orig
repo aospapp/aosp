@@ -4,9 +4,9 @@ name = "crossbeam-epoch"
 # - Update CHANGELOG.md
 # - Update README.md
 # - Create "crossbeam-epoch-X.Y.Z" git tag
-version = "0.9.7"
+version = "0.9.14"
 edition = "2018"
-rust-version = "1.36"
+rust-version = "1.38"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/crossbeam-rs/crossbeam"
 homepage = "https://github.com/crossbeam-rs/crossbeam/tree/master/crossbeam-epoch"
@@ -19,7 +19,7 @@ default = ["std"]
 
 # Enable to use APIs that require `std`.
 # This is enabled by default.
-std = ["alloc", "crossbeam-utils/std", "lazy_static"]
+std = ["alloc", "crossbeam-utils/std"]
 
 # Enable to use APIs that require `alloc`.
 # This is enabled by default and also enabled if the `std` feature is enabled.
@@ -27,12 +27,14 @@ std = ["alloc", "crossbeam-utils/std", "lazy_static"]
 # NOTE: Disabling both `std` *and* `alloc` features is not supported yet.
 alloc = []
 
+# These features are no longer used.
+# TODO: remove in the next major version.
 # Enable to use of unstable functionality.
 # This is disabled by default and requires recent nightly compiler.
 #
 # NOTE: This feature is outside of the normal semver guarantees and minor or
 # patch versions of crossbeam may make breaking changes to them at any time.
-nightly = ["crossbeam-utils/nightly", "const_fn"]
+nightly = ["crossbeam-utils/nightly"]
 
 # Enable the use of loom for concurrency testing.
 #
@@ -40,10 +42,13 @@ nightly = ["crossbeam-utils/nightly", "const_fn"]
 # patch versions of crossbeam may make breaking changes to them at any time.
 loom = ["loom-crate", "crossbeam-utils/loom"]
 
+[build-dependencies]
+autocfg = "1"
+
 [dependencies]
 cfg-if = "1"
-const_fn = { version = "0.4.4", optional = true }
-memoffset = "0.6"
+memoffset = "0.8"
+scopeguard = { version = "1.1", default-features = false }
 
 # Enable the use of loom for concurrency testing.
 #
@@ -57,13 +62,6 @@ version = "0.8.5"
 path = "../crossbeam-utils"
 default-features = false
 
-[dependencies.lazy_static]
-version = "1.4.0"
-optional = true
-
-[dependencies.scopeguard]
-version = "1.1.0"
-default-features = false
-
 [dev-dependencies]
 rand = "0.8"
+rustversion = "1"

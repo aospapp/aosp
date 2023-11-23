@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -10,7 +11,7 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
 from autotest_lib.server.cros.dynamic_suite import tools
 from autotest_lib.server.cros.update_engine import update_engine_test
-from chromite.lib import retry_util
+from autotest_lib.utils.frozen_chromite.lib import retry_util
 
 class autoupdate_P2P(update_engine_test.UpdateEngineTest):
     """Tests a peer to peer (P2P) autoupdate."""
@@ -22,6 +23,8 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
     _P2P_FIRST_ATTEMPT_TIMESTAMP_PREF = 'p2p-first-attempt-timestamp'
     _P2P_NUM_ATTEMPTS_PREF = 'p2p-num-attempts'
 
+    _CLIENT_TEST_WITH_DLC = 'autoupdate_InstallAndUpdateDLC'
+    _CLIENT_TEST = 'autoupdate_CannedOmahaUpdate'
 
     def cleanup(self):
         logging.info('Disabling p2p_update on hosts.')
@@ -34,6 +37,14 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
                 logging.info('Failed to disable P2P in cleanup.')
         super(autoupdate_P2P, self).cleanup()
 
+
+    def _cleanup_dlcs(self):
+        """Remove all DLCs on the DUT before starting the test. """
+        installed = self._dlc_util.list().keys()
+        for dlc_id in installed:
+            self._dlc_util.purge(dlc_id)
+        # DLCs may be present but not mounted, so they won't be purged above.
+        self._dlc_util.purge(self._dlc_util._SAMPLE_DLC_ID, ignore_status=True)
 
     def _enable_p2p_update_on_hosts(self):
         """Turn on the option to enable p2p updating on both DUTs."""
@@ -97,34 +108,46 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
         self._hosts[1].run('echo 0 > %s' % current_url_index)
 
 
-    def _update_dut(self, host, update_url):
+    def _update_dut(self, host, tag, interactive=True):
         """
         Update the first DUT normally and save the update engine logs.
 
         @param host: the host object for the first DUT.
-        @param update_url: the url to call for updating the DUT.
+        @param interactive: Whether the update should be interactive.
 
         """
-        host.reboot()
+        self._host = host
+        self._set_active_p2p_host(host)
+        self._dlc_util.set_run(self._host.run)
+        if self._with_dlc:
+            self._cleanup_dlcs()
+        self._host.reboot()
         # Sometimes update request is lost if checking right after reboot so
         # make sure update_engine is ready.
-        self._set_active_p2p_host(self._hosts[0])
         utils.poll_for_condition(condition=self._is_update_engine_idle,
                                  desc='Waiting for update engine idle')
 
-        logging.info('Updating first DUT with a regular update.')
-        try:
-            self._check_for_update(update_url, wait_for_completion=True)
-        except error.AutoservRunError:
-            logging.exception('Failed to update the first DUT.')
-            raise error.TestFail('Updating the first DUT failed. Error: %s.' %
-                                 self._get_last_error_string())
-        finally:
-            logging.info('Saving update engine logs to results dir.')
-            host.get_file(self._UPDATE_ENGINE_LOG,
-                          os.path.join(self.resultsdir,
-                                       'update_engine.log_first_dut'))
+        logging.info('Updating %s (%s).', host, tag)
+        if self._with_dlc:
+            self._run_client_test_and_check_result(
+                    self._CLIENT_TEST_WITH_DLC,
+                    payload_urls=self._payload_urls,
+                    tag=tag,
+                    interactive=interactive)
+        else:
+            self._run_client_test_and_check_result(
+                    self._CLIENT_TEST,
+                    payload_url=self._payload_urls[0],
+                    tag=tag,
+                    interactive=interactive)
+        update_engine_log = self._get_update_engine_log()
         host.reboot()
+        return update_engine_log
+        # TODO(ahassani): There is probably a race condition here. We should
+        # wait after the reboot to make sure p2p is up before kicking off the
+        # second host's update check. Otherwise, the second one is not going to
+        # use p2p updates. Another solution would be to not reboot here at all
+        # since p2p server is still running.
 
 
     def _check_p2p_still_enabled(self, host):
@@ -148,40 +171,6 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
 
         utils.poll_for_condition(_is_p2p_enabled,
                                  exception=error.TestFail(err))
-
-
-    def _update_via_p2p(self, host, update_url):
-        """
-        Update the second DUT via P2P from the first DUT.
-
-        We perform a non-interactive update and update_engine will check
-        for other devices that have P2P enabled and download from them instead.
-
-        @param host: The second DUT.
-        @param update_url: the url to call for updating the DUT.
-
-        """
-        host.reboot()
-        self._set_active_p2p_host(self._hosts[1])
-        utils.poll_for_condition(condition=self._is_update_engine_idle,
-                                 desc='Waiting for update engine idle')
-
-        logging.info('Updating second host via p2p.')
-        try:
-            self._check_for_update(update_url, wait_for_completion=True,
-                                   interactive=False)
-        except error.AutoservRunError:
-            logging.exception('Failed to update the second DUT via P2P.')
-            raise error.TestFail('Failed to update the second DUT. Error: %s' %
-                                 self._get_last_error_string())
-        finally:
-            logging.info('Saving update engine logs to results dir.')
-            host.get_file(self._UPDATE_ENGINE_LOG,
-                          os.path.join(self.resultsdir,
-                                       'update_engine.log_second_dut'))
-
-        # Return the update_engine logs so we can check for p2p entries.
-        return self._get_update_engine_log()
 
 
     def _check_for_p2p_entries_in_update_log(self, update_engine_log):
@@ -272,33 +261,62 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
                                                                      build2))
 
 
-    def run_once(self, job_repo_url=None, too_many_attempts=False,
-                 deadline_expired=False):
+    def run_once(self,
+                 companions,
+                 job_repo_url=None,
+                 too_many_attempts=False,
+                 deadline_expired=False,
+                 with_dlc=False,
+                 running_at_desk=False):
         """
         Testing autoupdate via P2P.
 
+        @param companions: List of other DUTs used in the test.
         @param job_repo_url: A url linking to autotest packages.
         @param too_many_attempts: True to test what happens with too many
                                   failed update attempts.
         @param deadline_expired: True to test what happens when the deadline
                                  between peers has expired
+        @param with_dlc: Whether to include sample-dlc in the test.
+        @param running_at_desk: True to stage files on public bucket. Useful
+                                for debugging locally.
 
         """
+        self._hosts = [self._host, companions[0]]
         logging.info('Hosts for this test: %s', self._hosts)
 
         self._too_many_attempts = too_many_attempts
         self._deadline_expired = deadline_expired
+        self._with_dlc = with_dlc
+
         self._verify_hosts(job_repo_url)
         self._enable_p2p_update_on_hosts()
         self._setup_second_hosts_prefs()
 
-        # Get an N-to-N delta payload update url to use for the test.
-        # P2P updates are very slow so we will only update with a delta payload.
-        update_url = self.get_update_url_for_test(job_repo_url,
-                                                  full_payload=False)
+        # Get an N-to-N delta payload update url to use for the test. P2P
+        # updates are very slow so we will only update with a delta payload. In
+        # addition we need the full DLC payload so we can perform its install.
+        self._payload_urls = [
+                self.get_payload_for_nebraska(job_repo_url,
+                                              full_payload=False,
+                                              public_bucket=running_at_desk)
+        ]
+        if self._with_dlc:
+            self._payload_urls += [
+                    self.get_payload_for_nebraska(
+                            job_repo_url=job_repo_url,
+                            full_payload=True,
+                            payload_type=self._PAYLOAD_TYPE.DLC,
+                            public_bucket=running_at_desk),
+                    self.get_payload_for_nebraska(
+                            job_repo_url=job_repo_url,
+                            full_payload=False,
+                            payload_type=self._PAYLOAD_TYPE.DLC,
+                            public_bucket=running_at_desk)
+            ]
 
         # The first device just updates normally.
-        self._update_dut(self._hosts[0], update_url)
+        self._update_dut(self._hosts[0], 'host1')
         self._check_p2p_still_enabled(self._hosts[0])
 
         if too_many_attempts or deadline_expired:
@@ -306,5 +324,7 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
             self._reset_current_url_index()
 
         # Update the 2nd DUT with the delta payload via P2P from the 1st DUT.
-        update_engine_log = self._update_via_p2p(self._hosts[1], update_url)
+        update_engine_log = self._update_dut(self._hosts[1],
+                                             'host2',
+                                             interactive=False)
         self._check_for_p2p_entries_in_update_log(update_engine_log)

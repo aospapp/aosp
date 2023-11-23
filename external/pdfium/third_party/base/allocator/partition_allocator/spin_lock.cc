@@ -45,6 +45,10 @@
 #define YIELD_PROCESSOR __asm__ __volatile__("pause")
 #elif defined(ARCH_CPU_PPC64_FAMILY)
 #define YIELD_PROCESSOR __asm__ __volatile__("or 31,31,31")
+#elif defined(ARCH_CPU_RISCV64)
+// Encoding of the pause instruction from the Zihintpause extension.  This
+// is a noop on cpus that don't have the Zihintpause extension.
+#define YIELD_PROCESSOR __asm__ __volatile__ (".4byte 0x100000F");
 #elif defined(ARCH_CPU_S390_FAMILY)
 // just do nothing
 #define YIELD_PROCESSOR ((void)0)

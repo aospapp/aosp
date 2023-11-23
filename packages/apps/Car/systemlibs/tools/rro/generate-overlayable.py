@@ -49,10 +49,12 @@ def main():
     optional_args.add_argument('-o', '--outputFile', default='', help='Output file path (absolute or relative to cwd). If empty, output to stdout')
     required_args = parser.add_argument_group('required arguments')
     required_args.add_argument('-n', '--targetName', help='Overlayable name for the overlay.', required=True)
-    required_args.add_argument('-r', '--resourcePath', help='Path to resource directory (absolute or relative to cwd)', required=True)
+    required_args.add_argument('-r', '--resourcePath', help='Path to resource directory (absolute or relative to cwd)', required=True, action='append')
     args = parser.parse_args()
 
-    resources = get_all_resources(args.resourcePath, args.excludeFiles)
+    resources = set()
+    for path in args.resourcePath:
+        resources |= get_all_resources(path, args.excludeFiles)
     generate_overlayable_file(resources, args.targetName, args.policyType, args.outputFile)
 
 def generate_overlayable_file(resources, target_name, policy_type, output_file):

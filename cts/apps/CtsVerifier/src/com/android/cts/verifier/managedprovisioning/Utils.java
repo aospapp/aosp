@@ -17,6 +17,7 @@
 package com.android.cts.verifier.managedprovisioning;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -105,9 +106,16 @@ public class Utils {
 
     private static NotificationManager getNotificationManager(Context context) {
         if (UserManager.isHeadlessSystemUserMode()) {
-            Log.d(TAG, "getNotificationManager(): using context for current user");
-            context = context.createContextAsUser(UserHandle.CURRENT, /* flags= */ 0);
+            int currentUserId = ActivityManager.getCurrentUser();
+            int contextUserId = context.getUser().getIdentifier();
+            if (currentUserId != contextUserId) {
+                Log.d(TAG, "getNotificationManager(): using context for current user ("
+                        + currentUserId + ") instead of user " + contextUserId
+                        + " on headless system user mode");
+                context = context.createContextAsUser(UserHandle.of(currentUserId), /* flags= */ 0);
+            }
         }
+        Log.d(TAG, "Returning NotificationManager for context of user " + context.getUserId());
         return context.getSystemService(NotificationManager.class);
     }
 

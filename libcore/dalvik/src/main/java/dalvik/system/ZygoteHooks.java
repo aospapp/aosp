@@ -19,6 +19,7 @@ package dalvik.system;
 import static android.annotation.SystemApi.Client.MODULE_LIBRARIES;
 
 import android.annotation.SystemApi;
+import android.icu.util.ULocale;
 
 import libcore.icu.DecimalFormatData;
 import libcore.icu.ICU;
@@ -109,6 +110,12 @@ public final class ZygoteHooks {
     private static void cleanLocaleCaches() {
         BaseLocale.cleanCache();
         Locale.cleanCache();
+
+        // Invoke android.icu.impl.locale.BaseLocale.CACHE#cleanStaleEntries() without
+        // using a new API on S. LocaleObjectCacheTest should verify this.
+        // en_US locale is chosen because it's likely to be cached, and doesn't require a
+        // new BaseLocale.
+        new ULocale.Builder().setLanguage("en").setRegion("US").build();
     }
 
     /**
@@ -192,7 +199,9 @@ public final class ZygoteHooks {
 
         // Enable memory-mapped coverage if JaCoCo is in the boot classpath. system_server is
         // skipped due to being persistent and having its own coverage writing mechanism.
-        if (!isSystemServer && enableMemoryMappedDataMethod != null) {
+        // Child zygote processes are also skipped so that file descriptors are not kept open
+        // when the child zygote process forks again.
+        if (!isSystemServer && !isChildZygote && enableMemoryMappedDataMethod != null) {
           try {
             enableMemoryMappedDataMethod.invoke(null);
           } catch (ReflectiveOperationException e) {

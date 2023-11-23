@@ -8,7 +8,8 @@
 //!
 //! If there's a GDB protocol extensions you're interested in that hasn't been
 //! implemented in `gdbstub` yet, (e.g: remote filesystem access, tracepoint
-//! support, etc...), consider opening an issue / filing a PR on GitHub!
+//! support, etc...), consider opening an issue / filing a PR on the
+//! [`gdbstub` GitHub repo](https://github.com/daniel5151/gdbstub/).
 //!
 //! Check out the [GDB Remote Configuration Docs](https://sourceware.org/gdb/onlinedocs/gdb/Remote-Configuration.html)
 //! for a table of GDB commands + their corresponding Remote Serial Protocol
@@ -18,9 +19,9 @@
 //!
 //! The GDB protocol is massive, and contains all sorts of optional
 //! functionality. In the early versions of `gdbstub`, the `Target` trait
-//! directly had a method for _every single protocol extension_, which if taken
-//! to the extreme, would have resulted in literally _hundreds_ of associated
-//! methods!
+//! directly implemented a method for _every single protocol extension_. If this
+//! trend continued, there would've been literally _hundreds_ of associated
+//! methods - of which only a small subset were ever used at once!
 //!
 //! Aside from the cognitive complexity of having so many methods on a single
 //! trait, this approach had numerous other drawbacks as well:
@@ -28,8 +29,8 @@
 //!  - Implementations that did not implement all available protocol extensions
 //!    still had to "pay" for the unused packet parsing/handler code, resulting
 //!    in substantial code bloat, even on `no_std` platforms.
-//!  - `GdbStub`'s internal implementation needed to include _runtime_ checks to
-//!    deal with incorrectly implemented `Target`s.
+//!  - `GdbStub`'s internal implementation needed to include a large number of
+//!    _runtime_ checks to deal with incorrectly implemented `Target`s.
 //!      - No way to enforce "mutually-dependent" trait methods at compile-time.
 //!          - e.g: When implementing hardware breakpoint extensions, targets
 //!            _must_ implement both the `add_breakpoint` and
@@ -41,7 +42,7 @@
 //!
 //! At first blush, it seems the the solution to all these issues is obvious:
 //! simply tie each protocol extension to a `cargo` feature! And yes, while
-//! would would indeed work, there would be several serious ergonomic drawbacks:
+//! this would indeed work, there would be several serious ergonomic drawbacks:
 //!
 //! - There would be _hundreds_ of individual feature flags that would need to
 //!   be toggled by end users.
@@ -110,7 +111,7 @@
 //!
 //!     // Optional extension
 //!     #[inline(always)]
-//!     fn get_protocol_ext(&mut self) -> Option<ProtocolExtOps<Self>> {
+//!     fn support_protocol_ext(&mut self) -> Option<ProtocolExtOps<Self>> {
 //!         // disabled by default
 //!         None
 //!     }
@@ -140,14 +141,14 @@
 //! ```
 //!
 //! - (user) Implements the base `Protocol` trait, overriding the
-//!   `get_protocol_ext` method to return `Some(self)`, which will effectively
-//!   "enable" the extension.
+//!   `support_protocol_ext` method to return `Some(self)`, which will
+//!   effectively "enable" the extension.
 //!
 //! ```rust,ignore
 //! impl Protocol for MyTarget {
 //!     // Optional extension
 //!     #[inline(always)]
-//!     fn get_protocol_ext(&mut self) -> Option<ProtocolExtOps<Self>> {
+//!     fn support_protocol_ext(&mut self) -> Option<ProtocolExtOps<Self>> {
 //!         Some(self) // will not compile unless `MyTarget` also implements `ProtocolExt`
 //!     }
 //!
@@ -166,8 +167,8 @@
 //!
 //! Now, here's where IDETs really shine: If the user didn't implement
 //! `ProtocolExt`, but _did_ try to enable the feature by overriding
-//! `get_protocol_ext` to return `Some(self)`, they'll get a compile-time error
-//! that looks something like this:
+//! `support_protocol_ext` to return `Some(self)`, they'll get a compile-time
+//! error that looks something like this:
 //!
 //! ```text
 //! error[E0277]: the trait bound `MyTarget: ProtocolExt` is not satisfied
@@ -187,7 +188,7 @@
 //!
 //! ```rust,ignore
 //! fn execute_protocol(mut target: impl Target) {
-//!     match target.get_protocol_ext() {
+//!     match target.support_protocol_ext() {
 //!         Some(ops) => ops.foo(),
 //!         None => { /* fallback when not enabled */ }
 //!     }
@@ -197,11 +198,12 @@
 //! This is already pretty cool, but what's _even cooler_ is that if you take a
 //! look at the generated assembly of a monomorphized `execute_protocol` method
 //! (e.g: using godbolt.org), you'll find that the compiler is able to
-//! efficiently inline and devirtualize _all_ the calls to `get_protocol_ext`
-//! method, which in-turn allows the dead-code-eliminator to work its magic, and
-//! remove the unused branches from the generated code! i.e: If a target
-//! implemention didn't implement the `ProtocolExt` extension, then that `match`
-//! statement in `execute_protocol` would simply turn into a noop!
+//! efficiently inline and devirtualize _all_ the calls to
+//! `support_protocol_ext` method, which in-turn allows the dead-code-eliminator
+//! to work its magic, and remove the unused branches from the generated code!
+//! i.e: If a target implemention didn't implement the `ProtocolExt` extension,
+//! then that `match` statement in `execute_protocol` would simply turn into a
+//! noop!
 //!
 //! If IDETs are something you're interested in, consider checking out
 //! [daniel5151/optional-trait-methods](https://github.com/daniel5151/optional-trait-methods)
@@ -233,9 +235,9 @@
 //!      "flipping" between the two at runtime. Nonetheless, it serves as a good
 //!      guardrail.
 //! - **Enforce dead-code-elimination _without_ `cargo` feature flags**
-//!     - This is a really awesome trick: by wrapping code in a `if
-//!       target.get_protocol_ext().is_some()` block, it's possible to specify
-//!       _arbitrary_ blocks of code to be feature-dependent!
+//!     - This is a really awesome trick: by wrapping code in an `if
+//!       target.support_protocol_ext().is_some()` block, it's possible to
+//!       specify _arbitrary_ blocks of code to be feature-dependent!
 //!     - This is used to great effect in `gdbstub` to optimize-out any packet
 //!       parsing / handler code for unimplemented protocol extensions.
 
@@ -256,9 +258,16 @@ macro_rules! define_ext {
     };
 }
 
+pub mod auxv;
 pub mod base;
 pub mod breakpoints;
+pub mod catch_syscalls;
+pub mod exec_file;
 pub mod extended_mode;
+pub mod host_io;
+pub mod lldb_register_info_override;
+pub mod memory_map;
 pub mod monitor_cmd;
 pub mod section_offsets;
 pub mod target_description_xml_override;
+pub mod thread_extra_info;

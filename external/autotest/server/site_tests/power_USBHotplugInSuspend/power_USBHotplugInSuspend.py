@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -53,10 +54,7 @@ class power_USBHotplugInSuspend(test.test):
         Start the client test power_KernelSuspend to suspend the client and
         do not wait for it to finish.
         """
-        client_at = autotest.Autotest(self._host)
-        # TODO(scottz): Add server side support to sys_power: crosbug.com/38115
-        client_at.run_test('power_KernelSuspend', background=True,
-                           seconds=_SUSPEND_TIME)
+        self._host.suspend_bg(suspend_time=_SUSPEND_TIME)
 
     def _suspend_and_hotplug(self, insert):
         """

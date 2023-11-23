@@ -21,6 +21,7 @@ ATTRIBUTES = "suite:audio_essential"
 # This test doesn't necessarily need to be in a audio box.
 DEPENDENCIES = "audio_box"
 JOB_RETRIES = 1
+PY_VERSION = 3
 
 DOC = """
 This test remotely tests plugged audio nodes for internal cards.
@@ -31,6 +32,9 @@ chameleon_args = hosts.CrosHost.get_chameleon_arguments(args_dict)
 
 def run(machine):
     host = hosts.create_host(machine, chameleon_args=chameleon_args)
-    job.run_test("audio_InternalCardNodes", host=host, plug=True)
+    job.run_test("audio_InternalCardNodes", host=host, plug=True,
+                 blocked_boards=['lars',    # Pending fix for b/147647051
+                                 'lars-kernelnext']
+                 )
 
 parallel_simple(run, machines)

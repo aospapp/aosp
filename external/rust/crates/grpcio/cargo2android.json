@@ -1,10 +1,13 @@
 {
+  "patch": "patches/Android.bp.patch",
   "apex-available": [
     "//apex_available:platform",
-    "com.android.bluetooth"
+    "com.android.btservices"
   ],
   "device": true,
   "features": "protobuf,protobuf-codec",
   "min-sdk-version": "29",
-  "run": true
+  "run": true,
+  "vendor-available": false,
+  "product-available": false
 }

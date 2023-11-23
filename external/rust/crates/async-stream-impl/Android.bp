@@ -24,7 +24,7 @@ rust_proc_macro {
     name: "libasync_stream_impl",
     crate_name: "async_stream_impl",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.3.2",
+    cargo_pkg_version: "0.3.4",
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
@@ -32,4 +32,6 @@ rust_proc_macro {
         "libquote",
         "libsyn",
     ],
+    product_available: true,
+    vendor_available: true,
 }

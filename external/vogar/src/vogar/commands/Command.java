@@ -131,6 +131,7 @@ public final class Command {
         int exitValue = process.waitFor();
         destroyed = true;
         if (exitValue != 0 && !permitNonZeroExitStatus) {
+            outputLines.add("Command exited with code: " + exitValue);
             throw new CommandFailedException(args, outputLines);
         }
 

@@ -32,9 +32,6 @@ import android.car.drivingstate.CarUxRestrictions;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.database.ContentObserver;
-import android.os.Handler;
-import android.os.Looper;
-import android.os.UserHandle;
 import android.provider.Settings;
 
 import androidx.lifecycle.LifecycleOwner;
@@ -53,7 +50,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
 public class BrightnessLevelPreferenceControllerTest {
@@ -61,7 +57,7 @@ public class BrightnessLevelPreferenceControllerTest {
 
     private Context mContext;
     private LifecycleOwner mLifecycleOwner;
-    private BrightnessLevelPreferenceController mController;
+    private TestBrightnessLevelPreferenceController mController;
     private SeekBarPreference mSeekBarPreference;
     private CountDownLatch mCountDownLatch;
     private int mMin;
@@ -83,7 +79,7 @@ public class BrightnessLevelPreferenceControllerTest {
         mSeekBarPreference = new SeekBarPreference(mContext);
         CarUxRestrictions carUxRestrictions = new CarUxRestrictions.Builder(/* reqOpt= */ true,
                 CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
-        mController = new BrightnessLevelPreferenceController(mContext,
+        mController = new TestBrightnessLevelPreferenceController(mContext,
                 /* preferenceKey= */ "key", mFragmentController, carUxRestrictions);
         PreferenceControllerTestUtil.assignPreference(mController, mSeekBarPreference);
         mMin = mController.mMinimumBacklight;
@@ -119,84 +115,69 @@ public class BrightnessLevelPreferenceControllerTest {
 
     @Test
     public void testRefreshUi_minValue() {
-        Settings.System.putIntForUser(mContext.getContentResolver(),
-                Settings.System.SCREEN_BRIGHTNESS, mMin, UserHandle.myUserId());
-
+        mController.saveScreenBrightnessLinearValue(mMin);
         mController.refreshUi();
+
         assertThat(mSeekBarPreference.getValue()).isEqualTo(0);
     }
 
     @Test
     public void testRefreshUi_maxValue() {
-        Settings.System.putIntForUser(mContext.getContentResolver(),
-                Settings.System.SCREEN_BRIGHTNESS, mMax, UserHandle.myUserId());
-
+        mController.saveScreenBrightnessLinearValue(mMax);
         mController.refreshUi();
+
         assertThat(mSeekBarPreference.getValue()).isEqualTo(GAMMA_SPACE_MAX);
     }
 
     @Test
     public void testRefreshUi_midValue() {
-        Settings.System.putIntForUser(mContext.getContentResolver(),
-                Settings.System.SCREEN_BRIGHTNESS, mMid, UserHandle.myUserId());
-
+        mController.saveScreenBrightnessLinearValue(mMid);
         mController.refreshUi();
-        assertThat(mSeekBarPreference.getValue()).isEqualTo(
-                convertLinearToGamma(mMid,
-                        mMin, mMax));
+
+        assertThat(mSeekBarPreference.getValue()).isEqualTo(convertLinearToGamma(mMid, mMin, mMax));
     }
 
     @Test
-    public void testHandlePreferenceChanged_minValue()
-            throws Settings.SettingNotFoundException, InterruptedException {
-        ContentObserver contentObserver = registerContentObserver();
+    public void testHandlePreferenceChanged_minValue() {
         mSeekBarPreference.callChangeListener(0);
-        mCountDownLatch.await(WAIT_TIME_SEC, TimeUnit.SECONDS); // Wait to ensure value is written
-        int currentSettingsVal = Settings.System.getIntForUser(mContext.getContentResolver(),
-                Settings.System.SCREEN_BRIGHTNESS, UserHandle.myUserId());
-        unregisterContentObserver(contentObserver);
-        assertThat(currentSettingsVal).isEqualTo(mMin);
+
+        assertThat(mController.getScreenBrightnessLinearValue()).isEqualTo(mMin);
     }
 
     @Test
-    public void testHandlePreferenceChanged_maxValue()
-            throws Settings.SettingNotFoundException, InterruptedException {
-        ContentObserver contentObserver = registerContentObserver();
+    public void testHandlePreferenceChanged_maxValue() {
         mSeekBarPreference.callChangeListener(GAMMA_SPACE_MAX);
-        mCountDownLatch.await(WAIT_TIME_SEC, TimeUnit.SECONDS); // Wait to ensure value is written
-        int currentSettingsVal = Settings.System.getIntForUser(mContext.getContentResolver(),
-                Settings.System.SCREEN_BRIGHTNESS, UserHandle.myUserId());
-        unregisterContentObserver(contentObserver);
-        assertThat(currentSettingsVal).isEqualTo(mMax);
+
+        assertThat(mController.getScreenBrightnessLinearValue()).isEqualTo(mMax);
     }
 
     @Test
-    public void testHandlePreferenceChanged_midValue()
-            throws Settings.SettingNotFoundException, InterruptedException {
-        ContentObserver contentObserver = registerContentObserver();
+    public void testHandlePreferenceChanged_midValue() {
         mSeekBarPreference.callChangeListener(convertLinearToGamma(mMid, mMin, mMax));
-        mCountDownLatch.await(WAIT_TIME_SEC, TimeUnit.SECONDS); // Wait to ensure value is written
-        int currentSettingsVal = Settings.System.getIntForUser(mContext.getContentResolver(),
-                Settings.System.SCREEN_BRIGHTNESS, UserHandle.myUserId());
-        unregisterContentObserver(contentObserver);
-        assertThat(currentSettingsVal).isEqualTo(mMid);
+
+        assertThat(mController.getScreenBrightnessLinearValue()).isEqualTo(mMid);
     }
 
-    private ContentObserver registerContentObserver() {
-        ContentObserver contentObserver = new ContentObserver(new Handler(Looper.getMainLooper())) {
-            @Override
-            public void onChange(boolean selfChange) {
-                mCountDownLatch.countDown();
-            }
-        };
-        mContext.getContentResolver().registerContentObserver(
-                Settings.System.getUriFor(Settings.System.SCREEN_BRIGHTNESS), false,
-                contentObserver);
+    private static class TestBrightnessLevelPreferenceController extends
+            BrightnessLevelPreferenceController {
+        // Using Settings.System.putIntForUser() led to flaky tests because other android classes
+        // could write to the value as well.
+        private int mScreenBrightnessLinearValue;
 
-        return contentObserver;
-    }
+        TestBrightnessLevelPreferenceController(Context context, String preferenceKey,
+                FragmentController fragmentController,
+                CarUxRestrictions uxRestrictions) {
+            super(context, preferenceKey, fragmentController, uxRestrictions);
+        }
 
-    private void unregisterContentObserver(ContentObserver contentObserver) {
-        mContext.getContentResolver().unregisterContentObserver(contentObserver);
+        @Override
+        int getScreenBrightnessLinearValue() {
+            return mScreenBrightnessLinearValue;
+        }
+
+        @Override
+        void saveScreenBrightnessLinearValue(int linear) {
+            mScreenBrightnessLinearValue = linear;
+        }
     }
 }

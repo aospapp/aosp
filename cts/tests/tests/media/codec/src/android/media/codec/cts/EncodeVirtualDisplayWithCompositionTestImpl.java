@@ -16,6 +16,10 @@
 
 package android.media.codec.cts;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.app.Presentation;
 import android.content.ComponentName;
 import android.content.Context;
@@ -31,9 +35,9 @@ import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.media.cts.CompositionTextureView;
-import android.media.cts.R;
 import android.media.cts.InputSurface;
 import android.media.cts.OutputSurface;
+import android.media.cts.R;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
@@ -43,7 +47,6 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Parcel;
-import android.platform.test.annotations.RequiresDevice;
 import android.util.Log;
 import android.util.Size;
 import android.view.Display;
@@ -57,8 +60,6 @@ import android.widget.ImageView;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 
-import androidx.test.filters.SmallTest;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -69,10 +70,6 @@ import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 /**
  * Impl class for tests using MediaCodec encoding with composition of multiple virtual displays.
@@ -123,10 +120,6 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
         @Override
         public void onBufferReady(ByteBuffer data, MediaCodec.BufferInfo info) {
             mCodecBufferReceived = true;
-        }
-        @Override
-        public void onError(String errorMessage) {
-            fail(errorMessage);
         }
     };
 
@@ -220,11 +213,6 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
                         Log.i(TAG, "onBufferReady l:" + info.size);
                     }
                     handleEncodedData(data, info);
-                }
-
-                @Override
-                public void onError(String errorMessage) {
-                    fail(errorMessage);
                 }
 
                 private void handleEncodedData(ByteBuffer data, BufferInfo info) {
@@ -508,7 +496,6 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
     interface EncoderEventListener {
         public void onCodecConfig(ByteBuffer data, MediaCodec.BufferInfo info);
         public void onBufferReady(ByteBuffer data, MediaCodec.BufferInfo info);
-        public void onError(String errorMessage);
     }
 
     private class EncodingHelper {
@@ -521,6 +508,7 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
         private Thread mEncodingThread;
         private Surface mEncodingSurface;
         private Semaphore mInitCompleted = new Semaphore(0);
+        private Exception mEncodingError;
 
         Surface startEncoding(String mimeType, int w, int h, EncoderEventListener eventListener) {
             mStopEncoding = false;
@@ -528,6 +516,7 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
             mW = w;
             mH = h;
             mEventListener = eventListener;
+            mEncodingError = null;
             mEncodingThread = new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -535,7 +524,9 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
                         doEncoding();
                     } catch (Exception e) {
                         e.printStackTrace();
-                        mEventListener.onError(e.toString());
+                        // Throwing the exception here will crash the thread and subsequently the
+                        // entire test process. We save it here and throw later in stopEncoding().
+                        mEncodingError = e;
                     }
                 }
             });
@@ -554,7 +545,7 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
             return mEncodingSurface;
         }
 
-        void stopEncoding() {
+        void stopEncoding() throws Exception {
             try {
                 mStopEncoding = true;
                 mEncodingThread.join();
@@ -562,6 +553,10 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
                 // just ignore
             } finally {
                 mEncodingThread = null;
+            }
+            // Throw here if any error occurred in the encoding thread.
+            if (mEncodingError != null) {
+                throw mEncodingError;
             }
         }
 

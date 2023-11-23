@@ -20,6 +20,7 @@
 
     <application android:debuggable="true">
         <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.ext.adservices" android:required="false" />
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

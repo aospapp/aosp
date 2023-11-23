@@ -1,13 +1,30 @@
 // This is auto-generated. DO NOT EDIT.
 
-// Soong config variable stanza added by test_art.
-soong_config_module_type_import {
-    from: "prebuilts/module_sdk/art/SoongConfig.bp",
-    module_types: [
-        "art_prebuilt_java_import",
-        "art_prebuilt_prebuilt_bootclasspath_fragment",
-        "art_prebuilt_prebuilt_platform_compat_config",
-    ],
+// Soong config variable module type added by test_art.
+soong_config_module_type {
+    name: "art_prebuilt_java_import",
+    module_type: "java_import",
+    config_namespace: "art_module",
+    bool_variables: ["source_build"],
+    properties: ["prefer"],
+}
+
+// Soong config variable module type added by test_art.
+soong_config_module_type {
+    name: "art_prebuilt_prebuilt_bootclasspath_fragment",
+    module_type: "prebuilt_bootclasspath_fragment",
+    config_namespace: "art_module",
+    bool_variables: ["source_build"],
+    properties: ["prefer"],
+}
+
+// Soong config variable module type added by test_art.
+soong_config_module_type {
+    name: "art_prebuilt_prebuilt_platform_compat_config",
+    module_type: "prebuilt_platform_compat_config",
+    config_namespace: "art_module",
+    bool_variables: ["source_build"],
+    properties: ["prefer"],
 }
 
 package {

@@ -21,6 +21,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
+import com.android.queryable.QueryableBaseWithMatch;
 import com.android.queryable.info.ServiceInfo;
 
 import java.util.Objects;
@@ -34,13 +35,30 @@ public final class ServiceQueryHelper<E extends Queryable> implements ServiceQue
 
     private final transient E mQuery;
     private final ClassQueryHelper<E> mServiceClassQueryHelper;
-    private final SetQueryHelper<E, IntentFilter, IntentFilterQuery<?>>
+    private final SetQueryHelper<E, IntentFilter>
             mIntentFiltersQueryHelper;
 
-    ServiceQueryHelper() {
-        mQuery = (E) this;
-        mServiceClassQueryHelper = new ClassQueryHelper<>(mQuery);
-        mIntentFiltersQueryHelper = new SetQueryHelper<>(mQuery);
+    public static final class ServiceQueryBase extends
+            QueryableBaseWithMatch<ServiceInfo, ServiceQueryHelper<ServiceQueryBase>> {
+        ServiceQueryBase() {
+            super();
+            setQuery(new ServiceQueryHelper<>(this));
+        }
+
+        ServiceQueryBase(Parcel in) {
+            super(in);
+        }
+
+        public static final Parcelable.Creator<ServiceQueryHelper.ServiceQueryBase> CREATOR =
+                new Parcelable.Creator<>() {
+                    public ServiceQueryHelper.ServiceQueryBase createFromParcel(Parcel in) {
+                        return new ServiceQueryHelper.ServiceQueryBase(in);
+                    }
+
+                    public ServiceQueryHelper.ServiceQueryBase[] newArray(int size) {
+                        return new ServiceQueryHelper.ServiceQueryBase[size];
+                    }
+                };
     }
 
     public ServiceQueryHelper(E query) {
@@ -61,8 +79,14 @@ public final class ServiceQueryHelper<E extends Queryable> implements ServiceQue
     }
 
     @Override
-    public SetQuery<E, IntentFilter, IntentFilterQuery<?>> intentFilters() {
+    public SetQuery<E, IntentFilter> intentFilters() {
         return mIntentFiltersQueryHelper;
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        return Queryable.isEmptyQuery(mServiceClassQueryHelper)
+                && Queryable.isEmptyQuery(mIntentFiltersQueryHelper);
     }
 
     @Override

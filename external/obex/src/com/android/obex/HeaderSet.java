@@ -36,6 +36,7 @@ package com.android.obex;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.Calendar;
 
 /**
@@ -724,5 +725,21 @@ public final class HeaderSet {
         } else {
             return responseCode;
         }
+    }
+
+    @Override
+    public String toString() {
+        return "HeaderSet " + System.identityHashCode(this) + ": NAME=" + mName;
+    }
+
+    public String dump() {
+        return "Dumping HeaderSet " + this
+            + "\n\tCONNECTION_ID : " + Arrays.toString(mConnectionID)
+            + "\n\tNAME : " + mName
+            + "\n\tTYPE : " + mType
+            + "\n\tTARGET : " + Arrays.toString(mTarget)
+            + "\n\tWHO : " + Arrays.toString(mWho)
+            + "\n\tAPPLICATION_PARAMETER : " + Arrays.toString(mAppParam)
+            + "\n\tDumping HeaderSet END";
     }
 }

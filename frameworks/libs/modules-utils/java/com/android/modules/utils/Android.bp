@@ -27,7 +27,9 @@ java_defaults {
         "//apex_available:anyapex",
         "//apex_available:platform",
     ],
-    defaults_visibility: [":__subpackages__"],
+    defaults_visibility: [
+        "//frameworks/libs/modules-utils/java:__subpackages__",
+    ],
 }
 
 java_library {
@@ -64,6 +66,21 @@ java_library {
     defaults: ["modules-utils-defaults"],
     srcs: ["BackgroundThread.java"],
     static_libs: ["modules-utils-handlerexecutor"],
+}
+
+java_library {
+    name: "modules-utils-binary-xml",
+    defaults: ["modules-utils-defaults"],
+    min_sdk_version: "31",
+    srcs: [
+        "BinaryXmlPullParser.java",
+        "BinaryXmlSerializer.java",
+        "FastDataInput.java",
+        "FastDataOutput.java",
+        "ModifiedUtf8.java",
+        "TypedXmlPullParser.java",
+        "TypedXmlSerializer.java",
+    ],
 }
 
 java_library {

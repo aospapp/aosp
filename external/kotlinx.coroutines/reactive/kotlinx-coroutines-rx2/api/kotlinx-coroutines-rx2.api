@@ -16,8 +16,8 @@ public final class kotlinx/coroutines/rx2/RxAwaitKt {
 public final class kotlinx/coroutines/rx2/RxChannelKt {
 	public static final fun collect (Lio/reactivex/MaybeSource;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static final fun collect (Lio/reactivex/ObservableSource;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public static final fun openSubscription (Lio/reactivex/MaybeSource;)Lkotlinx/coroutines/channels/ReceiveChannel;
-	public static final fun openSubscription (Lio/reactivex/ObservableSource;)Lkotlinx/coroutines/channels/ReceiveChannel;
+	public static final synthetic fun openSubscription (Lio/reactivex/MaybeSource;)Lkotlinx/coroutines/channels/ReceiveChannel;
+	public static final synthetic fun openSubscription (Lio/reactivex/ObservableSource;)Lkotlinx/coroutines/channels/ReceiveChannel;
 	public static final fun toChannel (Lio/reactivex/MaybeSource;)Lkotlinx/coroutines/channels/ReceiveChannel;
 	public static final fun toChannel (Lio/reactivex/ObservableSource;)Lkotlinx/coroutines/channels/ReceiveChannel;
 }
@@ -69,7 +69,9 @@ public final class kotlinx/coroutines/rx2/RxObservableKt {
 }
 
 public final class kotlinx/coroutines/rx2/RxSchedulerKt {
-	public static final fun asCoroutineDispatcher (Lio/reactivex/Scheduler;)Lkotlinx/coroutines/rx2/SchedulerCoroutineDispatcher;
+	public static final fun asCoroutineDispatcher (Lio/reactivex/Scheduler;)Lkotlinx/coroutines/CoroutineDispatcher;
+	public static final synthetic fun asCoroutineDispatcher (Lio/reactivex/Scheduler;)Lkotlinx/coroutines/rx2/SchedulerCoroutineDispatcher;
+	public static final fun asScheduler (Lkotlinx/coroutines/CoroutineDispatcher;)Lio/reactivex/Scheduler;
 }
 
 public final class kotlinx/coroutines/rx2/RxSingleKt {

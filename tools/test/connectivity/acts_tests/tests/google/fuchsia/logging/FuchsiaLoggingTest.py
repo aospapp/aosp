@@ -20,27 +20,28 @@ from acts import asserts
 
 
 class FuchsiaLoggingTest(BaseTestClass):
+
     def setup_class(self):
         super().setup_class()
         self.dut = self.fuchsia_devices[0]
         self.message = "Logging Test"
 
     def test_log_err(self):
-        result = self.dut.logging_lib.logE(self.message)
+        result = self.dut.sl4f.logging_lib.logE(self.message)
         if result.get("error") is None:
             signals.TestPass(result.get("result"))
         else:
             signals.TestFailure(result.get("error"))
 
     def test_log_info(self):
-        result = self.dut.logging_lib.logI(self.message)
+        result = self.dut.sl4f.logging_lib.logI(self.message)
         if result.get("error") is None:
             signals.TestPass(result.get("result"))
         else:
             signals.TestFailure(result.get("error"))
 
     def test_log_warn(self):
-        result = self.dut.logging_lib.logW(self.message)
+        result = self.dut.sl4f.logging_lib.logW(self.message)
         if result.get("error") is None:
             signals.TestPass(result.get("result"))
         else:

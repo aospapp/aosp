@@ -8,11 +8,14 @@
     <uses-permission android:name="android.permission.CHANGE_OVERLAY_PACKAGES"/>
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
     <uses-permission android:name="android.permission.SET_WALLPAPER_COMPONENT" />
-
+    <uses-permission android:name="android.permission.READ_DEVICE_CONFIG" />
     <uses-permission android:name="android.permission.MODIFY_DAY_NIGHT_MODE" />
+    <uses-permission android:name="android.permission.CUSTOMIZE_SYSTEM_UI" />
 
     <queries>
         <!-- Specific intents Wallpaper picker query for -->
+        <!-- Package for theme stub -->
+        <package android:name="com.android.customization.themes" />
         <!-- Intent filter with action SET_WALLPAPER -->
         <intent>
             <action android:name="android.intent.action.SET_WALLPAPER" />
@@ -34,6 +37,11 @@
         <!-- Intent filter with action used to discover partner -->
         <intent>
             <action android:name="com.android.launcher3.action.PARTNER_CUSTOMIZATION" />
+        </intent>
+        <!-- Intent filter used to query the launcher Activity for grid preview metadata -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
         </intent>
     </queries>
 

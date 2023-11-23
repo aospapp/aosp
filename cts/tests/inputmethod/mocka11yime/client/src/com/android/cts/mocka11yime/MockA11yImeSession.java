@@ -301,6 +301,7 @@ public final class MockA11yImeSession implements AutoCloseable {
         final Intent intent = new Intent();
         intent.setPackage(MockA11yImeConstants.COMPONENT_NAME.getPackageName());
         intent.setAction(mActionName);
+        intent.setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY);
         intent.putExtras(command.toBundle());
         mContext.sendBroadcast(intent);
         return command;

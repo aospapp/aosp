@@ -23,8 +23,9 @@ import java.io.Serializable;
 /** Query for a {@link Serializable}. */
 public interface SerializableQuery<E extends Queryable> extends Query<Serializable> {
 
-    static SerializableQuery<SerializableQuery<?>> serializable() {
-        return new SerializableQueryHelper<>();
+    /** Queries a {@link Serializable}. */
+    static SerializableQueryHelper.SerializableQueryBase serializable() {
+        return new SerializableQueryHelper.SerializableQueryBase();
     }
 
     /** Require that the {@link Serializable} is equal to {@code serializable}. */

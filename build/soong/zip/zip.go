@@ -17,8 +17,11 @@ package zip
 import (
 	"bytes"
 	"compress/flate"
+	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"hash"
 	"hash/crc32"
 	"io"
 	"io/ioutil"
@@ -37,6 +40,14 @@ import (
 	"android/soong/jar"
 	"android/soong/third_party/zip"
 )
+
+// Sha256HeaderID is a custom Header ID for the `extra` field in
+// the file header to store the SHA checksum.
+const Sha256HeaderID = 0x4967
+
+// Sha256HeaderSignature is the signature to verify that the extra
+// data block is used to store the SHA checksum.
+const Sha256HeaderSignature = 0x9514
 
 // Block size used during parallel compression of a single file.
 const parallelBlockSize = 1 * 1024 * 1024 // 1MB
@@ -201,6 +212,16 @@ func (x IncorrectRelativeRootError) Error() string {
 	return fmt.Sprintf("path %q is outside relative root %q", x.Path, x.RelativeRoot)
 }
 
+type ConflictingFileError struct {
+	Dest string
+	Prev string
+	Src  string
+}
+
+func (x ConflictingFileError) Error() string {
+	return fmt.Sprintf("destination %q has two files %q and %q", x.Dest, x.Prev, x.Src)
+}
+
 type ZipWriter struct {
 	time         time.Time
 	createdFiles map[string]string
@@ -221,6 +242,8 @@ type ZipWriter struct {
 
 	stderr io.Writer
 	fs     pathtools.FileSystem
+
+	sha256Checksum bool
 }
 
 type zipEntry struct {
@@ -247,6 +270,7 @@ type ZipArgs struct {
 	WriteIfChanged           bool
 	StoreSymlinks            bool
 	IgnoreMissingFiles       bool
+	Sha256Checksum           bool
 
 	Stderr     io.Writer
 	Filesystem pathtools.FileSystem
@@ -270,6 +294,7 @@ func zipTo(args ZipArgs, w io.Writer) error {
 		ignoreMissingFiles: args.IgnoreMissingFiles,
 		stderr:             args.Stderr,
 		fs:                 args.Filesystem,
+		sha256Checksum:     args.Sha256Checksum,
 	}
 
 	if z.fs == nil {
@@ -605,13 +630,24 @@ func (z *ZipWriter) addFile(dest, src string, method uint16, emulateJar, srcJar 
 		if prev, exists := z.createdDirs[dest]; exists {
 			return fmt.Errorf("destination %q is both a directory %q and a file %q", dest, prev, src)
 		}
+
+		return nil
+	}
+
+	checkDuplicateFiles := func(dest, src string) (bool, error) {
 		if prev, exists := z.createdFiles[dest]; exists {
-			return fmt.Errorf("destination %q has two files %q and %q", dest, prev, src)
+			if prev != src {
+				return true, ConflictingFileError{
+					Dest: dest,
+					Prev: prev,
+					Src:  src,
+				}
+			}
+			return true, nil
 		}
 
 		z.createdFiles[dest] = src
-
-		return nil
+		return false, nil
 	}
 
 	if s.IsDir() {
@@ -623,6 +659,14 @@ func (z *ZipWriter) addFile(dest, src string, method uint16, emulateJar, srcJar 
 		err = createParentDirs(dest, src)
 		if err != nil {
 			return err
+		}
+
+		duplicate, err := checkDuplicateFiles(dest, src)
+		if err != nil {
+			return err
+		}
+		if duplicate {
+			return nil
 		}
 
 		return z.writeSymlink(dest, src)
@@ -667,6 +711,14 @@ func (z *ZipWriter) addFile(dest, src string, method uint16, emulateJar, srcJar 
 			return err
 		}
 
+		duplicate, err := checkDuplicateFiles(dest, src)
+		if err != nil {
+			return err
+		}
+		if duplicate {
+			return nil
+		}
+
 		return z.writeFileContents(header, r)
 	} else {
 		return fmt.Errorf("%s is not a file, directory, or symlink", src)
@@ -678,7 +730,14 @@ func (z *ZipWriter) addManifest(dest string, src string, _ uint16) error {
 		return fmt.Errorf("destination %q is both a directory %q and a file %q", dest, prev, src)
 	}
 	if prev, exists := z.createdFiles[dest]; exists {
-		return fmt.Errorf("destination %q has two files %q and %q", dest, prev, src)
+		if prev != src {
+			return ConflictingFileError{
+				Dest: dest,
+				Prev: prev,
+				Src:  src,
+			}
+		}
+		return nil
 	}
 
 	if err := z.writeDirectory(filepath.Dir(dest), src, true); err != nil {
@@ -738,15 +797,17 @@ func (z *ZipWriter) writeFileContents(header *zip.FileHeader, r pathtools.Reader
 		// this based on actual buffer sizes in RateLimit.
 		ze.futureReaders = make(chan chan io.Reader, (fileSize/parallelBlockSize)+1)
 
-		// Calculate the CRC in the background, since reading the entire
-		// file could take a while.
+		// Calculate the CRC and SHA256 in the background, since reading
+		// the entire file could take a while.
 		//
 		// We could split this up into chunks as well, but it's faster
 		// than the compression. Due to the Go Zip API, we also need to
 		// know the result before we can begin writing the compressed
 		// data out to the zipfile.
+		//
+		// We calculate SHA256 only if `-sha256` is set.
 		wg.Add(1)
-		go z.crcFile(r, ze, compressChan, wg)
+		go z.checksumFileAsync(r, ze, compressChan, wg)
 
 		for start := int64(0); start < fileSize; start += parallelBlockSize {
 			sr := io.NewSectionReader(r, start, parallelBlockSize)
@@ -785,20 +846,53 @@ func (z *ZipWriter) writeFileContents(header *zip.FileHeader, r pathtools.Reader
 	return nil
 }
 
-func (z *ZipWriter) crcFile(r io.Reader, ze *zipEntry, resultChan chan *zipEntry, wg *sync.WaitGroup) {
+func (z *ZipWriter) checksumFileAsync(r io.ReadSeeker, ze *zipEntry, resultChan chan *zipEntry, wg *sync.WaitGroup) {
 	defer wg.Done()
 	defer z.cpuRateLimiter.Finish()
 
+	z.checksumFile(r, ze)
+
+	resultChan <- ze
+	close(resultChan)
+}
+
+func (z *ZipWriter) checksumFile(r io.ReadSeeker, ze *zipEntry) {
 	crc := crc32.NewIEEE()
-	_, err := io.Copy(crc, r)
+	writers := []io.Writer{crc}
+
+	var shaHasher hash.Hash
+	if z.sha256Checksum && !ze.fh.Mode().IsDir() {
+		shaHasher = sha256.New()
+		writers = append(writers, shaHasher)
+	}
+
+	w := io.MultiWriter(writers...)
+
+	_, err := io.Copy(w, r)
 	if err != nil {
 		z.errors <- err
 		return
 	}
 
 	ze.fh.CRC32 = crc.Sum32()
-	resultChan <- ze
-	close(resultChan)
+	if shaHasher != nil {
+		z.appendSHAToExtra(ze, shaHasher.Sum(nil))
+	}
+}
+
+func (z *ZipWriter) appendSHAToExtra(ze *zipEntry, checksum []byte) {
+	// The block of SHA256 checksum consist of:
+	// - Header ID, equals to Sha256HeaderID (2 bytes)
+	// - Data size (2 bytes)
+	// - Data block:
+	//   - Signature, equals to Sha256HeaderSignature (2 bytes)
+	//   - Data, SHA checksum value
+	var buf []byte
+	buf = binary.LittleEndian.AppendUint16(buf, Sha256HeaderID)
+	buf = binary.LittleEndian.AppendUint16(buf, uint16(len(checksum)+2))
+	buf = binary.LittleEndian.AppendUint16(buf, Sha256HeaderSignature)
+	buf = append(buf, checksum...)
+	ze.fh.Extra = append(ze.fh.Extra, buf...)
 }
 
 func (z *ZipWriter) compressPartialFile(r io.Reader, dict []byte, last bool, resultChan chan io.Reader, wg *sync.WaitGroup) {
@@ -850,17 +944,9 @@ func (z *ZipWriter) compressBlock(r io.Reader, dict []byte, last bool) (*bytes.B
 }
 
 func (z *ZipWriter) compressWholeFile(ze *zipEntry, r io.ReadSeeker, compressChan chan *zipEntry) {
+	z.checksumFile(r, ze)
 
-	crc := crc32.NewIEEE()
-	_, err := io.Copy(crc, r)
-	if err != nil {
-		z.errors <- err
-		return
-	}
-
-	ze.fh.CRC32 = crc.Sum32()
-
-	_, err = r.Seek(0, 0)
+	_, err := r.Seek(0, 0)
 	if err != nil {
 		z.errors <- err
 		return

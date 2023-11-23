@@ -14,6 +14,8 @@
 
 import("//build_overrides/pigweed.gni")
 
+import("$dir_pw_build/python_gn_args.gni")
+
 # Defines an action that runs a Python script.
 #
 # This wraps a regular Python script GN action with an invocation of a script-
@@ -51,6 +53,13 @@ import("//build_overrides/pigweed.gni")
 #   working_directory  Switch to the provided working directory before running
 #                      the Python script or action.
 #
+#   command_launcher   Arguments to prepend to the Python command, e.g.
+#                      '/usr/bin/fakeroot --' to run the Python script within a
+#                      fakeroot environment.
+#
+#   venv            Optional gn target of the pw_python_venv that should be used
+#                   to run this action.
+#
 template("pw_python_action") {
   assert(defined(invoker.script) != defined(invoker.module),
          "pw_python_action requires either 'script' or 'module'")
@@ -65,14 +74,11 @@ template("pw_python_action") {
     "--current-path",
     rebase_path(".", root_build_dir),
 
-    # pip lockfile, prevents pip from running in parallel with other Python
-    # actions.
-    "--lockfile",
-    rebase_path("$root_out_dir/pip.lock", root_build_dir),
-
     "--default-toolchain=$default_toolchain",
     "--current-toolchain=$current_toolchain",
   ]
+
+  _use_build_dir_virtualenv = true
 
   if (defined(invoker.environment)) {
     foreach(variable, invoker.environment) {
@@ -123,6 +129,17 @@ template("pw_python_action") {
       "--module",
       invoker.module,
     ]
+
+    # Pip installs should only ever need to occur in the Pigweed
+    # environment. For these actions do not use the build_dir virtualenv.
+    if (invoker.module == "pip") {
+      _use_build_dir_virtualenv = false
+    }
+  }
+
+  # Override to force using or not using the venv.
+  if (defined(invoker._pw_internal_run_in_venv)) {
+    _use_build_dir_virtualenv = invoker._pw_internal_run_in_venv
   }
 
   if (defined(invoker.working_directory)) {
@@ -132,17 +149,11 @@ template("pw_python_action") {
     ]
   }
 
-  # "--" indicates the end of arguments to the runner script.
-  # Everything beyond this point is interpreted as the command and arguments
-  # of the Python script to run.
-  _script_args += [ "--" ]
-
-  if (defined(invoker.script)) {
-    _script_args += [ rebase_path(invoker.script, root_build_dir) ]
-  }
-
-  if (defined(invoker.args)) {
-    _script_args += invoker.args
+  if (defined(invoker.command_launcher)) {
+    _script_args += [
+      "--command-launcher",
+      invoker.command_launcher,
+    ]
   }
 
   if (defined(invoker._pw_action_type)) {
@@ -157,15 +168,111 @@ template("pw_python_action") {
     _deps = []
   }
 
+  _py_metadata_deps = []
+
   if (defined(invoker.python_deps)) {
     foreach(dep, invoker.python_deps) {
       _deps += [ get_label_info(dep, "label_no_toolchain") + ".install(" +
                  get_label_info(dep, "toolchain") + ")" ]
+
+      # Ensure each python_dep is added to the PYTHONPATH by depinding on the
+      # ._package_metadata subtarget.
+      _py_metadata_deps += [ get_label_info(dep, "label_no_toolchain") +
+                             "._package_metadata($pw_build_PYTHON_TOOLCHAIN)" ]
     }
 
     # Add the base target as a dep so the action reruns when any source files
     # change, even if the package does not have to be reinstalled.
     _deps += invoker.python_deps
+    _deps += _py_metadata_deps
+  }
+
+  # Check for additional PYTHONPATH dependencies.
+  _extra_python_metadata_deps = []
+  if (defined(invoker.python_metadata_deps)) {
+    foreach(dep, invoker.python_metadata_deps) {
+      _extra_python_metadata_deps +=
+          [ get_label_info(dep, "label_no_toolchain") +
+            "._package_metadata($pw_build_PYTHON_TOOLCHAIN)" ]
+    }
+  }
+
+  _metadata_path_list_file =
+      "${target_gen_dir}/${target_name}_metadata_path_list.txt"
+
+  # GN metadata only dependencies used for setting PYTHONPATH.
+  _metadata_deps = _py_metadata_deps + _extra_python_metadata_deps
+
+  # Build a list of relative paths containing all the python
+  # package_metadata.json files we depend on.
+  _metadata_path_list_target = "${target_name}._metadata_path_list.txt"
+  generated_file(_metadata_path_list_target) {
+    data_keys = [ "pw_python_package_metadata_json" ]
+    rebase = root_build_dir
+    deps = _metadata_deps
+    outputs = [ _metadata_path_list_file ]
+  }
+  _deps += [ ":${_metadata_path_list_target}" ]
+
+  # Set venv options if needed.
+  if (_use_build_dir_virtualenv) {
+    _venv_target_label = pw_build_PYTHON_BUILD_VENV
+    if (defined(invoker.venv)) {
+      _venv_target_label = invoker.venv
+    }
+    _venv_target_label =
+        get_label_info(_venv_target_label, "label_no_toolchain") +
+        "($pw_build_PYTHON_TOOLCHAIN)"
+
+    _venv_json =
+        get_label_info(_venv_target_label, "target_gen_dir") + "/" +
+        get_label_info(_venv_target_label, "name") + "/venv_metadata.json"
+    _script_args += [
+      "--python-virtualenv-config",
+      rebase_path(_venv_json, root_build_dir),
+    ]
+  }
+  _script_args += [
+    "--python-dep-list-files",
+    rebase_path(_metadata_path_list_file, root_build_dir),
+  ]
+
+  # "--" indicates the end of arguments to the runner script.
+  # Everything beyond this point is interpreted as the command and arguments
+  # of the Python script to run.
+  _script_args += [ "--" ]
+
+  if (defined(invoker.script)) {
+    _script_args += [ rebase_path(invoker.script, root_build_dir) ]
+  }
+
+  _forward_python_metadata_deps = false
+  if (defined(invoker._forward_python_metadata_deps)) {
+    _forward_python_metadata_deps = true
+  }
+  if (_forward_python_metadata_deps) {
+    _script_args += [
+      "--python-dep-list-files",
+      rebase_path(_metadata_path_list_file, root_build_dir),
+    ]
+  }
+
+  if (defined(invoker.args)) {
+    _script_args += invoker.args
+  }
+
+  # Assume third party PyPI deps should be available in the build_dir virtualenv.
+  _install_venv_3p_deps = true
+  if (!_use_build_dir_virtualenv ||
+      (defined(invoker._skip_installing_external_python_deps) &&
+       invoker._skip_installing_external_python_deps)) {
+    _install_venv_3p_deps = false
+  }
+
+  # Check that script or module is a present and not a no-op.
+  _run_script_or_module = false
+  if (defined(invoker.script) || defined(invoker.module)) {
+    _run_script_or_module = true
   }
 
   target(_action_type, target_name) {
@@ -183,6 +290,11 @@ template("pw_python_action") {
     inputs = _inputs
     outputs = _outputs
     deps = _deps
+
+    if (_install_venv_3p_deps && _run_script_or_module) {
+      deps += [ get_label_info(_venv_target_label, "label_no_toolchain") +
+                "._install_3p_deps($pw_build_PYTHON_TOOLCHAIN)" ]
+    }
   }
 }
 

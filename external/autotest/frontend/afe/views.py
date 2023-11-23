@@ -8,14 +8,7 @@ from autotest_lib.frontend import views_common
 from autotest_lib.frontend.afe import models, rpc_handler, rpc_interface
 from autotest_lib.frontend.afe import rpc_utils
 
-moblab_rpc_interface = utils.import_site_module(
-        __file__, 'autotest_lib.frontend.afe.moblab_rpc_interface',
-        dummy=object())
-
-# since moblab_rpc_interface is later in the list, its methods will
-# override those of rpc_interface
-rpc_handler_obj = rpc_handler.RpcHandler((rpc_interface,
-                                          moblab_rpc_interface),
+rpc_handler_obj = rpc_handler.RpcHandler((rpc_interface, ),
                                          document_module=rpc_interface)
 
 

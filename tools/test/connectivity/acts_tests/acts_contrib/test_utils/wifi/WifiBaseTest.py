@@ -18,19 +18,14 @@
 """
 
 import copy
-import itertools
 import os
 import time
 
-import acts.controllers.access_point as ap
-
 from acts import asserts
+from acts import context
 from acts import signals
 from acts import utils
 from acts.base_test import BaseTestClass
-from acts.signals import TestSignal
-from acts.controllers import android_device
-from acts.controllers.access_point import AccessPoint
 from acts.controllers.ap_lib import hostapd_ap_preset
 from acts.controllers.ap_lib import hostapd_bss_settings
 from acts.controllers.ap_lib import hostapd_constants
@@ -39,6 +34,9 @@ from acts.keys import Config
 from acts_contrib.test_utils.net import net_test_utils as nutils
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 
+from mobly.base_test import STAGE_NAME_TEARDOWN_CLASS
+
+WifiEnums = wutils.WifiEnums
 AP_1 = 0
 AP_2 = 1
 MAX_AP_COUNT = 2
@@ -50,20 +48,15 @@ class WifiBaseTest(BaseTestClass):
         self.enable_packet_log = False
         self.packet_log_2g = hostapd_constants.AP_DEFAULT_CHANNEL_2G
         self.packet_log_5g = hostapd_constants.AP_DEFAULT_CHANNEL_5G
+        self.tcpdump_proc = []
+        self.packet_log_pid = {}
 
     def setup_class(self):
         if hasattr(self, 'attenuators') and self.attenuators:
             for attenuator in self.attenuators:
                 attenuator.set_atten(0)
-        opt_param = ["pixel_models", "cnss_diag_file", "country_code_file"]
+        opt_param = ["country_code_file"]
         self.unpack_userparams(opt_param_names=opt_param)
-        if hasattr(self, "cnss_diag_file"):
-            if isinstance(self.cnss_diag_file, list):
-                self.cnss_diag_file = self.cnss_diag_file[0]
-            if not os.path.isfile(self.cnss_diag_file):
-                self.cnss_diag_file = os.path.join(
-                    self.user_params[Config.key_config_path.value],
-                    self.cnss_diag_file)
         if self.enable_packet_log and hasattr(self, "packet_capture"):
             self.packet_logger = self.packet_capture[0]
             self.packet_logger.configure_monitor_mode("2G", self.packet_log_2g)
@@ -80,14 +73,13 @@ class WifiBaseTest(BaseTestClass):
                             self.country_code_file)
                     self.country_code = utils.load_config(
                         self.country_code_file)["country"]
-                    wutils.set_wifi_country_code(ad, self.country_code)
+                else:
+                    self.country_code = WifiEnums.CountryCode.US
+                wutils.set_wifi_country_code(ad, self.country_code)
 
     def setup_test(self):
-        if (hasattr(self, "android_devices")
-                and hasattr(self, "cnss_diag_file")
-                and hasattr(self, "pixel_models")):
-            wutils.start_cnss_diags(self.android_devices, self.cnss_diag_file,
-                                    self.pixel_models)
+        if (hasattr(self, "android_devices")):
+            wutils.start_all_wlan_logs(self.android_devices)
         self.tcpdump_proc = []
         if hasattr(self, "android_devices"):
             for ad in self.android_devices:
@@ -98,10 +90,8 @@ class WifiBaseTest(BaseTestClass):
                                                     self.test_name)
 
     def teardown_test(self):
-        if (hasattr(self, "android_devices")
-                and hasattr(self, "cnss_diag_file")
-                and hasattr(self, "pixel_models")):
-            wutils.stop_cnss_diags(self.android_devices, self.pixel_models)
+        if (hasattr(self, "android_devices")):
+            wutils.stop_all_wlan_logs(self.android_devices)
             for proc in self.tcpdump_proc:
                 nutils.stop_tcpdump(proc[0],
                                     proc[1],
@@ -114,17 +104,21 @@ class WifiBaseTest(BaseTestClass):
                              test_status=True)
             self.packet_log_pid = {}
 
+    def teardown_class(self):
+        begin_time = utils.get_current_epoch_time()
+        super().teardown_class()
+        for device in getattr(self, "fuchsia_devices", []):
+            device.take_bug_report(STAGE_NAME_TEARDOWN_CLASS, begin_time)
+
     def on_fail(self, test_name, begin_time):
         if hasattr(self, "android_devices"):
             for ad in self.android_devices:
                 ad.take_bug_report(test_name, begin_time)
                 ad.cat_adb_log(test_name, begin_time)
                 wutils.get_ssrdumps(ad)
-            if (hasattr(self, "cnss_diag_file")
-                    and hasattr(self, "pixel_models")):
-                wutils.stop_cnss_diags(self.android_devices, self.pixel_models)
-                for ad in self.android_devices:
-                    wutils.get_cnss_diag_log(ad)
+            wutils.stop_all_wlan_logs(self.android_devices)
+            for ad in self.android_devices:
+                wutils.get_wlan_logs(ad)
             for proc in self.tcpdump_proc:
                 nutils.stop_tcpdump(proc[0], proc[1], self.test_name)
             self.tcpdump_proc = []
@@ -133,6 +127,53 @@ class WifiBaseTest(BaseTestClass):
                              self.packet_log_pid,
                              test_status=False)
             self.packet_log_pid = {}
+
+        # Gets a wlan_device log and calls the generic device fail on DUT.
+        for device in getattr(self, "fuchsia_devices", []):
+            self.on_device_fail(device, test_name, begin_time)
+
+    def on_device_fail(self, device, test_name, begin_time):
+        """Gets a generic device DUT bug report.
+
+        This method takes a bug report if the device has the
+        'take_bug_report_on_fail' config value, and if the flag is true. This
+        method also power cycles if 'hard_reboot_on_fail' is True.
+
+        Args:
+            device: Generic device to gather logs from.
+            test_name: Name of the test that triggered this function.
+            begin_time: Logline format timestamp taken when the test started.
+        """
+        if (not hasattr(device, "take_bug_report_on_fail")
+                or device.take_bug_report_on_fail):
+            device.take_bug_report(test_name, begin_time)
+
+        if hasattr(device,
+                   "hard_reboot_on_fail") and device.hard_reboot_on_fail:
+            device.reboot(reboot_type='hard', testbed_pdus=self.pdu_devices)
+
+    def download_ap_logs(self):
+        """Downloads the DHCP and hostapad logs from the access_point.
+
+        Using the current TestClassContext and TestCaseContext this method pulls
+        the DHCP and hostapd logs and outputs them to the correct path.
+        """
+        current_path = context.get_current_context().get_full_output_path()
+        dhcp_full_out_path = os.path.join(current_path, "dhcp_log.txt")
+
+        dhcp_log = self.access_point.get_dhcp_logs()
+        if dhcp_log:
+            dhcp_log_file = open(dhcp_full_out_path, 'w')
+            dhcp_log_file.write(dhcp_log)
+            dhcp_log_file.close()
+
+        hostapd_logs = self.access_point.get_hostapd_logs()
+        for interface in hostapd_logs:
+            out_name = interface + "_hostapd_log.txt"
+            hostapd_full_out_path = os.path.join(current_path, out_name)
+            hostapd_log_file = open(hostapd_full_out_path, 'w')
+            hostapd_log_file.write(hostapd_logs[interface])
+            hostapd_log_file.close()
 
     def get_psk_network(
             self,
@@ -467,10 +508,10 @@ class WifiBaseTest(BaseTestClass):
         for i in range(ap_count):
             network_list = []
             if wpa1_network:
-                wpa1_dict = self.get_psk_network(mirror_ap,
-                                                 self.wpa1_networks,
+                wpa1_dict = self.get_psk_network(mirror_ap, self.wpa1_networks,
                                                  hidden, same_ssid,
-                                                 ssid_length_2g, ssid_length_5g,
+                                                 ssid_length_2g,
+                                                 ssid_length_5g,
                                                  passphrase_length_2g,
                                                  passphrase_length_5g)
                 wpa1_dict[hostapd_constants.BAND_2G]["security"] = "psk"
@@ -543,16 +584,18 @@ class WifiBaseTest(BaseTestClass):
                 sae_dict[hostapd_constants.BAND_5G]["security"] = "sae"
                 network_list.append(sae_dict)
             if saemixed_network:
-                saemixed_dict = self.get_psk_network(mirror_ap, self.saemixed_networks,
-                                                hidden, same_ssid,
-                                                hostapd_constants.SAE_KEY_MGMT,
-                                                ssid_length_2g, ssid_length_5g,
-                                                passphrase_length_2g,
-                                                passphrase_length_5g)
-                saemixed_dict[hostapd_constants.BAND_2G]["security"] = "sae-mixed"
-                saemixed_dict[hostapd_constants.BAND_5G]["security"] = "sae-mixed"
-                saemixed_dict[hostapd_constants.BAND_2G]["ieee80211w"] = ieee80211w
-                saemixed_dict[hostapd_constants.BAND_5G]["ieee80211w"] = ieee80211w
+                saemixed_dict = self.get_psk_network(
+                    mirror_ap, self.saemixed_networks, hidden, same_ssid,
+                    hostapd_constants.SAE_KEY_MGMT, ssid_length_2g,
+                    ssid_length_5g, passphrase_length_2g, passphrase_length_5g)
+                saemixed_dict[
+                    hostapd_constants.BAND_2G]["security"] = "sae-mixed"
+                saemixed_dict[
+                    hostapd_constants.BAND_5G]["security"] = "sae-mixed"
+                saemixed_dict[
+                    hostapd_constants.BAND_2G]["ieee80211w"] = ieee80211w
+                saemixed_dict[
+                    hostapd_constants.BAND_5G]["ieee80211w"] = ieee80211w
                 network_list.append(saemixed_dict)
             self.access_points[i].configure_ap(network_list, channels_2g[i],
                                                channels_5g[i])
@@ -561,8 +604,8 @@ class WifiBaseTest(BaseTestClass):
                 self.access_points[i].get_bssids_for_wifi_networks())
             if mirror_ap:
                 self.access_points[i + 1].configure_ap(network_list,
-                                                       channels_2g[i+1],
-                                                       channels_5g[i+1])
+                                                       channels_2g[i + 1],
+                                                       channels_5g[i + 1])
                 self.access_points[i + 1].start_ap()
                 self.bssid_map.append(
                     self.access_points[i + 1].get_bssids_for_wifi_networks())

@@ -26,8 +26,11 @@
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
     <!-- Required by flickerlib to dump window states -->
     <uses-permission android:name="android.permission.DUMP"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <application android:requestLegacyExternalStorage="true">
+        <!-- Have LightBarActivity always be in portrait orientation, since the test's screenshots
+             rely on portrait orientation. See b/260069585. -->
         <activity android:name=".LightBarActivity"
              android:theme="@android:style/Theme.Material.NoActionBar"
              android:screenOrientation="portrait"/>

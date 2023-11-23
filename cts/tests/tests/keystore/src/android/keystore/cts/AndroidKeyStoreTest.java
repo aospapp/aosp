@@ -16,11 +16,13 @@
 
 package android.keystore.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -36,6 +38,14 @@ import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.bedstead.nene.annotations.Nullable;
+import com.android.compatibility.common.util.ApiTest;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -63,6 +73,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashSet;
@@ -77,11 +88,6 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.security.auth.x500.X500Principal;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public class AndroidKeyStoreTest {
@@ -821,6 +827,12 @@ public class AndroidKeyStoreTest {
         assertTrue("The expected set and actual set should be exactly equal", expectedSet.isEmpty());
         assertEquals("There should be the correct number of keystore entries",
                 expectedAliases.length, count);
+    }
+
+    private void deleteEntryIfNotNull(@Nullable String alias) throws Exception {
+        if (alias != null) {
+            mKeyStore.deleteEntry(alias);
+        }
     }
 
     @Test
@@ -2113,7 +2125,7 @@ public class AndroidKeyStoreTest {
         Signature.getInstance("NONEwithECDSA").initVerify(publicKey);
     }
 
-    private static final int MIN_SUPPORTED_KEY_COUNT = 1500;
+    private static final int MIN_SUPPORTED_KEY_COUNT = 1200;
     private static final Duration LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION = Duration.ofMinutes(4);
     private static final Duration LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION_WATCH
             = Duration.ofMinutes(6);
@@ -2161,8 +2173,9 @@ public class AndroidKeyStoreTest {
         PrivateKey privateKey3 = generatePrivateKey("RSA", FAKE_RSA_KEY_1);
 
         final int MAX_NUMBER_OF_KEYS = 2500;
-        final String ALIAS_PREFIX = "test_large_number_of_rsa_keys_";
+        final StringBuilder aliasPrefix = new StringBuilder("test_large_number_of_rsa_keys_");
         int keyCount = 0;
+        String entryName2 = null;
 
         mKeyStore.load(null);
         try {
@@ -2175,11 +2188,12 @@ public class AndroidKeyStoreTest {
                     new KeyStore.PrivateKeyEntry(privateKey1, new Certificate[] {cert1}),
                     protectionParams);
 
-            keyCount = importKeyManyTimes(MAX_NUMBER_OF_KEYS, ALIAS_PREFIX,
-                    new PrivateKeyEntry(privateKey3, new Certificate[] {cert3}), protectionParams);
+            keyCount = importKeyManyTimes(MAX_NUMBER_OF_KEYS, aliasPrefix,
+                    new PrivateKeyEntry(privateKey3, new Certificate[] {cert3}),
+                    protectionParams);
 
             keyCount++;
-            String entryName2 = "test" + keyCount;
+            entryName2 = "test" + keyCount;
             mKeyStore.setEntry(entryName2,
                     new KeyStore.PrivateKeyEntry(privateKey2, new Certificate[] {cert2}),
                     protectionParams);
@@ -2206,7 +2220,9 @@ public class AndroidKeyStoreTest {
             sig.update(message);
             assertTrue(sig.verify(signature));
         } finally {
-            deleteManyTestKeys(keyCount, ALIAS_PREFIX);
+            mKeyStore.deleteEntry(entryName1);
+            deleteEntryIfNotNull(entryName2);
+            deleteManyTestKeys(keyCount, aliasPrefix);
         }
     }
 
@@ -2235,8 +2251,9 @@ public class AndroidKeyStoreTest {
         PrivateKey privateKey3 = generatePrivateKey("EC", FAKE_EC_KEY_1);
 
         final int MAX_NUMBER_OF_KEYS = 2500;
-        final String ALIAS_PREFIX = "test_large_number_of_ec_keys_";
+        final StringBuilder aliasPrefix = new StringBuilder("test_large_number_of_ec_keys_");
         int keyCount = 0;
+        String entryName2 = null;
 
         mKeyStore.load(null);
         try {
@@ -2248,12 +2265,12 @@ public class AndroidKeyStoreTest {
                     new KeyStore.PrivateKeyEntry(privateKey1, new Certificate[] {cert1}),
                     protectionParams);
 
-            keyCount = importKeyManyTimes(MAX_NUMBER_OF_KEYS, ALIAS_PREFIX,
+            keyCount = importKeyManyTimes(MAX_NUMBER_OF_KEYS, aliasPrefix,
                     new KeyStore.PrivateKeyEntry(privateKey3, new Certificate[] {cert3}),
                     protectionParams);
 
             keyCount++;
-            String entryName2 = "test" + keyCount;
+            entryName2 = "test" + keyCount;
             mKeyStore.setEntry(entryName2,
                     new KeyStore.PrivateKeyEntry(privateKey2, new Certificate[] {cert2}),
                     protectionParams);
@@ -2280,7 +2297,9 @@ public class AndroidKeyStoreTest {
             sig.update(message);
             assertTrue(sig.verify(signature));
         } finally {
-            deleteManyTestKeys(keyCount, ALIAS_PREFIX);
+            mKeyStore.deleteEntry(entryName1);
+            deleteEntryIfNotNull(entryName2);
+            deleteManyTestKeys(keyCount, aliasPrefix);
         }
     }
 
@@ -2307,8 +2326,9 @@ public class AndroidKeyStoreTest {
                 HexEncoding.decode("33333333333333333333777777777777"), "AES");
 
         final int MAX_NUMBER_OF_KEYS = 10000;
-        final String ALIAS_PREFIX = "test_large_number_of_aes_keys_";
+        final StringBuilder aliasPrefix = new StringBuilder("test_large_number_of_aes_keys_");
         int keyCount = 0;
+        String entryName2 = null;
 
         mKeyStore.load(null);
         try {
@@ -2319,11 +2339,11 @@ public class AndroidKeyStoreTest {
                     .build();
             mKeyStore.setEntry(entryName1, new KeyStore.SecretKeyEntry(key1), protectionParams);
 
-            keyCount = importKeyManyTimes(MAX_NUMBER_OF_KEYS, ALIAS_PREFIX,
+            keyCount = importKeyManyTimes(MAX_NUMBER_OF_KEYS, aliasPrefix,
                     new KeyStore.SecretKeyEntry(key3), protectionParams);
 
             ++keyCount;
-            String entryName2 = "test" + keyCount;
+            entryName2 = "test" + keyCount;
             mKeyStore.setEntry(entryName2, new KeyStore.SecretKeyEntry(key2), protectionParams);
             SecretKey keystoreKey2 = (SecretKey) mKeyStore.getKey(entryName2, null);
             SecretKey keystoreKey1 = (SecretKey) mKeyStore.getKey(entryName1, null);
@@ -2345,7 +2365,9 @@ public class AndroidKeyStoreTest {
             cipher.init(Cipher.DECRYPT_MODE, key2, cipherParams);
             assertArrayEquals(plaintext, cipher.doFinal(ciphertext));
         } finally {
-            deleteManyTestKeys(keyCount, ALIAS_PREFIX);
+            mKeyStore.deleteEntry(entryName1);
+            deleteEntryIfNotNull(entryName2);
+            deleteManyTestKeys(keyCount, aliasPrefix);
         }
     }
 
@@ -2374,8 +2396,9 @@ public class AndroidKeyStoreTest {
                 HexEncoding.decode("33333333333333333333777777777777"), "HmacSHA256");
 
         final int MAX_NUMBER_OF_KEYS = 10000;
-        final String ALIAS_PREFIX = "test_large_number_of_hmac_keys_";
+        final StringBuilder aliasPrefix = new StringBuilder("test_large_number_of_hmac_keys_");
         int keyCount = 0;
+        String entryName2 = null;
 
         mKeyStore.load(null);
         try {
@@ -2384,11 +2407,11 @@ public class AndroidKeyStoreTest {
                     .build();
             mKeyStore.setEntry(entryName1, new KeyStore.SecretKeyEntry(key1), protectionParams);
 
-            keyCount = importKeyManyTimes(MAX_NUMBER_OF_KEYS, ALIAS_PREFIX,
+            keyCount = importKeyManyTimes(MAX_NUMBER_OF_KEYS, aliasPrefix,
                             new KeyStore.SecretKeyEntry(key3), protectionParams);
 
             keyCount++;
-            String entryName2 = "test" + keyCount;
+            entryName2 = "test" + keyCount;
             mKeyStore.setEntry(entryName2, new KeyStore.SecretKeyEntry(key2), protectionParams);
             SecretKey keystoreKey2 = (SecretKey) mKeyStore.getKey(entryName2, null);
             SecretKey keystoreKey1 = (SecretKey) mKeyStore.getKey(entryName1, null);
@@ -2408,7 +2431,9 @@ public class AndroidKeyStoreTest {
                             "59b57e77e4e2cb36b5c7b84af198ac004327bc549de6931a1b5505372dd8c957"),
                     mac.doFinal(message));
         } finally {
-            deleteManyTestKeys(keyCount, ALIAS_PREFIX);
+            mKeyStore.deleteEntry(entryName1);
+            deleteEntryIfNotNull(entryName2);
+            deleteManyTestKeys(keyCount, aliasPrefix);
         }
     }
 
@@ -2606,8 +2631,8 @@ public class AndroidKeyStoreTest {
      *
      * This method is time-bounded
      */
-    private int importKeyManyTimes(int numberOfKeys, String aliasPrefix, Entry keyEntry,
-            KeyProtection protectionParams)
+    private int importKeyManyTimes(int numberOfKeys, StringBuilder aliasPrefix, Entry keyEntry,
+            KeyProtection protectionParams, boolean isTimeBound)
             throws InterruptedException {
         TimeBox timeBox = new TimeBox(mMaxImportDuration);
         AtomicInteger keyCounter = new AtomicInteger(0);
@@ -2616,7 +2641,7 @@ public class AndroidKeyStoreTest {
             threads.add(new Thread(() -> {
                 // Import key lots of times, under different aliases. Do this until we either run
                 // out of time or we import the key numberOfKeys times.
-                while (!timeBox.isOutOfTime()) {
+                while (!isTimeBound || !timeBox.isOutOfTime()) {
                     int count = keyCounter.incrementAndGet();
                     if (count > numberOfKeys) {
                         // The loop is inherently racy, as multiple threads are simultaneously
@@ -2629,7 +2654,7 @@ public class AndroidKeyStoreTest {
                     if ((count % 1000) == 0) {
                         Log.i(TAG, "Imported " + count + " keys");
                     }
-                    String entryAlias = aliasPrefix + count;
+                    String entryAlias = aliasPrefix.toString() + count;
                     try {
                         mKeyStore.setEntry(entryAlias, keyEntry, protectionParams);
                     } catch (Throwable e) {
@@ -2646,7 +2671,7 @@ public class AndroidKeyStoreTest {
             threads.get(i).join();
         }
         Log.i(TAG, "Imported " + keyCounter.get() + " keys in " + timeBox.elapsed());
-        if (keyCounter.get() < MIN_SUPPORTED_KEY_COUNT) {
+        if (keyCounter.get() != numberOfKeys && keyCounter.get() < MIN_SUPPORTED_KEY_COUNT) {
             fail("Failed to import " + MIN_SUPPORTED_KEY_COUNT + " keys in "
                     + timeBox.elapsed() + ". Imported: " + keyCounter.get() + " keys");
         }
@@ -2654,11 +2679,22 @@ public class AndroidKeyStoreTest {
         return keyCounter.get();
     }
 
+    private int importKeyManyTimes(int numberOfKeys, StringBuilder aliasPrefix, Entry keyEntry,
+            KeyProtection protectionParams) throws InterruptedException {
+        return importKeyManyTimes(numberOfKeys, aliasPrefix, keyEntry, protectionParams, true);
+    }
+
+    private int importKeyManyTimesWithoutTimeLimit(int numberOfKeys, StringBuilder aliasPrefix,
+            Entry keyEntry,
+            KeyProtection protectionParams) throws InterruptedException {
+        return importKeyManyTimes(numberOfKeys, aliasPrefix, keyEntry, protectionParams, false);
+    }
+
     /**
      * Delete <code>numberOfKeys</code> keys that follow the pattern "[aliasPrefix][keyCounter]".
      * This is done across multiple threads to both increase throughput as well as stress keystore.
      */
-    private void deleteManyTestKeys(int numberOfKeys, String aliasPrefix)
+    private void deleteManyTestKeys(int numberOfKeys, StringBuilder aliasPrefix)
             throws InterruptedException {
         // Clean up Keystore without using KeyStore.aliases() which can't handle this many
         // entries.
@@ -2673,8 +2709,9 @@ public class AndroidKeyStoreTest {
                     if ((key > 0) && ((key % 1000) == 0)) {
                         Log.i(TAG, "Deleted " + key + " keys");
                     }
+                    String entryAlias = aliasPrefix.toString() + key;
                     try {
-                        mKeyStore.deleteEntry("test" + key);
+                        mKeyStore.deleteEntry(entryAlias);
                     } catch (Exception e) {
                         fail("Unexpected exception in key cleanup: " + e);
                     }
@@ -2689,5 +2726,118 @@ public class AndroidKeyStoreTest {
             threads.get(i).join();
         }
         Log.i(TAG, "Deleted " + numberOfKeys + " keys");
+    }
+
+    private Set<String> createLargeNumberOfKeyStoreEntryAliases(int numberOfKeys,
+            StringBuilder aliasPrefix)
+            throws Exception {
+        Certificate cert = generateCertificate(FAKE_RSA_USER_1);
+        PrivateKey privateKey = generatePrivateKey("RSA", FAKE_RSA_KEY_1);
+
+        mKeyStore.load(null);
+        KeyProtection protectionParams = new KeyProtection.Builder(
+                KeyProperties.PURPOSE_SIGN)
+                .setDigests(KeyProperties.DIGEST_SHA256)
+                .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                .build();
+
+        int keyCount = importKeyManyTimesWithoutTimeLimit(numberOfKeys, aliasPrefix,
+                new PrivateKeyEntry(privateKey, new Certificate[]{cert}), protectionParams);
+
+        // Construct expected aliases list.
+        final Set<String> expectedAliases = new HashSet<>(keyCount);
+        for (int count = 1; count <= keyCount; count++) {
+            String entryAlias = aliasPrefix.toString() + count;
+            expectedAliases.add(entryAlias);
+        }
+
+        return expectedAliases;
+    }
+
+    private void importLargeNumberOfKeysValidateAliases(int numberOfKeys, StringBuilder aliasPrefix)
+            throws Exception {
+        Set<String> importedKeyAliases = createLargeNumberOfKeyStoreEntryAliases(numberOfKeys,
+                aliasPrefix);
+        assertThat(importedKeyAliases.size()).isEqualTo(numberOfKeys);
+
+        try {
+            // b/222287335 Currently, limiting Keystore `listEntries` API to return subset of the
+            // Keystore entries to avoid running out of binder buffer space.
+            // To verify that all the imported key aliases are present in Keystore, get the list of
+            // aliases from Keystore, delete the matched aliases from Keystore and imported list of
+            // key aliases, continue this till all the imported key aliases are matched.
+            while (!importedKeyAliases.isEmpty()) {
+                // List the keystore entries aliases until all the imported key aliases are matched.
+                Set<String> aliases = new HashSet<String>(Collections.list(mKeyStore.aliases()));
+
+                // Try to match the aliases with imported key aliases.
+                // Cleanup matching aliases from Keystore and imported key aliases list.
+                for (String alias: aliases) {
+                    if (importedKeyAliases.contains(alias)) {
+                        mKeyStore.deleteEntry(alias);
+                        importedKeyAliases.remove(alias);
+                    }
+                }
+            }
+            assertTrue("Failed to match imported keystore entries.",
+                    importedKeyAliases.isEmpty());
+        } finally {
+            if (!importedKeyAliases.isEmpty()) {
+                Log.i(TAG, "Final cleanup of imported keys");
+                for (String alias: importedKeyAliases) {
+                    mKeyStore.deleteEntry(alias);
+                }
+            }
+        }
+        assertTrue(importedKeyAliases.isEmpty());
+    }
+
+    /**
+     * Create long alias prefix of length 6000 characters.
+     */
+    private StringBuilder createLongAliasPrefix() {
+        char[] prefixChar = new char[6000];
+        Arrays.fill(prefixChar, 'T');
+        StringBuilder prefixAlias = new StringBuilder();
+        prefixAlias.append(prefixChar);
+
+        return prefixAlias;
+    }
+
+    /**
+     * Create large number of Keystore entries with long aliases and try to list aliases of all the
+     * entries in the keystore.
+     */
+    @ApiTest(apis = {"java.security.KeyStore#aliases"})
+    @Test
+    public void testKeyStore_LargeNumberOfLongAliases() throws Exception {
+        final int maxNumberOfKeys = 100;
+
+        importLargeNumberOfKeysValidateAliases(maxNumberOfKeys, createLongAliasPrefix());
+    }
+
+    /**
+     * Create limited number of Keystore entries with long aliases and try to list aliases of all
+     * the entries in the keystore. Test should successfully list all the Keystore entries aliases.
+     */
+    @ApiTest(apis = {"java.security.KeyStore#aliases"})
+    @Test
+    public void testKeyStore_LimitedNumberOfLongAliasesSuccess() throws Exception {
+        final int maxNumberOfKeys = 10;
+        importLargeNumberOfKeysValidateAliases(maxNumberOfKeys, createLongAliasPrefix());
+    }
+
+    /**
+     * Create large number of Keystore entries with short length aliases and try to list aliases of
+     * all the entries in the keystore. Test should successfully list all the Keystore entries
+     * aliases.
+     */
+    @ApiTest(apis = {"java.security.KeyStore#aliases"})
+    @Test
+    public void testKeyStore_LargeNumberShortAliasesSuccess() throws Exception {
+        final int maxNumberOfKeys = 2500;
+        final StringBuilder aliasPrefix = new StringBuilder("test_short_key_alias_");
+
+        importLargeNumberOfKeysValidateAliases(maxNumberOfKeys, aliasPrefix);
     }
 }

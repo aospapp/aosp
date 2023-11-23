@@ -22,8 +22,8 @@ import android.content.Intent
 import android.net.INetworkMonitorCallbacks
 import android.net.Network
 import android.net.metrics.IpConnectivityLog
-import android.net.util.SharedLog
 import android.os.IBinder
+import com.android.net.module.util.SharedLog
 import com.android.networkstack.netlink.TcpSocketTracker
 import com.android.server.NetworkStackService
 import com.android.server.NetworkStackService.NetworkMonitorConnector

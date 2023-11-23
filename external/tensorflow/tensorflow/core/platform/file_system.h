@@ -77,7 +77,7 @@ class FileSystem {
       std::unique_ptr<RandomAccessFile>* result) {
     // We duplicate these methods due to Google internal coding style prevents
     // virtual functions with default arguments. See PR #41615.
-    return Status::OK();
+    return OkStatus();
   }
 
   /// \brief Creates an object that writes to a new file with the specified
@@ -100,7 +100,7 @@ class FileSystem {
   virtual tensorflow::Status NewWritableFile(
       const std::string& fname, TransactionToken* token,
       std::unique_ptr<WritableFile>* result) {
-    return Status::OK();
+    return OkStatus();
   }
 
   /// \brief Creates an object that either appends to an existing file, or
@@ -122,7 +122,7 @@ class FileSystem {
   virtual tensorflow::Status NewAppendableFile(
       const std::string& fname, TransactionToken* token,
       std::unique_ptr<WritableFile>* result) {
-    return Status::OK();
+    return OkStatus();
   }
 
   /// \brief Creates a readonly region of memory with the file context.
@@ -143,7 +143,7 @@ class FileSystem {
   virtual tensorflow::Status NewReadOnlyMemoryRegionFromFile(
       const std::string& fname, TransactionToken* token,
       std::unique_ptr<ReadOnlyMemoryRegion>* result) {
-    return Status::OK();
+    return OkStatus();
   }
 
   /// Returns OK if the named path exists and NOT_FOUND otherwise.
@@ -153,7 +153,7 @@ class FileSystem {
 
   virtual tensorflow::Status FileExists(const std::string& fname,
                                         TransactionToken* token) {
-    return Status::OK();
+    return OkStatus();
   }
 
   /// Returns true if all the listed files exist, false otherwise.
@@ -178,7 +178,7 @@ class FileSystem {
   virtual tensorflow::Status GetChildren(const std::string& dir,
                                          TransactionToken* token,
                                          std::vector<string>* result) {
-    return Status::OK();
+    return OkStatus();
   }
 
   /// \brief Given a pattern, stores in *results the set of paths that matches
@@ -211,7 +211,7 @@ class FileSystem {
   virtual tensorflow::Status GetMatchingPaths(const std::string& pattern,
                                               TransactionToken* token,
                                               std::vector<string>* results) {
-    return Status::OK();
+    return OkStatus();
   }
 
   /// \brief Checks if the given filename matches the pattern.
@@ -230,7 +230,7 @@ class FileSystem {
   virtual tensorflow::Status Stat(const std::string& fname,
                                   TransactionToken* token,
                                   FileStatistics* stat) {
-    return Status::OK();
+    return OkStatus();
   }
 
   /// \brief Deletes the named file.
@@ -240,7 +240,7 @@ class FileSystem {
 
   virtual tensorflow::Status DeleteFile(const std::string& fname,
                                         TransactionToken* token) {
-    return Status::OK();
+    return OkStatus();
   }
 
   /// \brief Creates the specified directory.
@@ -254,7 +254,7 @@ class FileSystem {
 
   virtual tensorflow::Status CreateDir(const std::string& dirname,
                                        TransactionToken* token) {
-    return Status::OK();
+    return OkStatus();
   }
 
   /// \brief Creates the specified directory and all the necessary
@@ -277,7 +277,7 @@ class FileSystem {
 
   virtual tensorflow::Status DeleteDir(const std::string& dirname,
                                        TransactionToken* token) {
-    return Status::OK();
+    return OkStatus();
   }
 
   /// \brief Deletes the specified directory and all subdirectories and files
@@ -305,15 +305,15 @@ class FileSystem {
   ///  * UNIMPLEMENTED - Some underlying functions (like Delete) are not
   ///                    implemented
   virtual tensorflow::Status DeleteRecursively(const std::string& dirname,
-                                               int64* undeleted_files,
-                                               int64* undeleted_dirs) {
+                                               int64_t* undeleted_files,
+                                               int64_t* undeleted_dirs) {
     return DeleteRecursively(dirname, nullptr, undeleted_files, undeleted_dirs);
   }
 
   virtual tensorflow::Status DeleteRecursively(const std::string& dirname,
                                                TransactionToken* token,
-                                               int64* undeleted_files,
-                                               int64* undeleted_dirs);
+                                               int64_t* undeleted_files,
+                                               int64_t* undeleted_dirs);
 
   /// \brief Stores the size of `fname` in `*file_size`.
   virtual tensorflow::Status GetFileSize(const std::string& fname,
@@ -324,7 +324,7 @@ class FileSystem {
   virtual tensorflow::Status GetFileSize(const std::string& fname,
                                          TransactionToken* token,
                                          uint64* file_size) {
-    return Status::OK();
+    return OkStatus();
   }
 
   /// \brief Overwrites the target if it exists.
@@ -336,7 +336,7 @@ class FileSystem {
   virtual tensorflow::Status RenameFile(const std::string& src,
                                         const std::string& target,
                                         TransactionToken* token) {
-    return Status::OK();
+    return OkStatus();
   }
 
   /// \brief Copy the src to target.
@@ -484,18 +484,18 @@ class FileSystem {
   /// \brief Starts a new transaction
   virtual tensorflow::Status StartTransaction(TransactionToken** token) {
     *token = nullptr;
-    return Status::OK();
+    return OkStatus();
   }
 
   /// \brief Adds `path` to transaction in `token`
   virtual tensorflow::Status AddToTransaction(const std::string& path,
                                               TransactionToken* token) {
-    return Status::OK();
+    return OkStatus();
   }
 
   /// \brief Ends transaction
   virtual tensorflow::Status EndTransaction(TransactionToken* token) {
-    return Status::OK();
+    return OkStatus();
   }
 
   /// \brief Get token for `path` or start a new transaction and add `path` to
@@ -503,18 +503,23 @@ class FileSystem {
   virtual tensorflow::Status GetTokenOrStartTransaction(
       const std::string& path, TransactionToken** token) {
     *token = nullptr;
-    return Status::OK();
+    return OkStatus();
   }
 
   /// \brief Return transaction for `path` or nullptr in `token`
   virtual tensorflow::Status GetTransactionForPath(const std::string& path,
                                                    TransactionToken** token) {
     *token = nullptr;
-    return Status::OK();
+    return OkStatus();
   }
 
   /// \brief Decode transaction to human readable string.
   virtual std::string DecodeTransaction(const TransactionToken* token);
+
+  /// \brief Set File System Configuration Options
+  virtual Status SetOption(const string& key, const string& value) {
+    return errors::Unimplemented("SetOption");
+  }
 
   /// \brief Set File System Configuration Option
   virtual tensorflow::Status SetOption(const std::string& name,
@@ -524,7 +529,7 @@ class FileSystem {
 
   /// \brief Set File System Configuration Option
   virtual tensorflow::Status SetOption(const std::string& name,
-                                       const std::vector<int64>& values) {
+                                       const std::vector<int64_t>& values) {
     return errors::Unimplemented("SetOption");
   }
 
@@ -653,8 +658,8 @@ class WrappedFileSystem : public FileSystem {
 
   tensorflow::Status DeleteRecursively(const std::string& dirname,
                                        TransactionToken* token,
-                                       int64* undeleted_files,
-                                       int64* undeleted_dirs) override {
+                                       int64_t* undeleted_files,
+                                       int64_t* undeleted_dirs) override {
     return fs_->DeleteRecursively(dirname, (token ? token : token_),
                                   undeleted_files, undeleted_dirs);
   }
@@ -801,7 +806,7 @@ class WritableFile {
     for (StringPiece chunk : cord.Chunks()) {
       TF_RETURN_IF_ERROR(Append(chunk));
     }
-    return tensorflow::Status::OK();
+    return OkStatus();
   }
 #endif
 
@@ -847,7 +852,7 @@ class WritableFile {
   ///
   /// This is an optional operation, subclasses may choose to return
   /// errors::Unimplemented.
-  virtual tensorflow::Status Tell(int64* position) {
+  virtual tensorflow::Status Tell(int64_t* position) {
     *position = -1;
     return errors::Unimplemented("This filesystem does not support Tell()");
   }
@@ -893,7 +898,7 @@ class ReadOnlyMemoryRegion {
 /// the only `FileSystem` class and marked as `final`). But this will happen at
 /// a later time, after we convert all filesystems to the new API.
 ///
-/// TODO(mihaimaruseac): After all filesystems are converted, remove old
+/// TODO(b/139060984): After all filesystems are converted, remove old
 /// registration and update comment.
 class FileSystemRegistry {
  public:

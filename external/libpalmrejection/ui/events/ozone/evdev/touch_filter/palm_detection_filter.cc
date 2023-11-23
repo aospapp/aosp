@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 #include "ui/events/ozone/evdev/touch_filter/palm_detection_filter.h"
-
+#include "base/logging.h"
 namespace ui {
 
 PalmDetectionFilter::PalmDetectionFilter(

@@ -62,32 +62,32 @@ public class KeyFactoryTestRSACrt extends
 
   @Test
   public void testExtraBufferSpace_Private() throws Exception {
-      PrivateKey privateKey = DefaultKeys.getPrivateKey("RSA");
-      assertTrue(privateKey instanceof RSAPrivateCrtKey);
+    PrivateKey privateKey = DefaultKeys.getPrivateKey("RSA");
+    assertTrue(privateKey instanceof RSAPrivateCrtKey);
 
-      byte[] encoded = privateKey.getEncoded();
-      byte[] longBuffer = new byte[encoded.length + 147];
-      System.arraycopy(encoded, 0, longBuffer, 0, encoded.length);
-      PrivateKey copy =
-              KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(longBuffer));
-      assertEquals(privateKey, copy);
+    byte[] encoded = privateKey.getEncoded();
+    byte[] longBuffer = new byte[encoded.length + 147];
+    System.arraycopy(encoded, 0, longBuffer, 0, encoded.length);
+    PrivateKey copy =
+            KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(longBuffer));
+    assertEquals(privateKey, copy);
   }
 
   @Test
   public void javaSerialization() throws Exception {
-      PrivateKey privateKey = DefaultKeys.getPrivateKey("RSA");
-      assertTrue(privateKey instanceof RSAPrivateCrtKey);
+    PrivateKey privateKey = DefaultKeys.getPrivateKey("RSA");
+    assertTrue(privateKey instanceof RSAPrivateCrtKey);
 
-      ByteArrayOutputStream bos = new ByteArrayOutputStream();
-      ObjectOutputStream out = new ObjectOutputStream(bos);
-      out.writeObject(privateKey);
+    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+    ObjectOutputStream out = new ObjectOutputStream(bos);
+    out.writeObject(privateKey);
 
-      ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
-      ObjectInputStream in = new ObjectInputStream(bis);
-      PrivateKey copy = (PrivateKey) in.readObject();
-      assertTrue(copy instanceof RSAPrivateCrtKey);
+    ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
+    ObjectInputStream in = new ObjectInputStream(bis);
+    PrivateKey copy = (PrivateKey) in.readObject();
+    assertTrue(copy instanceof RSAPrivateCrtKey);
 
-      assertEquals(privateKey.getFormat(), copy.getFormat());
-      assertArrayEquals(privateKey.getEncoded(), copy.getEncoded());
+    assertEquals(privateKey.getFormat(), copy.getFormat());
+    assertArrayEquals(privateKey.getEncoded(), copy.getEncoded());
   }
 }

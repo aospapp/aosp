@@ -26,4 +26,5 @@ android_library {
     ],
     manifest: "third_party/sl4a/src/main/AndroidManifest.xml",
     sdk_version: "current",
+    min_sdk_version: "30",
 }

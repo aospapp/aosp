@@ -24,6 +24,8 @@
 #include <openssl/pem.h>
 #include <openssl/rsa.h>
 
+#include <string.h>
+
 namespace adb {
 namespace crypto {
 

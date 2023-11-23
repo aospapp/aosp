@@ -20,6 +20,8 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.test.suitebuilder.annotation.SmallTest;
 
+import com.android.compatibility.common.util.ApiTest;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -29,7 +31,7 @@ import java.util.Collection;
 
 @SmallTest
 @RunWith(Parameterized.class)
-public final class VehicleIgnitionStateTest {
+public final class VehicleIgnitionStateTest extends CarLessApiTestBase {
     private final int mJavaConstantValue;
     private final int mHalConstantValue;
 
@@ -57,6 +59,10 @@ public final class VehicleIgnitionStateTest {
     }
 
     @Test
+    @ApiTest(apis = {"android.car.VehicleIgnitionState#UNDEFINED",
+            "android.car.VehicleIgnitionState#LOCK", "android.car.VehicleIgnitionState#OFF",
+            "android.car.VehicleIgnitionState#ACC", "android.car.VehicleIgnitionState#ON",
+            "android.car.VehicleIgnitionState#START"})
     public void testMatchWithVehicleHal() {
         assertThat(mJavaConstantValue).isEqualTo(mHalConstantValue);
     }

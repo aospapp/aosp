@@ -1,0 +1,30 @@
+// Copyright (C) 2022 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Multi-User / multi-Display IMMS prebuilt jar (allows concurrent IME sessions).
+// Instructions for building this jar from the repo root:
+// 1. Run: `export BUILD_AUTOMOTIVE_IMMS_PREBUILT=true && m mu_imms`
+// 2. Copy and rename the generated jar:
+//    `cp out/target/common/obj/JAVA_LIBRARIES/mu_imms_intermediates/classes.jar \
+//        frameworks/opt/car/services/builtInServices/prebuilts/mu_imms-prebuilt.jar`
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+java_import {
+    name: "mu_imms-prebuilt",
+    jars: ["mu_imms-prebuilt.jar"],
+    sdk_version: "current",
+    min_sdk_version: "33",
+}

@@ -35,6 +35,7 @@ import android.provider.DocumentsContract.Path;
 
 import androidx.fragment.app.FragmentActivity;
 import androidx.test.filters.MediumTest;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.documentsui.DocumentsAccess;
@@ -168,6 +169,9 @@ public class ActionHandlerTest {
     }
 
     @Test
+    // TODO(b/236963677) Test is broken pre-S by ag/16425947. The change introduces usage
+    // of PackageManager, which is mocked by the test and results in NPE.
+    @SdkSuppress(minSdkVersion = 31, codeName = "S")
     public void testInitLocation_LaunchToDocuments() throws Exception {
         if (!mEnv.features.isLaunchToDocumentEnabled()) {
             return;
@@ -234,6 +238,9 @@ public class ActionHandlerTest {
     }
 
     @Test
+    // TODO(b/236963677) Test is broken pre-S by ag/16425947. The change introduces usage
+    // of PackageManager, which is mocked by the test and results in NPE.
+    @SdkSuppress(minSdkVersion = 31, codeName = "S")
     public void testInitLocation_DefaultToDeviceRoot_ActionOpenTree_RootDoesNotSupportChildren()
             throws Exception {
         mEnv.state.action = State.ACTION_OPEN_TREE;

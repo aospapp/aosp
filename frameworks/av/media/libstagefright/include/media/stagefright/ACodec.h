@@ -17,7 +17,10 @@
 #ifndef A_CODEC_H_
 #define A_CODEC_H_
 
+#include <set>
 #include <stdint.h>
+#include <list>
+#include <vector>
 #include <android/native_window.h>
 #include <media/hardware/MetadataBufferType.h>
 #include <media/MediaCodecInfo.h>
@@ -265,11 +268,12 @@ private:
     sp<AMessage> mBaseOutputFormat;
 
     FrameRenderTracker mRenderTracker; // render information for buffers rendered by ACodec
-    Vector<BufferInfo> mBuffers[2];
+    std::vector<BufferInfo> mBuffers[2];
     bool mPortEOS[2];
     status_t mInputEOSResult;
+    std::set<int64_t> mDecodeOnlyTimesUs;
 
-    List<sp<AMessage> > mDeferredQueue;
+    std::list<sp<AMessage>> mDeferredQueue;
 
     sp<AMessage> mLastOutputFormat;
     bool mIsVideo;

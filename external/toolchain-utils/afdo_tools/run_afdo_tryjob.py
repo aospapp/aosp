@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright 2019 The Chromium OS Authors. All rights reserved.
+# Copyright 2019 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -49,7 +49,6 @@ If you provide neither --use_afdo_generation_stage nor
 since it's safer.
 """
 
-from __future__ import print_function
 
 import argparse
 import collections
@@ -60,112 +59,124 @@ import time
 
 
 def main():
-  parser = argparse.ArgumentParser(
-      description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-  parser.add_argument(
-      '--force_no_patches',
-      action='store_true',
-      help='Run even if no patches are provided')
-  parser.add_argument(
-      '--tag_profiles_with_current_time',
-      action='store_true',
-      help='Perf profile names will have the current time added to them.')
-  parser.add_argument(
-      '--use_afdo_generation_stage',
-      action='store_true',
-      help='Perf profiles will be automatically converted to AFDO profiles.')
-  parser.add_argument(
-      '-g',
-      '--patch',
-      action='append',
-      default=[],
-      help='A patch to add to the AFDO run')
-  parser.add_argument(
-      '-n',
-      '--dry_run',
-      action='store_true',
-      help='Just print the command that would be run')
-  args = parser.parse_args()
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--force_no_patches",
+        action="store_true",
+        help="Run even if no patches are provided",
+    )
+    parser.add_argument(
+        "--tag_profiles_with_current_time",
+        action="store_true",
+        help="Perf profile names will have the current time added to them.",
+    )
+    parser.add_argument(
+        "--use_afdo_generation_stage",
+        action="store_true",
+        help="Perf profiles will be automatically converted to AFDO profiles.",
+    )
+    parser.add_argument(
+        "-g",
+        "--patch",
+        action="append",
+        default=[],
+        help="A patch to add to the AFDO run",
+    )
+    parser.add_argument(
+        "-n",
+        "--dry_run",
+        action="store_true",
+        help="Just print the command that would be run",
+    )
+    args = parser.parse_args()
 
-  dry_run = args.dry_run
-  force_no_patches = args.force_no_patches
-  tag_profiles_with_current_time = args.tag_profiles_with_current_time
-  use_afdo_generation_stage = args.use_afdo_generation_stage
-  user_patches = args.patch
+    dry_run = args.dry_run
+    force_no_patches = args.force_no_patches
+    tag_profiles_with_current_time = args.tag_profiles_with_current_time
+    use_afdo_generation_stage = args.use_afdo_generation_stage
+    user_patches = args.patch
 
-  if tag_profiles_with_current_time and use_afdo_generation_stage:
-    raise ValueError("You can't tag profiles with the time + have "
-                     'afdo-generate')
+    if tag_profiles_with_current_time and use_afdo_generation_stage:
+        raise ValueError(
+            "You can't tag profiles with the time + have " "afdo-generate"
+        )
 
-  if not tag_profiles_with_current_time and not use_afdo_generation_stage:
-    print('Neither current_time nor afdo_generate asked for. Assuming you '
-          'prefer current time tagging.')
-    print('You have 5 seconds to cancel and try again.')
-    print()
+    if not tag_profiles_with_current_time and not use_afdo_generation_stage:
+        print(
+            "Neither current_time nor afdo_generate asked for. Assuming you "
+            "prefer current time tagging."
+        )
+        print("You have 5 seconds to cancel and try again.")
+        print()
+        if not dry_run:
+            time.sleep(5)
+        tag_profiles_with_current_time = True
+
+    patches = [
+        # Send profiles to localmirror instead of chromeos-prebuilt. This should
+        # always be done, since sending profiles into production is bad. :)
+        # https://chromium-review.googlesource.com/c/chromiumos/third_party/autotest/+/1436158
+        1436158,
+        # Force profile generation. Otherwise, we'll decide to not spawn off the
+        # perf hwtests.
+        # https://chromium-review.googlesource.com/c/chromiumos/chromite/+/1313291
+        1313291,
+    ]
+
+    if tag_profiles_with_current_time:
+        # Tags the profiles with the current time of day. As detailed in the
+        # docstring, this is desirable unless you're sure that this is the only
+        # experimental profile that will be generated today.
+        # https://chromium-review.googlesource.com/c/chromiumos/third_party/autotest/+/1436157
+        patches.append(1436157)
+
+    if use_afdo_generation_stage:
+        # Make the profile generation stage look in localmirror, instead of having
+        # it look in chromeos-prebuilt. Without this, we'll never upload
+        # chrome.debug or try to generate an AFDO profile.
+        # https://chromium-review.googlesource.com/c/chromiumos/chromite/+/1436583
+        patches.append(1436583)
+
+    if not user_patches and not force_no_patches:
+        raise ValueError(
+            "No patches given; pass --force_no_patches to force a " "tryjob"
+        )
+
+    for patch in user_patches:
+        # We accept two formats. Either a URL that ends with a number, or a number.
+        if patch.startswith("http"):
+            patch = patch.split("/")[-1]
+        patches.append(int(patch))
+
+    count = collections.Counter(patches)
+    too_many = [k for k, v in count.items() if v > 1]
+    if too_many:
+        too_many.sort()
+        raise ValueError(
+            "Patch(es) asked for application more than once: %s" % too_many
+        )
+
+    args = [
+        "cros",
+        "tryjob",
+    ]
+
+    for patch in patches:
+        args += ["-g", str(patch)]
+
+    args += [
+        "--nochromesdk",
+        "--hwtest",
+        "chell-chrome-pfq-tryjob",
+    ]
+
+    print(" ".join(pipes.quote(a) for a in args))
     if not dry_run:
-      time.sleep(5)
-    tag_profiles_with_current_time = True
-
-  patches = [
-      # Send profiles to localmirror instead of chromeos-prebuilt. This should
-      # always be done, since sending profiles into production is bad. :)
-      # https://chromium-review.googlesource.com/c/chromiumos/third_party/autotest/+/1436158
-      1436158,
-      # Force profile generation. Otherwise, we'll decide to not spawn off the
-      # perf hwtests.
-      # https://chromium-review.googlesource.com/c/chromiumos/chromite/+/1313291
-      1313291,
-  ]
-
-  if tag_profiles_with_current_time:
-    # Tags the profiles with the current time of day. As detailed in the
-    # docstring, this is desirable unless you're sure that this is the only
-    # experimental profile that will be generated today.
-    # https://chromium-review.googlesource.com/c/chromiumos/third_party/autotest/+/1436157
-    patches.append(1436157)
-
-  if use_afdo_generation_stage:
-    # Make the profile generation stage look in localmirror, instead of having
-    # it look in chromeos-prebuilt. Without this, we'll never upload
-    # chrome.debug or try to generate an AFDO profile.
-    # https://chromium-review.googlesource.com/c/chromiumos/chromite/+/1436583
-    patches.append(1436583)
-
-  if not user_patches and not force_no_patches:
-    raise ValueError('No patches given; pass --force_no_patches to force a '
-                     'tryjob')
-
-  for patch in user_patches:
-    # We accept two formats. Either a URL that ends with a number, or a number.
-    if patch.startswith('http'):
-      patch = patch.split('/')[-1]
-    patches.append(int(patch))
-
-  count = collections.Counter(patches)
-  too_many = [k for k, v in count.items() if v > 1]
-  if too_many:
-    too_many.sort()
-    raise ValueError(
-        'Patch(es) asked for application more than once: %s' % too_many)
-
-  args = [
-      'cros',
-      'tryjob',
-  ]
-
-  for patch in patches:
-    args += ['-g', str(patch)]
-
-  args += [
-      '--nochromesdk',
-      '--hwtest',
-      'chell-chrome-pfq-tryjob',
-  ]
-
-  print(' '.join(pipes.quote(a) for a in args))
-  if not dry_run:
-    sys.exit(subprocess.call(args))
+        sys.exit(subprocess.call(args))
 
 
-if __name__ == '__main__':
-  main()
+if __name__ == "__main__":
+    main()

@@ -1,11 +1,13 @@
 AUTHOR = "puthik"
 NAME = "power_ThermalLoad"
 PURPOSE = "Run thermal workload and log temperature."
+
 CRITERIA = "This test is a benchmark."
 TIME = "LONG"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This test records power and temperature related statistics while open WebGL

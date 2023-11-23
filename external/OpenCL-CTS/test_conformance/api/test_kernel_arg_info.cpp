@@ -22,11 +22,8 @@
 
 #define MINIMUM_OPENCL_PIPE_VERSION Version(2, 0)
 
-static constexpr size_t CL_VERSION_LENGTH = 128;
 static constexpr size_t KERNEL_ARGUMENT_LENGTH = 128;
 static constexpr char KERNEL_ARGUMENT_NAME[] = "argument";
-static constexpr size_t KERNEL_ARGUMENT_NAME_LENGTH =
-    sizeof(KERNEL_ARGUMENT_NAME) + 1;
 static constexpr int SINGLE_KERNEL_ARG_NUMBER = 0;
 static constexpr int MAX_NUMBER_OF_KERNEL_ARGS = 128;
 
@@ -167,7 +164,8 @@ static std::string generate_argument(const KernelArgInfo& kernel_arg)
 /* This function generates a kernel source and allows for multiple arguments to
  * be passed in and subsequently queried. */
 static std::string generate_kernel(const std::vector<KernelArgInfo>& all_args,
-                                   const bool supports_3d_image_writes = false)
+                                   const bool supports_3d_image_writes = false,
+                                   const bool kernel_uses_half_type = false)
 {
 
     std::string ret;
@@ -175,10 +173,13 @@ static std::string generate_kernel(const std::vector<KernelArgInfo>& all_args,
     {
         ret += "#pragma OPENCL EXTENSION cl_khr_3d_image_writes: enable\n";
     }
+    if (kernel_uses_half_type)
+    {
+        ret += "#pragma OPENCL EXTENSION cl_khr_fp16 : enable\n";
+    }
     ret += "kernel void get_kernel_arg_info(\n";
     for (int i = 0; i < all_args.size(); ++i)
     {
-        const KernelArgInfo& arg = all_args[i];
         ret += generate_argument(all_args[i]);
         if (i == all_args.size() - 1)
         {
@@ -537,6 +538,7 @@ size_t get_param_size(const std::string& arg_type, cl_device_id deviceID,
         cl_int err = clGetDeviceInfo(deviceID, CL_DEVICE_ADDRESS_BITS,
                                      sizeof(device_address_bits),
                                      &device_address_bits, NULL);
+        test_error_ret(err, "clGetDeviceInfo", 0);
         return (device_address_bits / 8);
     }
 
@@ -673,8 +675,8 @@ static int run_scalar_vector_tests(cl_context context, cl_device_id deviceID)
                     if (param_size + total_param_size >= max_param_size
                         || all_args.size() == MAX_NUMBER_OF_KERNEL_ARGS)
                     {
-                        const std::string kernel_src =
-                            generate_kernel(all_args);
+                        const std::string kernel_src = generate_kernel(
+                            all_args, false, device_supports_half(deviceID));
                         failed_tests += compare_kernel_with_expected(
                             context, deviceID, kernel_src.c_str(),
                             expected_args);
@@ -696,7 +698,8 @@ static int run_scalar_vector_tests(cl_context context, cl_device_id deviceID)
             }
         }
     }
-    const std::string kernel_src = generate_kernel(all_args);
+    const std::string kernel_src =
+        generate_kernel(all_args, false, device_supports_half(deviceID));
     failed_tests += compare_kernel_with_expected(
         context, deviceID, kernel_src.c_str(), expected_args);
     return failed_tests;
@@ -808,8 +811,34 @@ static int run_image_tests(cl_context context, cl_device_id deviceID)
     cl_kernel_arg_address_qualifier address_qualifier =
         CL_KERNEL_ARG_ADDRESS_GLOBAL;
 
+    Version version = get_device_cl_version(deviceID);
+    bool supports_read_write_images = false;
+    if (version >= Version(3, 0))
+    {
+        cl_uint maxReadWriteImageArgs = 0;
+        cl_int error = clGetDeviceInfo(
+            deviceID, CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS,
+            sizeof(maxReadWriteImageArgs), &maxReadWriteImageArgs, NULL);
+        test_error(error,
+                   "Unable to query "
+                   "CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS");
+
+        // read-write images are supported if MAX_READ_WRITE_IMAGE_ARGS is
+        // nonzero
+        supports_read_write_images = maxReadWriteImageArgs != 0;
+    }
+    else if (version >= Version(2, 0))
+    {
+        // read-write images are required for OpenCL 2.x
+        supports_read_write_images = true;
+    }
+
     for (auto access_qualifier : access_qualifiers)
     {
+        if (access_qualifier == CL_KERNEL_ARG_ACCESS_READ_WRITE
+            && !supports_read_write_images)
+            continue;
+
         bool is_write =
             (access_qualifier == CL_KERNEL_ARG_ACCESS_WRITE_ONLY
              || access_qualifier == CL_KERNEL_ARG_ACCESS_READ_WRITE);

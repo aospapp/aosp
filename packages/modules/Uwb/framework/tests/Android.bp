@@ -44,6 +44,7 @@ android_test {
         "guava",
         "mockito-target-minus-junit4",
         "truth-prebuilt",
+        "modules-utils-build",
     ],
 
     libs: [

@@ -16,36 +16,22 @@
 
 package com.android.musicfx;
 
-import com.android.audiofx.OpenSLESConstants;
-
 import android.app.ActionBar;
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.app.Dialog;
-import android.bluetooth.BluetoothClass;
-import android.bluetooth.BluetoothDevice;
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.DialogInterface;
-import android.content.DialogInterface.OnCancelListener;
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.media.AudioAttributes;
+import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
-import android.media.AudioManager.AudioPlaybackCallback;
-import android.media.AudioPlaybackConfiguration;
 import android.media.audiofx.AudioEffect;
 import android.media.audiofx.AudioEffect.Descriptor;
 import android.media.audiofx.Virtualizer;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.View.OnClickListener;
 import android.view.View.OnTouchListener;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -53,9 +39,6 @@ import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ArrayAdapter;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
-import android.widget.LinearLayout;
-import android.widget.ListView;
-import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.Spinner;
@@ -63,14 +46,13 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.audiofx.OpenSLESConstants;
+
 import java.util.Formatter;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 /**
  *
@@ -96,20 +78,20 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
     /**
      * Indicates if Virtualizer effect is supported.
      */
-    private boolean mVirtualizerSupported;
-    private boolean mVirtualizerIsHeadphoneOnly;
+    private boolean mVirtualizerSupported = false;
+    private boolean mVirtualizerIsHeadphoneOnly = false;
     /**
      * Indicates if BassBoost effect is supported.
      */
-    private boolean mBassBoostSupported;
+    private boolean mBassBoostSupported = false;
     /**
      * Indicates if Equalizer effect is supported.
      */
-    private boolean mEqualizerSupported;
+    private boolean mEqualizerSupported = false;
     /**
      * Indicates if Preset Reverb effect is supported.
      */
-    private boolean mPresetReverbSupported;
+    private boolean mPresetReverbSupported = false;
 
     // Equalizer fields
     private final SeekBar[] mEqualizerSeekBar = new SeekBar[EQUALIZER_MAX_BANDS];
@@ -177,19 +159,17 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
     /**
      * Default localized equalizer preset names. Keep the same as EffectBundle::gEqualizerPresets.
      */
-    private static final Map<String, Integer> LOCALIZED_EQUALIZER_PRESET_NAMES
-            = new HashMap<String, Integer>() {{
-            put("Normal", R.string.normal);
-            put("Classical", R.string.classical);
-            put("Dance", R.string.dance);
-            put("Flat", R.string.flat);
-            put("Folk", R.string.folk);
-            put("Heavy Metal", R.string.heavy_metal);
-            put("Hip Hop", R.string.hip_hop);
-            put("Jazz", R.string.jazz);
-            put("Pop", R.string.pop);
-            put("Rock", R.string.rock);
-    }};
+    private static final Map<String, Integer> LOCALIZED_EQUALIZER_PRESET_NAMES = Map.of(
+            "Normal", R.string.normal,
+            "Classical", R.string.classical,
+            "Dance", R.string.dance,
+            "Flat", R.string.flat,
+            "Folk", R.string.folk,
+            "Heavy Metal", R.string.heavy_metal,
+            "Hip Hop", R.string.hip_hop,
+            "Jazz", R.string.jazz,
+            "Pop", R.string.pop,
+            "Rock", R.string.rock);
 
     /**
      * Context field
@@ -201,27 +181,51 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
      */
     private String mCallingPackageName = "empty";
 
-    // Audio Playback monitoring Callback to determine if a headset is used for music playback
-    private final AudioPlaybackCallback mMyAudioPlaybackCallback = new AudioPlaybackCallback() {
-        @Override
-        public void onPlaybackConfigChanged(List<AudioPlaybackConfiguration> configs) {
-            boolean isHeadsetOn = isHeadsetUsedForMedia(configs);
-            if (isHeadsetOn != mIsHeadsetOn) {
-                mIsHeadsetOn = isHeadsetOn;
-                updateUIHeadset();
-            }
-        }
-    };
+    // Listen to AudioDeviceCallback to determine if a headset is connected
+    private final AudioDeviceCallback mMyAudioDeviceCallback =
+            new AudioDeviceCallback() {
 
-    private static boolean isConfigForMedia(AudioPlaybackConfiguration apc) {
-        AudioAttributes attr = apc.getAudioAttributes();
-        if (attr.getUsage() == AudioAttributes.USAGE_MEDIA
-                || attr.getUsage() == AudioAttributes.USAGE_GAME
-                || attr.getUsage() == AudioAttributes.USAGE_UNKNOWN) {
-            return true;
-        }
-        return false;
-    }
+                /**
+                 * Called by the {@link AudioManager} to indicate that one or more audio devices
+                 * have been connected.
+                 *
+                 * @see AudioDeviceCallback.
+                 */
+                @Override
+                public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
+                    // do nothing if mIsHeadsetOn is true and new devices added
+                    if (mIsHeadsetOn) {
+                        return;
+                    }
+                    final boolean isHeadsetOn = isHeadSetDeviceConnected();
+                    if (isHeadsetOn) {
+                        Log.v(TAG, " HeadSet connected");
+                        mIsHeadsetOn = true;
+                        updateUIHeadset();
+                    }
+                }
+
+                /**
+                 * Called by the {@link AudioManager} to indicate that one or more audio devices
+                 * have been disconnected.
+                 *
+                 * @param removedDevices An array of {@link AudioDeviceInfo} objects corresponding
+                 *     to any newly removed audio devices.
+                 */
+                @Override
+                public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
+                    // do nothing if mIsHeadsetOn is false and some devices removed
+                    if (!mIsHeadsetOn) {
+                        return;
+                    }
+                    final boolean isHeadsetOn = isHeadSetDeviceConnected();
+                    if (!isHeadsetOn) {
+                        Log.v(TAG, " HeadSet disconnected");
+                        mIsHeadsetOn = false;
+                        updateUIHeadset();
+                    }
+                }
+            };
 
     public static final Set<Integer> HEADSET_DEVICE_TYPES = new HashSet<>();
     static {
@@ -234,23 +238,26 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
         HEADSET_DEVICE_TYPES.add(AudioDeviceInfo.TYPE_BLE_HEADSET);
     }
 
-    private static boolean isConfigForHeadset(AudioPlaybackConfiguration apc) {
-        AudioDeviceInfo device = apc.getAudioDeviceInfo();
-        if (device == null) {
-            return false;
-        }
-        return HEADSET_DEVICE_TYPES.contains(device.getType());
-    }
-
-    private static boolean isHeadsetUsedForMedia(List<AudioPlaybackConfiguration> configs) {
-        for (AudioPlaybackConfiguration config : configs) {
-            if (config.isActive() && isConfigForMedia(config) && isConfigForHeadset(config)) {
+    private boolean isHeadSetDeviceConnected() {
+        final AudioManager audioManager = getSystemService(AudioManager.class);
+        final AudioDeviceInfo[] deviceInfos =
+                audioManager.getDevicesStatic(AudioManager.GET_DEVICES_OUTPUTS);
+        for (AudioDeviceInfo deviceInfo : deviceInfos) {
+            if (deviceInfo == null) {
+                continue;
+            }
+            final int type = deviceInfo.getType();
+            if (HEADSET_DEVICE_TYPES.contains(type)) {
+                Log.v(TAG, " at least a HeadSet device type " + type + " connected");
                 return true;
             }
         }
+
+        Log.v(TAG, " no HeadSet device type connected");
         return false;
     }
-        /*
+
+    /*
      * Declares and initializes all objects and widgets in the layouts and the CheckBox and SeekBar
      * onchange methods on creation.
      *
@@ -418,6 +425,8 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
                                 ControlPanelEffect.Key.virt_enabled, isChecked);
                     }
                 });
+            } else {
+                findViewById(R.id.vILayout).setVisibility(View.GONE);
             }
 
             // Initialize the Bass Boost elements.
@@ -468,9 +477,10 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
                             ControlPanelEffect.setParameterBoolean(mContext, mCallingPackageName,
                                     ControlPanelEffect.Key.bb_enabled, false);
                         }
-
                     }
                 });
+            } else {
+                findViewById(R.id.bBLayout).setVisibility(View.GONE);
             }
 
             // Initialize the Equalizer elements.
@@ -483,6 +493,8 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
                 mEQPresetPrevious = mEQPreset;
                 equalizerSpinnerInit((Spinner)findViewById(R.id.eqSpinner));
                 equalizerBandsInit(findViewById(R.id.eqcontainer));
+            } else {
+                findViewById(R.id.eqSpinner).setVisibility(View.GONE);
             }
 
             // Initialize the Preset Reverb elements.
@@ -492,6 +504,8 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
                         ControlPanelEffect.Key.pr_current_preset);
                 mPRPresetPrevious = mPRPreset;
                 reverbSpinnerInit((Spinner)findViewById(R.id.prSpinner));
+            } else {
+                findViewById(R.id.prSpinner).setVisibility(View.GONE);
             }
 
             ActionBar ab = getActionBar();
@@ -520,10 +534,10 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
         super.onResume();
         if ((mVirtualizerSupported) || (mBassBoostSupported) || (mEqualizerSupported)
                 || (mPresetReverbSupported)) {
-            // Monitor active playback configurations used for media and playing on a headset.
-            final AudioManager audioManager = (AudioManager) getSystemService(AudioManager.class);
-            audioManager.registerAudioPlaybackCallback(mMyAudioPlaybackCallback, null);
-            mIsHeadsetOn = isHeadsetUsedForMedia(audioManager.getActivePlaybackConfigurations());
+            // Monitor AudioDeviceCallback for device change
+            final AudioManager audioManager = getSystemService(AudioManager.class);
+            audioManager.registerAudioDeviceCallback(mMyAudioDeviceCallback, null);
+            mIsHeadsetOn = isHeadSetDeviceConnected();
             Log.v(TAG, "onResume: mIsHeadsetOn : " + mIsHeadsetOn);
             // Update UI
             updateUI();
@@ -539,12 +553,14 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
     protected void onPause() {
         super.onPause();
 
-        // Stop monitoring active playback configurations. (These affect the visible UI,
-        // so we only care about them while we're in the foreground.)
-        if ((mVirtualizerSupported) || (mBassBoostSupported) || (mEqualizerSupported)
+        // Stop monitoring AudioDeviceCallback, (these affect the visible UI, so we only care about
+        // them while we're in the foreground).
+        if ((mVirtualizerSupported)
+                || (mBassBoostSupported)
+                || (mEqualizerSupported)
                 || (mPresetReverbSupported)) {
-            final AudioManager audioManager = (AudioManager) getSystemService(AudioManager.class);
-            audioManager.unregisterAudioPlaybackCallback(mMyAudioPlaybackCallback);
+            final AudioManager audioManager = getSystemService(AudioManager.class);
+            audioManager.unregisterAudioDeviceCallback(mMyAudioDeviceCallback);
         }
     }
 
@@ -661,14 +677,28 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
      */
     private void updateUIHeadset() {
         if (mToggleSwitch.isChecked()) {
-            ((TextView) findViewById(R.id.vIStrengthText)).setEnabled(
-                    mIsHeadsetOn || !mVirtualizerIsHeadphoneOnly);
-            ((SeekBar) findViewById(R.id.vIStrengthSeekBar)).setEnabled(
-                    mIsHeadsetOn || !mVirtualizerIsHeadphoneOnly);
-            findViewById(R.id.vILayout).setEnabled(!mIsHeadsetOn || !mVirtualizerIsHeadphoneOnly);
-            ((TextView) findViewById(R.id.bBStrengthText)).setEnabled(mIsHeadsetOn);
-            ((SeekBar) findViewById(R.id.bBStrengthSeekBar)).setEnabled(mIsHeadsetOn);
-            findViewById(R.id.bBLayout).setEnabled(!mIsHeadsetOn);
+            if (mVirtualizerSupported) {
+                // virtualizer is on if headset is on or transaural virtualizer supported
+                final boolean isVirtualizerOn = mIsHeadsetOn || !mVirtualizerIsHeadphoneOnly;
+                ControlPanelEffect.setParameterBoolean(
+                        mContext,
+                        mCallingPackageName,
+                        ControlPanelEffect.Key.virt_enabled,
+                        isVirtualizerOn);
+                ((TextView) findViewById(R.id.vIStrengthText)).setEnabled(isVirtualizerOn);
+                ((SeekBar) findViewById(R.id.vIStrengthSeekBar)).setEnabled(isVirtualizerOn);
+                findViewById(R.id.vILayout).setEnabled(!isVirtualizerOn);
+            }
+            if (mBassBoostSupported) {
+                ControlPanelEffect.setParameterBoolean(
+                        mContext,
+                        mCallingPackageName,
+                        ControlPanelEffect.Key.bb_enabled,
+                        mIsHeadsetOn);
+                ((TextView) findViewById(R.id.bBStrengthText)).setEnabled(mIsHeadsetOn);
+                ((SeekBar) findViewById(R.id.bBStrengthSeekBar)).setEnabled(mIsHeadsetOn);
+                findViewById(R.id.bBLayout).setEnabled(!mIsHeadsetOn);
+            }
         }
     }
 

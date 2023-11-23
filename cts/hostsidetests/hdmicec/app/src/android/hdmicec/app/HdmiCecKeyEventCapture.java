@@ -19,8 +19,8 @@ package android.hdmicec.app;
 import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.KeyEvent;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TableRow;
@@ -81,4 +81,20 @@ public class HdmiCecKeyEventCapture extends Activity {
         return true;
     }
 
+    /*
+    Override onUserLeaveHint() to simulate KEYCODE_HOME pressing for now.
+    If the activity will be used to test other complicated scenarios
+    which will let the activity go into the background,
+    the onUserLeaveHint() might be called without KEYCODE_HOME pressing.
+    */
+    @Override
+    protected void onUserLeaveHint() {
+        text.setText((longPressed ? "Long press " : "Short press ")
+                + "KEYCODE_HOME");
+        Log.d(TAG, "onUserLeaveHint: KEYCODE_HOME Press");
+        Log.i(TAG, (longPressed ? "Long press " : "Short press ") + "KEYCODE_HOME");
+
+        longPressed = false;
+        super.onUserLeaveHint();
+    }
 }

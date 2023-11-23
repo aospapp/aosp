@@ -31,12 +31,12 @@ java_library_host {
 
     manifest: "manifest.txt",
     static_libs: [
-        "asm-6.0",
-        "asm-commons-6.0",
-        "asm-tree-6.0",
-        "error_prone_annotations-2.0.18",
-        "guava-21.0",
-        "jsr305-3.0.1",
+        "error_prone_annotations",
+        "guava",
+        "jsr305",
+        "ow2-asm",
+        "ow2-asm-commons",
+        "ow2-asm-tree",
     ],
 
     plugins: ["auto_value_plugin"],

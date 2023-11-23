@@ -205,62 +205,54 @@ extern uint8_t appl_trace_level;
 void bta_set_forward_hw_failures(bool value);
 void BTA_sys_signal_hw_error();
 
-extern void bta_sys_init(void);
-extern void bta_sys_register(uint8_t id, const tBTA_SYS_REG* p_reg);
-extern void bta_sys_deregister(uint8_t id);
-extern bool bta_sys_is_register(uint8_t id);
-extern void bta_sys_sendmsg(void* p_msg);
-extern void bta_sys_sendmsg_delayed(void* p_msg, const base::TimeDelta& delay);
-extern void bta_sys_start_timer(alarm_t* alarm, uint64_t interval_ms,
-                                uint16_t event, uint16_t layer_specific);
-extern void bta_sys_disable();
+void bta_sys_init(void);
+void bta_sys_register(uint8_t id, const tBTA_SYS_REG* p_reg);
+void bta_sys_deregister(uint8_t id);
+bool bta_sys_is_register(uint8_t id);
+void bta_sys_sendmsg(void* p_msg);
+void bta_sys_sendmsg_delayed(void* p_msg, const base::TimeDelta& delay);
+void bta_sys_start_timer(alarm_t* alarm, uint64_t interval_ms, uint16_t event,
+                         uint16_t layer_specific);
+void bta_sys_disable();
 
-extern void bta_sys_rm_register(tBTA_SYS_CONN_CBACK* p_cback);
-extern void bta_sys_pm_register(tBTA_SYS_CONN_CBACK* p_cback);
+void bta_sys_rm_register(tBTA_SYS_CONN_CBACK* p_cback);
+void bta_sys_pm_register(tBTA_SYS_CONN_CBACK* p_cback);
 
-extern void bta_sys_sco_register(tBTA_SYS_CONN_CBACK* p_cback);
+void bta_sys_sco_register(tBTA_SYS_CONN_CBACK* p_cback);
 
-extern void bta_sys_conn_open(uint8_t id, uint8_t app_id,
-                              const RawAddress& peer_addr);
-extern void bta_sys_conn_close(uint8_t id, uint8_t app_id,
-                               const RawAddress& peer_addr);
-extern void bta_sys_app_open(uint8_t id, uint8_t app_id,
-                             const RawAddress& peer_addr);
-extern void bta_sys_app_close(uint8_t id, uint8_t app_id,
-                              const RawAddress& peer_addr);
-extern void bta_sys_sco_open(uint8_t id, uint8_t app_id,
-                             const RawAddress& peer_addr);
-extern void bta_sys_sco_close(uint8_t id, uint8_t app_id,
-                              const RawAddress& peer_addr);
-extern void bta_sys_sco_use(uint8_t id, uint8_t app_id,
-                            const RawAddress& peer_addr);
-extern void bta_sys_sco_unuse(uint8_t id, uint8_t app_id,
-                              const RawAddress& peer_addr);
-extern void bta_sys_idle(uint8_t id, uint8_t app_id,
-                         const RawAddress& peer_addr);
-extern void bta_sys_busy(uint8_t id, uint8_t app_id,
-                         const RawAddress& peer_addr);
+void bta_sys_conn_open(uint8_t id, uint8_t app_id, const RawAddress& peer_addr);
+void bta_sys_conn_close(uint8_t id, uint8_t app_id,
+                        const RawAddress& peer_addr);
+void bta_sys_app_open(uint8_t id, uint8_t app_id, const RawAddress& peer_addr);
+void bta_sys_app_close(uint8_t id, uint8_t app_id, const RawAddress& peer_addr);
+void bta_sys_sco_open(uint8_t id, uint8_t app_id, const RawAddress& peer_addr);
+void bta_sys_sco_close(uint8_t id, uint8_t app_id, const RawAddress& peer_addr);
+void bta_sys_sco_use(uint8_t id, uint8_t app_id, const RawAddress& peer_addr);
+void bta_sys_sco_unuse(uint8_t id, uint8_t app_id, const RawAddress& peer_addr);
+void bta_sys_idle(uint8_t id, uint8_t app_id, const RawAddress& peer_addr);
+void bta_sys_busy(uint8_t id, uint8_t app_id, const RawAddress& peer_addr);
 
-extern void bta_sys_ssr_cfg_register(tBTA_SYS_SSR_CFG_CBACK* p_cback);
-extern void bta_sys_chg_ssr_config(uint8_t id, uint8_t app_id,
-                                   uint16_t max_latency, uint16_t min_tout);
+void bta_sys_ssr_cfg_register(tBTA_SYS_SSR_CFG_CBACK* p_cback);
+void bta_sys_chg_ssr_config(uint8_t id, uint8_t app_id, uint16_t max_latency,
+                            uint16_t min_tout);
 
-extern void bta_sys_role_chg_register(tBTA_SYS_CONN_CBACK* p_cback);
-extern void bta_sys_notify_role_chg(const RawAddress& peer_addr,
-                                    tHCI_ROLE new_role, tHCI_STATUS hci_status);
-extern void bta_sys_collision_register(uint8_t bta_id,
-                                       tBTA_SYS_CONN_CBACK* p_cback);
-extern void bta_sys_notify_collision(const RawAddress& peer_addr);
+void bta_sys_role_chg_register(tBTA_SYS_CONN_CBACK* p_cback);
+void bta_sys_notify_role_chg(const RawAddress& peer_addr, tHCI_ROLE new_role,
+                             tHCI_STATUS hci_status);
+void bta_sys_collision_register(uint8_t bta_id, tBTA_SYS_CONN_CBACK* p_cback);
+void bta_sys_notify_collision(const RawAddress& peer_addr);
 
 #if (BTA_EIR_CANNED_UUID_LIST != TRUE)
-extern void bta_sys_eir_register(tBTA_SYS_EIR_CBACK* p_cback);
-extern void bta_sys_add_uuid(uint16_t uuid16);
-extern void bta_sys_remove_uuid(uint16_t uuid16);
-extern void bta_sys_cust_eir_register(tBTA_SYS_CUST_EIR_CBACK* p_cback);
-extern void bta_sys_add_cust_uuid(const tBTA_CUSTOM_UUID& curr);
-extern void bta_sys_remove_cust_uuid(const tBTA_CUSTOM_UUID& curr);
+void bta_sys_eir_register(tBTA_SYS_EIR_CBACK* p_cback);
+void bta_sys_eir_unregister();
+void bta_sys_add_uuid(uint16_t uuid16);
+void bta_sys_remove_uuid(uint16_t uuid16);
+void bta_sys_cust_eir_register(tBTA_SYS_CUST_EIR_CBACK* p_cback);
+void bta_sys_add_cust_uuid(const tBTA_CUSTOM_UUID& curr);
+void bta_sys_remove_cust_uuid(const tBTA_CUSTOM_UUID& curr);
 #else
 #define bta_sys_eir_register(ut)
+#define bta_sys_eir_unregister()
 #define bta_sys_add_uuid(ut)
 #define bta_sys_remove_uuid(ut)
 #define bta_sys_cust_eir_register(ut)

@@ -22,7 +22,7 @@ cc_library {
   ],
 
   shared_libs: [
-    "device.google.atv.audio_proxy-aidl-V1-ndk",
+    "device.google.atv.audio_proxy-aidl-V3-ndk",
     "libbase",
     "libbinder_ndk",
     "libcutils",

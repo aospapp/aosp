@@ -6,14 +6,14 @@
 #include "apigen-codec-common/glUtils.h"
 #include "RenderThreadInfo.h"
 
-#include "base/PathUtils.h"
-#include "base/StdioStream.h"
-#include "base/System.h"
-#include "base/testing/TestSystem.h"
+#include "aemu/base/files/PathUtils.h"
+#include "aemu/base/files/StdioStream.h"
+#include "aemu/base/system/System.h"
 #include "snapshot/TextureLoader.h"
 #include "snapshot/TextureSaver.h"
 
-namespace emugl {
+namespace gfxstream {
+namespace gl {
 
 using android::base::StdioStream;
 using android::snapshot::TextureLoader;
@@ -99,11 +99,11 @@ void SnapshotTestDispatch::loadSnapshot() {
         threadInfo->onLoad(m_stream.get());
         // rebind to context
         fb->bindContext(
-                threadInfo->currContext ? threadInfo->currContext->getHndl()
+                threadInfo->m_glInfo->currContext ? threadInfo->m_glInfo->currContext->getHndl()
                                         : 0,
-                threadInfo->currDrawSurf ? threadInfo->currDrawSurf->getHndl()
+                threadInfo->m_glInfo->currDrawSurf ? threadInfo->m_glInfo->currDrawSurf->getHndl()
                                          : 0,
-                threadInfo->currReadSurf ? threadInfo->currReadSurf->getHndl()
+                threadInfo->m_glInfo->currReadSurf ? threadInfo->m_glInfo->currReadSurf->getHndl()
                                          : 0);
     }
 
@@ -170,4 +170,5 @@ void SnapshotTestDispatch::testDraw(std::function<void()> doDraw) {
                              prePixels.data(), postPixels.data()));
 }
 
-}  // namespace emugl
+}  // namespace gl
+}  // namespace gfxstream

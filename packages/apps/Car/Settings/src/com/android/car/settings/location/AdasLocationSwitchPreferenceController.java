@@ -92,7 +92,7 @@ public class AdasLocationSwitchPreferenceController extends
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         if (hasUserRestrictionByDpm(getContext(), DISALLOW_CONFIG_LOCATION)
                 || hasUserRestrictionByDpm(getContext(), DISALLOW_SHARE_LOCATION)) {
             return AVAILABLE_FOR_VIEWING;

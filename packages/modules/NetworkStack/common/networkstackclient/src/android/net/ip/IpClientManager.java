@@ -22,6 +22,7 @@ import android.net.NattKeepalivePacketData;
 import android.net.ProxyInfo;
 import android.net.TcpKeepalivePacketData;
 import android.net.TcpKeepalivePacketDataParcelable;
+import android.net.apf.ApfCapabilities;
 import android.net.shared.Layer2Information;
 import android.net.shared.ProvisioningConfiguration;
 import android.net.util.KeepalivePacketDataUtil;
@@ -318,6 +319,28 @@ public class IpClientManager {
             return true;
         } catch (RemoteException e) {
             log("Error updating layer2 information", e);
+            return false;
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+    }
+
+    /**
+     * Update the APF capabilities.
+     *
+     * This method will update the APF capabilities used in IpClient and decide if a new APF
+     * program should be installed to filter the incoming packets based on that. So far this
+     * method only allows for the APF capabilities to go from null to non-null, and no other
+     * changes are allowed. One use case is when WiFi interface switches from secondary to
+     * primary in STA+STA mode.
+     */
+    public boolean updateApfCapabilities(ApfCapabilities apfCapabilities) {
+        final long token = Binder.clearCallingIdentity();
+        try {
+            mIpClient.updateApfCapabilities(apfCapabilities);
+            return true;
+        } catch (RemoteException e) {
+            log("Error updating APF capabilities", e);
             return false;
         } finally {
             Binder.restoreCallingIdentity(token);

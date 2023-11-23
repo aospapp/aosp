@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -20,21 +21,35 @@ class bluetooth_Health_ValidAddressTest(
     version = 1
 
     def valid_address_test(self):
-        """Verify that the client Bluetooth adapter has a valid address."""
-        # Reset the adapter to the powered off state.
-        self.test_reset_off_adapter()
+        """Verify that the client Bluetooth adapter has a valid address.
 
-        # Read the address both via BlueZ and via the kernel mgmt_ops interface.
-        # Compare the two, they should not differ.
-        bluez_properties = self.get_adapter_properties()
-        controller_info = self.read_info()
+        The test is different when running Floss vs Bluez.
 
-        if bluez_properties['Address'] != controller_info[0]:
-            raise error.TestFail(
-                    'BlueZ and Kernel adapter address differ: %s != %s' %
-                    (bluez_properties['Address'], controller_info[0]))
+        On Floss, we enable the adapter and check the address is valid.
 
-        address = controller_info[0]
+        On Bluez, we power off the adapter, verify the address, then power on
+        the adapter to make sure nothing changes. We also compare the address
+        seen in userspace vs kernel.
+        """
+        if self.bluetooth_facade.is_floss():
+            self.test_reset_on_adapter()
+        else:
+            # Reset the adapter to the powered off state.
+            self.test_reset_off_adapter()
+
+        address = self.bluetooth_facade.get_address()
+
+        # Bluez needs to compare address against kernel
+        if not self.bluetooth_facade.is_floss():
+            # Read the address both via BlueZ and via the kernel mgmt_ops
+            # interface.  Compare the two, they should not differ.
+            controller_info = self.read_info()
+
+            if address != controller_info[0]:
+                raise error.TestFail(
+                        'BlueZ and Kernel adapter address differ: %s != %s' %
+                        (address, controller_info[0]))
+
         logging.debug('Bluetooth address of adapter is %s', address)
 
         # Health check the address
@@ -52,16 +67,17 @@ class bluetooth_Health_ValidAddressTest(
         if address.endswith(':FF:FF:FF'):
             raise error.TestFail('Device portion of address is all ones')
 
-        # Verify that the address is still the same after powering on the radio.
-        self.test_power_on_adapter()
-        bluez_properties = self.get_adapter_properties()
-        controller_info = self.read_info()
+        if not self.bluetooth_facade.is_floss():
+            # Verify that the address is still the same after powering on the radio.
+            self.test_power_on_adapter()
+            new_address = self.bluetooth_facade.get_address()
+            controller_info = self.read_info()
 
-        if bluez_properties['Address'] != address:
-            raise error.TestFail(
-                    'BlueZ adapter address changed after power on: %s != %s' %
-                    (bluez_properties['Address'], address))
-        if controller_info[0] != address:
-            raise error.TestFail(
-                    'Kernel adapter address changed after power on: %s != %s' %
-                    (controller_info[0], address))
+            if new_address != address:
+                raise error.TestFail(
+                        'BlueZ adapter address changed after power on: %s != %s'
+                        % (new_address, address))
+            if controller_info[0] != address:
+                raise error.TestFail(
+                        'Kernel adapter address changed after power on: %s != %s'
+                        % (controller_info[0], address))

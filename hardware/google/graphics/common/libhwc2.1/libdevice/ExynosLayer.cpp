@@ -39,6 +39,7 @@ ExynosLayer::ExynosLayer(ExynosDisplay* display)
       : ExynosMPPSource(MPP_SOURCE_LAYER, this),
         mDisplay(display),
         mCompositionType(HWC2_COMPOSITION_INVALID),
+        mRequestedCompositionType(HWC2_COMPOSITION_INVALID),
         mExynosCompositionType(HWC2_COMPOSITION_INVALID),
         mValidateCompositionType(HWC2_COMPOSITION_INVALID),
         mValidateExynosCompositionType(HWC2_COMPOSITION_INVALID),
@@ -55,8 +56,11 @@ ExynosLayer::ExynosLayer(ExynosDisplay* display)
         mFrameCount(0),
         mLastFrameCount(0),
         mLastFpsTime(0),
+        mNextLastFrameCount(0),
+        mNextLastFpsTime(0),
         mLastLayerBuffer(NULL),
         mLayerBuffer(NULL),
+        mLastUpdateTime(0),
         mDamageNum(0),
         mBlending(HWC2_BLEND_MODE_NONE),
         mPlaneAlpha(1.0),
@@ -101,27 +105,43 @@ ExynosLayer::~ExynosLayer() {
 }
 
 /**
- * @return uint32_t
+ * @return float
  */
-uint32_t ExynosLayer::checkFps() {
+float ExynosLayer::checkFps(bool increaseCount) {
     uint32_t frameDiff;
-    bool wasLowFps = (mFps < LOW_FPS_THRESHOLD) ? true:false;
-    if (mLastLayerBuffer != mLayerBuffer) {
-        mFrameCount++;
-    }
+    mFrameCount += increaseCount ? 1 : 0;
+
     nsecs_t now = systemTime();
-    nsecs_t diff = now - mLastFpsTime;
+    if (mLastFpsTime == 0) { // Initialize values
+        mLastFpsTime = now;
+        mNextLastFpsTime = now;
+        // TODO(b/268474771): set the initial FPS to the correct peak refresh rate
+        mFps = 120;
+        return mFps;
+    }
+
+    nsecs_t diff = now - mNextLastFpsTime;
+    // Update mLastFrameCount for every 5s, to ensure that FPS calculation is only based on
+    // frames in the past at most 10s.
+    if (diff >= kLayerFpsStableTimeNs) {
+        mLastFrameCount = mNextLastFrameCount;
+        mNextLastFrameCount = mFrameCount;
+
+        mLastFpsTime = mNextLastFpsTime;
+        mNextLastFpsTime = now;
+    }
+
+    bool wasLowFps = (mFps < LOW_FPS_THRESHOLD) ? true : false;
+
     if (mFrameCount >= mLastFrameCount)
         frameDiff = (mFrameCount - mLastFrameCount);
     else
         frameDiff = (mFrameCount + (UINT_MAX - mLastFrameCount));
 
-    if (diff >= ms2ns(250)) {
-        mFps = (uint32_t)(frameDiff * float(s2ns(1))) / diff;
-        mLastFrameCount = mFrameCount;
-        mLastFpsTime = now;
-    }
-    bool nowLowFps = (mFps < LOW_FPS_THRESHOLD) ? true:false;
+    diff = now - mLastFpsTime;
+    mFps = (frameDiff * float(s2ns(1))) / diff;
+
+    bool nowLowFps = (mFps < LOW_FPS_THRESHOLD) ? true : false;
 
     if ((mDisplay->mDisplayControl.handleLowFpsLayers) &&
         (wasLowFps != nowLowFps))
@@ -133,7 +153,7 @@ uint32_t ExynosLayer::checkFps() {
 /**
  * @return float
  */
-uint32_t ExynosLayer::getFps() {
+float ExynosLayer::getFps() {
     return mFps;
 }
 
@@ -397,7 +417,16 @@ int32_t ExynosLayer::setLayerBuffer(buffer_handle_t buffer, int32_t acquireFence
             setGeometryChanged(GEOMETRY_LAYER_FRONT_BUFFER_USAGE_CHANGED);
     }
 
-    mLayerBuffer = buffer;
+    {
+        Mutex::Autolock lock(mDisplay->mDRMutex);
+        mLayerBuffer = buffer;
+        checkFps(mLastLayerBuffer != mLayerBuffer);
+        if (mLayerBuffer != mLastLayerBuffer) {
+            mLastUpdateTime = systemTime(CLOCK_MONOTONIC);
+            if (mRequestedCompositionType != HWC2_COMPOSITION_REFRESH_RATE_INDICATOR)
+                mDisplay->mBufferUpdates++;
+        }
+    }
     mPrevAcquireFence =
             fence_close(mPrevAcquireFence, mDisplay, FENCE_TYPE_SRC_ACQUIRE, FENCE_IP_UNDEFINED);
     mAcquireFence = fence_close(mAcquireFence, mDisplay, FENCE_TYPE_SRC_ACQUIRE, FENCE_IP_UNDEFINED);
@@ -434,9 +463,6 @@ int32_t ExynosLayer::setLayerBuffer(buffer_handle_t buffer, int32_t acquireFence
                "layers bufferHandle: %p, mDataSpace: 0x%8x, acquireFence: %d, afbc: %d, "
                "internal_format: 0x%" PRIx64 "",
                mLayerBuffer, mDataSpace, mAcquireFence, mCompressed, internal_format);
-
-    /* Update fps */
-    checkFps();
 
     return 0;
 }
@@ -492,6 +518,7 @@ int32_t ExynosLayer::setLayerCompositionType(int32_t /*hwc2_composition_t*/ type
     }
 
     mCompositionType = type;
+    mRequestedCompositionType = type;
 
     return HWC2_ERROR_NONE;
 }
@@ -529,6 +556,11 @@ int32_t ExynosLayer::setLayerDataspace(int32_t /*android_dataspace_t*/ dataspace
 
     if (currentDataSpace != mDataSpace) {
         setGeometryChanged(GEOMETRY_LAYER_DATASPACE_CHANGED);
+        // invalidate metadata if dataspace is changed. need metadata update
+        // to be after dataspace update.
+        if (mMetaParcel != nullptr) {
+            mMetaParcel->eType = VIDEO_INFO_TYPE_INVALID;
+        }
     }
     mDataSpace = currentDataSpace;
 
@@ -548,9 +580,10 @@ int32_t ExynosLayer::setLayerDisplayFrame(hwc_rect_t frame) {
 }
 
 int32_t ExynosLayer::setLayerPlaneAlpha(float alpha) {
-
-    if (alpha < 0.0)
-        return HWC2_ERROR_BAD_LAYER;
+    if (alpha < 0.0f || alpha > 1.0f) {
+        ALOGE("%s: invalid alpha %f", __func__, alpha);
+        return HWC2_ERROR_BAD_PARAMETER;
+    }
 
     if ((mPlaneAlpha != alpha) && ((mPlaneAlpha == 0.0) || (alpha == 0.0)))
         setGeometryChanged(GEOMETRY_LAYER_IGNORE_CHANGED);
@@ -688,7 +721,8 @@ int32_t ExynosLayer::setLayerPerFrameMetadataBlobs(uint32_t numElements, const i
                 mMetaParcel->eType =
                     static_cast<ExynosVideoInfoType>(mMetaParcel->eType | VIDEO_INFO_TYPE_HDR_DYNAMIC);
                 ExynosHdrDynamicInfo *info = &(mMetaParcel->sHdrDynamicInfo);
-                Exynos_parsing_user_data_registered_itu_t_t35(info, (void *)metadata_start);
+                Exynos_parsing_user_data_registered_itu_t_t35(info, (void*)metadata_start,
+                                                              sizes[i]);
             } else {
                 ALOGE("Layer has no metaParcel!");
                 return HWC2_ERROR_UNSUPPORTED;
@@ -939,15 +973,16 @@ int32_t ExynosLayer::resetAssignedResource()
     return ret;
 }
 
-bool ExynosLayer::checkDownscaleCap(uint32_t bts_refresh_rate)
-{
+bool ExynosLayer::checkBtsCap(const uint32_t bts_refresh_rate) {
     if (mOtfMPP == nullptr) return true;
 
     exynos_image src_img;
     exynos_image dst_img;
-
     setSrcExynosImage(&src_img);
     setDstExynosImage(&dst_img);
+    if (mOtfMPP->checkSpecificRestriction(bts_refresh_rate, src_img, dst_img)) {
+        return false;
+    }
 
     const bool isPerpendicular = !!(src_img.transform & HAL_TRANSFORM_ROT_90);
     const uint32_t srcWidth = isPerpendicular ? src_img.h : src_img.w;
@@ -1088,7 +1123,8 @@ void ExynosLayer::printLayer()
             mLayerBuffer, fd, fd1, fd2, mAcquireFence, mTransform, mCompressed, mDataSpace, getFormatStr(format, mCompressed? AFBC : 0).string());
     result.appendFormat("\tblend: 0x%4x, planeAlpha: %3.1f, zOrder: %d, color[0x%2x, 0x%2x, 0x%2x, 0x%2x]\n",
             mBlending, mPlaneAlpha, mZOrder, mColor.r, mColor.g, mColor.b, mColor.a);
-    result.appendFormat("\tfps: %2d, priority: %d, windowIndex: %d\n", mFps, mOverlayPriority, mWindowIndex);
+    result.appendFormat("\tfps: %.2f, priority: %d, windowIndex: %d\n", mFps, mOverlayPriority,
+                        mWindowIndex);
     result.appendFormat("\tsourceCrop[%7.1f,%7.1f,%7.1f,%7.1f], dispFrame[%5d,%5d,%5d,%5d]\n",
             mSourceCrop.left, mSourceCrop.top, mSourceCrop.right, mSourceCrop.bottom,
             mDisplayFrame.left, mDisplayFrame.top, mDisplayFrame.right, mDisplayFrame.bottom);
@@ -1130,8 +1166,10 @@ void ExynosLayer::printLayer()
 
 void ExynosLayer::setGeometryChanged(uint64_t changedBit)
 {
+    mLastUpdateTime = systemTime(CLOCK_MONOTONIC);
     mGeometryChanged |= changedBit;
-    mDisplay->setGeometryChanged(changedBit);
+    if (mRequestedCompositionType != HWC2_COMPOSITION_REFRESH_RATE_INDICATOR)
+        mDisplay->setGeometryChanged(changedBit);
 }
 
 int ExynosLayer::allocMetaParcel()

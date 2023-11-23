@@ -32,10 +32,10 @@ filegroup {
 
 filegroup {
     name: "framework-nearby-sources",
+    defaults: ["framework-sources-module-defaults"],
     srcs: [
         ":framework-nearby-java-sources",
     ],
-    visibility: ["//frameworks/base"],
 }
 
 // Build of only framework-nearby (not as part of connectivity) for
@@ -45,11 +45,14 @@ java_library {
     srcs: [":framework-nearby-java-sources"],
     sdk_version: "module_current",
     libs: [
+        "androidx.annotation_annotation",
         "framework-annotations-lib",
         "framework-bluetooth",
     ],
     static_libs: [
         "modules-utils-preconditions",
     ],
-    visibility: ["//packages/modules/Connectivity/nearby/tests:__subpackages__"],
+    visibility: [
+    "//packages/modules/Connectivity/nearby/tests:__subpackages__",
+    "//packages/modules/Connectivity/nearby/halfsheet:__subpackages__"],
 }

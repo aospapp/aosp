@@ -101,7 +101,7 @@ public class ChooseSecurityState implements State {
         @Override
         public void onGuidedActionClicked(GuidedAction action) {
             mUserChoiceInfo.put(UserChoiceInfo.SECURITY, (int) action.getId());
-            if (action.getId() == AccessPoint.SECURITY_NONE) {
+            if (action.getId() == AccessPoint.SECURITY_NONE || action.getId() == AccessPoint.SECURITY_OWE) {
                 mStateMachine.getListener().onComplete(StateMachine.OPTIONS_OR_CONNECT);
             } else {
                 mStateMachine.getListener().onComplete(StateMachine.CONTINUE);

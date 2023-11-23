@@ -16,8 +16,7 @@
 
 package com.android.cts.verifier.bluetooth;
 
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
+import static android.content.Context.RECEIVER_EXPORTED;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -28,6 +27,9 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.Toast;
+
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
 
 public class BleButtonActivity extends PassFailButtons.Activity {
 
@@ -83,7 +85,7 @@ public class BleButtonActivity extends PassFailButtons.Activity {
         super.onResume();
         IntentFilter filter = new IntentFilter();
         filter.addAction(mFilter);
-        registerReceiver(onBroadcast, filter);
+        registerReceiver(onBroadcast, filter, RECEIVER_EXPORTED);
     }
 
     @Override

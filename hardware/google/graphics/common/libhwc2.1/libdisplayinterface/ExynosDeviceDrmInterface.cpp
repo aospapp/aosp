@@ -236,12 +236,19 @@ void ExynosDeviceDrmInterface::ExynosDrmEventHandler::handleEvent(uint64_t times
         display->handleHotplugEvent();
 }
 
-void ExynosDeviceDrmInterface::ExynosDrmEventHandler::handleHistogramEvent(void *bin) {
-    ExynosDisplay *primaryDisplay = mExynosDevice->getDisplay(HWC_DISPLAY_PRIMARY);
-    if (primaryDisplay != NULL) {
-        ExynosDisplayDrmInterface *displayInterface =
-                static_cast<ExynosDisplayDrmInterface *>(primaryDisplay->mDisplayInterface.get());
-        displayInterface->setHistogramData(bin);
+void ExynosDeviceDrmInterface::ExynosDrmEventHandler::handleHistogramEvent(uint32_t crtc_id,
+                                                                           void *bin) {
+    ExynosDisplayDrmInterface *displayInterface;
+    DrmProperty crtc;
+    uint32_t id;
+
+    for (auto display : mExynosDevice->mDisplays) {
+        displayInterface =
+                static_cast<ExynosDisplayDrmInterface *>(display->mDisplayInterface.get());
+        id = displayInterface->getCrtcId();
+        if (id == crtc_id) {
+            displayInterface->setHistogramData(bin);
+        }
     }
 }
 
@@ -255,7 +262,7 @@ void ExynosDeviceDrmInterface::ExynosDrmEventHandler::handleTUIEvent() {
     } else {
         /* Received TUI Exit event */
         if (mExynosDevice->isInTUI()) {
-            mExynosDevice->onRefresh();
+            mExynosDevice->onRefreshDisplays();
             mExynosDevice->exitFromTUI();
             ALOGV("%s:: DRM device out TUI", __func__);
         }
@@ -304,4 +311,13 @@ void ExynosDeviceDrmInterface::ExynosDrmEventHandler::handleIdleEnterEvent(char 
 
         primaryDisplay->handleDisplayIdleEnter(idleTeVrefresh);
     }
+}
+
+int32_t ExynosDeviceDrmInterface::registerSysfsEventHandler(
+        std::shared_ptr<DrmSysfsEventHandler> handler) {
+    return mDrmDevice->event_listener()->RegisterSysfsHandler(std::move(handler));
+}
+
+int32_t ExynosDeviceDrmInterface::unregisterSysfsEventHandler(int sysfsFd) {
+    return mDrmDevice->event_listener()->UnRegisterSysfsHandler(sysfsFd);
 }

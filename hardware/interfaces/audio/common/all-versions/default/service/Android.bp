@@ -41,6 +41,10 @@ cc_binary {
     relative_install_path: "hw",
     vendor: true,
 
+    defaults: [
+        "android_hardware_audio_config_defaults",
+    ],
+
     srcs: ["service.cpp"],
 
     cflags: [
@@ -57,10 +61,6 @@ cc_binary {
         "liblog",
         "libutils",
         "libhardware",
-    ],
-
-    defaults: [
-        "android_hardware_audio_config_defaults",
     ],
 }
 

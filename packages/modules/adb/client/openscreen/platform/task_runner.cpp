@@ -31,7 +31,7 @@ using namespace openscreen;
 namespace mdns {
 
 AdbOspTaskRunner::AdbOspTaskRunner() {
-    check_main_thread();
+    fdevent_check_looper();
     thread_id_ = android::base::GetThreadId();
     task_handler_ = std::thread([this]() { TaskExecutorWorker(); });
 }
@@ -112,7 +112,7 @@ void AdbOspTaskRunner::TaskExecutorWorker() {
             return 0;
         });
 
-        fdevent_run_on_main_thread([&]() { waitable_task(); });
+        fdevent_run_on_looper([&]() { waitable_task(); });
 
         waitable_task.get_future().wait();
     }

@@ -16,12 +16,12 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_MLIR_XLA_MLIR_HLO_TO_HLO_H_
 #define TENSORFLOW_COMPILER_MLIR_XLA_MLIR_HLO_TO_HLO_H_
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"  // from @llvm-project
 #include "mlir/IR/BuiltinOps.h"  // from @llvm-project
 #include "tensorflow/compiler/mlir/tensorflow/utils/error_util.h"
-#include "tensorflow/compiler/tf2xla/xla_helpers.h"
+#include "tensorflow/compiler/mlir/xla/layout_util.h"
 #include "tensorflow/compiler/xla/client/xla_builder.h"
 #include "tensorflow/compiler/xla/service/hlo_module.h"
-#include "tensorflow/core/framework/tensor_shape.h"
 
 namespace mlir {
 
@@ -40,6 +40,12 @@ struct MlirToHloConversionOptions {
   // backend config for the bitcast. This is required for XLA:GPU backend to
   // use elemental IR emitters for fused bitcasts without propagating layouts.
   bool propagate_bitcast_layouts_to_backend_config = false;
+
+  // Legalize names to be compatible with TensorFlow.
+  bool legalize_node_names = true;
+
+  LayoutPreferenceFn layout_preference_fn;
+  ShapeRepresentationFn shape_representation_fn;
 };
 
 // Converts a MLIR module in HLO dialect into a HloModuleProto. If
@@ -49,12 +55,8 @@ struct MlirToHloConversionOptions {
 // are converted to a tuple even when there is only a single return value.
 // Multiple return values are always converted to a tuple and returned as a
 // single value.
-//
-// TODO(timshen): move other options into `options`.
 Status ConvertMlirHloToHlo(mlir::ModuleOp module, ::xla::HloProto* hlo_proto,
                            bool use_tuple_args, bool return_tuple,
-                           const tensorflow::XlaHelpers::ShapeRepresentationFn
-                               shape_representation_fn = nullptr,
                            MlirToHloConversionOptions options = {});
 
 // Transforms a Block into HLO, where the HLO is represented as calls into an

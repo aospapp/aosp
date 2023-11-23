@@ -67,44 +67,56 @@ NLMsgHdr(length=44, type=33, flags=0, seq=0, pid=0)
 >>>
 """
 
+import binascii
 import ctypes
 import string
 import struct
 import re
 
 
-def CalcSize(fmt):
+def _PythonFormat(fmt):
   if "A" in fmt:
     fmt = fmt.replace("A", "s")
-  # Remove the last digital since it will cause error in python3.
-  fmt = (re.split('\d+$', fmt)[0])
-  return struct.calcsize(fmt)
+  return re.split('\d+$', fmt)[0]
+
+def CalcSize(fmt):
+  return struct.calcsize(_PythonFormat(fmt))
 
 def CalcNumElements(fmt):
+  fmt = _PythonFormat(fmt)
   prevlen = len(fmt)
   fmt = fmt.replace("S", "")
   numstructs = prevlen - len(fmt)
-  size = CalcSize(fmt)
+  size = struct.calcsize(fmt)
   elements = struct.unpack(fmt, b"\x00" * size)
   return len(elements) + numstructs
+
+
+class StructMetaclass(type):
+
+  def __len__(cls):
+    return cls._length
+
+  def __init__(cls, unused_name, unused_bases, namespace):
+    # Make the class object have the name that's passed in.
+    type.__init__(cls, namespace["_name"], unused_bases, namespace)
 
 
 def Struct(name, fmt, fieldnames, substructs={}):
   """Function that returns struct classes."""
 
-  class Meta(type):
+  # Hack to make struct classes use the StructMetaclass class on both python2 and
+  # python3. This is needed because in python2 the metaclass is assigned in the
+  # class definition, but in python3 it's passed into the constructor via
+  # keyword argument. Works by making all structs subclass CStructSuperclass,
+  # whose __new__ method uses StructMetaclass as its metaclass.
+  #
+  # A better option would be to use six.with_metaclass, but the existing python2
+  # VM image doesn't have the six module.
+  CStructSuperclass = type.__new__(StructMetaclass, 'unused', (), {})
 
-    def __len__(cls):
-      return cls._length
-
-    def __init__(cls, unused_name, unused_bases, namespace):
-      # Make the class object have the name that's passed in.
-      type.__init__(cls, namespace["_name"], unused_bases, namespace)
-
-  class CStruct(object):
+  class CStruct(CStructSuperclass):
     """Class representing a C-like structure."""
-
-    __metaclass__ = Meta
 
     # Name of the struct.
     _name = name
@@ -129,8 +141,11 @@ def Struct(name, fmt, fieldnames, substructs={}):
         laststructindex += 1
         _format += "%ds" % len(_nested[index])
       elif fmt[i] == "A":
-        # Null-terminated ASCII string.
-        index = CalcNumElements(fmt[:i])
+        # Null-terminated ASCII string. Remove digits before the A, so we don't
+        # call CalcNumElements on an (invalid) format that ends with a digit.
+        start = i
+        while start > 0 and fmt[start - 1].isdigit(): start -= 1
+        index = CalcNumElements(fmt[:start])
         _asciiz.add(index)
         _format += "s"
       else:
@@ -165,7 +180,7 @@ def Struct(name, fmt, fieldnames, substructs={}):
       data = data[:self._length]
       values = list(struct.unpack(self._format, data))
       for index, value in enumerate(values):
-        if isinstance(value, str) and index in self._nested:
+        if isinstance(value, bytes) and index in self._nested:
           values[index] = self._nested[index](value)
       self._SetValues(values)
 
@@ -175,7 +190,7 @@ def Struct(name, fmt, fieldnames, substructs={}):
       1. With no args, the whole struct is zero-initialized.
       2. With keyword args, the matching fields are populated; rest are zeroed.
       3. With one tuple as the arg, the fields are assigned based on position.
-      4. With one string arg, the Struct is parsed from bytes.
+      4. With one bytes arg, the Struct is parsed from bytes.
       """
       if tuple_or_bytes and kwargs:
         raise TypeError(
@@ -183,22 +198,23 @@ def Struct(name, fmt, fieldnames, substructs={}):
 
       if tuple_or_bytes is None:
         # Default construct from null bytes.
-        self._Parse("\x00" * len(self))
+        self._Parse(b"\x00" * len(self))
         # If any keywords were supplied, set those fields.
         for k, v in kwargs.items():
           setattr(self, k, v)
-      elif isinstance(tuple_or_bytes, str):
-        # Initializing from a string.
+      elif isinstance(tuple_or_bytes, bytes):
+        # Initializing from bytes.
         if len(tuple_or_bytes) < self._length:
-          raise TypeError("%s requires string of length %d, got %d" %
+          raise TypeError("%s requires a bytes object of length %d, got %d" %
                           (self._name, self._length, len(tuple_or_bytes)))
         self._Parse(tuple_or_bytes)
       else:
         # Initializing from a tuple.
         if len(tuple_or_bytes) != len(self._fieldnames):
-          raise TypeError("%s has exactly %d fieldnames (%d given)" %
+          raise TypeError("%s has exactly %d fieldnames: (%s), %d given: (%s)" %
                           (self._name, len(self._fieldnames),
-                           len(tuple_or_bytes)))
+                           ", ".join(self._fieldnames), len(tuple_or_bytes),
+                           ", ".join(str(x) for x in tuple_or_bytes)))
         self._SetValues(tuple_or_bytes)
 
     def _FieldIndex(self, attr):
@@ -236,7 +252,7 @@ def Struct(name, fmt, fieldnames, substructs={}):
 
     @staticmethod
     def _MaybePackStruct(value):
-      if hasattr(value, "__metaclass__"):# and value.__metaclass__ == Meta:
+      if isinstance(type(value), StructMetaclass):
         return value.Pack()
       else:
         return value
@@ -246,13 +262,22 @@ def Struct(name, fmt, fieldnames, substructs={}):
       return struct.pack(self._format, *values)
 
     def __str__(self):
+
+      def HasNonPrintableChar(s):
+        for c in s:
+          # Iterating over bytes yields chars in python2 but ints in python3.
+          if isinstance(c, int): c = chr(c)
+          if c not in string.printable: return True
+        return False
+
       def FieldDesc(index, name, value):
-        if isinstance(value, str):
+        if isinstance(value, bytes) or isinstance(value, str):
           if index in self._asciiz:
-            value = value.rstrip("\x00")
-          elif any(c not in string.printable for c in value):
-            value = value.encode("hex")
-        return "%s=%s" % (name, value)
+            # TODO: use "backslashreplace" when python 2 is no longer supported.
+            value = value.rstrip(b"\x00").decode(errors="ignore")
+          elif HasNonPrintableChar(value):
+            value = binascii.hexlify(value).decode()
+        return "%s=%s" % (name, str(value))
 
       descriptions = [
           FieldDesc(i, n, v) for i, (n, v) in

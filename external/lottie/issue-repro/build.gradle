@@ -1,20 +1,27 @@
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
+plugins {
+    id 'com.android.application'
+    id 'kotlin-android'
+}
 
 android {
-    compileSdkVersion 28
+    compileSdk 31
     defaultConfig {
         applicationId "com.airbnb.lottie.issues"
-        minSdkVersion 16
-        targetSdkVersion 28
+        minSdk 16
+        targetSdk 30
         versionCode 1
         versionName "1.0"
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    buildFeatures {
+        viewBinding true
     }
 }
 
 dependencies {
     implementation project(':lottie')
-    implementation("androidx.appcompat:appcompat:1.1.0-rc01")
+    implementation "androidx.appcompat:appcompat:$appcompatVersion"
 }

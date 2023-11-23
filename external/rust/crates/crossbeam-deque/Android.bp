@@ -43,7 +43,7 @@ rust_defaults {
     name: "crossbeam-deque_test_defaults",
     crate_name: "crossbeam_deque",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.8.1",
+    cargo_pkg_version: "0.8.3",
     test_suites: ["general-tests"],
     auto_gen_config: true,
     edition: "2018",
@@ -107,7 +107,7 @@ rust_library {
     host_supported: true,
     crate_name: "crossbeam_deque",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.8.1",
+    cargo_pkg_version: "0.8.3",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -121,4 +121,10 @@ rust_library {
         "libcrossbeam_epoch",
         "libcrossbeam_utils",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }

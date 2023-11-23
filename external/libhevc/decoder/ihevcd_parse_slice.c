@@ -1851,6 +1851,7 @@ IHEVCD_ERROR_T ihevcd_parse_coding_quadtree(codec_t *ps_codec,
     }
     else
     {
+        WORD32 qp = ps_codec->s_parse.u4_qp;
         /* Set current group QP if current CU is aligned with the group */
         {
             WORD32 cu_pos_x = ps_codec->s_parse.s_cu.i4_pos_x << 3;
@@ -1880,7 +1881,6 @@ IHEVCD_ERROR_T ihevcd_parse_coding_quadtree(codec_t *ps_codec,
             WORD32 qpg_x;
             WORD32 qpg_y;
             WORD32 i, j;
-            WORD32 qp;
             WORD32 cur_cu_offset;
             tu_t *ps_tu = ps_codec->s_parse.ps_tu;
             WORD32 cb_size = 1 << ps_codec->s_parse.s_cu.i4_log2_cb_size;
@@ -1941,6 +1941,32 @@ IHEVCD_ERROR_T ihevcd_parse_coding_quadtree(codec_t *ps_codec,
                 ps_codec->s_parse.s_bs_ctxt.pu1_pic_qp_const_in_ctb[ctb_indx >> 3] &= (~(1 << (ctb_indx & 7)));
             }
 
+        }
+        /* Populate CU_info maps for current CU*/
+        if(ps_codec->u1_enable_cu_info)
+        {
+            WORD32 cu_info_map_stride = ALIGN64(ps_codec->i4_wd) >> 3;
+            UWORD8 num_8x8_blks = 1 << (log2_cb_size - 3);
+            WORD32 vert_8x8, horz_8x8;
+            UWORD8 *pu1_cur_cu_type_map =
+                ps_codec->as_buf_id_info_map[ps_codec->as_process[0].
+                    i4_cur_pic_buf_id].pu1_cu_type_map;
+            UWORD8 *pu1_cur_qp_map =
+                ps_codec->as_buf_id_info_map[ps_codec->as_process[0].i4_cur_pic_buf_id].pu1_qp_map;
+            UWORD8 *pu1_cur_type_cu = pu1_cur_cu_type_map + (x0 >> 3) +
+                (y0 >> 3) * cu_info_map_stride;
+            UWORD8 *pu1_cur_qp_cu = pu1_cur_qp_map + (x0 >> 3) +
+                (y0 >> 3) * cu_info_map_stride;
+            for(vert_8x8 = 0; vert_8x8 < num_8x8_blks; vert_8x8++)
+            {
+                for(horz_8x8 = 0; horz_8x8 < num_8x8_blks; horz_8x8++)
+                {
+                    pu1_cur_qp_cu[horz_8x8] = qp;
+                    pu1_cur_type_cu[horz_8x8] = ps_codec->s_parse.s_cu.i4_pred_mode;
+                }
+                pu1_cur_qp_cu += cu_info_map_stride;
+                pu1_cur_type_cu += cu_info_map_stride;
+            }
         }
 
     }

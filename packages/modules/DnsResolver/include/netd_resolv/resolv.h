@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include <android-base/format.h>
 #include <arpa/nameser.h>
 #include <netinet/in.h>
 
@@ -65,6 +66,11 @@ struct android_net_context {
     unsigned flags;
     // Variable to store the pid of the application sending DNS query.
     pid_t pid = NET_CONTEXT_INVALID_PID;
+
+    std::string toString() const {
+        return fmt::format("{} {} {} {} {} {}", app_netid, app_mark, dns_netid, dns_mark, uid,
+                           flags);
+    }
 };
 
 #define NET_CONTEXT_FLAG_USE_LOCAL_NAMESERVERS 0x00000001

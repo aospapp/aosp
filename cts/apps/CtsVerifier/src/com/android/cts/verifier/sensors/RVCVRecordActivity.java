@@ -30,7 +30,6 @@ import android.media.MediaRecorder;
 import android.media.SoundPool;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.util.JsonWriter;
 import android.util.Log;
 import android.view.Surface;
@@ -453,11 +452,25 @@ public class RVCVRecordActivity extends Activity {
 
         CameraContext() {
             try {
-                mCamera = Camera.open(); // attempt to get a default Camera instance (0)
+                // Get the first back-facing camera or set them as null
+                mCamera = null;
+                mCameraInfo = null;
                 mProfile = null;
-                if (mCamera != null) {
-                    mCameraInfo = new Camera.CameraInfo();
-                    Camera.getCameraInfo(0, mCameraInfo);
+
+                int numberOfCameras = Camera.getNumberOfCameras();
+                Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
+                for (int i = 0; i < numberOfCameras; ++i) {
+                    Camera.getCameraInfo(i, cameraInfo);
+                    if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
+                        mCamera = Camera.open(i);
+                        mCameraInfo = cameraInfo;
+                        break;
+                    }
+                }
+
+                if (mCamera == null) {
+                    Log.e(TAG, "Cannot obtain Camera!");
+                } else {
                     setupCamera();
                 }
             }
@@ -740,6 +753,7 @@ public class RVCVRecordActivity extends Activity {
                     e.printStackTrace();
                     Log.e(TAG, "Runtime error in stopping recording.");
                 }
+                mRunning = false;
             }
             mRecorder = null;
         }

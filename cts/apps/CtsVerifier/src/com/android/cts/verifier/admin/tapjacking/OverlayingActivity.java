@@ -21,7 +21,7 @@ import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
 import static android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
 import static android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
 
-import static com.android.cts.verifier.features.FeatureUtil.isWatchOrAutomotive;
+import static com.android.cts.verifier.features.FeatureUtil.isBackTouchesSupported;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -42,7 +42,7 @@ public class OverlayingActivity extends Activity {
         params.flags = FLAG_LAYOUT_NO_LIMITS | FLAG_NOT_TOUCH_MODAL | FLAG_NOT_TOUCHABLE
                 | FLAG_KEEP_SCREEN_ON;
 
-        if (isWatchOrAutomotive(this)) {
+        if (!isBackTouchesSupported(this)) {
             // Automatically finish the overlaying activity after a timeout.
             getWindow().getDecorView().postDelayed(() -> OverlayingActivity.this.finish(),
                     ACTIVITY_TIMEOUT);

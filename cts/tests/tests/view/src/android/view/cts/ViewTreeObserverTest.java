@@ -56,6 +56,8 @@ public class ViewTreeObserverTest {
     private static int TIMEOUT_MS = 2000;
 
     private Instrumentation mInstrumentation;
+    private CtsTouchUtils mCtsTouchUtils;
+
     private Activity mActivity;
     private ViewTreeObserver mViewTreeObserver;
 
@@ -69,6 +71,7 @@ public class ViewTreeObserverTest {
     @Before
     public void setup() throws Throwable {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mCtsTouchUtils = new CtsTouchUtils(mInstrumentation.getTargetContext());
         mActivity = mActivityRule.getActivity();
         WindowUtil.waitForFocus(mActivity);
         layout(R.layout.viewtreeobserver_layout);
@@ -166,7 +169,7 @@ public class ViewTreeObserverTest {
     @Test
     public void testAddOnTouchModeChangeListener() throws Throwable {
         // let the button be touch mode.
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mButton);
+        mCtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mButton);
 
         mViewTreeObserver = mButton.getViewTreeObserver();
 
@@ -276,7 +279,7 @@ public class ViewTreeObserverTest {
     @Test
     public void testRemoveOnTouchModeChangeListener() throws Throwable {
         // let the button be touch mode.
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mButton);
+        mCtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mButton);
 
         mViewTreeObserver = mButton.getViewTreeObserver();
 

@@ -1,5 +1,6 @@
 {
   "device": true,
   "run": true,
-  "tests": true
+  "tests": true,
+  "features": "unicode"
 }

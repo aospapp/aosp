@@ -49,4 +49,11 @@
     <string name="see_more_message" msgid="6343183827924395955">"વધુ જુઓ"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"નવો સંદેશ"</string>
     <string name="manage_text" msgid="4225197445283791757">"મેનેજ કરો"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"નૅવિગેશન"</string>
+    <string name="category_call" msgid="2249490790700877973">"કૉલ"</string>
+    <string name="category_message" msgid="451360226248504859">"મેસેજ"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"\'સચેત રહો\' નોટિફિકેશનની અસર રદ કરવી"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"નવીનતમથી વાકેફ રહો"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"ડ્રાઇવિંગ પર ફોકસ કરો"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"નોટિફિકેશન કેન્દ્રમાં કેટલાક નવા નોટિફિકેશન સાચવવામાં આવ્યા છે"</string>
 </resources>

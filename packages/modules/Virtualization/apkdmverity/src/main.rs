@@ -21,37 +21,25 @@
 //! system managed by the host Android which is assumed to be compromisable, it is important to
 //! keep the integrity of the file "inside" Microdroid.
 
-mod dm;
-mod loopdevice;
-mod util;
-
 use anyhow::{bail, Context, Result};
-use clap::{App, Arg};
-use idsig::{HashAlgorithm, V4Signature};
+use apkverify::{HashAlgorithm, V4Signature};
+use clap::{arg, Arg, ArgAction, Command};
+use dm::loopdevice;
+use dm::util;
+use dm::verity::{DmVerityHashAlgorithm, DmVerityTargetBuilder};
 use itertools::Itertools;
 use std::fmt::Debug;
 use std::fs;
-use std::fs::File;
 use std::os::unix::fs::FileTypeExt;
 use std::path::{Path, PathBuf};
 
 fn main() -> Result<()> {
-    let matches = App::new("apkdmverity")
-        .about("Creates a dm-verity block device out of APK signed with APK signature scheme V4.")
-        .arg(Arg::from_usage(
-            "--apk... <apk_path> <idsig_path> <name> <root_hash> \
-                            'Input APK file, idsig file, name of the block device, and root hash. \
-                            The APK file must be signed using the APK signature scheme 4. The \
-                            block device is created at \"/dev/mapper/<name>\".' root_hash is \
-                            optional; idsig file's root hash will be used if specified as \"none\"."
-            ))
-        .arg(Arg::with_name("verbose").short("v").long("verbose").help("Shows verbose output"))
-        .get_matches();
+    let matches = clap_command().get_matches();
 
-    let apks = matches.values_of("apk").unwrap();
+    let apks = matches.get_many::<String>("apk").unwrap();
     assert!(apks.len() % 4 == 0);
 
-    let verbose = matches.is_present("verbose");
+    let verbose = matches.get_flag("verbose");
 
     for (apk, idsig, name, roothash) in apks.tuples() {
         let roothash = if roothash != "none" {
@@ -68,6 +56,28 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn clap_command() -> Command {
+    Command::new("apkdmverity")
+        .about("Creates a dm-verity block device out of APK signed with APK signature scheme V4.")
+        .arg(
+            arg!(--apk ...
+                "Input APK file, idsig file, name of the block device, and root hash. \
+                The APK file must be signed using the APK signature scheme 4. The \
+                block device is created at \"/dev/mapper/<name>\".' root_hash is \
+                optional; idsig file's root hash will be used if specified as \"none\"."
+            )
+            .action(ArgAction::Append)
+            .value_names(["apk_path", "idsig_path", "name", "root_hash"]),
+        )
+        .arg(
+            Arg::new("verbose")
+                .short('v')
+                .long("verbose")
+                .action(ArgAction::SetTrue)
+                .help("Shows verbose output"),
+        )
 }
 
 struct VerityResult {
@@ -95,7 +105,7 @@ fn enable_verity<P: AsRef<Path> + Debug>(
             bail!("The size of {:?} is not multiple of {}.", &apk, BLOCK_SIZE)
         }
         (
-            loopdevice::attach(&apk, 0, apk_size, /*direct_io*/ true)
+            loopdevice::attach(&apk, 0, apk_size, /*direct_io*/ true, /*writable*/ false)
                 .context("Failed to attach APK to a loop device")?,
             apk_size,
         )
@@ -104,20 +114,19 @@ fn enable_verity<P: AsRef<Path> + Debug>(
     // Parse the idsig file to locate the merkle tree in it, then attach the file to a loop device
     // with the offset so that the start of the merkle tree becomes the beginning of the loop
     // device.
-    let sig = V4Signature::from(
-        File::open(&idsig).context(format!("Failed to open idsig file {:?}", &idsig))?,
-    )?;
+    let sig = V4Signature::from_idsig_path(&idsig)?;
     let offset = sig.merkle_tree_offset;
     let size = sig.merkle_tree_size as u64;
     // Due to unknown reason(b/191344832), we can't enable "direct IO" for the IDSIG file (backing
     // the hash). For now we don't use "direct IO" but it seems OK since the IDSIG file is very
     // small and the benefit of direct-IO would be negliable.
-    let hash_device = loopdevice::attach(&idsig, offset, size, /*direct_io*/ false)
-        .context("Failed to attach idsig to a loop device")?;
+    let hash_device =
+        loopdevice::attach(&idsig, offset, size, /*direct_io*/ false, /*writable*/ false)
+            .context("Failed to attach idsig to a loop device")?;
 
     // Build a dm-verity target spec from the information from the idsig file. The apk and the
     // idsig files are used as the data device and the hash device, respectively.
-    let target = dm::DmVerityTargetBuilder::default()
+    let target = DmVerityTargetBuilder::default()
         .data_device(&data_device, apk_size)
         .hash_device(&hash_device)
         .root_digest(if let Some(roothash) = roothash {
@@ -126,7 +135,7 @@ fn enable_verity<P: AsRef<Path> + Debug>(
             &sig.hashing_info.raw_root_hash
         })
         .hash_algorithm(match sig.hashing_info.hash_algorithm {
-            HashAlgorithm::SHA256 => dm::DmVerityHashAlgorithm::SHA256,
+            HashAlgorithm::SHA256 => DmVerityHashAlgorithm::SHA256,
         })
         .salt(&sig.hashing_info.salt)
         .build()
@@ -135,7 +144,7 @@ fn enable_verity<P: AsRef<Path> + Debug>(
     // Actually create a dm-verity block device using the spec.
     let dm = dm::DeviceMapper::new()?;
     let mapper_device =
-        dm.create_device(name, &target).context("Failed to create dm-verity device")?;
+        dm.create_verity_device(name, &target).context("Failed to create dm-verity device")?;
 
     Ok(VerityResult { data_device, hash_device, mapper_device })
 }
@@ -143,8 +152,8 @@ fn enable_verity<P: AsRef<Path> + Debug>(
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use std::fs::OpenOptions;
-    use std::io::{Cursor, Write};
+    use std::fs::{File, OpenOptions};
+    use std::io::Write;
     use std::os::unix::fs::FileExt;
 
     struct TestContext<'a> {
@@ -165,7 +174,7 @@ mod tests {
     }
 
     fn create_block_aligned_file(path: &Path, data: &[u8]) {
-        let mut f = File::create(&path).unwrap();
+        let mut f = File::create(path).unwrap();
         f.write_all(data).unwrap();
 
         // Add padding so that the size of the file is multiple of 4096.
@@ -251,7 +260,9 @@ mod tests {
         let idsig = include_bytes!("../testdata/test.apk.idsig");
 
         // Make a single-byte change to the merkle tree
-        let offset = V4Signature::from(Cursor::new(&idsig)).unwrap().merkle_tree_offset as usize;
+        let offset = V4Signature::from_idsig_path("testdata/test.apk.idsig")
+            .unwrap()
+            .merkle_tree_offset as usize;
 
         let mut modified_idsig = Vec::new();
         modified_idsig.extend_from_slice(idsig);
@@ -326,9 +337,19 @@ mod tests {
         // already a block device, `enable_verity` uses the block device as it is. The detatching
         // of the data device is done in the scopeguard for the return value of `enable_verity`
         // below. Only the idsig_loop_device needs detatching.
-        let apk_loop_device = loopdevice::attach(&apk_path, 0, apk_size, true).unwrap();
+        let apk_loop_device = loopdevice::attach(
+            &apk_path, 0, apk_size, /*direct_io*/ true, /*writable*/ false,
+        )
+        .unwrap();
         let idsig_loop_device = scopeguard::guard(
-            loopdevice::attach(&idsig_path, 0, idsig_size, false).unwrap(),
+            loopdevice::attach(
+                &idsig_path,
+                0,
+                idsig_size,
+                /*direct_io*/ false,
+                /*writable*/ false,
+            )
+            .unwrap(),
             |dev| loopdevice::detach(dev).unwrap(),
         );
 
@@ -354,7 +375,10 @@ mod tests {
     fn correct_custom_roothash() {
         let apk = include_bytes!("../testdata/test.apk");
         let idsig = include_bytes!("../testdata/test.apk.idsig");
-        let roothash = V4Signature::from(Cursor::new(&idsig)).unwrap().hashing_info.raw_root_hash;
+        let roothash = V4Signature::from_idsig_path("testdata/test.apk.idsig")
+            .unwrap()
+            .hashing_info
+            .raw_root_hash;
         run_test_with_hash(
             apk.as_ref(),
             idsig.as_ref(),
@@ -367,5 +391,11 @@ mod tests {
                 assert_eq!(verity.as_slice(), original.as_slice());
             },
         );
+    }
+
+    #[test]
+    fn verify_command() {
+        // Check that the command parsing has been configured in a valid way.
+        clap_command().debug_assert();
     }
 }

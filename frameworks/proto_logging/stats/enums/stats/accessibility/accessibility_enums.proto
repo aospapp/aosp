@@ -27,6 +27,7 @@ enum ShortcutType {
   A11Y_BUTTON_LONG_PRESS = 4;
   A11Y_FLOATING_MENU = 5;
   A11Y_GESTURE = 6;
+  A11Y_WEAR_TRIPLE_PRESS_GESTURE = 7;
 }
 
 // The service status code.

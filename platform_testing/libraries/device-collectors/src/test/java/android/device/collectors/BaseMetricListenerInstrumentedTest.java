@@ -33,6 +33,7 @@ import org.mockito.Mockito;
 
 import java.lang.annotation.Annotation;
 import java.util.List;
+import java.util.Objects;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -464,6 +465,23 @@ public class BaseMetricListenerInstrumentedTest {
         @Override
         public Class<? extends Annotation> annotationType() {
             return MetricOption.class;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof TestAnnotation)) {
+                return false;
+            }
+            TestAnnotation o = (TestAnnotation) other;
+            return Objects.equals(mGroup, o.mGroup);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(mGroup);
         }
     }
 

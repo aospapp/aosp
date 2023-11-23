@@ -527,6 +527,8 @@ static gc::CollectorType ParseCollectorType(const std::string& option) {
     return gc::kCollectorTypeSS;
   } else if (option == "CC") {
     return gc::kCollectorTypeCC;
+  } else if (option == "CMC") {
+    return gc::kCollectorTypeCMC;
   } else {
     return gc::kCollectorTypeNone;
   }
@@ -539,7 +541,7 @@ struct XGcOption {
   bool verify_pre_gc_heap_ = false;
   bool verify_pre_sweeping_heap_ = kIsDebugBuild;
   bool generational_cc = kEnableGenerationalCCByDefault;
-  bool verify_post_gc_heap_ = false;
+  bool verify_post_gc_heap_ = kIsDebugBuild;
   bool verify_pre_gc_rosalloc_ = kIsDebugBuild;
   bool verify_pre_sweeping_rosalloc_ = false;
   bool verify_post_gc_rosalloc_ = false;

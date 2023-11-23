@@ -1,4 +1,4 @@
-/* Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+/* Copyright 2012 The ChromiumOS Authors
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
@@ -106,6 +106,10 @@ void minijail_use_seccomp(struct minijail *j);
 void minijail_no_new_privs(struct minijail *j);
 void minijail_use_seccomp_filter(struct minijail *j);
 void minijail_set_seccomp_filter_tsync(struct minijail *j);
+/* Sets using_minimalistic_mountns to true. */
+void minijail_set_using_minimalistic_mountns(struct minijail *j);
+void minijail_add_minimalistic_mountns_fs_rules(struct minijail *j);
+void minijail_enable_default_fs_restrictions(struct minijail *j);
 /*
  * Allow speculative execution features that may cause data leaks across
  * processes, by setting the SECCOMP_FILTER_FLAG_SPEC_ALLOW seccomp flag.
@@ -186,6 +190,26 @@ int minijail_rlimit(struct minijail *j, int type, rlim_t cur, rlim_t max);
  * cgroup.
  */
 int minijail_add_to_cgroup(struct minijail *j, const char *path);
+
+/*
+ * These functions are used for filesystem restrictions.
+ */
+
+/* Adds a read-execute path. */
+int minijail_add_fs_restriction_rx(struct minijail *j, const char *path);
+
+/* Adds a read-only path. */
+int minijail_add_fs_restriction_ro(struct minijail *j, const char *path);
+
+/* Adds a path with read and basic write permissions. */
+int minijail_add_fs_restriction_rw(struct minijail *j, const char *path);
+
+/* Adds a path with read and advanced write permissions. */
+int minijail_add_fs_restriction_advanced_rw(struct minijail *j,
+					    const char *path);
+
+/* Adds a path with read and write permissions that exclude create. */
+int minijail_add_fs_restriction_edit(struct minijail *j, const char *path);
 
 /*
  * Install signal handlers in the minijail process that forward received
@@ -503,7 +527,8 @@ int minijail_wait(struct minijail *j);
 
 /*
  * Frees the given minijail. It does not matter if the process is inside the
- * minijail or not.
+ * minijail or not. It will not kill the process, see minijail_kill() if that is 
+ * desired.
  */
 void minijail_destroy(struct minijail *j);
 

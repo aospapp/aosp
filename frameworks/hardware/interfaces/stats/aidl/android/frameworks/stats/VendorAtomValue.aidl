@@ -24,4 +24,11 @@ union VendorAtomValue {
     long longValue;
     float floatValue;
     String stringValue;
+    boolean boolValue;
+    @nullable int[] repeatedIntValue;
+    @nullable long[] repeatedLongValue;
+    @nullable float[] repeatedFloatValue;
+    @nullable String[] repeatedStringValue;
+    @nullable boolean[] repeatedBoolValue;
+    @nullable byte[] byteArrayValue;
 }

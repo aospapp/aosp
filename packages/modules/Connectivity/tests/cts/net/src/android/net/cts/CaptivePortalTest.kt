@@ -33,14 +33,10 @@ import android.net.NetworkCapabilities.TRANSPORT_CELLULAR
 import android.net.NetworkCapabilities.TRANSPORT_WIFI
 import android.net.NetworkRequest
 import android.net.Uri
-import android.net.cts.NetworkValidationTestUtil.clearValidationTestUrlsDeviceConfig
 import android.net.cts.NetworkValidationTestUtil.setHttpUrlDeviceConfig
 import android.net.cts.NetworkValidationTestUtil.setHttpsUrlDeviceConfig
 import android.net.cts.NetworkValidationTestUtil.setUrlExpirationDeviceConfig
 import android.net.cts.util.CtsNetUtils
-import android.net.util.NetworkStackUtils.TEST_CAPTIVE_PORTAL_HTTPS_URL
-import android.net.util.NetworkStackUtils.TEST_CAPTIVE_PORTAL_HTTP_URL
-import android.os.Build
 import android.platform.test.annotations.AppModeFull
 import android.provider.DeviceConfig
 import android.provider.DeviceConfig.NAMESPACE_CONNECTIVITY
@@ -48,26 +44,31 @@ import android.text.TextUtils
 import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry.getInstrumentation
 import androidx.test.runner.AndroidJUnit4
-import com.android.testutils.RecorderCallback
+import com.android.modules.utils.build.SdkLevel.isAtLeastR
+import com.android.net.module.util.NetworkStackConstants.TEST_CAPTIVE_PORTAL_HTTPS_URL
+import com.android.net.module.util.NetworkStackConstants.TEST_CAPTIVE_PORTAL_HTTP_URL
+import com.android.testutils.DeviceConfigRule
+import com.android.testutils.RecorderCallback.CallbackEntry.CapabilitiesChanged
 import com.android.testutils.TestHttpServer
 import com.android.testutils.TestHttpServer.Request
 import com.android.testutils.TestableNetworkCallback
-import com.android.testutils.isDevSdkInRange
 import com.android.testutils.runAsShell
 import fi.iki.elonen.NanoHTTPD.Response.Status
-import junit.framework.AssertionFailedError
-import org.junit.After
-import org.junit.Assume.assumeTrue
-import org.junit.Assume.assumeFalse
-import org.junit.Before
-import org.junit.runner.RunWith
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import junit.framework.AssertionFailedError
 import kotlin.test.Test
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import org.junit.After
+import org.junit.Assume.assumeFalse
+import org.junit.Assume.assumeTrue
+import org.junit.Before
+import org.junit.BeforeClass
+import org.junit.Rule
+import org.junit.runner.RunWith
 
 private const val TEST_HTTPS_URL_PATH = "/https_path"
 private const val TEST_HTTP_URL_PATH = "/http_path"
@@ -99,32 +100,40 @@ class CaptivePortalTest {
 
     private val server = TestHttpServer("localhost")
 
+    @get:Rule
+    val deviceConfigRule = DeviceConfigRule(retryCountBeforeSIfConfigChanged = 5)
+
+    companion object {
+        @JvmStatic @BeforeClass
+        fun setUpClass() {
+            runAsShell(READ_DEVICE_CONFIG) {
+                // Verify that the test URLs are not normally set on the device, but do not fail if
+                // the test URLs are set to what this test uses (URLs on localhost), in case the
+                // test was interrupted manually and rerun.
+                assertEmptyOrLocalhostUrl(TEST_CAPTIVE_PORTAL_HTTPS_URL)
+                assertEmptyOrLocalhostUrl(TEST_CAPTIVE_PORTAL_HTTP_URL)
+            }
+            NetworkValidationTestUtil.clearValidationTestUrlsDeviceConfig()
+        }
+
+        private fun assertEmptyOrLocalhostUrl(urlKey: String) {
+            val url = DeviceConfig.getProperty(NAMESPACE_CONNECTIVITY, urlKey)
+            assertTrue(TextUtils.isEmpty(url) || LOCALHOST_HOSTNAME == Uri.parse(url).host,
+                    "$urlKey must not be set in production scenarios (current value: $url)")
+        }
+    }
+
     @Before
     fun setUp() {
-        runAsShell(READ_DEVICE_CONFIG) {
-            // Verify that the test URLs are not normally set on the device, but do not fail if the
-            // test URLs are set to what this test uses (URLs on localhost), in case the test was
-            // interrupted manually and rerun.
-            assertEmptyOrLocalhostUrl(TEST_CAPTIVE_PORTAL_HTTPS_URL)
-            assertEmptyOrLocalhostUrl(TEST_CAPTIVE_PORTAL_HTTP_URL)
-        }
-        clearValidationTestUrlsDeviceConfig()
         server.start()
     }
 
     @After
     fun tearDown() {
-        clearValidationTestUrlsDeviceConfig()
         if (pm.hasSystemFeature(FEATURE_WIFI)) {
-            reconnectWifi()
+            deviceConfigRule.runAfterNextCleanup { reconnectWifi() }
         }
         server.stop()
-    }
-
-    private fun assertEmptyOrLocalhostUrl(urlKey: String) {
-        val url = DeviceConfig.getProperty(NAMESPACE_CONNECTIVITY, urlKey)
-        assertTrue(TextUtils.isEmpty(url) || LOCALHOST_HOSTNAME == Uri.parse(url).host,
-                "$urlKey must not be set in production scenarios (current value: $url)")
     }
 
     @Test
@@ -142,8 +151,8 @@ class CaptivePortalTest {
                 .build()
         val cellCb = TestableNetworkCallback(timeoutMs = TEST_TIMEOUT_MS)
         cm.registerNetworkCallback(cellReq, cellCb)
-        val cb = cellCb.eventuallyExpectOrNull<RecorderCallback.CallbackEntry.CapabilitiesChanged> {
-            it.network == cellNetwork && it.caps.hasCapability(NET_CAPABILITY_VALIDATED)
+        val cb = cellCb.poll { it.network == cellNetwork &&
+                it is CapabilitiesChanged && it.caps.hasCapability(NET_CAPABILITY_VALIDATED)
         }
         assertNotNull(cb, "Mobile network $cellNetwork has no access to the internet. " +
                 "Check the mobile data connection.")
@@ -154,12 +163,13 @@ class CaptivePortalTest {
         server.addResponse(Request(TEST_HTTPS_URL_PATH), Status.INTERNAL_ERROR)
         val headers = mapOf("Location" to makeUrl(TEST_PORTAL_URL_PATH))
         server.addResponse(Request(TEST_HTTP_URL_PATH), Status.REDIRECT, headers)
-        setHttpsUrlDeviceConfig(makeUrl(TEST_HTTPS_URL_PATH))
-        setHttpUrlDeviceConfig(makeUrl(TEST_HTTP_URL_PATH))
+        setHttpsUrlDeviceConfig(deviceConfigRule, makeUrl(TEST_HTTPS_URL_PATH))
+        setHttpUrlDeviceConfig(deviceConfigRule, makeUrl(TEST_HTTP_URL_PATH))
         Log.d(TAG, "Set portal URLs to $TEST_HTTPS_URL_PATH and $TEST_HTTP_URL_PATH")
         // URL expiration needs to be in the next 10 minutes
         assertTrue(WIFI_CONNECT_TIMEOUT_MS < TimeUnit.MINUTES.toMillis(10))
-        setUrlExpirationDeviceConfig(System.currentTimeMillis() + WIFI_CONNECT_TIMEOUT_MS)
+        setUrlExpirationDeviceConfig(deviceConfigRule,
+                System.currentTimeMillis() + WIFI_CONNECT_TIMEOUT_MS)
 
         // Wait for a captive portal to be detected on the network
         val wifiNetworkFuture = CompletableFuture<Network>()
@@ -186,8 +196,8 @@ class CaptivePortalTest {
             assertNotEquals(network, cm.activeNetwork, wifiDefaultMessage)
 
             val startPortalAppPermission =
-                    if (isDevSdkInRange(0, Build.VERSION_CODES.Q)) CONNECTIVITY_INTERNAL
-                    else NETWORK_SETTINGS
+                    if (isAtLeastR()) NETWORK_SETTINGS
+                    else CONNECTIVITY_INTERNAL
             runAsShell(startPortalAppPermission) { cm.startCaptivePortalApp(network) }
 
             // Expect the portal content to be fetched at some point after detecting the portal.

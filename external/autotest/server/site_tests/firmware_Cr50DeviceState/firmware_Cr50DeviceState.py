@@ -103,12 +103,18 @@ class firmware_Cr50DeviceState(Cr50Test):
     INCREASE = '+'
     DS_RESUME = 'DS'
 
-    MEM_SLEEP_PATH = '/sys/power/mem_sleep'
-    MEM_SLEEP_S0IX = 'echo %s > %s ; sleep 1' % ('s2idle', MEM_SLEEP_PATH)
-    MEM_SLEEP_S3 = 'echo %s > %s ; sleep 1' % ('deep', MEM_SLEEP_PATH)
-    POWER_STATE_PATH = '/sys/power/state'
-    POWER_STATE_S0IX = 'echo %s > %s' % ('freeze', POWER_STATE_PATH)
-    POWER_STATE_S3 = 'echo %s > %s' % ('mem', POWER_STATE_PATH)
+    TMP_POWER_MANAGER_PATH = '/tmp/power_manager'
+    POWER_MANAGER_PATH = '/var/lib/power_manager'
+    # TODO(mruthven): remove ec chan restriction once soraka stops spamming host
+    # command output. The extra activity makes it look like a interrupt storm on
+    # the EC uart.
+    CHAN_ALL = 0xffffffff
+    CHAN_EVENTS = 0x20
+    CHAN_ACPI = 0x400
+    CHAN_HOSTCMD = 0x80
+    CHAN_USBCHARGE = 0x200000
+    CHAN_RESTRICTED = CHAN_ALL ^ (CHAN_EVENTS | CHAN_ACPI | CHAN_HOSTCMD
+                                  | CHAN_USBCHARGE)
 
 
     def initialize(self, host, cmdline_args, full_args):
@@ -118,22 +124,36 @@ class firmware_Cr50DeviceState(Cr50Test):
         if not self.check_ec_capability():
             raise error.TestNAError("Nothing needs to be tested on this device")
 
-        self.generate_suspend_commands()
+        # If the TPM is reset in S0i3, the CR50 may enter deep sleep during S0i3.
+        # Cr50 may enter deep sleep an extra time, because of how the test
+        # collects taskinfo counts. So the range is set conservatively to 0-2.
+        if self.check_cr50_capability(['deep_sleep_in_s0i3']):
+            irq_s0ix_deep_sleep_key = 'S0ix' + self.DEEP_SLEEP_STEP_SUFFIX
+            self.EXPECTED_IRQ_COUNT_RANGE[irq_s0ix_deep_sleep_key] = [0, 2]
 
+    def mount_power_config(self):
+        """Mounts power_manager settings to tmp,
+        ensuring that any changes do not persist across reboots
+        """
+        self.faft_client.system.run_shell_command(
+                'mkdir -p %s && \
+            echo 0 > %s/suspend_to_idle && \
+            mount --bind %s %s && \
+            restart powerd' %
+                (self.TMP_POWER_MANAGER_PATH, self.TMP_POWER_MANAGER_PATH,
+                 self.TMP_POWER_MANAGER_PATH, self.POWER_MANAGER_PATH), True)
 
-    def generate_suspend_commands(self):
-        """Generate the S3 and S0ix suspend commands"""
-        s0ix_cmds = []
-        s3_cmds = []
-        if self.host.path_exists(self.MEM_SLEEP_PATH):
-            s0ix_cmds.append(self.MEM_SLEEP_S0IX)
-            s3_cmds.append(self.MEM_SLEEP_S3)
-        s0ix_cmds.append(self.POWER_STATE_S0IX)
-        s3_cmds.append(self.POWER_STATE_S3)
-        self._s0ix_cmds = '; '.join(s0ix_cmds)
-        self._s3_cmds = '; '.join(s3_cmds)
-        logging.info('S0ix cmd: %r', self._s0ix_cmds)
-        logging.info('S3 cmd: %r', self._s3_cmds)
+    def umount_power_config(self):
+        """Unmounts power_manager settings"""
+        self.faft_client.system.run_shell_command(
+                'umount %s && restart powerd' % self.POWER_MANAGER_PATH, True)
+
+    def set_suspend_to_idle(self, value):
+        """Set suspend_to_idle by writing to power_manager settings"""
+        # Suspend to idle expects 0/1 so %d is used
+        self.faft_client.system.run_shell_command(
+                'echo %d > %s/suspend_to_idle' %
+                (value, self.TMP_POWER_MANAGER_PATH), True)
 
 
     def log_sleep_debug_information(self):
@@ -375,9 +395,7 @@ class firmware_Cr50DeviceState(Cr50Test):
 
     def ap_is_on_after_power_button_press(self):
         """Returns True if the AP is on after pressing the power button"""
-        # TODO (mruthven): use self.servo.power_short_press() once kukui power
-        # button issues are figured out.
-        self.servo.power_key(1)
+        self.servo.power_normal_press()
         # Give the AP some time to turn on
         time.sleep(self.cr50.SHORT_WAIT)
         return self.cr50.ap_is_on()
@@ -398,18 +416,23 @@ class firmware_Cr50DeviceState(Cr50Test):
         block = True
         if state == 'S0':
             self.trigger_s0()
+            # Suppress host command output, so it doesn't look like an interrupt
+            # storm. Set it whenever the system enters S0 to ensure the setting
+            # is restored if the EC enters hibernate.
+            time.sleep(2)
+            logging.info('Setting EC chan %x', self.CHAN_RESTRICTED)
+            self.ec.send_command('chan 0x%x' % self.CHAN_RESTRICTED)
         else:
             if state == 'S0ix':
-                full_command = self._s0ix_cmds
-                block = False
+                self.set_suspend_to_idle(True)
+                self.suspend()
             elif state == 'S3':
-                full_command = self._s3_cmds
-                block = False
+                self.set_suspend_to_idle(False)
+                self.suspend()
             elif state == 'G3':
-                full_command = 'poweroff'
-            self.faft_client.system.run_shell_command(full_command, block)
+                self.faft_client.system.run_shell_command('poweroff', True)
 
-        time.sleep(self.SHORT_WAIT);
+        time.sleep(self.SHORT_WAIT)
         # check state transition
         if not self.wait_power_state(state, self.SHORT_WAIT):
             raise error.TestFail('Platform failed to reach %s state.' % state)
@@ -469,6 +492,10 @@ class firmware_Cr50DeviceState(Cr50Test):
         finally:
             # reset the system to S0 no matter what happens
             self.trigger_s0()
+            # Reenable EC chan output.
+            time.sleep(2)
+            logging.info('Setting EC chan %x', self.CHAN_ALL)
+            self.ec.send_command('chan 0x%x' % self.CHAN_ALL)
 
         # Check that the progress of the irq counts seems reasonable
         self.check_for_errors(state)
@@ -497,15 +524,15 @@ class firmware_Cr50DeviceState(Cr50Test):
         client_at = autotest.Autotest(self.host)
         client_at.run_test('login_LoginSuccess')
 
-        # Check if the device supports S0ix. The exit status will be 0 if it
-        # does 1 if it doesn't.
-        result = self.host.run('check_powerd_config --suspend_to_idle',
-                ignore_status=True)
-        if not result.exit_status:
-            self.verify_state('S0ix')
+        self.mount_power_config()
+        try:
+            if self.s0ix_supported:
+                self.verify_state('S0ix')
 
-        # Enter S3
-        self.verify_state('S3')
+            if self.s3_supported:
+                self.verify_state('S3')
+        finally:
+            self.umount_power_config()
 
         # Enter G3
         self.verify_state('G3')
@@ -524,6 +551,15 @@ class firmware_Cr50DeviceState(Cr50Test):
             self.cr50.ccd_disable(raise_error=True)
 
         self.ccd_enabled = self.cr50.ccd_is_enabled()
+        # Check if the device supports S0ix.
+        self.s0ix_supported = not self.host.run(
+                'check_powerd_config --suspend_to_idle',
+                ignore_status=True).exit_status
+        # Check if the device supports S3.
+        self.s3_supported = not self.host.run(
+                'grep -q deep /sys/power/mem_sleep',
+                ignore_status=True).exit_status
+
         self.run_through_power_states()
 
         if supports_dts_control:

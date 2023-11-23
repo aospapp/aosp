@@ -1,8 +1,10 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import logging
+import re
 import time
 
 from autotest_lib.client.common_lib import autotest_enum, error
@@ -29,10 +31,6 @@ FULL_WAKE_SOURCES = [
 
 # List of wake sources expected to cause a dark resume.
 DARK_RESUME_SOURCES = ['RTC', 'AC_CONNECTED', 'AC_DISCONNECTED']
-
-# Max time taken by the device to resume. This gives enough time for the device
-# to establish network connection with the autotest server
-SECS_FOR_RESUMING = 15
 
 # Time in future after which RTC goes off when testing wake due to RTC alarm.
 RTC_WAKE_SECS = 20
@@ -139,6 +137,51 @@ class power_WakeSources(test.test):
         ec_cmd += ec_arg[base_state]
         self._ec.send_command(ec_cmd)
 
+    def _x86_get_ec_wake_mask(self):
+        # Check both the S0ix and S3 wake masks.
+        try:
+            s0ix_wake_mask = int(self._host.run(
+                    'ectool hostevent get %d' %
+                    chrome_ec.EC_HOST_EVENT_LAZY_WAKE_MASK_S0IX).stdout,
+                                 base=16)
+        except error.AutoservRunError as e:
+            s0ix_wake_mask = 0
+            logging.info(
+                    '"ectool hostevent get" failed for s0ix wake mask with'
+                    ' exception: %s', str(e))
+
+        try:
+            s3_wake_mask = int(self._host.run(
+                    'ectool hostevent get %d' %
+                    chrome_ec.EC_HOST_EVENT_LAZY_WAKE_MASK_S3).stdout,
+                               base=16)
+        except error.AutoservRunError as e:
+            s3_wake_mask = 0
+            logging.info(
+                    '"ectool hostevent get" failed for s3 wake mask with'
+                    ' exception: %s', str(e))
+
+        return s0ix_wake_mask | s3_wake_mask
+
+    def _arm_get_ec_wake_mask(self):
+        try:
+            s3_mkbpwakemask_out = self._host.run(
+                    'ectool mkbpwakemask get hostevent').stdout
+            match = re.match(r'MBKP hostevent wake mask: (0x[0-9A-Fa-f]+)',
+                             s3_mkbpwakemask_out)
+            if match:
+                return int(match.group(1), base=16)
+            else:
+                logging.info(
+                        '"ectool mkbpwakemask get hostevent" returned: %s',
+                        s3_mkbpwakemask_out)
+        except error.AutoservRunError as e:
+            logging.info(
+                    '"ectool mkbpwakemask get hostevent" failed with'
+                    ' exception: %s', str(e))
+
+        return 0
+
     def _is_valid_wake_source(self, wake_source):
         """Check if |wake_source| is valid for DUT.
 
@@ -176,35 +219,18 @@ class power_WakeSources(test.test):
 
                 return False
         if wake_source in ['AC_CONNECTED', 'AC_DISCONNECTED']:
+            arch = self._host.get_architecture()
+            wake_mask = 0
             if not self._chg_manager:
                 logging.warning(
                     'Unable to test AC connect/disconnect with this '
                     'servo setup')
                 return False
-            # Check both the S0ix and S3 wake masks.
-            try:
-                s0ix_wake_mask = int(self._host.run(
-                        'ectool hostevent get %d' %
-                        chrome_ec.EC_HOST_EVENT_LAZY_WAKE_MASK_S0IX).stdout,
-                                     base=16)
-            except error.AutoservRunError as e:
-                s0ix_wake_mask = 0
-                logging.info(
-                        '"ectool hostevent get" failed for s0ix wake mask with'
-                        ' exception: %s', str(e))
+            elif arch.startswith('x86'):
+                wake_mask = self._x86_get_ec_wake_mask()
+            elif arch.startswith('arm'):
+                wake_mask = self._arm_get_ec_wake_mask()
 
-            try:
-                s3_wake_mask = int(self._host.run(
-                        'ectool hostevent get %d' %
-                        chrome_ec.EC_HOST_EVENT_LAZY_WAKE_MASK_S3).stdout,
-                                   base=16)
-            except error.AutoservRunError as e:
-                s3_wake_mask = 0
-                logging.info(
-                        '"ectool hostevent get" failed for s3 wake mask with'
-                        ' exception: %s', str(e))
-
-            wake_mask = s0ix_wake_mask | s3_wake_mask
             supported = False
             if wake_source == 'AC_CONNECTED':
                 supported = wake_mask & chrome_ec.HOSTEVENT_AC_CONNECTED
@@ -214,9 +240,8 @@ class power_WakeSources(test.test):
             if not supported:
                 logging.info(
                         '%s not supported. Platforms launched in 2020 or before'
-                        ' may not require it. S0ix wake mask: 0x%x S3 wake'
-                        ' mask: 0x%x', wake_source, s0ix_wake_mask,
-                        s3_wake_mask)
+                        ' may not require it. Wake mask: 0x%x', wake_source,
+                        wake_mask)
                 return False
 
         return True
@@ -230,8 +255,8 @@ class power_WakeSources(test.test):
         """
         is_success = True
         logging.info(
-            'Testing wake by %s triggers a '
-            'full wake when dark resume is enabled.', wake_source)
+                'Testing wake by %s triggers a %s wake when dark resume is '
+                'enabled.', wake_source, 'full' if full_wake else 'dark')
         if not self._before_suspend(wake_source):
             logging.error('Before suspend action failed for %s', wake_source)
             # Still run the _after_resume callback since we can do things like
@@ -246,11 +271,10 @@ class power_WakeSources(test.test):
         # fully suspend.
         time.sleep(SECS_FOR_SUSPENDING)
         self._trigger_wake(wake_source)
-        # Wait at least |SECS_FOR_RESUMING| secs for the device to
-        # resume.
-        time.sleep(SECS_FOR_RESUMING)
 
-        if not self._host.is_up_fast():
+        # Wait until it would be unclear if the RTC or wake_source triggered the
+        # wake.
+        if not self._host.wait_up(timeout=RTC_WAKE_SECS - 1):
             logging.error(
                     'Device did not resume from suspend for %s.'
                     ' Waking system with power button then RTC.', wake_source)

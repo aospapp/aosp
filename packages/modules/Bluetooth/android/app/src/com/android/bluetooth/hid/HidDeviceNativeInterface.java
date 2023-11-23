@@ -29,6 +29,7 @@ import android.util.Log;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
+
 import java.util.Objects;
 
 /**
@@ -179,7 +180,8 @@ public class HidDeviceNativeInterface {
         return reportErrorNative(error);
     }
 
-    private synchronized void onApplicationStateChanged(byte[] address, boolean registered) {
+    @VisibleForTesting
+    synchronized void onApplicationStateChanged(byte[] address, boolean registered) {
         HidDeviceService service = HidDeviceService.getHidDeviceService();
         if (service != null) {
             service.onApplicationStateChangedFromNative(getDevice(address), registered);
@@ -189,7 +191,8 @@ public class HidDeviceNativeInterface {
         }
     }
 
-    private synchronized void onConnectStateChanged(byte[] address, int state) {
+    @VisibleForTesting
+    synchronized void onConnectStateChanged(byte[] address, int state) {
         HidDeviceService service = HidDeviceService.getHidDeviceService();
         if (service != null) {
             service.onConnectStateChangedFromNative(getDevice(address), state);
@@ -199,7 +202,8 @@ public class HidDeviceNativeInterface {
         }
     }
 
-    private synchronized void onGetReport(byte type, byte id, short bufferSize) {
+    @VisibleForTesting
+    synchronized void onGetReport(byte type, byte id, short bufferSize) {
         HidDeviceService service = HidDeviceService.getHidDeviceService();
         if (service != null) {
             service.onGetReportFromNative(type, id, bufferSize);
@@ -209,7 +213,8 @@ public class HidDeviceNativeInterface {
         }
     }
 
-    private synchronized void onSetReport(byte reportType, byte reportId, byte[] data) {
+    @VisibleForTesting
+    synchronized void onSetReport(byte reportType, byte reportId, byte[] data) {
         HidDeviceService service = HidDeviceService.getHidDeviceService();
         if (service != null) {
             service.onSetReportFromNative(reportType, reportId, data);
@@ -219,7 +224,8 @@ public class HidDeviceNativeInterface {
         }
     }
 
-    private synchronized void onSetProtocol(byte protocol) {
+    @VisibleForTesting
+    synchronized void onSetProtocol(byte protocol) {
         HidDeviceService service = HidDeviceService.getHidDeviceService();
         if (service != null) {
             service.onSetProtocolFromNative(protocol);
@@ -229,7 +235,8 @@ public class HidDeviceNativeInterface {
         }
     }
 
-    private synchronized void onInterruptData(byte reportId, byte[] data) {
+    @VisibleForTesting
+    synchronized void onInterruptData(byte reportId, byte[] data) {
         HidDeviceService service = HidDeviceService.getHidDeviceService();
         if (service != null) {
             service.onInterruptDataFromNative(reportId, data);
@@ -239,7 +246,8 @@ public class HidDeviceNativeInterface {
         }
     }
 
-    private synchronized void onVirtualCableUnplug() {
+    @VisibleForTesting
+    synchronized void onVirtualCableUnplug() {
         HidDeviceService service = HidDeviceService.getHidDeviceService();
         if (service != null) {
             service.onVirtualCableUnplugFromNative();

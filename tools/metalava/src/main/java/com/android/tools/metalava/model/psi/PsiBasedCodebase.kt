@@ -40,6 +40,7 @@ import com.intellij.psi.PsiArrayType
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiClassOwner
 import com.intellij.psi.PsiClassType
+import com.intellij.psi.PsiCodeBlock
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.PsiField
@@ -169,7 +170,9 @@ open class PsiBasedCodebase(
         for (psiFile in psiFiles.asSequence().distinct()) {
             tick() // show progress
 
-            psiFile.accept(object : JavaRecursiveElementVisitor() {
+            // Visiting psiFile directly would eagerly load the entire file even though we only need
+            // the importList here.
+            (psiFile as? PsiJavaFile)?.importList?.accept(object : JavaRecursiveElementVisitor() {
                 override fun visitImportStatement(element: PsiImportStatement) {
                     super.visitImportStatement(element)
                     if (element.resolve() == null) {
@@ -226,6 +229,15 @@ open class PsiBasedCodebase(
                                     element,
                                     "Syntax error: `${element.errorDescription}`"
                                 )
+                            }
+
+                            override fun visitCodeBlock(block: PsiCodeBlock?) {
+                                // Ignore to avoid eagerly parsing all method bodies.
+                            }
+
+                            override fun visitDocComment(comment: PsiDocComment?) {
+                                // Ignore to avoid eagerly parsing all doc comments.
+                                // Doc comments cannot contain error elements.
                             }
                         })
 

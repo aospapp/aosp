@@ -54,6 +54,7 @@ public final class BluetoothUtilsGetAdapterStateNameTest {
                 {BluetoothAdapter.STATE_OFF, "off"},
                 {BluetoothAdapter.STATE_TURNING_ON, "turning on"},
                 {BluetoothAdapter.STATE_TURNING_OFF, "turning off"},
+                {BluetoothAdapter.ERROR, "error"},
                 {9, "unknown"},
                 {14, "unknown"}
             });

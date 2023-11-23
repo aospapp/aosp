@@ -18,6 +18,7 @@
 #pragma once
 
 #include <map>
+#include <utility>
 #include <vector>
 
 #include <hardware/keymaster1.h>
@@ -61,7 +62,7 @@ template <typename KM1_SOFTDIGEST_FACTORY> class Keymaster1ArbitrationFactory : 
     Keymaster1ArbitrationFactory(const KeymasterPassthroughEngine* ptengine,
                                  keymaster_algorithm_t algorithm, const keymaster1_device_t* dev,
                                  SOFT_FACTORY_CONSRUCTOR_ARGS&&... args)
-        : software_digest_factory_(forward<SOFT_FACTORY_CONSRUCTOR_ARGS>(args)...),
+        : software_digest_factory_(std::forward<SOFT_FACTORY_CONSRUCTOR_ARGS>(args)...),
           passthrough_factory_(ptengine, algorithm), legacy_support_(dev) {}
     keymaster_error_t GenerateKey(const AuthorizationSet& key_description,
                                   UniquePtr<Key> attest_key,  //
@@ -71,11 +72,11 @@ template <typename KM1_SOFTDIGEST_FACTORY> class Keymaster1ArbitrationFactory : 
                                   AuthorizationSet* sw_enforced,
                                   CertificateChain* cert_chain) const {
         if (legacy_support_.RequiresSoftwareDigesting(key_description)) {
-            return software_digest_factory_.GenerateKey(key_description, move(attest_key),
+            return software_digest_factory_.GenerateKey(key_description, std::move(attest_key),
                                                         issuer_subject, key_blob, hw_enforced,
                                                         sw_enforced, cert_chain);
         } else {
-            return passthrough_factory_.GenerateKey(key_description, move(attest_key),
+            return passthrough_factory_.GenerateKey(key_description, std::move(attest_key),
                                                     issuer_subject, key_blob, hw_enforced,
                                                     sw_enforced, cert_chain);
         }
@@ -91,12 +92,14 @@ template <typename KM1_SOFTDIGEST_FACTORY> class Keymaster1ArbitrationFactory : 
                                 AuthorizationSet* sw_enforced, CertificateChain* cert_chain) const {
         if (legacy_support_.RequiresSoftwareDigesting(key_description)) {
             return software_digest_factory_.ImportKey(
-                key_description, input_key_material_format, input_key_material, move(attest_key),
-                issuer_subject, output_key_blob, hw_enforced, sw_enforced, cert_chain);
+                key_description, input_key_material_format, input_key_material,
+                std::move(attest_key), issuer_subject, output_key_blob, hw_enforced, sw_enforced,
+                cert_chain);
         } else {
             return passthrough_factory_.ImportKey(
-                key_description, input_key_material_format, input_key_material, move(attest_key),
-                issuer_subject, output_key_blob, hw_enforced, sw_enforced, cert_chain);
+                key_description, input_key_material_format, input_key_material,
+                std::move(attest_key), issuer_subject, output_key_blob, hw_enforced, sw_enforced,
+                cert_chain);
         }
     }
 
@@ -111,11 +114,13 @@ template <typename KM1_SOFTDIGEST_FACTORY> class Keymaster1ArbitrationFactory : 
 
         if (legacy_support_.RequiresSoftwareDigesting(digest,
                                                       AuthProxy(hw_enforced, sw_enforced))) {
-            return software_digest_factory_.LoadKey(move(key_material), additional_params,
-                                                    move(hw_enforced), move(sw_enforced), key);
+            return software_digest_factory_.LoadKey(std::move(key_material), additional_params,
+                                                    std::move(hw_enforced), std::move(sw_enforced),
+                                                    key);
         } else {
-            return passthrough_factory_.LoadKey(move(key_material), additional_params,
-                                                move(hw_enforced), move(sw_enforced), key);
+            return passthrough_factory_.LoadKey(std::move(key_material), additional_params,
+                                                std::move(hw_enforced), std::move(sw_enforced),
+                                                key);
         }
     }
 

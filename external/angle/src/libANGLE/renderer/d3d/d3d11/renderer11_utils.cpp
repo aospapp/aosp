@@ -29,7 +29,7 @@
 #include "libANGLE/renderer/d3d/d3d11/texture_format_table.h"
 #include "libANGLE/renderer/driver_utils.h"
 #include "libANGLE/renderer/dxgi_support_table.h"
-#include "platform/FeaturesD3D.h"
+#include "platform/FeaturesD3D_autogen.h"
 #include "platform/PlatformMethods.h"
 
 namespace rx
@@ -1279,7 +1279,7 @@ unsigned int GetReservedFragmentUniformVectors(D3D_FEATURE_LEVEL featureLevel)
         case D3D_FEATURE_LEVEL_9_3:
         case D3D_FEATURE_LEVEL_9_2:
         case D3D_FEATURE_LEVEL_9_1:
-            return 3;
+            return 4;  // dx_ViewCoords, dx_DepthFront, dx_DepthRange, dx_FragCoordOffset
 
         default:
             UNREACHABLE();
@@ -1374,6 +1374,43 @@ int GetMaxSampleMaskWords(D3D_FEATURE_LEVEL featureLevel)
     }
 }
 
+bool HasTextureBufferSupport(ID3D11Device *device, const Renderer11DeviceCaps &renderer11DeviceCaps)
+{
+    if (renderer11DeviceCaps.featureLevel < D3D_FEATURE_LEVEL_11_0)
+        return false;
+
+    if (!renderer11DeviceCaps.supportsTypedUAVLoadAdditionalFormats)
+        return false;
+
+    // https://docs.microsoft.com/en-us/windows/win32/direct3d12/typed-unordered-access-view-loads
+    // we don't need to check the typed store. from the spec,
+    // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#FormatList
+    // all the following format support typed stored.
+    // According to spec,
+    // https://www.khronos.org/registry/OpenGL-Refpages/es3/html/glBindImageTexture.xhtml the
+    // required image unit format are GL_RGBA32F, GL_RGBA32UI, GL_RGBA32I, GL_RGBA16F, GL_RGBA16UI,
+    // GL_RGBA16I, GL_RGBA8, GL_RGBAUI, GL_RGBA8I, GL_RGBA8_SNORM, GL_R32F, GL_R32UI, GL_R32I,
+    const std::array<DXGI_FORMAT, 2> &optionalFormats = {
+        DXGI_FORMAT_R32G32B32A32_FLOAT,  // test for GL_RGBA32(UIF), GL_RGBA16(UIF),
+                                         // GL_RGBA8(UIUnorm)
+        DXGI_FORMAT_R8G8B8A8_SNORM,      // test for GL_RGBA8_SNORM,
+    };
+
+    for (DXGI_FORMAT dxgiFormat : optionalFormats)
+    {
+        D3D11_FEATURE_DATA_FORMAT_SUPPORT FormatSupport = {dxgiFormat, 0};
+        if (!SUCCEEDED(device->CheckFeatureSupport(D3D11_FEATURE_FORMAT_SUPPORT, &FormatSupport,
+                                                   sizeof(FormatSupport))))
+        {
+            WARN() << "Error checking typed load support for format 0x" << std::hex << dxgiFormat;
+            return false;
+        }
+        if ((FormatSupport.OutFormatSupport & D3D11_FORMAT_SUPPORT2_UAV_TYPED_LOAD) == 0)
+            return false;
+    }
+    return true;
+}
+
 void GenerateCaps(ID3D11Device *device,
                   ID3D11DeviceContext *deviceContext,
                   const Renderer11DeviceCaps &renderer11DeviceCaps,
@@ -1382,21 +1419,17 @@ void GenerateCaps(ID3D11Device *device,
                   gl::Caps *caps,
                   gl::TextureCapsMap *textureCapsMap,
                   gl::Extensions *extensions,
-                  gl::Limitations *limitations)
+                  gl::Limitations *limitations,
+                  ShPixelLocalStorageOptions *plsOptions)
 {
-    D3D_FEATURE_LEVEL featureLevel  = renderer11DeviceCaps.featureLevel;
-    const gl::FormatSet &allFormats = gl::GetAllSizedInternalFormats();
+    const D3D_FEATURE_LEVEL featureLevel = renderer11DeviceCaps.featureLevel;
+    const gl::FormatSet &allFormats      = gl::GetAllSizedInternalFormats();
     for (GLenum internalFormat : allFormats)
     {
         gl::TextureCaps textureCaps =
             GenerateTextureFormatCaps(GetMaximumClientVersion(renderer11DeviceCaps), internalFormat,
                                       device, renderer11DeviceCaps);
         textureCapsMap->insert(internalFormat, textureCaps);
-
-        if (gl::GetSizedInternalFormatInfo(internalFormat).compressed)
-        {
-            caps->compressedTextureFormats.push_back(internalFormat);
-        }
     }
 
     // GL core feature limits
@@ -1569,8 +1602,10 @@ void GenerateCaps(ID3D11Device *device,
 
     caps->maxTextureAnisotropy        = GetMaximumAnisotropy(featureLevel);
     caps->queryCounterBitsTimeElapsed = 64;
-    caps->queryCounterBitsTimestamp = 0;  // Timestamps cannot be supported due to D3D11 limitations
-    caps->maxDualSourceDrawBuffers  = 1;
+
+    caps->queryCounterBitsTimestamp = features.enableTimestampQueries.enabled ? 64 : 0;
+
+    caps->maxDualSourceDrawBuffers = 1;
 
     // GL extension support
     extensions->setTextureExtensionSupport(*textureCapsMap);
@@ -1580,17 +1615,16 @@ void GenerateCaps(ID3D11Device *device,
     extensions->compressedETC1RGB8TextureOES    = false;
     extensions->compressedETC1RGB8SubTextureEXT = false;
 
-    extensions->elementIndexUintOES = true;
-    extensions->getProgramBinaryOES = true;
-    extensions->rgb8Rgba8OES        = true;
-    extensions->readFormatBgraEXT   = true;
-    extensions->pixelBufferObjectNV = true;
-    extensions->mapbufferOES        = true;
-    extensions->mapBufferRangeEXT   = true;
-    extensions->textureNpotOES      = GetNPOTTextureSupport(featureLevel);
-    extensions->drawBuffersEXT      = GetMaximumSimultaneousRenderTargets(featureLevel) > 1;
-    extensions->drawBuffersIndexedEXT =
-        (renderer11DeviceCaps.featureLevel >= D3D_FEATURE_LEVEL_10_1);
+    extensions->elementIndexUintOES         = true;
+    extensions->getProgramBinaryOES         = true;
+    extensions->rgb8Rgba8OES                = true;
+    extensions->readFormatBgraEXT           = true;
+    extensions->pixelBufferObjectNV         = true;
+    extensions->mapbufferOES                = true;
+    extensions->mapBufferRangeEXT           = true;
+    extensions->textureNpotOES              = GetNPOTTextureSupport(featureLevel);
+    extensions->drawBuffersEXT              = GetMaximumSimultaneousRenderTargets(featureLevel) > 1;
+    extensions->drawBuffersIndexedEXT       = (featureLevel >= D3D_FEATURE_LEVEL_10_1);
     extensions->drawBuffersIndexedOES       = extensions->drawBuffersIndexedEXT;
     extensions->textureStorageEXT           = true;
     extensions->textureFilterAnisotropicEXT = true;
@@ -1614,6 +1648,10 @@ void GenerateCaps(ID3D11Device *device,
     extensions->standardDerivativesOES      = GetDerivativeInstructionSupport(featureLevel);
     extensions->shaderTextureLodEXT         = GetShaderTextureLODSupport(featureLevel);
     extensions->fragDepthEXT                = true;
+    extensions->conservativeDepthEXT        = (featureLevel >= D3D_FEATURE_LEVEL_11_0);
+    extensions->polygonOffsetClampEXT       = (featureLevel >= D3D_FEATURE_LEVEL_10_0);
+    extensions->depthClampEXT               = true;
+    extensions->stencilTexturingANGLE       = (featureLevel >= D3D_FEATURE_LEVEL_10_1);
     extensions->multiviewOVR                = IsMultiviewSupported(featureLevel);
     extensions->multiview2OVR               = IsMultiviewSupported(featureLevel);
     if (extensions->multiviewOVR || extensions->multiview2OVR)
@@ -1638,10 +1676,13 @@ void GenerateCaps(ID3D11Device *device,
     extensions->copyTextureCHROMIUM                 = true;
     extensions->copyCompressedTextureCHROMIUM       = true;
     extensions->textureStorageMultisample2dArrayOES = true;
+    extensions->textureMirrorClampToEdgeEXT         = true;
+    extensions->shaderNoperspectiveInterpolationNV  = (featureLevel >= D3D_FEATURE_LEVEL_10_0);
     extensions->multiviewMultisampleANGLE =
         ((extensions->multiviewOVR || extensions->multiview2OVR) &&
          extensions->textureStorageMultisample2dArrayOES);
     extensions->copyTexture3dANGLE      = true;
+    extensions->textureBorderClampEXT   = true;
     extensions->textureBorderClampOES   = true;
     extensions->multiDrawIndirectEXT    = true;
     extensions->textureMultisampleANGLE = true;
@@ -1649,6 +1690,7 @@ void GenerateCaps(ID3D11Device *device,
     extensions->blendFuncExtendedEXT    = true;
     // http://anglebug.com/4926
     extensions->texture3DOES                             = false;
+    extensions->baseInstanceEXT                          = true;
     extensions->baseVertexBaseInstanceANGLE              = true;
     extensions->baseVertexBaseInstanceShaderBuiltinANGLE = true;
     extensions->drawElementsBaseVertexOES                = true;
@@ -1669,26 +1711,54 @@ void GenerateCaps(ID3D11Device *device,
     extensions->depthBufferFloat2NV = false;
 
     // GL_EXT_clip_control
-    extensions->clipControlEXT = (renderer11DeviceCaps.featureLevel >= D3D_FEATURE_LEVEL_9_3);
+    extensions->clipControlEXT = (featureLevel >= D3D_FEATURE_LEVEL_9_3);
+
+    // GL_APPLE_clip_distance / GL_EXT_clip_cull_distance / GL_ANGLE_clip_cull_distance
+    extensions->clipDistanceAPPLE         = true;
+    extensions->clipCullDistanceEXT       = true;
+    extensions->clipCullDistanceANGLE     = true;
+    caps->maxClipDistances                = D3D11_CLIP_OR_CULL_DISTANCE_COUNT;
+    caps->maxCullDistances                = D3D11_CLIP_OR_CULL_DISTANCE_COUNT;
+    caps->maxCombinedClipAndCullDistances = D3D11_CLIP_OR_CULL_DISTANCE_COUNT;
 
     // GL_KHR_parallel_shader_compile
     extensions->parallelShaderCompileKHR = true;
 
+    // GL_EXT_texture_buffer
+    extensions->textureBufferEXT = HasTextureBufferSupport(device, renderer11DeviceCaps);
+
+    // GL_OES_texture_buffer
+    extensions->textureBufferOES = extensions->textureBufferEXT;
+
+    // ANGLE_shader_pixel_local_storage -- fragment shader UAVs appear in D3D 11.0.
+    if (featureLevel >= D3D_FEATURE_LEVEL_11_0)
+    {
+        extensions->shaderPixelLocalStorageANGLE = true;
+        plsOptions->type                         = ShPixelLocalStorageType::ImageLoadStore;
+        if (renderer11DeviceCaps.supportsRasterizerOrderViews)
+        {
+            extensions->shaderPixelLocalStorageCoherentANGLE = true;
+            plsOptions->fragmentSyncType = ShFragmentSynchronizationType::RasterizerOrderViews_D3D;
+        }
+        // TODO(anglebug.com/7279): If we add RG* support to pixel local storage, these are *NOT*
+        // in the set of common formats, so we need to query support for each individualy:
+        // https://learn.microsoft.com/en-us/windows/win32/direct3d11/typed-unordered-access-view-loads
+        plsOptions->supportsNativeRGBA8ImageFormats =
+            renderer11DeviceCaps.supportsUAVLoadStoreCommonFormats;
+    }
+
     // D3D11 Feature Level 10_0+ uses SV_IsFrontFace in HLSL to emulate gl_FrontFacing.
     // D3D11 Feature Level 9_3 doesn't support SV_IsFrontFace, and has no equivalent, so can't
     // support gl_FrontFacing.
-    limitations->noFrontFacingSupport =
-        (renderer11DeviceCaps.featureLevel <= D3D_FEATURE_LEVEL_9_3);
+    limitations->noFrontFacingSupport = (featureLevel <= D3D_FEATURE_LEVEL_9_3);
 
     // D3D11 Feature Level 9_3 doesn't support alpha-to-coverage
-    limitations->noSampleAlphaToCoverageSupport =
-        (renderer11DeviceCaps.featureLevel <= D3D_FEATURE_LEVEL_9_3);
+    limitations->noSampleAlphaToCoverageSupport = (featureLevel <= D3D_FEATURE_LEVEL_9_3);
 
     // D3D11 Feature Levels 9_3 and below do not support non-constant loop indexing and require
     // additional
     // pre-validation of the shader at compile time to produce a better error message.
-    limitations->shadersRequireIndexedLoopValidation =
-        (renderer11DeviceCaps.featureLevel <= D3D_FEATURE_LEVEL_9_3);
+    limitations->shadersRequireIndexedLoopValidation = (featureLevel <= D3D_FEATURE_LEVEL_9_3);
 
     // D3D11 has no concept of separate masks and refs for front and back faces in the depth stencil
     // state.
@@ -1705,6 +1775,13 @@ void GenerateCaps(ID3D11Device *device,
 
     // D3D11 does not support compressed textures where the base mip level is not a multiple of 4
     limitations->compressedBaseMipLevelMultipleOfFour = true;
+
+    if (extensions->textureBufferAny())
+    {
+        caps->maxTextureBufferSize = 1 << D3D11_REQ_BUFFER_RESOURCE_TEXEL_COUNT_2_TO_EXP;
+        // this maybe touble for RGB32 format.
+        caps->textureBufferOffsetAlignment = 16;
+    }
 
 #ifdef ANGLE_ENABLE_WINDOWS_UWP
     // Setting a non-zero divisor on attribute zero doesn't work on certain Windows Phone 8-era
@@ -2021,12 +2098,14 @@ D3D11_TEXTURE_ADDRESS_MODE ConvertTextureWrap(GLenum wrap)
     {
         case GL_REPEAT:
             return D3D11_TEXTURE_ADDRESS_WRAP;
+        case GL_MIRRORED_REPEAT:
+            return D3D11_TEXTURE_ADDRESS_MIRROR;
         case GL_CLAMP_TO_EDGE:
             return D3D11_TEXTURE_ADDRESS_CLAMP;
         case GL_CLAMP_TO_BORDER:
             return D3D11_TEXTURE_ADDRESS_BORDER;
-        case GL_MIRRORED_REPEAT:
-            return D3D11_TEXTURE_ADDRESS_MIRROR;
+        case GL_MIRROR_CLAMP_TO_EDGE_EXT:
+            return D3D11_TEXTURE_ADDRESS_MIRROR_ONCE;
         default:
             UNREACHABLE();
     }
@@ -2050,6 +2129,9 @@ D3D11_QUERY ConvertQueryType(gl::QueryType type)
             return D3D11_QUERY_SO_STATISTICS;
         case gl::QueryType::TimeElapsed:
             // Two internal queries are also created for begin/end timestamps
+            return D3D11_QUERY_TIMESTAMP_DISJOINT;
+        case gl::QueryType::Timestamp:
+            // A disjoint query is also created for timestamp
             return D3D11_QUERY_TIMESTAMP_DISJOINT;
         case gl::QueryType::CommandsCompleted:
             return D3D11_QUERY_EVENT;
@@ -2507,6 +2589,14 @@ void InitializeFeatures(const Renderer11DeviceCaps &deviceCaps,
                             IsWin10OrGreater());
 }
 
+void InitializeFrontendFeatures(const DXGI_ADAPTER_DESC &adapterDesc,
+                                angle::FrontendFeatures *features)
+{
+    bool isAMD = IsAMD(adapterDesc.VendorId);
+
+    ANGLE_FEATURE_CONDITION(features, forceDepthAttachmentInitOnClear, isAMD);
+}
+
 void InitConstantBufferDesc(D3D11_BUFFER_DESC *constantBufferDescription, size_t byteWidth)
 {
     constantBufferDescription->ByteWidth           = static_cast<UINT>(byteWidth);
@@ -2545,6 +2635,11 @@ void TextureHelper11::getDesc(D3D11_TEXTURE3D_DESC *desc) const
     static_cast<ID3D11Texture3D *>(mData->object)->GetDesc(desc);
 }
 
+void TextureHelper11::getDesc(D3D11_BUFFER_DESC *desc) const
+{
+    static_cast<ID3D11Buffer *>(mData->object)->GetDesc(desc);
+}
+
 void TextureHelper11::initDesc(const D3D11_TEXTURE2D_DESC &desc2D)
 {
     mData->resourceType = ResourceType::Texture2D;
@@ -2560,6 +2655,15 @@ void TextureHelper11::initDesc(const D3D11_TEXTURE3D_DESC &desc3D)
     mExtents.width      = static_cast<int>(desc3D.Width);
     mExtents.height     = static_cast<int>(desc3D.Height);
     mExtents.depth      = static_cast<int>(desc3D.Depth);
+    mSampleCount        = 1;
+}
+
+void TextureHelper11::initDesc(const D3D11_BUFFER_DESC &descBuffer)
+{
+    mData->resourceType = ResourceType::Buffer;
+    mExtents.width      = static_cast<int>(descBuffer.ByteWidth);
+    mExtents.height     = 1;
+    mExtents.depth      = 1;
     mSampleCount        = 1;
 }
 
@@ -2640,4 +2744,29 @@ IndexStorageType ClassifyIndexStorage(const gl::State &glState,
     // Static buffer not available, fall back to streaming.
     return IndexStorageType::Dynamic;
 }
+
+bool SwizzleRequired(const gl::TextureState &textureState)
+{
+    // When sampling stencil, a swizzle is needed to move the stencil channel from G to R.
+    return textureState.swizzleRequired() || textureState.isStencilMode();
+}
+
+gl::SwizzleState GetEffectiveSwizzle(const gl::TextureState &textureState)
+{
+    const gl::SwizzleState &swizzle = textureState.getSwizzleState();
+    if (textureState.isStencilMode())
+    {
+        // Per GL semantics, the stencil value should be in the red channel, while D3D11 formats
+        // leave stencil in the green channel. So copy the stencil value from green to all
+        // components requesting red. Green and blue become zero; alpha becomes one.
+        std::unordered_map<GLenum, GLenum> map = {{GL_RED, GL_GREEN}, {GL_GREEN, GL_ZERO},
+                                                  {GL_BLUE, GL_ZERO}, {GL_ALPHA, GL_ONE},
+                                                  {GL_ZERO, GL_ZERO}, {GL_ONE, GL_ONE}};
+
+        return gl::SwizzleState(map[swizzle.swizzleRed], map[swizzle.swizzleGreen],
+                                map[swizzle.swizzleBlue], map[swizzle.swizzleAlpha]);
+    }
+    return swizzle;
+}
+
 }  // namespace rx

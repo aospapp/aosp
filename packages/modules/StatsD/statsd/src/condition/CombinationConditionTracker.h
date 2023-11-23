@@ -30,15 +30,17 @@ public:
 
     ~CombinationConditionTracker();
 
-    bool init(const std::vector<Predicate>& allConditionConfig,
-              const std::vector<sp<ConditionTracker>>& allConditionTrackers,
-              const std::unordered_map<int64_t, int>& conditionIdIndexMap, std::vector<bool>& stack,
-              std::vector<ConditionState>& conditionCache) override;
+    optional<InvalidConfigReason> init(
+            const std::vector<Predicate>& allConditionConfig,
+            const std::vector<sp<ConditionTracker>>& allConditionTrackers,
+            const std::unordered_map<int64_t, int>& conditionIdIndexMap, std::vector<bool>& stack,
+            std::vector<ConditionState>& conditionCache) override;
 
-    bool onConfigUpdated(const std::vector<Predicate>& allConditionProtos, const int index,
-                         const std::vector<sp<ConditionTracker>>& allConditionTrackers,
-                         const std::unordered_map<int64_t, int>& atomMatchingTrackerMap,
-                         const std::unordered_map<int64_t, int>& conditionTrackerMap) override;
+    optional<InvalidConfigReason> onConfigUpdated(
+            const std::vector<Predicate>& allConditionProtos, const int index,
+            const std::vector<sp<ConditionTracker>>& allConditionTrackers,
+            const std::unordered_map<int64_t, int>& atomMatchingTrackerMap,
+            const std::unordered_map<int64_t, int>& conditionTrackerMap) override;
 
     void evaluateCondition(const LogEvent& event,
                            const std::vector<MatchingState>& eventMatcherValues,

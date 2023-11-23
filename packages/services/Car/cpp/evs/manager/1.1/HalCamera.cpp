@@ -23,9 +23,6 @@
 #include <android-base/logging.h>
 #include <android-base/strings.h>
 
-using ::android::hardware::Return;
-using ::android::hardware::Void;
-
 namespace android::automotive::evs::V1_1::implementation {
 
 // TODO(changyeon):
@@ -33,6 +30,10 @@ namespace android::automotive::evs::V1_1::implementation {
 
 using ::android::base::StringAppendF;
 using ::android::base::WriteStringToFd;
+using ::android::hardware::Return;
+using ::android::hardware::Void;
+using ::android::hardware::automotive::evs::V1_1::EvsEventDesc;
+using ::android::hardware::automotive::evs::V1_1::EvsEventType;
 
 HalCamera::~HalCamera() {
     // Reports the usage statistics before the destruction

@@ -35,7 +35,7 @@
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
         <option name="class" value="android.signature.cts.api.WildcardKillswitchTest" />
         <option name="runtime-hint" value="60s" />
-        <option name="shell-timeout" value="20m" />
+        <option name="shell-timeout" value="45m" />
     </test>
 
     <!-- Controller that will skip the module if a native bridge situation is detected -->

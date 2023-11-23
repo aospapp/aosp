@@ -45,10 +45,12 @@ using ::android::hardware::hidl_handle;
 using ::android::hardware::IPCThreadState;
 using ::android::hardware::Void;
 using ::android::hardware::automotive::evs::V1_0::DisplayState;
+using ::android::hardware::automotive::evs::V1_1::UltrasonicsArrayDesc;
+using ::android::hardware::camera::device::V3_2::Stream;
+
 using IEvsCamera_1_0 = ::android::hardware::automotive::evs::V1_0::IEvsCamera;
 using CameraDesc_1_0 = ::android::hardware::automotive::evs::V1_0::CameraDesc;
 using CameraDesc_1_1 = ::android::hardware::automotive::evs::V1_1::CameraDesc;
-using ::android::hardware::camera::device::V3_2::Stream;
 
 const char* kSingleIndent = "\t";
 const char* kDumpOptionAll = "all";

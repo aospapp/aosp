@@ -13,7 +13,6 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-import threading
 import unittest
 from unittest import TestCase
 
@@ -88,7 +87,8 @@ class EventBusTest(TestCase):
         mock_type = Mock()
         bus = event_bus._event_bus
         bus._subscriptions[mock_type] = [
-            EventSubscription(mock_type, lambda _: None)]
+            EventSubscription(mock_type, lambda _: None)
+        ]
         new_subscription = EventSubscription(mock_type, lambda _: True)
 
         reg_id = event_bus.register_subscription(new_subscription)
@@ -126,8 +126,10 @@ class EventBusTest(TestCase):
         """Tests posting with ignore_errors=True calls all registered funcs,
         even if they raise errors.
         """
+
         def _raise(_):
             raise Exception
+
         mock_event = Mock()
         mock_subscriptions = [Mock(), Mock(), Mock()]
         mock_subscriptions[0].deliver.side_effect = _raise
@@ -195,8 +197,8 @@ class EventBusTest(TestCase):
                          len(unregister_list_1) + len(unregister_list_2))
         for args, _ in unregister.call_args_list:
             subscription = args[0]
-            self.assertTrue(subscription in unregister_list_1 or
-                            subscription in unregister_list_2)
+            self.assertTrue(subscription in unregister_list_1
+                            or subscription in unregister_list_2)
 
     def test_unregister_given_an_event_subscription(self):
         """Tests that unregister can unregister a given EventSubscription."""

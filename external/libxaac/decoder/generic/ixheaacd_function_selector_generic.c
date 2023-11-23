@@ -45,6 +45,9 @@
 
 #include "ixheaacd_lt_predict.h"
 
+#include "ixheaacd_cnst.h"
+#include "ixheaacd_ec_defines.h"
+#include "ixheaacd_ec_struct_def.h"
 #include "ixheaacd_channelinfo.h"
 #include "ixheaacd_drc_dec.h"
 
@@ -67,11 +70,15 @@
 WORD32 (*ixheaacd_fix_div)(WORD32, WORD32) = &ixheaacd_fix_div_dec;
 
 VOID(*ixheaacd_covariance_matrix_calc)
-(WORD32 *, ixheaacd_lpp_trans_cov_matrix *,
+(WORD32 *, ia_lpp_trans_cov_matrix *,
  WORD32) = &ixheaacd_covariance_matrix_calc_dec;
 
+VOID(*ixheaacd_covariance_matrix_calc_960)
+(WORD32 *, ia_lpp_trans_cov_matrix *,
+ WORD32, WORD32) = &ixheaacd_covariance_matrix_calc_dec_960;
+
 VOID(*ixheaacd_covariance_matrix_calc_2)
-(ixheaacd_lpp_trans_cov_matrix *, WORD32 *, WORD32,
+(ia_lpp_trans_cov_matrix *, WORD32 *, WORD32,
  WORD16) = &ixheaacd_covariance_matrix_calc_2_dec;
 
 VOID(*ixheaacd_over_lap_add1)
@@ -186,6 +193,11 @@ VOID(*ixheaacd_pretwiddle_compute)
  ia_aac_dec_imdct_tables_struct *ptr_imdct_tables, WORD npoints4,
  WORD32 neg_expo) = &ixheaacd_pretwiddle_compute_dec;
 
+VOID(*ixheaacd_pretwiddle_compute_960)
+(WORD32 *spec_data1, WORD32 *spec_data2, WORD32 *out_ptr,
+ ia_aac_dec_imdct_tables_struct *ptr_imdct_tables, WORD npoints4,
+ WORD32 neg_expo) = &ixheaacd_pretwiddle_compute_960_dec;
+
 VOID(*ixheaacd_imdct_using_fft)
 (ia_aac_dec_imdct_tables_struct *ptr_imdct_tables, WORD32 npoints,
  WORD32 *ptr_x, WORD32 *ptr_y) = &ixheaacd_imdct_using_fft_dec;
@@ -193,18 +205,6 @@ VOID(*ixheaacd_imdct_using_fft)
 VOID(*ixheaacd_complex_fft_p2)
 (WORD32 *xr, WORD32 *xi, WORD32 nlength, WORD32 fft_mode,
  WORD32 *preshift) = &ixheaacd_complex_fft_p2_dec;
-
-VOID(*ixheaacd_mps_complex_fft_64)
-(WORD32 *ptr_x, WORD32 *fin_re, WORD32 *fin_im,
- WORD32 nlength) = &ixheaacd_mps_complex_fft_64_dec;
-
-VOID(*ixheaacd_mps_synt_pre_twiddle)
-(WORD32 *ptr_in, const WORD32 *table_re, const WORD32 *table_im,
- WORD32 resolution) = &ixheaacd_mps_synt_pre_twiddle_dec;
-
-VOID(*ixheaacd_mps_synt_post_twiddle)
-(WORD32 *ptr_in, const WORD32 *table_re, const WORD32 *table_im,
- WORD32 resolution) = &ixheaacd_mps_synt_post_twiddle_dec;
 
 VOID(*ixheaacd_calc_pre_twid)
 (WORD32 *ptr_x, WORD32 *r_ptr, WORD32 *i_ptr, WORD32 nlength,
@@ -214,14 +214,10 @@ VOID(*ixheaacd_calc_post_twid)
 (WORD32 *ptr_x, WORD32 *r_ptr, WORD32 *i_ptr, WORD32 nlength,
  const WORD32 *cos_ptr, const WORD32 *sin_ptr) = &ixheaacd_calc_post_twid_dec;
 
-VOID(*ixheaacd_mps_synt_post_fft_twiddle)
-(WORD32 resolution, WORD32 *fin_re, WORD32 *fin_im, const WORD32 *table_re,
- const WORD32 *table_im,
- WORD32 *state) = &ixheaacd_mps_synt_post_fft_twiddle_dec;
 
 VOID(*ixheaacd_mps_synt_out_calc)
-(WORD32 resolution, WORD32 *out, WORD32 *state,
- const WORD32 *filter_coeff) = &ixheaacd_mps_synt_out_calc_dec;
+(WORD32 resolution, FLOAT32 *out, FLOAT32 *state,
+ const FLOAT32 *filter_coeff) = &ixheaacd_mps_synt_out_calc_dec;
 
 VOID(*ixheaacd_fft_15_ld)
 (WORD32 *inp, WORD32 *op, WORD32 *fft3out,

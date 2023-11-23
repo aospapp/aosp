@@ -1,7 +1,7 @@
 use crate::{
     errors::*,
-    objects::{JMethodID, JObject},
-    signature::{JavaType, Primitive},
+    objects::{JMethodID, JObject, JValue},
+    signature::{Primitive, ReturnType},
     sys::jint,
     JNIEnv,
 };
@@ -13,11 +13,11 @@ use crate::{
 /// call.
 pub struct JList<'a: 'b, 'b> {
     internal: JObject<'a>,
-    get: JMethodID<'a>,
-    add: JMethodID<'a>,
-    add_idx: JMethodID<'a>,
-    remove: JMethodID<'a>,
-    size: JMethodID<'a>,
+    get: JMethodID,
+    add: JMethodID,
+    add_idx: JMethodID,
+    remove: JMethodID,
+    size: JMethodID,
     env: &'b JNIEnv<'a>,
 }
 
@@ -65,8 +65,8 @@ impl<'a: 'b, 'b> JList<'a, 'b> {
         let result = self.env.call_method_unchecked(
             self.internal,
             self.get,
-            JavaType::Object("java/lang/Object".into()),
-            &[idx.into()],
+            ReturnType::Object,
+            &[JValue::from(idx).to_jni()],
         );
 
         match result {
@@ -83,8 +83,8 @@ impl<'a: 'b, 'b> JList<'a, 'b> {
         let result = self.env.call_method_unchecked(
             self.internal,
             self.add,
-            JavaType::Primitive(Primitive::Boolean),
-            &[value.into()],
+            ReturnType::Primitive(Primitive::Boolean),
+            &[JValue::from(value).to_jni()],
         );
 
         let _ = result?;
@@ -96,8 +96,8 @@ impl<'a: 'b, 'b> JList<'a, 'b> {
         let result = self.env.call_method_unchecked(
             self.internal,
             self.add_idx,
-            JavaType::Primitive(Primitive::Void),
-            &[idx.into(), value.into()],
+            ReturnType::Primitive(Primitive::Void),
+            &[JValue::from(idx).to_jni(), JValue::from(value).to_jni()],
         );
 
         let _ = result?;
@@ -109,8 +109,8 @@ impl<'a: 'b, 'b> JList<'a, 'b> {
         let result = self.env.call_method_unchecked(
             self.internal,
             self.remove,
-            JavaType::Object("java/lang/Object".into()),
-            &[idx.into()],
+            ReturnType::Object,
+            &[JValue::from(idx).to_jni()],
         );
 
         match result {
@@ -127,7 +127,7 @@ impl<'a: 'b, 'b> JList<'a, 'b> {
         let result = self.env.call_method_unchecked(
             self.internal,
             self.size,
-            JavaType::Primitive(Primitive::Int),
+            ReturnType::Primitive(Primitive::Int),
             &[],
         );
 
@@ -146,8 +146,8 @@ impl<'a: 'b, 'b> JList<'a, 'b> {
         let result = self.env.call_method_unchecked(
             self.internal,
             self.remove,
-            JavaType::Object("java/lang/Object".into()),
-            &[(size - 1).into()],
+            ReturnType::Object,
+            &[JValue::from(size - 1).to_jni()],
         );
 
         match result {
@@ -163,7 +163,7 @@ impl<'a: 'b, 'b> JList<'a, 'b> {
     /// `EntrySet` from java and iterating over it.
     pub fn iter(&self) -> Result<JListIter<'a, 'b, '_>> {
         Ok(JListIter {
-            list: &self,
+            list: self,
             current: 0,
             size: self.size()?,
         })

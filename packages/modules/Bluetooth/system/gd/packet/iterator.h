@@ -27,21 +27,35 @@
 namespace bluetooth {
 namespace packet {
 
+// std::iterator is deprecated in C++17 onwards. Instead, you must declare all
+// 5 aliases that the iterator needs for the std library.
+#if __cplusplus >= 201703L
+struct IteratorTraits {
+  using iterator_category = std::random_access_iterator_tag;
+  using value_type = uint8_t;
+  using difference_type = std::ptrdiff_t;
+  using pointer = uint8_t*;
+  using reference = uint8_t&;
+};
+#else
+struct IteratorTraits : public std::iterator<std::random_access_iterator_tag, uint8_t> {};
+#endif
+
 // Templated Iterator for endianness
 template <bool little_endian>
-class Iterator : public std::iterator<std::random_access_iterator_tag, uint8_t> {
+class Iterator : public IteratorTraits {
  public:
   Iterator(const std::forward_list<View>& data, size_t offset);
   Iterator(const Iterator& itr) = default;
   virtual ~Iterator() = default;
 
   // All addition and subtraction operators are unbounded.
-  Iterator operator+(int offset);
+  Iterator operator+(int offset) const;
   Iterator& operator+=(int offset);
   Iterator& operator++();
 
-  Iterator operator-(int offset);
-  int operator-(Iterator& itr);
+  Iterator operator-(int offset) const;
+  int operator-(const Iterator& itr) const;
   Iterator& operator-=(int offset);
   Iterator& operator--();
 

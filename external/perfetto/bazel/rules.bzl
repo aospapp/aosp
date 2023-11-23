@@ -22,7 +22,7 @@ load("@perfetto//bazel:proto_gen.bzl", "proto_descriptor_gen", "proto_gen")
 def default_cc_args():
     return {
         "deps": PERFETTO_CONFIG.deps.build_config,
-        "copts": [
+        "copts": PERFETTO_CONFIG.default_copts + [
             "-Wno-pragma-system-header-outside-header",
         ],
         "includes": ["include"],
@@ -85,6 +85,11 @@ def perfetto_java_lite_proto_library(**kwargs):
         native.java_lite_proto_library(**kwargs)
 
 # Unlike the other rules, this is an noop by default because Bazel does not
+# support Go proto libraries.
+def perfetto_go_proto_library(**kwargs):
+    _rule_override("go_proto_library", **kwargs)
+
+# Unlike the other rules, this is an noop by default because Bazel does not
 # support Python proto libraries.
 def perfetto_py_proto_library(**kwargs):
     _rule_override("py_proto_library", **kwargs)
@@ -92,11 +97,6 @@ def perfetto_py_proto_library(**kwargs):
 # +----------------------------------------------------------------------------+
 # | Misc rules.                                                                |
 # +----------------------------------------------------------------------------+
-
-# Unlike the other rules, this is an noop by default because Bazel does not
-# support gensignature.
-def perfetto_gensignature_internal_only(**kwargs):
-    _rule_override("gensignature_internal_only", **kwargs)
 
 # Generates .pbzero.{cc,h} from .proto(s). We deliberately do NOT generate
 # conventional .pb.{cc,h} from here as protozero gen sources do not have any
@@ -267,7 +267,7 @@ def perfetto_cc_proto_descriptor(name, deps, outs, **kwargs):
     perfetto_genrule(
         name = name + "_gen",
         cmd = " ".join(cmd),
-        exec_tools = [
+        tools = [
             ":gen_cc_proto_descriptor_py",
         ],
         srcs = deps,
@@ -278,6 +278,87 @@ def perfetto_cc_proto_descriptor(name, deps, outs, **kwargs):
         name = name,
         hdrs = [":" + name + "_gen"],
         **kwargs
+    )
+
+def perfetto_cc_amalgamated_sql(name, deps, outs, namespace, **kwargs):
+    if PERFETTO_CONFIG.root[:2] != "//":
+        fail("Expected PERFETTO_CONFIG.root to start with //")
+
+    cmd = [
+        "$(location gen_amalgamated_sql_py)",
+        "--namespace",
+        namespace,
+        "--cpp-out=$@",
+        "$(SRCS)",
+    ]
+
+    perfetto_genrule(
+        name = name + "_gen",
+        cmd = " ".join(cmd),
+        tools = [
+            ":gen_amalgamated_sql_py",
+        ],
+        srcs = deps,
+        outs = outs,
+    )
+
+    perfetto_cc_library(
+        name = name,
+        hdrs = [":" + name + "_gen"],
+        **kwargs,
+    )
+
+def perfetto_cc_tp_tables(name, srcs, outs, deps = [], **kwargs):
+    if PERFETTO_CONFIG.root[:2] != "//":
+        fail("Expected PERFETTO_CONFIG.root to start with //")
+
+    if PERFETTO_CONFIG.root == "//":
+        python_path = PERFETTO_CONFIG.root + "python"
+    else:
+        python_path = PERFETTO_CONFIG.root + "/python"
+
+    perfetto_py_library(
+        name = name + "_lib",
+        deps = [
+            python_path + ":trace_processor_table_generator",
+        ],
+        srcs = srcs,
+    )
+
+    perfetto_py_binary(
+        name = name + "_tool",
+        deps = [
+            ":" + name + "_lib",
+            python_path + ":trace_processor_table_generator",
+        ] + [d + "_lib" for d in deps],
+        srcs = [
+            "tools/gen_tp_table_headers.py",
+        ],
+        main = "tools/gen_tp_table_headers.py",
+        python_version = "PY3",
+    )
+
+    cmd = ["$(location " + name + "_tool)"]
+    cmd += ["--gen-dir", "$(RULEDIR)"]
+    cmd += ["--inputs", "$(SRCS)"]
+    if PERFETTO_CONFIG.root != "//":
+        cmd += ["--import-prefix", PERFETTO_CONFIG.root[2:]]
+        cmd += ["--relative-input-dir", PERFETTO_CONFIG.root[2:]]
+
+    perfetto_genrule(
+        name = name + "_gen",
+        cmd = " ".join(cmd),
+        tools = [
+            ":" + name + "_tool",
+        ],
+        srcs = srcs,
+        outs = outs,
+    )
+
+    perfetto_filegroup(
+        name = name,
+        srcs = [":" + name + "_gen"],
+        **kwargs,
     )
 
 # +----------------------------------------------------------------------------+

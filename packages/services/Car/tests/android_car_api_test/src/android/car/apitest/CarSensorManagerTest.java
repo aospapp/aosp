@@ -18,6 +18,7 @@ package android.car.apitest;
 
 import android.car.Car;
 import android.car.hardware.CarSensorManager;
+import android.car.test.ApiCheckerRule.Builder;
 import android.test.suitebuilder.annotation.MediumTest;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -26,6 +27,12 @@ import org.junit.Test;
 
 @MediumTest
 public class CarSensorManagerTest extends CarApiTestBase {
+
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        builder.disableAnnotationsCheck();
+    }
 
     @Test
     public void testCreate() throws Exception {

@@ -15,7 +15,6 @@
 package android
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
@@ -67,6 +66,11 @@ func buildLicenseMetadata(ctx ModuleContext, licenseMetadataFile WritablePath) {
 			return
 		}
 
+		// Defaults add properties and dependencies that get processed on their own.
+		if ctx.OtherModuleDependencyTag(dep) == DefaultsDepTag {
+			return
+		}
+
 		if ctx.OtherModuleHasProvider(dep, LicenseMetadataProvider) {
 			info := ctx.OtherModuleProvider(dep, LicenseMetadataProvider).(*LicenseMetadataInfo)
 			allDepMetadataFiles = append(allDepMetadataFiles, info.LicenseMetadataPath)
@@ -94,6 +98,11 @@ func buildLicenseMetadata(ctx ModuleContext, licenseMetadataFile WritablePath) {
 	var orderOnlyDeps Paths
 	var args []string
 
+	if n := ctx.ModuleName(); n != "" {
+		args = append(args,
+			"-mn "+proptools.NinjaAndShellEscape(n))
+	}
+
 	if t := ctx.ModuleType(); t != "" {
 		args = append(args,
 			"-mt "+proptools.NinjaAndShellEscape(t))
@@ -105,7 +114,7 @@ func buildLicenseMetadata(ctx ModuleContext, licenseMetadataFile WritablePath) {
 
 	if p := base.commonProperties.Effective_package_name; p != nil {
 		args = append(args,
-			`-p "`+proptools.NinjaAndShellEscape(*p)+`"`)
+			`-p `+proptools.NinjaAndShellEscapeIncludingSpaces(*p))
 	}
 
 	args = append(args,
@@ -139,8 +148,6 @@ func buildLicenseMetadata(ctx ModuleContext, licenseMetadataFile WritablePath) {
 	if len(outputFiles) > 0 {
 		args = append(args,
 			JoinWithPrefix(proptools.NinjaAndShellEscapeListIncludingSpaces(outputFiles.Strings()), "-t "))
-	} else {
-		args = append(args, fmt.Sprintf("-t //%s:%s", ctx.ModuleDir(), ctx.ModuleName()))
 	}
 
 	// Installed files

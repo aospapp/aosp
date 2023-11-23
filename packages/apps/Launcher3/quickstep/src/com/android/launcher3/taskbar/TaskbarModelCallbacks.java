@@ -18,6 +18,8 @@ package com.android.launcher3.taskbar;
 import android.util.SparseArray;
 import android.view.View;
 
+import androidx.annotation.UiThread;
+
 import com.android.launcher3.LauncherSettings.Favorites;
 import com.android.launcher3.model.BgDataModel;
 import com.android.launcher3.model.BgDataModel.FixedContainerItems;
@@ -29,6 +31,9 @@ import com.android.launcher3.util.IntArray;
 import com.android.launcher3.util.IntSet;
 import com.android.launcher3.util.ItemInfoMatcher;
 import com.android.launcher3.util.LauncherBindableItemsContainer;
+import com.android.launcher3.util.PackageUserKey;
+import com.android.launcher3.util.Preconditions;
+import com.android.quickstep.RecentsModel;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -36,13 +41,14 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 
 /**
  * Launcher model Callbacks for rendering taskbar.
  */
 public class TaskbarModelCallbacks implements
-        BgDataModel.Callbacks, LauncherBindableItemsContainer {
+        BgDataModel.Callbacks, LauncherBindableItemsContainer, RecentsModel.RunningTasksListener {
 
     private final SparseArray<ItemInfo> mHotseatItems = new SparseArray<>();
     private List<ItemInfo> mPredictedItems = Collections.emptyList();
@@ -53,6 +59,10 @@ public class TaskbarModelCallbacks implements
     // Initialized in init.
     private TaskbarControllers mControllers;
 
+    // Used to defer any UI updates during the SUW unstash animation.
+    private boolean mDeferUpdatesForSUW;
+    private Runnable mDeferredUpdates;
+
     public TaskbarModelCallbacks(
             TaskbarActivityContext context, TaskbarView container) {
         mContext = context;
@@ -61,6 +71,16 @@ public class TaskbarModelCallbacks implements
 
     public void init(TaskbarControllers controllers) {
         mControllers = controllers;
+        if (mControllers.taskbarRecentAppsController.isEnabled()) {
+            RecentsModel.INSTANCE.get(mContext).registerRunningTasksListener(this);
+        }
+    }
+
+    /**
+     * Unregisters listeners in this class.
+     */
+    public void unregisterListeners() {
+        RecentsModel.INSTANCE.get(mContext).unregisterRunningTasksListener();
     }
 
     @Override
@@ -173,7 +193,6 @@ public class TaskbarModelCallbacks implements
         int predictionSize = mPredictedItems.size();
         int predictionNextIndex = 0;
 
-        boolean isHotseatEmpty = true;
         for (int i = 0; i < hotseatItemInfos.length; i++) {
             hotseatItemInfos[i] = mHotseatItems.get(i);
             if (hotseatItemInfos[i] == null && predictionNextIndex < predictionSize) {
@@ -181,18 +200,54 @@ public class TaskbarModelCallbacks implements
                 hotseatItemInfos[i].screenId = i;
                 predictionNextIndex++;
             }
-            if (hotseatItemInfos[i] != null) {
-                isHotseatEmpty = false;
+        }
+        hotseatItemInfos = mControllers.taskbarRecentAppsController
+                .updateHotseatItemInfos(hotseatItemInfos);
+
+        if (mDeferUpdatesForSUW) {
+            ItemInfo[] finalHotseatItemInfos = hotseatItemInfos;
+            mDeferredUpdates = () -> {
+                updateHotseatItemsAndBackground(finalHotseatItemInfos);
+            };
+        } else {
+            updateHotseatItemsAndBackground(hotseatItemInfos);
+        }
+    }
+
+    private void updateHotseatItemsAndBackground(ItemInfo[] hotseatItemInfos) {
+        mContainer.updateHotseatItems(hotseatItemInfos);
+        mControllers.taskbarViewController.updateIconsBackground();
+    }
+
+    /**
+     * This is used to defer UI updates after SUW builds the unstash animation.
+     * @param defer if true, defers updates to the UI
+     *              if false, posts updates (if any) to the UI
+     */
+    public void setDeferUpdatesForSUW(boolean defer) {
+        mDeferUpdatesForSUW = defer;
+
+        if (!mDeferUpdatesForSUW) {
+            if (mDeferredUpdates != null) {
+                mContainer.post(mDeferredUpdates);
+                mDeferredUpdates = null;
             }
         }
-        mContainer.updateHotseatItems(hotseatItemInfos);
+    }
 
-        final boolean finalIsHotseatEmpty = isHotseatEmpty;
-        mControllers.runAfterInit(() -> {
-            mControllers.taskbarStashController.updateStateForFlag(
-                    TaskbarStashController.FLAG_STASHED_IN_APP_EMPTY, finalIsHotseatEmpty);
-            mControllers.taskbarStashController.applyState();
-        });
+    @Override
+    public void onRunningTasksChanged() {
+        updateRunningApps();
+    }
+
+    /** Called when there's a change in running apps to update the UI. */
+    public void commitRunningAppsToUI() {
+        commitItemsToUI();
+    }
+
+    /** Call TaskbarRecentAppsController to update running apps with mHotseatItems. */
+    public void updateRunningApps() {
+        mControllers.taskbarRecentAppsController.updateRunningApps(mHotseatItems);
     }
 
     @Override
@@ -200,9 +255,13 @@ public class TaskbarModelCallbacks implements
         mControllers.taskbarPopupController.setDeepShortcutMap(deepShortcutMapCopy);
     }
 
+    @UiThread
     @Override
-    public void bindAllApplications(AppInfo[] apps, int flags) {
-        mControllers.taskbarAllAppsController.setApps(apps, flags);
+    public void bindAllApplications(AppInfo[] apps, int flags,
+            Map<PackageUserKey, Integer> packageUserKeytoUidMap) {
+        Preconditions.assertUIThread();
+        mControllers.taskbarAllAppsController.setApps(apps, flags, packageUserKeytoUidMap);
+        mControllers.taskbarRecentAppsController.setApps(apps);
     }
 
     protected void dumpLogs(String prefix, PrintWriter pw) {
@@ -213,5 +272,7 @@ public class TaskbarModelCallbacks implements
             pw.println(
                     String.format("%s\tpredicted items count=%s", prefix, mPredictedItems.size()));
         }
+        pw.println(String.format("%s\tmDeferUpdatesForSUW=%b", prefix, mDeferUpdatesForSUW));
+        pw.println(String.format("%s\tupdates pending=%b", prefix, (mDeferredUpdates != null)));
     }
 }

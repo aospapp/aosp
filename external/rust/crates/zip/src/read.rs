@@ -348,7 +348,9 @@ impl<R: Read + io::Seek> ZipArchive<R> {
             Some(locator64) => {
                 // If we got here, this is indeed a ZIP64 file.
 
-                if footer.disk_number as u32 != locator64.disk_with_central_directory {
+                if !footer.record_too_small()
+                    && footer.disk_number as u32 != locator64.disk_with_central_directory
+                {
                     return unsupported_zip_error(
                         "Support for multi-disk files is not implemented",
                     );
@@ -401,15 +403,23 @@ impl<R: Read + io::Seek> ZipArchive<R> {
     pub fn new(mut reader: R) -> ZipResult<ZipArchive<R>> {
         let (footer, cde_start_pos) = spec::CentralDirectoryEnd::find_and_parse(&mut reader)?;
 
-        if footer.disk_number != footer.disk_with_central_directory {
+        if !footer.record_too_small() && footer.disk_number != footer.disk_with_central_directory {
             return unsupported_zip_error("Support for multi-disk files is not implemented");
         }
 
         let (archive_offset, directory_start, number_of_files) =
             Self::get_directory_counts(&mut reader, &footer, cde_start_pos)?;
 
-        let mut files = Vec::new();
-        let mut names_map = HashMap::new();
+        // If the parsed number of files is greater than the offset then
+        // something fishy is going on and we shouldn't trust number_of_files.
+        let file_capacity = if number_of_files > cde_start_pos as usize {
+            0
+        } else {
+            number_of_files
+        };
+
+        let mut files = Vec::with_capacity(file_capacity);
+        let mut names_map = HashMap::with_capacity(file_capacity);
 
         if reader.seek(io::SeekFrom::Start(directory_start)).is_err() {
             return Err(ZipError::InvalidArchive(
@@ -453,7 +463,7 @@ impl<R: Read + io::Seek> ZipArchive<R> {
             } else {
                 if let Some(p) = outpath.parent() {
                     if !p.exists() {
-                        fs::create_dir_all(&p)?;
+                        fs::create_dir_all(p)?;
                     }
                 }
                 let mut outfile = fs::File::create(&outpath)?;
@@ -639,7 +649,7 @@ pub(crate) fn central_header_to_zip_file<R: Read + io::Seek>(
     reader: &mut R,
     archive_offset: u64,
 ) -> ZipResult<ZipFileData> {
-    let central_header_start = reader.seek(io::SeekFrom::Current(0))?;
+    let central_header_start = reader.stream_position()?;
     // Parse central header
     let signature = reader.read_u32::<LittleEndian>()?;
     if signature != spec::CENTRAL_DIRECTORY_HEADER_SIGNATURE {
@@ -673,11 +683,11 @@ pub(crate) fn central_header_to_zip_file<R: Read + io::Seek>(
     reader.read_exact(&mut file_comment_raw)?;
 
     let file_name = match is_utf8 {
-        true => String::from_utf8_lossy(&*file_name_raw).into_owned(),
+        true => String::from_utf8_lossy(&file_name_raw).into_owned(),
         false => file_name_raw.clone().from_cp437(),
     };
     let file_comment = match is_utf8 {
-        true => String::from_utf8_lossy(&*file_comment_raw).into_owned(),
+        true => String::from_utf8_lossy(&file_comment_raw).into_owned(),
         false => file_comment_raw.from_cp437(),
     };
 
@@ -912,12 +922,12 @@ impl<'a> ZipFile<'a> {
         self.data.compression_method
     }
 
-    /// Get the size of the file in the archive
+    /// Get the size of the file, in bytes, in the archive
     pub fn compressed_size(&self) -> u64 {
         self.data.compressed_size
     }
 
-    /// Get the size of the file when uncompressed
+    /// Get the size of the file, in bytes, when uncompressed
     pub fn size(&self) -> u64 {
         self.data.uncompressed_size
     }
@@ -949,7 +959,7 @@ impl<'a> ZipFile<'a> {
         match self.data.system {
             System::Unix => Some(self.data.external_attributes >> 16),
             System::Dos => {
-                // Interpret MSDOS directory bit
+                // Interpret MS-DOS directory bit
                 let mut mode = if 0x10 == (self.data.external_attributes & 0x10) {
                     ffi::S_IFDIR | 0o0775
                 } else {
@@ -1077,7 +1087,7 @@ pub fn read_zipfile_from_stream<'a, R: io::Read>(
     reader.read_exact(&mut extra_field)?;
 
     let file_name = match is_utf8 {
-        true => String::from_utf8_lossy(&*file_name_raw).into_owned(),
+        true => String::from_utf8_lossy(&file_name_raw).into_owned(),
         false => file_name_raw.clone().from_cp437(),
     };
 
@@ -1121,7 +1131,7 @@ pub fn read_zipfile_from_stream<'a, R: io::Read>(
         return unsupported_zip_error("The file length is not available in the local header");
     }
 
-    let limit_reader = (reader as &'a mut dyn io::Read).take(result.compressed_size as u64);
+    let limit_reader = (reader as &'a mut dyn io::Read).take(result.compressed_size);
 
     let result_crc32 = result.crc32;
     let result_compression_method = result.compression_method;
@@ -1266,5 +1276,37 @@ mod test {
                     || (file_name.starts_with("file") && zip_file.is_file())
             );
         }
+    }
+
+    /// test case to ensure we don't preemptively over allocate based on the
+    /// declared number of files in the CDE of an invalid zip when the number of
+    /// files declared is more than the alleged offset in the CDE
+    #[test]
+    fn invalid_cde_number_of_files_allocation_smaller_offset() {
+        use super::ZipArchive;
+        use std::io;
+
+        let mut v = Vec::new();
+        v.extend_from_slice(include_bytes!(
+            "../tests/data/invalid_cde_number_of_files_allocation_smaller_offset.zip"
+        ));
+        let reader = ZipArchive::new(io::Cursor::new(v));
+        assert!(reader.is_err());
+    }
+
+    /// test case to ensure we don't preemptively over allocate based on the
+    /// declared number of files in the CDE of an invalid zip when the number of
+    /// files declared is less than the alleged offset in the CDE
+    #[test]
+    fn invalid_cde_number_of_files_allocation_greater_offset() {
+        use super::ZipArchive;
+        use std::io;
+
+        let mut v = Vec::new();
+        v.extend_from_slice(include_bytes!(
+            "../tests/data/invalid_cde_number_of_files_allocation_greater_offset.zip"
+        ));
+        let reader = ZipArchive::new(io::Cursor::new(v));
+        assert!(reader.is_err());
     }
 }

@@ -22,21 +22,21 @@ import logging
 import os
 import time
 
-import atest_configs
-import atest_error
-import atest_utils
-import constants
+from typing import List
 
-from atest_enum import DetectType
-from metrics import metrics
-from test_finders import test_info
-from test_finders import test_finder_base
-from test_finders import test_finder_utils
-from test_runners import atest_tf_test_runner
-from test_runners import robolectric_test_runner
-from test_runners import vts_tf_test_runner
+from atest import atest_configs
+from atest import atest_error
+from atest import atest_utils
+from atest import constants
 
-_ANDROID_MK = 'Android.mk'
+from atest.atest_enum import DetectType
+from atest.metrics import metrics
+from atest.test_finders import test_info
+from atest.test_finders import test_finder_base
+from atest.test_finders import test_finder_utils
+from atest.test_runners import atest_tf_test_runner
+from atest.test_runners import robolectric_test_runner
+from atest.test_runners import vts_tf_test_runner
 
 # These are suites in LOCAL_COMPATIBILITY_SUITE that aren't really suites so
 # we can ignore them.
@@ -54,10 +54,11 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
         self.module_info = module_info
 
-    def _determine_testable_module(self, path, file_path=None):
+    def _determine_testable_module(self, path: str,
+                                   file_path: str = None) -> List:
         """Determine which module the user is trying to test.
 
-        Returns the module to test. If there are multiple possibilities, will
+        Returns the modules to test. If there are multiple possibilities, will
         ask the user. Otherwise will return the only module found.
 
         Args:
@@ -72,12 +73,6 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         testable_modules_no_srcs = []
         for mod in self.module_info.get_module_names(path):
             mod_info = self.module_info.get_module_info(mod)
-            # Robolectric tests always exist in pairs of 2, one module to build
-            # the test and another to run it. For now, we are assuming they are
-            # isolated in their own folders and will return if we find one.
-            if self.module_info.is_robolectric_test(mod):
-                # return a list with one module name if it is robolectric.
-                return [mod]
             if self.module_info.is_testable_module(mod_info):
                 # If test module defined srcs, input file_path should be defined
                 # in the src list of module.
@@ -102,7 +97,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         mod_info = self.module_info.get_module_info(module_name)
         suites = []
         if mod_info:
-            suites = mod_info.get('compatibility_suites', [])
+            suites = mod_info.get(constants.MODULE_COMPATIBILITY_SUITES, [])
         # Pull out all *ts (cts, tvts, etc) suites.
         suites = [suite for suite in suites if suite not in _SUITES_TO_IGNORE]
         return len(suites) == 1 and 'vts10' in suites
@@ -140,10 +135,11 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             vts_xmls |= test_finder_utils.get_plans_from_vts_xml(xml_path)
         for config_file in vts_xmls:
             # Add in vts10 test build targets.
-            test.build_targets |= test_finder_utils.get_targets_from_vts_xml(
-                config_file, vts_out_dir, self.module_info)
-        test.build_targets.add('vts-test-core')
-        test.build_targets.add(test.test_name)
+            for target in test_finder_utils.get_targets_from_vts_xml(
+                config_file, vts_out_dir, self.module_info):
+                test.add_build_target(target)
+        test.add_build_target('vts-test-core')
+        test.add_build_target(test.test_name)
         return test
 
     def _update_legacy_robolectric_test_info(self, test):
@@ -166,6 +162,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         test.test_name = self.module_info.get_robolectric_test_name(test.test_name)
         return test
 
+    # pylint: disable=too-many-branches
     def _process_test_info(self, test):
         """Process the test info and return some fields updated/changed.
 
@@ -193,12 +190,29 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         if test.robo_type:
             test.install_locations = {constants.DEVICELESS_TEST}
             if test.robo_type == constants.ROBOTYPE_MODERN:
-                test.build_targets.add(test.test_name)
+                test.add_build_target(test.test_name)
                 return test
             if test.robo_type == constants.ROBOTYPE_LEGACY:
                 return self._update_legacy_robolectric_test_info(test)
         rel_config = test.data[constants.TI_REL_CONFIG]
-        test.build_targets = self._get_build_targets(module_name, rel_config)
+        for target in self._get_build_targets(module_name, rel_config):
+            test.add_build_target(target)
+        # (b/177626045) Probe target APK for running instrumentation tests to
+        # prevent RUNNER ERROR by adding target application(module) to the
+        # build_targets, and install these target apks before testing.
+        artifact_map = self.module_info.get_instrumentation_target_apps(
+            module_name)
+        if artifact_map:
+            logging.debug('Found %s an instrumentation test.', module_name)
+            for art in artifact_map.keys():
+                test.add_build_target(art)
+            logging.debug('Add %s to build targets...',
+                          ', '.join(artifact_map.keys()))
+            test.artifacts = [apk for p in artifact_map.values() for apk in p]
+            logging.debug('Will install target APK: %s\n', test.artifacts)
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.FOUND_TARGET_ARTIFACTS,
+                result=len(test.artifacts))
         # For device side java test, it will use
         # com.android.compatibility.testtype.DalvikTest as test runner in
         # cts-dalvik-device-test-runner.jar
@@ -206,7 +220,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             if constants.MODULE_CLASS_JAVA_LIBRARIES in test.module_class:
                 for dalvik_dep in test_finder_utils.DALVIK_TEST_DEPS:
                     if self.module_info.is_module(dalvik_dep):
-                        test.build_targets.add(dalvik_dep)
+                        test.add_build_target(dalvik_dep)
         # Update test name if the test belong to extra config which means it's
         # test config name is not the same as module name. For extra config, it
         # index will be greater or equal to 1.
@@ -246,11 +260,13 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         for module_path in self.module_info.get_paths(module_name):
             mod_dir = module_path.replace('/', '-')
             targets.add(constants.MODULES_IN + mod_dir)
-        # (b/156457698) Force add vts_kernel_tests as build target if our test
-        # belong to REQUIRED_KERNEL_TEST_MODULES due to required_module option
-        # not working for sh_test in soong.
-        if module_name in constants.REQUIRED_KERNEL_TEST_MODULES:
-            targets.add('vts_kernel_tests')
+        # (b/156457698) Force add vts_kernel_ltp_tests as build target if our
+        # test belongs to REQUIRED_LTP_TEST_MODULES due to required_module
+        # option not working for sh_test in soong. Ditto for kselftest.
+        if module_name in constants.REQUIRED_LTP_TEST_MODULES:
+            targets.add('vts_kernel_ltp_tests')
+        if module_name in constants.REQUIRED_KSELFTEST_TEST_MODULES:
+            targets.add('vts_kernel_kselftest_tests')
         # (b/184567849) Force adding module_name as a build_target. This will
         # allow excluding MODULES-IN-* and prevent from missing build targets.
         if module_name and self.module_info.is_module(module_name):
@@ -642,21 +658,26 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         Returns:
             A list of populated TestInfo namedtuple if found, else None.
         """
-        if ':' not in module_class:
+        parse_result = test_finder_utils.parse_test_reference(module_class)
+        if not parse_result:
             return None
-        module_name, class_name = module_class.split(':')
+        module_name =  parse_result['module_name']
+        class_name = parse_result['pkg_class_name']
+        method_name = parse_result.get('method_name', '')
+        if method_name:
+            class_name = class_name + '#' + method_name
+
         # module_infos is a list with at most 1 element.
         module_infos = self.find_test_by_module_name(module_name)
         module_info = module_infos[0] if module_infos else None
         if not module_info:
             return None
         find_result = None
-        # If the target module is NATIVE_TEST, search CC classes only.
-        if not self.module_info.is_native_test(module_name):
-            # Find by java class.
-            find_result = self.find_test_by_class_name(
-                class_name, module_info.test_name,
-                module_info.data.get(constants.TI_REL_CONFIG))
+        # If the target module is JAVA or Python test, search class name.
+        find_result = self.find_test_by_class_name(
+            class_name, module_info.test_name,
+            module_info.data.get(constants.TI_REL_CONFIG),
+            self.module_info.is_native_test(module_name))
         # kernel target test is also define as NATIVE_TEST in build system.
         # TODO (b/157210083) Update find_test_by_kernel_class_name method to
         # support gen_rule use case.
@@ -694,7 +715,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         else:
             search_dir = self.root_dir
         package_paths = test_finder_utils.run_find_cmd(
-            test_finder_utils.FIND_REFERENCE_TYPE.PACKAGE, search_dir, package)
+            test_finder_utils.TestReferenceType.PACKAGE, search_dir, package)
         package_paths = package_paths if package_paths is not None else []
         # Package path will be the full path to the dir represented by package.
         if not package_paths:
@@ -721,7 +742,15 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         Returns:
             A list of populated TestInfo namedtuple if found, else None.
         """
-        module_name, package = module_package.split(':')
+        parse_result = test_finder_utils.parse_test_reference(module_package)
+        if not parse_result:
+            return None
+        module_name =  parse_result['module_name']
+        package = parse_result['pkg_class_name']
+        method = parse_result.get('method_name', '')
+        if method:
+            package = package + '#' + method
+
         # module_infos is a list with at most 1 element.
         module_infos = self.find_test_by_module_name(module_name)
         module_info = module_infos[0] if module_infos else None
@@ -731,7 +760,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             package, module_info.test_name,
             module_info.data.get(constants.TI_REL_CONFIG))
 
-    def find_test_by_path(self, rel_path):
+    def find_test_by_path(self, rel_path: str) -> List[test_info.TestInfo]:
         """Find the first test info matching the given path.
 
         Strategy:
@@ -762,6 +791,30 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # Module/Class
         rel_module_dir = test_finder_utils.find_parent_module_dir(
             self.root_dir, dir_path, self.module_info)
+
+        # If the input file path does not belong to a module(by searching
+        # upwards to the build_top), check whether it belongs to the dependency
+        # of modules.
+        if not rel_module_dir:
+            testable_modules = self.module_info.get_modules_by_include_deps(
+                self.module_info.get_modules_by_path_in_srcs(rel_path),
+                testable_module_only=True)
+            if testable_modules:
+                test_filter = self._get_test_info_filter(
+                    path, methods, rel_module_dir=rel_module_dir)
+                tinfos = []
+                for testable_module in testable_modules:
+                    rel_config = os.path.join(
+                        self.module_info.get_paths(
+                            testable_module)[0], constants.MODULE_CONFIG)
+                    tinfos.extend(
+                        self._get_test_infos(
+                            path, rel_config, testable_module, test_filter))
+                metrics.LocalDetectEvent(
+                    detect_type=DetectType.FIND_TEST_IN_DEPS,
+                    result=1)
+                return tinfos
+
         if not rel_module_dir:
             # Try to find unit-test for input path.
             path = os.path.relpath(
@@ -915,7 +968,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                         return [tinfo]
         return None
 
-    def _is_comparted_src(self, path):
+    @staticmethod
+    def _is_comparted_src(path):
         """Check if the input path need to match srcs information in module.
 
         If path is a folder or android build file, we don't need to compart

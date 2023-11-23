@@ -36,9 +36,31 @@ class ProcessCompatConfigTest(unittest.TestCase):
         self.merger.write_errors_to = self.stderr
         self.xml = io.BytesIO()
 
+    def remove_white_space_text_nodes(self, node):
+        remove = []
+        # Find any child nodes that are just white space, and add them to a list
+        # to remove. Do not remove the child while iterating as that prevents
+        # the following node from being seen.
+        for child in node.childNodes:
+            if child.nodeType == node.ELEMENT_NODE:
+                self.remove_white_space_text_nodes(child)
+            elif child.nodeType == node.TEXT_NODE:
+                if str.isspace(child.data):
+                    remove.append(child)
+        # Remove any child nodes that were just white space.
+        for child in remove:
+            node.removeChild(child)
+            child.unlink()
+
+    def parse_xml(self, text):
+        node = xml.dom.minidom.parseString(text)
+        # Remove any white space text nodes as they are irrelevant.
+        self.remove_white_space_text_nodes(node)
+        return node.toprettyxml()
+
     def assert_same_xml(self, got, expected):
-        got = xml.dom.minidom.parseString(got).toprettyxml()
-        expected = xml.dom.minidom.parseString(expected).toprettyxml()
+        got = self.parse_xml(got)
+        expected = self.parse_xml(expected)
         diffs = [diff for diff in difflib.ndiff(got.split('\n'), expected.split('\n')) if not diff.startswith(" ")]
         self.assertEqual("", "\n".join(diffs), msg="Got unexpected diffs in XML")
 

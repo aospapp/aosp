@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+PY_VERSION = 3
 AUTHOR = "chromeos-gfx"
 NAME = "graphics_VideoRenderingPower.h264"
 PURPOSE = "Measure power consumption of H264 (a.k.a AVC1) video rendering"

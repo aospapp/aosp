@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #pylint: disable-msg=C0111
 """Unit Tests for autotest.client.common_lib.test"""
 
@@ -15,6 +15,7 @@ import common
 import mock as pymock
 import os
 import shutil
+import six
 from six.moves import range
 
 from autotest_lib.client.common_lib import test
@@ -127,7 +128,10 @@ class Test_base_test_execute(TestTestCase):
         self.test.postprocess.expect_call()
         self.test.process_failed_constraints.expect_call()
 
-        fake_time = iter(range(4)).next
+        if six.PY2:
+            fake_time = iter(range(4)).next
+        else:
+            fake_time = iter(range(4)).__next__
         self.test.execute(iterations=1, test_length=3, _get_time=fake_time)
         self.god.check_playback()
 

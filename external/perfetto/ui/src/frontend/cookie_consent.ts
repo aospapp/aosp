@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as m from 'mithril';
+import m from 'mithril';
 
 import {globals} from './globals';
 
@@ -41,7 +41,7 @@ export class CookieConsent implements m.ClassComponent {
             m('a',
               {
                 href: 'https://policies.google.com/technologies/cookies',
-                target: '_blank'
+                target: '_blank',
               },
               'More details')),
           m('button',
@@ -50,7 +50,7 @@ export class CookieConsent implements m.ClassComponent {
                 this.showCookieConsent = false;
                 localStorage.setItem(COOKIE_ACK_KEY, 'true');
                 globals.rafScheduler.scheduleFullRedraw();
-              }
+              },
             },
             'OK')),
     );

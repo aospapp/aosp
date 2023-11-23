@@ -47,6 +47,28 @@ public class BluetoothLeUtils {
     }
 
     /**
+     * Returns a string composed from a byte array.
+     */
+    static <T> String toString(byte[] data) {
+        if (data == null) {
+            return "null";
+        }
+        if (data.length == 0) {
+            return "{}";
+        }
+        StringBuilder buffer = new StringBuilder();
+        buffer.append('{');
+        for (int i = 0; i < data.length; i++) {
+            buffer.append(data[i]);
+            if ((i + 1) < data.length) {
+                buffer.append(", ");
+            }
+        }
+        buffer.append('}');
+        return buffer.toString();
+    }
+
+    /**
      * Returns a string composed from a {@link SparseArray}.
      */
     static String toString(SparseArray<byte[]> array) {

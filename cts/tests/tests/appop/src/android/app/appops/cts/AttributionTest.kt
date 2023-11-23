@@ -88,10 +88,10 @@ class AttributionTest {
             appOpsManager.noteOp(OPSTR_READ_CONTACTS, uid, PKG, ATTRIBUTION_3, null)
         }
 
-        sleep(1)
+        sleep(50)
         val before = getOpEntry(uid, PKG, OPSTR_READ_CONTACTS)!!
         context.sendBroadcast(intent, android.Manifest.permission.READ_CONTACTS)
-        sleep(1)
+        sleep(50)
 
         eventually {
             // 1 and 2 should be attributed for the broadcast, 3 should not.

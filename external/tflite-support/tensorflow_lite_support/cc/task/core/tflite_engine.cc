@@ -21,7 +21,6 @@ limitations under the License.
 #include "absl/strings/str_cat.h"
 #include "tensorflow/lite/builtin_ops.h"
 #include "tensorflow/lite/stderr_reporter.h"
-#include "tensorflow/lite/tools/verifier.h"
 #include "tensorflow_lite_support/cc/common.h"
 #include "tensorflow_lite_support/cc/port/status_macros.h"
 #include "tensorflow_lite_support/cc/task/core/external_file_handler.h"
@@ -59,19 +58,13 @@ int TfLiteEngine::ErrorReporter::Report(const char* format, va_list args) {
   return std::vsnprintf(error_message, sizeof(error_message), format, args);
 }
 
-bool TfLiteEngine::Verifier::Verify(const char* data, int length,
-                                    tflite::ErrorReporter* reporter) {
-  return tflite::Verify(data, length, *op_resolver_, reporter);
-}
-
 #if TFLITE_USE_C_API
 TfLiteEngine::TfLiteEngine(std::unique_ptr<tflite::OpResolver> resolver)
     : model_(nullptr, TfLiteModelDelete),
-      resolver_(std::move(resolver)),
-      verifier_(resolver_.get()) {}
+      resolver_(std::move(resolver)) {}
 #else
 TfLiteEngine::TfLiteEngine(std::unique_ptr<tflite::OpResolver> resolver)
-    : model_(), resolver_(std::move(resolver)), verifier_(resolver_.get()) {}
+    : model_(), resolver_(std::move(resolver)) {}
 #endif
 
 std::vector<TfLiteTensor*> TfLiteEngine::GetInputs() {
@@ -96,10 +89,8 @@ std::vector<const TfLiteTensor*> TfLiteEngine::GetOutputs() {
   return tensors;
 }
 
-// The following function is adapted from the code in
-// tflite::FlatBufferModel::VerifyAndBuildFromBuffer.
-void TfLiteEngine::VerifyAndBuildModelFromBuffer(const char* buffer_data,
-                                                 size_t buffer_size) {
+// The following function is adapted from the code in tflite::FlatBufferModel::BuildFromBuffer.
+void TfLiteEngine::BuildModelFromBuffer(const char* buffer_data, size_t buffer_size) {
 #if TFLITE_USE_C_API
   // First verify with the base flatbuffers verifier.
   // This verifies that the model is a valid flatbuffer model.
@@ -111,24 +102,19 @@ void TfLiteEngine::VerifyAndBuildModelFromBuffer(const char* buffer_data,
     model_ = nullptr;
     return;
   }
-  // Next verify with the extra verifier.  This verifies that the model only
-  // uses operators supported by the OpResolver.
-  if (!verifier_.Verify(buffer_data, buffer_size, &error_reporter_)) {
-    model_ = nullptr;
-    return;
-  }
   // Build the model.
   model_.reset(TfLiteModelCreate(buffer_data, buffer_size));
 #else
-  model_ = tflite::FlatBufferModel::VerifyAndBuildFromBuffer(
-      buffer_data, buffer_size, &verifier_, &error_reporter_);
+  // Warning: This branch of the if-statement lacks a verification step for the model.
+  model_ = tflite::FlatBufferModel::BuildFromBuffer(
+      buffer_data, buffer_size, &error_reporter_);
 #endif
 }
 
 absl::Status TfLiteEngine::InitializeFromModelFileHandler() {
   const char* buffer_data = model_file_handler_->GetFileContent().data();
   size_t buffer_size = model_file_handler_->GetFileContent().size();
-  VerifyAndBuildModelFromBuffer(buffer_data, buffer_size);
+  BuildModelFromBuffer(buffer_data, buffer_size);
   if (model_ == nullptr) {
     // To be replaced with a proper switch-case when TF Lite model builder
     // returns a `TfLiteStatus` code capturing this type of error.

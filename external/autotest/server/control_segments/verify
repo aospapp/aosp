@@ -2,7 +2,7 @@ from autotest_lib.server import utils
 from autotest_lib.server.cros import provision
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
 
@@ -19,7 +19,8 @@ def verify(machine):
     print('Initializing host %s' % machine)
     job.record('START', None, 'verify')
     target = hosts.create_target_machine(machine,
-                                         try_lab_servo=True)
+                                         try_lab_servo=True,
+                                         try_servo_recovery=True)
     hostname = utils.get_hostname_from_machine(machine)
     try:
         with metrics.SecondsTimer(DURATION_METRIC,

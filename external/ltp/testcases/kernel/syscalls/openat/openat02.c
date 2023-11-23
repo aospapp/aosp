@@ -22,7 +22,7 @@
  *   2)openat() succeeds to enable the close-on-exec flag for a
  *     file descriptor, when 'flags' is set to O_CLOEXEC.
  *   3)openat() succeeds to allow files whose sizes cannot be
- *     represented in an off_t but can be represented in an off64_t
+ *     represented in an off_t but can be represented in an off_t
  *     to be opened, when 'flags' is set to O_LARGEFILE.
  *   4)openat() succeeds to not update the file last access time
  *     (st_atime in the inode) when the file is read, when 'flags'
@@ -38,7 +38,6 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <stdlib.h>
@@ -127,7 +126,7 @@ void testfunc_append(void)
 		return;
 	}
 
-	SAFE_WRITE(cleanup, 1, TEST_RETURN, STR, sizeof(STR) - 1);
+	SAFE_WRITE(cleanup, SAFE_WRITE_ALL, TEST_RETURN, STR, sizeof(STR) - 1);
 
 	file_offset = SAFE_LSEEK(cleanup, TEST_RETURN, 0, SEEK_CUR);
 
@@ -144,12 +143,6 @@ void testfunc_cloexec(void)
 	pid_t pid;
 	int status;
 	char buf[20];
-
-	if ((tst_kvercmp(2, 6, 23)) < 0) {
-		tst_resm(TCONF, "test O_CLOEXEC flags for openat "
-						"needs kernel 2.6.23 or higher");
-		return;
-	}
 
 	TEST(openat(AT_FDCWD, TEST_FILE, O_CLOEXEC | O_RDWR, 0777));
 
@@ -194,16 +187,16 @@ void testfunc_cloexec(void)
 void testfunc_largefile(void)
 {
 	int fd;
-	off64_t offset;
+	off_t offset;
 
 	fd = SAFE_OPEN(cleanup, LARGE_FILE,
 				O_LARGEFILE | O_RDWR | O_CREAT, 0777);
 
-	offset = lseek64(fd, 4.1*1024*1024*1024, SEEK_SET);
+	offset = lseek(fd, 4.1*1024*1024*1024, SEEK_SET);
 	if (offset == -1)
 		tst_brkm(TBROK | TERRNO, cleanup, "lseek64 failed");
 
-	SAFE_WRITE(cleanup, 1, fd, STR, sizeof(STR) - 1);
+	SAFE_WRITE(cleanup, SAFE_WRITE_ALL, fd, STR, sizeof(STR) - 1);
 
 	SAFE_CLOSE(cleanup, fd);
 
@@ -223,12 +216,6 @@ void testfunc_noatime(void)
 	char buf;
 	const char *flags[] = {"noatime", "relatime", NULL};
 	int ret;
-
-	if ((tst_kvercmp(2, 6, 8)) < 0) {
-		tst_resm(TCONF, "test O_NOATIME flags for openat "
-						"needs kernel 2.6.8 or higher");
-		return;
-	}
 
 	ret = tst_path_has_mnt_flags(cleanup, NULL, flags);
 	if (ret > 0) {

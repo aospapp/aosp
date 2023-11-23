@@ -16,7 +16,7 @@
 
 package com.android.tv.settings.oemlink;
 
-import static com.android.tv.settings.library.overlay.FlavorUtils.X_EXPERIENCE_FLAVORS_MASK;
+import static com.android.tv.settings.overlay.FlavorUtils.X_EXPERIENCE_FLAVORS_MASK;
 
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.os.Bundle;

@@ -5,7 +5,7 @@
 #ifndef UI_EVENTS_OZONE_EVDEV_TOUCH_FILTER_PALM_DETECTION_FILTER_H_
 #define UI_EVENTS_OZONE_EVDEV_TOUCH_FILTER_PALM_DETECTION_FILTER_H_
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(__ANDROID_HOST__)
 #include "chrome_to_android_compatibility.h"
 #endif
 

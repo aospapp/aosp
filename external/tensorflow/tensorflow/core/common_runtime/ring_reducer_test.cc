@@ -89,7 +89,7 @@ class RingReducerTest : public ::testing::Test {
     for (int wi = 0; wi < num_workers; ++wi) {
       for (int di = 0; di < num_devices; ++di) {
         int rank = wi * num_devices + di;
-        instances_.push_back(absl::make_unique<DeviceInstance>(
+        instances_.push_back(std::make_unique<DeviceInstance>(
             rank, num_subdivs, dtype, shape, test_env_.get()));
       }
     }
@@ -166,7 +166,7 @@ class RingReducerTest : public ::testing::Test {
             GenerateEvenSubdivOffsets(test_env->num_devices_per_worker,
                                       num_subdivs);
       }
-      string dev_name = col_params_->group.devices[rank].name();
+      string dev_name = col_params_->group.members[rank].device.name();
       TF_CHECK_OK(test_env_->device_mgr->LookupDevice(dev_name, &device_))
           << "Couldn't find device " << dev_name
           << " existing devices: " << test_env_->device_mgr->DebugString();
@@ -284,8 +284,8 @@ TEST_F(RingReducerInitParamsTest, AutomaticSubdivs) {
     int num_chunks = kNumDevs * num_subdivs;
     size_t chunk_size = 3 * 1048576;  // 3 MB
     size_t tensor_size = chunk_size * num_chunks;
-    cp->instance.shape =
-        TensorShape({static_cast<int64>(tensor_size / DataTypeSize(DT_FLOAT))});
+    cp->instance.shape = TensorShape(
+        {static_cast<int64_t>(tensor_size / DataTypeSize(DT_FLOAT))});
   }
   cp->instance.impl_details.subdiv_offsets.clear();
   RunSubdivPermsTest(cp.get(),
@@ -394,7 +394,7 @@ TEST_F(RingReducerInitParamsTest, AutomaticSubdivDisabled) {
         RunTest<int32>(dtype, DEVICE_##T, W, D, S, L, A);                     \
       } break;                                                                \
       case DT_INT64: {                                                        \
-        RunTest<int64>(dtype, DEVICE_##T, W, D, S, L, A);                     \
+        RunTest<int64_t>(dtype, DEVICE_##T, W, D, S, L, A);                   \
       } break;                                                                \
       default:                                                                \
         LOG(FATAL) << "Unimplemented";                                        \

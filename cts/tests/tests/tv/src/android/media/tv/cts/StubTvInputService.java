@@ -16,6 +16,7 @@
 
 package android.media.tv.cts;
 
+import android.content.AttributionSource;
 import android.content.Context;
 import android.media.tv.TvInputService;
 import android.net.Uri;
@@ -28,6 +29,13 @@ public class StubTvInputService extends TvInputService {
     @Override
     public Session onCreateSession(String inputId) {
         return new StubSessionImpl(this);
+    }
+
+    @Override
+    public Session onCreateSession(
+            String inputId, String tvInputSessionId, AttributionSource tvAppAttributionSource) {
+        super.onCreateSession(inputId, tvInputSessionId, tvAppAttributionSource);
+        return onCreateSession(inputId, tvInputSessionId);
     }
 
     public static class StubSessionImpl extends Session {

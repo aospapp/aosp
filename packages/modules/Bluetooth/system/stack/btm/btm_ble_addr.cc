@@ -22,7 +22,7 @@
  *
  ******************************************************************************/
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <string.h>
 
 #include "btm_ble_int.h"
@@ -146,8 +146,6 @@ bool btm_ble_addr_resolvable(const RawAddress& rpa,
 
   if ((p_dev_rec->device_type & BT_DEVICE_TYPE_BLE) &&
       (p_dev_rec->ble.key_type & BTM_LE_KEY_PID)) {
-    BTM_TRACE_DEBUG("%s try to resolve", __func__);
-
     if (rpa_matches_irk(rpa, p_dev_rec->ble.keys.irk)) {
       btm_ble_init_pseudo_addr(p_dev_rec, rpa);
       return true;

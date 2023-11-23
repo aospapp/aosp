@@ -130,8 +130,11 @@ class SecurityTest(gd_base_test.GdBaseTestClass):
     def _verify_ssp_numeric_comparison(self, initiator, responder, init_ui_response, resp_ui_response,
                                        expected_init_ui_event, expected_resp_ui_event, expected_init_bond_event,
                                        expected_resp_bond_event):
-        responder.accept_pairing(initiator.get_address(), resp_ui_response)
-        initiator.on_user_input(responder.get_address(), init_ui_response, expected_init_ui_event)
+
+        def on_responder_reply():
+            initiator.on_user_input(responder.get_address(), init_ui_response, expected_init_ui_event)
+
+        responder.accept_pairing(initiator.get_address(), resp_ui_response, init_ui_response, on_responder_reply)
         initiator.wait_for_bond_event(expected_init_bond_event)
         responder.wait_for_bond_event(expected_resp_bond_event)
 

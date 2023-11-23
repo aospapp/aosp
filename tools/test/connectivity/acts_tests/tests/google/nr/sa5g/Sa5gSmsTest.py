@@ -17,7 +17,6 @@
     Test Script for 5G SA SMS scenarios
 """
 
-import time
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_idle
@@ -39,9 +38,7 @@ class Sa5gSmsTest(TelephonyBaseTest):
     def teardown_test(self):
         ensure_phones_idle(self.log, self.android_devices)
 
-
     """ Tests Begin """
-
 
     @test_tracker_info(uuid="8949d1c7-1719-4960-b79c-041b467fb5ef")
     @TelephonyBaseTest.tel_test_wrap
@@ -68,7 +65,6 @@ class Sa5gSmsTest(TelephonyBaseTest):
 
         self.log.info("PASS - SMS test over 5G SA validated")
         return True
-
 
     @test_tracker_info(uuid="5c7a717b-1f98-44b7-95e7-0e83afb82a84")
     @TelephonyBaseTest.tel_test_wrap

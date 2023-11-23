@@ -55,6 +55,8 @@ public class ProtectedConfirmationTest extends PassFailButtons.Activity {
     private static final String KEY_NAME = "my_confirmation_key";
     private boolean teeTestSuccess = false;
     private boolean strongboxTestSuccess = false;
+    private boolean mTeeNegativeTestSuccess = false;
+    private boolean mStrongboxNegativeTestSuccess = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,15 +83,19 @@ public class ProtectedConfirmationTest extends PassFailButtons.Activity {
                 .setVisibility(View.INVISIBLE);
         findViewById(R.id.sec_protected_confirmation_strongbox_test_success)
                 .setVisibility(View.INVISIBLE);
+        findViewById(R.id.sec_protected_confirmation_tee_negative_test_success)
+                .setVisibility(View.INVISIBLE);
+        findViewById(R.id.sec_protected_confirmation_strongbox_negative_test_success)
+                .setVisibility(View.INVISIBLE);
         Button startTestButton = (Button) findViewById(R.id.sec_start_test_button);
         startTestButton.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                showToast("Test running...");
+                showToast("TEE positive Test running...");
                 v.post(new Runnable() {
                     @Override
                     public void run() {
-                        runTest(false /* useStrongbox */);
+                        runTest(false /* useStrongbox */, true /* positiveScenario */);
                     }
                 });
             }
@@ -102,11 +108,11 @@ public class ProtectedConfirmationTest extends PassFailButtons.Activity {
             startStrongboxTestButton.setOnClickListener(new OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    showToast("Test running...");
+                    showToast("Strongbox Positive Test running...");
                     v.post(new Runnable() {
                         @Override
                         public void run() {
-                            runTest(true /* useStrongbox */);
+                            runTest(true /* useStrongbox */, true /* positiveScenario */);
                         }
                     });
                 }
@@ -119,6 +125,44 @@ public class ProtectedConfirmationTest extends PassFailButtons.Activity {
             strongboxTestSuccess = true;
         }
 
+        Button startNegativeTestButton =
+                                    (Button) findViewById(R.id.sec_start_tee_negative_test_button);
+        startNegativeTestButton.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showToast("TEE negative Test running...");
+                v.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        runTest(false /* useStrongbox */, false /* positiveScenario */);
+                    }
+                });
+            }
+
+        });
+
+        Button startStrongboxNegativeTestButton =
+                (Button) findViewById(R.id.sec_start_test_strongbox_negative_button);
+        if (hasStrongbox) {
+            startStrongboxNegativeTestButton.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showToast("Strongbox negative Test running...");
+                    v.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            runTest(true /* useStrongbox */, false /* positiveScenario */);
+                        }
+                    });
+                }
+
+            });
+        } else {
+            startStrongboxTestButton.setVisibility(View.GONE);
+            // since strongbox is unavailable we mark the strongbox test as passed so that the tee
+            // test alone can make the test pass.
+            mStrongboxNegativeTestSuccess = true;
+        }
     }
 
     /**
@@ -150,37 +194,45 @@ public class ProtectedConfirmationTest extends PassFailButtons.Activity {
         }
     }
 
-    private boolean trySign(byte[] dataThatWasConfirmed) {
+    private boolean trySign(byte[] dataThatWasConfirmed, boolean positiveScenario) {
         try {
             KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
             keyStore.load(null);
             KeyStore.Entry key = keyStore.getEntry(KEY_NAME, null);
             Signature s = Signature.getInstance("SHA256withECDSA");
             s.initSign(((KeyStore.PrivateKeyEntry) key).getPrivateKey());
+            if (!positiveScenario && dataThatWasConfirmed != null
+                    && dataThatWasConfirmed.length > 0) {
+                // The data received in callback as confirmed data has prompt text and extra data
+                // included. So even using same prompt text for signing could be considered as
+                // corrupted data.
+                dataThatWasConfirmed[0] = (byte) ~dataThatWasConfirmed[0];
+            }
             s.update(dataThatWasConfirmed);
             s.sign();
         } catch (CertificateException | KeyStoreException | IOException | NoSuchAlgorithmException |
                 UnrecoverableEntryException | InvalidKeyException e) {
             throw new RuntimeException("Failed to load confirmation key", e);
         } catch (SignatureException e) {
-            return false;
+            return !positiveScenario;
         }
-        return true;
+        return positiveScenario;
     }
 
-    private void runTest(boolean useStrongbox) {
+    private void runTest(boolean useStrongbox, boolean positiveScenario) {
         createKey(useStrongbox);
         if (trySign(getString(R.string.sec_protected_confirmation_message)
-                .getBytes())) {
+                .getBytes(), true /* positiveScenario */)) {
             showToast("Test failed. Key could sign without confirmation.");
         } else {
             showConfirmationPrompt(
                     getString(R.string.sec_protected_confirmation_message),
-                    useStrongbox);
+                    useStrongbox, positiveScenario);
         }
     }
 
-    private void showConfirmationPrompt(String confirmationMessage, boolean useStrongbox) {
+    private void showConfirmationPrompt(String confirmationMessage, boolean useStrongbox,
+                                        boolean positiveScenario) {
         ConfirmationPrompt.Builder builder = new ConfirmationPrompt.Builder(this);
         builder.setPromptText(confirmationMessage);
         builder.setExtraData(new byte[]{0x1, 0x02, 0x03});
@@ -191,10 +243,14 @@ public class ProtectedConfirmationTest extends PassFailButtons.Activity {
                         @Override
                         public void onConfirmed(byte[] dataThatWasConfirmed) {
                             super.onConfirmed(dataThatWasConfirmed);
-                            if (trySign(dataThatWasConfirmed)) {
-                                markTestSuccess(useStrongbox);
+                            if (trySign(dataThatWasConfirmed, positiveScenario)) {
+                                markTestSuccess(useStrongbox, positiveScenario);
                             } else {
-                                showToast("Failed to sign confirmed message");
+                                if (positiveScenario) {
+                                    showToast("Failed to sign confirmed message");
+                                } else {
+                                    showToast("Failed! Corrupted data should not be signed.");
+                                }
                             }
                         }
 
@@ -227,21 +283,30 @@ public class ProtectedConfirmationTest extends PassFailButtons.Activity {
                 .show();
     }
 
-    private void markTestSuccess(boolean strongbox) {
+    private void markTestSuccess(boolean strongbox, boolean positiveScenario) {
         if (strongbox) {
-            if (!strongboxTestSuccess) {
+            if (positiveScenario && !strongboxTestSuccess) {
                 findViewById(R.id.sec_protected_confirmation_strongbox_test_success)
                         .setVisibility(View.VISIBLE);
+                strongboxTestSuccess = true;
+            } else if (!mStrongboxNegativeTestSuccess) {
+                findViewById(R.id.sec_protected_confirmation_strongbox_negative_test_success)
+                        .setVisibility(View.VISIBLE);
+                mStrongboxNegativeTestSuccess = true;
             }
-            strongboxTestSuccess = true;
         } else {
-            if (!teeTestSuccess) {
+            if (positiveScenario && !teeTestSuccess) {
                 findViewById(R.id.sec_protected_confirmation_tee_test_success)
                         .setVisibility(View.VISIBLE);
+                teeTestSuccess = true;
+            } else if (!mTeeNegativeTestSuccess) {
+                findViewById(R.id.sec_protected_confirmation_tee_negative_test_success)
+                        .setVisibility(View.VISIBLE);
+                mTeeNegativeTestSuccess = true;
             }
-            teeTestSuccess = true;
         }
-        if (strongboxTestSuccess && teeTestSuccess) {
+        if (strongboxTestSuccess && teeTestSuccess && mStrongboxNegativeTestSuccess
+                && mTeeNegativeTestSuccess) {
             showToast("Test passed.");
             getPassButton().setEnabled(true);
         }

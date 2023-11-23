@@ -1,10 +1,13 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 """Unittests for the JobSerializer class.
 
 Mostly test if the serialized object has the expected content.
 
 """
+
+from __future__ import division
+from __future__ import print_function
 
 import datetime
 import tempfile
@@ -15,6 +18,8 @@ import common
 from autotest_lib.tko import tko_pb2
 from autotest_lib.tko import job_serializer
 from autotest_lib.tko import models
+import six
+from six.moves import zip
 
 NamedTemporaryFile = tempfile.NamedTemporaryFile
 datetime = datetime.datetime
@@ -222,7 +227,10 @@ class JobSerializerUnittest(unittest.TestCase):
         @param stime: The original time.
         """
         t = mktime(dTime.timetuple()) + 1e-6 * dTime.microsecond
-        self.assertEqual(long(t), stime/1000)
+        if six.PY2:
+            self.assertEqual(long(t), stime/1000)
+        else:
+            self.assertEqual(int(t), stime/1000)
 
 
     def check_iteration(self, tko_iterations, pb_iterations):
@@ -264,7 +272,7 @@ class JobSerializerUnittest(unittest.TestCase):
         @param dictionary: The dict object.
         @param keyval: The keyval object.
         """
-        for key, value in dictionary.iteritems():
+        for key, value in six.iteritems(dictionary):
             self.assertTrue(key in keyval);
             self.assertEqual(str(value), keyval[key])
 
@@ -367,11 +375,18 @@ class ReadBackGetterTest(JobSerializerUnittest):
         """
 
         t = mktime(dTime.timetuple()) + 1e-6 * dTime.microsecond
-        if isinstance(sTime, (int, long)):
-            self.assertEqual(long(t*1000), sTime)
+        if isinstance(sTime, six.integer_types):
+            if six.PY2:
+                self.assertEqual(long(t*1000), sTime)
+            else:
+                self.assertEqual(int(t*1000), sTime)
+
         else:
             t1 = mktime(sTime.timetuple()) + 1e-6 * sTime.microsecond
-            self.assertEqual(long(t*1000), long(t1*1000))
+            if six.PY2:
+                self.assertEqual(long(t*1000), long(t1*1000))
+            else:
+                self.assertEqual(int(t*1000), int(t1*1000))
 
 
     def check_iteration(self, iterations, newiterations):

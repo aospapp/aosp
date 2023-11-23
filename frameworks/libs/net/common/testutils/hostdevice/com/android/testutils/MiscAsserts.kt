@@ -18,7 +18,7 @@
 
 package com.android.testutils
 
-import com.android.testutils.ExceptionUtils.ThrowingRunnable
+import com.android.testutils.FunctionalUtils.ThrowingRunnable
 import java.lang.reflect.Modifier
 import kotlin.system.measureTimeMillis
 import kotlin.test.assertEquals

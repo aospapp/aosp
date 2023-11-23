@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"מכשיר לא ידוע"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"לא ידוע"</string>
+    <string name="not_provided" msgid="6938740494380012614">"לא מוגדרים"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"מצב טיסה"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"‏לא ניתן להשתמש ב-Bluetooth במצב טיסה."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -109,8 +110,8 @@
     <string name="transfer_clear_dlg_msg" msgid="586117930961007311">"כל הפריטים ינוקו מהרשימה."</string>
     <string name="outbound_noti_title" msgid="2045560896819618979">"‏שיתוף Bluetooth: נשלחו קבצים"</string>
     <string name="inbound_noti_title" msgid="3730993443609581977">"‏שיתוף Bluetooth: התקבלו קבצים"</string>
-    <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{# נכשל}two{# נכשלו}many{# נכשלו}other{# נכשלו}}"</string>
-    <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{‏# הצליח, %1$s}two{‏# הצליחו, %1$s}many{‏# הצליחו, %1$s}other{‏# הצליחו, %1$s}}"</string>
+    <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{# נכשל}one{# נכשלו}two{# נכשלו}other{# נכשלו}}"</string>
+    <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{‏# הצליח, %1$s}one{‏# הצליחו, %1$s}two{‏# הצליחו, %1$s}other{‏# הצליחו, %1$s}}"</string>
     <string name="transfer_menu_clear_all" msgid="3014459758656427076">"ניקוי רשימה"</string>
     <string name="transfer_menu_open" msgid="5193344638774400131">"פתיחה"</string>
     <string name="transfer_menu_clear" msgid="7213491281898188730">"ניקוי מהרשימה"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"‏אודיו Bluetooth"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"‏לא ניתן להעביר קבצים שגדולים מ-4GB"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"‏התחברות באמצעות Bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"‏חיבור ה-Bluetooth מופעל במצב טיסה"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"‏אם חיבור ה-Bluetooth נשאר מופעל, המכשיר יזכור להשאיר אותו מופעל בפעם הבאה שהוא יועבר למצב טיסה"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"‏Bluetooth יישאר מופעל"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"‏חיבור ה-Bluetooth במכשיר יישאר מופעל במצב טיסה. אפשר להשבית את ה-Bluetooth אם לא רוצים שהוא יפעל."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"‏חיבורי ה-Wi‑Fi וה-Bluetooth יישארו מופעלים"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"‏חיבורי ה-Wi‑Fi וה-Bluetooth במכשיר יישארו מופעלים במצב טיסה. אפשר להשבית את ה-Wi-Fi וה-Bluetooth אם לא רוצים שהם יפעלו."</string>
 </resources>

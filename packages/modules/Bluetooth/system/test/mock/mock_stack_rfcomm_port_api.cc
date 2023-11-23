@@ -19,13 +19,11 @@
  *   Functions generated:20
  */
 
-#include <map>
-#include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
 #include <base/logging.h>
 #include <string.h>
+
+#include <map>
+#include <string>
 
 #include "l2c_api.h"
 #include "osi/include/log.h"
@@ -36,6 +34,7 @@ extern std::map<std::string, int> mock_function_count_map;
 #include "stack/include/btm_api_types.h"
 #include "stack/rfcomm/port_int.h"
 #include "stack/rfcomm/rfc_int.h"
+#include "test/common/mock_functions.h"
 #include "types/raw_address.h"
 
 #ifndef UNUSED_ATTR
@@ -43,65 +42,59 @@ extern std::map<std::string, int> mock_function_count_map;
 #endif
 
 bool PORT_IsOpening(RawAddress* bd_addr) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 const char* PORT_GetResultString(const uint8_t result_code) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }
 int PORT_CheckConnection(uint16_t handle, RawAddress* bd_addr,
                          uint16_t* p_lcid) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 int PORT_ClearKeepHandleFlag(uint16_t port_handle) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 int PORT_FlowControl_MaxCredit(uint16_t handle, bool enable) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 int PORT_GetState(uint16_t handle, tPORT_STATE* p_settings) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 int PORT_ReadData(uint16_t handle, char* p_data, uint16_t max_len,
                   uint16_t* p_len) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 int PORT_SetDataCOCallback(uint16_t port_handle,
                            tPORT_DATA_CO_CALLBACK* p_port_cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 int PORT_SetEventCallback(uint16_t port_handle, tPORT_CALLBACK* p_port_cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 int PORT_SetEventMask(uint16_t port_handle, uint32_t mask) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 int PORT_SetState(uint16_t handle, tPORT_STATE* p_settings) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 int PORT_WriteData(uint16_t handle, const char* p_data, uint16_t max_len,
                    uint16_t* p_len) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 int PORT_WriteDataCO(uint16_t handle, int* p_len) {
-  mock_function_count_map[__func__]++;
-  return 0;
-}
-int RFCOMM_CreateConnection(uint16_t uuid, uint8_t scn, bool is_server,
-                            uint16_t mtu, const RawAddress& bd_addr,
-                            uint16_t* p_handle, tPORT_CALLBACK* p_mgmt_cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 int RFCOMM_CreateConnectionWithSecurity(uint16_t uuid, uint8_t scn,
@@ -110,22 +103,30 @@ int RFCOMM_CreateConnectionWithSecurity(uint16_t uuid, uint8_t scn,
                                         uint16_t* p_handle,
                                         tPORT_CALLBACK* p_mgmt_cb,
                                         uint16_t sec_mask) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
+  return 0;
+}
+int RFCOMM_ControlReqFromBTSOCK(uint8_t dlci, const RawAddress& bd_addr,
+                                uint8_t modem_signal, uint8_t break_signal,
+                                uint8_t discard_buffers,
+                                uint8_t break_signal_seq, bool fc) {
+  inc_func_call_count(__func__);
   return 0;
 }
 int RFCOMM_RemoveConnection(uint16_t handle) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 int RFCOMM_RemoveServer(uint16_t handle) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint8_t PORT_SetTraceLevel(uint8_t new_level) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
-void RFCOMM_ClearSecurityRecord(uint32_t scn) {
-  mock_function_count_map[__func__]++;
+int PORT_GetSecurityMask(uint16_t handle, uint16_t* sec_mask) {
+  inc_func_call_count(__func__);
+  return 0;
 }
-void RFCOMM_Init(void) { mock_function_count_map[__func__]++; }
+void RFCOMM_Init(void) { inc_func_call_count(__func__); }

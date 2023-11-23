@@ -16,11 +16,18 @@
 package com.google.android.enterprise.connectedapps.internal;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.os.Build.VERSION_CODES;
 import com.google.android.enterprise.connectedapps.Profile;
 import com.google.android.enterprise.connectedapps.internal.CrossProfileCallbackMultiMerger.CrossProfileCallbackMultiMergerCompleteListener;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
@@ -188,10 +195,88 @@ public class CrossProfileCallbackMultiMergerTest {
   public void construct_noExpectedResults_reportsResultImmediately() {
     int expectedResults = 0;
 
-    CrossProfileCallbackMultiMerger<String> ignoredMerger =
+    CrossProfileCallbackMultiMerger<String> unusedMerger =
         new CrossProfileCallbackMultiMerger<>(expectedResults, stringListener);
 
     assertThat(stringListener.timesResultsPosted).isEqualTo(1);
     assertThat(stringListener.results).isEmpty();
+  }
+
+  @Test
+  // Do not ignore if this test turns flaky or times out, this likely highlights a real race
+  // condition.
+  public void listenableFuturesCompletingOnSeparateThreads() throws Exception {
+    Executor executorWithThread1 = Executors.newSingleThreadExecutor();
+    Executor executorWithThread2 = Executors.newSingleThreadExecutor();
+    int aboutThatManyIterationsToBeRacy = 1000;
+
+    for (int i = 0; i < aboutThatManyIterationsToBeRacy; i++) {
+      ListenableFuture<String> future1 = Futures.submit(() -> "Hello", executorWithThread1);
+      ListenableFuture<String> future2 = Futures.submit(() -> "World", executorWithThread2);
+      int expectedResults = 2;
+      SettableFuture<Map<Profile, String>> settableFuture = SettableFuture.create();
+      CrossProfileCallbackMultiMerger<String> merger =
+          new CrossProfileCallbackMultiMerger<>(expectedResults, settableFuture::set);
+      Futures.addCallback(
+          future1, new MergerFutureCallback<String>(profile0, merger), directExecutor());
+      Futures.addCallback(
+          future2, new MergerFutureCallback<String>(profile1, merger), directExecutor());
+
+      Map<Profile, String> results = settableFuture.get();
+
+      assertThat(results).containsExactly(profile0, "Hello", profile1, "World");
+    }
+  }
+
+  @Test
+  // Do not ignore if this test turns flaky or times out, this likely highlights a real race
+  // condition.
+  public void listenableFuturesCompletingWithErrorsOnSeparateThreads() throws Exception {
+    Executor executorWithThread1 = Executors.newSingleThreadExecutor();
+    Executor executorWithThread2 = Executors.newSingleThreadExecutor();
+    int aboutThatManyIterationsToBeRacy = 1000;
+
+    for (int i = 0; i < aboutThatManyIterationsToBeRacy; i++) {
+      ListenableFuture<String> future1 = Futures.submit(() -> "Hello", executorWithThread1);
+      ListenableFuture<String> future2 =
+          Futures.submit(
+              () -> {
+                throw new RuntimeException("Whoopsies");
+              },
+              executorWithThread2);
+      int expectedResults = 2;
+      SettableFuture<Map<Profile, String>> settableFuture = SettableFuture.create();
+      CrossProfileCallbackMultiMerger<String> merger =
+          new CrossProfileCallbackMultiMerger<>(expectedResults, settableFuture::set);
+      Futures.addCallback(
+          future1, new MergerFutureCallback<String>(profile0, merger), directExecutor());
+      Futures.addCallback(
+          future2, new MergerFutureCallback<String>(profile1, merger), directExecutor());
+
+      Map<Profile, String> results = settableFuture.get();
+
+      assertThat(results).containsExactly(profile0, "Hello");
+    }
+  }
+
+  private static class MergerFutureCallback<E> implements FutureCallback<E> {
+
+    private final Profile profileId;
+    private final CrossProfileCallbackMultiMerger<E> merger;
+
+    MergerFutureCallback(Profile profileId, CrossProfileCallbackMultiMerger<E> merger) {
+      this.profileId = profileId;
+      this.merger = merger;
+    }
+
+    @Override
+    public void onSuccess(E result) {
+      merger.onResult(profileId, result);
+    }
+
+    @Override
+    public void onFailure(Throwable t) {
+      merger.missingResult(profileId);
+    }
   }
 }

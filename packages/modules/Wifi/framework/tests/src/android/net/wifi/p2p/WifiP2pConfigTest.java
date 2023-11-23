@@ -16,13 +16,21 @@
 
 package android.net.wifi.p2p;
 
+import static android.net.wifi.p2p.WifiP2pConfig.GROUP_CLIENT_IP_PROVISIONING_MODE_IPV4_DHCP;
+import static android.net.wifi.p2p.WifiP2pConfig.GROUP_CLIENT_IP_PROVISIONING_MODE_IPV6_LINK_LOCAL;
+
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import android.net.MacAddress;
 import android.os.Parcel;
 
 import androidx.test.filters.SmallTest;
+
+import com.android.modules.utils.build.SdkLevel;
 
 import org.junit.Test;
 
@@ -151,6 +159,54 @@ public class WifiP2pConfigTest {
         assertEquals(WifiP2pGroup.NETWORK_ID_TEMPORARY, c.netId);
     }
 
+    /** Verify that a config by default has group client IP provisioning with DHCP IPv4. */
+    @Test
+    public void testBuildConfigWithGroupClientIpProvisioningModeDefault() throws Exception {
+        WifiP2pConfig c = new WifiP2pConfig.Builder()
+                .setDeviceAddress(MacAddress.fromString(DEVICE_ADDRESS))
+                .build();
+        assertEquals(c.deviceAddress, DEVICE_ADDRESS);
+        assertEquals(c.getGroupClientIpProvisioningMode(),
+                GROUP_CLIENT_IP_PROVISIONING_MODE_IPV4_DHCP);
+    }
+
+    /** Verify that a config with group client IP provisioning with IPv4 DHCP can be built. */
+    @Test
+    public void testBuildConfigWithGroupClientIpProvisioningModeIpv4Dhcp() throws Exception {
+        assumeTrue(SdkLevel.isAtLeastT());
+        WifiP2pConfig c = new WifiP2pConfig.Builder()
+                .setDeviceAddress(MacAddress.fromString(DEVICE_ADDRESS))
+                .setGroupClientIpProvisioningMode(GROUP_CLIENT_IP_PROVISIONING_MODE_IPV4_DHCP)
+                .build();
+        assertEquals(c.deviceAddress, DEVICE_ADDRESS);
+        assertEquals(c.getGroupClientIpProvisioningMode(),
+                GROUP_CLIENT_IP_PROVISIONING_MODE_IPV4_DHCP);
+    }
+
+    /** Verify that a config with group client IP provisioning with IPv6 link-local can be built. */
+    @Test
+    public void testBuildConfigWithGroupClientIpProvisioningModeIpv6LinkLocal() throws Exception {
+        assumeTrue(SdkLevel.isAtLeastT());
+        WifiP2pConfig c = new WifiP2pConfig.Builder()
+                .setDeviceAddress(MacAddress.fromString(DEVICE_ADDRESS))
+                .setGroupClientIpProvisioningMode(GROUP_CLIENT_IP_PROVISIONING_MODE_IPV6_LINK_LOCAL)
+                .build();
+        assertEquals(c.deviceAddress, DEVICE_ADDRESS);
+        assertEquals(c.getGroupClientIpProvisioningMode(),
+                GROUP_CLIENT_IP_PROVISIONING_MODE_IPV6_LINK_LOCAL);
+    }
+
+    /**
+     * Verify that the builder throws IllegalArgumentException if invalid group client IP
+     * provisioning mode is set.
+     */
+    @Test(expected = IllegalArgumentException.class)
+    public void testBuilderWithInvalidGroupClientIpProvisioningMode()
+            throws Exception {
+        assumeTrue(SdkLevel.isAtLeastT());
+        WifiP2pConfig c = new WifiP2pConfig.Builder().setGroupClientIpProvisioningMode(5).build();
+    }
+
     /**
      * Verify that the builder throws IllegalStateException if none of
      * network name, passphrase, and device address is set.
@@ -179,6 +235,28 @@ public class WifiP2pConfigTest {
         WifiP2pConfig c = new WifiP2pConfig.Builder().setPassphrase("12345677").build();
     }
 
+
+    /** Verify that a config by default has join existing group field set to false */
+    @Test
+    public void testBuildConfigWithJoinExistingGroupDefault() throws Exception {
+        WifiP2pConfig c = new WifiP2pConfig.Builder()
+                .setDeviceAddress(MacAddress.fromString(DEVICE_ADDRESS))
+                .build();
+        assertEquals(c.deviceAddress, DEVICE_ADDRESS);
+        assertFalse(c.isJoinExistingGroup());
+    }
+
+    /** Verify that a config with join existing group field can be built. */
+    @Test
+    public void testBuildConfigWithJoinExistingGroupSet() throws Exception {
+        WifiP2pConfig c = new WifiP2pConfig.Builder()
+                .setDeviceAddress(MacAddress.fromString(DEVICE_ADDRESS))
+                .setJoinExistingGroup(true)
+                .build();
+        assertEquals(c.deviceAddress, DEVICE_ADDRESS);
+        assertTrue(c.isJoinExistingGroup());
+    }
+
     @Test
     /*
      * Verify WifiP2pConfig basic operations
@@ -203,7 +281,6 @@ public class WifiP2pConfigTest {
 
         // no equals operator, use toString for comparison.
         assertEquals(config.toString(), configFromParcel.toString());
-
     }
 
     @Test
@@ -216,5 +293,4 @@ public class WifiP2pConfigTest {
         config.invalidate();
         assertEquals("", config.deviceAddress);
     }
-
 }

@@ -16,6 +16,8 @@
 
 package com.android.car.telemetry.publisher.statsconverters;
 
+import static com.android.car.telemetry.publisher.Constants.STATS_BUNDLE_KEY_PREFIX;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.os.PersistableBundle;
@@ -60,15 +62,17 @@ public class AtomListConverterTest {
 
         assertThat(bundle.size()).isEqualTo(3);
         assertThat(bundle.getIntArray(
-                accessorMap.get(AppStartMemoryStateCaptured.UID_FIELD_NUMBER).getFieldName()))
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        AppStartMemoryStateCaptured.UID_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1000, 1100).inOrder();
         assertThat(Arrays.asList(bundle.getStringArray(
-                accessorMap.get(AppStartMemoryStateCaptured.ACTIVITY_NAME_FIELD_NUMBER)
-                .getFieldName())))
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                            AppStartMemoryStateCaptured.ACTIVITY_NAME_FIELD_NUMBER)
+                            .getFieldName())))
             .containsExactly("activityName1", "activityName2").inOrder();
         assertThat(bundle.getLongArray(
-                accessorMap.get(AppStartMemoryStateCaptured.RSS_IN_BYTES_FIELD_NUMBER)
-                .getFieldName()))
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        AppStartMemoryStateCaptured.RSS_IN_BYTES_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1234L, 2345L).inOrder();
     }
 
@@ -96,13 +100,16 @@ public class AtomListConverterTest {
 
         assertThat(bundle.size()).isEqualTo(3);
         assertThat(bundle.getIntArray(
-                accessorMap.get(ProcessMemoryState.UID_FIELD_NUMBER).getFieldName()))
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(ProcessMemoryState.UID_FIELD_NUMBER)
+                        .getFieldName()))
             .asList().containsExactly(1000, 1100).inOrder();
         assertThat(Arrays.asList(bundle.getStringArray(
-                accessorMap.get(ProcessMemoryState.PROCESS_NAME_FIELD_NUMBER).getFieldName())))
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        ProcessMemoryState.PROCESS_NAME_FIELD_NUMBER).getFieldName())))
             .containsExactly("processName1", "processName2").inOrder();
-        assertThat(bundle.getLongArray(accessorMap.get(
-                ProcessMemoryState.RSS_IN_BYTES_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getLongArray(
+                STATS_BUNDLE_KEY_PREFIX + accessorMap.get(
+                        ProcessMemoryState.RSS_IN_BYTES_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1234L, 2345L).inOrder();
     }
 }

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2019-2021 NXP
+ *  Copyright 2019-2023 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,9 +18,14 @@
 
 #define LOG_TAG "android.hardware.nfc@1.2-impl"
 #include "Nfc.h"
+
 #include <log/log.h>
+#include <memunreachable/memunreachable.h>
+
+#include "NfcExtns.h"
 #include "halimpl/inc/phNxpNciHal_Adaptation.h"
 #include "phNfcStatus.h"
+#include "phNxpNciHal_ext.h"
 
 #define CHK_STATUS(x) \
   ((x) == NFCSTATUS_SUCCESS) ? (V1_0::NfcStatus::OK) : (V1_0::NfcStatus::FAILED)
@@ -59,7 +64,7 @@ Return<V1_0::NfcStatus> Nfc::open(
     mCallbackV1_0 = clientCallback;
     mCallbackV1_0->linkToDeath(this, 0 /*cookie*/);
   }
-
+  printNfcMwVersion();
   NFCSTATUS status = phNxpNciHal_open(eventCallback, dataCallback);
   ALOGD_IF(nfc_debug_enabled, "Nfc::open Exit");
   return CHK_STATUS(status);
@@ -133,14 +138,16 @@ Return<V1_0::NfcStatus> Nfc::closeForPowerOffCase() {
 
 Return<void> Nfc::getConfig(getConfig_cb hidl_cb) {
   android::hardware::nfc::V1_1::NfcConfig nfcVendorConfig;
-  phNxpNciHal_getVendorConfig(nfcVendorConfig);
+  NfcExtns nfcExtns;
+  nfcExtns.getConfig(nfcVendorConfig);
   hidl_cb(nfcVendorConfig);
   return Void();
 }
 
 Return<void> Nfc::getConfig_1_2(getConfig_1_2_cb hidl_cb) {
   NfcConfig nfcVendorConfig;
-  phNxpNciHal_getVendorConfig_1_2(nfcVendorConfig);
+  NfcExtns nfcExtns;
+  nfcExtns.getConfig(nfcVendorConfig);
   hidl_cb(nfcVendorConfig);
   return Void();
 }
@@ -159,6 +166,13 @@ void Nfc::serviceDied(uint64_t /*cookie*/, const wp<IBase>& /*who*/) {
     mCallbackV1_0->unlinkToDeath(this);
     mCallbackV1_0 = nullptr;
   }
+}
+
+Return<void> Nfc::debug(const hidl_handle& /* fd */,
+                        const hidl_vec<hidl_string>& /* options */) {
+  ALOGD_IF(nfc_debug_enabled, "\n Nfc HAL MemoryLeak Info =  %s \n",
+           android::GetUnreachableMemoryString(true, 10000).c_str());
+  return Void();
 }
 
 }  // namespace implementation

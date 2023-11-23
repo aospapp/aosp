@@ -26,19 +26,52 @@
 #include <signal.h>
 #include <time.h>
 
+#include <condition_variable>
 #include <map>
+#include <mutex>
 #include <string>
 
-#include "osi/include/semaphore.h"
-#include "service/hal/bluetooth_interface.h"
 #include "types/raw_address.h"
+
+class btsemaphore {
+ public:
+  void post() {
+    std::lock_guard<std::mutex> lock(mMutex);
+    ++mCount;
+    mCondition.notify_one();
+  }
+
+  void wait() {
+    std::unique_lock<std::mutex> lock(mMutex);
+    while (!mCount) {
+      mCondition.wait(lock);
+    }
+    --mCount;
+  }
+
+  bool try_wait() {
+    std::lock_guard<std::mutex> lock(mMutex);
+    if (mCount) {
+      --mCount;
+      return true;
+    }
+    return false;
+  }
+
+ private:
+  std::mutex mMutex;
+  std::condition_variable mCondition;
+  unsigned long mCount = 0;
+};
+void semaphore_wait(btsemaphore &s);
+void semaphore_post(btsemaphore &s);
+void semaphore_try_wait(btsemaphore &s);
 
 namespace bttest {
 
 // This class represents the Bluetooth testing framework and provides
 // helpers and callbacks for GUnit to use for testing.
-class BluetoothTest : public ::testing::Test,
-                      public bluetooth::hal::BluetoothInterface::Observer {
+class BluetoothTest : public ::testing::Test {
  protected:
   BluetoothTest() = default;
   BluetoothTest(const BluetoothTest&) = delete;
@@ -48,6 +81,9 @@ class BluetoothTest : public ::testing::Test,
 
   // Getter for the bt_interface
   const bt_interface_t* bt_interface();
+
+  // Getter for the bt_callbacks
+  bt_callbacks_t* bt_callbacks();
 
   // Gets the current state of the Bluetooth Interface
   bt_state_t GetState();
@@ -73,7 +109,7 @@ class BluetoothTest : public ::testing::Test,
   bt_bond_state_t GetBondState();
 
   // Reset a semaphores count to 0
-  void ClearSemaphore(semaphore_t* sem);
+  void ClearSemaphore(btsemaphore& sem);
 
   // SetUp initializes the Bluetooth interface and registers the callbacks
   // before running every test
@@ -83,32 +119,29 @@ class BluetoothTest : public ::testing::Test,
   void TearDown() override;
 
   // A callback that is called when a property changes
-  void AdapterPropertiesCallback(bt_status_t status, int num_properties,
-                                 bt_property_t* properties) override;
+  friend void AdapterPropertiesCallback(bt_status_t status, int num_properties,
+                                        bt_property_t* properties);
 
   // A callback that is called when the remote device's property changes
-  void RemoteDevicePropertiesCallback(bt_status_t status,
-                                      RawAddress* remote_bd_addr,
-                                      int num_properties,
-                                      bt_property_t* properties) override;
+  friend void RemoteDevicePropertiesCallback(bt_status_t status,
+                                             RawAddress* remote_bd_addr,
+                                             int num_properties,
+                                             bt_property_t* properties);
 
   // A callback that is called when the adapter state changes
-  void AdapterStateChangedCallback(bt_state_t state) override;
+  friend void AdapterStateChangedCallback(bt_state_t state);
 
   // A callback that is called when the Discovery state changes
-  void DiscoveryStateChangedCallback(bt_discovery_state_t state) override;
+  friend void DiscoveryStateChangedCallback(bt_discovery_state_t state);
 
   // Semaphores used to wait for specific callback execution. Each callback
   // has its own semaphore associated with it.
-  semaphore_t* adapter_properties_callback_sem_;
-  semaphore_t* remote_device_properties_callback_sem_;
-  semaphore_t* adapter_state_changed_callback_sem_;
-  semaphore_t* discovery_state_changed_callback_sem_;
+  btsemaphore adapter_properties_callback_sem_;
+  btsemaphore remote_device_properties_callback_sem_;
+  btsemaphore adapter_state_changed_callback_sem_;
+  btsemaphore discovery_state_changed_callback_sem_;
 
  private:
-  // The bluetooth interface that all the tests use to interact with the HAL
-  const bt_interface_t* bt_interface_;
-
   bt_state_t state_;
   int properties_changed_count_;
   bt_property_t* last_changed_properties_;

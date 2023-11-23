@@ -50,7 +50,6 @@ type SanitizeProperties struct {
 		}
 	}
 	SanitizerEnabled bool `blueprint:"mutated"`
-	SanitizeDep      bool `blueprint:"mutated"`
 
 	// Used when we need to place libraries in their own directory, such as ASAN.
 	InSanitizerDir bool `blueprint:"mutated"`
@@ -175,7 +174,7 @@ func (sanitize *sanitize) begin(ctx BaseModuleContext) {
 	}
 
 	// Enable Memtag for all components in the include paths (for Aarch64 only)
-	if ctx.Arch().ArchType == android.Arm64 {
+	if ctx.Arch().ArchType == android.Arm64 && ctx.Os().Bionic() {
 		if ctx.Config().MemtagHeapSyncEnabledForPath(ctx.ModuleDir()) {
 			if s.Memtag_heap == nil {
 				s.Memtag_heap = proptools.BoolPtr(true)
@@ -190,18 +189,8 @@ func (sanitize *sanitize) begin(ctx BaseModuleContext) {
 		}
 	}
 
-	// TODO:(b/178369775)
-	// For now sanitizing is only supported on devices
-	if ctx.Os() == android.Android && Bool(s.Fuzzer) {
-		sanitize.Properties.SanitizerEnabled = true
-	}
-
-	if ctx.Os() == android.Android && Bool(s.Address) {
-		sanitize.Properties.SanitizerEnabled = true
-	}
-
 	// HWASan requires AArch64 hardware feature (top-byte-ignore).
-	if ctx.Arch().ArchType != android.Arm64 {
+	if ctx.Arch().ArchType != android.Arm64 || !ctx.Os().Bionic() {
 		s.Hwaddress = nil
 	}
 
@@ -216,11 +205,13 @@ func (sanitize *sanitize) begin(ctx BaseModuleContext) {
 	}
 
 	// Memtag_heap is only implemented on AArch64.
-	if ctx.Arch().ArchType != android.Arm64 {
+	if ctx.Arch().ArchType != android.Arm64 || !ctx.Os().Bionic() {
 		s.Memtag_heap = nil
 	}
 
-	if ctx.Os() == android.Android && (Bool(s.Hwaddress) || Bool(s.Address) || Bool(s.Memtag_heap)) {
+	// TODO:(b/178369775)
+	// For now sanitizing is only supported on devices
+	if ctx.Os() == android.Android && (Bool(s.Hwaddress) || Bool(s.Address) || Bool(s.Memtag_heap) || Bool(s.Fuzzer)) {
 		sanitize.Properties.SanitizerEnabled = true
 	}
 }
@@ -235,7 +226,7 @@ func (sanitize *sanitize) flags(ctx ModuleContext, flags Flags, deps PathDeps) (
 	}
 	if Bool(sanitize.Properties.Sanitize.Fuzzer) {
 		flags.RustFlags = append(flags.RustFlags, fuzzerFlags...)
-		if ctx.Arch().ArchType == android.Arm64 {
+		if ctx.Arch().ArchType == android.Arm64 && ctx.Os().Bionic() {
 			flags.RustFlags = append(flags.RustFlags, hwasanFlags...)
 		} else {
 			flags.RustFlags = append(flags.RustFlags, asanFlags...)
@@ -283,13 +274,13 @@ func rustSanitizerRuntimeMutator(mctx android.BottomUpMutatorContext) {
 		var deps []string
 
 		if mod.IsSanitizerEnabled(cc.Asan) ||
-			(mod.IsSanitizerEnabled(cc.Fuzzer) && mctx.Arch().ArchType != android.Arm64) {
+			(mod.IsSanitizerEnabled(cc.Fuzzer) && (mctx.Arch().ArchType != android.Arm64 || !mctx.Os().Bionic())) {
 			variations = append(variations,
 				blueprint.Variation{Mutator: "link", Variation: "shared"})
 			depTag = cc.SharedDepTag()
 			deps = []string{config.LibclangRuntimeLibrary(mod.toolchain(mctx), "asan")}
 		} else if mod.IsSanitizerEnabled(cc.Hwasan) ||
-			(mod.IsSanitizerEnabled(cc.Fuzzer) && mctx.Arch().ArchType == android.Arm64) {
+			(mod.IsSanitizerEnabled(cc.Fuzzer) && mctx.Arch().ArchType == android.Arm64 && mctx.Os().Bionic()) {
 			// TODO(b/204776996): HWASan for static Rust binaries isn't supported yet.
 			if binary, ok := mod.compiler.(binaryInterface); ok {
 				if binary.staticallyLinked() {
@@ -444,18 +435,10 @@ func (mod *Module) IsSanitizerExplicitlyDisabled(t cc.SanitizerType) bool {
 	return mod.sanitize.isSanitizerExplicitlyDisabled(t)
 }
 
-func (mod *Module) SanitizeDep() bool {
-	return mod.sanitize.Properties.SanitizeDep
-}
-
 func (mod *Module) SetSanitizer(t cc.SanitizerType, b bool) {
 	if !Bool(mod.sanitize.Properties.Sanitize.Never) {
 		mod.sanitize.SetSanitizer(t, b)
 	}
-}
-
-func (mod *Module) SetSanitizeDep(b bool) {
-	mod.sanitize.Properties.SanitizeDep = b
 }
 
 func (mod *Module) StaticallyLinked() bool {

@@ -29,6 +29,7 @@
 #include "DeviceHalHidl.h"
 #include "DevicesFactoryHalHidl.h"
 
+using ::android::detail::AudioHalVersionInfo;
 using ::android::hardware::audio::CPP_VERSION::IDevice;
 using ::android::hardware::audio::CORE_TYPES_CPP_VERSION::Result;
 using ::android::hardware::Return;
@@ -104,6 +105,10 @@ static const char* idFromHal(const char *name, status_t* status) {
     return name;
 }
 #endif
+
+status_t DevicesFactoryHalHidl::getDeviceNames(std::vector<std::string> *names __unused) {
+    return INVALID_OPERATION;
+}
 
 status_t DevicesFactoryHalHidl::openDevice(const char *name, sp<DeviceHalInterface> *device) {
     auto factories = copyDeviceFactories();
@@ -226,8 +231,23 @@ std::vector<sp<::android::hardware::audio::CPP_VERSION::IDevicesFactory>>
     return mDeviceFactories;
 }
 
+
+AudioHalVersionInfo DevicesFactoryHalHidl::getHalVersion() const {
+    return AudioHalVersionInfo(AudioHalVersionInfo::Type::HIDL, MAJOR_VERSION, MINOR_VERSION);
+}
+
+status_t DevicesFactoryHalHidl::getSurroundSoundConfig(
+        media::SurroundSoundConfig *config __unused) {
+    return INVALID_OPERATION;
+}
+
+status_t DevicesFactoryHalHidl::getEngineConfig(
+        media::audio::common::AudioHalEngineConfig *config __unused) {
+    return INVALID_OPERATION;
+}
+
 // Main entry-point to the shared library.
-extern "C" __attribute__((visibility("default"))) void* createIDevicesFactory() {
+extern "C" __attribute__((visibility("default"))) void* createIDevicesFactoryImpl() {
     auto service = hardware::audio::CPP_VERSION::IDevicesFactory::getService();
     return service ? new DevicesFactoryHalHidl(service) : nullptr;
 }

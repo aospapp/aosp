@@ -17,7 +17,7 @@
     <!-- Play alert sound in full volume regardless Do Not Disturb is on -->
     <bool name="override_dnd">true</bool>
     <!-- Append date-time to the alert title -->
-    <string name="date_time_format" translatable="false">MMM dd, HH:mm a</string>
+    <string name="date_time_format" translatable="false">MMM dd, hh:mm a</string>
 
     <!-- 4370, 4383 -->
     <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">

@@ -19,7 +19,7 @@
 #include "message_loop_thread.h"
 #include "time_util.h"
 
-#include <base/callback.h>
+#include <base/functional/callback.h>
 #include <base/logging.h>
 
 namespace bluetooth {

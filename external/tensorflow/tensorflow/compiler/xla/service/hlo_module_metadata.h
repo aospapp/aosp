@@ -17,8 +17,8 @@ limitations under the License.
 #define THIRD_PARTY_TENSORFLOW_COMPILER_XLA_SERVICE_HLO_MODULE_METADATA_H_
 
 #include <functional>
+#include <optional>
 
-#include "absl/types/optional.h"
 #include "tensorflow/compiler/xla/service/hlo.pb.h"
 #include "tensorflow/compiler/xla/status_macros.h"
 #include "tensorflow/compiler/xla/util.h"
@@ -43,7 +43,7 @@ class HloModuleMetadata {
   // for the currently running pass cannot be found.
   Status RecordPassEnd();
 
-  const absl::optional<HloModuleMetadataProto>& prepartitioning_metadata()
+  const std::optional<HloModuleMetadataProto>& prepartitioning_metadata()
       const {
     return prepartitioning_metadata_;
   }
@@ -61,7 +61,7 @@ class HloModuleMetadata {
     module_metadata_.add_partitioned_module_ids(id);
   }
 
-  StatusOr<int64> current_pass_id() {
+  StatusOr<int64_t> current_pass_id() {
     TF_ASSIGN_OR_RETURN(HloPassMetadata * pass_metadata,
                         GetCurrentHloPassMetadata());
     return pass_metadata->pass_id();
@@ -116,15 +116,15 @@ class HloModuleMetadata {
 
   HloModuleMetadataProto module_metadata_;
   tensorflow::Env* env_;
-  int64 next_pass_id_ = 1;
+  int64_t next_pass_id_ = 1;
 
   // Stack of metadata for passes that are currently running. Size > 1 iff
   // passes are nested.
   std::vector<HloPassMetadata*> running_passes_;
 
   // Metadata from before the module was partitioned, if applicable.
-  absl::optional<HloModuleMetadataProto> prepartitioning_metadata_ =
-      absl::nullopt;
+  std::optional<HloModuleMetadataProto> prepartitioning_metadata_ =
+      std::nullopt;
 };
 
 }  // namespace xla

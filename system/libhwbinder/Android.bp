@@ -132,7 +132,7 @@ cc_library_static {
     apex_available: [
         "//apex_available:platform",
         "com.android.neuralnetworks",
-        "com.android.bluetooth",
+        "com.android.btservices",
         "com.android.media",
         "com.android.media.swcodec",
         "com.android.tethering",
@@ -147,6 +147,14 @@ cc_defaults {
         android: {
             lto: {
                 thin: true,
+            },
+        },
+    },
+    arch: {
+        // TODO(b/254713216): undefined symbol in BufferedTextOutput::getBuffer
+        riscv64: {
+            lto: {
+                thin: false,
             },
         },
     },

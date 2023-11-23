@@ -24,6 +24,7 @@ import static com.android.settings.applications.appinfo.AppButtonsPreferenceCont
 
 import android.app.ActionBar;
 import android.app.ActivityManager;
+import android.app.settings.SettingsEnums;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -70,6 +71,7 @@ import com.android.settings.homepage.DeepLinkHomepageActivityInternal;
 import com.android.settings.homepage.SettingsHomepageActivity;
 import com.android.settings.homepage.TopLevelSettings;
 import com.android.settings.overlay.FeatureFactory;
+import com.android.settings.password.PasswordUtils;
 import com.android.settings.wfd.WifiDisplaySettings;
 import com.android.settings.widget.SettingsMainSwitchBar;
 import com.android.settingslib.core.instrumentation.Instrumentable;
@@ -154,6 +156,7 @@ public class SettingsActivity extends SettingsBaseActivity
     public static final String EXTRA_IS_FROM_SLICE = "is_from_slice";
 
     public static final String EXTRA_USER_HANDLE = "user_handle";
+    public static final String EXTRA_INITIAL_CALLING_PACKAGE = "initial_calling_package";
 
     /**
      * Personal or Work profile tab of {@link ProfileSelectFragment}
@@ -228,11 +231,32 @@ public class SettingsActivity extends SettingsBaseActivity
 
     @Override
     public SharedPreferences getSharedPreferences(String name, int mode) {
-        if (name.equals(getPackageName() + "_preferences")) {
-            return new SharedPreferencesLogger(this, getMetricsTag(),
-                    FeatureFactory.getFactory(this).getMetricsFeatureProvider());
+        if (!TextUtils.equals(name, getPackageName() + "_preferences")) {
+            return super.getSharedPreferences(name, mode);
         }
-        return super.getSharedPreferences(name, mode);
+
+        String tag = getMetricsTag();
+
+        return new SharedPreferencesLogger(this, tag,
+                FeatureFactory.getFactory(this).getMetricsFeatureProvider(),
+                lookupMetricsCategory());
+    }
+
+    private int lookupMetricsCategory() {
+        int category = SettingsEnums.PAGE_UNKNOWN;
+        Bundle args = null;
+        if (getIntent() != null) {
+            args = getIntent().getBundleExtra(EXTRA_SHOW_FRAGMENT_ARGUMENTS);
+        }
+
+        Fragment fragment = Utils.getTargetFragment(this, getMetricsTag(), args);
+
+        if (fragment instanceof Instrumentable) {
+            category = ((Instrumentable) fragment).getMetricsCategory();
+        }
+        Log.d(LOG_TAG, "MetricsCategory is " + category);
+
+        return category;
     }
 
     private String getMetricsTag() {
@@ -240,12 +264,10 @@ public class SettingsActivity extends SettingsBaseActivity
         if (getIntent() != null && getIntent().hasExtra(EXTRA_SHOW_FRAGMENT)) {
             tag = getInitialFragmentName(getIntent());
         }
+
         if (TextUtils.isEmpty(tag)) {
             Log.w(LOG_TAG, "MetricsTag is invalid " + tag);
             tag = getClass().getName();
-        }
-        if (tag.startsWith("com.android.settings.")) {
-            tag = tag.replace("com.android.settings.", "");
         }
         return tag;
     }
@@ -318,7 +340,7 @@ public class SettingsActivity extends SettingsBaseActivity
         }
         mMainSwitch = findViewById(R.id.switch_bar);
         if (mMainSwitch != null) {
-            mMainSwitch.setMetricsTag(getMetricsTag());
+            mMainSwitch.setMetricsCategory(lookupMetricsCategory());
             mMainSwitch.setTranslationZ(findViewById(R.id.main_content).getTranslationZ() + 1);
         }
 
@@ -395,6 +417,10 @@ public class SettingsActivity extends SettingsBaseActivity
      */
     public static Intent getTrampolineIntent(Intent intent, String highlightMenuKey) {
         final Intent detailIntent = new Intent(intent);
+        // Guard against the arbitrary Intent injection.
+        if (detailIntent.getSelector() != null) {
+            detailIntent.setSelector(null);
+        }
         // It's a deep link intent, SettingsHomepageActivity will set SplitPairRule and start it.
         final Intent trampolineIntent = new Intent(ACTION_SETTINGS_EMBED_DEEP_LINK_ACTIVITY)
                 .setPackage(Utils.SETTINGS_PACKAGE_NAME)
@@ -418,6 +444,8 @@ public class SettingsActivity extends SettingsBaseActivity
     }
 
     private boolean tryStartTwoPaneDeepLink(Intent intent) {
+        intent.putExtra(EXTRA_INITIAL_CALLING_PACKAGE, PasswordUtils.getCallingAppPackageName(
+                getActivityToken()));
         final Intent trampolineIntent;
         if (intent.getBooleanExtra(EXTRA_IS_FROM_SLICE, false)) {
             // Get menu key for slice deep link case.
@@ -438,7 +466,8 @@ public class SettingsActivity extends SettingsBaseActivity
             if (userInfo.isManagedProfile()) {
                 trampolineIntent.setClass(this, DeepLinkHomepageActivityInternal.class)
                         .putExtra(EXTRA_USER_HANDLE, getUser());
-                startActivityAsUser(trampolineIntent, um.getPrimaryUser().getUserHandle());
+                startActivityAsUser(trampolineIntent,
+                        um.getProfileParent(userInfo.id).getUserHandle());
             } else {
                 startActivity(trampolineIntent);
             }
@@ -505,6 +534,17 @@ public class SettingsActivity extends SettingsBaseActivity
         return true;
     }
 
+    /** Returns the initial calling package name that launches the activity. */
+    public String getInitialCallingPackage() {
+        String callingPackage = PasswordUtils.getCallingAppPackageName(getActivityToken());
+        if (!TextUtils.equals(callingPackage, getPackageName())) {
+            return callingPackage;
+        }
+
+        String initialCallingPackage = getIntent().getStringExtra(EXTRA_INITIAL_CALLING_PACKAGE);
+        return TextUtils.isEmpty(initialCallingPackage) ? callingPackage : initialCallingPackage;
+    }
+
     /** Returns the initial fragment name that the activity will launch. */
     @VisibleForTesting
     public String getInitialFragmentName(Intent intent) {
@@ -533,6 +573,11 @@ public class SettingsActivity extends SettingsBaseActivity
     @VisibleForTesting
     void launchSettingFragment(String initialFragmentName, Intent intent) {
         if (initialFragmentName != null) {
+            if (SettingsActivityUtil.launchSpaActivity(this, initialFragmentName, intent)) {
+                finish();
+                return;
+            }
+
             setTitleFromIntent(intent);
 
             Bundle initialArguments = intent.getBundleExtra(EXTRA_SHOW_FRAGMENT_ARGUMENTS);

@@ -4,6 +4,9 @@
 # checkowners.py do not recognize email subaddresses:
 # android-libcore-team+review@google.com
 
+# The default assignee for test failures and possibly other bugs.
+libcore-bugs-triage@google.com #{LAST_RESORT_SUGGESTION}
+
 # People who can approve changes for submission; don't send review emails to them
 # unless you know what you're doing.
 miguelaranda@google.com
@@ -11,7 +14,6 @@ mingaleev@google.com
 nikitai@google.com
 oth@google.com
 prb@google.com
-skvadrik@google.com
 sorinbasca@google.com
 vichang@google.com
 

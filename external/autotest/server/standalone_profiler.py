@@ -22,8 +22,8 @@ import six
 # Client control file snippet used to synchronize profiler start & stop.
 _RUNTEST_PATTERN = ("job.run_test('profiler_sync', timeout_sync=%r,\n"
                     "             timeout_start=%r, timeout_stop=%r,\n"
-                    "             hostid='%s', masterid='%s', all_ids=%r)")
-_PROF_MASTER = platform.node()
+                    "             hostid='%s', mainid='%s', all_ids=%r)")
+_PROF_MAIN = platform.node()
 _PORT = 11920
 
 
@@ -62,7 +62,7 @@ def generate_test(machines, hostname, profilers, timeout_start, timeout_stop,
 
     profiler_sync_call = (_RUNTEST_PATTERN %
                           (timeout_sync, timeout_start, timeout_stop,
-                           hostname, _PROF_MASTER, machines))
+                           hostname, _PROF_MAIN, machines))
     control_file.append(profiler_sync_call)
 
     for profiler in reversed(profilers):
@@ -72,24 +72,24 @@ def generate_test(machines, hostname, profilers, timeout_start, timeout_stop,
 
 
 def wait_for_profilers(machines, timeout=300):
-    sb = barrier.barrier(_PROF_MASTER, "sync_profilers",
+    sb = barrier.barrier(_PROF_MAIN, "sync_profilers",
             timeout, port=_PORT)
-    sb.rendezvous_servers(_PROF_MASTER, *machines)
+    sb.rendezvous_servers(_PROF_MAIN, *machines)
 
 
 def start_profilers(machines, timeout=120):
-    sb = barrier.barrier(_PROF_MASTER, "start_profilers",
+    sb = barrier.barrier(_PROF_MAIN, "start_profilers",
             timeout, port=_PORT)
-    sb.rendezvous_servers(_PROF_MASTER, *machines)
+    sb.rendezvous_servers(_PROF_MAIN, *machines)
 
 
 def stop_profilers(machines, timeout=120):
-    sb = barrier.barrier(_PROF_MASTER, "stop_profilers",
+    sb = barrier.barrier(_PROF_MAIN, "stop_profilers",
             timeout, port=_PORT)
-    sb.rendezvous_servers(_PROF_MASTER, *machines)
+    sb.rendezvous_servers(_PROF_MAIN, *machines)
 
 
 def finish_profilers(machines, timeout=120):
-    sb = barrier.barrier(_PROF_MASTER, "finish_profilers",
+    sb = barrier.barrier(_PROF_MAIN, "finish_profilers",
             timeout, port=_PORT)
-    sb.rendezvous_servers(_PROF_MASTER, *machines)
+    sb.rendezvous_servers(_PROF_MAIN, *machines)

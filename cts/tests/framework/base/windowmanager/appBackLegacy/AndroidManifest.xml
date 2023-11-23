@@ -19,10 +19,17 @@
 
     <uses-sdk android:targetSdkVersion="33"/>
 
+    <queries>
+        <package android:name="android.server.wm.cts" />
+    </queries>
+
+    <!-- Set 'enableOnBackInvokedCallback=true' in application to make sure to set
+         "enableOnBackInvokedCallback=false" in activity could work fine. -->
     <application android:label="CtsBackLegacyApp"
-                 android:enableOnBackInvokedCallback="false">
+                 android:enableOnBackInvokedCallback="true">
         <activity android:name=".BackNavigationLegacyActivity"
-                  android:exported="true">
+                  android:exported="true"
+                  android:enableOnBackInvokedCallback="false">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

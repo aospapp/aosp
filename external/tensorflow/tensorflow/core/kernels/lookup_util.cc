@@ -37,7 +37,7 @@ static const int kLineNumber = -1;
 static const int kWholeLine = -2;
 
 Status GetNumLinesInTextFile(Env* env, const string& vocab_file,
-                             int64* num_lines) {
+                             int64_t* num_lines) {
   std::unique_ptr<RandomAccessFile> file;
   TF_RETURN_IF_ERROR(env->NewRandomAccessFile(vocab_file, &file));
 
@@ -53,7 +53,7 @@ Status GetNumLinesInTextFile(Env* env, const string& vocab_file,
     return s;
   }
   *num_lines = next_id;
-  return Status::OK();
+  return OkStatus();
 }
 
 // Iterator that reads a text file. Each iteration process one line, it parses
@@ -173,7 +173,7 @@ class TextFileLineIterator
 
   Status status() const override { return status_; }
 
-  int64 total_size() const override {
+  int64_t total_size() const override {
     if (vocab_size_ == -1) {
       int64_t new_size = -1;
       Status status = GetNumLinesInTextFile(env_, filename_, &new_size);
@@ -181,7 +181,7 @@ class TextFileLineIterator
         LOG(WARNING) << "Unable to get line count: " << status;
         new_size = -1;
       }
-      *const_cast<int64*>(&vocab_size_) = new_size;
+      *const_cast<int64_t*>(&vocab_size_) = new_size;
     }
     return vocab_size_;
   }
@@ -190,12 +190,12 @@ class TextFileLineIterator
   Tensor key_;
   Tensor value_;
   bool valid_;  // true if the iterator points to an existing range.
-  int64 key_index_;
-  int64 value_index_;
+  int64_t key_index_;
+  int64_t value_index_;
   Env* env_;
-  int64 next_id_;
-  int64 offset_;
-  int64 vocab_size_;
+  int64_t next_id_;
+  int64_t offset_;
+  int64_t vocab_size_;
   string filename_;
   char delimiter_;
   Status status_;
@@ -208,8 +208,8 @@ class TextFileLineIterator
   Status SetValue(const string& line, const std::vector<string>& tokens,
                   int64_t index, Tensor* tensor) {
     if (index == kLineNumber) {
-      tensor->flat<int64>()(0) = next_id_ + offset_;
-      return Status::OK();
+      tensor->flat<int64_t>()(0) = next_id_ + offset_;
+      return OkStatus();
     }
     const string& token = (index == kWholeLine) ? line : tokens[index];
     const DataType& dtype = tensor->dtype();
@@ -230,7 +230,7 @@ class TextFileLineIterator
           return errors::InvalidArgument("Field ", token, " in line ", next_id_,
                                          " is not a valid int64.");
         }
-        tensor->flat<int64>()(0) = value;
+        tensor->flat<int64_t>()(0) = value;
       } break;
       case DT_FLOAT: {
         float value;
@@ -258,7 +258,7 @@ class TextFileLineIterator
         return errors::InvalidArgument("Data type ", DataTypeString(dtype),
                                        " not supported.");
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   TF_DISALLOW_COPY_AND_ASSIGN(TextFileLineIterator);
@@ -281,7 +281,7 @@ Status GetTableHandle(StringPiece input_name, OpKernelContext* ctx,
     *container = h(0);
     *table_handle = h(1);
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 }  // namespace
@@ -343,7 +343,7 @@ Status GetInitializableLookupTable(StringPiece input_name, OpKernelContext* ctx,
                                      " is not initializable");
     }
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status CheckTableDataTypes(const LookupInterface& table, DataType key_dtype,
@@ -355,7 +355,7 @@ Status CheckTableDataTypes(const LookupInterface& table, DataType key_dtype,
         DataTypeString(table.key_dtype()), "-",
         DataTypeString(table.value_dtype()), " for table ", table_name);
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 // Helper function to initialize an InitializableLookupTable from a text file.
@@ -411,7 +411,7 @@ Status InitializeTableFromTextFile(
   if (errors::IsFailedPrecondition(s) && table->is_initialized()) {
     LOG(INFO) << "Table trying to initialize from file " << filename
               << " is already initialized.";
-    return Status::OK();
+    return OkStatus();
   }
   return s;
 }

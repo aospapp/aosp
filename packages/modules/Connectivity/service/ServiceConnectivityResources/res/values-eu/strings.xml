@@ -35,8 +35,8 @@
   <string-array name="network_switch_type_name">
     <item msgid="3004933964374161223">"datu-konexioa"</item>
     <item msgid="5624324321165953608">"Wifia"</item>
-    <item msgid="5667906231066981731">"Bluetooth-a"</item>
-    <item msgid="346574747471703768">"Ethernet-a"</item>
+    <item msgid="5667906231066981731">"Bluetootha"</item>
+    <item msgid="346574747471703768">"Etherneta"</item>
     <item msgid="5734728378097476003">"VPNa"</item>
   </string-array>
     <string name="network_switch_type_name_unknown" msgid="5116448402191972082">"sare mota ezezaguna"</string>

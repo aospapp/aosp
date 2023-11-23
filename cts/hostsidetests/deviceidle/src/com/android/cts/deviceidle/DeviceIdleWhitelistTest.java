@@ -16,6 +16,7 @@
 
 package com.android.cts.deviceidle;
 
+import com.android.tradefed.util.RunUtil;
 import static org.junit.Assert.*;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -76,9 +77,9 @@ public class DeviceIdleWhitelistTest extends BaseHostJUnit4Test {
                     DEVICE_IDLE_COMMAND_PREFIX + "-" + mOriginalSystemWhitelist.get(i));
         }
         final List<String> whitelistBeforeReboot = getSystemWhitelist();
-        Thread.sleep(10_000); // write to disk happens after 5 seconds
+        RunUtil.getDefault().sleep(10_000); // write to disk happens after 5 seconds
         getDevice().reboot();
-        Thread.sleep(5_000); // to make sure service is initialized
+        RunUtil.getDefault().sleep(5_000); // to make sure service is initialized
         final List<String> whitelistAfterReboot = getSystemWhitelist();
         assertEquals(whitelistBeforeReboot.size(), whitelistAfterReboot.size());
         for (int i = 0; i < whitelistBeforeReboot.size(); i++) {

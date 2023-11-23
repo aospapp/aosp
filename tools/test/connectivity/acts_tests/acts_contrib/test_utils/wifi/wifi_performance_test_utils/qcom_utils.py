@@ -21,6 +21,7 @@ import math
 import os
 import re
 import statistics
+import numpy
 import time
 from acts import asserts
 
@@ -275,14 +276,15 @@ def _set_ini_fields(ini_file_path, ini_field_dict):
 
 def _edit_dut_ini(dut, ini_fields):
     """Function to edit Wifi ini files."""
-    dut_ini_path = '/vendor/firmware/wlan/qca_cld/WCNSS_qcom_cfg.ini'
-    local_ini_path = os.path.expanduser('~/WCNSS_qcom_cfg.ini')
+    dut_ini_path = '/vendor/firmware/wlan/qcom_cfg.ini'
+    local_ini_path = os.path.expanduser('~/qcom_cfg.ini')
     dut.pull_files(dut_ini_path, local_ini_path)
 
     _set_ini_fields(local_ini_path, ini_fields)
 
     dut.push_system_file(local_ini_path, dut_ini_path)
-    dut.reboot()
+    # For 1x1 mode, we need to wait for sl4a to load (To avoid crashes)
+    dut.reboot(timeout=300, wait_after_reboot_complete=120)
 
 
 def set_chain_mask(dut, chain_mask):
@@ -336,6 +338,7 @@ def set_wifi_mode(dut, mode):
 class LinkLayerStats():
 
     LLSTATS_CMD = 'cat /d/wlan0/ll_stats'
+    MOUNT_CMD = 'mount -t debugfs debugfs /sys/kernel/debug'
     PEER_REGEX = 'LL_STATS_PEER_ALL'
     MCS_REGEX = re.compile(
         r'preamble: (?P<mode>\S+), nss: (?P<num_streams>\S+), bw: (?P<bw>\S+), '
@@ -345,8 +348,8 @@ class LinkLayerStats():
         'retries_long: (?P<retries_long>\S+)')
     MCS_ID = collections.namedtuple(
         'mcs_id', ['mode', 'num_streams', 'bandwidth', 'mcs', 'rate'])
-    MODE_MAP = {'0': '11a/g', '1': '11b', '2': '11n', '3': '11ac'}
-    BW_MAP = {'0': 20, '1': 40, '2': 80}
+    MODE_MAP = {'0': '11a/g', '1': '11b', '2': '11n', '3': '11ac', '4': '11ax'}
+    BW_MAP = {'0': 20, '1': 40, '2': 80, '3':160}
 
     def __init__(self, dut, llstats_enabled=True):
         self.dut = dut
@@ -356,6 +359,12 @@ class LinkLayerStats():
 
     def update_stats(self):
         if self.llstats_enabled:
+            # Checking the files to see if the device is mounted to enable
+            # llstats capture
+            mount_check = len(self.dut.get_file_names('/d/wlan0'))
+            if not(mount_check):
+              self.dut.adb.shell(self.MOUNT_CMD, timeout=10)
+
             try:
                 llstats_output = self.dut.adb.shell(self.LLSTATS_CMD,
                                                     timeout=0.1)
@@ -400,7 +409,7 @@ class LinkLayerStats():
             current_mcs = self.MCS_ID(self.MODE_MAP[match.group('mode')],
                                       int(match.group('num_streams')) + 1,
                                       self.BW_MAP[match.group('bw')],
-                                      int(match.group('mcs')),
+                                      int(match.group('mcs'), 16),
                                       int(match.group('rate'), 16) / 1000)
             current_stats = collections.OrderedDict(
                 txmpdu=int(match.group('txmpdu')),
@@ -427,9 +436,17 @@ class LinkLayerStats():
                                                   common_rx_mcs_freq=0,
                                                   rx_per=float('nan'))
 
+        phy_rates=[]
+        tx_mpdu=[]
+        rx_mpdu=[]
         txmpdu_count = 0
         rxmpdu_count = 0
         for mcs_id, mcs_stats in llstats_dict['mcs_stats'].items():
+            # Extract the phy-rates
+            mcs_id_split=mcs_id.split();
+            phy_rates.append(float(mcs_id_split[len(mcs_id_split)-1].split('M')[0]))
+            rx_mpdu.append(mcs_stats['rxmpdu'])
+            tx_mpdu.append(mcs_stats['txmpdu'])
             if mcs_stats['txmpdu'] > llstats_summary['common_tx_mcs_count']:
                 llstats_summary['common_tx_mcs'] = mcs_id
                 llstats_summary['common_tx_mcs_count'] = mcs_stats['txmpdu']
@@ -438,6 +455,15 @@ class LinkLayerStats():
                 llstats_summary['common_rx_mcs_count'] = mcs_stats['rxmpdu']
             txmpdu_count += mcs_stats['txmpdu']
             rxmpdu_count += mcs_stats['rxmpdu']
+
+        if len(tx_mpdu) == 0 or len(rx_mpdu) == 0:
+            return llstats_summary
+
+        # Calculate the average tx/rx -phy rates
+        if sum(tx_mpdu) and sum(rx_mpdu):
+            llstats_summary['mean_tx_phy_rate'] = numpy.average(phy_rates, weights=tx_mpdu)
+            llstats_summary['mean_rx_phy_rate'] = numpy.average(phy_rates, weights=rx_mpdu)
+
         if txmpdu_count:
             llstats_summary['common_tx_mcs_freq'] = (
                 llstats_summary['common_tx_mcs_count'] / txmpdu_count)

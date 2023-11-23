@@ -54,9 +54,11 @@ CopyIfPresent "post_update.sh"
 CopyIfPresent "OWNERS"
 CopyIfPresent "README.android"
 
-echo "Applying patches..."
+file_counter=0
+total_files=$(ls $tmp_dir/patches | grep -Ei '(diff|patch)$' | wc -l)
 for p in $tmp_dir/patches/*.{diff,patch}
 do
+  file_counter=$((file_counter+1))
   [ -e "$p" ] || continue
   # Do not patch the Android.bp file, as we assume it will
   # patch itself.
@@ -65,7 +67,7 @@ do
       [ "$(basename $p)" != "Android.bp.diff" ] || continue
       [ "$(basename $p)" != "Android.bp.patch" ] || continue
   fi
-  echo "Applying $p..."
+  echo "Applying patch [$file_counter/$total_files] $p..."
   patch -p1 -d $tmp_dir --no-backup-if-mismatch < $p;
 done
 

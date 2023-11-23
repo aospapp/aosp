@@ -18,7 +18,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -41,9 +40,10 @@ type Args struct {
 	TraceFile  string
 }
 
-// Returns the list of dependencies the emitted Ninja files has. These can be
-// written to the .d file for the output so that it is correctly rebuilt when
-// needed in case Blueprint is itself invoked from Ninja
+// RunBlueprint emits `args.OutFile` (a Ninja file) and returns the list of
+// its dependencies. These can be written to a `${args.OutFile}.d` file
+// so that it is correctly rebuilt when needed in case Blueprint is itself
+// invoked from Ninja
 func RunBlueprint(args Args, stopBefore StopBefore, ctx *blueprint.Context, config interface{}) []string {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
@@ -71,53 +71,58 @@ func RunBlueprint(args Args, stopBefore StopBefore, ctx *blueprint.Context, conf
 		defer trace.Stop()
 	}
 
-	srcDir := "."
-
-	ninjaDeps := make([]string, 0)
-
-	if args.ModuleListFile != "" {
-		ctx.SetModuleListFile(args.ModuleListFile)
-		ninjaDeps = append(ninjaDeps, args.ModuleListFile)
-	} else {
+	if args.ModuleListFile == "" {
 		fatalf("-l <moduleListFile> is required and must be nonempty")
 	}
+	ctx.SetModuleListFile(args.ModuleListFile)
+
+	var ninjaDeps []string
+	ninjaDeps = append(ninjaDeps, args.ModuleListFile)
+
 	ctx.BeginEvent("list_modules")
-	filesToParse, err := ctx.ListModulePaths(srcDir)
-	ctx.EndEvent("list_modules")
-	if err != nil {
+	var filesToParse []string
+	if f, err := ctx.ListModulePaths("."); err != nil {
 		fatalf("could not enumerate files: %v\n", err.Error())
+	} else {
+		filesToParse = f
 	}
+	ctx.EndEvent("list_modules")
 
 	ctx.RegisterBottomUpMutator("bootstrap_plugin_deps", pluginDeps)
 	ctx.RegisterModuleType("bootstrap_go_package", newGoPackageModuleFactory())
 	ctx.RegisterModuleType("blueprint_go_binary", newGoBinaryModuleFactory())
 	ctx.RegisterSingletonType("bootstrap", newSingletonFactory())
+	blueprint.RegisterPackageIncludesModuleType(ctx)
 
 	ctx.BeginEvent("parse_bp")
-	blueprintFiles, errs := ctx.ParseFileList(".", filesToParse, config)
-	if len(errs) > 0 {
+	if blueprintFiles, errs := ctx.ParseFileList(".", filesToParse, config); len(errs) > 0 {
 		fatalErrors(errs)
+	} else {
+		ctx.EndEvent("parse_bp")
+		ninjaDeps = append(ninjaDeps, blueprintFiles...)
 	}
-	ctx.EndEvent("parse_bp")
 
-	// Add extra ninja file dependencies
-	ninjaDeps = append(ninjaDeps, blueprintFiles...)
-
-	extraDeps, errs := ctx.ResolveDependencies(config)
-	if len(errs) > 0 {
+	if resolvedDeps, errs := ctx.ResolveDependencies(config); len(errs) > 0 {
 		fatalErrors(errs)
+	} else {
+		ninjaDeps = append(ninjaDeps, resolvedDeps...)
 	}
-	ninjaDeps = append(ninjaDeps, extraDeps...)
 
 	if stopBefore == StopBeforePrepareBuildActions {
 		return ninjaDeps
 	}
 
-	extraDeps, errs = ctx.PrepareBuildActions(config)
-	if len(errs) > 0 {
-		fatalErrors(errs)
+	if ctx.BeforePrepareBuildActionsHook != nil {
+		if err := ctx.BeforePrepareBuildActionsHook(); err != nil {
+			fatalErrors([]error{err})
+		}
 	}
-	ninjaDeps = append(ninjaDeps, extraDeps...)
+
+	if buildActionsDeps, errs := ctx.PrepareBuildActions(config); len(errs) > 0 {
+		fatalErrors(errs)
+	} else {
+		ninjaDeps = append(ninjaDeps, buildActionsDeps...)
+	}
 
 	if stopBefore == StopBeforeWriteNinja {
 		return ninjaDeps
@@ -131,37 +136,32 @@ func RunBlueprint(args Args, stopBefore StopBefore, ctx *blueprint.Context, conf
 	ctx.BeginEvent("write_files")
 	defer ctx.EndEvent("write_files")
 	if args.EmptyNinjaFile {
-		if err := ioutil.WriteFile(joinPath(ctx.SrcDir(), args.OutFile), []byte(nil), outFilePermissions); err != nil {
+		if err := os.WriteFile(joinPath(ctx.SrcDir(), args.OutFile), []byte(nil), outFilePermissions); err != nil {
 			fatalf("error writing empty Ninja file: %s", err)
 		}
-	}
-
-	if !args.EmptyNinjaFile {
-		f, err = os.OpenFile(joinPath(ctx.SrcDir(), args.OutFile), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, outFilePermissions)
+		out = io.Discard.(io.StringWriter)
+	} else {
+		f, err := os.OpenFile(joinPath(ctx.SrcDir(), args.OutFile), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, outFilePermissions)
 		if err != nil {
 			fatalf("error opening Ninja file: %s", err)
 		}
+		defer f.Close()
 		buf = bufio.NewWriterSize(f, 16*1024*1024)
 		out = buf
-	} else {
-		out = ioutil.Discard.(io.StringWriter)
 	}
 
-	err = ctx.WriteBuildFile(out)
-	if err != nil {
+	if err := ctx.WriteBuildFile(out); err != nil {
 		fatalf("error writing Ninja file contents: %s", err)
 	}
 
 	if buf != nil {
-		err = buf.Flush()
-		if err != nil {
+		if err := buf.Flush(); err != nil {
 			fatalf("error flushing Ninja file contents: %s", err)
 		}
 	}
 
 	if f != nil {
-		err = f.Close()
-		if err != nil {
+		if err := f.Close(); err != nil {
 			fatalf("error closing Ninja file: %s", err)
 		}
 	}

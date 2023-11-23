@@ -22,7 +22,7 @@
  *
  ******************************************************************************/
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/logging.h>
 
 #include <cstdint>
@@ -38,8 +38,6 @@
 #include "types/raw_address.h"
 
 extern tBTM_CB btm_cb;
-
-extern void btm_ble_create_conn_cancel();
 
 namespace {
 
@@ -85,6 +83,15 @@ const tBLE_BD_ADDR convert_to_address_with_type(
         .bda = bd_addr,
     };
   } else {
+    // Floss doesn't support LL Privacy (yet). To expedite ARC testing, always
+    // connect to the latest LE random address rather than redesign.
+    // TODO(b/235218533): Remove when LL Privacy is implemented.
+#if TARGET_FLOSS
+    return {
+        .type = BLE_ADDR_RANDOM,
+        .bda = p_dev_rec->ble.cur_rand_addr.address,
+    };
+#endif
     return p_dev_rec->ble.identity_address_with_type;
   }
 }
@@ -172,48 +179,25 @@ bool BTM_BackgroundConnectAddressKnown(const RawAddress& address) {
   return false;
 }
 
-bool BTM_SetLeConnectionModeToFast() {
-  VLOG(2) << __func__;
-  tBTM_BLE_CB* p_cb = &btm_cb.ble_ctr_cb;
-  if ((p_cb->scan_int == BTM_BLE_SCAN_PARAM_UNDEF &&
-       p_cb->scan_win == BTM_BLE_SCAN_PARAM_UNDEF) ||
-      (p_cb->scan_int == BTM_BLE_SCAN_SLOW_INT_1 &&
-       p_cb->scan_win == BTM_BLE_SCAN_SLOW_WIN_1)) {
-    p_cb->scan_int = BTM_BLE_SCAN_FAST_INT;
-    p_cb->scan_win = BTM_BLE_SCAN_FAST_WIN;
-    return true;
-  }
-  return false;
-}
-
-void BTM_SetLeConnectionModeToSlow() {
-  VLOG(2) << __func__;
-  tBTM_BLE_CB* p_cb = &btm_cb.ble_ctr_cb;
-  if ((p_cb->scan_int == BTM_BLE_SCAN_PARAM_UNDEF &&
-       p_cb->scan_win == BTM_BLE_SCAN_PARAM_UNDEF) ||
-      (p_cb->scan_int == BTM_BLE_SCAN_FAST_INT &&
-       p_cb->scan_win == BTM_BLE_SCAN_FAST_WIN)) {
-    p_cb->scan_int = BTM_BLE_SCAN_SLOW_INT_1;
-    p_cb->scan_win = BTM_BLE_SCAN_SLOW_WIN_1;
-  }
-}
-
 /** Adds the device into acceptlist. Returns false if acceptlist is full and
  * device can't be added, true otherwise. */
 bool BTM_AcceptlistAdd(const RawAddress& address) {
+  return BTM_AcceptlistAdd(address, false);
+}
+
+/** Adds the device into acceptlist and indicates whether to using direct
+ * connect parameters. Returns false if acceptlist is full and device can't
+ * be added, true otherwise. */
+bool BTM_AcceptlistAdd(const RawAddress& address, bool is_direct) {
   if (!controller_get_interface()->supports_ble()) {
     LOG_WARN("Controller does not support Le");
     return false;
   }
 
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(address);
-  if (p_dev_rec != NULL && p_dev_rec->device_type & BT_DEVICE_TYPE_BLE) {
-    p_dev_rec->ble.in_controller_list |= BTM_ACCEPTLIST_BIT;
-  }
 
   return bluetooth::shim::ACL_AcceptLeConnectionFrom(
-      convert_to_address_with_type(address, p_dev_rec),
-      /* is_direct */ false);
+      convert_to_address_with_type(address, p_dev_rec), is_direct);
 }
 
 /** Removes the device from acceptlist */
@@ -224,9 +208,6 @@ void BTM_AcceptlistRemove(const RawAddress& address) {
   }
 
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(address);
-  if (p_dev_rec != NULL && p_dev_rec->device_type & BT_DEVICE_TYPE_BLE) {
-    p_dev_rec->ble.in_controller_list &= ~BTM_ACCEPTLIST_BIT;
-  }
 
   bluetooth::shim::ACL_IgnoreLeConnectionFrom(
       convert_to_address_with_type(address, p_dev_rec));

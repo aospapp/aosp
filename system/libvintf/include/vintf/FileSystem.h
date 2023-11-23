@@ -43,6 +43,10 @@ class FileSystem {
     //        OK if file names are retrieved and written to out.
     virtual status_t listFiles(const std::string& path, std::vector<std::string>* out,
                                std::string* error) const = 0;
+    // Return NAME_NOT_FOUND if file is not found,
+    //        OK if "mtime" is set with modified time of the file.
+    virtual status_t modifiedTime(const std::string& path, int64_t* mtime,
+                                  std::string* error) const = 0;
 };
 
 // Interface to a writable filesystem.
@@ -60,25 +64,30 @@ namespace details {
 // Class that actually queries the file system.
 class FileSystemImpl : public FileSystem {
    public:
-    status_t fetch(const std::string&, std::string*, std::string*) const;
-    status_t listFiles(const std::string&, std::vector<std::string>*, std::string*) const;
+    status_t fetch(const std::string&, std::string*, std::string*) const override;
+    status_t listFiles(const std::string&, std::vector<std::string>*, std::string*) const override;
+    status_t modifiedTime(const std::string& path, int64_t* mtime, std::string* error) const;
 };
 
 // Class that does nothing.
 class FileSystemNoOp : public FileSystem {
    public:
-    status_t fetch(const std::string&, std::string*, std::string*) const;
-    status_t listFiles(const std::string&, std::vector<std::string>*, std::string*) const;
+    status_t fetch(const std::string&, std::string*, std::string*) const override;
+    status_t listFiles(const std::string&, std::vector<std::string>*, std::string*) const override;
+    status_t modifiedTime(const std::string& path, int64_t* mtime,
+                          std::string* error) const override;
 };
 
 // The root is mounted to a given path.
 class FileSystemUnderPath : public FileSystem {
    public:
     FileSystemUnderPath(const std::string& rootdir);
-    virtual status_t fetch(const std::string& path, std::string* fetched,
-                           std::string* error) const override;
-    virtual status_t listFiles(const std::string& path, std::vector<std::string>* out,
-                               std::string* error) const override;
+    status_t fetch(const std::string& path, std::string* fetched,
+                   std::string* error) const override;
+    status_t listFiles(const std::string& path, std::vector<std::string>* out,
+                       std::string* error) const override;
+    status_t modifiedTime(const std::string& path, int64_t* mtime,
+                          std::string* error) const override;
 
    protected:
     const std::string& getRootDir() const;

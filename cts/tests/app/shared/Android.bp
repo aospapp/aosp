@@ -35,5 +35,5 @@ android_library {
         "src/**/*.aidl",
     ],
     platform_apis: true,
-    min_sdk_version: "14",
+    min_sdk_version: "20",
 }

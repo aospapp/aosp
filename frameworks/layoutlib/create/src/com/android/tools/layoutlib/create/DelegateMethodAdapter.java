@@ -22,10 +22,12 @@ import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.TypePath;
 
 import java.util.ArrayList;
 
@@ -480,4 +482,74 @@ class DelegateMethodAdapter extends MethodVisitor {
         }
     }
 
+    @Override
+    public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle,
+            Object... bootstrapMethodArguments) {
+        if (mOrgWriter != null) {
+            mOrgWriter.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle,
+                    bootstrapMethodArguments);
+        }
+    }
+
+    @Override
+    public void visitParameter(String name, int access) {
+        if (mOrgWriter != null) {
+            mOrgWriter.visitParameter(name, access);
+        }
+    }
+
+    @Override
+    public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor,
+            boolean visible) {
+        if (mOrgWriter != null) {
+            return mOrgWriter.visitTypeAnnotation(typeRef, typePath, descriptor, visible);
+        } else {
+            return null;
+        }
+    }
+
+    @Override
+    public void visitAnnotableParameterCount(int parameterCount, boolean visible) {
+        if (mOrgWriter != null) {
+            mOrgWriter.visitAnnotableParameterCount(parameterCount, visible);
+        }
+    }
+
+    @Override
+    public void visitMethodInsn(int opcode, String owner, String name, String descriptor) {
+        if (mOrgWriter != null) {
+            mOrgWriter.visitMethodInsn(opcode, owner, name, descriptor);
+        }
+    }
+
+    @Override
+    public AnnotationVisitor visitInsnAnnotation(int typeRef, TypePath typePath, String descriptor,
+            boolean visible) {
+        if (mOrgWriter != null) {
+            return mOrgWriter.visitInsnAnnotation(typeRef, typePath, descriptor, visible);
+        } else {
+            return null;
+        }
+    }
+
+    @Override
+    public AnnotationVisitor visitTryCatchAnnotation(int typeRef, TypePath typePath,
+            String descriptor, boolean visible) {
+        if (mOrgWriter != null) {
+            return mOrgWriter.visitTryCatchAnnotation(typeRef, typePath, descriptor, visible);
+        } else {
+            return null;
+        }
+    }
+
+    @Override
+    public AnnotationVisitor visitLocalVariableAnnotation(int typeRef, TypePath typePath,
+            Label[] start, Label[] end, int[] index, String descriptor, boolean visible) {
+        if (mOrgWriter != null) {
+            return mOrgWriter.visitLocalVariableAnnotation(typeRef, typePath, start, end, index,
+                    descriptor, visible);
+        } else {
+            return null;
+        }
+    }
 }

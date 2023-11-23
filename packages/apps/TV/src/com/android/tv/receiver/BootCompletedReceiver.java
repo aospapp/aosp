@@ -56,6 +56,11 @@ public class BootCompletedReceiver extends BroadcastReceiver {
             Log.wtf(TAG, "Stopping because device does not have a TvInputManager");
             return;
         }
+        String action = intent.getAction();
+        if (!Intent.ACTION_BOOT_COMPLETED.equals(action)) {
+            Log.w(TAG, "invalid action " + action);
+            return;
+        }
         if (DEBUG) Log.d(TAG, "boot completed " + intent);
         Starter.start(context);
 

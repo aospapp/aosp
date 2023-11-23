@@ -16,17 +16,6 @@
 
 namespace
 {
-bool ReadEntireFile(const std::string &filePath, std::string *contentsOut)
-{
-    constexpr uint32_t kMaxBufferSize = 2000;
-    char buffer[kMaxBufferSize]       = {};
-    if (!angle::ReadEntireFileToString(filePath.c_str(), buffer, kMaxBufferSize) ||
-        strlen(buffer) == 0)
-        return false;
-    *contentsOut = buffer;
-    return true;
-}
-
 GLuint CompileProgramInternal(const char *vsSource,
                               const char *tcsSource,
                               const char *tesSource,
@@ -34,6 +23,8 @@ GLuint CompileProgramInternal(const char *vsSource,
                               const char *fsSource,
                               const std::function<void(GLuint)> &preLinkCallback)
 {
+    GLuint program = glCreateProgram();
+
     GLuint vs = CompileShader(GL_VERTEX_SHADER, vsSource);
     GLuint fs = CompileShader(GL_FRAGMENT_SHADER, fsSource);
 
@@ -41,10 +32,9 @@ GLuint CompileProgramInternal(const char *vsSource,
     {
         glDeleteShader(fs);
         glDeleteShader(vs);
+        glDeleteProgram(program);
         return 0;
     }
-
-    GLuint program = glCreateProgram();
 
     glAttachShader(program, vs);
     glDeleteShader(vs);
@@ -139,7 +129,7 @@ void KHRONOS_APIENTRY DebugMessageCallback(GLenum source,
 void GetPerfCounterValue(const CounterNameToIndexMap &counterIndexMap,
                          std::vector<angle::PerfMonitorTriplet> &triplets,
                          const char *name,
-                         GLuint *counterOut)
+                         GLuint64 *counterOut)
 {
     auto iter = counterIndexMap.find(name);
     ASSERT(iter != counterIndexMap.end());
@@ -200,7 +190,7 @@ GLuint CompileShader(GLenum type, const char *source)
 GLuint CompileShaderFromFile(GLenum type, const std::string &sourcePath)
 {
     std::string source;
-    if (!ReadEntireFile(sourcePath, &source))
+    if (!angle::ReadEntireFileToString(sourcePath.c_str(), &source))
     {
         std::cerr << "Error reading shader file: " << sourcePath << "\n";
         return 0;
@@ -318,14 +308,14 @@ GLuint CompileProgramWithTESS(const char *vsSource,
 GLuint CompileProgramFromFiles(const std::string &vsPath, const std::string &fsPath)
 {
     std::string vsSource;
-    if (!ReadEntireFile(vsPath, &vsSource))
+    if (!angle::ReadEntireFileToString(vsPath.c_str(), &vsSource))
     {
         std::cerr << "Error reading shader: " << vsPath << "\n";
         return 0;
     }
 
     std::string fsSource;
-    if (!ReadEntireFile(fsPath, &fsSource))
+    if (!angle::ReadEntireFileToString(fsPath.c_str(), &fsSource))
     {
         std::cerr << "Error reading shader: " << fsPath << "\n";
         return 0;
@@ -468,7 +458,7 @@ angle::VulkanPerfCounters GetPerfCounters(const CounterNameToIndexMap &indexMap)
     return counters;
 }
 
-CounterNameToIndexMap BuildCounterNameToValueMap()
+CounterNameToValueMap BuildCounterNameToValueMap()
 {
     CounterNameToIndexMap indexMap                     = BuildCounterNameToIndexMap();
     std::vector<angle::PerfMonitorTriplet> perfResults = GetPerfMonitorTriplets();
@@ -530,6 +520,19 @@ void main()
 })";
 }
 
+// A shader that sets gl_Position to attribute a_position, and sets gl_PointSize to 1.
+const char *SimpleForPoints()
+{
+    return R"(precision highp float;
+attribute vec4 a_position;
+
+void main()
+{
+    gl_Position = a_position;
+    gl_PointSize = 1.0;
+})";
+}
+
 // A shader that simply passes through attribute a_position, setting it to gl_Position and varying
 // v_position.
 const char *Passthrough()
@@ -555,7 +558,7 @@ varying vec2 v_texCoord;
 
 void main()
 {
-    gl_Position = vec4(a_position.xy, 0.0, 1.0);
+    gl_Position = a_position;
     v_texCoord = a_position.xy * 0.5 + vec2(0.5);
 })";
 }
@@ -697,6 +700,18 @@ in vec4 a_position;
 void main()
 {
     gl_Position = a_position;
+})";
+}
+
+// A shader that sets gl_Position to attribute a_position, and sets gl_PointSize to 1.
+const char *SimpleForPoints()
+{
+    return R"(#version 300 es
+in vec4 a_position;
+void main()
+{
+    gl_Position = a_position;
+    gl_PointSize = 1.0;
 })";
 }
 

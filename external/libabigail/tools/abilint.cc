@@ -41,6 +41,8 @@ using std::cout;
 using std::ostream;
 using std::ofstream;
 using std::vector;
+using std::unordered_set;
+using std::unique_ptr;
 using abigail::tools_utils::emit_prefix;
 using abigail::tools_utils::check_file;
 using abigail::tools_utils::file_type;
@@ -48,6 +50,10 @@ using abigail::tools_utils::guess_file_type;
 using abigail::suppr::suppression_sptr;
 using abigail::suppr::suppressions_type;
 using abigail::suppr::read_suppressions;
+using abigail::type_base;
+using abigail::type_or_decl_base;
+using abigail::type_base_sptr;
+using abigail::type_or_decl_base_sptr;
 using abigail::corpus;
 using abigail::corpus_sptr;
 using abigail::xml_reader::read_translation_unit_from_file;
@@ -55,6 +61,10 @@ using abigail::xml_reader::read_translation_unit_from_istream;
 using abigail::xml_reader::read_corpus_from_native_xml;
 using abigail::xml_reader::read_corpus_from_native_xml_file;
 using abigail::xml_reader::read_corpus_group_from_input;
+#ifdef WITH_SHOW_TYPE_USE_IN_ABILINT
+using abigail::xml_reader::get_types_from_type_id;
+using abigail::xml_reader::get_artifact_used_by_relation_map;
+#endif
 using abigail::dwarf_reader::read_corpus_from_elf;
 using abigail::xml_writer::write_translation_unit;
 using abigail::xml_writer::write_context_sptr;
@@ -78,6 +88,9 @@ struct options
   vector<string>		suppression_paths;
   string			headers_dir;
   vector<string>		header_files;
+#if WITH_SHOW_TYPE_USE_IN_ABILINT
+  string			type_id_to_show;
+#endif
 
   options()
     : display_version(false),
@@ -91,6 +104,378 @@ struct options
 #endif
   {}
 };//end struct options;
+
+#ifdef WITH_SHOW_TYPE_USE_IN_ABILINT
+/// A tree node representing the "use" relation between an artifact A
+/// (e.g, a type) and a set of artifacts {A'} that use "A" as in "A"
+/// is a sub-type of A'.
+///
+/// So the node contains the artifact A and a vector children nodes
+/// that contain the A' artifacts that use A.
+struct artifact_use_relation_tree
+{
+  artifact_use_relation_tree *root_node = nullptr;
+  /// The parent node of this one.  Is nullptr if this node is the root
+  /// node.
+  artifact_use_relation_tree *parent = nullptr;
+  /// The artifact contained in this node.
+  type_or_decl_base* artifact = nullptr;
+  /// The vector of children nodes that carry the artifacts that
+  /// actually use the 'artifact' above.  In other words, the
+  /// 'artifact" data member above is a sub-type of each artifact
+  /// contained in this vector.
+  vector<unique_ptr<artifact_use_relation_tree>> artifact_users;
+  /// This is the set of artifacts that have been added to the tree.
+  /// This is useful to ensure that all artifacts are added just once
+  /// in the tree to prevent infinite loops.
+  unordered_set<type_or_decl_base *> artifacts;
+
+  /// The constructor of the tree node.
+  ///
+  /// @param the artifact to consider.
+  artifact_use_relation_tree(type_or_decl_base* t)
+    : artifact (t)
+  {
+    ABG_ASSERT(t && !artifact_in_tree(t));
+    record_artifact(t);
+  }
+
+  /// Add a user artifact node for the artifact carried by this node.
+  ///
+  /// The artifact carried by the current node is a sub-type of the
+  /// artifact carried by the 'user' node being added.
+  ///
+  /// @param user a tree node that carries an artifact that uses the
+  /// artifact carried by the current node.
+  void
+  add_artifact_user(artifact_use_relation_tree *user)
+  {
+    ABG_ASSERT(user && !artifact_in_tree(user->artifact ));
+    artifact_users.push_back(unique_ptr<artifact_use_relation_tree>(user));
+    user->parent = this;
+    record_artifact(user->artifact);
+  }
+
+  /// Move constructor.
+  ///
+  /// @param o the source of the move.
+  artifact_use_relation_tree(artifact_use_relation_tree &&o)
+  {
+    parent = o.parent;
+    artifact = o.artifact;
+    artifact_users = std::move(o.artifact_users);
+    artifacts = std::move(o.artifacts);
+  }
+
+  /// Move assignment operator.
+  ///
+  /// @param o the source of the assignment.
+  artifact_use_relation_tree& operator=(artifact_use_relation_tree&& o)
+  {
+    parent = o.parent;
+    artifact = o.artifact;
+    artifact_users = std::move(o.artifact_users);
+    artifacts = std::move(o.artifacts);
+    return *this;
+  }
+
+  /// Test if the current node is a leaf node.
+  ///
+  /// @return true if the artifact carried by the current node has no
+  /// user artifacts.
+  bool
+  is_leaf() const
+  {return artifact_users.empty();}
+
+  /// Test if the current node is a root node.
+  ///
+  /// @return true if the current artifact uses no other artifact.
+  bool
+  is_root() const
+  {return parent == nullptr;}
+
+  /// Test wether a given artifact has been added to the tree.
+  ///
+  /// Here, the tree means the tree that the current tree node is part
+  /// of.
+  ///
+  /// An artifact is considered as having been added to the tree if
+  /// artifact_use_relation_tree::record_artifact has been invoked on
+  /// it.
+  ///
+  /// @param artifact the artifact to consider.
+  ///
+  /// @return true iff @p artifact is present in the tree.
+  bool
+  artifact_in_tree(type_or_decl_base *artifact)
+  {
+    artifact_use_relation_tree *root_node = get_root_node();
+    ABG_ASSERT(root_node);
+    return root_node->artifacts.find(artifact) != root_node->artifacts.end();
+  }
+
+  /// Record an artifact as being added to the current tree.
+  ///
+  /// Note that this function assumes the artifact is not already
+  /// present in the tree containing the current tree node.
+  ///
+  /// @param artifact the artifact to consider.
+  void
+  record_artifact(type_or_decl_base *artifact)
+  {
+    ABG_ASSERT(!artifact_in_tree(artifact));
+    artifact_use_relation_tree *root_node = get_root_node();
+    ABG_ASSERT(root_node);
+    root_node->artifacts.insert(artifact);
+  }
+
+  /// Get the root node of the current tree.
+  ///
+  /// @return the root node of the current tree.
+  artifact_use_relation_tree*
+  get_root_node()
+  {
+    if (root_node)
+      return root_node;
+
+    if (parent == nullptr)
+      return this;
+
+    root_node = parent->get_root_node();
+    return root_node;
+  }
+
+  artifact_use_relation_tree(const artifact_use_relation_tree&) = delete;
+  artifact_use_relation_tree& operator=(const artifact_use_relation_tree&) = delete;
+}; // end struct artifact_use_relation_tree
+
+/// Fill an "artifact use" tree from a map that associates a type T
+/// (or artifact) to artifacts that use T as a sub-type.
+///
+/// @param artifact_use_rel the map that establishes the relation
+/// between a type T and the artifacts that use T as a sub-type.
+///
+/// @parm tree output parameter.  This function will fill up this tree
+/// from the information carried in @p artifact_use_rel.  Each node of
+/// the tree contains an artifact A and its children nodes contain the
+/// artifacts A' that use A as a sub-type.
+static void
+fill_artifact_use_tree(const std::unordered_map<type_or_decl_base*,
+						vector<type_or_decl_base*>>& artifact_use_rel,
+		       artifact_use_relation_tree& tree)
+{
+  auto r = artifact_use_rel.find(tree.artifact);
+  if (r == artifact_use_rel.end())
+    return;
+
+  // Walk the users of "artifact", create a tree node for each one of
+  // them, and add them as children node of the current tree node
+  // named 'tree'.
+  for (auto user : r->second)
+    {
+      if (tree.artifact_in_tree(user))
+	// The artifact has already been added to the tree, so skip it
+	// otherwise we can loop for ever.
+	continue;
+
+      artifact_use_relation_tree *user_tree =
+	new artifact_use_relation_tree(user);
+
+      // Now add the new user node as a child of the current tree
+      // node.
+      tree.add_artifact_user(user_tree);
+
+      // Recursively fill the newly created tree node.
+      fill_artifact_use_tree(artifact_use_rel, *user_tree);
+    }
+}
+
+/// construct an "artifact use tree" for a type designated by a "type-id".
+/// (or artifact) to artifacts that use T as a sub-type.
+///
+/// Each node of the "artifact use tree" contains a type T and its
+/// children nodes contain the artifacts A' that use T as a sub-type.
+/// The root node is the type designed by a given type-id.
+///
+/// @param ctxt the abixml read context to consider.
+///
+/// @param type_id the type-id of the type to construct the "use tree"
+/// for.
+static unique_ptr<artifact_use_relation_tree>
+build_type_use_tree(abigail::xml_reader::read_context &ctxt,
+		    const string& type_id)
+{
+  unique_ptr<artifact_use_relation_tree> result;
+  vector<type_base_sptr>* types = get_types_from_type_id(ctxt, type_id);
+  if (!types)
+    return result;
+
+  std::unordered_map<type_or_decl_base*, vector<type_or_decl_base*>>*
+    artifact_use_rel = get_artifact_used_by_relation_map(ctxt);
+  if (!artifact_use_rel)
+    return result;
+
+  type_or_decl_base_sptr type = types->front();
+  unique_ptr<artifact_use_relation_tree> use_tree
+    (new artifact_use_relation_tree(type.get()));
+
+  fill_artifact_use_tree(*artifact_use_rel, *use_tree);
+
+  result = std::move(use_tree);
+  return result;
+}
+
+/// Emit a visual representation of a "type use trace".
+///
+/// The trace is vector of strings.  Each string is the textual
+/// representation of a type.  The next element in the vector is a
+/// type using the previous element, as in, the "previous element is a
+/// sub-type of the next element".
+///
+/// This is a sub-routine of emit_artifact_use_trace.
+///
+/// @param the trace vector to emit.
+///
+/// @param out the output stream to emit the trace to.
+static void
+emit_trace(const vector<string>& trace, ostream& out)
+{
+  if (trace.empty())
+    return;
+
+  if (!trace.empty())
+    // Make the beginning of the trace line of the usage of a given
+    // type be easily recognizeable by a "pattern".
+    out << "===";
+
+  for (auto element : trace)
+    out << "-> " << element << " ";
+
+  if (!trace.empty())
+    // Make the end of the trace line of the usage of a given type be
+    // easily recognizeable by another "pattern".
+    out << " <-~~~";
+
+  out << "\n";
+}
+
+/// Walk a @ref artifact_use_relation_tree to emit a "type-is-used-by"
+/// trace.
+///
+/// The tree carries the information about how a given type is used by
+/// other types.  This function walks the tree by visiting a node
+/// carrying a given type T, and then the nodes for which T is a
+/// sub-type.  The function accumulates a trace made of the textual
+/// representation of the visited nodes and then emits that trace on
+/// an output stream.
+///
+/// @param artifact_use_tree the tree to walk.
+///
+/// @param trace the accumulated vector of the textual representations
+/// of the types carried by the visited nodes.
+///
+/// @param out the output stream to emit the trace to.
+static void
+emit_artifact_use_trace(const artifact_use_relation_tree& artifact_use_tree,
+			vector<string>& trace, ostream& out)
+{
+  type_or_decl_base* artifact = artifact_use_tree.artifact;
+  if (!artifact)
+    return;
+
+  string repr = artifact->get_pretty_representation();
+  trace.push_back(repr);
+
+  if (artifact_use_tree.artifact_users.empty())
+    {
+      // We reached a leaf node.  This means that no other artifact
+      // uses the artifact carried by this leaf node.  So, we want to
+      // emit the trace accumulated to this point.
+
+      // But we only want to emit the usage traces that end up with a
+      // function of variable that have an associated ELF symbol.
+      bool do_emit_trace = false;
+      if (is_decl(artifact))
+	{
+	  if (abigail::ir::var_decl* v = is_var_decl(artifact))
+	    if (v->get_symbol()
+		|| is_at_global_scope(v)
+		|| !v->get_linkage_name().empty())
+	      do_emit_trace = true;
+	  if (abigail::ir::function_decl* f = is_function_decl(artifact))
+	    if (f->get_symbol()
+		|| is_at_global_scope(f)
+		|| !f->get_linkage_name().empty())
+	      do_emit_trace = true;
+	}
+
+      // OK now, really emit the trace.
+      if (do_emit_trace)
+	emit_trace(trace, out);
+
+      trace.pop_back();
+      return;
+    }
+
+  for (const auto &user : artifact_use_tree.artifact_users)
+    emit_artifact_use_trace(*user, trace, out);
+
+  trace.pop_back();
+}
+
+/// Walk a @ref artifact_use_relation_tree to emit a "type-is-used-by"
+/// trace.
+///
+/// The tree carries the information about how a given type is used by
+/// other types.  This function walks the tree by visiting a node
+/// carrying a given type T, and then the nodes for which T is a
+/// sub-type.  The function then emits a trace of how the root type is
+/// used.
+///
+/// @param artifact_use_tree the tree to walk.
+///
+/// @param out the output stream to emit the trace to.
+static void
+emit_artifact_use_trace(const artifact_use_relation_tree& artifact_use_tree,
+			ostream& out)
+{
+  vector<string> trace;
+  emit_artifact_use_trace(artifact_use_tree, trace, out);
+}
+
+/// Show how a type is used.
+///
+/// The type to consider is designated by a type-id string that is
+/// carried by the options data structure.
+///
+/// @param ctxt the abixml read context to consider.
+///
+/// @param the type_id of the type which usage to analyse.
+static bool
+show_how_type_is_used(abigail::xml_reader::read_context &ctxt,
+		      const string& type_id)
+{
+  if (type_id.empty())
+    return false;
+
+  unique_ptr<artifact_use_relation_tree> use_tree =
+    build_type_use_tree(ctxt, type_id);
+  if (!use_tree)
+    return false;
+
+  // Now walk the use_tree to emit the type use trace
+  if (use_tree->artifact)
+    {
+      std::cout << "Type ID '"
+		<< type_id << "' is for type '"
+		<< use_tree->artifact->get_pretty_representation()
+		<< "'\n"
+		<< "The usage graph for that type is:\n";
+      emit_artifact_use_trace(*use_tree, std::cout);
+    }
+  return true;
+}
+#endif // WITH_SHOW_TYPE_USE_IN_ABILINT
 
 static void
 display_usage(const string& prog_name, ostream& out)
@@ -112,6 +497,9 @@ display_usage(const string& prog_name, ostream& out)
     << "  --tu  expect a single translation unit file\n"
 #ifdef WITH_CTF
     << "  --ctf use CTF instead of DWARF in ELF files\n"
+#endif
+#ifdef WITH_SHOW_TYPE_USE_IN_ABILINT
+    << "  --show-type-use <type-id>  show how a type is used from the abixml file\n"
 #endif
     ;
 }
@@ -195,6 +583,15 @@ parse_command_line(int argc, char* argv[], options& opts)
 	  opts.diff = true;
 	else if (!strcmp(argv[i], "--noout"))
 	  opts.noout = true;
+#ifdef WITH_SHOW_TYPE_USE_IN_ABILINT
+      else if (!strcmp(argv[i], "--show-type-use"))
+	{
+	  ++i;
+	  if (i >= argc || argv[i][0] == '-')
+	    return false;
+	  opts.type_id_to_show = argv[i];
+	}
+#endif
 	else
 	  {
 	    if (strlen(argv[i]) >= 2 && argv[i][0] == '-' && argv[i][1] == '-')
@@ -203,8 +600,17 @@ parse_command_line(int argc, char* argv[], options& opts)
 	  }
       }
 
-    if (opts.file_path.empty())
+#ifdef WITH_SHOW_TYPE_USE_IN_ABILINT
+    if (!opts.type_id_to_show.empty()
+	&& opts.file_path.empty())
+      emit_prefix(argv[0], cout)
+	<< "WARNING: --show-type-use <type-id> "
+	"must be accompanied with an abixml file\n";
+
+    if (opts.file_path.empty()
+	&& opts.type_id_to_show.empty())
       opts.read_from_stdin = true;
+#endif
 
     if (opts.read_from_stdin && !opts.file_path.empty())
     {
@@ -349,6 +755,7 @@ main(int argc, char* argv[])
       abigail::elf_reader::status s = abigail::elf_reader::STATUS_OK;
       char* di_root_path = 0;
       file_type type = guess_file_type(opts.file_path);
+      abigail::xml_reader::read_context_sptr abixml_read_ctxt;
 
       switch (type)
 	{
@@ -358,7 +765,12 @@ main(int argc, char* argv[])
 	    << "\n";
 	  return 1;
 	case abigail::tools_utils::FILE_TYPE_NATIVE_BI:
-	  tu = read_translation_unit_from_file(opts.file_path, env.get());
+	  {
+	    abixml_read_ctxt =
+	      abigail::xml_reader::create_native_xml_read_context(opts.file_path,
+								  env.get());
+	    tu = read_translation_unit(*abixml_read_ctxt);
+	  }
 	  break;
 	case abigail::tools_utils::FILE_TYPE_ELF:
 	case abigail::tools_utils::FILE_TYPE_AR:
@@ -370,9 +782,10 @@ main(int argc, char* argv[])
 #ifdef WITH_CTF
             if (opts.use_ctf)
               {
-                abigail::ctf_reader::read_context_sptr ctxt
-                  = abigail::ctf_reader::create_read_context(opts.file_path,
-                                                             env.get());
+                abigail::ctf_reader::read_context_sptr ctxt =
+                  abigail::ctf_reader::create_read_context(opts.file_path,
+                                                           di_roots,
+                                                           env.get());
                 ABG_ASSERT(ctxt);
                 corp = abigail::ctf_reader::read_corpus(ctxt.get(), s);
               }
@@ -391,22 +804,22 @@ main(int argc, char* argv[])
 	  break;
 	case abigail::tools_utils::FILE_TYPE_XML_CORPUS:
 	  {
-	    abigail::xml_reader::read_context_sptr ctxt =
+	    abixml_read_ctxt =
 	      abigail::xml_reader::create_native_xml_read_context(opts.file_path,
 								  env.get());
-	    assert(ctxt);
-	    set_suppressions(*ctxt, opts);
-	    corp = read_corpus_from_input(*ctxt);
+	    assert(abixml_read_ctxt);
+	    set_suppressions(*abixml_read_ctxt, opts);
+	    corp = read_corpus_from_input(*abixml_read_ctxt);
 	    break;
 	  }
 	case abigail::tools_utils::FILE_TYPE_XML_CORPUS_GROUP:
 	  {
-	    abigail::xml_reader::read_context_sptr ctxt =
+	    abixml_read_ctxt =
 	      abigail::xml_reader::create_native_xml_read_context(opts.file_path,
 								  env.get());
-	    assert(ctxt);
-	    set_suppressions(*ctxt, opts);
-	    group = read_corpus_group_from_input(*ctxt);
+	    assert(abixml_read_ctxt);
+	    set_suppressions(*abixml_read_ctxt, opts);
+	    group = read_corpus_group_from_input(*abixml_read_ctxt);
 	  }
 	  break;
 	case abigail::tools_utils::FILE_TYPE_RPM:
@@ -517,6 +930,14 @@ main(int argc, char* argv[])
 	    is_ok = false;
 	}
 
+#ifdef WITH_SHOW_TYPE_USE_IN_ABILINT
+      if (is_ok
+	  && !opts.type_id_to_show.empty())
+	{
+	  ABG_ASSERT(abixml_read_ctxt);
+	  show_how_type_is_used(*abixml_read_ctxt, opts.type_id_to_show);
+	}
+#endif
       return is_ok ? 0 : 1;
     }
 

@@ -35,6 +35,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <filesystem>
 #include <utility>
 #include <vector>
 
@@ -55,9 +56,8 @@
 #include <brillo/data_encoding.h>
 
 #include "update_engine/common/constants.h"
-#include "update_engine/common/platform_constants.h"
-#include "update_engine/common/prefs_interface.h"
 #include "update_engine/common/subprocess.h"
+#include "update_engine/common/platform_constants.h"
 #include "update_engine/payload_consumer/file_descriptor.h"
 
 using base::Time;
@@ -359,7 +359,7 @@ bool ReadFileChunk(const string& path,
 }
 
 off_t BlockDevSize(int fd) {
-  uint64_t dev_size;
+  uint64_t dev_size{};
   int rc = ioctl(fd, BLKGETSIZE64, &dev_size);
   if (rc == -1) {
     dev_size = -1;
@@ -369,7 +369,7 @@ off_t BlockDevSize(int fd) {
 }
 
 off_t FileSize(int fd) {
-  struct stat stbuf;
+  struct stat stbuf {};
   int rc = fstat(fd, &stbuf);
   CHECK_EQ(rc, 0);
   if (rc < 0) {
@@ -408,6 +408,53 @@ bool SendFile(int out_fd, int in_fd, size_t count) {
     count -= bytes_written;
   }
   return true;
+}
+
+bool FsyncDirectory(const char* dirname) {
+  android::base::unique_fd fd(
+      TEMP_FAILURE_RETRY(open(dirname, O_RDONLY | O_CLOEXEC)));
+  if (fd == -1) {
+    PLOG(ERROR) << "Failed to open " << dirname;
+    return false;
+  }
+  if (fsync(fd) == -1) {
+    if (errno == EROFS || errno == EINVAL) {
+      PLOG(WARNING) << "Skip fsync " << dirname
+                    << " on a file system does not support synchronization";
+    } else {
+      PLOG(ERROR) << "Failed to fsync " << dirname;
+      return false;
+    }
+  }
+  return true;
+}
+
+bool WriteStringToFileAtomic(const std::string& path,
+                             std::string_view content) {
+  const std::string tmp_path = path + ".tmp";
+  {
+    const int flags = O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC;
+    android::base::unique_fd fd(
+        TEMP_FAILURE_RETRY(open(tmp_path.c_str(), flags, 0644)));
+    if (fd == -1) {
+      PLOG(ERROR) << "Failed to open " << path;
+      return false;
+    }
+    if (!WriteAll(fd.get(), content.data(), content.size())) {
+      PLOG(ERROR) << "Failed to write to fd " << fd;
+      return false;
+    }
+    // rename() without fsync() is not safe. Data could still be living on page
+    // cache. To ensure atomiticity, call fsync()
+    if (fsync(fd) != 0) {
+      PLOG(ERROR) << "Failed to fsync " << tmp_path;
+    }
+  }
+  if (rename(tmp_path.c_str(), path.c_str()) == -1) {
+    PLOG(ERROR) << "rename failed from " << tmp_path << " to " << path;
+    return false;
+  }
+  return FsyncDirectory(std::filesystem::path(path).parent_path().c_str());
 }
 
 void HexDumpArray(const uint8_t* const arr, const size_t length) {
@@ -491,17 +538,17 @@ string MakePartitionName(const string& disk_name, int partition_num) {
 }
 
 bool FileExists(const char* path) {
-  struct stat stbuf;
+  struct stat stbuf {};
   return 0 == lstat(path, &stbuf);
 }
 
 bool IsSymlink(const char* path) {
-  struct stat stbuf;
+  struct stat stbuf {};
   return lstat(path, &stbuf) == 0 && S_ISLNK(stbuf.st_mode) != 0;
 }
 
 bool IsRegFile(const char* path) {
-  struct stat stbuf;
+  struct stat stbuf {};
   return lstat(path, &stbuf) == 0 && S_ISREG(stbuf.st_mode) != 0;
 }
 
@@ -539,7 +586,7 @@ bool SetBlockDeviceReadOnly(const string& device, bool read_only) {
   }
   ScopedFdCloser fd_closer(&fd);
   // We take no action if not needed.
-  int read_only_flag;
+  int read_only_flag{};
   int expected_flag = read_only ? 1 : 0;
   int rc = ioctl(fd, BLKROGET, &read_only_flag);
   // In case of failure reading the setting we will try to set it anyway.
@@ -607,7 +654,8 @@ bool UnmountFilesystem(const string& mountpoint) {
 }
 
 bool IsMountpoint(const std::string& mountpoint) {
-  struct stat stdir, stparent;
+  struct stat stdir {
+  }, stparent{};
 
   // Check whether the passed mountpoint is a directory and the /.. is in the
   // same device or not. If mountpoint/.. is in a different device it means that
@@ -678,7 +726,7 @@ static bool GetFileFormatELF(const uint8_t* buffer,
   // and size is the same for both 32 and 64 bits.
   if (size < offsetof(Elf32_Ehdr, e_machine) + sizeof(hdr->e_machine))
     return true;
-  uint16_t e_machine;
+  uint16_t e_machine{};
   // Fix endianness regardless of the host endianness.
   if (ei_data == ELFDATA2LSB)
     e_machine = le16toh(hdr->e_machine);
@@ -766,7 +814,7 @@ string FormatTimeDelta(TimeDelta delta) {
 }
 
 string ToString(const Time utc_time) {
-  Time::Exploded exp_time;
+  Time::Exploded exp_time{};
   utc_time.UTCExplode(&exp_time);
   return base::StringPrintf("%d/%d/%d %d:%02d:%02d GMT",
                             exp_time.month,
@@ -1004,7 +1052,7 @@ int VersionPrefix(const std::string& version) {
   }
   vector<string> tokens = base::SplitString(
       version, ".", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
-  int value;
+  int value{};
   if (tokens.empty() || !base::StringToInt(tokens[0], &value))
     return -1;  // Target version is invalid.
   return value;
@@ -1025,8 +1073,8 @@ void ParseRollbackKeyVersion(const string& raw_version,
     return;
   }
 
-  int high;
-  int low;
+  int high{};
+  int low{};
   if (!(base::StringToInt(parts[0], &high) &&
         base::StringToInt(parts[1], &low))) {
     // Both parts of the version could not be parsed correctly.
@@ -1051,7 +1099,7 @@ string GetFilePath(int fd) {
 }
 
 string GetTimeAsString(time_t utime) {
-  struct tm tm;
+  struct tm tm {};
   CHECK_EQ(localtime_r(&utime, &tm), &tm);
   char str[16];
   CHECK_EQ(strftime(str, sizeof(str), "%Y%m%d-%H%M%S", &tm), 15u);

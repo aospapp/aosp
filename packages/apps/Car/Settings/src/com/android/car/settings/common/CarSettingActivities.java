@@ -55,7 +55,6 @@ import com.android.car.settings.notifications.NotificationsFragment;
 import com.android.car.settings.privacy.PrivacySettingsFragment;
 import com.android.car.settings.privacy.VehicleDataFragment;
 import com.android.car.settings.profiles.ProfileDetailsFragment;
-import com.android.car.settings.quicksettings.QuickSettingFragment;
 import com.android.car.settings.security.SecuritySettingsFragment;
 import com.android.car.settings.sound.RingtonePickerFragment;
 import com.android.car.settings.sound.SoundSettingsFragment;
@@ -77,17 +76,6 @@ import com.android.car.settings.wifi.preferences.WifiPreferencesFragment;
 public class CarSettingActivities {
 
     private static final Logger LOG = new Logger(CarSettingActivities.class);
-
-    /**
-     * QuickSettings Activity.
-     */
-    public static class QuickSettingActivity extends BaseCarSettingsActivity {
-        @Nullable
-        @Override
-        protected Fragment getInitialFragment() {
-            return new QuickSettingFragment();
-        }
-    }
 
     /**
      * Homepage Activity.

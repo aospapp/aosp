@@ -12,11 +12,12 @@
 #include <benchmark/benchmark.h>
 #include "bench/utils.h"
 
-#include <xnnpack/AlignedAllocator.h>
+#include <xnnpack.h>
+#include <xnnpack/aligned-allocator.h>
 #include <xnnpack/common.h>
+#include <xnnpack/microfnptr.h>
+#include <xnnpack/microparams-init.h>
 #include <xnnpack/vunary.h>
-#include <xnnpack/params.h>
-#include <xnnpack/params-init.h>
 
 
 static void f32_vlrelu(

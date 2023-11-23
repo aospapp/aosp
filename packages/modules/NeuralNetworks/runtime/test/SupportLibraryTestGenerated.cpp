@@ -61,6 +61,11 @@ namespace android::nn::generated_tests {
 using namespace sl_wrapper;
 using namespace test_helper;
 
+enum ComputeWithDeviceMemoriesResult {
+    SKIP,
+    OK,
+};
+
 class GeneratedTests : public GeneratedTestBase {
    protected:
     void SetUp() override;
@@ -72,9 +77,9 @@ class GeneratedTests : public GeneratedTestBase {
                                                       uint32_t index);
     ANeuralNetworksMemory* createDeviceMemoryForOutput(const Compilation& compilation,
                                                        uint32_t index);
-    void computeWithDeviceMemories(const Compilation& compilation, const TestModel& testModel,
-                                   Execution* execution, Execution::ComputeMode computeMode,
-                                   Result* result, std::vector<TestBuffer>* outputs);
+    ComputeWithDeviceMemoriesResult computeWithDeviceMemories(
+            const Compilation& compilation, const TestModel& testModel, Execution* execution,
+            Execution::ComputeMode computeMode, Result* result, std::vector<TestBuffer>* outputs);
     bool checkSupported(const Model& model, ANeuralNetworksDevice* device);
     std::optional<Compilation> compileModel(const Model& model, ANeuralNetworksDevice* device);
     void executeWithCompilation(const Compilation& compilation, const TestModel& testModel);
@@ -284,13 +289,12 @@ ANeuralNetworksMemory* GeneratedTests::createDeviceMemoryForOutput(const Compila
 }
 
 // Set result = Result::NO_ERROR and outputs = {} if the test should be skipped.
-void GeneratedTests::computeWithDeviceMemories(const Compilation& compilation,
-                                               const TestModel& testModel, Execution* execution,
-                                               Execution::ComputeMode computeMode, Result* result,
-                                               std::vector<TestBuffer>* outputs) {
-    ASSERT_NE(execution, nullptr);
-    ASSERT_NE(result, nullptr);
-    ASSERT_NE(outputs, nullptr);
+ComputeWithDeviceMemoriesResult GeneratedTests::computeWithDeviceMemories(
+        const Compilation& compilation, const TestModel& testModel, Execution* execution,
+        Execution::ComputeMode computeMode, Result* result, std::vector<TestBuffer>* outputs) {
+    EXPECT_NE(execution, nullptr);
+    EXPECT_NE(result, nullptr);
+    EXPECT_NE(outputs, nullptr);
     outputs->clear();
     std::vector<Memory> inputMemories, outputMemories;
 
@@ -302,30 +306,34 @@ void GeneratedTests::computeWithDeviceMemories(const Compilation& compilation,
             const auto& operand = testModel.main.operands[testModel.main.inputIndexes[i]];
             // Omitted input.
             if (operand.data.size() == 0) {
-                ASSERT_EQ(Result::NO_ERROR, execution->setInput(i, nullptr, 0));
+                EXPECT_EQ(Result::NO_ERROR, execution->setInput(i, nullptr, 0));
                 continue;
             }
 
             // Create device memory.
             ANeuralNetworksMemory* memory = createDeviceMemoryForInput(compilation, i);
-            ASSERT_NE(memory, nullptr);
+            if (memory == nullptr) {
+                return ComputeWithDeviceMemoriesResult::SKIP;
+            }
             auto& wrapperMemory = inputMemories.emplace_back(Memory(mNnApi.get(), memory));
 
             // Copy data from TestBuffer to device memory.
             auto ashmem = TestAshmem::createFrom(mNnApi.get(), operand.data);
-            ASSERT_NE(ashmem, nullptr);
-            ASSERT_EQ(mNnApi->getFL5()->ANeuralNetworksMemory_copy(ashmem->get()->get(), memory),
+            EXPECT_NE(ashmem, nullptr);
+            EXPECT_EQ(mNnApi->getFL5()->ANeuralNetworksMemory_copy(ashmem->get()->get(), memory),
                       ANEURALNETWORKS_NO_ERROR);
-            ASSERT_EQ(Result::NO_ERROR, execution->setInputFromMemory(i, &wrapperMemory, 0, 0));
+            EXPECT_EQ(Result::NO_ERROR, execution->setInputFromMemory(i, &wrapperMemory, 0, 0));
         }
 
         // Model outputs.
         for (uint32_t i = 0; i < testModel.main.outputIndexes.size(); i++) {
             SCOPED_TRACE("Output index: " + std::to_string(i));
             ANeuralNetworksMemory* memory = createDeviceMemoryForOutput(compilation, i);
-            ASSERT_NE(memory, nullptr);
+            if (memory == nullptr) {
+                return ComputeWithDeviceMemoriesResult::SKIP;
+            }
             auto& wrapperMemory = outputMemories.emplace_back(Memory(mNnApi.get(), memory));
-            ASSERT_EQ(Result::NO_ERROR, execution->setOutputFromMemory(i, &wrapperMemory, 0, 0));
+            EXPECT_EQ(Result::NO_ERROR, execution->setOutputFromMemory(i, &wrapperMemory, 0, 0));
         }
     }
 
@@ -339,13 +347,14 @@ void GeneratedTests::computeWithDeviceMemories(const Compilation& compilation,
         auto& output = outputs->emplace_back(bufferSize);
 
         auto ashmem = TestAshmem::createFrom(mNnApi.get(), output);
-        ASSERT_NE(ashmem, nullptr);
-        ASSERT_EQ(mNnApi->getFL5()->ANeuralNetworksMemory_copy(outputMemories[i].get(),
+        EXPECT_NE(ashmem, nullptr);
+        EXPECT_EQ(mNnApi->getFL5()->ANeuralNetworksMemory_copy(outputMemories[i].get(),
                                                                ashmem->get()->get()),
                   ANEURALNETWORKS_NO_ERROR);
         std::copy(ashmem->dataAs<uint8_t>(), ashmem->dataAs<uint8_t>() + bufferSize,
                   output.getMutable<uint8_t>());
     }
+    return ComputeWithDeviceMemoriesResult::OK;
 }
 
 void GeneratedTests::executeWithCompilation(const Compilation& compilation,
@@ -357,8 +366,11 @@ void GeneratedTests::executeWithCompilation(const Compilation& compilation,
     std::vector<TestBuffer> outputs;
 
     if (mTestDeviceMemory) {
-        computeWithDeviceMemories(compilation, testModel, &execution, mComputeMode, &result,
-                                  &outputs);
+        if (computeWithDeviceMemories(compilation, testModel, &execution, mComputeMode, &result,
+                                      &outputs) == ComputeWithDeviceMemoriesResult::SKIP) {
+            std::cout << "\nModel not supported by device memories. Skipping" << std::endl;
+            return;
+        }
     } else {
         computeWithPtrs(testModel, &execution, mComputeMode, &result, &outputs);
     }

@@ -21,7 +21,7 @@ import androidx.test.filters.SmallTest
 import com.android.server.NetIdManager.MIN_NET_ID
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRunner
-import com.android.testutils.ExceptionUtils.ThrowingRunnable
+import com.android.testutils.FunctionalUtils.ThrowingRunnable
 import com.android.testutils.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith

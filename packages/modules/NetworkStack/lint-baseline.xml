@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.0.0-dev" type="baseline" dependencies="true" variant="all" version="8.0.0-dev">
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.CaptivePortalData#getUserPortalUrl`"
+        errorLine1="                                mLinkProperties.getCaptivePortalData().getUserPortalUrl()"
+        errorLine2="                                                                       ~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/src/com/android/server/connectivity/NetworkMonitor.java"
+            line="1734"
+            column="72"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.CaptivePortalData#getUserPortalUrl`"
+        errorLine1="                        mLinkProperties.getCaptivePortalData().getUserPortalUrl()"
+        errorLine2="                                                               ~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/src/com/android/server/connectivity/NetworkMonitor.java"
+            line="1370"
+            column="64"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.LinkProperties#getCaptivePortalData`"
+        errorLine1="                                mLinkProperties.getCaptivePortalData().getUserPortalUrl()"
+        errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/src/com/android/server/connectivity/NetworkMonitor.java"
+            line="1734"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.LinkProperties#getCaptivePortalData`"
+        errorLine1="                        mLinkProperties.getCaptivePortalData().getUserPortalUrl()"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/modules/NetworkStack/src/com/android/server/connectivity/NetworkMonitor.java"
+            line="1370"
+            column="41"/>
+    </issue>
+
+</issues>

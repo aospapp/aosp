@@ -78,7 +78,6 @@ cc_defaults {
   name: "libapexd-deps",
   defaults: ["libapex-deps"],
   shared_libs: [
-    "libbinder",
     "liblog",
     "liblogwrap",
   ],
@@ -88,11 +87,11 @@ cc_defaults {
     "libdm",
     "libext2_uuid",
     "libsigningutils",
+    "libtinyxml2",
     "libverity_tree",
     "libvold_binder",
-    "libxml2",
   ],
-  whole_static_libs: ["com.android.sysprop.apex"],
+  whole_static_libs: ["libcom.android.sysprop.apex"],
 }
 
 aidl_interface {
@@ -142,6 +141,37 @@ cc_binary {
   bootstrap: true,
 }
 
+cc_binary {
+  name: "apexd.microdroid",
+  defaults: [
+    "apex_flags_defaults",
+    "libapex-deps",
+    "libapexd-deps",
+  ],
+  srcs: [
+    "apexd_microdroid.cpp",
+  ],
+  static_libs: [
+    "libapex",
+    "libapexd",
+    // Prefer static-link as, in microdroid, apexd is the only client.
+    // Using the -ndk variant since libprotobuf-cpp-full is supposed to be
+    // used as a shared lib in general in Android.
+    "libprotobuf-cpp-full-ndk",
+  ],
+  exclude_shared_libs: [
+    "libprotobuf-cpp-full",
+  ],
+  // Just like the init, apexd should be able to run without
+  // any APEX activated. To do so, it uses the bootstrap linker
+  // and the bootstrap bionic libraries.
+  bootstrap: true,
+  // This variant is for microdroid.
+  installable: false,
+  // init depends on the name "apexd".
+  stem: "apexd",
+}
+
 cc_library_static {
   name: "libapexd",
   defaults: [
@@ -159,7 +189,7 @@ cc_library_static {
     "apexd_verity.cpp",
   ],
   export_include_dirs: ["."],
-  generated_sources: ["apex-info-list"],
+  generated_sources: ["apex-info-list-tinyxml"],
   // Don't add shared/static libs here; add to libapexd_defaults instead.
 }
 
@@ -252,6 +282,24 @@ cc_library_static {
     "libutils_headers",
   ],
   export_include_dirs: ["."],
+}
+
+cc_binary_host {
+  name: "dump_apex_info",
+  defaults: [
+    "apex_flags_defaults",
+    "libapex-deps",
+  ],
+  static_libs: [
+    "libapex",
+  ],
+  srcs: [
+    "dump_apex_info.cpp",
+  ],
+  shared_libs: [
+    "libtinyxml2",
+  ],
+  generated_sources: ["apex-info-list-tinyxml"],
 }
 
 genrule {
@@ -479,6 +527,8 @@ cc_test {
     ":test.rebootless_apex_v1",
     ":test.rebootless_apex_v2",
     ":test.rebootless_apex_v2_no_hashtree",
+    ":test.rebootless_apex_service_v1",
+    ":test.rebootless_apex_service_v2",
     ":gen_manifest_mismatch_rebootless_apex",
     ":gen_corrupt_rebootless_apex",
     ":test.rebootless_apex_provides_sharedlibs",
@@ -500,6 +550,103 @@ cc_test {
     "apexd_session_test.cpp",
     "apexd_verity_test.cpp",
     "apexd_utils_test.cpp",
+  ],
+  host_supported: false,
+  compile_multilib: "first",
+  static_libs: [
+    "apex_aidl_interface-cpp",
+    "libapex",
+    "libapexd",
+    "libfstab",
+    "libgmock",
+  ],
+  shared_libs: [
+    "libbinder",
+    "libfs_mgr",
+    "libutils",
+  ],
+  generated_sources: ["apex-info-list-tinyxml"],
+  test_suites: ["device-tests"],
+  test_config: "ApexTestCases.xml",
+}
+
+cc_test {
+  name: "ApexServiceTestCases",
+  defaults: [
+    "apex_flags_defaults",
+    "libapex-deps",
+    "libapexd-deps"
+  ],
+  require_root: true,
+  cflags: [
+    // Otherwise libgmock won't compile.
+    "-Wno-used-but-marked-unused",
+  ],
+  data: [
+    ":apex.apexd_test",
+    ":apex.apexd_test_erofs",
+    ":apex.apexd_test_f2fs",
+    ":apex.apexd_test_digest",
+    ":apex.apexd_test_erofs_digest",
+    ":apex.apexd_test_f2fs_digest",
+    ":apex.apexd_test_classpath",
+    ":apex.apexd_test_different_app",
+    ":apex.apexd_test_no_hashtree",
+    ":apex.apexd_test_no_hashtree_2",
+    ":apex.apexd_test_no_inst_key",
+    ":apex.apexd_test_f2fs_no_inst_key",
+    ":apex.apexd_test_nocode",
+    ":apex.apexd_test_v2",
+    ":apex.corrupted_b146895998",
+    ":apex.banned_name",
+    ":gen_key_mismatch_apex",
+    ":gen_key_mismatch_apex_v2",
+    ":gen_key_mismatch_capex",
+    ":gen_manifest_mismatch_apex",
+    ":gen_manifest_mismatch_apex_no_hashtree",
+    ":gen_corrupt_superblock_apex",
+    ":gen_corrupt_apex",
+    ":gen_capex_not_decompressible",
+    ":gen_capex_without_apex",
+    ":gen_capex_with_v2_apex",
+    ":gen_key_mismatch_with_original_capex",
+    ":com.android.apex.cts.shim.v1_prebuilt",
+    ":com.android.apex.cts.shim.v2_prebuilt",
+    ":com.android.apex.cts.shim.v2_wrong_sha_prebuilt",
+    ":com.android.apex.cts.shim.v2_additional_file_prebuilt",
+    ":com.android.apex.cts.shim.v2_additional_folder_prebuilt",
+    ":com.android.apex.cts.shim.v2_with_pre_install_hook_prebuilt",
+    ":com.android.apex.cts.shim.v2_with_post_install_hook_prebuilt",
+    ":com.android.apex.compressed_sharedlibs",
+    ":com.android.apex.compressed.v1",
+    ":com.android.apex.compressed.v1_different_digest",
+    ":com.android.apex.compressed.v1_different_digest_original",
+    ":com.android.apex.compressed.v1_original",
+    ":com.android.apex.compressed.v2",
+    ":com.android.apex.compressed.v2_original",
+    ":com.android.sepolicy",
+    ":gen_manifest_mismatch_compressed_apex_v2",
+    "apexd_testdata/com.android.apex.test_package.avbpubkey",
+    "apexd_testdata/com.android.apex.compressed.avbpubkey",
+    ":com.android.apex.test.sharedlibs_generated.v1.libvX_prebuilt",
+    ":com.android.apex.test.sharedlibs_generated.v2.libvY_prebuilt",
+    ":test.rebootless_apex_v1",
+    ":test.rebootless_apex_v2",
+    ":test.rebootless_apex_v2_no_hashtree",
+    ":test.rebootless_apex_service_v1",
+    ":test.rebootless_apex_service_v2",
+    ":gen_manifest_mismatch_rebootless_apex",
+    ":gen_corrupt_rebootless_apex",
+    ":test.rebootless_apex_provides_sharedlibs",
+    ":test.rebootless_apex_provides_native_libs",
+    ":test.rebootless_apex_requires_shared_apex_libs",
+    ":test.rebootless_apex_jni_libs",
+    ":test.rebootless_apex_add_native_lib",
+    ":test.rebootless_apex_remove_native_lib",
+    ":test.rebootless_apex_app_in_apex",
+    ":test.rebootless_apex_priv_app_in_apex",
+  ],
+  srcs: [
     "apexservice_test.cpp",
   ],
   host_supported: false,
@@ -516,9 +663,9 @@ cc_test {
     "libfs_mgr",
     "libutils",
   ],
-  generated_sources: ["apex-info-list"],
+  generated_sources: ["apex-info-list-tinyxml"],
   test_suites: ["device-tests"],
-  test_config: "AndroidTest.xml",
+  test_config: "ApexServiceTestCases.xml",
 }
 
 cc_test {
@@ -545,6 +692,7 @@ xsd_config {
   package_name: "com.android.apex",
   api_dir: "apex-info-list-api",
   gen_writer: true,
+  root_elements: ["apex-info-list"],
 }
 
 xsd_config {
@@ -554,4 +702,5 @@ xsd_config {
   api_dir: "apex-info-list-api",
   gen_writer: true,
   tinyxml: true,
+  root_elements: ["apex-info-list"],
 }

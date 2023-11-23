@@ -58,7 +58,7 @@ import java.util.Map;
  * which service (HIDL or AIDL) is available. Test the initialization logic and
  * verify that calls to all public methods are forwarded to the actual implementation.
  */
-public class SupplicantStaIfaceHalTest {
+public class SupplicantStaIfaceHalTest extends WifiBaseTest {
     private SupplicantStaIfaceHalSpy mDut;
     private @Mock SupplicantStaIfaceHalHidlImpl mStaIfaceHalHidlMock;
     private @Mock SupplicantStaIfaceHalAidlImpl mStaIfaceHalAidlMock;
@@ -70,6 +70,8 @@ public class SupplicantStaIfaceHalTest {
     private @Mock Clock mClock;
     private @Mock WifiMetrics mWifiMetrics;
     private @Mock WifiGlobals mWifiGlobals;
+    private @Mock SsidTranslator mSsidTranslator;
+    private @Mock WifiInjector mWifiInjector;
 
     private static final String IFACE_NAME = "wlan0";
     private static final String BSSID = "fa:45:23:23:12:12";
@@ -87,13 +89,12 @@ public class SupplicantStaIfaceHalTest {
             SupplicantStaIfaceHal.QOS_POLICY_REQUEST_ADD;
     private static final byte QOS_POLICY_DSCP = 0;
     private static final int QOS_POLICY_SRC_PORT = DscpPolicy.SOURCE_PORT_ANY;
-    private static final int[] QOS_POLICY_DST_PORT_RANGE = new int[]{0, 65535};
     private static final int QOS_POLICY_PROTOCOL = DscpPolicy.PROTOCOL_ANY;
 
     private class SupplicantStaIfaceHalSpy extends SupplicantStaIfaceHal {
         SupplicantStaIfaceHalSpy() {
             super(mContext, mWifiMonitor, mFrameworkFacade,
-                    mHandler, mClock, mWifiMetrics, mWifiGlobals);
+                    mHandler, mClock, mWifiMetrics, mWifiGlobals, mSsidTranslator, mWifiInjector);
         }
 
         @Override
@@ -1137,9 +1138,10 @@ public class SupplicantStaIfaceHalTest {
     @Test
     public void testCreateValidQosPolicyRequest() {
         byte[] srcIp = new byte[]{127, 0, 0, 1};
+        int[] dstPortRange = new int[]{131, 250};
         QosPolicyRequest request = new QosPolicyRequest(QOS_POLICY_ID, QOS_POLICY_REQUEST_TYPE,
                 QOS_POLICY_DSCP, new QosPolicyClassifierParams(true, srcIp, false, null,
-                        QOS_POLICY_SRC_PORT, QOS_POLICY_DST_PORT_RANGE, QOS_POLICY_PROTOCOL));
+                        QOS_POLICY_SRC_PORT, dstPortRange, QOS_POLICY_PROTOCOL));
         assertEquals(QOS_POLICY_ID, request.policyId);
         assertEquals(QOS_POLICY_DSCP, request.dscp);
         assertTrue(request.isAddRequest());
@@ -1151,7 +1153,7 @@ public class SupplicantStaIfaceHalTest {
 
         assertEquals(QOS_POLICY_SRC_PORT, request.classifierParams.srcPort);
         assertEquals(QOS_POLICY_PROTOCOL, request.classifierParams.protocol);
-        assertEquals(new Range(QOS_POLICY_DST_PORT_RANGE[0], QOS_POLICY_DST_PORT_RANGE[1]),
+        assertEquals(new Range(dstPortRange[0], dstPortRange[1]),
                 request.classifierParams.dstPortRange);
         assertTrue(Arrays.equals(srcIp, request.classifierParams.srcIp.getAddress()));
     }
@@ -1165,7 +1167,7 @@ public class SupplicantStaIfaceHalTest {
         byte[] srcIp = new byte[]{53};
         QosPolicyRequest request = new QosPolicyRequest(QOS_POLICY_ID, QOS_POLICY_REQUEST_TYPE,
                 QOS_POLICY_DSCP, new QosPolicyClassifierParams(true, srcIp, false, null,
-                QOS_POLICY_SRC_PORT, QOS_POLICY_DST_PORT_RANGE, QOS_POLICY_PROTOCOL));
+                QOS_POLICY_SRC_PORT, null, QOS_POLICY_PROTOCOL));
         assertEquals(QOS_POLICY_ID, request.policyId);
         assertEquals(QOS_POLICY_DSCP, request.dscp);
         assertTrue(request.isAddRequest());
@@ -1182,7 +1184,7 @@ public class SupplicantStaIfaceHalTest {
         byte[] dstIp = new byte[]{53};
         QosPolicyRequest request = new QosPolicyRequest(QOS_POLICY_ID, QOS_POLICY_REQUEST_TYPE,
                 QOS_POLICY_DSCP, new QosPolicyClassifierParams(false, null, true, dstIp,
-                QOS_POLICY_SRC_PORT, QOS_POLICY_DST_PORT_RANGE, QOS_POLICY_PROTOCOL));
+                QOS_POLICY_SRC_PORT, null, QOS_POLICY_PROTOCOL));
         assertEquals(QOS_POLICY_ID, request.policyId);
         assertEquals(QOS_POLICY_DSCP, request.dscp);
         assertTrue(request.isAddRequest());
@@ -1207,16 +1209,30 @@ public class SupplicantStaIfaceHalTest {
         assertFalse(request.classifierParams.isValid);
     }
 
+    private void verifySetEapAnonymousIdentity(boolean updateToNativeService) {
+        final String anonymousIdentity = "abc@realm.net";
+        initializeWithAidlImpl(true);
+        when(mStaIfaceHalAidlMock.setEapAnonymousIdentity(anyString(), anyString(), anyBoolean()))
+                .thenReturn(true);
+        assertTrue(mDut.setEapAnonymousIdentity(IFACE_NAME, anonymousIdentity,
+                updateToNativeService));
+        verify(mStaIfaceHalAidlMock).setEapAnonymousIdentity(eq(IFACE_NAME), eq(anonymousIdentity),
+                eq(updateToNativeService));
+    }
+
     /**
      * Test that we can call setEapAnonymousIdentity
      */
     @Test
     public void testSetEapAnonymousIdentity() {
-        final String anonymousIdentity = "abc@realm.net";
-        initializeWithAidlImpl(true);
-        when(mStaIfaceHalAidlMock.setEapAnonymousIdentity(anyString(), anyString()))
-                .thenReturn(true);
-        assertTrue(mDut.setEapAnonymousIdentity(IFACE_NAME, anonymousIdentity));
-        verify(mStaIfaceHalAidlMock).setEapAnonymousIdentity(eq(IFACE_NAME), eq(anonymousIdentity));
+        verifySetEapAnonymousIdentity(true);
+    }
+
+    /**
+     * Test that we can call setEapAnonymousIdentity
+     */
+    @Test
+    public void testSetEapAnonymousIdentityWithNotUpdateToNativeService() {
+        verifySetEapAnonymousIdentity(false);
     }
 }

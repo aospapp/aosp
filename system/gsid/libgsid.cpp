@@ -17,7 +17,7 @@
 #include <android-base/logging.h>
 #include <android/gsi/IGsiService.h>
 #include <binder/IServiceManager.h>
-#include <libgsi/libgsi.h>
+#include <libgsi/libgsid.h>
 
 namespace android {
 namespace gsi {

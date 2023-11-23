@@ -20,6 +20,10 @@
 #include "Vulkan/VulkanPlatform.hpp"
 #include "spirv-tools/libspirv.h"
 
+#ifndef SWIFTSHADER_LEGACY_PRECISION
+#	define SWIFTSHADER_LEGACY_PRECISION false
+#endif
+
 namespace vk {
 
 // Note: Constant array initialization requires a string literal.
@@ -27,20 +31,35 @@ namespace vk {
 #define SWIFTSHADER_DEVICE_NAME "SwiftShader Device"  // Max length: VK_MAX_PHYSICAL_DEVICE_NAME_SIZE
 #define SWIFTSHADER_UUID "SwiftShaderUUID"            // Max length: VK_UUID_SIZE (16)
 
-constexpr spv_target_env SPIRV_VERSION = SPV_ENV_VULKAN_1_2;
+constexpr spv_target_env SPIRV_VERSION = SPV_ENV_VULKAN_1_3;
 
-constexpr uint32_t API_VERSION = VK_API_VERSION_1_2;
+constexpr uint32_t API_VERSION = VK_API_VERSION_1_3;
 constexpr uint32_t DRIVER_VERSION = VK_MAKE_VERSION(MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION);
 constexpr uint32_t VENDOR_ID = 0x1AE0;  // Google, Inc.: https://pcisig.com/google-inc-1
 constexpr uint32_t DEVICE_ID = 0xC0DE;  // SwiftShader (placeholder)
 
-// Alignment of all Vulkan objects, pools, device memory, images, buffers, descriptors.
-constexpr VkDeviceSize REQUIRED_MEMORY_ALIGNMENT = 16;  // 16 bytes for 128-bit vector types.
+// "Allocations returned by vkAllocateMemory are guaranteed to meet any alignment requirement of the implementation."
+constexpr VkDeviceSize DEVICE_MEMORY_ALLOCATION_ALIGNMENT = 256;
+
+constexpr VkDeviceSize MIN_MEMORY_MAP_ALIGNMENT = 64;
+static_assert(DEVICE_MEMORY_ALLOCATION_ALIGNMENT >= MIN_MEMORY_MAP_ALIGNMENT);
+
+constexpr VkDeviceSize MIN_IMPORTED_HOST_POINTER_ALIGNMENT = 4096;
+static_assert(MIN_IMPORTED_HOST_POINTER_ALIGNMENT >= DEVICE_MEMORY_ALLOCATION_ALIGNMENT);
 
 // Vulkan 1.2 requires buffer offset alignment to be at most 256.
 constexpr VkDeviceSize MIN_TEXEL_BUFFER_OFFSET_ALIGNMENT = 256;
 constexpr VkDeviceSize MIN_UNIFORM_BUFFER_OFFSET_ALIGNMENT = 256;
 constexpr VkDeviceSize MIN_STORAGE_BUFFER_OFFSET_ALIGNMENT = 256;
+static_assert(DEVICE_MEMORY_ALLOCATION_ALIGNMENT >= MIN_TEXEL_BUFFER_OFFSET_ALIGNMENT);
+static_assert(DEVICE_MEMORY_ALLOCATION_ALIGNMENT >= MIN_UNIFORM_BUFFER_OFFSET_ALIGNMENT);
+static_assert(DEVICE_MEMORY_ALLOCATION_ALIGNMENT >= MIN_STORAGE_BUFFER_OFFSET_ALIGNMENT);
+
+// Alignment of all other Vulkan resources.
+constexpr VkDeviceSize MEMORY_REQUIREMENTS_OFFSET_ALIGNMENT = 16;  // 16 bytes for 128-bit vector types.
+static_assert(DEVICE_MEMORY_ALLOCATION_ALIGNMENT >= MEMORY_REQUIREMENTS_OFFSET_ALIGNMENT);
+
+constexpr VkDeviceSize HOST_MEMORY_ALLOCATION_ALIGNMENT = 16;  // 16 bytes for 128-bit vector types.
 
 constexpr uint32_t MEMORY_TYPE_GENERIC_BIT = 0x1;  // Generic system memory.
 
@@ -59,6 +78,7 @@ static_assert(MAX_IMAGE_LEVELS_CUBE <= sw::MIPMAP_LEVELS);
 constexpr uint32_t MAX_BOUND_DESCRIPTOR_SETS = 4;
 constexpr uint32_t MAX_VERTEX_INPUT_BINDINGS = 16;
 constexpr uint32_t MAX_PUSH_CONSTANT_SIZE = 128;
+constexpr uint32_t MAX_UPDATE_AFTER_BIND_DESCRIPTORS = 500000;
 
 constexpr uint32_t MAX_DESCRIPTOR_SET_UNIFORM_BUFFERS_DYNAMIC = 8;
 constexpr uint32_t MAX_DESCRIPTOR_SET_STORAGE_BUFFERS_DYNAMIC = 4;
@@ -74,7 +94,7 @@ constexpr float MAX_POINT_SIZE = 1023.0;
 
 constexpr int MAX_SAMPLER_ALLOCATION_COUNT = 4000;
 
-constexpr int SUBPIXEL_PRECISION_BITS = 4;
+constexpr int SUBPIXEL_PRECISION_BITS = SWIFTSHADER_LEGACY_PRECISION ? 4 : 8;
 constexpr float SUBPIXEL_PRECISION_FACTOR = static_cast<float>(1 << SUBPIXEL_PRECISION_BITS);
 constexpr int SUBPIXEL_PRECISION_MASK = 0xFFFFFFFF >> (32 - SUBPIXEL_PRECISION_BITS);
 

@@ -64,10 +64,6 @@ namespace test {
 bool DnsTlsFrontend::startServer() {
     OpenSSL_add_ssl_algorithms();
 
-    // reset queries_ to 0 every time startServer called
-    // which would help us easy to check queries_ via calling waitForQueries
-    queries_ = 0;
-
     ctx_.reset(SSL_CTX_new(TLS_server_method()));
     if (!ctx_) {
         LOG(ERROR) << "SSL context creation failed";
@@ -218,10 +214,7 @@ void DnsTlsFrontend::requestHandler() {
                 LOG(INFO) << "SSL negotiation failure";
             } else {
                 LOG(DEBUG) << "SSL handshake complete";
-                // Increment queries_ as late as possible, because it represents
-                // a query that is fully processed, and the response returned to the
-                // client, including cleanup actions.
-                queries_ += handleRequests(ssl.get(), client.get());
+                handleRequests(ssl.get(), client.get());
             }
 
             if (passiveClose_) {
@@ -233,7 +226,7 @@ void DnsTlsFrontend::requestHandler() {
     LOG(DEBUG) << "Ending loop";
 }
 
-int DnsTlsFrontend::handleRequests(SSL* ssl, int clientFd) {
+void DnsTlsFrontend::handleRequests(SSL* ssl, int clientFd) {
     int queryCounts = 0;
     std::vector<uint8_t> reply;
     bool isDotProbe = false;
@@ -243,7 +236,7 @@ again:
         uint8_t queryHeader[2];
         if (SSL_read(ssl, &queryHeader, 2) != 2) {
             LOG(INFO) << "Not enough header bytes";
-            return queryCounts;
+            return;
         }
         const uint16_t qlen = (queryHeader[0] << 8) | queryHeader[1];
         uint8_t query[qlen];
@@ -252,14 +245,14 @@ again:
             int ret = SSL_read(ssl, query + qbytes, qlen - qbytes);
             if (ret <= 0) {
                 LOG(INFO) << "Error while reading query";
-                return queryCounts;
+                return;
             }
             qbytes += ret;
         }
         int sent = send(backend_socket_.get(), query, qlen, 0);
         if (sent != qlen) {
             LOG(INFO) << "Failed to send query";
-            return queryCounts;
+            return;
         }
 
         if (!isDotProbe) {
@@ -279,7 +272,7 @@ again:
         int rlen = recv(backend_socket_.get(), recv_buffer, max_size, 0);
         if (rlen <= 0) {
             LOG(INFO) << "Failed to receive response";
-            return queryCounts;
+            return;
         }
         uint8_t responseHeader[2];
         responseHeader[0] = rlen >> 8;
@@ -287,6 +280,9 @@ again:
         reply.insert(reply.end(), responseHeader, responseHeader + 2);
         reply.insert(reply.end(), recv_buffer, recv_buffer + rlen);
 
+        // Increment queries_ before the answers are sent. This makes sure that a test always
+        // reads the updated value returned from queries() after receiving the DNS answers.
+        ++queries_;
         ++queryCounts;
         if (queryCounts >= delayQueries_) {
             break;
@@ -299,21 +295,23 @@ again:
     }
 
     const int replyLen = reply.size();
-    LOG(DEBUG) << "Sending " << queryCounts << "queries at once, byte = " << replyLen;
+    LOG(DEBUG) << "Sending " << queryCounts << " queries at once, byte = " << replyLen;
     if (SSL_write(ssl, reply.data(), replyLen) != replyLen) {
         LOG(WARNING) << "Failed to write response body";
     }
 
     // Poll again because the same DoT probe might be sent again.
     if (isDotProbe && queryCounts == 1) {
-        int n = poll(&fds, 1, 50);
+        const int timeoutMs = 500;
+        int n = poll(&fds, 1, timeoutMs);
         if (n > 0 && fds.revents & POLLIN) {
             goto again;
         }
+        LOG(WARNING) << "Did not receive the second DoT probe within " << timeoutMs << "ms";
     }
 
     LOG(DEBUG) << __func__ << " return: " << queryCounts;
-    return queryCounts;
+    return;
 }
 
 bool DnsTlsFrontend::stopServer() {

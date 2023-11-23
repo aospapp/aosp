@@ -23,25 +23,25 @@ import json
 import logging
 import os
 import pickle
+import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
-import atest_utils as au
-import constants
+from pathlib import Path
 
-from atest_enum import ExitCode
-from metrics import metrics_utils
+from atest import atest_utils as au
+from atest import constants
 
-MAC_UPDB_SRC = os.path.join(os.path.dirname(__file__), 'updatedb_darwin.sh')
-MAC_UPDB_DST = os.path.join(os.getenv(constants.ANDROID_HOST_OUT, ''), 'bin')
+from atest.atest_enum import DetectType, ExitCode
+from atest.metrics import metrics, metrics_utils
+
 UPDATEDB = 'updatedb'
 LOCATE = 'locate'
 ACLOUD_DURATION = 'duration'
 SEARCH_TOP = os.getenv(constants.ANDROID_BUILD_TOP, '')
-MACOSX = 'Darwin'
-OSNAME = os.uname()[0]
 # When adding new index, remember to append constants to below tuple.
 INDEXES = (constants.CC_CLASS_INDEX,
            constants.CLASS_INDEX,
@@ -73,24 +73,15 @@ PRUNENAMES = ['.abc', '.appveyor', '.azure-pipelines',
               '.travis_scripts',
               '.tx',
               '.vscode']
-
-def _mkdir_when_inexists(dirname):
-    if not os.path.isdir(dirname):
-        os.makedirs(dirname)
-
-def _install_updatedb():
-    """Install a customized updatedb for MacOS and ensure it is executable."""
-    _mkdir_when_inexists(MAC_UPDB_DST)
-    _mkdir_when_inexists(constants.INDEX_DIR)
-    if OSNAME == MACOSX:
-        shutil.copy2(MAC_UPDB_SRC, os.path.join(MAC_UPDB_DST, UPDATEDB))
-        os.chmod(os.path.join(MAC_UPDB_DST, UPDATEDB), 0o0755)
+PRUNEPATHS = ['prebuilts']
+ACLOUD_REPORT_FILE_RE = re.compile(r'.*--report[_-]file(=|\s+)(?P<report_file>[\w/.]+)')
 
 def _delete_indexes():
     """Delete all available index files."""
     for index in INDEXES:
         if os.path.isfile(index):
             os.remove(index)
+
 
 def get_report_file(results_dir, acloud_args):
     """Get the acloud report file path.
@@ -108,10 +99,11 @@ def get_report_file(results_dir, acloud_args):
     Returns:
         A string path of acloud report file.
     """
-    match = constants.ACLOUD_REPORT_FILE_RE.match(acloud_args)
+    match = ACLOUD_REPORT_FILE_RE.match(acloud_args)
     if match:
         return match.group('report_file')
     return os.path.join(results_dir, 'acloud_status.json')
+
 
 def has_command(cmd):
     """Detect if the command is available in PATH.
@@ -123,6 +115,7 @@ def has_command(cmd):
         True if found, False otherwise.
     """
     return bool(shutil.which(cmd))
+
 
 def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
                  **kwargs):
@@ -136,37 +129,41 @@ def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
             prunenames: A list of dirname that won't be cached(-n).
     """
     prunenames = kwargs.pop('prunenames', ' '.join(PRUNENAMES))
-    prunepaths = kwargs.pop('prunepaths', os.path.join(search_root, 'out'))
+    _prunepaths = [os.path.join(SEARCH_TOP, p) for p in PRUNEPATHS]
+    _prunepaths.append(str(au.get_build_out_dir()))
+    prunepaths = kwargs.pop('prunepaths', ' '.join(_prunepaths))
     if kwargs:
         raise TypeError('Unexpected **kwargs: %r' % kwargs)
     updatedb_cmd = [UPDATEDB, '-l0']
     updatedb_cmd.append('-U%s' % search_root)
     updatedb_cmd.append('-n%s' % prunenames)
     updatedb_cmd.append('-o%s' % output_cache)
-    if OSNAME == MACOSX:
-        updatedb_cmd.append('-e%s' % prunepaths)
-    else:
-        # (b/206866627) /etc/updatedb.conf excludes /mnt from scanning on Linux.
-        # Use --prunepaths to override the default configuration.
-        updatedb_cmd.append('--prunepaths')
-        updatedb_cmd.append(prunepaths)
-        # Support scanning bind mounts as well.
-        updatedb_cmd.extend(['--prune-bind-mounts', 'no'])
-    try:
-        _install_updatedb()
-    except IOError as e:
-        logging.error('Error installing updatedb: %s', e)
+    # (b/206866627) /etc/updatedb.conf excludes /mnt from scanning on Linux.
+    # Use --prunepaths to override the default configuration.
+    updatedb_cmd.append('--prunepaths')
+    updatedb_cmd.append(prunepaths)
+    # Support scanning bind mounts as well.
+    updatedb_cmd.extend(['--prune-bind-mounts', 'no'])
 
-    if not has_command(UPDATEDB):
-        return
     logging.debug('Running updatedb... ')
     try:
         full_env_vars = os.environ.copy()
         logging.debug('Executing: %s', updatedb_cmd)
-        if subprocess.check_call(updatedb_cmd, env=full_env_vars) == 0:
-            au.save_md5([constants.LOCATE_CACHE], constants.LOCATE_CACHE_MD5)
+        if not os.path.isdir(constants.INDEX_DIR):
+            os.makedirs(constants.INDEX_DIR)
+        subprocess.run(updatedb_cmd, env=full_env_vars, check=True)
     except (KeyboardInterrupt, SystemExit):
         logging.error('Process interrupted or failure.')
+    # Delete indexes when plocate.db is locked() or other CalledProcessError.
+    # (b/141588997)
+    except subprocess.CalledProcessError as err:
+        logging.error('Executing %s error.', UPDATEDB)
+        metrics_utils.handle_exc_and_send_exit_event(
+            constants.PLOCATEDB_LOCKED)
+        if err.output:
+            logging.error(err.output)
+        os.remove(output_cache)
+
 
 def _dump_index(dump_file, output, output_re, key, value):
     """Dump indexed data with pickle.
@@ -185,8 +182,9 @@ def _dump_index(dump_file, output, output_re, key, value):
       'Boo': {'/path3/to/Boo.java'}
     }
     """
+    temp_file = tempfile.NamedTemporaryFile()
     _dict = {}
-    with open(dump_file, 'wb') as cache_file:
+    with open(temp_file.name, 'wb') as cache_file:
         if isinstance(output, bytes):
             output = output.decode()
         for entry in output.splitlines():
@@ -197,9 +195,12 @@ def _dump_index(dump_file, output, output_re, key, value):
         try:
             pickle.dump(_dict, cache_file, protocol=2)
         except IOError:
-            os.remove(dump_file)
             logging.error('Failed in dumping %s', dump_file)
+    shutil.copy(temp_file.name, dump_file)
+    temp_file.close()
 
+
+# pylint: disable=anomalous-backslash-in-string
 def get_cc_result(locatedb=constants.LOCATE_CACHE, **kwargs):
     """Search all testable cc/cpp and grep TEST(), TEST_F() or TEST_P().
 
@@ -210,20 +211,17 @@ def get_cc_result(locatedb=constants.LOCATE_CACHE, **kwargs):
         kwargs: (optional)
             cc_class_index: A path string of the CC class index.
     """
-    if OSNAME == MACOSX:
-        # (b/204398677) suppress stderr when indexing target terminated.
-        find_cmd = (r"locate -d {0} '*.cpp' '*.cc' | grep -i test "
-                    "| xargs egrep -sH '{1}' 2>/dev/null || true")
-    else:
-        find_cmd = (r"locate -d {0} / | egrep -i '/*.test.*\.(cc|cpp)$' "
-                    "| xargs egrep -sH '{1}' 2>/dev/null || true")
-    find_cc_cmd = find_cmd.format(locatedb, constants.CC_GREP_RE)
+    find_cc_cmd = (
+        f"{LOCATE} -id{locatedb} --regex '/*.test.*\.(cc|cpp)$'"
+        f"| xargs egrep -sH '{constants.CC_GREP_RE}' 2>/dev/null || true")
     logging.debug('Probing CC classes:\n %s', find_cc_cmd)
     result = subprocess.check_output(find_cc_cmd, shell=True)
 
     cc_class_index = kwargs.pop('cc_class_index', constants.CC_CLASS_INDEX)
     au.run_multi_proc(func=_index_cc_classes, args=[result, cc_class_index])
 
+
+# pylint: disable=anomalous-backslash-in-string
 def get_java_result(locatedb=constants.LOCATE_CACHE, **kwargs):
     """Search all testable java/kt and grep package.
 
@@ -237,12 +235,10 @@ def get_java_result(locatedb=constants.LOCATE_CACHE, **kwargs):
             package_index: A path string of the package index.
     """
     package_grep_re = r'^\s*package\s+[a-z][[:alnum:]]+[^{]'
-    if OSNAME == MACOSX:
-        find_cmd = r"locate -d%s '*.java' '*.kt'|grep -i test" % locatedb
-    else:
-        find_cmd = r"locate -d%s / | egrep -i '/*.test.*\.(java|kt)$'" % locatedb
-    # (b/204398677) suppress stderr when indexing target terminated.
-    find_java_cmd = find_cmd + '| xargs egrep -sH \'%s\' 2>/dev/null|| true' % package_grep_re
+    find_java_cmd = (
+        f"{LOCATE} -id{locatedb} --regex '/*.test.*\.(java|kt)$' "
+        # (b/204398677) suppress stderr when indexing target terminated.
+        f"| xargs egrep -sH '{package_grep_re}' 2>/dev/null|| true")
     logging.debug('Probing Java classes:\n %s', find_java_cmd)
     result = subprocess.check_output(find_java_cmd, shell=True)
 
@@ -252,6 +248,7 @@ def get_java_result(locatedb=constants.LOCATE_CACHE, **kwargs):
     au.run_multi_proc(func=_index_java_classes, args=[result, class_index])
     au.run_multi_proc(func=_index_qualified_classes, args=[result, qclass_index])
     au.run_multi_proc(func=_index_packages, args=[result, package_index])
+
 
 def _index_cc_classes(output, index):
     """Index CC classes.
@@ -271,6 +268,7 @@ def _index_cc_classes(output, index):
                 output_re=constants.CC_OUTPUT_RE,
                 key='test_name', value='file_path')
 
+
 def _index_java_classes(output, index):
     """Index Java classes.
     The data structure is like:
@@ -287,6 +285,7 @@ def _index_java_classes(output, index):
     _dump_index(dump_file=index, output=output,
                 output_re=constants.CLASS_OUTPUT_RE,
                 key='class', value='java_path')
+
 
 def _index_packages(output, index):
     """Index Java packages.
@@ -305,6 +304,7 @@ def _index_packages(output, index):
                 output=output, output_re=constants.PACKAGE_OUTPUT_RE,
                 key='package', value='java_dir')
 
+
 def _index_qualified_classes(output, index):
     """Index Fully Qualified Java Classes(FQCN).
     The data structure is like:
@@ -318,8 +318,9 @@ def _index_qualified_classes(output, index):
         index: A string path of the index file.
     """
     logging.debug('indexing qualified classes.')
+    temp_file = tempfile.NamedTemporaryFile()
     _dict = {}
-    with open(index, 'wb') as cache_file:
+    with open(temp_file.name, 'wb') as cache_file:
         if isinstance(output, bytes):
             output = output.decode()
         for entry in output.split('\n'):
@@ -331,48 +332,60 @@ def _index_qualified_classes(output, index):
             pickle.dump(_dict, cache_file, protocol=2)
         except (KeyboardInterrupt, SystemExit):
             logging.error('Process interrupted or failure.')
-            os.remove(index)
         except IOError:
             logging.error('Failed in dumping %s', index)
+    shutil.copy(temp_file.name, index)
+    temp_file.close()
+
 
 def index_targets(output_cache=constants.LOCATE_CACHE):
     """The entrypoint of indexing targets.
 
     Utilise plocate database to index reference types of CLASS, CC_CLASS,
-    PACKAGE and QUALIFIED_CLASS. Testable module for tab completion is also
-    generated in this method.
+    PACKAGE and QUALIFIED_CLASS.
+
+    (b/206886222) The checksum and file size of plocate.db may differ even the
+    src is not changed at all; therefore, it will skip indexing when both
+    conditions are fulfilled:
+      - not undergo `repo sync` before running atest.
+      - file numbers recorded in current and previous plocate.db are the same.
 
     Args:
         output_cache: A file path of the updatedb cache
                       (e.g. /path/to/plocate.db).
     """
-    if not has_command(LOCATE):
-        logging.debug('command %s is unavailable; skip indexing.', LOCATE)
+    unavailable_cmds = [
+        cmd for cmd in [UPDATEDB, LOCATE] if not has_command(cmd)]
+    if unavailable_cmds:
+        logging.debug('command %s is unavailable; skip indexing...',
+                      ' '.join(unavailable_cmds))
         return
-    pre_md5sum = ""
-    try:
-        # Step 0: generate plocate database prior to indexing targets.
-        if os.path.exists(constants.LOCATE_CACHE_MD5):
-            pre_md5sum = au.md5sum(constants.LOCATE_CACHE_MD5)
-        run_updatedb(SEARCH_TOP, output_cache)
-        if pre_md5sum == au.md5sum(constants.LOCATE_CACHE_MD5):
-            logging.debug('%s remains the same.', output_cache)
-            return
-        # Step 1: generate output string for indexing targets when needed.
-        logging.debug('Indexing targets... ')
-        au.run_multi_proc(func=get_java_result, args=[output_cache])
-        au.run_multi_proc(func=get_cc_result, args=[output_cache])
-    # Delete indexes when plocate.db is locked() or other CalledProcessError.
-    # (b/141588997)
-    except subprocess.CalledProcessError as err:
-        logging.error('Executing %s error.', UPDATEDB)
-        metrics_utils.handle_exc_and_send_exit_event(
-            constants.PLOCATEDB_LOCKED)
-        if err.output:
-            logging.error(err.output)
-        _delete_indexes()
 
-def acloud_create(report_file, args="", no_metrics_notice=True):
+    # Get the amount of indexed files.
+    get_num_cmd = f'{LOCATE} -d{output_cache} --count /'
+    ret, pre_number = subprocess.getstatusoutput(get_num_cmd)
+    if ret != 0:
+        logging.debug('Failed to run %s', get_num_cmd)
+        pre_number = sys.maxsize
+
+    run_updatedb(SEARCH_TOP, output_cache)
+    checksum_file = os.path.join(constants.INDEX_DIR, 'repo_sync.md5')
+    repo_syncd = not au.check_md5(checksum_file, missing_ok=False)
+    if repo_syncd:
+        repo_file = Path(SEARCH_TOP).joinpath(
+            '.repo/.repo_fetchtimes.json')
+        au.run_multi_proc(
+            func=au.save_md5,
+            args=[[repo_file], checksum_file])
+    if not repo_syncd and pre_number == subprocess.getoutput(get_num_cmd):
+        logging.debug('%s remains the same. Ignore indexing', output_cache)
+        return
+    logging.debug('Indexing targets... ')
+    au.run_multi_proc(func=get_java_result, args=[output_cache])
+    au.run_multi_proc(func=get_cc_result, args=[output_cache])
+
+
+def acloud_create(report_file, args, no_metrics_notice=True):
     """Method which runs acloud create with specified args in background.
 
     Args:
@@ -381,8 +394,9 @@ def acloud_create(report_file, args="", no_metrics_notice=True):
         no_metrics_notice: Boolean whether sending data to metrics or not.
     """
     notice = constants.NO_METRICS_ARG if no_metrics_notice else ""
-    match = constants.ACLOUD_REPORT_FILE_RE.match(args)
-    report_file_arg = '--report-file={}'.format(report_file) if not match else ""
+    match = ACLOUD_REPORT_FILE_RE.match(args)
+    report_file_arg = f'--report-file={report_file}' if not match else ""
+
     # (b/161759557) Assume yes for acloud create to streamline atest flow.
     acloud_cmd = ('acloud create -y {ACLOUD_ARGS} '
                   '{REPORT_FILE_ARG} '
@@ -398,17 +412,48 @@ def acloud_create(report_file, args="", no_metrics_notice=True):
     acloud_duration = time.time() - start
     logging.info('"acloud create" process has completed.')
     # Insert acloud create duration into the report file.
-    if au.is_valid_json_file(report_file):
+    result = au.load_json_safely(report_file)
+    if result:
+        result[ACLOUD_DURATION] = acloud_duration
         try:
-            with open(report_file, 'r') as _rfile:
-                result = json.load(_rfile)
-            result[ACLOUD_DURATION] = acloud_duration
             with open(report_file, 'w+') as _wfile:
                 _wfile.write(json.dumps(result))
         except OSError as e:
-            logging.error("Failed dumping duration to the report file: %s", str(e))
+            logging.error("Failed dumping duration to the report file: %s",
+                          str(e))
 
-def probe_acloud_status(report_file):
+
+def acloud_create_validator(results_dir, args):
+    """Check lunch'd target before running 'acloud create'.
+
+    Args:
+        results_dir: A string of the results directory.
+        args: An argparse.Namespace object.
+
+    Returns:
+        If the target is valid:
+            A tuple of (multiprocessing.Process,
+                        report_file path)
+        else:
+            A tuple of (None, None)
+    """
+    target = os.getenv('TARGET_PRODUCT')
+    if not re.match(r'^(aosp_|)cf_.*', target):
+        au.colorful_print(
+            f'{target} is not in cuttlefish family; will not create any AVD.',
+            constants.RED)
+        return None, None
+    if args.start_avd:
+        args.acloud_create = []
+    acloud_args = ' '.join(args.acloud_create)
+    report_file = get_report_file(results_dir, acloud_args)
+    acloud_proc = au.run_multi_proc(
+        func=acloud_create,
+        args=[report_file, acloud_args, args.no_metrics])
+    return acloud_proc, report_file
+
+
+def probe_acloud_status(report_file, find_build_duration):
     """Method which probes the 'acloud create' result status.
 
     If the report file exists and the status is 'SUCCESS', then the creation is
@@ -416,6 +461,7 @@ def probe_acloud_status(report_file):
 
     Args:
         report_file: A path string of acloud report file.
+        find_build_duration: A float of seconds.
 
     Returns:
         0: success.
@@ -423,8 +469,8 @@ def probe_acloud_status(report_file):
         9: invalid acloud create arguments.
     """
     # 1. Created but the status is not 'SUCCESS'
-    if os.path.exists(report_file):
-        if not au.is_valid_json_file(report_file):
+    if Path(report_file).exists():
+        if not au.load_json_safely(report_file):
             return ExitCode.AVD_CREATE_FAILURE
         with open(report_file, 'r') as rfile:
             result = json.load(rfile)
@@ -433,7 +479,25 @@ def probe_acloud_status(report_file):
             logging.info('acloud create successfully!')
             # Always fetch the adb of the first created AVD.
             adb_port = result.get('data').get('devices')[0].get('adb_port')
-            os.environ[constants.ANDROID_SERIAL] = '127.0.0.1:{}'.format(adb_port)
+            is_remote_instance = result.get('command') == 'create_cf'
+            adb_ip = '127.0.0.1' if is_remote_instance else '0.0.0.0'
+            os.environ[constants.ANDROID_SERIAL] = f'{adb_ip}:{adb_port}'
+
+            acloud_duration = get_acloud_duration(report_file)
+            if find_build_duration - acloud_duration >= 0:
+                # find+build took longer, saved acloud create time.
+                logging.debug('Saved acloud create time: %ss.',
+                              acloud_duration)
+                metrics.LocalDetectEvent(
+                    detect_type=DetectType.ACLOUD_CREATE,
+                    result=round(acloud_duration))
+            else:
+                # acloud create took longer, saved find+build time.
+                logging.debug('Saved Find and Build time: %ss.',
+                              find_build_duration)
+                metrics.LocalDetectEvent(
+                    detect_type=DetectType.FIND_BUILD,
+                    result=round(find_build_duration))
             return ExitCode.SUCCESS
         au.colorful_print(
             'acloud create failed. Please check\n{}\nfor detail'.format(
@@ -444,6 +508,7 @@ def probe_acloud_status(report_file):
     logging.error('Invalid acloud arguments found!')
     return ExitCode.AVD_INVALID_ARGS
 
+
 def get_acloud_duration(report_file):
     """Method which gets the duration of 'acloud create' from a report file.
 
@@ -453,10 +518,10 @@ def get_acloud_duration(report_file):
     Returns:
         An float of seconds which acloud create takes.
     """
-    if not au.is_valid_json_file(report_file):
+    content = au.load_json_safely(report_file)
+    if not content:
         return 0
-    with open(report_file, 'r') as rfile:
-        return json.load(rfile).get(ACLOUD_DURATION, 0)
+    return content.get(ACLOUD_DURATION, 0)
 
 
 if __name__ == '__main__':

@@ -40,7 +40,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-/** Implement common helper methods for Quick settings. */
+/**
+ * Implement common helper methods for Quick settings.
+ *
+ * @deprecated use classes from the "systemui-tapl" library instead
+ */
+@Deprecated
 public class QuickSettingsHelper {
     private static final String LOG_TAG = QuickSettingsHelper.class.getSimpleName();
     private static final int LONG_TIMEOUT = 2000;

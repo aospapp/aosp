@@ -23,6 +23,7 @@
 
 #include <android-base/logging.h>
 #include <android/binder_manager.h>
+#include <android/content/pm/IPackageManagerNative.h>
 #include <cppbor_parse.h>
 #include <cutils/properties.h>
 #include <gmock/gmock.h>
@@ -107,25 +108,13 @@ bool KeyCharacteristicsBasicallyValid(SecurityLevel secLevel,
     return true;
 }
 
-// Extract attestation record from cert. Returned object is still part of cert; don't free it
-// separately.
-ASN1_OCTET_STRING* get_attestation_record(X509* certificate) {
-    ASN1_OBJECT_Ptr oid(OBJ_txt2obj(kAttestionRecordOid, 1 /* dotted string format */));
-    EXPECT_TRUE(!!oid.get());
-    if (!oid.get()) return nullptr;
+void check_crl_distribution_points_extension_not_present(X509* certificate) {
+    ASN1_OBJECT_Ptr crl_dp_oid(OBJ_txt2obj(kCrlDPOid, 1 /* dotted string format */));
+    ASSERT_TRUE(crl_dp_oid.get());
 
-    int location = X509_get_ext_by_OBJ(certificate, oid.get(), -1 /* search from beginning */);
-    EXPECT_NE(-1, location) << "Attestation extension not found in certificate";
-    if (location == -1) return nullptr;
-
-    X509_EXTENSION* attest_rec_ext = X509_get_ext(certificate, location);
-    EXPECT_TRUE(!!attest_rec_ext)
-            << "Found attestation extension but couldn't retrieve it?  Probably a BoringSSL bug.";
-    if (!attest_rec_ext) return nullptr;
-
-    ASN1_OCTET_STRING* attest_rec = X509_EXTENSION_get_data(attest_rec_ext);
-    EXPECT_TRUE(!!attest_rec) << "Attestation extension contained no data";
-    return attest_rec;
+    int location =
+            X509_get_ext_by_OBJ(certificate, crl_dp_oid.get(), -1 /* search from beginning */);
+    ASSERT_EQ(location, -1);
 }
 
 void check_attestation_version(uint32_t attestation_version, int32_t aidl_version) {
@@ -184,6 +173,7 @@ string x509NameToStr(X509_NAME* name) {
 
 bool KeyMintAidlTestBase::arm_deleteAllKeys = false;
 bool KeyMintAidlTestBase::dump_Attestations = false;
+std::string KeyMintAidlTestBase::keyblob_dir;
 
 uint32_t KeyMintAidlTestBase::boot_patch_level(
         const vector<KeyCharacteristics>& key_characteristics) {
@@ -212,7 +202,15 @@ uint32_t KeyMintAidlTestBase::boot_patch_level() {
  * which is mandatory for KeyMint version 2 or first_api_level 33 or greater.
  */
 bool KeyMintAidlTestBase::isDeviceIdAttestationRequired() {
-    return AidlVersion() >= 2 || property_get_int32("ro.vendor.api_level", 0) >= 33;
+    return AidlVersion() >= 2 || property_get_int32("ro.vendor.api_level", 0) >= __ANDROID_API_T__;
+}
+
+/**
+ * An API to determine second IMEI ID attestation is required or not,
+ * which is supported for KeyMint version 3 or first_api_level greater than 33.
+ */
+bool KeyMintAidlTestBase::isSecondImeiIdAttestationRequired() {
+    return AidlVersion() >= 3 && property_get_int32("ro.vendor.api_level", 0) > __ANDROID_API_T__;
 }
 
 bool KeyMintAidlTestBase::Curve25519Supported() {
@@ -324,12 +322,13 @@ ErrorCode KeyMintAidlTestBase::GenerateKeyWithSelfSignedAttestKey(
         const AuthorizationSet& attest_key_desc, const AuthorizationSet& key_desc,
         vector<uint8_t>* key_blob, vector<KeyCharacteristics>* key_characteristics,
         vector<Certificate>* cert_chain) {
+    skipAttestKeyTest();
     AttestationKey attest_key;
     vector<Certificate> attest_cert_chain;
     vector<KeyCharacteristics> attest_key_characteristics;
     // Generate a key with self signed attestation.
-    auto error = GenerateKey(attest_key_desc, std::nullopt, &attest_key.keyBlob,
-                             &attest_key_characteristics, &attest_cert_chain);
+    auto error = GenerateAttestKey(attest_key_desc, std::nullopt, &attest_key.keyBlob,
+                                   &attest_key_characteristics, &attest_cert_chain);
     if (error != ErrorCode::OK) {
         return error;
     }
@@ -542,12 +541,13 @@ ErrorCode KeyMintAidlTestBase::Begin(KeyPurpose purpose, const vector<uint8_t>& 
 
 ErrorCode KeyMintAidlTestBase::Begin(KeyPurpose purpose, const vector<uint8_t>& key_blob,
                                      const AuthorizationSet& in_params,
-                                     AuthorizationSet* out_params) {
+                                     AuthorizationSet* out_params,
+                                     std::optional<HardwareAuthToken> hat) {
     SCOPED_TRACE("Begin");
     Status result;
     BeginResult out;
 
-    result = keymint_->begin(purpose, key_blob, in_params.vector_data(), std::nullopt, &out);
+    result = keymint_->begin(purpose, key_blob, in_params.vector_data(), hat, &out);
 
     if (result.isOk()) {
         *out_params = out.params;
@@ -601,8 +601,9 @@ ErrorCode KeyMintAidlTestBase::Update(const string& input, string* output) {
     return GetReturnErrorCode(result);
 }
 
-ErrorCode KeyMintAidlTestBase::Finish(const string& input, const string& signature,
-                                      string* output) {
+ErrorCode KeyMintAidlTestBase::Finish(const string& input, const string& signature, string* output,
+                                      std::optional<HardwareAuthToken> hat,
+                                      std::optional<secureclock::TimeStampToken> time_token) {
     SCOPED_TRACE("Finish");
     Status result;
 
@@ -611,8 +612,8 @@ ErrorCode KeyMintAidlTestBase::Finish(const string& input, const string& signatu
 
     vector<uint8_t> oPut;
     result = op_->finish(vector<uint8_t>(input.begin(), input.end()),
-                         vector<uint8_t>(signature.begin(), signature.end()), {} /* authToken */,
-                         {} /* timestampToken */, {} /* confirmationToken */, &oPut);
+                         vector<uint8_t>(signature.begin(), signature.end()), hat, time_token,
+                         {} /* confirmationToken */, &oPut);
 
     if (result.isOk()) output->append(oPut.begin(), oPut.end());
 
@@ -772,6 +773,100 @@ void KeyMintAidlTestBase::CheckAesIncrementalEncryptOperation(BlockMode block_mo
     }
 }
 
+void KeyMintAidlTestBase::AesCheckEncryptOneByteAtATime(const string& key, BlockMode block_mode,
+                                                        PaddingMode padding_mode, const string& iv,
+                                                        const string& plaintext,
+                                                        const string& exp_cipher_text) {
+    bool is_authenticated_cipher = (block_mode == BlockMode::GCM);
+    auto auth_set = AuthorizationSetBuilder()
+                            .Authorization(TAG_NO_AUTH_REQUIRED)
+                            .AesEncryptionKey(key.size() * 8)
+                            .BlockMode(block_mode)
+                            .Padding(padding_mode);
+    if (iv.size() > 0) auth_set.Authorization(TAG_CALLER_NONCE);
+    if (is_authenticated_cipher) auth_set.Authorization(TAG_MIN_MAC_LENGTH, 128);
+    ASSERT_EQ(ErrorCode::OK, ImportKey(auth_set, KeyFormat::RAW, key));
+
+    CheckEncryptOneByteAtATime(block_mode, 16 /*block_size*/, padding_mode, iv, plaintext,
+                               exp_cipher_text);
+}
+
+void KeyMintAidlTestBase::CheckEncryptOneByteAtATime(BlockMode block_mode, const int block_size,
+                                                     PaddingMode padding_mode, const string& iv,
+                                                     const string& plaintext,
+                                                     const string& exp_cipher_text) {
+    bool is_stream_cipher = (block_mode == BlockMode::CTR || block_mode == BlockMode::GCM);
+    bool is_authenticated_cipher = (block_mode == BlockMode::GCM);
+    auto params = AuthorizationSetBuilder().BlockMode(block_mode).Padding(padding_mode);
+    if (iv.size() > 0) params.Authorization(TAG_NONCE, iv.data(), iv.size());
+    if (is_authenticated_cipher) params.Authorization(TAG_MAC_LENGTH, 128);
+
+    AuthorizationSet output_params;
+    EXPECT_EQ(ErrorCode::OK, Begin(KeyPurpose::ENCRYPT, params, &output_params));
+
+    string actual_ciphertext;
+    if (is_stream_cipher) {
+        // Assert that a 1 byte of output is produced for 1 byte of input.
+        // Every input byte produces an output byte.
+        for (int plaintext_index = 0; plaintext_index < plaintext.size(); plaintext_index++) {
+            string ciphertext;
+            EXPECT_EQ(ErrorCode::OK, Update(plaintext.substr(plaintext_index, 1), &ciphertext));
+            // Some StrongBox implementations cannot support 1:1 input:output lengths, so
+            // we relax this API restriction for them.
+            if (SecLevel() != SecurityLevel::STRONGBOX) {
+                EXPECT_EQ(1, ciphertext.size()) << "plaintext index: " << plaintext_index;
+            }
+            actual_ciphertext.append(ciphertext);
+        }
+        string ciphertext;
+        EXPECT_EQ(ErrorCode::OK, Finish(&ciphertext));
+        if (SecLevel() != SecurityLevel::STRONGBOX) {
+            string expected_final_output;
+            if (is_authenticated_cipher) {
+                expected_final_output = exp_cipher_text.substr(plaintext.size());
+            }
+            EXPECT_EQ(expected_final_output, ciphertext);
+        }
+        actual_ciphertext.append(ciphertext);
+    } else {
+        // Assert that a block of output is produced once a full block of input is provided.
+        // Every input block produces an output block.
+        bool compare_output = true;
+        string additional_information;
+        int vendor_api_level = property_get_int32("ro.vendor.api_level", 0);
+        if (SecLevel() == SecurityLevel::STRONGBOX) {
+            // This is known to be broken on older vendor implementations.
+            if (vendor_api_level < __ANDROID_API_T__) {
+                compare_output = false;
+            } else {
+                additional_information = " (b/194134359) ";
+            }
+        }
+        for (int plaintext_index = 0; plaintext_index < plaintext.size(); plaintext_index++) {
+            string ciphertext;
+            EXPECT_EQ(ErrorCode::OK, Update(plaintext.substr(plaintext_index, 1), &ciphertext));
+            if (compare_output) {
+                if ((plaintext_index % block_size) == block_size - 1) {
+                    // Update is expected to have output a new block
+                    EXPECT_EQ(block_size, ciphertext.size())
+                            << "plaintext index: " << plaintext_index << additional_information;
+                } else {
+                    // Update is expected to have produced no output
+                    EXPECT_EQ(0, ciphertext.size())
+                            << "plaintext index: " << plaintext_index << additional_information;
+                }
+            }
+            actual_ciphertext.append(ciphertext);
+        }
+        string ciphertext;
+        EXPECT_EQ(ErrorCode::OK, Finish(&ciphertext));
+        actual_ciphertext.append(ciphertext);
+    }
+    // Regardless of how the completed ciphertext got accumulated, it should match the expected
+    // ciphertext.
+    EXPECT_EQ(exp_cipher_text, actual_ciphertext);
+}
+
 void KeyMintAidlTestBase::CheckHmacTestVector(const string& key, const string& message,
                                               Digest digest, const string& expected_mac) {
     SCOPED_TRACE("CheckHmacTestVector");
@@ -852,9 +947,15 @@ void KeyMintAidlTestBase::LocalVerifyMessage(const string& message, const string
                                              const AuthorizationSet& params) {
     SCOPED_TRACE("LocalVerifyMessage");
 
-    // Retrieve the public key from the leaf certificate.
     ASSERT_GT(cert_chain_.size(), 0);
-    X509_Ptr key_cert(parse_cert_blob(cert_chain_[0].encodedCertificate));
+    LocalVerifyMessage(cert_chain_[0].encodedCertificate, message, signature, params);
+}
+
+void KeyMintAidlTestBase::LocalVerifyMessage(const vector<uint8_t>& der_cert, const string& message,
+                                             const string& signature,
+                                             const AuthorizationSet& params) {
+    // Retrieve the public key from the leaf certificate.
+    X509_Ptr key_cert(parse_cert_blob(der_cert));
     ASSERT_TRUE(key_cert.get());
     EVP_PKEY_Ptr pub_key(X509_get_pubkey(key_cert.get()));
     ASSERT_TRUE(pub_key.get());
@@ -976,12 +1077,24 @@ string KeyMintAidlTestBase::LocalRsaEncryptMessage(const string& message,
         return "Failure";
     }
     X509_Ptr key_cert(parse_cert_blob(cert_chain_[0].encodedCertificate));
+    if (key_cert.get() == nullptr) {
+        ADD_FAILURE() << "Failed to parse cert";
+        return "Failure";
+    }
     EVP_PKEY_Ptr pub_key(X509_get_pubkey(key_cert.get()));
+    if (pub_key.get() == nullptr) {
+        ADD_FAILURE() << "Failed to retrieve public key";
+        return "Failure";
+    }
     RSA_Ptr rsa(EVP_PKEY_get1_RSA(const_cast<EVP_PKEY*>(pub_key.get())));
+    if (rsa.get() == nullptr) {
+        ADD_FAILURE() << "Failed to retrieve RSA public key";
+        return "Failure";
+    }
 
     // Retrieve relevant tags.
     Digest digest = Digest::NONE;
-    Digest mgf_digest = Digest::NONE;
+    Digest mgf_digest = Digest::SHA1;
     PaddingMode padding = PaddingMode::NONE;
 
     auto digest_tag = params.GetTagValue(TAG_DIGEST);
@@ -1180,6 +1293,19 @@ std::pair<ErrorCode, vector<uint8_t>> KeyMintAidlTestBase::UpgradeKey(
 
     return retval;
 }
+
+bool KeyMintAidlTestBase::IsRkpSupportRequired() const {
+    if (get_vsr_api_level() >= __ANDROID_API_T__) {
+        return true;
+    }
+
+    if (get_vsr_api_level() >= __ANDROID_API_S__) {
+        return SecLevel() != SecurityLevel::STRONGBOX;
+    }
+
+    return false;
+}
+
 vector<uint32_t> KeyMintAidlTestBase::ValidKeySizes(Algorithm algorithm) {
     switch (algorithm) {
         case Algorithm::RSA:
@@ -1423,6 +1549,88 @@ ErrorCode KeyMintAidlTestBase::UseEcdsaKey(const vector<uint8_t>& ecdsaKeyBlob) 
     return result;
 }
 
+ErrorCode KeyMintAidlTestBase::GenerateAttestKey(const AuthorizationSet& key_desc,
+                                                 const optional<AttestationKey>& attest_key,
+                                                 vector<uint8_t>* key_blob,
+                                                 vector<KeyCharacteristics>* key_characteristics,
+                                                 vector<Certificate>* cert_chain) {
+    // The original specification for KeyMint v1 required ATTEST_KEY not be combined
+    // with any other key purpose, but the original VTS tests incorrectly did exactly that.
+    // This means that a device that launched prior to Android T (API level 33) may
+    // accept or even require KeyPurpose::SIGN too.
+    if (property_get_int32("ro.board.first_api_level", 0) < __ANDROID_API_T__) {
+        AuthorizationSet key_desc_plus_sign = key_desc;
+        key_desc_plus_sign.push_back(TAG_PURPOSE, KeyPurpose::SIGN);
+
+        auto result = GenerateKey(key_desc_plus_sign, attest_key, key_blob, key_characteristics,
+                                  cert_chain);
+        if (result == ErrorCode::OK) {
+            return result;
+        }
+        // If the key generation failed, it may be because the device is (correctly)
+        // rejecting the combination of ATTEST_KEY+SIGN.  Fall through to try again with
+        // just ATTEST_KEY.
+    }
+    return GenerateKey(key_desc, attest_key, key_blob, key_characteristics, cert_chain);
+}
+
+// Check if ATTEST_KEY feature is disabled
+bool KeyMintAidlTestBase::is_attest_key_feature_disabled(void) const {
+    if (!check_feature(FEATURE_KEYSTORE_APP_ATTEST_KEY)) {
+        GTEST_LOG_(INFO) << "Feature " + FEATURE_KEYSTORE_APP_ATTEST_KEY + " is disabled";
+        return true;
+    }
+
+    return false;
+}
+
+// Check if StrongBox KeyStore is enabled
+bool KeyMintAidlTestBase::is_strongbox_enabled(void) const {
+    if (check_feature(FEATURE_STRONGBOX_KEYSTORE)) {
+        GTEST_LOG_(INFO) << "Feature " + FEATURE_STRONGBOX_KEYSTORE + " is enabled";
+        return true;
+    }
+
+    return false;
+}
+
+// Check if chipset has received a waiver allowing it to be launched with Android S or T with
+// Keymaster 4.0 in StrongBox.
+bool KeyMintAidlTestBase::is_chipset_allowed_km4_strongbox(void) const {
+    std::array<char, PROPERTY_VALUE_MAX> buffer;
+
+    const int32_t first_api_level = property_get_int32("ro.board.first_api_level", 0);
+    if (first_api_level <= 0 || first_api_level > __ANDROID_API_T__) return false;
+
+    auto res = property_get("ro.vendor.qti.soc_model", buffer.data(), nullptr);
+    if (res <= 0) return false;
+
+    const string allowed_soc_models[] = {"SM8450", "SM8475", "SM8550", "SXR2230P"};
+
+    for (const string model : allowed_soc_models) {
+        if (model.compare(buffer.data()) == 0) {
+            GTEST_LOG_(INFO) << "QTI SOC Model " + model + " is allowed SB KM 4.0";
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Skip the test if all the following conditions hold:
+// 1. ATTEST_KEY feature is disabled
+// 2. STRONGBOX is enabled
+// 3. The device is running one of the chipsets that have received a waiver
+//     allowing it to be launched with Android S (or later) with Keymaster 4.0
+//     in StrongBox
+void KeyMintAidlTestBase::skipAttestKeyTest(void) const {
+    // Check the chipset first as that doesn't require a round-trip to Package Manager.
+    if (is_chipset_allowed_km4_strongbox() && is_strongbox_enabled() &&
+        is_attest_key_feature_disabled()) {
+        GTEST_SKIP() << "Test is not applicable";
+    }
+}
+
 void verify_serial(X509* cert, const uint64_t expected_serial) {
     BIGNUM_Ptr ser(BN_new());
     EXPECT_TRUE(ASN1_INTEGER_to_BN(X509_get_serialNumber(cert), ser.get()));
@@ -1587,6 +1795,10 @@ bool verify_attestation_record(int32_t aidl_version,                   //
     EXPECT_TRUE(!!cert.get());
     if (!cert.get()) return false;
 
+    // Make sure CRL Distribution Points extension is not present in a certificate
+    // containing attestation record.
+    check_crl_distribution_points_extension_not_present(cert.get());
+
     ASN1_OCTET_STRING* attest_rec = get_attestation_record(cert.get());
     EXPECT_TRUE(!!attest_rec);
     if (!attest_rec) return false;
@@ -1629,38 +1841,33 @@ bool verify_attestation_record(int32_t aidl_version,                   //
     EXPECT_EQ(security_level, att_keymint_security_level);
     EXPECT_EQ(security_level, att_attestation_security_level);
 
-    // TODO(b/136282179): When running under VTS-on-GSI the TEE-backed
-    // keymint implementation will report YYYYMM dates instead of YYYYMMDD
-    // for the BOOT_PATCH_LEVEL.
-    if (avb_verification_enabled()) {
-        for (int i = 0; i < att_hw_enforced.size(); i++) {
-            if (att_hw_enforced[i].tag == TAG_BOOT_PATCHLEVEL ||
-                att_hw_enforced[i].tag == TAG_VENDOR_PATCHLEVEL) {
-                std::string date =
-                        std::to_string(att_hw_enforced[i].value.get<KeyParameterValue::integer>());
+    for (int i = 0; i < att_hw_enforced.size(); i++) {
+        if (att_hw_enforced[i].tag == TAG_BOOT_PATCHLEVEL ||
+            att_hw_enforced[i].tag == TAG_VENDOR_PATCHLEVEL) {
+            std::string date =
+                    std::to_string(att_hw_enforced[i].value.get<KeyParameterValue::integer>());
 
-                // strptime seems to require delimiters, but the tag value will
-                // be YYYYMMDD
-                if (date.size() != 8) {
-                    ADD_FAILURE() << "Tag " << att_hw_enforced[i].tag
-                                  << " with invalid format (not YYYYMMDD): " << date;
-                    return false;
-                }
-                date.insert(6, "-");
-                date.insert(4, "-");
-                struct tm time;
-                strptime(date.c_str(), "%Y-%m-%d", &time);
-
-                // Day of the month (0-31)
-                EXPECT_GE(time.tm_mday, 0);
-                EXPECT_LT(time.tm_mday, 32);
-                // Months since Jan (0-11)
-                EXPECT_GE(time.tm_mon, 0);
-                EXPECT_LT(time.tm_mon, 12);
-                // Years since 1900
-                EXPECT_GT(time.tm_year, 110);
-                EXPECT_LT(time.tm_year, 200);
+            // strptime seems to require delimiters, but the tag value will
+            // be YYYYMMDD
+            if (date.size() != 8) {
+                ADD_FAILURE() << "Tag " << att_hw_enforced[i].tag
+                              << " with invalid format (not YYYYMMDD): " << date;
+                return false;
             }
+            date.insert(6, "-");
+            date.insert(4, "-");
+            struct tm time;
+            strptime(date.c_str(), "%Y-%m-%d", &time);
+
+            // Day of the month (0-31)
+            EXPECT_GE(time.tm_mday, 0);
+            EXPECT_LT(time.tm_mday, 32);
+            // Months since Jan (0-11)
+            EXPECT_GE(time.tm_mon, 0);
+            EXPECT_LT(time.tm_mon, 12);
+            // Years since 1900
+            EXPECT_GT(time.tm_year, 110);
+            EXPECT_LT(time.tm_year, 200);
         }
     }
 
@@ -1782,6 +1989,27 @@ X509_Ptr parse_cert_blob(const vector<uint8_t>& blob) {
     return X509_Ptr(d2i_X509(nullptr /* allocate new */, &p, blob.size()));
 }
 
+// Extract attestation record from cert. Returned object is still part of cert; don't free it
+// separately.
+ASN1_OCTET_STRING* get_attestation_record(X509* certificate) {
+    ASN1_OBJECT_Ptr oid(OBJ_txt2obj(kAttestionRecordOid, 1 /* dotted string format */));
+    EXPECT_TRUE(!!oid.get());
+    if (!oid.get()) return nullptr;
+
+    int location = X509_get_ext_by_OBJ(certificate, oid.get(), -1 /* search from beginning */);
+    EXPECT_NE(-1, location) << "Attestation extension not found in certificate";
+    if (location == -1) return nullptr;
+
+    X509_EXTENSION* attest_rec_ext = X509_get_ext(certificate, location);
+    EXPECT_TRUE(!!attest_rec_ext)
+            << "Found attestation extension but couldn't retrieve it?  Probably a BoringSSL bug.";
+    if (!attest_rec_ext) return nullptr;
+
+    ASN1_OCTET_STRING* attest_rec = X509_EXTENSION_get_data(attest_rec_ext);
+    EXPECT_TRUE(!!attest_rec) << "Attestation extension contained no data";
+    return attest_rec;
+}
+
 vector<uint8_t> make_name_from_str(const string& name) {
     X509_NAME_Ptr x509_name(X509_NAME_new());
     EXPECT_TRUE(x509_name.get() != nullptr);
@@ -1813,30 +2041,32 @@ void check_cose_key(const vector<uint8_t>& data, bool testMode) {
 
     // The following check assumes that canonical CBOR encoding is used for the COSE_Key.
     if (testMode) {
-        EXPECT_THAT(cppbor::prettyPrint(parsedPayload.get()),
-                    MatchesRegex("{\n"
-                                 "  1 : 2,\n"   // kty: EC2
-                                 "  3 : -7,\n"  // alg: ES256
-                                 "  -1 : 1,\n"  // EC id: P256
-                                 // The regex {(0x[0-9a-f]{2}, ){31}0x[0-9a-f]{2}} matches a
-                                 // sequence of 32 hexadecimal bytes, enclosed in braces and
-                                 // separated by commas. In this case, some Ed25519 public key.
-                                 "  -2 : {(0x[0-9a-f]{2}, ){31}0x[0-9a-f]{2}},\n"  // pub_x: data
-                                 "  -3 : {(0x[0-9a-f]{2}, ){31}0x[0-9a-f]{2}},\n"  // pub_y: data
-                                 "  -70000 : null,\n"                              // test marker
-                                 "}"));
+        EXPECT_THAT(
+                cppbor::prettyPrint(parsedPayload.get()),
+                MatchesRegex("\\{\n"
+                             "  1 : 2,\n"   // kty: EC2
+                             "  3 : -7,\n"  // alg: ES256
+                             "  -1 : 1,\n"  // EC id: P256
+                             // The regex {(0x[0-9a-f]{2}, ){31}0x[0-9a-f]{2}} matches a
+                             // sequence of 32 hexadecimal bytes, enclosed in braces and
+                             // separated by commas. In this case, some Ed25519 public key.
+                             "  -2 : \\{(0x[0-9a-f]{2}, ){31}0x[0-9a-f]{2}\\},\n"  // pub_x: data
+                             "  -3 : \\{(0x[0-9a-f]{2}, ){31}0x[0-9a-f]{2}\\},\n"  // pub_y: data
+                             "  -70000 : null,\n"                                  // test marker
+                             "\\}"));
     } else {
-        EXPECT_THAT(cppbor::prettyPrint(parsedPayload.get()),
-                    MatchesRegex("{\n"
-                                 "  1 : 2,\n"   // kty: EC2
-                                 "  3 : -7,\n"  // alg: ES256
-                                 "  -1 : 1,\n"  // EC id: P256
-                                 // The regex {(0x[0-9a-f]{2}, ){31}0x[0-9a-f]{2}} matches a
-                                 // sequence of 32 hexadecimal bytes, enclosed in braces and
-                                 // separated by commas. In this case, some Ed25519 public key.
-                                 "  -2 : {(0x[0-9a-f]{2}, ){31}0x[0-9a-f]{2}},\n"  // pub_x: data
-                                 "  -3 : {(0x[0-9a-f]{2}, ){31}0x[0-9a-f]{2}},\n"  // pub_y: data
-                                 "}"));
+        EXPECT_THAT(
+                cppbor::prettyPrint(parsedPayload.get()),
+                MatchesRegex("\\{\n"
+                             "  1 : 2,\n"   // kty: EC2
+                             "  3 : -7,\n"  // alg: ES256
+                             "  -1 : 1,\n"  // EC id: P256
+                             // The regex {(0x[0-9a-f]{2}, ){31}0x[0-9a-f]{2}} matches a
+                             // sequence of 32 hexadecimal bytes, enclosed in braces and
+                             // separated by commas. In this case, some Ed25519 public key.
+                             "  -2 : \\{(0x[0-9a-f]{2}, ){31}0x[0-9a-f]{2}\\},\n"  // pub_x: data
+                             "  -3 : \\{(0x[0-9a-f]{2}, ){31}0x[0-9a-f]{2}\\},\n"  // pub_y: data
+                             "\\}"));
     }
 }
 
@@ -1921,6 +2151,40 @@ void p256_pub_key(const vector<uint8_t>& coseKeyData, EVP_PKEY_Ptr* signingKey) 
     ASSERT_NE(pubKey, nullptr);
     EVP_PKEY_assign_EC_KEY(pubKey.get(), ecKey.release());
     *signingKey = std::move(pubKey);
+}
+
+void device_id_attestation_vsr_check(const ErrorCode& result) {
+    if (get_vsr_api_level() > __ANDROID_API_T__) {
+        ASSERT_FALSE(result == ErrorCode::INVALID_TAG)
+                << "It is a specification violation for INVALID_TAG to be returned due to ID "
+                << "mismatch in a Device ID Attestation call. INVALID_TAG is only intended to "
+                << "be used for a case where updateAad() is called after update(). As of "
+                << "VSR-14, this is now enforced as an error.";
+    }
+}
+
+// Check whether the given named feature is available.
+bool check_feature(const std::string& name) {
+    ::android::sp<::android::IServiceManager> sm(::android::defaultServiceManager());
+    ::android::sp<::android::IBinder> binder(
+        sm->waitForService(::android::String16("package_native")));
+    if (binder == nullptr) {
+        GTEST_LOG_(ERROR) << "waitForService package_native failed";
+        return false;
+    }
+    ::android::sp<::android::content::pm::IPackageManagerNative> packageMgr =
+            ::android::interface_cast<::android::content::pm::IPackageManagerNative>(binder);
+    if (packageMgr == nullptr) {
+        GTEST_LOG_(ERROR) << "Cannot find package manager";
+        return false;
+    }
+    bool hasFeature = false;
+    auto status = packageMgr->hasSystemFeature(::android::String16(name.c_str()), 0, &hasFeature);
+    if (!status.isOk()) {
+        GTEST_LOG_(ERROR) << "hasSystemFeature('" << name << "') failed: " << status;
+        return false;
+    }
+    return hasFeature;
 }
 
 }  // namespace test

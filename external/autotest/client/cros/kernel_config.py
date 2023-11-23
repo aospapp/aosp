@@ -145,7 +145,7 @@ class KernelConfig():
         if not os.path.exists(filename):
             utils.system("modprobe configs", ignore_status=True)
         if os.path.exists(filename):
-            with gzip.open(filename, "r") as rf:
+            with gzip.open(filename, "rt") as rf:
                 return rf.readlines()
 
         filename = '/boot/config-%s' % utils.system_output('uname -r')

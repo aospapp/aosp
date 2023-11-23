@@ -31,6 +31,7 @@ genrule {
     visibility: [
         "//packages/modules/Bluetooth/system/gd",
         "//packages/modules/Bluetooth/system/main",
+        "//packages/modules/Bluetooth/system/rust",
     ],
     tools: [
         "flatc",
@@ -40,19 +41,15 @@ genrule {
         "bundler_schema.fbs",
     ],
     out: [
-        "bundler_schema_generated.h", "bundler_schema.bfbs",
+        "bundler_schema.bfbs",
+        "bundler_schema_generated.h",
     ],
 }
 
 cc_defaults {
     name: "bluetooth_flatbuffer_bundler_defaults",
+    defaults: ["fluoride_common_options"],
     cpp_std: "c++17",
-    cflags: [
-        "-Wall",
-        "-Werror",
-        "-Wno-unused-parameter",
-        "-Wno-unused-variable",
-    ],
     generated_headers: [
         "BluetoothGeneratedBundlerSchema_h_bfbs",
     ],
@@ -74,9 +71,8 @@ cc_binary_host {
     ],
 }
 
-cc_test {
+cc_test_host {
     name: "bluetooth_flatbuffer_bundler_test",
-    host_supported: true,
     srcs: [
         ":BluetoothFlatbufferBundlerTestSources",
     ],

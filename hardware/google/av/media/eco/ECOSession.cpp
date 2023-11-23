@@ -56,7 +56,7 @@ sp<ECOSession> ECOSession::createECOSession(int32_t width, int32_t height, bool 
     // Only support up to 1080P.
     // TODO: Support the same resolution as in EAF.
     if (width <= 0 || height <= 0 || width > 5120 || height > 5120 ||
-        width > 1920 * 1080 / height) {
+        width > 1920 * 1088 / height) {
         ECOLOGE("Failed to create ECOSession with w: %d, h: %d, isCameraRecording: %d", width,
                 height, isCameraRecording);
         return nullptr;

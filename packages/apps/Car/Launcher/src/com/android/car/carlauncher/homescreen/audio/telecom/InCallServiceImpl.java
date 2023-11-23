@@ -95,6 +95,13 @@ public class InCallServiceImpl extends InCallService {
     }
 
     /**
+     * Removes a listener for {@link InCallService} events
+     */
+    public void removeListener(InCallListener listener) {
+        if (!mInCallListeners.isEmpty()) mInCallListeners.remove(listener);
+    }
+
+    /**
      * Class used for the client Binder to access the service.
      */
     public class LocalBinder extends Binder {

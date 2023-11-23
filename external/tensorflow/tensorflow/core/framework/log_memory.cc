@@ -28,10 +28,14 @@ namespace {
 // Write the proto entry to LOG(INFO).
 template <typename T>
 void OutputToLog(const T& proto) {
-  string type_name = proto.GetTypeName();
-  const size_t index = type_name.find_last_of('.');
-  if (index != string::npos) type_name = type_name.substr(index + 1);
-  LOG(INFO) << LogMemory::kLogMemoryLabel << " " << type_name << " { "
+  // Proto GetTypeName requires full proto. We remove the usage here
+  // to stick with lite proto which is prefered on mobile version.
+  // string type_name = proto.GetTypeName();
+  // const size_t index = type_name.find_last_of('.');
+  // if (index != string::npos) type_name = type_name.substr(index + 1);
+  // LOG(INFO) << LogMemory::kLogMemoryLabel << " " << type_name << " { "
+  //           << proto.ShortDebugString() << " }";
+  LOG(INFO) << LogMemory::kLogMemoryLabel << " { "
             << proto.ShortDebugString() << " }";
 }
 
@@ -79,7 +83,7 @@ void LogMemory::RecordRawAllocation(const string& operation,
   MemoryLogRawAllocation allocation;
   allocation.set_step_id(step_id);
   allocation.set_operation(operation);
-  allocation.set_num_bytes(static_cast<int64>(num_bytes));
+  allocation.set_num_bytes(static_cast<int64_t>(num_bytes));
   allocation.set_ptr(reinterpret_cast<uintptr_t>(ptr));
   allocation.set_allocation_id(allocator->AllocationId(ptr));
   allocation.set_allocator_name(allocator->Name());

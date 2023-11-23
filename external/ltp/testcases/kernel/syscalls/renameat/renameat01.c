@@ -41,7 +41,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <fcntl.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
@@ -133,12 +132,6 @@ static void setup(void)
 	char *tmpdir;
 	const char *fs_type;
 	int i;
-
-	if ((tst_kvercmp(2, 6, 16)) < 0) {
-		tst_brkm(TCONF, NULL,
-			"This test can only run on kernels that are "
-			"2.6.16 and higher");
-	}
 
 	tst_require_root();
 

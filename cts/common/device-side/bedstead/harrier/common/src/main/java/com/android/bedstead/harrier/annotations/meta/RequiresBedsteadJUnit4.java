@@ -16,15 +16,13 @@
 
 package com.android.bedstead.harrier.annotations.meta;
 
-import com.android.bedstead.harrier.BedsteadJUnit4;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Indicates that an annotation requires using the {@link BedsteadJUnit4} test runner.
+ * Indicates that an annotation requires using the {@code BedsteadJUnit4} test runner.
  */
 @Target(ElementType.ANNOTATION_TYPE)
 @Retention(RetentionPolicy.RUNTIME)

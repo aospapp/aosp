@@ -156,11 +156,17 @@ public class NotificationAccessPreferenceController extends PreferenceController
             CharSequence title = null;
             try {
                 title = packageManager.getApplicationInfoAsUser(service.packageName, /* flags= */ 0,
-                        UserHandle.myUserId()).loadLabel(packageManager);
+                        UserHandle.myUserId()).loadSafeLabel(packageManager,
+                            PackageItemInfo.DEFAULT_MAX_LABEL_SIZE_PX,
+                            PackageItemInfo.SAFE_LABEL_FLAG_TRIM
+                            | PackageItemInfo.SAFE_LABEL_FLAG_FIRST_LINE);
             } catch (PackageManager.NameNotFoundException e) {
                 LOG.e("can't find package name", e);
             }
-            String summary = service.loadLabel(packageManager).toString();
+            String summary = service.loadSafeLabel(packageManager,
+                            PackageItemInfo.DEFAULT_MAX_LABEL_SIZE_PX,
+                            PackageItemInfo.SAFE_LABEL_FLAG_TRIM
+                            | PackageItemInfo.SAFE_LABEL_FLAG_FIRST_LINE).toString();
             SwitchPreference pref = new CarUiSwitchPreference(getContext());
             pref.setPersistent(false);
             pref.setIcon(mIconDrawableFactory.getBadgedIcon(service, service.applicationInfo,

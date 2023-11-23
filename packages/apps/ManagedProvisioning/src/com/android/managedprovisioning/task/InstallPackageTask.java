@@ -69,6 +69,7 @@ public class InstallPackageTask extends AbstractProvisioningTask {
     private final PackageInstaller.SessionCallback mSessionCallback =  new SessionCallback();
     private final String mPackageName;
     private final Utils mUtils;
+    private int mSessionId = -1;
 
     private static final int SUCCESS_INSTALLED_BROADCAST = 1;
     private static final int SUCCESS_INSTALLED_CALLBACK = 2;
@@ -162,7 +163,16 @@ public class InstallPackageTask extends AbstractProvisioningTask {
             packageLocation.delete();
         }
     }
-
+    /*
+    The reason why we have both SessionCallback and BroadcastReceiver is as follows:
+    Initially we were just listening for the ACTION_INSTALL_DONE broadcast
+    but this was being received too early causing the bug(b/185897624).
+    In (ag/14971042) we reworked the logic to register for session callback,
+    it still ran into the race condition(b/165012101) causing the bug(b/15160090)
+    But it was still fine to keep that logic since it's the recommended approach.
+    In current state(ag/15160090), we've now added Intent#ACTION_PACKAGE_ADDED receiver
+    as that's the latest possible callback.
+    */
     private void installPackage(
             File source,
             String packageName,
@@ -173,10 +183,10 @@ public class InstallPackageTask extends AbstractProvisioningTask {
         PackageInstaller pi = context.getPackageManager().getPackageInstaller();
         context.registerReceiver(
                 new PackageAddedReceiver(packageName),
-                createPackageAddedIntentFilter());
+                createPackageAddedIntentFilter(), Context.RECEIVER_EXPORTED/*UNAUDITED*/);
         pi.registerSessionCallback(sessionCallback);
-        int sessionId = pi.createSession(params);
-        try (PackageInstaller.Session session = pi.openSession(sessionId)) {
+        mSessionId  = pi.createSession(params);
+        try (PackageInstaller.Session session = pi.openSession(mSessionId)) {
             try (FileInputStream in = new FileInputStream(source);
                  OutputStream out = session.openWrite(source.getName(), 0, -1)) {
                 copyStream(in, out);
@@ -185,11 +195,11 @@ public class InstallPackageTask extends AbstractProvisioningTask {
                 throw e;
             }
 
-            String action = ACTION_INSTALL_DONE + sessionId;
+            String action = ACTION_INSTALL_DONE + mSessionId;
             PendingIntent pendingIntent = PendingIntent.getBroadcast(
                     context,
-                    sessionId,
-                    new Intent(action),
+                    mSessionId,
+                    new Intent(action).setPackage(context.getPackageName()),
                     FLAG_ONE_SHOT | FLAG_UPDATE_CURRENT | FLAG_MUTABLE);
             session.commit(pendingIntent.getIntentSender());
         }
@@ -258,6 +268,9 @@ public class InstallPackageTask extends AbstractProvisioningTask {
 
         @Override
         public void onFinished(int sessionId, boolean success) {
+            if (sessionId != mSessionId) {
+                return;
+            }
             PackageInstaller packageInstaller = mPm.getPackageInstaller();
             packageInstaller.unregisterSessionCallback(mSessionCallback);
             if (!success) {

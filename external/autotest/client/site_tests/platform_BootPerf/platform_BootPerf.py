@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2009 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -97,8 +98,8 @@ class platform_BootPerf(test.test):
 
     _UPTIME_PREFIX = 'uptime-'
     _DISK_PREFIX = 'disk-'
+    _FW_TIMESTAMPS = 'cbmem-timestamps'
 
-    _FIRMWARE_TIME_FILE = '/tmp/firmware-boot-time'
 
     _BOOTSTAT_ARCHIVE_GLOB = '/var/log/metrics/shutdown.[0-9]*'
     _UPTIME_FILE_GLOB = os.path.join('/tmp', _UPTIME_PREFIX + '*')
@@ -115,10 +116,6 @@ class platform_BootPerf(test.test):
                             glob.glob(self._DISK_FILE_GLOB))
         for fname in statlist:
             shutil.copy(fname, self.resultsdir)
-        try:
-            shutil.copy(self._FIRMWARE_TIME_FILE, self.resultsdir)
-        except Exception:
-            pass
 
     def _copy_console_ramoops(self):
         """Copy console_ramoops from previous reboot."""
@@ -129,6 +126,12 @@ class platform_BootPerf(test.test):
                 break
             except Exception:
                 pass
+
+    def _store_fw_timestamps(self):
+        """Store detailed firmware timestamps for debugging."""
+        with open(os.path.join(self.resultsdir, self._FW_TIMESTAMPS),
+                  'w') as f:
+            utils.run('cbmem -t', stdout_tee=f)
 
     def _parse_bootstat(self, filename, fieldnum, required=False):
         """Read values from a bootstat event file.
@@ -167,8 +170,8 @@ class platform_BootPerf(test.test):
                     logging.warning("Waited %d seconds for bootstat file: %s", cnt, filename)
 
             with open(filename) as statfile:
-                values = map(lambda l: float(l.split()[fieldnum]),
-                             statfile.readlines())
+                values = list(map(lambda l: float(l.split()[fieldnum]),
+                             statfile.readlines()))
             return values
         except IOError:
             raise error.TestFail('Failed to read bootstat file "%s"' %
@@ -212,29 +215,19 @@ class platform_BootPerf(test.test):
     def _gather_firmware_boot_time(self, results):
         """Read and report firmware startup time.
 
-        send-boot-metrics.cong writes the firmware startup time to the
-        file named in `_FIRMWARE_TIME_FILE`.  Read the time and record
-        it in `results` as the keyval seconds_power_on_to_kernel.
+        `cbmem -t` reports firmware boot time with format of
+        'Total Time: {comma separated microseconds}'. Read the time
+        and record it in `results` as the keyval
+        seconds_power_on_to_kernel.
 
         @param results  Keyvals dictionary.
 
         """
 
-        # crbug.com/1098635 - don't race with send-boot-metrics.conf
-        # TODO(grundler): directly read the firmware_time instead of depending
-        # on send-boot-metrics to create _FIRMWARE_TIME_FILE.
-        cnt = 1
-        while cnt < 60:
-            if  os.path.exists(self._FIRMWARE_TIME_FILE):
-                break
-            time.sleep(1)
-            cnt += 1
+        data = utils.system_output('cbmem -t | grep \'Total Time:\' |'
+                                   'awk \'{print $NF}\'')
+        firmware_time = round(float(data.replace(',', '')) / (1000 * 1000), 2)
 
-        # If the firmware boot time is not available, the file
-        # will not exist and we should throw an exception here.
-        data = utils.read_one_line(self._FIRMWARE_TIME_FILE)
-
-        firmware_time = float(data)
         boot_time = results['seconds_kernel_to_login']
         results['seconds_power_on_to_kernel'] = firmware_time
         results['seconds_power_on_to_login'] = (
@@ -459,6 +452,7 @@ class platform_BootPerf(test.test):
 
         self._copy_timestamp_files()
         self._copy_console_ramoops()
+        self._store_fw_timestamps()
 
         self.write_perf_keyval(results)
 

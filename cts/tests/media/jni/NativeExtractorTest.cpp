@@ -63,7 +63,7 @@ static void inline setSampleInfo(AMediaExtractor* extractor, AMediaCodecBufferIn
 }
 
 static bool isMediaSimilar(AMediaExtractor* refExtractor, AMediaExtractor* testExtractor,
-                           const char* mime, int sampleLimit = INT32_MAX) {
+                           const char* mediaType, int sampleLimit = INT32_MAX) {
     const int maxSampleSize = (4 * 1024 * 1024);
     auto refBuffer = new uint8_t[maxSampleSize];
     auto testBuffer = new uint8_t[maxSampleSize];
@@ -71,9 +71,9 @@ static bool isMediaSimilar(AMediaExtractor* refExtractor, AMediaExtractor* testE
     for (size_t refTrackID = 0; refTrackID < AMediaExtractor_getTrackCount(refExtractor);
          refTrackID++) {
         AMediaFormat* refFormat = AMediaExtractor_getTrackFormat(refExtractor, refTrackID);
-        const char* refMime = nullptr;
-        bool hasKey = AMediaFormat_getString(refFormat, AMEDIAFORMAT_KEY_MIME, &refMime);
-        if (!hasKey || (mime != nullptr && strcmp(refMime, mime) != 0)) {
+        const char* refMediaType = nullptr;
+        bool hasKey = AMediaFormat_getString(refFormat, AMEDIAFORMAT_KEY_MIME, &refMediaType);
+        if (!hasKey || (mediaType != nullptr && strcmp(refMediaType, mediaType) != 0)) {
             AMediaFormat_delete(refFormat);
             continue;
         }
@@ -93,7 +93,7 @@ static bool isMediaSimilar(AMediaExtractor* refExtractor, AMediaExtractor* testE
                 setSampleInfo(refExtractor, &refSampleInfo);
                 setSampleInfo(testExtractor, &testSampleInfo);
                 if (!isSampleInfoValidAndIdentical(&refSampleInfo, &testSampleInfo)) {
-                    ALOGD(" Mime: %s mismatch for sample: %d", mime, frameCount);
+                    ALOGD(" MediaType: %s mismatch for sample: %d", refMediaType, frameCount);
                     ALOGD(" flags exp/got: %d / %d", refSampleInfo.flags, testSampleInfo.flags);
                     ALOGD(" size exp/got: %d / %d ", refSampleInfo.size, testSampleInfo.size);
                     ALOGD(" ts exp/got: %" PRId64 " / %" PRId64 "",
@@ -104,53 +104,57 @@ static bool isMediaSimilar(AMediaExtractor* refExtractor, AMediaExtractor* testE
                 ssize_t refSz =
                         AMediaExtractor_readSampleData(refExtractor, refBuffer, maxSampleSize);
                 if (refSz != refSampleInfo.size) {
-                    ALOGD("Mime: %s Size exp/got:  %d / %zd ", mime, refSampleInfo.size, refSz);
+                    ALOGD("MediaType: %s Size exp/got:  %d / %zd ", mediaType, refSampleInfo.size,
+                          refSz);
                     areTracksIdentical = false;
                     break;
                 }
                 ssize_t testSz =
                         AMediaExtractor_readSampleData(testExtractor, testBuffer, maxSampleSize);
                 if (testSz != testSampleInfo.size) {
-                    ALOGD("Mime: %s Size exp/got:  %d / %zd ", mime, testSampleInfo.size, testSz);
+                    ALOGD("MediaType: %s Size exp/got:  %d / %zd ", mediaType, testSampleInfo.size,
+                          testSz);
                     areTracksIdentical = false;
                     break;
                 }
                 int trackIndex = AMediaExtractor_getSampleTrackIndex(refExtractor);
                 if (trackIndex != refTrackID) {
-                    ALOGD("Mime: %s TrackID exp/got: %zu / %d", mime, refTrackID, trackIndex);
+                    ALOGD("MediaType: %s TrackID exp/got: %zu / %d", mediaType, refTrackID,
+                          trackIndex);
                     areTracksIdentical = false;
                     break;
                 }
                 trackIndex = AMediaExtractor_getSampleTrackIndex(testExtractor);
                 if (trackIndex != testTrackID) {
-                    ALOGD("Mime: %s  TrackID exp/got %zd / %d : ", mime, testTrackID, trackIndex);
+                    ALOGD("MediaType: %s  TrackID exp/got %zd / %d : ", mediaType, testTrackID,
+                          trackIndex);
                     areTracksIdentical = false;
                     break;
                 }
                 if (memcmp(refBuffer, testBuffer, refSz)) {
-                    ALOGD("Mime: %s Mismatch in sample data", mime);
+                    ALOGD("MediaType: %s Mismatch in sample data", mediaType);
                     areTracksIdentical = false;
                     break;
                 }
                 bool haveRefSamples = AMediaExtractor_advance(refExtractor);
                 bool haveTestSamples = AMediaExtractor_advance(testExtractor);
                 if (haveRefSamples != haveTestSamples) {
-                    ALOGD("Mime: %s Mismatch in sampleCount", mime);
+                    ALOGD("MediaType: %s Mismatch in sampleCount", mediaType);
                     areTracksIdentical = false;
                     break;
                 }
 
                 if (!haveRefSamples && !isExtractorOKonEOS(refExtractor)) {
-                    ALOGD("Mime: %s calls post advance() are not OK", mime);
+                    ALOGD("MediaType: %s calls post advance() are not OK", mediaType);
                     areTracksIdentical = false;
                     break;
                 }
                 if (!haveTestSamples && !isExtractorOKonEOS(testExtractor)) {
-                    ALOGD("Mime: %s calls post advance() are not OK", mime);
+                    ALOGD("MediaType: %s calls post advance() are not OK", mediaType);
                     areTracksIdentical = false;
                     break;
                 }
-                ALOGV("Mime: %s Sample: %d flags: %d size: %d ts: % " PRId64 "", mime,
+                ALOGV("MediaType: %s Sample: %d flags: %d size: %d ts: % " PRId64 "", mediaType,
                       frameCount, refSampleInfo.flags, refSampleInfo.size,
                       refSampleInfo.presentationTimeUs);
                 if (!haveRefSamples || frameCount >= sampleLimit) {
@@ -166,11 +170,11 @@ static bool isMediaSimilar(AMediaExtractor* refExtractor, AMediaExtractor* testE
             }
         }
         AMediaFormat_delete(refFormat);
-        if (mime != nullptr && noOfTracksMatched > 0) break;
+        if (mediaType != nullptr && noOfTracksMatched > 0) break;
     }
     delete[] refBuffer;
     delete[] testBuffer;
-    if (mime == nullptr) {
+    if (mediaType == nullptr) {
         return noOfTracksMatched == AMediaExtractor_getTrackCount(refExtractor);
     } else {
         return noOfTracksMatched > 0;
@@ -256,9 +260,9 @@ class SeekTestParams {
 };
 
 static std::vector<AMediaCodecBufferInfo*> getSeekablePoints(const char* srcFile,
-                                                             const char* mime) {
+                                                             const char* mediaType) {
     std::vector<AMediaCodecBufferInfo*> bookmarks;
-    if (mime == nullptr) return bookmarks;
+    if (mediaType == nullptr) return bookmarks;
     FILE* srcFp = fopen(srcFile, "rbe");
     if (!srcFp) {
         ALOGE("fopen failed for srcFile %s", srcFile);
@@ -273,9 +277,9 @@ static std::vector<AMediaCodecBufferInfo*> getSeekablePoints(const char* srcFile
 
     for (size_t trackID = 0; trackID < AMediaExtractor_getTrackCount(extractor); trackID++) {
         AMediaFormat* format = AMediaExtractor_getTrackFormat(extractor, trackID);
-        const char* currMime = nullptr;
-        bool hasKey = AMediaFormat_getString(format, AMEDIAFORMAT_KEY_MIME, &currMime);
-        if (!hasKey || strcmp(currMime, mime) != 0) {
+        const char* currMediaType = nullptr;
+        bool hasKey = AMediaFormat_getString(format, AMEDIAFORMAT_KEY_MIME, &currMediaType);
+        if (!hasKey || strcmp(currMediaType, mediaType) != 0) {
             AMediaFormat_delete(format);
             continue;
         }
@@ -299,10 +303,10 @@ static std::vector<AMediaCodecBufferInfo*> getSeekablePoints(const char* srcFile
 
 static constexpr unsigned kSeed = 0x7ab7;
 
-static std::vector<SeekTestParams*> generateSeekTestArgs(const char* srcFile, const char* mime,
+static std::vector<SeekTestParams*> generateSeekTestArgs(const char* srcFile, const char* mediaType,
                                                          bool isRandom) {
     std::vector<SeekTestParams*> testArgs;
-    if (mime == nullptr) return testArgs;
+    if (mediaType == nullptr) return testArgs;
     const int MAX_SEEK_POINTS = 7;
     std::srand(kSeed);
     if (isRandom) {
@@ -321,9 +325,9 @@ static std::vector<SeekTestParams*> generateSeekTestArgs(const char* srcFile, co
         const int64_t maxEstDuration = 4000000;
         for (size_t trackID = 0; trackID < AMediaExtractor_getTrackCount(extractor); trackID++) {
             AMediaFormat* format = AMediaExtractor_getTrackFormat(extractor, trackID);
-            const char* currMime = nullptr;
-            bool hasKey = AMediaFormat_getString(format, AMEDIAFORMAT_KEY_MIME, &currMime);
-            if (!hasKey || strcmp(currMime, mime) != 0) {
+            const char* currMediaType = nullptr;
+            bool hasKey = AMediaFormat_getString(format, AMEDIAFORMAT_KEY_MIME, &currMediaType);
+            if (!hasKey || strcmp(currMediaType, mediaType) != 0) {
                 AMediaFormat_delete(format);
                 continue;
             }
@@ -347,7 +351,7 @@ static std::vector<SeekTestParams*> generateSeekTestArgs(const char* srcFile, co
         AMediaExtractor_delete(extractor);
         if (srcFp) fclose(srcFp);
     } else {
-        std::vector<AMediaCodecBufferInfo*> bookmarks = getSeekablePoints(srcFile, mime);
+        std::vector<AMediaCodecBufferInfo*> bookmarks = getSeekablePoints(srcFile, mediaType);
         if (bookmarks.empty()) return testArgs;
         int size = bookmarks.size();
         int* indices;
@@ -406,7 +410,7 @@ static std::vector<SeekTestParams*> generateSeekTestArgs(const char* srcFile, co
     return testArgs;
 }
 
-static int checkSeekPoints(const char* srcFile, const char* mime,
+static int checkSeekPoints(const char* srcFile, const char* mediaType,
                            const std::vector<SeekTestParams*>& seekTestArgs) {
     int errCnt = 0;
     FILE* srcFp = fopen(srcFile, "rbe");
@@ -418,9 +422,9 @@ static int checkSeekPoints(const char* srcFile, const char* mime,
     }
     for (size_t trackID = 0; trackID < AMediaExtractor_getTrackCount(extractor); trackID++) {
         AMediaFormat* format = AMediaExtractor_getTrackFormat(extractor, trackID);
-        const char* currMime = nullptr;
-        bool hasKey = AMediaFormat_getString(format, AMEDIAFORMAT_KEY_MIME, &currMime);
-        if (!hasKey || strcmp(currMime, mime) != 0) {
+        const char* currMediaType = nullptr;
+        bool hasKey = AMediaFormat_getString(format, AMEDIAFORMAT_KEY_MIME, &currMediaType);
+        if (!hasKey || strcmp(currMediaType, mediaType) != 0) {
             AMediaFormat_delete(format);
             continue;
         }
@@ -452,14 +456,16 @@ static bool isFileFormatIdentical(AMediaExtractor* refExtractor, AMediaExtractor
         AMediaFormat* refFormat = AMediaExtractor_getFileFormat(refExtractor);
         AMediaFormat* testFormat = AMediaExtractor_getFileFormat(testExtractor);
         if (refFormat && testFormat) {
-            const char *refMime = nullptr, *testMime = nullptr;
-            bool hasRefKey = AMediaFormat_getString(refFormat, AMEDIAFORMAT_KEY_MIME, &refMime);
-            bool hasTestKey = AMediaFormat_getString(testFormat, AMEDIAFORMAT_KEY_MIME, &testMime);
+            const char *refMediaType = nullptr, *testMediaType = nullptr;
+            bool hasRefKey =
+                    AMediaFormat_getString(refFormat, AMEDIAFORMAT_KEY_MIME, &refMediaType);
+            bool hasTestKey =
+                    AMediaFormat_getString(testFormat, AMEDIAFORMAT_KEY_MIME, &testMediaType);
             /* TODO: Not Sure if we need to verify any other parameter of file format */
-            if (hasRefKey && hasTestKey && strcmp(refMime, testMime) == 0) {
+            if (hasRefKey && hasTestKey && strcmp(refMediaType, testMediaType) == 0) {
                 result = true;
             } else {
-                ALOGE("file format exp/got : %s/%s", refMime, testMime);
+                ALOGE("file format exp/got : %s/%s", refMediaType, testMediaType);
             }
         }
         if (refFormat) AMediaFormat_delete(refFormat);
@@ -507,14 +513,14 @@ static bool isSeekOk(AMediaExtractor* refExtractor, AMediaExtractor* testExtract
     return result;
 }
 
-static jlong nativeReadAllData(JNIEnv* env, jobject, jstring jsrcPath, jstring jmime,
+static jlong nativeReadAllData(JNIEnv* env, jobject, jstring jsrcPath, jstring jMediaType,
                                jint sampleLimit, jobjectArray jkeys, jobjectArray jvalues,
                                jboolean isSrcUrl) {
     const int maxSampleSize = (4 * 1024 * 1024);
     bool isPass = true;
     uLong crc32value = 0U;
     const char* csrcPath = env->GetStringUTFChars(jsrcPath, nullptr);
-    const char* cmime = env->GetStringUTFChars(jmime, nullptr);
+    const char* cMediaType = env->GetStringUTFChars(jMediaType, nullptr);
     AMediaExtractor* extractor = nullptr;
     AMediaDataSource* dataSource = nullptr;
     FILE* srcFp = nullptr;
@@ -530,7 +536,7 @@ static jlong nativeReadAllData(JNIEnv* env, jobject, jstring jsrcPath, jstring j
         }
     }
     if (!isPass) {
-        env->ReleaseStringUTFChars(jmime, cmime);
+        env->ReleaseStringUTFChars(jMediaType, cMediaType);
         env->ReleaseStringUTFChars(jsrcPath, csrcPath);
         ALOGE("Error while creating extractor");
         if (dataSource) AMediaDataSource_delete(dataSource);
@@ -543,15 +549,16 @@ static jlong nativeReadAllData(JNIEnv* env, jobject, jstring jsrcPath, jstring j
     for (size_t trackID = 0; trackID < AMediaExtractor_getTrackCount(extractor) && isPass;
          trackID++) {
         AMediaFormat* format = AMediaExtractor_getTrackFormat(extractor, trackID);
-        const char* refMime = nullptr;
-        CHECK_KEY(AMediaFormat_getString(format, AMEDIAFORMAT_KEY_MIME, &refMime), format, isPass);
-        if (strlen(cmime) != 0 && strcmp(refMime, cmime) != 0) {
+        const char* refMediaType = nullptr;
+        CHECK_KEY(AMediaFormat_getString(format, AMEDIAFORMAT_KEY_MIME, &refMediaType), format,
+                  isPass);
+        if (strlen(cMediaType) != 0 && strcmp(refMediaType, cMediaType) != 0) {
             AMediaFormat_delete(format);
             continue;
         }
         AMediaExtractor_selectTrack(extractor, trackID);
         tracksSelected++;
-        if (strncmp(refMime, "audio/", strlen("audio/")) == 0) {
+        if (strncmp(refMediaType, "audio/", strlen("audio/")) == 0) {
             int32_t refSampleRate, refNumChannels;
             flattenField<int32_t>(buffer, &bufferSize, 0);
             CHECK_KEY(AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_SAMPLE_RATE, &refSampleRate),
@@ -561,7 +568,7 @@ static jlong nativeReadAllData(JNIEnv* env, jobject, jstring jsrcPath, jstring j
                     AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_CHANNEL_COUNT, &refNumChannels),
                     format, isPass);
             flattenField<int32_t>(buffer, &bufferSize, refNumChannels);
-        } else if (strncmp(refMime, "video/", strlen("video/")) == 0) {
+        } else if (strncmp(refMediaType, "video/", strlen("video/")) == 0) {
             int32_t refWidth, refHeight;
             flattenField<int32_t>(buffer, &bufferSize, 1);
             CHECK_KEY(AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_WIDTH, &refWidth), format,
@@ -623,7 +630,7 @@ static jlong nativeReadAllData(JNIEnv* env, jobject, jstring jsrcPath, jstring j
         if (!AMediaExtractor_advance(extractor)) {
             if (!isExtractorOKonEOS(extractor)) {
                 isPass = false;
-                ALOGE("Mime: %s calls post advance() are not OK", cmime);
+                ALOGE("Media Type: %s calls post advance() are not OK", cMediaType);
             }
             break;
         }
@@ -632,7 +639,7 @@ static jlong nativeReadAllData(JNIEnv* env, jobject, jstring jsrcPath, jstring j
     if (extractor) AMediaExtractor_delete(extractor);
     if (dataSource) AMediaDataSource_delete(dataSource);
     if (srcFp) fclose(srcFp);
-    env->ReleaseStringUTFChars(jmime, cmime);
+    env->ReleaseStringUTFChars(jMediaType, cMediaType);
     env->ReleaseStringUTFChars(jsrcPath, csrcPath);
     if (!isPass) {
         ALOGE(" Error while extracting");
@@ -642,17 +649,17 @@ static jlong nativeReadAllData(JNIEnv* env, jobject, jstring jsrcPath, jstring j
 }
 
 static jboolean nativeTestExtract(JNIEnv* env, jobject, jstring jsrcPath, jstring jrefPath,
-                                  jstring jmime) {
+                                  jstring jMediaType) {
     bool isPass = false;
     const char* csrcPath = env->GetStringUTFChars(jsrcPath, nullptr);
     const char* ctestPath = env->GetStringUTFChars(jrefPath, nullptr);
-    const char* cmime = env->GetStringUTFChars(jmime, nullptr);
+    const char* cMediaType = env->GetStringUTFChars(jMediaType, nullptr);
     FILE* srcFp = fopen(csrcPath, "rbe");
     AMediaExtractor* srcExtractor = createExtractorFromFD(srcFp);
     FILE* testFp = fopen(ctestPath, "rbe");
     AMediaExtractor* testExtractor = createExtractorFromFD(testFp);
     if (srcExtractor && testExtractor) {
-        isPass = isMediaSimilar(srcExtractor, testExtractor, cmime);
+        isPass = isMediaSimilar(srcExtractor, testExtractor, cMediaType);
         if (!isPass) {
             ALOGE(" Src and test are different from extractor perspective");
         }
@@ -661,20 +668,20 @@ static jboolean nativeTestExtract(JNIEnv* env, jobject, jstring jsrcPath, jstrin
     }
     if (srcFp) fclose(srcFp);
     if (testFp) fclose(testFp);
-    env->ReleaseStringUTFChars(jmime, cmime);
+    env->ReleaseStringUTFChars(jMediaType, cMediaType);
     env->ReleaseStringUTFChars(jsrcPath, csrcPath);
     env->ReleaseStringUTFChars(jrefPath, ctestPath);
     return static_cast<jboolean>(isPass);
 }
 
-static jboolean nativeTestSeek(JNIEnv* env, jobject, jstring jsrcPath, jstring jmime) {
+static jboolean nativeTestSeek(JNIEnv* env, jobject, jstring jsrcPath, jstring jMediaType) {
     bool isPass = false;
     const char* csrcPath = env->GetStringUTFChars(jsrcPath, nullptr);
-    const char* cmime = env->GetStringUTFChars(jmime, nullptr);
-    std::vector<SeekTestParams*> seekTestArgs = generateSeekTestArgs(csrcPath, cmime, false);
+    const char* cMediaType = env->GetStringUTFChars(jMediaType, nullptr);
+    std::vector<SeekTestParams*> seekTestArgs = generateSeekTestArgs(csrcPath, cMediaType, false);
     if (!seekTestArgs.empty()) {
         std::shuffle(seekTestArgs.begin(), seekTestArgs.end(), std::default_random_engine(kSeed));
-        int seekAccErrCnt = checkSeekPoints(csrcPath, cmime, seekTestArgs);
+        int seekAccErrCnt = checkSeekPoints(csrcPath, cMediaType, seekTestArgs);
         if (seekAccErrCnt != 0) {
             ALOGE("For %s seek chose inaccurate Sync point in: %d / %zu", csrcPath, seekAccErrCnt,
                   seekTestArgs.size());
@@ -689,19 +696,20 @@ static jboolean nativeTestSeek(JNIEnv* env, jobject, jstring jsrcPath, jstring j
     } else {
         ALOGE("No sync samples found.");
     }
-    env->ReleaseStringUTFChars(jmime, cmime);
+    env->ReleaseStringUTFChars(jMediaType, cMediaType);
     env->ReleaseStringUTFChars(jsrcPath, csrcPath);
     return static_cast<jboolean>(isPass);
 }
 
-static jboolean nativeTestSeekFlakiness(JNIEnv* env, jobject, jstring jsrcPath, jstring jmime) {
+static jboolean nativeTestSeekFlakiness(JNIEnv* env, jobject, jstring jsrcPath,
+                                        jstring jMediaType) {
     bool isPass = false;
     const char* csrcPath = env->GetStringUTFChars(jsrcPath, nullptr);
-    const char* cmime = env->GetStringUTFChars(jmime, nullptr);
-    std::vector<SeekTestParams*> seekTestArgs = generateSeekTestArgs(csrcPath, cmime, true);
+    const char* cMediaType = env->GetStringUTFChars(jMediaType, nullptr);
+    std::vector<SeekTestParams*> seekTestArgs = generateSeekTestArgs(csrcPath, cMediaType, true);
     if (!seekTestArgs.empty()) {
         std::shuffle(seekTestArgs.begin(), seekTestArgs.end(), std::default_random_engine(kSeed));
-        int flakyErrCnt = checkSeekPoints(csrcPath, cmime, seekTestArgs);
+        int flakyErrCnt = checkSeekPoints(csrcPath, cMediaType, seekTestArgs);
         if (flakyErrCnt != 0) {
             ALOGE("No. of Samples where seek showed flakiness is: %d", flakyErrCnt);
             isPass = false;
@@ -715,15 +723,15 @@ static jboolean nativeTestSeekFlakiness(JNIEnv* env, jobject, jstring jsrcPath, 
     } else {
         ALOGE("No sync samples found.");
     }
-    env->ReleaseStringUTFChars(jmime, cmime);
+    env->ReleaseStringUTFChars(jMediaType, cMediaType);
     env->ReleaseStringUTFChars(jsrcPath, csrcPath);
     return static_cast<jboolean>(isPass);
 }
 
-static jboolean nativeTestSeekToZero(JNIEnv* env, jobject, jstring jsrcPath, jstring jmime) {
+static jboolean nativeTestSeekToZero(JNIEnv* env, jobject, jstring jsrcPath, jstring jMediaType) {
     bool isPass = false;
     const char* csrcPath = env->GetStringUTFChars(jsrcPath, nullptr);
-    const char* cmime = env->GetStringUTFChars(jmime, nullptr);
+    const char* cMediaType = env->GetStringUTFChars(jMediaType, nullptr);
     FILE* srcFp = fopen(csrcPath, "rbe");
     AMediaExtractor* extractor = createExtractorFromFD(srcFp);
     if (extractor) {
@@ -733,9 +741,9 @@ static jboolean nativeTestSeekToZero(JNIEnv* env, jobject, jstring jsrcPath, jst
         for (size_t trackID = 0; trackID < AMediaExtractor_getTrackCount(extractor); trackID++) {
             AMediaFormat* format = AMediaExtractor_getTrackFormat(extractor, trackID);
             if (format) {
-                const char* currMime = nullptr;
-                bool hasKey = AMediaFormat_getString(format, AMEDIAFORMAT_KEY_MIME, &currMime);
-                if (!hasKey || strcmp(currMime, cmime) != 0) {
+                const char* currMediaType = nullptr;
+                bool hasKey = AMediaFormat_getString(format, AMEDIAFORMAT_KEY_MIME, &currMediaType);
+                if (!hasKey || strcmp(currMediaType, cMediaType) != 0) {
                     AMediaFormat_delete(format);
                     continue;
                 }
@@ -773,7 +781,7 @@ static jboolean nativeTestSeekToZero(JNIEnv* env, jobject, jstring jsrcPath, jst
         AMediaExtractor_delete(extractor);
     }
     if (srcFp) fclose(srcFp);
-    env->ReleaseStringUTFChars(jmime, cmime);
+    env->ReleaseStringUTFChars(jMediaType, cMediaType);
     env->ReleaseStringUTFChars(jsrcPath, csrcPath);
     return static_cast<jboolean>(isPass);
 }
@@ -785,10 +793,10 @@ static jboolean nativeTestFileFormat(JNIEnv* env, jobject, jstring jsrcPath) {
     AMediaExtractor* extractor = createExtractorFromFD(srcFp);
     if (extractor) {
         AMediaFormat* format = AMediaExtractor_getFileFormat(extractor);
-        const char* mime = nullptr;
-        bool hasKey = AMediaFormat_getString(format, AMEDIAFORMAT_KEY_MIME, &mime);
+        const char* mediaType = nullptr;
+        bool hasKey = AMediaFormat_getString(format, AMEDIAFORMAT_KEY_MIME, &mediaType);
         /* TODO: Not Sure if we need to verify any other parameter of file format */
-        if (hasKey && mime && strlen(mime) > 0) {
+        if (hasKey && mediaType && strlen(mediaType) > 0) {
             isPass = true;
         }
         AMediaFormat_delete(format);

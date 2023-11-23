@@ -31,14 +31,14 @@ class firmware_PDResetHard(FirmwareTest):
         @param port_pair: list of 2 connected PD devices
         """
         for dev in port_pair:
-            for _ in xrange(self.RESET_ITERATIONS):
+            for _ in range(self.RESET_ITERATIONS):
                 try:
                     time.sleep(self.PD_CONNECT_DELAY)
                     if dev.hard_reset() == False:
                         raise error.TestFail('Hard Reset Failed')
                     time.sleep(self.DELAY_BETWEEN_ITERATIONS)
                 except NotImplementedError:
-                    logging.warn('Device cant hard reset ... skipping')
+                    logging.warning('Device cant hard reset ... skipping')
                     break
 
     def initialize(self, host, cmdline_args, flip_cc=False, dts_mode=False,
@@ -92,7 +92,7 @@ class firmware_PDResetHard(FirmwareTest):
                     swappable_dev = dev
                     break
             except NotImplementedError:
-                logging.warn('Power role swap not supported on the device')
+                logging.warning('Power role swap not supported on the device')
 
         if swappable_dev:
             try:
@@ -103,5 +103,5 @@ class firmware_PDResetHard(FirmwareTest):
                 if not swappable_dev.pr_swap():
                     logging.error('Failed to swap power role to the original')
         else:
-            logging.warn('Device pair could not perform power role swap, '
+            logging.warning('Device pair could not perform power role swap, '
                          'ending test')

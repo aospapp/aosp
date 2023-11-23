@@ -1,33 +1,33 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2020 Viresh Kumar <viresh.kumar@linaro.org>
+ */
+
+/*\
+ * [Description]
  *
- * Description:
  * Basic pidfd_open() test:
- * 1) Fetch the PID of the current process and try to get its file descriptor.
- * 2) Check that the close-on-exec flag is set on the file descriptor.
+ *
+ * - Fetch the PID of the current process and try to get its file descriptor.
+ * - Check that the close-on-exec flag is set on the file descriptor.
  */
 
 #include <unistd.h>
-#include <fcntl.h>
 #include "tst_test.h"
-#include "lapi/pidfd_open.h"
+#include "lapi/pidfd.h"
+
+static int pidfd = -1;
 
 static void run(void)
 {
 	int flag;
 
-	TEST(pidfd_open(getpid(), 0));
+	TST_EXP_FD_SILENT(pidfd_open(getpid(), 0), "pidfd_open(getpid(), 0)");
 
-	if (TST_RET == -1)
-		tst_brk(TFAIL | TTERRNO, "pidfd_open(getpid(), 0) failed");
+	pidfd = TST_RET;
+	flag = SAFE_FCNTL(pidfd, F_GETFD);
 
-	flag = fcntl(TST_RET, F_GETFD);
-
-	SAFE_CLOSE(TST_RET);
-
-	if (flag == -1)
-		tst_brk(TFAIL | TERRNO, "fcntl(F_GETFD) failed");
+	SAFE_CLOSE(pidfd);
 
 	if (!(flag & FD_CLOEXEC))
 		tst_brk(TFAIL, "pidfd_open(getpid(), 0) didn't set close-on-exec flag");
@@ -35,7 +35,14 @@ static void run(void)
 	tst_res(TPASS, "pidfd_open(getpid(), 0) passed");
 }
 
+static void cleanup(void)
+{
+	if (pidfd > -1)
+		SAFE_CLOSE(pidfd);
+}
+
 static struct tst_test test = {
-	.min_kver = "5.3",
+	.setup = pidfd_open_supported,
+	.cleanup = cleanup,
 	.test_all = run,
 };

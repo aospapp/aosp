@@ -13,6 +13,7 @@ TEST_CLASS = "enterprise"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING"
 ATTRIBUTES = "suite:wilco_bve"
+PY_VERSION = 3
 
 DOC = """
 This test verifies the USB power output when the device is off with the

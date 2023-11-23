@@ -2,7 +2,8 @@ pub type shmatt_t = ::c_ulong;
 pub type msgqnum_t = ::c_ulong;
 pub type msglen_t = ::c_ulong;
 pub type regoff_t = ::c_int;
-pub type __rlimit_resource_t = ::c_uint;
+pub type rlim_t = ::c_ulong;
+pub type __rlimit_resource_t = ::c_ulong;
 pub type __priority_which_t = ::c_uint;
 
 cfg_if! {
@@ -80,6 +81,32 @@ s! {
     }
 }
 
+impl siginfo_t {
+    pub unsafe fn si_addr(&self) -> *mut ::c_void {
+        #[repr(C)]
+        struct siginfo_sigfault {
+            _si_signo: ::c_int,
+            _si_errno: ::c_int,
+            _si_code: ::c_int,
+            si_addr: *mut ::c_void,
+        }
+        (*(self as *const siginfo_t as *const siginfo_sigfault)).si_addr
+    }
+
+    pub unsafe fn si_value(&self) -> ::sigval {
+        #[repr(C)]
+        struct siginfo_si_value {
+            _si_signo: ::c_int,
+            _si_errno: ::c_int,
+            _si_code: ::c_int,
+            _si_timerid: ::c_int,
+            _si_overrun: ::c_int,
+            si_value: ::sigval,
+        }
+        (*(self as *const siginfo_t as *const siginfo_si_value)).si_value
+    }
+}
+
 pub const MCL_CURRENT: ::c_int = 0x0001;
 pub const MCL_FUTURE: ::c_int = 0x0002;
 
@@ -124,17 +151,6 @@ pub const PTRACE_LISTEN: ::c_int = 0x4208;
 
 pub const POSIX_FADV_DONTNEED: ::c_int = 4;
 pub const POSIX_FADV_NOREUSE: ::c_int = 5;
-
-pub const RLIMIT_CPU: ::c_int = 0;
-pub const RLIMIT_FSIZE: ::c_int = 1;
-pub const RLIMIT_DATA: ::c_int = 2;
-pub const RLIMIT_STACK: ::c_int = 3;
-pub const RLIMIT_CORE: ::c_int = 4;
-pub const RLIMIT_LOCKS: ::c_int = 10;
-pub const RLIMIT_SIGPENDING: ::c_int = 11;
-pub const RLIMIT_MSGQUEUE: ::c_int = 12;
-pub const RLIMIT_NICE: ::c_int = 13;
-pub const RLIMIT_RTPRIO: ::c_int = 14;
 
 // These are different than GNU!
 pub const LC_CTYPE: ::c_int = 0;
@@ -219,6 +235,8 @@ pub const PRIO_PROCESS: ::c_int = 0;
 pub const PRIO_PGRP: ::c_int = 1;
 pub const PRIO_USER: ::c_int = 2;
 
+pub const SOMAXCONN: ::c_int = 128;
+
 pub const ST_RELATIME: ::c_ulong = 4096;
 
 pub const AF_NFC: ::c_int = PF_NFC;
@@ -265,13 +283,6 @@ pub const PF_VSOCK: ::c_int = 40;
 pub const POSIX_MADV_DONTNEED: ::c_int = 4;
 pub const PTRACE_EVENT_STOP: ::c_int = 128;
 pub const PTRACE_PEEKSIGINFO: ::c_int = 0x4209;
-pub const RLIMIT_AS: ::c_int = 9;
-pub const RLIMIT_MEMLOCK: ::c_int = 8;
-pub const RLIMIT_NLIMITS: ::c_int = 15;
-pub const RLIMIT_NOFILE: ::c_int = 7;
-pub const RLIMIT_NPROC: ::c_int = 6;
-pub const RLIMIT_RSS: ::c_int = 5;
-pub const RLIMIT_RTTIME: ::c_int = 15;
 pub const RTLD_NOLOAD: ::c_int = 0x00004;
 pub const RUSAGE_THREAD: ::c_int = 1;
 pub const SHM_EXEC: ::c_int = 0100000;

@@ -16,8 +16,11 @@
 
 package android.server.wm.lifecycle;
 
+import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
+import static android.app.WindowConfiguration.WINDOWING_MODE_MULTI_WINDOW;
 import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP;
+import static android.content.Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT;
 import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_PREVIOUS_IS_TOP;
@@ -45,6 +48,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.ActivityLauncher;
+import android.server.wm.WaitForValidActivityState;
 import android.server.wm.app.Components;
 
 import org.junit.Test;
@@ -738,6 +742,53 @@ public class ActivityStarterTests extends ActivityLifecycleClientTestBase {
         // same app
         assertNotEquals("Affinity should not be same with the package name.",
                 RELINQUISHTASKIDENTITY_ACTIVITY.getPackageName(), affinity);
+    }
+
+    /**
+     * This test case tests behavior of activity with launch_adjacent and new_task. Ensure the flags
+     * make activity in multi-window mode.
+     */
+    @Test
+    public void testLaunchActivityWithLaunchAdjacentAndNewTask() {
+        assumeTrue("Skipping test: no split multi-window support",
+                supportsSplitScreenMultiWindow());
+
+        mTaskOrganizer.registerOrganizerIfNeeded();
+
+        // Launch activity with FLAG_ACTIVITY_NEW_TASK and FLAG_ACTIVITY_LAUNCH_ADJACENT.
+        launchAndAssertActivityWindowingMode(
+                FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_LAUNCH_ADJACENT,
+                WINDOWING_MODE_MULTI_WINDOW);
+    }
+
+    /**
+     * This test case tests behavior of activity with launch_adjacent. Ensure the flag is ignored
+     * if without new_task together.
+     */
+    @Test
+    public void testLaunchActivityWithLaunchAdjacent() {
+        assumeTrue("Skipping test: no split multi-window support",
+                supportsSplitScreenMultiWindow());
+
+        // Launch activity with FLAG_ACTIVITY_LAUNCH_ADJACENT only.
+        launchAndAssertActivityWindowingMode(FLAG_ACTIVITY_LAUNCH_ADJACENT,
+                WINDOWING_MODE_FULLSCREEN);
+    }
+
+    private void launchAndAssertActivityWindowingMode(int flags, int expectWindowingMode) {
+        getLaunchActivityBuilder()
+                .setTargetActivity(STANDARD_ACTIVITY)
+                .setIntentFlags(flags)
+                .setWindowingMode(WINDOWING_MODE_FULLSCREEN)
+                .execute();
+
+        // wait for the expected windowing mode
+        mWmState.waitForValidState(new WaitForValidActivityState.Builder(STANDARD_ACTIVITY)
+                .setWindowingMode(expectWindowingMode)
+                .build());
+
+        assertEquals(expectWindowingMode,
+                mWmState.getActivity(STANDARD_ACTIVITY).getWindowingMode());
     }
 
     // Test activity

@@ -5,6 +5,10 @@ CallbackInterface: android.car.hardware.property.CarPropertyManager.CarPropertyE
     Callbacks must be abstract class instead of interface to enable extension in future API levels: CarPropertyEventCallback
 
 
+CompileTimeConstant: android.car.Car#PLATFORM_VERSION_MINOR_INT:
+    All constants must be defined at compile time: android.car.Car#PLATFORM_VERSION_MINOR_INT
+
+
 ConcreteCollection: android.car.hardware.property.CarPropertyManager#getPropertyList(android.util.ArraySet<java.lang.Integer>) parameter #0:
     Parameter type is concrete collection (`android.util.ArraySet`); must be higher-level interface
 
@@ -33,6 +37,8 @@ ExecutorRegistration: android.car.media.CarAudioManager#registerCarVolumeCallbac
 
 IntentName: android.car.Car#CAR_EXTRA_BROWSE_SERVICE_FOR_SESSION:
     Intent extra constant name must be EXTRA_FOO: CAR_EXTRA_BROWSE_SERVICE_FOR_SESSION
+IntentName: android.car.Car#CAR_INTENT_ACTION_RECEIVER_SERVICE:
+    Intent action constant name must be ACTION_FOO: CAR_INTENT_ACTION_RECEIVER_SERVICE
 
 
 ListenerLast: android.car.CarAppFocusManager#abandonAppFocus(android.car.CarAppFocusManager.OnAppFocusOwnershipCallback, int) parameter #1:
@@ -183,7 +189,7 @@ StaticUtils: android.car.VehiclePropertyIds:
     Fully-static utility classes must not have constructor
 
 
-VisiblySynchronized: PsiThisExpression:this:
+VisiblySynchronized: PsiThisExpression:
     Internal locks must not be exposed (synchronizing on this or class is still externally observable): method android.car.CarAppFocusManager.addFocusListener(android.car.CarAppFocusManager.OnAppFocusChangedListener,int)
 VisiblySynchronized: android.car.CarAppFocusManager#abandonAppFocus(android.car.CarAppFocusManager.OnAppFocusOwnershipCallback):
     Internal locks must not be exposed (synchronizing on this or class is still externally observable): method android.car.CarAppFocusManager.abandonAppFocus(android.car.CarAppFocusManager.OnAppFocusOwnershipCallback)

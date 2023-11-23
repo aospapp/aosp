@@ -26,9 +26,9 @@
     <string name="configure_wallpaper" msgid="4308477548538487192">"Tetapan..."</string>
     <string name="delete_live_wallpaper" msgid="2401799265848069389">"Padam"</string>
     <string name="preview" msgid="1067744492020029129">"Pratonton"</string>
-    <string name="wallpaper_instructions" msgid="6112878742140691445">"Tetapkan kertas dinding"</string>
+    <string name="wallpaper_instructions" msgid="6112878742140691445">"Tetapkan hiasan latar"</string>
     <string name="live_wallpaper_empty" msgid="8057319062274870589">"Tiada kertas dinding langsung."</string>
-    <string name="set_live_wallpaper" msgid="764007409845174475">"Tetapkan kertas dinding"</string>
+    <string name="set_live_wallpaper" msgid="764007409845174475">"Tetapkan hiasan latar"</string>
     <string name="wallpaper_title_and_author" msgid="7606029050779779421">"<xliff:g id="TITLE">%1$s</xliff:g> oleh <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
     <string name="live_wallpaper_loading" msgid="7218845906181560315">"Memuatkan kertas dinding hidup..."</string>
     <string name="which_wallpaper_option_home_screen" msgid="3323619298489943624">"Skrin utama"</string>

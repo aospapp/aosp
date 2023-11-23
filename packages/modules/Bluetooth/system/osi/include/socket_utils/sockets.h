@@ -62,9 +62,8 @@ static inline int osi_android_get_control_socket(const char* name) {
 // Normal filesystem namespace
 #define ANDROID_SOCKET_NAMESPACE_FILESYSTEM 2
 
-extern int osi_socket_local_server(const char* name, int namespaceId, int type);
-extern int osi_socket_local_server_bind(int s, const char* name,
-                                        int namespaceId);
-extern int osi_socket_local_client_connect(int fd, const char* name,
-                                           int namespaceId, int type);
-extern int osi_socket_local_client(const char* name, int namespaceId, int type);
+int osi_socket_local_server(const char* name, int namespaceId, int type);
+int osi_socket_local_server_bind(int s, const char* name, int namespaceId);
+int osi_socket_local_client_connect(int fd, const char* name, int namespaceId,
+                                    int type);
+int osi_socket_local_client(const char* name, int namespaceId, int type);

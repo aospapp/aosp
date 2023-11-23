@@ -27,7 +27,6 @@ import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
 import android.system.StructStatVfs;
-import android.telephony.AccessNetworkConstants.TransportType;
 import android.text.TextUtils;
 
 import com.android.ims.ImsManager;
@@ -40,11 +39,9 @@ import com.android.internal.telephony.data.DataServiceManager;
 import com.android.internal.telephony.data.DataSettingsManager;
 import com.android.internal.telephony.data.LinkBandwidthEstimator;
 import com.android.internal.telephony.data.PhoneSwitcher;
-import com.android.internal.telephony.dataconnection.DataEnabledSettings;
-import com.android.internal.telephony.dataconnection.DcTracker;
-import com.android.internal.telephony.dataconnection.TransportManager;
 import com.android.internal.telephony.emergency.EmergencyNumberTracker;
 import com.android.internal.telephony.imsphone.ImsExternalCallTracker;
+import com.android.internal.telephony.imsphone.ImsNrSaModeHandler;
 import com.android.internal.telephony.imsphone.ImsPhone;
 import com.android.internal.telephony.imsphone.ImsPhoneCallTracker;
 import com.android.internal.telephony.nitz.NitzStateMachineImpl;
@@ -313,10 +310,6 @@ public class TelephonyComponentFactory {
         return new SimActivationTracker(phone);
     }
 
-    public DcTracker makeDcTracker(Phone phone, @TransportType int transportType) {
-        return new DcTracker(phone, transportType);
-    }
-
     public CarrierSignalAgent makeCarrierSignalAgent(Phone phone) {
         return new CarrierSignalAgent(phone);
     }
@@ -394,6 +387,14 @@ public class TelephonyComponentFactory {
     }
 
     /**
+     * Create an ImsNrSaModeHandler.
+     */
+    public ImsNrSaModeHandler makeImsNrSaModeHandler(ImsPhone imsPhone) {
+
+        return new ImsNrSaModeHandler(imsPhone, imsPhone.getLooper());
+    }
+
+    /**
      * Create an AppSmsManager for per-app SMS message.
      */
     public AppSmsManager makeAppSmsManager(Context context) {
@@ -402,10 +403,6 @@ public class TelephonyComponentFactory {
 
     public DeviceStateMonitor makeDeviceStateMonitor(Phone phone) {
         return new DeviceStateMonitor(phone);
-    }
-
-    public TransportManager makeTransportManager(Phone phone) {
-        return new TransportManager(phone);
     }
 
     /**
@@ -430,19 +427,11 @@ public class TelephonyComponentFactory {
         return new LocaleTracker(phone, nitzStateMachine, looper);
     }
 
-    public DataEnabledSettings makeDataEnabledSettings(Phone phone) {
-        return new DataEnabledSettings(phone);
-    }
-
     public Phone makePhone(Context context, CommandsInterface ci, PhoneNotifier notifier,
             int phoneId, int precisePhoneType,
             TelephonyComponentFactory telephonyComponentFactory) {
         return new GsmCdmaPhone(context, ci, notifier, phoneId, precisePhoneType,
                 telephonyComponentFactory);
-    }
-
-    public SubscriptionController initSubscriptionController(Context c) {
-        return SubscriptionController.init(c);
     }
 
     public PhoneSwitcher makePhoneSwitcher(int maxDataAttachModemCount, Context context,
@@ -457,9 +446,14 @@ public class TelephonyComponentFactory {
         return new DisplayInfoController(phone);
     }
 
-    public MultiSimSettingController initMultiSimSettingController(Context c,
-            SubscriptionController sc) {
-        return MultiSimSettingController.init(c, sc);
+    /**
+     * Initialize multi sim settings controller.
+     *
+     * @param c The context.
+     * @return The multi sim settings controller instance.
+     */
+    public MultiSimSettingController initMultiSimSettingController(Context c) {
+        return MultiSimSettingController.init(c);
     }
 
     /**
@@ -467,11 +461,6 @@ public class TelephonyComponentFactory {
      */
     public SignalStrengthController makeSignalStrengthController(GsmCdmaPhone phone) {
         return new SignalStrengthController(phone);
-    }
-
-    public SubscriptionInfoUpdater makeSubscriptionInfoUpdater(Looper looper, Context context,
-            SubscriptionController sc) {
-        return new SubscriptionInfoUpdater(looper, context, sc);
     }
 
     /**

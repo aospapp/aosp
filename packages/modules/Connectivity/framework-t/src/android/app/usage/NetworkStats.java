@@ -1,17 +1,17 @@
 /**
  * Copyright (C) 2015 The Android Open Source Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy
- * of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations
- * under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package android.app.usage;
@@ -36,11 +36,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 
 /**
- * Class providing enumeration over buckets of network usage statistics. {@link NetworkStats} objects
- * are returned as results to various queries in {@link NetworkStatsManager}.
+ * Class providing enumeration over buckets of network usage statistics. {@link NetworkStats}
+ * objects are returned as results to various queries in {@link NetworkStatsManager}.
  */
 public final class NetworkStats implements AutoCloseable {
-    private final static String TAG = "NetworkStats";
+    private static final String TAG = "NetworkStats";
 
     private final CloseGuard mCloseGuard = CloseGuard.get();
 
@@ -616,7 +616,7 @@ public final class NetworkStats implements AutoCloseable {
     /**
      * Steps to next uid in enumeration and collects history for that.
      */
-    private void stepHistory(){
+    private void stepHistory() {
         if (hasNextUid()) {
             stepUid();
             mHistory = null;
@@ -692,8 +692,8 @@ public final class NetworkStats implements AutoCloseable {
                 bucketOut.mMetered = Bucket.METERED_ALL;
                 bucketOut.mRoaming = Bucket.ROAMING_ALL;
                 bucketOut.mBeginTimeStamp = mRecycledHistoryEntry.bucketStart;
-                bucketOut.mEndTimeStamp = mRecycledHistoryEntry.bucketStart +
-                        mRecycledHistoryEntry.bucketDuration;
+                bucketOut.mEndTimeStamp = mRecycledHistoryEntry.bucketStart
+                        + mRecycledHistoryEntry.bucketDuration;
                 bucketOut.mRxBytes = mRecycledHistoryEntry.rxBytes;
                 bucketOut.mRxPackets = mRecycledHistoryEntry.rxPackets;
                 bucketOut.mTxBytes = mRecycledHistoryEntry.txBytes;

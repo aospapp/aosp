@@ -4,10 +4,9 @@
  *
  * See http://refspecs.linuxfoundation.org/LSB_4.1.0/LSB-Core-generic/LSB-Core-generic/dmesg.html
  *
- * Don't ask me why the horrible new dmesg API is still in "testing":
+ * Linux 6.0 celebrates the 10th anniversary of this being in "testing":
  * http://kernel.org/doc/Documentation/ABI/testing/dev-kmsg
 
-// We care that FLAG_c is 1, so keep c at the end.
 USE_DMESG(NEWTOY(dmesg, "w(follow)CSTtrs#<1n#c[!Ttr][!Cc][!Sw]", TOYFLAG_BIN))
 
 config DMESG
@@ -48,7 +47,7 @@ static void color(int c)
 static void format_message(char *msg, int new)
 {
   unsigned long long time_s, time_us;
-  int facpri, subsystem, pos;
+  int facpri, subsystem, pos, ii, jj, in, out;
   char *p, *text;
 
   // The new /dev/kmsg and the old syslog(2) formats differ slightly.
@@ -72,6 +71,12 @@ static void format_message(char *msg, int new)
   if (FLAG(r)) {
     color(0);
     printf("<%d>", facpri);
+  } else for (in = out = subsystem;; ) {
+    jj = 0;
+    if (text[in]=='\\'&& 1==sscanf(text+in, "\\x%2x%n", &ii, &jj) && jj==4) {
+      in += 4;
+      text[out++] = ii;
+    } else if (!(text[out++] = text[in++])) break;
   }
 
   // Format the time.
@@ -131,7 +136,7 @@ void dmesg_main(void)
 
     // Each read returns one message. By default, we block when there are no
     // more messages (--follow); O_NONBLOCK is needed for for usual behavior.
-    fd = open("/dev/kmsg", O_RDONLY|(O_NONBLOCK*!FLAG(w)));
+    fd = open("/dev/kmsg", O_RDONLY|O_NONBLOCK*!FLAG(w));
     if (fd == -1) goto klogctl_mode;
 
     // SYSLOG_ACTION_CLEAR(5) doesn't actually remove anything from /dev/kmsg,

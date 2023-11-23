@@ -19,26 +19,15 @@ Sample Linux implementations are provided.
 
 ### 1. Link-Layer APIs
 
-The APIs that are needed to tie CHPP to the serial port are as follows. Details are provided in link.h.
-
-1. void chppPlatformLinkInit(\*params)
-1. void chppPlatformLinkDeinit(\*params)
-1. void chppPlatformLinkReset(\*params)
-1. enum ChppLinkErrorCode chppPlatformLinkSend(\*params, \*buf, len)
-1. Depending on implementation, void chppLinkSendDoneCb(\*params)
-1. void chppPlatformLinkDoWork(\*params)
-1. bool chppRxDataCb(\*context, \*buf, len)
-1. Optionally, chppRxPacketCompleteCb(\*context)
-
-In addition, the system must implement and initialize the platform-specific linkParams data structure as part of platform_link.h
+You need to create a `ChppLinkApi` API struct and a `ChppLinkConfiguration` configuration struct for your link layer.
+See details in link.h.
 
 ### 1. Initialization
 
 In order to initialize CHPP, it is necessary to
 
-1. Allocate the transportContext and appContext structs that hold the state for each instance of the application and transport layers (in any order)
+1. Allocate the linkContext, transportContext, and appContext structs that hold the state for each instance of the application, transport, and link layers (in any order)
 1. Call the layers’ initialization functions, chppTransportInit and chppAppInit (in any order)
-1. Initialize the platform-specific linkParams struct (part of the transport struct)
 1. Call chppWorkThreadStart to start the main thread for CHPP's Transport Layer
 
 ### 1. Testing
@@ -51,7 +40,7 @@ In order to terminate CHPP's main transport layer thread, it is necessary to
 
 1. Call chppWorkThreadStop() to stop the main worker thread.
 1. Call the layers’ deinitialization functions, chppTransportDeinit and chppAppDeinit (in any order)
-1. Deallocate the transportContext, appContext, and the platform-specific linkParams structs
+1. Deallocate the transportContext, appContext, and the linkContext structs
 
 ### 1. Single-threaded systems
 

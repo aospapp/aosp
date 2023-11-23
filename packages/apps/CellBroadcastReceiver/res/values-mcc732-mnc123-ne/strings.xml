@@ -16,6 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="pws_other_message_identifiers" msgid="7584680083580968019">"CO सँग सम्बन्धित जानकारी"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="7743983160317594328">"CO-रेगुलर ब्रोडकास्ट च्यानल"</string>
+    <string name="pws_other_message_identifiers" msgid="2599140065404166379">"अपरेटरसम्बन्धी चेतावनीहरू"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="5866241905489219012">"अपरेटरसम्बन्धी चेतावनीहरू"</string>
+    <string name="enable_emergency_alerts_message_summary" msgid="1632942133491437690">"अपरेटरसम्बन्धी चेतावनीहरू पठाउन वा प्राप्त गर्न प्रयोग गरिने च्यानल"</string>
 </resources>

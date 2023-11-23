@@ -27,7 +27,7 @@
 namespace pw::transfer {
 namespace internal {
 
-struct Chunk;
+class Chunk;
 
 }  // namespace internal
 
@@ -57,13 +57,16 @@ class TransferService : public pw_rpc::raw::Transfer::Service<TransferService> {
       uint32_t max_pending_bytes,
       chrono::SystemClock::duration chunk_timeout = cfg::kDefaultChunkTimeout,
       uint8_t max_retries = cfg::kDefaultMaxRetries,
-      uint32_t extend_window_divisor = cfg::kDefaultExtendWindowDivisor)
+      uint32_t extend_window_divisor = cfg::kDefaultExtendWindowDivisor,
+      uint32_t max_lifetime_retries = cfg::kDefaultMaxLifetimeRetries)
       : max_parameters_(max_pending_bytes,
                         transfer_thread.max_chunk_size(),
                         extend_window_divisor),
         thread_(transfer_thread),
         chunk_timeout_(chunk_timeout),
-        max_retries_(max_retries) {}
+        max_retries_(max_retries),
+        max_lifetime_retries_(max_lifetime_retries),
+        next_session_id_(1) {}
 
   TransferService(const TransferService&) = delete;
   TransferService(TransferService&&) = delete;
@@ -85,8 +88,12 @@ class TransferService : public pw_rpc::raw::Transfer::Service<TransferService> {
     thread_.SetServerWriteStream(reader_writer);
   }
 
-  void RegisterHandler(internal::Handler& handler) {
+  void RegisterHandler(Handler& handler) {
     thread_.AddTransferHandler(handler);
+  }
+
+  void UnregisterHandler(Handler& handler) {
+    thread_.RemoveTransferHandler(handler);
   }
 
   void set_max_pending_bytes(uint32_t max_pending_bytes) {
@@ -97,10 +104,6 @@ class TransferService : public pw_rpc::raw::Transfer::Service<TransferService> {
   // max chunk size must always fit within the transfer thread's chunk buffer.
   void set_max_chunk_size_bytes(uint32_t max_chunk_size_bytes) {
     max_parameters_.set_max_chunk_size_bytes(max_chunk_size_bytes);
-  }
-
-  void UnregisterHandler(internal::Handler& handler) {
-    thread_.RemoveTransferHandler(handler);
   }
 
   void set_chunk_timeout(chrono::SystemClock::duration chunk_timeout) {
@@ -121,11 +124,17 @@ class TransferService : public pw_rpc::raw::Transfer::Service<TransferService> {
  private:
   void HandleChunk(ConstByteSpan message, internal::TransferType type);
 
+  // TODO(frolv): This could be more sophisticated and less predictable.
+  uint32_t GenerateNewSessionId() { return next_session_id_++; }
+
   internal::TransferParameters max_parameters_;
   TransferThread& thread_;
 
   chrono::SystemClock::duration chunk_timeout_;
   uint8_t max_retries_;
+  uint32_t max_lifetime_retries_;
+
+  uint32_t next_session_id_;
 };
 
 }  // namespace pw::transfer

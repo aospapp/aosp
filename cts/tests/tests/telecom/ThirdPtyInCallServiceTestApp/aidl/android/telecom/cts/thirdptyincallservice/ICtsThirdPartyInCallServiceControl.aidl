@@ -27,4 +27,8 @@ interface ICtsThirdPartyInCallServiceControl {
     void resetLatchForServiceBound(boolean bind);
 
     boolean checkPermissionGrant(String permission);
+
+    void setExpectedExtra(String newKey, String newValue);
+
+    boolean waitUntilExpectedExtrasReceived();
 }

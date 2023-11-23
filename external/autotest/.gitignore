@@ -43,6 +43,7 @@ results-*
 results/*
 server/tmp
 tko/parsers/test/site_scenarios
+tko/tko_pb2.py
 ExternalSource
 /frontend/client/www/
 /shadow_config.ini
@@ -52,6 +53,8 @@ monitor_db.pid
 server/cros/chaos_shadow_ap_list.conf
 server/site_tests/network_WiFiChaosPSK/control.local
 manifest-versions
+server/cros/bluetooth/LATEST_STABLE_AUTOTEST_COMMIT
+contrib/config/
 
 # These exist on the production servers.
 bug_filing_oauth_credentials.dat
@@ -83,3 +86,5 @@ server/cros/faft/fw-testing-configs/
 .idea
 .vscode
 .cipd_bin
+
+autotest.iml

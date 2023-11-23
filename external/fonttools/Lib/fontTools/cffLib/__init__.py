@@ -337,7 +337,7 @@ class CFFFontSet(object):
 				topDict = TopDict(
 					GlobalSubrs=self.GlobalSubrs,
 					cff2GetGlyphOrder=cff2GetGlyphOrder)
-				self.topDictIndex = TopDictIndex(None, cff2GetGlyphOrder, None)
+				self.topDictIndex = TopDictIndex(None, cff2GetGlyphOrder)
 			self.topDictIndex.append(topDict)
 			for element in content:
 				if isinstance(element, str):
@@ -375,7 +375,7 @@ class CFFFontSet(object):
 		filled via :meth:`decompile`.)"""
 		self.major = 2
 		cff2GetGlyphOrder = self.otFont.getGlyphOrder
-		topDictData = TopDictIndex(None, cff2GetGlyphOrder, None)
+		topDictData = TopDictIndex(None, cff2GetGlyphOrder)
 		topDictData.items = self.topDictIndex.items
 		self.topDictIndex = topDictData
 		topDict = topDictData[0]
@@ -1004,11 +1004,6 @@ class VarStoreData(object):
 
 	def decompile(self):
 		if self.file:
-			class GlobalState(object):
-				def __init__(self, tableType, cachingStats):
-					self.tableType = tableType
-					self.cachingStats = cachingStats
-			globalState = GlobalState(tableType="VarStore", cachingStats={})
 			# read data in from file. Assume position is correct.
 			length = readCard16(self.file)
 			self.data = self.file.read(length)
@@ -1042,6 +1037,8 @@ class VarStoreData(object):
 		return len(self.data)
 
 	def getNumRegions(self, vsIndex):
+		if vsIndex is None:
+			vsIndex = 0
 		varData = self.otVarStore.VarData[vsIndex]
 		numRegions = varData.VarRegionCount
 		return numRegions

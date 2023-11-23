@@ -11,7 +11,7 @@
 #define __ULDNAMES_H__
 
 /**
- * @addtogroup ICU4C
+ * @addtogroup icu4c ICU4C
  * @{
  * \file
  * \brief C API: Provides display names of Locale ids and their components.

@@ -33,16 +33,22 @@ class StreamSynchronization {
                      int* total_audio_delay_target_ms,
                      int* total_video_delay_target_ms);
 
-  // On success |relative_delay_ms| contains the number of milliseconds later
+  // On success `relative_delay_ms` contains the number of milliseconds later
   // video is rendered relative audio. If audio is played back later than video
-  // |relative_delay_ms| will be negative.
+  // `relative_delay_ms` will be negative.
   static bool ComputeRelativeDelay(const Measurements& audio_measurement,
                                    const Measurements& video_measurement,
                                    int* relative_delay_ms);
 
   // Set target buffering delay. Audio and video will be delayed by at least
-  // |target_delay_ms|.
+  // `target_delay_ms`.
   void SetTargetBufferingDelay(int target_delay_ms);
+
+  // Lowers the audio delay by 10%. Can be used to recover from errors.
+  void ReduceAudioDelay();
+
+  // Lowers the video delay by 10%. Can be used to recover from errors.
+  void ReduceVideoDelay();
 
   uint32_t audio_stream_id() const { return audio_stream_id_; }
   uint32_t video_stream_id() const { return video_stream_id_; }

@@ -109,34 +109,94 @@ cc_library_static {
         arm64: {
             srcs: [
                 "string/aarch64/memchr-mte.S",
+                "string/aarch64/memchr-sve.S",
                 "string/aarch64/memchr.S",
+                "string/aarch64/memcmp-sve.S",
                 "string/aarch64/memcmp.S",
+                "string/aarch64/memcpy-advsimd.S",
+                "string/aarch64/memcpy-sve.S",
+                "string/aarch64/memcpy.S",
                 "string/aarch64/memrchr.S",
-                "string/aarch64/stpcpy-mte.S",
+                "string/aarch64/memset.S",
+                "string/aarch64/stpcpy-sve.S",
                 "string/aarch64/stpcpy.S",
                 "string/aarch64/strchrnul-mte.S",
+                "string/aarch64/strchrnul-sve.S",
                 "string/aarch64/strchrnul.S",
                 "string/aarch64/strchr-mte.S",
+                "string/aarch64/strchr-sve.S",
                 "string/aarch64/strchr.S",
-                "string/aarch64/strcmp-mte.S",
+                "string/aarch64/strcmp-sve.S",
                 "string/aarch64/strcmp.S",
-                "string/aarch64/strcpy-mte.S",
+                "string/aarch64/strcpy-sve.S",
                 "string/aarch64/strcpy.S",
                 "string/aarch64/strlen-mte.S",
+                "string/aarch64/strlen-sve.S",
                 "string/aarch64/strlen.S",
-                "string/aarch64/strncmp-mte.S",
+                "string/aarch64/strncmp-sve.S",
                 "string/aarch64/strncmp.S",
+                "string/aarch64/strnlen-sve.S",
                 "string/aarch64/strnlen.S",
                 "string/aarch64/strrchr-mte.S",
+                "string/aarch64/strrchr-sve.S",
                 "string/aarch64/strrchr.S",
             ],
             asflags: [
-                "-D__memcmp_aarch64=memcmp",
+                "-march=armv8-a+sve",
+                "-D__memset_aarch64=memset",
                 "-D__memrchr_aarch64=memrchr",
-                "-D__strnlen_aarch64=strnlen",
             ]
         },
     },
+}
+
+// Memory intrinsics for bare-metal Rust binaries.
+cc_library_static {
+    name: "libarm-optimized-routines-mem",
+    nocrt: true,
+    system_shared_libs: [],
+    stl: "none",
+    sanitize: {
+        hwaddress: false,
+    },
+    arch: {
+        arm64: {
+            srcs: [
+                "string/aarch64/memchr.S",
+                "string/aarch64/memcmp.S",
+                "string/aarch64/memcpy.S",
+                "string/aarch64/memrchr.S",
+                "string/aarch64/memset.S",
+                "string/aarch64/stpcpy.S",
+                "string/aarch64/strchr.S",
+                "string/aarch64/strchrnul.S",
+                "string/aarch64/strcmp.S",
+                "string/aarch64/strcpy.S",
+                "string/aarch64/strlen.S",
+                "string/aarch64/strncmp.S",
+                "string/aarch64/strnlen.S",
+                "string/aarch64/strrchr.S",
+            ],
+            asflags: [
+                "-D__memchr_aarch64=memchr",
+                "-D__memcmp_aarch64=memcmp",
+                "-D__memcpy_aarch64=memcpy",
+                "-D__memmove_aarch64=memmove",
+                "-D__memrchr_aarch64=memrchr",
+                "-D__memset_aarch64=memset",
+                "-D__stpcpy_aarch64=stpcpy",
+                "-D__strchr_aarch64=strchr",
+                "-D__strchrnul_aarch64=strchrnul",
+                "-D__strcmp_aarch64=strcmp",
+                "-D__strcpy_aarch64=strcpy",
+                "-D__strlen_aarch64=strlen",
+                "-D__strncmp_aarch64=strncmp",
+                "-D__strnlen_aarch64=strnlen",
+                "-D__strrchr_aarch64=strrchr",
+            ],
+        },
+    },
+    visibility: ["//bionic/libc"],
 }
 
 // adb shell "/data/nativetest64/mathtest/mathtest /data/nativetest64/mathtest/test/testcases/directed/*"
@@ -162,6 +222,10 @@ cc_test {
     name: "ulp",
     defaults: ["arm-optimized-routines-defaults"],
     gtest: false,
+
+    // https://github.com/ARM-software/optimized-routines/issues/53
+    local_include_dirs: ["math/"],
+
     srcs: ["math/test/ulp.c"],
     data: ["math/test/runulp.sh"],
 }

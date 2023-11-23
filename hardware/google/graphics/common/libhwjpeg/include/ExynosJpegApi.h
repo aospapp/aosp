@@ -33,7 +33,7 @@
 #endif
 
 #define JPEG_BUF_TYPE_USER_PTR 1
-#define JPEG_BUF_TYPE_DMA_BUF  2
+#define JPEG_BUF_TYPE_DMA_BUF 2
 
 // CUSTOM V4L2 4CC FORMATS FOR LEGACY JPEG LIBRARY AND DRIVERS
 #ifndef V4L2_PIX_FMT_JPEG_444
@@ -78,11 +78,12 @@ class ExynosJpegEncoder {
     int m_nStreamSize;
 
     bool __EnsureFormatIsApplied();
+
 protected:
     enum {
-        STATE_SIZE_CHANGED      = 1 << 0,
-        STATE_PIXFMT_CHANGED    = 1 << 1,
-        STATE_BASE_MAX          = 1 << 16,
+        STATE_SIZE_CHANGED = 1 << 0,
+        STATE_PIXFMT_CHANGED = 1 << 1,
+        STATE_BASE_MAX = 1 << 16,
     };
 
     unsigned int GetDeviceCapabilities() { return m_hwjpeg.GetDeviceCapabilities(); }
@@ -95,15 +96,28 @@ protected:
     bool TestStateEither(unsigned int state) { return (m_uiState & state) != 0; }
 
     virtual bool EnsureFormatIsApplied() { return __EnsureFormatIsApplied(); }
+
 public:
-    ExynosJpegEncoder(): m_hwjpeg(),
-          m_iInBufType(JPEG_BUF_TYPE_USER_PTR), m_iOutBufType(JPEG_BUF_TYPE_USER_PTR), m_uiState(0),
-          m_nQFactor(0), m_nWidth(0), m_nHeight(0), m_v4l2Format(0), m_jpegFormat(0), m_nStreamSize(0)
-    {
+    ExynosJpegEncoder()
+          : m_hwjpeg(),
+            m_iInBufType(JPEG_BUF_TYPE_USER_PTR),
+            m_iOutBufType(JPEG_BUF_TYPE_USER_PTR),
+            m_uiState(0),
+            m_nQFactor(0),
+            m_nWidth(0),
+            m_nHeight(0),
+            m_v4l2Format(0),
+            m_jpegFormat(0),
+            m_nStreamSize(0) {
         /* To detect setInBuf() call without format setting */
         SetState(STATE_SIZE_CHANGED | STATE_PIXFMT_CHANGED);
     }
     virtual ~ExynosJpegEncoder() { destroy(); }
+
+    // Acquire exclusive lock to V4L2 device. This is a blocking call.
+    int lock();
+    // Release exclusive lock to V4L2 device.
+    int unlock();
 
     // Return 0 on success, -1 on error
     int flagCreate() { return m_hwjpeg.Okay() ? 0 : -1; }
@@ -113,7 +127,7 @@ public:
     int setCache(int __unused val) { return 0; }
 
     void *getJpegConfig() { return reinterpret_cast<void *>(this); }
-    int setJpegConfig(void* pConfig);
+    int setJpegConfig(void *pConfig);
 
     int checkInBufType(void) { return m_iInBufType; }
     int checkOutBufType(void) { return m_iOutBufType; }
@@ -155,26 +169,24 @@ public:
 
     int setQuality(int iQuality) {
         if (m_nQFactor != iQuality) {
-            if (!m_hwjpeg.SetQuality(static_cast<unsigned int>(iQuality)))
-                return -1;
+            if (!m_hwjpeg.SetQuality(static_cast<unsigned int>(iQuality))) return -1;
             m_nQFactor = iQuality;
         }
         return 0;
     }
 
     int setQuality(const unsigned char q_table[]);
+    int setPadding(unsigned char *padding, unsigned int num_planes);
 
     int setColorBufSize(int *piBufSize, int iSize);
     int getJpegSize(void) { return m_nStreamSize; }
 
     int encode(void) {
-        if (!__EnsureFormatIsApplied())
-            return false;
+        if (!__EnsureFormatIsApplied()) return false;
 
         m_nStreamSize = static_cast<int>(m_hwjpeg.Compress());
         return (m_nStreamSize < 0) ? -1 : 0;
     }
-
 };
 
 #endif //__HARDWARE_EXYNOS_EXYNOS_JPEG_API_H__

@@ -2,7 +2,7 @@
 //!
 //! *Note*: currently only supports integer versions of the ISA.
 
-use gdbstub::arch::Arch;
+use gdbstub::arch::{Arch, SingleStepGdbBehavior};
 
 pub mod reg;
 
@@ -19,7 +19,12 @@ impl Arch for Riscv32 {
     type BreakpointKind = usize;
 
     fn target_description_xml() -> Option<&'static str> {
-        Some(r#"<target version="1.0"><architecture>riscv</architecture></target>"#)
+        Some(r#"<target version="1.0"><architecture>riscv:rv32</architecture></target>"#)
+    }
+
+    #[inline(always)]
+    fn single_step_gdb_behavior() -> SingleStepGdbBehavior {
+        SingleStepGdbBehavior::Ignored
     }
 }
 
@@ -30,6 +35,11 @@ impl Arch for Riscv64 {
     type BreakpointKind = usize;
 
     fn target_description_xml() -> Option<&'static str> {
-        Some(r#"<target version="1.0"><architecture>riscv64</architecture></target>"#)
+        Some(r#"<target version="1.0"><architecture>riscv:rv64</architecture></target>"#)
+    }
+
+    #[inline(always)]
+    fn single_step_gdb_behavior() -> SingleStepGdbBehavior {
+        SingleStepGdbBehavior::Ignored
     }
 }

@@ -19,8 +19,11 @@ import static com.android.wallpaper.util.ActivityUtils.isSUWMode;
 import static com.android.wallpaper.util.ActivityUtils.isWallpaperOnlyMode;
 import static com.android.wallpaper.util.ActivityUtils.startActivityForResultSafely;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
@@ -35,6 +38,7 @@ import androidx.fragment.app.FragmentManager;
 
 import com.android.wallpaper.R;
 import com.android.wallpaper.model.Category;
+import com.android.wallpaper.model.CustomizationSectionController.CustomizationSectionNavigationController;
 import com.android.wallpaper.model.PermissionRequester;
 import com.android.wallpaper.model.WallpaperCategory;
 import com.android.wallpaper.model.WallpaperInfo;
@@ -53,6 +57,7 @@ import com.android.wallpaper.picker.MyPhotosStarter.PermissionChangedListener;
 import com.android.wallpaper.picker.individual.IndividualPickerFragment.IndividualPickerFragmentHost;
 import com.android.wallpaper.util.ActivityUtils;
 import com.android.wallpaper.util.DeepLinkUtils;
+import com.android.wallpaper.util.DisplayUtils;
 import com.android.wallpaper.util.LaunchUtils;
 import com.android.wallpaper.widget.BottomActionBar;
 import com.android.wallpaper.widget.BottomActionBar.BottomActionBarHost;
@@ -67,15 +72,18 @@ public class CustomizationPickerActivity extends FragmentActivity implements App
         WallpaperPreviewNavigator {
 
     private static final String TAG = "CustomizationPickerActivity";
+    private static final String EXTRA_DESTINATION = "destination";
 
     private WallpaperPickerDelegate mDelegate;
     private UserEventLogger mUserEventLogger;
     private NetworkStatusNotifier mNetworkStatusNotifier;
     private NetworkStatusNotifier.Listener mNetworkStatusListener;
     @NetworkStatus private int mNetworkStatus;
+    private DisplayUtils mDisplayUtils;
 
     private BottomActionBar mBottomActionBar;
     private boolean mIsSafeToCommitFragmentTransaction;
+    private boolean mIsUseRevampedUi;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -84,6 +92,9 @@ public class CustomizationPickerActivity extends FragmentActivity implements App
         mUserEventLogger = injector.getUserEventLogger(this);
         mNetworkStatusNotifier = injector.getNetworkStatusNotifier(this);
         mNetworkStatus = mNetworkStatusNotifier.getNetworkStatus();
+        mDisplayUtils = injector.getDisplayUtils(this);
+
+        enforceOrientation();
 
         // Restore this Activity's state before restoring contained Fragments state.
         super.onCreate(savedInstanceState);
@@ -105,6 +116,10 @@ public class CustomizationPickerActivity extends FragmentActivity implements App
         // See go/pdr-edge-to-edge-guide.
         WindowCompat.setDecorFitsSystemWindows(getWindow(), isSUWMode(this));
 
+        mIsUseRevampedUi = injector.getFlags().isUseRevampedUiEnabled(this);
+        final boolean startFromLockScreen = getIntent() == null
+                || !ActivityUtils.isLaunchedFromLauncher(getIntent());
+
         Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
         if (fragment == null) {
             // App launch specific logic: log the "app launch source" event.
@@ -116,20 +131,47 @@ public class CustomizationPickerActivity extends FragmentActivity implements App
 
             // Switch to the target fragment.
             switchFragment(isWallpaperOnlyMode(getIntent())
-                    ? new WallpaperOnlyFragment()
-                    : new CustomizationPickerFragment());
+                    ? WallpaperOnlyFragment.newInstance(mIsUseRevampedUi)
+                    : CustomizationPickerFragment.newInstance(
+                            mIsUseRevampedUi, startFromLockScreen));
+
+            // Cache the categories, but only if we're not restoring state (b/276767415).
+            mDelegate.prefetchCategories();
         }
 
-        // Deep link case
-        Intent intent = getIntent();
-        String deepLinkCollectionId = DeepLinkUtils.getCollectionId(intent);
-        if (!TextUtils.isEmpty(deepLinkCollectionId)) {
+        if (savedInstanceState == null) {
+            // We only want to start a new undo session if this activity is brand-new. A non-new
+            // activity will have a non-null savedInstanceState.
+            if (mIsUseRevampedUi) {
+                injector.getUndoInteractor(this, this).startSession();
+            }
+        }
+
+        final Intent intent = getIntent();
+        final String navigationDestination = intent.getStringExtra(EXTRA_DESTINATION);
+        // Consume the destination and commit the intent back so the OS doesn't revert to the same
+        // destination when we change color or wallpaper (which causes the activity to be
+        // recreated).
+        intent.removeExtra(EXTRA_DESTINATION);
+        setIntent(intent);
+
+        final String deepLinkCollectionId = DeepLinkUtils.getCollectionId(intent);
+
+        if (!TextUtils.isEmpty(navigationDestination)) {
+            // Navigation deep link case
+            fragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
+            if (fragment instanceof CustomizationSectionNavigationController) {
+                final CustomizationSectionNavigationController navController =
+                        (CustomizationSectionNavigationController) fragment;
+                navController.standaloneNavigateTo(navigationDestination);
+            }
+        } else if (!TextUtils.isEmpty(deepLinkCollectionId)) {
+            // Wallpaper Collection deep link case
             switchFragmentWithBackStack(new CategorySelectorFragment());
             switchFragmentWithBackStack(InjectorProvider.getInjector().getIndividualPickerFragment(
-                    deepLinkCollectionId));
+                    this, deepLinkCollectionId));
             intent.setData(null);
         }
-        mDelegate.prefetchCategories();
     }
 
     @Override
@@ -233,7 +275,7 @@ public class CustomizationPickerActivity extends FragmentActivity implements App
             return;
         }
         switchFragmentWithBackStack(InjectorProvider.getInjector().getIndividualPickerFragment(
-                category.getCollectionId()));
+                this, category.getCollectionId()));
     }
 
     @Override
@@ -298,6 +340,7 @@ public class CustomizationPickerActivity extends FragmentActivity implements App
 
     }
 
+    @SuppressWarnings("MissingSuperCall") // TODO: Fix me
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
             @NonNull int[] grantResults) {
@@ -310,6 +353,15 @@ public class CustomizationPickerActivity extends FragmentActivity implements App
         if (mDelegate.handleActivityResult(requestCode, resultCode, data)) {
             if (isSUWMode(this)) {
                 finishActivityForSUW();
+            } else if (mIsUseRevampedUi) {
+                // We don't finish in the revamped UI to let the user have a chance to reset the
+                // change they made, should they want to. We do, however, remove all the fragments
+                // from our back stack to reveal the root fragment, revealing the main screen of the
+                // app.
+                final FragmentManager fragmentManager = getSupportFragmentManager();
+                while (fragmentManager.getBackStackEntryCount() > 0) {
+                    fragmentManager.popBackStackImmediate();
+                }
             } else {
                 finishActivityWithResultOk();
             }
@@ -351,5 +403,29 @@ public class CustomizationPickerActivity extends FragmentActivity implements App
     @Override
     public boolean isUpArrowSupported() {
         return !isSUWMode(this);
+    }
+
+    @Override
+    public void onConfigurationChanged(@NonNull Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        enforceOrientation();
+    }
+
+    /**
+     * Allows any orientation for large screen devices (tablets and unfolded foldables) while
+     * forcing portrait for smaller screens (handheld and folded foldables).
+     *
+     * This method should be called upon initialization of this activity, and whenever there is a
+     * configuration change.
+     */
+    @SuppressLint("SourceLockedOrientationActivity")
+    private void enforceOrientation() {
+        int wantedOrientation =
+                mDisplayUtils.isLargeScreenDevice() && mDisplayUtils.isOnWallpaperDisplay(this)
+                        ? ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                        : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
+        if (getRequestedOrientation() != wantedOrientation) {
+            setRequestedOrientation(wantedOrientation);
+        }
     }
 }

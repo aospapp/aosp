@@ -17,5 +17,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="hvac_panel_header" msgid="1299061170810305529">"舒適控制項"</string>
+    <string name="default_sensor_string" msgid="3994996854548513870">"不適用"</string>
+    <string name="task_view_not_ready_message" msgid="3019570837236183122">"請等待系統載入"</string>
+    <string name="current_profile_subtitle" msgid="2466874755719023023">"目前的設定檔"</string>
+    <string name="loading_welcome_message" msgid="2351582619179505398">"AAOS"</string>
+    <string name="loading_action_button_text" msgid="1296096984805774507">"繼續"</string>
 </resources>

@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/unicode-bidi
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "unicode-bidi"
 description: "Implementation of the Unicode Bidirectional Algorithm"
 third_party {
@@ -7,13 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/unicode-bidi/unicode-bidi-0.3.7.crate"
+    value: "https://static.crates.io/crates/unicode-bidi/unicode-bidi-0.3.10.crate"
   }
-  version: "0.3.7"
+  version: "0.3.10"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2022
-    month: 3
-    day: 1
+    year: 2023
+    month: 2
+    day: 6
   }
 }

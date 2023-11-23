@@ -29,7 +29,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 import android.net.InetAddresses;
-import android.net.Network;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
@@ -38,6 +37,7 @@ import android.util.LongSparseArray;
 
 import com.android.internal.net.TestUtils;
 import com.android.internal.net.ipsec.test.ike.message.IkeHeader;
+import com.android.internal.net.ipsec.test.ike.net.IkeConnectionController;
 import com.android.internal.util.HexDump;
 
 import org.junit.After;
@@ -89,7 +89,7 @@ public abstract class IkeSocketTestBase {
 
     protected static final int DUMMY_DSCP = 36;
     protected final IkeSocketConfig mSpyIkeSocketConfig =
-            spy(new IkeSocketConfig(mock(Network.class), DUMMY_DSCP));
+            spy(new IkeSocketConfig(mock(IkeConnectionController.class), DUMMY_DSCP));
     protected final IkeSocket.Callback mMockIkeSocketCallback = mock(IkeSocket.Callback.class);
 
     protected byte[] mDataOne;
@@ -227,9 +227,7 @@ public abstract class IkeSocketTestBase {
 
     private static void verifySocketConfigIsApplied(
             IkeSocketConfig spySockConfig, IkeSocket ikeSocket) throws Exception {
-        verify(spySockConfig).getNetwork();
         verify(spySockConfig).getDscp();
-        verify(spySockConfig.getNetwork()).bindSocket(eq(ikeSocket.getFd()));
     }
 
     protected void verifyGetAndCloseIkeSocketSameConfig(
@@ -265,9 +263,9 @@ public abstract class IkeSocketTestBase {
         IkeSocket.Callback mockIkeSocketCbTwo = mock(IkeSocket.Callback.class);
 
         IkeSocketConfig spySockConfigOne =
-                spy(new IkeSocketConfig(mock(Network.class), DUMMY_DSCP));
+                spy(new IkeSocketConfig(mock(IkeConnectionController.class), DUMMY_DSCP));
         IkeSocketConfig spySockConfigTwo =
-                spy(new IkeSocketConfig(mock(Network.class), DUMMY_DSCP));
+                spy(new IkeSocketConfig(mock(IkeConnectionController.class), DUMMY_DSCP));
 
         IkeSocket ikeSocketOne =
                 ikeUdpSocketFactory.getIkeSocket(spySockConfigOne, mockIkeSocketCbOne);

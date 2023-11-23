@@ -785,7 +785,7 @@ status_t ACodec::handleSetSurface(const sp<Surface> &surface) {
 
     // we cannot change the number of output buffers while OMX is running
     // set up surface to the same count
-    Vector<BufferInfo> &buffers = mBuffers[kPortIndexOutput];
+    std::vector<BufferInfo> &buffers = mBuffers[kPortIndexOutput];
     ALOGV("setting up surface for %zu buffers", buffers.size());
 
     err = native_window_set_buffer_count(nativeWindow, buffers.size());
@@ -825,7 +825,7 @@ status_t ACodec::handleSetSurface(const sp<Surface> &surface) {
     // cancel undequeued buffers to new surface
     if (!storingMetadataInDecodedBuffers()) {
         for (size_t i = 0; i < buffers.size(); ++i) {
-            BufferInfo &info = buffers.editItemAt(i);
+            BufferInfo &info = buffers[i];
             if (info.mStatus == BufferInfo::OWNED_BY_NATIVE_WINDOW) {
                 ALOGV("canceling buffer %p", info.mGraphicBuffer->getNativeBuffer());
                 err = nativeWindow->cancelBuffer(
@@ -872,7 +872,7 @@ status_t ACodec::allocateBuffersOnPort(OMX_U32 portIndex) {
     CHECK(portIndex == kPortIndexInput || portIndex == kPortIndexOutput);
 
     CHECK(mAllocator[portIndex] == NULL);
-    CHECK(mBuffers[portIndex].isEmpty());
+    CHECK(mBuffers[portIndex].empty());
 
     status_t err;
     if (mNativeWindow != NULL && portIndex == kPortIndexOutput) {
@@ -951,6 +951,7 @@ status_t ACodec::allocateBuffersOnPort(OMX_U32 portIndex) {
 
             const sp<AMessage> &format =
                     portIndex == kPortIndexInput ? mInputFormat : mOutputFormat;
+            mBuffers[portIndex].reserve(def.nBufferCountActual);
             for (OMX_U32 i = 0; i < def.nBufferCountActual && err == OK; ++i) {
                 hidl_memory hidlMemToken;
                 sp<TMemory> hidlMem;
@@ -1039,7 +1040,7 @@ status_t ACodec::allocateBuffersOnPort(OMX_U32 portIndex) {
                     }
                 }
 
-                mBuffers[portIndex].push(info);
+                mBuffers[portIndex].push_back(info);
             }
         }
     }
@@ -1250,6 +1251,7 @@ status_t ACodec::allocateOutputBuffersFromNativeWindow() {
          mComponentName.c_str(), bufferCount, bufferSize);
 
     // Dequeue buffers and send them to OMX
+    mBuffers[kPortIndexOutput].reserve(bufferCount);
     for (OMX_U32 i = 0; i < bufferCount; i++) {
         ANativeWindowBuffer *buf;
         int fenceFd;
@@ -1275,7 +1277,7 @@ status_t ACodec::allocateOutputBuffersFromNativeWindow() {
         info.mData = new MediaCodecBuffer(mOutputFormat, new ABuffer(bufferSize));
         info.mCodecData = info.mData;
 
-        mBuffers[kPortIndexOutput].push(info);
+        mBuffers[kPortIndexOutput].push_back(info);
 
         IOMX::buffer_id bufferId;
         err = mOMXNode->useBuffer(kPortIndexOutput, graphicBuffer, &bufferId);
@@ -1285,7 +1287,7 @@ status_t ACodec::allocateOutputBuffersFromNativeWindow() {
             break;
         }
 
-        mBuffers[kPortIndexOutput].editItemAt(i).mBufferID = bufferId;
+        mBuffers[kPortIndexOutput][i].mBufferID = bufferId;
 
         ALOGV("[%s] Registered graphic buffer with ID %u (pointer = %p)",
              mComponentName.c_str(),
@@ -1307,7 +1309,7 @@ status_t ACodec::allocateOutputBuffersFromNativeWindow() {
     }
 
     for (OMX_U32 i = cancelStart; i < cancelEnd; i++) {
-        BufferInfo *info = &mBuffers[kPortIndexOutput].editItemAt(i);
+        BufferInfo *info = &mBuffers[kPortIndexOutput][i];
         if (info->mStatus == BufferInfo::OWNED_BY_US) {
             status_t error = cancelBufferToNativeWindow(info);
             if (err == 0) {
@@ -1336,6 +1338,7 @@ status_t ACodec::allocateOutputMetadataBuffers() {
     ALOGV("[%s] Allocating %u meta buffers on output port",
          mComponentName.c_str(), bufferCount);
 
+    mBuffers[kPortIndexOutput].reserve(bufferCount);
     for (OMX_U32 i = 0; i < bufferCount; i++) {
         BufferInfo info;
         info.mStatus = BufferInfo::OWNED_BY_NATIVE_WINDOW;
@@ -1353,7 +1356,7 @@ status_t ACodec::allocateOutputMetadataBuffers() {
         info.mCodecData = info.mData;
 
         err = mOMXNode->useBuffer(kPortIndexOutput, OMXBuffer::sPreset, &info.mBufferID);
-        mBuffers[kPortIndexOutput].push(info);
+        mBuffers[kPortIndexOutput].push_back(info);
 
         ALOGV("[%s] allocated meta buffer with ID %u",
                 mComponentName.c_str(), info.mBufferID);
@@ -1462,7 +1465,7 @@ void ACodec::notifyOfRenderedFrames(bool dropIncomplete, FrameRenderTracker::Inf
             it != done.cend(); ++it) {
         ssize_t index = it->getIndex();
         if (index >= 0 && (size_t)index < mBuffers[kPortIndexOutput].size()) {
-            mBuffers[kPortIndexOutput].editItemAt(index).mRenderInfo = NULL;
+            mBuffers[kPortIndexOutput][index].mRenderInfo = NULL;
         } else if (index >= 0) {
             // THIS SHOULD NEVER HAPPEN
             ALOGE("invalid index %zd in %zu", index, mBuffers[kPortIndexOutput].size());
@@ -1502,7 +1505,7 @@ ACodec::BufferInfo *ACodec::dequeueBufferFromNativeWindow() {
         bool stale = false;
         for (size_t i = mBuffers[kPortIndexOutput].size(); i > 0;) {
             i--;
-            BufferInfo *info = &mBuffers[kPortIndexOutput].editItemAt(i);
+            BufferInfo *info = &mBuffers[kPortIndexOutput][i];
 
             if (info->mGraphicBuffer != NULL &&
                     info->mGraphicBuffer->handle == buf->handle) {
@@ -1550,8 +1553,7 @@ ACodec::BufferInfo *ACodec::dequeueBufferFromNativeWindow() {
     BufferInfo *oldest = NULL;
     for (size_t i = mBuffers[kPortIndexOutput].size(); i > 0;) {
         i--;
-        BufferInfo *info =
-            &mBuffers[kPortIndexOutput].editItemAt(i);
+        BufferInfo *info = &mBuffers[kPortIndexOutput][i];
         if (info->mStatus == BufferInfo::OWNED_BY_NATIVE_WINDOW &&
             (oldest == NULL ||
              // avoid potential issues from counter rolling over
@@ -1608,8 +1610,7 @@ status_t ACodec::freeOutputBuffersNotOwnedByComponent() {
     status_t err = OK;
     for (size_t i = mBuffers[kPortIndexOutput].size(); i > 0;) {
         i--;
-        BufferInfo *info =
-            &mBuffers[kPortIndexOutput].editItemAt(i);
+        BufferInfo *info = &mBuffers[kPortIndexOutput][i];
 
         // At this time some buffers may still be with the component
         // or being drained.
@@ -1626,7 +1627,7 @@ status_t ACodec::freeOutputBuffersNotOwnedByComponent() {
 }
 
 status_t ACodec::freeBuffer(OMX_U32 portIndex, size_t i) {
-    BufferInfo *info = &mBuffers[portIndex].editItemAt(i);
+    BufferInfo *info = &mBuffers[portIndex][i];
     status_t err = OK;
 
     // there should not be any fences in the metadata
@@ -1666,14 +1667,14 @@ status_t ACodec::freeBuffer(OMX_U32 portIndex, size_t i) {
     }
 
     // remove buffer even if mOMXNode->freeBuffer fails
-    mBuffers[portIndex].removeAt(i);
+    mBuffers[portIndex].erase(mBuffers[portIndex].begin() + i);
     return err;
 }
 
 ACodec::BufferInfo *ACodec::findBufferByID(
         uint32_t portIndex, IOMX::buffer_id bufferID, ssize_t *index) {
     for (size_t i = 0; i < mBuffers[portIndex].size(); ++i) {
-        BufferInfo *info = &mBuffers[portIndex].editItemAt(i);
+        BufferInfo *info = &mBuffers[portIndex][i];
 
         if (info->mBufferID == bufferID) {
             if (index != NULL) {
@@ -5102,7 +5103,7 @@ size_t ACodec::countBuffersOwnedByComponent(OMX_U32 portIndex) const {
     size_t n = 0;
 
     for (size_t i = 0; i < mBuffers[portIndex].size(); ++i) {
-        const BufferInfo &info = mBuffers[portIndex].itemAt(i);
+        const BufferInfo &info = mBuffers[portIndex][i];
 
         if (info.mStatus == BufferInfo::OWNED_BY_COMPONENT) {
             ++n;
@@ -5116,7 +5117,7 @@ size_t ACodec::countBuffersOwnedByNativeWindow() const {
     size_t n = 0;
 
     for (size_t i = 0; i < mBuffers[kPortIndexOutput].size(); ++i) {
-        const BufferInfo &info = mBuffers[kPortIndexOutput].itemAt(i);
+        const BufferInfo &info = mBuffers[kPortIndexOutput][i];
 
         if (info.mStatus == BufferInfo::OWNED_BY_NATIVE_WINDOW) {
             ++n;
@@ -5143,7 +5144,7 @@ void ACodec::waitUntilAllPossibleNativeWindowBuffersAreReturnedToUs() {
 bool ACodec::allYourBuffersAreBelongToUs(
         OMX_U32 portIndex) {
     for (size_t i = 0; i < mBuffers[portIndex].size(); ++i) {
-        BufferInfo *info = &mBuffers[portIndex].editItemAt(i);
+        BufferInfo *info = &mBuffers[portIndex][i];
 
         if (info->mStatus != BufferInfo::OWNED_BY_US
                 && info->mStatus != BufferInfo::OWNED_BY_NATIVE_WINDOW) {
@@ -5167,12 +5168,11 @@ void ACodec::deferMessage(const sp<AMessage> &msg) {
 }
 
 void ACodec::processDeferredMessages() {
-    List<sp<AMessage> > queue = mDeferredQueue;
+    std::list<sp<AMessage>> queue = mDeferredQueue;
     mDeferredQueue.clear();
 
-    List<sp<AMessage> >::iterator it = queue.begin();
-    while (it != queue.end()) {
-        onMessageReceived(*it++);
+    for(const sp<AMessage> &msg : queue) {
+        onMessageReceived(msg);
     }
 }
 
@@ -5928,19 +5928,17 @@ bool ACodec::BaseState::onMessageReceived(const sp<AMessage> &msg) {
 
         case ACodec::kWhatSetSurface:
         {
+            sp<AReplyToken> replyID;
+            CHECK(msg->senderAwaitsResponse(&replyID));
+
             sp<RefBase> obj;
             CHECK(msg->findObject("surface", &obj));
 
             status_t err = mCodec->handleSetSurface(static_cast<Surface *>(obj.get()));
 
-            sp<AReplyToken> replyID;
-            if (msg->senderAwaitsResponse(&replyID)) {
-                sp<AMessage> response = new AMessage;
-                response->setInt32("err", err);
-                response->postReply(replyID);
-            } else if (err != OK) {
-                mCodec->signalError(OMX_ErrorUndefined, err);
-            }
+            sp<AMessage> response = new AMessage;
+            response->setInt32("err", err);
+            response->postReply(replyID);
             break;
         }
 
@@ -6317,6 +6315,11 @@ void ACodec::BaseState::onInputBufferFilled(const sp<AMessage> &msg) {
                     flags |= OMX_BUFFERFLAG_EOS;
                 }
 
+                int32_t isDecodeOnly = 0;
+                if (buffer->meta()->findInt32("decode-only", &isDecodeOnly) && isDecodeOnly != 0) {
+                    flags |= OMX_BUFFERFLAG_DECODEONLY;
+                    mCodec->mDecodeOnlyTimesUs.emplace(timeUs);
+                }
                 size_t size = buffer->size();
                 size_t offset = buffer->offset();
                 if (buffer->base() != info->mCodecData->base()) {
@@ -6346,6 +6349,10 @@ void ACodec::BaseState::onInputBufferFilled(const sp<AMessage> &msg) {
                     ALOGV("[%s] calling emptyBuffer %u w/ EOS",
                          mCodec->mComponentName.c_str(), bufferID);
                 } else {
+                    if (flags & OMX_BUFFERFLAG_DECODEONLY) {
+                        ALOGV("[%s] calling emptyBuffer %u w/ decode only flag",
+                            mCodec->mComponentName.c_str(), bufferID);
+                    }
 #if TRACK_BUFFER_TIMING
                     ALOGI("[%s] calling emptyBuffer %u w/ time %lld us",
                          mCodec->mComponentName.c_str(), bufferID, (long long)timeUs);
@@ -6483,7 +6490,7 @@ void ACodec::BaseState::getMoreInputDataIfPossible() {
     BufferInfo *eligible = NULL;
 
     for (size_t i = 0; i < mCodec->mBuffers[kPortIndexInput].size(); ++i) {
-        BufferInfo *info = &mCodec->mBuffers[kPortIndexInput].editItemAt(i);
+        BufferInfo *info = &mCodec->mBuffers[kPortIndexInput][i];
 
 #if 0
         if (info->mStatus == BufferInfo::OWNED_BY_UPSTREAM) {
@@ -6636,6 +6643,39 @@ bool ACodec::BaseState::onOMXFillBufferDone(
 
             info->mData.clear();
 
+            // Workaround: if OMX_BUFFERFLAG_DECODEONLY is not implemented in
+            // HAL, the flag is then removed in the corresponding output buffer.
+
+            // for all buffers that were marked as DECODE_ONLY, remove their timestamp
+            // if it is smaller than the timestamp of the buffer that was
+            // just received
+            while (!mCodec->mDecodeOnlyTimesUs.empty() &&
+                   *mCodec->mDecodeOnlyTimesUs.begin() < timeUs) {
+                    mCodec->mDecodeOnlyTimesUs.erase(mCodec->mDecodeOnlyTimesUs.begin());
+            }
+            // if OMX_BUFFERFLAG_DECODEONLY is not implemented in HAL, we need to restore the
+            // OMX_BUFFERFLAG_DECODEONLY flag to the frames we had saved in the set, the set
+            // contains the timestamps of buffers that were marked as DECODE_ONLY by the app
+            if (!mCodec->mDecodeOnlyTimesUs.empty() &&
+                *mCodec->mDecodeOnlyTimesUs.begin() == timeUs) {
+                mCodec->mDecodeOnlyTimesUs.erase(timeUs);
+                // If the app queued the last valid buffer as DECODE_ONLY and queued an additional
+                // empty buffer as EOS, it's possible that HAL sets the last valid frame as EOS
+                // instead and drops the empty buffer. In such a case, we should not add back
+                // the OMX_BUFFERFLAG_DECODEONLY flag to it, as doing so will make it so that the
+                // app does not receive the EOS buffer, which breaks the contract of EOS buffers
+                if (flags & OMX_BUFFERFLAG_EOS) {
+                    // Set buffer size to 0, as described by
+                    // https://developer.android.com/reference/android/media/MediaCodec.BufferInfo?hl=en#size
+                    // a buffer of size 0 should only be used to carry the EOS flag and should
+                    // be discarded by the app as it has no data
+                    buffer->setRange(0, 0);
+                } else {
+                    // re-add the OMX_BUFFERFLAG_DECODEONLY flag to the buffer in case it is
+                    // not the end of stream buffer
+                    flags |= OMX_BUFFERFLAG_DECODEONLY;
+                }
+            }
             mCodec->mBufferChannel->drainThisBuffer(info->mBufferID, flags);
 
             info->mStatus = BufferInfo::OWNED_BY_DOWNSTREAM;
@@ -6753,6 +6793,8 @@ void ACodec::BaseState::onOutputBufferDrained(const sp<AMessage> &msg) {
         info->checkReadFence("onOutputBufferDrained before queueBuffer");
         err = mCodec->mNativeWindow->queueBuffer(
                     mCodec->mNativeWindow.get(), info->mGraphicBuffer.get(), info->mFenceFd);
+        // TODO(b/266211548): Poll the native window for rendered buffers, since when queueing
+        // buffers, the frame event history delta is retrieved.
         info->mFenceFd = -1;
         if (err == OK) {
             info->mStatus = BufferInfo::OWNED_BY_NATIVE_WINDOW;
@@ -6856,6 +6898,7 @@ void ACodec::UninitializedState::stateEntered() {
     mCodec->mConverter[0].clear();
     mCodec->mConverter[1].clear();
     mCodec->mComponentName.clear();
+    mCodec->mDecodeOnlyTimesUs.clear();
 }
 
 bool ACodec::UninitializedState::onMessageReceived(const sp<AMessage> &msg) {
@@ -7515,7 +7558,7 @@ void ACodec::ExecutingState::submitOutputMetaBuffers() {
     // submit as many buffers as there are input buffers with the codec
     // in case we are in port reconfiguring
     for (size_t i = 0; i < mCodec->mBuffers[kPortIndexInput].size(); ++i) {
-        BufferInfo *info = &mCodec->mBuffers[kPortIndexInput].editItemAt(i);
+        BufferInfo *info = &mCodec->mBuffers[kPortIndexInput][i];
 
         if (info->mStatus == BufferInfo::OWNED_BY_COMPONENT) {
             if (mCodec->submitOutputMetadataBuffer() != OK)
@@ -7533,7 +7576,7 @@ void ACodec::ExecutingState::submitOutputMetaBuffers() {
 void ACodec::ExecutingState::submitRegularOutputBuffers() {
     bool failed = false;
     for (size_t i = 0; i < mCodec->mBuffers[kPortIndexOutput].size(); ++i) {
-        BufferInfo *info = &mCodec->mBuffers[kPortIndexOutput].editItemAt(i);
+        BufferInfo *info = &mCodec->mBuffers[kPortIndexOutput][i];
 
         if (mCodec->mNativeWindow != NULL) {
             if (info->mStatus != BufferInfo::OWNED_BY_US
@@ -7590,7 +7633,7 @@ void ACodec::ExecutingState::resume() {
     }
 
     for (size_t i = 0; i < mCodec->mBuffers[kPortIndexInput].size(); i++) {
-        BufferInfo *info = &mCodec->mBuffers[kPortIndexInput].editItemAt(i);
+        BufferInfo *info = &mCodec->mBuffers[kPortIndexInput][i];
         if (info->mStatus == BufferInfo::OWNED_BY_US) {
             postFillThisBuffer(info);
         }
@@ -8529,16 +8572,10 @@ bool ACodec::OutputPortSettingsChangedState::onMessageReceived(
 
         case kWhatSetSurface:
         {
-            ALOGV("[%s] Deferring setSurface", mCodec->mComponentName.c_str());
-
-            sp<AReplyToken> replyID;
-            CHECK(msg->senderAwaitsResponse(&replyID));
+            ALOGD("[%s] Deferring setSurface from OutputPortSettingsChangedState",
+                  mCodec->mComponentName.c_str());
 
             mCodec->deferMessage(msg);
-
-            sp<AMessage> response = new AMessage;
-            response->setInt32("err", OK);
-            response->postReply(replyID);
 
             handled = true;
             break;
@@ -8594,7 +8631,7 @@ bool ACodec::OutputPortSettingsChangedState::onOMXEvent(
                 ALOGV("[%s] Output port now disabled.", mCodec->mComponentName.c_str());
 
                 status_t err = OK;
-                if (!mCodec->mBuffers[kPortIndexOutput].isEmpty()) {
+                if (!mCodec->mBuffers[kPortIndexOutput].empty()) {
                     ALOGE("disabled port should be empty, but has %zu buffers",
                             mCodec->mBuffers[kPortIndexOutput].size());
                     err = FAILED_TRANSACTION;
@@ -8847,6 +8884,7 @@ void ACodec::FlushingState::stateEntered() {
     ALOGV("[%s] Now Flushing", mCodec->mComponentName.c_str());
 
     mFlushComplete[kPortIndexInput] = mFlushComplete[kPortIndexOutput] = false;
+    mCodec->mDecodeOnlyTimesUs.clear();
 
     // If we haven't transitioned after 3 seconds, we're probably stuck.
     sp<AMessage> msg = new AMessage(ACodec::kWhatCheckIfStuck, mCodec);

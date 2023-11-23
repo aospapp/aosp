@@ -37,10 +37,14 @@ public class ShowWhenLockedActivity extends Activity {
      * Create the intent which can start this activity
      * @param description The text to be shown on the activity
      */
-    public static Intent makeActivityIntent(Context context, String description) {
-        return new Intent(context, ShowWhenLockedActivity.class)
-                .putExtra(KEY_DESCRIPTION, description)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+    public static Intent makeActivityIntent(Context context, String description,
+            boolean clearActivity) {
+        Intent intent = new Intent(context, ShowWhenLockedActivity.class)
+                .putExtra(KEY_DESCRIPTION, description);
+        if (clearActivity) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        }
+        return intent;
     }
 
     @Override

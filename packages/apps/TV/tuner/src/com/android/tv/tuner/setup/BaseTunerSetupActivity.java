@@ -463,8 +463,8 @@ public abstract class BaseTunerSetupActivity extends SetupActivity {
      */
     private static PendingIntent createPendingIntentForSetupActivity(
             Context context, Intent tunerSetupIntent) {
-        return PendingIntent.getActivity(
-                context, 0, tunerSetupIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        return PendingIntent.getActivity(context, 0, tunerSetupIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
     }
 
     /** Creates {@link Tuner} instances in a worker thread * */

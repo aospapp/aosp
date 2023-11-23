@@ -28,6 +28,7 @@
 #include <cutils/properties.h>
 #include <hidl/HidlTransportSupport.h>
 #include <malloc.h>
+#include <utils/AndroidThreads.h>
 #include <utils/Errors.h>
 
 #include <cinttypes>
@@ -101,6 +102,7 @@ int main() {
       return android::NO_INIT;
     }
   }
+  androidSetThreadName("google.camera.provider");
   ABinderProcess_joinThreadPool();
 
   // In normal operation, the threadpool should never return.

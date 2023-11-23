@@ -35,9 +35,12 @@ public class VirtualMouseScrollEventTest {
     public void parcelAndUnparcel_matches() {
         final float x = 0.5f;
         final float y = -0.2f;
+        final long eventTimeNanos = 5000L;
         final VirtualMouseScrollEvent originalEvent = new VirtualMouseScrollEvent.Builder()
                 .setXAxisMovement(x)
-                .setYAxisMovement(y).build();
+                .setYAxisMovement(y)
+                .setEventTimeNanos(eventTimeNanos)
+                .build();
         final Parcel parcel = Parcel.obtain();
         originalEvent.writeToParcel(parcel, /* flags= */ 0);
         parcel.setDataPosition(0);
@@ -48,6 +51,9 @@ public class VirtualMouseScrollEventTest {
         assertWithMessage("Recreated event has different y")
                 .that(originalEvent.getYAxisMovement())
                 .isEqualTo(recreatedEvent.getYAxisMovement());
+        assertWithMessage("Recreated event has different event time")
+                .that(originalEvent.getEventTimeNanos())
+                .isEqualTo(recreatedEvent.getEventTimeNanos());
     }
 
     @Test
@@ -65,13 +71,26 @@ public class VirtualMouseScrollEventTest {
     }
 
     @Test
+    public void scrollEvent_invalidEventTime_throwsIae() {
+        assertThrows(IllegalArgumentException.class, () -> new VirtualMouseScrollEvent.Builder()
+                .setXAxisMovement(-1f)
+                .setYAxisMovement(1f)
+                .setEventTimeNanos(-10L));
+    }
+
+    @Test
     public void scrollEvent_valid_created() {
         final float x = -1f;
         final float y = 1f;
+        final long eventTimeNanos = 5000L;
         final VirtualMouseScrollEvent event = new VirtualMouseScrollEvent.Builder()
                 .setXAxisMovement(x)
-                .setYAxisMovement(y).build();
+                .setYAxisMovement(y)
+                .setEventTimeNanos(eventTimeNanos)
+                .build();
         assertWithMessage("Incorrect x value").that(event.getXAxisMovement()).isEqualTo(x);
         assertWithMessage("Incorrect y value").that(event.getYAxisMovement()).isEqualTo(y);
+        assertWithMessage("Incorrect event time").that(event.getEventTimeNanos())
+                .isEqualTo(eventTimeNanos);
     }
 }

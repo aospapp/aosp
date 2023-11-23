@@ -4,7 +4,7 @@ package {
 
 android_library {
     name: "ActivityContext",
-    sdk_version: "27",
+    sdk_version: "29",
     srcs: [
         "src/main/java/**/*.java"
     ],
@@ -24,6 +24,7 @@ android_test {
         "general-tests",
     ],
     static_libs: [
+        "Harrier",
         "ActivityContext",
         "androidx.test.ext.junit",
         "ctstestrunner-axt",

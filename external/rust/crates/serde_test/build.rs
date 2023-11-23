@@ -6,6 +6,8 @@ use std::str::{self, FromStr};
 // opening a GitHub issue if your build environment requires some way to enable
 // these cfgs other than by executing our build script.
 fn main() {
+    println!("cargo:rerun-if-changed=build.rs");
+
     let minor = match rustc_minor_version() {
         Some(minor) => minor,
         None => return,
@@ -13,8 +15,8 @@ fn main() {
 
     // #[track_caller] stabilized in Rust 1.46:
     // https://blog.rust-lang.org/2020/08/27/Rust-1.46.0.html#track_caller
-    if minor >= 46 {
-        println!("cargo:rustc-cfg=track_caller");
+    if minor < 46 {
+        println!("cargo:rustc-cfg=no_track_caller");
     }
 }
 

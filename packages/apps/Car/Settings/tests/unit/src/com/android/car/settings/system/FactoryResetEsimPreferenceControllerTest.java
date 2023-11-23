@@ -17,6 +17,8 @@
 package com.android.car.settings.system;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 import static com.android.car.settings.system.FactoryResetEsimPreferenceController.KEY_SHOW_ESIM_RESET_CHECKBOX;
 
@@ -111,10 +113,70 @@ public class FactoryResetEsimPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_showEsimPropertyTrue_available_zoneWrite() {
+        ExtendedMockito.when(SystemProperties.get(eq(KEY_SHOW_ESIM_RESET_CHECKBOX), anyString()))
+                .thenReturn(Boolean.TRUE.toString());
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_showEsimPropertyTrue_available_zoneRead() {
+        ExtendedMockito.when(SystemProperties.get(eq(KEY_SHOW_ESIM_RESET_CHECKBOX), anyString()))
+                .thenReturn(Boolean.TRUE.toString());
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_showEsimPropertyTrue_available_zoneHidden() {
+        ExtendedMockito.when(SystemProperties.get(eq(KEY_SHOW_ESIM_RESET_CHECKBOX), anyString()))
+                .thenReturn(Boolean.TRUE.toString());
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_showEsimPropertyFalse_unsupportedOnDevice() {
         ExtendedMockito.when(SystemProperties.get(eq(KEY_SHOW_ESIM_RESET_CHECKBOX), anyString()))
                 .thenReturn(Boolean.FALSE.toString());
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_showEsimPropertyFalse_unsupportedOnDevice_zoneWrite() {
+        ExtendedMockito.when(SystemProperties.get(eq(KEY_SHOW_ESIM_RESET_CHECKBOX), anyString()))
+                .thenReturn(Boolean.FALSE.toString());
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_showEsimPropertyFalse_unsupportedOnDevice_zoneRead() {
+        ExtendedMockito.when(SystemProperties.get(eq(KEY_SHOW_ESIM_RESET_CHECKBOX), anyString()))
+                .thenReturn(Boolean.FALSE.toString());
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_showEsimPropertyFalse_unsupportedOnDevice_zoneHidden() {
+        ExtendedMockito.when(SystemProperties.get(eq(KEY_SHOW_ESIM_RESET_CHECKBOX), anyString()))
+                .thenReturn(Boolean.FALSE.toString());
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
     }
 }

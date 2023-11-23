@@ -1,0 +1,7 @@
+allow hal_light_default sysfs_leds:dir search;
+allow hal_light_default sysfs_leds:file rw_file_perms;
+allow hal_light_default mnt_vendor_file:dir search;
+allow hal_light_default persist_file:dir search;
+allow hal_light_default hal_pixel_display_service:service_manager find;
+binder_call(hal_light_default, hal_graphics_composer_default);
+r_dir_file(hal_light_default, persist_leds_file);

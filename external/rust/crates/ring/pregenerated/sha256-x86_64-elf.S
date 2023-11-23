@@ -8,17 +8,18 @@
 #endif
 
 #if defined(__x86_64__) && !defined(OPENSSL_NO_ASM)
+#include "ring_core_generated/prefix_symbols_asm.h"
 .text	
 
-.extern	GFp_ia32cap_P
-.hidden GFp_ia32cap_P
-.globl	GFp_sha256_block_data_order
-.hidden GFp_sha256_block_data_order
-.type	GFp_sha256_block_data_order,@function
+.extern	OPENSSL_ia32cap_P
+.hidden OPENSSL_ia32cap_P
+.globl	sha256_block_data_order
+.hidden sha256_block_data_order
+.type	sha256_block_data_order,@function
 .align	16
-GFp_sha256_block_data_order:
+sha256_block_data_order:
 .cfi_startproc	
-	leaq	GFp_ia32cap_P(%rip),%r11
+	leaq	OPENSSL_ia32cap_P(%rip),%r11
 	movl	0(%r11),%r9d
 	movl	4(%r11),%r10d
 	movl	8(%r11),%r11d
@@ -1734,7 +1735,7 @@ GFp_sha256_block_data_order:
 .Lepilogue:
 	.byte	0xf3,0xc3
 .cfi_endproc	
-.size	GFp_sha256_block_data_order,.-GFp_sha256_block_data_order
+.size	sha256_block_data_order,.-sha256_block_data_order
 .align	64
 .type	K256,@object
 K256:
@@ -1778,9 +1779,9 @@ K256:
 .long	0xffffffff,0xffffffff,0x03020100,0x0b0a0908
 .long	0xffffffff,0xffffffff,0x03020100,0x0b0a0908
 .byte	83,72,65,50,53,54,32,98,108,111,99,107,32,116,114,97,110,115,102,111,114,109,32,102,111,114,32,120,56,54,95,54,52,44,32,67,82,89,80,84,79,71,65,77,83,32,98,121,32,60,97,112,112,114,111,64,111,112,101,110,115,115,108,46,111,114,103,62,0
-.type	GFp_sha256_block_data_order_ssse3,@function
+.type	sha256_block_data_order_ssse3,@function
 .align	64
-GFp_sha256_block_data_order_ssse3:
+sha256_block_data_order_ssse3:
 .cfi_startproc	
 .Lssse3_shortcut:
 	movq	%rsp,%rax
@@ -2890,10 +2891,10 @@ GFp_sha256_block_data_order_ssse3:
 .Lepilogue_ssse3:
 	.byte	0xf3,0xc3
 .cfi_endproc	
-.size	GFp_sha256_block_data_order_ssse3,.-GFp_sha256_block_data_order_ssse3
-.type	GFp_sha256_block_data_order_avx,@function
+.size	sha256_block_data_order_ssse3,.-sha256_block_data_order_ssse3
+.type	sha256_block_data_order_avx,@function
 .align	64
-GFp_sha256_block_data_order_avx:
+sha256_block_data_order_avx:
 .cfi_startproc	
 .Lavx_shortcut:
 	movq	%rsp,%rax
@@ -3965,6 +3966,6 @@ GFp_sha256_block_data_order_avx:
 .Lepilogue_avx:
 	.byte	0xf3,0xc3
 .cfi_endproc	
-.size	GFp_sha256_block_data_order_avx,.-GFp_sha256_block_data_order_avx
+.size	sha256_block_data_order_avx,.-sha256_block_data_order_avx
 #endif
 .section	.note.GNU-stack,"",@progbits

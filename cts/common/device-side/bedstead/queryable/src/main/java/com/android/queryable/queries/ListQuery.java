@@ -22,10 +22,11 @@ import java.util.Collection;
 import java.util.List;
 
 /** Query for a {@link java.util.List}. */
-public interface ListQuery<E extends Queryable, F, G extends Query<F>> extends Query<List<F>> {
+public interface ListQuery<E extends Queryable, F> extends Query<List<F>> {
 
-    static ListQuery<ListQuery<?, ?, ?>, ?, ?> list() {
-        return new ListQueryHelper<>();
+    /** Queries a {@link List}. */
+    static <E> ListQueryHelper.ListQueryBase<E> list(Class<E> cls) {
+        return new ListQueryHelper.ListQueryBase<E>();
     }
 
     IntegerQuery<E> size();
@@ -33,7 +34,7 @@ public interface ListQuery<E extends Queryable, F, G extends Query<F>> extends Q
     /**
      * Used to query whether a list contains certain objects.
      */
-    E contains(G... objects);
+    E contains(Query<F>... objects);
 
     /**
      * Used to query whether a list contains certain objects.
@@ -47,7 +48,7 @@ public interface ListQuery<E extends Queryable, F, G extends Query<F>> extends Q
     /**
      * Used to query whether a list does not contain certain objects.
      */
-    E doesNotContain(G... objects);
+    E doesNotContain(Query<F>... objects);
 
     /**
      * Used to query whether a list does not contain certain objects.

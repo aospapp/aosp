@@ -41,6 +41,8 @@ import com.android.bluetooth.ObexRejectServer;
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.MetricsLogger;
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.annotations.VisibleForTesting.Visibility;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 import com.android.obex.ResponseCodes;
@@ -61,7 +63,8 @@ import java.io.IOException;
  *          CONNECTED   ----->  FINISHED
  *                (OBEX Server done)
  */
-class PbapStateMachine extends StateMachine {
+@VisibleForTesting(visibility = Visibility.PACKAGE)
+public class PbapStateMachine extends StateMachine {
     private static final String TAG = "PbapStateMachine";
     private static final boolean DEBUG = true;
     private static final boolean VERBOSE = true;

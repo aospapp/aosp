@@ -16,6 +16,7 @@
 package com.android.compatibility.common.util;
 
 import android.media.MediaFormat;
+import android.util.Log;
 import android.util.Range;
 
 import com.android.compatibility.common.util.DeviceReportLog;
@@ -23,7 +24,6 @@ import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 
 import java.util.Arrays;
-import android.util.Log;
 
 public class MediaPerfUtils {
     private static final String TAG = "MediaPerfUtils";
@@ -36,6 +36,8 @@ public class MediaPerfUtils {
     // a limit for the size of the published rates (e.g. upper-limit / lower-limit <= tolerance).
     private static final double FRAMERATE_TOLERANCE = 2.0 * 1.1;
 
+    // Allow extra tolerance when B frames are enabled
+    private static final double EXTRA_TOLERANCE_BFRAMES = 1.25;
     /*
      *  ------------------ HELPER METHODS FOR ACHIEVABLE FRAME RATES ------------------
      */
@@ -146,18 +148,31 @@ public class MediaPerfUtils {
     /** Verifies |measuredFps| against reported achievable rates. Returns null if at least
      *  one measurement falls within the margins of the reported range. Otherwise, returns
      *  an error message to display.*/
-    public static String verifyAchievableFrameRates(
-            String name, String mime, int w, int h, boolean fasterIsOk, double... measuredFps) {
+    public static String verifyAchievableFrameRates(String name, String mime, int w,
+            int h, boolean fasterIsOk, double... measuredFps) {
+        return verifyAchievableFrameRates(
+                name, mime, w, h, fasterIsOk, /* bFramesEnabled */ false, measuredFps);
+    }
+
+    /** Verifies |measuredFps| against reported achievable rates allowing extra tolerance when
+     *  B frames are enabled. Returns null if at least one measurement falls within the margins
+     *  of the reported range. Otherwise, returns an error message to display.*/
+    public static String verifyAchievableFrameRates(String name, String mime, int w, int h,
+            boolean fasterIsOk, boolean bFramesEnabled, double... measuredFps) {
         Range<Double> reported =
             MediaUtils.getVideoCapabilities(name, mime).getAchievableFrameRatesFor(w, h);
         String kind = "achievable frame rates for " + name + " " + mime + " " + w + "x" + h;
         if (reported == null) {
             return "Failed to get " + kind;
         }
-        double lowerBoundary1 = reported.getLower() / FRAMERATE_TOLERANCE;
-        double upperBoundary1 = reported.getUpper() * FRAMERATE_TOLERANCE;
-        double lowerBoundary2 = reported.getUpper() / Math.pow(FRAMERATE_TOLERANCE, 2);
-        double upperBoundary2 = reported.getLower() * Math.pow(FRAMERATE_TOLERANCE, 2);
+        double tolerance = FRAMERATE_TOLERANCE;
+        if (bFramesEnabled) {
+            tolerance *= EXTRA_TOLERANCE_BFRAMES;
+        }
+        double lowerBoundary1 = reported.getLower() / tolerance;
+        double upperBoundary1 = reported.getUpper() * tolerance;
+        double lowerBoundary2 = reported.getUpper() / Math.pow(tolerance, 2);
+        double upperBoundary2 = reported.getLower() * Math.pow(tolerance, 2);
         Log.d(TAG, name + " " + mime + " " + w + "x" + h +
                 " lowerBoundary1 " + lowerBoundary1 + " upperBoundary1 " + upperBoundary1 +
                 " lowerBoundary2 " + lowerBoundary2 + " upperBoundary2 " + upperBoundary2 +

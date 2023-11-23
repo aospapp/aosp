@@ -21,6 +21,7 @@ class cros_gralloc_buffer
 
 	uint32_t get_id() const;
 	uint32_t get_width() const;
+	uint32_t get_pixel_stride() const;
 	uint32_t get_height() const;
 	uint32_t get_format() const;
 	uint64_t get_format_modifier() const;

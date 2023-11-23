@@ -390,15 +390,17 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
         fake_rsa_key_file = "/tmp/rsa_file"
         fake_target_vnc_port = 8888
         target_adb_port = 9999
+        target_fastboot_port = 7777
         ssh_user = "fake_user"
         call_side_effect = subprocess.CalledProcessError(123, "fake",
                                                          "fake error")
-        result = utils.ForwardedPorts(vnc_port=None, adb_port=None)
+        result = utils.ForwardedPorts(vnc_port=None, adb_port=None, fastboot_port=None)
         self.Patch(utils, "EstablishSshTunnel", side_effect=call_side_effect)
         self.assertEqual(result, utils.AutoConnect(fake_ip_addr,
                                                    fake_rsa_key_file,
                                                    fake_target_vnc_port,
                                                    target_adb_port,
+                                                   target_fastboot_port,
                                                    ssh_user))
 
     def testAutoConnectWithExtraArgs(self):
@@ -407,6 +409,7 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
         fake_rsa_key_file = "/tmp/rsa_file"
         fake_target_vnc_port = 8888
         target_adb_port = 9999
+        target_fastboot_port = 7777
         ssh_user = "fake_user"
         fake_port = 12345
         self.Patch(utils, "PickFreePort", return_value=fake_port)
@@ -417,14 +420,17 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
                           rsa_key_file=fake_rsa_key_file,
                           target_vnc_port=fake_target_vnc_port,
                           target_adb_port=target_adb_port,
+                          target_fastboot_port=target_fastboot_port,
                           ssh_user=ssh_user,
                           client_adb_port=fake_port,
+                          client_fastboot_port=fake_port,
                           extra_args_ssh_tunnel=extra_args_ssh_tunnel)
         mock_establish_ssh_tunnel.assert_called_with(
             fake_ip_addr,
             fake_rsa_key_file,
             ssh_user,
             [utils.PortMapping(fake_port, target_adb_port),
+             utils.PortMapping(fake_port, target_fastboot_port),
              utils.PortMapping(fake_port, fake_target_vnc_port)],
             extra_args_ssh_tunnel)
         mock_execute_command.assert_called_with(
@@ -438,10 +444,7 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
         fake_webrtc_local_port = 12345
         self.Patch(utils, "GetWebRTCServerPort", return_value=8443)
         mock_establish_ssh_tunnel = self.Patch(utils, "EstablishSshTunnel")
-        fake_port_mapping = [utils.PortMapping(15550, 15550),
-                             utils.PortMapping(15551, 15551),
-                             utils.PortMapping(15552, 15552),
-                             utils.PortMapping(12345, 8443)]
+        fake_port_mapping = [utils.PortMapping(port, port) for port in range(15555, 15579 + 1)] + [utils.PortMapping(12345, 8443)]
 
         utils.EstablishWebRTCSshTunnel(
             ip_addr=fake_ip_addr, rsa_key_file=fake_rsa_key_file,
@@ -498,6 +501,28 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
         self.Patch(subprocess, "check_output", return_value=fake_ps_output)
         webrtc_ports = utils.GetWebrtcPortFromSSHTunnel("1.1.1.1")
         self.assertEqual(12345, webrtc_ports)
+
+    @mock.patch("acloud.internal.lib.utils.subprocess")
+    def testFindRemoteFiles(self, mock_subprocess):
+        """Test FindRemoteFiles."""
+        mock_ssh = mock.Mock()
+
+        paths = utils.FindRemoteFiles(mock_ssh, [])
+        mock_subprocess.run.assert_not_called()
+        self.assertEqual([], paths)
+
+        mock_ssh.GetBaseCmd.return_value = "mock_ssh"
+        mock_subprocess.run.return_value = mock.Mock(
+            stderr=b'stderr', stdout=b'file1\nfile2\n')
+        paths = utils.FindRemoteFiles(mock_ssh, ["dir1", "dir2"])
+        self.assertEqual(["file1", "file2"], paths)
+        mock_subprocess.run.assert_called_with(
+            'mock_ssh find -H dir1 dir2 -type f',
+            shell=True, capture_output=True, check=False)
+
+        mock_subprocess.run.return_value = mock.Mock(stderr=None, stdout=b'')
+        paths = utils.FindRemoteFiles(mock_ssh, ["dir1", "dir2"])
+        self.assertEqual([], paths)
 
     # pylint: disable=protected-access, no-member
     def testCleanupSSVncviwer(self):
@@ -564,6 +589,7 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
         """test base_instance_num."""
         utils.SetCvdPorts(2)
         self.assertEqual(utils.GetCvdPorts().adb_port, 6521)
+        self.assertEqual(utils.GetCvdPorts().fastboot_port, 7521)
         self.assertEqual(utils.GetCvdPorts().vnc_port, 6445)
         utils.SetCvdPorts(None)
 

@@ -21,27 +21,27 @@ package com.google.android.car.kitchensink.users;
  */
 public final class UserRestrictionListItem {
     private final String mKey;
-    private boolean mIsChecked;
+    private boolean mChecked;
 
     public UserRestrictionListItem(String key, boolean isChecked) {
         mKey = key;
-        mIsChecked = isChecked;
+        mChecked = isChecked;
     }
 
     public String getKey() {
         return mKey;
     }
 
-    public void setIsChecked(boolean value) {
-        mIsChecked = value;
+    public void setChecked(boolean value) {
+        mChecked = value;
     }
 
-    public boolean getIsChecked() {
-        return mIsChecked;
+    public boolean isChecked() {
+        return mChecked;
     }
 
     @Override
     public String toString() {
-        return mKey + "(" + (mIsChecked ? "on" : "off") + ")";
+        return mKey + "(" + (mChecked ? "on" : "off") + ")";
     }
 }

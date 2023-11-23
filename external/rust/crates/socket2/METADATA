@@ -1,0 +1,23 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/socket2
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
+name: "socket2"
+description: "Utilities for handling networking sockets with a maximal amount of configuration possible intended."
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://crates.io/crates/socket2"
+  }
+  url {
+    type: ARCHIVE
+    value: "https://static.crates.io/crates/socket2/socket2-0.4.7.crate"
+  }
+  version: "0.4.7"
+  license_type: NOTICE
+  last_upgrade_date {
+    year: 2023
+    month: 2
+    day: 6
+  }
+}

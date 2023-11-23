@@ -78,6 +78,9 @@ struct ReportingConfig {
   // If set, provides a file name to enable metrics logging to a file.
   std::optional<std::string> dump_to_file;
 
+  // Provides the desired output format for metrics written to a file.
+  std::string metrics_format;
+
   // The reporting period configuration.
   std::optional<ReportingPeriodSpec> period_spec;
 
@@ -133,7 +136,7 @@ class MetricsReporter {
   // Returns the metrics to be reported.
   // This exists only for testing purposes so that we can verify reporting with minimum
   // runtime interference.
-  virtual const ArtMetrics* GetMetrics();
+  virtual ArtMetrics* GetMetrics();
 
   MetricsReporter(const ReportingConfig& config, Runtime* runtime);
 

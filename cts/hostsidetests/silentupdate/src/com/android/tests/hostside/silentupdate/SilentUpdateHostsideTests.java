@@ -16,6 +16,7 @@
 
 package com.android.tests.hostside.silentupdate;
 
+import com.android.tradefed.util.RunUtil;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -35,8 +36,8 @@ public class SilentUpdateHostsideTests extends BaseHostJUnit4Test {
     private static final String TEST_PKG = "com.android.tests.silentupdate";
     private static final String TEST_CLS = "com.android.tests.silentupdate.SilentUpdateTests";
     private static final String CURRENT_APK = "SilentInstallCurrent.apk";
-    private static final String Q_APK = "SilentInstallQ.apk";
     private static final String R_APK = "SilentInstallR.apk";
+    private static final String S_APK = "SilentInstallS.apk";
 
     @Before
     public void installAppOpAllowed() throws Exception {
@@ -89,15 +90,15 @@ public class SilentUpdateHostsideTests extends BaseHostJUnit4Test {
     }
 
     @Test
-    public void updatePreRApp_RequiresUserAction() throws Exception {
-        install(Q_APK, TEST_PKG);
-        runDeviceTests(TEST_PKG, TEST_CLS, "updatePreRApp_RequiresUserAction");
+    public void updatePreSApp_RequiresUserAction() throws Exception {
+        install(R_APK, TEST_PKG);
+        runDeviceTests(TEST_PKG, TEST_CLS, "updatePreSApp_RequiresUserAction");
     }
 
     @Test
-    public void updateRApp_RequiresNoUserAction() throws Exception {
-        install(R_APK, TEST_PKG);
-        runDeviceTests(TEST_PKG, TEST_CLS, "updateRApp_RequiresNoUserAction");
+    public void updateSApp_RequiresNoUserAction() throws Exception {
+        install(S_APK, TEST_PKG);
+        runDeviceTests(TEST_PKG, TEST_CLS, "updateSApp_RequiresNoUserAction");
     }
 
     @Test
@@ -111,7 +112,7 @@ public class SilentUpdateHostsideTests extends BaseHostJUnit4Test {
 
     @Test
     public void setRequireUserAction_throwsOnIllegalArgument() throws Exception {
-        install(R_APK, TEST_PKG);
+        install(S_APK, TEST_PKG);
         runDeviceTests(TEST_PKG, TEST_CLS, "setRequireUserAction_throwsOnIllegalArgument");
     }
 
@@ -159,7 +160,7 @@ public class SilentUpdateHostsideTests extends BaseHostJUnit4Test {
                 long startTime = System.currentTimeMillis();
         while (System.currentTimeMillis() - startTime < timeout
                 && originalCodePath.equals(getCodePath(packageName))) {
-            Thread.sleep(100);
+            RunUtil.getDefault().sleep(100);
         }
     }
 

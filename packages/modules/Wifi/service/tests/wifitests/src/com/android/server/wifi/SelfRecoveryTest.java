@@ -30,12 +30,17 @@ import android.content.Context;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.dx.mockito.inline.extended.ExtendedMockito;
+import com.android.server.wifi.proto.WifiStatsLog;
 import com.android.wifi.resources.R;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockitoSession;
+import org.mockito.quality.Strictness;
 
 import java.util.concurrent.TimeUnit;
 
@@ -51,6 +56,8 @@ public class SelfRecoveryTest extends WifiBaseTest {
     @Mock ActiveModeWarden mActiveModeWarden;
     @Mock Clock mClock;
     @Mock WifiNative mWifiNative;
+    @Mock WifiGlobals mWifiGlobals;
+    private MockitoSession mSession;
     final ArgumentCaptor<HalDeviceManager.SubsystemRestartListener> mRestartListenerCaptor =
             ArgumentCaptor.forClass(HalDeviceManager.SubsystemRestartListener.class);
 
@@ -62,12 +69,24 @@ public class SelfRecoveryTest extends WifiBaseTest {
         mResources.setInteger(R.integer.config_wifiMaxNativeFailureSelfRecoveryPerHour,
                 DEFAULT_MAX_RECOVERY_PER_HOUR);
         when(mContext.getResources()).thenReturn(mResources);
-        mSelfRecovery = new SelfRecovery(mContext, mActiveModeWarden, mClock, mWifiNative);
+        when(mWifiGlobals.isWifiInterfaceAddedSelfRecoveryEnabled()).thenReturn(false);
+        mSelfRecovery = new SelfRecovery(mContext, mActiveModeWarden, mClock, mWifiNative,
+                mWifiGlobals);
         verify(mWifiNative).registerSubsystemRestartListener(mRestartListenerCaptor.capture());
         doAnswer((invocation) -> {
             mRestartListenerCaptor.getValue().onSubsystemRestart();
             return true;
         }).when(mWifiNative).startSubsystemRestart();
+
+        mSession = ExtendedMockito.mockitoSession()
+                .strictness(Strictness.LENIENT)
+                .mockStatic(WifiStatsLog.class)
+                .startMocking();
+    }
+
+    @After
+    public void tearDown() {
+        mSession.finishMocking();
     }
 
     /**
@@ -282,5 +301,87 @@ public class SelfRecoveryTest extends WifiBaseTest {
         assertTrue(mSelfRecovery.isRecoveryInProgress());
         mSelfRecovery.onRecoveryCompleted();
         assertFalse(mSelfRecovery.isRecoveryInProgress());
+    }
+
+    /**
+     * Verifies that by default, recovery on added interface is disabled.
+     */
+    @Test
+    public void testStaIfaceAddedNoAction() {
+        mSelfRecovery.trigger(SelfRecovery.REASON_IFACE_ADDED);
+        verify(mWifiNative, never()).startSubsystemRestart();
+    }
+
+    /**
+     * Verifies that when the self recovery on interface added flag is enabled, an interface added
+     * event will trigger recovery.
+     */
+    @Test
+    public void testStaIfaceAddedTriggersSelfRecovery() {
+        when(mWifiGlobals.isWifiInterfaceAddedSelfRecoveryEnabled()).thenReturn(true);
+        mSelfRecovery.trigger(SelfRecovery.REASON_IFACE_ADDED);
+        verify(mWifiNative).startSubsystemRestart();
+    }
+
+    @Test
+    public void testSelfRecoveryTriggeredMetrics() {
+        mSelfRecovery.trigger(SelfRecovery.REASON_SUBSYSTEM_RESTART);
+        ExtendedMockito.verify(() -> WifiStatsLog.write(WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED,
+                WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED__REASON__REASON_SUBSYSTEM_RESTART,
+                WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED__RESULT__RES_INVALID_REASON,
+                -1L));
+
+        when(mClock.getWallClockMillis()).thenReturn(10000L);
+        mSelfRecovery.trigger(SelfRecovery.REASON_STA_IFACE_DOWN);
+        ExtendedMockito.verify(() -> WifiStatsLog.write(WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED,
+                WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED__REASON__REASON_STA_IFACE_DOWN,
+                WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED__RESULT__RES_IFACE_DOWN,
+                10000L));
+
+        when(mClock.getWallClockMillis()).thenReturn(20000L);
+        when(mWifiGlobals.isWifiInterfaceAddedSelfRecoveryEnabled()).thenReturn(false);
+        mSelfRecovery.trigger(SelfRecovery.REASON_IFACE_ADDED);
+        ExtendedMockito.verify(() -> WifiStatsLog.write(WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED,
+                WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED__REASON__REASON_IFACE_ADDED,
+                WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED__RESULT__RES_IFACE_ADD_DISABLED,
+                10000L));
+
+        when(mClock.getWallClockMillis()).thenReturn(40000L);
+        mResources.setInteger(R.integer.config_wifiMaxNativeFailureSelfRecoveryPerHour, 0);
+        mSelfRecovery.trigger(SelfRecovery.REASON_WIFINATIVE_FAILURE);
+        ExtendedMockito.verify(() -> WifiStatsLog.write(WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED,
+                WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED__REASON__REASON_WIFINATIVE_FAILURE,
+                WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED__RESULT__RES_RETRY_DISABLED,
+                20000L));
+
+        when(mClock.getWallClockMillis()).thenReturn(70000L);
+        mResources.setInteger(R.integer.config_wifiMaxNativeFailureSelfRecoveryPerHour, 1);
+        mSelfRecovery.trigger(SelfRecovery.REASON_WIFINATIVE_FAILURE);
+        ExtendedMockito.verify(() -> WifiStatsLog.write(WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED,
+                WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED__REASON__REASON_WIFINATIVE_FAILURE,
+                WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED__RESULT__RES_RESTART_SUCCESS,
+                30000L));
+        when(mClock.getWallClockMillis()).thenReturn(80000L);
+        mSelfRecovery.trigger(SelfRecovery.REASON_WIFINATIVE_FAILURE);
+        ExtendedMockito.verify(() -> WifiStatsLog.write(WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED,
+                WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED__REASON__REASON_WIFINATIVE_FAILURE,
+                WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED__RESULT__RES_ABOVE_MAX_RETRY,
+                10000L));
+
+        when(mClock.getWallClockMillis()).thenReturn(100000L);
+        when(mWifiNative.startSubsystemRestart()).thenReturn(false);
+        mSelfRecovery.trigger(SelfRecovery.REASON_API_CALL);
+        ExtendedMockito.verify(() -> WifiStatsLog.write(WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED,
+                WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED__REASON__REASON_API_CALL,
+                WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED__RESULT__RES_RESTART_FAILURE,
+                20000L));
+
+        when(mClock.getWallClockMillis()).thenReturn(160000L);
+        when(mWifiNative.startSubsystemRestart()).thenReturn(true);
+        mSelfRecovery.trigger(SelfRecovery.REASON_LAST_RESORT_WATCHDOG);
+        ExtendedMockito.verify(() -> WifiStatsLog.write(WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED,
+                WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED__REASON__REASON_LAST_RESORT_WDOG,
+                WifiStatsLog.WIFI_SELF_RECOVERY_TRIGGERED__RESULT__RES_RESTART_SUCCESS,
+                60000L));
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1998, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,8 +25,6 @@
 
 package java.io;
 
-import java.security.AccessController;
-
 import android.system.ErrnoException;
 import android.system.OsConstants;
 
@@ -34,6 +32,9 @@ import dalvik.system.BlockGuard;
 
 import libcore.io.Libcore;
 
+import java.util.Properties;
+
+import jdk.internal.util.StaticProperty;
 import sun.security.action.GetPropertyAction;
 
 
@@ -42,14 +43,14 @@ class UnixFileSystem extends FileSystem {
     private final char slash;
     private final char colon;
     private final String javaHome;
+    private final String userDir;
 
     public UnixFileSystem() {
-        slash = AccessController.doPrivileged(
-            new GetPropertyAction("file.separator")).charAt(0);
-        colon = AccessController.doPrivileged(
-            new GetPropertyAction("path.separator")).charAt(0);
-        javaHome = AccessController.doPrivileged(
-            new GetPropertyAction("java.home"));
+        Properties props = GetPropertyAction.privilegedGetProperties();
+        slash = props.getProperty("file.separator").charAt(0);
+        colon = props.getProperty("path.separator").charAt(0);
+        javaHome = StaticProperty.javaHome();
+        userDir = StaticProperty.userDir();
     }
 
 
@@ -68,6 +69,33 @@ class UnixFileSystem extends FileSystem {
      * with a slash. The empty string and "/" are special cases that are also
      * considered normal.
      */
+
+    // BEGIN Android-removed: Dead code.
+    /*
+    /* Normalize the given pathname, whose length is len, starting at the given
+       offset; everything before this offset is already normal. *
+    private String normalize(String pathname, int len, int off) {
+        if (len == 0) return pathname;
+        int n = len;
+        while ((n > 0) && (pathname.charAt(n - 1) == '/')) n--;
+        if (n == 0) return "/";
+        StringBuilder sb = new StringBuilder(pathname.length());
+        if (off > 0) sb.append(pathname, 0, off);
+        char prevChar = 0;
+        for (int i = off; i < n; i++) {
+            char c = pathname.charAt(i);
+            if ((prevChar == '/') && (c == '/')) continue;
+            sb.append(c);
+            prevChar = c;
+        }
+        return sb.toString();
+    }
+    */
+    // END Android-removed: Dead code.
+
+    /* Check that the given pathname is normal.  If not, invoke the real
+       normalizer on the part of the pathname that requires normalization.
+       This way we iterate through the whole pathname string only once. */
     public String normalize(String pathname) {
         int n = pathname.length();
         char[] normalized = pathname.toCharArray();
@@ -92,7 +120,7 @@ class UnixFileSystem extends FileSystem {
     }
 
     public int prefixLength(String pathname) {
-        if (pathname.length() == 0) return 0;
+        if (pathname.isEmpty()) return 0;
         return (pathname.charAt(0) == '/') ? 1 : 0;
     }
 
@@ -133,7 +161,11 @@ class UnixFileSystem extends FileSystem {
 
     public String resolve(File f) {
         if (isAbsolute(f)) return f.getPath();
-        return resolve(System.getProperty("user.dir"), f.getPath());
+        SecurityManager sm = System.getSecurityManager();
+        if (sm != null) {
+            sm.checkPropertyAccess("user.dir");
+        }
+        return resolve(userDir, f.getPath());
     }
 
     // Caches for canonicalization results to improve startup performance.
@@ -253,7 +285,7 @@ class UnixFileSystem extends FileSystem {
 
         int rv = getBooleanAttributes0(f.getPath());
         String name = f.getName();
-        boolean hidden = (name.length() > 0) && (name.charAt(0) == '.');
+        boolean hidden = !name.isEmpty() && name.charAt(0) == '.';
         return rv | (hidden ? BA_HIDDEN : 0);
     }
 
@@ -418,6 +450,16 @@ class UnixFileSystem extends FileSystem {
     private native long getSpace0(File f, int t);
 
     /* -- Basic infrastructure -- */
+
+    private native long getNameMax0(String path);
+
+    public int getNameMax(String path) {
+        long nameMax = getNameMax0(path);
+        if (nameMax > Integer.MAX_VALUE) {
+            nameMax = Integer.MAX_VALUE;
+        }
+        return (int)nameMax;
+    }
 
     public int compare(File f1, File f2) {
         return f1.getPath().compareTo(f2.getPath());

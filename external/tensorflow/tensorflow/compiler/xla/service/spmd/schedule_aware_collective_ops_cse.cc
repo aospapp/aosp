@@ -90,7 +90,7 @@ StatusOr<bool> RunOnComputation(HloComputation* comp, bool for_replicas,
   // We consider estimate the live ranges of all-gathers by comparing their
   // users' distance to the root, e.g., height.
   bool changed = false;
-  absl::flat_hash_map<const HloInstruction*, int64> height;
+  absl::flat_hash_map<const HloInstruction*, int64_t> height;
   auto ordered_hlos = comp->MakeInstructionPostOrder();
   int64_t max_height = 0;
   for (auto it = ordered_hlos.rbegin(); it != ordered_hlos.rend(); ++it) {
@@ -156,9 +156,11 @@ StatusOr<bool> RunOnComputation(HloComputation* comp, bool for_replicas,
 
 }  // namespace
 
-StatusOr<bool> ScheduleAwareCollectiveOpsCSE::Run(HloModule* module) {
+StatusOr<bool> ScheduleAwareCollectiveOpsCSE::Run(
+    HloModule* module,
+    const absl::flat_hash_set<absl::string_view>& execution_threads) {
   bool changed = false;
-  for (auto comp : module->computations()) {
+  for (auto comp : module->computations(execution_threads)) {
     TF_ASSIGN_OR_RETURN(
         auto comp_changed,
         RunOnComputation(comp, for_replicas_, distance_threshold_));

@@ -52,6 +52,7 @@ CHANNEL_TO_BAND_MAP = {
 # Decorators
 def nonblocking(f):
     """Creates a decorator transforming function calls to non-blocking"""
+
     def wrap(*args, **kwargs):
         executor = ThreadPoolExecutor(max_workers=1)
         thread_future = executor.submit(f, *args, **kwargs)
@@ -65,7 +66,7 @@ def nonblocking(f):
 def detect_wifi_platform(dut):
     if hasattr(dut, 'wifi_platform'):
         return dut.wifi_platform
-    qcom_check = len(dut.get_file_names('/vendor/firmware/wlan/qca_cld/'))
+    qcom_check = len(dut.get_file_names('/vendor/firmware/wlan/'))
     if qcom_check:
         dut.wifi_platform = 'qcom'
     else:
@@ -74,6 +75,7 @@ def detect_wifi_platform(dut):
 
 
 def detect_wifi_decorator(f):
+
     def wrap(*args, **kwargs):
         if 'dut' in kwargs:
             dut = kwargs['dut']
@@ -124,9 +126,7 @@ def extract_sub_dict(full_dict, fields):
 
 
 # Miscellaneous Wifi Utilities
-def check_skip_conditions(testcase_params,
-                          dut,
-                          access_point,
+def check_skip_conditions(testcase_params, dut, access_point,
                           ota_chamber=None):
     """Checks if test should be skipped."""
     # Check battery level before test
@@ -275,7 +275,8 @@ def get_iperf_arg_string(duration,
                          socket_size=None,
                          num_processes=1,
                          udp_throughput='1000M',
-                         ipv6=False):
+                         ipv6=False,
+                         udp_length=1470):
     """Function to format iperf client arguments.
 
     This function takes in iperf client parameters and returns a properly
@@ -297,8 +298,8 @@ def get_iperf_arg_string(duration,
     if ipv6:
         iperf_args = iperf_args + '-6 '
     if traffic_type.upper() == 'UDP':
-        iperf_args = iperf_args + '-u -b {} -l 1470 -P {} '.format(
-            udp_throughput, num_processes)
+        iperf_args = iperf_args + '-u -b {} -l {} -P {} '.format(
+            udp_throughput, udp_length, num_processes)
     elif traffic_type.upper() == 'TCP':
         iperf_args = iperf_args + '-P {} '.format(num_processes)
     if socket_size:
@@ -636,7 +637,6 @@ def get_connected_rssi(dut,
         all reported RSSI values (signal_poll, per chain, etc.) and their
         statistics
     """
-    pass
 
 
 @nonblocking
@@ -656,7 +656,6 @@ def get_scan_rssi(dut, tracked_bssids, num_measurements=1):
         scan_rssi: dict containing the measurement results as well as the
         statistics of the scan RSSI for all BSSIDs in tracked_bssids
     """
-    pass
 
 
 @detect_wifi_decorator
@@ -667,13 +666,11 @@ def get_sw_signature(dut):
         bdf_signature: signature consisting of last three digits of bdf cksums
         fw_signature: floating point firmware version, i.e., major.minor
     """
-    pass
 
 
 @detect_wifi_decorator
 def get_country_code(dut):
     """Function that returns the current wifi country code."""
-    pass
 
 
 @detect_wifi_decorator
@@ -688,19 +685,16 @@ def push_config(dut, config_file):
         dut: dut to push bdf file to
         config_file: path to bdf_file to push
     """
-    pass
 
 
 @detect_wifi_decorator
 def start_wifi_logging(dut):
     """Function to start collecting wifi-related logs"""
-    pass
 
 
 @detect_wifi_decorator
 def stop_wifi_logging(dut):
     """Function to start collecting wifi-related logs"""
-    pass
 
 
 @detect_wifi_decorator
@@ -712,19 +706,16 @@ def push_firmware(dut, firmware_files):
         firmware_files: path to wlanmdsp.mbn file
         datamsc_file: path to Data.msc file
     """
-    pass
 
 
 @detect_wifi_decorator
 def disable_beamforming(dut):
     """Function to disable beamforming."""
-    pass
 
 
 @detect_wifi_decorator
 def set_nss_capability(dut, nss):
     """Function to set number of spatial streams supported."""
-    pass
 
 
 @detect_wifi_decorator
@@ -735,11 +726,11 @@ def set_chain_mask(dut, chain_mask):
         dut: android device
         chain_mask: desired chain mask in [0, 1, '2x2']
     """
-    pass
 
 
 # Link layer stats utilities
 class LinkLayerStats():
+
     def __new__(self, dut, llstats_enabled=True):
         if detect_wifi_platform(dut) == 'qcom':
             return qcom_utils.LinkLayerStats(dut, llstats_enabled)

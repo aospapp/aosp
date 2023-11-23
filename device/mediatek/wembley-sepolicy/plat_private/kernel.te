@@ -1,6 +1,0 @@
-# ==============================================
-# MTK Policy Rule
-# ==============================================
-
-domain_auto_trans(kernel, aee_core_forwarder_exec, aee_core_forwarder)
-

@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include "stack/include/bt_hdr.h"
 #include "stack/include/bt_types.h"
 #include "stack/include/hci_error_code.h"
@@ -42,13 +44,26 @@ void ACL_ReadConnectionAddress(const RawAddress& pseudo_addr,
                                RawAddress& conn_addr,
                                tBLE_ADDR_TYPE* p_addr_type);
 
+std::optional<uint8_t> ACL_GetAdvertisingSetConnectedTo(const RawAddress& addr);
+
 void ACL_AddToAddressResolution(const tBLE_BD_ADDR& legacy_address_with_type,
                                 const Octet16& peer_irk,
                                 const Octet16& local_irk);
 void ACL_RemoveFromAddressResolution(
     const tBLE_BD_ADDR& legacy_address_with_type);
 void ACL_ClearAddressResolution();
-void ACL_ClearAcceptList();
+void ACL_ClearFilterAcceptList();
+void ACL_LeSetDefaultSubrate(uint16_t subrate_min, uint16_t subrate_max,
+                             uint16_t max_latency, uint16_t cont_num,
+                             uint16_t sup_tout);
+void ACL_LeSubrateRequest(uint16_t hci_handle, uint16_t subrate_min,
+                          uint16_t subrate_max, uint16_t max_latency,
+                          uint16_t cont_num, uint16_t sup_tout);
+
+void ACL_RemoteNameRequest(const RawAddress& bd_addr,
+                           uint8_t page_scan_rep_mode, uint8_t page_scan_mode,
+                           uint16_t clock_offset);
+void ACL_CancelRemoteNameRequest(const RawAddress& addr);
 
 }  // namespace shim
 }  // namespace bluetooth

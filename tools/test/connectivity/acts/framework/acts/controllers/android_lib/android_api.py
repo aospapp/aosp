@@ -13,7 +13,6 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-import enum
 import logging
 import sys
 
@@ -36,8 +35,7 @@ class AndroidApi:
     MAX = sys.maxsize
 
 
-def android_api(min_api=AndroidApi.OLDEST,
-                max_api=AndroidApi.LATEST):
+def android_api(min_api=AndroidApi.OLDEST, max_api=AndroidApi.LATEST):
     """Decorates a function to only be called for the given API range.
 
     Only gets called if the AndroidDevice in the args is within the specified
@@ -55,12 +53,14 @@ def android_api(min_api=AndroidApi.OLDEST,
          min_api: The minimum API level. Can be an int or an AndroidApi value.
          max_api: The maximum API level. Can be an int or an AndroidApi value.
     """
+
     def get_api_level(*args, **_):
         for arg in args:
             if isinstance(arg, AndroidDevice):
                 return arg.sdk_api_level()
-        logging.getLogger().error('An AndroidDevice was not found in the given '
-                                  'arguments.')
+        logging.getLogger().error(
+            'An AndroidDevice was not found in the given '
+            'arguments.')
         return None
 
     return version_selector.set_version(get_api_level, min_api, max_api)

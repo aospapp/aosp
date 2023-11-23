@@ -52,7 +52,7 @@ Status ValidateResultShape(const Shape& client_shape,
         xla::ShapeUtil::HumanStringWithLayout(client_shape),
         xla::ShapeUtil::HumanString(result_shape));
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 StatusOr<std::unique_ptr<HloModuleConfig>> CreateModuleConfig(
@@ -184,9 +184,9 @@ Shape GetPerDeviceShape(const Shape& shape, const HloSharding& sharding,
     return shape;
   }
 
-  std::vector<int64> dimensions;
-  std::vector<int64> offset = sharding.TileOffsetForDevice(shape, device);
-  std::vector<int64> limit = sharding.TileLimitForDevice(shape, device);
+  std::vector<int64_t> dimensions;
+  std::vector<int64_t> offset = sharding.TileOffsetForDevice(shape, device);
+  std::vector<int64_t> limit = sharding.TileLimitForDevice(shape, device);
   dimensions.resize(limit.size());
   for (int64_t i = 0; i < limit.size(); ++i) {
     dimensions[i] = limit[i] - offset[i];
@@ -268,7 +268,7 @@ Status AddVariableUpdatesToCores(
       }
     }
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status ComputeOutputShapesForEachCore(
@@ -306,7 +306,7 @@ Status ComputeOutputShapesForEachCore(
       }
     }
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status CreateHloModules(
@@ -336,7 +336,7 @@ Status CreateHloModules(
   DumpHloModuleIfEnabled(*hlo_module, "before_optimizations");
   hlo_modules->push_back(std::move(hlo_module));
 
-  return Status::OK();
+  return OkStatus();
 }
 
 StatusOr<TpuCompilationRequestProto> CreateTpuCompilationRequest(
@@ -441,7 +441,7 @@ Status CompileOpMetadataFromContext(OpKernelConstruction* ctx,
           metadata->num_cores_per_replica());
     }
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status ComputeArgumentShapes(const tpu::TPUCompileMetadataProto& metadata,
@@ -479,7 +479,7 @@ Status ComputeArgumentShapes(const tpu::TPUCompileMetadataProto& metadata,
   // Checks we consumed all of the dynamic shapes.
   TF_RET_CHECK(dynamic_shape_pos == dynamic_shapes.size())
       << "Too many dynamic shapes";
-  return Status::OK();
+  return OkStatus();
 }
 }  // namespace tpu
 }  // namespace tensorflow

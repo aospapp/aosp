@@ -20,8 +20,6 @@ after you set all attributes of each object. If this test suite doesn't pass,
 then other test suites utilising Ble Advertisements will also fail.
 """
 
-import pprint
-
 from acts.controllers.sl4a_lib import rpc_client
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
@@ -496,8 +494,9 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         self.log.debug("Step 1: Setup environment.")
         droid = self.ad_dut.droid
         exp_is_connectable = False
-        self.log.debug("Step 2: Set the filtering settings object's value to "
-                       + str(exp_is_connectable))
+        self.log.debug(
+            "Step 2: Set the filtering settings object's value to " +
+            str(exp_is_connectable))
         return self.verify_adv_settings_is_connectable(droid,
                                                        exp_is_connectable)
 
@@ -531,7 +530,8 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         self.log.debug(
             "Step 2: Set the filtering settings object's value to {}".format(
                 exp_adv_own_address_type))
-        return self.verify_adv_settings_own_address_type(droid, exp_adv_own_address_type)
+        return self.verify_adv_settings_own_address_type(
+            droid, exp_adv_own_address_type)
 
     @BluetoothBaseTest.bt_test_wrap
     def test_adv_settings_set_adv_own_address_type_random(self):
@@ -563,7 +563,8 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         self.log.debug(
             "Step 2: Set the filtering settings object's value to {}".format(
                 exp_adv_own_address_type))
-        return self.verify_adv_settings_own_address_type(droid, exp_adv_own_address_type)
+        return self.verify_adv_settings_own_address_type(
+            droid, exp_adv_own_address_type)
 
     @BluetoothBaseTest.bt_test_wrap
     def test_adv_with_multiple_own_address_types(self):
@@ -579,8 +580,8 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             service_data.append(i)
 
         for own_add_type in exp_adv_own_address_types:
-            result = self.verify_adv_set_address_type_start_adv(ad_droid,
-                    own_add_type, uuid, service_data)
+            result = self.verify_adv_set_address_type_start_adv(
+                ad_droid, own_add_type, uuid, service_data)
             if result is False:
                 return False
 
@@ -589,8 +590,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         filter_list = sc_droid.bleGenFilterList()
         scan_settings = sc_droid.bleBuildScanSetting()
         scan_callback = sc_droid.bleGenScanCallback()
-        sc_droid.bleStartBleScan(filter_list, scan_settings,
-                                       scan_callback)
+        sc_droid.bleStartBleScan(filter_list, scan_settings, scan_callback)
         event_name = scan_result.format(scan_callback)
         self.log.info("Scan onSuccess Event")
 
@@ -606,7 +606,8 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                 if uuid in serviceUuidList:
                     mac_addr = deviceInfo['address']
                     if mac_addr not in mac_list:
-                        self.log.info("Found device. address: {}".format(mac_addr))
+                        self.log.info(
+                            "Found device. address: {}".format(mac_addr))
                         mac_list.append(mac_addr)
 
             except rpc_client.Sl4aApiError:
@@ -641,8 +642,10 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         self.log.debug("Step 1: Setup environment.")
         droid = self.ad_dut.droid
         exp_adv_own_address_type = -100
-        self.log.debug("Step 2: Set the filtering settings own address type to -1")
-        return self.verify_invalid_adv_settings_own_address_type(droid, exp_adv_own_address_type)
+        self.log.debug(
+            "Step 2: Set the filtering settings own address type to -1")
+        return self.verify_invalid_adv_settings_own_address_type(
+            droid, exp_adv_own_address_type)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='a770ed7e-c6cd-4533-8876-e42e68f8b4fb')
@@ -1104,8 +1107,8 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         droid = self.ad_dut.droid
         exp_include_device_name = True
         self.log.debug(
-            "Step 2: Set the filtering data object's include device name: {}"
-            .format(exp_include_device_name))
+            "Step 2: Set the filtering data object's include device name: {}".
+            format(exp_include_device_name))
         return self.verify_adv_data_include_device_name(
             droid, exp_include_device_name)
 
@@ -1242,9 +1245,11 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                        " value test Passed.".format(exp_is_connectable))
         return True
 
-    def verify_adv_settings_own_address_type(self, droid, exp_adv_own_address_type):
+    def verify_adv_settings_own_address_type(self, droid,
+                                             exp_adv_own_address_type):
         try:
-            droid.bleSetAdvertiseSettingsOwnAddressType(exp_adv_own_address_type)
+            droid.bleSetAdvertiseSettingsOwnAddressType(
+                exp_adv_own_address_type)
         except BleAdvertiseVerificationError as error:
             self.log.debug(str(error))
             return False
@@ -1261,15 +1266,15 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                        "  value test Passed.".format(exp_adv_own_address_type))
         return True
 
-    def verify_adv_set_address_type_start_adv(self, droid, own_address_type, uuid, service_data):
+    def verify_adv_set_address_type_start_adv(self, droid, own_address_type,
+                                              uuid, service_data):
         try:
             droid.bleSetAdvertiseSettingsOwnAddressType(own_address_type)
         except BleAdvertiseVerificationError as error:
             self.log.debug(str(error))
             return False
 
-        droid.bleAddAdvertiseDataServiceData(
-            uuid, service_data)
+        droid.bleAddAdvertiseDataServiceData(uuid, service_data)
         advcallback, adv_data, adv_settings = generate_ble_advertise_objects(
             droid)
         droid.bleStartBleAdvertising(advcallback, adv_data, adv_settings)
@@ -1282,7 +1287,8 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             return False
 
         try:
-            event = self.android_devices[0].ed.pop_event(adv_succ.format(advcallback), 10)
+            event = self.android_devices[0].ed.pop_event(
+                adv_succ.format(advcallback), 10)
             self.log.info("Ble Advertise Success Event: {}".format(event))
         except rpc_client.Sl4aApiError:
             self.log.info("{} event was not found.".format(
@@ -1372,8 +1378,9 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             self.log.debug("exp value: " + str(exp_include_tx_power_level) +
                            ", Actual value: " + str(include_tx_power_level))
             return False
-        self.log.debug("Advertise Setting's include tx power level " + str(
-            exp_include_tx_power_level) + "  value test Passed.")
+        self.log.debug("Advertise Setting's include tx power level " +
+                       str(exp_include_tx_power_level) +
+                       "  value test Passed.")
         return True
 
     def verify_adv_data_include_device_name(self, droid,
@@ -1424,17 +1431,19 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             return True
 
     def verify_invalid_adv_settings_own_address_type(self, droid,
-                                                   exp_adv_own_address_type):
+                                                     exp_adv_own_address_type):
         try:
-            droid.bleSetAdvertiseSettingsOwnAddressType(exp_adv_own_address_type)
+            droid.bleSetAdvertiseSettingsOwnAddressType(
+                exp_adv_own_address_type)
             droid.bleBuildAdvertiseSettings()
-            self.log.debug("Set Advertise settings invalid own address type " +
-                           " with input as {}".format(exp_adv_own_address_type))
+            self.log.debug(
+                "Set Advertise settings invalid own address type " +
+                " with input as {}".format(exp_adv_own_address_type))
             return False
         except rpc_client.Sl4aApiError:
-            self.log.debug(
-                "Set Advertise settings invalid own address type "
-                "failed successfully with input as {}".format(exp_adv_own_address_type))
+            self.log.debug("Set Advertise settings invalid own address type "
+                           "failed successfully with input as {}".format(
+                               exp_adv_own_address_type))
             return True
 
     def verify_invalid_adv_data_service_uuids(self, droid, exp_service_uuids):
@@ -1450,8 +1459,9 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                 "successfully with input as {}".format(exp_service_uuids))
             return True
 
-    def verify_invalid_adv_data_service_data(
-            self, droid, exp_service_data_uuid, exp_service_data):
+    def verify_invalid_adv_data_service_data(self, droid,
+                                             exp_service_data_uuid,
+                                             exp_service_data):
         try:
             droid.bleAddAdvertiseDataServiceData(exp_service_data_uuid,
                                                  exp_service_data)
@@ -1472,9 +1482,9 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             droid.bleAddAdvertiseDataManufacturerId(exp_manu_id,
                                                     exp_manu_specific_data)
             droid.bleBuildAdvertiseData()
-            self.log.debug(
-                "Set Advertise Data manu id: " + str(exp_manu_id) +
-                ", manu specific data: " + str(exp_manu_specific_data))
+            self.log.debug("Set Advertise Data manu id: " + str(exp_manu_id) +
+                           ", manu specific data: " +
+                           str(exp_manu_specific_data))
             return False
         except rpc_client.Sl4aApiError:
             self.log.debug("Set Advertise Data manu id: {},"

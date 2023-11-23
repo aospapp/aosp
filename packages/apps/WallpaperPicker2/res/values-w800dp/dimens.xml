@@ -59,4 +59,14 @@
     <dimen name="preview_page_top_margin">96dp</dimen>
     <dimen name="preview_page_bottom_margin">72dp</dimen>
     <dimen name="grid_options_container_horizontal_margin">152dp</dimen>
+
+    <!-- Clipping of the home screen overlay -->
+    <dimen name="home_screen_overlay_top_clipping">0dp</dimen>
+    <dimen name="home_screen_overlay_bottom_clipping">80dp</dimen>
+
+    <!--
+    Width of the screen preview. The height will be determined based on the aspect ratio of the
+    display.
+    -->
+    <dimen name="screen_preview_width">600dp</dimen>
 </resources>

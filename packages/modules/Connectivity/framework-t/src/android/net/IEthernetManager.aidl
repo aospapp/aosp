@@ -43,8 +43,8 @@ interface IEthernetManager
     void releaseTetheredInterface(in ITetheredInterfaceCallback callback);
     void updateConfiguration(String iface, in EthernetNetworkUpdateRequest request,
         in INetworkInterfaceOutcomeReceiver listener);
-    void connectNetwork(String iface, in INetworkInterfaceOutcomeReceiver listener);
-    void disconnectNetwork(String iface, in INetworkInterfaceOutcomeReceiver listener);
+    void enableInterface(String iface, in INetworkInterfaceOutcomeReceiver listener);
+    void disableInterface(String iface, in INetworkInterfaceOutcomeReceiver listener);
     void setEthernetEnabled(boolean enabled);
     List<String> getInterfaceList();
 }

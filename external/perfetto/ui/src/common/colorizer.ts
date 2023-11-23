@@ -14,6 +14,9 @@
 
 import {hsl} from 'color-convert';
 
+import {hash} from '../common/hash';
+import {cachedHsluvToHex} from '../frontend/hsluv_cache';
+
 export interface Color {
   c: string;
   h: number;
@@ -47,17 +50,17 @@ export const GRAY_COLOR: Color = {
   c: 'grey',
   h: 0,
   s: 0,
-  l: 62
+  l: 62,
 };
 
-function hash(s: string, max: number): number {
-  let hash = 0x811c9dc5 & 0xfffffff;
-  for (let i = 0; i < s.length; i++) {
-    hash ^= s.charCodeAt(i);
-    hash = (hash * 16777619) & 0xffffffff;
-  }
-  return Math.abs(hash) % max;
-}
+// A piece of wisdom from a long forgotten blog post: "Don't make
+// colors you want to change something normal like grey."
+export const UNEXPECTED_PINK_COLOR: Color = {
+  c: '#ff69b4',
+  h: 330,
+  s: 1.0,
+  l: 0.706,
+};
 
 export function hueForCpu(cpu: number): number {
   return (128 + (32 * cpu)) % 256;
@@ -67,19 +70,19 @@ const DESAT_RED: Color = {
   c: 'desat red',
   h: 3,
   s: 30,
-  l: 49
+  l: 49,
 };
 const DARK_GREEN: Color = {
   c: 'dark green',
   h: 120,
   s: 44,
-  l: 34
+  l: 34,
 };
 const LIME_GREEN: Color = {
   c: 'lime green',
   h: 75,
   s: 55,
-  l: 47
+  l: 47,
 };
 const TRANSPARENT_WHITE: Color = {
   c: 'white',
@@ -92,13 +95,13 @@ const ORANGE: Color = {
   c: 'orange',
   h: 36,
   s: 100,
-  l: 50
+  l: 50,
 };
 const INDIGO: Color = {
   c: 'indigo',
   h: 231,
   s: 48,
-  l: 48
+  l: 48,
 };
 
 export function colorForState(state: string): Readonly<Color> {
@@ -111,7 +114,7 @@ export function colorForState(state: string): Readonly<Color> {
       return DESAT_RED;
     }
     return ORANGE;
-  } else if (state.includes('Sleeping')) {
+  } else if (state.includes('Sleeping') || state.includes('Idle')) {
     return TRANSPARENT_WHITE;
   }
   return INDIGO;
@@ -122,9 +125,13 @@ export function textColorForState(stateCode: string): string {
   return background.l > 80 ? '#404040' : '#fff';
 }
 
-export function colorForTid(tid: number): Color {
-  const colorIdx = hash(tid.toString(), MD_PALETTE.length);
+export function colorForString(identifier: string): Color {
+  const colorIdx = hash(identifier, MD_PALETTE.length);
   return Object.assign({}, MD_PALETTE[colorIdx]);
+}
+
+export function colorForTid(tid: number): Color {
+  return colorForString(tid.toString());
 }
 
 export function colorForThread(thread?: {pid?: number, tid: number}): Color {
@@ -161,16 +168,16 @@ export function hslForSlice(
 }
 
 // Lightens the color for thread slices to represent wall time.
-export function hslForThreadIdleSlice(
+export function colorForThreadIdleSlice(
     hue: number,
     saturation: number,
     lightness: number,
-    isSelected: boolean|null): [number, number, number] {
+    isSelected: boolean|null): string {
   // Increase lightness by 80% when selected and 40% otherwise,
   // without exceeding 88.
   let newLightness = isSelected ? lightness * 1.8 : lightness * 1.4;
   newLightness = Math.min(newLightness, 88);
-  return [hue, saturation, newLightness];
+  return cachedHsluvToHex(hue, saturation, newLightness);
 }
 
 export function colorToStr(color: Color) {

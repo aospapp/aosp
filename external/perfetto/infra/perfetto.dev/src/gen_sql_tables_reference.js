@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Generation of reference from protos
+// Generation of SQL table references from C++ headers.
 
 'use strict';
 
@@ -25,6 +25,7 @@ const argv = require('yargs').argv
 function singleLineComment(comment) {
   comment = comment || '';
   comment = comment.trim();
+  comment = comment.replaceAll('|', '\\|');
   comment = comment.replace(/\.\n/g, '<br>');
   comment = comment.replace(/\n/g, ' ');
   return comment;
@@ -90,7 +91,7 @@ function parseTableDef(tableDefName, tableDef) {
       if (lastColumn === undefined) {
         tableDesc.comment += `${comm}\n`;
       } else {
-        lastColumn.comment = `${lastColumn.comment}${comm}\n`;
+        lastColumn.comment = `${lastColumn.comment}\n${comm}`;
       }
       continue;
     }
@@ -110,7 +111,7 @@ function parseTableDef(tableDefName, tableDef) {
     if (m = line.match(/^\s*C\(([^,]+)\s*,\s*(\w+)/)) {
       const col = getOrCreateColumn(/*name=*/ m[2]);
       col.type = m[1];
-      if (m = col.type.match(/Optional<(.*)>/)) {
+      if (m = col.type.match(/std::optional<(.*)>/)) {
         col.type = m[1];
         col.optional = true;
       }
@@ -167,7 +168,7 @@ function parseTablesInCppFile(filePath) {
     // C(StringPool::Id, name)                                    \
     // C(StackProfileMappingTable::Id, mapping)                   \
     // C(int64_t, rel_pc)                                         \
-    // C(base::Optional<uint32_t>, symbol_set_id)
+    // C(std::optional<uint32_t>, symbol_set_id)
     //
     // Where PERFETTO_TP_STACK_PROFILE_FRAME_DEF is |tableDefName|.
     let pattern = `(^[ ]*//.*\n)*`;
@@ -185,6 +186,24 @@ function parseTablesInCppFile(filePath) {
   return tables;
 }
 
+function parseTablesInJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, 'UTF8'));
+}
+
+function overrideCppTablesWithJsonTables(cpp, json) {
+  const out = [];
+  const jsonAdded = new Set();
+  for (const table of json) {
+    out.push(table);
+    jsonAdded.add(table.name);
+  }
+  for (const table of cpp) {
+    if (!jsonAdded.has(table.name)) {
+      out.push(table);
+    }
+  }
+  return out;
+}
 
 function genLink(table) {
   return `[${table.name}](#${table.name})`;
@@ -222,15 +241,22 @@ function tableToMarkdown(table) {
 function main() {
   const inFile = argv['i'];
   const outFile = argv['o'];
+  const jsonFile = argv['j'];
   if (!inFile) {
-    console.error('Usage: -i hdr1.h -i hdr2.h -[-o out.md]');
+    console.error('Usage: -i hdr1.h -i hdr2.h -j tbls.json -[-o out.md]');
     process.exit(1);
   }
 
   // Can be either a string (-i single) or an array (-i one -i two).
   const inFiles = (inFile instanceof Array) ? inFile : [inFile];
+  const cppTables =
+      Array.prototype.concat(...inFiles.map(parseTablesInCppFile));
 
-  const tables = Array.prototype.concat(...inFiles.map(parseTablesInCppFile));
+  // Can be either a string (-j single) or an array (-j one -j two).
+  const jsonFiles = (jsonFile instanceof Array) ? jsonFile : [jsonFile];
+  const jsonTables =
+      Array.prototype.concat(...jsonFiles.map(parseTablesInJson));
+  const tables = overrideCppTablesWithJsonTables(cppTables, jsonTables)
 
   // Resolve parents.
   const tablesIndex = {};    // 'TP_SCHED_SLICE_TABLE_DEF' -> table
@@ -264,16 +290,16 @@ function main() {
   let graph = '## Tables diagram\n';
   const mkLabel = (table) => `${table.defMacro}["${table.name}"]`;
   for (const tableGroup of tableGroups) {
-    let gaphEdges = '';
-    let gaphLinks = '';
+    let graphEdges = '';
+    let graphLinks = '';
     graph += `#### ${tableGroup} tables\n`;
     graph += '```mermaid\ngraph TD\n';
     graph += `  subgraph ${tableGroup}\n`;
     for (const table of tablesByGroup[tableGroup]) {
       graph += `  ${mkLabel(table)}\n`;
-      gaphLinks += `  click ${table.defMacro} "#${table.name}"\n`
+      graphLinks += `  click ${table.defMacro} "#${table.name}"\n`
       if (table.parent) {
-        gaphEdges += ` ${mkLabel(table)} --> ${mkLabel(table.parent)}\n`
+        graphEdges += ` ${mkLabel(table)} --> ${mkLabel(table.parent)}\n`
       }
 
       for (const col of Object.values(table.cols)) {
@@ -288,14 +314,14 @@ function main() {
         }
         if (!refTable)
           continue;
-        gaphEdges +=
+        graphEdges +=
             `  ${mkLabel(table)} -. ${col.name} .-> ${mkLabel(refTable)}\n`
-        gaphLinks += `  click ${refTable.defMacro} "#${refTable.name}"\n`
+        graphLinks += `  click ${refTable.defMacro} "#${refTable.name}"\n`
       }
     }
     graph += `  end\n`;
-    graph += gaphEdges;
-    graph += gaphLinks;
+    graph += graphEdges;
+    graph += graphLinks;
     graph += '\n```\n';
   }
 

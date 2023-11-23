@@ -152,7 +152,7 @@ public class WhitelistTest extends AbstractContentCaptureIntegrationActivityLess
                 PendingIntent.getBroadcast(
                         sContext,
                         0,
-                        new Intent(actionActivityFinish),
+                        new Intent(actionActivityFinish).setPackage(sContext.getPackageName()),
                         PendingIntent.FLAG_MUTABLE);
         OutOfProcessActivity.launchOutOfProcessActivity(pendingIntent,
                 OutOfProcessActivity.ACTION_CHECK_MANAGER_AND_FINISH,

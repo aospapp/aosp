@@ -3,13 +3,11 @@
 
 /* By Rod Smith, initial coding January to February, 2009 */
 
-/* This program is copyright (c) 2009-2018 by Roderick W. Smith. It is distributed
+/* This program is copyright (c) 2009-2022 by Roderick W. Smith. It is distributed
   under the terms of the GNU GPL version 2, as detailed in the COPYING file. */
 
 #define __STDC_LIMIT_MACROS
-#ifndef __STDC_CONSTANT_MACROS
 #define __STDC_CONSTANT_MACROS
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -82,6 +80,8 @@ GPTData::GPTData(void) {
    beQuiet = 0;
    whichWasUsed = use_new;
    mainHeader.numParts = 0;
+   mainHeader.firstUsableLBA = 0;
+   mainHeader.lastUsableLBA = 0;
    numParts = 0;
    SetGPTSize(NUM_GPT_ENTRIES);
    // Initialize CRC functions...
@@ -145,6 +145,7 @@ GPTData::GPTData(string filename) {
    beQuiet = 0;
    whichWasUsed = use_new;
    mainHeader.numParts = 0;
+   mainHeader.lastUsableLBA = 0;
    numParts = 0;
    // Initialize CRC functions...
    chksum_crc32gentab();
@@ -412,6 +413,11 @@ int GPTData::Verify(void) {
               << "in degraded performance on some modern (2009 and later) hard disks.\n";
          alignProbs++;
       } // if
+      if ((partitions[i].IsUsed()) && ((partitions[i].GetLastLBA() + 1) % testAlignment) != 0) {
+         cout << "\nCaution: Partition " << i + 1 << " doesn't end on a "
+              << testAlignment << "-sector boundary. This may\nresult "
+              << "in problems with some disk encryption tools.\n";
+      } // if
    } // for
    if (alignProbs > 0)
       cout << "\nConsult http://www.ibm.com/developerworks/linux/library/l-4kb-sector-disks/\n"
@@ -584,7 +590,7 @@ int GPTData::CheckHeaderCRC(struct GPTHeader* header, int warn) {
 // byte order and then undoes that reversal.)
 void GPTData::RecomputeCRCs(void) {
    uint32_t crc, hSize;
-   int littleEndian = 1;
+   int littleEndian;
 
    // If the header size is bigger than the GPT header data structure, reset it;
    // otherwise, set both header sizes to whatever the main one is....
@@ -888,8 +894,16 @@ int GPTData::LoadPartitions(const string & deviceFilename) {
             break;
       } // switch
 
-      if (allOK)
+      if (allOK) {
          CheckGPTSize();
+         // Below is unlikely to happen on real disks, but could happen if
+         // the user is manipulating a truncated image file....
+         if (diskSize <= GetTableSizeInSectors() * 2 + 3) {
+             allOK = 0;
+             cout << "Disk is too small to hold GPT data (" << diskSize
+                  << " sectors)! Aborting!\n";
+         }
+      }
       myDisk.Close();
       ComputeAlignment();
    } else {
@@ -1047,6 +1061,22 @@ int GPTData::LoadHeader(struct GPTHeader *header, DiskIO & disk, uint64_t sector
       ReverseHeaderBytes(&tempHeader);
    } // if
    *crcOk = CheckHeaderCRC(&tempHeader);
+
+   if (tempHeader.sizeOfPartitionEntries != sizeof(GPTPart)) {
+      // Print the below warning only if the CRC is OK -- but correct the
+      // problem either way. The warning is printed only on a valid CRC
+      // because otherwise this warning will display inappropriately when
+      // reading MBR disks. If the CRC is invalid, then a warning about
+      // that will be shown later, so the user will still know that
+      // something is wrong.
+      if (*crcOk) {
+         cerr << "Warning: Partition table header claims that the size of partition table\n";
+         cerr << "entries is " << tempHeader.sizeOfPartitionEntries << " bytes, but this program ";
+         cerr << " supports only " << sizeof(GPTPart) << "-byte entries.\n";
+         cerr << "Adjusting accordingly, but partition table may be garbage.\n";
+      }
+      tempHeader.sizeOfPartitionEntries = sizeof(GPTPart);
+   }
 
    if (allOK && (numParts != tempHeader.numParts) && *crcOk) {
       allOK = SetGPTSize(tempHeader.numParts, 0);
@@ -2135,7 +2165,6 @@ int GPTData::Align(uint64_t* sector) {
       // Check to see that every sector between the earlier one and the
       // requested one is clear, and that it's not too early....
       if (earlier >= mainHeader.firstUsableLBA) {
-         sectorOK = 1;
          testSector = earlier;
          do {
             sectorOK = IsFree(testSector++);
@@ -2148,7 +2177,6 @@ int GPTData::Align(uint64_t* sector) {
 
       // If couldn't move the sector earlier, try to move it later instead....
       if ((sectorOK != 1) && (later <= mainHeader.lastUsableLBA)) {
-         sectorOK = 1;
          testSector = later;
          do {
             sectorOK = IsFree(testSector--);
@@ -2327,18 +2355,28 @@ uint64_t GPTData::FindLastAvailable(void) {
 } // GPTData::FindLastAvailable()
 
 // Find the last available block in the free space pointed to by start.
-uint64_t GPTData::FindLastInFree(uint64_t start) {
-   uint64_t nearestStart;
+// If align == true, returns the last sector that's aligned on the
+// system alignment value (unless that's less than the start value);
+// if align == false, returns the last available block regardless of
+// alignment. (The align variable is set to false by default.)
+uint64_t GPTData::FindLastInFree(uint64_t start, bool align) {
+   uint64_t nearestEnd, endPlus;
    uint32_t i;
 
-   nearestStart = mainHeader.lastUsableLBA;
+   nearestEnd = mainHeader.lastUsableLBA;
    for (i = 0; i < numParts; i++) {
-      if ((nearestStart > partitions[i].GetFirstLBA()) &&
+      if ((nearestEnd > partitions[i].GetFirstLBA()) &&
           (partitions[i].GetFirstLBA() > start)) {
-         nearestStart = partitions[i].GetFirstLBA() - 1;
+         nearestEnd = partitions[i].GetFirstLBA() - 1;
       } // if
    } // for
-   return (nearestStart);
+   if (align) {
+       endPlus = nearestEnd + 1;
+       if (Align(&endPlus) && IsFree(endPlus - 1) && (endPlus > start)) {
+           nearestEnd = endPlus - 1;
+       } // if
+   } // if
+   return (nearestEnd);
 } // GPTData::FindLastInFree()
 
 // Finds the total number of free blocks, the number of segments in which
@@ -2415,7 +2453,10 @@ int GPTData::IsUsedPartNum(uint32_t partNum) {
  ***********************************************************/
 
 // Set partition alignment value; partitions will begin on multiples of
-// the specified value
+// the specified value, and the default end values will be set so that
+// partition sizes are multiples of this value in cgdisk and gdisk, too.
+// (In sgdisk, end-alignment is done only if the '-I' command-line option
+// is used.)
 void GPTData::SetAlignment(uint32_t n) {
    if (n > 0) {
       sectorAlignment = n;
@@ -2445,7 +2486,7 @@ void GPTData::SetAlignment(uint32_t n) {
 // is used on big disks (as safety for Advanced Format drives).
 // Returns the computed alignment value.
 uint32_t GPTData::ComputeAlignment(void) {
-   uint32_t i = 0, found, exponent = 31;
+   uint32_t i = 0, found, exponent;
    uint32_t align = DEFAULT_ALIGNMENT;
 
    if (blockSize > 0)

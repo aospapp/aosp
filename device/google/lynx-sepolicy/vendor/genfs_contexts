@@ -1,0 +1,54 @@
+# Haptics
+genfscon sysfs /devices/platform/10970000.hsi2c/i2c-4/i2c-cs40l26a             u:object_r:sysfs_vibrator:s0
+
+# Wifi
+genfscon sysfs /devices/soc0/soc_id      u:object_r:vendor_location_sysfs:s0
+genfscon proc /debugdriver/driverdump    u:object_r:vendor_proc_wifi_dbg:s0
+genfscon sysfs /devices/platform/14520000.pcie/pci0001:00/0001:00:00.0/0001:01:00.0/net    u:object_r:sysfs_net:s0
+genfscon sysfs /class/remoteproc     u:object_r:sysfs_cnss_daemon:s0
+
+# BMS
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-0/i2c-p9222                 u:object_r:sysfs_wlc:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-0/i2c-p9222/power_supply    u:object_r:sysfs_batteryinfo:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-1/i2c-p9222                 u:object_r:sysfs_wlc:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-1/i2c-p9222/power_supply    u:object_r:sysfs_batteryinfo:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-2/i2c-p9222                 u:object_r:sysfs_wlc:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-2/i2c-p9222/power_supply    u:object_r:sysfs_batteryinfo:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-3/i2c-p9222                 u:object_r:sysfs_wlc:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-3/i2c-p9222/power_supply    u:object_r:sysfs_batteryinfo:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-4/i2c-p9222                 u:object_r:sysfs_wlc:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-4/i2c-p9222/power_supply    u:object_r:sysfs_batteryinfo:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-5/i2c-p9222                 u:object_r:sysfs_wlc:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-5/i2c-p9222/power_supply    u:object_r:sysfs_batteryinfo:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-6/i2c-p9222                 u:object_r:sysfs_wlc:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-6/i2c-p9222/power_supply    u:object_r:sysfs_batteryinfo:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-7/i2c-p9222                 u:object_r:sysfs_wlc:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-7/i2c-p9222/power_supply    u:object_r:sysfs_batteryinfo:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-8/i2c-p9222                 u:object_r:sysfs_wlc:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-8/i2c-p9222/power_supply    u:object_r:sysfs_batteryinfo:s0
+
+# System Suspend
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-0/i2c-p9222/power_supply/wireless/wakeup    u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-0/i2c-p9222/wakeup                          u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-1/i2c-p9222/power_supply/wireless/wakeup    u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-1/i2c-p9222/wakeup                          u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-2/i2c-p9222/power_supply/wireless/wakeup    u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-2/i2c-p9222/wakeup                          u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-3/i2c-p9222/power_supply/wireless/wakeup    u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-3/i2c-p9222/wakeup                          u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-4/i2c-p9222/power_supply/wireless/wakeup    u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-4/i2c-p9222/wakeup                          u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-5/i2c-p9222/power_supply/wireless/wakeup    u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-5/i2c-p9222/wakeup                          u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-6/i2c-p9222/power_supply/wireless/wakeup    u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-6/i2c-p9222/wakeup                          u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-7/i2c-p9222/power_supply/wireless/wakeup    u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-7/i2c-p9222/wakeup                          u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-8/i2c-p9222/power_supply/wireless/wakeup    u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/10da0000.hsi2c/i2c-8/i2c-p9222/wakeup                          u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/14520000.pcie/pci0001:00/0001:00:00.0/0001:01:00.0/mhi0/wakeup u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/14520000.pcie/pci0000:00/0000:00:00.0/0000:01:00.0/mhi0/wakeup u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/qcom,cnss-qca6490/wakeup                                       u:object_r:sysfs_wakeup:s0
+
+# PowerStats
+genfscon sysfs /kernel/wifi/power_stats    u:object_r:sysfs_power_stats:s0

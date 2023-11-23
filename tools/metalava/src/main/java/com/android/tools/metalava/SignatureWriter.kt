@@ -77,8 +77,7 @@ class SignatureWriter(
     override fun visitConstructor(constructor: ConstructorItem) {
         write("    ctor ")
         writeModifiers(constructor)
-        // Note - we don't write out the type parameter list (constructor.typeParameterList()) in signature files!
-        // writeTypeParameterList(constructor.typeParameterList(), addSpace = true)
+        writeTypeParameterList(constructor.typeParameterList(), addSpace = true)
         write(constructor.containingClass().fullName())
         writeParameterList(constructor)
         writeThrowsList(constructor)

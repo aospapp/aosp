@@ -139,8 +139,12 @@ public final class WifiP2pGroupList implements Parcelable {
         if (deviceAddress == null) return -1;
 
         final Collection<WifiP2pGroup> groups = mGroups.snapshot().values();
-        for (WifiP2pGroup grp: groups) {
-            if (deviceAddress.equalsIgnoreCase(grp.getOwner().deviceAddress)) {
+        for (WifiP2pGroup grp : groups) {
+            WifiP2pDevice groupOwner = grp.getOwner();
+            if (groupOwner == null) {
+                continue;
+            }
+            if (deviceAddress.equalsIgnoreCase(groupOwner.deviceAddress)) {
                 // update cache ordered.
                 mGroups.get(grp.getNetworkId());
                 return grp.getNetworkId();
@@ -164,9 +168,13 @@ public final class WifiP2pGroupList implements Parcelable {
         }
 
         final Collection<WifiP2pGroup> groups = mGroups.snapshot().values();
-        for (WifiP2pGroup grp: groups) {
-            if (deviceAddress.equalsIgnoreCase(grp.getOwner().deviceAddress) &&
-                    ssid.equals(grp.getNetworkName())) {
+        for (WifiP2pGroup grp : groups) {
+            WifiP2pDevice groupOwner = grp.getOwner();
+            if (groupOwner == null) {
+                continue;
+            }
+            if (deviceAddress.equalsIgnoreCase(groupOwner.deviceAddress)
+                    && ssid.equals(grp.getNetworkName())) {
                 // update cache ordered.
                 mGroups.get(grp.getNetworkId());
                 return grp.getNetworkId();
@@ -185,10 +193,14 @@ public final class WifiP2pGroupList implements Parcelable {
      */
     public String getOwnerAddr(int netId) {
         WifiP2pGroup grp = mGroups.get(netId);
-        if (grp != null) {
-            return grp.getOwner().deviceAddress;
+        if (grp == null) {
+            return null;
         }
-        return null;
+        WifiP2pDevice groupOwner = grp.getOwner();
+        if (groupOwner == null) {
+            return null;
+        }
+        return groupOwner.deviceAddress;
     }
 
     /**

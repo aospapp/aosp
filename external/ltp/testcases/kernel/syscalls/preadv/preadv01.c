@@ -88,10 +88,10 @@ void setup(void)
 	fd = SAFE_OPEN("file", O_RDWR | O_CREAT, 0644);
 
 	memset(buf, 'a', sizeof(buf));
-	SAFE_WRITE(1, fd, buf, sizeof(buf));
+	SAFE_WRITE(SAFE_WRITE_ALL, fd, buf, sizeof(buf));
 
 	memset(buf, 'b', sizeof(buf));
-	SAFE_WRITE(1, fd, buf, sizeof(buf));
+	SAFE_WRITE(SAFE_WRITE_ALL, fd, buf, sizeof(buf));
 }
 
 void cleanup(void)
@@ -105,7 +105,6 @@ static struct tst_test test = {
 	.setup = setup,
 	.cleanup = cleanup,
 	.test = verify_preadv,
-	.min_kver = "2.6.30",
 	.needs_tmpdir = 1,
 	.bufs = (struct tst_buffers []) {
 		{&rd_iovec, .iov_sizes = (int[]){CHUNK, 0, -1}},

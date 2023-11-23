@@ -15,7 +15,8 @@ limitations under the License.
 
 #include "tensorflow/compiler/xla/service/dot_as_convolution_util.h"
 
-#include "absl/types/optional.h"
+#include <optional>
+
 #include "tensorflow/compiler/xla/service/hlo_instruction.h"
 #include "tensorflow/compiler/xla/service/hlo_opcode.h"
 #include "tensorflow/compiler/xla/service/shape_inference.h"
@@ -142,7 +143,7 @@ CreateShardedConvForDotGeneralConvolution(
     auto wd = window.mutable_dimensions(dim.spatial_dim);
     wd->set_size(sharded_lhs_hlo->shape().dimensions(
         conv_dnums.input_spatial_dimensions(dim.spatial_dim)));
-    wd->set_stride(std::max<int64>(1, wd->size() - 1));
+    wd->set_stride(std::max<int64_t>(1, wd->size() - 1));
     wd->set_base_dilation(wd->size());
   }
   for (const auto& dim : dot_dnums.contracting_dims) {

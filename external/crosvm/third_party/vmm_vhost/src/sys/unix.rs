@@ -4,7 +4,8 @@
 //! Unix specific code that keeps rest of the code in the crate platform independent.
 
 use std::io::Result;
-use std::os::unix::net::{UnixListener, UnixStream};
+use std::os::unix::net::UnixListener;
+use std::os::unix::net::UnixStream;
 
 /// Alias to enable platform independent code.
 pub type SystemListener = UnixListener;
@@ -14,10 +15,10 @@ pub type SystemStream = UnixStream;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "device")] {
-        use crate::{connection::socket::Endpoint as SocketEndpoint, message::SlaveReq};
-        use crate::message::MasterReq;
+        use crate::{connection::socket::Endpoint as SocketEndpoint};
+        use crate::message::{MasterReq, SlaveReq};
 
-        pub(crate) type SlaveFsCacheReqSocket = SocketEndpoint<SlaveReq>;
+        pub(crate) type SlaveReqEndpoint = SocketEndpoint<SlaveReq>;
         pub(crate) type MasterReqEndpoint = SocketEndpoint<MasterReq>;
     }
 }

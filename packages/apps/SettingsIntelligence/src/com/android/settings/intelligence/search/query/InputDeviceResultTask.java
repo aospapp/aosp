@@ -16,6 +16,8 @@
 
 package com.android.settings.intelligence.search.query;
 
+import static com.android.settings.intelligence.search.sitemap.HighlightableMenu.MENU_KEY_SYSTEM;
+
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -108,8 +110,8 @@ public class InputDeviceResultTask extends SearchQueryTask.QueryWorker {
             if (wordDiff == NAME_NO_MATCH) {
                 continue;
             }
-            final Intent intent = DatabaseIndexingUtils.buildSearchTrampolineIntent(mContext,
-                    PHYSICAL_KEYBOARD_FRAGMENT, deviceName, screenTitle);
+            final Intent intent = DatabaseIndexingUtils.buildSearchTrampolineIntent(
+                    PHYSICAL_KEYBOARD_FRAGMENT, deviceName, screenTitle, MENU_KEY_SYSTEM);
             results.add(new SearchResult.Builder()
                     .setTitle(deviceName)
                     .setPayload(new ResultPayload(intent))
@@ -139,8 +141,8 @@ public class InputDeviceResultTask extends SearchQueryTask.QueryWorker {
             final ServiceInfo serviceInfo = info.getServiceInfo();
             final String key = new ComponentName(serviceInfo.packageName, serviceInfo.name)
                     .flattenToString();
-            final Intent intent = DatabaseIndexingUtils.buildSearchTrampolineIntent(mContext,
-                    VIRTUAL_KEYBOARD_FRAGMENT, key, screenTitle);
+            final Intent intent = DatabaseIndexingUtils.buildSearchTrampolineIntent(
+                    VIRTUAL_KEYBOARD_FRAGMENT, key, screenTitle, MENU_KEY_SYSTEM);
             results.add(new SearchResult.Builder()
                     .setTitle(title)
                     .setSummary(summary)

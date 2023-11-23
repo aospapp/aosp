@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 import re,string
 
 
@@ -54,8 +55,7 @@ def aggregate_reason_fields(reasons_list):
             ## will keep it in reduced/generalized form
             reason_htable[reason_reduced].update(reason_reduced)
 
-    generic_reasons = reason_htable.keys()
+    generic_reasons = list(reason_htable.keys())
     generic_reasons.sort(key = (lambda k: reason_htable[k].num),
                          reverse = True)
-    return map(lambda generic_reason: reason_htable[generic_reason].html(),
-                            generic_reasons)
+    return [reason_htable[generic_reason].html() for generic_reason in generic_reasons]

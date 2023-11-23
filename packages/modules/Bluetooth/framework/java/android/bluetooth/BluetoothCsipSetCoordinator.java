@@ -220,7 +220,8 @@ public final class BluetoothCsipSetCoordinator implements BluetoothProfile, Auto
      * Create a BluetoothCsipSetCoordinator proxy object for interacting with the local
      * Bluetooth CSIS service.
      */
-    /*package*/ BluetoothCsipSetCoordinator(Context context, ServiceListener listener, BluetoothAdapter adapter) {
+    /*package*/ BluetoothCsipSetCoordinator(Context context, ServiceListener listener,
+            BluetoothAdapter adapter) {
         mAdapter = adapter;
         mAttributionSource = adapter.getAttributionSource();
         mProfileConnector.connect(context, listener);
@@ -238,9 +239,8 @@ public final class BluetoothCsipSetCoordinator implements BluetoothProfile, Auto
         close();
     }
 
-    /**
-     * @hide
-     */
+    /** @hide */
+    @Override
     public void close() {
         mProfileConnector.disconnect();
     }
@@ -333,8 +333,8 @@ public final class BluetoothCsipSetCoordinator implements BluetoothProfile, Auto
      */
     @SystemApi
     @RequiresPermission(Manifest.permission.BLUETOOTH_PRIVILEGED)
-    public @NonNull Map<Integer, ParcelUuid> getGroupUuidMapByDevice(
-            @Nullable BluetoothDevice device) {
+    @NonNull
+    public Map<Integer, ParcelUuid> getGroupUuidMapByDevice(@Nullable BluetoothDevice device) {
         if (VDBG) log("getGroupUuidMapByDevice()");
         final IBluetoothCsipSetCoordinator service = getService();
         final Map defaultValue = new HashMap<>();
@@ -416,8 +416,8 @@ public final class BluetoothCsipSetCoordinator implements BluetoothProfile, Auto
      * {@inheritDoc}
      */
     @Override
-    public
-    @NonNull List<BluetoothDevice> getDevicesMatchingConnectionStates(@NonNull int[] states) {
+    @NonNull
+    public List<BluetoothDevice> getDevicesMatchingConnectionStates(@NonNull int[] states) {
         if (VDBG) log("getDevicesMatchingStates(states=" + Arrays.toString(states) + ")");
         final IBluetoothCsipSetCoordinator service = getService();
         final List<BluetoothDevice> defaultValue = new ArrayList<>();
@@ -443,8 +443,8 @@ public final class BluetoothCsipSetCoordinator implements BluetoothProfile, Auto
      * {@inheritDoc}
      */
     @Override
-    public
-    @BluetoothProfile.BtProfileState int getConnectionState(@Nullable BluetoothDevice device) {
+    @BluetoothProfile.BtProfileState
+    public int getConnectionState(@Nullable BluetoothDevice device) {
         if (VDBG) log("getState(" + device + ")");
         final IBluetoothCsipSetCoordinator service = getService();
         final int defaultValue = BluetoothProfile.STATE_DISCONNECTED;

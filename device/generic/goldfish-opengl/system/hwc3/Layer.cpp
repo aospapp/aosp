@@ -110,7 +110,7 @@ common::BlendMode Layer::getBlendMode() const {
 
 HWC3::Error Layer::setColor(Color color) {
   DEBUG_LOG("%s: layer:%" PRId64
-            " color-r:%d color-g:%d color-b:%d color-a:%d)",
+            " color-r:%f color-g:%f color-b:%f color-a:%f)",
             __FUNCTION__, mId, color.r, color.g, color.b, color.a);
 
   mColor = color;
@@ -120,7 +120,7 @@ HWC3::Error Layer::setColor(Color color) {
 Color Layer::getColor() const {
   auto color = mColor;
   DEBUG_LOG("%s: layer:%" PRId64
-            " color-r:%d color-g:%d color-b:%d color-a:%d)",
+            " color-r:%f color-g:%f color-b:%f color-a:%f)",
             __FUNCTION__, mId, color.r, color.g, color.b, color.a);
 
   return color;

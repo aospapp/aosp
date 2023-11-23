@@ -35,8 +35,9 @@ typedef enum {
   SDP_TYPE_PBAP_PSE,    // Phone Book Profile - Server
   SDP_TYPE_PBAP_PCE,    // Phone Book Profile - Client
   SDP_TYPE_OPP_SERVER,  // Object Push Profile
-  SDP_TYPE_SAP_SERVER,   // SIM Access Profile
-  SDP_TYPE_DIP           // Device Identification Profile
+  SDP_TYPE_SAP_SERVER,  // SIM Access Profile
+  SDP_TYPE_DIP,         // Device Identification Profile
+  SDP_TYPE_MPS          // Multi-Profile Specification
 } bluetooth_sdp_types;
 
 typedef struct _bluetooth_sdp_hdr {
@@ -111,6 +112,13 @@ typedef struct _bluetooth_sdp_dip_record {
   bool primary_record;
 } bluetooth_sdp_dip_record;
 
+typedef struct _bluetooth_sdp_mps_record {
+  bluetooth_sdp_hdr_overlay hdr;
+  uint8_t supported_scenarios_mpsd[8];
+  uint8_t supported_scenarios_mpmd[8];
+  uint8_t supported_dependencies[2];
+} bluetooth_sdp_mps_record;
+
 typedef union {
   bluetooth_sdp_hdr_overlay hdr;
   bluetooth_sdp_mas_record mas;
@@ -120,6 +128,7 @@ typedef union {
   bluetooth_sdp_ops_record ops;
   bluetooth_sdp_sap_record sap;
   bluetooth_sdp_dip_record dip;
+  bluetooth_sdp_mps_record mps;
 } bluetooth_sdp_record;
 
 /** Callback for SDP search */

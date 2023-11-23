@@ -1,0 +1,111 @@
+# for dmd
+persist.vendor.sys.dm.                     u:object_r:vendor_diag_prop:s0
+persist.vendor.sys.diag.                   u:object_r:vendor_diag_prop:s0
+vendor.sys.dmd.                            u:object_r:vendor_diag_prop:s0
+vendor.sys.diag.                           u:object_r:vendor_diag_prop:s0
+
+# Tcpdump_logger
+persist.vendor.tcpdump.log.alwayson        u:object_r:vendor_tcpdump_log_prop:s0
+vendor.tcpdump.                            u:object_r:vendor_tcpdump_log_prop:s0
+
+# USB HAL
+persist.vendor.usb.                        u:object_r:vendor_usb_config_prop:s0
+vendor.usb.                                u:object_r:vendor_usb_config_prop:s0
+
+# for slog
+vendor.sys.silentlog.                      u:object_r:vendor_slog_prop:s0
+vendor.sys.exynos.slog.                    u:object_r:vendor_slog_prop:s0
+persist.vendor.sys.silentlog               u:object_r:vendor_slog_prop:s0
+
+# for modem
+persist.vendor.modem.                      u:object_r:vendor_modem_prop:s0
+vendor.modem.                              u:object_r:vendor_modem_prop:s0
+vendor.sys.modem.                          u:object_r:vendor_modem_prop:s0
+vendor.sys.modem_reset                     u:object_r:vendor_modem_prop:s0
+ro.vendor.sys.modem.                       u:object_r:vendor_modem_prop:s0
+vendor.sys.exynos.modempath                u:object_r:vendor_modem_prop:s0
+persist.vendor.sys.modem.                  u:object_r:vendor_modem_prop:s0
+
+# for cbd
+vendor.cbd.                                u:object_r:vendor_cbd_prop:s0
+persist.vendor.cbd.                        u:object_r:vendor_cbd_prop:s0
+
+# for rild
+persist.vendor.ril.                        u:object_r:vendor_rild_prop:s0
+vendor.ril.                                u:object_r:vendor_rild_prop:s0
+vendor.radio.                              u:object_r:vendor_rild_prop:s0
+vendor.sys.rild_reset                      u:object_r:vendor_rild_prop:s0
+persist.vendor.radio.                      u:object_r:vendor_rild_prop:s0
+ro.vendor.config.build_carrier             u:object_r:vendor_carrier_prop:s0
+
+persist.vendor.config.                     u:object_r:vendor_persist_config_default_prop:s0
+
+# SSR Detector
+vendor.debug.ssrdump.                      u:object_r:vendor_ssrdump_prop:s0
+persist.vendor.sys.ssr.                    u:object_r:vendor_ssrdump_prop:s0
+
+# test battery profile
+persist.vendor.testing_battery_profile     u:object_r:vendor_battery_profile_prop:s0
+
+# Battery
+vendor.battery.defender.                   u:object_r:vendor_battery_defender_prop:s0
+persist.vendor.shutdown.                   u:object_r:vendor_shutdown_prop:s0
+
+# NFC
+persist.vendor.nfc.                        u:object_r:vendor_nfc_prop:s0
+
+# SecureElement
+persist.vendor.se.                         u:object_r:vendor_secure_element_prop:s0
+
+# WiFi
+vendor.wlan.driver.version                 u:object_r:vendor_wifi_version:s0
+vendor.wlan.firmware.version               u:object_r:vendor_wifi_version:s0
+
+# for display
+ro.vendor.hwc.drm.device                   u:object_r:vendor_display_prop:s0
+persist.vendor.display.                    u:object_r:vendor_display_prop:s0
+
+# Camera
+persist.vendor.camera.                     u:object_r:vendor_camera_prop:s0
+vendor.camera.                             u:object_r:vendor_camera_prop:s0
+vendor.camera.fatp.                        u:object_r:vendor_camera_fatp_prop:s0
+
+# for logger app
+vendor.pixellogger.                        u:object_r:vendor_logger_prop:s0
+persist.vendor.pixellogger.                u:object_r:vendor_logger_prop:s0
+
+# vendor default
+ro.vendor.sys.                             u:object_r:vendor_ro_sys_default_prop:s0
+persist.vendor.sys.                        u:object_r:vendor_persist_sys_default_prop:s0
+
+# for gps
+vendor.gps.                                u:object_r:vendor_gps_prop:s0
+persist.vendor.gps.                        u:object_r:vendor_gps_prop:s0
+
+# Fingerprint
+persist.vendor.fingerprint.                u:object_r:vendor_fingerprint_prop:s0
+vendor.fingerprint.                        u:object_r:vendor_fingerprint_prop:s0
+vendor.gf.                                 u:object_r:vendor_fingerprint_prop:s0
+
+#uwb
+ro.vendor.uwb.calibration.                 u:object_r:vendor_uwb_calibration_prop:s0 exact string
+vendor.uwb.calibration.country_code        u:object_r:vendor_uwb_calibration_country_code:s0 exact string
+
+
+# Dynamic sensor
+vendor.dynamic_sensor.                     u:object_r:vendor_dynamic_sensor_prop:s0
+
+# for ims service
+persist.vendor.ims.                        u:object_r:vendor_imssvc_prop:s0
+
+# for vendor telephony debug app
+vendor.config.debug.                       u:object_r:vendor_telephony_app_prop:s0
+
+# Trusty
+ro.vendor.trusty.storage.fs_ready          u:object_r:vendor_trusty_storage_prop:s0
+
+# Mali GPU driver configuration and debug options
+vendor.mali.                               u:object_r:vendor_arm_runtime_option_prop:s0 prefix
+
+# ArmNN configuration
+ro.vendor.armnn.                           u:object_r:vendor_armnn_config_prop:s0 prefix

@@ -18,7 +18,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cancel" msgid="1942863792086990604">"Hủy"</string>
-    <string name="emergency_action_title" msgid="4329795972111990414">"Khẩn cấp"</string>
+    <string name="emergency_action_title" msgid="4329795972111990414">"SOS khẩn cấp"</string>
     <string name="emergency_action_subtitle" msgid="5667616628096114616">"Đang chuẩn bị gọi đến <xliff:g id="EMERGENCY_NUMBER">%1$s</xliff:g>"</string>
     <string name="count_down_unit" msgid="7461042666268976220">"giây"</string>
     <string name="countdown_text_content_description" msgid="322778383478285712">"{seconds_left,plural, =1{1 giây}other{# giây}}"</string>

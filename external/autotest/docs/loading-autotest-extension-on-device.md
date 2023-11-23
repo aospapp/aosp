@@ -1,7 +1,7 @@
 # Loading autotestPrivate extension on your device
 
 AutotestPrivate is an extension that exposes APIs that facilitate the
-interaction with a Chrome OS device during tests. This guide shows how to load
+interaction with a ChromeOS device during tests. This guide shows how to load
 the extension on your device.
 
 [TOC]
@@ -9,7 +9,7 @@ the extension on your device.
 
 ## Prerequisites
 
-You need a device running a Chrome OS test image and a Chromium OS
+You need a device running a ChromeOS test image and a Chromium OS
 checkout. To load a test image on your device follow [these steps] from the
 Simple Chrome guide. To grab a checkout of Chromium OS follow the
 [OS Developer Guide].
@@ -29,7 +29,7 @@ To get a command shell on the device:
 
     `test0000`
 
-1.  To run Chrome OS with flags, first make usr partition writeable with:
+1.  To run ChromeOS with flags, first make usr partition writeable with:
 
     ```
     /usr/share/vboot/bin/make_dev_ssd.sh --remove_rootfs_verification --partitions 2
@@ -44,13 +44,13 @@ To get a command shell on the device:
 
 ## Loading autotest extension on your device
 
-1.  Enter a Chrome OS chroot. Inside of your Chrome OS checkout directory run:
+1.  Enter a ChromeOS chroot. Inside of your ChromeOS checkout directory run:
 
     `cros_sdk`
 
-1.  From inside your Chrome OS chroot run:
+1.  From inside your ChromeOS chroot run:
 
-    `test_that $IP_ADDR -b $BOARD dummy_Pass`
+    `test_that $IP_ADDR -b $BOARD stub_Pass`
 
     This will install the autotestPrivate extension manifest to your device.
 
@@ -88,5 +88,5 @@ For example, try running:
 > {isLoggedIn: false, isOwner: false, isReadyForPassword: false, isScreenLocked: false}
 ```
 
-[these steps]: https://chromium.googlesource.com/chromiumos/docs/+/master/simple_chrome_workflow.md#set-up-the-chrome-os-device
-[OS Developer Guide]: https://chromium.googlesource.com/chromiumos/docs/+/master/developer_guide.md#get-the-source
+\[these steps\]: https://chromium.googlesource.com/chromiumos/docs/+/main/simple_chrome_workflow.md#set-up-the-chrome-os-device <br>
+\[OS Developer Guide\]: https://chromium.googlesource.com/chromiumos/docs/+/main/developer_guide.md#get-the-source

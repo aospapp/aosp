@@ -18,7 +18,7 @@ import acts.signals as signals
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
-from WifiStaApConcurrencyTest import WifiStaApConcurrencyTest
+from ..WifiStaApConcurrencyTest import WifiStaApConcurrencyTest
 
 WifiEnums = wutils.WifiEnums
 WIFI_CONFIG_SOFTAP_BAND_2G = WifiEnums.WIFI_CONFIG_SOFTAP_BAND_2G

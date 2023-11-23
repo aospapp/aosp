@@ -58,6 +58,13 @@ void avb_abort(void) {
   abort();
 }
 
+void avb_printf(const char* fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  vfprintf(stderr, fmt, ap);
+  va_end(ap);
+}
+
 void avb_print(const char* message) {
   fprintf(stderr, "%s", message);
 }

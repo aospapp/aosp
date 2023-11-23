@@ -15,44 +15,47 @@
 //! Android VirtualizationService
 
 mod aidl;
-mod composite;
-mod crosvm;
-mod payload;
-mod selinux;
+mod atom;
 
-use crate::aidl::{VirtualizationService, BINDER_SERVICE_IDENTIFIER, TEMPORARY_DIRECTORY};
-use android_system_virtualizationservice::aidl::android::system::virtualizationservice::IVirtualizationService::BnVirtualizationService;
-use android_system_virtualizationservice::binder::{register_lazy_service, BinderFeatures, ProcessState};
+use crate::aidl::{
+    remove_temporary_dir, BINDER_SERVICE_IDENTIFIER, TEMPORARY_DIRECTORY,
+    VirtualizationServiceInternal
+};
+use android_logger::{Config, FilterBuilder};
+use android_system_virtualizationservice_internal::aidl::android::system::virtualizationservice_internal::IVirtualizationServiceInternal::BnVirtualizationServiceInternal;
 use anyhow::Error;
+use binder::{register_lazy_service, BinderFeatures, ProcessState, ThreadState};
 use log::{info, Level};
-use std::fs::{remove_dir_all, remove_file, read_dir};
-
-/// The first CID to assign to a guest VM managed by the VirtualizationService. CIDs lower than this
-/// are reserved for the host or other usage.
-const FIRST_GUEST_CID: Cid = 10;
-
-const SYSPROP_LAST_CID: &str = "virtualizationservice.state.last_cid";
+use std::fs::read_dir;
+use std::os::unix::raw::{pid_t, uid_t};
 
 const LOG_TAG: &str = "VirtualizationService";
 
-/// The unique ID of a VM used (together with a port number) for vsock communication.
-type Cid = u32;
+fn get_calling_pid() -> pid_t {
+    ThreadState::get_calling_pid()
+}
+
+fn get_calling_uid() -> uid_t {
+    ThreadState::get_calling_uid()
+}
 
 fn main() {
     android_logger::init_once(
-        android_logger::Config::default()
+        Config::default()
             .with_tag(LOG_TAG)
             .with_min_level(Level::Info)
-            .with_log_id(android_logger::LogId::System),
+            .with_log_id(android_logger::LogId::System)
+            .with_filter(
+                // Reduce logspam by silencing logs from the disk crate which don't provide much
+                // information to us.
+                FilterBuilder::new().parse("info,disk=off").build(),
+            ),
     );
 
     clear_temporary_files().expect("Failed to delete old temporary files");
 
-    let service = VirtualizationService::init();
-    let service = BnVirtualizationService::new_binder(
-        service,
-        BinderFeatures { set_requesting_sid: true, ..BinderFeatures::default() },
-    );
+    let service = VirtualizationServiceInternal::init();
+    let service = BnVirtualizationServiceInternal::new_binder(service, BinderFeatures::default());
     register_lazy_service(BINDER_SERVICE_IDENTIFIER, service.as_binder()).unwrap();
     info!("Registered Binder service, joining threadpool.");
     ProcessState::join_thread_pool();
@@ -61,22 +64,7 @@ fn main() {
 /// Remove any files under `TEMPORARY_DIRECTORY`.
 fn clear_temporary_files() -> Result<(), Error> {
     for dir_entry in read_dir(TEMPORARY_DIRECTORY)? {
-        let dir_entry = dir_entry?;
-        let path = dir_entry.path();
-        if dir_entry.file_type()?.is_dir() {
-            remove_dir_all(path)?;
-        } else {
-            remove_file(path)?;
-        }
+        remove_temporary_dir(&dir_entry?.path())?
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    /// We need to have at least one test to avoid errors running the test suite, so this is a
-    /// placeholder until we have real tests.
-    #[test]
-    #[ignore]
-    fn placeholder() {}
 }

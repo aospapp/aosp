@@ -124,6 +124,7 @@ EmulatedLogicalRequestState::InitializeLogicalResult(uint32_t pipeline_id,
 status_t EmulatedLogicalRequestState::InitializeLogicalSettings(
     std::unique_ptr<HalCameraMetadata> request_settings,
     std::unique_ptr<std::set<uint32_t>> physical_camera_output_ids,
+    uint32_t override_frame_number,
     EmulatedSensor::LogicalCameraSettings* logical_settings /*out*/) {
   if (logical_settings == nullptr) {
     return BAD_VALUE;
@@ -148,7 +149,7 @@ status_t EmulatedLogicalRequestState::InitializeLogicalSettings(
       EmulatedSensor::SensorSettings physical_sensor_settings;
       auto ret = physical_request_state.second->InitializeSensorSettings(
           HalCameraMetadata::Clone(request_settings.get()),
-          &physical_sensor_settings);
+          override_frame_number, &physical_sensor_settings);
       if (ret != OK) {
         ALOGE(
             "%s: Initialization of physical sensor settings for device id: %u  "
@@ -170,7 +171,7 @@ status_t EmulatedLogicalRequestState::InitializeLogicalSettings(
 
   EmulatedSensor::SensorSettings sensor_settings;
   auto ret = logical_request_state_->InitializeSensorSettings(
-      std::move(request_settings), &sensor_settings);
+      std::move(request_settings), override_frame_number, &sensor_settings);
   logical_settings->emplace(logical_camera_id_, sensor_settings);
   if (max_frame_duration < sensor_settings.exposure_time) {
     max_frame_duration = sensor_settings.exposure_time;

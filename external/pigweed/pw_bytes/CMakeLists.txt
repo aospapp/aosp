@@ -14,7 +14,7 @@
 
 include($ENV{PW_ROOT}/pw_build/pigweed.cmake)
 
-pw_add_module_library(pw_bytes
+pw_add_library(pw_bytes STATIC
   HEADERS
     public/pw_bytes/array.h
     public/pw_bytes/byte_builder.h
@@ -24,10 +24,11 @@ pw_add_module_library(pw_bytes
   PUBLIC_INCLUDES
     public
   PUBLIC_DEPS
+    pw_bytes.bit
+    pw_containers.iterator
     pw_polyfill
-    pw_polyfill.cstddef
-    pw_polyfill.span
     pw_preprocessor
+    pw_span
     pw_status
   SOURCES
     byte_builder.cc
@@ -36,11 +37,28 @@ if(Zephyr_FOUND AND CONFIG_PIGWEED_BYTES)
   zephyr_link_libraries(pw_bytes)
 endif()
 
+pw_add_library(pw_bytes.bit INTERFACE
+  HEADERS
+    public/pw_bytes/bit.h
+  PUBLIC_INCLUDES
+    public
+)
+
 pw_add_test(pw_bytes.array_test
   SOURCES
     array_test.cc
-  DEPS
+  PRIVATE_DEPS
     pw_bytes
+  GROUPS
+    modules
+    pw_bytes
+)
+
+pw_add_test(pw_bytes.bit_test
+  SOURCES
+    bit_test.cc
+  PRIVATE_DEPS
+    pw_bytes.bit
   GROUPS
     modules
     pw_bytes
@@ -49,7 +67,7 @@ pw_add_test(pw_bytes.array_test
 pw_add_test(pw_bytes.byte_builder_test
   SOURCES
     byte_builder_test.cc
-  DEPS
+  PRIVATE_DEPS
     pw_bytes
   GROUPS
     modules
@@ -59,7 +77,7 @@ pw_add_test(pw_bytes.byte_builder_test
 pw_add_test(pw_bytes.endian_test
   SOURCES
     endian_test.cc
-  DEPS
+  PRIVATE_DEPS
     pw_bytes
   GROUPS
     modules
@@ -69,7 +87,7 @@ pw_add_test(pw_bytes.endian_test
 pw_add_test(pw_bytes.units_test
   SOURCES
     units_test.cc
-  DEPS
+  PRIVATE_DEPS
     pw_bytes
   GROUPS
     modules

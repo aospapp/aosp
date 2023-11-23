@@ -111,7 +111,6 @@ public class RuleBasedTimeZone extends BasicTimeZone {
 
     /**
      * {@inheritDoc}
-     * @hide draft / provisional / internal are hidden on Android
      */
     @Override
     public void getOffsetFromLocal(long date,

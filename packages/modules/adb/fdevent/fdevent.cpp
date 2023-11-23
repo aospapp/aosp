@@ -61,7 +61,8 @@ std::string dump_fde(const fdevent* fde) {
 }
 
 fdevent* fdevent_context::Create(unique_fd fd, std::variant<fd_func, fd_func2> func, void* arg) {
-    CheckMainThread();
+    CheckLooperThread();
+
     CHECK_GE(fd.get(), 0);
 
     int fd_num = fd.get();
@@ -82,12 +83,14 @@ fdevent* fdevent_context::Create(unique_fd fd, std::variant<fd_func, fd_func2> f
         LOG(ERROR) << "failed to set non-blocking mode for fd " << fde->fd.get();
     }
 
+    this->fdevent_set_.insert(fde);
     this->Register(fde);
     return fde;
 }
 
 unique_fd fdevent_context::Destroy(fdevent* fde) {
-    CheckMainThread();
+    CheckLooperThread();
+
     if (!fde) {
         return {};
     }
@@ -97,6 +100,8 @@ unique_fd fdevent_context::Destroy(fdevent* fde) {
     unique_fd fd = std::move(fde->fd);
 
     auto erased = this->installed_fdevents_.erase(fd.get());
+    CHECK_EQ(1UL, erased);
+    erased = this->fdevent_set_.erase(fde);
     CHECK_EQ(1UL, erased);
 
     return fd;
@@ -113,7 +118,8 @@ void fdevent_context::Del(fdevent* fde, unsigned events) {
 }
 
 void fdevent_context::SetTimeout(fdevent* fde, std::optional<std::chrono::milliseconds> timeout) {
-    CheckMainThread();
+    CheckLooperThread();  // Caller thread is expected to have already
+                          // initialized the looper thread instance variable.
     fde->timeout = timeout;
     fde->last_active = std::chrono::steady_clock::now();
 }
@@ -121,7 +127,8 @@ void fdevent_context::SetTimeout(fdevent* fde, std::optional<std::chrono::millis
 std::optional<std::chrono::milliseconds> fdevent_context::CalculatePollDuration() {
     std::optional<std::chrono::milliseconds> result = std::nullopt;
     auto now = std::chrono::steady_clock::now();
-    CheckMainThread();
+
+    CheckLooperThread();
 
     for (const auto& [fd, fde] : this->installed_fdevents_) {
         UNUSED(fd);
@@ -146,7 +153,12 @@ std::optional<std::chrono::milliseconds> fdevent_context::CalculatePollDuration(
 
 void fdevent_context::HandleEvents(const std::vector<fdevent_event>& events) {
     for (const auto& event : events) {
-        invoke_fde(event.fde, event.events);
+        // Verify the fde is still installed before invoking it.  It could have been unregistered
+        // and destroyed inside an earlier event handler.
+        if (this->fdevent_set_.find(event.fde) != this->fdevent_set_.end()) {
+            invoke_fde(event.fde, event.events);
+            break;
+        }
     }
     FlushRunQueue();
 }
@@ -168,9 +180,9 @@ void fdevent_context::FlushRunQueue() {
     }
 }
 
-void fdevent_context::CheckMainThread() {
-    if (main_thread_id_) {
-        CHECK_EQ(*main_thread_id_, android::base::GetThreadId());
+void fdevent_context::CheckLooperThread() const {
+    if (looper_thread_id_) {
+        CHECK_EQ(*looper_thread_id_, android::base::GetThreadId());
     }
 }
 
@@ -239,7 +251,7 @@ void fdevent_set_timeout(fdevent* fde, std::optional<std::chrono::milliseconds> 
     fdevent_get_ambient()->SetTimeout(fde, timeout);
 }
 
-void fdevent_run_on_main_thread(std::function<void()> fn) {
+void fdevent_run_on_looper(std::function<void()> fn) {
     fdevent_get_ambient()->Run(std::move(fn));
 }
 
@@ -247,8 +259,8 @@ void fdevent_loop() {
     fdevent_get_ambient()->Loop();
 }
 
-void check_main_thread() {
-    fdevent_get_ambient()->CheckMainThread();
+void fdevent_check_looper() {
+    fdevent_get_ambient()->CheckLooperThread();
 }
 
 void fdevent_terminate_loop() {

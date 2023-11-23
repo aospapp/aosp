@@ -19,7 +19,7 @@ use anyhow::Context;
 use std::os::raw::c_char;
 use std::ptr::null;
 use std::{
-    ffi::{c_void, CStr, CString},
+    ffi::{c_uint, c_void, CStr, CString},
     str::Utf8Error,
 };
 use system_properties_bindgen::prop_info as PropInfo;
@@ -66,7 +66,7 @@ pub type Result<T> = std::result::Result<T, PropertyWatcherError>;
 pub struct PropertyWatcher {
     prop_name: CString,
     prop_info: *const PropInfo,
-    serial: system_properties_bindgen::__uint32_t,
+    serial: c_uint,
 }
 
 impl PropertyWatcher {
@@ -103,7 +103,7 @@ impl PropertyWatcher {
             res_p: *mut c_void,
             name: *const c_char,
             value: *const c_char,
-            _: system_properties_bindgen::__uint32_t,
+            _: c_uint,
         ) {
             let name = if name.is_null() {
                 None
@@ -274,7 +274,7 @@ where
         res_p: *mut c_void,
         name: *const c_char,
         value: *const c_char,
-        _: system_properties_bindgen::__uint32_t,
+        _: c_uint,
     ) {
         // SAFETY: system properties are null-terminated C string in UTF-8. See IsLegalPropertyName
         // and IsLegalPropertyValue in system/core/init/util.cpp.

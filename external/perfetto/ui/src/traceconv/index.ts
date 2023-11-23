@@ -16,9 +16,10 @@ import {defer} from '../base/deferred';
 import {assertExists, reportError, setErrorHandler} from '../base/logging';
 import {
   ConversionJobName,
-  ConversionJobStatus
+  ConversionJobStatus,
 } from '../common/conversion_jobs';
-import * as trace_to_text from '../gen/trace_to_text';
+import {TPTime} from '../common/time';
+import traceconv from '../gen/traceconv';
 
 const selfWorker = self as {} as Worker;
 
@@ -66,19 +67,19 @@ function forwardError(error: string) {
   });
 }
 
-function fsNodeToBuffer(fsNode: trace_to_text.FileSystemNode): Uint8Array {
+function fsNodeToBuffer(fsNode: traceconv.FileSystemNode): Uint8Array {
   const fileSize = assertExists(fsNode.usedBytes);
   return new Uint8Array(fsNode.contents.buffer, 0, fileSize);
 }
 
 async function runTraceconv(trace: Blob, args: string[]) {
   const deferredRuntimeInitialized = defer<void>();
-  const module = trace_to_text({
+  const module = traceconv({
     noInitialRun: true,
     locateFile: (s: string) => s,
     print: updateStatus,
     printErr: updateStatus,
-    onRuntimeInitialized: () => deferredRuntimeInitialized.resolve()
+    onRuntimeInitialized: () => deferredRuntimeInitialized.resolve(),
   });
   await deferredRuntimeInitialized;
   module.FS.mkdir('/fs');
@@ -176,7 +177,7 @@ interface ConvertTraceToPprofArgs {
   kind: 'ConvertTraceToPprof';
   trace: Blob;
   pid: number;
-  ts: number;
+  ts: TPTime;
 }
 
 function isConvertTraceToPprof(msg: Args): msg is ConvertTraceToPprofArgs {
@@ -186,8 +187,7 @@ function isConvertTraceToPprof(msg: Args): msg is ConvertTraceToPprofArgs {
   return true;
 }
 
-async function ConvertTraceToPprof(
-trace: Blob, pid: number, ts: number) {
+async function ConvertTraceToPprof(trace: Blob, pid: number, ts: TPTime) {
   const jobName = 'convert_pprof';
   updateJobStatus(jobName, ConversionJobStatus.InProgress);
   const args = [
@@ -196,7 +196,7 @@ trace: Blob, pid: number, ts: number) {
     `${pid}`,
     `--timestamps`,
     `${ts}`,
-    '/fs/trace.proto'
+    '/fs/trace.proto',
   ];
 
   try {
@@ -219,8 +219,8 @@ trace: Blob, pid: number, ts: number) {
 }
 
 selfWorker.onmessage = (msg: MessageEvent) => {
-  self.addEventListener('error', e => reportError(e));
-  self.addEventListener('unhandledrejection', e => reportError(e));
+  self.addEventListener('error', (e) => reportError(e));
+  self.addEventListener('unhandledrejection', (e) => reportError(e));
   setErrorHandler((err: string) => forwardError(err));
   const args = msg.data as Args;
   if (isConvertTraceAndDownload(args)) {

@@ -32,8 +32,11 @@ import static android.car.hardware.power.PowerComponent.TRUSTED_DEVICE_DETECTION
 import static android.car.hardware.power.PowerComponent.VISUAL_INTERACTION;
 import static android.car.hardware.power.PowerComponent.VOICE_INTERACTION;
 import static android.car.hardware.power.PowerComponent.WIFI;
+import static android.car.hardware.power.PowerComponentUtil.INVALID_POWER_COMPONENT;
 
 import static com.android.car.test.power.CarPowerPolicyUtil.assertPolicyIdentical;
+
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.car.hardware.power.CarPowerPolicy;
 import android.content.Context;
@@ -59,7 +62,6 @@ public final class PowerComponentHandlerUnitTest {
 
     @Mock
     private SystemInterface mSystemInterface;
-    @Mock
     private PowerComponentHandler mHandler;
     private TemporaryFile mComponentStateFile;
 
@@ -68,7 +70,7 @@ public final class PowerComponentHandlerUnitTest {
         mComponentStateFile = new TemporaryFile("COMPONENT_STATE_FILE");
         mHandler = new PowerComponentHandler(mContext, mSystemInterface,
                 new AtomicFile(mComponentStateFile.getFile()));
-        mHandler.init();
+        mHandler.init(/* customComponents = */ null);
     }
 
     @Test
@@ -84,12 +86,12 @@ public final class PowerComponentHandlerUnitTest {
 
     @Test
     public void testApplyPowerPolicy_oneTime() throws Exception {
-        CarPowerPolicy policy = new CarPowerPolicy("test_policy1", new int[]{WIFI},
-                new int[]{AUDIO});
-        CarPowerPolicy expected = new CarPowerPolicy("test_policy1", new int[]{WIFI},
-                new int[]{AUDIO, BLUETOOTH, CELLULAR, CPU, DISPLAY, ETHERNET, INPUT, LOCATION,
-                        MEDIA, MICROPHONE, NFC, PROJECTION, TRUSTED_DEVICE_DETECTION,
-                        VISUAL_INTERACTION, VOICE_INTERACTION});
+        CarPowerPolicy policy = new CarPowerPolicy("test_policy1", new int[]{WIFI, BLUETOOTH,
+                DISPLAY, VOICE_INTERACTION}, new int[]{AUDIO});
+        CarPowerPolicy expected = new CarPowerPolicy("test_policy1", new int[]{WIFI, BLUETOOTH,
+                DISPLAY, VOICE_INTERACTION}, new int[]{AUDIO, CELLULAR, CPU, ETHERNET, INPUT,
+                    LOCATION, MEDIA, MICROPHONE, NFC, PROJECTION, TRUSTED_DEVICE_DETECTION,
+                        VISUAL_INTERACTION});
 
         mHandler.applyPowerPolicy(policy);
 
@@ -113,5 +115,63 @@ public final class PowerComponentHandlerUnitTest {
         }
 
         assertPolicyIdentical(expected, mHandler.getAccumulatedPolicy());
+    }
+
+    @Test
+    public void testApplyPowerPolicy_withCustomComponents() throws Exception {
+        int customComponentId = 1001;
+        mHandler.registerCustomComponents(new Integer[]{customComponentId});
+        CarPowerPolicy policy1 = new CarPowerPolicy("test_policy1",
+                new int[]{WIFI, customComponentId}, new int[]{AUDIO});
+        CarPowerPolicy policy2 = new CarPowerPolicy("test_policy2", new int[]{WIFI, DISPLAY},
+                new int[]{NFC});
+
+        mHandler.applyPowerPolicy(policy1);
+        mHandler.applyPowerPolicy(policy2);
+
+        CarPowerPolicy expected = new CarPowerPolicy("test_policy2",
+                new int[]{DISPLAY, WIFI, customComponentId},
+                new int[]{INPUT, MEDIA, AUDIO, BLUETOOTH, CELLULAR, ETHERNET, LOCATION, MICROPHONE,
+                        NFC, PROJECTION,
+                        TRUSTED_DEVICE_DETECTION, VISUAL_INTERACTION, VOICE_INTERACTION, CPU});
+        assertPolicyIdentical(expected, mHandler.getAccumulatedPolicy());
+
+        CarPowerPolicy policy3 = new CarPowerPolicy("test_policy3", new int[]{WIFI, AUDIO},
+                new int[]{customComponentId});
+        CarPowerPolicy policy4 = new CarPowerPolicy("test_policy4", new int[]{WIFI},
+                new int[]{NFC, DISPLAY});
+
+        mHandler.applyPowerPolicy(policy3);
+        mHandler.applyPowerPolicy(policy4);
+
+        expected = new CarPowerPolicy("test_policy4",
+                new int[]{WIFI, AUDIO},
+                new int[]{DISPLAY, INPUT, MEDIA, BLUETOOTH, CELLULAR, ETHERNET, LOCATION,
+                        MICROPHONE, NFC, PROJECTION,
+                        TRUSTED_DEVICE_DETECTION, VISUAL_INTERACTION, VOICE_INTERACTION, CPU,
+                        customComponentId});
+        assertPolicyIdentical(expected, mHandler.getAccumulatedPolicy());
+    }
+
+    @Test
+    public void testPowerComponentMediator() {
+        PowerComponentHandler.PowerComponentMediator mediator =
+                new PowerComponentMediatorDefault();
+
+        assertWithMessage("Default value for isComponentAvailable()")
+                .that(mediator.isComponentAvailable()).isFalse();
+        assertWithMessage("Default value for isEnabled()").that(mediator.isEnabled()).isFalse();
+
+        mediator.setEnabled(true);
+
+        // Default setEnabled() does nothing.
+        assertWithMessage("Value after setEnabled(true)").that(mediator.isEnabled()).isFalse();
+    }
+
+    private static final class PowerComponentMediatorDefault extends
+            PowerComponentHandler.PowerComponentMediator {
+        PowerComponentMediatorDefault() {
+            super(INVALID_POWER_COMPONENT);
+        }
     }
 }

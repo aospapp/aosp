@@ -1,10 +1,17 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import dbus
 
-import dbus_std_ifaces
+import six
+
+from autotest_lib.client.cros.cellular.pseudomodem import dbus_std_ifaces
 
 from autotest_lib.client.cros.cellular import mm1_constants
 
@@ -72,8 +79,8 @@ class SMS(dbus_std_ifaces.DBusProperties):
                     'Properties: ' + repr(keyset.difference(params)) + ' are '
                     'not settable.')
 
-        for key, value in params.iteritems():
-            if value == 'default' and cls._props_template.has_key(key):
+        for key, value in six.iteritems(params):
+            if value == 'default' and key in cls._props_template:
                 cls._props_template.pop(key)
             else:
                 cls._props_template[key] = value

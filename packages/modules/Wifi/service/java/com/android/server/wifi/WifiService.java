@@ -33,6 +33,7 @@ public final class WifiService extends SystemService {
     public static final String NOTIFICATION_NETWORK_STATUS = "NETWORK_STATUS";
     public static final String NOTIFICATION_NETWORK_ALERTS = "NETWORK_ALERTS";
     public static final String NOTIFICATION_NETWORK_AVAILABLE = "NETWORK_AVAILABLE";
+    public static final String NOTIFICATION_APM_ALERTS = "APM_ALERTS";
 
     private final WifiServiceImpl mImpl;
     private final WifiContext mWifiContext;

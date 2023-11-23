@@ -60,6 +60,13 @@ libtextclassifier3::Status DocHitInfoIteratorNot::Advance() {
   return absl_ports::ResourceExhaustedError("No more DocHitInfos in iterator");
 }
 
+libtextclassifier3::StatusOr<DocHitInfoIterator::TrimmedNode>
+DocHitInfoIteratorNot::TrimRightMostNode() && {
+  // Don't generate suggestion if the last operator is NOT.
+  return absl_ports::InvalidArgumentError(
+      "Cannot generate suggestion if the last term is NOT operator.");
+}
+
 int32_t DocHitInfoIteratorNot::GetNumBlocksInspected() const {
   return to_be_excluded_->GetNumBlocksInspected() +
          all_document_id_iterator_.GetNumBlocksInspected();

@@ -17,6 +17,7 @@
 package android.safetycenter;
 
 import static android.os.Build.VERSION_CODES.TIRAMISU;
+import static android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
 
 import static com.android.internal.util.Preconditions.checkArgument;
 
@@ -32,6 +33,8 @@ import android.os.Parcelable;
 import android.text.TextUtils;
 
 import androidx.annotation.RequiresApi;
+
+import com.android.modules.utils.build.SdkLevel;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -208,10 +211,7 @@ public final class SafetySourceStatus implements Parcelable {
      * <p>The action will be shown as a clickable icon chosen from a predefined set of icons (see
      * {@link IconType}). The icon should indicate to the user what action will be performed on
      * clicking on it.
-     *
-     * @hide
      */
-    @SystemApi
     public static final class IconAction implements Parcelable {
 
         @NonNull
@@ -319,8 +319,7 @@ public final class SafetySourceStatus implements Parcelable {
                     return value;
                 default:
             }
-            throw new IllegalArgumentException(
-                    String.format("Unexpected IconType for IconAction: %s", value));
+            throw new IllegalArgumentException("Unexpected IconType for IconAction: " + value);
         }
     }
 
@@ -343,6 +342,21 @@ public final class SafetySourceStatus implements Parcelable {
             this.mTitle = requireNonNull(title);
             this.mSummary = requireNonNull(summary);
             this.mSeverityLevel = validateSeverityLevel(severityLevel);
+        }
+
+        /** Creates a {@link Builder} with the values of the given {@link SafetySourceStatus}. */
+        @RequiresApi(UPSIDE_DOWN_CAKE)
+        public Builder(@NonNull SafetySourceStatus safetySourceStatus) {
+            if (!SdkLevel.isAtLeastU()) {
+                throw new UnsupportedOperationException();
+            }
+            requireNonNull(safetySourceStatus);
+            mTitle = safetySourceStatus.mTitle;
+            mSummary = safetySourceStatus.mSummary;
+            mSeverityLevel = safetySourceStatus.mSeverityLevel;
+            mPendingIntent = safetySourceStatus.mPendingIntent;
+            mIconAction = safetySourceStatus.mIconAction;
+            mEnabled = safetySourceStatus.mEnabled;
         }
 
         /**
@@ -409,6 +423,6 @@ public final class SafetySourceStatus implements Parcelable {
             default:
         }
         throw new IllegalArgumentException(
-                String.format("Unexpected SeverityLevel for SafetySourceStatus: %s", value));
+                "Unexpected SeverityLevel for SafetySourceStatus: " + value);
     }
 }

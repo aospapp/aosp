@@ -63,8 +63,8 @@ public abstract class Reference<T> {
      */
     private static boolean slowPathEnabled = false;
 
-    // Treated specially by GC. ART's ClassLinker::LinkFields() knows this is the
-    // alphabetically last non-static field.
+    // Treated specially by GC. ART's ClassLinker::LinkFieldsHelper::LinkFields()
+    // knows this is the alphabetically last non-static field.
     // We assume that Reference.get() and Reference.clear() are intended to be
     // callable concurrently, and thus referent accesses should be treated as
     // volatile everywhere.

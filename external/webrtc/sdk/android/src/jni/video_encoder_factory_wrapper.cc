@@ -10,6 +10,7 @@
 
 #include "sdk/android/src/jni/video_encoder_factory_wrapper.h"
 
+#include "api/video/render_resolution.h"
 #include "api/video_codecs/video_encoder.h"
 #include "rtc_base/logging.h"
 #include "sdk/android/generated_video_jni/VideoEncoderFactory_jni.h"
@@ -42,6 +43,18 @@ class VideoEncoderSelectorWrapper
     ScopedJavaLocalRef<jobject> codec_info =
         Java_VideoEncoderSelector_onAvailableBitrate(jni, encoder_selector_,
                                                      rate.kbps<int>());
+    if (codec_info.is_null()) {
+      return absl::nullopt;
+    }
+    return VideoCodecInfoToSdpVideoFormat(jni, codec_info);
+  }
+
+  absl::optional<SdpVideoFormat> OnResolutionChange(
+      const RenderResolution& resolution) override {
+    JNIEnv* jni = AttachCurrentThreadIfNeeded();
+    ScopedJavaLocalRef<jobject> codec_info =
+        Java_VideoEncoderSelector_onResolutionChange(
+            jni, encoder_selector_, resolution.Width(), resolution.Height());
     if (codec_info.is_null()) {
       return absl::nullopt;
     }
@@ -99,21 +112,6 @@ std::vector<SdpVideoFormat> VideoEncoderFactoryWrapper::GetSupportedFormats()
 std::vector<SdpVideoFormat> VideoEncoderFactoryWrapper::GetImplementations()
     const {
   return implementations_;
-}
-
-VideoEncoderFactory::CodecInfo VideoEncoderFactoryWrapper::QueryVideoEncoder(
-    const SdpVideoFormat& format) const {
-  JNIEnv* jni = AttachCurrentThreadIfNeeded();
-  ScopedJavaLocalRef<jobject> j_codec_info =
-      SdpVideoFormatToVideoCodecInfo(jni, format);
-  ScopedJavaLocalRef<jobject> encoder = Java_VideoEncoderFactory_createEncoder(
-      jni, encoder_factory_, j_codec_info);
-
-  CodecInfo codec_info;
-  // Check if this is a wrapped native software encoder implementation.
-  codec_info.is_hardware_accelerated = IsHardwareVideoEncoder(jni, encoder);
-  codec_info.has_internal_source = false;
-  return codec_info;
 }
 
 std::unique_ptr<VideoEncoderFactory::EncoderSelectorInterface>

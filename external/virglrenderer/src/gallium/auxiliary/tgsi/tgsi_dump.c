@@ -25,6 +25,8 @@
  * 
  **************************************************************************/
 
+#include <inttypes.h>
+
 #include "util/u_debug.h"
 #include "util/u_string.h"
 #include "util/u_math.h"
@@ -87,6 +89,8 @@ dump_enum(
 #define CHR(C)          ctx->dump_printf( ctx, "%c", C )
 #define UIX(I)          ctx->dump_printf( ctx, "0x%x", I )
 #define UID(I)          ctx->dump_printf( ctx, "%u", I )
+#define SI64D(I)        ctx->dump_printf( ctx, "%"PRId64, I )
+#define UI64D(I)        ctx->dump_printf( ctx, "%"PRIu64, I )
 #define INSTID(I)       ctx->dump_printf( ctx, "% 3u", I )
 #define SID(I)          ctx->dump_printf( ctx, "%d", I )
 #define FLT(F)          ctx->dump_printf( ctx, "%10.4f", F )
@@ -251,6 +255,20 @@ dump_imm_data(struct tgsi_iterate_context *iter,
          union di d;
          d.ui = data[i].Uint | (uint64_t)data[i+1].Uint << 32;
          DBL( d.d );
+         i++;
+         break;
+      }
+      case TGSI_IMM_INT64: {
+         union di d;
+         d.i = data[i].Uint | (uint64_t)data[i+1].Uint << 32;
+         SI64D( d.i );
+         i++;
+         break;
+      }
+      case TGSI_IMM_UINT64: {
+         union di d;
+         d.ui = data[i].Uint | (uint64_t)data[i+1].Uint << 32;
+         UI64D( d.ui );
          i++;
          break;
       }
@@ -734,7 +752,7 @@ str_dump_ctx_printf(struct dump_ctx *ctx, const char *format, ...)
       int written;
       va_list ap;
       va_start(ap, format);
-      written = util_vsnprintf(sctx->ptr, sctx->left, format, ap);
+      written = vsnprintf(sctx->ptr, sctx->left, format, ap);
       va_end(ap);
 
       /* Some complicated logic needed to handle the return value of

@@ -18,7 +18,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="description_dialpad_back" msgid="6948371942814365471">"వెనుకకు నావిగేట్ చేస్తుంది"</string>
-    <string name="description_dialpad_overflow" msgid="386545562915853251">"మరిన్ని ఎంపికలు"</string>
+    <string name="description_dialpad_overflow" msgid="386545562915853251">"మరిన్ని ఆప్షన్‌లు"</string>
     <string name="description_delete_button" msgid="3440492396168418449">"బ్యాక్‌స్పేస్"</string>
     <string name="description_image_button_plus" msgid="5473715983314974482">"కూడిక"</string>
     <string name="description_voicemail_button" msgid="3215317707268642855">"వాయిస్ మెయిల్"</string>
@@ -30,7 +30,7 @@
     <string name="callFailed_number_unreachable" msgid="2855741498610643943">"నంబర్‌ను చేరుకోవడం సాధ్యపడలేదు"</string>
     <string name="callFailed_invalid_credentials" msgid="1915881596632385418">"వినియోగదారు పేరు లేదా పాస్‌వర్డ్ చెల్లదు"</string>
     <string name="callFailed_out_of_network" msgid="3725361800376129141">"కాల్ చేయడానికి నెట్‌వర్క్ లేదు"</string>
-    <string name="callFailed_server_error" msgid="8449565039784274698">"సర్వర్ ఎర్రర్. తర్వాత మళ్లీ ప్రయత్నించండి."</string>
+    <string name="callFailed_server_error" msgid="8449565039784274698">"సర్వర్ ఎర్రర్. తర్వాత మళ్లీ ట్రై చేయండి."</string>
     <string name="callFailed_noSignal" msgid="7700332004458210245">"సిగ్నల్ లేదు"</string>
     <string name="callFailed_limitExceeded" msgid="2877263157928717415">"ACM పరిమితి మించిపోయింది"</string>
     <string name="callFailed_powerOff" msgid="2212239757387143765">"రేడియో ఆఫ్‌లో ఉంది"</string>

@@ -26,7 +26,10 @@
 #include "bta_csis_api.h"
 #include "bta_gatt_api.h"
 #include "bta_groups.h"
+#include "btif_storage.h"
 #include "gap_api.h"
+#include "gd/common/init_flags.h"
+#include "gd/common/strings.h"
 #include "stack/crypto_toolbox/crypto_toolbox.h"
 
 namespace bluetooth {
@@ -62,7 +65,7 @@ struct hdl_pair {
 
 /* CSIS Types */
 static constexpr uint8_t kDefaultScanDurationS = 5;
-static constexpr uint8_t kDefaultCsisSetSize = 2;
+static constexpr uint8_t kDefaultCsisSetSize = 1;
 static constexpr uint8_t kUnknownRank = 0xff;
 
 /* Enums */
@@ -173,7 +176,7 @@ class CsisInstance {
   uint8_t GetRank(void) const { return rank_; }
   void SetRank(uint8_t rank) {
     DLOG(INFO) << __func__ << " current rank state: " << loghex(rank_)
-               << " new lock state: " << loghex(rank);
+               << " new rank state: " << loghex(rank);
     rank_ = rank;
   }
 
@@ -247,7 +250,8 @@ class CsisDevice : public GattServiceDevice {
     }
 
     csis_instances_.insert({handle, csis_instance});
-    DLOG(INFO) << __func__ << " instance added: " << loghex(handle) << "device: " << addr;
+    DLOG(INFO) << __func__ << " instance added: " << loghex(handle)
+               << "device: " << ADDRESS_TO_LOGGABLE_STR(addr);
   }
 
   void RemoveCsisInstance(int group_id) {
@@ -288,7 +292,12 @@ class CsisGroup {
         target_lock_state_(CsisLockState::CSIS_STATE_UNSET),
         lock_transition_cnt_(0) {
     devices_.clear();
+    BTIF_STORAGE_FILL_PROPERTY(&model_name, BT_PROPERTY_REMOTE_MODEL_NUM,
+                               sizeof(model_name_val), &model_name_val);
   }
+
+  bt_property_t model_name;
+  bt_bdname_t model_name_val = {0};
 
   void AddDevice(std::shared_ptr<CsisDevice> csis_device) {
     auto it =
@@ -363,15 +372,35 @@ class CsisGroup {
 
   bool IsAvailableForCsisLockOperation(void) {
     int id = group_id_;
-    auto iter = std::find_if(devices_.begin(), devices_.end(), [id](auto& d) {
-      if (!d->IsConnected()) return false;
-      auto inst = d->GetCsisInstanceByGroupId(id);
-      LOG_ASSERT(inst);
-      return inst->GetLockState() == CsisLockState::CSIS_STATE_LOCKED;
-    });
+    int number_of_connected = 0;
+    auto iter = std::find_if(
+        devices_.begin(), devices_.end(), [id, &number_of_connected](auto& d) {
+          if (!d->IsConnected()) {
+            LOG_DEBUG("Device %s is not connected in group %d",
+                      ADDRESS_TO_LOGGABLE_CSTR(d->addr), id);
+            return false;
+          }
+          auto inst = d->GetCsisInstanceByGroupId(id);
+          if (!inst) {
+            LOG_DEBUG("Instance not available for group %d", id);
+            return false;
+          }
+          number_of_connected++;
+          LOG_DEBUG("Device %s,  lock state: %d",
+                    ADDRESS_TO_LOGGABLE_CSTR(d->addr),
+                    (int)inst->GetLockState());
+          return inst->GetLockState() == CsisLockState::CSIS_STATE_LOCKED;
+        });
 
+    LOG_DEBUG("Locked set: %d, number of connected %d", iter != devices_.end(),
+              number_of_connected);
     /* If there is no locked device, we are good to go */
-    return iter == devices_.end();
+    if (iter != devices_.end()) {
+      LOG_WARN("Device %s is locked ", ADDRESS_TO_LOGGABLE_CSTR((*iter)->addr));
+      return false;
+    }
+
+    return (number_of_connected > 0);
   }
 
   void SortByCsisRank(void) {

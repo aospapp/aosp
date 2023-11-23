@@ -54,6 +54,20 @@ public final class PermissionUtils {
     }
 
     /**
+     * Return true if the context has one of give permission that is allowed
+     * for a particular process and user ID running in the system.
+     */
+    public static boolean checkAnyPermissionOf(@NonNull Context context,
+            int pid, int uid, @NonNull String... permissions) {
+        for (String permission : permissions) {
+            if (context.checkPermission(permission, pid, uid) == PERMISSION_GRANTED) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Enforce permission check on the context that should have one of given permission.
      */
     public static void enforceAnyPermissionOf(@NonNull Context context,

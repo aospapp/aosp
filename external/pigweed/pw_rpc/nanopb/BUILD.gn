@@ -16,7 +16,9 @@ import("//build_overrides/pigweed.gni")
 
 import("$dir_pw_build/target_types.gni")
 import("$dir_pw_docgen/docs.gni")
+import("$dir_pw_sync/backend.gni")
 import("$dir_pw_third_party/nanopb/nanopb.gni")
+import("$dir_pw_thread/backend.gni")
 import("$dir_pw_unit_test/test.gni")
 
 config("public") {
@@ -41,6 +43,7 @@ pw_source_set("server_api") {
     "..:config",
     "..:server",
     dir_pw_bytes,
+    dir_pw_span,
   ]
   deps = [
     "..:log_config",
@@ -101,9 +104,25 @@ pw_source_set("client_testing") {
   ]
 }
 
+pw_source_set("client_server_testing") {
+  public = [ "public/pw_rpc/nanopb/client_server_testing.h" ]
+  public_deps = [
+    ":test_method_context",
+    "..:client_server_testing",
+  ]
+}
+
+pw_source_set("client_server_testing_threaded") {
+  public = [ "public/pw_rpc/nanopb/client_server_testing_threaded.h" ]
+  public_deps = [
+    ":test_method_context",
+    "..:client_server_testing_threaded",
+  ]
+}
+
 pw_source_set("internal_test_utils") {
   public = [ "pw_rpc_nanopb_private/internal_test_utils.h" ]
-  public_deps = []
+  public_deps = [ dir_pw_span ]
   if (dir_pw_third_party_nanopb != "") {
     public_deps += [ "$dir_pw_third_party/nanopb" ]
   }
@@ -135,6 +154,8 @@ pw_test_group("tests") {
   tests = [
     ":client_call_test",
     ":client_reader_writer_test",
+    ":client_server_context_test",
+    ":client_server_context_threaded_test",
     ":codegen_test",
     ":echo_service_test",
     ":fake_channel_output_test",
@@ -146,6 +167,7 @@ pw_test_group("tests") {
     ":server_reader_writer_test",
     ":serde_test",
     ":stub_generation_test",
+    ":synchronous_call_test",
   ]
 }
 
@@ -168,6 +190,34 @@ pw_test("client_reader_writer_test") {
   ]
   sources = [ "client_reader_writer_test.cc" ]
   enable_if = dir_pw_third_party_nanopb != ""
+}
+
+pw_test("client_server_context_test") {
+  deps = [
+    ":client_api",
+    ":client_server_testing",
+    "..:test_protos.nanopb_rpc",
+  ]
+  sources = [ "client_server_context_test.cc" ]
+  enable_if = dir_pw_third_party_nanopb != ""
+}
+
+_stl_threading_and_nanopb_enabled =
+    pw_thread_THREAD_BACKEND == "$dir_pw_thread_stl:thread" &&
+    pw_sync_BINARY_SEMAPHORE_BACKEND != "" && pw_sync_MUTEX_BACKEND != "" &&
+    dir_pw_third_party_nanopb != ""
+
+pw_test("client_server_context_threaded_test") {
+  deps = [
+    ":client_api",
+    ":client_server_testing_threaded",
+    "$dir_pw_sync:binary_semaphore",
+    "$dir_pw_thread:test_threads",
+    "$dir_pw_thread_stl:test_threads",
+    "..:test_protos.nanopb_rpc",
+  ]
+  sources = [ "client_server_context_threaded_test.cc" ]
+  enable_if = _stl_threading_and_nanopb_enabled
 }
 
 pw_test("codegen_test") {
@@ -197,7 +247,7 @@ pw_test("method_test") {
   deps = [
     ":internal_test_utils",
     ":server_api",
-    ":server_api",
+    "$dir_pw_containers",
     "..:test_protos.nanopb",
     "..:test_utils",
   ]
@@ -281,4 +331,18 @@ pw_test("stub_generation_test") {
   deps = [ "..:test_protos.nanopb_rpc" ]
   sources = [ "stub_generation_test.cc" ]
   enable_if = dir_pw_third_party_nanopb != ""
+}
+
+pw_test("synchronous_call_test") {
+  deps = [
+    ":test_method_context",
+    "$dir_pw_work_queue:pw_work_queue",
+    "$dir_pw_work_queue:stl_test_thread",
+    "$dir_pw_work_queue:test_thread",
+    "..:synchronous_client_api",
+    "..:test_protos.nanopb_rpc",
+  ]
+  sources = [ "synchronous_call_test.cc" ]
+  enable_if = dir_pw_third_party_nanopb != "" &&
+              pw_sync_TIMED_THREAD_NOTIFICATION_BACKEND != ""
 }

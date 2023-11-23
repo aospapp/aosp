@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -155,7 +156,7 @@ class DisconnectFailTest(object):
 
         """
         service = self.test_env.shill.find_cellular_service_object()
-        properties = service.GetProperties(utf8_strings=True)
+        properties = service.GetProperties()
         state = properties.get('State', None)
         return state in ['portal', 'online']
 
@@ -166,7 +167,7 @@ class DisconnectFailTest(object):
 
         """
         service = self.test_env.shill.find_cellular_service_object()
-        properties = service.GetProperties(utf8_strings=True)
+        properties = service.GetProperties()
         state = properties.get('State', None)
         return state == 'idle'
 

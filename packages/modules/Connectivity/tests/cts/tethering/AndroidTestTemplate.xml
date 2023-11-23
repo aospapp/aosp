@@ -25,6 +25,8 @@
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="{MODULE}.apk" />
     </target_preparer>
+    <target_preparer class="com.android.testutils.ConnectivityCheckTargetPreparer">
+    </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.tethering.cts" />
     </test>

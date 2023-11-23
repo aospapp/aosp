@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2016 Google LLC
 #
 # This is the setup script for generating and installing the ndk app.
 #

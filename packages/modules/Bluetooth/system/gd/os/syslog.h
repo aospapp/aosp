@@ -24,19 +24,6 @@
  */
 
 /**
- * We separately define these tags and map them to syslog levels because the
- * log headers re-define LOG_DEBUG and LOG_INFO which are already existing in
- * the syslog header. Also, LOG_TAG_VERBOSE doesn't actually exist in syslog
- * definitions and needs to be mapped to another log level.
- */
-constexpr uint32_t LOG_TAG_VERBOSE = 0x0;
-constexpr uint32_t LOG_TAG_DEBUG = 0x1;
-constexpr uint32_t LOG_TAG_INFO = 0x2;
-constexpr uint32_t LOG_TAG_WARN = 0x3;
-constexpr uint32_t LOG_TAG_ERROR = 0x4;
-constexpr uint32_t LOG_TAG_FATAL = 0x5;
-
-/**
  * Write log to syslog.
  */
 void write_syslog(int tag, const char* format, ...);

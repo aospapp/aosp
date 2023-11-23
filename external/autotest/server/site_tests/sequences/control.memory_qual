@@ -8,6 +8,8 @@ TIME = "LENGTHY"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "suite"
 TEST_TYPE = "server"
+EXTENDED_TIMEOUT = 1209600  # 2 weeks
+PY_VERSION = 3
 
 DOC = """
 Sequence for qualification new memory part to AVL.
@@ -62,13 +64,13 @@ def run_client_test(machine):
         ('i386', 'i686', 'x86_64') else CLIENT_TESTS)
     for test, argv in client_tests:
         client.reboot()
-        client_at.run_test(test, **argv)
+        client_at.run_test(test, timeout=EXTENDED_TIMEOUT, **argv)
 
 def run_server_test(machine):
     client = hosts.create_host(machine)
     for test, argv in SERVER_TESTS:
         client.reboot()
-        job.run_test(test, client_ip=machine, **argv)
+        job.run_test(test, client_ip=machine, timeout=EXTENDED_TIMEOUT, **argv)
 
 
 job.parallel_on_machines(run_client_test, machines)

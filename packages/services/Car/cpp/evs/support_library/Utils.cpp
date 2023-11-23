@@ -13,24 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "Utils.h"
+
+#include "ConfigManager.h"
+
 #include <android/hardware/automotive/evs/1.0/IEvsEnumerator.h>
 #include <hidl/HidlTransportSupport.h>
 #include <log/log.h>
-
-#include "ConfigManager.h"
-#include "Utils.h"
 
 namespace android {
 namespace automotive {
 namespace evs {
 namespace support {
 
-using namespace ::android::hardware::automotive::evs::V1_0;
 using ::android::hardware::hidl_vec;
+using ::android::hardware::automotive::evs::V1_0::CameraDesc;
+using ::android::hardware::automotive::evs::V1_0::IEvsEnumerator;
 
-vector<string> Utils::sCameraIds;
+std::vector<std::string> Utils::sCameraIds;
 
-vector<string> Utils::getRearViewCameraIds() {
+std::vector<std::string> Utils::getRearViewCameraIds() {
     // If we already get the camera list, re-use it.
     if (!sCameraIds.empty()) {
         return sCameraIds;
@@ -42,19 +44,19 @@ vector<string> Utils::getRearViewCameraIds() {
     ConfigManager config;
     if (!config.initialize("/system/etc/automotive/evs_support_lib/camera_config.json")) {
         ALOGE("Missing or improper configuration for the EVS application.  Exiting.");
-        return vector<string>();
+        return std::vector<std::string>();
     }
 
     ALOGI("Acquiring EVS Enumerator");
     sp<IEvsEnumerator> evs = IEvsEnumerator::getService(evsServiceName);
     if (evs.get() == nullptr) {
         ALOGE("getService(%s) returned NULL.  Exiting.", evsServiceName);
-        return vector<string>();
+        return std::vector<std::string>();
     }
 
     // static variable cannot be passed into capture, so we create a local
     // variable instead.
-    vector<string> cameraIds;
+    std::vector<std::string> cameraIds;
     ALOGD("Requesting camera list");
     evs->getCameraList([&config, &cameraIds](hidl_vec<CameraDesc> cameraList) {
         ALOGI("Camera list callback received %zu cameras", cameraList.size());
@@ -67,8 +69,7 @@ vector<string> Utils::getRearViewCameraIds() {
                 if (cam.cameraId == info.cameraId) {
                     // We found a match!
                     if (info.function.find("reverse") != std::string::npos) {
-                        ALOGD("Camera %s is matched with reverse state",
-                              cam.cameraId.c_str());
+                        ALOGD("Camera %s is matched with reverse state", cam.cameraId.c_str());
                         cameraIds.emplace_back(cam.cameraId);
                     }
                 }
@@ -79,12 +80,12 @@ vector<string> Utils::getRearViewCameraIds() {
     return sCameraIds;
 }
 
-string Utils::getDefaultRearViewCameraId() {
+std::string Utils::getDefaultRearViewCameraId() {
     auto list = getRearViewCameraIds();
     if (!list.empty()) {
         return list[0];
     } else {
-        return string();
+        return std::string();
     }
 }
 

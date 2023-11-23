@@ -133,13 +133,15 @@ class Interface:
             raise error.TestFail('Failed to find ethernet interface.')
 
 
-    def __init__(self, name, host=None):
+    def __init__(self, name, host=None, netns=None):
         self._name = name
         if host is None:
             self.host = local_host.LocalHost()
         else:
             self.host = host
         self._run = self.host.run
+        self._namespace = netns
+        self._ns_exec = 'ip netns exec %s ' % netns if netns else ''
 
 
     @property
@@ -164,7 +166,8 @@ class Interface:
         # We extract the second column from any entry for which the first
         # column is an address type we are interested in.  For example,
         # for "inet 172.22.73.124/22 ...", we will capture "172.22.73.124/22".
-        result = self._run('ip addr show %s 2> /dev/null' % self._name,
+        result = self._run(self._ns_exec +
+                           'ip addr show %s 2> /dev/null' % self._name,
                            ignore_status=True)
         address_info = result.stdout
         if result.exit_status != 0:
@@ -320,7 +323,8 @@ class Interface:
         #       valid_lft forever preferred_lft forever
         #
         # We only cares about the flags in the first line.
-        result = self._run('ip addr show %s 2> /dev/null' % self._name,
+        result = self._run(self._ns_exec +
+                           'ip addr show %s 2> /dev/null' % self._name,
                            ignore_status=True)
         address_info = result.stdout
         if result.exit_status != 0:
@@ -352,7 +356,7 @@ class Interface:
         """@return True if RFC 2683 IfOperStatus is UP (i.e., is able to pass
         packets).
         """
-        command = 'ip link show %s' % self._name
+        command = self._ns_exec + 'ip link show %s' % self._name
         result = self._run(command, ignore_status=True)
         if result.exit_status:
             return False
@@ -529,7 +533,8 @@ class Interface:
         #
         # We extract the 'mtu' value (in this example "1500")
         try:
-            result = self._run('ip addr show %s 2> /dev/null' % self._name)
+            result = self._run(self._ns_exec +
+                               'ip addr show %s 2> /dev/null' % self._name)
             address_info = result.stdout
         except error.CmdError as e:
             # The "ip" command will return non-zero if the interface does
@@ -609,7 +614,9 @@ def get_interfaces():
     return [Interface(nic.strip()) for nic in os.listdir(DEVICE_INFO_ROOT)]
 
 
-def get_prioritized_default_route(host=None, interface_name_regex=None):
+def get_prioritized_default_route(host=None,
+                                  interface_name_regex=None,
+                                  namespace=None):
     """
     Query a local or remote host for its prioritized default interface
     and route.
@@ -621,7 +628,10 @@ def get_prioritized_default_route(host=None, interface_name_regex=None):
     # Build a list of default routes, filtered by interface if requested.
     # Example command output: 'default via 172.23.188.254 dev eth0  metric 2'
     run = host.run if host is not None else utils.run
-    output = run('ip route show').stdout
+    command = 'ip route show'
+    if namespace:
+        command = 'ip netns exec %s ' % namespace + command
+    output = run(command).stdout
     output_regex_str = 'default\s+via\s+(\S+)\s+dev\s+(\S+)\s+metric\s+(\d+)'
     output_regex = re.compile(output_regex_str)
     defaults = []

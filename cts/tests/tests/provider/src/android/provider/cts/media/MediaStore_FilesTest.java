@@ -184,8 +184,7 @@ public class MediaStore_FilesTest {
         ContentValues values = new ContentValues();
         values.put(MediaColumns.DATA, fileLower.getAbsolutePath());
         Uri fileUri = mResolver.insert(allFilesUri, values);
-        try {
-            ParcelFileDescriptor pfd = mResolver.openFileDescriptor(fileUri, "r");
+        try (ParcelFileDescriptor pfd = mResolver.openFileDescriptor(fileUri, "r")) {
             pfd.close();
         } finally {
             mResolver.delete(fileUri, null, null);

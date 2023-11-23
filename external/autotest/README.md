@@ -1,8 +1,8 @@
-# Autotest: Automated integration testing for Android and Chrome OS Devices
+# Autotest: Automated integration testing for Android and ChromeOS Devices
 
 Autotest is a framework for fully automated testing. It was originally designed
-to test the Linux kernel, and expanded by the Chrome OS team to validate
-complete system images of Chrome OS and Android.
+to test the Linux kernel, and expanded by the ChromeOS team to validate
+complete system images of ChromeOS and Android.
 
 Autotest is composed of a number of modules that will help you to do stand alone
 tests or setup a fully automated test grid, depending on what you are up to.
@@ -17,7 +17,7 @@ A non extensive list of functionality is:
   infrastructure, and the device under test is controlled remotely via
   SSH/adb/some combination of the above.
 
-* Developer tools to execute one or more tests.  `test_that` for Chrome OS and
+* Developer tools to execute one or more tests.  `test_that` for ChromeOS and
   `test_droid` for Android allow developers to run tests against a device
   connected to their development machine on their desk.  These tools are written
   so that the same test logic that runs in the lab will run at their desk,
@@ -27,7 +27,7 @@ A non extensive list of functionality is:
   capable of managing and running tests against thousands of devices in various
   lab environments. This includes code for both synchronous and asynchronous
   scheduling of tests.  Tests are run against this hardware daily to validate
-  every build of Chrome OS.
+  every build of ChromeOS.
 
 * Infrastructure to set up miniature replicas of a full lab.  A full lab does
   entail a certain amount of administrative work which isn't appropriate for

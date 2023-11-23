@@ -24,12 +24,14 @@ import android.os.RemoteException;
 import android.provider.ContactsContract;
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.vcard.VCardEntry;
 
 import java.util.ArrayList;
 
 public class PhonebookPullRequest extends PullRequest {
-    private static final int MAX_OPS = 250;
+    @VisibleForTesting
+    static final int MAX_OPS = 250;
     private static final boolean VDBG = Utils.VDBG;
     private static final String TAG = "PbapPbPullRequest";
 

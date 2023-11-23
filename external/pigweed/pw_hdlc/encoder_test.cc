@@ -17,9 +17,11 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstring>
 
 #include "gtest/gtest.h"
 #include "pw_bytes/array.h"
+#include "pw_hdlc/encoded_size.h"
 #include "pw_hdlc/internal/encoder.h"
 #include "pw_hdlc/internal/protocol.h"
 #include "pw_stream/memory_stream.h"
@@ -44,16 +46,17 @@ constexpr uint8_t kEncodedAddress = (kAddress << 1) | 1;
 
 class WriteUnnumberedFrame : public ::testing::Test {
  protected:
-  WriteUnnumberedFrame() : writer_(buffer_) {}
+  WriteUnnumberedFrame() : buffer_{}, writer_(buffer_) {}
 
+  // Allocate a buffer that will fit any 7-byte payload.
+  std::array<byte, MaxEncodedFrameSize(7)> buffer_;
   stream::MemoryWriter writer_;
-  std::array<byte, 32> buffer_;
 };
 
 constexpr byte kUnnumberedControl = byte{0x3};
 
 TEST_F(WriteUnnumberedFrame, EmptyPayload) {
-  ASSERT_EQ(OkStatus(), WriteUIFrame(kAddress, std::span<byte>(), writer_));
+  ASSERT_EQ(OkStatus(), WriteUIFrame(kAddress, span<byte>(), writer_));
   EXPECT_ENCODER_WROTE(bytes::Concat(
       kFlag, kEncodedAddress, kUnnumberedControl, uint32_t{0x832d343f}, kFlag));
 }
@@ -186,42 +189,11 @@ class ErrorWriter : public stream::NonSeekableWriter {
   Status DoWrite(ConstByteSpan) override { return Status::Unimplemented(); }
 };
 
-TEST(WriteUnnumberedFrame, WriterError) {
+TEST(WriteUIFrame, WriterError) {
   ErrorWriter writer;
   EXPECT_EQ(Status::Unimplemented(),
             WriteUIFrame(kAddress, bytes::Array<0x01>(), writer));
 }
 
 }  // namespace
-
-namespace internal {
-namespace {
-
-constexpr uint8_t kEscapeAddress = 0x7d;
-
-TEST(Encoder, MaxEncodedSize_EmptyPayload) {
-  EXPECT_EQ(11u, Encoder::MaxEncodedSize(kAddress, {}));
-  EXPECT_EQ(11u, Encoder::MaxEncodedSize(kEscapeAddress, {}));
-}
-
-TEST(Encoder, MaxEncodedSize_PayloadWithoutEscapes) {
-  constexpr auto data = bytes::Array<0x00, 0x01, 0x02, 0x03>();
-  EXPECT_EQ(15u, Encoder::MaxEncodedSize(kAddress, data));
-  EXPECT_EQ(15u, Encoder::MaxEncodedSize(kEscapeAddress, data));
-}
-
-TEST(Encoder, MaxEncodedSize_PayloadWithOneEscape) {
-  constexpr auto data = bytes::Array<0x00, 0x01, 0x7e, 0x03>();
-  EXPECT_EQ(16u, Encoder::MaxEncodedSize(kAddress, data));
-  EXPECT_EQ(16u, Encoder::MaxEncodedSize(kEscapeAddress, data));
-}
-
-TEST(Encoder, MaxEncodedSize_PayloadWithAllEscapes) {
-  constexpr auto data = bytes::Initialized<8>(0x7e);
-  EXPECT_EQ(27u, Encoder::MaxEncodedSize(kAddress, data));
-  EXPECT_EQ(27u, Encoder::MaxEncodedSize(kEscapeAddress, data));
-}
-
-}  // namespace
-}  // namespace internal
 }  // namespace pw::hdlc

@@ -16,8 +16,8 @@ limitations under the License.
 #ifndef TENSORFLOW_LITE_SUPPORT_CC_TEXT_TOKENIZERS_REGEX_TOKENIZER_H_
 #define TENSORFLOW_LITE_SUPPORT_CC_TEXT_TOKENIZERS_REGEX_TOKENIZER_H_
 
+#include <regex>
 #include "absl/container/node_hash_map.h"
-#include "re2/re2.h"
 #include "tensorflow_lite_support/cc/text/tokenizers/tokenizer.h"
 
 namespace tflite {
@@ -46,7 +46,7 @@ class RegexTokenizer : public Tokenizer {
   bool GetUnknownToken(int* unknown_token);
 
  private:
-  RE2 delim_re_;
+  std::regex delim_re_;
   absl::node_hash_map<std::string, int> token_index_map_;
   absl::node_hash_map<int, absl::string_view> index_token_map_;
 };

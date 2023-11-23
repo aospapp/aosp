@@ -23,17 +23,14 @@
 
 using namespace vixl::aarch64;  // NOLINT(build/namespaces)
 
-namespace art {
+namespace art HIDDEN {
 namespace arm64 {
 
 using helpers::DRegisterFrom;
-using helpers::HeapOperand;
 using helpers::InputRegisterAt;
 using helpers::Int64FromLocation;
 using helpers::LocationFrom;
 using helpers::OutputRegister;
-using helpers::QRegisterFrom;
-using helpers::StackOperandFrom;
 using helpers::SveStackOperandFrom;
 using helpers::VRegisterFrom;
 using helpers::ZRegisterFrom;
@@ -67,7 +64,7 @@ static bool SVECanEncodeConstantAsImmediate(HConstant* constant, HInstruction* i
 inline Location SVEEncodableConstantOrRegister(HInstruction* constant, HInstruction* instr) {
   if (constant->IsConstant()
       && SVECanEncodeConstantAsImmediate(constant->AsConstant(), instr)) {
-    return Location::ConstantLocation(constant->AsConstant());
+    return Location::ConstantLocation(constant);
   }
 
   return Location::RequiresRegister();
@@ -96,7 +93,7 @@ void LocationsBuilderARM64Sve::VisitVecReplicateScalar(HVecReplicateScalar* inst
     case DataType::Type::kFloat64:
       if (input->IsConstant() &&
           SVECanEncodeConstantAsImmediate(input->AsConstant(), instruction)) {
-        locations->SetInAt(0, Location::ConstantLocation(input->AsConstant()));
+        locations->SetInAt(0, Location::ConstantLocation(input));
         locations->SetOut(Location::RequiresFpuRegister());
       } else {
         locations->SetInAt(0, Location::RequiresFpuRegister());
@@ -754,7 +751,7 @@ static void CreateVecShiftLocations(ArenaAllocator* allocator, HVecBinaryOperati
     case DataType::Type::kInt32:
     case DataType::Type::kInt64:
       locations->SetInAt(0, Location::RequiresFpuRegister());
-      locations->SetInAt(1, Location::ConstantLocation(instruction->InputAt(1)->AsConstant()));
+      locations->SetInAt(1, Location::ConstantLocation(instruction->InputAt(1)));
       locations->SetOut(Location::RequiresFpuRegister(), Location::kNoOutputOverlap);
       break;
     default:
@@ -878,13 +875,13 @@ void LocationsBuilderARM64Sve::VisitVecSetScalars(HVecSetScalars* instruction) {
     case DataType::Type::kInt16:
     case DataType::Type::kInt32:
     case DataType::Type::kInt64:
-      locations->SetInAt(0, is_zero ? Location::ConstantLocation(input->AsConstant())
+      locations->SetInAt(0, is_zero ? Location::ConstantLocation(input)
                                     : Location::RequiresRegister());
       locations->SetOut(Location::RequiresFpuRegister());
       break;
     case DataType::Type::kFloat32:
     case DataType::Type::kFloat64:
-      locations->SetInAt(0, is_zero ? Location::ConstantLocation(input->AsConstant())
+      locations->SetInAt(0, is_zero ? Location::ConstantLocation(input)
                                     : Location::RequiresFpuRegister());
       locations->SetOut(Location::RequiresFpuRegister());
       break;

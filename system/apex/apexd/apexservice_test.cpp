@@ -769,7 +769,7 @@ TEST_F(ApexServiceTest, GetFactoryPackages) {
   }
 }
 
-TEST_F(ApexServiceTest, DISABLED_NoPackagesAreBothActiveAndInactive) {
+TEST_F(ApexServiceTest, NoPackagesAreBothActiveAndInactive) {
   Result<std::vector<ApexInfo>> active_packages = GetActivePackages();
   ASSERT_TRUE(IsOk(active_packages));
   ASSERT_TRUE(active_packages->size() > 0);
@@ -789,7 +789,7 @@ TEST_F(ApexServiceTest, DISABLED_NoPackagesAreBothActiveAndInactive) {
   ASSERT_THAT(intersection, SizeIs(0));
 }
 
-TEST_F(ApexServiceTest, DISABLED_GetAllPackages) {
+TEST_F(ApexServiceTest, GetAllPackages) {
   Result<std::vector<ApexInfo>> all_packages = GetAllPackages();
   ASSERT_TRUE(IsOk(all_packages));
   ASSERT_TRUE(all_packages->size() > 0);
@@ -1583,7 +1583,9 @@ static void ExecInMountNamespaceOf(pid_t pid,
   ASSERT_NE(-1, res);
 }
 
-TEST(ApexdTest, ApexdIsInSameMountNamespaceAsInit) {
+// This test case is part of the ApexServiceTest suite to ensure that apexd is
+// running when this test is executed.
+TEST_F(ApexServiceTest, ApexdIsInSameMountNamespaceAsInit) {
   // TODO(b/136647373): Move this check to environment setup
   if (!android::base::GetBoolProperty("ro.apex.updatable", false)) {
     GTEST_SKIP() << "Skipping test because device doesn't support APEX";
@@ -1606,13 +1608,13 @@ TEST(ApexdTest, ApexdIsInSameMountNamespaceAsInit) {
 
 // These are NOT exhaustive list of early processes be should be enough
 static const std::vector<const std::string> kEarlyProcesses = {
-    "servicemanager",
-    "hwservicemanager",
     "vold",
     "logd",
 };
 
-TEST(ApexdTest, EarlyProcessesAreInDifferentMountNamespace) {
+// This test case is part of the ApexServiceTest suite to ensure that apexd is
+// running when this test is executed.
+TEST_F(ApexServiceTest, EarlyProcessesAreInDifferentMountNamespace) {
   // TODO(b/136647373): Move this check to environment setup
   if (!android::base::GetBoolProperty("ro.apex.updatable", false)) {
     GTEST_SKIP() << "Skipping test because device doesn't support APEX";
@@ -1876,8 +1878,8 @@ class LogTestToLogcat : public ::testing::EmptyTestEventListener {
     std::string msg =
         StringPrintf("=== %s::%s (%s:%d)", test_info.test_suite_name(),
                      test_info.name(), test_info.file(), test_info.line());
-    l(LogId::MAIN, LogSeverity::INFO, "ApexTestCases", __FILE__, __LINE__,
-      msg.c_str());
+    l(LogId::MAIN, LogSeverity::INFO, "ApexServiceTestCases", __FILE__,
+      __LINE__, msg.c_str());
 #else
     UNUSED(test_info);
 #endif
@@ -1888,9 +1890,9 @@ class LogTestToLogcat : public ::testing::EmptyTestEventListener {
 }  // namespace android
 
 int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
   android::base::InitLogging(argv, &android::base::StderrLogger);
   android::base::SetMinimumLogSeverity(android::base::VERBOSE);
-  ::testing::InitGoogleTest(&argc, argv);
   ::testing::UnitTest::GetInstance()->listeners().Append(
       new android::apex::LogTestToLogcat());
   return RUN_ALL_TESTS();

@@ -1,169 +1,169 @@
 #![forbid(unsafe_code)]
 #![rustfmt::skip]
 #[derive(Debug)]
-pub struct ParcelableForToString {
-  pub intValue: i32,
-  pub intArray: Vec<i32>,
-  pub longValue: i64,
-  pub longArray: Vec<i64>,
-  pub doubleValue: f64,
-  pub doubleArray: Vec<f64>,
-  pub floatValue: f32,
-  pub floatArray: Vec<f32>,
-  pub byteValue: i8,
-  pub byteArray: Vec<u8>,
-  pub booleanValue: bool,
-  pub booleanArray: Vec<bool>,
-  pub stringValue: String,
-  pub stringArray: Vec<String>,
-  pub stringList: Vec<String>,
-  pub parcelableValue: crate::mangled::_7_android_4_aidl_5_tests_26_OtherParcelableForToString,
-  pub parcelableArray: Vec<crate::mangled::_7_android_4_aidl_5_tests_26_OtherParcelableForToString>,
-  pub enumValue: crate::mangled::_7_android_4_aidl_5_tests_7_IntEnum,
-  pub enumArray: Vec<crate::mangled::_7_android_4_aidl_5_tests_7_IntEnum>,
-  pub nullArray: Vec<String>,
-  pub nullList: Vec<String>,
-  pub parcelableGeneric: i32,
-  pub unionValue: crate::mangled::_7_android_4_aidl_5_tests_5_Union,
+pub struct r#ParcelableForToString {
+  pub r#intValue: i32,
+  pub r#intArray: Vec<i32>,
+  pub r#longValue: i64,
+  pub r#longArray: Vec<i64>,
+  pub r#doubleValue: f64,
+  pub r#doubleArray: Vec<f64>,
+  pub r#floatValue: f32,
+  pub r#floatArray: Vec<f32>,
+  pub r#byteValue: i8,
+  pub r#byteArray: Vec<u8>,
+  pub r#booleanValue: bool,
+  pub r#booleanArray: Vec<bool>,
+  pub r#stringValue: String,
+  pub r#stringArray: Vec<String>,
+  pub r#stringList: Vec<String>,
+  pub r#parcelableValue: crate::mangled::_7_android_4_aidl_5_tests_26_OtherParcelableForToString,
+  pub r#parcelableArray: Vec<crate::mangled::_7_android_4_aidl_5_tests_26_OtherParcelableForToString>,
+  pub r#enumValue: crate::mangled::_7_android_4_aidl_5_tests_7_IntEnum,
+  pub r#enumArray: Vec<crate::mangled::_7_android_4_aidl_5_tests_7_IntEnum>,
+  pub r#nullArray: Vec<String>,
+  pub r#nullList: Vec<String>,
+  pub r#parcelableGeneric: crate::mangled::_7_android_4_aidl_5_tests_27_GenericStructuredParcelable<i32,crate::mangled::_7_android_4_aidl_5_tests_20_StructuredParcelable,crate::mangled::_7_android_4_aidl_5_tests_7_IntEnum,>,
+  pub r#unionValue: crate::mangled::_7_android_4_aidl_5_tests_5_Union,
 }
-impl Default for ParcelableForToString {
+impl Default for r#ParcelableForToString {
   fn default() -> Self {
     Self {
-      intValue: 0,
-      intArray: Default::default(),
-      longValue: 0,
-      longArray: Default::default(),
-      doubleValue: 0.000000f64,
-      doubleArray: Default::default(),
-      floatValue: 0.000000f32,
-      floatArray: Default::default(),
-      byteValue: 0,
-      byteArray: Default::default(),
-      booleanValue: false,
-      booleanArray: Default::default(),
-      stringValue: Default::default(),
-      stringArray: Default::default(),
-      stringList: Default::default(),
-      parcelableValue: Default::default(),
-      parcelableArray: Default::default(),
-      enumValue: crate::mangled::_7_android_4_aidl_5_tests_7_IntEnum::FOO,
-      enumArray: Default::default(),
-      nullArray: Default::default(),
-      nullList: Default::default(),
-      parcelableGeneric: Default::default(),
-      unionValue: Default::default(),
+      r#intValue: 0,
+      r#intArray: Default::default(),
+      r#longValue: 0,
+      r#longArray: Default::default(),
+      r#doubleValue: 0.000000f64,
+      r#doubleArray: Default::default(),
+      r#floatValue: 0.000000f32,
+      r#floatArray: Default::default(),
+      r#byteValue: 0,
+      r#byteArray: Default::default(),
+      r#booleanValue: false,
+      r#booleanArray: Default::default(),
+      r#stringValue: Default::default(),
+      r#stringArray: Default::default(),
+      r#stringList: Default::default(),
+      r#parcelableValue: Default::default(),
+      r#parcelableArray: Default::default(),
+      r#enumValue: crate::mangled::_7_android_4_aidl_5_tests_7_IntEnum::FOO,
+      r#enumArray: Default::default(),
+      r#nullArray: Default::default(),
+      r#nullList: Default::default(),
+      r#parcelableGeneric: Default::default(),
+      r#unionValue: Default::default(),
     }
   }
 }
-impl binder::Parcelable for ParcelableForToString {
+impl binder::Parcelable for r#ParcelableForToString {
   fn write_to_parcel(&self, parcel: &mut binder::binder_impl::BorrowedParcel) -> std::result::Result<(), binder::StatusCode> {
     parcel.sized_write(|subparcel| {
-      subparcel.write(&self.intValue)?;
-      subparcel.write(&self.intArray)?;
-      subparcel.write(&self.longValue)?;
-      subparcel.write(&self.longArray)?;
-      subparcel.write(&self.doubleValue)?;
-      subparcel.write(&self.doubleArray)?;
-      subparcel.write(&self.floatValue)?;
-      subparcel.write(&self.floatArray)?;
-      subparcel.write(&self.byteValue)?;
-      subparcel.write(&self.byteArray)?;
-      subparcel.write(&self.booleanValue)?;
-      subparcel.write(&self.booleanArray)?;
-      subparcel.write(&self.stringValue)?;
-      subparcel.write(&self.stringArray)?;
-      subparcel.write(&self.stringList)?;
-      subparcel.write(&self.parcelableValue)?;
-      subparcel.write(&self.parcelableArray)?;
-      subparcel.write(&self.enumValue)?;
-      subparcel.write(&self.enumArray)?;
-      subparcel.write(&self.nullArray)?;
-      subparcel.write(&self.nullList)?;
-      subparcel.write(&self.parcelableGeneric)?;
-      subparcel.write(&self.unionValue)?;
+      subparcel.write(&self.r#intValue)?;
+      subparcel.write(&self.r#intArray)?;
+      subparcel.write(&self.r#longValue)?;
+      subparcel.write(&self.r#longArray)?;
+      subparcel.write(&self.r#doubleValue)?;
+      subparcel.write(&self.r#doubleArray)?;
+      subparcel.write(&self.r#floatValue)?;
+      subparcel.write(&self.r#floatArray)?;
+      subparcel.write(&self.r#byteValue)?;
+      subparcel.write(&self.r#byteArray)?;
+      subparcel.write(&self.r#booleanValue)?;
+      subparcel.write(&self.r#booleanArray)?;
+      subparcel.write(&self.r#stringValue)?;
+      subparcel.write(&self.r#stringArray)?;
+      subparcel.write(&self.r#stringList)?;
+      subparcel.write(&self.r#parcelableValue)?;
+      subparcel.write(&self.r#parcelableArray)?;
+      subparcel.write(&self.r#enumValue)?;
+      subparcel.write(&self.r#enumArray)?;
+      subparcel.write(&self.r#nullArray)?;
+      subparcel.write(&self.r#nullList)?;
+      subparcel.write(&self.r#parcelableGeneric)?;
+      subparcel.write(&self.r#unionValue)?;
       Ok(())
     })
   }
   fn read_from_parcel(&mut self, parcel: &binder::binder_impl::BorrowedParcel) -> std::result::Result<(), binder::StatusCode> {
     parcel.sized_read(|subparcel| {
       if subparcel.has_more_data() {
-        self.intValue = subparcel.read()?;
+        self.r#intValue = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.intArray = subparcel.read()?;
+        self.r#intArray = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.longValue = subparcel.read()?;
+        self.r#longValue = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.longArray = subparcel.read()?;
+        self.r#longArray = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.doubleValue = subparcel.read()?;
+        self.r#doubleValue = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.doubleArray = subparcel.read()?;
+        self.r#doubleArray = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.floatValue = subparcel.read()?;
+        self.r#floatValue = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.floatArray = subparcel.read()?;
+        self.r#floatArray = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.byteValue = subparcel.read()?;
+        self.r#byteValue = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.byteArray = subparcel.read()?;
+        self.r#byteArray = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.booleanValue = subparcel.read()?;
+        self.r#booleanValue = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.booleanArray = subparcel.read()?;
+        self.r#booleanArray = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.stringValue = subparcel.read()?;
+        self.r#stringValue = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.stringArray = subparcel.read()?;
+        self.r#stringArray = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.stringList = subparcel.read()?;
+        self.r#stringList = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.parcelableValue = subparcel.read()?;
+        self.r#parcelableValue = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.parcelableArray = subparcel.read()?;
+        self.r#parcelableArray = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.enumValue = subparcel.read()?;
+        self.r#enumValue = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.enumArray = subparcel.read()?;
+        self.r#enumArray = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.nullArray = subparcel.read()?;
+        self.r#nullArray = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.nullList = subparcel.read()?;
+        self.r#nullList = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.parcelableGeneric = subparcel.read()?;
+        self.r#parcelableGeneric = subparcel.read()?;
       }
       if subparcel.has_more_data() {
-        self.unionValue = subparcel.read()?;
+        self.r#unionValue = subparcel.read()?;
       }
       Ok(())
     })
   }
 }
-binder::impl_serialize_for_parcelable!(ParcelableForToString);
-binder::impl_deserialize_for_parcelable!(ParcelableForToString);
-impl binder::binder_impl::ParcelableMetadata for ParcelableForToString {
+binder::impl_serialize_for_parcelable!(r#ParcelableForToString);
+binder::impl_deserialize_for_parcelable!(r#ParcelableForToString);
+impl binder::binder_impl::ParcelableMetadata for r#ParcelableForToString {
   fn get_descriptor() -> &'static str { "android.aidl.tests.ParcelableForToString" }
 }
 pub(crate) mod mangled {
- pub use super::ParcelableForToString as _7_android_4_aidl_5_tests_21_ParcelableForToString;
+ pub use super::r#ParcelableForToString as _7_android_4_aidl_5_tests_21_ParcelableForToString;
 }

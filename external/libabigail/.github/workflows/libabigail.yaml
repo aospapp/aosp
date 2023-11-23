@@ -1,0 +1,126 @@
+name: Libabigail ABI Checks
+on:
+  pull_request: []
+
+jobs:
+
+#  get-release:
+#    container: ghcr.io/woodard/libabigail-ubuntu-22.04:latest
+#    runs-on: ubuntu-latest
+#    steps:
+#    - name: Organize Files
+#      run: |
+#        mkdir -p /abi
+#        cp /opt/abigail-env/.spack-env/view/lib/libabigail.so /abi/
+#        cp /lib/x86_64-linux-gnu/libc.so.6 /abi/
+#        cp /lib/x86_64-linux-gnu/libstdc++.so.6 /abi/
+#        cp /lib/x86_64-linux-gnu/libsystemd.so.0 /abi/
+
+#    - name: Upload Libs
+#      uses: actions/upload-artifact@v3
+#      with:
+#        name: release-libs
+#        path: |
+#          /abi/libabigail.so
+#          /abi/libc.so.6
+#          /abi/libstdc++.so.6
+#          /abi/libsystemd.so.0
+
+
+  get-latest:
+    container: ghcr.io/woodard/libabigail-ubuntu-22.04:latest
+    runs-on: ubuntu-latest
+    steps:
+    - name: Organize Files
+      run: |
+        mkdir -p /abi
+        cp /opt/abigail-env/.spack-env/view/lib/libabigail.so /abi/
+        cp /lib/x86_64-linux-gnu/libc.so.6 /abi/
+        cp /lib/x86_64-linux-gnu/libstdc++.so.6 /abi/
+        cp /lib/x86_64-linux-gnu/libsystemd.so.0 /abi/
+
+    - name: Upload Libs
+      uses: actions/upload-artifact@v3
+      with:
+        name: latest-libs
+        path: |
+          /abi/libabigail.so
+          /abi/libc.so.6
+          /abi/libstdc++.so.6
+          /abi/libsystemd.so.0
+
+  get-pr:
+    container: ghcr.io/woodard/libabigail-ubuntu-22.04:latest
+    runs-on: ubuntu-latest
+    steps:
+    - name: Build Pull Request
+      uses: actions/checkout@v3
+    - name: Build
+      run: |
+         rm -rf /src
+         cp -R $PWD /src
+         ls /src
+         . /opt/spack/share/spack/setup-env.sh
+         cd /opt/abigail-env
+         spack install
+
+    - name: Organize Files
+      run: |
+        mkdir -p /abi
+        cp /opt/abigail-env/.spack-env/view/lib/libabigail.so /abi/
+        cp /lib/x86_64-linux-gnu/libc.so.6 /abi/
+        cp /lib/x86_64-linux-gnu/libstdc++.so.6 /abi/
+        cp /lib/x86_64-linux-gnu/libsystemd.so.0 /abi/
+
+    - name: Upload Libs
+      uses: actions/upload-artifact@v3
+      with:
+        name: pr-libs
+        path: |
+          /abi/libabigail.so
+          /abi/libc.so.6
+          /abi/libstdc++.so.6
+          /abi/libsystemd.so.0
+
+  abi:
+    runs-on: ubuntu-latest
+    needs: [get-latest, get-pr] # get-release
+    strategy:
+      fail-fast: false
+      matrix:
+
+        # Testing every paired library for release vs pr and main vs. pr
+        libs: ["libabigail.so",
+               "libc.so.6",
+               "libstdc++.so.6",
+               "libsystemd.so.0"]
+
+        # Artifact pairs (named) for comparison)
+        artifacts: [["pr-libs", "latest-libs"]]
+                    #["pr-libs", "release-libs"]]
+
+    steps:
+    - name: Download Previous Version
+      uses: actions/download-artifact@v2
+      with:
+        name: ${{ matrix.artifacts[1] }}
+        path: previous/
+
+    - name: Download Pull Request Version
+      uses: actions/download-artifact@v2
+      with:
+        name: ${{ matrix.artifacts[0] }}
+        path: current/
+
+    - name: Show Files
+      run: |
+        ls current/
+        ls previous/
+
+    - name: Run Libabigail
+      uses: buildsi/libabigail-action@0.0.11
+      env:
+        lib: ${{ matrix.libs }}
+      with:
+        abidiff: previous/${{ env.lib }} current/${{ env.lib }}
+        abidw: "--abidiff current/${{ env.lib }}"

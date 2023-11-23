@@ -16,6 +16,8 @@
 
 package com.android.settings.intelligence.search.query;
 
+import static com.android.settings.intelligence.search.sitemap.HighlightableMenu.MENU_KEY_ACCESSIBILITY;
+
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.content.ComponentName;
 import android.content.Context;
@@ -85,9 +87,9 @@ public class AccessibilityServiceResultTask extends SearchQueryTask.QueryWorker 
             final Drawable icon = serviceInfo.loadIcon(mPackageManager);
             final String componentName = new ComponentName(serviceInfo.packageName,
                     serviceInfo.name).flattenToString();
-            final Intent intent = DatabaseIndexingUtils.buildSearchTrampolineIntent(mContext,
+            final Intent intent = DatabaseIndexingUtils.buildSearchTrampolineIntent(
                     mContext.getString(R.string.accessibility_settings_classname),
-                    componentName, screenTitle);
+                    componentName, screenTitle, MENU_KEY_ACCESSIBILITY);
 
             results.add(new SearchResult.Builder()
                     .setTitle(title)

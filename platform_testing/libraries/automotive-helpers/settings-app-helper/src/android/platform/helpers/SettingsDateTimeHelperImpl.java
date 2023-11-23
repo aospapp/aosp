@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The Android Open Source Project
+ * Copyright (C) 2023 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,37 +20,83 @@ import static junit.framework.Assert.assertTrue;
 
 import android.app.Instrumentation;
 import android.content.ContentResolver;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.BySelector;
-import android.support.test.uiautomator.UiObject;
-import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.UiScrollable;
-import android.support.test.uiautomator.UiSelector;
+import android.platform.helpers.ScrollUtility.ScrollActions;
+import android.platform.helpers.ScrollUtility.ScrollDirection;
+import android.platform.helpers.exceptions.UnknownUiException;
 import android.text.format.DateFormat;
-import java.time.format.TextStyle;
+
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.UiObject;
+import androidx.test.uiautomator.UiObject2;
+import androidx.test.uiautomator.UiScrollable;
+import androidx.test.uiautomator.UiSelector;
+
 import java.time.LocalDate;
 import java.time.Month;
+import java.time.format.TextStyle;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.HashMap;
 
-import android.util.Log;
-
-public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
+/** Helper file for Date&Time test */
+public class SettingsDateTimeHelperImpl extends AbstractStandardAppHelper
         implements IAutoDateTimeSettingsHelper {
     private static final Locale LOCALE = Locale.ENGLISH;
     private static final TextStyle TEXT_STYLE = TextStyle.SHORT;
     private static final String LOG_TAG = SettingsDateTimeHelperImpl.class.getSimpleName();
+    private ScrollUtility mScrollUtility;
+    private ScrollActions mScrollAction;
+    private BySelector mBackwardButtonSelector;
+    private BySelector mForwardButtonSelector;
+    private BySelector mScrollableElementSelector;
+    private BySelector mSummarySelector;
+    private ScrollDirection mScrollDirection;
 
     public SettingsDateTimeHelperImpl(Instrumentation instr) {
         super(instr);
+        mScrollUtility = ScrollUtility.getInstance(getSpectatioUiUtil());
+        mScrollAction =
+                ScrollActions.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_ACTION));
+        mBackwardButtonSelector =
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_BACKWARD_BUTTON);
+        mForwardButtonSelector =
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_FORWARD_BUTTON);
+        mScrollableElementSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_ELEMENT);
+        mSummarySelector = getUiElementFromConfig(AutomotiveConfigConstants.SETTINGS_SUMMARY);
+        mScrollDirection =
+                ScrollDirection.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_DIRECTION));
+        mScrollUtility.setScrollValues(
+                Integer.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_MARGIN)),
+                Integer.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_WAIT_TIME)));
     }
 
     /** {@inheritDoc} */
     @Override
     public String getPackage() {
-        return getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE);
+        return getPackageFromConfig(AutomotiveConfigConstants.SETTINGS_PACKAGE);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getLauncherName() {
+        throw new UnsupportedOperationException("Operation not supported.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void dismissInitialDialogs() {
+        // Nothing to dismiss
     }
 
     /** {@inheritDoc} */
@@ -59,18 +105,17 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
         UiObject2 autoDateTimeSwitchWidget = getAutoDateTimeSwitchWidget();
         UiObject2 autoDateTimeMenu =
                 getMenu(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                                AutoConfigConstants.SET_TIME_AUTOMATICALLY));
+                        getUiElementFromConfig(
+                                AutomotiveConfigConstants
+                                        .DATE_TIME_SETTINGS_SET_TIME_AUTOMATICALLY));
         if (autoDateTimeSwitchWidget.isChecked()) {
-            clickAndWaitForWindowUpdate(
-                    getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), autoDateTimeMenu);
+            getSpectatioUiUtil().clickAndWait(autoDateTimeMenu);
+            getSpectatioUiUtil().wait1Second();
         }
         UiObject2 setDateMenu = getSetDateMenu();
         assertTrue("set date menu is not clickable", setDateMenu.isEnabled()); // from UI
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), setDateMenu);
+        getSpectatioUiUtil().clickAndWait(setDateMenu);
+        getSpectatioUiUtil().wait1Second();
         assertTrue(
                 "automatic date & time is not switched off",
                 !isAutomaticOn("auto_time")); // from API
@@ -88,17 +133,15 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
         setCalendar(1, day_string);
         setCalendar(0, month_string);
         setCalendar(2, year_string);
-        pressBack();
+        getSpectatioUiUtil().pressBack();
     }
 
     private void setCalendar(int index, String s) {
         UiSelector selector =
                 new UiSelector()
                         .className(
-                                getResourceValue(
-                                        AutoConfigConstants.SETTINGS,
-                                        AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                                        AutoConfigConstants.NUMBER_PICKER_WIDGET))
+                                getPackageFromConfig(
+                                        AutomotiveConfigConstants.NUMBER_PICKER_WIDGET_CLASS))
                         .index(index);
         boolean scrollForwards = true;
         if (index == 2) {
@@ -106,10 +149,9 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
                     selector.childSelector(
                             new UiSelector()
                                     .className(
-                                            getResourceValue(
-                                                    AutoConfigConstants.SETTINGS,
-                                                    AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                                                    AutoConfigConstants.EDIT_TEXT_WIDGET)));
+                                            getPackageFromConfig(
+                                                    AutomotiveConfigConstants
+                                                            .EDIT_TEXT_WIDGET_CLASS)));
             String curYear = "";
             try {
                 curYear = new UiObject(yearSelector).getText();
@@ -149,13 +191,12 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
         UiObject2 autoDateTimeSwitchWidget = getAutoDateTimeSwitchWidget();
         UiObject2 autoDateTimeMenu =
                 getMenu(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                                AutoConfigConstants.SET_TIME_AUTOMATICALLY));
+                        getUiElementFromConfig(
+                                AutomotiveConfigConstants
+                                        .DATE_TIME_SETTINGS_SET_TIME_AUTOMATICALLY));
         if (autoDateTimeSwitchWidget.isChecked()) {
-            clickAndWaitForWindowUpdate(
-                    getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), autoDateTimeMenu);
+            getSpectatioUiUtil().clickAndWait(autoDateTimeMenu);
+            getSpectatioUiUtil().wait1Second();
         }
         // check 24-hour format switch is turned off
         if (isTwentyFourHourFormatEnabled()) {
@@ -164,8 +205,7 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
 
         UiObject2 setTimeMenu = getSetTimeMenu();
         assertTrue("set time menu is not clickable", setTimeMenu.isEnabled()); // from UI
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), setTimeMenu);
+        getSpectatioUiUtil().clickAndWait(setTimeMenu);
         assertTrue(
                 "automatic date & time is not switched off",
                 !isAutomaticOn("auto_time")); // from API
@@ -178,7 +218,7 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
         setTime(2, minute_string, currentTime);
         setTime(0, String.valueOf(hour), currentTime);
         setTime(1, am_pm, currentTime);
-        pressBack();
+        getSpectatioUiUtil().pressBack();
     }
 
     /** {@inheritDoc} */
@@ -191,13 +231,11 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
         UiObject2 autoDateTimeSwitchWidget = getAutoDateTimeSwitchWidget();
         UiObject2 autoDateTimeMenu =
                 getMenu(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                                AutoConfigConstants.SET_TIME_AUTOMATICALLY));
+                        getUiElementFromConfig(
+                                AutomotiveConfigConstants
+                                        .DATE_TIME_SETTINGS_SET_TIME_AUTOMATICALLY));
         if (autoDateTimeSwitchWidget.isChecked()) {
-            clickAndWaitForWindowUpdate(
-                    getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), autoDateTimeMenu);
+            getSpectatioUiUtil().clickAndWait(autoDateTimeMenu);
         }
         // check 24-hour format switch is turned on
         if (!isTwentyFourHourFormatEnabled()) {
@@ -206,8 +244,7 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
 
         UiObject2 setTimeMenu = getSetTimeMenu();
         assertTrue("set time menu is not clickable", setTimeMenu.isEnabled()); // from UI
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), setTimeMenu);
+        getSpectatioUiUtil().clickAndWait(setTimeMenu);
         assertTrue(
                 "automatic date & time is not switched off",
                 !isAutomaticOn("auto_time")); // from API
@@ -221,17 +258,15 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
         }
         setTime(2, minute_string, currentTime);
         setTime(0, hour_string, currentTime);
-        pressBack();
+        getSpectatioUiUtil().pressBack();
     }
 
     private void setTime(int index, String s, String currentTime) {
         UiSelector selector =
                 new UiSelector()
                         .className(
-                                getResourceValue(
-                                        AutoConfigConstants.SETTINGS,
-                                        AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                                        AutoConfigConstants.NUMBER_PICKER_WIDGET))
+                                getPackageFromConfig(
+                                        AutomotiveConfigConstants.NUMBER_PICKER_WIDGET_CLASS))
                         .index(index);
         boolean scrollForwards = true;
         String curAM_PM;
@@ -240,10 +275,9 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
                     selector.childSelector(
                             new UiSelector()
                                     .className(
-                                            getResourceValue(
-                                                    AutoConfigConstants.SETTINGS,
-                                                    AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                                                    AutoConfigConstants.EDIT_TEXT_WIDGET)));
+                                            getPackageFromConfig(
+                                                    AutomotiveConfigConstants
+                                                            .EDIT_TEXT_WIDGET_CLASS)));
             try {
                 curAM_PM = new UiObject(am_pm_Selector).getText();
             } catch (Exception e) {
@@ -266,7 +300,9 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
 
             /* Set max scrolls based on whether we're in 12 or 24 hour format */
             int maxScrolls =
-                    (currentTime.trim().endsWith("AM") || currentTime.trim().endsWith("PM")) ? 6 : 12;
+                    (currentTime.trim().endsWith("AM") || currentTime.trim().endsWith("PM"))
+                            ? 6
+                            : 12;
 
             /* Calculate forward or backward like we did for minutes */
             if (currentHour > setHour) {
@@ -282,33 +318,29 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
         UiSelector selector =
                 new UiSelector()
                         .className(
-                                getResourceValue(
-                                        AutoConfigConstants.SETTINGS,
-                                        AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                                        AutoConfigConstants.NUMBER_PICKER_WIDGET))
+                                getPackageFromConfig(
+                                        AutomotiveConfigConstants.NUMBER_PICKER_WIDGET_CLASS))
                         .index(index);
         UiScrollable scrollable = new UiScrollable(selector);
         scrollable.setAsVerticalList();
         UiObject2 obj =
-                findUiObject(
-                        By.text(s)
-                                .clazz(
-                                        getResourceValue(
-                                                AutoConfigConstants.SETTINGS,
-                                                AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                                                AutoConfigConstants.EDIT_TEXT_WIDGET)));
+                getSpectatioUiUtil()
+                        .findUiObject(
+                                By.text(s)
+                                        .clazz(
+                                                getPackageFromConfig(
+                                                        AutomotiveConfigConstants
+                                                                .EDIT_TEXT_WIDGET_CLASS)));
 
         /* For hour and minute, search by child object instead of text */
         if (index == 0 || index == 2) {
-            UiSelector dayOrMonthSelector = selector.childSelector(
-                    new UiSelector().className(
-                            getResourceValue(
-                                    AutoConfigConstants.SETTINGS,
-                                    AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                                    AutoConfigConstants.EDIT_TEXT_WIDGET
-                            )
-                    )
-            );
+            UiSelector dayOrMonthSelector =
+                    selector.childSelector(
+                            new UiSelector()
+                                    .className(
+                                            getPackageFromConfig(
+                                                    AutomotiveConfigConstants
+                                                            .EDIT_TEXT_WIDGET_CLASS)));
 
             /* Once we have the child selector, search for text within that selector */
             String currentValue = "";
@@ -329,15 +361,13 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
                     throw new RuntimeException(e);
                 }
 
-                dayOrMonthSelector = selector.childSelector(
-                        new UiSelector().className(
-                                getResourceValue(
-                                        AutoConfigConstants.SETTINGS,
-                                        AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                                        AutoConfigConstants.EDIT_TEXT_WIDGET
-                                )
-                        )
-                );
+                dayOrMonthSelector =
+                        selector.childSelector(
+                                new UiSelector()
+                                        .className(
+                                                getPackageFromConfig(
+                                                        AutomotiveConfigConstants
+                                                                .EDIT_TEXT_WIDGET_CLASS)));
 
                 try {
                     currentValue = new UiObject(dayOrMonthSelector).getText().trim();
@@ -357,13 +387,13 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
                     throw new RuntimeException(e);
                 }
                 obj =
-                        findUiObject(
-                                By.text(s)
-                                        .clazz(
-                                                getResourceValue(
-                                                        AutoConfigConstants.SETTINGS,
-                                                        AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                                                        AutoConfigConstants.EDIT_TEXT_WIDGET)));
+                        getSpectatioUiUtil()
+                                .findUiObject(
+                                        By.text(s)
+                                                .clazz(
+                                                        getPackageFromConfig(
+                                                                AutomotiveConfigConstants
+                                                                        .EDIT_TEXT_WIDGET_CLASS)));
             }
 
             if (obj == null) throw new RuntimeException("cannot find value in the picker");
@@ -387,13 +417,11 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
         UiObject2 autoTimeZoneSwitchWidget = getAutoTimeZoneSwitchWidget();
         UiObject2 autoTimeZoneMenu =
                 getMenu(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                                AutoConfigConstants.SET_TIME_ZONE_AUTOMATICALLY));
+                        getUiElementFromConfig(
+                                AutomotiveConfigConstants
+                                        .DATE_TIME_SETTINGS_SET_TIME_ZONE_AUTOMATICALLY));
         if (getAutoTimeZoneSwitchWidget().isChecked()) {
-            clickAndWaitForWindowUpdate(
-                    getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), autoTimeZoneMenu);
+            getSpectatioUiUtil().clickAndWait(autoTimeZoneMenu);
         }
         UiObject2 selectTimeZoneMenu = getSelectTimeZoneMenu();
         assertTrue(
@@ -402,15 +430,35 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
         assertTrue(
                 "automatic time zone is not switched off",
                 !isAutomaticOn("auto_time_zone")); // from API
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), selectTimeZoneMenu);
+        getSpectatioUiUtil().clickAndWait(selectTimeZoneMenu);
         BySelector selector = By.clickable(true).hasDescendant(By.text(timezone));
-        UiObject2 object = scrollAndFindUiObject(selector, getScrollScreenIndex());
-        if (object == null) {
-            throw new RuntimeException(String.format("Unable to find timezone %s", timezone));
-        }
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), object);
+        ScrollActions scrollAction =
+                ScrollActions.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_ACTION));
+        BySelector backwardButtonSelector =
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_BACKWARD_BUTTON);
+        BySelector forwardButtonSelector =
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_FORWARD_BUTTON);
+        BySelector scrollElementSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_ELEMENT);
+        ScrollDirection scrollDirection =
+                ScrollDirection.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_DIRECTION));
+        UiObject2 object =
+                mScrollUtility.scrollAndFindUiObject(
+                        scrollAction,
+                        scrollDirection,
+                        forwardButtonSelector,
+                        backwardButtonSelector,
+                        scrollElementSelector,
+                        selector,
+                        String.format("Scroll on date & time to find %s", timezone));
+        validateUiObject(object, String.format("Unable to find timezone %s", timezone));
+        getSpectatioUiUtil().clickAndWait(object);
     }
 
     /** {@inheritDoc} */
@@ -426,9 +474,7 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
                     "System time format is different from UI format",
                     !DateFormat.is24HourFormat(mInstrumentation.getContext()));
         }
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE),
-                twentyFourHourFormatSwitch);
+        getSpectatioUiUtil().clickAndWait(twentyFourHourFormatSwitch);
         return true;
     }
 
@@ -452,83 +498,92 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
 
     private UiObject2 getSetDateMenu() {
         return getMenu(
-                getResourceFromConfig(
-                        AutoConfigConstants.SETTINGS,
-                        AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                        AutoConfigConstants.SET_DATE));
+                getUiElementFromConfig(AutomotiveConfigConstants.DATE_TIME_SETTINGS_SET_DATE));
     }
 
     private UiObject2 getSetTimeMenu() {
         return getMenu(
-                getResourceFromConfig(
-                        AutoConfigConstants.SETTINGS,
-                        AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                        AutoConfigConstants.SET_TIME));
+                getUiElementFromConfig(AutomotiveConfigConstants.DATE_TIME_SETTINGS_SET_TIME));
     }
 
     private UiObject2 getTwentyFourFormatMenu() {
         return getMenu(
-                getResourceFromConfig(
-                        AutoConfigConstants.SETTINGS,
-                        AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                        AutoConfigConstants.USE_24_HOUR_FORMAT));
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.DATE_TIME_SETTINGS_USE_24_HOUR_FORMAT));
     }
 
     private UiObject2 getSelectTimeZoneMenu() {
         return getMenu(
-                getResourceFromConfig(
-                        AutoConfigConstants.SETTINGS,
-                        AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                        AutoConfigConstants.SELECT_TIME_ZONE));
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.DATE_TIME_SETTINGS_SELECT_TIME_ZONE));
     }
 
     private UiObject2 getMenu(BySelector bySelector) {
         BySelector selector = By.clickable(true).hasDescendant(bySelector);
-        return scrollAndFindUiObject(selector, getScrollScreenIndex());
+        ScrollActions scrollAction =
+                ScrollActions.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_ACTION));
+        BySelector backwardButtonSelector =
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_BACKWARD_BUTTON);
+        BySelector forwardButtonSelector =
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_FORWARD_BUTTON);
+        BySelector scrollElementSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_ELEMENT);
+        ScrollDirection scrollDirection =
+                ScrollDirection.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.DATE_TIME_SETTINGS_SCROLL_DIRECTION));
+        UiObject2 object =
+                mScrollUtility.scrollAndFindUiObject(
+                        scrollAction,
+                        scrollDirection,
+                        forwardButtonSelector,
+                        backwardButtonSelector,
+                        scrollElementSelector,
+                        selector,
+                        String.format("Scroll on date & time to find %s", selector));
+        return object;
     }
 
     private UiObject2 getAutoDateTimeSwitchWidget() {
         return getSwitchWidget(
-                getResourceFromConfig(
-                        AutoConfigConstants.SETTINGS,
-                        AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                        AutoConfigConstants.SET_TIME_AUTOMATICALLY));
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.DATE_TIME_SETTINGS_SET_TIME_AUTOMATICALLY));
     }
 
     private UiObject2 getAutoTimeZoneSwitchWidget() {
         return getSwitchWidget(
-                getResourceFromConfig(
-                        AutoConfigConstants.SETTINGS,
-                        AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                        AutoConfigConstants.SET_TIME_ZONE_AUTOMATICALLY));
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.DATE_TIME_SETTINGS_SET_TIME_ZONE_AUTOMATICALLY));
     }
 
     private UiObject2 getUseTwentyFourHourFormatSwitchWidget() {
         return getSwitchWidget(
-                getResourceFromConfig(
-                        AutoConfigConstants.SETTINGS,
-                        AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                        AutoConfigConstants.USE_24_HOUR_FORMAT));
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.DATE_TIME_SETTINGS_USE_24_HOUR_FORMAT));
     }
 
     private UiObject2 getSwitchWidget(BySelector bySelector) {
         BySelector selector = By.hasDescendant(bySelector);
-        UiObject2 object = scrollAndFindUiObject(selector, getScrollScreenIndex());
+        UiObject2 object =
+                mScrollUtility.scrollAndFindUiObject(
+                        mScrollAction,
+                        mScrollDirection,
+                        mForwardButtonSelector,
+                        mBackwardButtonSelector,
+                        mScrollableElementSelector,
+                        selector,
+                        String.format("Scroll on date & time to find %s", selector));
         List<UiObject2> list = object.getParent().getChildren();
         UiObject2 switchWidget = list.get(1).getChildren().get(0).getChildren().get(0);
         return switchWidget;
     }
 
-    private int getScrollScreenIndex() {
-        int scrollScreenIndex = 0;
-        if (hasSplitScreenSettingsUI()) {
-            scrollScreenIndex = 1;
-        }
-        return scrollScreenIndex;
-    }
-
     private String getMenuSummaryText(UiObject2 obj) {
-        return obj.getChildren().get(0).getChildren().get(1).getText();
+        return obj.findObject(mSummarySelector).getText();
     }
 
     private boolean isAutomaticOn(String name) {
@@ -540,5 +595,12 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
             throw new RuntimeException(e);
         }
         return status == 1 ? true : false;
+    }
+
+    private void validateUiObject(UiObject2 uiObject, String action) {
+        if (uiObject == null) {
+            throw new UnknownUiException(
+                    String.format("Unable to find UI Element for %s.", action));
+        }
     }
 }

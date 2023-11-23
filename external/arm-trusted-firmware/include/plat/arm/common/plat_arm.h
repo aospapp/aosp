@@ -41,7 +41,7 @@ typedef struct arm_tzc_regions_info {
  ******************************************************************************/
 #if SPM_MM
 #define ARM_TZC_REGIONS_DEF						\
-	{ARM_AP_TZC_DRAM1_BASE, ARM_EL3_TZC_DRAM1_END,			\
+	{ARM_AP_TZC_DRAM1_BASE, ARM_EL3_TZC_DRAM1_END + ARM_L1_GPT_SIZE,\
 		TZC_REGION_S_RDWR, 0},					\
 	{ARM_NS_DRAM1_BASE, ARM_NS_DRAM1_END, ARM_TZC_NS_DRAM_S_ACCESS, \
 		PLAT_ARM_TZC_NS_DEV_ACCESS}, 				\
@@ -51,9 +51,20 @@ typedef struct arm_tzc_regions_info {
 		PLAT_SP_IMAGE_NS_BUF_SIZE) - 1, TZC_REGION_S_NONE,	\
 		PLAT_ARM_TZC_NS_DEV_ACCESS}
 
+#elif ENABLE_RME
+#define ARM_TZC_REGIONS_DEF						    \
+	{ARM_AP_TZC_DRAM1_BASE, ARM_AP_TZC_DRAM1_END, TZC_REGION_S_RDWR, 0},\
+	{ARM_EL3_TZC_DRAM1_BASE, ARM_L1_GPT_END, TZC_REGION_S_RDWR, 0},	    \
+	{ARM_NS_DRAM1_BASE, ARM_NS_DRAM1_END, ARM_TZC_NS_DRAM_S_ACCESS,	    \
+		PLAT_ARM_TZC_NS_DEV_ACCESS},				    \
+	{ARM_REALM_BASE, ARM_REALM_END, ARM_TZC_NS_DRAM_S_ACCESS,	    \
+		PLAT_ARM_TZC_NS_DEV_ACCESS},				    \
+	{ARM_DRAM2_BASE, ARM_DRAM2_END, ARM_TZC_NS_DRAM_S_ACCESS,	    \
+		PLAT_ARM_TZC_NS_DEV_ACCESS}
+
 #else
 #define ARM_TZC_REGIONS_DEF						\
-	{ARM_AP_TZC_DRAM1_BASE, ARM_EL3_TZC_DRAM1_END,			\
+	{ARM_AP_TZC_DRAM1_BASE, ARM_EL3_TZC_DRAM1_END + ARM_L1_GPT_SIZE,\
 		TZC_REGION_S_RDWR, 0},					\
 	{ARM_NS_DRAM1_BASE, ARM_NS_DRAM1_END, ARM_TZC_NS_DRAM_S_ACCESS, \
 		PLAT_ARM_TZC_NS_DEV_ACCESS},	 			\
@@ -239,12 +250,8 @@ void arm_bl1_set_mbedtls_heap(void);
 int arm_get_mbedtls_heap(void **heap_addr, size_t *heap_size);
 
 #if MEASURED_BOOT
-/* Measured boot related functions */
-void arm_bl1_set_bl2_hash(const image_desc_t *image_desc);
-void arm_bl2_get_hash(void *data);
-int arm_set_tos_fw_info(uintptr_t config_base, uintptr_t log_addr,
-			size_t log_size);
-int arm_set_nt_fw_info(uintptr_t config_base,
+int arm_set_tos_fw_info(uintptr_t log_addr, size_t log_size);
+int arm_set_nt_fw_info(
 /*
  * Currently OP-TEE does not support reading DTBs from Secure memory
  * and this option should be removed when feature is supported.
@@ -253,6 +260,8 @@ int arm_set_nt_fw_info(uintptr_t config_base,
 			uintptr_t log_addr,
 #endif
 			size_t log_size, uintptr_t *ns_log_addr);
+int arm_set_tb_fw_info(uintptr_t log_addr, size_t log_size);
+int arm_get_tb_fw_info(uint64_t *log_addr, size_t *log_size);
 #endif /* MEASURED_BOOT */
 
 /*

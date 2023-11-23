@@ -1,0 +1,10 @@
+<compatibility-matrix version="1.0" type="framework" level="7">
+    <hal format="aidl" optional="true">
+      <name>com.google.hardware.pixel.display</name>
+        <version>8</version>
+        <interface>
+            <name>IDisplay</name>
+            <instance>secondary</instance>
+        </interface>
+    </hal>
+</compatibility-matrix>

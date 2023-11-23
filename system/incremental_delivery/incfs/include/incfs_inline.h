@@ -306,9 +306,9 @@ inline std::pair<ErrorCode, FilledRanges> getFilledRanges(int fd,
 }
 
 inline std::pair<ErrorCode, FilledRanges> getFilledRanges(int fd, FilledRanges&& resumeFrom) {
+    auto totalRanges = resumeFrom.dataRanges().size() + resumeFrom.hashRanges().size();
     auto rawRanges = resumeFrom.internalRawRanges();
     auto buffer = resumeFrom.extractInternalBufferAndClear();
-    auto totalRanges = resumeFrom.dataRanges().size() + resumeFrom.hashRanges().size();
     auto remainingSpace = buffer.size() - totalRanges;
     const bool loadAll = remainingSpace == 0;
     int res;

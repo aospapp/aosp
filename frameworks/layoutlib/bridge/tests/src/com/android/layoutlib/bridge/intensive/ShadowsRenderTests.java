@@ -17,8 +17,8 @@
 package com.android.layoutlib.bridge.intensive;
 
 import com.android.ide.common.rendering.api.SessionParams;
+import com.android.layoutlib.bridge.android.RenderTestBase;
 import com.android.layoutlib.bridge.intensive.setup.ConfigGenerator;
-import com.android.layoutlib.bridge.intensive.setup.LayoutLibTestCallback;
 import com.android.layoutlib.bridge.intensive.setup.LayoutPullParser;
 
 import org.junit.After;

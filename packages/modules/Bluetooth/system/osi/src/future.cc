@@ -26,7 +26,7 @@
 #include "osi/include/allocator.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
-#include "osi/include/semaphore.h"
+#include "osi/semaphore.h"
 
 struct future_t {
   bool ready_can_be_called;

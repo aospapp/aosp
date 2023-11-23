@@ -23,7 +23,7 @@ namespace data {
 namespace experimental {
 namespace {
 
-inline int64 CeilDiv(int64_t dividend, int64_t divisor) {
+inline int64_t CeilDiv(int64_t dividend, int64_t divisor) {
   return (dividend - 1 + divisor) / divisor;
 }
 
@@ -73,7 +73,7 @@ class RebatchDatasetOp : public UnaryDatasetOpKernel {
     std::unique_ptr<IteratorBase> MakeIteratorInternal(
         const string& prefix) const override {
       name_utils::IteratorPrefixParams params;
-      return absl::make_unique<Iterator>(Iterator::Params{
+      return std::make_unique<Iterator>(Iterator::Params{
           this, name_utils::IteratorPrefix(kDatasetTypeV1, prefix, params)});
     }
 
@@ -94,7 +94,7 @@ class RebatchDatasetOp : public UnaryDatasetOpKernel {
     Status InputDatasets(
         std::vector<const DatasetBase*>* inputs) const override {
       inputs->push_back(input_);
-      return Status::OK();
+      return OkStatus();
     }
 
     Status CheckExternalState() const override {
@@ -111,7 +111,7 @@ class RebatchDatasetOp : public UnaryDatasetOpKernel {
       TF_RETURN_IF_ERROR(b->AddScalar(num_replicas_, &num_replicas));
       TF_RETURN_IF_ERROR(
           b->AddDataset(this, {input_graph_node, num_replicas}, output));
-      return Status::OK();
+      return OkStatus();
     }
 
    private:
@@ -138,7 +138,7 @@ class RebatchDatasetOp : public UnaryDatasetOpKernel {
           TF_RETURN_IF_ERROR(
               input_impl_->GetNext(ctx, &input_tensors, end_of_sequence));
           if (*end_of_sequence) {
-            return Status::OK();
+            return OkStatus();
           }
 
           input_descriptors_.reserve(input_tensors.size());
@@ -182,7 +182,7 @@ class RebatchDatasetOp : public UnaryDatasetOpKernel {
           }
         }
         slice_number_ = (slice_number_ + 1) % dataset()->num_replicas_;
-        return Status::OK();
+        return OkStatus();
       }
 
      protected:
@@ -206,7 +206,7 @@ class RebatchDatasetOp : public UnaryDatasetOpKernel {
                 input_descriptors_[i].whole_tensor));
           }
         }
-        return Status::OK();
+        return OkStatus();
       }
 
       Status RestoreInternal(IteratorContext* ctx,
@@ -234,7 +234,7 @@ class RebatchDatasetOp : public UnaryDatasetOpKernel {
                         dataset()->num_replicas_);
           }
         }
-        return Status::OK();
+        return OkStatus();
       }
 
       TraceMeMetadata GetTraceMeMetadata() const override {
@@ -252,18 +252,18 @@ class RebatchDatasetOp : public UnaryDatasetOpKernel {
               interval(interval) {}
 
         Tensor whole_tensor;
-        int64 original_batch_dim;
-        int64 interval;
+        int64_t original_batch_dim;
+        int64_t interval;
       };
 
       mutex mu_;
       std::unique_ptr<IteratorBase> input_impl_;
       std::vector<InputDescriptor> input_descriptors_ TF_GUARDED_BY(mu_);
-      int64 slice_number_ TF_GUARDED_BY(mu_) = 0;
+      int64_t slice_number_ TF_GUARDED_BY(mu_) = 0;
     };
 
     const DatasetBase* const input_;
-    const int64 num_replicas_;
+    const int64_t num_replicas_;
     const DataTypeVector output_types_;
     const std::vector<PartialTensorShape> output_shapes_;
     const TraceMeMetadata traceme_metadata_;
@@ -299,10 +299,10 @@ class RebatchDatasetV2Op : public UnaryDatasetOpKernel {
         ctx, batch_sizes_tensor->dims() <= 1,
         errors::InvalidArgument("`batch_sizes` must be a scalar or a vector."));
 
-    std::vector<int64> batch_sizes;
+    std::vector<int64_t> batch_sizes;
     batch_sizes.reserve(batch_sizes_tensor->NumElements());
     for (int i = 0; i < batch_sizes_tensor->NumElements(); ++i) {
-      batch_sizes.push_back(batch_sizes_tensor->flat<int64>()(i));
+      batch_sizes.push_back(batch_sizes_tensor->flat<int64_t>()(i));
     }
 
     bool drop_remainder;
@@ -317,7 +317,7 @@ class RebatchDatasetV2Op : public UnaryDatasetOpKernel {
   class Dataset : public DatasetBase {
    public:
     Dataset(OpKernelContext* ctx, const DatasetBase* input,
-            std::vector<int64>&& batch_sizes, bool drop_remainder,
+            std::vector<int64_t>&& batch_sizes, bool drop_remainder,
             const DataTypeVector& output_types,
             const std::vector<PartialTensorShape>& output_shapes)
         : DatasetBase(DatasetContext(ctx)),
@@ -336,7 +336,7 @@ class RebatchDatasetV2Op : public UnaryDatasetOpKernel {
     std::unique_ptr<IteratorBase> MakeIteratorInternal(
         const string& prefix) const override {
       name_utils::IteratorPrefixParams params;
-      return absl::make_unique<Iterator>(Iterator::Params{
+      return std::make_unique<Iterator>(Iterator::Params{
           this, name_utils::IteratorPrefix(kDatasetTypeV2, prefix, params)});
     }
 
@@ -355,7 +355,7 @@ class RebatchDatasetV2Op : public UnaryDatasetOpKernel {
     Status InputDatasets(
         std::vector<const DatasetBase*>* inputs) const override {
       inputs->push_back(input_);
-      return Status::OK();
+      return OkStatus();
     }
 
     Status CheckExternalState() const override {
@@ -374,7 +374,7 @@ class RebatchDatasetV2Op : public UnaryDatasetOpKernel {
       TF_RETURN_IF_ERROR(b->AddScalar(drop_remainder_, &drop_remainder));
       TF_RETURN_IF_ERROR(b->AddDataset(
           this, {input_graph_node, batch_sizes, drop_remainder}, output));
-      return Status::OK();
+      return OkStatus();
     }
 
    private:
@@ -396,7 +396,7 @@ class RebatchDatasetV2Op : public UnaryDatasetOpKernel {
         mutex_lock l(mu_);
         if (end_of_sequence_) {
           *end_of_sequence = true;
-          return Status::OK();
+          return OkStatus();
         }
 
         *end_of_sequence = false;
@@ -452,7 +452,7 @@ class RebatchDatasetV2Op : public UnaryDatasetOpKernel {
             (dataset()->drop_remainder_ && batch_size < desired_batch_size)) {
           DCHECK(end_of_sequence_);
           *end_of_sequence = true;
-          return Status::OK();
+          return OkStatus();
         }
 
         const size_t num_components = dataset()->output_dtypes().size();
@@ -487,7 +487,7 @@ class RebatchDatasetV2Op : public UnaryDatasetOpKernel {
                   Tensor(dataset()->output_dtypes()[i], tensor_shape));
             }
           }
-          return Status::OK();
+          return OkStatus();
         }
 
         // Special case: when there's only one slice, we return the slice
@@ -501,7 +501,7 @@ class RebatchDatasetV2Op : public UnaryDatasetOpKernel {
             }
           }
           *out_tensors = std::move(tensors);
-          return Status::OK();
+          return OkStatus();
         }
 
         // For each component, concatenate slices into one tensor.
@@ -527,7 +527,7 @@ class RebatchDatasetV2Op : public UnaryDatasetOpKernel {
           }
         }
 
-        return Status::OK();
+        return OkStatus();
       }
 
      protected:
@@ -549,7 +549,7 @@ class RebatchDatasetV2Op : public UnaryDatasetOpKernel {
                 full_name(strings::StrCat("tensors[", i, "]")), tensors_[i]));
           }
         }
-        return Status::OK();
+        return OkStatus();
       }
 
       Status RestoreInternal(IteratorContext* ctx,
@@ -573,7 +573,7 @@ class RebatchDatasetV2Op : public UnaryDatasetOpKernel {
                 &tensors_[i]));
           }
         }
-        return Status::OK();
+        return OkStatus();
       }
 
       TraceMeMetadata GetTraceMeMetadata() const override {
@@ -596,7 +596,7 @@ class RebatchDatasetV2Op : public UnaryDatasetOpKernel {
                 tensors_[i].dim_size(0), ".");
           }
         }
-        return Status::OK();
+        return OkStatus();
       }
 
       mutex mu_;
@@ -608,13 +608,13 @@ class RebatchDatasetV2Op : public UnaryDatasetOpKernel {
       // Represents the offset into the current input tensor(s).
       // An offset of -1 indicates that there is no data left in the current
       // slice.
-      int64 offset_ TF_GUARDED_BY(mu_) = -1;
+      int64_t offset_ TF_GUARDED_BY(mu_) = -1;
       // Represents the current index into the batch_sizes list.
-      int64 batch_sizes_index_ TF_GUARDED_BY(mu_) = 0;
+      int64_t batch_sizes_index_ TF_GUARDED_BY(mu_) = 0;
     };
 
     const DatasetBase* const input_;
-    const std::vector<int64> batch_sizes_;
+    const std::vector<int64_t> batch_sizes_;
     const bool drop_remainder_;
     const DataTypeVector output_types_;
     const std::vector<PartialTensorShape> output_shapes_;

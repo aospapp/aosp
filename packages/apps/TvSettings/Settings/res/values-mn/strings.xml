@@ -31,6 +31,8 @@
     <string name="enabled" msgid="5127188665060746381">"Идэвхжүүлсэн"</string>
     <string name="disabled" msgid="4589065923272201387">"Идэвхгүй болгосон"</string>
     <string name="unavailable" msgid="1610732303812180196">"Боломжгүй"</string>
+    <string name="allow" msgid="6982558814345894019">"Зөвшөөрөх"</string>
+    <string name="deny" msgid="8291577308813053917">"Татгалзах"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"Зөвлөмж"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"Шуурхай тохиргоо"</string>
     <string name="header_category_general_settings" msgid="3897615781153506434">"Ерөнхий тохиргоо"</string>
@@ -51,6 +53,7 @@
     <string name="sound_category_title" msgid="7899816751041939518">"Дуу"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"Апп"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"Төхөөрөмжийн сонголт"</string>
+    <string name="accessibility_category_title" msgid="1552664829936369592">"Хандалт"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"Удирдлага, дагалдах хэрэгслүүд"</string>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"Дэлгэц болон дуу чимээ"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"Тусламж болон санал хүсэлт"</string>
@@ -109,7 +112,8 @@
     <string name="device_backup_restore" msgid="3634531946308269398">"Нөөцлөх &amp; сэргээх"</string>
     <string name="device_factory_reset" msgid="1110189450013225971">"Үйлдвэрээс гарсан төлөвт"</string>
     <string name="device_calibration" msgid="2907914144048739705">"Тааруулалт"</string>
-    <string name="device_energy_saver" msgid="1105023232841036991">"Эрчим хүч хэмнэгч"</string>
+    <string name="device_energy_saver" msgid="6611757996220443028">"Цаг хэмжигчийг унтраах"</string>
+    <string name="device_energy_saver_summary" msgid="5306058475316008429">"ТВ-ийг унтраах болон эрчим хүч хэмнэхийн тулд цаг хэмжигч тохируулна уу"</string>
     <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
     <string name="device_fastpair" msgid="1235240814051277047">"Төхөөрөмжүүд"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"Формат сонгох"</string>
@@ -118,7 +122,7 @@
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="4268947520371740146">"DTS-HD"</string>
-    <string name="surround_sound_format_dts_uhd" msgid="2844983210044263719">"DTS-UHD"</string>
+    <string name="surround_sound_format_dts_uhd" msgid="4340749818133578788">"DTS:X"</string>
     <string name="surround_sound_format_dolby_mat" msgid="3029804841912462928">"Dolby TrueHD-тай Dolby Atmos"</string>
     <string name="surround_sound_format_dolby_truehd" msgid="5113046743572967088">"Dolby TrueHD"</string>
     <string name="surround_sound_format_e_ac3_joc" msgid="3360344066462262996">"Dolby Digital Plus-тай Dolby Atmos"</string>
@@ -147,10 +151,38 @@
     <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"HDMI-CEC"</string>
     <string name="advanced_sound_settings_title" msgid="319921303039469139">"Нарийвчилсан дууны тохиргоо"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"Тоглоомын горимыг зөвшөөрөх"</string>
+    <string name="match_content_dynamic_range_title" msgid="2794980556561655838">"Контентын динамик мужийг тааруулах"</string>
+    <string name="match_content_dynamic_range_summary" msgid="2255683926227355398">"Энэ сонголтыг идэвхжүүлэх үед систем контенттой тааруулахын тулд динамикийн мужийн өөр өөр форматын хооронд сэлгэнэ. Энэ нь формат сэлгэх үед дэлгэцийг хар болгоход хүргэж магадгүй.\n\nДинамик мужийн бусад сонголт авах бол Дэлгэцийн дэвшилтэт тохиргоог товшино уу."</string>
+    <string name="preferred_dynamic_range_title" msgid="5064883672337010588">"Сонгосон динамик муж"</string>
+    <string name="preferred_dynamic_range_selection_system_title" msgid="4505030483876080996">"Системийн сонгосон хувиралт"</string>
+    <string name="preferred_dynamic_range_selection_system_desc" msgid="5712920601553613576">"Системд форматын хувиралтыг удирдахыг зөвшөөрнө үү"</string>
+    <string name="preferred_dynamic_range_selection_system_summary" msgid="4509062596428781094">"Энэ сонголтыг сонгосон үед систем таны дэлгэц рүү илгээх тохирох динамик мужийг тодорхойлж, шаардлагатай бол контентыг энэ динамик муж руу хувиргана."</string>
+    <string name="preferred_dynamic_range_selection_passthrough_desc" msgid="4831260397179583737">"Үргэлж контентын форматтай таруулна"</string>
+    <string name="preferred_dynamic_range_selection_force_title" msgid="4448836594133973103">"Хувиралтыг хүчлэх"</string>
+    <string name="preferred_dynamic_range_selection_force_desc" msgid="1418542349290684513">"Хувиралтыг сонгосон формат руу хүчилнэ"</string>
+    <string name="preferred_dynamic_range_selection_force_summary" msgid="8381058061765216239">"Хувиралтыг сонгосон формат рүү хүчилнэ. Хувиралтыг хүчлэх нь Дэлгэцийн горим эсвэл HDR форматын бусад тохиргоонд нөлөөлж магадгүй."</string>
+    <string name="preferred_dynamic_range_selection_force_sdr_title" msgid="3135104063034317252">"Үргэлж SDR"</string>
+    <string name="preferred_dynamic_range_selection_force_hdr_title" msgid="1032587815433139859">"Үргэлж <xliff:g id="HDR_TYPE">%s</xliff:g>"</string>
+    <string name="preferred_dynamic_range_force_dialog_title" msgid="6865110024863661702">"Та HDR гаралтыг хүчлэхийг хүсэж байна уу?"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc" msgid="7758323258282201656">"Өгөгдмөлөөр хувиралтыг <xliff:g id="HDR_TYPE">%s</xliff:g> болгож хүчилнэ."</string>
+    <string name="preferred_dynamic_range_force_dialog_desc_4k30_issue" msgid="4938418395391206131">"Таны дэлгэц 1080p 60Hz нягтралтайгаар ажиллана. Таны дэлгэц 4000 60Hz нягтралтайгаар ажиллаж байгаа үед энэ сонголт тохиромжгүй."</string>
+    <string name="selection_dolby_vision_not_supported_sidebar" msgid="8994591316574824115">"Dolby Vision-г одоогийн нягтралд дэмждэггүй. Хэрэв та Dolby Vision-г гар аргаар идэвхжүүлбэл таны дэлгэцийн нягтралыг 1080p 60Hz болгож өөрчилнө"</string>
+    <string name="manual_dolby_vision_format_on_4k60_title" msgid="4172263676512376500">"Нягтралыг 1080p 60Hz болгож өөрчлөх үү?"</string>
+    <string name="dynamic_range_selection_force_dv_title" msgid="8070148109262327094">"Хувиралтыг үргэлж Dolby Vision рүү хүчлэх"</string>
+    <string name="dynamic_range_selection_force_dv_summary" msgid="1052851029985095562">"Хэрэв Дэлгэцийн нарийвчилсан тохиргооны HDR форматууд Dolby Vision-г идэвхгүй болгосон бол хувиралтыг Dolby Vision рүү хүчлэх нь үүнийг дахин идэвхжүүлнэ."</string>
+    <string name="dynamic_range_selection_force_hdr10_title" msgid="1221688206945051384">"Хувиралтыг үргэлж HDR10 руу хүчлэх"</string>
+    <string name="dynamic_range_selection_force_hdr10_summary" msgid="7784573527636502784">"Хэрэв Дэлгэцийн нарийвчилсан тохиргооны HDR форматууд HDR10-ыг идэвхгүй болгосон бол хувиралтыг HDR10 руу хүчлэх нь үүнийг дахин идэвхжүүлнэ."</string>
+    <string name="dynamic_range_selection_force_hlg_title" msgid="3976190987768712696">"Хувиралтыг үргэлж HLG руу хүчлэх"</string>
+    <string name="dynamic_range_selection_force_hlg_summary" msgid="5371949016689544001">"Хэрэв Дэлгэцийн нарийвчилсан тохиргооны HDR форматууд HLG-г идэвхгүй болгосон бол хувиралтыг HLG руу хүчлэх нь үүнийг дахин идэвхжүүлнэ."</string>
+    <string name="dynamic_range_selection_force_hdr10plus_title" msgid="1305556000063625735">"Хувиралтыг үргэлж HDR10+ руу хүчлэх"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_summary" msgid="918038386222537401">"Хэрэв Дэлгэцийн нарийвчилсан тохиргооны HDR форматууд HDR10+-г идэвхгүй болгосон бол хувиралтыг HDR10+ руу хүчлэх нь үүнийг дахин идэвхжүүлнэ."</string>
+    <string name="dynamic_range_selection_force_sdr_title" msgid="1063579223517652945">"Хувиралтыг үргэлж SDR руу хүчлэх"</string>
+    <string name="dynamic_range_selection_force_sdr_summary" msgid="2874771365465898941">"Хувиралтыг SDR руу хүчлэх нь Дэлгэцийн нарийвчилсан тохиргоонд HDR форматууд дахь бүх форматыг идэвхгүй болгоно."</string>
     <string name="match_content_frame_rate_title" msgid="153291168560947689">"Контентын фрэймийн хурдыг тааруулах"</string>
-    <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"Саадгүй"</string>
+    <string name="match_content_frame_rate_seamless" msgid="5577846750811067585">"Зөвхөн саадгүй"</string>
     <string name="match_content_frame_rate_seamless_summary" msgid="2737466163964133210">"Хэрэв апп ингэх хүсэлт тавьсан бол таны төхөөрөмж ЗӨВХӨН таны ТВ саадгүй шилжилт гүйцэтгэх боломжтой тохиолдолд гаралтаа таны үзэж буй контентын эх фрэймийн хурдтай тааруулна."</string>
-    <string name="match_content_frame_rate_non_seamless" msgid="1534300397118594640">"Саадгүй бус"</string>
+    <string name="match_content_frame_rate_seamless_not_supported_summary" msgid="98559950465123792">"Таны холбогдсон дэлгэц нь сэргээх хурдны тасралтгүй шилжилтийг дэмждэггүй. Хэрэв та үүнийг дэмждэг дэлгэц рүү шилжихгүй бол энэ сонголт ямар ч нөлөө үзүүлэхгүй."</string>
+    <string name="match_content_frame_rate_non_seamless" msgid="2702658727234710031">"Үргэлж"</string>
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Апп ингэх хүсэлт тавьсан тохиолдолд таны төхөөрөмж гаралтаа таны үзэж буй контентын эх фрэймийн хурдтай тааруулна. Энэ нь видеог дахин тоглуулах явцаас гарах эсвэл үүнд орох үед таны дэлгэцийг секундийн турш хоосон болгож болно."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Хэзээ ч үгүй"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Апп ингэх хүсэлт тавьсан байлаа ч таны төхөөрөмж гаралтаа таны үзэж буй контентын эх фрэймийн хурдтай тааруулах гэж хэзээ ч оролдохгүй."</string>
@@ -167,6 +199,7 @@
     <string name="hdr_format_selection_manual_desc" msgid="8865649615882146772">"Форматуудыг боломжтой форматуудаас гар аргаар сонгох"</string>
     <string name="hdr_format_supported_title" msgid="1458594819224612431">"ДЭМЖДЭГ ФОРМАТУУД"</string>
     <string name="hdr_format_unsupported_title" msgid="715318408107924941">"ДЭМЖДЭГГҮЙ ФОРМАТУУД"</string>
+    <string name="hdr_format_sdr" msgid="7211377112392255102">"SDR"</string>
     <string name="hdr_format_hdr10" msgid="8063543267227491062">"HDR10"</string>
     <string name="hdr_format_hlg" msgid="454510079939620321">"HLG"</string>
     <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"HDR10+"</string>
@@ -182,10 +215,14 @@
     <string name="resolution_selection_title" msgid="2873993320284587853">"Нягтрал"</string>
     <string name="resolution_selection_auto_title" msgid="4738671207331027385">"Автомат"</string>
     <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"Нягтралыг өөрчилсөн"</string>
+    <string name="resolution_selection_with_mode_dialog_title" msgid="5011192408613100514">"Нягтралыг %1$s болгож өөрчлөх үү?"</string>
     <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"Одооноос %1$s-г ашиглахын тулд OK-г сонгоно уу."</string>
+    <string name="resolution_selection_disabled_dolby_vision_dialog_desc" msgid="7952404018654828187">"Dolby Vision нь %1$s дээр дэмжигдээгүй бөгөөд \"Дэлгэцийн нарийвчилсан тохиргоо\" хэсэгт идэвхгүй болно."</string>
+    <string name="resolution_hdr_description_info" msgid="2408761621976850238">"Энэ горим дараахыг дэмждэг: %1$s\nЗарим ТВ-д та бусад HDR форматыг идэвхжүүлэхийн тулд сайжруулсан HDMI-г асаах шаардлагатай байж магадгүй. Үүнийг дэмждэг эсэхийг харахын тулд ТВ-ийн тохиргоогоо шалгана уу."</string>
     <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"Цуцлах"</string>
     <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"OK"</string>
     <string name="resolution_selection_hz" msgid="4425902505388495637">"Гц"</string>
+    <string name="resolution_display_mode" msgid="6633857172598855480">"<xliff:g id="RESOLUTION">%1$s</xliff:g> (<xliff:g id="REFRESH_RATE">%2$s</xliff:g> Гц)"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"Кеш хийгдсэн өгөгдлийг арилгах уу?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"Бүх програмд зориулан кеш хийгдсэн өгөгдлийг арилгах болно."</string>
     <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
@@ -257,7 +294,6 @@
     <string name="system_inputs" msgid="5552840337357572096">"Оролт"</string>
     <string name="system_inputs_devices" msgid="2158421111699829399">"Oролт &amp; төхөөрөмж"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"Гэрийн театрын хяналт"</string>
-    <string name="system_accessibility" msgid="3081009195560501010">"Хандалт"</string>
     <string name="system_developer_options" msgid="8480844257066475479">"Хөгжүүлэгчийн тохиргоо"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"Хоосон"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"Хэрэглээ, оношилгоо"</string>
@@ -307,6 +343,7 @@
     <string name="do_disclosure_generic" msgid="8390478119591845948">"Энэ төхөөрөмжийг таны байгууллага удирдаж байна."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"Энэ төхөөрөмжийг <xliff:g id="ORGANIZATION_NAME">%s</xliff:g> удирддаг"</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
+    <string name="hdr_capability" msgid="3331021013422460270">"- %1$s"</string>
     <string name="learn_more" msgid="820336467414665686">"Дэлгэрэнгүй үзэх"</string>
     <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{Камерын апп}other{Камерын аппууд}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"Хуанлины апп"</string>
@@ -547,7 +584,7 @@
     <string name="storage_wizard_eject_private_title" msgid="1336088625197134497">"Төхөөрөмжийн хадгалах санг салгах"</string>
     <string name="storage_wizard_eject_private_description" msgid="4341905730016007385">"Төхөөрөмжийг салгах үед төхөөрөмжийн хадгалах санд хадгалсан апп-ууд ажиллахаа болино. Энэ USB драйвыг зөвхөн энэ төхөөрөмжид ажиллахаар болгож хэлбэршүүлсэн бөгөөд өөр төхөөрөмжид ажиллахгүй."</string>
     <string name="storage_wizard_eject_progress_title" msgid="6025569356827683446">"<xliff:g id="NAME">%1$s</xliff:g>-г салгаж байна…"</string>
-    <string name="storage_wizard_move_app_title" msgid="6504922588346440942">"Санах ойг ашигласан"</string>
+    <string name="storage_wizard_move_app_title" msgid="6504922588346440942">"Ашигласан хадгалах сан"</string>
     <string name="storage_wizard_move_app_progress_title" msgid="7058465372227392453">"<xliff:g id="NAME">%1$s</xliff:g>-ыг зөөж байна…"</string>
     <string name="storage_wizard_move_app_progress_description" msgid="7673347796805764888">"Зөөвөрлөх явцад драйвыг салгаж болохгүй. Энэ төхөөрөмж дээрх\n<xliff:g id="APPNAME">%1$s</xliff:g>апп  зөөвөрлөж дуусах хүртэл ажиллахгүй."</string>
     <string name="storage_wizard_forget_confirm_title" msgid="3709482471888830896">"Төхөөрөмжийн хадгалах санг хэрэгсэхгүй болгох уу?"</string>
@@ -590,6 +627,7 @@
     <string name="recently_accessed_show_all" msgid="5234849189704717855">"Бүгдийг харах"</string>
     <string name="microphone" msgid="7893752847683941214">"Микрофон"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"Микрофоны хандалт"</string>
+    <string name="mic_remote_toggle_title" msgid="7153283895012570080">"Алсын удирдлагынхаа микрофонд хандах"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"Микрофоны аппын хандалт"</string>
     <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"Микрофоны хандалтыг блоклосон"</string>
     <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"Блокоос гаргахын тулд төхөөрөмжийнхөө нууцлалын сэлгүүрийг микрофон асаалттай байрлалд зөөж микрофонд хандахыг зөвшөөрнө үү."</string>
@@ -599,7 +637,11 @@
     <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"Камерын хандалтыг блоклосон"</string>
     <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"Блокоос гаргахын тулд төхөөрөмжийнхөө нууцлалын сэлгүүрийг камер асаалттай байрлалд зөөж камерт хандахыг зөвшөөрнө үү."</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"Микрофоны хандалт: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
-    <string name="mic_toggle_info_content" msgid="4699624900513326055">"Асаасан үед зөвшөөрөлтэй бүх апп болон үйлчилгээ энэ төхөөрөмж дээрх дурын микрофонд хандаж болно.\n\nЗахиалгат протоколтой аудионы нэмэлт хэрэгслүүдэд энэ тохиргоо нөлөөлөхгүй."</string>
+    <string name="mic_toggle_info_content" msgid="3187791167208947239">"Асаалттай үед микрофон ашиглахыг зөвшөөрсөн бүх апп болон үйлчилгээнүүд үүнд хандах боломжтой болно.\n\nУнтраах үед ямар ч апп эсвэл үйлчилгээ микрофонд хандах боломжгүй болно. Гэхдээ та алсын удирдлага дээрх Туслахын товчлуурыг дарснаар Google Туслахтайгаа ярих боломжтой хэвээр байж магадгүй.\n\nТВ-тэй холбогдох захиалгат протокол ашигладаг аудио төхөөрөмжүүдэд энэ тохиргоо нөлөөлөхгүй байж магадгүй."</string>
+    <string name="mic_remote_toggle_on_info_title" msgid="8503441878870972046">"Алсын удирдлага дээр микрофоныг идэвхжүүлсэн"</string>
+    <string name="mic_remote_toggle_on_info_content" msgid="2715872916376493679">"Google Туслах нь таны алсын удирдлага дээрх микрофонд хандах боломжтой. Та алсын удирдлага дээрх Google Туслах товчийг дарснаар туслахтайгаа ярих боломжтой болно."</string>
+    <string name="mic_remote_toggle_off_info_title" msgid="4902909833546393713">"Алсын удирдлага дээр микрофон идэвхгүй болсон"</string>
+    <string name="mic_remote_toggle_off_info_content" msgid="8062526350553191004">"Та алсын удирдлагаа ашиглан Google Туслахтайгаа ярих боломжгүй болно. Google Туслахын товчлуурыг ашиглахын тулд микрофоны хандалтыг идэвхжүүлнэ үү."</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"Камерын хандалт: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="camera_toggle_info_content" msgid="2999965953853204003">"Асаасан үед зөвшөөрөлтэй бүх апп болон үйлчилгээ энэ төхөөрөмж дээрх дурын камерт хандаж болно.\n\nЗахиалгат протоколтой камерын нэмэлт хэрэгслүүдэд энэ тохиргоо нөлөөлөхгүй."</string>
     <string name="sensor_toggle_info_on" msgid="4568111889147132257">"Асаалттай"</string>
@@ -625,9 +667,34 @@
     <string name="location_history_desc" msgid="926674012916014270">"Энэ бүртгэл дээр Байршлын түүхийг идэвхжүүлсэн үед Google таны төхөөрөмжийн байршлын датаг хадгалж, таны апп-д ашиглуулна.\n\nЖишээ нь Google Газрын зураг танд чиглэл зааж, Google Now танд замын ачааллын мэдээллийг өгч чадна.\n\nТа дуртай үедээ Байршлын түүхийг унтрааж болох ч ингэснээр үүнийг устгахгүй. Байршлын түүхээ харж, удирдахын тулд дараах руу очно уу maps.google.com/locationhistory."</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"Байршлын түүхийг устгах"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"Энэ нь тус төхөөрөмжөөс энэ Google бүртгэлд хадгалсан бүх Байршлын түүхийг устгах болно. Та энэ устгалтыг буцаах боломжгүй. Google Now-г оруулан зарим апп-ууд ажиллахаа болино."</string>
-    <string name="system_services" msgid="5754310941186053151">"Үйлчилгээ"</string>
+    <string name="accessibility_screen_readers_category_title" msgid="7742526514873922018">"Дэлгэц уншигч"</string>
+    <string name="accessibility_display_category_title" msgid="593444602101558017">"Дэлгэцийн"</string>
+    <string name="accessibility_interaction_controls_category_title" msgid="5290687835178852745">"Харилцан үйлдлийн хяналт"</string>
+    <string name="accessibility_audio_and_onscreen_text_category_title" msgid="113841605896486212">"Аудио &amp; Дэлгэц дээрх текст"</string>
+    <string name="accessibility_experimental_category_title" msgid="3401773834179170206">"Туршилтын"</string>
+    <string name="accessibility_services_category_title" msgid="8813843874978910442">"Үйлчилгээнүүд"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"Үйлчилгээний тохиргоо"</string>
+    <string name="accessibility_screen_reader_flattened_component_name" msgid="6834614827111101213">"com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"Өндөр ялгаралтай текст"</string>
+    <string name="accessibility_toggle_bold_text_preference_title" msgid="3328992531170432669">"Тод текст"</string>
+    <string name="accessibility_color_correction" msgid="6765093204922184119">"Өнгө тохируулга"</string>
+    <string name="color_correction_usage" msgid="4160611639548748657">"Өнгө тохируулга ашиглах"</string>
+    <string name="color_correction_color_mode" msgid="5081377780734779169">"Өнгөний горим"</string>
+    <string name="color_correction_mode_deuteranomaly" msgid="1513793544554228224">"Дьютераномаль"</string>
+    <string name="color_correction_mode_deuteranomaly_summary" msgid="5991561481464520986">"Улаан-ногоон"</string>
+    <string name="color_correction_mode_protanomaly" msgid="8105793166015115037">"Протаномаль"</string>
+    <string name="color_correction_mode_protanomaly_summary" msgid="3247619910784115563">"Улаан-ногоон"</string>
+    <string name="color_correction_mode_tritanomaly" msgid="757769418392736089">"Тританомаль"</string>
+    <string name="color_correction_mode_tritanomaly_summary" msgid="137712354510881252">"Цэнхэр-шар"</string>
+    <string name="color_correction_mode_grayscale" msgid="2592973844160514484">"Саарал өнгө"</string>
+    <string name="palette_color_red" msgid="507196433434979086">"Улаан"</string>
+    <string name="palette_color_orange" msgid="6209196069366109835">"Улбар шар"</string>
+    <string name="palette_color_yellow" msgid="298466132578870590">"Шар"</string>
+    <string name="palette_color_green" msgid="4904783063036825668">"Ногоон"</string>
+    <string name="palette_color_cyan" msgid="3212217287628948203">"Ногоон хөх"</string>
+    <string name="palette_color_blue" msgid="8836682634988540630">"Цэнхэр"</string>
+    <string name="palette_color_purple" msgid="2123828754639683555">"Нил ягаан"</string>
+    <string name="palette_color_gray" msgid="4014534773994261194">"Саарал"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"Хандалтын товчлол"</string>
     <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"Хандалтын товчлолыг идэвхжүүлэх"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"Товчлолын үйлчилгээ"</string>
@@ -860,7 +927,7 @@
     <string name="device_apps_app_management_disable_desc" msgid="9143166267511427607">"Та энэ апликейшнийг идэвхгүй болгомоор байна уу?"</string>
     <string name="device_apps_app_management_enable" msgid="9173340340253029114">"Идэвхжүүлэх"</string>
     <string name="device_apps_app_management_enable_desc" msgid="8686291003061136476">"Та энэ апликейшнийг идэвхтэй болгомоор байна уу?"</string>
-    <string name="device_apps_app_management_storage_used" msgid="6725789557993296433">"Санах ойг ашигласан зай"</string>
+    <string name="device_apps_app_management_storage_used" msgid="6725789557993296433">"Ашигласан хадгалах сан"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="8928632612101487179">"<xliff:g id="SIZE">%1$s</xliff:g>-ыг <xliff:g id="VOLUME">%2$s</xliff:g>-д ашигласан"</string>
     <string name="device_apps_app_management_clear_data" msgid="7305471678286735600">"Өгөгдлийг арилгах"</string>
     <string name="device_apps_app_management_clear_data_desc" msgid="170972356946852847">"Апп-ийн бүх өгөгдөл бүрмөсөн устах болно.\nҮүнд бүх файл, тохиргоо, бүртгэл өгөгдөл гэх мэт багтана."</string>
@@ -885,12 +952,24 @@
     <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"Идэвхгүй байдал дуусмагц дэлгэц амраагч ажиллаж эхэлнэ. Хэрэв дэлгэц амраагч сонгоогүй бол дэлгэц унтрах болно."</string>
     <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"Идэвхгүй байдал үргэлжилсний дараах <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
     <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"Дэлгэцийг унтраах"</string>
-    <string name="device_energy_saver_screen_off_description" msgid="4469679706899396071">"<xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>-н дараа"</string>
-    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"Дэлгэцийг унтраах хүртэл:"</string>
-    <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"Дэлгэцийг унтраахыг зөвшөөрөх"</string>
-    <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"Медиаг дахин тоглуулах үеэр"</string>
-    <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"Эрчим хүч хэмнэгч тохиргоог баталгаажуулах"</string>
-    <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"Эрчим хүчний хэрэглээг ихэсгэх боломжтой шинэ тохиргоог <xliff:g id="SLEEP_TIME">%1$s</xliff:g>-д баталгаажуулна уу."</string>
+    <!-- no translation found for device_energy_saver_timeout_description (3206609135199137514) -->
+    <skip />
+    <string name="device_energy_saver_confirmation_title" msgid="7614859812773584773">"Цэнэг болон эрчим хүчний тохиргоог баталгаажуулах"</string>
+    <string name="device_energy_saver_confirmation_message" msgid="7789453187001013951">"ТВ-гээ удаан хугацаагаар асаалттай орхих нь эрчим хүчний хэрэглээг нэмэгдүүлж болзошгүй"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_title" msgid="1468097048101593731">"Эрчим хүч хэмнэгч тохиргоог идэвхгүй болгох"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_text" msgid="6334963903866002164">"Үзэж байх явцад дэлгэц унтрахаас сэргийлэхийн тулд баталгаажуулна уу. Энэ нь эрчим хүчний хэрэглээг нэмэгдүүлэх магадлалтай."</string>
+    <string name="device_energy_saver_sleep_timeout" msgid="1841900768718452039">"Идэвхгүй үед"</string>
+    <string name="device_energy_saver_attentive_timeout" msgid="3649486668821348087">"Үзэж байх үед"</string>
+    <string name="device_energy_saver_category_title" msgid="170076161677525986">"Автоматаар унтраах"</string>
+    <string name="device_energy_saver_sleep_timeout_dialog_title" msgid="6588352532253294558">"Идэвхгүй үед автоматаар унтраах"</string>
+    <string name="device_energy_saver_attentive_timeout_dialog_title" msgid="3273988875711109352">"Үзэж байх үед автоматаар унтраах"</string>
+    <string name="device_energy_saver_validation_sleep" msgid="7490897287741107840">"\"Идэвхгүй үеийн\" цаг хэмжигч нь \"Үзэх үеийн\" цаг хэмжигчээс богино байх ёстой"</string>
+    <string name="device_energy_saver_validation_attentive" msgid="1461105528087097435">"\"Үзэх үеийн\" цаг хэмжигч нь \"Идэвхгүй үеийн\" цаг хэмжигчээс урт байх ёстой"</string>
+    <string name="limit_network_in_standby_toggle_title" msgid="6587185599397355336">"Зогсолтод сүлжээний холболтыг хязгаарлах"</string>
+    <string name="limit_network_in_standby_toggle_summary" msgid="9127792748675581174">"Зогсолтын горимд илүү бага эрчим хүч ашиглана"</string>
+    <string name="limit_network_in_standby_toggle_info" msgid="566947772381093991">"Зогсолтын горимд байх үед автомат шинэчэлтүүдийг хүлээн авахаас бусад тохиолдолд таны ТВ-ийг сүлжээнээс тань салгана. Энэ нь таны ТВ-ийн эрчим хүчний ашиглалтыг багасгаж магадгүй хэдий ч энэ нь та мөн зогсолтын горимд байх үед Cast болон Google Туслах зэрэг функцийг ашиглах боломжгүй байж магадгүй гэсэн үг юм."</string>
+    <string name="limit_network_in_standby_confirm_title" msgid="789232987058850322">"Сүлжээний холболтыг зогсолтын горимд байхыг зөвшөөрөх"</string>
+    <string name="limit_network_in_standby_confirm_message" msgid="7176699480768019689">"Сүлжээний холболтыг зогсолтын горимд байхыг зөвшөөрснөөр зогсолтын эрчим хүчний ашиглалтыг нэмэгдүүлнэ."</string>
     <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"Одоогоор ямар ч бүртгэл нөөц мэдээллийг хадгалаагүй байна"</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"Таны Wi-Fi нууц үг, хавчуурга, бусад тохиргоо болон апп-ын мэдээллийг хадгалахаа зогсоож, Google серверүүд дээр байгаа бүх хуулбаруудыг устгах уу?"</string>
@@ -978,12 +1057,17 @@
     <string name="time_to_start_read_title" msgid="6565449163802837806">"Аудиог уншиж эхлэхийн өмнөх хугацаа"</string>
     <string name="time_to_valid_audio_title" msgid="7246101824813414348">"Аудионы чимээтэй хэсгийг бичихийн өмнөх хугацаа"</string>
     <string name="empty_audio_duration_title" msgid="9024377320171450683">"Аудионы чимээгүй хэсгийн үргэлжлэх хугацаа"</string>
+    <string name="record_audio_source_title" msgid="9087784503276397929">"Хальсанд хураагдсан аудио эх сурвалж"</string>
+    <string name="record_audio_source_dialog_title" msgid="6556408220589197097">"Дараагийн бичлэг хийхдээ хальсанд хураагдсан аудио эх сурвалжийг сонгоно уу"</string>
+    <string name="recorded_microphones_title" msgid="5466988146086215426">"Хальсанд хураагдсан микрофон"</string>
     <string name="show_audio_recording_start_failed" msgid="9131762831381326605">"Аудио бичихийг эхлүүлж чадсангүй."</string>
     <string name="show_audio_recording_failed" msgid="8128216664039868681">"Аудио бичлэг хийх амжилтгүй боллоо."</string>
     <string name="title_data_saver" msgid="7500278996154002792">"Дата хэмнэгч"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"Илүү бага мобайл дата ашиглахын тулд видеоны чанарыг автоматаар тохируулах"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"Дата ашиглалт болон сэрэмжлүүлэг"</string>
     <string name="data_saver_header_info" msgid="2706725187498535785">"Та Wi-Fi, Ethernet эсвэл утасныхаа сүлжээний цэгээр дамжуулан интернэтэд холбогдох боломжтой."</string>
+    <string name="bluetooth_ask_discovery_title" msgid="4955540555242269694">"Бусад Bluetooth төхөөрөмжид харагддаг болгох уу?"</string>
+    <string name="bluetooth_ask_discovery_message" msgid="8609666862877703398">"Апп нь таны ТВ-г бусад Bluetooth төхөөрөмжид <xliff:g id="TIMEOUT">%1$d</xliff:g> секундийн турш харуулахыг хүсэж байна."</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"Үйлдлийг зөвшөөрөөгүй"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"Дууны түвшнийг өөрчлөх боломжгүй"</string>
@@ -1034,4 +1118,9 @@
     <string name="power_on_behavior" msgid="927607372303160716">"Асаалттай үеийн төлөв"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"Шинэчлэх"</string>
     <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"Этернэт хослуулах код"</string>
+    <string name="energy_modes" msgid="1331693860386361744">"Эрчим хүчний горимууд"</string>
+    <string name="energy_modes_summary" msgid="7196407759836930799">"ТВ-ийг ашиглаагүй үед эрчим хүчний үр ашигтай байдлыг сайжруулах"</string>
+    <string name="energy_mode_enables" msgid="357960364751477627">"Идэвхжүүлнэ:"</string>
+    <string name="energy_mode_eco_hint" msgid="1461517905015359947">"Энэ горим нь төхөөрөмжийн эрчим хүч зарцуулалтыг нэмэгдүүлж болохыг анхаарна уу."</string>
+    <string name="energy_modes_confirmation_title" msgid="4520280098781914825">"\"<xliff:g id="ENERGYMODENAME">%s</xliff:g>\"-г идэвхжүүлэх"</string>
 </resources>

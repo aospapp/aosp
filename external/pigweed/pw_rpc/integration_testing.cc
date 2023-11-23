@@ -24,23 +24,27 @@
 namespace pw::rpc::integration_test {
 namespace {
 
-SocketClientContext<512> context;
+// Hard-coded to 1055 bytes, which is enough to fit 512-byte payloads when using
+// HDLC framing.
+SocketClientContext<1055> context;
 unit_test::LoggingEventHandler log_test_events;
 
 }  // namespace
 
 Client& client() { return context.client(); }
 
-Status InitializeClient(int argc, char* argv[], const char* usage_args) {
+int GetClientSocketFd() { return context.GetSocketFd(); }
+
+void SetEgressChannelManipulator(ChannelManipulator* new_channel_manipulator) {
+  context.SetEgressChannelManipulator(new_channel_manipulator);
+}
+
+void SetIngressChannelManipulator(ChannelManipulator* new_channel_manipulator) {
+  context.SetIngressChannelManipulator(new_channel_manipulator);
+}
+
+Status InitializeClient(int port) {
   unit_test::RegisterEventHandler(&log_test_events);
-
-  if (argc < 2) {
-    PW_LOG_INFO("Usage: %s %s", argv[0], usage_args);
-    return Status::InvalidArgument();
-  }
-
-  const int port = std::atoi(argv[1]);
-
   if (port <= 0 || port > std::numeric_limits<uint16_t>::max()) {
     PW_LOG_CRITICAL("Port numbers must be between 1 and 65535; %d is invalid",
                     port);
@@ -49,6 +53,18 @@ Status InitializeClient(int argc, char* argv[], const char* usage_args) {
 
   PW_LOG_INFO("Connecting to pw_rpc client at localhost:%d", port);
   return context.Start(port);
+}
+
+void TerminateClient() { context.Terminate(); }
+
+Status InitializeClient(int argc, char* argv[], const char* usage_args) {
+  if (argc < 2) {
+    PW_LOG_INFO("Usage: %s %s", argv[0], usage_args);
+    return Status::InvalidArgument();
+  }
+
+  const int port = std::atoi(argv[1]);
+  return InitializeClient(port);
 }
 
 }  // namespace pw::rpc::integration_test

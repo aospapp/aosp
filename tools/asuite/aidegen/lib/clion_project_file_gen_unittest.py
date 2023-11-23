@@ -78,7 +78,7 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
                        'get_module_path')
     def test_init_with_mod_info_makedir(
             self, mock_get_path, mock_get_cmake, mock_exists, mock_mkdirs):
-        """Test __init__ with mod_info and check if need to make dir."""
+        """Test __init__ with mod_info and check if we need to make dir."""
         mod_info = dict(self._MOD_INFO)
         mod_info.update(self._MOD_NAME_DICT)
         mock_get_path.return_value = self._MOD_PATH
@@ -109,7 +109,7 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
         expected = expected.replace(
             clion_project_file_gen._PROJECT_NAME_TOKEN, clion_gen.mod_name)
         expected = expected.replace(
-            clion_project_file_gen._ANDOIR_ROOT_TOKEN,
+            clion_project_file_gen._ANDROID_ROOT_TOKEN,
             common_util.get_android_root_dir())
         self.assertEqual(content, expected)
 
@@ -591,6 +591,7 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
         res = clion_project_file_gen.CLionProjectFileGenerator.get_module_path(
             mod_info, 'a/d')
         self.assertEqual(res, path_d)
+
 
 if __name__ == '__main__':
     unittest.main()

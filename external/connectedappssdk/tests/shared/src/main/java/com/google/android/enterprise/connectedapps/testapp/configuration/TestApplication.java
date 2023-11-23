@@ -19,7 +19,7 @@ import android.app.Service;
 import com.google.android.enterprise.connectedapps.annotations.CrossProfileConfiguration;
 import com.google.android.enterprise.connectedapps.testapp.connector.TestProfileConnector_Service;
 import com.google.android.enterprise.connectedapps.testapp.types.SeparateBuildTargetProvider;
-import com.google.android.enterprise.connectedapps.testapp.types.TestInterfaceProvider;
+import com.google.android.enterprise.connectedapps.testapp.TestInterfaceProvider;
 import com.google.android.enterprise.connectedapps.testapp.types.TestProvider;
 
 @CrossProfileConfiguration(providers = {

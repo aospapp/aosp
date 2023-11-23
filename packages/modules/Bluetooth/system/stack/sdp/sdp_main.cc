@@ -22,8 +22,10 @@
  *
  ******************************************************************************/
 
+#include <base/logging.h>
 #include <string.h>  // memset
 
+#include "gd/common/init_flags.h"
 #include "osi/include/allocator.h"
 #include "osi/include/osi.h"  // UNUSED_ATTR
 #include "stack/include/bt_hdr.h"
@@ -33,8 +35,6 @@
 #include "stack/include/sdp_api.h"
 #include "stack/sdp/sdpint.h"
 #include "types/raw_address.h"
-
-#include <base/logging.h>
 
 /******************************************************************************/
 /*                     G L O B A L      S D P       D A T A                   */
@@ -256,20 +256,23 @@ static void sdp_disconnect_ind(uint16_t l2cap_cid, bool ack_needed) {
     SDP_TRACE_WARNING("SDP - Rcvd L2CAP disc, unknown CID: 0x%x", l2cap_cid);
     return;
   }
+  tCONN_CB& ccb = *p_ccb;
 
-  SDP_TRACE_EVENT("SDP - Rcvd L2CAP disc, CID: 0x%x", l2cap_cid);
-  /* Tell the user if there is a callback */
-  if (p_ccb->p_cb)
-    (*p_ccb->p_cb)(((p_ccb->con_state == SDP_STATE_CONNECTED)
-                        ? SDP_SUCCESS
-                        : SDP_CONN_FAILED));
-  else if (p_ccb->p_cb2)
-    (*p_ccb->p_cb2)(
-        ((p_ccb->con_state == SDP_STATE_CONNECTED) ? SDP_SUCCESS
-                                                   : SDP_CONN_FAILED),
-        p_ccb->user_data);
+  const tSDP_REASON reason =
+      (ccb.con_state == SDP_STATE_CONNECTED) ? SDP_SUCCESS : SDP_CONN_FAILED;
+  sdpu_callback(ccb, reason);
 
-  sdpu_release_ccb(p_ccb);
+  if (ack_needed) {
+    SDP_TRACE_WARNING("SDP - Rcvd L2CAP disc, process pend sdp ccb: 0x%x",
+                      l2cap_cid);
+    sdpu_process_pend_ccb_new_cid(ccb);
+  } else {
+    SDP_TRACE_WARNING("SDP - Rcvd L2CAP disc, clear pend sdp ccb: 0x%x",
+                      l2cap_cid);
+    sdpu_clear_pend_ccb(ccb);
+  }
+
+  sdpu_release_ccb(ccb);
 }
 
 /*******************************************************************************
@@ -328,12 +331,12 @@ tCONN_CB* sdp_conn_originate(const RawAddress& p_bd_addr) {
   p_ccb = sdpu_allocate_ccb();
   if (p_ccb == NULL) {
     SDP_TRACE_WARNING("%s: no spare CCB for peer %s", __func__,
-                      p_bd_addr.ToString().c_str());
+                      ADDRESS_TO_LOGGABLE_CSTR(p_bd_addr));
     return (NULL);
   }
 
   SDP_TRACE_EVENT("%s: SDP - Originate started for peer %s", __func__,
-                  p_bd_addr.ToString().c_str());
+                  ADDRESS_TO_LOGGABLE_CSTR(p_bd_addr));
 
   /* We are the originator of this connection */
   p_ccb->con_flags |= SDP_FLAGS_IS_ORIG;
@@ -345,13 +348,24 @@ tCONN_CB* sdp_conn_originate(const RawAddress& p_bd_addr) {
    */
   p_ccb->con_state = SDP_STATE_CONN_SETUP;
 
-  cid = L2CA_ConnectReq2(BT_PSM_SDP, p_bd_addr, BTM_SEC_NONE);
+  // Look for any active sdp connection on the remote device
+  cid = sdpu_get_active_ccb_cid(p_bd_addr);
+
+  if (!bluetooth::common::init_flags::sdp_serialization_is_enabled() ||
+      cid == 0) {
+    p_ccb->con_state = SDP_STATE_CONN_SETUP;
+    cid = L2CA_ConnectReq2(BT_PSM_SDP, p_bd_addr, BTM_SEC_NONE);
+  } else {
+    p_ccb->con_state = SDP_STATE_CONN_PEND;
+    SDP_TRACE_WARNING("SDP already active for peer %s. cid=%#0x",
+                      ADDRESS_TO_LOGGABLE_CSTR(p_bd_addr), cid);
+  }
 
   /* Check if L2CAP started the connection process */
   if (cid == 0) {
     SDP_TRACE_WARNING("%s: SDP - Originate failed for peer %s", __func__,
-                      p_bd_addr.ToString().c_str());
-    sdpu_release_ccb(p_ccb);
+                      ADDRESS_TO_LOGGABLE_CSTR(p_bd_addr));
+    sdpu_release_ccb(*p_ccb);
     return (NULL);
   }
   p_ccb->connection_id = cid;
@@ -368,24 +382,27 @@ tCONN_CB* sdp_conn_originate(const RawAddress& p_bd_addr) {
  *
  ******************************************************************************/
 void sdp_disconnect(tCONN_CB* p_ccb, tSDP_REASON reason) {
-  SDP_TRACE_EVENT("SDP - disconnect  CID: 0x%x", p_ccb->connection_id);
+  tCONN_CB& ccb = *p_ccb;
+  SDP_TRACE_EVENT("SDP - disconnect  CID: 0x%x", ccb.connection_id);
 
   /* Check if we have a connection ID */
-  if (p_ccb->connection_id != 0) {
-    L2CA_DisconnectReq(p_ccb->connection_id);
-    p_ccb->disconnect_reason = reason;
+  if (ccb.connection_id != 0) {
+    ccb.disconnect_reason = reason;
+    if (SDP_SUCCESS == reason && sdpu_process_pend_ccb_same_cid(*p_ccb)) {
+      sdpu_callback(ccb, reason);
+      sdpu_release_ccb(ccb);
+      return;
+    } else {
+      L2CA_DisconnectReq(ccb.connection_id);
+    }
   }
 
   /* If at setup state, we may not get callback ind from L2CAP */
   /* Call user callback immediately */
-  if (p_ccb->con_state == SDP_STATE_CONN_SETUP) {
-    /* Tell the user if there is a callback */
-    if (p_ccb->p_cb)
-      (*p_ccb->p_cb)(reason);
-    else if (p_ccb->p_cb2)
-      (*p_ccb->p_cb2)(reason, p_ccb->user_data);
-
-    sdpu_release_ccb(p_ccb);
+  if (ccb.con_state == SDP_STATE_CONN_SETUP) {
+    sdpu_callback(ccb, reason);
+    sdpu_clear_pend_ccb(ccb);
+    sdpu_release_ccb(ccb);
   }
 }
 
@@ -409,17 +426,13 @@ static void sdp_disconnect_cfm(uint16_t l2cap_cid,
                       l2cap_cid);
     return;
   }
+  tCONN_CB& ccb = *p_ccb;
 
   SDP_TRACE_EVENT("SDP - Rcvd L2CAP disc cfm, CID: 0x%x", l2cap_cid);
 
-  /* Tell the user if there is a callback */
-  if (p_ccb->p_cb)
-    (*p_ccb->p_cb)(static_cast<tSDP_STATUS>(p_ccb->disconnect_reason));
-  else if (p_ccb->p_cb2)
-    (*p_ccb->p_cb2)(static_cast<tSDP_STATUS>(p_ccb->disconnect_reason),
-                    p_ccb->user_data);
-
-  sdpu_release_ccb(p_ccb);
+  sdpu_callback(ccb, static_cast<tSDP_STATUS>(ccb.disconnect_reason));
+  sdpu_process_pend_ccb_new_cid(ccb);
+  sdpu_release_ccb(ccb);
 }
 
 /*******************************************************************************
@@ -433,16 +446,14 @@ static void sdp_disconnect_cfm(uint16_t l2cap_cid,
  *
  ******************************************************************************/
 void sdp_conn_timer_timeout(void* data) {
-  tCONN_CB* p_ccb = (tCONN_CB*)data;
+  tCONN_CB& ccb = *(tCONN_CB*)data;
 
-  SDP_TRACE_EVENT("SDP - CCB timeout in state: %d  CID: 0x%x", p_ccb->con_state,
-                  p_ccb->connection_id);
+  SDP_TRACE_EVENT("SDP - CCB timeout in state: %d  CID: 0x%x", ccb.con_state,
+                  ccb.connection_id);
 
-  L2CA_DisconnectReq(p_ccb->connection_id);
-  /* Tell the user if there is a callback */
-  if (p_ccb->p_cb)
-    (*p_ccb->p_cb)(SDP_CONN_FAILED);
-  else if (p_ccb->p_cb2)
-    (*p_ccb->p_cb2)(SDP_CONN_FAILED, p_ccb->user_data);
-  sdpu_release_ccb(p_ccb);
+  L2CA_DisconnectReq(ccb.connection_id);
+
+  sdpu_callback(ccb, SDP_CONN_FAILED);
+  sdpu_clear_pend_ccb(ccb);
+  sdpu_release_ccb(ccb);
 }

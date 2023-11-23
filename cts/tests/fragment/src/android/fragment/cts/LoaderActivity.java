@@ -29,7 +29,7 @@ import java.util.concurrent.CountDownLatch;
  * This Activity sets the text when loading completes. It also tracks the Activity in
  * a static variable, so it must be cleared in test tear down.
  */
-public class LoaderActivity extends RecreatedActivity {
+public class LoaderActivity extends FragmentTestActivity {
     public TextView textView;
     public TextView textViewB;
     public CountDownLatch loadFinished = new CountDownLatch(1);

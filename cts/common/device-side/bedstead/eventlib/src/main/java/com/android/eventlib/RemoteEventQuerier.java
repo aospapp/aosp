@@ -164,6 +164,7 @@ public class
         blockingConnectOrFail();
     }
 
+    @SuppressWarnings("NewApi") // bindServiceAsUser
     private void blockingConnectOrFail() {
         mConnectionCountdown = new CountDownLatch(1);
         Intent intent = new Intent();

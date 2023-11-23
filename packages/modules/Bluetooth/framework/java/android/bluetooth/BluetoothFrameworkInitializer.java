@@ -17,7 +17,6 @@ package android.bluetooth;
 
 import android.annotation.NonNull;
 import android.annotation.SystemApi;
-import android.annotation.SystemApi.Client;
 import android.app.SystemServiceRegistry;
 import android.content.Context;
 import android.os.BluetoothServiceManager;
@@ -31,74 +30,74 @@ import java.util.function.Consumer;
  */
 @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
 public class BluetoothFrameworkInitializer {
-  private BluetoothFrameworkInitializer() {}
+    private BluetoothFrameworkInitializer() {}
 
-  private static volatile BluetoothServiceManager sBluetoothServiceManager;
-  private static volatile Consumer<Context> sBinderCallsStatsInitializer;
+    private static volatile BluetoothServiceManager sBluetoothServiceManager;
+    private static volatile Consumer<Context> sBinderCallsStatsInitializer;
 
-  /**
-   * Sets an instance of {@link BluetoothServiceManager} that allows
-   * the bluetooth mainline module to register/obtain bluetooth binder services. This is called
-   * by the platform during the system initialization.
-   *
-   * @param bluetoothServiceManager instance of {@link BluetoothServiceManager} that allows
-   * the bluetooth mainline module to register/obtain bluetoothd binder services.
-   */
-  public static void setBluetoothServiceManager(
-      @NonNull BluetoothServiceManager bluetoothServiceManager) {
-    if (sBluetoothServiceManager != null) {
-      throw new IllegalStateException("setBluetoothServiceManager called twice!");
+    /**
+     * Sets an instance of {@link BluetoothServiceManager} that allows
+     * the bluetooth mainline module to register/obtain bluetooth binder services. This is called
+     * by the platform during the system initialization.
+     *
+     * @param bluetoothServiceManager instance of {@link BluetoothServiceManager} that allows
+     * the bluetooth mainline module to register/obtain bluetoothd binder services.
+     */
+    public static void setBluetoothServiceManager(
+            @NonNull BluetoothServiceManager bluetoothServiceManager) {
+        if (sBluetoothServiceManager != null) {
+            throw new IllegalStateException("setBluetoothServiceManager called twice!");
+        }
+
+        if (bluetoothServiceManager == null) {
+            throw new IllegalArgumentException("bluetoothServiceManager must not be null");
+        }
+
+        sBluetoothServiceManager = bluetoothServiceManager;
     }
 
-    if (bluetoothServiceManager == null) {
-      throw new IllegalArgumentException("bluetoothServiceManager must not be null");
+    /** @hide */
+    public static BluetoothServiceManager getBluetoothServiceManager() {
+        return sBluetoothServiceManager;
     }
 
-    sBluetoothServiceManager = bluetoothServiceManager;
-  }
+    /**
+     * Called by {@link ActivityThread}'s static initializer to set the callback enabling Bluetooth
+     * {@link BinderCallsStats} registeration.
+     *
+     * @param binderCallsStatsConsumer called by bluetooth service to create a new binder calls
+     *        stats observer
+     */
+    public static void setBinderCallsStatsInitializer(
+            @NonNull Consumer<Context> binderCallsStatsConsumer) {
+        if (sBinderCallsStatsInitializer != null) {
+            throw new IllegalStateException("setBinderCallsStatsInitializer called twice!");
+        }
 
-  /** @hide */
-  public static BluetoothServiceManager getBluetoothServiceManager() {
-    return sBluetoothServiceManager;
-  }
+        if (binderCallsStatsConsumer == null) {
+            throw new IllegalArgumentException("binderCallsStatsConsumer must not be null");
+        }
 
-  /**
-   * Called by {@link ActivityThread}'s static initializer to set the callback enabling Bluetooth
-   * {@link BinderCallsStats} registeration.
-   *
-   * @param binderCallsStatsConsumer called by bluetooth service to create a new binder calls
-   *        stats observer
-   */
-  public static void setBinderCallsStatsInitializer(
-      @NonNull Consumer<Context> binderCallsStatsConsumer) {
-    if (sBinderCallsStatsInitializer != null) {
-      throw new IllegalStateException("setBinderCallsStatsInitializer called twice!");
+        sBinderCallsStatsInitializer = binderCallsStatsConsumer;
     }
 
-    if (binderCallsStatsConsumer == null) {
-      throw new IllegalArgumentException("binderCallsStatsConsumer must not be null");
+    /** @hide */
+    public static void initializeBinderCallsStats(Context context) {
+        if (sBinderCallsStatsInitializer == null) {
+            throw new IllegalStateException("sBinderCallsStatsInitializer has not been set");
+        }
+        sBinderCallsStatsInitializer.accept(context);
     }
 
-    sBinderCallsStatsInitializer = binderCallsStatsConsumer;
-  }
-
-  /** @hide */
-  public static void initializeBinderCallsStats(Context context) {
-    if (sBinderCallsStatsInitializer == null) {
-      throw new IllegalStateException("sBinderCallsStatsInitializer has not been set");
+    /**
+     * Called by {@link SystemServiceRegistry}'s static initializer and registers BT service
+     * to {@link Context}, so that {@link Context#getSystemService} can return them.
+     *
+     * @throws IllegalStateException if this is called from anywhere besides
+     * {@link SystemServiceRegistry}
+     */
+    public static void registerServiceWrappers() {
+        SystemServiceRegistry.registerContextAwareService(Context.BLUETOOTH_SERVICE,
+                BluetoothManager.class, context -> new BluetoothManager(context));
     }
-    sBinderCallsStatsInitializer.accept(context);
-  }
-
-  /**
-   * Called by {@link SystemServiceRegistry}'s static initializer and registers BT service
-   * to {@link Context}, so that {@link Context#getSystemService} can return them.
-   *
-   * @throws IllegalStateException if this is called from anywhere besides
-   * {@link SystemServiceRegistry}
-   */
-  public static void registerServiceWrappers() {
-    SystemServiceRegistry.registerContextAwareService(Context.BLUETOOTH_SERVICE,
-        BluetoothManager.class, context -> new BluetoothManager(context));
-  }
 }

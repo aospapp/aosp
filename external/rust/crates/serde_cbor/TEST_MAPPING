@@ -12,27 +12,24 @@
     },
     {
       "path": "external/rust/crates/unicode-xid"
+    },
+    {
+      "path": "packages/modules/Virtualization/avmd"
+    },
+    {
+      "path": "packages/modules/Virtualization/microdroid_manager"
+    },
+    {
+      "path": "system/security/diced"
+    },
+    {
+      "path": "system/security/keystore2"
+    },
+    {
+      "path": "system/security/keystore2/legacykeystore"
     }
   ],
   "presubmit": [
-    {
-      "name": "diced_test"
-    },
-    {
-      "name": "diced_vendor_test"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "keystore2_test_utils_test"
-    },
-    {
-      "name": "legacykeystore_test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
     {
       "name": "serde_cbor_test_tests_bennofs"
     },
@@ -59,24 +56,6 @@
     }
   ],
   "presubmit-rust": [
-    {
-      "name": "diced_test"
-    },
-    {
-      "name": "diced_vendor_test"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "keystore2_test_utils_test"
-    },
-    {
-      "name": "legacykeystore_test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
     {
       "name": "serde_cbor_test_tests_bennofs"
     },

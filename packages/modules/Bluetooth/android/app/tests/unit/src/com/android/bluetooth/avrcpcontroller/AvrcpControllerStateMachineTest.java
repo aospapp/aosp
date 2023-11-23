@@ -49,7 +49,6 @@ import com.android.bluetooth.btservice.storage.DatabaseManager;
 import org.hamcrest.core.IsInstanceOf;
 import org.junit.After;
 import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -90,8 +89,6 @@ public class AvrcpControllerStateMachineTest {
 
     @Before
     public void setUp() throws Exception {
-        Assume.assumeTrue("Ignore test when AVRCP Controller is not enabled",
-                AvrcpControllerService.isEnabled());
         if (Looper.myLooper() == null) {
             Looper.prepare();
         }
@@ -141,9 +138,6 @@ public class AvrcpControllerStateMachineTest {
 
     @After
     public void tearDown() throws Exception {
-        if (!AvrcpControllerService.isEnabled()) {
-            return;
-        }
         destroyStateMachine(mAvrcpStateMachine);
         TestUtils.clearAdapterService(mAvrcpAdapterService);
     }
@@ -185,6 +179,15 @@ public class AvrcpControllerStateMachineTest {
             mAvrcpStateMachine.setDeviceState(AvrcpControllerService.DEVICE_STATE_INACTIVE);
             BluetoothMediaBrowserService.reset();
         }
+    }
+
+    /**
+     * Send an audio focus changed event to the state machine under test
+     */
+    private void sendAudioFocusUpdate(int state) {
+        when(mA2dpSinkService.getFocusState()).thenReturn(state);
+        mAvrcpStateMachine.sendMessage(
+                AvrcpControllerStateMachine.AUDIO_FOCUS_STATE_CHANGE, state);
     }
 
     /**
@@ -322,14 +325,30 @@ public class AvrcpControllerStateMachineTest {
         assertNowPlayingList(nowPlayingList);
     }
 
+    private String avrcpItemListToString(List<AvrcpItem> items) {
+        StringBuilder s = new StringBuilder();
+        s.append("[");
+        if (items != null) {
+            for (int i = 0; i < items.size(); i++) {
+                AvrcpItem item = items.get(i);
+                s.append((item != null ? Long.toString(item.getUid()) : "null"));
+                if (i != items.size() - 1) s.append(", ");
+            }
+        }
+        s.append("]");
+        return s.toString();
+    }
+
     /**
      * Assert that the Now Playing list is a particular value
      */
     private void assertNowPlayingList(List<AvrcpItem> expected) {
         List<AvrcpItem> current = getNowPlayingList();
-        Assert.assertEquals(expected.size(), current.size());
+        String err = "Now playing list incorrect, expected="
+                + avrcpItemListToString(expected) + ", actual=" + avrcpItemListToString(current);
+        Assert.assertEquals(err, expected.size(), current.size());
         for (int i = 0; i < expected.size(); i++) {
-            Assert.assertEquals(expected.get(i), current.get(i));
+            Assert.assertEquals(err, expected.get(i), current.get(i));
         }
     }
 
@@ -665,12 +684,12 @@ public class AvrcpControllerStateMachineTest {
     @FlakyTest
     public void testBrowsingCommands() {
         setUpConnectedState(true, true);
-        final String rootName = "__ROOT__";
+        final String rootName = "__ROOT__" + mTestDevice.getAddress().toString();
         final String playerName = "Player 1";
 
         //Get the root of the device
         BrowseTree.BrowseNode results = mAvrcpStateMachine.findNode(rootName);
-        Assert.assertEquals(rootName + mTestDevice.toString(), results.getID());
+        Assert.assertEquals(rootName, results.getID());
 
         //Request fetch the list of players
         BrowseTree.BrowseNode playerNodes = mAvrcpStateMachine.findNode(results.getID());
@@ -687,14 +706,9 @@ public class AvrcpControllerStateMachineTest {
         testPlayers.add(playerOne);
         mAvrcpStateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_PLAYER_ITEMS,
                 testPlayers);
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
 
         //Verify that the player object is available.
-        mAvrcpStateMachine.requestContents(results);
-        verify(mAvrcpControllerService,
-                timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(1)).getPlayerListNative(eq(mTestAddress),
-                eq(1), eq(0));
-        mAvrcpStateMachine.sendMessage(
-                AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS_OUT_OF_RANGE);
         playerNodes = mAvrcpStateMachine.findNode(results.getID());
         Assert.assertEquals(true, results.isCached());
         Assert.assertEquals("MediaItem{mFlags=1, mDescription=" + playerName + ", null, null}",
@@ -721,7 +735,7 @@ public class AvrcpControllerStateMachineTest {
     @Test
     public void testAvailablePlayersChanged() {
         setUpConnectedState(true, true);
-        final String rootName = "__ROOT__";
+        final String rootName = "__ROOT__" + mTestDevice.getAddress().toString();
 
         // Send an available players have changed event
         mAvrcpStateMachine.sendMessage(
@@ -741,11 +755,15 @@ public class AvrcpControllerStateMachineTest {
     @Test
     public void testAvailablePlayersReceived_AddressedPlayerExists() {
         setUpConnectedState(true, true);
-        final String rootName = "__ROOT__";
+        final String rootName = "__ROOT__" + mTestDevice.getAddress().toString();
 
-        // Set an addressed player that will be in the available players set
+        // Set an addressed player that will be in the available players set. A new player triggers
+        // a now playing list download, so send back nothing.
         mAvrcpStateMachine.sendMessage(
                 AvrcpControllerStateMachine.MESSAGE_PROCESS_ADDRESSED_PLAYER_CHANGED, 1);
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+        mAvrcpStateMachine.sendMessage(
+                AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS_OUT_OF_RANGE);
         TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
         clearInvocations(mAvrcpControllerService);
 
@@ -803,7 +821,7 @@ public class AvrcpControllerStateMachineTest {
     @Test
     public void testAvailablePlayersReceived_AddressedPlayerDoesNotExist() {
         setUpConnectedState(true, true);
-        final String rootName = "__ROOT__";
+        final String rootName = "__ROOT__" + mTestDevice.getAddress().toString();
 
         // Send an available players have changed event
         mAvrcpStateMachine.sendMessage(
@@ -858,11 +876,11 @@ public class AvrcpControllerStateMachineTest {
     @Test
     public void testAddressedPlayerChangedToNewKnownPlayer() {
         setUpConnectedState(true, true);
-        final String rootName = "__ROOT__";
+        final String rootName = "__ROOT__" + mTestDevice.getAddress().toString();
 
         //Get the root of the device
         BrowseTree.BrowseNode results = mAvrcpStateMachine.findNode(rootName);
-        Assert.assertEquals(rootName + mTestDevice.toString(), results.getID());
+        Assert.assertEquals(rootName, results.getID());
 
         //Request fetch the list of players
         BrowseTree.BrowseNode playerNodes = mAvrcpStateMachine.findNode(results.getID());
@@ -924,11 +942,11 @@ public class AvrcpControllerStateMachineTest {
     @Test
     public void testAddressedPlayerChangedToUnknownPlayer() {
         setUpConnectedState(true, true);
-        final String rootName = "__ROOT__";
+        final String rootName = "__ROOT__" + mTestDevice.getAddress().toString();
 
         //Get the root of the device
         BrowseTree.BrowseNode rootNode = mAvrcpStateMachine.findNode(rootName);
-        Assert.assertEquals(rootName + mTestDevice.toString(), rootNode.getID());
+        Assert.assertEquals(rootName, rootNode.getID());
 
         //Request fetch the list of players
         BrowseTree.BrowseNode playerNodes = mAvrcpStateMachine.findNode(rootNode.getID());
@@ -973,7 +991,7 @@ public class AvrcpControllerStateMachineTest {
     @Test
     public void testAddressedPlayerChangedToSamePlayerId() {
         setUpConnectedState(true, true);
-        final String rootName = "__ROOT__";
+        final String rootName = "__ROOT__" + mTestDevice.getAddress().toString();
 
         // Set the addressed player so we can change to the same one
         mAvrcpStateMachine.sendMessage(
@@ -987,7 +1005,7 @@ public class AvrcpControllerStateMachineTest {
 
         //Get the root of the device
         BrowseTree.BrowseNode rootNode = mAvrcpStateMachine.findNode(rootName);
-        Assert.assertEquals(rootName + mTestDevice.toString(), rootNode.getID());
+        Assert.assertEquals(rootName, rootNode.getID());
 
         //Request fetch the list of players
         BrowseTree.BrowseNode playerNodes = mAvrcpStateMachine.findNode(rootNode.getID());
@@ -1047,12 +1065,12 @@ public class AvrcpControllerStateMachineTest {
     @Test
     public void testPlayWhileBrowsing() {
         setUpConnectedState(true, true);
-        final String rootName = "__ROOT__";
+        final String rootName = "__ROOT__" + mTestDevice.getAddress().toString();
         final String playerName = "Player 1";
 
         //Get the root of the device
         BrowseTree.BrowseNode results = mAvrcpStateMachine.findNode(rootName);
-        Assert.assertEquals(rootName + mTestDevice.toString(), results.getID());
+        Assert.assertEquals(rootName, results.getID());
 
         //Request fetch the list of players
         BrowseTree.BrowseNode playerNodes = mAvrcpStateMachine.findNode(results.getID());
@@ -1361,5 +1379,533 @@ public class AvrcpControllerStateMachineTest {
 
         List<MediaSessionCompat.QueueItem> queue = controller.getQueue();
         Assert.assertNull(queue);
+    }
+
+    /**
+     * Test receiving an audio focus changed event when we are not recovering from a transient loss.
+     * This should result in no play command being sent.
+     */
+    @Test
+    public void testOnAudioFocusGain_playNotSent() {
+        setUpConnectedState(true, true);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+        TestUtils.waitForLooperToBeIdle(mAvrcpStateMachine.getHandler().getLooper());
+        verify(mAvrcpControllerService, never()).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE), eq(KEY_DOWN));
+        verify(mAvrcpControllerService,never()).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE), eq(KEY_UP));
+    }
+
+    /**
+     * Test receiving a transient loss audio focus changed event while playing. A pause should be
+     * sent
+     */
+    @Test
+    public void testOnAudioFocusTransientLossWhilePlaying_pauseSent() {
+        when(mMockResources.getBoolean(R.bool.a2dp_sink_automatically_request_audio_focus))
+                .thenReturn(false);
+        setUpConnectedState(true, true);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+        setPlaybackState(PlaybackStateCompat.STATE_PLAYING);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
+
+        TestUtils.waitForLooperToBeIdle(mAvrcpStateMachine.getHandler().getLooper());
+        verify(mAvrcpControllerService, times(1)).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE), eq(KEY_DOWN));
+        verify(mAvrcpControllerService, times(1)).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE), eq(KEY_UP));
+    }
+
+    /**
+     * Test receiving a transient loss audio focus changed event while paused. No pause should be
+     * sent
+     */
+    @Test
+    public void testOnAudioFocusTransientLossWhilePaused_pauseNotSent() {
+        setUpConnectedState(true, true);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+        setPlaybackState(PlaybackStateCompat.STATE_PAUSED);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
+
+        TestUtils.waitForLooperToBeIdle(mAvrcpStateMachine.getHandler().getLooper());
+        verify(mAvrcpControllerService, never()).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE), eq(KEY_DOWN));
+        verify(mAvrcpControllerService, never()).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE), eq(KEY_UP));
+    }
+
+    /**
+     * Test receiving an audio focus loss event. A pause should be sent if we were playing
+     */
+    @Test
+    public void testOnAudioFocusLossWhilePlaying_pauseSent() {
+        setUpConnectedState(true, true);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+        setPlaybackState(PlaybackStateCompat.STATE_PLAYING);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_LOSS);
+
+        TestUtils.waitForLooperToBeIdle(mAvrcpStateMachine.getHandler().getLooper());
+        verify(mAvrcpControllerService, times(1)).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE), eq(KEY_DOWN));
+        verify(mAvrcpControllerService, times(1)).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE), eq(KEY_UP));
+    }
+
+    /**
+     * Test receiving an audio focus loss event. A pause should not be sent if we were paused
+     */
+    @Test
+    public void testOnAudioFocusLossWhilePause_pauseNotSent() {
+        setUpConnectedState(true, true);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+        setPlaybackState(PlaybackStateCompat.STATE_PAUSED);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_LOSS);
+
+        TestUtils.waitForLooperToBeIdle(mAvrcpStateMachine.getHandler().getLooper());
+        verify(mAvrcpControllerService, times(0)).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE), eq(KEY_DOWN));
+        verify(mAvrcpControllerService, times(0)).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE), eq(KEY_UP));
+    }
+
+    /**
+     * Test receiving an audio focus gained event following a transient loss where we sent a pause
+     * and no event happened in between that should cause us to remain paused.
+     */
+    @Test
+    public void testOnAudioFocusGainFromTransientLossWhilePlaying_playSent() {
+        testOnAudioFocusTransientLossWhilePlaying_pauseSent();
+        clearInvocations(mAvrcpControllerService);
+        setPlaybackState(PlaybackStateCompat.STATE_PAUSED);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+
+        TestUtils.waitForLooperToBeIdle(mAvrcpStateMachine.getHandler().getLooper());
+        verify(mAvrcpControllerService, times(1)).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PLAY), eq(KEY_DOWN));
+        verify(mAvrcpControllerService, times(1)).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PLAY), eq(KEY_UP));
+    }
+
+    /**
+     * Test receiving an audio focus changed event following a transient loss where
+     */
+    @Test
+    public void testOnAudioFocusGainFromTransientLossWhilePlayingWithPause_playNotSent() {
+        testOnAudioFocusTransientLossWhilePlaying_pauseSent();
+        clearInvocations(mAvrcpControllerService);
+        setPlaybackState(PlaybackStateCompat.STATE_PAUSED);
+        TestUtils.waitForLooperToBeIdle(mAvrcpStateMachine.getHandler().getLooper());
+
+        MediaControllerCompat.TransportControls transportControls =
+                BluetoothMediaBrowserService.getTransportControls();
+        transportControls.pause();
+        verify(mAvrcpControllerService,
+                timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(1)).sendPassThroughCommandNative(
+                eq(mTestAddress), eq(AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE), eq(KEY_DOWN));
+        verify(mAvrcpControllerService,
+                timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(1)).sendPassThroughCommandNative(
+                eq(mTestAddress), eq(AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE), eq(KEY_UP));
+
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+        TestUtils.waitForLooperToBeIdle(mAvrcpStateMachine.getHandler().getLooper());
+
+        verify(mAvrcpControllerService, never()).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PLAY), eq(KEY_DOWN));
+        verify(mAvrcpControllerService, never()).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PLAY), eq(KEY_UP));
+    }
+
+    /**
+     * Test receiving an audio focus gain event coming out of a transient loss where a stop command
+     * has been sent
+     */
+    @Test
+    public void testOnAudioFocusGainFromTransientLossWithStop_playNotSent() {
+        testOnAudioFocusTransientLossWhilePlaying_pauseSent();
+        clearInvocations(mAvrcpControllerService);
+        setPlaybackState(PlaybackStateCompat.STATE_PAUSED);
+        TestUtils.waitForLooperToBeIdle(mAvrcpStateMachine.getHandler().getLooper());
+
+        MediaControllerCompat.TransportControls transportControls =
+                BluetoothMediaBrowserService.getTransportControls();
+        transportControls.stop();
+        verify(mAvrcpControllerService,
+                timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(1)).sendPassThroughCommandNative(
+                eq(mTestAddress), eq(AvrcpControllerService.PASS_THRU_CMD_ID_STOP), eq(KEY_DOWN));
+        verify(mAvrcpControllerService,
+                timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(1)).sendPassThroughCommandNative(
+                eq(mTestAddress), eq(AvrcpControllerService.PASS_THRU_CMD_ID_STOP), eq(KEY_UP));
+
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+        TestUtils.waitForLooperToBeIdle(mAvrcpStateMachine.getHandler().getLooper());
+
+        verify(mAvrcpControllerService, never()).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PLAY), eq(KEY_DOWN));
+        verify(mAvrcpControllerService, never()).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PLAY), eq(KEY_UP));
+    }
+
+    /**
+     * Test receiving an audio focus gain coming out of a transient loss where we were paused going
+     * into the transient loss. No play should be sent because not play state needs to be recovered
+     */
+    @Test
+    public void testOnAudioFocusGainFromTransientLossWhilePaused_playNotSent() {
+        testOnAudioFocusTransientLossWhilePaused_pauseNotSent();
+        clearInvocations(mAvrcpControllerService);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+
+        TestUtils.waitForLooperToBeIdle(mAvrcpStateMachine.getHandler().getLooper());
+        verify(mAvrcpControllerService, never()).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PLAY), eq(KEY_DOWN));
+        verify(mAvrcpControllerService, never()).sendPassThroughCommandNative(eq(mTestAddress),
+                eq(AvrcpControllerService.PASS_THRU_CMD_ID_PLAY), eq(KEY_UP));
+    }
+
+    /**
+     * Test receiving a now playing content changed event while downloading now playing content and
+     * make sure our final now playing content downloaded matches what's expected
+     */
+    @Test
+    public void testNowPlayingListChangedWhileFetchingNowPlayingList_fetchAbortedAndRestarted() {
+        setUpConnectedState(true, true);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+
+        // Fill the list with songs 1 -> 25, more than download step size
+        List<AvrcpItem> nowPlayingList = new ArrayList<AvrcpItem>();
+        for (int i = 1; i <= 25; i++) {
+            String title = "Song " + Integer.toString(i);
+            nowPlayingList.add(makeNowPlayingItem(i, title));
+        }
+
+        // Fill the list with songs 26 -> 50
+        List<AvrcpItem> updatedNowPlayingList = new ArrayList<AvrcpItem>();
+        for (int i = 26; i <= 50; i++) {
+            String title = "Song " + Integer.toString(i);
+            updatedNowPlayingList.add(makeNowPlayingItem(i, title));
+        }
+
+        // Hand hold the download events
+        BrowseTree.BrowseNode nowPlaying = mAvrcpStateMachine.findNode("NOW_PLAYING");
+        mAvrcpStateMachine.requestContents(nowPlaying);
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+
+        // Verify download attempt and send some elements over, verify next set is requested
+        verify(mAvrcpControllerService, times(1)).getNowPlayingListNative(
+                eq(mTestAddress), eq(0), eq(19));
+        mAvrcpStateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS,
+                new ArrayList<AvrcpItem>(nowPlayingList.subList(0, 20)));
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+        verify(mAvrcpControllerService, times(1)).getNowPlayingListNative(
+                eq(mTestAddress), eq(20), eq(39));
+
+        // Force a now playing content invalidation and verify attempted download
+        mAvrcpStateMachine.nowPlayingContentChanged();
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+
+        // Send requested items, they're likely from the new list at this point, but it shouldn't
+        // matter what they are because we should toss them out and restart our download next.
+        mAvrcpStateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS,
+                new ArrayList<AvrcpItem>(nowPlayingList.subList(20, 25)));
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+
+        verify(mAvrcpControllerService, times(2)).getNowPlayingListNative(
+                eq(mTestAddress), eq(0), eq(19));
+
+        mAvrcpStateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS,
+                new ArrayList<AvrcpItem>(updatedNowPlayingList.subList(0, 20)));
+        mAvrcpStateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS,
+                new ArrayList<AvrcpItem>(updatedNowPlayingList.subList(20, 25)));
+        mAvrcpStateMachine.sendMessage(
+                AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS_OUT_OF_RANGE);
+
+        // Wait for the now playing list to be propagated
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+
+        // Make sure its set by re grabbing the node and checking its contents are cached
+        nowPlaying = mAvrcpStateMachine.findNode("NOW_PLAYING");
+        Assert.assertTrue(nowPlaying.isCached());
+        assertNowPlayingList(updatedNowPlayingList);
+    }
+
+    /**
+     * Test receiving a now playing content changed event right after we queued a fetch of some now
+     * playing items. Make sure our final now playing content downloaded matches what's expected
+     */
+    @Test
+    public void testNowPlayingListChangedQueuedFetchingNowPlayingList_fetchAbortedAndRestarted() {
+        setUpConnectedState(true, true);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+
+        // Fill the list with songs 1 -> 25, more than download step size
+        List<AvrcpItem> nowPlayingList = new ArrayList<AvrcpItem>();
+        for (int i = 1; i <= 25; i++) {
+            String title = "Song " + Integer.toString(i);
+            nowPlayingList.add(makeNowPlayingItem(i, title));
+        }
+
+        // Fill the list with songs 26 -> 50
+        List<AvrcpItem> updatedNowPlayingList = new ArrayList<AvrcpItem>();
+        for (int i = 26; i <= 50; i++) {
+            String title = "Song " + Integer.toString(i);
+            updatedNowPlayingList.add(makeNowPlayingItem(i, title));
+        }
+
+        // Hand hold the download events
+        BrowseTree.BrowseNode nowPlaying = mAvrcpStateMachine.findNode("NOW_PLAYING");
+        mAvrcpStateMachine.requestContents(nowPlaying);
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+
+        // Verify download attempt and send some elements over, verify next set is requested
+        verify(mAvrcpControllerService, times(1)).getNowPlayingListNative(
+                eq(mTestAddress), eq(0), eq(19));
+        mAvrcpStateMachine.nowPlayingContentChanged();
+
+        mAvrcpStateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS,
+                new ArrayList<AvrcpItem>(nowPlayingList.subList(0, 20)));
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+
+        // Receiving the previous members should cause our fetch process to realize we're aborted
+        // and a new (second) request should be triggered for the list from the beginning
+        verify(mAvrcpControllerService, times(2)).getNowPlayingListNative(
+                eq(mTestAddress), eq(0), eq(19));
+
+        // Send whole list
+        mAvrcpStateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS,
+                new ArrayList<AvrcpItem>(updatedNowPlayingList.subList(0, 20)));
+        mAvrcpStateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS,
+                new ArrayList<AvrcpItem>(updatedNowPlayingList.subList(20, 25)));
+        mAvrcpStateMachine.sendMessage(
+                AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS_OUT_OF_RANGE);
+
+        // Wait for the now playing list to be propagated
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+
+        // Make sure its set by re grabbing the node and checking its contents are cached
+        nowPlaying = mAvrcpStateMachine.findNode("NOW_PLAYING");
+        Assert.assertTrue(nowPlaying.isCached());
+        assertNowPlayingList(updatedNowPlayingList);
+    }
+
+    /**
+     * Test receiving an addressed player changed event while downloading now playing content and
+     * make sure our final now playing content downloaded matches what's expected.
+     */
+    @Test
+    public void testAddressedPlayerChangedWhileFetchingNowPlayingList_fetchAbortedAndRestarted() {
+        setUpConnectedState(true, true);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+
+        // Fill the list with songs 1 -> 25, more than download step size
+        List<AvrcpItem> nowPlayingList = new ArrayList<AvrcpItem>();
+        for (int i = 1; i <= 25; i++) {
+            String title = "Song " + Integer.toString(i);
+            nowPlayingList.add(makeNowPlayingItem(i, title));
+        }
+
+        // Fill the list with songs 26 -> 50
+        List<AvrcpItem> updatedNowPlayingList = new ArrayList<AvrcpItem>();
+        for (int i = 26; i <= 50; i++) {
+            String title = "Song " + Integer.toString(i);
+            updatedNowPlayingList.add(makeNowPlayingItem(i, title));
+        }
+
+        // Hand hold the download events
+        BrowseTree.BrowseNode nowPlaying = mAvrcpStateMachine.findNode("NOW_PLAYING");
+        mAvrcpStateMachine.requestContents(nowPlaying);
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+
+        // Verify download attempt and send some elements over, verify next set is requested
+        verify(mAvrcpControllerService, times(1)).getNowPlayingListNative(
+                eq(mTestAddress), eq(0), eq(19));
+        mAvrcpStateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS,
+                new ArrayList<AvrcpItem>(nowPlayingList.subList(0, 20)));
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+        verify(mAvrcpControllerService, times(1)).getNowPlayingListNative(
+                eq(mTestAddress), eq(20), eq(39));
+
+        // Force a now playing content invalidation due to addressed player change
+        mAvrcpStateMachine.sendMessage(
+                AvrcpControllerStateMachine.MESSAGE_PROCESS_ADDRESSED_PLAYER_CHANGED, 1);
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+
+        // Send requested items, they're likely from the new list at this point, but it shouldn't
+        // matter what they are because we should toss them out and restart our download next.
+        mAvrcpStateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS,
+                new ArrayList<AvrcpItem>(nowPlayingList.subList(20, 25)));
+        TestUtils.waitForLooperToBeIdle(mAvrcpStateMachine.getHandler().getLooper());
+
+        verify(mAvrcpControllerService, times(2)).getNowPlayingListNative(
+                eq(mTestAddress), eq(0), eq(19));
+
+        mAvrcpStateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS,
+                new ArrayList<AvrcpItem>(updatedNowPlayingList.subList(0, 20)));
+        mAvrcpStateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS,
+                new ArrayList<AvrcpItem>(updatedNowPlayingList.subList(20, 25)));
+        mAvrcpStateMachine.sendMessage(
+                AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS_OUT_OF_RANGE);
+
+        // Wait for the now playing list to be propagated
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+
+        // Make sure its set by re grabbing the node and checking its contents are cached
+        nowPlaying = mAvrcpStateMachine.findNode("NOW_PLAYING");
+        Assert.assertTrue(nowPlaying.isCached());
+        assertNowPlayingList(updatedNowPlayingList);
+    }
+
+    /**
+     * Test receiving an addressed player changed event while downloading now playing content and
+     * make sure our final now playing content downloaded matches what's expected.
+     */
+    @Test
+    public void testAddressedPlayerChangedQueuedFetchingNowPlayingList_fetchAbortedAndRestarted() {
+        setUpConnectedState(true, true);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+
+        // Fill the list with songs 1 -> 25, more than download step size
+        List<AvrcpItem> nowPlayingList = new ArrayList<AvrcpItem>();
+        for (int i = 1; i <= 25; i++) {
+            String title = "Song " + Integer.toString(i);
+            nowPlayingList.add(makeNowPlayingItem(i, title));
+        }
+
+        // Fill the list with songs 26 -> 50
+        List<AvrcpItem> updatedNowPlayingList = new ArrayList<AvrcpItem>();
+        for (int i = 26; i <= 50; i++) {
+            String title = "Song " + Integer.toString(i);
+            updatedNowPlayingList.add(makeNowPlayingItem(i, title));
+        }
+
+        // Hand hold the download events
+        BrowseTree.BrowseNode nowPlaying = mAvrcpStateMachine.findNode("NOW_PLAYING");
+        mAvrcpStateMachine.requestContents(nowPlaying);
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+
+        // Verify download attempt and send some elements over, verify next set is requested
+        verify(mAvrcpControllerService, times(1)).getNowPlayingListNative(
+                eq(mTestAddress), eq(0), eq(19));
+
+        // Force a now playing content invalidation due to addressed player change, happening
+        // before we've received any items from the remote device.
+        mAvrcpStateMachine.sendMessage(
+                AvrcpControllerStateMachine.MESSAGE_PROCESS_ADDRESSED_PLAYER_CHANGED, 1);
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+
+        // Now, send the items in and let it process
+        mAvrcpStateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS,
+                new ArrayList<AvrcpItem>(nowPlayingList.subList(0, 20)));
+        TestUtils.waitForLooperToBeIdle(mAvrcpStateMachine.getHandler().getLooper());
+
+        verify(mAvrcpControllerService, times(2)).getNowPlayingListNative(
+                eq(mTestAddress), eq(0), eq(19));
+
+        // Send requested items, they're likely from the new list at this point, but it shouldn't
+        // matter what they are because we should toss them out and restart our download next.
+        mAvrcpStateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS,
+                new ArrayList<AvrcpItem>(updatedNowPlayingList.subList(0, 20)));
+        mAvrcpStateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS,
+                new ArrayList<AvrcpItem>(updatedNowPlayingList.subList(20, 25)));
+        mAvrcpStateMachine.sendMessage(
+                AvrcpControllerStateMachine.MESSAGE_PROCESS_GET_FOLDER_ITEMS_OUT_OF_RANGE);
+
+        // Wait for the now playing list to be propagated
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+
+        // Make sure its set by re grabbing the node and checking its contents are cached
+        nowPlaying = mAvrcpStateMachine.findNode("NOW_PLAYING");
+        Assert.assertTrue(nowPlaying.isCached());
+        assertNowPlayingList(updatedNowPlayingList);
+    }
+
+    /**
+     * Test making a browse request where results don't come back within the timeout window. The
+     * node should still be notified on.
+     */
+    @Test
+    public void testMakeBrowseRequestWithTimeout_contentsCachedAndNotified() {
+        setUpConnectedState(true, true);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+
+        //Set something arbitrary for the current Now Playing list
+        List<AvrcpItem> nowPlayingList = new ArrayList<AvrcpItem>();
+        nowPlayingList.add(makeNowPlayingItem(1, "Song 1"));
+        setNowPlayingList(nowPlayingList);
+        clearInvocations(mAvrcpControllerService);
+
+        // Invalidate the contents by doing a new fetch
+        BrowseTree.BrowseNode nowPlaying = mAvrcpStateMachine.findNode("NOW_PLAYING");
+        mAvrcpStateMachine.requestContents(nowPlaying);
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+
+        // Request for new contents should be sent
+        verify(mAvrcpControllerService, times(1)).getNowPlayingListNative(
+                eq(mTestAddress), eq(0), eq(19));
+        Assert.assertFalse(nowPlaying.isCached());
+
+        // Send timeout on our own instead of waiting 10 seconds
+        mAvrcpStateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_INTERNAL_CMD_TIMEOUT);
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+
+        // Node should be set to cached and notified on
+        assertNowPlayingList(new ArrayList<AvrcpItem>());
+        Assert.assertTrue(nowPlaying.isCached());
+
+        // See that state from BluetoothMediaBrowserService is updated to null (i.e. empty)
+        MediaSessionCompat session = BluetoothMediaBrowserService.getSession();
+        Assert.assertNotNull(session);
+        MediaControllerCompat controller = session.getController();
+        Assert.assertNotNull(controller);
+        List<MediaSessionCompat.QueueItem> queue = controller.getQueue();
+        Assert.assertNull(queue);
+    }
+
+    /**
+     * Test making a browse request with a null node. The request should not generate any native
+     * layer browse requests.
+     */
+    @Test
+    public void testNullBrowseRequest_requestDropped() {
+        setUpConnectedState(true, true);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+        clearInvocations(mAvrcpControllerService);
+        mAvrcpStateMachine.requestContents(null);
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+        verifyNoMoreInteractions(mAvrcpControllerService);
+    }
+
+    /**
+     * Test making a browse request with browsing disconnected. The request should not generate any
+     * native layer browse requests.
+     */
+    @Test
+    public void testBrowseRequestWhileDisconnected_requestDropped() {
+        final String rootName = "__ROOT__" + mTestDevice.getAddress().toString();
+        setUpConnectedState(true, false);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+        clearInvocations(mAvrcpControllerService);
+        BrowseTree.BrowseNode deviceRoot = mAvrcpStateMachine.findNode(rootName);
+        mAvrcpStateMachine.requestContents(deviceRoot);
+        TestUtils.waitForLooperToFinishScheduledTask(mAvrcpStateMachine.getHandler().getLooper());
+        verifyNoMoreInteractions(mAvrcpControllerService);
+    }
+
+    /**
+     * Queue a control channel connection event, a request while browse is disconnected, a browse
+     * connection event, and then another browse request and be sure the final request still is sent
+     */
+    @Test
+    public void testBrowseRequestWhileDisconnectedThenRequestWhileConnected_secondRequestSent() {
+        final String rootName = "__ROOT__" + mTestDevice.getAddress().toString();
+        setUpConnectedState(true, false);
+        sendAudioFocusUpdate(AudioManager.AUDIOFOCUS_GAIN);
+        clearInvocations(mAvrcpControllerService);
+        BrowseTree.BrowseNode deviceRoot = mAvrcpStateMachine.findNode(rootName);
+        mAvrcpStateMachine.requestContents(deviceRoot);
+        // issues a player list fetch
+        mAvrcpStateMachine.connect(StackEvent.connectionStateChanged(true, true));
+        TestUtils.waitForLooperToBeIdle(mAvrcpStateMachine.getHandler().getLooper());
+        verify(mAvrcpControllerService, times(1)).getPlayerListNative(
+                eq(mTestAddress), eq(0), eq(19));
     }
 }

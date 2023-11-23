@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2019-2021 NXP
+ *  Copyright 2019-2022 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -42,6 +42,9 @@ using ::android::hardware::nfc::V1_2::INfc;
 using ::android::hidl::base::V1_0::IBase;
 struct Nfc : public V1_2::INfc, public hidl_death_recipient {
  public:
+  // Methods from ::android::hidl::base::V1_0::IBase follow.
+  Return<void> debug(const hidl_handle& handle,
+                     const hidl_vec<hidl_string>& options) override;
   // Methods from ::android::hardware::nfc::V1_0::INfc follow.
   Return<V1_0::NfcStatus> open(
       const sp<V1_0::INfcClientCallback>& clientCallback) override;

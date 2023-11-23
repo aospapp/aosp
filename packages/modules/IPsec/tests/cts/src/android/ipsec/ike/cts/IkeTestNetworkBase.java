@@ -19,12 +19,17 @@ package android.ipsec.ike.cts;
 import android.content.Context;
 import android.ipsec.ike.cts.TestNetworkUtils.TestNetworkCallback;
 import android.net.ConnectivityManager;
+import android.net.IpSecManager;
+import android.net.IpSecTransform;
 import android.net.LinkAddress;
 import android.net.Network;
 import android.net.TestNetworkInterface;
 import android.net.TestNetworkManager;
+import android.net.ipsec.ike.ChildSessionConfiguration;
+import android.net.ipsec.ike.IkeSessionConnectionInfo;
 import android.os.Binder;
 import android.os.ParcelFileDescriptor;
+import android.util.CloseGuard;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -124,6 +129,61 @@ abstract class IkeTestNetworkBase extends IkeTestBase {
             if (tunFd != null) {
                 tunFd.close();
             }
+        }
+    }
+
+    static class TunIpSecNetworkWrapper implements AutoCloseable {
+        public final IpSecManager.IpSecTunnelInterface tunnelIface;
+        public final TestNetworkCallback networkCallback;
+        public final Network ipSecNetwork;
+
+        private final CloseGuard mCloseGuard = new CloseGuard();
+
+        TunIpSecNetworkWrapper(
+                IkeSessionConnectionInfo connectionInfo,
+                ChildSessionConfiguration childConf,
+                IpSecTransform inTransform,
+                IpSecTransform outTransform)
+                throws Exception {
+            final IpSecManager ipsecMgr = sContext.getSystemService(IpSecManager.class);
+
+            tunnelIface =
+                    ipsecMgr.createIpSecTunnelInterface(
+                            connectionInfo.getLocalAddress(),
+                            connectionInfo.getRemoteAddress(),
+                            connectionInfo.getNetwork());
+
+            final LinkAddress localInner = childConf.getInternalAddresses().get(0);
+            tunnelIface.addAddress(localInner.getAddress(), localInner.getPrefixLength());
+
+            ipsecMgr.applyTunnelModeTransform(tunnelIface, IpSecManager.DIRECTION_IN, inTransform);
+            ipsecMgr.applyTunnelModeTransform(tunnelIface, IpSecManager.DIRECTION_OUT, inTransform);
+
+            networkCallback =
+                    TestNetworkUtils.setupAndGetTestNetwork(
+                            sCM, sTNM, tunnelIface.getInterfaceName(), new Binder());
+            ipSecNetwork = networkCallback.getNetworkBlocking();
+        }
+
+        @Override
+        public void close() {
+            mCloseGuard.close();
+
+            if (tunnelIface != null) {
+                tunnelIface.close();
+            }
+            if (networkCallback != null) {
+                sCM.unregisterNetworkCallback(networkCallback);
+            }
+            if (ipSecNetwork != null) {
+                sTNM.teardownTestNetwork(ipSecNetwork);
+            }
+        }
+
+        @Override
+        public void finalize() {
+            mCloseGuard.warnIfOpen();
+            close();
         }
     }
 }

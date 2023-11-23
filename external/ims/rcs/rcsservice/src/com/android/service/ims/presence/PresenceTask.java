@@ -55,5 +55,4 @@ public class PresenceTask extends Task {
                 " mSipResponseCode=" + mSipResponseCode +
                 " mSipReasonPhrase=" + mSipReasonPhrase;
     }
-};
-
+}

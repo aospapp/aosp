@@ -25,21 +25,28 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
 import com.android.bedstead.nene.TestApis;
 import com.android.eventlib.events.activities.ActivityCreatedEvent;
 import com.android.eventlib.events.broadcastreceivers.BroadcastReceivedEvent;
 import com.android.eventlib.events.services.ServiceCreatedEvent;
 
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /**
  * This test assumes that TestAppAppComponentFactory is in the AndroidManifest.xml of the
  * instrumented test process.
  */
-@RunWith(JUnit4.class)
-public class TestAppAppComponentFactoryTest {
+@RunWith(BedsteadJUnit4.class)
+public final class TestAppAppComponentFactoryTest {
+
+    @ClassRule
+    @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
 
     // This must exist as an <activity> in AndroidManifest.xml
     private static final String DECLARED_ACTIVITY_WITH_NO_CLASS =

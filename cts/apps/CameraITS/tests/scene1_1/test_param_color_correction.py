@@ -27,21 +27,21 @@ import image_processing_utils
 import its_session_utils
 import target_exposure_utils
 
-CC_XFORM_BOOST_B = [1, 0, 0,
-                    0, 1, 0,
-                    0, 0, 2]  # blue channel 2x
-CC_XFORM_UNITY = [1, 0, 0,
-                  0, 1, 0,
-                  0, 0, 1]  # all channels equal
-NAME = os.path.splitext(os.path.basename(__file__))[0]
-PATCH_H = 0.1  # center 10%
-PATCH_W = 0.1
-PATCH_X = 0.5 - PATCH_W/2
-PATCH_Y = 0.5 - PATCH_H/2
-RAW_GAIN_BOOST_R = [2, 1, 1, 1]  # red channel 2x
-RAW_GAIN_UNITY = [1, 1, 1, 1]  # all channels equal
-RGB_DIFF_THRESH = 0.1  # threshold for differences in asserts
-RGB_RANGE_THRESH = 0.2  # 0.2 < mean < 0.8 to avoid dark or saturated imgs
+_CC_XFORM_BOOST_B = [1, 0, 0,
+                     0, 1, 0,
+                     0, 0, 2]  # blue channel 2x
+_CC_XFORM_UNITY = [1, 0, 0,
+                   0, 1, 0,
+                   0, 0, 1]  # all channels equal
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_PATCH_H = 0.1  # center 10%
+_PATCH_W = 0.1
+_PATCH_X = 0.5 - _PATCH_W/2
+_PATCH_Y = 0.5 - _PATCH_H/2
+_RAW_GAIN_BOOST_R = [2, 1, 1, 1]  # red channel 2x
+_RAW_GAIN_UNITY = [1, 1, 1, 1]  # all channels equal
+_RGB_DIFF_THRESH = 0.1  # threshold for differences in asserts
+_RGB_RANGE_THRESH = 0.2  # 0.2 < mean < 0.8 to avoid dark or saturated imgs
 
 
 class ParamColorCorrectionTest(its_base_test.ItsBaseTest):
@@ -55,7 +55,7 @@ class ParamColorCorrectionTest(its_base_test.ItsBaseTest):
   """
 
   def test_param_color_correction(self):
-    logging.debug('Starting %s', NAME)
+    logging.debug('Starting %s', _NAME)
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
         camera_id=self.camera_id,
@@ -63,6 +63,7 @@ class ParamColorCorrectionTest(its_base_test.ItsBaseTest):
       props = cam.get_camera_properties()
       props = cam.override_with_hidden_physical_camera_props(props)
       log_path = self.log_path
+      name_with_log_path = os.path.join(log_path, _NAME)
 
       # check SKIP conditions
       camera_properties_utils.skip_unless(
@@ -71,13 +72,14 @@ class ParamColorCorrectionTest(its_base_test.ItsBaseTest):
 
       # Load chart for scene
       its_session_utils.load_scene(
-          cam, props, self.scene, self.tablet, self.chart_distance)
+          cam, props, self.scene, self.tablet,
+          its_session_utils.CHART_DISTANCE_NO_SCALING)
 
       # Define format
       sync_latency = camera_properties_utils.sync_latency(props)
       largest_yuv = capture_request_utils.get_largest_yuv_format(props)
       match_ar = (largest_yuv['width'], largest_yuv['height'])
-      fmt = capture_request_utils.get_smallest_yuv_format(
+      fmt = capture_request_utils.get_near_vga_yuv_format(
           props, match_ar=match_ar)
 
       # Define baseline request
@@ -87,14 +89,14 @@ class ParamColorCorrectionTest(its_base_test.ItsBaseTest):
       req['android.colorCorrection.mode'] = 0
 
       # Define transforms
-      transforms = [capture_request_utils.int_to_rational(CC_XFORM_UNITY),
-                    capture_request_utils.int_to_rational(CC_XFORM_UNITY),
-                    capture_request_utils.int_to_rational(CC_XFORM_BOOST_B)]
+      transforms = [capture_request_utils.int_to_rational(_CC_XFORM_UNITY),
+                    capture_request_utils.int_to_rational(_CC_XFORM_UNITY),
+                    capture_request_utils.int_to_rational(_CC_XFORM_BOOST_B)]
 
       # Define RAW gains:
-      gains = [RAW_GAIN_UNITY,
-               RAW_GAIN_BOOST_R,
-               RAW_GAIN_UNITY]
+      gains = [_RAW_GAIN_UNITY,
+               _RAW_GAIN_BOOST_R,
+               _RAW_GAIN_UNITY]
 
       # Capture requests:
       # 1. With unit gains, and identity transform.
@@ -110,10 +112,10 @@ class ParamColorCorrectionTest(its_base_test.ItsBaseTest):
         cap = its_session_utils.do_capture_with_latency(
             cam, req, sync_latency, fmt)
         img = image_processing_utils.convert_capture_to_rgb_image(cap)
-        image_processing_utils.write_image(img, '%s_req=%d.jpg' % (
-            os.path.join(log_path, NAME), i))
+        image_processing_utils.write_image(
+            img, f'{name_with_log_path}_req={i}.jpg')
         patch = image_processing_utils.get_image_patch(
-            img, PATCH_X, PATCH_Y, PATCH_W, PATCH_H)
+            img, _PATCH_X, _PATCH_Y, _PATCH_W, _PATCH_H)
         rgb_means = image_processing_utils.compute_image_means(patch)
         r_means.append(rgb_means[0])
         g_means.append(rgb_means[1])
@@ -122,41 +124,40 @@ class ParamColorCorrectionTest(its_base_test.ItsBaseTest):
         logging.debug('Means: %s,  Ratios: %s', str(rgb_means), str(ratios))
 
       # Draw a plot
-      pylab.figure(NAME)
+      pylab.figure(_NAME)
       for ch, means in enumerate([r_means, g_means, b_means]):
         pylab.plot(capture_idxs, means, '-'+'rgb'[ch]+'o')
       pylab.xticks(capture_idxs)
       pylab.ylim([0, 1])
-      pylab.title(NAME)
+      pylab.title(_NAME)
       pylab.xlabel('Cap Index [Unity, R boost, B boost]')
       pylab.ylabel('RGB patch means')
-      matplotlib.pyplot.savefig(
-          '%s_plot_means.png' % os.path.join(log_path, NAME))
+      matplotlib.pyplot.savefig(f'{name_with_log_path}_plot_means.png')
       # Ensure that image is not clamped to white/black.
-      if not all(RGB_RANGE_THRESH < g_means[i] < 1.0-RGB_RANGE_THRESH
+      if not all(_RGB_RANGE_THRESH < g_means[i] < 1.0-_RGB_RANGE_THRESH
                  for i in capture_idxs):
         raise AssertionError('Image too dark/bright! Check setup.')
 
       # Expect G0 == G1 == G2, R0 == 0.5*R1 == R2, B0 == B1 == 0.5*B2
       # assert planes in caps expected to be equal
-      if abs(g_means[1] - g_means[0]) > RGB_DIFF_THRESH:
+      if abs(g_means[1] - g_means[0]) > _RGB_DIFF_THRESH:
         raise AssertionError('G[0] vs G[1] too different. '
                              f'[0]: {g_means[0]:.3f}, [1]: {g_means[1]:.3f}')
-      if abs(g_means[2] - g_means[1]) > RGB_DIFF_THRESH:
+      if abs(g_means[2] - g_means[1]) > _RGB_DIFF_THRESH:
         raise AssertionError('G[1] vs G[2] too different. '
                              f'[1]: {g_means[1]:.3f}, [2]: {g_means[2]:.3f}')
-      if abs(r_means[2] - r_means[0]) > RGB_DIFF_THRESH:
+      if abs(r_means[2] - r_means[0]) > _RGB_DIFF_THRESH:
         raise AssertionError('R[0] vs R[2] too different. '
                              f'[0]: {r_means[0]:.3f}, [2]: {r_means[2]:.3f}')
-      if abs(b_means[1] - b_means[0]) > RGB_DIFF_THRESH:
+      if abs(b_means[1] - b_means[0]) > _RGB_DIFF_THRESH:
         raise AssertionError('B[0] vs B[1] too different. '
                              f'[0]: {b_means[0]:.3f}, [1]: {b_means[1]:.3f}')
 
       # assert boosted planes in caps
-      if abs(r_means[1] - 2*r_means[0]) > RGB_DIFF_THRESH:
+      if abs(r_means[1] - 2*r_means[0]) > _RGB_DIFF_THRESH:
         raise AssertionError('R[1] not boosted enough or too much. '
                              f'[0]: {r_means[0]:.4f}, [1]: {r_means[1]:.4f}')
-      if abs(b_means[2] - 2*b_means[0]) > RGB_DIFF_THRESH:
+      if abs(b_means[2] - 2*b_means[0]) > _RGB_DIFF_THRESH:
         raise AssertionError('B[2] not boosted enough or too much. '
                              f'[0]: {b_means[0]:.4f}, [2]: {b_means[2]:.4f}')
 

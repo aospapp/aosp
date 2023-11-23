@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -61,10 +62,10 @@ class hardware_DiskFirmwareUpgrade(test.test):
             model = self._get_device_name()
 
         i = 0
-        for model_re, package_desc in disk_fw_packages.iteritems():
+        for model_re, package_desc in list(disk_fw_packages.items()):
             if not re.match(model_re, model):
                 continue
-            for p, results in package_desc.iteritems():
+            for p, results in list(package_desc.items()):
                 result_dir = '-'.join([self.TEST_NAME, str(i), p])
                 if p.startswith('test_'):
                     self._client_at.run_test(
@@ -92,4 +93,3 @@ class hardware_DiskFirmwareUpgrade(test.test):
                         disk_firmware_package=self.DEFAULT_LOCATION,
                         upgrade_required=results[1])
                 i += 1
-

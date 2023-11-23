@@ -32,8 +32,8 @@ interface MethodItem : MemberItem {
     /** Whether this method is a constructor */
     fun isConstructor(): Boolean
 
-    /** The type of this field, or null for constructors */
-    fun returnType(): TypeItem?
+    /** The type of this field. Returns the containing class for constructors */
+    fun returnType(): TypeItem
 
     /** The list of parameters */
     fun parameters(): List<ParameterItem>
@@ -71,7 +71,7 @@ interface MethodItem : MemberItem {
         }
 
         sb.append(")")
-        sb.append(if (voidConstructorTypes && isConstructor()) "V" else returnType()?.internalName() ?: "V")
+        sb.append(if (voidConstructorTypes && isConstructor()) "V" else returnType().internalName())
         return sb.toString()
     }
 
@@ -214,9 +214,7 @@ interface MethodItem : MemberItem {
 
         if (!isConstructor()) {
             val type = returnType()
-            if (type != null) { // always true when not a constructor
-                visitor.visitType(type, this)
-            }
+            visitor.visitType(type, this)
         }
 
         for (parameter in parameters()) {
@@ -229,9 +227,7 @@ interface MethodItem : MemberItem {
 
         if (!isConstructor()) {
             val type = returnType()
-            if (type != null) {
-                visitor.visitType(type, this)
-            }
+            visitor.visitType(type, this)
         }
     }
 
@@ -369,7 +365,7 @@ interface MethodItem : MemberItem {
         return when {
             modifiers.hasJvmSyntheticAnnotation() -> false
             isConstructor() -> false
-            (returnType()?.primitive != true) -> true
+            (!returnType().primitive) -> true
             parameters().any { !it.type().primitive } -> true
             else -> false
         }
@@ -380,7 +376,7 @@ interface MethodItem : MemberItem {
             return true
         }
 
-        if (!isConstructor() && returnType()?.primitive != true) {
+        if (!isConstructor() && !returnType().primitive) {
             if (!modifiers.hasNullnessInfo()) {
                 return false
             }
@@ -479,16 +475,14 @@ interface MethodItem : MemberItem {
         }
 
         val returnType = returnType()
-        if (returnType != null) {
-            val returnTypeClass = returnType.asClass()
-            if (returnTypeClass != null && !filterReference.test(returnTypeClass)) {
-                return true
-            }
-            if (returnType.hasTypeArguments()) {
-                for (argument in returnType.typeArgumentClasses()) {
-                    if (!filterReference.test(argument)) {
-                        return true
-                    }
+        val returnTypeClass = returnType.asClass()
+        if (returnTypeClass != null && !filterReference.test(returnTypeClass)) {
+            return true
+        }
+        if (returnType.hasTypeArguments()) {
+            for (argument in returnType.typeArgumentClasses()) {
+                if (!filterReference.test(argument)) {
+                    return true
                 }
             }
         }

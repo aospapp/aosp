@@ -36,24 +36,15 @@ class AwareBaseTest(BaseTestClass):
     device_startup_offset = 2
 
     def setup_class(self):
-        opt_param = ["pixel_models", "cnss_diag_file", "ranging_role_concurrency_flexible_models"]
+        opt_param = ["ranging_role_concurrency_flexible_models"]
         self.unpack_userparams(opt_param_names=opt_param)
-        if hasattr(self, "cnss_diag_file"):
-            if isinstance(self.cnss_diag_file, list):
-                self.cnss_diag_file = self.cnss_diag_file[0]
-            if not os.path.isfile(self.cnss_diag_file):
-                self.cnss_diag_file = os.path.join(
-                    self.user_params[Config.key_config_path.value],
-                    self.cnss_diag_file)
 
     def setup_test(self):
         required_params = ("aware_default_power_mode",
                            "dbs_supported_models",)
         self.unpack_userparams(required_params)
 
-        if hasattr(self, "cnss_diag_file") and hasattr(self, "pixel_models"):
-            wutils.start_cnss_diags(
-                self.android_devices, self.cnss_diag_file, self.pixel_models)
+        wutils.start_all_wlan_logs(self.android_devices)
         self.tcpdump_proc = []
         if hasattr(self, "android_devices"):
             for ad in self.android_devices:
@@ -86,8 +77,7 @@ class AwareBaseTest(BaseTestClass):
             ad.ed.clear_all_events()
 
     def teardown_test(self):
-        if hasattr(self, "cnss_diag_file") and hasattr(self, "pixel_models"):
-            wutils.stop_cnss_diags(self.android_devices, self.pixel_models)
+        wutils.stop_all_wlan_logs(self.android_devices)
         for proc in self.tcpdump_proc:
             nutils.stop_tcpdump(
                     proc[0], proc[1], self.test_name, pull_dump=False)
@@ -144,10 +134,9 @@ class AwareBaseTest(BaseTestClass):
             ad.take_bug_report(test_name, begin_time)
             ad.cat_adb_log(test_name, begin_time)
             wutils.get_ssrdumps(ad)
-        if hasattr(self, "cnss_diag_file") and hasattr(self, "pixel_models"):
-            wutils.stop_cnss_diags(self.android_devices, self.pixel_models)
-            for ad in self.android_devices:
-                wutils.get_cnss_diag_log(ad)
+        wutils.stop_all_wlan_logs(self.android_devices)
+        for ad in self.android_devices:
+            wutils.get_wlan_logs(ad)
         for proc in self.tcpdump_proc:
             nutils.stop_tcpdump(proc[0], proc[1], self.test_name)
         self.tcpdump_proc = []

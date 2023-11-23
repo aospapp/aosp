@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "api/crypto/crypto_options.h"
 #include "api/fec_controller.h"
@@ -26,6 +27,7 @@
 #include "api/transport/bitrate_settings.h"
 #include "api/units/timestamp.h"
 #include "call/rtp_config.h"
+#include "common_video/frame_counts.h"
 #include "modules/rtp_rtcp/include/report_block_data.h"
 #include "modules/rtp_rtcp/include/rtcp_statistics.h"
 #include "modules/rtp_rtcp/include/rtp_packet_sender.h"
@@ -39,25 +41,19 @@ class TaskQueue;
 }  // namespace rtc
 namespace webrtc {
 
-class CallStatsObserver;
 class FrameEncryptorInterface;
+class MaybeWorkerThread;
 class TargetTransferRateObserver;
 class Transport;
-class Module;
-class PacedSender;
 class PacketRouter;
 class RtpVideoSenderInterface;
-class RateLimiter;
 class RtcpBandwidthObserver;
 class RtpPacketSender;
-class SendDelayStats;
-class SendStatisticsProxy;
 
 struct RtpSenderObservers {
   RtcpRttStats* rtcp_rtt_stats;
   RtcpIntraFrameObserver* intra_frame_callback;
   RtcpLossNotificationObserver* rtcp_loss_notification_observer;
-  RtcpStatisticsCallback* rtcp_stats;
   ReportBlockDataObserver* report_block_data_observer;
   StreamDataCountersCallback* rtp_stats;
   BitrateStatisticsObserver* bitrate_observer;
@@ -98,11 +94,13 @@ struct RtpSenderFrameEncryptionConfig {
 class RtpTransportControllerSendInterface {
  public:
   virtual ~RtpTransportControllerSendInterface() {}
-  virtual rtc::TaskQueue* GetWorkerQueue() = 0;
+  // TODO(webrtc:14502): Remove MaybeWorkerThread when experiment has been
+  // evaluated.
+  virtual MaybeWorkerThread* GetWorkerQueue() = 0;
   virtual PacketRouter* packet_router() = 0;
 
   virtual RtpVideoSenderInterface* CreateRtpVideoSender(
-      std::map<uint32_t, RtpState> suspended_ssrcs,
+      const std::map<uint32_t, RtpState>& suspended_ssrcs,
       // TODO(holmer): Move states into RtpTransportControllerSend.
       const std::map<uint32_t, RtpPayloadState>& states,
       const RtpConfig& rtp_config,
@@ -133,14 +131,20 @@ class RtpTransportControllerSendInterface {
   virtual void RegisterTargetTransferRateObserver(
       TargetTransferRateObserver* observer) = 0;
   virtual void OnNetworkRouteChanged(
-      const std::string& transport_name,
+      absl::string_view transport_name,
       const rtc::NetworkRoute& network_route) = 0;
   virtual void OnNetworkAvailability(bool network_available) = 0;
   virtual RtcpBandwidthObserver* GetBandwidthObserver() = 0;
   virtual int64_t GetPacerQueuingDelayMs() const = 0;
   virtual absl::optional<Timestamp> GetFirstPacketTime() const = 0;
   virtual void EnablePeriodicAlrProbing(bool enable) = 0;
+
+  // Called when a packet has been sent.
+  // The call should arrive on the network thread, but may not in all cases
+  // (some tests don't adhere to this). Implementations today should not block
+  // the calling thread or make assumptions about the thread context.
   virtual void OnSentPacket(const rtc::SentPacket& sent_packet) = 0;
+
   virtual void OnReceivedPacket(const ReceivedPacket& received_packet) = 0;
 
   virtual void SetSdpBitrateParameters(
@@ -153,6 +157,8 @@ class RtpTransportControllerSendInterface {
 
   virtual void AccountForAudioPacketsInPacedSender(bool account_for_audio) = 0;
   virtual void IncludeOverheadInPacedSender() = 0;
+
+  virtual void EnsureStarted() = 0;
 };
 
 }  // namespace webrtc

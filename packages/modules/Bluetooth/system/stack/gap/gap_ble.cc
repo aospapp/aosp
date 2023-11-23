@@ -75,6 +75,7 @@ tGATT_CBACK gap_cback = {
     .p_congestion_cb = nullptr,
     .p_phy_update_cb = nullptr,
     .p_conn_update_cb = nullptr,
+    .p_subrate_chg_cb = nullptr,
 };
 
 constexpr int GAP_CHAR_DEV_NAME_SIZE = BD_NAME_LEN;
@@ -245,7 +246,7 @@ void server_attr_request_cback(uint16_t conn_id, uint32_t trans_id,
  * Returns true if read started, else false if GAP is busy.
  */
 bool send_cl_read_request(tGAP_CLCB& clcb) {
-  if (!clcb.requests.size()) {
+  if (!clcb.requests.size() || clcb.cl_op_uuid != 0) {
     return false;
   }
 
@@ -300,7 +301,7 @@ void client_connect_cback(tGATT_IF, const RawAddress& bda, uint16_t conn_id,
   tGAP_CLCB* p_clcb = find_clcb_by_bd_addr(bda);
   if (p_clcb == NULL) {
     LOG_INFO("No active GAP service found for peer:%s callback:%s",
-             PRIVATE_ADDRESS(bda), (connected) ? "Connected" : "Disconnected");
+             ADDRESS_TO_LOGGABLE_CSTR(bda), (connected) ? "Connected" : "Disconnected");
     return;
   }
 
@@ -378,14 +379,15 @@ bool accept_client_operation(const RawAddress& peer_bda, uint16_t uuid,
     p_clcb = clcb_alloc(peer_bda);
   }
 
-  DVLOG(1) << __func__ << ": BDA: " << peer_bda
+  DVLOG(1) << __func__ << ": BDA: " << ADDRESS_TO_LOGGABLE_STR(peer_bda)
            << StringPrintf(" cl_op_uuid: 0x%04x", uuid);
 
   if (GATT_GetConnIdIfConnected(gatt_if, peer_bda, &p_clcb->conn_id,
                                 BT_TRANSPORT_LE))
     p_clcb->connected = true;
 
-  if (!GATT_Connect(gatt_if, p_clcb->bda, true, BT_TRANSPORT_LE, true))
+  if (!GATT_Connect(gatt_if, p_clcb->bda, BTM_BLE_DIRECT_CONNECTION,
+                    BT_TRANSPORT_LE, true))
     return false;
 
   /* enqueue the request */
@@ -427,28 +429,28 @@ void gap_attr_db_init(void) {
   Uuid addr_res_uuid = Uuid::From16Bit(GATT_UUID_GAP_CENTRAL_ADDR_RESOL);
 
   btgatt_db_element_t service[] = {
-    {
-        .uuid = svc_uuid,
-        .type = BTGATT_DB_PRIMARY_SERVICE,
-    },
-    {.uuid = name_uuid,
-     .type = BTGATT_DB_CHARACTERISTIC,
-     .properties = GATT_CHAR_PROP_BIT_READ,
-     .permissions = GATT_PERM_READ},
-    {.uuid = icon_uuid,
-     .type = BTGATT_DB_CHARACTERISTIC,
-     .properties = GATT_CHAR_PROP_BIT_READ,
-     .permissions = GATT_PERM_READ},
-    {.uuid = addr_res_uuid,
-     .type = BTGATT_DB_CHARACTERISTIC,
-     .properties = GATT_CHAR_PROP_BIT_READ,
-     .permissions = GATT_PERM_READ}
+      {
+          .uuid = svc_uuid,
+          .type = BTGATT_DB_PRIMARY_SERVICE,
+      },
+      {.uuid = name_uuid,
+       .type = BTGATT_DB_CHARACTERISTIC,
+       .properties = GATT_CHAR_PROP_BIT_READ,
+       .permissions = GATT_PERM_READ_IF_ENCRYPTED_OR_DISCOVERABLE},
+      {.uuid = icon_uuid,
+       .type = BTGATT_DB_CHARACTERISTIC,
+       .properties = GATT_CHAR_PROP_BIT_READ,
+       .permissions = GATT_PERM_READ},
+      {.uuid = addr_res_uuid,
+       .type = BTGATT_DB_CHARACTERISTIC,
+       .properties = GATT_CHAR_PROP_BIT_READ,
+       .permissions = GATT_PERM_READ}
 #if (BTM_PERIPHERAL_ENABLED == TRUE) /* Only needed for peripheral testing */
-    ,
-    {.uuid = Uuid::From16Bit(GATT_UUID_GAP_PREF_CONN_PARAM),
-     .type = BTGATT_DB_CHARACTERISTIC,
-     .properties = GATT_CHAR_PROP_BIT_READ,
-     .permissions = GATT_PERM_READ}
+      ,
+      {.uuid = Uuid::From16Bit(GATT_UUID_GAP_PREF_CONN_PARAM),
+       .type = BTGATT_DB_CHARACTERISTIC,
+       .properties = GATT_CHAR_PROP_BIT_READ,
+       .permissions = GATT_PERM_READ}
 #endif
   };
 
@@ -562,7 +564,7 @@ bool GAP_BleReadPeerDevName(const RawAddress& peer_bda,
 bool GAP_BleCancelReadPeerDevName(const RawAddress& peer_bda) {
   tGAP_CLCB* p_clcb = find_clcb_by_bd_addr(peer_bda);
 
-  DVLOG(1) << __func__ << ": BDA: " << peer_bda
+  DVLOG(1) << __func__ << ": BDA: " << ADDRESS_TO_LOGGABLE_STR(peer_bda)
            << StringPrintf(" cl_op_uuid: 0x%04x",
                            (p_clcb == NULL) ? 0 : p_clcb->cl_op_uuid);
 

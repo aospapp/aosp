@@ -4,11 +4,12 @@
  * Author: Guangwen Feng <fenggw-fnst@cn.fujitsu.com>
  */
 
-/*
- * Description:
- *  Basic test for epoll_wait(2).
- *  Check that epoll_wait(2) works for EPOLLOUT and EPOLLIN events
- *  on a epoll instance and that struct epoll_event is set correctly.
+/*\
+ * [Description]
+ *
+ * Basic test for epoll_wait. Check that epoll_wait works for EPOLLOUT and
+ * EPOLLIN events on an epoll instance and that struct epoll_event is set
+ * correctly.
  */
 
 #include <sys/epoll.h>
@@ -31,7 +32,7 @@ static int get_writesize(void)
 	memset(buf, 'a', sizeof(buf));
 
 	do {
-		write_size += SAFE_WRITE(0, fds[1], buf, sizeof(buf));
+		write_size += SAFE_WRITE(SAFE_WRITE_ANY, fds[1], buf, sizeof(buf));
 		nfd = poll(pfd, 1, 1);
 		if (nfd == -1)
 			tst_brk(TBROK | TERRNO, "poll() failed");
@@ -133,7 +134,7 @@ static void verify_epollin(void)
 
 	memset(write_buf, 'a', sizeof(write_buf));
 
-	SAFE_WRITE(1, fds[1], write_buf, sizeof(write_buf));
+	SAFE_WRITE(SAFE_WRITE_ALL, fds[1], write_buf, sizeof(write_buf));
 
 	TEST(epoll_wait(epfd, &ret_evs, 1, -1));
 
@@ -173,7 +174,7 @@ static void verify_epollio(void)
 	uint32_t events = EPOLLIN | EPOLLOUT;
 	struct epoll_event ret_evs[2];
 
-	SAFE_WRITE(1, fds[1], write_buf, sizeof(write_buf));
+	SAFE_WRITE(SAFE_WRITE_ALL, fds[1], write_buf, sizeof(write_buf));
 
 	while (events) {
 		int events_matched = 0;
@@ -224,24 +225,18 @@ static void cleanup(void)
 	}
 }
 
+static void (*testcase_list[])(void) = {
+	verify_epollout, verify_epollin, verify_epollio
+};
+
 static void do_test(unsigned int n)
 {
-	switch (n) {
-	case 0:
-		verify_epollout();
-	break;
-	case 1:
-		verify_epollin();
-	break;
-	case 2:
-		verify_epollio();
-	break;
-	}
+	testcase_list[n]();
 }
 
 static struct tst_test test = {
 	.setup = setup,
 	.cleanup = cleanup,
 	.test = do_test,
-	.tcnt = 3,
+	.tcnt = ARRAY_SIZE(testcase_list),
 };

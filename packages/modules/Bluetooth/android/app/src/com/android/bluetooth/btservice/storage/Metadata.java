@@ -21,17 +21,24 @@ import android.bluetooth.BluetoothA2dp.OptionalCodecsPreferenceStatus;
 import android.bluetooth.BluetoothA2dp.OptionalCodecsSupportStatus;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothUtils;
 
 import androidx.annotation.NonNull;
 import androidx.room.Embedded;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * @hide
+ */
 @Entity(tableName = "metadata")
-class Metadata {
+@VisibleForTesting
+public class Metadata {
     @PrimaryKey
     @NonNull
     private String address;
@@ -51,6 +58,25 @@ class Metadata {
     public long last_active_time;
     public boolean is_active_a2dp_device;
 
+    @Embedded
+    public AudioPolicyEntity audioPolicyMetadata;
+
+    /**
+     * The preferred profile to be used for {@link BluetoothDevice#AUDIO_MODE_OUTPUT_ONLY}. This can
+     * be either {@link BluetoothProfile#A2DP} or {@link BluetoothProfile#LE_AUDIO}. This value is
+     * only used if the remote device supports both A2DP and LE Audio and both transports are
+     * connected and active.
+     */
+    public int preferred_output_only_profile;
+
+    /**
+     * The preferred profile to be used for {@link BluetoothDevice#AUDIO_MODE_DUPLEX}. This can
+     * be either {@link BluetoothProfile#HEADSET} or {@link BluetoothProfile#LE_AUDIO}. This value
+     * is only used if the remote device supports both HFP and LE Audio and both transports are
+     * connected and active.
+     */
+    public int preferred_duplex_profile;
+
     Metadata(String address) {
         this.address = address;
         migrated = false;
@@ -60,9 +86,16 @@ class Metadata {
         a2dpOptionalCodecsEnabled = BluetoothA2dp.OPTIONAL_CODECS_PREF_UNKNOWN;
         last_active_time = MetadataDatabase.sCurrentConnectionNumber++;
         is_active_a2dp_device = true;
+        audioPolicyMetadata = new AudioPolicyEntity();
+        preferred_output_only_profile = 0;
+        preferred_duplex_profile = 0;
     }
 
-    String getAddress() {
+    /**
+     * @hide
+     */
+    @VisibleForTesting
+    public String getAddress() {
         return address;
     }
 
@@ -75,7 +108,7 @@ class Metadata {
      */
     @NonNull
     public String getAnonymizedAddress() {
-        return "XX:XX:XX" + getAddress().substring(8);
+        return BluetoothUtils.toAnonymizedAddress(address);
     }
 
     void setProfileConnectionPolicy(int profile, int connectionPolicy) {
@@ -148,7 +181,11 @@ class Metadata {
         }
     }
 
-    int getProfileConnectionPolicy(int profile) {
+    /**
+     * @hide
+     */
+    @VisibleForTesting
+    public int getProfileConnectionPolicy(int profile) {
         switch (profile) {
             case BluetoothProfile.A2DP:
                 return profileConnectionPolicies.a2dp_connection_policy;
@@ -272,10 +309,23 @@ class Metadata {
             case BluetoothDevice.METADATA_FAST_PAIR_CUSTOMIZED_FIELDS:
                 publicMetadata.fastpair_customized = value;
                 break;
+            case BluetoothDevice.METADATA_LE_AUDIO:
+                publicMetadata.le_audio = value;
+                break;
+            case BluetoothDevice.METADATA_GMCS_CCCD:
+                publicMetadata.gmcs_cccd = value;
+                break;
+            case BluetoothDevice.METADATA_GTBS_CCCD:
+                publicMetadata.gtbs_cccd = value;
+                break;
         }
     }
 
-    byte[] getCustomizedMeta(int key) {
+    /**
+     * @hide
+     */
+    @VisibleForTesting
+    public byte[] getCustomizedMeta(int key) {
         byte[] value = null;
         switch (key) {
             case BluetoothDevice.METADATA_MANUFACTURER_NAME:
@@ -356,6 +406,15 @@ class Metadata {
             case BluetoothDevice.METADATA_FAST_PAIR_CUSTOMIZED_FIELDS:
                 value = publicMetadata.fastpair_customized;
                 break;
+            case BluetoothDevice.METADATA_LE_AUDIO:
+                value = publicMetadata.le_audio;
+                break;
+            case BluetoothDevice.METADATA_GMCS_CCCD:
+                value = publicMetadata.gmcs_cccd;
+                break;
+            case BluetoothDevice.METADATA_GTBS_CCCD:
+                value = publicMetadata.gtbs_cccd;
+                break;
         }
         return value;
     }
@@ -372,7 +431,8 @@ class Metadata {
 
     public String toString() {
         StringBuilder builder = new StringBuilder();
-        builder.append(address)
+        builder.append(getAnonymizedAddress())
+            .append(" last_active_time=" + last_active_time)
             .append(" {profile connection policy(")
             .append(profileConnectionPolicies)
             .append("), optional codec(support=")
@@ -381,6 +441,8 @@ class Metadata {
             .append(a2dpOptionalCodecsEnabled)
             .append("), custom metadata(")
             .append(publicMetadata)
+            .append("), hfp client audio policy(")
+            .append(audioPolicyMetadata)
             .append(")}");
 
         return builder.toString();

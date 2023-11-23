@@ -20,11 +20,21 @@ import android.app.Application;
 import android.content.ComponentName;
 import android.content.pm.PackageItemInfo;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.util.ArrayMap;
+import android.view.accessibility.AccessibilityManager;
 
-import com.android.permissioncontroller.role.model.Role;
-import com.android.permissioncontroller.role.model.Roles;
+import androidx.annotation.RequiresApi;
+
+import com.android.modules.utils.build.SdkLevel;
+import com.android.permissioncontroller.permission.utils.KotlinUtils;
+import com.android.permissioncontroller.permission.utils.Utils;
+import com.android.permissioncontroller.privacysources.SafetyCenterAccessibilityListener;
+import com.android.permissioncontroller.role.model.RoleParserInitializer;
 import com.android.permissioncontroller.role.ui.SpecialAppAccessListActivity;
+import com.android.permissioncontroller.role.utils.RoleUiBehaviorUtils;
+import com.android.role.controller.model.Role;
+import com.android.role.controller.model.Roles;
 
 public final class PermissionControllerApplication extends Application {
 
@@ -37,7 +47,14 @@ public final class PermissionControllerApplication extends Application {
         sInstance = this;
 
         PackageItemInfo.forceSafeLabels();
+        RoleParserInitializer.initialize();
         updateSpecialAppAccessListActivityEnabledState();
+        if (SdkLevel.isAtLeastT()) {
+            addAccessibilityListener();
+        }
+        if (Utils.isHealthPermissionUiEnabled()) {
+            KotlinUtils.INSTANCE.addHealthPermissions(this);
+        }
     }
 
     /**
@@ -54,7 +71,7 @@ public final class PermissionControllerApplication extends Application {
         for (int i = 0; i < rolesSize; i++) {
             Role role = roles.valueAt(i);
 
-            if (!role.isAvailable(this) || !role.isVisible(this)) {
+            if (!role.isAvailable(this) || !RoleUiBehaviorUtils.isVisible(role, this)) {
                 continue;
             }
             if (!role.isExclusive()) {
@@ -71,4 +88,13 @@ public final class PermissionControllerApplication extends Application {
         packageManager.setComponentEnabledSetting(componentName, enabledState,
                 PackageManager.DONT_KILL_APP);
     }
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private void addAccessibilityListener() {
+        AccessibilityManager a11yManager = Utils.getSystemServiceSafe(
+                this, AccessibilityManager.class);
+        a11yManager.addAccessibilityServicesStateChangeListener(
+                new SafetyCenterAccessibilityListener(this));
+    }
+
 }

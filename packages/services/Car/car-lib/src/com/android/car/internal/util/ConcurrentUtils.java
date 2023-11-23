@@ -33,15 +33,13 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
 // Copied from frameworks/base
-
 /**
  * Utility methods for common functionality using java.util.concurrent package
  *
  * @hide
  */
-public class ConcurrentUtils {
+public final class ConcurrentUtils {
 
     private ConcurrentUtils() {
     }
@@ -93,7 +91,7 @@ public class ConcurrentUtils {
             return future.get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException(description + " interrupted");
+            throw new IllegalStateException(description + " interrupted", e);
         } catch (ExecutionException e) {
             throw new RuntimeException(description + " failed", e);
         }
@@ -119,7 +117,7 @@ public class ConcurrentUtils {
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException(description + " interrupted.");
+            throw new IllegalStateException(description + " interrupted.", e);
         }
     }
 

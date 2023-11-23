@@ -36,9 +36,9 @@
 
 #define MSM_UBWC_TILING 1
 
-static const uint32_t render_target_formats[] = { DRM_FORMAT_ABGR8888, DRM_FORMAT_ARGB8888,
-						  DRM_FORMAT_RGB565, DRM_FORMAT_XBGR8888,
-						  DRM_FORMAT_XRGB8888, DRM_FORMAT_ABGR2101010,
+static const uint32_t render_target_formats[] = { DRM_FORMAT_ABGR8888,	   DRM_FORMAT_ARGB8888,
+						  DRM_FORMAT_RGB565,	   DRM_FORMAT_XBGR8888,
+						  DRM_FORMAT_XRGB8888,	   DRM_FORMAT_ABGR2101010,
 						  DRM_FORMAT_ABGR16161616F };
 
 static const uint32_t texture_source_formats[] = { DRM_FORMAT_NV12, DRM_FORMAT_R8,
@@ -73,6 +73,8 @@ static unsigned get_pitch_alignment(struct bo *bo)
 	switch (bo->meta.format) {
 	case DRM_FORMAT_NV12:
 		return VENUS_STRIDE_ALIGN;
+	case DRM_FORMAT_P010:
+		return VENUS_STRIDE_ALIGN * 2;
 	case DRM_FORMAT_YVU420:
 	case DRM_FORMAT_YVU420_ANDROID:
 		/* TODO other YUV formats? */
@@ -105,8 +107,8 @@ static void msm_calculate_layout(struct bo *bo)
 		if (bo->meta.format == DRM_FORMAT_P010)
 			width *= 2;
 
-		y_stride = ALIGN(width, VENUS_STRIDE_ALIGN);
-		uv_stride = ALIGN(width, VENUS_STRIDE_ALIGN);
+		y_stride = ALIGN(width, get_pitch_alignment(bo));
+		uv_stride = ALIGN(width, get_pitch_alignment(bo));
 		y_scanline = ALIGN(height, VENUS_SCANLINE_ALIGN * 2);
 		uv_scanline = ALIGN(DIV_ROUND_UP(height, 2),
 				    VENUS_SCANLINE_ALIGN * (bo->meta.tiling ? 2 : 1));
@@ -138,7 +140,9 @@ static void msm_calculate_layout(struct bo *bo)
 			DRM_FORMAT_R8 of height one is used for JPEG camera output, so don't
 			height align that. */
 		if (bo->meta.format == DRM_FORMAT_YVU420_ANDROID ||
+		    bo->meta.format == DRM_FORMAT_YVU420 ||
 		    (bo->meta.format == DRM_FORMAT_R8 && height == 1)) {
+			assert(bo->meta.tiling != MSM_UBWC_TILING);
 			alignh = height;
 		} else {
 			alignh = ALIGN(height, DEFAULT_ALIGNMENT);
@@ -147,7 +151,7 @@ static void msm_calculate_layout(struct bo *bo)
 		stride = drv_stride_from_format(bo->meta.format, alignw, 0);
 
 		/* Calculate size and assign stride, size, offset to each plane based on format */
-		drv_bo_from_format(bo, stride, alignh, bo->meta.format);
+		drv_bo_from_format(bo, stride, 1, alignh, bo->meta.format);
 
 		/* For all RGB UBWC formats */
 		if (bo->meta.tiling == MSM_UBWC_TILING) {
@@ -204,22 +208,7 @@ static bool should_avoid_ubwc(void)
 	 * See b/163137550
 	 */
 	if (dlsym(RTLD_DEFAULT, "waffle_display_connect")) {
-		drv_log("WARNING: waffle detected, disabling UBWC\n");
-		return true;
-	}
-
-	/* Sommelier relies on implicit modifier, which does not pass host modifier to
-	 * zwp_linux_buffer_params_v1_add. Graphics will be broken if UBWC is enabled.
-	 * Sommelier shall be fixed to mirror what arc wayland_service does, and then
-	 * we can re-enable UBWC here.
-	 *
-	 * Inherit the trick from crrev/c/2523246 previously used for gtest. The side
-	 * effect is all VM guests on msm will revert back to use linear modifier.
-	 *
-	 * See b/229147702
-	 */
-	if (!dlsym(RTLD_DEFAULT, "cupsFilePrintf")) {
-		drv_log("WARNING: virtualization detected, disabling UBWC\n");
+		drv_logi("WARNING: waffle detected, disabling UBWC\n");
 		return true;
 	}
 #endif
@@ -258,13 +247,16 @@ static int msm_init(struct driver *drv)
 	 */
 	drv_modify_combination(drv, DRM_FORMAT_R8, &LINEAR_METADATA,
 			       BO_USE_CAMERA_READ | BO_USE_CAMERA_WRITE | BO_USE_HW_VIDEO_DECODER |
-				   BO_USE_HW_VIDEO_ENCODER);
+				   BO_USE_HW_VIDEO_ENCODER | BO_USE_GPU_DATA_BUFFER |
+				   BO_USE_SENSOR_DIRECT_DATA);
 
 	/*
 	 * Android also frequently requests YV12 formats for some camera implementations
 	 * (including the external provider implmenetation).
 	 */
 	drv_modify_combination(drv, DRM_FORMAT_YVU420_ANDROID, &LINEAR_METADATA,
+			       BO_USE_CAMERA_READ | BO_USE_CAMERA_WRITE);
+	drv_modify_combination(drv, DRM_FORMAT_YVU420, &LINEAR_METADATA,
 			       BO_USE_CAMERA_READ | BO_USE_CAMERA_WRITE);
 
 	/* Android CTS tests require this. */
@@ -314,7 +306,7 @@ static int msm_bo_create_for_modifier(struct bo *bo, uint32_t width, uint32_t he
 
 	ret = drmIoctl(bo->drv->fd, DRM_IOCTL_MSM_GEM_NEW, &req);
 	if (ret) {
-		drv_log("DRM_IOCTL_MSM_GEM_NEW failed with %s\n", strerror(errno));
+		drv_loge("DRM_IOCTL_MSM_GEM_NEW failed with %s\n", strerror(errno));
 		return -errno;
 	}
 
@@ -353,22 +345,25 @@ static int msm_bo_create(struct bo *bo, uint32_t width, uint32_t height, uint32_
 	struct combination *combo = drv_get_combination(bo->drv, format, flags);
 
 	if (!combo) {
-		drv_log("invalid format = %d, flags = %" PRIx64 " combination\n", format, flags);
+		drv_loge("invalid format = %d, flags = %" PRIx64 " combination\n", format, flags);
 		return -EINVAL;
 	}
 
 	return msm_bo_create_for_modifier(bo, width, height, format, combo->metadata.modifier);
 }
 
-static void *msm_bo_map(struct bo *bo, struct vma *vma, size_t plane, uint32_t map_flags)
+static void *msm_bo_map(struct bo *bo, struct vma *vma, uint32_t map_flags)
 {
 	int ret;
 	struct drm_msm_gem_info req = { 0 };
 
+	if (bo->meta.format_modifier)
+		return MAP_FAILED;
+
 	req.handle = bo->handles[0].u32;
 	ret = drmIoctl(bo->drv->fd, DRM_IOCTL_MSM_GEM_INFO, &req);
 	if (ret) {
-		drv_log("DRM_IOCLT_MSM_GEM_INFO failed with %s\n", strerror(errno));
+		drv_loge("DRM_IOCLT_MSM_GEM_INFO failed with %s\n", strerror(errno));
 		return MAP_FAILED;
 	}
 	vma->length = bo->meta.total_size;

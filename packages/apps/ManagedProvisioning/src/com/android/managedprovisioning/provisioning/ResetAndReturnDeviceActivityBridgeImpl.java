@@ -21,8 +21,6 @@ import android.app.Activity;
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.InitializeLayoutConsumerHandler;
 import com.android.managedprovisioning.common.Utils;
-import com.android.managedprovisioning.model.CustomizationParams;
-import com.android.managedprovisioning.model.ProvisioningParams;
 
 import com.google.android.setupdesign.GlifLayout;
 import com.google.auto.value.AutoValue;
@@ -41,7 +39,8 @@ abstract class ResetAndReturnDeviceActivityBridgeImpl
 
         GlifLayout layout = activity.findViewById(R.id.setup_wizard_layout);
         layout.setIcon(activity.getDrawable(R.drawable.ic_error_outline));
-        Utils.addResetButton(layout, v -> getBridgeCallback().onResetButtonClicked());
+        Utils.addResetButton(layout, v -> getBridgeCallback().onResetButtonClicked(),
+                R.string.fully_managed_device_reset_and_return_button);
     }
 
     static Builder builder() {

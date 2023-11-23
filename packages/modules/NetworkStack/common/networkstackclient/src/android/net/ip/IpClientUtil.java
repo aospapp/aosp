@@ -198,6 +198,12 @@ public class IpClientUtil {
             mCb.onReachabilityFailure(lossInfo);
         }
 
+        // Set maximum acceptable DTIM multiplier to hardware driver.
+        @Override
+        public void setMaxDtimMultiplier(int multiplier) {
+            mCb.setMaxDtimMultiplier(multiplier);
+        }
+
         @Override
         public int getInterfaceVersion() {
             return this.VERSION;

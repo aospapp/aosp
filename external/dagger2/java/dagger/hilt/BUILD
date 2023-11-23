@@ -54,7 +54,7 @@ java_library(
         "//java/dagger/hilt/internal:generated_component",
         "//java/dagger/hilt/internal:preconditions",
         "//java/dagger/hilt/internal:test_singleton_component",
-        "@google_bazel_common//third_party/java/jsr305_annotations",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -96,7 +96,7 @@ java_library(
     name = "package_info",
     srcs = ["package-info.java"],
     deps = [
-        "@google_bazel_common//third_party/java/jsr305_annotations",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -135,6 +135,7 @@ filegroup(
     srcs = [
         "//java/dagger/hilt/android:srcs_filegroup",
         "//java/dagger/hilt/android/components:srcs_filegroup",
+        "//java/dagger/hilt/android/flags:srcs_filegroup",
         "//java/dagger/hilt/android/internal:srcs_filegroup",
         "//java/dagger/hilt/android/internal/builders:srcs_filegroup",
         "//java/dagger/hilt/android/internal/lifecycle:srcs_filegroup",
@@ -175,6 +176,7 @@ filegroup(
         "//java/dagger/hilt/processor/internal/generatesrootinput:srcs_filegroup",
         "//java/dagger/hilt/processor/internal/originatingelement:srcs_filegroup",
         "//java/dagger/hilt/processor/internal/root:srcs_filegroup",
+        "//java/dagger/hilt/processor/internal/root/ir:srcs_filegroup",
         "//java/dagger/hilt/processor/internal/uninstallmodules:srcs_filegroup",
     ],
 )

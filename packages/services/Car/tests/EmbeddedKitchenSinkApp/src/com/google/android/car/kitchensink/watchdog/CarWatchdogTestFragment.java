@@ -52,6 +52,7 @@ import java.io.InterruptedIOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -146,11 +147,12 @@ public class CarWatchdogTestFragment extends Fragment {
         Button longRunningRecurringIoOveruseButton =
                 view.findViewById(R.id.long_running_recurring_io_overuse_btn);
 
+        Path dirPath = mActivity.getFilesDir().toPath();
         try {
             mTestDir =
-                    Files.createTempDirectory(mActivity.getFilesDir().toPath(), "testDir").toFile();
+                    Files.createTempDirectory(dirPath, "testDir").toFile();
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Failed creating " + dirPath + " directory", e);
             mActivity.finish();
         }
 

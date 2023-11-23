@@ -1,6 +1,6 @@
 @ This file was created from a .asm file
 @  using the ads2gas.pl script.
-	.syntax unified
+.syntax unified
 @
 @  Copyright (c) 2013 The WebM project authors. All Rights Reserved.
 @
@@ -11,27 +11,26 @@
 @  be found in the AUTHORS file in the root of the source tree.
 @
 
-    .global vpx_idct4x4_16_add_neon 
-	.type vpx_idct4x4_16_add_neon, function
-   .arm
-   .eabi_attribute 24, 1 @Tag_ABI_align_needed
-   .eabi_attribute 25, 1 @Tag_ABI_align_preserved
+    .global vpx_idct4x4_16_add_neon
+    .type vpx_idct4x4_16_add_neon, function
+    .arm
+    .eabi_attribute 24, 1 @Tag_ABI_align_needed
+    .eabi_attribute 25, 1 @Tag_ABI_align_preserved
 
-.text
-.p2align 2
+    .text
+    .p2align 2
 
-    .include  "vpx_dsp/arm/idct_neon.asm.S"
+    .include "vpx_dsp/arm/idct_neon.asm.S"
 
-.text
-.p2align 2@ name this block of code
+    .text
+    .p2align 2
 @void vpx_idct4x4_16_add_neon(int16_t *input, uint8_t *dest, int stride)
 @
 @ r0  int16_t input
 @ r1  uint8_t *dest
 @ r2  int stride)
 
-_vpx_idct4x4_16_add_neon:
-	vpx_idct4x4_16_add_neon: @ PROC
+vpx_idct4x4_16_add_neon: @ PROC
 
     @ The 2D transform is done with two passes which are actually pretty
     @ similar. We first transform the rows. This is done by transposing
@@ -190,6 +189,6 @@ _vpx_idct4x4_16_add_neon:
     vst1.32 {d26[1]}, [r1], r2
     vst1.32 {d26[0]}, [r1]  @ no post-increment
     bx              lr
-	.size vpx_idct4x4_16_add_neon, .-vpx_idct4x4_16_add_neon    @ ENDP  @ |vpx_idct4x4_16_add_neon|
+.size vpx_idct4x4_16_add_neon, .-vpx_idct4x4_16_add_neon    @ ENDP  @ |vpx_idct4x4_16_add_neon|
 
-	.section	.note.GNU-stack,"",%progbits
+    .section .note.GNU-stack,"",%progbits

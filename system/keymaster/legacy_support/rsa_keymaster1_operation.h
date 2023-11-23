@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include <openssl/evp.h>
 
 #include <hardware/keymaster1.h>
@@ -55,7 +57,7 @@ template <typename BaseOperation> class RsaKeymaster1Operation : public BaseOper
     RsaKeymaster1Operation(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
                            keymaster_digest_t digest, keymaster_padding_t padding, EVP_PKEY* key,
                            const Keymaster1Engine* engine)
-        : BaseOperation(move(hw_enforced), move(sw_enforced), digest, padding, key),
+        : BaseOperation(std::move(hw_enforced), std::move(sw_enforced), digest, padding, key),
           wrapped_operation_(super::purpose(), engine) {
         // Shouldn't be instantiated for public key operations.
         assert(super::purpose() != KM_PURPOSE_VERIFY);

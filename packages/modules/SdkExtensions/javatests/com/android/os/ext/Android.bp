@@ -24,6 +24,7 @@ android_test {
         "ctstestrunner-axt",
         "modules-utils-build",
         "test_util_current_version",
+        "truth-prebuilt",
     ],
     srcs: ["*.java"],
     test_config: "CtsSdkExtensionsTestCases.xml",

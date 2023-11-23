@@ -33,7 +33,6 @@
 #include "stack/rfcomm/rfc_int.h"
 
 tRFC_CB rfc_cb;
-std::unordered_map<uint32_t, uint16_t> rfcomm_security_records;
 std::unordered_map<uint16_t /* sci */, tRFC_MCB*> rfc_lcid_mcb;
 
 /*******************************************************************************

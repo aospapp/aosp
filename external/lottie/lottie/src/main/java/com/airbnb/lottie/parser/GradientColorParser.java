@@ -8,9 +8,8 @@ import com.airbnb.lottie.utils.MiscUtils;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-
-import androidx.annotation.IntRange;
 
 public class GradientColorParser implements com.airbnb.lottie.parser.ValueParser<GradientColor> {
   /**
@@ -55,6 +54,17 @@ public class GradientColorParser implements com.airbnb.lottie.parser.ValueParser
     while (reader.hasNext()) {
       array.add((float) reader.nextDouble());
     }
+    if (array.size() == 4 && array.get(0) == 1f) {
+      // If a gradient color only contains one color at position 1, add a second stop with the same
+      // color at position 0. Android's LinearGradient shader requires at least two colors.
+      // https://github.com/airbnb/lottie-android/issues/1967
+      array.set(0, 0f);
+      array.add(1f);
+      array.add(array.get(1));
+      array.add(array.get(2));
+      array.add(array.get(3));
+      colorPoints = 2;
+    }
     if (isArray) {
       reader.endArray();
     }
@@ -72,8 +82,13 @@ public class GradientColorParser implements com.airbnb.lottie.parser.ValueParser
       double value = array.get(i);
       switch (i % 4) {
         case 0:
-          // position
-          positions[colorIndex] = (float) value;
+          // Positions should monotonically increase. If they don't, it can cause rendering problems on some phones.
+          // https://github.com/airbnb/lottie-android/issues/1675
+          if (colorIndex > 0 && positions[colorIndex - 1] >= (float) value) {
+            positions[colorIndex] = (float) value + 0.01f;
+          } else {
+            positions[colorIndex] = (float) value;
+          }
           break;
         case 1:
           r = (int) (value * 255);
@@ -89,7 +104,7 @@ public class GradientColorParser implements com.airbnb.lottie.parser.ValueParser
     }
 
     GradientColor gradientColor = new GradientColor(positions, colors);
-    addOpacityStopsToGradientIfNeeded(gradientColor, array);
+    gradientColor = addOpacityStopsToGradientIfNeeded(gradientColor, array);
     return gradientColor;
   }
 
@@ -102,47 +117,150 @@ public class GradientColorParser implements com.airbnb.lottie.parser.ValueParser
    * This should be a good approximation is nearly all cases. However, if there are many more
    * opacity stops than color stops, information will be lost.
    */
-  private void addOpacityStopsToGradientIfNeeded(GradientColor gradientColor, List<Float> array) {
+  private GradientColor addOpacityStopsToGradientIfNeeded(GradientColor gradientColor, List<Float> array) {
     int startIndex = colorPoints * 4;
     if (array.size() <= startIndex) {
-      return;
+      return gradientColor;
     }
 
+    // When there are opacity stops, we create a merged list of color stops and opacity stops.
+    // For a given color stop, we linearly interpolate the opacity for the two opacity stops around it.
+    // For a given opacity stop, we linearly interpolate the color for the two color stops around it.
+    float[] colorStopPositions = gradientColor.getPositions();
+    int[] colorStopColors = gradientColor.getColors();
+
     int opacityStops = (array.size() - startIndex) / 2;
-    double[] positions = new double[opacityStops];
-    double[] opacities = new double[opacityStops];
+    float[] opacityStopPositions = new float[opacityStops];
+    float[] opacityStopOpacities = new float[opacityStops];
 
     for (int i = startIndex, j = 0; i < array.size(); i++) {
       if (i % 2 == 0) {
-        positions[j] = array.get(i);
+        opacityStopPositions[j] = array.get(i);
       } else {
-        opacities[j] = array.get(i);
+        opacityStopOpacities[j] = array.get(i);
         j++;
       }
     }
 
-    for (int i = 0; i < gradientColor.getSize(); i++) {
-      int color = gradientColor.getColors()[i];
-      color = Color.argb(
-          getOpacityAtPosition(gradientColor.getPositions()[i], positions, opacities),
-          Color.red(color),
-          Color.green(color),
-          Color.blue(color)
-      );
-      gradientColor.getColors()[i] = color;
-    }
-  }
+    // Pre-SKIA (Oreo) devices render artifacts when there is two stops in the same position.
+    // As a result, we have to de-dupe the merge color and opacity stop positions.
+    float[] newPositions = mergeUniqueElements(gradientColor.getPositions(), opacityStopPositions);
+    int newColorPoints = newPositions.length;
+    int[] newColors = new int[newColorPoints];
 
-  @IntRange(from = 0, to = 255)
-  private int getOpacityAtPosition(double position, double[] positions, double[] opacities) {
-    for (int i = 1; i < positions.length; i++) {
-      double lastPosition = positions[i - 1];
-      double thisPosition = positions[i];
-      if (positions[i] >= position) {
-        double progress = (position - lastPosition) / (thisPosition - lastPosition);
-        return (int) (255 * MiscUtils.lerp(opacities[i - 1], opacities[i], progress));
+    for (int i = 0; i < newColorPoints; i++) {
+      float position = newPositions[i];
+      int colorStopIndex = Arrays.binarySearch(colorStopPositions, position);
+      int opacityIndex = Arrays.binarySearch(opacityStopPositions, position);
+      if (colorStopIndex < 0 || opacityIndex > 0) {
+        // This is a stop derived from an opacity stop.
+        if (opacityIndex < 0) {
+          // The formula here is derived from the return value for binarySearch. When an item isn't found, it returns -insertionPoint - 1.
+          opacityIndex = -(opacityIndex + 1);
+        }
+        newColors[i] = getColorInBetweenColorStops(position, opacityStopOpacities[opacityIndex], colorStopPositions, colorStopColors);
+      } else {
+        // This os a step derived from a color stop.
+        newColors[i] = getColorInBetweenOpacityStops(position, colorStopColors[colorStopIndex], opacityStopPositions, opacityStopOpacities);
       }
     }
-    return (int) (255 * opacities[opacities.length - 1]);
+    return new GradientColor(newPositions, newColors);
+  }
+
+  private int getColorInBetweenColorStops(float position, float opacity, float[] colorStopPositions, int[] colorStopColors) {
+    if (colorStopColors.length < 2 || position == colorStopPositions[0]) {
+      return colorStopColors[0];
+    }
+    for (int i = 1; i < colorStopPositions.length; i++) {
+      float colorStopPosition = colorStopPositions[i];
+      if (colorStopPosition < position && i != colorStopPositions.length - 1) {
+        continue;
+      }
+      // We found the position in which position is between i - 1 and i.
+      float distanceBetweenColors = colorStopPositions[i] - colorStopPositions[i - 1];
+      float distanceToLowerColor = position - colorStopPositions[i - 1];
+      float percentage = distanceToLowerColor / distanceBetweenColors;
+      int upperColor = colorStopColors[i];
+      int lowerColor = colorStopColors[i - 1];
+      int a = (int) (opacity * 255);
+      int r = MiscUtils.lerp(Color.red(lowerColor), Color.red(upperColor), percentage);
+      int g = MiscUtils.lerp(Color.green(lowerColor), Color.green(upperColor), percentage);
+      int b = MiscUtils.lerp(Color.blue(lowerColor), Color.blue(upperColor), percentage);
+      return Color.argb(a, r, g, b);
+    }
+    throw new IllegalArgumentException("Unreachable code.");
+  }
+
+  private int getColorInBetweenOpacityStops(float position, int color, float[] opacityStopPositions, float[] opacityStopOpacities) {
+    if (opacityStopOpacities.length < 2 || position <= opacityStopPositions[0]) {
+      int a = (int) (opacityStopOpacities[0] * 255);
+      int r = Color.red(color);
+      int g = Color.green(color);
+      int b = Color.blue(color);
+      return Color.argb(a, r, g, b);
+    }
+    for (int i = 1; i < opacityStopPositions.length; i++) {
+      float opacityStopPosition = opacityStopPositions[i];
+      if (opacityStopPosition < position && i != opacityStopPositions.length - 1) {
+        continue;
+      }
+      final int a;
+      if (opacityStopPosition <= position) {
+        a = (int) (opacityStopOpacities[i] * 255);
+      } else {
+        // We found the position in which position in between i - 1 and i.
+        float distanceBetweenOpacities = opacityStopPositions[i] - opacityStopPositions[i - 1];
+        float distanceToLowerOpacity = position - opacityStopPositions[i - 1];
+        float percentage = distanceToLowerOpacity / distanceBetweenOpacities;
+        a = (int) (MiscUtils.lerp(opacityStopOpacities[i - 1], opacityStopOpacities[i], percentage) * 255);
+      }
+      int r = Color.red(color);
+      int g = Color.green(color);
+      int b = Color.blue(color);
+      return Color.argb(a, r, g, b);
+    }
+    throw new IllegalArgumentException("Unreachable code.");
+  }
+
+  /**
+   * Takes two sorted float arrays and merges their elements while removing duplicates.
+   */
+  protected static float[] mergeUniqueElements(float[] arrayA, float[] arrayB) {
+    if (arrayA.length == 0) {
+      return arrayB;
+    } else if (arrayB.length == 0) {
+      return arrayA;
+    }
+
+    int aIndex = 0;
+    int bIndex = 0;
+    int numDuplicates = 0;
+    // This will be the merged list but may be longer than what is needed if there are duplicates.
+    // If there are, the 0 elements at the end need to be truncated.
+    float[] mergedNotTruncated = new float[arrayA.length + arrayB.length];
+    for (int i = 0; i < mergedNotTruncated.length; i++) {
+      final float a = aIndex < arrayA.length ? arrayA[aIndex] : Float.NaN;
+      final float b = bIndex < arrayB.length ? arrayB[bIndex] : Float.NaN;
+
+      if (Float.isNaN(b) || a < b) {
+        mergedNotTruncated[i] = a;
+        aIndex++;
+      } else if (Float.isNaN(a) || b < a) {
+        mergedNotTruncated[i] = b;
+        bIndex++;
+      } else {
+        mergedNotTruncated[i] = a;
+        aIndex++;
+        bIndex++;
+        numDuplicates++;
+      }
+    }
+
+    if (numDuplicates == 0) {
+      return mergedNotTruncated;
+    }
+
+
+    return Arrays.copyOf(mergedNotTruncated, mergedNotTruncated.length - numDuplicates);
   }
 }

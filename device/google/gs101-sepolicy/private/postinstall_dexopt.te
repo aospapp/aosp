@@ -1,2 +1,0 @@
-# b/194142604
-dontaudit postinstall_dexopt odsign_prop:file read;

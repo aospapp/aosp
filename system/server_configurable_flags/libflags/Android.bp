@@ -6,6 +6,8 @@ cc_library {
     name: "server_configurable_flags",
     srcs: ["server_configurable_flags.cc"],
     host_supported: true,
+    vendor_available: true,
+    double_loadable: true,
     shared_libs: [
         "libbase",
         "libcutils",

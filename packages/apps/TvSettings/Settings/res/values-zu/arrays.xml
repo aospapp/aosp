@@ -23,15 +23,22 @@
     <item msgid="2085428169229240524">"1 ihora"</item>
     <item msgid="1721833099003792021">"2 amahora"</item>
   </string-array>
-  <string-array name="screen_off_timeout_entries">
-    <item msgid="2023064540617589294">"15 amaminithi"</item>
-    <item msgid="4795171375052386180">"30 amaminithi"</item>
-    <item msgid="3607410962439496240">"1 ihora"</item>
-    <item msgid="3961404165574258373">"4 amahora"</item>
-    <item msgid="7081536241895332602">"8 amahora"</item>
-    <item msgid="2309374028847575472">"12 amahora"</item>
-    <item msgid="8972691357879557282">"24 amahora"</item>
-    <item msgid="8711655845733997688">"Soze"</item>
+  <string-array name="device_energy_saver_sleep_timeout_entries">
+    <item msgid="6307555102195450269">"imizuzu 15"</item>
+    <item msgid="258357076819815564">"imizuzu 20"</item>
+    <item msgid="5804127335928888034">"imizuzu 30"</item>
+    <item msgid="925893486812178922">"ihora 1"</item>
+    <item msgid="5078514399046733929">"amahora 4"</item>
+    <item msgid="4734498910045400535">"amahora 8"</item>
+    <item msgid="5969796901648455583">"amahora 12"</item>
+    <item msgid="5034242362688847963">"amahora 24"</item>
+    <item msgid="940743686898651116">"Akusoze"</item>
+  </string-array>
+  <string-array name="device_energy_saver_attentive_timeout_entries">
+    <item msgid="3361047879614054539">"amahora 4"</item>
+    <item msgid="680279399507109560">"amahora 6"</item>
+    <item msgid="8718228763761076871">"amahora 8"</item>
+    <item msgid="4952174685842622512">"Akusoze"</item>
   </string-array>
   <string-array name="captioning_typeface_selector_titles">
     <item msgid="890926483922346934">"Okuzenzakalelayo"</item>

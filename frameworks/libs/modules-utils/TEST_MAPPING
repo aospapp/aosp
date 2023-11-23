@@ -6,7 +6,33 @@
       "name": "FrameworksWifiApiTests"
     },
     {
+      "name": "InternalAnnotationsTests"
+    },
+    {
       "name": "ModulesUtilsTests"
+    },
+    {
+      // b/255344517: The binary XML tests currently lives in frameworks/base.
+      "name": "FrameworksCoreTests",
+      "options": [
+        {
+          "include-filter": "com.android.internal.util.FastDataTest"
+        }
+      ],
+      "file_patterns": ["FastData"]
+    },
+    {
+      // b/255344517: The binary XML tests currently lives in frameworks/base.
+      "name": "FrameworksCoreTests",
+      "options": [
+        {
+          "include-filter": "android.util.XmlTest"
+        },
+        {
+          "include-filter": "android.util.BinaryXmlTest"
+        }
+      ],
+      "file_patterns": ["Xml"]
     }
     // TODO: Re-enable when this is stable.
     // {
@@ -18,6 +44,13 @@
     {
       // Unit tests for service-wifi.jar
       "name": "FrameworksWifiTests"
+    }
+  ],
+  // Run these on real devices in postsubmit while they're
+  // flakey on Cuttlefish. TODO(b/264496291): Fix this.
+  "avf-postsubmit": [
+    {
+        "name": "ComposHostTestCases"
     }
   ]
 }

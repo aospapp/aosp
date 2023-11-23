@@ -45,7 +45,7 @@
     <string name="callFailed_dialVideoToUssd" msgid="4479951468674677111">"USSD eskaerara aldatu da bideodeia"</string>
     <string name="callFailed_dialVideoToDial" msgid="160029277192677751">"Ohiko deira aldatu da"</string>
     <string name="callFailed_dialVideoToDialVideo" msgid="3976695729414283836">"Beste zenbaki batera aldatu da"</string>
-    <string name="callFailed_cb_enabled" msgid="3555984829657638323">"Ezin da deitu deien debekuak aktibatuta dauden bitartean."</string>
+    <string name="callFailed_cb_enabled" msgid="3555984829657638323">"Ezin da egin irteerako deirik deien debekuak aktibatuta dauden bitartean."</string>
     <string name="callFailed_dsac_restricted" msgid="4073547013432506074">"Deiak sarbide-kontrolaren bidez daude mugatuta."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="3271861683273124458">"Larrialdi-deiak sarbide-kontrolaren bidez daude mugatuta."</string>
     <string name="callFailed_dsac_restricted_normal" msgid="2812267231481193715">"Dei arruntak sarbide-kontrolaren bidez daude mugatuta."</string>

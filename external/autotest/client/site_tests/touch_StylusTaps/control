@@ -9,12 +9,13 @@ CRITERIA = """
 This test will fail if, after playback of touch events, taps do not appear
 on test page.
 """
-ATTRIBUTES = "suite:touch"
+ATTRIBUTES = "suite:touch_replay"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "touch"
 TEST_TYPE = "client"
 DEPENDENCIES = "stylus"
+PY_VERSION = 3
 
 DOC = """
 Uses kernel playback and a javascript page to play and listen for stylus taps.

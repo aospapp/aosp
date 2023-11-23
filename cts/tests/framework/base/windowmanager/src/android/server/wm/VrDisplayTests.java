@@ -17,6 +17,7 @@
 package android.server.wm;
 
 import static android.server.wm.ComponentNameUtils.getActivityName;
+import static android.server.wm.ShellCommandHelper.executeShellCommand;
 import static android.server.wm.app.Components.ALT_LAUNCHING_ACTIVITY;
 import static android.server.wm.app.Components.LAUNCHING_ACTIVITY;
 import static android.server.wm.app.Components.RESIZEABLE_ACTIVITY;
@@ -29,7 +30,6 @@ import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.ComponentName;
-import android.platform.test.annotations.FlakyTest;
 import android.platform.test.annotations.Presubmit;
 import android.provider.Settings;
 import android.server.wm.WindowManagerState.DisplayContent;
@@ -47,7 +47,6 @@ import java.util.List;
  *     atest CtsWindowManagerDeviceTestCases:VrDisplayTests
  */
 @Presubmit
-@FlakyTest
 @android.server.wm.annotation.Group3
 public class VrDisplayTests extends MultiDisplayTestBase {
     private static final int VR_VIRTUAL_DISPLAY_WIDTH = 700;

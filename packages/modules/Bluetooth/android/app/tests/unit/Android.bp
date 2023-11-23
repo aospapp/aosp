@@ -2,36 +2,35 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-android_test {
-    name: "BluetoothInstrumentationTests",
-
-    // We only want this apk build for tests.
-    certificate: ":com.android.bluetooth.certificate",
+java_defaults {
+    name: "BluetoothInstrumentationTestsDefaults",
     defaults: ["framework-bluetooth-tests-defaults"],
 
-    min_sdk_version: "current",
+    min_sdk_version: "Tiramisu",
     target_sdk_version: "current",
     libs: [
-        "javax.obex",
-        "android.test.runner",
-        "telephony-common",
-        "libprotobuf-java-micro",
         "android.test.base",
         "android.test.mock",
+        "android.test.runner",
+        "javax.obex",
+        "libprotobuf-java-micro",
+        "telephony-common",
     ],
 
     static_libs: [
-        "androidx.test.ext.truth",
-        "androidx.test.rules",
-        "mockito-target",
-        "androidx.test.espresso.intents",
-        "gson-prebuilt-jar",
+        "PlatformProperties",
+        "androidx.media_media",
         "androidx.room_room-migration",
         "androidx.room_room-runtime",
         "androidx.room_room-testing",
-        "truth-prebuilt",
-        "PlatformProperties",
+        "androidx.test.espresso.intents",
+        "androidx.test.ext.truth",
+        "androidx.test.rules",
+        "androidx.test.uiautomator_uiautomator",
         "framework-bluetooth-pre-jarjar",
+        "gson",
+        "mockito-target",
+        "truth-prebuilt",
     ],
 
     asset_dirs: ["src/com/android/bluetooth/btservice/storage/schemas"],
@@ -47,7 +46,20 @@ android_test {
     test_suites: [
         "device-tests",
         "mts-bluetooth",
+        "automotive-tests",
     ],
 
     instrumentation_for: "Bluetooth",
+}
+
+android_test {
+    name: "BluetoothInstrumentationTests",
+    defaults: ["BluetoothInstrumentationTestsDefaults"],
+}
+
+android_test {
+    name: "GoogleBluetoothInstrumentationTests",
+    defaults: ["BluetoothInstrumentationTestsDefaults"],
+    test_config: "GoogleAndroidTest.xml",
+    instrumentation_target_package: "com.google.android.bluetooth",
 }

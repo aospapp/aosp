@@ -19,6 +19,8 @@ package com.android.car.settings.security;
 import static android.os.UserManager.DISALLOW_CONFIG_CREDENTIALS;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -66,9 +68,65 @@ public class CredentialsResetPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_noRestrictions_returnsAvailable_zoneWrite() {
+        mControllerHelper.getController().setAvailabilityStatusForZone("write");
+        getShadowUserManager().setUserRestriction(
+                mMyUserHandle, DISALLOW_CONFIG_CREDENTIALS, false);
+
+        assertThat(mControllerHelper.getController().getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_noRestrictions_returnsAvailable_zoneRead() {
+        mControllerHelper.getController().setAvailabilityStatusForZone("read");
+        getShadowUserManager().setUserRestriction(
+                mMyUserHandle, DISALLOW_CONFIG_CREDENTIALS, false);
+
+        assertThat(mControllerHelper.getController().getAvailabilityStatus())
+                .isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_noRestrictions_returnsAvailable_zoneHidden() {
+        mControllerHelper.getController().setAvailabilityStatusForZone("hidden");
+        getShadowUserManager().setUserRestriction(
+                mMyUserHandle, DISALLOW_CONFIG_CREDENTIALS, false);
+
+        assertThat(mControllerHelper.getController().getAvailabilityStatus())
+                .isEqualTo(CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_userRestricted_returnsDisabledForUser() {
         getShadowUserManager().setUserRestriction(mMyUserHandle, DISALLOW_CONFIG_CREDENTIALS, true);
 
+
+        assertThat(mControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_userRestricted_returnsDisabledForUser_zoneWrite() {
+        mControllerHelper.getController().setAvailabilityStatusForZone("write");
+        getShadowUserManager().setUserRestriction(mMyUserHandle, DISALLOW_CONFIG_CREDENTIALS, true);
+
+        assertThat(mControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_userRestricted_returnsDisabledForUser_zoneRead() {
+        mControllerHelper.getController().setAvailabilityStatusForZone("read");
+        getShadowUserManager().setUserRestriction(mMyUserHandle, DISALLOW_CONFIG_CREDENTIALS, true);
+
+        assertThat(mControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_userRestricted_returnsDisabledForUser_zoneHidden() {
+        mControllerHelper.getController().setAvailabilityStatusForZone("hidden");
+        getShadowUserManager().setUserRestriction(mMyUserHandle, DISALLOW_CONFIG_CREDENTIALS, true);
 
         assertThat(mControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
                 DISABLED_FOR_PROFILE);

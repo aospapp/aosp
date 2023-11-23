@@ -42,12 +42,12 @@ cc_defaults {
     ],
     shared_libs: [
         "libartpalette",
+        "libarttools", // Contains "libc++fs".
         "libbase",
         "liblog",
     ],
     static_libs: [
-        "libc++fs",
-        "libtinyxml2",
+        "libmodules-utils-build",
     ],
     tidy: true,
     tidy_disabled_srcs: [":art-apex-cache-info"],
@@ -112,6 +112,7 @@ art_cc_binary {
     apex_available: [
         "com.android.art",
         "com.android.art.debug",
+        "test_broken_com.android.art",
     ],
 }
 
@@ -123,6 +124,7 @@ art_cc_binary {
     local_include_dirs: ["include"],
     header_libs: ["libbase_headers"],
     srcs: ["odrefresh_broken.cc"],
+    installable: false,
     apex_available: ["test_jitzygote_com.android.art"],
 }
 
@@ -146,6 +148,7 @@ art_cc_binary {
         // apex_available lists need to be the same for internal libs to avoid
         // stubs, and this depends on libartd.
         "com.android.art",
+        "test_broken_com.android.art",
     ],
 }
 
@@ -155,6 +158,7 @@ cc_library_static {
     host_supported: true,
     export_include_dirs: ["include"],
     local_include_dirs: ["include"],
+    header_libs: ["libart_headers"],
     shared_libs: ["libartbase"],
     target: {
         android: {

@@ -7,21 +7,10 @@ import logging
 
 import common
 
-from autotest_lib.client.common_lib import global_config
 from autotest_lib.server import site_utils
 from autotest_lib.server.cros.dynamic_suite import job_status
 from autotest_lib.server.cros.dynamic_suite import reporting_utils
 from autotest_lib.server.cros.dynamic_suite import tools
-from autotest_lib.site_utils import gmail_lib
-
-try:
-    from chromite.lib import metrics
-except ImportError:
-    metrics = site_utils.metrics_mock
-
-
-EMAIL_CREDS_FILE = global_config.global_config.get_config_value(
-        'NOTIFICATIONS', 'gmail_api_credentials_test_failure', default=None)
 
 
 class TestBug(object):
@@ -163,23 +152,5 @@ def send_email(bug, bug_template):
     @param bug_template: A template dictionary specifying the default bug
                          filing options for failures in this suite.
     """
-    to_set = set(bug.cc) if bug.cc else set()
-    if bug.owner:
-        to_set.add(bug.owner)
-    if bug_template.get('cc'):
-        to_set = to_set.union(bug_template.get('cc'))
-    if bug_template.get('owner'):
-        to_set.add(bug_template.get('owner'))
-    recipients = ', '.join(to_set)
-    if not recipients:
-        logging.warning('No owner/cc found. Will skip sending a mail.')
-        return
-    success = False
-    try:
-        gmail_lib.send_email(
-            recipients, bug.title(), bug.summary(), retry=False,
-            creds_path=site_utils.get_creds_abspath(EMAIL_CREDS_FILE))
-        success = True
-    finally:
-        (metrics.Counter('chromeos/autotest/errors/send_bug_email')
-         .increment(fields={'success': success}))
+    # TODO(ayatane): Deprecated, no time to untangle imports to delete right now.
+    pass

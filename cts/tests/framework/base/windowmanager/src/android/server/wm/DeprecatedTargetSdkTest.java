@@ -58,4 +58,10 @@ public class DeprecatedTargetSdkTest extends ActivityManagerTestBase {
         // won't invoke the warning dialog.
         pressBackButton();
     }
+
+    public static void waitAndDismissDeprecatedTargetSdkDialog(WindowManagerStateHelper state) {
+        state.waitForWindowSurfaceShown(DEPRECATED_TARGET_SDK_VERSION_DIALOG, true);
+        closeSystemDialogs();
+        state.waitForWindowSurfaceDisappeared(DEPRECATED_TARGET_SDK_VERSION_DIALOG);
+    }
 }

@@ -18,7 +18,10 @@ package com.android.launcher3.allapps;
 import static com.android.launcher3.model.data.AppInfo.COMPONENT_KEY_COMPARATOR;
 import static com.android.launcher3.model.data.AppInfo.EMPTY_ARRAY;
 import static com.android.launcher3.model.data.ItemInfoWithIcon.FLAG_SHOW_DOWNLOAD_PROGRESS_MASK;
+import static com.android.launcher3.testing.shared.TestProtocol.WORK_TAB_MISSING;
 
+import android.os.UserHandle;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -27,12 +30,15 @@ import androidx.annotation.Nullable;
 import com.android.launcher3.BubbleTextView;
 import com.android.launcher3.model.data.AppInfo;
 import com.android.launcher3.model.data.ItemInfo;
+import com.android.launcher3.testing.shared.TestProtocol;
 import com.android.launcher3.util.ComponentKey;
 import com.android.launcher3.util.PackageUserKey;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -54,8 +60,8 @@ public class AllAppsStore {
 
     private final List<OnUpdateListener> mUpdateListeners = new CopyOnWriteArrayList<>();
     private final ArrayList<ViewGroup> mIconContainers = new ArrayList<>();
+    private Map<PackageUserKey, Integer> mPackageUserKeytoUidMap = Collections.emptyMap();
     private int mModelFlags;
-
     private int mDeferUpdatesFlags = 0;
     private boolean mUpdatePending = false;
 
@@ -64,12 +70,21 @@ public class AllAppsStore {
     }
 
     /**
-     * Sets the current set of apps.
+     * Sets the current set of apps and sets mapping for {@link PackageUserKey} to Uid for
+     * the current set of apps.
      */
-    public void setApps(AppInfo[] apps, int flags) {
+    public void setApps(AppInfo[] apps, int flags, Map<PackageUserKey, Integer> map) {
         mApps = apps;
         mModelFlags = flags;
         notifyUpdate();
+        mPackageUserKeytoUidMap = map;
+    }
+
+    /**
+     * Look up for Uid using package name and user handle for the current set of apps.
+     */
+    public int lookUpForUid(String packageName, UserHandle user) {
+        return mPackageUserKeytoUidMap.getOrDefault(new PackageUserKey(packageName, user), -1);
     }
 
     /**
@@ -119,6 +134,9 @@ public class AllAppsStore {
             return;
         }
         for (OnUpdateListener listener : mUpdateListeners) {
+            if (TestProtocol.sDebugTracing) {
+                Log.d(WORK_TAB_MISSING, "AllAppsStore#notifyUpdate listener: " + listener);
+            }
             listener.onAppsUpdated();
         }
     }

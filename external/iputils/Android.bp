@@ -33,6 +33,7 @@ license {
 cc_defaults {
     name: "iputils_defaults",
     cflags: [
+        "-fno-strict-aliasing",
         "-D_GNU_SOURCE",
         "-Wall",
         "-Werror",

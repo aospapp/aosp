@@ -80,20 +80,9 @@ public abstract class ManagedProvisioningBaseApplication extends Application {
     }
 
     /**
-     * If {@link #markKeepScreenOn()} was previously called, makes the
-     * provided {@link Activity} keep its screen on while it's visible to the end-user.
+     * Sets the screen On for whole provisioning flow
      */
-    public void maybeKeepScreenOn(Activity activity) {
-        if (mKeepScreenOn) {
-            markKeepScreenOn();
-            activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        }
-    }
-
-    /**
-     * Signals that all {@link Activity} instances should keep their screen on.
-     */
-    public void markKeepScreenOn() {
-        mKeepScreenOn = true;
+    public void keepScreenOn(Activity activity) {
+        activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 }

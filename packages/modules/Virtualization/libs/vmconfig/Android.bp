@@ -6,7 +6,7 @@ rust_library {
     name: "libvmconfig",
     crate_name: "vmconfig",
     srcs: ["src/lib.rs"],
-    edition: "2018",
+    edition: "2021",
     rustlibs: [
         "android.system.virtualizationservice-rust",
         "libanyhow",

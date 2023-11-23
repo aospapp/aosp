@@ -1008,10 +1008,30 @@ vn_replace_VkSubpassDescription2_handle(VkSubpassDescription2 *val)
 static inline void *
 vn_decode_VkSubpassDependency2_pnext_temp(struct vn_cs_decoder *dec)
 {
-    /* no known/supported struct */
-    if (vn_decode_simple_pointer(dec))
+    VkBaseOutStructure *pnext;
+    VkStructureType stype;
+
+    if (!vn_decode_simple_pointer(dec))
+        return NULL;
+
+    vn_decode_VkStructureType(dec, &stype);
+    switch ((int32_t)stype) {
+    case VK_STRUCTURE_TYPE_MEMORY_BARRIER_2:
+        pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkMemoryBarrier2));
+        if (pnext) {
+            pnext->sType = stype;
+            pnext->pNext = vn_decode_VkSubpassDependency2_pnext_temp(dec);
+            vn_decode_VkMemoryBarrier2_self_temp(dec, (VkMemoryBarrier2 *)pnext);
+        }
+        break;
+    default:
+        /* unexpected struct */
+        pnext = NULL;
         vn_cs_decoder_set_fatal(dec);
-    return NULL;
+        break;
+    }
+
+    return pnext;
 }
 
 static inline void
@@ -1065,6 +1085,9 @@ vn_replace_VkSubpassDependency2_handle(VkSubpassDependency2 *val)
         switch ((int32_t)pnext->sType) {
         case VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2:
             vn_replace_VkSubpassDependency2_handle_self((VkSubpassDependency2 *)pnext);
+            break;
+        case VK_STRUCTURE_TYPE_MEMORY_BARRIER_2:
+            vn_replace_VkMemoryBarrier2_handle_self((VkMemoryBarrier2 *)pnext);
             break;
         default:
             /* ignore unknown/unsupported struct */

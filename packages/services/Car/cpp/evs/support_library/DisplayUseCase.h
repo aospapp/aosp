@@ -16,40 +16,39 @@
 #ifndef CAR_LIB_EVS_SUPPORT_DISPLAY_USECASE_H
 #define CAR_LIB_EVS_SUPPORT_DISPLAY_USECASE_H
 
-#include <android/hardware/automotive/evs/1.0/IEvsDisplay.h>
-
-#include <string>
-#include <thread>
-
 #include "BaseRenderCallback.h"
 #include "BaseUseCase.h"
 #include "ConfigManager.h"
 #include "RenderBase.h"
-#include "StreamHandler.h"
 #include "ResourceManager.h"
+#include "StreamHandler.h"
+
+#include <android/hardware/automotive/evs/1.0/IEvsDisplay.h>
+
+#include <string>
+#include <thread>
 
 namespace android {
 namespace automotive {
 namespace evs {
 namespace support {
 
-using namespace ::android::hardware::automotive::evs::V1_0;
 using ::android::sp;
 using ::android::hardware::Return;
+using ::android::hardware::automotive::evs::V1_0::IEvsDisplay;
 using ::std::string;
 
 // TODO(b/130246434): Think about multi-camera situation.
 class DisplayUseCase : public BaseUseCase {
-  public:
+public:
     ~DisplayUseCase();
     bool startVideoStream() override;
     void stopVideoStream() override;
 
     // TODO(b/130246434): Add configuration class to create more use case.
-    static DisplayUseCase createDefaultUseCase(string cameraId,
-                                               BaseRenderCallback* cb = nullptr);
+    static DisplayUseCase createDefaultUseCase(string cameraId, BaseRenderCallback* cb = nullptr);
 
-  private:
+private:
     DisplayUseCase(string cameraId, BaseRenderCallback* renderCallback);
 
     // TODO(b/130246434): Think about whether we should make init public so

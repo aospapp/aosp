@@ -18,6 +18,8 @@ package com.android.server.wifi.util;
 
 import android.os.Message;
 
+import androidx.annotation.NonNull;
+
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 
@@ -40,7 +42,10 @@ public class WaitingState extends State {
     // message.what and message.getData() entries to try to guarantee no overlap with any containing
     // state
     private static final int MESSAGE_TYPE_TRANSITION = 0xFFFFFF;
-    private static final String MESSAGE_BUNDLE_KEY_UNIQUE_ID = "__waiting_state_unique_key";
+    private static final String MESSAGE_BUNDLE_KEY_TRANSITION_STATE_COMMAND =
+            "__waiting_state_transition_state_command";
+    private static final String MESSAGE_BUNDLE_KEY_MESSAGE_WAS_WAITING =
+            "__waiting_state_message_was_waiting";
 
     public WaitingState(StateMachine parentStateMachine) {
         mParentStateMachine = parentStateMachine;
@@ -49,9 +54,10 @@ public class WaitingState extends State {
     @Override
     public boolean processMessage(Message message) {
         if (message.what == MESSAGE_TYPE_TRANSITION && message.getData().getBoolean(
-                MESSAGE_BUNDLE_KEY_UNIQUE_ID, false)) {
+                MESSAGE_BUNDLE_KEY_TRANSITION_STATE_COMMAND, false)) {
             mParentStateMachine.transitionTo((State) message.obj);
         } else {
+            message.getData().putBoolean(MESSAGE_BUNDLE_KEY_MESSAGE_WAS_WAITING, true);
             mParentStateMachine.deferMessage(message);
         }
         return HANDLED;
@@ -65,7 +71,14 @@ public class WaitingState extends State {
      */
     public void sendTransitionStateCommand(State destState) {
         Message message = mParentStateMachine.obtainMessage(MESSAGE_TYPE_TRANSITION, destState);
-        message.getData().putBoolean(MESSAGE_BUNDLE_KEY_UNIQUE_ID, true);
+        message.getData().putBoolean(MESSAGE_BUNDLE_KEY_TRANSITION_STATE_COMMAND, true);
         mParentStateMachine.sendMessage(message);
+    }
+
+    /**
+     * Returns whether the given message was ever deferred in the WaitingState.
+     */
+    public static boolean wasMessageInWaitingState(@NonNull Message message) {
+        return message.getData().getBoolean(MESSAGE_BUNDLE_KEY_MESSAGE_WAS_WAITING, false);
     }
 }

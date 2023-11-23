@@ -17,9 +17,8 @@ package com.android.car.input;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
-import static org.testng.Assert.assertThrows;
-import static org.testng.Assert.expectThrows;
 
 import android.car.Car;
 import android.car.CarOccupantZoneManager;
@@ -86,11 +85,10 @@ public class CarInputManagerPermisisonTest {
                 /* eventTime= */ currentTime, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_HOME,
                 /* repeat= */ 0);
 
-        SecurityException thrown = expectThrows(SecurityException.class,
+        SecurityException thrown = assertThrows(SecurityException.class,
                 () -> mCarInputManager.injectKeyEvent(anyKeyEvent,
                         CarOccupantZoneManager.DISPLAY_TYPE_MAIN));
         assertThat(thrown.getMessage()).isEqualTo(
                 "Injecting KeyEvent requires INJECT_EVENTS permission");
     }
 }
-

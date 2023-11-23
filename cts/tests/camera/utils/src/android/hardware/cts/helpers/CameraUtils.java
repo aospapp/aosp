@@ -16,10 +16,14 @@
 
 package android.hardware.cts.helpers;
 
+import static org.junit.Assert.assertNotNull;
+
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
+import android.hardware.Camera.Parameters;
+import android.hardware.Camera.Size;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
@@ -136,7 +140,8 @@ public class CameraUtils {
             return false;
         }
 
-        if (staticMeta.isVideoStabilizationSupported() != params.isVideoStabilizationSupported()) {
+        if (staticMeta.isVideoStabilizationSupported() !=
+                params.isVideoStabilizationSupported()) {
             return false;
         }
 
@@ -303,5 +308,26 @@ public class CameraUtils {
 
         // Device is a foldable if supportedStates contains any state in foldedDeviceStates
         return Arrays.stream(foldedDeviceStates).anyMatch(supportedStates::contains);
+    }
+
+    /**
+     * Returns Gets the supported video frame sizes that can be used by MediaRecorder.
+     *
+     * @param camera Camera for which to get the supported video sizes.
+     * @return a list of Size object if camera has separate preview and video output;
+     * in case there isn't a separate video/preview size option,
+     * it returns the preview sizes.
+     */
+    public static List<Size> getSupportedVideoSizes(Camera camera) {
+        Parameters parameters = camera.getParameters();
+        assertNotNull("Camera did not provide parameters", parameters);
+        List<Size> videoSizes = parameters.getSupportedVideoSizes();
+
+        if (videoSizes == null) {
+            videoSizes = parameters.getSupportedPreviewSizes();
+            assertNotNull(videoSizes);
+        }
+
+        return videoSizes;
     }
 }

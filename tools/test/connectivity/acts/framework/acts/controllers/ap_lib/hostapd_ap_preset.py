@@ -12,6 +12,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+from typing import FrozenSet
+
 from acts import utils
 
 import acts.controllers.ap_lib.third_party_ap_profiles.actiontec as actiontec
@@ -40,26 +42,28 @@ def _get_or_default(var, default_value):
     return var if var is not None else default_value
 
 
-def create_ap_preset(profile_name='whirlwind',
-                     iface_wlan_2g=None,
-                     iface_wlan_5g=None,
-                     channel=None,
-                     mode=None,
-                     frequency=None,
-                     security=None,
-                     pmf_support=None,
-                     ssid=None,
-                     hidden=None,
-                     dtim_period=None,
-                     frag_threshold=None,
-                     rts_threshold=None,
-                     force_wmm=None,
-                     beacon_interval=None,
-                     short_preamble=None,
-                     n_capabilities=None,
-                     ac_capabilities=None,
-                     vht_bandwidth=None,
-                     bss_settings=[]):
+def create_ap_preset(
+        profile_name='whirlwind',
+        iface_wlan_2g=None,
+        iface_wlan_5g=None,
+        channel=None,
+        mode=None,
+        frequency=None,
+        security=None,
+        pmf_support=None,
+        ssid=None,
+        hidden=None,
+        dtim_period=None,
+        frag_threshold=None,
+        rts_threshold=None,
+        force_wmm=None,
+        beacon_interval=None,
+        short_preamble=None,
+        n_capabilities=None,
+        ac_capabilities=None,
+        vht_bandwidth=None,
+        wnm_features: FrozenSet[hostapd_constants.WnmFeature] = frozenset(),
+        bss_settings=[]):
     """AP preset config generator.  This a wrapper for hostapd_config but
        but supplies the default settings for the preset that is selected.
 
@@ -89,6 +93,7 @@ def create_ap_preset(profile_name='whirlwind',
             rts/cts or cts to self.
         n_capabilities: 802.11n capabilities for for BSS to advertise.
         ac_capabilities: 802.11ac capabilities for for BSS to advertise.
+        wnm_features: WNM features to enable on the AP.
 
     Returns: A hostapd_config object that can be used by the hostapd object.
     """
@@ -141,6 +146,7 @@ def create_ap_preset(profile_name='whirlwind',
                 n_capabilities=n_capabilities,
                 frag_threshold=frag_threshold,
                 rts_threshold=rts_threshold,
+                wnm_features=wnm_features,
                 bss_settings=bss_settings)
         else:
             interface = iface_wlan_5g
@@ -224,7 +230,8 @@ def create_ap_preset(profile_name='whirlwind',
                                   frag_threshold=frag_threshold,
                                   n_capabilities=[],
                                   ac_capabilities=[],
-                                  vht_bandwidth=None)
+                                  vht_bandwidth=None,
+                                  wnm_features=wnm_features)
     elif profile_name == 'whirlwind_11ag_legacy':
         if frequency < 5000:
             mode = hostapd_constants.MODE_11G
@@ -247,7 +254,8 @@ def create_ap_preset(profile_name='whirlwind',
                                   frag_threshold=frag_threshold,
                                   n_capabilities=[],
                                   ac_capabilities=[],
-                                  vht_bandwidth=None)
+                                  vht_bandwidth=None,
+                                  wnm_features=wnm_features)
     elif profile_name == 'mistral':
         hidden = _get_or_default(hidden, False)
         force_wmm = _get_or_default(force_wmm, True)
@@ -296,6 +304,7 @@ def create_ap_preset(profile_name='whirlwind',
                 n_capabilities=n_capabilities,
                 frag_threshold=frag_threshold,
                 rts_threshold=rts_threshold,
+                wnm_features=wnm_features,
                 bss_settings=bss_settings,
                 additional_parameters=additional_params,
                 set_ap_defaults_profile=profile_name)
@@ -364,6 +373,7 @@ def create_ap_preset(profile_name='whirlwind',
                 rts_threshold=rts_threshold,
                 n_capabilities=n_capabilities,
                 ac_capabilities=ac_capabilities,
+                wnm_features=wnm_features,
                 bss_settings=bss_settings,
                 additional_parameters=additional_params,
                 set_ap_defaults_profile=profile_name)

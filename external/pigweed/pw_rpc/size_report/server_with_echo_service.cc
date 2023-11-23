@@ -27,7 +27,7 @@ class Output : public pw::rpc::ChannelOutput {
  public:
   Output() : ChannelOutput("output") {}
 
-  pw::Status Send(std::span<const std::byte> buffer) override {
+  pw::Status Send(pw::span<const std::byte> buffer) override {
     return pw::sys_io::WriteBytes(buffer).status();
   }
 };
@@ -79,7 +79,7 @@ int main() {
   pw::sys_io::WriteBytes(packet_buffer);
 
   my_product::server.RegisterService(my_product::echo_service);
-  my_product::server.ProcessPacket(packet_buffer, my_product::output);
+  my_product::server.ProcessPacket(packet_buffer);
 
   return static_cast<int>(packet_buffer[92]);
 }

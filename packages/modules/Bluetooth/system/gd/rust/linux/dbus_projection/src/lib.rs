@@ -45,6 +45,7 @@
 //!   passing in the object path, D-Bus connection, Crossroads object, the Rust object to be
 //!   projected, and a [`DisconnectWatcher`](DisconnectWatcher) object.
 
+use dbus::arg::AppendAll;
 use dbus::channel::MatchingReceiver;
 use dbus::message::MatchRule;
 use dbus::nonblock::SyncConnection;
@@ -139,19 +140,104 @@ impl DisconnectWatcher {
             return false;
         }
 
-        match self.callbacks.lock().unwrap().get(&address).and_then(|m| m.get(&target_id)) {
+        let mut callbacks = self.callbacks.lock().unwrap();
+        match callbacks.get(&address).and_then(|m| m.get(&target_id)) {
             Some(cb) => {
                 cb(target_id);
-                let _ = self
-                    .callbacks
-                    .lock()
-                    .unwrap()
-                    .get_mut(&address)
-                    .and_then(|m| m.remove(&target_id));
+                let _ = callbacks.get_mut(&address).and_then(|m| m.remove(&target_id));
                 true
             }
             None => false,
         }
+    }
+}
+
+/// A client proxy to conveniently call API methods generated with the
+/// [`generate_dbus_interface_client`](dbus_macros::generate_dbus_interface_client) macro.
+#[derive(Clone)]
+pub struct ClientDBusProxy {
+    conn: Arc<SyncConnection>,
+    bus_name: String,
+    objpath: dbus::Path<'static>,
+    interface: String,
+}
+
+impl ClientDBusProxy {
+    pub fn new(
+        conn: Arc<SyncConnection>,
+        bus_name: String,
+        objpath: dbus::Path<'static>,
+        interface: String,
+    ) -> Self {
+        Self { conn, bus_name, objpath, interface }
+    }
+
+    fn create_proxy(&self) -> dbus::nonblock::Proxy<Arc<SyncConnection>> {
+        let conn = self.conn.clone();
+        dbus::nonblock::Proxy::new(
+            self.bus_name.clone(),
+            self.objpath.clone(),
+            std::time::Duration::from_secs(2),
+            conn,
+        )
+    }
+
+    /// Asynchronously calls the method and returns the D-Bus result and lets the caller unwrap.
+    pub async fn async_method<
+        A: AppendAll,
+        T: 'static + dbus::arg::Arg + for<'z> dbus::arg::Get<'z>,
+    >(
+        &self,
+        member: &str,
+        args: A,
+    ) -> Result<(T,), dbus::Error> {
+        let proxy = self.create_proxy();
+        proxy.method_call(self.interface.clone(), member, args).await
+    }
+
+    /// Asynchronously calls the method and returns the D-Bus result with empty return data.
+    pub async fn async_method_noreturn<A: AppendAll>(
+        &self,
+        member: &str,
+        args: A,
+    ) -> Result<(), dbus::Error> {
+        let proxy = self.create_proxy();
+        proxy.method_call(self.interface.clone(), member, args).await
+    }
+
+    /// Calls the method and returns the D-Bus result and lets the caller unwrap.
+    pub fn method_withresult<
+        A: AppendAll,
+        T: 'static + dbus::arg::Arg + for<'z> dbus::arg::Get<'z>,
+    >(
+        &self,
+        member: &str,
+        args: A,
+    ) -> Result<(T,), dbus::Error> {
+        let proxy = self.create_proxy();
+        // We know that all APIs return immediately, so we can block on it for simplicity.
+        return futures::executor::block_on(async {
+            proxy.method_call(self.interface.clone(), member, args).await
+        });
+    }
+
+    /// Calls the method and unwrap the returned D-Bus result.
+    pub fn method<A: AppendAll, T: 'static + dbus::arg::Arg + for<'z> dbus::arg::Get<'z>>(
+        &self,
+        member: &str,
+        args: A,
+    ) -> T {
+        let (ret,): (T,) = self.method_withresult(member, args).unwrap();
+        return ret;
+    }
+
+    /// Calls the void method and does not need to unwrap the result.
+    pub fn method_noreturn<A: AppendAll>(&self, member: &str, args: A) {
+        // The real type should be Result<((),), _> since there is no return value. However, to
+        // meet trait constraints, we just use bool and never unwrap the result. This calls the
+        // method, waits for the response but doesn't actually attempt to parse the result (on
+        // unwrap).
+        let _: Result<(bool,), _> = self.method_withresult(member, args);
     }
 }
 
@@ -202,9 +288,9 @@ macro_rules! impl_dbus_arg_from_into {
                     Arc<std::sync::Mutex<dbus_projection::DisconnectWatcher>>,
                 >,
             ) -> Result<$rust_type, Box<dyn std::error::Error>> {
-                match <$rust_type>::try_from(data) {
+                match <$rust_type>::try_from(data.clone()) {
                     Err(e) => Err(Box::new(DBusArgError::new(String::from(format!(
-                        "error converting {} to {}",
+                        "error converting {:?} to {:?}",
                         data,
                         stringify!($rust_type),
                     ))))),
@@ -213,9 +299,9 @@ macro_rules! impl_dbus_arg_from_into {
             }
 
             fn to_dbus(data: $rust_type) -> Result<$dbus_type, Box<dyn std::error::Error>> {
-                match data.try_into() {
+                match data.clone().try_into() {
                     Err(e) => Err(Box::new(DBusArgError::new(String::from(format!(
-                        "error converting {:?} to {}",
+                        "error converting {:?} to {:?}",
                         data,
                         stringify!($dbus_type)
                     ))))),

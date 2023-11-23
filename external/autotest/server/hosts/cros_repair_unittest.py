@@ -1,11 +1,11 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import itertools
-import mock
 import unittest
+from unittest import mock
 
 import common
 from autotest_lib.client.common_lib import error
@@ -34,9 +34,15 @@ CROS_VERIFY_DAG = (
         (cros_firmware.FirmwareVersionVerifier, 'rwfw', ('ssh', )),
         (cros_repair.PythonVerifier, 'python', ('ssh', )),
         (repair_utils.LegacyHostVerifier, 'cros', ('ssh', )),
-        (cros_repair.CrosVerisionVerifier, 'cros_version_label', ('ssh', )),
+        (cros_repair.ProvisioningLabelsVerifier, 'provisioning_labels',
+         ('ssh', )),
         (cros_repair.StopStartUIVerifier, 'stop_start_ui', ('ssh', )),
         (cros_repair.DUTStorageVerifier, 'storage', ('ssh', )),
+        (cros_repair.AuditBattery, 'audit_battery', ()),
+        (cros_repair.GscToolPresentVerifier, 'dut_gsctool', ('ssh', )),
+        (cros_repair.ServoKeyboardMapVerifier, 'dut_servo_keyboard',
+         ('ssh', )),
+        (cros_repair.ServoMacAddressVerifier, 'dut_servo_macaddr', ('ssh', )),
 )
 
 CROS_REPAIR_ACTIONS = (
@@ -51,18 +57,14 @@ CROS_REPAIR_ACTIONS = (
                 'stop_start_ui',
                 'power',
         )),
-        (
-                cros_repair.ServoCr50RebootRepair,
-                'cr50_reset',
-                (),
-                ('ping', 'ssh', 'stop_start_ui', 'power'),
-        ),
+        (cros_repair.ServoCr50RebootRepair, 'cr50_reset', (),
+         ('ping', 'ssh', 'stop_start_ui', 'power')),
         (cros_repair.ServoSysRqRepair, 'sysrq', (), (
                 'ping',
                 'ssh',
         )),
-        (cros_repair.LabelCleanupRepair, 'label_cleanup', ('ssh', ),
-         ('cros_version_label', )),
+        (cros_repair.ProvisioningLabelsRepair, 'provisioning_labels_repair',
+         ('ssh', ), ('provisioning_labels', )),
         (cros_firmware.FaftFirmwareRepair, 'faft_firmware_repair', (),
          ('ping', 'ssh', 'fwstatus', 'good_provision')),
         (cros_repair.DevDefaultBootRepair, 'set_default_boot', ('ssh', ),
@@ -73,23 +75,29 @@ CROS_REPAIR_ACTIONS = (
         )),
         (cros_repair.EnrollmentCleanupRepair, 'cleanup_enrollment', ('ssh', ),
          ('enrollment_state', )),
-        (cros_repair.ProvisionRepair, 'provision',
-         ('ping', 'ssh', 'writable', 'stop_start_ui', 'tpm', 'good_provision',
-          'ext4'), ('power', 'rwfw', 'fwstatus', 'python', 'hwid', 'cros',
-                    'dev_default_boot')),
-        (cros_repair.PowerWashRepair, 'powerwash', ('ping', 'ssh', 'writable',
-                                                    'stop_start_ui'),
-         ('tpm', 'good_provision', 'ext4', 'power', 'rwfw', 'fwstatus',
-          'python', 'hwid', 'cros', 'dev_default_boot')),
-        (cros_repair.ServoInstallRepair, 'usb', ('usb_drive', ),
-         ('ping', 'ssh', 'writable', 'stop_start_ui', 'tpm', 'good_provision',
-          'ext4', 'power', 'rwfw', 'fwstatus', 'python', 'hwid', 'cros',
-          'dev_default_boot', 'faft_tpm')),
         (cros_firmware.GeneralFirmwareRepair, 'general_firmware',
          ('usb_drive', ), (
                  'ping',
                  'ssh',
          )),
+        (cros_repair.RecoverACPowerRepair, 'ac_recover', (), ('ping',
+                                                              'power')),
+        (cros_repair.ProvisionRepair, 'provision',
+         ('ping', 'ssh', 'writable', 'tpm', 'good_provision',
+          'ext4'), ('power', 'rwfw', 'fwstatus', 'python', 'hwid', 'cros',
+                    'dev_default_boot', 'stop_start_ui', 'dut_gsctool')),
+        (cros_repair.PowerWashRepair, 'powerwash', ('ping', 'ssh', 'writable'),
+         ('tpm', 'good_provision', 'ext4', 'power', 'rwfw', 'fwstatus',
+          'python', 'hwid', 'cros', 'dev_default_boot', 'stop_start_ui',
+          'dut_gsctool')),
+        (cros_repair.ServoInstallRepair, 'usb', ('usb_drive', ),
+         ('ping', 'ssh', 'writable', 'tpm', 'good_provision', 'ext4', 'power',
+          'rwfw', 'fwstatus', 'python', 'hwid', 'cros', 'dev_default_boot',
+          'stop_start_ui', 'dut_gsctool', 'faft_tpm')),
+        (cros_repair.ServoResetAfterUSBRepair, 'servo_reset_after_usb',
+         ('usb_drive', ), ('ping', 'ssh')),
+        (cros_repair.RecoverFwAfterUSBRepair, 'recover_fw_after_usb',
+         ('usb_drive', ), ('ping', 'ssh')),
 )
 
 MOBLAB_VERIFY_DAG = (
@@ -123,7 +131,8 @@ JETSTREAM_VERIFY_DAG = (
         (cros_firmware.FirmwareVersionVerifier, 'rwfw', ('ssh', )),
         (cros_repair.PythonVerifier, 'python', ('ssh', )),
         (repair_utils.LegacyHostVerifier, 'cros', ('ssh', )),
-        (cros_repair.CrosVerisionVerifier, 'cros_version_label', ('ssh', )),
+        (cros_repair.ProvisioningLabelsVerifier, 'provisioning_labels',
+         ('ssh', )),
         (cros_repair.JetstreamTpmVerifier, 'jetstream_tpm', ('ssh', )),
         (cros_repair.JetstreamAttestationVerifier, 'jetstream_attestation',
          ('ssh', )),
@@ -149,8 +158,8 @@ JETSTREAM_REPAIR_ACTIONS = (
                 'ping',
                 'ssh',
         )),
-        (cros_repair.LabelCleanupRepair, 'label_cleanup', ('ssh', ),
-         ('cros_version_label', )),
+        (cros_repair.ProvisioningLabelsRepair, 'provisioning_labels_repair',
+         ('ssh', ), ('provisioning_labels', )),
         (cros_firmware.FaftFirmwareRepair, 'faft_firmware_repair', (),
          ('ping', 'ssh', 'fwstatus', 'good_provision')),
         (cros_repair.DevDefaultBootRepair, 'set_default_boot', ('ssh', ),
@@ -201,90 +210,36 @@ JETSTREAM_REPAIR_ACTIONS = (
         )),
 )
 
-CRYPTOHOME_STATUS_OWNED = """{
-   "installattrs": {
-      "first_install": true,
-      "initialized": true,
-      "invalid": false,
-      "lockbox_index": 536870916,
-      "lockbox_nvram_version": 2,
-      "secure": true,
-      "size": 0,
-      "version": 1
-   },
-   "mounts": [  ],
-   "tpm": {
-      "being_owned": false,
-      "can_connect": true,
-      "can_decrypt": false,
-      "can_encrypt": false,
-      "can_load_srk": true,
-      "can_load_srk_pubkey": true,
-      "enabled": true,
-      "has_context": true,
-      "has_cryptohome_key": false,
-      "has_key_handle": false,
-      "last_error": 0,
-      "owned": true
-   }
+TPM_STATUS_OWNED = """
+Message Reply: [tpm_manager.GetTpmNonsensitiveStatusReply] {
+  status: STATUS_SUCCESS
+  is_enabled: true
+  is_owned: true
+  is_owner_password_present: true
+  has_reset_lock_permissions: true
+  is_srk_default_auth: true
 }
 """
 
-CRYPTOHOME_STATUS_NOT_OWNED = """{
-   "installattrs": {
-      "first_install": true,
-      "initialized": true,
-      "invalid": false,
-      "lockbox_index": 536870916,
-      "lockbox_nvram_version": 2,
-      "secure": true,
-      "size": 0,
-      "version": 1
-   },
-   "mounts": [  ],
-   "tpm": {
-      "being_owned": false,
-      "can_connect": true,
-      "can_decrypt": false,
-      "can_encrypt": false,
-      "can_load_srk": false,
-      "can_load_srk_pubkey": false,
-      "enabled": true,
-      "has_context": true,
-      "has_cryptohome_key": false,
-      "has_key_handle": false,
-      "last_error": 0,
-      "owned": false
-   }
+TPM_STATUS_NOT_OWNED = """
+Message Reply: [tpm_manager.GetTpmNonsensitiveStatusReply] {
+  status: STATUS_SUCCESS
+  is_enabled: true
+  is_owned: false
+  is_owner_password_present: false
+  has_reset_lock_permissions: false
+  is_srk_default_auth: true
 }
 """
 
-CRYPTOHOME_STATUS_CANNOT_LOAD_SRK = """{
-   "installattrs": {
-      "first_install": true,
-      "initialized": true,
-      "invalid": false,
-      "lockbox_index": 536870916,
-      "lockbox_nvram_version": 2,
-      "secure": true,
-      "size": 0,
-      "version": 1
-   },
-   "mounts": [  ],
-   "tpm": {
-      "being_owned": false,
-      "can_connect": true,
-      "can_decrypt": false,
-      "can_encrypt": false,
-      "can_load_srk": false,
-      "can_load_srk_pubkey": false,
-      "enabled": true,
-      "has_context": true,
-      "has_cryptohome_key": false,
-      "has_key_handle": false,
-      "last_error": 0,
-      "owned": true
-   }
+TPM_STATUS_CANNOT_LOAD_SRK = """
+Message Reply: [tpm_manager.GetTpmNonsensitiveStatusReply] {
+  status: STATUS_SUCCESS
+  is_enabled: true
+  is_owned: true
+  is_owner_password_present: false
+  has_reset_lock_permissions: false
+  is_srk_default_auth: false
 }
 """
 
@@ -350,47 +305,19 @@ class CrosRepairUnittests(unittest.TestCase):
             for label in deps + triggers:
                 self.assertIn(label, verify_labels)
 
-    def test_get_cryptohome_status_owned(self):
+    def test_get_tpm_status_owned(self):
         mock_host = mock.Mock()
-        mock_host.run.return_value.stdout = CRYPTOHOME_STATUS_OWNED
-        status = cros_repair.CryptohomeStatus(mock_host)
-        self.assertDictEqual({
-            'being_owned': False,
-            'can_connect': True,
-            'can_decrypt': False,
-            'can_encrypt': False,
-            'can_load_srk': True,
-            'can_load_srk_pubkey': True,
-            'enabled': True,
-            'has_context': True,
-            'has_cryptohome_key': False,
-            'has_key_handle': False,
-            'last_error': 0,
-            'owned': True,
-            }, status['tpm'])
+        mock_host.run.return_value.stdout = TPM_STATUS_OWNED
+        status = cros_repair.TpmStatus(mock_host)
         self.assertTrue(status.tpm_enabled)
         self.assertTrue(status.tpm_owned)
         self.assertTrue(status.tpm_can_load_srk)
         self.assertTrue(status.tpm_can_load_srk_pubkey)
 
-    def test_get_cryptohome_status_not_owned(self):
+    def test_get_tpm_status_not_owned(self):
         mock_host = mock.Mock()
-        mock_host.run.return_value.stdout = CRYPTOHOME_STATUS_NOT_OWNED
-        status = cros_repair.CryptohomeStatus(mock_host)
-        self.assertDictEqual({
-            'being_owned': False,
-            'can_connect': True,
-            'can_decrypt': False,
-            'can_encrypt': False,
-            'can_load_srk': False,
-            'can_load_srk_pubkey': False,
-            'enabled': True,
-            'has_context': True,
-            'has_cryptohome_key': False,
-            'has_key_handle': False,
-            'last_error': 0,
-            'owned': False,
-        }, status['tpm'])
+        mock_host.run.return_value.stdout = TPM_STATUS_NOT_OWNED
+        status = cros_repair.TpmStatus(mock_host)
         self.assertTrue(status.tpm_enabled)
         self.assertFalse(status.tpm_owned)
         self.assertFalse(status.tpm_can_load_srk)
@@ -400,7 +327,7 @@ class CrosRepairUnittests(unittest.TestCase):
     def test_tpm_status_verifier_owned(self, mock_is_virt):
         mock_is_virt.return_value = False
         mock_host = mock.Mock()
-        mock_host.run.return_value.stdout = CRYPTOHOME_STATUS_OWNED
+        mock_host.run.return_value.stdout = TPM_STATUS_OWNED
         tpm_verifier = cros_repair.TPMStatusVerifier('test', [])
         tpm_verifier.verify(mock_host)
 
@@ -408,7 +335,7 @@ class CrosRepairUnittests(unittest.TestCase):
     def test_tpm_status_verifier_not_owned(self, mock_is_virt):
         mock_is_virt.return_value = False
         mock_host = mock.Mock()
-        mock_host.run.return_value.stdout = CRYPTOHOME_STATUS_NOT_OWNED
+        mock_host.run.return_value.stdout = TPM_STATUS_NOT_OWNED
         tpm_verifier = cros_repair.TPMStatusVerifier('test', [])
         tpm_verifier.verify(mock_host)
 
@@ -416,18 +343,17 @@ class CrosRepairUnittests(unittest.TestCase):
     def test_tpm_status_verifier_cannot_load_srk_pubkey(self, mock_is_virt):
         mock_is_virt.return_value = False
         mock_host = mock.Mock()
-        mock_host.run.return_value.stdout = CRYPTOHOME_STATUS_CANNOT_LOAD_SRK
+        mock_host.run.return_value.stdout = TPM_STATUS_CANNOT_LOAD_SRK
         tpm_verifier = cros_repair.TPMStatusVerifier('test', [])
         with self.assertRaises(hosts.AutoservVerifyError) as ctx:
             tpm_verifier.verify(mock_host)
-        self.assertEqual('Cannot load the TPM SRK',
-                         ctx.exception.message)
+        self.assertEqual('Cannot load the TPM SRK', str(ctx.exception))
 
     def test_jetstream_tpm_owned(self):
         mock_host = mock.Mock()
         mock_host.run.side_effect = [
-            mock.Mock(stdout=CRYPTOHOME_STATUS_OWNED),
-            mock.Mock(stdout=TPM_STATUS_READY),
+                mock.Mock(stdout=TPM_STATUS_OWNED),
+                mock.Mock(stdout=TPM_STATUS_READY),
         ]
         tpm_verifier = cros_repair.JetstreamTpmVerifier('test', [])
         tpm_verifier.verify(mock_host)
@@ -438,11 +364,11 @@ class CrosRepairUnittests(unittest.TestCase):
     def test_jetstream_tpm_not_owned(self, mock_sleep, mock_time, mock_logging):
         mock_time.side_effect = itertools.count(0, 20)
         mock_host = mock.Mock()
-        mock_host.run.return_value.stdout = CRYPTOHOME_STATUS_NOT_OWNED
+        mock_host.run.return_value.stdout = TPM_STATUS_NOT_OWNED
         tpm_verifier = cros_repair.JetstreamTpmVerifier('test', [])
         with self.assertRaises(hosts.AutoservVerifyError) as ctx:
             tpm_verifier.verify(mock_host)
-        self.assertEqual('TPM is not owned', ctx.exception.message)
+        self.assertEqual('TPM is not owned', str(ctx.exception))
 
     @mock.patch.object(retry.logging, 'warning')
     @mock.patch.object(retry.time, 'time')
@@ -451,27 +377,25 @@ class CrosRepairUnittests(unittest.TestCase):
         mock_time.side_effect = itertools.count(0, 20)
         mock_host = mock.Mock()
         mock_host.run.side_effect = itertools.cycle([
-            mock.Mock(stdout=CRYPTOHOME_STATUS_OWNED),
-            mock.Mock(stdout=TPM_STATUS_NOT_READY),
+                mock.Mock(stdout=TPM_STATUS_OWNED),
+                mock.Mock(stdout=TPM_STATUS_NOT_READY),
         ])
         tpm_verifier = cros_repair.JetstreamTpmVerifier('test', [])
         with self.assertRaises(hosts.AutoservVerifyError) as ctx:
             tpm_verifier.verify(mock_host)
-        self.assertEqual('TPM is not ready', ctx.exception.message)
+        self.assertEqual('TPM is not ready', str(ctx.exception))
 
     @mock.patch.object(retry.logging, 'warning')
     @mock.patch.object(retry.time, 'time')
     @mock.patch.object(retry.time, 'sleep')
-    def test_jetstream_cryptohome_missing(self, mock_sleep, mock_time,
-                                          mock_logging):
+    def test_jetstream_tpm_missing(self, mock_sleep, mock_time, mock_logging):
         mock_time.side_effect = itertools.count(0, 20)
         mock_host = mock.Mock()
         mock_host.run.side_effect = error.AutoservRunError('test', None)
         tpm_verifier = cros_repair.JetstreamTpmVerifier('test', [])
         with self.assertRaises(hosts.AutoservVerifyError) as ctx:
             tpm_verifier.verify(mock_host)
-        self.assertEqual('Could not determine TPM status',
-                         ctx.exception.message)
+        self.assertEqual('Could not determine TPM status', str(ctx.exception))
 
 
 if __name__ == '__main__':

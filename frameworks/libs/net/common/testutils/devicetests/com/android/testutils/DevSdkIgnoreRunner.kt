@@ -52,7 +52,7 @@ class DevSdkIgnoreRunner(private val klass: Class<*>) : Runner(), Filterable, So
         val ignoreAfter = it.getAnnotation(IgnoreAfter::class.java)
         val ignoreUpTo = it.getAnnotation(IgnoreUpTo::class.java)
 
-        if (isDevSdkInRange(ignoreUpTo?.value, ignoreAfter?.value)) AndroidJUnit4(klass) else null
+        if (isDevSdkInRange(ignoreUpTo, ignoreAfter)) AndroidJUnit4(klass) else null
     }
 
     override fun run(notifier: RunNotifier) {

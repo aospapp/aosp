@@ -75,6 +75,24 @@ func (c *Set) Clear() error {
 	return nil
 }
 
+// Fill copies the from flag values into the to flag. With this
+// function, you can raise all of the permitted values in the
+// effective flag with c.Fill(cap.Effective, cap.Permitted).
+func (c *Set) Fill(to, from Flag) error {
+	if c == nil || len(c.flat) == 0 {
+		return ErrBadSet
+	}
+	if to > Inheritable || from > Inheritable {
+		return ErrBadValue
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for i := range c.flat {
+		c.flat[i][to] = c.flat[i][from]
+	}
+	return nil
+}
+
 // ErrBadValue indicates a bad capability value was specified.
 var ErrBadValue = errors.New("bad capability value")
 

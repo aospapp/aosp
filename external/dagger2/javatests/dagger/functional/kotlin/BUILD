@@ -41,6 +41,7 @@ kt_jvm_library(
         ":java_qualifier",
         "//:dagger_with_compiler",
         "//javatests/dagger/functional/kotlin/processor:annotation",
+        "//third_party/java/auto:factory",
     ],
 )
 
@@ -66,10 +67,10 @@ GenJavaTests(
     srcs = glob(["*Test.java"]),
     functional = True,
     test_only_deps = [
-        "//java/dagger/internal/guava:base",
-        "//java/dagger/internal/guava:collect",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/guava/base",
+        "//third_party/java/guava/collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
     deps = [
         ":foo_with_injected_qualifier",

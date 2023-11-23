@@ -60,6 +60,7 @@ pattern_locales := \
     nn/nn \
     or/or \
     pa/pa \
+    pl/pl \
     pt/pt \
     ru/ru \
     sk/sk \

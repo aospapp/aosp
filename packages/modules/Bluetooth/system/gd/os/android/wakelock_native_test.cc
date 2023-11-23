@@ -53,8 +53,9 @@ class PromiseFutureContext {
   static void FulfilPromise(std::unique_ptr<std::promise<void>>& promise) {
     std::lock_guard<std::recursive_mutex> lock_guard(mutex);
     if (promise != nullptr) {
-      promise->set_value();
-      promise = nullptr;
+      std::promise<void>* prom = promise.release();
+      prom->set_value();
+      delete prom;
     }
   }
 
@@ -125,7 +126,7 @@ class WakelockNativeTest : public Test {
 
     WakelockNative::Get().Initialize();
 
-    auto binder_raw = AServiceManager_getService("suspend_control");
+    auto binder_raw = AServiceManager_waitForService("suspend_control");
     ASSERT_NE(binder_raw, nullptr);
     binder.set(binder_raw);
     control_service_ = ISuspendControlService::fromBinder(binder);

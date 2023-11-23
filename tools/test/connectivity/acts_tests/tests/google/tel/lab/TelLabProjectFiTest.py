@@ -148,10 +148,7 @@ class TelLabProjectFiTest(TelephonyBaseTest):
         self.anritsu.disconnect()
         return True
 
-    def _bring_up_callbox(
-            self,
-            set_simulation_func,
-            rat):
+    def _bring_up_callbox(self, set_simulation_func, rat):
         try:
             [self.bts1] = set_simulation_func(self.anritsu, self.user_params,
                                               self.ad.sim_card)
@@ -169,8 +166,7 @@ class TelLabProjectFiTest(TelephonyBaseTest):
                 return False
 
             if not ensure_preferred_network_type_for_subscription(
-                    self.ad,
-                    preferred_network_setting):
+                    self.ad, preferred_network_setting):
                 self.log.error(
                     "Failed to set rat family {}, preferred network:{}".format(
                         rat_family, preferred_network_setting))
@@ -454,7 +450,6 @@ class TelLabProjectFiTest(TelephonyBaseTest):
 
         if self.pre_switching_callbox_setup():
             self.log.info("Turned ON Anritsu for Switching")
-            pass
         else:
             self.log.error("Failed to Camp to Anritsu")
             return False

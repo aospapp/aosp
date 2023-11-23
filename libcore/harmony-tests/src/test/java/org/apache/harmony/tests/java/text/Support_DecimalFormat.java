@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -39,7 +39,7 @@ public class Support_DecimalFormat extends Support_Format {
 
   public void t_format_with_FieldPosition() {
     DecimalFormat format = (DecimalFormat) NumberFormat.getCurrencyInstance(Locale.US);
-    Number number = new Double(10000000.76);
+    Number number = Double.valueOf(10000000.76);
     String text = "$10,000,000.76";
 
     t_FormatWithField(0, format, number, text, NumberFormat.Field.CURRENCY, 0, 1);
@@ -74,7 +74,7 @@ public class Support_DecimalFormat extends Support_Format {
     t_FormatWithField(21, format, number, text, NumberFormat.Field.PERMILLE, 0, 0);
 
     // test currency instance with TR Locale
-    number = new Double(350.76);
+    number = Double.valueOf(350.76);
     format = (DecimalFormat) NumberFormat.getCurrencyInstance(new Locale("tr", "TR"));
     // Turkey either uses "123,45 TL" or "₺123,45"; google3 uses the former because most
     // platforms' fonts don't include U+20BA TURKISH LIRA SIGN. http://b/16727554.
@@ -95,8 +95,8 @@ public class Support_DecimalFormat extends Support_Format {
   }
 
   public void t_formatToCharacterIterator() {
-    Number number = new Double(350.76);
-    Number negativeNumber = new Double(-350.76);
+    Number number = Double.valueOf(350.76);
+    Number negativeNumber = Double.valueOf(-350.76);
 
     Locale us = Locale.US;
     Locale tr = new Locale("tr", "TR");
@@ -136,11 +136,11 @@ public class Support_DecimalFormat extends Support_Format {
     t_Format(10, negativeNumber, NumberFormat.getCurrencyInstance(tr), getNegativeCurrencyVectorTR());
 
     // test multiple grouping separators
-    number = new Long(100300400);
+    number = Long.valueOf(100300400);
     t_Format(11, number, NumberFormat.getNumberInstance(us), getNumberVector2US());
 
     // test 0
-    number = new Long(0);
+    number = Long.valueOf(0);
     t_Format(12, number, NumberFormat.getNumberInstance(us), getZeroVector());
   }
 

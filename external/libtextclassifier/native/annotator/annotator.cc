@@ -432,7 +432,8 @@ void Annotator::ValidateAndInitialize(const Model* model, const UniLib* unilib,
       datetime_parser_ = std::make_unique<GrammarDatetimeParser>(
           *analyzer_, *datetime_grounder_,
           /*target_classification_score=*/1.0,
-          /*priority_score=*/1.0);
+          /*priority_score=*/1.0,
+          model_->datetime_grammar_model()->enabled_modes());
     }
   } else if (model_->datetime_model()) {
     datetime_parser_ = RegexDatetimeParser::Instance(
@@ -604,6 +605,8 @@ bool Annotator::InitializeKnowledgeEngine(
   if (model_->triggering_options() != nullptr) {
     knowledge_engine->SetPriorityScore(
         model_->triggering_options()->knowledge_priority_score());
+    knowledge_engine->SetEnabledModes(
+        model_->triggering_options()->knowledge_enabled_modes());
   }
   knowledge_engine_ = std::move(knowledge_engine);
   return true;
@@ -621,10 +624,21 @@ bool Annotator::InitializeContactEngine(const std::string& serialized_config) {
   return true;
 }
 
+void Annotator::CleanUpContactEngine() {
+  if (contact_engine_ == nullptr) {
+    TC3_LOG(INFO)
+        << "Attempting to clean up contact engine that does not exist.";
+    return;
+  }
+  contact_engine_->CleanUp();
+}
+
 bool Annotator::InitializeInstalledAppEngine(
     const std::string& serialized_config) {
   std::unique_ptr<InstalledAppEngine> installed_app_engine(
-      new InstalledAppEngine(selection_feature_processor_.get(), unilib_));
+      new InstalledAppEngine(
+          selection_feature_processor_.get(), unilib_,
+          model_->triggering_options()->installed_app_enabled_modes()));
   if (!installed_app_engine->Initialize(serialized_config)) {
     TC3_LOG(ERROR) << "Failed to initialize the installed app engine.";
     return false;
@@ -912,38 +926,40 @@ CodepointSpan Annotator::SuggestSelection(
       !knowledge_engine_
            ->Chunk(context, options.annotation_usecase,
                    options.location_context, Permissions(),
-                   AnnotateMode::kEntityAnnotation, &candidates)
+                   AnnotateMode::kEntityAnnotation, ModeFlag_SELECTION,
+                   &candidates)
            .ok()) {
     TC3_LOG(ERROR) << "Knowledge suggest selection failed.";
     return original_click_indices;
   }
   if (contact_engine_ != nullptr &&
-      !contact_engine_->Chunk(context_unicode, tokens,
+      !contact_engine_->Chunk(context_unicode, tokens, ModeFlag_SELECTION,
                               &candidates.annotated_spans[0])) {
     TC3_LOG(ERROR) << "Contact suggest selection failed.";
     return original_click_indices;
   }
   if (installed_app_engine_ != nullptr &&
-      !installed_app_engine_->Chunk(context_unicode, tokens,
+      !installed_app_engine_->Chunk(context_unicode, tokens, ModeFlag_SELECTION,
                                     &candidates.annotated_spans[0])) {
     TC3_LOG(ERROR) << "Installed app suggest selection failed.";
     return original_click_indices;
   }
   if (number_annotator_ != nullptr &&
       !number_annotator_->FindAll(context_unicode, options.annotation_usecase,
+                                  ModeFlag_SELECTION,
                                   &candidates.annotated_spans[0])) {
     TC3_LOG(ERROR) << "Number annotator failed in suggest selection.";
     return original_click_indices;
   }
   if (duration_annotator_ != nullptr &&
-      !duration_annotator_->FindAll(context_unicode, tokens,
-                                    options.annotation_usecase,
-                                    &candidates.annotated_spans[0])) {
+      !duration_annotator_->FindAll(
+          context_unicode, tokens, options.annotation_usecase,
+          ModeFlag_SELECTION, &candidates.annotated_spans[0])) {
     TC3_LOG(ERROR) << "Duration annotator failed in suggest selection.";
     return original_click_indices;
   }
   if (person_name_engine_ != nullptr &&
-      !person_name_engine_->Chunk(context_unicode, tokens,
+      !person_name_engine_->Chunk(context_unicode, tokens, ModeFlag_SELECTION,
                                   &candidates.annotated_spans[0])) {
     TC3_LOG(ERROR) << "Person name suggest selection failed.";
     return original_click_indices;
@@ -964,7 +980,9 @@ CodepointSpan Annotator::SuggestSelection(
     candidates.annotated_spans[0].push_back(pod_ner_suggested_span);
   }
 
-  if (experimental_annotator_ != nullptr) {
+  if (experimental_annotator_ != nullptr &&
+      (model_->triggering_options()->experimental_enabled_modes() &
+       ModeFlag_SELECTION)) {
     candidates.annotated_spans[0].push_back(
         experimental_annotator_->SuggestSelection(context_unicode,
                                                   click_indices));
@@ -1896,7 +1914,9 @@ std::vector<ClassificationResult> Annotator::ClassifyText(
     candidates.push_back({selection_indices, {vocab_annotator_result}});
   }
 
-  if (experimental_annotator_) {
+  if (experimental_annotator_ &&
+      (model_->triggering_options()->experimental_enabled_modes() &
+       ModeFlag_CLASSIFICATION)) {
     experimental_annotator_->ClassifyText(context_unicode, selection_indices,
                                           candidates);
   }
@@ -2218,7 +2238,8 @@ Status Annotator::AnnotateSingleInput(
   const bool contact_annotations_enabled =
       !is_raw_usecase || is_entity_type_enabled(Collections::Contact());
   if (contact_annotations_enabled && contact_engine_ &&
-      !contact_engine_->Chunk(context_unicode, tokens, candidates)) {
+      !contact_engine_->Chunk(context_unicode, tokens, ModeFlag_ANNOTATION,
+                              candidates)) {
     return Status(StatusCode::INTERNAL, "Couldn't run contact engine Chunk.");
   }
 
@@ -2226,7 +2247,8 @@ Status Annotator::AnnotateSingleInput(
   const bool app_annotations_enabled =
       !is_raw_usecase || is_entity_type_enabled(Collections::App());
   if (app_annotations_enabled && installed_app_engine_ &&
-      !installed_app_engine_->Chunk(context_unicode, tokens, candidates)) {
+      !installed_app_engine_->Chunk(context_unicode, tokens,
+                                    ModeFlag_ANNOTATION, candidates)) {
     return Status(StatusCode::INTERNAL,
                   "Couldn't run installed app engine Chunk.");
   }
@@ -2237,7 +2259,7 @@ Status Annotator::AnnotateSingleInput(
                           is_entity_type_enabled(Collections::Percentage()));
   if (number_annotations_enabled && number_annotator_ != nullptr &&
       !number_annotator_->FindAll(context_unicode, options.annotation_usecase,
-                                  candidates)) {
+                                  ModeFlag_ANNOTATION, candidates)) {
     return Status(StatusCode::INTERNAL,
                   "Couldn't run number annotator FindAll.");
   }
@@ -2247,7 +2269,8 @@ Status Annotator::AnnotateSingleInput(
       !is_raw_usecase || is_entity_type_enabled(Collections::Duration());
   if (duration_annotations_enabled && duration_annotator_ != nullptr &&
       !duration_annotator_->FindAll(context_unicode, tokens,
-                                    options.annotation_usecase, candidates)) {
+                                    options.annotation_usecase,
+                                    ModeFlag_ANNOTATION, candidates)) {
     return Status(StatusCode::INTERNAL,
                   "Couldn't run duration annotator FindAll.");
   }
@@ -2256,7 +2279,8 @@ Status Annotator::AnnotateSingleInput(
   const bool person_annotations_enabled =
       !is_raw_usecase || is_entity_type_enabled(Collections::PersonName());
   if (person_annotations_enabled && person_name_engine_ &&
-      !person_name_engine_->Chunk(context_unicode, tokens, candidates)) {
+      !person_name_engine_->Chunk(context_unicode, tokens, ModeFlag_ANNOTATION,
+                                  candidates)) {
     return Status(StatusCode::INTERNAL,
                   "Couldn't run person name engine Chunk.");
   }
@@ -2290,6 +2314,8 @@ Status Annotator::AnnotateSingleInput(
 
   // Annotate with the experimental annotator.
   if (experimental_annotator_ != nullptr &&
+      (model_->triggering_options()->experimental_enabled_modes() &
+       ModeFlag_ANNOTATION) &&
       !experimental_annotator_->Annotate(context_unicode, candidates)) {
     return Status(StatusCode::INTERNAL, "Couldn't run experimental annotator.");
   }
@@ -2376,14 +2402,21 @@ StatusOr<Annotations> Annotator::AnnotateStructuredInput(
          .relative_bounding_box_height = string_fragment.bounding_box_height});
   }
 
+  const EnabledEntityTypes is_entity_type_enabled(options.entity_types);
+  const bool is_raw_usecase =
+      options.annotation_usecase == AnnotationUsecase_ANNOTATION_USECASE_RAW;
+
+  const bool knowledge_engine_annotations_enabled =
+      !is_raw_usecase || is_entity_type_enabled(Collections::Entity());
   // KnowledgeEngine is special, because it supports annotation of multiple
   // fragments at once.
-  if (knowledge_engine_ &&
+  if (knowledge_engine_annotations_enabled && knowledge_engine_ &&
       !knowledge_engine_
            ->ChunkMultipleSpans(text_to_annotate, fragment_metadata,
                                 options.annotation_usecase,
                                 options.location_context, options.permissions,
-                                options.annotate_mode, &annotation_candidates)
+                                options.annotate_mode, ModeFlag_ANNOTATION,
+                                &annotation_candidates)
            .ok()) {
     return Status(StatusCode::INTERNAL, "Couldn't run knowledge engine Chunk.");
   }

@@ -37,10 +37,6 @@ import android.widget.PopupWindow;
 import android.widget.TextView;
 import java.util.Arrays;
 
-import com.android.cts.verifier.audio.audiolib.AudioCommon;
-import com.android.cts.verifier.audio.soundio.SoundGenerator;
-import com.android.cts.verifier.audio.wavelib.WavAnalyzer;
-
 import com.androidplot.xy.PointLabelFormatter;
 import com.androidplot.xy.LineAndPointFormatter;
 import com.androidplot.xy.SimpleXYSeries;
@@ -79,6 +75,15 @@ public class HifiUltrasoundTestActivity extends PassFailButtons.Activity {
     }
   }
 
+  boolean getBoolPropValue(final String value) {
+    if (value == null) {
+      return false;
+    }
+
+    return !value.equalsIgnoreCase(getResources().getString(
+        R.string.hifi_ultrasound_test_default_false_string));
+  }
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
@@ -92,29 +97,19 @@ public class HifiUltrasoundTestActivity extends PassFailButtons.Activity {
     info.setText(R.string.hifi_ultrasound_test_instruction1);
 
     AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-    String micSupportString = audioManager.getProperty(
-        AudioManager.PROPERTY_SUPPORT_MIC_NEAR_ULTRASOUND);
-    String spkrSupportString = audioManager.getProperty(
-        AudioManager.PROPERTY_SUPPORT_SPEAKER_NEAR_ULTRASOUND);
-    Log.d(TAG, "PROPERTY_SUPPORT_MIC_NEAR_ULTRASOUND = " + micSupportString);
-    Log.d(TAG, "PROPERTY_SUPPORT_SPEAKER_NEAR_ULTRASOUND = " + spkrSupportString);
+    micSupport = getBoolPropValue(audioManager.getProperty(
+        AudioManager.PROPERTY_SUPPORT_MIC_NEAR_ULTRASOUND));
+    spkrSupport = getBoolPropValue(audioManager.getProperty(
+        AudioManager.PROPERTY_SUPPORT_SPEAKER_NEAR_ULTRASOUND));
+    Log.d(TAG, "PROPERTY_SUPPORT_MIC_NEAR_ULTRASOUND = " + micSupport);
+    Log.d(TAG, "PROPERTY_SUPPORT_SPEAKER_NEAR_ULTRASOUND = " + spkrSupport);
 
-    if (micSupportString == null) {
-      micSupportString = "null";
-    }
-    if (spkrSupportString == null) {
-      spkrSupportString = "null";
-    }
-    if (micSupportString.equalsIgnoreCase(getResources().getString(
-        R.string.hifi_ultrasound_test_default_false_string))) {
-      micSupport = false;
+    if (!micSupport) {
       getPassButton().setEnabled(true);
       getPassButton().performClick();
       info.append(getResources().getString(R.string.hifi_ultrasound_test_mic_no_support));
     }
-    if (spkrSupportString.equalsIgnoreCase(getResources().getString(
-        R.string.hifi_ultrasound_test_default_false_string))) {
-      spkrSupport = false;
+    if (!spkrSupport) {
       info.append(getResources().getString(R.string.hifi_ultrasound_test_spkr_no_support));
     }
 
@@ -165,11 +160,11 @@ public class HifiUltrasoundTestActivity extends PassFailButtons.Activity {
               @Override
               public void run() {
                 Double recordingDuration_millis = new Double(1000 * (2.5
-                    + AudioCommon.PREFIX_LENGTH_S
-                    + AudioCommon.PAUSE_BEFORE_PREFIX_DURATION_S
-                    + AudioCommon.PAUSE_AFTER_PREFIX_DURATION_S
-                    + AudioCommon.PIP_NUM * (AudioCommon.PIP_DURATION_S + AudioCommon.PAUSE_DURATION_S)
-                    * AudioCommon.REPETITIONS));
+                    + Common.PREFIX_LENGTH_S
+                    + Common.PAUSE_BEFORE_PREFIX_DURATION_S
+                    + Common.PAUSE_AFTER_PREFIX_DURATION_S
+                    + Common.PIP_NUM * (Common.PIP_DURATION_S + Common.PAUSE_DURATION_S)
+                    * Common.REPETITIONS));
                 Log.d(TAG, "Recording for " + recordingDuration_millis + "ms");
                 try {
                   Thread.sleep(recordingDuration_millis.intValue());
@@ -225,18 +220,18 @@ public class HifiUltrasoundTestActivity extends PassFailButtons.Activity {
     XYPlot plot = (XYPlot) popupView.findViewById(R.id.responseChart);
     plot.setDomainStep(XYStepMode.INCREMENT_BY_VAL, 2000);
 
-    Double[] frequencies = new Double[AudioCommon.PIP_NUM];
-    for (int i = 0; i < AudioCommon.PIP_NUM; i++) {
-      frequencies[i] = new Double(AudioCommon.FREQUENCIES_ORIGINAL[i]);
+    Double[] frequencies = new Double[Common.PIP_NUM];
+    for (int i = 0; i < Common.PIP_NUM; i++) {
+      frequencies[i] = new Double(Common.FREQUENCIES_ORIGINAL[i]);
     }
 
     if (wavAnalyzerTask != null && wavAnalyzerTask.getPower() != null &&
         wavAnalyzerTask.getNoiseDB() != null && wavAnalyzerTask.getDB() != null) {
 
       double[][] power = wavAnalyzerTask.getPower();
-      for(int i = 0; i < AudioCommon.REPETITIONS; i++) {
-        Double[] powerWrap = new Double[AudioCommon.PIP_NUM];
-        for (int j = 0; j < AudioCommon.PIP_NUM; j++) {
+      for(int i = 0; i < Common.REPETITIONS; i++) {
+        Double[] powerWrap = new Double[Common.PIP_NUM];
+        for (int j = 0; j < Common.PIP_NUM; j++) {
           powerWrap[j] = new Double(10 * Math.log10(power[j][i]));
         }
         XYSeries series = new SimpleXYSeries(
@@ -251,8 +246,8 @@ public class HifiUltrasoundTestActivity extends PassFailButtons.Activity {
       }
 
       double[] noiseDB = wavAnalyzerTask.getNoiseDB();
-      Double[] noiseDBWrap = new Double[AudioCommon.PIP_NUM];
-      for (int i = 0; i < AudioCommon.PIP_NUM; i++) {
+      Double[] noiseDBWrap = new Double[Common.PIP_NUM];
+      for (int i = 0; i < Common.PIP_NUM; i++) {
         noiseDBWrap[i] = new Double(noiseDB[i]);
       }
 
@@ -267,8 +262,8 @@ public class HifiUltrasoundTestActivity extends PassFailButtons.Activity {
       plot.addSeries(noiseSeries, noiseSeriesFormat);
 
       double[] dB = wavAnalyzerTask.getDB();
-      Double[] dBWrap = new Double[AudioCommon.PIP_NUM];
-      for (int i = 0; i < AudioCommon.PIP_NUM; i++) {
+      Double[] dBWrap = new Double[Common.PIP_NUM];
+      for (int i = 0; i < Common.PIP_NUM; i++) {
         dBWrap[i] = new Double(dB[i]);
       }
 
@@ -282,7 +277,7 @@ public class HifiUltrasoundTestActivity extends PassFailButtons.Activity {
           R.xml.ultrasound_line_formatter_median);
       plot.addSeries(series, seriesFormat);
 
-      Double[] passX = new Double[] {AudioCommon.MIN_FREQUENCY_HZ, AudioCommon.MAX_FREQUENCY_HZ};
+      Double[] passX = new Double[] {Common.MIN_FREQUENCY_HZ, Common.MAX_FREQUENCY_HZ};
       Double[] passY = new Double[] {wavAnalyzerTask.getThreshold(), wavAnalyzerTask.getThreshold()};
       XYSeries passSeries = new SimpleXYSeries(
           Arrays.asList(passX), Arrays.asList(passY), "passing");
@@ -298,7 +293,7 @@ public class HifiUltrasoundTestActivity extends PassFailButtons.Activity {
    * Plays the generated pips.
    */
   private void play() {
-    play(SoundGenerator.getInstance().getByte(), AudioCommon.PLAYING_SAMPLE_RATE_HZ);
+    play(SoundGenerator.getInstance().getByte(), Common.PLAYING_SAMPLE_RATE_HZ);
   }
 
   /**
@@ -328,7 +323,7 @@ public class HifiUltrasoundTestActivity extends PassFailButtons.Activity {
     WavAnalyzer wavAnalyzer;
 
     public WavAnalyzerTask(byte[] recording) {
-      wavAnalyzer = new WavAnalyzer(recording, AudioCommon.RECORDING_SAMPLE_RATE_HZ,
+      wavAnalyzer = new WavAnalyzer(recording, Common.RECORDING_SAMPLE_RATE_HZ,
           WavAnalyzerTask.this);
     }
 

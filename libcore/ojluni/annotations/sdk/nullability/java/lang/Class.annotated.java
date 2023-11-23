@@ -37,6 +37,7 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Method;
 import java.lang.reflect.Field;
 import java.lang.reflect.Member;
+import java.lang.reflect.RecordComponent;
 import java.io.InputStream;
 import java.util.HashMap;
 
@@ -164,9 +165,29 @@ public boolean isAnnotationPresent(@libcore.util.NonNull java.lang.Class<? exten
 
 public <A extends java.lang.annotation.Annotation> @libcore.util.NonNull A @libcore.util.NonNull [] getAnnotationsByType(@libcore.util.NonNull java.lang.Class<A> annotationClass) { throw new RuntimeException("Stub!"); }
 
+public <A extends java.lang.annotation.Annotation> @libcore.util.NonNull A @libcore.util.NonNull [] getDeclaredAnnotationsByType(@libcore.util.NonNull java.lang.Class<A> annotationClass) { throw new RuntimeException("Stub!"); }
+
 public java.lang.annotation.@libcore.util.NonNull Annotation @libcore.util.NonNull [] getAnnotations() { throw new RuntimeException("Stub!"); }
 
 public native <A extends java.lang.annotation.Annotation> @libcore.util.Nullable A getDeclaredAnnotation(@libcore.util.NonNull java.lang.Class<A> annotationClass);
 
 public native java.lang.annotation.@libcore.util.NonNull Annotation @libcore.util.NonNull [] getDeclaredAnnotations();
+
+public @libcore.util.NonNull Class<?> getNestHost();
+
+public boolean isNestmateOf(@libcore.util.NonNull Class<?> c);
+
+public @libcore.util.NonNull Class<?> @libcore.util.NonNull [] getNestMembers();
+
+public @libcore.util.Nullable Class<?> @libcore.util.NonNull [] getPermittedSubclasses();
+
+public boolean isSealed() { throw new RuntimeException("Stub!"); }
+
+public @libcore.util.Nullable Class<?> componentType();
+
+public @libcore.util.NonNull Class<?> arrayType();
+
+public @libcore.util.NonNull String descriptorString();
+
+public @libcore.util.Nullable java.lang.reflect.RecordComponent @libcore.util.NonNull [] getRecordComponents();
 }

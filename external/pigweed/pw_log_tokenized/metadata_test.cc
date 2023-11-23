@@ -20,7 +20,7 @@ namespace pw::log_tokenized {
 namespace {
 
 TEST(Metadata, NoLineBits) {
-  using NoLineBits = internal::GenericMetadata<6, 0, 10, 16>;
+  using NoLineBits = GenericMetadata<6, 0, 10, 16>;
 
   constexpr NoLineBits test1 = NoLineBits::Set<0, 0, 0>();
   static_assert(test1.level() == 0);
@@ -42,7 +42,7 @@ TEST(Metadata, NoLineBits) {
 }
 
 TEST(Metadata, NoFlagBits) {
-  using NoFlagBits = internal::GenericMetadata<3, 13, 0, 16>;
+  using NoFlagBits = GenericMetadata<3, 13, 0, 16>;
 
   constexpr NoFlagBits test1 = NoFlagBits::Set<0, 0, 0, 0>();
   static_assert(test1.level() == 0);
@@ -61,6 +61,51 @@ TEST(Metadata, NoFlagBits) {
   static_assert(test3.module() == 65535);
   static_assert(test3.flags() == 0);
   static_assert(test3.line_number() == (1 << 13) - 1);
+}
+
+TEST(Metadata, EncodedValue_Zero) {
+  constexpr Metadata test1 = Metadata::Set<0, 0, 0, 0>();
+  static_assert(test1.value() == 0);
+}
+
+TEST(Metadata, EncodedValue_Nonzero) {
+  constexpr size_t kExpectedLevel = 3;
+  constexpr size_t kExpectedLine = 2022;
+  constexpr size_t kExpectedFlags = 0b10;
+  constexpr size_t kExpectedModule = 1337;
+  constexpr size_t kExpectedValue =
+      (kExpectedLevel) | (kExpectedLine << PW_LOG_TOKENIZED_LEVEL_BITS) |
+      (kExpectedFlags << (PW_LOG_TOKENIZED_LEVEL_BITS +
+                          PW_LOG_TOKENIZED_LINE_BITS)) |
+      (kExpectedModule << (PW_LOG_TOKENIZED_LEVEL_BITS +
+                           PW_LOG_TOKENIZED_LINE_BITS +
+                           PW_LOG_TOKENIZED_FLAG_BITS));
+  constexpr Metadata test = Metadata::
+      Set<kExpectedLevel, kExpectedModule, kExpectedFlags, kExpectedLine>();
+  static_assert(test.value() == kExpectedValue);
+}
+
+TEST(Metadata, EncodedValue_NonzeroConstructor) {
+  constexpr size_t kExpectedLevel = 1;
+  constexpr size_t kExpectedLine = 99;
+  constexpr size_t kExpectedFlags = 0b11;
+  constexpr size_t kExpectedModule = 8900;
+  constexpr size_t kExpectedValue =
+      (kExpectedLevel) | (kExpectedLine << PW_LOG_TOKENIZED_LEVEL_BITS) |
+      (kExpectedFlags << (PW_LOG_TOKENIZED_LEVEL_BITS +
+                          PW_LOG_TOKENIZED_LINE_BITS)) |
+      (kExpectedModule << (PW_LOG_TOKENIZED_LEVEL_BITS +
+                           PW_LOG_TOKENIZED_LINE_BITS +
+                           PW_LOG_TOKENIZED_FLAG_BITS));
+  constexpr Metadata test =
+      Metadata(kExpectedLevel, kExpectedModule, kExpectedFlags, kExpectedLine);
+  static_assert(test.value() == kExpectedValue);
+}
+
+TEST(Metadata, EncodedValue_Overflow) {
+  constexpr size_t kExpectedLevel = 144;
+  constexpr Metadata test = Metadata(kExpectedLevel, 0, 0, 0);
+  static_assert(test.value() == 0);
 }
 
 }  // namespace

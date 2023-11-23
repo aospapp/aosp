@@ -1,5 +1,7 @@
 package com.android.cts.verifier.nfc.hce;
 
+import static android.content.Context.RECEIVER_EXPORTED;
+
 import android.app.Dialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -35,7 +37,7 @@ public class ScreenOffPaymentEmulatorActivity extends BaseEmulatorActivity {
         IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_SCREEN_OFF);
         filter.addAction(Intent.ACTION_SCREEN_ON);
-        registerReceiver(mReceiver, filter);
+        registerReceiver(mReceiver, filter, RECEIVER_EXPORTED);
 
         NfcManager nfcManager = getSystemService(NfcManager.class);
         mNfcAdapter = nfcManager.getDefaultAdapter();

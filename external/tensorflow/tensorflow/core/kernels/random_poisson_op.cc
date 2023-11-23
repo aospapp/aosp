@@ -296,8 +296,8 @@ class RandomPoissonOp : public OpKernel {
     TensorShape samples_shape;
     OP_REQUIRES_OK(ctx, tensor::MakeShape(shape_t, &samples_shape));
     const int64_t num_samples = samples_shape.num_elements();
+    OP_REQUIRES_OK(ctx, samples_shape.AppendShapeWithStatus(rate_t.shape()));
 
-    samples_shape.AppendShape(rate_t.shape());
     // Allocate output samples.
     Tensor* samples_t = nullptr;
     OP_REQUIRES_OK(ctx, ctx->allocate_output(0, samples_shape, &samples_t));
@@ -345,13 +345,13 @@ TF_CALL_double(REGISTER);
   REGISTER_V2(RTYPE, float);       \
   REGISTER_V2(RTYPE, double);      \
   REGISTER_V2(RTYPE, int32);       \
-  REGISTER_V2(RTYPE, int64);
+  REGISTER_V2(RTYPE, int64_t);
 
 REGISTER_ALL(Eigen::half);
 REGISTER_ALL(float);
 REGISTER_ALL(double);
 REGISTER_ALL(int32);
-REGISTER_ALL(int64);
+REGISTER_ALL(int64_t);
 
 #undef REGISTER_ALL
 #undef REGISTER_V2

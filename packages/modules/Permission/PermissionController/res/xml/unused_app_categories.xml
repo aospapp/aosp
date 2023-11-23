@@ -18,12 +18,6 @@
     xmlns:android="http://schemas.android.com/apk/res/android">
 
     <PreferenceCategory
-        android:key="three_months"/>
-
-    <PreferenceCategory
-        android:key="six_months"/>
-
-    <PreferenceCategory
         android:key="info_msg_category"/>
 
 </PreferenceScreen>

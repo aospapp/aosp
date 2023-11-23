@@ -574,9 +574,7 @@
             "jar://$PROJECT_DIR$/out/target/common/obj/JAVA_LIBRARIES/sdk_public_18_android_intermediates/classes-header.jar!/",
             "jar://$PROJECT_DIR$/out/target/common/obj/JAVA_LIBRARIES/sdk_public_8_android_intermediates/classes-header.jar!/",
             "jar://$PROJECT_DIR$/out/target/common/obj/JAVA_LIBRARIES/sdk_public_9_android_intermediates/classes-header.jar!/",
-            "jar://$PROJECT_DIR$/out/target/common/obj/JAVA_LIBRARIES/updatable_media_stubs_intermediates/classes-header.jar!/",
-            "jar://$PROJECT_DIR$/prebuilts/jdk/jdk8/linux-x86/jre/lib/jce.jar!/",
-            "jar://$PROJECT_DIR$/prebuilts/jdk/jdk8/linux-x86/jre/lib/rt.jar!/"
+            "jar://$PROJECT_DIR$/out/target/common/obj/JAVA_LIBRARIES/updatable_media_stubs_intermediates/classes-header.jar!/"
         ]
     },
     "tools-tradefederation-core.iml": {
@@ -664,9 +662,7 @@
             "jar://$PROJECT_DIR$/out/target/common/obj/JAVA_LIBRARIES/core-lambda-stubs_intermediates/classes-header.jar!/",
             "jar://$PROJECT_DIR$/out/target/common/obj/JAVA_LIBRARIES/sdk_public_4_android_intermediates/classes-header.jar!/",
             "jar://$PROJECT_DIR$/out/target/common/obj/JAVA_LIBRARIES/sdk_public_7_android_intermediates/classes-header.jar!/",
-            "jar://$PROJECT_DIR$/out/target/common/obj/JAVA_LIBRARIES/sdk_public_8_android_intermediates/classes-header.jar!/",
-            "jar://$PROJECT_DIR$/prebuilts/jdk/jdk8/linux-x86/jre/lib/jce.jar!/",
-            "jar://$PROJECT_DIR$/prebuilts/jdk/jdk8/linux-x86/jre/lib/rt.jar!/"
+            "jar://$PROJECT_DIR$/out/target/common/obj/JAVA_LIBRARIES/sdk_public_8_android_intermediates/classes-header.jar!/"
         ]
     }
 }

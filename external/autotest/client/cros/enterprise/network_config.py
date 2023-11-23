@@ -5,10 +5,12 @@
 import random
 import string
 
+from autotest_lib.client.common_lib import error
+
 
 def generate_random_guid():
     """Create a random 16 character GUID."""
-    return ''.join(random.choice(string.hexdigits) for _ in xrange(16))
+    return ''.join(random.choice(string.hexdigits) for _ in range(16))
 
 
 class NetworkConfig(object):

@@ -5,7 +5,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -52,7 +52,7 @@ public final class OldFormatterTest extends TestCase {
     }
 
     public void test_formatLjava_util_LocaleLjava_lang_StringLjava_lang_Object() {
-        Double val = new Double(3.14);
+        Double val = Double.valueOf(3.14);
         Calendar cal = Calendar.getInstance();
         Formatter fLoc = null;
         Formatter fNoL = null;

@@ -1,12 +1,15 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 use std::fmt;
 use std::io;
-use std::io::{ErrorKind, Read, Write};
+use std::io::ErrorKind;
+use std::io::Read;
+use std::io::Write;
 use std::mem;
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
+use std::ops::DerefMut;
 use std::string::String;
 use std::vec::Vec;
 
@@ -130,7 +133,7 @@ impl<T: WireFormat> WireFormat for Vec<T> {
 /// A type that encodes an arbitrary number of bytes of data.  Typically used for Rread
 /// Twrite messages.  This differs from a `Vec<u8>` in that it encodes the number of bytes
 /// using a `u32` instead of a `u16`.
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub struct Data(pub Vec<u8>);
 
 // The maximum length of a data buffer that we support.  In practice the server's max message
@@ -202,10 +205,11 @@ impl WireFormat for Data {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use std::io::Cursor;
     use std::mem;
     use std::string::String;
+
+    use super::*;
 
     #[test]
     fn integer_byte_size() {

@@ -35,8 +35,9 @@ import javax.inject.Provider;
  * OverlayViewController}(s) to allow for the correct visibility of system bars.
  */
 @SysUISingleton
-public class SystemUIOverlayWindowManager extends CoreStartable {
+public class SystemUIOverlayWindowManager implements CoreStartable {
     private static final String TAG = "SystemUIOverlayWM";
+    private final Context mContext;
     private final Map<Class<?>, Provider<OverlayViewMediator>>
             mContentMediatorCreators;
     private final OverlayViewGlobalStateController mOverlayViewGlobalStateController;
@@ -46,7 +47,7 @@ public class SystemUIOverlayWindowManager extends CoreStartable {
             Context context,
             Map<Class<?>, Provider<OverlayViewMediator>> contentMediatorCreators,
             OverlayViewGlobalStateController overlayViewGlobalStateController) {
-        super(context);
+        mContext = context;
         mContentMediatorCreators = contentMediatorCreators;
         mOverlayViewGlobalStateController = overlayViewGlobalStateController;
     }

@@ -25,6 +25,7 @@ use crate::{
     error::Error,
     error::ResponseCode,
     key_parameter::{KeyParameter, KeyParameterValue},
+    ks_err,
     legacy_blob::LegacyBlobLoader,
     legacy_importer::LegacyImporter,
     raw_device::KeyMintDevice,
@@ -156,19 +157,17 @@ pub struct SuperKey {
 impl AesGcm for SuperKey {
     fn decrypt(&self, data: &[u8], iv: &[u8], tag: &[u8]) -> Result<ZVec> {
         if self.algorithm == SuperEncryptionAlgorithm::Aes256Gcm {
-            aes_gcm_decrypt(data, iv, tag, &self.key)
-                .context("In SuperKey::decrypt: Decryption failed.")
+            aes_gcm_decrypt(data, iv, tag, &self.key).context(ks_err!("Decryption failed."))
         } else {
-            Err(Error::sys()).context("In SuperKey::decrypt: Key is not an AES key.")
+            Err(Error::sys()).context(ks_err!("Key is not an AES key."))
         }
     }
 
     fn encrypt(&self, plaintext: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>)> {
         if self.algorithm == SuperEncryptionAlgorithm::Aes256Gcm {
-            aes_gcm_encrypt(plaintext, &self.key)
-                .context("In SuperKey::encrypt: Encryption failed.")
+            aes_gcm_encrypt(plaintext, &self.key).context(ks_err!("Encryption failed."))
         } else {
-            Err(Error::sys()).context("In SuperKey::encrypt: Key is not an AES key.")
+            Err(Error::sys()).context(ks_err!("Key is not an AES key."))
         }
     }
 }
@@ -203,7 +202,7 @@ impl LockedKey {
             .as_ref()
             .map(|(key_blob, _)| KeyBlob::Ref(key_blob))
             .ok_or(Error::Rc(ResponseCode::KEY_NOT_FOUND))
-            .context("In LockedKey::decrypt: Missing key blob info.")?;
+            .context(ks_err!("Missing key blob info."))?;
         let key_params = vec![
             KeyParameterValue::Algorithm(Algorithm::AES),
             KeyParameterValue::KeySize(256),
@@ -270,10 +269,7 @@ impl SkmState {
             self.key_index.insert(id, Arc::downgrade(super_key));
             Ok(())
         } else {
-            Err(Error::sys()).context(format!(
-                "In add_key_to_key_index: cannot add key with ID {:?}",
-                super_key.id
-            ))
+            Err(Error::sys()).context(ks_err!("Cannot add key with ID {:?}", super_key.id))
         }
     }
 }
@@ -290,8 +286,8 @@ impl SuperKeyManager {
             log::info!("In set_up_boot_level_cache: called for a second time");
             return Ok(());
         }
-        let level_zero_key = get_level_zero_key(db)
-            .context("In set_up_boot_level_cache: get_level_zero_key failed")?;
+        let level_zero_key =
+            get_level_zero_key(db).context(ks_err!("get_level_zero_key failed"))?;
         skm_guard.data.boot_level_key_cache =
             Some(Mutex::new(BootLevelKeyCache::new(level_zero_key)));
         log::info!("Starting boot level watcher.");
@@ -307,11 +303,11 @@ impl SuperKeyManager {
     /// Blocks waiting for system property changes, so must be run in its own thread.
     fn watch_boot_level(skm: Arc<RwLock<Self>>) -> Result<()> {
         let mut w = PropertyWatcher::new("keystore.boot_level")
-            .context("In watch_boot_level: PropertyWatcher::new failed")?;
+            .context(ks_err!("PropertyWatcher::new failed"))?;
         loop {
             let level = w
                 .read(|_n, v| v.parse::<usize>().map_err(std::convert::Into::into))
-                .context("In watch_boot_level: read of property failed")?;
+                .context(ks_err!("read of property failed"))?;
 
             // This scope limits the skm_guard life, so we don't hold the skm_guard while
             // waiting.
@@ -322,14 +318,14 @@ impl SuperKeyManager {
                     .boot_level_key_cache
                     .as_mut()
                     .ok_or_else(Error::sys)
-                    .context("In watch_boot_level: Boot level cache not initialized")?
+                    .context(ks_err!("Boot level cache not initialized"))?
                     .get_mut()
                     .unwrap();
                 if level < MAX_MAX_BOOT_LEVEL {
                     log::info!("Read keystore.boot_level value {}", level);
                     boot_level_key_cache
                         .advance_boot_level(level)
-                        .context("In watch_boot_level: advance_boot_level failed")?;
+                        .context(ks_err!("advance_boot_level failed"))?;
                 } else {
                     log::info!(
                         "keystore.boot_level {} hits maximum {}, finishing.",
@@ -340,7 +336,7 @@ impl SuperKeyManager {
                     break;
                 }
             }
-            w.wait().context("In watch_boot_level: property wait failed")?;
+            w.wait().context(ks_err!("property wait failed"))?;
         }
         Ok(())
     }
@@ -363,7 +359,7 @@ impl SuperKeyManager {
     ) -> Result<()> {
         self.data
             .add_key_to_key_index(&super_key)
-            .context("In install_per_boot_key_for_user: add_key_to_key_index failed")?;
+            .context(ks_err!("add_key_to_key_index failed"))?;
         self.data.user_keys.entry(user).or_default().per_boot = Some(super_key);
         Ok(())
     }
@@ -379,7 +375,7 @@ impl SuperKeyManager {
                 .as_ref()
                 .map(|b| b.lock().unwrap().aes_key(*level as usize))
                 .transpose()
-                .context("In lookup_key: aes_key failed")?
+                .context(ks_err!("aes_key failed"))?
                 .flatten()
                 .map(|key| {
                     Arc::new(SuperKey {
@@ -425,12 +421,12 @@ impl SuperKeyManager {
                     // For backward compatibility we need to check if there is a super key present.
                     let super_key = legacy_blob_loader
                         .load_super_key(user, pw)
-                        .context("In create_new_key: Failed to load legacy key blob.")?;
+                        .context(ks_err!("Failed to load legacy key blob."))?;
                     let super_key = match super_key {
                         None => {
                             // No legacy file was found. So we generate a new key.
                             generate_aes256_key()
-                                .context("In create_new_key: Failed to generate AES 256 key.")?
+                                .context(ks_err!("Failed to generate AES 256 key."))?
                         }
                         Some(key) => key,
                     };
@@ -442,10 +438,10 @@ impl SuperKeyManager {
                     Self::encrypt_with_password(&super_key, pw).context("In create_new_key.")
                 },
             )
-            .context("In unlock_user_key: Failed to get key id.")?;
+            .context(ks_err!("Failed to get key id."))?;
 
         self.populate_cache_from_super_key_blob(user, USER_SUPER_KEY.algorithm, entry, pw)
-            .context("In unlock_user_key.")?;
+            .context(ks_err!())?;
         Ok(())
     }
 
@@ -459,12 +455,12 @@ impl SuperKeyManager {
         Ok(if let Some(key_id) = SuperKeyIdentifier::from_metadata(metadata) {
             let super_key = self
                 .lookup_key(&key_id)
-                .context("In unwrap_key: lookup_key failed")?
+                .context(ks_err!("lookup_key failed"))?
                 .ok_or(Error::Rc(ResponseCode::LOCKED))
-                .context("In unwrap_key: Required super decryption key is not in memory.")?;
+                .context(ks_err!("Required super decryption key is not in memory."))?;
             KeyBlob::Sensitive {
                 key: Self::unwrap_key_with_key(blob, metadata, &super_key)
-                    .context("In unwrap_key: unwrap_key_with_key failed")?,
+                    .context(ks_err!("unwrap_key_with_key failed"))?,
                 reencrypt_with: super_key.reencrypt_with.as_ref().unwrap_or(&super_key).clone(),
                 force_reencrypt: super_key.reencrypt_with.is_some(),
             }
@@ -477,14 +473,11 @@ impl SuperKeyManager {
     fn unwrap_key_with_key(blob: &[u8], metadata: &BlobMetaData, key: &SuperKey) -> Result<ZVec> {
         match key.algorithm {
             SuperEncryptionAlgorithm::Aes256Gcm => match (metadata.iv(), metadata.aead_tag()) {
-                (Some(iv), Some(tag)) => key
-                    .decrypt(blob, iv, tag)
-                    .context("In unwrap_key_with_key: Failed to decrypt the key blob."),
-                (iv, tag) => Err(Error::Rc(ResponseCode::VALUE_CORRUPTED)).context(format!(
-                    concat!(
-                        "In unwrap_key_with_key: Key has incomplete metadata.",
-                        "Present: iv: {}, aead_tag: {}."
-                    ),
+                (Some(iv), Some(tag)) => {
+                    key.decrypt(blob, iv, tag).context(ks_err!("Failed to decrypt the key blob."))
+                }
+                (iv, tag) => Err(Error::Rc(ResponseCode::VALUE_CORRUPTED)).context(ks_err!(
+                    "Key has incomplete metadata. Present: iv: {}, aead_tag: {}.",
                     iv.is_some(),
                     tag.is_some(),
                 )),
@@ -494,14 +487,12 @@ impl SuperKeyManager {
                     (Some(public_key), Some(salt), Some(iv), Some(aead_tag)) => {
                         ECDHPrivateKey::from_private_key(&key.key)
                             .and_then(|k| k.decrypt_message(public_key, salt, iv, blob, aead_tag))
-                            .context(
-                                "In unwrap_key_with_key: Failed to decrypt the key blob with ECDH.",
-                            )
+                            .context(ks_err!("Failed to decrypt the key blob with ECDH."))
                     }
                     (public_key, salt, iv, aead_tag) => {
-                        Err(Error::Rc(ResponseCode::VALUE_CORRUPTED)).context(format!(
+                        Err(Error::Rc(ResponseCode::VALUE_CORRUPTED)).context(ks_err!(
                             concat!(
-                                "In unwrap_key_with_key: Key has incomplete metadata.",
+                                "Key has incomplete metadata. ",
                                 "Present: public_key: {}, salt: {}, iv: {}, aead_tag: {}."
                             ),
                             public_key.is_some(),
@@ -526,14 +517,12 @@ impl SuperKeyManager {
     ) -> Result<bool> {
         let key_in_db = db
             .key_exists(Domain::APP, user_id as u64 as i64, USER_SUPER_KEY.alias, KeyType::Super)
-            .context("In super_key_exists_in_db_for_user.")?;
+            .context(ks_err!())?;
 
         if key_in_db {
             Ok(key_in_db)
         } else {
-            legacy_importer
-                .has_super_key(user_id)
-                .context("In super_key_exists_in_db_for_user: Trying to query legacy db.")
+            legacy_importer.has_super_key(user_id).context(ks_err!("Trying to query legacy db."))
         }
     }
 
@@ -550,13 +539,13 @@ impl SuperKeyManager {
         let alias = &USER_SUPER_KEY;
         let result = legacy_importer
             .with_try_import_super_key(user_id, pw, || db.load_super_key(alias, user_id))
-            .context("In check_and_unlock_super_key. Failed to load super key")?;
+            .context(ks_err!("Failed to load super key"))?;
 
         match result {
             Some((_, entry)) => {
                 let super_key = self
                     .populate_cache_from_super_key_blob(user_id, alias.algorithm, entry, pw)
-                    .context("In check_and_unlock_super_key.")?;
+                    .context(ks_err!())?;
                 Ok(UserState::LskfUnlocked(super_key))
             }
             None => Ok(UserState::Uninitialized),
@@ -578,17 +567,17 @@ impl SuperKeyManager {
     ) -> Result<UserState> {
         let super_key_exists_in_db = self
             .super_key_exists_in_db_for_user(db, legacy_importer, user_id)
-            .context("In check_and_initialize_super_key. Failed to check if super key exists.")?;
+            .context(ks_err!("Failed to check if super key exists."))?;
         if super_key_exists_in_db {
             Ok(UserState::LskfLocked)
         } else if let Some(pw) = pw {
             // Generate a new super key.
-            let super_key = generate_aes256_key()
-                .context("In check_and_initialize_super_key: Failed to generate AES 256 key.")?;
+            let super_key =
+                generate_aes256_key().context(ks_err!("Failed to generate AES 256 key."))?;
             // Derive an AES256 key from the password and re-encrypt the super key
             // before we insert it in the database.
-            let (encrypted_super_key, blob_metadata) = Self::encrypt_with_password(&super_key, pw)
-                .context("In check_and_initialize_super_key.")?;
+            let (encrypted_super_key, blob_metadata) =
+                Self::encrypt_with_password(&super_key, pw).context(ks_err!())?;
 
             let key_entry = db
                 .store_super_key(
@@ -598,7 +587,7 @@ impl SuperKeyManager {
                     &blob_metadata,
                     &KeyMetaData::new(),
                 )
-                .context("In check_and_initialize_super_key. Failed to store super key.")?;
+                .context(ks_err!("Failed to store super key."))?;
 
             let super_key = self
                 .populate_cache_from_super_key_blob(
@@ -607,7 +596,7 @@ impl SuperKeyManager {
                     key_entry,
                     pw,
                 )
-                .context("In check_and_initialize_super_key.")?;
+                .context(ks_err!())?;
             Ok(UserState::LskfUnlocked(super_key))
         } else {
             Ok(UserState::Uninitialized)
@@ -623,9 +612,7 @@ impl SuperKeyManager {
         pw: &Password,
     ) -> Result<Arc<SuperKey>> {
         let super_key = Self::extract_super_key_from_key_entry(algorithm, entry, pw, None)
-            .context(
-                "In populate_cache_from_super_key_blob. Failed to extract super key from key entry",
-            )?;
+            .context(ks_err!("Failed to extract super key from key entry"))?;
         self.install_per_boot_key_for_user(user_id, super_key.clone())?;
         Ok(super_key)
     }
@@ -646,20 +633,19 @@ impl SuperKeyManager {
             ) {
                 (Some(&EncryptedBy::Password), Some(salt), Some(iv), Some(tag)) => {
                     // Note that password encryption is AES no matter the value of algorithm.
-                    let key = pw.derive_key(Some(salt), AES_256_KEY_LENGTH).context(
-                        "In extract_super_key_from_key_entry: Failed to generate key from password.",
-                    )?;
+                    let key = pw
+                        .derive_key(salt, AES_256_KEY_LENGTH)
+                        .context(ks_err!("Failed to generate key from password."))?;
 
-                    aes_gcm_decrypt(blob, iv, tag, &key).context(
-                        "In extract_super_key_from_key_entry: Failed to decrypt key blob.",
-                    )?
+                    aes_gcm_decrypt(blob, iv, tag, &key)
+                        .context(ks_err!("Failed to decrypt key blob."))?
                 }
                 (enc_by, salt, iv, tag) => {
-                    return Err(Error::Rc(ResponseCode::VALUE_CORRUPTED)).context(format!(
+                    return Err(Error::Rc(ResponseCode::VALUE_CORRUPTED)).context(ks_err!(
                         concat!(
-                        "In extract_super_key_from_key_entry: Super key has incomplete metadata.",
-                        "encrypted_by: {:?}; Present: salt: {}, iv: {}, aead_tag: {}."
-                    ),
+                            "Super key has incomplete metadata.",
+                            "encrypted_by: {:?}; Present: salt: {}, iv: {}, aead_tag: {}."
+                        ),
                         enc_by,
                         salt.is_some(),
                         iv.is_some(),
@@ -674,8 +660,7 @@ impl SuperKeyManager {
                 reencrypt_with,
             }))
         } else {
-            Err(Error::Rc(ResponseCode::VALUE_CORRUPTED))
-                .context("In extract_super_key_from_key_entry: No key blob info.")
+            Err(Error::Rc(ResponseCode::VALUE_CORRUPTED)).context(ks_err!("No key blob info."))
         }
     }
 
@@ -686,13 +671,13 @@ impl SuperKeyManager {
     ) -> Result<(Vec<u8>, BlobMetaData)> {
         let salt = generate_salt().context("In encrypt_with_password: Failed to generate salt.")?;
         let derived_key = pw
-            .derive_key(Some(&salt), AES_256_KEY_LENGTH)
-            .context("In encrypt_with_password: Failed to derive password.")?;
+            .derive_key(&salt, AES_256_KEY_LENGTH)
+            .context(ks_err!("Failed to derive password."))?;
         let mut metadata = BlobMetaData::new();
         metadata.add(BlobMetaEntry::EncryptedBy(EncryptedBy::Password));
         metadata.add(BlobMetaEntry::Salt(salt));
         let (encrypted_key, iv, tag) = aes_gcm_encrypt(super_key, &derived_key)
-            .context("In encrypt_with_password: Failed to encrypt new super key.")?;
+            .context(ks_err!("Failed to encrypt new super key."))?;
         metadata.add(BlobMetaEntry::Iv(iv));
         metadata.add(BlobMetaEntry::AeadTag(tag));
         Ok((encrypted_key, metadata))
@@ -711,17 +696,17 @@ impl SuperKeyManager {
     ) -> Result<(Vec<u8>, BlobMetaData)> {
         match self
             .get_user_state(db, legacy_importer, user_id)
-            .context("In super_encrypt. Failed to get user state.")?
+            .context(ks_err!("Failed to get user state."))?
         {
             UserState::LskfUnlocked(super_key) => {
                 Self::encrypt_with_aes_super_key(key_blob, &super_key)
-                    .context("In super_encrypt_on_key_init. Failed to encrypt the key.")
+                    .context(ks_err!("Failed to encrypt the key."))
             }
             UserState::LskfLocked => {
-                Err(Error::Rc(ResponseCode::LOCKED)).context("In super_encrypt. Device is locked.")
+                Err(Error::Rc(ResponseCode::LOCKED)).context(ks_err!("Device is locked."))
             }
             UserState::Uninitialized => Err(Error::Rc(ResponseCode::UNINITIALIZED))
-                .context("In super_encrypt. LSKF is not setup for the user."),
+                .context(ks_err!("LSKF is not setup for the user.")),
         }
     }
 
@@ -733,12 +718,11 @@ impl SuperKeyManager {
         super_key: &SuperKey,
     ) -> Result<(Vec<u8>, BlobMetaData)> {
         if super_key.algorithm != SuperEncryptionAlgorithm::Aes256Gcm {
-            return Err(Error::sys())
-                .context("In encrypt_with_aes_super_key: unexpected algorithm");
+            return Err(Error::sys()).context(ks_err!("unexpected algorithm"));
         }
         let mut metadata = BlobMetaData::new();
         let (encrypted_key, iv, tag) = aes_gcm_encrypt(key_blob, &(super_key.key))
-            .context("In encrypt_with_aes_super_key: Failed to encrypt new super key.")?;
+            .context(ks_err!("Failed to encrypt new super key."))?;
         metadata.add(BlobMetaEntry::Iv(iv));
         metadata.add(BlobMetaEntry::AeadTag(tag));
         super_key.id.add_to_metadata(&mut metadata);
@@ -762,37 +746,29 @@ impl SuperKeyManager {
             SuperEncryptionType::None => Ok((key_blob.to_vec(), BlobMetaData::new())),
             SuperEncryptionType::LskfBound => self
                 .super_encrypt_on_key_init(db, legacy_importer, user_id, key_blob)
-                .context(concat!(
-                    "In handle_super_encryption_on_key_init. ",
-                    "Failed to super encrypt with LskfBound key."
-                )),
+                .context(ks_err!("Failed to super encrypt with LskfBound key.")),
             SuperEncryptionType::ScreenLockBound => {
                 let entry =
                     self.data.user_keys.get(&user_id).and_then(|e| e.screen_lock_bound.as_ref());
                 if let Some(super_key) = entry {
-                    Self::encrypt_with_aes_super_key(key_blob, super_key).context(concat!(
-                        "In handle_super_encryption_on_key_init. ",
-                        "Failed to encrypt with ScreenLockBound key."
-                    ))
+                    Self::encrypt_with_aes_super_key(key_blob, super_key)
+                        .context(ks_err!("Failed to encrypt with ScreenLockBound key."))
                 } else {
                     // Symmetric key is not available, use public key encryption
-                    let loaded =
-                        db.load_super_key(&USER_SCREEN_LOCK_BOUND_P521_KEY, user_id).context(
-                            "In handle_super_encryption_on_key_init: load_super_key failed.",
-                        )?;
-                    let (key_id_guard, key_entry) = loaded.ok_or_else(Error::sys).context(
-                        "In handle_super_encryption_on_key_init: User ECDH key missing.",
-                    )?;
-                    let public_key =
-                        key_entry.metadata().sec1_public_key().ok_or_else(Error::sys).context(
-                            "In handle_super_encryption_on_key_init: sec1_public_key missing.",
-                        )?;
+                    let loaded = db
+                        .load_super_key(&USER_SCREEN_LOCK_BOUND_P521_KEY, user_id)
+                        .context(ks_err!("load_super_key failed."))?;
+                    let (key_id_guard, key_entry) =
+                        loaded.ok_or_else(Error::sys).context(ks_err!("User ECDH key missing."))?;
+                    let public_key = key_entry
+                        .metadata()
+                        .sec1_public_key()
+                        .ok_or_else(Error::sys)
+                        .context(ks_err!("sec1_public_key missing."))?;
                     let mut metadata = BlobMetaData::new();
                     let (ephem_key, salt, iv, encrypted_key, aead_tag) =
-                        ECDHPrivateKey::encrypt_message(public_key, key_blob).context(concat!(
-                            "In handle_super_encryption_on_key_init: ",
-                            "ECDHPrivateKey::encrypt_message failed."
-                        ))?;
+                        ECDHPrivateKey::encrypt_message(public_key, key_blob)
+                            .context(ks_err!("ECDHPrivateKey::encrypt_message failed."))?;
                     metadata.add(BlobMetaEntry::PublicKey(ephem_key));
                     metadata.add(BlobMetaEntry::Salt(salt));
                     metadata.add(BlobMetaEntry::Iv(iv));
@@ -806,13 +782,11 @@ impl SuperKeyManager {
                 let key_id = SuperKeyIdentifier::BootLevel(level);
                 let super_key = self
                     .lookup_key(&key_id)
-                    .context("In handle_super_encryption_on_key_init: lookup_key failed")?
+                    .context(ks_err!("lookup_key failed"))?
                     .ok_or(Error::Rc(ResponseCode::LOCKED))
-                    .context("In handle_super_encryption_on_key_init: Boot stage key absent")?;
-                Self::encrypt_with_aes_super_key(key_blob, &super_key).context(concat!(
-                    "In handle_super_encryption_on_key_init: ",
-                    "Failed to encrypt with BootLevel key."
-                ))
+                    .context(ks_err!("Boot stage key absent"))?;
+                Self::encrypt_with_aes_super_key(key_blob, &super_key)
+                    .context(ks_err!("Failed to encrypt with BootLevel key."))
             }
         }
     }
@@ -828,7 +802,7 @@ impl SuperKeyManager {
             KeyBlob::Sensitive { reencrypt_with: super_key, .. } => {
                 let (key, metadata) =
                     Self::encrypt_with_aes_super_key(key_after_upgrade, super_key)
-                        .context("In reencrypt_if_required: Failed to re-super-encrypt key.")?;
+                        .context(ks_err!("Failed to re-super-encrypt key."))?;
                 Ok((KeyBlob::NonSensitive(key), Some(metadata)))
             }
             _ => Ok((KeyBlob::Ref(key_after_upgrade), None)),
@@ -857,28 +831,22 @@ impl SuperKeyManager {
         } else {
             let (super_key, public_key) = match key_type.algorithm {
                 SuperEncryptionAlgorithm::Aes256Gcm => (
-                    generate_aes256_key()
-                        .context("In get_or_create_super_key: Failed to generate AES 256 key.")?,
+                    generate_aes256_key().context(ks_err!("Failed to generate AES 256 key."))?,
                     None,
                 ),
                 SuperEncryptionAlgorithm::EcdhP521 => {
                     let key = ECDHPrivateKey::generate()
-                        .context("In get_or_create_super_key: Failed to generate ECDH key")?;
+                        .context(ks_err!("Failed to generate ECDH key"))?;
                     (
-                        key.private_key()
-                            .context("In get_or_create_super_key: private_key failed")?,
-                        Some(
-                            key.public_key()
-                                .context("In get_or_create_super_key: public_key failed")?,
-                        ),
+                        key.private_key().context(ks_err!("private_key failed"))?,
+                        Some(key.public_key().context(ks_err!("public_key failed"))?),
                     )
                 }
             };
             // Derive an AES256 key from the password and re-encrypt the super key
             // before we insert it in the database.
             let (encrypted_super_key, blob_metadata) =
-                Self::encrypt_with_password(&super_key, password)
-                    .context("In get_or_create_super_key.")?;
+                Self::encrypt_with_password(&super_key, password).context(ks_err!())?;
             let mut key_metadata = KeyMetaData::new();
             if let Some(pk) = public_key {
                 key_metadata.add(KeyMetaEntry::Sec1PublicKey(pk));
@@ -891,7 +859,7 @@ impl SuperKeyManager {
                     &blob_metadata,
                     &key_metadata,
                 )
-                .context("In get_or_create_super_key. Failed to store super key.")?;
+                .context(ks_err!("Failed to store super key."))?;
             Ok(Arc::new(SuperKey {
                 algorithm: key_type.algorithm,
                 key: super_key,
@@ -926,7 +894,7 @@ impl SuperKeyManager {
             screen_lock_bound
         } else {
             self.get_or_create_super_key(db, user_id, &USER_SCREEN_LOCK_BOUND_KEY, password, None)
-                .context("In unlock_screen_lock_bound_key: Trying to get or create symmetric key.")?
+                .context(ks_err!("Trying to get or create symmetric key."))?
         };
 
         let ecdh = if let Some(screen_lock_bound_private) = screen_lock_bound_private {
@@ -941,7 +909,7 @@ impl SuperKeyManager {
                 password,
                 Some(aes.clone()),
             )
-            .context("In unlock_screen_lock_bound_key: Trying to get or create asymmetric key.")?
+            .context(ks_err!("Trying to get or create asymmetric key."))?
         };
 
         self.data.add_key_to_key_index(&aes)?;
@@ -974,7 +942,7 @@ impl SuperKeyManager {
                     let encrypting_key = generate_aes256_key()?;
                     let km_dev: KeyMintDevice =
                         KeyMintDevice::get(SecurityLevel::TRUSTED_ENVIRONMENT)
-                            .context("In lock_screen_lock_bound_key: KeyMintDevice::get failed")?;
+                            .context(ks_err!("KeyMintDevice::get failed"))?;
                     let mut key_params = vec![
                         KeyParameterValue::Algorithm(Algorithm::AES),
                         KeyParameterValue::KeySize(256),
@@ -1046,9 +1014,9 @@ impl SuperKeyManager {
                     AID_KEYSTORE,
                     |_, _| Ok(()),
                 )
-                .context("In try_unlock_user_with_biometric: load_key_entry failed")?;
+                .context(ks_err!("load_key_entry failed"))?;
             let km_dev: KeyMintDevice = KeyMintDevice::get(SecurityLevel::TRUSTED_ENVIRONMENT)
-                .context("In try_unlock_user_with_biometric: KeyMintDevice::get failed")?;
+                .context(ks_err!("KeyMintDevice::get failed"))?;
             for sid in &biometric.sids {
                 if let Some((auth_token_entry, _)) = db.find_auth_token_entry(|entry| {
                     entry.auth_token().userId == *sid || entry.auth_token().authenticatorId == *sid
@@ -1078,14 +1046,11 @@ impl SuperKeyManager {
                             entry.screen_lock_bound_private = Some(slbp.clone());
                             self.data.add_key_to_key_index(&slb)?;
                             self.data.add_key_to_key_index(&slbp)?;
-                            log::info!(concat!(
-                                "In try_unlock_user_with_biometric: ",
-                                "Successfully unlocked with biometric"
-                            ));
+                            log::info!("Successfully unlocked with biometric");
                             return Ok(());
                         }
                         Err(e) => {
-                            log::warn!("In try_unlock_user_with_biometric: attempt failed: {:?}", e)
+                            log::warn!("attempt failed: {:?}", e)
                         }
                     }
                 }
@@ -1110,7 +1075,7 @@ impl SuperKeyManager {
                 // If so, return locked user state.
                 if self
                     .super_key_exists_in_db_for_user(db, legacy_importer, user_id)
-                    .context("In get_user_state.")?
+                    .context(ks_err!())?
                 {
                     Ok(UserState::LskfLocked)
                 } else {
@@ -1141,9 +1106,8 @@ impl SuperKeyManager {
             Some(_) if password.is_none() => {
                 // Transitioning to swiping, delete only the super key in database and cache,
                 // and super-encrypted keys in database (and in KM).
-                self.reset_user(db, legacy_importer, user_id, true).context(
-                    "In reset_or_init_user_and_get_user_state: Trying to delete keys from the db.",
-                )?;
+                self.reset_user(db, legacy_importer, user_id, true)
+                    .context(ks_err!("Trying to delete keys from the db."))?;
                 // Lskf is now removed in Keystore.
                 Ok(UserState::Uninitialized)
             }
@@ -1174,7 +1138,7 @@ impl SuperKeyManager {
     ) -> Result<UserState> {
         match self.get_per_boot_key_by_user_id_internal(user_id) {
             Some(super_key) => {
-                log::info!("In unlock_and_get_user_state. Trying to unlock when already unlocked.");
+                log::info!("Trying to unlock when already unlocked.");
                 Ok(UserState::LskfUnlocked(super_key))
             }
             None => {
@@ -1183,7 +1147,7 @@ impl SuperKeyManager {
                 // Otherwise, try to unlock the super key and if successful,
                 // return LskfUnlocked.
                 self.check_and_unlock_super_key(db, legacy_importer, user_id, password)
-                    .context("In unlock_and_get_user_state. Failed to unlock super key.")
+                    .context(ks_err!("Failed to unlock super key."))
             }
         }
     }
@@ -1201,9 +1165,9 @@ impl SuperKeyManager {
         // Mark keys created on behalf of the user as unreferenced.
         legacy_importer
             .bulk_delete_user(user_id, keep_non_super_encrypted_keys)
-            .context("In reset_user: Trying to delete legacy keys.")?;
+            .context(ks_err!("Trying to delete legacy keys."))?;
         db.unbind_keys_for_user(user_id, keep_non_super_encrypted_keys)
-            .context("In reset user. Error in unbinding keys.")?;
+            .context(ks_err!("Error in unbinding keys."))?;
 
         // Delete super key in cache, if exists.
         self.forget_all_keys_for_user(user_id);

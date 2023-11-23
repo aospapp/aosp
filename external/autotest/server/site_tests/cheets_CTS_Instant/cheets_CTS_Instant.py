@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -23,16 +24,21 @@ from autotest_lib.server.cros.tradefed import tradefed_test
 # Maximum default time allowed for each individual CTS module.
 _CTS_TIMEOUT_SECONDS = 3600
 
-# Public download locations for android cts bundles.
 _PUBLIC_CTS = 'https://dl.google.com/dl/android/cts/'
-_PARTNER_CTS = 'gs://chromeos-partner-cts/'
-_CTS_URI = {
-        'arm': _PUBLIC_CTS + 'android-cts_instant-9.0_r14-linux_x86-arm.zip',
-        'x86': _PUBLIC_CTS + 'android-cts_instant-9.0_r14-linux_x86-x86.zip',
+_INTERNAL_CTS = 'gs://chromeos-arc-images/cts/bundle/P/'
+_BUNDLE_MAP = {
+        (None, 'arm'):
+        _PUBLIC_CTS + 'android-cts_instant-9.0_r20-linux_x86-arm.zip',
+        (None, 'x86'):
+        _PUBLIC_CTS + 'android-cts_instant-9.0_r20-linux_x86-x86.zip',
+        ('LATEST', 'arm'):
+        _INTERNAL_CTS + 'android-cts_instant-9.0_r20-linux_x86-arm.zip',
+        ('LATEST', 'x86'):
+        _INTERNAL_CTS + 'android-cts_instant-9.0_r20-linux_x86-x86.zip',
+        # No 'DEV' job for CTS_Instant for now.
 }
 _CTS_MEDIA_URI = _PUBLIC_CTS + 'android-cts-media-1.5.zip'
 _CTS_MEDIA_LOCALPATH = '/tmp/android-cts-media'
-
 
 class cheets_CTS_Instant(tradefed_test.TradefedTest):
     """Sets up tradefed to run CTS tests."""
@@ -79,8 +85,11 @@ class cheets_CTS_Instant(tradefed_test.TradefedTest):
         cmd.append('--quiet-output=true')
         return cmd
 
-    def _get_default_bundle_url(self, bundle):
-        return _CTS_URI[bundle]
+    def _get_bundle_url(self, uri, bundle):
+        if uri and (uri.startswith('http') or uri.startswith('gs')):
+            return uri
+        else:
+            return _BUNDLE_MAP[(uri, bundle)]
 
     def _get_tradefed_base_dir(self):
         return 'android-cts_instant'
@@ -140,6 +149,5 @@ class cheets_CTS_Instant(tradefed_test.TradefedTest):
                 _CTS_MEDIA_URI if needs_push_media else None,
                 _CTS_MEDIA_LOCALPATH),
             bundle=bundle,
-            cts_uri=_CTS_URI,
             login_precondition_commands=login_precondition_commands,
             precondition_commands=precondition_commands)

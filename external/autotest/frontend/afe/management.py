@@ -32,18 +32,19 @@ def create_admin_group(app, created_models, verbosity, **kwargs):
                 codename=codename))
             if len(permissions) == 0:
                 if verbosity:
-                    print '  No permission ' + codename
+                    print('  No permission ' + codename)
                 continue
             for permission in permissions:
                 if permission not in have_permissions:
                     if verbosity:
-                        print '  Adding permission ' + codename
+                        print('  Adding permission ' + codename)
                     admin_group.permissions.add(permission)
     if verbosity:
         if created:
-            print 'Created group "%s"' % BASIC_ADMIN
+            print('Created group "%s"' % BASIC_ADMIN)
         else:
-            print 'Group "%s" already exists' % BASIC_ADMIN
+            print('Group "%s" already exists' % BASIC_ADMIN)
+
 
 if settings.AUTOTEST_CREATE_ADMIN_GROUPS:
     signals.post_syncdb.connect(create_admin_group, sender=models)

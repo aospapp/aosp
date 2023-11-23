@@ -16,7 +16,6 @@
 
 #include "metrics_collector.h"
 
-#include <chrono>
 #include <memory>
 #include <vector>
 
@@ -24,17 +23,15 @@
 
 namespace le_audio {
 
-using ClockTimePoint =
-    std::chrono::time_point<std::chrono::high_resolution_clock>;
 using bluetooth::le_audio::ConnectionState;
 using le_audio::types::LeAudioContextType;
 
-const static ClockTimePoint kInvalidTimePoint{};
+const static metrics::ClockTimePoint kInvalidTimePoint{};
 
 MetricsCollector* MetricsCollector::instance = nullptr;
 
-inline int64_t get_timedelta_nanos(const ClockTimePoint& t1,
-                                   const ClockTimePoint& t2) {
+inline int64_t get_timedelta_nanos(const metrics::ClockTimePoint& t1,
+                                   const metrics::ClockTimePoint& t2) {
   if (t1 == kInvalidTimePoint || t2 == kInvalidTimePoint) {
     return -1;
   }
@@ -79,9 +76,9 @@ inline int32_t to_atom_context_type(const LeAudioContextType stack_type) {
 class DeviceMetrics {
  public:
   RawAddress address_;
-  ClockTimePoint connecting_timepoint_ = kInvalidTimePoint;
-  ClockTimePoint connected_timepoint_ = kInvalidTimePoint;
-  ClockTimePoint disconnected_timepoint_ = kInvalidTimePoint;
+  metrics::ClockTimePoint connecting_timepoint_ = kInvalidTimePoint;
+  metrics::ClockTimePoint connected_timepoint_ = kInvalidTimePoint;
+  metrics::ClockTimePoint disconnected_timepoint_ = kInvalidTimePoint;
   int32_t connection_status_ = 0;
   int32_t disconnection_status_ = 0;
 
@@ -114,7 +111,7 @@ class GroupMetricsImpl : public GroupMetrics {
   int32_t group_size_;
   std::vector<std::unique_ptr<DeviceMetrics>> device_metrics_;
   std::unordered_map<RawAddress, DeviceMetrics*> opened_devices_;
-  ClockTimePoint beginning_timepoint_;
+  metrics::ClockTimePoint beginning_timepoint_;
   std::vector<int64_t> streaming_offset_nanos_;
   std::vector<int64_t> streaming_duration_nanos_;
   std::vector<int32_t> streaming_context_type_;
@@ -280,6 +277,18 @@ void MetricsCollector::OnStreamEnded(int32_t group_id) {
   auto it = opened_groups_.find(group_id);
   if (it != opened_groups_.end()) {
     it->second->AddStreamEndedEvent();
+  }
+}
+
+void MetricsCollector::OnBroadcastStateChanged(bool started) {
+  if (started) {
+    broadcast_beginning_timepoint_ = std::chrono::high_resolution_clock::now();
+  } else {
+    auto broadcast_ending_timepoint_ =
+        std::chrono::high_resolution_clock::now();
+    bluetooth::common::LogLeAudioBroadcastSessionReported(get_timedelta_nanos(
+        broadcast_beginning_timepoint_, broadcast_ending_timepoint_));
+    broadcast_beginning_timepoint_ = kInvalidTimePoint;
   }
 }
 

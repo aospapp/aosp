@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="receive_cmas_in_second_language_title" msgid="7539080017840218665">"ہسپانوی"</string>
-    <string name="receive_cmas_in_second_language_summary" msgid="4482209573334686904">"ممکن ہونے پر ہسپانوی میں ہنگامی الرٹس موصول کریں"</string>
+    <string name="receive_cmas_in_second_language_summary" msgid="4482209573334686904">"ممکن ہونے پر ہسپانوی میں ایمرجنسی الرٹس موصول کریں"</string>
     <string name="confirm_delete_broadcast" msgid="6808374217554967811">"اس الرٹ کو حذف کریں؟"</string>
     <string name="confirm_delete_all_broadcasts" msgid="4748571670736214158">"سبھی موصولہ الرٹس حذف کریں؟"</string>
     <string name="menu_delete" msgid="2691868773984777519">"الرٹ حذف کریں"</string>

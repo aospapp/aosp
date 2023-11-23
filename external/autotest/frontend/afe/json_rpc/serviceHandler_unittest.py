@@ -1,18 +1,26 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
+import json
 import unittest
-import common
+
 from autotest_lib.frontend import setup_django_environment
-import serviceHandler
+
+import common
+
+from . import serviceHandler
 
 
 class RpcMethodHolder(object):
+    """Fake rpc service for testing."""
+
     @staticmethod
     def service_1(x, y):
+        """Returns x + y"""
         return x + y
 
     @staticmethod
     def service_2(path):
+        """Returns the parts of the path."""
         return path.split('/')[-1]
 
 
@@ -47,6 +55,8 @@ json_request3 = """
 
 
 class TestServiceHandler(unittest.TestCase):
+    """Tests ServiceHandler using a fake service."""
+
     def setUp(self):
         holder = RpcMethodHolder()
         self.serviceHandler = serviceHandler.ServiceHandler(holder)
@@ -54,12 +64,12 @@ class TestServiceHandler(unittest.TestCase):
 
     def test_handleRequest1(self):
         response = self.serviceHandler.handleRequest(json_request1)
-        self.assertEquals(response, expected_response1)
+        self.assertEquals(json.loads(response), json.loads(expected_response1))
 
 
     def test_handleRequest2(self):
         response = self.serviceHandler.handleRequest(json_request2)
-        self.assertEquals(response, expected_response2)
+        self.assertEquals(json.loads(response), json.loads(expected_response2))
 
 
     def test_handleRequest3(self):

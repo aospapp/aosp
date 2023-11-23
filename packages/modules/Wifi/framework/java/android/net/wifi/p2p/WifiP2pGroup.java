@@ -21,6 +21,7 @@ import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+import java.net.Inet4Address;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -59,6 +60,13 @@ public class WifiP2pGroup implements Parcelable {
      */
     public static final int NETWORK_ID_PERSISTENT = -2;
 
+    /**
+     * Group owner P2P interface MAC address.
+     * @hide
+     */
+    @UnsupportedAppUsage
+    public byte[] interfaceAddress;
+
     /** The network name */
     private String mNetworkName;
 
@@ -81,6 +89,41 @@ public class WifiP2pGroup implements Parcelable {
 
     /** The frequency (in MHz) used by this group */
     private int mFrequency;
+
+    /**
+     * P2P Client IPV4 address allocated via EAPOL-Key exchange.
+     * @hide
+     */
+    public static class P2pGroupClientEapolIpAddressData {
+        /*
+         * The P2P Client IP address.
+         */
+        public final Inet4Address mIpAddressClient;
+        /*
+         * The P2P Group Owner IP address.
+         */
+        public final Inet4Address mIpAddressGo;
+        /*
+         * The subnet that the P2P Group Owner is using.
+         */
+        public final Inet4Address mIpAddressMask;
+
+        /*
+         * Set P2pClientEapolIpAddressData
+         */
+        public P2pGroupClientEapolIpAddressData(Inet4Address ipAddressClient,
+                Inet4Address ipAddressGo, Inet4Address ipAddressMask) {
+            this.mIpAddressClient = ipAddressClient;
+            this.mIpAddressGo = ipAddressGo;
+            this.mIpAddressMask = ipAddressMask;
+        }
+    }
+
+    /**
+     * P2P Client IP address information obtained via EAPOL Handshake.
+     * @hide
+     */
+    public P2pGroupClientEapolIpAddressData p2pClientEapolIpInfo;
 
     /** P2P group started string pattern */
     private static final Pattern groupStartedPattern = Pattern.compile(

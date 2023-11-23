@@ -26,6 +26,7 @@ PACKAGE_TRANSFORMATIONS="\
 
 MODULE_DIRS="\
     bcprov \
+    bcpkix \
 "
 DEFAULT_CONSTRUCTORS_FILE=${BOUNCY_CASTLE_DIR}/srcgen/default-constructors.txt
 
@@ -42,4 +43,7 @@ source ${ANDROID_BUILD_TOP}/tools/currysrc/scripts/repackage-common.sh
 
 # Remove some unused source files:
 rm -fr ${REPACKAGED_DIR}/bcprov/src/main/java/com/android/org/bouncycastle/asn1/ocsp/
-
+rm -fr ${REPACKAGED_DIR}/bcpkix/src/main/java/com/android/org/bouncycastle/cert/ocsp/
+rm -fr ${REPACKAGED_DIR}/bcpkix/src/main/java/com/android/org/bouncycastle/cmc/
+rm -fr ${REPACKAGED_DIR}/bcpkix/src/main/java/com/android/org/bouncycastle/openssl/
+rm -fr ${REPACKAGED_DIR}/bcpkix/src/main/java/com/android/org/bouncycastle/pkix/

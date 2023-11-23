@@ -84,7 +84,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * the correct packets. Devices typically have a small number of slots
  * per radio technology, and the specific number of slots for each
  * technology is specified in configuration files.
- * {@see SocketKeepalive} for details.
+ * See {@link SocketKeepalive} for details.
  *
  * @hide
  */
@@ -283,7 +283,6 @@ public abstract class NetworkAgent {
      *   arg2 = interval in seconds
      *   obj = KeepalivePacketData object describing the data to be sent
      *
-     * Also used internally by ConnectivityService / KeepaliveTracker, with different semantics.
      * @hide
      */
     public static final int CMD_START_SOCKET_KEEPALIVE = BASE + 11;
@@ -291,7 +290,9 @@ public abstract class NetworkAgent {
     /**
      * Requests that the specified keepalive packet be stopped.
      *
-     * arg1 = hardware slot number of the keepalive to stop.
+     * arg1 = unused
+     * arg2 = error code (SUCCESS)
+     * obj = callback to identify the keepalive
      *
      * Also used internally by ConnectivityService / KeepaliveTracker, with different semantics.
      * @hide
@@ -434,6 +435,14 @@ public abstract class NetworkAgent {
     public static final int CMD_DSCP_POLICY_STATUS = BASE + 28;
 
     /**
+     * Sent by the NetworkAgent to ConnectivityService to notify that this network is expected to be
+     * replaced within the specified time by a similar network.
+     * arg1 = timeout in milliseconds
+     * @hide
+     */
+    public static final int EVENT_UNREGISTER_AFTER_REPLACEMENT = BASE + 29;
+
+    /**
      * DSCP policy was successfully added.
      */
     public static final int DSCP_POLICY_STATUS_SUCCESS = 0;
@@ -474,14 +483,6 @@ public abstract class NetworkAgent {
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface DscpPolicyStatus {}
-
-    /**
-     * Sent by the NetworkAgent to ConnectivityService to notify that this network is expected to be
-     * replaced within the specified time by a similar network.
-     * arg1 = timeout in milliseconds
-     * @hide
-     */
-    public static final int EVENT_UNREGISTER_AFTER_REPLACEMENT = BASE + 29;
 
     private static NetworkInfo getLegacyNetworkInfo(final NetworkAgentConfig config) {
         final NetworkInfo ni = new NetworkInfo(config.legacyType, config.legacySubType,
@@ -913,7 +914,7 @@ public abstract class NetworkAgent {
      * Must be called by the agent when the network's {@link LinkProperties} change.
      * @param linkProperties the new LinkProperties.
      */
-    public final void sendLinkProperties(@NonNull LinkProperties linkProperties) {
+    public void sendLinkProperties(@NonNull LinkProperties linkProperties) {
         Objects.requireNonNull(linkProperties);
         final LinkProperties lp = new LinkProperties(linkProperties);
         queueOrSendMessage(reg -> reg.sendLinkProperties(lp));
@@ -938,7 +939,7 @@ public abstract class NetworkAgent {
      * @param underlyingNetworks the new list of underlying networks.
      * @see {@link VpnService.Builder#setUnderlyingNetworks(Network[])}
      */
-    public final void setUnderlyingNetworks(
+    public void setUnderlyingNetworks(
             @SuppressLint("NullableCollection") @Nullable List<Network> underlyingNetworks) {
         final ArrayList<Network> underlyingArray = (underlyingNetworks != null)
                 ? new ArrayList<>(underlyingNetworks) : null;
@@ -1088,7 +1089,7 @@ public abstract class NetworkAgent {
      * Must be called by the agent when the network's {@link NetworkCapabilities} change.
      * @param networkCapabilities the new NetworkCapabilities.
      */
-    public final void sendNetworkCapabilities(@NonNull NetworkCapabilities networkCapabilities) {
+    public void sendNetworkCapabilities(@NonNull NetworkCapabilities networkCapabilities) {
         Objects.requireNonNull(networkCapabilities);
         mBandwidthUpdatePending.set(false);
         mLastBwRefreshTime = System.currentTimeMillis();
@@ -1102,7 +1103,7 @@ public abstract class NetworkAgent {
      *
      * @param score the new score.
      */
-    public final void sendNetworkScore(@NonNull NetworkScore score) {
+    public void sendNetworkScore(@NonNull NetworkScore score) {
         Objects.requireNonNull(score);
         queueOrSendMessage(reg -> reg.sendScore(score));
     }
@@ -1113,7 +1114,7 @@ public abstract class NetworkAgent {
      * @param score the new score, between 0 and 99.
      * deprecated use sendNetworkScore(NetworkScore) TODO : remove in S.
      */
-    public final void sendNetworkScore(@IntRange(from = 0, to = 99) int score) {
+    public void sendNetworkScore(@IntRange(from = 0, to = 99) int score) {
         sendNetworkScore(new NetworkScore.Builder().setLegacyInt(score).build());
     }
 

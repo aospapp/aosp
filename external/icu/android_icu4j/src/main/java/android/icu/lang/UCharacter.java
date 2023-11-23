@@ -1101,6 +1101,23 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
         /***/
         public static final int ZNAMENNY_MUSICAL_NOTATION_ID = 320; /*[1CF00]*/
 
+        // New blocks in Unicode 15.0
+
+        /***/
+        public static final int ARABIC_EXTENDED_C_ID = 321; /*[10EC0]*/
+        /***/
+        public static final int CJK_UNIFIED_IDEOGRAPHS_EXTENSION_H_ID = 322; /*[31350]*/
+        /***/
+        public static final int CYRILLIC_EXTENDED_D_ID = 323; /*[1E030]*/
+        /***/
+        public static final int DEVANAGARI_EXTENDED_A_ID = 324; /*[11B00]*/
+        /***/
+        public static final int KAKTOVIK_NUMERALS_ID = 325; /*[1D2C0]*/
+        /***/
+        public static final int KAWI_ID = 326; /*[11F00]*/
+        /***/
+        public static final int NAG_MUNDARI_ID = 327; /*[1E4D0]*/
+
         /**
          * One more than the highest normal UnicodeBlock value.
          * The highest value is available via UCharacter.getIntPropertyMaxValue(UProperty.BLOCK).
@@ -1109,7 +1126,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
          * @hide unsupported on Android
          */
         @Deprecated
-        public static final int COUNT = 321;
+        public static final int COUNT = 328;
 
         // blocks objects ---------------------------------------------------
 
@@ -2341,6 +2358,30 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
         public static final UnicodeBlock ZNAMENNY_MUSICAL_NOTATION =
                 new UnicodeBlock("ZNAMENNY_MUSICAL_NOTATION",
                         ZNAMENNY_MUSICAL_NOTATION_ID); /*[1CF00]*/
+
+        // New blocks in Unicode 15.0
+
+        /***/
+        public static final UnicodeBlock ARABIC_EXTENDED_C =
+                new UnicodeBlock("ARABIC_EXTENDED_C", ARABIC_EXTENDED_C_ID); /*[10EC0]*/
+        /***/
+        public static final UnicodeBlock CJK_UNIFIED_IDEOGRAPHS_EXTENSION_H =
+                new UnicodeBlock("CJK_UNIFIED_IDEOGRAPHS_EXTENSION_H",
+                        CJK_UNIFIED_IDEOGRAPHS_EXTENSION_H_ID); /*[31350]*/
+        /***/
+        public static final UnicodeBlock CYRILLIC_EXTENDED_D =
+                new UnicodeBlock("CYRILLIC_EXTENDED_D", CYRILLIC_EXTENDED_D_ID); /*[1E030]*/
+        /***/
+        public static final UnicodeBlock DEVANAGARI_EXTENDED_A =
+                new UnicodeBlock("DEVANAGARI_EXTENDED_A", DEVANAGARI_EXTENDED_A_ID); /*[11B00]*/
+        /***/
+        public static final UnicodeBlock KAKTOVIK_NUMERALS =
+                new UnicodeBlock("KAKTOVIK_NUMERALS", KAKTOVIK_NUMERALS_ID); /*[1D2C0]*/
+        /***/
+        public static final UnicodeBlock KAWI = new UnicodeBlock("KAWI", KAWI_ID); /*[11F00]*/
+        /***/
+        public static final UnicodeBlock NAG_MUNDARI =
+                new UnicodeBlock("NAG_MUNDARI", NAG_MUNDARI_ID); /*[1E4D0]*/
 
         /**
          */
@@ -5329,8 +5370,6 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      *         does not have data for the property at all.
      *
      * @see android.icu.lang.UProperty
-     * @see CharacterProperties#getBinaryPropertySet(int)
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static boolean hasBinaryProperty(CharSequence s, int property) {
         int length = s.length();

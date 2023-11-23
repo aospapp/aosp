@@ -19,15 +19,16 @@
 
 use android_logger::LogId;
 use anyhow::{bail, Context, Result};
-use compos_aidl_interface::binder::ProcessState;
-use compos_common::compos_client::{VmInstance, VmParameters};
+use binder::ProcessState;
+use clap::{Parser, ValueEnum};
+use compos_common::compos_client::{ComposClient, VmCpuTopology, VmParameters};
 use compos_common::odrefresh::{
     CURRENT_ARTIFACTS_SUBDIR, ODREFRESH_OUTPUT_ROOT_DIR, PENDING_ARTIFACTS_SUBDIR,
     TEST_ARTIFACTS_SUBDIR,
 };
 use compos_common::{
     COMPOS_DATA_ROOT, CURRENT_INSTANCE_DIR, IDSIG_FILE, IDSIG_MANIFEST_APK_FILE,
-    INSTANCE_IMAGE_FILE, TEST_INSTANCE_DIR,
+    IDSIG_MANIFEST_EXT_APK_FILE, INSTANCE_IMAGE_FILE, TEST_INSTANCE_DIR,
 };
 use log::error;
 use std::fs::File;
@@ -36,6 +37,24 @@ use std::panic;
 use std::path::Path;
 
 const MAX_FILE_SIZE_BYTES: u64 = 100 * 1024;
+
+#[derive(Parser)]
+struct Args {
+    /// Type of the VM instance
+    #[clap(long, value_enum)]
+    instance: Instance,
+
+    /// Starts the VM in debug mode
+    #[clap(long, action)]
+    debug: bool,
+}
+
+#[derive(ValueEnum, Clone)]
+enum Instance {
+    Current,
+    Pending,
+    Test,
+}
 
 fn main() {
     android_logger::init_once(
@@ -57,23 +76,11 @@ fn main() {
 }
 
 fn try_main() -> Result<()> {
-    let matches = clap::App::new("compos_verify")
-        .arg(
-            clap::Arg::with_name("instance")
-                .long("instance")
-                .takes_value(true)
-                .required(true)
-                .possible_values(&["current", "pending", "test"]),
-        )
-        .arg(clap::Arg::with_name("debug").long("debug"))
-        .get_matches();
-
-    let debug_mode = matches.is_present("debug");
-    let (instance_dir, artifacts_dir) = match matches.value_of("instance").unwrap() {
-        "current" => (CURRENT_INSTANCE_DIR, CURRENT_ARTIFACTS_SUBDIR),
-        "pending" => (CURRENT_INSTANCE_DIR, PENDING_ARTIFACTS_SUBDIR),
-        "test" => (TEST_INSTANCE_DIR, TEST_ARTIFACTS_SUBDIR),
-        _ => unreachable!("Unexpected instance name"),
+    let args = Args::parse();
+    let (instance_dir, artifacts_dir) = match args.instance {
+        Instance::Current => (CURRENT_INSTANCE_DIR, CURRENT_ARTIFACTS_SUBDIR),
+        Instance::Pending => (CURRENT_INSTANCE_DIR, PENDING_ARTIFACTS_SUBDIR),
+        Instance::Test => (TEST_INSTANCE_DIR, TEST_ARTIFACTS_SUBDIR),
     };
 
     let instance_dir = Path::new(COMPOS_DATA_ROOT).join(instance_dir);
@@ -86,6 +93,7 @@ fn try_main() -> Result<()> {
     let instance_image = instance_dir.join(INSTANCE_IMAGE_FILE);
     let idsig = instance_dir.join(IDSIG_FILE);
     let idsig_manifest_apk = instance_dir.join(IDSIG_MANIFEST_APK_FILE);
+    let idsig_manifest_ext_apk = instance_dir.join(IDSIG_MANIFEST_EXT_APK_FILE);
 
     let instance_image = File::open(instance_image).context("Failed to open instance image")?;
 
@@ -98,19 +106,28 @@ fn try_main() -> Result<()> {
     // We need to start the thread pool to be able to receive Binder callbacks
     ProcessState::start_thread_pool();
 
-    let virtualization_service = VmInstance::connect_to_virtualization_service()?;
-    let vm_instance = VmInstance::start(
+    let virtmgr = vmclient::VirtualizationService::new()?;
+    let virtualization_service = virtmgr.connect()?;
+    let vm_instance = ComposClient::start(
         &*virtualization_service,
         instance_image,
         &idsig,
         &idsig_manifest_apk,
-        &VmParameters { debug_mode, never_log: !debug_mode, ..Default::default() },
+        &idsig_manifest_ext_apk,
+        &VmParameters {
+            name: String::from("ComposVerify"),
+            cpu_topology: VmCpuTopology::OneCpu, // This VM runs very little work at boot
+            debug_mode: args.debug,
+            ..Default::default()
+        },
     )?;
-    let service = vm_instance.get_service()?;
 
-    let public_key = service.getPublicKey().context("Getting public key")?;
+    let service = vm_instance.connect_service()?;
+    let public_key = service.getPublicKey().context("Getting public key");
 
-    if !compos_verify_native::verify(&public_key, &signature, &info) {
+    vm_instance.shutdown(service);
+
+    if !compos_verify_native::verify(&public_key?, &signature, &info) {
         bail!("Signature verification failed");
     }
 
@@ -125,4 +142,16 @@ fn read_small_file(file: &Path) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     file.read_to_end(&mut data)?;
     Ok(data)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    #[test]
+    fn verify_args() {
+        // Check that the command parsing has been configured in a valid way.
+        Args::command().debug_assert();
+    }
 }

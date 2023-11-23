@@ -17,6 +17,8 @@ package android.carrierapi.cts;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import static java.util.Map.entry;
+
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -68,28 +70,24 @@ public class ApnDatabaseTest extends BaseCarrierApiTest {
     private static final String NETWORK_TYPE_BITMASK = "0";
     private static final String BEARER = "0";
 
-    private static final Map<String, String> APN_MAP =
-            new HashMap<String, String>() {
-                {
-                    put(Carriers.NAME, NAME);
-                    put(Carriers.APN, APN);
-                    put(Carriers.PROXY, PROXY);
-                    put(Carriers.PORT, PORT);
-                    put(Carriers.MMSC, MMSC);
-                    put(Carriers.MMSPROXY, MMSPROXY);
-                    put(Carriers.MMSPORT, MMSPORT);
-                    put(Carriers.NUMERIC, NUMERIC);
-                    put(Carriers.USER, USER);
-                    put(Carriers.PASSWORD, PASSWORD);
-                    put(Carriers.AUTH_TYPE, AUTH_TYPE);
-                    put(Carriers.TYPE, TYPE);
-                    put(Carriers.PROTOCOL, PROTOCOL);
-                    put(Carriers.ROAMING_PROTOCOL, ROAMING_PROTOCOL);
-                    put(Carriers.CARRIER_ENABLED, CARRIER_ENABLED);
-                    put(Carriers.NETWORK_TYPE_BITMASK, NETWORK_TYPE_BITMASK);
-                    put(Carriers.BEARER, BEARER);
-                }
-            };
+    private static final Map<String, String> APN_MAP = Map.ofEntries(
+            entry(Carriers.NAME, NAME),
+            entry(Carriers.APN, APN),
+            entry(Carriers.PROXY, PROXY),
+            entry(Carriers.PORT, PORT),
+            entry(Carriers.MMSC, MMSC),
+            entry(Carriers.MMSPROXY, MMSPROXY),
+            entry(Carriers.MMSPORT, MMSPORT),
+            entry(Carriers.NUMERIC, NUMERIC),
+            entry(Carriers.USER, USER),
+            entry(Carriers.PASSWORD, PASSWORD),
+            entry(Carriers.AUTH_TYPE, AUTH_TYPE),
+            entry(Carriers.TYPE, TYPE),
+            entry(Carriers.PROTOCOL, PROTOCOL),
+            entry(Carriers.ROAMING_PROTOCOL, ROAMING_PROTOCOL),
+            entry(Carriers.CARRIER_ENABLED, CARRIER_ENABLED),
+            entry(Carriers.NETWORK_TYPE_BITMASK, NETWORK_TYPE_BITMASK),
+            entry(Carriers.BEARER, BEARER));
 
     // Faked network type bitmask and its compatible bearer bitmask.
     private static final int NETWORK_TYPE_BITMASK_NUMBER = 1 << (13 - 1);

@@ -50,8 +50,68 @@ public final class DeviceAdminAddSupportPreferenceControllerTest extends
     }
 
     @Test
+    public void testGetAvailabilityStatus_noAdmin_zoneWrite() throws Exception {
+        DeviceAdminAddSupportPreferenceController controller =
+                new DeviceAdminAddSupportPreferenceController(mSpiedContext, mPreferenceKey,
+                        mFragmentController, mUxRestrictions);
+        controller.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noAdmin_zoneRead() throws Exception {
+        DeviceAdminAddSupportPreferenceController controller =
+                new DeviceAdminAddSupportPreferenceController(mSpiedContext, mPreferenceKey,
+                        mFragmentController, mUxRestrictions);
+        controller.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noAdmin_zoneHidden() throws Exception {
+        DeviceAdminAddSupportPreferenceController controller =
+                new DeviceAdminAddSupportPreferenceController(mSpiedContext, mPreferenceKey,
+                        mFragmentController, mUxRestrictions);
+        controller.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_nullMessage() {
         mockGetLongSupportMessageForUser(null);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_nullMessage_zoneWrite() {
+        mockGetLongSupportMessageForUser(null);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_nullMessage_zoneRead() {
+        mockGetLongSupportMessageForUser(null);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_nullMessage_zoneHidden() {
+        mockGetLongSupportMessageForUser(null);
+        mController.setAvailabilityStatusForZone("hidden");
 
         PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 PreferenceController.CONDITIONALLY_UNAVAILABLE);
@@ -66,11 +126,65 @@ public final class DeviceAdminAddSupportPreferenceControllerTest extends
     }
 
     @Test
+    public void testGetAvailabilityStatus_emptyMessage_zoneWrite() {
+        mockGetLongSupportMessageForUser("");
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_emptyMessage_zoneRead() {
+        mockGetLongSupportMessageForUser("");
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_emptyMessage_zoneHidden() {
+        mockGetLongSupportMessageForUser("");
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_validMessage() {
         mockGetLongSupportMessageForUser("WHAZZZZUP");
 
         PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 PreferenceController.AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_validMessage_zoneWrite() {
+        mockGetLongSupportMessageForUser("WHAZZZZUP");
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_validMessage_zoneRead() {
+        mockGetLongSupportMessageForUser("WHAZZZZUP");
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_validMessage_zoneHidden() {
+        mockGetLongSupportMessageForUser("WHAZZZZUP");
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

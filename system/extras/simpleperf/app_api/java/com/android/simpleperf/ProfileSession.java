@@ -132,7 +132,7 @@ public class ProfileSession {
      */
     public synchronized void startRecording(@NonNull List<String> args) {
         if (mState != State.NOT_YET_STARTED) {
-            throw new AssertionError("startRecording: session in wrong state " + mState);
+            throw new IllegalStateException("startRecording: session in wrong state " + mState);
         }
         for (String arg : args) {
             if (arg.equals("--trace-offcpu")) {
@@ -151,7 +151,7 @@ public class ProfileSession {
      */
     public synchronized void pauseRecording() {
         if (mState != State.STARTED) {
-            throw new AssertionError("pauseRecording: session in wrong state " + mState);
+            throw new IllegalStateException("pauseRecording: session in wrong state " + mState);
         }
         if (mTraceOffCpu) {
             throw new AssertionError(
@@ -166,7 +166,7 @@ public class ProfileSession {
      */
     public synchronized void resumeRecording() {
         if (mState != State.PAUSED) {
-            throw new AssertionError("resumeRecording: session in wrong state " + mState);
+            throw new IllegalStateException("resumeRecording: session in wrong state " + mState);
         }
         sendCmd("resume");
         mState = State.STARTED;
@@ -177,7 +177,7 @@ public class ProfileSession {
      */
     public synchronized void stopRecording() {
         if (mState != State.STARTED && mState != State.PAUSED) {
-            throw new AssertionError("stopRecording: session in wrong state " + mState);
+            throw new IllegalStateException("stopRecording: session in wrong state " + mState);
         }
         if (Build.VERSION.SDK_INT == Build.VERSION_CODES.P + 1
                 && mSimpleperfPath.equals(SIMPLEPERF_PATH_IN_IMAGE)) {

@@ -76,6 +76,7 @@ int main(int argc, char** argv) {
     return RunSimpleperfCmd(argc, argv) ? 0 : 1;
   }
 
+  testing::InitGoogleTest(&argc, argv);
   android::base::InitLogging(argv, android::base::StderrLogger);
   android::base::LogSeverity log_severity = android::base::WARNING;
   testdata_dir = std::string(dirname(argv[0])) + "/testdata";
@@ -104,7 +105,6 @@ int main(int argc, char** argv) {
   ScopedEnablingPerf scoped_enabling_perf;
 #endif
 
-  testing::InitGoogleTest(&argc, argv);
   if (!::testing::GTEST_FLAG(list_tests)) {
     if (!IsDir(testdata_dir)) {
       LOG(ERROR) << "testdata wasn't found. Use \"" << argv[0] << " -t <testdata_dir>\"";

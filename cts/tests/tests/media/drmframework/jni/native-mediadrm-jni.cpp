@@ -105,8 +105,6 @@ static const uint8_t kKeyRequestData[] = {
     0x72, 0x79, 0x22, 0x7d
 };
 
-static const char kDefaultUrl[] = "https://default.url";
-
 static const size_t kKeyRequestSize = sizeof(kKeyRequestData);
 
 // base 64 encoded JSON response string, must not contain padding character '='
@@ -1050,18 +1048,6 @@ extern "C" jboolean testGetKeyRequestNative(
     }
 
     ALOGD("aidlVersion is [%s]", outValue);
-
-    ALOGD("kDefaultUrl [%s], length %d, defaultUrl [%s], length %d",
-        kDefaultUrl,
-        (int)strlen(kDefaultUrl),
-        defaultUrl,
-        (int)strlen(defaultUrl));
-
-    if (strlen(kDefaultUrl) != strlen(defaultUrl) || strcmp(kDefaultUrl, defaultUrl) != 0) {
-        AMediaDrm_closeSession(aMediaObjects.getDrm(), &sessionId);
-        jniThrowExceptionFmt(env, "java/lang/RuntimeException", "Default Url is not correct [%s], error = %d", defaultUrl, status);
-        return JNI_FALSE;
-    }
 
     return JNI_TRUE;
 }

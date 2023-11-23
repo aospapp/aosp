@@ -10,7 +10,9 @@ PURPOSE = "Verify U2F"
 ATTRIBUTES = "suite:faft_cr50_pvt, suite:faft_cr50_prepvt"
 TIME = "SHORT"
 TEST_TYPE = "server"
+JOB_RETRIES = 0
 DEPENDENCIES = "servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 Verify second-factor authentication (U2F) using the on-board cr50 firmware

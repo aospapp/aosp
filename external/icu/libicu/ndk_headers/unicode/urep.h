@@ -31,7 +31,7 @@ U_CDECL_BEGIN
  * Data Structures
  ********************************************************************/
 /**
- * @addtogroup ICU4C
+ * @addtogroup icu4c ICU4C
  * @{
  * \file
  * \brief C API: Callbacks for UReplaceable

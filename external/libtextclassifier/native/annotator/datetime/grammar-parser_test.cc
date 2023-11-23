@@ -22,6 +22,7 @@
 #include "annotator/datetime/datetime-grounder.h"
 #include "annotator/datetime/testing/base-parser-test.h"
 #include "annotator/datetime/testing/datetime-component-builder.h"
+#include "annotator/model_generated.h"
 #include "utils/grammar/analyzer.h"
 #include "utils/jvm-test-utils.h"
 #include "utils/test-data-test-utils.h"
@@ -42,7 +43,15 @@ std::string ReadFile(const std::string& file_name) {
 
 class GrammarDatetimeParserTest : public DateTimeParserTest {
  public:
-  void SetUp() override {
+  void SetUp() override { ResetParser(ModeFlag_ALL); }
+
+  // Exposes the date time parser for tests and evaluations.
+  const DatetimeParser* DatetimeParserForTests() const override {
+    return parser_.get();
+  }
+
+ protected:
+  void ResetParser(ModeFlag enabled_modes) {
     grammar_buffer_ = ReadFile(GetModelPath() + "datetime.fb");
     unilib_ = CreateUniLibForTesting();
     calendarlib_ = CreateCalendarLibForTesting();
@@ -51,12 +60,8 @@ class GrammarDatetimeParserTest : public DateTimeParserTest {
     datetime_grounder_ = std::make_unique<DatetimeGrounder>(calendarlib_.get());
     parser_.reset(new GrammarDatetimeParser(*analyzer_, *datetime_grounder_,
                                             /*target_classification_score=*/1.0,
-                                            /*priority_score=*/1.0));
-  }
-
-  // Exposes the date time parser for tests and evaluations.
-  const DatetimeParser* DatetimeParserForTests() const override {
-    return parser_.get();
+                                            /*priority_score=*/1.0,
+                                            enabled_modes));
   }
 
  private:
@@ -484,6 +489,13 @@ TEST_F(GrammarDatetimeParserTest, Parse) {
            .Add(DatetimeComponent::ComponentType::MONTH, 9)
            .Add(DatetimeComponent::ComponentType::YEAR, 2011)
            .Build()}));
+}
+
+TEST_F(GrammarDatetimeParserTest, NotEnabledModeHasNoResult) {
+  ResetParser(ModeFlag_SELECTION);
+  // `DateTimeParserTest` implementation parses the input under the ANNOTATION
+  // mode.
+  EXPECT_TRUE(HasNoResult("{January 1, 1988}"));
 }
 
 TEST_F(GrammarDatetimeParserTest, DateValidation) {

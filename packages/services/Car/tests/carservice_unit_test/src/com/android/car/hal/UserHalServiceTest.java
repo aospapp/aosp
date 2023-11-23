@@ -32,24 +32,29 @@ import static com.android.car.hal.HalPropValueMatcher.isPropertyWithValues;
 import static com.android.car.hal.VehicleHalTestingHelper.newConfig;
 import static com.android.car.hal.VehicleHalTestingHelper.newSubscribableConfig;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.verify;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertThrows;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.car.hardware.property.VehicleHalStatusCode;
 import android.car.test.mocks.AbstractExtendedMockitoTestCase;
+import android.car.test.mocks.JavaMockitoHelper;
 import android.hardware.automotive.vehicle.CreateUserRequest;
 import android.hardware.automotive.vehicle.CreateUserResponse;
 import android.hardware.automotive.vehicle.CreateUserStatus;
@@ -76,6 +81,7 @@ import android.util.Log;
 import android.util.Pair;
 
 import com.android.car.CarLocalServices;
+import com.android.car.CarStatsLog;
 import com.android.car.internal.os.CarSystemProperties;
 import com.android.car.user.CarUserService;
 
@@ -168,7 +174,8 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
 
     @Override
     protected void onSessionBuilder(CustomMockitoSessionBuilder builder) {
-        builder.spyStatic(CarSystemProperties.class);
+        builder.spyStatic(CarSystemProperties.class)
+                .spyStatic(CarStatsLog.class);
     }
 
     @Before
@@ -467,6 +474,10 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
 
     @Test
     public void testGetUserInfo_successDefault() throws Exception {
+        getUserInfoSuccessTest(1);
+    }
+
+    private void getUserInfoSuccessTest(int count) throws Exception {
         HalPropValue propResponse = createPropRequest(INITIAL_USER_INFO,
                     REQUEST_ID_PLACE_HOLDER, InitialUserInfoResponseAction.DEFAULT);
 
@@ -491,6 +502,21 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
         assertThat(actualResponse.userToSwitchOrCreate).isNotNull();
         assertThat(actualResponse.userToSwitchOrCreate.userId).isEqualTo(UserHandle.USER_NULL);
         assertThat(actualResponse.userToSwitchOrCreate.flags).isEqualTo(0);
+
+        int responseActionDefault = CarStatsLog
+                .CAR_USER_HAL_INITIAL_USER_INFO_RESPONSE_REPORTED__RESPONSE_ACTION__DEFAULT;
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_INITIAL_USER_INFO_REQUEST_REPORTED),
+                anyInt(),
+                eq(CarStatsLog
+                        .CAR_USER_HAL_INITIAL_USER_INFO_REQUEST_REPORTED__REQUEST_TYPE__COLD_BOOT),
+                eq(HAL_TIMEOUT_MS)), times(count));
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_INITIAL_USER_INFO_RESPONSE_REPORTED),
+                anyInt(),
+                eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__CALLBACK_STATUS__OK),
+                eq(responseActionDefault),
+                eq(UserHandle.USER_NULL), eq(0), eq("")), timeout(CALLBACK_TIMEOUT).times(count));
     }
 
     @Test
@@ -521,6 +547,20 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
         assertThat(userToSwitch).isNotNull();
         assertThat(userToSwitch.userId).isEqualTo(userIdToSwitch);
         assertThat(userToSwitch.flags).isEqualTo(0);
+
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_INITIAL_USER_INFO_REQUEST_REPORTED),
+                anyInt(),
+                eq(CarStatsLog
+                        .CAR_USER_HAL_INITIAL_USER_INFO_REQUEST_REPORTED__REQUEST_TYPE__COLD_BOOT),
+                eq(HAL_TIMEOUT_MS)));
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_INITIAL_USER_INFO_RESPONSE_REPORTED),
+                anyInt(),
+                eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__CALLBACK_STATUS__OK),
+                eq(CarStatsLog
+                        .CAR_USER_HAL_INITIAL_USER_INFO_RESPONSE_REPORTED__RESPONSE_ACTION__SWITCH),
+                eq(userIdToSwitch), eq(0), eq("")), timeout(CALLBACK_TIMEOUT));
     }
 
     @Test
@@ -555,12 +595,27 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
         assertThat(newUser).isNotNull();
         assertThat(newUser.userId).isEqualTo(UserHandle.USER_NULL);
         assertThat(newUser.flags).isEqualTo(newUserFlags);
+
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_INITIAL_USER_INFO_REQUEST_REPORTED),
+                anyInt(),
+                eq(CarStatsLog
+                        .CAR_USER_HAL_INITIAL_USER_INFO_REQUEST_REPORTED__REQUEST_TYPE__COLD_BOOT),
+                eq(HAL_TIMEOUT_MS)));
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_INITIAL_USER_INFO_RESPONSE_REPORTED),
+                anyInt(),
+                eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__CALLBACK_STATUS__OK),
+                eq(CarStatsLog
+                        .CAR_USER_HAL_INITIAL_USER_INFO_RESPONSE_REPORTED__RESPONSE_ACTION__CREATE),
+                eq(UserHandle.USER_NULL), eq(newUserFlags), eq("")), timeout(CALLBACK_TIMEOUT));
     }
 
     @Test
     public void testGetUserInfo_twoSuccessfulCalls() throws Exception {
-        testGetUserInfo_successDefault();
-        testGetUserInfo_successDefault();
+        getUserInfoSuccessTest(1);
+
+        getUserInfoSuccessTest(2);
     }
 
     @Test
@@ -642,7 +697,8 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
     @Test
     public void testSwitchUser_halReplyWithWrongRequestId() throws Exception {
         HalPropValue propResponse = createPropRequest(SWITCH_USER,
-                    REQUEST_ID_PLACE_HOLDER, InitialUserInfoResponseAction.SWITCH);
+                    REQUEST_ID_PLACE_HOLDER, SwitchUserMessageType.VEHICLE_RESPONSE,
+                    new int[]{SwitchUserStatus.SUCCESS});
 
         replySetPropertyWithOnChangeEvent(SWITCH_USER, propResponse,
                 /* rightRequestId= */ false);
@@ -656,6 +712,24 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
         callback.assertCalled();
         assertCallbackStatus(callback, HalCallback.STATUS_HAL_RESPONSE_TIMEOUT);
         assertThat(callback.response).isNull();
+
+        int switchRequestAndroid = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_REQUEST_REPORTED__REQUEST_TYPE__SWITCH_REQUEST_ANDROID;
+        int statusUnspecified =
+                CarStatsLog.CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__REQUEST_STATUS__UNSPECIFIED;
+        int statusWrongHalResponse = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__CALLBACK_STATUS__WRONG_HAL_RESPONSE;
+
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_REQUEST_REPORTED),
+                anyInt(),
+                eq(switchRequestAndroid),
+                eq(0), eq(100), eq(100), eq(110), eq(HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS)));
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED),
+                anyInt(),
+                eq(statusWrongHalResponse),
+                eq(statusUnspecified)), timeout(CALLBACK_TIMEOUT));
     }
 
     @Test
@@ -709,6 +783,22 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
         assertThat(actualResponse.status).isEqualTo(SwitchUserStatus.SUCCESS);
         assertThat(actualResponse.messageType).isEqualTo(SwitchUserMessageType.VEHICLE_RESPONSE);
         assertThat(actualResponse.errorMessage).isEmpty();
+
+        int switchRequestAndroid = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_REQUEST_REPORTED__REQUEST_TYPE__SWITCH_REQUEST_ANDROID;
+        int statusSuccess = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__REQUEST_STATUS__SUCCESS;
+
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_REQUEST_REPORTED),
+                anyInt(),
+                eq(switchRequestAndroid),
+                eq(0), eq(100), eq(100), eq(110), eq(HAL_TIMEOUT_MS)));
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED),
+                anyInt(),
+                eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__CALLBACK_STATUS__OK),
+                eq(statusSuccess)), timeout(CALLBACK_TIMEOUT));
     }
 
     @Test
@@ -737,6 +827,22 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
         assertThat(actualResponse.status).isEqualTo(SwitchUserStatus.FAILURE);
         assertThat(actualResponse.messageType).isEqualTo(SwitchUserMessageType.VEHICLE_RESPONSE);
         assertThat(actualResponse.errorMessage).isEqualTo("D'OH!");
+
+        int switchRequestAndroid = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_REQUEST_REPORTED__REQUEST_TYPE__SWITCH_REQUEST_ANDROID;
+        int statusFailure = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__REQUEST_STATUS__FAILURE;
+
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_REQUEST_REPORTED),
+                anyInt(),
+                eq(switchRequestAndroid),
+                eq(0), eq(100), eq(100), eq(110), eq(HAL_TIMEOUT_MS)));
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED),
+                anyInt(),
+                eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__CALLBACK_STATUS__OK),
+                eq(statusFailure)), timeout(CALLBACK_TIMEOUT));
     }
 
     @Test
@@ -783,6 +889,66 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
         // Assert response
         assertCallbackStatus(callback, HalCallback.STATUS_WRONG_HAL_RESPONSE);
         assertThat(callback.response).isNull();
+
+        int switchRequestAndroid = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_REQUEST_REPORTED__REQUEST_TYPE__SWITCH_REQUEST_ANDROID;
+        int statusFailure = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__REQUEST_STATUS__FAILURE;
+        int statusWrongHalResponse = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__CALLBACK_STATUS__WRONG_HAL_RESPONSE;
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_REQUEST_REPORTED),
+                anyInt(),
+                eq(switchRequestAndroid),
+                eq(0), eq(100), eq(100), eq(110), eq(HAL_TIMEOUT_MS)));
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED),
+                anyInt(),
+                eq(statusWrongHalResponse),
+                eq(statusFailure)), timeout(CALLBACK_TIMEOUT));
+    }
+
+    @Test
+    public void testSwitchUser_halResponseAfterTimeout() throws Exception {
+        HalPropValue propResponse = createPropRequest(SWITCH_USER,
+                    REQUEST_ID_PLACE_HOLDER, SwitchUserMessageType.VEHICLE_RESPONSE,
+                    new int[]{SwitchUserStatus.SUCCESS});
+        CountDownLatch latch = new CountDownLatch(1);
+
+        replySetPropertyWithOnChangeEvent(SWITCH_USER, propResponse, /* rightRequestId= */ true,
+                latch);
+
+        GenericHalCallback<SwitchUserResponse> callback = new GenericHalCallback<>(
+                CALLBACK_TIMEOUT);
+
+        mUserHalService.switchUser(createUserSwitchRequest(mUser100, mUsersInfo),
+                HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS, callback);
+
+        int switchRequestAndroid = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_REQUEST_REPORTED__REQUEST_TYPE__SWITCH_REQUEST_ANDROID;
+        verify(() -> CarStatsLog.write(eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_REQUEST_REPORTED),
+                anyInt(),
+                eq(switchRequestAndroid),
+                eq(0), eq(100), eq(100), eq(110), eq(HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS)));
+
+        // The event has not been sent before the callback.
+        callback.assertCalled();
+        assertCallbackStatus(callback, HalCallback.STATUS_HAL_RESPONSE_TIMEOUT);
+        assertThat(callback.response).isNull();
+
+        // Now send the event after the request already timed-out.
+        latch.countDown();
+
+        int statusUnspecified =
+                CarStatsLog.CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__REQUEST_STATUS__UNSPECIFIED;
+        int statusWrongHalResponse = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__CALLBACK_STATUS__WRONG_HAL_RESPONSE;
+
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED),
+                anyInt(),
+                eq(statusWrongHalResponse),
+                eq(statusUnspecified)), timeout(CALLBACK_TIMEOUT));
     }
 
     @Test
@@ -796,6 +962,19 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
         waitForHandler();
 
         verify(mCarUserService).switchAndroidUserFromHal(requestId, targetUserId);
+
+        int switchRequestOem = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_REQUEST_REPORTED__REQUEST_TYPE__SWITCH_REQUEST_OEM;
+
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_REQUEST_REPORTED),
+                /* requestId= */ anyInt(),
+                eq(switchRequestOem),
+                /* current user id= */ eq(-1),
+                /* current user flag= */ eq(-1),
+                /* targetUserId= */ eq(11),
+                /* target user flag= */ eq(-1),
+                /* timeout_ms= */ eq(-1)));
     }
 
     @Test
@@ -1077,6 +1256,17 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
         CreateUserResponse actualResponse = callback.response;
         assertThat(actualResponse.status).isEqualTo(CreateUserStatus.SUCCESS);
         assertThat(actualResponse.errorMessage).isEmpty();
+
+        int createRequest = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_REQUEST_REPORTED__REQUEST_TYPE__CREATE_REQUEST;
+        int statusOk = CarStatsLog.CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__CALLBACK_STATUS__OK;
+        int statusSuccess = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__REQUEST_STATUS__SUCCESS;
+        verify(() -> CarStatsLog.write(eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_REQUEST_REPORTED),
+                anyInt(), eq(createRequest), eq(0), eq(100), eq(100), eq(110),
+                eq(HAL_TIMEOUT_MS)));
+        verify(() -> CarStatsLog.write(eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED),
+                anyInt(), eq(statusOk), eq(statusSuccess)), timeout(CALLBACK_TIMEOUT));
     }
 
     @Test
@@ -1104,6 +1294,17 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
         CreateUserResponse actualResponse = callback.response;
         assertThat(actualResponse.status).isEqualTo(CreateUserStatus.FAILURE);
         assertThat(actualResponse.errorMessage).isEqualTo("D'OH!");
+
+        int createRequest = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_REQUEST_REPORTED__REQUEST_TYPE__CREATE_REQUEST;
+        int statusOk = CarStatsLog.CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__CALLBACK_STATUS__OK;
+        int statusFailure = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__REQUEST_STATUS__FAILURE;
+        verify(() -> CarStatsLog.write(eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_REQUEST_REPORTED),
+                anyInt(), eq(createRequest), eq(0), eq(100), eq(100), eq(110),
+                eq(HAL_TIMEOUT_MS)));
+        verify(() -> CarStatsLog.write(eq(CarStatsLog.CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED),
+                anyInt(), eq(statusOk), eq(statusFailure)), timeout(CALLBACK_TIMEOUT));
     }
 
     @Test
@@ -1386,22 +1587,33 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
     @Test
     public void testSetUserAssociation_responseWithWrongRequestId() throws Exception {
         HalPropValue propResponse = mPropValueBuilder.build(USER_IDENTIFICATION_ASSOCIATION,
-                /* areaId= */ 0, DEFAULT_REQUEST_ID + 1);
+                /* areaId= */ 0, new int[]{
+                    DEFAULT_REQUEST_ID,
+                    // 1 association
+                    1,
+                    KEY_FOB,
+                    ASSOCIATED_CURRENT_USER
+                });
 
         AtomicReference<HalPropValue> propRequest = replySetPropertyWithOnChangeEvent(
-                USER_IDENTIFICATION_ASSOCIATION, propResponse, /* rightRequestId= */ true);
+                USER_IDENTIFICATION_ASSOCIATION, propResponse, /* rightRequestId= */ false);
         UserIdentificationSetRequest request = replyToValidSetUserIdentificationRequest();
         GenericHalCallback<UserIdentificationResponse> callback = new GenericHalCallback<>(
                 CALLBACK_TIMEOUT);
 
-        mUserHalService.setUserAssociation(HAL_TIMEOUT_MS, request, callback);
+        mUserHalService.setUserAssociation(HAL_TIMEOUT_FOR_NEGATIVE_TESTS_MS, request, callback);
 
         // Assert request
         verifyValidSetUserIdentificationRequestMade(propRequest.get());
         // Assert response
         callback.assertCalled();
-        assertCallbackStatus(callback, HalCallback.STATUS_WRONG_HAL_RESPONSE);
+        assertCallbackStatus(callback, HalCallback.STATUS_HAL_RESPONSE_TIMEOUT);
         assertThat(callback.response).isNull();
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_USER_ASSOCIATION_REQUEST_REPORTED),
+                anyInt(),
+                eq(CarStatsLog.CAR_USER_HAL_USER_ASSOCIATION_REQUEST_REPORTED__REQUEST_TYPE__SET),
+                eq(DEFAULT_USER_ID), eq(DEFAULT_USER_FLAGS), eq(1), anyString(), anyString()));
     }
 
     @Test
@@ -1424,6 +1636,17 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
         callback.assertCalled();
         assertCallbackStatus(callback, HalCallback.STATUS_WRONG_HAL_RESPONSE);
         assertThat(callback.response).isNull();
+
+        int wrongHalResponse = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__CALLBACK_STATUS__WRONG_HAL_RESPONSE;
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_USER_ASSOCIATION_REQUEST_REPORTED),
+                anyInt(),
+                eq(CarStatsLog.CAR_USER_HAL_USER_ASSOCIATION_REQUEST_REPORTED__REQUEST_TYPE__SET),
+                eq(DEFAULT_USER_ID), eq(DEFAULT_USER_FLAGS), eq(1), anyString(), anyString()));
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_SET_USER_ASSOCIATION_RESPONSE_REPORTED),
+                anyInt(), eq(wrongHalResponse), eq(0), eq(""), eq("")), timeout(CALLBACK_TIMEOUT));
     }
 
     @Test
@@ -1453,6 +1676,18 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
         callback.assertCalled();
         assertCallbackStatus(callback, HalCallback.STATUS_WRONG_HAL_RESPONSE);
         assertThat(callback.response).isNull();
+
+        int wrongHalResponse = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__CALLBACK_STATUS__WRONG_HAL_RESPONSE;
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_USER_ASSOCIATION_REQUEST_REPORTED),
+                anyInt(),
+                eq(CarStatsLog.CAR_USER_HAL_USER_ASSOCIATION_REQUEST_REPORTED__REQUEST_TYPE__SET),
+                eq(DEFAULT_USER_ID), eq(DEFAULT_USER_FLAGS), eq(1), anyString(), anyString()));
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_SET_USER_ASSOCIATION_RESPONSE_REPORTED),
+                anyInt(), eq(wrongHalResponse), eq(2), anyString(), anyString()),
+                timeout(CALLBACK_TIMEOUT));
     }
 
     @Test
@@ -1481,6 +1716,18 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
         callback.assertCalled();
         assertCallbackStatus(callback, HalCallback.STATUS_WRONG_HAL_RESPONSE);
         assertThat(callback.response).isNull();
+
+        int wrongHalResponse = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__CALLBACK_STATUS__WRONG_HAL_RESPONSE;
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_USER_ASSOCIATION_REQUEST_REPORTED),
+                anyInt(),
+                eq(CarStatsLog.CAR_USER_HAL_USER_ASSOCIATION_REQUEST_REPORTED__REQUEST_TYPE__SET),
+                eq(DEFAULT_USER_ID), eq(DEFAULT_USER_FLAGS), eq(1), anyString(), anyString()));
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_SET_USER_ASSOCIATION_RESPONSE_REPORTED),
+                anyInt(), eq(wrongHalResponse), eq(1), anyString(), anyString()),
+                timeout(CALLBACK_TIMEOUT));
     }
 
     @Test
@@ -1516,6 +1763,18 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
         UserIdentificationAssociation actualAssociation = actualResponse.associations[0];
         assertThat(actualAssociation.type).isEqualTo(KEY_FOB);
         assertThat(actualAssociation.value).isEqualTo(ASSOCIATED_CURRENT_USER);
+
+        int statusOk = CarStatsLog
+                .CAR_USER_HAL_MODIFY_USER_RESPONSE_REPORTED__CALLBACK_STATUS__OK;
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_USER_ASSOCIATION_REQUEST_REPORTED),
+                anyInt(),
+                eq(CarStatsLog.CAR_USER_HAL_USER_ASSOCIATION_REQUEST_REPORTED__REQUEST_TYPE__SET),
+                eq(DEFAULT_USER_ID), eq(DEFAULT_USER_FLAGS), eq(1), anyString(), anyString()));
+        verify(() -> CarStatsLog.write(
+                eq(CarStatsLog.CAR_USER_HAL_SET_USER_ASSOCIATION_RESPONSE_REPORTED),
+                anyInt(), eq(statusOk), eq(1), anyString(), anyString()),
+                timeout(CALLBACK_TIMEOUT));
     }
 
     /**
@@ -1556,17 +1815,28 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
     }
 
     /**
+     * @see #replySetPropertyWithOnChangeEvent(int, HalPropValue, boolean, int)
+     */
+    private AtomicReference<HalPropValue> replySetPropertyWithOnChangeEvent(int prop,
+            HalPropValue response, boolean rightRequestId) throws Exception {
+        return replySetPropertyWithOnChangeEvent(prop, response, rightRequestId,
+                /* countDownLatch= */ null);
+    }
+
+    /**
      * Sets the VHAL mock to emulate a property change event upon a call to set a property.
      *
      * @param prop prop to be set
      * @param response response to be set on event
      * @param rightRequestId whether the response id should match the request
-     * @return
+     * @param countDownLatch A {@link CountDownLatch} to control when to send the event.
+     * @return A copy of the update property value.
      *
      * @return reference to the value passed to {@code set()}.
      */
     private AtomicReference<HalPropValue> replySetPropertyWithOnChangeEvent(int prop,
-            HalPropValue response, boolean rightRequestId) throws Exception {
+            HalPropValue response, boolean rightRequestId, CountDownLatch latch)
+            throws Exception {
         AtomicReference<HalPropValue> ref = new AtomicReference<>();
         doAnswer((inv) -> {
             HalPropValue request = inv.getArgument(0);
@@ -1587,9 +1857,20 @@ public final class UserHalServiceTest extends AbstractExtendedMockitoTestCase {
                     /*floatValues=*/new float[0], /*int64Values=*/new long[0],
                     response.getStringValue(), /*byteValues=*/new byte[0]);
 
-            Log.d(TAG, "replySetPropertyWithOnChangeEvent(): resp=" + responseCopy + " for req="
-                    + request);
-            mUserHalService.onHalEvents(Arrays.asList(responseCopy));
+            if (latch == null) {
+                Log.d(TAG, "replySetPropertyWithOnChangeEvent(): resp=" + responseCopy + " for req="
+                        + request);
+                mUserHalService.onHalEvents(Arrays.asList(responseCopy));
+                return null;
+            }
+
+            new Thread(() -> {
+                JavaMockitoHelper.silentAwait(latch, CALLBACK_TIMEOUT);
+                Log.d(TAG, "replySetPropertyWithOnChangeEvent(): resp=" + responseCopy + " for req="
+                        + request);
+                mUserHalService.onHalEvents(Arrays.asList(responseCopy));
+            }, "replySetpropertyWithOnChangeEventThread").start();
+
             return null;
         }).when(mVehicleHal).set(isProperty(prop));
         return ref;

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -42,6 +43,7 @@ class autoupdate_Periodic(update_engine_test.UpdateEngineTest):
 
         # Verify the update completed successfully.
         self._host.reboot()
-        rootfs_hostlog, _ = self._create_hostlog_files()
+        rootfs_hostlog, _ = self._create_hostlog_files(
+                ignore_event_rootfs=True)
         self.verify_update_events(self._CUSTOM_LSB_VERSION, rootfs_hostlog)
         kernel_utils.verify_boot_expectations(inactive, host=self._host)

@@ -1,21 +1,23 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#[cfg(feature = "ffmpeg")]
+pub mod ffmpeg;
 #[cfg(feature = "libvda")]
 pub mod vda;
 
 use base::AsRawDescriptor;
 
+use super::encoder::EncoderCapabilities;
+use super::encoder::EncoderEvent;
+use super::encoder::InputBufferId;
+use super::encoder::OutputBufferId;
+use super::encoder::SessionConfig;
 use crate::virtio::video::error::VideoResult;
-use crate::virtio::video::{
-    format::Bitrate,
-    resource::{GuestResource, GuestResourceHandle},
-};
-
-use super::encoder::{
-    EncoderCapabilities, EncoderEvent, InputBufferId, OutputBufferId, SessionConfig,
-};
+use crate::virtio::video::format::Bitrate;
+use crate::virtio::video::resource::GuestResource;
+use crate::virtio::video::resource::GuestResourceHandle;
 
 pub trait EncoderSession {
     /// Encodes the frame provided by `resource`.

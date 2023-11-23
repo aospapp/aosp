@@ -150,6 +150,7 @@ TEST(DurationMetricTrackerTest, TestNonSlicedCondition) {
             bucketStartTimeNs, bucketStartTimeNs);
     durationProducer.mCondition = ConditionState::kFalse;
 
+    assertConditionTimer(durationProducer.mConditionTimer, false, 0, 0);
     EXPECT_FALSE(durationProducer.mCondition);
     EXPECT_FALSE(durationProducer.isConditionSliced());
 
@@ -158,18 +159,24 @@ TEST(DurationMetricTrackerTest, TestNonSlicedCondition) {
     durationProducer.flushIfNeededLocked(bucketStartTimeNs + bucketSizeNs + 1);
     ASSERT_EQ(0UL, durationProducer.mPastBuckets.size());
 
+    int64_t conditionStartTimeNs = bucketStartTimeNs + bucketSizeNs + 2;
+    int64_t bucket2EndTimeNs = bucketStartTimeNs + 2 * bucketSizeNs;
     durationProducer.onMatchedLogEvent(1 /* start index*/, event3);
-    durationProducer.onConditionChanged(true /* condition */, bucketStartTimeNs + bucketSizeNs + 2);
+    durationProducer.onConditionChanged(true /* condition */, conditionStartTimeNs);
+    assertConditionTimer(durationProducer.mConditionTimer, true, 0, conditionStartTimeNs);
     durationProducer.onMatchedLogEvent(2 /* stop index*/, event4);
-    durationProducer.flushIfNeededLocked(bucketStartTimeNs + 2 * bucketSizeNs + 1);
+    durationProducer.flushIfNeededLocked(bucket2EndTimeNs + 1);
+    assertConditionTimer(durationProducer.mConditionTimer, true, 0, bucket2EndTimeNs,
+                         /*currentBucketStartDelayNs=*/1);
     ASSERT_EQ(1UL, durationProducer.mPastBuckets.size());
     EXPECT_TRUE(durationProducer.mPastBuckets.find(DEFAULT_METRIC_DIMENSION_KEY) !=
                 durationProducer.mPastBuckets.end());
     const auto& buckets2 = durationProducer.mPastBuckets[DEFAULT_METRIC_DIMENSION_KEY];
     ASSERT_EQ(1UL, buckets2.size());
     EXPECT_EQ(bucketStartTimeNs + bucketSizeNs, buckets2[0].mBucketStartNs);
-    EXPECT_EQ(bucketStartTimeNs + 2 * bucketSizeNs, buckets2[0].mBucketEndNs);
+    EXPECT_EQ(bucket2EndTimeNs, buckets2[0].mBucketEndNs);
     EXPECT_EQ(1LL, buckets2[0].mDuration);
+    EXPECT_EQ(bucket2EndTimeNs - conditionStartTimeNs, buckets2[0].mConditionTrueNs);
 }
 
 TEST(DurationMetricTrackerTest, TestNonSlicedConditionUnknownState) {

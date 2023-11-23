@@ -35,61 +35,22 @@ genrule {
     name: "copy_bindgen_build_out",
     srcs: ["out/*"],
     cmd: "cp $(in) $(genDir)",
-    out: [
-        "host-target.txt",
-        "tests.rs",
-    ],
-}
-
-rust_binary_host {
-    name: "bindgen",
-    // has rustc warnings
-    crate_name: "bindgen",
-    cargo_env_compat: true,
-    cargo_pkg_version: "0.59.2",
-    srcs: [
-        "src/main.rs",
-        ":copy_bindgen_build_out",
-    ],
-    edition: "2018",
-    features: [
-        "clap",
-        "runtime",
-        "which",
-        "which-rustfmt",
-    ],
-    rustlibs: [
-        "libbindgen",
-        "libbitflags",
-        "libcexpr",
-        "libclang_sys",
-        "libclap",
-        "liblazy_static",
-        "liblazycell",
-        "libpeeking_take_while",
-        "libproc_macro2",
-        "libquote",
-        "libregex",
-        "librustc_hash",
-        "libshlex",
-        "libwhich",
-    ],
-    compile_multilib: "first",
+    out: ["host-target.txt"],
 }
 
 rust_library_host {
     name: "libbindgen",
-    // has rustc warnings
     crate_name: "bindgen",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.59.2",
+    cargo_pkg_version: "0.64.0",
     srcs: [
-        "src/lib.rs",
+        "lib.rs",
         ":copy_bindgen_build_out",
     ],
     edition: "2018",
     features: [
-        "clap",
+        "cli",
+        "experimental",
         "runtime",
         "which",
         "which-rustfmt",
@@ -98,7 +59,6 @@ rust_library_host {
         "libbitflags",
         "libcexpr",
         "libclang_sys",
-        "libclap",
         "liblazy_static",
         "liblazycell",
         "libpeeking_take_while",
@@ -107,7 +67,10 @@ rust_library_host {
         "libregex",
         "librustc_hash",
         "libshlex",
+        "libsyn",
         "libwhich",
     ],
     compile_multilib: "first",
+    product_available: true,
+    vendor_available: true,
 }

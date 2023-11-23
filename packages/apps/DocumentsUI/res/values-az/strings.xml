@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"Sənədi yadda saxlaya bilmədi"</string>
     <string name="create_error" msgid="3092144450044861994">"Qovluq yaradıla bilmədi"</string>
     <string name="query_error" msgid="6625421453613879336">"Məzmun hazırda yüklənmir"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"İş profilinə fasilə verilib"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Aktiv edin"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"İş tətbiqləri durdurulub"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"İş tətbiqlərini aktiv edin"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"İş faylları seçmək olmur"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"IT admininiz şəxsi tətbiqdən iş fayllarına giriş icazəsi vermir"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Şəxsi faylları seçmək olmur"</string>

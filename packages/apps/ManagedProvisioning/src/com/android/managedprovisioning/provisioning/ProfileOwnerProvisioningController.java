@@ -70,8 +70,8 @@ public class ProfileOwnerProvisioningController extends AbstractProvisioningCont
     }
 
     @Override
-    protected int getErrorMsgId(AbstractProvisioningTask task, int errorCode) {
-        return R.string.managed_provisioning_error_text;
+    protected String getErrorMsgId(AbstractProvisioningTask task, int errorCode) {
+        return mContext.getString(R.string.managed_provisioning_error_text);
     }
 
     @Override

@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMSত CDMA কল অপেক্ষাৰত সুবিধাটো অফ আছে"</string>
     <string name="updating_title" msgid="6130548922615719689">"কল ছেটিংসমূহ"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"কেৱল প্ৰশাসকে কল ছেটিংসমূহ সলনি কৰিব পাৰে।"</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"ফ’ন একাউণ্টৰ ছেটিং কেৱল প্ৰশাসক অথবা কৰ্মস্থানৰ ব্যৱহাৰকাৰীয়েহে সলনি কৰিব পাৰে।"</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"ছেটিংসমূহ (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"কল ছেটিংসমূহত আসোঁৱাহ"</string>
     <string name="reading_settings" msgid="1605904432450871183">"ছেটিংসমূহ পঢ়ি থকা হৈছে…"</string>
@@ -144,7 +145,7 @@
     <string name="stk_cc_ss_to_ussd_error" msgid="8330749347425752192">"SS অনুৰোধ USSD অনুৰোধলৈ সলনি কৰা হ’ল"</string>
     <string name="stk_cc_ss_to_ss_error" msgid="8297155544652134278">"নতুন SS অনুৰোধলৈ সলনি কৰা হ’ল"</string>
     <string name="stk_cc_ss_to_dial_video_error" msgid="4255261231466032505">"SS অনুৰোধ ভিডিঅ\' কললৈ সলনি কৰা হ’ল"</string>
-    <string name="fdn_check_failure" msgid="1833769746374185247">"আপোনাৰ ফ\'ন এপটোৰ ফিক্সড্ ডায়েলিং নম্বৰ ছেটিঙটো অন কৰি থোৱা আছে। ফলস্বৰূপে, কল সম্পৰ্কীয় কিছুমান সুবিধাই কাম কৰা নাই।"</string>
+    <string name="fdn_check_failure" msgid="1833769746374185247">"আপোনাৰ ফ\'ন এপ্‌টোৰ ফিক্সড্ ডায়েলিং নম্বৰ ছেটিঙটো অন কৰি থোৱা আছে। ফলস্বৰূপে, কল সম্পৰ্কীয় কিছুমান সুবিধাই কাম কৰা নাই।"</string>
     <string name="radio_off_error" msgid="8321564164914232181">"এই ছেটিংসমূহ চোৱাৰ আগতে ৰেডিঅ\' অন কৰক।"</string>
     <string name="close_dialog" msgid="1074977476136119408">"ঠিক"</string>
     <string name="enable" msgid="2636552299455477603">"অন কৰক"</string>
@@ -179,7 +180,7 @@
     <string name="network_query_error" msgid="3862515805115145124">"নেটৱৰ্ক বিচাৰি পোৱা নগ\'ল। আকৌ চেষ্টা কৰক।"</string>
     <string name="register_on_network" msgid="4194770527833960423">"<xliff:g id="NETWORK">%s</xliff:g>ৰ লগত পঞ্জীয়ন কৰি থকা হৈছে…"</string>
     <string name="not_allowed" msgid="8541221928746104798">"আপোনাৰ ছিম কাৰ্ডখনে এই নেটৱৰ্কটোৰ সৈতে সংযোগ কৰিবলৈ অনুমতি নিদিয়ে।"</string>
-    <string name="connect_later" msgid="1950138106010005425">"এই মুহূৰ্তত এই নেটৱৰ্কটোৰ সৈতে সংযোগ কৰিব নোৱাৰি। পিছত আকৌ চেষ্টা কৰক।"</string>
+    <string name="connect_later" msgid="1950138106010005425">"এই মুহূৰ্তত এই নেটৱৰ্কটোৰ সৈতে সংযোগ কৰিব নোৱাৰি। পাছত আকৌ চেষ্টা কৰক।"</string>
     <string name="registration_done" msgid="5337407023566953292">"নেটৱৰ্কৰ লগত পঞ্জীয়ন কৰা হ’ল।"</string>
     <string name="already_auto" msgid="8607068290733079336">"স্বয়ংক্ৰিয় বাছনিত ইতিমধ্যে আছে।"</string>
     <string name="select_automatically" msgid="779750291257872651">"স্বয়ংক্ৰিয়ভাৱে নেটৱৰ্ক বাছনি কৰক"</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"কলসমূহ হ\'ল্ডত ৰাখিব নোৱাৰি।"</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"কল কৰিবলৈ কোনো বেতাঁৰ নেটৱৰ্কৰ সৈতে সংযোগ কৰক।"</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"কল কৰিবৰ কাৰণে ৱাই-ফাই কলিং সুবিধা সক্ষম কৰক।"</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"কল কৰিবলৈ উপগ্ৰহ ম’ডটো অক্ষম কৰক।"</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"জৰুৰীকালীন তথ্য"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"গৰাকী"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"তথ্য চাবলৈ পুনৰ টিপক"</string>
@@ -613,7 +615,7 @@
     <string name="network_info_message" msgid="7599413947016532355">"নেটৱৰ্ক বাৰ্তা"</string>
     <string name="network_error_message" msgid="4271579424089326618">"আসোঁৱাহ বাৰ্তা"</string>
     <string name="ota_title_activate" msgid="4049645324841263423">"আপোনাৰ ফ\'নটো সক্ৰিয় কৰক"</string>
-    <string name="ota_touch_activate" msgid="838764494319694754">"আপোনাৰ ফ\'নৰ সেৱা সক্ৰিয় কৰিবলৈ এটা বিশেষ কল কৰা প্ৰয়োজন। \n\nআপোনাৰ ফ\'নটো সক্ৰিয় কৰিবলৈ \"সক্ৰিয় কৰক\"ত টিপাৰ পিছত নিৰ্দেশনাসমূহ শুনক।"</string>
+    <string name="ota_touch_activate" msgid="838764494319694754">"আপোনাৰ ফ\'নৰ সেৱা সক্ৰিয় কৰিবলৈ এটা বিশেষ কল কৰা প্ৰয়োজন। \n\nআপোনাৰ ফ\'নটো সক্ৰিয় কৰিবলৈ \"সক্ৰিয় কৰক\"ত টিপাৰ পাছত নিৰ্দেশনাসমূহ শুনক।"</string>
     <string name="ota_hfa_activation_title" msgid="3300556778212729671">"সক্ৰিয় কৰি থকা হৈছে..."</string>
     <string name="ota_hfa_activation_dialog_message" msgid="7921718445773342996">"ফ\'নটোৱে আপোনাৰ ম’বাইল ডেটা সেৱা সক্ৰিয় কৰি আছে।\n\nএই কামটো সম্পূৰ্ণ হ\'বলৈ ৫ মিনিট পৰ্যন্ত সময় লাগিব পাৰে।"</string>
     <string name="ota_skip_activation_dialog_title" msgid="7666611236789203797">"সক্ৰিয়কৰণ এৰি যায় নেকি?"</string>
@@ -711,8 +713,9 @@
     <string name="mobile_data_activate_cancel_button" msgid="3530174817572005860">"বাতিল কৰক"</string>
     <string name="clh_card_title_call_ended_txt" msgid="5977978317527299698">"কল শেষ হ’ল"</string>
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"এয়াৰপ্লেইন ম\'ড অন হৈ আছে"</string>
-    <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"ছিম কাৰ্ডত প্ৰৱেশ কৰিব পৰা নাই"</string>
+    <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"ছিম কাৰ্ড এক্সেছ কৰিব নোৱাৰি"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"ম’বাইল নেটৱৰ্ক উপলব্ধ নহয়"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"উপগ্ৰহ ম’ডটো অন আছে"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"আপুনি ডায়েল কৰিব খোজা ফ\'ন নম্বৰত আসোঁৱাহ আছে। আসোঁৱাহ ক\'ড ১।"</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"কলটো সম্পূৰ্ণ কৰিব পৰা নগ\'ল। আসোঁৱাহ ক\'ড ৩।"</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"কলটো সম্পূৰ্ণ কৰিব পৰা নগ\'ল। আসোঁৱাহ ক\'ড ৬।"</string>
@@ -794,7 +797,7 @@
     <string name="call_barring_confirm_pwd" msgid="7552526161616461858">"পাছৱৰ্ড নিশ্চিত কৰক"</string>
     <string name="messageCallBarring" msgid="5537730400652466912">"পাছৱৰ্ড দিয়ক"</string>
     <string name="call_barring_settings" msgid="4616607285790258919">"কল প্ৰতিবন্ধক ছেটিংসমূহ"</string>
-    <string name="callFailed_NetworkBusy" msgid="5437103975842913681">"নেটৱৰ্ক ব্যস্ত। অনুগ্ৰহ কৰি কিছুসময় পিছত আকৌ কল কৰাৰ চেষ্টা কৰক।"</string>
+    <string name="callFailed_NetworkBusy" msgid="5437103975842913681">"নেটৱৰ্ক ব্যস্ত। অনুগ্ৰহ কৰি কিছুসময় পাছত আকৌ কল কৰাৰ চেষ্টা কৰক।"</string>
     <string name="callFailed_NetworkCongested" msgid="6801283142342775380">"নেটৱর্ক ব্যস্ত আছে। সহায়তাৰ বাবে আপোনাৰ ম\'বাইল অ\'পাৰেটৰৰ সৈতে যোগাযোগ কৰক।"</string>
     <string name="supp_service_notification_call_deflected" msgid="4980942818105909813">"কলটো বিচ্যুত কৰা হৈছে।"</string>
     <string name="supp_service_notification_call_forwarded" msgid="7102930311735433088">"কলটো ফৰৱাৰ্ড কৰা হ’ল।"</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"বাতিল কৰক"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"আঁতৰাব পৰা ই-ছিম ডিফ’ল্ট হিচাপে ছেট কৰক"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"ম’বাইলৰ ৰেডিঅ’ পাৱাৰ"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"সেৱাত নাই ছিমুলে’ট কৰক (কেৱল ডিবাগ বিল্ড)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"ছিম ঠিকনা সূচী চাওক"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"ফিক্সড্ ডায়েলিং নম্বৰসমূহ চাওক"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"সেৱা ডায়েলিং নম্বৰসমূহ চাওক"</string>
@@ -849,7 +853,7 @@
     <string name="radio_info_ims_reg_status" msgid="25582845222446390">"IMS পঞ্জীয়ন: <xliff:g id="STATUS">%1$s</xliff:g>\nভইচ অভাৰ LTE: <xliff:g id="AVAILABILITY_0">%2$s</xliff:g>\nভইচ অভাৰ ৱাই-ফাই: <xliff:g id="AVAILABILITY_1">%3$s</xliff:g>\nভিডিঅ’ কলিং: <xliff:g id="AVAILABILITY_2">%4$s</xliff:g>\nUT ইণ্টাৰফে’চ: <xliff:g id="AVAILABILITY_3">%5$s</xliff:g>"</string>
     <string name="radioInfo_service_in" msgid="45753418231446400">"সেৱাত আছে"</string>
     <string name="radioInfo_service_out" msgid="287972405416142312">"সেৱাত নাই"</string>
-    <string name="radioInfo_service_emergency" msgid="4763879891415016848">"কেৱল জৰুৰীকালীন কলসমূহ"</string>
+    <string name="radioInfo_service_emergency" msgid="4763879891415016848">"কেৱল জৰুৰীকালীন কল"</string>
     <string name="radioInfo_service_off" msgid="3456583511226783064">"ৰেডিঅ’ অফ হৈ আছে"</string>
     <string name="radioInfo_roaming_in" msgid="3156335577793145965">"ৰ’মিং"</string>
     <string name="radioInfo_roaming_not" msgid="1904547918725478110">"ৰ’মিঙত নাই"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"সংযোগ কৰা হ’ল"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"নিলম্বন কৰা হৈছে"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"অজ্ঞাত"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"প্ৰাথমিক"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"পিকেটিএছ"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"বাইটসমূহ"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"ডিবিএম"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"প্ৰেৰণ কৰা ডেটা:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"বাৰ্তা অপেক্ষাৰত:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"ফ’ন নম্বৰ:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"ৰেডিঅ’ বেণ্ড বাছনি কৰক"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"ভইচ নেটৱৰ্কৰ প্ৰকাৰ:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"ডেটা নেটৱৰ্কৰ প্ৰকাৰ:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"নেটৱৰ্ক প্ৰকাৰ অ’ভাৰৰাইড কৰক:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"কণ্ঠস্বৰৰ অসম্পাদিত পঞ্জীয়নৰ স্থিতি:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"ডেটাৰ অসম্পাদিত পঞ্জীয়নৰ স্থিতি:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"WLAN ডেটাৰ অসম্পাদিত পঞ্জীয়নৰ স্থিতি:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"ফ’নৰ ইনডেক্স বাছনি কৰক"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"পচন্দৰ নেটৱৰ্কৰ প্ৰকাৰ ছেট কৰক:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"হ\'ষ্টনাম(www.google.com) IPv4 পিং কৰক:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"আপোনাৰ ব্লুটুথৰ ছিগনেল দুৰ্বল। স্পীকাৰফ’নলৈ সলনি কৰি চাওক।"</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"কলৰ গুণগত মানৰ জাননী"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"বন্ধ হৈ যোৱা SIP একাউণ্ট"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"ব্যক্তিগত এপৰ পৰা বাৰ্তা পঠিয়াব নোৱাৰি"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"আপোনাৰ প্ৰতিষ্ঠানে আপোনাক কেৱল কাম সম্পর্কীয় এপ্‌সমূহৰ পৰা বাৰ্তা পঠিওৱাৰ অনুমতি দিয়ে"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"বাতিল কৰক"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"কৰ্মস্থানৰ প্ৰ’ফাইললৈ সলনি কৰক"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"এটা কৰ্মস্থানৰ বাৰ্তা আদান-প্ৰদান কৰা এপ্‌ ইনষ্টল কৰক"</string>
 </resources>

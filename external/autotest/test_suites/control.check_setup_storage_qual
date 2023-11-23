@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "check_setup_storage_qual"
 PURPOSE = """
 Test moblab has correct DUT configuration for storage qual suite

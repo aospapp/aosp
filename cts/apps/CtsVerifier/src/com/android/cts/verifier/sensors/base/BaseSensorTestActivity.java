@@ -1,19 +1,19 @@
 /*
 
- * Copyright (C) 2014 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+* Copyright (C) 2014 The Android Open Source Project
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*      http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
 package com.android.cts.verifier.sensors.base;
 
@@ -39,6 +39,8 @@ import android.widget.TextView;
 
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
+import com.android.cts.verifier.TestListActivity;
+import com.android.cts.verifier.TestListAdapter;
 import com.android.cts.verifier.TestResult;
 import com.android.cts.verifier.sensors.helpers.SensorFeaturesDeactivator;
 import com.android.cts.verifier.sensors.reporting.SensorTestDetails;
@@ -52,30 +54,25 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A base Activity that is used to build different methods to execute tests inside CtsVerifier.
- * i.e. CTS tests, and semi-automated CtsVerifier tests.
+ * A base Activity that is used to build different methods to execute tests inside CtsVerifier. i.e.
+ * CTS tests, and semi-automated CtsVerifier tests.
  *
- * This class provides access to the following flow:
- *      Activity set up
- *          Execute tests (implemented by sub-classes)
- *      Activity clean up
+ * <p>This class provides access to the following flow: Activity set up Execute tests (implemented
+ * by sub-classes) Activity clean up
  *
- * Currently the following class structure is available:
- * - BaseSensorTestActivity                 : provides the platform to execute Sensor tests inside
- *      |                                     CtsVerifier, and logging support
- *      |
- *      -- SensorCtsTestActivity            : an activity that can be inherited from to wrap a CTS
- *      |                                     sensor test, and execute it inside CtsVerifier
- *      |                                     these tests do not require any operator interaction
- *      |
- *      -- SensorCtsVerifierTestActivity    : an activity that can be inherited to write sensor
- *                                            tests that require operator interaction
+ * <p>Currently the following class structure is available: - BaseSensorTestActivity : provides the
+ * platform to execute Sensor tests inside | CtsVerifier, and logging support | --
+ * SensorCtsTestActivity : an activity that can be inherited from to wrap a CTS | sensor test, and
+ * execute it inside CtsVerifier | these tests do not require any operator interaction | --
+ * SensorCtsVerifierTestActivity : an activity that can be inherited to write sensor tests that
+ * require operator interaction
  */
-public abstract class BaseSensorTestActivity
-        extends PassFailButtons.Activity
+public abstract class BaseSensorTestActivity extends PassFailButtons.Activity
         implements View.OnClickListener, Runnable, ISensorTestStateContainer {
-    @Deprecated
-    protected static final String LOG_TAG = "SensorTest";
+    /**
+     * @deprecated use subclass instead?
+     */
+    @Deprecated protected static final String LOG_TAG = "SensorTest";
 
     protected final Class mTestClass;
 
@@ -106,7 +103,7 @@ public abstract class BaseSensorTestActivity
      * Constructor to be used by subclasses.
      *
      * @param testClass The class that contains the tests. It is dependant on test executor
-     *                  implemented by subclasses.
+     *     implemented by subclasses.
      */
     protected BaseSensorTestActivity(Class testClass) {
         this(testClass, R.layout.sensor_test);
@@ -116,9 +113,9 @@ public abstract class BaseSensorTestActivity
      * Constructor to be used by subclasses. It allows to provide a custom layout for the test UI.
      *
      * @param testClass The class that contains the tests. It is dependant on test executor
-     *                  implemented by subclasses.
+     *     implemented by subclasses.
      * @param layoutId The Id of the layout to use for the test UI. The layout must contain all the
-     *                 elements in the base layout {@code R.layout.sensor_test}.
+     *     elements in the base layout {@code R.layout.sensor_test}.
      */
     protected BaseSensorTestActivity(Class testClass, int layoutId) {
         mTestClass = testClass;
@@ -203,10 +200,9 @@ public abstract class BaseSensorTestActivity
     /**
      * The main execution {@link Thread}.
      *
-     * This function executes in a background thread, allowing the test run freely behind the
-     * scenes. It provides the following execution hooks:
-     *  - Activity SetUp/CleanUp (not available in JUnit)
-     *  - executeTests: to implement several execution engines
+     * <p>This function executes in a background thread, allowing the test run freely behind the
+     * scenes. It provides the following execution hooks: - Activity SetUp/CleanUp (not available in
+     * JUnit) - executeTests: to implement several execution engines
      */
     @Override
     public void run() {
@@ -249,7 +245,7 @@ public abstract class BaseSensorTestActivity
     /**
      * A general set up routine. It executes only once before the first test case.
      *
-     * NOTE: implementers must be aware of the interrupted status of the worker thread, and let
+     * <p>NOTE: implementers must be aware of the interrupted status of the worker thread, and let
      * {@link InterruptedException} propagate.
      *
      * @throws Throwable An exception that denotes the failure of set up. No tests will be executed.
@@ -260,27 +256,24 @@ public abstract class BaseSensorTestActivity
      * A general clean up routine. It executes upon successful execution of {@link #activitySetUp()}
      * and after all the test cases.
      *
-     * NOTE: implementers must be aware of the interrupted status of the worker thread, and handle
-     * it in two cases:
-     * - let {@link InterruptedException} propagate
-     * - if it is invoked with the interrupted status, prevent from showing any UI
-
-     * @throws Throwable An exception that will be logged and ignored, for ease of implementation
-     *                   by subclasses.
+     * <p>NOTE: implementers must be aware of the interrupted status of the worker thread, and
+     * handle it in two cases: - let {@link InterruptedException} propagate - if it is invoked with
+     * the interrupted status, prevent from showing any UI
+     *
+     * @throws Throwable An exception that will be logged and ignored, for ease of implementation by
+     *     subclasses.
      */
     protected void activityCleanUp() throws Throwable {}
 
     /**
-     * Performs the work of executing the tests.
-     * Sub-classes implementing different execution methods implement this method.
+     * Performs the work of executing the tests. Sub-classes implementing different execution
+     * methods implement this method.
      *
      * @return A {@link SensorTestDetails} object containing information about the executed tests.
      */
     protected abstract SensorTestDetails executeTests() throws InterruptedException;
 
-    /**
-     * Get mShouldRetry to check if test is required to retry.
-     */
+    /** Get mShouldRetry to check if test is required to retry. */
     protected boolean getShouldRetry() {
         return mShouldRetry;
     }
@@ -304,12 +297,13 @@ public abstract class BaseSensorTestActivity
 
     @Deprecated
     protected void clearText() {
-        this.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mLogLayout.removeAllViews();
-            }
-        });
+        this.runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        mLogLayout.removeAllViews();
+                    }
+                });
     }
 
     /**
@@ -333,48 +327,36 @@ public abstract class BaseSensorTestActivity
         updateNextButton(false);
     }
 
-    /**
-     * Waits for the operator to acknowledge to begin execution.
-     */
+    /** Waits for the operator to acknowledge to begin execution. */
     protected void waitForUserToBegin() throws InterruptedException {
         waitForUser(R.string.snsr_wait_to_begin);
     }
 
-    /**
-     * Waits for the operator to acknowledge to retry execution.
-     */
+    /** Waits for the operator to acknowledge to retry execution. */
     protected void waitForUserToRetry() throws InterruptedException {
         mShouldRetry = true;
         waitForUser(R.string.snsr_wait_to_retry);
     }
 
-    /**
-     * Waits for the operator to acknowledge to finish execution.
-     */
+    /** Waits for the operator to acknowledge to finish execution. */
     protected void waitForUserToFinish() throws InterruptedException {
         mShouldRetry = true;
         waitForUser(R.string.snsr_wait_to_finish);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void waitForUserToContinue() throws InterruptedException {
         waitForUser(R.string.snsr_wait_for_user);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public int executeActivity(String action) throws InterruptedException {
         return executeActivity(new Intent(action));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public int executeActivity(Intent intent) throws InterruptedException {
         ActivityResultMultiplexedLatch.Latch latch = mActivityResultMultiplexedLatch.bindThread();
@@ -389,59 +371,58 @@ public abstract class BaseSensorTestActivity
         return latch.await();
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean hasSystemFeature(String feature) {
         PackageManager pm = getPackageManager();
         return pm.hasSystemFeature(feature);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean hasActivity(String action) {
         PackageManager pm = getPackageManager();
         return pm.resolveActivity(new Intent(action), PackageManager.MATCH_DEFAULT_ONLY) != null;
     }
 
+    @Override
+    public boolean requiresReportLog() {
+        return true;
+    }
+
     /**
-     * Initializes and shows the {@link GLSurfaceView} available to tests.
-     * NOTE: initialization can be performed only once, usually inside {@link #activitySetUp()}.
+     * Initializes and shows the {@link GLSurfaceView} available to tests. NOTE: initialization can
+     * be performed only once, usually inside {@link #activitySetUp()}.
      */
     protected void initializeGlSurfaceView(final GLSurfaceView.Renderer renderer) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mGLSurfaceView.setVisibility(View.VISIBLE);
-                mGLSurfaceView.setRenderer(renderer);
-                mUsingGlSurfaceView = true;
-            }
-        });
+        runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        mGLSurfaceView.setVisibility(View.VISIBLE);
+                        mGLSurfaceView.setRenderer(renderer);
+                        mUsingGlSurfaceView = true;
+                    }
+                });
     }
 
-    /**
-     * Closes and hides the {@link GLSurfaceView}.
-     */
+    /** Closes and hides the {@link GLSurfaceView}. */
     protected void closeGlSurfaceView() {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (!mUsingGlSurfaceView) {
-                    return;
-                }
-                mGLSurfaceView.setVisibility(View.GONE);
-                mGLSurfaceView.onPause();
-                mUsingGlSurfaceView = false;
-            }
-        });
+        runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!mUsingGlSurfaceView) {
+                            return;
+                        }
+                        mGLSurfaceView.setVisibility(View.GONE);
+                        mGLSurfaceView.onPause();
+                        mUsingGlSurfaceView = false;
+                    }
+                });
     }
 
-    /**
-     * Plays a (default) sound as a notification for the operator.
-     */
+    /** Plays a (default) sound as a notification for the operator. */
     protected void playSound() throws InterruptedException {
         MediaPlayer player = MediaPlayer.create(this, Settings.System.DEFAULT_NOTIFICATION_URI);
         if (player == null) {
@@ -456,17 +437,15 @@ public abstract class BaseSensorTestActivity
         }
     }
 
-    /**
-     * Makes the device vibrate for the given amount of time.
-     */
+    /** Makes the device vibrate for the given amount of time. */
     protected void vibrate(int timeInMs) {
         Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         vibrator.vibrate(timeInMs);
     }
 
     /**
-     * Makes the device vibrate following the given pattern.
-     * See {@link Vibrator#vibrate(long[], int)} for more information.
+     * Makes the device vibrate following the given pattern. See {@link Vibrator#vibrate(long[],
+     * int)} for more information.
      */
     protected void vibrate(long[] pattern) {
         Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
@@ -475,18 +454,16 @@ public abstract class BaseSensorTestActivity
 
     // TODO: move to sensor assertions
     protected String assertTimestampSynchronization(
-            long eventTimestamp,
-            long receivedTimestamp,
-            long deltaThreshold,
-            String sensorName) {
+            long eventTimestamp, long receivedTimestamp, long deltaThreshold, String sensorName) {
         long timestampDelta = Math.abs(eventTimestamp - receivedTimestamp);
-        String timestampMessage = getString(
-                R.string.snsr_event_time,
-                receivedTimestamp,
-                eventTimestamp,
-                timestampDelta,
-                deltaThreshold,
-                sensorName);
+        String timestampMessage =
+                getString(
+                        R.string.snsr_event_time,
+                        receivedTimestamp,
+                        eventTimestamp,
+                        timestampDelta,
+                        deltaThreshold,
+                        sensorName);
         Assert.assertTrue(timestampMessage, timestampDelta < deltaThreshold);
         return timestampMessage;
     }
@@ -504,10 +481,12 @@ public abstract class BaseSensorTestActivity
 
     private void setTestResult(SensorTestDetails testDetails) {
         // the name here, must be the Activity's name because it is what CtsVerifier expects
-        String name = super.getClass().getName();
+        String name =
+                TestListAdapter.setTestNameSuffix(
+                        TestListActivity.sCurrentDisplayMode, super.getClass().getName());
         String summary = mTestLogger.getOverallSummary();
         SensorTestDetails.ResultCode resultCode = testDetails.getResultCode();
-        switch(resultCode) {
+        switch (resultCode) {
             case SKIPPED:
                 TestResult.setPassedResult(this, name, summary);
                 break;
@@ -577,17 +556,18 @@ public abstract class BaseSensorTestActivity
     }
 
     private void updateNextButton(final boolean enabled) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mNextButton.setEnabled(enabled);
-            }
-        });
+        runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        mNextButton.setEnabled(enabled);
+                    }
+                });
     }
 
     /**
-     * Set the text for next button by instruction message.
-     * During retry, next button text is changed to notify users.
+     * Set the text for next button by instruction message. During retry, next button text is
+     * changed to notify users.
      *
      * @param waitMessageResId The action requested to the operator.
      */
@@ -598,63 +578,68 @@ public abstract class BaseSensorTestActivity
         } else if (waitMessageResId == R.string.snsr_wait_to_finish) {
             nextButtonText = R.string.finish_button_text;
         } else {
-                nextButtonText = R.string.next_button_text;
+            nextButtonText = R.string.next_button_text;
         }
 
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mNextButton.setText(nextButtonText);
-            }
-        });
+        runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        mNextButton.setText(nextButtonText);
+                    }
+                });
     }
 
     /**
-     * Update the retry button status.
-     * During retry, show retry execution count. If not to retry, make retry button invisible.
+     * Update the retry button status. During retry, show retry execution count. If not to retry,
+     * make retry button invisible.
      *
      * @param enabled The status of button.
      */
     private void updateRetryButton(final boolean enabled) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (mShouldRetry) {
-                    String showRetryCount = String.format(
-                        "%s (%d)", getResources().getText(R.string.retry_button_text), mRetryCount);
-                    mRetryButton.setText(showRetryCount);
-                    mRetryButton.setVisibility(View.VISIBLE);
-                    mRetryButton.setEnabled(enabled);
-                } else {
-                    mRetryButton.setVisibility(View.GONE);
-                    mRetryCount = 0;
-                }
-            }
-        });
+        runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        if (mShouldRetry) {
+                            String showRetryCount =
+                                    String.format(
+                                            "%s (%d)",
+                                            getResources().getText(R.string.retry_button_text),
+                                            mRetryCount);
+                            mRetryButton.setText(showRetryCount);
+                            mRetryButton.setVisibility(View.VISIBLE);
+                            mRetryButton.setEnabled(enabled);
+                        } else {
+                            mRetryButton.setVisibility(View.GONE);
+                            mRetryCount = 0;
+                        }
+                    }
+                });
     }
 
     private void enableTestResultButton(
-            final Button button,
-            final int textResId,
-            final SensorTestDetails testDetails) {
-        final View.OnClickListener listener = new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                setTestResult(testDetails);
-                finish();
-            }
-        };
+            final Button button, final int textResId, final SensorTestDetails testDetails) {
+        final View.OnClickListener listener =
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        setTestResult(testDetails);
+                        finish();
+                    }
+                };
 
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mNextButton.setVisibility(View.GONE);
-                mRetryButton.setVisibility(View.GONE);
-                button.setText(textResId);
-                button.setOnClickListener(listener);
-                button.setVisibility(View.VISIBLE);
-            }
-        });
+        runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        mNextButton.setVisibility(View.GONE);
+                        mRetryButton.setVisibility(View.GONE);
+                        button.setText(textResId);
+                        button.setOnClickListener(listener);
+                        button.setVisibility(View.VISIBLE);
+                    }
+                });
     }
 
     // a logger available until sensor reporting is in place
@@ -674,13 +659,15 @@ public abstract class BaseSensorTestActivity
             textAppender.append();
         }
 
-        public void logInstructions(int instructionsResId, Object ... params) {
+        /** Logs the instructions by the given ID and the params. */
+        public void logInstructions(int instructionsResId, Object... params) {
             TextAppender textAppender = new TextAppender(R.layout.snsr_instruction);
             textAppender.setText(getString(instructionsResId, params));
             textAppender.append();
         }
 
-        public void logMessage(int messageResId, Object ... params) {
+        /** Logs the specific message with given params. */
+        public void logMessage(int messageResId, Object... params) {
             TextAppender textAppender = new TextAppender(R.layout.snsr_message);
             textAppender.setText(getString(messageResId, params));
             textAppender.append();
@@ -764,9 +751,7 @@ public abstract class BaseSensorTestActivity
         }
 
         private void saveResult(
-                String testName,
-                SensorTestDetails.ResultCode resultCode,
-                String summary) {
+                String testName, SensorTestDetails.ResultCode resultCode, String summary) {
             mOverallSummaryBuilder.append(testName);
             mOverallSummaryBuilder.append(SUMMARY_SEPARATOR);
             mOverallSummaryBuilder.append(resultCode.name());
@@ -784,22 +769,24 @@ public abstract class BaseSensorTestActivity
         }
 
         public void append() {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    mLogLayout.addView(mView);
-                    mLogScrollView.post(new Runnable() {
+            runOnUiThread(
+                    new Runnable() {
                         @Override
                         public void run() {
-                            mLogScrollView.fullScroll(View.FOCUS_DOWN);
+                            mLogLayout.addView(mView);
+                            mLogScrollView.post(
+                                    new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            mLogScrollView.fullScroll(View.FOCUS_DOWN);
+                                        }
+                                    });
                         }
                     });
-                }
-            });
         }
     }
 
-    private class TextAppender extends ViewAppender{
+    private class TextAppender extends ViewAppender {
         private final TextView mTextView;
 
         public TextAppender(int textViewResId) {

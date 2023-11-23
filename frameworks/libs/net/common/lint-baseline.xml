@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.0.0-dev" type="baseline" dependencies="true" variant="all" version="8.0.0-dev">
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.LinkProperties#getAddresses`"
+        errorLine1="        final Collection&lt;InetAddress&gt; leftAddresses = left.getAddresses();"
+        errorLine2="                                                           ~~~~~~~~~~~~">
+        <location
+            file="frameworks/libs/net/common/framework/com/android/net/module/util/LinkPropertiesUtils.java"
+            line="158"
+            column="60"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.LinkProperties#getAddresses`"
+        errorLine1="        final Collection&lt;InetAddress&gt; rightAddresses = right.getAddresses();"
+        errorLine2="                                                             ~~~~~~~~~~~~">
+        <location
+            file="frameworks/libs/net/common/framework/com/android/net/module/util/LinkPropertiesUtils.java"
+            line="159"
+            column="62"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.net.NetworkStats#addEntry`"
+        errorLine1="            stats = stats.addEntry(entry);"
+        errorLine2="                          ~~~~~~~~">
+        <location
+            file="frameworks/libs/net/common/framework/com/android/net/module/util/NetworkStatsUtils.java"
+            line="113"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `new android.net.NetworkStats.Entry`"
+        errorLine1="        return new android.net.NetworkStats.Entry("
+        errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="frameworks/libs/net/common/framework/com/android/net/module/util/NetworkStatsUtils.java"
+            line="120"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `new android.net.NetworkStats`"
+        errorLine1="        android.net.NetworkStats stats = new android.net.NetworkStats(0L, 0);"
+        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="frameworks/libs/net/common/framework/com/android/net/module/util/NetworkStatsUtils.java"
+            line="108"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 29): `new android.system.NetlinkSocketAddress`"
+        errorLine1="        return new NetlinkSocketAddress(portId, groupsMask);"
+        errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="frameworks/libs/net/common/device/com/android/net/module/util/SocketUtils.java"
+            line="44"
+            column="16"/>
+    </issue>
+
+</issues>

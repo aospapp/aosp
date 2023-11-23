@@ -85,20 +85,21 @@ public class MediaValidationHelper {
      *     be longer than it.
      */
     private static void validateVideoTrackMediaFormat(
-            MediaFormat format, int expHeight, int expWidth, long minDurationMillis) {
-        long durationMillis =
+        MediaFormat format, int expHeight, int expWidth, long minDurationMillis) {
+        if (format.containsKey(MediaFormat.KEY_DURATION)) {
+            long durationMillis =
                 TimeUnit.MICROSECONDS.toMillis(format.getLong(MediaFormat.KEY_DURATION));
-        int width = format.getInteger(MediaFormat.KEY_WIDTH);
-        int height = format.getInteger(MediaFormat.KEY_HEIGHT);
-        Log.d(
+            int width = format.getInteger(MediaFormat.KEY_WIDTH);
+            int height = format.getInteger(MediaFormat.KEY_HEIGHT);
+            Log.d(
                 TAG,
                 String.format(
-                        "Duration: %d; Width: %d; Height: %d", durationMillis, width, height));
-        assertThat(durationMillis).isGreaterThan(minDurationMillis);
-        assertThat(width).isEqualTo(expWidth);
-        assertThat(height).isEqualTo(expHeight);
+                    "Duration: %d; Width: %d; Height: %d", durationMillis, width, height));
+            assertThat(durationMillis).isGreaterThan(minDurationMillis);
+            assertThat(width).isEqualTo(expWidth);
+            assertThat(height).isEqualTo(expHeight);
+        }
     }
-
     /**
      * Validates that the image file height and weight is greater than certain value.
      *

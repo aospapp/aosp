@@ -16,6 +16,8 @@
 
 package android.security.cts
 
+import android.app.ActivityOptions
+import android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN
 import android.graphics.Rect
 import android.os.SystemClock
 import android.platform.test.annotations.AsbSecurityTest
@@ -127,7 +129,10 @@ class FlagSlipperyTest : StsExtraBusinessLogicTestCase {
 
     @get:Rule
     val rule = ActivityScenarioRule<SlipperyEnterBottomActivity>(
-            SlipperyEnterBottomActivity::class.java)
+            SlipperyEnterBottomActivity::class.java,
+            ActivityOptions.makeBasic().apply {
+                setLaunchWindowingMode(WINDOWING_MODE_FULLSCREEN)
+            }.toBundle())
 
     constructor() : super()
 

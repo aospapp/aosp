@@ -14,9 +14,9 @@
 // limitations under the License.
 #include <gtest/gtest.h>
 
-#include "android/base/synchronization/AndroidConditionVariable.h"
-#include "android/base/synchronization/AndroidLock.h"
-#include "android/base/threads/AndroidWorkPool.h"
+#include "aemu/base/synchronization/AndroidConditionVariable.h"
+#include "aemu/base/synchronization/AndroidLock.h"
+#include "aemu/base/threads/AndroidWorkPool.h"
 
 #include <atomic>
 #include <vector>

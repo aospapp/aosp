@@ -190,8 +190,7 @@ static void setup0(void)
 		 * changed -EINVAL to -ENOIOCTLCMD, so vfs_ioctl now
 		 * returns -ENOTTY.
 		 */
-		if ((tst_kvercmp(3, 5, 0)) >= 0)
-			tdat[testno].experrno = ENOTTY;
+		tdat[testno].experrno = ENOTTY;
 	}
 }
 
@@ -210,10 +209,8 @@ static void setup1(void)
 	SAFE_BIND(cleanup, s, (struct sockaddr *)&sin0, sizeof(sin0));
 	sinlen = sizeof(fsin1);
 
-	if (strncmp(tdat[testno].desc, "ATMARK on UDP", 14) == 0) {
-		if ((tst_kvercmp(2, 6, 39)) >= 0)
-			tdat[testno].experrno = ENOTTY;
-	}
+	if (strncmp(tdat[testno].desc, "ATMARK on UDP", 14) == 0)
+		tdat[testno].experrno = ENOTTY;
 }
 
 static void setup2(void)

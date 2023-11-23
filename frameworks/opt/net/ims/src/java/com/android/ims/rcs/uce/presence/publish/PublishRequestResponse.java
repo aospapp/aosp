@@ -16,8 +16,10 @@
 
 package com.android.ims.rcs.uce.presence.publish;
 
+import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.telephony.ims.RcsUceAdapter;
+import android.telephony.ims.SipDetails;
 import android.telephony.ims.aidl.IPublishResponseCallback;
 import android.telephony.ims.stub.RcsCapabilityExchangeImplBase;
 import android.text.TextUtils;
@@ -47,7 +49,7 @@ public class PublishRequestResponse {
     private Optional<String> mReasonPhrase;
     private Optional<Integer> mReasonHeaderCause;
     private Optional<String> mReasonHeaderText;
-
+    private Optional<SipDetails> mSipDetails;
     // The timestamp when receive the response from the network.
     private Instant mResponseTimestamp;
 
@@ -61,29 +63,29 @@ public class PublishRequestResponse {
         mReasonPhrase = Optional.empty();
         mReasonHeaderCause = Optional.empty();
         mReasonHeaderText = Optional.empty();
+        mSipDetails = Optional.empty();
     }
 
-    public PublishRequestResponse(String pidfXml, int sipCode, String reasonPhrase,
-            int reasonHeaderCause, String reasonHeaderText) {
+    public PublishRequestResponse(String pidfXml, @Nullable SipDetails details) {
         mTaskId = 0L;
         mPublishCtrlCallback = null;
         mCmdErrorCode = Optional.empty();
 
         mPidfXml = pidfXml;
         mResponseTimestamp = Instant.now();
-        mNetworkRespSipCode = Optional.of(sipCode);
-        mReasonPhrase = Optional.ofNullable(reasonPhrase);
-        if (reasonHeaderCause != 0) {
-            mReasonHeaderCause = Optional.of(reasonHeaderCause);
+        mNetworkRespSipCode = Optional.of(details.getResponseCode());
+        mReasonPhrase = Optional.ofNullable(details.getResponsePhrase());
+        if (details.getReasonHeaderCause() != 0) {
+            mReasonHeaderCause = Optional.of(details.getReasonHeaderCause());
         } else {
             mReasonHeaderCause = Optional.empty();
         }
-        if (TextUtils.isEmpty(reasonHeaderText)) {
+        if (TextUtils.isEmpty(details.getReasonHeaderText())) {
             mReasonHeaderText = Optional.empty();
         } else {
-            mReasonHeaderText = Optional.ofNullable(reasonHeaderText);
+            mReasonHeaderText = Optional.ofNullable(details.getReasonHeaderText());
         }
-
+        mSipDetails = Optional.ofNullable(details);
     }
 
     // The result callback of the publish capability request.
@@ -94,15 +96,8 @@ public class PublishRequestResponse {
         }
 
         @Override
-        public void onNetworkResponse(int code, String reason) {
-            PublishRequestResponse.this.onNetworkResponse(code, reason);
-        }
-
-        @Override
-        public void onNetworkRespHeader(int code, String reasonPhrase, int reasonHeaderCause,
-                String reasonHeaderText) {
-            PublishRequestResponse.this.onNetworkResponse(code, reasonPhrase, reasonHeaderCause,
-                    reasonHeaderText);
+        public void onNetworkResponse(@NonNull SipDetails details) {
+            PublishRequestResponse.this.onNetworkResponse(details);
         }
     };
 
@@ -149,6 +144,12 @@ public class PublishRequestResponse {
         return mReasonHeaderText;
     }
 
+    /**
+     * Retrieve the sip information which received from the network.
+     */
+    public Optional<SipDetails> getSipDetails() {
+        return mSipDetails;
+    }
     /**
      * Retrieve the SIP code from the network response. It will get the value from the Reason
      * Header first. If the ReasonHeader is not present, it will get the value from the Network
@@ -198,49 +199,34 @@ public class PublishRequestResponse {
         }
     }
 
-    private void onNetworkResponse(int sipCode, String reason) {
+    private void onNetworkResponse(@NonNull SipDetails details) {
         // When we send a request to PUBLISH and there is no change to the UCE capabilities, we
         // expected onCommandError() with COMMAND_CODE_NO_CHANGE.
         // But some of the vendor will instead send SIP code 999.
-        if (sipCode == 999) {
+        if (details.getResponseCode() == 999) {
             onCommandError(RcsCapabilityExchangeImplBase.COMMAND_CODE_NO_CHANGE);
             return;
         }
         mResponseTimestamp = Instant.now();
-        mNetworkRespSipCode = Optional.of(sipCode);
-        mReasonPhrase = Optional.ofNullable(reason);
+        mNetworkRespSipCode = Optional.of(details.getResponseCode());
+        mReasonPhrase = Optional.ofNullable(details.getResponsePhrase());
+        if (details.getReasonHeaderCause() != 0) {
+            mReasonHeaderCause = Optional.of(details.getReasonHeaderCause());
+        }
+        if (TextUtils.isEmpty(details.getReasonHeaderText())) {
+            mReasonHeaderText = Optional.empty();
+        } else {
+            mReasonHeaderText = Optional.ofNullable(details.getReasonHeaderText());
+        }
+        mSipDetails = Optional.ofNullable(details);
         updateRetryFlagByNetworkResponse();
 
         PublishControllerCallback ctrlCallback = mPublishCtrlCallback;
         if (ctrlCallback != null) {
             ctrlCallback.onRequestNetworkResp(this);
         } else {
-            Log.d(LOG_TAG, "onNetworkResponse: already destroyed. sip code=" + sipCode);
-        }
-    }
-
-    private void onNetworkResponse(int sipCode, String reasonPhrase, int reasonHeaderCause,
-            String reasonHeaderText) {
-        // When we send a request to PUBLISH and there is no change to the UCE capabilities, we
-        // expected onCommandError() with COMMAND_CODE_NO_CHANGE.
-        // But some of the vendor will instead send SIP code 999.
-        if (sipCode == 999) {
-            onCommandError(RcsCapabilityExchangeImplBase.COMMAND_CODE_NO_CHANGE);
-            return;
-        }
-        mResponseTimestamp = Instant.now();
-        mNetworkRespSipCode = Optional.of(sipCode);
-        mReasonPhrase = Optional.ofNullable(reasonPhrase);
-        mReasonHeaderCause = Optional.of(reasonHeaderCause);
-        mReasonHeaderText = Optional.ofNullable(reasonHeaderText);
-        updateRetryFlagByNetworkResponse();
-
-        PublishControllerCallback ctrlCallback = mPublishCtrlCallback;
-        if (ctrlCallback != null) {
-            ctrlCallback.onRequestNetworkResp(this);
-        } else {
-            Log.d(LOG_TAG, "onNetworkResponse: already destroyed. sipCode=" + sipCode +
-                    ", reasonHeader=" + reasonHeaderCause);
+            Log.d(LOG_TAG, "onNetworkResponse: already destroyed. sip code="
+                    + details.getResponseCode());
         }
     }
 

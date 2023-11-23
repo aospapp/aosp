@@ -37,12 +37,7 @@ python_test_host {
     },
     test_config: "vts_kernel_checkpoint_test.xml",
     version: {
-        py2: {
-            enabled: false,
-            embedded_launcher: false,
-        },
         py3: {
-            enabled: true,
             embedded_launcher: true,
         }
     }

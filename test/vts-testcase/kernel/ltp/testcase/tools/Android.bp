@@ -27,12 +27,7 @@ python_test_host {
         "test_launcher.py",
     ],
     version: {
-        py2: {
-            enabled: false,
-            embedded_launcher: false,
-        },
         py3: {
-            enabled: true,
             embedded_launcher: true,
         }
     },

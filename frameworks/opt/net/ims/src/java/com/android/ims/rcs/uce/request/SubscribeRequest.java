@@ -17,11 +17,13 @@
 package com.android.ims.rcs.uce.request;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.net.Uri;
 import android.os.RemoteException;
 import android.telephony.ims.RcsContactTerminatedReason;
 import android.telephony.ims.RcsContactUceCapability;
 import android.telephony.ims.RcsUceAdapter;
+import android.telephony.ims.SipDetails;
 import android.telephony.ims.aidl.ISubscribeResponseCallback;
 import android.telephony.ims.stub.RcsCapabilityExchangeImplBase.CommandCode;
 
@@ -53,14 +55,8 @@ public class SubscribeRequest extends CapabilityRequest {
                     SubscribeRequest.this.onCommandError(code);
                 }
                 @Override
-                public void onNetworkResponse(int code, String reason) {
-                    SubscribeRequest.this.onNetworkResponse(code, reason);
-                }
-                @Override
-                public void onNetworkRespHeader(int code, String reasonPhrase,
-                        int reasonHeaderCause, String reasonHeaderText) {
-                    SubscribeRequest.this.onNetworkResponse(code, reasonPhrase, reasonHeaderCause,
-                            reasonHeaderText);
+                public void onNetworkResponse(@NonNull SipDetails details) {
+                    SubscribeRequest.this.onNetworkResponse(details);
                 }
                 @Override
                 public void onNotifyCapabilitiesUpdate(List<String> pidfXmls) {
@@ -135,28 +131,14 @@ public class SubscribeRequest extends CapabilityRequest {
     }
 
     // Receive the network response callback which is triggered by ISubscribeResponseCallback.
-    private void onNetworkResponse(int sipCode, String reason) {
-        logd("onNetworkResponse: code=" + sipCode + ", reason=" + reason);
-        if (mIsFinished) {
-            logw("onNetworkResponse: request is already finished");
-            return;
-        }
-        mRequestResponse.setNetworkResponseCode(sipCode, reason);
-        mRequestManagerCallback.notifyNetworkResponse(mCoordinatorId, mTaskId);
-    }
+    private void onNetworkResponse(@NonNull SipDetails details) {
+        logd("onNetworkResponse: sip details=" + details.toString());
 
-    // Receive the network response callback which is triggered by ISubscribeResponseCallback.
-    private void onNetworkResponse(int sipCode, String reasonPhrase,
-        int reasonHeaderCause, String reasonHeaderText) {
-        logd("onNetworkResponse: code=" + sipCode + ", reasonPhrase=" + reasonPhrase +
-                ", reasonHeaderCause=" + reasonHeaderCause +
-                ", reasonHeaderText=" + reasonHeaderText);
         if (mIsFinished) {
             logw("onNetworkResponse: request is already finished");
             return;
         }
-        mRequestResponse.setNetworkResponseCode(sipCode, reasonPhrase, reasonHeaderCause,
-                reasonHeaderText);
+        mRequestResponse.setSipDetails(details);
         mRequestManagerCallback.notifyNetworkResponse(mCoordinatorId, mTaskId);
     }
 

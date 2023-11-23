@@ -26,7 +26,6 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.hardware.Camera;
-import android.hardware.Camera.Parameters;
 import android.hardware.Camera.Size;
 import android.hardware.cts.helpers.CameraUtils;
 import android.media.CamcorderProfile;
@@ -34,13 +33,12 @@ import android.media.EncoderProfiles;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.media.MediaRecorder;
-import android.media.cts.NonMediaMainlineTest;
-import android.test.AndroidTestCase;
-import android.test.InstrumentationTestCase;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+
+import com.android.compatibility.common.util.NonMainlineTest;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,7 +46,7 @@ import org.junit.runner.RunWith;
 import java.util.Arrays;
 import java.util.List;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 @RunWith(AndroidJUnit4.class)
 public class CamcorderProfileTest {
 
@@ -425,7 +423,7 @@ public class CamcorderProfileTest {
             assertNotNull("failed to open CameraId " + cameraId, camera);
         }
 
-        final List<Size> videoSizes = getSupportedVideoSizes(camera);
+        final List<Size> videoSizes = CameraUtils.getSupportedVideoSizes(camera);
 
         camera.release();
         camera = null;
@@ -561,17 +559,6 @@ public class CamcorderProfileTest {
                 checkGet(cameraId);
             }
         }
-    }
-
-    private List<Size> getSupportedVideoSizes(Camera camera) {
-        Parameters parameters = camera.getParameters();
-        assertNotNull("Camera did not provide parameters", parameters);
-        List<Size> videoSizes = parameters.getSupportedVideoSizes();
-        if (videoSizes == null) {
-            videoSizes = parameters.getSupportedPreviewSizes();
-            assertNotNull(videoSizes);
-        }
-        return videoSizes;
     }
 
     private boolean isSizeSupported(int width, int height, List<Size> sizes) {

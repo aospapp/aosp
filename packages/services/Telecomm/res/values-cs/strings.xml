@@ -30,13 +30,13 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"Hovor s volajícím <xliff:g id="CALLER">%s</xliff:g> byl odpojen, protože začalo být prováděno tísňové volání."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"Váš hovor byl odpojen, protože bylo zahájeno tísňové volání."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"Hovor na pozadí"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"Aplikace <xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> přesunula hovor na pozadí. Tato aplikace může v hovoru používat a přehrávat zvuk."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"Aplikace <xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> zpracovává hovor na pozadí. Tato aplikace může v hovoru používat a přehrávat zvuk."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"Aplikace <xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> přestala reagovat"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"Při hovoru byla použita předinstalovaná telefonní aplikace"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"Hovor ztlumen."</string>
     <string name="accessibility_speakerphone_enabled" msgid="555386652061614267">"Reproduktor je zapnutý."</string>
     <string name="respond_via_sms_canned_response_1" msgid="6332561460870382561">"Teď nemůžu mluvit, o co jde?"</string>
-    <string name="respond_via_sms_canned_response_2" msgid="2052951316129952406">"Zavolám zpátky."</string>
+    <string name="respond_via_sms_canned_response_2" msgid="2052951316129952406">"Zavolám později."</string>
     <string name="respond_via_sms_canned_response_3" msgid="6656147963478092035">"Zavolám později."</string>
     <string name="respond_via_sms_canned_response_4" msgid="9141132488345561047">"Nemůžu telefonovat. Zavoláš později?"</string>
     <string name="respond_via_sms_setting_title" msgid="4762275482898830160">"Rychlé odpovědi"</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Hovory na pozadí"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Odpojené hovory"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Aplikace, které spadly"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"Streamování hovoru"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"Uskutečněním tohoto hovoru ukončíte hovor <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Vyberte, jak chcete tento hovor provést"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"Přesměrovat hovor přes aplikaci <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Nabídka pro vývojáře Telecomu"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Během tísňového volání není možné přijímat hovory."</string>
     <string name="cancel" msgid="6733466216239934756">"Zrušit"</string>
+    <string name="back" msgid="6915955601805550206">"Zpět"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"Sluchátko"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"Bluetooth"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"Kabelová náhlavní souprava"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"Reproduktor"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"Externí"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"Není známo"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"Streamování zvuku do druhého zařízení"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"Zavěsit"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"Přepnout sem"</string>
 </resources>

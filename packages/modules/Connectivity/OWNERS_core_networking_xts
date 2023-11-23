@@ -1,2 +1,7 @@
 lorenzo@google.com
-satk@google.com
+satk@google.com #{LAST_RESORT_SUGGESTION}
+
+# For cherry-picks of CLs that are already merged in aosp/master, or flaky test fixes.
+jchalard@google.com #{LAST_RESORT_SUGGESTION}
+maze@google.com #{LAST_RESORT_SUGGESTION}
+reminv@google.com #{LAST_RESORT_SUGGESTION}

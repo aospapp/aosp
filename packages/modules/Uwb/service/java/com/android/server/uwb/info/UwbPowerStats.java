@@ -23,6 +23,13 @@ public class UwbPowerStats {
     private static final String TAG = UwbPowerStats.class.getSimpleName();
 
     /**
+     * The duration of UWB operating in the idle mode (neither Tx nor Rx).
+     * For the HW with very low idle current, it may not be meaningful to maintain this
+     * count and thus the value could be always zero.
+     */
+    private int mIdleTimeMs;
+
+    /**
      * The duration of UWB operating in the Tx mode in millis.
      * This may include time for HW configuration, ramp up and down.
      */
@@ -35,22 +42,22 @@ public class UwbPowerStats {
     private int mRxTimeMs;
 
     /**
-     * The duration of UWB operating in the idle mode (neither Tx nor Rx).
-     * For the HW with very low idle current, it may not be meaningful to maintain this
-     * count and thus the value could be always zero.
-     */
-    private int mIdleTimeMs;
-
-    /**
      * Total count of host wakeup due to UWB subsystem event.
      */
     private int mTotalWakeCount;
 
-    public UwbPowerStats(int txTimeMs, int rxTimeMs, int idleTimeMs, int totalWakeCount) {
+    public UwbPowerStats(int idleTimeMs, int txTimeMs, int rxTimeMs, int totalWakeCount) {
+        mIdleTimeMs = idleTimeMs;
         mTxTimeMs = txTimeMs;
         mRxTimeMs = rxTimeMs;
-        mIdleTimeMs = idleTimeMs;
         mTotalWakeCount = totalWakeCount;
+    }
+
+    /**
+     * get total idle time in millis
+     */
+    public int getIdleTimeMs() {
+        return mIdleTimeMs;
     }
 
     /**
@@ -68,13 +75,6 @@ public class UwbPowerStats {
     }
 
     /**
-     * get total idle time in millis
-     */
-    public int getIdleTimeMs() {
-        return mIdleTimeMs;
-    }
-
-    /**
      * get total wakeup count
      */
     public int getTotalWakeCount() {
@@ -84,9 +84,9 @@ public class UwbPowerStats {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        sb.append("UwbPowerStats: tx_time_ms=").append(mTxTimeMs)
+        sb.append("UwbPowerStats: idle_time_ms=").append(mIdleTimeMs)
+                .append(" tx_time_ms=").append(mTxTimeMs)
                 .append(" rx_time_ms=").append(mRxTimeMs)
-                .append(" idle_time_ms=").append(mIdleTimeMs)
                 .append(" total_wake_count=").append(mTotalWakeCount);
         return sb.toString();
     }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -153,7 +153,7 @@ public class MessageFormatTest extends TestCase {
   public void test_parseObjectLjava_lang_StringLjavajava_text_ParsePosition() throws Exception {
     MessageFormat mf = new MessageFormat("{0,number,#.##}, {0,number,#.#}");
     // case 1: Try to parse correct data string.
-    Object[] objs = { new Double(3.1415) };
+    Object[] objs = { Double.valueOf(3.1415) };
     String result = mf.format(objs);
     // result now equals "3.14, 3.1"
     Object[] res = null;
@@ -163,7 +163,7 @@ public class MessageFormatTest extends TestCase {
     assertTrue("Parse operation return null", res != null);
     assertTrue("parse operation return array with incorrect length", 1 == res.length);
     assertTrue("ParseIndex is incorrect", pp.getIndex() != parseIndex);
-    assertTrue("Result object is incorrect", new Double(3.1).equals(res[0]));
+    assertTrue("Result object is incorrect", Double.valueOf(3.1).equals(res[0]));
 
     // case 2: Try to parse partially correct data string.
     pp.setIndex(0);
@@ -189,7 +189,8 @@ public class MessageFormatTest extends TestCase {
 
     String pattern = "A {3, number, currency} B {2, time} C {0, number, percent} D {4}  E {1,choice,0#off|1#on} F {0, date}";
     MessageFormat mf = new MessageFormat(pattern);
-    String sToParse = "A $12,345.00 B 9:56:07 AM C 3,200% D 1/15/70 9:56 AM  E on F Jan 1, 1970";
+    String sToParse = "A $12,345.00 B 9:56:07" + Support_MessageFormat.AM_PM_SPACE_CHAR
+            + "AM C 3,200% D 1/15/70 9:56 AM  E on F Jan 1, 1970";
     Object[] result = mf.parse(sToParse);
 
     assertTrue("No result: " + result.length, result.length == 5);
@@ -335,7 +336,7 @@ public class MessageFormatTest extends TestCase {
     Date date = new Date();
     FieldPosition pos = new FieldPosition(-1);
     StringBuffer buffer = new StringBuffer();
-    format.format(new Object[] { "123", new Double(1.6), new Double(7.2),
+    format.format(new Object[] { "123", Double.valueOf(1.6), Double.valueOf(7.2),
         date, date }, buffer, pos);
     String result = buffer.toString();
     buffer.setLength(0);
@@ -344,7 +345,7 @@ public class MessageFormatTest extends TestCase {
     buffer.append(" def ");
     buffer.append(DateFormat.getDateInstance().format(date));
     buffer.append(" ghi ");
-    buffer.append(NumberFormat.getInstance().format(new Double(7.2)));
+    buffer.append(NumberFormat.getInstance().format(Double.valueOf(7.2)));
     buffer.append(" jkl high mnop 123");
     assertTrue("Wrong answer:\n" + result + "\n" + buffer, result
                    .equals(buffer.toString()));
@@ -390,7 +391,7 @@ public class MessageFormatTest extends TestCase {
         MessageFormat format = new MessageFormat("test");
         format.applyPattern("xx {0}");
 		assertEquals("Invalid number", "xx 46", format.format(
-				new Object[] { new Integer(46) }));
+				new Object[] { Integer.valueOf(46) }));
         Date date = new Date();
         String result = format.format(new Object[] { date });
         String expected = "xx " + DateFormat.getInstance().format(date);
@@ -505,7 +506,7 @@ public class MessageFormatTest extends TestCase {
 		assertEquals("Wrong choice pattern",
 				"{0,choice,0.0#no|1.0#one|2.0#{1,number}}", format.toPattern());
 		assertEquals("Wrong formatted choice", "3.6", format.format(
-				new Object[] { new Integer(2), new Float(3.6) }));
+				new Object[] { Integer.valueOf(2), Float.valueOf(3.6f) }));
 
         try {
             format.applyPattern("WRONG MESSAGE FORMAT {0,number,{}");
@@ -557,11 +558,11 @@ public class MessageFormatTest extends TestCase {
   public void test_format$Ljava_lang_ObjectLjava_lang_StringBufferLjava_text_FieldPosition() {
     MessageFormat format = new MessageFormat("{1,number,integer}");
     StringBuffer buffer = new StringBuffer();
-    format.format(new Object[] { "0", new Double(53.863) }, buffer,
+    format.format(new Object[] { "0", Double.valueOf(53.863) }, buffer,
                   new FieldPosition(0));
     assertEquals("Wrong result", "54", buffer.toString());
 
-    format.format(new Object[] { "0", new Double(53.863) }, buffer,
+    format.format(new Object[] { "0", Double.valueOf(53.863) }, buffer,
                   new FieldPosition(MessageFormat.Field.ARGUMENT));
     assertEquals("Wrong result", "5454", buffer.toString());
 
@@ -569,23 +570,23 @@ public class MessageFormatTest extends TestCase {
     format.applyPattern("{0,choice,0#zero|1#one '{1,choice,2#two {2,time}}'}");
     Date date = new Date();
     String expectedText = "one two " + DateFormat.getTimeInstance().format(date);
-    format.format(new Object[] { new Double(1.6), new Integer(3), date }, buffer, new FieldPosition(MessageFormat.Field.ARGUMENT));
+    format.format(new Object[] { Double.valueOf(1.6), Integer.valueOf(3), date }, buffer, new FieldPosition(MessageFormat.Field.ARGUMENT));
     assertEquals("Choice not recursive:\n" + expectedText + "\n" + buffer, expectedText, buffer.toString());
 
-    StringBuffer str = format.format(new Object[] { new Double(0.6),
-        new Integer(3)}, buffer, null);
+    StringBuffer str = format.format(new Object[] { Double.valueOf(0.6),
+        Integer.valueOf(3)}, buffer, null);
     assertEquals(expectedText + "zero", str.toString());
     assertEquals(expectedText + "zero", buffer.toString());
 
     try {
-      format.format(new Object[] { "0", new Double(1), "" }, buffer,
+      format.format(new Object[] { "0", Double.valueOf(1), "" }, buffer,
                     new FieldPosition(MessageFormat.Field.ARGUMENT));
       fail();
     } catch (IllegalArgumentException expected) {
     }
 
     try {
-      format.format(new Object[] { "",  new Integer(3)}, buffer,
+      format.format(new Object[] { "",  Integer.valueOf(3)}, buffer,
                     new FieldPosition(MessageFormat.Field.ARGUMENT));
       fail();
     } catch (IllegalArgumentException expected) {
@@ -599,7 +600,7 @@ public class MessageFormatTest extends TestCase {
 
     String pattern = "On {4,date} at {3,time}, he ate {2,number, integer} hamburger{2,choice,1#|1<s}.";
     MessageFormat format = new MessageFormat(pattern, Locale.US);
-    Object[] objects = new Object[] { "", new Integer(3), 8, ""};
+    Object[] objects = new Object[] { "", Integer.valueOf(3), 8, ""};
     try {
       format.format(objects, new StringBuffer(), new FieldPosition(DateFormat.Field.AM_PM));
       fail();
@@ -928,7 +929,7 @@ public class MessageFormatTest extends TestCase {
     MessageFormat mf = new MessageFormat("{0,number,#,##}", Locale.US);
     Object[] res = mf.parse("1,00,00");
     assertEquals("Assert 0: incorrect size of parsed data ", 1, res.length);
-    assertEquals("Assert 1: parsed value incorrectly", new Long(10000), (Long)res[0]);
+    assertEquals("Assert 1: parsed value incorrectly", Long.valueOf(10000), (Long)res[0]);
   }
 
   public void test_format_Object() {

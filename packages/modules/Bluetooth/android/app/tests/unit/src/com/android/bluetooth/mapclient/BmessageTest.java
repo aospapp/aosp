@@ -93,4 +93,31 @@ public class BmessageTest {
         Bmessage message = BmessageParser.createBmessage(NEGATIVE_LENGTH_MESSAGE);
         Assert.assertNull(message);
     }
+
+    @Test
+    public void setCharset() {
+        Bmessage message = new Bmessage();
+
+        message.setCharset("UTF-8");
+
+        Assert.assertEquals(message.getCharset(), "UTF-8");
+    }
+
+    @Test
+    public void setEncoding() {
+        Bmessage message = new Bmessage();
+
+        message.setEncoding("test_encoding");
+
+        Assert.assertEquals(message.getEncoding(), "test_encoding");
+    }
+
+    @Test
+    public void setStatus() {
+        Bmessage message = new Bmessage();
+
+        message.setStatus(Bmessage.Status.READ);
+
+        Assert.assertEquals(message.getStatus(), Bmessage.Status.READ);
+    }
 }

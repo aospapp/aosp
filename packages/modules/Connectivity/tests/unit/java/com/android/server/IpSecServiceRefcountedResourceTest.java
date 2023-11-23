@@ -54,7 +54,7 @@ import java.util.concurrent.ThreadLocalRandom;
 /** Unit tests for {@link IpSecService.RefcountedResource}. */
 @SmallTest
 @RunWith(DevSdkIgnoreRunner.class)
-@DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.R)
+@DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.S_V2)
 public class IpSecServiceRefcountedResourceTest {
     Context mMockContext;
     IpSecService.Dependencies mMockDeps;

@@ -16,11 +16,8 @@
 
 package com.android.cts.verifier.bluetooth;
 
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
+import static android.content.Context.RECEIVER_EXPORTED;
 
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -30,6 +27,9 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.Toast;
+
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
 
 public class BleAdvertiserHardwareScanFilterActivity extends PassFailButtons.Activity {
 
@@ -88,7 +88,7 @@ public class BleAdvertiserHardwareScanFilterActivity extends PassFailButtons.Act
         filter.addAction(BleAdvertiserService.BLE_START_UNSCANNABLE);
         filter.addAction(BleAdvertiserService.BLE_STOP_SCANNABLE);
         filter.addAction(BleAdvertiserService.BLE_STOP_UNSCANNABLE);
-        registerReceiver(onBroadcast, filter);
+        registerReceiver(onBroadcast, filter, RECEIVER_EXPORTED);
     }
 
     @Override

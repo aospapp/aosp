@@ -31,6 +31,7 @@
 
 #include "lang_id/common/lite_base/logging.h"
 #include "lang_id/common/lite_base/macros.h"
+#include "absl/strings/string_view.h"
 
 namespace libtextclassifier3 {
 namespace mobile {
@@ -71,7 +72,7 @@ class WorkspaceRegistry {
   // Returns the index of a named workspace, adding it to the registry first
   // if necessary.
   template <class W>
-  int Request(const std::string &name) {
+  int Request(absl::string_view name) {
     const int id = TypeId<W>::type_id;
     max_workspace_id_ = std::max(id, max_workspace_id_);
     workspace_types_[id] = W::TypeName();
@@ -79,7 +80,7 @@ class WorkspaceRegistry {
     for (int i = 0; i < names.size(); ++i) {
       if (names[i] == name) return i;
     }
-    names.push_back(name);
+    names.push_back(std::string(name));
     return names.size() - 1;
   }
 

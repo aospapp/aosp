@@ -213,6 +213,10 @@ def is_rpm_file(filename):
     mimetype = mimetypes.guess_type(filename)[0] if isfile else None
     isrpm = (mimetype == 'application/x-redhat-package-manager'
              or mimetype == 'application/x-rpm')
+
+    # Most systems won't have rpm defined as a mimetype
+    if not mimetype and filename.endswith('.rpm'):
+        isrpm = True
     logger.debug('is_rpm_file(\'%s\'): isfile=%s, mimetype=\'%s\', isrpm=%s',
                  filename, isfile, mimetype, isrpm)
     return isrpm

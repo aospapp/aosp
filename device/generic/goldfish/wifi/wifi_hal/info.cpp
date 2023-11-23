@@ -16,12 +16,24 @@
 
 #include "info.h"
 
-static const char kInterfaceName[] = "wlan0";
+#include <sys/stat.h>
+
+#include <string>
+
+static const char* const kInterfaceNames[] = {"wlan0", "wlan1"};
 
 Info::Info() {
-    mInterfaces.emplace_back(mNetlink, kInterfaceName);
-    auto handle = reinterpret_cast<wifi_interface_handle>(&mInterfaces.back());
-    mInterfaceHandles.emplace_back(handle);
+    mInterfaces.reserve(sizeof(kInterfaceNames) / sizeof(kInterfaceNames[0]));
+    mInterfaceHandles.reserve(sizeof(kInterfaceNames) / sizeof(kInterfaceNames[0]));
+    for (const auto& name : kInterfaceNames) {
+        std::string test_path = std::string("/sys/class/net/") + name;
+        struct stat ignored_statbuf;
+        if (stat(test_path.c_str(), &ignored_statbuf) == 0) {
+            mInterfaces.emplace_back(mNetlink, name);
+            auto handle = reinterpret_cast<wifi_interface_handle>(&mInterfaces.back());
+            mInterfaceHandles.emplace_back(handle);
+        }
+    }
 }
 
 bool Info::init() {

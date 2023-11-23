@@ -60,6 +60,7 @@ from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_voice_
 from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_volte
 from acts_contrib.test_utils.tel.tel_subscription_utils import get_incoming_voice_sub_id
 from acts_contrib.test_utils.tel.tel_subscription_utils import get_outgoing_voice_sub_id
+from acts_contrib.test_utils.tel.tel_test_utils import get_phone_number
 from acts_contrib.test_utils.tel.tel_test_utils import install_dialer_apk
 from acts_contrib.test_utils.tel.tel_test_utils import num_active_calls
 from acts_contrib.test_utils.tel.tel_test_utils import STORY_LINE
@@ -81,9 +82,11 @@ from acts_contrib.test_utils.tel.tel_voice_utils import call_voicemail_erase_all
 from acts_contrib.test_utils.tel.tel_voice_utils import two_phone_call_leave_voice_mail
 from acts_contrib.test_utils.tel.tel_voice_utils import two_phone_call_long_seq
 from acts_contrib.test_utils.tel.tel_voice_utils import two_phone_call_short_seq
+from acts_contrib.test_utils.tel.tel_voice_utils import wait_and_answer_call
 from acts_contrib.test_utils.tel.tel_voice_utils import wait_for_in_call_active
 from acts_contrib.test_utils.tel.tel_voice_utils import wait_for_ringing_call
 from acts_contrib.test_utils.tel.tel_wifi_utils import set_wifi_to_default
+from acts_contrib.test_utils.tel.tel_wifi_utils import wifi_toggle_state
 from acts.libs.utils.multithread import multithread_func
 
 DEFAULT_PING_DURATION = 120  # in seconds
@@ -122,6 +125,12 @@ class TelLiveVoiceTest(TelephonyBaseTest):
                 carrier == CARRIER_VZW):
             raise signals.TestSkip(
                 "Device Doesn't Support 2g/3G Band.")
+
+    def _is_phone_in_call_not_iwlan(self):
+        return is_phone_in_call_not_iwlan(self.log, self.android_devices[0])
+
+    def _is_phone_in_call_iwlan(self):
+        return is_phone_in_call_iwlan(self.log, self.android_devices[0])
 
 
     """ Tests Begin """
@@ -3789,17 +3798,13 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not phone_setup_iwlan(self.log, self.android_devices[0], False,
-                                 WFC_MODE_WIFI_PREFERRED,
-                                 self.wifi_network_ssid,
-                                 self.wifi_network_pass):
-            self.android_devices[0].log.error(
-                "Failed to setup IWLAN with NON-APM WIFI WFC on")
-            return False
         return test_call_setup_in_active_youtube_video(
             self.log,
             self.android_devices,
-            rat=None,
+            rat="wfc",
+            wfc_mode=WFC_MODE_WIFI_PREFERRED,
+            wifi_ssid=self.wifi_network_ssid,
+            wifi_pwd=self.wifi_network_pass,
             call_direction=DIRECTION_MOBILE_ORIGINATED)
 
     @test_tracker_info(uuid="275a93d6-1f39-40c8-893f-ff77afd09e54")
@@ -3815,17 +3820,13 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not phone_setup_iwlan(self.log, self.android_devices[0], False,
-                                 WFC_MODE_WIFI_PREFERRED,
-                                 self.wifi_network_ssid,
-                                 self.wifi_network_pass):
-            self.android_devices[0].log.error(
-                "Failed to setup iwlan with APM off and WIFI and WFC on")
-            return False
         return test_call_setup_in_active_youtube_video(
             self.log,
             self.android_devices,
-            rat=None,
+            rat="wfc",
+            wfc_mode=WFC_MODE_WIFI_PREFERRED,
+            wifi_ssid=self.wifi_network_ssid,
+            wifi_pwd=self.wifi_network_pass,
             call_direction=DIRECTION_MOBILE_TERMINATED)
 
     @test_tracker_info(uuid="ea087709-d4df-4223-b80c-1b33bacbd5a2")
@@ -3846,17 +3847,15 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             wfc = WFC_MODE_CELLULAR_PREFERRED
         else:
             wfc = WFC_MODE_WIFI_PREFERRED
-        if not phone_setup_iwlan(self.log, self.android_devices[0], True,
-                                 wfc,
-                                 self.wifi_network_ssid,
-                                 self.wifi_network_pass):
-            self.android_devices[0].log.error(
-                "Failed to setup iwlan with APM, WIFI and WFC on")
-            return False
+
         return test_call_setup_in_active_youtube_video(
             self.log,
             self.android_devices,
-            rat=None,
+            rat="wfc",
+            is_airplane_mode=True,
+            wfc_mode=wfc,
+            wifi_ssid=self.wifi_network_ssid,
+            wifi_pwd=self.wifi_network_pass,
             call_direction=DIRECTION_MOBILE_ORIGINATED)
 
     @test_tracker_info(uuid="44cc14e0-60c7-4fdb-ad26-31fdc4e52aaf")
@@ -3877,17 +3876,15 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             wfc = WFC_MODE_CELLULAR_PREFERRED
         else:
             wfc = WFC_MODE_WIFI_PREFERRED
-        if not phone_setup_iwlan(self.log, self.android_devices[0], True,
-                                 wfc,
-                                 self.wifi_network_ssid,
-                                 self.wifi_network_pass):
-            self.android_devices[0].log.error(
-                "Failed to setup iwlan with APM, WIFI and WFC on")
-            return False
+
         return test_call_setup_in_active_youtube_video(
             self.log,
             self.android_devices,
-            rat=None,
+            rat="wfc",
+            is_airplane_mode=True,
+            wfc_mode=wfc,
+            wifi_ssid=self.wifi_network_ssid,
+            wifi_pwd=self.wifi_network_pass,
             call_direction=DIRECTION_MOBILE_TERMINATED)
 
     @test_tracker_info(uuid="e115e8a6-25bf-41fc-aeb8-8f4c922c50e4")
@@ -3903,17 +3900,14 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not phone_setup_iwlan(self.log, self.android_devices[0], True,
-                                 WFC_MODE_CELLULAR_PREFERRED,
-                                 self.wifi_network_ssid,
-                                 self.wifi_network_pass):
-            self.android_devices[0].log.error(
-                "Failed to setup iwlan with APM, WIFI and WFC on")
-            return False
         return test_call_setup_in_active_youtube_video(
             self.log,
             self.android_devices,
-            rat=None,
+            rat="wfc",
+            is_airplane_mode=True,
+            wfc_mode=WFC_MODE_CELLULAR_PREFERRED,
+            wifi_ssid=self.wifi_network_ssid,
+            wifi_pwd=self.wifi_network_pass,
             call_direction=DIRECTION_MOBILE_ORIGINATED)
 
     @test_tracker_info(uuid="d754d3dd-0b02-4f13-bc65-fdafa254196b")
@@ -3929,17 +3923,14 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not phone_setup_iwlan(self.log, self.android_devices[0], True,
-                                 WFC_MODE_CELLULAR_PREFERRED,
-                                 self.wifi_network_ssid,
-                                 self.wifi_network_pass):
-            self.android_devices[0].log.error(
-                "Failed to setup iwlan with APM, WIFI and WFC on")
-            return False
         return test_call_setup_in_active_youtube_video(
             self.log,
             self.android_devices,
-            rat=None,
+            rat="wfc",
+            is_airplane_mode=True,
+            wfc_mode=WFC_MODE_CELLULAR_PREFERRED,
+            wifi_ssid=self.wifi_network_ssid,
+            wifi_pwd=self.wifi_network_pass,
             call_direction=DIRECTION_MOBILE_TERMINATED)
 
     @test_tracker_info(uuid="88822edf-4c4a-4bc4-9280-2f27ee9e28d5")
@@ -3955,19 +3946,14 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not phone_setup_iwlan(self.log,
-                                 self.android_devices[0],
-                                 True,
-                                 WFC_MODE_CELLULAR_PREFERRED,
-                                 self.wifi_network_ssid,
-                                 self.wifi_network_pass):
-            self.android_devices[0].log.error(
-                "Failed to setup iwlan with APM, WIFI and WFC on")
-            return False
         return test_call_setup_in_active_youtube_video(
             self.log,
             self.android_devices,
-            rat=None,
+            rat="wfc",
+            is_airplane_mode=True,
+            wfc_mode=WFC_MODE_CELLULAR_PREFERRED,
+            wifi_ssid=self.wifi_network_ssid,
+            wifi_pwd=self.wifi_network_pass,
             call_direction=DIRECTION_MOBILE_ORIGINATED)
 
     @test_tracker_info(uuid="c4b066b0-3cfd-4831-9c61-5d6b132648c4")
@@ -3983,19 +3969,14 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not phone_setup_iwlan(self.log,
-                                 self.android_devices[0],
-                                 True,
-                                 WFC_MODE_CELLULAR_PREFERRED,
-                                 self.wifi_network_ssid,
-                                 self.wifi_network_pass):
-            self.android_devices[0].log.error(
-                "Failed to setup iwlan with APM, WIFI and WFC on")
-            return False
         return test_call_setup_in_active_youtube_video(
             self.log,
             self.android_devices,
-            rat=None,
+            rat="wfc",
+            is_airplane_mode=True,
+            wfc_mode=WFC_MODE_CELLULAR_PREFERRED,
+            wifi_ssid=self.wifi_network_ssid,
+            wifi_pwd=self.wifi_network_pass,
             call_direction=DIRECTION_MOBILE_TERMINATED)
 
     @test_tracker_info(uuid="f367de12-1fd8-488d-816f-091deaacb791")
@@ -4006,7 +3987,7 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         1. Set the data limit to the current usage
         2. Setup PhoneA WFC mode: WIFI_PREFERRED.
-        3. Make Sure PhoneB is in 3G mode.
+        3. Make Sure PhoneB is in general mode.
         4. Call from PhoneA to PhoneB, accept on PhoneB, hang up on PhoneA.
         5. Call from PhoneA to PhoneB, accept on PhoneB, hang up on PhoneB.
 
@@ -4025,7 +4006,7 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             tasks = [(phone_setup_iwlan,
                       (self.log, ads[0], False, WFC_MODE_WIFI_PREFERRED,
                        self.wifi_network_ssid, self.wifi_network_pass)),
-                     (phone_setup_voice_3g, (self.log, ads[1]))]
+                     (phone_setup_voice_general, (self.log, ads[1]))]
             if not multithread_func(self.log, tasks):
                 self.log.error("Phone Failed to Set Up Properly.")
                 self.tel_logger.set_result(CallResult("CALL_SETUP_FAILURE"))
@@ -4175,6 +4156,148 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             self.wifi_network_pass,
             verify_caller_func=is_phone_in_call_csfb,
             verify_callee_func=is_phone_in_call_csfb)
+
+    @test_tracker_info(uuid="df555d9f-30e6-47f9-9e9f-9814e6892857")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_wfc_lte_call_handover(self):
+        """ WFC to lte handover.
+
+        1. Make a voice call over wifi.
+        2. Turn off Wifi.
+        3. Call should handover from Wifi to LTE.
+        4. Verify call is active.
+        5. Hung up the call on PhoneA
+
+        Returns:
+            True if pass; False if fail.
+        """
+        ads = self.android_devices
+
+        tasks = [(phone_setup_volte, (self.log, ads[0])), (phone_setup_volte,
+                                                           (self.log, ads[1]))]
+        if not multithread_func(self.log, tasks):
+            self.log.error("Phone Failed to Set Up Properly.")
+            raise signals.TestFailure("Failed",
+                extras={"fail_reason": "Phone Failed to Set Up Properly."})
+
+
+        tasks = [(phone_setup_iwlan,
+                  (self.log, ads[0], False, WFC_MODE_WIFI_PREFERRED,
+                   self.wifi_network_ssid, self.wifi_network_pass))]
+
+        if not multithread_func(self.log, tasks):
+            self.log.error("Phone Failed to Set Up Properly.")
+            raise signals.TestFailure("Failed",
+                extras={"fail_reason": "Phone Failed to Set Up Properly."})
+
+        ad_caller = ads[0]
+        ad_callee = ads[1]
+        caller_number = get_phone_number(self.log, ad_caller)
+        callee_number = get_phone_number(self.log, ad_callee)
+
+        try:
+            # Make MO/MT call.
+            if not initiate_call(self.log, ad_caller, callee_number):
+                raise signals.TestFailure("Failed to initiate call")
+            if not wait_and_answer_call(self.log, ad_callee, caller_number):
+                raise signals.TestFailure("Answer call falied")
+            if not self._is_phone_in_call_iwlan():
+                raise signals.TestFailure("Phone call not in Iwlan ")
+            time.sleep(15)
+            # Turn off the wifi and wait call to handover.
+            wifi_toggle_state(self.log, self.android_devices[0], False)
+            time.sleep(15)
+            if not self.is_phone_in_call_volte():
+                raise signals.TestFailure("WFC handover failed, call disconnected ")
+
+            else:
+                self.log.info("Handover Successful")
+
+            if is_phone_in_call(self.log, ads[0]):
+                # hangup call
+                if not hangup_call(self.log, ads[0]):
+                    raise signals.TestFailure("hangup_call fail.")
+
+            else:
+                raise signals.TestFailure("Unexpected call drop.")
+
+
+        except Exception as e:
+                self.log.error("Exception error %s", str(e))
+                return False
+        return True
+
+    @test_tracker_info(uuid="331ff54c-ee36-4f59-9c3c-24faf41b1383")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_lte_wfc_call_handover(self):
+        """ LTE to WFC handover.
+
+        1. Make a voice call over LTE.
+        2. Turn on Wifi.
+        3. Call should handover from LTE to Wifi.
+        4. Verify call is active.
+        5. Hung up the call on PhoneA
+
+        Returns:
+            True if pass; False if fail.
+        """
+        ads = self.android_devices
+
+        tasks = [(phone_setup_volte, (self.log, ads[0])), (phone_setup_volte,
+                                                           (self.log, ads[1]))]
+        if not multithread_func(self.log, tasks):
+            self.log.error("Phone Failed to Set Up Properly.")
+            raise signals.TestFailure("Failed",
+                extras={"fail_reason": "Phone Failed to Set Up Properly."})
+
+
+        tasks = [(phone_setup_iwlan,
+                  (self.log, ads[0], False, WFC_MODE_WIFI_PREFERRED,
+                   self.wifi_network_ssid, self.wifi_network_pass))]
+
+        if not multithread_func(self.log, tasks):
+            self.log.error("Phone Failed to Set Up Properly.")
+            raise signals.TestFailure("Failed",
+                extras={"fail_reason": "Phone Failed to Set Up Properly."})
+
+        ad_caller = ads[0]
+        ad_callee = ads[1]
+        caller_number = get_phone_number(self.log, ad_caller)
+        callee_number = get_phone_number(self.log, ad_callee)
+
+        try:
+            # Turn off the wifi and make a call.
+            wifi_toggle_state(self.log, self.android_devices[0], False)
+            if not initiate_call(self.log, ad_caller, callee_number):
+                raise signals.TestFailure("Failed to initiate call")
+            if not wait_and_answer_call(self.log, ad_callee, caller_number):
+                raise signals.TestFailure("Answer call falied")
+            if not self.is_phone_in_call_volte():
+                raise signals.TestFailure("Phone call not via LTE")
+            time.sleep(15)
+            # Turn on the wifi and wait call to handover.
+            wifi_toggle_state(self.log, self.android_devices[0], True)
+            time.sleep(15)
+            if not self._is_phone_in_call_iwlan():
+                raise signals.TestFailure("LTE handover failed, call disconnected ")
+
+            else:
+                self.log.info("Handover Successful")
+
+            if is_phone_in_call(self.log, ads[0]):
+                # hangup call
+                if not hangup_call(self.log, ads[0]):
+                    raise signals.TestFailure("hangup_call fail.")
+
+            else:
+                raise signals.TestFailure("Unexpected call drop.")
+
+
+        except Exception as e:
+                self.log.error("Exception error %s", str(e))
+                return False
+        return True
+
 
 
 """ Tests End """

@@ -65,16 +65,14 @@ sp<StreamHandler> ResourceManager::obtainStreamHandler(string pCameraId) {
         // CameraInstance::camera
         instance->camera = getEvsEnumerator()->openCamera(pCameraId);
         if (instance->camera.get() == nullptr) {
-            ALOGE("Failed to allocate new EVS Camera interface for %s",
-                  pCameraId.c_str());
+            ALOGE("Failed to allocate new EVS Camera interface for %s", pCameraId.c_str());
             return nullptr;
         }
 
         // CameraInstance::handler
         instance->handler = new StreamHandler(instance->camera);
         if (instance->handler == nullptr) {
-            ALOGE("Failed to create stream handler for %s",
-                  pCameraId.c_str());
+            ALOGE("Failed to create stream handler for %s", pCameraId.c_str());
         }
 
         // Move the newly-created instance into vector, and the vector takes

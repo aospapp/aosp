@@ -66,7 +66,12 @@ void ClearPreviousResults(std::string path) {
 int ReadIo(char *filename, AppSample *sample) {
     FILE *file;
     char line[MAX_LINE];
-    unsigned int rchar, wchar, syscr, syscw, readbytes, writebytes;
+    unsigned int rchar = 0;
+    unsigned int wchar = 0;
+    unsigned int syscr = 0;
+    unsigned int syscw = 0;
+    unsigned int readbytes = 0;
+    unsigned int writebytes = 0;
 
     file = fopen(filename, "r");
     if (!file) return 1;
@@ -289,17 +294,17 @@ void PrintPids(DataContainer& data, std::unordered_map<int, uint64_t>& cpuDataMa
                    cpuLoad);
             isFirstSample = false;
         }
-        printf("-----------------------------------------------------------------------------\n");
+        if (!newerSample) {
+            LOG(ERROR) << "newerSample is null";
+        } else {
+            printf("-----------------------------------------------------------------------------"
+                   "\n");
 #define NUMBER "%-13" PRId64
-        printf("%-15s" NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER "\n",
+            printf("%-15s" NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER "\n",
 #undef NUMBER
-               "Total",
-               newerSample->rchar(),
-               newerSample->wchar(),
-               newerSample->syscr(),
-               newerSample->syscw(),
-               newerSample->readbytes(),
-               newerSample->writebytes());
+                   "Total", newerSample->rchar(), newerSample->wchar(), newerSample->syscr(),
+                   newerSample->syscw(), newerSample->readbytes(), newerSample->writebytes());
+        }
     }
     printf("\nAggregations\n%-10s%-13s%-13s%-13s\n",
            "Total",

@@ -16,14 +16,14 @@
 
 package com.android.permissioncontroller.permission.utils;
 
-import android.util.ArraySet;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Utility methods for dealing with {@link java.util.Collection}s.
@@ -57,29 +57,6 @@ public final class CollectionUtils {
     }
 
     /**
-     * Remove all values in the array set that do <b>not</b> exist in the given collection.
-     *
-     * @param <T> the class of the elements to retain and of the {@code ArraySet}
-     * @param arraySet the {@code ArraySet} whose elements are to be removed or retained
-     * @param valuesToRetain the values to be used to determine which elements to retain
-     *
-     * @return {@code true} if any values were removed from the array set, {@code false} otherwise.
-     *
-     * @see ArraySet#retainAll(java.util.Collection)
-     */
-    @SafeVarargs
-    public static <T> boolean retainAll(ArraySet<T> arraySet, T... valuesToRetain) {
-        boolean removed = false;
-        for (int i = arraySet.size() - 1; i >= 0; i--) {
-            if (!ArrayUtils.contains(valuesToRetain, arraySet.valueAt(i))) {
-                arraySet.removeAt(i);
-                removed = true;
-            }
-        }
-        return removed;
-    }
-
-    /**
      * Return a singleton list containing the element, or an empty list if the element is
      * {@code null}.
      *
@@ -92,5 +69,44 @@ public final class CollectionUtils {
     @NonNull
     public static <T> List<T> singletonOrEmpty(@Nullable T element) {
         return element != null ? Collections.singletonList(element) : Collections.emptyList();
+    }
+
+    /**
+     * Returns whether a byte array is contained within a {@link Set} of byte arrays. Equality is
+     * not compared by reference, but by comparing the elements contained in the arrays.
+     *
+     * @param byteArrays a {@link Set} of byte arrays that will be searched
+     * @param otherByteArray byte array to be searched
+     * @return {@code true} if {@code byteArrays} contains a byte array with identical elements as
+     *         {@code otherByteArray}.
+     */
+    public static boolean contains(@NonNull Set<byte[]> byteArrays,
+            @NonNull byte[] otherByteArray) {
+        for (byte[] byteArray : byteArrays) {
+            if (Arrays.equals(byteArray, otherByteArray)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns whether a {@link Set} of byte arrays is contained within a {@link Set} of byte arrays
+     * as a subset. Equality for arrays is not compared by reference, but by comparing the elements
+     * contained in the arrays.
+     *
+     * @param byteArrays a {@link Set} of byte arrays which will be checked as a superset
+     * @param otherByteArrays a {@link Set} of byte arrays which be checked as a subset
+     * @return {@code true} if {@code byteArrays} contains all the arrays in {@code
+     *     otherByteArrays}.
+     */
+    public static boolean containsSubset(
+            @NonNull Set<byte[]> byteArrays, @NonNull Set<byte[]> otherByteArrays) {
+        for (byte[] byteArray : otherByteArrays) {
+            if (!contains(byteArrays, byteArray)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

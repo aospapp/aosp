@@ -24,7 +24,9 @@ import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.helpers.StaticMetadata.CheckLevel;
 import android.util.Log;
+import android.os.Build;
 import android.os.SystemClock;
+import com.android.compatibility.common.util.PropertyUtil;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -295,44 +297,64 @@ public class FlashlightTest extends Camera2AndroidTestCase {
                 // this will trigger OFF for each id in mFlashCameraIdList
                 mCameraManager.registerTorchCallback(torchListener, mHandler);
 
+                verify(torchListener, timeout(TORCH_TIMEOUT_MS).times(1)).
+                        onTorchModeChanged(id, /*enabled*/false);
+
                 // this will trigger ON for id
                 mCameraManager.setTorchMode(id, true);
                 SystemClock.sleep(TORCH_DURATION_MS);
 
-                // if id == idToOpen, this will trigger UNAVAILABLE and may trigger OFF.
+                verify(torchListener, timeout(TORCH_TIMEOUT_MS).times(1)).
+                        onTorchModeChanged(id, true);
+
+                // if id == idToOpen, this will trigger UNAVAILABLE.
                 // this may trigger UNAVAILABLE for any other id in mFlashCameraIdList
                 openDevice(idToOpen);
 
-                // if id == idToOpen, this will trigger OFF.
-                // this may trigger OFF for any other id in mFlashCameraIdList.
-                closeDevice(idToOpen);
+                try {
+                    if (PropertyUtil.getVendorApiLevel() > Build.VERSION_CODES.TIRAMISU) {
+                        // Opening a camera device shouldn't result in
+                        // onTorchModeChanged() being called. The number of
+                        // invocations should remain at 1 for both ON and OFF.
+                        verify(torchListener, timeout(TORCH_TIMEOUT_MS).times(1)).
+                                onTorchModeChanged(id, false);
+                        verify(torchListener, after(TORCH_TIMEOUT_MS).times(1)).
+                                onTorchModeChanged(id, true);
+                    }
 
-                // this may trigger OFF for id if not received previously.
-                mCameraManager.setTorchMode(id, false);
+                    // if id == idToOpen, this will trigger OFF.
+                    // this may trigger OFF for any other id in mFlashCameraIdList.
+                    closeDevice(idToOpen);
 
-                verify(torchListener, timeout(TORCH_TIMEOUT_MS).times(1)).
-                        onTorchModeChanged(id, true);
-                verify(torchListener, timeout(TORCH_TIMEOUT_MS).times(1)).
-                        onTorchModeChanged(anyString(), eq(true));
+                    // this may trigger OFF for id if not received previously.
+                    mCameraManager.setTorchMode(id, false);
 
-                verify(torchListener, timeout(TORCH_TIMEOUT_MS).atLeast(2)).
-                        onTorchModeChanged(id, false);
-                verify(torchListener, atMost(3)).onTorchModeChanged(id, false);
-
-                verify(torchListener, timeout(TORCH_TIMEOUT_MS).
-                        atLeast(mFlashCameraIdList.size())).
-                        onTorchModeChanged(anyString(), eq(false));
-                verify(torchListener, atMost(mFlashCameraIdList.size() * 2 + 1)).
-                        onTorchModeChanged(anyString(), eq(false));
-
-                if (hasFlash(idToOpen)) {
                     verify(torchListener, timeout(TORCH_TIMEOUT_MS).times(1)).
-                            onTorchModeUnavailable(idToOpen);
-                }
-                verify(torchListener, atMost(mFlashCameraIdList.size())).
-                            onTorchModeUnavailable(anyString());
+                            onTorchModeChanged(id, true);
+                    verify(torchListener, timeout(TORCH_TIMEOUT_MS).times(1)).
+                            onTorchModeChanged(anyString(), eq(true));
 
-                mCameraManager.unregisterTorchCallback(torchListener);
+                    verify(torchListener, timeout(TORCH_TIMEOUT_MS).atLeast(2)).
+                            onTorchModeChanged(id, false);
+                    verify(torchListener, atMost(3)).onTorchModeChanged(id, false);
+
+                    verify(torchListener, timeout(TORCH_TIMEOUT_MS).
+                            atLeast(mFlashCameraIdList.size())).
+                            onTorchModeChanged(anyString(), eq(false));
+                    verify(torchListener, atMost(mFlashCameraIdList.size() * 2 + 1)).
+                            onTorchModeChanged(anyString(), eq(false));
+
+                    if (hasFlash(idToOpen)) {
+                        verify(torchListener, timeout(TORCH_TIMEOUT_MS).times(1)).
+                                onTorchModeUnavailable(idToOpen);
+                    }
+                    verify(torchListener, atMost(mFlashCameraIdList.size())).
+                                onTorchModeUnavailable(anyString());
+
+                    mCameraManager.unregisterTorchCallback(torchListener);
+                } finally {
+                    closeDevice(idToOpen);
+                }
             }
         }
     }

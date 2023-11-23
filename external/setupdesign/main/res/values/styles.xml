@@ -168,6 +168,10 @@
         <item name="sudDividerInsetStart">@dimen/sud_items_glif_icon_divider_inset</item>
         <item name="sudDividerInsetStartNoIcon">@dimen/sud_items_glif_text_divider_inset</item>
         <item name="sudDividerShown">true</item>
+        <item name="sudGlifAccountContainerStyle">@style/SudGlifAccountContainer</item>
+        <item name="sudGlifAccountNameStyle">@style/SudGlifAccountName</item>
+        <item name="sudGlifAccountAvatarSize">@dimen/sud_account_avatar_max_height</item>
+        <item name="sudGlifAccountAvatarStyle">@style/SudGlifAccountAvatar</item>
         <item name="sudGlifHeaderTitleStyle">@style/SudGlifHeaderTitle</item>
         <item name="sudGlifHeaderGravity">start</item>
         <item name="sudGlifSubtitleGravity">start</item>
@@ -192,6 +196,7 @@
         <item name="textAppearanceListItemSmall">@style/TextAppearance.SudGlifItemSummary</item>
         <item name="sucFooterBarButtonFontFamily">?attr/sudButtonFontFamily</item>
         <item name="sucFooterBarButtonCornerRadius">?attr/sudButtonCornerRadius</item>
+        <item name="sucFooterBarButtonAlignEnd">false</item>
         <item name="sucFooterBarButtonAllCaps">?attr/sudButtonAllCaps</item>
         <item name="sucFooterBarButtonColorControlHighlightRipple">?attr/colorAccent</item>
         <item name="sucFooterBarButtonHighlightAlpha">?attr/sudButtonHighlightAlpha</item>
@@ -262,6 +267,10 @@
         <item name="sudDividerInsetStart">@dimen/sud_items_glif_icon_divider_inset</item>
         <item name="sudDividerInsetStartNoIcon">@dimen/sud_items_glif_text_divider_inset</item>
         <item name="sudDividerShown">true</item>
+        <item name="sudGlifAccountContainerStyle">@style/SudGlifAccountContainer</item>
+        <item name="sudGlifAccountNameStyle">@style/SudGlifAccountName</item>
+        <item name="sudGlifAccountAvatarSize">@dimen/sud_account_avatar_max_height</item>
+        <item name="sudGlifAccountAvatarStyle">@style/SudGlifAccountAvatar</item>
         <item name="sudGlifHeaderTitleStyle">@style/SudGlifHeaderTitle</item>
         <item name="sudGlifHeaderGravity">start</item>
         <item name="sudGlifSubtitleGravity">start</item>
@@ -286,6 +295,7 @@
         <item name="textAppearanceListItemSmall">@style/TextAppearance.SudGlifItemSummary</item>
         <item name="sucFooterBarButtonFontFamily">?attr/sudButtonFontFamily</item>
         <item name="sucFooterBarButtonCornerRadius">?attr/sudButtonCornerRadius</item>
+        <item name="sucFooterBarButtonAlignEnd">false</item>
         <item name="sucFooterBarButtonAllCaps">?attr/sudButtonAllCaps</item>
         <item name="sucFooterBarButtonColorControlHighlightRipple">?attr/colorAccent</item>
         <item name="sucFooterBarButtonHighlightAlpha">?attr/sudButtonHighlightAlpha</item>
@@ -394,9 +404,11 @@
         <item name="sucHeaderContainerMarginBottom">@dimen/sud_header_container_margin_bottom_material_you</item>
         <item name="sucFooterBarButtonFontFamily">@string/sudFontSecondaryMediumMaterialYou</item>
         <item name="sucGlifIconMarginTop">@dimen/sud_glif_icon_margin_top_material_you</item>
+        <item name="sucFooterBarButtonAlignEnd">@bool/suc_footer_bar_button_align_end</item>
         <item name="sudButtonCornerRadius">@dimen/sud_footer_bar_button_radius_material_you</item>
         <item name="sudButtonTertiaryGravity">center_horizontal</item>
         <item name="sudGlifIconSize">@dimen/sud_glif_icon_max_height_material_you</item>
+        <item name="sudGlifAccountContainerStyle">@style/SudGlifAccountContainerMaterialYou</item>
         <item name="sudGlifHeaderTitleStyle">@style/SudGlifHeaderTitleMaterialYou</item>
         <item name="sudGlifHeaderGravity">start</item>
         <item name="sucGlifHeaderMarginTop">@dimen/sud_glif_header_title_margin_top_material_you</item>
@@ -415,7 +427,7 @@
         <item name="sudItemDescriptionStyle">@style/SudItemContainerMaterialYou.Description</item>
         <item name="sudItemVerboseTitleStyle">@style/SudMaterialYouItemTitle.Verbose</item>
         <item name="alertDialogTheme">@style/SudMaterialYouAlertDialogThemeCompat</item>
-        <item name="android:alertDialogTheme" >@style/SudMaterialYouAlertDialogTheme</item>
+        <item name="android:alertDialogTheme">@style/SudMaterialYouAlertDialogTheme</item>
     </style>
 
     <style name="SudThemeGlifV4.Light" parent="SudThemeGlifV3.Light">
@@ -424,6 +436,7 @@
         <item name="sucFooterBarPaddingStart">@dimen/sud_glif_footer_bar_padding_start_material_you</item>
         <item name="sucFooterBarPaddingEnd">@dimen/sud_glif_footer_bar_padding_end_material_you</item>
         <item name="sucFooterBarMinHeight">@dimen/sud_glif_footer_bar_min_height_material_you</item>
+        <item name="sucFooterBarButtonAlignEnd">@bool/suc_footer_bar_button_align_end</item>
         <item name="sudMarginEnd">@dimen/sud_glif_margin_end_material_you</item>
         <item name="sucHeaderContainerMarginBottom">@dimen/sud_header_container_margin_bottom_material_you</item>
         <item name="sucFooterBarButtonFontFamily">@string/sudFontSecondaryMediumMaterialYou</item>
@@ -431,6 +444,7 @@
         <item name="sudButtonCornerRadius">@dimen/sud_footer_bar_button_radius_material_you</item>
         <item name="sudButtonTertiaryGravity">center_horizontal</item>
         <item name="sudGlifIconSize">@dimen/sud_glif_icon_max_height_material_you</item>
+        <item name="sudGlifAccountContainerStyle">@style/SudGlifAccountContainerMaterialYou</item>
         <item name="sudGlifHeaderTitleStyle">@style/SudGlifHeaderTitleMaterialYou</item>
         <item name="sudGlifHeaderGravity">start</item>
         <item name="sucGlifHeaderMarginTop">@dimen/sud_glif_header_title_margin_top_material_you</item>
@@ -449,7 +463,7 @@
         <item name="sudItemDescriptionStyle">@style/SudItemContainerMaterialYou.Description</item>
         <item name="sudItemVerboseTitleStyle">@style/SudMaterialYouItemTitle.Verbose</item>
         <item name="alertDialogTheme">@style/SudMaterialYouAlertDialogThemeCompat.Light</item>
-        <item name="android:alertDialogTheme" >@style/SudMaterialYouAlertDialogTheme.Light</item>
+        <item name="android:alertDialogTheme">@style/SudMaterialYouAlertDialogTheme.Light</item>
     </style>
 
     <style name="SudDynamicColorTheme" />
@@ -877,6 +891,7 @@
         <item name="android:textColor">?android:attr/textColorPrimary</item>
         <item name="android:textDirection" tools:targetApi="jelly_bean_mr1">locale</item>
         <item name="android:accessibilityHeading" tools:targetApi="p">true</item>
+        <item name="android:hyphenationFrequency" tools:targetApi="23">full</item>
     </style>
 
     <style name="SudGlifHeaderTitleMaterialYou">
@@ -895,6 +910,7 @@
         <item name="android:textDirection" tools:targetApi="jelly_bean_mr1">locale</item>
         <item name="android:accessibilityHeading" tools:targetApi="p">true</item>
         <item name="android:textSize">@dimen/sud_glif_header_title_size_material_you</item>
+        <item name="android:hyphenationFrequency" tools:targetApi="23">full</item>
     </style>
 
     <style name="SudGlifDescription" parent="SudDescription.Glif">
@@ -926,16 +942,51 @@
         <item name="android:textSize">@dimen/sud_glif_description_text_size_material_you</item>
     </style>
 
+    <style name="SudGlifAccountContainerMaterialYou">
+        <item name="android:layout_marginBottom">@dimen/sud_glif_header_title_margin_bottom_material_you</item>
+        <item name="android:layout_marginTop">@dimen/sud_glif_header_title_margin_top_material_you</item>
+        <item name="android:layout_marginLeft">?attr/sudMarginStart</item>
+        <item name="android:layout_marginStart" tools:ignore="NewApi">?attr/sudMarginStart</item>
+        <item name="android:layout_marginRight">?attr/sudMarginEnd</item>
+        <item name="android:layout_marginEnd" tools:ignore="NewApi">?attr/sudMarginEnd</item>
+        <item name="android:gravity">?attr/sudGlifHeaderGravity</item>
+    </style>
+
+    <style name="SudGlifAccountAvatar">
+        <item name="android:layout_marginRight">@dimen/sud_account_avatar_margin_end</item>
+        <item name="android:layout_marginEnd">@dimen/sud_account_avatar_margin_end</item>
+        <item name="android:adjustViewBounds">true</item>
+        <item name="android:maxHeight">@dimen/sud_account_avatar_max_height</item>
+        <item name="android:layout_gravity">center_vertical</item>
+    </style>
+
+    <style name="SudGlifAccountName">
+        <item name="android:fontFamily" tools:targetApi="jelly_bean">@string/sudFontSecondary</item>
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
+        <item name="android:textSize">@dimen/sud_account_name_text_size</item>
+        <item name="android:layout_gravity">center_vertical</item>
+    </style>
+
     <style name="SudGlifHeaderContainer">
         <item name="android:gravity">?attr/sudGlifHeaderGravity</item>
         <item name="android:layout_marginBottom">?attr/sucHeaderContainerMarginBottom</item>
     </style>
 
+    <style name="SudGlifAccountContainer">
+        <item name="android:layout_marginBottom">@dimen/sud_glif_header_title_margin_bottom_material_you</item>
+        <item name="android:layout_marginTop">@dimen/sud_glif_header_title_margin_top_material_you</item>
+        <item name="android:layout_marginLeft">?attr/sudMarginStart</item>
+        <item name="android:layout_marginStart" tools:ignore="NewApi">?attr/sudMarginStart</item>
+        <item name="android:layout_marginRight">?attr/sudMarginEnd</item>
+        <item name="android:layout_marginEnd" tools:ignore="NewApi">?attr/sudMarginEnd</item>
+        <item name="android:gravity">?attr/sudGlifHeaderGravity</item>
+    </style>
+
     <style name="SudGlifIconContainer">
         <item name="android:layout_marginLeft">?attr/sudMarginStart</item>
-      <item name="android:layout_marginStart" tools:ignore="NewApi">?attr/sudMarginStart</item>
+        <item name="android:layout_marginStart" tools:ignore="NewApi">?attr/sudMarginStart</item>
         <item name="android:layout_marginRight">?attr/sudMarginEnd</item>
-      <item name="android:layout_marginEnd" tools:ignore="NewApi">?attr/sudMarginEnd</item>
+        <item name="android:layout_marginEnd" tools:ignore="NewApi">?attr/sudMarginEnd</item>
         <item name="android:layout_marginTop">?attr/sucGlifIconMarginTop</item>
         <item name="android:maxHeight">?attr/sudGlifIconSize</item>
     </style>

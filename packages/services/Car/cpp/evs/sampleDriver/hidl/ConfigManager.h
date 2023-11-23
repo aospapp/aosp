@@ -16,25 +16,23 @@
 #ifndef CONFIG_MANAGER_H
 #define CONFIG_MANAGER_H
 
-#include <vector>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
+#include "ConfigManagerUtil.h"
+
+#include <android-base/logging.h>
+#include <android/hardware/automotive/evs/1.1/types.h>
+#include <system/camera_metadata.h>
 
 #include <tinyxml2.h>
 
-#include <system/camera_metadata.h>
-#include <android/hardware/automotive/evs/1.1/types.h>
-#include <android-base/logging.h>
-
-#include "ConfigManagerUtil.h"
-
-using namespace std;
-using namespace tinyxml2;
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 using ::android::hardware::hidl_vec;
-using ::android::hardware::camera::device::V3_2::Stream;
 using ::android::hardware::automotive::evs::V1_1::CameraParam;
+using ::android::hardware::camera::device::V3_2::Stream;
+using ::tinyxml2::XMLElement;
 
 /*
  * Plese note that this is different from what is defined in
@@ -55,9 +53,7 @@ public:
     /* Camera device's capabilities and metadata */
     class CameraInfo {
     public:
-        CameraInfo() :
-            characteristics(nullptr) {
-            /* Nothing to do */
+        CameraInfo() : characteristics(nullptr) { /* Nothing to do */
         }
 
         virtual ~CameraInfo();
@@ -77,24 +73,22 @@ public:
          * List of supported controls that the primary client can program.
          * Paraemters are stored with its valid range
          */
-        unordered_map<CameraParam,
-                      tuple<int32_t, int32_t, int32_t>> controls;
+        std::unordered_map<CameraParam, std::tuple<int32_t, int32_t, int32_t>> controls;
 
         /*
          * List of supported output stream configurations; each array stores
          * format, width, height, and direction values in the order.
          */
-        unordered_map<int32_t, RawStreamConfiguration> streamConfigurations;
+        std::unordered_map<int32_t, RawStreamConfiguration> streamConfigurations;
 
         /*
          * Internal storage for camera metadata.  Each entry holds a pointer to
          * data and number of elements
          */
-        unordered_map<camera_metadata_tag_t,
-                      pair<void *, size_t>> cameraMetadata;
+        std::unordered_map<camera_metadata_tag_t, std::pair<void*, size_t>> cameraMetadata;
 
         /* Camera module characteristics */
-        camera_metadata_t *characteristics;
+        camera_metadata_t* characteristics;
     };
 
     class CameraGroupInfo : public CameraInfo {
@@ -102,7 +96,7 @@ public:
         CameraGroupInfo() {}
 
         /* ID of member camera devices */
-        unordered_set<string> devices;
+        std::unordered_set<std::string> devices;
 
         /* The capture operation of member camera devices are synchronized */
         int32_t synchronized = 0;
@@ -120,7 +114,7 @@ public:
          * List of supported input stream configurations; each array stores
          * format, width, height, and direction values in the order.
          */
-        unordered_map<int32_t, RawStreamConfiguration> streamConfigurations;
+        std::unordered_map<int32_t, RawStreamConfiguration> streamConfigurations;
     };
 
     /*
@@ -129,8 +123,8 @@ public:
      * @return SystemInfo
      *         Constant reference of SystemInfo.
      */
-    const SystemInfo &getSystemInfo() {
-        unique_lock<mutex> lock(mConfigLock);
+    const SystemInfo& getSystemInfo() {
+        std::unique_lock<std::mutex> lock(mConfigLock);
         mConfigCond.wait(lock, [this] { return mIsReady; });
         return mSystemInfo;
     }
@@ -140,14 +134,14 @@ public:
      *
      * This function assumes that it is not being called frequently.
      *
-     * @return vector<string>
-     *         A vector that contains unique camera device identifiers.
+     * @return std::vector<std::string>
+     *         A std::vector that contains unique camera device identifiers.
      */
-    vector<string> getCameraIdList() {
-        unique_lock<mutex> lock(mConfigLock);
+    std::vector<std::string> getCameraIdList() {
+        std::unique_lock<std::mutex> lock(mConfigLock);
         mConfigCond.wait(lock, [this] { return mIsReady; });
 
-        vector<string> aList;
+        std::vector<std::string> aList;
         for (auto&& v : mCameraInfo) {
             aList.emplace_back(v.first);
         }
@@ -160,14 +154,14 @@ public:
      *
      * This function assumes that it is not being called frequently.
      *
-     * @return vector<string>
-     *         A vector that contains unique camera device identifiers.
+     * @return std::vector<std::string>
+     *         A std::vector that contains unique camera device identifiers.
      */
-    vector<string> getCameraGroupIdList() {
-        unique_lock<mutex> lock(mConfigLock);
+    std::vector<std::string> getCameraGroupIdList() {
+        std::unique_lock<std::mutex> lock(mConfigLock);
         mConfigCond.wait(lock, [this] { return mIsReady; });
 
-        vector<string> aList;
+        std::vector<std::string> aList;
         for (auto&& v : mCameraGroups) {
             aList.emplace_back(v.first);
         }
@@ -181,8 +175,8 @@ public:
      * @return CameraGroup
      *         A pointer to a camera group identified by a given id.
      */
-    unique_ptr<CameraGroupInfo>& getCameraGroupInfo(const string& gid) {
-        unique_lock<mutex> lock(mConfigLock);
+    std::unique_ptr<CameraGroupInfo>& getCameraGroupInfo(const std::string& gid) {
+        std::unique_lock<std::mutex> lock(mConfigLock);
         mConfigCond.wait(lock, [this] { return mIsReady; });
 
         return mCameraGroups[gid];
@@ -192,15 +186,15 @@ public:
      * Return a camera metadata
      *
      * @param  cameraId
-     *         Unique camera node identifier in string
+     *         Unique camera node identifier in std::string
      *
-     * @return unique_ptr<CameraInfo>
+     * @return std::unique_ptr<CameraInfo>
      *         A pointer to CameraInfo that is associated with a given camera
      *         ID.  This returns a null pointer if this does not recognize a
      *         given camera identifier.
      */
-    unique_ptr<CameraInfo>& getCameraInfo(const string cameraId) noexcept {
-        unique_lock<mutex> lock(mConfigLock);
+    std::unique_ptr<CameraInfo>& getCameraInfo(const std::string cameraId) noexcept {
+        std::unique_lock<std::mutex> lock(mConfigLock);
         mConfigCond.wait(lock, [this] { return mIsReady; });
 
         return mCameraInfo[cameraId];
@@ -212,48 +206,44 @@ public:
      * @return bool
      *         True if configuration data is ready to be consumed.
      */
-    bool isReady() const {
-        return mIsReady;
-    }
+    bool isReady() const { return mIsReady; }
 
 private:
     /* Constructors */
-    ConfigManager() :
-        mBinaryFilePath("") {
-    }
+    ConfigManager() : mBinaryFilePath("") {}
 
-    static const char* CONFIG_DEFAULT_PATH;
-    static const char* CONFIG_OVERRIDE_PATH;
+    static const char CONFIG_DEFAULT_PATH[];
+    static const char CONFIG_OVERRIDE_PATH[];
 
     /* System configuration */
     SystemInfo mSystemInfo;
 
     /* Internal data structure for camera device information */
-    unordered_map<string, unique_ptr<CameraInfo>> mCameraInfo;
+    std::unordered_map<std::string, std::unique_ptr<CameraInfo>> mCameraInfo;
 
     /* Internal data structure for camera device information */
-    unordered_map<string, unique_ptr<DisplayInfo>> mDisplayInfo;
+    std::unordered_map<std::string, std::unique_ptr<DisplayInfo>> mDisplayInfo;
 
     /* Camera groups are stored in <groud id, CameraGroup> hash map */
-    unordered_map<string, unique_ptr<CameraGroupInfo>> mCameraGroups;
+    std::unordered_map<std::string, std::unique_ptr<CameraGroupInfo>> mCameraGroups;
 
     /*
      * Camera positions are stored in <position, camera id set> hash map.
      * The position must be one of front, rear, left, and right.
      */
-    unordered_map<string, unordered_set<string>>  mCameraPosition;
+    std::unordered_map<std::string, std::unordered_set<std::string>> mCameraPosition;
 
     /* Configuration data lock */
-    mutex mConfigLock;
+    std::mutex mConfigLock;
 
     /*
      * This condition is signalled when it completes a configuration data
      * preparation.
      */
-    condition_variable mConfigCond;
+    std::condition_variable mConfigCond;
 
     /* A path to a binary configuration file */
-    const char *mBinaryFilePath;
+    const char* mBinaryFilePath;
 
     /* Configuration data readiness */
     bool mIsReady = false;
@@ -273,7 +263,7 @@ private:
      * @param  aSysElem
      *         A pointer to "system" XML element.
      */
-    void readSystemInfo(const XMLElement * const aSysElem);
+    void readSystemInfo(const XMLElement* const aSysElem);
 
     /*
      * read the information of camera devices
@@ -282,7 +272,7 @@ private:
      *         A pointer to "camera" XML element that may contain multiple
      *         "device" elements.
      */
-    void readCameraInfo(const XMLElement * const aCameraElem);
+    void readCameraInfo(const XMLElement* const aCameraElem);
 
     /*
      * read display device information
@@ -291,7 +281,7 @@ private:
      *         A pointer to "display" XML element that may contain multiple
      *         "device" elements.
      */
-    void readDisplayInfo(const XMLElement * const aDisplayElem);
+    void readDisplayInfo(const XMLElement* const aDisplayElem);
 
     /*
      * read camera device information
@@ -307,8 +297,7 @@ private:
      *         Return false upon any failure in reading and processing camera
      *         device information.
      */
-    bool readCameraDeviceInfo(CameraInfo *aCamera,
-                              const XMLElement *aDeviceElem);
+    bool readCameraDeviceInfo(CameraInfo* aCamera, const XMLElement* aDeviceElem);
 
     /*
      * read camera metadata
@@ -325,9 +314,8 @@ private:
      * @return size_t
      *         Number of camera metadata entries
      */
-    size_t readCameraCapabilities(const XMLElement * const aCapElem,
-                                  CameraInfo *aCamera,
-                                  size_t &dataSize);
+    size_t readCameraCapabilities(const XMLElement* const aCapElem, CameraInfo* aCamera,
+                                  size_t& dataSize);
 
     /*
      * read camera metadata
@@ -343,9 +331,8 @@ private:
      * @return size_t
      *         Number of camera metadata entries
      */
-    size_t readCameraMetadata(const XMLElement * const aParamElem,
-                              CameraInfo *aCamera,
-                              size_t &dataSize);
+    size_t readCameraMetadata(const XMLElement* const aParamElem, CameraInfo* aCamera,
+                              size_t& dataSize);
 
     /*
      * construct camera_metadata_t from camera capabilities and metadata
@@ -362,8 +349,7 @@ private:
      *         or its size is not large enough to add all found camera metadata
      *         entries.
      */
-    bool constructCameraMetadata(CameraInfo *aCamera,
-                                 const size_t totalEntries,
+    bool constructCameraMetadata(CameraInfo* aCamera, const size_t totalEntries,
                                  const size_t totalDataSize);
 
     /*
@@ -390,9 +376,9 @@ private:
      * @param  aNode
      *         A pointer to the root XML element to navigate.
      * @param  prefix
-     *         A prefix to XML string.
+     *         A prefix to XML std::string.
      */
-    void printElementNames(const XMLElement *aNode, string prefix = "") const;
+    void printElementNames(const XMLElement* aNode, std::string prefix = "") const;
 };
-#endif // CONFIG_MANAGER_H
 
+#endif  // CONFIG_MANAGER_H

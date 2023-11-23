@@ -22,31 +22,27 @@ namespace {
 
 template <typename T, NonUniformVoteOp operation> struct VOTE
 {
+    static void log_test(const WorkGroupParams &test_params,
+                         const char *extra_text)
+    {
+        log_info("  sub_group_%s%s(%s)...%s\n",
+                 (operation == NonUniformVoteOp::elect) ? "" : "non_uniform_",
+                 operation_names(operation), TypeManager<T>::name(),
+                 extra_text);
+    }
+
     static void gen(T *x, T *t, cl_int *m, const WorkGroupParams &test_params)
     {
         int i, ii, j, k, n;
         int nw = test_params.local_workgroup_size;
         int ns = test_params.subgroup_size;
         int ng = test_params.global_workgroup_size;
-        uint32_t work_items_mask = test_params.work_items_mask;
         int nj = (nw + ns - 1) / ns;
         int non_uniform_size = ng % nw;
         ng = ng / nw;
         int last_subgroup_size = 0;
         ii = 0;
 
-        log_info("  sub_group_%s%s... \n",
-                 (operation == NonUniformVoteOp::elect) ? "" : "non_uniform_",
-                 operation_names(operation));
-
-        log_info("  test params: global size = %d local size = %d subgroups "
-                 "size = %d work item mask = 0x%x data type (%s)\n",
-                 test_params.global_workgroup_size, nw, ns, work_items_mask,
-                 TypeManager<T>::name());
-        if (non_uniform_size)
-        {
-            log_info("  non uniform work group size mode ON\n");
-        }
         if (operation == NonUniformVoteOp::elect) return;
 
         for (k = 0; k < ng; ++k)
@@ -92,14 +88,13 @@ template <typename T, NonUniformVoteOp operation> struct VOTE
         }
     }
 
-    static int chk(T *x, T *y, T *mx, T *my, cl_int *m,
-                   const WorkGroupParams &test_params)
+    static test_status chk(T *x, T *y, T *mx, T *my, cl_int *m,
+                           const WorkGroupParams &test_params)
     {
         int ii, i, j, k, n;
         int nw = test_params.local_workgroup_size;
         int ns = test_params.subgroup_size;
         int ng = test_params.global_workgroup_size;
-        uint32_t work_items_mask = test_params.work_items_mask;
         int nj = (nw + ns - 1) / ns;
         cl_int tr, rr;
         int non_uniform_size = ng % nw;
@@ -141,8 +136,7 @@ template <typename T, NonUniformVoteOp operation> struct VOTE
                 std::set<int> active_work_items;
                 for (i = 0; i < n; ++i)
                 {
-                    uint32_t check_work_item = 1 << (i % 32);
-                    if (work_items_mask & check_work_item)
+                    if (test_params.work_items_mask.test(i))
                     {
                         active_work_items.insert(i);
                         switch (operation)
@@ -172,34 +166,28 @@ template <typename T, NonUniformVoteOp operation> struct VOTE
                 }
                 if (active_work_items.empty())
                 {
-                    log_info("  no one workitem acitve... in workgroup id = %d "
-                             "subgroup id = %d\n",
-                             k, j);
+                    continue;
                 }
-                else
+                auto lowest_active = active_work_items.begin();
+                for (const int &active_work_item : active_work_items)
                 {
-                    auto lowest_active = active_work_items.begin();
-                    for (const int &active_work_item : active_work_items)
+                    i = active_work_item;
+                    if (operation == NonUniformVoteOp::elect)
                     {
-                        i = active_work_item;
-                        if (operation == NonUniformVoteOp::elect)
-                        {
-                            i == *lowest_active ? tr = 1 : tr = 0;
-                        }
+                        i == *lowest_active ? tr = 1 : tr = 0;
+                    }
 
-                        // normalize device values on host, non zero set 1.
-                        rr = compare_ordered<T>(my[ii + i], 0) ? 0 : 1;
+                    // normalize device values on host, non zero set 1.
+                    rr = compare_ordered<T>(my[ii + i], 0) ? 0 : 1;
 
-                        if (rr != tr)
-                        {
-                            log_error("ERROR: sub_group_%s() \n",
-                                      operation_names(operation));
-                            log_error(
-                                "mismatch for work item %d sub group %d in "
-                                "work group %d. Expected: %d Obtained: %d\n",
-                                i, j, k, tr, rr);
-                            return TEST_FAIL;
-                        }
+                    if (rr != tr)
+                    {
+                        log_error("ERROR: sub_group_%s() \n",
+                                  operation_names(operation));
+                        log_error("mismatch for work item %d sub group %d in "
+                                  "work group %d. Expected: %d Obtained: %d\n",
+                                  i, j, k, tr, rr);
+                        return TEST_FAIL;
                     }
                 }
             }
@@ -209,52 +197,50 @@ template <typename T, NonUniformVoteOp operation> struct VOTE
             m += 4 * nw;
         }
 
-        log_info("  sub_group_%s%s... passed\n",
-                 (operation == NonUniformVoteOp::elect) ? "" : "non_uniform_",
-                 operation_names(operation));
         return TEST_PASS;
     }
 };
-static const char *elect_source = R"(
-    __kernel void test_elect(const __global Type *in, __global int4 *xy, __global Type *out) {
+
+std::string sub_group_elect_source = R"(
+    __kernel void test_sub_group_elect(const __global Type *in, __global int4 *xy, __global Type *out, uint4 work_item_mask_vector) {
         int gid = get_global_id(0);
         XY(xy,gid);
-        uint elect_work_item = 1 << (get_sub_group_local_id() % 32);
-            if (elect_work_item & WORK_ITEMS_MASK){
-                out[gid] = sub_group_elect();
-            }
+        uint subgroup_local_id = get_sub_group_local_id();
+        uint elect_work_item = 1 << (subgroup_local_id % 32);
+        uint work_item_mask;
+        if(subgroup_local_id < 32) {
+            work_item_mask = work_item_mask_vector.x;
+        } else if(subgroup_local_id < 64) {
+            work_item_mask = work_item_mask_vector.y;
+        } else if(subgroup_local_id < 96) {
+            work_item_mask = work_item_mask_vector.z;
+        } else if(subgroup_local_id < 128) {
+            work_item_mask = work_item_mask_vector.w;
+        }
+        if (elect_work_item & work_item_mask){
+            out[gid] = sub_group_elect();
+        }
     }
 )";
 
-static const char *non_uniform_any_source = R"(
-    __kernel void test_non_uniform_any(const __global Type *in, __global int4 *xy, __global Type *out) {
+std::string sub_group_non_uniform_any_all_all_equal_source = R"(
+    __kernel void test_%s(const __global Type *in, __global int4 *xy, __global Type *out, uint4 work_item_mask_vector) {
         int gid = get_global_id(0);
         XY(xy,gid);
-        uint elect_work_item = 1 << (get_sub_group_local_id() % 32);
-            if (elect_work_item & WORK_ITEMS_MASK){
-                out[gid] = sub_group_non_uniform_any(in[gid]);
-            }
-    }
-)";
-
-static const char *non_uniform_all_source = R"(
-    __kernel void test_non_uniform_all(const __global Type *in, __global int4 *xy, __global Type *out) {
-        int gid = get_global_id(0);
-        XY(xy,gid);
-        uint elect_work_item = 1 << (get_sub_group_local_id() % 32);
-            if (elect_work_item & WORK_ITEMS_MASK){
-                out[gid] = sub_group_non_uniform_all(in[gid]);
-            }
-    }
-)";
-
-static const char *non_uniform_all_equal_source = R"(
-    __kernel void test_non_uniform_all_equal(const __global Type *in, __global int4 *xy, __global Type *out) {
-        int gid = get_global_id(0);
-        XY(xy,gid);
-        uint elect_work_item = 1 << (get_sub_group_local_id() % 32);
-            if (elect_work_item & WORK_ITEMS_MASK){
-                out[gid] = sub_group_non_uniform_all_equal(in[gid]);
+        uint subgroup_local_id = get_sub_group_local_id();
+        uint elect_work_item = 1 << (subgroup_local_id % 32);
+        uint work_item_mask;
+        if(subgroup_local_id < 32) {
+            work_item_mask = work_item_mask_vector.x;
+        } else if(subgroup_local_id < 64) {
+            work_item_mask = work_item_mask_vector.y;
+        } else if(subgroup_local_id < 96) {
+            work_item_mask = work_item_mask_vector.z;
+        } else if(subgroup_local_id < 128) {
+            work_item_mask = work_item_mask_vector.w;
+        }
+        if (elect_work_item & work_item_mask){
+                out[gid] = %s(in[gid]);
             }
     }
 )";
@@ -262,7 +248,7 @@ static const char *non_uniform_all_equal_source = R"(
 template <typename T> int run_vote_all_equal_for_type(RunTestForType rft)
 {
     int error = rft.run_impl<T, VOTE<T, NonUniformVoteOp::all_equal>>(
-        "test_non_uniform_all_equal", non_uniform_all_equal_source);
+        "sub_group_non_uniform_all_equal");
     return error;
 }
 }
@@ -272,17 +258,19 @@ int test_subgroup_functions_non_uniform_vote(cl_device_id device,
                                              cl_command_queue queue,
                                              int num_elements)
 {
-    std::vector<std::string> required_extensions = {
-        "cl_khr_subgroup_non_uniform_vote"
-    };
+    if (!is_extension_available(device, "cl_khr_subgroup_non_uniform_vote"))
+    {
+        log_info("cl_khr_subgroup_non_uniform_vote is not supported on this "
+                 "device, skipping test.\n");
+        return TEST_SKIPPED_ITSELF;
+    }
 
-    std::vector<uint32_t> masks{ 0xffffffff, 0x55aaaa55, 0x5555aaaa, 0xaaaa5555,
-                                 0x0f0ff0f0, 0x0f0f0f0f, 0xff0000ff, 0xff00ff00,
-                                 0x00ffff00, 0x80000000 };
     constexpr size_t global_work_size = 170;
     constexpr size_t local_work_size = 64;
-    WorkGroupParams test_params(global_work_size, local_work_size,
-                                required_extensions, masks);
+    WorkGroupParams test_params(global_work_size, local_work_size, 3);
+    test_params.save_kernel_source(
+        sub_group_non_uniform_any_all_all_equal_source);
+    test_params.save_kernel_source(sub_group_elect_source, "sub_group_elect");
     RunTestForType rft(device, context, queue, num_elements, test_params);
 
     int error = run_vote_all_equal_for_type<cl_int>(rft);
@@ -294,10 +282,10 @@ int test_subgroup_functions_non_uniform_vote(cl_device_id device,
     error |= run_vote_all_equal_for_type<subgroups::cl_half>(rft);
 
     error |= rft.run_impl<cl_int, VOTE<cl_int, NonUniformVoteOp::all>>(
-        "test_non_uniform_all", non_uniform_all_source);
+        "sub_group_non_uniform_all");
     error |= rft.run_impl<cl_int, VOTE<cl_int, NonUniformVoteOp::elect>>(
-        "test_elect", elect_source);
+        "sub_group_elect");
     error |= rft.run_impl<cl_int, VOTE<cl_int, NonUniformVoteOp::any>>(
-        "test_non_uniform_any", non_uniform_any_source);
+        "sub_group_non_uniform_any");
     return error;
 }

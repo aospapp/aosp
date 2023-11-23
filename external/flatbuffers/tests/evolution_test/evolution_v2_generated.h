@@ -6,18 +6,29 @@
 
 #include "flatbuffers/flatbuffers.h"
 
+// Ensure the included flatbuffers.h is the same version as when this file was
+// generated, otherwise it may not be compatible.
+static_assert(FLATBUFFERS_VERSION_MAJOR == 2 &&
+              FLATBUFFERS_VERSION_MINOR == 0 &&
+              FLATBUFFERS_VERSION_REVISION == 7,
+             "Non-compatible flatbuffers version included");
+
 namespace Evolution {
 namespace V2 {
 
 struct TableA;
+struct TableABuilder;
 
 struct TableB;
+struct TableBBuilder;
 
 struct TableC;
+struct TableCBuilder;
 
 struct Struct;
 
 struct Root;
+struct RootBuilder;
 
 enum class Enum : int8_t {
   King = 0,
@@ -50,7 +61,7 @@ inline const char * const *EnumNamesEnum() {
 }
 
 inline const char *EnumNameEnum(Enum e) {
-  if (e < Enum::King || e > Enum::Bishop) return "";
+  if (flatbuffers::IsOutRange(e, Enum::King, Enum::Bishop)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesEnum()[index];
 }
@@ -86,7 +97,7 @@ inline const char * const *EnumNamesUnion() {
 }
 
 inline const char *EnumNameUnion(Union e) {
-  if (e < Union::NONE || e > Union::TableC) return "";
+  if (flatbuffers::IsOutRange(e, Union::NONE, Union::TableC)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesUnion()[index];
 }
@@ -108,7 +119,7 @@ template<> struct UnionTraits<Evolution::V2::TableC> {
 };
 
 bool VerifyUnion(flatbuffers::Verifier &verifier, const void *obj, Union type);
-bool VerifyUnionVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
+bool VerifyUnionVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<Union> *types);
 
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(8) Struct FLATBUFFERS_FINAL_CLASS {
  private:
@@ -117,8 +128,11 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(8) Struct FLATBUFFERS_FINAL_CLASS {
   double b_;
 
  public:
-  Struct() {
-    memset(static_cast<void *>(this), 0, sizeof(Struct));
+  Struct()
+      : a_(0),
+        padding0__(0),
+        b_(0) {
+    (void)padding0__;
   }
   Struct(int32_t _a, double _b)
       : a_(flatbuffers::EndianScalar(_a)),
@@ -135,7 +149,19 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(8) Struct FLATBUFFERS_FINAL_CLASS {
 };
 FLATBUFFERS_STRUCT_END(Struct, 16);
 
+inline bool operator==(const Struct &lhs, const Struct &rhs) {
+  return
+      (lhs.a() == rhs.a()) &&
+      (lhs.b() == rhs.b());
+}
+
+inline bool operator!=(const Struct &lhs, const Struct &rhs) {
+    return !(lhs == rhs);
+}
+
+
 struct TableA FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef TableABuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_A = 4,
     VT_B = 6,
@@ -152,8 +178,8 @@ struct TableA FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<float>(verifier, VT_A) &&
-           VerifyField<int32_t>(verifier, VT_B) &&
+           VerifyField<float>(verifier, VT_A, 4) &&
+           VerifyField<int32_t>(verifier, VT_B, 4) &&
            VerifyOffset(verifier, VT_C) &&
            verifier.VerifyString(c()) &&
            verifier.EndTable();
@@ -161,6 +187,7 @@ struct TableA FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct TableABuilder {
+  typedef TableA Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_a(float a) {
@@ -176,7 +203,6 @@ struct TableABuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  TableABuilder &operator=(const TableABuilder &);
   flatbuffers::Offset<TableA> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<TableA>(end);
@@ -210,6 +236,7 @@ inline flatbuffers::Offset<TableA> CreateTableADirect(
 }
 
 struct TableB FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef TableBBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_A = 4
   };
@@ -218,12 +245,13 @@ struct TableB FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_A) &&
+           VerifyField<int32_t>(verifier, VT_A, 4) &&
            verifier.EndTable();
   }
 };
 
 struct TableBBuilder {
+  typedef TableB Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_a(int32_t a) {
@@ -233,7 +261,6 @@ struct TableBBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  TableBBuilder &operator=(const TableBBuilder &);
   flatbuffers::Offset<TableB> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<TableB>(end);
@@ -250,6 +277,7 @@ inline flatbuffers::Offset<TableB> CreateTableB(
 }
 
 struct TableC FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef TableCBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_A = 4,
     VT_B = 6
@@ -262,7 +290,7 @@ struct TableC FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<double>(verifier, VT_A) &&
+           VerifyField<double>(verifier, VT_A, 8) &&
            VerifyOffset(verifier, VT_B) &&
            verifier.VerifyString(b()) &&
            verifier.EndTable();
@@ -270,6 +298,7 @@ struct TableC FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct TableCBuilder {
+  typedef TableC Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_a(double a) {
@@ -282,7 +311,6 @@ struct TableCBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  TableCBuilder &operator=(const TableCBuilder &);
   flatbuffers::Offset<TableC> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<TableC>(end);
@@ -312,6 +340,7 @@ inline flatbuffers::Offset<TableC> CreateTableCDirect(
 }
 
 struct Root FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RootBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_B = 6,
     VT_C_TYPE = 8,
@@ -322,8 +351,8 @@ struct Root FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_G = 18,
     VT_H = 20,
     VT_I = 22,
-    VT_J = 24,
-    VT_K = 26
+    VT_K = 28,
+    VT_L = 30
   };
   bool b() const {
     return GetField<uint8_t>(VT_B, 0) != 0;
@@ -362,31 +391,31 @@ struct Root FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   uint32_t i() const {
     return GetField<uint32_t>(VT_I, 1234);
   }
-  const Evolution::V2::TableC *j() const {
-    return GetPointer<const Evolution::V2::TableC *>(VT_J);
+  const Evolution::V2::TableC *k() const {
+    return GetPointer<const Evolution::V2::TableC *>(VT_K);
   }
-  uint8_t k() const {
-    return GetField<uint8_t>(VT_K, 56);
+  uint8_t l() const {
+    return GetField<uint8_t>(VT_L, 56);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_B) &&
-           VerifyField<uint8_t>(verifier, VT_C_TYPE) &&
+           VerifyField<uint8_t>(verifier, VT_B, 1) &&
+           VerifyField<uint8_t>(verifier, VT_C_TYPE, 1) &&
            VerifyOffset(verifier, VT_C) &&
            VerifyUnion(verifier, c(), c_type()) &&
-           VerifyField<int8_t>(verifier, VT_D) &&
+           VerifyField<int8_t>(verifier, VT_D, 1) &&
            VerifyOffset(verifier, VT_E) &&
            verifier.VerifyTable(e()) &&
-           VerifyField<Evolution::V2::Struct>(verifier, VT_FF) &&
+           VerifyField<Evolution::V2::Struct>(verifier, VT_FF, 8) &&
            VerifyOffset(verifier, VT_G) &&
            verifier.VerifyVector(g()) &&
            VerifyOffset(verifier, VT_H) &&
            verifier.VerifyVector(h()) &&
            verifier.VerifyVectorOfTables(h()) &&
-           VerifyField<uint32_t>(verifier, VT_I) &&
-           VerifyOffset(verifier, VT_J) &&
-           verifier.VerifyTable(j()) &&
-           VerifyField<uint8_t>(verifier, VT_K) &&
+           VerifyField<uint32_t>(verifier, VT_I, 4) &&
+           VerifyOffset(verifier, VT_K) &&
+           verifier.VerifyTable(k()) &&
+           VerifyField<uint8_t>(verifier, VT_L, 1) &&
            verifier.EndTable();
   }
 };
@@ -404,6 +433,7 @@ template<> inline const Evolution::V2::TableC *Root::c_as<Evolution::V2::TableC>
 }
 
 struct RootBuilder {
+  typedef Root Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_b(bool b) {
@@ -433,17 +463,16 @@ struct RootBuilder {
   void add_i(uint32_t i) {
     fbb_.AddElement<uint32_t>(Root::VT_I, i, 1234);
   }
-  void add_j(flatbuffers::Offset<Evolution::V2::TableC> j) {
-    fbb_.AddOffset(Root::VT_J, j);
+  void add_k(flatbuffers::Offset<Evolution::V2::TableC> k) {
+    fbb_.AddOffset(Root::VT_K, k);
   }
-  void add_k(uint8_t k) {
-    fbb_.AddElement<uint8_t>(Root::VT_K, k, 56);
+  void add_l(uint8_t l) {
+    fbb_.AddElement<uint8_t>(Root::VT_L, l, 56);
   }
   explicit RootBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  RootBuilder &operator=(const RootBuilder &);
   flatbuffers::Offset<Root> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Root>(end);
@@ -458,21 +487,21 @@ inline flatbuffers::Offset<Root> CreateRoot(
     flatbuffers::Offset<void> c = 0,
     Evolution::V2::Enum d = Evolution::V2::Enum::King,
     flatbuffers::Offset<Evolution::V2::TableA> e = 0,
-    const Evolution::V2::Struct *ff = 0,
+    const Evolution::V2::Struct *ff = nullptr,
     flatbuffers::Offset<flatbuffers::Vector<int32_t>> g = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Evolution::V2::TableB>>> h = 0,
     uint32_t i = 1234,
-    flatbuffers::Offset<Evolution::V2::TableC> j = 0,
-    uint8_t k = 56) {
+    flatbuffers::Offset<Evolution::V2::TableC> k = 0,
+    uint8_t l = 56) {
   RootBuilder builder_(_fbb);
-  builder_.add_j(j);
+  builder_.add_k(k);
   builder_.add_i(i);
   builder_.add_h(h);
   builder_.add_g(g);
   builder_.add_ff(ff);
   builder_.add_e(e);
   builder_.add_c(c);
-  builder_.add_k(k);
+  builder_.add_l(l);
   builder_.add_d(d);
   builder_.add_c_type(c_type);
   builder_.add_b(b);
@@ -486,12 +515,12 @@ inline flatbuffers::Offset<Root> CreateRootDirect(
     flatbuffers::Offset<void> c = 0,
     Evolution::V2::Enum d = Evolution::V2::Enum::King,
     flatbuffers::Offset<Evolution::V2::TableA> e = 0,
-    const Evolution::V2::Struct *ff = 0,
+    const Evolution::V2::Struct *ff = nullptr,
     const std::vector<int32_t> *g = nullptr,
     const std::vector<flatbuffers::Offset<Evolution::V2::TableB>> *h = nullptr,
     uint32_t i = 1234,
-    flatbuffers::Offset<Evolution::V2::TableC> j = 0,
-    uint8_t k = 56) {
+    flatbuffers::Offset<Evolution::V2::TableC> k = 0,
+    uint8_t l = 56) {
   auto g__ = g ? _fbb.CreateVector<int32_t>(*g) : 0;
   auto h__ = h ? _fbb.CreateVector<flatbuffers::Offset<Evolution::V2::TableB>>(*h) : 0;
   return Evolution::V2::CreateRoot(
@@ -505,8 +534,8 @@ inline flatbuffers::Offset<Root> CreateRootDirect(
       g__,
       h__,
       i,
-      j,
-      k);
+      k,
+      l);
 }
 
 inline bool VerifyUnion(flatbuffers::Verifier &verifier, const void *obj, Union type) {
@@ -530,7 +559,7 @@ inline bool VerifyUnion(flatbuffers::Verifier &verifier, const void *obj, Union 
   }
 }
 
-inline bool VerifyUnionVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types) {
+inline bool VerifyUnionVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<Union> *types) {
   if (!values || !types) return !values && !types;
   if (values->size() != types->size()) return false;
   for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {

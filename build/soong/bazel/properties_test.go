@@ -231,6 +231,7 @@ func TestResolveExcludes(t *testing.T) {
 				"all_include",
 				"arm_exclude",
 				"android_exclude",
+				"product_config_exclude",
 			},
 			[]string{"all_exclude"},
 		),
@@ -247,14 +248,14 @@ func TestResolveExcludes(t *testing.T) {
 			OsArchConfigurationAxis: labelListSelectValues{
 				"linux_x86": makeLabelList([]string{"linux_x86_include"}, []string{}),
 			},
-			ProductVariableConfigurationAxis("product_with_defaults"): labelListSelectValues{
+			ProductVariableConfigurationAxis("product_with_defaults", NoConfigAxis): labelListSelectValues{
 				"a":                        makeLabelList([]string{}, []string{"not_in_value"}),
 				"b":                        makeLabelList([]string{"b_val"}, []string{}),
 				"c":                        makeLabelList([]string{"c_val"}, []string{}),
-				ConditionsDefaultConfigKey: makeLabelList([]string{"c_val", "default", "default2"}, []string{}),
+				ConditionsDefaultConfigKey: makeLabelList([]string{"c_val", "default", "default2", "all_exclude"}, []string{}),
 			},
-			ProductVariableConfigurationAxis("product_only_with_excludes"): labelListSelectValues{
-				"a": makeLabelList([]string{}, []string{"not_in_value"}),
+			ProductVariableConfigurationAxis("product_only_with_excludes", NoConfigAxis): labelListSelectValues{
+				"a": makeLabelList([]string{}, []string{"product_config_exclude"}),
 			},
 		},
 	}
@@ -281,11 +282,15 @@ func TestResolveExcludes(t *testing.T) {
 			"linux_x86":                makeLabels("linux_x86_include"),
 			ConditionsDefaultConfigKey: nilLabels,
 		},
-		ProductVariableConfigurationAxis("product_with_defaults"): {
+		ProductVariableConfigurationAxis("product_with_defaults", NoConfigAxis): {
 			"a":                        nilLabels,
 			"b":                        makeLabels("b_val"),
 			"c":                        makeLabels("c_val"),
 			ConditionsDefaultConfigKey: makeLabels("c_val", "default", "default2"),
+		},
+		ProductVariableConfigurationAxis("product_only_with_excludes", NoConfigAxis): {
+			"a":                        nilLabels,
+			ConditionsDefaultConfigKey: makeLabels("product_config_exclude"),
 		},
 	}
 	for _, axis := range attr.SortedConfigurationAxes() {
@@ -307,6 +312,134 @@ func TestResolveExcludes(t *testing.T) {
 				t.Errorf("Got unexpected config %q for %s", config, axis)
 			}
 		}
+	}
+}
+
+func TestLabelListAttributePartition(t *testing.T) {
+	testCases := []struct {
+		name         string
+		input        LabelListAttribute
+		predicated   LabelListAttribute
+		unpredicated LabelListAttribute
+		predicate    func(label Label) bool
+	}{
+		{
+			name: "move all to predicated partition",
+			input: MakeLabelListAttribute(makeLabelList(
+				[]string{"keep1", "throw1", "keep2", "throw2"},
+				[]string{"keep1", "throw1", "keep2", "throw2"},
+			)),
+			predicated: MakeLabelListAttribute(makeLabelList(
+				[]string{"keep1", "throw1", "keep2", "throw2"},
+				[]string{"keep1", "throw1", "keep2", "throw2"},
+			)),
+			unpredicated: LabelListAttribute{},
+			predicate: func(label Label) bool {
+				return true
+			},
+		},
+		{
+			name: "move all to unpredicated partition",
+			input: MakeLabelListAttribute(makeLabelList(
+				[]string{"keep1", "throw1", "keep2", "throw2"},
+				[]string{"keep1", "throw1", "keep2", "throw2"},
+			)),
+			predicated: LabelListAttribute{},
+			unpredicated: MakeLabelListAttribute(makeLabelList(
+				[]string{"keep1", "throw1", "keep2", "throw2"},
+				[]string{"keep1", "throw1", "keep2", "throw2"},
+			)),
+			predicate: func(label Label) bool {
+				return false
+			},
+		},
+		{
+			name: "partition includes and excludes",
+			input: MakeLabelListAttribute(makeLabelList(
+				[]string{"keep1", "throw1", "keep2", "throw2"},
+				[]string{"keep1", "throw1", "keep2", "throw2"},
+			)),
+			predicated: MakeLabelListAttribute(makeLabelList(
+				[]string{"keep1", "keep2"},
+				[]string{"keep1", "keep2"},
+			)),
+			unpredicated: MakeLabelListAttribute(makeLabelList(
+				[]string{"throw1", "throw2"},
+				[]string{"throw1", "throw2"},
+			)),
+			predicate: func(label Label) bool {
+				return strings.HasPrefix(label.Label, "keep")
+			},
+		},
+		{
+			name: "partition excludes only",
+			input: MakeLabelListAttribute(makeLabelList(
+				[]string{},
+				[]string{"keep1", "throw1", "keep2", "throw2"},
+			)),
+			predicated: MakeLabelListAttribute(makeLabelList(
+				[]string{},
+				[]string{"keep1", "keep2"},
+			)),
+			unpredicated: MakeLabelListAttribute(makeLabelList(
+				[]string{},
+				[]string{"throw1", "throw2"},
+			)),
+			predicate: func(label Label) bool {
+				return strings.HasPrefix(label.Label, "keep")
+			},
+		},
+		{
+			name: "partition includes only",
+			input: MakeLabelListAttribute(makeLabelList(
+				[]string{"keep1", "throw1", "keep2", "throw2"},
+				[]string{},
+			)),
+			predicated: MakeLabelListAttribute(makeLabelList(
+				[]string{"keep1", "keep2"},
+				[]string{},
+			)),
+			unpredicated: MakeLabelListAttribute(makeLabelList(
+				[]string{"throw1", "throw2"},
+				[]string{},
+			)),
+			predicate: func(label Label) bool {
+				return strings.HasPrefix(label.Label, "keep")
+			},
+		},
+		{
+			name:         "empty partition",
+			input:        MakeLabelListAttribute(makeLabelList([]string{}, []string{})),
+			predicated:   LabelListAttribute{},
+			unpredicated: LabelListAttribute{},
+			predicate: func(label Label) bool {
+				return true
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			predicated, unpredicated := tc.input.Partition(tc.predicate)
+			if !predicated.Value.Equals(tc.predicated.Value) {
+				t.Errorf("expected predicated labels to be %v; got %v", tc.predicated, predicated)
+			}
+			for axis, configs := range predicated.ConfigurableValues {
+				tcConfigs, ok := tc.predicated.ConfigurableValues[axis]
+				if !ok || !reflect.DeepEqual(configs, tcConfigs) {
+					t.Errorf("expected predicated labels to be %v; got %v", tc.predicated, predicated)
+				}
+			}
+			if !unpredicated.Value.Equals(tc.unpredicated.Value) {
+				t.Errorf("expected unpredicated labels to be %v; got %v", tc.unpredicated, unpredicated)
+			}
+			for axis, configs := range unpredicated.ConfigurableValues {
+				tcConfigs, ok := tc.unpredicated.ConfigurableValues[axis]
+				if !ok || !reflect.DeepEqual(configs, tcConfigs) {
+					t.Errorf("expected unpredicated labels to be %v; got %v", tc.unpredicated, unpredicated)
+				}
+			}
+		})
 	}
 }
 
@@ -546,7 +679,7 @@ func TestDeduplicateAxesFromBase(t *testing.T) {
 			OsArchConfigurationAxis: stringListSelectValues{
 				"linux_x86": {"linux_x86_include"},
 			},
-			ProductVariableConfigurationAxis("a"): stringListSelectValues{
+			ProductVariableConfigurationAxis("a", NoConfigAxis): stringListSelectValues{
 				"a": []string{"not_in_value"},
 			},
 		},
@@ -571,7 +704,7 @@ func TestDeduplicateAxesFromBase(t *testing.T) {
 			"linux": []string{"linux_include"},
 		},
 		OsArchConfigurationAxis: stringListSelectValues{},
-		ProductVariableConfigurationAxis("a"): stringListSelectValues{
+		ProductVariableConfigurationAxis("a", NoConfigAxis): stringListSelectValues{
 			"a": []string{"not_in_value"},
 		},
 	}

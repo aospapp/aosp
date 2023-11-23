@@ -1,4 +1,4 @@
-load("@soong_injection//cc_toolchain:constants.bzl", "constants")
+load("@soong_injection//cc_toolchain:config_constants.bzl", "constants")
 
 # This test requires bp2build to run and the generated BUILD files in the source tree.
 sh_test(
@@ -13,7 +13,7 @@ sh_test(
         "//bionic/linker:ld-android_bp2build_cc_library_static",
         "//prebuilts/clang/host/linux-x86:test_tools",
     ],
-    env = {"CLANG_DEFAULT_VERSION": constants.CLANG_DEFAULT_VERSION},
+    env = {"ClangVersion": constants.ClangVersion},
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
@@ -24,6 +24,6 @@ sh_test(
         "//bionic/libc",
         "//bionic/libc:libc_unstripped",
     ],
-    env = {"CLANG_DEFAULT_VERSION": constants.CLANG_DEFAULT_VERSION},
+    env = {"ClangVersion": constants.ClangVersion},
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )

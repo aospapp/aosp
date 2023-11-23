@@ -179,6 +179,10 @@ TEST_F(HidlLazyCbTest, ActiveServicesCallbackTest) {
     FqInstance fqInstance;
     ASSERT_TRUE(fqInstance.setTo(fqInstanceName));
 
+    // b/251244025 - this service logic is coupled with this test, but other
+    // things may have started it
+    (void)android::base::SetProperty("ctl.stop", "hidl_lazy_cb_test_server");
+
     ASSERT_FALSE(isServiceRunning(fqInstance)) << "Lazy service already running.";
 
     sp<IBase> hal = getHal(fqInstance);

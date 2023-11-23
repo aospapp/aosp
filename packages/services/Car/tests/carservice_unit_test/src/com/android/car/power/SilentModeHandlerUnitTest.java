@@ -126,26 +126,26 @@ public final class SilentModeHandlerUnitTest {
 
     @Test
     public void testSetSilentMode_normalSilentToForcedSilent() throws Exception {
-        testSetSilentMode_toForced(/* initSilentMode= */ true, /* expectedSilentMode = */ true);
+        testSetSilentMode_toForced(/* initSilentMode= */ true, /* expectedSilentMode= */ true);
     }
 
     @Test
     public void testSetSilentMode_normalSilentToForcedNonSilent() throws Exception {
-        testSetSilentMode_toForced(/* initSilentMode= */ true, /* expectedSilentMode = */ false);
+        testSetSilentMode_toForced(/* initSilentMode= */ true, /* expectedSilentMode= */ false);
         verify(mCarPowerManagementService, timeout(BUFFER_TIME_TO_AVOID_RACE_CONDITION))
                 .notifySilentModeChange(false);
     }
 
     @Test
     public void testSetSilentMode_normalNonSilentToForcedSilent() throws Exception {
-        testSetSilentMode_toForced(/* initSilentMode= */ false, /* expectedSilentMode = */ true);
+        testSetSilentMode_toForced(/* initSilentMode= */ false, /* expectedSilentMode= */ true);
         verify(mCarPowerManagementService, timeout(BUFFER_TIME_TO_AVOID_RACE_CONDITION))
                 .notifySilentModeChange(true);
     }
 
     @Test
     public void testSetSilentMode_normalNonSilentToForcedNonSilent() throws Exception {
-        testSetSilentMode_toForced(/* initSilentMode= */ false, /* expectedSilentMode = */ false);
+        testSetSilentMode_toForced(/* initSilentMode= */ false, /* expectedSilentMode= */ false);
     }
 
     @Test
@@ -156,6 +156,24 @@ public final class SilentModeHandlerUnitTest {
     @Test
     public void testSetSilentMode_forcedNonSilentToNonForced() throws Exception {
         testSetSilentMode_toNonForced(/* initSilentMode= */ false);
+    }
+
+    @Test
+    public void testStopSilentModeHwStateMonitoring() throws Exception {
+        SilentModeHandler handler = new SilentModeHandler(mCarPowerManagementService,
+                mFileHwStateMonitoring.getFile().getPath(),
+                mFileKernelSilentMode.getFile().getPath(), BOOT_REASON_NORMAL);
+        handler.init();
+        writeStringToFile(mFileHwStateMonitoring.getFile(), VALUE_SILENT_MODE);
+
+        assertSilentMode(handler, /* isForcedMode= */ false, /* expectedSilentMode= */ true);
+
+        handler.release();
+        boolean currentSilentMode = handler.isSilentMode();
+        writeStringToFile(mFileHwStateMonitoring.getFile(), VALUE_NON_SILENT_MODE);
+
+        // Silent mode should not change.
+        assertSilentMode(handler, /* isForcedMode= */ false, currentSilentMode);
     }
 
     private void testSetSilentMode_toForced(boolean initSilentMode, boolean expectedSilentMode)

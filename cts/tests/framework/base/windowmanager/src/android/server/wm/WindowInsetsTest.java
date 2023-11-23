@@ -22,7 +22,9 @@ import static android.view.WindowInsets.Type.ime;
 import static android.view.WindowInsets.Type.mandatorySystemGestures;
 import static android.view.WindowInsets.Type.navigationBars;
 import static android.view.WindowInsets.Type.statusBars;
+import static android.view.WindowInsets.Type.systemBars;
 import static android.view.WindowInsets.Type.systemGestures;
+import static android.view.WindowInsets.Type.systemOverlays;
 import static android.view.WindowInsets.Type.tappableElement;
 
 import static org.junit.Assert.assertEquals;
@@ -38,12 +40,15 @@ import android.graphics.Insets;
 import android.graphics.Rect;
 import android.platform.test.annotations.Presubmit;
 import android.view.DisplayCutout;
+import android.view.DisplayShape;
 import android.view.RoundedCorner;
 import android.view.WindowInsets;
 import android.view.WindowInsets.Type;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.ApiTest;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -56,6 +61,7 @@ import java.util.Collections;
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 @Presubmit
+@android.server.wm.annotation.Group2
 public class WindowInsetsTest {
 
     private static final DisplayCutout CUTOUT = new DisplayCutout(new Rect(0, 10, 0, 0),
@@ -74,6 +80,8 @@ public class WindowInsetsTest {
     private static final int INSET_TOP = 2;
     private static final int INSET_RIGHT = 3;
     private static final int INSET_BOTTOM = 4;
+    private static final DisplayShape DISPLAY_SHAPE =
+            DisplayShape.fromSpecString("M0,0 h100 v200 h-100 z", 1f, 100, 200);
 
     @Test
     public void testBuilder() {
@@ -88,6 +96,7 @@ public class WindowInsetsTest {
                 .setRoundedCorner(RoundedCorner.POSITION_TOP_RIGHT, ROUNDED_CORNER_TOP_RIGHT)
                 .setRoundedCorner(RoundedCorner.POSITION_BOTTOM_RIGHT, ROUNDED_CORNER_BOTTOM_RIGHT)
                 .setRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT, ROUNDED_CORNER_BOTTOM_LEFT)
+                .setDisplayShape(DISPLAY_SHAPE)
                 .build();
 
         assertEquals(Insets.of(1, 2, 3, 4), insets.getSystemWindowInsets());
@@ -105,6 +114,7 @@ public class WindowInsetsTest {
                 insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_RIGHT));
         assertEquals(ROUNDED_CORNER_BOTTOM_LEFT,
                 insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT));
+        assertEquals(DISPLAY_SHAPE, insets.getDisplayShape());
     }
 
     @Test
@@ -120,6 +130,7 @@ public class WindowInsetsTest {
                 .setRoundedCorner(RoundedCorner.POSITION_TOP_RIGHT, ROUNDED_CORNER_TOP_RIGHT)
                 .setRoundedCorner(RoundedCorner.POSITION_BOTTOM_RIGHT, ROUNDED_CORNER_BOTTOM_RIGHT)
                 .setRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT, ROUNDED_CORNER_BOTTOM_LEFT)
+                .setDisplayShape(DISPLAY_SHAPE)
                 .build();
         final WindowInsets copy = new WindowInsets.Builder(insets).build();
 
@@ -193,6 +204,7 @@ public class WindowInsetsTest {
                 .setInsets(displayCutout(), Insets.of(0, 5, 0, 0))
                 .setInsets(captionBar(), Insets.of(0, 50, 0, 0))
                 .setInsets(ime(), Insets.of(0, 0, 0, 300))
+                .setInsets(systemOverlays(), Insets.of(10, 0, 0, 10))
                 .build();
         assertEquals(Insets.of(0, 50, 0, 0), insets.getInsets(statusBars()));
         assertEquals(Insets.of(0, 0, 0, 100), insets.getInsets(navigationBars()));
@@ -201,8 +213,10 @@ public class WindowInsetsTest {
         assertEquals(Insets.of(0, 30, 0, 30), insets.getInsets(systemGestures()));
         assertEquals(Insets.of(0, 5, 0, 0), insets.getInsets(displayCutout()));
         assertEquals(Insets.of(0, 50, 0, 0), insets.getInsets(captionBar()));
-        assertEquals(Insets.of(0, 50, 0, 100), insets.getSystemWindowInsets());
+        assertEquals(Insets.of(10, 50, 0, 100), insets.getSystemWindowInsets());
+        assertEquals(Insets.of(10, 50, 0, 100), insets.getInsets(systemBars()));
         assertEquals(Insets.of(0, 0, 0, 300), insets.getInsets(ime()));
+        assertEquals(Insets.of(10, 0, 0, 10), insets.getInsets(systemOverlays()));
     }
 
     @Test
@@ -215,6 +229,7 @@ public class WindowInsetsTest {
                 .setInsetsIgnoringVisibility(systemGestures(), Insets.of(0, 30, 0, 30))
                 .setInsetsIgnoringVisibility(displayCutout(), Insets.of(0, 5, 0, 0))
                 .setInsetsIgnoringVisibility(captionBar(), Insets.of(0, 50, 0, 0))
+                .setInsetsIgnoringVisibility(systemOverlays(), Insets.of(10, 0, 0, 10))
                 .build();
         assertEquals(Insets.of(0, 50, 0, 0),
                 insets.getInsetsIgnoringVisibility(statusBars()));
@@ -230,7 +245,9 @@ public class WindowInsetsTest {
                 insets.getInsetsIgnoringVisibility(displayCutout()));
         assertEquals(Insets.of(0, 50, 0, 0),
                 insets.getInsetsIgnoringVisibility(captionBar()));
-        assertEquals(Insets.of(0, 50, 0, 100), insets.getStableInsets());
+        assertEquals(Insets.of(10, 0, 0, 10),
+                insets.getInsetsIgnoringVisibility(systemOverlays()));
+        assertEquals(Insets.of(10, 50, 0, 100), insets.getStableInsets());
 
         Exception exception = null;
         try {
@@ -573,6 +590,7 @@ public class WindowInsetsTest {
     }
 
     @Test
+    @ApiTest(apis = {"android.view.WindowInsets#CONSUMED"})
     public void testConsumedInstance() {
         assertTrue(WindowInsets.CONSUMED.isConsumed());
     }

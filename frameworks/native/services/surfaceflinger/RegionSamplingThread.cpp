@@ -40,6 +40,7 @@
 
 #include "DisplayDevice.h"
 #include "DisplayRenderArea.h"
+#include "FrontEnd/LayerCreationArgs.h"
 #include "Layer.h"
 #include "Scheduler/VsyncController.h"
 #include "SurfaceFlinger.h"
@@ -129,12 +130,12 @@ RegionSamplingThread::~RegionSamplingThread() {
     }
 }
 
-void RegionSamplingThread::addListener(const Rect& samplingArea, const wp<Layer>& stopLayer,
+void RegionSamplingThread::addListener(const Rect& samplingArea, uint32_t stopLayerId,
                                        const sp<IRegionSamplingListener>& listener) {
     sp<IBinder> asBinder = IInterface::asBinder(listener);
-    asBinder->linkToDeath(this);
+    asBinder->linkToDeath(sp<DeathRecipient>::fromExisting(this));
     std::lock_guard lock(mSamplingMutex);
-    mDescriptors.emplace(wp<IBinder>(asBinder), Descriptor{samplingArea, stopLayer, listener});
+    mDescriptors.emplace(wp<IBinder>(asBinder), Descriptor{samplingArea, stopLayerId, listener});
 }
 
 void RegionSamplingThread::removeListener(const sp<IRegionSamplingListener>& listener) {
@@ -203,25 +204,14 @@ float sampleArea(const uint32_t* data, int32_t width, int32_t height, int32_t st
         return 0.0f;
     }
 
-    // (b/133849373) ROT_90 screencap images produced upside down
-    auto area = sample_area;
-    if (orientation & ui::Transform::ROT_90) {
-        area.top = height - area.top;
-        area.bottom = height - area.bottom;
-        std::swap(area.top, area.bottom);
-
-        area.left = width - area.left;
-        area.right = width - area.right;
-        std::swap(area.left, area.right);
-    }
-
-    const uint32_t pixelCount = (area.bottom - area.top) * (area.right - area.left);
+    const uint32_t pixelCount =
+            (sample_area.bottom - sample_area.top) * (sample_area.right - sample_area.left);
     uint32_t accumulatedLuma = 0;
 
     // Calculates luma with approximation of Rec. 709 primaries
-    for (int32_t row = area.top; row < area.bottom; ++row) {
+    for (int32_t row = sample_area.top; row < sample_area.bottom; ++row) {
         const uint32_t* rowBase = data + row * stride;
-        for (int32_t column = area.left; column < area.right; ++column) {
+        for (int32_t column = sample_area.left; column < sample_area.right; ++column) {
             uint32_t pixel = rowBase[column];
             const uint32_t r = pixel & 0xFF;
             const uint32_t g = (pixel >> 8) & 0xFF;
@@ -287,54 +277,83 @@ void RegionSamplingThread::captureSample() {
 
     const Rect sampledBounds = sampleRegion.bounds();
     constexpr bool kUseIdentityTransform = false;
+    constexpr bool kHintForSeamlessTransition = false;
 
     SurfaceFlinger::RenderAreaFuture renderAreaFuture = ftl::defer([=] {
         return DisplayRenderArea::create(displayWeak, sampledBounds, sampledBounds.getSize(),
-                                         ui::Dataspace::V0_SRGB, kUseIdentityTransform);
+                                         ui::Dataspace::V0_SRGB, kUseIdentityTransform,
+                                         kHintForSeamlessTransition);
     });
 
     std::unordered_set<sp<IRegionSamplingListener>, SpHash<IRegionSamplingListener>> listeners;
 
-    auto traverseLayers = [&](const LayerVector::Visitor& visitor) {
-        bool stopLayerFound = false;
-        auto filterVisitor = [&](Layer* layer) {
-            // We don't want to capture any layers beyond the stop layer
-            if (stopLayerFound) return;
+    auto layerFilterFn = [&](const char* layerName, uint32_t layerId, const Rect& bounds,
+                             const ui::Transform transform, bool& outStopTraversal) -> bool {
+        // Likewise if we just found a stop layer, set the flag and abort
+        for (const auto& [area, stopLayerId, listener] : descriptors) {
+            if (stopLayerId != UNASSIGNED_LAYER_ID && layerId == stopLayerId) {
+                outStopTraversal = true;
+                return false;
+            }
+        }
 
-            // Likewise if we just found a stop layer, set the flag and abort
-            for (const auto& [area, stopLayer, listener] : descriptors) {
-                if (layer == stopLayer.promote().get()) {
-                    stopLayerFound = true;
+        // Compute the layer's position on the screen
+        constexpr bool roundOutwards = true;
+        Rect transformed = transform.transform(bounds, roundOutwards);
+
+        // If this layer doesn't intersect with the larger sampledBounds, skip capturing it
+        Rect ignore;
+        if (!transformed.intersect(sampledBounds, &ignore)) return false;
+
+        // If the layer doesn't intersect a sampling area, skip capturing it
+        bool intersectsAnyArea = false;
+        for (const auto& [area, stopLayer, listener] : descriptors) {
+            if (transformed.intersect(area, &ignore)) {
+                intersectsAnyArea = true;
+                listeners.insert(listener);
+            }
+        }
+        if (!intersectsAnyArea) return false;
+
+        ALOGV("Traversing [%s] [%d, %d, %d, %d]", layerName, bounds.left, bounds.top, bounds.right,
+              bounds.bottom);
+
+        return true;
+    };
+
+    std::function<std::vector<std::pair<Layer*, sp<LayerFE>>>()> getLayerSnapshots;
+    if (mFlinger.mLayerLifecycleManagerEnabled) {
+        auto filterFn = [&](const frontend::LayerSnapshot& snapshot,
+                            bool& outStopTraversal) -> bool {
+            const Rect bounds =
+                    frontend::RequestedLayerState::reduce(Rect(snapshot.geomLayerBounds),
+                                                          snapshot.transparentRegionHint);
+            const ui::Transform transform = snapshot.geomLayerTransform;
+            return layerFilterFn(snapshot.name.c_str(), snapshot.path.id, bounds, transform,
+                                 outStopTraversal);
+        };
+        getLayerSnapshots =
+                mFlinger.getLayerSnapshotsForScreenshots(layerStack, CaptureArgs::UNSET_UID,
+                                                         filterFn);
+    } else {
+        auto traverseLayers = [&](const LayerVector::Visitor& visitor) {
+            bool stopLayerFound = false;
+            auto filterVisitor = [&](Layer* layer) {
+                // We don't want to capture any layers beyond the stop layer
+                if (stopLayerFound) return;
+
+                if (!layerFilterFn(layer->getDebugName(), layer->getSequence(),
+                                   Rect(layer->getBounds()), layer->getTransform(),
+                                   stopLayerFound)) {
                     return;
                 }
-            }
-
-            // Compute the layer's position on the screen
-            const Rect bounds = Rect(layer->getBounds());
-            const ui::Transform transform = layer->getTransform();
-            constexpr bool roundOutwards = true;
-            Rect transformed = transform.transform(bounds, roundOutwards);
-
-            // If this layer doesn't intersect with the larger sampledBounds, skip capturing it
-            Rect ignore;
-            if (!transformed.intersect(sampledBounds, &ignore)) return;
-
-            // If the layer doesn't intersect a sampling area, skip capturing it
-            bool intersectsAnyArea = false;
-            for (const auto& [area, stopLayer, listener] : descriptors) {
-                if (transformed.intersect(area, &ignore)) {
-                    intersectsAnyArea = true;
-                    listeners.insert(listener);
-                }
-            }
-            if (!intersectsAnyArea) return;
-
-            ALOGV("Traversing [%s] [%d, %d, %d, %d]", layer->getDebugName(), bounds.left,
-                  bounds.top, bounds.right, bounds.bottom);
-            visitor(layer);
+                visitor(layer);
+            };
+            mFlinger.traverseLayersInLayerStack(layerStack, CaptureArgs::UNSET_UID, {},
+                                                filterVisitor);
         };
-        mFlinger.traverseLayersInLayerStack(layerStack, CaptureArgs::UNSET_UID, filterVisitor);
-    };
+        getLayerSnapshots = RenderArea::fromTraverseLayersLambda(traverseLayers);
+    }
 
     std::shared_ptr<renderengine::ExternalTexture> buffer = nullptr;
     if (mCachedBuffer && mCachedBuffer->getBuffer()->getWidth() == sampledBounds.getWidth() &&
@@ -344,8 +363,8 @@ void RegionSamplingThread::captureSample() {
         const uint32_t usage =
                 GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_TEXTURE;
         sp<GraphicBuffer> graphicBuffer =
-                new GraphicBuffer(sampledBounds.getWidth(), sampledBounds.getHeight(),
-                                  PIXEL_FORMAT_RGBA_8888, 1, usage, "RegionSamplingThread");
+                sp<GraphicBuffer>::make(sampledBounds.getWidth(), sampledBounds.getHeight(),
+                                        PIXEL_FORMAT_RGBA_8888, 1, usage, "RegionSamplingThread");
         const status_t bufferStatus = graphicBuffer->initCheck();
         LOG_ALWAYS_FATAL_IF(bufferStatus != OK, "captureSample: Buffer failed to allocate: %d",
                             bufferStatus);
@@ -359,7 +378,7 @@ void RegionSamplingThread::captureSample() {
     constexpr bool kGrayscale = false;
 
     if (const auto fenceResult =
-                mFlinger.captureScreenCommon(std::move(renderAreaFuture), traverseLayers, buffer,
+                mFlinger.captureScreenCommon(std::move(renderAreaFuture), getLayerSnapshots, buffer,
                                              kRegionSampling, kGrayscale, nullptr)
                         .get();
         fenceResult.ok()) {

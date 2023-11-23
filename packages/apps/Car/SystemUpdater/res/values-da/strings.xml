@@ -26,7 +26,7 @@
     <string name="update_file_size" msgid="4816394194716640579">"Størrelse: "</string>
     <string name="install_now" msgid="1526380165774958831">"Installer nu"</string>
     <string name="update_failed" msgid="6878694841476888954">"Opdateringen mislykkedes"</string>
-    <string name="verify_in_progress" msgid="8125900023523483860">"Bekræfter opdatering…"</string>
+    <string name="verify_in_progress" msgid="8125900023523483860">"Verificerer opdatering…"</string>
     <string name="verify_failure" msgid="5077656735909871291">"Vælg en gyldig opdateringsfil."</string>
     <string name="install_ready" msgid="5831701403889581045">"Opdateringen kan nu installeres."</string>
     <string name="install_in_progress" msgid="1447531401625704953">"Installationen er i gang…"</string>

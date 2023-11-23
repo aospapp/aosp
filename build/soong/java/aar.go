@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"android/soong/android"
+	"android/soong/bazel"
 	"android/soong/dexpreopt"
 
 	"github.com/google/blueprint"
@@ -28,8 +29,8 @@ import (
 )
 
 type AndroidLibraryDependency interface {
+	LibraryDependency
 	ExportPackage() android.Path
-	ExportedProguardFlagFiles() android.Paths
 	ExportedRRODirs() []rroDir
 	ExportedStaticPackages() android.Paths
 	ExportedManifests() android.Paths
@@ -105,6 +106,7 @@ type aapt struct {
 	noticeFile              android.OptionalPath
 	assetPackage            android.OptionalPath
 	isLibrary               bool
+	defaultManifestVersion  string
 	useEmbeddedNativeLibs   bool
 	useEmbeddedDex          bool
 	usesNonSdkApis          bool
@@ -217,13 +219,32 @@ func (a *aapt) aapt2Flags(ctx android.ModuleContext, sdkContext android.SdkConte
 	linkFlags = append(linkFlags, android.JoinWithPrefix(assetDirStrings, "-A "))
 	linkDeps = append(linkDeps, assetDeps...)
 
-	// SDK version flags
-	minSdkVersion, err := sdkContext.MinSdkVersion(ctx).EffectiveVersionString(ctx)
-	if err != nil {
-		ctx.ModuleErrorf("invalid minSdkVersion: %s", err)
+	// Returns the effective version for {min|target}_sdk_version
+	effectiveVersionString := func(sdkVersion android.SdkSpec, minSdkVersion android.ApiLevel) string {
+		// If {min|target}_sdk_version is current, use sdk_version to determine the effective level
+		// This is necessary for vendor modules.
+		// The effective version does not _only_ depend on {min|target}_sdk_version(level),
+		// but also on the sdk_version (kind+level)
+		if minSdkVersion.IsCurrent() {
+			ret, err := sdkVersion.EffectiveVersionString(ctx)
+			if err != nil {
+				ctx.ModuleErrorf("invalid sdk_version: %s", err)
+			}
+			return ret
+		}
+		ret, err := minSdkVersion.EffectiveVersionString(ctx)
+		if err != nil {
+			ctx.ModuleErrorf("invalid min_sdk_version: %s", err)
+		}
+		return ret
 	}
+	// SDK version flags
+	sdkVersion := sdkContext.SdkVersion(ctx)
+	minSdkVersion := effectiveVersionString(sdkVersion, sdkContext.MinSdkVersion(ctx))
 
 	linkFlags = append(linkFlags, "--min-sdk-version "+minSdkVersion)
+	// Use minSdkVersion for target-sdk-version, even if `target_sdk_version` is set
+	// This behavior has been copied from Make.
 	linkFlags = append(linkFlags, "--target-sdk-version "+minSdkVersion)
 
 	// Version code
@@ -268,7 +289,7 @@ var extractAssetsRule = pctx.AndroidStaticRule("extractAssets",
 
 func (a *aapt) buildActions(ctx android.ModuleContext, sdkContext android.SdkContext,
 	classLoaderContexts dexpreopt.ClassLoaderContextMap, excludedLibs []string,
-	extraLinkFlags ...string) {
+	enforceDefaultTargetSdkVersion bool, extraLinkFlags ...string) {
 
 	transitiveStaticLibs, transitiveStaticLibManifests, staticRRODirs, assetPackages, libDeps, libFlags :=
 		aaptLibs(ctx, sdkContext, classLoaderContexts)
@@ -281,14 +302,16 @@ func (a *aapt) buildActions(ctx android.ModuleContext, sdkContext android.SdkCon
 	manifestSrcPath := android.PathForModuleSrc(ctx, manifestFile)
 
 	manifestPath := ManifestFixer(ctx, manifestSrcPath, ManifestFixerParams{
-		SdkContext:            sdkContext,
-		ClassLoaderContexts:   classLoaderContexts,
-		IsLibrary:             a.isLibrary,
-		UseEmbeddedNativeLibs: a.useEmbeddedNativeLibs,
-		UsesNonSdkApis:        a.usesNonSdkApis,
-		UseEmbeddedDex:        a.useEmbeddedDex,
-		HasNoCode:             a.hasNoCode,
-		LoggingParent:         a.LoggingParent,
+		SdkContext:                     sdkContext,
+		ClassLoaderContexts:            classLoaderContexts,
+		IsLibrary:                      a.isLibrary,
+		DefaultManifestVersion:         a.defaultManifestVersion,
+		UseEmbeddedNativeLibs:          a.useEmbeddedNativeLibs,
+		UsesNonSdkApis:                 a.usesNonSdkApis,
+		UseEmbeddedDex:                 a.useEmbeddedDex,
+		HasNoCode:                      a.hasNoCode,
+		LoggingParent:                  a.LoggingParent,
+		EnforceDefaultTargetSdkVersion: enforceDefaultTargetSdkVersion,
 	})
 
 	// Add additional manifest files to transitive manifests.
@@ -436,7 +459,7 @@ func aaptLibs(ctx android.ModuleContext, sdkContext android.SdkContext, classLoa
 		switch depTag {
 		case instrumentationForTag:
 			// Nothing, instrumentationForTag is treated as libTag for javac but not for aapt2.
-		case libTag:
+		case sdkLibTag, libTag:
 			if exportPackage != nil {
 				sharedLibs = append(sharedLibs, exportPackage)
 			}
@@ -488,13 +511,13 @@ func aaptLibs(ctx android.ModuleContext, sdkContext android.SdkContext, classLoa
 type AndroidLibrary struct {
 	Library
 	aapt
+	android.BazelModuleBase
 
 	androidLibraryProperties androidLibraryProperties
 
 	aarFile android.WritablePath
 
-	exportedProguardFlagFiles android.Paths
-	exportedStaticPackages    android.Paths
+	exportedStaticPackages android.Paths
 }
 
 var _ android.OutputFileProducer = (*AndroidLibrary)(nil)
@@ -509,10 +532,6 @@ func (a *AndroidLibrary) OutputFiles(tag string) (android.Paths, error) {
 	}
 }
 
-func (a *AndroidLibrary) ExportedProguardFlagFiles() android.Paths {
-	return a.exportedProguardFlagFiles
-}
-
 func (a *AndroidLibrary) ExportedStaticPackages() android.Paths {
 	return a.exportedStaticPackages
 }
@@ -525,13 +544,13 @@ func (a *AndroidLibrary) DepsMutator(ctx android.BottomUpMutatorContext) {
 	if sdkDep.hasFrameworkLibs() {
 		a.aapt.deps(ctx, sdkDep)
 	}
-	a.usesLibrary.deps(ctx, sdkDep.hasFrameworkLibs())
+	a.usesLibrary.deps(ctx, false)
 }
 
 func (a *AndroidLibrary) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	a.aapt.isLibrary = true
 	a.classLoaderContexts = a.usesLibrary.classLoaderContextForUsesLibDeps(ctx)
-	a.aapt.buildActions(ctx, android.SdkContext(a), a.classLoaderContexts, nil)
+	a.aapt.buildActions(ctx, android.SdkContext(a), a.classLoaderContexts, nil, false)
 
 	a.hideApexVariantFromMake = !ctx.Provider(android.ApexInfoProvider).(android.ApexInfo).IsForPlatform()
 
@@ -561,21 +580,36 @@ func (a *AndroidLibrary) GenerateAndroidBuildActions(ctx android.ModuleContext) 
 	a.exportedProguardFlagFiles = append(a.exportedProguardFlagFiles,
 		android.PathsForModuleSrc(ctx, a.dexProperties.Optimize.Proguard_flags_files)...)
 	ctx.VisitDirectDeps(func(m android.Module) {
-		if lib, ok := m.(AndroidLibraryDependency); ok && ctx.OtherModuleDependencyTag(m) == staticLibTag {
-			a.exportedProguardFlagFiles = append(a.exportedProguardFlagFiles, lib.ExportedProguardFlagFiles()...)
-			a.exportedStaticPackages = append(a.exportedStaticPackages, lib.ExportPackage())
-			a.exportedStaticPackages = append(a.exportedStaticPackages, lib.ExportedStaticPackages()...)
+		if ctx.OtherModuleDependencyTag(m) == staticLibTag {
+			if lib, ok := m.(LibraryDependency); ok {
+				a.exportedProguardFlagFiles = append(a.exportedProguardFlagFiles, lib.ExportedProguardFlagFiles()...)
+			}
+			if alib, ok := m.(AndroidLibraryDependency); ok {
+				a.exportedStaticPackages = append(a.exportedStaticPackages, alib.ExportPackage())
+				a.exportedStaticPackages = append(a.exportedStaticPackages, alib.ExportedStaticPackages()...)
+			}
 		}
 	})
-
 	a.exportedProguardFlagFiles = android.FirstUniquePaths(a.exportedProguardFlagFiles)
 	a.exportedStaticPackages = android.FirstUniquePaths(a.exportedStaticPackages)
+
+	prebuiltJniPackages := android.Paths{}
+	ctx.VisitDirectDeps(func(module android.Module) {
+		if info, ok := ctx.OtherModuleProvider(module, JniPackageProvider).(JniPackageInfo); ok {
+			prebuiltJniPackages = append(prebuiltJniPackages, info.JniPackages...)
+		}
+	})
+	if len(prebuiltJniPackages) > 0 {
+		ctx.SetProvider(JniPackageProvider, JniPackageInfo{
+			JniPackages: prebuiltJniPackages,
+		})
+	}
 }
 
 // android_library builds and links sources into a `.jar` file for the device along with Android resources.
 //
 // An android_library has a single variant that produces a `.jar` file containing `.class` files that were
-// compiled against the device bootclasspath, along with a `package-res.apk` file containing  Android resources compiled
+// compiled against the device bootclasspath, along with a `package-res.apk` file containing Android resources compiled
 // with aapt2.  This module is not suitable for installing on a device, but can be used as a `static_libs` dependency of
 // an android_app module.
 func AndroidLibraryFactory() android.Module {
@@ -591,6 +625,7 @@ func AndroidLibraryFactory() android.Module {
 
 	android.InitApexModule(module)
 	InitJavaModule(module, android.DeviceSupported)
+	android.InitBazelModule(module)
 	return module
 }
 
@@ -619,16 +654,23 @@ type AARImportProperties struct {
 	Libs []string
 	// If set to true, run Jetifier against .aar file. Defaults to false.
 	Jetifier *bool
+	// If true, extract JNI libs from AAR archive. These libs will be accessible to android_app modules and
+	// will be passed transitively through android_libraries to an android_app.
+	//TODO(b/241138093) evaluate whether we can have this flag default to true for Bazel conversion
+	Extract_jni *bool
 }
 
 type AARImport struct {
 	android.ModuleBase
 	android.DefaultableModuleBase
 	android.ApexModuleBase
+	android.BazelModuleBase
 	prebuilt android.Prebuilt
 
 	// Functionality common to Module and Import.
 	embeddableInModuleAndImport
+
+	providesTransitiveHeaderJars
 
 	properties AARImportProperties
 
@@ -643,10 +685,11 @@ type AARImport struct {
 
 	hideApexVariantFromMake bool
 
-	aarPath android.Path
+	aarPath     android.Path
+	jniPackages android.Paths
 
 	sdkVersion    android.SdkSpec
-	minSdkVersion android.SdkSpec
+	minSdkVersion android.ApiLevel
 }
 
 var _ android.OutputFileProducer = (*AARImport)(nil)
@@ -671,15 +714,19 @@ func (a *AARImport) SystemModules() string {
 	return ""
 }
 
-func (a *AARImport) MinSdkVersion(ctx android.EarlyModuleContext) android.SdkSpec {
+func (a *AARImport) MinSdkVersion(ctx android.EarlyModuleContext) android.ApiLevel {
 	if a.properties.Min_sdk_version != nil {
-		return android.SdkSpecFrom(ctx, *a.properties.Min_sdk_version)
+		return android.ApiLevelFrom(ctx, *a.properties.Min_sdk_version)
 	}
-	return a.SdkVersion(ctx)
+	return a.SdkVersion(ctx).ApiLevel
 }
 
-func (a *AARImport) TargetSdkVersion(ctx android.EarlyModuleContext) android.SdkSpec {
-	return a.SdkVersion(ctx)
+func (a *AARImport) ReplaceMaxSdkVersionPlaceholder(ctx android.EarlyModuleContext) android.ApiLevel {
+	return android.SdkSpecFrom(ctx, "").ApiLevel
+}
+
+func (a *AARImport) TargetSdkVersion(ctx android.EarlyModuleContext) android.ApiLevel {
+	return a.SdkVersion(ctx).ApiLevel
 }
 
 func (a *AARImport) javaVersion() string {
@@ -746,6 +793,28 @@ func (a *AARImport) DepsMutator(ctx android.BottomUpMutatorContext) {
 	ctx.AddVariationDependencies(nil, libTag, a.properties.Libs...)
 	ctx.AddVariationDependencies(nil, staticLibTag, a.properties.Static_libs...)
 }
+
+type JniPackageInfo struct {
+	// List of zip files containing JNI libraries
+	// Zip files should have directory structure jni/<arch>/*.so
+	JniPackages android.Paths
+}
+
+var JniPackageProvider = blueprint.NewProvider(JniPackageInfo{})
+
+// Unzip an AAR and extract the JNI libs for $archString.
+var extractJNI = pctx.AndroidStaticRule("extractJNI",
+	blueprint.RuleParams{
+		Command: `rm -rf $out $outDir && touch $out && ` +
+			`unzip -qoDD -d $outDir $in "jni/${archString}/*" && ` +
+			`jni_files=$$(find $outDir/jni -type f) && ` +
+			// print error message if there are no JNI libs for this arch
+			`[ -n "$$jni_files" ] || (echo "ERROR: no JNI libs found for arch ${archString}" && exit 1) && ` +
+			`${config.SoongZipCmd} -o $out -P 'lib/${archString}' ` +
+			`-C $outDir/jni/${archString} $$(echo $$jni_files | xargs -n1 printf " -f %s")`,
+		CommandDeps: []string{"${config.SoongZipCmd}"},
+	},
+	"outDir", "archString")
 
 // Unzip an AAR into its constituent files and directories.  Any files in Outputs that don't exist in the AAR will be
 // touched to create an empty file. The res directory is not extracted, as it will be extracted in its own rule.
@@ -849,11 +918,39 @@ func (a *AARImport) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 		a.assetsPackage = mergedAssets
 	}
 
+	a.collectTransitiveHeaderJars(ctx)
 	ctx.SetProvider(JavaInfoProvider, JavaInfo{
 		HeaderJars:                     android.PathsIfNonNil(a.classpathFile),
+		TransitiveLibsHeaderJars:       a.transitiveLibsHeaderJars,
+		TransitiveStaticLibsHeaderJars: a.transitiveStaticLibsHeaderJars,
 		ImplementationAndResourcesJars: android.PathsIfNonNil(a.classpathFile),
 		ImplementationJars:             android.PathsIfNonNil(a.classpathFile),
 	})
+
+	if proptools.Bool(a.properties.Extract_jni) {
+		for _, t := range ctx.MultiTargets() {
+			arch := t.Arch.Abi[0]
+			path := android.PathForModuleOut(ctx, arch+"_jni.zip")
+			a.jniPackages = append(a.jniPackages, path)
+
+			outDir := android.PathForModuleOut(ctx, "aarForJni")
+			aarPath := android.PathForModuleSrc(ctx, a.properties.Aars[0])
+			ctx.Build(pctx, android.BuildParams{
+				Rule:        extractJNI,
+				Input:       aarPath,
+				Outputs:     android.WritablePaths{path},
+				Description: "extract JNI from AAR",
+				Args: map[string]string{
+					"outDir":     outDir.String(),
+					"archString": arch,
+				},
+			})
+		}
+
+		ctx.SetProvider(JniPackageProvider, JniPackageInfo{
+			JniPackages: a.jniPackages,
+		})
+	}
 }
 
 func (a *AARImport) HeaderJars() android.Paths {
@@ -889,7 +986,7 @@ func (g *AARImport) ShouldSupportSdkVersion(ctx android.BaseModuleContext,
 	return nil
 }
 
-var _ android.PrebuiltInterface = (*Import)(nil)
+var _ android.PrebuiltInterface = (*AARImport)(nil)
 
 // android_library_import imports an `.aar` file into the build graph as if it was built with android_library.
 //
@@ -902,6 +999,136 @@ func AARImportFactory() android.Module {
 
 	android.InitPrebuiltModule(module, &module.properties.Aars)
 	android.InitApexModule(module)
-	InitJavaModule(module, android.DeviceSupported)
+	InitJavaModuleMultiTargets(module, android.DeviceSupported)
+	android.InitBazelModule(module)
 	return module
+}
+
+type bazelAapt struct {
+	Manifest       bazel.Label
+	Resource_files bazel.LabelListAttribute
+}
+
+type bazelAndroidLibrary struct {
+	*javaLibraryAttributes
+	*bazelAapt
+}
+
+type bazelAndroidLibraryImport struct {
+	Aar         bazel.Label
+	Deps        bazel.LabelListAttribute
+	Exports     bazel.LabelListAttribute
+	Sdk_version bazel.StringAttribute
+}
+
+func (a *aapt) convertAaptAttrsWithBp2Build(ctx android.TopDownMutatorContext) *bazelAapt {
+	manifest := proptools.StringDefault(a.aaptProperties.Manifest, "AndroidManifest.xml")
+
+	resourceFiles := bazel.LabelList{
+		Includes: []bazel.Label{},
+	}
+	for _, dir := range android.PathsWithOptionalDefaultForModuleSrc(ctx, a.aaptProperties.Resource_dirs, "res") {
+		files := android.RootToModuleRelativePaths(ctx, androidResourceGlob(ctx, dir))
+		resourceFiles.Includes = append(resourceFiles.Includes, files...)
+	}
+	return &bazelAapt{
+		android.BazelLabelForModuleSrcSingle(ctx, manifest),
+		bazel.MakeLabelListAttribute(resourceFiles),
+	}
+}
+
+func (a *AARImport) ConvertWithBp2build(ctx android.TopDownMutatorContext) {
+	aars := android.BazelLabelForModuleSrcExcludes(ctx, a.properties.Aars, []string{})
+	exportableStaticLibs := []string{}
+	// TODO(b/240716882): investigate and handle static_libs deps that are not imports. They are not supported for export by Bazel.
+	for _, depName := range a.properties.Static_libs {
+		if dep, ok := ctx.ModuleFromName(depName); ok {
+			switch dep.(type) {
+			case *AARImport, *Import:
+				exportableStaticLibs = append(exportableStaticLibs, depName)
+			}
+		}
+	}
+	name := android.RemoveOptionalPrebuiltPrefix(a.Name())
+	deps := android.BazelLabelForModuleDeps(ctx, android.LastUniqueStrings(android.CopyOf(append(a.properties.Static_libs, a.properties.Libs...))))
+	exports := android.BazelLabelForModuleDeps(ctx, android.LastUniqueStrings(exportableStaticLibs))
+
+	ctx.CreateBazelTargetModule(
+		bazel.BazelTargetModuleProperties{
+			Rule_class:        "aar_import",
+			Bzl_load_location: "//build/bazel/rules/android:rules.bzl",
+		},
+		android.CommonAttributes{Name: name},
+		&bazelAndroidLibraryImport{
+			Aar:         aars.Includes[0],
+			Deps:        bazel.MakeLabelListAttribute(deps),
+			Exports:     bazel.MakeLabelListAttribute(exports),
+			Sdk_version: bazel.StringAttribute{Value: a.properties.Sdk_version},
+		},
+	)
+
+	neverlink := true
+	ctx.CreateBazelTargetModule(
+		AndroidLibraryBazelTargetModuleProperties(),
+		android.CommonAttributes{Name: name + "-neverlink"},
+		&bazelAndroidLibrary{
+			javaLibraryAttributes: &javaLibraryAttributes{
+				Neverlink: bazel.BoolAttribute{Value: &neverlink},
+				Exports:   bazel.MakeSingleLabelListAttribute(bazel.Label{Label: ":" + name}),
+				javaCommonAttributes: &javaCommonAttributes{
+					Sdk_version: bazel.StringAttribute{Value: a.properties.Sdk_version},
+				},
+			},
+		},
+	)
+
+}
+func AndroidLibraryBazelTargetModuleProperties() bazel.BazelTargetModuleProperties {
+	return bazel.BazelTargetModuleProperties{
+		Rule_class:        "android_library",
+		Bzl_load_location: "//build/bazel/rules/android:rules.bzl",
+	}
+}
+
+func (a *AndroidLibrary) ConvertWithBp2build(ctx android.TopDownMutatorContext) {
+	commonAttrs, bp2buildInfo := a.convertLibraryAttrsBp2Build(ctx)
+	depLabels := bp2buildInfo.DepLabels
+
+	deps := depLabels.Deps
+	if !commonAttrs.Srcs.IsEmpty() {
+		deps.Append(depLabels.StaticDeps) // we should only append these if there are sources to use them
+	} else if !depLabels.Deps.IsEmpty() {
+		ctx.ModuleErrorf("Module has direct dependencies but no sources. Bazel will not allow this.")
+	}
+	name := a.Name()
+	props := AndroidLibraryBazelTargetModuleProperties()
+
+	ctx.CreateBazelTargetModule(
+		props,
+		android.CommonAttributes{Name: name},
+		&bazelAndroidLibrary{
+			&javaLibraryAttributes{
+				javaCommonAttributes: commonAttrs,
+				Deps:                 deps,
+				Exports:              depLabels.StaticDeps,
+			},
+			a.convertAaptAttrsWithBp2Build(ctx),
+		},
+	)
+
+	neverlink := true
+	ctx.CreateBazelTargetModule(
+		props,
+		android.CommonAttributes{Name: name + "-neverlink"},
+		&bazelAndroidLibrary{
+			javaLibraryAttributes: &javaLibraryAttributes{
+				Neverlink: bazel.BoolAttribute{Value: &neverlink},
+				Exports:   bazel.MakeSingleLabelListAttribute(bazel.Label{Label: ":" + name}),
+				javaCommonAttributes: &javaCommonAttributes{
+					Sdk_version:  bazel.StringAttribute{Value: a.deviceProperties.Sdk_version},
+					Java_version: bazel.StringAttribute{Value: a.properties.Java_version},
+				},
+			},
+		},
+	)
 }

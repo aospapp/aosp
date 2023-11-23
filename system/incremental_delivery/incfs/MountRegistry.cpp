@@ -355,7 +355,8 @@ bool MountRegistry::Mounts::loadFrom(base::borrowed_fd fd, std::string_view file
             if (mount.backing.empty()) {
                 mount.backing = std::move(backingDir);
             } else if (mount.backing != backingDir) {
-                LOG(WARNING) << "[incfs] root '" << *mount.roots.begin()
+                LOG(WARNING) << "[incfs] root '"
+                             << (!mount.roots.empty() ? *mount.roots.begin() : "<unknown>")
                              << "' mounted in multiple places with different backing dirs, '"
                              << mount.backing << "' vs new '" << backingDir
                              << "'; updating to the new one";

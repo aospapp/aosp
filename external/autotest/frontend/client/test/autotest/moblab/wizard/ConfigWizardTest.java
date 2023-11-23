@@ -7,7 +7,7 @@ public class ConfigWizardTest extends MoblabTest {
 
   public void testWizard() {
     ConfigWizard wizard = new ConfigWizard();
-    WizardCard[] cards = new WizardCard[] { new WizardCard.DummyCard(), new WizardCard.DummyCard()};
+    WizardCard[] cards = new WizardCard[] { new WizardCard.StubCard(), new WizardCard.StubCard()};
     wizard.setCards(cards);
   }
 }

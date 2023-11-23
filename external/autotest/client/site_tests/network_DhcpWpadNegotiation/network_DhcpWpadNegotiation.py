@@ -30,11 +30,11 @@ class network_DhcpWpadNegotiation(dhcp_test_base.DhcpTestBase):
                 {'Name': self.ethernet_pair.peer_interface_name})
         if device is None:
             raise error.TestFail('Device was not found.')
-        device_properties = device.GetProperties(utf8_strings=True)
+        device_properties = device.GetProperties()
         ipconfig_path = device_properties['IPConfigs'][0]
         ipconfig = proxy.get_dbus_object('org.chromium.flimflam.IPConfig',
                                          ipconfig_path)
-        ipconfig_properties = ipconfig.GetProperties(utf8_strings=True)
+        ipconfig_properties = ipconfig.GetProperties()
         ipconfig_proxy_auto_config = ipconfig_properties[
                 'WebProxyAutoDiscoveryUrl']
         if ipconfig_proxy_auto_config != proxy_auto_config:

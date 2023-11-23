@@ -20,6 +20,13 @@
 #ifndef HAVE_ICONV_H
 #include "codepage.h"
 
+#ifdef USE_MOCK_CODEPAGES
+Codepage_t codepages[]= {
+        { 850,
+          ""
+        },
+};
+#else
 Codepage_t codepages[]= {
 	{ 437,
 	  "ЗьйвдаезклипомДЕ"
@@ -113,6 +120,8 @@ Codepage_t codepages[]= {
 
 	{ 0 }
 };
+#endif
+
 #else
 /* Should down  ISO C forbids an empty translation unit warning [-Wpedantic]: */
 typedef int make_iso_compilers_happy;

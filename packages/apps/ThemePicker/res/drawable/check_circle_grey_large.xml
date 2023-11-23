@@ -13,13 +13,12 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android">
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="oval">
             <size android:width="@dimen/center_check_size"
                 android:height="@dimen/center_check_size" />
-            <solid android:color="?androidprv:attr/colorAccentPrimaryVariant" />
+            <solid android:color="@color/color_accent_primary_variant" />
         </shape>
     </item>
     <item>

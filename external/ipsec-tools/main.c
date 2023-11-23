@@ -118,7 +118,7 @@ const char *android_hook(char **envp)
         exit(1);
     }
     sprintf(*envp, "INTERFACE=%s", ifr.ifr_name);
-    return "/bin/ip-up-vpn";
+    return "/system/bin/ip-up-vpn";
 }
 
 #endif

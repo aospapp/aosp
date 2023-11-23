@@ -17,24 +17,31 @@
 package android.car;
 
 import android.os.UserHandle;
+import android.car.user.UserCreationRequest;
 import android.car.user.UserCreationResult;
+import android.car.user.UserIdentificationAssociationResponse;
 import android.car.user.UserLifecycleEventFilter;
 import android.car.user.UserRemovalResult;
-import android.car.user.UserIdentificationAssociationResponse;
+import android.car.user.UserStartRequest;
+import android.car.user.UserStartResponse;
+import android.car.user.UserStopRequest;
+import android.car.user.UserStopResponse;
 import android.car.user.UserSwitchResult;
-
 import android.car.ICarResultReceiver;
 import android.car.util.concurrent.AndroidFuture;
 
+import com.android.car.internal.ResultCallbackImpl;
+
 /** @hide */
 interface ICarUserService {
-    void switchUser(int targetUserId, int timeoutMs, in AndroidFuture<UserSwitchResult> receiver);
-    void logoutUser(int timeoutMs, in AndroidFuture<UserSwitchResult> receiver);
+    void switchUser(int targetUserId, int timeoutMs, in ResultCallbackImpl<UserSwitchResult> callback);
+    void logoutUser(int timeoutMs, in ResultCallbackImpl<UserSwitchResult> callback);
     void setUserSwitchUiCallback(in ICarResultReceiver callback);
-    void createUser(@nullable String name, String userType, int flags, int timeoutMs,
-      in AndroidFuture<UserCreationResult> receiver);
-    void updatePreCreatedUsers();
-    void removeUser(int userId, in AndroidFuture<UserRemovalResult> receiver);
+    void createUser(in UserCreationRequest userCreationRequest, int timeoutMs,
+          in ResultCallbackImpl<UserCreationResult> callback);
+    void startUser(in UserStartRequest request, in ResultCallbackImpl<UserStartResponse> callback);
+    void stopUser(in UserStopRequest request, in ResultCallbackImpl<UserStopResponse> callback);
+    void removeUser(int userId, in ResultCallbackImpl<UserRemovalResult> callback);
     void setLifecycleListenerForApp(String pkgName, in UserLifecycleEventFilter filter,
       in ICarResultReceiver listener);
     void resetLifecycleListenerForApp(in ICarResultReceiver listener);

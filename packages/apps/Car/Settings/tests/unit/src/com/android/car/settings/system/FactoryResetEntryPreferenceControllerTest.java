@@ -20,6 +20,7 @@ import static android.os.UserManager.DISALLOW_FACTORY_RESET;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -119,12 +120,76 @@ public class FactoryResetEntryPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_nonAdminUser_disabledForUser_zoneWrite() {
+        switchToUser(/* isAdmin= */ false, /* isDemo= */ false);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_nonAdminUser_disabledForUser_zoneRead() {
+        switchToUser(/* isAdmin= */ false, /* isDemo= */ false);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_nonAdminUser_disabledForUser_zoneHidden() {
+        switchToUser(/* isAdmin= */ false, /* isDemo= */ false);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_adminUser_unrestricted_available() {
         switchToUser(/* isAdmin= */ true, /* isDemo= */ false);
         mPreferenceController.onCreate(mLifecycleOwner);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
         assertThat(mPreference.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_unrestricted_available_zoneWrite() {
+        switchToUser(/* isAdmin= */ true, /* isDemo= */ false);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+        assertThat(mPreference.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_unrestricted_available_zoneRead() {
+        switchToUser(/* isAdmin= */ true, /* isDemo= */ false);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_unrestricted_available_zoneHidden() {
+        switchToUser(/* isAdmin= */ true, /* isDemo= */ false);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test
@@ -135,6 +200,41 @@ public class FactoryResetEntryPreferenceControllerTest {
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
         assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_notDpmRestricted_disabledForUser_zoneWrite() {
+        switchToUser(/* isAdmin= */ true, /* isDemo= */ false);
+        addBaseUserRestriction(DISALLOW_FACTORY_RESET);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_notDpmRestricted_disabledForUser_zoneRead() {
+        switchToUser(/* isAdmin= */ true, /* isDemo= */ false);
+        addBaseUserRestriction(DISALLOW_FACTORY_RESET);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_notDpmRestricted_disabledForUser_zoneHidden() {
+        switchToUser(/* isAdmin= */ true, /* isDemo= */ false);
+        addBaseUserRestriction(DISALLOW_FACTORY_RESET);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test
@@ -149,6 +249,44 @@ public class FactoryResetEntryPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_adminUser_baseRestricted_disabledForUser_zoneWrite() {
+        switchToUser(/* isAdmin= */ true, /* isDemo= */ false);
+        addBaseUserRestriction(DISALLOW_FACTORY_RESET);
+        addUserRestriction(DISALLOW_FACTORY_RESET);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_baseRestricted_disabledForUser_zoneRead() {
+        switchToUser(/* isAdmin= */ true, /* isDemo= */ false);
+        addBaseUserRestriction(DISALLOW_FACTORY_RESET);
+        addUserRestriction(DISALLOW_FACTORY_RESET);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_baseRestricted_disabledForUser_zoneHidden() {
+        switchToUser(/* isAdmin= */ true, /* isDemo= */ false);
+        addBaseUserRestriction(DISALLOW_FACTORY_RESET);
+        addUserRestriction(DISALLOW_FACTORY_RESET);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_adminUser_notBaseRestricted_dpmRestricted_disabledForUser() {
         switchToUser(/* isAdmin= */ true, /* isDemo= */ false);
         addUserRestriction(DISALLOW_FACTORY_RESET);
@@ -159,12 +297,79 @@ public class FactoryResetEntryPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_adminUser_notBaseRestricted_disabledForUser_zoneWrite() {
+        switchToUser(/* isAdmin= */ true, /* isDemo= */ false);
+        addUserRestriction(DISALLOW_FACTORY_RESET);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_notBaseRestricted_disabledForUser_zoneRead() {
+        switchToUser(/* isAdmin= */ true, /* isDemo= */ false);
+        addUserRestriction(DISALLOW_FACTORY_RESET);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_notBaseRestricted_disabledForUser_zoneHidden() {
+        switchToUser(/* isAdmin= */ true, /* isDemo= */ false);
+        addUserRestriction(DISALLOW_FACTORY_RESET);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_demoMode_demoUser_available() {
         switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
         mPreferenceController.onCreate(mLifecycleOwner);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
         assertThat(mPreference.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getAvailabilityStatus_demoMode_demoUser_available_zoneWrite() {
+        switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+        assertThat(mPreference.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getAvailabilityStatus_demoMode_demoUser_available_zoneRead() {
+        switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getAvailabilityStatus_demoMode_demoUser_available_zoneHidden() {
+        switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test
@@ -178,6 +383,41 @@ public class FactoryResetEntryPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_demoMode_demoUser_disabledForUser_zoneWrite() {
+        switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
+        addBaseUserRestriction(DISALLOW_FACTORY_RESET);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_demoMode_demoUser_disabledForUser_zoneRead() {
+        switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
+        addBaseUserRestriction(DISALLOW_FACTORY_RESET);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_demoMode_demoUser_disabledForUser_zoneHidden() {
+        switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
+        addBaseUserRestriction(DISALLOW_FACTORY_RESET);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_demoMode_demoUser_dpmRestricted_disabledForUser() {
         switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
         addUserRestriction(DISALLOW_FACTORY_RESET);
@@ -185,6 +425,41 @@ public class FactoryResetEntryPreferenceControllerTest {
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
         assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_demoMode_demoUser_dpmRestricted_disabledForUser_zoneWrite() {
+        switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
+        addUserRestriction(DISALLOW_FACTORY_RESET);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_demoMode_demoUser_dpmRestricted_disabledForUser_zoneRead() {
+        switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
+        addUserRestriction(DISALLOW_FACTORY_RESET);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_demoMode_demoUser_dpmRestricted_disabledForUser_zoneHidden() {
+        switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
+        addUserRestriction(DISALLOW_FACTORY_RESET);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

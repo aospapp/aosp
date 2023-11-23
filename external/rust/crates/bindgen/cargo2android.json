@@ -1,6 +1,6 @@
 {
   "copy-out": true,
-  "features": "clap,runtime,which-rustfmt",
+  "features": "cli,experimental,runtime,which-rustfmt",
   "host-first-multilib": true,
   "run": true
 }

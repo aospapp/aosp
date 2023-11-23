@@ -20,13 +20,8 @@ android_test {
     name: "AndroidAutomotiveAppGridTests",
     min_sdk_version: "24",
     static_libs: [
-        "androidx.test.runner",
         "androidx.test.rules",
         "automotive-app-grid-helper",
-        "automotive-utility-helper",
-        "app-helpers-auto-interfaces",
-        "ub-uiautomator",
-        "hamcrest-library",
         "platform-test-options",
     ],
     srcs: ["src/**/*.java"],

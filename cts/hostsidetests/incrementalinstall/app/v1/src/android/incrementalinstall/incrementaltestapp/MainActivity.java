@@ -42,8 +42,8 @@ public class MainActivity extends Activity {
         super.onCreate(icicle);
         PACKAGE_NAME = getApplicationContext().getPackageName();
 
-        broadcastStatus(Consts.SupportedComponents.ON_CREATE_COMPONENT, true);
-        broadcastStatus(Consts.SupportedComponents.ON_CREATE_COMPONENT_2, false);
+        broadcastStatus(Consts.SupportedComponents.ON_CREATE_COMPONENT, "true");
+        broadcastStatus(Consts.SupportedComponents.ON_CREATE_COMPONENT_2, "false");
         loadDynamicAsset();
         loadDynamicCode();
         loadCompressedNativeLib();
@@ -51,58 +51,62 @@ public class MainActivity extends Activity {
     }
 
     private void loadDynamicAsset() {
-        boolean dynamicAssetStatus = false;
+        String dynamicAssetStatus = "uninitialized";
         String file = "dynamicasset.txt";
         try (InputStream is = this.createPackageContext(PACKAGE_NAME, 0)
                 .getAssets().open(file)) {
             int size = is.available();
             if (size > 0) {
-                dynamicAssetStatus = true;
+                dynamicAssetStatus = "true";
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            dynamicAssetStatus = e.toString();
         }
         broadcastStatus(Consts.SupportedComponents.DYNAMIC_ASSET_COMPONENT, dynamicAssetStatus);
     }
 
     private void loadDynamicCode() {
-        boolean dynamicCodeStatus = false;
+        String dynamicCodeStatus = "uninitialized";
         DynamicCodeShim shim = new DynamicCodeShim();
         try {
             if (shim.getString() != null) {
-                dynamicCodeStatus = true;
+                dynamicCodeStatus = "true";
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            dynamicCodeStatus = e.toString();
         }
         broadcastStatus(Consts.SupportedComponents.DYNAMIC_CODE_COMPONENT, dynamicCodeStatus);
     }
 
     private void loadCompressedNativeLib() {
-        boolean compressedNativeLibStatus = false;
+        String compressedNativeLibStatus = "uninitialized";
         CompressedNativeLib nativeLib = new CompressedNativeLib();
         try {
             if (nativeLib.getStringFromNative() != null) {
-                compressedNativeLibStatus = true;
+                compressedNativeLibStatus = "true";
             }
-        } catch (Throwable ignored) {
+        } catch (Throwable t) {
+            compressedNativeLibStatus = t.toString();
         }
         broadcastStatus(Consts.SupportedComponents.COMPRESSED_NATIVE_COMPONENT,
                 compressedNativeLibStatus);
     }
 
     private void loadUncompressedNativeLib() {
-        boolean unCompressedNativeLibStatus = false;
+        String unCompressedNativeLibStatus = "uninitialized";
         UncompressedNativeLib nativeLib = new UncompressedNativeLib();
         try {
             if (nativeLib.getStringFromNative() != null) {
-                unCompressedNativeLibStatus = true;
+                unCompressedNativeLibStatus = "true";
             }
-        } catch (Throwable ignored) {
+        } catch (Throwable t) {
+            unCompressedNativeLibStatus = t.toString();
         }
         broadcastStatus(Consts.SupportedComponents.UNCOMPRESSED_NATIVE_COMPONENT,
                 unCompressedNativeLibStatus);
     }
 
-    private void broadcastStatus(String component, boolean status) {
+    private void broadcastStatus(String component, String status) {
         Intent intent = new Intent(INCREMENTAL_TEST_APP_STATUS_RECEIVER_ACTION);
         intent.putExtra(TARGET_COMPONENT_KEY, component);
         intent.putExtra(COMPONENT_STATUS_KEY, status);

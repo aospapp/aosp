@@ -398,8 +398,7 @@ void ParentDef::GenSerialize(std::ostream& s) const {
         s << "size_t payload_bytes = GetPayloadSize();";
         std::string modifier = ((PayloadField*)sized_field)->size_modifier_;
         if (modifier != "") {
-          s << "static_assert((" << modifier << ")%8 == 0, \"Modifiers must be byte-aligned\");";
-          s << "payload_bytes = payload_bytes + (" << modifier << ") / 8;";
+          s << "payload_bytes = payload_bytes + " << modifier.substr(1) << ";";
         }
         s << "ASSERT(payload_bytes < (static_cast<size_t>(1) << " << field->GetSize().bits() << "));";
         s << "insert(static_cast<" << field->GetDataType() << ">(payload_bytes), i," << field->GetSize().bits() << ");";
@@ -426,9 +425,8 @@ void ParentDef::GenSerialize(std::ostream& s) const {
         }
         std::string modifier = vector->GetSizeModifier();
         if (modifier != "") {
-          s << "static_assert((" << modifier << ")%8 == 0, \"Modifiers must be byte-aligned\");";
           s << vector_name << "bytes = ";
-          s << vector_name << "bytes + (" << modifier << ") / 8;";
+          s << vector_name << "bytes + " << modifier.substr(1) << ";";
         }
         s << "ASSERT(" << vector_name + "bytes < (1 << " << field->GetSize().bits() << "));";
         s << "insert(" << vector_name << "bytes, i, ";
@@ -613,6 +611,8 @@ void ParentDef::GenRustConformanceCheck(std::ostream& s) const {
       FixedScalarField::kFieldType,
   });
 
+  s << "if bytes.len() < " << this->GetSize(false).bytes() << " { return false; }";
+
   for (auto const& field : fields) {
     auto start_offset = GetOffsetForField(field->GetName(), false);
     auto end_offset = GetOffsetForField(field->GetName(), true);
@@ -669,7 +669,7 @@ void ParentDef::GenRustWriteToFields(std::ostream& s) const {
         }
         std::string modifier = vector->GetSizeModifier();
         if (modifier != "") {
-          s << "let " << vector_name << " = " << vector_name << " + (" << modifier.substr(1) << ") / 8;";
+          s << "let " << vector_name << " = " << vector_name << " + " << modifier.substr(1) << ";";
         }
 
         s << "let " << field->GetName() << " = " << field->GetRustDataType() << "::try_from(" << vector_name

@@ -1,6 +1,6 @@
 /*
  *
- *  Copyright (C) 2021 NXP
+ *  Copyright 2021-2022 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ NfcHalThreadMutex::~NfcHalThreadMutex() { pthread_mutex_destroy(&mMutex); }
 **
 ** Function:    NfcHalThreadMutex::lock()
 **
-** Description: lock kthe mutex
+** Description: lock the mutex
 **
 ** Returns:     none
 **
@@ -80,6 +80,7 @@ NfcHalThreadCondVar::NfcHalThreadCondVar() {
   pthread_condattr_t CondAttr;
 
   pthread_condattr_init(&CondAttr);
+  pthread_condattr_setclock(&CondAttr, CLOCK_MONOTONIC);
   pthread_cond_init(&mCondVar, &CondAttr);
 
   pthread_condattr_destroy(&CondAttr);
@@ -108,6 +109,19 @@ NfcHalThreadCondVar::~NfcHalThreadCondVar() { pthread_cond_destroy(&mCondVar); }
 void NfcHalThreadCondVar::wait() {
   pthread_cond_wait(&mCondVar, *this);
   pthread_mutex_unlock(*this);
+}
+
+/*******************************************************************************
+**
+** Function:    NfcHalThreadCondVar::timedWait()
+**
+** Description: wait on the mCondVar or till timeout happens
+**
+** Returns:     none
+**
+*******************************************************************************/
+void NfcHalThreadCondVar::timedWait(struct timespec* time) {
+  pthread_cond_timedwait(&mCondVar, *this, time);
 }
 
 /*******************************************************************************

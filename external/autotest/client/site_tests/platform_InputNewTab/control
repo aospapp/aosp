@@ -11,6 +11,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "client"
 ATTRIBUTES = "suite:bvt-perbuild"
+PY_VERSION = 3
 
 DOC = """
 Open and close new tabs in browser using keyboard shortcut.

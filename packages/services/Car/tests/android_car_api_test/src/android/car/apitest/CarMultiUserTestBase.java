@@ -16,7 +16,10 @@
 
 package android.car.apitest;
 
+import static android.car.test.util.UserTestingHelper.setMaxSupportedUsers;
 import static android.car.user.CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING;
+
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
 
@@ -27,13 +30,19 @@ import android.annotation.Nullable;
 import android.annotation.UserIdInt;
 import android.app.ActivityManager;
 import android.car.Car;
+import android.car.CarOccupantZoneManager;
+import android.car.SyncResultCallback;
+import android.car.test.ApiCheckerRule.Builder;
 import android.car.test.util.AndroidHelper;
+import android.car.test.util.UserTestingHelper;
 import android.car.testapi.BlockingUserLifecycleListener;
 import android.car.user.CarUserManager;
+import android.car.user.UserCreationRequest;
 import android.car.user.UserCreationResult;
-import android.car.user.UserRemovalResult;
-import android.car.user.UserSwitchResult;
-import android.car.util.concurrent.AsyncFuture;
+import android.car.user.UserRemovalRequest;
+import android.car.user.UserStartRequest;
+import android.car.user.UserStopRequest;
+import android.car.user.UserSwitchRequest;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -46,6 +55,7 @@ import android.os.UserManager;
 import android.util.Log;
 
 import org.junit.After;
+import org.junit.AssumptionViolatedException;
 import org.junit.Before;
 
 import java.util.ArrayList;
@@ -66,6 +76,10 @@ abstract class CarMultiUserTestBase extends CarApiTestBase {
 
     private static final String NEW_USER_NAME_PREFIX = "CarApiTest.";
 
+    private static final int sMaxNumberUsersBefore = UserManager.getMaxSupportedUsers();
+    private static boolean sChangedMaxNumberUsers;
+
+    protected CarOccupantZoneManager mCarOccupantZoneManager;
     protected CarUserManager mCarUserManager;
     protected UserManager mUserManager;
 
@@ -77,23 +91,35 @@ abstract class CarMultiUserTestBase extends CarApiTestBase {
     private final CountDownLatch mUserRemoveLatch = new CountDownLatch(1);
     private final List<Integer> mUsersToRemove = new ArrayList<>();
 
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d(TAG, "Received a broadcast: " + AndroidHelper.toString(intent));
+            mUserRemoveLatch.countDown();
+        }
+    };
+
     // Guard to avoid test failure on @After when @Before failed (as it would hide the real issue)
     private boolean mSetupFinished;
 
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        builder.disableAnnotationsCheck();
+    }
+
     @Before
     public final void setMultiUserFixtures() throws Exception {
-        Log.d(TAG, "setMultiUserFixtures() for " + mTestName.getMethodName());
+        Log.d(TAG, "setMultiUserFixtures() for " + getTestName());
 
+        mCarOccupantZoneManager = getCarService(Car.CAR_OCCUPANT_ZONE_SERVICE);
         mCarUserManager = getCarService(Car.CAR_USER_SERVICE);
         mUserManager = getContext().getSystemService(UserManager.class);
 
         IntentFilter filter = new IntentFilter(Intent.ACTION_USER_REMOVED);
-        getContext().registerReceiver(new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                mUserRemoveLatch.countDown();
-            }
-        }, filter, Context.RECEIVER_NOT_EXPORTED);
+        getContext().registerReceiver(mReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        Log.d(TAG, "Registered a broadcast receiver: " + mReceiver
+                + " with filter: " + filter);
 
         List<UserInfo> users = mUserManager.getAliveUsers();
 
@@ -150,6 +176,9 @@ abstract class CarMultiUserTestBase extends CarApiTestBase {
                 return;
             }
 
+            getContext().unregisterReceiver(mReceiver);
+            Log.d(TAG, "Unregistered a broadcast receiver: " + mReceiver);
+
             int currentUserId = getCurrentUserId();
             int initialUserId = mInitialUser.id;
             if (currentUserId != initialUserId) {
@@ -172,6 +201,22 @@ abstract class CarMultiUserTestBase extends CarApiTestBase {
             // Must catch otherwise it would be the test failure, which could hide the real issue
             Log.e(TAG, "Caught exception on " + getTestName()
                     + " disconnectCarAndCleanupUserState()", e);
+        }
+    }
+
+    protected static void setupMaxNumberOfUsers(int requiredUsers) {
+        if (sMaxNumberUsersBefore < requiredUsers) {
+            sChangedMaxNumberUsers = true;
+            Log.i(TAG, "Increasing maximizing number of users from " + sMaxNumberUsersBefore
+                    + " to " + requiredUsers);
+            setMaxSupportedUsers(requiredUsers);
+        }
+    }
+
+    protected static void restoreMaxNumberOfUsers() {
+        if (sChangedMaxNumberUsers) {
+            Log.i(TAG, "Restoring maximum number of users to " + sMaxNumberUsersBefore);
+            setMaxSupportedUsers(sMaxNumberUsersBefore);
         }
     }
 
@@ -208,10 +253,21 @@ abstract class CarMultiUserTestBase extends CarApiTestBase {
 
         assertCanAddUser();
 
-        UserCreationResult result = (isGuest
-                ? mCarUserManager.createGuest(name)
-                : mCarUserManager.createUser(name, /* flags= */ 0))
-                    .get(DEFAULT_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        UserCreationRequest.Builder userCreationRequestBuilder = new UserCreationRequest.Builder();
+
+        if (isGuest) {
+            userCreationRequestBuilder.setGuest();
+        }
+
+        SyncResultCallback<UserCreationResult> userCreationResultCallback =
+                new SyncResultCallback<>();
+
+        mCarUserManager.createUser(userCreationRequestBuilder.setName(name).build(), Runnable::run,
+                userCreationResultCallback);
+
+        UserCreationResult result = userCreationResultCallback.get(
+                DEFAULT_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+
         Log.d(TAG, "result: " + result);
         assertWithMessage("user creation result (waited for %sms)", DEFAULT_WAIT_TIMEOUT_MS)
                 .that(result).isNotNull();
@@ -224,10 +280,6 @@ abstract class CarMultiUserTestBase extends CarApiTestBase {
                 .that(mUserManager.isGuestUser(user.getIdentifier()))
                 .isEqualTo(isGuest);
         return mUserManager.getUserInfo(result.getUser().getIdentifier());
-    }
-
-    protected String getTestName() {
-        return getClass().getSimpleName() + "." + mTestName.getMethodName();
     }
 
     private String getNewUserName(String name) {
@@ -274,12 +326,13 @@ abstract class CarMultiUserTestBase extends CarApiTestBase {
 
         try {
             Log.i(TAG, "Switching to user " + userId + " using CarUserManager");
-            AsyncFuture<UserSwitchResult> future = mCarUserManager.switchUser(userId);
-            UserSwitchResult result = future.get(SWITCH_USER_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-            Log.d(TAG, "Result: " + result);
-
-            assertWithMessage("User %s switched in %sms. Result: %s", userId,
-                    SWITCH_USER_TIMEOUT_MS, result).that(result.isSuccess()).isTrue();
+            mCarUserManager.switchUser(new UserSwitchRequest.Builder(
+                    UserHandle.of(userId)).build(), Runnable::run, response -> {
+                    Log.d(TAG, "result: " + response);
+                    assertWithMessage("User %s switched in %sms. Result: %s", userId,
+                        SWITCH_USER_TIMEOUT_MS, response).that(response.isSuccess()).isTrue();
+                }
+            );
 
             if (waitForUserSwitchToComplete) {
                 listener.waitForEvents();
@@ -291,13 +344,39 @@ abstract class CarMultiUserTestBase extends CarApiTestBase {
         Log.d(TAG, "User switch complete. User id: " + userId);
     }
 
-    protected void removeUser(@UserIdInt int userId) {
+    protected void removeUser(@UserIdInt int userId) throws Exception {
         Log.d(TAG, "Removing user " + userId);
 
-        UserRemovalResult result = mCarUserManager.removeUser(userId);
-        Log.d(TAG, "result: " + result);
-        assertWithMessage("User %s removed. Result: %s", userId, result)
-                .that(result.isSuccess()).isTrue();
+        mCarUserManager.removeUser(new UserRemovalRequest.Builder(
+                UserHandle.of(userId)).build(), Runnable::run, response -> {
+                    Log.d(TAG, "result: " + response);
+                    assertWithMessage("User %s removed. Result: %s", userId, response)
+                            .that(response.isSuccess()).isTrue();
+                }
+        );
+    }
+
+    protected void startUserInBackgroundOnSecondaryDisplay(@UserIdInt int userId, int displayId)
+            throws Exception {
+        Log.i(TAG, "Starting background user " + userId + " on display " + displayId);
+
+        UserStartRequest request = new UserStartRequest.Builder(UserHandle.of(userId))
+                .setDisplayId(displayId).build();
+        mCarUserManager.startUser(request, Runnable::run,
+                response ->
+                    assertWithMessage("startUser success for user %s on display %s",
+                            userId, displayId).that(response.isSuccess()).isTrue());
+    }
+
+    protected void forceStopUser(@UserIdInt int userId) throws Exception {
+        Log.i(TAG, "Force-stopping user " + userId);
+
+        UserStopRequest request =
+                new UserStopRequest.Builder(UserHandle.of(userId)).setForce().build();
+        mCarUserManager.stopUser(request, Runnable::run,
+                response ->
+                    assertWithMessage("stopUser success for user %s", userId)
+                            .that(response.isSuccess()).isTrue());
     }
 
     @Nullable
@@ -327,7 +406,6 @@ abstract class CarMultiUserTestBase extends CarApiTestBase {
         Log.v(TAG, "Set: " + SystemProperties.get(property));
     }
 
-
     protected void assertUserInfo(UserInfo actualUser, UserInfo expectedUser) {
         assertWithMessage("Wrong id for user %s", actualUser.toFullString())
                 .that(actualUser.id).isEqualTo(expectedUser.id);
@@ -341,5 +419,28 @@ abstract class CarMultiUserTestBase extends CarApiTestBase {
 
     private static boolean isUserCreatedByTheseTests(UserInfo user) {
         return user.name != null && user.name.startsWith(NEW_USER_NAME_PREFIX);
+    }
+
+    /**
+     * Checks if the target device supports MUMD (multi-user multi-display).
+     * @throws AssumptionViolatedException if the device does not support MUMD.
+     */
+    protected static void requireMumd() {
+        UserTestingHelper.requireMumd(getTargetContext());
+    }
+
+    /**
+     * Returns a secondary display that is available to start a background user on.
+     *
+     * @return the id of a secondary display that is not assigned to any user, if any.
+     * @throws IllegalStateException when there is no secondary display available.
+     */
+    protected int getDisplayForStartingBackgroundUser() {
+        return UserTestingHelper.getDisplayForStartingBackgroundUser(
+                getTargetContext(), mCarOccupantZoneManager);
+    }
+
+    private static Context getTargetContext() {
+        return getInstrumentation().getTargetContext();
     }
 }

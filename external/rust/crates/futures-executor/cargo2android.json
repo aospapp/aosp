@@ -1,7 +1,7 @@
 {
   "apex-available": [
     "//apex_available:platform",
-    "com.android.bluetooth",
+    "com.android.btservices",
     "com.android.resolv",
     "com.android.virt"
   ],
@@ -9,5 +9,6 @@
   "device": true,
   "features": "thread-pool",
   "min-sdk-version": "29",
-  "run": true
+  "run": true,
+  "tests": true
 }

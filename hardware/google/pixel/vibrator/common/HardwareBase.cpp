@@ -31,8 +31,8 @@ namespace vibrator {
 
 HwApiBase::HwApiBase() {
     mPathPrefix = std::getenv("HWAPI_PATH_PREFIX") ?: "";
-    if (mPathPrefix.empty()) {
-        ALOGE("Failed get HWAPI path prefix!");
+    if (mPathPrefix.empty() && (std::getenv("INPUT_EVENT_NAME") == NULL)) {
+        ALOGE("Failed to get HWAPI path prefix!");
     }
 }
 

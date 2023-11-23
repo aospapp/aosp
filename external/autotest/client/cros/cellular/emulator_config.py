@@ -61,7 +61,7 @@ def StartDefault(config, technology):
         tp = cfg['type']
         if call_box_name_part in tp:
             bs_config = cfg
-            log.info('Using this call box: %s ' % cfg)
+            log.info('Using this call box: %s ', cfg)
             break
     if bs_config is None:
         raise Error(
@@ -76,8 +76,7 @@ def StartDefault(config, technology):
     rf_switch = _CreateRfSwitch(config)
     if rf_switch:
         port = config.get_rf_switch_port()
-        log.info(
-            'Changing switch port from %s to %s' % (rf_switch.Query(), port))
+        log.info('Changing switch port from %s to %s', rf_switch.Query(), port)
         rf_switch.SelectPort(port)
 
     with bs.checker_context:

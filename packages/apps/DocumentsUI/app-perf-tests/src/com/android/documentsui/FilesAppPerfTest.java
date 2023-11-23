@@ -16,31 +16,35 @@
 
 package com.android.documentsui;
 
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+
+import static org.junit.Assume.assumeNotNull;
+
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.Instrumentation;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.provider.DocumentsContract;
 import android.support.test.uiautomator.UiDevice;
-import android.test.InstrumentationTestCase;
-import android.test.suitebuilder.annotation.LargeTest;
+import android.util.Log;
 
-import androidx.test.InstrumentationRegistry;
-import androidx.test.runner.AndroidJUnit4;
-
-import org.junit.BeforeClass;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 
-@RunWith(AndroidJUnit4.class)
 public class FilesAppPerfTest {
+    private static final String TAG = "FilesAppPerfTest";
 
     // Keys used to report metrics to APCT.
     private static final String KEY_FILES_COLD_START_PERFORMANCE_MEDIAN =
@@ -48,16 +52,31 @@ public class FilesAppPerfTest {
     private static final String KEY_FILES_WARM_START_PERFORMANCE_MEDIAN =
             "files-warm-start-performance-median";
 
-    private static final String TARGET_PACKAGE = "com.android.documentsui";
-
     private static final int NUM_MEASUREMENTS = 10;
+    private static final long REMOVAL_TIMEOUT_MS = 3000;
+    private static final long TIMEOUT_INTERVAL_MS = 200;
 
-    private LauncherActivity mActivity;
-    private static UiDevice mDevice;
+    private Instrumentation mInstrumentation;
+    private Context mContext;
+    private LauncherActivity mLauncherActivity;
+    private ActivityInfo mDocumentsUiActivityInfo;
 
-    @BeforeClass
-    public static void setUp() {
-        mDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+    @Before
+    public void setUp() {
+        mInstrumentation = getInstrumentation();
+        mContext = mInstrumentation.getContext();
+        final ResolveInfo info = mContext.getPackageManager().resolveActivity(
+                LauncherActivity.OPEN_DOCUMENT_INTENT, PackageManager.ResolveInfoFlags.of(0));
+        assumeNotNull(info);
+        mDocumentsUiActivityInfo = info.activityInfo;
+        mLauncherActivity = (LauncherActivity) mInstrumentation.startActivitySync(
+                new Intent(mContext, LauncherActivity.class).addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION));
+    }
+
+    @After
+    public void tearDown() {
+        mLauncherActivity.finishAndRemoveTask();
     }
 
     @Test
@@ -71,22 +90,31 @@ public class FilesAppPerfTest {
     }
 
     public void runFilesStartPerformanceTest(boolean cold) throws Exception {
+        final String documentsUiPackageName = mDocumentsUiActivityInfo.packageName;
+        String[] providerPackageNames = null;
+        if (cold) {
+            providerPackageNames = getDocumentsProviderPackageNames();
+        }
+        final ActivityManager am = mContext.getSystemService(ActivityManager.class);
         long[] measurements = new long[NUM_MEASUREMENTS];
         for (int i = 0; i < NUM_MEASUREMENTS; i++) {
             if (cold) {
                 // Kill all providers, as well as DocumentsUI to measure a cold start.
-                killProviders();
-                mDevice.executeShellCommand("am force-stop " + TARGET_PACKAGE);
+                for (String pkgName : providerPackageNames) {
+                    // Use kill-bg to avoid affecting other important services.
+                    Log.i(TAG, "killBackgroundProcesses " + pkgName);
+                    am.killBackgroundProcesses(pkgName);
+                }
+                Log.i(TAG, "forceStopPackage " + documentsUiPackageName);
+                am.forceStopPackage(documentsUiPackageName);
+                // Wait for any closing animations to finish.
+                mInstrumentation.getUiAutomation().syncInputTransactions();
             }
-            mDevice.waitForIdle();
 
-            LauncherActivity.testCaseLatch = new CountDownLatch(1);
-            mActivity = launchActivity(
-                    InstrumentationRegistry.getInstrumentation().getTargetContext()
-                            .getPackageName(),
-                    LauncherActivity.class, null);
-            LauncherActivity.testCaseLatch.await();
-            measurements[i] = LauncherActivity.measurement;
+            measurements[i] = mLauncherActivity.startAndWaitDocumentsUi();
+            // The DocumentUi will finish automatically according to the request code for testing,
+            // so wait until it is completely removed to avoid affecting next iteration.
+            waitUntilDocumentsUiActivityRemoved();
         }
 
         reportMetrics(cold ? KEY_FILES_COLD_START_PERFORMANCE_MEDIAN
@@ -97,43 +125,39 @@ public class FilesAppPerfTest {
         final Bundle status = new Bundle();
         Arrays.sort(measurements);
         final long median = measurements[NUM_MEASUREMENTS / 2 - 1];
-        status.putDouble(key, median);
+        status.putDouble(key + "(ms)", median);
 
-        InstrumentationRegistry.getInstrumentation().sendStatus(Activity.RESULT_OK, status);
+        mInstrumentation.sendStatus(Activity.RESULT_OK, status);
     }
 
-    private void killProviders() throws Exception {
-        final Context context = InstrumentationRegistry.getInstrumentation().getContext();
-        final PackageManager pm = context.getPackageManager();
-        final ActivityManager am = (ActivityManager) context.getSystemService(
-                Context.ACTIVITY_SERVICE);
+    private String[] getDocumentsProviderPackageNames() {
         final Intent intent = new Intent(DocumentsContract.PROVIDER_INTERFACE);
-        final List<ResolveInfo> providers = pm.queryIntentContentProviders(intent, 0);
-        for (ResolveInfo info : providers) {
-            final String packageName = info.providerInfo.packageName;
-            am.killBackgroundProcesses(packageName);
+        final List<ResolveInfo> providers = mContext.getPackageManager()
+                .queryIntentContentProviders(intent, PackageManager.ResolveInfoFlags.of(0));
+        final String[] pkgNames = new String[providers.size()];
+        for (int i = 0; i < providers.size(); i++) {
+            pkgNames[i] = providers.get(i).providerInfo.packageName;
         }
+        return pkgNames;
     }
 
-    private final <T extends Activity> T launchActivity(
-            String pkg,
-            Class<T> activityCls,
-            Bundle extras) {
-        Intent intent = new Intent(Intent.ACTION_MAIN);
-        if (extras != null) {
-            intent.putExtras(extras);
+    private void waitUntilDocumentsUiActivityRemoved() {
+        final UiDevice uiDevice = UiDevice.getInstance(mInstrumentation);
+        final String classPattern = new ComponentName(mDocumentsUiActivityInfo.packageName,
+                mDocumentsUiActivityInfo.name).flattenToShortString();
+        final long startTime = SystemClock.uptimeMillis();
+        while (SystemClock.uptimeMillis() - startTime <= REMOVAL_TIMEOUT_MS) {
+            SystemClock.sleep(TIMEOUT_INTERVAL_MS);
+            final String windowTokenDump;
+            try {
+                windowTokenDump = uiDevice.executeShellCommand("dumpsys window tokens");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            if (!windowTokenDump.contains(classPattern)) {
+                return;
+            }
         }
-        return launchActivityWithIntent(pkg, activityCls, intent);
-    }
-
-    private final <T extends Activity> T launchActivityWithIntent(
-            String pkg,
-            Class<T> activityCls,
-            Intent intent) {
-        intent.setClassName(pkg, activityCls.getName());
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        T activity = (T) InstrumentationRegistry.getInstrumentation().startActivitySync(intent);
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-        return activity;
+        Log.i(TAG, "Removal timeout of " + classPattern);
     }
 }

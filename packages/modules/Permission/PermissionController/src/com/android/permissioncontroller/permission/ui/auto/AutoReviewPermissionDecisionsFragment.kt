@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+@file:Suppress("DEPRECATION")
+
 package com.android.permissioncontroller.permission.ui.auto
 
 import android.annotation.SuppressLint
@@ -221,7 +223,7 @@ class AutoReviewPermissionDecisionsFragment : AutoSettingsFrameFragment() {
             PermissionControllerStatsLog.RECENT_PERMISSION_DECISIONS_INTERACTED,
             sessionId,
             RECENT_PERMISSION_DECISIONS_INTERACTED__ACTION__SCREEN_VIEWED,
-            null,
+            0,
             null)
     }
 
@@ -230,7 +232,7 @@ class AutoReviewPermissionDecisionsFragment : AutoSettingsFrameFragment() {
             PermissionControllerStatsLog.RECENT_PERMISSION_DECISIONS_INTERACTED,
             sessionId,
             RECENT_PERMISSION_DECISIONS_INTERACTED__ACTION__VIEW_ALL_CLICKED,
-            null,
+            0,
             null)
     }
 

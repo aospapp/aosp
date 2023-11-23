@@ -729,6 +729,7 @@ public class SourceStampVerifier {
 
             private final List<ApkVerificationIssue> mErrors = new ArrayList<>();
             private final List<ApkVerificationIssue> mWarnings = new ArrayList<>();
+            private final List<ApkVerificationIssue> mInfoMessages = new ArrayList<>();
 
             private final long mTimestamp;
 
@@ -746,6 +747,7 @@ public class SourceStampVerifier {
                 mCertificateLineage = result.certificateLineage;
                 mErrors.addAll(result.getErrors());
                 mWarnings.addAll(result.getWarnings());
+                mInfoMessages.addAll(result.getInfoMessages());
                 mTimestamp = result.timestamp;
             }
 
@@ -777,6 +779,14 @@ public class SourceStampVerifier {
             }
 
             /**
+             * Returns {@code true} if any info messages were encountered during verification of
+             * this source stamp.
+             */
+            public boolean containsInfoMessages() {
+                return !mInfoMessages.isEmpty();
+            }
+
+            /**
              * Returns a {@code List} of {@link ApkVerificationIssue} representing errors that were
              * encountered during source stamp verification.
              */
@@ -796,6 +806,14 @@ public class SourceStampVerifier {
              */
             public List<ApkVerificationIssue> getWarnings() {
                 return mWarnings;
+            }
+
+            /**
+             * Returns a {@code List} of {@link ApkVerificationIssue} representing info messages
+             * that were encountered during source stamp verification.
+             */
+            public List<ApkVerificationIssue> getInfoMessages() {
+                return mInfoMessages;
             }
 
             /**

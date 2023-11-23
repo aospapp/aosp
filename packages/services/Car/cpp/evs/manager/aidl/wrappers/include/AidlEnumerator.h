@@ -46,6 +46,8 @@ public:
     ::ndk::ScopedAStatus closeDisplay(const std::shared_ptr<aidlevs::IEvsDisplay>& obj) override;
     ::ndk::ScopedAStatus getDisplayIdList(std::vector<uint8_t>* list) override;
     ::ndk::ScopedAStatus getDisplayState(aidlevs::DisplayState* state) override;
+    ::ndk::ScopedAStatus getDisplayStateById(int32_t displayId,
+                                             aidlevs::DisplayState* state) override;
     ::ndk::ScopedAStatus openUltrasonicsArray(
             const std::string& id, std::shared_ptr<aidlevs::IEvsUltrasonicsArray>* obj) override;
     ::ndk::ScopedAStatus closeUltrasonicsArray(
@@ -55,7 +57,8 @@ public:
     ::ndk::ScopedAStatus registerStatusCallback(
             const std::shared_ptr<aidlevs::IEvsEnumeratorStatusCallback>& callback) override;
 
-    explicit AidlEnumerator(const ::android::sp<hidlevs::V1_0::IEvsEnumerator>& svc);
+    explicit AidlEnumerator(const ::android::sp<hidlevs::V1_0::IEvsEnumerator>& svc,
+                            bool forceV1_0 = false);
     virtual ~AidlEnumerator() { mImpl = nullptr; }
 
     // Implementation details
@@ -79,9 +82,6 @@ public:
             const ::android::sp<hidlevs::V1_0::IEvsDisplay>& display) = 0;
     virtual ::ndk::ScopedAStatus getCameraList(std::vector<aidlevs::CameraDesc>* _aidl_return) = 0;
     virtual ::ndk::ScopedAStatus getDisplayIdList(std::vector<uint8_t>* list) = 0;
-    virtual ::android::sp<hidlevs::V1_0::IEvsEnumerator> getHidlEnumerator() {
-        return mHidlEnumerator;
-    };
     virtual ::ndk::ScopedAStatus openCamera(const std::string& cameraId,
                                             const aidlevs::Stream& streamConfig,
                                             std::shared_ptr<aidlevs::IEvsCamera>* obj) = 0;
@@ -93,6 +93,7 @@ public:
 
 protected:
     ::android::sp<hidlevs::V1_0::IEvsEnumerator> mHidlEnumerator;
+    ::android::wp<hidlevs::V1_0::IEvsDisplay> mActiveHidlDisplay;
 };
 
 class AidlEnumerator::ImplV0 final : public IHidlEnumerator {

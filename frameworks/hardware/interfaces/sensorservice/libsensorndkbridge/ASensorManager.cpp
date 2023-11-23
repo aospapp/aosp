@@ -19,25 +19,25 @@
 #include "ASensorManager.h"
 
 #define LOG_TAG "libsensorndkbridge"
+#include <aidl/sensors/convert.h>
 #include <android-base/logging.h>
+#include <android/binder_auto_utils.h>
+#include <android/binder_ibinder_platform.h>
+#include <android/binder_manager.h>
+#include <android/binder_process.h>
 #include <android/looper.h>
-#include <hidl/HidlTransportSupport.h>
-#include <sensors/convert.h>
 
-using android::hardware::sensors::V1_0::SensorInfo;
-using android::frameworks::sensorservice::V1_0::IEventQueue;
-using android::frameworks::sensorservice::V1_0::ISensorManager;
-using android::frameworks::sensorservice::V1_0::Result;
-using android::hardware::sensors::V1_0::SensorType;
-using android::sp;
-using android::wp;
-using android::Mutex;
-using android::status_t;
-using android::OK;
-using android::NO_INIT;
+#include <thread>
+
+using aidl::android::frameworks::sensorservice::IEventQueue;
+using aidl::android::frameworks::sensorservice::ISensorManager;
+using aidl::android::hardware::sensors::SensorInfo;
+using aidl::android::hardware::sensors::SensorType;
 using android::BAD_VALUE;
-using android::hardware::hidl_vec;
-using android::hardware::Return;
+using android::Mutex;
+using android::NO_INIT;
+using android::OK;
+using android::status_t;
 
 static Mutex gLock;
 
@@ -57,8 +57,7 @@ ASensorManager *ASensorManager::getInstance() {
     return sInstance;
 }
 
-void ASensorManager::SensorDeathRecipient::serviceDied(
-        uint64_t, const wp<::android::hidl::base::V1_0::IBase>&) {
+void ASensorManager::serviceDied(void*) {
     LOG(ERROR) << "Sensor service died. Cleanup sensor manager instance!";
     Mutex::Autolock autoLock(gLock);
     delete sInstance;
@@ -67,14 +66,22 @@ void ASensorManager::SensorDeathRecipient::serviceDied(
 
 ASensorManager::ASensorManager()
     : mInitCheck(NO_INIT) {
-    mManager = ISensorManager::getService();
+    if (!ABinderProcess_isThreadPoolStarted()) {
+        std::thread([]() {
+            ABinderProcess_joinThreadPool();
+            LOG(ERROR) << "SHOULD NOT EXIT";
+        }).detach();
+        LOG(ERROR) << "The user of libsensorndkbridge did not start a threadpool";
+    }
+    const std::string name = std::string() + ISensorManager::descriptor + "/default";
+    mManager =
+        ISensorManager::fromBinder(ndk::SpAIBinder(AServiceManager_waitForService(name.c_str())));
     if (mManager != NULL) {
-        mDeathRecipient = new SensorDeathRecipient();
-        Return<bool> linked = mManager->linkToDeath(mDeathRecipient, /*cookie*/ 0);
-        if (!linked.isOk()) {
-            LOG(ERROR) << "Transaction error in linking to sensor service death: " <<
-                    linked.description().c_str();
-        } else if (!linked) {
+        mDeathRecipient =
+            ndk::ScopedAIBinder_DeathRecipient(AIBinder_DeathRecipient_new(serviceDied));
+        auto linked =
+            AIBinder_linkToDeath(mManager->asBinder().get(), mDeathRecipient.get(), nullptr);
+        if (linked != OK) {
             LOG(WARNING) << "Unable to link to sensor service death notifications";
         } else {
             LOG(DEBUG) << "Link to sensor service death notification successful";
@@ -93,16 +100,11 @@ int ASensorManager::getSensorList(ASensorList *out) {
     Mutex::Autolock autoLock(mLock);
 
     if (mSensorList == NULL) {
-        Return<void> ret =
-            mManager->getSensorList([&](const auto &list, auto result) {
-                if (result != Result::OK) {
-                    return;
-                }
+        ndk::ScopedAStatus ret = mManager->getSensorList(&mSensors);
 
-                mSensors = list;
-        });
-
-        (void)ret.isOk();
+        if (!ret.isOk()) {
+            LOG(ERROR) << "Failed to get sensor list: " << ret;
+        }
 
         mSensorList.reset(new ASensorRef[mSensors.size()]);
         for (size_t i = 0; i < mSensors.size(); ++i) {
@@ -123,24 +125,21 @@ ASensorRef ASensorManager::getDefaultSensor(int type) {
 
     ASensorRef defaultSensor = NULL;
 
-    Return<void> ret = mManager->getDefaultSensor(
-            static_cast<SensorType>(type),
-            [&](const auto &sensor, auto result) {
-                if (result != Result::OK) {
-                    return;
-                }
+    SensorInfo sensor;
 
-                for (size_t i = 0; i < mSensors.size(); ++i) {
-                    if (sensor == mSensors[i]) {
-                        defaultSensor =
-                             reinterpret_cast<ASensorRef>(&mSensors[i]);
+    ndk::ScopedAStatus ret = mManager->getDefaultSensor(static_cast<SensorType>(type), &sensor);
 
-                        break;
-                    }
-                }
-            });
+    if (!ret.isOk()) {
+        LOG(ERROR) << "Failed to get default sensor of type " << type << " with error: " << ret;
+    }
 
-    (void)ret.isOk();
+    for (size_t i = 0; i < mSensors.size(); ++i) {
+        if (sensor == mSensors[i]) {
+            defaultSensor = reinterpret_cast<ASensorRef>(&mSensors[i]);
+
+            break;
+        }
+    }
 
     return defaultSensor;
 }
@@ -158,28 +157,23 @@ ASensorEventQueue *ASensorManager::createEventQueue(
         void *data) {
     LOG(VERBOSE) << "ASensorManager::createEventQueue";
 
-    sp<ASensorEventQueue> queue =
-        new ASensorEventQueue(looper, callback, data);
+    std::shared_ptr<ASensorEventQueue> queue =
+        ndk::SharedRefBase::make<ASensorEventQueue>(looper, callback, data);
 
-    ::android::hardware::setMinSchedulerPolicy(queue, SCHED_FIFO, 98);
-    Result result;
-    Return<void> ret =
-        mManager->createEventQueue(
-                queue, [&](const sp<IEventQueue> &queueImpl, auto tmpResult) {
-                    result = tmpResult;
-                    if (result != Result::OK) {
-                        return;
-                    }
+    AIBinder_setMinSchedulerPolicy(queue->asBinder().get(), SCHED_FIFO, 98);
+    std::shared_ptr<IEventQueue> eventQueue;
+    ndk::ScopedAStatus ret = mManager->createEventQueue(queue, &eventQueue);
 
-                    queue->setImpl(queueImpl);
-                });
-
-    if (!ret.isOk() || result != Result::OK) {
-        LOG(ERROR) << "FAILED to create event queue";
+    if (!ret.isOk()) {
+        LOG(ERROR) << "FAILED to create event queue: " << ret;
         return NULL;
     }
+    queue->setImpl(eventQueue);
 
-    queue->incStrong(NULL /* id */);
+    {
+        Mutex::Autolock autoLock(mQueuesLock);
+        mQueues.push_back(queue);
+    }
 
     LOG(VERBOSE) << "Returning event queue " << queue.get();
     return queue.get();
@@ -190,8 +184,14 @@ void ASensorManager::destroyEventQueue(ASensorEventQueue *queue) {
 
     queue->invalidate();
 
-    queue->decStrong(NULL /* id */);
-    queue = NULL;
+    {
+        Mutex::Autolock autoLock(mQueuesLock);
+        mQueues.erase(std::remove_if(mQueues.begin(), mQueues.end(),
+                                     [&](const std::shared_ptr<ASensorEventQueue>& ptr) {
+                                         return ptr.get() == queue;
+                                     }),
+                      mQueues.end());
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -374,7 +374,7 @@ float ASensor_getResolution(ASensor const* sensor) {
 
 int ASensor_getMinDelay(ASensor const* sensor) {
     RETURN_IF_SENSOR_IS_NULL(ASENSOR_DELAY_INVALID);
-    return reinterpret_cast<const SensorInfo *>(sensor)->minDelay;
+    return reinterpret_cast<const SensorInfo*>(sensor)->minDelayUs;
 }
 
 int ASensor_getFifoMaxEventCount(ASensor const* sensor) {

@@ -13,11 +13,8 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations under
 # the License.
-import json
 import random
-import sys
 import logging
-import re
 from acts.base_test import BaseTestClass
 from acts_contrib.test_utils.bt.BtInterferenceBaseTest import inject_static_wifi_interference
 from acts_contrib.test_utils.bt.BtInterferenceBaseTest import unpack_custom_file

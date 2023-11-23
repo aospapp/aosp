@@ -19,9 +19,15 @@ package {
 
 java_sdk_library {
     name: "framework-tethering",
-    defaults: ["framework-module-defaults"],
+    defaults: [
+        "framework-tethering-defaults",
+    ],
     impl_library_visibility: [
         "//packages/modules/Connectivity/Tethering:__subpackages__",
+        "//packages/modules/Connectivity/framework",
+        "//packages/modules/Connectivity/framework-t",
+        "//packages/modules/Connectivity/service",
+        "//packages/modules/Connectivity/service-t",
 
         // Using for test only
         "//cts/tests/netlegacy22.api",
@@ -41,42 +47,83 @@ java_sdk_library {
         "//packages/modules/NetworkStack/tests:__subpackages__",
         "//packages/modules/Wifi/service/tests/wifitests",
     ],
-
-    srcs: [":framework-tethering-srcs"],
-    libs: ["framework-connectivity.stubs.module_lib"],
     stub_only_libs: ["framework-connectivity.stubs.module_lib"],
+
+    jarjar_rules: ":framework-tethering-jarjar-rules",
+    installable: true,
+
+    hostdex: true, // for hiddenapi check
+    permitted_packages: ["android.net"],
+    lint: { strict_updatability_linting: true },
+}
+
+java_defaults {
+    name: "CronetJavaDefaults",
+    srcs: [":cronet_aml_api_sources"],
+    libs: [
+        "androidx.annotation_annotation",
+    ],
+    impl_only_static_libs: [
+        "cronet_aml_java",
+    ],
+}
+
+java_defaults {
+  name: "CronetJavaPrejarjarDefaults",
+  static_libs: [
+    "cronet_aml_api_java",
+    "cronet_aml_java"
+  ],
+}
+
+java_library {
+  name: "framework-tethering-pre-jarjar",
+  defaults: [
+    "framework-tethering-defaults",
+  ],
+}
+
+java_genrule {
+    name: "framework-tethering-jarjar-rules",
+    tool_files: [
+        ":framework-tethering-pre-jarjar{.jar}",
+        ":framework-tethering.stubs.module_lib{.jar}",
+        "jarjar-excludes.txt",
+    ],
+    tools: [
+        "jarjar-rules-generator",
+    ],
+    out: ["framework_tethering_jarjar_rules.txt"],
+    cmd: "$(location jarjar-rules-generator) " +
+        "$(location :framework-tethering-pre-jarjar{.jar}) " +
+        "--apistubs $(location :framework-tethering.stubs.module_lib{.jar}) " +
+        "--prefix android.net.http.internal " +
+        "--excludes $(location jarjar-excludes.txt) " +
+        "--output $(out)",
+}
+
+java_defaults {
+    name: "framework-tethering-defaults",
+    defaults: ["framework-module-defaults"],
+    srcs: [
+      ":framework-tethering-srcs"
+    ],
+    libs: ["framework-connectivity.stubs.module_lib"],
     aidl: {
         include_dirs: [
             "packages/modules/Connectivity/framework/aidl-export",
         ],
     },
-
-    jarjar_rules: "jarjar-rules.txt",
-    installable: true,
-
-    hostdex: true, // for hiddenapi check
     apex_available: ["com.android.tethering"],
-    permitted_packages: ["android.net"],
     min_sdk_version: "30",
-    lint: { strict_updatability_linting: true },
 }
 
 filegroup {
     name: "framework-tethering-srcs",
+    defaults: ["framework-sources-module-defaults"],
     srcs: [
-        "src/android/net/TetheredClient.aidl",
-        "src/android/net/TetheredClient.java",
-        "src/android/net/TetheringManager.java",
-        "src/android/net/TetheringConstants.java",
-        "src/android/net/IIntResultListener.aidl",
-        "src/android/net/ITetheringEventCallback.aidl",
-        "src/android/net/ITetheringConnector.aidl",
-        "src/android/net/TetheringCallbackStartedParcel.aidl",
-        "src/android/net/TetheringConfigurationParcel.aidl",
-        "src/android/net/TetheringRequestParcel.aidl",
-        "src/android/net/TetherStatesParcel.aidl",
-        "src/android/net/TetheringInterface.aidl",
-        "src/android/net/TetheringInterface.java",
+        "src/**/*.aidl",
+        "src/**/*.java",
     ],
     path: "src"
 }

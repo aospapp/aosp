@@ -151,6 +151,7 @@ public class DisconnectedCallNotifierTest extends TelecomTestCase {
         when(call.getDisconnectCause()).thenReturn(cause);
         when(call.getTargetPhoneAccount()).thenReturn(PHONE_ACCOUNT_HANDLE);
         when(call.getHandle()).thenReturn(TEL_CALL_HANDLE);
+        when(call.getAssociatedUser()).thenReturn(PHONE_ACCOUNT_HANDLE.getUserHandle());
         return call;
     }
 }

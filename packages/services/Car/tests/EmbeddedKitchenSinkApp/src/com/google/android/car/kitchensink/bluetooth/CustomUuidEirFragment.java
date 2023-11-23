@@ -220,11 +220,6 @@ public class CustomUuidEirFragment extends Fragment {
     }
 
     @Override
-    public void onStart() {
-        super.onStart();
-    }
-
-    @Override
     public void onStop() {
         // Turn off advertising toggle to stop advertising.
         mAdvertisingToggle.setChecked(false);

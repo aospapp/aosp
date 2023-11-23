@@ -60,7 +60,8 @@ public enum PrivacyToggle {
             R.string.open_mic_permissions,
             "android.permission-group.MICROPHONE",
             SensorPrivacyManager.Sensors.MICROPHONE,
-            new int[]{AppOpsManager.OP_RECORD_AUDIO, AppOpsManager.OP_PHONE_CALL_MICROPHONE},
+            new int[]{AppOpsManager.OP_RECORD_AUDIO, AppOpsManager.OP_PHONE_CALL_MICROPHONE,
+                    AppOpsManager.OP_RECEIVE_EXPLICIT_USER_INTERACTION_AUDIO},
             "mic_toggle_enabled"
     );
 

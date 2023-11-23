@@ -30,8 +30,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.RectF;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.ParcelFileDescriptor;
@@ -39,13 +41,23 @@ import android.os.SystemClock;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.CorrectionInfo;
+import android.view.inputmethod.DeleteGesture;
+import android.view.inputmethod.DeleteRangeGesture;
 import android.view.inputmethod.ExtractedTextRequest;
+import android.view.inputmethod.HandwritingGesture;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputContentInfo;
+import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
+import android.view.inputmethod.InputMethodSubtype;
+import android.view.inputmethod.InsertGesture;
+import android.view.inputmethod.PreviewableHandwritingGesture;
+import android.view.inputmethod.SelectGesture;
+import android.view.inputmethod.SelectRangeGesture;
 import android.view.inputmethod.TextAttribute;
 
 import androidx.annotation.AnyThread;
@@ -62,8 +74,10 @@ import org.junit.AssumptionViolatedException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.IntConsumer;
 
 /**
  * Represents an active Mock IME session, which provides basic primitives to write end-to-end tests
@@ -73,6 +87,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>Public methods are not thread-safe.</p>
  */
 public class MockImeSession implements AutoCloseable {
+
+    private static final String TAG = "MockImeSession";
+
     private final String mImeEventActionName =
             "com.android.cts.mockime.action.IME_EVENT." + SystemClock.elapsedRealtimeNanos();
 
@@ -161,6 +178,7 @@ public class MockImeSession implements AutoCloseable {
 
     private static String executeShellCommand(
             @NonNull UiAutomation uiAutomation, @NonNull String command) throws IOException {
+        Log.d(TAG, "executeShellCommand(): command=" + command);
         try (ParcelFileDescriptor.AutoCloseInputStream in =
                      new ParcelFileDescriptor.AutoCloseInputStream(
                              uiAutomation.executeShellCommand(command))) {
@@ -173,30 +191,58 @@ public class MockImeSession implements AutoCloseable {
                 }
                 sb.append(new String(buffer, 0, numRead));
             }
-            return sb.toString();
+            String result = sb.toString();
+            Log.d(TAG, "executeShellCommand(): result=" + result);
+            return result;
         }
+    }
+
+    private String executeImeCmd(String cmd, @Nullable String...args) throws IOException {
+        StringBuilder fullCmd = new StringBuilder("ime ").append(cmd);
+        fullCmd.append(" --user ").append(mContext.getUserId()).append(' ');
+        for (String arg : args) {
+            // Ideally it should check if there's more args, but adding an extra space is fine
+            fullCmd.append(' ').append(arg);
+        }
+        return executeShellCommand(mUiAutomation, fullCmd.toString());
     }
 
     @Nullable
     private String getCurrentInputMethodId() {
         // TODO: Replace this with IMM#getCurrentInputMethodIdForTesting()
-        return Settings.Secure.getString(mContext.getContentResolver(),
+        String settingsValue = Settings.Secure.getString(mContext.getContentResolver(),
                 Settings.Secure.DEFAULT_INPUT_METHOD);
+        Log.v(TAG, "getCurrentInputMethodId(): returning " + settingsValue + " for user "
+                + mContext.getUser().getIdentifier());
+        return settingsValue;
     }
 
     @Nullable
-    private static void writeMockImeSettings(@NonNull Context context,
+    private void writeMockImeSettings(@NonNull Context context,
             @NonNull String imeEventActionName,
             @Nullable ImeSettings.Builder imeSettings) throws Exception {
         final Bundle bundle = ImeSettings.serializeToBundle(imeEventActionName, imeSettings);
+        Log.i(TAG, "Writing MockIme settings: session=" + this);
         context.getContentResolver().call(SettingsProvider.AUTHORITY, "write", null, bundle);
+    }
+
+    private void setAdditionalSubtypes(@NonNull Context context,
+            @Nullable InputMethodSubtype[] additionalSubtypes) {
+        final Bundle bundle = new Bundle();
+        bundle.putParcelableArray(SettingsProvider.SET_ADDITIONAL_SUBTYPES_KEY, additionalSubtypes);
+        context.getContentResolver().call(SettingsProvider.AUTHORITY,
+                SettingsProvider.SET_ADDITIONAL_SUBTYPES_COMMAND, null, bundle);
     }
 
     private ComponentName getMockImeComponentName() {
         return MockIme.getComponentName();
     }
 
-    private String getMockImeId() {
+    /**
+     * @return the IME ID of the {@link MockIme}.
+     * @see android.view.inputmethod.InputMethodInfo#getId()
+     */
+    public String getImeId() {
         return MockIme.getImeId();
     }
 
@@ -205,19 +251,60 @@ public class MockImeSession implements AutoCloseable {
         mUiAutomation = uiAutomation;
     }
 
+    @Nullable
+    public InputMethodInfo getInputMethodInfo() {
+        for (InputMethodInfo imi :
+                mContext.getSystemService(InputMethodManager.class).getInputMethodList()) {
+            if (TextUtils.equals(getImeId(), imi.getId())) {
+                return imi;
+            }
+        }
+        return null;
+    }
+
     private void initialize(@Nullable ImeSettings.Builder imeSettings) throws Exception {
+        PollingCheck.check("MockIME was not in getInputMethodList() after timeout.", TIMEOUT,
+                () -> getInputMethodInfo() != null);
+
         // Make sure that MockIME is not selected.
         if (mContext.getSystemService(InputMethodManager.class)
                 .getInputMethodList()
                 .stream()
                 .anyMatch(info -> getMockImeComponentName().equals(info.getComponent()))) {
-            executeShellCommand(mUiAutomation, "ime reset");
+            executeImeCmd("reset");
         }
         if (mContext.getSystemService(InputMethodManager.class)
                 .getEnabledInputMethodList()
                 .stream()
                 .anyMatch(info -> getMockImeComponentName().equals(info.getComponent()))) {
             throw new IllegalStateException();
+        }
+
+        // Make sure to set up additional subtypes before launching MockIme.
+        InputMethodSubtype[] additionalSubtypes = imeSettings.mAdditionalSubtypes;
+        if (additionalSubtypes == null) {
+            additionalSubtypes = new InputMethodSubtype[0];
+        }
+        if (additionalSubtypes.length > 0) {
+            setAdditionalSubtypes(mContext, additionalSubtypes);
+        } else {
+            final InputMethodInfo imi = getInputMethodInfo();
+            if (imi == null) {
+                throw new IllegalStateException("MockIME was not in getInputMethodList().");
+            }
+            if (imi.getSubtypeCount() != 0) {
+                // Somehow the previous run failed to remove additional subtypes. Clean them up.
+                setAdditionalSubtypes(mContext, null);
+            }
+        }
+        {
+            final InputMethodInfo imi = getInputMethodInfo();
+            if (imi == null) {
+                throw new IllegalStateException("MockIME not found while checking subtypes.");
+            }
+            if (imi.getSubtypeCount() != additionalSubtypes.length) {
+                throw new IllegalStateException("MockIME subtypes were not correctly set.");
+            }
         }
 
         writeMockImeSettings(mContext, mImeEventActionName, imeSettings);
@@ -233,11 +320,18 @@ public class MockImeSession implements AutoCloseable {
                     new Handler(mHandlerThread.getLooper()));
         }
 
-        executeShellCommand(mUiAutomation, "ime enable " + getMockImeId());
-        executeShellCommand(mUiAutomation, "ime set " + getMockImeId());
+        String imeId = getImeId();
+        executeImeCmd("enable", imeId);
+        executeImeCmd("set", imeId);
 
         PollingCheck.check("Make sure that MockIME becomes available", TIMEOUT,
-                () -> getMockImeId().equals(getCurrentInputMethodId()));
+                () -> getImeId().equals(getCurrentInputMethodId()));
+    }
+
+    @Override
+    public String toString() {
+        return TAG + "{active=" + mActive + ", handlerThread=" + mHandlerThread
+                + ", stickyBroadcasts=" + mStickyBroadcasts + "}";
     }
 
     /** @see #create(Context, UiAutomation, ImeSettings.Builder) */
@@ -302,6 +396,18 @@ public class MockImeSession implements AutoCloseable {
     }
 
     /**
+     * Checks whether there are any pending IME visibility requests.
+     *
+     * @see InputMethodManager#hasPendingImeVisibilityRequests()
+     *
+     * @return {@code true} iff there are pending IME visibility requests.
+     */
+    public boolean hasPendingImeVisibilityRequests() {
+        final var imm = mContext.getSystemService(InputMethodManager.class);
+        return runWithShellPermissionIdentity(imm::hasPendingImeVisibilityRequests);
+    }
+
+    /**
      * @return {@link ImeEventStream} object that stores events sent from {@link MockIme} since the
      *         session is created.
      */
@@ -327,7 +433,7 @@ public class MockImeSession implements AutoCloseable {
         mStickyBroadcasts.forEach(mContext::removeStickyBroadcast);
         mStickyBroadcasts.clear();
 
-        executeShellCommand(mUiAutomation, "ime reset");
+        executeImeCmd("reset");
 
         PollingCheck.check("Make sure that MockIME becomes unavailable", TIMEOUT, () ->
                 mContext.getSystemService(InputMethodManager.class)
@@ -336,7 +442,14 @@ public class MockImeSession implements AutoCloseable {
                         .noneMatch(info -> getMockImeComponentName().equals(info.getComponent())));
         mContext.unregisterReceiver(mEventReceiver);
         mHandlerThread.quitSafely();
+        Log.i(TAG, "Deleting MockIme settings: session=" + this);
         mContext.getContentResolver().call(SettingsProvider.AUTHORITY, "delete", null, null);
+
+        // Clean up additional subtypes if any.
+        final InputMethodInfo imi = getInputMethodInfo();
+        if (imi != null && imi.getSubtypeCount() != 0) {
+            setAdditionalSubtypes(mContext, null);
+        }
     }
 
     /**
@@ -385,6 +498,7 @@ public class MockImeSession implements AutoCloseable {
         final Intent intent = new Intent();
         intent.setPackage(MockIme.getComponentName().getPackageName());
         intent.setAction(MockIme.getCommandActionName(mImeEventActionName));
+        intent.setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY | Intent.FLAG_RECEIVER_FOREGROUND);
         intent.putExtras(command.toBundle());
         return intent;
     }
@@ -425,6 +539,7 @@ public class MockImeSession implements AutoCloseable {
     public ImeCommand resumeCreateSession() {
         return callCommandInternal("resumeCreateSession", new Bundle());
     }
+
 
     /**
      * Lets {@link MockIme} to call
@@ -1161,6 +1276,79 @@ public class MockImeSession implements AutoCloseable {
     }
 
     /**
+     * Lets {@link MockIme} to call
+     * {@link InputConnection#performHandwritingGesture(HandwritingGesture, Executor, IntConsumer)}
+     * with the given parameters.
+     *
+     * <p>The result callback will be recorded as an {@code onPerformHandwritingGestureResult}
+     * event.
+     *
+     * <p>This can be affected by {@link #memorizeCurrentInputConnection()}.</p>
+     *
+     * @param gesture {@link SelectGesture} or {@link InsertGesture} or {@link DeleteGesture}.
+     * @param useDelayedCancellation {@code true} to use delayed {@link CancellationSignal#cancel()}
+     *  on a supported gesture like {@link android.view.inputmethod.InsertModeGesture}.
+     * @return {@link ImeCommand} object that can be passed to
+     *         {@link ImeEventStreamTestUtils#expectCommand(ImeEventStream, ImeCommand, long)} to
+     *         wait until this event is handled by {@link MockIme}.
+     */
+    @NonNull
+    public ImeCommand callPerformHandwritingGesture(
+            @NonNull HandwritingGesture gesture, boolean useDelayedCancellation) {
+        final Bundle params = new Bundle();
+        params.putByteArray("gesture", gesture.toByteArray());
+        params.putBoolean("useDelayedCancellation", useDelayedCancellation);
+        return callCommandInternal("performHandwritingGesture", params);
+    }
+
+    /**
+     * Lets {@link MockIme} to call {@link InputConnection#requestTextBoundsInfo}.
+     *
+     * <p>The result callback will be recorded as an {@code onRequestTextBoundsInfoResult} event.
+     *
+     * <p>This can be affected by {@link #memorizeCurrentInputConnection()}.</p>
+     *
+     * @param gesture {@link SelectGesture} or {@link InsertGesture} or {@link DeleteGesture}.
+     * @return {@link ImeCommand} object that can be passed to
+     *         {@link ImeEventStreamTestUtils#expectCommand(ImeEventStream, ImeCommand, long)} to
+     *         wait until this event is handled by {@link MockIme}.
+     */
+    @NonNull
+    public ImeCommand callRequestTextBoundsInfo(RectF rectF) {
+        final Bundle params = new Bundle();
+        params.putParcelable("rectF", rectF);
+        return callCommandInternal("requestTextBoundsInfo", params);
+    }
+
+    /**
+     * Lets {@link MockIme} to call
+     * {@link InputConnection#previewHandwritingGesture(PreviewableHandwritingGesture,
+     *  CancellationSignal)} with the given parameters.
+     *
+     * <p>Use {@link ImeEvent#getReturnIntegerValue()} for {@link ImeEvent} returned from
+     * {@link ImeEventStreamTestUtils#expectCommand(ImeEventStream, ImeCommand, long)} to see the
+     * value returned from the API.</p>
+     *
+     * <p>This can be affected by {@link #memorizeCurrentInputConnection()}.</p>
+     *
+     * @param gesture one of {@link SelectGesture}, {@link SelectRangeGesture},
+     * {@link DeleteGesture}, {@link DeleteRangeGesture}.
+     * @param useDelayedCancellation {@code true} to use delayed {@link CancellationSignal#cancel()}
+     *  on a gesture preview.
+     * @return {@link ImeCommand} object that can be passed to
+     *         {@link ImeEventStreamTestUtils#expectCommand(ImeEventStream, ImeCommand, long)} to
+     *         wait until this event is handled by {@link MockIme}.
+     */
+    @NonNull
+    public ImeCommand callPreviewHandwritingGesture(
+            @NonNull PreviewableHandwritingGesture gesture, boolean useDelayedCancellation) {
+        final Bundle params = new Bundle();
+        params.putByteArray("gesture", gesture.toByteArray());
+        params.putBoolean("useDelayedCancellation", useDelayedCancellation);
+        return callCommandInternal("previewHandwritingGesture", params);
+    }
+
+    /**
      * Lets {@link MockIme} to call {@link InputConnection#requestCursorUpdates(int)} with the given
      * parameters.
      *
@@ -1307,6 +1495,109 @@ public class MockImeSession implements AutoCloseable {
         final Bundle params = new Bundle();
         params.putBoolean("imeConsumesInput", imeConsumesInput);
         return callCommandInternal("setImeConsumesInput", params);
+    }
+
+    /**
+     * Lets {@link MockIme} to call {@link InputConnection#replaceText(int, int, CharSequence, int,
+     * TextAttribute)} with the given parameters.
+     *
+     * <p>This triggers {@code getCurrentInputConnection().replaceText(int, int, CharSequence, int,
+     * TextAttribute)}.
+     *
+     * <p>Use {@link ImeEvent#getReturnBooleanValue()} for {@link ImeEvent} returned from {@link
+     * ImeEventStreamTestUtils#expectCommand(ImeEventStream, ImeCommand, long)} to see the value
+     * returned from the API.
+     *
+     * <p>This can be affected by {@link #memorizeCurrentInputConnection()}.
+     *
+     * @param start the character index where the replacement should start
+     * @param end the character index where the replacement should end
+     * @param newCursorPosition the new cursor position around the text. If > 0, this is relative to
+     *     the end of the text - 1; if <= 0, this is relative to the start of the text. So a value
+     *     of 1 will always advance you to the position after the full text being inserted. Note
+     *     that this means you can't position the cursor within the text.
+     * @param text the text to replace. This may include styles.
+     * @param textAttribute The extra information about the text. This value may be null.
+     * @return {@link ImeCommand} object that can be passed to {@link
+     *     ImeEventStreamTestUtils#expectCommand(ImeEventStream, ImeCommand, long)} to wait until
+     *     this event is handled by {@link MockIme}
+     */
+    @NonNull
+    public ImeCommand callReplaceText(
+            int start,
+            int end,
+            @NonNull CharSequence text,
+            int newCursorPosition,
+            @Nullable TextAttribute textAttribute) {
+        final Bundle params = new Bundle();
+        params.putInt("start", start);
+        params.putInt("end", end);
+        params.putCharSequence("text", text);
+        params.putInt("newCursorPosition", newCursorPosition);
+        params.putParcelable("textAttribute", textAttribute);
+        return callCommandInternal("replaceText", params);
+    }
+
+    /**
+     * Lets {@link MockIme} to call
+     * {@link InputMethodManager#setExplicitlyEnabledInputMethodSubtypes(String, int[])} with the
+     * given parameters.
+     *
+     * <p>This triggers {@code setExplicitlyEnabledInputMethodSubtypes(imeId, subtypeHashCodes)}.
+     * </p>
+     *
+     * @param imeId the IME ID.
+     * @param subtypeHashCodes An array of {@link InputMethodSubtype#hashCode()}. An empty array and
+     *                   {@code null} can reset the enabled subtypes.
+     * @return {@link ImeCommand} object that can be passed to
+     *         {@link ImeEventStreamTestUtils#expectCommand(ImeEventStream, ImeCommand, long)} to
+     *         wait until this event is handled by {@link MockIme}
+     */
+    @NonNull
+    public ImeCommand callSetExplicitlyEnabledInputMethodSubtypes(String imeId,
+            @Nullable int[] subtypeHashCodes) {
+        final Bundle params = new Bundle();
+        params.putString("imeId", imeId);
+        params.putIntArray("subtypeHashCodes", subtypeHashCodes);
+        return callCommandInternal("setExplicitlyEnabledInputMethodSubtypes", params);
+    }
+
+    /**
+     * Makes {@link MockIme} call {@link
+     * android.inputmethodservice.InputMethodService#switchInputMethod(String)}
+     * with the given parameters.
+     *
+     * @param id the IME ID.
+     * @return {@link ImeCommand} object that can be passed to
+     *         {@link ImeEventStreamTestUtils#expectCommand(ImeEventStream, ImeCommand, long)} to
+     *         wait until this event is handled by {@link MockIme}
+     */
+    @NonNull
+    public ImeCommand callSwitchInputMethod(String id) {
+        final Bundle params = new Bundle();
+        params.putString("id", id);
+        return callCommandInternal("switchInputMethod", params);
+    }
+
+    /**
+     * Lets {@link MockIme} to call {@link
+     * android.inputmethodservice.InputMethodService#switchInputMethod(String, InputMethodSubtype)}
+     * with the given parameters.
+     *
+     * <p>This triggers {@code switchInputMethod(id, subtype)}.</p>
+     *
+     * @param id the IME ID.
+     * @param subtype {@link InputMethodSubtype} to be switched to. Ignored if {@code null}.
+     * @return {@link ImeCommand} object that can be passed to
+     *         {@link ImeEventStreamTestUtils#expectCommand(ImeEventStream, ImeCommand, long)} to
+     *         wait until this event is handled by {@link MockIme}
+     */
+    @NonNull
+    public ImeCommand callSwitchInputMethod(String id, @Nullable InputMethodSubtype subtype) {
+        final Bundle params = new Bundle();
+        params.putString("id", id);
+        params.putParcelable("subtype", subtype);
+        return callCommandInternal("switchInputMethod(String,InputMethodSubtype)", params);
     }
 
     /**
@@ -1495,8 +1786,30 @@ public class MockImeSession implements AutoCloseable {
     }
 
     @NonNull
+    public ImeCommand callGetWindowLayoutInfo() {
+        return callCommandInternal("getWindowLayoutInfo", new Bundle());
+    }
+
+    @NonNull
+    public ImeCommand callHasStylusHandwritingWindow() {
+        return callCommandInternal("hasStylusHandwritingWindow", new Bundle());
+    }
+
+    @NonNull
     public ImeCommand callSetStylusHandwritingInkView() {
         return callCommandInternal("setStylusHandwritingInkView", new Bundle());
+    }
+
+    @NonNull
+    public ImeCommand callSetStylusHandwritingTimeout(long timeoutMs) {
+        Bundle params = new Bundle();
+        params.putLong("timeoutMs", timeoutMs);
+        return callCommandInternal("setStylusHandwritingTimeout", params);
+    }
+
+    @NonNull
+    public ImeCommand callGetStylusHandwritingTimeout() {
+        return callCommandInternal("getStylusHandwritingTimeout", new Bundle());
     }
 
     @NonNull

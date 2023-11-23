@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
-#include <chre.h>
 #include <inttypes.h>
+
+#include "chre/util/nanoapp/log.h"
+#include "chre_api/chre.h"
+
+#define LOG_TAG "[HelloWorld]"
 
 /**
  * @file
@@ -31,20 +35,18 @@ namespace {
 #endif  // CHRE_NANOAPP_INTERNAL
 
 bool nanoappStart() {
-  chreLog(CHRE_LOG_INFO, "Hello, world from version 0x%08" PRIx32,
-          chreGetVersion());
+  LOGI("Hello, world from version 0x%08" PRIx32, chreGetVersion());
   return true;
 }
 
 void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
                         const void * /*eventData*/) {
-  chreLog(CHRE_LOG_INFO,
-          "Received event 0x%" PRIx16 " from 0x%" PRIx32 " at time %" PRIu64,
-          eventType, senderInstanceId, chreGetTime());
+  LOGI("Received event 0x%" PRIx16 " from 0x%" PRIx32 " at time %" PRIu64,
+       eventType, senderInstanceId, chreGetTime());
 }
 
 void nanoappEnd() {
-  chreLog(CHRE_LOG_INFO, "Goodbye, world!");
+  LOGI("Goodbye, world!");
 }
 
 #ifdef CHRE_NANOAPP_INTERNAL

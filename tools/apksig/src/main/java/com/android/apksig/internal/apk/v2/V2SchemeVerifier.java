@@ -16,6 +16,8 @@
 
 package com.android.apksig.internal.apk.v2;
 
+import static com.android.apksig.Constants.MAX_APK_SIGNERS;
+
 import com.android.apksig.ApkVerifier.Issue;
 import com.android.apksig.apk.ApkFormatException;
 import com.android.apksig.apk.ApkUtils;
@@ -221,6 +223,9 @@ public abstract class V2SchemeVerifier {
                 signerInfo.addError(Issue.V2_SIG_MALFORMED_SIGNER);
                 return;
             }
+        }
+        if (signerCount > MAX_APK_SIGNERS) {
+            result.addError(Issue.V2_SIG_MAX_SIGNATURES_EXCEEDED, MAX_APK_SIGNERS, signerCount);
         }
     }
 

@@ -31,6 +31,8 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewDebug;
 
+import androidx.annotation.Nullable;
+
 import com.android.launcher3.AbstractFloatingView;
 import com.android.launcher3.BubbleTextView;
 import com.android.launcher3.CellLayout;
@@ -41,11 +43,11 @@ import com.android.launcher3.PagedView;
 import com.android.launcher3.R;
 import com.android.launcher3.ShortcutAndWidgetContainer;
 import com.android.launcher3.Utilities;
+import com.android.launcher3.celllayout.CellLayoutLayoutParams;
 import com.android.launcher3.keyboard.ViewGroupFocusHelper;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
 import com.android.launcher3.pageindicators.PageIndicatorDots;
-import com.android.launcher3.touch.ItemClickHandler;
 import com.android.launcher3.util.LauncherBindableItemsContainer.ItemOperator;
 import com.android.launcher3.util.Thunk;
 import com.android.launcher3.util.ViewCache;
@@ -202,7 +204,7 @@ public class FolderPagedView extends PagedView<PageIndicatorDots> implements Cli
     public void addViewForRank(View view, WorkspaceItemInfo item, int rank) {
         int pageNo = rank / mOrganizer.getMaxItemsPerPage();
 
-        CellLayout.LayoutParams lp = (CellLayout.LayoutParams) view.getLayoutParams();
+        CellLayoutLayoutParams lp = (CellLayoutLayoutParams) view.getLayoutParams();
         lp.setCellXY(mOrganizer.getPosForRank(rank));
         getPageAt(pageNo).addViewToCellLayout(view, -1, item.getViewId(), lp, true);
     }
@@ -215,26 +217,28 @@ public class FolderPagedView extends PagedView<PageIndicatorDots> implements Cli
         final BubbleTextView textView = mViewCache.getView(
                 R.layout.folder_application, getContext(), null);
         textView.applyFromWorkspaceItem(item);
-        textView.setOnClickListener(ItemClickHandler.INSTANCE);
+        textView.setOnClickListener(mFolder.mActivityContext.getItemOnClickListener());
         textView.setOnLongClickListener(mFolder);
         textView.setOnFocusChangeListener(mFocusIndicatorHelper);
-        CellLayout.LayoutParams lp = (CellLayout.LayoutParams) textView.getLayoutParams();
+        CellLayoutLayoutParams lp = (CellLayoutLayoutParams) textView.getLayoutParams();
         if (lp == null) {
-            textView.setLayoutParams(new CellLayout.LayoutParams(
+            textView.setLayoutParams(new CellLayoutLayoutParams(
                     item.cellX, item.cellY, item.spanX, item.spanY));
         } else {
-            lp.cellX = item.cellX;
-            lp.cellY = item.cellY;
+            lp.setCellX(item.cellX);
+            lp.setCellY(item.cellY);
             lp.cellHSpan = lp.cellVSpan = 1;
         }
         return textView;
     }
 
+    @Nullable
     @Override
     public CellLayout getPageAt(int index) {
         return (CellLayout) getChildAt(index);
     }
 
+    @Nullable
     public CellLayout getCurrentCellLayout() {
         return getPageAt(getNextPage());
     }
@@ -314,7 +318,7 @@ public class FolderPagedView extends PagedView<PageIndicatorDots> implements Cli
             }
 
             if (v != null) {
-                CellLayout.LayoutParams lp = (CellLayout.LayoutParams) v.getLayoutParams();
+                CellLayoutLayoutParams lp = (CellLayoutLayoutParams) v.getLayoutParams();
                 ItemInfo info = (ItemInfo) v.getTag();
                 lp.setCellXY(mOrganizer.getPosForRank(rank));
                 currentPage.addViewToCellLayout(v, -1, info.getViewId(), lp, true);
@@ -363,7 +367,7 @@ public class FolderPagedView extends PagedView<PageIndicatorDots> implements Cli
     public int findNearestArea(int pixelX, int pixelY) {
         int pageIndex = getNextPage();
         CellLayout page = getPageAt(pageIndex);
-        page.findNearestArea(pixelX, pixelY, 1, 1, sTmpArray);
+        page.findNearestAreaIgnoreOccupied(pixelX, pixelY, 1, 1, sTmpArray);
         if (mFolder.isLayoutRtl()) {
             sTmpArray[0] = page.getCountX() - sTmpArray[0] - 1;
         }
@@ -381,7 +385,7 @@ public class FolderPagedView extends PagedView<PageIndicatorDots> implements Cli
     }
 
     private View getViewInCurrentPage(ToIntFunction<ShortcutAndWidgetContainer> rankProvider) {
-        if (getChildCount() < 1) {
+        if (getChildCount() < 1 || getCurrentCellLayout() == null) {
             return null;
         }
         ShortcutAndWidgetContainer container = getCurrentCellLayout().getShortcutsAndWidgets();
@@ -420,10 +424,15 @@ public class FolderPagedView extends PagedView<PageIndicatorDots> implements Cli
      * Sets the focus on the first visible child.
      */
     public void setFocusOnFirstChild() {
-        View firstChild = getCurrentCellLayout().getChildAt(0, 0);
-        if (firstChild != null) {
-            firstChild.requestFocus();
+        CellLayout currentCellLayout = getCurrentCellLayout();
+        if (currentCellLayout == null) {
+            return;
         }
+        View firstChild = currentCellLayout.getChildAt(0, 0);
+        if (firstChild == null) {
+            return;
+        }
+        firstChild.requestFocus();
     }
 
     @Override

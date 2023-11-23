@@ -4,11 +4,13 @@
 
 import logging
 import re
+import six
 import time
-import xmlrpclib
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
+from functools import reduce
+
 
 class firmware_ECThermal(FirmwareTest):
     """
@@ -79,7 +81,7 @@ class firmware_ECThermal(FirmwareTest):
             try:
                 lines = self.faft_client.system.run_shell_command_get_output(
                         'ectool thermalget %d %d' % (type_id, current_id))
-            except xmlrpclib.Fault:
+            except six.moves.xmlrpc_client.Fault:
                 break
             pattern = re.compile('Threshold \d* [a-z ]* \d* is (\d*) K.')
             for line in lines:
@@ -105,7 +107,7 @@ class firmware_ECThermal(FirmwareTest):
             self._fan_steps.append(int(m[1]))
 
         # Get the actual value of each fan step
-        for i in xrange(num_steps + 1):
+        for i in range(num_steps + 1):
             if self._fan_steps[i] == 0:
                 continue
             self.servo.set_nocheck('fan_target_rpm', "%d" % self._fan_steps[i])
@@ -133,7 +135,7 @@ class firmware_ECThermal(FirmwareTest):
                 self.faft_client.system.run_shell_command('ectool temps %d' %
                                                    self._num_temp_sensor)
                 self._num_temp_sensor = self._num_temp_sensor + 1
-            except xmlrpclib.Fault:
+            except six.moves.xmlrpc_client.Fault:
                 break
         logging.info("Number of temperature sensor: %d", self._num_temp_sensor)
 
@@ -146,7 +148,7 @@ class firmware_ECThermal(FirmwareTest):
         self.ec.send_command("chan 0")
         try:
             self.faft_client.system.run_shell_command('stop temp_metrics')
-        except xmlrpclib.Fault:
+        except six.moves.xmlrpc_client.Fault:
             self._has_temp_metrics = False
         else:
             logging.info('Stopped temp_metrics')
@@ -202,7 +204,8 @@ class firmware_ECThermal(FirmwareTest):
           Temperature reading in degree C.
 
         Raises:
-          xmlrpclib.Fault: Raised when we fail to read temperature.
+          six.moves.xmlrpc_client.Fault: Raised when we fail to read
+          temperature.
           error.TestError: Raised if ectool doesn't behave as we expected.
         """
         assert sensor_id < self._num_temp_sensor
@@ -263,7 +266,7 @@ class firmware_ECThermal(FirmwareTest):
         pid_cmd = "ps -ef | grep '[d]d if=/dev/urandom' | awk '{print $2}'"
         block = False
         self._stress_pid = list()
-        for _ in xrange(threads):
+        for _ in range(threads):
             self.faft_client.system.run_shell_command(stress_cmd, block)
         lines = self.faft_client.system.run_shell_command_get_output(
                     pid_cmd)

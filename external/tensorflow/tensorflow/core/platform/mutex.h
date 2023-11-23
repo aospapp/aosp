@@ -27,11 +27,11 @@ limitations under the License.
 
 // Include appropriate platform-dependent implementation details of mutex etc.
 #if defined(PLATFORM_GOOGLE)
-#include "tensorflow/core/platform/google/mutex_data.h"
+#include "tensorflow/tsl/platform/google/mutex_data.h"
 #elif defined(PLATFORM_POSIX) || defined(PLATFORM_POSIX_ANDROID) ||    \
     defined(PLATFORM_GOOGLE_ANDROID) || defined(PLATFORM_POSIX_IOS) || \
     defined(PLATFORM_GOOGLE_IOS) || defined(PLATFORM_WINDOWS)
-#include "tensorflow/core/platform/default/mutex_data.h"
+#include "tensorflow/tsl/platform/default/mutex_data.h"
 #else
 #error Define the appropriate PLATFORM_<foo> macro for this platform
 #endif
@@ -53,7 +53,7 @@ class TF_LOCKABLE mutex {
   mutex();
   // The default implementation of the underlying mutex is safe to use after
   // the linker initialization to zero.
-  explicit mutex(LinkerInitialized x);
+  explicit constexpr mutex(LinkerInitialized x):mu_(absl::kConstInit) {}
 
   void lock() TF_EXCLUSIVE_LOCK_FUNCTION();
   bool try_lock() TF_EXCLUSIVE_TRYLOCK_FUNCTION(true);
@@ -304,11 +304,11 @@ inline Condition::Condition(const bool* flag)
 
 // Include appropriate platform-dependent implementation details of mutex etc.
 #if defined(PLATFORM_GOOGLE)
-#include "tensorflow/core/platform/google/mutex.h"
+#include "tensorflow/tsl/platform/google/mutex.h"
 #elif defined(PLATFORM_POSIX) || defined(PLATFORM_POSIX_ANDROID) ||    \
     defined(PLATFORM_GOOGLE_ANDROID) || defined(PLATFORM_POSIX_IOS) || \
     defined(PLATFORM_GOOGLE_IOS) || defined(PLATFORM_WINDOWS)
-#include "tensorflow/core/platform/default/mutex.h"
+#include "tensorflow/tsl/platform/default/mutex.h"
 #else
 #error Define the appropriate PLATFORM_<foo> macro for this platform
 #endif

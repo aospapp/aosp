@@ -13,13 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+@file:Suppress("DEPRECATION")
 
 package com.android.permissioncontroller.permission.data
 
 import android.app.Application
+import android.content.pm.PackageManager
+import android.content.pm.PackageManager.GET_ATTRIBUTIONS
+import android.content.pm.PackageManager.GET_ATTRIBUTIONS_LONG
 import android.content.pm.PackageManager.GET_PERMISSIONS
 import android.content.pm.PackageManager.MATCH_ALL
 import android.os.UserHandle
+import com.android.modules.utils.build.SdkLevel
 import com.android.permissioncontroller.PermissionControllerApplication
 import com.android.permissioncontroller.permission.model.livedatatypes.LightPackageInfo
 import kotlinx.coroutines.Job
@@ -30,16 +35,13 @@ import kotlinx.coroutines.Job
  * @param app The current application
  * @param user The user whose packages are desired
  */
-class UserPackageInfosLiveData private constructor(
-    private val app: Application,
-    private val user: UserHandle
-) : SmartAsyncMediatorLiveData<@kotlin.jvm.JvmSuppressWildcards List<LightPackageInfo>>(),
+class UserPackageInfosLiveData
+private constructor(private val app: Application, private val user: UserHandle) :
+    SmartAsyncMediatorLiveData<@JvmSuppressWildcards List<LightPackageInfo>>(),
     PackageBroadcastReceiver.PackageBroadcastListener,
     PermissionListenerMultiplexer.PermissionChangeCallback {
 
-    /**
-     * Whether or not the permissions in this liveData are out of date
-     */
+    /** Whether or not the permissions in this liveData are out of date */
     var permChangeStale = false
 
     override fun onPackageUpdate(packageName: String) {
@@ -67,15 +69,29 @@ class UserPackageInfosLiveData private constructor(
         permChangeStale = false
     }
 
-    /**
-     * Get all of the packages in the system, organized by user.
-     */
+    /** Get all of the packages in the system, organized by user. */
     override suspend fun loadDataAndPostValue(job: Job) {
         if (job.isCancelled) {
             return
         }
-        val packageInfos = app.applicationContext.packageManager
-            .getInstalledPackagesAsUser(GET_PERMISSIONS or MATCH_ALL, user.identifier)
+
+        val packageInfos =
+            if (SdkLevel.isAtLeastU()) {
+                app.applicationContext.packageManager.getInstalledPackagesAsUser(
+                    PackageManager.PackageInfoFlags.of(
+                        GET_PERMISSIONS.toLong() or GET_ATTRIBUTIONS_LONG or MATCH_ALL.toLong()
+                    ),
+                    user.identifier
+                )
+            } else if (SdkLevel.isAtLeastS()) {
+                app.applicationContext.packageManager.getInstalledPackagesAsUser(
+                    GET_PERMISSIONS or GET_ATTRIBUTIONS or MATCH_ALL, user.identifier
+                )
+            } else {
+                app.applicationContext.packageManager.getInstalledPackagesAsUser(
+                    GET_PERMISSIONS or MATCH_ALL, user.identifier
+                )
+            }
 
         postValue(packageInfos.map { packageInfo -> LightPackageInfo(packageInfo) })
     }
@@ -102,6 +118,7 @@ class UserPackageInfosLiveData private constructor(
 
     /**
      * Repository for UserPackageInfosLiveDatas.
+     *
      * <p> Key value is a UserHandle, value is its corresponding LiveData.
      */
     companion object : DataRepository<UserHandle, UserPackageInfosLiveData>() {

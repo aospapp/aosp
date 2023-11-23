@@ -86,9 +86,19 @@ public:
     virtual status_t        setAudioRestriction(int mode);
     virtual int32_t         getGlobalAudioRestriction();
     virtual status_t        setRotateAndCropOverride(uint8_t rotateAndCrop);
+    virtual status_t        setAutoframingOverride(uint8_t autoframingMode);
 
     virtual bool            supportsCameraMute();
     virtual status_t        setCameraMute(bool enabled);
+
+    virtual status_t        setCameraServiceWatchdog(bool enabled);
+
+    virtual void            setStreamUseCaseOverrides(
+                                    const std::vector<int64_t>& useCaseOverrides);
+    virtual void            clearStreamUseCaseOverrides();
+
+    virtual bool            supportsZoomOverride();
+    virtual status_t        setZoomOverride(int32_t zoomOverride);
 
     /**
      * Interface used by CameraService
@@ -96,6 +106,7 @@ public:
 
     Camera2Client(const sp<CameraService>& cameraService,
             const sp<hardware::ICameraClient>& cameraClient,
+            std::shared_ptr<CameraServiceProxyWrapper> cameraServiceProxyWrapper,
             const String16& clientPackageName,
             const std::optional<String16>& clientFeatureId,
             const String8& cameraDeviceId,
@@ -105,7 +116,9 @@ public:
             int clientPid,
             uid_t clientUid,
             int servicePid,
-            bool overrideForPerfClass);
+            bool overrideForPerfClass,
+            bool overrideToPortrait,
+            bool forceSlowJpegMode);
 
     virtual ~Camera2Client();
 

@@ -1,7 +1,7 @@
 .\"
 .\" written by Andrew Main <zefram@dcs.warwick.ac.uk>
 .\"
-.TH CAP_FROM_TEXT 3 "2008-05-10" "" "Linux Programmer's Manual"
+.TH CAP_FROM_TEXT 3 "2021-03-06" "" "Linux Programmer's Manual"
 .SH NAME
 cap_from_text, cap_to_text, cap_to_name, cap_from_name \- capability
 state textual representation translation
@@ -14,6 +14,7 @@ char *cap_to_text(cap_t caps, ssize_t * length_p);
 int cap_from_name(const char* name , cap_value_t* cap_p);
 char *cap_to_name(cap_value_t cap);
 .fi
+.sp
 Link with \fI\-lcap\fP.
 .SH DESCRIPTION
 These functions translate a capability state between

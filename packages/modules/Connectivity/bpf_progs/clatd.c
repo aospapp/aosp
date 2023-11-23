@@ -35,15 +35,28 @@
 
 #include "bpf_helpers.h"
 #include "bpf_net_helpers.h"
-#include "bpf_shared.h"
+#include "clatd.h"
 #include "clat_mark.h"
 
-// From kernel:include/net/ip.h
-#define IP_DF 0x4000  // Flag: "Don't Fragment"
+// IP flags. (from kernel's include/net/ip.h)
+#define IP_CE      0x8000  // Flag: "Congestion" (really reserved 'evil bit')
+#define IP_DF      0x4000  // Flag: "Don't Fragment"
+#define IP_MF      0x2000  // Flag: "More Fragments"
+#define IP_OFFSET  0x1FFF  // "Fragment Offset" part
+
+// from kernel's include/net/ipv6.h
+struct frag_hdr {
+    __u8   nexthdr;
+    __u8   reserved;        // always zero
+    __be16 frag_off;        // 13 bit offset, 2 bits zero, 1 bit "More Fragments"
+    __be32 identification;
+};
 
 DEFINE_BPF_MAP_GRW(clat_ingress6_map, HASH, ClatIngress6Key, ClatIngress6Value, 16, AID_SYSTEM)
 
-static inline __always_inline int nat64(struct __sk_buff* skb, bool is_ethernet) {
+static inline __always_inline int nat64(struct __sk_buff* skb,
+                                        const bool is_ethernet,
+                                        const unsigned kver) {
     // Require ethernet dst mac address to be our unicast address.
     if (is_ethernet && (skb->pkt_type != PACKET_HOST)) return TC_ACT_PIPE;
 
@@ -72,6 +85,12 @@ static inline __always_inline int nat64(struct __sk_buff* skb, bool is_ethernet)
     if (ip6->version != 6) return TC_ACT_PIPE;
 
     // Maximum IPv6 payload length that can be translated to IPv4
+    // Note: technically this check is too strict for an IPv6 fragment,
+    // which by virtue of stripping the extra 8 byte fragment extension header,
+    // could thus be 8 bytes larger and still fit in an ipv4 packet post
+    // translation.  However... who ever heard of receiving ~64KB frags...
+    // fragments are kind of by definition smaller than ingress device mtu,
+    // and thus, on the internet, very very unlikely to exceed 1500 bytes.
     if (ntohs(ip6->payload_len) > 0xFFFF - sizeof(struct iphdr)) return TC_ACT_PIPE;
 
     ClatIngress6Key k = {
@@ -89,7 +108,36 @@ static inline __always_inline int nat64(struct __sk_buff* skb, bool is_ethernet)
 
     if (!v) return TC_ACT_PIPE;
 
-    switch (ip6->nexthdr) {
+    __u8 proto = ip6->nexthdr;
+    __be16 ip_id = 0;
+    __be16 frag_off = htons(IP_DF);
+    __u16 tot_len = ntohs(ip6->payload_len) + sizeof(struct iphdr);  // cannot overflow, see above
+
+    if (proto == IPPROTO_FRAGMENT) {
+        // Fragment handling requires bpf_skb_adjust_room which is 4.14+
+        if (kver < KVER_4_14) return TC_ACT_PIPE;
+
+        // Must have (ethernet and) ipv6 header and ipv6 fragment extension header
+        if (data + l2_header_size + sizeof(*ip6) + sizeof(struct frag_hdr) > data_end)
+            return TC_ACT_PIPE;
+        const struct frag_hdr *frag = (const struct frag_hdr *)(ip6 + 1);
+        proto = frag->nexthdr;
+        // RFC6145: use bottom 16-bits of network endian 32-bit IPv6 ID field for 16-bit IPv4 field.
+        // this is equivalent to: ip_id = htons(ntohl(frag->identification));
+        ip_id = frag->identification >> 16;
+        // Conversion of 16-bit IPv6 frag offset to 16-bit IPv4 frag offset field.
+        // IPv6 is '13 bits of offset in multiples of 8' + 2 zero bits + more fragment bit
+        // IPv4 is zero bit + don't frag bit + more frag bit + '13 bits of offset in multiples of 8'
+        frag_off = ntohs(frag->frag_off);
+        frag_off = ((frag_off & 1) << 13) | (frag_off >> 3);
+        frag_off = htons(frag_off);
+        // Note that by construction tot_len is guaranteed to not underflow here
+        tot_len -= sizeof(struct frag_hdr);
+        // This is a badly formed IPv6 packet with less payload than the size of an IPv6 Frag EH
+        if (tot_len < sizeof(struct iphdr)) return TC_ACT_PIPE;
+    }
+
+    switch (proto) {
         case IPPROTO_TCP:  // For TCP & UDP the checksum neutrality of the chosen IPv6
         case IPPROTO_UDP:  // address means there is no need to update their checksums.
         case IPPROTO_GRE:  // We do not need to bother looking at GRE/ESP headers,
@@ -114,14 +162,14 @@ static inline __always_inline int nat64(struct __sk_buff* skb, bool is_ethernet)
             .version = 4,                                                      // u4
             .ihl = sizeof(struct iphdr) / sizeof(__u32),                       // u4
             .tos = (ip6->priority << 4) + (ip6->flow_lbl[0] >> 4),             // u8
-            .tot_len = htons(ntohs(ip6->payload_len) + sizeof(struct iphdr)),  // u16
-            .id = 0,                                                           // u16
-            .frag_off = htons(IP_DF),                                          // u16
+            .tot_len = htons(tot_len),                                         // be16
+            .id = ip_id,                                                       // be16
+            .frag_off = frag_off,                                              // be16
             .ttl = ip6->hop_limit,                                             // u8
-            .protocol = ip6->nexthdr,                                          // u8
+            .protocol = proto,                                                 // u8
             .check = 0,                                                        // u16
-            .saddr = ip6->saddr.in6_u.u6_addr32[3],                            // u32
-            .daddr = v->local4.s_addr,                                         // u32
+            .saddr = ip6->saddr.in6_u.u6_addr32[3],                            // be32
+            .daddr = v->local4.s_addr,                                         // be32
     };
 
     // Calculate the IPv4 one's complement checksum of the IPv4 header.
@@ -171,6 +219,26 @@ static inline __always_inline int nat64(struct __sk_buff* skb, bool is_ethernet)
     //   return -ENOTSUPP;
     bpf_csum_update(skb, sum6);
 
+    // Technically 'kver < KVER_4_14' already implies 'frag_off == htons(IP_DF)' due to logic above,
+    // thus the initial 'kver >= KVER_4_14' check here is entirely superfluous.
+    //
+    // However, we *need* the compiler (when compiling the program for 4.9) to entirely
+    // optimize out the call to bpf_skb_adjust_room() bpf helper: it's not enough for it to emit
+    // an unreachable call to it, it must *not* emit it at all (otherwise the 4.9 kernel's
+    // bpf verifier will refuse to load a program with an unknown bpf helper call)
+    //
+    // This is easiest to achieve by being very explicit in the if clause,
+    // better safe than sorry...
+    //
+    // Note: we currently have no TreeHugger coverage for 4.9-T devices (there are no such
+    // Pixel or cuttlefish devices), so likely you won't notice for months if this breaks...
+    if (kver >= KVER_4_14 && frag_off != htons(IP_DF)) {
+        // If we're converting an IPv6 Fragment, we need to trim off 8 more bytes
+        // We're beyond recovery on error here... but hard to imagine how this could fail.
+        if (bpf_skb_adjust_room(skb, -(__s32)sizeof(struct frag_hdr), BPF_ADJ_ROOM_NET, /*flags*/0))
+            return TC_ACT_SHOT;
+    }
+
     // bpf_skb_change_proto() invalidates all pointers - reload them.
     data = (void*)(long)skb->data;
     data_end = (void*)(long)skb->data_end;
@@ -199,22 +267,27 @@ static inline __always_inline int nat64(struct __sk_buff* skb, bool is_ethernet)
     return TC_ACT_PIPE;
 }
 
-DEFINE_BPF_PROG("schedcls/ingress6/clat_ether", AID_ROOT, AID_SYSTEM, sched_cls_ingress6_clat_ether)
+DEFINE_BPF_PROG_KVER("schedcls/ingress6/clat_ether$4_14", AID_ROOT, AID_SYSTEM, sched_cls_ingress6_clat_ether_4_14, KVER_4_14)
 (struct __sk_buff* skb) {
-    return nat64(skb, true);
+    return nat64(skb, ETHER, KVER_4_14);
 }
 
-DEFINE_BPF_PROG("schedcls/ingress6/clat_rawip", AID_ROOT, AID_SYSTEM, sched_cls_ingress6_clat_rawip)
+DEFINE_BPF_PROG_KVER_RANGE("schedcls/ingress6/clat_ether$4_9", AID_ROOT, AID_SYSTEM, sched_cls_ingress6_clat_ether_4_9, KVER_NONE, KVER_4_14)
 (struct __sk_buff* skb) {
-    return nat64(skb, false);
+    return nat64(skb, ETHER, KVER_NONE);
+}
+
+DEFINE_BPF_PROG_KVER("schedcls/ingress6/clat_rawip$4_14", AID_ROOT, AID_SYSTEM, sched_cls_ingress6_clat_rawip_4_14, KVER_4_14)
+(struct __sk_buff* skb) {
+    return nat64(skb, RAWIP, KVER_4_14);
+}
+
+DEFINE_BPF_PROG_KVER_RANGE("schedcls/ingress6/clat_rawip$4_9", AID_ROOT, AID_SYSTEM, sched_cls_ingress6_clat_rawip_4_9, KVER_NONE, KVER_4_14)
+(struct __sk_buff* skb) {
+    return nat64(skb, RAWIP, KVER_NONE);
 }
 
 DEFINE_BPF_MAP_GRW(clat_egress4_map, HASH, ClatEgress4Key, ClatEgress4Value, 16, AID_SYSTEM)
-
-DEFINE_BPF_PROG("schedcls/egress4/clat_ether", AID_ROOT, AID_SYSTEM, sched_cls_egress4_clat_ether)
-(struct __sk_buff* skb) {
-    return TC_ACT_PIPE;
-}
 
 DEFINE_BPF_PROG("schedcls/egress4/clat_rawip", AID_ROOT, AID_SYSTEM, sched_cls_egress4_clat_rawip)
 (struct __sk_buff* skb) {
@@ -342,4 +415,4 @@ DEFINE_BPF_PROG("schedcls/egress4/clat_rawip", AID_ROOT, AID_SYSTEM, sched_cls_e
 }
 
 LICENSE("Apache 2.0");
-CRITICAL("netd");
+CRITICAL("Connectivity");

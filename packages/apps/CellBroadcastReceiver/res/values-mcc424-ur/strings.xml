@@ -16,11 +16,11 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert" msgid="569470769079166304">"قومی ہنگامی الرٹ"</string>
-    <string name="cmas_extreme_alert" msgid="9135130008703049274">"ہنگامی الرٹ"</string>
-    <string name="cmas_extreme_immediate_observed_alert" msgid="713620529362685655">"ہنگامی الرٹ"</string>
-    <string name="cmas_extreme_immediate_likely_alert" msgid="6858545279275537101">"ہنگامی الرٹ"</string>
-    <string name="cmas_severe_alert" msgid="6255792641522355328">"ہنگامی الرٹ"</string>
+    <string name="cmas_presidential_level_alert" msgid="569470769079166304">"قومی ایمرجنسی الرٹ"</string>
+    <string name="cmas_extreme_alert" msgid="9135130008703049274">"ایمرجنسی الرٹ"</string>
+    <string name="cmas_extreme_immediate_observed_alert" msgid="713620529362685655">"ایمرجنسی الرٹ"</string>
+    <string name="cmas_extreme_immediate_likely_alert" msgid="6858545279275537101">"ایمرجنسی الرٹ"</string>
+    <string name="cmas_severe_alert" msgid="6255792641522355328">"ایمرجنسی الرٹ"</string>
     <string name="pws_other_message_identifiers" msgid="2219849459734958071">"وارننگ الرٹ"</string>
     <string name="public_safety_message" msgid="6430821308078207535">"عوامی حفاظتی الرٹ"</string>
     <string name="cmas_exercise_alert" msgid="5775307523978007483">"ورزش"</string>

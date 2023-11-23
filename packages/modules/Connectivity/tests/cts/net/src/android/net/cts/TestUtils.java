@@ -16,8 +16,6 @@
 
 package android.net.cts;
 
-import static com.android.testutils.DevSdkIgnoreRuleKt.SC_V2;
-
 import android.os.Build;
 
 import com.android.modules.utils.build.SdkLevel;
@@ -37,11 +35,18 @@ public class TestUtils {
     }
 
     /**
-     * Whether to test T+ APIs. This requires a) that the test be running on an S+ device, and
+     * Whether to test T+ APIs. This requires a) that the test be running on an T+ device, and
      * b) that the code be compiled against shims new enough to access these APIs.
      */
     public static boolean shouldTestTApis() {
-        // TODO: replace SC_V2 with Build.VERSION_CODES.S_V2 when it's available in mainline branch.
-        return SdkLevel.isAtLeastT() && ConstantsShim.VERSION > SC_V2;
+        return SdkLevel.isAtLeastT() && ConstantsShim.VERSION > Build.VERSION_CODES.S_V2;
+    }
+
+    /**
+     * Whether to test U+ APIs. This requires a) that the test be running on an U+ device, and
+     * b) that the code be compiled against shims new enough to access these APIs.
+     */
+    public static boolean shouldTestUApis() {
+        return SdkLevel.isAtLeastU() && ConstantsShim.VERSION > Build.VERSION_CODES.TIRAMISU;
     }
 }

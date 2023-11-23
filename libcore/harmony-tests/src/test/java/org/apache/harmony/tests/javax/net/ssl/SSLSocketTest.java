@@ -354,6 +354,15 @@ public class SSLSocketTest extends TestCase {
     }
 
     /**
+     * javax.net.ssl.SSLSocket#getApplicationProtocol()
+     */
+    public void test_getApplicationProtocol() throws IOException {
+        SSLSocket ssl = getSSLSocket();
+        assertNull(ssl.getApplicationProtocol());
+        ssl.close();
+    }
+
+    /**
      * javax.net.ssl.SSLSocket#getEnabledCipherSuites()
      * javax.net.ssl.SSLSocket#setEnabledCipherSuites(String[] suites)
      */

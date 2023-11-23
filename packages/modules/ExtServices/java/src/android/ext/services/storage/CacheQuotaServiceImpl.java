@@ -57,79 +57,78 @@ public class CacheQuotaServiceImpl extends CacheQuotaService {
         }
 
         List<CacheQuotaHint> processed = new ArrayList<>();
-        byUuid.entrySet().forEach(
-                requestListEntry -> {
-                    // Collapse all usage stats to the same uid.
-                    Map<Integer, List<CacheQuotaHintExtend>> byUid = requestListEntry.getValue()
-                            .stream()
-                            .collect(Collectors.groupingBy(CacheQuotaHintExtend::getUid));
-                    byUid.values().forEach(uidGroupedList -> {
-                        int size = uidGroupedList.size();
-                        if (size < 2) {
-                            return;
-                        }
-                        CacheQuotaHintExtend first = uidGroupedList.get(0);
-                        for (int i = 1; i < size; i++) {
-                            /* Note: We can't use the UsageStats built-in addition function because
-                                     UIDs may span multiple packages and usage stats adding has
-                                     matching package names as a precondition. */
-                            first.mTotalTimeInForeground +=
-                                    uidGroupedList.get(i).mTotalTimeInForeground;
-                        }
-                    });
-
-                    // Because the foreground stats have been added to the first element, we need
-                    // a list of only the first values (which contain the merged foreground time).
-                    List<CacheQuotaHintExtend> flattenedRequests =
-                            byUid.values()
-                                 .stream()
-                                 .map(entryList -> entryList.get(0))
-                                 .filter(entry -> entry.mTotalTimeInForeground != 0)
-                                 .sorted(sCacheQuotaRequestComparator)
-                                 .collect(Collectors.toList());
-
-                    // Because the elements are sorted, we can use the index to also be the sorted
-                    // index for cache quota calculation.
-                    double sum = getSumOfFairShares(flattenedRequests.size());
-                    String uuid = requestListEntry.getKey();
-                    long reservedSize = getReservedCacheSize(uuid);
-                    for (int count = 0; count < flattenedRequests.size(); count++) {
-                        double share = getFairShareForPosition(count) / sum;
-                        CacheQuotaHint entry = flattenedRequests.get(count).mCacheQuotaHint;
-                        CacheQuotaHint.Builder builder = new CacheQuotaHint.Builder(entry);
-                        builder.setQuota(Math.round(share * reservedSize));
-                        processed.add(builder.build());
-                    }
-
-                    // Calculate the median of quotas of uids with >0 foreground time
-                    int midPoint = flattenedRequests.size() / 2;
-                    double medianValue, share;
-                    long medianQuota;
-                    if (flattenedRequests.size() % 2 == 0) {
-                        medianValue = (getFairShareForPosition(midPoint - 1)
-                                + getFairShareForPosition(midPoint)) / 2;
-                    } else {
-                        medianValue = getFairShareForPosition(midPoint);
-                    }
-                    share = medianValue / sum;
-                    medianQuota = Math.round(share * reservedSize);
-                    // Allot median quota to uids with foreground time =0
-                    List<CacheQuotaHintExtend> flattenedRequestsForegroundZero =
-                            byUid.values()
-                               .stream()
-                               .map(entryList -> entryList.get(0))
-                               .filter(entry -> entry.mTotalTimeInForeground == 0)
-                               .sorted(sCacheQuotaRequestComparator)
-                               .collect(Collectors.toList());
-                    for (int count = 0; count < flattenedRequestsForegroundZero.size(); count++) {
-                        CacheQuotaHint entry = flattenedRequestsForegroundZero.get(count)
-                                .mCacheQuotaHint;
-                        CacheQuotaHint.Builder builder = new CacheQuotaHint.Builder(entry);
-                        builder.setQuota(medianQuota);
-                        processed.add(builder.build());
-                    }
+        byUuid.forEach((uuid, uuidGroupedList) -> {
+            // Collapse all usage stats to the same uid.
+            Map<Integer, List<CacheQuotaHintExtend>> byUid = uuidGroupedList
+                    .stream()
+                    .collect(Collectors.groupingBy(CacheQuotaHintExtend::getUid));
+            byUid.values().forEach(uidGroupedList -> {
+                int size = uidGroupedList.size();
+                if (size < 2) {
+                    return;
                 }
-        );
+                CacheQuotaHintExtend first = uidGroupedList.get(0);
+                for (int i = 1; i < size; i++) {
+                    /* Note: We can't use the UsageStats built-in addition function because
+                             UIDs may span multiple packages and usage stats adding has
+                             matching package names as a precondition. */
+                    first.mTotalTimeInForeground +=
+                            uidGroupedList.get(i).mTotalTimeInForeground;
+                }
+            });
+
+            // Because the foreground stats have been added to the first element, we need
+            // a list of only the first values (which contain the merged foreground time).
+            List<CacheQuotaHintExtend> flattenedRequests =
+                    byUid.values()
+                            .stream()
+                            .map(entryList -> entryList.get(0))
+                            .filter(entry -> entry.mTotalTimeInForeground != 0)
+                            .sorted(sCacheQuotaRequestComparator)
+                            .collect(Collectors.toList());
+
+            // Because the elements are sorted, we can use the index to also be the sorted
+            // index for cache quota calculation.
+            double sum = getSumOfFairShares(flattenedRequests.size());
+            long reservedSize = getReservedCacheSize(uuid);
+            final int flattenedRequestsSize = flattenedRequests.size();
+            for (int count = 0; count < flattenedRequestsSize; count++) {
+                double share = getFairShareForPosition(count) / sum;
+                CacheQuotaHint entry = flattenedRequests.get(count).mCacheQuotaHint;
+                CacheQuotaHint.Builder builder = new CacheQuotaHint.Builder(entry);
+                builder.setQuota(Math.round(share * reservedSize));
+                processed.add(builder.build());
+            }
+
+            // Calculate the median of quotas of uids with >0 foreground time
+            int midPoint = flattenedRequests.size() / 2;
+            double medianValue, share;
+            long medianQuota;
+            if (flattenedRequests.size() % 2 == 0) {
+                medianValue = (getFairShareForPosition(midPoint - 1)
+                        + getFairShareForPosition(midPoint)) / 2;
+            } else {
+                medianValue = getFairShareForPosition(midPoint);
+            }
+            share = medianValue / sum;
+            medianQuota = Math.round(share * reservedSize);
+            // Allot median quota to uids with foreground time =0
+            List<CacheQuotaHintExtend> flattenedRequestsForegroundZero =
+                    byUid.values()
+                            .stream()
+                            .map(entryList -> entryList.get(0))
+                            .filter(entry -> entry.mTotalTimeInForeground == 0)
+                            .sorted(sCacheQuotaRequestComparator)
+                            .collect(Collectors.toList());
+            final int flattenedRequestsForegroundZeroSize = flattenedRequestsForegroundZero.size();
+            for (int count = 0; count < flattenedRequestsForegroundZeroSize; count++) {
+                CacheQuotaHint entry = flattenedRequestsForegroundZero.get(count)
+                        .mCacheQuotaHint;
+                CacheQuotaHint.Builder builder = new CacheQuotaHint.Builder(entry);
+                builder.setQuota(medianQuota);
+                processed.add(builder.build());
+            }
+        });
 
         return processed.stream()
                 .filter(request -> request.getQuota() > 0).collect(Collectors.toList());

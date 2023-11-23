@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright 2019 The Chromium OS Authors. All rights reserved.
+# Copyright 2019 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Performs bisection on LLVM based off a .JSON file."""
 
-from __future__ import print_function
 
 import enum
 import json
@@ -17,9 +16,10 @@ import time
 import traceback
 
 import chroot
-from llvm_bisection import BisectionExitStatus
 import llvm_bisection
+from llvm_bisection import BisectionExitStatus
 import update_tryjob_status
+
 
 # Used to re-try for 'llvm_bisection.py' to attempt to launch more tryjobs.
 BISECTION_RETRY_TIME_SECS = 10 * 60
@@ -42,145 +42,167 @@ POLLING_LIMIT_SECS = 18 * 60 * 60
 
 
 class BuilderStatus(enum.Enum):
-  """Actual values given via 'cros buildresult'."""
+    """Actual values given via 'cros buildresult'."""
 
-  PASS = 'pass'
-  FAIL = 'fail'
-  RUNNING = 'running'
+    PASS = "pass"
+    FAIL = "fail"
+    RUNNING = "running"
 
 
 builder_status_mapping = {
     BuilderStatus.PASS.value: update_tryjob_status.TryjobStatus.GOOD.value,
     BuilderStatus.FAIL.value: update_tryjob_status.TryjobStatus.BAD.value,
-    BuilderStatus.RUNNING.value: update_tryjob_status.TryjobStatus.PENDING.value
+    BuilderStatus.RUNNING.value: update_tryjob_status.TryjobStatus.PENDING.value,
 }
 
 
 def GetBuildResult(chroot_path, buildbucket_id):
-  """Returns the conversion of the result of 'cros buildresult'."""
+    """Returns the conversion of the result of 'cros buildresult'."""
 
-  # Calls 'cros buildresult' to get the status of the tryjob.
-  try:
-    tryjob_json = subprocess.check_output(
-        [
-            'cros_sdk', '--', 'cros', 'buildresult', '--buildbucket-id',
-            str(buildbucket_id), '--report', 'json'
-        ],
-        cwd=chroot_path,
-        stderr=subprocess.STDOUT,
-        encoding='UTF-8',
-    )
-  except subprocess.CalledProcessError as err:
-    if 'No build found. Perhaps not started' not in err.output:
-      raise
-    return None
+    # Calls 'cros buildresult' to get the status of the tryjob.
+    try:
+        tryjob_json = subprocess.check_output(
+            [
+                "cros_sdk",
+                "--",
+                "cros",
+                "buildresult",
+                "--buildbucket-id",
+                str(buildbucket_id),
+                "--report",
+                "json",
+            ],
+            cwd=chroot_path,
+            stderr=subprocess.STDOUT,
+            encoding="UTF-8",
+        )
+    except subprocess.CalledProcessError as err:
+        if "No build found. Perhaps not started" not in err.output:
+            raise
+        return None
 
-  tryjob_content = json.loads(tryjob_json)
+    tryjob_content = json.loads(tryjob_json)
 
-  build_result = str(tryjob_content['%d' % buildbucket_id]['status'])
+    build_result = str(tryjob_content["%d" % buildbucket_id]["status"])
 
-  # The string returned by 'cros buildresult' might not be in the mapping.
-  if build_result not in builder_status_mapping:
-    raise ValueError('"cros buildresult" return value is invalid: %s' %
-                     build_result)
+    # The string returned by 'cros buildresult' might not be in the mapping.
+    if build_result not in builder_status_mapping:
+        raise ValueError(
+            '"cros buildresult" return value is invalid: %s' % build_result
+        )
 
-  return builder_status_mapping[build_result]
+    return builder_status_mapping[build_result]
 
 
 def main():
-  """Bisects LLVM using the result of `cros buildresult` of each tryjob.
+    """Bisects LLVM using the result of `cros buildresult` of each tryjob.
 
-  Raises:
-    AssertionError: The script was run inside the chroot.
-  """
+    Raises:
+      AssertionError: The script was run inside the chroot.
+    """
 
-  chroot.VerifyOutsideChroot()
+    chroot.VerifyOutsideChroot()
 
-  args_output = llvm_bisection.GetCommandLineArgs()
+    args_output = llvm_bisection.GetCommandLineArgs()
 
-  if os.path.isfile(args_output.last_tested):
-    print('Resuming bisection for %s' % args_output.last_tested)
-  else:
-    print('Starting a new bisection for %s' % args_output.last_tested)
-
-  while True:
-    # Update the status of existing tryjobs
     if os.path.isfile(args_output.last_tested):
-      update_start_time = time.time()
-      with open(args_output.last_tested) as json_file:
-        json_dict = json.load(json_file)
-      while True:
-        print('\nAttempting to update all tryjobs whose "status" is '
-              '"pending":')
-        print('-' * 40)
+        print("Resuming bisection for %s" % args_output.last_tested)
+    else:
+        print("Starting a new bisection for %s" % args_output.last_tested)
 
-        completed = True
-        for tryjob in json_dict['jobs']:
-          if tryjob[
-              'status'] == update_tryjob_status.TryjobStatus.PENDING.value:
-            status = GetBuildResult(args_output.chroot_path,
-                                    tryjob['buildbucket_id'])
-            if status:
-              tryjob['status'] = status
-            else:
-              completed = False
+    while True:
+        # Update the status of existing tryjobs
+        if os.path.isfile(args_output.last_tested):
+            update_start_time = time.time()
+            with open(args_output.last_tested) as json_file:
+                json_dict = json.load(json_file)
+            while True:
+                print(
+                    '\nAttempting to update all tryjobs whose "status" is '
+                    '"pending":'
+                )
+                print("-" * 40)
 
-        print('-' * 40)
+                completed = True
+                for tryjob in json_dict["jobs"]:
+                    if (
+                        tryjob["status"]
+                        == update_tryjob_status.TryjobStatus.PENDING.value
+                    ):
+                        status = GetBuildResult(
+                            args_output.chroot_path, tryjob["buildbucket_id"]
+                        )
+                        if status:
+                            tryjob["status"] = status
+                        else:
+                            completed = False
 
-        # Proceed to the next step if all the existing tryjobs have completed.
-        if completed:
-          break
+                print("-" * 40)
 
-        delta_time = time.time() - update_start_time
+                # Proceed to the next step if all the existing tryjobs have completed.
+                if completed:
+                    break
 
-        if delta_time > POLLING_LIMIT_SECS:
-          # Something is wrong with updating the tryjobs's 'status' via
-          # `cros buildresult` (e.g. network issue, etc.).
-          sys.exit('Failed to update pending tryjobs.')
+                delta_time = time.time() - update_start_time
 
-        print('-' * 40)
-        print('Sleeping for %d minutes.' % (POLL_RETRY_TIME_SECS // 60))
-        time.sleep(POLL_RETRY_TIME_SECS)
+                if delta_time > POLLING_LIMIT_SECS:
+                    # Something is wrong with updating the tryjobs's 'status' via
+                    # `cros buildresult` (e.g. network issue, etc.).
+                    sys.exit("Failed to update pending tryjobs.")
 
-      # There should always be update from the tryjobs launched in the
-      # last iteration.
-      temp_filename = '%s.new' % args_output.last_tested
-      with open(temp_filename, 'w') as temp_file:
-        json.dump(json_dict, temp_file, indent=4, separators=(',', ': '))
-      os.rename(temp_filename, args_output.last_tested)
+                print("-" * 40)
+                print("Sleeping for %d minutes." % (POLL_RETRY_TIME_SECS // 60))
+                time.sleep(POLL_RETRY_TIME_SECS)
 
-    # Launch more tryjobs.
-    for cur_try in range(1, BISECTION_ATTEMPTS + 1):
-      try:
-        print('\nAttempting to launch more tryjobs if possible:')
-        print('-' * 40)
+            # There should always be update from the tryjobs launched in the
+            # last iteration.
+            temp_filename = "%s.new" % args_output.last_tested
+            with open(temp_filename, "w") as temp_file:
+                json.dump(
+                    json_dict, temp_file, indent=4, separators=(",", ": ")
+                )
+            os.rename(temp_filename, args_output.last_tested)
 
-        bisection_ret = llvm_bisection.main(args_output)
+        # Launch more tryjobs.
+        for cur_try in range(1, BISECTION_ATTEMPTS + 1):
+            try:
+                print("\nAttempting to launch more tryjobs if possible:")
+                print("-" * 40)
 
-        print('-' * 40)
+                bisection_ret = llvm_bisection.main(args_output)
 
-        # Stop if the bisection has completed.
-        if bisection_ret == BisectionExitStatus.BISECTION_COMPLETE.value:
-          sys.exit(0)
+                print("-" * 40)
 
-        # Successfully launched more tryjobs.
-        break
-      except Exception:
-        traceback.print_exc()
+                # Stop if the bisection has completed.
+                if (
+                    bisection_ret
+                    == BisectionExitStatus.BISECTION_COMPLETE.value
+                ):
+                    sys.exit(0)
 
-        print('-' * 40)
+                # Successfully launched more tryjobs.
+                break
+            except Exception:
+                traceback.print_exc()
 
-        # Exceeded the number of times to launch more tryjobs.
-        if cur_try == BISECTION_ATTEMPTS:
-          sys.exit('Unable to continue bisection.')
+                print("-" * 40)
 
-        num_retries_left = BISECTION_ATTEMPTS - cur_try
+                # Exceeded the number of times to launch more tryjobs.
+                if cur_try == BISECTION_ATTEMPTS:
+                    sys.exit("Unable to continue bisection.")
 
-        print('Retries left to continue bisection %d.' % num_retries_left)
+                num_retries_left = BISECTION_ATTEMPTS - cur_try
 
-        print('Sleeping for %d minutes.' % (BISECTION_RETRY_TIME_SECS // 60))
-        time.sleep(BISECTION_RETRY_TIME_SECS)
+                print(
+                    "Retries left to continue bisection %d." % num_retries_left
+                )
+
+                print(
+                    "Sleeping for %d minutes."
+                    % (BISECTION_RETRY_TIME_SECS // 60)
+                )
+                time.sleep(BISECTION_RETRY_TIME_SECS)
 
 
-if __name__ == '__main__':
-  main()
+if __name__ == "__main__":
+    main()

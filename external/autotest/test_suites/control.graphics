@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "graphics"
 PURPOSE = "Test graphics functionality."
 
@@ -19,7 +19,7 @@ suite owners: ihf|sabercrombie|marcheu@chromium.org
 
 Tests should be run in order of increasing likeness of hanging the system
 graphics_GLAPICheck                     < 1 minute runtime
-graphics_Sanity                         < 1 minute
+graphics_Check                          < 1 minute
 graphics_SanAngeles                       3 minutes
 graphics_GLBench                          5 minutes
 graphics_Piglit                      10..15 minutes on OpenGL/Intel only

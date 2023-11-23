@@ -46,4 +46,10 @@ rust_library {
     cargo_pkg_version: "1.0.6",
     srcs: ["src/lib.rs"],
     edition: "2018",
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }

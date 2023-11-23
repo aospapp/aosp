@@ -33,6 +33,10 @@ constexpr size_t MAX_PAYLOAD_V1 = 4 * 1024;
 constexpr size_t MAX_PAYLOAD = 1024 * 1024;
 constexpr size_t MAX_FRAMEWORK_PAYLOAD = 64 * 1024;
 
+// When delayed acks are supported, the initial number of unacknowledged bytes we're willing to
+// receive on a socket before the other side should block.
+constexpr size_t INITIAL_DELAYED_ACK_BYTES = 32 * 1024 * 1024;
+
 constexpr size_t LINUX_MAX_SOCKET_SIZE = 4194304;
 
 #define A_SYNC 0x434e5953
@@ -107,12 +111,14 @@ enum ConnectionState {
     kCsDetached,        // USB device that's detached from the adb server.
     kCsOffline,
 
-    kCsBootloader,
-    kCsDevice,
-    kCsHost,
-    kCsRecovery,
-    kCsSideload,
-    kCsRescue,
+    // After CNXN packet, the ConnectionState describes not a state but the type of service
+    // on the other end of the transport.
+    kCsBootloader,  // Device running fastboot OS (fastboot) or userspace fastboot (fastbootd).
+    kCsDevice,      // Device running Android OS (adbd).
+    kCsHost,        // What a device sees from its end of a Transport (adb host).
+    kCsRecovery,    // Device with bootloader loaded but no ROM OS loaded (adbd).
+    kCsSideload,    // Device running Android OS Sideload mode (minadbd sideload mode).
+    kCsRescue,      // Device running Android OS Rescue mode (minadbd rescue mode).
 };
 
 std::string to_string(ConnectionState state);
@@ -159,19 +165,11 @@ asocket* host_service_to_socket(std::string_view name, std::string_view serial,
 #endif
 
 #if !ADB_HOST
-asocket* daemon_service_to_socket(std::string_view name);
+asocket* daemon_service_to_socket(std::string_view name, atransport* transport);
 #endif
 
 #if !ADB_HOST
 unique_fd execute_abb_command(std::string_view command);
-#endif
-
-#if !ADB_HOST
-int init_jdwp(void);
-asocket* create_jdwp_service_socket();
-asocket* create_jdwp_tracker_service_socket();
-asocket* create_app_tracker_service_socket();
-unique_fd create_jdwp_connection_fd(int jdwp_pid);
 #endif
 
 bool handle_forward_request(const char* service, atransport* transport, int reply_fd);
@@ -235,6 +233,7 @@ void handle_offline(atransport* t);
 
 void send_connect(atransport* t);
 void send_tls_request(atransport* t);
+void send_ready(unsigned local, unsigned remote, atransport* t, uint32_t ack_bytes);
 
 void parse_banner(const std::string&, atransport* t);
 
@@ -252,9 +251,7 @@ void update_transport_status();
 
 // Wait until device scan has completed and every transport is ready, or a timeout elapses.
 void adb_wait_for_device_initialization();
-#endif  // ADB_HOST
 
-#if ADB_HOST
 // When ssh-forwarding to a remote adb server, kill-server is almost never what you actually want,
 // and unfortunately, many other tools issue it. This adds a knob to reject kill-servers.
 void adb_set_reject_kill_server(bool reject);

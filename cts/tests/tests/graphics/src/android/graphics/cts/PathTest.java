@@ -19,6 +19,7 @@ package android.graphics.cts;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import android.graphics.Bitmap;
@@ -27,10 +28,14 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.Path.Direction;
+import android.graphics.PathIterator;
 import android.graphics.RectF;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.ApiTest;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,6 +51,13 @@ public class PathTest {
     private static final float BOTTOM = 50.0f;
     private static final float XCOORD = 40.0f;
     private static final float YCOORD = 40.0f;
+    private static final int SQUARE = 10;
+    private static final int WIDTH = 100;
+    private static final int HEIGHT = 100;
+    private static final int START_X = 10;
+    private static final int START_Y = 20;
+    private static final int OFFSET_X = 30;
+    private static final int OFFSET_Y = 40;
 
     @Test
     public void testConstructor() {
@@ -390,6 +402,39 @@ public class PathTest {
     }
 
     @Test
+    @ApiTest(apis = {"android.graphics.Path#getPathIterator", "android.graphics.PathIterator#next",
+            "android.graphics.PathIterator.Segment#getVerb",
+            "android.graphics.PathIterator.Segment#getPoints",
+            "android.graphics.PathIterator.Segment#getConicWeight",
+            "android.graphics.Path#isEmpty", "android.graphics.Path#conicTo"})
+    public void testConicTo() {
+        Path path = new Path();
+        assertTrue(path.isEmpty());
+        path.conicTo(10.0f, 10.0f, 20.0f, 20.0f, 2f);
+        assertFalse(path.isEmpty());
+        int verbIndex = 0;
+        for (PathIterator it = path.getPathIterator(); it.hasNext(); ) {
+            PathIterator.Segment segment = it.next();
+            int verb = segment.getVerb();
+            float[] points = segment.getPoints();
+            float weight = segment.getConicWeight();
+            switch (verb) {
+                case PathIterator.VERB_CONIC:
+                    assertEquals(0f, points[0], 0f);
+                    assertEquals(0f, points[1], 0f);
+                    assertEquals(10f, points[2], 0f);
+                    assertEquals(10f, points[3], 0f);
+                    assertEquals(20f, points[4], 0f);
+                    assertEquals(20f, points[5], 0f);
+                    assertEquals(2f, weight, 0f);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    @Test
     public void testReset() {
         Path path = new Path();
         assertTrue(path.isEmpty());
@@ -399,6 +444,21 @@ public class PathTest {
         assertFalse(path.isEmpty());
         path.reset();
         assertTrue(path.isEmpty());
+    }
+
+    @Test
+    public void testResetPreservesFillType() {
+        Path path = new Path();
+
+        final Path.FillType defaultFillType = path.getFillType();
+        final Path.FillType fillType = Path.FillType.INVERSE_EVEN_ODD;
+
+        // This test is only meaningful if it changes from the default.
+        assertFalse(fillType.equals(defaultFillType));
+
+        path.setFillType(fillType);
+        path.reset();
+        assertEquals(path.getFillType(), fillType);
     }
 
     @Test
@@ -424,6 +484,44 @@ public class PathTest {
         assertTrue(path.isEmpty());
         path.rCubicTo(10.0f, 10.0f, 11.0f, 11.0f, 12.0f, 12.0f);
         assertFalse(path.isEmpty());
+    }
+
+    @Test
+    @ApiTest(apis = {"android.graphics.Path#getPathIterator", "android.graphics.PathIterator#next",
+            "android.graphics.PathIterator.Segment#getVerb",
+            "android.graphics.PathIterator.Segment#getPoints",
+            "android.graphics.PathIterator.Segment#getConicWeight",
+            "android.graphics.Path#isEmpty", "android.graphics.Path#rConicTo"})
+    public void testRConicTo() {
+        Path path = new Path();
+        assertTrue(path.isEmpty());
+        path.moveTo(5f, 15f);
+        path.rConicTo(10.0f, 10.0f, 20.0f, 20.0f, 2f);
+        assertFalse(path.isEmpty());
+        int verbIndex = 0;
+        for (PathIterator it = path.getPathIterator(); it.hasNext(); ) {
+            PathIterator.Segment segment = it.next();
+            int verb = segment.getVerb();
+            float[] points = segment.getPoints();
+            float weight = segment.getConicWeight();
+            switch (verb) {
+                case PathIterator.VERB_MOVE:
+                    assertEquals(5f, points[0], 0f);
+                    assertEquals(15f, points[1], 0f);
+                    break;
+                case PathIterator.VERB_CONIC:
+                    assertEquals(5f, points[0], 0f);
+                    assertEquals(15f, points[1], 0f);
+                    assertEquals(15f, points[2], 0f);
+                    assertEquals(25f, points[3], 0f);
+                    assertEquals(25f, points[4], 0f);
+                    assertEquals(35f, points[5], 0f);
+                    assertEquals(2f, weight, 0f);
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 
     @Test
@@ -492,6 +590,51 @@ public class PathTest {
         assertTrue(path.approximate(0.25f).length > 20);
     }
 
+    @Test
+    public void testPathOffset() {
+        Path actualPath = new Path();
+        actualPath.addRect(START_X, START_Y, START_X + SQUARE, START_Y + SQUARE, Direction.CW);
+        actualPath.offset(OFFSET_X, OFFSET_Y);
+
+        Path expectedPath = new Path();
+        expectedPath.addRect(START_X + OFFSET_X, START_Y + OFFSET_Y, START_X + OFFSET_X + SQUARE,
+                START_Y + OFFSET_Y + SQUARE, Direction.CW);
+
+        verifyPathsAreEquivalent(actualPath, expectedPath);
+    }
+
+    @Test
+    public void testPathOffset2() {
+        Path actualPath = new Path();
+        actualPath.moveTo(0, 0);
+        actualPath.offset(OFFSET_X, OFFSET_Y);
+        actualPath.lineTo(OFFSET_X + 20, OFFSET_Y);
+
+
+        Path expectedPath = new Path();
+        expectedPath.moveTo(OFFSET_X, OFFSET_Y);
+        expectedPath.lineTo(OFFSET_X + 20, OFFSET_Y);
+
+        Paint paint = new Paint();
+        paint.setColor(Color.RED);
+        paint.setStyle(Paint.Style.STROKE);
+        verifyPathsAreEquivalent(actualPath, expectedPath, paint);
+    }
+
+    @Test
+    public void testPathOffsetWithDestination() {
+        Path initialPath = new Path();
+        initialPath.addRect(START_X, START_Y, START_X + SQUARE, START_Y + SQUARE, Direction.CW);
+        Path actualPath = new Path();
+        initialPath.offset(OFFSET_X, OFFSET_Y, actualPath);
+
+        Path expectedPath = new Path();
+        expectedPath.addRect(START_X + OFFSET_X, START_Y + OFFSET_Y, START_X + OFFSET_X + SQUARE,
+                START_Y + OFFSET_Y + SQUARE, Direction.CW);
+
+        verifyPathsAreEquivalent(actualPath, expectedPath);
+    }
+
     /** This test just ensures the process doesn't crash. The actual output is not interesting
      *  hence the lack of asserts, as the only behavior that's being asserted is that it
      *  doesn't crash.
@@ -516,6 +659,77 @@ public class PathTest {
         pathAbuser.destroy();
     }
 
+    @Test
+    @ApiTest(apis = {"android.graphics.Path#moveTo", "android.graphics.Path#lineTo",
+            "android.graphics.Path#quadTo", "android.graphics.Path#conicTo",
+            "android.graphics.Path#cubicTo", "android.graphics.Path#close",
+            "android.graphics.Path#getGenerationId",
+    })
+    public void testGenerationId() {
+        Path path = new Path();
+        path.moveTo(1f, 2f);
+        int generationId = path.getGenerationId();
+
+        path.lineTo(3f, 4f);
+        assertNotEquals(generationId, path.getGenerationId());
+        generationId = path.getGenerationId();
+
+        path.moveTo(5f, 6f);
+        assertNotEquals(generationId, path.getGenerationId());
+        generationId = path.getGenerationId();
+
+        path.quadTo(7f, 8f, 9f, 10f);
+        assertNotEquals(generationId, path.getGenerationId());
+        generationId = path.getGenerationId();
+
+        path.conicTo(11f, 12f, 13f, 14f, 2f);
+        assertNotEquals(generationId, path.getGenerationId());
+        generationId = path.getGenerationId();
+
+        path.cubicTo(15f, 16f, 17f, 18f, 19f, 20f);
+        assertNotEquals(generationId, path.getGenerationId());
+        generationId = path.getGenerationId();
+
+        path.close();
+        assertNotEquals(generationId, path.getGenerationId());
+    }
+
+    @Test
+    @ApiTest(apis = {"android.graphics.Path#moveTo", "android.graphics.Path#lineTo",
+            "android.graphics.PathIterator#next",
+            "android.graphics.Path#isInterpolatable",
+            "android.graphics.Path#interpolate",
+    })
+    public void testPathInterpolation() {
+        Path startPath = new Path();
+        Path endPath = new Path();
+        startPath.moveTo(100f, 100f);
+        startPath.lineTo(200f, 300f);
+        endPath.moveTo(200f, 200f);
+        endPath.lineTo(600f, 700f);
+
+        Path interpolatedPath = new Path();
+        assertTrue(startPath.isInterpolatable(endPath));
+
+        startPath.interpolate(endPath, .5f, interpolatedPath);
+        PathIterator iterator = interpolatedPath.getPathIterator();
+        float[] points = new float[8];
+        int verb = iterator.next(points, 0);
+        assertEquals(PathIterator.VERB_MOVE, verb);
+        assertEquals(150f, points[0], .001f);
+        assertEquals(150f, points[1], .001f);
+        verb = iterator.next(points, 0);
+        assertEquals(PathIterator.VERB_LINE, verb);
+        assertEquals(400f, points[2], .001f);
+        assertEquals(500f, points[3], .001f);
+    }
+
+    private void assertPointsEqual(float[] points1, float[] points2, int numToCheck) {
+        for (int i = 0; i < numToCheck; ++i) {
+            assertEquals("point " + i + "not equal", points1[i], points2[i], 0f);
+        }
+    }
+
     private static final class PathAbuser extends Path {
         public void destroy() throws Throwable {
             finalize();
@@ -523,25 +737,26 @@ public class PathTest {
     }
 
     private static void verifyPathsAreEquivalent(Path actual, Path expected) {
-        Bitmap actualBitmap = drawAndGetBitmap(actual);
-        Bitmap expectedBitmap = drawAndGetBitmap(expected);
+        Paint paint = new Paint();
+        paint.setColor(Color.RED);
+        verifyPathsAreEquivalent(actual, expected, paint);
+    }
+
+    private static void verifyPathsAreEquivalent(Path actual, Path expected, Paint paint) {
+        Bitmap actualBitmap = drawAndGetBitmap(actual, paint);
+        Bitmap expectedBitmap = drawAndGetBitmap(expected, paint);
         assertTrue(actualBitmap.sameAs(expectedBitmap));
     }
 
-    private static final int WIDTH = 100;
-    private static final int HEIGHT = 100;
-
-    private static Bitmap drawAndGetBitmap(Path path) {
+    private static Bitmap drawAndGetBitmap(Path path, Paint paint) {
         Bitmap bitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888);
         bitmap.eraseColor(Color.BLACK);
-        Paint paint = new Paint();
-        paint.setColor(Color.RED);
         Canvas canvas = new Canvas(bitmap);
         canvas.drawPath(path, paint);
         return bitmap;
     }
 
-    private void addRectToPath(Path path) {
+    private static void addRectToPath(Path path) {
         RectF rect = new RectF(LEFT, TOP, RIGHT, BOTTOM);
         path.addRect(rect, Path.Direction.CW);
     }

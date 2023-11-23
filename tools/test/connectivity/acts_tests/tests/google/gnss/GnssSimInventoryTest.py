@@ -1,4 +1,3 @@
-import time
 import os
 import re
 
@@ -12,6 +11,7 @@ from acts_contrib.test_utils.tel.tel_test_utils import is_sim_ready_by_adb
 
 class GnssSimInventoryTest(BaseTestClass):
     """ GNSS SIM Inventory Tests"""
+
     def setup_class(self):
         super().setup_class()
         self.ad = self.android_devices[0]

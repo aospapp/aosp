@@ -34,14 +34,14 @@ typedef struct ifc_print_job_st {
     /*
      * Validates job and connection params, updating parameters as necessary.
      */
-    status_t (*validate_job)(const struct ifc_print_job_st *this_p,
-            wprint_job_params_t *job_params);
+    status_t (*validate_job)(const struct ifc_print_job_st *this_p, wprint_job_params_t *job_params,
+            const printer_capabilities_t *printer_caps);
 
     /*
      * Start a print job with given params
      */
     status_t (*start_job)(const struct ifc_print_job_st *this_p,
-            const wprint_job_params_t *job_params);
+            const wprint_job_params_t *job_params, const printer_capabilities_t *printer_caps);
 
     /*
      * Sends data to the ip address set on initialization, returning the amount of data

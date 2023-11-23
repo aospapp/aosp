@@ -39,23 +39,25 @@ license {
 
 rust_library {
     name: "libcriterion",
-    // has rustc warnings
     host_supported: true,
     crate_name: "criterion",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.3.5",
+    cargo_pkg_version: "0.4.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
         "cargo_bench_support",
         "default",
+        "plotters",
+        "rayon",
     ],
     rustlibs: [
+        "libanes",
         "libatty",
         "libcast",
-        "libclap",
+        "libciborium",
+        "libclap_3.2.23",
         "libcriterion_plot",
-        "libcsv",
         "libitertools",
         "liblazy_static",
         "libnum_traits",
@@ -64,10 +66,15 @@ rust_library {
         "librayon",
         "libregex",
         "libserde",
-        "libserde_cbor",
         "libserde_json",
         "libtinytemplate",
         "libwalkdir",
     ],
     proc_macros: ["libserde_derive"],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }

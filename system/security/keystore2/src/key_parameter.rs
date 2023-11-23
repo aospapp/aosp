@@ -837,6 +837,11 @@ pub enum KeyParameterValue {
     #[serde(serialize_with = "serialize_primitive")]
     #[key_param(tag = DIGEST, field = Digest)]
     Digest(Digest),
+    /// Digest algorithms that can be used for MGF in RSA-OAEP.
+    #[serde(deserialize_with = "deserialize_primitive")]
+    #[serde(serialize_with = "serialize_primitive")]
+    #[key_param(tag = RSA_OAEP_MGF_DIGEST, field = Digest)]
+    RsaOaepMgfDigest(Digest),
     /// Padding modes that may be used with the key.  Relevant to RSA, AES and 3DES keys.
     #[serde(deserialize_with = "deserialize_primitive")]
     #[serde(serialize_with = "serialize_primitive")]
@@ -966,9 +971,12 @@ pub enum KeyParameterValue {
     /// Provides the device's serial number, to attestKey()
     #[key_param(tag = ATTESTATION_ID_SERIAL, field = Blob)]
     AttestationIdSerial(Vec<u8>),
-    /// Provides the IMEIs for all radios on the device, to attestKey()
+    /// Provides the primary IMEI for the device, to attestKey()
     #[key_param(tag = ATTESTATION_ID_IMEI, field = Blob)]
     AttestationIdIMEI(Vec<u8>),
+    /// Provides a second IMEI for the device, to attestKey()
+    #[key_param(tag = ATTESTATION_ID_SECOND_IMEI, field = Blob)]
+    AttestationIdSecondIMEI(Vec<u8>),
     /// Provides the MEIDs for all radios on the device, to attestKey()
     #[key_param(tag = ATTESTATION_ID_MEID, field = Blob)]
     AttestationIdMEID(Vec<u8>),
@@ -1095,6 +1103,7 @@ mod generated_key_parameter_tests {
             Tag::BLOCK_MODE => return KmKeyParameterValue::BlockMode(Default::default()),
             Tag::PADDING => return KmKeyParameterValue::PaddingMode(Default::default()),
             Tag::DIGEST => return KmKeyParameterValue::Digest(Default::default()),
+            Tag::RSA_OAEP_MGF_DIGEST => return KmKeyParameterValue::Digest(Default::default()),
             Tag::EC_CURVE => return KmKeyParameterValue::EcCurve(Default::default()),
             Tag::ORIGIN => return KmKeyParameterValue::Origin(Default::default()),
             Tag::PURPOSE => return KmKeyParameterValue::KeyPurpose(Default::default()),

@@ -42,7 +42,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 #   pragma warning(push, 3)
 #   include <windows.h>
 #   include <winsock.h>
@@ -110,7 +110,7 @@ CreateSocket(
     int res;
 //  
     // Initialize Winsock
-#ifdef _MSC_VER
+#ifdef _WIN32
     WSADATA              wsaData;
     res = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if(res != 0)
@@ -297,7 +297,7 @@ PlatformSignalService(
     int              PortNumber
     )
 {
-#if defined(_MSC_VER)
+#if defined(_WIN32)
     HANDLE               hPlatformSvc;
     int                  ThreadId;
     int                  port = PortNumber;
@@ -324,7 +324,7 @@ PlatformSignalService(
         printf("pthread_create failed: %s", strerror(ret));
     }
     return ret;
-#endif // _MSC_VER
+#endif // _WIN32
 }
 
 //*** RegularCommandService()
@@ -394,13 +394,13 @@ SimulatorTimeServiceRoutine(
     {
         uint64_t  curTime;
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
         Sleep((DWORD)timeout);
 #else
         struct timespec     req = { timeout / 1000, (timeout % 1000) * 1000 };
         struct timespec     rem;
         nanosleep(&req, &rem);
-#endif // _MSC_VER
+#endif // _WIN32
         curTime = _plat__RealTime();
 
         // May need to issue several ticks if the Sleep() took longer than asked,
@@ -435,7 +435,7 @@ ActTimeService(
     int                  ret = 0;
     if(!running)
     {
-#if defined(_MSC_VER)
+#if defined(_WIN32)
         HANDLE               hThr;
         int                  ThreadId;
     //
@@ -456,7 +456,7 @@ ActTimeService(
 //
         ret = pthread_create(&thread_id, NULL, (void*)SimulatorTimeServiceRoutine,
             (LPVOID)(INT_PTR)NULL);
-#endif // _MSC_VER
+#endif // _WIN32
 
         if(ret != 0)
             printf("ACT thread Creation failed\n");

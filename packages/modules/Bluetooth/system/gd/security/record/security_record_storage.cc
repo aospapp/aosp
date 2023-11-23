@@ -117,7 +117,7 @@ void SecurityRecordStorage::SaveSecurityRecords(std::set<std::shared_ptr<record:
       mutation.Add(device.SetDeviceType(hci::DeviceType::LE));
       LOG_WARN(
           "Cannot determine device type from security record for '%s'; defaulting to LE",
-          record->GetPseudoAddress()->ToString().c_str());
+          ADDRESS_TO_LOGGABLE_CSTR(*record->GetPseudoAddress()));
     }
     mutation.Commit();
     SetClassicData(mutation, record, device);

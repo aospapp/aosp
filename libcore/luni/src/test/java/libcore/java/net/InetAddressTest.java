@@ -281,6 +281,7 @@ public class InetAddressTest {
     @Test
     public void test_isReachable_by_ICMP() throws Exception {
         InetAddress[] inetAddresses = InetAddress.getAllByName("www.google.com");
+        assertTrue("Failed to resolve www.google.com", inetAddresses.length > 0);
         for (InetAddress ia : inetAddresses) {
             // ICMP is not reliable, allow 5 attempts to each IP address before failing.
             // If any address is reachable then that's sufficient.
@@ -288,7 +289,7 @@ public class InetAddressTest {
                 return;
             }
         }
-        fail();
+        fail("Addresses not reachable by ICMP: " + Arrays.toString(inetAddresses));
     }
 
     @Test

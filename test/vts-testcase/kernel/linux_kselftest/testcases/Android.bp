@@ -57,3 +57,13 @@ sh_test {
     ],
     test_config: "vts_linux_kselftest_x86_32.xml",
 }
+
+sh_test {
+    name: "vts_linux_kselftest_riscv_64",
+    src: "phony_kselftest_riscv64.sh",
+    test_suites: [
+        "general-tests",
+        "vts"
+    ],
+    test_config: "vts_linux_kselftest_riscv_64.xml",
+}

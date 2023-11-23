@@ -16,16 +16,11 @@
 
 #pragma once
 
-#include <android-base/result.h>
 #include <errno.h>
 #include <linux/if_ether.h>
 #include <linux/if_link.h>
 #include <linux/rtnetlink.h>
 #include <tcutils/tcutils.h>
-
-#include <string>
-
-#include "bpf/BpfUtils.h"
 
 namespace android {
 namespace net {

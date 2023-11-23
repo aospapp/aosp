@@ -16,18 +16,16 @@
 
 package android.safetycenter.cts
 
-import android.os.Build.VERSION_CODES.TIRAMISU
 import android.safetycenter.SafetyCenterErrorDetails
-import android.safetycenter.cts.testing.EqualsHashCodeToStringTester
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.ext.truth.os.ParcelableSubject.assertThat
-import androidx.test.filters.SdkSuppress
+import com.android.safetycenter.testing.EqualsHashCodeToStringTester
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/** CTS tests for [SafetyCenterErrorDetails]. */
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = TIRAMISU, codeName = "Tiramisu")
 class SafetyCenterErrorDetailsTest {
 
     private val errorDetails1 = SafetyCenterErrorDetails("an error message")
@@ -53,12 +51,15 @@ class SafetyCenterErrorDetailsTest {
 
     @Test
     fun equalsHashCodeToString_usingEqualsHashCodeToStringTester() {
-        EqualsHashCodeToStringTester()
+        EqualsHashCodeToStringTester.ofParcelable(
+                parcelableCreator = SafetyCenterErrorDetails.CREATOR
+            )
             .addEqualityGroup(errorDetails1, SafetyCenterErrorDetails("an error message"))
             .addEqualityGroup(errorDetails2, SafetyCenterErrorDetails("another error message"))
             .addEqualityGroup(
                 SafetyCenterErrorDetails("a different error message"),
-                SafetyCenterErrorDetails("a different error message"))
+                SafetyCenterErrorDetails("a different error message")
+            )
             .test()
     }
 }

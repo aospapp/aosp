@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/attr.c		Netlink Attributes
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2013 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -257,7 +250,7 @@ int nla_parse(struct nlattr *tb[], int maxtype, struct nlattr *head, int len,
 		if (policy) {
 			err = validate_nla(nla, maxtype, policy);
 			if (err < 0)
-				goto errout;
+				return err;
 		}
 
 		if (tb[type])
@@ -267,13 +260,12 @@ int nla_parse(struct nlattr *tb[], int maxtype, struct nlattr *head, int len,
 		tb[type] = nla;
 	}
 
-	if (rem > 0)
+	if (rem > 0) {
 		NL_DBG(1, "netlink: %d bytes leftover after parsing "
 		       "attributes.\n", rem);
+	}
 
-	err = 0;
-errout:
-	return err;
+	return 0;
 }
 
 /**

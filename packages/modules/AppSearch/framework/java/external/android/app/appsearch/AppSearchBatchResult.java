@@ -17,6 +17,7 @@ package android.app.appsearch;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.app.appsearch.annotation.CanIgnoreReturnValue;
 import android.util.ArrayMap;
 
 import java.util.Collections;
@@ -138,6 +139,7 @@ public final class AppSearchBatchResult<KeyType, ValueType> {
          * @param value An optional value to associate with the successful result of the operation
          *     being performed.
          */
+        @CanIgnoreReturnValue
         @SuppressWarnings("MissingGetterMatchingBuilder") // See getSuccesses
         @NonNull
         public Builder<KeyType, ValueType> setSuccess(
@@ -161,6 +163,7 @@ public final class AppSearchBatchResult<KeyType, ValueType> {
          *     AppSearchResult#getResultCode}.
          * @param errorMessage An optional string describing the reason or nature of the failure.
          */
+        @CanIgnoreReturnValue
         @SuppressWarnings("MissingGetterMatchingBuilder") // See getFailures
         @NonNull
         public Builder<KeyType, ValueType> setFailure(
@@ -181,6 +184,7 @@ public final class AppSearchBatchResult<KeyType, ValueType> {
          *     from the input like an ID or name.
          * @param result The result to associate with the key.
          */
+        @CanIgnoreReturnValue
         @SuppressWarnings("MissingGetterMatchingBuilder") // See getAll
         @NonNull
         public Builder<KeyType, ValueType> setResult(

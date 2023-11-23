@@ -14,6 +14,8 @@
 
 #include "pw_protobuf/decoder.h"
 
+#include <cstring>
+
 #include "gtest/gtest.h"
 #include "pw_preprocessor/util.h"
 
@@ -28,28 +30,22 @@ class TestDecodeHandler : public DecodeHandler {
 
     switch (field_number) {
       case 1:
-        decoder.ReadInt32(&test_int32)
-            .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+        EXPECT_EQ(OkStatus(), decoder.ReadInt32(&test_int32));
         break;
       case 2:
-        decoder.ReadSint32(&test_sint32)
-            .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+        EXPECT_EQ(OkStatus(), decoder.ReadSint32(&test_sint32));
         break;
       case 3:
-        decoder.ReadBool(&test_bool)
-            .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+        EXPECT_EQ(OkStatus(), decoder.ReadBool(&test_bool));
         break;
       case 4:
-        decoder.ReadDouble(&test_double)
-            .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+        EXPECT_EQ(OkStatus(), decoder.ReadDouble(&test_double));
         break;
       case 5:
-        decoder.ReadFixed32(&test_fixed32)
-            .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+        EXPECT_EQ(OkStatus(), decoder.ReadFixed32(&test_fixed32));
         break;
       case 6:
-        decoder.ReadString(&str)
-            .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+        EXPECT_EQ(OkStatus(), decoder.ReadString(&str));
         std::memcpy(test_string, str.data(), str.size());
         test_string[str.size()] = '\0';
         break;
@@ -86,7 +82,7 @@ TEST(Decoder, Decode) {
   };
   // clang-format on
 
-  Decoder decoder(std::as_bytes(std::span(encoded_proto)));
+  Decoder decoder(as_bytes(span(encoded_proto)));
 
   int32_t v1 = 0;
   EXPECT_EQ(decoder.Next(), OkStatus());
@@ -148,7 +144,7 @@ TEST(Decoder, Decode_SkipsUnusedFields) {
   };
   // clang-format on
 
-  Decoder decoder(std::as_bytes(std::span(encoded_proto)));
+  Decoder decoder(as_bytes(span(encoded_proto)));
 
   // Don't process any fields except for the fourth. Next should still iterate
   // correctly despite field values not being consumed.
@@ -174,7 +170,7 @@ TEST(Decoder, Decode_BadFieldNumber) {
   };
   // clang-format on
 
-  Decoder decoder(std::as_bytes(std::span(encoded_proto)));
+  Decoder decoder(as_bytes(span(encoded_proto)));
   int32_t value;
 
   EXPECT_EQ(decoder.Next(), OkStatus());
@@ -210,8 +206,7 @@ TEST(CallbackDecoder, Decode) {
   // clang-format on
 
   decoder.set_handler(&handler);
-  EXPECT_EQ(decoder.Decode(std::as_bytes(std::span(encoded_proto))),
-            OkStatus());
+  EXPECT_EQ(decoder.Decode(as_bytes(span(encoded_proto))), OkStatus());
   EXPECT_TRUE(handler.called);
   EXPECT_EQ(handler.test_int32, 42);
   EXPECT_EQ(handler.test_sint32, -13);
@@ -237,8 +232,7 @@ TEST(CallbackDecoder, Decode_OverridesDuplicateFields) {
   // clang-format on
 
   decoder.set_handler(&handler);
-  EXPECT_EQ(decoder.Decode(std::as_bytes(std::span(encoded_proto))),
-            OkStatus());
+  EXPECT_EQ(decoder.Decode(as_bytes(span(encoded_proto))), OkStatus());
   EXPECT_TRUE(handler.called);
   EXPECT_EQ(handler.test_int32, 44);
 }
@@ -248,7 +242,7 @@ TEST(CallbackDecoder, Decode_Empty) {
   TestDecodeHandler handler;
 
   decoder.set_handler(&handler);
-  EXPECT_EQ(decoder.Decode(std::span<std::byte>()), OkStatus());
+  EXPECT_EQ(decoder.Decode(span<std::byte>()), OkStatus());
   EXPECT_FALSE(handler.called);
   EXPECT_EQ(handler.test_int32, 0);
   EXPECT_EQ(handler.test_sint32, 0);
@@ -262,8 +256,7 @@ TEST(CallbackDecoder, Decode_BadData) {
   uint8_t encoded_proto[] = {0x08};
 
   decoder.set_handler(&handler);
-  EXPECT_EQ(decoder.Decode(std::as_bytes(std::span(encoded_proto))),
-            Status::DataLoss());
+  EXPECT_EQ(decoder.Decode(as_bytes(span(encoded_proto))), Status::DataLoss());
 }
 
 // Only processes fields numbered 1 or 3.
@@ -317,8 +310,7 @@ TEST(CallbackDecoder, Decode_SkipsUnprocessedFields) {
   // clang-format on
 
   decoder.set_handler(&handler);
-  EXPECT_EQ(decoder.Decode(std::as_bytes(std::span(encoded_proto))),
-            OkStatus());
+  EXPECT_EQ(decoder.Decode(as_bytes(span(encoded_proto))), OkStatus());
   EXPECT_TRUE(handler.called);
   EXPECT_EQ(handler.field_one, 42);
   EXPECT_EQ(handler.field_three, 99);
@@ -367,8 +359,7 @@ TEST(CallbackDecoder, Decode_StopsOnNonOkStatus) {
   // clang-format on
 
   decoder.set_handler(&handler);
-  EXPECT_EQ(decoder.Decode(std::as_bytes(std::span(encoded_proto))),
-            Status::Cancelled());
+  EXPECT_EQ(decoder.Decode(as_bytes(span(encoded_proto))), Status::Cancelled());
   EXPECT_EQ(handler.field_one, 42);
   EXPECT_EQ(handler.field_three, 1111);
 }

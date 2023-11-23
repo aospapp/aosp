@@ -149,7 +149,8 @@ class NativeModuleInfo(module_info.AidegenModuleInfo):
             return True
         return False
 
-    def _is_source_need_build(self, mod_info):
+    @staticmethod
+    def _is_source_need_build(mod_info):
         """Checks if a module's source files need to be built.
 
         If a module's source files contain a path looks like,
@@ -170,7 +171,8 @@ class NativeModuleInfo(module_info.AidegenModuleInfo):
                 return True
         return False
 
-    def _is_include_need_build(self, mod_info):
+    @staticmethod
+    def _is_include_need_build(mod_info):
         """Checks if a module needs to be built by its module name.
 
         If a module's include files contain a path looks like,

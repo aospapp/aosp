@@ -14,7 +14,7 @@
 
 #include <qemu_pipe_bp.h>
 
-#include "android/emulation/hostdevices/HostGoldfishPipe.h"
+#include "host-common/HostGoldfishPipe.h"
 
 #if PLATFORM_SDK_VERSION < 26
 #include <cutils/log.h>

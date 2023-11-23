@@ -1,5 +1,6 @@
 /******************************************************************************
  *
+ *  Copyright (C) 2016 The Linux Foundation
  *  Copyright 2009-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,7 +50,9 @@
 #include <unistd.h>
 
 #include "audio_hal_interface/a2dp_encoding.h"
-#include "bt_utils.h"
+#include "bta/hh/bta_hh_int.h"  // for HID HACK profile methods
+#include "bta/include/bta_api.h"
+#include "bta/include/bta_ar_api.h"
 #include "bta/include/bta_csis_api.h"
 #include "bta/include/bta_has_api.h"
 #include "bta/include/bta_hearing_aid_api.h"
@@ -58,6 +61,8 @@
 #include "bta/include/bta_le_audio_broadcaster_api.h"
 #include "bta/include/bta_vc_api.h"
 #include "btif/avrcp/avrcp_service.h"
+#include "btif/include/btif_sock.h"
+#include "btif/include/core_callbacks.h"
 #include "btif/include/stack_manager.h"
 #include "btif_a2dp.h"
 #include "btif_activity_attribution.h"
@@ -66,15 +71,24 @@
 #include "btif_bqr.h"
 #include "btif_config.h"
 #include "btif_debug_conn.h"
+#include "btif_dm.h"
+#include "btif_hd.h"
 #include "btif_hf.h"
+#include "btif_hh.h"
 #include "btif_keystore.h"
 #include "btif_metrics_logging.h"
+#include "btif_pan.h"
+#include "btif_profile_storage.h"
+#include "btif_rc.h"
+#include "btif_sock.h"
 #include "btif_storage.h"
 #include "common/address_obfuscator.h"
 #include "common/metric_id_allocator.h"
 #include "common/metrics.h"
 #include "common/os_utils.h"
+#include "device/include/device_iot_config.h"
 #include "device/include/interop.h"
+#include "device/include/interop_config.h"
 #include "gd/common/init_flags.h"
 #include "gd/os/parameter_provider.h"
 #include "main/shim/dumpsys.h"
@@ -85,10 +99,18 @@
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 #include "osi/include/wakelock.h"
+#include "profile_log_levels.h"
+#include "stack/btm/btm_sco_hfp_hal.h"
 #include "stack/gatt/connection_manager.h"
+#include "stack/include/a2dp_api.h"
 #include "stack/include/avdt_api.h"
 #include "stack/include/btm_api.h"
 #include "stack/include/btu.h"
+#include "stack/include/hfp_msbc_decoder.h"
+#include "stack/include/hfp_msbc_encoder.h"
+#include "stack/include/hidh_api.h"
+#include "stack/include/pan_api.h"
+#include "stack_config.h"
 #include "types/raw_address.h"
 
 using bluetooth::csis::CsisClientInterface;
@@ -153,6 +175,186 @@ extern CsisClientInterface* btif_csis_client_get_interface();
 /* Volume Control client */
 extern VolumeControlInterface* btif_volume_control_get_interface();
 
+bt_status_t btif_av_sink_execute_service(bool b_enable);
+bt_status_t btif_hh_execute_service(bool b_enable);
+bt_status_t btif_hf_client_execute_service(bool b_enable);
+bt_status_t btif_sdp_execute_service(bool b_enable);
+bt_status_t btif_hh_connect(const RawAddress* bd_addr);
+bt_status_t btif_hd_execute_service(bool b_enable);
+
+/*******************************************************************************
+ *  Callbacks from bluetooth::core (see go/invisalign-bt)
+ ******************************************************************************/
+
+struct ConfigInterfaceImpl : bluetooth::core::ConfigInterface {
+  ConfigInterfaceImpl() : bluetooth::core::ConfigInterface(){};
+
+  bool isRestrictedMode() override { return is_restricted_mode(); }
+
+  bool isA2DPOffloadEnabled() override {
+    char value_sup[PROPERTY_VALUE_MAX] = {'\0'};
+    char value_dis[PROPERTY_VALUE_MAX] = {'\0'};
+
+    osi_property_get("ro.bluetooth.a2dp_offload.supported", value_sup, "false");
+    osi_property_get("persist.bluetooth.a2dp_offload.disabled", value_dis,
+                     "false");
+    auto a2dp_offload_enabled =
+        (strcmp(value_sup, "true") == 0) && (strcmp(value_dis, "false") == 0);
+    BTIF_TRACE_DEBUG("a2dp_offload.enable = %d", a2dp_offload_enabled);
+
+    return a2dp_offload_enabled;
+  }
+
+  bool isAndroidTVDevice() override { return is_atv_device(); }
+};
+
+// TODO(aryarahul): remove unnecessary indirection through hfp_msbc_*.cc
+struct MSBCCodec : bluetooth::core::CodecInterface {
+  MSBCCodec() : bluetooth::core::CodecInterface(){};
+
+  void initialize() override {
+    hfp_msbc_decoder_init();
+    hfp_msbc_encoder_init();
+  }
+
+  void cleanup() override {
+    hfp_msbc_decoder_cleanup();
+    hfp_msbc_encoder_cleanup();
+  }
+
+  uint32_t encodePacket(int16_t* input, uint8_t* output) {
+    return hfp_msbc_encode_frames(input, output);
+  }
+
+  bool decodePacket(const uint8_t* i_buf, int16_t* o_buf, size_t out_len) {
+    return hfp_msbc_decoder_decode_packet(i_buf, o_buf, out_len);
+  }
+};
+
+struct CoreInterfaceImpl : bluetooth::core::CoreInterface {
+  using bluetooth::core::CoreInterface::CoreInterface;
+
+  void onBluetoothEnabled() override {
+    /* init pan */
+    btif_pan_init();
+  }
+
+  bt_status_t toggleProfile(tBTA_SERVICE_ID service_id, bool enable) override {
+    /* Check the service_ID and invoke the profile's BT state changed API */
+    switch (service_id) {
+      case BTA_HFP_SERVICE_ID:
+      case BTA_HSP_SERVICE_ID: {
+        bluetooth::headset::ExecuteService(enable);
+      } break;
+      case BTA_A2DP_SOURCE_SERVICE_ID: {
+        btif_av_source_execute_service(enable);
+      } break;
+      case BTA_A2DP_SINK_SERVICE_ID: {
+        btif_av_sink_execute_service(enable);
+      } break;
+      case BTA_HID_SERVICE_ID: {
+        btif_hh_execute_service(enable);
+      } break;
+      case BTA_HFP_HS_SERVICE_ID: {
+        btif_hf_client_execute_service(enable);
+      } break;
+      case BTA_HIDD_SERVICE_ID: {
+        btif_hd_execute_service(enable);
+      } break;
+      case BTA_PBAP_SERVICE_ID:
+      case BTA_PCE_SERVICE_ID:
+      case BTA_MAP_SERVICE_ID:
+      case BTA_MN_SERVICE_ID: {
+        /**
+         * Do nothing; these services were started elsewhere. However, we need
+         * to flow through this codepath in order to properly report back the
+         * local UUIDs back to adapter properties in Java. To achieve this, we
+         * need to catch these service IDs in order for {@link
+         * btif_in_execute_service_request} to return {@code BT_STATUS_SUCCESS},
+         * so that in {@link btif_dm_enable_service} the check passes and the
+         * UUIDs are allowed to be passed up into the Java layer.
+         */
+      } break;
+      default:
+        BTIF_TRACE_ERROR("%s: Unknown service %d being %s", __func__,
+                         service_id, (enable) ? "enabled" : "disabled");
+        return BT_STATUS_FAIL;
+    }
+    return BT_STATUS_SUCCESS;
+  }
+
+  void removeDeviceFromProfiles(const RawAddress& bd_addr) override {
+/*special handling for HID devices */
+#if (defined(BTA_HH_INCLUDED) && (BTA_HH_INCLUDED == TRUE))
+    btif_hh_remove_device(bd_addr);
+#endif
+#if (defined(BTA_HD_INCLUDED) && (BTA_HD_INCLUDED == TRUE))
+    btif_hd_remove_device(bd_addr);
+#endif
+    btif_hearing_aid_get_interface()->RemoveDevice(bd_addr);
+
+#ifndef TARGET_FLOSS
+    if (bluetooth::csis::CsisClient::IsCsisClientRunning())
+      btif_csis_client_get_interface()->RemoveDevice(bd_addr);
+
+    if (LeAudioClient::IsLeAudioClientRunning())
+      btif_le_audio_get_interface()->RemoveDevice(bd_addr);
+
+    if (VolumeControl::IsVolumeControlRunning()) {
+      btif_volume_control_get_interface()->RemoveDevice(bd_addr);
+    }
+#endif
+  }
+
+  void onLinkDown(const RawAddress& bd_addr) override {
+    btif_av_acl_disconnected(bd_addr);
+  }
+};
+
+static bluetooth::core::CoreInterface* CreateInterfaceToProfiles() {
+  static auto eventCallbacks = bluetooth::core::EventCallbacks{
+      .invoke_adapter_state_changed_cb = invoke_adapter_state_changed_cb,
+      .invoke_adapter_properties_cb = invoke_adapter_properties_cb,
+      .invoke_remote_device_properties_cb = invoke_remote_device_properties_cb,
+      .invoke_device_found_cb = invoke_device_found_cb,
+      .invoke_discovery_state_changed_cb = invoke_discovery_state_changed_cb,
+      .invoke_pin_request_cb = invoke_pin_request_cb,
+      .invoke_ssp_request_cb = invoke_ssp_request_cb,
+      .invoke_oob_data_request_cb = invoke_oob_data_request_cb,
+      .invoke_bond_state_changed_cb = invoke_bond_state_changed_cb,
+      .invoke_address_consolidate_cb = invoke_address_consolidate_cb,
+      .invoke_le_address_associate_cb = invoke_le_address_associate_cb,
+      .invoke_acl_state_changed_cb = invoke_acl_state_changed_cb,
+      .invoke_thread_evt_cb = invoke_thread_evt_cb,
+      .invoke_energy_info_cb = invoke_energy_info_cb,
+      .invoke_link_quality_report_cb = invoke_link_quality_report_cb};
+  static auto configInterface = ConfigInterfaceImpl();
+  static auto msbcCodecInterface = MSBCCodec();
+  static auto profileInterface = bluetooth::core::HACK_ProfileInterface{
+      // HID
+      .btif_hh_connect = btif_hh_connect,
+      .btif_hh_virtual_unplug = btif_hh_virtual_unplug,
+      .bta_hh_read_ssr_param = bta_hh_read_ssr_param,
+
+      // AVDTP
+      .btif_av_set_dynamic_audio_buffer_size =
+          btif_av_set_dynamic_audio_buffer_size,
+
+      // ASHA
+      .GetHearingAidDeviceCount = HearingAid::GetDeviceCount,
+
+      // LE Audio
+      .IsLeAudioClientRunning = LeAudioClient::IsLeAudioClientRunning,
+
+      // AVRCP
+      .AVRC_GetProfileVersion = AVRC_GetProfileVersion};
+
+  static auto interfaceForCore =
+      CoreInterfaceImpl(&eventCallbacks, &configInterface, &msbcCodecInterface,
+                        &profileInterface);
+  return &interfaceForCore;
+}
+
 /*******************************************************************************
  *  Functions
  ******************************************************************************/
@@ -172,24 +374,16 @@ static bool is_profile(const char* p1, const char* p2) {
  *
  ****************************************************************************/
 
-const std::vector<std::string> get_allowed_bt_package_name(void);
-void handle_migration(const std::string& dst,
-                      const std::vector<std::string>& allowed_bt_package_name);
-
 static int init(bt_callbacks_t* callbacks, bool start_restricted,
                 bool is_common_criteria_mode, int config_compare_result,
                 const char** init_flags, bool is_atv,
                 const char* user_data_directory) {
+  (void)user_data_directory;
   LOG_INFO(
       "%s: start restricted = %d ; common criteria mode = %d, config compare "
       "result = %d",
       __func__, start_restricted, is_common_criteria_mode,
       config_compare_result);
-
-  if (user_data_directory != nullptr) {
-    handle_migration(std::string(user_data_directory),
-                     get_allowed_bt_package_name());
-  }
 
   bluetooth::common::InitFlags::Load(init_flags);
 
@@ -217,27 +411,65 @@ static int init(bt_callbacks_t* callbacks, bool start_restricted,
 
   is_local_device_atv = is_atv;
 
-  stack_manager_get_interface()->init_stack();
+  stack_manager_get_interface()->init_stack(CreateInterfaceToProfiles());
   return BT_STATUS_SUCCESS;
+}
+
+static void start_profiles() {
+#if (BNEP_INCLUDED == TRUE)
+  BNEP_Init();
+#if (PAN_INCLUDED == TRUE)
+  PAN_Init();
+#endif /* PAN */
+#endif /* BNEP Included */
+  A2DP_Init();
+  AVRC_Init();
+#if (HID_HOST_INCLUDED == TRUE)
+  HID_HostInit();
+#endif
+  bta_ar_init();
+
+  // initialize profile-specific logging levels
+  const auto stack_config = stack_config_get_interface();
+  if (stack_config->get_trace_config_enabled()) {
+    load_levels_from_config(stack_config->get_all());
+  }
+}
+
+static void stop_profiles() {
+  btif_sock_cleanup();
+  btif_pan_cleanup();
 }
 
 static int enable() {
   if (!interface_ready()) return BT_STATUS_NOT_READY;
 
-  stack_manager_get_interface()->start_up_stack_async();
+  stack_manager_get_interface()->start_up_stack_async(
+      CreateInterfaceToProfiles(), &start_profiles, &stop_profiles);
   return BT_STATUS_SUCCESS;
 }
 
 static int disable(void) {
   if (!interface_ready()) return BT_STATUS_NOT_READY;
 
-  stack_manager_get_interface()->shut_down_stack_async();
+  stack_manager_get_interface()->shut_down_stack_async(&stop_profiles);
   return BT_STATUS_SUCCESS;
 }
 
-static void cleanup(void) { stack_manager_get_interface()->clean_up_stack(); }
+static void cleanup(void) {
+  stack_manager_get_interface()->clean_up_stack(&stop_profiles);
+}
 
 bool is_restricted_mode() { return restricted_mode; }
+
+static bool get_wbs_supported() {
+  return hfp_hal_interface::get_wbs_supported();
+}
+
+static bool get_swb_supported() {
+  return hfp_hal_interface::get_swb_supported();
+}
+
 bool is_common_criteria_mode() {
   return is_bluetooth_uid() && common_criteria_mode;
 }
@@ -260,7 +492,7 @@ static int get_adapter_properties(void) {
 static int get_adapter_property(bt_property_type_t type) {
   /* Allow get_adapter_property only for BDADDR and BDNAME if BT is disabled */
   if (!btif_is_enabled() && (type != BT_PROPERTY_BDADDR) &&
-      (type != BT_PROPERTY_BDNAME) && (type != BT_PROPERTY_CLASS_OF_DEVICE))
+      (type != BT_PROPERTY_BDNAME))
     return BT_STATUS_NOT_READY;
 
   do_in_main_thread(FROM_HERE, base::BindOnce(btif_get_adapter_property, type));
@@ -276,7 +508,6 @@ static int set_adapter_property(const bt_property_t* property) {
     case BT_PROPERTY_ADAPTER_DISCOVERABLE_TIMEOUT:
     case BT_PROPERTY_CLASS_OF_DEVICE:
     case BT_PROPERTY_LOCAL_IO_CAPS:
-    case BT_PROPERTY_LOCAL_IO_CAPS_BLE:
       break;
     default:
       return BT_STATUS_FAIL;
@@ -353,6 +584,15 @@ static int create_bond(const RawAddress* bd_addr, int transport) {
   return BT_STATUS_SUCCESS;
 }
 
+static int create_bond_le(const RawAddress* bd_addr, uint8_t addr_type) {
+  if (!interface_ready()) return BT_STATUS_NOT_READY;
+  if (btif_dm_pairing_is_busy()) return BT_STATUS_BUSY;
+
+  do_in_main_thread(
+      FROM_HERE, base::BindOnce(btif_dm_create_bond_le, *bd_addr, addr_type));
+  return BT_STATUS_SUCCESS;
+}
+
 static int create_bond_out_of_band(const RawAddress* bd_addr, int transport,
                                    const bt_oob_data_t* p192_data,
                                    const bt_oob_data_t* p256_data) {
@@ -398,11 +638,14 @@ static int get_connection_state(const RawAddress* bd_addr) {
 
 static int pin_reply(const RawAddress* bd_addr, uint8_t accept, uint8_t pin_len,
                      bt_pin_code_t* pin_code) {
+  bt_pin_code_t tmp_pin_code;
   if (!interface_ready()) return BT_STATUS_NOT_READY;
   if (pin_code == nullptr || pin_len > PIN_CODE_LEN) return BT_STATUS_FAIL;
 
+  memcpy(&tmp_pin_code, pin_code, pin_len);
+
   do_in_main_thread(FROM_HERE, base::BindOnce(btif_dm_pin_reply, *bd_addr,
-                                              accept, pin_len, *pin_code));
+                                              accept, pin_len, tmp_pin_code));
   return BT_STATUS_SUCCESS;
 }
 
@@ -431,16 +674,110 @@ static int clear_event_filter() {
   return BT_STATUS_SUCCESS;
 }
 
+static int clear_event_mask() {
+  LOG_VERBOSE("%s", __func__);
+  if (!interface_ready()) return BT_STATUS_NOT_READY;
+
+  do_in_main_thread(FROM_HERE, base::BindOnce(btif_dm_clear_event_mask));
+  return BT_STATUS_SUCCESS;
+}
+
+static int clear_filter_accept_list() {
+  LOG_VERBOSE("%s", __func__);
+  if (!interface_ready()) return BT_STATUS_NOT_READY;
+
+  do_in_main_thread(FROM_HERE,
+                    base::BindOnce(btif_dm_clear_filter_accept_list));
+  return BT_STATUS_SUCCESS;
+}
+
+static int disconnect_all_acls() {
+  LOG_VERBOSE("%s", __func__);
+  if (!interface_ready()) return BT_STATUS_NOT_READY;
+
+  do_in_main_thread(FROM_HERE, base::BindOnce(btif_dm_disconnect_all_acls));
+  return BT_STATUS_SUCCESS;
+}
+
+static void le_rand_btif_cb(uint64_t random_number) {
+  LOG_VERBOSE("%s", __func__);
+  do_in_jni_thread(
+      FROM_HERE,
+      base::BindOnce(
+          [](uint64_t random) { HAL_CBACK(bt_hal_cbacks, le_rand_cb, random); },
+          random_number));
+}
+
+static int le_rand() {
+  LOG_VERBOSE("%s", __func__);
+  if (!interface_ready()) return BT_STATUS_NOT_READY;
+
+  do_in_main_thread(
+      FROM_HERE, base::BindOnce(btif_dm_le_rand, base::Bind(&le_rand_btif_cb)));
+  return BT_STATUS_SUCCESS;
+}
+
+static int set_event_filter_inquiry_result_all_devices() {
+  if (!interface_ready()) return BT_STATUS_NOT_READY;
+  do_in_main_thread(
+      FROM_HERE,
+      base::BindOnce(btif_dm_set_event_filter_inquiry_result_all_devices));
+  return BT_STATUS_SUCCESS;
+}
+
+static int set_default_event_mask_except(uint64_t mask, uint64_t le_mask) {
+  if (!interface_ready()) return BT_STATUS_NOT_READY;
+  do_in_main_thread(
+      FROM_HERE,
+      base::BindOnce(btif_dm_set_default_event_mask_except, mask, le_mask));
+  return BT_STATUS_SUCCESS;
+}
+
+static int restore_filter_accept_list() {
+  if (!interface_ready()) return BT_STATUS_NOT_READY;
+  // TODO(b/260922031) - When restoring the filter accept list after a system
+  // suspend, we need to re-arm the LE connections that had `is_direct=False`.
+  // This should be the list of bonded devices and potentially any GATT
+  // connections that have `is_direct=False`. Currently, we only restore LE hid
+  // devices.
+  auto le_hid_addrs = btif_storage_get_le_hid_devices();
+  do_in_main_thread(FROM_HERE,
+                    base::BindOnce(btif_dm_restore_filter_accept_list,
+                                   std::move(le_hid_addrs)));
+  return BT_STATUS_SUCCESS;
+}
+
+static int allow_wake_by_hid() {
+  if (!interface_ready()) return BT_STATUS_NOT_READY;
+  auto le_hid_addrs = btif_storage_get_le_hid_devices();
+  auto classic_hid_addrs = btif_storage_get_wake_capable_classic_hid_devices();
+  do_in_main_thread(FROM_HERE, base::BindOnce(btif_dm_allow_wake_by_hid,
+                                              std::move(classic_hid_addrs),
+                                              std::move(le_hid_addrs)));
+  return BT_STATUS_SUCCESS;
+}
+
+static int set_event_filter_connection_setup_all_devices() {
+  if (!interface_ready()) return BT_STATUS_NOT_READY;
+  do_in_main_thread(
+      FROM_HERE,
+      base::BindOnce(btif_dm_set_event_filter_connection_setup_all_devices));
+  return BT_STATUS_SUCCESS;
+}
+
 static void dump(int fd, const char** arguments) {
   btif_debug_conn_dump(fd);
   btif_debug_bond_event_dump(fd);
   btif_debug_linkkey_type_dump(fd);
+  btif_debug_rc_dump(fd);
   btif_debug_a2dp_dump(fd);
   btif_debug_av_dump(fd);
   bta_debug_av_dump(fd);
   stack_debug_avdtp_api_dump(fd);
+  btif_sock_dump(fd);
   bluetooth::avrcp::AvrcpService::DebugDump(fd);
   btif_debug_config_dump(fd);
+  device_debug_iot_config_dump(fd);
   BTA_HfClientDumpStatistics(fd);
   wakelock_debug_dump(fd);
   osi_allocator_debug_dump(fd);
@@ -457,11 +794,35 @@ static void dump(int fd, const char** arguments) {
 #endif
   connection_manager::dump(fd);
   bluetooth::bqr::DebugDump(fd);
+  PAN_Dumpsys(fd);
+  DumpsysHid(fd);
+  DumpsysBtaDm(fd);
   bluetooth::shim::Dump(fd, arguments);
 }
 
 static void dumpMetrics(std::string* output) {
   bluetooth::common::BluetoothMetricsLogger::GetInstance()->WriteString(output);
+}
+
+static int get_remote_pbap_pce_version(const RawAddress* bd_addr) {
+  // Read and restore the PCE version from local storage
+  uint16_t pce_version = 0;
+  size_t version_value_size = sizeof(pce_version);
+  if (!btif_config_get_bin(bd_addr->ToString(), BT_CONFIG_KEY_PBAP_PCE_VERSION,
+                           (uint8_t*)&pce_version, &version_value_size)) {
+    LOG_WARN("Failed to read cached peer PCE version for %s",
+             ADDRESS_TO_LOGGABLE_CSTR(*bd_addr));
+  }
+  return pce_version;
+}
+
+static bool pbap_pse_dynamic_version_upgrade_is_enabled() {
+  if (bluetooth::common::init_flags::
+          pbap_pse_dynamic_version_upgrade_is_enabled()) {
+    return true;
+  }
+  LOG_WARN("PBAP PSE dynamic version upgrade is not enabled");
+  return false;
 }
 
 static const void* get_profile_interface(const char* profile_id) {
@@ -536,56 +897,14 @@ static const void* get_profile_interface(const char* profile_id) {
   if (is_profile(profile_id, BT_PROFILE_CSIS_CLIENT_ID))
     return btif_csis_client_get_interface();
 
-  return NULL;
-}
-
-int dut_mode_configure(uint8_t enable) {
-  if (!interface_ready()) return BT_STATUS_NOT_READY;
-  if (!stack_manager_get_interface()->get_stack_is_running())
-    return BT_STATUS_NOT_READY;
-
-  do_in_main_thread(FROM_HERE, base::BindOnce(btif_dut_mode_configure, enable));
-  return BT_STATUS_SUCCESS;
-}
-
-int dut_mode_send(uint16_t opcode, uint8_t* buf, uint8_t len) {
-  if (!interface_ready()) return BT_STATUS_NOT_READY;
-  if (!btif_is_dut_mode()) return BT_STATUS_FAIL;
-
-  uint8_t* copy = (uint8_t*)osi_calloc(len);
-  memcpy(copy, buf, len);
-
-  do_in_main_thread(FROM_HERE,
-                    base::BindOnce(
-                        [](uint16_t opcode, uint8_t* buf, uint8_t len) {
-                          btif_dut_mode_send(opcode, buf, len);
-                          osi_free(buf);
-                        },
-                        opcode, copy, len));
-  return BT_STATUS_SUCCESS;
-}
-
-int le_test_mode(uint16_t opcode, uint8_t* buf, uint8_t len) {
-  if (!interface_ready()) return BT_STATUS_NOT_READY;
-
-  switch (opcode) {
-    case HCI_BLE_TRANSMITTER_TEST:
-      if (len != 3) return BT_STATUS_PARM_INVALID;
-      do_in_main_thread(FROM_HERE, base::BindOnce(btif_ble_transmitter_test,
-                                                  buf[0], buf[1], buf[2]));
-      break;
-    case HCI_BLE_RECEIVER_TEST:
-      if (len != 1) return BT_STATUS_PARM_INVALID;
-      do_in_main_thread(FROM_HERE,
-                        base::BindOnce(btif_ble_receiver_test, buf[0]));
-      break;
-    case HCI_BLE_TEST_END:
-      do_in_main_thread(FROM_HERE, base::BindOnce(btif_ble_test_end));
-      break;
-    default:
-      return BT_STATUS_UNSUPPORTED;
+  bool isBqrEnabled =
+      bluetooth::common::InitFlags::IsBluetoothQualityReportCallbackEnabled();
+  if (isBqrEnabled) {
+    if (is_profile(profile_id, BT_BQR_ID))
+      return bluetooth::bqr::getBluetoothQualityReportInterface();
   }
-  return BT_STATUS_SUCCESS;
+
+  return NULL;
 }
 
 static bt_os_callouts_t* wakelock_os_callouts_saved = nullptr;
@@ -619,7 +938,18 @@ static int set_os_callouts(bt_os_callouts_t* callouts) {
 
 static int config_clear(void) {
   LOG_INFO("%s", __func__);
-  return btif_config_clear() ? BT_STATUS_SUCCESS : BT_STATUS_FAIL;
+  int ret = BT_STATUS_SUCCESS;
+  if (!btif_config_clear()) {
+    LOG_ERROR("Failed to clear btif config");
+    ret = BT_STATUS_FAIL;
+  }
+
+  if (!device_iot_config_clear()) {
+    LOG_ERROR("Failed to clear device iot config");
+    ret = BT_STATUS_FAIL;
+  }
+
+  return ret;
 }
 
 static bluetooth::avrcp::ServiceInterface* get_avrcp_service(void) {
@@ -645,47 +975,166 @@ static bool allow_low_latency_audio(bool allowed, const RawAddress& address) {
   return true;
 }
 
+static void metadata_changed(const RawAddress& remote_bd_addr, int key,
+                             std::vector<uint8_t> value) {
+  if (!interface_ready()) {
+    LOG_ERROR("Interface not ready!");
+    return;
+  }
+
+  do_in_main_thread(
+      FROM_HERE, base::BindOnce(btif_dm_metadata_changed, remote_bd_addr, key,
+                                std::move(value)));
+}
+
+static bool interop_match_addr(const char* feature_name,
+                               const RawAddress* addr) {
+  if (feature_name == NULL || addr == NULL) {
+    return false;
+  }
+
+  int feature = interop_feature_name_to_feature_id(feature_name);
+  if (feature == -1) {
+    BTIF_TRACE_ERROR("%s: feature doesn't exist: %s", __func__, feature_name);
+    return false;
+  }
+
+  return interop_match_addr((interop_feature_t)feature, addr);
+}
+
+static bool interop_match_name(const char* feature_name, const char* name) {
+  if (feature_name == NULL || name == NULL) {
+    return false;
+  }
+
+  int feature = interop_feature_name_to_feature_id(feature_name);
+  if (feature == -1) {
+    BTIF_TRACE_ERROR("%s: feature doesn't exist: %s", __func__, feature_name);
+    return false;
+  }
+
+  return interop_match_name((interop_feature_t)feature, name);
+}
+
+static bool interop_match_addr_or_name(const char* feature_name,
+                                       const RawAddress* addr) {
+  if (feature_name == NULL || addr == NULL) {
+    return false;
+  }
+
+  int feature = interop_feature_name_to_feature_id(feature_name);
+  if (feature == -1) {
+    BTIF_TRACE_ERROR("%s: feature doesn't exist: %s", __func__, feature_name);
+    return false;
+  }
+
+  return interop_match_addr_or_name((interop_feature_t)feature, addr,
+                                    &btif_storage_get_remote_device_property);
+}
+
+static void interop_database_add_remove_addr(bool do_add,
+                                             const char* feature_name,
+                                             const RawAddress* addr,
+                                             int length) {
+  if (feature_name == NULL || addr == NULL) {
+    return;
+  }
+
+  int feature = interop_feature_name_to_feature_id(feature_name);
+  if (feature == -1) {
+    BTIF_TRACE_ERROR("%s: feature doesn't exist: %s", __func__, feature_name);
+    return;
+  }
+
+  if (do_add) {
+    interop_database_add_addr((interop_feature_t)feature, addr, (size_t)length);
+  } else {
+    interop_database_remove_addr((interop_feature_t)feature, addr);
+  }
+}
+
+static void interop_database_add_remove_name(bool do_add,
+                                             const char* feature_name,
+                                             const char* name) {
+  if (feature_name == NULL || name == NULL) {
+    return;
+  }
+
+  int feature = interop_feature_name_to_feature_id(feature_name);
+  if (feature == -1) {
+    BTIF_TRACE_ERROR("%s: feature doesn't exist: %s", __func__, feature_name);
+    return;
+  }
+
+  if (do_add) {
+    interop_database_add_name((interop_feature_t)feature, name);
+  } else {
+    interop_database_remove_name((interop_feature_t)feature, name);
+  }
+}
+
 EXPORT_SYMBOL bt_interface_t bluetoothInterface = {
     sizeof(bluetoothInterface),
-    init,
-    enable,
-    disable,
-    cleanup,
-    get_adapter_properties,
-    get_adapter_property,
-    set_adapter_property,
-    get_remote_device_properties,
-    get_remote_device_property,
-    set_remote_device_property,
-    nullptr,
-    get_remote_services,
-    start_discovery,
-    cancel_discovery,
-    create_bond,
-    create_bond_out_of_band,
-    remove_bond,
-    cancel_bond,
-    get_connection_state,
-    pin_reply,
-    ssp_reply,
-    get_profile_interface,
-    dut_mode_configure,
-    dut_mode_send,
-    le_test_mode,
-    set_os_callouts,
-    read_energy_info,
-    dump,
-    dumpMetrics,
-    config_clear,
-    interop_database_clear,
-    interop_database_add,
-    get_avrcp_service,
-    obfuscate_address,
-    get_metric_id,
-    set_dynamic_audio_buffer_size,
-    generate_local_oob_data,
-    allow_low_latency_audio,
-    clear_event_filter};
+    .init = init,
+    .enable = enable,
+    .disable = disable,
+    .cleanup = cleanup,
+    .get_adapter_properties = get_adapter_properties,
+    .get_adapter_property = get_adapter_property,
+    .set_adapter_property = set_adapter_property,
+    .get_remote_device_properties = get_remote_device_properties,
+    .get_remote_device_property = get_remote_device_property,
+    .set_remote_device_property = set_remote_device_property,
+    .get_remote_service_record = nullptr,
+    .get_remote_services = get_remote_services,
+    .start_discovery = start_discovery,
+    .cancel_discovery = cancel_discovery,
+    .create_bond = create_bond,
+    .create_bond_le = create_bond_le,
+    .create_bond_out_of_band = create_bond_out_of_band,
+    .remove_bond = remove_bond,
+    .cancel_bond = cancel_bond,
+    .get_connection_state = get_connection_state,
+    .pin_reply = pin_reply,
+    .ssp_reply = ssp_reply,
+    .get_profile_interface = get_profile_interface,
+    .set_os_callouts = set_os_callouts,
+    .read_energy_info = read_energy_info,
+    .dump = dump,
+    .dumpMetrics = dumpMetrics,
+    .config_clear = config_clear,
+    .interop_database_clear = interop_database_clear,
+    .interop_database_add = interop_database_add,
+    .get_avrcp_service = get_avrcp_service,
+    .obfuscate_address = obfuscate_address,
+    .get_metric_id = get_metric_id,
+    .set_dynamic_audio_buffer_size = set_dynamic_audio_buffer_size,
+    .generate_local_oob_data = generate_local_oob_data,
+    .allow_low_latency_audio = allow_low_latency_audio,
+    .clear_event_filter = clear_event_filter,
+    .clear_event_mask = clear_event_mask,
+    .clear_filter_accept_list = clear_filter_accept_list,
+    .disconnect_all_acls = disconnect_all_acls,
+    .le_rand = le_rand,
+    .set_event_filter_inquiry_result_all_devices =
+        set_event_filter_inquiry_result_all_devices,
+    .set_default_event_mask_except = set_default_event_mask_except,
+    .restore_filter_accept_list = restore_filter_accept_list,
+    .allow_wake_by_hid = allow_wake_by_hid,
+    .set_event_filter_connection_setup_all_devices =
+        set_event_filter_connection_setup_all_devices,
+    .get_wbs_supported = get_wbs_supported,
+    .get_swb_supported = get_swb_supported,
+    .metadata_changed = metadata_changed,
+    .interop_match_addr = interop_match_addr,
+    .interop_match_name = interop_match_name,
+    .interop_match_addr_or_name = interop_match_addr_or_name,
+    .interop_database_add_remove_addr = interop_database_add_remove_addr,
+    .interop_database_add_remove_name = interop_database_add_remove_name,
+    .get_remote_pbap_pce_version = get_remote_pbap_pce_version,
+    .pbap_pse_dynamic_version_upgrade_is_enabled =
+        pbap_pse_dynamic_version_upgrade_is_enabled,
+};
 
 // callback reporting helpers
 
@@ -880,18 +1329,33 @@ void invoke_address_consolidate_cb(RawAddress main_bd_addr,
                      main_bd_addr, secondary_bd_addr));
 }
 
+void invoke_le_address_associate_cb(RawAddress main_bd_addr,
+                                    RawAddress secondary_bd_addr) {
+  do_in_jni_thread(
+      FROM_HERE, base::BindOnce(
+                     [](RawAddress main_bd_addr, RawAddress secondary_bd_addr) {
+                       HAL_CBACK(bt_hal_cbacks, le_address_associate_cb,
+                                 &main_bd_addr, &secondary_bd_addr);
+                     },
+                     main_bd_addr, secondary_bd_addr));
+}
 void invoke_acl_state_changed_cb(bt_status_t status, RawAddress bd_addr,
                                  bt_acl_state_t state, int transport_link_type,
-                                 bt_hci_error_code_t hci_reason) {
+                                 bt_hci_error_code_t hci_reason,
+                                 bt_conn_direction_t direction,
+                                 uint16_t acl_handle) {
   do_in_jni_thread(
       FROM_HERE,
       base::BindOnce(
           [](bt_status_t status, RawAddress bd_addr, bt_acl_state_t state,
-             int transport_link_type, bt_hci_error_code_t hci_reason) {
+             int transport_link_type, bt_hci_error_code_t hci_reason,
+             bt_conn_direction_t direction, uint16_t acl_handle) {
             HAL_CBACK(bt_hal_cbacks, acl_state_changed_cb, status, &bd_addr,
-                      state, transport_link_type, hci_reason);
+                      state, transport_link_type, hci_reason, direction,
+                      acl_handle);
           },
-          status, bd_addr, state, transport_link_type, hci_reason));
+          status, bd_addr, state, transport_link_type, hci_reason, direction,
+          acl_handle));
 }
 
 void invoke_thread_evt_cb(bt_cb_thread_evt event) {
@@ -904,15 +1368,6 @@ void invoke_thread_evt_cb(bt_cb_thread_evt event) {
                                     }
                                   },
                                   event));
-}
-
-void invoke_le_test_mode_cb(bt_status_t status, uint16_t count) {
-  do_in_jni_thread(FROM_HERE, base::BindOnce(
-                                  [](bt_status_t status, uint16_t count) {
-                                    HAL_CBACK(bt_hal_cbacks, le_test_mode_cb,
-                                              status, count);
-                                  },
-                                  status, count));
 }
 
 // takes ownership of |uid_data|
@@ -928,18 +1383,18 @@ void invoke_energy_info_cb(bt_activity_energy_info energy_info,
           energy_info, uid_data));
 }
 
-void invoke_link_quality_report_cb(
-    uint64_t timestamp, int report_id, int rssi, int snr,
-    int retransmission_count, int packets_not_receive_count,
-    int negative_acknowledgement_count) {
+void invoke_link_quality_report_cb(uint64_t timestamp, int report_id, int rssi,
+                                   int snr, int retransmission_count,
+                                   int packets_not_receive_count,
+                                   int negative_acknowledgement_count) {
   do_in_jni_thread(
       FROM_HERE,
       base::BindOnce(
           [](uint64_t timestamp, int report_id, int rssi, int snr,
              int retransmission_count, int packets_not_receive_count,
              int negative_acknowledgement_count) {
-            HAL_CBACK(bt_hal_cbacks, link_quality_report_cb,
-                      timestamp, report_id, rssi, snr, retransmission_count,
+            HAL_CBACK(bt_hal_cbacks, link_quality_report_cb, timestamp,
+                      report_id, rssi, snr, retransmission_count,
                       packets_not_receive_count,
                       negative_acknowledgement_count);
           },
@@ -948,14 +1403,13 @@ void invoke_link_quality_report_cb(
 }
 
 void invoke_switch_buffer_size_cb(bool is_low_latency_buffer_size) {
-  do_in_jni_thread(
-      FROM_HERE,
-      base::BindOnce(
-          [](bool is_low_latency_buffer_size) {
-            HAL_CBACK(bt_hal_cbacks, switch_buffer_size_cb,
-                      is_low_latency_buffer_size);
-          },
-          is_low_latency_buffer_size));
+  do_in_jni_thread(FROM_HERE, base::BindOnce(
+                                  [](bool is_low_latency_buffer_size) {
+                                    HAL_CBACK(bt_hal_cbacks,
+                                              switch_buffer_size_cb,
+                                              is_low_latency_buffer_size);
+                                  },
+                                  is_low_latency_buffer_size));
 }
 
 void invoke_switch_codec_cb(bool is_low_latency_buffer_size) {

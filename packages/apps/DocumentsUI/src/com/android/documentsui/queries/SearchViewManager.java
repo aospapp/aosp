@@ -52,6 +52,7 @@ import com.android.documentsui.base.EventHandler;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
+import com.android.modules.utils.build.SdkLevel;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -236,6 +237,17 @@ public class SearchViewManager implements
                 mSearchView.requestFocus();
                 mListener.onSearchViewClearClicked();
             });
+        }
+        if (SdkLevel.isAtLeastU()) {
+            final View textView = mSearchView.findViewById(R.id.search_src_text);
+            if (textView != null) {
+                try {
+                    textView.setIsHandwritingDelegate(true);
+                } catch (LinkageError e) {
+                    // Running on a device with an older build of Android U
+                    // TODO(b/274154553): Remove try/catch block after Android U Beta 1 is released
+                }
+            }
         }
 
         mFullBar = isFullBarSearch;

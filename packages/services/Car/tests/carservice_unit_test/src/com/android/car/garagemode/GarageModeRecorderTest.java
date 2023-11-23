@@ -16,6 +16,8 @@
 
 package com.android.car.garagemode;
 
+import static com.android.car.garagemode.GarageModeRecorder.GARAGE_MODE_RECORDER_IS_SACTIVE;
+import static com.android.car.garagemode.GarageModeRecorder.NOT;
 import static com.android.car.garagemode.GarageModeRecorder.SESSION_DURATION;
 import static com.android.car.garagemode.GarageModeRecorder.SESSION_FINISH_TIME;
 import static com.android.car.garagemode.GarageModeRecorder.SESSION_START_TIME;
@@ -92,18 +94,31 @@ public final class GarageModeRecorderTest extends AbstractExtendedMockitoTestCas
 
     @Test
     public void testIsRecorderEnabled() {
-        doReturn(false).when(() ->BuildHelper.isUserBuild());
+        setRecorderEnabled(true);
         assertThat(mGarageModeRecorder.isRecorderEnabled()).isTrue();
 
-        doReturn(true).when(() ->BuildHelper.isUserBuild());
+        setRecorderEnabled(false);
         assertThat(mGarageModeRecorder.isRecorderEnabled()).isFalse();
+    }
+
+    @Test
+    public void testRecorderStatusDump() {
+        setRecorderEnabled(true);
+        verifyDumpsys(getRecorderActiveString(true));
+
+        setRecorderEnabled(false);
+        verifyDumpsys(getRecorderActiveString(false));
+    }
+
+    private void setRecorderEnabled(boolean status) {
+        doReturn(!status).when(BuildHelper::isUserBuild);
     }
 
     @Test
     public void testStartSession() {
         mGarageModeRecorder.startSession();
 
-        verifyDumpsys(getSessionStartString());
+        verifyDumpsys(getRecorderActiveString(true), getSessionStartString());
     }
 
     @Test
@@ -111,7 +126,7 @@ public final class GarageModeRecorderTest extends AbstractExtendedMockitoTestCas
         mGarageModeRecorder.startSession();
         mGarageModeRecorder.startSession();
 
-        verifyDumpsys(getSessionStartString());
+        verifyDumpsys(getRecorderActiveString(true), getSessionStartString());
     }
 
 
@@ -120,8 +135,8 @@ public final class GarageModeRecorderTest extends AbstractExtendedMockitoTestCas
         mGarageModeRecorder.startSession();
         mGarageModeRecorder.finishSession();
 
-        verifyDumpsys(getSessionStartString(), getSessionFinishString(),
-                getSessionDurationString());
+        verifyDumpsys(getRecorderActiveString(true), getSessionStartString(),
+                getSessionFinishString(), getSessionDurationString());
     }
 
     @Test
@@ -129,7 +144,13 @@ public final class GarageModeRecorderTest extends AbstractExtendedMockitoTestCas
         mGarageModeRecorder.startSession();
         mGarageModeRecorder.cancelSession();
 
-        verifyDumpsys(getSessionStartString(), getSessionCancelString());
+        verifyDumpsys(getRecorderActiveString(true), getSessionStartString(),
+                getSessionCancelString());
+    }
+
+    private String getRecorderActiveString(boolean isActive) {
+        return String.format(GARAGE_MODE_RECORDER_IS_SACTIVE.replace("\n", ""),
+                isActive ? "" : NOT);
     }
 
     private String getSessionCancelString() {

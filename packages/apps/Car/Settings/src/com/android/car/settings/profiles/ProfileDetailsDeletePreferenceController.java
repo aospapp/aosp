@@ -87,7 +87,7 @@ public class ProfileDetailsDeletePreferenceController
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return mRemoveProfileHandler.getAvailabilityStatus(
                 getContext(), getUserInfo(), /* allowRemoveCurrentProcessUser= */ true);
     }

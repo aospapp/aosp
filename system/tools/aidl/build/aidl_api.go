@@ -16,6 +16,7 @@ package aidl
 
 import (
 	"android/soong/android"
+	"reflect"
 
 	"fmt"
 	"io"
@@ -55,8 +56,10 @@ type aidlApiProperties struct {
 	AidlRoot  string   // base directory for the input aidl file
 	Stability *string
 	Imports   []string
+	Headers   []string
 	Versions  []string
 	Dumpapi   DumpApiProperties
+	Frozen    *bool
 }
 
 type aidlApi struct {
@@ -87,6 +90,27 @@ func (m *aidlApi) apiDir() string {
 // `m <iface>-freeze-api` will freeze ToT as this version
 func (m *aidlApi) nextVersion() string {
 	return nextVersion(m.properties.Versions)
+}
+
+func (m *aidlApi) hasVersion() bool {
+	return len(m.properties.Versions) > 0
+}
+
+func (m *aidlApi) latestVersion() string {
+	if !m.hasVersion() {
+		return "0"
+	}
+	return m.properties.Versions[len(m.properties.Versions)-1]
+}
+
+func (m *aidlApi) isFrozen() bool {
+	return proptools.Bool(m.properties.Frozen)
+}
+
+// in order to keep original behavior for certain operations, we may want to
+// check if frozen is set.
+func (m *aidlApi) isExplicitlyUnFrozen() bool {
+	return m.properties.Frozen != nil && !proptools.Bool(m.properties.Frozen)
 }
 
 type apiDump struct {
@@ -246,6 +270,11 @@ func (m *aidlApi) migrateAndAppendVersion(ctx android.ModuleContext, rb *android
 					}
 				}
 				rbc.Text("]}' ").
+					Text(android.PathForModuleSrc(ctx, "Android.bp").String()).
+					Text("&&").
+					BuiltTool("bpmodify").
+					Text("-w -m " + m.properties.BaseName).
+					Text("-parameter frozen -set-bool true").
 					Text(android.PathForModuleSrc(ctx, "Android.bp").String())
 			}, isFreezingApi)
 		} else {
@@ -253,7 +282,12 @@ func (m *aidlApi) migrateAndAppendVersion(ctx android.ModuleContext, rb *android
 				if hasVersionSuffix(im) {
 					imports = append(imports, im)
 				} else {
-					imports = append(imports, im+"-V"+importIfaces[im].latestVersion())
+					versionSuffix := importIfaces[im].latestVersion()
+					if !importIfaces[im].hasVersion() ||
+						importIfaces[im].isExplicitlyUnFrozen() {
+						versionSuffix = importIfaces[im].nextVersion()
+					}
+					imports = append(imports, im+"-V"+versionSuffix)
 				}
 			}
 			importsStr := strings.Join(wrap(`"`, imports, `"`), ", ")
@@ -264,6 +298,11 @@ func (m *aidlApi) migrateAndAppendVersion(ctx android.ModuleContext, rb *android
 				rbc.BuiltTool("bpmodify").
 					Text("-w -m " + m.properties.BaseName).
 					Text("-parameter versions_with_info -add-literal '" + data + "' ").
+					Text(android.PathForModuleSrc(ctx, "Android.bp").String()).
+					Text("&&").
+					BuiltTool("bpmodify").
+					Text("-w -m " + m.properties.BaseName).
+					Text("-parameter frozen -set-bool true").
 					Text(android.PathForModuleSrc(ctx, "Android.bp").String())
 			}, isFreezingApi)
 		}
@@ -296,16 +335,22 @@ func (m *aidlApi) makeApiDumpAsVersion(ctx android.ModuleContext, dump apiDump, 
 		m.migrateAndAppendVersion(ctx, rb, &version, transitive)
 	} else {
 		actionWord = "Updating"
+		if m.isFrozen() {
+			rb.Command().BuiltTool("bpmodify").
+				Text("-w -m " + m.properties.BaseName).
+				Text("-parameter frozen -set-bool false").
+				Text(android.PathForModuleSrc(ctx, "Android.bp").String())
+
+		}
 		// We are updating the current version. Don't copy .hash to the current dump
 		rb.Command().Text("mkdir -p " + targetDir)
-		rb.Command().Text("rm -rf " + targetDir + "/*")
-		rb.Command().Text("cp -rf " + dump.dir.String() + "/* " + targetDir).Implicits(dump.files)
-
+		rb.Command().Text("rsync --recursive --update --delete-before " + dump.dir.String() + "/* " + targetDir).Implicits(dump.files)
 		m.migrateAndAppendVersion(ctx, rb, nil, false)
 	}
 
-	timestampFile := android.PathForModuleOut(ctx, "updateapi_"+version+".timestamp")
-	rb.Command().Text("touch").Output(timestampFile)
+	timestampFile := android.PathForModuleOut(ctx, "update_or_freeze_api_"+version+".timestamp")
+	// explicitly don't touch timestamp, so that the command can be run repeatedly
+	rb.Command().Text("true").ImplicitOutput(timestampFile)
 
 	rb.Build("dump_aidl_api_"+m.properties.BaseName+"_"+version, actionWord+" AIDL API dump version "+version+" for "+m.properties.BaseName+" (see "+targetDir+")")
 	return timestampFile
@@ -340,6 +385,15 @@ func getDeps(ctx android.ModuleContext, versionedImports map[string]string) deps
 			// add imported module's checkapiTimestamps as implicits to make sure that imported apiDump is up-to-date
 			deps.implicits = append(deps.implicits, api.checkApiTimestamps.Paths()...)
 			deps.implicits = append(deps.implicits, api.checkHashTimestamps.Paths()...)
+			deps.implicits = append(deps.implicits, api.hasDevelopment)
+		case interfaceHeadersDepTag:
+			headerInfo, ok := ctx.OtherModuleProvider(dep, AidlInterfaceHeadersProvider).(AidlInterfaceHeadersInfo)
+			if !ok {
+				ctx.PropertyErrorf("headers", "module %v does not provide AidlInterfaceHeadersInfo", dep.Name())
+				return
+			}
+			deps.implicits = append(deps.implicits, headerInfo.Srcs...)
+			deps.imports = append(deps.imports, headerInfo.IncludeDir)
 		}
 	})
 	return deps
@@ -390,7 +444,12 @@ func (m *aidlApi) checkEquality(ctx android.ModuleContext, oldDump apiDump, newD
 	// In case when it is finalized, we should never allow updating the already frozen API.
 	// If it's not finalized, we let users to update the current version by invoking
 	// `m <name>-update-api`.
-	messageFile := android.PathForSource(ctx, "system/tools/aidl/build/message_check_equality.txt")
+	var messageFile android.SourcePath
+	if m.isFrozen() {
+		messageFile = android.PathForSource(ctx, "system/tools/aidl/build/message_check_equality_frozen.txt")
+	} else {
+		messageFile = android.PathForSource(ctx, "system/tools/aidl/build/message_check_equality.txt")
+	}
 	sdkIsFinal := !ctx.Config().DefaultAppTargetSdk(ctx).IsPreview()
 	if sdkIsFinal {
 		messageFile = android.PathForSource(ctx, "system/tools/aidl/build/message_check_equality_release.txt")
@@ -426,24 +485,89 @@ func (m *aidlApi) checkIntegrity(ctx android.ModuleContext, dump apiDump) androi
 	return timestampFile
 }
 
+// Get the `latest` versions of the imported AIDL interfaces. If an interface is frozen, this is the
+// last frozen version, if it is `frozen: false` this is the last frozen version + 1, if `frozen` is
+// not set this is the last frozen version because we don't know if there are changes or not to the
+// interface.
+// map["foo":"3", "bar":1]
+func (m *aidlApi) getLatestImportVersions(ctx android.ModuleContext) map[string]string {
+	var latest_versions = make(map[string]string)
+	ctx.VisitDirectDeps(func(dep android.Module) {
+		switch ctx.OtherModuleDependencyTag(dep).(type) {
+		case apiDepTag:
+			api := dep.(*aidlApi)
+			if len(api.properties.Versions) > 0 {
+				if api.properties.Frozen == nil || api.isFrozen() {
+					latest_versions[api.properties.BaseName] = api.latestVersion()
+				} else {
+					latest_versions[api.properties.BaseName] = api.nextVersion()
+				}
+			} else {
+				latest_versions[api.properties.BaseName] = "1"
+			}
+		}
+	})
+	return latest_versions
+}
+
 func (m *aidlApi) checkForDevelopment(ctx android.ModuleContext, latestVersionDump *apiDump, totDump apiDump) android.WritablePath {
 	hasDevPath := android.PathForModuleOut(ctx, "has_development")
 	rb := android.NewRuleBuilder(pctx, ctx)
 	rb.Command().Text("rm -f " + hasDevPath.String())
 	if latestVersionDump != nil {
-		hasDevCommand := rb.Command()
-		hasDevCommand.BuiltTool("aidl").FlagWithArg("--checkapi=", "equal")
-		if m.properties.Stability != nil {
-			hasDevCommand.FlagWithArg("--stability ", *m.properties.Stability)
+		current_imports := m.getImports(ctx, currentVersion)
+		last_frozen_imports := m.getImports(ctx, m.properties.Versions[len(m.properties.Versions)-1])
+		var latest_versions = m.getLatestImportVersions(ctx)
+		// replace any "latest" version with the version number from latest_versions
+		for import_name, latest_version := range current_imports {
+			if latest_version == "latest" {
+				current_imports[import_name] = latest_versions[import_name]
+			}
+		}
+		for import_name, latest_version := range last_frozen_imports {
+			if latest_version == "latest" {
+				last_frozen_imports[import_name] = latest_versions[import_name]
+			}
+		}
+		different_imports := false
+		if !reflect.DeepEqual(current_imports, last_frozen_imports) {
+			if m.isFrozen() {
+				ctx.ModuleErrorf("This interface is 'frozen: true' but the imports have changed. Set 'frozen: false' to allow changes: \n Version %s imports: %s\n Version %s imports: %s\n",
+					currentVersion,
+					fmt.Sprint(current_imports),
+					m.properties.Versions[len(m.properties.Versions)-1],
+					fmt.Sprint(last_frozen_imports))
+				return hasDevPath
+			}
+			different_imports = true
 		}
 		// checkapi(latest, tot) should use imports for nextVersion(=tot)
-		deps := getDeps(ctx, m.getImports(ctx, m.nextVersion()))
-		hasDevCommand.
-			FlagForEachArg("-I", deps.imports).Implicits(deps.implicits).
-			FlagForEachInput("-p", deps.preprocessed).
-			Text(latestVersionDump.dir.String()).Implicits(latestVersionDump.files).
-			Text(totDump.dir.String()).Implicits(totDump.files).
-			Text("2> /dev/null; echo $? >").Output(hasDevPath)
+		hasDevCommand := rb.Command()
+		if !different_imports {
+			hasDevCommand.BuiltTool("aidl").FlagWithArg("--checkapi=", "equal")
+			if m.properties.Stability != nil {
+				hasDevCommand.FlagWithArg("--stability ", *m.properties.Stability)
+			}
+			deps := getDeps(ctx, m.getImports(ctx, m.nextVersion()))
+			hasDevCommand.
+				FlagForEachArg("-I", deps.imports).Implicits(deps.implicits).
+				FlagForEachInput("-p", deps.preprocessed).
+				Text(latestVersionDump.dir.String()).Implicits(latestVersionDump.files).
+				Text(totDump.dir.String()).Implicits(totDump.files)
+			if m.isExplicitlyUnFrozen() {
+				// Throw an error if checkapi returns with no differences
+				msg := fmt.Sprintf("echo \"Interface %s can not be marked \\`frozen: false\\` if there are no changes "+
+					"between the current version and the last frozen version.\"", m.properties.BaseName)
+				hasDevCommand.
+					Text(fmt.Sprintf("2> /dev/null && %s && exit -1 || echo $? >", msg)).Output(hasDevPath)
+			} else {
+				hasDevCommand.
+					Text("2> /dev/null; echo $? >").Output(hasDevPath)
+			}
+		} else {
+			// We know there are different imports which means has_development must be true
+			hasDevCommand.Text("echo 1 >").Output(hasDevPath)
+		}
 	} else {
 		rb.Command().Text("echo 1 >").Output(hasDevPath)
 	}
@@ -474,8 +598,7 @@ func (m *aidlApi) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 		rb := android.NewRuleBuilder(pctx, ctx)
 		ifaceName := m.properties.BaseName
 		rb.Command().Text(fmt.Sprintf(`echo "API dump for the current version of AIDL interface %s does not exist."`, ifaceName))
-		rb.Command().Text(fmt.Sprintf(`echo Run "m %s-update-api", or add "unstable: true" to the build rule `+
-			`for the interface if it does not need to be versioned`, ifaceName))
+		rb.Command().Text(fmt.Sprintf(`echo "Run the command \"m %s-update-api\" or add \"unstable: true\" to the build rule for the interface if it does not need to be versioned"`, ifaceName))
 		// This file will never be created. Otherwise, the build will pass simply by running 'm; m'.
 		alwaysChecked := android.PathForModuleOut(ctx, "checkapi_current.timestamp")
 		rb.Command().Text("false").ImplicitOutput(alwaysChecked)
@@ -500,7 +623,7 @@ func (m *aidlApi) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 			if !dump.hashFile.Valid() {
 				// We should show the source path of hash_gen because aidl_hash_gen cannot be built due to build error.
 				cmd := fmt.Sprintf(`(croot && system/tools/aidl/build/hash_gen.sh %s %s %s)`, apiDir, versionForHashGen(ver), hashFilePath)
-				ctx.ModuleErrorf("A frozen aidl_interface must have '.hash' file, but %s-V%s doesn't have it. Use the command below to generate hash.\n%s\n",
+				ctx.ModuleErrorf("A frozen aidl_interface must have '.hash' file, but %s-V%s doesn't have it. Use the command below to generate a hash (DANGER: this should not normally happen. If an interface is changed downstream, it may cause undefined behavior, test failures, unexplained weather conditions, or otherwise broad malfunction of society. DO NOT RUN THIS COMMAND TO BREAK APIS. DO NOT!).\n%s\n",
 					m.properties.BaseName, ver, cmd)
 			}
 			dumps = append(dumps, dump)
@@ -539,6 +662,11 @@ func (m *aidlApi) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	// API dump from source is frozen as the next stable version. Triggered by `m <name>-freeze-api`
 	nextVersion := m.nextVersion()
 	m.freezeApiTimestamp = m.makeApiDumpAsVersion(ctx, totApiDump, nextVersion, latestVersionDump)
+
+	nextApiDir := filepath.Join(ctx.ModuleDir(), m.apiDir(), nextVersion)
+	if android.ExistentPathForSource(ctx, nextApiDir).Valid() {
+		ctx.ModuleErrorf("API Directory exists for version %s path %s exists, but it is not specified in versions field.", nextVersion, nextApiDir)
+	}
 }
 
 func (m *aidlApi) AndroidMk() android.AndroidMkData {
@@ -567,7 +695,7 @@ func aidlApiFactory() android.Module {
 	return m
 }
 
-func addApiModule(mctx android.LoadHookContext, i *aidlInterface) string {
+func addApiModule(mctx android.DefaultableHookContext, i *aidlInterface) string {
 	apiModule := i.ModuleBase.Name() + aidlApiSuffix
 	srcs, aidlRoot := i.srcsForVersion(mctx, i.nextVersion())
 	mctx.CreateModule(aidlApiFactory, &nameProperties{
@@ -578,8 +706,10 @@ func addApiModule(mctx android.LoadHookContext, i *aidlInterface) string {
 		AidlRoot:  aidlRoot,
 		Stability: i.properties.Stability,
 		Imports:   i.properties.Imports,
+		Headers:   i.properties.Headers,
 		Versions:  i.getVersions(),
 		Dumpapi:   i.properties.Dumpapi,
+		Frozen:    i.properties.Frozen,
 	})
 	return apiModule
 }

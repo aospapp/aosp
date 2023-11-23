@@ -47,8 +47,6 @@ android_library {
         "androidx.cardview_cardview",
         "statslog-tvsettings",
     ],
-
-    min_sdk_version: "29",
 }
 
 // For the test package.

@@ -14,6 +14,7 @@ TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
 DEPENDENCIES = 'bluetooth, working_bluetooth_btpeer:1'
+PY_VERSION = 3
 
 DOC = """ Toggle adapter power and verify peer devices can reconnect. """
 

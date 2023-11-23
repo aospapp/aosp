@@ -25,10 +25,8 @@ cc_library_shared {
         ".",
     ],
     shared_libs: [
-        "libvulkan",
-    ],
-    whole_static_libs: [
         "libjsoncpp",
+        "libvulkan",
     ],
     export_shared_lib_headers: [
         "libvulkan",
@@ -37,7 +35,6 @@ cc_library_shared {
 
 cc_library_static {
     name: "libvkjson_ndk",
-    clang: true,
     srcs: [
         "vkjson.cc",
         "vkjson_instance.cc",

@@ -13,4 +13,6 @@
     <string name="localPhoneName" msgid="9119254982537191352">"Navnet mitt"</string>
     <string name="defaultnumber" msgid="5348816189286607406">"000000"</string>
     <string name="pbap_notification_group" msgid="4215789331721465381">"Bluetooth Contact-deling"</string>
+    <string name="phonebook_advance_feature_support" msgid="8129553051734505128">"Advance-funksjonen i telefonboken støttes"</string>
+    <string name="repair_for_adv_phonebook_feature" msgid="3489797973131684927">"Ny tilkobling for Advance-funksjonen i telefonboken"</string>
 </resources>

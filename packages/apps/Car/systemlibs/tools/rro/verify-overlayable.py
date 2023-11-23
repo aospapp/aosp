@@ -28,16 +28,19 @@ def main():
     parser = argparse.ArgumentParser(description='Verify overlayable.xml.')
     optional_args = parser.add_argument_group('optional arguments')
     optional_args.add_argument('-e', '--excludeFiles', nargs='*', help='File paths (absolute or relative to cwd) that should be excluded when generating overlayable.xml')
+    optional_args.add_argument('-m', '--errorMessage', nargs='*', help='Custom error message if resources are added or removed.')
     required_args = parser.add_argument_group('required arguments')
-    required_args.add_argument('-r', '--resourcePath', help='Path to resource directory (absolute or relative to cwd)', required=True)
+    required_args.add_argument('-r', '--resourcePath', help='Path to resource directory (absolute or relative to cwd)', required=True, action='append')
     required_args.add_argument('-o', '--overlayableFilePath', help='Filepath to overlayable.xml (absolute or relative to cwd).', required=True)
     args = parser.parse_args()
 
-    resources = get_all_resources(args.resourcePath, args.excludeFiles)
+    resources = set()
+    for path in args.resourcePath:
+        resources |= get_all_resources(path, args.excludeFiles)
     old_mapping = get_resources_from_single_file(args.overlayableFilePath)
-    compare_resources(old_mapping, resources, args.overlayableFilePath)
+    compare_resources(old_mapping, resources, args.overlayableFilePath, args.errorMessage)
 
-def compare_resources(old_mapping, new_mapping, res_public_file):
+def compare_resources(old_mapping, new_mapping, res_public_file, errorMsg):
     removed = old_mapping.difference(new_mapping)
     added = new_mapping.difference(old_mapping)
     if len(removed) > 0:
@@ -45,10 +48,13 @@ def compare_resources(old_mapping, new_mapping, res_public_file):
     if len(added) > 0:
         print('Resources added:\n' + '\n'.join(map(lambda x: str(x), added)))
     if len(added) + len(removed) > 0:
-        print("Some resource have been modified. If this is intentional please " +
-              "run 'python3 generate-overlayable.py' again and submit the new %s" % res_public_file)
-        print("Some projects may include $PROJECT_TOP/tools/generate-overlayable.sh which calls " +
-              "the above command with the appropriate command line arguments")
+        if errorMsg is not None:
+            print(errorMsg)
+        else:
+            print("Some resource have been modified. If this is intentional please " +
+                  "run 'python3 generate-overlayable.py' again and submit the new %s" % res_public_file)
+            print("Some projects may include $PROJECT_TOP/tools/generate-overlayable.sh which calls " +
+                  "the above command with the appropriate command line arguments")
         sys.exit(1)
 
 if __name__ == '__main__':

@@ -76,25 +76,7 @@ public class XmlParserUtils {
         if (TextUtils.isEmpty(keywordRes)) {
             return null;
         }
-        // The format of keyword is either a string, or @ followed by int (@123456).
-        // When it's int, we need to look up the actual string from context.
-        if (!keywordRes.startsWith("@")) {
-            // It's a string.
-            return keywordRes;
-        } else {
-            // It's a resource
-            try  {
-                final int resValue = Integer.parseInt(keywordRes.substring(1));
-                if (DevicePolicyResourcesUtils.isDevicePolicyResource(context, resValue)) {
-                    return DevicePolicyResourcesUtils.getDevicePolicyResource(context, resValue);
-                } else {
-                    return context.getString(resValue);
-                }
-            } catch (NumberFormatException e) {
-                Log.w(TAG, "Failed to parse keyword attribute, skipping " + keywordRes);
-                return null;
-            }
-        }
+        return getString(context, keywordRes);
     }
 
     public static int getDataIcon(Context context, AttributeSet attrs) {
@@ -112,6 +94,17 @@ public class XmlParserUtils {
                 R.styleable.Preference_android_fragment);
     }
 
+    /**
+     *  Returns if the attrs contains highlightableMenuKey="" element.
+     */
+    public static String getHighlightableMenuKey(Context context, AttributeSet attrs) {
+        String menuKey = attrs.getAttributeValue(NS_APP_RES_AUTO, "highlightableMenuKey");
+        if (!TextUtils.isEmpty(menuKey)) {
+            menuKey = getString(context, menuKey);
+        }
+        return menuKey;
+    }
+
     @Nullable
     private static String getData(Context context, AttributeSet set, int[] attrs, int resId) {
         final TypedArray ta = context.obtainStyledAttributes(set, attrs);
@@ -124,7 +117,6 @@ public class XmlParserUtils {
         ta.recycle();
         return data;
     }
-
 
     private static String getDataEntries(Context context, AttributeSet set, int[] attrs,
             int resId) {
@@ -147,5 +139,27 @@ public class XmlParserUtils {
             result.append(ENTRIES_SEPARATOR);
         }
         return result.toString();
+    }
+
+    private static String getString(Context context, String res) {
+        // The format of the resource is either a string, or @ followed by int (@123456).
+        // When it's int, we need to look up the actual string from context.
+        if (!res.startsWith("@")) {
+            // It's a string.
+            return res;
+        } else {
+            // It's a resource
+            try {
+                final int resValue = Integer.parseInt(res.substring(1));
+                if (DevicePolicyResourcesUtils.isDevicePolicyResource(context, resValue)) {
+                    return DevicePolicyResourcesUtils.getDevicePolicyResource(context, resValue);
+                } else {
+                    return context.getString(resValue);
+                }
+            } catch (NumberFormatException e) {
+                Log.w(TAG, "Failed to parse keyword attribute, skipping " + res);
+                return null;
+            }
+        }
     }
 }

@@ -15,11 +15,14 @@
 package filesystem
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 
 	"android/soong/android"
+	"android/soong/cc"
 
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
@@ -32,6 +35,8 @@ func init() {
 func registerBuildComponents(ctx android.RegistrationContext) {
 	ctx.RegisterModuleType("android_filesystem", filesystemFactory)
 	ctx.RegisterModuleType("android_system_image", systemImageFactory)
+	ctx.RegisterModuleType("avb_add_hash_footer", avbAddHashFooterFactory)
+	ctx.RegisterModuleType("avb_gen_vbmeta_image", avbGenVbmetaImageFactory)
 }
 
 type filesystem struct {
@@ -66,8 +71,12 @@ type filesystemProperties struct {
 	// TODO(jiyong): allow apex_key to be specified here
 	Avb_private_key *string `android:"path"`
 
-	// Hash and signing algorithm for avbtool. Default is SHA256_RSA4096.
+	// Signing algorithm for avbtool. Default is SHA256_RSA4096.
 	Avb_algorithm *string
+
+	// Hash algorithm used for avbtool (for descriptors). This is passed as hash_algorithm to
+	// avbtool. Default used by avbtool is sha1.
+	Avb_hash_algorithm *string
 
 	// Name of the partition stored in vbmeta desc. Defaults to the name of this module.
 	Partition_name *string
@@ -88,6 +97,13 @@ type filesystemProperties struct {
 
 	// Symbolic links to be created under root with "ln -sf <target> <name>".
 	Symlinks []symlinkDefinition
+
+	// Seconds since unix epoch to override timestamps of file entries
+	Fake_timestamp *string
+
+	// When set, passed to mkuserimg_mke2fs --mke2fs_uuid & --mke2fs_hash_seed.
+	// Otherwise, they'll be set as random which might cause indeterministic build output.
+	Uuid *string
 }
 
 // android_filesystem packages a set of modules and their transitive dependencies into a filesystem
@@ -251,6 +267,14 @@ func (f *filesystem) buildImageUsingBuildImage(ctx android.ModuleContext) androi
 		Input(rootZip).
 		Input(rebasedDepsZip)
 
+	// run host_init_verifier
+	// Ideally we should have a concept of pluggable linters that verify the generated image.
+	// While such concept is not implement this will do.
+	// TODO(b/263574231): substitute with pluggable linter.
+	builder.Command().
+		BuiltTool("host_init_verifier").
+		FlagWithArg("--out_system=", rootDir.String()+"/system")
+
 	propFile, toolDeps := f.buildPropFile(ctx)
 	output := android.PathForModuleOut(ctx, f.installFileName()).OutputPath
 	builder.Command().BuiltTool("build_image").
@@ -274,6 +298,11 @@ func (f *filesystem) buildFileContexts(ctx android.ModuleContext) android.Output
 		Input(android.PathForModuleSrc(ctx, proptools.String(f.properties.File_contexts)))
 	builder.Build("build_filesystem_file_contexts", fmt.Sprintf("Creating filesystem file contexts for %s", f.BaseModuleName()))
 	return fcBin.OutputPath
+}
+
+// Calculates avb_salt from entry list (sorted) for deterministic output.
+func (f *filesystem) salt() string {
+	return sha1sum(f.entries)
 }
 
 func (f *filesystem) buildPropFile(ctx android.ModuleContext) (propFile android.OutputPath, toolDeps android.Paths) {
@@ -318,15 +347,26 @@ func (f *filesystem) buildPropFile(ctx android.ModuleContext) (propFile android.
 		addStr("avb_algorithm", algorithm)
 		key := android.PathForModuleSrc(ctx, proptools.String(f.properties.Avb_private_key))
 		addPath("avb_key_path", key)
-		addStr("avb_add_hashtree_footer_args", "--do_not_generate_fec")
+		avb_add_hashtree_footer_args := "--do_not_generate_fec"
+		if hashAlgorithm := proptools.String(f.properties.Avb_hash_algorithm); hashAlgorithm != "" {
+			avb_add_hashtree_footer_args += " --hash_algorithm " + hashAlgorithm
+		}
+		addStr("avb_add_hashtree_footer_args", avb_add_hashtree_footer_args)
 		partitionName := proptools.StringDefault(f.properties.Partition_name, f.Name())
 		addStr("partition_name", partitionName)
+		addStr("avb_salt", f.salt())
 	}
 
 	if proptools.String(f.properties.File_contexts) != "" {
 		addPath("selinux_fc", f.buildFileContexts(ctx))
 	}
-
+	if timestamp := proptools.String(f.properties.Fake_timestamp); timestamp != "" {
+		addStr("timestamp", timestamp)
+	}
+	if uuid := proptools.String(f.properties.Uuid); uuid != "" {
+		addStr("uuid", uuid)
+		addStr("hash_seed", uuid)
+	}
 	propFile = android.PathForModuleOut(ctx, "prop").OutputPath
 	builder := android.NewRuleBuilder(pctx, ctx)
 	builder.Command().Text("rm").Flag("-rf").Output(propFile)
@@ -450,4 +490,20 @@ func (f *filesystem) gatherFilteredPackagingSpecs(ctx android.ModuleContext) map
 		f.filterPackagingSpecs(specs)
 	}
 	return specs
+}
+
+func sha1sum(values []string) string {
+	h := sha256.New()
+	for _, value := range values {
+		io.WriteString(h, value)
+	}
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+// Base cc.UseCoverage
+
+var _ cc.UseCoverage = (*filesystem)(nil)
+
+func (*filesystem) IsNativeCoverageNeeded(ctx android.BaseModuleContext) bool {
+	return ctx.Device() && ctx.DeviceConfig().NativeCoverageEnabled()
 }

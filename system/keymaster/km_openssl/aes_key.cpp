@@ -16,6 +16,8 @@
 
 #include <keymaster/km_openssl/aes_key.h>
 
+#include <utility>
+
 #include <assert.h>
 
 #include <openssl/err.h>
@@ -60,7 +62,8 @@ keymaster_error_t AesKeyFactory::LoadKey(KeymasterKeyBlob&& key_material,
 
     keymaster_error_t error = KM_ERROR_OK;
     key->reset(new (std::nothrow)
-                   AesKey(move(key_material), move(hw_enforced), move(sw_enforced), this));
+                   AesKey(std::move(key_material), std::move(hw_enforced), std::move(sw_enforced),
+                          this));
     if (!key->get()) error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
     return error;
 }

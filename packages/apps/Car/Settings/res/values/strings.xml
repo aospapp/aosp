@@ -32,8 +32,6 @@
     <string name="keywords_display_brightness_level" translatable="false">dim screen, touchscreen, battery</string>
     <string name="keywords_display_auto_brightness" translatable="false">dim screen, touchscreen, battery</string>
     <string name="keywords_display_night_display" translatable="false">dim screen, night, tint</string>
-    <!-- Label for night mode toggle tile in quick setting [CHAR LIMIT=20] -->
-    <string name="night_mode_tile_label">Night mode</string>
     <!-- Empty placeholder string to be used while waiting for a string to be loaded asynchronously. [CHAR LIMIT=NONE] -->
     <string name="empty_placeholder" translatable="false">&#160;</string>
 
@@ -59,10 +57,10 @@
     <string name="mobile_network_inactive_sim">Inactive / SIM</string>
     <!-- Summary for an item in the page listing multiple mobile service subscriptions, indicating
          that service is active and is tied to an eSIM profile [CHAR LIMIT=40] -->
-    <string name="mobile_network_active_esim">Active / Downloaded SIM</string>
+    <string name="mobile_network_active_esim">Active / eSIM</string>
     <!-- Summary for an item in the page listing multiple mobile service subscriptions, indicating
          that service is inactive and is tied to an eSIM profile [CHAR LIMIT=40] -->
-    <string name="mobile_network_inactive_esim">Inactive / Downloaded SIM</string>
+    <string name="mobile_network_inactive_esim">Inactive / eSIM</string>
     <!-- Title of item shown at the bottom of the page listing multiple mobile service
          subscriptions; tapping it leads to a UI to add more [CHAR LIMIT=40] -->
     <string name="mobile_network_list_add_more">Add more</string>
@@ -173,10 +171,6 @@
     <string name="data_usage_settings_footer">Data usage is measured by your device. It may vary from your mobile carrier\u2019s data.</string>
     <!-- Positive button title for data usage bytes threshold picker, confirming that changes should be saved. [CHAR LIMIT=32] -->
     <string name="usage_bytes_threshold_picker_positive_button">Set</string>
-    <string-array name="bytes_picker_sizes" translatable="false">
-        <item>@*android:string/megabyteShort</item>
-        <item>@*android:string/gigabyteShort</item>
-    </string-array>
     <!-- Data warning threshold save button [CHAR LIMIT=48] -->
     <string name="data_usage_warning_save_title">Save</string>
     <!-- Network & internet settings screen, setting option name to enable OEM network connectivity [CHAR LIMIT=60] -->
@@ -379,6 +373,8 @@
     <!-- Bluetooth settings --><skip/>
     <!-- Title of Bluetooth settings pages. [CHAR LIMIT=30] -->
     <string name="bluetooth_settings_title">Bluetooth</string>
+    <!-- Title of Bluetooth toggle. [CHAR LIMIT=40] -->
+    <string name="bluetooth_toggle_title">Use Bluetooth</string>
     <!--Bluetooth settings screen, text for Bluetooth device with no name. [CHAR LIMIT=40] -->
     <string name="bluetooth_device">Unnamed device</string>
     <!-- Category title for paired Bluetooth devices. [CHAR LIMIT=40] -->
@@ -471,6 +467,14 @@
     <string name="bluetooth_notif_message">Tap to pair with <xliff:g id="device_name">%1$s</xliff:g>.</string>
     <!-- Title for page which supports selecting a Bluetooth device from other applications. [CHAR_LIMIT=40]-->
     <string name="bluetooth_device_picker">Choose Bluetooth device</string>
+
+    <!-- Bluetooth paired/bonded device action items - toggle switches --><skip/>
+    <!-- Content description for bluetooth toggle switch for a paired/bonded bluetooth device. [CHAR LIMIT=NONE] -->
+    <string name="bluetooth_bonded_bluetooth_toggle_content_description">Bluetooth</string>
+    <!-- Content description for phone toggle switch for a paired/bonded bluetooth device. [CHAR LIMIT=NONE] -->
+    <string name="bluetooth_bonded_phone_toggle_content_description">Phone</string>
+    <!-- Content description for media toggle switch for a paired/bonded bluetooth device. [CHAR LIMIT=NONE] -->
+    <string name="bluetooth_bonded_media_toggle_content_description">Media</string>
 
     <!-- Language settings screen heading. [CHAR LIMIT=30] -->
     <string name="language_settings">Languages</string>
@@ -668,6 +672,8 @@
     <string name="all_applications">Show all apps</string>
     <!-- Default app settings title, which allows user to select defaults for certain application types. [CHAR LIMIT=40] -->
     <string name="default_applications">Default apps</string>
+    <!-- Performance-impacting app settings title, which allows users to view CarWatchdog disabled apps. [CHAR LIMIT=40] -->
+    <string name="performance_impacting_apps">Performance-impacting apps</string>
     <!-- Label for list that shows all permissions [CHAR LIMIT=40] -->
     <string name="app_permissions">App permissions</string>
     <!-- Summary of permissions currently granted to apps [CHAR LIMIT=60] -->
@@ -675,15 +681,19 @@
     <!-- Applications settings title. If clicked, the user is taken to the list of installed applications. [CHAR LIMIT=40] -->
     <string name="applications_settings">App info</string>
     <!-- Manage applications, text label for button to kill / force stop an application. [CHAR LIMIT=30] -->
-    <string name="force_stop">Force stop</string>
+    <string name="force_stop">Stop app</string>
     <!-- Manage applications, title for dialog when killing persistent apps. [CHAR LIMIT=40] -->
-    <string name="force_stop_dialog_title">Force stop?</string>
+    <string name="force_stop_dialog_title">Stop app?</string>
     <!-- Manage applications, text for dialog when killing persistent apps. [CHAR LIMIT=200] -->
     <string name="force_stop_dialog_text">If you force stop an app, it may misbehave.</string>
+    <!-- Manage applications, text for dialog when killing persistent apps. [CHAR LIMIT=200] -->
+    <string name="force_stop_success_toast_text">
+        <xliff:g id="app_name" example="Radio">%1$s</xliff:g> has been stopped.
+    </string>
     <!-- Manage applications, title for dialog when turning on prioritize app performance setting. [CHAR LIMIT=40] -->
-    <string name="prioritize_app_performance_dialog_title">Turn on prioritize app performance?</string>
+    <string name="prioritize_app_performance_dialog_title">Prioritize app performance?</string>
     <!-- Manage applications, text for dialog when turning on prioritize app performance setting. [CHAR LIMIT=200] -->
-    <string name="prioritize_app_performance_dialog_text">Turning it on can cause potential system instability or long-term hardware impact. Do you want to continue?</string>
+    <string name="prioritize_app_performance_dialog_text">This can cause potential system instability or long-term hardware impact. Do you want to continue?</string>
     <!-- Manage applications, text for dialog button when turning on prioritize app performance setting. [CHAR LIMIT=200] -->
     <string name="prioritize_app_performance_dialog_action_on">Yes</string>
     <!-- Manage applications, text for dialog button when turning on prioritize app performance setting. [CHAR LIMIT=200] -->
@@ -841,6 +851,13 @@
     <string name="apps_permission_manager_summary">Control app access to your data</string>
     <!-- Apps settings screen, setting option description of default apps [CHAR LIMIT=100] -->
     <string name="apps_default_apps_summary">For Assistant and more</string>
+    <!-- Apps settings screen, setting option description of performance-impacting apps [CHAR LIMIT=100] -->
+    <string name="performance_impacting_apps_summary">
+        {count, plural,
+            =1    {# app impacting performance}
+            other {# apps impacting performance}
+        }
+    </string>
     <!-- Apps settings screen, setting option description of special app access [CHAR LIMIT=100] -->
     <string name="apps_special_app_access_summary">To system and other settings</string>
 
@@ -868,6 +885,10 @@
     <string name="notification_listener_revoke_warning_confirm">Turn off</string>
     <!-- Negative button for a dialog warning message about revoking notification listener access. [CHAR_LIMIT=30] -->
     <string name="notification_listener_revoke_warning_cancel">Cancel</string>
+    <!-- Description of Performance-impacting app settings. [CHAR_LIMIT=NONE] -->
+    <string name="performance_impacting_apps_description">These apps negatively impact system performance and have been prevented from running in the background.\nPrioritize app to allow background usage and remove it from this list.</string>
+    <!-- Button label for prioritizing an app in the Performance-impacting app settings. [CHAR_LIMIT=20] -->
+    <string name="performance_impacting_apps_button_label">Prioritize app</string>
     <!-- Title for screen controlling which apps have access to send premium sms messages. [CHAR_LIMIT=60] -->
     <string name="premium_sms_access_title">Premium SMS access</string>
     <!-- Message shown for option to enable Premium SMS for an app. [CHAR_LIMIT=NONE] -->
@@ -892,18 +913,17 @@
     <string name="location_toggle_summary">Allow apps you specify to access your location</string>
     <!-- Warning message when users try to toggle location off [CHAR LIMIT=NONE] -->
     <string name="location_toggle_off_warning">
-        If you turn this off, it will remove location access for all apps. Driver Assistance apps
-        will still have access.
+        If you turn this off, it will remove location access for all apps except those needed for driver assistance
     </string>
     <!-- Title of driver assistance toggle setting [CHAR LIMIT=40] -->
     <string name="location_driver_assistance_toggle_title">
-        Use location for Driver Assistance
+        Use location for driver assistance
     </string>
     <!-- Title of driver assistance text toggle [CHAR LIMIT=40] -->
     <string name="location_driver_assistance_toggle_off_title">Vehicle location is off</string>
     <!-- Summary of driver assistance text toggle [CHAR LIMIT=40] -->
     <string name="location_driver_assistance_toggle_off_summary">
-        Driver Assistance apps cannot access your location
+        Driver assistance apps cannot access your location
     </string>
     <!-- -Text of driver assistance text toggle [CHAR LIMIT=40] -->
     <string name="location_driver_assistance_action_text">
@@ -915,8 +935,8 @@
     </string>
     <!-- Warning message when users try to toggle driver assistance off [CHAR LIMIT=NONE] -->
     <string name="location_driver_assistance_toggle_off_warning">
-        If you turn this off, Driver Assistance apps that rely on location information will be
-        disabled.
+        If you turn this off, driver assistance apps that rely on location information will be
+        disabled
     </string>
     <!-- Confirm button label for confirmation dialog [CHAR LIMIT=40]-->
     <string name="driver_assistance_warning_confirm_label">
@@ -931,7 +951,13 @@
     <!-- Message indicating that no apps have accessed location recently [CHAR LIMIT=60] -->
     <string name="location_no_recent_access">No recent apps</string>
     <!-- Label for driver assistance apps that recently accessed location [CHAR LIMIT=60] -->
-    <string name="driver_assistance_label"><xliff:g id="time" example="1 min. ago">%1$s</xliff:g> \u2022 Driver Assistance</string>
+    <string name="driver_assistance_label"><xliff:g id="time" example="1 min. ago">%1$s</xliff:g> \u2022 Driver assistance</string>
+    <!-- Content description for privacy policy header [CHAR LIMIT=40] -->
+    <string name="location_driver_assistance_privacy_policy_header_content">
+        Apps with permission to access this vehicle’s location for driver assistance features
+    </string>
+    <!-- Text policy button of driver assistance app [CHAR LIMIT=40] -->
+    <string name="location_driver_assistance_privacy_policy_button_text">Privacy policy</string>
     <!-- Title of Location App-level Permissions setting [CHAR LIMIT=60] -->
     <string name="location_settings_app_permissions_title">App-level permissions</string>
     <!-- Title of Location Services category [CHAR LIMIT=60] -->
@@ -949,7 +975,7 @@
     <string name="driver_assistance_settings_title">Driver assistance</string>
     <!--Driver assistance settings footer warning text [CHAR LIMIT=NONE] -->
     <string name="adas_settings_footer">
-        Location information sent to Driver Assistance apps doesn’t contain information that
+        Location information sent to driver assistance apps doesn’t contain information that
         identifies you. It’s stored for a maximum of 2 days before being deleted.
     </string>
 
@@ -998,6 +1024,13 @@
     <string name="system_advanced_title">Advanced</string>
     <!-- System settings screen, setting option description of advanced system settings [CHAR LIMIT=100] -->
     <string name="system_advanced_summary">About, legal info, reset, and more</string>
+
+    <!-- Restart infotainment title. Opens ConfirmationDialogue for restarting infotainment system. [CHAR LIMIT=60] -->
+    <string name="restart_infotainment_system_title">Restart infotainment system</string>
+    <!-- Restart infotainment title dialog. [CHAR LIMIT=NONE] -->
+    <string name="restart_infotainment_system_dialog_text">Restarting your car\'s infotainment system can take a few minutes. Do you want to continue?</string>
+    <!-- Continue confirmation string used by ConfirmationDialogue. [CHAR LIMIT=40] -->
+    <string name="continue_confirmation">Continue</string>
 
     <!-- About phone screen, status item label  [CHAR LIMIT=40] -->
     <string name="firmware_version">Android version</string>
@@ -1101,15 +1134,15 @@
 
     <!-- Reset Network --><skip/>
     <!-- Button title to reset Wi-Fi settings, mobile data settings, and Bluetooth settings. [CHAR LIMIT=40] -->
-    <string name="reset_network_title">Reset network</string>
+    <string name="reset_network_title">Reset Wi\u2011Fi and Bluetooth</string>
     <!-- Message on screen after user selects reset network settings. [CHAR LIMIT=NONE] -->
-    <string name="reset_network_desc">This will reset all network settings, including:</string>
+    <string name="reset_network_desc">This will reset Wi\u2011Fi and Bluetooth settings, removing memory of previously connected:</string>
     <!-- List item for Wi-Fi on screen after user selects reset network settings. [CHAR LIMIT=NONE] -->
-    <string name="reset_network_item_wifi"><li>Wi\u2011Fi</li></string>
+    <string name="reset_network_item_wifi"><li>Wi\u2011Fi networks and passwords</li></string>
     <!-- List item for Mobile data on screen after user selects reset network settings. [CHAR LIMIT=NONE] -->
     <string name="reset_network_item_mobile"><li>Mobile data</li></string>
     <!-- List item for Bluetooth on screen after user selects reset network settings. [CHAR LIMIT=NONE] -->
-    <string name="reset_network_item_bluetooth"><li>Bluetooth</li></string>
+    <string name="reset_network_item_bluetooth"><li>Phones and other Bluetooth devices</li></string>
     <!-- Title for option to reset all eSIMs for the vehicle. [CHAR LIMIT=50] -->
     <string name="reset_esim_title">Erase all vehicle eSIMs</string>
     <!-- Description text for option to reset all eSIMs for the vehicle. [CHAR LIMIT=NONE] -->
@@ -1338,7 +1371,7 @@
     <!-- Individual application screen, confirmation dialog title. Displays when user selects to "Clear data". [CHAR LIMIT=45] -->
     <string name="storage_clear_data_dlg_title">Delete app data?</string>
     <!-- Individual application screen, confirmation dialog message. Displays when user selects to "Clear data". It warns the user of the consequences of clearing the data for an app. [CHAR LIMIT=200] -->
-    <string name="storage_clear_data_dlg_text">All this app\u2019s data will be deleted permanently. This includes all files, settings, accounts, databases, etc.</string>
+    <string name="storage_clear_data_dlg_text">This app\u2019s data will be permanently deleted. This includes files, settings, databases, and other app data.</string>
     <!-- Text for dialog if clear data fails. [CHAR LIMIT=55] -->
     <string name="storage_clear_failed_dlg_text">Couldn\u2019t clear storage for app.</string>
     <!-- Toast informing that storage unmount operation was successful. [CHAR LIMIT=80]-->
@@ -1547,6 +1580,9 @@
     <!-- Hints for Choose Lock Password Screen [CHAR_LIMIT=73] -->
     <string name="choose_lock_password_hints">Must be at least 4 characters</string>
 
+    <!-- Error shown when the lock type if unavailable [CHAR LIMIT=50] -->
+    <string name="locktype_unavailable">This lock type is unavailable.</string>
+
     <!-- Error shown when in PIN mode and user enters a non-digit. Because this may be concatenated with other messages, please make sure there's a period at the end of the sentence. [CHAR LIMIT=40] -->
     <string name="lockpassword_pin_contains_non_digits">Must contain only digits 0-9.</string>
 
@@ -1674,10 +1710,6 @@
     <!-- Label for button in screen lock settings, allowing users to choose other types of screen locks. [CHAR LIMIT=40] -->
     <string name="setup_lock_settings_options_button_label">Screen lock options</string>
 
-    <!-- Format of the message displayed at the bottom of the quick settings page, that shows build information in
-         user-debug and eng builds. -->
-    <string name="build_info_fmt"><xliff:g example="google/gcar_emu_x86/..." id="fingerprint">%1$s</xliff:g>\n<xliff:g example="Thu Aug 30" id="date">%2$s</xliff:g> : <xliff:g example="4" id="num_days">%3$s</xliff:g> days ago</string>
-
     <!-- security credentials --><skip/>
     <!-- Title of preference to reset credential storage. [CHAR LIMIT=40] -->
     <string name="credentials_reset">Clear credentials</string>
@@ -1743,6 +1775,10 @@
 
     <!-- Warn user that the action they are trying to perform is blocked while the car is in motion [CHAR LIMIT=60] -->
     <string name="restricted_while_driving">Feature not available while driving</string>
+    <!-- Warn user that the action they are trying to perform is blocked and only available for the driver user [CHAR LIMIT=60] -->
+    <string name="restricted_for_passenger">Request driver to change setting</string>
+    <!-- Warn user that the action they are trying to perform is blocked and unavailable [CHAR LIMIT=60] -->
+    <string name="restricted_for_driver">You can\'t perform this action</string>
     <!-- Warn user that adding a profile is blocked while the car is in motion [CHAR LIMIT=60] -->
     <string name="add_user_restricted_while_driving">Can\'t add profile while driving</string>
 
@@ -1780,6 +1816,8 @@
     <string name="delete_this_profile_text">Delete this profile</string>
     <!-- Profile settings add profile menu [CHAR LIMIT=35] -->
     <string name="add_profile_text">Add profile</string>
+    <!-- Error message when a profile cannot be deleted because it is currently in use by the driver [CHAR LIMIT=105] -->
+    <string name="cannot_remove_driver_profile">This profile is currently signed in as driver. Try again when the profile is not in use as the driver.</string>
 
     <!-- Quick Controls --><skip/>
     <!-- Brightness quick control, control name to change display brightness [CHAR LIMIT=40] -->
@@ -1864,6 +1902,8 @@
     <string name="number_of_device_admins_none">No activated apps</string>
     <!-- Title of setting on privacy settings screen that will show vehicle policy info. [CHAR LIMIT=NONE] -->
     <string name="work_policy_privacy_settings"><xliff:g id="organization_name">%1$s</xliff:g> vehicle policy</string>
+    <!-- Search result title of the work policy page. Does not display company name. [CHAR LIMIT=NONE] -->
+    <string name="work_policy_privacy_settings_no_org_name">Vehicle policy</string>
     <!-- Summary for Enterprise Privacy settings, explaining what the user can expect to find under it [CHAR LIMIT=NONE]-->
     <string name="work_policy_privacy_settings_summary">Settings managed by the organization manager</string>
     <!-- Footer to show help link content description. [CHAR LIMIT=NONE] -->

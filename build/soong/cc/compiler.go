@@ -295,8 +295,12 @@ func addToModuleList(ctx ModuleContext, key android.OnceKey, module string) {
 	getNamedMapForConfig(ctx.Config(), key).Store(module, true)
 }
 
+func useGnuExtensions(gnuExtensions *bool) bool {
+	return proptools.BoolDefault(gnuExtensions, true)
+}
+
 func maybeReplaceGnuToC(gnuExtensions *bool, cStd string, cppStd string) (string, string) {
-	if gnuExtensions != nil && *gnuExtensions == false {
+	if !useGnuExtensions(gnuExtensions) {
 		cStd = gnuToCReplacer.Replace(cStd)
 		cppStd = gnuToCReplacer.Replace(cppStd)
 	}
@@ -412,11 +416,6 @@ func (compiler *baseCompiler) compilerFlags(ctx ModuleContext, flags Flags, deps
 
 	if ctx.apexVariationName() != "" {
 		flags.Global.CommonFlags = append(flags.Global.CommonFlags, "-D__ANDROID_APEX__")
-		if ctx.Device() {
-			flags.Global.CommonFlags = append(flags.Global.CommonFlags,
-				fmt.Sprintf("-D__ANDROID_APEX_MIN_SDK_VERSION__=%d",
-					ctx.apexSdkVersion().FinalOrFutureInt()))
-		}
 	}
 
 	if ctx.Target().NativeBridge == android.NativeBridgeEnabled {
@@ -437,12 +436,24 @@ func (compiler *baseCompiler) compilerFlags(ctx ModuleContext, flags Flags, deps
 	// TODO: debug
 	flags.Local.CFlags = append(flags.Local.CFlags, esc(compiler.Properties.Release.Cflags)...)
 
-	CheckBadCompilerFlags(ctx, "clang_cflags", compiler.Properties.Clang_cflags)
-	CheckBadCompilerFlags(ctx, "clang_asflags", compiler.Properties.Clang_asflags)
+	if !ctx.DeviceConfig().BuildBrokenClangCFlags() && len(compiler.Properties.Clang_cflags) != 0 {
+		ctx.PropertyErrorf("clang_cflags", "property is deprecated, see Changes.md file")
+	} else {
+		CheckBadCompilerFlags(ctx, "clang_cflags", compiler.Properties.Clang_cflags)
+	}
+	if !ctx.DeviceConfig().BuildBrokenClangAsFlags() && len(compiler.Properties.Clang_asflags) != 0 {
+		ctx.PropertyErrorf("clang_asflags", "property is deprecated, see Changes.md file")
+	} else {
+		CheckBadCompilerFlags(ctx, "clang_asflags", compiler.Properties.Clang_asflags)
+	}
 
 	flags.Local.CFlags = config.ClangFilterUnknownCflags(flags.Local.CFlags)
-	flags.Local.CFlags = append(flags.Local.CFlags, esc(compiler.Properties.Clang_cflags)...)
-	flags.Local.AsFlags = append(flags.Local.AsFlags, esc(compiler.Properties.Clang_asflags)...)
+	if !ctx.DeviceConfig().BuildBrokenClangCFlags() {
+		flags.Local.CFlags = append(flags.Local.CFlags, esc(compiler.Properties.Clang_cflags)...)
+	}
+	if !ctx.DeviceConfig().BuildBrokenClangAsFlags() {
+		flags.Local.AsFlags = append(flags.Local.AsFlags, esc(compiler.Properties.Clang_asflags)...)
+	}
 	flags.Local.CppFlags = config.ClangFilterUnknownCflags(flags.Local.CppFlags)
 	flags.Local.ConlyFlags = config.ClangFilterUnknownCflags(flags.Local.ConlyFlags)
 	flags.Local.LdFlags = config.ClangFilterUnknownCflags(flags.Local.LdFlags)
@@ -453,7 +464,8 @@ func (compiler *baseCompiler) compilerFlags(ctx ModuleContext, flags Flags, deps
 		if version == "" || version == "current" {
 			target += strconv.Itoa(android.FutureApiLevelInt)
 		} else {
-			target += version
+			apiLevel := nativeApiLevelOrPanic(ctx, version)
+			target += apiLevel.String()
 		}
 	}
 
@@ -489,7 +501,7 @@ func (compiler *baseCompiler) compilerFlags(ctx ModuleContext, flags Flags, deps
 		}
 	}
 
-	flags.Global.AsFlags = append(flags.Global.AsFlags, "-D__ASSEMBLY__")
+	flags.Global.AsFlags = append(flags.Global.AsFlags, "${config.CommonGlobalAsflags}")
 
 	flags.Global.CppFlags = append(flags.Global.CppFlags, tc.Cppflags())
 
@@ -560,7 +572,7 @@ func (compiler *baseCompiler) compilerFlags(ctx ModuleContext, flags Flags, deps
 			flags.aidlFlags = append(flags.aidlFlags, includeDirsToFlags(rootAidlIncludeDirs))
 		}
 
-		if Bool(compiler.Properties.Aidl.Generate_traces) {
+		if proptools.BoolDefault(compiler.Properties.Aidl.Generate_traces, true) {
 			flags.aidlFlags = append(flags.aidlFlags, "-t")
 		}
 
@@ -589,10 +601,9 @@ func (compiler *baseCompiler) compilerFlags(ctx ModuleContext, flags Flags, deps
 			addToModuleList(ctx, modulesUsingWnoErrorKey, module)
 		} else if !inList("-Werror", flags.Local.CFlags) && !inList("-Werror", flags.Local.CppFlags) {
 			if warningsAreAllowed(ctx.ModuleDir()) {
-				addToModuleList(ctx, modulesAddedWallKey, module)
-				flags.Local.CFlags = append([]string{"-Wall"}, flags.Local.CFlags...)
+				addToModuleList(ctx, modulesWarningsAllowedKey, module)
 			} else {
-				flags.Local.CFlags = append([]string{"-Wall", "-Werror"}, flags.Local.CFlags...)
+				flags.Local.CFlags = append([]string{"-Werror"}, flags.Local.CFlags...)
 			}
 		}
 	}

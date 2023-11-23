@@ -34,7 +34,11 @@ pub fn contains_panic(name: &str, code: &str) -> bool {
         .arg("--out-dir")
         .arg(tempdir.path())
         .arg("--extern")
-        .arg("no_panic=target/debug/libno_panic.so")
+        .arg(format!(
+            "no_panic=target/debug/{prefix}no_panic.{extension}",
+            prefix = std::env::consts::DLL_PREFIX,
+            extension = std::env::consts::DLL_EXTENSION,
+        ))
         .status()
         .expect("failed to execute rustc");
     assert!(status.success());

@@ -19,7 +19,7 @@ from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 args_dict['name'] = NAME
 args_dict['add_experimental'] = True
-args_dict['max_runtime_mins'] = 180
+args_dict['max_runtime_mins'] = 270
 args_dict['job'] = job
 
 dynamic_suite.reimage_and_run(**args_dict)

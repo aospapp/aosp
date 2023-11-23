@@ -1939,11 +1939,11 @@ public class CalendarRegressionTest extends com.ibm.icu.dev.test.TestFmwk {
 
                 DateFormat.getTimeInstance(DateFormat.SHORT, loc),
                 "DateFormat.getTimeInstance(DateFormat.SHORT, loc)",
-                "5:43 PM",
+                "5:43\u202FPM",
 
                 DateFormat.getDateTimeInstance(DateFormat.FULL, DateFormat.SHORT, loc),
                 "DateFormat.getDateTimeInstance(DateFormat.FULL, DateFormat.SHORT, loc)",
-                "Thursday, April 5, 2001 at 5:43 PM",
+                "Thursday, April 5, 2001 at 5:43\u202FPM",
 
                 DateFormat.getDateInstance(cal, DateFormat.SHORT, loc),
                 "DateFormat.getDateInstance(cal, DateFormat.SHORT, loc)",
@@ -1951,19 +1951,19 @@ public class CalendarRegressionTest extends com.ibm.icu.dev.test.TestFmwk {
 
                 DateFormat.getTimeInstance(cal, DateFormat.SHORT, loc),
                 "DateFormat.getTimeInstance(cal, DateFormat.SHORT, loc)",
-                "5:43 PM",
+                "5:43\u202FPM",
 
                 DateFormat.getDateTimeInstance(cal, DateFormat.FULL, DateFormat.SHORT, loc),
                 "DateFormat.getDateTimeInstance(cal, DateFormat.FULL, DateFormat.SHORT, loc)",
-                "Thursday, April 5, 2001 at 5:43 PM",
+                "Thursday, April 5, 2001 at 5:43\u202FPM",
 
                 cal.getDateTimeFormat(DateFormat.SHORT, DateFormat.FULL, loc),
                 "cal.getDateTimeFormat(DateFormat.SHORT, DateFormat.FULL, loc)",
-                "4/5/01, 5:43:53 PM Pacific Daylight Time",
+                "4/5/01, 5:43:53\u202FPM Pacific Daylight Time",
 
                 cal.getDateTimeFormat(DateFormat.FULL, DateFormat.SHORT, loc),
                 "cal.getDateTimeFormat(DateFormat.FULL, DateFormat.SHORT, loc)",
-                "Thursday, April 5, 2001 at 5:43 PM",
+                "Thursday, April 5, 2001 at 5:43\u202FPM",
             };
             for (int i=0; i<DATA.length; i+=3) {
                 DateFormat df = (DateFormat) DATA[i];
@@ -2621,6 +2621,38 @@ public class CalendarRegressionTest extends com.ibm.icu.dev.test.TestFmwk {
             assertEquals(
                 "Calendar from Calendar.getInstance(TimeZone zone=\"uslui\", ULocale loc=\"" + TESTS[i][0] + "\")",
                          TESTS[i][2], cal.getType());
+        }
+    }
+
+    @Test
+    public void TestRespectUExtensionFw() { // ICU-22226
+        String[] localeIds = {
+                "en-US",
+                "en-US-u-fw-xyz",
+                "en-US-u-fw-sun",
+                "en-US-u-fw-mon",
+                "en-US-u-fw-thu",
+                "en-US-u-fw-sat"
+        };
+        int[] expectedValues = {
+                Calendar.SUNDAY,
+                Calendar.SUNDAY,
+                Calendar.SUNDAY,
+                Calendar.MONDAY,
+                Calendar.THURSDAY,
+                Calendar.SATURDAY
+        };
+
+        assertEquals(
+                "The localeIds count matches the expectedValues count",
+                localeIds.length,
+                expectedValues.length);
+
+        for (int i = 0; i < localeIds.length; i++) {
+            assertEquals(
+                    "Calendar.getFirstDayOfWeek() does not seem to respect fw extension u in locale id",
+                    expectedValues[i],
+                    Calendar.getInstance(Locale.forLanguageTag(localeIds[i])).getFirstDayOfWeek());
         }
     }
 }

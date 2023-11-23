@@ -242,7 +242,7 @@ public class SystemUiJankTests extends JankTestBase {
                             context,
                             0,
                             new Intent(context, DummyActivity.class),
-                            PendingIntent.FLAG_MUTABLE_UNAUDITED));
+                            PendingIntent.FLAG_MUTABLE));
             mNotificationManager.notify(icon, builder.build());
             SystemClock.sleep(sleepBetweenDuration);
             first = false;
@@ -280,8 +280,8 @@ public class SystemUiJankTests extends JankTestBase {
                 PendingIntent.getBroadcast(
                         context,
                         0,
-                        new Intent(),
-                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
+                        new Intent().setPackage(context.getPackageName()),
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
         Icon icon = Icon.createWithResource(context, ICONS[0]);
         return new Action.Builder(icon, actionTitle, pendingIntent)
                 .setContextual(true)
@@ -297,8 +297,8 @@ public class SystemUiJankTests extends JankTestBase {
                 PendingIntent.getBroadcast(
                         context,
                         0,
-                        new Intent(),
-                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
+                        new Intent().setPackage(context.getPackageName()),
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
         Icon icon = Icon.createWithResource(context, ICONS[0]);
         Action action = new Action.Builder(icon, REPLY_TEXT, pendingIntent)
                 .addRemoteInput(remoteInput)

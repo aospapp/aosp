@@ -30,9 +30,10 @@ public class ConsentUiHelperFactory {
             ConsentUiHelperCallback callback,
             Utils utils,
             PreProvisioningActivityBridgeCallbacks preProvisioningActivityBridgeCallbacks,
-            ThemeHelper themeHelper) {
+            ThemeHelper themeHelper,
+            String setupMetricScreenName) {
         // Currently there's just one
         return new ConsentUiHelperImpl(activity, callback, utils,
-                preProvisioningActivityBridgeCallbacks, themeHelper);
+                preProvisioningActivityBridgeCallbacks, themeHelper, setupMetricScreenName);
     }
 }

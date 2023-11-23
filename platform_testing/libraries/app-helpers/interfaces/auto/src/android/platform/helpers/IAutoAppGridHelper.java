@@ -16,34 +16,42 @@
 
 package android.platform.helpers;
 
-public interface IAutoAppGridHelper extends IAppHelper, Scrollable {
+/** Interface Helper class for App Grid functional tests */
+public interface IAutoAppGridHelper extends IAppHelper {
     /**
      * Setup expectations: In App grid.
      *
-     * Check if device is currently at the top of app grid.
+     * <p>Check if device is currently at the beginning of app grid.
      */
-    public boolean isTop();
+    boolean isAtBeginning();
 
     /**
      * Setup expectations: In App grid.
      *
-     * Check if device is currently at the bottom of app grid.
+     * <p>Check if device is currently at the end of app grid.
      */
-    public boolean isBottom();
+    boolean isAtEnd();
 
     /**
      * Setup expectations: In App grid.
      *
-     * <p>Scroll up on page.
+     * <p>Scroll backward on appgrid app.
      */
-    boolean scrollUpOnePage();
+    boolean scrollBackward();
 
     /**
      * Setup expectations: In App grid.
      *
-     * <p>Scroll down on page.
+     * <p>Scroll to the beginning of the app grid.
      */
-    boolean scrollDownOnePage();
+    void scrollToBeginning();
+
+    /**
+     * Setup expectations: In App grid.
+     *
+     * <p>Scroll forward on appgrid app.
+     */
+    boolean scrollForward();
 
     /**
      * Setup expectations: In App grid.
@@ -51,4 +59,29 @@ public interface IAutoAppGridHelper extends IAppHelper, Scrollable {
      * <p>Find and open an application.
      */
     void openApp(String appName);
+
+    /**
+     * Setup expectations: Blocking Message displayed.
+     *
+     * <p>Get the Screen Blocking Message when in Driving Mode.
+     *
+     * @param appName is name of the application
+     */
+    String getScreenBlockingMessage(String appName);
+
+    /**
+     * Setup expectations: package is in foreground
+     *
+     * <p>Check the package is in foreground
+     *
+     * @param packageName is package of the application
+     */
+    boolean checkPackageInForeground(String packageName);
+
+    /**
+     * Setup expectations: Go To Home.
+     *
+     * <p>Press home button.
+     */
+    void goToHomePage();
 }

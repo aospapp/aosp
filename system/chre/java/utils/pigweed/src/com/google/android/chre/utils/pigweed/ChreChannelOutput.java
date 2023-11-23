@@ -54,8 +54,8 @@ public class ChreChannelOutput implements Channel.Output {
      */
     @Override
     public void send(byte[] packet) throws ChannelOutputException {
-        NanoAppMessage message = NanoAppMessage.createMessageToNanoApp(
-                mNanoappId, PW_RPC_CHRE_MESSAGE_TYPE, packet);
+        NanoAppMessage message = NanoAppMessage.createMessageToNanoApp(mNanoappId,
+                PW_RPC_CHRE_MESSAGE_TYPE, packet);
         if (mAuthDenied.get()
                 || ContextHubTransaction.RESULT_SUCCESS != mClient.sendMessageToNanoApp(message)) {
             throw new ChannelOutputException();
@@ -64,7 +64,7 @@ public class ChreChannelOutput implements Channel.Output {
 
     /**
      * @return Channel ID to use for all Channels that use this output to send
-     *     messages to a nanoapp.
+     * messages to a nanoapp.
      */
     public int getChannelId() {
         return (CHANNEL_ID_HOST_CLIENT | mClient.getId());

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+@file:Suppress("DEPRECATION")
 
 package com.android.permissioncontroller.permission.data
 
@@ -77,7 +78,7 @@ class BroadcastReceiverLiveData(
                     if (resolveInfo?.activityInfo?.permission != permission) {
                         return@mapNotNull null
                     }
-                    val packageName = resolveInfo?.activityInfo?.packageName
+                    val packageName = resolveInfo.activityInfo?.packageName
                     if (!isReceiverEnabled(packageName)) {
                         if (DEBUG_HIBERNATION_POLICY) {
                             DumpableLog.i(LOG_TAG,

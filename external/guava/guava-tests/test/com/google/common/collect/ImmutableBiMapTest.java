@@ -354,6 +354,7 @@ public class ImmutableBiMapTest extends TestCase {
       }
     }
 
+    @SuppressWarnings("AlwaysThrows")
     public void testPuttingTheSameKeyTwiceThrowsOnBuild() {
       Builder<String, Integer> builder =
           new Builder<String, Integer>()
@@ -587,6 +588,7 @@ public class ImmutableBiMapTest extends TestCase {
       }
     }
 
+    @SuppressWarnings("AlwaysThrows")
     public void testOfWithDuplicateKey() {
       try {
         ImmutableBiMap.of("one", 1, "one", 1);
@@ -671,7 +673,7 @@ public class ImmutableBiMapTest extends TestCase {
                   .put("three", 3)
                   .put("four", 4)
                   .put("five", 5)
-                  .build());
+                  .buildOrThrow());
       assertMapEquals(bimap, "one", 1, "two", 2, "three", 3, "four", 4, "five", 5);
       assertMapEquals(bimap.inverse(), 1, "one", 2, "two", 3, "three", 4, "four", 5, "five");
     }
@@ -683,13 +685,14 @@ public class ImmutableBiMapTest extends TestCase {
               .put("two", 2)
               .put("uno", 1)
               .put("dos", 2)
-              .build();
+              .buildOrThrow();
 
       try {
         ImmutableBiMap.copyOf(map);
         fail();
       } catch (IllegalArgumentException expected) {
-        assertThat(expected.getMessage()).contains("1");
+        assertThat(expected.getMessage()).containsMatch("1|2");
+        // We don't specify which of the two dups should be reported.
       }
     }
 
@@ -721,6 +724,7 @@ public class ImmutableBiMapTest extends TestCase {
 
   public static class BiMapSpecificTests extends TestCase {
 
+    @SuppressWarnings("DoNotCall")
     public void testForcePut() {
       BiMap<String, Integer> bimap = ImmutableBiMap.copyOf(ImmutableMap.of("one", 1, "two", 2));
       try {
@@ -780,11 +784,11 @@ public class ImmutableBiMapTest extends TestCase {
   }
 
   private static <K, V> void assertMapEquals(Map<K, V> map, Object... alternatingKeysAndValues) {
-    int i = 0;
-    for (Entry<K, V> entry : map.entrySet()) {
-      assertEquals(alternatingKeysAndValues[i++], entry.getKey());
-      assertEquals(alternatingKeysAndValues[i++], entry.getValue());
+    Map<Object, Object> expected = new LinkedHashMap<>();
+    for (int i = 0; i < alternatingKeysAndValues.length; i += 2) {
+      expected.put(alternatingKeysAndValues[i], alternatingKeysAndValues[i + 1]);
     }
+    assertThat(map).containsExactlyEntriesIn(expected).inOrder();
   }
 
   public static class FloodingTest extends AbstractHashFloodingTest<BiMap<Object, Object>> {

@@ -18,6 +18,11 @@ package {
 // For unused files, consider creating a 'fileGroup' with "//visibility:private"
 // to attach the license to, and including a comment whether the files may be
 // used in the current project.
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
 // See: http://go/android-license-faq
 license {
     name: "external_rust_crates_clap_license",
@@ -27,26 +32,62 @@ license {
         "SPDX-license-identifier-MIT",
     ],
     license_text: [
+        "LICENSE-APACHE",
         "LICENSE-MIT",
     ],
 }
 
 rust_library {
     name: "libclap",
-    // has rustc warnings
     host_supported: true,
     crate_name: "clap",
     cargo_env_compat: true,
-    cargo_pkg_version: "2.33.3",
+    cargo_pkg_version: "4.1.8",
     srcs: ["src/lib.rs"],
-    edition: "2015",
+    edition: "2021",
+    features: [
+        "derive",
+        "error-context",
+        "help",
+        "std",
+        "usage",
+    ],
     rustlibs: [
         "libbitflags",
-        "libtextwrap",
+        "libclap_lex",
+        "libonce_cell",
     ],
+    proc_macros: ["libclap_derive"],
     apex_available: [
         "//apex_available:platform",
-        "com.android.compos",
-        "com.android.virt",
+        "//apex_available:anyapex",
     ],
+    product_available: true,
+    vendor_available: true,
+}
+
+rust_binary {
+    name: "stdio_fixture",
+    host_supported: true,
+    crate_name: "stdio_fixture",
+    cargo_env_compat: true,
+    cargo_pkg_version: "4.1.8",
+    srcs: ["src/bin/stdio-fixture.rs"],
+    edition: "2021",
+    features: [
+        "derive",
+        "error-context",
+        "help",
+        "std",
+        "usage",
+    ],
+    rustlibs: [
+        "libbitflags",
+        "libclap",
+        "libclap_lex",
+        "libonce_cell",
+    ],
+    proc_macros: ["libclap_derive"],
+    product_available: true,
+    vendor_available: true,
 }

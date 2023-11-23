@@ -26,9 +26,9 @@ pub(crate) struct Channel {
 impl Channel {
     /// Creates a channel that delivers messages periodically.
     #[inline]
-    pub(crate) fn new(dur: Duration) -> Self {
+    pub(crate) fn new(delivery_time: Instant, dur: Duration) -> Self {
         Channel {
-            delivery_time: AtomicCell::new(Instant::now() + dur),
+            delivery_time: AtomicCell::new(delivery_time),
             duration: dur,
         }
     }
@@ -112,7 +112,6 @@ impl Channel {
     }
 
     /// Returns the capacity of the channel.
-    #[allow(clippy::unnecessary_wraps)] // This is intentional.
     #[inline]
     pub(crate) fn capacity(&self) -> Option<usize> {
         Some(1)

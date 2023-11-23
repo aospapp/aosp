@@ -17,16 +17,22 @@
 #ifndef CHRE_PLATFORM_SHARED_LOADER_UTIL_H_
 #define CHRE_PLATFORM_SHARED_LOADER_UTIL_H_
 
+// Macros used to define a symbol that can be exported by the nanoapp loader
+#define ADD_EXPORTED_SYMBOL(function_name, function_string) \
+  { reinterpret_cast<void *>(function_name), function_string }
+#define ADD_EXPORTED_C_SYMBOL(function_name) \
+  ADD_EXPORTED_SYMBOL(function_name, STRINGIFY(function_name))
+
 // The below macros allow switching the ELF symbol type between 32/64-bit
 // depending on what the chipset supports.
 #ifndef ELFW
 #ifndef __WORDSIZE
 // Until we can get a hold of wordsize.h, we need to define it here.
 // Only 32-bit architectures currently supported.
-#ifndef __aarch64__
+#ifdef CHRE_32_BIT_WORD_SIZE
 #define __WORDSIZE 32
 #else
-#error "Only 32-bit architectures currently supported"
+#error "Architecture not supported by CHRE dynamic loading"
 #endif
 #endif
 // https://refspecs.linuxbase.org/elf/gabi4+/ch4.reloc.html
@@ -55,6 +61,7 @@ struct ExportedData {
 #endif
 
 #define EM_ARM 40
+#define EM_RISCV 243
 #define EI_MAG0 0
 #define EI_MAG1 1
 #define EI_MAG2 2
@@ -224,6 +231,12 @@ typedef struct elf32_sym {
 #define R_ARM_GLOB_DAT 21
 #define R_ARM_JUMP_SLOT 22
 #define R_ARM_RELATIVE 23
+#define R_RISCV_NONE 0
+#define R_RISCV_32 1
+#define R_RISCV_RELATIVE 3
+#define R_RISCV_JUMP_SLOT 5
+// Undefined symbol.
+#define SHN_UNDEF 0
 
 // The following (legal values for segment flags) are copied from
 // bionic's elf.h

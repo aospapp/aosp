@@ -10,7 +10,7 @@
       "name": "lshal_test"
     }
   ],
-  "hwasan-postsubmit": [
+  "hwasan-presubmit": [
     {
       "name": "libvintf_test"
     },

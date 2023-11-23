@@ -56,20 +56,17 @@ public class BluetoothMapSmsPdu {
      */
     private static final int MESSAGE_TYPE_DELIVER = 0x01;
 
-    /* We need to handle the SC-address mentioned in errata 4335.
+    /**
+     * We need to handle the SC-address mentioned in errata 4335.
      * Since the definition could be read in three different ways, I have asked
      * the car working group for clarification, and are awaiting confirmation that
      * this clarification will go into the MAP spec:
-     *  "The native format should be <sc_addr><tpdu> where <sc_addr> is <length><ton><1..10 octet
-      *  of address>
-     *   coded according to 24.011. The IEI is not to be used, as the fixed order of the data
-     *   makes a type 4 LV
-     *   information element sufficient. <length> is a single octet which value is the length of
-     *   the value-field
-     *   in octets including both the <ton> and the <address>."
-     * */
-
-
+     *    The native format should be <sc_addr><tpdu> where <sc_addr> is <length><ton><1..10 octet
+     *    of address> coded according to 24.011. The IEI is not to be used, as the fixed order of
+     *    the data makes a type 4 LV information element sufficient. <length> is a single octet
+     *    which value is the length of the value-field in octets including both the <ton> and the
+     *    <address>.
+     */
     public static class SmsPdu {
         private byte[] mData;
         private byte[] mScAddress = {0};

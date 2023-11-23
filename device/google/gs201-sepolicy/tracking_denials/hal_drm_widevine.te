@@ -1,0 +1,2 @@
+# b/229209076
+dontaudit hal_drm_widevine vndbinder_device:chr_file { read };

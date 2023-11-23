@@ -22,6 +22,8 @@ android_test {
     test_suites: [
         "cts",
         "general-tests",
+        "automotive-tests",
+        "automotive-general-tests",
     ],
 
     srcs: [
@@ -35,16 +37,17 @@ android_test {
         "android.test.base",
     ],
     static_libs: [
+        "android.car.test.utils",
         "androidx.test.rules",
         "androidx.test.ext.truth",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
         "cts-wm-util",
-        "testng",
+        "Harrier",
     ],
-
-    platform_apis: true,
     sdk_version: "module_current",
+    min_sdk_version: "33", //CTS tests needs to run upto N-2 version to support mainline
+    target_sdk_version: "34",
     data: [
         ":CtsCarBuiltinSimpleApp",
     ],

@@ -115,6 +115,8 @@ impl VisitMut for Scrub<'_> {
             syn::Expr::Yield(yield_expr) => {
                 self.has_yielded = true;
 
+                syn::visit_mut::visit_expr_yield_mut(self, yield_expr);
+
                 let value_expr = yield_expr.expr.as_ref().unwrap_or(&self.unit);
 
                 // let ident = &self.yielder;
@@ -172,7 +174,7 @@ impl VisitMut for Scrub<'_> {
                     };
                     #label
                     loop {
-                        let #pat = match #crate_path::reexport::next(&mut __pinned).await {
+                        let #pat = match #crate_path::__private::next(&mut __pinned).await {
                             ::core::option::Option::Some(e) => e,
                             ::core::option::Option::None => break,
                         };
@@ -213,8 +215,8 @@ pub fn stream_inner(input: TokenStream) -> TokenStream {
 
     let mut scrub = Scrub::new(false, &crate_path);
 
-    for mut stmt in &mut stmts {
-        scrub.visit_stmt_mut(&mut stmt);
+    for stmt in &mut stmts {
+        scrub.visit_stmt_mut(stmt);
     }
 
     let dummy_yield = if scrub.has_yielded {
@@ -226,8 +228,8 @@ pub fn stream_inner(input: TokenStream) -> TokenStream {
     };
 
     quote!({
-        let (mut __yield_tx, __yield_rx) = #crate_path::yielder::pair();
-        #crate_path::AsyncStream::new(__yield_rx, async move {
+        let (mut __yield_tx, __yield_rx) = unsafe { #crate_path::__private::yielder::pair() };
+        #crate_path::__private::AsyncStream::new(__yield_rx, async move {
             #dummy_yield
             #(#stmts)*
         })
@@ -247,8 +249,8 @@ pub fn try_stream_inner(input: TokenStream) -> TokenStream {
 
     let mut scrub = Scrub::new(true, &crate_path);
 
-    for mut stmt in &mut stmts {
-        scrub.visit_stmt_mut(&mut stmt);
+    for stmt in &mut stmts {
+        scrub.visit_stmt_mut(stmt);
     }
 
     let dummy_yield = if scrub.has_yielded {
@@ -260,8 +262,8 @@ pub fn try_stream_inner(input: TokenStream) -> TokenStream {
     };
 
     quote!({
-        let (mut __yield_tx, __yield_rx) = #crate_path::yielder::pair();
-        #crate_path::AsyncStream::new(__yield_rx, async move {
+        let (mut __yield_tx, __yield_rx) = unsafe { #crate_path::__private::yielder::pair() };
+        #crate_path::__private::AsyncStream::new(__yield_rx, async move {
             #dummy_yield
             #(#stmts)*
         })
@@ -288,7 +290,9 @@ fn replace_for_await(input: impl IntoIterator<Item = TokenTree>) -> TokenStream2
             }
             TokenTree::Group(group) => {
                 let stream = replace_for_await(group.stream());
-                tokens.push(Group::new(group.delimiter(), stream).into());
+                let mut new_group = Group::new(group.delimiter(), stream);
+                new_group.set_span(group.span());
+                tokens.push(new_group.into());
             }
             _ => tokens.push(token),
         }

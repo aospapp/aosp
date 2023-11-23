@@ -20,9 +20,13 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.os.Handler;
+import android.os.Looper;
+import android.os.Parcelable;
 import android.util.Pair;
 import com.google.android.enterprise.connectedapps.annotations.CrossProfile;
+import com.google.android.enterprise.connectedapps.testapp.CustomError;
 import com.google.android.enterprise.connectedapps.testapp.CustomRuntimeException;
 import com.google.android.enterprise.connectedapps.testapp.CustomWrapper;
 import com.google.android.enterprise.connectedapps.testapp.CustomWrapper2;
@@ -35,6 +39,7 @@ import com.google.android.enterprise.connectedapps.testapp.StringWrapper;
 import com.google.android.enterprise.connectedapps.testapp.TestBooleanCallbackListener;
 import com.google.android.enterprise.connectedapps.testapp.TestCustomWrapperCallbackListener;
 import com.google.android.enterprise.connectedapps.testapp.TestNotReallySerializableObjectCallbackListener;
+import com.google.android.enterprise.connectedapps.testapp.TestParcelableCallbackListener;
 import com.google.android.enterprise.connectedapps.testapp.TestStringCallbackListener;
 import com.google.android.enterprise.connectedapps.testapp.TestVoidCallbackListener;
 import com.google.android.enterprise.connectedapps.testapp.connector.TestProfileConnector;
@@ -55,7 +60,6 @@ import java.util.concurrent.TimeUnit;
 
 @CrossProfile(
     connector = TestProfileConnector.class,
-    timeoutMillis = 7000,
     parcelableWrappers = {ParcelableCustomWrapper2.class, ParcelableStringWrapper.class})
 public class TestCrossProfileType {
 
@@ -74,7 +78,17 @@ public class TestCrossProfileType {
   }
 
   @CrossProfile
+  public String methodWhichThrowsError() {
+    throw new CustomError();
+  }
+
+  @CrossProfile
   public String methodWhichThrowsRuntimeException() {
+    throw new CustomRuntimeException("Exception");
+  }
+
+  @CrossProfile
+  public String methodWhichThrowsRuntimeExceptionAndDeclaresException() throws IOException {
     throw new CustomRuntimeException("Exception");
   }
 
@@ -89,14 +103,9 @@ public class TestCrossProfileType {
     return SettableFuture.create();
   }
 
-  @CrossProfile // Timeout is inherited
-  public ListenableFuture<Void> listenableFutureMethodWhichNeverSetsTheValueWith7SecondTimeout() {
-    return SettableFuture.create();
-  }
-
-  @CrossProfile(timeoutMillis = 5000)
-  public ListenableFuture<Void> listenableFutureMethodWhichNeverSetsTheValueWith5SecondTimeout() {
-    return SettableFuture.create();
+  @CrossProfile
+  public ListenableFuture<Void> listenableFutureVoidMethodWhichThrowsError() {
+    throw new CustomError();
   }
 
   @CrossProfile
@@ -123,7 +132,7 @@ public class TestCrossProfileType {
   public ListenableFuture<Void> listenableFutureVoidMethodWithNonBlockingDelay(int secondsDelay) {
     SettableFuture<Void> v = SettableFuture.create();
 
-    new Handler()
+    new Handler(Looper.getMainLooper())
         .postDelayed(
             () -> {
               voidMethod();
@@ -138,18 +147,14 @@ public class TestCrossProfileType {
       String s, int secondsDelay) {
     SettableFuture<String> v = SettableFuture.create();
 
-    new Handler().postDelayed(() -> v.set(s), TimeUnit.SECONDS.toMillis(secondsDelay));
+    new Handler(Looper.getMainLooper())
+        .postDelayed(() -> v.set(s), TimeUnit.SECONDS.toMillis(secondsDelay));
     return v;
   }
 
-  @CrossProfile(timeoutMillis = 3000)
-  public ListenableFuture<String>
-      listenableFutureIdentityStringMethodWithNonBlockingDelayWith3SecondTimeout(
-          String s, int secondsDelay) {
-    SettableFuture<String> v = SettableFuture.create();
-
-    new Handler().postDelayed(() -> v.set(s), TimeUnit.SECONDS.toMillis(secondsDelay));
-    return v;
+  @CrossProfile
+  public void asyncStringMethodWhichThrowsError(TestStringCallbackListener callback) {
+    throw new CustomError();
   }
 
   @CrossProfile
@@ -158,11 +163,27 @@ public class TestCrossProfileType {
   }
 
   @CrossProfile
-  public void asyncVoidMethodWhichCallsBackTwice(TestVoidCallbackListener callback) {
+  public void asyncIdentityStringMethodWhichCallsBackTwice(
+      String s, TestStringCallbackListener callback) {
     voidMethod();
-    callback.callback();
-    callback.callback();
+    callback.stringCallback(s);
+    callback.stringCallback(s);
   }
+
+  @CrossProfile
+  public void asyncIdentityStringMethodWhichCallsBackTwiceWithNonBlockingDelay(
+      String s, TestStringCallbackListener callback, long secondsDelay) {
+    voidMethod();
+    callback.stringCallback(s);
+
+    new Handler(Looper.getMainLooper())
+        .postDelayed(
+            () -> {
+              callback.stringCallback(s);
+            },
+            TimeUnit.SECONDS.toMillis(secondsDelay));
+  }
+
 
   @CrossProfile
   public void asyncVoidMethod(TestVoidCallbackListener callback) {
@@ -172,14 +193,6 @@ public class TestCrossProfileType {
 
   @CrossProfile
   public void asyncMethodWhichNeverCallsBack(TestStringCallbackListener callback) {}
-
-  @CrossProfile // Timeout is inherited
-  public void asyncMethodWhichNeverCallsBackWith7SecondTimeout(
-      TestStringCallbackListener callback) {}
-
-  @CrossProfile(timeoutMillis = 5000)
-  public void asyncMethodWhichNeverCallsBackWith5SecondTimeout(
-      TestStringCallbackListener callback) {}
 
   @CrossProfile
   public void asyncVoidMethodWithDelay(TestVoidCallbackListener callback, int secondsDelay) {
@@ -194,29 +207,14 @@ public class TestCrossProfileType {
   @CrossProfile
   public void asyncVoidMethodWithNonBlockingDelay(
       TestVoidCallbackListener callback, int secondsDelay) {
-    new Handler()
+    new Handler(Looper.getMainLooper())
         .postDelayed(() -> asyncVoidMethod(callback), TimeUnit.SECONDS.toMillis(secondsDelay));
-  }
-
-  @CrossProfile(timeoutMillis = 50000)
-  public void asyncVoidMethodWithNonBlockingDelayWith50SecondTimeout(
-      TestVoidCallbackListener callback, int secondsDelay) {
-    new Handler()
-        .postDelayed(() -> asyncVoidMethod(callback), TimeUnit.SECONDS.toMillis(secondsDelay));
-  }
-
-  @CrossProfile(timeoutMillis = 3000)
-  public void asyncIdentityStringMethodWithNonBlockingDelayWith3SecondTimeout(
-      String s, TestStringCallbackListener callback, int secondsDelay) {
-    new Handler()
-        .postDelayed(
-            () -> asyncIdentityStringMethod(s, callback), TimeUnit.SECONDS.toMillis(secondsDelay));
   }
 
   @CrossProfile
   public void asyncIdentityStringMethodWithNonBlockingDelay(
       String s, TestStringCallbackListener callback, int secondsDelay) {
-    new Handler()
+    new Handler(Looper.getMainLooper())
         .postDelayed(
             () -> asyncIdentityStringMethod(s, callback), TimeUnit.SECONDS.toMillis(secondsDelay));
   }
@@ -358,8 +356,28 @@ public class TestCrossProfileType {
   }
 
   @CrossProfile
+  public CharSequence identityCharSequenceMethod(CharSequence c) {
+    return c;
+  }
+
+  @CrossProfile
   public ParcelableObject identityParcelableMethod(ParcelableObject p) {
     return p;
+  }
+
+  @CrossProfile
+  public Parcelable identityParcelableMethod(Parcelable p) {
+    return p;
+  }
+
+  @CrossProfile
+  public void asyncIdentityParcelableMethod(Parcelable p, TestParcelableCallbackListener callback) {
+    callback.parcelableCallback(p);
+  }
+
+  @CrossProfile
+  public ListenableFuture<Parcelable> futureIdentityParcelableMethod(Parcelable p) {
+    return immediateFuture(p);
   }
 
   @CrossProfile
@@ -533,7 +551,8 @@ public class TestCrossProfileType {
       String s, int secondsDelay) {
     SimpleFuture<String> future = new SimpleFuture<>();
 
-    new Handler().postDelayed(() -> future.set(s), TimeUnit.SECONDS.toMillis(secondsDelay));
+    new Handler(Looper.getMainLooper())
+        .postDelayed(() -> future.set(s), TimeUnit.SECONDS.toMillis(secondsDelay));
 
     return future;
   }
@@ -598,5 +617,90 @@ public class TestCrossProfileType {
   public void asyncMethodWithNonSimpleCallbackCallsSecondMethod(
       NonSimpleCallbackListener callback, String s1, String s2) {
     callback.callback2(s1, s2);
+  }
+
+  @CrossProfile
+  public float[] identityFloatArrayMethod(float[] f) {
+    return f;
+  }
+
+  @CrossProfile
+  public float[][][] identityMultidimensionalFloatArrayMethod(float[][][] f) {
+    return f;
+  }
+
+  @CrossProfile
+  public int[] identityIntArrayMethod(int[] i) {
+    return i;
+  }
+
+  @CrossProfile
+  public int[][][] identityMultidimensionalIntArrayMethod(int[][][] i) {
+    return i;
+  }
+
+  @CrossProfile
+  public byte[] identityByteArrayMethod(byte[] b) {
+    return b;
+  }
+
+  @CrossProfile
+  public byte[][][] identityMultidimensionalByteArrayMethod(byte[][][] b) {
+    return b;
+  }
+
+  @CrossProfile
+  public short[] identityShortArrayMethod(short[] s) {
+    return s;
+  }
+
+  @CrossProfile
+  public short[][][] identityMultidimensionalShortArrayMethod(short[][][] s) {
+    return s;
+  }
+
+  @CrossProfile
+  public long[] identityLongArrayMethod(long[] l) {
+    return l;
+  }
+
+  @CrossProfile
+  public long[][][] identityMultidimensionalLongArrayMethod(long[][][] l) {
+    return l;
+  }
+
+  @CrossProfile
+  public double[] identityDoubleArrayMethod(double[] d) {
+    return d;
+  }
+
+  @CrossProfile
+  public double[][][] identityMultidimensionalDoubleArrayMethod(double[][][] d) {
+    return d;
+  }
+
+  @CrossProfile
+  public boolean[] identityBooleanArrayMethod(boolean[] b) {
+    return b;
+  }
+
+  @CrossProfile
+  public boolean[][][] identityMultidimensionalBooleanArrayMethod(boolean[][][] b) {
+    return b;
+  }
+
+  @CrossProfile
+  public char[] identityCharArrayMethod(char[] c) {
+    return c;
+  }
+
+  @CrossProfile
+  public char[][][] identityMultidimensionalCharArrayMethod(char[][][] c) {
+    return c;
+  }
+
+  @CrossProfile
+  public Drawable identityDrawableMethod(Drawable d) {
+    return d;
   }
 }

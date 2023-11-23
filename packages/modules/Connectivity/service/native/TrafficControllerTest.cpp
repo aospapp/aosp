@@ -30,13 +30,15 @@
 
 #include <gtest/gtest.h>
 
+#include <android-base/file.h>
+#include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <binder/Status.h>
 
 #include <netdutils/MockSyscalls.h>
 
-#define TEST_BPF_MAP
+#define BPF_MAP_MAKE_VISIBLE_FOR_TESTING
 #include "TrafficController.h"
 #include "bpf/BpfUtils.h"
 #include "NetdUpdatablePublic.h"
@@ -49,6 +51,7 @@ namespace net {
 using android::netdutils::Status;
 using base::Result;
 using netdutils::isOk;
+using netdutils::statusFromErrno;
 
 constexpr int TEST_MAP_SIZE = 10;
 constexpr uid_t TEST_UID = 10086;
@@ -56,8 +59,14 @@ constexpr uid_t TEST_UID2 = 54321;
 constexpr uid_t TEST_UID3 = 98765;
 constexpr uint32_t TEST_TAG = 42;
 constexpr uint32_t TEST_COUNTERSET = 1;
+constexpr int TEST_IFINDEX = 999;
+constexpr int RXPACKETS = 1;
+constexpr int RXBYTES = 100;
+constexpr int TXPACKETS = 0;
+constexpr int TXBYTES = 0;
 
 #define ASSERT_VALID(x) ASSERT_TRUE((x).isValid())
+#define ASSERT_INVALID(x) ASSERT_FALSE((x).isValid())
 
 class TrafficControllerTest : public ::testing::Test {
   protected:
@@ -66,9 +75,13 @@ class TrafficControllerTest : public ::testing::Test {
     BpfMap<uint64_t, UidTagValue> mFakeCookieTagMap;
     BpfMap<uint32_t, StatsValue> mFakeAppUidStatsMap;
     BpfMap<StatsKey, StatsValue> mFakeStatsMapA;
+    BpfMap<StatsKey, StatsValue> mFakeStatsMapB;  // makeTrafficControllerMapsInvalid only
+    BpfMap<uint32_t, StatsValue> mFakeIfaceStatsMap; ;  // makeTrafficControllerMapsInvalid only
     BpfMap<uint32_t, uint32_t> mFakeConfigurationMap;
     BpfMap<uint32_t, UidOwnerValue> mFakeUidOwnerMap;
     BpfMap<uint32_t, uint8_t> mFakeUidPermissionMap;
+    BpfMap<uint32_t, uint8_t> mFakeUidCounterSetMap;
+    BpfMap<uint32_t, IfaceValue> mFakeIfaceIndexNameMap;
 
     void SetUp() {
         std::lock_guard guard(mTc.mMutex);
@@ -91,6 +104,12 @@ class TrafficControllerTest : public ::testing::Test {
         mFakeUidPermissionMap.resetMap(BPF_MAP_TYPE_HASH, TEST_MAP_SIZE);
         ASSERT_VALID(mFakeUidPermissionMap);
 
+        mFakeUidCounterSetMap.resetMap(BPF_MAP_TYPE_HASH, TEST_MAP_SIZE);
+        ASSERT_VALID(mFakeUidCounterSetMap);
+
+        mFakeIfaceIndexNameMap.resetMap(BPF_MAP_TYPE_HASH, TEST_MAP_SIZE);
+        ASSERT_VALID(mFakeIfaceIndexNameMap);
+
         mTc.mCookieTagMap = mFakeCookieTagMap;
         ASSERT_VALID(mTc.mCookieTagMap);
         mTc.mAppUidStatsMap = mFakeAppUidStatsMap;
@@ -108,19 +127,36 @@ class TrafficControllerTest : public ::testing::Test {
         mTc.mUidPermissionMap = mFakeUidPermissionMap;
         ASSERT_VALID(mTc.mUidPermissionMap);
         mTc.mPrivilegedUser.clear();
+
+        mTc.mUidCounterSetMap = mFakeUidCounterSetMap;
+        ASSERT_VALID(mTc.mUidCounterSetMap);
+
+        mTc.mIfaceIndexNameMap = mFakeIfaceIndexNameMap;
+        ASSERT_VALID(mTc.mIfaceIndexNameMap);
     }
 
     void populateFakeStats(uint64_t cookie, uint32_t uid, uint32_t tag, StatsKey* key) {
         UidTagValue cookieMapkey = {.uid = (uint32_t)uid, .tag = tag};
         EXPECT_RESULT_OK(mFakeCookieTagMap.writeValue(cookie, cookieMapkey, BPF_ANY));
-        *key = {.uid = uid, .tag = tag, .counterSet = TEST_COUNTERSET, .ifaceIndex = 1};
-        StatsValue statsMapValue = {.rxPackets = 1, .rxBytes = 100};
-        EXPECT_RESULT_OK(mFakeStatsMapA.writeValue(*key, statsMapValue, BPF_ANY));
-        key->tag = 0;
+        *key = {.uid = uid, .tag = tag, .counterSet = TEST_COUNTERSET, .ifaceIndex = TEST_IFINDEX};
+        StatsValue statsMapValue = {.rxPackets = RXPACKETS, .rxBytes = RXBYTES,
+                                    .txPackets = TXPACKETS, .txBytes = TXBYTES};
         EXPECT_RESULT_OK(mFakeStatsMapA.writeValue(*key, statsMapValue, BPF_ANY));
         EXPECT_RESULT_OK(mFakeAppUidStatsMap.writeValue(uid, statsMapValue, BPF_ANY));
         // put tag information back to statsKey
         key->tag = tag;
+    }
+
+    void populateFakeCounterSet(uint32_t uid, uint32_t counterSet) {
+        EXPECT_RESULT_OK(mFakeUidCounterSetMap.writeValue(uid, counterSet, BPF_ANY));
+    }
+
+    void populateFakeIfaceIndexName(const char* name, uint32_t ifaceIndex) {
+        if (name == nullptr || ifaceIndex <= 0) return;
+
+        IfaceValue iface;
+        strlcpy(iface.name, name, sizeof(IfaceValue));
+        EXPECT_RESULT_OK(mFakeIfaceIndexNameMap.writeValue(ifaceIndex, iface, BPF_ANY));
     }
 
     void checkUidOwnerRuleForChain(ChildChain chain, UidOwnerMatchType match) {
@@ -180,7 +216,7 @@ class TrafficControllerTest : public ::testing::Test {
         checkEachUidValue(uids, match);
     }
 
-    void expectUidOwnerMapValues(const std::vector<uint32_t>& appUids, uint8_t expectedRule,
+    void expectUidOwnerMapValues(const std::vector<uint32_t>& appUids, uint32_t expectedRule,
                                  uint32_t expectedIif) {
         for (uint32_t uid : appUids) {
             Result<UidOwnerValue> value = mFakeUidOwnerMap.readValue(uid);
@@ -224,37 +260,6 @@ class TrafficControllerTest : public ::testing::Test {
         EXPECT_TRUE(mTc.mPrivilegedUser.empty());
     }
 
-    void addPrivilegedUid(uid_t uid) {
-        std::vector privilegedUid = {uid};
-        mTc.setPermissionForUids(INetd::PERMISSION_UPDATE_DEVICE_STATS, privilegedUid);
-    }
-
-    void removePrivilegedUid(uid_t uid) {
-        std::vector privilegedUid = {uid};
-        mTc.setPermissionForUids(INetd::PERMISSION_NONE, privilegedUid);
-    }
-
-    void expectFakeStatsUnchanged(uint64_t cookie, uint32_t tag, uint32_t uid,
-                                  StatsKey tagStatsMapKey) {
-        Result<UidTagValue> cookieMapResult = mFakeCookieTagMap.readValue(cookie);
-        EXPECT_RESULT_OK(cookieMapResult);
-        EXPECT_EQ(uid, cookieMapResult.value().uid);
-        EXPECT_EQ(tag, cookieMapResult.value().tag);
-        Result<StatsValue> statsMapResult = mFakeStatsMapA.readValue(tagStatsMapKey);
-        EXPECT_RESULT_OK(statsMapResult);
-        EXPECT_EQ((uint64_t)1, statsMapResult.value().rxPackets);
-        EXPECT_EQ((uint64_t)100, statsMapResult.value().rxBytes);
-        tagStatsMapKey.tag = 0;
-        statsMapResult = mFakeStatsMapA.readValue(tagStatsMapKey);
-        EXPECT_RESULT_OK(statsMapResult);
-        EXPECT_EQ((uint64_t)1, statsMapResult.value().rxPackets);
-        EXPECT_EQ((uint64_t)100, statsMapResult.value().rxBytes);
-        auto appStatsResult = mFakeAppUidStatsMap.readValue(uid);
-        EXPECT_RESULT_OK(appStatsResult);
-        EXPECT_EQ((uint64_t)1, appStatsResult.value().rxPackets);
-        EXPECT_EQ((uint64_t)100, appStatsResult.value().rxBytes);
-    }
-
     Status updateUidOwnerMaps(const std::vector<uint32_t>& appUids,
                               UidOwnerMatchType matchType, TrafficController::IptOp op) {
         Status ret(0);
@@ -265,6 +270,108 @@ class TrafficControllerTest : public ::testing::Test {
         return ret;
     }
 
+    Status dump(bool verbose, std::vector<std::string>& outputLines) {
+      if (!outputLines.empty()) return statusFromErrno(EUCLEAN, "Output buffer is not empty");
+
+      android::base::unique_fd localFd, remoteFd;
+      if (!Pipe(&localFd, &remoteFd)) return statusFromErrno(errno, "Failed on pipe");
+
+      // dump() blocks until another thread has consumed all its output.
+      std::thread dumpThread =
+          std::thread([this, remoteFd{std::move(remoteFd)}, verbose]() {
+            mTc.dump(remoteFd, verbose);
+          });
+
+      std::string dumpContent;
+      if (!android::base::ReadFdToString(localFd.get(), &dumpContent)) {
+        return statusFromErrno(errno, "Failed to read dump results from fd");
+      }
+      dumpThread.join();
+
+      std::stringstream dumpStream(std::move(dumpContent));
+      std::string line;
+      while (std::getline(dumpStream, line)) {
+        outputLines.push_back(line);
+      }
+
+      return netdutils::status::ok;
+    }
+
+    // Strings in the |expect| must exist in dump results in order. But no need to be consecutive.
+    bool expectDumpsysContains(std::vector<std::string>& expect) {
+        if (expect.empty()) return false;
+
+        std::vector<std::string> output;
+        Status result = dump(true, output);
+        if (!isOk(result)) {
+            GTEST_LOG_(ERROR) << "TrafficController dump failed: " << netdutils::toString(result);
+            return false;
+        }
+
+        int matched = 0;
+        auto it = expect.begin();
+        for (const auto& line : output) {
+            if (it == expect.end()) break;
+            if (std::string::npos != line.find(*it)) {
+                matched++;
+                ++it;
+            }
+        }
+
+        if (matched != expect.size()) {
+            // dump results for debugging
+            for (const auto& o : output) LOG(INFO) << "output: " << o;
+            for (const auto& e : expect) LOG(INFO) << "expect: " << e;
+            return false;
+        }
+        return true;
+    }
+
+    // Once called, the maps of TrafficController can't recover to valid maps which initialized
+    // in SetUp().
+    void makeTrafficControllerMapsInvalid() {
+        constexpr char INVALID_PATH[] = "invalid";
+
+        mFakeCookieTagMap.init(INVALID_PATH);
+        mTc.mCookieTagMap = mFakeCookieTagMap;
+        ASSERT_INVALID(mTc.mCookieTagMap);
+
+        mFakeAppUidStatsMap.init(INVALID_PATH);
+        mTc.mAppUidStatsMap = mFakeAppUidStatsMap;
+        ASSERT_INVALID(mTc.mAppUidStatsMap);
+
+        mFakeStatsMapA.init(INVALID_PATH);
+        mTc.mStatsMapA = mFakeStatsMapA;
+        ASSERT_INVALID(mTc.mStatsMapA);
+
+        mFakeStatsMapB.init(INVALID_PATH);
+        mTc.mStatsMapB = mFakeStatsMapB;
+        ASSERT_INVALID(mTc.mStatsMapB);
+
+        mFakeIfaceStatsMap.init(INVALID_PATH);
+        mTc.mIfaceStatsMap = mFakeIfaceStatsMap;
+        ASSERT_INVALID(mTc.mIfaceStatsMap);
+
+        mFakeConfigurationMap.init(INVALID_PATH);
+        mTc.mConfigurationMap = mFakeConfigurationMap;
+        ASSERT_INVALID(mTc.mConfigurationMap);
+
+        mFakeUidOwnerMap.init(INVALID_PATH);
+        mTc.mUidOwnerMap = mFakeUidOwnerMap;
+        ASSERT_INVALID(mTc.mUidOwnerMap);
+
+        mFakeUidPermissionMap.init(INVALID_PATH);
+        mTc.mUidPermissionMap = mFakeUidPermissionMap;
+        ASSERT_INVALID(mTc.mUidPermissionMap);
+
+        mFakeUidCounterSetMap.init(INVALID_PATH);
+        mTc.mUidCounterSetMap = mFakeUidCounterSetMap;
+        ASSERT_INVALID(mTc.mUidCounterSetMap);
+
+        mFakeIfaceIndexNameMap.init(INVALID_PATH);
+        mTc.mIfaceIndexNameMap = mFakeIfaceIndexNameMap;
+        ASSERT_INVALID(mTc.mIfaceIndexNameMap);
+    }
 };
 
 TEST_F(TrafficControllerTest, TestUpdateOwnerMapEntry) {
@@ -298,7 +405,6 @@ TEST_F(TrafficControllerTest, TestChangeUidOwnerRule) {
     checkUidOwnerRuleForChain(POWERSAVE, POWERSAVE_MATCH);
     checkUidOwnerRuleForChain(RESTRICTED, RESTRICTED_MATCH);
     checkUidOwnerRuleForChain(LOW_POWER_STANDBY, LOW_POWER_STANDBY_MATCH);
-    checkUidOwnerRuleForChain(LOCKDOWN, LOCKDOWN_VPN_MATCH);
     checkUidOwnerRuleForChain(OEM_DENY_1, OEM_DENY_1_MATCH);
     checkUidOwnerRuleForChain(OEM_DENY_2, OEM_DENY_2_MATCH);
     checkUidOwnerRuleForChain(OEM_DENY_3, OEM_DENY_3_MATCH);
@@ -427,6 +533,21 @@ TEST_F(TrafficControllerTest, TestRemoveUidInterfaceFilteringRules) {
 
     // Remove everything
     ASSERT_TRUE(isOk(mTc.removeUidInterfaceRules({1000})));
+    expectMapEmpty(mFakeUidOwnerMap);
+}
+
+TEST_F(TrafficControllerTest, TestUpdateUidLockdownRule) {
+    // Add Lockdown rules
+    ASSERT_TRUE(isOk(mTc.updateUidLockdownRule(1000, true /* add */)));
+    ASSERT_TRUE(isOk(mTc.updateUidLockdownRule(1001, true /* add */)));
+    expectUidOwnerMapValues({1000, 1001}, LOCKDOWN_VPN_MATCH, 0);
+
+    // Remove one of Lockdown rules
+    ASSERT_TRUE(isOk(mTc.updateUidLockdownRule(1000, false /* add */)));
+    expectUidOwnerMapValues({1001}, LOCKDOWN_VPN_MATCH, 0);
+
+    // Remove remaining Lockdown rule
+    ASSERT_TRUE(isOk(mTc.updateUidLockdownRule(1001, false /* add */)));
     expectMapEmpty(mFakeUidOwnerMap);
 }
 
@@ -647,6 +768,31 @@ TEST_F(TrafficControllerTest, TestGrantDuplicatePermissionSlientlyFail) {
     expectPrivilegedUserSetEmpty();
 }
 
+TEST_F(TrafficControllerTest, getFirewallType) {
+    static const struct TestConfig {
+        ChildChain childChain;
+        FirewallType firewallType;
+    } testConfigs[] = {
+            // clang-format off
+            {NONE, DENYLIST},
+            {DOZABLE, ALLOWLIST},
+            {STANDBY, DENYLIST},
+            {POWERSAVE, ALLOWLIST},
+            {RESTRICTED, ALLOWLIST},
+            {LOW_POWER_STANDBY, ALLOWLIST},
+            {OEM_DENY_1, DENYLIST},
+            {OEM_DENY_2, DENYLIST},
+            {OEM_DENY_3, DENYLIST},
+            {INVALID_CHAIN, DENYLIST},
+            // clang-format on
+    };
+
+    for (const auto& config : testConfigs) {
+        SCOPED_TRACE(fmt::format("testConfig: [{}, {}]", config.childChain, config.firewallType));
+        EXPECT_EQ(config.firewallType, mTc.getFirewallType(config.childChain));
+    }
+}
+
 constexpr uint32_t SOCK_CLOSE_WAIT_US = 30 * 1000;
 constexpr uint32_t ENOBUFS_POLL_WAIT_US = 10 * 1000;
 
@@ -682,7 +828,7 @@ class NetlinkListenerTest : public testing::Test {
                 if (res.ok() || (res.error().code() == ENOENT)) {
                     return Result<void>();
                 }
-                ALOGE("Failed to delete data(cookie = %" PRIu64 "): %s\n", key,
+                ALOGE("Failed to delete data(cookie = %" PRIu64 "): %s", key,
                       strerror(res.error().code()));
             }
             // Move forward to next cookie in the map.

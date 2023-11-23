@@ -20,5 +20,6 @@
 10a0->1054:1
 10b0->0:1
 10ec->0:1
+// build_id: 0x0c9a20bf9c009d0e4e8bbf9fad0300ae00000000
 // /data/local/tmp/etm_test_loop
 

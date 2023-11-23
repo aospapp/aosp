@@ -54,6 +54,13 @@ cc_library {
     export_include_dirs: ["include"],
     local_include_dirs: ["include"],
     version_script: "libmemunreachable.map",
+
+    static: {
+        apex_available: [
+            "//apex_available:platform",
+            "com.android.runtime",
+        ],
+    },
 }
 
 // Integration test that runs against the public API of libmemunreachable
@@ -80,7 +87,11 @@ cc_test {
         "tests/HeapWalker_test.cpp",
         "tests/LeakFolding_test.cpp",
     ],
-
+    tidy_checks: [
+        // Ignore memory leaks after ASSERT_NE in DisableMalloc_test.cpp.
+        "-clang-analyzer-cplusplus.NewDeleteLeaks",
+        "-clang-analyzer-unix.Malloc",
+    ],
     target: {
         android: {
             srcs: [

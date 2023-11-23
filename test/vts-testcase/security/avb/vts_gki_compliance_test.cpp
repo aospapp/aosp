@@ -399,18 +399,17 @@ class GkiComplianceTest : public testing::Test {
 
     product_first_api_level = GetProductFirstApiLevel();
 
-    /* Skip for non arm64 that do not mandate GKI yet. */
-    if (runtime_info->hardwareId() != "aarch64") {
-      GTEST_SKIP() << "Exempt from GKI test on non-arm64 devices";
+    /* Skip for non-arm64 kernels that do not mandate GKI yet. */
+    if (runtime_info->hardwareId() != "aarch64" &&
+        runtime_info->hardwareId() != "armv8l") {
+      GTEST_SKIP() << "Exempt from GKI test on non-arm64 kernel devices";
     }
 
     /* Skip for form factors that do not mandate GKI yet */
     const static bool tv_device =
         DeviceSupportsFeature("android.software.leanback");
-    const static bool auto_device =
-        DeviceSupportsFeature("android.hardware.type.automotive");
-    if (tv_device || auto_device) {
-      GTEST_SKIP() << "Exempt from GKI test on TV/Auto devices";
+    if (tv_device) {
+      GTEST_SKIP() << "Exempt from GKI test on TV devices";
     }
 
     GTEST_LOG_(INFO) << runtime_info->osName() << " "
@@ -437,6 +436,22 @@ bool GkiComplianceTest::ShouldSkipGkiComplianceV2() {
     GTEST_LOG_(INFO) << "Exempt from GKI 2.0 test on pre-S launched devices";
     return true;
   }
+  /*
+   * Skip for automotive devices if the kernel version is not >= 5.15 or
+   * the device is launched before Android T.
+   */
+  if (DeviceSupportsFeature("android.hardware.type.automotive")) {
+    if (runtime_info->kernelVersion().dropMinor() <
+        android::vintf::Version{5, 15}) {
+      GTEST_LOG_(INFO) << "Exempt from GKI test on kernel version: "
+                       << runtime_info->kernelVersion();
+      return true;
+    }
+    if (product_first_api_level < __ANDROID_API_T__) {
+      GTEST_LOG_(INFO) << "Exempt from GKI test on pre-T launched devices";
+      return true;
+    }
+  }
   return false;
 }
 
@@ -444,6 +459,9 @@ TEST_F(GkiComplianceTest, GkiComplianceV1) {
   if (product_first_api_level < __ANDROID_API_R__) {
     GTEST_SKIP() << "Exempt from GKI 1.0 test: product first API level ("
                  << product_first_api_level << ") < " << __ANDROID_API_R__;
+  }
+  if (DeviceSupportsFeature("android.hardware.type.automotive")) {
+    GTEST_SKIP() << "Skip GKI vbmeta check for automotive devices";
   }
   /* Skip for devices if the kernel version is not 5.4. */
   if (runtime_info->kernelVersion().dropMinor() !=

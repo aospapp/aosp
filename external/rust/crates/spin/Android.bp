@@ -36,7 +36,7 @@ rust_library {
     host_supported: true,
     crate_name: "spin",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.9.2",
+    cargo_pkg_version: "0.9.7",
     srcs: ["src/lib.rs"],
     edition: "2015",
     features: [
@@ -49,6 +49,8 @@ rust_library {
         "com.android.resolv",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
     min_sdk_version: "29",
 }
 
@@ -57,7 +59,7 @@ rust_test {
     host_supported: true,
     crate_name: "spin",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.9.2",
+    cargo_pkg_version: "0.9.7",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
@@ -68,6 +70,9 @@ rust_test {
     features: [
         "once",
         "std",
+    ],
+    rustlibs: [
+        "libcriterion",
     ],
 }
 
@@ -89,10 +94,3 @@ rust_library_rlib {
     ],
     min_sdk_version: "29",
 }
-
-
-// Errors when listing tests:
-// error[E0433]: failed to resolve: could not find `Mutex` in `spin`
-// error[E0433]: failed to resolve: could not find `RwLock` in `spin`
-// error: could not compile `spin` due to 2 previous errors
-// error: build failed

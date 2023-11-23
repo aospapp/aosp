@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -319,7 +319,11 @@ impl Display for Error {
             SeccompViolation(s) => write!(f, "seccomp violation syscall #{}", s),
             Killed(s) => write!(f, "killed with signal number {}", s),
             ReturnCode(e) => write!(f, "exited with code {}", e),
-            Wait(errno) => write!(f, "failed to wait: {}", io::Error::from_raw_os_error(*errno)),
+            Wait(errno) => write!(
+                f,
+                "failed to wait: {}",
+                io::Error::from_raw_os_error(*errno)
+            ),
         }
     }
 }
@@ -465,7 +469,7 @@ impl Minijail {
     }
     pub fn set_supplementary_gids(&mut self, ids: &[libc::gid_t]) {
         unsafe {
-            minijail_set_supplementary_gids(self.jail, ids.len() as size_t, ids.as_ptr());
+            minijail_set_supplementary_gids(self.jail, ids.len(), ids.as_ptr());
         }
     }
     pub fn keep_supplementary_gids(&mut self) {
@@ -767,7 +771,7 @@ impl Minijail {
     }
     pub fn mount_tmp_size(&mut self, size: usize) {
         unsafe {
-            minijail_mount_tmp_size(self.jail, size as size_t);
+            minijail_mount_tmp_size(self.jail, size);
         }
     }
     pub fn mount_bind<P1: AsRef<Path>, P2: AsRef<Path>>(
@@ -920,6 +924,9 @@ impl Minijail {
     ///
     /// This Function may abort in the child on error because a partially
     /// entered jail isn't recoverable.
+    ///
+    /// Once this is invoked the object is no longer usable, after this call
+    /// this minijail object is invalid.
     pub unsafe fn fork(&self, inheritable_fds: Option<&[RawFd]>) -> Result<pid_t> {
         let m: Vec<(RawFd, RawFd)> = inheritable_fds
             .unwrap_or(&[])
@@ -1000,7 +1007,8 @@ impl Minijail {
 }
 
 impl Drop for Minijail {
-    /// Frees the Minijail created in Minijail::new.
+    /// Frees the Minijail created in Minijail::new. This will not terminate the
+    /// minijailed process.
     fn drop(&mut self) {
         unsafe {
             // Destroys the minijail's memory.  It is safe to do here because all references to
@@ -1189,7 +1197,7 @@ fi
     #[test]
     fn runnable_fd_success() {
         let bin_file = File::open("/bin/true").unwrap();
-        // On Chrome OS targets /bin/true is actually a script, so drop CLOEXEC to prevent ENOENT.
+        // On ChromeOS targets /bin/true is actually a script, so drop CLOEXEC to prevent ENOENT.
         clear_cloexec(&bin_file).unwrap();
 
         let j = Minijail::new().unwrap();

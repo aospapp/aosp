@@ -1,8 +1,9 @@
 static ResourceTracker* sResourceTracker = nullptr;
 static uint32_t sFeatureBits = 0;
+static constexpr uint32_t kWatchdogBufferMax = 1'000;
 
 class VkEncoder::Impl {
-public:
+   public:
     Impl(IOStream* stream) : m_stream(stream), m_logEncodes(false) {
         if (!sResourceTracker) sResourceTracker = ResourceTracker::get();
         m_stream.incStreamRef();
@@ -14,9 +15,7 @@ public:
         sFeatureBits = m_stream.getFeatureBits();
     }
 
-    ~Impl() {
-        m_stream.decStreamRef();
-    }
+    ~Impl() { m_stream.decStreamRef(); }
 
     VulkanCountingStream* countingStream() { return &m_countingStream; }
     VulkanStreamGuest* stream() { return &m_stream; }
@@ -37,14 +36,13 @@ public:
 
     // can be recursive
     void lock() {
-        while (mLock.test_and_set(std::memory_order_acquire));
+        while (mLock.test_and_set(std::memory_order_acquire))
+            ;
     }
 
-    void unlock() {
-        mLock.clear(std::memory_order_release);
-    }
+    void unlock() { mLock.clear(std::memory_order_release); }
 
-private:
+   private:
     VulkanCountingStream m_countingStream;
     VulkanStreamGuest m_stream;
     BumpPool m_pool;
@@ -54,36 +52,24 @@ private:
     std::atomic_flag mLock = ATOMIC_FLAG_INIT;
 };
 
-VkEncoder::~VkEncoder() { }
+VkEncoder::~VkEncoder() {}
 
 struct EncoderAutoLock {
-    EncoderAutoLock(VkEncoder* enc) : mEnc(enc) {
-        mEnc->lock();
-    }
-    ~EncoderAutoLock() {
-        mEnc->unlock();
-    }
+    EncoderAutoLock(VkEncoder* enc) : mEnc(enc) { mEnc->lock(); }
+    ~EncoderAutoLock() { mEnc->unlock(); }
     VkEncoder* mEnc;
 };
 
-VkEncoder::VkEncoder(IOStream *stream) :
-    mImpl(new VkEncoder::Impl(stream)) { }
+VkEncoder::VkEncoder(IOStream* stream, android::base::guest::HealthMonitor<>* healthMonitor)
+    : mImpl(new VkEncoder::Impl(stream)), mHealthMonitor(healthMonitor) {}
 
-void VkEncoder::flush() {
-    mImpl->flush();
-}
+void VkEncoder::flush() { mImpl->flush(); }
 
-void VkEncoder::lock() {
-    mImpl->lock();
-}
+void VkEncoder::lock() { mImpl->lock(); }
 
-void VkEncoder::unlock() {
-    mImpl->unlock();
-}
+void VkEncoder::unlock() { mImpl->unlock(); }
 
-void VkEncoder::incRef() {
-    __atomic_add_fetch(&refCount, 1, __ATOMIC_SEQ_CST);
-}
+void VkEncoder::incRef() { __atomic_add_fetch(&refCount, 1, __ATOMIC_SEQ_CST); }
 
 bool VkEncoder::decRef() {
     if (0 == __atomic_sub_fetch(&refCount, 1, __ATOMIC_SEQ_CST)) {
@@ -91,4 +77,14 @@ bool VkEncoder::decRef() {
         return true;
     }
     return false;
+}
+
+std::string VkEncoder::getPacketContents(const uint8_t* ptr, size_t len) {
+  std::string result;
+  std::unique_ptr<char[]> buf(new char[3]);
+  for (size_t i = 0; i < len; i++) {
+    std::snprintf(buf.get(), 3, "%02X", ptr[i]);
+    result += " " + std::string(buf.get(), buf.get() + 2);
+  }
+  return result;
 }

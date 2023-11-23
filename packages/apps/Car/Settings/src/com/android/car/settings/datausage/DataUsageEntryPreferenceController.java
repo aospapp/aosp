@@ -46,7 +46,7 @@ public class DataUsageEntryPreferenceController extends PreferenceController<Pre
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         if (!NetworkUtils.hasMobileNetwork(
                 getContext().getSystemService(ConnectivityManager.class))) {
             return UNSUPPORTED_ON_DEVICE;

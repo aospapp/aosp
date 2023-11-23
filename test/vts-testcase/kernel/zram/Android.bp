@@ -37,7 +37,7 @@ cc_test {
     defaults: ["binary_zram_defaults"],
     test_config: "zram_module_test.xml",
     test_suites: [
-        "vts",
+        "general-tests",
     ],
 }
 

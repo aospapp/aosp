@@ -13,8 +13,8 @@
 #include <xnnpack/common.h>
 #include <xnnpack/isa-checks.h>
 
-#include <xnnpack/params-init.h>
-#include <xnnpack/vaddsub.h>
+#include <xnnpack/microparams-init.h>
+#include <xnnpack/vadd.h>
 #include "vadd-microkernel-tester.h"
 
 

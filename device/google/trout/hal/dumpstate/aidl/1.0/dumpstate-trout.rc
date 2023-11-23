@@ -1,0 +1,4 @@
+service vendor.dumpstate-trout /vendor/bin/hw/android.hardware.automotive.dumpstate-service.trout
+    class hal
+    user system
+    group system shell

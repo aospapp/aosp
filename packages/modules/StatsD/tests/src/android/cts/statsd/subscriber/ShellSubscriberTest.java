@@ -37,12 +37,36 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
+import android.cts.statsd.atom.AtomTestCase;
 
 /**
  * Statsd shell data subscription test.
  */
-public class ShellSubscriberTest extends DeviceTestCase {
+public class ShellSubscriberTest extends AtomTestCase {
     private int sizetBytes;
+
+    public class ShellSubscriptionThread extends Thread {
+        String cmd;
+        CollectingByteOutputReceiver receiver;
+        int maxTimeoutForCommandSec;
+        public ShellSubscriptionThread(
+                String cmd,
+                CollectingByteOutputReceiver receiver,
+                int maxTimeoutForCommandSec) {
+            this.cmd = cmd;
+            this.receiver = receiver;
+            this.maxTimeoutForCommandSec = maxTimeoutForCommandSec;
+        }
+        public void run () {
+            try {
+                getDevice().executeShellCommand(cmd, receiver, maxTimeoutForCommandSec,
+                        /*maxTimeToOutputShellResponse=*/maxTimeoutForCommandSec, TimeUnit.SECONDS,
+                        /*retryAttempts=*/0);
+            } catch (Exception e) {
+                fail(e.getMessage());
+            }
+        }
+    }
 
     @Override
     protected void setUp() throws Exception {
@@ -55,27 +79,126 @@ public class ShellSubscriberTest extends DeviceTestCase {
             return;
         }
 
-        ShellConfig.ShellSubscription config = createConfig();
-        CollectingByteOutputReceiver receiver = new CollectingByteOutputReceiver();
-        startSubscription(config, receiver, /*maxTimeoutForCommandSec=*/5,
-                /*subscriptionTimeSec=*/5);
+        CollectingByteOutputReceiver receiver = startSubscription();
         checkOutput(receiver);
     }
 
+    // This is testShellSubscription but 5x
     public void testShellSubscriptionReconnect() {
+        int numOfSubs = 5;
         if (sizetBytes < 0) {
             return;
         }
 
-        ShellConfig.ShellSubscription config = createConfig();
-        for (int i = 0; i < 5; i++) {
-            CollectingByteOutputReceiver receiver = new CollectingByteOutputReceiver();
-            // A subscription time of -1 means that statsd will not impose a timeout on the
-            // subscription. Thus, the client will exit before statsd ends the subscription.
-            startSubscription(config, receiver, /*maxTimeoutForCommandSec=*/5,
-                    /*subscriptionTimeSec=*/-1);
+        for (int i = 0; i < numOfSubs; i++) {
+            CollectingByteOutputReceiver receiver = startSubscription();
             checkOutput(receiver);
         }
+    }
+
+    // Tests that multiple clients can run at once:
+    // -Runs maximum number of active subscriptions (20) at once.
+    // -Maximum number of subscriptions minus 1 return:
+    // --Leave 1 subscription alive to ensure the subscriber helper thread stays alive.
+    // -Run maximum number of subscriptions minus 1 to reach the maximum running again.
+    // -Attempt to run one more subscription, which will fail.
+    public void testShellMaxSubscriptions() {
+        // Maximum number of active subscriptions, set in ShellSubscriber.h
+        int maxSubs = 20;
+        if (sizetBytes < 0) {
+            return;
+        }
+        CollectingByteOutputReceiver[] receivers = new CollectingByteOutputReceiver[maxSubs + 1];
+        ShellSubscriptionThread[] shellThreads = new ShellSubscriptionThread[maxSubs + 1];
+        ShellConfig.ShellSubscription config = createConfig();
+        byte[] validConfig = makeValidConfig(config);
+
+        // timeout of 5 sec for all subscriptions except for the first
+        int timeout = 5;
+        // timeout of 25 sec to ensure that the first subscription stays active for two sessions
+        // of creating the maximum number of subscriptions
+        int firstSubTimeout = 25;
+        try {
+            // Push the shell config file to the device
+            String remotePath = pushShellConfigToDevice(validConfig);
+
+            String cmd = "cat " + remotePath + " |  cmd stats data-subscribe " + timeout;
+            String firstSubCmd =
+                        "cat " + remotePath + " |  cmd stats data-subscribe " + firstSubTimeout;
+
+            for (int i = 0; i < maxSubs; i++) {
+                // Run data-subscribe on a thread
+                receivers[i] = new CollectingByteOutputReceiver();
+                if (i == 0) {
+                    shellThreads[i] =
+                        new ShellSubscriptionThread(firstSubCmd, receivers[i], firstSubTimeout);
+                } else {
+                    shellThreads[i] =
+                        new ShellSubscriptionThread(cmd, receivers[i], timeout);
+                }
+                shellThreads[i].start();
+                LogUtil.CLog.d("Starting new shell subscription.");
+            }
+            // Sleep 2 seconds to make sure all subscription clients are initialized before
+            // first pushed event
+            Thread.sleep(2000);
+
+            // Pushed event. arbitrary label = 1
+            doAppBreadcrumbReported(1);
+
+            // Make sure the last 19 threads die before moving to the next step.
+            // First subscription is still active due to its longer timeout that is used keep
+            // the subscriber helper thread alive
+            for (int i = 1; i < maxSubs; i++) {
+                shellThreads[i].join();
+            }
+
+            // Validate the outputs of the last 19 subscriptions since they are finished
+            for (int i = 1; i < maxSubs; i++) {
+                checkOutput(receivers[i]);
+            }
+
+            // Run 19 more subscriptions to hit the maximum active subscriptions again
+            for (int i = 1; i < maxSubs; i++) {
+                // Run data-subscribe on a thread
+                receivers[i] = new CollectingByteOutputReceiver();
+                shellThreads[i] =
+                    new ShellSubscriptionThread(cmd, receivers[i], timeout);
+                shellThreads[i].start();
+                LogUtil.CLog.d("Starting new shell subscription.");
+            }
+            // Sleep 2 seconds to make sure all subscription clients are initialized before
+            // pushed event
+            Thread.sleep(2000);
+
+            // ShellSubscriber only allows 20 subscriptions at a time. This is the 21st which will
+            // be ignored
+            receivers[maxSubs] = new CollectingByteOutputReceiver();
+            shellThreads[maxSubs] =
+                new ShellSubscriptionThread(cmd, receivers[maxSubs], timeout);
+            shellThreads[maxSubs].start();
+
+            // Sleep 1 seconds to ensure that the 21st subscription is rejected
+            Thread.sleep(1000);
+
+            // Pushed event. arbitrary label = 1
+            doAppBreadcrumbReported(1);
+
+            // Make sure all the threads die before moving to the next step
+            for (int i = 0; i <= maxSubs; i++) {
+                shellThreads[i].join();
+            }
+            // Remove config from device if not already deleted
+            getDevice().executeShellCommand("rm " + remotePath);
+        } catch (Exception e) {
+            fail(e.getMessage());
+        }
+        for (int i = 0; i < maxSubs; i++) {
+            checkOutput(receivers[i]);
+        }
+        // Ensure that the 21st subscription got rejected and has an empty output
+        byte[] output = receivers[maxSubs].getOutput();
+        assertThat(output.length).isEqualTo(0);
     }
 
     private int getSizetBytes() {
@@ -93,53 +216,67 @@ public class ShellSubscriberTest extends DeviceTestCase {
         }
     }
 
-    // Choose a pulled atom that is likely to be supported on all devices (SYSTEM_UPTIME). Testing
-    // pushed atoms is trickier because executeShellCommand() is blocking, so we cannot push a
-    // breadcrumb event while the shell subscription is running.
     private ShellConfig.ShellSubscription createConfig() {
         return ShellConfig.ShellSubscription.newBuilder()
-                .addPulled(ShellConfig.PulledAtomSubscription.newBuilder()
-                        .setMatcher(StatsdConfigProto.SimpleAtomMatcher.newBuilder()
-                                .setAtomId(Atom.SYSTEM_UPTIME_FIELD_NUMBER))
-                        .setFreqMillis(2000))
-                .build();
+                .addPushed((StatsdConfigProto.SimpleAtomMatcher.newBuilder()
+                                .setAtomId(Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER))
+                        .build()).build();
     }
 
-    /**
-     * @param maxTimeoutForCommandSec maximum time imposed by adb that the command will run
-     * @param subscriptionTimeSec maximum time imposed by statsd that the subscription will last
-     */
-    private void startSubscription(
-            ShellConfig.ShellSubscription config,
-            CollectingByteOutputReceiver receiver,
-            int maxTimeoutForCommandSec,
-            int subscriptionTimeSec) {
-        LogUtil.CLog.d("Uploading the following config:\n" + config.toString());
+    private byte[] makeValidConfig(ShellConfig.ShellSubscription config) {
+        int length = config.toByteArray().length;
+        byte[] validConfig = new byte[sizetBytes + length];
+        System.arraycopy(IntToByteArrayLittleEndian(length), 0, validConfig, 0, sizetBytes);
+        System.arraycopy(config.toByteArray(), 0, validConfig, sizetBytes, length);
+        return validConfig;
+    }
+
+    private String pushShellConfigToDevice(byte[] validConfig) {
         try {
             File configFile = File.createTempFile("shellconfig", ".config");
             configFile.deleteOnExit();
-            int length = config.toByteArray().length;
-            byte[] combined = new byte[sizetBytes + config.toByteArray().length];
-
-            System.arraycopy(IntToByteArrayLittleEndian(length), 0, combined, 0, sizetBytes);
-            System.arraycopy(config.toByteArray(), 0, combined, sizetBytes, length);
-
-            Files.write(combined, configFile);
+            Files.write(validConfig, configFile);
             String remotePath = "/data/local/tmp/" + configFile.getName();
             getDevice().pushFile(configFile, remotePath);
-            LogUtil.CLog.d("waiting....................");
+            return remotePath;
 
-            String cmd = String.join(" ", "cat", remotePath, "|", "cmd stats data-subscribe",
-                  String.valueOf(subscriptionTimeSec));
+        } catch (Exception e) {
+            fail(e.getMessage());
+        }
+        return "";
+    }
 
+    private CollectingByteOutputReceiver startSubscription() {
+        ShellConfig.ShellSubscription config = createConfig();
+        CollectingByteOutputReceiver receiver = new CollectingByteOutputReceiver();
+        LogUtil.CLog.d("Uploading the following config:\n" + config.toString());
+        byte[] validConfig = makeValidConfig(config);
+        // timeout of 2 sec for both data-subscribe command and executeShellCommand in thread
+        int timeout = 2;
+        try {
+            // Push the shell config file to the device
+            String remotePath = pushShellConfigToDevice(validConfig);
 
-            getDevice().executeShellCommand(cmd, receiver, maxTimeoutForCommandSec,
-                    /*maxTimeToOutputShellResponse=*/maxTimeoutForCommandSec, TimeUnit.SECONDS,
-                    /*retryAttempts=*/0);
+            String cmd = "cat " + remotePath + " |  cmd stats data-subscribe " + timeout;
+            // Run data-subscribe on a thread
+            ShellSubscriptionThread shellThread =
+                                    new ShellSubscriptionThread(cmd, receiver, timeout);
+            shellThread.start();
+            LogUtil.CLog.d("Starting new shell subscription.");
+
+            // Sleep a second to make sure subscription is initiated
+            Thread.sleep(1000);
+
+            // Pushed event. arbitrary label = 1
+            doAppBreadcrumbReported(1);
+            // Wait for thread to die before returning
+            shellThread.join();
+            // Remove config from device if not already deleted
             getDevice().executeShellCommand("rm " + remotePath);
         } catch (Exception e) {
             fail(e.getMessage());
         }
+        return receiver;
     }
 
     private byte[] IntToByteArrayLittleEndian(int length) {
@@ -155,6 +292,7 @@ public class ShellSubscriberTest extends DeviceTestCase {
         int startIndex = 0;
 
         byte[] output = receiver.getOutput();
+        LogUtil.CLog.d("output length in checkOutput: " + output.length);
         assertThat(output.length).isGreaterThan(0);
         while (output.length > startIndex) {
             assertThat(output.length).isAtLeast(startIndex + sizetBytes);
@@ -178,8 +316,10 @@ public class ShellSubscriberTest extends DeviceTestCase {
             }
 
             assertThat(data.getAtomCount()).isEqualTo(1);
-            assertThat(data.getAtom(0).hasSystemUptime()).isTrue();
-            assertThat(data.getAtom(0).getSystemUptime().getUptimeMillis()).isGreaterThan(0L);
+            assertThat(data.getAtom(0).hasAppBreadcrumbReported()).isTrue();
+            assertThat(data.getAtom(0).getAppBreadcrumbReported().getLabel()).isEqualTo(1);
+            assertThat(data.getAtom(0).getAppBreadcrumbReported().getState().getNumber())
+                       .isEqualTo(1);
             atomCount++;
             startIndex += sizetBytes + dataLength;
         }

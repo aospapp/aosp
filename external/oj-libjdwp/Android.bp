@@ -21,10 +21,7 @@ license {
     visibility: [":__subpackages__"],
     license_kinds: [
         "SPDX-license-identifier-Apache-2.0",
-        "SPDX-license-identifier-GPL",
-        "SPDX-license-identifier-GPL-2.0",
-        "SPDX-license-identifier-GPL-with-classpath-exception",
-        "SPDX-license-identifier-LGPL",
+        "SPDX-license-identifier-GPL-2.0-with-classpath-exception",
     ],
     license_text: [
         "LICENSE",
@@ -58,7 +55,6 @@ cc_defaults {
         "-Werror",
         "-Wno-unused-parameter",
     ],
-    notice: "LICENSE",
     target: {
         darwin: {
             enabled: false,
@@ -233,5 +229,10 @@ java_library_host {
   services: ["etc/com.sun.jdi.connect.Connector"],
   java_version: "1.8",
   javacflags: ["-g"],
-  notice: "LICENSE",
+  errorprone: {
+    javacflags: [
+      "-Xep:ReturnValueIgnored:WARN",
+      "-Xep:EmptyTopLevelDeclaration:WARN",
+    ],
+  },
 }

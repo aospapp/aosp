@@ -84,6 +84,15 @@ uint32_t NuggetClient::CallApp(uint32_t appId, uint16_t arg,
   return status_code;
 }
 
+uint32_t NuggetClient::CallApp(uint32_t appId, uint16_t arg,
+                               const void* req_ptr, uint32_t req_len,
+                               void* resp_ptr, uint32_t* resp_len) {
+  if (!open_) return APP_ERROR_IO;
+
+  return nos_call_application(&device_, appId, arg, (const uint8_t*)req_ptr,
+                              req_len, (uint8_t*)resp_ptr, resp_len);
+}
+
 uint32_t NuggetClient::Reset() const {
 
   if (!open_)

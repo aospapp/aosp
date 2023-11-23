@@ -25,11 +25,13 @@
 
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
-        <option name="push" value="CtsBionicTestCases->/data/local/tmp/CtsBionicTestCases" />
+        <option name="push" value="CtsBionicTestCases->/data/local/tests/unrestricted/CtsBionicTestCases" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.GTest" >
-        <option name="native-test-device-path" value="/data/local/tmp" />
+        <option name="native-test-device-path" value="/data/local/tests/unrestricted" />
         <option name="module-name" value="CtsBionicTestCases" />
+        <option name="native-test-timeout" value="4m30s" />
+        <option name="test-case-timeout" value="4m30s" />
         <option name="runtime-hint" value="12m10s" />
     </test>
 </configuration>

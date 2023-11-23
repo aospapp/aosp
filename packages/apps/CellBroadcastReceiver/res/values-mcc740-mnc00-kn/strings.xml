@@ -16,6 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="pws_other_message_identifiers" msgid="8976420402484419445">"ಪರೀಕ್ಷಾ ಸಂದೇಶ"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="825742239541920431">"ಸ್ಥಳೀಯ ಪರೀಕ್ಷಾ ಸಂದೇಶ"</string>
+    <string name="pws_other_message_identifiers" msgid="2214940831691477786">"ಆಪರೇಟರ್ ಎಚ್ಚರಿಕೆಗಳು"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="1644330907171600428">"ಆಪರೇಟರ್ ಎಚ್ಚರಿಕೆಗಳು"</string>
+    <string name="enable_emergency_alerts_message_summary" msgid="8067182348745388399">"ಆಪರೇಟರ್ ಎಚ್ಚರಿಕೆಗಳಿಗಾಗಿ ಚಾನಲ್"</string>
 </resources>

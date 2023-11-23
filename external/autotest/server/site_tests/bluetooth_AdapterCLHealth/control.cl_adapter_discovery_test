@@ -8,12 +8,13 @@ AUTHOR = 'chromeos-bluetooth'
 NAME = 'bluetooth_AdapterCLHealth.cl_adapter_discovery_test'
 PURPOSE = 'Test bluetooth adapter can discover a bluetooth device.'
 CRITERIA = 'Adapter should work in correct states.'
-ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_e2e'
+ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_e2e, suite:bluetooth_e2e_cq'
 TIME = 'SHORT'	# Just over 1 minute on blooglet
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
 DEPENDENCIES = 'bluetooth, working_bluetooth_btpeer:1'
+PY_VERSION = 3
 
 DOC = """
 Verify that the bluetooth adapter of the DUT could pair and connect

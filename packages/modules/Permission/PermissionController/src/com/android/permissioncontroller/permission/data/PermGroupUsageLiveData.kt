@@ -19,7 +19,7 @@ package com.android.permissioncontroller.permission.data
 import android.app.AppOpsManager.permissionToOp
 import android.app.Application
 import com.android.permissioncontroller.PermissionControllerApplication
-import com.android.permissioncontroller.permission.utils.Utils.getPlatformPermissionNamesOfGroup
+import com.android.permissioncontroller.permission.utils.PermissionMapping.getPlatformPermissionNamesOfGroup
 import kotlin.collections.set
 
 /**

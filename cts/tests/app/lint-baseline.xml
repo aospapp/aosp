@@ -3,13 +3,18 @@
 
     <issue
         id="NewApi"
-        message="`&lt;vector>` requires API level 21 (current min is 14) or building with Android Gradle plugin 1.4 or higher"
-        errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
-        errorLine2=" ~~~~~~">
+        message="View requires API level 21 (current min is 14): `&lt;Toolbar&gt;`">
         <location
-            file="cts/tests/app/res/drawable/ic_android.xml"
-            line="17"
-            column="2"/>
+            file="cts/tests/app/app/res/layout/toolbar_activity.xml"
+            line="23"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="`@android:style/Theme.Material.Dialog` requires API level 21 (current min is 14)">
+        <location
+            file="cts/tests/app/app/res/values/styles.xml"
+            line="168"/>
     </issue>
 
 </issues>

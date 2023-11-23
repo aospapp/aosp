@@ -63,11 +63,23 @@
 	 *  cp11 field is ignored, but is set to same value as cp10. The cp10
 	 *  field is set to allow access to Advanced SIMD and floating point
 	 *  features from both Security states.
+	 *
+	 * NSACR.NSTRCDIS: When system register trace implemented, Set to one
+	 *  so that NS System register accesses to all implemented trace
+	 *  registers are disabled.
+	 *  When system register trace is not implemented, this bit is RES0 and
+	 *  hence set to zero.
 	 * ---------------------------------------------------------------------
 	 */
 	ldcopr	r0, NSACR
 	and	r0, r0, #NSACR_IMP_DEF_MASK
 	orr	r0, r0, #(NSACR_RESET_VAL | NSACR_ENABLE_FP_ACCESS)
+	ldcopr	r1, ID_DFR0
+	ubfx	r1, r1, #ID_DFR0_COPTRC_SHIFT, #ID_DFR0_COPTRC_LENGTH
+	cmp	r1, #ID_DFR0_COPTRC_SUPPORTED
+	bne	1f
+	orr	r0, r0, #NSTRCDIS_BIT
+1:
 	stcopr	r0, NSACR
 	isb
 
@@ -119,9 +131,22 @@
 	 *  in Secure state. This bit is RES0 in versions of the architecture
 	 *  earlier than ARMv8.5, setting it to 1 doesn't have any effect on
 	 *  them.
+	 *
+	 * SDCR.TTRF: Set to one so that access to trace filter control
+	 *  registers in non-monitor mode generate Monitor trap exception,
+	 *  unless the access generates a higher priority exception when
+	 *  trace filter control(FEAT_TRF) is implemented.
+	 *  When FEAT_TRF is not implemented, this bit is RES0.
 	 * ---------------------------------------------------------------------
 	 */
-	ldr	r0, =(SDCR_RESET_VAL | SDCR_SPD(SDCR_SPD_DISABLE) | SDCR_SCCD_BIT)
+	ldr	r0, =((SDCR_RESET_VAL | SDCR_SPD(SDCR_SPD_DISABLE) | \
+		      SDCR_SCCD_BIT) & ~SDCR_TTRF_BIT)
+	ldcopr	r1, ID_DFR0
+	ubfx	r1, r1, #ID_DFR0_TRACEFILT_SHIFT, #ID_DFR0_TRACEFILT_LENGTH
+	cmp	r1, #ID_DFR0_TRACEFILT_SUPPORTED
+	bne	1f
+	orr	r0, r0, #SDCR_TTRF_BIT
+1:
 	stcopr	r0, SDCR
 
 	/* ---------------------------------------------------------------------
@@ -355,10 +380,21 @@
 		 * includes the data and NOBITS sections. This is done to
 		 * safeguard against possible corruption of this memory by
 		 * dirty cache lines in a system cache as a result of use by
-		 * an earlier boot loader stage.
+		 * an earlier boot loader stage. If PIE is enabled however,
+		 * RO sections including the GOT may be modified during
+		 * pie fixup. Therefore, to be on the safe side, invalidate
+		 * the entire image region if PIE is enabled.
 		 * -----------------------------------------------------------------
 		 */
+#if ENABLE_PIE
+#if SEPARATE_CODE_AND_RODATA
+		ldr	r0, =__TEXT_START__
+#else
+		ldr	r0, =__RO_START__
+#endif /* SEPARATE_CODE_AND_RODATA */
+#else
 		ldr	r0, =__RW_START__
+#endif /* ENABLE_PIE */
 		ldr	r1, =__RW_END__
 		sub	r1, r1, r0
 		bl	inv_dcache_range

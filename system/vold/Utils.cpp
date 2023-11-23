@@ -23,6 +23,7 @@
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/properties.h>
+#include <android-base/scopeguard.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
@@ -100,13 +101,21 @@ std::string GetFuseMountPathForUser(userid_t user_id, const std::string& relativ
 status_t CreateDeviceNode(const std::string& path, dev_t dev) {
     std::lock_guard<std::mutex> lock(kSecurityLock);
     const char* cpath = path.c_str();
-    status_t res = 0;
+    auto clearfscreatecon = android::base::make_scope_guard([] { setfscreatecon(nullptr); });
+    auto secontext = std::unique_ptr<char, void (*)(char*)>(nullptr, freecon);
+    char* tmp_secontext;
 
-    char* secontext = nullptr;
-    if (sehandle) {
-        if (!selabel_lookup(sehandle, &secontext, cpath, S_IFBLK)) {
-            setfscreatecon(secontext);
+    if (selabel_lookup(sehandle, &tmp_secontext, cpath, S_IFBLK) == 0) {
+        secontext.reset(tmp_secontext);
+        if (setfscreatecon(secontext.get()) != 0) {
+            LOG(ERROR) << "Failed to setfscreatecon for device node " << path;
+            return -EINVAL;
         }
+    } else if (errno == ENOENT) {
+        LOG(DEBUG) << "No selabel defined for device node " << path;
+    } else {
+        PLOG(ERROR) << "Failed to look up selabel for device node " << path;
+        return -errno;
     }
 
     mode_t mode = 0660 | S_IFBLK;
@@ -114,16 +123,10 @@ status_t CreateDeviceNode(const std::string& path, dev_t dev) {
         if (errno != EEXIST) {
             PLOG(ERROR) << "Failed to create device node for " << major(dev) << ":" << minor(dev)
                         << " at " << path;
-            res = -errno;
+            return -errno;
         }
     }
-
-    if (secontext) {
-        setfscreatecon(nullptr);
-        freecon(secontext);
-    }
-
-    return res;
+    return OK;
 }
 
 status_t DestroyDeviceNode(const std::string& path) {
@@ -449,29 +452,26 @@ status_t PrepareDir(const std::string& path, mode_t mode, uid_t uid, gid_t gid,
                     unsigned int attrs) {
     std::lock_guard<std::mutex> lock(kSecurityLock);
     const char* cpath = path.c_str();
+    auto clearfscreatecon = android::base::make_scope_guard([] { setfscreatecon(nullptr); });
+    auto secontext = std::unique_ptr<char, void (*)(char*)>(nullptr, freecon);
+    char* tmp_secontext;
 
-    char* secontext = nullptr;
-    if (sehandle) {
-        if (!selabel_lookup(sehandle, &secontext, cpath, S_IFDIR)) {
-            setfscreatecon(secontext);
+    if (selabel_lookup(sehandle, &tmp_secontext, cpath, S_IFDIR) == 0) {
+        secontext.reset(tmp_secontext);
+        if (setfscreatecon(secontext.get()) != 0) {
+            LOG(ERROR) << "Failed to setfscreatecon for directory " << path;
+            return -EINVAL;
         }
-    }
-
-    int res = fs_prepare_dir(cpath, mode, uid, gid);
-
-    if (secontext) {
-        setfscreatecon(nullptr);
-        freecon(secontext);
-    }
-
-    if (res) return -errno;
-    if (attrs) res = SetAttrs(path, attrs);
-
-    if (res == 0) {
-        return OK;
+    } else if (errno == ENOENT) {
+        LOG(DEBUG) << "No selabel defined for directory " << path;
     } else {
+        PLOG(ERROR) << "Failed to look up selabel for directory " << path;
         return -errno;
     }
+
+    if (fs_prepare_dir(cpath, mode, uid, gid) != 0) return -errno;
+    if (attrs && SetAttrs(path, attrs) != 0) return -errno;
+    return OK;
 }
 
 status_t ForceUnmount(const std::string& path) {
@@ -766,7 +766,7 @@ status_t ForkExecvpTimeout(const std::vector<std::string>& args, std::chrono::se
         }
         pid_t timer_pid = fork();
         if (timer_pid == 0) {
-            sleep(timeout.count());
+            std::this_thread::sleep_for(timeout);
             _exit(ETIMEDOUT);
         }
         if (timer_pid == -1) {
@@ -1160,14 +1160,6 @@ std::string BuildDataMiscDePath(const std::string& volumeUuid, userid_t userId) 
 std::string BuildDataUserCePath(const std::string& volumeUuid, userid_t userId) {
     // TODO: unify with installd path generation logic
     std::string data(BuildDataPath(volumeUuid));
-    if (volumeUuid.empty() && userId == 0) {
-        std::string legacy = StringPrintf("%s/data", data.c_str());
-        struct stat sb;
-        if (lstat(legacy.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode)) {
-            /* /data/data is dir, return /data/data for legacy system */
-            return legacy;
-        }
-    }
     return StringPrintf("%s/user/%u", data.c_str(), userId);
 }
 
@@ -1185,6 +1177,12 @@ dev_t GetDevice(const std::string& path) {
     } else {
         return sb.st_dev;
     }
+}
+
+// Returns true if |path| exists and is a symlink.
+bool IsSymlink(const std::string& path) {
+    struct stat stbuf;
+    return lstat(path.c_str(), &stbuf) == 0 && S_ISLNK(stbuf.st_mode);
 }
 
 // Returns true if |path1| names the same existing file or directory as |path2|.
@@ -1450,7 +1448,10 @@ bool writeStringToFile(const std::string& payload, const std::string& filename) 
 status_t AbortFuseConnections() {
     namespace fs = std::filesystem;
 
-    for (const auto& itEntry : fs::directory_iterator("/sys/fs/fuse/connections")) {
+    static constexpr const char* kFuseConnections = "/sys/fs/fuse/connections";
+
+    std::error_code ec;
+    for (const auto& itEntry : fs::directory_iterator(kFuseConnections, ec)) {
         std::string fsPath = itEntry.path().string() + "/filesystem";
         std::string fs;
 
@@ -1468,6 +1469,11 @@ status_t AbortFuseConnections() {
         if (!ret) {
             LOG(WARNING) << "Failed to write to " << abortPath;
         }
+    }
+
+    if (ec) {
+        LOG(WARNING) << "Failed to iterate through " << kFuseConnections << ": "  << ec.message();
+        return -ec.value();
     }
 
     return OK;
@@ -1765,14 +1771,45 @@ std::pair<android::base::unique_fd, std::string> OpenDirInProcfs(std::string_vie
     return {std::move(fd), std::move(linkPath)};
 }
 
+static bool IsPropertySet(const char* name, bool& value) {
+    if (base::GetProperty(name, "") == "") return false;
+
+    value = base::GetBoolProperty(name, false);
+    LOG(INFO) << "fuse-bpf is " << (value ? "enabled" : "disabled") << " because of property "
+              << name;
+    return true;
+}
+
 bool IsFuseBpfEnabled() {
-    std::string bpf_override = android::base::GetProperty("persist.sys.fuse.bpf.override", "");
-    if (bpf_override == "true") {
-        return true;
-    } else if (bpf_override == "false") {
-        return false;
+    // This logic is reproduced in packages/providers/MediaProvider/jni/FuseDaemon.cpp
+    // so changes made here must be reflected there
+    bool enabled = false;
+
+    if (IsPropertySet("ro.fuse.bpf.is_running", enabled)) return enabled;
+
+    if (!IsPropertySet("persist.sys.fuse.bpf.override", enabled) &&
+        !IsPropertySet("ro.fuse.bpf.enabled", enabled)) {
+        // If the kernel has fuse-bpf, /sys/fs/fuse/features/fuse_bpf will exist and have the
+        // contents 'supported\n' - see fs/fuse/inode.c in the kernel source
+        std::string contents;
+        const char* filename = "/sys/fs/fuse/features/fuse_bpf";
+        if (!base::ReadFileToString(filename, &contents)) {
+            LOG(INFO) << "fuse-bpf is disabled because " << filename << " cannot be read";
+            enabled = false;
+        } else if (contents == "supported\n") {
+            LOG(INFO) << "fuse-bpf is enabled because " << filename << " reads 'supported'";
+            enabled = true;
+        } else {
+            LOG(INFO) << "fuse-bpf is disabled because " << filename
+                      << " does not read 'supported'";
+            enabled = false;
+        }
     }
-    return base::GetBoolProperty("ro.fuse.bpf.enabled", false);
+
+    std::string value = enabled ? "true" : "false";
+    LOG(INFO) << "Setting ro.fuse.bpf.is_running to " << value;
+    base::SetProperty("ro.fuse.bpf.is_running", value);
+    return enabled;
 }
 
 }  // namespace vold

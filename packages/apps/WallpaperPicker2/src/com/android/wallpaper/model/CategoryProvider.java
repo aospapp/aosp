@@ -70,6 +70,11 @@ public interface CategoryProvider {
     boolean resetIfNeeded();
 
     /**
+     * Checks if creative category collection is available or not.
+     */
+    boolean isCreativeCategoryAvailable();
+
+    /**
      * Checks if featured collection available.
      */
     boolean isFeaturedCollectionAvailable();

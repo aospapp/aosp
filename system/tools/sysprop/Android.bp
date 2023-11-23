@@ -67,7 +67,7 @@ cc_test_host {
            "JavaGen.cpp",
            "TypeChecker.cpp",
            "tests/*.cpp"],
-    whole_static_libs: ["com.android.sysprop.tests"],
+    whole_static_libs: ["libcom.android.sysprop.tests"],
     test_options: {
         unit_test: true,
     },

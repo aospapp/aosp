@@ -9,6 +9,8 @@
 #include <stddef.h>
 #include <math.h>
 
+#include <fp16.h>
+
 #include <fxdiv.h>
 
 #include <xnnpack/indirection.h>
@@ -200,6 +202,7 @@ void xnn_indirection_init_dwconv2d(
   xnn_operator_t op,
   size_t step_height,
   size_t step_width,
+  size_t primary_tile,
   uint32_t log2_element_size)
 {
   const void** indirection_buffer = op->indirection_buffer;
@@ -244,6 +247,12 @@ void xnn_indirection_init_dwconv2d(
         }
       }
     }
+  }
+
+  const void* last_output_pixel = indirection_buffer[output_height * step_height - 1];
+  const size_t last_kernel_index = output_height * step_height - (kernel_height * kernel_width);
+  for (size_t tile_index = kernel_height * kernel_width; tile_index < primary_tile; tile_index++) {
+    indirection_buffer[last_kernel_index + tile_index] = last_output_pixel;
   }
 }
 
@@ -320,6 +329,102 @@ void xnn_indirection_init_maxpool2d(
             indirection_buffer[index] = (const void*) ((uintptr_t) input + (input_y * input_width + input_x) * input_pixel_stride);
           }
         }
+      }
+    }
+  }
+}
+
+void xnn_indirection_init_resize_bilinear2d_hwc_f16(
+  size_t input_pixel_stride,
+  size_t input_height,
+  size_t input_width,
+  size_t output_height,
+  size_t output_width,
+  const void* input,
+  const void** indirection_buffer,
+  void* packed_weights,
+  bool align_corners,
+  bool tensorflow_legacy)
+{
+  assert(input_height != 0);
+  assert(input_height < 16777216 /* 2**24 */);
+  assert(input_width != 0);
+  assert(input_width < 16777216 /* 2**24 */);
+  assert(output_height != 0);
+  assert(output_height < 16777216 /* 2**24 */);
+  assert(output_width != 0);
+  assert(output_width < 16777216 /* 2**24 */);
+
+  const int32_t width_adjustment = (int32_t) (align_corners && output_width != 1);
+  const int32_t height_adjustment = (int32_t) (align_corners && output_height != 1);
+  const float width_scale =
+    (float) ((int32_t) input_width - width_adjustment) / (float) ((int32_t) output_width - width_adjustment);
+  const float height_scale =
+    (float) ((int32_t) input_height - height_adjustment) / (float) ((int32_t) output_height - height_adjustment);
+
+  uint16_t* w = (uint16_t*) packed_weights;
+  const uint32_t input_y_max = (uint32_t) input_height - 1;
+  const uint32_t input_x_max = (uint32_t) input_width - 1;
+  if (tensorflow_legacy || align_corners) {
+    for (size_t output_y = 0; output_y < output_height; output_y++) {
+      const float input_y = (float) (int32_t) output_y * height_scale;
+      assert(input_y >= 0.0f);
+      assert(input_y < (float) input_height);
+
+      const uint32_t input_y_top = (uint32_t) (int32_t) input_y;
+      const uint32_t input_y_bottom = math_min_u32(input_y_top + 1, input_y_max);
+      const float alpha_y = input_y - (float) input_y_top;
+      for (size_t output_x = 0; output_x < output_width; output_x++) {
+        const float input_x = (float) (int32_t) output_x * width_scale;
+        assert(input_x >= 0.0f);
+        assert(input_x < (float) input_width);
+
+        const uint32_t input_x_left = (uint32_t) (int32_t) input_x;
+        const uint32_t input_x_right = math_min_u32(input_x_left + 1, input_x_max);
+        const float alpha_x = input_x - (float) input_x_left;
+        indirection_buffer[0] =
+          (void*) ((uintptr_t) input + (input_y_top * input_width + input_x_left) * input_pixel_stride);
+        indirection_buffer[1] =
+          (void*) ((uintptr_t) input + (input_y_top * input_width + input_x_right) * input_pixel_stride);
+        indirection_buffer[2] =
+          (void*) ((uintptr_t) input + (input_y_bottom * input_width + input_x_left) * input_pixel_stride);
+        indirection_buffer[3] =
+          (void*) ((uintptr_t) input + (input_y_bottom * input_width + input_x_right) * input_pixel_stride);
+        w[0] = fp16_ieee_from_fp32_value(alpha_x);
+        w[1] = fp16_ieee_from_fp32_value(alpha_y);
+        indirection_buffer += 4;
+        w += 2;
+      }
+    }
+  } else {
+    const float height_offset = 0.5f * height_scale - 0.5f;
+    const float width_offset = 0.5f * width_scale - 0.5f;
+    for (size_t output_y = 0; output_y < output_height; output_y++) {
+      float input_y = (float) (int32_t) output_y * height_scale + height_offset;
+      input_y = math_min_f32(math_max_f32(input_y, 0.0f), (float) input_y_max);
+      const uint32_t input_y_top = (uint32_t) (int32_t) input_y;
+      assert((int32_t) input_y_top >= 0);
+      const uint32_t input_y_bottom = math_min_u32(input_y_top + 1, input_y_max);
+      const float alpha_y = input_y - (float) input_y_top;
+      for (size_t output_x = 0; output_x < output_width; output_x++) {
+        float input_x = (float) (int32_t) output_x * width_scale + width_offset;
+        input_x = math_min_f32(math_max_f32(input_x, 0.0f), (float) input_x_max);
+        const uint32_t input_x_left = (uint32_t) (int32_t) input_x;
+        assert((int32_t) input_x_left >= 0);
+        const uint32_t input_x_right = math_min_u32(input_x_left + 1, input_x_max);
+        const float alpha_x = input_x - (float) input_x_left;
+        indirection_buffer[0] =
+          (void*) ((uintptr_t) input + (input_y_top * input_width + input_x_left) * input_pixel_stride);
+        indirection_buffer[1] =
+          (void*) ((uintptr_t) input + (input_y_top * input_width + input_x_right) * input_pixel_stride);
+        indirection_buffer[2] =
+          (void*) ((uintptr_t) input + (input_y_bottom * input_width + input_x_left) * input_pixel_stride);
+        indirection_buffer[3] =
+          (void*) ((uintptr_t) input + (input_y_bottom * input_width + input_x_right) * input_pixel_stride);
+        w[0] = fp16_ieee_from_fp32_value(alpha_x);
+        w[1] = fp16_ieee_from_fp32_value(alpha_y);
+        indirection_buffer += 4;
+        w += 2;
       }
     }
   }
@@ -515,6 +620,107 @@ void xnn_indirection_init_resize_bilinear2d_hwc_q11(
   }
 }
 
+void xnn_indirection_init_resize_bilinear2d_chw_f16(
+  size_t input_pixel_stride,
+  size_t input_height,
+  size_t input_width,
+  size_t output_height,
+  size_t output_width,
+  const void* input,
+  const void** indirection_buffer,
+  void* packed_weights,
+  bool align_corners,
+  bool tensorflow_legacy)
+{
+  assert(input_height > 1);
+  assert(input_height < 16777216 /* 2**24 */);
+  assert(input_width > 1);
+  assert(input_width < 16777216 /* 2**24 */);
+  assert(output_height != 0);
+  assert(output_height < 16777216 /* 2**24 */);
+  assert(output_width != 0);
+  assert(output_width < 16777216 /* 2**24 */);
+
+  const int32_t width_adjustment = (int32_t) (align_corners && output_width != 1);
+  const int32_t height_adjustment = (int32_t) (align_corners && output_height != 1);
+  const float width_scale =
+    (float) ((int32_t) input_width - width_adjustment) / (float) ((int32_t) output_width - width_adjustment);
+  const float height_scale =
+    (float) ((int32_t) input_height - height_adjustment) / (float) ((int32_t) output_height - height_adjustment);
+
+  uint16_t* w = (uint16_t*) packed_weights;
+  const uint32_t input_y_max = (uint32_t) input_height - 1;
+  const uint32_t input_x_max = (uint32_t) input_width - 1;
+  if (tensorflow_legacy || align_corners) {
+    for (size_t output_y = 0; output_y < output_height; output_y++) {
+      const float input_y = (float) (int32_t) output_y * height_scale;
+      assert(input_y >= 0.0f);
+      assert(input_y < (float) input_height);
+
+      const uint32_t input_y_top = (uint32_t) (int32_t) input_y;
+      const uint32_t input_y_bottom = math_min_u32(input_y_top + 1, input_y_max);
+      const float alpha_y = input_y - (float) input_y_top;
+      for (size_t output_x = 0; output_x < output_width; output_x++) {
+        const float input_x = (float) (int32_t) output_x * width_scale;
+        assert(input_x >= 0.0f);
+        assert(input_x < (float) input_width);
+
+        uint32_t input_x_left = (uint32_t) (int32_t) input_x;
+
+        float alpha_x = input_x - (float) input_x_left;
+        if (input_x_left == input_x_max) {
+          // Ensure that there is a pixel to the right of the one pointed at,
+          // as required by some CHW kernels.
+          --input_x_left;
+          alpha_x = 1.0f;
+        }
+       indirection_buffer[0] =
+          (void*) ((uintptr_t) input + (input_y_top * input_width + input_x_left) * input_pixel_stride);
+       indirection_buffer[1] =
+          (void*) ((uintptr_t) input + (input_y_bottom * input_width + input_x_left) * input_pixel_stride);
+        w[0] = fp16_ieee_from_fp32_value(alpha_x);
+        w[1] = fp16_ieee_from_fp32_value(alpha_y);
+        indirection_buffer += 2;
+        w += 2;
+      }
+    }
+  } else {
+    const float height_offset = 0.5f * height_scale - 0.5f;
+    const float width_offset = 0.5f * width_scale - 0.5f;
+    for (size_t output_y = 0; output_y < output_height; output_y++) {
+      float input_y = (float) (int32_t) output_y * height_scale + height_offset;
+      input_y = math_min_f32(math_max_f32(input_y, 0.0f), (float) input_y_max);
+      const uint32_t input_y_top = (uint32_t) (int32_t) input_y;
+      assert((int32_t) input_y_top >= 0);
+      const uint32_t input_y_bottom = math_min_u32(input_y_top + 1, input_y_max);
+      const float alpha_y = input_y - (float) input_y_top;
+      for (size_t output_x = 0; output_x < output_width; output_x++) {
+        float input_x = (float) (int32_t) output_x * width_scale + width_offset;
+        input_x = math_min_f32(math_max_f32(input_x, 0.0f), (float) input_x_max);
+        uint32_t input_x_left = (uint32_t) (int32_t) input_x;
+        assert((int32_t) input_x_left >= 0);
+
+        float alpha_x = input_x - (float) input_x_left;
+        if (input_x_left == input_x_max) {
+          // Ensure that there is a pixel to the right of the one pointed at,
+          // as required by some CHW kernels.
+          --input_x_left;
+          alpha_x = 1.0f;
+        }
+
+        indirection_buffer[0] =
+          (void*) ((uintptr_t) input + (input_y_top * input_width + input_x_left) * input_pixel_stride);
+        indirection_buffer[1] =
+          (void*) ((uintptr_t) input + (input_y_bottom * input_width + input_x_left) * input_pixel_stride);
+        w[0] = fp16_ieee_from_fp32_value(alpha_x);
+        w[1] = fp16_ieee_from_fp32_value(alpha_y);
+        indirection_buffer += 2;
+        w += 2;
+      }
+    }
+  }
+}
+
 void xnn_indirection_init_resize_bilinear2d_chw_f32(
   size_t input_pixel_stride,
   size_t input_height,
@@ -645,6 +851,58 @@ void xnn_indirection_init_unpool2d(
           }
         }
       }
+    }
+  }
+}
+
+void xnn_indirection_init_pavgpool2d_f16(
+  size_t input_height,
+  size_t input_width,
+  size_t output_height,
+  size_t output_width,
+  size_t pooling_height,
+  size_t pooling_width,
+  size_t stride_height,
+  size_t stride_width,
+  size_t padding_top,
+  size_t padding_left,
+  uint16_t* pixelwise_buffer)
+{
+  for (size_t output_y = 0; output_y < output_height; output_y++) {
+    const size_t input_y_start = doz(output_y * stride_height, padding_top);
+    const size_t input_y_end = min(doz(output_y * stride_height + pooling_height, padding_top), input_height);
+    const uint32_t input_y_range = (uint32_t) (input_y_end - input_y_start);
+    for (size_t output_x = 0; output_x < output_width; output_x++) {
+      const size_t input_x_start = doz(output_x * stride_width, padding_left);
+      const size_t input_x_end = min(doz(output_x * stride_width + pooling_width, padding_left), input_width);
+      const uint32_t input_x_range = (uint32_t) (input_x_end - input_x_start);
+      *pixelwise_buffer++ = fp16_ieee_from_fp32_value(1.0f / ((float) (int32_t) (input_y_range * input_x_range)));
+    }
+  }
+}
+
+void xnn_indirection_init_pavgpool2d_f32(
+  size_t input_height,
+  size_t input_width,
+  size_t output_height,
+  size_t output_width,
+  size_t pooling_height,
+  size_t pooling_width,
+  size_t stride_height,
+  size_t stride_width,
+  size_t padding_top,
+  size_t padding_left,
+  float* pixelwise_buffer)
+{
+  for (size_t output_y = 0; output_y < output_height; output_y++) {
+    const size_t input_y_start = doz(output_y * stride_height, padding_top);
+    const size_t input_y_end = min(doz(output_y * stride_height + pooling_height, padding_top), input_height);
+    const uint32_t input_y_range = (uint32_t) (input_y_end - input_y_start);
+    for (size_t output_x = 0; output_x < output_width; output_x++) {
+      const size_t input_x_start = doz(output_x * stride_width, padding_left);
+      const size_t input_x_end = min(doz(output_x * stride_width + pooling_width, padding_left), input_width);
+      const uint32_t input_x_range = (uint32_t) (input_x_end - input_x_start);
+      *pixelwise_buffer++ = 1.0f / ((float) (int32_t) (input_y_range * input_x_range));
     }
   }
 }

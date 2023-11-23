@@ -31,14 +31,14 @@ namespace nl80211 {
 
 class PnoSettings : public ::android::Parcelable {
  public:
-  static const uint32_t kFastScanIterations;
-  static const uint32_t kSlowScanIntervalMultiplier;
 
   PnoSettings()
       : interval_ms_(0),
         min_2g_rssi_(0),
         min_5g_rssi_(0),
-        min_6g_rssi_(0) {}
+        min_6g_rssi_(0),
+        scan_iterations_(0),
+        scan_interval_multiplier_(0) {}
   bool operator==(const PnoSettings& rhs) const {
     return (pno_networks_ == rhs.pno_networks_ &&
             min_2g_rssi_ == rhs.min_2g_rssi_ &&
@@ -52,6 +52,8 @@ class PnoSettings : public ::android::Parcelable {
   int32_t min_2g_rssi_;
   int32_t min_5g_rssi_;
   int32_t min_6g_rssi_;
+  uint32_t scan_iterations_;
+  uint32_t scan_interval_multiplier_;
   std::vector<PnoNetwork> pno_networks_;
 };
 

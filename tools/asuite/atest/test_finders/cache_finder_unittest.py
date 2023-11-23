@@ -23,13 +23,13 @@ import os
 
 from unittest import mock
 
-import atest_utils
-import constants
-import module_info
-import unittest_constants as uc
+from atest import atest_utils
+from atest import constants
+from atest import module_info
+from atest import unittest_constants as uc
 
-from test_finders import cache_finder
-from test_finders import test_info
+from atest.test_finders import cache_finder
+from atest.test_finders import test_info
 
 
 #pylint: disable=protected-access

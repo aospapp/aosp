@@ -15,15 +15,19 @@
  */
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
-import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import com.android.tradefed.util.RunUtil;
 import android.platform.test.annotations.AsbSecurityTest;
 
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
+import com.android.sts.common.util.TombstoneUtils;
+import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2021_30351 extends SecurityTestCase {
+public class CVE_2021_30351 extends NonRootSecurityTestCase {
 
     /**
      * CVE-2021-30351
@@ -37,7 +41,8 @@ public class CVE_2021_30351 extends SecurityTestCase {
         String packageName = "android.security.cts.CVE_2021_30351";
         ITestDevice device = getDevice();
 
-        try {
+        TombstoneUtils.Config config = new TombstoneUtils.Config().setProcessPatterns("media.codec");
+        try (AutoCloseable a = TombstoneUtils.withAssertNoSecurityCrashes(getDevice(), config)) {
             /* Push the app to /data/local/tmp */
             pocPusher.appendBitness(false);
             pocPusher.pushFile(apkName, appPath);
@@ -52,17 +57,12 @@ public class CVE_2021_30351 extends SecurityTestCase {
 
             /* Start the application */
             AdbUtils.runCommandLine("am start -n " + packageName + "/.MainActivity", getDevice());
-            Thread.sleep(SLEEP_INTERVAL_MILLISEC);
+            RunUtil.getDefault().sleep(SLEEP_INTERVAL_MILLISEC);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
             /* Un-install the app after the test */
             AdbUtils.runCommandLine("pm uninstall " + packageName, device);
-
-            /* Check if media.codec has crashed thereby indicating the presence */
-            /* of the vulnerability */
-            String logcat = AdbUtils.runCommandLine("logcat -d", device);
-            AdbUtils.assertNoCrashes(getDevice(), "media.codec");
         }
     }
 }

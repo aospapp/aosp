@@ -1,15 +1,20 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 use std::fs::OpenOptions;
 
-use crate::Pstore;
-use anyhow::{bail, Context, Result};
+use anyhow::bail;
+use anyhow::Context;
+use anyhow::Result;
 use base::MemoryMappingBuilder;
 use hypervisor::Vm;
-use resources::MemRegion;
+use resources::AddressRange;
 use vm_memory::GuestAddress;
+
+use crate::Pstore;
+
+mod sys;
 
 pub struct RamoopsRegion {
     pub address: u64,
@@ -19,17 +24,19 @@ pub struct RamoopsRegion {
 /// Creates a mmio memory region for pstore.
 pub fn create_memory_region(
     vm: &mut impl Vm,
-    region: &MemRegion,
+    region: AddressRange,
     pstore: &Pstore,
 ) -> Result<RamoopsRegion> {
-    if region.size < pstore.size.into() {
-        bail!("insufficient space for pstore {:?} {}", region, pstore.size);
+    let region_size = region.len().context("failed to get region len")?;
+    if region_size < pstore.size.into() {
+        bail!("insufficient space for pstore {} {}", region, pstore.size);
     }
 
-    let file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
+    let mut open_opts = OpenOptions::new();
+    open_opts.read(true).write(true).create(true);
+    sys::set_extra_open_opts(&mut open_opts);
+
+    let file = open_opts
         .open(&pstore.path)
         .context("failed to open pstore")?;
     file.set_len(pstore.size as u64)
@@ -41,7 +48,7 @@ pub fn create_memory_region(
         .context("failed to mmap pstore")?;
 
     vm.add_memory_region(
-        GuestAddress(region.base),
+        GuestAddress(region.start),
         Box::new(memory_mapping),
         false,
         false,
@@ -49,7 +56,7 @@ pub fn create_memory_region(
     .context("failed to add pstore region")?;
 
     Ok(RamoopsRegion {
-        address: region.base,
+        address: region.start,
         size: pstore.size,
     })
 }

@@ -35,11 +35,11 @@ inline uint32_t String::ClassSize(PointerSize pointer_size) {
   //   lambda$codePoints$1$CharSequence
   // which were virtual functions in standalone desugar, becomes
   // direct functions with D8 desugaring.
-  uint32_t vtable_entries = Object::kVTableLength + 60;
+  uint32_t vtable_entries = Object::kVTableLength + 67;
 #else
-  uint32_t vtable_entries = Object::kVTableLength + 62;
+  uint32_t vtable_entries = Object::kVTableLength + 69;
 #endif
-  return Class::ComputeClassSize(true, vtable_entries, 0, 0, 0, 1, 2, pointer_size);
+  return Class::ComputeClassSize(true, vtable_entries, 3, 0, 0, 1, 2, pointer_size);
 }
 
 inline uint16_t String::CharAt(int32_t index) {
@@ -83,11 +83,11 @@ inline int32_t String::GetHashCode() {
   return result;
 }
 
-inline int32_t String::GetUtfLength() {
+inline int32_t String::GetModifiedUtf8Length() {
   if (IsCompressed()) {
     return GetLength();
   } else {
-    return CountUtf8Bytes(GetValue(), GetLength());
+    return CountModifiedUtf8BytesInUtf16(GetValue(), GetLength());
   }
 }
 

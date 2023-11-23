@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -32,7 +33,7 @@ class bluetooth_AdapterCLHealth(BluetoothAdapterQuickTests,
     batch_wrapper = BluetoothAdapterQuickTests.quick_test_batch_decorator
 
 
-    @test_wrapper('Discovery Test', devices={"MOUSE":1})
+    @test_wrapper('Discovery Test', devices={"MOUSE": 1}, supports_floss=True)
     def cl_adapter_discovery_test(self):
         """Performs pairing test with mouse peripheral"""
         device = self.devices['MOUSE'][0]
@@ -41,7 +42,9 @@ class bluetooth_AdapterCLHealth(BluetoothAdapterQuickTests,
         self.test_device_name(device.address, device.name)
 
 
-    @test_wrapper('Discoverable Test', devices={"MOUSE":1})
+    @test_wrapper('Discoverable Test',
+                  devices={"MOUSE": 1},
+                  supports_floss=True)
     def cl_adapter_discoverable_test(self):
         """Verifies that DUT can become discoverable and be discovered"""
 
@@ -54,7 +57,7 @@ class bluetooth_AdapterCLHealth(BluetoothAdapterQuickTests,
         self.test_discover_by_device(device)
 
 
-    @test_wrapper('Pairing Test', devices={"MOUSE":1})
+    @test_wrapper('Pairing Test', devices={"MOUSE": 1}, supports_floss=True)
     def cl_adapter_pairing_test(self):
         """Performs pairing test with mouse peripheral"""
         device = self.devices['MOUSE'][0]
@@ -63,7 +66,9 @@ class bluetooth_AdapterCLHealth(BluetoothAdapterQuickTests,
                           self.test_mouse_right_click)
 
 
-    @test_wrapper('keyboard Pairing Test', devices={"KEYBOARD":1})
+    @test_wrapper('keyboard Pairing Test',
+                  devices={"KEYBOARD": 1},
+                  supports_floss=True)
     def cl_adapter_keyboard_pairing_test(self):
         """Performs pairing test with keyboard peripheral"""
         device = self.devices['KEYBOARD'][0]
@@ -72,7 +77,9 @@ class bluetooth_AdapterCLHealth(BluetoothAdapterQuickTests,
                           self.run_keyboard_tests)
 
 
-    @test_wrapper('Pairing Suspend Resume Test', devices={"MOUSE": 1})
+    @test_wrapper('Pairing Suspend Resume Test',
+                  devices={"MOUSE": 1},
+                  supports_floss=True)
     def cl_adapter_pairing_suspend_resume_test(self):
         """Performs pairing test over resume with mouse peripheral"""
         device = self.devices['MOUSE'][0]
@@ -82,7 +89,9 @@ class bluetooth_AdapterCLHealth(BluetoothAdapterQuickTests,
                           suspend_resume=True)
 
 
-    @test_wrapper('Pairing Twice Test', devices={"MOUSE":1})
+    @test_wrapper('Pairing Twice Test',
+                  devices={"MOUSE": 1},
+                  supports_floss=True)
     def cl_adapter_pairing_twice_test(self):
         """Performs pairing twice test with  mouse peripheral"""
         device = self.devices['MOUSE'][0]
@@ -92,7 +101,9 @@ class bluetooth_AdapterCLHealth(BluetoothAdapterQuickTests,
                           pairing_twice=True)
 
 
-    @test_wrapper('HID Reports Test', devices={"MOUSE":1})
+    @test_wrapper('HID Reports Test',
+                  devices={"MOUSE": 1},
+                  supports_floss=True)
     def cl_HID_reports_test(self):
         """Performs HID report test with mouse peripheral"""
         device = self.devices['MOUSE'][0]
@@ -101,7 +112,9 @@ class bluetooth_AdapterCLHealth(BluetoothAdapterQuickTests,
                           self.test_mouse_right_click)
 
 
-    @test_wrapper('HID keyboard Reports Test', devices={'KEYBOARD':1})
+    @test_wrapper('HID keyboard Reports Test',
+                  devices={'KEYBOARD': 1},
+                  supports_floss=True)
     def cl_HID_keyboard_reports_test(self):
         """Performs HID report test with keyboard peripheral"""
         device = self.devices['KEYBOARD'][0]
@@ -110,7 +123,19 @@ class bluetooth_AdapterCLHealth(BluetoothAdapterQuickTests,
                           self.run_keyboard_tests)
 
 
-    @test_wrapper('HID Reports Suspend Resume Test', devices={"MOUSE": 1})
+    @test_wrapper('HID Reconnect Speed Test',
+                  devices={"MOUSE": 1},
+                  flags=['Quick Health'],
+                  supports_floss=True)
+    def cl_HID_reconnect_speed_test(self):
+        """Performs HID reconnect speed test with mouse peripheral"""
+        device = self.devices['MOUSE'][0]
+        self.hid_reconnect_speed(device=device, device_type='MOUSE')
+
+
+    @test_wrapper('HID Reports Suspend Resume Test',
+                  devices={"MOUSE": 1},
+                  supports_floss=True)
     def cl_HID_reports_suspend_resume_test(self):
         """Performs HID report test over resume with mouse peripheral"""
         device = self.devices['MOUSE'][0]
@@ -119,7 +144,9 @@ class bluetooth_AdapterCLHealth(BluetoothAdapterQuickTests,
                           self.test_mouse_right_click, suspend_resume=True)
 
 
-    @test_wrapper('HID Reports Reboot Test', devices={"MOUSE":1})
+    @test_wrapper('HID Reports Reboot Test',
+                  devices={"MOUSE": 1},
+                  supports_floss=True)
     def cl_HID_reports_reboot_test(self):
         """Performs HID report test over reboot with mouse peripheral"""
         device = self.devices['MOUSE'][0]
@@ -128,7 +155,38 @@ class bluetooth_AdapterCLHealth(BluetoothAdapterQuickTests,
                           self.test_mouse_right_click, reboot=True)
 
 
-    @test_wrapper('Connect Disconnect Loop Test', devices={"MOUSE":1})
+    @test_wrapper('HID Reports Restart Test',
+                  devices={"MOUSE": 1},
+                  flags=['Quick Health'],
+                  supports_floss=True)
+    def cl_HID_reports_restart_test(self):
+        """Performs HID report test over bluetoothd restart with mouse
+           peripheral
+        """
+        device = self.devices['MOUSE'][0]
+        self.run_hid_reports_test(
+                device,
+                check_connected_method=self.test_mouse_move_in_xy,
+                restart=True)
+
+
+    @test_wrapper('Connect Disconnect by Device Loop Test',
+                  devices={"MOUSE": 1},
+                  flags=['Quick Health'],
+                  supports_floss=True)
+    def cl_connect_disconnect_by_device_loop_test(self):
+        """Performs connect/disconnect by device test with mouse peripheral"""
+        device = self.devices['MOUSE'][0]
+        self.connect_disconnect_by_device_loop(
+                device=device,
+                loops=3,
+                device_type='MOUSE',
+                check_connected_method=self.test_mouse_move_in_xy)
+
+
+    @test_wrapper('Connect Disconnect Loop Test',
+                  devices={"MOUSE": 1},
+                  supports_floss=True)
     def cl_connect_disconnect_loop_test(self):
         """Performs connect/disconnect test with mouse peripheral"""
         device = self.devices['MOUSE'][0]
@@ -204,6 +262,7 @@ class bluetooth_AdapterCLHealth(BluetoothAdapterQuickTests,
         """
         self.cl_HID_keyboard_reports_test()
         self.cl_HID_reports_reboot_test()
+        self.cl_HID_reports_restart_test()
         self.cl_HID_reports_suspend_resume_test()
         self.cl_HID_reports_test()
         self.cl_adapter_discoverable_test()
@@ -212,6 +271,7 @@ class bluetooth_AdapterCLHealth(BluetoothAdapterQuickTests,
         self.cl_adapter_pairing_suspend_resume_test()
         self.cl_adapter_pairing_test()
         self.cl_adapter_pairing_twice_test()
+        self.cl_connect_disconnect_by_device_loop_test()
         self.cl_connect_disconnect_loop_test()
         self.cl_sdp_service_attribute_request_test()
         self.cl_sdp_service_browse_test()
@@ -224,7 +284,8 @@ class bluetooth_AdapterCLHealth(BluetoothAdapterQuickTests,
                  num_iterations=1,
                  args_dict=None,
                  test_name=None,
-                 flag='Quick Health'):
+                 flag='Quick Health',
+                 floss=False):
         """Run the batch of Bluetooth Classic health tests
 
         @param host: the DUT, usually a chromebook
@@ -236,6 +297,7 @@ class bluetooth_AdapterCLHealth(BluetoothAdapterQuickTests,
         self.quick_test_init(host,
                              use_btpeer=True,
                              flag=flag,
-                             args_dict=args_dict)
+                             args_dict=args_dict,
+                             floss=floss)
         self.cl_health_batch_run(num_iterations, test_name)
         self.quick_test_cleanup()

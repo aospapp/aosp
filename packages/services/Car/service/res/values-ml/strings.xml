@@ -42,8 +42,6 @@
     <string name="car_permission_desc_projection" msgid="2352178999656292944">"ഫോണിൽ നിന്നുള്ള ഇൻ്റർഫേസ് കാറിൻ്റെ ഡിസ്‌പ്ലേയിൽ പ്രൊജക്‌റ്റ് ചെയ്യാൻ ആപ്പിനെ അനുവദിക്കുന്നു."</string>
     <string name="car_permission_label_access_projection_status" msgid="4231618890836627402">"പ്രൊജക്ഷൻ നില ആക്‌സസ് ചെയ്യുക"</string>
     <string name="car_permission_desc_access_projection_status" msgid="8497351979100616278">"കാറിൻ്റെ ഡിസ്‌പ്ലേയിൽ പ്രൊജക്‌റ്റ് ചെയ്യുന്ന മറ്റ് ആപ്പുകളുടെ സ്‌റ്റാറ്റസ് ലഭിക്കാൻ ആപ്പിനെ അനുവദിക്കുന്നു."</string>
-    <string name="car_permission_label_bind_projection_service" msgid="5362076216606651526">"പ്രൊജക്ഷൻ സേവനവുമായി ബന്ധിപ്പിക്കുക"</string>
-    <string name="car_permission_desc_bind_projection_service" msgid="2282657787853408639">"പ്രൊജക്ഷൻ സേവനത്തിൻ്റെ ഏറ്റവും മികച്ച ഇൻ്റർഫേസുമായി ബന്ധിപ്പിക്കാൻ ദാതാവിനെ അനുവദിക്കുന്നു. സാധാരണ ആപ്പുകൾക്ക് ഒരിക്കലും ആവശ്യമില്ല."</string>
     <string name="car_permission_label_audio_volume" msgid="310587969373137690">"കാറിൻ്റെ ഓഡിയോ വോളിയം നിയന്ത്രിക്കുക"</string>
     <string name="car_permission_label_audio_settings" msgid="6524703796944023977">"കാറിൻ്റെ ഓഡിയോ ക്രമീകരണം മാനേജ് ചെയ്യുക"</string>
     <string name="car_permission_label_mock_vehicle_hal" msgid="7198852512207405935">"വാഹന HAL എമുലേറ്റ് ചെയ്യുക"</string>
@@ -62,8 +60,6 @@
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"ഇൻസ്‌ട്രുമെന്റ് ക്ലസ്‌റ്ററിൽ ആപ്പുകൾ ലോഞ്ച് ചെയ്യുക"</string>
     <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"ഇൻസ്‌ട്രുമെന്റ് ക്ലസ്‌റ്ററിലെ നാവിഗേഷൻ നില"</string>
     <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"ഇൻസ്‌ട്രുമെന്റ് ക്ലസ്‌റ്ററിലെ നാവിഗേഷൻ നിലയിലെ മാറ്റങ്ങൾ ശ്രദ്ധിക്കുക"</string>
-    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"ഇൻസ്‌ട്രുമെന്റ് ക്ലസ്‌റ്റർ റെൻഡർ ചെയ്യൽ"</string>
-    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"ഇൻസ്‌ട്രുമെന്റ് ക്ലസ്‌റ്റർ ഡാറ്റ സ്വീകരിക്കുക"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"UX നിയന്ത്രണങ്ങളുടെ കോൺഫിഗറേഷൻ"</string>
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"UX നിയന്ത്രണങ്ങൾ കോൺഫിഗർ ചെയ്യുക"</string>
     <string name="car_permission_label_access_private_display_id" msgid="6712116114341634316">"സ്വകാര്യ ഡിസ്‌പ്ലേ ഐഡിക്കുള്ള വായനാ ആക്‌സസ്"</string>
@@ -74,8 +70,12 @@
     <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"ഒക്യുപന്റ് അവയർനെസ് സിസ്റ്റത്തിനുള്ള വായനാ നിലയും കണ്ടെത്തൽ ഡാറ്റയും അനുവദിക്കുന്നു"</string>
     <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"ഒക്യുപന്റ് അവയർനെസ് സിസ്റ്റം ഗ്രാഫ് നിയന്ത്രിക്കുക"</string>
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"ഒക്യുപന്റ് അവയർനെസ് സിസ്റ്റം കണ്ടെത്തൽ ഗ്രാഫിന്റെ ആരംഭവും നിർത്തലും നിയന്ത്രിക്കാൻ അനുവദിക്കുന്നു"</string>
-    <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"കാറിന്റെ ഇൻപുട്ട് സേവനം"</string>
-    <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"ഇൻപുട്ട് ഇവന്റുകൾ കൈകാര്യം ചെയ്യുക"</string>
+    <string name="car_permission_label_read_driver_monitoring_settings" msgid="5208935577581001710">"കാറിന്റെ ഡ്രൈവർ മോണിറ്ററിംഗ് ക്രമീകരണ വിവരം വായിക്കുക"</string>
+    <string name="car_permission_desc_read_driver_monitoring_settings" msgid="3721117607024237175">"കാറിന്റെ ഡ്രൈവർ മോണിറ്ററിംഗ് ക്രമീകരണ വിവരം വായിക്കുക."</string>
+    <string name="car_permission_label_control_driver_monitoring_settings" msgid="239453247872865455">"കാറിന്റെ ഡ്രൈവർ മോണിറ്ററിംഗ് ക്രമീകരണ വിവരം നിയന്ത്രിക്കുക"</string>
+    <string name="car_permission_desc_control_driver_monitoring_settings" msgid="7244804817277236221">"കാറിന്റെ ഡ്രൈവർ മോണിറ്ററിംഗ് ക്രമീകരണ വിവരം നിയന്ത്രിക്കുക."</string>
+    <string name="car_permission_label_read_driver_monitoring_states" msgid="1555412806741155523">"കാറിന്റെ ഡ്രൈവർ മോണിറ്ററിംഗ് നിലകൾ സംബന്ധിച്ച വിവരങ്ങൾ വായിക്കുക"</string>
+    <string name="car_permission_desc_read_driver_monitoring_states" msgid="3124328827934661489">"കാറിന്റെ ഡ്രൈവർ മോണിറ്ററിംഗ് നിലകൾ സംബന്ധിച്ച വിവരങ്ങൾ വായിക്കുക."</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"പ്രശ്‌നനിർണ്ണയ ഡാറ്റ വായിക്കുക"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"കാറിൽ നിന്നുള്ള പ്രശ്‌നനിർണ്ണയ ഡാറ്റ വായിക്കുക."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"പ്രശ്‌നനിർണ്ണയ ഡാറ്റ മായ്‌ക്കുക"</string>
@@ -84,8 +84,6 @@
     <string name="car_permission_desc_vms_publisher" msgid="5589489298597386828">"VMS മെസേജുകൾ പ്രസിദ്ധീകരിക്കുക"</string>
     <string name="car_permission_label_vms_subscriber" msgid="5648841182059222299">"VMS വരിക്കാരൻ"</string>
     <string name="car_permission_desc_vms_subscriber" msgid="7551009457847673620">"VMS മെസേജിൻ്റെ വരിക്കാരാവുക"</string>
-    <string name="car_permission_label_bind_vms_client" msgid="4889732900973280313">"VMS ക്ലയൻ്റ് സേവനം"</string>
-    <string name="car_permission_desc_bind_vms_client" msgid="4062835325264330564">"VMS ക്ലയൻ്റുകളുമായി ബന്ധിപ്പിക്കുക"</string>
     <string name="car_permission_label_storage_monitoring" msgid="2327639346522530549">"ഫ്ലാഷ് സ്‌റ്റോറേജ് നിരീക്ഷിക്കുന്നു"</string>
     <string name="car_permission_desc_storage_monitoring" msgid="2075712271139671318">"ഫ്ലാഷ് സ്‌റ്റോറേജ് ഉപയോഗം നിരീക്ഷിക്കുക"</string>
     <string name="car_permission_label_driving_state" msgid="7754624599537393650">"ഡ്രൈവിംഗ് നില ശ്രദ്ധിക്കുക"</string>
@@ -118,6 +116,8 @@
     <string name="car_permission_desc_control_car_mirrors" msgid="1224135684068855032">"കാറിൻ്റെ കണ്ണാടികൾ നിയന്ത്രിക്കുക."</string>
     <string name="car_permission_label_control_car_seats" msgid="1826934820585497135">"കാറിൻ്റെ സീറ്റുകൾ നിയന്ത്രിക്കുക"</string>
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"കാറിൻ്റെ സീറ്റുകൾ നിയന്ത്രിക്കുക."</string>
+    <string name="car_permission_label_control_car_airbags" msgid="6823727183218389617">"കാറിന്റെ എയർബാഗുകൾ നിയന്ത്രിക്കുക"</string>
+    <string name="car_permission_desc_control_car_airbags" msgid="6181671903761622348">"കാറിന്റെ എയർബാഗുകൾ നിയന്ത്രിക്കുക."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"കാറിൻ്റെ അടിസ്ഥാന വിവരങ്ങൾ ആക്‌സസ് ചെയ്യുക"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"കാറിൻ്റെ അടിസ്ഥാന വിവരങ്ങൾ ആക്‌സസ് ചെയ്യുക."</string>
     <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"കാറിലെ, പ്രത്യേക അവകാശങ്ങളുള്ളവർക്ക് ആക്‌സസുള്ള വിവരങ്ങൾ ആക്സസ് ചെയ്യുക"</string>
@@ -126,10 +126,10 @@
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"കാറിന്റെ വെൻഡർ അനുമതി വിവരങ്ങൾ ആക്‌സസ് ചെയ്യുക."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"കാറിൻ്റെ പുറംഭാഗത്തെ ലൈറ്റുകളുടെ നില വായിക്കുക"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"കാറിൻ്റെ പുറംഭാഗത്തെ ലൈറ്റുകളുടെ നില ആക്‌സസ് ചെയ്യുക."</string>
+    <string name="car_permission_label_control_glove_box" msgid="992118647212706782">"കാറിന്റെ ഗ്ലൗ ബോക്‌സ് സ്‌റ്റേറ്റ് ആക്‌സസ് ചെയ്യുക"</string>
+    <string name="car_permission_desc_control_glove_box" msgid="2888062136750123261">"കാറിന്റെ ഗ്ലൗ ബോക്‌സ് സ്‌റ്റേറ്റ് ആക്‌സസ് ചെയ്യുക."</string>
     <string name="car_permission_label_car_epoch_time" msgid="6303397910662625112">"കാറിന്റെ epoch സമയം ആക്സസ് ചെയ്യുക"</string>
     <string name="car_permission_desc_car_epoch_time" msgid="398907082895238558">"കാറിന്റെ epoch സമയം ആക്സസ് ചെയ്യുക."</string>
-    <string name="car_permission_label_encryption_binding_seed" msgid="4652180636501144684">"കാറിന്റെ എൻക്രിപ്‌ഷൻ ബെെൻഡിംഗ് സീഡ് ആക്‌സസ് ചെയ്യുക"</string>
-    <string name="car_permission_desc_encryption_binding_seed" msgid="6290944678417286024">"കാറിന്റെ എൻക്രിപ്‌ഷൻ ബെെൻഡിംഗ് സീഡ് ആക്‌സസ് ചെയ്യുക."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"കാറിൻ്റെ പുറംഭാഗത്തെ ലൈറ്റുകളുടെ നില വായിക്കുക"</string>
     <string name="car_permission_desc_control_car_exterior_lights" msgid="6332252612685264180">"കാറിൻ്റെ പുറംഭാഗത്തെ ലൈറ്റുകൾ നിയന്ത്രിക്കുക."</string>
     <string name="car_permission_label_car_interior_lights" msgid="8506302199784427680">"കാറിൻ്റെ ഉൾഭാഗത്തെ ലൈറ്റുകളുടെ നില വായിക്കുക"</string>
@@ -146,6 +146,8 @@
     <string name="car_permission_desc_read_car_display_units" msgid="6891898275208542385">"പ്രദർശന യൂണിറ്റുകൾ വായിക്കുക."</string>
     <string name="car_permission_label_control_car_display_units" msgid="4975303668183173076">"കാറിൻ്റെ പ്രദർശന യൂണിറ്റുകൾ നിയന്ത്രിക്കുക"</string>
     <string name="car_permission_desc_control_car_display_units" msgid="8744397195158556945">"പ്രദർശന യൂണിറ്റുകൾ നിയന്ത്രിക്കുക."</string>
+    <string name="car_permission_label_control_car_powertrain" msgid="234831541490237603">"കാറിന്റെ പവർട്രെയിൻ വിവരങ്ങൾ നിയന്ത്രിക്കുക"</string>
+    <string name="car_permission_desc_control_car_powertrain" msgid="8205110385130069179">"കാറിന്റെ പവർട്രെയിൻ വിവരങ്ങൾ നിയന്ത്രിക്കുക."</string>
     <string name="car_permission_label_car_powertrain" msgid="4586122326622134886">"കാറിൻ്റെ powertrain വിവരങ്ങൾ വായിക്കുക"</string>
     <string name="car_permission_desc_car_powertrain" msgid="1116007372551797796">"കാറിൻ്റെ powertrain വിവരങ്ങൾ ആക്‌സസ് ചെയ്യുക."</string>
     <string name="car_permission_label_car_power" msgid="8111448088314368268">"കാറിൻ്റെ പവർ നില വായിക്കുക"</string>
@@ -172,6 +174,40 @@
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"ടെം‍പ്ലേറ്റുകൾ റെൻഡർ ചെയ്യുക."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"ലോഞ്ച് ചെയ്യുന്ന ആപ്പുകൾ നിയന്ത്രിക്കാം"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"ലോഞ്ച് ചെയ്യുന്ന ആപ്പുകൾ നിയന്ത്രിക്കാം."</string>
+    <string name="car_permission_label_manage_thread_priority" msgid="6775846409863509575">"ത്രെഡ് മുൻഗണന മാനേജ് ചെയ്യുക"</string>
+    <string name="car_permission_desc_manage_thread_priority" msgid="3833845502119615929">"ത്രെഡ് മുൻഗണന മാനേജ് ചെയ്യുക."</string>
+    <string name="car_permission_label_manage_occupant_zone" msgid="1390420387640478679">"ഒക്യുപന്റ് സോൺ മാനേജ് ചെയ്യുക"</string>
+    <string name="car_permission_desc_manage_occupant_zone" msgid="1641484205694436465">"ഒക്യുപന്റ് സോൺ മാനേജ് ചെയ്യുക."</string>
+    <string name="car_permission_label_use_remote_access" msgid="4192095854784769805">"റിമോട്ട് ആക്‌സസ് ഉപയോഗിക്കുക"</string>
+    <string name="car_permission_desc_use_remote_access" msgid="7287637348044911791">"റിമോട്ട് ആക്‌സസ് ഉപയോഗിക്കുക."</string>
+    <string name="car_permission_label_control_remote_access" msgid="4247590162299914718">"റിമോട്ട് ആക്‌സസ് നിയന്ത്രിക്കുക"</string>
+    <string name="car_permission_desc_control_remote_access" msgid="127215188256669260">"റിമോട്ട് ആക്‌സസ് നിയന്ത്രിക്കുക."</string>
+    <string name="car_permission_label_control_steering_wheel" msgid="6244908950907824488">"കാറിന്റെ സ്‌റ്റിയറിംഗ് വീൽ നിയന്ത്രിക്കുക"</string>
+    <string name="car_permission_desc_control_steering_wheel" msgid="8408970211196600423">"കാറിന്റെ സ്‌റ്റിയറിംഗ് വീൽ നിയന്ത്രിക്കുക."</string>
+    <string name="car_permission_label_read_adas_settings" msgid="151296373212801328">"കാറിന്റെ ADAS ക്രമീകരണ വിവരങ്ങൾ വായിക്കുക"</string>
+    <string name="car_permission_desc_read_adas_settings" msgid="8490545343454791279">"കാറിന്റെ ADAS ക്രമീകരണ വിവരങ്ങൾ വായിക്കുക."</string>
+    <string name="car_permission_label_control_adas_settings" msgid="2535088218472880855">"കാറിന്റെ ADAS ക്രമീകരണ വിവരങ്ങൾ നിയന്ത്രിക്കുക"</string>
+    <string name="car_permission_desc_control_adas_settings" msgid="8781131640392345285">"കാറിന്റെ ADAS ക്രമീകരണ വിവരങ്ങൾ നിയന്ത്രിക്കുക."</string>
+    <string name="car_permission_label_read_adas_states" msgid="8968657466958098106">"കാറിന്റെ ADAS നിലകൾ സംബന്ധിച്ച വിവരങ്ങൾ വായിക്കുക"</string>
+    <string name="car_permission_desc_read_adas_states" msgid="5042430899788416991">"കാറിന്റെ ADAS നിലകൾ സംബന്ധിച്ച വിവരങ്ങൾ വായിക്കുക."</string>
+    <string name="car_permission_label_control_adas_states" msgid="758803765406463138">"കാറിന്റെ ADAS നിലകൾ സംബന്ധിച്ച വിവരങ്ങൾ നിയന്ത്രിക്കുക"</string>
+    <string name="car_permission_desc_control_adas_states" msgid="1893171217779342348">"കാറിന്റെ ADAS നിലകൾ സംബന്ധിച്ച വിവരങ്ങൾ നിയന്ത്രിക്കുക."</string>
+    <string name="car_permission_label_read_windshield_wipers" msgid="896867772546890348">"കാറിന്റെ വിൻഡ്‌ഷീൽഡ് വെെപ്പറുകൾ വായിക്കുക"</string>
+    <string name="car_permission_desc_read_windshield_wipers" msgid="597300271560195986">"കാറിന്റെ വിൻഡ്‌ഷീൽഡ് വെെപ്പറുകൾ വായിക്കുക."</string>
+    <string name="car_permission_label_control_windshield_wipers" msgid="7971852482734087493">"കാറിന്റെ വിൻഡ്‌ഷീൽഡ് വെെപ്പറുകൾ നിയന്ത്രിക്കുക"</string>
+    <string name="car_permission_desc_control_windshield_wipers" msgid="3803429825323199728">"കാറിന്റെ വിൻഡ്‌ഷീൽഡ് വെെപ്പറുകൾ നിയന്ത്രിക്കുക."</string>
+    <string name="car_permission_label_manage_remote_device" msgid="1144368625081074994">"കാറിലെ മറ്റ് ഒക്യുപന്റ് സോണുകളുടെയും ആ സോണുകളിൽ ഇൻസ്റ്റാൾ ചെയ്തിരിക്കുന്ന പിയർ ആപ്പുകളുടെയും (കോളറുടെ അതേ പാക്കേജ് പേരുള്ള ആപ്പുകൾ) നിലകൾ നിരീക്ഷിച്ച് ആ സോണുകളുടെ പവർ മാനേജ് ചെയ്യുക."</string>
+    <string name="car_permission_desc_manage_remote_device" msgid="4802785901453919948">"കാറിലെ മറ്റ് ഒക്യുപന്റ് സോണുകളുടെയും ആ സോണുകളിൽ ഇൻസ്റ്റാൾ ചെയ്തിരിക്കുന്ന പിയർ ആപ്പുകളുടെയും (കോളറുടെ അതേ പാക്കേജ് പേരുള്ള ആപ്പുകൾ) നിലകൾ നിരീക്ഷിച്ച് ആ സോണുകളുടെ പവർ മാനേജ് ചെയ്യുക."</string>
+    <string name="car_permission_label_manage_occupant_connection" msgid="6007579379849984187">"കാറിലെ മറ്റ് ഒക്യുപന്റ് സോണുകളിൽ ഇൻസ്റ്റാൾ ചെയ്തിരിക്കുന്ന പിയർ ആപ്പുകളുമായി (കോളറുടെ അതേ പാക്കേജ് പേരുള്ള ആപ്പുകൾ) കണക്ഷൻ സ്ഥാപിച്ച് ആശയവിനിമയം നടത്തുക"</string>
+    <string name="car_permission_desc_manage_occupant_connection" msgid="6525045077082552965">"കാറിലെ മറ്റ് ഒക്യുപന്റ് സോണുകളിൽ ഇൻസ്റ്റാൾ ചെയ്തിരിക്കുന്ന പിയർ ആപ്പുകളുമായി (കോളറുടെ അതേ പാക്കേജ് പേരുള്ള ആപ്പുകൾ) കണക്ഷൻ സ്ഥാപിച്ച് ആശയവിനിമയം നടത്തുക."</string>
+    <string name="car_permission_label_access_mirrored_surface" msgid="6235459468766618021">"മറ്റ് ആപ്പുകളുടെ സ്ക്രീൻ മിറർ ചെയ്യുക"</string>
+    <string name="car_permission_desc_access_mirrored_surface" msgid="7701151689600074639">"മറ്റ് ആപ്പുകളുടെ സ്ക്രീൻ മിറർ ചെയ്യുക."</string>
+    <string name="car_permission_label_mirror_display" msgid="7591958768912962529">"മറ്റ് ഉപയോക്താക്കളുടെ ഡിസ്പ്ലേ മിറർ ചെയ്യുക"</string>
+    <string name="car_permission_desc_mirror_display" msgid="2403249980834394896">"മറ്റ് ഉപയോക്താക്കളുടെ ഡിസ്പ്ലേ മിറർ ചെയ്യുക."</string>
+    <string name="car_permission_label_register_car_system_ui_proxy" msgid="4211405049007842422">"സിസ്റ്റം UI മാനേജ് ചെയ്യാനും ടാസ്‌ക് കാഴ്ചകൾ സൃഷ്ടിക്കാനും മറ്റ് ആപ്പുകൾക്ക് ഉപയോഗിക്കാനാകുന്ന സിസ്റ്റം UI പ്രോക്‌സി നൽകുക."</string>
+    <string name="car_permission_desc_register_car_system_ui_proxy" msgid="8863676956785764681">"സിസ്റ്റം UI മാനേജ് ചെയ്യാനും ടാസ്‌ക് കാഴ്ചകൾ സൃഷ്ടിക്കാനും മറ്റ് ആപ്പുകൾക്ക് ഉപയോഗിക്കാനാകുന്ന സിസ്റ്റം UI പ്രോക്‌സി നൽകുക."</string>
+    <string name="car_permission_label_manage_car_system_ui" msgid="1361615518679353414">"ടാസ്‌ക് കാഴ്ചകൾ സൃഷ്ടിക്കാനോ സിസ്റ്റം UI മാറ്റങ്ങളെ കുറിച്ചുള്ള അറിയിപ്പ് നേടാനോ കാർ സിസ്റ്റം UI-യുമായി ആശയവിനിമയം നടത്തുക."</string>
+    <string name="car_permission_desc_manage_car_system_ui" msgid="6201733970421818637">"ടാസ്‌ക് കാഴ്ചകൾ സൃഷ്ടിക്കാനോ സിസ്റ്റം UI മാറ്റങ്ങളെ കുറിച്ചുള്ള അറിയിപ്പ് നേടാനോ കാർ സിസ്റ്റം UI-യുമായി ആശയവിനിമയം നടത്തുക."</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN ബസ് പരാജയപ്പെട്ടു"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN ബസ് പ്രതികരിക്കുന്നില്ല. ഹെഡ്‌യൂണിറ്റ് ബോക്‌സ്, അൺപ്ലഗ് ചെയ്‌ത്, വീണ്ടും പ്ലഗ് ചെയ്‌ത്, കാർ റീസ്‌റ്റാർട്ട് ചെയ്യുക"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"എന്റെ ഉപകരണം"</string>

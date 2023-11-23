@@ -60,7 +60,7 @@ namespace aidl_common = aidl::android::hardware::graphics::common;
 // TODO(b/183478446): Cleanup usage flags redefinition
 typedef enum
 {
-	MALI_GRALLOC_USAGE_FRONTBUFFER = GRALLOC_USAGE_PRIVATE_12,
+	DEPRECATED_MALI_GRALLOC_USAGE_FRONTBUFFER = GRALLOC_USAGE_PRIVATE_12,
 	MALI_GRALLOC_USAGE_FORCE_BACKBUFFER = GRALLOC_USAGE_PRIVATE_13,
 	MALI_GRALLOC_USAGE_NO_AFBC = GRALLOC_USAGE_PRIVATE_1,
 	MALI_GRALLOC_USAGE_AFBC_PADDING = GRALLOC_USAGE_PRIVATE_14,
@@ -75,6 +75,8 @@ typedef enum
 
 	/* Google specific usages */
 	GRALLOC_USAGE_GOOGLE_IP_BO                             = GRALLOC_USAGE_PRIVATE_16,
+	GRALLOC_USAGE_GOOGLE_IP_BW                             = GRALLOC_USAGE_PRIVATE_16, /* Alias to BO */
+	GRALLOC_USAGE_GOOGLE_IP_BIG                            = GRALLOC_USAGE_PRIVATE_16, /* Alias to BO/BW */
 	GRALLOC_USAGE_GOOGLE_IP_MFC                            = GRALLOC_USAGE_PRIVATE_17,
 
 	/* FaceAuth specific usages. */
@@ -140,7 +142,7 @@ static const uint64_t VALID_USAGE =
     GRALLOC_USAGE_FRONT_BUFFER |            /* 1U << 32 */
 
     /* Google specific usages */
-    GRALLOC_USAGE_GOOGLE_IP_BO |            /* 1U << 51 */
+    GRALLOC_USAGE_GOOGLE_IP_BIG |           /* 1U << 51 */
     GRALLOC_USAGE_GOOGLE_IP_MFC |           /* 1U << 50 */
 
     GS101_GRALLOC_USAGE_TPU_INPUT |         /* 1U << 62 */

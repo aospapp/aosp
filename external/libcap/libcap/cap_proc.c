@@ -406,6 +406,29 @@ static void _cap_set_no_new_privs(struct syscaller_s *sc)
 }
 
 /*
+ * cap_prctl performs a prctl() 6 argument call on the current
+ * thread. Use cap_prctlw() if you want to perform a POSIX semantics
+ * prctl() system call.
+ */
+int cap_prctl(long int pr_cmd, long int arg1, long int arg2,
+	      long int arg3, long int arg4, long int arg5)
+{
+    return prctl(pr_cmd, arg1, arg2, arg3, arg4, arg5);
+}
+
+/*
+ * cap_prctlw performs a POSIX semantics prctl() call. That is a 6 arg
+ * prctl() call that executes on all available threads when libpsx is
+ * linked. The suffix 'w' refers to the fact one only ever needs to
+ * invoke this is if the call will write some kernel state.
+ */
+int cap_prctlw(long int pr_cmd, long int arg1, long int arg2,
+	       long int arg3, long int arg4, long int arg5)
+{
+    return _libcap_wprctl6(&multithread, pr_cmd, arg1, arg2, arg3, arg4, arg5);
+}
+
+/*
  * Some predefined constants
  */
 #define CAP_SECURED_BITS_BASIC                                 \
@@ -848,15 +871,21 @@ static int _cap_chroot(struct syscaller_s *sc, const char *root)
 
 /*
  * _cap_launch is invoked in the forked child, it cannot return but is
- * required to exit. If the execve fails, it will write the errno value
- * over the filedescriptor, fd, and exit with status 0.
+ * required to exit, if the execve fails. It will write the errno
+ * value for any failure over the filedescriptor, fd, and exit with
+ * status 1.
  */
 __attribute__ ((noreturn))
 static void _cap_launch(int fd, cap_launch_t attr, void *detail) {
     struct syscaller_s *sc = &singlethread;
+    int my_errno;
 
     if (attr->custom_setup_fn && attr->custom_setup_fn(detail)) {
 	goto defer;
+    }
+    if (attr->arg0 == NULL) {
+	/* handle the successful cap_func_launcher completion */
+	exit(0);
     }
 
     if (attr->change_uids && _cap_setuid(sc, attr->uid)) {
@@ -891,8 +920,9 @@ defer:
      * getting here means an error has occurred and errno is
      * communicated to the parent
      */
+    my_errno = errno;
     for (;;) {
-	int n = write(fd, &errno, sizeof(errno));
+	int n = write(fd, &my_errno, sizeof(my_errno));
 	if (n < 0 && errno == EAGAIN) {
 	    continue;
 	}
@@ -903,35 +933,49 @@ defer:
 }
 
 /*
- * cap_launch performs a wrapped fork+exec that works in both an
- * unthreaded environment and also where libcap is linked with
- * psx+pthreads. The function supports dropping privilege in the
- * forked thread, but retaining privilege in the parent thread(s).
+ * cap_launch performs a wrapped fork+(callback and/or exec) that
+ * works in both an unthreaded environment and also where libcap is
+ * linked with psx+pthreads. The function supports dropping privilege
+ * in the forked thread, but retaining privilege in the parent
+ * thread(s).
  *
- * Since the ambient set is fragile with respect to changes in I or P,
- * the function carefully orders setting of these inheritable
- * characteristics, to make sure they stick, or return an error
- * of -1 setting errno because the launch failed.
+ * When applying the IAB vector inside the fork, since the ambient set
+ * is fragile with respect to changes in I or P, the function
+ * carefully orders setting of these inheritable characteristics, to
+ * make sure they stick.
+ *
+ * This function will return an error of -1 setting errno if the
+ * launch failed.
  */
-pid_t cap_launch(cap_launch_t attr, void *data) {
+pid_t cap_launch(cap_launch_t attr, void *detail) {
     int my_errno;
     int ps[2];
+    pid_t child;
+
+    /* The launch must have a purpose */
+    if (attr->custom_setup_fn == NULL &&
+	(attr->arg0 == NULL || attr->argv == NULL)) {
+	errno = EINVAL;
+	return -1;
+    }
 
     if (pipe2(ps, O_CLOEXEC) != 0) {
 	return -1;
     }
 
-    int child = fork();
+    child = fork();
     my_errno = errno;
 
+    if (!child) {
+	close(ps[0]);
+	prctl(PR_SET_NAME, "cap-launcher", 0, 0, 0);
+	_cap_launch(ps[1], attr, detail);
+	/* no return from this function */
+	_exit(1);
+    }
     close(ps[1]);
     if (child < 0) {
 	goto defer;
-    }
-    if (!child) {
-	close(ps[0]);
-	/* noreturn from this function: */
-	_cap_launch(ps[1], attr, data);
     }
 
     /*
@@ -956,5 +1000,5 @@ pid_t cap_launch(cap_launch_t attr, void *data) {
 defer:
     close(ps[0]);
     errno = my_errno;
-    return (pid_t) child;
+    return child;
 }

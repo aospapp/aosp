@@ -1761,6 +1761,7 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         CLog.d("    2020-03-01 -> 132383489");
         CLog.d("    2021-03-01 -> 132449025");
         CLog.d("    2022-03-01 -> 132514561");
+        CLog.d("    2023-03-01 -> 132580097");
 
         CLog.d("Minimum level required to run this caselist is %d", minimumLevel);
 
@@ -2186,11 +2187,31 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
             for (String filterFile : mIncludeFilterFiles) {
                 CLog.d("Read include filter file '%s'", filterFile);
                 File file = new File(mBuildHelper.getTestsDir(), filterFile);
+                if (!file.isFile())
+                {
+                    // Find file in sub directory if no matching file in the first layer of
+                    // testdir.
+                    file = FileUtil.findFile(mBuildHelper.getTestsDir(), filterFile);
+                    if(file == null || !file.isFile()){
+                        throw new FileNotFoundException(
+                            "Cannot find include-filter-file file: " + filterFile);
+                    }
+                }
                 readFile(mIncludeFilters, file);
             }
             for (String filterFile : mExcludeFilterFiles) {
                 CLog.d("Read exclude filter file '%s'", filterFile);
                 File file = new File(mBuildHelper.getTestsDir(), filterFile);
+                if(!file.isFile())
+                {
+                    // Find file in sub directory if no matching file in the first layer of
+                    // testdir.
+                    file = FileUtil.findFile(mBuildHelper.getTestsDir(), filterFile);
+                    if(file == null || !file.isFile()){
+                        throw new FileNotFoundException(
+                            "Cannot find exclude-filter-file file: " + filterFile);
+                    }
+                }
                 readFile(mExcludeFilters, file);
             }
         }

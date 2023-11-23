@@ -52,3 +52,6 @@ wakelock_use(sensors)
 
 allow sensors sensors_vendor_data_file:dir rw_dir_perms;
 allow sensors sensors_vendor_data_file:file create_file_perms;
+
+# Mutes the read unmounted files errors
+dontaudit sensors unlabeled:file r_file_perms;

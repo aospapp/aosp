@@ -17,8 +17,7 @@
 //! Timeouts for common situations, with support for longer timeouts when using nested
 //! virtualization.
 
-use anyhow::Result;
-use rustutils::system_properties;
+use lazy_static::lazy_static;
 use std::time::Duration;
 
 /// Holder for the various timeouts we use.
@@ -28,36 +27,32 @@ pub struct Timeouts {
     pub odrefresh_max_execution_time: Duration,
     /// Time allowed for the CompOS VM to start up and become ready.
     pub vm_max_time_to_ready: Duration,
+    /// Time we wait for a VM to exit once the payload has finished.
+    pub vm_max_time_to_exit: Duration,
 }
 
-/// Whether the current platform requires extra time for operations inside a VM.
-pub fn need_extra_time() -> Result<bool> {
-    // Nested virtualization is slow. Check if we are running on vsoc as a proxy for this.
-    if let Some(value) = system_properties::read("ro.build.product")? {
-        Ok(value == "vsoc_x86_64" || value == "vsoc_x86")
-    } else {
-        Ok(false)
-    }
-}
-
-/// Return the timeouts that are appropriate on the current platform.
-pub fn timeouts() -> Result<&'static Timeouts> {
-    if need_extra_time()? {
-        Ok(&EXTENDED_TIMEOUTS)
-    } else {
-        Ok(&NORMAL_TIMEOUTS)
-    }
+lazy_static! {
+/// The timeouts that are appropriate on the current platform.
+pub static ref TIMEOUTS: Timeouts = if nested_virt::is_nested_virtualization().unwrap() {
+    // Nested virtualization is slow.
+    EXTENDED_TIMEOUTS
+} else {
+    NORMAL_TIMEOUTS
+};
 }
 
 /// The timeouts that we use normally.
-pub const NORMAL_TIMEOUTS: Timeouts = Timeouts {
-    // Note: the source of truth for these odrefresh timeouts is art/odrefresh/odr_config.h.
+const NORMAL_TIMEOUTS: Timeouts = Timeouts {
+    // Note: the source of truth for this odrefresh timeout is art/odrefresh/odrefresh.cc.
     odrefresh_max_execution_time: Duration::from_secs(300),
     vm_max_time_to_ready: Duration::from_secs(15),
+    vm_max_time_to_exit: Duration::from_secs(5),
 };
 
-/// The timeouts that we use when need_extra_time() returns true.
-pub const EXTENDED_TIMEOUTS: Timeouts = Timeouts {
+/// The timeouts that we use when running under nested virtualization.
+const EXTENDED_TIMEOUTS: Timeouts = Timeouts {
+    // Note: the source of truth for this odrefresh timeout is art/odrefresh/odrefresh.cc.
     odrefresh_max_execution_time: Duration::from_secs(480),
     vm_max_time_to_ready: Duration::from_secs(120),
+    vm_max_time_to_exit: Duration::from_secs(20),
 };

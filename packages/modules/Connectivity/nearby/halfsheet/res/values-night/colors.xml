@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- Use original background color -->
+    <color name="fast_pair_notification_background">#00000000</color>
+    <!-- Ignores NewApi as below system colors are available since API 31, and HalfSheet is always
+         running on T+ even though it has min_sdk 30 to match its containing APEX -->
+    <color name="fast_pair_half_sheet_button_color" tools:ignore="NewApi">
+        @android:color/system_accent1_100</color>
+    <color name="fast_pair_half_sheet_button_text" tools:ignore="NewApi">
+        @android:color/system_neutral1_50</color>
+    <color name="fast_pair_half_sheet_button_accent_text" tools:ignore="NewApi">
+        @android:color/system_neutral1_900</color>
+    <color name="fast_pair_progress_color" tools:ignore="NewApi">
+        @android:color/system_accent1_600</color>
+    <color name="fast_pair_half_sheet_subtitle_color" tools:ignore="NewApi">
+        @android:color/system_neutral2_200</color>
+    <color name="fast_pair_half_sheet_text_color" tools:ignore="NewApi">
+        @android:color/system_neutral1_50</color>
+    <color name="fast_pair_half_sheet_background" tools:ignore="NewApi">
+        @android:color/system_neutral1_800</color>
+
+    <!-- Fast Pair -->
+    <color name="fast_pair_primary_text">#FFFFFF</color>
+    <color name="fast_pair_notification_image_outline">#24FFFFFF</color>
+    <color name="fast_pair_battery_level_low">#F6AEA9</color>
+
+</resources>
+

@@ -28,13 +28,20 @@ namespace talsa {
 constexpr unsigned int kPcmDevice = 0;
 constexpr unsigned int kPcmCard = 0;
 
+struct PcmPeriodSettings {
+    unsigned periodCount;
+    unsigned periodSizeMultiplier;
+};
+
+void init();
+PcmPeriodSettings pcmGetPcmPeriodSettings();
+unsigned pcmGetHostLatencyMs();
+
 typedef struct pcm pcm_t;
 struct PcmDeleter { void operator()(pcm_t *x) const; };
 typedef std::unique_ptr<pcm_t, PcmDeleter> PcmPtr;
-PcmPtr pcmOpen(unsigned int dev, unsigned int card, unsigned int nChannels, size_t sampleRateHz, size_t frameCount, bool isOut);
-bool pcmPrepare(pcm_t *pcm);
-bool pcmStart(pcm_t *pcm);
-bool pcmStop(pcm_t *pcm);
+PcmPtr pcmOpen(unsigned int dev, unsigned int card, unsigned int nChannels,
+               size_t sampleRateHz, size_t frameCount, bool isOut);
 bool pcmRead(pcm_t *pcm, void *data, unsigned int count);
 bool pcmWrite(pcm_t *pcm, const void *data, unsigned int count);
 

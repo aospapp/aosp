@@ -60,6 +60,7 @@ Jan 12 12:00:00 ins-abcdefgh-5000000-sdk-x86-64-sdk launch_emulator[123]: VIRTUA
     KERNEL_BUILD_ARTIFACT = "bzImage"
     EMULATOR_BRANCH = "aosp-emu-master-dev"
     EMULATOR_BUILD_ID = "1234567"
+    EMULATOR_BUILD_TARGET = "emulator-linux_x64_nolocationui"
     DPI = 160
     X_RES = 720
     Y_RES = 1280
@@ -162,6 +163,7 @@ Jan 12 12:00:00 ins-abcdefgh-5000000-sdk-x86-64-sdk launch_emulator[123]: VIRTUA
                 "{branch}/{build_id}".format(
                     branch=self.EMULATOR_BRANCH,
                     build_id=self.EMULATOR_BUILD_ID),
+            "cvd_01_fetch_emulator_build_target": self.EMULATOR_BUILD_TARGET,
             "cvd_01_launch": "1",
             "cvd_01_dpi": str(self.DPI),
             "cvd_01_x_res": str(self.X_RES),
@@ -178,7 +180,9 @@ Jan 12 12:00:00 ins-abcdefgh-5000000-sdk-x86-64-sdk launch_emulator[123]: VIRTUA
             self.KERNEL_BUILD_ID,
             self.KERNEL_BUILD_TARGET,
             self.EMULATOR_BRANCH,
-            self.EMULATOR_BUILD_ID, self.EXTRA_DATA_DISK_SIZE_GB, self.GPU,
+            self.EMULATOR_BUILD_ID,
+            self.EMULATOR_BUILD_TARGET,
+            self.EXTRA_DATA_DISK_SIZE_GB, self.GPU,
             extra_scopes=self.EXTRA_SCOPES,
             tags=self.TAGS,
             launch_args=self.LAUNCH_ARGS)
@@ -218,6 +222,7 @@ Jan 12 12:00:00 ins-abcdefgh-5000000-sdk-x86-64-sdk launch_emulator[123]: VIRTUA
                 "{branch}/{build_id}".format(
                     branch=self.EMULATOR_BRANCH,
                     build_id=self.EMULATOR_BUILD_ID),
+            "cvd_01_fetch_emulator_build_target": self.EMULATOR_BUILD_TARGET,
             "cvd_01_launch": "1",
             "display":
                 "{x}x{y} ({dpi})".format(
@@ -246,16 +251,12 @@ Jan 12 12:00:00 ins-abcdefgh-5000000-sdk-x86-64-sdk launch_emulator[123]: VIRTUA
 
         self.goldfish_compute_client.CreateInstance(
             self.INSTANCE, self.IMAGE, self.IMAGE_PROJECT, self.TARGET,
-            self.BRANCH, self.BUILD_ID,
-            self.KERNEL_BRANCH,
-            self.KERNEL_BUILD_ID,
-            self.KERNEL_BUILD_TARGET,
-            self.EMULATOR_BRANCH,
-            self.EMULATOR_BUILD_ID, self.EXTRA_DATA_DISK_SIZE_GB, self.GPU,
-            avd_spec=mock_avd_spec,
-            extra_scopes=self.EXTRA_SCOPES,
-            tags=self.TAGS,
-            launch_args=self.LAUNCH_ARGS)
+            self.BRANCH, self.BUILD_ID, self.KERNEL_BRANCH,
+            self.KERNEL_BUILD_ID, self.KERNEL_BUILD_TARGET,
+            self.EMULATOR_BRANCH, self.EMULATOR_BUILD_ID,
+            self.EMULATOR_BUILD_TARGET, self.EXTRA_DATA_DISK_SIZE_GB, self.GPU,
+            avd_spec=mock_avd_spec, extra_scopes=self.EXTRA_SCOPES,
+            tags=self.TAGS, launch_args=self.LAUNCH_ARGS)
 
         self._mock_create_instance.assert_called_with(
             self.goldfish_compute_client,

@@ -1,8 +1,11 @@
 package org.unicode.cldr.util;
 
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+
+import com.google.common.collect.ImmutableSet;
 
 /**
  * This list needs updating as a new organizations are added; that's by design
@@ -22,7 +25,6 @@ public enum Organization {
     breton("Office of Breton Lang"),
     cherokee("Cherokee Nation"),
     cldr("Cldr"),
-    facebook("Facebook"),
     gaeilge("Foras na Gaeilge"),
     georgia_isi("Georgia ISI"),
     gnome("Gnome Foundation"),
@@ -37,6 +39,7 @@ public enum Organization {
     lakota_lc("Lakota LC"),
     lao_dpt("Lao Posts/Telecom??"),
     longnow("The Long Now Foundation", "Long Now", "PanLex", "Utilka Foundation"),
+    meta("Meta", "Facebook"),
     microsoft("Microsoft"),
     mozilla("Mozilla"),
     netflix("Netflix"),
@@ -46,16 +49,37 @@ public enum Organization {
     oracle("Oracle", "sun", "Sun Micro"),
     pakistan("Pakistan"),
     rodakych("Rodakych", "Nigerian Pidgin"),
+    rohingyazuban("Rohingya Language Council", "RLC", "Rohingya Zuban"),
     rumantscha("Lia Rumantscha"),
     sardware("Sardware", "Sardware"),
     sil("SIL", "SIL International"),
+    special("High Coverage and Generated"),
     srilanka("Sri Lanka ICTA", "Sri Lanka"),
     surveytool("Survey Tool"),
+    venetian("VeC - Lengua Veneta"),
     welsh_lc("Welsh LC"),
     wikimedia("Wikimedia Foundation"),
+    wod_nko("WOD N’ko", "World Organization for the Development of N’ko", "WODN"),
     yahoo("Yahoo"),
-    // To be removed.
     ;
+
+    private final static Set<Organization> TC_ORGS = ImmutableSet.copyOf(EnumSet.of(google, apple, microsoft));
+
+    /**
+     * Get a list of the TC Organizations
+     * @return
+     */
+    public static Set<Organization> getTCOrgs() {
+        return TC_ORGS;
+    }
+
+    /**
+     * Is this organization a TC Org?
+     * @return
+     */
+    public boolean isTCOrg() {
+        return getTCOrgs().contains(this);
+    }
 
     public final String displayName;
     private final String[] names;

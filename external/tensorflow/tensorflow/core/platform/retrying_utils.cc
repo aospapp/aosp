@@ -62,9 +62,9 @@ Status RetryingUtils::CallWithRetries(
       // at a higher level.
       return Status(
           error::ABORTED,
-          strings::StrCat(
-              "All ", config.max_retries,
-              " retry attempts failed. The last failure: ", status.ToString()));
+          strings::StrCat("All ", config.max_retries,
+                          " retry attempts failed. The last failure: ",
+                          status.error_message()));
     }
     int64_t delay_micros = 0;
     if (config.init_delay_time_us > 0) {
@@ -89,7 +89,7 @@ Status RetryingUtils::DeleteWithRetries(
       [delete_func, &is_retried]() {
         const Status status = delete_func();
         if (is_retried && status.code() == error::NOT_FOUND) {
-          return Status::OK();
+          return OkStatus();
         }
         is_retried = true;
         return status;

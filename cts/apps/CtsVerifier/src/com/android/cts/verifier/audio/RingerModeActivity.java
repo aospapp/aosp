@@ -68,7 +68,9 @@ public class RingerModeActivity extends InteractiveVerifierActivity {
     private final static String PKG = "com.android.cts.verifier";
     private final static long TIME_TO_PLAY = 2000;
     private final static int MP3_TO_PLAY = R.raw.testmp3;
-    private final static int ASYNC_TIMING_TOLERANCE_MS = 50;
+    // TODO replace sleeps with blocking receiver of ACTION_VOLUME_CHANGED intent for
+    //      volume operations (AudioManager.setStreamVolume and .adjustVolume)
+    private static final int ASYNC_TIMING_TOLERANCE_MS = 150;
 
     private AudioManager mAudioManager;
     private boolean mHasVibrator;
@@ -781,7 +783,7 @@ public class RingerModeActivity extends InteractiveVerifierActivity {
             // 7 to 1: success
             mAudioManager.setStreamVolume(
                     AudioManager.STREAM_SYSTEM, 1, AudioManager.FLAG_ALLOW_RINGER_MODES);
-            if (1 !=  mAudioManager.getStreamVolume(AudioManager.STREAM_SYSTEM)) {
+            if (1 != mAudioManager.getStreamVolume(AudioManager.STREAM_SYSTEM)) {
                 setFailed();
                 return;
             }
@@ -911,6 +913,11 @@ public class RingerModeActivity extends InteractiveVerifierActivity {
                 }
 
                 mAudioManager.adjustStreamVolume(stream, ADJUST_SAME, 0);
+                try {
+                    Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
 
                 // volume raise
                 mAudioManager.setStreamVolume(stream, 1, 0);

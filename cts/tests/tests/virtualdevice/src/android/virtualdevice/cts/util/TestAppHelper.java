@@ -38,11 +38,17 @@ import java.util.function.Function;
 public class TestAppHelper {
     static final String PACKAGE_NAME = "android.virtualdevice.streamedtestapp";
     static final String MAIN_ACTIVITY = "android.virtualdevice.streamedtestapp.MainActivity";
+    static final String REPORTER_ACTIVITY_A =
+            "android.virtualdevice.streamedtestapp.ReporterActivityA";
+    static final String REPORTER_ACTIVITY_B =
+            "android.virtualdevice.streamedtestapp.ReporterActivityB";
     static final String NO_EMBED_ACTIVITY = "android.virtualdevice.streamedtestapp.NoEmbedActivity";
     static final String CANNOT_DISPLAY_ON_REMOTE_ACTIVITY =
             "android.virtualdevice.streamedtestapp.CannotDisplayOnRemoteActivity";
     static final String STREAMED_APP_SERVICE =
             "android.virtualdevice.streamedtestapp.StreamedAppService";
+    static final String RESTRICT_ACTIVITY =
+            "android.virtualdevice.streamedtestapp.RestrictToDisplayCategoryActivity";
 
     /** @see android.virtualdevice.streamedtestapp.MainActivity */
     static final String ACTION_TEST_CAMERA =
@@ -104,6 +110,13 @@ public class TestAppHelper {
         return intent;
     }
 
+    public static Intent createRestrictActivityIntent(ResultReceiver resultReceiver) {
+        return new Intent(ACTION_CALL_RESULT_RECEIVER)
+                .setComponent(
+                        new ComponentName(PACKAGE_NAME, RESTRICT_ACTIVITY))
+                .putExtra(EXTRA_ACTIVITY_LAUNCHED_RECEIVER, resultReceiver);
+    }
+
     public static Intent createActivityLaunchedReceiverIntent(ResultReceiver resultReceiver) {
         return new Intent(ACTION_CALL_RESULT_RECEIVER)
                 .setComponent(MAIN_ACTIVITY_COMPONENT)
@@ -113,6 +126,19 @@ public class TestAppHelper {
     public static Intent createKeyguardManagerIsDeviceSecureTestIntent() {
         return new Intent(ACTION_CALL_IS_DEVICE_SECURE)
                 .setComponent(MAIN_ACTIVITY_COMPONENT);
+    }
+
+    public static Intent[] createStartActivitiesIntents(ResultReceiver receiver) {
+        return new Intent[] {
+                new Intent().setComponent(
+                        new ComponentName(PACKAGE_NAME, REPORTER_ACTIVITY_A))
+                        .putExtra(EXTRA_ACTIVITY_LAUNCHED_RECEIVER, receiver)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                        | Intent.FLAG_ACTIVITY_CLEAR_TASK),
+                new Intent().setComponent(
+                        new ComponentName(PACKAGE_NAME, REPORTER_ACTIVITY_B))
+                        .putExtra(EXTRA_ACTIVITY_LAUNCHED_RECEIVER, receiver)
+        };
     }
 
     public static ServiceConnectionFuture<IStreamedTestApp> createTestAppService() {

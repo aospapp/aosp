@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #
 # Copyright (C) 2020 The Android Open Source Project
 #
@@ -16,8 +17,6 @@
 
 """Tools for running host side simulation of an OTA update."""
 
-
-from __future__ import print_function
 
 import argparse
 import filecmp
@@ -49,7 +48,8 @@ def is_sparse_image(filepath):
     return fp.read(4) == b'\x3A\xFF\x26\xED'
 
 
-def extract_img(zip_archive: zipfile.ZipFile, img_name, output_path):
+def extract_img(zip_archive: zipfile.ZipFile, img_name, output_path, is_source):
+  """ Extract and unsparse partition image from zip archive """
   entry_name = "IMAGES/" + img_name + ".img"
   try:
     extract_file(zip_archive, entry_name, output_path)
@@ -61,6 +61,22 @@ def extract_img(zip_archive: zipfile.ZipFile, img_name, output_path):
     subprocess.check_output(["simg2img", output_path, raw_img_path])
     os.rename(raw_img_path, output_path)
 
+  # delta_generator only supports images multiple of 4 KiB. For target images
+  # we pad the data with zeros if needed, but for source images we truncate
+  # down the data since the last block of the old image could be padded on
+  # disk with unknown data.
+  file_size = os.path.getsize(output_path)
+  if file_size % 4096 != 0:
+    if is_source:
+      print("Rounding DOWN partition {} to a multiple of 4 KiB."
+            .format(output_path))
+      file_size = file_size & -4096
+    else:
+      print("Rounding UP partition {} to a multiple of 4 KiB."
+            .format(output_path))
+      file_size = (file_size + 4095) & -4096
+    with open(output_path, 'a') as f:
+      f.truncate(file_size)
 
 def run_ota(source, target, payload_path, tempdir, output_dir):
   """Run an OTA on host side"""
@@ -87,10 +103,10 @@ def run_ota(source, target, payload_path, tempdir, output_dir):
           "source target file must point to a valid zipfile or directory " + \
           source
       print("Extracting source image for", name)
-      extract_img(source, name, old_image)
+      extract_img(source, name, old_image, True)
     if target_exist:
       print("Extracting target image for", name)
-      extract_img(target, name, new_image)
+      extract_img(target, name, new_image, False)
 
     old_partitions.append(old_image)
     scratch_image_name = new_image + ".actual"

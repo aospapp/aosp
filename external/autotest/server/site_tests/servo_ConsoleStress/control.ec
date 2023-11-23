@@ -10,6 +10,7 @@ PURPOSE = "Verify ec console."
 TIME = "SHORT"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """Run the control a bunch. Make sure the output doesn't change
 

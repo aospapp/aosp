@@ -1,0 +1,7 @@
+<resources>
+    <string-array name="logger_entries">
+        <item>shannondm</item>
+        <item>cnss_diag</item>
+        <item>brcm_gps</item>
+    </string-array>
+</resources>

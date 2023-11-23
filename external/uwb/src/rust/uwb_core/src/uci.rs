@@ -14,22 +14,36 @@
 
 //! This module provides the functionalities related to UWB Command Interface (UCI).
 
-// TODO(akahuang): remove it after implementing the client of each component.
-#![allow(dead_code)]
-
 mod command;
 mod message;
+mod pcapng_block;
 mod response;
 mod timeout_uci_hal;
 
 pub(crate) mod error;
 pub(crate) mod notification;
-pub(crate) mod params;
 pub(crate) mod uci_manager;
 
+pub mod pcapng_uci_logger_factory;
 pub mod uci_hal;
+pub mod uci_logger;
+pub mod uci_logger_factory;
+pub mod uci_logger_pcapng;
+pub mod uci_manager_sync;
 
 #[cfg(test)]
 pub(crate) mod mock_uci_hal;
 #[cfg(test)]
-pub(crate) mod mock_uci_manager;
+pub(crate) mod mock_uci_logger;
+#[cfg(any(test, feature = "mock-utils"))]
+pub mod mock_uci_manager;
+
+// Re-export the public elements.
+pub use command::UciCommand;
+pub use notification::{
+    CoreNotification, DataRcvNotification, RangingMeasurements, SessionNotification,
+    SessionRangeData, UciNotification,
+};
+pub use uci_hal::{NopUciHal, UciHal, UciHalPacket};
+pub use uci_logger_factory::{NopUciLoggerFactory, UciLoggerFactory};
+pub use uci_manager::UciManagerImpl;

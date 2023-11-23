@@ -33,6 +33,7 @@
             <ScrollView
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
+                android:paddingTop="16dp"
                 app:layout_constraintHeight_default="wrap"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
@@ -61,14 +62,12 @@
             </ScrollView>
             <com.android.systemui.car.qc.QCFooterButton
                 android:id="@+id/qc_connectivity_footer_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="start"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
                 style="@style/QCFooterButtonStyle"
                 android:text="@string/qc_footer_network_internet_settings"
-                app:intent="intent:#Intent;component=com.android.car.settings/.common.CarSettingActivities$NetworkAndInternetActivity;launchFlags=0x08080000;end"/>
+                app:intent="intent:#Intent;component=com.android.car.settings/.common.CarSettingActivities$NetworkAndInternetActivity;launchFlags=0x14008000;end"/>
         </androidx.constraintlayout.widget.ConstraintLayout>
     </com.android.car.ui.FocusArea>
 </FrameLayout>

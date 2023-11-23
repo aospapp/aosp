@@ -39,20 +39,4 @@ cc_library_static {
     apex_available: [
         "com.android.i18n",
     ],
-    target: {
-        native_bridge: {
-            exclude_shared_libs: [
-                "libicuuc",
-                "libicui18n",
-            ],
-            header_libs: [
-                "libicuuc_headers",
-                "libicui18n_headers",
-            ],
-            shared_libs: [
-                "libnative_bridge_guest_libicuuc",
-                "libnative_bridge_guest_libicui18n",
-            ],
-        },
-    },
 }

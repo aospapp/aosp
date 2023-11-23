@@ -30,7 +30,6 @@ package com.android.apex {
 
   public class XmlParser {
     ctor public XmlParser();
-    method public static com.android.apex.ApexInfo readApexInfo(java.io.InputStream) throws javax.xml.datatype.DatatypeConfigurationException, java.io.IOException, org.xmlpull.v1.XmlPullParserException;
     method public static com.android.apex.ApexInfoList readApexInfoList(java.io.InputStream) throws javax.xml.datatype.DatatypeConfigurationException, java.io.IOException, org.xmlpull.v1.XmlPullParserException;
     method public static String readText(org.xmlpull.v1.XmlPullParser) throws java.io.IOException, org.xmlpull.v1.XmlPullParserException;
     method public static void skip(org.xmlpull.v1.XmlPullParser) throws java.io.IOException, org.xmlpull.v1.XmlPullParserException;
@@ -40,7 +39,6 @@ package com.android.apex {
     ctor public XmlWriter(java.io.PrintWriter);
     method public void close();
     method public static void write(com.android.apex.XmlWriter, com.android.apex.ApexInfoList) throws java.io.IOException;
-    method public static void write(com.android.apex.XmlWriter, com.android.apex.ApexInfo) throws java.io.IOException;
   }
 
 }

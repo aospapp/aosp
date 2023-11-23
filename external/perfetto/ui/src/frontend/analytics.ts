@@ -13,9 +13,9 @@
 // limitations under the License.
 
 import {getCurrentChannel} from '../common/channels';
-import {globals} from '../frontend/globals';
-import * as version from '../gen/perfetto_version';
+import {VERSION} from '../gen/perfetto_version';
 
+import {globals} from './globals';
 import {Router} from './router';
 
 type TraceCategories = 'Trace Actions'|'Record Trace'|'User Actions';
@@ -26,16 +26,17 @@ export function initAnalytics() {
   // Only initialize logging on the official site and on localhost (to catch
   // analytics bugs when testing locally).
   // Skip analytics is the fragment has "testing=1", this is used by UI tests.
+  // Skip analytics in embeddedMode since iFrames do not have the same access to
+  // local storage.
   if ((window.location.origin.startsWith('http://localhost:') ||
        window.location.origin.endsWith('.perfetto.dev')) &&
-      !globals.testing) {
+      !globals.testing && !globals.embeddedMode) {
     return new AnalyticsImpl();
   }
   return new NullAnalytics();
 }
 
 const gtagGlobals = window as {} as {
-  // tslint:disable-next-line no-any
   dataLayer: any[];
   gtag: (command: string, event: string|Date, args?: {}) => void;
 };
@@ -70,7 +71,6 @@ class AnalyticsImpl implements Analytics {
     // [1] https://developers.google.com/analytics/devguides/collection/gtagjs .
     gtagGlobals.dataLayer = gtagGlobals.dataLayer || [];
 
-    // tslint:disable-next-line no-any
     function gtagFunction(..._: any[]) {
       // This needs to be a function and not a lambda. |arguments| behaves
       // slightly differently in a lambda and breaks GA.
@@ -105,7 +105,7 @@ class AnalyticsImpl implements Analytics {
       send_page_view: false,
       page_title: PAGE_TITLE,
       dimension1: globals.isInternalUser ? '1' : '0',
-      dimension2: version.VERSION,
+      dimension2: VERSION,
       dimension3: getCurrentChannel(),
     });
     this.updatePath(route);

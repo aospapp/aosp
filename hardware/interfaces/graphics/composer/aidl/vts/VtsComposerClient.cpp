@@ -58,6 +58,12 @@ bool VtsComposerClient::tearDown() {
     return verifyComposerCallbackParams() && destroyAllLayers();
 }
 
+std::pair<ScopedAStatus, int32_t> VtsComposerClient::getInterfaceVersion() {
+    int32_t version = 1;
+    auto status = mComposerClient->getInterfaceVersion(&version);
+    return {std::move(status), version};
+}
+
 std::pair<ScopedAStatus, VirtualDisplay> VtsComposerClient::createVirtualDisplay(
         int32_t width, int32_t height, PixelFormat pixelFormat, int32_t bufferSlotCount) {
     VirtualDisplay outVirtualDisplay;
@@ -111,6 +117,24 @@ ScopedAStatus VtsComposerClient::setActiveConfig(VtsDisplay* vtsDisplay, int32_t
         return status;
     }
     return updateDisplayProperties(vtsDisplay, config);
+}
+
+ScopedAStatus VtsComposerClient::setPeakRefreshRateConfig(VtsDisplay* vtsDisplay) {
+    const auto displayId = vtsDisplay->getDisplayId();
+    auto [activeStatus, activeConfig] = getActiveConfig(displayId);
+    EXPECT_TRUE(activeStatus.isOk());
+    auto peakDisplayConfig = vtsDisplay->getDisplayConfig(activeConfig);
+    auto peakConfig = activeConfig;
+
+    const auto displayConfigs = vtsDisplay->getDisplayConfigs();
+    for (const auto [config, displayConfig] : displayConfigs) {
+        if (displayConfig.configGroup == peakDisplayConfig.configGroup &&
+            displayConfig.vsyncPeriod < peakDisplayConfig.vsyncPeriod) {
+            peakDisplayConfig = displayConfig;
+            peakConfig = config;
+        }
+    }
+    return setActiveConfig(vtsDisplay, peakConfig);
 }
 
 std::pair<ScopedAStatus, int32_t> VtsComposerClient::getDisplayAttribute(
@@ -331,11 +355,30 @@ std::pair<ScopedAStatus, int32_t> VtsComposerClient::getPreferredBootDisplayConf
     return {mComposerClient->getPreferredBootDisplayConfig(display, &outConfig), outConfig};
 }
 
+std::pair<ScopedAStatus, std::vector<common::HdrConversionCapability>>
+VtsComposerClient::getHdrConversionCapabilities() {
+    std::vector<common::HdrConversionCapability> hdrConversionCapability;
+    return {mComposerClient->getHdrConversionCapabilities(&hdrConversionCapability),
+            hdrConversionCapability};
+}
+
+std::pair<ScopedAStatus, common::Hdr> VtsComposerClient::setHdrConversionStrategy(
+        const common::HdrConversionStrategy& conversionStrategy) {
+    common::Hdr preferredHdrOutputType;
+    return {mComposerClient->setHdrConversionStrategy(conversionStrategy, &preferredHdrOutputType),
+            preferredHdrOutputType};
+}
+
 std::pair<ScopedAStatus, common::Transform> VtsComposerClient::getDisplayPhysicalOrientation(
         int64_t display) {
     common::Transform outDisplayOrientation;
     return {mComposerClient->getDisplayPhysicalOrientation(display, &outDisplayOrientation),
             outDisplayOrientation};
+}
+
+std::pair<ScopedAStatus, composer3::OverlayProperties> VtsComposerClient::getOverlaySupport() {
+    OverlayProperties properties;
+    return {mComposerClient->getOverlaySupport(&properties), properties};
 }
 
 ScopedAStatus VtsComposerClient::setIdleTimerEnabled(int64_t display, int32_t timeoutMs) {
@@ -348,6 +391,17 @@ int32_t VtsComposerClient::getVsyncIdleCount() {
 
 int64_t VtsComposerClient::getVsyncIdleTime() {
     return mComposerCallback->getVsyncIdleTime();
+}
+
+ndk::ScopedAStatus VtsComposerClient::setRefreshRateChangedCallbackDebugEnabled(int64_t display,
+                                                                                bool enabled) {
+    mComposerCallback->setRefreshRateChangedDebugDataEnabledCallbackAllowed(enabled);
+    return mComposerClient->setRefreshRateChangedCallbackDebugEnabled(display, enabled);
+}
+
+std::vector<RefreshRateChangedDebugData>
+VtsComposerClient::takeListOfRefreshRateChangedDebugData() {
+    return mComposerCallback->takeListOfRefreshRateChangedDebugData();
 }
 
 int64_t VtsComposerClient::getInvalidDisplayId() {
@@ -393,14 +447,31 @@ std::pair<ScopedAStatus, std::vector<VtsDisplay>> VtsComposerClient::getDisplays
                 return {std::move(configs.first), vtsDisplays};
             }
             for (int config : configs.second) {
-                auto status = updateDisplayProperties(&vtsDisplay, config);
+                auto status = addDisplayConfig(&vtsDisplay, config);
                 if (!status.isOk()) {
-                    ALOGE("Unable to get the displays for test, failed to update the properties "
+                    ALOGE("Unable to get the displays for test, failed to add config "
                           "for display %" PRId64,
                           display);
                     return {std::move(status), vtsDisplays};
                 }
             }
+
+            auto config = getActiveConfig(display);
+            if (!config.first.isOk()) {
+                ALOGE("Unable to get the displays for test, failed to get active config "
+                      "for display %" PRId64, display);
+                return {std::move(config.first), vtsDisplays};
+            }
+
+            auto status = updateDisplayProperties(&vtsDisplay, config.second);
+            if (!status.isOk()) {
+                ALOGE("Unable to get the displays for test, "
+                      "failed to update the properties "
+                      "for display %" PRId64,
+                      display);
+                return {std::move(status), vtsDisplays};
+            }
+
             vtsDisplays.emplace_back(vtsDisplay);
             addDisplayToDisplayResources(display, /*isVirtual*/ false);
         }
@@ -409,7 +480,7 @@ std::pair<ScopedAStatus, std::vector<VtsDisplay>> VtsComposerClient::getDisplays
     }
 }
 
-ScopedAStatus VtsComposerClient::updateDisplayProperties(VtsDisplay* vtsDisplay, int32_t config) {
+ScopedAStatus VtsComposerClient::addDisplayConfig(VtsDisplay* vtsDisplay, int32_t config) {
     const auto width =
             getDisplayAttribute(vtsDisplay->getDisplayId(), config, DisplayAttribute::WIDTH);
     const auto height =
@@ -420,7 +491,6 @@ ScopedAStatus VtsComposerClient::updateDisplayProperties(VtsDisplay* vtsDisplay,
             getDisplayAttribute(vtsDisplay->getDisplayId(), config, DisplayAttribute::CONFIG_GROUP);
     if (width.first.isOk() && height.first.isOk() && vsyncPeriod.first.isOk() &&
         configGroup.first.isOk()) {
-        vtsDisplay->setDimensions(width.second, height.second);
         vtsDisplay->addDisplayConfig(config, {vsyncPeriod.second, configGroup.second});
         return ScopedAStatus::ok();
     }
@@ -428,6 +498,21 @@ ScopedAStatus VtsComposerClient::updateDisplayProperties(VtsDisplay* vtsDisplay,
     LOG(ERROR) << "Failed to update display property for width: " << width.first.isOk()
                << ", height: " << height.first.isOk() << ", vsync: " << vsyncPeriod.first.isOk()
                << ", config: " << configGroup.first.isOk();
+    return ScopedAStatus::fromServiceSpecificError(IComposerClient::EX_BAD_CONFIG);
+}
+
+ScopedAStatus VtsComposerClient::updateDisplayProperties(VtsDisplay* vtsDisplay, int32_t config) {
+    const auto width =
+            getDisplayAttribute(vtsDisplay->getDisplayId(), config, DisplayAttribute::WIDTH);
+    const auto height =
+            getDisplayAttribute(vtsDisplay->getDisplayId(), config, DisplayAttribute::HEIGHT);
+    if (width.first.isOk() && height.first.isOk()) {
+        vtsDisplay->setDimensions(width.second, height.second);
+        return ScopedAStatus::ok();
+    }
+
+    LOG(ERROR) << "Failed to update display property for width: " << width.first.isOk()
+               << ", height: " << height.first.isOk();
     return ScopedAStatus::fromServiceSpecificError(IComposerClient::EX_BAD_CONFIG);
 }
 
@@ -483,15 +568,22 @@ bool VtsComposerClient::verifyComposerCallbackParams() {
             ALOGE("Invalid seamless possible count");
             isValid = false;
         }
+        if (mComposerCallback->getInvalidRefreshRateDebugEnabledCallbackCount() != 0) {
+            ALOGE("Invalid refresh rate debug enabled callback count");
+            isValid = false;
+        }
     }
     return isValid;
 }
 
 bool VtsComposerClient::destroyAllLayers() {
-    for (const auto& it : mDisplayResources) {
-        const auto& [display, resource] = it;
+    std::unordered_map<int64_t, DisplayResource> physicalDisplays;
+    while (!mDisplayResources.empty()) {
+        const auto& it = mDisplayResources.begin();
+        const auto& [display, resource] = *it;
 
-        for (auto layer : resource.layers) {
+        while (!resource.layers.empty()) {
+            auto layer = *resource.layers.begin();
             const auto status = destroyLayer(display, layer);
             if (!status.isOk()) {
                 ALOGE("Unable to destroy all the layers, failed at layer %" PRId64 " with error %s",
@@ -507,8 +599,12 @@ bool VtsComposerClient::destroyAllLayers() {
                       status.getDescription().c_str());
                 return false;
             }
+        } else {
+            auto extractIter = mDisplayResources.extract(it);
+            physicalDisplays.insert(std::move(extractIter));
         }
     }
+    mDisplayResources.swap(physicalDisplays);
     mDisplayResources.clear();
     return true;
 }

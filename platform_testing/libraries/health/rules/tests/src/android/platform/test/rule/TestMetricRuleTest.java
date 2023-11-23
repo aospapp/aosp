@@ -147,6 +147,46 @@ public class TestMetricRuleTest {
     }
 
     @Test
+    public void testMultipleListeners_lifoOrder() throws Throwable {
+        Bundle args = new Bundle();
+        args.putString(
+                TestMetricRule.METRIC_COLLECTORS_OPTION,
+                String.join(
+                        ",",
+                        new String[] {
+                            "android.platform.test.rule.TestMetricRuleTest$TestableCollector1",
+                            "android.platform.test.rule.TestMetricRuleTest$TestableCollector2"
+                        }));
+        args.putString(TestMetricRule.FIFO_ORDER_OPTION, "false");
+        TestMetricRule rule = new TestMetricRule(args);
+        expectedException.expectMessage(TEST_FAILURE_MESSAGE);
+        rule.apply(FAILING_STATEMENT, DESCRIPTION).evaluate();
+        Failure failure = new Failure(DESCRIPTION, new RuntimeException(TEST_FAILURE_MESSAGE));
+        assertThat(sLogs)
+                .containsExactly(
+                        "TestableCollector1#setInstrumentation",
+                        "TestableCollector2#setInstrumentation",
+                        "TestableCollector1#setupAdditionalArgs",
+                        "TestableCollector1#onSetUp",
+                        "TestableCollector2#setupAdditionalArgs",
+                        "TestableCollector2#onSetUp",
+                        String.format("Test %s: TestableCollector1#onTestStart", DESCRIPTION),
+                        String.format("Test %s: TestableCollector2#onTestStart", DESCRIPTION),
+                        "Test execution",
+                        String.format(
+                                "Test %s: TestableCollector2#onTestFail with failure %s",
+                                DESCRIPTION, failure),
+                        String.format(
+                                "Test %s: TestableCollector1#onTestFail with failure %s",
+                                DESCRIPTION, failure),
+                        String.format("Test %s: TestableCollector2#onTestEnd", DESCRIPTION),
+                        String.format("Test %s: TestableCollector1#onTestEnd", DESCRIPTION),
+                        "TestableCollector2#onCleanUp",
+                        "TestableCollector1#onCleanUp")
+                .inOrder();
+    }
+
+    @Test
     public void testInvalidListenerNameThrows() {
         String invalidName = "not.a.Collector";
         expectedException.expectMessage(
@@ -172,24 +212,39 @@ public class TestMetricRuleTest {
     }
 
     @Test
-    public void testInitWithDifferentOptionName() throws Throwable {
-        String optionName = "another-" + TestMetricRule.METRIC_COLLECTORS_OPTION;
+    public void testInitWithDifferentOptionNames() throws Throwable {
+        String listenerOptionName = "another-" + TestMetricRule.METRIC_COLLECTORS_OPTION;
+        String fifoOptionName = "another-" + TestMetricRule.FIFO_ORDER_OPTION;
 
         Bundle args = new Bundle();
         args.putString(
-                optionName, "android.platform.test.rule.TestMetricRuleTest$TestableCollector1");
+                listenerOptionName,
+                String.join(
+                        ",",
+                        new String[] {
+                            "android.platform.test.rule.TestMetricRuleTest$TestableCollector1",
+                            "android.platform.test.rule.TestMetricRuleTest$TestableCollector2"
+                        }));
+        args.putString(fifoOptionName, "false");
         TestMetricRule rule =
-                new TestMetricRule(args, new Instrumentation(), optionName, "log tag");
+                new TestMetricRule(
+                        args, new Instrumentation(), listenerOptionName, fifoOptionName, "log tag");
 
         rule.apply(PASSING_STATEMENT, DESCRIPTION).evaluate();
         assertThat(sLogs)
                 .containsExactly(
                         "TestableCollector1#setInstrumentation",
+                        "TestableCollector2#setInstrumentation",
                         "TestableCollector1#setupAdditionalArgs",
                         "TestableCollector1#onSetUp",
+                        "TestableCollector2#setupAdditionalArgs",
+                        "TestableCollector2#onSetUp",
                         String.format("Test %s: TestableCollector1#onTestStart", DESCRIPTION),
+                        String.format("Test %s: TestableCollector2#onTestStart", DESCRIPTION),
                         "Test execution",
+                        String.format("Test %s: TestableCollector2#onTestEnd", DESCRIPTION),
                         String.format("Test %s: TestableCollector1#onTestEnd", DESCRIPTION),
+                        "TestableCollector2#onCleanUp",
                         "TestableCollector1#onCleanUp")
                 .inOrder();
     }

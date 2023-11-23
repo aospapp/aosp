@@ -5,10 +5,12 @@ default	rel
 %define XMMWORD
 %define YMMWORD
 %define ZMMWORD
+
+%include "ring_core_generated/prefix_symbols_nasm.inc"
 section	.text code align=64
 
 
-EXTERN	GFp_ia32cap_P
+EXTERN	OPENSSL_ia32cap_P
 
 ALIGN	64
 $L$zero:
@@ -43,14 +45,14 @@ DB	67,104,97,67,104,97,50,48,32,102,111,114,32,120,56,54
 DB	95,54,52,44,32,67,82,89,80,84,79,71,65,77,83,32
 DB	98,121,32,60,97,112,112,114,111,64,111,112,101,110,115,115
 DB	108,46,111,114,103,62,0
-global	GFp_ChaCha20_ctr32
+global	ChaCha20_ctr32
 
 ALIGN	64
-GFp_ChaCha20_ctr32:
+ChaCha20_ctr32:
 	mov	QWORD[8+rsp],rdi	;WIN64 prologue
 	mov	QWORD[16+rsp],rsi
 	mov	rax,rsp
-$L$SEH_begin_GFp_ChaCha20_ctr32:
+$L$SEH_begin_ChaCha20_ctr32:
 	mov	rdi,rcx
 	mov	rsi,rdx
 	mov	rdx,r8
@@ -61,7 +63,7 @@ $L$SEH_begin_GFp_ChaCha20_ctr32:
 
 	cmp	rdx,0
 	je	NEAR $L$no_data
-	mov	r10,QWORD[((GFp_ia32cap_P+4))]
+	mov	r10,QWORD[((OPENSSL_ia32cap_P+4))]
 	test	r10d,512
 	jnz	NEAR $L$ChaCha20_ssse3
 
@@ -337,7 +339,7 @@ $L$no_data:
 	mov	rsi,QWORD[16+rsp]
 	DB	0F3h,0C3h		;repret
 
-$L$SEH_end_GFp_ChaCha20_ctr32:
+$L$SEH_end_ChaCha20_ctr32:
 
 ALIGN	32
 ChaCha20_ssse3:
@@ -1887,9 +1889,9 @@ full_handler:
 
 section	.pdata rdata align=4
 ALIGN	4
-	DD	$L$SEH_begin_GFp_ChaCha20_ctr32 wrt ..imagebase
-	DD	$L$SEH_end_GFp_ChaCha20_ctr32 wrt ..imagebase
-	DD	$L$SEH_info_GFp_ChaCha20_ctr32 wrt ..imagebase
+	DD	$L$SEH_begin_ChaCha20_ctr32 wrt ..imagebase
+	DD	$L$SEH_end_ChaCha20_ctr32 wrt ..imagebase
+	DD	$L$SEH_info_ChaCha20_ctr32 wrt ..imagebase
 
 	DD	$L$SEH_begin_ChaCha20_ssse3 wrt ..imagebase
 	DD	$L$SEH_end_ChaCha20_ssse3 wrt ..imagebase
@@ -1903,7 +1905,7 @@ ALIGN	4
 	DD	$L$SEH_info_ChaCha20_8x wrt ..imagebase
 section	.xdata rdata align=8
 ALIGN	8
-$L$SEH_info_GFp_ChaCha20_ctr32:
+$L$SEH_info_ChaCha20_ctr32:
 DB	9,0,0,0
 	DD	se_handler wrt ..imagebase
 

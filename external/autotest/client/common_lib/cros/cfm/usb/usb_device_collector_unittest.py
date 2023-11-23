@@ -1,5 +1,5 @@
-import mock
 import unittest
+from unittest import mock
 
 from autotest_lib.client.common_lib.cros.cfm.usb import usb_device_collector
 from autotest_lib.client.common_lib.cros.cfm.usb import usb_device_spec

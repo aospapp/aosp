@@ -17,6 +17,7 @@
 package android.app.appsearch;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.app.appsearch.util.BundleUtil;
 import android.os.Bundle;
 
@@ -73,7 +74,7 @@ public class PackageIdentifier {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (this == obj) {
             return true;
         }

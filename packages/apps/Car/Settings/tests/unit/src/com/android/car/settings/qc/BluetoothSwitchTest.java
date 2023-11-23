@@ -79,6 +79,38 @@ public class BluetoothSwitchTest extends BaseSettingsQCItemTestCase {
     }
 
     @Test
+    public void getQCItem_createsRow_zoneWrite() {
+        mBluetoothSwitch.setAvailabilityStatusForZone("write");
+        QCItem item = mBluetoothSwitch.getQCItem();
+        assertThat(item instanceof QCList).isTrue();
+        QCList list = (QCList) item;
+        assertThat(list.getRows().size()).isEqualTo(1);
+        QCRow row = list.getRows().get(0);
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsRow_zoneRead() {
+        mBluetoothSwitch.setAvailabilityStatusForZone("read");
+        QCItem item = mBluetoothSwitch.getQCItem();
+        assertThat(item instanceof QCList).isTrue();
+        QCList list = (QCList) item;
+        assertThat(list.getRows().size()).isEqualTo(1);
+        QCRow row = list.getRows().get(0);
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isEnabled()).isFalse();
+        assertThat(actionItem.isClickableWhileDisabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsRow_zoneHidden() {
+        mBluetoothSwitch.setAvailabilityStatusForZone("hidden");
+        QCItem item = mBluetoothSwitch.getQCItem();
+        assertThat(item).isNull();
+    }
+
+    @Test
     public void getQCItem_titleSet() {
         QCList list = (QCList) mBluetoothSwitch.getQCItem();
         QCRow row = list.getRows().get(0);

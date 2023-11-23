@@ -16,16 +16,12 @@
 
 package com.android.cts.intent.sender;
 
-import android.content.ClipboardManager;
 import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
-import android.content.Intent;
-import android.os.Bundle;
 import android.test.InstrumentationTestCase;
-import android.util.Log;
 
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 
 public class CopyPasteTest extends InstrumentationTestCase
         implements ClipboardManager.OnPrimaryClipChangedListener {
@@ -34,10 +30,8 @@ public class CopyPasteTest extends InstrumentationTestCase
     private ClipboardManager mClipboard;
     private Semaphore mNotified;
 
-    private static String ACTION_COPY_TO_CLIPBOARD = "com.android.cts.action.COPY_TO_CLIPBOARD";
-
-    private static String INITIAL_TEXT = "initial text";
-    private static String NEW_TEXT = "sample text";
+    private static final String INITIAL_TEXT = "initial text";
+    private static final String NEW_TEXT = "new text";
 
     @Override
     protected void setUp() throws Exception {
@@ -53,32 +47,26 @@ public class CopyPasteTest extends InstrumentationTestCase
         super.tearDown();
     }
 
-    public void testCanReadAcrossProfiles() throws Exception {
+    public void testCopyInitialText() throws Exception {
         ClipData clip = ClipData.newPlainText(""/*label*/, INITIAL_TEXT);
         mClipboard.setPrimaryClip(clip);
         assertEquals(INITIAL_TEXT , getTextFromClipboard());
-
-        askCrossProfileReceiverToCopy(NEW_TEXT);
-
-        assertEquals(NEW_TEXT, getTextFromClipboard());
     }
 
-    public void testCannotReadAcrossProfiles() throws Exception {
-        ClipData clip = ClipData.newPlainText(""/*label*/, INITIAL_TEXT);
+    public void testCopyNewText() throws Exception {
+        ClipData clip = ClipData.newPlainText(""/*label*/, NEW_TEXT);
         mClipboard.setPrimaryClip(clip);
-        assertEquals(INITIAL_TEXT , getTextFromClipboard());
+        assertEquals(NEW_TEXT , getTextFromClipboard());
+    }
 
-        askCrossProfileReceiverToCopy(NEW_TEXT);
-
+    public void testClipboardHasInitialTextOrNull() throws Exception {
         String clipboardText = getTextFromClipboard();
         assertTrue("The clipboard text is " + clipboardText + " but should be <null> or "
                 + INITIAL_TEXT, clipboardText == null || clipboardText.equals(INITIAL_TEXT));
     }
 
-    private void askCrossProfileReceiverToCopy(String text) throws Exception {
-        Intent intent = new Intent(ACTION_COPY_TO_CLIPBOARD);
-        intent.putExtra("extra_text", text);
-        mActivity.getCrossProfileResult(intent);
+    public void testClipboardHasNewText() throws Exception {
+        assertEquals(NEW_TEXT, getTextFromClipboard());
     }
 
     private String getTextFromClipboard() {

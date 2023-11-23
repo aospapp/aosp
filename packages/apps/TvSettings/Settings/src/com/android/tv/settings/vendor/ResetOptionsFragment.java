@@ -26,6 +26,9 @@ import androidx.preference.Preference;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
+import com.android.tv.settings.customization.CustomizationConstants;
+import com.android.tv.settings.customization.Partner;
+import com.android.tv.settings.customization.PartnerPreferencesMerger;
 
 /** A vendor version reset options settings. */
 @Keep
@@ -36,6 +39,13 @@ public class ResetOptionsFragment extends SettingsPreferenceFragment {
     @Override
     public void onCreatePreferences(Bundle bundle, String s) {
         setPreferencesFromResource(R.xml.reset_options_vendor, null);
+        if (Partner.getInstance(getContext()).isCustomizationPackageProvided()) {
+            PartnerPreferencesMerger.mergePreferences(
+                    getContext(),
+                    getPreferenceScreen(),
+                    CustomizationConstants.RESET_OPTIONS_SCREEN
+            );
+        }
     }
 
     @Override

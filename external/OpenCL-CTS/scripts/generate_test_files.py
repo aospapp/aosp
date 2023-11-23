@@ -1,6 +1,8 @@
 import json
 import os
 import re
+import shutil
+import subprocess
 from xml.dom import minidom
 from xml.etree import ElementTree
 
@@ -45,7 +47,8 @@ cc_test {{
   f.write(cc_test_string)
 
 
-def generate_android_bp():
+# Return value indicates whether the output should be formatted with bpfmt
+def generate_android_bp() -> bool:
   android_bp_head_path = os.path.join(SCRIPT_DIR, 'android_bp_head')
   android_bp_tail_path = os.path.join(SCRIPT_DIR, 'android_bp_tail')
 
@@ -60,6 +63,12 @@ def generate_android_bp():
 
     with open(android_bp_tail_path, 'r') as android_bp_tail:
       android_bp.write(android_bp_tail.read())
+
+  if shutil.which('bpfmt') is not None:
+    subprocess.run(['bpfmt', '-w', 'Android.bp'])
+    return True
+
+  return False
 
 
 def create_subelement_with_attribs(element, tag, attribs):
@@ -142,12 +151,15 @@ def generate_test_xml():
 
 
 def main():
-  generate_android_bp()
+  android_bp_formatted = generate_android_bp()
   generate_test_xml()
 
   print("Don't forget to move -")
   print("    Android.bp -> {ANDROID_ROOT}/external/OpenCL-CTS/Android.bp")
   print("    test_opencl_cts.xml -> {ANDROID_ROOT}/external/OpenCL-CTS/scripts/test_opencl_cts.xml")
+  if not android_bp_formatted:
+    print("then run the blueprint autoformatter:")
+    print("    bpfmt -w {ANDROID_ROOT}/external/OpenCL-CTS/Android.bp")
 
 
 if __name__ == '__main__':

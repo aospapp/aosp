@@ -128,8 +128,8 @@ class tempdir(object):
                 pass
 
 
-class dummy_dir(object):
-    """A dummy object representing a directory with a name.
+class stub_dir(object):
+    """A stub object representing a directory with a name.
 
     Only used for compat with the tmpdir, in cases where we wish to
     reuse a dir with the same interface but not to delete it after
@@ -137,7 +137,7 @@ class dummy_dir(object):
     """
 
     def __init__(self, name):
-        """Initialize the dummy_dir object.
+        """Initialize the stub_dir object.
 
         @param name: Path the the directory.
         """

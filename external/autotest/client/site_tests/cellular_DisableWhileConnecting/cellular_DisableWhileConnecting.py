@@ -1,14 +1,18 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import gobject
+# AU tests use ToT client code, but ToT -3 client version.
+try:
+    from gi.repository import GObject
+except ImportError:
+    import gobject as GObject
 import logging
 import time
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros.cellular import modem_utils
 from autotest_lib.client.cros.mainloop import ExceptionForward
 from autotest_lib.client.cros.mainloop import GenericTesterMainLoop
 from autotest_lib.client.cros.networking import shill_proxy
@@ -29,7 +33,7 @@ class DisableTester(GenericTesterMainLoop):
         self.test_kwargs.get('delay_before_disable_ms', 0) +
         self.test.iteration *
         self.test_kwargs.get('disable_delay_per_iteration_ms', 0))
-    gobject.timeout_add(disable_delay_ms, self._start_disable)
+    GObject.timeout_add(disable_delay_ms, self._start_disable)
     self._start_test()
 
   @ExceptionForward
@@ -59,14 +63,12 @@ class DisableTester(GenericTesterMainLoop):
     logging.info('Got status')
     self.requirement_completed('get_status', warn_if_already_completed=False)
     if self.status_delay_ms:
-      gobject.timeout_add(self.status_delay_ms, self._start_get_status)
+      GObject.timeout_add(self.status_delay_ms, self._start_get_status)
 
   def after_main_loop(self):
     """Called by GenericTesterMainLoop after the main loop has exited."""
     enabled = self._enabled()
     logging.info('Modem enabled: %s', enabled)
-    # Will return happily if no Gobi present
-    modem_utils.ClearGobiModemFaultInjection()
 
 
 class ShillDisableTester(DisableTester):
@@ -188,7 +190,7 @@ class ModemDisableTester(DisableTester):
     if self._is_gobi():
       self.remaining_requirements.add('get_status')
       self.status_delay_ms = self.test_kwargs.get('status_delay_ms', 200)
-      gobject.timeout_add(self.status_delay_ms, self._start_get_status)
+      GObject.timeout_add(self.status_delay_ms, self._start_get_status)
 
     self._start_connect()
 
@@ -262,7 +264,7 @@ class cellular_DisableWhileConnecting(test.test):
   def run_once(self, test_env, **kwargs):
     self.test_env = test_env
     timeout_s = kwargs.get('timeout_s', DEFAULT_TEST_TIMEOUT_S)
-    gobject_main_loop = gobject.MainLoop()
+    gobject_main_loop = GObject.MainLoop()
 
     with test_env:
       logging.info('Shill-level test')
@@ -272,11 +274,8 @@ class cellular_DisableWhileConnecting(test.test):
       shill_level_test.run(**kwargs)
 
     with test_env:
-      try:
-        logging.info('Modem-level test')
-        modem_level_test = ModemDisableTester(self,
-                                              gobject_main_loop,
-                                              timeout_s=timeout_s)
-        modem_level_test.run(**kwargs)
-      finally:
-        modem_utils.ClearGobiModemFaultInjection()
+      logging.info('Modem-level test')
+      modem_level_test = ModemDisableTester(self,
+                                            gobject_main_loop,
+                                            timeout_s=timeout_s)
+      modem_level_test.run(**kwargs)

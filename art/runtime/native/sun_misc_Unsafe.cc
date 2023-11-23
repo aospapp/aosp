@@ -34,7 +34,7 @@
 #include "art_field-inl.h"
 #include "native_util.h"
 #include "scoped_fast_native_object_access-inl.h"
-#include "well_known_classes.h"
+#include "well_known_classes-inl.h"
 
 namespace art {
 
@@ -69,7 +69,7 @@ static jboolean Unsafe_compareAndSwapObject(JNIEnv* env, jobject, jobject javaOb
   ObjPtr<mirror::Object> expectedValue = soa.Decode<mirror::Object>(javaExpectedValue);
   ObjPtr<mirror::Object> newValue = soa.Decode<mirror::Object>(javaNewValue);
   // JNI must use non transactional mode.
-  if (kUseReadBarrier) {
+  if (gUseReadBarrier) {
     // Need to make sure the reference stored in the field is a to-space one before attempting the
     // CAS or the CAS could fail incorrectly.
     // Note that the read barrier load does NOT need to be volatile.
@@ -521,12 +521,14 @@ static void Unsafe_park(JNIEnv* env, jobject, jboolean isAbsolute, jlong time) {
 
 static void Unsafe_unpark(JNIEnv* env, jobject, jobject jthread) {
   art::ScopedFastNativeObjectAccess soa(env);
-  if (jthread == nullptr || !env->IsInstanceOf(jthread, WellKnownClasses::java_lang_Thread)) {
+  ObjPtr<mirror::Object> mirror_thread = soa.Decode<mirror::Object>(jthread);
+  if (mirror_thread == nullptr ||
+      !mirror_thread->InstanceOf(WellKnownClasses::java_lang_Thread.Get())) {
     ThrowIllegalArgumentException("Argument to unpark() was not a Thread");
     return;
   }
   art::MutexLock mu(soa.Self(), *art::Locks::thread_list_lock_);
-  art::Thread* thread = art::Thread::FromManagedThread(soa, jthread);
+  art::Thread* thread = art::Thread::FromManagedThread(soa, mirror_thread);
   if (thread != nullptr) {
     thread->Unpark();
   } else {
@@ -534,10 +536,9 @@ static void Unsafe_unpark(JNIEnv* env, jobject, jobject jthread) {
     // or the thread has already terminated. Setting the field to true will be
     // respected when the thread does start, and is harmless if the thread has
     // already terminated.
-    ArtField* unparked =
-        jni::DecodeArtField(WellKnownClasses::java_lang_Thread_unparkedBeforeStart);
+    ArtField* unparked = WellKnownClasses::java_lang_Thread_unparkedBeforeStart;
     // JNI must use non transactional mode.
-    unparked->SetBoolean<false>(soa.Decode<mirror::Object>(jthread), JNI_TRUE);
+    unparked->SetBoolean<false>(mirror_thread, JNI_TRUE);
   }
 }
 

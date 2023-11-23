@@ -15,12 +15,13 @@ COMMON_SRCS += $(CHRE_PREFIX)/core/event_loop.cc
 COMMON_SRCS += $(CHRE_PREFIX)/core/event_loop_manager.cc
 COMMON_SRCS += $(CHRE_PREFIX)/core/event_ref_queue.cc
 COMMON_SRCS += $(CHRE_PREFIX)/core/host_comms_manager.cc
-COMMON_SRCS += $(CHRE_PREFIX)/core/host_notifications.cc
+COMMON_SRCS += $(CHRE_PREFIX)/core/host_endpoint_manager.cc
 COMMON_SRCS += $(CHRE_PREFIX)/core/init.cc
 COMMON_SRCS += $(CHRE_PREFIX)/core/log.cc
 COMMON_SRCS += $(CHRE_PREFIX)/core/nanoapp.cc
 COMMON_SRCS += $(CHRE_PREFIX)/core/settings.cc
 COMMON_SRCS += $(CHRE_PREFIX)/core/static_nanoapps.cc
+COMMON_SRCS += $(CHRE_PREFIX)/core/system_health_monitor.cc
 COMMON_SRCS += $(CHRE_PREFIX)/core/timer_pool.cc
 
 # Optional audio support.
@@ -70,8 +71,7 @@ COMMON_CFLAGS += -DCHRE_TELEMETRY_SUPPORT_ENABLED
 
 NANOPB_EXTENSION = nanopb
 
-NANOPB_SRCS += $(CHRE_PREFIX)/../../hardware/google/pixel/pixelstats/pixelatoms.proto
-NANOPB_INCLUDES = $(CHRE_PREFIX)/../../hardware/google/pixel/pixelstats/
+NANOPB_SRCS += $(CHRE_PREFIX)/core/chre_metrics.proto
 
 include $(CHRE_PREFIX)/build/nanopb.mk
 endif

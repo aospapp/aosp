@@ -19,6 +19,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.wifi.dialog">
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.INTERNAL_SYSTEM_WINDOW"/>
     <queries>
         <intent>
             <action android:name="com.android.server.wifi.intent.action.SERVICE_WIFI_RESOURCES_APK" />
@@ -28,7 +29,8 @@
     <application
         android:enabled="true"
         android:configChanges="keyboardHidden|orientation|screenSize"
-        android:supportsRtl="true">
+        android:supportsRtl="true"
+        android:theme="@style/WifiDialogTheme">
 
         <!-- This is only used to identify this app by resolving the action.
              The activity is never actually triggered. -->
@@ -39,9 +41,9 @@
         </activity>>
 
         <activity android:name=".WifiDialogActivity"
-                  android:configChanges="keyboardHidden|orientation|screenSize"
+                  android:configChanges="keyboardHidden|screenSize"
                   android:hardwareAccelerated="true"
                   android:launchMode="singleInstance"
-                  android:theme="@*android:style/Theme.DeviceDefault.Dialog.Alert.DayNight" />
+                  android:excludeFromRecents="true"/>
     </application>
 </manifest>

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -259,7 +260,7 @@ class servo_LabstationVerification(test.test):
             # ping again.
             logging.info('Failed to ping DUT on ipv6: %s. Cold resetting',
                          dut_ipv6)
-            servo_proxy._power_state.reset()
+            servo_proxy.get_power_state_controller().reset()
             time.sleep(self.RESET_TIMEOUT_S)
         dut_ipv4 = None
         try:
@@ -312,7 +313,14 @@ class servo_LabstationVerification(test.test):
     def _byteify(self, data, ignore_dicts=False):
         """Helper method to convert unicode to string.
         """
-        if isinstance(data, unicode):
+        # In python2 we need to convert unicode into str, however in python3
+        # unicode renamed to str so json.load will load data into str by
+        # default so run encode with a str in python3 will actually convert
+        # the data into bytes which we don't want. To make the test compatible
+        # to both python2 and python3, we check data type != dict, list, str
+        # for now. # TODO(xianuowang@): remove this method once we fully
+        # migrated to python3.
+        if type(data) not in {dict, list, str}:
             return data.encode('utf-8')
         if isinstance(data, list):
             return [self._byteify(item, ignore_dicts=True) for item in data]
@@ -320,7 +328,7 @@ class servo_LabstationVerification(test.test):
             return {
                 self._byteify(key, ignore_dicts=True):
                     self._byteify(value, ignore_dicts=True)
-                for key, value in data.iteritems()
+                for key, value in list(data.items())
             }
         return data
 
@@ -462,7 +470,7 @@ class servo_LabstationVerification(test.test):
         if dut_host is None:
             raise error.TestFail('dut machine %r not known to suite. Known '
                                  'machines: %r', machine,
-                                 ', '.join(self.machine_dict.keys()))
+                                 ', '.join(list(self.machine_dict.keys())))
         logging.info('About to run on machine %s', machine)
         if not self.job.run_test('servo_Verification', host=dut_host,
                                  local=self.local):
@@ -480,5 +488,5 @@ class servo_LabstationVerification(test.test):
         """Clean up by calling close for dut host, which will also take care
         of servo cleanup.
         """
-        for _, dut in self.machine_dict.items():
+        for _, dut in list(self.machine_dict.items()):
             dut.close()

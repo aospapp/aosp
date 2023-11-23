@@ -18,11 +18,12 @@ package com.android.launcher3.tapl;
 
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.BySelector;
 import androidx.test.uiautomator.UiObject2;
 
-import com.android.launcher3.testing.TestProtocol;
+import com.android.launcher3.testing.shared.TestProtocol;
 
 import java.util.regex.Pattern;
 
@@ -36,7 +37,8 @@ public abstract class AppIcon extends Launchable {
     }
 
     static BySelector getAppIconSelector(String appName, LauncherInstrumentation launcher) {
-        return By.clazz(TextView.class).text(appName).pkg(launcher.getLauncherPackageName());
+        return By.clazz(TextView.class).textContains(appName)
+                .pkg(launcher.getLauncherPackageName());
     }
 
     static BySelector getAnyAppIconSelector() {
@@ -85,5 +87,11 @@ public abstract class AppIcon extends Launchable {
     @Override
     protected String launchableType() {
         return "app icon";
+    }
+
+    /** Return the app name of a icon */
+    @NonNull
+    public String getIconName() {
+        return getObject().getText();
     }
 }

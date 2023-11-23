@@ -28,6 +28,7 @@ import android.os.RemoteException;
 import android.util.Log;
 
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -39,7 +40,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * @hide
  */
-class PeriodicScanManager {
+@VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
+public class PeriodicScanManager {
     private static final boolean DBG = GattServiceConfig.DBG;
     private static final String TAG = GattServiceConfig.TAG_PREFIX + "SyncManager";
 
@@ -253,6 +255,23 @@ class PeriodicScanManager {
             }
             callback.onSyncLost(syncHandle);
 
+        }
+    }
+
+    void onBigInfoReport(int syncHandle, boolean encrypted)
+        throws Exception {
+        if (DBG) {
+            Log.d(TAG, "onBigInfoReport() - syncHandle=" + syncHandle +
+                    " , encrypted=" + encrypted);
+        }
+        Map<IBinder, SyncInfo> syncMap = findAllSync(syncHandle);
+        if (syncMap.isEmpty()) {
+            Log.i(TAG, "onBigInfoReport() - no callback found for syncHandle " + syncHandle);
+            return;
+        }
+        for (Map.Entry<IBinder, SyncInfo> e : syncMap.entrySet()) {
+            IPeriodicAdvertisingCallback callback = e.getValue().callback;
+            callback.onBigInfoAdvertisingReport(syncHandle, encrypted);
         }
     }
 

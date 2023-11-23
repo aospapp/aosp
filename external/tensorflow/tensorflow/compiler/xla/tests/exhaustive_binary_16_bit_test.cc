@@ -32,16 +32,16 @@ namespace {
 template <PrimitiveType T>
 class Exhaustive16BitBinaryTest
     : public ExhaustiveBinaryTest<T>,
-      public ::testing::WithParamInterface<std::pair<int64, int64>> {
+      public ::testing::WithParamInterface<std::pair<int64_t, int64_t>> {
  public:
-  int64 GetInputSize() override {
+  int64_t GetInputSize() override {
     int64_t begin, end;
     std::tie(begin, end) = GetParam();
     return end - begin;
   }
 
-  // Given a range of uint64 representation, uses bits 0..15 and bits 16..31 for
-  // the values of src0 and src1 for a 16 bit binary operation being tested,
+  // Given a range of uint64_t representation, uses bits 0..15 and bits 16..31
+  // for the values of src0 and src1 for a 16 bit binary operation being tested,
   // and generates the cartesian product of the two sets as the two inputs for
   // the test.
   void FillInput(std::array<Literal, 2>* input_literals) override {
@@ -56,7 +56,7 @@ class Exhaustive16BitBinaryTest
     absl::Span<NativeT> input_arr_0 = (*input_literals)[0].data<NativeT>();
     absl::Span<NativeT> input_arr_1 = (*input_literals)[1].data<NativeT>();
     for (int64_t i = 0; i < input_size; i++) {
-      uint32 input_val = i + begin;
+      uint32_t input_val = i + begin;
       // Convert the lower 16 bits to the NativeT and replaced known incorrect
       // input values with 0.
       input_arr_0[i] = ConvertAndReplaceKnownIncorrectValueWith(input_val, 0);

@@ -64,7 +64,7 @@ class AppRTCController(object):
     def __init__(self, browser_facade):
         """Initializes an AppRTCController.
 
-        @param browser_facade: A BrowserFacadeNative (for client side) or
+        @param browser_facade: A BrowserFacadeLocal (for client side) or
                                BrowserFacadeAdapter (for server side).
 
         """

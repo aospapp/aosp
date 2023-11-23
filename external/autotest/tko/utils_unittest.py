@@ -1,10 +1,15 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import os, unittest, time, datetime, itertools
 
 import common
 from autotest_lib.client.common_lib.test_utils import mock
 from autotest_lib.tko import utils
+from six.moves import zip
 
 
 class get_timestamp_test(unittest.TestCase):
@@ -35,7 +40,7 @@ class get_timestamp_test(unittest.TestCase):
     def test_date_can_be_string_or_integer(self):
         int_times = [1, 12, 123, 1234, 12345, 123456]
         str_times = [str(t) for t in int_times]
-        for int_t, str_t in itertools.izip(int_times, str_times):
+        for int_t, str_t in zip(int_times, str_times):
             date_int = utils.get_timestamp({"key": int_t}, "key")
             date_str = utils.get_timestamp({"key": str_t}, "key")
             self.assertEquals(date_int, date_str)

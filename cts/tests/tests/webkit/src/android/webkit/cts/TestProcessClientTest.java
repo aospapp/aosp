@@ -18,12 +18,14 @@ package android.webkit.cts;
 
 import android.content.Context;
 import android.os.Looper;
-import android.test.InstrumentationTestCase;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.LargeTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
-import junit.framework.Assert;
-import junit.framework.AssertionFailedError;
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.IOException;
 
@@ -31,7 +33,9 @@ import java.io.IOException;
  * Test various scenarios of using {@link TestProcessService} and {@link TestProcessClient}
  * framework to run tests cases in freshly created test processes.
  */
-public class TestProcessClientTest extends InstrumentationTestCase {
+@LargeTest
+@RunWith(AndroidJUnit4.class)
+public class TestProcessClientTest {
 
     static class TestRunningOnUiThread extends TestProcessClient.UiThreadTestRunnable {
         @Override
@@ -60,6 +64,7 @@ public class TestProcessClientTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testRunDifferentRunnables() throws Throwable {
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
         try (TestProcessClient process = TestProcessClient.createProcessA(context)) {
@@ -80,11 +85,12 @@ public class TestProcessClientTest extends InstrumentationTestCase {
      * Test throwing an exception that is handled by the Parcel class: {@link
      * Parcel#writeException(java.lang.Exception)}.
      */
+    @Test
     public void testThrowingNullPointerException() throws Throwable {
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
         try (TestProcessClient process = TestProcessClient.createProcessA(context)) {
             process.run(TestNullPointerException.class);
-            fail("A NullPointerException is expected to be thrown");
+            Assert.fail("A NullPointerException is expected to be thrown");
         } catch (NullPointerException e) {
 
         }
@@ -101,11 +107,12 @@ public class TestProcessClientTest extends InstrumentationTestCase {
      * Test throwing an exception that is not handled by the Parcel class: {@link
      * Parcel#writeException(java.lang.Exception)}.
      */
+    @Test
     public void testThrowingIOException() throws Throwable {
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
         try (TestProcessClient process = TestProcessClient.createProcessA(context)) {
             process.run(TestIOException.class);
-            fail("An IOException is expected to be thrown");
+            Assert.fail("An IOException is expected to be thrown");
         } catch (IOException e) {
         }
     }
@@ -113,19 +120,20 @@ public class TestProcessClientTest extends InstrumentationTestCase {
     static class TestFailedAssertion extends TestProcessClient.TestRunnable {
         @Override
         public void run(Context ctx) throws Throwable {
-            fail("This assertion should be caught");
+            Assert.fail("This assertion should be caught");
         }
     }
 
     /**
      * Test that junit assertions failures are propagated as expected.
      */
+    @Test
     public void testFailedAssertion() throws Throwable {
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
         try (TestProcessClient process = TestProcessClient.createProcessA(context)) {
             process.run(TestFailedAssertion.class);
-            fail("An AssertionFailedError is expected to be thrown");
-        } catch (AssertionFailedError e) {
+            Assert.fail("An AssertionError is expected to be thrown");
+        } catch (AssertionError e) {
             Assert.assertEquals("This assertion should be caught", e.getMessage());
         }
     }

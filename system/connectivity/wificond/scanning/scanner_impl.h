@@ -55,6 +55,10 @@ class ScannerImpl : public android::net::wifi::nl80211::BnWifiScannerImpl {
       const android::net::wifi::nl80211::SingleScanSettings&
           scan_settings,
       bool* out_success) override;
+  ::android::binder::Status scanRequest(
+      const android::net::wifi::nl80211::SingleScanSettings&
+          scan_settings,
+      int* status) override;
   ::android::binder::Status startPnoScan(
       const android::net::wifi::nl80211::PnoSettings& pno_settings,
       bool* out_success) override;

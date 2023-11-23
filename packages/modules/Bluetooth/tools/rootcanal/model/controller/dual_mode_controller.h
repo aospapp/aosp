@@ -24,12 +24,12 @@
 #include <unordered_map>
 #include <vector>
 
+#include "controller_properties.h"
 #include "hci/address.h"
 #include "hci/hci_packets.h"
 #include "link_layer_controller.h"
+#include "model/controller/vendor_commands/csr.h"
 #include "model/devices/device.h"
-#include "model/setup/async_manager.h"
-#include "security_manager.h"
 
 namespace rootcanal {
 
@@ -48,46 +48,28 @@ using ::bluetooth::hci::CommandView;
 // corresponding Bluetooth command in the Core Specification with the prefix
 // "Hci" to distinguish it as a controller command.
 class DualModeController : public Device {
-  // The location of the config file loaded to populate controller attributes.
-  static constexpr char kControllerPropertiesFile[] =
-      "/vendor/etc/bluetooth/controller_properties.json";
-  static constexpr uint16_t kSecurityManagerNumKeys = 15;
-
  public:
-  // Sets all of the methods to be used as callbacks in the HciHandler.
-  DualModeController(const std::string& properties_filename =
-                         std::string(kControllerPropertiesFile),
-                     uint16_t num_keys = kSecurityManagerNumKeys);
-
+  DualModeController(ControllerProperties properties = ControllerProperties());
+  DualModeController(DualModeController&&) = delete;
+  DualModeController(const DualModeController&) = delete;
   ~DualModeController() = default;
 
+  DualModeController& operator=(const DualModeController&) = delete;
+
   // Device methods.
-  virtual std::string GetTypeString() const override;
+  std::string GetTypeString() const override;
 
-  virtual void IncomingPacket(
-      model::packets::LinkLayerPacketView incoming) override;
+  void ReceiveLinkLayerPacket(model::packets::LinkLayerPacketView incoming,
+                              Phy::Type type, int8_t rssi) override;
 
-  virtual void TimerTick() override;
-
-  virtual void Close() override;
+  void Tick() override;
+  void Close() override;
 
   // Route commands and data from the stack.
   void HandleAcl(std::shared_ptr<std::vector<uint8_t>> acl_packet);
   void HandleCommand(std::shared_ptr<std::vector<uint8_t>> command_packet);
   void HandleSco(std::shared_ptr<std::vector<uint8_t>> sco_packet);
   void HandleIso(std::shared_ptr<std::vector<uint8_t>> iso_packet);
-
-  // Set the callbacks for scheduling tasks.
-  void RegisterTaskScheduler(
-      std::function<AsyncTaskId(std::chrono::milliseconds, const TaskCallback&)>
-          evtScheduler);
-
-  void RegisterPeriodicTaskScheduler(
-      std::function<AsyncTaskId(std::chrono::milliseconds,
-                                std::chrono::milliseconds, const TaskCallback&)>
-          periodicEvtScheduler);
-
-  void RegisterTaskCancel(std::function<void(AsyncTaskId)> cancel);
 
   // Set the callbacks for sending packets to the HCI.
   void RegisterEventChannel(
@@ -106,9 +88,6 @@ class DualModeController : public Device {
       const std::function<void(std::shared_ptr<std::vector<uint8_t>>)>&
           send_iso);
 
-  // Set the device's address.
-  void SetAddress(Address address) override;
-
   // Controller commands. For error codes, see the Bluetooth Core Specification,
   // Version 4.2, Volume 2, Part D (page 370).
 
@@ -116,73 +95,55 @@ class DualModeController : public Device {
   // Bluetooth Core Specification Version 4.2 Volume 2 Part E 7.1
 
   // 7.1.1
-  void Inquiry(CommandView args);
+  void Inquiry(CommandView command);
 
   // 7.1.2
-  void InquiryCancel(CommandView args);
+  void InquiryCancel(CommandView command);
 
   // 7.1.5
-  void CreateConnection(CommandView args);
+  void CreateConnection(CommandView command);
 
   // 7.1.6
-  void Disconnect(CommandView args);
+  void Disconnect(CommandView command);
 
   // Deprecated
-  void AddScoConnection(CommandView args);
+  void AddScoConnection(CommandView command);
 
   // 7.1.7
-  void CreateConnectionCancel(CommandView args);
+  void CreateConnectionCancel(CommandView command);
 
   // 7.1.8
-  void AcceptConnectionRequest(CommandView args);
+  void AcceptConnectionRequest(CommandView command);
 
   // 7.1.9
-  void RejectConnectionRequest(CommandView args);
-
-  // 7.1.10
-  void LinkKeyRequestReply(CommandView args);
-
-  // 7.1.11
-  void LinkKeyRequestNegativeReply(CommandView args);
-
-  // 7.1.12
-  void PinCodeRequestReply(CommandView args);
-
-  // 7.1.13
-  void PinCodeRequestNegativeReply(CommandView args);
+  void RejectConnectionRequest(CommandView command);
 
   // 7.1.14
-  void ChangeConnectionPacketType(CommandView args);
-
-  // 7.1.15
-  void AuthenticationRequested(CommandView args);
-
-  // 7.1.16
-  void SetConnectionEncryption(CommandView args);
+  void ChangeConnectionPacketType(CommandView command);
 
   // 7.1.17
-  void ChangeConnectionLinkKey(CommandView args);
+  void ChangeConnectionLinkKey(CommandView command);
 
   // 7.1.18
-  void CentralLinkKey(CommandView args);
+  void CentralLinkKey(CommandView command);
 
   // 7.1.19
-  void RemoteNameRequest(CommandView args);
+  void RemoteNameRequest(CommandView command);
 
   // 7.2.8
-  void SwitchRole(CommandView args);
+  void SwitchRole(CommandView command);
 
   // 7.1.21
-  void ReadRemoteSupportedFeatures(CommandView args);
+  void ReadRemoteSupportedFeatures(CommandView command);
 
   // 7.1.22
-  void ReadRemoteExtendedFeatures(CommandView args);
+  void ReadRemoteExtendedFeatures(CommandView command);
 
   // 7.1.23
-  void ReadRemoteVersionInformation(CommandView args);
+  void ReadRemoteVersionInformation(CommandView command);
 
   // 7.1.24
-  void ReadClockOffset(CommandView args);
+  void ReadClockOffset(CommandView command);
 
   // 7.1.26
   void SetupSynchronousConnection(CommandView command);
@@ -193,438 +154,441 @@ class DualModeController : public Device {
   // 7.1.28
   void RejectSynchronousConnection(CommandView command);
 
-  // 7.1.29
-  void IoCapabilityRequestReply(CommandView args);
+  // 7.1.45
+  void EnhancedSetupSynchronousConnection(CommandView command);
 
-  // 7.1.30
-  void UserConfirmationRequestReply(CommandView args);
-
-  // 7.1.31
-  void UserConfirmationRequestNegativeReply(CommandView args);
-
-  // 7.1.32
-  void UserPasskeyRequestReply(CommandView args);
-
-  // 7.1.33
-  void UserPasskeyRequestNegativeReply(CommandView args);
-
-  // 7.1.34
-  void RemoteOobDataRequestReply(CommandView args);
-
-  // 7.1.35
-  void RemoteOobDataRequestNegativeReply(CommandView args);
-
-  // 7.1.36
-  void IoCapabilityRequestNegativeReply(CommandView args);
-
-  // 7.1.53
-  void RemoteOobExtendedDataRequestReply(CommandView args);
+  // 7.1.46
+  void EnhancedAcceptSynchronousConnection(CommandView command);
 
   // Link Policy Commands
   // Bluetooth Core Specification Version 4.2 Volume 2 Part E 7.2
 
   // 7.2.1
-  void HoldMode(CommandView args);
+  void HoldMode(CommandView command);
 
   // 7.2.2
-  void SniffMode(CommandView args);
+  void SniffMode(CommandView command);
 
   // 7.2.3
-  void ExitSniffMode(CommandView args);
+  void ExitSniffMode(CommandView command);
 
   // 7.2.6
-  void QosSetup(CommandView args);
+  void QosSetup(CommandView command);
 
   // 7.2.7
-  void RoleDiscovery(CommandView args);
+  void RoleDiscovery(CommandView command);
+
+  // 7.2.9
+  void ReadLinkPolicySettings(CommandView command);
 
   // 7.2.10
-  void WriteLinkPolicySettings(CommandView args);
+  void WriteLinkPolicySettings(CommandView command);
 
   // 7.2.11
-  void ReadDefaultLinkPolicySettings(CommandView args);
+  void ReadDefaultLinkPolicySettings(CommandView command);
 
   // 7.2.12
-  void WriteDefaultLinkPolicySettings(CommandView args);
+  void WriteDefaultLinkPolicySettings(CommandView command);
 
   // 7.2.13
-  void FlowSpecification(CommandView args);
+  void FlowSpecification(CommandView command);
 
   // 7.2.14
-  void SniffSubrating(CommandView args);
+  void SniffSubrating(CommandView command);
 
   // Link Controller Commands
   // Bluetooth Core Specification Version 4.2 Volume 2 Part E 7.3
 
   // 7.3.1
-  void SetEventMask(CommandView args);
+  void SetEventMask(CommandView command);
 
   // 7.3.2
-  void Reset(CommandView args);
+  void Reset(CommandView command);
 
   // 7.3.3
-  void SetEventFilter(CommandView args);
+  void SetEventFilter(CommandView command);
 
   // 7.3.10
-  void DeleteStoredLinkKey(CommandView args);
+  void DeleteStoredLinkKey(CommandView command);
 
   // 7.3.11
-  void WriteLocalName(CommandView args);
+  void WriteLocalName(CommandView command);
 
   // 7.3.12
-  void ReadLocalName(CommandView args);
+  void ReadLocalName(CommandView command);
 
   // 7.3.15
-  void ReadPageTimeout(CommandView args);
+  void ReadPageTimeout(CommandView command);
 
   // 7.3.16
-  void WritePageTimeout(CommandView args);
+  void WritePageTimeout(CommandView command);
 
   // 7.3.17
-  void ReadScanEnable(CommandView args);
+  void ReadScanEnable(CommandView command);
 
   // 7.3.18
-  void WriteScanEnable(CommandView args);
+  void WriteScanEnable(CommandView command);
 
   // 7.3.19
-  void ReadPageScanActivity(CommandView args);
+  void ReadPageScanActivity(CommandView command);
 
   // 7.3.20
-  void WritePageScanActivity(CommandView args);
+  void WritePageScanActivity(CommandView command);
 
   // 7.3.21
-  void ReadInquiryScanActivity(CommandView args);
+  void ReadInquiryScanActivity(CommandView command);
 
   // 7.3.22
-  void WriteInquiryScanActivity(CommandView args);
+  void WriteInquiryScanActivity(CommandView command);
 
   // 7.3.23
-  void ReadAuthenticationEnable(CommandView args);
+  void ReadAuthenticationEnable(CommandView command);
 
   // 7.3.24
-  void WriteAuthenticationEnable(CommandView args);
+  void WriteAuthenticationEnable(CommandView command);
 
   // 7.3.26
-  void WriteClassOfDevice(CommandView args);
+  void WriteClassOfDevice(CommandView command);
 
   // 7.3.28
-  void WriteVoiceSetting(CommandView args);
+  void WriteVoiceSetting(CommandView command);
 
   // 7.3.36
-  void ReadSynchronousFlowControlEnable(CommandView args);
+  void ReadSynchronousFlowControlEnable(CommandView command);
 
   // 7.3.37
-  void WriteSynchronousFlowControlEnable(CommandView args);
+  void WriteSynchronousFlowControlEnable(CommandView command);
 
   // 7.3.39
-  void HostBufferSize(CommandView args);
+  void HostBufferSize(CommandView command);
 
   // 7.3.42
-  void WriteLinkSupervisionTimeout(CommandView args);
+  void WriteLinkSupervisionTimeout(CommandView command);
 
   // 7.3.43
-  void ReadNumberOfSupportedIac(CommandView args);
+  void ReadNumberOfSupportedIac(CommandView command);
 
   // 7.3.44
-  void ReadCurrentIacLap(CommandView args);
+  void ReadCurrentIacLap(CommandView command);
 
   // 7.3.45
-  void WriteCurrentIacLap(CommandView args);
+  void WriteCurrentIacLap(CommandView command);
 
   // 7.3.47
-  void ReadInquiryScanType(CommandView args);
+  void ReadInquiryScanType(CommandView command);
 
   // 7.3.48
-  void WriteInquiryScanType(CommandView args);
+  void WriteInquiryScanType(CommandView command);
 
   // 7.3.49
-  void ReadInquiryMode(CommandView args);
+  void ReadInquiryMode(CommandView command);
 
   // 7.3.50
-  void WriteInquiryMode(CommandView args);
+  void WriteInquiryMode(CommandView command);
 
   // 7.3.52
-  void ReadPageScanType(CommandView args);
+  void ReadPageScanType(CommandView command);
 
   // 7.3.52
-  void WritePageScanType(CommandView args);
+  void WritePageScanType(CommandView command);
 
   // 7.3.56
-  void WriteExtendedInquiryResponse(CommandView args);
+  void WriteExtendedInquiryResponse(CommandView command);
 
   // 7.3.57
-  void RefreshEncryptionKey(CommandView args);
+  void RefreshEncryptionKey(CommandView command);
 
   // 7.3.59
-  void WriteSimplePairingMode(CommandView args);
+  void WriteSimplePairingMode(CommandView command);
 
   // 7.3.60
-  void ReadLocalOobData(CommandView args);
+  void ReadLocalOobData(CommandView command);
 
   // 7.3.61
-  void ReadInquiryResponseTransmitPowerLevel(CommandView args);
+  void ReadInquiryResponseTransmitPowerLevel(CommandView command);
 
-  // 7.3.63
-  void SendKeypressNotification(CommandView args);
+  // 7.3.66
+  void EnhancedFlush(CommandView command);
 
   // 7.3.69
-  void SetEventMaskPage2(CommandView args);
+  void SetEventMaskPage2(CommandView command);
 
   // 7.3.79
-  void WriteLeHostSupport(CommandView args);
+  void WriteLeHostSupport(CommandView command);
 
   // 7.3.92
-  void WriteSecureConnectionsHostSupport(CommandView args);
+  void WriteSecureConnectionsHostSupport(CommandView command);
 
   // 7.3.95
-  void ReadLocalOobExtendedData(CommandView args);
+  void ReadLocalOobExtendedData(CommandView command);
 
   // Informational Parameters Commands
   // Bluetooth Core Specification Version 4.2 Volume 2 Part E 7.4
 
   // 7.4.5
-  void ReadBufferSize(CommandView args);
+  void ReadBufferSize(CommandView command);
 
   // 7.4.1
-  void ReadLocalVersionInformation(CommandView args);
+  void ReadLocalVersionInformation(CommandView command);
 
   // 7.4.6
-  void ReadBdAddr(CommandView args);
+  void ReadBdAddr(CommandView command);
 
   // 7.4.2
-  void ReadLocalSupportedCommands(CommandView args);
+  void ReadLocalSupportedCommands(CommandView command);
 
   // 7.4.3
-  void ReadLocalSupportedFeatures(CommandView args);
+  void ReadLocalSupportedFeatures(CommandView command);
 
   // 7.4.4
-  void ReadLocalExtendedFeatures(CommandView args);
+  void ReadLocalExtendedFeatures(CommandView command);
 
   // 7.4.8
-  void ReadLocalSupportedCodecs(CommandView args);
+  void ReadLocalSupportedCodecsV1(CommandView command);
 
   // Status Parameters Commands
   // Bluetooth Core Specification Version 4.2 Volume 2 Part E 7.5
 
+  // 7.5.4
+  void ReadRssi(CommandView command);
+
   // 7.5.7
-  void ReadEncryptionKeySize(CommandView args);
+  void ReadEncryptionKeySize(CommandView command);
 
   // Test Commands
   // Bluetooth Core Specification Version 4.2 Volume 2 Part E 7.7
 
   // 7.7.1
-  void ReadLoopbackMode(CommandView args);
+  void ReadLoopbackMode(CommandView command);
 
   // 7.7.2
-  void WriteLoopbackMode(CommandView args);
+  void WriteLoopbackMode(CommandView command);
 
   // LE Controller Commands
   // Bluetooth Core Specification Version 4.2 Volume 2 Part E 7.8
 
   // 7.8.1
-  void LeSetEventMask(CommandView args);
+  void LeSetEventMask(CommandView command);
 
-  // 7.8.2
-  void LeReadBufferSize(CommandView args);
+  // 7.8.2 and 7.8.93
+  void LeReadBufferSizeV1(CommandView command);
+  void LeReadBufferSizeV2(CommandView command);
 
   // 7.8.3
-  void LeReadLocalSupportedFeatures(CommandView args);
+  void LeReadLocalSupportedFeatures(CommandView command);
 
   // 7.8.4
-  void LeSetRandomAddress(CommandView args);
+  void LeSetRandomAddress(CommandView command);
 
   // 7.8.5
-  void LeSetAdvertisingParameters(CommandView args);
+  void LeSetAdvertisingParameters(CommandView command);
 
   // 7.8.6
-  void LeReadAdvertisingPhysicalChannelTxPower(CommandView args);
+  void LeReadAdvertisingPhysicalChannelTxPower(CommandView command);
 
   // 7.8.7
-  void LeSetAdvertisingData(CommandView args);
+  void LeSetAdvertisingData(CommandView command);
 
   // 7.8.8
-  void LeSetScanResponseData(CommandView args);
+  void LeSetScanResponseData(CommandView command);
 
   // 7.8.9
-  void LeSetAdvertisingEnable(CommandView args);
+  void LeSetAdvertisingEnable(CommandView command);
 
   // 7.8.10
-  void LeSetScanParameters(CommandView args);
+  void LeSetScanParameters(CommandView command);
 
   // 7.8.11
-  void LeSetScanEnable(CommandView args);
+  void LeSetScanEnable(CommandView command);
 
   // 7.8.12
-  void LeCreateConnection(CommandView args);
-
-  // 7.8.18
-  void LeConnectionUpdate(CommandView args);
+  void LeCreateConnection(CommandView command);
 
   // 7.8.13
-  void LeConnectionCancel(CommandView args);
+  void LeCreateConnectionCancel(CommandView command);
 
   // 7.8.14
-  void LeReadFilterAcceptListSize(CommandView args);
+  void LeReadFilterAcceptListSize(CommandView command);
 
   // 7.8.15
-  void LeClearFilterAcceptList(CommandView args);
+  void LeClearFilterAcceptList(CommandView command);
 
   // 7.8.16
-  void LeAddDeviceToFilterAcceptList(CommandView args);
+  void LeAddDeviceToFilterAcceptList(CommandView command);
 
   // 7.8.17
-  void LeRemoveDeviceFromFilterAcceptList(CommandView args);
+  void LeRemoveDeviceFromFilterAcceptList(CommandView command);
+
+  // 7.8.18
+  void LeConnectionUpdate(CommandView command);
 
   // 7.8.21
-  void LeReadRemoteFeatures(CommandView args);
+  void LeReadRemoteFeatures(CommandView command);
 
   // 7.8.22
-  void LeEncrypt(CommandView args);
+  void LeEncrypt(CommandView command);
 
   // 7.8.23
-  void LeRand(CommandView args);
+  void LeRand(CommandView command);
 
   // 7.8.24
-  void LeStartEncryption(CommandView args);
+  void LeStartEncryption(CommandView command);
 
   // 7.8.25
-  void LeLongTermKeyRequestReply(CommandView args);
+  void LeLongTermKeyRequestReply(CommandView command);
 
   // 7.8.26
-  void LeLongTermKeyRequestNegativeReply(CommandView args);
+  void LeLongTermKeyRequestNegativeReply(CommandView command);
 
   // 7.8.27
-  void LeReadSupportedStates(CommandView args);
+  void LeReadSupportedStates(CommandView command);
 
   // 7.8.31
-  void LeRemoteConnectionParameterRequestReply(CommandView args);
+  void LeRemoteConnectionParameterRequestReply(CommandView command);
 
   // 7.8.32
-  void LeRemoteConnectionParameterRequestNegativeReply(CommandView args);
+  void LeRemoteConnectionParameterRequestNegativeReply(CommandView command);
 
   // 7.8.34
-  void LeReadSuggestedDefaultDataLength(CommandView args);
+  void LeReadSuggestedDefaultDataLength(CommandView command);
 
   // 7.8.35
-  void LeWriteSuggestedDefaultDataLength(CommandView args);
+  void LeWriteSuggestedDefaultDataLength(CommandView command);
 
-  // 7.8.38
-  void LeAddDeviceToResolvingList(CommandView args);
+  // 7.8.38 - 7.8.41
+  void LeAddDeviceToResolvingList(CommandView command);
+  void LeRemoveDeviceFromResolvingList(CommandView command);
+  void LeClearResolvingList(CommandView command);
+  void LeReadResolvingListSize(CommandView command);
 
-  // 7.8.39
-  void LeRemoveDeviceFromResolvingList(CommandView args);
-
-  // 7.8.40
-  void LeClearResolvingList(CommandView args);
-
-  // 7.8.41
-  void LeReadResolvingListSize(CommandView args);
+  // 7.8.42 - 7.8.43
+  void LeReadPeerResolvableAddress(CommandView command);
+  void LeReadLocalResolvableAddress(CommandView command);
 
   // 7.8.44
-  void LeSetAddressResolutionEnable(CommandView args);
+  void LeSetAddressResolutionEnable(CommandView command);
 
   // 7.8.45
-  void LeSetResovalablePrivateAddressTimeout(CommandView args);
+  void LeSetResolvablePrivateAddressTimeout(CommandView command);
 
   // 7.8.46
-  void LeReadMaximumDataLength(CommandView args);
+  void LeReadMaximumDataLength(CommandView command);
+
+  void LeReadPhy(CommandView command);
+  void LeSetDefaultPhy(CommandView command);
+  void LeSetPhy(CommandView command);
 
   // 7.8.52
-  void LeSetExtendedAdvertisingRandomAddress(CommandView args);
+  void LeSetAdvertisingSetRandomAddress(CommandView command);
 
   // 7.8.53
-  void LeSetExtendedAdvertisingParameters(CommandView args);
+  void LeSetExtendedAdvertisingParameters(CommandView command);
 
   // 7.8.54
-  void LeSetExtendedAdvertisingData(CommandView args);
+  void LeSetExtendedAdvertisingData(CommandView command);
 
   // 7.8.55
-  void LeSetExtendedAdvertisingScanResponse(CommandView args);
+  void LeSetExtendedScanResponseData(CommandView command);
 
   // 7.8.56
-  void LeSetExtendedAdvertisingEnable(CommandView args);
+  void LeSetExtendedAdvertisingEnable(CommandView command);
 
   // 7.8.57
-  void LeReadMaximumAdvertisingDataLength(CommandView args);
+  void LeReadMaximumAdvertisingDataLength(CommandView command);
 
   // 7.8.58
-  void LeReadNumberOfSupportedAdvertisingSets(CommandView args);
+  void LeReadNumberOfSupportedAdvertisingSets(CommandView command);
 
   // 7.8.59
-  void LeRemoveAdvertisingSet(CommandView args);
+  void LeRemoveAdvertisingSet(CommandView command);
 
   // 7.8.60
-  void LeClearAdvertisingSets(CommandView args);
+  void LeClearAdvertisingSets(CommandView command);
+
+  // 7.8.61 - 7.8.63
+  void LeSetPeriodicAdvertisingParameters(CommandView command);
+  void LeSetPeriodicAdvertisingData(CommandView command);
+  void LeSetPeriodicAdvertisingEnable(CommandView command);
+
+  // 7.8.67 - 7.8.69
+  void LePeriodicAdvertisingCreateSync(CommandView command);
+  void LePeriodicAdvertisingCreateSyncCancel(CommandView command);
+  void LePeriodicAdvertisingTerminateSync(CommandView command);
+
+  // 7.8.70 - 7.8.73
+  void LeAddDeviceToPeriodicAdvertiserList(CommandView command);
+  void LeRemoveDeviceFromPeriodicAdvertiserList(CommandView command);
+  void LeClearPeriodicAdvertiserList(CommandView command);
+  void LeReadPeriodicAdvertiserListSize(CommandView command);
 
   // 7.8.64
-  void LeSetExtendedScanParameters(CommandView args);
+  void LeSetExtendedScanParameters(CommandView command);
 
   // 7.8.65
-  void LeSetExtendedScanEnable(CommandView args);
+  void LeSetExtendedScanEnable(CommandView command);
 
   // 7.8.66
-  void LeExtendedCreateConnection(CommandView args);
+  void LeExtendedCreateConnection(CommandView command);
 
   // 7.8.77
-  void LeSetPrivacyMode(CommandView args);
-
-  // 7.8.93 (moved to 7.8.2)
-  void LeReadBufferSizeV2(CommandView args);
+  void LeSetPrivacyMode(CommandView command);
 
   // 7.8.96 - 7.8.110
-  void LeReadIsoTxSync(CommandView packet_view);
-  void LeSetCigParameters(CommandView packet_view);
-  void LeCreateCis(CommandView packet_view);
-  void LeRemoveCig(CommandView packet_view);
-  void LeAcceptCisRequest(CommandView packet_view);
-  void LeRejectCisRequest(CommandView packet_view);
-  void LeCreateBig(CommandView packet_view);
-  void LeTerminateBig(CommandView packet_view);
-  void LeBigCreateSync(CommandView packet_view);
-  void LeBigTerminateSync(CommandView packet_view);
-  void LeRequestPeerSca(CommandView packet_view);
-  void LeSetupIsoDataPath(CommandView packet_view);
-  void LeRemoveIsoDataPath(CommandView packet_view);
+  void LeReadIsoTxSync(CommandView command);
+  void LeSetCigParameters(CommandView command);
+  void LeCreateCis(CommandView command);
+  void LeRemoveCig(CommandView command);
+  void LeAcceptCisRequest(CommandView command);
+  void LeRejectCisRequest(CommandView command);
+  void LeCreateBig(CommandView command);
+  void LeTerminateBig(CommandView command);
+  void LeBigCreateSync(CommandView command);
+  void LeBigTerminateSync(CommandView command);
+  void LeRequestPeerSca(CommandView command);
+  void LeSetupIsoDataPath(CommandView command);
+  void LeRemoveIsoDataPath(CommandView command);
 
   // 7.8.115
-  void LeSetHostFeature(CommandView packet_view);
+  void LeSetHostFeature(CommandView command);
+
+  // Required commands for handshaking with hci driver
+  void ReadClassOfDevice(CommandView command);
+  void ReadVoiceSetting(CommandView command);
+  void ReadConnectionAcceptTimeout(CommandView command);
+  void WriteConnectionAcceptTimeout(CommandView command);
 
   // Vendor-specific Commands
 
-  void LeVendorSleepMode(CommandView args);
-  void LeVendorCap(CommandView args);
-  void LeVendorMultiAdv(CommandView args);
-  void LeVendor155(CommandView args);
-  void LeVendor157(CommandView args);
-  void LeEnergyInfo(CommandView args);
-  void LeAdvertisingFilter(CommandView args);
-  void LeExtendedScanParams(CommandView args);
+  void LeGetVendorCapabilities(CommandView command);
+  void LeEnergyInfo(CommandView command);
+  void LeMultiAdv(CommandView command);
+  void LeAdvertisingFilter(CommandView command);
+  void LeExtendedScanParams(CommandView command);
 
-  // Required commands for handshaking with hci driver
-  void ReadClassOfDevice(CommandView args);
-  void ReadVoiceSetting(CommandView args);
-  void ReadConnectionAcceptTimeout(CommandView args);
-  void WriteConnectionAcceptTimeout(CommandView args);
+  // CSR vendor command.
+  // Implement the command specific to the CSR controller
+  // used specifically by the PTS tool to pass certification tests.
+  void CsrVendorCommand(CommandView command);
+  void CsrReadVarid(CsrVarid varid, std::vector<uint8_t>& value);
+  void CsrWriteVarid(CsrVarid varid, std::vector<uint8_t> const& value);
+  void CsrReadPskey(CsrPskey pskey, std::vector<uint8_t>& value);
+  void CsrWritePskey(CsrPskey pskey, std::vector<uint8_t> const& value);
 
-  void SetTimerPeriod(std::chrono::milliseconds new_period);
-  void StartTimer();
-  void StopTimer();
+  // Command pass-through.
+  void ForwardToLm(CommandView command);
 
  protected:
-  LinkLayerController link_layer_controller_{properties_};
+  // Controller configuration.
+  ControllerProperties properties_;
+
+  // Link Layer state.
+  LinkLayerController link_layer_controller_{address_, properties_};
 
  private:
-  // Set a timer for a future action
-  void AddControllerEvent(std::chrono::milliseconds,
-                          const TaskCallback& callback);
-
-  void AddConnectionAction(const TaskCallback& callback, uint16_t handle);
-
-  void SendCommandCompleteUnknownOpCodeEvent(uint16_t command_opcode) const;
-
-  // Unused state to maintain consistency for the Host
-  uint16_t le_suggested_default_data_bytes_{0x20};
-  uint16_t le_suggested_default_data_time_{0x148};
+  // Send a HCI_Command_Complete event for the specified op_code with
+  // the error code UNKNOWN_OPCODE.
+  void SendCommandCompleteUnknownOpCodeEvent(
+      bluetooth::hci::OpCode op_code) const;
 
   // Callbacks to send packets back to the HCI.
   std::function<void(std::shared_ptr<bluetooth::hci::AclBuilder>)> send_acl_;
@@ -633,19 +597,27 @@ class DualModeController : public Device {
   std::function<void(std::shared_ptr<bluetooth::hci::ScoBuilder>)> send_sco_;
   std::function<void(std::shared_ptr<bluetooth::hci::IsoBuilder>)> send_iso_;
 
-  // Maintains the commands to be registered and used in the HciHandler object.
-  // Keys are command opcodes and values are the callbacks to handle each
-  // command.
-  std::unordered_map<bluetooth::hci::OpCode,
-                     std::function<void(bluetooth::hci::CommandView)>>
-      active_hci_commands_;
+  // Loopback mode (Vol 4, Part E § 7.6.1).
+  // The local loopback mode is used to pass the android Vendor Test Suite
+  // with RootCanal.
+  bluetooth::hci::LoopbackMode loopback_mode_{LoopbackMode::NO_LOOPBACK};
 
-  bluetooth::hci::LoopbackMode loopback_mode_;
+  // Flag set to true after the HCI Reset command has been received
+  // the first time.
+  bool controller_reset_{false};
 
-  SecurityManager security_manager_;
+  // Map command opcodes to the corresponding bit index in the
+  // supported command mask.
+  static const std::unordered_map<OpCode, OpCodeIndex>
+      hci_command_op_code_to_index_;
 
-  DualModeController(const DualModeController& cmdPckt) = delete;
-  DualModeController& operator=(const DualModeController& cmdPckt) = delete;
+  // Map all implemented opcodes to the function implementing the handler
+  // for the associated command. The map should be a subset of the
+  // supported_command field in the properties_ object. Commands
+  // that are supported but not implemented will raise a fatal assert.
+  using CommandHandler =
+      std::function<void(DualModeController*, bluetooth::hci::CommandView)>;
+  static const std::unordered_map<OpCode, CommandHandler> hci_command_handlers_;
 };
 
 }  // namespace rootcanal

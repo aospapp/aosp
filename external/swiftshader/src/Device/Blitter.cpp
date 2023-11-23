@@ -32,7 +32,7 @@
 
 namespace sw {
 
-static rr::RValue<rr::Int> PackFields(rr::Int4 const &ints, const sw::int4 shifts)
+static rr::RValue<rr::Int> PackFields(const rr::Int4 &ints, const sw::int4 shifts)
 {
 	return (rr::Int(ints.x) << shifts[0]) |
 	       (rr::Int(ints.y) << shifts[1]) |
@@ -61,16 +61,28 @@ void Blitter::clear(const void *pixel, vk::Format format, vk::Image *dest, const
 		return;
 	}
 
-	VkClearColorValue clampedPixel;
+	VkClearValue clampedPixel;
 	if(viewFormat.isSignedNormalized() || viewFormat.isUnsignedNormalized())
 	{
 		const float minValue = viewFormat.isSignedNormalized() ? -1.0f : 0.0f;
-		memcpy(clampedPixel.float32, pixel, sizeof(VkClearColorValue));
-		clampedPixel.float32[0] = sw::clamp(clampedPixel.float32[0], minValue, 1.0f);
-		clampedPixel.float32[1] = sw::clamp(clampedPixel.float32[1], minValue, 1.0f);
-		clampedPixel.float32[2] = sw::clamp(clampedPixel.float32[2], minValue, 1.0f);
-		clampedPixel.float32[3] = sw::clamp(clampedPixel.float32[3], minValue, 1.0f);
-		pixel = clampedPixel.float32;
+
+		if(aspect & VK_IMAGE_ASPECT_COLOR_BIT)
+		{
+			memcpy(clampedPixel.color.float32, pixel, sizeof(VkClearColorValue));
+			clampedPixel.color.float32[0] = sw::clamp(clampedPixel.color.float32[0], minValue, 1.0f);
+			clampedPixel.color.float32[1] = sw::clamp(clampedPixel.color.float32[1], minValue, 1.0f);
+			clampedPixel.color.float32[2] = sw::clamp(clampedPixel.color.float32[2], minValue, 1.0f);
+			clampedPixel.color.float32[3] = sw::clamp(clampedPixel.color.float32[3], minValue, 1.0f);
+			pixel = clampedPixel.color.float32;
+		}
+
+		// Stencil never requires clamping, so we can check for Depth only
+		if(aspect & VK_IMAGE_ASPECT_DEPTH_BIT)
+		{
+			memcpy(&(clampedPixel.depthStencil), pixel, sizeof(VkClearDepthStencilValue));
+			clampedPixel.depthStencil.depth = sw::clamp(clampedPixel.depthStencil.depth, minValue, 1.0f);
+			pixel = &(clampedPixel.depthStencil);
+		}
 	}
 
 	if(fastClear(pixel, format, dest, dstFormat, subresourceRange, renderArea))
@@ -78,7 +90,7 @@ void Blitter::clear(const void *pixel, vk::Format format, vk::Image *dest, const
 		return;
 	}
 
-	State state(format, dstFormat, 1, dest->getSampleCountFlagBits(), Options{ 0xF });
+	State state(format, dstFormat, 1, dest->getSampleCount(), Options{ 0xF });
 	auto blitRoutine = getBlitRoutine(state);
 	if(!blitRoutine)
 	{
@@ -268,7 +280,7 @@ bool Blitter::fastClear(const void *clearValue, vk::Format clearFormat, vk::Imag
 				uint8_t *slice = (uint8_t *)dest->getTexelPointer(
 				    { area.offset.x, area.offset.y, static_cast<int32_t>(depth) }, subres);
 
-				for(int j = 0; j < dest->getSampleCountFlagBits(); j++)
+				for(int j = 0; j < dest->getSampleCount(); j++)
 				{
 					uint8_t *d = slice;
 
@@ -1854,10 +1866,10 @@ void Blitter::blit(const vk::Image *src, vk::Image *dst, VkImageBlit2KHR region,
 	bool doFilter = (filter != VK_FILTER_NEAREST);
 	bool allowSRGBConversion =
 	    doFilter ||
-	    (src->getSampleCountFlagBits() > 1) ||
+	    (src->getSampleCount() > 1) ||
 	    (srcFormat.isSRGBformat() != dstFormat.isSRGBformat());
 
-	State state(srcFormat, dstFormat, src->getSampleCountFlagBits(), dst->getSampleCountFlagBits(),
+	State state(srcFormat, dstFormat, src->getSampleCount(), dst->getSampleCount(),
 	            Options{ doFilter, allowSRGBConversion });
 	state.clampToEdge = (region.srcOffsets[0].x < 0) ||
 	                    (region.srcOffsets[0].y < 0) ||
@@ -2112,7 +2124,7 @@ bool Blitter::fastResolve(const vk::Image *src, vk::Image *dst, VkImageResolve2K
 	uint8_t *dest = reinterpret_cast<uint8_t *>(dst->getTexelPointer({ 0, 0, 0 }, dstSubresource));
 
 	auto format = src->getFormat();
-	auto samples = src->getSampleCountFlagBits();
+	auto samples = src->getSampleCount();
 	auto extent = src->getExtent();
 
 	int width = extent.width;
@@ -2311,7 +2323,7 @@ void Blitter::updateBorders(const vk::Image *image, const VkImageSubresource &su
 	// Compute corner colors
 	VkImageAspectFlagBits aspect = static_cast<VkImageAspectFlagBits>(subresource.aspectMask);
 	vk::Format format = image->getFormat(aspect);
-	VkSampleCountFlagBits samples = image->getSampleCountFlagBits();
+	VkSampleCountFlagBits samples = image->getSampleCount();
 	State state(format, format, samples, samples, Options{ 0xF });
 
 	// Vulkan 1.2: "If samples is not VK_SAMPLE_COUNT_1_BIT, then imageType must be

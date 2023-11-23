@@ -75,7 +75,13 @@ impl DefaultValueFormatOption for NoDefaultFormatting {}
 /// Determine how we can format a value in a coordinate system by default
 pub trait ValueFormatter<V> {
     /// Format the value
-    fn format(value: &V) -> String;
+    fn format(_value: &V) -> String {
+        panic!("Unimplemented formatting method");
+    }
+    /// Determine how we can format a value in a coordinate system by default
+    fn format_ext(&self, value: &V) -> String {
+        Self::format(value)
+    }
 }
 
 // By default the value is formatted by the debug trait
@@ -90,9 +96,9 @@ where
 
 /// Specify the weight of key points.
 pub enum KeyPointWeight {
-    // Allows only bold key points
+    /// Allows only bold key points
     Bold,
-    // Allows any key points
+    /// Allows any key points
     Any,
 }
 
@@ -178,12 +184,12 @@ impl KeyPointHint for LightPoints {
 /// Which is used to describe any 1D axis.
 pub trait Ranged {
     /// This marker decides if Plotters default [ValueFormatter](trait.ValueFormatter.html) implementation should be used.
-    /// This assicated type can be one of follow two types:
-    /// - [DefaultFormatting](struct.DefaultFormatting.html) will allow Plotters automatically impl
+    /// This associated type can be one of the following two types:
+    /// - [DefaultFormatting](struct.DefaultFormatting.html) will allow Plotters to automatically impl
     /// the formatter based on `Debug` trait, if `Debug` trait is not impl for the `Self::Value`,
     /// [ValueFormatter](trait.ValueFormatter.html) will not impl unless you impl it manually.
     ///
-    /// - [NoDefaultFormatting](struct.NoDefaultFormatting.html) Disable the automatical `Debug`
+    /// - [NoDefaultFormatting](struct.NoDefaultFormatting.html) Disable the automatic `Debug`
     /// based value formatting. Thus you have to impl the
     /// [ValueFormatter](trait.ValueFormatter.html) manually.
     ///
@@ -207,7 +213,7 @@ pub trait Ranged {
         if limit.0 < limit.1 {
             limit.0..limit.1
         } else {
-            (limit.1 + 1)..(limit.0 + 1)
+            limit.1..limit.0
         }
     }
 }
@@ -216,12 +222,15 @@ pub trait Ranged {
 /// an pixel-based coordinate is given, it's possible to figure out the underlying
 /// logic value.
 pub trait ReversibleRanged: Ranged {
+    /// Perform the reverse mapping
     fn unmap(&self, input: i32, limit: (i32, i32)) -> Option<Self::ValueType>;
 }
 
 /// The trait for the type that can be converted into a ranged coordinate axis
 pub trait AsRangedCoord: Sized {
+    /// Type to describe a coordinate system
     type CoordDescType: Ranged<ValueType = Self::Value> + From<Self>;
+    /// Type for values in the given coordinate system
     type Value;
 }
 

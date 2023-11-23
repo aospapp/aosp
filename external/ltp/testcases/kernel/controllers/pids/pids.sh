@@ -13,8 +13,6 @@ TST_USAGE=usage
 TST_NEEDS_ROOT=1
 TST_NEEDS_CMDS="killall"
 
-. tst_test.sh
-
 caseno=$1
 max=$2
 subcgroup_num=$3
@@ -38,36 +36,17 @@ cleanup()
 {
 	killall -9 pids_task2 >/dev/null 2>&1
 
-	tst_res TINFO "removing created directories"
-	rmdir $testpath
-	if [ "$mounted" -ne "1" ]; then
-		tst_res TINFO "Umounting pids"
-		umount $mount_point
-		rmdir $mount_point
-	fi
+	cgroup_cleanup
 }
 
 setup()
 {
-	exist=`grep -w pids /proc/cgroups | cut -f1`;
-	if [ "$exist" = "" ]; then
-		tst_brk TCONF NULL "pids not supported"
-	fi
+	cgroup_require "pids"
+	cgroup_version=$(cgroup_get_version "pids")
+	testpath=$(cgroup_get_test_path "pids")
+	task_list=$(cgroup_get_task_list "pids")
 
-	mount_point=`grep -w pids /proc/mounts | cut -f 2 | cut -d " " -f2`
-
-	if [ "$mount_point" = "" ]; then
-		mounted=0
-		mount_point=/dev/cgroup
-	fi
-
-	testpath=$mount_point/ltp_pids_$caseno
-
-	if [ "$mounted" -eq "0" ]; then
-		ROD mkdir -p $mount_point
-		ROD mount -t cgroup -o pids none $mount_point
-	fi
-	ROD mkdir -p $testpath
+	tst_res TINFO "test starts with cgroup version $cgroup_version"
 }
 
 start_pids_tasks2()
@@ -81,10 +60,10 @@ start_pids_tasks2_path()
 	nb=$2
 	for i in `seq 1 $nb`; do
 		pids_task2 &
-		echo $! > $path/tasks
+		echo $! > "$path/$task_list"
 	done
 
-	if [ $(cat "$path/tasks" | wc -l) -ne $nb ]; then
+	if [ $(wc -l < "$path/$task_list") -ne "$nb" ]; then
 		tst_brk TBROK "failed to attach process"
 	fi
 }
@@ -99,7 +78,7 @@ stop_pids_tasks_path()
 	local i
 	path=$1
 
-	for i in `cat $path/tasks`; do
+	for i in $(cat "$path/$task_list"); do
 		ROD kill -9 $i
 		wait $i
 	done
@@ -110,7 +89,7 @@ case1()
 	start_pids_tasks2 $max
 
 	# should return 0 because there is no limit
-	pids_task1 "$testpath/tasks"
+	pids_task1 "$testpath/$task_list"
 	ret=$?
 
 	if [ "$ret" -eq "2" ]; then
@@ -133,7 +112,7 @@ case2()
 	start_pids_tasks2 $tmp
 
 	# should return 2 because the limit of pids is reached
-	pids_task1 "$testpath/tasks"
+	pids_task1 "$testpath/$task_list"
 	ret=$?
 
 	if [ "$ret" -eq "2" ]; then
@@ -155,7 +134,7 @@ case3()
 
 	start_pids_tasks2 $max
 
-	pids_task1 "$testpath/tasks"
+	pids_task1 "$testpath/$task_list"
 	ret=$?
 
 	if [ "$ret" -eq "2" ]; then
@@ -201,7 +180,7 @@ case6()
 	lim=$((max - 1))
 	ROD echo $lim \> $testpath/pids.max
 
-	pids_task1 "$testpath/tasks"
+	pids_task1 "$testpath/$task_list"
 	ret=$?
 
 	if [ "$ret" -eq "2" ]; then
@@ -232,7 +211,7 @@ case7()
 		start_pids_tasks2_path $testpath/child$i $lim
 	done
 
-	pids_task1 "$testpath/tasks"
+	pids_task1 "$testpath/$task_list"
 	ret=$?
 
 	if [ "$ret" -eq "2" ]; then
@@ -244,7 +223,7 @@ case7()
 	fi
 
 	for i in `seq 1 $subcgroup_num`; do
-		pids_task1 "$testpath/child$i/tasks"
+		pids_task1 "$testpath/child$i/$task_list"
 		ret=$?
 
 		if [ "$ret" -eq "2" ]; then
@@ -268,6 +247,9 @@ case8()
 {
 	tst_res TINFO "set child cgroup limit smaller than its parent limit"
 	ROD echo $max \> $testpath/pids.max
+	if [ "$cgroup_version" = "2" ]; then
+		ROD echo +pids \> "$testpath"/cgroup.subtree_control
+	fi
 	mkdir $testpath/child
 
 	lim=$((max - 1))
@@ -275,7 +257,7 @@ case8()
 	tmp=$((max - 2))
 	start_pids_tasks2_path $testpath/child $tmp
 
-	pids_task1 "$testpath/child/tasks"
+	pids_task1 "$testpath/child/$task_list"
 	ret=$?
 
 	if [ "$ret" -eq "2" ]; then
@@ -295,16 +277,19 @@ case9()
 	tst_res TINFO "migrate cgroup"
 	lim=$((max - 1))
 
+	if [ "$cgroup_version" = "2" ]; then
+		ROD echo +pids \> "$testpath"/cgroup.subtree_control
+	fi
 	for i in 1 2; do
 		mkdir $testpath/child$i
 		ROD echo $max \> $testpath/child$i/pids.max
 		start_pids_tasks2_path $testpath/child$i $lim
 	done
 
-	pid=`head -n 1 $testpath/child1/tasks`;
-	ROD echo $pid \> $testpath/child2/tasks
+	pid=`head -n 1 "$testpath/child1/$task_list"`;
+	ROD echo $pid \> "$testpath/child2/$task_list"
 
-	if grep -q "$pid" "$testpath/child2/tasks"; then
+	if grep -q "$pid" "$testpath/child2/$task_list"; then
 		tst_res TPASS "migrate pid $pid from cgroup1 to cgroup2 as expected"
 	else
 		tst_res TPASS "migrate pid $pid from cgroup1 to cgroup2 failed"
@@ -322,7 +307,7 @@ case9()
 		tst_res TFAIL "migrate child2 cgroup failed"
 	fi
 
-	pids_task1 "$testpath/child1/tasks"
+	pids_task1 "$testpath/child1/$task_list"
 	ret=$?
 
 	if [ "$ret" -eq "2" ]; then
@@ -333,7 +318,7 @@ case9()
 		tst_res TBROK "child1 pids_task1 failed"
 	fi
 
-	pids_task1 "$testpath/child2/tasks"
+	pids_task1 "$testpath/child2/$task_list"
 	ret=$?
 
 	if [ "$ret" -eq "2" ]; then
@@ -357,4 +342,5 @@ do_test()
 	case$caseno
 }
 
+. cgroup_lib.sh
 tst_run

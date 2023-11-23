@@ -1,0 +1,131 @@
+// Copyright (C) 2023 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+cc_defaults {
+    name: "berberis_defaults",
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wextra",
+        "-Wmost",
+        "-Wover-aligned",
+        "-Wunused",
+        "-Wimplicit-fallthrough",
+        "-Wdefaulted-function-deleted",
+    ],
+    // It is tempting to disable builds by default and explicitly enable only x86.
+    // Unfortunately that way disabling darwin has no effect. So instead
+    // we disable unneeded targets individually.
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+    arch: {
+        arm: {
+            enabled: false,
+        },
+        arm64: {
+            enabled: false,
+        },
+        riscv64: {
+            enabled: false,
+        },
+    },
+    compile_multilib: "both",
+    // Only check our headers.
+    tidy_flags: [
+        "-header-filter=^frameworks/libs/binary_translation/",
+    ],
+    tidy_checks: [
+        "modernize*",
+        "-modernize-use-trailing-return-type",
+    ],
+}
+
+cc_defaults {
+    name: "berberis_defaults_64",
+    defaults: ["berberis_defaults"],
+    compile_multilib: "64",
+}
+
+cc_defaults {
+    name: "berberis_test_library_defaults",
+    defaults: ["berberis_defaults"],
+    host_supported: true,
+    shared: {
+        enabled: false,
+    },
+}
+
+cc_defaults {
+    name: "berberis_test_library_defaults_64",
+    defaults: ["berberis_test_library_defaults"],
+    compile_multilib: "64",
+}
+
+cc_test_host {
+    name: "berberis_host_tests",
+    defaults: ["berberis_defaults"],
+    static_libs: [
+        "libberberis_assembler",
+        "libberberis_base",
+        "libberberis_config_globals",
+        "libberberis_tinyloader",
+    ],
+    shared_libs: [
+        "libbase",
+        "liblog",
+    ],
+    whole_static_libs: [
+        "libberberis_assembler_unit_tests",
+        "libberberis_base_unit_tests",
+        "libberberis_intrinsics_unit_tests",
+        "libberberis_tinyloader_unit_tests",
+    ],
+    arch: {
+        x86: {
+            srcs: [
+                "base/raw_syscall_tests.cc",
+            ],
+        },
+        x86_64: {
+            srcs: [
+                "base/raw_syscall_tests.cc",
+            ],
+            static_libs: [
+                "libberberis_interpreter_riscv64",
+                "libberberis_kernel_api_riscv64",
+                "libberberis_runtime",
+            ],
+            whole_static_libs: [
+                "libberberis_interpreter_riscv64_unit_tests",
+                "libberberis_runtime_unit_tests",
+            ],
+        },
+    },
+    data: [
+        "tiny_loader/tests/files/32/*",
+        "tiny_loader/tests/files/64/*",
+    ],
+    test_suites: ["device-tests"],
+    test_options: {
+        unit_test: true,
+    },
+}

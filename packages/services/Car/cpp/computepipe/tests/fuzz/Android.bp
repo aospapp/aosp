@@ -81,6 +81,9 @@ cc_defaults {
         componentid: 162915,
         // aae-fuzz-bugs
         hotlists: ["1986127"],
+        libfuzzer_options: [
+            "timeout=120",
+        ],
     },
 }
 
@@ -165,10 +168,9 @@ cc_fuzz {
     ],
     static_libs: [
         "computepipe_grpc_graph_proto",
+        "computepipe_grpc_graph",
     ],
     shared_libs: [
-        "computepipe_grpc_graph",
-        "libcomputepipeprotos",
         "libgrpc++",
         "libprotobuf-cpp-full",
     ],

@@ -1,0 +1,3 @@
+type proc_touch_gti, proc_type, fs_type;
+type sysfs_touch_gti, sysfs_type, fs_type;
+

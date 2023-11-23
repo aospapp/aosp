@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -30,19 +30,24 @@
 //!   assert_ne!(b_trans, l_trans);
 //! ```
 
-use std::mem::{align_of, size_of};
+use std::mem::align_of;
+use std::mem::size_of;
 
-use assertions::const_assert;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-use crate::DataInit;
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
+use serde::Serializer;
+use static_assertions::const_assert;
+use zerocopy::AsBytes;
+use zerocopy::FromBytes;
 
 macro_rules! endian_type {
     ($old_type:ident, $new_type:ident, $to_new:ident, $from_new:ident) => {
         /// An integer type of with an explicit endianness.
         ///
         /// See module level documentation for examples.
-        #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
+        #[repr(transparent)]
+        #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, FromBytes, AsBytes)]
         pub struct $new_type($old_type);
 
         impl $new_type {
@@ -56,8 +61,6 @@ macro_rules! endian_type {
                 $old_type::$from_new(self.0)
             }
         }
-
-        unsafe impl DataInit for $new_type {}
 
         impl PartialEq<$old_type> for $new_type {
             fn eq(&self, other: &$old_type) -> bool {
@@ -122,10 +125,10 @@ endian_type!(isize, SBeSize, to_be, from_be);
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use std::convert::From;
     use std::mem::transmute;
+
+    use super::*;
 
     #[cfg(target_endian = "little")]
     const NATIVE_LITTLE: bool = true;

@@ -25,6 +25,7 @@ java_library {
     libs: [
         "ub-uiautomator",
         "androidx.test.rules",
+	"androidx.test.uiautomator_uiautomator",
     ],
     srcs: ["src/**/*.java"],
     sdk_version: "current",

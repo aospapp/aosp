@@ -20,16 +20,17 @@ import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.ActivityManager.RunningAppProcessInfo;
 import android.app.Instrumentation;
+import android.content.AttributionSource;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.database.Cursor;
+import android.graphics.SurfaceTexture;
 import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
-import android.media.tv.cts.TvViewTest.MockCallback;
 import android.media.tv.TunedInfo;
 import android.media.tv.TvContentRating;
 import android.media.tv.TvContract;
@@ -43,6 +44,7 @@ import android.media.tv.TvInputManager.SessionCallback;
 import android.media.tv.TvInputService;
 import android.media.tv.TvStreamConfig;
 import android.media.tv.TvView;
+import android.media.tv.cts.TvViewTest.MockCallback;
 import android.media.tv.tunerresourcemanager.TunerResourceManager;
 import android.net.Uri;
 import android.os.Binder;
@@ -52,11 +54,10 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.test.ActivityInstrumentationTestCase2;
 import android.tv.cts.R;
-
-import com.android.compatibility.common.util.PollingCheck;
-
+import android.util.Log;
+import android.view.Surface;
 import androidx.test.InstrumentationRegistry;
-
+import com.android.compatibility.common.util.PollingCheck;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -64,13 +65,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
-
 import org.xmlpull.v1.XmlPullParserException;
 
 /**
  * Test for {@link android.media.tv.TvInputManager}.
  */
 public class TvInputManagerTest extends ActivityInstrumentationTestCase2<TvViewStubActivity> {
+    private static final String TAG = "TvInputManagerTest";
+
     /** The maximum time to wait for an operation. */
     private static final long TIME_OUT_MS = 15000L;
     private static final int PRIORITY_HINT_USE_CASE_TYPE_INVALID = 1000;
@@ -119,6 +121,7 @@ public class TvInputManagerTest extends ActivityInstrumentationTestCase2<TvViewS
     };
 
     private String mStubId;
+    private Context mContext;
     private TvInputManager mManager;
     private LoggingCallback mCallback = new LoggingCallback();
     private TvInputInfo mStubTvInputInfo;
@@ -215,6 +218,7 @@ public class TvInputManagerTest extends ActivityInstrumentationTestCase2<TvViewS
                 .adoptShellPermissionIdentity(BASE_SHELL_PERMISSIONS);
 
         mInstrumentation = getInstrumentation();
+        mContext = mInstrumentation.getTargetContext();
         mTvView = findTvViewById(R.id.tvview);
         mManager = (TvInputManager) mActivity.getSystemService(Context.TV_INPUT_SERVICE);
         mStubId = getInfoForClassName(
@@ -516,87 +520,99 @@ public class TvInputManagerTest extends ActivityInstrumentationTestCase2<TvViewS
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
                 .adoptShellPermissionIdentity(newPermissions);
 
-        // Update hardware device list
         int deviceId = 0;
+        Hardware hardware = null;
         boolean hardwareDeviceAdded = false;
-        List<TvInputHardwareInfo> hardwareList = mManager.getHardwareList();
-        if (hardwareList == null || hardwareList.isEmpty()) {
-            // Use the test api to add an HDMI hardware device
-            mManager.addHardwareDevice(deviceId);
-            hardwareDeviceAdded = true;
-        } else {
-            deviceId = hardwareList.get(0).getDeviceId();
+
+        try {
+            // Update hardware device list
+            List<TvInputHardwareInfo> hardwareList = mManager.getHardwareList();
+            if (hardwareList == null || hardwareList.isEmpty()) {
+                // Use the test api to add an HDMI hardware device
+                mManager.addHardwareDevice(deviceId);
+                hardwareDeviceAdded = true;
+            } else {
+                deviceId = hardwareList.get(0).getDeviceId();
+            }
+
+            // Acquire Hardware with a record client
+            HardwareCallback callback = new HardwareCallback() {
+                @Override
+                public void onReleased() {}
+
+                @Override
+                public void onStreamConfigChanged(TvStreamConfig[] configs) {}
+            };
+            CallbackExecutor executor = new CallbackExecutor();
+            hardware = mManager.acquireTvInputHardware(deviceId, mStubTvInputInfo,
+                    null /*tvInputSessionId*/, TvInputService.PRIORITY_HINT_USE_CASE_TYPE_PLAYBACK,
+                    executor, callback);
+            assertNotNull(hardware);
+
+            // Acquire the same device with a LIVE client
+            mManager.releaseTvInputHardware(deviceId, hardware);
+            hardware = mManager.acquireTvInputHardware(deviceId, mStubTvInputInfo,
+                    null /*tvInputSessionId*/, TvInputService.PRIORITY_HINT_USE_CASE_TYPE_LIVE,
+                    executor, callback);
+
+            // The request for Live may fail because it have lower priority than Playback
+            // assertNotNull(hardware);
+        } finally {
+            // Clean up
+            if (hardware != null) {
+                mManager.releaseTvInputHardware(deviceId, hardware);
+            }
+            if (hardwareDeviceAdded) {
+                mManager.removeHardwareDevice(deviceId);
+            }
+            // Restore the base shell permissions
+            InstrumentationRegistry.getInstrumentation()
+                    .getUiAutomation()
+                    .adoptShellPermissionIdentity(BASE_SHELL_PERMISSIONS);
         }
-
-        // Acquire Hardware with a record client
-        HardwareCallback callback = new HardwareCallback() {
-            @Override
-            public void onReleased() {}
-
-            @Override
-            public void onStreamConfigChanged(TvStreamConfig[] configs) {}
-        };
-        CallbackExecutor executor = new CallbackExecutor();
-        Hardware hardware = mManager.acquireTvInputHardware(
-                deviceId, mStubTvInputInfo, null /*tvInputSessionId*/,
-                TvInputService.PRIORITY_HINT_USE_CASE_TYPE_PLAYBACK,
-                executor, callback);
-        assertNotNull(hardware);
-
-        // Acquire the same device with a LIVE client
-        Hardware hardwareAcquired = mManager.acquireTvInputHardware(
-                deviceId, mStubTvInputInfo, null /*tvInputSessionId*/,
-                TvInputService.PRIORITY_HINT_USE_CASE_TYPE_LIVE,
-                executor, callback);
-
-        assertNotNull(hardwareAcquired);
-
-        // Clean up
-        if (hardwareDeviceAdded) {
-            mManager.removeHardwareDevice(deviceId);
-        }
-        // Restore the base shell permissions
-        InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                .adoptShellPermissionIdentity(BASE_SHELL_PERMISSIONS);
     }
 
     public void testTvInputHardwareOverrideAudioSink() {
-        if (mManager == null) {
+        if (!Utils.hasTvInputFramework(getActivity()) || mManager == null) {
             return;
         }
-        // Update hardware device list
+
+        String[] newPermissions =
+                Arrays.copyOf(BASE_SHELL_PERMISSIONS, BASE_SHELL_PERMISSIONS.length + 1);
+        newPermissions[BASE_SHELL_PERMISSIONS.length] = PERMISSION_TV_INPUT_HARDWARE;
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().adoptShellPermissionIdentity(
+                newPermissions);
+
         int deviceId = 0;
+        Hardware hardware = null;
         boolean hardwareDeviceAdded = false;
-        List<TvInputHardwareInfo> hardwareList = mManager.getHardwareList();
-        if (hardwareList == null || hardwareList.isEmpty()) {
-            // Use the test api to add an HDMI hardware device
-            mManager.addHardwareDevice(deviceId);
-            hardwareDeviceAdded = true;
-        } else {
-            deviceId = hardwareList.get(0).getDeviceId();
-        }
 
-        // Acquire Hardware with a record client
-        HardwareCallback callback = new HardwareCallback() {
-            @Override
-            public void onReleased() {
-            }
-
-            @Override
-            public void onStreamConfigChanged(TvStreamConfig[] configs) {
-            }
-        };
-        CallbackExecutor executor = new CallbackExecutor();
-        Hardware hardware = mManager.acquireTvInputHardware(
-                deviceId, mStubTvInputInfo, null /*tvInputSessionId*/,
-                TvInputService.PRIORITY_HINT_USE_CASE_TYPE_PLAYBACK,
-                executor, callback);
-        if (hardware == null) {
-            return;
-        }
-
-        // Override audio sink
         try {
+            // Update hardware device list
+            List<TvInputHardwareInfo> hardwareList = mManager.getHardwareList();
+            if (hardwareList == null || hardwareList.isEmpty()) {
+                // Use the test api to add an HDMI hardware device
+                mManager.addHardwareDevice(deviceId);
+                hardwareDeviceAdded = true;
+            } else {
+                deviceId = hardwareList.get(0).getDeviceId();
+            }
+
+            // Acquire Hardware with a record client
+            HardwareCallback callback = new HardwareCallback() {
+                @Override
+                public void onReleased() {}
+
+                @Override
+                public void onStreamConfigChanged(TvStreamConfig[] configs) {}
+            };
+            CallbackExecutor executor = new CallbackExecutor();
+            hardware = mManager.acquireTvInputHardware(deviceId, mStubTvInputInfo,
+                    null /*tvInputSessionId*/, TvInputService.PRIORITY_HINT_USE_CASE_TYPE_PLAYBACK,
+                    executor, callback);
+            assertNotNull(hardware);
+
+            // Override audio sink
             AudioManager am = mActivity.getSystemService(AudioManager.class);
             AudioDeviceInfo[] deviceInfos = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
             if (deviceInfos.length > 0) {
@@ -609,9 +625,79 @@ public class TvInputManagerTest extends ActivityInstrumentationTestCase2<TvViewS
         } catch (Exception e) {
             fail();
         } finally {
+            if (hardware != null) {
+                mManager.releaseTvInputHardware(deviceId, hardware);
+            }
             if (hardwareDeviceAdded) {
                 mManager.removeHardwareDevice(deviceId);
             }
+            InstrumentationRegistry.getInstrumentation()
+                    .getUiAutomation()
+                    .adoptShellPermissionIdentity(BASE_SHELL_PERMISSIONS);
+        }
+    }
+
+    public void testTvInputHardwareSetSurface() {
+        if (!Utils.hasTvInputFramework(getActivity()) || mManager == null) {
+            return;
+        }
+
+        String[] newPermissions =
+                Arrays.copyOf(BASE_SHELL_PERMISSIONS, BASE_SHELL_PERMISSIONS.length + 1);
+        newPermissions[BASE_SHELL_PERMISSIONS.length] = PERMISSION_TV_INPUT_HARDWARE;
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().adoptShellPermissionIdentity(
+                newPermissions);
+
+        int deviceId = 0;
+        Hardware hardware = null;
+        SurfaceTexture dummySurfaceTexture = null;
+        Surface dummySurface = null;
+
+        try {
+            dummySurfaceTexture = new SurfaceTexture(1);
+            dummySurface = new Surface(dummySurfaceTexture);
+            List<TvInputHardwareInfo> hardwareList = mManager.getHardwareList();
+            if (hardwareList == null || hardwareList.isEmpty()) {
+                Log.w(TAG, "No hardware found, skip testTvInputHardwareSetSurface.");
+                return;
+            }
+
+            deviceId = hardwareList.get(0).getDeviceId();
+            final List<TvStreamConfig> configList = new ArrayList<TvStreamConfig>();
+
+            // Acquire Hardware with a record client
+            HardwareCallback callback = new HardwareCallback() {
+                @Override
+                public void onReleased() {}
+
+                @Override
+                public void onStreamConfigChanged(TvStreamConfig[] configs) {
+                    configList.addAll(Arrays.asList(configs));
+                }
+            };
+            CallbackExecutor executor = new CallbackExecutor();
+            hardware = mManager.acquireTvInputHardware(deviceId, mStubTvInputInfo,
+                    null /*tvInputSessionId*/, TvInputService.PRIORITY_HINT_USE_CASE_TYPE_PLAYBACK,
+                    executor, callback);
+            assertNotNull(hardware);
+            PollingCheck.waitFor(TIME_OUT_MS, () -> !configList.isEmpty());
+
+            assertTrue(hardware.setSurface(dummySurface, configList.get(0)));
+            assertTrue(hardware.setSurface(null, null));
+        } finally {
+            if (dummySurface != null) {
+                dummySurface.release();
+            }
+            if (dummySurfaceTexture != null) {
+                dummySurfaceTexture.release();
+            }
+            if (hardware != null) {
+                mManager.releaseTvInputHardware(deviceId, hardware);
+            }
+            // Restore the base shell permissions
+            InstrumentationRegistry.getInstrumentation()
+                    .getUiAutomation()
+                    .adoptShellPermissionIdentity(BASE_SHELL_PERMISSIONS);
         }
     }
 
@@ -701,7 +787,7 @@ public class TvInputManagerTest extends ActivityInstrumentationTestCase2<TvViewS
 
         Handler handler = new Handler(Looper.getMainLooper());
         final SessionCallback sessionCallback = new SessionCallback();
-        mManager.createSession(mStubId, sessionCallback, handler);
+        mManager.createSession(mStubId, mContext.getAttributionSource(), sessionCallback, handler);
         PollingCheck.waitFor(TIME_OUT_MS, () -> sessionCallback.getSession() != null);
         Session session = sessionCallback.getSession();
         String sessionId = StubTvInputService2.getSessionId();
@@ -742,7 +828,7 @@ public class TvInputManagerTest extends ActivityInstrumentationTestCase2<TvViewS
 
         Handler handler = new Handler(Looper.getMainLooper());
         final SessionCallback sessionCallback = new SessionCallback();
-        mManager.createSession(mStubId, sessionCallback, handler);
+        mManager.createSession(mStubId, mContext.getAttributionSource(), sessionCallback, handler);
         PollingCheck.waitFor(TIME_OUT_MS, () -> sessionCallback.getSession() != null);
         Session session = sessionCallback.getSession();
         String sessionId = StubTvInputService2.getSessionId();

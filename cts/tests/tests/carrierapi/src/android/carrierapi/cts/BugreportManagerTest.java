@@ -23,6 +23,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.fail;
 
+import android.content.pm.PackageManager;
 import android.os.BugreportManager;
 import android.os.BugreportManager.BugreportCallback;
 import android.os.BugreportParams;
@@ -35,6 +36,7 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.Direction;
 import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.UiObject2;
 import androidx.test.uiautomator.Until;
@@ -369,12 +371,23 @@ public class BugreportManagerTest extends BaseCarrierApiTest {
         NONE_TIMEOUT,
     }
 
+    private boolean isWear() {
+        return getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
+    }
+
+    private BySelector getSelectorForConsentDialog() {
+        if (isWear()) {
+            return By.pkg(getContext().getPackageManager().getPermissionControllerPackageName());
+        }
+        return CONSENT_DIALOG_TITLE_SELECTOR;
+    }
+
     private void setConsentDialogReply(ConsentReply consentReply) throws Exception {
         UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
 
         // No need to wake + dismiss keyguard here; CTS respects our DISABLE_KEYGUARD permission.
         if (!device.wait(
-                Until.hasObject(CONSENT_DIALOG_TITLE_SELECTOR), UIAUTOMATOR_TIMEOUT_MILLIS)) {
+                Until.hasObject(getSelectorForConsentDialog()), UIAUTOMATOR_TIMEOUT_MILLIS)) {
             fail("The consent dialog can't be found");
         }
 
@@ -394,7 +407,16 @@ public class BugreportManagerTest extends BaseCarrierApiTest {
                 // eventually time out, but we don't wait for that here.
                 return;
         }
-        UiObject2 replyButton = device.findObject(replySelector);
+
+        UiObject2 replyButton;
+        UiObject2 scrollable =
+                device.findObject(By.res("android:id/scrollView").scrollable(true));
+        while ((replyButton = device.findObject(replySelector)) == null) {
+            // Need to scroll the screen to get to the buttons on some form factors
+            // (e.g. on a watch).
+            scrollable.scroll(Direction.DOWN, 100);
+        }
+
         assertWithMessage("The button of consent dialog is not found")
                 .that(replyButton)
                 .isNotNull();
@@ -402,7 +424,7 @@ public class BugreportManagerTest extends BaseCarrierApiTest {
 
         assertThat(
                         device.wait(
-                                Until.gone(CONSENT_DIALOG_TITLE_SELECTOR),
+                                Until.gone(getSelectorForConsentDialog()),
                                 UIAUTOMATOR_TIMEOUT_MILLIS))
                 .isTrue();
     }
@@ -410,7 +432,7 @@ public class BugreportManagerTest extends BaseCarrierApiTest {
     private void dismissConsentDialogIfPresent() throws Exception {
         UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
 
-        if (!device.hasObject(CONSENT_DIALOG_TITLE_SELECTOR)) {
+        if (!device.hasObject(getSelectorForConsentDialog())) {
             return;
         }
 
@@ -421,7 +443,7 @@ public class BugreportManagerTest extends BaseCarrierApiTest {
         device.pressBack();
         assertThat(
                         device.wait(
-                                Until.gone(CONSENT_DIALOG_TITLE_SELECTOR),
+                                Until.gone(getSelectorForConsentDialog()),
                                 UIAUTOMATOR_TIMEOUT_MILLIS))
                 .isTrue();
     }

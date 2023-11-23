@@ -49,6 +49,7 @@ import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.net.Uri;
 import android.os.Build;
+import android.os.SystemProperties;
 import android.util.DisplayMetrics;
 import android.util.Size;
 import android.util.TypedValue;
@@ -60,6 +61,7 @@ import androidx.test.filters.RequiresDevice;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.BitmapUtils;
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.MediaUtils;
 
 import org.junit.Test;
@@ -122,9 +124,13 @@ public class ImageDecoderTest {
                 new Record(R.drawable.color_wheel, 128, 128, "image/x-ico", false, true, sSRGB),
                 new Record(R.raw.sample_1mp, 600, 338, "image/x-adobe-dng", false, false, sSRGB)
         }));
-        if (MediaUtils.hasDecoder(MediaFormat.MIMETYPE_VIDEO_HEVC)) {
+        if (ImageDecoder.isMimeTypeSupported("image/heif")) {
             // HEIF support is optional when HEVC decoder is not supported.
             records.add(new Record(R.raw.heifwriter_input, 1920, 1080, "image/heif", false, false,
+                                   sSRGB));
+        }
+        if (ImageDecoder.isMimeTypeSupported("image/avif")) {
+            records.add(new Record(R.raw.avif_yuv_420_8bit, 120, 160, "image/avif", false, false,
                                    sSRGB));
         }
         return records.toArray(new Record[] {});
@@ -245,8 +251,23 @@ public class ImageDecoderTest {
     @RequiresDevice
     public void testDecode10BitHeif() {
         assumeTrue(
-            "Test needs Android T.", ApiLevelUtil.isFirstApiAtLeast(Build.VERSION_CODES.TIRAMISU));
+            "This test only applies to Android 13 (T) or newer. Skip the test.",
+            ApiLevelUtil.isFirstApiAtLeast(Build.VERSION_CODES.TIRAMISU));
+        assumeTrue(
+            "Test only applies to VNDK version 33 (T) or newer. Skip the test.",
+            SystemProperties.getInt("ro.vndk.version", Build.VERSION_CODES.CUR_DEVELOPMENT)
+                >= Build.VERSION_CODES.TIRAMISU);
         assumeTrue("No 10-bit HEVC decoder, skip the test.", has10BitHEVCDecoder());
+
+        Bitmap.Config expectedConfig = Bitmap.Config.RGBA_1010102;
+
+        // For TVs, even if the device advertises that 10 bits profile is supported, the output
+        // format might not be CPU readable, but the video can still be displayed. When the TV's
+        // hevc decoder doesn't support YUVP010 format, then the color type of output falls back
+        // to RGBA_8888 automatically.
+        if (MediaUtils.isTv() && !hasHEVCDecoderSupportsYUVP010()) {
+            expectedConfig = Bitmap.Config.ARGB_8888;
+        }
 
         try {
             ImageDecoder.Source src = ImageDecoder
@@ -258,6 +279,29 @@ public class ImageDecoderTest {
             assertNotNull(bm);
             assertEquals(4096, bm.getWidth());
             assertEquals(3072, bm.getHeight());
+            assertEquals(expectedConfig, bm.getConfig());
+        } catch (IOException e) {
+            fail("Failed with exception " + e);
+        }
+    }
+
+    @Test
+    @CddTest(requirements = {"5.1.5/C-0-7"})
+    @RequiresDevice
+    public void testDecode10BitAvif() {
+        assumeTrue("AVIF is not supported on this device, skip this test.",
+                ImageDecoder.isMimeTypeSupported("image/avif"));
+
+        try {
+            ImageDecoder.Source src = ImageDecoder
+                .createSource(getResources(), R.raw.avif_yuv_420_10bit);
+            assertNotNull(src);
+            Bitmap bm = ImageDecoder.decodeBitmap(src, (decoder, info, source) -> {
+                decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+            });
+            assertNotNull(bm);
+            assertEquals(120, bm.getWidth());
+            assertEquals(160, bm.getHeight());
             assertEquals(Bitmap.Config.RGBA_1010102, bm.getConfig());
         } catch (IOException e) {
             fail("Failed with exception " + e);
@@ -267,6 +311,13 @@ public class ImageDecoderTest {
     @Test
     @RequiresDevice
     public void testDecode10BitHeifWithLowRam() {
+        assumeTrue(
+            "This test only applies to Android 13 (T) or newer. Skip the test.",
+            ApiLevelUtil.isFirstApiAtLeast(Build.VERSION_CODES.TIRAMISU));
+        assumeTrue(
+            "Test only applies to VNDK version 33 (T) or newer. Skip the test.",
+            SystemProperties.getInt("ro.vndk.version", Build.VERSION_CODES.CUR_DEVELOPMENT)
+                >= Build.VERSION_CODES.TIRAMISU);
         assumeTrue("No 10-bit HEVC decoder, skip the test.", has10BitHEVCDecoder());
 
         ImageDecoder.Source src = ImageDecoder.createSource(getResources(), R.raw.heifimage_10bit);
@@ -279,6 +330,30 @@ public class ImageDecoderTest {
             assertNotNull(bm);
             assertEquals(4096, bm.getWidth());
             assertEquals(3072, bm.getHeight());
+            assertEquals(Bitmap.Config.RGB_565, bm.getConfig());
+        } catch (IOException e) {
+            fail("Failed with exception " + e);
+        }
+    }
+
+    @Test
+    @CddTest(requirements = {"5.1.5/C-0-7"})
+    @RequiresDevice
+    public void testDecode10BitAvifWithLowRam() {
+        assumeTrue("AVIF is not supported on this device, skip this test.",
+                ImageDecoder.isMimeTypeSupported("image/avif"));
+
+        ImageDecoder.Source src = ImageDecoder.createSource(getResources(),
+                R.raw.avif_yuv_420_10bit);
+        assertNotNull(src);
+        try {
+            Bitmap bm = ImageDecoder.decodeBitmap(src, (decoder, info, source) -> {
+                decoder.setMemorySizePolicy(ImageDecoder.MEMORY_POLICY_LOW_RAM);
+                decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+            });
+            assertNotNull(bm);
+            assertEquals(120, bm.getWidth());
+            assertEquals(160, bm.getHeight());
             assertEquals(Bitmap.Config.RGB_565, bm.getConfig());
         } catch (IOException e) {
             fail("Failed with exception " + e);
@@ -1038,7 +1113,8 @@ public class ImageDecoderTest {
         int truncatedLength = bytes.length / 2;
         if (record.mimeType.equals("image/x-ico")
                 || record.mimeType.equals("image/x-adobe-dng")
-                || record.mimeType.equals("image/heif")) {
+                || record.mimeType.equals("image/heif")
+                || record.mimeType.equals("image/avif")) {
             // FIXME (scroggo): Some codecs currently do not support incomplete images.
             return;
         }
@@ -1942,7 +2018,10 @@ public class ImageDecoderTest {
                 if (resId == R.drawable.png_test) {
                     // We do not support 565 in HARDWARE, so no RAM savings
                     // are possible.
-                    assertEquals(normalByteCount, byteCount);
+                    // Provide a little wiggle room to allow for gralloc allocation size
+                    // variances
+                    assertTrue(byteCount < (normalByteCount * 1.1));
+                    assertTrue(byteCount >= (normalByteCount * 0.9));
                 } else { // R.raw.f16
                     // This image defaults to F16. MEMORY_POLICY_LOW_RAM
                     // forces "test" to decode to 8888.
@@ -2645,8 +2724,8 @@ public class ImageDecoderTest {
     @LargeTest
     @Parameters(method = "getRecordsAsSources")
     public void testReuse(Record record, SourceCreator f) {
-        if (record.mimeType.equals("image/heif")) {
-            // This image takes too long for this test.
+        if (record.mimeType.equals("image/heif") || record.mimeType.equals("image/avif")) {
+            // These images take too long for this test.
             return;
         }
 
@@ -2658,8 +2737,8 @@ public class ImageDecoderTest {
     @Test
     @Parameters(method = "getRecords")
     public void testReuse2(Record record) {
-        if (record.mimeType.equals("image/heif")) {
-            // This image takes too long for this test.
+        if (record.mimeType.equals("image/heif") || record.mimeType.equals("image/avif")) {
+            // These images take too long for this test.
             return;
         }
 
@@ -2679,8 +2758,8 @@ public class ImageDecoderTest {
     @Test
     @Parameters(method = "getRecordsAsUris")
     public void testReuseUri(Record record, UriCreator f) {
-        if (record.mimeType.equals("image/heif")) {
-            // This image takes too long for this test.
+        if (record.mimeType.equals("image/heif") || record.mimeType.equals("image/avif")) {
+            // These images take too long for this test.
             return;
         }
 
@@ -2712,7 +2791,6 @@ public class ImageDecoderTest {
         }
 
         for (String mimeType : new String[] {
-                "image/heic",
                 "image/vnd.wap.wbmp",
                 "image/x-sony-arw",
                 "image/x-canon-cr2",
@@ -2727,6 +2805,9 @@ public class ImageDecoderTest {
         }) {
             assertTrue(mimeType, ImageDecoder.isMimeTypeSupported(mimeType));
         }
+
+        assertEquals("image/heic", ImageDecoder.isMimeTypeSupported("image/heic"),
+                MediaUtils.hasDecoder(MediaFormat.MIMETYPE_VIDEO_HEVC));
 
         assertFalse(ImageDecoder.isMimeTypeSupported("image/x-does-not-exist"));
     }
@@ -2784,5 +2865,27 @@ public class ImageDecoderTest {
             return false;
         }
         return true;
+    }
+
+    private static boolean hasHEVCDecoderSupportsYUVP010() {
+        MediaCodecList codecList = new MediaCodecList(MediaCodecList.ALL_CODECS);
+        for (MediaCodecInfo mediaCodecInfo : codecList.getCodecInfos()) {
+            if (mediaCodecInfo.isEncoder()) {
+                continue;
+            }
+            for (String mediaType : mediaCodecInfo.getSupportedTypes()) {
+                if (mediaType.equalsIgnoreCase("video/hevc")) {
+                    MediaCodecInfo.CodecCapabilities codecCapabilities =
+                            mediaCodecInfo.getCapabilitiesForType(mediaType);
+                    for (int i = 0; i < codecCapabilities.colorFormats.length; ++i) {
+                        if (codecCapabilities.colorFormats[i]
+                                == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUVP010) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
     }
 }

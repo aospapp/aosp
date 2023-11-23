@@ -24,6 +24,8 @@
 #include <sys/types.h>
 #include <jni.h>
 
+#include <memory>
+
 // workaround for using ScopedLocalRef with system runtime
 // TODO: Remove this after b/74632104 is fixed
 namespace std
@@ -177,7 +179,7 @@ void initializeGlobalFields(JNIEnv *env) {
     gFieldsInitialized = true;
 }
 
-NativeImage *getNativeImage(JNIEnv *env, jobject image, jobject area = NULL) {
+static std::unique_ptr<NativeImage> getNativeImage(JNIEnv *env, jobject image, jobject area = NULL) {
     if (image == NULL) {
         jniThrowNullPointerException(env, "image is null");
         return NULL;
@@ -185,7 +187,7 @@ NativeImage *getNativeImage(JNIEnv *env, jobject image, jobject area = NULL) {
 
     initializeGlobalFields(env);
 
-    NativeImage *img = new NativeImage;
+    std::unique_ptr<NativeImage> img(new NativeImage);
     img->format = env->CallIntMethod(image, gFields.methodFormat);
     img->width  = env->CallIntMethod(image, gFields.methodWidth);
     img->height = env->CallIntMethod(image, gFields.methodHeight);
@@ -215,9 +217,8 @@ NativeImage *getNativeImage(JNIEnv *env, jobject image, jobject area = NULL) {
         jniThrowException(
                 env, "java/lang/UnsupportedOperationException",
                 "only support YUV_420_888 and YCBCR_P010 images");
-        delete img;
-        img = NULL;
-        return NULL;
+        img.reset();
+        return img;
     }
     img->numPlanes = 3;
 
@@ -253,9 +254,8 @@ NativeImage *getNativeImage(JNIEnv *env, jobject image, jobject area = NULL) {
                 || widthOffs + heightOffs >= (ssize_t)img->plane[ix].size) {
             jniThrowException(
                     env, "java/lang/IndexOutOfBoundsException", "plane exceeds bytearray");
-            delete img;
-            img = NULL;
-            return NULL;
+            img.reset();
+            return img;
         }
         xDecim = yDecim = 1;
     }
@@ -265,8 +265,8 @@ NativeImage *getNativeImage(JNIEnv *env, jobject image, jobject area = NULL) {
 extern "C" jint Java_android_media_cts_CodecUtils_getImageChecksumAlder32(JNIEnv *env,
         jclass /*clazz*/, jobject image)
 {
-    NativeImage *img = getNativeImage(env, image);
-    if (img == NULL) {
+    auto img = getNativeImage(env, image);
+    if (!img) {
         return 0;
     }
 
@@ -290,8 +290,8 @@ extern "C" jint Java_android_media_cts_CodecUtils_getImageChecksumAlder32(JNIEnv
 extern "C" jstring Java_android_media_cts_CodecUtils_getImageChecksumMD5(JNIEnv *env,
         jclass /*clazz*/, jobject image)
 {
-    NativeImage *img = getNativeImage(env, image);
-    if (img == NULL) {
+    auto img = getNativeImage(env, image);
+    if (!img) {
         return 0;
     }
 
@@ -332,8 +332,8 @@ extern "C" jstring Java_android_media_cts_CodecUtils_getImageChecksumMD5(JNIEnv 
 extern "C" void Java_android_media_cts_CodecUtils_copyFlexYUVImage(JNIEnv *env,
         jclass /*clazz*/, jobject target, jobject source)
 {
-    NativeImage *tgt = getNativeImage(env, target);
-    NativeImage *src = getNativeImage(env, source);
+    auto tgt = getNativeImage(env, target);
+    auto src = getNativeImage(env, source);
     if (tgt != NULL && src != NULL) {
         ALOGV("copyFlexYUVImage %dx%d (%d,%d..%d,%d) (%zux%zu) %+zd%+zd %+zd%+zd %+zd%+zd <= "
                 "%dx%d (%d, %d..%d, %d) (%zux%zu) %+zd%+zd %+zd%+zd %+zd%+zd",
@@ -369,8 +369,8 @@ extern "C" void Java_android_media_cts_CodecUtils_copyFlexYUVImage(JNIEnv *env,
 extern "C" void Java_android_media_cts_CodecUtils_fillImageRectWithYUV(JNIEnv *env,
         jclass /*clazz*/, jobject image, jobject area, jint y, jint u, jint v)
 {
-    NativeImage *img = getNativeImage(env, image, area);
-    if (img == NULL) {
+    auto img = getNativeImage(env, image, area);
+    if (!img) {
         return;
     }
 
@@ -389,7 +389,7 @@ extern "C" void Java_android_media_cts_CodecUtils_fillImageRectWithYUV(JNIEnv *e
     }
 }
 
-void getRawStats(NativeImage *img, jlong rawStats[10])
+void getRawStats(std::unique_ptr<NativeImage> &img, jlong rawStats[10])
 {
     // this works best if crop area is even
 
@@ -500,8 +500,8 @@ bool Raw2YUVStats(jlong rawStats[10], jfloat stats[9]) {
 extern "C" jobject Java_android_media_cts_CodecUtils_getRawStats(JNIEnv *env,
         jclass /*clazz*/, jobject image, jobject area)
 {
-    NativeImage *img = getNativeImage(env, image, area);
-    if (img == NULL) {
+    auto img = getNativeImage(env, image, area);
+    if (!img) {
         return NULL;
     }
 
@@ -517,8 +517,8 @@ extern "C" jobject Java_android_media_cts_CodecUtils_getRawStats(JNIEnv *env,
 extern "C" jobject Java_android_media_cts_CodecUtils_getYUVStats(JNIEnv *env,
         jclass /*clazz*/, jobject image, jobject area)
 {
-    NativeImage *img = getNativeImage(env, image, area);
-    if (img == NULL) {
+    auto img = getNativeImage(env, image, area);
+    if (!img) {
         return NULL;
     }
 

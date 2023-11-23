@@ -18,13 +18,18 @@ package com.android.car.settings.common;
 
 import static com.android.car.settings.common.PreferenceXmlParser.METADATA_CONTROLLER;
 import static com.android.car.settings.common.PreferenceXmlParser.METADATA_KEY;
+import static com.android.car.settings.common.PreferenceXmlParser.METADATA_OCCUPANT_ZONE;
+import static com.android.car.settings.common.PreferenceXmlParser.SUPPORTED_AVAILABILITY_STATUS;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.XmlRes;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.os.Bundle;
 import android.text.TextUtils;
+
+import com.android.car.settings.CarSettingsApplication;
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -62,9 +67,13 @@ class PreferenceControllerListHelper {
         List<PreferenceController> controllers = new ArrayList<>();
         List<Bundle> preferenceMetadata;
         try {
+            int zoneType = ((CarSettingsApplication) context.getApplicationContext())
+                    .getMyOccupantZoneType();
             preferenceMetadata = PreferenceXmlParser.extractMetadata(context, xmlResId,
                     PreferenceXmlParser.MetadataFlag.FLAG_NEED_KEY
-                            | PreferenceXmlParser.MetadataFlag.FLAG_NEED_PREF_CONTROLLER);
+                            | PreferenceXmlParser.MetadataFlag.FLAG_NEED_PREF_CONTROLLER
+                            | PreferenceXmlParser.getMetadataFlagForOccupantZoneType(zoneType)
+                    );
         } catch (IOException | XmlPullParserException e) {
             throw new IllegalArgumentException(
                     "Failed to parse preference XML for getting controllers", e);
@@ -79,8 +88,15 @@ class PreferenceControllerListHelper {
             if (TextUtils.isEmpty(key)) {
                 throw new IllegalArgumentException("Missing key for controller: " + controllerName);
             }
+            String availabilityStatusForZone = metadata.getString(METADATA_OCCUPANT_ZONE);
+            if (!TextUtils.isEmpty(availabilityStatusForZone)
+                    && !SUPPORTED_AVAILABILITY_STATUS.contains(availabilityStatusForZone)) {
+                throw new IllegalArgumentException("Invalid availability status : "
+                        + availabilityStatusForZone);
+            }
+
             controllers.add(createInstance(controllerName, context, key, fragmentController,
-                    uxRestrictions));
+                    uxRestrictions, availabilityStatusForZone));
         }
 
         return controllers;
@@ -88,13 +104,16 @@ class PreferenceControllerListHelper {
 
     private static PreferenceController createInstance(String controllerName,
             Context context, String key, FragmentController fragmentController,
-            CarUxRestrictions restrictionInfo) {
+            CarUxRestrictions restrictionInfo, @Nullable String availabilityStatusForZone) {
         try {
             Class<?> clazz = Class.forName(controllerName);
             Constructor<?> preferenceConstructor = clazz.getConstructor(Context.class, String.class,
                     FragmentController.class, CarUxRestrictions.class);
             Object[] params = new Object[]{context, key, fragmentController, restrictionInfo};
-            return (PreferenceController) preferenceConstructor.newInstance(params);
+            PreferenceController preferenceController =
+                    (PreferenceController) preferenceConstructor.newInstance(params);
+            preferenceController.setAvailabilityStatusForZone(availabilityStatusForZone);
+            return preferenceController;
         } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException
                 | InvocationTargetException | IllegalAccessException e) {
             throw new IllegalArgumentException(

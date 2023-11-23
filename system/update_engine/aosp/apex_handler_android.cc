@@ -22,7 +22,6 @@
 #include <ApexProperties.sysprop.h>
 
 #include "update_engine/aosp/apex_handler_android.h"
-#include "update_engine/common/utils.h"
 
 namespace chromeos_update_engine {
 
@@ -47,7 +46,8 @@ android::apex::CompressedApexInfoList CreateCompressedApexInfoList(
 
 }  // namespace
 
-std::unique_ptr<ApexHandlerInterface> CreateApexHandler() {
+std::unique_ptr<ApexHandlerInterface>
+ApexHandlerInterface::CreateApexHandler() {
   if (android::sysprop::ApexProperties::updatable().value_or(false)) {
     return std::make_unique<ApexHandlerAndroid>();
   } else {
@@ -65,7 +65,7 @@ android::base::Result<uint64_t> ApexHandlerAndroid::CalculateSize(
   }
 
   auto compressed_apex_info_list = CreateCompressedApexInfoList(apex_infos);
-  int64_t size_from_apexd;
+  int64_t size_from_apexd = 0;
   auto result = apex_service->calculateSizeForCompressedApex(
       compressed_apex_info_list, &size_from_apexd);
   if (!result.isOk()) {

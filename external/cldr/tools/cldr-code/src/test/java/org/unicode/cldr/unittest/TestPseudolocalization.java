@@ -36,7 +36,7 @@ public class TestPseudolocalization extends TestFmwk {
             result.getStringValue("//ldml/characters/exemplarCharacters[@type=\"auxiliary\"]"));
 
         assertEquals("Date and time placeholders should only be bracketed",
-            "[h:mm:ss a]",
+            "[h:mm:ss a]",
             result.getStringValue(
                 "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/dateTimeFormats/"
                     + "availableFormats/dateFormatItem[@id=\"hms\"]"));
@@ -45,7 +45,7 @@ public class TestPseudolocalization extends TestFmwk {
             "[{1} 'åţ' {0} 'one']",
             result.getStringValue(
                 "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/dateTimeFormats/"
-                    + "dateTimeFormatLength[@type=\"long\"]/dateTimeFormat[@type=\"standard\"]/"
+                    + "dateTimeFormatLength[@type=\"long\"]/dateTimeFormat[@type=\"atTime\"]/"
                     + "pattern[@type=\"standard\"]"));
     }
 }

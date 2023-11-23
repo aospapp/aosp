@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright 2019 Google LLC
+ * Copyright (c) Linux Test Project, 2019-2021
  */
 
 #include <errno.h>
@@ -13,25 +14,36 @@
 
 int tst_alg_create(void)
 {
-	TEST(socket(AF_ALG, SOCK_SEQPACKET, 0));
-	if (TST_RET >= 0)
-		return TST_RET;
-	if (TST_ERR == EAFNOSUPPORT)
+	const long ret = socket(AF_ALG, SOCK_SEQPACKET, 0);
+
+	if (ret >= 0)
+		return ret;
+	if (errno == EAFNOSUPPORT)
 		tst_brk(TCONF, "kernel doesn't support AF_ALG");
-	tst_brk(TBROK | TTERRNO, "unexpected error creating AF_ALG socket");
+	tst_brk(TBROK | TERRNO, "unexpected error creating AF_ALG socket");
 	return -1;
 }
 
 void tst_alg_bind_addr(int algfd, const struct sockaddr_alg *addr)
 {
-	TEST(bind(algfd, (const struct sockaddr *)addr, sizeof(*addr)));
-	if (TST_RET == 0)
+	const long ret = bind(algfd, (const struct sockaddr *)addr,
+			      sizeof(*addr));
+
+	if (ret == 0)
 		return;
-	if (TST_ERR == ENOENT) {
+
+	if (errno == ELIBBAD && tst_fips_enabled()) {
+		tst_brk(TCONF,
+			"FIPS enabled => %s algorithm '%s' disabled",
+			addr->salg_type, addr->salg_name);
+	}
+
+	if (errno == ENOENT) {
 		tst_brk(TCONF, "kernel doesn't support %s algorithm '%s'",
 			addr->salg_type, addr->salg_name);
 	}
-	tst_brk(TBROK | TTERRNO,
+
+	tst_brk(TBROK | TERRNO,
 		"unexpected error binding AF_ALG socket to %s algorithm '%s'",
 		addr->salg_type, addr->salg_name);
 }
@@ -61,28 +73,54 @@ void tst_alg_bind(int algfd, const char *algtype, const char *algname)
 	tst_alg_bind_addr(algfd, &addr);
 }
 
-bool tst_have_alg(const char *algtype, const char *algname)
+int tst_try_alg(const char *algtype, const char *algname)
 {
+	long ret;
+	int retval = 0;
 	int algfd;
 	struct sockaddr_alg addr;
-	bool have_alg = true;
 
 	algfd = tst_alg_create();
 
 	init_sockaddr_alg(&addr, algtype, algname);
 
-	TEST(bind(algfd, (const struct sockaddr *)&addr, sizeof(addr)));
-	if (TST_RET != 0) {
-		if (TST_ERR != ENOENT) {
-			tst_brk(TBROK | TTERRNO,
-				"unexpected error binding AF_ALG socket to %s algorithm '%s'",
-				algtype, algname);
-		}
-		have_alg = false;
-	}
+	ret = bind(algfd, (const struct sockaddr *)&addr, sizeof(addr));
+
+	if (ret != 0)
+		retval = errno;
 
 	close(algfd);
-	return have_alg;
+	return retval;
+}
+
+bool tst_have_alg(const char *algtype, const char *algname)
+{
+	int ret;
+
+	ret = tst_try_alg(algtype, algname);
+
+	switch (ret) {
+	case 0:
+		return true;
+	case ENOENT:
+		tst_res(TCONF, "kernel doesn't have %s algorithm '%s'",
+			algtype, algname);
+		return false;
+	case ELIBBAD:
+		if (tst_fips_enabled()) {
+			tst_res(TCONF,
+				"FIPS enabled => %s algorithm '%s' disabled",
+				algtype, algname);
+			return false;
+		}
+	/* fallthrough */
+	default:
+		errno = ret;
+		tst_brk(TBROK | TERRNO,
+			"unexpected error binding AF_ALG socket to %s algorithm '%s'",
+			algtype, algname);
+		return false;
+	}
 }
 
 void tst_require_alg(const char *algtype, const char *algname)
@@ -96,6 +134,7 @@ void tst_require_alg(const char *algtype, const char *algname)
 
 void tst_alg_setkey(int algfd, const uint8_t *key, unsigned int keylen)
 {
+	long ret;
 	uint8_t *keybuf = NULL;
 	unsigned int i;
 
@@ -106,9 +145,9 @@ void tst_alg_setkey(int algfd, const uint8_t *key, unsigned int keylen)
 			keybuf[i] = rand();
 		key = keybuf;
 	}
-	TEST(setsockopt(algfd, SOL_ALG, ALG_SET_KEY, key, keylen));
-	if (TST_RET != 0) {
-		tst_brk(TBROK | TTERRNO,
+	ret = setsockopt(algfd, SOL_ALG, ALG_SET_KEY, key, keylen);
+	if (ret != 0) {
+		tst_brk(TBROK | TERRNO,
 			"unexpected error setting key (len=%u)", keylen);
 	}
 	free(keybuf);
@@ -116,12 +155,13 @@ void tst_alg_setkey(int algfd, const uint8_t *key, unsigned int keylen)
 
 int tst_alg_accept(int algfd)
 {
-	TEST(accept(algfd, NULL, NULL));
-	if (TST_RET < 0) {
-		tst_brk(TBROK | TTERRNO,
+	const long ret = accept(algfd, NULL, NULL);
+
+	if (ret < 0) {
+		tst_brk(TBROK | TERRNO,
 			"unexpected error accept()ing AF_ALG request socket");
 	}
-	return TST_RET;
+	return ret;
 }
 
 int tst_alg_setup(const char *algtype, const char *algname,

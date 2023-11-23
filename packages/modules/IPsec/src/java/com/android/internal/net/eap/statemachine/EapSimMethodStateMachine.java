@@ -90,7 +90,6 @@ import java.util.Set;
  * Method for Subscriber Identity Modules (EAP-SIM)</a>
  */
 class EapSimMethodStateMachine extends EapSimAkaMethodStateMachine {
-    private final SecureRandom mSecureRandom;
     private final EapSimTypeDataDecoder mEapSimTypeDataDecoder;
 
     EapSimMethodStateMachine(
@@ -122,7 +121,7 @@ class EapSimMethodStateMachine extends EapSimAkaMethodStateMachine {
             throw new IllegalArgumentException("EapSimTypeDataDecoder must be non-null");
         }
 
-        this.mSecureRandom = secureRandom;
+        mSecureRandom = secureRandom;
         this.mEapSimTypeDataDecoder = eapSimTypeDataDecoder;
         transitionTo(new CreatedState());
     }
@@ -159,7 +158,10 @@ class EapSimMethodStateMachine extends EapSimAkaMethodStateMachine {
                     return handleEapSimAkaNotification(
                             mTAG,
                             true, // isPreChallengeState
+                            false, // isReauthState
+                            false, // hadSuccessfulAuthentication
                             message.eapIdentifier,
+                            0,
                             eapSimTypeData);
                 default:
                     return buildClientErrorResponse(
@@ -217,7 +219,10 @@ class EapSimMethodStateMachine extends EapSimAkaMethodStateMachine {
                     return handleEapSimAkaNotification(
                             mTAG,
                             true, // isPreChallengeState
+                            false, // isReauthState
+                            false, // hadSuccessfulAuthentication
                             message.eapIdentifier,
+                            0,
                             eapSimTypeData);
                 case EAP_SIM_CHALLENGE:
                     // By virtue of being in the StartState, we have received (and processed) the
@@ -397,7 +402,10 @@ class EapSimMethodStateMachine extends EapSimAkaMethodStateMachine {
                     return handleEapSimAkaNotification(
                             mTAG,
                             false, // isPreChallengeState
+                            false, // isReauthState
+                            mHadSuccessfulChallenge, // hadSuccessfulAuthentication
                             message.eapIdentifier,
+                            0,
                             eapSimTypeData);
                 case EAP_SIM_CHALLENGE:
                     break;

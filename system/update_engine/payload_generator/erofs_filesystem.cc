@@ -76,27 +76,38 @@ static constexpr bool IsBlockCompressed(const struct erofs_map_blocks& block) {
          block.m_algorithmformat != Z_EROFS_COMPRESSION_SHIFTED;
 }
 
-static void FillCompressedBlockInfo(FilesystemInterface::File* p_file,
-                                    std::string_view image_filename,
-                                    struct erofs_inode* inode) {
+static void FillExtentInfo(FilesystemInterface::File* p_file,
+                           std::string_view image_filename,
+                           struct erofs_inode* inode) {
   auto& file = *p_file;
-  if (!file.is_compressed) {
-    return;
-  }
 
   struct erofs_map_blocks block {};
   block.m_la = 0;
   block.index = UINT_MAX;
 
-  const erofs_off_t uncompressed_size = file.file_stat.st_size;
   auto& compressed_blocks = file.compressed_file_info.blocks;
   auto last_pa = block.m_pa;
   auto last_plen = 0;
-  while (block.m_la < uncompressed_size) {
+  LOG(INFO) << file.name << ", isize: " << inode->i_size;
+  while (block.m_la < inode->i_size) {
     auto error = ErofsMapBlocks(inode, &block, EROFS_GET_BLOCKS_FIEMAP);
     if (error) {
       LOG(FATAL) << "Failed to map blocks for " << file.name << " in "
                  << image_filename;
+    }
+    if (block.m_pa % kBlockSize != 0) {
+      // EROFS might put the last block on unalighed addresses, because the last
+      // block is often < 1 full block size. That is fine, we can usually
+      // tolerate small amount of data being unaligned.
+      if (block.m_llen >= kBlockSize ||
+          block.m_la + block.m_llen != inode->i_size) {
+        LOG(ERROR) << "File `" << file.name
+                   << "` has unaligned blocks: at physical byte offset: "
+                   << block.m_pa << ", "
+                   << " length: " << block.m_plen
+                   << ", logical offset: " << block.m_la;
+      }
+      break;
     }
     // Certain uncompressed blocks have physical size > logical size. Usually
     // the physical block contains bunch of trailing zeros. Include thees
@@ -116,16 +127,18 @@ static void FillCompressedBlockInfo(FilesystemInterface::File* p_file,
     } else {
       last_plen += block.m_plen;
     }
-    // If logical size and physical size are the same, this block is
-    // uncompressed. Join consecutive uncompressed blocks to save a bit memory
-    // storing metadata.
-    if (block.m_llen == block.m_plen && !compressed_blocks.empty() &&
-        !compressed_blocks.back().IsCompressed()) {
-      compressed_blocks.back().compressed_length += block.m_llen;
-      compressed_blocks.back().uncompressed_length += block.m_llen;
-    } else {
-      compressed_blocks.push_back(
-          CompressedBlock(block.m_la, block.m_plen, block.m_llen));
+    if (file.is_compressed) {
+      // If logical size and physical size are the same, this block is
+      // uncompressed. Join consecutive uncompressed blocks to save a bit memory
+      // storing metadata.
+      if (block.m_llen == block.m_plen && !compressed_blocks.empty() &&
+          !compressed_blocks.back().IsCompressed()) {
+        compressed_blocks.back().compressed_length += block.m_llen;
+        compressed_blocks.back().uncompressed_length += block.m_llen;
+      } else {
+        compressed_blocks.push_back(
+            CompressedBlock(block.m_la, block.m_plen, block.m_llen));
+      }
     }
 
     block.m_la += block.m_llen;
@@ -154,24 +167,28 @@ std::unique_ptr<ErofsFilesystem> ErofsFilesystem::CreateFromFile(
     PLOG(INFO) << "Failed to open " << filename;
     return nullptr;
   }
-  DEFER { dev_close(); };
+  DEFER {
+    dev_close();
+  };
 
   if (const auto err = erofs_read_superblock(); err) {
     PLOG(INFO) << "Failed to parse " << filename << " as EROFS image";
     return nullptr;
   }
-  struct stat st;
+  struct stat st {};
   if (const auto err = fstat(erofs_devfd, &st); err) {
     PLOG(ERROR) << "Failed to stat() " << filename;
     return nullptr;
   }
   const time_t time = sbi.build_time;
-  LOG(INFO) << "Parsed EROFS image of size " << st.st_size << " built in "
-            << ctime(&time) << " " << filename;
   std::vector<File> files;
   if (!ErofsFilesystem::GetFiles(filename, &files, algo)) {
     return nullptr;
   }
+
+  LOG(INFO) << "Parsed EROFS image of size " << st.st_size << " built in "
+            << ctime(&time) << " " << filename
+            << ", number of files: " << files.size();
   LOG(INFO) << "Using compression algo " << algo << " for " << filename;
   // private ctor doesn't work with make_unique
   return std::unique_ptr<ErofsFilesystem>(
@@ -191,7 +208,7 @@ bool ErofsFilesystem::GetFiles(const std::string& filename,
     if (info.ctx.de_ftype != EROFS_FT_REG_FILE) {
       return 0;
     }
-    struct erofs_inode inode;
+    struct erofs_inode inode {};
     inode.nid = info.ctx.de_nid;
     int err = erofs_read_inode_from_disk(&inode);
     if (err) {
@@ -225,7 +242,7 @@ bool ErofsFilesystem::GetFiles(const std::string& filename,
 
     file.file_stat.st_size = uncompressed_size;
     file.file_stat.st_ino = inode.nid;
-    FillCompressedBlockInfo(&file, filename, &inode);
+    FillExtentInfo(&file, filename, &inode);
     file.compressed_file_info.algo = algo;
 
     files->emplace_back(std::move(file));

@@ -29,6 +29,10 @@
 #include <keymaster/km_openssl/openssl_err.h>
 #include <keymaster/km_openssl/openssl_utils.h>
 
+#ifdef _WIN32
+#include <sysinfoapi.h>
+#endif
+
 namespace keymaster {
 
 namespace {
@@ -52,11 +56,15 @@ class EvpMdCtx {
 }  // anonymous namespace
 
 uint64_t SoftKeymasterEnforcement::get_current_time_ms() const {
+#ifdef _WIN32
+    return GetTickCount64();
+#else
     struct timespec tp;
     int err = clock_gettime(CLOCK_BOOTTIME, &tp);
     if (err || tp.tv_sec < 0) return 0;
 
     return static_cast<uint64_t>(tp.tv_sec) * 1000 + static_cast<uint64_t>(tp.tv_nsec) / 1000000;
+#endif
 }
 
 bool SoftKeymasterEnforcement::CreateKeyId(const keymaster_key_blob_t& key_blob,

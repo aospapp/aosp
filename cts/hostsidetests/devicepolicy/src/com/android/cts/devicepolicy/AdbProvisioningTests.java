@@ -26,7 +26,7 @@ import com.android.cts.devicepolicy.metrics.DevicePolicyEventWrapper;
 
 import org.junit.Test;
 
-public class AdbProvisioningTests extends BaseDevicePolicyTest {
+public final class AdbProvisioningTests extends BaseDevicePolicyTest {
 
     @Override
     public void setUp() throws Exception {

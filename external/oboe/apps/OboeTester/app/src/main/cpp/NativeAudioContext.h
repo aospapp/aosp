@@ -34,11 +34,14 @@
 #include "flowgraph/MonoToMultiConverter.h"
 #include "flowgraph/SinkFloat.h"
 #include "flowgraph/SinkI16.h"
+#include "flowgraph/SinkI24.h"
+#include "flowgraph/SinkI32.h"
 #include "flowunits/ExponentialShape.h"
 #include "flowunits/LinearShape.h"
 #include "flowunits/SineOscillator.h"
 #include "flowunits/SawtoothOscillator.h"
 #include "flowunits/TriangleOscillator.h"
+#include "flowunits/WhiteNoise.h"
 
 #include "FullDuplexAnalyzer.h"
 #include "FullDuplexEcho.h"
@@ -56,7 +59,7 @@
 #define NATIVE_MODE_OPENSLES     1
 #define NATIVE_MODE_AAUDIO       2
 
-#define MAX_SINE_OSCILLATORS     8
+#define MAX_SINE_OSCILLATORS     16
 #define AMPLITUDE_SINE           1.0
 #define AMPLITUDE_SAWTOOTH       0.5
 #define FREQUENCY_SAW_PING       800.0
@@ -95,6 +98,7 @@ public:
      * @param nativeApi
      * @param sampleRate
      * @param channelCount
+     * @param channelMask
      * @param format
      * @param sharingMode
      * @param performanceMode
@@ -112,13 +116,15 @@ public:
     int open(jint nativeApi,
              jint sampleRate,
              jint channelCount,
+             jint channelMask,
              jint format,
              jint sharingMode,
              jint performanceMode,
              jint inputPreset,
+             jint usage,
+             jint contentType,
              jint deviceId,
              jint sessionId,
-             jint framesPerBurst,
              jboolean channelConversionAllowed,
              jboolean formatConversionAllowed,
              jint rateConversionQuality,
@@ -141,6 +147,10 @@ public:
 
     double getCpuLoad() {
         return oboeCallbackProxy.getCpuLoad();
+    }
+
+    std::string getCallbackTimeString() {
+        return oboeCallbackProxy.getCallbackTimeString();
     }
 
     void setWorkload(double workload) {
@@ -298,7 +308,7 @@ protected:
     int32_t                      mSampleRate = 0; // TODO per stream
 
     std::atomic<bool>            threadEnabled{false};
-    std::thread                 *dataThread = nullptr;
+    std::thread                 *dataThread = nullptr; // FIXME never gets deleted
 
 private:
     int64_t mInputOpenedAt = 0;
@@ -322,8 +332,6 @@ public:
 
     void runBlockingIO() override;
 
-    InputStreamCallbackAnalyzer  mInputAnalyzer;
-
     void setMinimumFramesBeforeRead(int32_t numFrames) override {
         mInputAnalyzer.setMinimumFramesBeforeRead(numFrames);
         mMinimumFramesBeforeRead = numFrames;
@@ -337,9 +345,13 @@ protected:
 
     oboe::Result startStreams() override {
         mInputAnalyzer.reset();
+        mInputAnalyzer.setup(getInputStream()->getFramesPerBurst(),
+                             getInputStream()->getChannelCount(),
+                             getInputStream()->getFormat());
         return getInputStream()->requestStart();
     }
 
+    InputStreamCallbackAnalyzer  mInputAnalyzer;
     int32_t mMinimumFramesBeforeRead = 0;
 };
 
@@ -414,15 +426,18 @@ protected:
     std::vector<SawtoothOscillator>  sawtoothOscillators;
     static constexpr float           kSweepPeriod = 10.0; // for triangle up and down
 
-    // A triangle LFO is shaped into either a linear or an exponential range.
+    // A triangle LFO is shaped into either a linear or an exponential range for sweep.
     TriangleOscillator               mTriangleOscillator;
     LinearShape                      mLinearShape;
     ExponentialShape                 mExponentialShape;
+    class WhiteNoise                 mWhiteNoise;
 
     std::unique_ptr<ManyToMultiConverter>   manyToMulti;
     std::unique_ptr<MonoToMultiConverter>   monoToMulti;
     std::shared_ptr<oboe::flowgraph::SinkFloat>   mSinkFloat;
     std::shared_ptr<oboe::flowgraph::SinkI16>     mSinkI16;
+    std::shared_ptr<oboe::flowgraph::SinkI24>     mSinkI24;
+    std::shared_ptr<oboe::flowgraph::SinkI32>     mSinkI32;
 };
 
 /**
@@ -506,6 +521,18 @@ private:
  */
 class ActivityRoundTripLatency : public ActivityFullDuplex {
 public:
+    ActivityRoundTripLatency() {
+#define USE_WHITE_NOISE_ANALYZER 1
+#if USE_WHITE_NOISE_ANALYZER
+        // New analyzer that uses a short pattern of white noise bursts.
+        mLatencyAnalyzer = std::make_unique<WhiteNoiseLatencyAnalyzer>();
+#else
+        // Old analyzer based on encoded random bits.
+        mLatencyAnalyzer = std::make_unique<EncodedRandomLatencyAnalyzer>();
+#endif
+        mLatencyAnalyzer->setup();
+    }
+    virtual ~ActivityRoundTripLatency() = default;
 
     oboe::Result startStreams() override {
         mAnalyzerLaunched = false;
@@ -515,7 +542,7 @@ public:
     void configureBuilder(bool isInput, oboe::AudioStreamBuilder &builder) override;
 
     LatencyAnalyzer *getLatencyAnalyzer() {
-        return &mEchoAnalyzer;
+        return mLatencyAnalyzer.get();
     }
 
     int32_t getState() override {
@@ -530,27 +557,29 @@ public:
         if (!mAnalyzerLaunched) {
             mAnalyzerLaunched = launchAnalysisIfReady();
         }
-        return mEchoAnalyzer.isDone();
+        return mLatencyAnalyzer->isDone();
     }
 
     FullDuplexAnalyzer *getFullDuplexAnalyzer() override {
         return (FullDuplexAnalyzer *) mFullDuplexLatency.get();
     }
 
-    static void analyzeData(PulseLatencyAnalyzer *analyzer) {
+    static void analyzeData(LatencyAnalyzer *analyzer) {
         analyzer->analyze();
     }
 
     bool launchAnalysisIfReady() {
         // Are we ready to do the analysis?
-        if (mEchoAnalyzer.hasEnoughData()) {
+        if (mLatencyAnalyzer->hasEnoughData()) {
             // Crunch the numbers on a separate thread.
-            std::thread t(analyzeData, &mEchoAnalyzer);
+            std::thread t(analyzeData, mLatencyAnalyzer.get());
             t.detach();
             return true;
         }
         return false;
     }
+
+    jdouble measureTimestampLatency();
 
 protected:
     void finishOpen(bool isInput, oboe::AudioStream *oboeStream) override;
@@ -558,8 +587,8 @@ protected:
 private:
     std::unique_ptr<FullDuplexAnalyzer>   mFullDuplexLatency{};
 
-    PulseLatencyAnalyzer  mEchoAnalyzer;
-    bool                  mAnalyzerLaunched = false;
+    std::unique_ptr<LatencyAnalyzer>  mLatencyAnalyzer;
+    bool                              mAnalyzerLaunched = false;
 };
 
 /**

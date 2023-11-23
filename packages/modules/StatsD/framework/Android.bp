@@ -38,24 +38,32 @@ java_library_static {
 
 filegroup {
     name: "framework-statsd-sources",
+    defaults: ["framework-sources-module-defaults"],
     srcs: [
         "java/**/*.java",
         ":framework-statsd-aidl-sources",
         ":statslog-statsd-java-gen",
     ],
-    visibility: [
-        "//frameworks/base", // For the "global" stubs.
-        "//frameworks/base/apex/statsd:__subpackages__",
-        "//packages/modules/StatsD/framework:__subpackages__",
-    ],
+    visibility: ["//packages/modules/StatsD/framework:__subpackages__"],
 }
+
 java_sdk_library {
     name: "framework-statsd",
     defaults: ["framework-module-defaults"],
     installable: true,
 
+    jarjar_rules: "jarjar-rules.txt",
+
     srcs: [
         ":framework-statsd-sources",
+    ],
+
+    libs: [
+        "androidx.annotation_annotation",
+    ],
+
+    static_libs: [
+         "modules-utils-build",
     ],
 
     permitted_packages: [
@@ -89,6 +97,15 @@ java_sdk_library {
         "test_com.android.os.statsd",
     ],
     min_sdk_version: "30",
+}
+
+java_api_contribution {
+    name: "framework-statsd-public-stubs",
+    api_surface: "public",
+    api_file: "api/current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
 }
 
 // JNI library for StatsLog.write

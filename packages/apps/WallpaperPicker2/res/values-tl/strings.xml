@@ -29,6 +29,8 @@
     <string name="static_wallpaper_presentation_mode_message" msgid="417940227049360906">"Kasalukuyang nakatakda"</string>
     <string name="rotating_wallpaper_presentation_mode_message" msgid="3361676041605733288">"Pang-araw-araw na wallpaper"</string>
     <string name="wallpaper_destination_both" msgid="1124197176741944063">"Home &amp; Lock screen"</string>
+    <string name="choose_a_wallpaper_section_title" msgid="1009823506890453891">"Pumili ng Wallpaper"</string>
+    <string name="creative_wallpaper_title" msgid="8459226435723103934">"Gumawa ng Wallpaper"</string>
     <string name="home_screen_message" msgid="106444102822522813">"Home screen"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"Lock screen"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"Home at Lock"</string>
@@ -47,7 +49,7 @@
     <string name="start_rotation_dialog_wifi_only_option_message" msgid="3126269859713666225">"Mag-download lang ng mga wallpaper sa hinaharap gamit ang Wi-Fi"</string>
     <string name="start_rotation_dialog_continue" msgid="276678987852274872">"Magpatuloy"</string>
     <string name="start_rotation_progress_message" msgid="7872623873682262083">"Dina-download ang unang wallpaper…"</string>
-    <string name="start_rotation_error_message" msgid="3053799836719618972">"Hindi ma-download ang unang wallpaper. Pakisuri ang mga setting ng iyong network at subukang muli."</string>
+    <string name="start_rotation_error_message" msgid="3053799836719618972">"Hindi ma-download ang unang wallpaper. Pakisuri ang mga setting ng iyong network at subukan ulit."</string>
     <string name="start_rotation_dialog_body" msgid="7903554799046364916">"Awtomatikong magpapalit ang wallpaper araw-araw"</string>
     <string name="settings_button_label" msgid="8724734130079207955">"Mga Setting"</string>
     <string name="explore" msgid="7468719504199497281">"I-explore"</string>
@@ -55,7 +57,7 @@
     <string name="wallpaper_disabled_message" msgid="7309484130562148185">"Naka-disable sa device na ito ang pagtatakda ng wallpaper"</string>
     <string name="wallpaper_disabled_by_administrator_message" msgid="1551430406714747884">"Na-disable ng administrator ng iyong device ang pagtatakda ng wallpaper"</string>
     <string name="wallpaper_set_successfully_message" msgid="2958998799111688578">"Matagumpay na naitakda ang wallpaper"</string>
-    <string name="wallpapers_unavailable_offline_message" msgid="8136405438621689532">"Kailangan mo ng koneksyon sa Internet para tingnan ang mga wallpaper. Kumonekta at subukang muli."</string>
+    <string name="wallpapers_unavailable_offline_message" msgid="8136405438621689532">"Kailangan mo ng koneksyon sa Internet para tingnan ang mga wallpaper. Kumonekta at subukan ulit."</string>
     <string name="currently_set_home_wallpaper_thumbnail" msgid="4022381436821898917">"Thumbnail ng kasalukuyang nakatakdang wallpaper ng home screen"</string>
     <string name="currently_set_lock_wallpaper_thumbnail" msgid="2094209303934569997">"Thumbnail ng kasalukuyang nakatakdang wallpaper ng lock screen"</string>
     <string name="currently_set_wallpaper_thumbnail" msgid="8651887838745545107">"Thumbnail ng kasalukuyang nakatakdang wallpaper"</string>
@@ -64,8 +66,9 @@
     <string name="explore_lock_screen" msgid="268938342103703665">"I-explore ang wallpaper ng lock screen"</string>
     <string name="refresh_daily_wallpaper_home_content_description" msgid="2770445044556164259">"I-refresh ang pang-araw-araw na wallpaper ng home screen"</string>
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"I-refresh ang pang-araw-araw na wallpaper"</string>
+    <string name="preview_screen_description" msgid="3386387053327775919">"Screen ng preview ng wallpaper"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"Nire-refresh ang pang-araw-araw na wallpaper…"</string>
-    <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"Hindi na-refresh ang pang-araw-araw na wallpaper. Pakitingnan ang iyong koneksyon sa network at subukang muli."</string>
+    <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"Hindi na-refresh ang pang-araw-araw na wallpaper. Pakitingnan ang iyong koneksyon sa network at subukan ulit."</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"Mga nasa device na wallpaper"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"Nasa device"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"Wallpaper ng Android"</string>
@@ -81,10 +84,12 @@
     <string name="tab_info" msgid="818614080690111416">"Impormasyon"</string>
     <string name="tab_customize" msgid="2533745409174959960">"I-customize"</string>
     <string name="tab_effects" msgid="3213606157589233901">"Mga Effect"</string>
+    <string name="tab_share" msgid="6676269624804601227">"I-share"</string>
     <string name="my_photos" msgid="8613021349284084982">"Mga Larawan Ko"</string>
     <string name="configure_wallpaper" msgid="849882179182976621">"Mga Setting…"</string>
     <string name="delete_live_wallpaper" msgid="589212696102662329">"I-delete"</string>
-    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"I-delete ang wallpaper na ito sa iyong telepono?"</string>
+    <string name="edit_live_wallpaper" msgid="3132060073690558045">"I-edit"</string>
+    <string name="delete_wallpaper_confirmation" msgid="1905114562243802354">"I-delete ang wallpaper na ito mula sa iyong device?"</string>
     <string name="bottom_action_bar_back" msgid="8237013112999946725">"Bumalik"</string>
     <string name="bottom_action_bar_edit" msgid="1214742990893082138">"I-edit"</string>
     <string name="bottom_action_bar_download" msgid="3983122338076389421">"I-download"</string>
@@ -95,11 +100,19 @@
     <string name="previous_page_content_description" msgid="1138597031571078429">"Nauna"</string>
     <string name="wallpaper_title" msgid="6754214682228331092">"Wallpaper"</string>
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Preview ng wallpaper"</string>
+    <string name="lock_wallpaper_preview_card_content_description" msgid="5236839857695985498">"Preview ng wallpaper ng lock screen"</string>
+    <string name="home_wallpaper_preview_card_content_description" msgid="4059418716070821630">"Preview ng wallpaper ng home screen"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"Wala ang koleksyon"</string>
+    <string name="wallpaper_exit_split_screen" msgid="1928870664619591636">"Lumabas sa split screen mode at subukan ulit"</string>
     <string name="cancel" msgid="4970902691067201584">"Kanselahin"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Itago ang Preview ng UI"</string>
     <string name="hint_hide_ui_preview" msgid="4527603797714586070">"Hidden ang UI sa preview. Double tap para i-unhide"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Ipakita ang Preview ng UI"</string>
+    <string name="hide_preview_controls_content_description" msgid="894958599274977655">"Ipinapakita ang mga kontrol ng preview. I-double tap para itago"</string>
+    <string name="hide_preview_controls_action" msgid="3419260118386783295">"Itago ang mga kontrol ng preview"</string>
+    <string name="show_preview_controls_content_description" msgid="908147864005440602">"Nakatago ang mga kontrol ng preview. I-double tap para ipakita"</string>
+    <string name="show_preview_controls_action" msgid="7700775001986890400">"Ipakita ang mga kontrol ng preview"</string>
+    <string name="hide_wallpaper_info_action" msgid="6572492484253895374">"Itago ang impormasyon ng wallpaper"</string>
     <string name="hint_show_ui_preview" msgid="2744155435325318349">"Displayed ang UI sa preview. Double tap para itago"</string>
     <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Palitan ang wallpaper"</string>
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Preview ng wallpaper ng lockscreen"</string>
@@ -111,4 +124,10 @@
     <string name="settings_snackbar_description" msgid="890168814524778486">"Paki-enable ang mga file at media sa mga setting."</string>
     <string name="settings_snackbar_enable" msgid="5992112808061426068">"I-enable"</string>
     <string name="open_my_photos" msgid="4107196465713868381">"Buksan ang Mga Larawan Ko"</string>
+    <string name="lock_screen_tab" msgid="6672930765010407652">"I-lock ang screen"</string>
+    <string name="home_screen_tab" msgid="1080445697837877526">"Home screen"</string>
+    <string name="reset" msgid="4945445169532850631">"I-reset"</string>
+    <string name="reset_confirmation_dialog_title" msgid="3391905685838213712">"I-reset ang mga pagbabago?"</string>
+    <string name="reset_confirmation_dialog_message" msgid="888669268626289603">"Hindi mase-save ang iyong mga pagbabago"</string>
+    <string name="more_wallpapers" msgid="8116268433411881705">"Higuit pang wallpaper"</string>
 </resources>

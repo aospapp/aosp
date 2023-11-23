@@ -1,0 +1,1 @@
+add_service(hal_audio_default, hal_audio_ext_service)

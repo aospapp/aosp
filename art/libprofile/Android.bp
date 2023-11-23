@@ -39,6 +39,7 @@ cc_defaults {
                 "libz",
             ],
             static_libs: [
+                "libmodules-utils-build",
                 // ZipArchive support, the order matters here to get all symbols.
                 "libziparchive",
             ],
@@ -106,11 +107,6 @@ art_cc_library {
         "libprofile_defaults",
         "libart_nativeunwind_defaults",
     ],
-    shared_libs: [
-        "libbase",
-        "libziparchive",
-    ],
-    export_shared_lib_headers: ["libbase"],
     target: {
         android: {
             shared_libs: [
@@ -138,6 +134,7 @@ art_cc_library {
     apex_available: [
         "com.android.art",
         "com.android.art.debug",
+        "test_broken_com.android.art",
     ],
 }
 
@@ -146,10 +143,6 @@ art_cc_library {
     defaults: [
         "art_debug_defaults",
         "libprofile_defaults",
-    ],
-    shared_libs: [
-        "libbase",
-        "libziparchive",
     ],
     target: {
         android: {
@@ -171,13 +164,13 @@ art_cc_library {
             ],
         },
     },
-    export_shared_lib_headers: ["libbase"],
     apex_available: [
         "com.android.art.debug",
         // TODO(b/183882457): This lib doesn't go into com.android.art, but
         // apex_available lists need to be the same for internal libs to avoid
         // stubs, and libartd depends on this.
         "com.android.art",
+        "test_broken_com.android.art",
     ],
 }
 
@@ -195,8 +188,11 @@ art_cc_defaults {
         "profile/profile_boot_info_test.cc",
         "profile/profile_compilation_info_test.cc",
     ],
-    shared_libs: [
+    static_libs: [
         "libziparchive",
+    ],
+    shared_libs: [
+        "libz", // libziparchive dependency; must be repeated here since it's a static lib.
     ],
 }
 

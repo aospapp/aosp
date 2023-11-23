@@ -19,10 +19,10 @@
     <string name="app_name" msgid="5128188288358721369">"መለያዎች"</string>
     <string name="title_scanned_tag" msgid="4347835407095551450">"አዲስ መለያ ተሰብስቧል"</string>
     <string name="title_existing_tag" msgid="5656560272594190244">"መለያ"</string>
-    <string name="tag_unknown" msgid="2897956823877728783">"ያልታወቀ መለያ አይነት"</string>
+    <string name="tag_unknown" msgid="2897956823877728783">"ያልታወቀ መለያ ዓይነት"</string>
     <string name="tag_empty" msgid="3726529819932095782">"ባዶ መለያ"</string>
     <string name="button_done" msgid="7048822758098308158">"ተከናውኗል"</string>
-    <string name="action_text" msgid="577417996159152923">"ፅሁፍ <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
+    <string name="action_text" msgid="577417996159152923">"ጽሁፍ <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
     <string name="action_call" msgid="6226253647953184035">"ደውል <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
     <string name="empty_tag_prompt" msgid="4206394383309956030">"ይህ መለያ ባዶ ነው።"</string>
     <string name="import_vcard" msgid="5104299047930666528">"^1 አስመጣ"</string>

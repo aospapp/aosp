@@ -19,6 +19,11 @@
         <uses-library android:name="android.test.runner" />
     </application>
 
+    <queries>
+        <package android:name="android.appsecurity.cts.tinyapp" />
+        <package android:name="android.appsecurity.cts.tinyapp_companion" />
+    </queries>
+
     <instrumentation
         android:targetPackage="android.appsecurity.cts.v3rotationtests"
         android:name="androidx.test.runner.AndroidJUnitRunner" />

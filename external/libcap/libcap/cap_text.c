@@ -315,7 +315,7 @@ char *cap_to_name(cap_value_t cap)
 #endif
 	char *tmp, *result;
 
-	asprintf(&tmp, "%u", cap);
+	(void) asprintf(&tmp, "%u", cap);
 	result = _libcap_strdup(tmp);
 	free(tmp);
 

@@ -37,9 +37,9 @@ namespace aidl::android::hardware::graphics::composer3::impl {
 HWC3::Error ClientFrameComposer::init() {
   DEBUG_LOG("%s", __FUNCTION__);
 
-  HWC3::Error error = mDrmPresenter.init();
+  HWC3::Error error = mDrmClient.init();
   if (error != HWC3::Error::None) {
-    ALOGE("%s: failed to initialize DrmPresenter", __FUNCTION__);
+    ALOGE("%s: failed to initialize DrmClient", __FUNCTION__);
     return error;
   }
 
@@ -48,12 +48,12 @@ HWC3::Error ClientFrameComposer::init() {
 
 HWC3::Error ClientFrameComposer::registerOnHotplugCallback(
     const HotplugCallback& cb) {
-  return mDrmPresenter.registerOnHotplugCallback(cb);
+  return mDrmClient.registerOnHotplugCallback(cb);
   return HWC3::Error::None;
 }
 
 HWC3::Error ClientFrameComposer::unregisterOnHotplugCallback() {
-  return mDrmPresenter.unregisterOnHotplugCallback();
+  return mDrmClient.unregisterOnHotplugCallback();
 }
 
 HWC3::Error ClientFrameComposer::onDisplayCreate(Display* display) {
@@ -96,7 +96,7 @@ HWC3::Error ClientFrameComposer::onDisplayClientTargetSet(Display* display) {
   DisplayInfo& displayInfo = it->second;
 
   auto [drmBufferCreateError, drmBuffer] =
-    mDrmPresenter.create(display->getClientTarget().getBuffer());
+    mDrmClient.create(display->getClientTarget().getBuffer());
   if (drmBufferCreateError != HWC3::Error::None) {
     ALOGE("%s: display:%" PRIu64 " failed to create client target drm buffer",
           __FUNCTION__, displayId);
@@ -146,11 +146,16 @@ HWC3::Error ClientFrameComposer::presentDisplay(
   }
 
   DisplayInfo& displayInfo = displayInfoIt->second;
+  if (!displayInfo.clientTargetDrmBuffer) {
+    ALOGW("%s: display:%" PRIu64 " no client target set, nothing to present.",
+          __FUNCTION__, displayId);
+    return HWC3::Error::None;
+  }
 
   ::android::base::unique_fd fence = display->getClientTarget().getFence();
 
-  auto [flushError, flushCompleteFence] = mDrmPresenter.flushToDisplay(
-        displayId, *displayInfo.clientTargetDrmBuffer, fence);
+  auto [flushError, flushCompleteFence] = mDrmClient.flushToDisplay(
+        displayId, displayInfo.clientTargetDrmBuffer, fence);
   if (flushError != HWC3::Error::None) {
     ALOGE("%s: display:%" PRIu64 " failed to flush drm buffer" PRIu64,
           __FUNCTION__, displayId);

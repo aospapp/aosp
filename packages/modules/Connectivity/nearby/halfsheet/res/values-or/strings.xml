@@ -20,7 +20,18 @@
     <string name="fast_pair_setup_in_progress" msgid="4158762239172829807">"ସେଟଅପ ଆରମ୍ଭ କରାଯାଉଛି…"</string>
     <string name="fast_pair_title_setup" msgid="2894360355540593246">"ଡିଭାଇସ ସେଟ ଅପ କରନ୍ତୁ"</string>
     <string name="fast_pair_device_ready" msgid="2903490346082833101">"ଡିଭାଇସ ସଂଯୁକ୍ତ ହୋଇଛି"</string>
+    <string name="fast_pair_device_ready_with_device_name" msgid="2151967995692339422">"“%s” ସହ କନେକ୍ଟ କରାଯାଇଛି"</string>
     <string name="fast_pair_title_fail" msgid="5677174346601290232">"ସଂଯୋଗ କରାଯାଇପାରିଲା ନାହିଁ"</string>
+    <string name="fast_pair_unable_to_connect" msgid="3661854812014294569">"କନେକ୍ଟ କରିବାରେ ଅସମର୍ଥ"</string>
+    <string name="fast_pair_unable_to_connect_description" msgid="3926830740860653891">"ଡିଭାଇସ ସହ ମାନୁଆଲୀ ପେୟାର କରିବା ପାଇଁ ଚେଷ୍ଟା କରନ୍ତୁ"</string>
+    <string name="fast_pair_turn_on_bt_device_pairing_mode" msgid="3197372738187738030">"ଡିଭାଇସକୁ ପେୟାରିଂ ମୋଡରେ ରଖିବାକୁ ଚେଷ୍ଟା କରନ୍ତୁ"</string>
+    <string name="devices_within_reach_channel_name" msgid="876280551450910440">"ପହଞ୍ଚ ଭିତରେ ଥିବା ଡିଭାଇସଗୁଡ଼ିକ"</string>
+    <string name="devices_with_your_account_channel_name" msgid="8120067812798598102">"ଆପଣଙ୍କ ଆକାଉଣ୍ଟ ସହ ଥିବା ଡିଭାଇସଗୁଡ଼ିକ"</string>
+    <string name="fast_pair_your_device" msgid="3662423897069320840">"ସେଭ ଥିବା ଆପଣଙ୍କ ଡିଭାଇସ ଉପଲବ୍ଧ"</string>
+    <string name="common_nearby_title" msgid="5480324514713607015">"ଆଖପାଖର"</string>
+    <string name="common_devices" msgid="2635603125608104442">"ଡିଭାଇସଗୁଡ଼ିକ"</string>
+    <string name="common_connecting" msgid="160531481424245303">"କନେକ୍ଟ କରାଯାଉଛି…"</string>
+    <string name="common_battery_level" msgid="8748495823047456645">"ବେଟେରୀ: %d%%"</string>
     <string name="paring_action_done" msgid="6888875159174470731">"ହୋଇଗଲା"</string>
     <string name="paring_action_save" msgid="6259357442067880136">"ସେଭ କରନ୍ତୁ"</string>
     <string name="paring_action_connect" msgid="4801102939608129181">"ସଂଯୋଗ କରନ୍ତୁ"</string>

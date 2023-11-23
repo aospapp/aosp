@@ -1,0 +1,17 @@
+{
+  "syncToken": 1662134400,
+  "contents": [
+    { "key": "key1",
+      "fp": "fp1",
+      "data": "dGVzdGRhdGEx"
+    },
+    { "key": "key2",
+      "fp": "fp2",
+      "data": "dGVzdGRhdGEy"
+    },
+    { "key": "key3",
+      "fp": "fp3",
+      "data": "dGVzdGRhdGEy"
+    }
+  ]
+}

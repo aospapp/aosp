@@ -1,17 +1,26 @@
-#!/usr/bin/env python2
 
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import cmd
 import dbus
 import dbus.types
 import dbus.exceptions
 
-import pm_constants
+import six
+
+from six.moves import input
 
 import common
+
+from autotest_lib.client.cros.cellular.pseudomodem import pm_constants
+
 from autotest_lib.client.cros.cellular import mm1_constants
 
 class PseudoModemClient(cmd.Cmd):
@@ -39,7 +48,7 @@ class PseudoModemClient(cmd.Cmd):
         Starts the interactive shell.
 
         """
-        print '\nWelcome to the PseudoModemManager shell!\n'
+        print('\nWelcome to the PseudoModemManager shell!\n')
         self.cmdloop()
 
 
@@ -56,14 +65,14 @@ class PseudoModemClient(cmd.Cmd):
 
         """
         if args:
-            print '\nCommand "is_alive" expects no arguments.\n'
+            print('\nCommand "is_alive" expects no arguments.\n')
             return
-        print self._get_proxy().IsAlive(dbus_interface=pm_constants.I_TESTING)
+        print(self._get_proxy().IsAlive(dbus_interface=pm_constants.I_TESTING))
 
 
     def help_is_alive(self):
         """ Handles the 'help is_alive' command. """
-        print '\nChecks that pseudomodem child process is alive.\n'
+        print('\nChecks that pseudomodem child process is alive.\n')
 
 
     def do_properties(self, args):
@@ -74,26 +83,26 @@ class PseudoModemClient(cmd.Cmd):
 
         """
         if args:
-            print '\nCommand "properties" expects no arguments.\n'
+            print('\nCommand "properties" expects no arguments.\n')
             return
         try:
             props = self._get_proxy().GetAll(
                             pm_constants.I_TESTING,
                             dbus_interface=mm1_constants.I_PROPERTIES)
-            print '\nProperties: '
-            for k, v in props.iteritems():
-                print '   ' + k + ': ' + str(v)
-            print
+            print('\nProperties: ')
+            for k, v in six.iteritems(props):
+                print('   ' + k + ': ' + str(v))
+            print()
         except dbus.exceptions.DBusException as e:
-            print ('\nAn error occurred while communicating with '
+            print(('\nAn error occurred while communicating with '
                    'PseudoModemManager: ' + e.get_dbus_name() + ' - ' +
-                   e.message + '\n')
+                   e.message + '\n'))
         return False
 
 
     def help_properties(self):
         """Handles the 'help properties' command."""
-        print '\nReturns the properties under the testing interface.\n'
+        print('\nReturns the properties under the testing interface.\n')
 
 
     def do_sms(self, args):
@@ -116,23 +125,23 @@ class PseudoModemClient(cmd.Cmd):
         """
         arglist = args.split(' ', 1)
         if len(arglist) != 2:
-            print '\nMalformed SMS args: ' + args + '\n'
+            print('\nMalformed SMS args: ' + args + '\n')
             return
         try:
             self._get_proxy().ReceiveSms(
                     arglist[0], arglist[1],
                     dbus_interface=pm_constants.I_TESTING)
-            print '\nSMS sent!\n'
+            print('\nSMS sent!\n')
         except dbus.exceptions.DBusException as e:
-            print ('\nAn error occurred while communicating with '
+            print(('\nAn error occurred while communicating with '
                    'PseudoModemManager: ' + e.get_dbus_name() + ' - ' +
-                   e.message + '\n')
+                   e.message + '\n'))
         return False
 
 
     def help_sms(self):
         """Handles the 'help sms' command."""
-        print '\nUsage: sms <sender phone #> <message text>\n'
+        print('\nUsage: sms <sender phone #> <message text>\n')
 
 
     def do_set(self, args):
@@ -147,13 +156,13 @@ class PseudoModemClient(cmd.Cmd):
         """
         arglist = args.split(' ')
         if len(arglist) < 1:
-            print '\nInvalid command: set ' + args + '\n'
+            print('\nInvalid command: set ' + args + '\n')
             return
         if arglist[0] == 'pco':
             if len(arglist) == 1:
                 arglist.append('')
             elif len(arglist) != 2:
-                print '\nExpected: pco <pco-value>. Found: ' + args + '\n'
+                print('\nExpected: pco <pco-value>. Found: ' + args + '\n')
                 return
             pco_value = arglist[1]
             try:
@@ -164,13 +173,13 @@ class PseudoModemClient(cmd.Cmd):
                     signature='ubay')]
                 self._get_proxy().UpdatePco(
                         pco_list, dbus_interface=pm_constants.I_TESTING)
-                print '\nPCO value updated!\n'
+                print('\nPCO value updated!\n')
             except dbus.exceptions.DBusException as e:
-                print ('\nAn error occurred while communicating with '
+                print(('\nAn error occurred while communicating with '
                        'PseudoModemManager: ' + e.get_dbus_name() + ' - ' +
-                       e.message + '\n')
+                       e.message + '\n'))
         else:
-            print '\nUnknown command: set ' + args + '\n'
+            print('\nUnknown command: set ' + args + '\n')
         return False
 
 
@@ -183,13 +192,13 @@ class PseudoModemClient(cmd.Cmd):
     def _get_state_machine(self, args):
         arglist = args.split()
         if len(arglist) != 1:
-            print '\nExpected one argument: Name of state machine\n'
+            print('\nExpected one argument: Name of state machine\n')
             return None
         try:
             return self._get_ism_proxy(arglist[0])
         except dbus.exceptions.DBusException as e:
-            print '\nNo such interactive state machine.\n'
-            print 'Error obtained: |%s|\n' % repr(e)
+            print('\nNo such interactive state machine.\n')
+            print('Error obtained: |%s|\n' % repr(e))
             return None
 
 
@@ -208,11 +217,11 @@ class PseudoModemClient(cmd.Cmd):
         try:
             is_waiting = ism.IsWaiting(
                     dbus_interface=pm_constants.I_TESTING_ISM)
-            print ('\nState machine is %swaiting.\n' %
-                   ('' if is_waiting else 'not '))
+            print(('\nState machine is %swaiting.\n' %
+                   ('' if is_waiting else 'not ')))
         except dbus.exceptions.DBusException as e:
-            print ('\nCould not determine if |%s| is waiting: |%s|\n' %
-                   (machine, repr(e)))
+            print(('\nCould not determine if |%s| is waiting: |%s|\n' %
+                   (machine, repr(e))))
         return False
 
 
@@ -239,9 +248,9 @@ class PseudoModemClient(cmd.Cmd):
 
         try:
             success = ism.Advance(dbus_interface=pm_constants.I_TESTING_ISM)
-            print ('\nAdvanced!\n' if success else '\nCould not advance.\n')
+            print(('\nAdvanced!\n' if success else '\nCould not advance.\n'))
         except dbus.exceptions.DBusException as e:
-            print '\nError while advancing state machine: |%s|\n' % repr(e)
+            print('\nError while advancing state machine: |%s|\n' % repr(e))
         return False
 
 
@@ -261,14 +270,14 @@ class PseudoModemClient(cmd.Cmd):
 
         """
         if args:
-            print '\nCommand "exit" expects no arguments.\n'
+            print('\nCommand "exit" expects no arguments.\n')
             return
-        resp = raw_input('Are you sure? (yes/no): ')
+        resp = input('Are you sure? (yes/no): ')
         if resp == 'yes':
-            print '\nGoodbye!\n'
+            print('\nGoodbye!\n')
             return True
         if resp != 'no':
-            print '\nDid not understand: ' + resp + '\n'
+            print('\nDid not understand: ' + resp + '\n')
         return False
 
 

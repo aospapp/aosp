@@ -89,7 +89,7 @@ public class UnitTest extends Thread {
 
     public void waitForMessage() {
         while (!msgHandled) {
-            yield();
+            this.yield();
         }
     }
 

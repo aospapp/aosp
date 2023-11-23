@@ -19,6 +19,7 @@
 #include <array>
 #include <deque>
 #include <forward_list>
+#include <list>
 #include <map>
 #include <queue>
 #include <set>
@@ -135,7 +136,6 @@ ASSERT_TYPE_NOT_SUPPORTED(unordered_multimap_int_int_t);
 // unique_ptr.
 ASSERT_TYPE_SUPPORTED(std::unique_ptr<int>);
 ASSERT_TYPE_NOT_SUPPORTED(std::unique_ptr<NonSupportedType>);
-
 
 TEST(TracedValueTest, FlatDictionary_Explicit) {
   protozero::HeapBuffered<protos::pbzero::DebugAnnotation> message;

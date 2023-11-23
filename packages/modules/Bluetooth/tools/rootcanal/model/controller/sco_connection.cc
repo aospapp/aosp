@@ -17,14 +17,16 @@
 #include "sco_connection.h"
 
 #include <hci/hci_packets.h>
-#include <os/log.h>
+#include <log.h>
 
 #include <vector>
 
 using namespace rootcanal;
 using namespace bluetooth::hci;
 
-bool ScoConnectionParameters::IsExtended() {
+ScoConnection::~ScoConnection() { ASSERT(!stream_handle_.has_value()); }
+
+bool ScoConnectionParameters::IsExtended() const {
   uint16_t legacy = (uint16_t)SynchronousPacketTypeBits::HV1_ALLOWED |
                     (uint16_t)SynchronousPacketTypeBits::HV2_ALLOWED |
                     (uint16_t)SynchronousPacketTypeBits::HV3_ALLOWED;
@@ -35,7 +37,8 @@ bool ScoConnectionParameters::IsExtended() {
   return ((packet_type ^ edr) & ~legacy) != 0;
 }
 
-std::optional<ScoLinkParameters> ScoConnectionParameters::GetLinkParameters() {
+std::optional<ScoLinkParameters> ScoConnectionParameters::GetLinkParameters()
+    const {
   // Coding conversion.
   uint8_t air_coding_to_air_mode[] = {
       0x02,  // CVSD
@@ -56,25 +59,31 @@ std::optional<ScoLinkParameters> ScoConnectionParameters::GetLinkParameters() {
   std::vector<Packet> accepted_packets;
   accepted_packets.push_back(Packet(0, 1));  // POLL/NULL
 
-  if (packet_type & (uint16_t)SynchronousPacketTypeBits::EV3_ALLOWED)
+  if (packet_type & (uint16_t)SynchronousPacketTypeBits::EV3_ALLOWED) {
     accepted_packets.push_back(Packet(30, 1));
-  if (packet_type & (uint16_t)SynchronousPacketTypeBits::EV4_ALLOWED)
+  }
+  if (packet_type & (uint16_t)SynchronousPacketTypeBits::EV4_ALLOWED) {
     accepted_packets.push_back(Packet(120, 3));
-  if (packet_type & (uint16_t)SynchronousPacketTypeBits::EV5_ALLOWED)
+  }
+  if (packet_type & (uint16_t)SynchronousPacketTypeBits::EV5_ALLOWED) {
     accepted_packets.push_back(Packet(180, 3));
+  }
   if ((packet_type & (uint16_t)SynchronousPacketTypeBits::NO_2_EV3_ALLOWED) ==
-      0)
+      0) {
     accepted_packets.push_back(Packet(60, 1));
+  }
   if ((packet_type & (uint16_t)SynchronousPacketTypeBits::NO_3_EV3_ALLOWED) ==
-      0)
+      0) {
     accepted_packets.push_back(Packet(360, 3));
+  }
   if ((packet_type & (uint16_t)SynchronousPacketTypeBits::NO_2_EV5_ALLOWED) ==
-      0)
+      0) {
     accepted_packets.push_back(Packet(90, 1));
+  }
   if ((packet_type & (uint16_t)SynchronousPacketTypeBits::NO_3_EV5_ALLOWED) ==
-      0)
+      0) {
     accepted_packets.push_back(Packet(540, 3));
-
+  }
   // Ignore empty bandwidths for now.
   if (transmit_bandwidth == 0 || receive_bandwidth == 0) {
     LOG_WARN("eSCO transmissions with null bandwidths are not supported");
@@ -88,12 +97,16 @@ std::optional<ScoLinkParameters> ScoConnectionParameters::GetLinkParameters() {
   // Explore all packet combinations, select the valid one
   // with smallest actual bandwidth usage.
   for (auto tx : accepted_packets) {
-    if (tx.length == 0) continue;
+    if (tx.length == 0) {
+      continue;
+    }
 
     unsigned tx_max_interval = (1600 * tx.length) / transmit_bandwidth;
 
     for (auto rx : accepted_packets) {
-      if (rx.length == 0) continue;
+      if (rx.length == 0) {
+        continue;
+      }
 
       LOG_INFO("Testing combination %u/%u : %u/%u", tx.length, tx.slots,
                rx.length, rx.slots);
@@ -104,7 +117,7 @@ std::optional<ScoLinkParameters> ScoConnectionParameters::GetLinkParameters() {
       unsigned transmission_interval =
           std::min(tx_max_interval, rx_max_interval);
       transmission_interval -= transmission_interval % 2;
-      transmission_interval = std::min(transmission_interval, 254u);
+      transmission_interval = std::min(transmission_interval, 254U);
 
       LOG_INFO("Transmission interval: %u slots", transmission_interval);
 
@@ -128,18 +141,20 @@ std::optional<ScoLinkParameters> ScoConnectionParameters::GetLinkParameters() {
           tx.slots + rx.slots + retransmission_window;
 
       // Validate window.
-      if (transmission_window > transmission_interval)
+      if (transmission_window > transmission_interval) {
         // Oops
         continue;
+      }
 
       // Compute and validate latency.
       unsigned latency = (transmission_window * 1250) / 2;
 
-      LOG_INFO("Latency: %u us (max %u us)", latency, max_latency * 1000u);
+      LOG_INFO("Latency: %u us (max %u us)", latency, max_latency * 1000U);
 
-      if (latency > (1000 * max_latency))
+      if (latency > (1000 * max_latency)) {
         // Oops
         continue;
+      }
 
       // We got a valid configuration.
       // Evaluate the actual bandwidth usage.
@@ -185,13 +200,7 @@ std::optional<ScoLinkParameters> ScoConnectionParameters::GetLinkParameters() {
 
   uint8_t transmission_interval;
   uint16_t packet_length;
-  unsigned latency = 1250;
   uint8_t air_coding = voice_setting & 0x3;
-
-  if (max_latency != 0xffff && max_latency < latency) {
-    LOG_WARN("SCO Max latency must be less than 1250 us");
-    return {};
-  }
 
   if (packet_type & (uint16_t)SynchronousPacketTypeBits::HV3_ALLOWED) {
     transmission_interval = 6;
@@ -233,7 +242,9 @@ bool ScoConnection::NegotiateLinkParameters(
     return false;
   }
 
-  if (peer.voice_setting != parameters_.voice_setting) {
+  // mask out the air coding format bits before comparison, as per 5.3 Vol
+  // 4E 6.12
+  if ((peer.voice_setting & ~0x3) != (parameters_.voice_setting & ~0x3)) {
     LOG_WARN("Voice setting requirements cannot be met");
     LOG_WARN("Remote voice setting: 0x%04x",
              static_cast<unsigned>(parameters_.voice_setting));
@@ -261,19 +272,19 @@ bool ScoConnection::NegotiateLinkParameters(
           : std::min(peer.max_latency, parameters_.max_latency);
 
   uint8_t retransmission_effort;
-  if (state_ == SCO_STATE_SENT_SCO_CONNECTION_REQUEST)
+  if (state_ == SCO_STATE_SENT_SCO_CONNECTION_REQUEST) {
     retransmission_effort = (uint8_t)RetransmissionEffort::NO_RETRANSMISSION;
-  else if (peer.retransmission_effort == parameters_.retransmission_effort ||
-           peer.retransmission_effort ==
-               (uint8_t)RetransmissionEffort::DO_NOT_CARE)
+  } else if (peer.retransmission_effort == parameters_.retransmission_effort ||
+             peer.retransmission_effort ==
+                 (uint8_t)RetransmissionEffort::DO_NOT_CARE) {
     retransmission_effort = parameters_.retransmission_effort;
-  else if (parameters_.retransmission_effort ==
-           (uint8_t)RetransmissionEffort::DO_NOT_CARE)
+  } else if (parameters_.retransmission_effort ==
+             (uint8_t)RetransmissionEffort::DO_NOT_CARE) {
     retransmission_effort = peer.retransmission_effort;
-  else if (peer.retransmission_effort ==
-               (uint8_t)RetransmissionEffort::NO_RETRANSMISSION ||
-           parameters_.retransmission_effort ==
-               (uint8_t)RetransmissionEffort::NO_RETRANSMISSION) {
+  } else if (peer.retransmission_effort ==
+                 (uint8_t)RetransmissionEffort::NO_RETRANSMISSION ||
+             parameters_.retransmission_effort ==
+                 (uint8_t)RetransmissionEffort::NO_RETRANSMISSION) {
     LOG_WARN("Retransmission effort requirements cannot be met");
     LOG_WARN("Remote retransmission effort: 0x%02x",
              static_cast<unsigned>(parameters_.retransmission_effort));
@@ -310,4 +321,18 @@ bool ScoConnection::NegotiateLinkParameters(
     LOG_WARN("Failed to derive link parameters");
   }
   return link_parameters.has_value();
+}
+
+void ScoConnection::StartStream(std::function<TaskId()> startStream) {
+  ASSERT(!stream_handle_.has_value());
+  if (datapath_ == ScoDatapath::SPOOFED) {
+    stream_handle_ = startStream();
+  }
+}
+
+void ScoConnection::StopStream(std::function<void(TaskId)> stopStream) {
+  if (stream_handle_.has_value()) {
+    stopStream(*stream_handle_);
+  }
+  stream_handle_ = std::nullopt;
 }

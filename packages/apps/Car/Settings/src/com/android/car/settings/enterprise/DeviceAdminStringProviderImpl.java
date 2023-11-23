@@ -88,6 +88,12 @@ final class DeviceAdminStringProviderImpl implements DeviceAdminStringProvider {
     }
 
     @Override
+    public String getDisabledByParentContent() {
+        throw new UnsupportedOperationException(
+                "disabled_by_policy_parental_consent not used on automotive");
+    }
+
+    @Override
     public String getDisabledBiometricsParentConsentContent() {
         throw new UnsupportedOperationException(
                 "disabled_by_policy_content_biometric_parental_consent not used on automotive");

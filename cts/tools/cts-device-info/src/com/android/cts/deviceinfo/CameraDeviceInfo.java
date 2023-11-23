@@ -16,23 +16,25 @@
 package com.android.cts.deviceinfo;
 
 import android.content.Context;
+import android.graphics.ColorSpace;
+import android.graphics.ImageFormat;
 import android.graphics.Rect;
-import android.hardware.Camera;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.params.BlackLevelPattern;
+import android.hardware.camera2.params.ColorSpaceProfiles;
 import android.hardware.camera2.params.ColorSpaceTransform;
-import android.hardware.camera2.params.StreamConfigurationMap;
+import android.hardware.camera2.params.DynamicRangeProfiles;
 import android.hardware.camera2.params.MultiResolutionStreamConfigurationMap;
 import android.hardware.camera2.params.MultiResolutionStreamInfo;
+import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.CamcorderProfile;
-import android.os.Build;
 import android.util.Log;
+import android.util.Range;
 import android.util.Rational;
 import android.util.Size;
 import android.util.SizeF;
-import android.util.Range;
 
 import com.android.compatibility.common.deviceinfo.DeviceInfo;
 import com.android.compatibility.common.util.DeviceInfoStore;
@@ -48,6 +50,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Camera information collector.
@@ -271,6 +274,40 @@ public final class CameraDeviceInfo extends DeviceInfo {
             mStore.endGroup();
         }
 
+        private void storeColorSpaceProfiles(
+                ColorSpaceProfiles profiles, String protoName) throws Exception {
+            if (protoName == null) {
+                mStore.startGroup();
+            } else {
+                mStore.startGroup(protoName);
+            }
+
+            mStore.startArray("color_space_profiles");
+            Set<ColorSpace.Named> supportedColorSpaces = profiles.getSupportedColorSpaces(
+                    ImageFormat.UNKNOWN);
+            for (ColorSpace.Named colorSpace : supportedColorSpaces) {
+                mStore.startGroup();
+                Set<Integer> supportedImageFormats =
+                        profiles.getSupportedImageFormatsForColorSpace(colorSpace);
+                mStore.addResult("color_space", colorSpace.ordinal());
+                mStore.startArray("image_formats");
+                for (int imageFormat : supportedImageFormats) {
+                    mStore.startGroup();
+                    Set<Long> supportedDynamicRangeProfiles =
+                            profiles.getSupportedDynamicRangeProfiles(colorSpace, imageFormat);
+                    mStore.addResult("image_format", imageFormat);
+                    mStore.addArrayResult("dynamic_range_profiles",
+                            supportedDynamicRangeProfiles.stream().mapToLong(
+                                    Long::longValue).toArray());
+                    mStore.endGroup();
+                }
+                mStore.endArray();
+                mStore.endGroup();
+            }
+            mStore.endArray();
+            mStore.endGroup();
+        }
+
         private void storeColorSpaceTransform(
                 ColorSpaceTransform xform, String protoName) throws Exception {
             if (protoName == null) {
@@ -286,6 +323,18 @@ public final class CameraDeviceInfo extends DeviceInfo {
                 }
             }
             mStore.endArray();
+            mStore.endGroup();
+        }
+
+        private void storeDynamicRangeProfiles(
+                DynamicRangeProfiles profiles, String protoName) throws Exception {
+            if (protoName == null) {
+                mStore.startGroup();
+            } else {
+                mStore.startGroup(protoName);
+            }
+            mStore.addArrayResult("dynamic_range_profiles",
+                    profiles.getSupportedProfiles().stream().mapToLong(Long::longValue).toArray());
             mStore.endGroup();
         }
 
@@ -428,6 +477,10 @@ public final class CameraDeviceInfo extends DeviceInfo {
             } else if (keyType == MultiResolutionStreamConfigurationMap.class) {
                 storeMultiResStreamConfigurationMap(
                         (MultiResolutionStreamConfigurationMap) keyValue, protoName);
+            } else if (keyType == DynamicRangeProfiles.class) {
+                storeDynamicRangeProfiles((DynamicRangeProfiles) keyValue, protoName);
+            } else if (keyType == ColorSpaceProfiles.class) {
+                storeColorSpaceProfiles((ColorSpaceProfiles) keyValue, protoName);
             } else {
                 Log.w(TAG, "Storing unsupported key type: " + keyType +
                         " for keyName: " + keyName);
@@ -635,6 +688,8 @@ public final class CameraDeviceInfo extends DeviceInfo {
         charsKeyNames.add(CameraCharacteristics.CONTROL_POST_RAW_SENSITIVITY_BOOST_RANGE.getName());
         charsKeyNames.add(CameraCharacteristics.CONTROL_AVAILABLE_EXTENDED_SCENE_MODE_CAPABILITIES.getName());
         charsKeyNames.add(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE.getName());
+        charsKeyNames.add(CameraCharacteristics.CONTROL_AVAILABLE_SETTINGS_OVERRIDES.getName());
+        charsKeyNames.add(CameraCharacteristics.CONTROL_AUTOFRAMING_AVAILABLE.getName());
         charsKeyNames.add(CameraCharacteristics.EDGE_AVAILABLE_EDGE_MODES.getName());
         charsKeyNames.add(CameraCharacteristics.FLASH_INFO_AVAILABLE.getName());
         charsKeyNames.add(CameraCharacteristics.FLASH_INFO_STRENGTH_MAXIMUM_LEVEL.getName());
@@ -662,6 +717,7 @@ public final class CameraDeviceInfo extends DeviceInfo {
         charsKeyNames.add(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES.getName());
         charsKeyNames.add(CameraCharacteristics.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES.getName());
         charsKeyNames.add(CameraCharacteristics.REQUEST_RECOMMENDED_TEN_BIT_DYNAMIC_RANGE_PROFILE.getName());
+        charsKeyNames.add(CameraCharacteristics.REQUEST_AVAILABLE_COLOR_SPACE_PROFILES.getName());
         charsKeyNames.add(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM.getName());
         charsKeyNames.add(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP.getName());
         charsKeyNames.add(CameraCharacteristics.SCALER_CROPPING_TYPE.getName());
@@ -689,6 +745,7 @@ public final class CameraDeviceInfo extends DeviceInfo {
         charsKeyNames.add(CameraCharacteristics.SENSOR_ORIENTATION.getName());
         charsKeyNames.add(CameraCharacteristics.SENSOR_AVAILABLE_TEST_PATTERN_MODES.getName());
         charsKeyNames.add(CameraCharacteristics.SENSOR_OPTICAL_BLACK_REGIONS.getName());
+        charsKeyNames.add(CameraCharacteristics.SENSOR_READOUT_TIMESTAMP.getName());
         charsKeyNames.add(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE.getName());
         charsKeyNames.add(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE.getName());
         charsKeyNames.add(CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT.getName());

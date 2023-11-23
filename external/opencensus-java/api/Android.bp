@@ -38,5 +38,12 @@ java_library {
         "grpc-java-context",
         "jsr305",
     ],
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
     sdk_version: "current",
+    min_sdk_version: "33",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.devicelock",
+    ],
 }

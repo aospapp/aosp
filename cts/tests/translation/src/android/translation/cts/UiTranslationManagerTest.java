@@ -77,9 +77,9 @@ import android.widget.TextView;
 import androidx.lifecycle.Lifecycle;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.filters.FlakyTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.ApiTest;
 import com.android.compatibility.common.util.BlockingBroadcastReceiver;
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.RequiredServiceRule;
@@ -363,7 +363,6 @@ public class UiTranslationManagerTest {
     }
 
     @Test
-    @FlakyTest(bugId = 192418800)
     public void testPauseUiTranslationThenStartUiTranslation() throws Throwable {
         final Pair<List<AutofillId>, ContentCaptureContext> result =
                 enableServicesAndStartActivityForTranslation();
@@ -442,8 +441,39 @@ public class UiTranslationManagerTest {
         Mockito.verify(mockCallback, Mockito.times(1)).onHideTranslation(any());
     }
 
+
     @Test
-    @FlakyTest(bugId = 192418800)
+    @ApiTest(apis = {"android.view.translation.UiTranslationManagerTest#startUiTranslation",
+            "android.view.View#setViewTranslationCallback"})
+    public void testUiTranslation_CustomViewTranslationCallback_DetachAndReattach()
+            throws Throwable {
+        final Pair<List<AutofillId>, ContentCaptureContext> result =
+                enableServicesAndStartActivityForTranslation();
+        final List<AutofillId> views = result.first;
+        final ContentCaptureContext contentCaptureContext = result.second;
+
+        // Set ViewTranslationCallback
+        ViewTranslationCallback mockCallback = Mockito.mock(ViewTranslationCallback.class);
+        mTextView.setViewTranslationCallback(mockCallback);
+        // Set response
+        sTranslationReplier.addResponse(createViewsTranslationResponse(views, "success"));
+
+        mActivityScenario.onActivity(activity -> {
+            // Toggling the visibility will cause detach and reattach. This test ensures the
+            // custom callback is not cleared when this happens.
+            mTextView.setVisibility(View.INVISIBLE);
+            mTextView.setVisibility(View.VISIBLE);
+        });
+        startUiTranslation(/* shouldPadContent */ false, views, contentCaptureContext);
+
+        ArgumentCaptor<View> viewArgumentCaptor = ArgumentCaptor.forClass(View.class);
+        Mockito.verify(mockCallback, Mockito.times(1)).onShowTranslation(
+                viewArgumentCaptor.capture());
+        TextView capturedView = (TextView) viewArgumentCaptor.getValue();
+        assertThat(capturedView.getAutofillId()).isEqualTo(mTextView.getAutofillId());
+    }
+
+    @Test
     public void testUiTranslation_ViewTranslationCallback_paddingText() throws Throwable {
         try {
             final Pair<List<AutofillId>, ContentCaptureContext> result =
@@ -667,7 +697,50 @@ public class UiTranslationManagerTest {
         } finally {
             manager.unregisterUiTranslationStateCallback(mockCallback);
         }
-        // TODO(b/191417938): add a test to verify startUiTranslation + Activity destroyed.
+    }
+
+    @Test
+    public void testActivityDestroyedWithoutFinishTranslation() throws Throwable {
+        final Pair<List<AutofillId>, ContentCaptureContext> result =
+                enableServicesAndStartActivityForTranslation();
+
+        final List<AutofillId> views = result.first;
+        final ContentCaptureContext contentCaptureContext = result.second;
+
+        UiTranslationManager manager =
+                sContext.getSystemService(UiTranslationManager.class);
+        // Set response
+        sTranslationReplier.addResponse(createViewsTranslationResponse(views, "success"));
+
+        // Register callback
+        final Executor executor = Executors.newSingleThreadExecutor();
+        UiTranslationStateCallback mockCallback = Mockito.mock(UiTranslationStateCallback.class);
+        manager.registerUiTranslationStateCallback(executor, mockCallback);
+
+        try {
+            startUiTranslation(/* shouldPadContent */ false, views, contentCaptureContext);
+
+            Mockito.verify(mockCallback, Mockito.times(1))
+                    .onStarted(any(ULocale.class), any(ULocale.class), any(String.class));
+
+            pauseUiTranslation(contentCaptureContext);
+
+            Mockito.verify(mockCallback, Mockito.times(1)).onPaused(any(String.class));
+
+            resumeUiTranslation(contentCaptureContext);
+
+            Mockito.verify(mockCallback, Mockito.times(1))
+                    .onResumed(any(ULocale.class), any(ULocale.class), any(String.class));
+
+            // Make sure onFinished will still be called if Activity is destroyed, even without a
+            // finishTranslation call.
+            mActivityScenario.moveToState(Lifecycle.State.DESTROYED);
+            mActivityScenario = null;
+            SystemClock.sleep(UI_WAIT_TIMEOUT);
+            Mockito.verify(mockCallback, Mockito.times(1)).onFinished(any(String.class));
+        } finally {
+            manager.unregisterUiTranslationStateCallback(mockCallback);
+        }
     }
 
     @Test
@@ -862,6 +935,45 @@ public class UiTranslationManagerTest {
             mActivityScenario = null;
             SystemClock.sleep(UI_WAIT_TIMEOUT);
             Mockito.verify(mockCallback, Mockito.never()).onFinished(any(String.class));
+        } finally {
+            manager.unregisterUiTranslationStateCallback(mockCallback);
+        }
+    }
+
+    @Test
+    public void testCallbackRegisteredAfterActivityDestroyedWithoutFinishTranslation()
+            throws Throwable {
+        final Pair<List<AutofillId>, ContentCaptureContext> result =
+                enableServicesAndStartActivityForTranslation();
+
+        final List<AutofillId> views = result.first;
+        final ContentCaptureContext contentCaptureContext = result.second;
+
+        UiTranslationManager manager =
+                sContext.getSystemService(UiTranslationManager.class);
+        // Set response
+        sTranslationReplier.addResponse(createViewsTranslationResponse(views, "success"));
+
+        startUiTranslation(/* shouldPadContent */ false, views, contentCaptureContext);
+
+        pauseUiTranslation(contentCaptureContext);
+
+        resumeUiTranslation(contentCaptureContext);
+
+        // Note: No finishTranslation call; Activity is destroyed.
+        mActivityScenario.moveToState(Lifecycle.State.DESTROYED);
+        mActivityScenario = null;
+        SystemClock.sleep(UI_WAIT_TIMEOUT);
+
+        // Register callback
+        final Executor executor = Executors.newSingleThreadExecutor();
+        UiTranslationStateCallback mockCallback = Mockito.mock(UiTranslationStateCallback.class);
+        manager.registerUiTranslationStateCallback(executor, mockCallback);
+
+        try {
+            // Callback should receive no events.
+            SystemClock.sleep(UI_WAIT_TIMEOUT);
+            Mockito.verifyZeroInteractions(mockCallback);
         } finally {
             manager.unregisterUiTranslationStateCallback(mockCallback);
         }
@@ -1148,7 +1260,6 @@ public class UiTranslationManagerTest {
     }
 
     @Test
-    @FlakyTest(bugId = 192418800)
     public void testUiTranslation_customTextView() throws Throwable {
         try {
             // Enable CTS ContentCaptureService

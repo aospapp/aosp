@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "test/mock/mock_osi_list.h"
 
@@ -64,81 +62,81 @@ struct list_remove list_remove;
 
 // Mocked functions, if any
 bool list_append(list_t* list, void* data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_append(list, data);
 }
 void* list_back(const list_t* list) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_back(list);
 }
 list_node_t* list_back_node(const list_t* list) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_back_node(list);
 }
 list_node_t* list_begin(const list_t* list) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_begin(list);
 }
 void list_clear(list_t* list) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_list::list_clear(list);
 }
 bool list_contains(const list_t* list, const void* data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_contains(list, data);
 }
 list_node_t* list_end(const list_t* list) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_end(list);
 }
 list_node_t* list_foreach(const list_t* list, list_iter_cb callback,
                           void* context) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_foreach(list, callback, context);
 }
 void list_free(list_t* list) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_list::list_free(list);
 }
 void* list_front(const list_t* list) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_front(list);
 }
 bool list_insert_after(list_t* list, list_node_t* prev_node, void* data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_insert_after(list, prev_node, data);
 }
 bool list_is_empty(const list_t* list) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_is_empty(list);
 }
 size_t list_length(const list_t* list) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_length(list);
 }
 list_t* list_new(list_free_cb callback) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_new(callback);
 }
 list_t* list_new_internal(list_free_cb callback,
                           const allocator_t* zeroed_allocator) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_new_internal(callback, zeroed_allocator);
 }
 list_node_t* list_next(const list_node_t* node) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_next(node);
 }
 void* list_node(const list_node_t* node) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_node(node);
 }
 bool list_prepend(list_t* list, void* data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_prepend(list, data);
 }
 bool list_remove(list_t* list, void* data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_list::list_remove(list, data);
 }
 // Mocked functions complete

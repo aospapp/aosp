@@ -52,7 +52,6 @@ cc_library {
     static_libs: [
         "libbase",
         "libion",
-        "libutils",
     ],
     shared_libs: [
         "liblog",

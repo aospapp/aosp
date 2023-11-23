@@ -11,6 +11,8 @@ from autotest_lib.client.common_lib import log
 from autotest_lib.client.common_lib import error, utils, global_config
 from autotest_lib.client.bin import base_sysinfo, utils
 from autotest_lib.client.cros import constants
+from autotest_lib.client.cros import tpm
+
 
 get_value = global_config.global_config.get_config_value
 collect_corefiles = get_value('CLIENT', 'collect_corefiles',
@@ -41,7 +43,7 @@ class logdir(base_sysinfo.loggable):
         unpickle it on the DUT (using the version of the class from the build).
         This means that when adding a new attribute to this class, for a while
         the server-side code does not populate that attribute. So, deal with
-        missing attributes in a sane way.
+        missing attributes in a valid way.
         """
         self.__dict__ = state
         if '_excludes' not in state:
@@ -107,7 +109,7 @@ class logdir(base_sysinfo.loggable):
         from an older build, we need to be able to unpickle an instance of
         logdir pickled from a newer version of the class.
 
-        Some old attributes are not sanely handled via __setstate__, so we can't
+        Some old attributes are not accurately handled via __setstate__, so we can't
         drop them without breaking compatibility.
         """
         additional_excludes = list(set(self._excludes) -
@@ -198,8 +200,18 @@ class diffable_logdir(logdir):
                 full_path = os.path.join(root, f)
                 # Only list regular files or symlinks to those (os.stat follows
                 # symlinks)
-                if stat.S_ISREG(os.stat(full_path).st_mode):
-                    yield full_path
+                try:
+                    if stat.S_ISREG(os.stat(full_path).st_mode):
+                        yield full_path
+                except OSError:
+                    # Semi-often a source of a symlink will get deleted, which
+                    # causes a crash when `stat`d, thus breaks the the hook.
+                    # Instead of quietly crashing, we will just not collect
+                    # the missing of file.
+                    logging.debug(
+                            'File {} could not stat & will not be collected'.
+                            format(full_path))
+                    continue
 
 
     def _copy_new_data_in_file(self, file_path, src_dir, dest_dir):
@@ -222,7 +234,7 @@ class diffable_logdir(logdir):
                 # File is modified to a smaller size, copy whole file.
                 bytes_to_skip = 0
         try:
-            with open(file_path, 'r') as in_log:
+            with open(file_path, 'rb') as in_log:
                 if bytes_to_skip > 0:
                     in_log.seek(bytes_to_skip)
                 # Skip src_dir in path, e.g., src_dir/[sub_dir]/file_name.
@@ -231,7 +243,7 @@ class diffable_logdir(logdir):
                 target_dir = os.path.dirname(target_path)
                 if not os.path.exists(target_dir):
                     os.makedirs(target_dir)
-                with open(target_path, "w") as out_log:
+                with open(target_path, 'wb') as out_log:
                     out_log.write(in_log.read())
         except IOError as e:
             logging.error('Diff %s failed with error: %s', file_path, e)
@@ -255,7 +267,6 @@ class diffable_logdir(logdir):
 
         for src_file in self._get_all_files(src_dir):
             self._copy_new_data_in_file(src_file, src_dir, dest_dir)
-
 
     def run(self, log_dir, collect_init_status=True, collect_all=False):
         """Copies new content from self.dir to the destination log_dir.
@@ -292,9 +303,19 @@ class purgeable_logdir(logdir):
             utils.system("rm -rf %s/*" % (self.dir))
 
 
+class purged_on_init_logdir(logdir):
+    """Represents a log directory that is purged *when initialized*."""
+
+    def __init__(self, directory, excludes=logdir.DEFAULT_EXCLUDES):
+        super(purged_on_init_logdir, self).__init__(directory, excludes)
+
+        if os.path.exists(self.dir):
+            utils.system("rm -rf %s/*" % (self.dir))
+
+
 class site_sysinfo(base_sysinfo.base_sysinfo):
     """Represents site system info."""
-    def __init__(self, job_resultsdir):
+    def __init__(self, job_resultsdir, version=None):
         super(site_sysinfo, self).__init__(job_resultsdir)
         crash_exclude_string = None
         if not collect_corefiles:
@@ -322,26 +343,34 @@ class site_sysinfo(base_sysinfo.base_sysinfo):
         self.test_loggables.add(
             purgeable_logdir(
                 os.path.join(constants.CRYPTOHOME_MOUNT_PT, "log")))
-        # We only want to gather and purge crash reports after the client test
-        # runs in case a client test is checking that a crash found at boot
-        # (such as a kernel crash) is handled.
+
+        # We do *not* want to purge crashes after iteration to allow post-test
+        # infrastructure to collect them as well. Instead, purge them before.
+        # TODO(mutexlox, ayatane): test_runner should handle the purging.
         self.after_iteration_loggables.add(
-            purgeable_logdir(
-                os.path.join(constants.CRYPTOHOME_MOUNT_PT, "crash"),
-                excludes=logdir.DEFAULT_EXCLUDES + (crash_exclude_string,)))
-        self.after_iteration_loggables.add(
-            purgeable_logdir(
-                constants.CRASH_DIR,
-                excludes=logdir.DEFAULT_EXCLUDES + (crash_exclude_string,)))
+                purged_on_init_logdir(os.path.join(
+                        constants.CRYPTOHOME_MOUNT_PT, "crash"),
+                                      excludes=logdir.DEFAULT_EXCLUDES +
+                                      (crash_exclude_string, )))
+
+        self.test_loggables.add(
+                purgeable_logdir(constants.CRASH_DIR,
+                                 excludes=logdir.DEFAULT_EXCLUDES +
+                                 (crash_exclude_string, )))
+
         self.test_loggables.add(
             logfile(os.path.join(constants.USER_DATA_DIR,
                                  ".Google/Google Talk Plugin/gtbplugin.log")))
-        self.test_loggables.add(purgeable_logdir(
-                constants.CRASH_DIR,
-                excludes=logdir.DEFAULT_EXCLUDES + (crash_exclude_string,)))
+
+        # purged_on_init_logdir not compatible with client R86 and prior.
+        if version and int(version) > 86:
+            self.test_loggables.add(
+                    purged_on_init_logdir(constants.CRASH_DIR,
+                                          excludes=logdir.DEFAULT_EXCLUDES +
+                                          (crash_exclude_string, )))
         # Collect files under /tmp/crash_reporter, which contain the procfs
         # copy of those crashed processes whose core file didn't get converted
-        # into minidump. We need these additional files for post-mortem analysis
+        # into minidump. We need these additional files for retrospective analysis
         # of the conversion failure.
         self.test_loggables.add(
             purgeable_logdir(constants.CRASH_REPORTER_RESIDUE_DIR))
@@ -355,9 +384,11 @@ class site_sysinfo(base_sysinfo.base_sysinfo):
         """
         super(site_sysinfo, self).log_before_each_test(test)
 
-        for log in self.diffable_loggables:
-            log.run(log_dir=None, collect_init_status=True)
-
+        try:
+            for log in self.diffable_loggables:
+                log.run(log_dir=None, collect_init_status=True)
+        except Exception as e:
+            logging.warning("Exception hit during log_before_each_test %s", e)
 
     @log.log_and_ignore_errors("post-test sysinfo error:")
     def log_after_each_test(self, test):
@@ -370,8 +401,9 @@ class site_sysinfo(base_sysinfo.base_sysinfo):
         test_sysinfodir = self._get_sysinfodir(test.outputdir)
 
         for log in self.diffable_loggables:
-            log.run(log_dir=test_sysinfodir, collect_init_status=False,
-                    collect_all=not test.success)
+            log.run(log_dir=test_sysinfodir,
+                    collect_init_status=False,
+                    collect_all=not test.success or test.collect_full_logs)
 
 
     def _get_chrome_version(self):
@@ -435,14 +467,9 @@ class site_sysinfo(base_sysinfo.base_sysinfo):
         keyval["CHROME_VERSION"], keyval["MILESTONE"] = (
                 self._get_chrome_version())
 
-        # TODO(kinaba): crbug.com/707448 Import at the head of this file.
-        # Currently a server-side script server/server_job.py is indirectly
-        # importing this file, so we cannot globaly import cryptohome that
-        # has dependency to a client-only library.
-        from autotest_lib.client.cros import cryptohome
         # Get the dictionary attack counter.
         keyval["TPM_DICTIONARY_ATTACK_COUNTER"] = (
-                cryptohome.get_tpm_da_info().get(
+                tpm.get_tpm_da_info().get(
                         'dictionary_attack_counter',
                         'Failed to query tpm_manager'))
 

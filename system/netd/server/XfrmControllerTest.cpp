@@ -41,6 +41,7 @@
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
 #include <gtest/gtest.h>
+#include <netdutils/NetNativeTestBase.h>
 
 #include "Fwmark.h"
 #include "NetdConstants.h"
@@ -127,7 +128,7 @@ void expectAddressEquals(int family, const std::string& expected, const xfrm_add
     EXPECT_EQ(expected, actualStr);
 }
 
-class XfrmControllerTest : public ::testing::Test {
+class XfrmControllerTest : public NetNativeTestBase {
   public:
     testing::StrictMock<netdutils::ScopedMockSyscalls> mockSyscalls;
 };
@@ -328,7 +329,8 @@ void testIpSecAddSecurityAssociation(testCaseParams params, const MockSyscalls& 
     size_t expectedMsgLength =
             NLMSG_HDRLEN + NLMSG_ALIGN(sizeof(xfrm_usersa_info)) +
             NLA_ALIGN(offsetof(XfrmController::nlattr_algo_crypt, key) + KEY_LENGTH) +
-            NLA_ALIGN(offsetof(XfrmController::nlattr_algo_auth, key) + KEY_LENGTH);
+            NLA_ALIGN(offsetof(XfrmController::nlattr_algo_auth, key) + KEY_LENGTH) +
+            NLA_ALIGN(sizeof(XfrmController::nlattr_xfrm_replay_esn));
 
     uint32_t testIfId = 0;
     uint32_t testMark = 0;
@@ -389,24 +391,30 @@ void testIpSecAddSecurityAssociation(testCaseParams params, const MockSyscalls& 
     Slice attr_buf = drop(nlMsgSlice, NLA_ALIGN(sizeof(xfrm_usersa_info)));
 
     // Extract and check the encryption/authentication algorithm
-    XfrmController::nlattr_algo_crypt encryptAlgo{};
-    XfrmController::nlattr_algo_auth authAlgo{};
+    XfrmController::nlattr_algo_crypt _encryptAlgo{};
+    XfrmController::nlattr_algo_auth _authAlgo{};
+    XfrmController::nlattr_xfrm_replay_esn _replayEsn{};
+    // Need to use a pointer since you can't pass a structure with a variable
+    // sized array in a lambda.
+    XfrmController::nlattr_algo_crypt* const encryptAlgo = &_encryptAlgo;
+    XfrmController::nlattr_algo_auth* const authAlgo = &_authAlgo;
     XfrmController::nlattr_xfrm_mark mark{};
     XfrmController::nlattr_xfrm_output_mark outputmark{};
     XfrmController::nlattr_xfrm_interface_id xfrm_if_id{};
-    auto attrHandler = [&encryptAlgo, &authAlgo, &mark, &outputmark, &xfrm_if_id](
+    XfrmController::nlattr_xfrm_replay_esn* const replay_esn = &_replayEsn;
+    auto attrHandler = [&encryptAlgo, &authAlgo, &mark, &outputmark, &xfrm_if_id, &replay_esn](
                                const nlattr& attr, const Slice& attr_payload) {
         Slice buf = attr_payload;
         if (attr.nla_type == XFRMA_ALG_CRYPT) {
-            encryptAlgo.hdr = attr;
-            netdutils::extract(buf, encryptAlgo.crypt);
+            encryptAlgo->hdr = attr;
+            netdutils::extract(buf, encryptAlgo->crypt);
             buf = drop(buf, sizeof(xfrm_algo));
-            netdutils::extract(buf, encryptAlgo.key);
+            netdutils::extract(buf, encryptAlgo->key);
         } else if (attr.nla_type == XFRMA_ALG_AUTH_TRUNC) {
-            authAlgo.hdr = attr;
-            netdutils::extract(buf, authAlgo.auth);
+            authAlgo->hdr = attr;
+            netdutils::extract(buf, authAlgo->auth);
             buf = drop(buf, sizeof(xfrm_algo_auth));
-            netdutils::extract(buf, authAlgo.key);
+            netdutils::extract(buf, authAlgo->key);
         } else if (attr.nla_type == XFRMA_MARK) {
             mark.hdr = attr;
             netdutils::extract(buf, mark.mark);
@@ -416,6 +424,9 @@ void testIpSecAddSecurityAssociation(testCaseParams params, const MockSyscalls& 
         } else if (attr.nla_type == XFRMA_IF_ID) {
             xfrm_if_id.hdr = attr;
             netdutils::extract(buf, xfrm_if_id.if_id);
+        } else if (attr.nla_type == XFRMA_REPLAY_ESN_VAL) {
+            replay_esn->hdr = attr;
+            netdutils::extract(buf, replay_esn->replay_state);
         } else {
             FAIL() << "Unexpected nlattr type: " << attr.nla_type;
         }
@@ -424,9 +435,11 @@ void testIpSecAddSecurityAssociation(testCaseParams params, const MockSyscalls& 
 
     // TODO: Use ContainerEq or ElementsAreArray to get better test failure messages.
     EXPECT_EQ(0, memcmp(reinterpret_cast<void*>(cryptKey.data()),
-                        reinterpret_cast<void*>(&encryptAlgo.key), KEY_LENGTH));
+                        reinterpret_cast<void*>(&encryptAlgo->key), KEY_LENGTH));
     EXPECT_EQ(0, memcmp(reinterpret_cast<void*>(authKey.data()),
-                        reinterpret_cast<void*>(&authAlgo.key), KEY_LENGTH));
+                        reinterpret_cast<void*>(&authAlgo->key), KEY_LENGTH));
+    EXPECT_EQ(REPLAY_WINDOW_SIZE_ESN, replay_esn->replay_state.replay_window);
+    EXPECT_EQ((REPLAY_WINDOW_SIZE_ESN + 31) / 32, replay_esn->replay_state.bmp_len);
 
     if (mode == XfrmMode::TUNNEL) {
         if (params.xfrmInterfacesEnabled) {
@@ -462,19 +475,6 @@ TEST_P(XfrmControllerParameterizedTest, TestTunnelModeIpSecAddSecurityAssociatio
 TEST_F(XfrmControllerTest, TestIpSecAddSecurityAssociationIPv4Encap) {
     // TODO: Implement this test, which is nearly identical to
     // TestIpSecAddSecurityAssociation.
-}
-
-// Test that input validation rejects IPv6 UDP encap.
-TEST_F(XfrmControllerTest, TestIpSecAddSecurityAssociationIPv6Encap) {
-    EXPECT_CALL(mockSyscalls, writev(_, _)).Times(0);
-
-    XfrmController ctrl;
-    Status res = ctrl.ipSecAddSecurityAssociation(
-            1, static_cast<int>(XfrmMode::TRANSPORT), LOCALHOST_V6, TEST_ADDR_V6, 0, DROID_SPI, 0,
-            0, "hmac(sha256)", {}, 128, "cbc(aes)", {}, 0, "", {}, 0,
-            static_cast<int>(XfrmEncapType::ESPINUDP_NON_IKE), 0, 0, 0);
-
-    EXPECT_FALSE(isOk(res)) << "IPv6 UDP encap not rejected";
 }
 
 TEST_F(XfrmControllerTest, TestIpSecApplyTransportModeTransformChecksFamily) {

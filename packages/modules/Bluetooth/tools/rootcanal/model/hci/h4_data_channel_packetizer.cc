@@ -26,10 +26,10 @@
 #include <utility>      // for move
 #include <vector>       // for vector
 
+#include "log.h"                     // for LOG_ERROR, LOG_ALWAYS_FATAL
 #include "model/hci/h4_parser.h"     // for H4Parser, ClientDisconnectCa...
 #include "model/hci/hci_protocol.h"  // for PacketReadCallback, AsyncDataChannel
 #include "net/async_data_channel.h"  // for AsyncDataChannel
-#include "os/log.h"                  // for LOG_ERROR, LOG_ALWAYS_FATAL
 
 namespace rootcanal {
 
@@ -39,7 +39,7 @@ H4DataChannelPacketizer::H4DataChannelPacketizer(
     PacketReadCallback sco_cb, PacketReadCallback iso_cb,
     ClientDisconnectCallback disconnect_cb)
     : uart_socket_(socket),
-      h4_parser_(command_cb, event_cb, acl_cb, sco_cb, iso_cb),
+      h4_parser_(command_cb, event_cb, acl_cb, sco_cb, iso_cb, true),
       disconnect_cb_(std::move(disconnect_cb)) {}
 
 size_t H4DataChannelPacketizer::Send(uint8_t type, const uint8_t* data,
@@ -65,31 +65,38 @@ size_t H4DataChannelPacketizer::Send(uint8_t type, const uint8_t* data,
 }
 
 void H4DataChannelPacketizer::OnDataReady(
-    std::shared_ptr<AsyncDataChannel> socket) {
-  ssize_t bytes_to_read = h4_parser_.BytesRequested();
-  std::vector<uint8_t> buffer(bytes_to_read);
+   std::shared_ptr<AsyncDataChannel> socket) {
 
-  ssize_t bytes_read = socket->Recv(buffer.data(), bytes_to_read);
-  if (bytes_read == 0) {
-    LOG_INFO("remote disconnected!");
-    disconnected_ = true;
-    disconnect_cb_();
-    return;
-  } else if (bytes_read < 0) {
-    if (errno == EAGAIN) {
-      // No data, try again later.
-      return;
-    } else if (errno == ECONNRESET) {
-      // They probably rejected our packet
+  // Continue reading from the async data channel as long as bytes
+  // are available to read. Otherwise this limits the number of HCI
+  // packets parsed to one every 3 ticks.
+  for (;;) {
+    ssize_t bytes_to_read = h4_parser_.BytesRequested();
+    std::vector<uint8_t> buffer(bytes_to_read);
+
+    ssize_t bytes_read = socket->Recv(buffer.data(), bytes_to_read);
+    if (bytes_read == 0) {
+      LOG_INFO("remote disconnected!");
       disconnected_ = true;
       disconnect_cb_();
       return;
-    } else {
+    }
+    if (bytes_read < 0) {
+      if (errno == EAGAIN) {
+        // No data, try again later.
+        return;
+      }
+      if (errno == ECONNRESET) {
+        // They probably rejected our packet
+        disconnected_ = true;
+        disconnect_cb_();
+        return;
+      }
       LOG_ALWAYS_FATAL("Read error in %u: %s", h4_parser_.CurrentState(),
                        strerror(errno));
     }
+    h4_parser_.Consume(buffer.data(), bytes_read);
   }
-  h4_parser_.Consume(buffer.data(), bytes_read);
 }
 
 }  // namespace rootcanal

@@ -226,8 +226,7 @@ public class BluetoothMapConvoListingElement
     private String getSummary() {
         if (mSummary != null) {
             try {
-                return new String(BluetoothMapUtils.truncateUtf8StringToBytearray(mSummary, 256),
-                        "UTF-8");
+                return BluetoothMapUtils.truncateUtf8StringToString(mSummary, 256);
             } catch (UnsupportedEncodingException e) {
                 // This cannot happen on an Android platform - UTF-8 is mandatory
                 Log.e(TAG, "Missing UTF-8 support on platform", e);

@@ -77,6 +77,13 @@ int main(int argc, char *argv[])
 
 	args[pos] = NULL;
 
+	if (!strcmp(args[0], "cd") || !strcmp(args[0], "pushd") ||
+		!strcmp(args[0], "popd")) {
+		fprintf(stderr, "\"%s %s\" has no effect on parent shell\n",
+			argv[0], args[0]);
+		return 1;
+	}
+
 	if (stdin_path) {
 		if (close(0)) {
 			fprintf(stderr, "%s: Failed to close stdin: %s\n",
@@ -130,7 +137,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	execvp(argv[1], args);
+	execvp(args[0], args);
 
 	/* Fall back to shell if command wasn't found */
 	FILE *sin = popen("/bin/sh", "w");

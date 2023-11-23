@@ -27,7 +27,7 @@ def main(argv):
   outfile = argv[2]
   with zipfile.ZipFile(infile, "r") as inzfp, zipfile.ZipFile(outfile, "w") as outzfp:
     for entry in inzfp.infolist():
-      if entry.filename.startswith("META") or entry.filename.endswith(".map"):
+      if entry.filename.startswith("META") or entry.filename.endswith(".map") or entry.filename.endswith(".prop"):
         outzfp.writestr(entry, inzfp.read(entry))
       elif entry.filename == "payload.bin":
         outzfp.writestr(entry, readPayloadMetadata(inzfp, entry))

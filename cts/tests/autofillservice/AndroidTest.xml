@@ -19,7 +19,9 @@
   <option name="config-descriptor:metadata" key="component" value="autofill" />
   <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
   <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
-  <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />  
+  <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+  <option name="config-descriptor:metadata" key="parameter" value="secondary_user_on_secondary_display" />
+  <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
 
   <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
     <option name="cleanup-apks" value="true" />
@@ -44,8 +46,12 @@
 
   <!--  TODO: preparer below should be enabled only when running as cts-instant -->
   <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+    <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS com.android.cts.mockime"/>
     <option name="run-command" value="cmd autofill set bind-instant-service-allowed true" />
     <option name="teardown-command" value="cmd autofill set bind-instant-service-allowed false" />
+
+    <!-- Wait for PACKAGE_ADDED broadcasts to be delivered to InputMethodManagerService. -->
+    <option name="run-command" value="am wait-for-broadcast-barrier"  />
   </target_preparer>
 
   <!--  Remove the pushed APK after test is done. -->

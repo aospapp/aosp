@@ -69,13 +69,13 @@ static uint32_t ARGBDetectRow_C(const uint8_t* argb, int width) {
     if (argb[0] != 255) {  // First byte is not Alpha of 255, so not ARGB.
       return FOURCC_BGRA;
     }
-    if (argb[3] != 255) {  // 4th byte is not Alpha of 255, so not BGRA.
+    if (argb[3] != 255) {  // Fourth byte is not Alpha of 255, so not BGRA.
       return FOURCC_ARGB;
     }
     if (argb[4] != 255) {  // Second pixel first byte is not Alpha of 255.
       return FOURCC_BGRA;
     }
-    if (argb[7] != 255) {  // Second pixel 4th byte is not Alpha of 255.
+    if (argb[7] != 255) {  // Second pixel fourth byte is not Alpha of 255.
       return FOURCC_ARGB;
     }
     argb += 8;
@@ -154,11 +154,6 @@ uint64_t ComputeHammingDistance(const uint8_t* src_a,
     HammingDistance = HammingDistance_MSA;
   }
 #endif
-#if defined(HAS_HAMMINGDISTANCE_MMI)
-  if (TestCpuFlag(kCpuHasMMI)) {
-    HammingDistance = HammingDistance_MMI;
-  }
-#endif
 
 #ifdef _OPENMP
 #pragma omp parallel for reduction(+ : diff)
@@ -214,11 +209,6 @@ uint64_t ComputeSumSquareError(const uint8_t* src_a,
 #if defined(HAS_SUMSQUAREERROR_MSA)
   if (TestCpuFlag(kCpuHasMSA)) {
     SumSquareError = SumSquareError_MSA;
-  }
-#endif
-#if defined(HAS_SUMSQUAREERROR_MMI)
-  if (TestCpuFlag(kCpuHasMMI)) {
-    SumSquareError = SumSquareError_MMI;
   }
 #endif
 #ifdef _OPENMP

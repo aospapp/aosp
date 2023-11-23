@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/syn
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "syn"
 description: "Parser for Rust source code"
 third_party {
@@ -7,13 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/syn/syn-1.0.86.crate"
+    value: "https://static.crates.io/crates/syn/syn-1.0.107.crate"
   }
-  version: "1.0.86"
+  version: "1.0.107"
   license_type: NOTICE
   last_upgrade_date {
     year: 2022
-    month: 3
-    day: 1
+    month: 12
+    day: 22
   }
 }

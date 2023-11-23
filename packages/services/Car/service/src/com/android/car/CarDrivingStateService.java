@@ -19,7 +19,6 @@ package com.android.car;
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.car.Car;
 import android.car.VehicleAreaType;
 import android.car.builtin.os.BinderHelper;
@@ -47,6 +46,7 @@ import com.android.car.util.TransitionLog;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -128,7 +128,7 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
     @Override
     public void release() {
         for (int property : REQUIRED_PROPERTIES) {
-            mPropertyService.unregisterListener(property, mICarPropertyEventListener);
+            mPropertyService.unregisterListenerSafe(property, mICarPropertyEventListener);
         }
         while (mDrivingStateClients.getRegisteredCallbackCount() > 0) {
             for (int i = mDrivingStateClients.getRegisteredCallbackCount() - 1; i >= 0; i--) {
@@ -153,7 +153,7 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
      */
     private boolean checkPropertySupport() {
         List<CarPropertyConfig> configs = mPropertyService
-                .getPropertyConfigList(REQUIRED_PROPERTIES);
+                .getPropertyConfigList(REQUIRED_PROPERTIES).getConfigs();
         for (int propertyId : REQUIRED_PROPERTIES) {
             boolean found = false;
             for (CarPropertyConfig config : configs) {
@@ -175,7 +175,7 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
      */
     private void subscribeToProperties() {
         for (int propertyId : REQUIRED_PROPERTIES) {
-            mPropertyService.registerListener(propertyId, PROPERTY_UPDATE_RATE,
+            mPropertyService.registerListenerSafe(propertyId, PROPERTY_UPDATE_RATE,
                     mICarPropertyEventListener);
         }
 
@@ -271,10 +271,12 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
             }
             writer.println("Current Driving State: " + mCurrentDrivingState.eventValue);
             if (mSupportedGears != null) {
-                writer.println("Supported gears:");
+                writer.print("Supported gears:");
                 for (Integer gear : mSupportedGears) {
-                    writer.print("Gear:" + gear);
+                    writer.print(' ');
+                    writer.print(gear);
                 }
+                writer.println();
             }
         }
     }
@@ -381,13 +383,13 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
 
     private List<Integer> getSupportedGears() {
         List<CarPropertyConfig> propertyList = mPropertyService
-                .getPropertyConfigList(REQUIRED_PROPERTIES);
+                .getPropertyConfigList(REQUIRED_PROPERTIES).getConfigs();
         for (CarPropertyConfig p : propertyList) {
             if (p.getPropertyId() == VehicleProperty.GEAR_SELECTION) {
                 return p.getConfigArray();
             }
         }
-        return null;
+        return Collections.emptyList();
     }
 
     @GuardedBy("mLock")
@@ -470,12 +472,9 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
      */
     @GuardedBy("mLock")
     private boolean isCarManualTransmissionTypeLocked() {
-        if (mSupportedGears != null
+        return mSupportedGears != null
                 && !mSupportedGears.isEmpty()
-                && !mSupportedGears.contains(VehicleGear.GEAR_PARK)) {
-            return true;
-        }
-        return false;
+                && !mSupportedGears.contains(VehicleGear.GEAR_PARK);
     }
 
     /**

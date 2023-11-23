@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/cls/basic.c	Basic Classifier
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2008-2013 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -93,7 +87,7 @@ static int basic_msg_parser(struct rtnl_tc *tc, void *data)
 	if (tb[TCA_BASIC_ACT]) {
 		b->b_mask |= BASIC_ATTR_ACTION;
 		err = rtnl_act_parse(&b->b_act, tb[TCA_BASIC_ACT]);
-		if (err)
+		if (err < 0)
 			return err;
 	}
 

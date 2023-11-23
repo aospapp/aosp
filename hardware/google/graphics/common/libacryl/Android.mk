@@ -16,7 +16,7 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_CFLAGS += -DLOG_TAG=\"libacryl\"
+LOCAL_CFLAGS += -DLOG_TAG=\"hwc-libacryl\"
 #LOCAL_CFLAGS += -DLIBACRYL_DEBUG
 
 ifdef BOARD_LIBACRYL_DEFAULT_COMPOSITOR
@@ -47,6 +47,7 @@ LOCAL_HEADER_LIBRARIES += libgralloc_headers
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/local_include
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/include
+LOCAL_C_INCLUDES += $(TOP)/hardware/google/graphics/$(TARGET_BOARD_PLATFORM)/libcap
 
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 

@@ -14,15 +14,15 @@
 #pragma once
 
 #include "IOStream.h"
-#include "RenderChannel.h"
+#include "render-utils/RenderChannel.h"
 
-#include "base/ring_buffer.h"
+#include "aemu/base/ring_buffer.h"
 #include "host-common/address_space_graphics_types.h"
 
 #include <functional>
 #include <vector>
 
-namespace emugl {
+namespace gfxstream {
 
 // An IOStream instance that can be used by the host RenderThread to process
 // messages from a pair of ring buffers (to host and from host).  It also takes
@@ -91,4 +91,4 @@ protected:
     bool mInSnapshotOperation = false;
 };
 
-}  // namespace emugl
+}  // namespace gfxstream

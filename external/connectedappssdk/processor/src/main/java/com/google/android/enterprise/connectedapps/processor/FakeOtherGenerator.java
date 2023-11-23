@@ -15,9 +15,11 @@
  */
 package com.google.android.enterprise.connectedapps.processor;
 
-import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.ABSTRACT_FAKE_PROFILE_CONNECTOR_CLASSNAME;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.append;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.transformClassName;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.CONTEXT_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.EXCEPTION_CALLBACK_CLASSNAME;
+import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.FAKE_PROFILE_CONNECTOR_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PROFILE_RUNTIME_EXCEPTION_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.UNAVAILABLE_PROFILE_EXCEPTION_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.containers.CrossProfileMethodInfo.AutomaticallyResolvedParameterFilterBehaviour.REMOVE_AUTOMATICALLY_RESOLVED_PARAMETERS;
@@ -28,7 +30,6 @@ import com.google.android.enterprise.connectedapps.processor.containers.CrossPro
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileTypeInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.FutureWrapper;
 import com.google.android.enterprise.connectedapps.processor.containers.GeneratorContext;
-import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
@@ -73,12 +74,6 @@ final class FakeOtherGenerator {
         InterfaceGenerator.getSingleSenderCanThrowInterfaceClassName(
             generatorContext, crossProfileType);
 
-    ClassName fakeProfileConnectorClassName =
-        crossProfileType.profileConnector().isPresent()
-            ? FakeProfileConnectorGenerator.getFakeProfileConnectorClassName(
-                crossProfileType.profileConnector().get())
-            : ABSTRACT_FAKE_PROFILE_CONNECTOR_CLASSNAME;
-
     TypeSpec.Builder classBuilder =
         TypeSpec.classBuilder(className)
             .addJavadoc(
@@ -86,27 +81,14 @@ final class FakeOtherGenerator {
                     + "<p>This acts based on the state of the passed in {@link $T} and acts as if"
                     + " making a call on the other profile.\n",
                 singleSenderCanThrowInterface,
-                fakeProfileConnectorClassName)
+                FAKE_PROFILE_CONNECTOR_CLASSNAME)
             .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
             .addSuperinterface(singleSenderCanThrowInterface);
 
     classBuilder.addField(
-        fakeProfileConnectorClassName, "connector", Modifier.PRIVATE, Modifier.FINAL);
+        FAKE_PROFILE_CONNECTOR_CLASSNAME, "connector", Modifier.PRIVATE, Modifier.FINAL);
 
     addConstructor(classBuilder);
-
-    classBuilder.addMethod(
-        MethodSpec.methodBuilder("timeout")
-            .addAnnotation(Override.class)
-            .addAnnotation(
-                AnnotationSpec.builder(SuppressWarnings.class)
-                    .addMember("value", "$S", "GoodTime")
-                    .build())
-            .addModifiers(Modifier.PUBLIC)
-            .returns(className)
-            .addParameter(long.class, "timeout")
-            .addStatement("return this")
-            .build());
 
     ClassName ifAvailableClass =
         IfAvailableGenerator.getIfAvailableClassName(generatorContext, crossProfileType);
@@ -135,19 +117,13 @@ final class FakeOtherGenerator {
   }
 
   private void addConstructor(TypeSpec.Builder classBuilder) {
-    ClassName fakeProfileConnectorClassName =
-        crossProfileType.profileConnector().isPresent()
-            ? FakeProfileConnectorGenerator.getFakeProfileConnectorClassName(
-                crossProfileType.profileConnector().get())
-            : ABSTRACT_FAKE_PROFILE_CONNECTOR_CLASSNAME;
-
     classBuilder.addField(CONTEXT_CLASSNAME, "context", Modifier.PRIVATE, Modifier.FINAL);
 
     if (crossProfileType.isStatic()) {
       classBuilder.addMethod(
           MethodSpec.constructorBuilder()
               .addModifiers(Modifier.PUBLIC)
-              .addParameter(fakeProfileConnectorClassName, "connector")
+              .addParameter(FAKE_PROFILE_CONNECTOR_CLASSNAME, "connector")
               .addStatement("this.context = connector.applicationContext()")
               .addStatement("this.connector = connector")
               .build());
@@ -158,7 +134,7 @@ final class FakeOtherGenerator {
       classBuilder.addMethod(
           MethodSpec.constructorBuilder()
               .addModifiers(Modifier.PUBLIC)
-              .addParameter(fakeProfileConnectorClassName, "connector")
+              .addParameter(FAKE_PROFILE_CONNECTOR_CLASSNAME, "connector")
               .addParameter(crossProfileType.className(), "crossProfileType")
               .addStatement("this.context = connector.applicationContext()")
               .addStatement("this.connector = connector")
@@ -204,7 +180,7 @@ final class FakeOtherGenerator {
         "Could not access other profile");
     methodBuilder.endControlFlow();
 
-    methodBuilder.beginControlFlow("if (!connector.isManuallyManagingConnection())");
+    methodBuilder.beginControlFlow("if (!connector.hasExplicitConnectionHolders())");
     methodBuilder.addStatement(
         "throw new $T($S)",
         UNAVAILABLE_PROFILE_EXCEPTION_CLASSNAME,
@@ -345,6 +321,6 @@ final class FakeOtherGenerator {
 
   static ClassName getFakeOtherClassName(
       GeneratorContext generatorContext, CrossProfileTypeInfo crossProfileType) {
-    return GeneratorUtilities.appendToClassName(crossProfileType.profileClassName(), "_FakeOther");
+    return transformClassName(crossProfileType.generatedClassName(), append("_FakeOther"));
   }
 }

@@ -17,7 +17,10 @@
 #include <keymaster/soft_keymaster_logger.h>
 
 #include <stdarg.h>
+
+#ifndef _WIN32
 #include <syslog.h>
+#endif
 
 #define LOG_TAG "SoftKeymaster"
 #include <log/log.h>

@@ -804,169 +804,160 @@ class AvdtpCb {
  ****************************************************************************/
 
 /* CCB function declarations */
-extern void avdt_ccb_init(void);
-extern void avdt_ccb_event(AvdtpCcb* p_ccb, uint8_t event,
-                           tAVDT_CCB_EVT* p_data);
-extern AvdtpCcb* avdt_ccb_by_bd(const RawAddress& bd_addr);
-extern AvdtpCcb* avdt_ccb_alloc(const RawAddress& bd_addr);
-extern AvdtpCcb* avdt_ccb_alloc_by_channel_index(const RawAddress& bd_addr,
-                                                 uint8_t channel_index);
-extern void avdt_ccb_dealloc(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern uint8_t avdt_ccb_to_idx(AvdtpCcb* p_ccb);
-extern AvdtpCcb* avdt_ccb_by_idx(uint8_t idx);
+void avdt_ccb_init(void);
+void avdt_ccb_event(AvdtpCcb* p_ccb, uint8_t event, tAVDT_CCB_EVT* p_data);
+AvdtpCcb* avdt_ccb_by_bd(const RawAddress& bd_addr);
+AvdtpCcb* avdt_ccb_alloc(const RawAddress& bd_addr);
+AvdtpCcb* avdt_ccb_alloc_by_channel_index(const RawAddress& bd_addr,
+                                          uint8_t channel_index);
+void avdt_ccb_dealloc(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+uint8_t avdt_ccb_to_idx(AvdtpCcb* p_ccb);
+AvdtpCcb* avdt_ccb_by_idx(uint8_t idx);
 
 /* CCB action functions */
-extern void avdt_ccb_chan_open(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_chan_close(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_chk_close(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_hdl_discover_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_hdl_discover_rsp(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_hdl_getcap_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_hdl_getcap_rsp(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_hdl_start_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_hdl_start_rsp(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_hdl_suspend_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_hdl_suspend_rsp(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_snd_discover_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_snd_discover_rsp(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_snd_getcap_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_snd_getcap_rsp(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_snd_start_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_snd_start_rsp(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_snd_suspend_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_snd_suspend_rsp(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_clear_cmds(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_cmd_fail(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_free_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_cong_state(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_ret_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_snd_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_snd_msg(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_set_reconn(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_clr_reconn(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_chk_reconn(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_chk_timer(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_set_conn(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_set_disconn(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_do_disconn(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_ll_closed(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
-extern void avdt_ccb_ll_opened(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_chan_open(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_chan_close(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_chk_close(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_hdl_discover_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_hdl_discover_rsp(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_hdl_getcap_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_hdl_getcap_rsp(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_hdl_start_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_hdl_start_rsp(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_hdl_suspend_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_hdl_suspend_rsp(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_snd_discover_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_snd_discover_rsp(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_snd_getcap_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_snd_getcap_rsp(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_snd_start_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_snd_start_rsp(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_snd_suspend_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_snd_suspend_rsp(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_clear_cmds(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_cmd_fail(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_free_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_cong_state(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_ret_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_snd_cmd(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_snd_msg(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_set_reconn(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_clr_reconn(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_chk_reconn(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_chk_timer(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_set_conn(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_set_disconn(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_do_disconn(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_ll_closed(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
+void avdt_ccb_ll_opened(AvdtpCcb* p_ccb, tAVDT_CCB_EVT* p_data);
 
 /* SCB function prototypes */
-extern void avdt_scb_event(AvdtpScb* p_scb, uint8_t event,
-                           tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_init(void);
-extern AvdtpScb* avdt_scb_alloc(uint8_t peer_id,
-                                const AvdtpStreamConfig& avdtp_stream_config);
-extern void avdt_scb_dealloc(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern uint8_t avdt_scb_to_hdl(AvdtpScb* p_scb);
-extern AvdtpScb* avdt_scb_by_hdl(uint8_t hdl);
-extern uint8_t avdt_scb_verify(AvdtpCcb* p_ccb, uint8_t state, uint8_t* p_seid,
-                               uint16_t num_seid, uint8_t* p_err_code);
-extern void avdt_scb_peer_seid_list(tAVDT_MULTI* p_multi);
-extern uint32_t avdt_scb_gen_ssrc(AvdtpScb* p_scb);
+void avdt_scb_event(AvdtpScb* p_scb, uint8_t event, tAVDT_SCB_EVT* p_data);
+void avdt_scb_init(void);
+AvdtpScb* avdt_scb_alloc(uint8_t peer_id,
+                         const AvdtpStreamConfig& avdtp_stream_config);
+void avdt_scb_dealloc(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+uint8_t avdt_scb_to_hdl(AvdtpScb* p_scb);
+AvdtpScb* avdt_scb_by_hdl(uint8_t hdl);
+uint8_t avdt_scb_verify(AvdtpCcb* p_ccb, uint8_t state, uint8_t* p_seid,
+                        uint16_t num_seid, uint8_t* p_err_code);
+void avdt_scb_peer_seid_list(tAVDT_MULTI* p_multi);
+uint32_t avdt_scb_gen_ssrc(AvdtpScb* p_scb);
 
 /* SCB action functions */
-extern void avdt_scb_hdl_abort_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_abort_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_close_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_close_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_getconfig_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_getconfig_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_open_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_open_rej(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_open_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_pkt(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_drop_pkt(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_reconfig_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_reconfig_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_security_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_security_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_setconfig_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_setconfig_rej(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_setconfig_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_start_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_start_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_suspend_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_suspend_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_delay_rpt_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_delay_rpt_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_delay_rpt_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_tc_close(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_tc_open(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_tc_close_sto(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_tc_open_sto(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_hdl_write_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_abort_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_abort_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_close_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_stream_close(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_close_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_getconfig_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_getconfig_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_open_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_open_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_reconfig_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_reconfig_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_security_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_security_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_setconfig_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_setconfig_rej(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_setconfig_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_snk_delay_rpt_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_snd_tc_close(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_cb_err(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_cong_state(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_rej_state(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_rej_in_use(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_rej_not_in_use(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_set_remove(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_free_pkt(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_chk_snd_pkt(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_clr_pkt(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_transport_channel_timer(AvdtpScb* p_scb,
-                                             tAVDT_SCB_EVT* p_data);
-extern void avdt_scb_clr_vars(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_abort_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_abort_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_close_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_close_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_getconfig_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_getconfig_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_open_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_open_rej(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_open_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_pkt(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_drop_pkt(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_reconfig_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_reconfig_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_security_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_security_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_setconfig_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_setconfig_rej(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_setconfig_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_start_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_start_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_suspend_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_suspend_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_delay_rpt_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_delay_rpt_cmd(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_delay_rpt_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_tc_close(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_tc_open(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_tc_close_sto(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_tc_open_sto(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_hdl_write_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_abort_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_abort_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_close_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_stream_close(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_close_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_getconfig_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_getconfig_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_open_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_open_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_reconfig_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_reconfig_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_security_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_security_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_setconfig_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_setconfig_rej(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_setconfig_rsp(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_snk_delay_rpt_req(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_snd_tc_close(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_cb_err(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_cong_state(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_rej_state(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_rej_in_use(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_rej_not_in_use(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_set_remove(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_free_pkt(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_chk_snd_pkt(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_clr_pkt(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_transport_channel_timer(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+void avdt_scb_clr_vars(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
 
 /* msg function declarations */
-extern bool avdt_msg_send(AvdtpCcb* p_ccb, BT_HDR* p_msg);
-extern void avdt_msg_send_cmd(AvdtpCcb* p_ccb, void* p_scb, uint8_t sig_id,
-                              tAVDT_MSG* p_params);
-extern void avdt_msg_send_rsp(AvdtpCcb* p_ccb, uint8_t sig_id,
-                              tAVDT_MSG* p_params);
-extern void avdt_msg_send_rej(AvdtpCcb* p_ccb, uint8_t sig_id,
-                              tAVDT_MSG* p_params);
-extern void avdt_msg_send_grej(AvdtpCcb* p_ccb, uint8_t sig_id,
-                               tAVDT_MSG* p_params);
-extern void avdt_msg_ind(AvdtpCcb* p_ccb, BT_HDR* p_buf);
+bool avdt_msg_send(AvdtpCcb* p_ccb, BT_HDR* p_msg);
+void avdt_msg_send_cmd(AvdtpCcb* p_ccb, void* p_scb, uint8_t sig_id,
+                       tAVDT_MSG* p_params);
+void avdt_msg_send_rsp(AvdtpCcb* p_ccb, uint8_t sig_id, tAVDT_MSG* p_params);
+void avdt_msg_send_rej(AvdtpCcb* p_ccb, uint8_t sig_id, tAVDT_MSG* p_params);
+void avdt_msg_send_grej(AvdtpCcb* p_ccb, uint8_t sig_id, tAVDT_MSG* p_params);
+void avdt_msg_ind(AvdtpCcb* p_ccb, BT_HDR* p_buf);
 
 /* adaption layer function declarations */
-extern void avdt_ad_init(void);
-extern uint8_t avdt_ad_type_to_tcid(uint8_t type, AvdtpScb* p_scb);
-extern AvdtpTransportChannel* avdt_ad_tc_tbl_by_st(uint8_t type,
-                                                   AvdtpCcb* p_ccb,
-                                                   uint8_t state);
-extern AvdtpTransportChannel* avdt_ad_tc_tbl_by_lcid(uint16_t lcid);
-extern AvdtpTransportChannel* avdt_ad_tc_tbl_alloc(AvdtpCcb* p_ccb);
-extern uint8_t avdt_ad_tc_tbl_to_idx(AvdtpTransportChannel* p_tbl);
-extern void avdt_ad_tc_close_ind(AvdtpTransportChannel* p_tbl);
-extern void avdt_ad_tc_open_ind(AvdtpTransportChannel* p_tbl);
-extern void avdt_ad_tc_cong_ind(AvdtpTransportChannel* p_tbl,
-                                bool is_congested);
-extern void avdt_ad_tc_data_ind(AvdtpTransportChannel* p_tbl, BT_HDR* p_buf);
-extern AvdtpTransportChannel* avdt_ad_tc_tbl_by_type(uint8_t type,
-                                                     AvdtpCcb* p_ccb,
-                                                     AvdtpScb* p_scb);
-extern uint8_t avdt_ad_write_req(uint8_t type, AvdtpCcb* p_ccb, AvdtpScb* p_scb,
-                                 BT_HDR* p_buf);
-extern void avdt_ad_open_req(uint8_t type, AvdtpCcb* p_ccb, AvdtpScb* p_scb,
-                             uint8_t role);
-extern void avdt_ad_close_req(uint8_t type, AvdtpCcb* p_ccb, AvdtpScb* p_scb);
+void avdt_ad_init(void);
+uint8_t avdt_ad_type_to_tcid(uint8_t type, AvdtpScb* p_scb);
+AvdtpTransportChannel* avdt_ad_tc_tbl_by_st(uint8_t type, AvdtpCcb* p_ccb,
+                                            uint8_t state);
+AvdtpTransportChannel* avdt_ad_tc_tbl_by_lcid(uint16_t lcid);
+AvdtpTransportChannel* avdt_ad_tc_tbl_alloc(AvdtpCcb* p_ccb);
+uint8_t avdt_ad_tc_tbl_to_idx(AvdtpTransportChannel* p_tbl);
+void avdt_ad_tc_close_ind(AvdtpTransportChannel* p_tbl);
+void avdt_ad_tc_open_ind(AvdtpTransportChannel* p_tbl);
+void avdt_ad_tc_cong_ind(AvdtpTransportChannel* p_tbl, bool is_congested);
+void avdt_ad_tc_data_ind(AvdtpTransportChannel* p_tbl, BT_HDR* p_buf);
+AvdtpTransportChannel* avdt_ad_tc_tbl_by_type(uint8_t type, AvdtpCcb* p_ccb,
+                                              AvdtpScb* p_scb);
+uint8_t avdt_ad_write_req(uint8_t type, AvdtpCcb* p_ccb, AvdtpScb* p_scb,
+                          BT_HDR* p_buf);
+void avdt_ad_open_req(uint8_t type, AvdtpCcb* p_ccb, AvdtpScb* p_scb,
+                      uint8_t role);
+void avdt_ad_close_req(uint8_t type, AvdtpCcb* p_ccb, AvdtpScb* p_scb);
 
-extern void avdt_ccb_idle_ccb_timer_timeout(void* data);
-extern void avdt_ccb_ret_ccb_timer_timeout(void* data);
-extern void avdt_ccb_rsp_ccb_timer_timeout(void* data);
-extern void avdt_scb_transport_channel_timer_timeout(void* data);
+void avdt_ccb_idle_ccb_timer_timeout(void* data);
+void avdt_ccb_ret_ccb_timer_timeout(void* data);
+void avdt_ccb_rsp_ccb_timer_timeout(void* data);
+void avdt_scb_transport_channel_timer_timeout(void* data);
 
 /*****************************************************************************
  * macros

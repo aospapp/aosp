@@ -38,6 +38,9 @@ cc_library_headers {
 cc_library_shared {
 	name: "libGralloc4Wrapper",
 	vendor: true,
+	defaults: [
+		"arm_gralloc_defaults",
+	],
 	srcs: [
 		"libGralloc4Wrapper/wrapper.cpp",
 		"allocator/mali_gralloc_ion.cpp",
@@ -65,9 +68,8 @@ cc_library_shared {
 		"libhidlbase",
 		"libhidltransport",
 		"libnativewindow",
-		"libion_google",
 		"android.hardware.graphics.common@1.2",
-		"android.hardware.graphics.common-V3-ndk",
+		"android.hardware.graphics.common-V4-ndk",
 		"android.hardware.graphics.mapper@4.0",
 		"libdmabufheap",
 		"libgralloctypes",

@@ -19,6 +19,7 @@ syntax = "proto2";
 package perfetto.protos;
 
 import "protos/perfetto/metrics/metrics.proto";
+import "protos/perfetto/metrics/chrome/args_class_names.proto";
 import "protos/perfetto/metrics/chrome/blink_gc_metric.proto";
 import "protos/perfetto/metrics/chrome/dropped_frames.proto";
 import "protos/perfetto/metrics/chrome/frame_times.proto";
@@ -29,9 +30,11 @@ import "protos/perfetto/metrics/chrome/performance_mark_hashes.proto";
 import "protos/perfetto/metrics/chrome/reported_by_page.proto";
 import "protos/perfetto/metrics/chrome/slice_names.proto";
 import "protos/perfetto/metrics/chrome/scroll_jank.proto";
+import "protos/perfetto/metrics/chrome/scroll_jank_v2.proto";
 import "protos/perfetto/metrics/chrome/test_chrome_metric.proto";
 import "protos/perfetto/metrics/chrome/touch_jank.proto";
 import "protos/perfetto/metrics/chrome/user_event_hashes.proto";
+import "protos/perfetto/metrics/chrome/unsymbolized_args.proto";
 
 // TODO(lalitm): rename metrics below to include a "chrome_" prefix.
 extend TraceMetrics {
@@ -48,4 +51,7 @@ extend TraceMetrics {
   optional ChromeUserEventHashes chrome_user_event_hashes = 1011;
   optional ChromePerformanceMarkHashes chrome_performance_mark_hashes = 1012;
   optional ChromeSliceNames chrome_slice_names = 1013;
+  optional ChromeUnsymbolizedArgs chrome_unsymbolized_args = 1014;
+  optional ChromeArgsClassNames chrome_args_class_names = 1015;
+  optional ChromeScrollJankV2 chrome_scroll_jank_v2 = 1016;
 }

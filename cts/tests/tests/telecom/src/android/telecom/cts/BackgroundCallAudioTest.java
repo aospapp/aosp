@@ -3,6 +3,7 @@ package android.telecom.cts;
 import static android.app.role.RoleManager.ROLE_CALL_SCREENING;
 import static android.telecom.cts.TestUtils.TEST_PHONE_ACCOUNT_HANDLE;
 import static android.telecom.cts.TestUtils.waitOnAllHandlers;
+
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 
 import android.app.role.RoleManager;
@@ -265,7 +266,8 @@ public class BackgroundCallAudioTest extends BaseTelecomTestWithMockServices {
         assertCallState(call, Call.STATE_DISCONNECTED);
         assertConnectionState(connection, Connection.STATE_DISCONNECTED);
         // Notify as missed instead of rejected, since the user did not explicitly reject.
-        verifyCallLogging(connection.getAddress(), CallLog.Calls.MISSED_TYPE);
+        verifyCallLogging(connection.getAddress(), CallLog.Calls.MISSED_TYPE,
+                TestUtils.TEST_PHONE_ACCOUNT_HANDLE);
     }
 
     public void testAudioProcessingFromIncomingActivePlaceEmergencyCall() throws Exception {
@@ -306,7 +308,8 @@ public class BackgroundCallAudioTest extends BaseTelecomTestWithMockServices {
         assertCallState(call, Call.STATE_DISCONNECTED);
         assertConnectionState(connection, Connection.STATE_DISCONNECTED);
         // Notify as incoming, since the user has already answered the call.
-        verifyCallLogging(connection.getAddress(), CallLog.Calls.INCOMING_TYPE);
+        verifyCallLogging(connection.getAddress(), CallLog.Calls.INCOMING_TYPE,
+                TestUtils.TEST_PHONE_ACCOUNT_HANDLE);
     }
 
     public void testAudioProcessActiveCall() {
@@ -404,7 +407,8 @@ public class BackgroundCallAudioTest extends BaseTelecomTestWithMockServices {
         assertCallState(call, Call.STATE_DISCONNECTED);
         // If we went to AUDIO_PROCESSING from an active outgoing call, Make sure the call is
         // marked outgoing, not missed.
-        verifyCallLogging(connection.getAddress(), CallLog.Calls.OUTGOING_TYPE);
+        verifyCallLogging(connection.getAddress(), CallLog.Calls.OUTGOING_TYPE,
+                TestUtils.TEST_PHONE_ACCOUNT_HANDLE);
     }
 
     public void testManualAudioCallScreenAccept() {

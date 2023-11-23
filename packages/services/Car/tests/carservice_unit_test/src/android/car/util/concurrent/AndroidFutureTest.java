@@ -18,8 +18,7 @@ package android.car.util.concurrent;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.testng.Assert.assertThrows;
-import static org.testng.Assert.expectThrows;
+import static org.junit.Assert.assertThrows;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -68,7 +67,7 @@ public final class AndroidFutureTest {
         boolean changed = mUncompletedFuture.completeExceptionally(origException);
 
         assertThat(changed).isTrue();
-        ExecutionException thrown = expectThrows(ExecutionException.class,
+        ExecutionException thrown = assertThrows(ExecutionException.class,
                 () -> mUncompletedFuture.get());
         assertThat(thrown.getCause()).isSameInstanceAs(origException);
     }
@@ -156,9 +155,17 @@ public final class AndroidFutureTest {
     public void testOrTimeout_uncompleted_timesOut() throws Exception {
         mUncompletedFuture.orTimeout(TIMEOUT_MS, MILLISECONDS);
 
-        ExecutionException thrown = expectThrows(ExecutionException.class,
-                () -> mUncompletedFuture.get(TIMEOUT_MS + 1, MILLISECONDS));
-        assertThat(thrown.getCause()).isInstanceOf(TimeoutException.class);
+        Throwable exception = assertThrows(Exception.class,
+                () -> mUncompletedFuture.get(TIMEOUT_MS * 2, MILLISECONDS));
+
+        // In most cases, an ExecutionException is thrown with its cause set to a TimingException,
+        // or depending on the timing just a TimingException is thrown. Should handle both case to
+        // avoid test flakyness.
+        if (exception instanceof ExecutionException) {
+            exception = exception.getCause();
+        }
+
+        assertThat(exception).isInstanceOf(TimeoutException.class);
     }
 
     @Test
@@ -189,7 +196,7 @@ public final class AndroidFutureTest {
         mParcel.setDataPosition(0);
         AndroidFuture fromParcel = AndroidFuture.CREATOR.createFromParcel(mParcel);
 
-        ExecutionException thrown = expectThrows(ExecutionException.class, () -> fromParcel.get());
+        ExecutionException thrown = assertThrows(ExecutionException.class, () -> fromParcel.get());
         assertThat(thrown.getCause()).isInstanceOf(UnsupportedOperationException.class);
         assertThat(thrown.getMessage()).contains(EXCEPTION_MESSAGE);
     }
@@ -215,7 +222,7 @@ public final class AndroidFutureTest {
                 EXCEPTION_MESSAGE);
         fromParcel.completeExceptionally(exception);
         ExecutionException thrown =
-                expectThrows(ExecutionException.class, () -> mUncompletedFuture.get());
+                assertThrows(ExecutionException.class, () -> mUncompletedFuture.get());
         assertThat(thrown.getCause()).isSameInstanceAs(exception);
     }
 
@@ -234,7 +241,7 @@ public final class AndroidFutureTest {
             throw exception;
         });
 
-        ExecutionException thrown = expectThrows(ExecutionException.class, () -> future.get());
+        ExecutionException thrown = assertThrows(ExecutionException.class, () -> future.get());
 
         assertThat(thrown.getCause()).isSameInstanceAs(exception);
     }
@@ -259,7 +266,7 @@ public final class AndroidFutureTest {
         });
 
         mUncompletedFuture.complete(STRING_VALUE);
-        ExecutionException thrown = expectThrows(ExecutionException.class, () -> farFuture.get());
+        ExecutionException thrown = assertThrows(ExecutionException.class, () -> farFuture.get());
 
         assertThat(thrown.getCause()).isSameInstanceAs(exception);
     }
@@ -286,7 +293,7 @@ public final class AndroidFutureTest {
         AndroidFuture<String> composedFuture = mUncompletedFuture.thenCompose(s -> throwingFuture);
 
         mUncompletedFuture.complete(STRING_VALUE);
-        ExecutionException thrown = expectThrows(ExecutionException.class,
+        ExecutionException thrown = assertThrows(ExecutionException.class,
                 () -> composedFuture.get());
 
         assertThat(thrown.getCause()).isSameInstanceAs(exception);
@@ -317,7 +324,7 @@ public final class AndroidFutureTest {
         };
         AndroidFuture<String> combinedFuture = nearFuture.thenCombine(farFuture, throwingFunction);
 
-        ExecutionException thrown = expectThrows(ExecutionException.class,
+        ExecutionException thrown = assertThrows(ExecutionException.class,
                 () -> combinedFuture.get());
 
         assertThat(thrown.getCause()).isSameInstanceAs(exception);

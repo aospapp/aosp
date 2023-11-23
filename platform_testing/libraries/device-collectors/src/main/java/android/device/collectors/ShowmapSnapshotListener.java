@@ -19,9 +19,11 @@ package android.device.collectors;
 import android.device.collectors.annotations.OptionClass;
 import android.os.Bundle;
 import android.util.Log;
+
 import androidx.annotation.VisibleForTesting;
+
 import com.android.helpers.ShowmapSnapshotHelper;
-import java.util.HashMap;
+
 import java.util.Map;
 
 /**
@@ -47,15 +49,13 @@ public class ShowmapSnapshotListener extends BaseCollectionListener<String> {
   @VisibleForTesting static final String DROP_CACHE_KEY = "drop-cache";
   @VisibleForTesting static final String OUTPUT_DIR_KEY = "test-output-dir";
   @VisibleForTesting static final String GC_PRECOLLECT_KEY = "gc-precollect";
+    @VisibleForTesting static final String COUNT_THREADS_KEY = "count-threads";
 
   private ShowmapSnapshotHelper mShowmapSnapshotHelper = new ShowmapSnapshotHelper();
-  private final Map<String, Integer> dropCacheValues = new HashMap<String, Integer>() {
-    {
-      put("pagecache", 1);
-      put("slab", 2);
-      put("all", 3);
-    }
-  };
+  private final Map<String, Integer> dropCacheValues = Map.of(
+      "pagecache", 1,
+      "slab", 2,
+      "all", 3);
 
   // Sample output
   // -------- -------- -------- -------- -------- -------- -------- -------- -------- ------ --
@@ -121,5 +121,8 @@ public class ShowmapSnapshotListener extends BaseCollectionListener<String> {
 
     boolean runGcPrecollect = "true".equals(args.getString(GC_PRECOLLECT_KEY, "false"));
     mShowmapSnapshotHelper.setGcOnPrecollectOption(runGcPrecollect);
+
+        boolean runCountThreads = "true".equals(args.getString(COUNT_THREADS_KEY, "false"));
+        mShowmapSnapshotHelper.setCountThreadsOption(runCountThreads);
   }
 }

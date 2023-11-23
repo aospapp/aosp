@@ -1,0 +1,23 @@
+on property:vendor.device.modules.ready=1
+    # Sysfs
+    chown system system /sys/devices/virtual/goog_touch_interface/gti.0/force_active
+    chown system system /sys/devices/virtual/goog_touch_interface/gti.0/fw_ver
+    chown system system /sys/devices/virtual/goog_touch_interface/gti.0/panel_id
+    chown system system /sys/devices/virtual/goog_touch_interface/gti.0/offload_id
+    chown system system /sys/devices/virtual/goog_touch_interface/gti.0/ms_base
+    chown system system /sys/devices/virtual/goog_touch_interface/gti.0/ms_diff
+    chown system system /sys/devices/virtual/goog_touch_interface/gti.0/ms_raw
+    chown system system /sys/devices/virtual/goog_touch_interface/gti.0/self_test
+    chown system system /sys/devices/virtual/goog_touch_interface/gti.0/ss_base
+    chown system system /sys/devices/virtual/goog_touch_interface/gti.0/ss_diff
+    chown system system /sys/devices/virtual/goog_touch_interface/gti.0/ss_raw
+
+    # Procfs
+    chown system system /proc/goog_touch_interface
+    chown system system /proc/goog_touch_interface/gti.0
+    chown system system /proc/goog_touch_interface/gti.0/ms_base
+    chown system system /proc/goog_touch_interface/gti.0/ms_diff
+    chown system system /proc/goog_touch_interface/gti.0/ms_raw
+    chown system system /proc/goog_touch_interface/gti.0/ss_base
+    chown system system /proc/goog_touch_interface/gti.0/ss_diff
+    chown system system /proc/goog_touch_interface/gti.0/ss_raw

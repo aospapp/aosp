@@ -16,10 +16,14 @@
 
 package com.android.systemui.car.hvac;
 
+import android.app.UiModeManager;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowInsets;
 
 import com.android.systemui.R;
@@ -28,15 +32,21 @@ import com.android.systemui.car.window.OverlayPanelViewController;
 import com.android.systemui.car.window.OverlayViewGlobalStateController;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.dagger.qualifiers.Main;
+import com.android.systemui.statusbar.policy.ConfigurationController;
 import com.android.wm.shell.animation.FlingAnimationUtils;
 
 import javax.inject.Inject;
 
 @SysUISingleton
-public class HvacPanelOverlayViewController extends OverlayPanelViewController {
+public class HvacPanelOverlayViewController extends OverlayPanelViewController implements
+        ConfigurationController.ConfigurationListener {
 
+    private final Context mContext;
     private final Resources mResources;
     private final HvacController mHvacController;
+    private final UiModeManager mUiModeManager;
+
+    private boolean mIsUiModeNight;
 
     private HvacPanelView mHvacPanelView;
 
@@ -46,11 +56,16 @@ public class HvacPanelOverlayViewController extends OverlayPanelViewController {
             HvacController hvacController,
             OverlayViewGlobalStateController overlayViewGlobalStateController,
             FlingAnimationUtils.Builder flingAnimationUtilsBuilder,
-            CarDeviceProvisionedController carDeviceProvisionedController) {
+            CarDeviceProvisionedController carDeviceProvisionedController,
+            ConfigurationController configurationController,
+            UiModeManager uiModeManager) {
         super(context, resources, R.id.hvac_panel_stub, overlayViewGlobalStateController,
                 flingAnimationUtilsBuilder, carDeviceProvisionedController);
+        mContext = context;
         mResources = resources;
         mHvacController = hvacController;
+        mUiModeManager = uiModeManager;
+        configurationController.addCallback(this);
     }
 
     @Override
@@ -145,5 +160,42 @@ public class HvacPanelOverlayViewController extends OverlayPanelViewController {
     @Override
     protected void onOpenScrollStart() {
         // no-op.
+    }
+
+    @Override
+    public void onConfigChanged(Configuration newConfig) {
+        boolean isConfigNightMode = newConfig.isNightModeActive();
+
+        // Only refresh UI on Night mode changes
+        if (isConfigNightMode != mIsUiModeNight) {
+            mIsUiModeNight = isConfigNightMode;
+            mUiModeManager.setNightModeActivated(mIsUiModeNight);
+
+            if (getLayout() == null) return;
+            mHvacPanelView = getLayout().findViewById(R.id.hvac_panel);
+            if (mHvacPanelView == null) return;
+            ViewGroup hvacViewGroupParent = (ViewGroup) mHvacPanelView.getParent();
+
+            // cache properties of {@link HvacPanelView}
+            int inflatedId = mHvacPanelView.getId();
+            ViewGroup.LayoutParams layoutParams = mHvacPanelView.getLayoutParams();
+            HvacPanelView.KeyEventHandler hvacKeyEventHandler = mHvacPanelView
+                    .getKeyEventHandler();
+            int indexOfView = hvacViewGroupParent.indexOfChild(mHvacPanelView);
+
+            // remove {@link HvacPanelView} from its parent and reinflate it
+            hvacViewGroupParent.removeView(mHvacPanelView);
+            HvacPanelView newHvacPanelView = (HvacPanelView) LayoutInflater.from(mContext).inflate(
+                    R.layout.hvac_panel, /* root= */ hvacViewGroupParent,
+                    /* attachToRoot= */ false);
+            hvacViewGroupParent.addView(newHvacPanelView, indexOfView);
+            mHvacPanelView = newHvacPanelView;
+
+            // reset {@link HvacPanelView} cached properties
+            mHvacPanelView.setId(inflatedId);
+            mHvacPanelView.setLayoutParams(layoutParams);
+            mHvacController.registerHvacViews(mHvacPanelView);
+            mHvacPanelView.setKeyEventHandler(hvacKeyEventHandler);
+        }
     }
 }

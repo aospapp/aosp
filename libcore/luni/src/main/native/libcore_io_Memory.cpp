@@ -52,12 +52,8 @@ template <typename T> static T cast(jlong address) {
 // Byte-swap 2 jshort values packed in a jint.
 static inline jint bswap_2x16(jint v) {
     // v is initially ABCD
-#if defined(__mips__) && defined(__mips_isa_rev) && (__mips_isa_rev >= 2)
-    __asm__ volatile ("wsbh %0, %0" : "+r" (v));  // v=BADC
-#else
     v = bswap_32(v);                              // v=DCBA
     v = (v << 16) | ((v >> 16) & 0xffff);         // v=BADC
-#endif
     return v;
 }
 

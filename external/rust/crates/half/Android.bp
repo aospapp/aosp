@@ -32,8 +32,8 @@ license {
         "SPDX-license-identifier-MIT",
     ],
     license_text: [
-        "LICENSE-APACHE",
-        "LICENSE-MIT",
+        "LICENSES/Apache-2.0.txt",
+        "LICENSES/MIT.txt",
     ],
 }
 
@@ -42,12 +42,41 @@ rust_library {
     host_supported: true,
     crate_name: "half",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.7.1",
+    cargo_pkg_version: "2.2.1",
     srcs: ["src/lib.rs"],
-    edition: "2018",
+    edition: "2021",
+    features: [
+        "alloc",
+        "default",
+        "std",
+    ],
     apex_available: [
         "//apex_available:platform",
-        "com.android.virt",
+        "//apex_available:anyapex",
     ],
+    product_available: true,
     vendor_available: true,
+}
+
+rust_library_rlib {
+    name: "libhalf_nostd",
+    crate_name: "half",
+    cargo_env_compat: true,
+    cargo_pkg_version: "2.2.1",
+    srcs: ["src/lib.rs"],
+    edition: "2021",
+    prefer_rlib: true,
+    no_stdlibs: true,
+    stdlibs: [
+        "liballoc.rust_sysroot",
+        "libcompiler_builtins.rust_sysroot",
+        "libcore.rust_sysroot",
+    ],
+    features: [
+        "alloc",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
 }

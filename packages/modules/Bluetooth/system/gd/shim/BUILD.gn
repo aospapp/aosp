@@ -22,6 +22,7 @@ source_set("BluetoothShimSources") {
   deps = [
     "//bt/system/gd/dumpsys:libbluetooth-dumpsys",
     "//bt/system/gd/dumpsys/bundler:BluetoothGeneratedBundlerSchema_h_bfbs",
+    "//bt/system/gd/rust/shim:init_flags_bridge_header",
   ]
 
   configs += [

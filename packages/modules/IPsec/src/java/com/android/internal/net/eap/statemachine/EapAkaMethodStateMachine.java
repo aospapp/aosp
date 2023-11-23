@@ -117,7 +117,6 @@ class EapAkaMethodStateMachine extends EapSimAkaMethodStateMachine {
     private final EapAkaTypeDataDecoder mEapAkaTypeDataDecoder;
     private final EapSimAkaIdentityTracker mEapSimAkaIdentityTracker;
     private final boolean mSupportsEapAkaPrime;
-    private final SecureRandom mSecureRandom;
 
     protected EapAkaMethodStateMachine(
             Context context, byte[] eapIdentity, EapAkaConfig eapAkaConfig) {
@@ -246,7 +245,10 @@ class EapAkaMethodStateMachine extends EapSimAkaMethodStateMachine {
                     return handleEapSimAkaNotification(
                             mTAG,
                             true, // isPreChallengeState
+                            false, // isReauthState
+                            false, // hadSuccessfulAuthentication
                             message.eapIdentifier,
+                            0,
                             eapAkaTypeData);
                 default:
                     return buildClientErrorResponse(
@@ -295,7 +297,10 @@ class EapAkaMethodStateMachine extends EapSimAkaMethodStateMachine {
                     return handleEapSimAkaNotification(
                             mTAG,
                             true, // isPreChallengeState
+                            false, // isReauthState
+                            false, // hadSuccessfulAuthentication
                             message.eapIdentifier,
+                            0,
                             eapAkaTypeData);
                 default:
                     return buildClientErrorResponse(
@@ -434,7 +439,10 @@ class EapAkaMethodStateMachine extends EapSimAkaMethodStateMachine {
                     return handleEapSimAkaNotification(
                             mTAG,
                             false, // isPreChallengeState
+                            false, // isReauthState
+                            mHadSuccessfulChallenge, // hadSuccessfulAuthentication
                             message.eapIdentifier,
+                            0,
                             eapAkaTypeData);
                 default:
                     return buildClientErrorResponse(
@@ -737,8 +745,11 @@ class EapAkaMethodStateMachine extends EapSimAkaMethodStateMachine {
                 case EAP_AKA_NOTIFICATION:
                     return handleEapSimAkaNotification(
                             mTAG,
-                            !mHadSuccessfulReauth, // isPreChallengeState
+                            false, // isPreChallengeState
+                            true, // isReauthState
+                            mHadSuccessfulReauth, // hadSuccessfulAuthentication
                             message.eapIdentifier,
+                            mReauthCounter,
                             eapAkaTypeData);
                 default:
                     return buildClientErrorResponse(

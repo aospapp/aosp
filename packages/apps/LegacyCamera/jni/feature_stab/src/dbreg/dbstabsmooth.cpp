@@ -136,6 +136,8 @@ bool db_StabilizationSmoother::smoothMotionAdaptive(/*VP_BIMG *bimg,*/int hsize,
             smoothFactor = minSmoothFactor;
 
         // Find the amount of motion that must be compensated so that no "border" pixels are seen in the stable video
+        // FixLater: avoid floating point loop counters
+        // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter,cert-flp30-c)
         for (smoothFactor = smoothFactor; smoothFactor >= minSmoothFactor; smoothFactor -= 0.01) {
             // Compute the smoothed motion
             if(!smoothMotion(inmot, &tmpMotion, smoothFactor))

@@ -2,14 +2,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "power_LoadTest.video_1hour"
 PURPOSE = "Measure power draw when system is under load."
 CRITERIA = "This test is a benchmark."
-TIME = "LONG"
+TIME = "LENGTHY"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+EXTENDED_TIMEOUT = 4500
+PY_VERSION = 3
 
 DOC = """
 This test runs a load test consisting of cycling though web pages, playing
@@ -47,29 +49,34 @@ loop_count = 1
 # tabs: list of urls for the window type
 # urls: list of urls to cycle through for the cycle type
 
-tasks='[{' + \
-'    type: \'window\',' + \
-'    name: \'background\',' + \
-'    start: 0,' + \
-'    duration: 3600000,' + \
-'    focus: false,' + \
-'    tabs: [' + \
-'     \'http://www.google.com\',' + \
-'     \'http://news.google.com\',' + \
-'     \'http://www.reddit.com\',' + \
-'     \'http://clothing.shop.ebay.com/Womens-Shoes-/63889/i.html\',' + \
-'     \'http://www.facebook.com\'' + \
-'    ]}, {' + \
-'    type: \'window\',' + \
-'    name: \'video\',' + \
-'    start: 1000,' + \
-'    duration: 3600000,' + \
-'    focus: true,' + \
-'    tabs: [' + \
-'     \'http://www.youtube.com/embed/YE7VzlLtp-4?autoplay=1&loop=1&' + \
-'playlist=YE7VzlLtp-4\'' + \
-'    ]}]'
-
+tasks = """
+[
+  {
+    type: 'window',
+    name: 'background',
+    start: 0,
+    duration: minutes(60),
+    focus: false,
+    tabs: [
+      'https://www.google.com/search?q=google',
+      'https://news.google.com',
+      'https://www.reddit.com',
+      'https://www.amazon.com',
+      'https://www.instagram.com/instagram',
+    ],
+  },
+  {
+    type: 'window',
+    name: 'video',
+    start: seconds(1),
+    duration: minutes(60),
+    focus: true,
+    tabs: [
+      'http://www.youtube.com/embed/YE7VzlLtp-4?autoplay=1&loop=1&playlist=YE7VzlLtp-4',
+    ],
+  },
+]
+"""
 
 args_dict = utils.args_to_dict(args)
 pdash_note = args_dict.get('pdash_note', '')

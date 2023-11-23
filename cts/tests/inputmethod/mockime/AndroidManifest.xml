@@ -18,6 +18,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
      package="com.android.cts.mockime">
 
+    <queries>
+        <package android:name="com.android.cts.spellcheckingime" />
+    </queries>
+
     <application android:multiArch="true"
          android:supportsRtl="true"
          android:debuggable="true">
@@ -41,6 +45,7 @@
              android:exported="true"
              android:visibleToInstantApps="true">
         </provider>
-
+        <uses-library android:name="androidx.window.extensions"
+                      android:required="false" />
     </application>
 </manifest>

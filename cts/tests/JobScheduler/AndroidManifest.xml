@@ -24,21 +24,36 @@
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.RUN_USER_INITIATED_JOBS" />
     <uses-permission android:name="android.permission.TOGGLE_AUTOMOTIVE_PROJECTION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
 
+    <queries>
+        <package android:name="android.jobscheduler.cts.jobtestapp" />
+    </queries>
+
     <application android:requestLegacyExternalStorage="true">
         <uses-library android:name="android.test.runner" />
+
+        <activity android:name="android.jobscheduler.TestActivity" />
 
         <service android:name="android.jobscheduler.MockJobService"
             android:permission="android.permission.BIND_JOB_SERVICE" />
         <service android:name="android.jobscheduler.TriggerContentJobService"
             android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service android:name="android.jobscheduler.cts.TestNotificationListener"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
         <provider android:name="android.jobscheduler.DummyJobContentProvider"
             android:authorities="android.jobscheduler.dummyprovider" android:multiprocess="false" />

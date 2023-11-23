@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as fs from 'fs';
-import * as path from 'path';
-import * as puppeteer from 'puppeteer';
+import fs from 'fs';
+import path from 'path';
+import {Browser, Page} from 'puppeteer';
 
 import {assertExists} from '../base/logging';
 
@@ -22,14 +22,16 @@ import {
   compareScreenshots,
   failIfTraceProcessorHttpdIsActive,
   getTestTracePath,
-  waitForPerfettoIdle
+  waitForPerfettoIdle,
 } from './perfetto_ui_test_helper';
 
-declare var global: {__BROWSER__: puppeteer.Browser;};
+declare let global: {__BROWSER__: Browser;};
 const browser = assertExists(global.__BROWSER__);
 const expectedScreenshotPath = path.join('test', 'data', 'ui-screenshots');
+const tmpDir = path.resolve('./ui-test-artifacts');
+const reportPath = path.join(tmpDir, 'report.txt');
 
-async function getPage(): Promise<puppeteer.Page> {
+async function getPage(): Promise<Page> {
   const pages = (await browser.pages());
   expect(pages.length).toBe(1);
   return pages[pages.length - 1];
@@ -41,6 +43,9 @@ beforeAll(async () => {
   jest.setTimeout(60000);
   const page = await getPage();
   await page.setViewport({width: 1920, height: 1080});
+
+  // Empty the file with collected screenshot diffs
+  fs.writeFileSync(reportPath, '');
 });
 
 // After each test (regardless of nesting) capture a screenshot named after the
@@ -51,10 +56,6 @@ afterEach(async () => {
   testName = testName.replace(/[^a-z0-9-]/gmi, '_').toLowerCase();
   const page = await getPage();
 
-  // cwd() is set to //out/ui when running tests, just create a subdir in there.
-  // The CI picks up this directory and uploads to GCS after every failed run.
-  const tmpDir = path.resolve('./ui-test-artifacts');
-  if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
   const screenshotName = `ui-${testName}.png`;
   const actualFilename = path.join(tmpDir, screenshotName);
   const expectedFilename = path.join(expectedScreenshotPath, screenshotName);
@@ -64,12 +65,12 @@ afterEach(async () => {
     console.log('Saving reference screenshot into', expectedFilename);
     fs.copyFileSync(actualFilename, expectedFilename);
   } else {
-    await compareScreenshots(actualFilename, expectedFilename);
+    await compareScreenshots(reportPath, actualFilename, expectedFilename);
   }
 });
 
 describe('android_trace_30s', () => {
-  let page: puppeteer.Page;
+  let page: Page;
 
   beforeAll(async () => {
     page = await getPage();
@@ -92,23 +93,10 @@ describe('android_trace_30s', () => {
     });
     await waitForPerfettoIdle(page);
   });
-
-  // TODO(198431341): Test is flaky. We should de-flake and re-enable.
-  // test('search', async () => {
-  //  const page = await getPage();
-  //  const searchInput = '.omnibox input';
-  //  await page.focus(searchInput);
-  //  await page.keyboard.type('TrimMaps');
-  //  await waitForPerfettoIdle(page);
-  //  for (let i = 0; i < 10; i++) {
-  //    await page.keyboard.type('\n');
-  //  }
-  //  await waitForPerfettoIdle(page);
-  //});
 });
 
 describe('chrome_rendering_desktop', () => {
-  let page: puppeteer.Page;
+  let page: Page;
 
   beforeAll(async () => {
     page = await getPage();
@@ -147,9 +135,29 @@ describe('chrome_rendering_desktop', () => {
   });
 });
 
+// Tests that chrome traces with missing process/thread names still open
+// correctly in the UI.
+describe('chrome_missing_track_names', () => {
+  let page: Page;
+
+  beforeAll(async () => {
+    page = await getPage();
+    await page.goto('http://localhost:10000/?testing=1');
+    await waitForPerfettoIdle(page);
+  });
+
+  test('load', async () => {
+    const page = await getPage();
+    const file = await page.waitForSelector('input.trace_file');
+    const tracePath = getTestTracePath('chrome_missing_track_names.pb.gz');
+    assertExists(file).uploadFile(tracePath);
+    await waitForPerfettoIdle(page);
+  });
+});
+
 describe('routing', () => {
   describe('open_two_traces_then_go_back', () => {
-    let page: puppeteer.Page;
+    let page: Page;
 
     beforeAll(async () => {
       page = await getPage();
@@ -179,7 +187,7 @@ describe('routing', () => {
   });
 
   describe('start_from_no_trace', () => {
-    let page: puppeteer.Page;
+    let page: Page;
 
     beforeAll(async () => {
       page = await getPage();
@@ -228,7 +236,7 @@ describe('routing', () => {
   });
 
   describe('navigate', () => {
-    let page: puppeteer.Page;
+    let page: Page;
 
     beforeAll(async () => {
       page = await getPage();
@@ -273,6 +281,42 @@ describe('routing', () => {
     await page.goto('about:blank');
     await page.goto(
         'http://localhost:10000/?testing=1#!/viewer?local_cache_key=invalid');
+    await waitForPerfettoIdle(page);
+  });
+});
+
+// Regression test for b/235335853.
+describe('modal_dialog', () => {
+  let page: Page;
+
+  beforeAll(async () => {
+    page = await getPage();
+    await page.goto('http://localhost:10000/?testing=1');
+    await waitForPerfettoIdle(page);
+  });
+
+  test('show_dialog_1', async () => {
+    await page.click('#keyboard_shortcuts');
+    await waitForPerfettoIdle(page);
+  });
+
+  test('dismiss_1', async () => {
+    await page.keyboard.press('Escape');
+    await waitForPerfettoIdle(page);
+  });
+
+  test('switch_page_no_dialog', async () => {
+    await page.click('#record_new_trace');
+    await waitForPerfettoIdle(page);
+  });
+
+  test('show_dialog_2', async () => {
+    await page.click('#keyboard_shortcuts');
+    await waitForPerfettoIdle(page);
+  });
+
+  test('dismiss_2', async () => {
+    await page.keyboard.press('Escape');
     await waitForPerfettoIdle(page);
   });
 });

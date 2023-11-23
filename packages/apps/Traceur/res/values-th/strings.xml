@@ -4,6 +4,9 @@
     <string name="system_tracing" msgid="4719188511746319848">"ติดตามระบบ"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"บันทึกกิจกรรมของระบบและนำไปวิเคราะห์ในภายหลังเพื่อปรับปรุงประสิทธิภาพให้ดีขึ้น"</string>
     <string name="record_trace" msgid="6416875085186661845">"บันทึกการติดตาม"</string>
+    <string name="record_trace_summary" msgid="6705357754827849292">"จับภาพการติดตามของระบบโดยใช้การกำหนดค่าที่ตั้งไว้ใน \"การตั้งค่าการติดตาม\""</string>
+    <string name="record_stack_samples" msgid="3498368637185702335">"บันทึกโปรไฟล์ CPU"</string>
+    <string name="record_stack_samples_summary" msgid="7827953921526410478">"นอกจากนี้ยังเปิดใช้การสุ่มตัวอย่างสแต็กการเรียกใช้ในการติดตามได้โดยเลือกหมวดหมู่ \"cpu\""</string>
     <string name="start_new_trace" msgid="8177130420802170353">"เริ่มการติดตามใหม่"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"ติดตามแอปพลิเคชันที่แก้ไขข้อบกพร่องได้"</string>
     <string name="categories" msgid="2280163673538611008">"หมวดหมู่"</string>
@@ -17,7 +20,9 @@
     <string name="show_quick_settings_tile" msgid="4971147332635291585">"แสดงไทล์การตั้งค่าด่วน"</string>
     <string name="saving_trace" msgid="1468692734770800541">"กำลังบันทึกการติดตาม"</string>
     <string name="trace_saved" msgid="5869970594780992309">"บันทึกการติดตามแล้ว"</string>
-    <string name="tap_to_share" msgid="6766732404489536899">"แตะเพื่อแชร์การติดตาม"</string>
+    <string name="saving_stack_samples" msgid="8174915522390525221">"กำลังบันทึกตัวอย่างสแต็ก"</string>
+    <string name="stack_samples_saved" msgid="8863295751647724616">"บันทึกตัวอย่างสแต็กแล้ว"</string>
+    <string name="tap_to_share" msgid="4440713575852187545">"แตะเพื่อแชร์การบันทึก"</string>
     <string name="attaching_to_report" msgid="2629202947947275886">"กำลังแนบการติดตามในรายงานข้อบกพร่อง"</string>
     <string name="attached_to_report" msgid="5806905349184608870">"แนบการติดตามในรายงานข้อบกพร่องแล้ว"</string>
     <string name="attached_to_report_summary" msgid="7665675771190391355">"แตะเพื่อเปิด BetterBug"</string>
@@ -25,18 +30,19 @@
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"การติดตามบางหมวดหมู่ไม่พร้อมใช้งาน:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"กำลังบันทึกการติดตาม"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"แตะเพื่อหยุดติดตาม"</string>
-    <string name="clear_saved_traces" msgid="4809195654452260944">"ล้างการติดตามที่บันทึกไว้"</string>
-    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"ระบบจะล้างการติดตามหลังจากผ่านไปแล้ว 1 เดือน"</string>
-    <string name="clear_saved_traces_question" msgid="2184026613055303818">"ล้างการติดตามที่บันทึกไว้ไหม"</string>
-    <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"การติดตามทั้งหมดจะถูกลบออกจาก /data/local/traces"</string>
+    <string name="stack_samples_are_being_recorded" msgid="8669254939248349583">"กำลังบันทึกตัวอย่างสแต็ก"</string>
+    <string name="tap_to_stop_stack_sampling" msgid="5911317684139059415">"แตะเพื่อหยุดการสุ่มตัวอย่างสแต็ก"</string>
+    <string name="clear_saved_files" msgid="9156079311231446825">"ล้างไฟล์ที่บันทึกไว้"</string>
+    <string name="clear_saved_files_summary" msgid="109751867417553670">"ระบบจะล้างการบันทึกหลังจากผ่านไปแล้ว 1 เดือน"</string>
+    <string name="clear_saved_files_question" msgid="8586686617760838834">"ล้างไฟล์ที่บันทึกไว้ใช่ไหม"</string>
+    <string name="all_recordings_will_be_deleted" msgid="7731693738485947891">"ระบบจะลบการบันทึกทั้งหมดออกจาก /data/local/traces"</string>
     <string name="clear" msgid="5484761795406948056">"ล้าง"</string>
     <string name="system_traces_storage_title" msgid="8294090839883366871">"การติดตามระบบ"</string>
     <string name="keywords" msgid="736547007949049535">"Systrace, การติดตาม, ประสิทธิภาพ"</string>
-    <string name="share_trace" msgid="4528525067822044385">"แชร์การติดตามใช่ไหม"</string>
+    <string name="share_file" msgid="1982029143280382271">"แชร์ไฟล์ใช่ไหม"</string>
     <string name="system_trace_sensitive_data" msgid="3069389866696009549">"ไฟล์การติดตามระบบอาจมีข้อมูลระบบและแอปที่ละเอียดอ่อน (เช่น การใช้งานแอป) โปรดแชร์ไฟล์การติดตามระบบกับแอปและบุคคลที่คุณเชื่อถือเท่านั้น"</string>
     <string name="share" msgid="8443979083706282338">"แชร์"</string>
     <string name="dont_show_again" msgid="6662492041164390600">"ไม่ต้องแสดงอีก"</string>
-    <string name="use_perfetto_beta" msgid="2725630143916520160">"ใช้ Perfetto (เบต้า)"</string>
     <string name="long_traces" msgid="5110949471775966329">"การติดตามแบบยาว"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"บันทึกในพื้นที่เก็บข้อมูลของอุปกรณ์อย่างต่อเนื่อง"</string>
     <string name="long_traces_summary_betterbug" msgid="445546400875135624">"บันทึกในพื้นที่เก็บข้อมูลของอุปกรณ์อย่างต่อเนื่อง (จะไม่แนบกับรายงานข้อบกพร่องโดยอัตโนมัติ)"</string>
@@ -58,9 +64,12 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16,384 KB"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32,768 KB"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65,536 KB"</string>
-    <string name="stop_on_bugreport" msgid="2045328149107284734">"หยุดการติดตามเมื่อเริ่มรายงานข้อบกพร่อง"</string>
-    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"ยุติการบันทึกการติดตามที่ทำงานอยู่เมื่อเริ่มรายงานข้อบกพร่อง"</string>
-    <string name="attach_to_bug_report" msgid="2953745117960948415">"แนบการติดตามในรายงานข้อบกพร่อง"</string>
-    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"ส่งการติดตามที่กำลังดำเนินการไปยัง BetterBug โดยอัตโนมัติเมื่อรวบรวมรายงานข้อบกพร่อง"</string>
-    <string name="link_to_traces" msgid="6569969595898995517">"ดูไฟล์การย้ายข้อมูล"</string>
+    <string name="stop_on_bugreport" msgid="4591832600597126422">"หยุดการบันทึกสำหรับรายงานข้อบกพร่อง"</string>
+    <string name="stop_on_bugreport_summary" msgid="1601834864982891381">"ยุติการบันทึกที่ทำงานอยู่เมื่อเริ่มรายงานข้อบกพร่อง"</string>
+    <string name="attach_to_bug_report" msgid="5388986830016247490">"แนบการบันทึกในรายงานข้อบกพร่อง"</string>
+    <string name="attach_to_bug_report_summary" msgid="4213730623971240002">"ส่งการบันทึกที่กำลังดำเนินการไปยัง BetterBug โดยอัตโนมัติเมื่อรวบรวมรายงานข้อบกพร่อง"</string>
+    <string name="link_to_traces" msgid="1404687523304348490">"ดูไฟล์ที่บันทึกไว้"</string>
+    <string name="pref_category_trace_settings" msgid="6507535407023329628">"การตั้งค่าการติดตาม"</string>
+    <string name="pref_category_saved_files" msgid="1477491400970413291">"ไฟล์ที่บันทึกไว้"</string>
+    <string name="pref_category_misc" msgid="6217624054980014683">"เบ็ดเตล็ด"</string>
 </resources>

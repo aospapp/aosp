@@ -18,11 +18,13 @@
 
 #include "MetricsManager.h"
 
+#include <android-modules-utils/sdk_level.h>
 #include <private/android_filesystem_config.h>
 
 #include "CountMetricProducer.h"
 #include "condition/CombinationConditionTracker.h"
 #include "condition/SimpleConditionTracker.h"
+#include "flags/FlagProvider.h"
 #include "guardrail/StatsdStats.h"
 #include "matchers/CombinationAtomMatchingTracker.h"
 #include "matchers/SimpleAtomMatchingTracker.h"
@@ -32,6 +34,9 @@
 #include "stats_log_util.h"
 #include "stats_util.h"
 #include "statslog_statsd.h"
+#include "utils/DbUtils.h"
+
+using android::modules::sdklevel::IsAtLeastU;
 
 using android::util::FIELD_COUNT_REPEATED;
 using android::util::FIELD_TYPE_INT32;
@@ -76,17 +81,24 @@ MetricsManager::MetricsManager(const ConfigKey& key, const StatsdConfig& config,
       mWhitelistedAtomIds(config.whitelisted_atom_ids().begin(),
                           config.whitelisted_atom_ids().end()),
       mShouldPersistHistory(config.persist_locally()) {
+    if (!IsAtLeastU() && config.has_restricted_metrics_delegate_package_name()) {
+        mInvalidConfigReason =
+                InvalidConfigReason(INVALID_CONFIG_REASON_RESTRICTED_METRIC_NOT_ENABLED);
+        return;
+    }
+    if (config.has_restricted_metrics_delegate_package_name()) {
+        mRestrictedMetricsDelegatePackageName = config.restricted_metrics_delegate_package_name();
+    }
     // Init the ttl end timestamp.
     refreshTtl(timeBaseNs);
-
-    mConfigValid = initStatsdConfig(
+    mInvalidConfigReason = initStatsdConfig(
             key, config, uidMap, pullerManager, anomalyAlarmMonitor, periodicAlarmMonitor,
-            timeBaseNs, currentTimeNs, mTagIds, mAllAtomMatchingTrackers, mAtomMatchingTrackerMap,
-            mAllConditionTrackers, mConditionTrackerMap, mAllMetricProducers, mMetricProducerMap,
-            mAllAnomalyTrackers, mAllPeriodicAlarmTrackers, mConditionToMetricMap,
-            mTrackerToMetricMap, mTrackerToConditionMap, mActivationAtomTrackerToMetricMap,
-            mDeactivationAtomTrackerToMetricMap, mAlertTrackerMap, mMetricIndexesWithActivation,
-            mStateProtoHashes, mNoReportMetricIds);
+            timeBaseNs, currentTimeNs, mTagIdsToMatchersMap, mAllAtomMatchingTrackers,
+            mAtomMatchingTrackerMap, mAllConditionTrackers, mConditionTrackerMap,
+            mAllMetricProducers, mMetricProducerMap, mAllAnomalyTrackers, mAllPeriodicAlarmTrackers,
+            mConditionToMetricMap, mTrackerToMetricMap, mTrackerToConditionMap,
+            mActivationAtomTrackerToMetricMap, mDeactivationAtomTrackerToMetricMap,
+            mAlertTrackerMap, mMetricIndexesWithActivation, mStateProtoHashes, mNoReportMetricIds);
 
     mHashStringsInReport = config.hash_strings_in_metric_report();
     mVersionStringsInReport = config.version_strings_in_metric_report();
@@ -118,6 +130,16 @@ bool MetricsManager::updateConfig(const StatsdConfig& config, const int64_t time
                                   const int64_t currentTimeNs,
                                   const sp<AlarmMonitor>& anomalyAlarmMonitor,
                                   const sp<AlarmMonitor>& periodicAlarmMonitor) {
+    if (!IsAtLeastU() && config.has_restricted_metrics_delegate_package_name()) {
+        mInvalidConfigReason =
+                InvalidConfigReason(INVALID_CONFIG_REASON_RESTRICTED_METRIC_NOT_ENABLED);
+        return false;
+    }
+    if (config.has_restricted_metrics_delegate_package_name()) {
+        mRestrictedMetricsDelegatePackageName = config.restricted_metrics_delegate_package_name();
+    } else {
+        mRestrictedMetricsDelegatePackageName = nullopt;
+    }
     vector<sp<AtomMatchingTracker>> newAtomMatchingTrackers;
     unordered_map<int64_t, int> newAtomMatchingTrackerMap;
     vector<sp<ConditionTracker>> newConditionTrackers;
@@ -128,7 +150,7 @@ bool MetricsManager::updateConfig(const StatsdConfig& config, const int64_t time
     vector<sp<AnomalyTracker>> newAnomalyTrackers;
     unordered_map<int64_t, int> newAlertTrackerMap;
     vector<sp<AlarmTracker>> newPeriodicAlarmTrackers;
-    mTagIds.clear();
+    mTagIdsToMatchersMap.clear();
     mConditionToMetricMap.clear();
     mTrackerToMetricMap.clear();
     mTrackerToConditionMap.clear();
@@ -136,11 +158,11 @@ bool MetricsManager::updateConfig(const StatsdConfig& config, const int64_t time
     mDeactivationAtomTrackerToMetricMap.clear();
     mMetricIndexesWithActivation.clear();
     mNoReportMetricIds.clear();
-    mConfigValid = updateStatsdConfig(
+    mInvalidConfigReason = updateStatsdConfig(
             mConfigKey, config, mUidMap, mPullerManager, anomalyAlarmMonitor, periodicAlarmMonitor,
             timeBaseNs, currentTimeNs, mAllAtomMatchingTrackers, mAtomMatchingTrackerMap,
             mAllConditionTrackers, mConditionTrackerMap, mAllMetricProducers, mMetricProducerMap,
-            mAllAnomalyTrackers, mAlertTrackerMap, mStateProtoHashes, mTagIds,
+            mAllAnomalyTrackers, mAlertTrackerMap, mStateProtoHashes, mTagIdsToMatchersMap,
             newAtomMatchingTrackers, newAtomMatchingTrackerMap, newConditionTrackers,
             newConditionTrackerMap, newMetricProducers, newMetricProducerMap, newAnomalyTrackers,
             newAlertTrackerMap, newPeriodicAlarmTrackers, mConditionToMetricMap,
@@ -185,15 +207,16 @@ bool MetricsManager::updateConfig(const StatsdConfig& config, const int64_t time
 
     verifyGuardrailsAndUpdateStatsdStats();
     initializeConfigActiveStatus();
-    return mConfigValid;
+    return !mInvalidConfigReason.has_value();
 }
 
 void MetricsManager::createAllLogSourcesFromConfig(const StatsdConfig& config) {
     // Init allowed pushed atom uids.
     if (config.allowed_log_source_size() == 0) {
-        mConfigValid = false;
         ALOGE("Log source allowlist is empty! This config won't get any data. Suggest adding at "
               "least AID_SYSTEM and AID_STATSD to the allowed_log_source field.");
+        mInvalidConfigReason =
+                InvalidConfigReason(INVALID_CONFIG_REASON_LOG_SOURCE_ALLOWLIST_EMPTY);
     } else {
         for (const auto& source : config.allowed_log_source()) {
             auto it = UidMap::sAidToUidMapping.find(source);
@@ -206,7 +229,7 @@ void MetricsManager::createAllLogSourcesFromConfig(const StatsdConfig& config) {
 
         if (mAllowedUid.size() + mAllowedPkg.size() > StatsdStats::kMaxLogSourceCount) {
             ALOGE("Too many log sources. This is likely to be an error in the config.");
-            mConfigValid = false;
+            mInvalidConfigReason = InvalidConfigReason(INVALID_CONFIG_REASON_TOO_MANY_LOG_SOURCES);
         } else {
             initAllowedLogSources();
         }
@@ -221,7 +244,8 @@ void MetricsManager::createAllLogSourcesFromConfig(const StatsdConfig& config) {
             mDefaultPullUids.insert(it->second);
         } else {
             ALOGE("Default pull atom packages must be in sAidToUidMapping");
-            mConfigValid = false;
+            mInvalidConfigReason =
+                    InvalidConfigReason(INVALID_CONFIG_REASON_DEFAULT_PULL_PACKAGES_NOT_IN_MAP);
         }
     }
     // Init per-atom pull atom packages.
@@ -240,7 +264,8 @@ void MetricsManager::createAllLogSourcesFromConfig(const StatsdConfig& config) {
     if (numPullPackages > StatsdStats::kMaxPullAtomPackages) {
         ALOGE("Too many sources in default_pull_packages and pull_atom_packages. This is likely to "
               "be an error in the config");
-        mConfigValid = false;
+        mInvalidConfigReason =
+                InvalidConfigReason(INVALID_CONFIG_REASON_TOO_MANY_SOURCES_IN_PULL_PACKAGES);
     } else {
         initPullAtomSources();
     }
@@ -248,21 +273,27 @@ void MetricsManager::createAllLogSourcesFromConfig(const StatsdConfig& config) {
 
 void MetricsManager::verifyGuardrailsAndUpdateStatsdStats() {
     // Guardrail. Reject the config if it's too big.
-    if (mAllMetricProducers.size() > StatsdStats::kMaxMetricCountPerConfig ||
-        mAllConditionTrackers.size() > StatsdStats::kMaxConditionCountPerConfig ||
-        mAllAtomMatchingTrackers.size() > StatsdStats::kMaxMatcherCountPerConfig) {
-        ALOGE("This config is too big! Reject!");
-        mConfigValid = false;
+    if (mAllMetricProducers.size() > StatsdStats::kMaxMetricCountPerConfig) {
+        ALOGE("This config has too many metrics! Reject!");
+        mInvalidConfigReason = InvalidConfigReason(INVALID_CONFIG_REASON_TOO_MANY_METRICS);
+    }
+    if (mAllConditionTrackers.size() > StatsdStats::kMaxConditionCountPerConfig) {
+        ALOGE("This config has too many predicates! Reject!");
+        mInvalidConfigReason = InvalidConfigReason(INVALID_CONFIG_REASON_TOO_MANY_CONDITIONS);
+    }
+    if (mAllAtomMatchingTrackers.size() > StatsdStats::kMaxMatcherCountPerConfig) {
+        ALOGE("This config has too many matchers! Reject!");
+        mInvalidConfigReason = InvalidConfigReason(INVALID_CONFIG_REASON_TOO_MANY_MATCHERS);
     }
     if (mAllAnomalyTrackers.size() > StatsdStats::kMaxAlertCountPerConfig) {
         ALOGE("This config has too many alerts! Reject!");
-        mConfigValid = false;
+        mInvalidConfigReason = InvalidConfigReason(INVALID_CONFIG_REASON_TOO_MANY_ALERTS);
     }
     // no matter whether this config is valid, log it in the stats.
     StatsdStats::getInstance().noteConfigReceived(
             mConfigKey, mAllMetricProducers.size(), mAllConditionTrackers.size(),
             mAllAtomMatchingTrackers.size(), mAllAnomalyTrackers.size(), mAnnotations,
-            mConfigValid);
+            mInvalidConfigReason);
 }
 
 void MetricsManager::initializeConfigActiveStatus() {
@@ -306,7 +337,7 @@ void MetricsManager::initPullAtomSources() {
 }
 
 bool MetricsManager::isConfigValid() const {
-    return mConfigValid;
+    return !mInvalidConfigReason.has_value();
 }
 
 void MetricsManager::notifyAppUpgrade(const int64_t& eventTimeNs, const string& apk, const int uid,
@@ -411,6 +442,11 @@ void MetricsManager::onDumpReport(const int64_t dumpTimeStampNs, const int64_t w
                                   const bool include_current_partial_bucket, const bool erase_data,
                                   const DumpLatency dumpLatency, std::set<string>* str_set,
                                   ProtoOutputStream* protoOutput) {
+    if (hasRestrictedMetricsDelegate()) {
+        // TODO(b/268150038): report error to statsdstats
+        VLOG("Unexpected call to onDumpReport in restricted metricsmanager.");
+        return;
+    }
     VLOG("=========================Metric Reports Start==========================");
     // one StatsLogReport per MetricProduer
     for (const auto& producer : mAllMetricProducers) {
@@ -523,7 +559,7 @@ bool MetricsManager::eventSanityCheck(const LogEvent& event) {
 
 // Consume the stats log if it's interesting to this metric.
 void MetricsManager::onLogEvent(const LogEvent& event) {
-    if (!mConfigValid) {
+    if (!isConfigValid()) {
         return;
     }
 
@@ -531,12 +567,13 @@ void MetricsManager::onLogEvent(const LogEvent& event) {
         return;
     }
 
+    // TODO(b/212755214): this check could be done once on the StatsLogProcessor level
     if (!eventSanityCheck(event)) {
         return;
     }
 
-    int tagId = event.GetTagId();
-    int64_t eventTimeNs = event.GetElapsedTimestampNs();
+    const int tagId = event.GetTagId();
+    const int64_t eventTimeNs = event.GetElapsedTimestampNs();
 
     bool isActive = mIsAlwaysActive;
 
@@ -556,17 +593,28 @@ void MetricsManager::onLogEvent(const LogEvent& event) {
 
     mIsActive = isActive || !activeMetricsIndices.empty();
 
-    if (mTagIds.find(tagId) == mTagIds.end()) {
+    const auto matchersIt = mTagIdsToMatchersMap.find(tagId);
+
+    if (matchersIt == mTagIdsToMatchersMap.end()) {
         // Not interesting...
+        return;
+    }
+
+    if (event.isParsedHeaderOnly()) {
+        // This should not happen if metric config is defined for certain atom id
+        const int64_t firstMatcherId =
+                mAllAtomMatchingTrackers[*matchersIt->second.begin()]->getId();
+        ALOGW("Atom %d is mistakenly skipped - there is a matcher %lld for it", tagId,
+              (long long)firstMatcherId);
         return;
     }
 
     vector<MatchingState> matcherCache(mAllAtomMatchingTrackers.size(),
                                        MatchingState::kNotComputed);
 
-    // Evaluate all atom matchers.
-    for (auto& matcher : mAllAtomMatchingTrackers) {
-        matcher->onLogEvent(event, mAllAtomMatchingTrackers, matcherCache);
+    for (const auto& matcherIndex : matchersIt->second) {
+        mAllAtomMatchingTrackers[matcherIndex]->onLogEvent(event, mAllAtomMatchingTrackers,
+                                                           matcherCache);
     }
 
     // Set of metrics that received an activation cancellation.
@@ -654,7 +702,6 @@ void MetricsManager::onLogEvent(const LogEvent& event) {
             }
         }
     }
-
     // For matched AtomMatchers, tell relevant metrics that a matched event has come.
     for (size_t i = 0; i < mAllAtomMatchingTrackers.size(); i++) {
         if (matcherCache[i] == MatchingState::kMatched) {
@@ -749,6 +796,15 @@ bool MetricsManager::writeMetadataToProto(int64_t currentWallClockTimeNs,
         }
         metadataWritten |= alertWritten;
     }
+
+    for (const auto& metricProducer : mAllMetricProducers) {
+        metadata::MetricMetadata* metricMetadata = statsMetadata->add_metric_metadata();
+        bool metricWritten = metricProducer->writeMetricMetadataToProto(metricMetadata);
+        if (!metricWritten) {
+            statsMetadata->mutable_metric_metadata()->RemoveLast();
+        }
+        metadataWritten |= metricWritten;
+    }
     return metadataWritten;
 }
 
@@ -757,7 +813,7 @@ void MetricsManager::loadMetadata(const metadata::StatsMetadata& metadata,
                                   int64_t systemElapsedTimeNs) {
     for (const metadata::AlertMetadata& alertMetadata : metadata.alert_metadata()) {
         int64_t alertId = alertMetadata.alert_id();
-        auto it = mAlertTrackerMap.find(alertId);
+        const auto& it = mAlertTrackerMap.find(alertId);
         if (it == mAlertTrackerMap.end()) {
             ALOGE("No anomalyTracker found for alertId %lld", (long long) alertId);
             continue;
@@ -765,6 +821,67 @@ void MetricsManager::loadMetadata(const metadata::StatsMetadata& metadata,
         mAllAnomalyTrackers[it->second]->loadAlertMetadata(alertMetadata,
                                                            currentWallClockTimeNs,
                                                            systemElapsedTimeNs);
+    }
+    for (const metadata::MetricMetadata& metricMetadata : metadata.metric_metadata()) {
+        int64_t metricId = metricMetadata.metric_id();
+        const auto& it = mMetricProducerMap.find(metricId);
+        if (it == mMetricProducerMap.end()) {
+            ALOGE("No metricProducer found for metricId %lld", (long long)metricId);
+        }
+        mAllMetricProducers[it->second]->loadMetricMetadataFromProto(metricMetadata);
+    }
+}
+
+void MetricsManager::enforceRestrictedDataTtls(const int64_t wallClockNs) {
+    if (!hasRestrictedMetricsDelegate()) {
+        return;
+    }
+    sqlite3* db = dbutils::getDb(mConfigKey);
+    if (db == nullptr) {
+        ALOGE("Failed to open sqlite db");
+        dbutils::closeDb(db);
+        return;
+    }
+    for (const auto& producer : mAllMetricProducers) {
+        producer->enforceRestrictedDataTtl(db, wallClockNs);
+    }
+    dbutils::closeDb(db);
+}
+
+bool MetricsManager::validateRestrictedMetricsDelegate(const int32_t callingUid) {
+    if (!hasRestrictedMetricsDelegate()) {
+        return false;
+    }
+
+    set<int32_t> possibleUids = mUidMap->getAppUid(mRestrictedMetricsDelegatePackageName.value());
+
+    return possibleUids.find(callingUid) != possibleUids.end();
+}
+
+void MetricsManager::flushRestrictedData() {
+    if (!hasRestrictedMetricsDelegate()) {
+        return;
+    }
+    int64_t flushStartNs = getElapsedRealtimeNs();
+    for (const auto& producer : mAllMetricProducers) {
+        producer->flushRestrictedData();
+    }
+    StatsdStats::getInstance().noteRestrictedConfigFlushLatency(
+            mConfigKey, getElapsedRealtimeNs() - flushStartNs);
+}
+
+vector<int64_t> MetricsManager::getAllMetricIds() const {
+    vector<int64_t> metricIds;
+    metricIds.reserve(mMetricProducerMap.size());
+    for (const auto& [metricId, _] : mMetricProducerMap) {
+        metricIds.push_back(metricId);
+    }
+    return metricIds;
+}
+
+void MetricsManager::addAllAtomIds(LogEventFilter::AtomIdSet& allIds) const {
+    for (const auto& [atomId, _] : mTagIdsToMatchersMap) {
+        allIds.insert(atomId);
     }
 }
 

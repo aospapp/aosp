@@ -43,6 +43,9 @@ class UI_Handler(object):
                 })
             })'''
 
+    _GET_ON_SCREEN_ITEMS = "findAll({attributes:{role: 'staticText'},state:{" \
+                           "offscreen: false}}).map(node => node.name)"
+
     def __init__(self):
         self.screenshoter = UIScreenshoter()
 

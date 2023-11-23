@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"പ്രമാണം സംരക്ഷിക്കുന്നതിൽ പരാജയപ്പെട്ടു"</string>
     <string name="create_error" msgid="3092144450044861994">"ഫോൾഡർ സൃഷ്‌ടിക്കുന്നതിൽ പരാജയപ്പെട്ടു"</string>
     <string name="query_error" msgid="6625421453613879336">"ഇപ്പോൾ ഉള്ളടക്കം ലോഡുചെയ്യാൻ കഴിയില്ല"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"ഔദ്യോഗിക പ്രൊഫൈൽ തൽക്കാലം നിർത്തിയിരിക്കുന്നു"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"ഓണാക്കുക"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"ഔദ്യോഗിക ആപ്പുകൾ തൽക്കാലം നിർത്തിയിരിക്കുന്നു"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"ഔദ്യോഗിക ആപ്പുകൾ ഓണാക്കുക"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"ഔദ്യോഗിക ഫയലുകൾ തിരഞ്ഞെടുക്കാനാവില്ല"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"വ്യക്തിപരമായ ആപ്പിൽ നിന്ന് ഔദ്യോഗിക ഫയലുകൾ ആക്സസ് ചെയ്യാൻ നിങ്ങളുടെ ഐടി അഡ്മിൻ അനുവദിക്കുന്നില്ല"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"വ്യക്തിപര ഫയലുകൾ തിരഞ്ഞെടുക്കാനാവില്ല"</string>

@@ -49,6 +49,8 @@ public class DreamOverlayTest extends ActivityManagerTestBase {
             "android.app.dream.cts.app/.TestDreamService";
     private static final String ACTION_DREAM_OVERLAY_SHOWN =
             "android.app.dream.cts.app.action.overlay_shown";
+    private static final String ACTION_DREAM_OVERLAY_REMOVED =
+            "android.app.dream.cts.app.action.overlay_removed";
 
     private static final int TIMEOUT_SECONDS = 5;
 
@@ -90,21 +92,31 @@ public class DreamOverlayTest extends ActivityManagerTestBase {
                 PackageManager.FEATURE_AUTOMOTIVE));
 
         // Listen for the overlay to be shown
-        final CountDownLatch countDownLatch = new CountDownLatch(1);
+        final CountDownLatch shownCountDownLatch = new CountDownLatch(1);
         mContext.registerReceiver(
-                new OverlayVisibilityReceiver(countDownLatch),
-                new IntentFilter(ACTION_DREAM_OVERLAY_SHOWN));
+                new OverlayVisibilityReceiver(shownCountDownLatch),
+                new IntentFilter(ACTION_DREAM_OVERLAY_SHOWN),
+                Context.RECEIVER_EXPORTED);
 
         final ComponentName dreamService =
                 ComponentName.unflattenFromString(DREAM_SERVICE_COMPONENT);
         final ComponentName dreamActivity = mDreamCoordinator.setActiveDream(dreamService);
 
-        mDreamCoordinator.startDream(dreamService);
+        mDreamCoordinator.startDream();
         waitAndAssertTopResumedActivity(dreamActivity, Display.DEFAULT_DISPLAY,
                 "Dream activity should be the top resumed activity");
-        // Wait on count down latch.
-        assertThat(countDownLatch.await(TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
-        mDreamCoordinator.stopDream();
+        // Wait on count down latch for overlay being added.
+        assertThat(shownCountDownLatch.await(TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
 
+        // Listen for the overlay to be removed
+        final CountDownLatch removedCountDownLatch = new CountDownLatch(1);
+        mContext.registerReceiver(
+                new OverlayVisibilityReceiver(removedCountDownLatch),
+                new IntentFilter(ACTION_DREAM_OVERLAY_REMOVED),
+                Context.RECEIVER_EXPORTED);
+
+        mDreamCoordinator.stopDream();
+        // Wait on count down latch for overlay being removed.
+        assertThat(removedCountDownLatch.await(TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
     }
 }

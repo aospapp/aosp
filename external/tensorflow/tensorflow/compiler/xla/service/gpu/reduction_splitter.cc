@@ -33,14 +33,14 @@ class ReductionSplitterVisitor : public DfsHloRewriteVisitor {
     // Reductions with contiguous dimensions are lowered to efficient code. No
     // need to split such ops.
     if (IsReductionFromOrToContiguousDimensions(*reduce)) {
-      return Status::OK();
+      return OkStatus();
     }
     if (reduce->dimensions().size() < 2) {
-      return Status::OK();
+      return OkStatus();
     }
     if (!reduce->shape().IsArray()) {
       // TODO(cheshire): Handle variadic reduction.
-      return Status::OK();
+      return OkStatus();
     }
 
     HloInstruction *operand = reduce->mutable_operand(0);
@@ -70,16 +70,16 @@ class ReductionSplitterVisitor : public DfsHloRewriteVisitor {
     }
     // TODO(tjoerg): Run microbenchmarks to tune this threshold.
     if (max_shape_dim < 128) {
-      return Status::OK();
+      return OkStatus();
     }
 
     // Split the reduction into a pre-reduction and a final reduction.
     VLOG(3) << "Splitting reduction " << reduce->name() << " at dimension "
             << max_reduce_dim;
-    std::vector<int64> pre_reduce_dims;
+    std::vector<int64_t> pre_reduce_dims;
     pre_reduce_dims.push_back(max_reduce_dim);
-    std::vector<int64> pre_reduce_shape_dims(input_shape.dimensions().begin(),
-                                             input_shape.dimensions().end());
+    std::vector<int64_t> pre_reduce_shape_dims(input_shape.dimensions().begin(),
+                                               input_shape.dimensions().end());
     pre_reduce_shape_dims.erase(pre_reduce_shape_dims.begin() + max_reduce_dim);
     Shape pre_reduce_shape = ShapeUtil::MakeShape(
         reduce->shape().element_type(), pre_reduce_shape_dims);
@@ -88,8 +88,8 @@ class ReductionSplitterVisitor : public DfsHloRewriteVisitor {
         reduce->mutable_operand(1), pre_reduce_dims, reduce->to_apply());
     pre_reduce->set_metadata(reduce->metadata());
 
-    std::vector<int64> final_reduce_dims(reduce->dimensions().begin(),
-                                         reduce->dimensions().end());
+    std::vector<int64_t> final_reduce_dims(reduce->dimensions().begin(),
+                                           reduce->dimensions().end());
     final_reduce_dims.erase(
         std::remove(final_reduce_dims.begin(), final_reduce_dims.end(),
                     max_reduce_dim),
@@ -107,9 +107,11 @@ class ReductionSplitterVisitor : public DfsHloRewriteVisitor {
   }
 };
 
-StatusOr<bool> ReductionSplitter::Run(HloModule *module) {
-  TF_ASSIGN_OR_RETURN(bool changed,
-                      ReductionSplitterVisitor().RunOnModule(module));
+StatusOr<bool> ReductionSplitter::Run(
+    HloModule *module,
+    const absl::flat_hash_set<absl::string_view> &execution_threads) {
+  TF_ASSIGN_OR_RETURN(bool changed, ReductionSplitterVisitor().RunOnModule(
+                                        module, execution_threads));
   return changed;
 }
 

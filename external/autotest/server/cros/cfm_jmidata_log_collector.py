@@ -4,6 +4,8 @@
 
 import logging
 
+import common
+
 from autotest_lib.server.cros import cfm_jmidata_v3_helper
 
 
@@ -68,4 +70,3 @@ def GetDataFromLogs(testcase, data_type, log_lines):
     # Ensure we always return at least one element, or perf uploads will be
     # sad.
     return data_array or [0]
-

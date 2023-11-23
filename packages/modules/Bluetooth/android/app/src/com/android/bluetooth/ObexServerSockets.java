@@ -14,6 +14,7 @@
 */
 package com.android.bluetooth;
 
+import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
@@ -24,6 +25,7 @@ import com.android.obex.ResponseCodes;
 import com.android.obex.ServerSession;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Wraps multiple BluetoothServerSocket objects to make it possible to accept connections on
@@ -48,7 +50,6 @@ public class ObexServerSockets {
     private final String mTag;
     private static final String STAG = "ObexServerSockets";
     private static final boolean D = true; // TODO: set to false!
-    private static final int NUMBER_OF_SOCKET_TYPES = 2; // increment if LE will be supported
 
     private final IObexConnectionHandler mConHandler;
     /* The wrapped sockets */
@@ -58,14 +59,14 @@ public class ObexServerSockets {
     private SocketAcceptThread mRfcommThread;
     private SocketAcceptThread mL2capThread;
 
-    private static volatile int sInstanceCounter;
+    private static volatile AtomicInteger sInstanceCounter = new AtomicInteger(0);
 
     private ObexServerSockets(IObexConnectionHandler conHandler, BluetoothServerSocket rfcommSocket,
             BluetoothServerSocket l2capSocket) {
         mConHandler = conHandler;
         mRfcommSocket = rfcommSocket;
         mL2capSocket = l2capSocket;
-        mTag = "ObexServerSockets" + sInstanceCounter++;
+        mTag = "ObexServerSockets" + sInstanceCounter.getAndIncrement();
     }
 
     /**
@@ -73,8 +74,8 @@ public class ObexServerSockets {
      * @param validator a reference to the {@link IObexConnectionHandler} object to call
      *                  to validate an incoming connection.
      * @return a reference to a {@link ObexServerSockets} object instance.
-     * @throws IOException if it occurs while creating the {@link BluetoothServerSocket}s.
      */
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
     public static ObexServerSockets create(IObexConnectionHandler validator) {
         return create(validator, BluetoothAdapter.SOCKET_CHANNEL_AUTO_STATIC_NO_SDP,
                 BluetoothAdapter.SOCKET_CHANNEL_AUTO_STATIC_NO_SDP, true);
@@ -86,8 +87,8 @@ public class ObexServerSockets {
      * @param validator a reference to the {@link IObexConnectionHandler} object to call
      *                  to validate an incoming connection.
      * @return a reference to a {@link ObexServerSockets} object instance.
-     * @throws IOException if it occurs while creating the {@link BluetoothServerSocket}s.
      */
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
     public static ObexServerSockets createInsecure(IObexConnectionHandler validator) {
         return create(validator, BluetoothAdapter.SOCKET_CHANNEL_AUTO_STATIC_NO_SDP,
                 BluetoothAdapter.SOCKET_CHANNEL_AUTO_STATIC_NO_SDP, false);
@@ -104,11 +105,11 @@ public class ObexServerSockets {
      *                  to validate an incoming connection.
      * @param isSecure boolean flag to determine whther socket would be secured or inseucure.
      * @return a reference to a {@link ObexServerSockets} object instance.
-     * @throws IOException if it occurs while creating the {@link BluetoothServerSocket}s.
      *
      * TODO: Make public when it becomes possible to determine that the listen-call
      *       failed due to channel-in-use.
      */
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
     private static ObexServerSockets create(IObexConnectionHandler validator, int rfcommChannel,
             int l2capPsm, boolean isSecure) {
         if (D) {
@@ -292,8 +293,7 @@ public class ObexServerSockets {
         /**
          * Create a SocketAcceptThread
          * @param serverSocket shall never be null.
-         * @param latch shall never be null.
-         * @throws IllegalArgumentException
+         * @throws IllegalArgumentException if {@code serverSocket} is null
          */
         SocketAcceptThread(BluetoothServerSocket serverSocket) {
             if (serverSocket == null) {

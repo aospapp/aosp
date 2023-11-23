@@ -104,7 +104,9 @@ class TextCodebase(location: File) : DefaultCodebase(location) {
         if (!mClassToInterface.containsKey(classInfo)) {
             mClassToInterface[classInfo] = ArrayList()
         }
-        mClassToInterface[classInfo]?.add(iface)
+        mClassToInterface[classInfo]?.let {
+            if (!it.contains(iface)) it.add(iface)
+        }
     }
 
     fun implementsInterface(classInfo: TextClassItem, iface: String): Boolean {

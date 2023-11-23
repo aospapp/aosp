@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
 
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo.VideoCapabilities;
@@ -27,7 +28,6 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.cts.MediaHeavyPresubmitTest;
 import android.media.cts.MediaTestBase;
-import android.media.cts.Preconditions;
 import android.media.cts.TestArgs;
 import android.media.cts.TestUtils;
 import android.os.Bundle;
@@ -37,21 +37,20 @@ import android.util.Log;
 import android.util.Pair;
 import android.view.Surface;
 
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.MediaPerfUtils;
 import com.android.compatibility.common.util.MediaUtils;
+import com.android.compatibility.common.util.Preconditions;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 
 import org.junit.After;
-import org.junit.Assume;
 import org.junit.Before;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.junit.Test;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -80,6 +79,7 @@ public class VideoDecoderPerfTest extends MediaTestBase {
     private static final String MPEG4 = MediaFormat.MIMETYPE_VIDEO_MPEG4;
     private static final String VP8 = MediaFormat.MIMETYPE_VIDEO_VP8;
     private static final String VP9 = MediaFormat.MIMETYPE_VIDEO_VP9;
+    private static final String AV1 = MediaFormat.MIMETYPE_VIDEO_AV1;
 
     private static final boolean GOOG = true;
     private static final boolean OTHER = false;
@@ -123,7 +123,7 @@ public class VideoDecoderPerfTest extends MediaTestBase {
         return argsList;
     }
 
-    @Parameterized.Parameters(name = "{index}({0}:{3})")
+    @Parameterized.Parameters(name = "{index}_{0}_{3}")
     public static Collection<Object[]> input() {
         final List<Object[]> exhaustiveArgsList = Arrays.asList(new Object[][]{
                 // MediaType, resources, graphics display resolution
@@ -156,6 +156,12 @@ public class VideoDecoderPerfTest extends MediaTestBase {
                 {VP9, sVp9Media1280x0720, "hd"},
                 {VP9, sVp9Media1920x1080, "fullhd"},
                 {VP9, sVp9Media3840x2160, "uhd"},
+
+                {AV1, sAv1Media0352x0288, "cif"},
+                {AV1, sAv1Media0640x0360, "vga"},
+                {AV1, sAv1Media0720x0480, "sd"},
+                {AV1, sAv1Media1280x0720, "hd"},
+                {AV1, sAv1Media1920x1080, "fullhd"},
         });
         return prepareParamList(exhaustiveArgsList);
     }
@@ -211,14 +217,18 @@ public class VideoDecoderPerfTest extends MediaTestBase {
         }
 
         // allow improvements in mainline-updated google-supplied software codecs.
-        boolean fasterIsOk = mUpdatedSwCodec & name.startsWith("c2.android.");
+        boolean fasterIsOk = mUpdatedSwCodec & TestUtils.isMainlineCodec(name);
         String error =
             MediaPerfUtils.verifyAchievableFrameRates(name, mime, width, height,
                            fasterIsOk,  measuredFps);
         // Performance numbers only make sense on real devices, so skip on non-real devices
         if ((MediaUtils.onFrankenDevice() || mSkipRateChecking) && error != null) {
-            // ensure there is data, but don't insist that it is correct
-            assertFalse(error, error.startsWith("Failed to get "));
+            if (TestUtils.isMtsMode() && TestUtils.isMainlineCodec(name)) {
+                assumeFalse(error, error.startsWith("Failed to get "));
+            } else {
+                // ensure there is data, but don't insist that it is correct
+                assertFalse(error, error.startsWith("Failed to get "));
+            }
         } else {
             assertNull(error, error);
         }
@@ -557,6 +567,28 @@ public class VideoDecoderPerfTest extends MediaTestBase {
     private static final String[] sVp9Media3840x2160 = {
         "bbb_s4_3840x2160_webm_vp9_0p5_20mbps_30fps_vorbis_6ch_384kbps_24000hz.webm",
         "bbb_s2_3840x2160_webm_vp9_0p51_20mbps_60fps_vorbis_6ch_384kbps_32000hz.webm",
+    };
+
+    // AV1 tests
+
+    private static final String[] sAv1Media0352x0288 = {
+        "bbb_s1_352x288_mp4_av1_355kbps_30fps_aac_lc_stereo_128kbps_48000hz.mp4",
+    };
+
+    private static final String[] sAv1Media0640x0360 = {
+        "bbb_s1_640x360_mp4_av1_994kbps_30fps_aac_lc_6ch_342kbps_48000hz.mp4",
+    };
+
+    private static final String[] sAv1Media0720x0480 = {
+        "bbb_s1_720x480_mp4_av1_977kbps_30fps_aac_lc_6ch_341kbps_48000hz.mp4",
+    };
+
+    private static final String[] sAv1Media1280x0720 = {
+        "bbb_s4_1280x720_mp4_av1_2387kbps_30fps_aac_lc_stereo_130kbps_32000hz.mp4",
+    };
+
+    private static final String[] sAv1Media1920x1080 = {
+        "bbb_s2_1920x1080_mp4_av1_5010kbps_60fps_aac_lc_6ch_348kbps_22050hz.mp4",
     };
 
     @Test

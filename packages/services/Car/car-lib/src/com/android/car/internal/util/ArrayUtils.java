@@ -38,16 +38,14 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.IntFunction;
 
-
 // Copy of frameworks/base/core/java/com/android/internal/util/ArrayUtils.java
-
 /**
  * ArrayUtils contains some methods that you can call to find out
  * the most efficient increments by which to grow arrays.
  *
  * @hide
  */
-public class ArrayUtils {
+public final class ArrayUtils {
     private static final int CACHE_SIZE = 73;
     private static Object[] sCache = new Object[CACHE_SIZE];
 
@@ -587,7 +585,8 @@ public class ArrayUtils {
 
     /** Add to array */
     @NonNull
-    public static <T> ArraySet<T> add(@Nullable ArraySet<T> cur, T val) {
+    public static <T> ArraySet<T> add(@Nullable ArraySet<T> arraySet, T val) {
+        ArraySet<T> cur = arraySet;
         if (cur == null) {
             cur = new ArraySet<>();
         }
@@ -599,8 +598,9 @@ public class ArrayUtils {
      * Similar to {@link Set#addAll(Collection)}}, but with support for set values of {@code null}.
      */
     @NonNull
-    public static <T> ArraySet<T> addAll(@Nullable ArraySet<T> cur,
+    public static <T> ArraySet<T> addAll(@Nullable ArraySet<T> arraySet,
             @Nullable Collection<T> val) {
+        ArraySet<T> cur = arraySet;
         if (cur == null) {
             cur = new ArraySet<>();
         }
@@ -626,7 +626,8 @@ public class ArrayUtils {
 
     /** TODO: add javadoc */
     @NonNull
-    public static <T> ArrayList<T> add(@Nullable ArrayList<T> cur, T val) {
+    public static <T> ArrayList<T> add(@Nullable ArrayList<T> arraySet, T val) {
+        ArrayList<T> cur = arraySet;
         if (cur == null) {
             cur = new ArrayList<>();
         }
@@ -636,7 +637,8 @@ public class ArrayUtils {
 
     /** TODO: add javadoc */
     @NonNull
-    public static <T> ArrayList<T> add(@Nullable ArrayList<T> cur, int index, T val) {
+    public static <T> ArrayList<T> add(@Nullable ArrayList<T> arraySet, int index, T val) {
+        ArrayList<T> cur = arraySet;
         if (cur == null) {
             cur = new ArrayList<>();
         }

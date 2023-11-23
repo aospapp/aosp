@@ -31,6 +31,7 @@ import static com.android.ims.rcs.uce.request.UceRequestCoordinator.REQUEST_UPDA
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -133,7 +134,7 @@ public class UceRequestManagerTest extends ImsTestBase {
         waitForHandlerAction(handler, 500L);
 
         verify(mUceRequest, never()).executeRequest();
-        verify(mCapabilitiesCallback).onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L);
+        verify(mCapabilitiesCallback).onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L, null);
     }
 
     /**
@@ -164,7 +165,7 @@ public class UceRequestManagerTest extends ImsTestBase {
         verify(mCapabilitiesCallback).onCapabilitiesReceived(
                 cachedNumbers.stream().map(EabCapabilityResult::getContactCapabilities).collect(
                 Collectors.toList()));
-        verify(mCapabilitiesCallback).onComplete();
+        verify(mCapabilitiesCallback).onComplete(eq(null));
         // The cache should have been hit, so no network requests should have been generated.
         verify(mRequestRepository, never()).addRequestCoordinator(any());
     }
@@ -196,7 +197,7 @@ public class UceRequestManagerTest extends ImsTestBase {
         waitForHandlerAction(handler, 500L);
         // Extract caps from EabCapabilityResult and ensure the Lists match.
         verify(mCapabilitiesCallback, never()).onCapabilitiesReceived(any());
-        verify(mCapabilitiesCallback, never()).onComplete();
+        verify(mCapabilitiesCallback, never()).onComplete(any());
         // A network request should have been generated for the expired contact.
         verify(mRequestRepository).addRequestCoordinator(any());
     }
@@ -240,7 +241,7 @@ public class UceRequestManagerTest extends ImsTestBase {
         // Extract caps from EabCapabilityResult and ensure the Lists match.
         verify(mCapabilitiesCallback).onCapabilitiesReceived(
                 Collections.singletonList(cachedItem.getContactCapabilities()));
-        verify(mCapabilitiesCallback, never()).onComplete();
+        verify(mCapabilitiesCallback, never()).onComplete(any());
         // The cache should have been hit, but there was also entry that was not in the cache, so
         // ensure that is requested.
         verify(mRequestRepository).addRequestCoordinator(any());

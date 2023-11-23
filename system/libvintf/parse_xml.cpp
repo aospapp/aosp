@@ -32,8 +32,15 @@
 #include "constants.h"
 #include "parse_string.h"
 #include "parse_xml_for_test.h"
+#include "utils.h"
 
 using namespace std::string_literals;
+
+#ifdef LIBVINTF_TARGET
+static constexpr bool kDevice = true;
+#else
+static constexpr bool kDevice = false;
+#endif
 
 namespace android {
 namespace vintf {
@@ -173,6 +180,7 @@ struct MutateNodeParam {
 struct BuildObjectParam {
     std::string* error;
     Version metaVersion;
+    std::string fileName;
 };
 
 template <typename Object>
@@ -225,7 +233,17 @@ struct XmlNodeConverter {
         // CompatibilityMatrixConverter fills in metaversion and pass down to children.
         // For other nodes, we don't know metaversion of the original XML, so just leave empty
         // for maximum backwards compatibility.
-        bool ret = (*this)(o, getRootChild(doc), BuildObjectParam{error, {}});
+        BuildObjectParam buildObjectParam{error, {}, {}};
+        // Pass down filename for the current XML document.
+        if constexpr (std::is_base_of_v<WithFileName, Object>) {
+            // Get the last filename in case `o` keeps the list of filenames
+            std::string_view fileName{o->fileName()};
+            if (auto pos = fileName.rfind(':'); pos != fileName.npos) {
+                fileName.remove_prefix(pos + 1);
+            }
+            buildObjectParam.fileName = std::string(fileName);
+        }
+        bool ret = (*this)(o, getRootChild(doc), buildObjectParam);
         deleteDocument(doc);
         return ret;
     }
@@ -561,7 +579,9 @@ struct HalInterfaceConverter : public XmlNodeConverter<HalInterface> {
     std::string elementName() const override { return "interface"; }
     void mutateNode(const HalInterface& object, NodeType* root,
                     const MutateNodeParam& param) const override {
-        appendTextElement(root, "name", object.name(), param.d);
+        if (!object.name().empty()) {
+            appendTextElement(root, "name", object.name(), param.d);
+        }
         appendTextElements(root, "instance", object.mInstances, param.d);
         appendTextElements(root, "regex-instance", object.mRegexes, param.d);
     }
@@ -569,7 +589,7 @@ struct HalInterfaceConverter : public XmlNodeConverter<HalInterface> {
                      const BuildObjectParam& param) const override {
         std::vector<std::string> instances;
         std::vector<std::string> regexes;
-        if (!parseTextElement(root, "name", &object->mName, param.error) ||
+        if (!parseOptionalTextElement(root, "name", {}, &object->mName, param.error) ||
             !parseTextElements(root, "instance", &instances, param.error) ||
             !parseTextElements(root, "regex-instance", &regexes, param.error)) {
             return false;
@@ -605,6 +625,10 @@ struct MatrixHalConverter : public XmlNodeConverter<MatrixHal> {
                     const MutateNodeParam& param) const override {
         appendAttr(root, "format", object.format);
         appendAttr(root, "optional", object.optional);
+        // Only include update-via-apex if enabled
+        if (object.updatableViaApex) {
+            appendAttr(root, "updatable-via-apex", object.updatableViaApex);
+        }
         appendTextElement(root, "name", object.name, param.d);
         if (object.format == HalFormat::AIDL) {
             // By default, buildObject() assumes a <version>0</version> tag if no <version> tag
@@ -625,6 +649,8 @@ struct MatrixHalConverter : public XmlNodeConverter<MatrixHal> {
         if (!parseOptionalAttr(root, "format", HalFormat::HIDL, &object->format, param.error) ||
             !parseOptionalAttr(root, "optional", false /* defaultValue */, &object->optional,
                                param.error) ||
+            !parseOptionalAttr(root, "updatable-via-apex", false /* defaultValue */,
+                               &object->updatableViaApex, param.error) ||
             !parseTextElement(root, "name", &object->name, param.error) ||
             !parseChildren(root, HalInterfaceConverter{}, &interfaces, param)) {
             return false;
@@ -653,12 +679,9 @@ struct MatrixHalConverter : public XmlNodeConverter<MatrixHal> {
                 return false;
             }
         }
-// Do not check for target-side libvintf to avoid restricting ability for upgrade accidentally.
-#ifndef LIBVINTF_TARGET
         if (!checkAdditionalRestrictionsOnHal(*object, param.error)) {
             return false;
         }
-#endif
 
         if (!object->isValid(param.error)) {
             param.error->insert(0, "'" + object->name + "' is not a valid Matrix HAL: ");
@@ -667,9 +690,13 @@ struct MatrixHalConverter : public XmlNodeConverter<MatrixHal> {
         return true;
     }
 
-#ifndef LIBVINTF_TARGET
    private:
     bool checkAdditionalRestrictionsOnHal(const MatrixHal& hal, std::string* error) const {
+        // Do not check for target-side libvintf to avoid restricting ability for upgrade
+        // accidentally.
+        if constexpr (kDevice) {
+            return true;
+        }
         if (hal.getName() == "netutils-wrapper") {
             if (hal.versionRanges.size() != 1) {
                 *error =
@@ -695,7 +722,6 @@ struct MatrixHalConverter : public XmlNodeConverter<MatrixHal> {
         }
         return true;
     }
-#endif
 };
 
 struct MatrixKernelConditionsConverter : public XmlNodeConverter<std::vector<KernelConfig>> {
@@ -772,7 +798,6 @@ struct ManifestHalConverter : public XmlNodeConverter<ManifestHal> {
         } else {
             appendChildren(root, VersionConverter{}, object.versions, param);
         }
-        appendChildren(root, HalInterfaceConverter{}, iterateValues(object.interfaces), param);
         if (object.isOverride()) {
             appendAttr(root, "override", object.isOverride());
         }
@@ -791,6 +816,9 @@ struct ManifestHalConverter : public XmlNodeConverter<ManifestHal> {
         if (object.getMaxLevel() != Level::UNSPECIFIED) {
             appendAttr(root, "max-level", object.getMaxLevel());
         }
+        if (object.getMinLevel() != Level::UNSPECIFIED) {
+            appendAttr(root, "min-level", object.getMinLevel());
+        }
     }
     bool buildObject(ManifestHal* object, NodeType* root,
                      const BuildObjectParam& param) const override {
@@ -802,10 +830,32 @@ struct ManifestHalConverter : public XmlNodeConverter<ManifestHal> {
             !parseTextElement(root, "name", &object->name, param.error) ||
             !parseOptionalChild(root, TransportArchConverter{}, {}, &object->transportArch,
                                 param) ||
-            !parseChildren(root, HalInterfaceConverter{}, &interfaces, param) ||
             !parseOptionalAttr(root, "max-level", Level::UNSPECIFIED, &object->mMaxLevel,
+                               param.error) ||
+            !parseOptionalAttr(root, "min-level", Level::UNSPECIFIED, &object->mMinLevel,
                                param.error)) {
             return false;
+        }
+
+        std::string_view apexName = parseApexName(param.fileName);
+        if (!apexName.empty()) {
+            if (object->mUpdatableViaApex.has_value()) {
+                // When defined in APEX, updatable-via-apex can be either
+                // - ""(empty)  : the HAL isn't updatable even if it's in APEX
+                // - {apex name}: the HAL is updtable via the current APEX
+                const std::string& updatableViaApex = object->mUpdatableViaApex.value();
+                if (!updatableViaApex.empty() && apexName.compare(updatableViaApex) != 0) {
+                    *param.error = "Invalid APEX HAL " + object->name + ": updatable-via-apex " +
+                                   updatableViaApex + " doesn't match with the defining APEX " +
+                                   std::string(apexName) + "\n";
+                    return false;
+                }
+            } else {
+                // Set updatable-via-apex to the defining APEX when it's not set explicitly.
+                // This should be set before calling insertInstances() which copies the current
+                // value to ManifestInstance.
+                object->mUpdatableViaApex = apexName;
+            }
         }
 
         switch (object->format) {
@@ -864,27 +914,97 @@ struct ManifestHalConverter : public XmlNodeConverter<ManifestHal> {
         }
         if (!object->transportArch.isValid(param.error)) return false;
 
-        object->interfaces.clear();
+        // Parse <fqname> into fqInstances list
+        std::set<FqInstance> fqInstances;
+        if (!parseChildren(root, FqInstanceConverter{}, &fqInstances, param)) {
+            return false;
+        }
+
+        // Handle deprecated <interface> x <instance>
+        if (!parseChildren(root, HalInterfaceConverter{}, &interfaces, param)) {
+            return false;
+        }
+        // Check duplicated <interface><name>
+        std::set<std::string> interface_names;
         for (auto &&interface : interfaces) {
-            auto res = object->interfaces.emplace(interface.name(), std::move(interface));
+            auto res = interface_names.emplace(interface.name());
             if (!res.second) {
-                *param.error = "Duplicated interface entry \"" + res.first->first +
+                *param.error = "Duplicated interface entry \"" + *res.first +
                                "\"; if additional instances are needed, add them to the "
                                "existing <interface> node.";
                 return false;
             }
         }
-// Do not check for target-side libvintf to avoid restricting upgrade accidentally.
-#ifndef LIBVINTF_TARGET
+        // Turn <version> x <interface> x <instance> into <fqname>s; insert into
+        // fqInstances list.
+        bool convertedInstancesIntoFqnames = false;
+        for (const auto& v : object->versions) {
+            for (const auto& intf : interfaces) {
+                if (param.metaVersion >= kMetaVersionNoHalInterfaceInstance &&
+                    (object->format == HalFormat::HIDL || object->format == HalFormat::AIDL) &&
+                    !intf.hasAnyInstance()) {
+                    *param.error +=
+                        "<hal> " + object->name + " <interface> " + intf.name() +
+                        " has no <instance>. Either specify <instance> or, "
+                        "preferably, specify <fqname> and delete <version> and <interface>.";
+                    return false;
+                }
+                bool cont = intf.forEachInstance(
+                    [&v, &fqInstances, &convertedInstancesIntoFqnames, &object, &param](
+                        const auto& interface, const auto& instance, bool /* isRegex */) {
+                        auto fqInstance = details::convertLegacyInstanceIntoFqInstance(
+                            object->name, v, interface, instance, object->format, param.error);
+
+                        if (!fqInstance.has_value()) {
+                            return false;
+                        }
+
+                        // Check for duplication in fqInstances.
+                        // Before kMetaVersionNoHalInterfaceInstance: It is okay to have duplication
+                        // between <interface> and <fqname>.
+                        // After kMetaVersionNoHalInterfaceInstance: Duplication between
+                        // <interface> and <fqname> is not allowed.
+                        auto&& [it, inserted] = fqInstances.emplace(std::move(fqInstance.value()));
+                        if (param.metaVersion >= kMetaVersionNoHalInterfaceInstance && !inserted) {
+                            std::string debugString =
+                                object->format == HalFormat::AIDL
+                                    ? toAidlFqnameString(object->name, interface, instance)
+                                    : toFQNameString(object->name, v, interface, instance);
+                            *param.error = "Duplicated " + debugString +
+                                           " in <interface><instance> and <fqname>. ";
+                            if constexpr (kDevice) {
+                                *param.error +=
+                                    "(Did you copy source manifests to the device directly "
+                                    "without going through assemble_vintf, e.g. not using "
+                                    "DEVICE_MANIFEST_FILE or ODM_MANIFEST_FILES?)";
+                            } else {
+                                *param.error += "Remove deprecated <interface>.";
+                            }
+                            return false;
+                        }
+
+                        convertedInstancesIntoFqnames = true;
+                        return true;  // continue
+                    });
+                if (!cont) {
+                    return false;
+                }
+            }
+        }
+
         if (!checkAdditionalRestrictionsOnHal(*object, param.error)) {
             return false;
         }
-#endif
 
-        std::set<FqInstance> fqInstances;
-        if (!parseChildren(root, FqInstanceConverter{}, &fqInstances, param)) {
-            return false;
+        // For HIDL, if any <version> x <interface> x <instance> tuple, all <version>
+        // tags can be cleared. <version> information is already in <fqname>'s.
+        // For AIDL, <version> information is not in <fqname>, so don't clear them.
+        // For HALs with only <version> but no <interface>
+        // (e.g. native HALs like netutils-wrapper), <version> is kept.
+        if (convertedInstancesIntoFqnames && object->format != HalFormat::AIDL) {
+            object->versions.clear();
         }
+
         std::set<FqInstance> fqInstancesToInsert;
         for (auto& e : fqInstances) {
             if (e.hasPackage()) {
@@ -911,7 +1031,16 @@ struct ManifestHalConverter : public XmlNodeConverter<ManifestHal> {
                 fqInstancesToInsert.emplace(std::move(e));
             }
         }
-        if (!object->insertInstances(fqInstancesToInsert, param.error)) {
+
+        if (param.metaVersion >= kMetaVersionNoHalInterfaceInstance &&
+            (object->format == HalFormat::HIDL || object->format == HalFormat::AIDL) &&
+            fqInstancesToInsert.empty() && !object->isOverride()) {
+            *param.error = "<hal> " + object->name + " has no instance. Fix by adding <fqname>.";
+            return false;
+        }
+
+        bool allowMajorVersionDup = param.metaVersion < kMetaVersionNoHalInterfaceInstance;
+        if (!object->insertInstances(fqInstancesToInsert, allowMajorVersionDup, param.error)) {
             return false;
         }
 
@@ -923,9 +1052,12 @@ struct ManifestHalConverter : public XmlNodeConverter<ManifestHal> {
         return true;
     }
 
-#ifndef LIBVINTF_TARGET
    private:
     bool checkAdditionalRestrictionsOnHal(const ManifestHal& hal, std::string* error) const {
+        // Do not check for target-side libvintf to avoid restricting upgrade accidentally.
+        if constexpr (kDevice) {
+            return true;
+        }
         if (hal.getName() == "netutils-wrapper") {
             for (const Version& v : hal.versions) {
                 if (v.minorVer != 0) {
@@ -939,7 +1071,6 @@ struct ManifestHalConverter : public XmlNodeConverter<ManifestHal> {
         }
         return true;
     }
-#endif
 };
 
 struct KernelSepolicyVersionConverter : public XmlTextConverter<KernelSepolicyVersion> {
@@ -1105,7 +1236,9 @@ struct HalManifestConverter : public XmlNodeConverter<HalManifest> {
     void mutateNode(const HalManifest& object, NodeType* root,
                     const MutateNodeParam& param) const override {
         if (param.flags.isMetaVersionEnabled()) {
-            appendAttr(root, "version", object.getMetaVersion());
+            // Append the current metaversion of libvintf because the XML file
+            // is generated with libvintf @ current meta version.
+            appendAttr(root, "version", kMetaVersion);
         }
         if (param.flags.isSchemaTypeEnabled()) {
             appendAttr(root, "type", object.mType);
@@ -1159,6 +1292,7 @@ struct HalManifestConverter : public XmlNodeConverter<HalManifest> {
                            " (libvintf@" + to_string(kMetaVersion) + ")";
             return false;
         }
+        object->mSourceMetaVersion = param.metaVersion;
 
         if (!parseAttr(root, "type", &object->mType, param.error)) {
             return false;
@@ -1224,8 +1358,8 @@ struct HalManifestConverter : public XmlNodeConverter<HalManifest> {
         }
         for (auto &&hal : hals) {
             std::string description{hal.name};
-            if (!object->add(std::move(hal))) {
-                *param.error = "Duplicated manifest.hal entry " + description;
+            if (!object->add(std::move(hal), param.error)) {
+                param.error->insert(0, "Duplicated manifest.hal entry " + description + ": ");
                 return false;
             }
         }

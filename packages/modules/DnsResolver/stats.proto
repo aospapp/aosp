@@ -180,8 +180,8 @@ enum NetworkType {
     NT_BLUETOOTH = 3;
     // Indicates this network uses an Ethernet transport.
     NT_ETHERNET = 4;
-    // Indicates this network uses a VPN transport, now deprecated.
-    NT_VPN = 5 [deprecated=true];
+    // Indicates this network uses a VPN transport.
+    NT_VPN = 5;
     // Indicates this network uses a Wi-Fi Aware transport.
     NT_WIFI_AWARE = 6;
     // Indicates this network uses a LoWPAN transport.
@@ -412,4 +412,93 @@ message NetworkDnsEventReported {
 
     // The sample rate of DNS stats (to statsd) is 1/sampling_rate_denom.
     optional int32 sampling_rate_denom = 9;
+}
+
+enum HandshakeResult {
+    HR_UNKNOWN = 0;
+    HR_SUCCESS = 1;
+    HR_TIMEOUT = 2;
+    HR_TLS_FAIL = 3;
+    HR_SERVER_UNREACHABLE = 4;
+}
+
+enum HandshakeCause {
+    HC_UNKNOWN = 0;
+    HC_SERVER_PROBE = 1;
+    HC_RECONNECT_AFTER_IDLE = 2;
+    HC_RETRY_AFTER_ERROR = 3;
+}
+
+/**
+ * The NetworkDnsHandshakeReported message describes a DoT or DoH handshake operation along with
+ * its result, cause, network latency, TLS version, etc.
+ *
+ */
+message NetworkDnsHandshakeReported {
+  optional Protocol protocol = 1;
+
+  optional HandshakeResult result = 2;
+
+  optional HandshakeCause cause = 3;
+
+  optional NetworkType network_type = 4;
+
+  optional PrivateDnsModes private_dns_mode = 5;
+
+  // The latency in microseconds of the entire handshake operation.
+  optional int32 latency_micros = 6;
+
+  // Number of bytes sent in a handshake.
+  optional int32 bytes_sent = 7;
+
+  // Number of bytes received in a handshake.
+  optional int32 bytes_received = 8;
+
+  // Number of round-trips.
+  optional int32 round_trips = 9;
+
+  // True if TLS session cache hit.
+  optional bool tls_session_cache_hit = 10;
+
+  // 2 = TLS 1.2, 3 = TLS 1.3
+  optional int32 tls_version = 11;
+
+  // True if the handshake requires verifying the private DNS provider hostname.
+  optional bool hostname_verification = 12;
+
+  // Only present when protocol = PROTO_DOH.
+  optional int32 quic_version = 13;
+
+  optional int32 server_index = 14;
+
+  // The sampling-rate of this event is 1/sampling_rate_denom.
+  optional int32 sampling_rate_denom = 15;
+}
+
+/**
+ * logs the number of DNS servers supported by the protocol
+ */
+message NetworkDnsServerSupportReported {
+    // The network type of the network
+    optional NetworkType network_type = 1;
+
+    // The private DNS mode of the network
+    optional PrivateDnsModes private_dns_modes = 2;
+
+    // Stores the state of all DNS servers for this network
+    optional Servers servers = 3;
+}
+
+message Servers {
+    repeated Server server = 1;
+}
+
+message Server {
+    optional Protocol protocol = 1;
+
+    // The order of the dns server in the network
+    optional int32 index = 2;
+
+    // The validation status of the DNS server in the network
+    optional bool validated = 3;
 }

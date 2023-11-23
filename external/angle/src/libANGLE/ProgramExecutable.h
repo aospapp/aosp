@@ -9,7 +9,7 @@
 #ifndef LIBANGLE_PROGRAMEXECUTABLE_H_
 #define LIBANGLE_PROGRAMEXECUTABLE_H_
 
-#include "BinaryStream.h"
+#include "common/BinaryStream.h"
 #include "libANGLE/Caps.h"
 #include "libANGLE/InfoLog.h"
 #include "libANGLE/ProgramLinkedResources.h"
@@ -113,7 +113,7 @@ class ProgramExecutable final : public angle::Subject
     ProgramExecutable(const ProgramExecutable &other);
     ~ProgramExecutable() override;
 
-    void reset();
+    void reset(bool clearInfoLog);
 
     void save(bool isSeparable, gl::BinaryOutputStream *stream) const;
     void load(bool isSeparable, gl::BinaryInputStream *stream);
@@ -154,9 +154,9 @@ class ProgramExecutable final : public angle::Subject
         return mActiveAttribLocationsMask;
     }
     bool isAttribLocationActive(size_t attribLocation) const;
-    const AttributesMask &getNonBuiltinAttribLocationsMask() const { return mAttributesMask; }
+    AttributesMask getNonBuiltinAttribLocationsMask() const { return mAttributesMask; }
     unsigned int getMaxActiveAttribLocation() const { return mMaxActiveAttribLocation; }
-    const ComponentTypeMask &getAttributesTypeMask() const { return mAttributesTypeMask; }
+    ComponentTypeMask getAttributesTypeMask() const { return mAttributesTypeMask; }
     AttributesMask getAttributesMask() const;
 
     const ActiveTextureMask &getActiveSamplersMask() const { return mActiveSamplersMask; }
@@ -182,6 +182,13 @@ class ProgramExecutable final : public angle::Subject
     {
         return mActiveSamplerTypes;
     }
+
+    void setActive(size_t textureUnit,
+                   const SamplerBinding &samplerBinding,
+                   const gl::LinkedUniform &samplerUniform);
+    void setInactive(size_t textureUnit);
+    void hasSamplerTypeConflict(size_t textureUnit);
+    void hasSamplerFormatConflict(size_t textureUnit);
 
     void updateActiveSamplers(const ProgramState &programState);
 
@@ -224,7 +231,9 @@ class ProgramExecutable final : public angle::Subject
     const RangeUI &getImageUniformRange() const { return mImageUniformRange; }
     const RangeUI &getAtomicCounterUniformRange() const { return mAtomicCounterUniformRange; }
     const RangeUI &getFragmentInoutRange() const { return mFragmentInoutRange; }
-    bool usesEarlyFragmentTestsOptimization() const { return mUsesEarlyFragmentTestsOptimization; }
+    bool hasClipDistance() const { return mHasClipDistance; }
+    bool hasDiscard() const { return mHasDiscard; }
+    bool enablesPerSampleShading() const { return mEnablesPerSampleShading; }
     BlendEquationBitSet getAdvancedBlendEquations() const { return mAdvancedBlendEquations; }
     const std::vector<TransformFeedbackVarying> &getLinkedTransformFeedbackVaryings() const
     {
@@ -279,7 +288,7 @@ class ProgramExecutable final : public angle::Subject
 
     GLuint getUniformIndexFromSamplerIndex(GLuint samplerIndex) const;
 
-    void saveLinkedStateInfo(const ProgramState &state);
+    void saveLinkedStateInfo(const Context *context, const ProgramState &state);
     const std::vector<sh::ShaderVariable> &getLinkedOutputVaryings(ShaderType shaderType) const
     {
         return mLinkedOutputVaryings[shaderType];
@@ -356,8 +365,6 @@ class ProgramExecutable final : public angle::Subject
     void copyUniformsFromProgramMap(const ShaderMap<Program *> &programs);
 
   private:
-    // TODO(timvp): http://anglebug.com/3570: Investigate removing these friend
-    // class declarations and accessing the necessary members with getters/setters.
     friend class Program;
     friend class ProgramPipeline;
     friend class ProgramState;
@@ -467,7 +474,9 @@ class ProgramExecutable final : public angle::Subject
     std::vector<InterfaceBlock> mShaderStorageBlocks;
 
     RangeUI mFragmentInoutRange;
-    bool mUsesEarlyFragmentTestsOptimization;
+    bool mHasClipDistance;
+    bool mHasDiscard;
+    bool mEnablesPerSampleShading;
 
     // KHR_blend_equation_advanced supported equation list
     BlendEquationBitSet mAdvancedBlendEquations;

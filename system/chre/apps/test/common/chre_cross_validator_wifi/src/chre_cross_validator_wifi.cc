@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-#include <chre.h>
 #include <cinttypes>
+
 #include "chre_cross_validator_wifi_manager.h"
+
+#include "chre_api/chre.h"
 
 namespace chre {
 

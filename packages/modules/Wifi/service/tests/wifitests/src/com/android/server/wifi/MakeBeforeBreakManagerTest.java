@@ -20,6 +20,7 @@ import static com.android.server.wifi.ActiveModeManager.ROLE_CLIENT_PRIMARY;
 import static com.android.server.wifi.ActiveModeManager.ROLE_CLIENT_SECONDARY_LONG_LIVED;
 import static com.android.server.wifi.ActiveModeManager.ROLE_CLIENT_SECONDARY_TRANSIENT;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.*;
 
 import android.content.Context;
@@ -74,6 +75,7 @@ public class MakeBeforeBreakManagerTest extends WifiBaseTest {
 
         mMbbManager = new MakeBeforeBreakManager(mActiveModeWarden, mFrameworkFacade, mContext,
                 mCmiMonitor, mBroadcastQueue, mWifiMetrics);
+        mMbbManager.setVerboseLoggingEnabled(true);
 
         verify(mActiveModeWarden).registerModeChangeCallback(mModeChangeCallbackCaptor.capture());
         verify(mCmiMonitor).registerListener(mCmiListenerCaptor.capture());
@@ -297,5 +299,88 @@ public class MakeBeforeBreakManagerTest extends WifiBaseTest {
         mModeChangeCallbackCaptor.getValue().onActiveModeManagerRemoved(mNewPrimaryCmm);
 
         verify(mOnStoppedListener).run();
+    }
+
+    @Test
+    public void onInternetValidationSuccessful() {
+        when(mOldPrimaryCmm.getRole()).thenReturn(ROLE_CLIENT_SECONDARY_TRANSIENT);
+        when(mActiveModeWarden.getClientModeManagersInRoles(ROLE_CLIENT_SECONDARY_TRANSIENT))
+                .thenReturn(List.of(mNewPrimaryCmm, mOldPrimaryCmm));
+
+        mModeChangeCallbackCaptor.getValue().onActiveModeManagerAdded(mNewPrimaryCmm);
+        assertEquals(MakeBeforeBreakManager.MBB_STATE_SECONDARY_TRANSIENT_CREATED,
+                mMbbManager.getInternalState());
+        mCmiListenerCaptor.getValue().onCaptivePortalDetected(mNewPrimaryCmm);
+        assertEquals(MakeBeforeBreakManager.MBB_STATE_CAPTIVE_PORTAL_DETECTED,
+                mMbbManager.getInternalState());
+        mCmiListenerCaptor.getValue().onInternetValidated(mNewPrimaryCmm);
+        assertEquals(MakeBeforeBreakManager.MBB_STATE_INTERNET_VALIDATED,
+                mMbbManager.getInternalState());
+        verify(mOldPrimaryCmm).setRole(ROLE_CLIENT_SECONDARY_TRANSIENT,
+                ActiveModeWarden.INTERNAL_REQUESTOR_WS);
+        mModeChangeCallbackCaptor.getValue().onActiveModeManagerRoleChanged(mOldPrimaryCmm);
+        assertEquals(MakeBeforeBreakManager.MBB_STATE_ROLES_BEING_SWITCHED_BOTH_SECONDARY_TRANSIENT,
+                mMbbManager.getInternalState());
+        verify(mNewPrimaryCmm).setRole(ROLE_CLIENT_PRIMARY, mSettingsWorkSource);
+        mModeChangeCallbackCaptor.getValue().onActiveModeManagerRoleChanged(mOldPrimaryCmm);
+        assertEquals(MakeBeforeBreakManager.MBB_STATE_ROLE_SWITCH_COMPLETE,
+                mMbbManager.getInternalState());
+        mModeChangeCallbackCaptor.getValue().onActiveModeManagerRemoved(mOldPrimaryCmm);
+        assertEquals(MakeBeforeBreakManager.MBB_STATE_NONE,
+                mMbbManager.getInternalState());
+
+        verify(mOldPrimaryCmm).setShouldReduceNetworkScore(true);
+    }
+
+    @Test
+    public void onInternetValidationFailedSecondaryTransient() {
+        when(mActiveModeWarden.getClientModeManagerInRole(ROLE_CLIENT_SECONDARY_TRANSIENT))
+                .thenReturn(mNewPrimaryCmm);
+        when(mOldPrimaryCmm.getRole()).thenReturn(ROLE_CLIENT_SECONDARY_TRANSIENT);
+        mCmiListenerCaptor.getValue().onInternetValidationFailed(mNewPrimaryCmm, true);
+        verify(mNewPrimaryCmm).disconnect();
+        verify(mActiveModeWarden).removeClientModeManager(eq(mNewPrimaryCmm));
+        assertEquals(MakeBeforeBreakManager.MBB_STATE_VALIDATION_FAILED,
+                mMbbManager.getInternalState());
+    }
+
+    @Test
+    public void onInternetValidationFailedWhenLingering() {
+        when(mOldPrimaryCmm.getRole()).thenReturn(ROLE_CLIENT_SECONDARY_TRANSIENT);
+        when(mActiveModeWarden.getClientModeManagersInRoles(ROLE_CLIENT_SECONDARY_TRANSIENT))
+                .thenReturn(List.of(mNewPrimaryCmm, mOldPrimaryCmm));
+
+        mModeChangeCallbackCaptor.getValue().onActiveModeManagerAdded(mNewPrimaryCmm);
+        assertEquals(MakeBeforeBreakManager.MBB_STATE_SECONDARY_TRANSIENT_CREATED,
+                mMbbManager.getInternalState());
+        mCmiListenerCaptor.getValue().onCaptivePortalDetected(mNewPrimaryCmm);
+        assertEquals(MakeBeforeBreakManager.MBB_STATE_CAPTIVE_PORTAL_DETECTED,
+                mMbbManager.getInternalState());
+        mCmiListenerCaptor.getValue().onInternetValidated(mNewPrimaryCmm);
+        assertEquals(MakeBeforeBreakManager.MBB_STATE_INTERNET_VALIDATED,
+                mMbbManager.getInternalState());
+        verify(mOldPrimaryCmm).setRole(ROLE_CLIENT_SECONDARY_TRANSIENT,
+                ActiveModeWarden.INTERNAL_REQUESTOR_WS);
+        mModeChangeCallbackCaptor.getValue().onActiveModeManagerRoleChanged(mOldPrimaryCmm);
+        assertEquals(MakeBeforeBreakManager.MBB_STATE_ROLES_BEING_SWITCHED_BOTH_SECONDARY_TRANSIENT,
+                mMbbManager.getInternalState());
+        verify(mNewPrimaryCmm).setRole(ROLE_CLIENT_PRIMARY, mSettingsWorkSource);
+        mModeChangeCallbackCaptor.getValue().onActiveModeManagerRoleChanged(mOldPrimaryCmm);
+        assertEquals(MakeBeforeBreakManager.MBB_STATE_ROLE_SWITCH_COMPLETE,
+                mMbbManager.getInternalState());
+        // Internet was lost when lingering
+        when(mActiveModeWarden.getClientModeManagerInRole(ROLE_CLIENT_SECONDARY_TRANSIENT))
+                .thenReturn(mOldPrimaryCmm);
+        when(mNewPrimaryCmm.getRole()).thenReturn(ROLE_CLIENT_PRIMARY);
+        mCmiListenerCaptor.getValue().onInternetValidationFailed(mNewPrimaryCmm, true);
+        verify(mOldPrimaryCmm).setRole(eq(ROLE_CLIENT_PRIMARY), any());
+        verify(mNewPrimaryCmm).setRole(eq(ROLE_CLIENT_SECONDARY_TRANSIENT), any());
+        verify(mNewPrimaryCmm).disconnect();
+        verify(mActiveModeWarden).removeClientModeManager(eq(mNewPrimaryCmm));
+        mModeChangeCallbackCaptor.getValue().onActiveModeManagerRemoved(mOldPrimaryCmm);
+        assertEquals(MakeBeforeBreakManager.MBB_STATE_NONE,
+                mMbbManager.getInternalState());
+
+        verify(mOldPrimaryCmm).setShouldReduceNetworkScore(true);
     }
 }

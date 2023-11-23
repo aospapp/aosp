@@ -40,7 +40,7 @@ android_library(
     deps = [
         "//:dagger_with_compiler",
         "//java/dagger/android",
-        "@google_bazel_common//third_party/java/error_prone:annotations",
+        "//third_party/java/error_prone:annotations",
         "@maven//:androidx_activity_activity",
         "@maven//:androidx_annotation_annotation",
         "@maven//:androidx_appcompat_appcompat",
@@ -71,7 +71,7 @@ android_library(
     exports = [
         "//:dagger_with_compiler",
         "//java/dagger/android:legacy-deps",
-        "@google_bazel_common//third_party/java/error_prone:annotations",
+        "//third_party/java/error_prone:annotations",
         "@maven//:com_android_support_appcompat_v7",
         "@maven//:com_android_support_support_annotations",
         "@maven//:com_android_support_support_fragment",

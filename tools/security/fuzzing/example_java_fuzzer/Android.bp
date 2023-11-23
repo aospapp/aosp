@@ -16,7 +16,7 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-java_fuzz_host {
+java_fuzz {
     name: "example_java_fuzzer",
     srcs: ["ExampleFuzzer.java"],
     static_libs: [
@@ -26,6 +26,17 @@ java_fuzz_host {
         fuzz_on_haiku_device: false,
         fuzz_on_haiku_host: false,
     },
+    host_supported: true,
+    corpus: ["testdata/*"],
+    dictionary: "example_java_fuzzer.dict",
+}
+
+java_fuzz {
+    name: "example_java_fuzzer_device",
+    srcs: ["ExampleFuzzer.java"],
+    static_libs: [
+        "jazzer",
+    ],
     corpus: ["testdata/*"],
     dictionary: "example_java_fuzzer.dict",
 }

@@ -56,7 +56,7 @@ public class USBAudioPeripheralButtonsActivity extends USBAudioPeripheralActivit
                 new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert);
         builder.setTitle(getResources().getString(R.string.uapButtonsDisableAssistantTitle));
         builder.setMessage(getResources().getString(R.string.uapButtonsDisableAssistant));
-        builder.setPositiveButton(android.R.string.yes,
+        builder.setPositiveButton(android.R.string.ok,
             new DialogInterface.OnClickListener() {
                 public void onClick(DialogInterface dialog, int which) {}
          });

@@ -1,3 +1,17 @@
+// Copyright 2023 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use codespan_reporting::diagnostic;
 use codespan_reporting::files;
 use serde::Serialize;
@@ -12,7 +26,7 @@ pub type FileId = usize;
 /// Stores the source file contents for reference.
 pub type SourceDatabase = files::SimpleFiles<String, String>;
 
-#[derive(Debug, Copy, Clone, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Copy, Clone, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SourceLocation {
     /// Byte offset into the file (counted from zero).
     pub offset: usize,
@@ -22,91 +36,97 @@ pub struct SourceLocation {
     pub column: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Default, Copy, Clone, PartialEq, Eq, Serialize)]
 pub struct SourceRange {
     pub file: FileId,
     pub start: SourceLocation,
     pub end: SourceLocation,
 }
 
-#[derive(Debug, Serialize)]
+pub trait Annotation: fmt::Debug + Serialize {
+    type FieldAnnotation: Default + fmt::Debug + Clone;
+    type DeclAnnotation: Default + fmt::Debug;
+}
+
+#[derive(Debug, Serialize, Clone)]
 #[serde(tag = "kind", rename = "comment")]
 pub struct Comment {
     pub loc: SourceRange,
     pub text: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EndiannessValue {
     LittleEndian,
     BigEndian,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Copy, Clone, Serialize)]
 #[serde(tag = "kind", rename = "endianness_declaration")]
 pub struct Endianness {
     pub loc: SourceRange,
     pub value: EndiannessValue,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(tag = "kind")]
-pub enum Expr {
-    #[serde(rename = "identifier")]
-    Identifier { loc: SourceRange, name: String },
-    #[serde(rename = "integer")]
-    Integer { loc: SourceRange, value: usize },
-    #[serde(rename = "unary_expr")]
-    Unary { loc: SourceRange, op: String, operand: Box<Expr> },
-    #[serde(rename = "binary_expr")]
-    Binary { loc: SourceRange, op: String, operands: Box<(Expr, Expr)> },
-}
-
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename = "tag")]
-pub struct Tag {
+pub struct TagValue {
     pub id: String,
     pub loc: SourceRange,
     pub value: usize,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", rename = "tag")]
+pub struct TagRange {
+    pub id: String,
+    pub loc: SourceRange,
+    pub range: std::ops::RangeInclusive<usize>,
+    pub tags: Vec<TagValue>,
+}
+
+#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum Tag {
+    Value(TagValue),
+    Range(TagRange),
+}
+
+#[derive(Debug, Serialize, Clone)]
 #[serde(tag = "kind", rename = "constraint")]
 pub struct Constraint {
     pub id: String,
     pub loc: SourceRange,
-    pub value: Expr,
+    pub value: Option<usize>,
+    pub tag_id: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
 #[serde(tag = "kind")]
-pub enum Field {
+pub enum FieldDesc {
     #[serde(rename = "checksum_field")]
-    Checksum { loc: SourceRange, field_id: String },
+    Checksum { field_id: String },
     #[serde(rename = "padding_field")]
-    Padding { loc: SourceRange, width: usize },
+    Padding { size: usize },
     #[serde(rename = "size_field")]
-    Size { loc: SourceRange, field_id: String, width: usize },
+    Size { field_id: String, width: usize },
     #[serde(rename = "count_field")]
-    Count { loc: SourceRange, field_id: String, width: usize },
+    Count { field_id: String, width: usize },
+    #[serde(rename = "elementsize_field")]
+    ElementSize { field_id: String, width: usize },
     #[serde(rename = "body_field")]
-    Body { loc: SourceRange },
+    Body,
     #[serde(rename = "payload_field")]
-    Payload { loc: SourceRange, size_modifier: Option<String> },
+    Payload { size_modifier: Option<String> },
     #[serde(rename = "fixed_field")]
-    Fixed {
-        loc: SourceRange,
-        width: Option<usize>,
-        value: Option<usize>,
-        enum_id: Option<String>,
-        tag_id: Option<String>,
-    },
+    FixedScalar { width: usize, value: usize },
+    #[serde(rename = "fixed_field")]
+    FixedEnum { enum_id: String, tag_id: String },
     #[serde(rename = "reserved_field")]
-    Reserved { loc: SourceRange, width: usize },
+    Reserved { width: usize },
     #[serde(rename = "array_field")]
     Array {
-        loc: SourceRange,
         id: String,
         width: Option<usize>,
         type_id: Option<String>,
@@ -114,58 +134,74 @@ pub enum Field {
         size: Option<usize>,
     },
     #[serde(rename = "scalar_field")]
-    Scalar { loc: SourceRange, id: String, width: usize },
+    Scalar { id: String, width: usize },
     #[serde(rename = "typedef_field")]
-    Typedef { loc: SourceRange, id: String, type_id: String },
+    Typedef { id: String, type_id: String },
     #[serde(rename = "group_field")]
-    Group { loc: SourceRange, group_id: String, constraints: Vec<Constraint> },
+    Group { group_id: String, constraints: Vec<Constraint> },
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
+pub struct Field<A: Annotation> {
+    pub loc: SourceRange,
+    #[serde(skip_serializing)]
+    pub annot: A::FieldAnnotation,
+    #[serde(flatten)]
+    pub desc: FieldDesc,
+}
+
+#[derive(Debug, Serialize, Clone)]
 #[serde(tag = "kind", rename = "test_case")]
 pub struct TestCase {
     pub loc: SourceRange,
     pub input: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, PartialEq, Eq)]
 #[serde(tag = "kind")]
-pub enum Decl {
+pub enum DeclDesc<A: Annotation> {
     #[serde(rename = "checksum_declaration")]
-    Checksum { id: String, loc: SourceRange, function: String, width: usize },
+    Checksum { id: String, function: String, width: usize },
     #[serde(rename = "custom_field_declaration")]
-    CustomField { id: String, loc: SourceRange, width: Option<usize>, function: String },
+    CustomField { id: String, width: Option<usize>, function: String },
     #[serde(rename = "enum_declaration")]
-    Enum { id: String, loc: SourceRange, tags: Vec<Tag>, width: usize },
+    Enum { id: String, tags: Vec<Tag>, width: usize },
     #[serde(rename = "packet_declaration")]
     Packet {
         id: String,
-        loc: SourceRange,
         constraints: Vec<Constraint>,
-        fields: Vec<Field>,
+        fields: Vec<Field<A>>,
         parent_id: Option<String>,
     },
     #[serde(rename = "struct_declaration")]
     Struct {
         id: String,
-        loc: SourceRange,
         constraints: Vec<Constraint>,
-        fields: Vec<Field>,
+        fields: Vec<Field<A>>,
         parent_id: Option<String>,
     },
     #[serde(rename = "group_declaration")]
-    Group { id: String, loc: SourceRange, fields: Vec<Field> },
+    Group { id: String, fields: Vec<Field<A>> },
     #[serde(rename = "test_declaration")]
-    Test { loc: SourceRange, type_id: String, test_cases: Vec<TestCase> },
+    Test { type_id: String, test_cases: Vec<TestCase> },
 }
 
 #[derive(Debug, Serialize)]
-pub struct Grammar {
+pub struct Decl<A: Annotation> {
+    pub loc: SourceRange,
+    #[serde(skip_serializing)]
+    pub annot: A::DeclAnnotation,
+    #[serde(flatten)]
+    pub desc: DeclDesc<A>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct File<A: Annotation> {
     pub version: String,
     pub file: FileId,
     pub comments: Vec<Comment>,
-    pub endianness: Option<Endianness>,
-    pub declarations: Vec<Decl>,
+    pub endianness: Endianness,
+    pub declarations: Vec<Decl<A>>,
 }
 
 impl SourceLocation {
@@ -209,6 +245,12 @@ impl fmt::Display for SourceRange {
     }
 }
 
+impl fmt::Debug for SourceRange {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SourceRange").finish_non_exhaustive()
+    }
+}
+
 impl ops::Add<SourceRange> for SourceRange {
     type Output = SourceRange;
 
@@ -222,76 +264,253 @@ impl ops::Add<SourceRange> for SourceRange {
     }
 }
 
-impl Grammar {
-    pub fn new(file: FileId) -> Grammar {
-        Grammar {
+impl Eq for Endianness {}
+impl PartialEq for Endianness {
+    fn eq(&self, other: &Self) -> bool {
+        // Implement structual equality, leave out loc.
+        self.value == other.value
+    }
+}
+
+impl Eq for TagValue {}
+impl PartialEq for TagValue {
+    fn eq(&self, other: &Self) -> bool {
+        // Implement structual equality, leave out loc.
+        self.id == other.id && self.value == other.value
+    }
+}
+
+impl Eq for TagRange {}
+impl PartialEq for TagRange {
+    fn eq(&self, other: &Self) -> bool {
+        // Implement structual equality, leave out loc.
+        self.id == other.id && self.range == other.range && self.tags == other.tags
+    }
+}
+
+impl Tag {
+    pub fn id(&self) -> &str {
+        match self {
+            Tag::Value(TagValue { id, .. }) | Tag::Range(TagRange { id, .. }) => id,
+        }
+    }
+
+    pub fn loc(&self) -> &SourceRange {
+        match self {
+            Tag::Value(TagValue { loc, .. }) | Tag::Range(TagRange { loc, .. }) => loc,
+        }
+    }
+
+    pub fn value(&self) -> Option<usize> {
+        match self {
+            Tag::Value(TagValue { value, .. }) => Some(*value),
+            Tag::Range(_) => None,
+        }
+    }
+}
+
+impl Eq for Constraint {}
+impl PartialEq for Constraint {
+    fn eq(&self, other: &Self) -> bool {
+        // Implement structual equality, leave out loc.
+        self.id == other.id && self.value == other.value && self.tag_id == other.tag_id
+    }
+}
+
+impl Eq for TestCase {}
+impl PartialEq for TestCase {
+    fn eq(&self, other: &Self) -> bool {
+        // Implement structual equality, leave out loc.
+        self.input == other.input
+    }
+}
+
+impl<A: Annotation + std::cmp::PartialEq> Eq for File<A> {}
+impl<A: Annotation + std::cmp::PartialEq> PartialEq for File<A> {
+    fn eq(&self, other: &Self) -> bool {
+        // Implement structual equality, leave out comments and PDL
+        // version information.
+        self.endianness == other.endianness && self.declarations == other.declarations
+    }
+}
+
+impl<A: Annotation> File<A> {
+    pub fn new(file: FileId) -> File<A> {
+        File {
             version: "1,0".to_owned(),
             comments: vec![],
-            endianness: None,
+            // The endianness is mandatory, so this default value will
+            // be updated while parsing.
+            endianness: Endianness {
+                loc: SourceRange::default(),
+                value: EndiannessValue::LittleEndian,
+            },
             declarations: vec![],
             file,
         }
     }
-}
 
-impl Decl {
-    pub fn loc(&self) -> &SourceRange {
-        match self {
-            Decl::Checksum { loc, .. }
-            | Decl::CustomField { loc, .. }
-            | Decl::Enum { loc, .. }
-            | Decl::Packet { loc, .. }
-            | Decl::Struct { loc, .. }
-            | Decl::Group { loc, .. }
-            | Decl::Test { loc, .. } => loc,
-        }
-    }
-
-    pub fn id(&self) -> Option<&String> {
-        match self {
-            Decl::Test { .. } => None,
-            Decl::Checksum { id, .. }
-            | Decl::CustomField { id, .. }
-            | Decl::Enum { id, .. }
-            | Decl::Packet { id, .. }
-            | Decl::Struct { id, .. }
-            | Decl::Group { id, .. } => Some(id),
-        }
+    /// Iterate over the children of the selected declaration.
+    /// /!\ This method is unsafe to use if the file contains cyclic
+    /// declarations, use with caution.
+    pub fn iter_children<'d>(&'d self, decl: &'d Decl<A>) -> impl Iterator<Item = &'d Decl<A>> {
+        self.declarations.iter().filter(|other_decl| other_decl.parent_id() == decl.id())
     }
 }
 
-impl Field {
-    pub fn loc(&self) -> &SourceRange {
-        match self {
-            Field::Checksum { loc, .. }
-            | Field::Padding { loc, .. }
-            | Field::Size { loc, .. }
-            | Field::Count { loc, .. }
-            | Field::Body { loc, .. }
-            | Field::Payload { loc, .. }
-            | Field::Fixed { loc, .. }
-            | Field::Reserved { loc, .. }
-            | Field::Array { loc, .. }
-            | Field::Scalar { loc, .. }
-            | Field::Typedef { loc, .. }
-            | Field::Group { loc, .. } => loc,
-        }
+impl<A: Annotation + std::cmp::PartialEq> Eq for Decl<A> {}
+impl<A: Annotation + std::cmp::PartialEq> PartialEq for Decl<A> {
+    fn eq(&self, other: &Self) -> bool {
+        // Implement structual equality, leave out loc and annot.
+        self.desc == other.desc
+    }
+}
+
+impl<A: Annotation> Decl<A> {
+    pub fn new(loc: SourceRange, desc: DeclDesc<A>) -> Decl<A> {
+        Decl { loc, annot: Default::default(), desc }
     }
 
-    pub fn id(&self) -> Option<&String> {
-        match self {
-            Field::Checksum { .. }
-            | Field::Padding { .. }
-            | Field::Size { .. }
-            | Field::Count { .. }
-            | Field::Body { .. }
-            | Field::Payload { .. }
-            | Field::Fixed { .. }
-            | Field::Reserved { .. }
-            | Field::Group { .. } => None,
-            Field::Array { id, .. } | Field::Scalar { id, .. } | Field::Typedef { id, .. } => {
-                Some(id)
+    pub fn annotate<F, B: Annotation>(
+        &self,
+        annot: B::DeclAnnotation,
+        annotate_fields: F,
+    ) -> Decl<B>
+    where
+        F: FnOnce(&[Field<A>]) -> Vec<Field<B>>,
+    {
+        let desc = match &self.desc {
+            DeclDesc::Checksum { id, function, width } => {
+                DeclDesc::Checksum { id: id.clone(), function: function.clone(), width: *width }
             }
+            DeclDesc::CustomField { id, width, function } => {
+                DeclDesc::CustomField { id: id.clone(), width: *width, function: function.clone() }
+            }
+            DeclDesc::Enum { id, tags, width } => {
+                DeclDesc::Enum { id: id.clone(), tags: tags.clone(), width: *width }
+            }
+
+            DeclDesc::Test { type_id, test_cases } => {
+                DeclDesc::Test { type_id: type_id.clone(), test_cases: test_cases.clone() }
+            }
+            DeclDesc::Packet { id, constraints, parent_id, fields } => DeclDesc::Packet {
+                id: id.clone(),
+                constraints: constraints.clone(),
+                parent_id: parent_id.clone(),
+                fields: annotate_fields(fields),
+            },
+            DeclDesc::Struct { id, constraints, parent_id, fields } => DeclDesc::Struct {
+                id: id.clone(),
+                constraints: constraints.clone(),
+                parent_id: parent_id.clone(),
+                fields: annotate_fields(fields),
+            },
+            DeclDesc::Group { id, fields } => {
+                DeclDesc::Group { id: id.clone(), fields: annotate_fields(fields) }
+            }
+        };
+        Decl { loc: self.loc, desc, annot }
+    }
+
+    pub fn id(&self) -> Option<&str> {
+        match &self.desc {
+            DeclDesc::Test { .. } => None,
+            DeclDesc::Checksum { id, .. }
+            | DeclDesc::CustomField { id, .. }
+            | DeclDesc::Enum { id, .. }
+            | DeclDesc::Packet { id, .. }
+            | DeclDesc::Struct { id, .. }
+            | DeclDesc::Group { id, .. } => Some(id),
+        }
+    }
+
+    pub fn parent_id(&self) -> Option<&str> {
+        match &self.desc {
+            DeclDesc::Packet { parent_id, .. } | DeclDesc::Struct { parent_id, .. } => {
+                parent_id.as_deref()
+            }
+            _ => None,
+        }
+    }
+
+    pub fn constraints(&self) -> std::slice::Iter<'_, Constraint> {
+        match &self.desc {
+            DeclDesc::Packet { constraints, .. } | DeclDesc::Struct { constraints, .. } => {
+                constraints.iter()
+            }
+            _ => [].iter(),
+        }
+    }
+
+    pub fn fields(&self) -> std::slice::Iter<'_, Field<A>> {
+        match &self.desc {
+            DeclDesc::Packet { fields, .. }
+            | DeclDesc::Struct { fields, .. }
+            | DeclDesc::Group { fields, .. } => fields.iter(),
+            _ => [].iter(),
+        }
+    }
+
+    pub fn kind(&self) -> &str {
+        match &self.desc {
+            DeclDesc::Checksum { .. } => "checksum",
+            DeclDesc::CustomField { .. } => "custom field",
+            DeclDesc::Enum { .. } => "enum",
+            DeclDesc::Packet { .. } => "packet",
+            DeclDesc::Struct { .. } => "struct",
+            DeclDesc::Group { .. } => "group",
+            DeclDesc::Test { .. } => "test",
+        }
+    }
+}
+
+impl<A: Annotation> Eq for Field<A> {}
+impl<A: Annotation> PartialEq for Field<A> {
+    fn eq(&self, other: &Self) -> bool {
+        // Implement structual equality, leave out loc and annot.
+        self.desc == other.desc
+    }
+}
+
+impl<A: Annotation> Field<A> {
+    pub fn annotate<B: Annotation>(&self, annot: B::FieldAnnotation) -> Field<B> {
+        Field { loc: self.loc, annot, desc: self.desc.clone() }
+    }
+
+    pub fn id(&self) -> Option<&str> {
+        match &self.desc {
+            FieldDesc::Checksum { .. }
+            | FieldDesc::Padding { .. }
+            | FieldDesc::Size { .. }
+            | FieldDesc::Count { .. }
+            | FieldDesc::ElementSize { .. }
+            | FieldDesc::Body
+            | FieldDesc::Payload { .. }
+            | FieldDesc::FixedScalar { .. }
+            | FieldDesc::FixedEnum { .. }
+            | FieldDesc::Reserved { .. }
+            | FieldDesc::Group { .. } => None,
+            FieldDesc::Array { id, .. }
+            | FieldDesc::Scalar { id, .. }
+            | FieldDesc::Typedef { id, .. } => Some(id),
+        }
+    }
+
+    pub fn kind(&self) -> &str {
+        match &self.desc {
+            FieldDesc::Checksum { .. } => "payload",
+            FieldDesc::Padding { .. } => "padding",
+            FieldDesc::Size { .. } => "size",
+            FieldDesc::Count { .. } => "count",
+            FieldDesc::ElementSize { .. } => "elementsize",
+            FieldDesc::Body { .. } => "body",
+            FieldDesc::Payload { .. } => "payload",
+            FieldDesc::FixedScalar { .. } | FieldDesc::FixedEnum { .. } => "fixed",
+            FieldDesc::Reserved { .. } => "reserved",
+            FieldDesc::Group { .. } => "group",
+            FieldDesc::Array { .. } => "array",
+            FieldDesc::Scalar { .. } => "scalar",
+            FieldDesc::Typedef { .. } => "typedef",
         }
     }
 }

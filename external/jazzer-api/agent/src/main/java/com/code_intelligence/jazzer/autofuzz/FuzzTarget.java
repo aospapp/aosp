@@ -20,11 +20,18 @@ import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.utils.SimpleGlobMatcher;
 import com.code_intelligence.jazzer.utils.Utils;
 import java.io.Closeable;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +39,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class FuzzTarget {
+public final class FuzzTarget {
+  private static final String AUTOFUZZ_REPRODUCER_TEMPLATE = "public class Crash_%s {\n"
+      + "  public static void main(String[] args) throws Throwable {\n"
+      + "    %s;\n"
+      + "  }\n"
+      + "}";
   private static final long MAX_EXECUTIONS_WITHOUT_INVOCATION = 100;
 
   private static String methodReference;
@@ -40,7 +52,6 @@ public class FuzzTarget {
   private static Map<Executable, Class<?>[]> throwsDeclarations;
   private static Set<SimpleGlobMatcher> ignoredExceptionMatchers;
   private static long executionsSinceLastInvocation = 0;
-  private static AutofuzzCodegenVisitor codegenVisitor;
 
   public static void fuzzerInitialize(String[] args) {
     if (args.length == 0 || !args[0].contains("::")) {
@@ -73,19 +84,28 @@ public class FuzzTarget {
       descriptor = null;
     }
 
-    Class<?> targetClass;
-    try {
-      // Explicitly invoking static initializers to trigger some coverage in the code.
-      targetClass = Class.forName(className, true, ClassLoader.getSystemClassLoader());
-    } catch (ClassNotFoundException e) {
-      System.err.printf(
-          "Failed to find class %s for autofuzz, please ensure it is contained in the classpath "
-              + "specified with --cp and specify the full package name%n",
-          className);
-      e.printStackTrace();
-      System.exit(1);
-      return;
-    }
+    Class<?> targetClass = null;
+    String targetClassName = className;
+    do {
+      try {
+        // Explicitly invoking static initializers to trigger some coverage in the code.
+        targetClass = Class.forName(targetClassName, true, ClassLoader.getSystemClassLoader());
+      } catch (ClassNotFoundException e) {
+        int classSeparatorIndex = targetClassName.lastIndexOf(".");
+        if (classSeparatorIndex == -1) {
+          System.err.printf(
+              "Failed to find class %s for autofuzz, please ensure it is contained in the classpath "
+                  + "specified with --cp and specify the full package name%n",
+              className);
+          e.printStackTrace();
+          System.exit(1);
+          return;
+        }
+        StringBuilder classNameBuilder = new StringBuilder(targetClassName);
+        classNameBuilder.setCharAt(classSeparatorIndex, '$');
+        targetClassName = classNameBuilder.toString();
+      }
+    } while (targetClass == null);
 
     boolean isConstructor = methodName.equals("new");
     if (isConstructor) {
@@ -96,8 +116,13 @@ public class FuzzTarget {
                       || Utils.getReadableDescriptor(constructor).equals(descriptor))
               .toArray(Executable[] ::new);
     } else {
+      // We use getDeclaredMethods and filter for the public access modifier instead of using
+      // getMethods as we want to exclude methods inherited from superclasses or interfaces, which
+      // can lead to unexpected results when autofuzzing. If desired, these can be autofuzzed
+      // explicitly instead.
       targetExecutables =
-          Arrays.stream(targetClass.getMethods())
+          Arrays.stream(targetClass.getDeclaredMethods())
+              .filter(method -> Modifier.isPublic(method.getModifiers()))
               .filter(method
                   -> method.getName().equals(methodName)
                       && (descriptor == null
@@ -179,9 +204,36 @@ public class FuzzTarget {
   }
 
   public static void fuzzerTestOneInput(FuzzedDataProvider data) throws Throwable {
+    AutofuzzCodegenVisitor codegenVisitor = null;
     if (Meta.isDebug()) {
       codegenVisitor = new AutofuzzCodegenVisitor();
     }
+    fuzzerTestOneInput(data, codegenVisitor);
+    if (codegenVisitor != null) {
+      System.err.println(codegenVisitor.generate());
+    }
+  }
+
+  public static void dumpReproducer(FuzzedDataProvider data, String reproducerPath, String sha) {
+    AutofuzzCodegenVisitor codegenVisitor = new AutofuzzCodegenVisitor();
+    try {
+      fuzzerTestOneInput(data, codegenVisitor);
+    } catch (Throwable ignored) {
+    }
+    String javaSource = String.format(AUTOFUZZ_REPRODUCER_TEMPLATE, sha, codegenVisitor.generate());
+    Path javaPath = Paths.get(reproducerPath, String.format("Crash_%s.java", sha));
+    try {
+      Files.write(javaPath, javaSource.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE);
+    } catch (IOException e) {
+      System.err.printf("ERROR: Failed to write Java reproducer to %s%n", javaPath);
+      e.printStackTrace();
+    }
+    System.out.printf(
+        "reproducer_path='%s'; Java reproducer written to %s%n", reproducerPath, javaPath);
+  }
+
+  private static void fuzzerTestOneInput(
+      FuzzedDataProvider data, AutofuzzCodegenVisitor codegenVisitor) throws Throwable {
     Executable targetExecutable;
     if (FuzzTarget.targetExecutables.length == 1) {
       targetExecutable = FuzzTarget.targetExecutables[0];
@@ -196,9 +248,6 @@ public class FuzzTarget {
         returnValue = Meta.autofuzz(data, (Constructor<?>) targetExecutable, codegenVisitor);
       }
       executionsSinceLastInvocation = 0;
-      if (codegenVisitor != null) {
-        System.err.println(codegenVisitor.generate());
-      }
     } catch (AutofuzzConstructionException e) {
       if (Meta.isDebug()) {
         e.printStackTrace();
@@ -245,8 +294,8 @@ public class FuzzTarget {
     }
   }
 
-  // Removes all stack trace elements that live in the Java standard library, internal JDK classes
-  // or the autofuzz package from the bottom of all stack frames.
+  // Removes all stack trace elements that live in the Java reflection packages or the autofuzz
+  // package from the bottom of all stack frames.
   private static void cleanStackTraces(Throwable t) {
     Throwable cause = t;
     while (cause != null) {
@@ -255,8 +304,9 @@ public class FuzzTarget {
       for (firstInterestingPos = elements.length - 1; firstInterestingPos > 0;
            firstInterestingPos--) {
         String className = elements[firstInterestingPos].getClassName();
-        if (!className.startsWith("com.code_intelligence.jazzer.autofuzz")
-            && !className.startsWith("java.") && !className.startsWith("jdk.")) {
+        if (!className.startsWith("com.code_intelligence.jazzer.autofuzz.")
+            && !className.startsWith("java.lang.reflect.")
+            && !className.startsWith("jdk.internal.reflect.")) {
           break;
         }
       }

@@ -70,7 +70,7 @@ extern "C" {
  * Returns          void
  *
  ******************************************************************************/
-extern void HID_DevInit(void);
+void HID_DevInit(void);
 
 /*******************************************************************************
  *
@@ -81,7 +81,7 @@ extern void HID_DevInit(void);
  * Returns          tHID_STATUS
  *
  ******************************************************************************/
-extern tHID_STATUS HID_DevRegister(tHID_DEV_HOST_CALLBACK* host_cback);
+tHID_STATUS HID_DevRegister(tHID_DEV_HOST_CALLBACK* host_cback);
 
 /*******************************************************************************
  *
@@ -92,7 +92,7 @@ extern tHID_STATUS HID_DevRegister(tHID_DEV_HOST_CALLBACK* host_cback);
  * Returns          tHID_STATUS
  *
  ******************************************************************************/
-extern tHID_STATUS HID_DevDeregister(void);
+tHID_STATUS HID_DevDeregister(void);
 
 /*******************************************************************************
  *
@@ -103,10 +103,9 @@ extern tHID_STATUS HID_DevDeregister(void);
  * Returns          tHID_STATUS
  *
  ******************************************************************************/
-extern tHID_STATUS HID_DevAddRecord(uint32_t handle, char* p_name,
-                                    char* p_description, char* p_provider,
-                                    uint16_t subclass, uint16_t desc_len,
-                                    uint8_t* p_desc_data);
+tHID_STATUS HID_DevAddRecord(uint32_t handle, char* p_name, char* p_description,
+                             char* p_provider, uint16_t subclass,
+                             uint16_t desc_len, uint8_t* p_desc_data);
 
 /*******************************************************************************
  *
@@ -117,8 +116,8 @@ extern tHID_STATUS HID_DevAddRecord(uint32_t handle, char* p_name,
  * Returns          tHID_STATUS
  *
  ******************************************************************************/
-extern tHID_STATUS HID_DevSendReport(uint8_t channel, uint8_t type, uint8_t id,
-                                     uint16_t len, uint8_t* p_data);
+tHID_STATUS HID_DevSendReport(uint8_t channel, uint8_t type, uint8_t id,
+                              uint16_t len, uint8_t* p_data);
 
 /*******************************************************************************
  *
@@ -129,7 +128,7 @@ extern tHID_STATUS HID_DevSendReport(uint8_t channel, uint8_t type, uint8_t id,
  * Returns          tHID_STATUS
  *
  ******************************************************************************/
-extern tHID_STATUS HID_DevVirtualCableUnplug(void);
+tHID_STATUS HID_DevVirtualCableUnplug(void);
 
 /*******************************************************************************
  *
@@ -140,7 +139,7 @@ extern tHID_STATUS HID_DevVirtualCableUnplug(void);
  * Returns          tHID_STATUS
  *
  ******************************************************************************/
-extern tHID_STATUS HID_DevPlugDevice(const RawAddress& addr);
+tHID_STATUS HID_DevPlugDevice(const RawAddress& addr);
 
 /*******************************************************************************
  *
@@ -151,7 +150,7 @@ extern tHID_STATUS HID_DevPlugDevice(const RawAddress& addr);
  * Returns          tHID_STATUS
  *
  ******************************************************************************/
-extern tHID_STATUS HID_DevUnplugDevice(const RawAddress& addr);
+tHID_STATUS HID_DevUnplugDevice(const RawAddress& addr);
 
 /*******************************************************************************
  *
@@ -162,7 +161,7 @@ extern tHID_STATUS HID_DevUnplugDevice(const RawAddress& addr);
  * Returns          tHID_STATUS
  *
  ******************************************************************************/
-extern tHID_STATUS HID_DevConnect(void);
+tHID_STATUS HID_DevConnect(void);
 
 /*******************************************************************************
  *
@@ -173,7 +172,7 @@ extern tHID_STATUS HID_DevConnect(void);
  * Returns          tHID_STATUS
  *
  ******************************************************************************/
-extern tHID_STATUS HID_DevDisconnect(void);
+tHID_STATUS HID_DevDisconnect(void);
 
 /*******************************************************************************
  *
@@ -184,7 +183,7 @@ extern tHID_STATUS HID_DevDisconnect(void);
  * Returns          tHID_STATUS
  *
  ******************************************************************************/
-extern tHID_STATUS HID_DevSetIncomingPolicy(bool allow);
+tHID_STATUS HID_DevSetIncomingPolicy(bool allow);
 
 /*******************************************************************************
  *
@@ -195,7 +194,7 @@ extern tHID_STATUS HID_DevSetIncomingPolicy(bool allow);
  * Returns          tHID_STATUS
  *
  ******************************************************************************/
-extern tHID_STATUS HID_DevReportError(uint8_t error);
+tHID_STATUS HID_DevReportError(uint8_t error);
 
 /*******************************************************************************
  *
@@ -206,7 +205,7 @@ extern tHID_STATUS HID_DevReportError(uint8_t error);
  * Returns          tHID_STATUS
  *
  ******************************************************************************/
-extern tHID_STATUS HID_DevGetDevice(RawAddress* addr);
+tHID_STATUS HID_DevGetDevice(RawAddress* addr);
 
 /*******************************************************************************
  *
@@ -217,9 +216,10 @@ extern tHID_STATUS HID_DevGetDevice(RawAddress* addr);
  * Returns          tHID_STATUS
  *
  ******************************************************************************/
-extern tHID_STATUS HID_DevSetIncomingQos(
-    uint8_t service_type, uint32_t token_rate, uint32_t token_bucket_size,
-    uint32_t peak_bandwidth, uint32_t latency, uint32_t delay_variation);
+tHID_STATUS HID_DevSetIncomingQos(uint8_t service_type, uint32_t token_rate,
+                                  uint32_t token_bucket_size,
+                                  uint32_t peak_bandwidth, uint32_t latency,
+                                  uint32_t delay_variation);
 
 /*******************************************************************************
  *
@@ -230,9 +230,10 @@ extern tHID_STATUS HID_DevSetIncomingQos(
  * Returns          tHID_STATUS
  *
  ******************************************************************************/
-extern tHID_STATUS HID_DevSetOutgoingQos(
-    uint8_t service_type, uint32_t token_rate, uint32_t token_bucket_size,
-    uint32_t peak_bandwidth, uint32_t latency, uint32_t delay_variation);
+tHID_STATUS HID_DevSetOutgoingQos(uint8_t service_type, uint32_t token_rate,
+                                  uint32_t token_bucket_size,
+                                  uint32_t peak_bandwidth, uint32_t latency,
+                                  uint32_t delay_variation);
 
 /*******************************************************************************
  *
@@ -244,7 +245,7 @@ extern tHID_STATUS HID_DevSetOutgoingQos(
  * Returns          the new (current) trace level
  *
  ******************************************************************************/
-extern uint8_t HID_DevSetTraceLevel(uint8_t new_level);
+uint8_t HID_DevSetTraceLevel(uint8_t new_level);
 
 #ifdef __cplusplus
 }

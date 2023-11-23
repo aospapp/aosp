@@ -43,6 +43,10 @@
 #include <sys/system_properties.h>
 #endif
 
+#if PERFETTO_BUILDFLAG(PERFETTO_ZLIB)
+#include "src/tracing/core/zlib_compressor.h"
+#endif
+
 namespace perfetto {
 namespace {
 #if defined(PERFETTO_SET_SOCKET_PERMISSIONS)
@@ -158,7 +162,11 @@ int PERFETTO_EXPORT_ENTRYPOINT ServiceMain(int argc, char** argv) {
 
   base::UnixTaskRunner task_runner;
   std::unique_ptr<ServiceIPCHost> svc;
-  svc = ServiceIPCHost::CreateInstance(&task_runner);
+  TracingService::InitOpts init_opts = {};
+#if PERFETTO_BUILDFLAG(PERFETTO_ZLIB)
+  init_opts.compressor_fn = &ZlibCompressFn;
+#endif
+  svc = ServiceIPCHost::CreateInstance(&task_runner, init_opts);
 
   // When built as part of the Android tree, the two socket are created and
   // bound by init and their fd number is passed in two env variables.
@@ -225,9 +233,12 @@ int PERFETTO_EXPORT_ENTRYPOINT ServiceMain(int argc, char** argv) {
     PERFETTO_CHECK(base::CloseFile(notif_fd) == 0);
   }
 
-#if PERFETTO_BUILDFLAG(PERFETTO_OS_ANDROID)
+#if PERFETTO_BUILDFLAG(PERFETTO_ANDROID_BUILD) && \
+    PERFETTO_BUILDFLAG(PERFETTO_OS_ANDROID)
   // Notify init (perfetto.rc) that traced has been started. Used only by
   // the perfetto_trace_on_boot init service.
+  // This property can be set only in in-tree builds. shell.te doesn't have
+  // SELinux permissions to set sys.trace.* properties.
   if (__system_property_set("sys.trace.traced_started", "1") != 0) {
     PERFETTO_PLOG("Failed to set property sys.trace.traced_started");
   }

@@ -14,6 +14,8 @@
 
 #include "icing/tokenization/verbatim-tokenizer.h"
 
+#include <vector>
+
 #include "icing/text_classifier/lib3/utils/base/statusor.h"
 #include "icing/util/character-iterator.h"
 #include "icing/util/status-macros.h"
@@ -35,12 +37,14 @@ class VerbatimTokenIterator : public Tokenizer::Iterator {
     return true;
   }
 
-  Token GetToken() const override {
-    if (term_.empty() || !has_advanced_to_end_) {
-      return Token(Token::Type::INVALID);
+  std::vector<Token> GetTokens() const override {
+    std::vector<Token> result;
+
+    if (!term_.empty() && has_advanced_to_end_) {
+      result.push_back(Token(Token::Type::VERBATIM, term_));
     }
 
-    return Token(Token::Type::VERBATIM, term_);
+    return result;
   }
 
   libtextclassifier3::StatusOr<CharacterIterator> CalculateTokenStart()
@@ -130,7 +134,8 @@ libtextclassifier3::StatusOr<std::vector<Token>> VerbatimTokenizer::TokenizeAll(
                          Tokenize(text));
   std::vector<Token> tokens;
   while (iterator->Advance()) {
-    tokens.push_back(iterator->GetToken());
+    std::vector<Token> batch = iterator->GetTokens();
+    tokens.insert(tokens.end(), batch.begin(), batch.end());
   }
   return tokens;
 }

@@ -71,7 +71,6 @@ MultihalSensors::MultihalSensors()
     }
 
     m_availableSensorsMask = hostSensorsMask
-        & ~(1U << kSensorHandleGyroscopeFieldUncalibrated)
         & ((1u << getSensorNumber()) - 1);
 
     ALOGI("%s:%d: host sensors mask=%x, available sensors mask=%x",

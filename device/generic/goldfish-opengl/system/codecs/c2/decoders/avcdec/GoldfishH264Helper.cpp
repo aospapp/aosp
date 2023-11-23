@@ -19,10 +19,9 @@
 #define LOG_TAG "GoldfishH264Helper"
 #include <log/log.h>
 
-
 #define DEBUG 0
 #if DEBUG
-#define DDD(...) ALOGD(__VA_ARGS__)
+#define DDD(fmt, ...) ALOGD("%s %d:" fmt, __func__, __LINE__, ##__VA_ARGS__)
 #else
 #define DDD(...) ((void)0)
 #endif
@@ -187,10 +186,12 @@ bool GoldfishH264Helper::isSpsFrame(const uint8_t* frame, int inSize) {
 }
 
 bool GoldfishH264Helper::decodeHeader(const uint8_t *frame, int inSize) {
+    DDD("entering");
     // should we check the header for vps/sps/pps frame ? otherwise
     // there is no point calling decoder
     if (!isSpsFrame(frame, inSize)) {
         DDD("could not find valid vps frame");
+        DDD("leaving with false");
         return false;
     } else {
         DDD("found valid vps frame");
@@ -211,12 +212,7 @@ bool GoldfishH264Helper::decodeHeader(const uint8_t *frame, int inSize) {
     setParams(mStride, IVD_DECODE_HEADER);
 
     // now kick off the decoding
-    IV_API_CALL_STATUS_T status = ivdec_api_function(mDecHandle, ps_decode_ip, ps_decode_op);
-    if (status != IV_SUCCESS) {
-        ALOGE("failed to call decoder function for header\n");
-        ALOGE("error in %s: 0x%x", __func__,
-              ps_decode_op->u4_error_code);
-    }
+    ivdec_api_function(mDecHandle, ps_decode_ip, ps_decode_op);
 
     if (IVD_RES_CHANGED == (ps_decode_op->u4_error_code & IVD_ERROR_MASK)) {
         DDD("resolution changed, reset decoder");
@@ -232,12 +228,11 @@ bool GoldfishH264Helper::decodeHeader(const uint8_t *frame, int inSize) {
         if (ps_decode_op->u4_pic_wd != mWidth ||  ps_decode_op->u4_pic_ht != mHeight) {
             mWidth = ps_decode_op->u4_pic_wd;
             mHeight = ps_decode_op->u4_pic_ht;
+            DDD("leaving with true");
             return true;
         } else {
             DDD("success decode w/h, but they are the same %d %d", ps_decode_op->u4_pic_wd , ps_decode_op->u4_pic_ht);
         }
-    } else {
-        ALOGE("could not decode w/h");
     }
 
     // get output delay
@@ -250,6 +245,7 @@ bool GoldfishH264Helper::decodeHeader(const uint8_t *frame, int inSize) {
         }
     }
 
+    DDD("leaving with false");
     return false;
 }
 

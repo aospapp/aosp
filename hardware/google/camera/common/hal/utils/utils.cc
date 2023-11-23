@@ -375,9 +375,34 @@ bool IsSessionParameterCompatible(const HalCameraMetadata* old_session,
       int32_t old_max_fps = old_entry.data.i32[1];
       int32_t new_min_fps = new_entry.data.i32[0];
       int32_t new_max_fps = new_entry.data.i32[1];
-      if (old_max_fps == new_max_fps) {
-        ALOGI("%s: Ignore fps (%d, %d) to (%d, %d)", __FUNCTION__, old_min_fps,
-              old_max_fps, new_min_fps, new_max_fps);
+      // Do not reconfigure session if max FPS hasn't changed or in
+      // the special case that AE FPS is throttling [60, 60] to [30, 30] or
+      // restored from [30, 30] to [60, 60] from GCA side when session parameter
+      // kVideo60to30FPSThermalThrottle is enabled.
+      uint8_t video_60_to_30fps_thermal_throttle = 0;
+      camera_metadata_ro_entry_t video_60_to_30fps_throttle_entry;
+      if (new_session->Get(kVideo60to30FPSThermalThrottle,
+                           &video_60_to_30fps_throttle_entry) == OK) {
+        video_60_to_30fps_thermal_throttle =
+            video_60_to_30fps_throttle_entry.data.u8[0];
+      }
+
+      bool ignore_fps_range_diff = false;
+      if (video_60_to_30fps_thermal_throttle) {
+        if (((old_min_fps == 60) && (old_max_fps == 60) &&
+             (new_min_fps == 30) && (new_max_fps == 30)) ||
+            ((old_min_fps == 30) && (old_max_fps == 30) &&
+             (new_min_fps == 60) && (new_max_fps == 60))) {
+          ignore_fps_range_diff = true;
+        }
+      }
+
+      if (old_max_fps == new_max_fps || ignore_fps_range_diff) {
+        ALOGI(
+            "%s: Ignore fps (%d, %d) to (%d, %d). "
+            "video_60_to_30fps_thermal_throttle: %u",
+            __FUNCTION__, old_min_fps, old_max_fps, new_min_fps, new_max_fps,
+            video_60_to_30fps_thermal_throttle);
         continue;
       }
 
@@ -518,6 +543,22 @@ status_t GetStreamUseCases(const HalCameraMetadata* static_metadata,
   stream_use_cases->insert(entry.data.i64, entry.data.i64 + entry.count);
 
   return OK;
+}
+
+bool IsSecuredStream(const Stream& stream) {
+  return (stream.usage & GRALLOC_USAGE_PROTECTED) != 0u;
+}
+
+bool IsStreamUseCasesVideoCall(const Stream& stream) {
+  return (stream.use_case ==
+          ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_CALL)
+             ? true
+             : false;
+}
+
+bool IsHdrStream(const Stream& stream) {
+  return stream.dynamic_profile !=
+         ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD;
 }
 
 }  // namespace utils

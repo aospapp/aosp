@@ -37,27 +37,9 @@ namespace {
 
 const size_t kMaxBinderThreadCount = 2;
 
-void sigHandler(int sig) {
-    IPCThreadState::self()->stopProcess();
-    CarPowerPolicyServer::terminateService();
-    ALOGW("powerpolicy daemon terminated on receiving signal %d.", sig);
-    exit(1);
-}
-
-void registerSigHandler() {
-    struct sigaction sa;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sa.sa_handler = sigHandler;
-    sigaction(SIGQUIT, &sa, nullptr);
-    sigaction(SIGTERM, &sa, nullptr);
-}
-
 }  // namespace
 
 int main(int /*argc*/, char** /*argv*/) {
-    registerSigHandler();
-
     // Set up the binder
     sp<ProcessState> ps(ProcessState::self());
     ps->setThreadPoolMaxThreadCount(kMaxBinderThreadCount);

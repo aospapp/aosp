@@ -20,10 +20,19 @@ import static com.android.net.module.util.DnsPacket.DnsRecord.NAME_COMPRESSION;
 import static com.android.net.module.util.DnsPacket.DnsRecord.NAME_NORMAL;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
+import android.net.InetAddresses;
+import android.net.ParseException;
 import android.text.TextUtils;
+import android.util.Patterns;
 
+import com.android.internal.annotations.VisibleForTesting;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.text.FieldPosition;
 
@@ -38,6 +47,7 @@ public final class DnsPacketUtils {
      */
     public static class DnsRecordParser {
         private static final int MAXLABELSIZE = 63;
+        private static final int MAXNAMESIZE = 255;
         private static final int MAXLABELCOUNT = 128;
 
         private static final DecimalFormat sByteFormat = new DecimalFormat();
@@ -48,7 +58,8 @@ public final class DnsPacketUtils {
          *
          * <p>Follows the same conversion rules of the native code (ns_name.c in libc).
          */
-        private static String labelToString(@NonNull byte[] label) {
+        @VisibleForTesting
+        static String labelToString(@NonNull byte[] label) {
             final StringBuffer sb = new StringBuffer();
 
             for (int i = 0; i < label.length; ++i) {
@@ -69,6 +80,52 @@ public final class DnsPacketUtils {
                 }
             }
             return sb.toString();
+        }
+
+        /**
+         * Converts domain name to labels according to RFC 1035.
+         *
+         * @param name Domain name as String that needs to be converted to labels.
+         * @return An encoded byte array that is constructed out of labels,
+         *         and ends with zero-length label.
+         * @throws ParseException if failed to parse the given domain name or
+         *         IOException if failed to output labels.
+         */
+        public static @NonNull byte[] domainNameToLabels(@NonNull String name) throws
+                IOException, ParseException {
+            if (name.length() > MAXNAMESIZE) {
+                throw new ParseException("Domain name exceeds max length: " + name.length());
+            }
+            if (!isHostName(name)) {
+                throw new ParseException("Failed to parse domain name: " + name);
+            }
+            final ByteArrayOutputStream buf = new ByteArrayOutputStream();
+            final String[] labels = name.split("\\.");
+            for (final String label : labels) {
+                if (label.length() > MAXLABELSIZE) {
+                    throw new ParseException("label is too long: " + label);
+                }
+                buf.write(label.length());
+                // Encode as UTF-8 as suggested in RFC 6055 section 3.
+                buf.write(label.getBytes(StandardCharsets.UTF_8));
+            }
+            buf.write(0x00); // end with zero-length label
+            return buf.toByteArray();
+        }
+
+        /**
+         * Check whether the input is a valid hostname based on rfc 1035 section 3.3.
+         *
+         * @param hostName the target host name.
+         * @return true if the input is a valid hostname.
+         */
+        public static boolean isHostName(@Nullable String hostName) {
+            // TODO: Use {@code Patterns.HOST_NAME} if available.
+            // Patterns.DOMAIN_NAME accepts host names or IP addresses, so reject
+            // IP addresses.
+            return hostName != null
+                    && Patterns.DOMAIN_NAME.matcher(hostName).matches()
+                    && !InetAddresses.isNumericAddress(hostName);
         }
 
         /**

@@ -36,7 +36,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/wallpaper_info_pane_subtitle1_top_margin"
         android:lineHeight="20dp"
-        android:textColor="?android:textColorTertiary"
+        android:textColor="?android:textColorSecondary"
         android:textSize="14sp"
         android:visibility="gone" />
 
@@ -46,7 +46,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/wallpaper_info_pane_subtitle2_top_margin"
         android:lineHeight="20dp"
-        android:textColor="?android:textColorTertiary"
+        android:textColor="?android:textColorSecondary"
         android:textSize="14sp"
         android:visibility="gone" />
 

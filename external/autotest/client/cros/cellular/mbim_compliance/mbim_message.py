@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -27,11 +28,19 @@ MBIMControlMessage|         (mbim_message_request.py)
                                               |
                                               |>MBIMHostError
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import array
 import logging
 import struct
-import sys
 from collections import namedtuple
+
+import six
+
+from six.moves import map
+from six.moves import zip
 
 from autotest_lib.client.cros.cellular.mbim_compliance import mbim_errors
 
@@ -132,7 +141,7 @@ def message_class_new(cls, **kwargs):
             mbim_errors.log_and_raise(
                     mbim_errors.MBIMComplianceControlMessageError,
                     'Unexpected fields (%s) in %s' % (
-                            kwargs.keys(), cls.__name__))
+                            list(kwargs.keys()), cls.__name__))
         return obj
 
 
@@ -186,7 +195,7 @@ class MBIMControlMessageMeta(type):
             if hasattr(base_class, '_CONSOLIDATED_DEFAULTS'):
                 defaults = getattr(base_class, '_CONSOLIDATED_DEFAULTS').copy()
         if '_FIELDS' in attrs:
-            fields = fields + map(list, attrs['_FIELDS'])
+            fields = fields + list(map(list, attrs['_FIELDS']))
         if '_DEFAULTS' in attrs:
             defaults.update(attrs['_DEFAULTS'])
         attrs['_CONSOLIDATED_FIELDS'] = fields
@@ -198,7 +207,7 @@ class MBIMControlMessageMeta(type):
                     '%s message must have some fields defined' % name)
 
         attrs['__new__'] = message_class_new
-        _, field_names, _ = zip(*fields)
+        _, field_names, _ = list(zip(*fields))
         message_class = namedtuple(name, field_names)
         # Prepend the class created via namedtuple to |bases| in order to
         # correctly resolve the __new__ method while preserving the class
@@ -208,15 +217,13 @@ class MBIMControlMessageMeta(type):
         return cls
 
 
-class MBIMControlMessage(object):
+class MBIMControlMessage(six.with_metaclass(MBIMControlMessageMeta, object)):
     """
     MBIMControlMessage base class.
 
     This class should not be instantiated or used directly.
 
     """
-    __metaclass__ = MBIMControlMessageMeta
-
     _NEXT_TRANSACTION_ID = 0X00000000
 
 
@@ -316,7 +323,7 @@ class MBIMControlMessage(object):
         @returns The field names of the message structure.
 
         """
-        _, field_names, _ = zip(*cls.get_fields(get_all=get_all))
+        _, field_names, _ = list(zip(*cls.get_fields(get_all=get_all)))
         return field_names
 
 
@@ -328,7 +335,7 @@ class MBIMControlMessage(object):
         @returns The format of fields of the message structure.
 
         """
-        field_formats, _, _ = zip(*cls.get_fields(get_all=get_all))
+        field_formats, _, _ = list(zip(*cls.get_fields(get_all=get_all)))
         return field_formats
 
 
@@ -389,7 +396,7 @@ class MBIMControlMessage(object):
         @returns The tracsaction id for control message delivery.
 
         """
-        if MBIMControlMessage._NEXT_TRANSACTION_ID > (sys.maxint - 2):
+        if MBIMControlMessage._NEXT_TRANSACTION_ID > (six.MAXSIZE - 2):
             MBIMControlMessage._NEXT_TRANSACTION_ID = 0x00000000
         MBIMControlMessage._NEXT_TRANSACTION_ID += 1
         return MBIMControlMessage._NEXT_TRANSACTION_ID
@@ -434,7 +441,7 @@ class MBIMControlMessage(object):
                     mbim_errors.MBIMComplianceControlMessageError,
                     "Erorr in finding payload len field in message: %s" %
                     self.__class__.__name__)
-        return payload_len_fields.values()[0]
+        return list(payload_len_fields.values())[0]
 
 
     def get_total_len(self):
@@ -452,7 +459,7 @@ class MBIMControlMessage(object):
                     mbim_errors.MBIMComplianceControlMessageError,
                     "Erorr in finding total len field in message: %s" %
                     self.__class__.__name__)
-        return total_len_fields.values()[0]
+        return list(total_len_fields.values())[0]
 
 
     def get_num_fragments(self):
@@ -469,7 +476,7 @@ class MBIMControlMessage(object):
                     mbim_errors.MBIMComplianceControlMessageError,
                     "Erorr in finding num fragments field in message: %s" %
                     self.__class__.__name__)
-        return num_fragment_fields.values()[0]
+        return list(num_fragment_fields.values())[0]
 
 
     def find_payload_class(self):

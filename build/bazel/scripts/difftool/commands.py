@@ -13,8 +13,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License."""
-
 """Helper functions and types for command processing for difftool."""
+
+import os
+import pathlib
 
 
 class CommandInfo:
@@ -52,7 +54,8 @@ def parse_flag_groups(args, custom_flag_group=None):
   group abiding by the above convention, or None to use non-custom logic.
   This may be required to accurately parse arg groups. For example, `-a b` may
   be either a one-arg group `-a` followed by a positonal group `b`, or a two-arg
-  group `-a b`."""
+  group `-a b`.
+  """
   flag_groups = []
 
   i = 0
@@ -72,7 +75,7 @@ def parse_flag_groups(args, custom_flag_group=None):
 
     # Look for a two-arg group if there are at least 2 elements left.
     if i < len(args) - 1:
-      g = two_arg_group(args[i], args[i+1])
+      g = two_arg_group(args[i], args[i + 1])
       if g is not None:
         flag_groups += [g]
         i += 2
@@ -107,7 +110,8 @@ def two_arg_group(a, b):
 
   Returns:
     A tuple of the two args without hyphens if they belong to a single
-    flag, or None if they do not. """
+    flag, or None if they do not.
+  """
   if a.startswith("-") and (not b.startswith("-")):
     return (remove_hyphens(a), b)
   else:
@@ -122,7 +126,8 @@ def one_arg_group(x):
 
   Returns:
     A tuple of `(key, value)` of the flag group, if the arg comprises a
-    complete flag group, or None if it does not."""
+    complete flag group, or None if it does not.
+  """
   tokens = x.split("=")
   if len(tokens) == 2:
     return (remove_hyphens(tokens[0]), tokens[1])
@@ -143,3 +148,90 @@ def flag_repr(x):
   else:
     return x
 
+
+def expand_rsp(arglist: list[str]) -> list[str]:
+  expanded_command = []
+  for arg in arglist:
+    if len(arg) > 4 and arg[-4:] == ".rsp":
+      if arg[0] == "@":
+        arg = arg[1:]
+      with open(arg) as f:
+        expanded_command.extend([f for l in f.readlines() for f in l.split()])
+    else:
+      expanded_command.append(arg)
+  return expanded_command
+
+
+def should_ignore_path_argument(arg) -> bool:
+  if arg.startswith("bazel-out"):
+    return True
+  if arg.startswith("out/soong/.intermediates"):
+    return True
+  return False
+
+
+def extract_paths_from_action_args(
+    args: list[str],
+) -> (list[pathlib.Path], list[pathlib.Path]):
+  paths = []
+  other_args = []
+  for arg in args:
+    p = pathlib.Path(arg)
+    if p.is_file():
+      paths.append(p)
+    else:
+      other_args.append(arg)
+  return paths, other_args
+
+
+def sanitize_bazel_path(path: str) -> pathlib.Path:
+  if path[:3] == "lib":
+    path = path[3:]
+  path = path.replace("_bp2build_cc_library_static", "")
+  return pathlib.Path(path)
+
+
+def find_matching_path(
+    path: pathlib.Path, other_paths: list[pathlib.Path]
+) -> pathlib.Path:
+  multiple_best_matches = False
+  best = (0, None)
+  for op in other_paths:
+    common = os.path.commonpath([path, op])
+    similarity = len(common.split(os.sep)) if common else 0
+    if similarity == best[0]:
+      multiple_best_matches = True
+    if similarity > best[0]:
+      multiple_best_matches = False
+      best = (similarity, op)
+  if multiple_best_matches:
+    print(
+        f"WARNING: path `{path}` had multiple best matches in list"
+        f" `{other_paths}`"
+    )
+  return best[1]
+
+
+def _reverse_path(p: pathlib.Path) -> str:
+  return os.path.join(*reversed(os.path.normpath(p).split(os.sep)))
+
+
+def _reverse_paths(paths: list[pathlib.Path]) -> list[pathlib.Path]:
+  return [_reverse_path(p) for p in paths]
+
+
+def match_paths(
+    bazel_paths: list[str], soong_paths: list[str]
+) -> dict[str, str]:
+  reversed_bazel_paths = _reverse_paths(bazel_paths)
+  reversed_soong_paths = _reverse_paths(soong_paths)
+  closest_path = {p: (0, None) for p in reversed_bazel_paths}
+  for bp in reversed_bazel_paths:
+    bp_soong_name = sanitize_bazel_path(bp)
+    closest_path[bp] = find_matching_path(bp_soong_name, reversed_soong_paths)
+  matched_paths = {}
+  for path, match in closest_path.items():
+    p1 = _reverse_path(path)
+    p2 = _reverse_path(match) if match is not None else None
+    matched_paths[p1] = p2
+  return matched_paths

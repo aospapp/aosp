@@ -34,7 +34,10 @@ java_test {
         "android.test.base",
     ],
     errorprone: {
-        javacflags: ["-Xep:EqualsNull:WARN"],
+        javacflags: [
+            "-Xep:EqualsNull:WARN",
+            "-Xep:ReturnValueIgnored:WARN",
+        ],
     },
 }
 
@@ -58,4 +61,9 @@ java_library {
     ],
     sdk_version: "none",
     system_modules: "core-all-system-modules",
+    errorprone: {
+        javacflags: [
+            "-Xep:ReturnValueIgnored:WARN",
+        ],
+    },
 }

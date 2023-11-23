@@ -44,7 +44,7 @@ XlaOp DiagonalBlocks(XlaOp a, int64_t block_size) {
     int ndims = shape.rank();
     int64_t n = ShapeUtil::GetDimension(shape, -1);
     int64_t num_blocks = n / block_size;
-    absl::Span<int64 const> batch_dims = absl::MakeConstSpan(
+    absl::Span<int64_t const> batch_dims = absl::MakeConstSpan(
         shape.dimensions().begin(), shape.dimensions().begin() + (ndims - 2));
 
     XlaOp diag_blocks;
@@ -52,7 +52,7 @@ XlaOp DiagonalBlocks(XlaOp a, int64_t block_size) {
     // If the coefficient matrix is exactly the block size, we just add a
     // singleton dimension i.e. [..., n, n] -> [..., 1, n, n]
     if (n == block_size) {
-      std::vector<int64> permutation(ndims);
+      std::vector<int64_t> permutation(ndims);
       std::iota(permutation.begin(), permutation.end(), 1);
       permutation.insert(permutation.end() - 2, 0);
       return Transpose(Broadcast(a, /*broadcast_sizes=*/{1}), permutation);
@@ -63,21 +63,15 @@ XlaOp DiagonalBlocks(XlaOp a, int64_t block_size) {
       // Construct the starting indices of the diagonal blocks
       auto start_indices =
           Transpose(Broadcast(Mul(Iota(builder, S32, num_blocks),
-                                  ConstantR0<int32>(builder, block_size)),
+                                  ConstantR0<int32_t>(builder, block_size)),
                               /*broadcast_sizes=*/{2}),
                     /*permutation=*/{1, 0});
 
-      PaddingConfig padding_config =
-          MakeEdgePaddingConfig({{0, 0}, {ndims - 2, 0}});
-      start_indices =
-          Pad(start_indices, ConstantR0<int32>(builder, 0), padding_config);
-
       // Gather the diagonal blocks
-      std::vector<int64> slice_sizes(ndims);
+      std::vector<int64_t> slice_sizes(ndims);
       GatherDimensionNumbers dim_numbers;
       for (int i = 0; i < ndims - 2; ++i) {
         dim_numbers.add_offset_dims(i);
-        dim_numbers.add_start_index_map(i);
         slice_sizes[i] = ShapeUtil::GetDimension(shape, i);
       }
       slice_sizes[ndims - 2] = slice_sizes[ndims - 1] = block_size;
@@ -112,8 +106,8 @@ XlaOp DiagonalBlocks(XlaOp a, int64_t block_size) {
       // Add a singleton dimension
       // i.e. [..., block_size, block_size] -> [..., 1, block_size, block_size]
       TF_ASSIGN_OR_RETURN(Shape blocks_shape, builder->GetShape(last_blocks));
-      auto shape_dims = AsInt64Slice(blocks_shape.dimensions());
-      auto last_blocks_dims = std::vector<int64>(ndims);
+      auto shape_dims = blocks_shape.dimensions();
+      auto last_blocks_dims = std::vector<int64_t>(ndims);
       std::copy(shape_dims.begin(), shape_dims.end(), last_blocks_dims.begin());
       last_blocks_dims.insert(last_blocks_dims.end() - 2, 1);
       last_blocks = Reshape(last_blocks, last_blocks_dims);
@@ -179,8 +173,8 @@ XlaOp SolveWithInvertedDiagonalBlocks(XlaOp a, XlaOp b, XlaOp inv_diag_blocks,
 
       // Get the corresponding row of B
       int64_t k = std::min((j + 1) * block_size, n);
-      std::vector<int64> start = {j * block_size, 0};
-      std::vector<int64> end = {k, m};
+      std::vector<int64_t> start = {j * block_size, 0};
+      std::vector<int64_t> end = {k, m};
       if (!left_side) {
         std::swap(start[0], start[1]);
         std::swap(end[0], end[1]);
@@ -195,7 +189,7 @@ XlaOp SolveWithInvertedDiagonalBlocks(XlaOp a, XlaOp b, XlaOp inv_diag_blocks,
         // (namely, X[i * block_size:] = 0), L[i, :i] @ X[:i]
         if (backward) {
           start = {j * block_size,
-                   std::max(int64{0}, (num_blocks - i) * block_size)};
+                   std::max(int64_t{0}, (num_blocks - i) * block_size)};
           end = {k, n};
         } else {
           start = {j * block_size, 0};
@@ -250,8 +244,7 @@ XlaOp TriangularSolveExpander::InvertDiagonalBlocks(
     // (..., size, size). We resize this to (num_blocks, size, size).
     TF_ASSIGN_OR_RETURN(Shape shape, builder->GetShape(diag_blocks));
     int64_t block_size = ShapeUtil::GetDimension(shape, -1);
-    int64_t num_blocks = ShapeUtil::ElementsIn(shape) /
-                         tensorflow::MathUtil::IPow(block_size, 2);
+    int64_t num_blocks = ShapeUtil::ElementsIn(shape) / IPow(block_size, 2);
     diag_blocks = Reshape(diag_blocks, {num_blocks, block_size, block_size});
 
     // The input must be triangular because we rely on that when doing
@@ -317,7 +310,7 @@ XlaOp TriangularSolveExpander::InvertDiagonalBlocks(
     {
       auto i = GetTupleElement(
           Parameter(condb.get(), 0, tuple_shape, "InvertDiagCondTuple"), 0);
-      Lt(i, ConstantR0<int32>(condb.get(), block_size));
+      Lt(i, ConstantR0<int32_t>(condb.get(), block_size));
     }
     TF_ASSIGN_OR_RETURN(auto cond, condb->Build());
 
@@ -332,7 +325,7 @@ XlaOp TriangularSolveExpander::InvertDiagonalBlocks(
       auto body_out = GetTupleElement(input_tuple, 1);
       auto body_input = GetTupleElement(input_tuple, 2);
 
-      auto zero = ConstantR0<int32>(bodyb.get(), 0);
+      auto zero = ConstantR0<int32_t>(bodyb.get(), 0);
       auto j = lower_triangular ? i : ScalarLike(i, block_size - 1) - i;
       auto input_row =
           DynamicSlice(body_input, {zero, j, zero},
@@ -365,7 +358,7 @@ XlaOp TriangularSolveExpander::InvertDiagonalBlocks(
                           /*broadcast_dimensions=*/{0, 1});
 
     // Reshape back to original batch major dimensions
-    return Reshape(inv_diag_blocks, AsInt64Slice(shape.dimensions()));
+    return Reshape(inv_diag_blocks, shape.dimensions());
   });
 }
 
@@ -428,7 +421,7 @@ XlaOp TriangularSolveExpander::SolveDirectly(
     bool backwards = transpose_a ^ lower ^ !left_side;
     for (int64_t i = 0; i < a_size; ++i) {
       int64_t j = backwards ? i : (a_size - i - 1);
-      std::vector<int64> b_row_start, b_row_end;
+      std::vector<int64_t> b_row_start, b_row_end;
       if (left_side) {
         b_row_start = {j, 0};
         b_row_end = {j + 1, n};
@@ -438,8 +431,8 @@ XlaOp TriangularSolveExpander::SolveDirectly(
       }
       auto b_row = SliceInMinorDims(b, b_row_start, b_row_end);
 
-      std::vector<int64> a_start = {j, backwards ? 0 : (j + 1)};
-      std::vector<int64> a_end = {j + 1, backwards ? j : a_size};
+      std::vector<int64_t> a_start = {j, backwards ? 0 : (j + 1)};
+      std::vector<int64_t> a_end = {j + 1, backwards ? j : a_size};
       if (transpose_a ^ !left_side) {
         std::swap(a_start[0], a_start[1]);
         std::swap(a_end[0], a_end[1]);
@@ -491,7 +484,7 @@ XlaOp TriangularSolveExpander::BuildTriangularSolve(
           ndims);
     }
     // The batch dimensions must be equal.
-    std::vector<int64> batch_dimensions;
+    std::vector<int64_t> batch_dimensions;
     int64_t batch = 1;
     for (int i = 0; i < ndims - 2; ++i) {
       int64_t a_size = a_shape.dimensions(i);
@@ -563,7 +556,7 @@ StatusOr<HloInstruction*> TriangularSolveExpander::ExpandInstruction(
     HloInstruction* instruction) {
   const TriangularSolveOptions& options =
       instruction->triangular_solve_options();
-  const string name = absl::StrFormat(
+  const std::string name = absl::StrFormat(
       "xla.triangular_solve_%s_%s_%s_%s_%s_%s",
       instruction->operand(0)->shape().ToString(),
       instruction->operand(1)->shape().ToString(),

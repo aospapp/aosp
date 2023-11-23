@@ -74,6 +74,10 @@ public class PixelCopyViewProducerActivity extends Activity implements OnDrawLis
         mContent.setOnApplyWindowInsetsListener(this);
     }
 
+    public View getContentView() {
+        return mContent;
+    }
+
     @Override
     public void onDraw() {
         final int requestedOrientation = ORIENTATIONS[mCurrentOrientation];

@@ -18,6 +18,7 @@
 
 #include <android/binder_auto_utils.h>
 #include <android/binder_manager.h>
+#include <binder/ProcessState.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -41,7 +42,9 @@ using testing::Eq;
 struct AidlTest : testing::Test {
   template <typename T>
   std::shared_ptr<T> getService() {
-    ndk::SpAIBinder binder = ndk::SpAIBinder(AServiceManager_getService(T::descriptor));
+    android::ProcessState::self()->setThreadPoolMaxThreadCount(1);
+    android::ProcessState::self()->startThreadPool();
+    ndk::SpAIBinder binder = ndk::SpAIBinder(AServiceManager_waitForService(T::descriptor));
     return T::fromBinder(binder);
   }
 };
@@ -123,8 +126,8 @@ TEST_F(AidlTest, LoggableInterface) {
                   {"in_listValue", "[mno]"},
                   {"in_dataValue",
                    "Data{num: 42, str: abc, nestedUnion: Union{str: def}, nestedEnum: FOO}"},
-                  {"in_binderValue", "(null)"},
-                  {"in_pfdValue", "(null)"},
+                  {"in_binderValue", "binder:0x0"},
+                  {"in_pfdValue", "fd:-1"},
                   {"in_pfdArray", "[]"},
               }));
   EXPECT_THAT(log.output_args,
@@ -137,6 +140,6 @@ TEST_F(AidlTest, LoggableInterface) {
                                               {"in_doubleArray", "[53.000000, 54.000000]"},
                                               {"in_stringArray", "[ghi, jkl]"},
                                               {"in_listValue", "[mno]"},
-                                              {"in_pfdValue", "(null)"},
+                                              {"in_pfdValue", "fd:-1"},
                                               {"in_pfdArray", "[]"}}));
 }

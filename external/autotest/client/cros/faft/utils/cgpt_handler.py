@@ -118,7 +118,7 @@ class CgptHandler(object):
 
         current = self.get_partition(device, partition_name)
         options = []
-        for prop, value in partition_value.iteritems():
+        for prop, value in partition_value.items():
             try:
                 if value == current[prop]:
                     continue

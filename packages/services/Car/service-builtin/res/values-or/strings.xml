@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"ଏକ ପ୍ରୋଜେକ୍ସନ୍ ସେବା ସହ ଯୋଡ଼ି ହୁଅନ୍ତୁ"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"ଏକ ପ୍ରୋଜେକ୍ସନ୍ ସେବାର ଶୀର୍ଷ-ସ୍ତର ଇଣ୍ଟର୍‌ଫେସ୍‍କୁ ବାନ୍ଧିରଖିବା ପାଇଁ ଧାରକକୁ ଅନୁମତି ଦିଏ। ସାମାନ୍ୟ ଆପ୍‍‌ଗୁଡ଼ିକ ପାଇଁ ଏହା ଆବଶ୍ୟକ ନୁହେଁ।"</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"VMS ଗ୍ରାହକ ସେବା"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"VMS ଗ୍ରାହକମାନଙ୍କ ସହ ଯୋଡ଼ି ହୁଅନ୍ତୁ"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"ଇନ୍‍ଷ୍ଟ୍ରୁମେଣ୍ଟ କ୍ଲଷ୍ଟର୍ ରେଣ୍ଡରିଂ"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"ଇନ୍‍ଷ୍ଟ୍ରୁମେଣ୍ଟ କ୍ଲଷ୍ଟର୍‌ର ଡାଟା ପ୍ରାପ୍ତ କରନ୍ତୁ"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"କାର୍‍ର ଇନ୍‍ପୁଟ୍ ସେବା"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"ଇନ୍‍ପୁଟ୍ ଇଭେଣ୍ଟଗୁଡ଼ିକ ପରିଚାଳନା କରିପାରେ"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"ଆପଣ ଡ୍ରାଇଭ୍‍ କରିବା ସମୟରେ ଏହି ଫିଚର୍‍ ବ୍ୟବହାର କରିପାରିବେ ନାହିଁ"</string>
     <string name="exit_button_message" msgid="5375678491245394542">"ସୁରକ୍ଷିତ ଆପ୍ ବୈଶିଷ୍ଟ୍ୟଗୁଡ଼ିକୁ ନେ‍ଇ ପୁଣି ଆରମ୍ଭ କରିବା ପାଇଁ, <xliff:g id="EXIT_BUTTON">%s</xliff:g> ଚୟନ କରନ୍ତୁ।"</string>
     <string name="exit_button" msgid="3491899413031549265">"ପଛକୁ ଫେରନ୍ତୁ"</string>
@@ -28,13 +36,9 @@
     <string name="factory_reset_notification_text" msgid="6051393302193696102">"ଇନଫୋଟେନମେଣ୍ଟ ସିଷ୍ଟମରେ ଥିବା ସମସ୍ତ ଡାଟା ଖାଲି ହୋଇଯିବ। ରିସେଟ୍ ହେବା ପରେ, ଆପଣ ଏକ ନୂଆ ପ୍ରୋଫାଇଲ୍ ସେଟ୍ ଅପ୍ କରିପାରିବେ।"</string>
     <string name="factory_reset_notification_button" msgid="6926734587145351076">"ଅଧିକ"</string>
     <string name="factory_reset_warning" msgid="8463356329619149262">"ଆପଣଙ୍କ ଡିଭାଇସ୍‍ ବର୍ତ୍ତମାନ ଲିଭାଯିବ"</string>
-    <string name="factory_reset_message" msgid="1972536809866779972">"ଆଡମିନ ଆପ ବ୍ୟବହାର କରାଯାଇପାରିବ ନାହିଁ। ଆପଣଙ୍କ ଡିଭାଇସର ସମସ୍ତ ଡାଟାକୁ ବର୍ତ୍ତମାନ ଖାଲି କରାଯିବ।\n\nଯଦି ଆପଣଙ୍କର କିଛି ପ୍ରଶ୍ନ ଅଛି, ତେବେ ଆପଣଙ୍କ ସଂସ୍ଥାର ଆଡମିନଙ୍କ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ।"</string>
+    <string name="factory_reset_message" msgid="1972536809866779972">"ଆଡମିନ ଆପ ବ୍ୟବହାର କରାଯାଇପାରିବ ନାହିଁ। ଆପଣଙ୍କ ଡିଭାଇସର ସମସ୍ତ ଡାଟାକୁ ବର୍ତ୍ତମାନ ଖାଲି କରାଯିବ।\n\nଯଦି ଆପଣଙ୍କର କିଛି ପ୍ରଶ୍ନ ଅଛି, ତେବେ ଆପଣଙ୍କ ସଂସ୍ଥାର ଆଡମିନଙ୍କ ସହ କଣ୍ଟାକ୍ଟ କରନ୍ତୁ।"</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> ଆପଣଙ୍କ ସିଷ୍ଟମର ପରଫରମାନ୍ସକୁ ପ୍ରଭାବିତ କରୁଛି"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"ସିଷ୍ଟମର ପରଫରମାନ୍ସକୁ ଉନ୍ନତ କରିବା ପାଇଁ ଆପକୁ ଅକ୍ଷମ କରନ୍ତୁ। ଆପଣ ସେଟିଂସରେ ପୁଣି ଥରେ ଆପକୁ ସକ୍ଷମ କରିପାରିବେ।"</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"ଆପ ବ୍ୟବହାର କରିବା ଜାରି ରଖିବା ପାଇଁ ଆପକୁ ପ୍ରାଥମିକତା ଦିଅନ୍ତୁ।"</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"ସିଷ୍ଟମର ପରଫରମାନ୍ସକୁ ଉନ୍ନତ କରିବା ପାଇଁ ଆପକୁ ଅନଇନଷ୍ଟଲ କରନ୍ତୁ।"</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"ଆପକୁ ଅକ୍ଷମ କରନ୍ତୁ"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"ପୃଷ୍ଠପଟରେ ଚାଲିବାରୁ ଏହି ଆପକୁ ପ୍ରତିରୋଧ କରାଯାଇଛି। ପୃଷ୍ଠପଟ ବ୍ୟବହାର ଜାରି ରଖିବା ପାଇଁ ଆପକୁ ପ୍ରାଥମିକତା ଦିଅନ୍ତୁ।"</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"ବନ୍ଦ କରନ୍ତୁ"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"ଆପକୁ ପ୍ରାଥମିକତା ଦିଅନ୍ତୁ"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"ଆପକୁ ଅନଇନଷ୍ଟଲ କରନ୍ତୁ"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g>କୁ ଅକ୍ଷମ କରିଦିଆଯାଇଛି। ଆପଣ ସେଟିଂସରେ ପୁଣି ଏହାକୁ ସକ୍ଷମ କରିପାରିବେ।"</string>
 </resources>

@@ -1,38 +1,37 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2021 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 mod block;
 mod console;
 mod fs;
-#[cfg(feature = "gpu")]
 mod gpu;
 mod handler;
 mod mac80211_hwsim;
 mod net;
-#[cfg(feature = "audio")]
 mod snd;
+mod video;
+mod virtio_device;
 mod vsock;
 mod wl;
-mod worker;
-
-pub use self::block::*;
-pub use self::console::*;
-pub use self::fs::*;
-#[cfg(feature = "gpu")]
-pub use self::gpu::*;
-pub use self::handler::VhostUserHandler;
-pub use self::mac80211_hwsim::*;
-pub use self::net::*;
-#[cfg(feature = "audio")]
-pub use self::snd::*;
-pub use self::vsock::*;
-pub use self::wl::*;
 
 use remain::sorted;
 use thiserror::Error as ThisError;
+use virtio_device::QueueSizes;
+pub use virtio_device::VhostUserVirtioDevice;
 use vm_memory::GuestMemoryError;
+use vmm_vhost::message::VhostUserProtocolFeatures;
 use vmm_vhost::Error as VhostError;
+
+pub use self::handler::VhostUserHandler;
+
+cfg_if::cfg_if! {
+    if #[cfg(unix)] {
+        pub type Connection = std::os::unix::net::UnixStream;
+    } else if #[cfg(windows)] {
+        pub type Connection = base::Tube;
+    }
+}
 
 #[sorted]
 #[derive(ThisError, Debug)]
@@ -40,6 +39,9 @@ pub enum Error {
     /// Failed to copy config to a buffer.
     #[error("failed to copy config to a buffer: {0}")]
     CopyConfig(std::io::Error),
+    /// Failed to create backend request handler
+    #[error("could not create backend req handler: {0}")]
+    CreateBackendReqHandler(VhostError),
     /// Failed to create `base::Event`.
     #[error("failed to create Event: {0}")]
     CreateEvent(base::Error),
@@ -61,19 +63,20 @@ pub enum Error {
     /// Failed to get vring base offset.
     #[error("failed to get vring base offset: {0}")]
     GetVringBase(VhostError),
+    /// Invalid config length is given.
+    #[error("invalid config length is given: {0}")]
+    InvalidConfigLen(usize),
     /// Invalid config offset is given.
-    #[error("invalid config offset is given: {data_len} + {offset} > {config_len}")]
-    InvalidConfigOffset {
-        data_len: u64,
-        offset: u64,
-        config_len: u64,
-    },
+    #[error("invalid config offset is given: {0}")]
+    InvalidConfigOffset(u64),
     /// MSI-X config is unavailable.
     #[error("MSI-X config is unavailable")]
     MsixConfigUnavailable,
     /// MSI-X irqfd is unavailable.
     #[error("MSI-X irqfd is unavailable")]
     MsixIrqfdUnavailable,
+    #[error("protocol feature is not negotiated: {0:?}")]
+    ProtocolFeatureNotNegoiated(VhostUserProtocolFeatures),
     /// Failed to reset owner.
     #[error("failed to reset owner: {0}")]
     ResetOwner(VhostError),
@@ -113,15 +116,24 @@ pub enum Error {
     /// Failed to set the size of the queue.
     #[error("failed to set the size of the queue: {0}")]
     SetVringNum(VhostError),
+    /// Error getting the shmem regions.
+    #[error("failed to enumerate shmem regions {0}")]
+    ShmemRegions(VhostError),
     /// Failed to connect socket.
     #[error("failed to connect socket: {0}")]
     SocketConnect(std::io::Error),
     /// Failed to create Master from a UDS path.
     #[error("failed to connect to device socket while creating instance: {0}")]
     SocketConnectOnMasterCreate(VhostError),
+    /// Failed to spawn worker thread.
+    #[error("failed to spawn worker: {0}")]
+    SpawnWorker(std::io::Error),
     /// The tag for the Fs device was too long to fit in the config space.
     #[error("tag is too long: {len} > {max}")]
     TagTooLong { len: usize, max: usize },
+    /// Too many shmem regions.
+    #[error("too many shmem regions: {0} > 1")]
+    TooManyShmemRegions(usize),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

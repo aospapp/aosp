@@ -57,7 +57,7 @@ class IMLGenerator:
     """
     # b/121256503: Prevent duplicated iml names from breaking IDEA.
     # Use a map to cache in-using(already used) iml project file names.
-    USED_NAME_CACHE = dict()
+    USED_NAME_CACHE = {}
 
     def __init__(self, mod_info):
         """Initializes IMLGenerator.
@@ -202,8 +202,8 @@ class IMLGenerator:
                 IS_TEST='true'))
         self._excludes = self._mod_info.get(constant.KEY_EXCLUDES, '')
 
-        #For sovling duplicate package name, frameworks/base will be higher
-        #priority.
+        # For solving duplicate package name, frameworks/base will be higher
+        # priority.
         srcs = sorted(framework_srcs) + sorted(srcs)
         self._srcs = templates.CONTENT.format(MODULE_PATH=self._mod_path,
                                               EXCLUDES=self._excludes,

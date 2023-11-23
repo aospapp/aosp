@@ -119,7 +119,7 @@ arm_gralloc_capabilities_cc_defaults {
 		"libcutils",
 		"libsync",
 		"libutils",
-		"android.hardware.graphics.common-V3-ndk",
+		"android.hardware.graphics.common-V4-ndk",
 	],
 }
 

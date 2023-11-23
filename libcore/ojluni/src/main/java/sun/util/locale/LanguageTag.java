@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 
 public class LanguageTag {
     //
@@ -59,10 +60,10 @@ public class LanguageTag {
     private List<String> variants = Collections.emptyList();   // variant subtags
     private List<String> extensions = Collections.emptyList(); // extensions
 
-    // Map contains grandfathered tags and its preferred mappings from
+    // Map contains legacy language tags and its preferred mappings from
     // http://www.ietf.org/rfc/rfc5646.txt
     // Keys are lower-case strings.
-    private static final Map<String, String[]> GRANDFATHERED = new HashMap<>();
+    private static final Map<String, String[]> LEGACY = new HashMap<>();
 
     static {
         // grandfathered = irregular           ; non-redundant tags registered
@@ -126,7 +127,7 @@ public class LanguageTag {
             {"zh-xiang",    "hsn"},
         };
         for (String[] e : entries) {
-            GRANDFATHERED.put(LocaleUtils.toLowerString(e[0]), e);
+            LEGACY.put(LocaleUtils.toLowerString(e[0]), e);
         }
     }
 
@@ -187,8 +188,8 @@ public class LanguageTag {
 
         StringTokenIterator itr;
 
-        // Check if the tag is grandfathered
-        String[] gfmap = GRANDFATHERED.get(LocaleUtils.toLowerString(languageTag));
+        // Check if the tag is a legacy language tag
+        String[] gfmap = LEGACY.get(LocaleUtils.toLowerString(languageTag));
         if (gfmap != null) {
             // use preferred mapping
             itr = new StringTokenIterator(gfmap[1], SEP);
@@ -211,7 +212,7 @@ public class LanguageTag {
         if (!itr.isDone() && !sts.isError()) {
             String s = itr.current();
             sts.errorIndex = itr.currentStart();
-            if (s.length() == 0) {
+            if (s.isEmpty()) {
                 sts.errorMsg = "Empty subtag";
             } else {
                 sts.errorMsg = "Invalid subtag: " + s;
@@ -453,7 +454,7 @@ public class LanguageTag {
             variant = "";
         }
 
-        if (variant.length() > 0) {
+        if (!variant.isEmpty()) {
             List<String> variants = null;
             StringTokenIterator varitr = new StringTokenIterator(variant, BaseLocale.SEP);
             while (!varitr.isDone()) {
@@ -473,21 +474,18 @@ public class LanguageTag {
             }
             if (!varitr.isDone()) {
                 // ill-formed variant subtags
-                StringBuilder buf = new StringBuilder();
+                StringJoiner sj = new StringJoiner(SEP);
                 while (!varitr.isDone()) {
                     String prvv = varitr.current();
                     if (!isPrivateuseSubtag(prvv)) {
                         // cannot use private use subtag - truncated
                         break;
                     }
-                    if (buf.length() > 0) {
-                        buf.append(SEP);
-                    }
-                    buf.append(prvv);
+                    sj.add(prvv);
                     varitr.next();
                 }
-                if (buf.length() > 0) {
-                    privuseVar = buf.toString();
+                if (sj.length() > 0) {
+                    privuseVar = sj.toString();
                 }
             }
         }
@@ -529,7 +527,7 @@ public class LanguageTag {
             tag.privateuse = privateuse;
         }
 
-        if (tag.language.length() == 0 && (hasSubtag || privateuse == null)) {
+        if (tag.language.isEmpty() && (hasSubtag || privateuse == null)) {
             // use lang "und" when 1) no language is available AND
             // 2) any of other subtags other than private use are available or
             // no private use tag is available
@@ -714,18 +712,18 @@ public class LanguageTag {
     public String toString() {
         StringBuilder sb = new StringBuilder();
 
-        if (language.length() > 0) {
+        if (!language.isEmpty()) {
             sb.append(language);
 
             for (String extlang : extlangs) {
                 sb.append(SEP).append(extlang);
             }
 
-            if (script.length() > 0) {
+            if (!script.isEmpty()) {
                 sb.append(SEP).append(script);
             }
 
-            if (region.length() > 0) {
+            if (!region.isEmpty()) {
                 sb.append(SEP).append(region);
             }
 
@@ -737,7 +735,7 @@ public class LanguageTag {
                 sb.append(SEP).append(extension);
             }
         }
-        if (privateuse.length() > 0) {
+        if (!privateuse.isEmpty()) {
             if (sb.length() > 0) {
                 sb.append(SEP);
             }

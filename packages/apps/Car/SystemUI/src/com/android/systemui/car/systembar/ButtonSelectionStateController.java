@@ -40,8 +40,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import javax.inject.Inject;
-
 /**
  * CarSystemBarButtons can optionally have selection state that toggles certain visual indications
  * based on whether the active application on screen is associated with it. This is basically a
@@ -56,13 +54,12 @@ public class ButtonSelectionStateController {
 
     private final Set<CarSystemBarButton> mRegisteredViews = new HashSet<>();
 
+    protected final Context mContext;
     protected ButtonMap mButtonsByCategory = new ButtonMap();
     protected ButtonMap mButtonsByPackage = new ButtonMap();
     protected ButtonMap mButtonsByComponentName = new ButtonMap();
     protected HashSet<CarSystemBarButton> mSelectedButtons;
-    protected Context mContext;
 
-    @Inject
     public ButtonSelectionStateController(Context context) {
         mContext = context;
         mSelectedButtons = new HashSet<>();
@@ -111,6 +108,7 @@ public class ButtonSelectionStateController {
 
     protected void taskChanged(List<RootTaskInfo> taskInfoList, int validDisplay) {
         RootTaskInfo validTaskInfo = null;
+
         for (RootTaskInfo taskInfo : taskInfoList) {
             // Find the first stack info with a topActivity in the primary display.
             // TODO: We assume that CarFacetButton will launch an app only in the primary display.
@@ -128,12 +126,7 @@ public class ButtonSelectionStateController {
         int displayId = validTaskInfo.displayId;
 
         // Clear all registered views
-        mRegisteredViews.forEach(carSystemBarButton -> {
-            if (carSystemBarButton.getDisplayId() == displayId) {
-                carSystemBarButton.setSelected(false);
-            }
-        });
-        mSelectedButtons.clear();
+        clearAllSelectedButtons(displayId);
 
         HashSet<CarSystemBarButton> selectedButtons = findSelectedButtons(validTaskInfo);
 
@@ -147,10 +140,19 @@ public class ButtonSelectionStateController {
         }
     }
 
+    protected void clearAllSelectedButtons(int displayId) {
+        mRegisteredViews.forEach(carSystemBarButton -> {
+            if (carSystemBarButton.getDisplayId() == displayId) {
+                carSystemBarButton.setSelected(false);
+            }
+        });
+        mSelectedButtons.clear();
+    }
+
     /**
      * Defaults to Display.DEFAULT_DISPLAY when no parameter is provided for the validDisplay.
      *
-     * @param taskInfoList
+     * @param taskInfoList of the currently running application
      */
     protected void taskChanged(List<RootTaskInfo> taskInfoList) {
         taskChanged(taskInfoList, FEATURE_DEFAULT_TASK_CONTAINER);
@@ -181,26 +183,7 @@ public class ButtonSelectionStateController {
     }
 
     private HashSet<CarSystemBarButton> findSelectedButtons(RootTaskInfo validTaskInfo) {
-        ComponentName topActivity = null;
-
-        // Window mode being WINDOW_MODE_MULTI_WINDOW implies TaskView might be visible on the
-        // display. In such cases, topActivity reported by validTaskInfo will be the one hosted in
-        // TaskView and not necessarily the main activity visible on display. Thus we should get
-        // rootTaskInfo instead.
-        if (validTaskInfo.getWindowingMode() == WINDOWING_MODE_MULTI_WINDOW) {
-            try {
-                RootTaskInfo rootTaskInfo =
-                        ActivityTaskManager.getService().getRootTaskInfoOnDisplay(
-                                WINDOWING_MODE_FULLSCREEN, ACTIVITY_TYPE_UNDEFINED,
-                                validTaskInfo.displayId);
-                topActivity = rootTaskInfo.topActivity;
-            } catch (RemoteException e) {
-                Log.e(TAG, "findSelectedButtons: Failed getting root task info", e);
-            }
-        } else {
-            topActivity = validTaskInfo.topActivity;
-        }
-
+        ComponentName topActivity = getTopActivity(validTaskInfo);
         if (topActivity == null) return null;
 
         String packageName = topActivity.getPackageName();
@@ -218,6 +201,28 @@ public class ButtonSelectionStateController {
         }
 
         return selectedButtons;
+    }
+
+    protected ComponentName getTopActivity(RootTaskInfo validTaskInfo) {
+        // Window mode being WINDOW_MODE_MULTI_WINDOW implies TaskView might be visible on the
+        // display. In such cases, topActivity reported by validTaskInfo will be the one hosted in
+        // TaskView and not necessarily the main activity visible on display. Thus we should get
+        // rootTaskInfo instead.
+        if (validTaskInfo.getWindowingMode() == WINDOWING_MODE_MULTI_WINDOW) {
+            try {
+                RootTaskInfo rootTaskInfo =
+                        ActivityTaskManager.getService().getRootTaskInfoOnDisplay(
+                                WINDOWING_MODE_FULLSCREEN, ACTIVITY_TYPE_UNDEFINED,
+                                validTaskInfo.displayId);
+                return rootTaskInfo.topActivity;
+            } catch (RemoteException e) {
+                Log.e(TAG, "findSelectedButtons: Failed getting root task info", e);
+            }
+        } else {
+            return validTaskInfo.topActivity;
+        }
+
+        return null;
     }
 
     private HashSet<CarSystemBarButton> findButtonsByComponentName(

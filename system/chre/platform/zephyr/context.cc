@@ -16,7 +16,7 @@
 
 #include "chre/platform/context.h"
 
-#include <zephyr.h>
+#include <zephyr/kernel.h>
 #include "chre/target_platform/init.h"
 
 namespace chre {

@@ -1,0 +1,7 @@
+{
+  "device": true,
+  "run": true,
+  "dependencies": true,
+  "vendor-available": true,
+  "tests": true
+}

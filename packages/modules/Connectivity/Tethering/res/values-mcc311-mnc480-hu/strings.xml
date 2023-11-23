@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="no_upstream_notification_title" msgid="611650570559011140">"Nincs internetkapcsolat az internet megosztásához"</string>
-    <string name="no_upstream_notification_message" msgid="6508394877641864863">"Az eszközök nem tudnak csatlakozni"</string>
-    <string name="no_upstream_notification_disable_button" msgid="7609346639290990508">"Internetmegosztás kikapcsolása"</string>
-    <string name="upstream_roaming_notification_title" msgid="6032901176124830787">"A hotspot vagy az internetmegosztás be van kapcsolva"</string>
-    <string name="upstream_roaming_notification_message" msgid="7599056263326217523">"Roaming során további díjak léphetnek fel"</string>
+    <string name="no_upstream_notification_title" msgid="5897815458155858594">"Nincs internetkapcsolat az internet megosztásához"</string>
+    <string name="no_upstream_notification_message" msgid="9037716118606459874">"Az eszközök nem tudnak csatlakozni"</string>
+    <string name="no_upstream_notification_disable_button" msgid="5284024068281565456">"Internetmegosztás kikapcsolása"</string>
+    <string name="upstream_roaming_notification_title" msgid="186331286017243006">"A hotspot vagy az internetmegosztás be van kapcsolva"</string>
+    <string name="upstream_roaming_notification_message" msgid="7692641323940316538">"Roaming során további díjak léphetnek fel"</string>
 </resources>

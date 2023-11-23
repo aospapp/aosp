@@ -99,7 +99,8 @@ public final class Common {
             }
             case TYPE_COMPONENT_EXPEDITED_JOB: {
                 final int capabilities = activityManager.getUidProcessCapabilities(Process.myUid());
-                if ((capabilities & ActivityManager.PROCESS_CAPABILITY_NETWORK) == 0) {
+                if ((capabilities
+                        & ActivityManager.PROCESS_CAPABILITY_POWER_RESTRICTED_NETWORK) == 0) {
                     observer.onNetworkStateChecked(
                             INetworkStateObserver.RESULT_ERROR_UNEXPECTED_CAPABILITIES,
                             "Unexpected capabilities: " + capabilities);

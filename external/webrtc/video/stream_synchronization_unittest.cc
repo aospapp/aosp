@@ -32,9 +32,9 @@ class StreamSynchronizationTest : public ::testing::Test {
  protected:
   // Generates the necessary RTCP measurements and RTP timestamps and computes
   // the audio and video delays needed to get the two streams in sync.
-  // |audio_delay_ms| and |video_delay_ms| are the number of milliseconds after
+  // `audio_delay_ms` and `video_delay_ms` are the number of milliseconds after
   // capture which the frames are received.
-  // |current_audio_delay_ms| is the number of milliseconds which audio is
+  // `current_audio_delay_ms` is the number of milliseconds which audio is
   // currently being delayed by the receiver.
   bool DelayedStreams(int audio_delay_ms,
                       int video_delay_ms,
@@ -47,32 +47,31 @@ class StreamSynchronizationTest : public ::testing::Test {
         static_cast<int>(kDefaultVideoFrequency * video_clock_drift_ + 0.5);
 
     // Generate NTP/RTP timestamp pair for both streams corresponding to RTCP.
-    bool new_sr;
     StreamSynchronization::Measurements audio;
     StreamSynchronization::Measurements video;
     NtpTime ntp_time = clock_sender_.CurrentNtpTime();
     uint32_t rtp_timestamp =
         clock_sender_.CurrentTime().ms() * audio_frequency / 1000;
-    EXPECT_TRUE(audio.rtp_to_ntp.UpdateMeasurements(
-        ntp_time.seconds(), ntp_time.fractions(), rtp_timestamp, &new_sr));
+    EXPECT_EQ(audio.rtp_to_ntp.UpdateMeasurements(ntp_time, rtp_timestamp),
+              RtpToNtpEstimator::kNewMeasurement);
     clock_sender_.AdvanceTimeMilliseconds(100);
     clock_receiver_.AdvanceTimeMilliseconds(100);
     ntp_time = clock_sender_.CurrentNtpTime();
     rtp_timestamp = clock_sender_.CurrentTime().ms() * video_frequency / 1000;
-    EXPECT_TRUE(video.rtp_to_ntp.UpdateMeasurements(
-        ntp_time.seconds(), ntp_time.fractions(), rtp_timestamp, &new_sr));
+    EXPECT_EQ(video.rtp_to_ntp.UpdateMeasurements(ntp_time, rtp_timestamp),
+              RtpToNtpEstimator::kNewMeasurement);
     clock_sender_.AdvanceTimeMilliseconds(900);
     clock_receiver_.AdvanceTimeMilliseconds(900);
     ntp_time = clock_sender_.CurrentNtpTime();
     rtp_timestamp = clock_sender_.CurrentTime().ms() * audio_frequency / 1000;
-    EXPECT_TRUE(audio.rtp_to_ntp.UpdateMeasurements(
-        ntp_time.seconds(), ntp_time.fractions(), rtp_timestamp, &new_sr));
+    EXPECT_EQ(audio.rtp_to_ntp.UpdateMeasurements(ntp_time, rtp_timestamp),
+              RtpToNtpEstimator::kNewMeasurement);
     clock_sender_.AdvanceTimeMilliseconds(100);
     clock_receiver_.AdvanceTimeMilliseconds(100);
     ntp_time = clock_sender_.CurrentNtpTime();
     rtp_timestamp = clock_sender_.CurrentTime().ms() * video_frequency / 1000;
-    EXPECT_TRUE(video.rtp_to_ntp.UpdateMeasurements(
-        ntp_time.seconds(), ntp_time.fractions(), rtp_timestamp, &new_sr));
+    EXPECT_EQ(video.rtp_to_ntp.UpdateMeasurements(ntp_time, rtp_timestamp),
+              RtpToNtpEstimator::kNewMeasurement);
     clock_sender_.AdvanceTimeMilliseconds(900);
     clock_receiver_.AdvanceTimeMilliseconds(900);
 
@@ -381,6 +380,63 @@ TEST_F(StreamSynchronizationTest, AudioDelayed) {
   EXPECT_EQ(last_total_audio_delay_ms +
                 MaxAudioDelayChangeMs(current_audio_delay_ms, kVideoDelayMs),
             total_audio_delay_ms);
+}
+
+TEST_F(StreamSynchronizationTest, NoAudioIncomingUnboundedIncrease) {
+  // Test how audio delay can grow unbounded when audio stops coming in.
+  // This is handled in caller of RtpStreamsSynchronizer, for example in
+  // RtpStreamsSynchronizer by not updating delays when audio samples stop
+  // coming in.
+  const int kVideoDelayMs = 300;
+  const int kAudioDelayMs = 100;
+  int current_audio_delay_ms = kAudioDelayMs;
+  int total_audio_delay_ms = 0;
+  int total_video_delay_ms = 0;
+
+  EXPECT_TRUE(DelayedStreams(/*audio_delay_ms=*/0, kVideoDelayMs,
+                             current_audio_delay_ms, &total_audio_delay_ms,
+                             &total_video_delay_ms));
+  EXPECT_EQ(0, total_video_delay_ms);
+  // The delay is not allowed to change more than this.
+  EXPECT_EQ((kVideoDelayMs - kAudioDelayMs) / kSmoothingFilter,
+            total_audio_delay_ms);
+  int last_total_audio_delay_ms = total_audio_delay_ms;
+
+  // Set new current audio delay: simulate audio samples are flowing in.
+  current_audio_delay_ms = total_audio_delay_ms;
+
+  clock_sender_.AdvanceTimeMilliseconds(1000);
+  clock_receiver_.AdvanceTimeMilliseconds(1000);
+  EXPECT_TRUE(DelayedStreams(/*audio_delay_ms=*/0, kVideoDelayMs,
+                             current_audio_delay_ms, &total_audio_delay_ms,
+                             &total_video_delay_ms));
+  EXPECT_EQ(0, total_video_delay_ms);
+  EXPECT_EQ(last_total_audio_delay_ms +
+                MaxAudioDelayChangeMs(current_audio_delay_ms, kVideoDelayMs),
+            total_audio_delay_ms);
+  last_total_audio_delay_ms = total_audio_delay_ms;
+
+  // Simulate no incoming audio by not update audio delay.
+  const int kSimulationSecs = 300;     // 5min
+  const int kMaxDeltaDelayMs = 10000;  // max delay for audio in webrtc
+  for (auto time_secs = 0; time_secs < kSimulationSecs; time_secs++) {
+    clock_sender_.AdvanceTimeMilliseconds(1000);
+    clock_receiver_.AdvanceTimeMilliseconds(1000);
+    EXPECT_TRUE(DelayedStreams(/*audio_delay_ms=*/0, kVideoDelayMs,
+                               current_audio_delay_ms, &total_audio_delay_ms,
+                               &total_video_delay_ms));
+    EXPECT_EQ(0, total_video_delay_ms);
+
+    // Audio delay does not go above kMaxDeltaDelayMs.
+    EXPECT_EQ(std::min(kMaxDeltaDelayMs,
+                       last_total_audio_delay_ms +
+                           MaxAudioDelayChangeMs(current_audio_delay_ms,
+                                                 kVideoDelayMs)),
+              total_audio_delay_ms);
+    last_total_audio_delay_ms = total_audio_delay_ms;
+  }
+  // By now the audio delay has grown unbounded to kMaxDeltaDelayMs.
+  EXPECT_EQ(kMaxDeltaDelayMs, last_total_audio_delay_ms);
 }
 
 TEST_F(StreamSynchronizationTest, BothDelayedVideoLater) {

@@ -18,5 +18,7 @@
     <option name="compatibility:include-filter" value="ApexSystemServicesTestCases" />
 
     <option name="compatibility:include-filter"
-            value="UpdatableSharedLibsTest" />
+      value="UpdatableSharedLibsTest" />
+
+    <option name="compatibility:include-filter" value="ApkInApexTest" />
 </configuration>

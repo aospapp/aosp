@@ -11,6 +11,8 @@ TIME = "LONG"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+EXTENDED_TIMEOUT = 4500
+PY_VERSION = 3
 DOC = """
 This is a suspending stress test. It suspends the system many times
 when memory is low. It simulates the memory fragmentation by creating

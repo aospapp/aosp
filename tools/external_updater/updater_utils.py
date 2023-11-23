@@ -13,6 +13,7 @@
 # limitations under the License.
 """Helper functions for updaters."""
 
+from collections.abc import Sequence
 import os
 import re
 import subprocess
@@ -40,10 +41,11 @@ def create_updater(metadata: metadata_pb2.MetaData, proj_path: Path,
       ValueError: Occurred when there's no updater for all urls.
     """
     for url in metadata.third_party.url:
-        for updater_cls in updaters:
-            updater = updater_cls(proj_path, url, metadata.third_party.version)
-            if updater.is_supported_url():
-                return updater
+        if url.type != metadata_pb2.URL.HOMEPAGE:
+            for updater_cls in updaters:
+                updater = updater_cls(proj_path, url, metadata.third_party.version)
+                if updater.is_supported_url():
+                    return updater
 
     raise ValueError('No supported URL.')
 
@@ -56,11 +58,23 @@ def replace_package(source_dir, target_dir, temp_file=None) -> None:
       target_dir: The path to the project in Android source tree.
     """
 
-    print('Updating {} using {}.'.format(target_dir, source_dir))
+    print(f'Updating {target_dir} using {source_dir}.')
     script_path = os.path.join(os.path.dirname(sys.argv[0]),
                                'update_package.sh')
     subprocess.check_call(['bash', script_path, source_dir, target_dir,
                            "" if temp_file is None else temp_file])
+
+
+def run_post_update(source_dir: Path, target_dir: Path) -> None:
+    """
+      source_dir: Path to the new downloaded and extracted package.
+      target_dir: The path to the project in Android source tree.
+    """
+    post_update_path = os.path.join(source_dir, 'post_update.sh')
+    if os.path.isfile(post_update_path):
+        cmd: Sequence[str | Path] = ['bash', post_update_path, source_dir, target_dir]
+        print(f'Running {post_update_path}')
+        subprocess.check_call(cmd)
 
 
 VERSION_SPLITTER_PATTERN: str = r'[\.\-_]'
@@ -114,3 +128,9 @@ def get_latest_version(current_version: str, version_list: List[str]) -> str:
     if not latest:
         raise ValueError('No matching version.')
     return latest
+
+
+def build(proj_path: Path) -> None:
+    cmd = ['build/soong/soong_ui.bash', "--build-mode", "--modules-in-a-dir-no-deps", f"--dir={str(proj_path)}"]
+    print('Building...')
+    return subprocess.run(cmd, check=True, text=True)

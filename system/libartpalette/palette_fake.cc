@@ -16,75 +16,78 @@
 
 #include "palette/palette.h"
 
+#include <stdbool.h>
+
 #include <map>
 #include <mutex>
-#include <stdbool.h>
 
 #include <android-base/logging.h>
 #include <android-base/macros.h>  // For ATTRIBUTE_UNUSED
 
 #include "palette_system.h"
 
+// Methods in version 1 API, corresponding to SDK level 31.
+
 // Cached thread priority for testing. No thread priorities are ever affected.
 static std::mutex g_tid_priority_map_mutex;
 static std::map<int32_t, int32_t> g_tid_priority_map;
 
 palette_status_t PaletteSchedSetPriority(int32_t tid, int32_t priority) {
-    if (priority < art::palette::kMinManagedThreadPriority ||
-        priority > art::palette::kMaxManagedThreadPriority) {
-        return PALETTE_STATUS_INVALID_ARGUMENT;
-    }
-    std::lock_guard guard(g_tid_priority_map_mutex);
-    g_tid_priority_map[tid] = priority;
-    return PALETTE_STATUS_OK;
+  if (priority < art::palette::kMinManagedThreadPriority ||
+      priority > art::palette::kMaxManagedThreadPriority) {
+    return PALETTE_STATUS_INVALID_ARGUMENT;
+  }
+  std::lock_guard guard(g_tid_priority_map_mutex);
+  g_tid_priority_map[tid] = priority;
+  return PALETTE_STATUS_OK;
 }
 
 palette_status_t PaletteSchedGetPriority(int32_t tid,
-                                           /*out*/ int32_t* priority) {
-    std::lock_guard guard(g_tid_priority_map_mutex);
-    if (g_tid_priority_map.find(tid) == g_tid_priority_map.end()) {
-        g_tid_priority_map[tid] = art::palette::kNormalManagedThreadPriority;
-    }
-    *priority = g_tid_priority_map[tid];
-    return PALETTE_STATUS_OK;
+                                         /*out*/ int32_t* priority) {
+  std::lock_guard guard(g_tid_priority_map_mutex);
+  if (g_tid_priority_map.find(tid) == g_tid_priority_map.end()) {
+    g_tid_priority_map[tid] = art::palette::kNormalManagedThreadPriority;
+  }
+  *priority = g_tid_priority_map[tid];
+  return PALETTE_STATUS_OK;
 }
 
 palette_status_t PaletteWriteCrashThreadStacks(/*in*/ const char* stacks, size_t stacks_len) {
-    LOG(INFO) << std::string_view(stacks, stacks_len);
-    return PALETTE_STATUS_OK;
+  LOG(INFO) << std::string_view(stacks, stacks_len);
+  return PALETTE_STATUS_OK;
 }
 
 palette_status_t PaletteTraceEnabled(/*out*/ bool* enabled) {
-    *enabled = false;
-    return PALETTE_STATUS_OK;
+  *enabled = false;
+  return PALETTE_STATUS_OK;
 }
 
 palette_status_t PaletteTraceBegin(const char* name ATTRIBUTE_UNUSED) {
-    return PALETTE_STATUS_OK;
+  return PALETTE_STATUS_OK;
 }
 
 palette_status_t PaletteTraceEnd() {
-    return PALETTE_STATUS_OK;
+  return PALETTE_STATUS_OK;
 }
 
 palette_status_t PaletteTraceIntegerValue(const char* name ATTRIBUTE_UNUSED,
                                           int32_t value ATTRIBUTE_UNUSED) {
-    return PALETTE_STATUS_OK;
+  return PALETTE_STATUS_OK;
 }
 
 palette_status_t PaletteAshmemCreateRegion(const char* name ATTRIBUTE_UNUSED,
                                            size_t size ATTRIBUTE_UNUSED, int* fd) {
-    *fd = -1;
-    return PALETTE_STATUS_NOT_SUPPORTED;
+  *fd = -1;
+  return PALETTE_STATUS_NOT_SUPPORTED;
 }
 
 palette_status_t PaletteAshmemSetProtRegion(int fd ATTRIBUTE_UNUSED, int prot ATTRIBUTE_UNUSED) {
-    return PALETTE_STATUS_NOT_SUPPORTED;
+  return PALETTE_STATUS_NOT_SUPPORTED;
 }
 
 palette_status_t PaletteCreateOdrefreshStagingDirectory(const char** staging_dir) {
-    *staging_dir = nullptr;
-    return PALETTE_STATUS_NOT_SUPPORTED;
+  *staging_dir = nullptr;
+  return PALETTE_STATUS_NOT_SUPPORTED;
 }
 
 palette_status_t PaletteShouldReportDex2oatCompilation(bool* value) {
@@ -124,5 +127,24 @@ palette_status_t PaletteNotifyBeginJniInvocation(JNIEnv* env ATTRIBUTE_UNUSED) {
 }
 
 palette_status_t PaletteNotifyEndJniInvocation(JNIEnv* env ATTRIBUTE_UNUSED) {
+  return PALETTE_STATUS_OK;
+}
+
+// Methods in version 2 API, corresponding to SDK level 33.
+
+palette_status_t PaletteReportLockContention(
+    JNIEnv* env ATTRIBUTE_UNUSED, int32_t wait_ms ATTRIBUTE_UNUSED,
+    const char* filename ATTRIBUTE_UNUSED, int32_t line_number ATTRIBUTE_UNUSED,
+    const char* method_name ATTRIBUTE_UNUSED, const char* owner_filename ATTRIBUTE_UNUSED,
+    int32_t owner_line_number ATTRIBUTE_UNUSED, const char* owner_method_name ATTRIBUTE_UNUSED,
+    const char* proc_name ATTRIBUTE_UNUSED, const char* thread_name ATTRIBUTE_UNUSED) {
+  return PALETTE_STATUS_OK;
+}
+
+// Methods in version 3 API, corresponding to SDK level UpsideDownCake.
+
+palette_status_t PaletteSetTaskProfiles(int32_t tid ATTRIBUTE_UNUSED,
+                                        const char* const profiles[] ATTRIBUTE_UNUSED,
+                                        size_t profiles_len ATTRIBUTE_UNUSED) {
   return PALETTE_STATUS_OK;
 }

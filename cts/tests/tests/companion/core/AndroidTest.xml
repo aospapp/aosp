@@ -15,7 +15,7 @@
 -->
 <configuration description="Configuration for Core CTS tests for CompanionDeviceManager">
     <option name="config-descriptor:metadata" key="component" value="framework" />
-    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
 
@@ -25,7 +25,7 @@
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsCompanionDeviceManagerCoreTestCases.apk" />
-        <option name="test-file-name" value="CtsCompanionTestApp.apk" />
+        <option name="test-file-name" value="CompanionDeviceTestApp.apk" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
@@ -43,6 +43,6 @@
 
     <!-- Push test APKs into the temporary directory. -->
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
-        <option name="push" value="CtsCompanionTestApp.apk->/data/local/tmp/cts/companion/CtsCompanionTestApp.apk" />
+        <option name="push" value="CompanionDeviceTestApp.apk->/data/local/tmp/cts/companion/CompanionDeviceTestApp.apk" />
     </target_preparer>
 </configuration>

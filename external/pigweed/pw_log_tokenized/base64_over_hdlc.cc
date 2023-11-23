@@ -17,12 +17,11 @@
 
 #include "pw_log_tokenized/base64_over_hdlc.h"
 
-#include <span>
-
 #include "pw_hdlc/encoder.h"
+#include "pw_log_tokenized/handler.h"
+#include "pw_span/span.h"
 #include "pw_stream/sys_io_stream.h"
 #include "pw_tokenizer/base64.h"
-#include "pw_tokenizer/tokenize_to_global_handler_with_payload.h"
 
 namespace pw::log_tokenized {
 namespace {
@@ -32,19 +31,19 @@ stream::SysIoWriter writer;
 }  // namespace
 
 // Base64-encodes tokenized logs and writes them to pw::sys_io as HDLC frames.
-extern "C" void pw_tokenizer_HandleEncodedMessageWithPayload(
-    pw_tokenizer_Payload,  // TODO(hepler): Use the metadata for filtering.
+extern "C" void pw_log_tokenized_HandleLog(
+    uint32_t,  // TODO(hepler): Use the metadata for filtering.
     const uint8_t log_buffer[],
     size_t size_bytes) {
   // Encode the tokenized message as Base64.
   char base64_buffer[tokenizer::kDefaultBase64EncodedBufferSize];
   const size_t base64_bytes = tokenizer::PrefixedBase64Encode(
-      std::span(log_buffer, size_bytes), base64_buffer);
+      span(log_buffer, size_bytes), base64_buffer);
   base64_buffer[base64_bytes] = '\0';
 
   // HDLC-encode the Base64 string via a SysIoWriter.
   hdlc::WriteUIFrame(PW_LOG_TOKENIZED_BASE64_LOG_HDLC_ADDRESS,
-                     std::as_bytes(std::span(base64_buffer, base64_bytes)),
+                     as_bytes(span(base64_buffer, base64_bytes)),
                      writer);
 }
 

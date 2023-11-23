@@ -65,7 +65,7 @@ Result<ConstByteSpan> EncodeLog(int level,
 // Encodes tokenized message and metadata, with a timestamp as a log proto.
 // Extra fields can be encoded into the returned encoder. The caller must check
 // the encoder status.
-LogEntry::MemoryEncoder CreateEncoderAndEncodeTokenizedLog(
+pwpb::LogEntry::MemoryEncoder CreateEncoderAndEncodeTokenizedLog(
     log_tokenized::Metadata metadata,
     ConstByteSpan tokenized_data,
     int64_t ticks_since_epoch,
@@ -83,7 +83,7 @@ inline Result<ConstByteSpan> EncodeTokenizedLog(
     ConstByteSpan tokenized_data,
     int64_t ticks_since_epoch,
     ByteSpan encode_buffer) {
-  LogEntry::MemoryEncoder encoder = CreateEncoderAndEncodeTokenizedLog(
+  pwpb::LogEntry::MemoryEncoder encoder = CreateEncoderAndEncodeTokenizedLog(
       metadata, tokenized_data, ticks_since_epoch, encode_buffer);
   PW_TRY(encoder.status());
   return ConstByteSpan(encoder);
@@ -95,11 +95,10 @@ inline Result<ConstByteSpan> EncodeTokenizedLog(
     size_t tokenized_data_size,
     int64_t ticks_since_epoch,
     ByteSpan encode_buffer) {
-  return EncodeTokenizedLog(
-      metadata,
-      std::as_bytes(std::span(tokenized_data, tokenized_data_size)),
-      ticks_since_epoch,
-      encode_buffer);
+  return EncodeTokenizedLog(metadata,
+                            as_bytes(span(tokenized_data, tokenized_data_size)),
+                            ticks_since_epoch,
+                            encode_buffer);
 }
 
 // Encodes tokenized message (passed as pointer and size), tokenized metadata,
@@ -116,9 +115,9 @@ inline Result<ConstByteSpan> EncodeTokenizedLog(
     int64_t ticks_since_epoch,
     ConstByteSpan thread_name,
     ByteSpan encode_buffer) {
-  LogEntry::MemoryEncoder encoder = CreateEncoderAndEncodeTokenizedLog(
+  pwpb::LogEntry::MemoryEncoder encoder = CreateEncoderAndEncodeTokenizedLog(
       metadata,
-      std::as_bytes(std::span(tokenized_data, tokenized_data_size)),
+      as_bytes(span(tokenized_data, tokenized_data_size)),
       ticks_since_epoch,
       encode_buffer);
   if (!thread_name.empty()) {
@@ -141,7 +140,7 @@ inline Result<ConstByteSpan> EncodeTokenizedLog(
     int64_t ticks_since_epoch,
     ConstByteSpan thread_name,
     ByteSpan encode_buffer) {
-  LogEntry::MemoryEncoder encoder = CreateEncoderAndEncodeTokenizedLog(
+  pwpb::LogEntry::MemoryEncoder encoder = CreateEncoderAndEncodeTokenizedLog(
       metadata, tokenized_data, ticks_since_epoch, encode_buffer);
   if (!thread_name.empty()) {
     encoder.WriteThread(thread_name).IgnoreError();

@@ -142,7 +142,7 @@ public class UwbSettingsStoreTest {
         doThrow(new FileNotFoundException()).when(mAtomicFile).openRead();
 
         // Toggle off before migration.
-        when(mUwbInjector.getSettingsInt(SETTINGS_TOGGLE_STATE_KEY_FOR_MIGRATION)).thenReturn(
+        when(mUwbInjector.getGlobalSettingsInt(SETTINGS_TOGGLE_STATE_KEY_FOR_MIGRATION)).thenReturn(
                 UwbManager.AdapterStateCallback.STATE_DISABLED);
 
         // Trigger file read.
@@ -160,7 +160,7 @@ public class UwbSettingsStoreTest {
     @Test
     public void testNoMigrationLoadFromStoreWhenStoreFileEmptyOrNotFound() throws Exception {
         doThrow(new FileNotFoundException()).when(mAtomicFile).openRead();
-        doThrow(new Settings.SettingNotFoundException("")).when(mUwbInjector).getSettingsInt(
+        doThrow(new Settings.SettingNotFoundException("")).when(mUwbInjector).getGlobalSettingsInt(
                 SETTINGS_TOGGLE_STATE_KEY_FOR_MIGRATION);
 
         // Trigger file read.

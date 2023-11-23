@@ -742,6 +742,17 @@ public class Struct {
         }
     }
 
+    /** A simple Struct which only contains an s32 field. */
+    public static class S32 extends Struct {
+        @Struct.Field(order = 0, type = Struct.Type.S32)
+        public final int val;
+
+        public S32(final int val) {
+            this.val = val;
+        }
+    }
+
+    /** A simple Struct which only contains a u32 field. */
     public static class U32 extends Struct {
         @Struct.Field(order = 0, type = Struct.Type.U32)
         public final long val;
@@ -751,6 +762,7 @@ public class Struct {
         }
     }
 
+    /** A simple Struct which only contains an s64 field. */
     public static class S64 extends Struct {
         @Struct.Field(order = 0, type = Struct.Type.S64)
         public final long val;

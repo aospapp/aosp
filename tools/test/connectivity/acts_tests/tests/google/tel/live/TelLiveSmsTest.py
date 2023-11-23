@@ -34,6 +34,8 @@ from acts_contrib.test_utils.tel.tel_message_utils import sms_rx_power_off_multi
 from acts_contrib.test_utils.tel.tel_message_utils import message_test
 from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phone_default_state
 from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_idle
+from acts_contrib.test_utils.tel.tel_subscription_utils import get_incoming_message_sub_id
+from acts_contrib.test_utils.tel.tel_subscription_utils import get_outgoing_message_sub_id
 from acts_contrib.test_utils.tel.tel_test_utils import get_operator_name
 from acts_contrib.test_utils.tel.tel_test_utils import install_message_apk
 from acts.utils import rand_ascii_str
@@ -56,9 +58,9 @@ class TelLiveSmsTest(TelephonyBaseTest):
     def teardown_test(self):
         ensure_phones_idle(self.log, self.android_devices)
 
-    def _get_wfc_mode(self, ad):
+    def _get_wfc_mode(self, ad, sub_id):
         # Verizon doesn't supports wfc mode as WFC_MODE_WIFI_PREFERRED
-        carrier = ad.adb.getprop("gsm.sim.operator.alpha")
+        carrier = ad.telephony["subscription"][sub_id]["operator"]
         if carrier == CARRIER_VZW:
             wfc = WFC_MODE_CELLULAR_PREFERRED
         else:
@@ -69,7 +71,7 @@ class TelLiveSmsTest(TelephonyBaseTest):
         carrier = ad.adb.getprop("gsm.sim.operator.alpha")
 
         if int(ad.adb.getprop("ro.product.first_api_level")) > 30 and (
-                carrier == CARRIER_VZW):
+                carrier == "Verizon"):
             raise signals.TestSkip(
                 "Device Doesn't Support 2g/3G Band.")
 
@@ -1459,7 +1461,9 @@ class TelLiveSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        _wfc_mode = self._get_wfc_mode(self.android_devices[0])
+        _wfc_mode = self._get_wfc_mode(
+            self.android_devices[0],
+            get_outgoing_message_sub_id(self.android_devices[0]))
         return message_test(
             self.log,
             self.android_devices[0],
@@ -1485,7 +1489,9 @@ class TelLiveSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        _wfc_mode = self._get_wfc_mode(self.android_devices[0])
+        _wfc_mode = self._get_wfc_mode(
+            self.android_devices[0],
+            get_incoming_message_sub_id(self.android_devices[0]))
         return message_test(
             self.log,
             self.android_devices[1],
@@ -1511,7 +1517,9 @@ class TelLiveSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        _wfc_mode = self._get_wfc_mode(self.android_devices[0])
+        _wfc_mode = self._get_wfc_mode(
+            self.android_devices[0],
+            get_outgoing_message_sub_id(self.android_devices[0]))
         return message_test(
             self.log,
             self.android_devices[0],
@@ -1538,7 +1546,9 @@ class TelLiveSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        _wfc_mode = self._get_wfc_mode(self.android_devices[0])
+        _wfc_mode = self._get_wfc_mode(
+            self.android_devices[0],
+            get_incoming_message_sub_id(self.android_devices[0]))
         return message_test(
             self.log,
             self.android_devices[1],
@@ -1565,7 +1575,9 @@ class TelLiveSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        _wfc_mode = self._get_wfc_mode(self.android_devices[0])
+        _wfc_mode = self._get_wfc_mode(
+            self.android_devices[0],
+            get_outgoing_message_sub_id(self.android_devices[0]))
         return message_test(
             self.log,
             self.android_devices[0],
@@ -1589,7 +1601,9 @@ class TelLiveSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        _wfc_mode = self._get_wfc_mode(self.android_devices[0])
+        _wfc_mode = self._get_wfc_mode(
+            self.android_devices[0],
+            get_incoming_message_sub_id(self.android_devices[0]))
         return message_test(
             self.log,
             self.android_devices[1],
@@ -1613,7 +1627,9 @@ class TelLiveSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        _wfc_mode = self._get_wfc_mode(self.android_devices[0])
+        _wfc_mode = self._get_wfc_mode(
+            self.android_devices[0],
+            get_outgoing_message_sub_id(self.android_devices[0]))
         return message_test(
             self.log,
             self.android_devices[0],
@@ -1638,7 +1654,9 @@ class TelLiveSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        _wfc_mode = self._get_wfc_mode(self.android_devices[0])
+        _wfc_mode = self._get_wfc_mode(
+            self.android_devices[0],
+            get_incoming_message_sub_id(self.android_devices[0]))
         return message_test(
             self.log,
             self.android_devices[1],
@@ -1758,7 +1776,9 @@ class TelLiveSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        _wfc_mode = self._get_wfc_mode(self.android_devices[0])
+        _wfc_mode = self._get_wfc_mode(
+            self.android_devices[0],
+            get_outgoing_message_sub_id(self.android_devices[0]))
         return message_test(
             self.log,
             self.android_devices[0],
@@ -1785,7 +1805,9 @@ class TelLiveSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        _wfc_mode = self._get_wfc_mode(self.android_devices[0])
+        _wfc_mode = self._get_wfc_mode(
+            self.android_devices[0],
+            get_incoming_message_sub_id(self.android_devices[0]))
         return message_test(
             self.log,
             self.android_devices[1],
@@ -1812,7 +1834,9 @@ class TelLiveSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        _wfc_mode = self._get_wfc_mode(self.android_devices[0])
+        _wfc_mode = self._get_wfc_mode(
+            self.android_devices[0],
+            get_outgoing_message_sub_id(self.android_devices[0]))
         return message_test(
             self.log,
             self.android_devices[0],
@@ -1840,7 +1864,9 @@ class TelLiveSmsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
-        _wfc_mode = self._get_wfc_mode(self.android_devices[0])
+        _wfc_mode = self._get_wfc_mode(
+            self.android_devices[0],
+            get_incoming_message_sub_id(self.android_devices[0]))
         return message_test(
             self.log,
             self.android_devices[1],

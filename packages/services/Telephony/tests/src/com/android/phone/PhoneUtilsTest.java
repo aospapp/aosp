@@ -22,29 +22,26 @@ import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.when;
 
 import android.content.ComponentName;
+import android.os.UserHandle;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.TelephonyTestBase;
 import com.android.internal.telephony.GsmCdmaPhone;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.HashMap;
-
 @RunWith(AndroidJUnit4.class)
-public class PhoneUtilsTest {
+public class PhoneUtilsTest extends TelephonyTestBase {
     @Mock
     private SubscriptionManager mMockSubscriptionManager;
     @Mock
@@ -59,37 +56,6 @@ public class PhoneUtilsTest {
     private PhoneAccountHandle mPhoneAccountHandleTest = new PhoneAccountHandle(
             PSTN_CONNECTION_SERVICE_COMPONENT, mPhoneAccountHandleIdString);
 
-    private HashMap<InstanceKey, Object> mOldInstances = new HashMap<InstanceKey, Object>();
-
-    private ArrayList<InstanceKey> mInstanceKeys = new ArrayList<InstanceKey>();
-
-    private static class InstanceKey {
-        public final Class mClass;
-        public final String mInstName;
-        public final Object mObj;
-        InstanceKey(final Class c, final String instName, final Object obj) {
-            mClass = c;
-            mInstName = instName;
-            mObj = obj;
-        }
-
-        @Override
-        public int hashCode() {
-            return (mClass.getName().hashCode() * 31 + mInstName.hashCode()) * 31;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (obj == null || !(obj instanceof InstanceKey)) {
-                return false;
-            }
-
-            InstanceKey other = (InstanceKey) obj;
-            return (other.mClass == mClass && other.mInstName.equals(mInstName)
-                    && other.mObj == mObj);
-        }
-    }
-
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
@@ -98,37 +64,6 @@ public class PhoneUtilsTest {
         when(mMockPhone.getSubId()).thenReturn(mPhoneAccountHandleIdInteger);
         Phone[] mPhones = new Phone[] {mMockPhone};
         replaceInstance(PhoneFactory.class, "sPhones", null, mPhones);
-    }
-
-    @After
-    public void tearDown() throws Exception {
-        restoreInstance(PhoneFactory.class, "sPhones", null);
-    }
-
-    protected synchronized void replaceInstance(final Class c, final String instanceName,
-            final Object obj, final Object newValue)
-            throws Exception {
-        Field field = c.getDeclaredField(instanceName);
-        field.setAccessible(true);
-
-        InstanceKey key = new InstanceKey(c, instanceName, obj);
-        if (!mOldInstances.containsKey(key)) {
-            mOldInstances.put(key, field.get(obj));
-            mInstanceKeys.add(key);
-        }
-        field.set(obj, newValue);
-    }
-
-    protected synchronized void restoreInstance(final Class c, final String instanceName,
-            final Object obj) throws Exception {
-        InstanceKey key = new InstanceKey(c, instanceName, obj);
-        if (mOldInstances.containsKey(key)) {
-            Field field = c.getDeclaredField(instanceName);
-            field.setAccessible(true);
-            field.set(obj, mOldInstances.get(key));
-            mOldInstances.remove(key);
-            mInstanceKeys.remove(key);
-        }
     }
 
     @Test
@@ -147,7 +82,16 @@ public class PhoneUtilsTest {
     public void testMakePstnPhoneAccountHandleWithPrefix() throws Exception {
         PhoneAccountHandle phoneAccountHandleTest = new PhoneAccountHandle(
                 PSTN_CONNECTION_SERVICE_COMPONENT, mPhoneAccountHandleIdString);
-        assertEquals(phoneAccountHandleTest, PhoneUtils.makePstnPhoneAccountHandleWithPrefix(
-                mPhoneAccountHandleIdString, "", false));
+        assertEquals(phoneAccountHandleTest, PhoneUtils.makePstnPhoneAccountHandleWithId(
+                mPhoneAccountHandleIdString, null));
+    }
+
+    @Test
+    public void testMakePstnPhoneAccountHandleWithPrefixForAnotherUser() throws Exception {
+        UserHandle userHandle = new UserHandle(10);
+        PhoneAccountHandle phoneAccountHandleTest = new PhoneAccountHandle(
+                PSTN_CONNECTION_SERVICE_COMPONENT, mPhoneAccountHandleIdString, userHandle);
+        assertEquals(phoneAccountHandleTest, PhoneUtils.makePstnPhoneAccountHandleWithId(
+                mPhoneAccountHandleIdString, userHandle));
     }
 }

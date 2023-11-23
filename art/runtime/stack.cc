@@ -129,7 +129,7 @@ uint32_t StackVisitor::GetDexPc(bool abort_on_failure) const {
           GetCurrentQuickFrame(), cur_quick_frame_pc_, abort_on_failure);
     } else if (cur_oat_quick_method_header_->IsOptimized()) {
       StackMap* stack_map = GetCurrentStackMap();
-      DCHECK(stack_map->IsValid());
+      CHECK(stack_map->IsValid()) << "StackMap not found for " << std::hex << cur_quick_frame_pc_;
       return stack_map->GetDexPc();
     } else {
       DCHECK(cur_oat_quick_method_header_->IsNterpMethodHeader());
@@ -138,6 +138,29 @@ uint32_t StackVisitor::GetDexPc(bool abort_on_failure) const {
   } else {
     return 0;
   }
+}
+
+std::vector<uint32_t> StackVisitor::ComputeDexPcList(uint32_t handler_dex_pc) const {
+  std::vector<uint32_t> result;
+  if (cur_shadow_frame_ == nullptr && cur_quick_frame_ != nullptr && IsInInlinedFrame()) {
+    const BitTableRange<InlineInfo>& infos = current_inline_frames_;
+    DCHECK_NE(infos.size(), 0u);
+
+    // Outermost dex_pc.
+    result.push_back(GetCurrentStackMap()->GetDexPc());
+
+    // The mid dex_pcs. Note that we skip the last one since we want to change that for
+    // `handler_dex_pc`.
+    for (size_t index = 0; index < infos.size() - 1; ++index) {
+      result.push_back(infos[index].GetDexPc());
+    }
+  }
+
+  // The innermost dex_pc has to be the handler dex_pc. In the case of no inline frames, it will be
+  // just the one dex_pc. In the case of inlining we will be replacing the innermost InlineInfo's
+  // dex_pc with this one.
+  result.push_back(handler_dex_pc);
+  return result;
 }
 
 extern "C" mirror::Object* artQuickGetProxyThisObject(ArtMethod** sp)
@@ -213,7 +236,8 @@ bool StackVisitor::GetVReg(ArtMethod* m,
                            uint16_t vreg,
                            VRegKind kind,
                            uint32_t* val,
-                           std::optional<DexRegisterLocation> location) const {
+                           std::optional<DexRegisterLocation> location,
+                           bool need_full_register_list) const {
   if (cur_quick_frame_ != nullptr) {
     DCHECK(context_ != nullptr);  // You can't reliably read registers without a context.
     DCHECK(m == GetMethod());
@@ -235,10 +259,10 @@ bool StackVisitor::GetVReg(ArtMethod* m,
         // which does not decode the stack maps.
         result = GetVRegFromOptimizedCode(location.value(), val);
         // Compare to the slower overload.
-        DCHECK_EQ(result, GetVRegFromOptimizedCode(m, vreg, kind, &val2));
+        DCHECK_EQ(result, GetVRegFromOptimizedCode(m, vreg, kind, &val2, need_full_register_list));
         DCHECK_EQ(*val, val2);
       } else {
-        result = GetVRegFromOptimizedCode(m, vreg, kind, val);
+        result = GetVRegFromOptimizedCode(m, vreg, kind, val, need_full_register_list);
       }
     }
     if (kind == kReferenceVReg) {
@@ -261,16 +285,20 @@ bool StackVisitor::GetVReg(ArtMethod* m,
   }
 }
 
+size_t StackVisitor::GetNumberOfRegisters(CodeInfo* code_info, int depth) const {
+  return depth == 0
+    ? code_info->GetNumberOfDexRegisters()
+    : current_inline_frames_[depth - 1].GetNumberOfDexRegisters();
+}
+
 bool StackVisitor::GetVRegFromOptimizedCode(ArtMethod* m,
                                             uint16_t vreg,
                                             VRegKind kind,
-                                            uint32_t* val) const {
+                                            uint32_t* val,
+                                            bool need_full_register_list) const {
   DCHECK_EQ(m, GetMethod());
   // Can't be null or how would we compile its instructions?
   DCHECK(m->GetCodeItem() != nullptr) << m->PrettyMethod();
-  CodeItemDataAccessor accessor(m->DexInstructionData());
-  uint16_t number_of_dex_registers = accessor.RegistersSize();
-  DCHECK_LT(vreg, number_of_dex_registers);
   const OatQuickMethodHeader* method_header = GetCurrentOatQuickMethodHeader();
   CodeInfo code_info(method_header);
 
@@ -278,13 +306,18 @@ bool StackVisitor::GetVRegFromOptimizedCode(ArtMethod* m,
   StackMap stack_map = code_info.GetStackMapForNativePcOffset(native_pc_offset);
   DCHECK(stack_map.IsValid());
 
-  DexRegisterMap dex_register_map = IsInInlinedFrame()
-      ? code_info.GetInlineDexRegisterMapOf(stack_map, current_inline_frames_.back())
-      : code_info.GetDexRegisterMapOf(stack_map);
+  DexRegisterMap dex_register_map = (IsInInlinedFrame() && !need_full_register_list)
+    ? code_info.GetInlineDexRegisterMapOf(stack_map, current_inline_frames_.back())
+    : code_info.GetDexRegisterMapOf(stack_map,
+                                    /* first= */ 0,
+                                    GetNumberOfRegisters(&code_info, InlineDepth()));
+
   if (dex_register_map.empty()) {
     return false;
   }
-  DCHECK_EQ(dex_register_map.size(), number_of_dex_registers);
+
+  const size_t number_of_dex_registers = dex_register_map.size();
+  DCHECK_LT(vreg, number_of_dex_registers);
   DexRegisterLocation::Kind location_kind = dex_register_map[vreg].GetKind();
   switch (location_kind) {
     case DexRegisterLocation::Kind::kInStack: {
@@ -745,15 +778,6 @@ QuickMethodFrameInfo StackVisitor::GetCurrentQuickFrameInfo() const {
   //     (resolution, instrumentation) trampoline; or
   //   - fake a Generic JNI frame in art_jni_dlsym_lookup_critical_stub.
   DCHECK(method->IsNative());
-  if (kIsDebugBuild && !method->IsCriticalNative()) {
-    ClassLinker* class_linker = runtime->GetClassLinker();
-    const void* entry_point = runtime->GetInstrumentation()->GetCodeForInvoke(method);
-    CHECK(class_linker->IsQuickGenericJniStub(entry_point) ||
-          // The current entrypoint (after filtering out trampolines) may have changed
-          // from GenericJNI to JIT-compiled stub since we have entered this frame.
-          (runtime->GetJit() != nullptr &&
-           runtime->GetJit()->GetCodeCache()->ContainsPc(entry_point))) << method->PrettyMethod();
-  }
   // Generic JNI frame is just like the SaveRefsAndArgs frame.
   // Note that HandleScope, if any, is below the frame.
   return RuntimeCalleeSaveFrame::GetMethodFrameInfo(CalleeSaveType::kSaveRefsAndArgs);
@@ -780,7 +804,6 @@ void StackVisitor::WalkStack(bool include_transitions) {
     DCHECK(thread_ == Thread::Current() || thread_->IsSuspended());
   }
   CHECK_EQ(cur_depth_, 0U);
-  size_t inlined_frames_count = 0;
 
   for (const ManagedStack* current_fragment = thread_->GetManagedStack();
        current_fragment != nullptr; current_fragment = current_fragment->GetLink()) {
@@ -788,6 +811,12 @@ void StackVisitor::WalkStack(bool include_transitions) {
     cur_quick_frame_ = current_fragment->GetTopQuickFrame();
     cur_quick_frame_pc_ = 0;
     DCHECK(cur_oat_quick_method_header_ == nullptr);
+
+    if (kDebugStackWalk) {
+      LOG(INFO) << "Tid=" << thread_-> GetThreadId()
+          << ", ManagedStack fragement: " << current_fragment;
+    }
+
     if (cur_quick_frame_ != nullptr) {  // Handle quick stack frames.
       // Can't be both a shadow and a quick fragment.
       DCHECK(current_fragment->GetTopShadowFrame() == nullptr);
@@ -800,18 +829,26 @@ void StackVisitor::WalkStack(bool include_transitions) {
         // between GenericJNI frame and JIT-compiled JNI stub; the entrypoint may have
         // changed since the frame was entered. The top quick frame tag indicates
         // GenericJNI here, otherwise it's either AOT-compiled or JNI-compiled JNI stub.
-        if (UNLIKELY(current_fragment->GetTopQuickFrameTag())) {
+        if (UNLIKELY(current_fragment->GetTopQuickFrameGenericJniTag())) {
           // The generic JNI does not have any method header.
           cur_oat_quick_method_header_ = nullptr;
+        } else if (UNLIKELY(current_fragment->GetTopQuickFrameJitJniTag())) {
+          // Should be JITed code.
+          Runtime* runtime = Runtime::Current();
+          const void* code = runtime->GetJit()->GetCodeCache()->GetJniStubCode(method);
+          CHECK(code != nullptr) << method->PrettyMethod();
+          cur_oat_quick_method_header_ = OatQuickMethodHeader::FromCodePointer(code);
         } else {
+          // We are sure we are not running GenericJni here. Though the entry point could still be
+          // GenericJnistub. The entry point is usually JITed or AOT code. It could be lso a
+          // resolution stub if the class isn't visibly initialized yet.
           const void* existing_entry_point = method->GetEntryPointFromQuickCompiledCode();
           CHECK(existing_entry_point != nullptr);
           Runtime* runtime = Runtime::Current();
           ClassLinker* class_linker = runtime->GetClassLinker();
           // Check whether we can quickly get the header from the current entrypoint.
           if (!class_linker->IsQuickGenericJniStub(existing_entry_point) &&
-              !class_linker->IsQuickResolutionStub(existing_entry_point) &&
-              existing_entry_point != GetQuickInstrumentationEntryPoint()) {
+              !class_linker->IsQuickResolutionStub(existing_entry_point)) {
             cur_oat_quick_method_header_ =
                 OatQuickMethodHeader::FromEntryPoint(existing_entry_point);
           } else {
@@ -819,7 +856,11 @@ void StackVisitor::WalkStack(bool include_transitions) {
             if (code != nullptr) {
               cur_oat_quick_method_header_ = OatQuickMethodHeader::FromEntryPoint(code);
             } else {
-              // This must be a JITted JNI stub frame.
+              // This must be a JITted JNI stub frame. For non-debuggable runtimes we only generate
+              // JIT stubs if there are no AOT stubs for native methods. Since we checked for AOT
+              // code earlier, we must be running JITed code. For debuggable runtimes we might have
+              // JIT code even when AOT code is present but we tag SP in JITed JNI stubs
+              // in debuggable runtimes. This case is handled earlier.
               CHECK(runtime->GetJit() != nullptr);
               code = runtime->GetJit()->GetCodeCache()->GetJniStubCode(method);
               CHECK(code != nullptr) << method->PrettyMethod();
@@ -834,8 +875,12 @@ void StackVisitor::WalkStack(bool include_transitions) {
           cur_oat_quick_method_header_ = method->GetOatQuickMethodHeader(cur_quick_frame_pc_);
         }
         header_retrieved = false;  // Force header retrieval in next iteration.
-        ValidateFrame();
 
+        if (kDebugStackWalk) {
+          LOG(INFO) << "Early print: Tid=" << thread_-> GetThreadId() << ", method: "
+              << ArtMethod::PrettyMethod(method) << "@" << method;
+        }
+        ValidateFrame();
         if ((walk_kind_ == StackWalkKind::kIncludeInlinedFrames)
             && (cur_oat_quick_method_header_ != nullptr)
             && cur_oat_quick_method_header_->IsOptimized()
@@ -854,7 +899,6 @@ void StackVisitor::WalkStack(bool include_transitions) {
                 return;
               }
               cur_depth_++;
-              inlined_frames_count++;
             }
           }
         }
@@ -871,44 +915,14 @@ void StackVisitor::WalkStack(bool include_transitions) {
         // Compute PC for next stack frame from return PC.
         size_t frame_size = frame_info.FrameSizeInBytes();
         uintptr_t return_pc_addr = GetReturnPcAddr();
-        uintptr_t return_pc = *reinterpret_cast<uintptr_t*>(return_pc_addr);
 
-        if (UNLIKELY(reinterpret_cast<uintptr_t>(GetQuickInstrumentationExitPc()) == return_pc)) {
-          // While profiling, the return pc is restored from the side stack, except when walking
-          // the stack for an exception where the side stack will be unwound in VisitFrame.
-          const std::map<uintptr_t, instrumentation::InstrumentationStackFrame>&
-              instrumentation_stack = *thread_->GetInstrumentationStack();
-          auto it = instrumentation_stack.find(return_pc_addr);
-          CHECK(it != instrumentation_stack.end());
-          const instrumentation::InstrumentationStackFrame& instrumentation_frame = it->second;
-          if (GetMethod() ==
-              Runtime::Current()->GetCalleeSaveMethod(CalleeSaveType::kSaveAllCalleeSaves)) {
-            // Skip runtime save all callee frames which are used to deliver exceptions.
-          } else if (instrumentation_frame.interpreter_entry_) {
-            ArtMethod* callee =
-                Runtime::Current()->GetCalleeSaveMethod(CalleeSaveType::kSaveRefsAndArgs);
-            CHECK_EQ(GetMethod(), callee) << "Expected: " << ArtMethod::PrettyMethod(callee)
-                                          << " Found: " << ArtMethod::PrettyMethod(GetMethod());
-          } else if (!instrumentation_frame.method_->IsRuntimeMethod()) {
-            // Trampolines get replaced with their actual method in the stack,
-            // so don't do the check below for runtime methods.
-            // Instrumentation generally doesn't distinguish between a method's obsolete and
-            // non-obsolete version.
-            CHECK_EQ(instrumentation_frame.method_->GetNonObsoleteMethod(),
-                     GetMethod()->GetNonObsoleteMethod())
-                << "Expected: "
-                << ArtMethod::PrettyMethod(instrumentation_frame.method_->GetNonObsoleteMethod())
-                << " Found: " << ArtMethod::PrettyMethod(GetMethod()->GetNonObsoleteMethod());
-          }
-          return_pc = instrumentation_frame.return_pc_;
-        }
-
-        cur_quick_frame_pc_ = return_pc;
+        cur_quick_frame_pc_ = *reinterpret_cast<uintptr_t*>(return_pc_addr);
         uint8_t* next_frame = reinterpret_cast<uint8_t*>(cur_quick_frame_) + frame_size;
         cur_quick_frame_ = reinterpret_cast<ArtMethod**>(next_frame);
 
         if (kDebugStackWalk) {
-          LOG(INFO) << ArtMethod::PrettyMethod(method) << "@" << method << " size=" << frame_size
+          LOG(INFO) << "Tid=" << thread_-> GetThreadId() << ", method: "
+              << ArtMethod::PrettyMethod(method) << "@" << method << " size=" << frame_size
               << std::boolalpha
               << " optimized=" << (cur_oat_quick_method_header_ != nullptr &&
                                    cur_oat_quick_method_header_->IsOptimized())
@@ -928,6 +942,12 @@ void StackVisitor::WalkStack(bool include_transitions) {
       cur_oat_quick_method_header_ = nullptr;
     } else if (cur_shadow_frame_ != nullptr) {
       do {
+        if (kDebugStackWalk) {
+          ArtMethod* method = cur_shadow_frame_->GetMethod();
+          LOG(INFO) << "Tid=" << thread_-> GetThreadId() << ", method: "
+              << ArtMethod::PrettyMethod(method) << "@" << method
+              << ", ShadowFrame";
+        }
         ValidateFrame();
         bool should_continue = VisitFrame();
         if (UNLIKELY(!should_continue)) {

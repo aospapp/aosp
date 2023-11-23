@@ -56,6 +56,7 @@ import com.android.car.CarServiceUtils;
 import com.android.car.CarUxRestrictionsManagerService;
 import com.android.car.power.CarPowerManagementService;
 import com.android.car.systeminterface.SystemInterface;
+import com.android.car.user.CarUserService;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -104,6 +105,7 @@ public class CarWatchdogServiceTest extends AbstractExtendedMockitoTestCase {
     @Mock private UserManager mMockUserManager;
     @Mock private StatsManager mMockStatsManager;
     @Mock private SystemInterface mMockSystemInterface;
+    @Mock private CarUserService mMockCarUserService;
     @Mock private CarUxRestrictionsManagerService mMockCarUxRestrictionsManagerService;
     @Mock private CarPowerManagementService mMockCarPowerManagementService;
     @Mock private IBinder mMockDaemonBinder;
@@ -136,6 +138,8 @@ public class CarWatchdogServiceTest extends AbstractExtendedMockitoTestCase {
 
         doReturn(mMockSystemInterface)
                 .when(() -> CarLocalServices.getService(SystemInterface.class));
+        doReturn(mMockCarUserService)
+                .when(() -> CarLocalServices.getService(CarUserService.class));
         doReturn(mMockCarUxRestrictionsManagerService)
                 .when(() -> CarLocalServices.getService(CarUxRestrictionsManagerService.class));
         doReturn(mMockCarPowerManagementService)

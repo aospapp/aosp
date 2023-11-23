@@ -1,9 +1,7 @@
 ; This file is generated from a similarly-named Perl script in the BoringSSL
 ; source tree. Do not edit by hand.
 
-%ifdef BORINGSSL_PREFIX
-%include "boringssl_prefix_symbols_nasm.inc"
-%endif
+%include "ring_core_generated/prefix_symbols_nasm.inc"
 %ifidn __OUTPUT_FORMAT__,obj
 section	code	use32 class=code align=64
 %elifidn __OUTPUT_FORMAT__,win32
@@ -12,11 +10,11 @@ section	.text	code align=64
 %else
 section	.text	code
 %endif
-;extern	_GFp_ia32cap_P
-global	_GFp_aes_hw_encrypt
+;extern	_OPENSSL_ia32cap_P
+global	_aes_hw_encrypt
 align	16
-_GFp_aes_hw_encrypt:
-L$_GFp_aes_hw_encrypt_begin:
+_aes_hw_encrypt:
+L$_aes_hw_encrypt_begin:
 	mov	eax,DWORD [4+esp]
 	mov	edx,DWORD [12+esp]
 	movups	xmm2,[eax]
@@ -181,10 +179,10 @@ db	102,15,56,221,232
 db	102,15,56,221,240
 db	102,15,56,221,248
 	ret
-global	_GFp_aes_hw_ctr32_encrypt_blocks
+global	_aes_hw_ctr32_encrypt_blocks
 align	16
-_GFp_aes_hw_ctr32_encrypt_blocks:
-L$_GFp_aes_hw_ctr32_encrypt_blocks_begin:
+_aes_hw_ctr32_encrypt_blocks:
+L$_aes_hw_ctr32_encrypt_blocks_begin:
 	push	ebp
 	push	ebx
 	push	esi
@@ -429,7 +427,7 @@ __aesni_set_encrypt_key:
 L$016pic:
 	pop	ebx
 	lea	ebx,[(L$key_const-L$016pic)+ebx]
-	lea	ebp,[_GFp_ia32cap_P]
+	lea	ebp,[_OPENSSL_ia32cap_P]
 	movups	xmm0,[eax]
 	xorps	xmm4,xmm4
 	mov	ebp,DWORD [4+ebp]
@@ -659,10 +657,10 @@ L$018bad_keybits:
 	pop	ebx
 	pop	ebp
 	ret
-global	_GFp_aes_hw_set_encrypt_key
+global	_aes_hw_set_encrypt_key
 align	16
-_GFp_aes_hw_set_encrypt_key:
-L$_GFp_aes_hw_set_encrypt_key_begin:
+_aes_hw_set_encrypt_key:
+L$_aes_hw_set_encrypt_key_begin:
 	mov	eax,DWORD [4+esp]
 	mov	ecx,DWORD [8+esp]
 	mov	edx,DWORD [12+esp]
@@ -679,4 +677,4 @@ db	83,45,78,73,44,32,67,82,89,80,84,79,71,65,77,83
 db	32,98,121,32,60,97,112,112,114,111,64,111,112,101,110,115
 db	115,108,46,111,114,103,62,0
 segment	.bss
-common	_GFp_ia32cap_P 16
+common	_OPENSSL_ia32cap_P 16

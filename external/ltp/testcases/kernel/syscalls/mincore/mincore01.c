@@ -145,12 +145,6 @@ static void setup4(struct test_case_t *tc)
 	tc->addr = global_pointer;
 	tc->len = as_lim.rlim_cur - (rlim_t)global_pointer + pagesize;
 	tc->vector = global_vec;
-
-	/*
-	 * In linux 2.6.11 and earlier, EINVAL was returned for this condition.
-	 */
-	if (tst_kvercmp(2, 6, 11) <= 0)
-		tc->exp_errno = EINVAL;
 }
 
 static void setup(void)
@@ -175,7 +169,7 @@ static void setup(void)
 	fd = SAFE_OPEN(cleanup, "mincore01", O_CREAT | O_RDWR,
 		       S_IRUSR | S_IWUSR);
 
-	SAFE_WRITE(cleanup, 1, fd, buf, global_len);
+	SAFE_WRITE(cleanup, SAFE_WRITE_ALL, fd, buf, global_len);
 
 	free(buf);
 

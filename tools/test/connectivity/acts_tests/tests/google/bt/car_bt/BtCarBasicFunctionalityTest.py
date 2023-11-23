@@ -17,9 +17,6 @@
 Test script to execute Bluetooth basic functionality test cases relevant to car.
 """
 
-import time
-
-from queue import Empty
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts_contrib.test_utils.bt.BtEnum import BluetoothScanModeType

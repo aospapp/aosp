@@ -21,6 +21,7 @@ import android.annotation.Nullable;
 import android.content.AttributionSource;
 import android.os.CancellationSignal;
 import android.os.PersistableBundle;
+import android.os.Process;
 import android.os.RemoteException;
 import android.util.Log;
 
@@ -32,11 +33,11 @@ import java.util.concurrent.Executor;
  * @hide
  */
 public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
-    private static final String TAG = "Uwb.RangingManager";
+    private final String mTag = "Uwb.RangingManager[" + this + "]";
 
     private final IUwbAdapter mAdapter;
     private final Hashtable<SessionHandle, RangingSession> mRangingSessionTable = new Hashtable<>();
-    private int mNextSessionId = 1;
+    private static int sNextSessionId = 1;
 
     public RangingManager(IUwbAdapter adapter) {
         mAdapter = adapter;
@@ -46,7 +47,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
      * Open a new ranging session
      *
      * @param attributionSource Attribution source to use for the enforcement of
-     *                          {@link android.Manifest.permission#ULTRAWIDEBAND_RANGING} runtime
+     *                          {@link android.Manifest.permission#UWB_RANGING} runtime
      *                          permission.
      * @param params the parameters that define the ranging session
      * @param executor {@link Executor} to run callbacks
@@ -75,9 +76,11 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
         }
 
         synchronized (this) {
-            SessionHandle sessionHandle = new SessionHandle(mNextSessionId++);
+            SessionHandle sessionHandle =
+                    new SessionHandle(sNextSessionId++, attributionSource, Process.myPid());
             RangingSession session =
                     new RangingSession(executor, callbacks, mAdapter, sessionHandle, chipId);
+            Log.v(mTag, "openSession - sessionHandle: " + sessionHandle);
             mRangingSessionTable.put(sessionHandle, session);
             try {
                 mAdapter.openRanging(attributionSource,
@@ -103,7 +106,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
     public void onRangingOpened(SessionHandle sessionHandle) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG,
+                Log.w(mTag,
                         "onRangingOpened - received unexpected SessionHandle: " + sessionHandle);
                 return;
             }
@@ -118,7 +121,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG,
+                Log.w(mTag,
                         "onRangingOpenedFailed - received unexpected SessionHandle: "
                                 + sessionHandle);
                 return;
@@ -134,7 +137,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
     public void onRangingReconfigured(SessionHandle sessionHandle, PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG,
+                Log.w(mTag,
                         "onRangingReconfigured - received unexpected SessionHandle: "
                                 + sessionHandle);
                 return;
@@ -150,7 +153,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             @RangingChangeReason int reason, PersistableBundle params) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onRangingReconfigureFailed - received unexpected SessionHandle: "
+                Log.w(mTag, "onRangingReconfigureFailed - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
@@ -165,7 +168,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
     public void onRangingStarted(SessionHandle sessionHandle, PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG,
+                Log.w(mTag,
                         "onRangingStarted - received unexpected SessionHandle: " + sessionHandle);
                 return;
             }
@@ -180,7 +183,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             PersistableBundle params) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onRangingStartFailed - received unexpected SessionHandle: "
+                Log.w(mTag, "onRangingStartFailed - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
@@ -195,7 +198,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             PersistableBundle params) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onRangingStopped - received unexpected SessionHandle: "
+                Log.w(mTag, "onRangingStopped - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
@@ -210,7 +213,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onRangingStopFailed - received unexpected SessionHandle: "
+                Log.w(mTag, "onRangingStopFailed - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
@@ -225,7 +228,8 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             PersistableBundle params) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onRangingClosed - received unexpected SessionHandle: " + sessionHandle);
+                Log.w(mTag, "onRangingClosed - received unexpected SessionHandle: "
+                        + sessionHandle);
                 return;
             }
 
@@ -239,7 +243,8 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
     public void onRangingResult(SessionHandle sessionHandle, RangingReport result) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onRangingResult - received unexpected SessionHandle: " + sessionHandle);
+                Log.w(mTag, "onRangingResult - received unexpected SessionHandle: "
+                        + sessionHandle);
                 return;
             }
 
@@ -252,7 +257,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
     public void onControleeAdded(SessionHandle sessionHandle, PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onControleeAdded - received unexpected SessionHandle: "
+                Log.w(mTag, "onControleeAdded - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
@@ -267,7 +272,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onControleeAddFailed - received unexpected SessionHandle: "
+                Log.w(mTag, "onControleeAddFailed - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
@@ -281,7 +286,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
     public void onControleeRemoved(SessionHandle sessionHandle, PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onControleeRemoved - received unexpected SessionHandle: "
+                Log.w(mTag, "onControleeRemoved - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
@@ -296,7 +301,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             @RangingChangeReason int reason, PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onControleeRemoveFailed - received unexpected SessionHandle: "
+                Log.w(mTag, "onControleeRemoveFailed - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
@@ -310,7 +315,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
     public void onRangingPaused(SessionHandle sessionHandle, PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onRangingPaused - received unexpected SessionHandle: "
+                Log.w(mTag, "onRangingPaused - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
@@ -325,7 +330,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onRangingPauseFailed - received unexpected SessionHandle: "
+                Log.w(mTag, "onRangingPauseFailed - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
@@ -339,7 +344,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
     public void onRangingResumed(SessionHandle sessionHandle, PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onRangingResumed - received unexpected SessionHandle: "
+                Log.w(mTag, "onRangingResumed - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
@@ -354,7 +359,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onRangingResumeFailed - received unexpected SessionHandle: "
+                Log.w(mTag, "onRangingResumeFailed - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
@@ -369,7 +374,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onDataSent - received unexpected SessionHandle: " + sessionHandle);
+                Log.w(mTag, "onDataSent - received unexpected SessionHandle: " + sessionHandle);
                 return;
             }
 
@@ -383,7 +388,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             @RangingChangeReason int reason, PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onDataSendFailed - received unexpected SessionHandle: "
+                Log.w(mTag, "onDataSendFailed - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
@@ -398,7 +403,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             PersistableBundle parameters, byte[] data) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onDataReceived - received unexpected SessionHandle: "
+                Log.w(mTag, "onDataReceived - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
@@ -413,7 +418,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             @RangingChangeReason int reason, PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onDataReceiveFailed - received unexpected SessionHandle: "
+                Log.w(mTag, "onDataReceiveFailed - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
@@ -428,7 +433,7 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             @NonNull PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onServiceDiscovered - received unexpected SessionHandle: "
+                Log.w(mTag, "onServiceDiscovered - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
@@ -444,13 +449,28 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             @NonNull PersistableBundle parameters) {
         synchronized (this) {
             if (!hasSession(sessionHandle)) {
-                Log.w(TAG, "onServiceConnected - received unexpected SessionHandle: "
+                Log.w(mTag, "onServiceConnected - received unexpected SessionHandle: "
                         + sessionHandle);
                 return;
             }
 
             RangingSession session = mRangingSessionTable.get(sessionHandle);
             session.onServiceConnected(parameters);
+        }
+    }
+
+    @Override
+    public void onRangingRoundsUpdateDtTagStatus(SessionHandle sessionHandle,
+            @NonNull PersistableBundle parameters) {
+        synchronized (this) {
+            if (!hasSession(sessionHandle)) {
+                Log.w(mTag, "onRangingRoundsUpdateDtTagStatus - received unexpected "
+                        + "SessionHandle: " + sessionHandle);
+                return;
+            }
+
+            RangingSession session = mRangingSessionTable.get(sessionHandle);
+            session.onRangingRoundsUpdateDtTagStatus(parameters);
         }
     }
 
@@ -467,6 +487,9 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
             case RangingChangeReason.SYSTEM_POLICY:
                 return RangingSession.Callback.REASON_SYSTEM_POLICY;
 
+            case RangingChangeReason.SYSTEM_REGULATION:
+                return RangingSession.Callback.REASON_SYSTEM_REGULATION;
+
             case RangingChangeReason.REMOTE_REQUEST:
                 return RangingSession.Callback.REASON_REMOTE_REQUEST;
 
@@ -478,6 +501,9 @@ public class RangingManager extends android.uwb.IUwbRangingCallbacks.Stub {
 
             case RangingChangeReason.MAX_RR_RETRY_REACHED:
                 return RangingSession.Callback.REASON_MAX_RR_RETRY_REACHED;
+
+            case RangingChangeReason.INSUFFICIENT_SLOTS_PER_RR:
+                return RangingSession.Callback.REASON_INSUFFICIENT_SLOTS_PER_RR;
 
             case RangingChangeReason.UNKNOWN:
             default:

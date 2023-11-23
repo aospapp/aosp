@@ -61,8 +61,14 @@ void Error(const char* format, ...) {
   va_end(args);
 }
 
-// Do nothing for async safe.
-void AsyncSafe(const char*, ...) {}
+void AsyncSafe(const char* format, ...) {
+  va_list args;
+  va_start(args, format);
+  // Only call vprintf to avoid allocating as much as possible, PrintToStdout uses a std::string.
+  vprintf(format, args);
+  printf("\n");
+  va_end(args);
+}
 
 }  // namespace Log
 

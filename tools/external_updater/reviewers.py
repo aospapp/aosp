@@ -13,9 +13,10 @@
 # limitations under the License.
 """Find main reviewers for git push commands."""
 
+from collections.abc import MutableMapping
 import math
 import random
-from typing import List, Mapping, Set, Union
+from typing import List, Set, Union
 
 # To randomly pick one of multiple reviewers, we put them in a List[str]
 # to work with random.choice efficiently.
@@ -25,7 +26,7 @@ from typing import List, Mapping, Set, Union
 # (1) a single reviewer email address as a string, or
 # (2) a List of multiple reviewers to be randomly picked, or
 # (3) a Set of multiple reviewers to be all added.
-ProjMapping = Mapping[str, Union[str, List[str], Set[str]]]
+ProjMapping = MutableMapping[str, Union[str, List[str], Set[str]]]
 
 # Rust crate owners (reviewers).
 RUST_CRATE_OWNERS: ProjMapping = {
@@ -46,7 +47,7 @@ PROJ_REVIEWERS.update(RUST_CRATE_OWNERS)
 # The sum of these quotas should ideally be at least the number of Rust
 # projects, but this only matters if we have many entries in RUST_CRATE_OWNERS,
 # as we subtract a person's owned crates from their quota.
-RUST_REVIEWERS: Mapping[str, int] = {
+RUST_REVIEWERS: dict[str, float] = {
     'ivanlozano@google.com': 20,
     'jeffv@google.com': 20,
     'mmaurer@google.com': 20,
@@ -58,7 +59,7 @@ RUST_REVIEWERS: Mapping[str, int] = {
 
 
 # pylint: disable=invalid-name
-def add_proj_count(projects: Mapping[str, float], reviewer: str, n: float):
+def add_proj_count(projects: MutableMapping[str, float], reviewer: str, n: float) -> None:
     """Add n to the number of projects owned by the reviewer."""
     if reviewer in projects:
         projects[reviewer] += n
@@ -75,7 +76,7 @@ def create_rust_reviewer_list() -> List[str]:
     """Create a list of duplicated reviewers for weighted random selection."""
     # Count number of projects owned by each reviewer.
     rust_reviewers = set(RUST_REVIEWERS.keys())
-    projects = {}  # map from owner to number of owned projects
+    projects: dict[str, float] = {}  # map from owner to number of owned projects
     for value in PROJ_REVIEWERS.values():
         if isinstance(value, str):  # single reviewer for a project
             add_proj_count(projects, value, 1)

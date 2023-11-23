@@ -17,9 +17,14 @@ package bpf
 import (
 	"fmt"
 	"io"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	"android/soong/android"
+	"android/soong/bazel"
+	"android/soong/bazel/cquery"
+	"android/soong/cc"
 
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
@@ -28,6 +33,7 @@ import (
 func init() {
 	registerBpfBuildComponents(android.InitRegistrationContext)
 	pctx.Import("android/soong/cc/config")
+	pctx.StaticVariable("relPwd", cc.PwdPrefix())
 }
 
 var (
@@ -37,7 +43,7 @@ var (
 		blueprint.RuleParams{
 			Depfile:     "${out}.d",
 			Deps:        blueprint.DepsGCC,
-			Command:     "$ccCmd --target=bpf -c $cFlags -MD -MF ${out}.d -o $out $in",
+			Command:     "$relPwd $ccCmd --target=bpf -c $cFlags -MD -MF ${out}.d -o $out $in",
 			CommandDeps: []string{"$ccCmd"},
 		},
 		"ccCmd", "cFlags")
@@ -68,12 +74,23 @@ type BpfModule interface {
 }
 
 type BpfProperties struct {
-	Srcs         []string `android:"path"`
-	Cflags       []string
+	// source paths to the files.
+	Srcs []string `android:"path"`
+
+	// additional cflags that should be used to build the bpf variant of
+	// the C/C++ module.
+	Cflags []string
+
+	// directories (relative to the root of the source tree) that will
+	// be added to the include paths using -I.
 	Include_dirs []string
-	Sub_dir      string
-	// If set to true, generate BTF debug info for maps & programs
-	Btf    *bool
+
+	// optional subdirectory under which this module is installed into.
+	Sub_dir string
+
+	// if set to true, generate BTF debug info for maps & programs.
+	Btf *bool
+
 	Vendor *bool
 
 	VendorInternal bool `blueprint:"mutated"`
@@ -81,6 +98,7 @@ type BpfProperties struct {
 
 type bpf struct {
 	android.ModuleBase
+	android.BazelModuleBase
 
 	properties BpfProperties
 
@@ -149,11 +167,17 @@ func (bpf *bpf) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 
 	if proptools.Bool(bpf.properties.Btf) {
 		cflags = append(cflags, "-g")
+		if runtime.GOOS != "darwin" {
+			cflags = append(cflags, "-fdebug-prefix-map=/proc/self/cwd=")
+		}
 	}
 
 	srcs := android.PathsForModuleSrc(ctx, bpf.properties.Srcs)
 
 	for _, src := range srcs {
+		if strings.ContainsRune(filepath.Base(src.String()), '_') {
+			ctx.ModuleErrorf("invalid character '_' in source name")
+		}
 		obj := android.ObjPathWithExt(ctx, "unstripped", src, "o")
 
 		ctx.Build(pctx, android.BuildParams{
@@ -203,7 +227,7 @@ func (bpf *bpf) AndroidMk() android.AndroidMkData {
 			for _, obj := range bpf.objs {
 				objName := name + "_" + obj.Base()
 				names = append(names, objName)
-				fmt.Fprintln(w, "include $(CLEAR_VARS)")
+				fmt.Fprintln(w, "include $(CLEAR_VARS)", " # bpf.bpf.obj")
 				fmt.Fprintln(w, "LOCAL_MODULE := ", objName)
 				data.Entries.WriteLicenseVariables(w)
 				fmt.Fprintln(w, "LOCAL_PREBUILT_MODULE_FILE :=", obj.String())
@@ -213,13 +237,42 @@ func (bpf *bpf) AndroidMk() android.AndroidMkData {
 				fmt.Fprintln(w, "include $(BUILD_PREBUILT)")
 				fmt.Fprintln(w)
 			}
-			fmt.Fprintln(w, "include $(CLEAR_VARS)")
+			fmt.Fprintln(w, "include $(CLEAR_VARS)", " # bpf.bpf")
 			fmt.Fprintln(w, "LOCAL_MODULE := ", name)
 			data.Entries.WriteLicenseVariables(w)
-			fmt.Fprintln(w, "LOCAL_REQUIRED_MODULES :=", strings.Join(names, " "))
+			android.AndroidMkEmitAssignList(w, "LOCAL_REQUIRED_MODULES", names)
 			fmt.Fprintln(w, "include $(BUILD_PHONY_PACKAGE)")
 		},
 	}
+}
+
+var _ android.MixedBuildBuildable = (*bpf)(nil)
+
+func (bpf *bpf) IsMixedBuildSupported(ctx android.BaseModuleContext) bool {
+	return true
+}
+
+func (bpf *bpf) QueueBazelCall(ctx android.BaseModuleContext) {
+	bazelCtx := ctx.Config().BazelContext
+	bazelCtx.QueueBazelRequest(
+		bpf.GetBazelLabel(ctx, bpf),
+		cquery.GetOutputFiles,
+		android.GetConfigKey(ctx))
+}
+
+func (bpf *bpf) ProcessBazelQueryResponse(ctx android.ModuleContext) {
+	bazelCtx := ctx.Config().BazelContext
+	objPaths, err := bazelCtx.GetOutputFiles(bpf.GetBazelLabel(ctx, bpf), android.GetConfigKey(ctx))
+	if err != nil {
+		ctx.ModuleErrorf(err.Error())
+		return
+	}
+
+	bazelOuts := android.Paths{}
+	for _, p := range objPaths {
+		bazelOuts = append(bazelOuts, android.PathForBazelOut(ctx, p))
+	}
+	bpf.objs = bazelOuts
 }
 
 // Implements OutputFileFileProducer interface so that the obj output can be used in the data property
@@ -245,5 +298,39 @@ func BpfFactory() android.Module {
 	module.AddProperties(&module.properties)
 
 	android.InitAndroidArchModule(module, android.DeviceSupported, android.MultilibCommon)
+	android.InitBazelModule(module)
 	return module
+}
+
+type bazelBpfAttributes struct {
+	Srcs              bazel.LabelListAttribute
+	Copts             bazel.StringListAttribute
+	Absolute_includes bazel.StringListAttribute
+	Btf               *bool
+	// TODO(b/249528391): Add support for sub_dir
+}
+
+// bpf bp2build converter
+func (b *bpf) ConvertWithBp2build(ctx android.TopDownMutatorContext) {
+	if ctx.ModuleType() != "bpf" {
+		return
+	}
+
+	srcs := bazel.MakeLabelListAttribute(android.BazelLabelForModuleSrc(ctx, b.properties.Srcs))
+	copts := bazel.MakeStringListAttribute(b.properties.Cflags)
+	absolute_includes := bazel.MakeStringListAttribute(b.properties.Include_dirs)
+	btf := b.properties.Btf
+
+	attrs := bazelBpfAttributes{
+		Srcs:              srcs,
+		Copts:             copts,
+		Absolute_includes: absolute_includes,
+		Btf:               btf,
+	}
+	props := bazel.BazelTargetModuleProperties{
+		Rule_class:        "bpf",
+		Bzl_load_location: "//build/bazel/rules/bpf:bpf.bzl",
+	}
+
+	ctx.CreateBazelTargetModule(props, android.CommonAttributes{Name: b.Name()}, &attrs)
 }

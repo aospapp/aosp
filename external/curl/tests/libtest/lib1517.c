@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2020, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -17,6 +17,8 @@
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
+ *
+ * SPDX-License-Identifier: curl
  *
  ***************************************************************************/
 #include "test.h"
@@ -58,6 +60,16 @@ int test(char *URL)
 
   struct WriteThis pooh;
 
+  if(!strcmp(URL, "check")) {
+#if (defined(WIN32) || defined(__CYGWIN__)) && \
+    !defined(USE_RECV_BEFORE_SEND_WORKAROUND)
+    printf("test requires recv-before-send workaround on Windows\n");
+    return 1; /* skip since test will fail on Windows without workaround */
+#else
+    return 0; /* sure, run this! */
+#endif
+  }
+
   pooh.readptr = data;
   pooh.sizeleft = strlen(data);
 
@@ -78,11 +90,6 @@ int test(char *URL)
 
   /* Now specify we want to POST data */
   test_setopt(curl, CURLOPT_POST, 1L);
-
-#ifdef CURL_DOES_CONVERSIONS
-  /* Convert the POST data to ASCII */
-  test_setopt(curl, CURLOPT_TRANSFERTEXT, 1L);
-#endif
 
   /* Set the expected POST size */
   test_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)pooh.sizeleft);

@@ -109,11 +109,11 @@ MIMO_VUE_HD_DISPLAY = usb_device_spec.UsbDeviceSpec(
     interfaces=['udl'],
 )
 
-# The MiMO's firmware is tied to the Chrome OS version. The firmware was updated
-# in Chrome OS 65.0.3319.0. This resulted in the PID being changed from 016b to
+# The MiMO's firmware is tied to the ChromeOS version. The firmware was updated
+# in ChromeOS 65.0.3319.0. This resulted in the PID being changed from 016b to
 # 416d. The following device is the device with the new PID. We need to support
 # both versions since we want to support tests at the ToT revision running
-# against older Chrome OS versions.
+# against older ChromeOS versions.
 MIMO_VUE_HD_DISPLAY_PLANKTON = usb_device_spec.UsbDeviceSpec(
     vid='17e9',
     pid='416d',

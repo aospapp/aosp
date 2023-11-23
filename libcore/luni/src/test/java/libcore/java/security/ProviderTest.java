@@ -85,7 +85,7 @@ public class ProviderTest extends TestCaseWithRules {
             entry.setValue(new HashSet<String>(entry.getValue()));
         }
 
-        List<String> extra = new ArrayList<String>();
+        Map<String,List<String>> extra = new HashMap<>();
         List<String> missing = new ArrayList<String>();
 
         Provider[] providers = Security.getProviders();
@@ -95,6 +95,7 @@ public class ProviderTest extends TestCaseWithRules {
             if (StandardNames.IS_RI && providerName.equals("BC")) {
                 continue;
             }
+            extra.put(providerName, new ArrayList<>());
             Set<Provider.Service> services = provider.getServices();
             assertNotNull(services);
             assertFalse(services.isEmpty());
@@ -134,7 +135,8 @@ public class ProviderTest extends TestCaseWithRules {
                     // original source before giving error
                     if (!(StandardNames.PROVIDER_ALGORITHMS.containsKey(type)
                             && StandardNames.PROVIDER_ALGORITHMS.get(type).contains(algorithm))) {
-                        extra.add("Unknown " + type + " " + algorithm + " " + providerName + "\n");
+                        extra.get(providerName).
+                            add("Unknown " + type + " " + algorithm + " " + providerName + "\n");
                     }
                 } else if ("Cipher".equals(type) && !algorithm.contains("/")) {
                     /*
@@ -180,9 +182,19 @@ public class ProviderTest extends TestCaseWithRules {
         }
 
         // assert that we don't have any extra in the implementation
-        Collections.sort(extra); // sort so that its grouped by type
-        assertEquals("Algorithms are provided but not present in StandardNames",
-                Collections.EMPTY_LIST, extra);
+        for (String providerName : extra.keySet()) {
+            List<String> extraList = extra.get(providerName);
+            Collections.sort(extraList); // sort so that its grouped by type
+            if (StandardNames.JSSE_PROVIDER_NAME.equalsIgnoreCase(providerName)) {
+                if (LOG_DEBUG) {
+                    System.out.println("Algorithms are provided but not present in StandardNames"
+                        + " " + extraList);
+                }
+            } else {
+                assertEquals("Algorithms are provided but not present in StandardNames",
+                    Collections.EMPTY_LIST, extraList);
+            }
+        }
 
         if (remainingExpected.containsKey("Cipher")) {
             // For any remaining ciphers, they may be aliases for other ciphers or otherwise

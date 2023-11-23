@@ -1,0 +1,50 @@
+# Derived from magma_common_defs.h
+
+void* 64 %p true
+uint32_t 32 %u false
+uint32_t* 64 %p true
+uint64_t 64 %lu false
+uint64_t* 64 %p true
+magma_query_t 64 %lu false
+magma_query_t* 64 %p true
+magma_status_t 32 %d false
+magma_cache_operation_t 32 %d false
+magma_cache_policy_t 32 %d false
+magma_cache_policy_t* 64 %p true
+magma_format_t 32 %d false
+magma_format_modifier_t 64 %lu false
+magma_colorspace_t 32 %d false
+magma_coherency_domain_t 32 %d false
+magma_buffer_range_op_t 32 %d false
+magma_bool_t 8 %d false
+magma_bool_t* 64 %p true
+magma_device_t 64 %lu false
+magma_device_t* 64 %p true
+magma_buffer_t 64 %lu false
+magma_buffer_t* 64 %p true
+magma_semaphore_t 64 %lu false
+magma_semaphore_t* 64 %p true
+magma_perf_count_pool_t 64 %lu false
+magma_perf_count_pool_t* 64 %p true
+magma_connection_t 64 %lu false
+magma_connection_t* 64 %p true
+magma_sysmem_connection_t 64 %lu false
+magma_sysmem_connection_t* 64 %p true
+magma_handle_t 32 0x%x false
+magma_handle_t* 64 %p true
+magma_poll_item_t* 64 %p true
+magma_buffer_id_t 64 %lu false
+magma_buffer_id_t* 64 %p true
+magma_semaphore_id_t 64 %lu false
+magma_semaphore_id_t* 64 %p true
+
+# complex types are manually serialized:
+# magma_exec_resource_t
+# magma_exec_command_buffer_t
+# magma_command_descriptor_t
+# magma_inline_command_buffer_t
+# magma_total_time_query_result_t
+# magma_buffer_offset_t
+# magma_buffer_info_t
+# magma_image_create_info_t
+# magma_image_info_t

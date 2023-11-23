@@ -24,7 +24,10 @@ import static android.media.AudioManager.MASTER_MUTE_CHANGED_ACTION;
 import static android.media.AudioManager.VOLUME_CHANGED_ACTION;
 
 import android.annotation.NonNull;
+import android.annotation.RequiresApi;
 import android.annotation.SystemApi;
+import android.car.builtin.annotation.AddedIn;
+import android.car.builtin.annotation.PlatformVersion;
 import android.car.builtin.util.Slogf;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -41,12 +44,15 @@ import android.media.AudioManager;
 import android.media.AudioPatch;
 import android.media.AudioPortConfig;
 import android.media.AudioSystem;
+import android.media.audiopolicy.AudioProductStrategy;
+import android.os.Build;
+import android.text.TextUtils;
 
 import com.android.internal.util.Preconditions;
 
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Objects;
-
 
 /**
  * Helper for Audio related operations.
@@ -55,9 +61,14 @@ import java.util.Objects;
  */
 @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
 public final class AudioManagerHelper {
+    private static final String TAG = AudioManagerHelper.class.getSimpleName();
 
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static final int UNDEFINED_STREAM_TYPE = -1;
-    private static final String TAG = "AudioServiceHelper";
+
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @AddedIn(PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static final String AUDIO_ATTRIBUTE_TAG_SEPARATOR = ";";
 
     private AudioManagerHelper() {
         throw new UnsupportedOperationException();
@@ -71,6 +82,7 @@ public final class AudioManagerHelper {
      * @param isOutput is the device an output device
      * @return true if the gain was successfully set
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static boolean setAudioDeviceGain(@NonNull AudioManager audioManager,
             @NonNull String address, int gainInMillibels, boolean isOutput) {
         Preconditions.checkNotNull(audioManager,
@@ -90,11 +102,8 @@ public final class AudioManagerHelper {
                     + address);
         }
 
-        int r = AudioManager.setAudioPortGain(deviceInfo.getPort(), audioGainConfig);
-        if (r == AudioManager.SUCCESS) {
-            return true;
-        }
-        return false;
+        return AudioManager.setAudioPortGain(deviceInfo.getPort(), audioGainConfig)
+                == AudioManager.SUCCESS;
     }
 
     private static AudioDeviceInfo getAudioDeviceInfo(@NonNull AudioManager audioManager,
@@ -153,6 +162,7 @@ public final class AudioManagerHelper {
      * @param deviceInfo
      * @return
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static AudioGainInfo getAudioGainInfo(@NonNull AudioDeviceInfo deviceInfo) {
         Objects.requireNonNull(deviceInfo);
         return new AudioGainInfo(getAudioGain(deviceInfo.getPort()));
@@ -165,6 +175,7 @@ public final class AudioManagerHelper {
      * @param gainInMillibels gain to apply to the source device
      * @return The audio patch information that was created
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static AudioPatchInfo createAudioPatch(@NonNull AudioDeviceInfo sourceDevice,
             @NonNull AudioDeviceInfo sinkDevice, int gainInMillibels) {
         Preconditions.checkNotNull(sourceDevice,
@@ -232,6 +243,7 @@ public final class AudioManagerHelper {
      * @param info patch information to release
      * @return returns true if the patch was successfully removed
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static boolean releaseAudioPatch(@NonNull AudioManager audioManager,
             @NonNull AudioPatchInfo info) {
         Preconditions.checkNotNull(audioManager,
@@ -265,6 +277,7 @@ public final class AudioManagerHelper {
      *
      * <p>See {@link android.media.AudioAttributes.usageToString}.
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static String usageToString(@AttributeUsage int usage) {
         return AudioAttributes.usageToString(usage);
     }
@@ -275,6 +288,7 @@ public final class AudioManagerHelper {
      *
      * <p>See {@link android.media.AudioAttributes.usageToXsdString}.
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static String usageToXsdString(@AttributeUsage int usage) {
         return AudioAttributes.usageToXsdString(usage);
     }
@@ -285,6 +299,7 @@ public final class AudioManagerHelper {
      *
      * <p>See {@link android.media.AudioAttributes.xsdStringToUsage}.
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static int xsdStringToUsage(String usage) {
         return AudioAttributes.xsdStringToUsage(usage);
     }
@@ -293,6 +308,7 @@ public final class AudioManagerHelper {
      * Returns {@link android.media.AudioAttributes.AttributeUsage} for
      * {@link android.media.AudioAttributes.AttributeUsage.USAGE_VIRTUAL_SOURCE}.
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static int getUsageVirtualSource() {
         return USAGE_VIRTUAL_SOURCE;
     }
@@ -302,6 +318,7 @@ public final class AudioManagerHelper {
      *
      * <p>See {@link android.media.AudioManager#adjustToString(int)}
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static String adjustToString(int adjustment) {
         return AudioManager.adjustToString(adjustment);
     }
@@ -311,6 +328,7 @@ public final class AudioManagerHelper {
      *
      * <p>See {@link android.media.AudioManager#setMasterMute(boolean, int)}.
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static void setMasterMute(@NonNull AudioManager audioManager, boolean mute, int flags) {
         Objects.requireNonNull(audioManager, "AudioManager must not be null.");
         audioManager.setMasterMute(mute, flags);
@@ -321,6 +339,7 @@ public final class AudioManagerHelper {
      *
      * <p>See {@link android.media.AudioManager#isMasterMute()}.
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static boolean isMasterMute(@NonNull AudioManager audioManager) {
         Objects.requireNonNull(audioManager, "AudioManager must not be null.");
         return audioManager.isMasterMute();
@@ -329,6 +348,7 @@ public final class AudioManagerHelper {
     /**
      * Registers volume and mute receiver
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static void registerVolumeAndMuteReceiver(Context context,
             VolumeAndMuteReceiver audioAndMuteHelper) {
         Objects.requireNonNull(context, "Context can not be null.");
@@ -344,6 +364,7 @@ public final class AudioManagerHelper {
     /**
      * Unregisters volume and mute receiver
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static void unregisterVolumeAndMuteReceiver(Context context,
             VolumeAndMuteReceiver audioAndMuteHelper) {
         Objects.requireNonNull(context, "Context can not be null.");
@@ -355,6 +376,7 @@ public final class AudioManagerHelper {
     /**
      * Checks if the client id is equal to the telephony's focus client id.
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static boolean isCallFocusRequestClientId(String clientId) {
         return AudioSystem.IN_VOICE_COMM_FOCUS_ID.equals(clientId);
     }
@@ -378,18 +400,22 @@ public final class AudioManagerHelper {
             mStepValue = gain.stepValue();
         }
 
+        @AddedIn(PlatformVersion.TIRAMISU_0)
         public int getMinGain() {
             return mMinGain;
         }
 
+        @AddedIn(PlatformVersion.TIRAMISU_0)
         public int getMaxGain() {
             return mMaxGain;
         }
 
+        @AddedIn(PlatformVersion.TIRAMISU_0)
         public int getDefaultGain() {
             return mDefaultGain;
         }
 
+        @AddedIn(PlatformVersion.TIRAMISU_0)
         public int getStepValue() {
             return mStepValue;
         }
@@ -415,14 +441,17 @@ public final class AudioManagerHelper {
             mHandleId = handleId;
         }
 
+        @AddedIn(PlatformVersion.TIRAMISU_0)
         public int getHandleId() {
             return mHandleId;
         }
 
+        @AddedIn(PlatformVersion.TIRAMISU_0)
         public String getSourceAddress() {
             return mSourceAddress;
         }
 
+        @AddedIn(PlatformVersion.TIRAMISU_0)
         public String getSinkAddress() {
             return mSinkAddress;
         }
@@ -463,6 +492,8 @@ public final class AudioManagerHelper {
                     case MASTER_MUTE_CHANGED_ACTION:
                         onMuteChanged();
                         break;
+                    default:
+                        break;
                 }
             }
         };
@@ -475,11 +506,143 @@ public final class AudioManagerHelper {
          * Called on volume changes
          * @param streamType type of stream for the volume change
          */
+        @AddedIn(PlatformVersion.TIRAMISU_0)
         public abstract void onVolumeChanged(int streamType);
 
         /**
          * Called on mute changes
          */
+        @AddedIn(PlatformVersion.TIRAMISU_0)
         public abstract void onMuteChanged();
+    }
+
+    /**
+     * Adds a tags to the {@link AudioAttributes}.
+     *
+     * <p>{@link AudioProductStrategy} may use additional information to override the current
+     * stream limitation used for routing.
+     *
+     * <p>As Bundler are not propagated to native layer, tags were used to be dispatched to the
+     * AudioPolicyManager.
+     *
+     * @param builder {@link AudioAttributes.Builder} helper to build {@link AudioAttributes}
+     * @param tag to be added to the {@link AudioAttributes} once built.
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @AddedIn(PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static void addTagToAudioAttributes(@NonNull AudioAttributes.Builder builder,
+            @NonNull String tag) {
+        builder.addTag(tag);
+    }
+
+    /**
+     * Gets a separated string of tags associated to given {@link AudioAttributes}
+     *
+     * @param attributes {@link AudioAttributes} to be considered
+     * @return the tags of the given {@link AudioAttributes} as a
+     * {@link #AUDIO_ATTRIBUTE_TAG_SEPARATOR} separated string.
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @AddedIn(PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static String getFormattedTags(@NonNull AudioAttributes attributes) {
+        Preconditions.checkNotNull(attributes, "Audio Attributes must not be null");
+        return TextUtils.join(AUDIO_ATTRIBUTE_TAG_SEPARATOR, attributes.getTags());
+    }
+
+    private static final Map<String, Integer> XSD_STRING_TO_CONTENT_TYPE = Map.of(
+            "AUDIO_CONTENT_TYPE_UNKNOWN", AudioAttributes.CONTENT_TYPE_UNKNOWN,
+            "AUDIO_CONTENT_TYPE_SPEECH", AudioAttributes.CONTENT_TYPE_SPEECH,
+            "AUDIO_CONTENT_TYPE_MUSIC", AudioAttributes.CONTENT_TYPE_MUSIC,
+            "AUDIO_CONTENT_TYPE_MOVIE", AudioAttributes.CONTENT_TYPE_MOVIE,
+            "AUDIO_CONTENT_TYPE_SONIFICATION", AudioAttributes.CONTENT_TYPE_SONIFICATION,
+            "AUDIO_CONTENT_TYPE_ULTRASOUND", AudioAttributes.CONTENT_TYPE_ULTRASOUND
+    );
+
+    /**
+     * Converts a literal representation of tags into {@link AudioAttributes.ContentType} value.
+     *
+     * @param xsdString string to be converted into {@link AudioAttributes.ContentType}
+     * @return {@link AudioAttributes.ContentType} representation of xsd content type string if
+     * found, {@code AudioAttributes.CONTENT_TYPE_UNKNOWN} otherwise.
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @AddedIn(PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static int xsdStringToContentType(String xsdString) {
+        if (XSD_STRING_TO_CONTENT_TYPE.containsKey(xsdString)) {
+            return XSD_STRING_TO_CONTENT_TYPE.get(xsdString);
+        }
+        return AudioAttributes.CONTENT_TYPE_UNKNOWN;
+    }
+
+    /**
+     * Gets the {@link android.media.AudioVolumeGroup} id associated with given
+     * {@link AudioProductStrategy} and {@link AudioAttributes}
+     *
+     * @param strategy {@link AudioProductStrategy} to be considered
+     * @param attributes {@link AudioAttributes} to be considered
+     * @return the id of the {@link android.media.AudioVolumeGroup} supporting the given
+     * {@link AudioAttributes} and {@link AudioProductStrategy} if found,
+     * {@link android.media.AudioVolumeGroup.DEFAULT_VOLUME_GROUP} otherwise.
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @AddedIn(PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static int getVolumeGroupIdForAudioAttributes(
+            @NonNull AudioProductStrategy strategy, @NonNull AudioAttributes attributes) {
+        Preconditions.checkNotNull(attributes, "Audio Attributes must not be null");
+        Preconditions.checkNotNull(strategy, "Audio Product Strategy must not be null");
+        return strategy.getVolumeGroupIdForAudioAttributes(attributes);
+    }
+
+    /**
+     * Gets the last audible volume for a given {@link android.media.AudioVolumeGroup} id.
+     * <p>The last audible index is the current index if not muted, or index applied before mute if
+     * muted. If muted by volume 0, the last audible index is 0. See
+     * {@link AudioManager#getLastAudibleVolumeForVolumeGroup} for details.
+     *
+     * @param audioManager {@link AudioManager} instance to be used for the request
+     * @param amGroupId id of the {@link android.media.AudioVolumeGroup} to consider
+     * @return the last audible volume of the {@link android.media.AudioVolumeGroup}
+     * referred by its id if found, {@code 0} otherwise.
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @AddedIn(PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static int getLastAudibleVolumeGroupVolume(@NonNull AudioManager audioManager,
+                                                     int amGroupId) {
+        Objects.requireNonNull(audioManager, "Audio manager can not be null");
+        return audioManager.getLastAudibleVolumeForVolumeGroup(amGroupId);
+    }
+
+    /**
+     * Checks if the given {@link android.media.AudioVolumeGroup} is muted or not.
+     * <p>See {@link AudioManager#isVolumeGroupMuted} for details
+     *
+     * @param audioManager {@link AudioManager} instance to be used for the request
+     * @param amGroupId id of the {@link android.media.AudioVolumeGroup} to consider
+     * @return true if the {@link android.media.AudioVolumeGroup} referred by its id is found and
+     * muted, false otherwise.
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @AddedIn(PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static boolean isVolumeGroupMuted(@NonNull AudioManager audioManager, int amGroupId) {
+        Objects.requireNonNull(audioManager, "Audio manager can not be null");
+        return audioManager.isVolumeGroupMuted(amGroupId);
+    }
+
+    /**
+     * Adjusts the volume for the {@link android.media.AudioVolumeGroup} id if found. No-operation
+     * otherwise.
+     * <p>See {@link AudioManager#adjustVolumeGroupVolume} for details
+     *
+     * @param audioManager audio manager to use for managing the volume group
+     * @param amGroupId id of the {@link android.media.AudioVolumeGroup} to consider
+     * @param direction direction to adjust the volume, one of {@link AudioManager#VolumeAdjustment}
+     * @param flags one ore more flags of {@link AudioManager#Flags}
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @AddedIn(PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static void adjustVolumeGroupVolume(@NonNull AudioManager audioManager,
+            int amGroupId, int direction, @AudioManager.Flags int flags) {
+        Objects.requireNonNull(audioManager, "Audio manager can not be null");
+        audioManager.adjustVolumeGroupVolume(amGroupId, direction, flags);
     }
 }

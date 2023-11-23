@@ -90,6 +90,7 @@ cc_defaults {
 
         "-Werror=pointer-to-int-cast",
         "-Werror=int-to-pointer-cast",
+        "-Werror=thread-safety",
         "-Werror=type-limits",
         "-Werror",
 
@@ -117,9 +118,12 @@ cc_defaults {
         "standalone/flags.cpp",
         "standalone/flags_parser.cpp",
         "standalone/linux.cpp",
+        "standalone/mem_map.cpp",
         "standalone/release.cpp",
         "standalone/report.cpp",
+        "standalone/rss_limit_checker.cpp",
         "standalone/string_utils.cpp",
+        "standalone/timing.cpp",
         "standalone/wrappers_c_bionic.cpp"
     ],
     arch: {
@@ -130,6 +134,11 @@ cc_defaults {
         arm64: {
             cflags: ["-mcrc"],
             srcs: ["standalone/crc32_hw.cpp"],
+        },
+        riscv64: {
+            // This is a temporary fix, and should be reverted after
+            // yieldProcessor supports riscv.
+            cflags: ["-Wno-unused-parameter"],
         },
         x86_64: {
             cflags: ["-msse4.2"],
@@ -172,10 +181,40 @@ cc_library_static {
 cc_library_static {
     name: "libscudo_for_testing",
     defaults: ["libscudo_defaults"],
+    cflags: [
+        "-DSCUDO_DEBUG",
+    ],
+}
+
+cc_defaults {
+    name: "scudo_unit_tests_default",
+    static_libs: ["libscudo_for_testing"],
+    include_dirs: [
+        "external/scudo/standalone",
+        "external/scudo/standalone/include",
+    ],
+    cflags: [
+        "-fno-emulated-tls",
+        // In memtag_test.cpp, some tests are disabled by GTEST_SKIP() so that
+        // they won't be run. However, for those disabled tests, it may contain
+        // unreachable code paths which will mislead some compiler checks. Given
+        // this flag won't be impacted too much, disable it only in the test.
+        "-Wno-unreachable-code-loop-increment",
+        "-Wno-unused-parameter",
+        "-DSCUDO_DEBUG",
+    ],
+    target: {
+        bionic: {
+            header_libs: ["bionic_libc_platform_headers"],
+        },
+    },
+    test_suites: ["general-tests"],
+    bootstrap: true,
 }
 
 cc_test {
     name: "scudo_unit_tests",
+    defaults: ["scudo_unit_tests_default"],
     // Temporarily disabled on host due to a 15-20s per-test timeout,
     // which is currently exceeded by ScudoCombinedTest.BasicCombined.
     host_supported: false,
@@ -188,6 +227,7 @@ cc_test {
         "standalone/tests/flags_test.cpp",
         "standalone/tests/list_test.cpp",
         "standalone/tests/map_test.cpp",
+        "standalone/tests/memtag_test.cpp",
         "standalone/tests/mutex_test.cpp",
         "standalone/tests/primary_test.cpp",
         "standalone/tests/quarantine_test.cpp",
@@ -198,25 +238,20 @@ cc_test {
         "standalone/tests/size_class_map_test.cpp",
         "standalone/tests/stats_test.cpp",
         "standalone/tests/strings_test.cpp",
+        "standalone/tests/timing_test.cpp",
         "standalone/tests/tsd_test.cpp",
         "standalone/tests/vector_test.cpp",
     ],
-    static_libs: ["libscudo_for_testing"],
-    include_dirs: [
-        "external/scudo/standalone",
-        "external/scudo/standalone/include",
+}
+
+cc_test {
+    name: "scudo_hooks_unit_tests",
+    defaults: ["scudo_unit_tests_default"],
+    host_supported: true,
+    srcs: [
+      "standalone/tests/scudo_hooks_test.cpp",
+      "standalone/tests/scudo_unit_test_main.cpp",
     ],
-    cflags: [
-        "-Wno-unused-parameter",
-        "-fno-emulated-tls",
-    ],
-    target: {
-        bionic: {
-            header_libs: ["bionic_libc_platform_headers"],
-        },
-    },
-    test_suites: ["general-tests"],
-    bootstrap: true,
 }
 
 cc_fuzz {

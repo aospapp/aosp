@@ -58,6 +58,7 @@ pattern_locales := \
     nn \
     or \
     pa \
+    pl \
     pt \
     ru \
     sk \

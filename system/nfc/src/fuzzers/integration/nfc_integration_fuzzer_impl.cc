@@ -12,13 +12,22 @@
 #include "nfc_api.h"
 #include "nfc_int.h"
 #include "nfc_task_helpers.h"
+#include "rw_int.h"
 
 extern uint32_t g_tick_count;
+extern tRW_CB rw_cb;
 
 FuzzedDataProvider* g_fuzzed_data;
 
 static bool g_saw_event = false;
 static tNFA_EE_DISCOVER_REQ g_ee_info;
+
+void fuzz_cback(tRW_EVENT event, tRW_DATA *p_rw_data) {
+  (void)event;
+  (void)p_rw_data;
+}
+constexpr int32_t kMaxFramesSize =
+    USHRT_MAX - NFC_HDR_SIZE - NCI_MSG_OFFSET_SIZE - NCI_DATA_HDR_SIZE - 3;
 
 static void nfa_dm_callback(uint8_t event, tNFA_DM_CBACK_DATA*) {
   g_saw_event = true;
@@ -301,7 +310,9 @@ void NfcIntegrationFuzzer::DoOneCommand(
       std::vector<uint8_t> frame(
           command.send_raw_frame().data(),
           command.send_raw_frame().data() + command.send_raw_frame().size());
-      NFA_SendRawFrame(frame.data(), frame.size(),
+      uint16_t frameSize =
+          frame.size() <= kMaxFramesSize ? frame.size() : kMaxFramesSize;
+      NFA_SendRawFrame(frame.data(), frameSize,
                        /*presence check start delay*/ 0);
       break;
     }
@@ -501,6 +512,7 @@ bool NfcIntegrationFuzzer::Setup() {
   memset(&g_ee_info, 0, sizeof(g_ee_info));
   NFA_Init(&fuzzed_hal_entry);
 
+  rw_cb.p_cback = &fuzz_cback;
   NFA_Enable(nfa_dm_callback, nfa_conn_callback);
   DoAllTasks(false);
 

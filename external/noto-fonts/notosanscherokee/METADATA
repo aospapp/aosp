@@ -1,0 +1,17 @@
+# *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
+#     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
+#     DEPENDING ON IT IN YOUR PROJECT. ***
+name: "notosanscherokee"
+description:
+    "Noto is a global font collection for writing in all modern and ancientlanguages. Noto Sans Cherokee is an unmodulated (“sans serif”) design fortexts in the American Cherokee script. It has multiple weights and273 glyphs."
+
+third_party {
+  url {
+    type: ARCHIVE
+    value: "https://github.com/google/fonts/tree/main/ofl/notosanscherokee"
+  }
+  version: "2.000"
+  license_note: "contains OFL fonts"
+  license_type: BY_EXCEPTION_ONLY
+  last_upgrade_date { year: 2022 month: 1 day: 27 }
+}

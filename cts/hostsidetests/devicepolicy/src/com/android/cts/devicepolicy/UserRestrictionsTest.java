@@ -28,7 +28,7 @@ import org.junit.Test;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class UserRestrictionsTest extends BaseDevicePolicyTest {
+public final class UserRestrictionsTest extends BaseDevicePolicyTest {
     private static final String DEVICE_ADMIN_PKG = "com.android.cts.deviceandprofileowner";
     private static final String DEVICE_ADMIN_APK = "CtsDeviceAndProfileOwnerApp.apk";
     private static final String ADMIN_RECEIVER_TEST_CLASS
@@ -60,7 +60,6 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
         if (mRemoveOwnerInTearDown) {
             String componentName = DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS;
             assertTrue("Failed to clear owner", removeAdmin(componentName, mDeviceOwnerUserId));
-            runTests("userrestrictions.CheckNoOwnerRestrictionsTest", mDeviceOwnerUserId);
             if (isHeadlessSystemUserMode()) {
                 boolean removed = removeAdmin(componentName, mPrimaryUserId);
                 if (!removed) {
@@ -91,24 +90,36 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
     public void testUserRestrictions_deviceOwnerOnly() throws Exception {
         setDo();
 
-        runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
-                "testDefaultRestrictions", mDeviceOwnerUserId);
-        runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
-                "testSetAllRestrictions", mDeviceOwnerUserId);
-        runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
-                "testBroadcast", mDeviceOwnerUserId);
+        try {
+            runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
+                    "testDefaultRestrictions", mDeviceOwnerUserId);
+            runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
+                    "testSetAllRestrictions", mDeviceOwnerUserId);
+            runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
+                    "testBroadcast", mDeviceOwnerUserId);
+        } finally {
+            // Clear all restrictions restrictions on user 0.
+            runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
+                    "testClearAllRestrictions", mDeviceOwnerUserId);
+        }
     }
 
     @Test
     public void testUserRestrictions_primaryProfileOwnerOnly() throws Exception {
         setPoAsUser(mDeviceOwnerUserId);
 
-        runTests("userrestrictions.PrimaryProfileOwnerUserRestrictionsTest",
-                "testDefaultRestrictions", mDeviceOwnerUserId);
-        runTests("userrestrictions.PrimaryProfileOwnerUserRestrictionsTest",
-                "testSetAllRestrictions", mDeviceOwnerUserId);
-        runTests("userrestrictions.PrimaryProfileOwnerUserRestrictionsTest",
-                "testBroadcast", mDeviceOwnerUserId);
+        try {
+            runTests("userrestrictions.PrimaryProfileOwnerUserRestrictionsTest",
+                    "testDefaultRestrictions", mDeviceOwnerUserId);
+            runTests("userrestrictions.PrimaryProfileOwnerUserRestrictionsTest",
+                    "testSetAllRestrictions", mDeviceOwnerUserId);
+            runTests("userrestrictions.PrimaryProfileOwnerUserRestrictionsTest",
+                    "testBroadcast", mDeviceOwnerUserId);
+        } finally {
+            // Clear all restrictions restrictions on user 0.
+            runTests("userrestrictions.PrimaryProfileOwnerUserRestrictionsTest",
+                    "testClearAllRestrictions", mDeviceOwnerUserId);
+        }
     }
 
     // Checks restrictions for managed user (NOT managed profile).
@@ -119,12 +130,18 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
         final int secondaryUserId = createUser();
         setPoAsUser(secondaryUserId);
 
-        runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
-                "testDefaultRestrictions", secondaryUserId);
-        runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
-                "testSetAllRestrictions", secondaryUserId);
-        runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
-                "testBroadcast", secondaryUserId);
+        try {
+            runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
+                    "testDefaultRestrictions", secondaryUserId);
+            runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
+                    "testSetAllRestrictions", secondaryUserId);
+            runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
+                    "testBroadcast", secondaryUserId);
+        } finally {
+            // Clear all restrictions restrictions on secondary user.
+            runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
+                    "testClearAllRestrictions", secondaryUserId);
+        }
     }
 
     // Checks restrictions for managed profile.
@@ -139,12 +156,18 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
         startUser(profileUserId);
         setPoAsUser(profileUserId);
 
-        runTests("userrestrictions.ManagedProfileOwnerUserRestrictionsTest",
-                "testDefaultRestrictions", profileUserId);
-        runTests("userrestrictions.ManagedProfileOwnerUserRestrictionsTest",
-                "testSetAllRestrictions", profileUserId);
-        runTests("userrestrictions.ManagedProfileOwnerUserRestrictionsTest",
-                "testBroadcast", profileUserId);
+        try {
+            runTests("userrestrictions.ManagedProfileOwnerUserRestrictionsTest",
+                    "testDefaultRestrictions", profileUserId);
+            runTests("userrestrictions.ManagedProfileOwnerUserRestrictionsTest",
+                    "testSetAllRestrictions", profileUserId);
+            runTests("userrestrictions.ManagedProfileOwnerUserRestrictionsTest",
+                    "testBroadcast", profileUserId);
+        } finally {
+            // Clear all restrictions restrictions on profile.
+            runTests("userrestrictions.ManagedProfileOwnerUserRestrictionsTest",
+                    "testClearAllRestrictions", profileUserId);
+        }
     }
 
     /**
@@ -165,33 +188,42 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
             secondaryUserId = mPrimaryUserId;
         }
 
-        // Ensure that UserManager differentiates its own restrictions from DO restrictions.
-        runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
-                "testHasBaseUserRestrictions", mDeviceOwnerUserId);
+        try {
+            // Ensure that UserManager differentiates its own restrictions from DO restrictions.
+            runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
+                    "testHasBaseUserRestrictions", mDeviceOwnerUserId);
 
-        // Let DO set all restrictions.
-        runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
-                "testSetAllRestrictions", mDeviceOwnerUserId);
+            // Let DO set all restrictions.
+            runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
+                    "testSetAllRestrictions", mDeviceOwnerUserId);
 
-        // Make sure the global restrictions are visible to secondary users.
-        runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
-                "testHasGlobalRestrictions", secondaryUserId);
+            // Make sure the global restrictions are visible to secondary users.
+            runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
+                    "testHasGlobalRestrictions", secondaryUserId);
 
-        // Then let PO set all restrictions.
-        runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
-                "testSetAllRestrictions", secondaryUserId);
+            // Then let PO set all restrictions.
+            runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
+                    "testSetAllRestrictions", secondaryUserId);
 
-        // Make sure both local and global restrictions are visible on secondary users.
-        runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
-                "testHasBothGlobalAndLocalRestrictions", secondaryUserId);
+            // Make sure both local and global restrictions are visible on secondary users.
+            runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
+                    "testHasBothGlobalAndLocalRestrictions", secondaryUserId);
 
-        // Let DO clear all restrictions.
-        runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
-                "testClearAllRestrictions", mDeviceOwnerUserId);
+            // Let DO clear all restrictions.
+            runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
+                    "testClearAllRestrictions", mDeviceOwnerUserId);
 
-        // Now only PO restrictions should be set on the secondary user.
-        runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
-                "testLocalRestrictionsOnly", secondaryUserId);
+            // Now only PO restrictions should be set on the secondary user.
+            runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
+                    "testLocalRestrictionsOnly", secondaryUserId);
+        } finally {
+            // Clear all restrictions restrictions on user 0.
+            runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
+                    "testClearAllRestrictions", mDeviceOwnerUserId);
+            // Clear all restrictions restrictions on secondary user.
+            runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
+                    "testClearAllRestrictions", secondaryUserId);
+        }
     }
 
     /**
@@ -205,16 +237,25 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
         setPoAsUser(mDeviceOwnerUserId);
 
         // Create another user and set PO.
-        final int secondaryUserId = createUser();
+        final int secondaryUserId = createUserAndWaitStart();
         setPoAsUser(secondaryUserId);
 
-        // Let user-0 PO sets all restrictions.
-        runTests("userrestrictions.PrimaryProfileOwnerUserRestrictionsTest",
-                "testSetAllRestrictions", mDeviceOwnerUserId);
+        try {
+            // Let user-0 PO sets all restrictions.
+            runTests("userrestrictions.PrimaryProfileOwnerUserRestrictionsTest",
+                    "testSetAllRestrictions", mDeviceOwnerUserId);
 
-        // Secondary users shouldn't see any of them. Leaky user restrictions are excluded.
-        runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
-                "testDefaultAndLeakyRestrictions", secondaryUserId);
+            // Secondary users shouldn't see any of them. Leaky user restrictions are excluded.
+            runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
+                    "testDefaultAndLeakyRestrictions", secondaryUserId);
+        } finally {
+            // Clear all restrictions restrictions on user 0.
+            runTests("userrestrictions.PrimaryProfileOwnerUserRestrictionsTest",
+                    "testClearAllRestrictions", mDeviceOwnerUserId);
+            // Clear all restrictions restrictions on secondary user.
+            runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
+                    "testClearAllRestrictions", secondaryUserId);
+        }
     }
 
     /**

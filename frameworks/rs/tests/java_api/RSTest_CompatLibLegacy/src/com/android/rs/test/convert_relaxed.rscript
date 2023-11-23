@@ -1,2 +1,0 @@
-#include "convert.rscript"
-#pragma rs_fp_relaxed

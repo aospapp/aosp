@@ -18,11 +18,9 @@ Test script to execute Bluetooth Connection-orient Channel (CoC) functionality
 test cases. This test was designed to be run in a shield box.
 """
 
-import threading
 import time
 
 from acts import utils
-from queue import Empty
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts_contrib.test_utils.bt.bt_coc_test_utils import orchestrate_coc_connection
@@ -93,9 +91,11 @@ class BleCocTest(BluetoothBaseTest):
 
         list_server_ad = [self.server_ad]
         list_client_conn_id = [client_conn_id]
-        data_rate = do_multi_connection_throughput(
-            self.client_ad, list_server_ad, list_client_conn_id,
-            num_iterations, number_buffers, buffer_size)
+        data_rate = do_multi_connection_throughput(self.client_ad,
+                                                   list_server_ad,
+                                                   list_client_conn_id,
+                                                   num_iterations,
+                                                   number_buffers, buffer_size)
         if data_rate <= 0:
             return False
         self.log.info(
@@ -355,8 +355,9 @@ class BleCocTest(BluetoothBaseTest):
         le_connection_interval = 10
         buffer_size = 60
         le_tx_data_length = buffer_size + l2cap_coc_header_size
-        return self._run_coc_connection_throughput(
-            is_secured, buffer_size, le_connection_interval, le_tx_data_length)
+        return self._run_coc_connection_throughput(is_secured, buffer_size,
+                                                   le_connection_interval,
+                                                   le_tx_data_length)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='c32dac07-623a-4fdd-96c6-387a76afb2af')
@@ -393,8 +394,9 @@ class BleCocTest(BluetoothBaseTest):
         le_connection_interval = 10
         buffer_size = 80
         le_tx_data_length = buffer_size + l2cap_coc_header_size
-        return self._run_coc_connection_throughput(
-            is_secured, buffer_size, le_connection_interval, le_tx_data_length)
+        return self._run_coc_connection_throughput(is_secured, buffer_size,
+                                                   le_connection_interval,
+                                                   le_tx_data_length)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='45d1b0c1-73b6-483f-ac6b-c3cec805da32')
@@ -431,8 +433,9 @@ class BleCocTest(BluetoothBaseTest):
         le_connection_interval = 10
         buffer_size = 120
         le_tx_data_length = buffer_size + l2cap_coc_header_size
-        return self._run_coc_connection_throughput(
-            is_secured, buffer_size, le_connection_interval, le_tx_data_length)
+        return self._run_coc_connection_throughput(is_secured, buffer_size,
+                                                   le_connection_interval,
+                                                   le_tx_data_length)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='85f07f07-1017-42db-b38d-df0bf2fce804')
@@ -469,8 +472,9 @@ class BleCocTest(BluetoothBaseTest):
         le_connection_interval = 15
         buffer_size = 120
         le_tx_data_length = buffer_size + l2cap_coc_header_size
-        return self._run_coc_connection_throughput(
-            is_secured, buffer_size, le_connection_interval, le_tx_data_length)
+        return self._run_coc_connection_throughput(is_secured, buffer_size,
+                                                   le_connection_interval,
+                                                   le_tx_data_length)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='4d3d4a06-7bbb-4a8c-9016-f326560cebb0')
@@ -507,8 +511,9 @@ class BleCocTest(BluetoothBaseTest):
         le_connection_interval = 15
         buffer_size = 180
         le_tx_data_length = buffer_size + l2cap_coc_header_size
-        return self._run_coc_connection_throughput(
-            is_secured, buffer_size, le_connection_interval, le_tx_data_length)
+        return self._run_coc_connection_throughput(is_secured, buffer_size,
+                                                   le_connection_interval,
+                                                   le_tx_data_length)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='124d85ba-41e6-4ab7-a017-99a88db7524a')
@@ -545,8 +550,9 @@ class BleCocTest(BluetoothBaseTest):
         le_connection_interval = 20
         buffer_size = 240
         le_tx_data_length = buffer_size + l2cap_coc_header_size
-        return self._run_coc_connection_throughput(
-            is_secured, buffer_size, le_connection_interval, le_tx_data_length)
+        return self._run_coc_connection_throughput(is_secured, buffer_size,
+                                                   le_connection_interval,
+                                                   le_tx_data_length)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='218932bc-ebb0-4c2b-96ad-220c600b50b1')
@@ -583,5 +589,6 @@ class BleCocTest(BluetoothBaseTest):
         le_connection_interval = 30
         buffer_size = 240
         le_tx_data_length = buffer_size + l2cap_coc_header_size
-        return self._run_coc_connection_throughput(
-            is_secured, buffer_size, le_connection_interval, le_tx_data_length)
+        return self._run_coc_connection_throughput(is_secured, buffer_size,
+                                                   le_connection_interval,
+                                                   le_tx_data_length)

@@ -21,6 +21,7 @@
 
 #include <deque>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "adb_unique_fd.h"
@@ -30,42 +31,57 @@
 class atransport;
 
 /* An asocket represents one half of a connection between a local and
- * remote entity.  A local asocket is bound to a file descriptor.  A
- * remote asocket is bound to the protocol engine.
+   remote entity.  A local asocket is bound to a file descriptor.  A
+   remote asocket is bound to the protocol engine.
+
+   Example (two local_sockets) :
+
+                                   ASOCKET(THIS)
+              ┌────────────────────────────────────────────────┐
+┌──┐ write(3) │  ┌─────┐                      enqueue()        │
+│  │◄─────────┼──┤Queue├─────────────◄────────────┐            │
+│fd│          │  └─────┘                          ▲            │
+│  ├──────────►─────────────────┐                 │            │
+└──┘ read(3)  └─────────────────┼─────────────────┼────────────┘
+                       outgoing │                 │ incoming
+              ┌─────────────────▼─────────────────▲────────────┐  read(3)  ┌──┐
+              │                 │                 └────────────┼─────────◄─┤  │
+              │                 │                      ┌─────┐ │           │fd│
+              │                 └─────────────────────►│Queue├─┼─────────►─┤  │
+              │                enqueue()               └─────┘ │  write(3) └──┘
+              └────────────────────────────────────────────────┘
+                                 ASOCKET(PEER)
+
+    Note that sockets can be peered regardless of their kind. A remote socket can be peered with
+    a smart socket, a local socket can be peered with a remote socket and so on.
  */
 struct asocket {
     /* the unique identifier for this asocket
      */
     unsigned id = 0;
 
+    // Start Local socket fields
+    // TODO: move all the local socket fields together
+
     /* flag: set when the socket's peer has closed
      * but packets are still queued for delivery
+     * TODO: This should be a boolean.
      */
-    int closing = 0;
+    bool closing = false;
 
     // flag: set when the socket failed to write, so the socket will not wait to
     // write packets and close directly.
-    bool has_write_error = 0;
+    bool has_write_error = false;
 
     /* flag: quit adbd when both ends close the
      * local service socket
      */
     int exit_on_close = 0;
 
+    // End Local socket fields
+
     // the asocket we are connected to
     asocket* peer = nullptr;
-
-    /* For local asockets, the fde is used to bind
-     * us to our fd event system.  For remote asockets
-     * these fields are not used.
-     */
-    fdevent* fde = nullptr;
-    int fd = -1;
-
-    // queue of data waiting to be written
-    IOVector packet_queue;
-
-    std::string smart_socket_data;
 
     /* enqueue is called by our peer when it has data
      * for us.  It should return 0 if we can accept more
@@ -96,12 +112,35 @@ struct asocket {
     atransport* transport = nullptr;
 
     size_t get_max_payload() const;
+
+    // TODO: Make asocket an actual class and use inheritance instead of having an ever-growing
+    //       struct with random use-specific fields stuffed into it.
+
+    // Start Local socket fields
+    fdevent* fde = nullptr;
+    int fd = -1;
+
+    // Queue of data that we've received from our peer, and are waiting to write into fd.
+    IOVector packet_queue;
+    // End Local socket fields
+
+    // The number of bytes that have been acknowledged by the other end if delayed_ack is available.
+    // This value can go negative: if we have a MAX_PAYLOAD's worth of bytes available to send,
+    // we'll send out a full packet.
+    std::optional<int64_t> available_send_bytes;
+
+    // Start Smart socket fields
+    // A temporary buffer used to hold a partially-read service string for smartsockets.
+    std::string smart_socket_data;
+    // End Smart socket fields
 };
 
 asocket *find_local_socket(unsigned local_id, unsigned remote_id);
 void install_local_socket(asocket *s);
 void remove_socket(asocket *s);
 void close_all_sockets(atransport *t);
+
+void local_socket_ack(asocket* s, std::optional<int32_t> acked_bytes);
 
 asocket* create_local_socket(unique_fd fd);
 asocket* create_local_service_socket(std::string_view destination, atransport* transport);

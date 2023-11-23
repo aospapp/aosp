@@ -15,15 +15,37 @@
   ~ limitations under the License.
   -->
 <overlay>
+    <item target="color/icon_color_default" value="@color/top_level_icon_default"/>
+    <item target="color/top_level_icon_default" value="@color/top_level_icon_default"/>
+    <item target="color/top_level_accessibility_background" value="@color/top_level_icon_background"/>
+    <item target="color/top_level_applications_background" value="@color/top_level_icon_background"/>
+    <item target="color/top_level_assistant_and_voice_background" value="@color/top_level_icon_background"/>
+    <item target="color/top_level_bluetooth_background" value="@color/top_level_icon_background"/>
+    <item target="color/top_level_date_time_background" value="@color/top_level_icon_background"/>
+    <item target="color/top_level_display_background" value="@color/top_level_icon_background"/>
+    <item target="color/top_level_location_background" value="@color/top_level_icon_background"/>
+    <item target="color/top_level_network_and_internet_background" value="@color/top_level_icon_background"/>
+    <item target="color/top_level_notifications_background" value="@color/top_level_icon_background"/>
+    <item target="color/top_level_privacy_background" value="@color/top_level_icon_background"/>
+    <item target="color/top_level_profiles_and_accounts_background" value="@color/top_level_icon_background"/>
+    <item target="color/top_level_security_background" value="@color/top_level_icon_background"/>
+    <item target="color/top_level_sound_background" value="@color/top_level_icon_background"/>
+    <item target="color/top_level_system_background" value="@color/top_level_icon_background"/>
+
     <item target="drawable/top_level_preference_background" value="@drawable/top_level_preference_background"/>
     <item target="drawable/top_level_preference_highlight" value="@drawable/top_level_preference_highlight"/>
 
     <item target="layout/top_level_preference" value="@layout/top_level_preference"/>
 
+    <item target="style/CarSettingsActivityDividerStyle" value="@style/CarSettingsActivityDividerStyle" />
+    <item target="style/CarSettingsFragmentContainerStyle" value="@style/CarSettingsFragmentContainerStyle" />
     <item target="style/LockPattern" value="@style/LockPattern"/>
 
     <item target="animator/trans_left_in" value="@animator/trans_fade_in"/>
     <item target="animator/trans_left_out" value="@animator/trans_fade_out"/>
     <item target="animator/trans_right_in" value="@animator/trans_fade_in"/>
     <item target="animator/trans_right_out" value="@animator/trans_fade_out"/>
+
+    <item target="dimen/top_level_menu_width" value="@dimen/top_level_menu_width"/>
+    <item target="bool/config_top_level_injection_background_always_use_default" value="true" />
 </overlay>

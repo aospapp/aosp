@@ -246,6 +246,11 @@ public class RVCVXCheckTestActivity
         clearText();
     }
 
+    @Override
+    public boolean requiresReportLog() {
+        return true;
+    }
+
     /**
     Receiving the results from the RVCVRecordActivity, which is a patch where the recorded
     video and sensor data is stored.

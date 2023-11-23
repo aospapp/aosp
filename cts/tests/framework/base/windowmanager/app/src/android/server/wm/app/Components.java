@@ -72,6 +72,8 @@ public class Components extends ComponentsBase {
             component("LogConfigurationActivity");
     public static final ComponentName MOVE_TASK_TO_BACK_ACTIVITY =
             component("MoveTaskToBackActivity");
+    public static final ComponentName MULTI_WINDOW_FULLSCREEN_ACTIVITY =
+            component("MultiWindowFullscreenActivity");
     public static final ComponentName NIGHT_MODE_ACTIVITY = component("NightModeActivity");
     public static final ComponentName NO_DISPLAY_ACTIVITY = component("NoDisplayActivity");
     public static final ComponentName NO_HISTORY_ACTIVITY = component("NoHistoryActivity");
@@ -135,7 +137,6 @@ public class Components extends ComponentsBase {
             component("SingleSecondaryHomeActivity");
     public static final ComponentName SINGLE_TASK_ACTIVITY = component("SingleTaskActivity");
     public static final ComponentName SINGLE_TOP_ACTIVITY = component("SingleTopActivity");
-    public static final ComponentName SLOW_CREATE_ACTIVITY = component("SlowCreateActivity");
     public static final ComponentName SPLASHSCREEN_ACTIVITY = component("SplashscreenActivity");
     public static final ComponentName DISABLE_PREVIEW_ACTIVITY =
             component("DisablePreviewActivity");
@@ -157,6 +158,8 @@ public class Components extends ComponentsBase {
     public static final ComponentName TEST_ACTIVITY_WITH_SAME_AFFINITY =
             component("TestActivityWithSameAffinity");
     public static final ComponentName TEST_LIVE_WALLPAPER_SERVICE = component("LiveWallpaper");
+    public static final ComponentName TEST_INTERACTIVE_LIVE_WALLPAPER_SERVICE = component(
+            "InteractiveLiveWallpaper");
     public static final ComponentName TOP_LEFT_LAYOUT_ACTIVITY = component("TopLeftLayoutActivity");
     public static final ComponentName TOP_RIGHT_LAYOUT_ACTIVITY =
             component("TopRightLayoutActivity");
@@ -222,6 +225,9 @@ public class Components extends ComponentsBase {
     public static final ComponentName CLICKABLE_TOAST_ACTIVITY =
             component("ClickableToastActivity");
 
+    public static final ComponentName WALLPAPER_TARGET_ACTIVITY =
+            component("WallpaperTargetActivity");
+
     public static class LaunchBroadcastReceiver {
         public static final String LAUNCH_BROADCAST_ACTION =
                 "android.server.wm.app.LAUNCH_BROADCAST_ACTION";
@@ -272,45 +278,11 @@ public class Components extends ComponentsBase {
     public static final ComponentName OVERLAY_TEST_SERVICE =
             component("OverlayTestService");
 
-    public static final ComponentName BACKGROUND_IMAGE_ACTIVITY =
-            component("BackgroundImageActivity");
-
-    public static final ComponentName BLUR_ACTIVITY =
-            component("BlurActivity");
-
-    public static final ComponentName BLUR_ATTRIBUTES_ACTIVITY =
-            component("BlurAttributesActivity");
-
-    public static final ComponentName BAD_BLUR_ACTIVITY =
-            component("BadBlurActivity");
-
-    public static final ComponentName CUSTOM_TRANSITION_EXIT_ACTIVITY =
-            component("CustomTransitionExitActivity");
-
-    public static final ComponentName CUSTOM_TRANSITION_ENTER_ACTIVITY =
-            component("CustomTransitionEnterActivity");
-
     public static final ComponentName KEEP_CLEAR_RECTS_ACTIVITY =
             component("KeepClearRectsActivity");
 
     public static final ComponentName KEEP_CLEAR_RECTS_ACTIVITY2 =
             component("KeepClearRectsActivity2");
-
-    /**
-     * The keys used by {@link CustomTransitionExitActivity} to select the animation to run.
-     */
-    public static class CustomTransitionAnimations {
-        /** see @anim/show_backdrop_hide_window_animation.xml */
-        public static final String BACKGROUND_COLOR = "backgroundColor";
-        /** see @anim/edge_extension_right_window_animation.xml */
-        public static final String LEFT_EDGE_EXTENSION = "leftEdgeExtension";
-        /** see @anim/edge_extension_top_window_animation.xml */
-        public static final String TOP_EDGE_EXTENSION = "topEdgeExtension";
-        /** see @anim/edge_extension_left_window_animation.xml */
-        public static final String RIGHT_EDGE_EXTENSION = "rightEdgeExtension";
-        /** see @anim/edge_extension_bottom_window_animation.xml */
-        public static final String BOTTOM_EDGE_EXTENSION = "bottomExtension";
-    }
 
     /**
      * The keys are used for {@link TestJournalProvider} when testing starting window.
@@ -347,6 +319,15 @@ public class Components extends ComponentsBase {
         public static final String COMPONENT = "LiveWallpaper";
         public static final String ENGINE_CREATED = "engine_created";
         public static final String ENGINE_DISPLAY_ID = "engine_display_Id";
+    }
+
+    /**
+     * The keys are used for {@link TestJournalProvider} when testing interactive wallpaper
+     * component.
+     */
+    public static class TestInteractiveLiveWallpaperKeys {
+        public static final String COMPONENT = "InteractiveLiveWallpaper";
+        public static final String LAST_RECEIVED_MOTION_EVENT = "LastReceivedMotionEvent";
     }
 
     /**
@@ -427,6 +408,7 @@ public class Components extends ComponentsBase {
 
     /** Extra key constants for {@link android.server.wm.app.FontScaleActivity}. */
     public static class FontScaleActivity {
+        public static final String EXTRA_FONT_SCALE = "fontScale";
         public static final String EXTRA_FONT_PIXEL_SIZE = "fontPixelSize";
         public static final String EXTRA_FONT_ACTIVITY_DPI = "fontActivityDpi";
     }
@@ -488,15 +470,6 @@ public class Components extends ComponentsBase {
     }
 
     /**
-     * Extra constants for {@link android.server.wm.app.BlurActivity}.
-     */
-    public static class BlurActivity {
-        public static final String EXTRA_NO_BLUR_BACKGROUND_COLOR = "no_blur_background_color";
-        public static final String EXTRA_BACKGROUND_BLUR_RADIUS_PX = "background_blur_radius";
-        public static final String EXTRA_BLUR_BEHIND_RADIUS_PX = "blur_behind_radius";
-    }
-
-    /**
      * Action and extra key constants for {@link android.server.wm.app.PipActivity}.
      *
      * TODO(b/73346885): These constants should be in {@link android.server.wm.app.PipActivity}
@@ -539,6 +512,10 @@ public class Components extends ComponentsBase {
         // Intent action that will request the activity to start a new translucent activity
         public static final String ACTION_LAUNCH_TRANSLUCENT_ACTIVITY =
                 "android.server.wm.app.LaunchIntoPip.launch_translucent_activity";
+        // Intent action that sets a RemoteCallback in PipActivity that will receive the
+        // isInPictureInPictureMode result
+        public static final String ACTION_SET_ON_PAUSE_REMOTE_CALLBACK =
+                "android.server.wm.app.PipActivity.set_on_pause_remote_callback";
 
         // Adds an assertion that we do not ever get onStop() before we enter picture in picture
         public static final String EXTRA_ASSERT_NO_ON_STOP_BEFORE_PIP =
@@ -559,6 +536,9 @@ public class Components extends ComponentsBase {
         // Calls requestAutoEnterPictureInPicture() with the value provided
         public static final String EXTRA_ENTER_PIP_ON_PIP_REQUESTED =
                 "enter_pip_on_pip_requested";
+        // Calls enterPictureInPictureMode when activity receives onBackPressed
+        public static final String EXTRA_ENTER_PIP_ON_BACK_PRESSED =
+                "enter_pip_on_back_pressed";
         public static final String EXTRA_EXPANDED_PIP_ASPECT_RATIO_NUMERATOR =
                 "expanded_pip_numerator";
         public static final String EXTRA_EXPANDED_PIP_ASPECT_RATIO_DENOMINATOR =
@@ -574,6 +554,10 @@ public class Components extends ComponentsBase {
         public static final String EXTRA_SUBTITLE = "set_pip_subtitle";
         // Finishes the activity at the end of onResume (after EXTRA_START_ACTIVITY is handled)
         public static final String EXTRA_FINISH_SELF_ON_RESUME = "finish_self_on_resume";
+        // Similar to EXTRA_FINISH_SELF_ON_RESUME but only be used to finish the trampoline
+        // Activity when it receives onResume (after the target Activity is launched).
+        public static final String EXTRA_FINISH_TRAMPOLINE_ON_RESUME =
+                "finish_trampoline_on_resume";
         // Sets the fixed orientation (can be one of {@link ActivityInfo.ScreenOrientation}
         public static final String EXTRA_PIP_ORIENTATION = "fixed_orientation";
         // The amount to delay to artificially introduce in onPause()
@@ -608,8 +592,12 @@ public class Components extends ComponentsBase {
         public static final String EXTRA_CLOSE_ACTION = "set_pip_close_action";
         // Supplied when a callback is expected for pip
         public static final String EXTRA_SET_PIP_CALLBACK = "set_pip_callback";
+        // Supplied when a callback is expected for pip when activity receives onPause
+        public static final String EXTRA_PIP_ON_PAUSE_CALLBACK = "pip_on_pause_callback";
         // Result key for obtaining the PictureInPictureUiState#isStashed result
         public static final String UI_STATE_STASHED_RESULT = "ui_state_stashed_result";
+        // Result key for obtaining the Activity#isInPictureInPictureMode result
+        public static final String IS_IN_PIP_MODE_RESULT = "is_in_pip_mode_result";
     }
 
     /**
@@ -644,6 +632,13 @@ public class Components extends ComponentsBase {
         public static final String EXTRAS_SURFACE_PACKAGE = "surfacePackage";
     }
 
+    public static class MultiWindowFullscreenActivity {
+        public static final String ACTION_REQUEST_FULLSCREEN =
+                "android.server.wm.app.MultiWindowFullscreenActivity.action_request_fullscreen";
+        public static final String ACTION_RESTORE_FREEFORM =
+                "android.server.wm.app.MultiWindowFullscreenActivity.action_restore_freeform";
+    }
+
     /**
      * Extra key constants for {@link android.server.wm.app.VirtualDisplayActivity}.
      *
@@ -661,6 +656,7 @@ public class Components extends ComponentsBase {
         public static final String KEY_RESIZE_DISPLAY = "resize_display";
         public static final String KEY_SHOW_SYSTEM_DECORATIONS = "show_system_decorations";
         public static final String KEY_PRESENTATION_DISPLAY = "presentation_display";
+        public static final String KEY_SUPPORTS_TOUCH = "supports_touch";
         // Value constants of {@link #KEY_COMMAND}.
         public static final String COMMAND_CREATE_DISPLAY = "create_display";
         public static final String COMMAND_DESTROY_DISPLAY = "destroy_display";
@@ -693,6 +689,8 @@ public class Components extends ComponentsBase {
         public static final String ACTION = "hide_action";
         public static final String PONG = "pong_action";
         public static final String SHOULD_HIDE = "should_hide";
+        public static final String REPORT_TOUCH = "report_touch";
+        public static final String MOTION_EVENT_EXTRA = "motion_event_extra";
     }
 
     public static class BackgroundActivityTransition {
@@ -706,6 +704,30 @@ public class Components extends ComponentsBase {
         public static final String EXTRA_KEEP_CLEAR_RECTS = "keep_clear_rects";
     }
 
+    /**
+     * Extra constants for {@link android.server.wm.app.UiScalingTestActivity}.
+     */
+    public static class UiScalingTestActivity {
+        public static final String SUBVIEW_ID1 = "compat_scale_subview1";
+        public static final String SUBVIEW_ID2 = "compat_scale_subview2";
+
+        public static final String KEY_COMMAND_SUCCESS = "success";
+        public static final String KEY_RESOURCES_CONFIG = "resources_config";
+        public static final String KEY_SUBVIEW_ID = "subview_id";
+        public static final String KEY_TEXT_SIZE = "text_size";
+        public static final String KEY_VIEW_SIZE = "view_size";
+
+        public static final String COMMAND_ADD_SUBVIEW = "add_subview";
+        public static final String COMMAND_CLEAR_DEFAULT_VIEW = "clear_default_view";
+        public static final String COMMAND_GET_SUBVIEW_SIZE = "get_subview_size";
+
+        public static final String COMMAND_GET_RESOURCES_CONFIG = "get_resources_config";
+        public static final String COMMAND_UPDATE_RESOURCES_CONFIG = "update_resources_config";
+    }
+
+    public static class WallpaperTargetActivity {
+        public static final String EXTRA_ENABLE_WALLPAPER_TOUCH = "enable_wallpaper_touch";
+    }
     private static ComponentName component(String className) {
         return component(Components.class, className);
     }

@@ -23,7 +23,7 @@ rust_library {
     host_supported: true,
     crate_name: "vsock",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.2.6",
+    cargo_pkg_version: "0.3.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
@@ -32,6 +32,9 @@ rust_library {
     ],
     apex_available: [
         "//apex_available:platform",
+        "com.android.compos",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
 }

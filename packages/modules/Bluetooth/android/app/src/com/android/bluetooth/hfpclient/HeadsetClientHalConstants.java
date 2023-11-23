@@ -164,9 +164,9 @@ public final class HeadsetClientHalConstants {
     static final int CHLD_FEAT_HOLD_ACC = 0x00000008;
     // 2x Request private mode with specified call (put the rest on hold)
     static final int CHLD_FEAT_PRIV_X = 0x00000010;
-    // 3  Add held call to multiparty */
+    // 3  Add held call to multiparty
     static final int CHLD_FEAT_MERGE = 0x00000020;
-    // 4  Connect two calls and leave (disconnect from) multiparty */
+    // 4  Connect two calls and leave (disconnect from) multiparty
     static final int CHLD_FEAT_MERGE_DETACH = 0x00000040;
 
     // AT Commands

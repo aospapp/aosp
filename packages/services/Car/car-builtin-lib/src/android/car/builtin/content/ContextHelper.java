@@ -18,10 +18,14 @@ package android.car.builtin.content;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.RequiresApi;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
+import android.car.builtin.annotation.AddedIn;
+import android.car.builtin.annotation.PlatformVersion;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.UserHandle;
 
@@ -39,14 +43,23 @@ public final class ContextHelper {
     }
 
     /** Returns display id relevant for the context */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static int getDisplayId(@NonNull Context context) {
         return context.getDisplayId();
+    }
+
+    /** Returns associated display id relevant for the context */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @AddedIn(PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    public static int getAssociatedDisplayId(@NonNull Context context) {
+        return context.getAssociatedDisplayId();
     }
 
     /**
      * Same as {@code context.startActivityAsUser(intent, options, user)}.
      */
     @RequiresPermission(android.Manifest.permission.INTERACT_ACROSS_USERS)
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static void startActivityAsUser(@NonNull Context context, @NonNull Intent intent,
             @Nullable Bundle options, @NonNull UserHandle user) {
         Objects.requireNonNull(context, "context");

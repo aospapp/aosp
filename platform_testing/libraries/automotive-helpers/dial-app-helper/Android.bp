@@ -20,14 +20,12 @@ package {
 
 java_library {
     name: "automotive-dial-app-helper",
-    libs: [
-        "ub-uiautomator",
-        "app-helpers-auto-interfaces",
-    ],
     static_libs: [
-        "androidx.test.runner",
+        "spectatio-lib",
+        "app-helpers-auto-interfaces",
         "android-support-annotations",
-        "automotive-standard-app-helper",
+        "automotive-config-lib",
+        "automotive-utility-helper",
     ],
     srcs: ["src/**/*.java"],
     sdk_version: "test_current",

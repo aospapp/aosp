@@ -25,7 +25,6 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 
 // Copy from frameworks/base/core/java/com/google/android/collect
-
 /**
  * Provides static methods for creating mutable {@code Set} instances easily and
  * other static methods for working with Sets.

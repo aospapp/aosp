@@ -169,7 +169,7 @@ public class MultiStaConcurrencyWifiNetworkSpecifierTest extends WifiJUnit4TestB
         List<WifiConfiguration> savedNetworks = ShellIdentityUtils.invokeWithShellPermissions(
                 () -> mWifiManager.getPrivilegedConfiguredNetworks());
         List<WifiConfiguration> matchingNetworksWithBssid =
-                TestHelper.findMatchingSavedNetworksWithBssid(mWifiManager, savedNetworks);
+                TestHelper.findMatchingSavedNetworksWithBssid(mWifiManager, savedNetworks, 2);
         assertWithMessage("Need at least 2 saved network bssids in range")
                 .that(matchingNetworksWithBssid.size()).isAtLeast(2);
         // Pick any 2 bssid for test.
@@ -200,13 +200,19 @@ public class MultiStaConcurrencyWifiNetworkSpecifierTest extends WifiJUnit4TestB
 
     @After
     public void tearDown() throws Exception {
+        if (!WifiFeature.isWifiSupported(mContext)) {
+            return;
+        }
+
         // Re-enable networks.
         ShellIdentityUtils.invokeWithShellPermissions(
                 () -> {
-                    for (WifiConfiguration savedNetwork : mWifiManager.getConfiguredNetworks()) {
+                    for (WifiConfiguration savedNetwork :
+                            mWifiManager.getConfiguredNetworks()) {
                         mWifiManager.enableNetwork(savedNetwork.networkId, false);
                     }
                 });
+
         // Release the requests after the test.
         if (mNetworkCallback != null) {
             mConnectivityManager.unregisterNetworkCallback(mNetworkCallback);
@@ -214,6 +220,7 @@ public class MultiStaConcurrencyWifiNetworkSpecifierTest extends WifiJUnit4TestB
         if (mNrNetworkCallback != null) {
             mConnectivityManager.unregisterNetworkCallback(mNrNetworkCallback);
         }
+
         // Clear any existing app state after each test.
         ShellIdentityUtils.invokeWithShellPermissions(
                 () -> mWifiManager.removeAppState(myUid(), mContext.getPackageName()));

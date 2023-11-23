@@ -1,0 +1,5 @@
+# Platform watchdogd
+/system_ext/bin/gs_watchdogd            u:object_r:gs_watchdogd_exec:s0
+
+# Devices
+/dev/watchdog[0-9]                      u:object_r:watchdog_device:s0

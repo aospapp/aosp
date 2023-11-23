@@ -3,11 +3,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import six.moves.configparser
 import io
+import six
 import unittest
 
-import common
+from . import common
+
+from autotest_lib.client.common_lib import seven
 from autotest_lib.server.cros import ap_config
 
 
@@ -39,8 +41,12 @@ rpm_outlet = .A15""")
 
 
 def _parse_config_from_string(conf):
-    parser = six.moves.configparser.RawConfigParser()
-    parser.readfp(io.BytesIO(conf))
+    parser = seven.config_parser()
+    if six.PY2:
+        parser.readfp(io.BytesIO(conf))
+    else:
+        parser.read_string(conf)
+
     return parser
 
 

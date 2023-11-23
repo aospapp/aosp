@@ -243,4 +243,34 @@ public interface IYouTubeHelper extends IAppHelper {
      * @return true if pip mode in launhcer.
      */
     public boolean isYouTubePipModeOnLauncher();
+
+    /**
+     * Setup expectation: YouTube is open and the video player is visible on any page.
+     *
+     * @return true if the video is playing.
+     */
+    public boolean isVideoPlaying();
+
+    /**
+     * Setup expectation: YouTube app is open.
+     *
+     * @return true if the floaty player is visible.
+     */
+    public boolean isFloatyPlayerVisible();
+
+    /**
+     * Setup expectation: YouTube is open and the floaty player is visible.
+     *
+     * <p>Clicks the floaty bar's close button to close video player.
+     */
+    public void closeFloatyPlayer();
+
+    /**
+     * Setup expectation: YouTube is on the video player page.
+     *
+     * @return YouTube player object.
+     */
+    public default UiObject2 getYouTubePlayer() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 }

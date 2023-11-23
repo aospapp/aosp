@@ -32,6 +32,7 @@ import android.content.Context.BIND_NOT_FOREGROUND
 import android.content.Intent
 import android.content.Intent.FLAG_ACTIVITY_NEW_TASK
 import android.content.ServiceConnection
+import android.location.LocationManager
 import android.os.IBinder
 import android.os.Process
 import android.platform.test.annotations.AppModeFull
@@ -63,7 +64,9 @@ class ForegroundModeAndActiveTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
     private val appopsManager = context.getSystemService(AppOpsManager::class.java)!!
+    private val locationManager = context.getSystemService(LocationManager::class.java)!!
     private val testPkgUid = context.packageManager.getPackageUid(TEST_SERVICE_PKG, 0)
+    private var wasLocationEnabled = true
 
     private lateinit var foregroundControlService: IAppOpsForegroundControlService
     private lateinit var serviceConnection: ServiceConnection
@@ -97,6 +100,8 @@ class ForegroundModeAndActiveTest {
             Settings.Global.putString(context.contentResolver, APP_OPS_CONSTANTS,
                     "$KEY_TOP_STATE_SETTLE_TIME=300,$KEY_FG_SERVICE_STATE_SETTLE_TIME=100," +
                             "$KEY_BG_STATE_SETTLE_TIME=10")
+            wasLocationEnabled = locationManager.isLocationEnabled
+            locationManager.setLocationEnabledForUser(true, Process.myUserHandle())
         }
 
         // Wait until app counts as background
@@ -434,6 +439,7 @@ class ForegroundModeAndActiveTest {
                 Settings.Global.putString(context.contentResolver,
                         APP_OPS_CONSTANTS, previousAppOpsConstants)
             }
+            locationManager.setLocationEnabledForUser(wasLocationEnabled, Process.myUserHandle())
         }
     }
 }

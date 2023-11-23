@@ -105,11 +105,11 @@ def download_and_extract(url):
         Path to the temporary directory.
     """
 
-    print('Downloading {}'.format(url))
+    print(f'Downloading {url}')
     archive_file, _headers = urllib.request.urlretrieve(url)
 
     temporary_dir = tempfile.mkdtemp()
-    print('Extracting {} to {}'.format(archive_file, temporary_dir))
+    print(f'Extracting {archive_file} to {temporary_dir}')
     get_extract_func(url)(archive_file, temporary_dir)
 
     return temporary_dir

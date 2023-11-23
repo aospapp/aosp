@@ -34,6 +34,8 @@ class DocHitInfoIteratorOr : public DocHitInfoIterator {
   explicit DocHitInfoIteratorOr(std::unique_ptr<DocHitInfoIterator> left_it,
                                 std::unique_ptr<DocHitInfoIterator> right_it);
 
+  libtextclassifier3::StatusOr<TrimmedNode> TrimRightMostNode() && override;
+
   libtextclassifier3::Status Advance() override;
 
   int32_t GetNumBlocksInspected() const override;
@@ -76,6 +78,8 @@ class DocHitInfoIteratorOrNary : public DocHitInfoIterator {
  public:
   explicit DocHitInfoIteratorOrNary(
       std::vector<std::unique_ptr<DocHitInfoIterator>> iterators);
+
+  libtextclassifier3::StatusOr<TrimmedNode> TrimRightMostNode() && override;
 
   libtextclassifier3::Status Advance() override;
 

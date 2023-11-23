@@ -21,6 +21,7 @@
 #include "icing/absl_ports/str_cat.h"
 #include "icing/index/hit/doc-hit-info.h"
 #include "icing/store/document-id.h"
+#include "icing/util/status-macros.h"
 
 namespace icing {
 namespace lib {
@@ -56,6 +57,26 @@ DocHitInfoIteratorOr::DocHitInfoIteratorOr(
     std::unique_ptr<DocHitInfoIterator> left_it,
     std::unique_ptr<DocHitInfoIterator> right_it)
     : left_(std::move(left_it)), right_(std::move(right_it)) {}
+
+libtextclassifier3::StatusOr<DocHitInfoIterator::TrimmedNode>
+DocHitInfoIteratorOr::TrimRightMostNode() && {
+  // Trim the whole OR iterator. Only keep the prefix of the right iterator.
+  //
+  // The OR operator has higher priority, it is not possible that we have an
+  // unfinished prefix in the nested iterator right-most child we need to search
+  // suggestion for.
+  //
+  // eg: `foo OR (bar baz)` is not valid for search suggestion since there is no
+  // unfinished last term to be filled.
+  //
+  // If we need to trim a OR iterator for search suggestion, the right child
+  // must be the last term. We don't need left side information to
+  // generate suggestion for the right side.
+  ICING_ASSIGN_OR_RETURN(TrimmedNode trimmed_right,
+                         std::move(*right_).TrimRightMostNode());
+  trimmed_right.iterator_ = nullptr;
+  return trimmed_right;
+}
 
 libtextclassifier3::Status DocHitInfoIteratorOr::Advance() {
   // Cache the document_id of the left iterator for comparison to the right.
@@ -115,7 +136,8 @@ libtextclassifier3::Status DocHitInfoIteratorOr::Advance() {
 
   // If equal, combine.
   if (left_document_id_ == right_document_id_) {
-    doc_hit_info_.MergeSectionsFrom(right_->doc_hit_info());
+    doc_hit_info_.MergeSectionsFrom(
+        right_->doc_hit_info().hit_section_ids_mask());
     hit_intersect_section_ids_mask_ &= right_->hit_intersect_section_ids_mask();
   }
 
@@ -138,6 +160,26 @@ std::string DocHitInfoIteratorOr::ToString() const {
 DocHitInfoIteratorOrNary::DocHitInfoIteratorOrNary(
     std::vector<std::unique_ptr<DocHitInfoIterator>> iterators)
     : iterators_(std::move(iterators)) {}
+
+libtextclassifier3::StatusOr<DocHitInfoIterator::TrimmedNode>
+DocHitInfoIteratorOrNary::TrimRightMostNode() && {
+  // Trim the whole OR iterator.
+  //
+  // The OR operator has higher priority, it is not possible that we have an
+  // unfinished prefix in the nested iterator right-most child we need to search
+  // suggestion for.
+  //
+  // eg: `foo OR (bar baz)` is not valid for search suggestion since there is no
+  // unfinished last term to be filled.
+  //
+  // If we need to trim a OR iterator for search suggestion, the right-most
+  // child must be the last term. We don't need left side information to
+  // generate suggestion for the right side.
+  ICING_ASSIGN_OR_RETURN(TrimmedNode trimmed_right,
+                         std::move(*iterators_.back()).TrimRightMostNode());
+  trimmed_right.iterator_ = nullptr;
+  return trimmed_right;
+}
 
 libtextclassifier3::Status DocHitInfoIteratorOrNary::Advance() {
   current_iterators_.clear();
@@ -195,7 +237,8 @@ libtextclassifier3::Status DocHitInfoIteratorOrNary::Advance() {
         hit_intersect_section_ids_mask_ =
             iterator->hit_intersect_section_ids_mask();
       } else {
-        doc_hit_info_.MergeSectionsFrom(iterator->doc_hit_info());
+        doc_hit_info_.MergeSectionsFrom(
+            iterator->doc_hit_info().hit_section_ids_mask());
         hit_intersect_section_ids_mask_ &=
             iterator->hit_intersect_section_ids_mask();
       }

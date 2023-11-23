@@ -439,7 +439,7 @@ def run_provision_suite(**dargs):
     Run a provision suite.
 
     Will re-image a number of devices (of the specified board) with the
-    provided builds by scheduling dummy_Pass.
+    provided builds by scheduling stub_Pass.
 
     @param job: an instance of client.common_lib.base_job representing the
                 currently running suite job.

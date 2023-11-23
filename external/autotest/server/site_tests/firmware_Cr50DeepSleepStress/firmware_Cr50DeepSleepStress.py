@@ -16,20 +16,19 @@ from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 
 
 class firmware_Cr50DeepSleepStress(FirmwareTest):
-    """Verify cr50 deep sleep after running power_SuspendStress.
+    """Verify Cr50 deep sleep after running power_SuspendStress.
 
     Cr50 should enter deep sleep every suspend. Verify that by checking the
     idle deep sleep count.
 
     @param suspend_count: The number of times to reboot or suspend the device.
-    @param reset_type: a str with the cycle type: 'mem' or 'reboot'
+    @param reset_type: a str with the cycle type: 'freeze', 'mem', or 'reboot'
     """
     version = 1
 
     SLEEP_DELAY = 20
     MIN_RESUME = 15
     MIN_SUSPEND = 15
-    MEM = 'mem'
     # Initialize the FWMP with a non-zero value. Use 100, because it's an
     # unused flag and it wont do anything like lock out dev mode or ccd.
     FWMP_FLAGS = '0x100'
@@ -39,7 +38,7 @@ class firmware_Cr50DeepSleepStress(FirmwareTest):
     TOLERATED_ERROR = 0.05
 
     def initialize(self, host, cmdline_args, suspend_count, reset_type):
-        """Make sure the test is running with access to the cr50 console"""
+        """Make sure the test is running with access to the Cr50 console"""
         self.host = host
         super(firmware_Cr50DeepSleepStress, self).initialize(host, cmdline_args)
         if not hasattr(self, 'cr50'):
@@ -53,10 +52,16 @@ class firmware_Cr50DeepSleepStress(FirmwareTest):
         # Reset the device
         self.host.reset_via_servo()
 
-        # Save the original version, so we can make sure cr50 doesn't rollback.
+        # Save the original version, so we can make sure Cr50 doesn't rollback.
         self.original_cr50_version = self.cr50.get_active_version_info()
         self._suspend_diff = 0
 
+        # TODO(b/218492933) : find better way to disable rddkeepalive
+        # Disable rddkeepalive, so the test can disable ccd.
+        self.cr50.send_command('ccd testlab open')
+        self.cr50.send_command('rddkeepalive disable')
+        # Lock cr50 so the console will be restricted
+        self.cr50.set_ccd_level('lock')
 
     def cleanup(self):
         """Clear the fwmp."""
@@ -123,7 +128,7 @@ class firmware_Cr50DeepSleepStress(FirmwareTest):
             time.sleep(self.MIN_SUSPEND)
 
             # Power on the device
-            self.servo.power_short_press()
+            self.servo.power_normal_press()
             time.sleep(self.MIN_RESUME)
 
             rv = self.check_cr50_deep_sleep(i + 1)
@@ -149,6 +154,9 @@ class firmware_Cr50DeepSleepStress(FirmwareTest):
         @param enable: True to enable ccd. False to disable it.
         @returns an error message
         """
+        start_msg = ('' if self._dut_is_responsive() else
+                     'DUT unresponsive after suspend/resume')
+        logging.info('SSH state afters suspend resume %r', start_msg or 'ok')
         if enable:
             self.cr50.ccd_enable()
         else:
@@ -165,14 +173,19 @@ class firmware_Cr50DeepSleepStress(FirmwareTest):
         # TODO(b/135147658): Raise an error once CCD disable is fixed.
         logging.info('Resetting DUT')
         self.host.reset_via_servo()
-        if not self._dut_is_responsive():
-            return msg
+
+        is_sshable = self._dut_is_responsive()
+
+        rv = start_msg or ('' if is_sshable else msg)
+        logging.info('ssh state: %r', rv or 'ok')
+        return rv
 
 
-    def run_suspend_resume(self, suspend_count):
+    def run_suspend_resume(self, suspend_count, suspend_type):
         """Suspend the device the requested number of times
 
         @param suspend_count: the number of times to suspend the device.
+        @param suspend_type: the type of suspend to issue("mem" or "freeze")
         """
         # Disable CCD so Cr50 can enter deep sleep
         rv = self.wait_for_client_after_changing_ccd(False)
@@ -185,24 +198,25 @@ class firmware_Cr50DeepSleepStress(FirmwareTest):
         client_at = autotest.Autotest(self.host)
         # Duration is set to 0, because it is required but unused when
         # iterations is given.
-        client_at.run_test('power_SuspendStress', tag='idle',
+        client_at.run_test('power_SuspendStress',
+                           tag='idle',
                            duration=0,
                            min_suspend=self.MIN_SUSPEND,
                            min_resume=self.MIN_RESUME,
                            check_connection=False,
                            suspend_iterations=suspend_count,
-                           suspend_state=self.MEM,
+                           suspend_state=suspend_type,
                            check_client_result=True)
 
 
     def check_cr50_deep_sleep(self, suspend_count):
-        """Verify cr50 has entered deep sleep the correct number of times.
+        """Verify Cr50 has entered deep sleep the correct number of times.
 
         Also print ccdstate and sleepmask output to get some basic information
-        about the cr50 state.
-        - sleepmask will show what may be preventing cr50 from entering sleep.
-        - ccdstate will show what cr50 thinks the AP state is. If the AP is 'on'
-          cr50 won't enter deep sleep.
+        about the Cr50 state.
+        - sleepmask will show what may be preventing Cr50 from entering sleep.
+        - ccdstate will show what Cr50 thinks the AP state is. If the AP is 'on'
+          Cr50 won't enter deep sleep.
         All of these functions log the state, so no need to log the return
         values.
 
@@ -233,7 +247,7 @@ class firmware_Cr50DeepSleepStress(FirmwareTest):
         if exp_count and not hibernate:
             errors.append('reset during suspend')
 
-        # Use the absolute value, because cr50 shouldn't suspend more or less
+        # Use the absolute value, because Cr50 shouldn't suspend more or less
         # than expected.
         if abs(act_diff) > tolerated_diff:
             errors.append('count mismatch expected %d got %d' % (exp_count,
@@ -263,20 +277,22 @@ class firmware_Cr50DeepSleepStress(FirmwareTest):
     def run_once(self, host, suspend_count, reset_type):
         """Verify deep sleep after suspending for the given number of cycles
 
-        The test either suspends to s3 or reboots the device depending on
-        reset_type. There are two valid reset types: mem and reboot. The test
-        will make sure that the device is off or in s3 long enough to ensure
-        Cr50 should be able to enter deep sleep. At the end of the test, it
-        checks that Cr50 entered deep sleep the same number of times it
-        suspended.
+        The test either suspends to s0i3/s3 or reboots the device depending on
+        reset_type. There are three valid reset types: freeze, mem, and reboot.
+        The test will make sure that the device is off or in s0i3/s3 long enough
+        to ensure Cr50 should be able to enter the corresponding suspend state.
+        At the end of the test, it checks that Cr50 entered the suspend state
+        the same number of times the DUT suspended.
 
         @param host: the host object representing the DUT.
         @param suspend_count: The number of cycles to suspend or reboot the
                 device.
-        @param reset_type: a str with the cycle type: 'mem' or 'reboot'
+        @param reset_type: a str with the cycle type: 'freeze', 'mem' or
+                'reboot'
         """
-        if reset_type not in ['reboot', 'mem']:
-            raise error.TestNAError('Invalid reset_type. Use "mem" or "reboot"')
+        if reset_type not in ['reboot', 'freeze', 'mem']:
+            raise error.TestNAError('Invalid reset_type. Use "freeze", "mem" '
+                                    'or "reboot"')
         if self.MIN_SUSPEND + self.MIN_RESUME < self.SLEEP_DELAY:
             logging.info('Minimum suspend-resume cycle is %ds. This is '
                          'shorter than the Cr50 idle timeout. Cr50 may not '
@@ -287,13 +303,50 @@ class firmware_Cr50DeepSleepStress(FirmwareTest):
         original_flog = cr50_utils.DumpFlog(self.host).strip()
         logging.debug('Initial FLOG output:\n%s', original_flog)
 
+        suspend_type = reset_type
+
         # x86 devices should suspend once per reset. ARM will only suspend
         # if the device enters s5.
         if reset_type == 'reboot':
             self._enters_deep_sleep = True
         else:
             is_arm = self.check_ec_capability(['arm'], suppress_warning=True)
-            self._enters_deep_sleep = not is_arm
+
+            # Check if the device supports S0ix.
+            self.s0ix_supported = not self.host.run(
+                    'check_powerd_config --suspend_to_idle',
+                    ignore_status=True).exit_status
+
+            # Check if the device supports S3.
+            self.s3_supported = not self.host.run(
+                    'grep -q deep /sys/power/mem_sleep',
+                    ignore_status=True).exit_status
+
+            if not self.s0ix_supported and not self.s3_supported:
+                raise error.TestError(
+                        'S3 and S0ix unsupported, can not run test')
+
+            if not self.s0ix_supported and \
+               self.check_cr50_capability(['deep_sleep_in_s0i3']):
+                raise error.TestError(
+                        'Invalid configuration, S0ix not supported, but '
+                        'deep_sleep_in_s0i3 is true')
+
+            if self.check_cr50_capability(['deep_sleep_in_s0i3']) and \
+               self.s0ix_supported and not self.s3_supported:
+                logging.info('Switching suspend type from "mem" to "freeze" '
+                             'to support s0ix(S3 unsupported)')
+                suspend_type = 'freeze'
+
+            # Check if the Cr50 enters deep sleep on this device.
+            # This variable is used to determine error checks to be performed
+            # at the end of testing(Suspend/Resume count vs Cr50 Deep Sleep)
+            # Cr50 does not deep sleep on ARM
+            # Cr50 does deep sleep in S3
+            # Cr50 will only deep sleep in S0i3 on select systems.
+            self._enters_deep_sleep = not is_arm and \
+                ((suspend_type != 'freeze' or \
+                self.check_cr50_capability(['deep_sleep_in_s0i3'])))
 
         self.create_fwmp()
 
@@ -301,31 +354,36 @@ class firmware_Cr50DeepSleepStress(FirmwareTest):
         try:
             if reset_type == 'reboot':
                 self.run_reboots(suspend_count)
-            elif reset_type == 'mem':
-                self.run_suspend_resume(suspend_count)
+            elif reset_type == 'mem' or reset_type == 'freeze':
+                self.run_suspend_resume(suspend_count, suspend_type)
+            else:
+                raise error.TestError('Test can only be run with reset types:'
+                                      'reboot, mem, or freeze')
         except Exception as e:
             main_error = e
 
         errors = []
-        # Collect logs for debugging
         # Autotest has some stages in between run_once and cleanup that may
         # be run if the test succeeds. Do this here to make sure this is
         # always run immediately after the suspend/resume cycles.
+        # Collect logs for debugging
+        # Console information
         self.cr50.dump_nvmem()
-        # Reenable CCD. Reestablish network connection.
-        rv = self.wait_for_client_after_changing_ccd(True)
-        if rv:
-            errors.append(rv)
-        rv = self.check_flog_output(original_flog)
-        if rv:
-            errors.append(rv)
-        rv = self.check_fwmp()
-        if rv:
-            errors.append(rv)
         rv = self.check_cr50_deep_sleep(suspend_count)
         if rv:
             errors.append(rv)
         rv = self.check_cr50_version(self.original_cr50_version)
+        if rv:
+            errors.append(rv)
+        # Reenable CCD. Reestablish network connection.
+        rv = self.wait_for_client_after_changing_ccd(True)
+        if rv:
+            errors.append(rv)
+        # Information that requires ssh
+        rv = self.check_fwmp()
+        if rv:
+            errors.append(rv)
+        rv = self.check_flog_output(original_flog)
         if rv:
             errors.append(rv)
         secondary_error = 'Suspend issues: %s' % ', '.join(errors)

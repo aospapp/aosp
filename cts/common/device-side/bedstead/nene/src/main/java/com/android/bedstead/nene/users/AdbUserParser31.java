@@ -32,7 +32,6 @@ import com.android.bedstead.nene.exceptions.AdbParseException;
  * }
  */
 @RequiresApi(Build.VERSION_CODES.S)
-// TODO(scottjonathan): Replace ADB calls for S with test apis
 public class AdbUserParser31 extends AdbUserParser30 {
 
     AdbUserParser31() {

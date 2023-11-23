@@ -1,13 +1,16 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#![cfg(unix)]
 #![cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 
-use base::{MemoryMappingBuilder, SharedMemory};
+use base::MemoryMappingBuilder;
+use base::SharedMemory;
 use kvm::*;
 use kvm_sys::kvm_regs;
-use vm_memory::{GuestAddress, GuestMemory};
+use vm_memory::GuestAddress;
+use vm_memory::GuestMemory;
 
 #[test]
 fn test_run() {
@@ -19,7 +22,7 @@ fn test_run() {
     let mem_size = 0x10000;
     let load_addr = GuestAddress(0x1000);
     let guest_mem = GuestMemory::new(&[]).unwrap();
-    let mem = SharedMemory::anon(mem_size).expect("failed to create shared memory");
+    let mem = SharedMemory::new("test", mem_size).expect("failed to create shared memory");
     let mmap = MemoryMappingBuilder::new(mem_size as usize)
         .from_shared_memory(&mem)
         .build()

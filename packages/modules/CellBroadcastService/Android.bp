@@ -6,11 +6,9 @@ package {
 java_defaults {
     name: "CellBroadcastServiceCommon",
     min_sdk_version: "30",
-    target_sdk_version: "31",
     srcs: [
       "src/**/*.java",
-      ":framework-cellbroadcast-shared-srcs",
-      ":statslog-cellbroadcast-java-gen",
+      ":statslog-cellbroadcast-module-java-gen",
     ],
     libs: [
         "framework-annotations-lib",
@@ -19,7 +17,9 @@ java_defaults {
     ],
     sdk_version: "module_current",
     static_libs: [
+        "modules-utils-build",
         "modules-utils-handlerexecutor",
+        "modules-utils-locallog",
         "modules-utils-preconditions",
         "modules-utils-statemachine",
     ],
@@ -27,10 +27,10 @@ java_defaults {
     privileged: true,
     resource_dirs: ["res"],
     optimize: {
+        shrink_resources: true,
         proguard_flags_files: ["proguard.flags"],
     },
     jarjar_rules: "cellbroadcast-jarjar-rules.txt",
-    plugins: ["java_api_finder"],
     lint: {
         strict_updatability_linting: true,
     },
@@ -47,13 +47,14 @@ android_app {
 
 android_app {
      name: "CellBroadcastServiceModulePlatform",
+     target_sdk_version: "33",
      defaults: ["CellBroadcastServiceCommon"],
      certificate: "platform",
      // CellBroadcastServicePlatformModule is a replacement for com.android.cellbroadcast apex
      // which consists of CellBroadcastServiceModule
      overrides: ["com.android.cellbroadcast"],
      manifest: "AndroidManifest_Platform.xml",
-     required: ["privapp_allowlist_com.android.cellbroadcastservice.xml"],
+     required: ["platform_privapp_allowlist_com.android.cellbroadcastservice.xml"],
 }
 
 genrule {
@@ -65,13 +66,22 @@ genrule {
   out: ["com/android/cellbroadcastservice/CellBroadcastStatsLog.java"],
 }
 
+genrule {
+  name: "statslog-cellbroadcast-module-java-gen",
+  tools: ["stats-log-api-gen"],
+  cmd: "$(location stats-log-api-gen) --java $(out) --module cellbroadcast" +
+       " --javaPackage com.android.cellbroadcastservice --javaClass CellBroadcastModuleStatsLog" +
+       " --minApiLevel 30",
+  out: ["com/android/cellbroadcastservice/CellBroadcastModuleStatsLog.java"],
+}
 
 // used to share common constants between cellbroadcastservice and cellbroadcastreceier
 filegroup {
     name: "cellbroadcast-constants-shared-srcs",
     srcs: [
         "src/com/android/cellbroadcastservice/SmsCbConstants.java",
-        ":statslog-cellbroadcast-java-gen",
+        "src/com/android/cellbroadcastservice/CellBroadcastMetrics.java",
+        ":statslog-cellbroadcast-module-java-gen",
     ],
 }
 
@@ -82,6 +92,7 @@ filegroup {
         "src/com/android/cellbroadcastservice/GsmAlphabet.java",
         "src/com/android/cellbroadcastservice/CbGeoUtils.java",
         "src/com/android/cellbroadcastservice/SmsCbHeader.java",
+        "src/com/android/cellbroadcastservice/CellBroadcastServiceMetrics.java",
     ],
 }
 
@@ -90,7 +101,6 @@ filegroup {
     name: "cellbroadcast-shared-srcs",
     srcs: [
         "src/**/*.java",
-        ":framework-cellbroadcast-shared-srcs",
-        ":statslog-cellbroadcast-java-gen",
+        ":statslog-cellbroadcast-module-java-gen",
     ],
 }

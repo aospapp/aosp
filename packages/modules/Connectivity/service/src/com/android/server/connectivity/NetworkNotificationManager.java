@@ -22,6 +22,7 @@ import static android.net.NetworkCapabilities.TRANSPORT_VPN;
 import static android.net.NetworkCapabilities.TRANSPORT_WIFI;
 
 import android.annotation.NonNull;
+import android.app.ActivityOptions;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -29,10 +30,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.drawable.Icon;
-import android.net.ConnectivityResources;
 import android.net.NetworkSpecifier;
 import android.net.TelephonyNetworkSpecifier;
 import android.net.wifi.WifiInfo;
+import android.os.Build;
+import android.os.Bundle;
 import android.os.UserHandle;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -45,6 +47,7 @@ import android.widget.Toast;
 import com.android.connectivity.resources.R;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.messages.nano.SystemMessageProto.SystemMessage;
+import com.android.modules.utils.build.SdkLevel;
 
 public class NetworkNotificationManager {
 
@@ -319,7 +322,11 @@ public class NetworkNotificationManager {
 
     private boolean maybeNotifyViaDialog(Resources res, NotificationType notifyType,
             PendingIntent intent) {
-        if (notifyType != NotificationType.NO_INTERNET
+        final boolean activelyPreferBadWifi = SdkLevel.isAtLeastU()
+                || (SdkLevel.isAtLeastT()
+                        && res.getInteger(R.integer.config_activelyPreferBadWifi) == 1);
+        if ((notifyType != NotificationType.LOST_INTERNET || !activelyPreferBadWifi)
+                && notifyType != NotificationType.NO_INTERNET
                 && notifyType != NotificationType.PARTIAL_CONNECTIVITY) {
             return false;
         }
@@ -328,7 +335,26 @@ public class NetworkNotificationManager {
         }
 
         try {
-            intent.send();
+            Bundle options = null;
+
+            if (SdkLevel.isAtLeastU() && intent.isActivity()) {
+                // Also check SDK_INT >= T separately, as the linter in some T-based branches does
+                // not recognize "isAtLeastU && something" as an SDK check for T+ APIs.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    // Android U requires pending intent background start mode to be specified:
+                    // See #background-activity-restrictions in
+                    // https://developer.android.com/about/versions/14/behavior-changes-14
+                    // But setPendingIntentBackgroundActivityStartMode is U+, and replaces
+                    // setPendingIntentBackgroundActivityLaunchAllowed which is T+ but deprecated.
+                    // Use setPendingIntentBackgroundActivityLaunchAllowed as the U+ version is not
+                    // yet available in all branches.
+                    final ActivityOptions activityOptions = ActivityOptions.makeBasic();
+                    activityOptions.setPendingIntentBackgroundActivityLaunchAllowed(true);
+                    options = activityOptions.toBundle();
+                }
+            }
+
+            intent.send(null, 0, null, null, null, null, options);
         } catch (PendingIntent.CanceledException e) {
             Log.e(TAG, "Error sending dialog PendingIntent", e);
         }
@@ -394,8 +420,9 @@ public class NetworkNotificationManager {
         Toast.makeText(mContext, text, Toast.LENGTH_LONG).show();
     }
 
-    @VisibleForTesting
-    static String tagFor(int id) {
+    /** Get the logging tag for a notification ID */
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
+    public static String tagFor(int id) {
         return String.format("ConnectivityNotification:%d", id);
     }
 
@@ -409,7 +436,8 @@ public class NetworkNotificationManager {
      * A notification with a higher number will take priority over a notification with a lower
      * number.
      */
-    private static int priority(NotificationType t) {
+    @VisibleForTesting
+    public static int priority(NotificationType t) {
         if (t == null) {
             return 0;
         }

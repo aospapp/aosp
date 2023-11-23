@@ -32,7 +32,7 @@
     <string name="app_label" msgid="3863159788297913185">"Alertas de emergência"</string>
     <string name="sms_cb_settings" msgid="4187131985831792308">"Alertas de emergência"</string>
     <string name="enable_alerts_master_toggle_summary" msgid="805446672915814777">"Receba notificações de alertas de emergência."</string>
-    <string name="enable_alert_speech_summary" msgid="5021926525240750702">"Utilize a síntese de voz para dizer mensagens de alerta de emergência."</string>
+    <string name="enable_alert_speech_summary" msgid="5021926525240750702">"Utilize a conversão de texto em voz para dizer mensagens de alerta de emergência."</string>
     <string name="cmas_opt_out_dialog_text" msgid="1972978578760513449">"Atualmente, está a receber alertas de emergência. Pretende continuar a receber alertas de emergência?"</string>
     <string name="emergency_alert_settings_title_watches" msgid="5299419351642118203">"Alertas de emergência"</string>
     <string name="notification_cb_settings_changed_text" msgid="6861845802821634203">"Toque para ver as definições dos alertas de emergência"</string>

@@ -222,9 +222,6 @@ int LogAudit::logPrint(const char* fmt, ...) {
         *cp = ' ';
     }
 
-    while ((cp = strstr(str, "  "))) {
-        memmove(cp, cp + 1, strlen(cp + 1) + 1);
-    }
     pid_t pid = getpid();
     pid_t tid = gettid();
     uid_t uid = AID_LOGD;

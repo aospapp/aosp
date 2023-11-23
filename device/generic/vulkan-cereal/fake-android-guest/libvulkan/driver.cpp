@@ -30,8 +30,8 @@
 #include "driver.h"
 #include "stubhal.h"
 
-#include "base/System.h"
-#include "base/PathUtils.h"
+#include "aemu/base/system/System.h"
+#include "aemu/base/files/PathUtils.h"
 
 #include <vector>
 

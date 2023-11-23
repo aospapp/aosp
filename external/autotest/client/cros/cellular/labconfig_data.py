@@ -1,10 +1,15 @@
-#!/usr/bin/python2
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Configuration for cell emulator tests."""
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import copy, unittest
+import six
 
 CELLS = {}
 
@@ -30,7 +35,7 @@ def combine_trees(a_original, b):
     """Combines two dict-of-dict trees, favoring the second."""
     try:
         a = copy.copy(a_original)
-        for (key_b, value_b) in b.iteritems():
+        for (key_b, value_b) in six.iteritems(b):
             a[key_b] = combine_trees(a.get(key_b, None), value_b)
     except AttributeError:  # one argument wasn't a dict.  B wins.
         return b

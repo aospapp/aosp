@@ -16,6 +16,8 @@
 
 package com.android.car.telemetry.publisher.statsconverters;
 
+import static com.android.car.telemetry.publisher.Constants.STATS_BUNDLE_KEY_PREFIX;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.os.PersistableBundle;
@@ -123,7 +125,7 @@ public abstract class AbstractAtomConverter<T extends MessageLite> {
                     valueList.add(atomFieldAccessor.getField(atomData));
                 }
                 setPersistableBundleArrayField(
-                        atomFieldAccessor.getFieldName(), valueList, bundle);
+                        createBundleKey(atomFieldAccessor.getFieldName()), valueList, bundle);
             }
         }
         // Check if there are dimension fields needing conversion
@@ -139,7 +141,7 @@ public abstract class AbstractAtomConverter<T extends MessageLite> {
                 valueList.add(extractDimensionsValue(dvList.get(i), hashToStringMap));
             }
             setPersistableBundleArrayField(
-                    getAtomFieldAccessorMap().get(fieldId).getFieldName(),
+                    createBundleKey(getAtomFieldAccessorMap().get(fieldId).getFieldName()),
                     valueList,
                     bundle);
         }
@@ -226,5 +228,17 @@ public abstract class AbstractAtomConverter<T extends MessageLite> {
             }
             bundle.putDoubleArray(name, doubleArray);
         }
+    }
+
+    /**
+     * Creates the bundle key string for a metric field.
+     *
+     * The bundle key differs from the original metric field name by having a namespace prefix.
+     *
+     * @param metricFieldName the metric field name string.
+     * @return the bundle key string.
+     */
+    private String createBundleKey(String metricFieldName) {
+        return STATS_BUNDLE_KEY_PREFIX + metricFieldName;
     }
 }

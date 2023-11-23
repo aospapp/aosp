@@ -36,7 +36,7 @@ public abstract class CrossProfileTestInfo {
 
     Set<CrossProfileConfigurationInfo> configurations =
         ValidatorCrossProfileConfigurationInfo.createMultipleFromElement(
-                context.processingEnv(), validatorCrossProfileTest.configurationElement())
+                context, validatorCrossProfileTest.configurationElement())
             .stream()
             .map(b -> CrossProfileConfigurationInfo.create(context, b))
             .collect(toSet());

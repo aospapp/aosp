@@ -1,10 +1,11 @@
 #![cfg(not(feature = "preserve_order"))]
 #![allow(
+    clippy::assertions_on_result_states,
     clippy::cast_precision_loss,
+    clippy::derive_partial_eq_without_eq,
     clippy::excessive_precision,
     clippy::float_cmp,
     clippy::items_after_statements,
-    clippy::let_underscore_drop,
     clippy::shadow_unrelated,
     clippy::too_many_lines,
     clippy::unreadable_literal,
@@ -93,7 +94,7 @@ where
         let s = to_string(value).unwrap();
         assert_eq!(s, out);
 
-        let v = to_value(&value).unwrap();
+        let v = to_value(value).unwrap();
         let s = to_string(&v).unwrap();
         assert_eq!(s, out);
     }
@@ -109,7 +110,7 @@ where
         let s = to_string_pretty(value).unwrap();
         assert_eq!(s, out);
 
-        let v = to_value(&value).unwrap();
+        let v = to_value(value).unwrap();
         let s = to_string_pretty(&v).unwrap();
         assert_eq!(s, out);
     }
@@ -1105,7 +1106,7 @@ fn test_parse_string() {
     ]);
 
     test_parse_ok(vec![
-        ("\"\"", "".to_string()),
+        ("\"\"", String::new()),
         ("\"foo\"", "foo".to_string()),
         (" \"foo\" ", "foo".to_string()),
         ("\"\\\"\"", "\"".to_string()),
@@ -1926,7 +1927,7 @@ fn test_deny_float_key() {
 
     // map with float key
     let map = treemap!(Float => "x");
-    assert!(serde_json::to_value(&map).is_err());
+    assert!(serde_json::to_value(map).is_err());
 }
 
 #[test]
@@ -2177,6 +2178,27 @@ fn test_integer128() {
             "number out of range at line 1 column 39",
         ),
     ]);
+}
+
+#[test]
+fn test_integer128_to_value() {
+    let signed = &[i128::from(i64::min_value()), i128::from(u64::max_value())];
+    let unsigned = &[0, u128::from(u64::max_value())];
+
+    for integer128 in signed {
+        let expected = integer128.to_string();
+        assert_eq!(to_value(integer128).unwrap().to_string(), expected);
+    }
+
+    for integer128 in unsigned {
+        let expected = integer128.to_string();
+        assert_eq!(to_value(integer128).unwrap().to_string(), expected);
+    }
+
+    if !cfg!(feature = "arbitrary_precision") {
+        let err = to_value(u128::from(u64::max_value()) + 1).unwrap_err();
+        assert_eq!(err.to_string(), "number out of range");
+    }
 }
 
 #[cfg(feature = "raw_value")]

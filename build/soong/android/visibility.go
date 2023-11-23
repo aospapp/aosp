@@ -47,7 +47,6 @@ import (
 //   the dependency. If it cannot then an error is reported.
 //
 // TODO(b/130631145) - Make visibility work properly with prebuilts.
-// TODO(b/130796911) - Make visibility work properly with defaults.
 
 // Patterns for the values that can be specified in visibility property.
 const (
@@ -155,7 +154,11 @@ func (r subpackagesRule) matches(m qualifiedModuleName) bool {
 }
 
 func isAncestor(p1 string, p2 string) bool {
-	return strings.HasPrefix(p2+"/", p1+"/")
+	// Equivalent to strings.HasPrefix(p2+"/", p1+"/"), but without the string copies
+	// The check for a trailing slash is so that we don't consider sibling
+	// directories with common prefixes to be ancestors, e.g. "fooo/bar" should not be
+	// a descendant of "foo".
+	return strings.HasPrefix(p2, p1) && (len(p2) == len(p1) || p2[len(p1)] == '/')
 }
 
 func (r subpackagesRule) String() string {
@@ -234,7 +237,7 @@ func RegisterVisibilityRuleEnforcer(ctx RegisterMutatorsContext) {
 
 // Checks the per-module visibility rule lists before defaults expansion.
 func visibilityRuleChecker(ctx BottomUpMutatorContext) {
-	qualified := createQualifiedModuleName(ctx)
+	qualified := createQualifiedModuleName(ctx.ModuleName(), ctx.ModuleDir())
 	if m, ok := ctx.Module().(Module); ok {
 		visibilityProperties := m.visibilityProperties()
 		for _, p := range visibilityProperties {
@@ -435,7 +438,7 @@ func visibilityRuleEnforcer(ctx TopDownMutatorContext) {
 		return
 	}
 
-	qualified := createQualifiedModuleName(ctx)
+	qualified := createQualifiedModuleName(ctx.ModuleName(), ctx.ModuleDir())
 
 	// Visit all the dependencies making sure that this module has access to them all.
 	ctx.VisitDirectDeps(func(dep Module) {
@@ -486,9 +489,7 @@ func effectiveVisibilityRules(config Config, qualified qualifiedModuleName) comp
 	return rule
 }
 
-func createQualifiedModuleName(ctx BaseModuleContext) qualifiedModuleName {
-	moduleName := ctx.ModuleName()
-	dir := ctx.ModuleDir()
+func createQualifiedModuleName(moduleName, dir string) qualifiedModuleName {
 	qualified := qualifiedModuleName{dir, moduleName}
 	return qualified
 }

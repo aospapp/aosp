@@ -39,6 +39,7 @@ namespace art {
 
 class BitVector;
 class DexFile;
+class ClassLoaderContext;
 class ElfFile;
 class DexLayoutSections;
 template <class MirrorType> class GcRoot;
@@ -58,6 +59,10 @@ namespace collector {
 class FakeOatFile;
 }  // namespace collector
 }  // namespace gc
+
+// A special compilation reason to indicate that only the VDEX file is usable. Keep in sync with
+// `ArtConstants::REASON_VDEX` in artd/binder/com/android/server/art/ArtConstants.aidl.
+static constexpr const char* kReasonVdex = "vdex";
 
 // OatMethodOffsets are currently 5x32-bits=160-bits long, so if we can
 // save even one OatMethodOffsets struct, the more complicated encoding
@@ -162,13 +167,15 @@ class OatFile {
   // the vdex does not have a dex section and accepts a vector of DexFiles separately.
   static OatFile* OpenFromVdex(const std::vector<const DexFile*>& dex_files,
                                std::unique_ptr<VdexFile>&& vdex_file,
-                               const std::string& location);
+                               const std::string& location,
+                               ClassLoaderContext* context);
 
   // Initialize OatFile instance from an already loaded VdexFile. The dex files
   // will be opened through `zip_fd` or `dex_location` if `zip_fd` is -1.
   static OatFile* OpenFromVdex(int zip_fd,
                                std::unique_ptr<VdexFile>&& vdex_file,
                                const std::string& location,
+                               ClassLoaderContext* context,
                                std::string* error_msg);
 
   // Return whether the `OatFile` uses a vdex-only file.
@@ -270,7 +277,7 @@ class OatFile {
       return OatClass(/* oat_file= */ nullptr,
                       ClassStatus::kErrorUnresolved,
                       OatClassType::kNoneCompiled,
-                      /* bitmap_size= */ 0,
+                      /* num_methods= */ 0,
                       /* bitmap_pointer= */ nullptr,
                       /* methods_pointer= */ nullptr);
     }
@@ -560,9 +567,6 @@ class OatDexFile final {
   static const dex::ClassDef* FindClassDef(const DexFile& dex_file,
                                            const char* descriptor,
                                            size_t hash);
-
-  // Madvise the dex file for load-time usage.
-  static void MadviseDexFileAtLoad(const DexFile& dex_file);
 
   const TypeLookupTable& GetTypeLookupTable() const {
     return lookup_table_;

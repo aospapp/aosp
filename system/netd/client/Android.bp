@@ -65,3 +65,28 @@ cc_test {
         recover: [ "all" ],
     },
 }
+
+cc_test {
+    name: "netdclient_root_test",
+    require_root: true,  // for ScopedUidChange
+    srcs: [
+        "NetdClientRootTest.cpp",
+    ],
+    defaults: [
+        "netd_aidl_interface_lateststable_cpp_static",
+        "netd_defaults",
+    ],
+    test_suites: ["device-tests"],
+    include_dirs: [
+        "system/netd/include",
+    ],
+    static_libs: [
+        "libbase",
+        "libnetd_client",
+        "libnetd_test_utils",
+    ],
+    sanitize: {
+        address: false,
+        recover: [ "all" ],
+    },
+}

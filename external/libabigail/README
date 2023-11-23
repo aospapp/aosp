@@ -5,7 +5,7 @@ It aims at constructing, manipulating, serializing and de-serializing
 ABI-relevant artifacts.
 
 The set of artifacts that we are intersted is made of quantities like
-types, variable, fonctions and declarations of a given library or
+types, variable, functions and declarations of a given library or
 program.  For a given library or program this set of quantities is
 called an ABI corpus.
 

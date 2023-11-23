@@ -34,9 +34,6 @@
                 <action android:name="com.android.sdkext.extensions.apps.MAKE_CALLS_45" />
             </intent-filter>
             <intent-filter>
-                <action android:name="com.android.sdkext.extensions.apps.IS_AT_LEAST" />
-            </intent-filter>
-            <intent-filter>
                 <action android:name="com.android.sdkext.extensions.apps.GET_SDK_VERSION" />
             </intent-filter>
         </receiver>

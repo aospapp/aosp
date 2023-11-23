@@ -16,7 +16,6 @@
 
 #include "arch/arm64/instruction_set_features_arm64.h"
 #include "assembler_arm64.h"
-#include "base/bit_utils_iterator.h"
 #include "entrypoints/quick/quick_entrypoints.h"
 #include "heap_poisoning.h"
 #include "offsets.h"
@@ -24,7 +23,7 @@
 
 using namespace vixl::aarch64;  // NOLINT(build/namespaces)
 
-namespace art {
+namespace art HIDDEN {
 namespace arm64 {
 
 #ifdef ___
@@ -187,9 +186,7 @@ void Arm64Assembler::MaybeUnpoisonHeapReference(Register reg) {
 }
 
 void Arm64Assembler::GenerateMarkingRegisterCheck(Register temp, int code) {
-  // The Marking Register is only used in the Baker read barrier configuration.
-  DCHECK(kEmitCompilerReadBarrier);
-  DCHECK(kUseBakerReadBarrier);
+  DCHECK(kReserveMarkingRegister);
 
   vixl::aarch64::Register mr = reg_x(MR);  // Marking Register.
   vixl::aarch64::Register tr = reg_x(TR);  // Thread Register.

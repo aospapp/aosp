@@ -398,6 +398,10 @@ bool PodNerAnnotator::AnnotateAroundSpanOfInterest(
     std::vector<AnnotatedSpan> *results) const {
   TC3_CHECK(results != nullptr);
 
+  if (!(model_->enabled_modes() & ModeFlag_ANNOTATION)) {
+    return true;
+  }
+
   std::vector<int32_t> wordpiece_indices;
   std::vector<int32_t> token_starts;
   std::vector<Token> tokens;
@@ -470,6 +474,11 @@ bool PodNerAnnotator::SuggestSelection(const UnicodeText &context,
     return false;
   }
 
+  if (!(model_->enabled_modes() & ModeFlag_SELECTION)) {
+    *result = {};
+    return false;
+  }
+
   for (const AnnotatedSpan &annotation : annotations) {
     TC3_VLOG(INFO) << "POD NER SuggestSelection: " << annotation;
     if (annotation.span.first <= click.first &&
@@ -491,6 +500,10 @@ bool PodNerAnnotator::ClassifyText(const UnicodeText &context,
                                    CodepointSpan click,
                                    ClassificationResult *result) const {
   TC3_VLOG(INFO) << "POD NER ClassifyText " << click;
+  if (!(model_->enabled_modes() & ModeFlag_CLASSIFICATION)) {
+    return false;
+  }
+
   std::vector<AnnotatedSpan> annotations;
   if (!AnnotateAroundSpanOfInterest(context, click, &annotations)) {
     return false;

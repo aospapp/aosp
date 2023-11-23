@@ -10,6 +10,7 @@ TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:crosbolt_perf_weekly"
+PY_VERSION = 3
 
 DOC = """
 This test clears the tpm owner, then goes through OOBE and verifies that the

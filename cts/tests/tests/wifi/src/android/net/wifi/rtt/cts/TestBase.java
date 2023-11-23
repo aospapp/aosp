@@ -36,10 +36,12 @@ import android.net.wifi.cts.WifiJUnit4TestBase;
 import android.net.wifi.rtt.RangingResult;
 import android.net.wifi.rtt.RangingResultCallback;
 import android.net.wifi.rtt.WifiRttManager;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerExecutor;
 import android.os.HandlerThread;
 import android.support.test.uiautomator.UiDevice;
+import android.util.Log;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
@@ -99,6 +101,7 @@ public class TestBase extends WifiJUnit4TestBase {
     private static ScanResult sNone11McScanResult;
 
     protected WifiRttManager mWifiRttManager;
+    protected Bundle mCharacteristics;
 
     private final HandlerThread mHandlerThread = new HandlerThread("SingleDeviceTest");
     protected final Executor mExecutor;
@@ -113,12 +116,24 @@ public class TestBase extends WifiJUnit4TestBase {
         sContext = InstrumentationRegistry.getInstrumentation().getContext();
         // skip the test if WiFi is not supported
         // Don't use assumeTrue in @BeforeClass
-        if (!WifiFeature.isWifiSupported(sContext)) return;
-        if (!WifiFeature.isRttSupported(sContext)) return;
+        if (!WifiFeature.isWifiSupported(sContext)) {
+            Log.w(TAG, "Wifi not supported. Test wouldn't run");
+            return;
+        }
+        if (!WifiFeature.isRttSupported(sContext)) {
+            Log.w(TAG, "Wifi RTT not supported. Test wouldn't run");
+            return;
+        }
         // skip the test if location is not supported
-        if (!sContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LOCATION)) return;
+        if (!sContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LOCATION)) {
+            Log.w(TAG, "Location not supported. Test wouldn't run");
+            return;
+        }
         // skip if the location is disabled
-        if (!sContext.getSystemService(LocationManager.class).isLocationEnabled()) return;
+        if (!sContext.getSystemService(LocationManager.class).isLocationEnabled()) {
+            Log.w(TAG, "Location is turned off. Test wouldn't run");
+            return;
+        }
 
 
         sWifiManager = sContext.getSystemService(WifiManager.class);
@@ -184,6 +199,7 @@ public class TestBase extends WifiJUnit4TestBase {
                     receiver.waitForStateChange());
             assertTrue("Wi-Fi RTT is not available (should be)", mWifiRttManager.isAvailable());
         }
+        mCharacteristics = mWifiRttManager.getRttCharacteristics();
     }
 
     static class WifiRttBroadcastReceiver extends BroadcastReceiver {

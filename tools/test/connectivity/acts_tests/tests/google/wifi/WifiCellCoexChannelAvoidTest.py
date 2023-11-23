@@ -14,11 +14,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import os
 import time
-import re
 import json
-import logging
 import pprint
 
 from acts import asserts
@@ -30,7 +27,6 @@ from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from acts_contrib.test_utils.wifi.wifi_constants import\
     COEX_BAND, COEX_CHANNEL, COEX_POWER_CAP_DBM, KEY_COEX_UNSAFE_CHANNELS, KEY_COEX_RESTRICTIONS
-
 
 WifiEnums = wutils.WifiEnums
 WIFI_CONFIG_APBAND_2G = WifiEnums.WIFI_CONFIG_APBAND_2G
@@ -44,7 +40,6 @@ BRIDGED_AP_LAUNCH_INTERVAL_5_SECONDS = 5
 
 
 class WifiCellCoexChannelAvoidTest(WifiBaseTest):
-
     def __init__(self, configs):
         super().__init__(configs)
         self.generate_test_list()
@@ -54,8 +49,8 @@ class WifiCellCoexChannelAvoidTest(WifiBaseTest):
             Test with a sorted list can reduce lots of time
             on switch radio and band start up.
         """
-        sorted_list = sorted(
-            self.user_params["coex_unsafe_list_sap"], key=lambda radio: radio["band"])
+        sorted_list = sorted(self.user_params["coex_unsafe_list_sap"],
+                             key=lambda radio: radio["band"])
         for test_item in sorted_list:
             self.init_test_case(self.coex_unsafechannel_avoidance, test_item)
         pprint.pprint("self.tests = {}".format(self.tests))
@@ -86,11 +81,13 @@ class WifiCellCoexChannelAvoidTest(WifiBaseTest):
         super().setup_class()
         self.dut = self.android_devices[0]
         self.dut_client = self.android_devices[1]
-        req_params = ["dbs_supported_models", "sta_concurrency_supported_models",
-                      "wifi6_models","coex_unsafe_list_sap"]
+        req_params = [
+            "dbs_supported_models", "sta_concurrency_supported_models",
+            "wifi6_models", "coex_unsafe_list_sap"
+        ]
         opt_param = ["reference_networks"]
-        self.unpack_userparams(
-            req_param_names=req_params, opt_param_names=opt_param)
+        self.unpack_userparams(req_param_names=req_params,
+                               opt_param_names=opt_param)
         if "AccessPoint" in self.user_params:
             self.legacy_configure_ap_and_start()
         elif "OpenWrtAP" in self.user_params:
@@ -106,10 +103,12 @@ class WifiCellCoexChannelAvoidTest(WifiBaseTest):
         utils.sync_device_time(self.dut_client)
         # Enable verbose logging on the duts
         self.dut.droid.wifiEnableVerboseLogging(1)
-        asserts.assert_equal(self.dut.droid.wifiGetVerboseLoggingLevel(), 1,
+        asserts.assert_equal(
+            self.dut.droid.wifiGetVerboseLoggingLevel(), 1,
             "Failed to enable WiFi verbose logging on the softap dut.")
         self.dut_client.droid.wifiEnableVerboseLogging(1)
-        asserts.assert_equal(self.dut_client.droid.wifiGetVerboseLoggingLevel(), 1,
+        asserts.assert_equal(
+            self.dut_client.droid.wifiGetVerboseLoggingLevel(), 1,
             "Failed to enable WiFi verbose logging on the client dut.")
         wutils.wifi_toggle_state(self.dut, True)
         wutils.wifi_toggle_state(self.dut_client, True)
@@ -121,7 +120,8 @@ class WifiCellCoexChannelAvoidTest(WifiBaseTest):
         if len(self.android_devices) > 2:
             utils.sync_device_time(self.android_devices[2])
             self.android_devices[2].droid.wifiEnableVerboseLogging(1)
-            asserts.assert_equal(self.android_devices[2].droid.wifiGetVerboseLoggingLevel(), 1,
+            asserts.assert_equal(
+                self.android_devices[2].droid.wifiGetVerboseLoggingLevel(), 1,
                 "Failed to enable WiFi verbose logging on the client dut.")
             self.dut_client_2 = self.android_devices[2]
 
@@ -151,8 +151,9 @@ class WifiCellCoexChannelAvoidTest(WifiBaseTest):
         if self.dut.droid.wifiIsApEnabled():
             wutils.stop_wifi_tethering(self.dut)
         self.dut.log.debug("Toggling Airplane mode OFF.")
-        asserts.assert_true(utils.force_airplane_mode(self.dut, False),
-                            "Can not turn off airplane mode: %s" % self.dut.serial)
+        asserts.assert_true(
+            utils.force_airplane_mode(self.dut, False),
+            "Can not turn off airplane mode: %s" % self.dut.serial)
         #reset coexcell setting
         self.dut.adb.shell('cmd wifi reset-coex-cell-channels')
 
@@ -181,17 +182,17 @@ class WifiCellCoexChannelAvoidTest(WifiBaseTest):
             wutils.save_wifi_soft_ap_config(
                 ad,
                 config,
-                bands=[WifiEnums.WIFI_CONFIG_SOFTAP_BAND_2G,
-                       WifiEnums.WIFI_CONFIG_SOFTAP_BAND_2G_5G])
+                bands=[
+                    WifiEnums.WIFI_CONFIG_SOFTAP_BAND_2G,
+                    WifiEnums.WIFI_CONFIG_SOFTAP_BAND_2G_5G
+                ])
         # If DUT does not support BridgedAp, 2G OR 5G SoftAp enabled.
         else:
             if self.init_softap_band == BAND_2G:
                 band = WifiEnums.WIFI_CONFIG_SOFTAP_BAND_2G
             if self.init_softap_band == BAND_5G:
                 band = WifiEnums.WIFI_CONFIG_SOFTAP_BAND_5G
-            wutils.save_wifi_soft_ap_config(ad,
-                                            config,
-                                            band=band)
+            wutils.save_wifi_soft_ap_config(ad, config, band=band)
         wutils.start_wifi_tethering_saved_config(ad)
         time.sleep(BRIDGED_AP_LAUNCH_INTERVAL_5_SECONDS)
 
@@ -204,15 +205,17 @@ class WifiCellCoexChannelAvoidTest(WifiBaseTest):
             if len(infos) == 2:
                 freq_1 = infos[0]["frequency"]
                 freq_2 = infos[1]["frequency"]
-                self.dut.log.info("DUT connected to AP on freq: {},{}, chan: {} ,{}".
-                                  format(freq_1, freq_2, WifiEnums.freq_to_channel[freq_1],
-                                         WifiEnums.freq_to_channel[freq_2]))
+                self.dut.log.info(
+                    "DUT connected to AP on freq: {},{}, chan: {} ,{}".format(
+                        freq_1, freq_2, WifiEnums.freq_to_channel[freq_1],
+                        WifiEnums.freq_to_channel[freq_2]))
                 return freq_1, freq_2
             # if DUT BridgedAp has only one instances, return the frequency.
             elif len(infos) == 1:
                 freq = infos[0]["frequency"]
-                self.dut.log.info("DUT connected to AP on freq: {}, chan: {}".
-                                  format(freq, WifiEnums.freq_to_channel[freq]))
+                self.dut.log.info(
+                    "DUT connected to AP on freq: {}, chan: {}".format(
+                        freq, WifiEnums.freq_to_channel[freq]))
                 return freq
             else:
                 raise signals.TestFailure("There should be SoftAp instance.")
@@ -220,13 +223,13 @@ class WifiCellCoexChannelAvoidTest(WifiBaseTest):
         else:
             # Return SoftAp frequency.
             callbackId = ad.droid.registerSoftApCallback()
-            freq, bandwidth = wutils.get_current_softap_info(ad,
-                                                             callbackId,
-                                                             True)
+            freq, bandwidth = wutils.get_current_softap_info(
+                ad, callbackId, True)
             ad.log.info("SoftAp freq: {}".format(freq))
             ad.droid.unregisterSoftApCallback(callbackId)
-            self.dut.log.info("DUT connected to AP on freq: {}, chan: {}".
-                        format(freq, WifiEnums.freq_to_channel[freq]))
+            self.dut.log.info(
+                "DUT connected to AP on freq: {}, chan: {}".format(
+                    freq, WifiEnums.freq_to_channel[freq]))
             return freq, bandwidth
 
     """ Tests Begin """
@@ -241,34 +244,41 @@ class WifiCellCoexChannelAvoidTest(WifiBaseTest):
                         "Require SDK at least S to use wifi coex apis.")
         self.dut.ed.clear_all_events()
         #Listing the test coex setting from configuration
-        self.dut.log.info("DUT test cellcoex radio:{}, band:{}, channels setting:{}"
-                          .format(self.radio, self.band, self.cellchannels))
-        self.dut.adb.shell('cmd wifi set-coex-cell-channels %s %s %s' % (self.radio, self.band,
-                                                                         self.cellchannels))
+        self.dut.log.info(
+            "DUT test cellcoex radio:{}, band:{}, channels setting:{}".format(
+                self.radio, self.band, self.cellchannels))
+        self.dut.adb.shell('cmd wifi set-coex-cell-channels %s %s %s' %
+                           (self.radio, self.band, self.cellchannels))
         self.dut.droid.wifiRegisterCoexCallback()
         try:
             # Wait for the immediate callback from registering and store the current values
-            event = self.dut.ed.pop_event("WifiManagerCoexCallback#onCoexUnsafeChannelsChanged", 5)
+            event = self.dut.ed.pop_event(
+                "WifiManagerCoexCallback#onCoexUnsafeChannelsChanged", 5)
         except queue.Empty:
             asserts.fail("Coex callback event not received after registering.")
-        prev_unsafe_channels = sorted(json.loads(event["data"][KEY_COEX_UNSAFE_CHANNELS]),
+        prev_unsafe_channels = sorted(json.loads(
+            event["data"][KEY_COEX_UNSAFE_CHANNELS]),
                                       key=self.coex_unsafe_channel_key)
-        prev_restrictions = sorted(json.loads(event["data"][KEY_COEX_RESTRICTIONS]))
+        prev_restrictions = sorted(
+            json.loads(event["data"][KEY_COEX_RESTRICTIONS]))
         unsafe_channels = []
         for i in range(len(prev_unsafe_channels)):
             unsafe_channels.append(prev_unsafe_channels[i]['channel'])
         self.dut.log.info("DUT unsafe channels:{}".format(unsafe_channels))
         freq1, freq2 = self.enable_softap(self.dut)
-        sapchan1, sapchan2 = WifiEnums.freq_to_channel[freq1], WifiEnums.freq_to_channel[freq2]
+        sapchan1, sapchan2 = WifiEnums.freq_to_channel[
+            freq1], WifiEnums.freq_to_channel[freq2]
         if sapchan1 in unsafe_channels or sapchan2 in unsafe_channels:
-            asserts.fail("devices hotspot's channel open on current unsafe channels "
-                                + str(unsafe_channels))
+            asserts.fail(
+                "devices hotspot's channel open on current unsafe channels " +
+                str(unsafe_channels))
         else:
             pass
         self.dut.droid.wifiUnregisterCoexCallback()
         self.dut.adb.shell('cmd wifi reset-coex-cell-channels')
 
     """ Tests End """
+
 
 if __name__ == "__main__":
     pass

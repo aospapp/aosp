@@ -17,6 +17,8 @@
 #ifndef CHRE_PLATFORM_SHARED_CACHE_MANAGEMENT_H_
 #define CHRE_PLATFORM_SHARED_CACHE_MANAGEMENT_H_
 
+#include <cinttypes>
+
 namespace chre {
 
 /**
@@ -30,8 +32,14 @@ namespace chre {
  * when it's not part of the underlying OS/system), the platform needs to
  * implement (or provide an empty stub for) the following method to invalidate
  * and/or clean the system data and instruction caches.
+ *
+ * If either one of the address or span parameter is zero (0), the function
+ * should wipe the entire system cache if it is supported by the platform.
+ *
+ * @param address The target memory address to invalidate cache.
+ * @param span Span of target memory to invalidate.
  */
-void wipeSystemCaches();
+void wipeSystemCaches(uintptr_t address = 0, uint32_t span = 0);
 
 }  // namespace chre
 

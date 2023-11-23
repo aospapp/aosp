@@ -49,7 +49,7 @@ SRC_SYMLINKS = "\
    device/google/trout/agl_services_build/cmake:cmake \
    device/google/trout/agl_services_build/toolchain:toolchain \
    device/google/trout/hal/audiocontrol:audiocontrol \
-   device/google/trout/hal/dumpstate/1.1:dumpstate_server \
+   device/google/trout/hal/dumpstate/aidl/1.0:dumpstate_server \
    device/google/trout/hal/vehicle/2.0:vehicle_hal_server \
    device/google/trout/hal/common/agl/watchdog:watchdog_test_server \
    hardware/interfaces/automotive/vehicle/2.0/default:third_party/default_native_vehicle_hal \

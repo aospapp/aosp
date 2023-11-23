@@ -515,7 +515,7 @@ public class CarStorageMonitoringTest {
         assertThat(delta21.background.fsyncCalls).isEqualTo(10);
 
         try {
-            IoStatsEntry delta31 = statEntry3.delta(statEntry1);
+            statEntry3.delta(statEntry1);
             fail("delta only allowed on stats for matching user ID");
         } catch (IllegalArgumentException e) {
             // test passed
@@ -576,15 +576,8 @@ public class CarStorageMonitoringTest {
             new IoStatsEntry.Metrics(50, 100, 100, 30, 40),
             new IoStatsEntry.Metrics(30, 0, 0, 0, 0));
 
-        ArrayList<IoStatsEntry> statsEntries1 = new ArrayList<IoStatsEntry>() {{
-            add(entry10);
-            add(entry20);
-        }};
-
-        ArrayList<IoStatsEntry> statsEntries2 = new ArrayList<IoStatsEntry>() {{
-            add(entry20);
-            add(entry30);
-        }};
+        List<IoStatsEntry> statsEntries1 = List.of(entry10, entry20);
+        List<IoStatsEntry> statsEntries2 = List.of(entry20, entry30);
 
         IoStats delta1 = new IoStats(statsEntries1, 5000);
         IoStats delta2 = new IoStats(statsEntries1, 5000);
@@ -607,10 +600,7 @@ public class CarStorageMonitoringTest {
             new IoStatsEntry.Metrics(100, 200, 50, 200, 1),
             new IoStatsEntry.Metrics(0, 30, 10, 0, 1));
 
-        ArrayList<IoStatsEntry> statsEntries = new ArrayList<IoStatsEntry>() {{
-            add(entry10);
-            add(entry20);
-        }};
+        List<IoStatsEntry> statsEntries = List.of(entry10, entry20);
 
         IoStats delta = new IoStats(statsEntries, 5000);
 
@@ -648,10 +638,7 @@ public class CarStorageMonitoringTest {
             new IoStatsEntry.Metrics(200, 60, 100, 30, 40),
             new IoStatsEntry.Metrics(20, 10, 20, 0, 0));
 
-        ArrayList<IoStatsEntry> statsEntries = new ArrayList<IoStatsEntry>() {{
-            add(entry10);
-            add(entry20);
-        }};
+        List<IoStatsEntry> statsEntries = List.of(entry10, entry20);
 
         IoStats statsDelta = new IoStats(statsEntries, 5000);
 
@@ -679,10 +666,7 @@ public class CarStorageMonitoringTest {
                 new IoStatsEntry.Metrics(200, 60, 100, 30, 40),
                 new IoStatsEntry.Metrics(20, 10, 20, 0, 0));
 
-            ArrayList<IoStatsEntry> statsEntries = new ArrayList<IoStatsEntry>() {{
-                add(entry10);
-                add(entry20);
-            }};
+            List<IoStatsEntry> statsEntries = List.of(entry10, entry20);
 
             IoStats statsDelta = new IoStats(statsEntries, 5000);
             try (JsonWriter jsonWriter = new JsonWriter(new FileWriter(temporaryFile.getFile()))) {

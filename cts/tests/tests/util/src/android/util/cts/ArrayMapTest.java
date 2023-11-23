@@ -666,6 +666,7 @@ public class ArrayMapTest {
         assertSame(iterator, iterator.next());
     }
 
+    @SuppressWarnings("SelfEquals")
     @Test
     public void testUnusualBehavior_equalsThrowsAfterRemove_entrySetIterator() {
         Map<String, String> map = new ArrayMap<>();

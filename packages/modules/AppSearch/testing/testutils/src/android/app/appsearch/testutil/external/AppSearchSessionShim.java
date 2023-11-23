@@ -22,6 +22,7 @@ import android.annotation.SuppressLint;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -56,17 +57,6 @@ public interface AppSearchSessionShim extends Closeable {
     ListenableFuture<SetSchemaResponse> setSchemaAsync(@NonNull SetSchemaRequest request);
 
     /**
-     * @deprecated use {@link #setSchema}
-     * @param request the schema to set or update the AppSearch database to.
-     * @return a {@link ListenableFuture} which resolves to a {@link SetSchemaResponse} object.
-     */
-    @NonNull
-    @Deprecated
-    default ListenableFuture<SetSchemaResponse> setSchema(@NonNull SetSchemaRequest request) {
-        return setSchemaAsync(request);
-    }
-
-    /**
      * Retrieves the schema most recently successfully provided to {@link #setSchema}.
      *
      * @return The pending {@link GetSchemaResponse} of performing this operation.
@@ -77,34 +67,12 @@ public interface AppSearchSessionShim extends Closeable {
     ListenableFuture<GetSchemaResponse> getSchemaAsync();
 
     /**
-     * @deprecated use {@link #getSchema}
-     * @return The pending {@link GetSchemaResponse} of performing this operation.
-     */
-    // This call hits disk; async API prevents us from treating these calls as properties.
-    @SuppressLint("KotlinPropertyAccess")
-    @NonNull
-    @Deprecated
-    default ListenableFuture<GetSchemaResponse> getSchema() {
-        return getSchemaAsync();
-    }
-
-    /**
      * Retrieves the set of all namespaces in the current database with at least one document.
      *
      * @return The pending result of performing this operation.
      */
     @NonNull
     ListenableFuture<Set<String>> getNamespacesAsync();
-
-    /**
-     * @deprecated use {@link #getNamespacesAsync()}
-     * @return The pending result of performing this operation.
-     */
-    @NonNull
-    @Deprecated
-    default ListenableFuture<Set<String>> getNamespaces() {
-        return getNamespacesAsync();
-    }
 
     /**
      * Indexes documents into the {@link AppSearchSessionShim} database.
@@ -124,21 +92,6 @@ public interface AppSearchSessionShim extends Closeable {
             @NonNull PutDocumentsRequest request);
 
     /**
-     * @deprecated use {@link #put}
-     * @param request containing documents to be indexed.
-     * @return a {@link ListenableFuture} which resolves to an {@link AppSearchBatchResult}. The
-     *     keys of the returned {@link AppSearchBatchResult} are the IDs of the input documents. The
-     *     values are either {@code null} if the corresponding document was successfully indexed, or
-     *     a failed {@link AppSearchResult} otherwise.
-     */
-    @NonNull
-    @Deprecated
-    default ListenableFuture<AppSearchBatchResult<String, Void>> put(
-            @NonNull PutDocumentsRequest request) {
-        return putAsync(request);
-    }
-
-    /**
      * Gets {@link GenericDocument} objects by document IDs in a namespace from the {@link
      * AppSearchSessionShim} database.
      *
@@ -154,24 +107,6 @@ public interface AppSearchSessionShim extends Closeable {
     @NonNull
     ListenableFuture<AppSearchBatchResult<String, GenericDocument>> getByDocumentIdAsync(
             @NonNull GetByDocumentIdRequest request);
-
-    /**
-     * @deprecated use {@link #getByDocumentId}
-     * @param request a request containing a namespace and IDs to get documents for.
-     * @return A {@link ListenableFuture} which resolves to an {@link AppSearchBatchResult}. The
-     *     keys of the {@link AppSearchBatchResult} represent the input document IDs from the {@link
-     *     GetByDocumentIdRequest} object. The values are either the corresponding {@link
-     *     GenericDocument} object for the ID on success, or an {@link AppSearchResult} object on
-     *     failure. For example, if an ID is not found, the value for that ID will be set to an
-     *     {@link AppSearchResult} object with result code: {@link
-     *     AppSearchResult#RESULT_NOT_FOUND}.
-     */
-    @NonNull
-    @Deprecated
-    default ListenableFuture<AppSearchBatchResult<String, GenericDocument>> getByDocumentId(
-            @NonNull GetByDocumentIdRequest request) {
-        return getByDocumentIdAsync(request);
-    }
 
     /**
      * Retrieves documents from the open {@link AppSearchSessionShim} that match a given query
@@ -221,6 +156,59 @@ public interface AppSearchSessionShim extends Closeable {
      *       the "subject" property.
      * </ul>
      *
+     * <p>The above description covers the query operators that are supported on all versions of
+     * AppSearch. Additional operators and their required features are described below.
+     *
+     * <p>{@link Features#LIST_FILTER_QUERY_LANGUAGE}: This feature covers the expansion of the
+     * query language to conform to the definition of the list filters language (https://aip
+     * .dev/160). This includes:
+     *
+     * <ul>
+     *   <li>addition of explicit 'AND' and 'NOT' operators
+     *   <li>property restricts are allowed with groupings (ex. "prop:(a OR b)")
+     *   <li>addition of custom functions to control matching
+     * </ul>
+     *
+     * <p>The newly added custom functions covered by this feature are:
+     *
+     * <ul>
+     *   <li>createList(String...)
+     *   <li>search(String, List<String>)
+     *   <li>propertyDefined(String)
+     * </ul>
+     *
+     * <p>createList takes a variable number of strings and returns a list of strings. It is for use
+     * with search.
+     *
+     * <p>search takes a query string that will be parsed according to the supported query language
+     * and an optional list of strings that specify the properties to be restricted to. This exists
+     * as a convenience for multiple property restricts. So, for example, the query `(subject:foo OR
+     * body:foo) (subject:bar OR body:bar)` could be rewritten as `search("foo bar",
+     * createList("subject", "bar"))`.
+     *
+     * <p>propertyDefined takes a string specifying the property of interest and matches all
+     * documents of any type that defines the specified property (ex.
+     * `propertyDefined("sender.name")`). Note that propertyDefined will match so long as the
+     * document's type defines the specified property. It does NOT require that the document
+     * actually hold any values for this property.
+     *
+     * <p>{@link Features#NUMERIC_SEARCH}: This feature covers numeric search expressions. In the
+     * query language, the values of properties that have {@link
+     * AppSearchSchema.LongPropertyConfig#INDEXING_TYPE_RANGE} set can be matched with a numeric
+     * search expression (the property, a supported comparator and an integer value). Supported
+     * comparators are <, <=, ==, >= and >.
+     *
+     * <p>Ex. `price < 10` will match all documents that has a numeric value in its price property
+     * that is less than 10.
+     *
+     * <p>{@link Features#VERBATIM_SEARCH}: This feature covers the verbatim string operator
+     * (quotation marks).
+     *
+     * <p>Ex. `"foo/bar" OR baz` will ensure that 'foo/bar' is treated as a single 'verbatim' token.
+     *
+     * <p>The availability of each of these features can be checked by calling {@link
+     * Features#isFeatureSupported} with the desired feature.
+     *
      * <p>Additional search specifications, such as filtering by {@link AppSearchSchema} type or
      * adding projection, can be set by calling the corresponding {@link SearchSpec.Builder} setter.
      *
@@ -234,6 +222,73 @@ public interface AppSearchSessionShim extends Closeable {
      */
     @NonNull
     SearchResultsShim search(@NonNull String queryExpression, @NonNull SearchSpec searchSpec);
+
+    /**
+     * Retrieves suggested Strings that could be used as {@code queryExpression} in {@link
+     * #search(String, SearchSpec)} API.
+     *
+     * <p>The {@code suggestionQueryExpression} can contain one term with no operators, or contain
+     * multiple terms and operators. Operators will be considered as a normal term. Please see the
+     * operator examples below. The {@code suggestionQueryExpression} must end with a valid term,
+     * the suggestions are generated based on the last term. If the input {@code
+     * suggestionQueryExpression} doesn't have a valid token, AppSearch will return an empty result
+     * list. Please see the invalid examples below.
+     *
+     * <p>Example: if there are following documents with content stored in AppSearch.
+     *
+     * <ul>
+     *   <li>document1: "term1"
+     *   <li>document2: "term1 term2"
+     *   <li>document3: "term1 term2 term3"
+     *   <li>document4: "org"
+     * </ul>
+     *
+     * <p>Search suggestions with the single term {@code suggestionQueryExpression} "t", the
+     * suggested results are:
+     *
+     * <ul>
+     *   <li>"term1" - Use it to be queryExpression in {@link #search} could get 3 {@link
+     *       SearchResult}s, which contains document 1, 2 and 3.
+     *   <li>"term2" - Use it to be queryExpression in {@link #search} could get 2 {@link
+     *       SearchResult}s, which contains document 2 and 3.
+     *   <li>"term3" - Use it to be queryExpression in {@link #search} could get 1 {@link
+     *       SearchResult}, which contains document 3.
+     * </ul>
+     *
+     * <p>Search suggestions with the multiple term {@code suggestionQueryExpression} "org t", the
+     * suggested result will be "org term1" - The last token is completed by the suggested String.
+     *
+     * <p>Operators in {@link #search} are supported.
+     *
+     * <p><b>NOTE:</b> Exclusion and Grouped Terms in the last term is not supported.
+     *
+     * <p>example: "apple -f": This Api will throw an {@link
+     * android.app.appsearch.exceptions.AppSearchException} with {@link
+     * AppSearchResult#RESULT_INVALID_ARGUMENT}.
+     *
+     * <p>example: "apple (f)": This Api will return an empty results.
+     *
+     * <p>Invalid example: All these input {@code suggestionQueryExpression} don't have a valid last
+     * token, AppSearch will return an empty result list.
+     *
+     * <ul>
+     *   <li>"" - Empty {@code suggestionQueryExpression}.
+     *   <li>"(f)" - Ending in a closed brackets.
+     *   <li>"f:" - Ending in an operator.
+     *   <li>"f " - Ending in trailing space.
+     * </ul>
+     *
+     * @param suggestionQueryExpression the non empty query string to search suggestions
+     * @param searchSuggestionSpec spec for setting document filters
+     * @return The pending result of performing this operation which resolves to a List of {@link
+     *     SearchSuggestionResult} on success. The returned suggestion Strings are ordered by the
+     *     number of {@link SearchResult} you could get by using that suggestion in {@link #search}.
+     * @see #search(String, SearchSpec)
+     */
+    @NonNull
+    ListenableFuture<List<SearchSuggestionResult>> searchSuggestionAsync(
+            @NonNull String suggestionQueryExpression,
+            @NonNull SearchSuggestionSpec searchSuggestionSpec);
 
     /**
      * Reports usage of a particular document by namespace and ID.
@@ -253,18 +308,6 @@ public interface AppSearchSessionShim extends Closeable {
      */
     @NonNull
     ListenableFuture<Void> reportUsageAsync(@NonNull ReportUsageRequest request);
-
-    /**
-     * @deprecated use {@link #reportUsage}
-     * @param request The usage reporting request.
-     * @return The pending result of performing this operation which resolves to {@code null} on
-     *     success.
-     */
-    @NonNull
-    @Deprecated
-    default ListenableFuture<Void> reportUsage(@NonNull ReportUsageRequest request) {
-        return reportUsageAsync(request);
-    }
 
     /**
      * Removes {@link GenericDocument} objects by document IDs in a namespace from the {@link
@@ -289,23 +332,6 @@ public interface AppSearchSessionShim extends Closeable {
             @NonNull RemoveByDocumentIdRequest request);
 
     /**
-     * @deprecated use {@link #remove}
-     * @param request {@link RemoveByDocumentIdRequest} with IDs in a namespace to remove from the
-     *     index.
-     * @return a {@link ListenableFuture} which resolves to an {@link AppSearchBatchResult}. The
-     *     keys of the {@link AppSearchBatchResult} represent the input IDs from the {@link
-     *     RemoveByDocumentIdRequest} object. The values are either {@code null} on success, or a
-     *     failed {@link AppSearchResult} otherwise. IDs that are not found will return a failed
-     *     {@link AppSearchResult} with a result code of {@link AppSearchResult#RESULT_NOT_FOUND}.
-     */
-    @NonNull
-    @Deprecated
-    default ListenableFuture<AppSearchBatchResult<String, Void>> remove(
-            @NonNull RemoveByDocumentIdRequest request) {
-        return removeAsync(request);
-    }
-
-    /**
      * Removes {@link GenericDocument}s from the index by Query. Documents will be removed if they
      * match the {@code queryExpression} in given namespaces and schemaTypes which is set via {@link
      * SearchSpec.Builder#addFilterNamespaces} and {@link SearchSpec.Builder#addFilterSchemas}.
@@ -320,25 +346,13 @@ public interface AppSearchSessionShim extends Closeable {
      *     document will be removed. All specific about how to scoring, ordering, snippeting and
      *     resulting will be ignored.
      * @return The pending result of performing this operation.
+     * @throws IllegalArgumentException if the {@link SearchSpec} contains a {@link JoinSpec}.
+     *     {@link JoinSpec} lets you join docs that are not owned by the caller, so the semantics of
+     *     failures from this method would be complex.
      */
     @NonNull
     ListenableFuture<Void> removeAsync(
             @NonNull String queryExpression, @NonNull SearchSpec searchSpec);
-
-    /**
-     * @deprecated use {@link #remove}
-     * @param queryExpression Query String to search.
-     * @param searchSpec Spec containing schemaTypes, namespaces and query expression indicates how
-     *     document will be removed. All specific about how to scoring, ordering, snippeting and
-     *     resulting will be ignored.
-     * @return The pending result of performing this operation.
-     */
-    @NonNull
-    @Deprecated
-    default ListenableFuture<Void> remove(
-            @NonNull String queryExpression, @NonNull SearchSpec searchSpec) {
-        return removeAsync(queryExpression, searchSpec);
-    }
 
     /**
      * Gets the storage info for this {@link AppSearchSessionShim} database.
@@ -350,16 +364,6 @@ public interface AppSearchSessionShim extends Closeable {
      */
     @NonNull
     ListenableFuture<StorageInfo> getStorageInfoAsync();
-
-    /**
-     * @deprecated use {@link #getStorageInfoAsync()}
-     * @return a {@link ListenableFuture} which resolves to a {@link StorageInfo} object.
-     */
-    @NonNull
-    @Deprecated
-    default ListenableFuture<StorageInfo> getStorageInfo() {
-        return getStorageInfoAsync();
-    }
 
     /**
      * Flush all schema and document updates, additions, and deletes to disk if possible.
@@ -374,19 +378,6 @@ public interface AppSearchSessionShim extends Closeable {
      */
     @NonNull
     ListenableFuture<Void> requestFlushAsync();
-
-    /**
-     * @deprecated use {@link #requestFlushAsync()}
-     * @return The pending result of performing this operation. {@link
-     *     android.app.appsearch.exceptions.AppSearchException} with {@link
-     *     AppSearchResult#RESULT_INTERNAL_ERROR} will be set to the future if we hit error when
-     *     save to disk.
-     */
-    @NonNull
-    @Deprecated
-    default ListenableFuture<Void> requestFlush() {
-        return requestFlushAsync();
-    }
 
     /**
      * Returns the {@link Features} to check for the availability of certain features for this

@@ -158,8 +158,6 @@ cc_defaults {
             ],
         },
     },
-
-    notice: "ojluni/NOTICE",
 }
 
 cc_library_shared {
@@ -205,14 +203,19 @@ cc_library_shared {
     srcs: [
         "luni/src/test/native/libcore_dalvik_system_JniTest.cpp",
         "luni/src/test/native/libcore_java_io_FileTest.cpp",
+        "luni/src/test/native/libcore_java_lang_OldStackTraceElementTest.cpp",
         "luni/src/test/native/libcore_java_lang_ThreadTest.cpp",
         "luni/src/test/native/libcore_java_nio_BufferTest.cpp",
-        "luni/src/test/native/libcore_java_time_BionicTzdbConsistencyTest.cpp",
+        "luni/src/test/native/libcore_java_time_TimeApisConsistencyTest.cpp",
         "luni/src/test/native/libcore_libcore_util_NativeAllocationRegistryTest.cpp",
+        "luni/src/test/native/tests_support_AndroidProperties.cpp",
     ],
     shared_libs: [
         "liblog",
         "libnativehelper",
+    ],
+    static_libs: [
+        "libbase",
     ],
 }
 

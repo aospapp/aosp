@@ -18,9 +18,14 @@
 
 #include "derive_sdk.h"
 
-int main(int, char**) {
-  if (!android::derivesdk::SetSdkLevels("/apex")) {
-    return EXIT_FAILURE;
+#define MOUNTPOINT "/apex"
+
+int main(int argc, char** argv) {
+  if (argc > 1 && !strcmp("--header", argv[1])) {
+    return android::derivesdk::PrintHeader() ? EXIT_SUCCESS : EXIT_FAILURE;
+  } else if (argc > 1 && !strcmp("--dump", argv[1])) {
+    return android::derivesdk::PrintDump(MOUNTPOINT) ? EXIT_SUCCESS : EXIT_FAILURE;
+  } else {
+    return android::derivesdk::SetSdkLevels(MOUNTPOINT) ? EXIT_SUCCESS : EXIT_FAILURE;
   }
-  return EXIT_SUCCESS;
 }

@@ -17,51 +17,15 @@ on early-init
 
     start ueventd
 
+    # Generate empty linker config to suppress warnings
+    write /linkerconfig/ld.config.txt \#
+    chmod 644 /linkerconfig/ld.config.txt
+
+    # Applies debug policy to decide whether to enable adb, adb root, and logcat.
+    # We don't directly exec the binary to specify stdio_to_kmsg.
+    exec_start init_debug_policy
+
 on init
-    # Mount binderfs
-    mkdir /dev/binderfs
-    mount binder binder /dev/binderfs stats=global
-    chmod 0755 /dev/binderfs
-
-    symlink /dev/binderfs/binder /dev/binder
-    symlink /dev/binderfs/vndbinder /dev/vndbinder
-
-    chmod 0666 /dev/binderfs/binder
-    chmod 0666 /dev/binderfs/vndbinder
-
-    # Prepare cpusets that are pre-defined by Android. Inside Microdroid, these however don't mean
-    # much because the mapping from vCPUs to physical CPUs are quite flexible; a VM can be started
-    # with any number of vCPUs and we in general can't be sure that vCPU N is a big core or a little
-    # core. These nodes are provided just to satisfy the code which puts a PID to a specific cpuset.
-    mkdir /dev/cpuset/foreground
-    copy /dev/cpuset/cpus /dev/cpuset/foreground/cpus
-    copy /dev/cpuset/mems /dev/cpuset/foreground/mems
-    mkdir /dev/cpuset/background
-    copy /dev/cpuset/cpus /dev/cpuset/background/cpus
-    copy /dev/cpuset/mems /dev/cpuset/background/mems
-    mkdir /dev/cpuset/system-background
-    copy /dev/cpuset/cpus /dev/cpuset/system-background/cpus
-    copy /dev/cpuset/mems /dev/cpuset/system-background/mems
-
-    chown system system /dev/cpuset
-    chown system system /dev/cpuset/foreground
-    chown system system /dev/cpuset/background
-    chown system system /dev/cpuset/system-background
-    chown system system /dev/cpuset/tasks
-    chown system system /dev/cpuset/foreground/tasks
-    chown system system /dev/cpuset/background/tasks
-    chown system system /dev/cpuset/system-background/tasks
-
-    chmod 0664 /dev/cpuset/tasks
-    chmod 0664 /dev/cpuset/foreground/tasks
-    chmod 0664 /dev/cpuset/background/tasks
-    chmod 0664 /dev/cpuset/system-background/tasks
-
-    start servicemanager
-
-    start vendor.dice-microdroid
-    start diced
-
     mkdir /mnt/apk 0755 system system
     mkdir /mnt/extra-apk 0755 root root
     # Microdroid_manager starts apkdmverity/zipfuse/apexd
@@ -71,7 +35,10 @@ on init
     restorecon /mnt/extra-apk
 
     # Wait for apexd to finish activating APEXes before starting more processes.
-    wait_for_prop apexd.status activated
+    # Microdroid starts apexd in VM mode in which apexd doesn't wait for init after setting
+    # apexd.status to activated, but immediately transitions to ready. Therefore, it's not safe to
+    # wait for the activated status, by the time this line is reached it may be already be ready.
+    wait_for_prop apexd.status ready
     perform_apex_config
 
     # Notify to microdroid_manager that perform_apex_config is done.
@@ -79,22 +46,16 @@ on init
     # payloads are not designed to run with bootstrap bionic
     setprop apex_config.done true
 
-    setprop ro.debuggable ${ro.boot.microdroid.debuggable:-0}
+on property:microdroid_manager.init_done=1
+    # Stop ueventd to save memory
+    stop ueventd
 
 on init && property:ro.boot.microdroid.debuggable=1
     # Mount tracefs (with GID=AID_READTRACEFS)
     mount tracefs tracefs /sys/kernel/tracing gid=3012
 
-on init && property:ro.boot.logd.enabled=1
-    # Start logd before any other services run to ensure we capture all of their logs.
-    start logd
-
-on init && property:ro.boot.adb.enabled=1
+on property:init_debug_policy.adbd.enabled=1
     start adbd
-
-on load_persist_props_action && property:ro.boot.logd.enabled=1
-    start logd
-    start logd-reinit
 
 # Mount filesystems and start core system services.
 on late-init
@@ -114,6 +75,12 @@ on late-init
     # some services can be started.
     trigger late-fs
 
+    # Wait for microdroid_manager to finish setting up sysprops from the payload config.
+    # Some further actions in the boot sequence might depend on the sysprops from the payloag,
+    # e.g. microdroid.config.enable_authfs configures whether to run authfs_service after
+    # /data is mounted.
+    wait_for_prop microdroid_manager.config_done 1
+
     trigger post-fs-data
 
     # Load persist properties and override properties (if enabled) from /data.
@@ -128,7 +95,7 @@ on post-fs
     mount rootfs rootfs / remount bind ro nodev
 
     # TODO(b/185767624): change the hard-coded size?
-    mount tmpfs tmpfs /data noatime nosuid nodev rw size=128M
+    mount tmpfs tmpfs /data noatime nosuid nodev noexec rw size=128M
 
     # We chown/chmod /data again so because mount is run as root + defaults
     chown system system /data
@@ -144,7 +111,6 @@ on post-fs
     restorecon /data/misc
 
     mkdir /data/misc/authfs 0700 root root
-    start authfs_service
 
 on late-fs && property:ro.debuggable=1
     # Ensure that tracefs has the correct permissions.
@@ -160,34 +126,32 @@ on post-fs-data
     mkdir /data/vendor_de 0771 root root
     mkdir /data/vendor/hardware 0771 root root
 
-    # Start tombstoned early to be able to store tombstones.
-    # microdroid doesn't have anr, but tombstoned requires it
-    mkdir /data/anr 0775 system system
-    mkdir /data/tombstones 0771 system system
-    mkdir /data/vendor/tombstones 0771 root root
-
-    start tombstoned
-
     # For security reasons, /data/local/tmp should always be empty.
     # Do not place files or directories in /data/local/tmp
     mkdir /data/local 0751 root root
     mkdir /data/local/tmp 0771 shell shell
 
-service tombstone_transmit /system/bin/tombstone_transmit.microdroid -cid 2 -port 2000
-    user root
-    group system
+on post-fs-data && property:microdroid_manager.authfs.enabled=1
+    start authfs_service
+
+on boot
+    # Mark boot completed. This will notify microdroid_manager to run payload.
+    setprop dev.bootcomplete 1
 
 service apexd-vm /system/bin/apexd --vm
     user root
     group system
     oneshot
     disabled
+    capabilities CHOWN DAC_OVERRIDE DAC_READ_SEARCH FOWNER SYS_ADMIN
 
 service ueventd /system/bin/ueventd
+    user root
+    group root
     class core
     critical
     seclabel u:r:ueventd:s0
-    shutdown critical
+    capabilities CHOWN DAC_OVERRIDE DAC_READ_SEARCH FOWNER FSETID MKNOD NET_ADMIN SETGID SETUID SYS_MODULE SYS_RAWIO SYS_ADMIN
 
 service console /system/bin/sh
     class core
@@ -198,13 +162,7 @@ service console /system/bin/sh
     seclabel u:r:shell:s0
     setenv HOSTNAME console
 
-service seriallogging /system/bin/logcat -b all -v threadtime -f /dev/hvc2 *:V
+service init_debug_policy /system/bin/init_debug_policy
+    oneshot
     disabled
-    user logd
-    group root logd
-
-on fs
-    write /dev/event-log-tags "# content owned by logd
-"
-    chown logd logd /dev/event-log-tags
-    chmod 0644 /dev/event-log-tags
+    stdio_to_kmsg

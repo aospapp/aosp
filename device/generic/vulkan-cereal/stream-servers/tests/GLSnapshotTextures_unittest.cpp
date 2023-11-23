@@ -18,7 +18,9 @@
 
 #include <gtest/gtest.h>
 
-namespace emugl {
+namespace gfxstream {
+namespace gl {
+namespace {
 
 struct GlTextureUnitState {
     GLuint binding2D;
@@ -478,4 +480,6 @@ TEST_F(SnapshotGlTextureObjectTest, CreateCubeMap) {
     doCheckedSnapshot();
 }
 
-}  // namespace emugl
+}  // namespace
+}  // namespace gl
+}  // namespace gfxstream

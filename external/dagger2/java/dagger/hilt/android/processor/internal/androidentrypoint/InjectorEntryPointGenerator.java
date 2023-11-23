@@ -61,6 +61,7 @@ public final class InjectorEntryPointGenerator {
 
     Processors.addGeneratedAnnotation(builder, env, getClass());
     Generators.copyLintAnnotations(metadata.element(), builder);
+    Generators.copySuppressAnnotations(metadata.element(), builder);
 
     JavaFile.builder(name.packageName(), builder.build()).build().writeTo(env.getFiler());
   }

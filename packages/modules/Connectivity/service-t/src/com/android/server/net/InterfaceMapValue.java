@@ -16,20 +16,45 @@
 package com.android.server.net;
 
 import com.android.net.module.util.Struct;
-import com.android.net.module.util.Struct.Field;
-import com.android.net.module.util.Struct.Type;
+
+import java.util.Arrays;
 
 /**
  * The value of bpf interface index map which is used for NetworkStatsService.
  */
 public class InterfaceMapValue extends Struct {
+    private static final int IF_NAME_SIZE = 16;
+
     @Field(order = 0, type = Type.ByteArray, arraysize = 16)
     public final byte[] interfaceName;
 
     public InterfaceMapValue(String iface) {
-        final byte[] ifaceArray = iface.getBytes();
-        interfaceName = new byte[16];
         // All array bytes after the interface name, if any, must be 0.
-        System.arraycopy(ifaceArray, 0, interfaceName, 0, ifaceArray.length);
+        interfaceName = Arrays.copyOf(iface.getBytes(), IF_NAME_SIZE);
+    }
+
+    /**
+     * Constructor for Struct#parse. Build this struct from byte array of interface name.
+     *
+     * @param ifName Byte array of interface name, length is expected to be IF_NAME_SIZE(16).
+     *               If longer or shorter, interface name will be truncated or padded with zeros.
+     *               All array bytes after the interface name, if any, must be 0.
+     */
+    public InterfaceMapValue(final byte[] ifName) {
+        interfaceName = Arrays.copyOf(ifName, IF_NAME_SIZE);
+    }
+
+    /** Returns the length of the null-terminated string. */
+    private int strlen(byte[] str) {
+        for (int i = 0; i < str.length; ++i) {
+            if (str[i] == '\0') {
+                return i;
+            }
+        }
+        return str.length;
+    }
+
+    public String getInterfaceNameString() {
+        return new String(interfaceName, 0 /* offset */,  strlen(interfaceName));
     }
 }

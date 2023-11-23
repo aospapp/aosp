@@ -59,7 +59,7 @@ public class SecureFrpInstallTest {
     private static void setSecureFrp(boolean secureFrp) throws Exception {
         adoptShellPermissions();
         SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(),
-                "settings put --user 0 secure secure_frp_mode " + (secureFrp ? "1" : "0"));
+                "settings put global secure_frp_mode " + (secureFrp ? "1" : "0"));
         dropShellPermissions();
     }
 

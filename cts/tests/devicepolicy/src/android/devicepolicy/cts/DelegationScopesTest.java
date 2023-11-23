@@ -32,6 +32,7 @@ import static org.junit.Assert.assertThrows;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.IntentFilter;
+import android.util.Log;
 
 import com.android.bedstead.harrier.BedsteadJUnit4;
 import com.android.bedstead.harrier.DeviceState;
@@ -64,10 +65,10 @@ import java.util.List;
  */
 @RunWith(BedsteadJUnit4.class)
 @Postsubmit(reason = "new test")
-// TODO(b/198584060): clean up the TestApp install API surface and remove the
-//  requirement to manually uninstall or use the 'try' block.
 @EnsureHasNoDelegate
 public final class DelegationScopesTest {
+
+    private static final String TAG = DelegationScopesTest.class.getSimpleName();
 
     private static final String TEST_SCOPE = DELEGATION_CERT_INSTALL;
     private static final String TEST_SCOPE_2 = DELEGATION_APP_RESTRICTIONS;
@@ -247,11 +248,9 @@ public final class DelegationScopesTest {
 
     @CannotSetPolicyTest(policy = Delegation.class, includeNonDeviceAdminStates = false)
     public void getDelegatePackages_invalidAdmin_throwsSecurityException() {
-        try (TestAppInstance testApp = sTestApp.install(sUser)) {
-            assertThrows(SecurityException.class, () ->
-                    sDeviceState.dpc().devicePolicyManager().getDelegatePackages(
-                            sDeviceState.dpc().componentName(), testApp.packageName()));
-        }
+        assertThrows(SecurityException.class, () ->
+                sDeviceState.dpc().devicePolicyManager().getDelegatePackages(
+                        sDeviceState.dpc().componentName(), TEST_SCOPE));
     }
 
     @CanSetPolicyTest(policy = Delegation.class)
@@ -336,7 +335,12 @@ public final class DelegationScopesTest {
                                 testApp.packageName(),
                                 Collections.singletonList(DELEGATION_NETWORK_LOGGING)));
             } finally {
-                resetDelegatedScopes(testApp);
+                try {
+                    resetDelegatedScopes(testApp);
+                } catch (Exception e) {
+                    // Can happen when API is not allowed to be called by a financed device owner.
+                    Log.w(TAG, "Failed to reset delegated scopes", e);
+                }
             }
         }
     }
@@ -459,10 +463,6 @@ public final class DelegationScopesTest {
     @PolicyAppliesTest(policy = Delegation.class)
     public void setDelegatedScopes_delegatedPackageReceivesScopesFromBroadcast() {
         try (TestAppInstance testApp = sTestApp.install(sUser)) {
-            // TODO(b/198769413): we should not need to start (or query for) an activity, but the
-            //  event is not received for some reason without it.
-            testApp.activities().any().start();
-            // TODO(b/198588980): automatically register every test app for this broadcast.
             testApp.registerReceiver(
                     new IntentFilter(ACTION_APPLICATION_DELEGATION_SCOPES_CHANGED),
                     RECEIVER_EXPORTED);
@@ -473,8 +473,6 @@ public final class DelegationScopesTest {
                         testApp.packageName(),
                         Arrays.asList(TEST_SCOPE, TEST_SCOPE_2));
 
-                // TODO(b/198294382): support .stringListValue().contains(List<String>) to
-                //  avoid needing to explicitly list the strings again here.
                 EventLogsSubject.assertThat(testApp.events().broadcastReceived()
                         .whereIntent().action()
                         .isEqualTo(ACTION_APPLICATION_DELEGATION_SCOPES_CHANGED)

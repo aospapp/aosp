@@ -47,7 +47,6 @@ class ProcessStats_Process;
 }  // namespace pbzero
 }  // namespace protos
 
-
 class ProcessStatsDataSource : public ProbesDataSource {
  public:
   static const ProbesDataSource::Descriptor descriptor;
@@ -63,6 +62,7 @@ class ProcessStatsDataSource : public ProbesDataSource {
   void WriteAllProcesses();
   void OnPids(const base::FlatSet<int32_t>& pids);
   void OnRenamePids(const base::FlatSet<int32_t>& pids);
+  void OnFds(const base::FlatSet<std::pair<pid_t, uint64_t>>& fds);
 
   // ProbesDataSource implementation.
   void Start() override;
@@ -72,9 +72,9 @@ class ProcessStatsDataSource : public ProbesDataSource {
   bool on_demand_dumps_enabled() const { return enable_on_demand_dumps_; }
 
   // Virtual for testing.
+  virtual const char* GetProcMountpoint();
   virtual base::ScopedDir OpenProcDir();
   virtual std::string ReadProcPidFile(int32_t pid, const std::string& file);
-  virtual base::ScopedDir OpenProcTaskDir(int32_t pid);
 
  private:
   struct CachedProcessStats {
@@ -87,9 +87,17 @@ class ProcessStatsDataSource : public ProbesDataSource {
     uint32_t vm_locked_kb = std::numeric_limits<uint32_t>::max();
     uint32_t vm_hvm_kb = std::numeric_limits<uint32_t>::max();
     int oom_score_adj = std::numeric_limits<int>::max();
+    uint32_t smr_rss_kb = std::numeric_limits<uint32_t>::max();
+    uint32_t smr_pss_kb = std::numeric_limits<uint32_t>::max();
+    uint32_t smr_pss_anon_kb = std::numeric_limits<uint32_t>::max();
+    uint32_t smr_pss_file_kb = std::numeric_limits<uint32_t>::max();
+    uint32_t smr_pss_shmem_kb = std::numeric_limits<uint32_t>::max();
 
     // ctime + stime from /proc/pid/stat
     uint64_t cpu_time = std::numeric_limits<uint64_t>::max();
+
+    // file descriptors
+    base::FlatSet<uint64_t> seen_fds;
   };
 
   // Common functions.
@@ -123,6 +131,8 @@ class ProcessStatsDataSource : public ProbesDataSource {
   static void Tick(base::WeakPtr<ProcessStatsDataSource>);
   void WriteAllProcessStats();
   bool WriteMemCounters(int32_t pid, const std::string& proc_status);
+  void WriteFds(int32_t pid);
+  void WriteSingleFd(int32_t pid, uint64_t fd);
   bool ShouldWriteThreadStats(int32_t pid);
   void WriteThreadStats(int32_t pid, int32_t tid);
 
@@ -154,12 +164,26 @@ class ProcessStatsDataSource : public ProbesDataSource {
   bool record_thread_names_ = false;
   bool enable_on_demand_dumps_ = true;
   bool dump_all_procs_on_start_ = false;
-  bool record_thread_time_in_state_ = false;
+  bool resolve_process_fds_ = false;
+  bool scan_smaps_rollup_ = false;
 
   // This set contains PIDs as per the Linux kernel notion of a PID (which is
   // really a TID). In practice this set will contain all TIDs for all processes
   // seen, not just the main thread id (aka thread group ID).
-  base::FlatSet<int32_t> seen_pids_;
+  struct SeenPid {
+    int32_t pid;
+    int32_t tgid;
+
+    inline SeenPid(int32_t _pid, int32_t _tgid = 0) : pid(_pid), tgid(_tgid) {}
+    // TODO(rsavitski): add comparator support to FlatSet
+    inline bool operator==(const SeenPid& other) const {
+      return pid == other.pid;
+    }
+    inline bool operator<(const SeenPid& other) const {
+      return pid < other.pid;
+    }
+  };
+  base::FlatSet<SeenPid> seen_pids_;
 
   // Fields for keeping track of the periodic stats/counters.
   uint32_t poll_period_ms_ = 0;
@@ -176,11 +200,6 @@ class ProcessStatsDataSource : public ProbesDataSource {
   using TimeInStateCacheEntry = std::tuple</* tid */ int32_t,
                                            /* cpu_freq_index */ uint32_t,
                                            /* ticks */ uint64_t>;
-
-  // Cache for time in state. Size specificed in the config. Values are stored
-  // at index: hash(tid, cpu_freq_index) % thread_time_in_state_cache_size_.
-  std::vector<TimeInStateCacheEntry> thread_time_in_state_cache_;
-  uint32_t thread_time_in_state_cache_size_;
 
   std::unique_ptr<CpuFreqInfo> cpu_freq_info_;
 

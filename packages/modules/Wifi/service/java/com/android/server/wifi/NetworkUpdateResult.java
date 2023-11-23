@@ -17,6 +17,10 @@
 package com.android.server.wifi;
 
 import static android.net.wifi.WifiConfiguration.INVALID_NETWORK_ID;
+import static android.net.wifi.WifiManager.AddNetworkResult.STATUS_ADD_WIFI_CONFIG_FAILURE;
+import static android.net.wifi.WifiManager.AddNetworkResult.STATUS_SUCCESS;
+
+import android.net.wifi.WifiManager;
 
 import java.util.Objects;
 
@@ -26,18 +30,26 @@ public class NetworkUpdateResult {
     private final boolean mProxyChanged;
     private final boolean mCredentialChanged;
     private final boolean mIsNewNetwork;
+    private final @WifiManager.AddNetworkResult.AddNetworkStatusCode int mStatusCode;
 
     public NetworkUpdateResult(int netId) {
-        this(netId, false, false, false, false);
+        this(netId, netId != INVALID_NETWORK_ID ? STATUS_SUCCESS : STATUS_ADD_WIFI_CONFIG_FAILURE,
+                false, false, false, false);
+    }
+
+    public NetworkUpdateResult(int netId, int addNetworkFailureCode) {
+        this(netId, addNetworkFailureCode, false, false, false, false);
     }
 
     public NetworkUpdateResult(
             int netId,
+            int addNetworkFailureCode,
             boolean ip,
             boolean proxy,
             boolean credential,
             boolean isNewNetwork) {
         mNetId = netId;
+        mStatusCode = addNetworkFailureCode;
         mIpChanged = ip;
         mProxyChanged = proxy;
         mCredentialChanged = credential;
@@ -70,7 +82,11 @@ public class NetworkUpdateResult {
     }
 
     public boolean isSuccess() {
-        return mNetId != INVALID_NETWORK_ID;
+        return mStatusCode == STATUS_SUCCESS;
+    }
+
+    public @WifiManager.AddNetworkResult.AddNetworkStatusCode int getStatusCode() {
+        return mStatusCode;
     }
 
     @Override

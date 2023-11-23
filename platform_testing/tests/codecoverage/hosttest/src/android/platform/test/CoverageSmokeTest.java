@@ -16,6 +16,7 @@ import com.android.tradefed.util.FileUtil;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -75,10 +76,21 @@ public final class CoverageSmokeTest extends BaseHostJUnit4Test {
                 verifyNotNull(
                         buildInfo.getFile("jacoco-report-classes-all.jar"),
                         "Could not get jacoco-report-classes-all.jar from the build.");
-        URI uri = URI.create("jar:file:" + jacocoAllClassesJar.getPath());
-        try (FileSystem zip = FileSystems.newFileSystem(uri, ImmutableMap.of())) {
-            try (InputStream in = Files.newInputStream(zip.getPath(INNER_JAR_PATH))) {
+        if (jacocoAllClassesJar.isDirectory()) {
+            // If we downloaded directly the subset of files, it will be a directory
+            File jacocoReport = FileUtil.findFile(jacocoAllClassesJar, "jacoco-report-classes.jar");
+            verifyNotNull(
+                    jacocoReport,
+                    "jacoco-report-classes.jar missing from the directory downloaded.");
+            try (InputStream in = new FileInputStream(jacocoReport)) {
                 analyzer.analyzeAll(in, "jacoco-report-classes.jar");
+            }
+        } else {
+            URI uri = URI.create("jar:file:" + jacocoAllClassesJar.getPath());
+            try (FileSystem zip = FileSystems.newFileSystem(uri, ImmutableMap.of())) {
+                try (InputStream in = Files.newInputStream(zip.getPath(INNER_JAR_PATH))) {
+                    analyzer.analyzeAll(in, "jacoco-report-classes.jar");
+                }
             }
         }
         IBundleCoverage coverage = builder.getBundle("JaCoCo Coverage Report");

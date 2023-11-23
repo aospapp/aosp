@@ -34,7 +34,7 @@ java_test_host {
     data: [
         ":CtsSilentUpdateTestCases",
         ":SilentInstallCurrent",
+        ":SilentInstallS",
         ":SilentInstallR",
-        ":SilentInstallQ",
-    ]
+    ],
 }

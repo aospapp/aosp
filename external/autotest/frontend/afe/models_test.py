@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # pylint: disable=missing-docstring
 
 import unittest
@@ -468,7 +468,7 @@ class SerializationTest(unittest.TestCase,
                           'jobkeyval_set': [{'id': 10,
                                              'job_id': 5,
                                              'key': 'suite',
-                                             'value': 'dummy'},
+                                             'value': 'stub'},
                                             {'id': 11,
                                              'job_id': 5,
                                              'key': 'build',
@@ -536,7 +536,7 @@ class SerializationTest(unittest.TestCase,
                           'jobkeyval_set': [{'id': 16,
                                              'job_id': 7,
                                              'key': 'suite',
-                                             'value': 'dummy'},
+                                             'value': 'stub'},
                                             {'id': 17,
                                              'job_id': 7,
                                              'key': 'build',

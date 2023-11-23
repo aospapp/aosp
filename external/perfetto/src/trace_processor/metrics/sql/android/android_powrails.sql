@@ -17,21 +17,27 @@
 -- View of Power Rail counters with ts converted from ns to ms.
 DROP VIEW IF EXISTS power_rails_counters;
 CREATE VIEW power_rails_counters AS
-SELECT value, ts/1000000 AS ts, name
+SELECT value, ts / 1000000 AS ts, name
 FROM counter c
-JOIN counter_track t on c.track_id = t.id
+JOIN counter_track t ON c.track_id = t.id
 WHERE name GLOB 'power.*';
 
 DROP VIEW IF EXISTS avg_used_powers;
 CREATE VIEW avg_used_powers AS
 SELECT
   name,
-  avg_used_power
+  avg_used_power,
+  tot_used_power,
+  powrail_start_ts,
+  powrail_end_ts
 FROM (
   SELECT
     name,
-    (LEAD(value) OVER (PARTITION BY name ORDER BY ts) - value) /
-      (LEAD(ts) OVER (PARTITION BY name ORDER BY ts) - ts) AS avg_used_power
+    (LEAD(value) OVER (PARTITION BY name ORDER BY ts) - value)
+    / (LEAD(ts) OVER (PARTITION BY name ORDER BY ts) - ts) AS avg_used_power,
+    (LEAD(value) OVER (PARTITION BY name ORDER BY ts) - value) AS tot_used_power,
+    ts AS powrail_start_ts,
+    (LEAD(ts) OVER (PARTITION BY name ORDER BY ts)) AS powrail_end_ts
   FROM (
     SELECT name, MIN(ts) AS ts, value
     FROM power_rails_counters
@@ -59,7 +65,7 @@ SELECT
       )
     ),
     'avg_used_power_mw', (SELECT avg_used_power FROM avg_used_powers
-        WHERE avg_used_powers.name = power_rails_counters.name)
+      WHERE avg_used_powers.name = power_rails_counters.name)
   ) AS power_rails_proto
 FROM power_rails_counters
 GROUP BY name
@@ -71,5 +77,8 @@ SELECT AndroidPowerRails(
   'power_rails', (
     SELECT RepeatedField(power_rails_proto)
     FROM power_rails_view
+  ),
+  'avg_total_used_power_mw', (
+    SELECT SUM(tot_used_power) / (MAX(powrail_end_ts) - MIN(powrail_start_ts)) FROM avg_used_powers
   )
 );

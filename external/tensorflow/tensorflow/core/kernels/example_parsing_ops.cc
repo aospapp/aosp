@@ -20,10 +20,10 @@ limitations under the License.
 #include <vector>
 
 #include "absl/base/call_once.h"
-#include "tensorflow/core/common_runtime/metrics.h"
 #include "tensorflow/core/example/example.pb.h"
 #include "tensorflow/core/example/feature.pb.h"
 #include "tensorflow/core/framework/common_shape_fns.h"
+#include "tensorflow/core/framework/metrics.h"
 #include "tensorflow/core/framework/numeric_op.h"
 #include "tensorflow/core/framework/register_types.h"
 #include "tensorflow/core/lib/core/errors.h"
@@ -107,7 +107,7 @@ class ParseExampleOp : public OpKernel {
     for (int i = 0; i < keys_flat.size(); ++i) {
       keys->push_back(keys_flat(i));
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   // Copies keys from OpInputList of scalar to std::vector<string>.
@@ -119,7 +119,7 @@ class ParseExampleOp : public OpKernel {
     for (const auto& key : key_list) {
       keys->push_back(key.scalar<tstring>()());
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   // Validates the shapes of input tensors.
@@ -201,7 +201,7 @@ class ParseExampleOp : public OpKernel {
             "] == ", DataTypeString(attrs_.dense_types[d]));
       }
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   // Populates the FastParseExampleConfig from keys & defaults.
@@ -280,7 +280,7 @@ class ParseExampleOp : public OpKernel {
         ragged_splits.set(d, result.ragged_splits[d]);
       }
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   ParseExampleAttrs attrs_;
@@ -562,7 +562,7 @@ class ParseSequenceExampleOp : public OpKernel {
         }
       }
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   example::FastParseExampleConfig MakeContextConfig(
@@ -614,7 +614,7 @@ class ParseSequenceExampleOp : public OpKernel {
   static Tensor ConstructDefaultScalar(DataType dtype) {
     switch (dtype) {
       case DT_INT64:
-        return Tensor(static_cast<int64>(0));
+        return Tensor(static_cast<int64_t>(0));
       case DT_FLOAT:
         return Tensor(static_cast<float>(0.0));
       case DT_STRING:
@@ -761,7 +761,7 @@ class ParseSequenceExampleOp : public OpKernel {
             d, feature_list_result.ragged_splits[d]);
       }
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   ParseSequenceExampleAttrs attrs_;
@@ -1043,9 +1043,9 @@ class ParseSingleSequenceExampleOp : public OpKernel {
         context_sparse_values.set(d, feature_values);
         OP_REQUIRES_OK(ctx, context_sparse_shapes.allocate(d, TensorShape({1}),
                                                            &sp_shape_d));
-        auto shape_t = sp_shape_d->vec<int64>();
+        auto shape_t = sp_shape_d->vec<int64_t>();
         shape_t(0) = num_elements;
-        auto indices_t = sp_indices_d->matrix<int64>();
+        auto indices_t = sp_indices_d->matrix<int64_t>();
         std::iota(indices_t.data(), indices_t.data() + num_elements, 0);
       } else {
         TensorShape indices_shape({0, 1});
@@ -1059,7 +1059,7 @@ class ParseSingleSequenceExampleOp : public OpKernel {
             ctx, context_sparse_values.allocate(d, values_shape, &sp_values_d));
         OP_REQUIRES_OK(ctx, context_sparse_shapes.allocate(d, TensorShape({1}),
                                                            &sp_shape_d));
-        auto shape_t = sp_shape_d->vec<int64>();
+        auto shape_t = sp_shape_d->vec<int64_t>();
         shape_t(0) = 0;
       }
     }
@@ -1169,7 +1169,7 @@ class ParseSingleSequenceExampleOp : public OpKernel {
                                                               &sp_values_d));
       OP_REQUIRES_OK(ctx, feature_list_sparse_shapes.allocate(
                               d, TensorShape({2}), &sp_shape_d));
-      auto shape_t = sp_shape_d->vec<int64>();
+      auto shape_t = sp_shape_d->vec<int64_t>();
       shape_t(0) = feature_list_size;
       shape_t(1) = max_num_features;
 
@@ -1218,7 +1218,7 @@ class DecodeJSONExampleOp : public OpKernel {
           resolver_.get(), "type.googleapis.com/tensorflow.Example", &in, &out);
       OP_REQUIRES(ctx, status.ok(),
                   errors::InvalidArgument("Error while parsing JSON: ",
-                                          string(status.error_message())));
+                                          string(status.message())));
     }
   }
 

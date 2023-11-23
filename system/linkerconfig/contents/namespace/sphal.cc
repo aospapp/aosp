@@ -26,6 +26,8 @@
 
 #include "linkerconfig/namespacebuilder.h"
 
+#include <android-base/strings.h>
+
 using android::linkerconfig::modules::Namespace;
 
 namespace android {
@@ -67,9 +69,8 @@ Namespace BuildSphalNamespace([[maybe_unused]] const Context& ctx) {
 
   if (ctx.IsApexBinaryConfig()) {
     if (ctx.IsVndkAvailable()) {
+      AddLlndkLibraries(ctx, &ns, VndkUserPartition::Vendor);
       ns.AddRequires(std::vector{":vndksp"});
-      ns.GetLink(ctx.GetSystemNamespaceName())
-          .AddSharedLib(Var("LLNDK_LIBRARIES_VENDOR", ""));
     }
   } else {
     // Once in this namespace, access to libraries in /system/lib is restricted.
@@ -79,11 +80,9 @@ Namespace BuildSphalNamespace([[maybe_unused]] const Context& ctx) {
     if (ctx.IsSystemSection() || ctx.IsUnrestrictedSection()) {
       ns.GetLink("rs").AddSharedLib("libRS_internal.so");
     }
-    ns.GetLink(ctx.GetSystemNamespaceName())
-        .AddSharedLib(Var("LLNDK_LIBRARIES_VENDOR", ""));
+    AddLlndkLibraries(ctx, &ns, VndkUserPartition::Vendor);
     ns.GetLink("vndk").AddSharedLib(
         Var("VNDK_SAMEPROCESS_LIBRARIES_VENDOR", ""));
-    ns.AddRequires(std::vector{"libneuralnetworks.so"});
   }
 
   return ns;

@@ -18,6 +18,7 @@ instrumentation_tests := \
     LongevityPlatformLibTests \
     ManagedProvisioningTests \
     FrameworksCoreTests \
+    FrameworksCoreGameManagerTests \
     FrameworksMockingCoreTests \
     BinderProxyCountingTestApp \
     BinderProxyCountingTestService \
@@ -75,11 +76,13 @@ instrumentation_tests := \
     FlickerTests \
     FlickerTestApp \
     WMShellFlickerTests \
-    WMShellFlickerTestApp \
     WMShellUnitTests \
     trace_config_detailed.textproto \
     perfetto_trace_processor_shell \
-    CarDeveloperOptionsUnitTests
+    CarDeveloperOptionsUnitTests \
+    SpaPrivilegedLibTests \
+    SettingsSpaUnitTests \
+    SpaLibTests
 
 ifneq ($(strip $(BOARD_PERFSETUP_SCRIPT)),)
 instrumentation_tests += perf-setup

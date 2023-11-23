@@ -16,14 +16,14 @@
 
 package com.android.server.appsearch.contactsindexer;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import android.net.Uri;
 
-import com.android.server.appsearch.contactsindexer.PersonBuilderHelper;
 import com.android.server.appsearch.contactsindexer.appsearchtypes.ContactPoint;
 import com.android.server.appsearch.contactsindexer.appsearchtypes.Person;
 
-
-import static com.google.common.truth.Truth.assertThat;
+import com.google.common.collect.ImmutableList;
 
 import org.junit.Test;
 
@@ -277,5 +277,123 @@ public class PersonBuilderHelperTest {
 
         // Score should be set as base(1) + # of contactPoints + # of additionalNames.
         assertThat(person.getScore()).isEqualTo(6);
+    }
+
+    @Test
+    public void testGenerateFingerprintStringForPerson() {
+        long creationTimestamp = 12345L;
+        String namespace = "namespace";
+        String id = "id";
+        int score = 3;
+        String name = "name";
+        String givenName = "givenName";
+        String middleName = "middleName";
+        String lastName = "lastName";
+        Uri externalUri = Uri.parse("http://external.com");
+        Uri imageUri = Uri.parse("http://image.com");
+        byte[] fingerprint = "Hello world!".getBytes();
+        List<String> affiliations = ImmutableList.of("Org1", "Org2", "Org3");
+        List<String> relations = ImmutableList.of("relation1", "relation2");
+        boolean isImportant = true;
+        boolean isBot = true;
+        String note1 = "note";
+        String note2 = "note2";
+        ContactPoint contact1 = new ContactPoint.Builder(namespace, id + "1", "Home")
+                .setCreationTimestampMillis(creationTimestamp)
+                .addAddress("addr1")
+                .addPhone("phone1")
+                .addEmail("email1")
+                .addAppId("appId1")
+                .build();
+        ContactPoint contact2 = new ContactPoint.Builder(namespace, id + "2", "Work")
+                .setCreationTimestampMillis(creationTimestamp)
+                .addAddress("addr2")
+                .addPhone("phone2")
+                .addEmail("email2")
+                .addAppId("appId2")
+                .build();
+        ContactPoint contact3 = new ContactPoint.Builder(namespace, id + "3", "Other")
+                .setCreationTimestampMillis(creationTimestamp)
+                .addAddress("addr3")
+                .addPhone("phone3")
+                .addEmail("email3")
+                .addAppId("appId3")
+                .build();
+        List<String> additionalNames = ImmutableList.of("nickname", "phoneticName");
+        @Person.NameType
+        List<Long> additionalNameTypes = ImmutableList.of((long) Person.TYPE_NICKNAME,
+                (long) Person.TYPE_PHONETIC_NAME);
+        Person person = new Person.Builder(namespace, id, name)
+                .setCreationTimestampMillis(creationTimestamp)
+                .setScore(score)
+                .setGivenName(givenName)
+                .setMiddleName(middleName)
+                .setFamilyName(lastName)
+                .setExternalUri(externalUri)
+                .setImageUri(imageUri)
+                .addAdditionalName(additionalNameTypes.get(0), additionalNames.get(0))
+                .addAdditionalName(additionalNameTypes.get(1), additionalNames.get(1))
+                .addAffiliation(affiliations.get(0))
+                .addAffiliation(affiliations.get(1))
+                .addAffiliation(affiliations.get(2))
+                .addRelation(relations.get(0))
+                .addRelation(relations.get(1))
+                .setIsImportant(isImportant)
+                .setIsBot(isBot)
+                .addNote(note1)
+                .addNote(note2)
+                .setFingerprint(fingerprint)
+                .addContactPoint(contact1)
+                .addContactPoint(contact2)
+                .addContactPoint(contact3)
+                .build();
+
+        // Different from GenericDocument.toString, we will a get string representation without
+        // any indentation for Person.
+        String expected = "properties: {\n"
+                + "\"additionalNameTypes\": [1, 2],\n"
+                + "\"additionalNames\": [\"nickname\", \"phoneticName\"],\n"
+                + "\"affiliations\": [\"Org1\", \"Org2\", \"Org3\"],\n"
+                + "\"contactPoints\": [\n"
+                + "properties: {\n"
+                + "\"address\": [\"addr1\"],\n"
+                + "\"appId\": [\"appId1\"],\n"
+                + "\"email\": [\"email1\"],\n"
+                + "\"label\": [\"Home\"],\n"
+                + "\"telephone\": [\"phone1\"]\n"
+                + "},\n"
+                + "\n"
+                + "properties: {\n"
+                + "\"address\": [\"addr2\"],\n"
+                + "\"appId\": [\"appId2\"],\n"
+                + "\"email\": [\"email2\"],\n"
+                + "\"label\": [\"Work\"],\n"
+                + "\"telephone\": [\"phone2\"]\n"
+                + "},\n"
+                + "\n"
+                + "properties: {\n"
+                + "\"address\": [\"addr3\"],\n"
+                + "\"appId\": [\"appId3\"],\n"
+                + "\"email\": [\"email3\"],\n"
+                + "\"label\": [\"Other\"],\n"
+                + "\"telephone\": [\"phone3\"]\n"
+                + "}\n"
+                + "],\n"
+                + "\"externalUri\": [\"http://external.com\"],\n"
+                + "\"familyName\": [\"lastName\"],\n"
+                + "\"fingerprint\": [[72, 101, 108, 108, 111, 32, 119, 111, 114, 108, "
+                + "100, 33]],\n"
+                + "\"givenName\": [\"givenName\"],\n"
+                + "\"imageUri\": [\"http://image.com\"],\n"
+                + "\"isBot\": [true],\n"
+                + "\"isImportant\": [true],\n"
+                + "\"middleName\": [\"middleName\"],\n"
+                + "\"name\": [\"name\"],\n"
+                + "\"notes\": [\"note\", \"note2\"],\n"
+                + "\"relations\": [\"relation1\", \"relation2\"]\n"
+                + "}";
+
+        assertThat(PersonBuilderHelper.generateFingerprintStringForPerson(person)).isEqualTo(
+                expected);
     }
 }

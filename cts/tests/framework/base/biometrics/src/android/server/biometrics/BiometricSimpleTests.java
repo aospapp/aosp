@@ -38,8 +38,9 @@ import android.hardware.biometrics.BiometricTestSession;
 import android.hardware.biometrics.SensorProperties;
 import android.os.CancellationSignal;
 import android.platform.test.annotations.Presubmit;
-import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
+
+import androidx.test.uiautomator.UiObject2;
 
 import com.android.server.biometrics.nano.SensorStateProto;
 

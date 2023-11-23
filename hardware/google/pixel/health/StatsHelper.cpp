@@ -18,6 +18,8 @@
 #include <android/binder_manager.h>
 #include <pixelhealth/StatsHelper.h>
 
+#include "pixelatoms_defs.h"
+
 #define LOG_TAG "pixelhealth-vendor"
 
 #include <utils/Log.h>
@@ -29,7 +31,8 @@ namespace health {
 
 using aidl::android::frameworks::stats::VendorAtom;
 using aidl::android::frameworks::stats::VendorAtomValue;
-namespace PixelAtoms = android::hardware::google::pixel::PixelAtoms;
+
+namespace PixelAtoms = hardware::google::pixel::PixelAtoms;
 
 std::shared_ptr<IStats> getStatsService() {
     const std::string instance = std::string() + IStats::descriptor + "/default";
@@ -48,29 +51,30 @@ std::shared_ptr<IStats> getStatsService() {
     return IStats::fromBinder(ndk::SpAIBinder(AServiceManager_getService(instance.c_str())));
 }
 
-void reportBatteryHealthSnapshot(const std::shared_ptr<IStats> &stats_client,
-                                 const VendorBatteryHealthSnapshot &batteryHealthSnapshot) {
+void reportBatteryHealthSnapshot(const std::shared_ptr<IStats> &stats_client, int32_t type,
+                                 int32_t temperature_deci_celsius, int32_t voltage_micro_volt,
+                                 int32_t current_micro_amps, int32_t open_circuit_micro_volt,
+                                 int32_t resistance_micro_ohm, int32_t level_percent) {
     // Load values array
     std::vector<VendorAtomValue> values(7);
     VendorAtomValue tmp;
-    tmp.set<VendorAtomValue::intValue>(batteryHealthSnapshot.type());
+    tmp.set<VendorAtomValue::intValue>(type);
     values[0] = tmp;
-    tmp.set<VendorAtomValue::intValue>(batteryHealthSnapshot.temperature_deci_celsius());
+    tmp.set<VendorAtomValue::intValue>(temperature_deci_celsius);
     values[1] = tmp;
-    tmp.set<VendorAtomValue::intValue>(batteryHealthSnapshot.voltage_micro_volt());
+    tmp.set<VendorAtomValue::intValue>(voltage_micro_volt);
     values[2] = tmp;
-    tmp.set<VendorAtomValue::intValue>(batteryHealthSnapshot.current_micro_amps());
+    tmp.set<VendorAtomValue::intValue>(current_micro_amps);
     values[3] = tmp;
-    tmp.set<VendorAtomValue::intValue>(batteryHealthSnapshot.open_circuit_micro_volt());
+    tmp.set<VendorAtomValue::intValue>(open_circuit_micro_volt);
     values[4] = tmp;
-    tmp.set<VendorAtomValue::intValue>(batteryHealthSnapshot.resistance_micro_ohm());
+    tmp.set<VendorAtomValue::intValue>(resistance_micro_ohm);
     values[5] = tmp;
-    tmp.set<VendorAtomValue::intValue>(batteryHealthSnapshot.level_percent());
+    tmp.set<VendorAtomValue::intValue>(level_percent);
     values[6] = tmp;
 
     // Send vendor atom to IStats HAL
-    VendorAtom event = {.reverseDomainName = "",
-                        .atomId = PixelAtoms::Atom::kVendorBatteryHealthSnapshot,
+    VendorAtom event = {.atomId = PixelAtoms::VENDOR_BATTERY_HEALTH_SNAPSHOT,
                         .values = std::move(values)};
     const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
     if (!ret.isOk())
@@ -78,16 +82,15 @@ void reportBatteryHealthSnapshot(const std::shared_ptr<IStats> &stats_client,
 }
 
 void reportBatteryCausedShutdown(const std::shared_ptr<IStats> &stats_client,
-                                 const VendorBatteryCausedShutdown &batteryCausedShutdown) {
+                                 int32_t last_recorded_micro_volt) {
     // Load values array
     std::vector<VendorAtomValue> values(1);
     VendorAtomValue tmp;
-    tmp.set<VendorAtomValue::intValue>(batteryCausedShutdown.last_recorded_micro_volt());
+    tmp.set<VendorAtomValue::intValue>(last_recorded_micro_volt);
     values[0] = tmp;
 
     // Send vendor atom to IStats HAL
-    VendorAtom event = {.reverseDomainName = "",
-                        .atomId = PixelAtoms::Atom::kVendorBatteryCausedShutdown,
+    VendorAtom event = {.atomId = PixelAtoms::VENDOR_BATTERY_CAUSED_SHUTDOWN,
                         .values = std::move(values)};
     const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
     if (!ret.isOk())

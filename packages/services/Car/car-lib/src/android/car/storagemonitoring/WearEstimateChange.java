@@ -126,7 +126,6 @@ public final class WearEstimateChange implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public boolean equals(Object other) {
         if (other instanceof WearEstimateChange) {
             WearEstimateChange wo = (WearEstimateChange) other;
@@ -140,7 +139,6 @@ public final class WearEstimateChange implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public int hashCode() {
         return Objects.hash(oldEstimate,
                             newEstimate,
@@ -150,7 +148,6 @@ public final class WearEstimateChange implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return String.format(
                 "wear change{old level=%s, new level=%s, uptime=%d, date=%s, acceptable=%s}",

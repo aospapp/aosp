@@ -50,7 +50,7 @@ ipc::TestSocket kTestSocket{"host_impl_unittest"};
 
 class FakeService : public Service {
  public:
-  MOCK_METHOD2(OnFakeMethod1, void(const RequestProto&, DeferredBase*));
+  MOCK_METHOD(void, OnFakeMethod1, (const RequestProto&, DeferredBase*));
 
   static void Invoker(Service* service,
                       const ProtoMessage& req,
@@ -82,17 +82,25 @@ class FakeService : public Service {
 
 class FakeClient : public base::UnixSocket::EventListener {
  public:
-  MOCK_METHOD0(OnConnect, void());
-  MOCK_METHOD0(OnDisconnect, void());
-  MOCK_METHOD1(OnServiceBound, void(const Frame::BindServiceReply&));
-  MOCK_METHOD1(OnInvokeMethodReply, void(const Frame::InvokeMethodReply&));
-  MOCK_METHOD1(OnFileDescriptorReceived, void(int));
-  MOCK_METHOD0(OnRequestError, void());
+  MOCK_METHOD(void, OnConnect, ());
+  MOCK_METHOD(void, OnDisconnect, ());
+  MOCK_METHOD(void, OnServiceBound, (const Frame::BindServiceReply&));
+  MOCK_METHOD(void, OnInvokeMethodReply, (const Frame::InvokeMethodReply&));
+  MOCK_METHOD(void, OnFileDescriptorReceived, (int));
+  MOCK_METHOD(void, OnRequestError, ());
 
   explicit FakeClient(base::TaskRunner* task_runner) {
     sock_ = base::UnixSocket::Connect(kTestSocket.name(), this, task_runner,
                                       kTestSocket.family(),
                                       base::SockType::kStream);
+  }
+
+  FakeClient(base::ScopedSocketHandle connected_socket,
+             base::TaskRunner* task_runner) {
+    sock_ = base::UnixSocket::AdoptConnected(std::move(connected_socket), this,
+                                             task_runner, kTestSocket.family(),
+                                             base::SockType::kStream);
+    task_runner->PostTask([this]() { OnConnect(); });
   }
 
   ~FakeClient() override = default;
@@ -170,11 +178,23 @@ class HostImplTest : public ::testing::Test {
   void SetUp() override {
     kTestSocket.Destroy();
     task_runner_.reset(new base::TestTaskRunner());
+#if PERFETTO_BUILDFLAG(PERFETTO_OS_FUCHSIA)
+    Host* host = Host::CreateInstance_Fuchsia(task_runner_.get()).release();
+    auto socket_pair = base::UnixSocketRaw::CreatePairPosix(
+        base::SockFamily::kUnix, base::SockType::kStream);
+    host->AdoptConnectedSocket_Fuchsia(
+        base::ScopedSocketHandle(socket_pair.first.ReleaseFd()),
+        [](int) { return false; });
+    cli_.reset(
+        new FakeClient(base::ScopedSocketHandle(socket_pair.second.ReleaseFd()),
+                       task_runner_.get()));
+#else
     Host* host =
         Host::CreateInstance(kTestSocket.name(), task_runner_.get()).release();
+    cli_.reset(new FakeClient(task_runner_.get()));
+#endif
     ASSERT_NE(nullptr, host);
     host_.reset(static_cast<HostImpl*>(host));
-    cli_.reset(new FakeClient(task_runner_.get()));
     auto on_connect = task_runner_->CreateCheckpoint("on_connect");
     EXPECT_CALL(*cli_, OnConnect()).WillOnce(Invoke(on_connect));
     task_runner_->RunUntilCheckpoint("on_connect");
@@ -321,7 +341,8 @@ TEST_F(HostImplTest, InvokeMethodDropReply) {
   task_runner_->RunUntilCheckpoint("on_reply_received");
 }
 
-#if !PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
+#if !PERFETTO_BUILDFLAG(PERFETTO_OS_WIN) && \
+    !PERFETTO_BUILDFLAG(PERFETTO_OS_FUCHSIA)
 // File descriptor sending over IPC is not supported on Windows.
 TEST_F(HostImplTest, SendFileDescriptor) {
   FakeService* fake_service = new FakeService("FakeService");

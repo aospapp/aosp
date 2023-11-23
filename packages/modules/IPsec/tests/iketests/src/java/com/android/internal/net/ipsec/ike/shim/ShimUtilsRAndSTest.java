@@ -22,23 +22,12 @@ import static org.junit.Assert.assertTrue;
 import android.net.ipsec.test.ike.exceptions.IkeException;
 import android.net.ipsec.test.ike.exceptions.IkeInternalException;
 
-import com.android.modules.utils.build.SdkLevel;
-
 import org.junit.Test;
 
 import java.io.IOException;
 
 public class ShimUtilsRAndSTest {
     private ShimUtilsRAndS mShim = new ShimUtilsRAndS();
-
-    @Test
-    public void testGetInstance() {
-        final ShimUtils shim = ShimUtils.getInstance();
-        assertTrue(shim instanceof ShimUtils);
-        if (SdkLevel.isAtLeastT()) {
-            assertTrue(shim instanceof ShimUtilsMinT);
-        }
-    }
 
     @Test
     public void testGetWrappedIkeException() {

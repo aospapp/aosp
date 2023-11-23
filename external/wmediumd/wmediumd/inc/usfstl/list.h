@@ -37,18 +37,18 @@ static inline void usfstl_list_init(struct usfstl_list *list)
 }
 
 static inline void usfstl_list_insert_before(struct usfstl_list_entry *existing,
-					     struct usfstl_list_entry *new)
+					     struct usfstl_list_entry *new_entry)
 {
-	new->prev = existing->prev;
-	existing->prev->next = new;
-	existing->prev = new;
-	new->next = existing;
+	new_entry->prev = existing->prev;
+	existing->prev->next = new_entry;
+	existing->prev = new_entry;
+	new_entry->next = existing;
 }
 
 static inline void usfstl_list_append(struct usfstl_list *list,
-				      struct usfstl_list_entry *new)
+				      struct usfstl_list_entry *new_entry)
 {
-	usfstl_list_insert_before(&list->list, new);
+	usfstl_list_insert_before(&list->list, new_entry);
 }
 
 #define usfstl_list_item(element, type, member) \

@@ -17,9 +17,9 @@
 package com.android.tools.idea.validator;
 
 import com.android.ide.common.rendering.api.RenderSession;
-import com.android.layoutlib.bridge.intensive.RenderTestBase;
+import com.android.layoutlib.bridge.android.RenderTestBase;
+import com.android.layoutlib.bridge.intensive.LayoutLibTestCallback;
 import com.android.layoutlib.bridge.intensive.setup.ConfigGenerator;
-import com.android.layoutlib.bridge.intensive.setup.LayoutLibTestCallback;
 import com.android.layoutlib.bridge.intensive.setup.LayoutPullParser;
 import com.android.layoutlib.bridge.intensive.util.SessionParamsBuilder;
 import com.android.tools.idea.validator.ValidatorData.Issue;
@@ -27,18 +27,17 @@ import com.android.tools.idea.validator.ValidatorData.Level;
 import com.android.tools.idea.validator.ValidatorData.Policy;
 import com.android.tools.idea.validator.ValidatorData.Type;
 
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.EnumSet;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.google.android.apps.common.testing.accessibility.framework.uielement.DefaultCustomViewBuilderAndroid;
 import com.google.android.apps.common.testing.accessibility.framework.uielement.ViewHierarchyElementAndroid;
 
 import static com.android.tools.idea.validator.ValidatorUtil.filter;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -174,9 +173,8 @@ public class AccessibilityValidatorTests extends RenderTestBase {
 
             // ATF doesn't count alpha values unless image is passed.
             ExpectedLevels expectedLevels = new ExpectedLevels();
-            expectedLevels.expectedErrors = 3;
-            expectedLevels.expectedWarnings = 1; // This is true only if image is passed.
-            expectedLevels.expectedVerboses = 2;
+            expectedLevels.expectedErrors = 4;
+            expectedLevels.expectedVerboses = 1;
             expectedLevels.expectedFixes = 4;
             expectedLevels.check(textContrast);
 
@@ -189,7 +187,6 @@ public class AccessibilityValidatorTests extends RenderTestBase {
 
     /* TODO: {@link LayoutValidator::obtainCharacterLocations is false by default for now }*/
     @Test
-    @Ignore
     public void testSwitchTextContrastCheck() throws Exception {
         render("a11y_test_switch_text_contrast.xml", session -> {
             ValidatorResult result = getRenderResult(session);
@@ -219,9 +216,9 @@ public class AccessibilityValidatorTests extends RenderTestBase {
 
             // ATF doesn't count alpha values unless image is passed.
             ExpectedLevels expectedLevels = new ExpectedLevels();
-            expectedLevels.expectedErrors = 3;
-            expectedLevels.expectedVerboses = 3;
-            expectedLevels.expectedFixes = 3;
+            expectedLevels.expectedErrors = 4;
+            expectedLevels.expectedVerboses = 1;
+            expectedLevels.expectedFixes = 4;
             expectedLevels.check(textContrast);
 
             // Make sure no other errors in the system.
@@ -328,6 +325,26 @@ public class AccessibilityValidatorTests extends RenderTestBase {
         });
     }
 
+    @Test
+    public void testCharacterLocationArgMaxLength() throws Exception {
+        render("justified_none.xml", session -> {
+            ValidatorHierarchy hierarchy = (ValidatorHierarchy)session.getValidationData();
+
+            List<ViewHierarchyElementAndroid> textViews =
+                    hierarchy.mView.getActiveWindow().getAllViews().stream().filter(view->
+                            (view.getClassName() != null &&
+                                    view.getClassName().toString().contains("TextView"))).collect(
+                            Collectors.toList());
+
+            // The text of the only TextView is very long (more than 1000 characters), but
+            // only 100 text character locations are retrieved because
+            // setCharacterLocationArgMaxLength method works as expected.
+            assertEquals(textViews.size(), 1);
+            assertEquals(textViews.get(0).getTextCharacterLocations().size(),
+                    ValidatorUtil.CHARACTER_LOCATION_ARG_MAX_LENGTH - 1);
+        });
+    }
+
     private void checkEquals(List<Issue> list1, List<Issue> list2) {
         assertEquals(list1.size(), list2.size());
         for (int i = 0; i < list1.size(); i++) {
@@ -366,7 +383,7 @@ public class AccessibilityValidatorTests extends RenderTestBase {
         LayoutValidator.updatePolicy(new Policy(
                 EnumSet.of(Type.ACCESSIBILITY, Type.RENDER),
                 EnumSet.of(Level.ERROR, Level.WARNING, Level.INFO, Level.VERBOSE)));
-        LayoutValidator.setObtainCharacterLocations(false);
+        LayoutValidator.setObtainCharacterLocations(true);
 
         LayoutPullParser parser = createParserFromPath(fileName);
         layoutLibCallback.initResources();

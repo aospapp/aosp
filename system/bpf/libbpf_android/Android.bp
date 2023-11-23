@@ -26,7 +26,6 @@ cc_library {
     name: "libbpf_android",
     vendor_available: false,
     host_supported: false,
-    native_bridge_supported: true,
     target: {
         android: {
             srcs: [
@@ -40,6 +39,7 @@ cc_library {
 
     shared_libs: [
         "libbase",
+        "libcutils",
         "libutils",
         "liblog",
         "libbpf_bcc",
@@ -86,8 +86,8 @@ cc_test {
     ],
 
     data: [
-        ":bpf_load_tp_prog.o",
-        ":bpf_load_tp_prog_btf.o",
+        ":bpfLoadTpProg.o",
+        ":bpfLoadTpProgBtf.o",
     ],
     require_root: true,
 }

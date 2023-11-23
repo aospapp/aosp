@@ -22,8 +22,10 @@
  * @see audio_effects_conf_V2_0.xsd for documentation on each structure
  */
 
+#include <error/Result.h>
 #include <system/audio_effect.h>
 
+#include <cstddef>
 #include <map>
 #include <memory>
 #include <string>
@@ -47,32 +49,39 @@ struct Library {
     std::string name;
     std::string path;
 };
-using Libraries = std::vector<Library>;
+using Libraries = std::vector<std::shared_ptr<const Library>>;
 
 struct EffectImpl {
-    Library* library; //< Only valid as long as the associated library vector is unmodified
+    //< Only valid as long as the associated library vector is unmodified
+    std::shared_ptr<const Library> library;
     effect_uuid_t uuid;
 };
 
 struct Effect : public EffectImpl {
     std::string name;
     bool isProxy;
-    EffectImpl libSw; //< Only valid if isProxy
-    EffectImpl libHw; //< Only valid if isProxy
+    std::shared_ptr<EffectImpl> libSw; //< Only valid if isProxy
+    std::shared_ptr<EffectImpl> libHw; //< Only valid if isProxy
 };
 
-using Effects = std::vector<Effect>;
+using Effects = std::vector<std::shared_ptr<const Effect>>;
 
 template <class Type>
 struct Stream {
     Type type;
-    std::vector<std::reference_wrapper<Effect>> effects;
+    Effects effects;
 };
 using OutputStream = Stream<audio_stream_type_t>;
 using InputStream = Stream<audio_source_t>;
 
 struct DeviceEffects : Stream<audio_devices_t> {
     std::string address;
+};
+
+struct Processings {
+    std::vector<InputStream> preprocess;
+    std::vector<OutputStream> postprocess;
+    std::vector<DeviceEffects> deviceprocess;
 };
 
 /** Parsed configuration.
@@ -82,19 +91,16 @@ struct DeviceEffects : Stream<audio_devices_t> {
  *       consider keeping a private handle on the xml dom and replace all strings by dom pointers.
  *       Or even better, use SAX parsing to avoid the allocations all together.
  */
-struct Config {
+struct Config : public Processings {
     float version;
     Libraries libraries;
     Effects effects;
-    std::vector<OutputStream> postprocess;
-    std::vector<InputStream> preprocess;
-    std::vector<DeviceEffects> deviceprocess;
 };
 
 /** Result of `parse(const char*)` */
 struct ParsingResult {
     /** Parsed config, nullptr if the xml lib could not load the file */
-    std::unique_ptr<Config> parsedConfig;
+    std::shared_ptr<const Config> parsedConfig;
     size_t nbSkippedElement; //< Number of skipped invalid library, effect or processing chain
     const std::string configPath; //< Path to the loaded configuration
 };

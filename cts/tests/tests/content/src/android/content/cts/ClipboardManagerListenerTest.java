@@ -22,6 +22,9 @@ import android.content.ClipboardManager.OnPrimaryClipChangedListener;
 import android.net.Uri;
 import android.test.ActivityInstrumentationTestCase2;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
+
 import com.android.compatibility.common.util.PollingCheck;
 
 //@AppModeFull // TODO(Instant) Should clip board data be visible?
@@ -39,6 +42,11 @@ public class ClipboardManagerListenerTest
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+        // Clear any dialogs as focus is needed to access clipboard.
+        UiDevice uiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        uiDevice.pressHome();
+        uiDevice.pressBack();
+
         mActivity = getActivity();
         mListener = new CountingClipChangedListener();
     }

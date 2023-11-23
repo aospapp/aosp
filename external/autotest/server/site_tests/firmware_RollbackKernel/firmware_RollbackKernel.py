@@ -12,7 +12,7 @@ class firmware_RollbackKernel(FirmwareTest):
     """
     Servo based kernel rollback test.
 
-    This test requires a USB disk plugged-in, which contains a Chrome OS test
+    This test requires a USB disk plugged-in, which contains a ChromeOS test
     image (built by "build_image --test"). In normal mode, this test rollbacks
     kernel A and results kernel B boot. It then rollbacks kernel B and
     results recovery boot. In developer mode, the firmware ignores kernel

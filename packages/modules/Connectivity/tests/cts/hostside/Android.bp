@@ -12,6 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+next_app_data = [ ":CtsHostsideNetworkTestsAppNext" ]
+
+// The above line is put in place to prevent any future automerger merge conflict between aosp,
+// downstream branches. The CtsHostsideNetworkTestsAppNext target will not exist in
+// some downstream branches, but it should exist in aosp and some downstream branches.
+
+
+
+
+
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
@@ -26,7 +36,6 @@ java_test_host {
         "tradefed",
     ],
     static_libs: [
-        "CompatChangeGatingTestBase",
         "modules-utils-build-testing",
     ],
     // Tag this module as a cts test artifact
@@ -35,4 +44,12 @@ java_test_host {
         "general-tests",
         "sts"
     ],
+    data: [
+        ":CtsHostsideNetworkTestsApp",
+        ":CtsHostsideNetworkTestsApp2",
+        ":CtsHostsideNetworkCapTestsAppWithoutProperty",
+        ":CtsHostsideNetworkCapTestsAppWithProperty",
+        ":CtsHostsideNetworkCapTestsAppSdk33",
+    ] + next_app_data,
+    per_testcase_directory: true,
 }

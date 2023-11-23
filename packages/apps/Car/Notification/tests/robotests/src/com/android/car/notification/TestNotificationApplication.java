@@ -39,7 +39,7 @@ import java.lang.reflect.Method;
  * the application.
  *
  * Therefore, all the initialization that we want to be affective on all the components should go
- * here. First the constructor will be called and the the on create of {@link
+ * here. First the constructor will be called and then the on create of {@link
  * NotificationApplication} will be called.
  *
  * Also, Even before calling any test for component beforeTest() of this class will be executed.

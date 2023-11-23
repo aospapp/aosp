@@ -16,24 +16,22 @@
 
 package com.android.cts.verifier.bluetooth;
 
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
-
-import java.lang.Math;
-import java.util.Set;
-import java.util.Map;
-import java.util.HashMap;
+import static android.content.Context.RECEIVER_EXPORTED;
 
 import android.bluetooth.le.AdvertiseSettings;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.graphics.Color;
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class BleScannerPowerLevelActivity extends PassFailButtons.Activity {
 
@@ -115,7 +113,7 @@ public class BleScannerPowerLevelActivity extends PassFailButtons.Activity {
         IntentFilter filter = new IntentFilter();
         filter.addAction(BleScannerService.BLE_POWER_LEVEL);
         filter.addAction(BleScannerService.BLE_PRIVACY_NEW_MAC_RECEIVE);
-        registerReceiver(onBroadcast, filter);
+        registerReceiver(onBroadcast, filter, RECEIVER_EXPORTED);
     }
 
     @Override

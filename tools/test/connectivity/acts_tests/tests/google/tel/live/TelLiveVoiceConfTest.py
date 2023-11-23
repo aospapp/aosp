@@ -11277,7 +11277,7 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
             return False
 
         if not self._three_phone_call_mo_add_mt_reject(
-            [ads[0], ads[1], ads[2]], [is_phone_in_call_volte, None], False):
+            [ads[0], ads[1], ads[2]], [is_phone_in_call_iwlan, None], False):
             return False
         return True
 

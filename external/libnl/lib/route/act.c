@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/act.c       Action
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2013 Cong Wang <xiyou.wangcong@gmail.com>
  */
 
@@ -17,6 +10,7 @@
  */
 
 #include <netlink-private/netlink.h>
+#include <netlink-private/utils.h>
 #include <netlink-private/tc.h>
 #include <netlink/netlink.h>
 #include <netlink/utils.h>
@@ -125,7 +119,7 @@ int rtnl_act_fill(struct nl_msg *msg, int attrtype, struct rtnl_act *act)
 
 	while (p_act) {
 		err = rtnl_act_fill_one(msg, p_act, ++order);
-		if (err)
+		if (err < 0)
 			return err;
 		p_act = p_act->a_next;
 	}
@@ -519,8 +513,13 @@ static int act_msg_parser(struct nl_cache_ops *ops, struct sockaddr_nl *who,
 	p_act = act;
 	while(p_act) {
 		err = pp->pp_cb(OBJ_CAST(act), pp);
-		if (err)
+		if (err) {
+			if (err > 0) {
+				_nl_assert_not_reached();
+				err = -NLE_FAILURE;
+			}
 			break;
+		}
 		p_act = p_act->a_next;
 	}
 errout:

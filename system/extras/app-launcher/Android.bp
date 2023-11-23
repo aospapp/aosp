@@ -31,7 +31,7 @@ cc_binary_host {
 
 sh_binary_host {
     name: "app-launcher",
-    src: "app-launcher",
+    src: "app-launcher.sh",
     required: [
         "computestats",
         "computestatsf",

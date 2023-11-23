@@ -20,8 +20,8 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.testng.Assert.assertThrows;
 
 import android.car.Car;
 import android.car.hardware.CarPropertyValue;
@@ -65,20 +65,22 @@ public class CarHvacManagerTest extends MockedCarTestBase {
     private float mEventFloatVal;
     private int mEventIntVal;
     private int mEventZoneVal;
+    private final HvacPropertyHandler mHandler = new HvacPropertyHandler();
 
     @Override
     protected void configureMockedHal() {
-        HvacPropertyHandler handler = new HvacPropertyHandler();
-        addAidlProperty(VehicleProperty.HVAC_DEFROSTER, handler)
+        addAidlProperty(VehicleProperty.HVAC_DEFROSTER, mHandler)
                 .addAreaConfig(VehicleAreaWindow.FRONT_WINDSHIELD, 0, 0);
-        addAidlProperty(VehicleProperty.HVAC_FAN_SPEED, handler)
+        addAidlProperty(VehicleProperty.HVAC_FAN_SPEED, mHandler)
                 .addAreaConfig(VehicleAreaSeat.ROW_1_LEFT, 0, 0);
-        addAidlProperty(VehicleProperty.HVAC_TEMPERATURE_SET, handler)
+        addAidlProperty(VehicleProperty.HVAC_TEMPERATURE_SET, mHandler)
                 .addAreaConfig(VehicleAreaSeat.ROW_1_LEFT, 0, 0);
-        addAidlProperty(VehicleProperty.HVAC_TEMPERATURE_CURRENT, handler)
+        addAidlProperty(VehicleProperty.HVAC_TEMPERATURE_CURRENT, mHandler)
                 .setChangeMode(VehiclePropertyChangeMode.CONTINUOUS)
                 .setAccess(VehiclePropertyAccess.READ)
                 .addAreaConfig(VehicleAreaSeat.ROW_1_LEFT | VehicleAreaSeat.ROW_1_RIGHT, 0, 0);
+        addAidlProperty(VehicleProperty.HVAC_AC_ON, mHandler)
+                .addAreaConfig(VehicleAreaSeat.ROW_1_CENTER);
     }
 
     @Override
@@ -188,6 +190,7 @@ public class CarHvacManagerTest extends MockedCarTestBase {
         assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
         assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
         assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
+        assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
 
         // Inject a boolean event and wait for its callback in onPropertySet.
         VehiclePropValue v = AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.HVAC_DEFROSTER)
@@ -241,6 +244,7 @@ public class CarHvacManagerTest extends MockedCarTestBase {
         assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
         assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
         assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
+        assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
 
         // Inject a boolean event and wait for its callback in onPropertySet.
         VehiclePropValue v = AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.HVAC_DEFROSTER)
@@ -281,8 +285,25 @@ public class CarHvacManagerTest extends MockedCarTestBase {
             Log.d(TAG, "onPropertySubscribe property " + property + " sampleRate " + sampleRate);
             if (mMap.get(property) == null) {
                 Log.d(TAG, "onPropertySubscribe add placeholder property: " + property);
+                int areaId = 0;
+                switch (property) {
+                    case VehicleProperty.HVAC_DEFROSTER:
+                        areaId = VehicleAreaWindow.FRONT_WINDSHIELD;
+                        break;
+                    case VehicleProperty.HVAC_FAN_SPEED:
+                        // Fall through
+                    case VehicleProperty.HVAC_TEMPERATURE_SET:
+                        areaId = VehicleAreaSeat.ROW_1_LEFT;
+                        break;
+                    case VehicleProperty.HVAC_AC_ON:
+                        areaId = VehicleAreaSeat.ROW_1_CENTER;
+                        break;
+                    case VehicleProperty.HVAC_TEMPERATURE_CURRENT:
+                        areaId = VehicleAreaSeat.ROW_1_LEFT | VehicleAreaSeat.ROW_1_RIGHT;
+                        break;
+                }
                 VehiclePropValue placeholderValue = AidlVehiclePropValueBuilder.newBuilder(property)
-                        .setAreaId(0)
+                        .setAreaId(areaId)
                         .setTimestamp(SystemClock.elapsedRealtimeNanos())
                         .addIntValues(1)
                         .addFloatValues(1)

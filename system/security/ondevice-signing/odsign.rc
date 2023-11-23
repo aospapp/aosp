@@ -3,6 +3,13 @@ service odsign /system/bin/odsign
     user root
     group system
     disabled # does not start with the core class
+    # Explicitly specify empty capabilities, otherwise odsign will inherit all
+    # the capabilities from init.
+    # Note: whether a process can use capabilities is controlled by SELinux, so
+    # inheriting all the capabilities from init is not a security issue.
+    # However, for defense-in-depth and just for the sake of bookkeeping it's
+    # better to explicitly state that odsign doesn't need any capabilities.
+    capabilities
 
 # Note that odsign is not oneshot, but stopped manually when it exits. This
 # ensures that if odsign crashes during a module update, apexd will detect

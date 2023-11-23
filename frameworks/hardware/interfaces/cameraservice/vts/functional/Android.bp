@@ -44,3 +44,33 @@ cc_test {
 
     test_suites: ["vts"],
 }
+
+cc_test {
+    name: "VtsAidlCameraServiceTargetTest",
+    defaults: [
+        "VtsHalTargetTestDefaults",
+    ],
+
+    vendor: true,
+    srcs: ["VtsAidlCameraServiceTargetTest.cpp"],
+    static_libs: [
+        "android.hardware.common-V2-ndk",
+        "android.hardware.common.fmq-V1-ndk",
+        "android.hardware.camera.common-helper",
+        "android.frameworks.cameraservice.common-V1-ndk",
+        "android.frameworks.cameraservice.device-V1-ndk",
+        "android.frameworks.cameraservice.service-V1-ndk",
+        "libaidlcommonsupport",
+        "libfmq",
+        "libarect",
+    ],
+    shared_libs: [
+        "libbinder_ndk",
+        "libcamera_metadata",
+        "libmediandk",
+        "libnativewindow",
+        "liblog",
+    ],
+
+    test_suites: ["vts"],
+}

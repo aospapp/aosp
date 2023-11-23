@@ -18,11 +18,10 @@ package android.car.apitest;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import static org.junit.Assert.fail;
-
 import android.car.Car;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.hvac.CarHvacManager;
+import android.car.test.ApiCheckerRule.Builder;
 import android.hardware.automotive.vehicle.VehicleHvacFanDirection;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
@@ -36,10 +35,17 @@ import java.util.List;
 import java.util.Set;
 
 @MediumTest
-public class CarHvacManagerTest extends CarApiTestBase {
+public final class CarHvacManagerTest extends CarApiTestBase {
     private static final String TAG = CarHvacManagerTest.class.getSimpleName();
 
     private CarHvacManager mHvacManager;
+
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        Log.w(TAG, "Disabling API requirements check");
+        builder.disableAnnotationsCheck();
+    }
 
     @Before
     public void setUp() throws Exception {
@@ -72,7 +78,7 @@ public class CarHvacManagerTest extends CarApiTestBase {
     private void assertTypeAndZone(CarPropertyConfig property) {
         switch (property.getPropertyId()) {
             case CarHvacManager.ID_MIRROR_DEFROSTER_ON: // non-zoned bool
-                checkTypeAndGlobal(Boolean.class, true, property);
+                checkTypeAndGlobal(Integer.class, false, property);
                 break;
             case CarHvacManager.ID_STEERING_WHEEL_HEAT: // non-zoned int
             case CarHvacManager.ID_TEMPERATURE_DISPLAY_UNITS:
@@ -108,6 +114,8 @@ public class CarHvacManagerTest extends CarApiTestBase {
             case CarHvacManager.ID_ZONED_HVAC_POWER_ON:
             case CarHvacManager.ID_WINDOW_DEFROSTER_ON:
                 checkTypeAndGlobal(Boolean.class, false, property);
+                break;
+            default:
                 break;
         }
     }

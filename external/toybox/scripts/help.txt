@@ -1,6 +1,7 @@
   toybox          - Build toybox.
   COMMANDNAME     - Build individual toybox command as a standalone binary.
   list            - List COMMANDNAMEs you can build standalone.
+  list_example    - List example commands (often used by the test suite)
   list_pending    - List unfinished COMMANDNAMEs out of toys/pending.
   change          - Build each command standalone under change/.
   baseline        - Create toybox_old for use by bloatcheck.
@@ -22,6 +23,6 @@
                     LINUX= build kernel from this source, configured for qemu
   run_root        - boot toyroot under qemu, I.E. cd root/$CROSS && ./qemu-*.sh
 
-example: make defconfig toybox install CFLAGS="--static" CROSS_COMPILE=armv5l-
+example: make defconfig toybox install LDFLAGS="--static" CROSS_COMPILE=armv5l-
 or     : make root run_root CROSS=sh4 LINUX=~/linux
 

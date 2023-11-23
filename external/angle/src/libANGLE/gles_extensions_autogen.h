@@ -49,6 +49,7 @@ struct Extensions
     void setTextureExtensionSupport(const TextureCapsMap &textureCaps);
 
     // Helper functions
+    bool clipCullDistanceAny() const { return (clipCullDistanceANGLE || clipCullDistanceEXT); }
     bool copyImageAny() const { return (copyImageEXT || copyImageOES); }
     bool depthTextureAny() const { return (depthTextureANGLE || depthTextureOES); }
     bool drawBuffersIndexedAny() const { return (drawBuffersIndexedEXT || drawBuffersIndexedOES); }
@@ -63,6 +64,10 @@ struct Extensions
     {
         return (primitiveBoundingBoxEXT || primitiveBoundingBoxOES);
     }
+    bool shaderFramebufferFetchAny() const
+    {
+        return (shaderFramebufferFetchARM || shaderFramebufferFetchEXT);
+    }
     bool shaderIoBlocksAny() const { return (shaderIoBlocksEXT || shaderIoBlocksOES); }
     bool textureBorderClampAny() const { return (textureBorderClampEXT || textureBorderClampOES); }
     bool textureBufferAny() const { return (textureBufferEXT || textureBufferOES); }
@@ -73,6 +78,9 @@ struct Extensions
 
     // GLES 2.0+ extensions
     // --------------------
+
+    // GL_EXT_base_instance
+    bool baseInstanceEXT = false;
 
     // GL_KHR_blend_equation_advanced
     bool blendEquationAdvancedKHR = false;
@@ -137,6 +145,12 @@ struct Extensions
     // GL_OES_compressed_ETC2_sRGB8_texture
     bool compressedETC2SRGB8TextureOES = false;
 
+    // GL_OES_compressed_paletted_texture
+    bool compressedPalettedTextureOES = false;
+
+    // GL_EXT_conservative_depth
+    bool conservativeDepthEXT = false;
+
     // GL_EXT_copy_image
     bool copyImageEXT = false;
 
@@ -160,6 +174,9 @@ struct Extensions
 
     // GL_NV_depth_buffer_float2
     bool depthBufferFloat2NV = false;
+
+    // GL_EXT_depth_clamp
+    bool depthClampEXT = false;
 
     // GL_ANGLE_depth_texture
     bool depthTextureANGLE = false;
@@ -317,6 +334,9 @@ struct Extensions
     // GL_NV_pixel_buffer_object
     bool pixelBufferObjectNV = false;
 
+    // GL_EXT_polygon_offset_clamp
+    bool polygonOffsetClampEXT = false;
+
     // GL_EXT_primitive_bounding_box
     bool primitiveBoundingBoxEXT = false;
 
@@ -332,11 +352,20 @@ struct Extensions
     // GL_NV_read_depth
     bool readDepthNV = false;
 
+    // GL_NV_read_depth_stencil
+    bool readDepthStencilNV = false;
+
     // GL_EXT_read_format_bgra
     bool readFormatBgraEXT = false;
 
     // GL_NV_read_stencil
     bool readStencilNV = false;
+
+    // GL_QCOM_render_shared_exponent
+    bool renderSharedExponentQCOM = false;
+
+    // GL_EXT_render_snorm
+    bool renderSnormEXT = false;
 
     // GL_OES_rgb8_rgba8
     bool rgb8Rgba8OES = false;
@@ -365,6 +394,9 @@ struct Extensions
     // GL_EXT_separate_shader_objects
     bool separateShaderObjectsEXT = false;
 
+    // GL_ARM_shader_framebuffer_fetch
+    bool shaderFramebufferFetchARM = false;
+
     // GL_EXT_shader_framebuffer_fetch
     bool shaderFramebufferFetchEXT = false;
 
@@ -391,6 +423,9 @@ struct Extensions
 
     // GL_EXT_shader_texture_lod
     bool shaderTextureLodEXT = false;
+
+    // GL_QCOM_shading_rate
+    bool shadingRateQCOM = false;
 
     // GL_EXT_shadow_samplers
     bool shadowSamplersEXT = false;
@@ -470,6 +505,9 @@ struct Extensions
     // GL_EXT_texture_filter_anisotropic
     bool textureFilterAnisotropicEXT = false;
 
+    // GL_EXT_texture_filter_minmax
+    bool textureFilterMinmaxEXT = false;
+
     // GL_OES_texture_float
     bool textureFloatOES = false;
 
@@ -487,6 +525,9 @@ struct Extensions
 
     // GL_OES_texture_half_float_linear
     bool textureHalfFloatLinearOES = false;
+
+    // GL_EXT_texture_mirror_clamp_to_edge
+    bool textureMirrorClampToEdgeEXT = false;
 
     // GL_EXT_texture_norm16
     bool textureNorm16EXT = false;
@@ -560,6 +601,9 @@ struct Extensions
     // GL_ANGLE_client_arrays
     bool clientArraysANGLE = false;
 
+    // GL_ANGLE_clip_cull_distance
+    bool clipCullDistanceANGLE = false;
+
     // GL_CHROMIUM_color_buffer_float_rgb
     bool colorBufferFloatRgbCHROMIUM = false;
 
@@ -593,6 +637,9 @@ struct Extensions
     // GL_ANGLE_get_tex_level_parameter
     bool getTexLevelParameterANGLE = false;
 
+    // GL_ANGLE_logic_op
+    bool logicOpANGLE = false;
+
     // GL_CHROMIUM_lose_context
     bool loseContextCHROMIUM = false;
 
@@ -623,6 +670,9 @@ struct Extensions
     // GL_ANGLE_provoking_vertex
     bool provokingVertexANGLE = false;
 
+    // GL_ANGLE_read_only_depth_stencil_feedback_loops
+    bool readOnlyDepthStencilFeedbackLoopsANGLE = false;
+
     // GL_ANGLE_relaxed_vertex_attribute_type
     bool relaxedVertexAttributeTypeANGLE = false;
 
@@ -643,6 +693,18 @@ struct Extensions
 
     // GL_ANGLE_semaphore_fuchsia
     bool semaphoreFuchsiaANGLE = false;
+
+    // GL_ANGLE_shader_binary
+    bool shaderBinaryANGLE = false;
+
+    // GL_ANGLE_shader_pixel_local_storage
+    bool shaderPixelLocalStorageANGLE = false;
+
+    // GL_ANGLE_shader_pixel_local_storage_coherent
+    bool shaderPixelLocalStorageCoherentANGLE = false;
+
+    // GL_ANGLE_stencil_texturing
+    bool stencilTexturingANGLE = false;
 
     // GL_CHROMIUM_sync_query
     bool syncQueryCHROMIUM = false;

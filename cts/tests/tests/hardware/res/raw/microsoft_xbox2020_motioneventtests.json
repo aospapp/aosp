@@ -201,8 +201,8 @@
     ],
     "source": "JOYSTICK",
     "events": [
-      {"action": "MOVE", "axes": {"AXIS_BRAKE": 1.0}},
-      {"action": "MOVE", "axes": {"AXIS_BRAKE": 0}}
+      {"action": "MOVE", "axes": {"AXIS_LTRIGGER": 1.0, "AXIS_BRAKE": 1.0}},
+      {"action": "MOVE", "axes": {"AXIS_LTRIGGER": 0, "AXIS_BRAKE": 0}}
     ]
   },
 
@@ -216,8 +216,8 @@
     ],
     "source": "JOYSTICK",
     "events": [
-      {"action": "MOVE", "axes": {"AXIS_GAS": 1.0}},
-      {"action": "MOVE", "axes": {"AXIS_GAS": 0}}
+      {"action": "MOVE", "axes": {"AXIS_RTRIGGER": 1.0, "AXIS_GAS": 1.0}},
+      {"action": "MOVE", "axes": {"AXIS_RTRIGGER": 0, "AXIS_GAS": 0}}
     ]
   }
 ]

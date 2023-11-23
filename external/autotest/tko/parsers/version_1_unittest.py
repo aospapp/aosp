@@ -1,6 +1,7 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
-import datetime, time, unittest
+from autotest_lib.tko import models
+import datetime, time, unittest, mock
 
 import common
 from autotest_lib.client.common_lib import utils
@@ -321,7 +322,7 @@ class perf_value_iteration_parse_line_into_dict(unittest.TestCase):
 
 
 class DummyAbortTestCase(unittest.TestCase):
-    """Tests for the make_dummy_abort function."""
+    """Tests for the make_stub_abort function."""
 
     def setUp(self):
         self.indent = 3
@@ -331,9 +332,9 @@ class DummyAbortTestCase(unittest.TestCase):
         self.reason = 'Job aborted unexpectedly'
 
 
-    def test_make_dummy_abort_with_timestamp(self):
-        """Tests make_dummy_abort with a timestamp specified."""
-        abort = version_1.parser.make_dummy_abort(
+    def test_make_stub_abort_with_timestamp(self):
+        """Tests make_stub_abort with a timestamp specified."""
+        abort = version_1.parser.make_stub_abort(
             self.indent, self.subdir, self.testname, self.timestamp,
             self.reason)
         self.assertEquals(
@@ -341,29 +342,57 @@ class DummyAbortTestCase(unittest.TestCase):
             '\t' * self.indent, self.subdir, self.testname, self.timestamp,
             self.reason))
 
-    def test_make_dummy_abort_with_no_subdir(self):
-        """Tests make_dummy_abort with no subdir specified."""
-        abort= version_1.parser.make_dummy_abort(
+    def test_make_stub_abort_with_no_subdir(self):
+        """Tests make_stub_abort with no subdir specified."""
+        abort= version_1.parser.make_stub_abort(
             self.indent, None, self.testname, self.timestamp, self.reason)
         self.assertEquals(
             abort, '%sEND ABORT\t----\t%s\ttimestamp=%d\t%s' % (
             '\t' * self.indent, self.testname, self.timestamp, self.reason))
 
-    def test_make_dummy_abort_with_no_testname(self):
-        """Tests make_dummy_abort with no testname specified."""
-        abort= version_1.parser.make_dummy_abort(
+    def test_make_stub_abort_with_no_testname(self):
+        """Tests make_stub_abort with no testname specified."""
+        abort= version_1.parser.make_stub_abort(
         self.indent, self.subdir, None, self.timestamp, self.reason)
         self.assertEquals(
             abort, '%sEND ABORT\t%s\t----\ttimestamp=%d\t%s' % (
             '\t' * self.indent, self.subdir, self.timestamp, self.reason))
 
-    def test_make_dummy_abort_no_timestamp(self):
-        """Tests make_dummy_abort with no timestamp specified."""
-        abort = version_1.parser.make_dummy_abort(
+    def test_make_stub_abort_no_timestamp(self):
+        """Tests make_stub_abort with no timestamp specified."""
+        abort = version_1.parser.make_stub_abort(
             self.indent, self.subdir, self.testname, None, self.reason)
         self.assertEquals(
             abort, '%sEND ABORT\t%s\t%s\t%s' % (
             '\t' * self.indent, self.subdir, self.testname, self.reason))
+
+
+class test_parse_file(unittest.TestCase):
+    """Tests for parsing a status.log file."""
+
+    class fake_job(models.job):
+        """Fake job object."""
+
+        def exit_status(self):
+            """Fake exit_status method."""
+            return 'FAIL'
+
+    @staticmethod
+    def _parse_host_keyval(job_dir, hostname):
+        return {}
+
+    @mock.patch.object(models.test, 'parse_host_keyval', _parse_host_keyval)
+    def test_top_level_fail_with_reason(self):
+        """Tests that a status.log with a FAIL keeps the reason."""
+        job = self.fake_job('dir', 'user', 'label', 'machine', None, None,
+                            None, None, None, None, None, None)
+        parser = version_1.parser()
+        parser.start(job)
+        tests = parser.end([
+                'FAIL\t----\t----\ttimestamp=1615249387\tlocaltime=Mar 09 00:23:07\tThis is the reason.'
+        ])
+        self.assertEquals(tests[0].status, 'FAIL')
+        self.assertEquals(tests[0].reason, 'This is the reason.')
 
 
 if __name__ == '__main__':

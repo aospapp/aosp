@@ -17,15 +17,17 @@
 package com.android.car.audio;
 
 import static android.car.builtin.media.AudioManagerHelper.usageToXsdString;
+import static android.media.audio.common.AudioContentType.UNKNOWN;
 
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import android.annotation.NonNull;
-import android.hardware.automotive.audiocontrol.DuckingInfo;
+import android.hardware.audio.common.PlaybackTrackMetadata;
 
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.car.internal.util.IndentingPrintWriter;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -36,33 +38,33 @@ public final class CarDuckingInfo {
     public final int mZoneId;
     public final List<String> mAddressesToDuck;
     public final List<String> mAddressesToUnduck;
-    public final int[] mUsagesHoldingFocus;
+    public final List<PlaybackTrackMetadata> mPlaybackMetaDataHoldingFocus;
 
-    public CarDuckingInfo(int zoneId, @NonNull List<String> addressesToDuck,
-            @NonNull List<String> addressesToUnduck, @NonNull int[] usagesHoldingFocus) {
+    public CarDuckingInfo(
+            int zoneId,
+            @NonNull List<String> addressesToDuck,
+            @NonNull List<String> addressesToUnduck,
+            @NonNull List<PlaybackTrackMetadata> playbackMetaDataHoldingFocus) {
         mZoneId = zoneId;
         mAddressesToDuck = Objects.requireNonNull(addressesToDuck);
         mAddressesToUnduck = Objects.requireNonNull(addressesToUnduck);
-        mUsagesHoldingFocus = Objects.requireNonNull(usagesHoldingFocus);
+        mPlaybackMetaDataHoldingFocus = Objects.requireNonNull(playbackMetaDataHoldingFocus);
     }
 
-    /**
-     * Creates {@link DuckingInfo} instance from contents of {@link CarDuckingInfo}.
-     *
-     * <p>Converts usages to XSD strings as part of this process.
-     */
-    public DuckingInfo generateDuckingInfo() {
-        DuckingInfo duckingInfo = new DuckingInfo();
-        duckingInfo.zoneId = mZoneId;
-        duckingInfo.deviceAddressesToDuck = mAddressesToDuck.toArray(new String[0]);
-        duckingInfo.deviceAddressesToUnduck = mAddressesToUnduck.toArray(new String[0]);
-        String[] usageStrings = new String[mUsagesHoldingFocus.length];
-        for (int i = 0; i < mUsagesHoldingFocus.length; i++) {
-            usageStrings[i] = usageToXsdString(mUsagesHoldingFocus[i]);
-        }
-        duckingInfo.usagesHoldingFocus = usageStrings;
+    public int getZoneId() {
+        return mZoneId;
+    }
 
-        return duckingInfo;
+    public @NonNull List<String> getAddressesToDuck() {
+        return mAddressesToDuck;
+    }
+
+    public @NonNull List<String> getAddressesToUnduck() {
+        return mAddressesToUnduck;
+    }
+
+    public @NonNull List<PlaybackTrackMetadata> getPlaybackMetaDataHoldingFocus() {
+        return mPlaybackMetaDataHoldingFocus;
     }
 
     @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
@@ -73,10 +75,19 @@ public final class CarDuckingInfo {
                 String.join(", ", mAddressesToDuck));
         writer.printf("Addresses to unduck: %s\n",
                 String.join(", ", mAddressesToUnduck));
-        writer.println("Usages holding focus:");
+        writer.println("Audio Attributes holding focus:");
         writer.increaseIndent();
-        for (int usage : mUsagesHoldingFocus) {
-            writer.printf("%s, ", usageToXsdString(usage));
+        for (int index = 0; index < mPlaybackMetaDataHoldingFocus.size(); index++) {
+            PlaybackTrackMetadata playbackTrackMetaData = mPlaybackMetaDataHoldingFocus.get(index);
+            writer.printf(
+                    "usage=%s, content type=%s, tags=%s\n",
+                    usageToXsdString(playbackTrackMetaData.usage),
+                    (playbackTrackMetaData.contentType != UNKNOWN
+                            ? playbackTrackMetaData.contentType
+                            : ""),
+                    (playbackTrackMetaData.tags.length != 0
+                            ? Arrays.toString(playbackTrackMetaData.tags)
+                            : ""));
         }
         writer.decreaseIndent();
         writer.println();

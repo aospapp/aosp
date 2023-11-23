@@ -17,6 +17,7 @@
 package com.android.server.nearby.fastpair;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -54,7 +55,7 @@ public class FastPairManagerTest {
     public void testFastPairInit() {
         mFastPairManager.initiate();
 
-        verify(mContext, times(1)).registerReceiver(any(), any());
+        verify(mContext, times(1)).registerReceiver(any(), any(), anyInt());
     }
 
     @Test

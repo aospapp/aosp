@@ -1266,12 +1266,38 @@ public class PreferencesTest {
     public void testExtraLoggingInformation() {
         Preferences prefs =
                 Preferences.builder().setExtraLoggingInformation(FIRST_EXTRA_LOGGING_INFO).build();
-        assertThat(prefs.getExtraLoggingInformation()).isEqualTo(FIRST_EXTRA_LOGGING_INFO);
-        assertThat(prefs.toBuilder().build().getExtraLoggingInformation())
-                .isEqualTo(FIRST_EXTRA_LOGGING_INFO);
-
         Preferences prefs2 =
                 Preferences.builder().setExtraLoggingInformation(SECOND_EXTRA_LOGGING_INFO).build();
+        Preferences prefs3 =
+                Preferences.builder().setExtraLoggingInformation(FIRST_EXTRA_LOGGING_INFO).build();
+
+        assertThat(prefs.getExtraLoggingInformation()).isEqualTo(FIRST_EXTRA_LOGGING_INFO);
         assertThat(prefs2.getExtraLoggingInformation()).isEqualTo(SECOND_EXTRA_LOGGING_INFO);
+        assertThat(prefs.toBuilder().build().getExtraLoggingInformation())
+                .isEqualTo(FIRST_EXTRA_LOGGING_INFO);
+        // Test equal()
+        assertThat(prefs.getExtraLoggingInformation().equals(null)).isFalse();
+        assertThat(prefs.getExtraLoggingInformation()
+                .equals(prefs2.getExtraLoggingInformation())).isFalse();
+        assertThat(prefs.getExtraLoggingInformation()
+                .equals(prefs3.getExtraLoggingInformation())).isTrue();
+        // Test getModelId()
+        assertThat(prefs.getExtraLoggingInformation().getModelId())
+                .isEqualTo(prefs3.getExtraLoggingInformation().getModelId());
+        assertThat(prefs.getExtraLoggingInformation().getModelId())
+                .isNotEqualTo(prefs2.getExtraLoggingInformation().getModelId());
+        // Test hashCode()
+        assertThat(prefs.getExtraLoggingInformation().hashCode())
+                .isEqualTo(prefs3.getExtraLoggingInformation().hashCode());
+        assertThat(prefs.getExtraLoggingInformation().hashCode())
+                .isNotEqualTo(prefs2.getExtraLoggingInformation().hashCode());
+        // Test toBuilder()
+
+        assertThat(prefs.getExtraLoggingInformation()
+                .toBuilder().setModelId("000007").build().getModelId())
+                .isEqualTo("000007");
+        // Test toString()
+        assertThat(prefs.getExtraLoggingInformation().toString())
+                .isEqualTo("ExtraLoggingInformation{modelId=000006}");
     }
 }

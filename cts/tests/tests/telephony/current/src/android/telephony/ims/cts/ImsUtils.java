@@ -36,6 +36,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -54,21 +55,36 @@ public class ImsUtils {
     private static final String TAG = "ImsUtils";
 
     public static boolean shouldTestTelephony() {
+        try {
+            InstrumentationRegistry.getInstrumentation().getContext()
+                    .getSystemService(TelephonyManager.class)
+                    .getHalVersion(TelephonyManager.HAL_SERVICE_RADIO);
+        } catch (IllegalStateException e) {
+            return false;
+        }
         final PackageManager pm = InstrumentationRegistry.getInstrumentation().getContext()
                 .getPackageManager();
         return pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY);
     }
 
     public static boolean shouldTestImsService() {
+        boolean hasIms = InstrumentationRegistry.getInstrumentation().getContext()
+                .getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEPHONY_IMS);
+        return shouldTestTelephony() && hasIms;
+    }
+
+    public static boolean shouldTestImsCall() {
         final PackageManager pm = InstrumentationRegistry.getInstrumentation().getContext()
                 .getPackageManager();
-        return pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY_IMS);
+        return pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY_IMS)
+                && pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY_CALLING);
     }
 
     public static boolean shouldTestImsSingleRegistration() {
-        final PackageManager pm = InstrumentationRegistry.getInstrumentation().getContext()
-                .getPackageManager();
-        return pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY_IMS_SINGLE_REGISTRATION);
+        boolean hasSingleReg = InstrumentationRegistry.getInstrumentation().getContext()
+                .getPackageManager().hasSystemFeature(
+                        PackageManager.FEATURE_TELEPHONY_IMS_SINGLE_REGISTRATION);
+        return shouldTestTelephony() && hasSingleReg;
     }
 
     public static int getPreferredActiveSubId() {
@@ -227,5 +243,13 @@ public class ImsUtils {
         } catch (IOException e) {
         }
         return out;
+    }
+
+    public static  void waitInCurrentState(long ms) {
+        try {
+            TimeUnit.MILLISECONDS.sleep(ms);
+        } catch (Exception e) {
+            Log.d(TAG, "InterruptedException");
+        }
     }
 }

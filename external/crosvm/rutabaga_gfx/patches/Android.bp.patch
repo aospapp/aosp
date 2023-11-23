@@ -1,8 +1,8 @@
 diff --git a/rutabaga_gfx/Android.bp b/rutabaga_gfx/Android.bp
-index 40b9b3f5..c368d22f 100644
+index 05d589ae..77c154be 100644
 --- a/rutabaga_gfx/Android.bp
 +++ b/rutabaga_gfx/Android.bp
-@@ -32,14 +32,25 @@ rust_library {
+@@ -33,13 +33,25 @@ rust_library {
          "libthiserror",
      ],
      proc_macros: ["libremain"],
@@ -24,6 +24,7 @@ index 40b9b3f5..c368d22f 100644
 +        },
 +        android: {
 +            shared_libs: [
++                "libcutils",
 +                "libdrm",
 +            ],
 +            static_libs: [
@@ -34,9 +35,8 @@ index 40b9b3f5..c368d22f 100644
 +        },
 +    },
  }
- 
- rust_defaults {
-@@ -65,14 +73,25 @@ rust_defaults {
+
+@@ -71,12 +95,24 @@ rust_test {
          "libthiserror",
      ],
      proc_macros: ["libremain"],
@@ -58,6 +58,7 @@ index 40b9b3f5..c368d22f 100644
 +        },
 +        android: {
 +            shared_libs: [
++                "libcutils",
 +                "libdrm",
 +            ],
 +            static_libs: [
@@ -68,5 +69,3 @@ index 40b9b3f5..c368d22f 100644
 +        },
 +    },
  }
- 
- rust_test_host {

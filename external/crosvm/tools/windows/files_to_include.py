@@ -1,8 +1,11 @@
+# Copyright 2022 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 # The lists/dictionaries in this file let vendors build/link custom libraries
 
 # paths are relative to platform/crosvm dir
-DLLS = [
-]
+DLLS = []
 
 VS_PROJECTS_FROM_CMAKE = {
     # Format of this dictionary is:

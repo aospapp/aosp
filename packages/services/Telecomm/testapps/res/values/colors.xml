@@ -17,4 +17,5 @@
 <resources>
     <color name="test_call_a_color">#f2eebf</color>
     <color name="test_call_b_color">#afc5e6</color>
+    <color name="test_call_c_color">#c5afe6</color>
 </resources>

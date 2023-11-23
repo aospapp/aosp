@@ -89,6 +89,7 @@ public class ThroughputPredictorTest extends WifiBaseTest {
                 .thenReturn(2);
         when(mContext.getResources()).thenReturn(mResource);
         mThroughputPredictor = new ThroughputPredictor(mContext);
+        mThroughputPredictor.enableVerboseLogging(true);
     }
 
     /** Cleans up test. */

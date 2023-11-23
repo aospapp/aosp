@@ -47,7 +47,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
-
 /**
  * This class provides the public APIs to control the Bluetooth A2DP
  * profile.
@@ -293,8 +292,12 @@ public final class BluetoothA2dp implements BluetoothProfile {
         mProfileConnector.connect(context, listener);
     }
 
+    /**
+     * @hide
+     */
     @UnsupportedAppUsage
-    /*package*/ void close() {
+    @Override
+    public void close() {
         mProfileConnector.disconnect();
     }
 
@@ -337,7 +340,7 @@ public final class BluetoothA2dp implements BluetoothProfile {
         } else if (isEnabled() && isValidDevice(device)) {
             try {
                 final SynchronousResultReceiver<Boolean> recv = SynchronousResultReceiver.get();
-                service.connectWithAttribution(device, mAttributionSource, recv);
+                service.connect(device, mAttributionSource, recv);
                 return recv.awaitResultNoInterrupt(getSyncTimeout()).getValue(defaultValue);
             } catch (RemoteException | TimeoutException e) {
                 Log.e(TAG, e.toString() + "\n" + Log.getStackTraceString(new Throwable()));
@@ -383,7 +386,7 @@ public final class BluetoothA2dp implements BluetoothProfile {
         } else if (isEnabled() && isValidDevice(device)) {
             try {
                 final SynchronousResultReceiver<Boolean> recv = SynchronousResultReceiver.get();
-                service.disconnectWithAttribution(device, mAttributionSource, recv);
+                service.disconnect(device, mAttributionSource, recv);
                 return recv.awaitResultNoInterrupt(getSyncTimeout()).getValue(defaultValue);
             } catch (RemoteException | TimeoutException e) {
                 Log.e(TAG, e.toString() + "\n" + Log.getStackTraceString(new Throwable()));
@@ -409,7 +412,7 @@ public final class BluetoothA2dp implements BluetoothProfile {
             try {
                 final SynchronousResultReceiver<List<BluetoothDevice>> recv =
                         SynchronousResultReceiver.get();
-                service.getConnectedDevicesWithAttribution(mAttributionSource, recv);
+                service.getConnectedDevices(mAttributionSource, recv);
                 return Attributable.setAttributionSource(
                         recv.awaitResultNoInterrupt(getSyncTimeout()).getValue(defaultValue),
                         mAttributionSource);
@@ -437,7 +440,7 @@ public final class BluetoothA2dp implements BluetoothProfile {
             try {
                 final SynchronousResultReceiver<List<BluetoothDevice>> recv =
                         SynchronousResultReceiver.get();
-                service.getDevicesMatchingConnectionStatesWithAttribution(states,
+                service.getDevicesMatchingConnectionStates(states,
                         mAttributionSource, recv);
                 return Attributable.setAttributionSource(
                         recv.awaitResultNoInterrupt(getSyncTimeout()).getValue(defaultValue),
@@ -465,7 +468,7 @@ public final class BluetoothA2dp implements BluetoothProfile {
         } else if (isEnabled() && isValidDevice(device)) {
             try {
                 final SynchronousResultReceiver<Integer> recv = SynchronousResultReceiver.get();
-                service.getConnectionStateWithAttribution(device, mAttributionSource, recv);
+                service.getConnectionState(device, mAttributionSource, recv);
                 return recv.awaitResultNoInterrupt(getSyncTimeout()).getValue(defaultValue);
             } catch (RemoteException | TimeoutException e) {
                 Log.e(TAG, e.toString() + "\n" + Log.getStackTraceString(new Throwable()));
@@ -808,6 +811,9 @@ public final class BluetoothA2dp implements BluetoothProfile {
     /**
      * Sets the codec configuration preference.
      *
+     * For apps without the {@link android.Manifest.permission.BLUETOOTH_PRIVILEGED} permission
+     * a {@link android.companion.CompanionDeviceManager} association is required.
+     *
      * @param device the remote Bluetooth device.
      * @param codecConfig the codec configuration preference
      * @hide
@@ -941,7 +947,8 @@ public final class BluetoothA2dp implements BluetoothProfile {
             android.Manifest.permission.BLUETOOTH_CONNECT,
             android.Manifest.permission.BLUETOOTH_PRIVILEGED,
     })
-    public @OptionalCodecsSupportStatus int isOptionalCodecsSupported(
+    @OptionalCodecsSupportStatus
+    public int isOptionalCodecsSupported(
             @NonNull BluetoothDevice device) {
         if (DBG) log("isOptionalCodecsSupported(" + device + ")");
         verifyDeviceNotNull(device, "isOptionalCodecsSupported");
@@ -978,7 +985,8 @@ public final class BluetoothA2dp implements BluetoothProfile {
             android.Manifest.permission.BLUETOOTH_CONNECT,
             android.Manifest.permission.BLUETOOTH_PRIVILEGED,
     })
-    public @OptionalCodecsPreferenceStatus int isOptionalCodecsEnabled(
+    @OptionalCodecsPreferenceStatus
+    public int isOptionalCodecsEnabled(
             @NonNull BluetoothDevice device) {
         if (DBG) log("isOptionalCodecsEnabled(" + device + ")");
         verifyDeviceNotNull(device, "isOptionalCodecsEnabled");

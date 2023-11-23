@@ -27,7 +27,6 @@
 #define _GNU_SOURCE
 
 #include <sys/types.h>
-#include <fcntl.h>
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -106,11 +105,6 @@ static void setup(void)
 	int i;
 	const char *fs_type;
 
-	if (tst_kvercmp(2, 6, 16) < 0) {
-		tst_brkm(TCONF, NULL, "This test can only run on kernels "
-			 "that are 2.6.16 and higher");
-	}
-
 	tst_require_root();
 
 	tst_sig(NOFORK, DEF_HANDLER, cleanup);
@@ -164,7 +158,7 @@ static void mknodat_verify(struct test_case_t *tc)
 	}
 
 	if (TEST_ERRNO == 0 &&
-	    ltp_syscall(__NR_unlinkat, fd, pathname, 0) < 0) {
+	    tst_syscall(__NR_unlinkat, fd, pathname, 0) < 0) {
 		tst_brkm(TBROK | TERRNO, cleanup, "unlinkat(%d, %s) "
 			 "failed.", fd, pathname);
 	}

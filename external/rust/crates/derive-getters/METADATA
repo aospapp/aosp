@@ -1,0 +1,19 @@
+name: "derive-getters"
+description: "Simple boilerplate getters generator."
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://crates.io/crates/derive-getters"
+  }
+  url {
+    type: ARCHIVE
+    value: "https://static.crates.io/crates/derive-getters/derive-getters-0.2.0.crate"
+  }
+  version: "0.2.0"
+  license_type: NOTICE
+  last_upgrade_date {
+    year: 2023
+    month: 2
+    day: 9
+  }
+}

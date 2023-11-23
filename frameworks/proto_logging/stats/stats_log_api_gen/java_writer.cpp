@@ -43,24 +43,26 @@ static void write_java_annotation_constants(FILE* out, const int minApiLevel,
                                             const int compileApiLevel) {
     fprintf(out, "    // Annotation constants.\n");
 
-    const map<AnnotationId, string>& ANNOTATION_ID_CONSTANTS = get_annotation_id_constants();
-    if (compileApiLevel <= API_R) {
-        for (const auto& [id, name] : ANNOTATION_ID_CONSTANTS) {
-            fprintf(out, "    public static final byte %s = %hhu;\n", name.c_str(), id);
-        }
-    } else if (minApiLevel <= API_R) { // compileApiLevel = S+
-        for (const auto& [id, name] : ANNOTATION_ID_CONSTANTS) {
-            fprintf(out, "    public static final byte %s =\n", name.c_str());
-            fprintf(out, "            Build.VERSION.SDK_INT <= Build.VERSION_CODES.R ?\n");
-            fprintf(out, "            %hhu : StatsLog.%s;\n", id, name.c_str());
-            fprintf(out, "\n");
-        }
-    } else {
-        for (const auto& [id, name] : ANNOTATION_ID_CONSTANTS) {
-            fprintf(out, "    public static final byte %s = StatsLog.%s;\n",
-                    name.c_str(), name.c_str());
+    const map<AnnotationId, AnnotationStruct>& ANNOTATION_ID_CONSTANTS =
+            get_annotation_id_constants();
+    for (const auto& [id, annotation] : ANNOTATION_ID_CONSTANTS) {
+        if (annotation.minApiLevel < API_U) {  // we don't generate annotation constants for U+
+            if (compileApiLevel <= API_R) {
+                fprintf(out, "    public static final byte %s = %hhu;\n", annotation.name.c_str(),
+                        id);
+            } else if (minApiLevel <= API_R) {  // compileApiLevel = S+
+                fprintf(out, "    public static final byte %s =\n", annotation.name.c_str());
+                fprintf(out, "            Build.VERSION.SDK_INT <= %s ?\n",
+                        get_java_build_version_code(API_R).c_str());
+                fprintf(out, "            %hhu : StatsLog.%s;\n", id, annotation.name.c_str());
+                fprintf(out, "\n");
+            } else {
+                fprintf(out, "    public static final byte %s = StatsLog.%s;\n",
+                        annotation.name.c_str(), annotation.name.c_str());
+            }
         }
     }
+
     fprintf(out, "\n");
 }
 
@@ -72,7 +74,8 @@ static void write_annotations(FILE* out, int argIndex,
         return;
     }
     const AtomDeclSet& atomDeclSet = fieldNumberToAtomDeclSetIt->second;
-    const map<AnnotationId, string>& ANNOTATION_ID_CONSTANTS = get_annotation_id_constants();
+    const map<AnnotationId, AnnotationStruct>& ANNOTATION_ID_CONSTANTS =
+            get_annotation_id_constants();
     for (const shared_ptr<AtomDecl>& atomDecl : atomDeclSet) {
         const string atomConstant = make_constant_name(atomDecl->name);
         fprintf(out, "        if (%s == code) {\n", atomConstant.c_str());
@@ -80,21 +83,30 @@ static void write_annotations(FILE* out, int argIndex,
         int resetState = -1;
         int defaultState = -1;
         for (const shared_ptr<Annotation>& annotation : annotations) {
-            const string& annotationConstant = ANNOTATION_ID_CONSTANTS.at(annotation->annotationId);
+            const AnnotationStruct& annotationConstant =
+                    ANNOTATION_ID_CONSTANTS.at(annotation->annotationId);
+            const char *prefix = annotationConstant.minApiLevel >= API_U ? "StatsLog." : "";
             switch (annotation->type) {
                 case ANNOTATION_TYPE_INT:
                     if (ANNOTATION_ID_TRIGGER_STATE_RESET == annotation->annotationId) {
                         resetState = annotation->value.intValue;
                     } else if (ANNOTATION_ID_DEFAULT_STATE == annotation->annotationId) {
                         defaultState = annotation->value.intValue;
+                    } else if (ANNOTATION_ID_RESTRICTION_CATEGORY == annotation->annotationId) {
+                        fprintf(out, "            builder.addIntAnnotation(%s%s,\n",
+                                prefix, annotationConstant.name.c_str());
+                        fprintf(out, "                                     %s%s);\n",
+                                prefix, get_restriction_category_str(annotation->value.intValue)
+                                .c_str());
                     } else {
-                        fprintf(out, "            builder.addIntAnnotation(%s, %d);\n",
-                                annotationConstant.c_str(), annotation->value.intValue);
+                        fprintf(out, "            builder.addIntAnnotation(%s%s, %d);\n",
+                                prefix, annotationConstant.name.c_str(),
+                                annotation->value.intValue);
                     }
                     break;
                 case ANNOTATION_TYPE_BOOL:
-                    fprintf(out, "            builder.addBooleanAnnotation(%s, %s);\n",
-                            annotationConstant.c_str(),
+                    fprintf(out, "            builder.addBooleanAnnotation(%s%s, %s);\n",
+                            prefix, annotationConstant.name.c_str(),
                             annotation->value.boolValue ? "true" : "false");
                     break;
                 default:
@@ -102,11 +114,11 @@ static void write_annotations(FILE* out, int argIndex,
             }
         }
         if (defaultState != -1 && resetState != -1) {
-            const string& annotationConstant =
+            const AnnotationStruct& annotationConstant =
                     ANNOTATION_ID_CONSTANTS.at(ANNOTATION_ID_TRIGGER_STATE_RESET);
             fprintf(out, "            if (arg%d == %d) {\n", argIndex, resetState);
             fprintf(out, "                builder.addIntAnnotation(%s, %d);\n",
-                    annotationConstant.c_str(), defaultState);
+                    annotationConstant.name.c_str(), defaultState);
             fprintf(out, "            }\n");
         }
         fprintf(out, "        }\n");
@@ -154,23 +166,20 @@ static int write_method_body(FILE* out, const vector<java_type_t>& signature,
         }
         switch (*arg) {
             case JAVA_TYPE_BOOLEAN:
-                fprintf(out, "%s        builder.writeBoolean(arg%d);\n", indent.c_str(),
-                        argIndex);
+                fprintf(out, "%s        builder.writeBoolean(arg%d);\n", indent.c_str(), argIndex);
                 break;
             case JAVA_TYPE_INT:
             case JAVA_TYPE_ENUM:
                 fprintf(out, "%s        builder.writeInt(arg%d);\n", indent.c_str(), argIndex);
                 break;
             case JAVA_TYPE_FLOAT:
-                fprintf(out, "%s        builder.writeFloat(arg%d);\n", indent.c_str(),
-                        argIndex);
+                fprintf(out, "%s        builder.writeFloat(arg%d);\n", indent.c_str(), argIndex);
                 break;
             case JAVA_TYPE_LONG:
                 fprintf(out, "%s        builder.writeLong(arg%d);\n", indent.c_str(), argIndex);
                 break;
             case JAVA_TYPE_STRING:
-                fprintf(out, "%s        builder.writeString(arg%d);\n", indent.c_str(),
-                        argIndex);
+                fprintf(out, "%s        builder.writeString(arg%d);\n", indent.c_str(), argIndex);
                 break;
             case JAVA_TYPE_BYTE_ARRAY:
                 fprintf(out,
@@ -211,8 +220,8 @@ static int write_method_body(FILE* out, const vector<java_type_t>& signature,
                 const char* tagName = attributionDecl.fields.back().name.c_str();
 
                 fprintf(out, "%s        builder.writeAttributionChain(\n", indent.c_str());
-                fprintf(out, "%s                null == %s ? new int[0] : %s,\n",
-                        indent.c_str(), uidName, uidName);
+                fprintf(out, "%s                null == %s ? new int[0] : %s,\n", indent.c_str(),
+                        uidName, uidName);
                 fprintf(out, "%s                null == %s ? new String[0] : %s);\n",
                         indent.c_str(), tagName, tagName);
                 break;
@@ -229,20 +238,29 @@ static int write_method_body(FILE* out, const vector<java_type_t>& signature,
 }
 
 static int write_java_pushed_methods(FILE* out, const SignatureInfoMap& signatureInfoMap,
-                              const AtomDecl& attributionDecl, const int minApiLevel) {
+                                     const AtomDecl& attributionDecl, const int minApiLevel) {
     for (auto signatureInfoMapIt = signatureInfoMap.begin();
          signatureInfoMapIt != signatureInfoMap.end(); signatureInfoMapIt++) {
+        const FieldNumberToAtomDeclSet& fieldNumberToAtomDeclSet = signatureInfoMapIt->second;
+        FieldNumberToAtomDeclSet::const_iterator fieldNumberToAtomDeclSetIt =
+            fieldNumberToAtomDeclSet.find(ATOM_ID_FIELD_NUMBER);
+        if (fieldNumberToAtomDeclSetIt != fieldNumberToAtomDeclSet.end()
+            && requires_api_needed(fieldNumberToAtomDeclSetIt->second)) {
+            fprintf(out, "    @RequiresApi(%s)\n",
+                    get_java_build_version_code(
+                        get_min_api_level(fieldNumberToAtomDeclSetIt->second)).c_str());
+        }
         // Print method signature.
         fprintf(out, "    public static void write(int code");
         const vector<java_type_t>& signature = signatureInfoMapIt->first;
-        const FieldNumberToAtomDeclSet& fieldNumberToAtomDeclSet = signatureInfoMapIt->second;
         write_method_signature(out, signature, attributionDecl);
         fprintf(out, ") {\n");
 
         // Print method body.
         string indent("");
         if (minApiLevel == API_Q) {
-            fprintf(out, "        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.Q) {\n");
+            fprintf(out, "        if (Build.VERSION.SDK_INT > %s) {\n",
+                    get_java_build_version_code(API_Q).c_str());
             indent = "    ";
         }
 
@@ -323,22 +341,23 @@ int write_stats_log_java(FILE* out, const Atoms& atoms, const AtomDecl& attribut
     fprintf(out, "package %s;\n", javaPackage.c_str());
     fprintf(out, "\n");
     fprintf(out, "\n");
-    if (minApiLevel <= API_R) {
-        fprintf(out, "import android.os.Build;\n");
-    }
+    fprintf(out, "import android.os.Build;\n");
     if (minApiLevel <= API_Q) {
         fprintf(out, "import android.os.SystemClock;\n");
     }
 
     fprintf(out, "import android.util.StatsEvent;\n");
     fprintf(out, "import android.util.StatsLog;\n");
+    if (requires_api_needed(atoms.decls)) {
+        fprintf(out, "import androidx.annotation.RequiresApi;\n");
+    }
 
     fprintf(out, "\n");
     fprintf(out, "\n");
     fprintf(out, "/**\n");
     fprintf(out, " * Utility class for logging statistics events.\n");
     fprintf(out, " */\n");
-    fprintf(out, "public class %s {\n", javaClass.c_str());
+    fprintf(out, "public final class %s {\n", javaClass.c_str());
 
     write_java_atom_codes(out, atoms);
     write_java_enum_values(out, atoms);
@@ -364,6 +383,27 @@ int write_stats_log_java(FILE* out, const Atoms& atoms, const AtomDecl& attribut
 
     return errors;
 }
+
+int write_stats_log_java_vendor(FILE* out, const Atoms& atoms, const string& javaClass,
+                                const string& javaPackage) {
+    // Print prelude
+    fprintf(out, "// This file is autogenerated\n");
+    fprintf(out, "\n");
+    fprintf(out, "package %s;\n", javaPackage.c_str());
+    fprintf(out, "\n");
+    fprintf(out, "/**\n");
+    fprintf(out, " * Utility class for logging statistics events.\n");
+    fprintf(out, " */\n");
+    fprintf(out, "public final class %s {\n", javaClass.c_str());
+
+    write_java_atom_codes(out, atoms);
+    write_java_enum_values_vendor(out, atoms);
+
+    fprintf(out, "}\n");
+
+    return 0;
+}
+
 
 }  // namespace stats_log_api_gen
 }  // namespace android

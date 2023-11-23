@@ -5,7 +5,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,11 +21,11 @@ import junit.framework.TestCase;
 public class OldDoubleTest extends TestCase {
 
     public void test_byteValue() {
-        Double d = new Double(Byte.MAX_VALUE);
+        Double d = Double.valueOf(Byte.MAX_VALUE);
         assertEquals("Returned incorrect byte value", Byte.MAX_VALUE, d.byteValue());
-        d= new Double(Byte.MIN_VALUE);
+        d= Double.valueOf(Byte.MIN_VALUE);
         assertEquals("Returned incorrect byte value", Byte.MIN_VALUE, d.byteValue());
-        d= new Double(Double.MAX_VALUE);
+        d= Double.valueOf(Double.MAX_VALUE);
         assertEquals("Returned incorrect byte value", -1, d.byteValue());
     }
 
@@ -57,13 +57,13 @@ public class OldDoubleTest extends TestCase {
 
     public void test_intValue() {
         assertEquals("Returned incorrect int value", Integer.MAX_VALUE,
-                                            new Double(2147483648d).intValue());
+                                            Double.valueOf(2147483648d).intValue());
         assertEquals("Returned incorrect int value", Integer.MIN_VALUE,
-                                           new Double(-2147483649d).intValue());
+                                           Double.valueOf(-2147483649d).intValue());
     }
 
     public void test_isNaND() {
-        assertFalse("Doesn't return false value", Double.isNaN(new Double(Double.MAX_VALUE)));
+        assertFalse("Doesn't return false value", Double.isNaN(Double.valueOf(Double.MAX_VALUE)));
     }
 
     // Regression test for hotfix in native code of double parser.

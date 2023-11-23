@@ -494,6 +494,7 @@ public class MetricActivationTests extends DeviceAtomTestCase {
         // Metric 2 Activation 1: 0 seconds
         // Metric 2 Activation 2: 0 seconds
         rebootDeviceAndWaitUntilReady();
+        Thread.sleep(10_000L);
 
         // Metric 1 event ignored.
         // Metric 2 event ignored.

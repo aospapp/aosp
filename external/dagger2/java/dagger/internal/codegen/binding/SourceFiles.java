@@ -16,6 +16,8 @@
 
 package dagger.internal.codegen.binding;
 
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
+import static com.google.auto.common.MoreElements.asType;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -28,16 +30,21 @@ import static dagger.internal.codegen.javapoet.TypeNames.MAP_OF_PRODUCED_PRODUCE
 import static dagger.internal.codegen.javapoet.TypeNames.MAP_OF_PRODUCER_PRODUCER;
 import static dagger.internal.codegen.javapoet.TypeNames.MAP_PRODUCER;
 import static dagger.internal.codegen.javapoet.TypeNames.MAP_PROVIDER_FACTORY;
+import static dagger.internal.codegen.javapoet.TypeNames.PRODUCER;
+import static dagger.internal.codegen.javapoet.TypeNames.PROVIDER;
 import static dagger.internal.codegen.javapoet.TypeNames.PROVIDER_OF_LAZY;
 import static dagger.internal.codegen.javapoet.TypeNames.SET_FACTORY;
 import static dagger.internal.codegen.javapoet.TypeNames.SET_OF_PRODUCED_PRODUCER;
 import static dagger.internal.codegen.javapoet.TypeNames.SET_PRODUCER;
-import static dagger.model.BindingKind.ASSISTED_INJECTION;
-import static dagger.model.BindingKind.INJECTION;
-import static dagger.model.BindingKind.MULTIBOUND_MAP;
-import static dagger.model.BindingKind.MULTIBOUND_SET;
+import static dagger.internal.codegen.xprocessing.XElements.asExecutable;
+import static dagger.spi.model.BindingKind.ASSISTED_INJECTION;
+import static dagger.spi.model.BindingKind.INJECTION;
+import static dagger.spi.model.BindingKind.MULTIBOUND_MAP;
+import static dagger.spi.model.BindingKind.MULTIBOUND_SET;
 import static javax.lang.model.SourceVersion.isName;
 
+import androidx.room.compiler.processing.XExecutableElement;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.auto.common.MoreElements;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -51,17 +58,12 @@ import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeVariableName;
-import dagger.internal.SetFactory;
 import dagger.internal.codegen.base.MapType;
 import dagger.internal.codegen.base.SetType;
-import dagger.model.DependencyRequest;
-import dagger.model.RequestKind;
-import dagger.producers.Produced;
-import dagger.producers.Producer;
-import dagger.producers.internal.SetOfProducedProducer;
-import dagger.producers.internal.SetProducer;
+import dagger.internal.codegen.javapoet.TypeNames;
+import dagger.spi.model.DependencyRequest;
+import dagger.spi.model.RequestKind;
 import java.util.List;
-import javax.inject.Provider;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
@@ -97,9 +99,8 @@ public class SourceFiles {
         binding.dependencies(),
         dependency ->
             FrameworkField.create(
-                ClassName.get(
-                    frameworkTypeMapper.getFrameworkType(dependency.kind()).frameworkClass()),
-                TypeName.get(dependency.key().type()),
+                frameworkTypeMapper.getFrameworkType(dependency.kind()).frameworkClassName(),
+                TypeName.get(dependency.key().type().java()),
                 DependencyVariableNamer.name(dependency)));
   }
 
@@ -144,11 +145,10 @@ public class SourceFiles {
           case INJECTION:
           case PROVISION:
           case PRODUCTION:
-            return elementBasedClassName(
-                MoreElements.asExecutable(binding.bindingElement().get()), "Factory");
+            return factoryNameForElement(asExecutable(binding.bindingElement().get()));
 
           case ASSISTED_FACTORY:
-            return siblingClassName(MoreElements.asType(binding.bindingElement().get()), "_Impl");
+            return siblingClassName(asType(toJavac(binding.bindingElement().get())), "_Impl");
 
           default:
             throw new AssertionError();
@@ -159,6 +159,18 @@ public class SourceFiles {
             ((MembersInjectionBinding) binding).membersInjectedType());
     }
     throw new AssertionError();
+  }
+
+  /**
+   * Returns the generated factory name for the given element.
+   *
+   * <p>This method is useful during validation before a {@link Binding} can be created. If a
+   * binding already exists for the given element, prefer to call {@link
+   * #generatedClassNameForBinding(Binding)} instead since this method does not validate that the
+   * given element is actually a binding element or not.
+   */
+  public static ClassName factoryNameForElement(XExecutableElement element) {
+    return elementBasedClassName(toJavac(element), "Factory");
   }
 
   /**
@@ -188,8 +200,12 @@ public class SourceFiles {
         : ParameterizedTypeName.get(className, Iterables.toArray(typeParameters, TypeName.class));
   }
 
+  public static ClassName membersInjectorNameForType(XTypeElement typeElement) {
+    return membersInjectorNameForType(toJavac(typeElement));
+  }
+
   public static ClassName membersInjectorNameForType(TypeElement typeElement) {
-    return siblingClassName(typeElement,  "_MembersInjector");
+    return siblingClassName(typeElement, "_MembersInjector");
   }
 
   public static String memberInjectedFieldSignatureForVariable(VariableElement variableElement) {
@@ -202,8 +218,8 @@ public class SourceFiles {
     return CLASS_FILE_NAME_JOINER.join(className.simpleNames());
   }
 
-  public static ClassName generatedMonitoringModuleName(TypeElement componentElement) {
-    return siblingClassName(componentElement, "_MonitoringModule");
+  public static ClassName generatedMonitoringModuleName(XTypeElement componentElement) {
+    return siblingClassName(toJavac(componentElement), "_MonitoringModule");
   }
 
   // TODO(ronshapiro): when JavaPoet migration is complete, replace the duplicated code
@@ -217,9 +233,10 @@ public class SourceFiles {
    * The {@link java.util.Set} factory class name appropriate for set bindings.
    *
    * <ul>
-   *   <li>{@link SetFactory} for provision bindings.
-   *   <li>{@link SetProducer} for production bindings for {@code Set<T>}.
-   *   <li>{@link SetOfProducedProducer} for production bindings for {@code Set<Produced<T>>}.
+   *   <li>{@link dagger.producers.internal.SetFactory} for provision bindings.
+   *   <li>{@link dagger.producers.internal.SetProducer} for production bindings for {@code Set<T>}.
+   *   <li>{@link dagger.producers.internal.SetOfProducedProducer} for production bindings for
+   *       {@code Set<Produced<T>>}.
    * </ul>
    */
   public static ClassName setFactoryClassName(ContributionBinding binding) {
@@ -228,7 +245,9 @@ public class SourceFiles {
       return SET_FACTORY;
     } else {
       SetType setType = SetType.from(binding.key());
-      return setType.elementsAreTypeOf(Produced.class) ? SET_OF_PRODUCED_PRODUCER : SET_PRODUCER;
+      return setType.elementsAreTypeOf(TypeNames.PRODUCED)
+          ? SET_OF_PRODUCED_PRODUCER
+          : SET_PRODUCER;
     }
   }
 
@@ -238,10 +257,10 @@ public class SourceFiles {
     MapType mapType = MapType.from(binding.key());
     switch (binding.bindingType()) {
       case PROVISION:
-        return mapType.valuesAreTypeOf(Provider.class) ? MAP_PROVIDER_FACTORY : MAP_FACTORY;
+        return mapType.valuesAreTypeOf(PROVIDER) ? MAP_PROVIDER_FACTORY : MAP_FACTORY;
       case PRODUCTION:
         return mapType.valuesAreFrameworkType()
-            ? mapType.valuesAreTypeOf(Producer.class)
+            ? mapType.valuesAreTypeOf(PRODUCER)
                 ? MAP_OF_PRODUCER_PRODUCER
                 : MAP_OF_PRODUCED_PRODUCER
             : MAP_PRODUCER;
@@ -261,7 +280,7 @@ public class SourceFiles {
       }
     }
     List<? extends TypeParameterElement> typeParameters =
-        binding.bindingTypeElement().get().getTypeParameters();
+        toJavac(binding.bindingTypeElement().get()).getTypeParameters();
     return typeParameters.stream().map(TypeVariableName::get).collect(toImmutableList());
   }
 
@@ -272,7 +291,16 @@ public class SourceFiles {
    */
   // TODO(gak): maybe this should be a function of TypeMirrors instead of Elements?
   public static String simpleVariableName(TypeElement typeElement) {
-    String candidateName = UPPER_CAMEL.to(LOWER_CAMEL, typeElement.getSimpleName().toString());
+    return simpleVariableName(ClassName.get(typeElement));
+  }
+
+  /**
+   * Returns a name to be used for variables of the given {@linkplain ClassName}. Prefer
+   * semantically meaningful variable names, but if none can be derived, this will produce something
+   * readable.
+   */
+  public static String simpleVariableName(ClassName className) {
+    String candidateName = UPPER_CAMEL.to(LOWER_CAMEL, className.simpleName());
     String variableName = protectAgainstKeywords(candidateName);
     verify(isName(variableName), "'%s' was expected to be a valid variable name");
     return variableName;

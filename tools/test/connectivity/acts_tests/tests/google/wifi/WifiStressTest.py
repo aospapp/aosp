@@ -14,7 +14,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import pprint
 import queue
 import threading
 import time
@@ -30,6 +29,7 @@ from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.bt.bt_test_utils import enable_bluetooth
 from acts_contrib.test_utils.bt.bt_test_utils import disable_bluetooth
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
+
 WifiEnums = wutils.WifiEnums
 
 WAIT_FOR_AUTO_CONNECT = 40
@@ -39,6 +39,7 @@ PING_ADDR = 'www.google.com'
 BAND_2GHZ = 0
 BAND_5GHZ = 1
 
+
 class WifiStressTest(WifiBaseTest):
     """WiFi Stress test class.
 
@@ -47,6 +48,7 @@ class WifiStressTest(WifiBaseTest):
     * Several Wi-Fi networks visible to the device, including an open Wi-Fi
       network.
     """
+
     def __init__(self, configs):
         super().__init__(configs)
         self.enable_packet_log = True
@@ -66,9 +68,10 @@ class WifiStressTest(WifiBaseTest):
         opt_param = [
             "open_network", "reference_networks", "iperf_server_address",
             "stress_count", "stress_hours", "attn_vals", "pno_interval",
-            "iperf_server_port"]
-        self.unpack_userparams(
-            req_param_names=req_params, opt_param_names=opt_param)
+            "iperf_server_port"
+        ]
+        self.unpack_userparams(req_param_names=req_params,
+                               opt_param_names=opt_param)
 
         if "AccessPoint" in self.user_params:
             self.legacy_configure_ap_and_start(ap_count=2)
@@ -129,8 +132,8 @@ class WifiStressTest(WifiBaseTest):
 
         """
         ssid = network[WifiEnums.SSID_KEY]
-        wutils.start_wifi_connection_scan_and_ensure_network_found(self.dut,
-            ssid)
+        wutils.start_wifi_connection_scan_and_ensure_network_found(
+            self.dut, ssid)
         wutils.wifi_connect_by_id(self.dut, net_id)
 
     def run_ping(self, sec):
@@ -141,8 +144,8 @@ class WifiStressTest(WifiBaseTest):
 
         """
         self.log.info("Running ping for %d seconds" % sec)
-        result = self.dut.adb.shell("ping -w %d %s" %(sec, PING_ADDR),
-            timeout=sec+1)
+        result = self.dut.adb.shell("ping -w %d %s" % (sec, PING_ADDR),
+                                    timeout=sec + 1)
         self.log.debug("Ping Result = %s" % result)
         if "100% packet loss" in result:
             raise signals.TestFailure("100% packet loss during ping")
@@ -161,7 +164,8 @@ class WifiStressTest(WifiBaseTest):
         video_played = False
         for count in range(2):
             ad.unlock_screen()
-            ad.adb.shell('am start -a android.intent.action.VIEW -d "%s"' % url)
+            ad.adb.shell('am start -a android.intent.action.VIEW -d "%s"' %
+                         url)
             if tutils.wait_for_state(ad.droid.audioIsMusicActive, True, 15, 1):
                 ad.log.info("Started a video in youtube.")
                 # Play video for given seconds.
@@ -169,7 +173,8 @@ class WifiStressTest(WifiBaseTest):
                 video_played = True
                 break
         if not video_played:
-            raise signals.TestFailure("Youtube video did not start. Current WiFi "
+            raise signals.TestFailure(
+                "Youtube video did not start. Current WiFi "
                 "state is %d" % self.dut.droid.wifiCheckState())
 
     def add_networks(self, ad, networks):
@@ -182,8 +187,8 @@ class WifiStressTest(WifiBaseTest):
         """
         for network in networks:
             ret = ad.droid.wifiAddNetwork(network)
-            asserts.assert_true(ret != -1, "Failed to add network %s" %
-                                network)
+            asserts.assert_true(ret != -1,
+                                "Failed to add network %s" % network)
             ad.droid.wifiEnableNetwork(ret, 0)
         configured_networks = ad.droid.wifiGetConfiguredNetworks()
         self.log.debug("Configured networks: %s", configured_networks)
@@ -210,13 +215,14 @@ class WifiStressTest(WifiBaseTest):
             self.log.info("Wait 60s for network selection.")
             time.sleep(60)
         try:
-            self.log.info("Connected to %s network after network selection"
-                          % self.dut.droid.wifiGetConnectionInfo())
+            self.log.info("Connected to %s network after network selection" %
+                          self.dut.droid.wifiGetConnectionInfo())
             expected_ssid = expected_con[WifiEnums.SSID_KEY]
             verify_con = {WifiEnums.SSID_KEY: expected_ssid}
             wutils.verify_wifi_connection_info(self.dut, verify_con)
-            self.log.info("Connected to %s successfully after network selection",
-                          expected_ssid)
+            self.log.info(
+                "Connected to %s successfully after network selection",
+                expected_ssid)
         finally:
             pass
 
@@ -225,7 +231,8 @@ class WifiStressTest(WifiBaseTest):
             # Start IPerf traffic
             self.log.info("Running iperf client {}".format(args))
             result, data = self.dut.run_iperf_client(self.iperf_server_address,
-                args, timeout=sec+1)
+                                                     args,
+                                                     timeout=sec + 1)
             if not result:
                 self.log.debug("Error occurred in iPerf traffic.")
                 self.run_ping(sec)
@@ -248,12 +255,18 @@ class WifiStressTest(WifiBaseTest):
                 wutils.wifi_toggle_state(self.dut, True)
                 startup_time = time.time() - startTime
                 self.log.debug("WiFi was enabled on the device in %s s." %
-                    startup_time)
+                               startup_time)
             except:
-                signals.TestFailure(details="", extras={"Iterations":"%d" %
-                    self.stress_count, "Pass":"%d" %count})
-        raise signals.TestPass(details="", extras={"Iterations":"%d" %
-            self.stress_count, "Pass":"%d" %(count+1)})
+                signals.TestFailure(details="",
+                                    extras={
+                                        "Iterations": "%d" % self.stress_count,
+                                        "Pass": "%d" % count
+                                    })
+        raise signals.TestPass(details="",
+                               extras={
+                                   "Iterations": "%d" % self.stress_count,
+                                   "Pass": "%d" % (count + 1)
+                               })
 
     @test_tracker_info(uuid="4e591cec-9251-4d52-bc6e-6621507524dc")
     def test_stress_toggle_wifi_state_bluetooth_on(self):
@@ -269,13 +282,19 @@ class WifiStressTest(WifiBaseTest):
                 wutils.wifi_toggle_state(self.dut, True)
                 startup_time = time.time() - startTime
                 self.log.debug("WiFi was enabled on the device in %s s." %
-                    startup_time)
+                               startup_time)
             except:
-                signals.TestFailure(details="", extras={"Iterations":"%d" %
-                    self.stress_count, "Pass":"%d" %count})
+                signals.TestFailure(details="",
+                                    extras={
+                                        "Iterations": "%d" % self.stress_count,
+                                        "Pass": "%d" % count
+                                    })
         disable_bluetooth(self.dut.droid)
-        raise signals.TestPass(details="", extras={"Iterations":"%d" %
-            self.stress_count, "Pass":"%d" %(count+1)})
+        raise signals.TestPass(details="",
+                               extras={
+                                   "Iterations": "%d" % self.stress_count,
+                                   "Pass": "%d" % (count + 1)
+                               })
 
     @test_tracker_info(uuid="49e3916a-9580-4bf7-a60d-a0f2545dcdde")
     def test_stress_connect_traffic_disconnect_5g(self):
@@ -291,24 +310,34 @@ class WifiStressTest(WifiBaseTest):
         for count in range(self.stress_count):
             try:
                 net_id = self.dut.droid.wifiAddNetwork(self.wpa_5g)
-                asserts.assert_true(net_id != -1, "Add network %r failed" % self.wpa_5g)
+                asserts.assert_true(net_id != -1,
+                                    "Add network %r failed" % self.wpa_5g)
                 self.scan_and_connect_by_id(self.wpa_5g, net_id)
                 # Start IPerf traffic from phone to server.
                 # Upload data for 10s.
                 args = "-p {} -t {}".format(self.iperf_server_port, 10)
                 self.log.info("Running iperf client {}".format(args))
-                result, data = self.dut.run_iperf_client(self.iperf_server_address, args)
+                result, data = self.dut.run_iperf_client(
+                    self.iperf_server_address, args)
                 if not result:
                     self.log.debug("Error occurred in iPerf traffic.")
                     self.run_ping(10)
-                wutils.wifi_forget_network(self.dut,self.wpa_5g[WifiEnums.SSID_KEY])
+                wutils.wifi_forget_network(self.dut,
+                                           self.wpa_5g[WifiEnums.SSID_KEY])
                 time.sleep(WAIT_BEFORE_CONNECTION)
             except:
-                raise signals.TestFailure("Network connect-disconnect failed."
-                    "Look at logs", extras={"Iterations":"%d" %
-                        self.stress_count, "Pass":"%d" %count})
-        raise signals.TestPass(details="", extras={"Iterations":"%d" %
-            self.stress_count, "Pass":"%d" %(count+1)})
+                raise signals.TestFailure(
+                    "Network connect-disconnect failed."
+                    "Look at logs",
+                    extras={
+                        "Iterations": "%d" % self.stress_count,
+                        "Pass": "%d" % count
+                    })
+        raise signals.TestPass(details="",
+                               extras={
+                                   "Iterations": "%d" % self.stress_count,
+                                   "Pass": "%d" % (count + 1)
+                               })
 
     @test_tracker_info(uuid="e9827dff-0755-43ec-8b50-1f9756958460")
     def test_stress_connect_long_traffic_5g(self):
@@ -329,19 +358,26 @@ class WifiStressTest(WifiBaseTest):
         start_time = time.time()
 
         dl_args = "-p {} -t {} -b1M -R".format(self.iperf_server_port, sec)
-        dl = threading.Thread(target=self.run_long_traffic, args=(sec, dl_args, q))
+        dl = threading.Thread(target=self.run_long_traffic,
+                              args=(sec, dl_args, q))
         dl.start()
         dl.join()
 
         total_time = time.time() - start_time
-        self.log.debug("WiFi state = %d" %self.dut.droid.wifiCheckState())
-        while(q.qsize() > 0):
+        self.log.debug("WiFi state = %d" % self.dut.droid.wifiCheckState())
+        while (q.qsize() > 0):
             if not q.get():
                 raise signals.TestFailure("Network long-connect failed.",
-                    extras={"Total Hours":"%d" %self.stress_hours,
-                    "Seconds Run":"%d" %total_time})
-        raise signals.TestPass(details="", extras={"Total Hours":"%d" %
-            self.stress_hours, "Seconds Run":"%d" %total_time})
+                                          extras={
+                                              "Total Hours":
+                                              "%d" % self.stress_hours,
+                                              "Seconds Run": "%d" % total_time
+                                          })
+        raise signals.TestPass(details="",
+                               extras={
+                                   "Total Hours": "%d" % self.stress_hours,
+                                   "Seconds Run": "%d" % total_time
+                               })
 
     @test_tracker_info(uuid="591d257d-9477-4a89-a220-5715c93a76a7")
     def test_stress_youtube_5g(self):
@@ -354,26 +390,35 @@ class WifiStressTest(WifiBaseTest):
 
         """
         # List of Youtube 4K videos.
-        videos = ["https://www.youtube.com/watch?v=TKmGU77INaM",
-                  "https://www.youtube.com/watch?v=WNCl-69POro",
-                  "https://www.youtube.com/watch?v=dVkK36KOcqs",
-                  "https://www.youtube.com/watch?v=0wCC3aLXdOw",
-                  "https://www.youtube.com/watch?v=rN6nlNC9WQA",
-                  "https://www.youtube.com/watch?v=RK1K2bCg4J8"]
+        videos = [
+            "https://www.youtube.com/watch?v=TKmGU77INaM",
+            "https://www.youtube.com/watch?v=WNCl-69POro",
+            "https://www.youtube.com/watch?v=dVkK36KOcqs",
+            "https://www.youtube.com/watch?v=0wCC3aLXdOw",
+            "https://www.youtube.com/watch?v=rN6nlNC9WQA",
+            "https://www.youtube.com/watch?v=RK1K2bCg4J8"
+        ]
         try:
             self.scan_and_connect_by_ssid(self.dut, self.wpa_5g)
             start_time = time.time()
             for video in videos:
-                self.start_youtube_video(url=video, secs=10*60)
+                self.start_youtube_video(url=video, secs=10 * 60)
         except:
             total_time = time.time() - start_time
             raise signals.TestFailure("The youtube stress test has failed."
-                "WiFi State = %d" %self.dut.droid.wifiCheckState(),
-                extras={"Total Hours":"1", "Seconds Run":"%d" %total_time})
+                                      "WiFi State = %d" %
+                                      self.dut.droid.wifiCheckState(),
+                                      extras={
+                                          "Total Hours": "1",
+                                          "Seconds Run": "%d" % total_time
+                                      })
         total_time = time.time() - start_time
-        self.log.debug("WiFi state = %d" %self.dut.droid.wifiCheckState())
-        raise signals.TestPass(details="", extras={"Total Hours":"1",
-            "Seconds Run":"%d" %total_time})
+        self.log.debug("WiFi state = %d" % self.dut.droid.wifiCheckState())
+        raise signals.TestPass(details="",
+                               extras={
+                                   "Total Hours": "1",
+                                   "Seconds Run": "%d" % total_time
+                               })
 
     @test_tracker_info(uuid="d367c83e-5b00-4028-9ed8-f7b875997d13")
     def test_stress_wifi_failover(self):
@@ -388,20 +433,21 @@ class WifiStressTest(WifiBaseTest):
                   exhausted.
 
         """
-        for count in range(int(self.stress_count/4)):
+        for count in range(int(self.stress_count / 4)):
             wutils.reset_wifi(self.dut)
             ssids = list()
             for network in self.networks:
                 ssids.append(network[WifiEnums.SSID_KEY])
                 ret = self.dut.droid.wifiAddNetwork(network)
-                asserts.assert_true(ret != -1, "Add network %r failed" % network)
+                asserts.assert_true(ret != -1,
+                                    "Add network %r failed" % network)
                 self.dut.droid.wifiEnableNetwork(ret, 0)
             self.dut.droid.wifiStartScan()
             time.sleep(WAIT_FOR_AUTO_CONNECT)
             cur_network = self.dut.droid.wifiGetConnectionInfo()
             cur_ssid = cur_network[WifiEnums.SSID_KEY]
             self.log.info("Cur_ssid = %s" % cur_ssid)
-            for i in range(0,len(self.networks)):
+            for i in range(0, len(self.networks)):
                 self.log.debug("Forget network %s" % cur_ssid)
                 wutils.wifi_forget_network(self.dut, cur_ssid)
                 time.sleep(WAIT_FOR_AUTO_CONNECT)
@@ -412,16 +458,23 @@ class WifiStressTest(WifiBaseTest):
                     break
                 if cur_ssid not in ssids:
                     raise signals.TestFailure("Device did not failover to the "
-                        "expected network. SSID = %s" % cur_ssid)
+                                              "expected network. SSID = %s" %
+                                              cur_ssid)
             network_config = self.dut.droid.wifiGetConfiguredNetworks()
             self.log.info("Network Config = %s" % network_config)
             if len(network_config):
-                raise signals.TestFailure("All the network configurations were not "
+                raise signals.TestFailure(
+                    "All the network configurations were not "
                     "removed. Configured networks = %s" % network_config,
-                        extras={"Iterations":"%d" % self.stress_count,
-                            "Pass":"%d" %(count*4)})
-        raise signals.TestPass(details="", extras={"Iterations":"%d" %
-            self.stress_count, "Pass":"%d" %((count+1)*4)})
+                    extras={
+                        "Iterations": "%d" % self.stress_count,
+                        "Pass": "%d" % (count * 4)
+                    })
+        raise signals.TestPass(details="",
+                               extras={
+                                   "Iterations": "%d" % self.stress_count,
+                                   "Pass": "%d" % ((count + 1) * 4)
+                               })
 
     @test_tracker_info(uuid="2c19e8d1-ac16-4d7e-b309-795144e6b956")
     def test_stress_softAP_startup_and_stop_5g(self):
@@ -441,13 +494,12 @@ class WifiStressTest(WifiBaseTest):
         config[wutils.WifiEnums.PWD_KEY] = ap_password
         # Set country code explicitly to "US".
         wutils.set_wifi_country_code(self.dut, wutils.WifiEnums.CountryCode.US)
-        wutils.set_wifi_country_code(self.dut_client, wutils.WifiEnums.CountryCode.US)
+        wutils.set_wifi_country_code(self.dut_client,
+                                     wutils.WifiEnums.CountryCode.US)
         for count in range(self.stress_count):
             initial_wifi_state = self.dut.droid.wifiCheckState()
-            wutils.start_wifi_tethering(self.dut,
-                ap_ssid,
-                ap_password,
-                WifiEnums.WIFI_CONFIG_APBAND_5G)
+            wutils.start_wifi_tethering(self.dut, ap_ssid, ap_password,
+                                        WifiEnums.WIFI_CONFIG_APBAND_5G)
             wutils.start_wifi_connection_scan_and_ensure_network_found(
                 self.dut_client, ap_ssid)
             wutils.stop_wifi_tethering(self.dut)
@@ -457,12 +509,18 @@ class WifiStressTest(WifiBaseTest):
             time.sleep(2)
             cur_wifi_state = self.dut.droid.wifiCheckState()
             if initial_wifi_state != cur_wifi_state:
-               raise signals.TestFailure("Wifi state was %d before softAP and %d now!" %
+                raise signals.TestFailure(
+                    "Wifi state was %d before softAP and %d now!" %
                     (initial_wifi_state, cur_wifi_state),
-                        extras={"Iterations":"%d" % self.stress_count,
-                            "Pass":"%d" %count})
-        raise signals.TestPass(details="", extras={"Iterations":"%d" %
-            self.stress_count, "Pass":"%d" %(count+1)})
+                    extras={
+                        "Iterations": "%d" % self.stress_count,
+                        "Pass": "%d" % count
+                    })
+        raise signals.TestPass(details="",
+                               extras={
+                                   "Iterations": "%d" % self.stress_count,
+                                   "Pass": "%d" % (count + 1)
+                               })
 
     @test_tracker_info(uuid="eb22e26b-95d1-4580-8c76-85dfe6a42a0f")
     def test_stress_wifi_roaming(self):
@@ -471,22 +529,30 @@ class WifiStressTest(WifiBaseTest):
         wutils.set_attns(self.attenuators, "AP1_on_AP2_off")
         self.scan_and_connect_by_ssid(self.dut, AP1_network)
         # Reduce iteration to half because each iteration does two roams.
-        for count in range(int(self.stress_count/2)):
+        for count in range(int(self.stress_count / 2)):
             self.log.info("Roaming iteration %d, from %s to %s", count,
-                           AP1_network, AP2_network)
+                          AP1_network, AP2_network)
             try:
                 wutils.trigger_roaming_and_validate(self.dut, self.attenuators,
-                    "AP1_off_AP2_on", AP2_network)
+                                                    "AP1_off_AP2_on",
+                                                    AP2_network)
                 self.log.info("Roaming iteration %d, from %s to %s", count,
-                               AP2_network, AP1_network)
+                              AP2_network, AP1_network)
                 wutils.trigger_roaming_and_validate(self.dut, self.attenuators,
-                    "AP1_on_AP2_off", AP1_network)
+                                                    "AP1_on_AP2_off",
+                                                    AP1_network)
             except:
                 raise signals.TestFailure("Roaming failed. Look at logs",
-                    extras={"Iterations":"%d" %self.stress_count, "Pass":"%d" %
-                        (count*2)})
-        raise signals.TestPass(details="", extras={"Iterations":"%d" %
-            self.stress_count, "Pass":"%d" %((count+1)*2)})
+                                          extras={
+                                              "Iterations":
+                                              "%d" % self.stress_count,
+                                              "Pass": "%d" % (count * 2)
+                                          })
+        raise signals.TestPass(details="",
+                               extras={
+                                   "Iterations": "%d" % self.stress_count,
+                                   "Pass": "%d" % ((count + 1) * 2)
+                               })
 
     @test_tracker_info(uuid="e8ae8cd2-c315-4c08-9eb3-83db65b78a58")
     def test_stress_network_selector_2G_connection(self):
@@ -503,13 +569,17 @@ class WifiStressTest(WifiBaseTest):
         networks = [self.reference_networks[0]['2g']]
         self.add_networks(self.dut, networks)
         for count in range(self.stress_count):
-            self.connect_and_verify_connected_ssid(self.reference_networks[0]['2g'])
+            self.connect_and_verify_connected_ssid(
+                self.reference_networks[0]['2g'])
             # move the DUT out of range
             self.attenuators[0].set_atten(95)
             time.sleep(10)
         wutils.set_attns(self.attenuators, "default")
-        raise signals.TestPass(details="", extras={"Iterations":"%d" %
-            self.stress_count, "Pass":"%d" %(count+1)})
+        raise signals.TestPass(details="",
+                               extras={
+                                   "Iterations": "%d" % self.stress_count,
+                                   "Pass": "%d" % (count + 1)
+                               })
 
     @test_tracker_info(uuid="5d5d14cb-3cd1-4b3d-8c04-0d6f4b764b6b")
     def test_stress_pno_connection_to_2g(self):
@@ -524,8 +594,7 @@ class WifiStressTest(WifiBaseTest):
         6. Repeat step 4-5
         """
         self.scan_and_connect_by_ssid(self.dut, self.wpa_2g)
-        wutils.wifi_forget_network(
-                self.dut, self.wpa_2g[WifiEnums.SSID_KEY])
+        wutils.wifi_forget_network(self.dut, self.wpa_2g[WifiEnums.SSID_KEY])
         networks = [self.reference_networks[0]['2g']]
         for attenuator in self.attenuators:
             attenuator.set_atten(95)
@@ -534,16 +603,20 @@ class WifiStressTest(WifiBaseTest):
         self.dut.droid.wakeLockRelease()
         self.dut.droid.goToSleepNow()
         for count in range(self.stress_count):
-            self.connect_and_verify_connected_ssid(self.reference_networks[0]['2g'], is_pno=True)
-            wutils.wifi_forget_network(
-                    self.dut, networks[0][WifiEnums.SSID_KEY])
+            self.connect_and_verify_connected_ssid(
+                self.reference_networks[0]['2g'], is_pno=True)
+            wutils.wifi_forget_network(self.dut,
+                                       networks[0][WifiEnums.SSID_KEY])
             # move the DUT out of range
             self.attenuators[0].set_atten(95)
             time.sleep(10)
             self.add_networks(self.dut, networks)
         wutils.set_attns(self.attenuators, "default")
-        raise signals.TestPass(details="", extras={"Iterations":"%d" %
-            self.stress_count, "Pass":"%d" %(count+1)})
+        raise signals.TestPass(details="",
+                               extras={
+                                   "Iterations": "%d" % self.stress_count,
+                                   "Pass": "%d" % (count + 1)
+                               })
 
     @test_tracker_info(uuid="c880e742-8d20-4134-b717-5b6d45f6c337")
     def test_2g_sta_wifi_on_off_under_airplane_mode(self):
@@ -564,18 +637,25 @@ class WifiStressTest(WifiBaseTest):
                 wutils.wifi_toggle_state(self.dut, True)
                 startup_time = time.time() - startTime
                 self.log.debug("WiFi was enabled on the device in %s s." %
-                    startup_time)
+                               startup_time)
                 time.sleep(DEFAULT_TIMEOUT)
                 # Start IPerf traffic from phone to server.
                 # Upload data for 10s.
                 args = "-p {} -t {}".format(self.iperf_server_port, 10)
                 self.log.info("Running iperf client {}".format(args))
-                result, data = self.dut.run_iperf_client(self.iperf_server_address, args)
+                result, data = self.dut.run_iperf_client(
+                    self.iperf_server_address, args)
                 if not result:
                     self.log.debug("Error occurred in iPerf traffic.")
                     self.run_ping(10)
             except:
-                signals.TestFailure(details="", extras={"Iterations":"%d" %
-                    self.stress_count, "Pass":"%d" %count})
-        raise signals.TestPass(details="", extras={"Iterations":"%d" %
-            self.stress_count, "Pass":"%d" %(count+1)})
+                signals.TestFailure(details="",
+                                    extras={
+                                        "Iterations": "%d" % self.stress_count,
+                                        "Pass": "%d" % count
+                                    })
+        raise signals.TestPass(details="",
+                               extras={
+                                   "Iterations": "%d" % self.stress_count,
+                                   "Pass": "%d" % (count + 1)
+                               })

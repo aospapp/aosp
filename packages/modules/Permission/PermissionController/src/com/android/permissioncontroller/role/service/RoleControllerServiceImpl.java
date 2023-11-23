@@ -29,9 +29,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.WorkerThread;
 
 import com.android.permissioncontroller.permission.utils.CollectionUtils;
-import com.android.permissioncontroller.role.model.Role;
-import com.android.permissioncontroller.role.model.Roles;
 import com.android.permissioncontroller.role.utils.PackageUtils;
+import com.android.permissioncontroller.role.utils.RoleUiBehaviorUtils;
+import com.android.role.controller.model.Role;
+import com.android.role.controller.model.Roles;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -428,8 +429,8 @@ public class RoleControllerServiceImpl extends RoleControllerService {
             return false;
         }
         ApplicationInfo applicationInfo = PackageUtils.getApplicationInfo(packageName, this);
-        if (applicationInfo == null || !role.isApplicationVisibleAsUser(applicationInfo,
-                Process.myUserHandle(), this)) {
+        if (applicationInfo == null || !RoleUiBehaviorUtils.isApplicationVisibleAsUser(role,
+                applicationInfo, Process.myUserHandle(), this)) {
             return false;
         }
         return true;
@@ -444,7 +445,8 @@ public class RoleControllerServiceImpl extends RoleControllerService {
         if (!role.isAvailable(this)) {
             return false;
         }
-        return role.isVisibleAsUser(Process.myUserHandle(), this);
+
+        return RoleUiBehaviorUtils.isVisibleAsUser(role, Process.myUserHandle(), this);
     }
 
     private static boolean checkFlags(int flags, int allowedFlags) {

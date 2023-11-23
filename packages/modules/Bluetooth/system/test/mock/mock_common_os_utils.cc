@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "test/mock/mock_common_os_utils.h"
 
@@ -57,7 +55,7 @@ bool is_bluetooth_uid::return_value = false;
 
 // Mocked functions, if any
 bool is_bluetooth_uid() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::common_os_utils::is_bluetooth_uid();
 }
 // Mocked functions complete

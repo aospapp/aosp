@@ -62,11 +62,13 @@ public class CccEncoderTest {
                     .setNumSlotsPerRound(SLOTS_PER_ROUND_6)
                     .setSyncCodeIndex(1)
                     .setHoppingConfigMode(HOPPING_CONFIG_MODE_NONE)
-                    .setHoppingSequence(HOPPING_SEQUENCE_DEFAULT);
+                    .setHoppingSequence(HOPPING_SEQUENCE_DEFAULT)
+                    .setInitiationTimeMs(1);
 
     private static final byte[] TEST_CCC_OPEN_RANGING_TLV_DATA =
-            UwbUtil.getByteArray("0001000201010401090501010904800100000E010011010103010"
-                    + "11B01062301012C0100A3020100A4020000A50100A602D0020802B004140101");
+            UwbUtil.getByteArray("0001010201010401090501010904800100000E010011010103010"
+                    + "11B01062C0100A3020001A4020000A50100A602D0020802B004140101"
+                    + "2B080100000000000000");
 
     private final CccEncoder mCccEncoder = new CccEncoder();
 

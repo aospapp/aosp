@@ -28,13 +28,13 @@ import android.util.StatsEvent;
 
 import com.android.car.CarLog;
 import com.android.car.CarStatsLog;
+import com.android.car.CarSystemService;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.car.internal.util.ConcurrentUtils;
 import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.car.stats.VmsClientLogger.ConnectionState;
 import com.android.internal.annotations.GuardedBy;
 
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -47,7 +47,7 @@ import java.util.function.Function;
  *
  * Also implements collection and dumpsys reporting of atoms in CSV format.
  */
-public class CarStatsService {
+public class CarStatsService implements CarSystemService {
     private static final boolean DEBUG = false;
     private static final String TAG = CarLog.tagFor(CarStatsService.class);
     private static final String VMS_CONNECTION_STATS_DUMPSYS_HEADER =
@@ -98,6 +98,7 @@ public class CarStatsService {
     /**
      * Registers VmsClientStats puller with StatsManager.
      */
+    @Override
     public void init() {
         PullAtomMetadata metadata = new PullAtomMetadata.Builder()
                 .setAdditiveFields(new int[] {5, 6, 7, 8, 9, 10})
@@ -108,6 +109,11 @@ public class CarStatsService {
                 ConcurrentUtils.DIRECT_EXECUTOR,
                 (atomTag, data) -> pullVmsClientStats(atomTag, data)
         );
+    }
+
+    @Override
+    public void release() {
+        mStatsManager.clearPullAtomCallback(CarStatsLog.VMS_CLIENT_STATS);
     }
 
     /**
@@ -127,18 +133,9 @@ public class CarStatsService {
         }
     }
 
-    /**
-     * Dump its state.
-     */
+    @Override
     @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
-    public void dump(IndentingPrintWriter writer, String[] args) {
-        List<String> flags = Arrays.asList(args);
-        if (args.length == 0 || flags.contains("--vms-client")) {
-            dumpVmsStats(writer);
-        }
-    }
-
-    private void dumpVmsStats(IndentingPrintWriter writer) {
+    public void dump(IndentingPrintWriter writer) {
         synchronized (mVmsClientStats) {
             writer.println(VMS_CONNECTION_STATS_DUMPSYS_HEADER);
             mVmsClientStats.values().stream()

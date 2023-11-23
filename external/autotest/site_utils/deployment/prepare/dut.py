@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -103,7 +103,7 @@ def download_image_to_servo_usb(host, build):
     """Download the given image to the USB attached to host's servo.
 
     @param host   A server.hosts.Host object.
-    @param build  A Chrome OS version string for the build to download.
+    @param build  A ChromeOS version string for the build to download.
     """
     _, update_url = host.stage_image_for_servo(build)
     host.servo.image_to_servo_usb(update_url)
@@ -177,6 +177,12 @@ def verify_battery_status(host):
         logging.info("Skepping due DUT does not have the battery")
         return
     power_info = host.get_power_supply_info()
+    # Dues overheat battery in the audio-boxes the device can be deployed
+    # without battery.
+    if 'Battery' not in power_info and host_info.has_label('audio_box'):
+        logging.info('Device does not have battery.'
+                     ' Skip battery verification as it is audio_box setup.')
+        return
     battery_path = power_info['Battery']['path']
     cmd = 'cat %s/status' % battery_path
     status = host.run(cmd, timeout=30, ignore_status=True).stdout.strip()
@@ -363,7 +369,7 @@ def verify_boot_into_rec_mode(host):
         try:
             host.run('chromeos-tpm-recovery')
         except error.AutoservRunError:
-            logging.warn('chromeos-tpm-recovery is too old.')
+            logging.warning('chromeos-tpm-recovery is too old.')
     except Exception:
         # Restore the servo_v4 role to src if we called boot_in_recovery_mode
         # method with snk_mode=True earlier. If no exception raise, recover
@@ -405,7 +411,7 @@ def install_test_image(host):
     else:
         raise Exception('DUT failed to boot from USB for install test image.')
 
-    host.run('chromeos-install --yes', timeout=host.INSTALL_TIMEOUT)
+    host.run('chromeos-install --yes', timeout=host.ADMIN_INSTALL_TIMEOUT)
 
     logging.info("Rebooting DUT to boot from hard drive.")
     try:

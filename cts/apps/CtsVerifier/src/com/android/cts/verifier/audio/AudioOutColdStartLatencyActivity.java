@@ -16,23 +16,17 @@
 
 package com.android.cts.verifier.audio;
 
-import com.android.cts.verifier.audio.audiolib.SettingsUtils;
-
 import static com.android.cts.verifier.TestListActivity.sCurrentDisplayMode;
 import static com.android.cts.verifier.TestListAdapter.setTestNameSuffix;
 
 import android.media.AudioTimestamp;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
-import android.widget.TextView;
 
 import com.android.compatibility.common.util.CddTest;
-
 import com.android.cts.verifier.R;
-import com.android.cts.verifier.audio.audiolib.AudioSystemParams;
+import com.android.cts.verifier.audio.audiolib.SettingsUtils;
 
-import org.hyphonate.megaaudio.player.AudioSourceProvider;
 import org.hyphonate.megaaudio.player.Player;
 import org.hyphonate.megaaudio.player.PlayerBuilder;
 import org.hyphonate.megaaudio.player.sources.SilenceAudioSourceProvider;
@@ -98,7 +92,7 @@ public class AudioOutColdStartLatencyActivity
     }
 
     private boolean calcTestResult() {
-        boolean pass = mColdStartlatencyMS <= LATENCY_MS_MUST;
+        boolean pass = mColdStartlatencyMS <= 0 ? false : mColdStartlatencyMS <= LATENCY_MS_MUST;
         getPassButton().setEnabled(pass);
         return pass;
     }
@@ -111,7 +105,6 @@ public class AudioOutColdStartLatencyActivity
         double coldStartLatency = frame0Time - mPreOpenTime;
 
         mColdStartlatencyMS = nanosToMs(coldStartLatency);
-
         return mColdStartlatencyMS;
     }
 
@@ -124,10 +117,10 @@ public class AudioOutColdStartLatencyActivity
                         @Override
                         public void run() {
                             calcColdStartLatency(mPullTimestamp);
-                            stopAudioTest();
+                            stopAudio();
+                            calcTestResult();
                             updateTestStateButtons();
                             showColdStartLatency();
-                            calcTestResult();
                         }
                     });
 
@@ -165,22 +158,16 @@ public class AudioOutColdStartLatencyActivity
     // Audio Streaming
     //
     @Override
-    boolean startAudioTest() {
-        AudioSystemParams audioSystemParams = new AudioSystemParams();
-        audioSystemParams.init(this);
-
-        mSampleRate = audioSystemParams.getSystemSampleRate();
-        // mNumBufferFrames = audioSystemParams.getSystemBufferFrames();
-        mNumBufferFrames = audioSystemParams.getSystemBurstFrames();
-
-        AudioSourceProvider sourceProvider = new SilenceAudioSourceProvider();
+    boolean runAudioTest() {
         try {
             mPreOpenTime = System.nanoTime();
-            mPlayer = (new PlayerBuilder())
-                    .setPlayerType(mAudioApi)
-                    .setSourceProvider(sourceProvider)
-                    .build();
-            mPlayer.setupStream(NUM_CHANNELS, mSampleRate, mNumBufferFrames);
+            PlayerBuilder builder = new PlayerBuilder();
+            builder.setSourceProvider(new SilenceAudioSourceProvider())
+                .setPlayerType(mAudioApi)
+                .setChannelCount(NUM_CHANNELS)
+                .setSampleRate(mSampleRate)
+                .setNumExchangeFrames(mNumExchangeFrames);
+            mPlayer = builder.build();
             mPostOpenTime = System.nanoTime();
 
             mIsTestRunning = true;
@@ -201,7 +188,7 @@ public class AudioOutColdStartLatencyActivity
     }
 
     @Override
-    void stopAudioTest() {
+    void stopAudio() {
         if (!mIsTestRunning) {
             return;
         }

@@ -22,7 +22,10 @@
 #include <shared/send_message.h>
 #include <shared/time_util.h>
 
+#include <chre/util/nanoapp/log.h>
 #include "chre/util/macros.h"
+
+#define LOG_TAG "[BasicFlushAsyncTest]"
 
 using nanoapp_testing::kOneMillisecondInNanoseconds;
 using nanoapp_testing::kOneSecondInNanoseconds;
@@ -165,9 +168,8 @@ void BasicSensorFlushAsyncTest::handleFlushComplete(
     ASSERT_GE(mLatestSensorDataTimestamp, oldestValidTimestamp,
               "Received very old data");
 
-    chreLog(CHRE_LOG_INFO,
-            "Flush test: flush request to complete time: %" PRIu64 " ms",
-            (chreGetTime() - mFlushRequestTime) / kOneMillisecondInNanoseconds);
+    LOGI("Flush test: flush request to complete time: %" PRIu64 " ms",
+         (chreGetTime() - mFlushRequestTime) / kOneMillisecondInNanoseconds);
 
     // verify event data
     ASSERT_NE(eventData, nullptr, "null event data");

@@ -43,9 +43,7 @@ from aidegen.vscode import vscode_native_project_file_gen
 
 
 # pylint: disable=protected-access
-# pylint: disable=invalid-name
 # pylint: disable=too-many-arguments
-# pylint: disable=too-many-function-args
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-locals
 class AidegenMainUnittests(unittest.TestCase):
@@ -169,6 +167,19 @@ class AidegenMainUnittests(unittest.TestCase):
         args = [target, '-p', '/opt/abc/bin/idea.sh']
         aidegen_main.main(args)
         self.assertFalse(mock_launch_ide.called)
+
+    def test_get_targets_from_args(self):
+        """Test get targets from different arguments."""
+        self.assertEqual(
+            aidegen_main._get_targets_from_args([''], True), [])
+        self.assertEqual(
+            aidegen_main._get_targets_from_args(['.'], False), ['.'])
+        self.assertEqual(
+            aidegen_main._get_targets_from_args([''], False), ['.'])
+        self.assertEqual(
+            aidegen_main._get_targets_from_args(['.'], True), [])
+        self.assertEqual(
+            aidegen_main._get_targets_from_args(['test'], False), ['test'])
 
     @mock.patch.object(aidegen_main, '_launch_ide')
     @mock.patch.object(ide_util, 'get_ide_util_instance')

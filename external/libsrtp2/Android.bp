@@ -92,6 +92,9 @@ cc_fuzz {
     // exceeds the posix_spawn limit. So, only some of the files
     // are used.
     corpus: ["fuzzer/corpus/0*"],
+    fuzzing_frameworks: {
+      afl: false,
+    },
     fuzz_config: {
         componentid: 87896
     }

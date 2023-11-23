@@ -7,3 +7,5 @@ binder_use(hal_vehicle_default)
 allow hal_vehicle_default self:vsock_socket { create_socket_perms_no_ioctl listen accept };
 # TODO(b/130668487): Label the vsock sockets.
 allow hal_vehicle_default unlabeled:vsock_socket { read write shutdown };
+
+allow hal_vehicle_default proc_net:file { open read getattr };

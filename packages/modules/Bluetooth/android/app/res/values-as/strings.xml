@@ -16,13 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="permlab_bluetoothShareManager" msgid="5297865456717871041">"ডাউনল’ড মেনেজাৰ ব্যৱহাৰ কৰিব পাৰে।"</string>
-    <string name="permdesc_bluetoothShareManager" msgid="1588034776955941477">"এপটোক BluetoothShare মেনেজাৰ ব্যৱহাৰ কৰি ফাইল স্থানান্তৰ কৰিবলৈ অনুমতি দিয়ে।"</string>
+    <string name="permlab_bluetoothShareManager" msgid="5297865456717871041">"ডাউনল’ড মেনেজাৰ এক্সেছ কৰিব পাৰে।"</string>
+    <string name="permdesc_bluetoothShareManager" msgid="1588034776955941477">"এপ্‌টোক BluetoothShare মেনেজাৰ ব্যৱহাৰ কৰি ফাইল স্থানান্তৰ কৰিবলৈ অনুমতি দিয়ে।"</string>
     <string name="permlab_bluetoothAcceptlist" msgid="5785922051395856524">"ব্লুটুথ ডিভাইচ এক্সেছ কৰাৰ স্বীকৃতি দিয়ে।"</string>
     <string name="permdesc_bluetoothAcceptlist" msgid="259308920158011885">"এপ্‌টোক এটা ব্লুটুথ ডিভাইচ অস্থায়ীৰূপে স্বীকাৰ কৰাৰ অনুমতি দিয়ে যিয়ে ডিভাইচটোক ব্যৱহাৰকাৰীৰ নিশ্চিতিকৰণৰ অবিহনেই ইয়ালৈ ফাইল পঠিওৱাৰ অনুমতি দিয়ে।"</string>
     <string name="bt_share_picker_label" msgid="7464438494743777696">"ব্লুটুথ"</string>
     <string name="unknown_device" msgid="2317679521750821654">"অজ্ঞাত ডিভাইচ"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"অজ্ঞাত"</string>
+    <string name="not_provided" msgid="6938740494380012614">"প্ৰদান কৰা হোৱা নাই"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"এয়াৰপ্লে’ন ম’ড"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"আপুনি এয়াৰপ্লেইন ম\'ডত ব্লুটুথ ব্যৱহাৰ কৰিব নোৱাৰে।"</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -86,7 +87,7 @@
     <string name="bt_sm_2_1_nosdcard" msgid="288667514869424273">"ফাইলটো ছেভ কৰিব পৰাকৈ ইউএছবি ষ্ট’ৰেজত পৰ্যাপ্ত খালী ঠাই নাই।"</string>
     <string name="bt_sm_2_1_default" msgid="5070195264206471656">"ফাইলটো ছেভ কৰিব পৰাকৈ এছডি কাৰ্ডখনত পৰ্যাপ্ত খালী ঠাই নাই।"</string>
     <string name="bt_sm_2_2" msgid="6200119660562110560">"ইমান খালী ঠাইৰ দৰকাৰ: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
-    <string name="ErrorTooManyRequests" msgid="5049670841391761475">"বহুত বেছি অনুৰোধৰ ওপৰত প্ৰক্ৰিয়া চলি আছে৷ পিছত আকৌ চেষ্টা কৰক৷"</string>
+    <string name="ErrorTooManyRequests" msgid="5049670841391761475">"বহুত বেছি অনুৰোধৰ ওপৰত প্ৰক্ৰিয়া চলি আছে৷ পাছত আকৌ চেষ্টা কৰক৷"</string>
     <string name="status_pending" msgid="4781040740237733479">"ফাইলৰ স্থানান্তৰণ এতিয়ালৈকে আৰম্ভ হোৱা নাই।"</string>
     <string name="status_running" msgid="7419075903776657351">"ফাইলৰ স্থানান্তৰণ চলি আছে।"</string>
     <string name="status_success" msgid="7963589000098719541">"ফাইলৰ স্থানান্তৰণৰ কাৰ্য সফলতাৰে সম্পন্ন কৰা হ’ল।"</string>
@@ -118,7 +119,7 @@
     <string name="bluetooth_a2dp_sink_queue_name" msgid="7521243473328258997">"এতিয়া প্লে’ হৈ আছে"</string>
     <string name="bluetooth_map_settings_save" msgid="8309113239113961550">"ছেভ কৰক"</string>
     <string name="bluetooth_map_settings_cancel" msgid="3374494364625947793">"বাতিল কৰক"</string>
-    <string name="bluetooth_map_settings_intro" msgid="4748160773998753325">"ব্লুটুথৰ জৰিয়তে শ্বেয়াৰ কৰিব খোজা একাউণ্টসমূহ বাছক। তথাপিও সংযোগ কৰি থাকোঁতে আপুনি একাউণ্টসমূহক সকলো ধৰণৰ অনুমতি দিবই লাগিব।"</string>
+    <string name="bluetooth_map_settings_intro" msgid="4748160773998753325">"ব্লুটুথৰ জৰিয়তে শ্বেয়াৰ কৰিব খোজা একাউণ্টসমূহ বাছক। তথাপিও সংযোগ কৰি থাকোঁতে আপুনি একাউণ্টসমূহক সকলো ধৰণৰ এক্সেছ দিবই লাগিব।"</string>
     <string name="bluetooth_map_settings_count" msgid="183013143617807702">"বাকী থকা শ্লটবোৰ:"</string>
     <string name="bluetooth_map_settings_app_icon" msgid="3501432663809664982">"এপ্লিকেশ্বন আইকন"</string>
     <string name="bluetooth_map_settings_title" msgid="4226030082708590023">"ব্লুটুথৰ জৰিয়তে বাৰ্তা শ্বেয়াৰ কৰাৰ ছেটিং"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"ব্লুটুথ অডিঅ\'"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"৪ জি. বি. তকৈ ডাঙৰ ফাইল স্থানান্তৰ কৰিব নোৱাৰি"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"ব্লুটুথৰ সৈতে সংযোগ কৰক"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"এয়াৰপ্লেন ম’ডত ব্লুটুথ অন হৈ থাকিব"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"আপুনি যদি ব্লুটুথ অন কৰি ৰাখে, পৰৱৰ্তী সময়ত আপুনি এয়াৰপ্লেন ম’ড ব্যৱহাৰ কৰিলে আপোনাৰ ডিভাইচটোৱে এয়া অন কৰি ৰাখিবলৈ মনত ৰাখিব"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"ব্লুটুথ অন হৈ থাকে"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"আপোনাৰ ডিভাইচটোৱে এয়াৰপ্লেন ম’ডত ব্লুটুথ অন ৰাখিবলৈ মনত ৰাখে। আপুনি যদি ব্লুটুথ অন হৈ থকাটো নিবিচাৰে, তেন্তে ইয়াক অফ কৰক।"</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"ৱাই-ফাই আৰু ব্লুটুথ অন হৈ থাকে"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"আপোনাৰ ডিভাইচটোৱে এয়াৰপ্লেন ম’ডত ৱাই-ফাই আৰু ব্লুটুথ অন ৰাখিবলৈ মনত ৰাখে। আপুনি ৱাই-ফাই আৰু ব্লুটুথ অন হৈ থকাটো নিবিচাৰিলে সেইবোৰ অফ কৰক।"</string>
 </resources>

@@ -8,7 +8,7 @@ import "blueberry/facade/common.proto";
 service LeInitiatorAddressFacade {
   rpc SetPrivacyPolicyForInitiatorAddress(PrivacyPolicy) returns (google.protobuf.Empty) {}
   rpc GetCurrentInitiatorAddress(google.protobuf.Empty) returns (blueberry.facade.BluetoothAddressWithType) {}
-  rpc GetAnotherAddress(google.protobuf.Empty) returns (blueberry.facade.BluetoothAddressWithType) {}
+  rpc NewResolvableAddress(google.protobuf.Empty) returns (blueberry.facade.BluetoothAddressWithType) {}
 }
 
 enum AddressPolicy {

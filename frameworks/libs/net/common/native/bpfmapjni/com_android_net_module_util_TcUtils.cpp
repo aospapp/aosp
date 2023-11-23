@@ -34,7 +34,7 @@ static jboolean com_android_net_module_util_TcUtils_isEthernet(JNIEnv *env,
   int error = isEthernet(interface.c_str(), result);
   if (error) {
     throwIOException(
-        env, "com_android_net_module_util_TcUtils_isEthernet error: ", error);
+        env, "com_android_net_module_util_TcUtils_isEthernet error: ", -error);
   }
   // result is not touched when error is returned; leave false.
   return result;
@@ -50,7 +50,7 @@ static void com_android_net_module_util_TcUtils_tcFilterAddDevBpf(
   if (error) {
     throwIOException(
         env,
-        "com_android_net_module_util_TcUtils_tcFilterAddDevBpf error: ", error);
+        "com_android_net_module_util_TcUtils_tcFilterAddDevBpf error: ", -error);
   }
 }
 
@@ -68,7 +68,7 @@ static void com_android_net_module_util_TcUtils_tcFilterAddDevIngressPolice(
     throwIOException(env,
                      "com_android_net_module_util_TcUtils_"
                      "tcFilterAddDevIngressPolice error: ",
-                     error);
+                     -error);
   }
 }
 
@@ -80,7 +80,7 @@ static void com_android_net_module_util_TcUtils_tcFilterDelDev(
   if (error) {
     throwIOException(
         env,
-        "com_android_net_module_util_TcUtils_tcFilterDelDev error: ", error);
+        "com_android_net_module_util_TcUtils_tcFilterDelDev error: ", -error);
   }
 }
 
@@ -92,7 +92,7 @@ static void com_android_net_module_util_TcUtils_tcQdiscAddDevClsact(JNIEnv *env,
   if (error) {
     throwIOException(
         env,
-        "com_android_net_module_util_TcUtils_tcQdiscAddDevClsact error: ", error);
+        "com_android_net_module_util_TcUtils_tcQdiscAddDevClsact error: ", -error);
   }
 }
 

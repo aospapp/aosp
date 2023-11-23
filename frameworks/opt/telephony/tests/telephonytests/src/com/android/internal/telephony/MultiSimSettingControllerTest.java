@@ -25,6 +25,7 @@ import static android.telephony.TelephonyManager.EXTRA_SUBSCRIPTION_ID;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -33,6 +34,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -55,7 +57,8 @@ import android.testing.TestableLooper;
 
 import androidx.test.InstrumentationRegistry;
 
-import com.android.internal.telephony.dataconnection.DataEnabledSettings;
+import com.android.internal.telephony.data.DataSettingsManager;
+import com.android.internal.telephony.subscription.SubscriptionInfoInternal;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -75,92 +78,183 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RunWith(AndroidTestingRunner.class)
 @TestableLooper.RunWithLooper
 public class MultiSimSettingControllerTest extends TelephonyTest {
-    private static final int SINGLE_SIM = 1;
     private static final int DUAL_SIM = 2;
+    private static final String PHONE_PACKAGE = "com.android.internal.telephony";
     private MultiSimSettingController mMultiSimSettingControllerUT;
     private Phone[] mPhones;
     private ParcelUuid mGroupUuid1 = new ParcelUuid(UUID.randomUUID());
+    private CarrierConfigManager.CarrierConfigChangeListener mCarrierConfigChangeListener;
 
     // Mocked classes
-    private SubscriptionController mSubControllerMock;
     private Phone mPhoneMock1;
     private Phone mPhoneMock2;
-    private DataEnabledSettings mDataEnabledSettingsMock1;
-    private DataEnabledSettings mDataEnabledSettingsMock2;
+    private DataSettingsManager mDataSettingsManagerMock1;
+    private DataSettingsManager mDataSettingsManagerMock2;
     private CommandsInterface mMockCi;
 
+    private final SubscriptionInfoInternal[] mSubInfo = new SubscriptionInfoInternal[10];
 
-    private final SubscriptionInfo mSubInfo1 = new SubscriptionInfo(1, "subInfo1 IccId", 0,
-            "T-mobile", "T-mobile", 0, 255, "12345", 0, null, "310", "260",
-            "156", false, null, null);
+    private void initializeSubs() {
+        mSubInfo[1] = new SubscriptionInfoInternal.Builder()
+                .setId(1)
+                .setIccId("subInfo1 IccId")
+                .setSimSlotIndex(0)
+                .setDisplayName("T-mobile")
+                .setCarrierName("T-mobile")
+                .setDisplayNameSource(SubscriptionManager.NAME_SOURCE_CARRIER)
+                .setIconTint(255)
+                .setNumber("12345")
+                .setMcc("310")
+                .setMnc("260")
+                .setCountryIso("us")
+                .build();
 
-    private final SubscriptionInfo mSubInfo2 = new SubscriptionInfo(2, "subInfo2 IccId", 1,
-            "T-mobile", "T-mobile", 0, 255, "12345", 0, null, "310", "260",
-            "156", false, null, null, -1, false, mGroupUuid1.toString(), false,
-            TelephonyManager.UNKNOWN_CARRIER_ID, SubscriptionManager.PROFILE_CLASS_DEFAULT,
-            SubscriptionManager.SUBSCRIPTION_TYPE_LOCAL_SIM, null, null, true, -1);
+        mSubInfo[2] = new SubscriptionInfoInternal.Builder(mSubInfo[1])
+                .setId(2)
+                .setIccId("subInfo2 IccId")
+                .setSimSlotIndex(1)
+                .setGroupUuid(mGroupUuid1.toString())
+                .build();
 
-    private final SubscriptionInfo mSubInfo3 = new SubscriptionInfo(3, "subInfo3 IccId", -1,
-            "T-mobile", "T-mobile", 0, 255, "12345", 0, null, "310", "260",
-            "156", false, null, null, -1, false, mGroupUuid1.toString(), false,
-            TelephonyManager.UNKNOWN_CARRIER_ID, SubscriptionManager.PROFILE_CLASS_DEFAULT,
-            SubscriptionManager.SUBSCRIPTION_TYPE_LOCAL_SIM, null, null, true, -1);
+        mSubInfo[3] = new SubscriptionInfoInternal.Builder(mSubInfo[1])
+                .setId(3)
+                .setIccId("subInfo3 IccId")
+                .setSimSlotIndex(-1)
+                .setGroupUuid(mGroupUuid1.toString())
+                .build();
 
-    private final SubscriptionInfo mSubInfo4 = new SubscriptionInfo(4, "subInfo4 IccId", -1,
-            "T-mobile", "T-mobile", 0, 255, "12345", 0, null, "310", "260",
-            "156", false, null, null, -1, false, mGroupUuid1.toString(), false,
-            TelephonyManager.UNKNOWN_CARRIER_ID, SubscriptionManager.PROFILE_CLASS_DEFAULT,
-            SubscriptionManager.SUBSCRIPTION_TYPE_LOCAL_SIM, null, null, true, -1);
+        mSubInfo[4] = new SubscriptionInfoInternal.Builder(
+                mSubInfo[1])
+                .setId(4)
+                .setIccId("subInfo4 IccId")
+                .setSimSlotIndex(-1)
+                .setGroupUuid(mGroupUuid1.toString())
+                .build();
+    }
+
+    private void setSimSlotIndex(int subId, int simSlotIndex) {
+        mSubInfo[subId] = new SubscriptionInfoInternal.Builder(mSubInfo[subId])
+                .setSimSlotIndex(simSlotIndex).build();
+    }
+
+    private void sendCarrierConfigChanged(int phoneId, int subId) {
+        mCarrierConfigChangeListener.onCarrierConfigChanged(phoneId, subId,
+                TelephonyManager.UNKNOWN_CARRIER_ID, TelephonyManager.UNKNOWN_CARRIER_ID);
+    }
 
     @Before
     public void setUp() throws Exception {
         super.setUp(getClass().getSimpleName());
-        mSubControllerMock = mock(SubscriptionController.class);
+        initializeSubs();
         mPhoneMock1 = mock(Phone.class);
         mPhoneMock2 = mock(Phone.class);
-        mDataEnabledSettingsMock1 = mock(DataEnabledSettings.class);
-        mDataEnabledSettingsMock2 = mock(DataEnabledSettings.class);
+        mDataSettingsManagerMock1 = mock(DataSettingsManager.class);
+        mDataSettingsManagerMock2 = mock(DataSettingsManager.class);
         mMockCi = mock(CommandsInterface.class);
+
+        doReturn(mSubscriptionManagerService).when(mIBinder).queryLocalInterface(anyString());
+        doReturn(mPhone).when(mPhone).getImsPhone();
+        mServiceManagerMockedServices.put("isub", mIBinder);
+
+        doReturn(mSubscriptionManagerService).when(mIBinder)
+                .queryLocalInterface(anyString());
+
         // Default configuration:
         // DSDS device.
         // Sub 1 is the default sub.
         // Sub 1 is in slot 0; sub 2 is in slot 1.
         doReturn(DUAL_SIM).when(mTelephonyManager).getPhoneCount();
         doReturn(DUAL_SIM).when(mTelephonyManager).getActiveModemCount();
-        doReturn(1).when(mSubControllerMock).getDefaultDataSubId();
-        doReturn(1).when(mSubControllerMock).getDefaultVoiceSubId();
-        doReturn(1).when(mSubControllerMock).getDefaultSmsSubId();
-        doReturn(true).when(mSubControllerMock).isActiveSubId(1);
-        doReturn(true).when(mSubControllerMock).isActiveSubId(2);
-        doReturn(0).when(mSubControllerMock).getPhoneId(1);
-        doReturn(1).when(mSubControllerMock).getPhoneId(2);
-        doReturn(true).when(mSubControllerMock).isOpportunistic(5);
-        doReturn(1).when(mPhoneMock1).getSubId();
-        doReturn(2).when(mPhoneMock2).getSubId();
+        doReturn(1).when(mSubscriptionManagerService).getDefaultDataSubId();
+        doReturn(1).when(mSubscriptionManagerService).getDefaultVoiceSubId();
+        doReturn(1).when(mSubscriptionManagerService).getDefaultSmsSubId();
         mPhoneMock1.mCi = mSimulatedCommands;
         mPhoneMock2.mCi = mSimulatedCommands;
-        List<SubscriptionInfo> infoList = Arrays.asList(mSubInfo1, mSubInfo2);
-        doReturn(infoList).when(mSubControllerMock)
-                .getActiveSubscriptionInfoList(anyString(), nullable(String.class));
-        doReturn(new int[]{1, 2}).when(mSubControllerMock).getActiveSubIdList(anyBoolean());
 
         mPhones = new Phone[] {mPhoneMock1, mPhoneMock2};
-        doReturn(mDataEnabledSettingsMock1).when(mPhoneMock1).getDataEnabledSettings();
-        doReturn(mDataEnabledSettingsMock2).when(mPhoneMock2).getDataEnabledSettings();
+        doReturn(mDataSettingsManagerMock1).when(mPhoneMock1).getDataSettingsManager();
+        doReturn(mDataSettingsManagerMock2).when(mPhoneMock2).getDataSettingsManager();
 
-        doReturn(Arrays.asList(mSubInfo1)).when(mSubControllerMock).getSubInfo(
-                eq(SubscriptionManager.UNIQUE_KEY_SUBSCRIPTION_ID + "=" + 1), any());
-        doReturn(Arrays.asList(mSubInfo2)).when(mSubControllerMock).getSubInfo(
-                eq(SubscriptionManager.UNIQUE_KEY_SUBSCRIPTION_ID + "=" + 2), any());
-        doReturn(Arrays.asList(mSubInfo3)).when(mSubControllerMock).getSubInfo(
-                eq(SubscriptionManager.UNIQUE_KEY_SUBSCRIPTION_ID + "=" + 3), any());
-        doReturn(Arrays.asList(mSubInfo4)).when(mSubControllerMock).getSubInfo(
-                eq(SubscriptionManager.UNIQUE_KEY_SUBSCRIPTION_ID + "=" + 4), any());
+        doAnswer(invocation -> {
+            final int subId = (int) invocation.getArguments()[0];
+            if (subId < 0 || subId >= mSubInfo.length) return null;
+            return mSubInfo[subId].toSubscriptionInfo();
+        }).when(mSubscriptionManagerService).getSubscriptionInfo(anyInt());
+
+        doAnswer(invocation -> {
+            final int subId = (int) invocation.getArguments()[0];
+            if (subId < 0 || subId >= mSubInfo.length) return null;
+            return mSubInfo[subId];
+        }).when(mSubscriptionManagerService).getSubscriptionInfoInternal(anyInt());
+
+        doAnswer(invocation -> {
+            List<SubscriptionInfo> subscriptionInfoList = new ArrayList<>();
+            for (int i = 1; i < mSubInfo.length; i++) {
+                if (mSubInfo[i] != null && mSubInfo[i].isActive()) {
+                    subscriptionInfoList.add(mSubInfo[i].toSubscriptionInfo());
+                }
+            }
+            return subscriptionInfoList;
+        }).when(mSubscriptionManagerService).getActiveSubscriptionInfoList(
+                anyString(), nullable(String.class));
+
+        doAnswer(invocation -> {
+            final boolean visibleOnly = (boolean) invocation.getArguments()[0];
+            List<Integer> subIdList = new ArrayList<>();
+            for (int i = 1; i < mSubInfo.length; i++) {
+                if (mSubInfo[i] != null && mSubInfo[i].isActive()
+                        && (!visibleOnly || mSubInfo[i].isVisible())) {
+                    subIdList.add(i);
+                }
+            }
+            return subIdList.stream().mapToInt(i -> i).toArray();
+        }).when(mSubscriptionManagerService).getActiveSubIdList(anyBoolean());
+
+        doAnswer(invocation -> {
+            final String uuid = (String) invocation.getArguments()[1];
+            List<SubscriptionInfo> subscriptionInfoList = new ArrayList<>();
+            for (int i = 1; i < mSubInfo.length; i++) {
+                if (mSubInfo[i] != null && mSubInfo[i].getGroupUuid().equals(uuid)) {
+                    subscriptionInfoList.add(mSubInfo[i].toSubscriptionInfo());
+                }
+            }
+            return subscriptionInfoList;
+        }).when(mSubscriptionManagerService).getSubscriptionsInGroup(
+                any(), anyString(), nullable(String.class));
+
+        doAnswer(invocation -> {
+            final int subId = (int) invocation.getArguments()[0];
+            if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+                return SubscriptionManager.INVALID_PHONE_INDEX;
+            }
+            if (mSubInfo[subId] == null) return SubscriptionManager.INVALID_PHONE_INDEX;
+            return mSubInfo[subId].getSimSlotIndex();
+        }).when(mSubscriptionManagerService).getPhoneId(anyInt());
+
+        doAnswer(invocation -> {
+            for (int i = 1; i < mSubInfo.length; i++) {
+                if (mSubInfo[i] != null && mSubInfo[i].getSimSlotIndex() == 0) return i;
+            }
+            return SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+        }).when(mPhoneMock1).getSubId();
+
+        doAnswer(invocation -> {
+            for (int i = 1; i < mSubInfo.length; i++) {
+                if (mSubInfo[i] != null && mSubInfo[i].getSimSlotIndex() == 1) return i;
+            }
+            return SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+        }).when(mPhoneMock2).getSubId();
 
         replaceInstance(PhoneFactory.class, "sPhones", null, mPhones);
-        replaceInstance(SubscriptionController.class, "sInstance", null, mSubControllerMock);
-        mMultiSimSettingControllerUT = new MultiSimSettingController(mContext, mSubControllerMock);
+        // Capture listener to emulate the carrier config change notification used later
+        ArgumentCaptor<CarrierConfigManager.CarrierConfigChangeListener> listenerArgumentCaptor =
+                ArgumentCaptor.forClass(CarrierConfigManager.CarrierConfigChangeListener.class);
+        mMultiSimSettingControllerUT = new MultiSimSettingController(mContext);
         processAllMessages();
+        verify(mCarrierConfigManager).registerCarrierConfigChangeListener(any(),
+                listenerArgumentCaptor.capture());
+        mCarrierConfigChangeListener = listenerArgumentCaptor.getAllValues().get(0);
+        assertNotNull(mCarrierConfigChangeListener);
     }
 
     @After
@@ -171,57 +265,55 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
         super.tearDown();
     }
 
+    private void markSubscriptionInactive(int subId) {
+        setSimSlotIndex(subId, SubscriptionManager.INVALID_SIM_SLOT_INDEX);
+    }
+
     @Test
     @SmallTest
     public void testSubInfoChangeBeforeAllSubReady() throws Exception {
-        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubControllerMock)
+        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubscriptionManagerService)
                 .getDefaultDataSubId();
-        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubControllerMock)
+        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubscriptionManagerService)
                 .getDefaultVoiceSubId();
-        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubControllerMock)
+        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubscriptionManagerService)
                 .getDefaultSmsSubId();
 
         // Mark sub 2 as inactive.
-        doReturn(false).when(mSubControllerMock).isActiveSubId(2);
-        doReturn(SubscriptionManager.INVALID_PHONE_INDEX).when(mSubControllerMock).getPhoneId(2);
-        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mPhoneMock2).getSubId();
-        List<SubscriptionInfo> infoList = Arrays.asList(mSubInfo1);
-        doReturn(infoList).when(mSubControllerMock).getActiveSubscriptionInfoList(anyString(),
-                nullable(String.class));
-        doReturn(new int[]{1}).when(mSubControllerMock).getActiveSubIdList(anyBoolean());
+        markSubscriptionInactive(2);
 
         // Mark subscription ready as false. The below sub info change should be ignored.
         mMultiSimSettingControllerUT.notifySubscriptionInfoChanged();
         processAllMessages();
-        verify(mSubControllerMock, never()).setDefaultDataSubId(anyInt());
-        verify(mSubControllerMock, never()).setDefaultVoiceSubId(anyInt());
-        verify(mSubControllerMock, never()).setDefaultSmsSubId(anyInt());
+        verify(mSubscriptionManagerService, never()).setDefaultDataSubId(anyInt());
+        verify(mSubscriptionManagerService, never()).setDefaultVoiceSubId(anyInt());
+        verify(mSubscriptionManagerService, never()).setDefaultSmsSubId(anyInt());
 
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0, 1);
+        sendCarrierConfigChanged(0, 1);
         processAllMessages();
 
         // Sub 1 should be default sub silently.
-        verify(mSubControllerMock).setDefaultDataSubId(1);
-        verify(mSubControllerMock).setDefaultVoiceSubId(1);
-        verify(mSubControllerMock).setDefaultSmsSubId(1);
+        verify(mSubscriptionManagerService).setDefaultDataSubId(1);
+        verify(mSubscriptionManagerService).setDefaultVoiceSubId(1);
+        verify(mSubscriptionManagerService).setDefaultSmsSubId(1);
         verifyDismissIntentSent();
     }
 
     @Test
     public void testSubInfoChangeAfterRadioUnavailable() throws Exception {
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0, 1);
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1, 2);
+        sendCarrierConfigChanged(0, 1);
+        sendCarrierConfigChanged(1, 2);
         processAllMessages();
 
         // Ensure all subscription loaded only updates state once
-        clearInvocations(mSubControllerMock);
+        clearInvocations(mSubscriptionManagerService);
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
         processAllMessages();
-        verify(mSubControllerMock, never()).setDefaultDataSubId(anyInt());
-        verify(mSubControllerMock, never()).setDefaultVoiceSubId(anyInt());
-        verify(mSubControllerMock, never()).setDefaultSmsSubId(anyInt());
+        verify(mSubscriptionManagerService, never()).setDefaultDataSubId(anyInt());
+        verify(mSubscriptionManagerService, never()).setDefaultVoiceSubId(anyInt());
+        verify(mSubscriptionManagerService, never()).setDefaultSmsSubId(anyInt());
 
         // Notify radio unavailable.
         replaceInstance(BaseCommands.class, "mState", mSimulatedCommands,
@@ -230,81 +322,62 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
                 MultiSimSettingController.EVENT_RADIO_STATE_CHANGED).sendToTarget();
 
         // Mark all subs as inactive.
-        doReturn(false).when(mSubControllerMock).isActiveSubId(1);
-        doReturn(false).when(mSubControllerMock).isActiveSubId(2);
-        doReturn(SubscriptionManager.INVALID_PHONE_INDEX).when(mSubControllerMock).getPhoneId(1);
-        doReturn(SubscriptionManager.INVALID_PHONE_INDEX).when(mSubControllerMock).getPhoneId(2);
-        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mPhoneMock1).getSubId();
-        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mPhoneMock2).getSubId();
-        List<SubscriptionInfo> infoList = new ArrayList<>();
-        doReturn(infoList).when(mSubControllerMock).getActiveSubscriptionInfoList(anyString(),
-                nullable(String.class));
-        doReturn(new int[]{}).when(mSubControllerMock).getActiveSubIdList(anyBoolean());
-        clearInvocations(mSubControllerMock);
+        markSubscriptionInactive(1);
+        markSubscriptionInactive(2);
+        clearInvocations(mSubscriptionManagerService);
 
         // The below sub info change should be ignored.
         mMultiSimSettingControllerUT.notifySubscriptionInfoChanged();
         processAllMessages();
-        verify(mSubControllerMock, never()).setDefaultDataSubId(anyInt());
-        verify(mSubControllerMock, never()).setDefaultVoiceSubId(anyInt());
-        verify(mSubControllerMock, never()).setDefaultSmsSubId(anyInt());
+        verify(mSubscriptionManagerService, never()).setDefaultDataSubId(anyInt());
+        verify(mSubscriptionManagerService, never()).setDefaultVoiceSubId(anyInt());
+        verify(mSubscriptionManagerService, never()).setDefaultSmsSubId(anyInt());
 
         // Send all sub ready notification
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
         processAllMessages();
 
         // Everything should be set to invalid since nothing is active.
-        verify(mSubControllerMock).setDefaultDataSubId(SubscriptionManager.INVALID_SUBSCRIPTION_ID);
-        verify(mSubControllerMock)
+        verify(mSubscriptionManagerService).setDefaultDataSubId(
+                SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+        verify(mSubscriptionManagerService)
                 .setDefaultVoiceSubId(SubscriptionManager.INVALID_SUBSCRIPTION_ID);
-        verify(mSubControllerMock).setDefaultSmsSubId(SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+        verify(mSubscriptionManagerService).setDefaultSmsSubId(
+                SubscriptionManager.INVALID_SUBSCRIPTION_ID);
     }
 
     @Test
     @SmallTest
     public void testSingleActiveDsds() throws Exception {
-        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubControllerMock)
+        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubscriptionManagerService)
                 .getDefaultDataSubId();
-        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubControllerMock)
+        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubscriptionManagerService)
                 .getDefaultVoiceSubId();
-        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubControllerMock)
+        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubscriptionManagerService)
                 .getDefaultSmsSubId();
 
         // Mark sub 2 as inactive.
-        doReturn(false).when(mSubControllerMock).isActiveSubId(2);
-        doReturn(SubscriptionManager.INVALID_PHONE_INDEX).when(mSubControllerMock).getPhoneId(2);
-        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mPhoneMock2).getSubId();
-        List<SubscriptionInfo> infoList = Arrays.asList(mSubInfo1);
-        doReturn(infoList).when(mSubControllerMock).getActiveSubscriptionInfoList(anyString(),
-                nullable(String.class));
-        doReturn(new int[]{1}).when(mSubControllerMock).getActiveSubIdList(anyBoolean());
+        markSubscriptionInactive(2);
 
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0, 1);
+        sendCarrierConfigChanged(0, 1);
         processAllMessages();
         verifyDismissIntentSent();
         clearInvocations(mContext);
 
         // Sub 1 should be default sub silently.
         // Sub 1 switches to sub 2 in the same slot.
-        doReturn(false).when(mSubControllerMock).isActiveSubId(1);
-        doReturn(true).when(mSubControllerMock).isActiveSubId(2);
-        doReturn(0).when(mSubControllerMock).getPhoneId(2);
-        doReturn(SubscriptionManager.INVALID_PHONE_INDEX).when(mSubControllerMock).getPhoneId(1);
-        doReturn(2).when(mPhoneMock1).getSubId();
-        infoList = Arrays.asList(mSubInfo2);
-        doReturn(infoList).when(mSubControllerMock).getActiveSubscriptionInfoList(anyString(),
-                nullable(String.class));
-        doReturn(new int[]{2}).when(mSubControllerMock).getActiveSubIdList(anyBoolean());
+        markSubscriptionInactive(1);
+        setSimSlotIndex(2, 0);
 
         mMultiSimSettingControllerUT.notifySubscriptionInfoChanged();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0, 2);
+        sendCarrierConfigChanged(0, 2);
         processAllMessages();
 
         // Sub 1 should be default sub silently.
-        verify(mSubControllerMock).setDefaultDataSubId(2);
-        verify(mSubControllerMock).setDefaultVoiceSubId(2);
-        verify(mSubControllerMock).setDefaultSmsSubId(2);
+        verify(mSubscriptionManagerService).setDefaultDataSubId(2);
+        verify(mSubscriptionManagerService).setDefaultVoiceSubId(2);
+        verify(mSubscriptionManagerService).setDefaultSmsSubId(2);
         verifyDismissIntentSent();
     }
 
@@ -312,37 +385,26 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
     @SmallTest
     public void testActivatingSecondSub() throws Exception {
         // Mark sub 2 as inactive.
-        doReturn(false).when(mSubControllerMock).isActiveSubId(2);
-        doReturn(SubscriptionManager.INVALID_PHONE_INDEX).when(mSubControllerMock).getPhoneId(2);
-        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mPhoneMock2).getSubId();
-        List<SubscriptionInfo> infoList = Arrays.asList(mSubInfo1);
-        doReturn(infoList).when(mSubControllerMock).getActiveSubscriptionInfoList(anyString(),
-                nullable(String.class));
-        doReturn(new int[]{1}).when(mSubControllerMock).getActiveSubIdList(anyBoolean());
+        markSubscriptionInactive(2);
 
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0, 1);
+        sendCarrierConfigChanged(0, 1);
         processAllMessages();
 
         // Sub 1 should be default sub silently.
-        verify(mSubControllerMock).setDefaultDataSubId(1);
-        verify(mSubControllerMock).setDefaultVoiceSubId(1);
-        verify(mSubControllerMock).setDefaultSmsSubId(1);
+        verify(mSubscriptionManagerService).setDefaultDataSubId(1);
+        verify(mSubscriptionManagerService).setDefaultVoiceSubId(1);
+        verify(mSubscriptionManagerService).setDefaultSmsSubId(1);
         verifyDismissIntentSent();
 
         // Mark sub 2 as active in phone[1].
-        clearInvocations(mSubControllerMock);
+        setSimSlotIndex(2, 1);
+        clearInvocations(mSubscriptionManagerService);
         clearInvocations(mContext);
-        doReturn(true).when(mSubControllerMock).isActiveSubId(2);
-        doReturn(1).when(mSubControllerMock).getPhoneId(2);
-        doReturn(2).when(mPhoneMock2).getSubId();
-        infoList = Arrays.asList(mSubInfo1, mSubInfo2);
-        doReturn(infoList).when(mSubControllerMock).getActiveSubscriptionInfoList(anyString(),
-                nullable(String.class));
-        doReturn(new int[]{1, 2}).when(mSubControllerMock).getActiveSubIdList(anyBoolean());
+        mSubInfo[2] = new SubscriptionInfoInternal.Builder().setId(2).setSimSlotIndex(1).build();
 
         mMultiSimSettingControllerUT.notifySubscriptionInfoChanged();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1, 2);
+        sendCarrierConfigChanged(1, 2);
         processAllMessages();
 
         // Intent should be broadcast to ask default data selection.
@@ -354,18 +416,11 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
         clearInvocations(mContext);
         // Switch from sub 2 to sub 3 in phone[1]. This should again trigger default data selection
         // dialog.
-        doReturn(false).when(mSubControllerMock).isActiveSubId(2);
-        doReturn(true).when(mSubControllerMock).isActiveSubId(3);
-        doReturn(SubscriptionManager.INVALID_PHONE_INDEX).when(mSubControllerMock).getPhoneId(2);
-        doReturn(1).when(mSubControllerMock).getPhoneId(3);
-        doReturn(3).when(mPhoneMock2).getSubId();
-        infoList = Arrays.asList(mSubInfo1, mSubInfo3);
-        doReturn(infoList).when(mSubControllerMock).getActiveSubscriptionInfoList(anyString(),
-                nullable(String.class));
-        doReturn(new int[]{1, 3}).when(mSubControllerMock).getActiveSubIdList(anyBoolean());
+        markSubscriptionInactive(2);
+        setSimSlotIndex(3, 1);
 
         mMultiSimSettingControllerUT.notifySubscriptionInfoChanged();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1, 3);
+        sendCarrierConfigChanged(1, 3);
         processAllMessages();
 
         // Intent should be broadcast to ask default data selection.
@@ -377,47 +432,46 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
 
     @Test
     @SmallTest
-    public void testSimpleDsds() {
+    public void testSimpleDsds() throws Exception {
         doReturn(true).when(mPhoneMock1).isUserDataEnabled();
         doReturn(true).when(mPhoneMock2).isUserDataEnabled();
         // After initialization, sub 2 should have mobile data off.
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0, 1);
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1, 2);
+        sendCarrierConfigChanged(0, 1);
+        sendCarrierConfigChanged(1, 2);
         processAllMessages();
-        verify(mDataEnabledSettingsMock2).setDataEnabled(
-                TelephonyManager.DATA_ENABLED_REASON_USER, false);
+        verify(mDataSettingsManagerMock2).setDataEnabled(
+                TelephonyManager.DATA_ENABLED_REASON_USER, false, PHONE_PACKAGE);
 
         // Enable on non-default sub should trigger setDefaultDataSubId.
         mMultiSimSettingControllerUT.notifyUserDataEnabled(2, true);
         processAllMessages();
-        verify(mSubControllerMock).setDefaultDataSubId(2);
+        verify(mSubscriptionManagerService).setDefaultDataSubId(2);
 
         // Changing default data to sub 2 should trigger disabling data on sub 1.
-        doReturn(2).when(mSubControllerMock).getDefaultDataSubId();
+        doReturn(2).when(mSubscriptionManagerService).getDefaultDataSubId();
         mMultiSimSettingControllerUT.notifyDefaultDataSubChanged();
         processAllMessages();
-        verify(mDataEnabledSettingsMock1).setDataEnabled(
-                TelephonyManager.DATA_ENABLED_REASON_USER, false);
+        verify(mDataSettingsManagerMock1).setDataEnabled(
+                TelephonyManager.DATA_ENABLED_REASON_USER, false, PHONE_PACKAGE);
 
-        doReturn(1).when(mSubControllerMock).getDefaultDataSubId();
-        doReturn(1).when(mSubControllerMock).getDefaultSmsSubId();
-        doReturn(2).when(mSubControllerMock).getDefaultVoiceSubId();
+        doReturn(1).when(mSubscriptionManagerService).getDefaultDataSubId();
+        doReturn(1).when(mSubscriptionManagerService).getDefaultSmsSubId();
+        doReturn(2).when(mSubscriptionManagerService).getDefaultVoiceSubId();
 
         // Taking out SIM 1.
-        clearInvocations(mSubControllerMock);
-        doReturn(false).when(mSubControllerMock).isActiveSubId(1);
-        List<SubscriptionInfo> infoList = Arrays.asList(mSubInfo2);
-        doReturn(infoList).when(mSubControllerMock).getActiveSubscriptionInfoList(anyString(),
-                nullable(String.class));
-        doReturn(new int[]{2}).when(mSubControllerMock).getActiveSubIdList(anyBoolean());
+        clearInvocations(mSubscriptionManagerService);
+        markSubscriptionInactive(1);
         mMultiSimSettingControllerUT.notifySubscriptionInfoChanged();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(
-                1, SubscriptionManager.INVALID_SUBSCRIPTION_ID);
         processAllMessages();
-        verify(mSubControllerMock).setDefaultDataSubId(SubscriptionManager.INVALID_SUBSCRIPTION_ID);
-        verify(mSubControllerMock).setDefaultSmsSubId(SubscriptionManager.INVALID_SUBSCRIPTION_ID);
-        verify(mSubControllerMock, never()).setDefaultVoiceSubId(anyInt());
+        sendCarrierConfigChanged(1, SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+        processAllMessages();
+
+        verify(mSubscriptionManagerService).setDefaultDataSubId(
+                SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+        verify(mSubscriptionManagerService).setDefaultSmsSubId(
+                SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+        verify(mSubscriptionManagerService, never()).setDefaultVoiceSubId(anyInt());
 
         // Verify intent sent to select sub 2 as default for all types.
         Intent intent = captureBroadcastIntent();
@@ -429,21 +483,21 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
 
     @Test
     @SmallTest
-    public void testSimpleDsdsFirstBoot() {
+    public void testSimpleDsdsFirstBoot() throws Exception {
         // at first boot default is not set
-        doReturn(-1).when(mSubControllerMock).getDefaultDataSubId();
+        doReturn(-1).when(mSubscriptionManagerService).getDefaultDataSubId();
 
         doReturn(true).when(mPhoneMock1).isUserDataEnabled();
         doReturn(true).when(mPhoneMock2).isUserDataEnabled();
         // After initialization, sub 2 should have mobile data off.
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0, 1);
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1, 2);
+        sendCarrierConfigChanged(0, 1);
+        sendCarrierConfigChanged(1, 2);
         processAllMessages();
-        verify(mDataEnabledSettingsMock1).setDataEnabled(
-                TelephonyManager.DATA_ENABLED_REASON_USER, false);
-        verify(mDataEnabledSettingsMock2).setDataEnabled(
-                TelephonyManager.DATA_ENABLED_REASON_USER, false);
+        verify(mDataSettingsManagerMock1).setDataEnabled(
+                TelephonyManager.DATA_ENABLED_REASON_USER, false, PHONE_PACKAGE);
+        verify(mDataSettingsManagerMock2).setDataEnabled(
+                TelephonyManager.DATA_ENABLED_REASON_USER, false, PHONE_PACKAGE);
 
         // as a result of the above calls, update new values to be returned
         doReturn(false).when(mPhoneMock1).isUserDataEnabled();
@@ -455,18 +509,21 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
                 intent.getIntExtra(EXTRA_DEFAULT_SUBSCRIPTION_SELECT_TYPE, -1));
 
         // Setting default data should not trigger any more setDataEnabled().
-        doReturn(2).when(mSubControllerMock).getDefaultDataSubId();
+        doReturn(2).when(mSubscriptionManagerService).getDefaultDataSubId();
+        doReturn(2).when(mSubscriptionManagerService).getDefaultDataSubId();
         mMultiSimSettingControllerUT.notifyDefaultDataSubChanged();
         processAllMessages();
-        verify(mDataEnabledSettingsMock1, times(1)).setDataEnabled(anyInt(), anyBoolean());
-        verify(mDataEnabledSettingsMock2, times(1)).setDataEnabled(anyInt(), anyBoolean());
+        verify(mDataSettingsManagerMock1, times(1))
+                .setDataEnabled(anyInt(), anyBoolean(), anyString());
+        verify(mDataSettingsManagerMock2, times(1))
+                .setDataEnabled(anyInt(), anyBoolean(), anyString());
     }
 
     @Test
     @SmallTest
-    public void testSimpleDsdsInSuW() {
+    public void testSimpleDsdsInSuW() throws Exception {
         // at first boot default is not set
-        doReturn(-1).when(mSubControllerMock).getDefaultDataSubId();
+        doReturn(-1).when(mSubscriptionManagerService).getDefaultDataSubId();
 
         doReturn(true).when(mPhoneMock1).isUserDataEnabled();
         doReturn(true).when(mPhoneMock2).isUserDataEnabled();
@@ -475,13 +532,13 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
                 Settings.Global.DEVICE_PROVISIONED, 0);
         // After initialization, sub 2 should have mobile data off.
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0, 1);
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1, 2);
+        sendCarrierConfigChanged(0, 1);
+        sendCarrierConfigChanged(1, 2);
         processAllMessages();
-        verify(mDataEnabledSettingsMock1).setDataEnabled(
-                TelephonyManager.DATA_ENABLED_REASON_USER, false);
-        verify(mDataEnabledSettingsMock2).setDataEnabled(
-                TelephonyManager.DATA_ENABLED_REASON_USER, false);
+        verify(mDataSettingsManagerMock1).setDataEnabled(
+                TelephonyManager.DATA_ENABLED_REASON_USER, false, PHONE_PACKAGE);
+        verify(mDataSettingsManagerMock2).setDataEnabled(
+                TelephonyManager.DATA_ENABLED_REASON_USER, false, PHONE_PACKAGE);
 
         // as a result of the above calls, update new values to be returned
         doReturn(false).when(mPhoneMock1).isUserDataEnabled();
@@ -493,22 +550,20 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
 
     @Test
     @SmallTest
-    public void testDsdsGrouping() {
-        doReturn(2).when(mSubControllerMock).getDefaultDataSubId();
+    public void testDsdsGrouping() throws Exception {
+        doReturn(2).when(mSubscriptionManagerService).getDefaultDataSubId();
         doReturn(false).when(mPhoneMock1).isUserDataEnabled();
         doReturn(true).when(mPhoneMock2).isUserDataEnabled();
         GlobalSettingsHelper.setBoolean(mContext, Settings.Global.MOBILE_DATA, 2, true);
         GlobalSettingsHelper.setBoolean(mContext, Settings.Global.DATA_ROAMING, 2, false);
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0, 1);
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1, 2);
+        sendCarrierConfigChanged(0, 1);
+        sendCarrierConfigChanged(1, 2);
         processAllMessages();
 
         // Create subscription grouping.
-        doReturn(mGroupUuid1).when(mSubControllerMock).getGroupUuid(2);
-        doReturn(mGroupUuid1).when(mSubControllerMock).getGroupUuid(3);
-        doReturn(mGroupUuid1).when(mSubControllerMock).getGroupUuid(4);
-        doReturn(Arrays.asList(mSubInfo2, mSubInfo3, mSubInfo4)).when(mSubControllerMock)
+        doReturn(Arrays.asList(mSubInfo[2].toSubscriptionInfo(), mSubInfo[3].toSubscriptionInfo(),
+                mSubInfo[4].toSubscriptionInfo())).when(mSubscriptionManagerService)
                 .getSubscriptionsInGroup(any(), anyString(), nullable(String.class));
         mMultiSimSettingControllerUT.notifySubscriptionGroupChanged(mGroupUuid1);
         processAllMessages();
@@ -521,16 +576,16 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
                 mContext, Settings.Global.DATA_ROAMING, 3, true));
         assertFalse(GlobalSettingsHelper.getBoolean(
                 mContext, Settings.Global.DATA_ROAMING, 4, true));
-        verify(mSubControllerMock).setDataRoaming(/*enable*/0, /*subId*/2);
+        verify(mSubscriptionManagerService).setDataRoaming(/*enable*/0, /*subId*/2);
         // No user selection needed, no intent should be sent.
         verify(mContext, never()).sendBroadcast(any());
 
         // Making sub 1 default data sub should result in disabling data on sub 2, 3, 4.
-        doReturn(1).when(mSubControllerMock).getDefaultDataSubId();
+        doReturn(1).when(mSubscriptionManagerService).getDefaultDataSubId();
         mMultiSimSettingControllerUT.notifyDefaultDataSubChanged();
         processAllMessages();
-        verify(mDataEnabledSettingsMock2).setDataEnabled(
-                TelephonyManager.DATA_ENABLED_REASON_USER, false);
+        verify(mDataSettingsManagerMock2).setDataEnabled(
+                TelephonyManager.DATA_ENABLED_REASON_USER, false, PHONE_PACKAGE);
         mMultiSimSettingControllerUT.notifyUserDataEnabled(2, false);
         processAllMessages();
         assertFalse(GlobalSettingsHelper.getBoolean(
@@ -542,22 +597,20 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
 
         // Switch within group (from sub 2 to sub 3).
         // Default data and default sms should become subscription 3.
-        clearInvocations(mSubControllerMock);
-        doReturn(2).when(mSubControllerMock).getDefaultDataSubId();
-        doReturn(2).when(mSubControllerMock).getDefaultSmsSubId();
-        doReturn(1).when(mSubControllerMock).getDefaultVoiceSubId();
-        List<SubscriptionInfo> infoList = Arrays.asList(mSubInfo1, mSubInfo3);
-        doReturn(infoList).when(mSubControllerMock).getActiveSubscriptionInfoList(anyString(),
-                nullable(String.class));
-        doReturn(new int[]{1, 3}).when(mSubControllerMock).getActiveSubIdList(anyBoolean());
+        clearInvocations(mSubscriptionManagerService);
+        doReturn(2).when(mSubscriptionManagerService).getDefaultDataSubId();
+        doReturn(2).when(mSubscriptionManagerService).getDefaultSmsSubId();
+        doReturn(1).when(mSubscriptionManagerService).getDefaultVoiceSubId();
+        setSimSlotIndex(3, 1);
+        markSubscriptionInactive(2);
 
         mMultiSimSettingControllerUT.notifySubscriptionInfoChanged();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1, 3);
+        sendCarrierConfigChanged(1, 3);
         processAllMessages();
 
-        verify(mSubControllerMock).setDefaultDataSubId(3);
-        verify(mSubControllerMock).setDefaultSmsSubId(3);
-        verify(mSubControllerMock, never()).setDefaultVoiceSubId(anyInt());
+        verify(mSubscriptionManagerService).setDefaultDataSubId(3);
+        verify(mSubscriptionManagerService).setDefaultSmsSubId(3);
+        verify(mSubscriptionManagerService, never()).setDefaultVoiceSubId(anyInt());
         // No user selection needed, no intent should be sent.
         verify(mContext, never()).sendBroadcast(any());
     }
@@ -565,8 +618,8 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testCbrs() throws Exception {
-        replaceInstance(SubscriptionInfo.class, "mIsOpportunistic", mSubInfo1, true);
-        doReturn(true).when(mSubControllerMock).isOpportunistic(1);
+        mSubInfo[1] = new SubscriptionInfoInternal.Builder(mSubInfo[1]).setOpportunistic(1).build();
+
         doReturn(true).when(mPhoneMock1).isUserDataEnabled();
         doReturn(true).when(mPhoneMock2).isUserDataEnabled();
         GlobalSettingsHelper.setBoolean(mContext, Settings.Global.DATA_ROAMING, 2, false);
@@ -574,31 +627,31 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
         // Notify subscriptions ready. Sub 2 should become the default. But shouldn't turn off
         // data of oppt sub 1.
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0, 1);
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1, 2);
+        sendCarrierConfigChanged(0, 1);
+        sendCarrierConfigChanged(1, 2);
         processAllMessages();
-        verify(mSubControllerMock).setDefaultDataSubId(2);
-        verify(mDataEnabledSettingsMock1, never()).setDataEnabled(
-                anyInt(), anyBoolean());
+        verify(mSubscriptionManagerService).setDefaultDataSubId(2);
+        verify(mDataSettingsManagerMock1, never()).setDataEnabled(
+                anyInt(), anyBoolean(), anyString());
         verifyDismissIntentSent();
 
-        clearInvocations(mSubControllerMock);
-        clearInvocations(mDataEnabledSettingsMock1);
-        clearInvocations(mDataEnabledSettingsMock2);
-        doReturn(2).when(mSubControllerMock).getDefaultDataSubId();
+        clearInvocations(mSubscriptionManagerService);
+        clearInvocations(mDataSettingsManagerMock1);
+        clearInvocations(mDataSettingsManagerMock2);
+        doReturn(2).when(mSubscriptionManagerService).getDefaultDataSubId();
         // Toggle data on sub 1 or sub 2. Nothing should happen as they are independent.
         mMultiSimSettingControllerUT.notifyUserDataEnabled(1, false);
         mMultiSimSettingControllerUT.notifyUserDataEnabled(1, true);
         processAllMessages();
-        verify(mSubControllerMock, never()).setDefaultDataSubId(anyInt());
+        verify(mSubscriptionManagerService, never()).setDefaultDataSubId(anyInt());
         mMultiSimSettingControllerUT.notifyUserDataEnabled(2, false);
         mMultiSimSettingControllerUT.notifyUserDataEnabled(2, true);
         processAllMessages();
-        verify(mSubControllerMock, never()).setDefaultDataSubId(anyInt());
-        verify(mDataEnabledSettingsMock1, never()).setDataEnabled(
-                eq(TelephonyManager.DATA_ENABLED_REASON_USER), anyBoolean());
-        verify(mDataEnabledSettingsMock2, never()).setDataEnabled(
-                TelephonyManager.DATA_ENABLED_REASON_USER, false);
+        verify(mSubscriptionManagerService, never()).setDefaultDataSubId(anyInt());
+        verify(mDataSettingsManagerMock1, never()).setDataEnabled(
+                eq(TelephonyManager.DATA_ENABLED_REASON_USER), anyBoolean(), anyString());
+        verify(mDataSettingsManagerMock2, never()).setDataEnabled(
+                eq(TelephonyManager.DATA_ENABLED_REASON_USER), eq(false), anyString());
     }
 
     private void verifyDismissIntentSent() {
@@ -612,9 +665,8 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
     @SmallTest
     public void testGroupedCbrs() throws Exception {
         // Mark sub 1 as opportunistic.
-        replaceInstance(SubscriptionInfo.class, "mIsOpportunistic", mSubInfo1, true);
-        replaceInstance(SubscriptionInfo.class, "mGroupUUID", mSubInfo1, mGroupUuid1);
-        doReturn(true).when(mSubControllerMock).isOpportunistic(1);
+        mSubInfo[1] = new SubscriptionInfoInternal.Builder(mSubInfo[1])
+                .setOpportunistic(1).setGroupUuid(mGroupUuid1.toString()).build();
         // Make opportunistic sub 1 and sub 2 data enabled.
         doReturn(true).when(mPhoneMock1).isUserDataEnabled();
         doReturn(true).when(mPhoneMock2).isUserDataEnabled();
@@ -622,21 +674,23 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
 
         // Notify subscriptions ready. Sub 2 should become the default, as sub 1 is opportunistic.
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0, 1);
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1, 2);
+        sendCarrierConfigChanged(0, 1);
+        sendCarrierConfigChanged(1, 2);
         processAllMessages();
-        verify(mSubControllerMock).setDefaultDataSubId(2);
+        verify(mSubscriptionManagerService).setDefaultDataSubId(2);
 
         // Mark sub 2 as data off.
         doReturn(false).when(mPhoneMock2).isUserDataEnabled();
         GlobalSettingsHelper.setBoolean(mContext, Settings.Global.MOBILE_DATA, 2, false);
         // Group sub 1 with sub 2.
-        doReturn(Arrays.asList(mSubInfo1, mSubInfo2)).when(mSubControllerMock)
+        doReturn(Arrays.asList(mSubInfo[1].toSubscriptionInfo(), mSubInfo[2].toSubscriptionInfo()))
+                .when(mSubscriptionManagerService)
                 .getSubscriptionsInGroup(any(), anyString(), nullable(String.class));
         mMultiSimSettingControllerUT.notifySubscriptionGroupChanged(mGroupUuid1);
         processAllMessages();
         // This should result in setting sync.
-        verify(mDataEnabledSettingsMock1).setUserDataEnabled(false, false);
+        verify(mDataSettingsManagerMock1).setDataEnabled(TelephonyManager.DATA_ENABLED_REASON_USER,
+                false, PHONE_PACKAGE);
         assertFalse(GlobalSettingsHelper.getBoolean(
                 mContext, Settings.Global.DATA_ROAMING, 1, true));
 
@@ -645,7 +699,8 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
         // Turning data on on sub 2. Sub 1 should also be turned on.
         mMultiSimSettingControllerUT.notifyUserDataEnabled(2, true);
         processAllMessages();
-        verify(mDataEnabledSettingsMock1).setUserDataEnabled(true, false);
+        verify(mDataSettingsManagerMock1).setDataEnabled(TelephonyManager.DATA_ENABLED_REASON_USER,
+                true, PHONE_PACKAGE);
         verifyDismissIntentSent();
     }
 
@@ -653,39 +708,29 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
     @SmallTest
     public void testGroupedPrimaryRemoved() throws Exception {
         // Create subscription grouping of subs 1 and 2.
-        replaceInstance(SubscriptionInfo.class, "mGroupUUID", mSubInfo1, mGroupUuid1);
-        doReturn(mGroupUuid1).when(mSubControllerMock).getGroupUuid(1);
-        doReturn(mGroupUuid1).when(mSubControllerMock).getGroupUuid(2);
-        doReturn(Arrays.asList(mSubInfo1, mSubInfo2)).when(mSubControllerMock)
-                .getSubscriptionsInGroup(any(), anyString(), nullable(String.class));
+        mSubInfo[1] = new SubscriptionInfoInternal.Builder(mSubInfo[1])
+                .setGroupUuid(mGroupUuid1.toString()).build();
 
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
         mMultiSimSettingControllerUT.notifySubscriptionGroupChanged(mGroupUuid1);
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0, 1);
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1, 2);
+        sendCarrierConfigChanged(0, 1);
+        sendCarrierConfigChanged(1, 2);
         processAllMessages();
 
         // Defaults not touched, sub 1 is already default.
-        verify(mSubControllerMock, never()).setDefaultDataSubId(anyInt());
+        verify(mSubscriptionManagerService, never()).setDefaultDataSubId(anyInt());
 
         // Take out SIM 1.
-        clearInvocations(mSubControllerMock);
-        doReturn(false).when(mSubControllerMock).isActiveSubId(1);
-        doReturn(SubscriptionManager.INVALID_PHONE_INDEX).when(mSubControllerMock).getPhoneId(1);
-        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mPhoneMock1).getSubId();
-        List<SubscriptionInfo> infoList = Arrays.asList(mSubInfo2);
-        doReturn(infoList).when(mSubControllerMock).getActiveSubscriptionInfoList(anyString(),
-                nullable(String.class));
-        doReturn(new int[]{2}).when(mSubControllerMock).getActiveSubIdList(anyBoolean());
+        clearInvocations(mSubscriptionManagerService);
+        markSubscriptionInactive(1);
         mMultiSimSettingControllerUT.notifySubscriptionInfoChanged();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(
-                0, SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+        sendCarrierConfigChanged(0, SubscriptionManager.INVALID_SUBSCRIPTION_ID);
         processAllMessages();
 
         // Sub 2 should be made the default sub silently.
-        verify(mSubControllerMock).setDefaultDataSubId(2);
-        verify(mSubControllerMock).setDefaultVoiceSubId(2);
-        verify(mSubControllerMock).setDefaultSmsSubId(2);
+        verify(mSubscriptionManagerService).setDefaultDataSubId(2);
+        verify(mSubscriptionManagerService).setDefaultVoiceSubId(2);
+        verify(mSubscriptionManagerService).setDefaultSmsSubId(2);
         verifyDismissIntentSent();
     }
 
@@ -698,33 +743,37 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testGroupedPrimarySubscriptions() throws Exception {
-        doReturn(1).when(mSubControllerMock).getDefaultDataSubId();
+        doReturn(1).when(mSubscriptionManagerService).getDefaultDataSubId();
         doReturn(true).when(mPhoneMock1).isUserDataEnabled();
         doReturn(false).when(mPhoneMock2).isUserDataEnabled();
         GlobalSettingsHelper.setBoolean(mContext, Settings.Global.MOBILE_DATA, 1, true);
         GlobalSettingsHelper.setBoolean(mContext, Settings.Global.DATA_ROAMING, 1, false);
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0, 1);
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1, 2);
+        sendCarrierConfigChanged(0, 1);
+        sendCarrierConfigChanged(1, 2);
         processAllMessages();
 
         // Create subscription grouping.
-        replaceInstance(SubscriptionInfo.class, "mGroupUUID", mSubInfo1, mGroupUuid1);
-        doReturn(Arrays.asList(mSubInfo1, mSubInfo2)).when(mSubControllerMock)
-                .getSubscriptionsInGroup(any(), anyString(), nullable(String.class));
+        mSubInfo[1] = new SubscriptionInfoInternal.Builder(mSubInfo[1])
+                .setGroupUuid(mGroupUuid1.toString()).build();
+        doReturn(Arrays.asList(mSubInfo[1].toSubscriptionInfo(), mSubInfo[2].toSubscriptionInfo()))
+                .when(mSubscriptionManagerService).getSubscriptionsInGroup(any(), anyString(),
+                        nullable(String.class));
         mMultiSimSettingControllerUT.notifySubscriptionGroupChanged(mGroupUuid1);
         processAllMessages();
         // This should result in setting sync.
-        verify(mDataEnabledSettingsMock2).setUserDataEnabled(true, false);
+        verify(mDataSettingsManagerMock2).setDataEnabled(TelephonyManager.DATA_ENABLED_REASON_USER,
+                true, PHONE_PACKAGE);
         assertFalse(GlobalSettingsHelper.getBoolean(
                 mContext, Settings.Global.DATA_ROAMING, 2, true));
-        verify(mSubControllerMock).setDataRoaming(/*enable*/0, /*subId*/1);
+        verify(mSubscriptionManagerService).setDataRoaming(/*enable*/0, /*subId*/1);
 
         // Turning off user data on sub 1.
         doReturn(false).when(mPhoneMock1).isUserDataEnabled();
         mMultiSimSettingControllerUT.notifyUserDataEnabled(1, false);
         processAllMessages();
-        verify(mDataEnabledSettingsMock2).setUserDataEnabled(false, false);
+        verify(mDataSettingsManagerMock2).setDataEnabled(TelephonyManager.DATA_ENABLED_REASON_USER,
+                false, PHONE_PACKAGE);
     }
 
     @Test
@@ -732,39 +781,34 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
     public void testCarrierConfigLoading() throws Exception {
         doReturn(true).when(mPhoneMock1).isUserDataEnabled();
         doReturn(true).when(mPhoneMock2).isUserDataEnabled();
+        mSubInfo[2] = new SubscriptionInfoInternal.Builder(mSubInfo[2]).setGroupUuid("").build();
+        mSubInfo[3] = new SubscriptionInfoInternal.Builder(mSubInfo[3]).setGroupUuid("").build();
         // Sub 2 should have mobile data off, but it shouldn't happen until carrier configs are
         // loaded on both subscriptions.
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
         processAllMessages();
-        verify(mDataEnabledSettingsMock2, never()).setDataEnabled(
-                TelephonyManager.DATA_ENABLED_REASON_USER, false);
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0, 1);
+        verify(mDataSettingsManagerMock2, never()).setDataEnabled(
+                TelephonyManager.DATA_ENABLED_REASON_USER, false, PHONE_PACKAGE);
+        sendCarrierConfigChanged(0, 1);
         processAllMessages();
-        verify(mDataEnabledSettingsMock2, never()).setDataEnabled(
-                TelephonyManager.DATA_ENABLED_REASON_USER, false);
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1, 2);
+        verify(mDataSettingsManagerMock2, never()).setDataEnabled(
+                TelephonyManager.DATA_ENABLED_REASON_USER, false, PHONE_PACKAGE);
+        sendCarrierConfigChanged(1, 2);
         processAllMessages();
-        verify(mDataEnabledSettingsMock2).setDataEnabled(
-                TelephonyManager.DATA_ENABLED_REASON_USER, false);
+        verify(mDataSettingsManagerMock2).setDataEnabled(
+                TelephonyManager.DATA_ENABLED_REASON_USER, false, PHONE_PACKAGE);
 
         // Switch from sub 2 to sub 3 in phone[1].
-        clearInvocations(mSubControllerMock);
-        doReturn(false).when(mSubControllerMock).isActiveSubId(2);
-        doReturn(true).when(mSubControllerMock).isActiveSubId(3);
-        doReturn(SubscriptionManager.INVALID_PHONE_INDEX).when(mSubControllerMock).getPhoneId(2);
-        doReturn(1).when(mSubControllerMock).getPhoneId(3);
-        doReturn(3).when(mPhoneMock2).getSubId();
-        List<SubscriptionInfo> infoList = Arrays.asList(mSubInfo1, mSubInfo3);
-        doReturn(infoList).when(mSubControllerMock).getActiveSubscriptionInfoList(anyString(),
-                nullable(String.class));
-        doReturn(new int[]{1, 3}).when(mSubControllerMock).getActiveSubIdList(anyBoolean());
+        clearInvocations(mSubscriptionManagerService);
+        markSubscriptionInactive(2);
+        setSimSlotIndex(3, 1);
 
         // Nothing should happen until carrier config change is notified on sub 3.
         mMultiSimSettingControllerUT.notifySubscriptionInfoChanged();
         processAllMessages();
         verify(mContext, never()).sendBroadcast(any());
 
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1, 3);
+        sendCarrierConfigChanged(1, 3);
         processAllMessages();
         // Intent should be broadcast to ask default data selection.
         Intent intent = captureBroadcastIntent();
@@ -778,20 +822,14 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
     // b/146446143
     public void testGroupChangeOnInactiveSub_shouldNotMarkAsDefaultDataSub() throws Exception {
         // Make sub1 and sub3 as active sub.
-        doReturn(false).when(mSubControllerMock).isActiveSubId(2);
-        doReturn(true).when(mSubControllerMock).isActiveSubId(3);
-        doReturn(SubscriptionManager.INVALID_PHONE_INDEX).when(mSubControllerMock).getPhoneId(2);
-        doReturn(1).when(mSubControllerMock).getPhoneId(3);
-        doReturn(3).when(mPhoneMock2).getSubId();
-        List<SubscriptionInfo> infoList = Arrays.asList(mSubInfo1, mSubInfo3);
-        doReturn(infoList).when(mSubControllerMock).getActiveSubscriptionInfoList(anyString(),
-                nullable(String.class));
-        doReturn(new int[]{1, 3}).when(mSubControllerMock).getActiveSubIdList(anyBoolean());
-        doReturn(Arrays.asList(mSubInfo2, mSubInfo3, mSubInfo4)).when(mSubControllerMock)
+        markSubscriptionInactive(2);
+        setSimSlotIndex(3, 1);
+        doReturn(Arrays.asList(mSubInfo[2].toSubscriptionInfo(), mSubInfo[3].toSubscriptionInfo(),
+                mSubInfo[4].toSubscriptionInfo())).when(mSubscriptionManagerService)
                 .getSubscriptionsInGroup(any(), anyString(), nullable(String.class));
 
         // Sub 3 and sub 2's mobile data are enabled, and sub 3 is the default data sub.
-        doReturn(3).when(mSubControllerMock).getDefaultDataSubId();
+        doReturn(3).when(mSubscriptionManagerService).getDefaultDataSubId();
         GlobalSettingsHelper.setBoolean(mContext, Settings.Global.MOBILE_DATA, 1, false);
         GlobalSettingsHelper.setBoolean(mContext, Settings.Global.MOBILE_DATA, 2, true);
         GlobalSettingsHelper.setBoolean(mContext, Settings.Global.MOBILE_DATA, 3, true);
@@ -800,16 +838,17 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
         // Sub 2 should have mobile data off, but it shouldn't happen until carrier configs are
         // loaded on both subscriptions.
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0, 1);
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1, 3);
+        sendCarrierConfigChanged(0, 1);
+        sendCarrierConfigChanged(1, 3);
         processAllMessages();
 
         // Mark sub3 as oppt and notify grouping
-        doReturn(true).when(mSubControllerMock).isOpportunistic(3);
+        mSubInfo[3] = new SubscriptionInfoInternal.Builder(mSubInfo[3]).setOpportunistic(1).build();
+        setSimSlotIndex(3, 0);
         mMultiSimSettingControllerUT.notifySubscriptionGroupChanged(mGroupUuid1);
         processAllMessages();
         // Shouldn't mark sub 2 as default data, as sub 2 is in active.
-        verify(mSubControllerMock, never()).setDefaultDataSubId(2);
+        verify(mSubscriptionManagerService, never()).setDefaultDataSubId(2);
     }
 
     @Test
@@ -821,27 +860,25 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
         doReturn(true).when(mPhoneMock2).isUserDataEnabled();
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
         processAllMessages();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0, 1);
+        sendCarrierConfigChanged(0, 1);
         // Notify carrier config change on phone1 without specifying subId.
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1,
-                SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+        sendCarrierConfigChanged(1, SubscriptionManager.INVALID_SUBSCRIPTION_ID);
         processAllMessages();
         // Nothing should happen as carrier config is not ready for sub 2.
-        verify(mDataEnabledSettingsMock2, never()).setDataEnabled(
-                TelephonyManager.DATA_ENABLED_REASON_USER, false);
+        verify(mDataSettingsManagerMock2, never()).setDataEnabled(
+                TelephonyManager.DATA_ENABLED_REASON_USER, false, PHONE_PACKAGE);
 
         // Still notify carrier config without specifying subId2, but this time subController
         // and CarrierConfigManager have subId 2 active and ready.
-        doReturn(new int[] {2}).when(mSubControllerMock).getSubId(1);
+        doReturn(2).when(mSubscriptionManagerService).getSubId(1);
         CarrierConfigManager cm = (CarrierConfigManager) mContext.getSystemService(
                 mContext.CARRIER_CONFIG_SERVICE);
         doReturn(new PersistableBundle()).when(cm).getConfigForSubId(2);
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1,
-                SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+        sendCarrierConfigChanged(1, SubscriptionManager.INVALID_SUBSCRIPTION_ID);
         processAllMessages();
         // This time user data should be disabled on phone1.
-        verify(mDataEnabledSettingsMock2).setDataEnabled(
-                TelephonyManager.DATA_ENABLED_REASON_USER, false);
+        verify(mDataSettingsManagerMock2).setDataEnabled(
+                TelephonyManager.DATA_ENABLED_REASON_USER, false, PHONE_PACKAGE);
     }
 
     @Test
@@ -884,14 +921,14 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testVoiceDataSmsAutoFallback() throws Exception {
-        doReturn(1).when(mSubControllerMock).getDefaultDataSubId();
+        doReturn(1).when(mSubscriptionManagerService).getDefaultDataSubId();
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0,1);
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(2, 3);
+        sendCarrierConfigChanged(0, 1);
+        sendCarrierConfigChanged(2, 2);
         processAllMessages();
-        verify(mSubControllerMock, never()).setDefaultDataSubId(anyInt());
-        verify(mSubControllerMock, never()).getActiveSubInfoCountMax();
-        doReturn(2).when(mSubControllerMock).getActiveSubInfoCountMax();
+        verify(mSubscriptionManagerService, never()).setDefaultDataSubId(anyInt());
+        verify(mSubscriptionManagerService, never()).getActiveSubInfoCountMax();
+        doReturn(2).when(mSubscriptionManagerService).getActiveSubInfoCountMax();
         mPhoneMock1.mCi = mMockCi;
         mPhoneMock2.mCi = mMockCi;
         doReturn(TelephonyManager.RADIO_POWER_ON).when(mMockCi).getRadioState();
@@ -903,10 +940,39 @@ public class MultiSimSettingControllerTest extends TelephonyTest {
         doReturn(true).when(resources).getBoolean(
                 com.android.internal.R.bool.config_voice_data_sms_auto_fallback);
         mMultiSimSettingControllerUT.notifyAllSubscriptionLoaded();
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(0,1);
-        mMultiSimSettingControllerUT.notifyCarrierConfigChanged(1, 2);
+        sendCarrierConfigChanged(0, 1);
+        sendCarrierConfigChanged(1, 2);
         processAllMessages();
-        verify(mSubControllerMock).getActiveSubInfoCountMax();
-        verify(mSubControllerMock).setDefaultDataSubId(anyInt());
+        verify(mSubscriptionManagerService).getActiveSubInfoCountMax();
+        verify(mSubscriptionManagerService).setDefaultDataSubId(anyInt());
+    }
+
+    @Test
+    public void onSubscriptionGroupChanged_hasActiveSubNotPartOfGroup() {
+        // sub1 and sub2 are active subs already
+        // Create a subscription group with only sub2
+        doReturn(Arrays.asList(mSubInfo[2].toSubscriptionInfo())).when(mSubscriptionManagerService)
+                .getSubscriptionsInGroup(any(), anyString(), nullable(String.class));
+        mMultiSimSettingControllerUT.notifySubscriptionGroupChanged(mGroupUuid1);
+        processAllMessages();
+        // Default data is not modified as sub1 is active sub not part of this groupUuid
+        verify(mSubscriptionManagerService, never()).setDefaultDataSubId(anyInt());
+    }
+
+    @Test
+    public void onSubscriptionGroupChanged_allActiveSubArePartOfGroup() throws Exception {
+        doReturn(3).when(mSubscriptionManagerService).getDefaultDataSubId();
+        // Create subscription grouping of subs 1 and 2.
+        mSubInfo[1] = new SubscriptionInfoInternal.Builder(mSubInfo[1])
+                .setGroupUuid(mGroupUuid1.toString()).build();
+        GlobalSettingsHelper.setBoolean(mContext, Settings.Global.MOBILE_DATA, 1, true);
+        doReturn(Arrays.asList(mSubInfo[1].toSubscriptionInfo(), mSubInfo[2].toSubscriptionInfo()))
+                .when(mSubscriptionManagerService)
+                .getSubscriptionsInGroup(any(), anyString(), nullable(String.class));
+
+        mMultiSimSettingControllerUT.notifySubscriptionGroupChanged(mGroupUuid1);
+        processAllMessages();
+        // Default data is set to sub1
+        verify(mSubscriptionManagerService).syncGroupedSetting(1);
     }
 }

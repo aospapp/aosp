@@ -81,8 +81,8 @@ const char* SdpErrorCodeToString(uint16_t code) {
 
 constexpr size_t kMaxDiscoveryRecords = 64;
 
-int sdp_query_uuid(unsigned int num_loops, const RawAddress& raw_address,
-                   const bluetooth::Uuid& uuid) {
+int sdp_query_uuid([[maybe_unused]] unsigned int num_loops,
+                   const RawAddress& raw_address, const bluetooth::Uuid& uuid) {
   SdpDb sdp_discovery_db(kMaxDiscoveryRecords);
 
   if (!SDP_InitDiscoveryDb(sdp_discovery_db.RawPointer(),

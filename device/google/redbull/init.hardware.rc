@@ -147,8 +147,9 @@ on init && property:vendor.skip.init=0
     write /proc/sys/kernel/sched_lib_mask_force 255
 
     # NFC streset tool name
-    setprop persist.vendor.nfc.streset libstreset
-    setprop persist.vendor.se.streset libstreset
+    setprop persist.vendor.nfc.streset /vendor/lib64/libstreset20.so
+    setprop persist.vendor.se.streset /vendor/lib64/libstreset20.so
+    setprop persist.vendor.se.stpreprocess /vendor/lib64/libstpreprocess20.so
 
 on late-init
     chown system system /sys/devices/virtual/thermal/tz-by-name/cellular-emergency/trip_point_0_temp
@@ -491,6 +492,10 @@ on property:init.svc.vendor.charger=running
 on property:sys.boot_completed=1
     setprop vendor.setup.power 1
 
+    # Permission for Pixelstats
+    chown system system /dev/sys/fs/by-name/userdata/gc_segment_mode
+    chown system system /dev/sys/fs/by-name/userdata/gc_reclaimed_segments
+
     # Runtime fs tuning
     write /sys/block/sda/queue/nr_requests 128
     write /sys/block/sda/queue/iostats 1
@@ -520,13 +525,6 @@ on property:sys.boot_completed=1
     write /dev/stune/top-app/schedtune.prefer_idle 1
     write /dev/stune/top-app/schedtune.prefer_high_cap 0
     write /dev/stune/top-app/schedtune.boost 10
-
-    # Setup runtime blkio
-    # value for group_idle is us
-    write /dev/blkio/blkio.weight 1000
-    write /dev/blkio/background/blkio.weight 200
-    write /dev/blkio/blkio.group_idle 2000
-    write /dev/blkio/background/blkio.group_idle 0
 
     # HardwareInfo needs to be able to read display info
     chmod 444 /sys/devices/platform/soc/soc:qcom,dsi-display-primary/panel_info/panel0/serial_number

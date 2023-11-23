@@ -1,0 +1,133 @@
+# Tangorpro specific init.rc
+import /vendor/etc/init/hw/init.gs201.rc
+
+on init && property:ro.vendor.factory=1
+    import /vendor/etc/init/hw/init.factory.rc
+
+on init
+    # Load FPC's internal lib
+    setprop ro.hardware.fingerprint "fpc"
+
+# When ro.build.flavor=factory_tangorpro-userdebug, add vendor/bin/factory to default path
+on init && property:ro.build.flavor=factory_tangorpro-userdebug
+    export PATH /product/bin:/apex/com.android.runtime/bin:/apex/com.android.art/bin:/system_ext/bin:/system/bin:/system/xbin:/odm/bin:/vendor/bin:/vendor/xbin:/vendor/bin/factory
+
+on early-boot
+    # Wait for insmod_sh to finish all common modules
+    wait_for_prop vendor.common.modules.ready 1
+    start insmod_sh_tangorpro
+
+service insmod_sh_tangorpro /vendor/bin/insmod.sh /vendor/etc/init.insmod.tangorpro.cfg
+    class main
+    user root
+    group root system
+    disabled
+    oneshot
+
+on boot && property:ro.build.flavor=factory_tangorpro-userdebug
+    # FTM log folder
+    mkdir /data/ftmlog 0775 system system
+
+    # Audio test folder
+    mkdir /data/AudioTest 0775 system system
+
+    # Led calibration folder
+    mkdir /mnt/vendor/persist/led 0770 system system
+
+on property:vendor.mfgapi.touchpanel.permission=1
+    chmod 0600 /sys/devices/virtual/sec/tsp/cmd
+    chown system system /sys/devices/virtual/sec/tsp/cmd
+
+# Touch
+on property:vendor.device.modules.ready=1
+    chown system system /sys/devices/platform/10d10000.spi/spi_master/spi0/spi0.0/input/nvt_touch/force_touch_active
+    chown system system /sys/devices/platform/10d10000.spi/spi_master/spi0/spi0.0/input/nvt_touch/nvt_dttw_mode
+    chown system system /sys/devices/platform/10d10000.spi/spi_master/spi0/spi0.0/input/nvt_touch/nvt_fw_history
+    chown system system /sys/devices/platform/10d10000.spi/spi_master/spi0/spi0.0/input/nvt_touch/nvt_high_sensi_mode
+    chown system system /sys/devices/virtual/goog_touch_interface/gti.0/v4l2_enabled
+    chown system system /sys/devices/virtual/goog_touch_interface/gti.0/offload_enabled
+    chown system system /proc/nvt_baseline
+    chown system system /proc/nvt_diff
+    chown system system /proc/nvt_heatmap
+    chown system system /proc/nvt_raw
+
+on property:vendor.all.modules.ready=1 && property:persist.sys.tap_gesture=
+    write /sys/devices/platform/10d10000.spi/spi_master/spi0/spi0.0/input/nvt_touch/nvt_dttw_mode 1
+    write /sys/devices/platform/exynos-drm/primary-panel/force_power_on 1
+
+on property:vendor.all.modules.ready=1 && property:persist.sys.tap_gesture=1
+    write /sys/devices/platform/10d10000.spi/spi_master/spi0/spi0.0/input/nvt_touch/nvt_dttw_mode 1
+    write /sys/devices/platform/exynos-drm/primary-panel/force_power_on 1
+
+on property:vendor.all.modules.ready=1 && property:persist.sys.tap_gesture=0
+    write /sys/devices/platform/10d10000.spi/spi_master/spi0/spi0.0/input/nvt_touch/nvt_dttw_mode 0
+    write /sys/devices/platform/exynos-drm/primary-panel/force_power_on 0
+
+on property:vendor.all.modules.ready=1 && property:ro.build.flavor=factory_tangorpro-userdebug
+    write /sys/devices/virtual/goog_touch_interface/gti.0/v4l2_enabled 0
+    write /sys/devices/virtual/goog_touch_interface/gti.0/offload_enabled 0
+    setprop persist.sys.tap_gesture 0
+
+# Start the twoshay touch service
+on property:vendor.device.modules.ready=1
+    start twoshay
+
+# Fingerprint
+on post-fs-data
+    # Fingerprint
+    chown system system /sys/devices/platform/odm/odm:fp_fpc1020/clk_enable
+    chown system system /sys/devices/platform/odm/odm:fp_fpc1020/hw_reset
+    chown system system /sys/devices/platform/odm/odm:fp_fpc1020/irq
+    chown system system /sys/devices/platform/odm/odm:fp_fpc1020/wakeup_enable
+
+# Permissions for hwcomposer
+on fs
+    chown system system /sys/class/backlight/panel0-backlight/cabc_mode
+
+# Castauth
+on property:ro.vendor.trusty.storage.fs_ready=1
+    exec_background - system shell -- /vendor/bin/trusty_apploader /vendor/firmware/cast_auth.app
+
+# Wifi
+on post-fs-data
+    setprop wifi.direct.interface p2p-dev-wlan0
+    setprop wifi.aware.interface aware_nmi0
+
+# Audio
+on post-fs-data
+    chmod 644 /mnt/vendor/persist/audio/speaker.cal
+    chmod 644 /mnt/vendor/persist/audio/speaker.diag
+
+on init && property:ro.bootmode=charger
+    write /sys/devices/platform/19000000.aoc/dmic_power_enable 0
+
+# Thermal
+on property:vendor.thermal.link_ready=1
+    chown system system /dev/thermal/tz-by-name/charger_skin_therm/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/charger_skin_therm/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/disp_therm/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/disp_therm/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/neutral_therm/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/neutral_therm/trip_point_0_hyst
+
+# Pogo
+on post-fs
+    chown root system /sys/devices/platform/google,pogo/move_data_to_usb
+    chown system system /sys/devices/platform/google,pogo/hall1_s
+    chown system system /sys/devices/platform/google,pogo/hall1_n
+    chown system system /sys/devices/platform/google,pogo/hall2_s
+    chmod 664 /sys/devices/platform/google,pogo/move_data_to_usb
+    chmod 600 /sys/devices/platform/google,pogo/hall1_s
+    chmod 600 /sys/devices/platform/google,pogo/hall1_n
+    chmod 600 /sys/devices/platform/google,pogo/hall2_s
+
+# Set/Clear force_pogo feature
+on property:persist.vendor.usb.force_pogo=1
+    write /sys/devices/platform/google,pogo/force_pogo 1
+
+on property:persist.vendor.usb.force_pogo=0
+    write /sys/devices/platform/google,pogo/force_pogo 0
+
+# Sensor
+on init && property:ro.bootmode=charger
+    write /sys/devices/platform/19000000.aoc/sensor_power_enable 0

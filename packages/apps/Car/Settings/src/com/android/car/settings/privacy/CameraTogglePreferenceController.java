@@ -81,7 +81,7 @@ public class CameraTogglePreferenceController
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         boolean hasFeatureCameraToggle = mSensorPrivacyManager.supportsSensorToggle(
                 SensorPrivacyManager.Sensors.CAMERA);
         return hasFeatureCameraToggle ? AVAILABLE : UNSUPPORTED_ON_DEVICE;

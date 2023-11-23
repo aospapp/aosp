@@ -10,16 +10,16 @@ package {
 filegroup {
     name: "BluetoothShimSources",
     srcs: [
-            "dumpsys.cc",
-            "dumpsys_args.cc",
-    ]
+        "dumpsys.cc",
+        "dumpsys_args.cc",
+    ],
 }
 
 filegroup {
     name: "BluetoothShimTestSources",
     srcs: [
-            "dumpsys_test.cc",
-            "dumpsys_args_test.cc",
+        "dumpsys_args_test.cc",
+        "dumpsys_test.cc",
     ],
 }
 

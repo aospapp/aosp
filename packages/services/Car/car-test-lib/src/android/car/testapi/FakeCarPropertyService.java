@@ -31,6 +31,12 @@ import android.car.hardware.property.ICarPropertyEventListener;
 import android.os.RemoteException;
 
 import com.android.car.internal.PropertyPermissionMapping;
+import com.android.car.internal.property.AsyncPropertyServiceRequest;
+import com.android.car.internal.property.AsyncPropertyServiceRequestList;
+import com.android.car.internal.property.CarPropertyConfigList;
+import com.android.car.internal.property.GetSetValueResult;
+import com.android.car.internal.property.GetSetValueResultList;
+import com.android.car.internal.property.IAsyncPropertyResultCallback;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -82,12 +88,12 @@ class FakeCarPropertyService extends ICarProperty.Stub implements CarPropertyCon
     }
 
     @Override
-    public List<CarPropertyConfig> getPropertyList() throws RemoteException {
-        return new ArrayList<>(mConfigs.values());
+    public CarPropertyConfigList getPropertyList() throws RemoteException {
+        return new CarPropertyConfigList(new ArrayList<>(mConfigs.values()));
     }
 
     @Override
-    public List<CarPropertyConfig> getPropertyConfigList(int[] propIds) {
+    public CarPropertyConfigList getPropertyConfigList(int[] propIds) {
         List<CarPropertyConfig> configs = new ArrayList<>(propIds.length);
         for (int prop : propIds) {
             CarPropertyConfig cfg = mConfigs.get(prop);
@@ -95,7 +101,42 @@ class FakeCarPropertyService extends ICarProperty.Stub implements CarPropertyCon
                 configs.add(cfg);
             }
         }
-        return configs;
+        return new CarPropertyConfigList(configs);
+    }
+
+    @Override
+    public void getPropertiesAsync(AsyncPropertyServiceRequestList asyncPropertyServiceRequests,
+            IAsyncPropertyResultCallback asyncPropertyResultCallback, long timeoutInMs)
+            throws RemoteException {
+        List<AsyncPropertyServiceRequest> asyncPropertyServiceRequestList =
+                asyncPropertyServiceRequests.getList();
+        List<GetSetValueResult> getValueResults = new ArrayList<>();
+        for (int i = 0; i < asyncPropertyServiceRequestList.size(); i++) {
+            AsyncPropertyServiceRequest asyncPropertyServiceRequest =
+                    asyncPropertyServiceRequestList.get(i);
+            getValueResults.add(GetSetValueResult.newGetValueResult(
+                    asyncPropertyServiceRequest.getRequestId(),
+                    getProperty(asyncPropertyServiceRequest.getPropertyId(),
+                            asyncPropertyServiceRequest.getAreaId())));
+        }
+        asyncPropertyResultCallback.onGetValueResults(new GetSetValueResultList(getValueResults));
+    }
+
+    @Override
+    public void setPropertiesAsync(AsyncPropertyServiceRequestList asyncPropertyServiceRequests,
+            IAsyncPropertyResultCallback asyncPropertyResultCallback, long timeoutInMs)
+            throws RemoteException {
+        List<AsyncPropertyServiceRequest> asyncPropertyServiceRequestList =
+                asyncPropertyServiceRequests.getList();
+        List<GetSetValueResult> setValueResults = new ArrayList<>();
+        for (int i = 0; i < asyncPropertyServiceRequestList.size(); i++) {
+            AsyncPropertyServiceRequest asyncPropertyServiceRequest =
+                    asyncPropertyServiceRequestList.get(i);
+            setProperty(asyncPropertyServiceRequest.getCarPropertyValue(), /* listener= */ null);
+            setValueResults.add(GetSetValueResult.newSetValueResult(
+                    asyncPropertyServiceRequest.getRequestId(), /* updateTimestampNanos= */ 0));
+        }
+        asyncPropertyResultCallback.onSetValueResults(new GetSetValueResultList(setValueResults));
     }
 
     @Override
@@ -109,6 +150,11 @@ class FakeCarPropertyService extends ICarProperty.Stub implements CarPropertyCon
         mValues.put(PropKey.of(prop), prop);
         mValuesSet.add(prop);
         sendEvent(prop);
+    }
+
+    @Override
+    public void cancelRequests(int[] serviceRequestIds) {
+        // Do nothing.
     }
 
     @Override

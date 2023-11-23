@@ -36,8 +36,6 @@ android_library {
         "android.test.runner",
     ],
 
-    // TODO(b/211264986) Change both SDK versions to T (33) once it's formally defined.
-    min_sdk_version: "current",
     target_sdk_version: "current",
 }
 
@@ -69,14 +67,42 @@ android_test {
         "cts",
         "general-tests",
     ],
-
-    // TODO(b/211264986) Change both SDK versions to T (33) once it's formally defined.
-    min_sdk_version: "current",
-    target_sdk_version: "current",
     data: [
-        ":CtsCompanionTestApp",
+        ":CompanionDeviceTestApp",
     ],
     per_testcase_directory: true,
+
+    target_sdk_version: "current",
+}
+
+android_test {
+    name: "CtsCompanionDeviceManagerMultiProcessTestCases",
+    srcs: [
+        "multiprocess/src/**/*.kt",
+    ],
+    manifest: "multiprocess/AndroidManifest.xml",
+    test_config: "multiprocess/AndroidTest.xml",
+
+    platform_apis: true,
+    static_libs: [
+        "androidx.test.ext.junit",
+        "cts-companion-common",
+        "junit",
+        "kotlin-test",
+    ],
+    libs: [
+        "android.test.base",
+        "android.test.runner",
+    ],
+
+    defaults: ["cts_defaults"],
+    // Tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+
+    target_sdk_version: "current",
 }
 
 android_test {
@@ -106,8 +132,31 @@ android_test {
         "general-tests",
     ],
 
-    // TODO(b/211264986) Change both SDK versions to T (33) once it's formally defined.
-    min_sdk_version: "current",
+    target_sdk_version: "current",
+}
+
+android_library {
+    name: "cts-companion-uicommon",
+    srcs: [
+        "uicommon/src/**/*.kt",
+    ],
+    manifest: "uicommon/AndroidManifest.xml",
+
+    platform_apis: true,
+    static_libs: [
+        "androidx.test.ext.junit",
+        "androidx.test.uiautomator_uiautomator",
+        "compatibility-device-util-axt",
+        "cts-companion-common",
+        "ctstestrunner-axt",
+        "junit",
+        "kotlin-test",
+    ],
+    libs: [
+        "android.test.base",
+        "android.test.runner",
+    ],
+
     target_sdk_version: "current",
 }
 
@@ -122,9 +171,10 @@ android_test {
     platform_apis: true,
     static_libs: [
         "androidx.test.ext.junit",
-        "androidx.test.uiautomator",
+        "androidx.test.uiautomator_uiautomator",
         "compatibility-device-util-axt",
         "cts-companion-common",
+        "cts-companion-uicommon",
         "ctstestrunner-axt",
         "junit",
         "kotlin-test",
@@ -141,7 +191,9 @@ android_test {
         "general-tests",
     ],
 
-    // TODO(b/211264986) Change both SDK versions to T (33) once it's formally defined.
-    min_sdk_version: "current",
+    data: [
+        ":AssociationRevokedTestApp",
+    ],
+
     target_sdk_version: "current",
 }

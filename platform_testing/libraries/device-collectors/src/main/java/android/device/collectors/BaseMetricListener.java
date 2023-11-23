@@ -21,6 +21,7 @@ import android.device.collectors.util.SendToInstrumentation;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
+import android.os.Trace;
 import androidx.annotation.VisibleForTesting;
 import android.util.Log;
 
@@ -122,6 +123,7 @@ public class BaseMetricListener extends InstrumentationRunListener {
 
     @Override
     public final void testRunStarted(Description description) throws Exception {
+        Trace.beginSection(this.getClass().getSimpleName() + ":testRunStarted");
         setUp();
         if (!mLogOnly) {
             try {
@@ -133,10 +135,12 @@ public class BaseMetricListener extends InstrumentationRunListener {
             }
         }
         super.testRunStarted(description);
+        Trace.endSection();
     }
 
     @Override
     public final void testRunFinished(Result result) throws Exception {
+        Trace.beginSection(this.getClass().getSimpleName() + ":testRunFinished");
         if (!mLogOnly) {
             try {
                 onTestRunEnd(mRunData, result);
@@ -147,11 +151,12 @@ public class BaseMetricListener extends InstrumentationRunListener {
         }
         cleanUp();
         super.testRunFinished(result);
+        Trace.endSection();
     }
 
     @Override
     public final void testStarted(Description description) throws Exception {
-
+        Trace.beginSection(this.getClass().getSimpleName() + ":testStarted");
         // Update the current invocation before proceeding with metric collection.
         // mTestIdInvocationCount uses 1 indexing.
         mTestIdInvocationCount.compute(description.toString(),
@@ -167,6 +172,7 @@ public class BaseMetricListener extends InstrumentationRunListener {
             }
         }
         super.testStarted(description);
+        Trace.endSection();
     }
 
     @Override
@@ -185,6 +191,7 @@ public class BaseMetricListener extends InstrumentationRunListener {
 
     @Override
     public final void testFinished(Description description) throws Exception {
+        Trace.beginSection(this.getClass().getSimpleName() + ":testFinished");
         if (shouldRun(description)) {
             try {
                 onTestEnd(mTestData, description);
@@ -203,6 +210,7 @@ public class BaseMetricListener extends InstrumentationRunListener {
             }
         }
         super.testFinished(description);
+        Trace.endSection();
     }
 
     @Override

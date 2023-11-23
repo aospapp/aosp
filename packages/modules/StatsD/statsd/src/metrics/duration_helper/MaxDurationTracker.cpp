@@ -48,8 +48,11 @@ bool MaxDurationTracker::hitGuardRail(const HashableDimensionKey& newKey) {
         StatsdStats::getInstance().noteMetricDimensionSize(mConfigKey, mTrackerId, newTupleCount);
         // 2. Don't add more tuples, we are above the allowed threshold. Drop the data.
         if (newTupleCount > StatsdStats::kDimensionKeySizeHardLimit) {
-            ALOGE("MaxDurTracker %lld dropping data for dimension key %s",
-                (long long)mTrackerId, newKey.toString().c_str());
+            if (!mHasHitGuardrail) {
+                ALOGE("MaxDurTracker %lld dropping data for dimension key %s",
+                      (long long)mTrackerId, newKey.toString().c_str());
+                mHasHitGuardrail = true;
+            }
             return true;
         }
     }
@@ -163,6 +166,7 @@ void MaxDurationTracker::noteStopAll(const int64_t eventTime) {
 
 bool MaxDurationTracker::flushCurrentBucket(
         const int64_t& eventTimeNs, const optional<UploadThreshold>& uploadThreshold,
+        const int64_t globalConditionTrueNs,
         std::unordered_map<MetricDimensionKey, std::vector<DurationBucket>>* output) {
     VLOG("MaxDurationTracker flushing.....");
 
@@ -197,6 +201,7 @@ bool MaxDurationTracker::flushCurrentBucket(
         info.mBucketStartNs = mCurrentBucketStartTimeNs;
         info.mBucketEndNs = currentBucketEndTimeNs;
         info.mDuration = mDuration;
+        info.mConditionTrueNs = globalConditionTrueNs;
         (*output)[mEventKey].push_back(info);
         VLOG("  final duration for last bucket: %lld", (long long)mDuration);
     } else {
@@ -211,6 +216,8 @@ bool MaxDurationTracker::flushCurrentBucket(
     }
 
     mDuration = 0;
+    // Reset mHasHitGuardrail boolean since bucket was reset
+    mHasHitGuardrail = false;
     // If this tracker has no pending events, tell owner to remove.
     return !hasPendingEvent;
 }
@@ -221,11 +228,10 @@ bool MaxDurationTracker::flushIfNeeded(
     if (eventTimeNs < getCurrentBucketEndTimeNs()) {
         return false;
     }
-    return flushCurrentBucket(eventTimeNs, uploadThreshold, output);
+    return flushCurrentBucket(eventTimeNs, uploadThreshold, /*globalConditionTrueNs*/ 0, output);
 }
 
-void MaxDurationTracker::onSlicedConditionMayChange(bool overallCondition,
-                                                    const int64_t timestamp) {
+void MaxDurationTracker::onSlicedConditionMayChange(const int64_t timestamp) {
     // Now for each of the on-going event, check if the condition has changed for them.
     for (auto& pair : mInfos) {
         if (pair.second.state == kStopped) {

@@ -34,9 +34,9 @@ void log_link_layer_connection_event(
     uint32_t hci_cmd, uint16_t hci_event, uint16_t hci_ble_event,
     uint16_t cmd_status, uint16_t reason_code);
 
-void log_smp_pairing_event(const RawAddress& address, uint8_t smp_cmd,
+void log_smp_pairing_event(const RawAddress& address, uint16_t smp_cmd,
                            android::bluetooth::DirectionEnum direction,
-                           uint8_t smp_fail_reason);
+                           uint16_t smp_fail_reason);
 
 void log_sdp_attribute(const RawAddress& address, uint16_t protocol_uuid,
                        uint16_t attribute_id, size_t attribute_size,
@@ -53,3 +53,7 @@ void log_manufacturer_info(const RawAddress& address,
 
 void log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum key,
                          int64_t value);
+
+void log_hfp_audio_packet_loss_stats(const RawAddress& address,
+                                     int num_decoded_frames,
+                                     double packet_loss_ratio);

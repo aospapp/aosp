@@ -29,8 +29,8 @@ import android.util.ArraySet;
 import com.android.bedstead.harrier.BedsteadJUnit4;
 import com.android.bedstead.harrier.DeviceState;
 import com.android.bedstead.harrier.annotations.Postsubmit;
+import com.android.bedstead.harrier.annotations.enterprise.CanSetPolicyTest;
 import com.android.bedstead.harrier.annotations.enterprise.CannotSetPolicyTest;
-import com.android.bedstead.harrier.annotations.enterprise.PolicyAppliesTest;
 import com.android.bedstead.harrier.policies.WifiSsidRestriction;
 import com.android.bedstead.remotedpc.RemotePolicyManager;
 
@@ -58,7 +58,7 @@ public class WifiSsidRestrictionTest {
         mDevicePolicyManager = dpc.devicePolicyManager();
     }
 
-    @PolicyAppliesTest(policy = WifiSsidRestriction.class)
+    @CanSetPolicyTest(policy = WifiSsidRestriction.class)
     @Postsubmit(reason = "new test")
     public void setWifiSsidPolicy_validAllowlist_works() {
         try {
@@ -80,7 +80,7 @@ public class WifiSsidRestrictionTest {
 
     }
 
-    @PolicyAppliesTest(policy = WifiSsidRestriction.class)
+    @CanSetPolicyTest(policy = WifiSsidRestriction.class)
     @Postsubmit(reason = "new test")
     public void setWifiSsidPolicy_validDenylist_works() {
         try {
@@ -101,7 +101,7 @@ public class WifiSsidRestrictionTest {
         }
     }
 
-    @PolicyAppliesTest(policy = WifiSsidRestriction.class)
+    @CanSetPolicyTest(policy = WifiSsidRestriction.class)
     @Postsubmit(reason = "new test")
     public void setWifiSsidPolicy_validRemoveRestriction_works() {
         try {
@@ -124,7 +124,7 @@ public class WifiSsidRestrictionTest {
         }
     }
 
-    @PolicyAppliesTest(policy = WifiSsidRestriction.class)
+    @CanSetPolicyTest(policy = WifiSsidRestriction.class)
     @Postsubmit(reason = "new test")
     public void setWifiSsidPolicy_invalidPolicy_fails() {
         final Set<WifiSsid> ssids = new ArraySet<>();

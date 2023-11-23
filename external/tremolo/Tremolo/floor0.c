@@ -386,7 +386,8 @@ vorbis_info_floor *floor0_info_unpack (vorbis_info *vi,oggpack_buffer *opb){
   info->ampdB=oggpack_read(opb,8);
   info->numbooks=oggpack_read(opb,4)+1;
 
-  if(info->order<1)goto err_out;
+  /* order must be greater than 1 to calculate p and q parameters for the linear floor value */
+  if(info->order<=1)goto err_out;
   if(info->rate<1)goto err_out;
   if(info->barkmap<1)goto err_out;
 

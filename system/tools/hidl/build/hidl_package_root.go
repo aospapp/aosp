@@ -45,7 +45,7 @@ type hidlPackageRootProperties struct {
 }
 
 func init() {
-	android.RegisterModuleType("hidl_package_root", hidlPackageRootFactory)
+	android.RegisterModuleType("hidl_package_root", HidlPackageRootFactory)
 }
 
 type hidlPackageRoot struct {
@@ -121,7 +121,7 @@ func (r *hidlPackageRoot) DepsMutator(ctx android.BottomUpMutatorContext) {
 var packageRootsMutex sync.Mutex
 var packageRoots []*hidlPackageRoot
 
-func hidlPackageRootFactory() android.Module {
+func HidlPackageRootFactory() android.Module {
 	r := &hidlPackageRoot{}
 	r.AddProperties(&r.properties)
 	android.InitAndroidModule(r)

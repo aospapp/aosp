@@ -7,18 +7,17 @@ pub struct qSupported<'a> {
 }
 
 impl<'a> ParseCommand<'a> for qSupported<'a> {
+    #[inline(always)]
     fn from_packet(buf: PacketBuf<'a>) -> Option<Self> {
         let packet_buffer_len = buf.full_len();
-
         let body = buf.into_body();
-        if body.is_empty() {
-            return None;
+        match body {
+            [b':', body @ ..] => Some(qSupported {
+                packet_buffer_len,
+                features: Features(body),
+            }),
+            _ => None,
         }
-
-        Some(qSupported {
-            packet_buffer_len,
-            features: Features(body),
-        })
     }
 }
 
@@ -26,41 +25,30 @@ impl<'a> ParseCommand<'a> for qSupported<'a> {
 pub struct Features<'a>(&'a [u8]);
 
 impl<'a> Features<'a> {
-    pub fn into_iter(self) -> impl Iterator<Item = Option<Feature<'a>>> + 'a {
+    pub fn into_iter(self) -> impl Iterator<Item = Result<Option<(Feature, bool)>, ()>> + 'a {
         self.0.split(|b| *b == b';').map(|s| match s.last() {
-            None => None,
-            Some(&c) if c == b'+' || c == b'-' || c == b'?' => Some(Feature {
-                name: s[..s.len() - 1].into(),
-                val: None,
-                status: match c {
-                    b'+' => FeatureSupported::Yes,
-                    b'-' => FeatureSupported::No,
-                    b'?' => FeatureSupported::Maybe,
-                    _ => return None,
-                },
-            }),
-            Some(_) => {
-                let mut parts = s.split(|b| *b == b'=');
-                Some(Feature {
-                    name: parts.next()?.into(),
-                    val: Some(parts.next()?.into()),
-                    status: FeatureSupported::Yes,
-                })
-            }
+            None => Err(()),
+            Some(&c) => match c {
+                b'+' | b'-' => {
+                    let feature = match &s[..s.len() - 1] {
+                        b"multiprocess" => Feature::Multiprocess,
+                        // TODO: implementing other features will require IDET plumbing
+                        _ => return Ok(None),
+                    };
+                    Ok(Some((feature, c == b'+')))
+                }
+                _ => {
+                    // TODO: add support for "xmlRegisters="
+                    // that's the only feature packet that uses an '=', and AFAIK, it's not really
+                    // used anymore...
+                    Ok(None)
+                }
+            },
         })
     }
 }
 
 #[derive(Debug)]
-pub enum FeatureSupported {
-    Yes,
-    No,
-    Maybe,
-}
-
-#[derive(Debug)]
-pub struct Feature<'a> {
-    name: Bstr<'a>,
-    val: Option<Bstr<'a>>,
-    status: FeatureSupported,
+pub enum Feature {
+    Multiprocess,
 }

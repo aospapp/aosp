@@ -7,14 +7,6 @@
       "name": "libextservices_test"
     }
   ],
-  "postsubmit": [
-    {
-      "name": "ExtServicesUnitTests"
-    },
-    {
-      "name": "libextservices_test"
-    }
-  ],
   "imports": [
     {
       "path": "external/libtextclassifier"

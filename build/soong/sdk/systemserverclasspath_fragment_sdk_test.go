@@ -22,28 +22,21 @@ import (
 	"android/soong/java"
 )
 
-func TestSnapshotWithSystemServerClasspathFragment(t *testing.T) {
+func testSnapshotWithSystemServerClasspathFragment(t *testing.T, sdk string, targetBuildRelease string, expectedSdkSnapshot string) {
 	result := android.GroupFixturePreparers(
 		prepareForSdkTestWithJava,
 		java.PrepareForTestWithJavaDefaultModules,
 		java.PrepareForTestWithJavaSdkLibraryFiles,
 		java.FixtureWithLastReleaseApis("mysdklibrary"),
 		dexpreopt.FixtureSetApexSystemServerJars("myapex:mylib", "myapex:mysdklibrary"),
+		android.FixtureModifyEnv(func(env map[string]string) {
+			if targetBuildRelease != "latest" {
+				env["SOONG_SDK_SNAPSHOT_TARGET_BUILD_RELEASE"] = targetBuildRelease
+			}
+		}),
 		prepareForSdkTestWithApex,
 
-		android.FixtureWithRootAndroidBp(`
-			sdk {
-				name: "mysdk",
-				systemserverclasspath_fragments: ["mysystemserverclasspathfragment"],
-				java_sdk_libs: [
-					// This is not strictly needed as it should be automatically added to the sdk_snapshot as
-					// a java_sdk_libs module because it is used in the mysystemserverclasspathfragment's
-					// contents property. However, it is specified here to ensure that duplicates are
-					// correctly deduped.
-					"mysdklibrary",
-				],
-			}
-
+		android.FixtureWithRootAndroidBp(sdk+`
 			apex {
 				name: "myapex",
 				key: "myapex.key",
@@ -69,6 +62,9 @@ func TestSnapshotWithSystemServerClasspathFragment(t *testing.T) {
 				min_sdk_version: "2",
 				compile_dex: true,
 				permitted_packages: ["mylib"],
+				dex_preopt: {
+					profile: "art-profile",
+				},
 			}
 
 			java_sdk_library {
@@ -78,12 +74,103 @@ func TestSnapshotWithSystemServerClasspathFragment(t *testing.T) {
 				shared_library: false,
 				public: {enabled: true},
 				min_sdk_version: "2",
+				dex_preopt: {
+					profile: "art-profile",
+				},
 			}
 		`),
 	).RunTest(t)
 
 	CheckSnapshot(t, result, "mysdk", "",
-		checkUnversionedAndroidBpContents(`
+		checkAndroidBpContents(expectedSdkSnapshot),
+	)
+}
+
+func TestSnapshotWithSystemServerClasspathFragment(t *testing.T) {
+
+	commonSdk := `
+sdk {
+	name: "mysdk",
+	systemserverclasspath_fragments: ["mysystemserverclasspathfragment"],
+	java_sdk_libs: [
+		// This is not strictly needed as it should be automatically added to the sdk_snapshot as
+		// a java_sdk_libs module because it is used in the mysystemserverclasspathfragment's
+		// contents property. However, it is specified here to ensure that duplicates are
+		// correctly deduped.
+		"mysdklibrary",
+	],
+}
+	`
+
+	expectedLatestSnapshot := `
+// This is auto-generated. DO NOT EDIT.
+
+java_sdk_library_import {
+    name: "mysdklibrary",
+    prefer: false,
+    visibility: ["//visibility:public"],
+    apex_available: ["myapex"],
+    shared_library: false,
+    dex_preopt: {
+        profile_guided: true,
+    },
+    public: {
+        jars: ["sdk_library/public/mysdklibrary-stubs.jar"],
+        stub_srcs: ["sdk_library/public/mysdklibrary_stub_sources"],
+        current_api: "sdk_library/public/mysdklibrary.txt",
+        removed_api: "sdk_library/public/mysdklibrary-removed.txt",
+        sdk_version: "current",
+    },
+}
+
+java_import {
+    name: "mylib",
+    prefer: false,
+    visibility: ["//visibility:public"],
+    apex_available: ["myapex"],
+    jars: ["java_systemserver_libs/snapshot/jars/are/invalid/mylib.jar"],
+    min_sdk_version: "2",
+    permitted_packages: ["mylib"],
+    dex_preopt: {
+        profile_guided: true,
+    },
+}
+
+prebuilt_systemserverclasspath_fragment {
+    name: "mysystemserverclasspathfragment",
+    prefer: false,
+    visibility: ["//visibility:public"],
+    apex_available: ["myapex"],
+    contents: [
+        "mylib",
+        "mysdklibrary",
+    ],
+}
+`
+
+	t.Run("target-s", func(t *testing.T) {
+		testSnapshotWithSystemServerClasspathFragment(t, commonSdk, "S", `
+// This is auto-generated. DO NOT EDIT.
+
+java_sdk_library_import {
+    name: "mysdklibrary",
+    prefer: false,
+    visibility: ["//visibility:public"],
+    apex_available: ["myapex"],
+    shared_library: false,
+    public: {
+        jars: ["sdk_library/public/mysdklibrary-stubs.jar"],
+        stub_srcs: ["sdk_library/public/mysdklibrary_stub_sources"],
+        current_api: "sdk_library/public/mysdklibrary.txt",
+        removed_api: "sdk_library/public/mysdklibrary-removed.txt",
+        sdk_version: "current",
+    },
+}
+`)
+	})
+
+	t.Run("target-t", func(t *testing.T) {
+		testSnapshotWithSystemServerClasspathFragment(t, commonSdk, "Tiramisu", `
 // This is auto-generated. DO NOT EDIT.
 
 java_sdk_library_import {
@@ -107,6 +194,7 @@ java_import {
     visibility: ["//visibility:public"],
     apex_available: ["myapex"],
     jars: ["java_systemserver_libs/snapshot/jars/are/invalid/mylib.jar"],
+    min_sdk_version: "2",
     permitted_packages: ["mylib"],
 }
 
@@ -120,16 +208,22 @@ prebuilt_systemserverclasspath_fragment {
         "mysdklibrary",
     ],
 }
-`),
-		checkVersionedAndroidBpContents(`
+`)
+	})
+
+	t.Run("target-u", func(t *testing.T) {
+		testSnapshotWithSystemServerClasspathFragment(t, commonSdk, "UpsideDownCake", `
 // This is auto-generated. DO NOT EDIT.
 
 java_sdk_library_import {
-    name: "mysdk_mysdklibrary@current",
-    sdk_member_name: "mysdklibrary",
+    name: "mysdklibrary",
+    prefer: false,
     visibility: ["//visibility:public"],
     apex_available: ["myapex"],
     shared_library: false,
+    dex_preopt: {
+        profile_guided: true,
+    },
     public: {
         jars: ["sdk_library/public/mysdklibrary-stubs.jar"],
         stub_srcs: ["sdk_library/public/mysdklibrary_stub_sources"],
@@ -140,32 +234,41 @@ java_sdk_library_import {
 }
 
 java_import {
-    name: "mysdk_mylib@current",
-    sdk_member_name: "mylib",
+    name: "mylib",
+    prefer: false,
     visibility: ["//visibility:public"],
     apex_available: ["myapex"],
     jars: ["java_systemserver_libs/snapshot/jars/are/invalid/mylib.jar"],
+    min_sdk_version: "2",
     permitted_packages: ["mylib"],
+    dex_preopt: {
+        profile_guided: true,
+    },
 }
 
 prebuilt_systemserverclasspath_fragment {
-    name: "mysdk_mysystemserverclasspathfragment@current",
-    sdk_member_name: "mysystemserverclasspathfragment",
+    name: "mysystemserverclasspathfragment",
+    prefer: false,
     visibility: ["//visibility:public"],
     apex_available: ["myapex"],
     contents: [
-        "mysdk_mylib@current",
-        "mysdk_mysdklibrary@current",
+        "mylib",
+        "mysdklibrary",
     ],
 }
+`)
+	})
 
-sdk_snapshot {
-    name: "mysdk@current",
-    visibility: ["//visibility:public"],
-    java_sdk_libs: ["mysdk_mysdklibrary@current"],
-    java_systemserver_libs: ["mysdk_mylib@current"],
-    systemserverclasspath_fragments: ["mysdk_mysystemserverclasspathfragment@current"],
-}
-`),
-	)
+	t.Run("added-directly", func(t *testing.T) {
+		testSnapshotWithSystemServerClasspathFragment(t, commonSdk, `latest`, expectedLatestSnapshot)
+	})
+
+	t.Run("added-via-apex", func(t *testing.T) {
+		testSnapshotWithSystemServerClasspathFragment(t, `
+			sdk {
+				name: "mysdk",
+				apexes: ["myapex"],
+			}
+		`, `latest`, expectedLatestSnapshot)
+	})
 }

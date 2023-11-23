@@ -30,7 +30,7 @@
     <string name="menu_grid" msgid="1453636521731880680">"Тор көрүнүшү"</string>
     <string name="menu_list" msgid="6714267452146410402">"Тизмек көрүнүшү"</string>
     <string name="menu_search" msgid="1876699106790719849">"Издөө"</string>
-    <string name="menu_settings" msgid="6520844520117939047">"Сактагычтын жөндөөлөрү"</string>
+    <string name="menu_settings" msgid="6520844520117939047">"Сактагычтын параметрлери"</string>
     <string name="menu_open" msgid="9092138100049759315">"Ачуу"</string>
     <string name="menu_open_with" msgid="5507647065467520229">"Төмөнкү менен ачуу"</string>
     <string name="menu_open_in_new_window" msgid="6686563636123311276">"Жаңы терезеде ачылсын"</string>
@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"Документтер сакталбай калды"</string>
     <string name="create_error" msgid="3092144450044861994">"Папка түзүлбөй калды"</string>
     <string name="query_error" msgid="6625421453613879336">"Учурда мазмун жүктөлбөй жатат"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Жумуш профили тындырылган"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Күйгүзүү"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"Жумуш колдонмолору тындырылды"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"Жумуш колдонмолорун күйгүзүү"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Жумуш файлдарын тандоого болбойт"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"IT администраторуңуз жумуш файлдарына жеке колдонмодон кирүүгө тыюу салды"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Жеке файлдарды тандоого болбойт"</string>

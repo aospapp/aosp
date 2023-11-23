@@ -16,8 +16,10 @@
 
 package dagger.internal.codegen.binding;
 
-import static dagger.model.BindingKind.MEMBERS_INJECTOR;
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
+import static dagger.spi.model.BindingKind.MEMBERS_INJECTOR;
 
+import androidx.room.compiler.processing.XType;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.CaseFormat;
 import com.squareup.javapoet.ClassName;
@@ -29,7 +31,6 @@ import javax.lang.model.element.ElementVisitor;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementKindVisitor8;
 
 /**
@@ -69,24 +70,22 @@ public abstract class FrameworkField {
    *     one for the binding's type.
    */
   public static FrameworkField forBinding(
-      ContributionBinding binding, Optional<ClassName> frameworkClass) {
+      ContributionBinding binding, Optional<ClassName> frameworkClassName) {
     return create(
-        frameworkClass.orElse(
-            ClassName.get(
-                FrameworkType.forBindingType(binding.bindingType()).frameworkClass())),
-        TypeName.get(fieldValueType(binding)),
+        frameworkClassName.orElse(binding.frameworkType().frameworkClassName()),
+        fieldValueType(binding).getTypeName(),
         frameworkFieldName(binding));
   }
 
-  private static TypeMirror fieldValueType(ContributionBinding binding) {
+  private static XType fieldValueType(ContributionBinding binding) {
     return binding.contributionType().isMultibinding()
         ? binding.contributedType()
-        : binding.key().type();
+        : binding.key().type().xprocessing();
   }
 
   private static String frameworkFieldName(ContributionBinding binding) {
     if (binding.bindingElement().isPresent()) {
-      String name = BINDING_ELEMENT_NAME.visit(binding.bindingElement().get(), binding);
+      String name = BINDING_ELEMENT_NAME.visit(toJavac(binding.bindingElement().get()), binding);
       return binding.kind().equals(MEMBERS_INJECTOR) ? name + "MembersInjector" : name;
     }
     return KeyVariableNamer.name(binding.key());

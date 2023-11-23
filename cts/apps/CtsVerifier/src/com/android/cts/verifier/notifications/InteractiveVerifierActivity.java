@@ -42,6 +42,7 @@ import android.widget.TextView;
 
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
+import com.android.cts.verifier.TestListActivity;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -56,6 +57,7 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
     private static final String STATE = "state";
     private static final String STATUS = "status";
     private static final String SCROLLY = "scrolly";
+    private static final String DISPLAY_MODE = "display_mode";
     private static LinkedBlockingQueue<String> sDeletedQueue = new LinkedBlockingQueue<String>();
     protected static final String LISTENER_PATH = "com.android.cts.verifier/" +
             "com.android.cts.verifier.notifications.MockListener";
@@ -120,6 +122,11 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
             return false;
         }
 
+        /** @return the test's status after autostart. */
+        int autoStartStatus() {
+            return READY;
+        }
+
         /** Set status to {@link #READY} to proceed, or {@link #SETUP} to try again. */
         protected void setUp() { status = READY; next(); };
 
@@ -163,6 +170,10 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
         int savedStateIndex = (savedState == null) ? 0 : savedState.getInt(STATE, 0);
         int savedStatus = (savedState == null) ? SETUP : savedState.getInt(STATUS, SETUP);
         int scrollY = (savedState == null) ? 0 : savedState.getInt(SCROLLY, 0);
+        String displayMode = (savedState == null) ? null : savedState.getString(DISPLAY_MODE, null);
+        if (displayMode != null) {
+            TestListActivity.sCurrentDisplayMode = displayMode;
+        }
         Log.i(TAG, "restored state(" + savedStateIndex + "}, status(" + savedStatus + ")");
         mContext = this;
         mRunner = this;
@@ -175,7 +186,22 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
         mHandler = mItemList;
         mTestList = new ArrayList<>();
         mTestList.addAll(createTestItems());
-        for (InteractiveTestCase test: mTestList) {
+
+        if (!mTestList.isEmpty()) {
+            setupTests(savedStateIndex, savedStatus, scrollY);
+            view.findViewById(R.id.pass_button).setEnabled(false);
+        } else {
+            view.findViewById(R.id.empty_text).setVisibility(View.VISIBLE);
+            view.findViewById(R.id.fail_button).setEnabled(false);
+        }
+
+        setContentView(view);
+        setPassFailButtonClickListeners();
+        setInfoResources(getTitleResource(), getInstructionsResource(), -1);
+    }
+
+    private void setupTests(int savedStateIndex, int savedStatus, int scrollY) {
+        for (InteractiveTestCase test : mTestList) {
             mItemList.addView(test.getView(mItemList));
         }
         mTestOrder = mTestList.iterator();
@@ -184,17 +210,11 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
             mCurrentTest.status = PASS;
             markItem(mCurrentTest);
         }
+
         mCurrentTest = mTestOrder.next();
-
-        mScrollView.post(() -> mScrollView.smoothScrollTo(0, scrollY));
-
         mCurrentTest.status = savedStatus;
 
-        setContentView(view);
-        setPassFailButtonClickListeners();
-        getPassButton().setEnabled(false);
-
-        setInfoResources(getTitleResource(), getInstructionsResource(), -1);
+        mScrollView.post(() -> mScrollView.smoothScrollTo(0, scrollY));
     }
 
     @Override
@@ -204,6 +224,7 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
         final int status = mCurrentTest == null ? SETUP : mCurrentTest.status;
         outState.putInt(STATUS, status);
         outState.putInt(SCROLLY, mScrollView.getScrollY());
+        outState.putString(DISPLAY_MODE, TestListActivity.sCurrentDisplayMode);
         Log.i(TAG, "saved state(" + stateIndex + "), status(" + status + ")");
     }
 
@@ -213,7 +234,7 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
         //To avoid NPE during onResume,before start to iterate next test order
         if (mCurrentTest != null && mCurrentTest.status != SETUP && mCurrentTest.autoStart()) {
             Log.i(TAG, "auto starting: " + mCurrentTest.getClass().getSimpleName());
-            mCurrentTest.status = READY;
+            mCurrentTest.status = mCurrentTest.autoStartStatus();
         }
         next();
     }

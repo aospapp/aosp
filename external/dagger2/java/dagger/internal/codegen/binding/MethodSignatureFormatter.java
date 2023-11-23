@@ -16,54 +16,55 @@
 
 package dagger.internal.codegen.binding;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static dagger.internal.codegen.base.DiagnosticFormatting.stripCommonTypePrefixes;
+import static dagger.internal.codegen.xprocessing.XElements.closestEnclosingTypeElement;
+import static dagger.internal.codegen.xprocessing.XElements.getSimpleName;
+import static dagger.internal.codegen.xprocessing.XTypes.isDeclared;
 
-import com.google.auto.common.MoreElements;
-import com.google.auto.common.MoreTypes;
+import androidx.room.compiler.processing.XAnnotation;
+import androidx.room.compiler.processing.XExecutableElement;
+import androidx.room.compiler.processing.XExecutableParameterElement;
+import androidx.room.compiler.processing.XExecutableType;
+import androidx.room.compiler.processing.XMethodElement;
+import androidx.room.compiler.processing.XMethodType;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XTypeElement;
+import androidx.room.compiler.processing.XVariableElement;
 import dagger.internal.codegen.base.Formatter;
-import dagger.internal.codegen.langmodel.DaggerTypes;
+import dagger.internal.codegen.xprocessing.XAnnotations;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import javax.inject.Inject;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.ExecutableType;
-import javax.lang.model.type.TypeMirror;
 
-/** Formats the signature of an {@link ExecutableElement} suitable for use in error messages. */
-public final class MethodSignatureFormatter extends Formatter<ExecutableElement> {
-  private final DaggerTypes types;
+/** Formats the signature of an {@link XExecutableElement} suitable for use in error messages. */
+public final class MethodSignatureFormatter extends Formatter<XExecutableElement> {
   private final InjectionAnnotations injectionAnnotations;
 
   @Inject
-  public MethodSignatureFormatter(DaggerTypes types, InjectionAnnotations injectionAnnotations) {
-    this.types = types;
+  MethodSignatureFormatter(InjectionAnnotations injectionAnnotations) {
     this.injectionAnnotations = injectionAnnotations;
   }
 
   /**
    * A formatter that uses the type where the method is declared for the annotations and name of the
-   * method, but the method's resolved type as a member of {@code declaredType} for the key.
+   * method, but the method's resolved type as a member of {@code type} for the key.
    */
-  public Formatter<ExecutableElement> typedFormatter(DeclaredType declaredType) {
-    return new Formatter<ExecutableElement>() {
+  public Formatter<XMethodElement> typedFormatter(XType type) {
+    checkArgument(isDeclared(type));
+    return new Formatter<XMethodElement>() {
       @Override
-      public String format(ExecutableElement method) {
+      public String format(XMethodElement method) {
         return MethodSignatureFormatter.this.format(
-            method,
-            MoreTypes.asExecutable(types.asMemberOf(declaredType, method)),
-            MoreElements.asType(method.getEnclosingElement()));
+            method, method.asMemberOf(type), closestEnclosingTypeElement(method));
       }
     };
   }
 
   @Override
-  public String format(ExecutableElement method) {
+  public String format(XExecutableElement method) {
     return format(method, Optional.empty());
   }
 
@@ -71,23 +72,18 @@ public final class MethodSignatureFormatter extends Formatter<ExecutableElement>
    * Formats an ExecutableElement as if it were contained within the container, if the container is
    * present.
    */
-  public String format(ExecutableElement method, Optional<DeclaredType> container) {
-    TypeElement type = MoreElements.asType(method.getEnclosingElement());
-    ExecutableType executableType = MoreTypes.asExecutable(method.asType());
-    if (container.isPresent()) {
-      executableType = MoreTypes.asExecutable(types.asMemberOf(container.get(), method));
-      type = MoreElements.asType(container.get().asElement());
-    }
-    return format(method, executableType, type);
+  public String format(XExecutableElement method, Optional<XType> container) {
+    return container.isPresent()
+        ? format(method, method.asMemberOf(container.get()), container.get().getTypeElement())
+        : format(method, method.getExecutableType(), closestEnclosingTypeElement(method));
   }
 
   private String format(
-      ExecutableElement method, ExecutableType methodType, TypeElement declaringType) {
+      XExecutableElement method, XExecutableType methodType, XTypeElement container) {
     StringBuilder builder = new StringBuilder();
-    // TODO(user): AnnotationMirror formatter.
-    List<? extends AnnotationMirror> annotations = method.getAnnotationMirrors();
+    List<XAnnotation> annotations = method.getAllAnnotations();
     if (!annotations.isEmpty()) {
-      Iterator<? extends AnnotationMirror> annotationIterator = annotations.iterator();
+      Iterator<XAnnotation> annotationIterator = annotations.iterator();
       for (int i = 0; annotationIterator.hasNext(); i++) {
         if (i > 0) {
           builder.append(' ');
@@ -96,20 +92,20 @@ public final class MethodSignatureFormatter extends Formatter<ExecutableElement>
       }
       builder.append(' ');
     }
-    if (method.getSimpleName().contentEquals("<init>")) {
-      builder.append(declaringType.getQualifiedName());
+    if (getSimpleName(method).contentEquals("<init>")) {
+      builder.append(container.getQualifiedName());
     } else {
       builder
-          .append(nameOfType(methodType.getReturnType()))
+          .append(nameOfType(((XMethodType) methodType).getReturnType()))
           .append(' ')
-          .append(declaringType.getQualifiedName())
+          .append(container.getQualifiedName())
           .append('.')
-          .append(method.getSimpleName());
+          .append(getSimpleName(method));
     }
     builder.append('(');
     checkState(method.getParameters().size() == methodType.getParameterTypes().size());
-    Iterator<? extends VariableElement> parameters = method.getParameters().iterator();
-    Iterator<? extends TypeMirror> parameterTypes = methodType.getParameterTypes().iterator();
+    Iterator<XExecutableParameterElement> parameters = method.getParameters().iterator();
+    Iterator<XType> parameterTypes = methodType.getParameterTypes().iterator();
     for (int i = 0; parameters.hasNext(); i++) {
       if (i > 0) {
         builder.append(", ");
@@ -120,21 +116,19 @@ public final class MethodSignatureFormatter extends Formatter<ExecutableElement>
     return builder.toString();
   }
 
-  private void appendParameter(StringBuilder builder, VariableElement parameter, TypeMirror type) {
+  private void appendParameter(
+      StringBuilder builder, XVariableElement parameter, XType parameterType) {
     injectionAnnotations
         .getQualifier(parameter)
-        .ifPresent(
-            qualifier -> {
-              builder.append(formatAnnotation(qualifier)).append(' ');
-            });
-    builder.append(nameOfType(type));
+        .ifPresent(qualifier -> builder.append(formatAnnotation(qualifier)).append(' '));
+    builder.append(nameOfType(parameterType));
   }
 
-  private static String nameOfType(TypeMirror type) {
+  private static String nameOfType(XType type) {
     return stripCommonTypePrefixes(type.toString());
   }
 
-  private static String formatAnnotation(AnnotationMirror annotation) {
-    return stripCommonTypePrefixes(annotation.toString());
+  private static String formatAnnotation(XAnnotation annotation) {
+    return stripCommonTypePrefixes(XAnnotations.toString(annotation));
   }
 }

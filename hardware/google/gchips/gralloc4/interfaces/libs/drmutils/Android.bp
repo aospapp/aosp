@@ -33,7 +33,7 @@ cc_library_static {
         "liblog",
         "libdrm",
         "libcutils",
-        "android.hardware.graphics.common-V3-ndk",
+        "android.hardware.graphics.common-V4-ndk",
     ],
     header_libs: [
         "libgralloc_headers",

@@ -13,10 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-$(call inherit-product, device/generic/car/gsi_car_base.mk)
-$(call inherit-product, device/generic/common/gsi_x86_64.mk)
+include device/generic/car/gsi_car_base.mk
 
 PRODUCT_NAME := gsi_car_x86_64
 PRODUCT_DEVICE := generic_x86_64
-PRODUCT_BRAND := Android
 PRODUCT_MODEL := Car GSI on x86_64

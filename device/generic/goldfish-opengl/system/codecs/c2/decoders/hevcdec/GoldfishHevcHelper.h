@@ -37,9 +37,9 @@ class GoldfishHevcHelper {
   public:
     // return true if decoding finds out w/h changed;
     // otherwise false
-    bool decodeHeader(const uint8_t *frame, int inSize);
-    int getWidth() const { return mWidth; }
-    int getHeight() const { return mHeight; }
+   bool decodeHeader(const uint8_t *frame, int inSize, bool &status);
+   int getWidth() const { return mWidth; }
+   int getHeight() const { return mHeight; }
 
   private:
     void createDecoder();

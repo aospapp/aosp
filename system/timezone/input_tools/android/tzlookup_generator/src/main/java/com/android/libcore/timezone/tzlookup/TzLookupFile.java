@@ -25,8 +25,10 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
@@ -172,6 +174,7 @@ final class TzLookupFile {
         private final boolean defaultTimeZoneBoost;
         private final boolean everUsesUtc;
         private final List<TimeZoneMapping> timeZoneMappings = new ArrayList<>();
+        private final Set<String> alreadyDefinedTimeZoneIds = new HashSet<>();
 
         Country(String isoCode, String defaultTimeZoneId, boolean defaultTimeZoneBoost,
                 boolean everUsesUtc) {
@@ -182,6 +185,25 @@ final class TzLookupFile {
         }
 
         void addTimeZoneMapping(TimeZoneMapping timeZoneMapping) {
+            String notUsedReplacementId = timeZoneMapping.notAfterReplacementId;
+
+            // It makes sense to have the highest-priority zones first for time zone detection,
+            // which uses the first valid time zone that matches local offset information.
+            // "Replaced by" is a strong signal that one zone is subordinate to another.
+            // Therefore, zones should usually come after the zones that replaced them.
+            if (notUsedReplacementId != null
+                    && !alreadyDefinedTimeZoneIds.contains(notUsedReplacementId)) {
+                String errorMessage = ("Wrong mapping order for %s: %s is replaced by %s,"
+                        + " but comes before it.")
+                        .formatted(
+                                isoCode,
+                                timeZoneMapping.olsonId,
+                                notUsedReplacementId);
+                throw new IllegalArgumentException(errorMessage);
+            }
+
+            alreadyDefinedTimeZoneIds.add(timeZoneMapping.olsonId);
+            alreadyDefinedTimeZoneIds.addAll(timeZoneMapping.alternativeZoneIds);
             timeZoneMappings.add(timeZoneMapping);
         }
 

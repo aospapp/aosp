@@ -29,6 +29,7 @@ import com.google.android.enterprise.connectedapps.Profile;
 import com.google.android.enterprise.connectedapps.RobolectricTestUtilities;
 import com.google.android.enterprise.connectedapps.TestScheduledExecutorService;
 import com.google.android.enterprise.connectedapps.exceptions.ProfileRuntimeException;
+import com.google.android.enterprise.connectedapps.testapp.CustomError;
 import com.google.android.enterprise.connectedapps.testapp.CustomRuntimeException;
 import com.google.android.enterprise.connectedapps.testapp.configuration.TestApplication;
 import com.google.android.enterprise.connectedapps.testapp.connector.TestProfileConnector;
@@ -73,13 +74,13 @@ public class BothProfilesSynchronousTest {
     testUtilities.setRunningOnPersonalProfile();
     testUtilities.setRequestsPermissions(INTERACT_ACROSS_USERS);
     testUtilities.grantPermissions(INTERACT_ACROSS_USERS);
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
   }
 
   @Test
   public void both_synchronous_isBound_resultContainsBothProfileResults() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     Map<Profile, String> result = profileTestCrossProfileType.both().identityStringMethod(STRING);
 
@@ -108,6 +109,20 @@ public class BothProfilesSynchronousTest {
 
     } catch (ProfileRuntimeException expected) {
       assertThat(expected).hasCauseThat().isInstanceOf(CustomRuntimeException.class);
+    }
+  }
+
+  @Test
+  public void both_synchronous_throwsError_errorThrownOnCurrentProfileIsThrown() {
+    // Since the exception is thrown on both sides, which is thrown first is not deterministic.
+    // This test just confirms one of the two is thrown
+    try {
+      profileTestCrossProfileType.both().methodWhichThrowsError();
+      fail();
+    } catch (CustomError expected) {
+
+    } catch (ProfileRuntimeException expected) {
+      assertThat(expected).hasCauseThat().isInstanceOf(CustomError.class);
     }
   }
 

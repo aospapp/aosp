@@ -15,10 +15,11 @@ cc_fuzz {
         "fuzz_future.cc",
     ],
     shared_libs: [
-        "liblog",
         "libcutils",
+        "liblog",
     ],
     static_libs: [
+        "libchrome",
         "libosi",
     ],
 }

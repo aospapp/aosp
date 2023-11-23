@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2015 Cui Bixuan <cuibixuan@huawei.com>
+ * Copyright (c) Linux Test Project, 2016-2022
  */
 
-#ifndef __SCHED_H__
-#define __SCHED_H__
+#ifndef LAPI_SCHED_H__
+#define LAPI_SCHED_H__
 
-#include "lapi/syscalls.h"
+#include <sched.h>
+#include <unistd.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include "config.h"
+#include "lapi/syscalls.h"
 
 struct sched_attr {
 	uint32_t size;
@@ -40,20 +44,95 @@ static inline int sched_getattr(pid_t pid, struct sched_attr *attr,
 	return syscall(__NR_sched_getattr, pid, attr, size, flags);
 }
 
+#ifndef HAVE_STRUCT_CLONE_ARGS
+struct clone_args {
+	uint64_t __attribute__((aligned(8))) flags;
+	uint64_t __attribute__((aligned(8))) pidfd;
+	uint64_t __attribute__((aligned(8))) child_tid;
+	uint64_t __attribute__((aligned(8))) parent_tid;
+	uint64_t __attribute__((aligned(8))) exit_signal;
+	uint64_t __attribute__((aligned(8))) stack;
+	uint64_t __attribute__((aligned(8))) stack_size;
+	uint64_t __attribute__((aligned(8))) tls;
+};
+#endif
+
+#ifndef HAVE_CLONE3
+static inline int clone3(struct clone_args *args, size_t size)
+{
+	return tst_syscall(__NR_clone3, args, size);
+}
+#endif
+
+static inline void clone3_supported_by_kernel(void)
+{
+	if ((tst_kvercmp(5, 3, 0)) < 0) {
+		/* Check if the syscall is backported on an older kernel */
+		tst_syscall(__NR_clone3, NULL, 0);
+	}
+}
+
+#ifndef HAVE_GETCPU
+static inline int getcpu(unsigned *cpu, unsigned *node)
+{
+	return tst_syscall(__NR_getcpu, cpu, node, NULL);
+}
+#endif
+
+#ifndef SCHED_DEADLINE
+# define SCHED_DEADLINE	6
+#endif
+
 #ifndef CLONE_VM
-#define CLONE_VM   0x00000100
+# define CLONE_VM	0x00000100
 #endif
 
 #ifndef CLONE_FS
-#define CLONE_FS   0x00000200
+# define CLONE_FS	0x00000200
+#endif
+
+#ifndef CLONE_PIDFD
+# define CLONE_PIDFD	0x00001000
+#endif
+
+#ifndef CLONE_NEWNS
+# define CLONE_NEWNS	0x00020000
 #endif
 
 #ifndef CLONE_SYSVSEM
-#define CLONE_SYSVSEM   0x00040000
+# define CLONE_SYSVSEM	0x00040000
+#endif
+
+#ifndef CLONE_NEWCGROUP
+# define CLONE_NEWCGROUP	0x02000000
+#endif
+
+#ifndef CLONE_NEWUTS
+# define CLONE_NEWUTS		0x04000000
+#endif
+
+#ifndef CLONE_NEWIPC
+#  define CLONE_NEWIPC		0x08000000
+#endif
+
+#ifndef CLONE_NEWUSER
+#  define CLONE_NEWUSER		0x10000000
+#endif
+
+#ifndef CLONE_NEWPID
+#  define CLONE_NEWPID		0x20000000
+#endif
+
+#ifndef CLONE_NEWNET
+# define CLONE_NEWNET		0x40000000
 #endif
 
 #ifndef CLONE_IO
-#define CLONE_IO        0x80000000
+# define CLONE_IO		0x80000000
 #endif
 
-#endif /* __SCHED_H__ */
+#ifndef CLONE_NEWTIME
+# define CLONE_NEWTIME		0x00000080
+#endif
+
+#endif /* LAPI_SCHED_H__ */

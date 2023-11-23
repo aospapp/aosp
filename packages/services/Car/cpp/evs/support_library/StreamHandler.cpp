@@ -16,31 +16,28 @@
 
 #include "StreamHandler.h"
 
-#include <stdio.h>
-#include <string.h>
+#include "Frame.h"
+#include "ResourceManager.h"
 
-#include <log/log.h>
 #include <cutils/native_handle.h>
-
+#include <log/log.h>
 #include <ui/GraphicBufferAllocator.h>
 #include <ui/GraphicBufferMapper.h>
 
-#include "Frame.h"
-#include "ResourceManager.h"
+#include <stdio.h>
+#include <string.h>
 
 namespace android {
 namespace automotive {
 namespace evs {
 namespace support {
 
+using ::android::hardware::automotive::evs::V1_0::EvsResult;
 using ::std::lock_guard;
 using ::std::unique_lock;
 
-StreamHandler::StreamHandler(android::sp <IEvsCamera> pCamera) :
-    mCamera(pCamera),
-    mAnalyzeCallback(nullptr),
-    mAnalyzerRunning(false)
-{
+StreamHandler::StreamHandler(android::sp<IEvsCamera> pCamera) :
+      mCamera(pCamera), mAnalyzeCallback(nullptr), mAnalyzerRunning(false) {
     // We rely on the camera having at least two buffers available since we'll hold one and
     // expect the camera to be able to capture a new image in the background.
     pCamera->setMaxFramesInFlight(2);
@@ -48,8 +45,7 @@ StreamHandler::StreamHandler(android::sp <IEvsCamera> pCamera) :
 
 // TODO(b/130246343): investigate further to make sure the resources are cleaned
 // up properly in the shutdown logic.
-void StreamHandler::shutdown()
-{
+void StreamHandler::shutdown() {
     // Tell the camera to stop streaming.
     // This will result in a null frame being delivered when the stream actually stops.
     mCamera->stopVideoStream();
@@ -65,13 +61,12 @@ void StreamHandler::shutdown()
     mCamera = nullptr;
 }
 
-
 bool StreamHandler::startStream() {
     lock_guard<mutex> lock(mLock);
 
     if (!mRunning) {
         // Tell the camera to start streaming
-        Return <EvsResult> result = mCamera->startVideoStream(this);
+        Return<EvsResult> result = mCamera->startVideoStream(this);
         if (result != EvsResult::OK) {
             return false;
         }
@@ -83,12 +78,10 @@ bool StreamHandler::startStream() {
     return true;
 }
 
-
 bool StreamHandler::newDisplayFrameAvailable() {
     lock_guard<mutex> lock(mLock);
     return (mReadyBuffer >= 0);
 }
-
 
 const BufferDesc& StreamHandler::getNewDisplayFrame() {
     lock_guard<mutex> lock(mLock);
@@ -99,7 +92,7 @@ const BufferDesc& StreamHandler::getNewDisplayFrame() {
         if (mReadyBuffer < 0) {
             ALOGE("Returning invalid buffer because we don't have any. "
                   " Call newDisplayFrameAvailable first?");
-            mReadyBuffer = 0;   // This is a lie!
+            mReadyBuffer = 0;  // This is a lie!
         }
 
         // Move the ready buffer into the held position, and clear the ready position
@@ -114,16 +107,14 @@ const BufferDesc& StreamHandler::getNewDisplayFrame() {
     }
 }
 
-
 void StreamHandler::doneWithFrame(const BufferDesc& buffer) {
     lock_guard<mutex> lock(mLock);
 
     // We better be getting back the buffer we original delivered!
-    if ((mHeldBuffer < 0)
-        || (buffer.bufferId != mOriginalBuffers[mHeldBuffer].bufferId)) {
+    if ((mHeldBuffer < 0) || (buffer.bufferId != mOriginalBuffers[mHeldBuffer].bufferId)) {
         ALOGE("StreamHandler::doneWithFrame got an unexpected buffer!");
-        ALOGD("Held buffer id: %d, input buffer id: %d",
-              mOriginalBuffers[mHeldBuffer].bufferId, buffer.bufferId);
+        ALOGD("Held buffer id: %d, input buffer id: %d", mOriginalBuffers[mHeldBuffer].bufferId,
+              buffer.bufferId);
         return;
     }
 
@@ -134,14 +125,13 @@ void StreamHandler::doneWithFrame(const BufferDesc& buffer) {
     mHeldBuffer = -1;
 }
 
-
 Return<void> StreamHandler::deliverFrame(const BufferDesc& buffer) {
     ALOGD("Received a frame from the camera. NativeHandle:%p, buffer id:%d",
           buffer.memHandle.getNativeHandle(), buffer.bufferId);
 
     // Take the lock to protect our frame slots and running state variable
     {
-        lock_guard <mutex> lock(mLock);
+        lock_guard<mutex> lock(mLock);
 
         if (buffer.memHandle.getNativeHandle() == nullptr) {
             // Signal that the last frame has been received and the stream is stopped
@@ -167,8 +157,7 @@ Return<void> StreamHandler::deliverFrame(const BufferDesc& buffer) {
             // If render callback is not null, process the frame with render
             // callback.
             if (mRenderCallback != nullptr) {
-                processFrame(mOriginalBuffers[mReadyBuffer],
-                             mProcessedBuffers[mReadyBuffer]);
+                processFrame(mOriginalBuffers[mReadyBuffer], mProcessedBuffers[mReadyBuffer]);
             } else {
                 ALOGI("Render callback is null in deliverFrame.");
             }
@@ -238,24 +227,20 @@ void StreamHandler::detachAnalyzeCallback() {
 }
 
 bool isSameFormat(const BufferDesc& input, const BufferDesc& output) {
-    return input.width == output.width
-        && input.height == output.height
-        && input.format == output.format
-        && input.usage == output.usage
-        && input.stride == output.stride
-        && input.pixelSize == output.pixelSize;
+    return input.width == output.width && input.height == output.height &&
+            input.format == output.format && input.usage == output.usage &&
+            input.stride == output.stride && input.pixelSize == output.pixelSize;
 }
 
 bool allocate(BufferDesc& buffer) {
     ALOGD("StreamHandler::allocate");
     buffer_handle_t handle;
     android::GraphicBufferAllocator& alloc(android::GraphicBufferAllocator::get());
-    android::status_t result = alloc.allocate(
-        buffer.width, buffer.height, buffer.format, 1, buffer.usage,
-        &handle, &buffer.stride, 0, "EvsDisplay");
+    android::status_t result =
+            alloc.allocate(buffer.width, buffer.height, buffer.format, 1, buffer.usage, &handle,
+                           &buffer.stride, 0, "EvsDisplay");
     if (result != android::NO_ERROR) {
-        ALOGE("Error %d allocating %d x %d graphics buffer", result, buffer.width,
-              buffer.height);
+        ALOGE("Error %d allocating %d x %d graphics buffer", result, buffer.width, buffer.height);
         return false;
     }
 
@@ -276,11 +261,9 @@ bool allocate(BufferDesc& buffer) {
     return true;
 }
 
-bool StreamHandler::processFrame(const BufferDesc& input,
-                                 BufferDesc& output) {
+bool StreamHandler::processFrame(const BufferDesc& input, BufferDesc& output) {
     ALOGD("StreamHandler::processFrame");
-    if (!isSameFormat(input, output)
-        || output.memHandle.getNativeHandle() == nullptr) {
+    if (!isSameFormat(input, output) || output.memHandle.getNativeHandle() == nullptr) {
         output.width = input.width;
         output.height = input.height;
         output.format = input.format;
@@ -301,10 +284,10 @@ bool StreamHandler::processFrame(const BufferDesc& input,
     output.bufferId = input.bufferId;
 
     // Create a GraphicBuffer from the existing handle
-    sp<GraphicBuffer> inputBuffer = new GraphicBuffer(
-        input.memHandle, GraphicBuffer::CLONE_HANDLE, input.width,
-        input.height, input.format, 1,  // layer count
-        GRALLOC_USAGE_HW_TEXTURE, input.stride);
+    sp<GraphicBuffer> inputBuffer =
+            new GraphicBuffer(input.memHandle, GraphicBuffer::CLONE_HANDLE, input.width,
+                              input.height, input.format, 1,  // layer count
+                              GRALLOC_USAGE_HW_TEXTURE, input.stride);
 
     if (inputBuffer.get() == nullptr) {
         ALOGE("Failed to allocate GraphicBuffer to wrap image handle");
@@ -317,9 +300,7 @@ bool StreamHandler::processFrame(const BufferDesc& input,
     // Lock the input GraphicBuffer and map it to a pointer. If we failed to
     // lock, return false.
     void* inputDataPtr;
-    inputBuffer->lock(
-        GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_NEVER,
-        &inputDataPtr);
+    inputBuffer->lock(GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_NEVER, &inputDataPtr);
 
     // Unlock the buffer and return if lock did not succeed.
     if (!inputDataPtr) {
@@ -339,10 +320,8 @@ bool StreamHandler::processFrame(const BufferDesc& input,
     // Lock the allocated buffer in output BufferDesc and map it to a pointer
     void* outputDataPtr = nullptr;
     android::GraphicBufferMapper& mapper = android::GraphicBufferMapper::get();
-    mapper.lock(output.memHandle,
-                GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_SW_READ_NEVER,
-                android::Rect(output.width, output.height),
-                (void**)&outputDataPtr);
+    mapper.lock(output.memHandle, GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_SW_READ_NEVER,
+                android::Rect(output.width, output.height), (void**)&outputDataPtr);
 
     // If we failed to lock the pixel buffer, return false, and unlock both
     // input and output buffers.
@@ -357,19 +336,15 @@ bool StreamHandler::processFrame(const BufferDesc& input,
     }
 
     // Wrap the raw data and copied data, and pass them to the callback.
-    Frame inputFrame = {
-        .width = input.width,
-        .height = input.height,
-        .stride = input.stride,
-        .data = (uint8_t*)inputDataPtr
-    };
+    Frame inputFrame = {.width = input.width,
+                        .height = input.height,
+                        .stride = input.stride,
+                        .data = (uint8_t*)inputDataPtr};
 
-    Frame outputFrame = {
-        .width = output.width,
-        .height = output.height,
-        .stride = output.stride,
-        .data = (uint8_t*)outputDataPtr
-    };
+    Frame outputFrame = {.width = output.width,
+                         .height = output.height,
+                         .stride = output.stride,
+                         .data = (uint8_t*)outputDataPtr};
 
     mRenderCallback->render(inputFrame, outputFrame);
 
@@ -385,8 +360,8 @@ bool StreamHandler::copyAndAnalyzeFrame(const BufferDesc& input) {
 
     // TODO(b/130246434): make the following into a method. Some lines are
     // duplicated with processFrame, move them into new methods as well.
-    if (!isSameFormat(input, mAnalyzeBuffer)
-        || mAnalyzeBuffer.memHandle.getNativeHandle() == nullptr) {
+    if (!isSameFormat(input, mAnalyzeBuffer) ||
+        mAnalyzeBuffer.memHandle.getNativeHandle() == nullptr) {
         mAnalyzeBuffer.width = input.width;
         mAnalyzeBuffer.height = input.height;
         mAnalyzeBuffer.format = input.format;
@@ -407,10 +382,10 @@ bool StreamHandler::copyAndAnalyzeFrame(const BufferDesc& input) {
     }
 
     // create a GraphicBuffer from the existing handle
-    sp<GraphicBuffer> inputBuffer = new GraphicBuffer(
-        input.memHandle, GraphicBuffer::CLONE_HANDLE, input.width,
-        input.height, input.format, 1,  // layer count
-        GRALLOC_USAGE_HW_TEXTURE, input.stride);
+    sp<GraphicBuffer> inputBuffer =
+            new GraphicBuffer(input.memHandle, GraphicBuffer::CLONE_HANDLE, input.width,
+                              input.height, input.format, 1,  // layer count
+                              GRALLOC_USAGE_HW_TEXTURE, input.stride);
 
     if (inputBuffer.get() == nullptr) {
         ALOGE("Failed to allocate GraphicBuffer to wrap image handle");
@@ -423,9 +398,7 @@ bool StreamHandler::copyAndAnalyzeFrame(const BufferDesc& input) {
     // Lock the input GraphicBuffer and map it to a pointer.  If we failed to
     // lock, return false.
     void* inputDataPtr;
-    inputBuffer->lock(
-        GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_NEVER,
-        &inputDataPtr);
+    inputBuffer->lock(GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_NEVER, &inputDataPtr);
     if (!inputDataPtr) {
         ALOGE("Failed to gain read access to imageGraphicBuffer");
         inputBuffer->unlock();
@@ -434,11 +407,12 @@ bool StreamHandler::copyAndAnalyzeFrame(const BufferDesc& input) {
 
     // Lock the allocated buffer in output BufferDesc and map it to a pointer
     void* analyzeDataPtr = nullptr;
-    android::GraphicBufferMapper::get().lock(
-        mAnalyzeBuffer.memHandle,
-        GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_SW_READ_NEVER,
-        android::Rect(mAnalyzeBuffer.width, mAnalyzeBuffer.height),
-        (void**)&analyzeDataPtr);
+    android::GraphicBufferMapper::get().lock(mAnalyzeBuffer.memHandle,
+                                             GRALLOC_USAGE_SW_WRITE_OFTEN |
+                                                     GRALLOC_USAGE_SW_READ_NEVER,
+                                             android::Rect(mAnalyzeBuffer.width,
+                                                           mAnalyzeBuffer.height),
+                                             (void**)&analyzeDataPtr);
 
     // If we failed to lock the pixel buffer, return false, and unlock both
     // input and output buffers.
@@ -449,10 +423,10 @@ bool StreamHandler::copyAndAnalyzeFrame(const BufferDesc& input) {
 
     // Wrap the raw data and copied data, and pass them to the callback.
     Frame analyzeFrame = {
-        .width = mAnalyzeBuffer.width,
-        .height = mAnalyzeBuffer.height,
-        .stride = mAnalyzeBuffer.stride,
-        .data = (uint8_t*)analyzeDataPtr,
+            .width = mAnalyzeBuffer.width,
+            .height = mAnalyzeBuffer.height,
+            .stride = mAnalyzeBuffer.stride,
+            .data = (uint8_t*)analyzeDataPtr,
     };
 
     memcpy(analyzeDataPtr, inputDataPtr, mAnalyzeBuffer.stride * mAnalyzeBuffer.height * 4);

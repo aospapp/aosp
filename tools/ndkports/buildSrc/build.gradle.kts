@@ -1,7 +1,7 @@
-val kotlinVersion = "1.4.20"
+val kotlinVersion = "1.7.10"
 
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "1.4.20"
+    id("org.jetbrains.kotlin.jvm") version "1.7.10"
     id("java-gradle-plugin")
     id("maven-publish")
 }
@@ -11,16 +11,15 @@ version = "1.0.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
-    jcenter()
     google()
 }
 
 dependencies {
     implementation(kotlin("stdlib", kotlinVersion))
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.3")
 
     implementation("com.google.prefab:api:1.1.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.0.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.3")
     implementation("org.redundent:kotlin-xml-builder:1.6.1")
 
     testImplementation(kotlin("test", kotlinVersion))

@@ -17,7 +17,7 @@
 // Implementation is in HelloTriangleImp.cpp
 
 int main(int argc, char** argv) {
-    emugl::HelloTriangle app;
+    gfxstream::HelloTriangle app;
     app.drawLoop();
     return 0;
 }

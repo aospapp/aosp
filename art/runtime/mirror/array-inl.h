@@ -36,12 +36,15 @@ inline uint32_t Array::ClassSize(PointerSize pointer_size) {
   return Class::ComputeClassSize(true, vtable_entries, 0, 0, 0, 0, 0, pointer_size);
 }
 
-template<VerifyObjectFlags kVerifyFlags>
+template <VerifyObjectFlags kVerifyFlags, ReadBarrierOption kReadBarrierOption, bool kIsObjArray>
 inline size_t Array::SizeOf() {
-  // No read barrier is needed for reading a constant primitive field through
-  // constant reference field chain. See ReadBarrierOption.
-  size_t component_size_shift =
-      GetClass<kVerifyFlags, kWithoutReadBarrier>()->GetComponentSizeShift();
+  // When we are certain that this is a object array, then don't fetch shift
+  // from component_type_ as that doesn't work well with userfaultfd GC as the
+  // component-type class may be allocated at a higher address than the array.
+  size_t component_size_shift = kIsObjArray ?
+                                    Primitive::ComponentSizeShift(Primitive::kPrimNot) :
+                                    GetClass<kVerifyFlags, kReadBarrierOption>()
+                                        ->template GetComponentSizeShift<kReadBarrierOption>();
   // Don't need to check this since we already check this in GetClass.
   int32_t component_count =
       GetLength<static_cast<VerifyObjectFlags>(kVerifyFlags & ~kVerifyThis)>();
@@ -98,7 +101,7 @@ inline void PrimitiveArray<T>::SetWithoutChecks(int32_t i, T value) {
   if (kTransactionActive) {
     Runtime::Current()->RecordWriteArray(this, i, GetWithoutChecks(i));
   }
-  DCHECK(CheckIsValidIndex<kVerifyFlags>(i));
+  DCHECK(CheckIsValidIndex<kVerifyFlags>(i)) << i << " " << GetLength<kVerifyFlags>();
   GetData()[i] = value;
 }
 // Backward copy where elements are of aligned appropriately for T. Count is in T sized units.
@@ -241,13 +244,16 @@ inline T PointerArray::GetElementPtrSizeUnchecked(uint32_t idx) {
   // C style casts here since we sometimes have T be a pointer, or sometimes an integer
   // (for stack traces).
   using ConversionType = typename std::conditional_t<std::is_pointer_v<T>, uintptr_t, T>;
+  // Note: we cast the array directly when unchecked as this code gets called by
+  // runtime_image, which can pass a 64bit pointer and therefore cannot be held
+  // by an ObjPtr.
   if (kPointerSize == PointerSize::k64) {
     uint64_t value =
-        static_cast<uint64_t>(AsLongArrayUnchecked<kVerifyFlags>()->GetWithoutChecks(idx));
+        static_cast<uint64_t>(reinterpret_cast<LongArray*>(this)->GetWithoutChecks(idx));
     return (T) dchecked_integral_cast<ConversionType>(value);
   } else {
     uint32_t value =
-        static_cast<uint32_t>(AsIntArrayUnchecked<kVerifyFlags>()->GetWithoutChecks(idx));
+        static_cast<uint32_t>(reinterpret_cast<IntArray*>(this)->GetWithoutChecks(idx));
     return (T) dchecked_integral_cast<ConversionType>(value);
   }
 }
@@ -262,12 +268,15 @@ inline T PointerArray::GetElementPtrSize(uint32_t idx, PointerSize ptr_size) {
 
 template<bool kTransactionActive, bool kCheckTransaction, bool kUnchecked>
 inline void PointerArray::SetElementPtrSize(uint32_t idx, uint64_t element, PointerSize ptr_size) {
+  // Note: we cast the array directly when unchecked as this code gets called by
+  // runtime_image, which can pass a 64bit pointer and therefore cannot be held
+  // by an ObjPtr.
   if (ptr_size == PointerSize::k64) {
-    (kUnchecked ? ObjPtr<LongArray>::DownCast(ObjPtr<Object>(this)) : AsLongArray())->
+    (kUnchecked ? reinterpret_cast<LongArray*>(this) : AsLongArray().Ptr())->
         SetWithoutChecks<kTransactionActive, kCheckTransaction>(idx, element);
   } else {
     uint32_t element32 = dchecked_integral_cast<uint32_t>(element);
-    (kUnchecked ? ObjPtr<IntArray>::DownCast(ObjPtr<Object>(this)) : AsIntArray())
+    (kUnchecked ? reinterpret_cast<IntArray*>(this) : AsIntArray().Ptr())
         ->SetWithoutChecks<kTransactionActive, kCheckTransaction>(idx, element32);
   }
 }
@@ -279,7 +288,7 @@ inline void PointerArray::SetElementPtrSize(uint32_t idx, T* element, PointerSiz
 }
 
 template <VerifyObjectFlags kVerifyFlags, typename Visitor>
-inline void PointerArray::Fixup(ObjPtr<mirror::PointerArray> dest,
+inline void PointerArray::Fixup(mirror::PointerArray* dest,
                                 PointerSize pointer_size,
                                 const Visitor& visitor) {
   for (size_t i = 0, count = GetLength(); i < count; ++i) {

@@ -16,6 +16,8 @@
 
 package com.android.bedstead.harrier.annotations;
 
+import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.FIRST;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -31,4 +33,16 @@ import java.lang.annotation.Target;
 public @interface RequireNotLowRamDevice {
     String reason();
     FailureMode failureMode() default FailureMode.SKIP;
+
+    /**
+     * Weight sets the order that annotations will be resolved.
+     *
+     * <p>Annotations with a lower weight will be resolved before annotations with a higher weight.
+     *
+     * <p>If there is an order requirement between annotations, ensure that the weight of the
+     * annotation which must be resolved first is lower than the one which must be resolved later.
+     *
+     * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
+     */
+    int weight() default FIRST;
 }

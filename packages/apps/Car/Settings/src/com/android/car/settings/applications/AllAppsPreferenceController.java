@@ -51,7 +51,7 @@ public class AllAppsPreferenceController extends PreferenceController<Preference
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         return mAreThereRecentlyUsedApps ? CONDITIONALLY_UNAVAILABLE : AVAILABLE;
     }
 

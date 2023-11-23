@@ -9,182 +9,106 @@ on:
       - master
 
 env:
+  USE_JAVA_DISTRIBUTION: 'zulu'
   # Our Bazel builds currently rely on JDK 8.
   USE_JAVA_VERSION: '8'
-  # Our Bazel builds currently rely on 3.7.1. The version is set via
+  # Our Bazel builds currently rely on 4.2.1. The version is set via
   # baselisk by USE_BAZEL_VERSION: https://github.com/bazelbuild/bazelisk.
-  USE_BAZEL_VERSION: '3.7.1'
+  USE_BAZEL_VERSION: '4.2.1'
 
 jobs:
   validate-latest-dagger-version:
     name: 'Validate Dagger version'
     runs-on: ubuntu-latest
     steps:
-      # Cancel previous runs on the same branch to avoid unnecessary parallel
-      # runs of the same job. See https://github.com/google/go-github/pull/1821
-      - name: Cancel previous
-        uses: styfle/cancel-workflow-action@0.8.0
-        with:
-          access_token: ${{ github.token }}
-      - name: 'Check out gh-pages repository'
-        uses: actions/checkout@v2
-        with:
-          ref: 'refs/heads/gh-pages'
-          path: gh-pages
-      - name: 'Validate latest Dagger version'
-        run: ./gh-pages/.github/scripts/validate-latest-dagger-version.sh gh-pages/_config.yml
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/prechecks
+  bazel-build:
+    name: 'Bazel build'
+    needs: validate-latest-dagger-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/bazel-build
   bazel-test:
     name: 'Bazel tests'
     needs: validate-latest-dagger-version
     runs-on: ubuntu-latest
     steps:
-      - name: 'Install Java ${{ env.USE_JAVA_VERSION }}'
-        uses: actions/setup-java@v1
-        with:
-          java-version: '${{ env.USE_JAVA_VERSION }}'
-      - name: 'Check out repository'
-        uses: actions/checkout@v2
-      - name: 'Cache local Maven repository'
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.m2/repository
-            !~/.m2/repository/com/google/dagger
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-      - name: 'Cache Bazel files'
-        uses: actions/cache@v2
-        with:
-          path: ~/.cache/bazel
-          key: ${{ runner.os }}-bazel-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-bazel-
-      - name: 'Cache Gradle files'
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-      - name: 'Run Bazel tests'
-        run: bazel test --test_output=errors //... --keep_going
-        shell: bash
-      - name: 'Install local snapshot'
-        run: ./util/install-local-snapshot.sh
-        shell: bash
-      - name: 'Upload local snapshot for tests'
-        uses: actions/upload-artifact@v2
-        with:
-          name: local-snapshot
-          path: ~/.m2/repository/com/google/dagger
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/bazel-test
   artifact-java-local-tests:
     name: 'Artifact Java local tests'
-    needs: bazel-test
+    needs: bazel-build
     runs-on: ubuntu-latest
     steps:
-    - name: 'Check out repository'
-      uses: actions/checkout@v2
-    - name: 'Cache Gradle files'
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
-    - name: 'Download local snapshot for tests'
-      uses: actions/download-artifact@v2
-      with:
-        name: local-snapshot
-        path: ~/.m2/repository/com/google/dagger
-    - name: 'Gradle Java local tests'
-      run: ./util/run-local-gradle-tests.sh
-      shell: bash
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/artifact-java-local-tests
+  test-gradle-plugin:
+    name: 'Test Hilt Gradle plugin'
+    needs: bazel-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/test-gradle-plugin
   artifact-android-local-tests:
     name: 'Artifact Android local tests (AGP ${{ matrix.agp }})'
-    needs: bazel-test
+    needs: bazel-build
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        agp: ['4.1.0', '4.2.0-beta04']
+        agp: ['4.1.0', '4.2.0', '7.0.0']
     steps:
-      - name: 'Check out repository'
-        uses: actions/checkout@v2
-      - name: 'Cache Gradle files'
-        uses: actions/cache@v2
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/artifact-android-local-tests
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-      - name: 'Download local snapshot for tests'
-        uses: actions/download-artifact@v2
-        with:
-          name: local-snapshot
-          path: ~/.m2/repository/com/google/dagger
-      - name: 'Gradle Android local tests (AGP ${{ matrix.agp }})'
-        run: ./util/run-local-gradle-android-tests.sh "${{ matrix.agp }}"
-        shell: bash
-      - name: 'Upload test reports (AGP ${{ matrix.agp }})'
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v2
-        with:
-          name: tests-reports-agp-${{ matrix.agp }}
-          path: ${{ github.workspace }}/**/build/reports/tests/*
+          agp: '${{ matrix.agp }}'
   artifact-android-emulator-tests:
     name: 'Artifact Android emulator tests (API 30)'
-    needs: bazel-test
+    needs: bazel-build
     # It's recommended to run emulator tests on macOS
     # See https://github.com/marketplace/actions/android-emulator-runner
     runs-on: macos-latest
     steps:
-      - name: 'Check out repository'
-        uses: actions/checkout@v2
-      - name: 'Cache Gradle files'
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-      - name: 'Download local snapshot for tests'
-        uses: actions/download-artifact@v2
-        with:
-          name: local-snapshot
-          path: ~/.m2/repository/com/google/dagger
-      - name: 'Gradle Android emulator tests (API 30)'
-        uses: reactivecircus/android-emulator-runner@v2
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/artifact-android-emulator-tests
         timeout-minutes: 25
         with:
-          api-level: 30
-          target: google_apis
-          script: ./util/run-local-emulator-tests.sh
-      - name: 'Upload test reports (API 30)'
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v2
+          api-level: '30'
+  artifact-android-emulator-legacy-api-tests:
+    name: 'Artifact Android emulator tests (API ${{ matrix.api-level }})'
+    # We only run this on master push (essentially a postsubmit) since these
+    # can take a while to run
+    if: github.event_name == 'push' && github.repository == 'google/dagger' && github.ref == 'refs/heads/master'
+    needs: bazel-build
+    # It's recommended to run emulator tests on macOS
+    # See https://github.com/marketplace/actions/android-emulator-runner
+    runs-on: macos-latest
+    strategy:
+      matrix: # Run on 16 (PreL), 21 (L), and 26 (O).
+        api-level: [16, 21, 26]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/artifact-android-emulator-tests
+        timeout-minutes: 25
         with:
-          name: androidTests-reports-api-30
-          path: ${{ github.workspace }}/**/build/reports/androidTests/connected/*
+          api-level: '${{ matrix.api-level }}'
   publish-snapshot:
     name: 'Publish snapshot'
     # TODO(bcorso): Consider also waiting on artifact-android-emulator-tests
     # and artifact-android-emulator-legacy-api-tests after checking flakiness.
-    needs: [bazel-test, artifact-java-local-tests, artifact-android-local-tests]
+    needs: [bazel-test, artifact-java-local-tests, artifact-android-local-tests, test-gradle-plugin]
     if: github.event_name == 'push' && github.repository == 'google/dagger' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
       - name: 'Install Java ${{ env.USE_JAVA_VERSION }}'
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v2
         with:
+          distribution: '${{ env.USE_JAVA_DISTRIBUTION }}'
           java-version: '${{ env.USE_JAVA_VERSION }}'
+          server-id: sonatype-nexus-snapshots
+          server-username: CI_DEPLOY_USERNAME
+          server-password: CI_DEPLOY_PASSWORD
       - name: 'Check out repository'
         uses: actions/checkout@v2
       - name: 'Cache local Maven repository'
@@ -200,9 +124,9 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/.cache/bazel
-          key: ${{ runner.os }}-bazel-${{ github.sha }}
+          key: ${{ runner.os }}-bazel-build-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-bazel-
+            ${{ runner.os }}-bazel-build-
       - name: 'Cache Gradle files'
         uses: actions/cache@v2
         with:
@@ -218,50 +142,33 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - name: 'Publish latest snapshot'
-        run: ./util/publish-snapshot-on-commit.sh
+        run: |
+          util/deploy-all.sh \
+            "deploy:deploy-file" \
+            "HEAD-SNAPSHOT" \
+            "-DrepositoryId=sonatype-nexus-snapshots" \
+            "-Durl=https://oss.sonatype.org/content/repositories/snapshots"
         shell: bash
         env:
           CI_DEPLOY_USERNAME: ${{ secrets.CI_DEPLOY_USERNAME }}
           CI_DEPLOY_PASSWORD: ${{ secrets.CI_DEPLOY_PASSWORD }}
-  artifact-android-emulator-legacy-api-tests:
-    name: 'Artifact Android emulator tests (API ${{ matrix.api-level }})'
-    # We only run this on master push (essentially a postsubmit) since these
-    # can take a while to run
+      - name: 'Clean bazel cache'
+        # According to the documentation, we should be able to exclude these via
+        # the actions/cache path, e.g. "!~/.cache/bazel/*/*/external/" but that
+        # doesn't seem to work.
+        run: |
+          rm -rf $(bazel info repository_cache)
+          rm -rf ~/.cache/bazel/*/*/external/
+        shell: bash
+  build-gradle-plugin-latest-agp:
+    name: 'Build Hilt Gradle plugin against latest AGP version'
+    # We only run this on master push (essentially a postsubmit) since we
+    # don't want this job to prevent merges
     if: github.event_name == 'push' && github.repository == 'google/dagger' && github.ref == 'refs/heads/master'
-    needs: bazel-test
-    # It's recommended to run emulator tests on macOS
-    # See https://github.com/marketplace/actions/android-emulator-runner
-    runs-on: macos-latest
-    strategy:
-      matrix: # Run on 16 (PreL), 21 (L), and 26 (O).
-        api-level: [16, 21, 26]
+    needs: bazel-build
+    runs-on: ubuntu-latest
     steps:
-      - name: 'Check out repository'
-        uses: actions/checkout@v2
-      - name: 'Cache Gradle files'
-        uses: actions/cache@v2
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/build-gradle-plugin
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-      - name: 'Download local snapshot for tests'
-        uses: actions/download-artifact@v2
-        with:
-          name: local-snapshot
-          path: ~/.m2/repository/com/google/dagger
-      - name: 'Gradle Android emulator tests (API ${{ matrix.api-level }})'
-        uses: reactivecircus/android-emulator-runner@v2
-        timeout-minutes: 25
-        with:
-          api-level: ${{ matrix.api-level }}
-          target: google_apis
-          script: ./util/run-local-emulator-tests.sh
-      - name: 'Upload test reports (API ${{ matrix.api-level }})'
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v2
-        with:
-          name: androidTests-report-api-${{ matrix.api-level }}
-          path: ${{ github.workspace }}/**/build/reports/androidTests/connected/*
+          agp: '+'

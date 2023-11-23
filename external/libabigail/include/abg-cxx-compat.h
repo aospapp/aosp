@@ -45,7 +45,7 @@ public:
   optional(const T& value) : has_value_(true), value_(value) {}
 
   bool
-  has_value() const
+  has_value() const noexcept
   {
     return has_value_;
   }
@@ -67,19 +67,19 @@ public:
   }
 
   const T&
-  operator*() const
+  operator*() const& noexcept
   { return value_; }
 
   T&
-  operator*()
+  operator*() & noexcept
   { return value_; }
 
   const T*
-  operator->() const
+  operator->() const noexcept
   { return &value_; }
 
   T*
-  operator->()
+  operator->() noexcept
   { return &value_; }
 
   optional&
@@ -90,8 +90,26 @@ public:
     return *this;
   }
 
-  explicit operator bool() const { return has_value_; }
+  explicit operator bool() const noexcept { return has_value(); }
 };
+
+template <typename T, typename U>
+bool
+operator==(const optional<T>& lhs, const optional<U>& rhs)
+{
+  if (!lhs.has_value() && !rhs.has_value())
+    return true;
+  if (!lhs.has_value() || !rhs.has_value())
+    return false;
+  return lhs.value() == rhs.value();
+}
+
+template <typename T, typename U>
+bool
+operator!=(const optional<T>& lhs, const optional<U>& rhs)
+{
+  return !(lhs == rhs);
+}
 
 #endif
 }

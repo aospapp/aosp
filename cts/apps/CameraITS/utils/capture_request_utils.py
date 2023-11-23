@@ -14,11 +14,19 @@
 """Utility functions to create custom capture requests."""
 
 
+import logging
 import math
-import unittest
 
-COMMON_IMG_ARS = (1.333, 1.778)
-COMMON_IMG_ARS_ATOL = 0.01
+_COMMON_IMG_ARS = (4/3, 16/9)
+_COMMON_IMG_ARS_ATOL = 0.01
+_MAX_YUV_SIZE = (1920, 1080)
+_MIN_YUV_SIZE = (640, 360)
+_VGA_W, _VGA_H = 640, 480
+_CAPTURE_INTENT_STILL_CAPTURE = 2
+_AE_MODE_ON_AUTO_FLASH = 2
+_CAPTURE_INTENT_PREVIEW = 1
+_AE_PRECAPTURE_TRIGGER_START = 1
+_AE_PRECAPTURE_TRIGGER_IDLE = 0
 
 
 def is_common_aspect_ratio(size):
@@ -30,19 +38,23 @@ def is_common_aspect_ratio(size):
   Returns:
     Boolean
   """
-  for aspect_ratio in COMMON_IMG_ARS:
-    if math.isclose(size[0]/size[1], aspect_ratio, abs_tol=COMMON_IMG_ARS_ATOL):
+  for aspect_ratio in _COMMON_IMG_ARS:
+    if math.isclose(size[0]/size[1], aspect_ratio, abs_tol=_COMMON_IMG_ARS_ATOL):
       return True
   return False
 
 
-def auto_capture_request(linear_tonemap=False, props=None):
+def auto_capture_request(linear_tonemap=False, props=None, do_af=True,
+                         do_autoframing=False, zoom_ratio=None):
   """Returns a capture request with everything set to auto.
 
   Args:
    linear_tonemap: [Optional] boolean whether linear tonemap should be used.
    props: [Optional] object from its_session_utils.get_camera_properties().
           Must present when linear_tonemap is True.
+   do_af: [Optional] boolean whether af mode should be active.
+   do_autoframing: [Optional] boolean whether autoframing should be active.
+   zoom_ratio: [Optional] zoom ratio to be set in the capture request.
 
   Returns:
     Auto capture request, ready to be passed to the
@@ -52,17 +64,25 @@ def auto_capture_request(linear_tonemap=False, props=None):
       'android.control.mode': 1,
       'android.control.aeMode': 1,
       'android.control.awbMode': 1,
-      'android.control.afMode': 1,
+      'android.control.afMode': 1 if do_af else 0,
       'android.colorCorrection.mode': 1,
+      'android.shading.mode': 1,
       'android.tonemap.mode': 1,
       'android.lens.opticalStabilizationMode': 0,
-      'android.control.videoStabilizationMode': 0
+      'android.control.videoStabilizationMode': 0,
   }
+  if do_autoframing:
+    req['android.control.autoframing'] = 1
+  if not do_af:
+    req['android.lens.focusDistance'] = 0.0
+  if zoom_ratio:
+    req['android.control.zoomRatio'] = zoom_ratio
   if linear_tonemap:
     if props is None:
       raise AssertionError('props is None with linear_tonemap.')
     # CONTRAST_CURVE mode
     if 0 in props['android.tonemap.availableToneMapModes']:
+      logging.debug('CONTRAST_CURVE tonemap mode')
       req['android.tonemap.mode'] = 0
       req['android.tonemap.curve'] = {
           'red': [0.0, 0.0, 1.0, 1.0],  # coordinate pairs: x0, y0, x1, y1
@@ -71,6 +91,7 @@ def auto_capture_request(linear_tonemap=False, props=None):
       }
     # GAMMA_VALUE mode
     elif 3 in props['android.tonemap.availableToneMapModes']:
+      logging.debug('GAMMA_VALUE tonemap mode')
       req['android.tonemap.mode'] = 3
       req['android.tonemap.gamma'] = 1.0
     else:
@@ -126,6 +147,7 @@ def manual_capture_request(sensitivity,
       raise AssertionError('props is None.')
     # CONTRAST_CURVE mode
     if 0 in props['android.tonemap.availableToneMapModes']:
+      logging.debug('CONTRAST_CURVE tonemap mode')
       req['android.tonemap.mode'] = 0
       req['android.tonemap.curve'] = {
           'red': [0.0, 0.0, 1.0, 1.0],
@@ -134,6 +156,7 @@ def manual_capture_request(sensitivity,
       }
     # GAMMA_VALUE mode
     elif 3 in props['android.tonemap.availableToneMapModes']:
+      logging.debug('GAMMA_VALUE tonemap mode')
       req['android.tonemap.mode'] = 3
       req['android.tonemap.gamma'] = 1.0
     else:
@@ -164,6 +187,8 @@ def get_available_output_sizes(fmt, props, max_size=None, match_ar_size=None):
       'yuv': 0x23,
       'jpg': 0x100,
       'jpeg': 0x100,
+      'jpeg_r': 0x1005,
+      'priv': 0x22,
       'y8': 0x20203859
   }
   configs = props[
@@ -173,7 +198,7 @@ def get_available_output_sizes(fmt, props, max_size=None, match_ar_size=None):
   out_sizes = [(cfg['width'], cfg['height']) for cfg in out_configs]
   if max_size:
     out_sizes = [
-        s for s in out_sizes if s[0] <= max_size[0] and s[1] <= max_size[1]
+        s for s in out_sizes if s[0] <= int(max_size[0]) and s[1] <= int(max_size[1])
     ]
   if match_ar_size:
     ar = match_ar_size[0] / float(match_ar_size[1])
@@ -384,6 +409,33 @@ def get_smallest_yuv_format(props, match_ar=None):
   return fmt
 
 
+def get_near_vga_yuv_format(props, match_ar=None):
+  """Return a capture request and format spec for the smallest yuv size.
+
+  Args:
+    props: object returned from camera_properties_utils.get_camera_properties().
+    match_ar: (Optional) a (w, h) tuple. Aspect ratio to match during search.
+
+  Returns:
+    fmt: an output format specification for the smallest possible yuv format
+           for this device.
+  """
+  sizes = get_available_output_sizes('yuv', props, match_ar_size=match_ar)
+  logging.debug('Available YUV sizes: %s', sizes)
+  max_area = _MAX_YUV_SIZE[1] * _MAX_YUV_SIZE[0]
+  min_area = _MIN_YUV_SIZE[1] * _MIN_YUV_SIZE[0]
+
+  fmt = {'format': 'yuv', 'width': _VGA_W, 'height': _VGA_H}
+  for size in sizes:
+    fmt_area = size[0]*size[1]
+    if fmt_area < min_area or fmt_area > max_area:
+      continue
+    fmt['width'], fmt['height'] = size[0], size[1]
+  logging.debug('YUV format selected: %s', fmt)
+
+  return fmt
+
+
 def get_largest_jpeg_format(props, match_ar=None):
   """Return a capture request and format spec for the largest jpeg size.
 
@@ -418,36 +470,51 @@ def get_max_digital_zoom(props):
   return max_z
 
 
-class CaptureRequestUtilsTest(unittest.TestCase):
-  """Unit tests for this module.
+def take_captures_with_flash(cam, out_surface):
+  """Takes capture with auto flash ON.
 
-  Ensures rational number conversion dicts are created properly.
+  Runs precapture sequence by setting the aePrecapture trigger to
+  START and capture intent set to Preview and then take the capture
+  with flash.
+  Args:
+    cam: ItsSession object
+    out_surface: Specifications of the output image format and
+      size to use for the capture.
+
+  Returns:
+    cap: An object which contains following fields:
+      * data: the image data as a numpy array of bytes.
+      * width: the width of the captured image.
+      * height: the height of the captured image.
+      * format: image format
+      * metadata: the capture result object
   """
-  _FLOAT_HALF = 0.5
-  # No immutable container: frozendict requires package install on partner host
-  _RATIONAL_HALF = {'numerator': 32, 'denominator': 64}
 
-  def test_float_to_rational(self):
-    """Unit test for float_to_rational."""
-    self.assertEqual(
-        float_to_rational(self._FLOAT_HALF, 64), self._RATIONAL_HALF)
-
-  def test_rational_to_float(self):
-    """Unit test for rational_to_float."""
-    self.assertTrue(
-        math.isclose(rational_to_float(self._RATIONAL_HALF),
-                     self._FLOAT_HALF, abs_tol=0.0001))
-
-  def test_int_to_rational(self):
-    """Unit test for int_to_rational."""
-    rational_10 = {'numerator': 10, 'denominator': 1}
-    rational_1 = {'numerator': 1, 'denominator': 1}
-    rational_2 = {'numerator': 2, 'denominator': 1}
-    # Simple test
-    self.assertEqual(int_to_rational(10), rational_10)
-    # Handle list entries
-    self.assertEqual(
-        int_to_rational([1, 2]), [rational_1, rational_2])
-
-if __name__ == '__main__':
-  unittest.main()
+  preview_req_start = auto_capture_request()
+  preview_req_start[
+      'android.control.aeMode'] = _AE_MODE_ON_AUTO_FLASH
+  preview_req_start[
+      'android.control.captureIntent'] = _CAPTURE_INTENT_PREVIEW
+  preview_req_start[
+      'android.control.aePrecaptureTrigger'] = _AE_PRECAPTURE_TRIGGER_START
+  # Repeat preview requests with aePrecapture set to IDLE
+  # until AE is converged.
+  preview_req_idle = auto_capture_request()
+  preview_req_idle[
+      'android.control.aeMode'] = _AE_MODE_ON_AUTO_FLASH
+  preview_req_idle[
+      'android.control.captureIntent'] = _CAPTURE_INTENT_PREVIEW
+  preview_req_idle[
+      'android.control.aePrecaptureTrigger'] = _AE_PRECAPTURE_TRIGGER_IDLE
+  # Single still capture request.
+  still_capture_req = auto_capture_request()
+  still_capture_req[
+      'android.control.aeMode'] = _AE_MODE_ON_AUTO_FLASH
+  still_capture_req[
+      'android.control.captureIntent'] = _CAPTURE_INTENT_STILL_CAPTURE
+  still_capture_req[
+      'android.control.aePrecaptureTrigger'] = _AE_PRECAPTURE_TRIGGER_IDLE
+  cap = cam.do_capture_with_flash(preview_req_start,
+                                  preview_req_idle,
+                                  still_capture_req, out_surface)
+  return cap

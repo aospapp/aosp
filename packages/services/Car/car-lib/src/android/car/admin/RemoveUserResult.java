@@ -18,7 +18,6 @@ package android.car.admin;
 
 import android.annotation.IntDef;
 import android.annotation.SystemApi;
-import android.annotation.TestApi;
 import android.car.annotation.AddedInOrBefore;
 import android.car.user.UserRemovalResult;
 
@@ -34,7 +33,6 @@ import java.lang.annotation.RetentionPolicy;
  * @hide
  */
 @SystemApi
-@TestApi
 public final class RemoveUserResult {
 
     /**
@@ -157,7 +155,6 @@ public final class RemoveUserResult {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return "RemoveUserResult[" + statusToString(mStatus) + "]";
     }

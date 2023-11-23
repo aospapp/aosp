@@ -46,6 +46,8 @@
 
 #include "vm_sockets.h"
 
+#include "common/libs/utils/result.h"
+
 /**
  * Classes to to enable safe access to files.
  * POSIX kernels have an unfortunate habit of recycling file descriptors.
@@ -146,6 +148,9 @@ class SharedFD {
   static SharedFD SocketLocalClient(const std::string& name, bool is_abstract,
                                     int in_type, int timeout_seconds);
   static SharedFD SocketLocalClient(int port, int type);
+  static SharedFD SocketClient(const std::string& host, int port, int type);
+  static SharedFD Socket6Client(const std::string& host, const std::string& interface,
+                                int port, int type);
   static SharedFD SocketLocalServer(const std::string& name, bool is_abstract,
                                     int in_type, mode_t mode);
   static SharedFD SocketLocalServer(int port, int type);
@@ -214,6 +219,13 @@ class ScopedMMap {
 
   operator bool() const { return ptr_ != MAP_FAILED; }
 
+  // Checks whether the interval [offset, offset + length) is contained within
+  // [0, len_)
+  bool WithinBounds(size_t offset, size_t length) const {
+    // Don't add offset + len to avoid overflow
+    return offset < len_ && len_ - offset >= length;
+  }
+
  private:
   void* ptr_ = MAP_FAILED;
   size_t len_;
@@ -264,7 +276,7 @@ class FileInstance {
   int Fchdir();
   int Fcntl(int command, int value);
 
-  int Flock(int operation);
+  Result<void> Flock(int operation);
 
   int GetErrno() const { return errno_; }
   int GetSockName(struct sockaddr* addr, socklen_t* addrlen);
@@ -330,6 +342,10 @@ class FileInstance {
   int EventfdWrite(eventfd_t value);
   bool IsATTY();
 
+  // Returns the target of "/proc/getpid()/fd/" + std::to_string(fd_)
+  // if appropriate
+  Result<std::string> ProcFdLinkTarget() const;
+
  private:
   FileInstance(int fd, int in_errno);
   FileInstance* Accept(struct sockaddr* addr, socklen_t* addrlen) const;
@@ -349,7 +365,7 @@ struct PollSharedFd {
 /* Methods that need both a fully defined SharedFD and a fully defined
    FileInstance. */
 
-inline SharedFD::SharedFD() : value_(FileInstance::ClosedInstance()) {}
+SharedFD::SharedFD() : value_(FileInstance::ClosedInstance()) {}
 
 }  // namespace cuttlefish
 

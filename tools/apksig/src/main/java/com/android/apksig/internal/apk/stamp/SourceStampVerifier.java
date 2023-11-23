@@ -237,7 +237,7 @@ class SourceStampVerifier {
                 byte[] sigBytes = readLengthPrefixedByteArray(signature);
                 SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.findById(sigAlgorithmId);
                 if (signatureAlgorithm == null) {
-                    result.addWarning(
+                    result.addInfoMessage(
                             ApkVerificationIssue.SOURCE_STAMP_UNKNOWN_SIG_ALGORITHM,
                             sigAlgorithmId);
                     continue;
@@ -328,7 +328,7 @@ class SourceStampVerifier {
                                 timestamp);
                     }
                 } else {
-                    result.addWarning(ApkVerificationIssue.SOURCE_STAMP_UNKNOWN_ATTRIBUTE, id);
+                    result.addInfoMessage(ApkVerificationIssue.SOURCE_STAMP_UNKNOWN_ATTRIBUTE, id);
                 }
             } catch (ApkFormatException | BufferUnderflowException e) {
                 result.addWarning(ApkVerificationIssue.SOURCE_STAMP_MALFORMED_ATTRIBUTE,

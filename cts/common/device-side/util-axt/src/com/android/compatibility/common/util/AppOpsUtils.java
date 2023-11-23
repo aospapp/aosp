@@ -30,7 +30,11 @@ import java.io.IOException;
 /**
  * Utilities for controlling App Ops settings, and testing whether ops are logged.
  */
-public class AppOpsUtils {
+public final class AppOpsUtils {
+
+    // TODO(b/272376728): make a instance objects instead
+    private static final UserHelper sUserHelper = new UserHelper(
+            InstrumentationRegistry.getTargetContext());
 
     /**
      * Resets a package's app ops configuration to the device default. See AppOpsManager for the
@@ -45,7 +49,7 @@ public class AppOpsUtils {
      * not be reset even when calling this method.
      */
     public static String reset(String packageName) throws IOException {
-        return runCommand("appops reset " + packageName);
+        return runCommand(appops("reset") + packageName);
     }
 
     /**
@@ -70,7 +74,7 @@ public class AppOpsUtils {
             default:
                 throw new IllegalArgumentException("Unexpected app op type");
         }
-        String command = "appops set " + packageName + " " + opStr + " " + modeStr;
+        String command = appops("set") + packageName + " " + opStr + " " + modeStr;
         return runCommand(command);
     }
 
@@ -133,10 +137,14 @@ public class AppOpsUtils {
      * Format: "SEND_SMS: allow; time=+23h12m54s980ms ago; rejectTime=+1h10m23s180ms"
      */
     private static String getOpState(String packageName, String opStr) throws IOException {
-        return runCommand("appops get " + packageName + " " + opStr);
+        return runCommand(appops("get") + packageName + " " + opStr);
     }
 
     private static String runCommand(String command) throws IOException {
         return SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(), command);
+    }
+
+    private static String appops(String cmd) {
+        return sUserHelper.getAppopsCmd(cmd);
     }
 }

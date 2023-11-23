@@ -23,9 +23,9 @@ import static com.android.car.hal.ClusterHalService.DISPLAY_ON;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
-import static org.testng.Assert.assertThrows;
 
 import android.app.ActivityOptions;
 import android.car.Car;
@@ -55,6 +55,7 @@ import com.android.car.am.FixedActivityService;
 import com.android.car.hal.test.AidlMockedVehicleHal;
 import com.android.car.hal.test.AidlVehiclePropValueBuilder;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
+import com.android.internal.annotations.GuardedBy;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -71,7 +72,7 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
 
     private static final int UI_TYPE_1 = 1;
     private static final int UI_TYPE_2 = 2;
-    private static final byte[] UI_AVAILABILITY = new byte[] {(byte) 1, (byte) 0, (byte) 1};
+    private static final byte[] UI_AVAILABILITY = new byte[]{(byte) 1, (byte) 0, (byte) 1};
 
     private static final int BOUNDS_LEFT = 0;
     private static final int BOUNDS_TOP = 1;
@@ -99,7 +100,6 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
             new ClusterNavigationStateListenerImpl();
     private ClusterState mState;
     private int mChanges = 0;
-    private byte[] mNavigationState;
 
     private FixedActivityService mFixedActivityService;
     @Captor private ArgumentCaptor<Intent> mIntentCaptor;
@@ -141,7 +141,7 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
         occupantDisplayMapping.append(getClusterDisplayPort());
         occupantDisplayMapping.append(",displayType=INSTRUMENT_CLUSTER,occupantZoneId=0");
         resources.overrideResource(com.android.car.R.array.config_occupant_display_mapping,
-                new String[] {occupantDisplayMapping.toString()});
+                new String[]{occupantDisplayMapping.toString()});
         resources.overrideResource(com.android.car.R.array.config_allowed_optional_car_features,
                 ENABLED_OPTIONAL_FEATURES);
     }
@@ -335,8 +335,8 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
 
         // Clear the status.
         mPropertyHandler.setStatus(
-                    VehicleProperty.CLUSTER_REQUEST_DISPLAY,
-                    VehicleHalStatusCode.STATUS_OK);
+                VehicleProperty.CLUSTER_REQUEST_DISPLAY,
+                VehicleHalStatusCode.STATUS_OK);
     }
 
     @Test
@@ -370,8 +370,8 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
 
         // Clear the status.
         mPropertyHandler.setStatus(
-                    VehicleProperty.CLUSTER_REPORT_STATE,
-                    VehicleHalStatusCode.STATUS_OK);
+                VehicleProperty.CLUSTER_REPORT_STATE,
+                VehicleHalStatusCode.STATUS_OK);
     }
 
     @Test
@@ -403,57 +403,72 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
     private class ClusterPropertyHandler implements AidlMockedVehicleHal.VehicleHalPropertyHandler {
         SparseArray<VehiclePropValue> mPropValueMap = new SparseArray<>();
 
+        @GuardedBy("mLock")
         SparseIntArray mPropStatusMap = new SparseIntArray();
 
+        private final Object mLock = new Object();
+
         @Override
-        public synchronized void onPropertySet(VehiclePropValue value) {
-            int status = mPropStatusMap.get(value.prop, VehicleHalStatusCode.STATUS_OK);
-            if (status != VehicleHalStatusCode.STATUS_OK) {
-                // This would turn into returned status code.
-                throw new ServiceSpecificException(mPropStatusMap.get(value.prop));
+        public void onPropertySet(VehiclePropValue value) {
+            synchronized (mLock) {
+                int status = mPropStatusMap.get(value.prop, VehicleHalStatusCode.STATUS_OK);
+                if (status != VehicleHalStatusCode.STATUS_OK) {
+                    // This would turn into returned status code.
+                    throw new ServiceSpecificException(mPropStatusMap.get(value.prop));
+                }
+                mPropValueMap.put(value.prop, value);
             }
-            mPropValueMap.put(value.prop, value);
             mPropertySetReady.countDown();
         }
 
         @Override
-        public synchronized VehiclePropValue onPropertyGet(VehiclePropValue value) {
-            int status = mPropStatusMap.get(value.prop, VehicleHalStatusCode.STATUS_OK);
-            if (status != VehicleHalStatusCode.STATUS_OK) {
-                // This would turn into returned status code.
-                throw new ServiceSpecificException(mPropStatusMap.get(value.prop));
+        public VehiclePropValue onPropertyGet(VehiclePropValue value) {
+            VehiclePropValue currentValue = null;
+            synchronized (mLock) {
+                int status = mPropStatusMap.get(value.prop, VehicleHalStatusCode.STATUS_OK);
+                if (status != VehicleHalStatusCode.STATUS_OK) {
+                    // This would turn into returned status code.
+                    throw new ServiceSpecificException(mPropStatusMap.get(value.prop));
+                }
+                currentValue = mPropValueMap.get(value.prop);
             }
-            VehiclePropValue currentValue = mPropValueMap.get(value.prop);
             // VNS will call get method when subscribe is called, just return empty value.
             return currentValue != null ? currentValue : value;
         }
 
-        public synchronized VehiclePropValue peek(int property) {
-            return mPropValueMap.get(property);
-        }
-
-        @Override
-        public synchronized void onPropertySubscribe(int property, float sampleRate) {
-            Log.d(TAG, "onPropertySubscribe property " + property + " sampleRate " + sampleRate);
-            if (mPropValueMap.get(property) == null) {
-                Log.d(TAG, "onPropertySubscribe add placeholder property: " + property);
-                VehiclePropValue placeholderValue = AidlVehiclePropValueBuilder.newBuilder(property)
-                        .setAreaId(0)
-                        .setTimestamp(SystemClock.elapsedRealtimeNanos())
-                        .addIntValues(1)
-                        .addFloatValues(1)
-                        .build();
-                mPropValueMap.put(property, placeholderValue);
+        public VehiclePropValue peek(int property) {
+            synchronized (mLock) {
+                return mPropValueMap.get(property);
             }
         }
 
         @Override
-        public synchronized void onPropertyUnsubscribe(int property) {
+        public void onPropertySubscribe(int property, float sampleRate) {
+            Log.d(TAG, "onPropertySubscribe property " + property + " sampleRate " + sampleRate);
+            if (mPropValueMap.get(property) == null) {
+                synchronized (mLock) {
+                    Log.d(TAG, "onPropertySubscribe add placeholder property: " + property);
+                    VehiclePropValue placeholderValue =
+                            AidlVehiclePropValueBuilder.newBuilder(property)
+                                    .setAreaId(0)
+                                    .setTimestamp(SystemClock.elapsedRealtimeNanos())
+                                    .addIntValues(1)
+                                    .addFloatValues(1)
+                                    .build();
+                    mPropValueMap.put(property, placeholderValue);
+                }
+            }
+        }
+
+        @Override
+        public void onPropertyUnsubscribe(int property) {
             Log.d(TAG, "onPropertyUnSubscribe property " + property);
         }
 
-        public synchronized void setStatus(int prop, int status) {
-            mPropStatusMap.put(prop, status);
+        public void setStatus(int prop, int status) {
+            synchronized (mLock) {
+                mPropStatusMap.put(prop, status);
+            }
         }
     }
 
@@ -464,11 +479,11 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
             mClusterStateListenerCalled.countDown();
         }
     }
+
     private class ClusterNavigationStateListenerImpl implements
             ClusterHomeManager.ClusterNavigationStateListener {
         @Override
-        public void onNavigationState(byte[] navigationState) {
-            mNavigationState = navigationState;
+        public void onNavigationState(byte[] unusedNavigationState) {
             mClusterNavigationStateListenerCalled.countDown();
         }
     }
@@ -487,7 +502,7 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
         VehiclePropValue event = new VehiclePropValue();
         event.prop = CLUSTER_DISPLAY_STATE;
         event.value = new RawPropValues();
-        event.value.int32Values = new int[] {onOff, boundsLeft, boundsTop, boundsRight,
+        event.value.int32Values = new int[]{onOff, boundsLeft, boundsTop, boundsRight,
                 boundsBottom, insetsLeft, insetsTop, insetSRight, insetSBottom};
         return event;
     }

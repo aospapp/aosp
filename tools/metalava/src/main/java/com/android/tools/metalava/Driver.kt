@@ -41,7 +41,6 @@ import com.google.common.collect.Lists
 import com.google.common.io.Files
 import com.intellij.core.CoreApplicationEnvironment
 import com.intellij.openapi.diagnostic.DefaultLogger
-import com.intellij.openapi.util.Disposer
 import com.intellij.pom.java.LanguageLevel
 import com.intellij.psi.javadoc.CustomJavadocTagProvider
 import com.intellij.psi.javadoc.JavadocTagInfo
@@ -251,8 +250,6 @@ private fun processFlags() {
         } else {
             return
         }
-    codebase.apiLevel = options.currentApiLevel +
-        if (options.currentCodeName != null && "REL" != options.currentCodeName) 1 else 0
     options.manifest?.let { codebase.manifest = it }
 
     if (options.verbose) {
@@ -267,8 +264,13 @@ private fun processFlags() {
     val androidApiLevelXml = options.generateApiLevelXml
     val apiLevelJars = options.apiLevelJars
     if (androidApiLevelXml != null && apiLevelJars != null) {
+        assert(options.currentApiLevel != -1)
+
         progress("Generating API levels XML descriptor file, ${androidApiLevelXml.name}: ")
-        ApiGenerator.generate(apiLevelJars, options.firstApiLevel, androidApiLevelXml, codebase)
+        ApiGenerator.generate(
+            apiLevelJars, options.firstApiLevel, options.currentApiLevel, options.isDeveloperPreviewBuild(),
+            androidApiLevelXml, codebase, options.sdkJarRoot, options.sdkInfoFile, options.removeMissingClassesInApiLevels
+        )
     }
 
     if (options.docStubsDir != null || options.enhanceDocumentation) {
@@ -386,16 +388,6 @@ private fun processFlags() {
             it, codebase, docStubs = false,
             writeStubList = options.stubsSourceList != null
         )
-
-        val stubAnnotations = options.copyStubAnnotationsFrom
-        if (stubAnnotations != null) {
-            // Support pointing to both stub-annotations and stub-annotations/src/main/java
-            val src = File(stubAnnotations, "src${File.separator}main${File.separator}java")
-            val source = if (src.isDirectory) src else stubAnnotations
-            source.listFiles()?.forEach { file ->
-                RewriteAnnotations().copyAnnotations(codebase, file, File(it, file.name))
-            }
-        }
     }
 
     if (options.docStubsDir == null && options.stubsDir == null) {
@@ -456,9 +448,6 @@ fun processNonCodebaseFlags() {
         }
     }
 
-    // --rewrite-annotations?
-    options.rewriteAnnotations?.let { RewriteAnnotations().rewriteAnnotations(it) }
-
     // Convert android.jar files?
     options.androidJarSignatureFiles?.let { root ->
         // Generate API signature files for all the historical JAR files
@@ -502,13 +491,13 @@ fun processNonCodebaseFlags() {
  * signature file.
  */
 fun checkCompatibility(
-    codebase: Codebase,
+    newCodebase: Codebase,
     check: CheckRequest
 ) {
     progress("Checking API compatibility ($check): ")
     val signatureFile = check.file
 
-    val current =
+    val oldCodebase =
         if (signatureFile.path.endsWith(DOT_JAR)) {
             loadFromJarFile(signatureFile)
         } else {
@@ -518,64 +507,39 @@ fun checkCompatibility(
             )
         }
 
-    if (current is TextCodebase && current.format > FileFormat.V1 && options.outputFormat == FileFormat.V1) {
-        throw DriverException("Cannot perform compatibility check of signature file $signatureFile in format ${current.format} without analyzing current codebase with $ARG_FORMAT=${current.format}")
+    if (oldCodebase is TextCodebase && oldCodebase.format > FileFormat.V1 && options.outputFormat == FileFormat.V1) {
+        throw DriverException("Cannot perform compatibility check of signature file $signatureFile in format ${oldCodebase.format} without analyzing current codebase with $ARG_FORMAT=${oldCodebase.format}")
     }
 
-    var newBase: Codebase? = null
-    var oldBase: Codebase? = null
+    var baseApi: Codebase? = null
+
     val apiType = check.apiType
 
-    // If diffing with a system-api or test-api (or other signature-based codebase
-    // generated from --show-annotations), the API is partial: it's only listing
-    // the API that is *different* from the base API. This really confuses the
-    // codebase comparison when diffing with a complete codebase, since it looks like
-    // many classes and members have been added and removed. Therefore, the comparison
-    // is simpler if we just make the comparison with the same generated signature
-    // file. If we've only emitted one for the new API, use it directly, if not, generate
-    // it first
-    val new =
-        if (check.codebase != null) {
-            SignatureFileLoader.load(
-                file = check.codebase,
+    if (options.showUnannotated && apiType == ApiType.PUBLIC_API) {
+        // Fast path: if we've already generated a signature file, and it's identical, we're good!
+        val apiFile = options.apiFile
+        if (apiFile != null && apiFile.readText(UTF_8) == signatureFile.readText(UTF_8)) {
+            return
+        }
+        val baseApiFile = options.baseApiForCompatCheck
+        if (baseApiFile != null) {
+            baseApi = SignatureFileLoader.load(
+                file = baseApiFile,
                 kotlinStyleNulls = options.inputKotlinStyleNulls
             )
-        } else if (!options.showUnannotated || apiType != ApiType.PUBLIC_API) {
-            if (options.baseApiForCompatCheck != null) {
-                // This option does not make sense with showAnnotation, as the "base" in that case
-                // is the non-annotated APIs.
-                throw DriverException(
-                    ARG_CHECK_COMPATIBILITY_BASE_API +
-                        " is not compatible with --showAnnotation."
-                )
-            }
-
-            newBase = codebase
-            oldBase = newBase
-
-            codebase
-        } else {
-            // Fast path: if we've already generated a signature file and it's identical, we're good!
-            val apiFile = options.apiFile
-            if (apiFile != null && apiFile.readText(UTF_8) == signatureFile.readText(UTF_8)) {
-                return
-            }
-
-            val baseApiFile = options.baseApiForCompatCheck
-            if (baseApiFile != null) {
-                oldBase = SignatureFileLoader.load(
-                    file = baseApiFile,
-                    kotlinStyleNulls = options.inputKotlinStyleNulls
-                )
-                newBase = oldBase
-            }
-
-            codebase
         }
+    } else if (options.baseApiForCompatCheck != null) {
+        // This option does not make sense with showAnnotation, as the "base" in that case
+        // is the non-annotated APIs.
+        throw DriverException(
+            ARG_CHECK_COMPATIBILITY_BASE_API +
+                " is not compatible with --showAnnotation."
+        )
+    }
 
     // If configured, compares the new API with the previous API and reports
     // any incompatibilities.
-    CompatibilityCheck.checkCompatibility(new, current, apiType, oldBase, newBase)
+    CompatibilityCheck.checkCompatibility(newCodebase, oldCodebase, apiType, baseApi)
 }
 
 fun createTempFile(namePrefix: String, nameSuffix: String): File {
@@ -788,7 +752,7 @@ private val uastEnvironments = mutableListOf<UastEnvironment>()
 private fun disposeUastEnvironment() {
     // Codebase.dispose() is not consistently called, so we dispose the environments here too.
     for (env in uastEnvironments) {
-        if (!Disposer.isDisposed(env.ideaProject)) {
+        if (!env.ideaProject.isDisposed) {
             env.dispose()
         }
     }
@@ -820,8 +784,15 @@ private fun extractAnnotations(codebase: Codebase, file: File) {
 }
 
 private fun createStubFiles(stubDir: File, codebase: Codebase, docStubs: Boolean, writeStubList: Boolean) {
-    // Generating stubs from a sig-file-based codebase is problematic
-    assert(codebase.supportsDocumentation())
+    if (codebase is TextCodebase) {
+        if (options.verbose) {
+            options.stdout.println(
+                "Generating stubs from text based codebase is an experimental feature. " +
+                    "It is not guaranteed that stubs generated from text based codebase are " +
+                    "class level equivalent to the stubs generated from source files. "
+            )
+        }
+    }
 
     // Temporary bug workaround for org.chromium.arc
     if (options.sourcePath.firstOrNull()?.path?.endsWith("org.chromium.arc") == true) {

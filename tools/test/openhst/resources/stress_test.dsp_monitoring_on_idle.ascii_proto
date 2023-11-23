@@ -6,6 +6,10 @@ step {
   delay_after: 1
 }
 step {
+  command: "shell 'dumpsys window | grep mCurrentFocus'"
+  delay_after: 3
+}
+step {
   command: "shell dumpsys deviceidle force-idle"
   delay_after: 59
 }

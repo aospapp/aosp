@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"Не вдалося зберегти документ"</string>
     <string name="create_error" msgid="3092144450044861994">"Не вдалося створити папку"</string>
     <string name="query_error" msgid="6625421453613879336">"Зараз не вдається завантажити вміст"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Робочий профіль призупинено"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Увімкнути"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"Робочі додатки призупинено"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"Увімкнути робочі додатки"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Не вдається вибрати робочі файли"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Ваш ІТ-адміністратор не дозволяє отримувати доступ до робочих файлів з особистого додатка"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Не вдається вибрати особисті файли"</string>

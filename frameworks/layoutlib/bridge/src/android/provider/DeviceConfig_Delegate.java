@@ -50,4 +50,9 @@ public class DeviceConfig_Delegate {
     public static float getFloat(String namespace, String name, float defaultValue) {
         return defaultValue;
     }
+
+    @LayoutlibDelegate
+    public static String getProperty(String namespace, String name) {
+        return null;
+    }
 }

@@ -1,0 +1,2 @@
+r_dir_file(hal_thermal_default, sysfs_iio_devices)
+r_dir_file(hal_thermal_default, sysfs_odpm)

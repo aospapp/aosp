@@ -70,8 +70,14 @@ class Reactor {
   // Wait for up to timeout milliseconds, and return true if we reached idle.
   bool WaitForIdle(std::chrono::milliseconds timeout);
 
-  // Modify the registration for a reactable with given reactable
-  void ModifyRegistration(Reactable* reactable, common::Closure on_read_ready, common::Closure on_write_ready);
+  enum ReactOn {
+    REACT_ON_READ_ONLY,
+    REACT_ON_WRITE_ONLY,
+    REACT_ON_READ_WRITE,
+  };
+
+  // Modify subscribed poll events on the fly
+  void ModifyRegistration(Reactable* reactable, ReactOn react_on);
 
   class Event {
    public:

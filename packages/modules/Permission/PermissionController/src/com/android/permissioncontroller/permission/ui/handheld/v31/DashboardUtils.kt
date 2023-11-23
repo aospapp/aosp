@@ -19,7 +19,6 @@ package com.android.permissioncontroller.permission.ui.handheld.v31
 import android.content.Context
 import android.icu.util.Calendar
 import android.os.Build
-import android.provider.DeviceConfig
 import android.text.format.DateFormat.getMediumDateFormat
 import android.text.format.DateFormat.getTimeFormat
 import android.util.Pair
@@ -30,132 +29,18 @@ import com.android.permissioncontroller.permission.model.v31.AppPermissionUsage.
 import com.android.permissioncontroller.permission.utils.StringUtils
 import java.util.Locale
 
-/** Whether to show the Permissions Hub.  */
-private const val PROPERTY_PERMISSIONS_HUB_2_ENABLED = "permissions_hub_2_enabled"
-
-/** Whether to show the mic and camera icons.  */
-const val PROPERTY_CAMERA_MIC_ICONS_ENABLED = "camera_mic_icons_enabled"
-
-/** Whether to show the location indicators. */
-const val PROPERTY_LOCATION_INDICATORS_ENABLED = "location_indicators_enabled"
-
-/* Whether location accuracy feature is enabled */
-const val PROPERTY_LOCATION_ACCURACY_ENABLED = "location_accuracy_enabled"
-
-/** Whether subattribution is enabled in Permissions Hub. */
-const val PROPERTY_PERMISSIONS_HUB_SUBATTRIBUTION_ENABLED = "permissions_hub_subattribution_enabled"
-
-/** Whether to show 7-day toggle in privacy hub.  */
-private const val PRIVACY_DASHBOARD_7_DAY_TOGGLE = "privacy_dashboard_7_day_toggle"
-
-/* Default location precision */
-const val PROPERTY_LOCATION_PRECISION = "location_precision"
-
 const val SECONDS = 1
 const val MINUTES = 2
 const val HOURS = 3
 const val DAYS = 4
 
 /**
- * Whether the Permissions Hub 2 flag is enabled
- *
- * @return whether the flag is enabled
- */
-fun isPermissionsHub2FlagEnabled(): Boolean {
-    return DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_PRIVACY,
-        PROPERTY_PERMISSIONS_HUB_2_ENABLED, false)
-}
-/**
- * Whether to show the Permissions Dashboard
- *
- * @return whether to show the Permissions Dashboard.
- */
-fun shouldShowPermissionsDashboard(): Boolean {
-    return isPermissionsHub2FlagEnabled()
-}
-
-/**
- * Whether we should enable the 7-day toggle in privacy dashboard
- *
- * @return whether the flag is enabled
- */
-fun is7DayToggleEnabled(): Boolean {
-    return DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_PRIVACY,
-            PRIVACY_DASHBOARD_7_DAY_TOGGLE, false)
-}
-
-/**
- * Whether the Permissions Hub Subattribution flag is enabled
- *
- * @return whether the flag is enabled
- */
-fun isPermissionsHubSubattributionFlagEnabled(): Boolean {
-    return DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_PRIVACY,
-            PROPERTY_PERMISSIONS_HUB_SUBATTRIBUTION_ENABLED, true)
-}
-/**
  * Whether to show the subattribution in the Permissions Dashboard
  *
  * @return whether to show subattribution in the Permissions Dashboard.
  */
 fun shouldShowSubattributionInPermissionsDashboard(): Boolean {
-    return SdkLevel.isAtLeastS() && isPermissionsHubSubattributionFlagEnabled()
-}
-
-/**
- * Whether the Camera and Mic Icons are enabled by flag.
- *
- * @return whether the Camera and Mic Icons are enabled.
- */
-fun isCameraMicIconsFlagEnabled(): Boolean {
-    return DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_PRIVACY,
-        PROPERTY_CAMERA_MIC_ICONS_ENABLED, true)
-}
-
-/**
- * Whether to show Camera and Mic Icons. They should be shown if the permission hub, or the icons
- * specifically, are enabled.
- *
- * @return whether to show the icons.
- */
-fun shouldShowCameraMicIndicators(): Boolean {
-    return isCameraMicIconsFlagEnabled() || isPermissionsHub2FlagEnabled()
-}
-
-/**
- * Whether the location indicators are enabled by flag.
- *
- * @return whether the location indicators are enabled by flag.
- */
-fun isLocationIndicatorsFlagEnabled(): Boolean {
-    return DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_PRIVACY,
-            PROPERTY_LOCATION_INDICATORS_ENABLED, false)
-}
-
-/**
- * Whether to show the location indicators. The location indicators are enable if the
- * permission hub, or location indicator specifically are enabled.
- */
-fun shouldShowLocationIndicators(): Boolean {
-    return isLocationIndicatorsFlagEnabled() || isPermissionsHub2FlagEnabled()
-}
-
-/**
- * Whether the location accuracy feature is enabled
- */
-fun isLocationAccuracyEnabled(): Boolean {
-    return DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_PRIVACY,
-        PROPERTY_LOCATION_ACCURACY_ENABLED, true)
-}
-
-/**
- * Default state of location precision
- * true: default is FINE.
- * false: default is COARSE.
- */
-fun getDefaultPrecision(): Boolean {
-    return DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_PRIVACY,
-            PROPERTY_LOCATION_PRECISION, true)
+    return SdkLevel.isAtLeastS()
 }
 
 /**

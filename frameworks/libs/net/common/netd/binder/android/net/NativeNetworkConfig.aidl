@@ -31,13 +31,13 @@ parcelable NativeNetworkConfig {
     int netId;
 
     /**
-     *  The type of network, e.g. physical network or virtual network.
+     * The type of network : virtual, physical or physical local network.
      */
     NativeNetworkType networkType = NativeNetworkType.PHYSICAL;
 
     /**
-     * For physical networks. The permission necessary to use the network. Must be one of
-     * PERMISSION_NONE/PERMISSION_NETWORK/PERMISSION_SYSTEM. Ignored for all other network types.
+     * The permission necessary to use the network. Must be PERMISSION_NONE, PERMISSION_NETWORK
+     * or PERMISSION_SYSTEM. Ignored for virtual network types.
      */
     int permission;
 

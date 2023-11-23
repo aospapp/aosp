@@ -160,6 +160,7 @@ class PduDevice(object):
     pdu_lib/<brand>/<device_name>.py. PduDevice objects should not be
     instantiated by users directly.
     """
+
     def __init__(self, host, username, password):
         if type(self) is PduDevice:
             raise NotImplementedError(
@@ -215,4 +216,3 @@ class PduDevice(object):
 
 class PduError(Exception):
     """An exception for use within PduDevice implementations"""
-    pass

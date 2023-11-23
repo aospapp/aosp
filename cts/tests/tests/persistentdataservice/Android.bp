@@ -27,7 +27,7 @@ android_test {
     libs: ["android.test.base"],
     srcs: ["src/**/*.java"],
     sdk_version: "test_current",
-    min_sdk_version: "27",
+    min_sdk_version: "29",
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",

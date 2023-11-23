@@ -27,6 +27,7 @@ import static android.app.NotificationManager.Policy.SUPPRESSED_EFFECT_STATUS_BA
 
 import static junit.framework.Assert.assertEquals;
 
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.app.Instrumentation;
@@ -35,6 +36,8 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.UiAutomation;
+import android.app.stubs.shared.NotificationHelper;
+import android.app.stubs.shared.TestNotificationListener;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -43,6 +46,7 @@ import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.provider.Telephony.Threads;
 import android.service.notification.NotificationListenerService;
+import android.service.notification.StatusBarNotification;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
@@ -64,6 +68,7 @@ import java.io.InputStream;
 @RunWith(AndroidJUnit4.class)
 public class LegacyNotificationManagerTest {
     final String TAG = "LegacyNoManTest";
+    final static  String PKG = "android.app.notification.legacy.cts";
 
     final String NOTIFICATION_CHANNEL_ID = "LegacyNotificationManagerTest";
     private NotificationManager mNotificationManager;
@@ -71,15 +76,16 @@ public class LegacyNotificationManagerTest {
 
     private SecondaryNotificationListener mSecondaryListener;
     private TestNotificationListener mListener;
+    private NotificationHelper mHelper;
 
     @Before
     public void setUp() throws Exception {
         mContext = InstrumentationRegistry.getContext();
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
                 .adoptShellPermissionIdentity(POST_NOTIFICATIONS);
-        toggleListenerAccess(TestNotificationListener.getId(),
-                InstrumentationRegistry.getInstrumentation(), false);
-        toggleListenerAccess(SecondaryNotificationListener.getId(),
+        mHelper = new NotificationHelper(mContext);
+        mHelper.disableListener(PKG);
+        toggleSecondaryListenerAccess(SecondaryNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), false);
         mNotificationManager = (NotificationManager) mContext.getSystemService(
                 Context.NOTIFICATION_SERVICE);
@@ -89,15 +95,21 @@ public class LegacyNotificationManagerTest {
 
     @After
     public void tearDown() throws Exception {
+        mNotificationManager.cancelAll();
+        if (mListener != null) {
+            mListener.resetData();
+        }
+        if (mSecondaryListener != null) {
+            mSecondaryListener.resetData();
+        }
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
                 .dropShellPermissionIdentity();
-        toggleListenerAccess(TestNotificationListener.getId(),
-                InstrumentationRegistry.getInstrumentation(), false);
-        toggleListenerAccess(SecondaryNotificationListener.getId(),
+        mHelper.disableListener(PKG);
+        toggleSecondaryListenerAccess(SecondaryNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), false);
         Thread.sleep(500); // wait for listener to disconnect
-        assertTrue(mListener == null || !mListener.isConnected);
         assertTrue(mSecondaryListener == null || !mSecondaryListener.isConnected);
+
     }
 
     @Test
@@ -182,41 +194,29 @@ public class LegacyNotificationManagerTest {
 
     @Test
     public void testSuspendPackage() throws Exception {
-        toggleListenerAccess(TestNotificationListener.getId(),
-                InstrumentationRegistry.getInstrumentation(), true);
-        Thread.sleep(1000); // wait for listener to be allowed
-
-        mListener = TestNotificationListener.getInstance();
+        mListener = mHelper.enableListener(PKG);
         Assert.assertNotNull(mListener);
 
         sendNotification(1, R.drawable.icon_black);
-        assertTrue(pollForPostedNotifications(1));
-        mListener.resetData();
+        StatusBarNotification sbn = mHelper.findPostedNotification(
+                null, 1, NotificationHelper.SEARCH_TYPE.POSTED);
+        assertNotNull(sbn);
 
         // suspend package, listener receives onRemoved
         suspendPackage(mContext.getPackageName(), InstrumentationRegistry.getInstrumentation(),
                 true);
-        Thread.sleep(1000); // wait for notification listener to get response
-        assertTrue(pollForRemovedNotifications(1));
+        assertTrue(mHelper.isNotificationGone(sbn.getKey()));
 
         // unsuspend package, listener receives onPosted
         suspendPackage(mContext.getPackageName(), InstrumentationRegistry.getInstrumentation(),
                 false);
-        assertTrue(pollForPostedNotifications(1));
-
-        toggleListenerAccess(TestNotificationListener.getId(),
-                InstrumentationRegistry.getInstrumentation(), false);
-
-        mListener.resetData();
+        assertNotNull(mHelper.findPostedNotification(
+                null, 1, NotificationHelper.SEARCH_TYPE.POSTED));
     }
 
     @Test
     public void testSuspendedPackageSendNotification() throws Exception {
-        toggleListenerAccess(TestNotificationListener.getId(),
-                InstrumentationRegistry.getInstrumentation(), true);
-        Thread.sleep(500); // wait for listener to be allowed
-
-        mListener = TestNotificationListener.getInstance();
+        mListener = mHelper.enableListener(PKG);
         Assert.assertNotNull(mListener);
 
         // suspend package
@@ -231,12 +231,8 @@ public class LegacyNotificationManagerTest {
         // unsuspend package, listener should receive onPosted
         suspendPackage(mContext.getPackageName(), InstrumentationRegistry.getInstrumentation(),
                 false);
-        assertTrue(pollForPostedNotifications(1));
-
-        toggleListenerAccess(TestNotificationListener.getId(),
-                InstrumentationRegistry.getInstrumentation(), false);
-
-        mListener.resetData();
+        assertNotNull(mHelper.findPostedNotification(
+                null, 1, NotificationHelper.SEARCH_TYPE.POSTED));
     }
 
     @Test
@@ -244,11 +240,7 @@ public class LegacyNotificationManagerTest {
       int conditionValue = 0;
       int condition = NotificationListenerService.HINT_HOST_DISABLE_CALL_EFFECTS;
 
-      toggleListenerAccess(
-          TestNotificationListener.getId(), InstrumentationRegistry.getInstrumentation(), true);
-      Thread.sleep(500); // wait for listener to be allowed
-
-      mListener = TestNotificationListener.getInstance();
+      mListener = mHelper.enableListener(PKG);
       Assert.assertNotNull(mListener);
       /*In case of wear os we have some default disable listener registered*/
       if (isWatch()) {
@@ -267,15 +259,12 @@ public class LegacyNotificationManagerTest {
 
     @Test
     public void testResetListenerHints_multiListener() throws Exception {
-        toggleListenerAccess(TestNotificationListener.getId(),
+        toggleSecondaryListenerAccess(SecondaryNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
-        toggleListenerAccess(SecondaryNotificationListener.getId(),
-                InstrumentationRegistry.getInstrumentation(), true);
-        Thread.sleep(500); // wait for listener to be allowed
+        mListener = mHelper.enableListener(PKG);
 
-        mListener = TestNotificationListener.getInstance();
-        mSecondaryListener = SecondaryNotificationListener.getInstance();
         Assert.assertNotNull(mListener);
+        mSecondaryListener = SecondaryNotificationListener.getInstance();
         Assert.assertNotNull(mSecondaryListener);
 
         mListener.requestListenerHints(NotificationListenerService.HINT_HOST_DISABLE_CALL_EFFECTS);
@@ -319,21 +308,21 @@ public class LegacyNotificationManagerTest {
     @Test
     public void testChannelDeletion_cancelReason() throws Exception {
         assertEquals(Build.VERSION_CODES.O_MR1, mContext.getApplicationInfo().targetSdkVersion);
-        toggleListenerAccess(TestNotificationListener.getId(),
-                InstrumentationRegistry.getInstrumentation(), true);
-        Thread.sleep(1000); // wait for listener to be allowed
-        mListener = TestNotificationListener.getInstance();
+        mListener = mHelper.enableListener(PKG);
+        Assert.assertNotNull(mListener);
 
         sendNotification(566, R.drawable.icon_black);
 
         // wait for notification listener to receive notification
-        assertTrue(pollForPostedNotifications(1));
-        String key = mListener.mPosted.get(0).getKey();
+        StatusBarNotification sbn = mHelper.findPostedNotification(
+                null, 566, NotificationHelper.SEARCH_TYPE.POSTED);
+        assertNotNull(sbn);
 
         mNotificationManager.deleteNotificationChannel(NOTIFICATION_CHANNEL_ID);
 
-        assertEquals(NotificationListenerService.REASON_CHANNEL_BANNED,
-                getCancellationReason(key));
+        assertTrue(mHelper.isNotificationGone(sbn.getKey()));
+        assertEquals((Integer) NotificationListenerService.REASON_CHANNEL_BANNED,
+                mListener.mRemoved.get(sbn.getKey()));
     }
 
     private void sendNotification(final int id, final int icon) throws Exception {
@@ -347,7 +336,8 @@ public class LegacyNotificationManagerTest {
                 | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         intent.setAction(Intent.ACTION_MAIN);
 
-        final PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
+        final PendingIntent pendingIntent = PendingIntent.getActivity(
+                mContext, 0, intent, PendingIntent.FLAG_IMMUTABLE);
         final Notification notification =
                 new Notification.Builder(mContext, NOTIFICATION_CHANNEL_ID)
                         .setSmallIcon(icon)
@@ -358,50 +348,6 @@ public class LegacyNotificationManagerTest {
                         .setGroup(groupKey)
                         .build();
         mNotificationManager.notify(id, notification);
-    }
-
-    // Wait for the listener to have received the specified number of posted notifications.
-    private boolean pollForPostedNotifications(int expected) {
-        for (int tries = 5; tries-- > 0; ) {
-            if (mListener.mPosted.size() >= expected) {
-                return true;
-            }
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException ex) {
-                // pass
-            }
-        }
-        return false;
-    }
-
-    // Wait for the listener to have received the specified number of removed notifications.
-    private boolean pollForRemovedNotifications(int expected) {
-        for (int tries = 5; tries-- > 0; ) {
-            if (mListener.mRemoved.size() >= expected) {
-                return true;
-            }
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException ex) {
-                // pass
-            }
-        }
-        return false;
-    }
-
-    private int getCancellationReason(String key) {
-        for (int tries = 3; tries-- > 0; ) {
-            if (mListener.mRemoved.containsKey(key)) {
-                return mListener.mRemoved.get(key);
-            }
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException ex) {
-                // pass
-            }
-        }
-        return -1;
     }
 
     private void toggleNotificationPolicyAccess(String packageName,
@@ -430,8 +376,8 @@ public class LegacyNotificationManagerTest {
         runCommand(command, instrumentation);
     }
 
-    private void toggleListenerAccess(String componentName, Instrumentation instrumentation,
-            boolean on) throws IOException {
+    private void toggleSecondaryListenerAccess(String componentName,
+            Instrumentation instrumentation, boolean on) throws IOException {
 
         String command = " cmd notification"
                        + " " + (on ? "allow_listener" : "disallow_listener")
@@ -441,7 +387,7 @@ public class LegacyNotificationManagerTest {
         runCommand(command, instrumentation);
 
         final NotificationManager nm = mContext.getSystemService(NotificationManager.class);
-        final ComponentName listenerComponent = TestNotificationListener.getComponentName();
+        final ComponentName listenerComponent = SecondaryNotificationListener.getComponentName();
         Assert.assertTrue(listenerComponent + " has not been granted access",
                 nm.isNotificationListenerAccessGranted(listenerComponent) == on);
     }

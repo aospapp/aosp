@@ -6,39 +6,31 @@
     },
     {
       "path": "external/rust/crates/webpki"
+    },
+    {
+      "path": "packages/modules/DnsResolver"
+    }
+  ],
+  "postsubmit": [
+    {
+      "name": "ring_test_src_lib",
+      "options": [
+        {
+          "test-timeout": "100000"
+        }
+      ]
+    },
+    {
+      "name": "ring_test_tests_digest_tests",
+      "options": [
+        {
+          "test-timeout": "600000"
+        }
+      ]
     }
   ],
   "presubmit": [
     {
-      "name": "apkdmverity.test"
-    },
-    {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "libidsig.test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
-    {
-      "name": "ring_test_src_lib",
-      "options": [
-        {
-          "test-timeout": "100000"
-        }
-      ]
-    },
-    {
       "name": "ring_test_tests_aead_tests"
     },
     {
@@ -46,14 +38,6 @@
     },
     {
       "name": "ring_test_tests_constant_time_tests"
-    },
-    {
-      "name": "ring_test_tests_digest_tests",
-      "options": [
-        {
-          "test-timeout": "600000"
-        }
-      ]
     },
     {
       "name": "ring_test_tests_ecdsa_tests"
@@ -81,42 +65,10 @@
     },
     {
       "name": "ring_test_tests_signature_tests"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ],
   "presubmit-rust": [
     {
-      "name": "apkdmverity.test"
-    },
-    {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "libidsig.test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
-    {
-      "name": "ring_test_src_lib",
-      "options": [
-        {
-          "test-timeout": "100000"
-        }
-      ]
-    },
-    {
       "name": "ring_test_tests_aead_tests"
     },
     {
@@ -124,14 +76,6 @@
     },
     {
       "name": "ring_test_tests_constant_time_tests"
-    },
-    {
-      "name": "ring_test_tests_digest_tests",
-      "options": [
-        {
-          "test-timeout": "600000"
-        }
-      ]
     },
     {
       "name": "ring_test_tests_ecdsa_tests"
@@ -159,9 +103,6 @@
     },
     {
       "name": "ring_test_tests_signature_tests"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ]
 }

@@ -18,7 +18,6 @@ package com.android.permissioncontroller.role.utils;
 
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.UserHandle;
 
@@ -31,40 +30,6 @@ import androidx.annotation.Nullable;
 public final class PackageUtils {
 
     private PackageUtils() {}
-
-    /**
-     * Retrieve the {@link PackageInfo} of an application.
-     *
-     * @param packageName the package name of the application
-     * @param extraFlags the extra flags to pass to {@link PackageManager#getPackageInfo(String,
-     *                   int)}
-     * @param context the {@code Context} to retrieve system services
-     *
-     * @return the {@link PackageInfo} of the application, or {@code null} if not found
-     */
-    @Nullable
-    public static PackageInfo getPackageInfo(@NonNull String packageName, int extraFlags,
-            @NonNull Context context) {
-        PackageManager packageManager = context.getPackageManager();
-        try {
-            return packageManager.getPackageInfo(packageName, PackageManager.MATCH_DIRECT_BOOT_AWARE
-                    | PackageManager.MATCH_DIRECT_BOOT_UNAWARE | extraFlags);
-        } catch (PackageManager.NameNotFoundException e) {
-            return null;
-        }
-    }
-
-    /**
-     * Retrieve if a package is a system package.
-     *
-     * @param packageName the name of the package
-     * @param context the {@code Context} to retrieve system services
-     *
-     * @return whether the package is a system package
-     */
-    public static boolean isSystemPackage(@NonNull String packageName, @NonNull Context context) {
-        return getPackageInfo(packageName, PackageManager.MATCH_SYSTEM_ONLY, context) != null;
-    }
 
     /**
      * Retrieve the {@link ApplicationInfo} of an application.

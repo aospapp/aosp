@@ -98,8 +98,17 @@ int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   int vhci_fd = open(kVhciDev, O_RDWR);
+  if (vhci_fd < 0) {
+    PLOG(ERROR) << "Unable to open " << kVhciDev;
+  }
   int virtio_fd = open(FLAGS_virtio_console_dev.c_str(), O_RDWR);
-  setTerminalRaw(virtio_fd);
+  if (virtio_fd < 0) {
+    PLOG(ERROR) << "Unable to open " << FLAGS_virtio_console_dev;
+  }
+  int set_result = setTerminalRaw(virtio_fd);
+  if (set_result < 0) {
+    PLOG(ERROR) << "setTerminalRaw failed " << FLAGS_virtio_console_dev;
+  }
 
   struct pollfd fds[2];
 
@@ -128,6 +137,9 @@ int main(int argc, char** argv) {
         send(vhci_fd, HCI_ISODATA_PKT, raw_iso.data(), raw_iso.size());
       },
       []() { LOG(INFO) << "HCI socket device disconnected"; });
+
+  bool before_first_command = true;
+
   while (true) {
     int ret = TEMP_FAILURE_RETRY(poll(fds, 2, -1));
     if (ret < 0) {
@@ -141,6 +153,7 @@ int main(int argc, char** argv) {
       if (c < 0) {
         PLOG(ERROR) << "vhci to virtio-console failed";
       }
+      before_first_command = false;
     }
     if (fds[1].revents & POLLHUP) {
       LOG(ERROR) << "PollHUP";
@@ -148,6 +161,16 @@ int main(int argc, char** argv) {
       continue;
     }
     if (fds[1].revents & (POLLIN | POLLERR)) {
+      if (before_first_command) {
+        // Drop any data left in the virtio-console from a previous reset.
+        ssize_t bytes = TEMP_FAILURE_RETRY(read(virtio_fd, buf, kBufferSize));
+        if (bytes < 0) {
+          LOG(ERROR) << "virtio_fd ready, but read failed " << strerror(errno);
+        } else {
+          LOG(INFO) << "Discarding " << bytes << " bytes from virtio_fd.";
+        }
+        continue;
+      }
       // 'virtio-console to vhci' depends on H4Packetizer because vhci expects
       // full packet, but the data from virtio-console could be partial.
       h4.OnDataReady(virtio_fd);

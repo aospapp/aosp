@@ -105,6 +105,12 @@ public abstract class EventLogsQuery<E extends Event, F extends EventLogsQuery>
         return mUserHandle;
     }
 
+    @Override
+    public boolean isEmptyQuery() {
+        // TODO(276741712): This is not currently used - but should be implemented correctly for
+        //  subclasses
+        return true;
+    }
 
     public static class ToStringBuilder {
 

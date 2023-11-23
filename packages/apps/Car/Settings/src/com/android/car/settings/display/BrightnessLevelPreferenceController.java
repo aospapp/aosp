@@ -117,16 +117,14 @@ public class BrightnessLevelPreferenceController extends PreferenceController<Se
     protected boolean handlePreferenceChanged(SeekBarPreference preference, Object newValue) {
         int gamma = (Integer) newValue;
         int linear = convertGammaToLinear(gamma, mMinimumBacklight, mMaximumBacklight);
-        Settings.System.putIntForUser(getContext().getContentResolver(),
-                Settings.System.SCREEN_BRIGHTNESS, linear, UserHandle.myUserId());
+        saveScreenBrightnessLinearValue(linear);
         return true;
     }
 
     private int getSeekbarValue() {
         int gamma = GAMMA_SPACE_MAX;
         try {
-            int linear = Settings.System.getIntForUser(getContext().getContentResolver(),
-                    Settings.System.SCREEN_BRIGHTNESS, UserHandle.myUserId());
+            int linear = getScreenBrightnessLinearValue();
             gamma = convertLinearToGamma(linear, mMinimumBacklight, mMaximumBacklight);
         } catch (Settings.SettingNotFoundException e) {
             LOG.w("Can't find setting for SCREEN_BRIGHTNESS.");
@@ -135,7 +133,7 @@ public class BrightnessLevelPreferenceController extends PreferenceController<Se
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         if (hasUserRestrictionByUm(getContext(), DISALLOW_CONFIG_BRIGHTNESS)
                 || hasUserRestrictionByDpm(getContext(), DISALLOW_CONFIG_BRIGHTNESS)) {
             return AVAILABLE_FOR_VIEWING;
@@ -148,5 +146,17 @@ public class BrightnessLevelPreferenceController extends PreferenceController<Se
                 EnterpriseUtils.getActionDisabledByAdminDialog(getContext(),
                         DISALLOW_CONFIG_BRIGHTNESS),
                 DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG);
+    }
+
+    @VisibleForTesting
+    int getScreenBrightnessLinearValue() throws Settings.SettingNotFoundException {
+        return Settings.System.getIntForUser(getContext().getContentResolver(),
+                Settings.System.SCREEN_BRIGHTNESS, UserHandle.myUserId());
+    }
+
+    @VisibleForTesting
+    void saveScreenBrightnessLinearValue(int linear) {
+        Settings.System.putIntForUser(getContext().getContentResolver(),
+                Settings.System.SCREEN_BRIGHTNESS, linear, UserHandle.myUserId());
     }
 }

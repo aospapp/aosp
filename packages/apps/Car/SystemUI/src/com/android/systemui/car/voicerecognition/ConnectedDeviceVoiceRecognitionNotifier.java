@@ -37,7 +37,7 @@ import javax.inject.Inject;
  * Controller responsible for showing toast message when voice recognition over bluetooth device
  * getting activated.
  */
-public class ConnectedDeviceVoiceRecognitionNotifier extends CoreStartable {
+public class ConnectedDeviceVoiceRecognitionNotifier implements CoreStartable {
 
     private static final String TAG = "CarVoiceRecognition";
     @VisibleForTesting
@@ -52,6 +52,7 @@ public class ConnectedDeviceVoiceRecognitionNotifier extends CoreStartable {
     private static final String HEADSET_CLIENT_EXTRA_VOICE_RECOGNITION =
             "android.bluetooth.headsetclient.extra.VOICE_RECOGNITION";
 
+    private final Context mContext;
     private final DelayableExecutor mExecutor;
 
     private final BroadcastReceiver mVoiceRecognitionReceiver = new BroadcastReceiver() {
@@ -86,7 +87,7 @@ public class ConnectedDeviceVoiceRecognitionNotifier extends CoreStartable {
             Context context,
             @Main DelayableExecutor mainExecutor
     ) {
-        super(context);
+        mContext = context;
         mExecutor = mainExecutor;
     }
 
@@ -95,7 +96,7 @@ public class ConnectedDeviceVoiceRecognitionNotifier extends CoreStartable {
     }
 
     @Override
-    protected void onBootCompleted() {
+    public void onBootCompleted() {
         IntentFilter filter = new IntentFilter();
         filter.addAction(HEADSET_CLIENT_ACTION_AG_EVENT);
         mContext.registerReceiverAsUser(mVoiceRecognitionReceiver, UserHandle.ALL, filter,

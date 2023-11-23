@@ -16,6 +16,8 @@
 
 package com.android.car.audio;
 
+import static android.media.AudioAttributes.USAGE_MEDIA;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.when;
@@ -47,6 +49,13 @@ public class FocusEntryTest {
     private static final int DEFAULT_FLAGS = 0;
     private static final int SDK = 0;
 
+    private static final CarAudioContext TEST_CAR_AUDIO_CONTEXT =
+            new CarAudioContext(CarAudioContext.getAllContextsInfo(),
+                    /* useCoreAudioRouting= */ false);
+    private static final @CarAudioContext.AudioContext int TEST_MEDIA_CONTEXT =
+            TEST_CAR_AUDIO_CONTEXT.getContextForAudioAttribute(
+                    CarAudioContext.getAudioAttributeFromUsage(USAGE_MEDIA));
+
     @Rule
     public MockitoRule rule = MockitoJUnit.rule();
 
@@ -58,7 +67,7 @@ public class FocusEntryTest {
         AudioFocusInfo info = getInfoWithFlags(
                 AudioManager.AUDIOFOCUS_FLAG_PAUSES_ON_DUCKABLE_LOSS);
 
-        FocusEntry focusEntry = new FocusEntry(info, CarAudioContext.MUSIC, mMockPM);
+        FocusEntry focusEntry = new FocusEntry(info, TEST_MEDIA_CONTEXT, mMockPM);
 
         assertThat(focusEntry.wantsPauseInsteadOfDucking()).isTrue();
     }
@@ -67,7 +76,7 @@ public class FocusEntryTest {
     public void wantsPauseInsteadOfDucking_whenFlagIsNotSet_returnsFalse() {
         AudioFocusInfo info = getInfoWithFlags(0);
 
-        FocusEntry focusEntry = new FocusEntry(info, CarAudioContext.MUSIC, mMockPM);
+        FocusEntry focusEntry = new FocusEntry(info, TEST_MEDIA_CONTEXT, mMockPM);
 
         assertThat(focusEntry.wantsPauseInsteadOfDucking()).isFalse();
     }
@@ -75,7 +84,7 @@ public class FocusEntryTest {
     @Test
     public void receivesDuckEvents_whenBundleDoesNotReceiveDuckingEvents_returnsFalse() {
         AudioFocusInfo info = getInfoThatReceivesDuckingEvents(false);
-        FocusEntry focusEntry = new FocusEntry(info, CarAudioContext.MUSIC, mMockPM);
+        FocusEntry focusEntry = new FocusEntry(info, TEST_MEDIA_CONTEXT, mMockPM);
 
         assertThat(focusEntry.receivesDuckEvents()).isFalse();
     }
@@ -85,7 +94,7 @@ public class FocusEntryTest {
         withoutPermission();
         AudioFocusInfo info = getInfoThatReceivesDuckingEvents(true);
 
-        FocusEntry focusEntry = new FocusEntry(info, CarAudioContext.MUSIC, mMockPM);
+        FocusEntry focusEntry = new FocusEntry(info, TEST_MEDIA_CONTEXT, mMockPM);
 
         assertThat(focusEntry.receivesDuckEvents()).isFalse();
     }
@@ -95,7 +104,7 @@ public class FocusEntryTest {
         withPermission();
         AudioFocusInfo info = getInfoThatReceivesDuckingEvents(true);
 
-        FocusEntry focusEntry = new FocusEntry(info, CarAudioContext.MUSIC, mMockPM);
+        FocusEntry focusEntry = new FocusEntry(info, TEST_MEDIA_CONTEXT, mMockPM);
 
         assertThat(focusEntry.receivesDuckEvents()).isTrue();
     }

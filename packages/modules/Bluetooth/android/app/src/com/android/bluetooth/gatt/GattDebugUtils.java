@@ -20,6 +20,9 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 
+import com.android.bluetooth.Utils;
+import com.android.internal.annotations.VisibleForTesting;
+
 import java.util.UUID;
 
 /**
@@ -29,17 +32,23 @@ import java.util.UUID;
     private static final String TAG = GattServiceConfig.TAG_PREFIX + "DebugUtils";
     private static final boolean DEBUG_ADMIN = GattServiceConfig.DEBUG_ADMIN;
 
-    private static final String ACTION_GATT_PAIRING_CONFIG =
+    @VisibleForTesting
+    static final String ACTION_GATT_PAIRING_CONFIG =
             "android.bluetooth.action.GATT_PAIRING_CONFIG";
 
-    private static final String ACTION_GATT_TEST_USAGE = "android.bluetooth.action.GATT_TEST_USAGE";
-    private static final String ACTION_GATT_TEST_ENABLE =
+    @VisibleForTesting
+    static final String ACTION_GATT_TEST_USAGE = "android.bluetooth.action.GATT_TEST_USAGE";
+    @VisibleForTesting
+    static final String ACTION_GATT_TEST_ENABLE =
             "android.bluetooth.action.GATT_TEST_ENABLE";
-    private static final String ACTION_GATT_TEST_CONNECT =
+    @VisibleForTesting
+    static final String ACTION_GATT_TEST_CONNECT =
             "android.bluetooth.action.GATT_TEST_CONNECT";
-    private static final String ACTION_GATT_TEST_DISCONNECT =
+    @VisibleForTesting
+    static final String ACTION_GATT_TEST_DISCONNECT =
             "android.bluetooth.action.GATT_TEST_DISCONNECT";
-    private static final String ACTION_GATT_TEST_DISCOVER =
+    @VisibleForTesting
+    static final String ACTION_GATT_TEST_DISCOVER =
             "android.bluetooth.action.GATT_TEST_DISCOVER";
 
     private static final String EXTRA_ENABLE = "enable";
@@ -69,7 +78,7 @@ import java.util.UUID;
      *   import com.android.bluetooth.gatt.GattService;
      */
     static boolean handleDebugAction(GattService svc, Intent intent) {
-        if (!DEBUG_ADMIN) {
+        if (!DEBUG_ADMIN && !Utils.isInstrumentationTestMode()) {
             return false;
         }
 

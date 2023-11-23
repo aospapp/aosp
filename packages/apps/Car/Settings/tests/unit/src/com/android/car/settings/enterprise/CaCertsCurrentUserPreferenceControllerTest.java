@@ -18,6 +18,8 @@ package com.android.car.settings.enterprise;
 
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -72,6 +74,51 @@ public final class CaCertsCurrentUserPreferenceControllerTest extends
     }
 
     @Test
+    public void testNoInstalledCaCerts_preferenceDisabled_zoneWrite() {
+        when(mDpm.getOwnerInstalledCaCerts(any())).thenReturn(Collections.emptyList());
+
+        mCaCertsCurrentUserPreferenceController.setAvailabilityStatusForZone("write");
+        mCaCertsCurrentUserPreferenceController.updateState(mPreference);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mCaCertsCurrentUserPreferenceController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+        assertThat(mPreference.getSummary()).isEqualTo(
+                mRealContext.getResources().getQuantityString(
+                        R.plurals.enterprise_privacy_number_ca_certs, 0, 0));
+    }
+
+    @Test
+    public void testNoInstalledCaCerts_preferenceDisabled_zoneRead() {
+        when(mDpm.getOwnerInstalledCaCerts(any())).thenReturn(Collections.emptyList());
+
+        mCaCertsCurrentUserPreferenceController.setAvailabilityStatusForZone("read");
+        mCaCertsCurrentUserPreferenceController.updateState(mPreference);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mCaCertsCurrentUserPreferenceController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+        assertThat(mPreference.getSummary()).isEqualTo(
+                mRealContext.getResources().getQuantityString(
+                        R.plurals.enterprise_privacy_number_ca_certs, 0, 0));
+    }
+
+    @Test
+    public void testNoInstalledCaCerts_preferenceDisabled_zoneHidden() {
+        when(mDpm.getOwnerInstalledCaCerts(any())).thenReturn(Collections.emptyList());
+
+        mCaCertsCurrentUserPreferenceController.setAvailabilityStatusForZone("hidden");
+        mCaCertsCurrentUserPreferenceController.updateState(mPreference);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mCaCertsCurrentUserPreferenceController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+        assertThat(mPreference.getSummary()).isEqualTo(
+                mRealContext.getResources().getQuantityString(
+                        R.plurals.enterprise_privacy_number_ca_certs, 0, 0));
+    }
+
+    @Test
     public void testInstalledCaCerts_preferenceEnabled() {
         when(mDpm.getOwnerInstalledCaCerts(any())).thenReturn(ImmutableList.of("cert1", "cert2"));
 
@@ -79,6 +126,47 @@ public final class CaCertsCurrentUserPreferenceControllerTest extends
 
         PreferenceControllerTestUtil.assertAvailability(
                 mCaCertsCurrentUserPreferenceController.getAvailabilityStatus(), AVAILABLE);
+        assertThat(mPreference.getSummary()).isEqualTo(mRealContext.getResources()
+                .getQuantityString(R.plurals.enterprise_privacy_number_ca_certs, 2, 2));
+    }
+
+    @Test
+    public void testInstalledCaCerts_preferenceEnabled_zoneWrite() {
+        when(mDpm.getOwnerInstalledCaCerts(any())).thenReturn(ImmutableList.of("cert1", "cert2"));
+
+        mCaCertsCurrentUserPreferenceController.setAvailabilityStatusForZone("write");
+        mCaCertsCurrentUserPreferenceController.updateState(mPreference);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mCaCertsCurrentUserPreferenceController.getAvailabilityStatus(), AVAILABLE);
+        assertThat(mPreference.getSummary()).isEqualTo(mRealContext.getResources()
+                .getQuantityString(R.plurals.enterprise_privacy_number_ca_certs, 2, 2));
+    }
+
+    @Test
+    public void testInstalledCaCerts_preferenceEnabled_zoneRead() {
+        when(mDpm.getOwnerInstalledCaCerts(any())).thenReturn(ImmutableList.of("cert1", "cert2"));
+
+        mCaCertsCurrentUserPreferenceController.setAvailabilityStatusForZone("read");
+        mCaCertsCurrentUserPreferenceController.updateState(mPreference);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mCaCertsCurrentUserPreferenceController.getAvailabilityStatus(),
+                AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.getSummary()).isEqualTo(mRealContext.getResources()
+                .getQuantityString(R.plurals.enterprise_privacy_number_ca_certs, 2, 2));
+    }
+
+    @Test
+    public void testInstalledCaCerts_preferenceEnabled_zoneHidden() {
+        when(mDpm.getOwnerInstalledCaCerts(any())).thenReturn(ImmutableList.of("cert1", "cert2"));
+
+        mCaCertsCurrentUserPreferenceController.setAvailabilityStatusForZone("hidden");
+        mCaCertsCurrentUserPreferenceController.updateState(mPreference);
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mCaCertsCurrentUserPreferenceController.getAvailabilityStatus(),
+                CONDITIONALLY_UNAVAILABLE);
         assertThat(mPreference.getSummary()).isEqualTo(mRealContext.getResources()
                 .getQuantityString(R.plurals.enterprise_privacy_number_ca_certs, 2, 2));
     }

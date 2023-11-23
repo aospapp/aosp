@@ -421,6 +421,7 @@ int fuse_reply_entry(fuse_req_t req, const struct fuse_entry_param* e) {
     if (!e->ino && req->se->conn.proto_minor < 4) return fuse_reply_err(req, ENOENT);
 
     memset(&arg, 0, sizeof(arg));
+    fill_entry(&arg, e);
 
     if (extended_args) {
         memset(&bpf_arg, 0, sizeof(bpf_arg));
@@ -435,7 +436,6 @@ int fuse_reply_entry(fuse_req_t req, const struct fuse_entry_param* e) {
 
         return send_reply_ok(req, &arg_ext, size);
     } else {
-        fill_entry(&arg, e);
         return send_reply_ok(req, &arg, size);
     }
 }
@@ -1187,6 +1187,28 @@ static void do_lookup(fuse_req_t req, fuse_ino_t nodeid, const void *inarg)
 		fuse_reply_err(req, ENOSYS);
 }
 
+static void do_lookup_postfilter(fuse_req_t req, fuse_ino_t nodeid, uint32_t error_in,
+								 const void *inarg, size_t size)
+{
+	if (req->se->op.lookup_postfilter) {
+		char *name = (char *) inarg;
+		size_t namelen = strlen(name);
+
+		if (size != namelen + 1 + sizeof(struct fuse_entry_out)
+						+ sizeof(struct fuse_entry_bpf_out)) {
+			fuse_log(FUSE_LOG_ERR, "%s: Bad size", __func__);
+			fuse_reply_err(req, EIO);
+		} else {
+			struct fuse_entry_out *feo = (void *) (name + namelen + 1);
+			struct fuse_entry_bpf_out *febo = (char *) feo + sizeof(*feo);
+
+			req->se->op.lookup_postfilter(req, nodeid, error_in, name, feo,
+											febo);
+		}
+	} else
+		fuse_reply_err(req, ENOSYS);
+}
+
 static void do_forget(fuse_req_t req, fuse_ino_t nodeid, const void *inarg)
 {
 	struct fuse_forget_in *arg = (struct fuse_forget_in *) inarg;
@@ -1629,6 +1651,26 @@ static void do_readdirplus(fuse_req_t req, fuse_ino_t nodeid, const void *inarg)
 		fuse_reply_err(req, ENOSYS);
 }
 
+static void do_readdir_postfilter(fuse_req_t req, fuse_ino_t nodeid,
+									uint32_t error_in, const void *inarg,
+									size_t size) {
+	struct fuse_read_in *fri = (struct fuse_read_in *) inarg;
+	struct fuse_read_out *fro = (struct fuse_read_out *) (fri + 1);
+	struct fuse_dirent *dirents = (struct fuse_dirent *) (fro + 1);
+	struct fuse_file_info fi;
+
+	memset(&fi, 0, sizeof(fi));
+	fi.fh = fri->fh;
+
+	if (req->se->op.readdirpostfilter)
+		req->se->op.readdirpostfilter(req, nodeid, error_in, fri->offset,
+										fro->offset,
+										size - sizeof(*fri) - sizeof(*fro),
+										dirents, &fi);
+	else
+		fuse_reply_err(req, ENOSYS);
+}
+
 static void do_releasedir(fuse_req_t req, fuse_ino_t nodeid, const void *inarg)
 {
 	struct fuse_release_in *arg = (struct fuse_release_in *) inarg;
@@ -1677,10 +1719,14 @@ static void do_statfs(fuse_req_t req, fuse_ino_t nodeid, const void *inarg)
 
 static void do_setxattr(fuse_req_t req, fuse_ino_t nodeid, const void *inarg)
 {
+	struct fuse_session *se = req->se;
+	unsigned int xattr_ext = !!(se->conn.want & FUSE_CAP_SETXATTR_EXT);
 	struct fuse_setxattr_in *arg = (struct fuse_setxattr_in *) inarg;
-	char *name = PARAM(arg);
+	char *name = xattr_ext ? PARAM(arg) :
+		     (char *)arg + FUSE_COMPAT_SETXATTR_IN_SIZE;
 	char *value = name + strlen(name) + 1;
 
+	/* XXX:The API should be extended to support extra_flags/setxattr_flags */
 	if (req->se->op.setxattr)
 		req->se->op.setxattr(req, nodeid, name, value, arg->size,
 				    arg->flags);
@@ -2013,6 +2059,7 @@ void do_init(fuse_req_t req, fuse_ino_t nodeid, const void *inarg)
 	struct fuse_session *se = req->se;
 	size_t bufsize = se->bufsize;
 	size_t outargsize = sizeof(outarg);
+	int extended_flags;
 
 	(void) nodeid;
 	if (se->debug) {
@@ -2031,6 +2078,10 @@ void do_init(fuse_req_t req, fuse_ino_t nodeid, const void *inarg)
 	memset(&outarg, 0, sizeof(outarg));
 	outarg.major = FUSE_KERNEL_VERSION;
 	outarg.minor = FUSE_KERNEL_MINOR_VERSION;
+
+	extended_flags = arg->major > 7 || (arg->major == 7 && arg->minor >= 36);
+	fuse_log(FUSE_LOG_DEBUG, "fuse: protocol version: %u.%u, extended flags: %d\n",
+		arg->major, arg->minor, extended_flags);
 
 	if (arg->major < 7) {
 		fuse_log(FUSE_LOG_ERR, "fuse: unsupported protocol version: %u.%u\n",
@@ -2084,6 +2135,8 @@ void do_init(fuse_req_t req, fuse_ino_t nodeid, const void *inarg)
 			se->conn.capable |= FUSE_CAP_NO_OPENDIR_SUPPORT;
 		if (arg->flags & FUSE_EXPLICIT_INVAL_DATA)
 			se->conn.capable |= FUSE_CAP_EXPLICIT_INVAL_DATA;
+		if (arg->flags & FUSE_SETXATTR_EXT)
+			se->conn.capable |= FUSE_CAP_SETXATTR_EXT;
 		if (!(arg->flags & FUSE_MAX_PAGES)) {
 			size_t max_bufsize =
 				FUSE_DEFAULT_MAX_PAGES_PER_REQ * getpagesize()
@@ -2092,8 +2145,13 @@ void do_init(fuse_req_t req, fuse_ino_t nodeid, const void *inarg)
 				bufsize = max_bufsize;
 			}
 		}
-		if (arg->flags & FUSE_PASSTHROUGH)
-			se->conn.capable |= FUSE_PASSTHROUGH;
+		if (extended_flags) {
+			if (arg->flags2 & (1 << 31))
+				se->conn.capable |= FUSE_CAP_PASSTHROUGH;
+		} else {
+			if (arg->flags & (1 << 31))
+				se->conn.capable |= FUSE_CAP_PASSTHROUGH;
+		}
 	} else {
 		se->conn.max_readahead = 0;
 	}
@@ -2206,12 +2264,18 @@ void do_init(fuse_req_t req, fuse_ino_t nodeid, const void *inarg)
 		outarg.flags |= FUSE_WRITEBACK_CACHE;
 	if (se->conn.want & FUSE_CAP_POSIX_ACL)
 		outarg.flags |= FUSE_POSIX_ACL;
-	if (se->conn.want & FUSE_CAP_PASSTHROUGH)
-		outarg.flags |= FUSE_PASSTHROUGH;
+	if (se->conn.want & FUSE_CAP_PASSTHROUGH) {
+		if (extended_flags)
+			outarg.flags2 |= (1 << 31);
+		else
+			outarg.flags |= (1 << 31);
+	}
 	if (se->conn.want & FUSE_CAP_CACHE_SYMLINKS)
 		outarg.flags |= FUSE_CACHE_SYMLINKS;
 	if (se->conn.want & FUSE_CAP_EXPLICIT_INVAL_DATA)
 		outarg.flags |= FUSE_EXPLICIT_INVAL_DATA;
+	if (se->conn.want & FUSE_CAP_SETXATTR_EXT)
+		outarg.flags |= FUSE_SETXATTR_EXT;
 	outarg.max_readahead = se->conn.max_readahead;
 	outarg.max_write = se->conn.max_write;
 	if (se->conn.proto_minor >= 13) {
@@ -2583,7 +2647,7 @@ static struct {
 	[FUSE_GETATTR]	   = { do_getattr,     "GETATTR"     },
 	[FUSE_SETATTR]	   = { do_setattr,     "SETATTR"     },
 	[FUSE_READLINK]	   = { do_readlink,    "READLINK"    },
-        [FUSE_CANONICAL_PATH] = { do_canonical_path, "CANONICAL_PATH" },
+	[FUSE_CANONICAL_PATH] = { do_canonical_path, "CANONICAL_PATH" },
 	[FUSE_SYMLINK]	   = { do_symlink,     "SYMLINK"     },
 	[FUSE_MKNOD]	   = { do_mknod,       "MKNOD"	     },
 	[FUSE_MKDIR]	   = { do_mkdir,       "MKDIR"	     },
@@ -2625,6 +2689,18 @@ static struct {
 	[FUSE_COPY_FILE_RANGE] = { do_copy_file_range, "COPY_FILE_RANGE" },
 	[FUSE_LSEEK]	   = { do_lseek,       "LSEEK"	     },
 	[CUSE_INIT]	   = { cuse_lowlevel_init, "CUSE_INIT"   },
+};
+
+static struct {
+	void (*func)( fuse_req_t, fuse_ino_t, const void *);
+	const char *name;
+} fuse_ll_prefilter_ops[] = {};
+
+static struct {
+	void (*func)( fuse_req_t, fuse_ino_t, uint32_t, const void *, size_t size);
+} fuse_ll_postfilter_ops[] = {
+		[FUSE_LOOKUP] = {do_lookup_postfilter},
+		[FUSE_READDIR] = {do_readdir_postfilter},
 };
 
 #define FUSE_MAXOP (sizeof(fuse_ll_ops) / sizeof(fuse_ll_ops[0]))
@@ -2804,8 +2880,20 @@ void fuse_session_process_buf_int(struct fuse_session *se,
 		do_write_buf(req, in->nodeid, inarg, buf);
 	else if (in->opcode == FUSE_NOTIFY_REPLY)
 		do_notify_reply(req, in->nodeid, inarg, buf);
-	else
+	else if (!opcode_filter)
 		fuse_ll_ops[in->opcode].func(req, in->nodeid, inarg);
+	else if (opcode_filter == FUSE_PREFILTER && fuse_ll_prefilter_ops[in->opcode].func)
+	  fuse_ll_prefilter_ops[in->opcode].func(req, in->nodeid, inarg);
+	else if (opcode_filter == FUSE_POSTFILTER
+			&& fuse_ll_postfilter_ops[in->opcode].func)
+		fuse_ll_postfilter_ops[in->opcode].func(
+				req, in->nodeid, in->error_in, inarg,
+				buf->size - sizeof(struct fuse_in_header));
+	else {
+		fuse_log(FUSE_LOG_ERR, "Bad opcode");
+		err = ENOSYS;
+		goto reply_err;
+	}
 
 out_free:
 	free(mbuf);

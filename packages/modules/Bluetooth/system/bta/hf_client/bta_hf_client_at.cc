@@ -20,11 +20,12 @@
 #define LOG_TAG "bt_hf_client"
 
 #include "bt_trace.h"  // Legacy trace logging
-
 #include "bta/hf_client/bta_hf_client_int.h"
 #include "osi/include/allocator.h"
 #include "osi/include/compat.h"
 #include "osi/include/log.h"
+#include "osi/include/properties.h"
+#include "stack/include/acl_api.h"
 #include "stack/include/port_api.h"
 
 /* Uncomment to enable AT traffic dumping */
@@ -124,7 +125,7 @@ static void bta_hf_client_queue_at(tBTA_HF_CLIENT_CB* client_cb,
   tBTA_HF_CLIENT_AT_QCMD* new_cmd =
       (tBTA_HF_CLIENT_AT_QCMD*)osi_malloc(sizeof(tBTA_HF_CLIENT_AT_QCMD));
 
-  APPL_TRACE_DEBUG("%s", __func__);
+  APPL_TRACE_DEBUG("%s: cmd:%d", __func__, (int)cmd);
 
   new_cmd->cmd = cmd;
   new_cmd->buf_len = buf_len;
@@ -169,7 +170,7 @@ static void bta_hf_client_stop_at_resp_timer(tBTA_HF_CLIENT_CB* client_cb) {
 static void bta_hf_client_send_at(tBTA_HF_CLIENT_CB* client_cb,
                                   tBTA_HF_CLIENT_AT_CMD cmd, const char* buf,
                                   uint16_t buf_len) {
-  APPL_TRACE_DEBUG("%s", __func__);
+  APPL_TRACE_DEBUG("%s %d", __func__, cmd);
   if ((client_cb->at_cb.current_cmd == BTA_HF_CLIENT_AT_NONE ||
        !client_cb->svc_conn) &&
       !alarm_is_scheduled(client_cb->at_cb.hold_timer)) {
@@ -197,6 +198,7 @@ static void bta_hf_client_send_at(tBTA_HF_CLIENT_CB* client_cb,
     return;
   }
 
+  APPL_TRACE_DEBUG("%s: busy! queued: %d", __func__, cmd);
   bta_hf_client_queue_at(client_cb, cmd, buf, buf_len);
 }
 
@@ -240,7 +242,8 @@ static void bta_hf_client_start_at_hold_timer(tBTA_HF_CLIENT_CB* client_cb) {
  ******************************************************************************/
 
 static void bta_hf_client_handle_ok(tBTA_HF_CLIENT_CB* client_cb) {
-  APPL_TRACE_DEBUG("%s", __func__);
+  APPL_TRACE_DEBUG("%s: current_cmd:%d", __func__,
+                   client_cb->at_cb.current_cmd);
 
   bta_hf_client_stop_at_resp_timer(client_cb);
 
@@ -252,6 +255,7 @@ static void bta_hf_client_handle_ok(tBTA_HF_CLIENT_CB* client_cb) {
   switch (client_cb->at_cb.current_cmd) {
     case BTA_HF_CLIENT_AT_BIA:
     case BTA_HF_CLIENT_AT_BCC:
+    case BTA_HF_CLIENT_AT_BIEV:
       break;
     case BTA_HF_CLIENT_AT_BCS:
       bta_hf_client_start_at_hold_timer(client_cb);
@@ -264,6 +268,9 @@ static void bta_hf_client_handle_ok(tBTA_HF_CLIENT_CB* client_cb) {
       break;
     case BTA_HF_CLIENT_AT_NONE:
       bta_hf_client_stop_at_hold_timer(client_cb);
+      break;
+    case BTA_HF_CLIENT_AT_ANDROID:
+      bta_hf_client_at_result(client_cb, BTA_HF_CLIENT_AT_RESULT_OK, 0);
       break;
     default:
       if (client_cb->send_at_reply) {
@@ -280,7 +287,8 @@ static void bta_hf_client_handle_ok(tBTA_HF_CLIENT_CB* client_cb) {
 static void bta_hf_client_handle_error(tBTA_HF_CLIENT_CB* client_cb,
                                        tBTA_HF_CLIENT_AT_RESULT_TYPE type,
                                        uint16_t cme) {
-  APPL_TRACE_DEBUG("%s: %u %u", __func__, type, cme);
+  APPL_TRACE_DEBUG("%s: type:%u cme:%u current_cmd:%d", __func__, type, cme,
+                   client_cb->at_cb.current_cmd);
 
   bta_hf_client_stop_at_resp_timer(client_cb);
 
@@ -301,6 +309,9 @@ static void bta_hf_client_handle_error(tBTA_HF_CLIENT_CB* client_cb,
         client_cb->send_at_reply = true;
       }
       break;
+    case BTA_HF_CLIENT_AT_ANDROID:
+      bta_hf_client_at_result(client_cb, type, cme);
+      break;
     default:
       if (client_cb->send_at_reply) {
         bta_hf_client_at_result(client_cb, type, cme);
@@ -315,6 +326,19 @@ static void bta_hf_client_handle_error(tBTA_HF_CLIENT_CB* client_cb,
 
 static void bta_hf_client_handle_ring(tBTA_HF_CLIENT_CB* client_cb) {
   APPL_TRACE_DEBUG("%s", __func__);
+
+  const bool exit_sniff_while_ring = osi_property_get_bool(
+      "bluetooth.headset_client.exit_sniff_while_ring", false);
+
+  // Invoke mode change to active mode if feature flag is enabled and current
+  // status is sniff
+  if (exit_sniff_while_ring) {
+    tBTM_PM_MODE mode;
+    if (BTM_ReadPowerMode(client_cb->peer_addr, &mode) &&
+        mode == BTM_PM_STS_SNIFF) {
+      bta_sys_busy(BTA_ID_HS, 1, client_cb->peer_addr);
+    }
+  }
   bta_hf_client_evt_val(client_cb, BTA_HF_CLIENT_RING_INDICATION, 0);
 }
 
@@ -1721,6 +1745,12 @@ void bta_hf_client_at_parse(tBTA_HF_CLIENT_CB* client_cb, char* buf,
     client_cb->at_cb.offset += tmp;
   }
 
+  /* prevent buffer overflow in cases where LEN exceeds available buffer space
+   */
+  if (len > BTA_HF_CLIENT_AT_PARSER_MAX_LEN - client_cb->at_cb.offset) {
+    return;
+  }
+
   memcpy(client_cb->at_cb.buf + client_cb->at_cb.offset, buf, len);
   client_cb->at_cb.offset += len;
 
@@ -2133,19 +2163,19 @@ void bta_hf_client_send_at_bia(tBTA_HF_CLIENT_CB* client_cb) {
 
   at_len = snprintf(buf, sizeof(buf), "AT+BIA=");
 
+  const int32_t position = osi_property_get_int32(
+      "bluetooth.headset_client.disable_indicator.position", -1);
+
   for (i = 0; i < BTA_HF_CLIENT_AT_INDICATOR_COUNT; i++) {
     int sup = client_cb->at_cb.indicator_lookup[i] == -1 ? 0 : 1;
 
-/* If this value matches the position of SIGNAL in the indicators array,
- * then hardcode disable signal strength indicators.
- * indicator_lookup[i] points to the position in the bta_hf_client_indicators
- * array defined at the top of this file */
-#ifdef BTA_HF_CLIENT_INDICATOR_SIGNAL_POS
-    if (client_cb->at_cb.indicator_lookup[i] ==
-        BTA_HF_CLIENT_INDICATOR_SIGNAL_POS) {
+    /* If this value matches the position of SIGNAL in the indicators array,
+     * then hardcode disable signal strength indicators.
+     * indicator_lookup[i] points to the position in the
+     * bta_hf_client_indicators array defined at the top of this file */
+    if (client_cb->at_cb.indicator_lookup[i] == position) {
       sup = 0;
     }
-#endif
 
     at_len += snprintf(buf + at_len, sizeof(buf) - at_len, "%u,", sup);
   }
@@ -2177,6 +2207,22 @@ void bta_hf_client_send_at_vendor_specific_cmd(tBTA_HF_CLIENT_CB* client_cb,
 
   bta_hf_client_send_at(client_cb, BTA_HF_CLIENT_AT_VENDOR_SPECIFIC, buf,
                         at_len);
+}
+
+void bta_hf_client_send_at_android(tBTA_HF_CLIENT_CB* client_cb,
+                                   const char* str) {
+  char buf[BTA_HF_CLIENT_AT_MAX_LEN];
+  int at_len;
+
+  APPL_TRACE_DEBUG("%s", __func__);
+
+  at_len = snprintf(buf, sizeof(buf), "AT%s\r", str);
+  if (at_len < 0) {
+    APPL_TRACE_ERROR("%s: AT command Framing error", __func__);
+    return;
+  }
+
+  bta_hf_client_send_at(client_cb, BTA_HF_CLIENT_AT_ANDROID, buf, at_len);
 }
 
 void bta_hf_client_at_init(tBTA_HF_CLIENT_CB* client_cb) {
@@ -2277,6 +2323,9 @@ void bta_hf_client_send_at_cmd(tBTA_HF_CLIENT_DATA* p_data) {
       break;
     case BTA_HF_CLIENT_AT_CMD_VENDOR_SPECIFIC_CMD:
       bta_hf_client_send_at_vendor_specific_cmd(client_cb, p_val->str);
+      break;
+    case BTA_HF_CLIENT_AT_CMD_ANDROID:
+      bta_hf_client_send_at_android(client_cb, p_val->str);
       break;
     default:
       APPL_TRACE_ERROR("Default case");

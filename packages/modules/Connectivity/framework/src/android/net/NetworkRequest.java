@@ -54,9 +54,92 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Defines a request for a network, made through {@link NetworkRequest.Builder} and used
- * to request a network via {@link ConnectivityManager#requestNetwork} or listen for changes
- * via {@link ConnectivityManager#registerNetworkCallback}.
+ * An object describing a network that the application is interested in.
+ *
+ * <p>@see <a href="https://developer.android.com/training/basics/network-ops/reading-network-state>
+ * this general guide</a> on how to use NetworkCapabilities and related classes.
+ *
+ * NetworkRequest defines a request for a network, made through
+ * {@link NetworkRequest.Builder} and used to request a network via
+ * {@link ConnectivityManager#requestNetwork} or to listen for changes
+ * via the {@link ConnectivityManager#registerNetworkCallback} family of
+ * functions.
+ *
+ * <p>{@link ConnectivityManager#requestNetwork} will try to find a connected
+ * network matching the NetworkRequest, and return it if there is one.
+ * As long as the request is outstanding, the system will try to find the best
+ * possible network that matches the request. The request will keep up the
+ * currently best connected network, and if a better one is found (e.g. cheaper
+ * or faster) the system will bring up that better network to better serve the
+ * request. A request filed with {@link ConnectivityManager#requestNetwork} will
+ * only match one network at a time (the one the system thinks is best), even if
+ * other networks can match the request that are being kept up by other requests.
+ *
+ * For example, an application needing a network with
+ * {@link NetworkCapabilities#NET_CAPABILITY_INTERNET} should use
+ * {@link ConnectivityManager#requestNetwork} to request the system keeps one up.
+ * A general cellular network can satisfy this request, but if the system finds
+ * a free Wi-Fi network which is expected to be faster, it will try and connect
+ * to that Wi-Fi network and switch the request over to it once it is connected.
+ * The cell network may stay connected if there are outstanding requests (from
+ * the same app or from other apps on the system) that match the cell network
+ * but not the Wi-Fi network, such as a request with {@link NetworkCapabilities#NET_CAPABILITY_MMS}.
+ *
+ * When a network is no longer needed to serve any request, the system can
+ * tear it down at any time and usually does so immediately, so make sure to
+ * keep up requests for the networks your app needs.
+ *
+ * <p>By contrast, requests filed with {@link ConnectivityManager#registerNetworkCallback}
+ * will receive callbacks for all matching networks, and will not cause the system to
+ * keep up the networks they match. Use this to listen to networks that the device is
+ * connected to, but that you don't want the system to keep up for your use case.
+ *
+ * <p>Applications build a NetworkRequest and pass it to one of the
+ * {@link ConnectivityManager} methods above together with a
+ * {@link ConnectivityManager.NetworkCallback} object. The callback
+ * will then start receiving method calls about networks that match
+ * the request.
+ *
+ * <p>Networks are brought up and/or matched according to the capabilities
+ * set in the builder. For example, a request with
+ * {@link NetworkCapabilities#NET_CAPABILITY_MMS} lets the system match
+ * and/or bring up a network that is capable to send MMS. A request with
+ * {@link NetworkCapabilities#NET_CAPABILITY_NOT_METERED} matches a network
+ * that doesn't charge the user for usage. See
+ * {@link NetworkCapabilities} for a list of capabilities and their
+ * description.
+ *
+ * <p>While all capabilities can be matched with the
+ * {@link ConnectivityManager#registerNetworkCallback} family of methods,
+ * not all capabilities can be used to request that the system brings
+ * up a network with {@link ConnectivityManager#requestNetwork}. For example,
+ * an application cannot use {@link ConnectivityManager#requestNetwork} to
+ * ask the system to bring up a network with
+ * {@link NetworkCapabilities#NET_CAPABILITY_CAPTIVE_PORTAL}, because the
+ * system won't know if a network has a captive portal before it connects
+ * to that network. Similarly, some capabilities may require a specific
+ * permission or privilege to be requested.
+ *
+ * Look up the specific capability and the {@link ConnectivityManager#requestNetwork}
+ * method for limitations applicable to each capability.
+ *
+ * <p>Also, starting with {@link Build.VERSION_CODES#UPSIDE_DOWN_CAKE}, some capabilities
+ * require the application to self-certify by explicitly adding the
+ * {@link android.content.pm.PackageManager#PROPERTY_SELF_CERTIFIED_NETWORK_CAPABILITIES}
+ * property in the AndroidManifest.xml, which points to an XML resource file. In the
+ * XML resource file, the application declares what kind of network capabilities the application
+ * wants to have.
+ *
+ * Here is an example self-certification XML resource file :
+ * <pre>
+ *  {@code
+ *  <network-capabilities-declaration xmlns:android="http://schemas.android.com/apk/res/android">
+ *     <uses-network-capability android:name="NET_CAPABILITY_PRIORITIZE_LATENCY"/>
+ *     <uses-network-capability android:name="NET_CAPABILITY_PRIORITIZE_BANDWIDTH"/>
+ * </network-capabilities-declaration>
+ *  }
+ *  </pre>
+ * Look up the specific capability to learn whether its usage requires this self-certification.
  */
 public class NetworkRequest implements Parcelable {
     /**
@@ -423,7 +506,6 @@ public class NetworkRequest implements Parcelable {
          *
          * @deprecated Use {@link #setNetworkSpecifier(NetworkSpecifier)} instead.
          */
-        @SuppressLint("NewApi") // TODO: b/193460475 remove once fixed
         @Deprecated
         public Builder setNetworkSpecifier(String networkSpecifier) {
             try {
@@ -440,15 +522,6 @@ public class NetworkRequest implements Parcelable {
                 } else if (mNetworkCapabilities.hasTransport(TRANSPORT_TEST)) {
                     return setNetworkSpecifier(new TestNetworkSpecifier(networkSpecifier));
                 } else {
-                    // TODO: b/193460475 remove comment once fixed
-                    // @SuppressLint("NewApi") is due to EthernetNetworkSpecifier being changed
-                    // from @SystemApi to public. EthernetNetworkSpecifier was introduced in Android
-                    // 12 as @SystemApi(client = MODULE_LIBRARIES) and made public in Android 13.
-                    // b/193460475 means in the above situation the tools will think
-                    // EthernetNetworkSpecifier didn't exist in Android 12, causing the NewApi lint
-                    // to fail. In this case, this is actually safe because this code was
-                    // modularized in Android 12, so it can't run on SDKs before Android 12 and is
-                    // therefore guaranteed to always have this class available to it.
                     return setNetworkSpecifier(new EthernetNetworkSpecifier(networkSpecifier));
                 }
             }

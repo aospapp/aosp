@@ -51,10 +51,6 @@ static inline void* mempcpy(void* dst, const void* src, size_t n) {
 
 #ifdef _WIN32
 
-// Clang-only nullability specifiers
-#define _Nonnull
-#define _Nullable
-
 #include <ctype.h>
 #include <direct.h>
 #include <dirent.h>
@@ -788,6 +784,9 @@ static inline void disable_tcp_nagle(borrowed_fd fd) {
 // |interval_sec| to 0 to disable keepalives. If keepalives are enabled, the connection will be
 // configured to drop after 10 missed keepalives. Returns true on success.
 bool set_tcp_keepalive(borrowed_fd fd, int interval_sec);
+
+// Returns a human-readable OS version string.
+extern std::string GetOSVersion(void);
 
 #if defined(_WIN32)
 // Win32 defines ERROR, which we don't need, but which conflicts with google3 logging.

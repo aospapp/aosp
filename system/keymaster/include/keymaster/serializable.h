@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include <iterator>
+#include <utility>
 
 #include <keymaster/UniquePtr.h>
 #include <keymaster/logger.h>
@@ -251,14 +252,14 @@ class Buffer : public Serializable {
     Buffer() : buffer_(nullptr), buffer_size_(0), read_position_(0), write_position_(0) {}
     explicit Buffer(size_t size) : buffer_(nullptr) { Reinitialize(size); }
     Buffer(const void* buf, size_t size) : buffer_(nullptr) { Reinitialize(buf, size); }
-    Buffer(Buffer&& b) { *this = move(b); }
+    Buffer(Buffer&& b) { *this = std::move(b); }
     Buffer(const Buffer&) = delete;
 
     ~Buffer() { Clear(); }
 
     Buffer& operator=(Buffer&& other) {
         if (this == &other) return *this;
-        buffer_ = move(other.buffer_);
+        buffer_ = std::move(other.buffer_);
         buffer_size_ = other.buffer_size_;
         other.buffer_size_ = 0;
         read_position_ = other.read_position_;

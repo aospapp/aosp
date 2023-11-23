@@ -25,6 +25,8 @@ oneway interface ICompilationTaskCallback {
         CompilationFailed,
         /** We ran compilation in the VM, but it reported a problem. */
         UnexpectedCompilationResult,
+        /** We failed to enable fs-verity completely to the output artifacts. */
+        FailedToEnableFsverity,
     }
 
     /**

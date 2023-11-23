@@ -29,8 +29,14 @@ ln -s /tmp/bin/kmod /tmp/insmod
 
 # Load just enough to get the rootfs from virtio_blk
 module_dir=/lib/modules/$(uname -r)/kernel
-# virtio_pci_modern_dev was split out in 5.12
-/tmp/insmod ${module_dir}/drivers/virtio/virtio_pci_modern_dev.ko || true
+# virtio_pci_modern_dev.ko for 5.12-5.19 kernel
+if [ -e "${module_dir}/drivers/virtio/virtio_pci_modern_dev.ko" ]; then
+    /tmp/insmod ${module_dir}/drivers/virtio/virtio_pci_modern_dev.ko || sh
+fi
+# virtio_pci_legacy_dev.ko for 6.0+ kernel
+if [ -e "${module_dir}/drivers/virtio/virtio_pci_legacy_dev.ko" ]; then
+    /tmp/insmod ${module_dir}/drivers/virtio/virtio_pci_legacy_dev.ko
+fi
 /tmp/insmod ${module_dir}/drivers/virtio/virtio_pci.ko
 /tmp/insmod ${module_dir}/drivers/block/virtio_blk.ko
 /tmp/insmod ${module_dir}/drivers/char/hw_random/virtio-rng.ko
@@ -39,7 +45,14 @@ module_dir=/lib/modules/$(uname -r)/kernel
 mount -t devtmpfs devtmpfs /dev
 
 # Mount /dev/vda over the top of /root
-mount /dev/vda /root
+rm -f /dev/ram0
+mount -n -t proc proc /proc
+mount LABEL=ROOT /root
+if [[ "${install_grub}" = "1" ]]; then
+  mkdir -p /root/boot/efi
+  mount LABEL=SYSTEM /root/boot/efi
+fi
+umount /proc
 
 # Switch to the new root and start stage 2
 mount -n --move /dev /root/dev

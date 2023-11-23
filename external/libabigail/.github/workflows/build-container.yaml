@@ -1,0 +1,100 @@
+name: Build Deploy Container
+
+on:
+
+  # Always have a base image ready to go - this is a nightly build
+  schedule:
+    - cron: 0 3 * * *
+
+  # Allow manual trigger of a build
+  workflow_dispatch:
+    inputs:
+      whatever:
+        description: 'This variable does not matter, its a GHA bug.'
+
+  # On push to main we build and deploy images
+  push:
+    branches:
+      - develop
+
+  # Do build to test works on PR
+  pull_request: []
+
+  # Publish packages on release
+  release:
+    types: [published]
+
+jobs:
+  build:
+    permissions:
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+
+        # Dockerfiles to build, container names to use, and to tag as libabigail:latest?
+        container: [["Dockerfile.fedora", "ghcr.io/woodard/libabigail-fedora", true],
+                    ["Dockerfile.ubuntu", "ghcr.io/woodard/libabigail-ubuntu-22.04", false],
+                    ["Dockerfile.fedora-base", "ghcr.io/woodard/libabigail-fedora-base", false]]
+
+    runs-on: ubuntu-latest
+    name: Build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Make Space For Build
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+
+       # It's easier to reference named variables than indexes of the matrix
+      - name: Set Environment
+        env:
+          dockerfile: ${{ matrix.container[0] }}
+          uri: ${{ matrix.container[1] }}
+          isLatest: ${{ matrix.container[2] }}
+        run: |
+          echo "dockerfile=$dockerfile" >> $GITHUB_ENV
+          echo "uri=$uri" >> $GITHUB_ENV
+          echo "isLatest=$isLatest" >> $GITHUB_ENV
+
+      - name: Pull previous layers for cache
+        run: docker pull ${uri}:latest || echo "No container to pull"
+
+      - name: Build Container
+        run: |
+           container=$uri:latest
+           docker build -f docker/${dockerfile} -t ${container} .
+           if [[ "${isLatest}" == "true" ]]; then
+               docker tag ${container} ghcr.io/woodard/libabigail:latest
+           fi
+           echo "container=$container" >> $GITHUB_ENV
+
+      - name: GHCR Login
+        if: (github.event_name != 'pull_request')
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy
+        if: (github.event_name != 'pull_request')
+        run: |
+            docker push ${container}
+            if [[ "${isLatest}" == "true" ]]; then
+               docker push ghcr.io/woodard/libabigail:latest
+            fi
+
+      - name: Tag and Push Release
+        if: (github.event_name == 'release')
+        run: |
+            tag=${GITHUB_REF#refs/tags/}
+            echo "Tagging and releasing ${uri}:${tag}"
+            docker tag ${uri}:latest ${uri}:${tag}
+            docker push ${uri}:${tag}
+            if [[ "${isLatest}" == "true" ]]; then
+                docker tag ${uri}:latest ghcr.io/woodard/libabigail:${tag}
+                docker push ghcr.io/woodard/libabigail:${tag}
+            fi

@@ -22,6 +22,11 @@ python_binary_host {
     name: "process-compat-config",
     main: "process_compat_config.py",
     srcs: ["process_compat_config.py"],
+    version: {
+        py3: {
+            embedded_launcher: true,
+        },
+    },
 }
 
 python_test_host {
@@ -31,6 +36,11 @@ python_test_host {
         "process_compat_config.py",
         "process-compat-config-test.py",
     ],
+    version: {
+        py3: {
+            embedded_launcher: true,
+        },
+    },
     test_options: {
         unit_test: true,
     },

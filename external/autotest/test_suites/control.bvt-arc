@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "bvt-arc"
 PURPOSE = "Test basic functionality of ARC."
 
@@ -19,10 +19,10 @@ from being included in the tree or in canary builds:
   * Failures in the canary turn the tree red, block lower priority
     tests for the build, and generally mean that QA cannot further
     evaluate the build's fitness for release.
-  * Chrome OS CLs must pass these tests in the Commit Queue prior to
+  * ChromeOS CLs must pass these tests in the Commit Queue prior to
     being accepted into the tree.
   * A new Chrome or Android build must pass these tests prior to the
-    build being included in a Chrome OS canary build.
+    build being included in a ChromeOS canary build.
 
 Requirements for a test to be in this suite:
  1. The test should be SHORT or MEDIUM, and should not require any

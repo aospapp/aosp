@@ -297,6 +297,7 @@ class PendingList {
         /**
          * Get the sort key for the order of our notifications.
          */
+        @SuppressWarnings("JavaUtilDate")
         private String getSortKey(long timestamp) {
             return sDateFormatter.format(new Date(timestamp));
         }

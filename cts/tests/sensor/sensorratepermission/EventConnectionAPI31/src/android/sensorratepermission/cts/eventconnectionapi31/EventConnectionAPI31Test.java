@@ -87,6 +87,8 @@ public class EventConnectionAPI31Test {
                 mEventConnectionTestHelper != null);
 
         mSensorPrivacyManager = context.getSystemService(SensorPrivacyManager.class);
+        Assume.assumeTrue(mSensorPrivacyManager
+                .supportsSensorToggle(SensorPrivacyManager.Sensors.MICROPHONE));
         mUserID = UserHandle.myUserId();
     }
 

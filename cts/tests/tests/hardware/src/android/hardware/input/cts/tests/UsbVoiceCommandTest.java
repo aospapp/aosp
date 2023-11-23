@@ -31,7 +31,6 @@ import android.hardware.cts.R;
 import android.hardware.input.cts.InputAssistantActivity;
 import android.server.wm.WindowManagerStateHelper;
 import android.speech.RecognizerIntent;
-import android.support.test.uiautomator.UiDevice;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -50,8 +49,6 @@ import java.util.List;
 public class UsbVoiceCommandTest extends InputHidTestCase {
     private static final String TAG = "UsbVoiceCommandTest";
 
-    private final UiDevice mUiDevice =
-            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
     private final UiAutomation mUiAutomation =
             InstrumentationRegistry.getInstrumentation().getUiAutomation();
     private final PackageManager mPackageManager =

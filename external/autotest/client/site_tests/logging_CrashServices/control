@@ -12,9 +12,10 @@ TEST_TYPE = "client"
 JOB_RETRIES = 0
 ATTRIBUTES = "suite:bvt-perbuild, suite:jailed_build, suite:partners"
 DEPENDENCIES='cleanup-reboot'
+PY_VERSION = 3
 
 DOC = """
-Crash all valid Chrome OS processes from an allowlist, and confirm
+Crash all valid ChromeOS processes from an allowlist, and confirm
 that *.dmp, *.meta, and *.core files are created.
 """
 

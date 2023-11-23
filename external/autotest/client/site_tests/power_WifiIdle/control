@@ -1,12 +1,14 @@
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "power_WifiIdle"
 PURPOSE = "Measure power usage with wifi on or off."
+
 CRITERIA = "This test is a benchmark."
 TIME = "SHORT"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
-ATTRIBUTES = "suite:power_daily"
+#ATTRIBUTES = "suite:power_daily"
+PY_VERSION = 3
 
 DOC = """
 This test records power related statistics while staying idle, and

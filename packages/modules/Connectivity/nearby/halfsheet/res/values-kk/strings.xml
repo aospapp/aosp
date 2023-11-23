@@ -20,7 +20,18 @@
     <string name="fast_pair_setup_in_progress" msgid="4158762239172829807">"Реттеу басталуда…"</string>
     <string name="fast_pair_title_setup" msgid="2894360355540593246">"Құрылғыны реттеу"</string>
     <string name="fast_pair_device_ready" msgid="2903490346082833101">"Құрылғы байланыстырылды"</string>
+    <string name="fast_pair_device_ready_with_device_name" msgid="2151967995692339422">"\"%s\" құрылғысымен байланыстырылды"</string>
     <string name="fast_pair_title_fail" msgid="5677174346601290232">"Қосылмады"</string>
+    <string name="fast_pair_unable_to_connect" msgid="3661854812014294569">"Қосылу мүмкін емес"</string>
+    <string name="fast_pair_unable_to_connect_description" msgid="3926830740860653891">"Құрылғыны қолмен жұптап көріңіз."</string>
+    <string name="fast_pair_turn_on_bt_device_pairing_mode" msgid="3197372738187738030">"Құрылғыны жұптау режиміне қойып көріңіз."</string>
+    <string name="devices_within_reach_channel_name" msgid="876280551450910440">"Қолжетімді құрылғылар"</string>
+    <string name="devices_with_your_account_channel_name" msgid="8120067812798598102">"Аккаунтпен байланыстырылған құрылғылар"</string>
+    <string name="fast_pair_your_device" msgid="3662423897069320840">"Сақталған құрылғы қолжетімді"</string>
+    <string name="common_nearby_title" msgid="5480324514713607015">"Маңайдағы"</string>
+    <string name="common_devices" msgid="2635603125608104442">"Құрылғылар"</string>
+    <string name="common_connecting" msgid="160531481424245303">"Жалғанып жатыр…"</string>
+    <string name="common_battery_level" msgid="8748495823047456645">"Батарея: %d%%"</string>
     <string name="paring_action_done" msgid="6888875159174470731">"Дайын"</string>
     <string name="paring_action_save" msgid="6259357442067880136">"Сақтау"</string>
     <string name="paring_action_connect" msgid="4801102939608129181">"Қосу"</string>

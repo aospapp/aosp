@@ -21,17 +21,20 @@ package {
 
 cc_test {
     name: "iontests_google",
-    clang: true,
+
     vendor: true,
     proprietary: true,
-    cflags: [ "-g", "-Werror" ],
+    cflags: [
+        "-g",
+        "-Werror",
+    ],
     shared_libs: ["libion_google"],
     srcs: [
         "ion_test_fixture.cpp",
         "ion_allocate_test.cpp",
         "ion_allocate_api_test.cpp",
         "ion_device_test.cpp",
-	"ion_allocate_special.cpp",
+        "ion_allocate_special.cpp",
         //"map_test.cpp",
         //"exynos_api_test.cpp",
     ],

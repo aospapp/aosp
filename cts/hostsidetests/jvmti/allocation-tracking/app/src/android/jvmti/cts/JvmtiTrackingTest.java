@@ -34,6 +34,7 @@ public class JvmtiTrackingTest extends JvmtiTestBase {
 
     // Pre-resolve class names so the strings don't have to be allocated as a side effect of
     // callback printing.
+    @SuppressWarnings("ReturnValueIgnored")
     private static void prefetchClassNames() {
         Object.class.getName();
         Integer.class.getName();

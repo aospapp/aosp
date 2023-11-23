@@ -10,6 +10,7 @@ TIME = "LONG"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 Runs multiple minutes of bare suspend/resume cycles without additional workload.

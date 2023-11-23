@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update zstd
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "zstd"
 description: "Zstandard - Fast real-time compression algorithm"
 third_party {
@@ -9,11 +13,11 @@ third_party {
     type: GIT
     value: "https://github.com/facebook/zstd"
   }
-  version: "v1.5.1"
+  version: "v1.5.2"
   license_type: RESTRICTED
   last_upgrade_date {
     year: 2022
-    month: 1
-    day: 13
+    month: 10
+    day: 27
   }
 }

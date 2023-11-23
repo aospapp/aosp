@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Nežinomas įrenginys"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Nežinoma"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Nepateikta"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Lėktuvo režimas"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Negalima naudoti „Bluetooth“ lėktuvo režimu."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"„Bluetooth“ garsas"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Negalima perkelti didesnių nei 4 GB failų"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Prisijungti prie „Bluetooth“"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"„Bluetooth“ ryšys įjungtas lėktuvo režimu"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Jei paliksite „Bluetooth“ ryšį įjungtą, įrenginys prisimins palikti jį įjungtą, kai kitą kartą įjungsite lėktuvo režimą"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"„Bluetooth“ liks įjungtas"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Įrenginys prisimena, kad lėktuvo režimu reikia palikti įjungtą „Bluetooth“ ryšį. Išjunkite „Bluetooth“, jei nenorite, kad jis liktų įjungtas."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"„Wi‑Fi“ ir „Bluetooth“ ryšys lieka įjungtas"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Įrenginys prisimena, kad lėktuvo režimu reikia palikti įjungtą „Wi‑Fi“ ir „Bluetooth“ ryšį. Išjunkite „Wi-Fi“ ir „Bluetooth“, jei nenorite, kad jie liktų įjungti."</string>
 </resources>

@@ -158,9 +158,9 @@ def _get_profiler_commands(profilers, is_server, profile_only):
     return prepend, append
 
 
-def _sanity_check_generate_control(is_server, client_control_file):
+def _check_generate_control(is_server, client_control_file):
     """
-    Sanity check some of the parameters to generate_control().
+    Check some of the parameters to generate_control().
 
     This exists as its own function so that site_control_file may call it as
     well from its own generate_control().
@@ -191,7 +191,7 @@ def generate_control(tests, is_server=False, profilers=(),
 
     @returns The control file text as a string.
     """
-    _sanity_check_generate_control(is_server=is_server,
+    _check_generate_control(is_server=is_server,
                                    client_control_file=client_control_file)
     control_file_text = EMPTY_TEMPLATE
     prepend, append = _get_profiler_commands(profilers, is_server, profile_only)

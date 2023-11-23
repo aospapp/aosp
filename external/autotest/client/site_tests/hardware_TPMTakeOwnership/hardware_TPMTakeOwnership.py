@@ -12,6 +12,9 @@ from autotest_lib.client.cros import service_stopper
 
 
 class hardware_TPMTakeOwnership(test.test):
+    """
+    Autotest test case to measure TPM_TakeOwnership timing data.
+    """
     version = 1
 
 
@@ -124,7 +127,7 @@ class hardware_TPMTakeOwnership(test.test):
                 smogcheck_util.runInSubprocess(['tpmc', 'clear'])
 
             # Output timing measurements
-            for k, v in timestamps.iteritems():
+            for k, v in timestamps.items():
                 sec, ms = divmod(v/1000, 1000)
                 key = 'iteration_%d_delay_in_sec' % k
                 delay_float = float(v)/1000000

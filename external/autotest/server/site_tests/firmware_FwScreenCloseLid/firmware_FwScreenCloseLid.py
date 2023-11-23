@@ -13,7 +13,7 @@ class firmware_FwScreenCloseLid(FirmwareTest):
     """
     Servo based lid close triggered shutdown test during firmware screens.
 
-    This test requires a USB disk plugged-in, which contains a Chrome OS test
+    This test requires a USB disk plugged-in, which contains a ChromeOS test
     image (built by "build_image --test"). On runtime, this test triggers
     firmware screens (developer, remove, insert, yuck, to_norm screens),
     and then closes the lid in order to power the machine down.

@@ -27,7 +27,6 @@ package {
 
 event_flag = [
     "-DAUDITD_LOG_TAG=1003",
-    "-DCHATTY_LOG_TAG=1004",
     "-DTAG_DEF_LOG_TAG=1005",
     "-DLIBLOG_LOG_TAG=1006",
 ]
@@ -59,7 +58,6 @@ cc_library_static {
     defaults: ["logd_defaults"],
     host_supported: true,
     srcs: [
-        "ChattyLogBuffer.cpp",
         "CompressionEngine.cpp",
         "LogBufferElement.cpp",
         "LogReaderList.cpp",
@@ -76,6 +74,7 @@ cc_library_static {
         ":ILogcatManagerService_aidl"
     ],
     static_libs: ["liblog"],
+    shared_libs: ["libbinder"],
     logtags: ["event.logtags"],
 
     export_include_dirs: ["."],
@@ -157,7 +156,6 @@ cc_defaults {
     ] + event_flag,
 
     srcs: [
-        "ChattyLogBufferTest.cpp",
         "logd_test.cpp",
         "LogBufferTest.cpp",
         "SerializedLogBufferTest.cpp",

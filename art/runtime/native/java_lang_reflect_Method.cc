@@ -31,7 +31,6 @@
 #include "native_util.h"
 #include "reflection.h"
 #include "scoped_fast_native_object_access-inl.h"
-#include "well_known_classes.h"
 
 namespace art {
 
@@ -80,6 +79,7 @@ static jobjectArray Method_getExceptionTypes(JNIEnv* env, jobject javaMethod) {
   }
 }
 
+NO_STACK_PROTECTOR
 static jobject Method_invoke(JNIEnv* env, jobject javaMethod, jobject javaReceiver,
                              jobjectArray javaArgs) {
   ScopedFastNativeObjectAccess soa(env);

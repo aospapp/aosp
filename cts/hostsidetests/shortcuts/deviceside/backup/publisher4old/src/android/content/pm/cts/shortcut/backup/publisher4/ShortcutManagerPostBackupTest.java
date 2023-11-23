@@ -319,8 +319,10 @@ public class ShortcutManagerPostBackupTest extends ShortcutManagerDeviceTestBase
         getContext().registerReceiver(onResult, myFilter,
                 Context.RECEIVER_EXPORTED_UNAUDITED);
         assertTrue(getManager().requestPinShortcut(ms2,
-                PendingIntent.getBroadcast(getContext(), 0, new Intent(myIntentAction),
-                        PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED).getIntentSender()));
+                PendingIntent.getBroadcast(getContext(), 0, new Intent(myIntentAction)
+                                .setPackage(getContext().getPackageName()),
+                        PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE)
+                        .getIntentSender()));
 
         assertTrue("Didn't receive requestPinShortcut() callback.",
                 latch.await(30, TimeUnit.SECONDS));

@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier.bluetooth;
 
+import static android.content.Context.RECEIVER_EXPORTED;
+
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.ProgressDialog;
@@ -69,7 +71,7 @@ public class BleConnectionPriorityServerBaseActivity extends PassFailButtons.Act
         filter.addAction(BleServerService.BLE_ADVERTISE_UNSUPPORTED);
         filter.addAction(BleServerService.BLE_OPEN_FAIL);
         filter.addAction(BleConnectionPriorityServerService.ACTION_START_CONNECTION_PRIORITY_TEST);
-        registerReceiver(mBroadcast, filter);
+        registerReceiver(mBroadcast, filter, RECEIVER_EXPORTED);
     }
 
     @Override

@@ -43,7 +43,9 @@
 #include "utils/utf8/unilib.h"
 #include "utils/variant.h"
 #include "utils/zlib/zlib.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/random/random.h"
 
 namespace libtextclassifier3 {
 
@@ -175,11 +177,13 @@ class ActionsSuggestions {
   void FillSuggestionFromSpecWithEntityData(const ActionSuggestionSpec* spec,
                                             ActionSuggestion* suggestion) const;
 
-  void PopulateTextReplies(const tflite::Interpreter* interpreter,
-                           int suggestion_index, int score_index,
-                           const std::string& type, float priority_score,
-                           const absl::flat_hash_set<std::string>& blocklist,
-                           ActionsSuggestionsResponse* response) const;
+  void PopulateTextReplies(
+      const tflite::Interpreter* interpreter, int suggestion_index,
+      int score_index, const std::string& type, float priority_score,
+      const absl::flat_hash_set<std::string>& blocklist,
+      const absl::flat_hash_map<std::string, std::vector<std::string>>&
+          concept_mappings,
+      ActionsSuggestionsResponse* response) const;
 
   void PopulateIntentTriggering(const tflite::Interpreter* interpreter,
                                 int suggestion_index, int score_index,
@@ -273,6 +277,9 @@ class ActionsSuggestions {
   // Conversation intent detection model for additional actions.
   std::unique_ptr<const ConversationIntentDetection>
       conversation_intent_detection_;
+
+  // Used for randomly selecting candidates.
+  mutable absl::BitGen bit_gen_;
 };
 
 // Interprets the buffer as a Model flatbuffer and returns it for reading.

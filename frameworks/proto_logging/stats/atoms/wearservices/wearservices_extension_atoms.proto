@@ -1,0 +1,152 @@
+/*
+ * Copyright (C) 2023 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto2";
+
+package android.os.statsd.wearservices;
+
+import "frameworks/proto_logging/stats/atoms.proto";
+import "frameworks/proto_logging/stats/atom_field_options.proto";
+import "frameworks/proto_logging/stats/enums/app/wearservices/wearservices_enums.proto";
+
+option java_package = "com.android.os.wearservices";
+option java_multiple_files = true;
+
+extend Atom {
+
+  optional WsIncomingCallActionReported ws_incoming_call_action_reported = 626
+      [(module) = "wearservices_metrics"];
+
+  optional WsCallDisconnectionReported ws_call_disconnection_reported = 627
+      [(module) = "wearservices_metrics"];
+
+  optional WsCallDurationReported ws_call_duration_reported = 628
+      [(module) = "wearservices_metrics"];
+
+  optional WsCallUserExperienceLatencyReported ws_call_user_experience_latency_reported = 629
+      [(module) = "wearservices_metrics"];
+
+  optional WsCallInteractionReported ws_call_interaction_reported = 630
+      [(module) = "wearservices_metrics"];
+}
+
+/**
+ * Logged whenever an incoming call is accepted or rejected or silenced.
+ *
+ * Logged from package :
+ * vendor/google_clockwork_partners/packages/WearServices
+ */
+message WsIncomingCallActionReported {
+
+  // Depicts different call actions possible.
+  // Values: (CALL_ACTION_ACCEPTED, CALL_ACTION_REJECTED, CALL_ACTION_SILENCED)
+  optional android.app.wearservices.CallAction action = 1;
+
+  // Depicts different call account in use.
+  // Values: (CALL_SOURCE_WATCH, CALL_SOURCE_PHONE_HFP,
+  // CALL_SOURCE_PHONE_COMPANION)
+  optional android.app.wearservices.CallSource call_source = 2;
+}
+
+/**
+ * Logged whenever a call is disconnected.
+ *
+ * Logged from package :
+ * vendor/google_clockwork_partners/packages/WearServices
+ */
+message WsCallDisconnectionReported {
+
+  // Depicts Disconnection reason.
+  // Values: (DISCONNECT_REASON_ERROR, DISCONNECT_REASON_REJECTED, etc)
+  optional android.app.wearservices.DisconnectionReason reason = 1;
+
+  // Depicts the error behind the disconnection.
+  // Values: (DISCONNECTION_ERROR_CODE_DIALER,
+  // DISCONNECTION_ERROR_CODE_PHONE_DISCONNECTED, etc)
+  optional android.app.wearservices.DisconnectionErrorCode error_code = 2;
+}
+
+/**
+ * Logged whenever an incoming or outgoing call is bridged and picked up.
+ * The call picked up can be either on the watch, phone or via another connected
+ * device like bluetooth headphones.
+ *
+ * Logged from package :
+ * vendor/google_clockwork_partners/packages/WearServices
+ */
+message WsCallDurationReported {
+
+  // Depicts the type of call.
+  // Values: (CALL_TYPE_INCOMING, CALL_TYPE_OUTGOING)
+  optional android.app.wearservices.CallType call_type = 1;
+
+  // This field depicts whether the call was accepted or initiated on the watch.
+  // For OUTGOING calls it MUST be set to true when the call is initiated on the
+  // watch, for INCOMING calls it MUST be set to true when the call is accepted
+  // on the watch.
+  optional bool is_initiated_or_accepted_on_watch = 2;
+
+  // Depicts different call account in use.
+  // Values: (CALL_SOURCE_WATCH, CALL_SOURCE_PHONE_HFP,
+  // CALL_SOURCE_PHONE_COMPANION)
+  optional android.app.wearservices.CallSource call_source = 3;
+
+  // Depicts call duration in millis.
+  optional int32 call_duration_millis = 4;
+}
+
+/**
+ * Logged whenever a call request is received and bridged to the watch.
+ * This metric particularly measures the latency of different stages and actions
+ * during a call.
+ *
+ * Logged from package :
+ * vendor/google_clockwork_partners/packages/WearServices
+ */
+message WsCallUserExperienceLatencyReported {
+
+  // Depicts for what action the latency is being reported.
+  // Values: (LATENCY_ACTION_CALL_CREATION, LATENCY_ACTION_RING,
+  // LATENCY_ACTION_PICKED_CALL, LATENCY_ACTION_AUDIO_OUTPUT_SWITCH)
+  optional android.app.wearservices.LatencyAction latency_action = 1;
+
+  // Depicts the result of the overall call.
+  // Values: CALL_RESULT_NO_INTERACTION_ON_WATCH, CALL_RESULT_ACCEPTED_ON_WATCH,
+  // CALL_RESULT_REJECTED_ON_WATCH)
+  optional android.app.wearservices.CallResult result = 2;
+
+  // Depicts latency duration in millis.
+  optional int32 latency_duration_millis = 3;
+}
+
+/**
+ * Logged for call interactions in Wear Services.
+ *
+ * Logged from package :
+ * vendor/google_clockwork_partners/packages/WearServices
+ */
+message WsCallInteractionReported {
+
+  // Depicts user interaction during the call.
+  // Values: (CALL_INTERACTION_VOLUME_INCREASE,
+  // CALL_INTERACTION_VOLUME_DECREASE, CALL_INTERACTION_MUTE)
+  optional android.app.wearservices.CallInteraction interaction = 1;
+
+  // Depicts different call account in use.
+  // Values: (CALL_SOURCE_WATCH, CALL_SOURCE_PHONE_HFP,
+  // CALL_SOURCE_PHONE_COMPANION)
+  optional android.app.wearservices.CallSource call_source = 2;
+}

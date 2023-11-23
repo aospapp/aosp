@@ -128,13 +128,12 @@ TEST(TransposeTest, InvalidTilings) {
 }
 
 // Computes the size in elements of a tiled array.
-int64_t SizeOfTiledArray(absl::Span<int64 const> shape,
-                         absl::Span<int64 const> tiling) {
+int64_t SizeOfTiledArray(absl::Span<int64_t const> shape,
+                         absl::Span<int64_t const> tiling) {
   int64_t size = 1;
   for (size_t i = 0; i < shape.size(); ++i) {
     if (i >= shape.size() - tiling.size()) {
-      size *= RoundUpToNearest(shape[i],
-                               tiling[i - (shape.size() - tiling.size())]);
+      size *= RoundUpTo(shape[i], tiling[i - (shape.size() - tiling.size())]);
     } else {
       size *= shape[i];
     }
@@ -144,7 +143,7 @@ int64_t SizeOfTiledArray(absl::Span<int64 const> shape,
 
 // Advances 'indices' in the lexicographical order of the multidimensional
 // array with `shape`. Returns false if the end of the array has been reached.
-bool BumpIndices(absl::Span<int64 const> shape, absl::Span<int64> indices) {
+bool BumpIndices(absl::Span<int64_t const> shape, absl::Span<int64_t> indices) {
   CHECK_EQ(shape.size(), indices.size());
   for (int dimno = indices.size() - 1; dimno >= 0; --dimno) {
     if (indices[dimno] + 1 < shape[dimno]) {
@@ -160,9 +159,9 @@ bool BumpIndices(absl::Span<int64 const> shape, absl::Span<int64> indices) {
 
 // Converts a multidimensional index `indices` into an array with `shape` and
 // tiling `tiling` into a linear offset into a buffer.
-int64 IndexToLinearIndex(absl::Span<int64 const> shape,
-                         absl::Span<int64 const> tiling,
-                         absl::Span<int64 const> indices) {
+int64_t IndexToLinearIndex(absl::Span<int64_t const> shape,
+                           absl::Span<int64_t const> tiling,
+                           absl::Span<int64_t const> indices) {
   CHECK_LE(tiling.size(), shape.size());
   CHECK_EQ(shape.size(), indices.size());
   int64_t stride = 1;
@@ -196,7 +195,7 @@ std::vector<T> TileArray(const Array<T>& in, absl::Span<int64_t const> tiling) {
   if (in.num_elements() == 0) {
     return out;
   }
-  std::vector<int64> indices(in.num_dimensions(), 0);
+  std::vector<int64_t> indices(in.num_dimensions(), 0);
   do {
     int64_t i = IndexToLinearIndex(in.dimensions(), tiling, indices);
     out.at(i) = in(indices);
@@ -357,7 +356,7 @@ class TransposeTest : public ::testing::TestWithParam<TransposeTestCase> {
     const TransposeTestCase test = GetParam();
     tensorflow::thread::ThreadPool threadpool(tensorflow::Env::Default(),
                                               "Transpose", parallelism);
-    std::vector<int64> output_dims = Permute(test.dims, test.permutation);
+    std::vector<int64_t> output_dims = Permute(test.dims, test.permutation);
     TF_ASSERT_OK_AND_ASSIGN(
         auto plan, TransposePlan::Create(
                        sizeof(T), test.dims, test.permutation,
@@ -385,14 +384,14 @@ class TransposeTest : public ::testing::TestWithParam<TransposeTestCase> {
   }
 };
 
-TEST_P(TransposeTest, TransposeInt8) { TestTranspose<int8>(1); }
-TEST_P(TransposeTest, TransposeInt16) { TestTranspose<int16>(1); }
-TEST_P(TransposeTest, TransposeInt32) { TestTranspose<int32>(1); }
-TEST_P(TransposeTest, TransposeInt64) { TestTranspose<int64>(1); }
+TEST_P(TransposeTest, TransposeInt8) { TestTranspose<int8_t>(1); }
+TEST_P(TransposeTest, TransposeInt16) { TestTranspose<int16_t>(1); }
+TEST_P(TransposeTest, TransposeInt32) { TestTranspose<int32_t>(1); }
+TEST_P(TransposeTest, TransposeInt64) { TestTranspose<int64_t>(1); }
 TEST_P(TransposeTest, TransposeInt128) { TestTranspose<absl::int128>(1); }
 
-TEST_P(TransposeTest, ParallelTransposeInt8) { TestTranspose<int8>(16); }
-TEST_P(TransposeTest, ParallelTransposeInt32) { TestTranspose<int32>(16); }
+TEST_P(TransposeTest, ParallelTransposeInt8) { TestTranspose<int8_t>(16); }
+TEST_P(TransposeTest, ParallelTransposeInt32) { TestTranspose<int32_t>(16); }
 
 INSTANTIATE_TEST_SUITE_P(TransposeTestInstance, TransposeTest,
                          ::testing::ValuesIn(GetTransposeTestCases()));
@@ -438,12 +437,34 @@ static std::vector<TransposeTestCase> BenchmarkCases() {
   return std::vector<TransposeTestCase>{
       TransposeTestCase(/*dims=*/{256, 256},
                         /*permutation=*/{1, 0}),
+      TransposeTestCase(/*dims=*/{512, 512},
+                        /*permutation=*/{1, 0}),
+      TransposeTestCase(/*dims=*/{1024, 1024},
+                        /*permutation=*/{1, 0}),
+      TransposeTestCase(/*dims=*/{256, 256, 256},
+                        /*permutation=*/{0, 2, 1}),
+      TransposeTestCase(/*dims=*/{256, 256, 256},
+                        /*permutation=*/{1, 0, 2}),
+      TransposeTestCase(/*dims=*/{256, 256, 256},
+                        /*permutation=*/{1, 2, 0}),
+      TransposeTestCase(/*dims=*/{256, 256, 256},
+                        /*permutation=*/{2, 0, 1}),
+      TransposeTestCase(/*dims=*/{256, 256, 256},
+                        /*permutation=*/{2, 1, 0}),
+      TransposeTestCase(/*dims=*/{512, 512, 512},
+                        /*permutation=*/{0, 2, 1}),
+      TransposeTestCase(/*dims=*/{512, 512, 512},
+                        /*permutation=*/{1, 0, 2}),
+      TransposeTestCase(/*dims=*/{512, 512, 512},
+                        /*permutation=*/{1, 2, 0}),
+      TransposeTestCase(/*dims=*/{512, 512, 512},
+                        /*permutation=*/{2, 0, 1}),
+      TransposeTestCase(/*dims=*/{512, 512, 512},
+                        /*permutation=*/{2, 1, 0}),
       TransposeTestCase(/*dims=*/{64, 224, 224, 3},
                         /*permutation=*/{1, 2, 3, 0}),
       TransposeTestCase(/*dims=*/{256, 64, 64, 3},
                         /*permutation=*/{1, 3, 2, 0}),
-      TransposeTestCase(/*dims=*/{1024, 1024},
-                        /*permutation=*/{1, 0}),
   };
 }
 
@@ -453,7 +474,7 @@ void BM_Eigen(const TransposeTestCase& bm, int parallelism,
   CHECK_EQ(parallelism, 1);
   Array<T> input(bm.dims);
   input.FillIota(0);
-  std::vector<int64> output_dims = Permute(bm.dims, bm.permutation);
+  std::vector<int64_t> output_dims = Permute(bm.dims, bm.permutation);
   Array<T> output(output_dims);
   for (auto s : state) {
     TransposeUsingEigen(input.data(), output.data(), bm.dims, output_dims,
@@ -480,7 +501,7 @@ void BM_Transpose(const TransposeTestCase& bm, int parallelism,
                             TransposePlan::Transformation::kNone, parallelism));
   Array<T> input(bm.dims);
   input.FillIota(0);
-  std::vector<int64> output_dims = Permute(bm.dims, bm.permutation);
+  std::vector<int64_t> output_dims = Permute(bm.dims, bm.permutation);
   Array<T> output(output_dims);
   tensorflow::thread::ThreadPool threadpool(tensorflow::Env::Default(),
                                             "Transpose", parallelism);
@@ -488,7 +509,6 @@ void BM_Transpose(const TransposeTestCase& bm, int parallelism,
     plan->Execute(input.data(), output.data(), [&](std::function<void()> fn) {
       threadpool.Schedule(std::move(fn));
     });
-
     tensorflow::testing::DoNotOptimize(output);
   }
 }
@@ -515,30 +535,17 @@ static void* benchmarks = []() {
   for (const auto& benchmark_case : benchmark_cases) {
     for (const auto& variant : variants) {
       for (int num_threads : std::get<2>(variant)) {
-        std::string name = absl::StrCat(
-            std::get<0>(variant), "_", absl::StrJoin(benchmark_case.dims, "_"),
-            "_perm_", absl::StrJoin(benchmark_case.permutation, "_"));
+        std::string name =
+            absl::StrCat(std::get<0>(variant), "_threads_", num_threads, "_",
+                         absl::StrJoin(benchmark_case.dims, "_"), "_perm_",
+                         absl::StrJoin(benchmark_case.permutation, "_"));
 
         TransposeTestCase testcase = benchmark_case;
-        // FIXME(vyng):
-        // Once we've added OSS benchmark as a dependency, this #if-#else case
-        // should be updated to simply:
-        //
-        // benchmark::RegisterBenchmark( name.c_str(),
-        //    [fn, num_threads, testcase](benchmark::State& state) {
-        //      fn(testcase, num_threads, state);
-        //    });
-#if USING_TF_BENCHMARK
         BenchmarkFn fn = std::get<1>(variant);
-        auto* bm = new tensorflow::testing::Benchmark(
-            name.c_str(),
-            [fn, num_threads, &testcase](benchmark::State& state) {
+        benchmark::RegisterBenchmark(
+            name.c_str(), [fn, num_threads, testcase](benchmark::State& state) {
               fn(testcase, num_threads, state);
             });
-#else
-        LOG(WARNING) << "Benchmarks can only be run with USING_TF_BENCHMARK";
-        (void)(&num_threads);  // avoid "unused variable" warnings.
-#endif
       }
     }
   }

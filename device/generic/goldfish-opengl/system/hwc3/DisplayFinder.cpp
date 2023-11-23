@@ -31,7 +31,7 @@ constexpr int32_t HertzToPeriodNanos(uint32_t hertz) {
   return 1000 * 1000 * 1000 / hertz;
 }
 
-HWC3::Error findCuttlefishDisplays(std::vector<DisplayMultiConfigs>& displays) {
+HWC3::Error findCuttlefishDisplays(std::vector<DisplayMultiConfigs>* outDisplays) {
   DEBUG_LOG("%s", __FUNCTION__);
 
   // TODO: replace with initializing directly from DRM info.
@@ -55,7 +55,7 @@ HWC3::Error findCuttlefishDisplays(std::vector<DisplayMultiConfigs>& displays) {
                               vsyncPeriodNanos),
             },
     };
-    displays.push_back(display);
+    outDisplays->push_back(display);
     ++displayId;
   }
 
@@ -79,7 +79,7 @@ static int getVsyncHzFromProperty() {
 }
 
 HWC3::Error findGoldfishPrimaryDisplay(
-    std::vector<DisplayMultiConfigs>& displays) {
+    std::vector<DisplayMultiConfigs>* outDisplays) {
   DEBUG_LOG("%s", __FUNCTION__);
 
   DEFINE_AND_VALIDATE_HOST_CONNECTION
@@ -118,13 +118,13 @@ HWC3::Error findGoldfishPrimaryDisplay(
   }
   hostCon->unlock();
 
-  displays.push_back(display);
+  outDisplays->push_back(display);
 
   return HWC3::Error::None;
 }
 
 HWC3::Error findGoldfishSecondaryDisplays(
-    std::vector<DisplayMultiConfigs>& displays) {
+    std::vector<DisplayMultiConfigs>* outDisplays) {
   DEBUG_LOG("%s", __FUNCTION__);
 
   static constexpr const char kExternalDisplayProp[] =
@@ -170,7 +170,7 @@ HWC3::Error findGoldfishSecondaryDisplays(
         /*dpiYh=*/propIntParts[3],               //
         /*vsyncPeriod=*/HertzToPeriodNanos(160)  //
         ));
-    displays.push_back(display);
+    outDisplays->push_back(display);
 
     ++secondaryDisplayId;
 
@@ -180,14 +180,14 @@ HWC3::Error findGoldfishSecondaryDisplays(
   return HWC3::Error::None;
 }
 
-HWC3::Error findGoldfishDisplays(std::vector<DisplayMultiConfigs>& displays) {
-  HWC3::Error error = findGoldfishPrimaryDisplay(displays);
+HWC3::Error findGoldfishDisplays(std::vector<DisplayMultiConfigs>* outDisplays) {
+  HWC3::Error error = findGoldfishPrimaryDisplay(outDisplays);
   if (error != HWC3::Error::None) {
     ALOGE("%s failed to find Goldfish primary display", __FUNCTION__);
     return error;
   }
 
-  error = findGoldfishSecondaryDisplays(displays);
+  error = findGoldfishSecondaryDisplays(outDisplays);
   if (error != HWC3::Error::None) {
     ALOGE("%s failed to find Goldfish secondary displays", __FUNCTION__);
   }
@@ -197,8 +197,8 @@ HWC3::Error findGoldfishDisplays(std::vector<DisplayMultiConfigs>& displays) {
 
 // This is currently only used for Gem5 bring-up where virtio-gpu and drm
 // are not currently available. For now, just return a placeholder display.
-HWC3::Error findNoOpDisplays(std::vector<DisplayMultiConfigs>& displays) {
-  displays.push_back(DisplayMultiConfigs{
+HWC3::Error findNoOpDisplays(std::vector<DisplayMultiConfigs>* outDisplays) {
+  outDisplays->push_back(DisplayMultiConfigs{
       .displayId = 0,
       .activeConfigId = 0,
       .configs = {DisplayConfig(0,
@@ -213,16 +213,54 @@ HWC3::Error findNoOpDisplays(std::vector<DisplayMultiConfigs>& displays) {
   return HWC3::Error::None;
 }
 
+HWC3::Error findDrmDisplays(const DrmClient& drm,
+                            std::vector<DisplayMultiConfigs>* outDisplays) {
+  outDisplays->clear();
+
+  std::vector<DrmClient::DisplayConfig> drmDisplayConfigs;
+
+  HWC3::Error error = drm.getDisplayConfigs(&drmDisplayConfigs);
+  if (error != HWC3::Error::None) {
+    ALOGE("%s failed to find displays from DRM.", __FUNCTION__);
+    return error;
+  }
+
+  for (const DrmClient::DisplayConfig drmDisplayConfig : drmDisplayConfigs) {
+    outDisplays->push_back(DisplayMultiConfigs{
+      .displayId = drmDisplayConfig.id,
+      .activeConfigId = static_cast<int32_t>(drmDisplayConfig.id),
+      .configs = {
+        DisplayConfig(static_cast<int32_t>(drmDisplayConfig.id),
+                      drmDisplayConfig.width,
+                      drmDisplayConfig.height,
+                      drmDisplayConfig.dpiX,
+                      drmDisplayConfig.dpiY,
+                      HertzToPeriodNanos(drmDisplayConfig.refreshRateHz)),
+      },
+    });
+  }
+
+  return HWC3::Error::None;
+}
+
 }  // namespace
 
-HWC3::Error findDisplays(std::vector<DisplayMultiConfigs>& displays) {
+HWC3::Error findDisplays(const DrmClient* drm,
+                         std::vector<DisplayMultiConfigs>* outDisplays) {
   HWC3::Error error = HWC3::Error::None;
-  if (IsNoOpMode()) {
-    error = findNoOpDisplays(displays);
+  if (IsInGem5DisplayFinderMode() || IsInNoOpCompositionMode()) {
+    error = findNoOpDisplays(outDisplays);
+  } else if (IsInDrmDisplayFinderMode()) {
+    if (drm == nullptr) {
+      ALOGE("%s asked to find displays from DRM, but DRM not available.",
+            __FUNCTION__);
+      return HWC3::Error::NoResources;
+    }
+    error = findDrmDisplays(*drm, outDisplays);
   } else if (IsCuttlefish()) {
-    error = findCuttlefishDisplays(displays);
+    error = findCuttlefishDisplays(outDisplays);
   } else {
-    error = findGoldfishDisplays(displays);
+    error = findGoldfishDisplays(outDisplays);
   }
 
   if (error != HWC3::Error::None) {
@@ -230,7 +268,7 @@ HWC3::Error findDisplays(std::vector<DisplayMultiConfigs>& displays) {
     return error;
   }
 
-  for (auto& display : displays) {
+  for (auto& display : *outDisplays) {
     DisplayConfig::addConfigGroups(&display.configs);
   }
 

@@ -56,6 +56,7 @@ public final class OpenSSLProvider extends Provider {
         this(Platform.getDefaultProviderName());
     }
 
+    @SuppressWarnings("deprecation")
     public OpenSSLProvider(String providerName) {
         this(providerName, Platform.provideTrustManagerByDefault(), "TLSv1.3");
     }
@@ -98,6 +99,9 @@ public final class OpenSSLProvider extends Provider {
             put("TrustManagerFactory.PKIX", TrustManagerFactoryImpl.class.getName());
             put("Alg.Alias.TrustManagerFactory.X509", "PKIX");
         }
+
+        put("KeyManagerFactory.PKIX", KeyManagerFactoryImpl.class.getName());
+        put("Alg.Alias.KeyManagerFactory.X509", "PKIX");
 
         /* === AlgorithmParameters === */
         put("AlgorithmParameters.AES", PREFIX + "IvParameters$AES");

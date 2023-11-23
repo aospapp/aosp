@@ -4,6 +4,8 @@ import android.hardware.common.fmq.MQDescriptor;
 import android.hardware.common.fmq.SynchronizedReadWrite;
 
 import device.google.atv.audio_proxy.AudioDrain;
+import device.google.atv.audio_proxy.MmapBufferInfo;
+import device.google.atv.audio_proxy.PresentationPosition;
 import device.google.atv.audio_proxy.WriteStatus;
 
 /**
@@ -42,4 +44,26 @@ interface IOutputStream {
      * Volume control.
      */
     void setVolume(float left, float right);
+
+    /**
+     * Get the buffer size and latency of the stream. They're called before starting the playback.
+     */
+    long getBufferSizeBytes();
+    int getLatencyMs();
+
+    /**
+     * Start/Stop playback for MMAP_NOIRQ stream.
+     */
+    void start();
+    void stop();
+
+    /**
+     * Create a share memory for MMAP_NOIRQ stream.
+     */
+    MmapBufferInfo createMmapBuffer(int minSizeFrames);
+
+    /**
+     * Query the presentation position for MMAP_NOIRQ stream.
+     */
+    PresentationPosition getMmapPosition();
 }

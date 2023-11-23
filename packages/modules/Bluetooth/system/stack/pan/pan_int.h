@@ -107,31 +107,30 @@ typedef struct {
 extern tPAN_CB pan_cb;
 
 /******************************************************************************/
-extern void pan_register_with_bnep(void);
-extern void pan_conn_ind_cb(uint16_t handle, const RawAddress& p_bda,
-                            const bluetooth::Uuid& remote_uuid,
-                            const bluetooth::Uuid& local_uuid,
-                            bool is_role_change);
-extern void pan_connect_state_cb(uint16_t handle, const RawAddress& rem_bda,
-                                 tBNEP_RESULT result, bool is_role_change);
-extern void pan_data_buf_ind_cb(uint16_t handle, const RawAddress& src,
-                                const RawAddress& dst, uint16_t protocol,
-                                BT_HDR* p_buf, bool ext);
-extern void pan_tx_data_flow_cb(uint16_t handle, tBNEP_RESULT event);
+void pan_register_with_bnep(void);
+void pan_conn_ind_cb(uint16_t handle, const RawAddress& p_bda,
+                     const bluetooth::Uuid& remote_uuid,
+                     const bluetooth::Uuid& local_uuid, bool is_role_change);
+void pan_connect_state_cb(uint16_t handle, const RawAddress& rem_bda,
+                          tBNEP_RESULT result, bool is_role_change);
+void pan_data_buf_ind_cb(uint16_t handle, const RawAddress& src,
+                         const RawAddress& dst, uint16_t protocol,
+                         BT_HDR* p_buf, bool ext);
+void pan_tx_data_flow_cb(uint16_t handle, tBNEP_RESULT event);
 void pan_proto_filt_ind_cb(uint16_t handle, bool indication,
                            tBNEP_RESULT result, uint16_t num_filters,
                            uint8_t* p_filters);
 void pan_mcast_filt_ind_cb(uint16_t handle, bool indication,
                            tBNEP_RESULT result, uint16_t num_filters,
                            uint8_t* p_filters);
-extern uint32_t pan_register_with_sdp(uint16_t uuid, const char* p_name,
-                                      const char* p_desc);
-extern tPAN_CONN* pan_allocate_pcb(const RawAddress& p_bda, uint16_t handle);
-extern tPAN_CONN* pan_get_pcb_by_handle(uint16_t handle);
-extern tPAN_CONN* pan_get_pcb_by_addr(const RawAddress& p_bda);
-extern void pan_close_all_connections(void);
-extern void pan_release_pcb(tPAN_CONN* p_pcb);
-extern void pan_dump_status(void);
+uint32_t pan_register_with_sdp(uint16_t uuid, const char* p_name,
+                               const char* p_desc);
+tPAN_CONN* pan_allocate_pcb(const RawAddress& p_bda, uint16_t handle);
+tPAN_CONN* pan_get_pcb_by_handle(uint16_t handle);
+tPAN_CONN* pan_get_pcb_by_addr(const RawAddress& p_bda);
+void pan_close_all_connections(void);
+void pan_release_pcb(tPAN_CONN* p_pcb);
+void pan_dump_status(void);
 
 /******************************************************************************/
 

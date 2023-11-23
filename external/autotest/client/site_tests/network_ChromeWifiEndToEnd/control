@@ -6,6 +6,7 @@ AUTHOR = 'harpreet, krisr, wiley'
 NAME = 'network_ChromeWifiEndToEnd'
 TIME = 'FAST'
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 DOC = """
   Client side of the end to end WiFi test which is called by the

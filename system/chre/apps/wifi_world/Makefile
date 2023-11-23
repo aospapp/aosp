@@ -28,6 +28,7 @@ COMMON_CFLAGS += -I.
 
 COMMON_CFLAGS += -DNANOAPP_MINIMUM_LOG_LEVEL=CHRE_LOG_LEVEL_DEBUG
 COMMON_CFLAGS += -DLOG_TAG=\"[WifiWorld]\"
+COMMON_CFLAGS += -DCHRE_ASSERTIONS_ENABLED
 
 # Common Source Files ##########################################################
 

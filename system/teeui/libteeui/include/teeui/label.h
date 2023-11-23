@@ -147,11 +147,14 @@ template <typename Derived> class Label : public LayoutElement<Derived>, public 
 #define HorizontalTextAlignment(horizontalAligment)                                                \
     static const constexpr Alignment label_horizontal_text_alignment = horizontalAligment;
 
+#define LeftJustified HorizontalTextAlignment(Alignment::LEFT)
+#define CenterJustified HorizontalTextAlignment(Alignment::CENTER)
 #define RightJustified HorizontalTextAlignment(Alignment::RIGHT)
 
 #define VerticalTextAlignment(verticalAligment)                                                    \
     static const constexpr Alignment label_vertical_text_alignment = verticalAligment;
 
+#define VerticallyTop VerticalTextAlignment(Alignment::TOP)
 #define VerticallyCentered VerticalTextAlignment(Alignment::CENTER)
 
 #define TextColor(color) static const constexpr auto label_text_color = color

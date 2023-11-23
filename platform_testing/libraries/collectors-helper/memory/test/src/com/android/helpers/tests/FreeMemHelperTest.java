@@ -56,5 +56,10 @@ public class FreeMemHelperTest {
         assertTrue(freeMemMetrics.get(FreeMemHelper.PROC_MEMINFO_MEM_AVAILABLE) > 0);
         assertTrue(freeMemMetrics.get(FreeMemHelper.PROC_MEMINFO_MEM_FREE) > 0);
         assertTrue(freeMemMetrics.get(FreeMemHelper.DUMPSYS_CACHED_PROC_MEMORY) > 0);
+        // Mem available should be less than cache proc dirty, because cache proc dirty includes
+        // mem available plus cached processes' memory usage.
+        assertTrue(
+                freeMemMetrics.get(FreeMemHelper.PROC_MEMINFO_MEM_AVAILABLE)
+                        < freeMemMetrics.get(FreeMemHelper.MEM_AVAILABLE_CACHE_PROC_DIRTY));
     }
 }

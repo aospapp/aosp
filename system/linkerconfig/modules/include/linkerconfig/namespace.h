@@ -112,6 +112,8 @@ class Namespace {
   std::vector<std::string> permitted_paths_;
   std::vector<std::string> asan_search_paths_;
   std::vector<std::string> asan_permitted_paths_;
+  std::vector<std::string> hwasan_search_paths_;
+  std::vector<std::string> hwasan_permitted_paths_;
   std::vector<std::string> allowed_libs_;
   std::vector<Link> links_;
   std::set<std::string> provides_;
@@ -122,6 +124,7 @@ class Namespace {
                        const std::vector<std::string>& path_list);
   bool RequiresAsanPath(const std::string& path);
   const std::string CreateAsanPath(const std::string& path);
+  const std::string CreateHwasanPath(const std::string& path);
   android::base::Result<void> VerifyContents();
 };
 

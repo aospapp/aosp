@@ -23,6 +23,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="not_secondary_user" />
     <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user_on_secondary_display"/>
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -32,14 +33,15 @@
     </target_preparer>
 
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
-        <option name="run-command" value="dpm set-active-admin --user cur android.admin.app/.CtsDeviceAdminReceiver" />
-        <option name="run-command" value="dpm set-active-admin --user cur android.admin.app/.CtsDeviceAdminReceiver2" />
-        <option name="run-command" value="dpm set-active-admin --user cur android.admin.app/.CtsDeviceAdminReceiver3" />
-        <option name="run-command" value="dpm set-profile-owner --user cur android.admin.app/.CtsDeviceAdminProfileOwner" />
-        <option name="teardown-command" value="dpm remove-active-admin --user cur android.admin.app/.CtsDeviceAdminProfileOwner" />
-        <option name="teardown-command" value="dpm remove-active-admin --user cur android.admin.app/.CtsDeviceAdminReceiver" />
-        <option name="teardown-command" value="dpm remove-active-admin --user cur android.admin.app/.CtsDeviceAdminReceiver2" />
-        <option name="teardown-command" value="dpm remove-active-admin --user cur android.admin.app/.CtsDeviceAdminReceiver3" />
+        <option name="test-user-token" value="%TEST_USER%"/>
+        <option name="run-command" value="dpm set-active-admin --user %TEST_USER% android.admin.app/.CtsDeviceAdminReceiver" />
+        <option name="run-command" value="dpm set-active-admin --user %TEST_USER% android.admin.app/.CtsDeviceAdminReceiver2" />
+        <option name="run-command" value="dpm set-active-admin --user %TEST_USER% android.admin.app/.CtsDeviceAdminReceiver3" />
+        <option name="run-command" value="dpm set-profile-owner --user %TEST_USER% android.admin.app/.CtsDeviceAdminProfileOwner" />
+        <option name="teardown-command" value="dpm remove-active-admin --user %TEST_USER% android.admin.app/.CtsDeviceAdminProfileOwner" />
+        <option name="teardown-command" value="dpm remove-active-admin --user %TEST_USER% android.admin.app/.CtsDeviceAdminReceiver" />
+        <option name="teardown-command" value="dpm remove-active-admin --user %TEST_USER% android.admin.app/.CtsDeviceAdminReceiver2" />
+        <option name="teardown-command" value="dpm remove-active-admin --user %TEST_USER% android.admin.app/.CtsDeviceAdminReceiver3" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >

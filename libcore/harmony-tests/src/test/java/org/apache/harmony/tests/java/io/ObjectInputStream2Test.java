@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,11 @@
 package org.apache.harmony.tests.java.io;
 
 import dalvik.system.DexFile;
+
+import junit.framework.TestCase;
+
+import org.apache.harmony.testframework.serialization.SerializationTest;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -33,10 +38,6 @@ import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-
-import junit.framework.TestCase;
-
-import org.apache.harmony.testframework.serialization.SerializationTest;
 
 public class ObjectInputStream2Test extends TestCase {
 
@@ -230,6 +231,7 @@ public class ObjectInputStream2Test extends TestCase {
         // Get the class object
         try {
             Files.copy(dexIs, sameFieldNames.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            assertTrue(sameFieldNames.setReadOnly());
             DexFile dexFile = new DexFile(sameFieldNames);
             clazz = dexFile.loadClass("sameFieldNames", getClass().getClassLoader());
             dexFile.close();
@@ -244,9 +246,9 @@ public class ObjectInputStream2Test extends TestCase {
         int v = 123;
         for(Field f : clazz.getFields()) {
             if (f.getType() == Integer.class) {
-                f.set(o1, new Integer(v++));
+                f.set(o1, Integer.valueOf(v++));
             } else if (f.getType() == Long.class) {
-                f.set(o1, new Long(v++));
+                f.set(o1, Long.valueOf(v++));
             }
         }
 

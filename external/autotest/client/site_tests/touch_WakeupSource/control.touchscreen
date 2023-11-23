@@ -15,6 +15,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "touch"
 TEST_TYPE = "client"
 DEPENDENCIES = "touchscreen"
+PY_VERSION = 3
 
 DOC = """
 For this device's touchscreen, verify whether that device is

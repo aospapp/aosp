@@ -14,12 +14,16 @@
 
 #include "src/logd/LogEvent.h"
 
+#include <android-modules-utils/sdk_level.h>
 #include <gtest/gtest.h>
 
+#include "flags/FlagProvider.h"
 #include "frameworks/proto_logging/stats/atoms.pb.h"
 #include "frameworks/proto_logging/stats/enums/stats/launcher/launcher.pb.h"
 #include "log/log_event_list.h"
+#include "stats_annotations.h"
 #include "stats_event.h"
+#include "statsd_test_util.h"
 
 #ifdef __ANDROID__
 
@@ -27,10 +31,11 @@ namespace android {
 namespace os {
 namespace statsd {
 
+using android::modules::sdklevel::IsAtLeastU;
 using std::string;
 using std::vector;
-using util::ProtoOutputStream;
-using util::ProtoReader;
+using ::util::ProtoOutputStream;
+using ::util::ProtoReader;
 
 namespace {
 
@@ -43,94 +48,117 @@ Field getField(int32_t tag, const vector<int32_t>& pos, int32_t depth, const vec
     return f;
 }
 
-void createStatsEvent(AStatsEvent* statsEvent, uint8_t typeId) {
-    AStatsEvent_setAtomId(statsEvent, /*atomId=*/100);
-
-    int int32Array[2] = {3, 6};
-    uint32_t uids[] = {1001, 1002};
-    const char* tags[] = {"tag1", "tag2"};
-
-    switch (typeId) {
-        case INT32_TYPE:
-            AStatsEvent_writeInt32(statsEvent, 10);
-            break;
-        case INT64_TYPE:
-            AStatsEvent_writeInt64(statsEvent, 1000L);
-            break;
-        case STRING_TYPE:
-            AStatsEvent_writeString(statsEvent, "test");
-            break;
-        case LIST_TYPE:
-            AStatsEvent_writeInt32Array(statsEvent, int32Array, 2);
-            break;
-        case FLOAT_TYPE:
-            AStatsEvent_writeFloat(statsEvent, 1.3f);
-            break;
-        case BOOL_TYPE:
-            AStatsEvent_writeBool(statsEvent, 1);
-            break;
-        case BYTE_ARRAY_TYPE:
-            AStatsEvent_writeByteArray(statsEvent, (uint8_t*)"test", strlen("test"));
-            break;
-        case ATTRIBUTION_CHAIN_TYPE:
-            AStatsEvent_writeAttributionChain(statsEvent, uids, tags, 2);
-            break;
-        default:
-            break;
-    }
-}
-
-void createFieldWithBoolAnnotationLogEvent(LogEvent* logEvent, uint8_t typeId, uint8_t annotationId,
-                                           bool annotationValue, bool parseBufferResult) {
+bool createFieldWithBoolAnnotationLogEvent(LogEvent* logEvent, uint8_t typeId, uint8_t annotationId,
+                                           bool annotationValue, bool doHeaderPrefetch) {
     AStatsEvent* statsEvent = AStatsEvent_obtain();
-    createStatsEvent(statsEvent, typeId);
+    createStatsEvent(statsEvent, typeId, /*atomId=*/100);
     AStatsEvent_addBoolAnnotation(statsEvent, annotationId, annotationValue);
     AStatsEvent_build(statsEvent);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
-    EXPECT_EQ(parseBufferResult, logEvent->parseBuffer(buf, size));
-
+    const uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
+    if (doHeaderPrefetch) {
+        // Testing LogEvent header prefetch logic
+        const LogEvent::BodyBufferInfo bodyInfo = logEvent->parseHeader(buf, size);
+        logEvent->parseBody(bodyInfo);
+    } else {
+        logEvent->parseBuffer(buf, size);
+    }
     AStatsEvent_release(statsEvent);
+
+    return logEvent->isValid();
 }
 
-void createFieldWithIntAnnotationLogEvent(LogEvent* logEvent, uint8_t typeId, uint8_t annotationId,
-                                          int annotationValue, bool parseBufferResult) {
+bool createFieldWithIntAnnotationLogEvent(LogEvent* logEvent, uint8_t typeId, uint8_t annotationId,
+                                          int annotationValue, bool doHeaderPrefetch) {
     AStatsEvent* statsEvent = AStatsEvent_obtain();
-    createStatsEvent(statsEvent, typeId);
+    createStatsEvent(statsEvent, typeId, /*atomId=*/100);
     AStatsEvent_addInt32Annotation(statsEvent, annotationId, annotationValue);
     AStatsEvent_build(statsEvent);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
-    EXPECT_EQ(parseBufferResult, logEvent->parseBuffer(buf, size));
-
+    const uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
+    if (doHeaderPrefetch) {
+        // Testing LogEvent header prefetch logic
+        const LogEvent::BodyBufferInfo bodyInfo = logEvent->parseHeader(buf, size);
+        logEvent->parseBody(bodyInfo);
+    } else {
+        logEvent->parseBuffer(buf, size);
+    }
     AStatsEvent_release(statsEvent);
+
+    return logEvent->isValid();
+}
+
+bool createAtomLevelIntAnnotationLogEvent(LogEvent* logEvent, uint8_t typeId, uint8_t annotationId,
+                                          int annotationValue, bool doHeaderPrefetch) {
+    AStatsEvent* statsEvent = AStatsEvent_obtain();
+    AStatsEvent_setAtomId(statsEvent, /*atomId=*/100);
+    AStatsEvent_addInt32Annotation(statsEvent, annotationId, annotationValue);
+    fillStatsEventWithSampleValue(statsEvent, typeId);
+    AStatsEvent_build(statsEvent);
+
+    size_t size;
+    const uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
+    if (doHeaderPrefetch) {
+        // Testing LogEvent header prefetch logic
+        const LogEvent::BodyBufferInfo bodyInfo = logEvent->parseHeader(buf, size);
+        logEvent->parseBody(bodyInfo);
+    } else {
+        logEvent->parseBuffer(buf, size);
+    }
+    AStatsEvent_release(statsEvent);
+
+    return logEvent->isValid();
+}
+
+bool createAtomLevelBoolAnnotationLogEvent(LogEvent* logEvent, uint8_t typeId, uint8_t annotationId,
+                                           bool annotationValue, bool doHeaderPrefetch) {
+    AStatsEvent* statsEvent = AStatsEvent_obtain();
+    AStatsEvent_setAtomId(statsEvent, /*atomId=*/100);
+    AStatsEvent_addBoolAnnotation(statsEvent, annotationId, annotationValue);
+    fillStatsEventWithSampleValue(statsEvent, typeId);
+    AStatsEvent_build(statsEvent);
+
+    size_t size;
+    const uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
+    if (doHeaderPrefetch) {
+        // Testing LogEvent header prefetch logic
+        const LogEvent::BodyBufferInfo bodyInfo = logEvent->parseHeader(buf, size);
+        logEvent->parseBody(bodyInfo);
+    } else {
+        logEvent->parseBuffer(buf, size);
+    }
+    AStatsEvent_release(statsEvent);
+
+    return logEvent->isValid();
 }
 
 }  // anonymous namespace
 
 // Setup for parameterized tests.
-class LogEventTestBadAnnotationFieldTypes : public testing::TestWithParam<int> {
+class LogEventTestBadAnnotationFieldTypes : public testing::TestWithParam<std::tuple<int, bool>> {
 public:
-    static std::string ToString(testing::TestParamInfo<int> info) {
-        switch (info.param) {
+    static std::string ToString(testing::TestParamInfo<std::tuple<int, bool>> info) {
+        const std::string boolName = std::get<1>(info.param) ? "_prefetchTrue" : "_prefetchFalse";
+
+        switch (std::get<0>(info.param)) {
             case INT32_TYPE:
-                return "Int32";
+                return "Int32" + boolName;
             case INT64_TYPE:
-                return "Int64";
+                return "Int64" + boolName;
             case STRING_TYPE:
-                return "String";
+                return "String" + boolName;
             case LIST_TYPE:
-                return "List";
+                return "List" + boolName;
             case FLOAT_TYPE:
-                return "Float";
+                return "Float" + boolName;
             case BYTE_ARRAY_TYPE:
-                return "ByteArray";
+                return "ByteArray" + boolName;
             case ATTRIBUTION_CHAIN_TYPE:
-                return "AttributionChain";
+                return "AttributionChain" + boolName;
             default:
-                return "Unknown";
+                return "Unknown" + boolName;
         }
     }
 };
@@ -138,11 +166,40 @@ public:
 // TODO(b/222539899): Add BOOL_TYPE value once parseAnnotations is updated to check specific
 // typeIds. BOOL_TYPE should be a bad field type for is_uid, nested, and reset state annotations.
 INSTANTIATE_TEST_SUITE_P(BadAnnotationFieldTypes, LogEventTestBadAnnotationFieldTypes,
-                         testing::Values(INT32_TYPE, INT64_TYPE, STRING_TYPE, LIST_TYPE, FLOAT_TYPE,
-                                         BYTE_ARRAY_TYPE, ATTRIBUTION_CHAIN_TYPE),
+                         testing::Combine(testing::Values(INT32_TYPE, INT64_TYPE, STRING_TYPE,
+                                                          LIST_TYPE, FLOAT_TYPE, BYTE_ARRAY_TYPE,
+                                                          ATTRIBUTION_CHAIN_TYPE),
+                                          testing::Bool()),
                          LogEventTestBadAnnotationFieldTypes::ToString);
 
-TEST(LogEventTest, TestPrimitiveParsing) {
+class LogEventTest : public testing::TestWithParam<bool> {
+public:
+    bool ParseBuffer(LogEvent& logEvent, const uint8_t* buf, size_t size) {
+        size_t bufferOffset = 0;
+        if (GetParam()) {
+            // Testing LogEvent header prefetch logic
+            const LogEvent::BodyBufferInfo bodyInfo = logEvent.parseHeader(buf, size);
+            EXPECT_TRUE(logEvent.isParsedHeaderOnly());
+            const bool parseResult = logEvent.parseBody(bodyInfo);
+            EXPECT_EQ(parseResult, logEvent.isValid());
+            EXPECT_FALSE(logEvent.isParsedHeaderOnly());
+        } else {
+            const bool parseResult = logEvent.parseBuffer(buf, size);
+            EXPECT_EQ(parseResult, logEvent.isValid());
+            EXPECT_FALSE(logEvent.isParsedHeaderOnly());
+        }
+        return logEvent.isValid();
+    }
+
+    static std::string ToString(testing::TestParamInfo<bool> info) {
+        return info.param ? "PrefetchTrue" : "PrefetchFalse";
+    }
+};
+
+INSTANTIATE_TEST_SUITE_P(LogEventTestBufferParsing, LogEventTest, testing::Bool(),
+                         LogEventTest::ToString);
+
+TEST_P(LogEventTest, TestPrimitiveParsing) {
     AStatsEvent* event = AStatsEvent_obtain();
     AStatsEvent_setAtomId(event, 100);
     AStatsEvent_writeInt32(event, 10);
@@ -152,10 +209,10 @@ TEST(LogEventTest, TestPrimitiveParsing) {
     AStatsEvent_build(event);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(event, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(event, &size);
 
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_TRUE(logEvent.parseBuffer(buf, size));
+    EXPECT_TRUE(ParseBuffer(logEvent, buf, size));
 
     EXPECT_EQ(100, logEvent.GetTagId());
     EXPECT_EQ(1000, logEvent.GetUid());
@@ -192,7 +249,59 @@ TEST(LogEventTest, TestPrimitiveParsing) {
     AStatsEvent_release(event);
 }
 
-TEST(LogEventTest, TestStringAndByteArrayParsing) {
+TEST_P(LogEventTest, TestEventWithInvalidHeaderParsing) {
+    AStatsEvent* event = AStatsEvent_obtain();
+    AStatsEvent_setAtomId(event, 100);
+    AStatsEvent_writeInt32(event, 10);
+    AStatsEvent_writeInt64(event, 0x123456789);
+    AStatsEvent_writeFloat(event, 2.0);
+    AStatsEvent_writeBool(event, true);
+    AStatsEvent_build(event);
+
+    size_t size;
+    const uint8_t* buf = AStatsEvent_getBuffer(event, &size);
+
+    // Corrupt LogEvent header info
+    // OBJECT_TYPE | NUM_FIELDS | TIMESTAMP | ATOM_ID
+    // Corrupting first 4 bytes will be sufficient
+    uint8_t* bufMod = const_cast<uint8_t*>(buf);
+    memset(static_cast<void*>(bufMod), 4, ERROR_TYPE);
+
+    LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
+    EXPECT_FALSE(ParseBuffer(logEvent, buf, size));
+    EXPECT_FALSE(logEvent.isValid());
+    EXPECT_FALSE(logEvent.isParsedHeaderOnly());
+
+    AStatsEvent_release(event);
+}
+
+TEST(LogEventTestParsing, TestFetchHeaderOnly) {
+    AStatsEvent* event = AStatsEvent_obtain();
+    AStatsEvent_setAtomId(event, 100);
+    AStatsEvent_writeInt32(event, 10);
+    AStatsEvent_writeInt64(event, 0x123456789);
+    AStatsEvent_writeFloat(event, 2.0);
+    AStatsEvent_writeBool(event, true);
+    AStatsEvent_build(event);
+
+    size_t size;
+    const uint8_t* buf = AStatsEvent_getBuffer(event, &size);
+
+    LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
+    const LogEvent::BodyBufferInfo bodyInfo = logEvent.parseHeader(buf, size);
+    EXPECT_TRUE(logEvent.isValid());
+    EXPECT_TRUE(logEvent.isParsedHeaderOnly());
+
+    AStatsEvent_release(event);
+
+    EXPECT_EQ(100, logEvent.GetTagId());
+    EXPECT_EQ(1000, logEvent.GetUid());
+    EXPECT_EQ(1001, logEvent.GetPid());
+    EXPECT_FALSE(logEvent.hasAttributionChain());
+    ASSERT_EQ(0, logEvent.getValues().size());
+}
+
+TEST_P(LogEventTest, TestStringAndByteArrayParsing) {
     AStatsEvent* event = AStatsEvent_obtain();
     AStatsEvent_setAtomId(event, 100);
     string str = "test";
@@ -201,10 +310,10 @@ TEST(LogEventTest, TestStringAndByteArrayParsing) {
     AStatsEvent_build(event);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(event, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(event, &size);
 
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_TRUE(logEvent.parseBuffer(buf, size));
+    EXPECT_TRUE(ParseBuffer(logEvent, buf, size));
 
     EXPECT_EQ(100, logEvent.GetTagId());
     EXPECT_EQ(1000, logEvent.GetUid());
@@ -230,7 +339,7 @@ TEST(LogEventTest, TestStringAndByteArrayParsing) {
     AStatsEvent_release(event);
 }
 
-TEST(LogEventTest, TestEmptyString) {
+TEST_P(LogEventTest, TestEmptyString) {
     AStatsEvent* event = AStatsEvent_obtain();
     AStatsEvent_setAtomId(event, 100);
     string empty = "";
@@ -238,10 +347,10 @@ TEST(LogEventTest, TestEmptyString) {
     AStatsEvent_build(event);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(event, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(event, &size);
 
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_TRUE(logEvent.parseBuffer(buf, size));
+    EXPECT_TRUE(ParseBuffer(logEvent, buf, size));
 
     EXPECT_EQ(100, logEvent.GetTagId());
     EXPECT_EQ(1000, logEvent.GetUid());
@@ -260,7 +369,7 @@ TEST(LogEventTest, TestEmptyString) {
     AStatsEvent_release(event);
 }
 
-TEST(LogEventTest, TestByteArrayWithNullCharacter) {
+TEST_P(LogEventTest, TestByteArrayWithNullCharacter) {
     AStatsEvent* event = AStatsEvent_obtain();
     AStatsEvent_setAtomId(event, 100);
     uint8_t message[] = {'\t', 'e', '\0', 's', 't'};
@@ -268,10 +377,10 @@ TEST(LogEventTest, TestByteArrayWithNullCharacter) {
     AStatsEvent_build(event);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(event, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(event, &size);
 
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_TRUE(logEvent.parseBuffer(buf, size));
+    EXPECT_TRUE(ParseBuffer(logEvent, buf, size));
 
     EXPECT_EQ(100, logEvent.GetTagId());
     EXPECT_EQ(1000, logEvent.GetUid());
@@ -290,7 +399,7 @@ TEST(LogEventTest, TestByteArrayWithNullCharacter) {
     AStatsEvent_release(event);
 }
 
-TEST(LogEventTest, TestTooManyTopLevelElements) {
+TEST_P(LogEventTest, TestTooManyTopLevelElements) {
     int32_t numElements = 128;
     AStatsEvent* event = AStatsEvent_obtain();
     AStatsEvent_setAtomId(event, 100);
@@ -302,14 +411,14 @@ TEST(LogEventTest, TestTooManyTopLevelElements) {
     AStatsEvent_build(event);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(event, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(event, &size);
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_FALSE(logEvent.parseBuffer(buf, size));
+    EXPECT_FALSE(ParseBuffer(logEvent, buf, size));
 
     AStatsEvent_release(event);
 }
 
-TEST(LogEventTest, TestAttributionChain) {
+TEST_P(LogEventTest, TestAttributionChain) {
     AStatsEvent* event = AStatsEvent_obtain();
     AStatsEvent_setAtomId(event, 100);
 
@@ -323,10 +432,10 @@ TEST(LogEventTest, TestAttributionChain) {
     AStatsEvent_build(event);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(event, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(event, &size);
 
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_TRUE(logEvent.parseBuffer(buf, size));
+    EXPECT_TRUE(ParseBuffer(logEvent, buf, size));
 
     EXPECT_EQ(100, logEvent.GetTagId());
     EXPECT_EQ(1000, logEvent.GetUid());
@@ -369,7 +478,7 @@ TEST(LogEventTest, TestAttributionChain) {
     AStatsEvent_release(event);
 }
 
-TEST(LogEventTest, TestEmptyAttributionChain) {
+TEST_P(LogEventTest, TestEmptyAttributionChain) {
     AStatsEvent* event = AStatsEvent_obtain();
     AStatsEvent_setAtomId(event, 100);
 
@@ -378,15 +487,15 @@ TEST(LogEventTest, TestEmptyAttributionChain) {
     AStatsEvent_build(event);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(event, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(event, &size);
 
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_FALSE(logEvent.parseBuffer(buf, size));
+    EXPECT_FALSE(ParseBuffer(logEvent, buf, size));
 
     AStatsEvent_release(event);
 }
 
-TEST(LogEventTest, TestAttributionChainTooManyElements) {
+TEST_P(LogEventTest, TestAttributionChainTooManyElements) {
     int32_t numNodes = 128;
     uint32_t uids[numNodes];
     vector<string> tags(numNodes);  // storage that cTag elements point to
@@ -404,14 +513,14 @@ TEST(LogEventTest, TestAttributionChainTooManyElements) {
     AStatsEvent_build(event);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(event, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(event, &size);
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_FALSE(logEvent.parseBuffer(buf, size));
+    EXPECT_FALSE(ParseBuffer(logEvent, buf, size));
 
     AStatsEvent_release(event);
 }
 
-TEST(LogEventTest, TestArrayParsing) {
+TEST_P(LogEventTest, TestArrayParsing) {
     size_t numElements = 2;
     int32_t int32Array[2] = {3, 6};
     int64_t int64Array[2] = {1000L, 1002L};
@@ -434,10 +543,10 @@ TEST(LogEventTest, TestArrayParsing) {
     AStatsEvent_build(event);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(event, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(event, &size);
 
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_TRUE(logEvent.parseBuffer(buf, size));
+    EXPECT_TRUE(ParseBuffer(logEvent, buf, size));
 
     EXPECT_EQ(100, logEvent.GetTagId());
     EXPECT_EQ(1000, logEvent.GetUid());
@@ -510,7 +619,7 @@ TEST(LogEventTest, TestArrayParsing) {
     EXPECT_EQ("str2", stringArrayItem2.mValue.str_value);
 }
 
-TEST(LogEventTest, TestEmptyStringArray) {
+TEST_P(LogEventTest, TestEmptyStringArray) {
     const char* cStringArray[2];
     string empty = "";
     cStringArray[0] = empty.c_str();
@@ -522,10 +631,10 @@ TEST(LogEventTest, TestEmptyStringArray) {
     AStatsEvent_build(event);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(event, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(event, &size);
 
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_TRUE(logEvent.parseBuffer(buf, size));
+    EXPECT_TRUE(ParseBuffer(logEvent, buf, size));
 
     EXPECT_EQ(100, logEvent.GetTagId());
     EXPECT_EQ(1000, logEvent.GetUid());
@@ -549,7 +658,7 @@ TEST(LogEventTest, TestEmptyStringArray) {
     AStatsEvent_release(event);
 }
 
-TEST(LogEventTest, TestArrayTooManyElements) {
+TEST_P(LogEventTest, TestArrayTooManyElements) {
     int32_t numElements = 128;
     int32_t int32Array[numElements];
 
@@ -563,15 +672,15 @@ TEST(LogEventTest, TestArrayTooManyElements) {
     AStatsEvent_build(event);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(event, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(event, &size);
 
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_FALSE(logEvent.parseBuffer(buf, size));
+    EXPECT_FALSE(ParseBuffer(logEvent, buf, size));
 
     AStatsEvent_release(event);
 }
 
-TEST(LogEventTest, TestEmptyArray) {
+TEST_P(LogEventTest, TestEmptyArray) {
     int32_t int32Array[0] = {};
 
     AStatsEvent* event = AStatsEvent_obtain();
@@ -580,25 +689,25 @@ TEST(LogEventTest, TestEmptyArray) {
     AStatsEvent_build(event);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(event, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(event, &size);
 
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_TRUE(logEvent.parseBuffer(buf, size));
+    EXPECT_TRUE(ParseBuffer(logEvent, buf, size));
 
     EXPECT_EQ(100, logEvent.GetTagId());
     EXPECT_EQ(1000, logEvent.GetUid());
     EXPECT_EQ(1001, logEvent.GetPid());
 
-    const vector<FieldValue>& values = logEvent.getValues();
-    ASSERT_EQ(0, values.size());
+    ASSERT_EQ(logEvent.getValues().size(), 0);
 
     AStatsEvent_release(event);
 }
 
-TEST(LogEventTest, TestAnnotationIdIsUid) {
+TEST_P(LogEventTest, TestAnnotationIdIsUid) {
     LogEvent event(/*uid=*/0, /*pid=*/0);
-    createFieldWithBoolAnnotationLogEvent(&event, INT32_TYPE, ANNOTATION_ID_IS_UID, true,
-                                          /*parseBufferResult*/ true);
+    EXPECT_TRUE(createFieldWithBoolAnnotationLogEvent(&event, INT32_TYPE,
+                                                      ASTATSLOG_ANNOTATION_ID_IS_UID, true,
+                                                      /*doHeaderPrefetch=*/GetParam()));
 
     ASSERT_EQ(event.getNumUidFields(), 1);
 
@@ -607,7 +716,7 @@ TEST(LogEventTest, TestAnnotationIdIsUid) {
     EXPECT_TRUE(isUidField(values.at(0)));
 }
 
-TEST(LogEventTest, TestAnnotationIdIsUid_RepeatedIntAndOtherFields) {
+TEST_P(LogEventTest, TestAnnotationIdIsUid_RepeatedIntAndOtherFields) {
     size_t numElements = 2;
     int32_t int32Array[2] = {3, 6};
 
@@ -621,14 +730,14 @@ TEST(LogEventTest, TestAnnotationIdIsUid_RepeatedIntAndOtherFields) {
     AStatsEvent_setAtomId(statsEvent, 100);
     AStatsEvent_writeInt32(statsEvent, 5);
     AStatsEvent_writeInt32Array(statsEvent, int32Array, numElements);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_IS_UID, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_IS_UID, true);
     AStatsEvent_writeStringArray(statsEvent, cStringArray, numElements);
     AStatsEvent_build(statsEvent);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_TRUE(logEvent.parseBuffer(buf, size));
+    EXPECT_TRUE(ParseBuffer(logEvent, buf, size));
     EXPECT_EQ(2, logEvent.getNumUidFields());
 
     const vector<FieldValue>& values = logEvent.getValues();
@@ -640,20 +749,20 @@ TEST(LogEventTest, TestAnnotationIdIsUid_RepeatedIntAndOtherFields) {
     EXPECT_FALSE(isUidField(values.at(4)));
 }
 
-TEST(LogEventTest, TestAnnotationIdIsUid_RepeatedIntOneEntry) {
+TEST_P(LogEventTest, TestAnnotationIdIsUid_RepeatedIntOneEntry) {
     size_t numElements = 1;
     int32_t int32Array[1] = {3};
 
     AStatsEvent* statsEvent = AStatsEvent_obtain();
     AStatsEvent_setAtomId(statsEvent, 100);
     AStatsEvent_writeInt32Array(statsEvent, int32Array, numElements);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_IS_UID, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_IS_UID, true);
     AStatsEvent_build(statsEvent);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_TRUE(logEvent.parseBuffer(buf, size));
+    EXPECT_TRUE(ParseBuffer(logEvent, buf, size));
     EXPECT_EQ(1, logEvent.getNumUidFields());
 
     const vector<FieldValue>& values = logEvent.getValues();
@@ -661,46 +770,46 @@ TEST(LogEventTest, TestAnnotationIdIsUid_RepeatedIntOneEntry) {
     EXPECT_TRUE(isUidField(values.at(0)));
 }
 
-TEST(LogEventTest, TestAnnotationIdIsUid_EmptyIntArray) {
+TEST_P(LogEventTest, TestAnnotationIdIsUid_EmptyIntArray) {
     int32_t int32Array[0] = {};
 
     AStatsEvent* statsEvent = AStatsEvent_obtain();
     AStatsEvent_setAtomId(statsEvent, 100);
     AStatsEvent_writeInt32Array(statsEvent, int32Array, /*numElements*/ 0);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_IS_UID, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_IS_UID, true);
     AStatsEvent_writeInt32(statsEvent, 5);
     AStatsEvent_build(statsEvent);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_TRUE(logEvent.parseBuffer(buf, size));
+    EXPECT_TRUE(ParseBuffer(logEvent, buf, size));
     EXPECT_EQ(0, logEvent.getNumUidFields());
 
     const vector<FieldValue>& values = logEvent.getValues();
     EXPECT_EQ(values.size(), 1);
 }
 
-TEST(LogEventTest, TestAnnotationIdIsUid_BadRepeatedInt64) {
+TEST_P(LogEventTest, TestAnnotationIdIsUid_BadRepeatedInt64) {
     int64_t int64Array[2] = {1000L, 1002L};
 
     AStatsEvent* statsEvent = AStatsEvent_obtain();
     AStatsEvent_setAtomId(statsEvent, /*atomId=*/100);
     AStatsEvent_writeInt64Array(statsEvent, int64Array, /*numElements*/ 2);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_IS_UID, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_IS_UID, true);
     AStatsEvent_build(statsEvent);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
 
-    EXPECT_FALSE(logEvent.parseBuffer(buf, size));
+    EXPECT_FALSE(ParseBuffer(logEvent, buf, size));
     EXPECT_EQ(0, logEvent.getNumUidFields());
 
     AStatsEvent_release(statsEvent);
 }
 
-TEST(LogEventTest, TestAnnotationIdIsUid_BadRepeatedString) {
+TEST_P(LogEventTest, TestAnnotationIdIsUid_BadRepeatedString) {
     size_t numElements = 2;
     vector<string> stringArray = {"str1", "str2"};
     const char* cStringArray[2];
@@ -711,14 +820,14 @@ TEST(LogEventTest, TestAnnotationIdIsUid_BadRepeatedString) {
     AStatsEvent* statsEvent = AStatsEvent_obtain();
     AStatsEvent_setAtomId(statsEvent, /*atomId=*/100);
     AStatsEvent_writeStringArray(statsEvent, cStringArray, /*numElements*/ 2);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_IS_UID, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_IS_UID, true);
     AStatsEvent_build(statsEvent);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
 
-    EXPECT_FALSE(logEvent.parseBuffer(buf, size));
+    EXPECT_FALSE(ParseBuffer(logEvent, buf, size));
     EXPECT_EQ(0, logEvent.getNumUidFields());
 
     AStatsEvent_release(statsEvent);
@@ -727,22 +836,25 @@ TEST(LogEventTest, TestAnnotationIdIsUid_BadRepeatedString) {
 TEST_P(LogEventTestBadAnnotationFieldTypes, TestAnnotationIdIsUid) {
     LogEvent event(/*uid=*/0, /*pid=*/0);
 
-    if (GetParam() != INT32_TYPE && GetParam() != LIST_TYPE) {
-        createFieldWithBoolAnnotationLogEvent(&event, GetParam(), ANNOTATION_ID_IS_UID, true,
-                                              /*parseBufferResult*/ false);
+    if (std::get<0>(GetParam()) != INT32_TYPE && std::get<0>(GetParam()) != LIST_TYPE) {
+        EXPECT_FALSE(createFieldWithBoolAnnotationLogEvent(
+                &event, std::get<0>(GetParam()), ASTATSLOG_ANNOTATION_ID_IS_UID, true,
+                /*doHeaderPrefetch=*/std::get<1>(GetParam())));
     }
 }
 
-TEST(LogEventTest, TestAnnotationIdIsUid_NotIntAnnotation) {
+TEST_P(LogEventTest, TestAnnotationIdIsUid_NotIntAnnotation) {
     LogEvent event(/*uid=*/0, /*pid=*/0);
-    createFieldWithIntAnnotationLogEvent(&event, INT32_TYPE, ANNOTATION_ID_IS_UID, 10,
-                                         /*parseBufferResult*/ false);
+    EXPECT_FALSE(createFieldWithIntAnnotationLogEvent(&event, INT32_TYPE,
+                                                      ASTATSLOG_ANNOTATION_ID_IS_UID, 10,
+                                                      /*doHeaderPrefetch=*/GetParam()));
 }
 
-TEST(LogEventTest, TestAnnotationIdStateNested) {
+TEST_P(LogEventTest, TestAnnotationIdStateNested) {
     LogEvent event(/*uid=*/0, /*pid=*/0);
-    createFieldWithBoolAnnotationLogEvent(&event, INT32_TYPE, ANNOTATION_ID_STATE_NESTED, true,
-                                          /*parseBufferResult*/ true);
+    EXPECT_TRUE(createFieldWithBoolAnnotationLogEvent(&event, INT32_TYPE,
+                                                      ASTATSLOG_ANNOTATION_ID_STATE_NESTED, true,
+                                                      /*doHeaderPrefetch=*/GetParam()));
 
     const vector<FieldValue>& values = event.getValues();
     ASSERT_EQ(values.size(), 1);
@@ -752,22 +864,25 @@ TEST(LogEventTest, TestAnnotationIdStateNested) {
 TEST_P(LogEventTestBadAnnotationFieldTypes, TestAnnotationIdStateNested) {
     LogEvent event(/*uid=*/0, /*pid=*/0);
 
-    if (GetParam() != INT32_TYPE) {
-        createFieldWithBoolAnnotationLogEvent(&event, GetParam(), ANNOTATION_ID_STATE_NESTED, true,
-                                              /*parseBufferResult*/ false);
+    if (std::get<0>(GetParam()) != INT32_TYPE) {
+        EXPECT_FALSE(createFieldWithBoolAnnotationLogEvent(
+                &event, std::get<0>(GetParam()), ASTATSLOG_ANNOTATION_ID_STATE_NESTED, true,
+                /*doHeaderPrefetch=*/std::get<1>(GetParam())));
     }
 }
 
-TEST(LogEventTest, TestAnnotationIdStateNested_NotIntAnnotation) {
+TEST_P(LogEventTest, TestAnnotationIdStateNested_NotIntAnnotation) {
     LogEvent event(/*uid=*/0, /*pid=*/0);
-    createFieldWithIntAnnotationLogEvent(&event, INT32_TYPE, ANNOTATION_ID_STATE_NESTED, 10,
-                                         /*parseBufferResult*/ false);
+    EXPECT_FALSE(createFieldWithIntAnnotationLogEvent(&event, INT32_TYPE,
+                                                      ASTATSLOG_ANNOTATION_ID_STATE_NESTED, 10,
+                                                      /*doHeaderPrefetch=*/GetParam()));
 }
 
-TEST(LogEventTest, TestPrimaryFieldAnnotation) {
+TEST_P(LogEventTest, TestPrimaryFieldAnnotation) {
     LogEvent event(/*uid=*/0, /*pid=*/0);
-    createFieldWithBoolAnnotationLogEvent(&event, INT32_TYPE, ANNOTATION_ID_PRIMARY_FIELD, true,
-                                          /*parseBufferResult*/ true);
+    EXPECT_TRUE(createFieldWithBoolAnnotationLogEvent(&event, INT32_TYPE,
+                                                      ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD, true,
+                                                      /*doHeaderPrefetch=*/GetParam()));
 
     const vector<FieldValue>& values = event.getValues();
     ASSERT_EQ(values.size(), 1);
@@ -777,22 +892,25 @@ TEST(LogEventTest, TestPrimaryFieldAnnotation) {
 TEST_P(LogEventTestBadAnnotationFieldTypes, TestPrimaryFieldAnnotation) {
     LogEvent event(/*uid=*/0, /*pid=*/0);
 
-    if (GetParam() == LIST_TYPE || GetParam() == ATTRIBUTION_CHAIN_TYPE) {
-        createFieldWithBoolAnnotationLogEvent(&event, GetParam(), ANNOTATION_ID_PRIMARY_FIELD, true,
-                                              /*parseBufferResult*/ false);
+    if (std::get<0>(GetParam()) == LIST_TYPE || std::get<0>(GetParam()) == ATTRIBUTION_CHAIN_TYPE) {
+        EXPECT_FALSE(createFieldWithBoolAnnotationLogEvent(
+                &event, std::get<0>(GetParam()), ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD, true,
+                /*doHeaderPrefetch=*/std::get<1>(GetParam())));
     }
 }
 
-TEST(LogEventTest, TestPrimaryFieldAnnotation_NotIntAnnotation) {
+TEST_P(LogEventTest, TestPrimaryFieldAnnotation_NotIntAnnotation) {
     LogEvent event(/*uid=*/0, /*pid=*/0);
-    createFieldWithIntAnnotationLogEvent(&event, INT32_TYPE, ANNOTATION_ID_PRIMARY_FIELD, 10,
-                                         /*parseBufferResult*/ false);
+    EXPECT_FALSE(createFieldWithIntAnnotationLogEvent(&event, INT32_TYPE,
+                                                      ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD, 10,
+                                                      /*doHeaderPrefetch=*/GetParam()));
 }
 
-TEST(LogEventTest, TestExclusiveStateAnnotation) {
+TEST_P(LogEventTest, TestExclusiveStateAnnotation) {
     LogEvent event(/*uid=*/0, /*pid=*/0);
-    createFieldWithBoolAnnotationLogEvent(&event, INT32_TYPE, ANNOTATION_ID_EXCLUSIVE_STATE, true,
-                                          /*parseBufferResult*/ true);
+    EXPECT_TRUE(createFieldWithBoolAnnotationLogEvent(&event, INT32_TYPE,
+                                                      ASTATSLOG_ANNOTATION_ID_EXCLUSIVE_STATE, true,
+                                                      /*doHeaderPrefetch=*/GetParam()));
 
     const vector<FieldValue>& values = event.getValues();
     ASSERT_EQ(values.size(), 1);
@@ -802,20 +920,21 @@ TEST(LogEventTest, TestExclusiveStateAnnotation) {
 TEST_P(LogEventTestBadAnnotationFieldTypes, TestExclusiveStateAnnotation) {
     LogEvent event(/*uid=*/0, /*pid=*/0);
 
-    if (GetParam() != INT32_TYPE) {
-        createFieldWithBoolAnnotationLogEvent(&event, GetParam(), ANNOTATION_ID_EXCLUSIVE_STATE,
-                                              true,
-                                              /*parseBufferResult*/ false);
+    if (std::get<0>(GetParam()) != INT32_TYPE) {
+        EXPECT_FALSE(createFieldWithBoolAnnotationLogEvent(
+                &event, std::get<0>(GetParam()), ASTATSLOG_ANNOTATION_ID_EXCLUSIVE_STATE, true,
+                /*doHeaderPrefetch=*/std::get<1>(GetParam())));
     }
 }
 
-TEST(LogEventTest, TestExclusiveStateAnnotation_NotIntAnnotation) {
+TEST_P(LogEventTest, TestExclusiveStateAnnotation_NotIntAnnotation) {
     LogEvent event(/*uid=*/0, /*pid=*/0);
-    createFieldWithIntAnnotationLogEvent(&event, INT32_TYPE, ANNOTATION_ID_EXCLUSIVE_STATE, 10,
-                                         /*parseBufferResult*/ false);
+    EXPECT_FALSE(createFieldWithIntAnnotationLogEvent(&event, INT32_TYPE,
+                                                      ASTATSLOG_ANNOTATION_ID_EXCLUSIVE_STATE, 10,
+                                                      /*doHeaderPrefetch=*/GetParam()));
 }
 
-TEST(LogEventTest, TestPrimaryFieldFirstUidAnnotation) {
+TEST_P(LogEventTest, TestPrimaryFieldFirstUidAnnotation) {
     // Event has 10 ints and then an attribution chain
     int numInts = 10;
     int firstUidInChainIndex = numInts;
@@ -831,14 +950,15 @@ TEST(LogEventTest, TestPrimaryFieldFirstUidAnnotation) {
         AStatsEvent_writeInt32(statsEvent, 10);
     }
     AStatsEvent_writeAttributionChain(statsEvent, uids, tags, 2);
-    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_PRIMARY_FIELD_FIRST_UID, true);
+    AStatsEvent_addBoolAnnotation(statsEvent, ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD_FIRST_UID,
+                                  true);
     AStatsEvent_build(statsEvent);
 
     // Construct LogEvent
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(statsEvent, &size);
     LogEvent logEvent(/*uid=*/0, /*pid=*/0);
-    EXPECT_TRUE(logEvent.parseBuffer(buf, size));
+    EXPECT_TRUE(ParseBuffer(logEvent, buf, size));
     AStatsEvent_release(statsEvent);
 
     // Check annotation
@@ -850,50 +970,88 @@ TEST(LogEventTest, TestPrimaryFieldFirstUidAnnotation) {
 TEST_P(LogEventTestBadAnnotationFieldTypes, TestPrimaryFieldFirstUidAnnotation) {
     LogEvent event(/*uid=*/0, /*pid=*/0);
 
-    if (GetParam() != ATTRIBUTION_CHAIN_TYPE) {
-        createFieldWithBoolAnnotationLogEvent(&event, GetParam(),
-                                              ANNOTATION_ID_PRIMARY_FIELD_FIRST_UID, true,
-                                              /*parseBufferResult*/ false);
+    if (std::get<0>(GetParam()) != ATTRIBUTION_CHAIN_TYPE) {
+        EXPECT_FALSE(createFieldWithBoolAnnotationLogEvent(
+                &event, std::get<0>(GetParam()), ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD_FIRST_UID,
+                true,
+                /*doHeaderPrefetch=*/std::get<1>(GetParam())));
     }
 }
 
-TEST(LogEventTest, TestPrimaryFieldFirstUidAnnotation_NotIntAnnotation) {
+TEST_P(LogEventTest, TestPrimaryFieldFirstUidAnnotation_NotIntAnnotation) {
     LogEvent event(/*uid=*/0, /*pid=*/0);
-    createFieldWithIntAnnotationLogEvent(&event, ATTRIBUTION_CHAIN_TYPE,
-                                         ANNOTATION_ID_PRIMARY_FIELD_FIRST_UID, 10,
-                                         /*parseBufferResult*/ false);
+    EXPECT_FALSE(createFieldWithIntAnnotationLogEvent(
+            &event, ATTRIBUTION_CHAIN_TYPE, ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD_FIRST_UID, 10,
+            /*doHeaderPrefetch=*/GetParam()));
 }
 
-TEST(LogEventTest, TestResetStateAnnotation) {
+TEST_P(LogEventTest, TestResetStateAnnotation) {
     int32_t resetState = 10;
     LogEvent event(/*uid=*/0, /*pid=*/0);
-    createFieldWithIntAnnotationLogEvent(&event, INT32_TYPE, ANNOTATION_ID_TRIGGER_STATE_RESET,
-                                         resetState, /*parseBufferResult*/ true);
+    EXPECT_TRUE(createFieldWithIntAnnotationLogEvent(
+            &event, INT32_TYPE, ASTATSLOG_ANNOTATION_ID_TRIGGER_STATE_RESET, resetState,
+            /*doHeaderPrefetch=*/GetParam()));
 
     const vector<FieldValue>& values = event.getValues();
     ASSERT_EQ(values.size(), 1);
     EXPECT_EQ(event.getResetState(), resetState);
 }
 
+TEST_P(LogEventTest, TestRestrictionCategoryAnnotation) {
+    if (!IsAtLeastU()) {
+        GTEST_SKIP();
+    }
+    int32_t restrictionCategory = ASTATSLOG_RESTRICTION_CATEGORY_DIAGNOSTIC;
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    EXPECT_TRUE(createAtomLevelIntAnnotationLogEvent(
+            &event, INT32_TYPE, ASTATSLOG_ANNOTATION_ID_RESTRICTION_CATEGORY, restrictionCategory,
+            /*doHeaderPrefetch=*/GetParam()));
+
+    ASSERT_EQ(event.getRestrictionCategory(), restrictionCategory);
+}
+
+TEST_P(LogEventTest, TestInvalidRestrictionCategoryAnnotation) {
+    if (!IsAtLeastU()) {
+        GTEST_SKIP();
+    }
+    int32_t restrictionCategory = 619;  // unknown category
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    EXPECT_FALSE(createAtomLevelIntAnnotationLogEvent(
+            &event, INT32_TYPE, ASTATSLOG_ANNOTATION_ID_RESTRICTION_CATEGORY, restrictionCategory,
+            /*doHeaderPrefetch=*/GetParam()));
+}
+
+TEST_P(LogEventTest, TestRestrictionCategoryAnnotationBelowUDevice) {
+    if (IsAtLeastU()) {
+        GTEST_SKIP();
+    }
+    int32_t restrictionCategory = ASTATSLOG_RESTRICTION_CATEGORY_DIAGNOSTIC;
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    EXPECT_FALSE(createAtomLevelIntAnnotationLogEvent(
+            &event, INT32_TYPE, ASTATSLOG_ANNOTATION_ID_RESTRICTION_CATEGORY, restrictionCategory,
+            /*doHeaderPrefetch=*/GetParam()));
+}
+
 TEST_P(LogEventTestBadAnnotationFieldTypes, TestResetStateAnnotation) {
     LogEvent event(/*uid=*/0, /*pid=*/0);
     int32_t resetState = 10;
 
-    if (GetParam() != INT32_TYPE) {
-        createFieldWithIntAnnotationLogEvent(&event, GetParam(), ANNOTATION_ID_TRIGGER_STATE_RESET,
-                                             resetState,
-                                             /*parseBufferResult*/ false);
+    if (std::get<0>(GetParam()) != INT32_TYPE) {
+        EXPECT_FALSE(createFieldWithIntAnnotationLogEvent(
+                &event, std::get<0>(GetParam()), ASTATSLOG_ANNOTATION_ID_TRIGGER_STATE_RESET,
+                resetState,
+                /*doHeaderPrefetch=*/std::get<1>(GetParam())));
     }
 }
 
-TEST(LogEventTest, TestResetStateAnnotation_NotBoolAnnotation) {
+TEST_P(LogEventTest, TestResetStateAnnotation_NotBoolAnnotation) {
     LogEvent event(/*uid=*/0, /*pid=*/0);
-    createFieldWithBoolAnnotationLogEvent(&event, INT32_TYPE, ANNOTATION_ID_TRIGGER_STATE_RESET,
-                                          true,
-                                          /*parseBufferResult*/ false);
+    EXPECT_FALSE(createFieldWithBoolAnnotationLogEvent(
+            &event, INT32_TYPE, ASTATSLOG_ANNOTATION_ID_TRIGGER_STATE_RESET, true,
+            /*doHeaderPrefetch=*/GetParam()));
 }
 
-TEST(LogEventTest, TestUidAnnotationWithInt8MaxValues) {
+TEST_P(LogEventTest, TestUidAnnotationWithInt8MaxValues) {
     int32_t numElements = INT8_MAX;
     int32_t int32Array[numElements];
 
@@ -906,18 +1064,18 @@ TEST(LogEventTest, TestUidAnnotationWithInt8MaxValues) {
     AStatsEvent_writeInt32Array(event, int32Array, numElements);
     AStatsEvent_writeInt32(event, 10);
     AStatsEvent_writeInt32(event, 11);
-    AStatsEvent_addBoolAnnotation(event, ANNOTATION_ID_IS_UID, true);
+    AStatsEvent_addBoolAnnotation(event, ASTATSLOG_ANNOTATION_ID_IS_UID, true);
     AStatsEvent_build(event);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(event, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(event, &size);
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_TRUE(logEvent.parseBuffer(buf, size));
+    EXPECT_TRUE(ParseBuffer(logEvent, buf, size));
 
     AStatsEvent_release(event);
 }
 
-TEST(LogEventTest, TestEmptyAttributionChainWithPrimaryFieldFirstUidAnnotation) {
+TEST_P(LogEventTest, TestEmptyAttributionChainWithPrimaryFieldFirstUidAnnotation) {
     AStatsEvent* event = AStatsEvent_obtain();
     AStatsEvent_setAtomId(event, 100);
 
@@ -926,17 +1084,114 @@ TEST(LogEventTest, TestEmptyAttributionChainWithPrimaryFieldFirstUidAnnotation) 
 
     AStatsEvent_writeInt32(event, 10);
     AStatsEvent_writeAttributionChain(event, uids, tags, 0);
-    AStatsEvent_addBoolAnnotation(event, ANNOTATION_ID_PRIMARY_FIELD_FIRST_UID, true);
+    AStatsEvent_addBoolAnnotation(event, ASTATSLOG_ANNOTATION_ID_PRIMARY_FIELD_FIRST_UID, true);
 
     AStatsEvent_build(event);
 
     size_t size;
-    uint8_t* buf = AStatsEvent_getBuffer(event, &size);
+    const uint8_t* buf = AStatsEvent_getBuffer(event, &size);
 
     LogEvent logEvent(/*uid=*/1000, /*pid=*/1001);
-    EXPECT_FALSE(logEvent.parseBuffer(buf, size));
+    EXPECT_FALSE(ParseBuffer(logEvent, buf, size));
 
     AStatsEvent_release(event);
+}
+
+// Setup for parameterized tests.
+class LogEvent_FieldRestrictionTest : public testing::TestWithParam<std::tuple<int, bool>> {
+public:
+    static std::string ToString(testing::TestParamInfo<std::tuple<int, bool>> info) {
+        const std::string boolName = std::get<1>(info.param) ? "_prefetchTrue" : "_prefetchFalse";
+
+        switch (std::get<0>(info.param)) {
+            case ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_PERIPHERAL_DEVICE_INFO:
+                return "PeripheralDeviceInfo" + boolName;
+            case ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_APP_USAGE:
+                return "AppUsage" + boolName;
+            case ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_APP_ACTIVITY:
+                return "AppActivity" + boolName;
+            case ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_HEALTH_CONNECT:
+                return "HealthConnect" + boolName;
+            case ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_ACCESSIBILITY:
+                return "Accessibility" + boolName;
+            case ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_SYSTEM_SEARCH:
+                return "SystemSearch" + boolName;
+            case ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_USER_ENGAGEMENT:
+                return "UserEngagement" + boolName;
+            case ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_AMBIENT_SENSING:
+                return "AmbientSensing" + boolName;
+            case ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_DEMOGRAPHIC_CLASSIFICATION:
+                return "DemographicClassification" + boolName;
+            default:
+                return "Unknown" + boolName;
+        }
+    }
+    void TearDown() override {
+        FlagProvider::getInstance().resetOverrides();
+    }
+};
+
+// TODO(b/222539899): Add BOOL_TYPE value once parseAnnotations is updated to check specific
+// typeIds. BOOL_TYPE should be a bad field type for is_uid, nested, and reset state annotations.
+INSTANTIATE_TEST_SUITE_P(
+        LogEvent_FieldRestrictionTest, LogEvent_FieldRestrictionTest,
+        testing::Combine(
+                testing::Values(
+                        ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_PERIPHERAL_DEVICE_INFO,
+                        ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_APP_USAGE,
+                        ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_APP_ACTIVITY,
+                        ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_HEALTH_CONNECT,
+                        ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_ACCESSIBILITY,
+                        ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_SYSTEM_SEARCH,
+                        ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_USER_ENGAGEMENT,
+                        ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_AMBIENT_SENSING,
+                        ASTATSLOG_ANNOTATION_ID_FIELD_RESTRICTION_DEMOGRAPHIC_CLASSIFICATION),
+                testing::Bool()),
+        LogEvent_FieldRestrictionTest::ToString);
+
+TEST_P(LogEvent_FieldRestrictionTest, TestFieldRestrictionAnnotation) {
+    if (!IsAtLeastU()) {
+        GTEST_SKIP();
+    }
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    EXPECT_TRUE(
+            createFieldWithBoolAnnotationLogEvent(&event, INT32_TYPE, std::get<0>(GetParam()), true,
+                                                  /*doHeaderPrefetch=*/std::get<1>(GetParam())));
+    // Some basic checks to make sure the event is parsed correctly.
+    EXPECT_EQ(event.GetTagId(), 100);
+    ASSERT_EQ(event.getValues().size(), 1);
+    EXPECT_EQ(event.getValues()[0].mValue.getType(), Type::INT);
+}
+
+TEST_P(LogEvent_FieldRestrictionTest, TestInvalidAnnotationIntType) {
+    if (!IsAtLeastU()) {
+        GTEST_SKIP();
+    }
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    EXPECT_FALSE(createFieldWithIntAnnotationLogEvent(
+            &event, STRING_TYPE, std::get<0>(GetParam()),
+            /*random int*/ 15, /*doHeaderPrefetch=*/std::get<1>(GetParam())));
+}
+
+TEST_P(LogEvent_FieldRestrictionTest, TestInvalidAnnotationAtomLevel) {
+    if (!IsAtLeastU()) {
+        GTEST_SKIP();
+    }
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    EXPECT_FALSE(createAtomLevelBoolAnnotationLogEvent(
+            &event, STRING_TYPE, std::get<0>(GetParam()), true,
+            /*doHeaderPrefetch=*/std::get<1>(GetParam())));
+}
+
+TEST_P(LogEvent_FieldRestrictionTest, TestRestrictionCategoryAnnotationBelowUDevice) {
+    if (IsAtLeastU()) {
+        GTEST_SKIP();
+    }
+    int32_t restrictionCategory = ASTATSLOG_RESTRICTION_CATEGORY_DIAGNOSTIC;
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    EXPECT_FALSE(
+            createFieldWithBoolAnnotationLogEvent(&event, INT32_TYPE, std::get<0>(GetParam()), true,
+                                                  /*doHeaderPrefetch=*/std::get<1>(GetParam())));
 }
 
 }  // namespace statsd

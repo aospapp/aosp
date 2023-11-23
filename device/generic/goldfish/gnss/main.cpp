@@ -14,20 +14,29 @@
  * limitations under the License.
  */
 
-#include <android-base/logging.h>
-#include <hidl/HidlLazyUtils.h>
-#include <hidl/HidlTransportSupport.h>
+#include <android/binder_manager.h>
+#include <android/binder_process.h>
+#include <log/log.h>
 
-#include "gnss.h"
+#include "Gnss.h"
 
 int main(int /* argc */, char* /* argv */ []) {
-    ::android::sp<goldfish::Gnss20> gnss(new goldfish::Gnss20);
+    using ::aidl::android::hardware::gnss::implementation::Gnss;
 
-    ::android::hardware::configureRpcThreadpool(1, true);
+    ABinderProcess_setThreadPoolMaxThreadCount(2);
+    ABinderProcess_startThreadPool();
 
-    auto serviceRegistrar = ::android::hardware::LazyServiceRegistrar::getInstance();
-    CHECK_EQ(serviceRegistrar.registerService(gnss), ::android::OK)
-        << "Failed to register Gnss HAL";
+    const auto gnss = ndk::SharedRefBase::make<Gnss>();
 
-    ::android::hardware::joinRpcThreadpool();
+    {
+        const std::string instance = std::string(Gnss::descriptor) + "/default";
+        if (AServiceManager_registerLazyService(gnss->asBinder().get(),
+                                                instance.c_str()) != STATUS_OK) {
+          ALOGE("%s:%d: Could not register '%s'", __func__, __LINE__, instance.c_str());
+          return android::NO_INIT;
+        }
+    }
+
+    ABinderProcess_joinThreadPool();
+    return 0;   // lazy HALs do exit.
 }

@@ -19,6 +19,8 @@ package com.android.car.settings.datausage;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.DialogInterface;
+import android.icu.text.MeasureFormat;
+import android.icu.util.MeasureUnit;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -89,7 +91,13 @@ public class UsageBytesThresholdPickerDialog extends CarUiDialogFragment {
             mCurrentThreshold = 0;
         }
 
-        String[] units = getContext().getResources().getStringArray(R.array.bytes_picker_sizes);
+        MeasureFormat formatter = MeasureFormat.getInstance(
+                getContext().getResources().getConfiguration().locale,
+                MeasureFormat.FormatWidth.SHORT);
+        String[] units = new String[] {
+            formatter.getUnitDisplayName(MeasureUnit.MEGABYTE),
+            formatter.getUnitDisplayName(MeasureUnit.GIGABYTE)
+        };
         mBytesUnits = view.findViewById(R.id.bytes_units);
         mBytesUnits.setMinValue(0);
         mBytesUnits.setMaxValue(units.length - 1);

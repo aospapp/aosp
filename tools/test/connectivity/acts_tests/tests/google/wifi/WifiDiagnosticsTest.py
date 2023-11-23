@@ -15,8 +15,6 @@
 #   limitations under the License.
 
 import itertools
-import pprint
-import queue
 import time
 
 import acts.base_test
@@ -48,15 +46,14 @@ class WifiDiagnosticsTest(WifiBaseTest):
         wutils.wifi_test_device_init(self.dut)
         req_params = []
         opt_param = ["open_network"]
-        self.unpack_userparams(
-            req_param_names=req_params, opt_param_names=opt_param)
+        self.unpack_userparams(req_param_names=req_params,
+                               opt_param_names=opt_param)
 
         if "AccessPoint" in self.user_params:
             self.legacy_configure_ap_and_start()
         wutils.wifi_toggle_state(self.dut, True)
         asserts.assert_true(
-            len(self.open_network) > 0,
-            "Need at least one open network.")
+            len(self.open_network) > 0, "Need at least one open network.")
         self.open_network = self.open_network[0]["2g"]
 
     def setup_test(self):
@@ -93,6 +90,8 @@ class WifiDiagnosticsTest(WifiBaseTest):
             """ Gets this error because adb.shell trys to parse the output to a string
             but ringbuffer dumps should already be generated """
             self.log.info("Unicode decode error occurred, but this is ok")
-        file_count_plus_one = self.dut.adb.shell("ls -l data/vendor/tombstones/wifi | wc -l")
+        file_count_plus_one = self.dut.adb.shell(
+            "ls -l data/vendor/tombstones/wifi | wc -l")
         if int(file_count_plus_one) <= 1:
-            raise signals.TestFailure("Failed to create ringbuffer debug files.")
+            raise signals.TestFailure(
+                "Failed to create ringbuffer debug files.")

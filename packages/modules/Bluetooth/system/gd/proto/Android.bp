@@ -14,11 +14,11 @@ java_library_static {
         type: "lite",
     },
     srcs: [
-        "bluetooth/metrics/bluetooth.proto",
         "bluetooth/bluetoothKeystore/keystore.proto",
+        "bluetooth/metrics/bluetooth.proto",
     ],
     apex_available: [
-        "com.android.bluetooth",
+        "com.android.btservices",
     ],
     min_sdk_version: "30",
     sdk_version: "current",
@@ -32,11 +32,11 @@ cc_library_static {
         type: "lite",
     },
     srcs: [
-        "bluetooth/metrics/bluetooth.proto",
         "bluetooth/bluetoothKeystore/keystore.proto",
+        "bluetooth/metrics/bluetooth.proto",
     ],
     apex_available: [
-        "com.android.bluetooth",
+        "com.android.btservices",
     ],
     min_sdk_version: "30",
 }
@@ -50,11 +50,11 @@ cc_library_static {
         include_dirs: ["external/protobuf/src"],
     },
     srcs: [
-        "bluetooth/metrics/bluetooth.proto",
         "bluetooth/bluetoothKeystore/keystore.proto",
+        "bluetooth/metrics/bluetooth.proto",
     ],
     apex_available: [
-        "com.android.bluetooth",
+        "com.android.btservices",
     ],
     min_sdk_version: "30",
 }

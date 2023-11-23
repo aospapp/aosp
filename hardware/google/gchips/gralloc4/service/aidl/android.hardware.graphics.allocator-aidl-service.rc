@@ -3,3 +3,4 @@ service vendor.graphics.allocator-default /vendor/bin/hw/android.hardware.graphi
     user system
     group graphics drmrpc
     capabilities SYS_NICE
+    priority -20

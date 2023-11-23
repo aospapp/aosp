@@ -1,5 +1,4 @@
-#!/usr/bin/python2
-#
+# Lint as: python2, python3
 # Copyright (c) 2010 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -9,9 +8,11 @@
 
 __author__ = 'kdlucas@chromium.org (Kelly Lucas)'
 
-import logging, re
+import logging
+import re
 
-from autotest_lib.client.bin import utils, test
+from autotest_lib.client.bin import utils
+from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 
 
@@ -37,7 +38,6 @@ class platform_MemCheck(test.test):
             memref = 700000
             vmemref = 210000
 
-        speedref = 1333
         os_reserve_min = 600000
         os_reserve_ratio = 0.04
 
@@ -50,6 +50,8 @@ class platform_MemCheck(test.test):
         # read physical HW size from mosys and adjust memref if need
         cmd = 'mosys memory spd print geometry -s size_mb'
         phy_size_run = utils.run(cmd)
+        logging.info('Ran command: `%s`', cmd)
+        logging.info('Output: "%s"', phy_size_run.stdout)
         phy_size = 0
         for line in phy_size_run.stdout.split():
             phy_size += int(line)
@@ -88,43 +90,30 @@ class platform_MemCheck(test.test):
                     errors += 1
                     error_list += [k]
 
-        # read spd timings
-        cmd = 'mosys memory spd print timings -s speeds'
-        # result example
-        # DDR3-800, DDR3-1066, DDR3-1333, DDR3-1600
-        pattern = '[A-Z]*DDR([3-9]|[1-9]\d+)[A-Z]*-(?P<speed>\d+)'
-        timing_run = utils.run(cmd)
+        # Log memory type
+        cmd = 'mosys memory spd print type -s dram | head -1'
+        # Example
+        # 0 | LPDDR4
+        mem_type = utils.run(cmd).stdout.strip()
+        logging.info('Ran command: `%s`', cmd)
+        logging.info('Output: "%s"', mem_type)
 
-        keyval['speedref'] = speedref
-        for dimm, line in enumerate(timing_run.stdout.split('\n')):
-            if not line:
-                continue
-            max_timing = line.split(', ')[-1]
-            keyval['timing_dimm_%d' % dimm] = max_timing
-            m = re.match(pattern, max_timing)
-            if not m:
-                logging.warning('Error parsing timings for dimm #%d (%s)',
-                             dimm, max_timing)
-                errors += 1
-                continue
-            logging.info('dimm #%d timings: %s', dimm, max_timing)
-            max_speed = int(m.group('speed'))
-            keyval['speed_dimm_%d' % dimm] = max_speed
-            if max_speed < speedref:
-                logging.warning('ram speed is %s', max_timing)
-                logging.warning('ram speed should be at least %d', speedref)
-                error_list += ['speed_dimm_%d' % dimm]
-                errors += 1
+        # key name timing_dimm_0 for backward compatibility with older test.
+        keyval['timing_dimm_0'] = mem_type
 
         # Log memory ids
         cmd = 'mosys memory spd print id'
         # result example (1 module of memory per result line)
         # 0 | 1-45: SK Hynix (Hyundai) | 128d057e | HMT425S6CFR6A-PB
         # 1 | 1-45: SK Hynix (Hyundai) | 121d0581 | HMT425S6CFR6A-PB
-        mem_ids = utils.run(cmd).stdout.split('\n')
-        for dimm, line in enumerate(mem_ids):
-            if not line:
-                continue
+        mem_ids = utils.run(cmd)
+        logging.info('Ran command: `%s`', cmd)
+        logging.info('Output: "%s"', mem_ids.stdout)
+
+        mem_ids_list = [line for line in mem_ids.stdout.split('\n') if line]
+        keyval['number_of_channel'] = len(mem_ids_list)
+
+        for dimm, line in enumerate(mem_ids_list):
             keyval['memory_id_dimm_%d' % dimm] = line
 
         if board.startswith('rambi') or board.startswith('expresso'):
@@ -134,5 +123,22 @@ class platform_MemCheck(test.test):
             # If self.error is not zero, there were errors.
             error_list_str = ', '.join(error_list)
             raise error.TestFail('Found incorrect values: %s' % error_list_str)
+
+        keyval['cpu_name'] = utils.get_cpu_name()
+
+        # Log memory type
+        cmd = 'dmidecode -t memory'
+        mem_dmi = utils.run(cmd)
+        logging.info('Ran command: `%s`', cmd)
+        logging.info('Output: "%s"', mem_dmi.stdout)
+
+        pattern = r'\s*Speed: (?P<speed>\d+) MT/s'
+        for line in mem_dmi.stdout.split('\n'):
+            match = re.match(pattern, line)
+            if match:
+                keyval['speed'] = match.group('speed')
+                break
+        else:
+            keyval['speed'] = 'N/A'
 
         self.write_perf_keyval(keyval)

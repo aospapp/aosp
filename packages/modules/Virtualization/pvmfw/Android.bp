@@ -5,46 +5,192 @@ package {
 rust_ffi_static {
     name: "libpvmfw",
     crate_name: "pvmfw",
+    defaults: ["vmbase_ffi_defaults"],
     srcs: ["src/main.rs"],
     edition: "2021",
-    no_stdlibs: true,
-    stdlibs: [
-        "libcompiler_builtins.rust_sysroot",
-        "libcore.rust_sysroot",
+    // Require unsafe blocks for inside unsafe functions.
+    flags: ["-Dunsafe_op_in_unsafe_fn"],
+    features: [
+        "legacy",
     ],
     rustlibs: [
+        "libaarch64_paging",
+        "libbssl_ffi_nostd",
+        "libbuddy_system_allocator",
+        "libciborium_nostd",
+        "libciborium_io_nostd",
+        "libdiced_open_dice_nostd",
+        "libfdtpci",
+        "libhyp",
+        "liblibfdt",
+        "liblog_rust_nostd",
+        "libonce_cell_nostd",
+        "libpsci",
+        "libpvmfw_avb_nostd",
+        "libpvmfw_embedded_key",
+        "libpvmfw_fdt_template",
+        "libstatic_assertions",
+        "libtinyvec_nostd",
+        "libuuid_nostd",
+        "libvirtio_drivers",
+        "libvmbase",
+        "libzerocopy_nostd",
+        "libzeroize_nostd",
         "libspin_nostd",
     ],
-    enabled: false,
-    target: {
-        android_arm64: {
-            enabled: true,
-        },
+}
+
+// Generates an empty file.
+genrule {
+    name: "empty_file",
+    out: ["empty_file"],
+    cmd: "touch $(out)",
+}
+
+rust_test {
+    name: "libpvmfw.bootargs.test",
+    host_supported: true,
+    // For now, only bootargs.rs is written to be conditionally compiled with std.
+    srcs: ["src/bootargs.rs"],
+    test_suites: ["general-tests"],
+    test_options: {
+        unit_test: true,
     },
-    apex_available: ["com.android.virt"],
+    rustlibs: [
+        "libzeroize",
+    ],
 }
 
 cc_binary {
     name: "pvmfw",
+    defaults: ["vmbase_elf_defaults"],
     srcs: [
-        "entry.S",
         "idmap.S",
     ],
     static_libs: [
         "libpvmfw",
     ],
-    static_executable: true,
-    no_libcrt: true,
-    nocrt: true,
-    system_shared_libs: [],
-    ldflags: [
-        "-Tpackages/modules/Virtualization/pvmfw/image.ld",
+    linker_scripts: [
+        "image.ld",
+        ":vmbase_sections",
     ],
+    // `installable: false` is inherited from vmbase_elf_defaults, and that
+    // hides this module from Make, which makes it impossible for the Make world
+    // to place the unstripped binary to the symbols directory. Marking back as
+    // installable exposes this module to the Make world again. Note that this
+    // module (pvmfw) still is NOT installed to any of the filesystem images. It
+    // is fed into pvmfw_bin and then into pvmfw_img to become a standalone
+    // partition image. This is just to package the unstripped file into the
+    // symbols zip file for debugging purpose.
+    installable: true,
+    native_coverage: false,
+}
+
+raw_binary {
+    name: "pvmfw_bin",
+    stem: "pvmfw.bin",
+    src: ":pvmfw",
     enabled: false,
     target: {
         android_arm64: {
             enabled: true,
         },
     },
+}
+
+// Provide pvmfw.bin binary regardless of the architecture for building test.
+// Note that skipping tests on unsupported device is easy
+// while configuring server configuration to make such tests to run on working
+// devices.
+prebuilt_etc {
+    name: "pvmfw_test",
+    filename: "pvmfw_test.bin",
+    target: {
+        android_arm64: {
+            src: ":pvmfw_bin",
+        },
+    },
+    src: ":empty_file",
+    installable: false,
+}
+
+prebuilt_etc {
+    name: "pvmfw_embedded_key",
+    src: ":avb_testkey_rsa4096_pub_bin",
+    installable: false,
+}
+
+genrule {
+    name: "pvmfw_embedded_key_rs",
+    srcs: [":pvmfw_embedded_key"],
+    out: ["lib.rs"],
+    cmd: "(" +
+        "    echo '#![no_std]';" +
+        "    echo '#![allow(missing_docs)]';" +
+        "    echo 'pub const PUBLIC_KEY: &[u8] = &[';" +
+        "    xxd -i < $(in);" +
+        "    echo '];';" +
+        ") > $(out)",
+}
+
+rust_library_rlib {
+    name: "libpvmfw_embedded_key",
+    defaults: ["vmbase_ffi_defaults"],
+    prefer_rlib: true,
+    srcs: [":pvmfw_embedded_key_rs"],
+    crate_name: "pvmfw_embedded_key",
     apex_available: ["com.android.virt"],
+}
+
+prebuilt_etc {
+    name: "pvmfw_sign_key",
+    src: ":avb_testkey_rsa4096",
+    installable: false,
+}
+
+// platform.dts is passed to clang for macro preprocessing, and then compiled to dtbo using dtc.
+// The raw content of the dtbo file is then written as a Rust byte array.
+genrule {
+    name: "pvmfw_fdt_template_rs",
+    srcs: [
+        "platform.dts",
+        ":arm_dt_bindings_headers", // implicit dependency
+    ],
+    out: ["lib.rs"],
+    tools: ["dtc"],
+    cmd: "prebuilts/clang/host/linux-x86/clang-r487747c/bin/clang " + // UGLY!!!
+        "-E -P -x assembler-with-cpp -I external/arm-trusted-firmware/include " +
+        "-o $(genDir)/preprocessed.dts $(location platform.dts) && " +
+        "$(location dtc) -I dts -O dtb -o $(genDir)/compiled.dtbo $(genDir)/preprocessed.dts && " +
+        "(" +
+        "    echo '#![no_std]';" +
+        "    echo '#![allow(missing_docs)]';" +
+        "    echo 'pub const RAW: &[u8] = &[';" +
+        "    xxd -i < $(genDir)/compiled.dtbo;" +
+        "    echo '];';" +
+        ") > $(out)",
+}
+
+rust_library_rlib {
+    name: "libpvmfw_fdt_template",
+    defaults: ["vmbase_ffi_defaults"],
+    prefer_rlib: true,
+    srcs: [":pvmfw_fdt_template_rs"],
+    crate_name: "pvmfw_fdt_template",
+}
+
+bootimg {
+    name: "pvmfw_img",
+    stem: "pvmfw.img",
+    kernel_prebuilt: ":pvmfw_bin",
+    header_version: "3",
+    partition_name: "pvmfw",
+    enabled: false,
+    target: {
+        android_arm64: {
+            enabled: true,
+        },
+    },
+    use_avb: true,
+    avb_private_key: ":pvmfw_sign_key",
 }

@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "logging_UserCrash"
 PURPOSE = "Verify user space crashes are handled appropriately."
 CRITERIA = """
@@ -14,7 +14,7 @@ Fails if any of the following conditions occur:
   - core pattern is not recognized as as 'core'
   - crash is sent without user consent
 """
-ATTRIBUTES = "suite:bvt-cq, suite:smoke"
+ATTRIBUTES = "suite:bvt-cq, suite:smoke, suite:satlab-qual-bvt-cq"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "logging"
@@ -23,6 +23,7 @@ TEST_TYPE = "client"
 # at the end of the test, we should reboot to restore the state of the
 # device.
 DEPENDENCIES='cleanup-reboot'
+PY_VERSION = 3
 
 DOC = """
 Test that user space crashes are detected and handled appropriately.

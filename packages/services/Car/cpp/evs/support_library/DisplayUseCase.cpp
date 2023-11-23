@@ -13,27 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "DisplayUseCase.h"
+
+#include "RenderDirectView.h"
+#include "Utils.h"
+
 #include <hidl/HidlTransportSupport.h>
 #include <log/log.h>
 #include <utils/SystemClock.h>
-
-#include "DisplayUseCase.h"
-#include "RenderDirectView.h"
-#include "Utils.h"
 
 namespace android {
 namespace automotive {
 namespace evs {
 namespace support {
 
-using android::hardware::configureRpcThreadpool;
-using android::hardware::joinRpcThreadpool;
+using ::android::hardware::configureRpcThreadpool;
+using ::android::hardware::joinRpcThreadpool;
+using ::android::hardware::automotive::evs::V1_0::DisplayState;
+using ::android::hardware::automotive::evs::V1_0::EvsResult;
 
 // TODO(b/130246434): since we don't support multi-display use case, there
 // should only be one DisplayUseCase. Add the logic to prevent more than
 // one DisplayUseCases running at the same time.
-DisplayUseCase::DisplayUseCase(string cameraId, BaseRenderCallback* callback)
-              : BaseUseCase(vector<string>(1, cameraId)) {
+DisplayUseCase::DisplayUseCase(string cameraId, BaseRenderCallback* callback) :
+      BaseUseCase(vector<string>(1, cameraId)) {
     mRenderCallback = callback;
 }
 
@@ -86,8 +89,7 @@ bool DisplayUseCase::initialize() {
         if (cameraId == info.cameraId) {
             mStreamHandler = mResourceManager->obtainStreamHandler(cameraId);
             if (mStreamHandler.get() == nullptr) {
-                ALOGE("Failed to get a valid StreamHandler for %s",
-                      cameraId.c_str());
+                ALOGE("Failed to get a valid StreamHandler for %s", cameraId.c_str());
                 return false;
             }
 
@@ -151,7 +153,8 @@ bool DisplayUseCase::startVideoStream() {
             return;
         }
 
-        while (mIsReadyToRun && streamFrame());
+        while (mIsReadyToRun && streamFrame())
+            ;
 
         ALOGD("Worker thread stops.");
     });

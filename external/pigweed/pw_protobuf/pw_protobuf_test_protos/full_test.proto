@@ -24,6 +24,18 @@ enum Bool {
   FILE_NOT_FOUND = 2;
 }
 
+// Prefixed enum
+enum Error {
+  ERROR_NONE = 0;
+  ERROR_NOT_FOUND = 1;
+  ERROR_UNKNOWN = 2;
+}
+
+// Single-value enum
+enum AlwaysBlue {
+  BLUE = 0;
+}
+
 // A message!
 message Pigweed {
   // Nested messages and enums.
@@ -74,6 +86,13 @@ message Pigweed {
 
   Proto proto = 9;
   repeated Proto.ID id = 10;
+
+  // Fixed-length bytes field, a string with no maximum size specified in
+  // full_test.options, and a scalar with a forced callback.
+  bytes data = 11;
+  string description = 12;
+  uint32 special_property = 13;
+  int32 bungle = 14;
 }
 
 // Another message.
@@ -120,8 +139,75 @@ message Crate {
   repeated Crate smaller_crates = 2;
 }
 
+// Two messages that should properly overlay without collisions.
+message BaseMessage {
+  uint32 length = 1;
+  reserved 2;
+}
+
+message Overlay {
+  reserved 1;
+  uint32 height = 2;
+}
+
+// Ensure that reserved words are suffixed with underscores.
+message IntegerMetadata {
+  int32 bits = 1;
+  bool signed = 2;
+  bool null = 3;
+}
+
+// Enum values are handled differently from normal identifiers because they are
+// automatically case-converted in the generated code. Therefore, we append an
+// underscore if the output format exactly matches a reserved word or a
+// standard-library macro. This enum tests that underscores are appended in
+// cases where they're actually necessary but not when they can be skipped due
+// to case conversion.
+enum ReservedWord {
+  NULL = 0;
+  int = 1;
+  return = 2;
+  break = 3;
+  for  // The linter wants a line break here.
+    = 4;
+  do  // The linter wants a line break here.
+    = 5;
+  // Note: This obviously isn't anywhere near a complete list of C++ keywords
+  //       and standard-library macros.
+}
+
+// Messages and enums named either `Message` or `Fields` should be appended with
+// underscores in generated C++ code so that they don't conflict with the
+// codegen internals. This is only a problem if such types are defined within
+// the scopes of other messages, as generated message structs automatically have
+// nested types `struct Message` and `enum class Fields`. However, we simply
+// apply the transformation in all contexts for consistency and simplicity.
+message Function {
+  message Message {
+    string content = 1;
+  }
+
+  enum Fields {
+    NONE = 0;
+    COMPLEX_NUMBERS = 1;
+    INTEGERS_MOD_5 = 2;
+    MEROMORPHIC_FUNCTIONS_ON_COMPLEX_PLANE = 3;
+    OTHER = 4;
+  }
+
+  Message description = 1;
+  Fields domain_field = 2;
+  Fields codomain_field = 3;
+}
+
 // This might be useful.
 message KeyValuePair {
   string key = 1;
   string value = 2;
+}
+
+// Corner cases of code generation.
+message CornerCases {
+  // Generates ReadUint32() and WriteUint32() that call the parent definition.
+  uint32 _uint32 = 1;
 }

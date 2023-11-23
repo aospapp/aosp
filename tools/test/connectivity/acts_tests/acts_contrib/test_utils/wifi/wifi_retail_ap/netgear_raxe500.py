@@ -33,6 +33,7 @@ class NetgearRAXE500AP(WifiRetailAP):
     Since most of the class' implementation is shared with the R7000, this
     class inherits from NetgearR7000AP and simply redefines config parameters
     """
+
     def __init__(self, ap_settings):
         super().__init__(ap_settings)
         self.init_gui_data()
@@ -173,8 +174,6 @@ class NetgearRAXE500AP(WifiRetailAP):
             (('2G', 'bandwidth'), 'opmode'),
             (('5G_1', 'bandwidth'), 'opmode_an'),
             (('6G', 'bandwidth'), 'opmode_an_2'),
-            (('2G', 'power'), 'enable_tpc'),
-            (('5G_1', 'power'), 'enable_tpc_an'),
             (('6G', 'security_type'), 'security_type_an_2'),
             (('5G_1', 'security_type'), 'security_type_an'),
             (('2G', 'security_type'), 'security_type'),
@@ -182,13 +181,6 @@ class NetgearRAXE500AP(WifiRetailAP):
             (('5G_1', 'password'), 'passphrase_an'),
             (('6G', 'password'), 'passphrase_an_2')
         ])
-
-        self.power_mode_values = {
-            '1': '100%',
-            '2': '75%',
-            '3': '50%',
-            '4': '25%'
-        }
 
     def _set_channel_and_bandwidth(self,
                                    network,
@@ -286,7 +278,9 @@ class NetgearRAXE500AP(WifiRetailAP):
             browser.visit_persistent(self.firmware_page, BROWSER_WAIT_MED, 10)
             firmware_regex = re.compile(
                 r'Firmware Version[\s\S]+V(?P<version>[0-9._]+)')
-            firmware_version = re.search(firmware_regex, browser.html)
+            #firmware_version = re.search(firmware_regex, browser.html)
+            firmware_version = re.search(firmware_regex,
+                                         browser.driver.page_source)
             if firmware_version:
                 self.ap_settings['firmware_version'] = firmware_version.group(
                     'version')
@@ -300,42 +294,35 @@ class NetgearRAXE500AP(WifiRetailAP):
             # Visit URL
             browser.visit_persistent(self.config_page, BROWSER_WAIT_MED, 10)
 
-            for key, value in self.config_page_fields.items():
-                if 'status' in key:
+            for field_key, field_name in self.config_page_fields.items():
+                if 'status' in field_key:
                     browser.visit_persistent(self.config_page_advanced,
                                              BROWSER_WAIT_MED, 10)
-                    config_item = browser.find_by_name(value)
-                    self.ap_settings[key[0]][key[1]] = int(
-                        config_item.first.checked)
+                    field_value = browser.get_element_value(field_name)
+                    self.ap_settings[field_key[0]][field_key[1]] = int(
+                        field_value)
                     browser.visit_persistent(self.config_page,
                                              BROWSER_WAIT_MED, 10)
                 else:
-                    config_item = browser.find_by_name(value)
-                    if 'enable_ax' in key:
-                        self.ap_settings[key] = int(config_item.first.checked)
-                    elif 'bandwidth' in key:
-                        self.ap_settings[key[0]][key[1]] = self.bw_mode_values[
-                            self.ap_settings['enable_ax']][
-                                config_item.first.value]
-                    elif 'power' in key:
-                        self.ap_settings[key[0]][
-                            key[1]] = self.power_mode_values[
-                                config_item.first.value]
-                    elif 'region' in key:
+                    field_value = browser.get_element_value(field_name)
+                    if 'enable_ax' in field_key:
+                        self.ap_settings[field_key] = int(field_value)
+                    elif 'bandwidth' in field_key:
+                        self.ap_settings[field_key[0]][
+                            field_key[1]] = self.bw_mode_values[
+                                self.ap_settings['enable_ax']][field_value]
+                    elif 'region' in field_key:
                         self.ap_settings['region'] = self.region_map[
-                            config_item.first.value]
-                    elif 'security_type' in key:
-                        for item in config_item:
-                            if item.checked:
-                                self.ap_settings[key[0]][key[1]] = item.value
-                    elif 'channel' in key:
-                        config_item = browser.find_by_name(value)
-                        self.ap_settings[key[0]][key[1]] = int(
-                            config_item.first.value)
+                            field_value]
+                    elif 'security_type' in field_key:
+                        self.ap_settings[field_key[0]][
+                            field_key[1]] = field_value
+                    elif 'channel' in field_key:
+                        self.ap_settings[field_key[0]][field_key[1]] = int(
+                            field_value)
                     else:
-                        config_item = browser.find_by_name(value)
-                        self.ap_settings[key[0]][
-                            key[1]] = config_item.first.value
+                        self.ap_settings[field_key[0]][
+                            field_key[1]] = field_value
         return self.ap_settings.copy()
 
     def configure_ap(self, **config_flags):
@@ -352,68 +339,58 @@ class NetgearRAXE500AP(WifiRetailAP):
                                      BROWSER_WAIT_MED, 10, self.config_page)
 
             # Update region, and power/bandwidth for each network
-            try:
-                config_item = browser.find_by_name(
-                    self.config_page_fields['region']).first
-                config_item.select_by_text(self.ap_settings['region'])
-            except:
+            if browser.is_element_enabled(self.config_page_fields['region']):
+                browser.set_element_value(self.config_page_fields['region'],
+                                          self.ap_settings['region'],
+                                          select_method='text')
+            else:
                 self.log.warning('Cannot change region.')
-            for key, value in self.config_page_fields.items():
-                if 'enable_ax' in key:
-                    config_item = browser.find_by_name(value).first
-                    if self.ap_settings['enable_ax']:
-                        config_item.check()
-                    else:
-                        config_item.uncheck()
-                if 'power' in key:
-                    config_item = browser.find_by_name(value).first
-                    config_item.select_by_text(
-                        self.ap_settings[key[0]][key[1]])
-                elif 'bandwidth' in key:
-                    config_item = browser.find_by_name(value).first
+            for field_key, field_name in self.config_page_fields.items():
+                if 'enable_ax' in field_key:
+                    browser.set_element_value(field_name,
+                                              self.ap_settings['enable_ax'])
+                elif 'bandwidth' in field_key:
                     try:
-                        config_item.select_by_text(self.bw_mode_text[key[0]][
-                            self.ap_settings[key[0]][key[1]]])
+                        browser.set_element_value(
+                            field_name,
+                            self.bw_mode_text[field_key[0]][self.ap_settings[
+                                field_key[0]][field_key[1]]],
+                            select_method='text')
                     except AttributeError:
                         self.log.warning(
                             'Cannot select bandwidth. Keeping AP default.')
 
             # Update security settings (passwords updated only if applicable)
-            for key, value in self.config_page_fields.items():
-                if 'security_type' in key:
-                    browser.choose(value, self.ap_settings[key[0]][key[1]])
-                    if 'WPA' in self.ap_settings[key[0]][key[1]]:
-                        config_item = browser.find_by_name(
-                            self.config_page_fields[(key[0],
-                                                     'password')]).first
-                        config_item.fill(self.ap_settings[key[0]]['password'])
+            for field_key, field_name in self.config_page_fields.items():
+                if 'security_type' in field_key:
+                    browser.set_element_value(
+                        field_name,
+                        self.ap_settings[field_key[0]][field_key[1]])
+                    if 'WPA' in self.ap_settings[field_key[0]][field_key[1]]:
+                        browser.set_element_value(
+                            self.config_page_fields[(field_key[0],
+                                                     'password')],
+                            self.ap_settings[field_key[0]]['password'])
 
-            for key, value in self.config_page_fields.items():
-                if 'ssid' in key:
-                    config_item = browser.find_by_name(value).first
-                    config_item.fill(self.ap_settings[key[0]][key[1]])
-                elif 'channel' in key:
-                    config_item = browser.find_by_name(value).first
+            for field_key, field_name in self.config_page_fields.items():
+                if 'ssid' in field_key:
+                    browser.set_element_value(
+                        field_name,
+                        self.ap_settings[field_key[0]][field_key[1]])
+                elif 'channel' in field_key:
                     try:
-                        config_item.select(self.ap_settings[key[0]][key[1]])
-                        time.sleep(BROWSER_WAIT_SHORT)
+                        browser.set_element_value(
+                            field_name,
+                            self.ap_settings[field_key[0]][field_key[1]])
                     except AttributeError:
                         self.log.warning(
                             'Cannot select channel. Keeping AP default.')
-                    try:
-                        alert = browser.get_alert()
-                        alert.accept()
-                    except:
-                        pass
+                    browser.accept_alert_if_present(BROWSER_WAIT_SHORT)
+
             time.sleep(BROWSER_WAIT_SHORT)
-            browser.find_by_name('Apply').first.click()
+            browser.click_button('Apply')
+            browser.accept_alert_if_present(BROWSER_WAIT_SHORT)
             time.sleep(BROWSER_WAIT_SHORT)
-            try:
-                alert = browser.get_alert()
-                alert.accept()
-                time.sleep(BROWSER_WAIT_SHORT)
-            except:
-                time.sleep(BROWSER_WAIT_SHORT)
             browser.visit_persistent(self.config_page, BROWSER_WAIT_EXTRA_LONG,
                                      10)
 
@@ -427,16 +404,14 @@ class NetgearRAXE500AP(WifiRetailAP):
                                      BROWSER_WAIT_MED, 10)
 
             # Turn radios on or off
-            for key, value in self.config_page_fields.items():
-                if 'status' in key:
-                    config_item = browser.find_by_name(value).first
-                    if self.ap_settings[key[0]][key[1]]:
-                        config_item.check()
-                    else:
-                        config_item.uncheck()
+            for field_key, field_name in self.config_page_fields.items():
+                if 'status' in field_key:
+                    browser.set_element_value(
+                        field_name,
+                        self.ap_settings[field_key[0]][field_key[1]])
 
             time.sleep(BROWSER_WAIT_SHORT)
-            browser.find_by_name('Apply').first.click()
+            browser.click_button('Apply')
             time.sleep(BROWSER_WAIT_EXTRA_LONG)
             browser.visit_persistent(self.config_page, BROWSER_WAIT_EXTRA_LONG,
                                      10)

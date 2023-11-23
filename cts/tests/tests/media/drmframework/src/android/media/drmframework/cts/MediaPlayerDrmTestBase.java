@@ -1064,7 +1064,8 @@ public class MediaPlayerDrmTestBase extends ActivityInstrumentationTestCase2<Med
             try {
                 IntentFilter intentFilter =
                         new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-                mContext.registerReceiver(receiver, intentFilter);
+                mContext.registerReceiver(receiver, intentFilter,
+                        Context.RECEIVER_EXPORTED_UNAUDITED);
 
                 Request request = new Request(uri);
                 request.setDestinationUri(file);

@@ -79,9 +79,13 @@ typedef const void * const __private;
 #define APP_ID_AVB_TEST          0x11
 #define APP_ID_TRANSPORT_TEST    0x12
 #define APP_ID_FACEAUTH_TEST     0x13
+#define APP_ID_TEST              0x7f
 
-/* This app ID should only be used by tests. */
-#define APP_ID_TEST              0xff
+/* OR this with the APP_ID to request no-protobuf messages */
+#define APP_ID_NO_PROTO_FLAG     0x80
+
+/* No-protobuf app, experimental for now */
+#define APP_ID_WEAVER2           (APP_ID_WEAVER | APP_ID_NO_PROTO_FLAG)
 
 /****************************************************************************/
 /* Other command fields */
@@ -90,7 +94,7 @@ typedef const void * const __private;
  * The Command encoding is:
  *
  *   Bits 31-24   Control flags (reserved)
- *   Bits 23-16   Application ID
+ *   Bits 23-16   Application ID (bit 23 indicates C protocol, not protobuf)
  *   Bits 15-0    Parameters (application-specific)
  */
 
@@ -239,7 +243,7 @@ struct transport_status {
 
 /* Valid range of lengths for the status message */
 #define STATUS_MIN_LENGTH 0x10
-#define STATUS_MAX_LENGTH 0xff
+#define STATUS_MAX_LENGTH (sizeof(struct transport_status)) /* 0x10 */
 
 /* Flags used in the status message */
 #define STATUS_FLAG_WORKING 0x0001 /* added in v1 */

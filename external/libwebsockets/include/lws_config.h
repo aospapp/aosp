@@ -33,12 +33,12 @@
 #define LWS_HAS_GETOPT_LONG
 /* #undef LWS_HAVE__ATOI64 */
 #define LWS_HAVE_ATOLL
-/* #undef LWS_HAVE_BN_bn2binpad */
+#define LWS_HAVE_BN_bn2binpad
 #define LWS_HAVE_CLOCK_GETTIME
 /* #undef LWS_HAVE_EC_POINT_get_affine_coordinates */
 /* #undef LWS_HAVE_EC_KEY_new_by_curve_name */
-/* #undef LWS_HAVE_ECDSA_SIG_set0 */
-/* #undef LWS_HAVE_EVP_MD_CTX_free */
+#define LWS_HAVE_ECDSA_SIG_set0
+#define LWS_HAVE_EVP_MD_CTX_free
 /* #undef LWS_HAVE_EVP_aes_128_wrap */
 /* #undef LWS_HAVE_EVP_aes_128_cfb8 */
 /* #undef LWS_HAVE_EVP_aes_128_cfb128 */
@@ -60,7 +60,7 @@
 #define LWS_HAVE_GETPWUID_R
 #define LWS_HAVE_GETPWNAM_R
 #define LWS_HAVE_LIBCAP
-/* #undef LWS_HAVE_HMAC_CTX_new */
+#define LWS_HAVE_HMAC_CTX_new
 #define LWS_HAVE_MALLOC_H
 #define LWS_HAVE_MALLOC_TRIM
 #define LWS_HAVE_MALLOC_USABLE_SIZE
@@ -84,8 +84,8 @@
 #define LWS_HAVE_PIPE2
 #define LWS_HAVE_EVENTFD
 #define LWS_HAVE_PTHREAD_H
-/* #undef LWS_HAVE_RSA_SET0_KEY */
-/* #undef LWS_HAVE_RSA_verify_pss_mgf1 */
+#define LWS_HAVE_RSA_SET0_KEY
+#define LWS_HAVE_RSA_verify_pss_mgf1
 /* #undef LWS_HAVE_SSL_CTX_get0_certificate */
 /* #undef LWS_HAVE_SSL_CTX_load_verify_file */
 /* #undef LWS_HAVE_SSL_CTX_load_verify_dir */
@@ -93,7 +93,7 @@
 /* #undef LWS_HAVE_SSL_CTX_set_ciphersuites */
 /* #undef LWS_HAVE_SSL_EXTRA_CHAIN_CERTS */
 /* #undef LWS_HAVE_SSL_get0_alpn_selected */
-/* #undef LWS_HAVE_SSL_CTX_EVP_PKEY_new_raw_private_key */
+#define LWS_HAVE_SSL_CTX_EVP_PKEY_new_raw_private_key
 /* #undef LWS_HAVE_SSL_set_alpn_protos */
 /* #undef LWS_HAVE_SSL_SET_INFO_CALLBACK */
 /* #undef LWS_HAVE_SSL_SESSION_set_time */
@@ -108,8 +108,8 @@
 /* #undef LWS_HAVE_UV_VERSION_H */
 #define LWS_HAVE_VFORK
 #define LWS_LIBRARY_VERSION "4.3.0"
-/* #undef LWS_HAVE_X509_get_key_usage */
-/* #undef LWS_HAVE_X509_VERIFY_PARAM_set1_host */
+#define LWS_HAVE_X509_get_key_usage
+#define LWS_HAVE_X509_VERIFY_PARAM_set1_host
 #define LWS_LOGGING_BITFIELD_CLEAR 0
 #define LWS_LOGGING_BITFIELD_SET 0
 #define LWS_LOG_TAG_LIFECYCLE

@@ -2,10 +2,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "infra_FirmwareAutoupdate"
 TIME = "SHORT"
 TEST_TYPE = "server"
+PY_VERSION = 3
 
 DOC = """
 This is an administrative procedure used to update the RW firmware

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -5,14 +6,18 @@
 """A Batch of Bluetooth AUdio Health tests"""
 
 import time
+import logging
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.bluetooth.bluetooth_audio_test_data import (
-        A2DP, A2DP_LONG, AVRCP, HFP_WBS, HFP_NBS)
+        A2DP, A2DP_MEDIUM, A2DP_LONG, AVRCP, HFP_WBS, HFP_NBS, HFP_WBS_MEDIUM,
+        HFP_NBS_MEDIUM)
 from autotest_lib.server.cros.bluetooth.bluetooth_adapter_audio_tests import (
         BluetoothAdapterAudioTests)
 from autotest_lib.server.cros.bluetooth.bluetooth_adapter_quick_tests import (
         BluetoothAdapterQuickTests)
+from autotest_lib.client.cros.chameleon.audio_test_utils import (
+        has_internal_speaker)
 
 
 class bluetooth_AdapterAUHealth(BluetoothAdapterQuickTests,
@@ -43,6 +48,24 @@ class bluetooth_AdapterAUHealth(BluetoothAdapterQuickTests,
         self.cleanup_bluetooth_audio(device, test_profile)
 
 
+    def au_run_test_sequence(self, device, test_sequence, test_profile):
+        """Audio procedure of running a specified test sequence.
+
+        @param device: The Bluetooth peer device.
+        @param test_sequence: The audio test sequence to run.
+        @param test_profile: Which test profile is used,
+                             A2DP, A2DP_MEDIUM, HFP_WBS or HFP_NBS.
+        """
+        # Setup the Bluetooth device.
+        self.test_reset_on_adapter()
+        self.test_bluetoothd_running()
+        self.initialize_bluetooth_audio(device, test_profile)
+
+        test_sequence()
+
+        self.cleanup_bluetooth_audio(device, test_profile)
+
+
     def _au_a2dp_test(self, test_profile, duration=0):
         """A2DP test with sinewaves on the two channels.
 
@@ -57,7 +80,9 @@ class bluetooth_AdapterAUHealth(BluetoothAdapterQuickTests,
                            test_profile)
 
 
-    @test_wrapper('A2DP sinewave test', devices={'BLUETOOTH_AUDIO':1})
+    @test_wrapper('A2DP sinewave test',
+                  devices={'BLUETOOTH_AUDIO': 1},
+                  supports_floss=True)
     def au_a2dp_test(self):
         """A2DP test with sinewaves on the two channels."""
         self._au_a2dp_test(A2DP)
@@ -73,13 +98,49 @@ class bluetooth_AdapterAUHealth(BluetoothAdapterQuickTests,
         self._au_a2dp_test(A2DP_LONG, duration=duration)
 
 
-    def check_wbs_capability(self):
-        """Check if the DUT supports WBS capability.
+    @test_wrapper('A2DP playback and connect test',
+                  devices={'BLUETOOTH_AUDIO': 1})
+    def au_a2dp_playback_and_connect_test(self):
+        """Connect then disconnect an A2DP device while playing stream."""
+        if not has_internal_speaker(self.host):
+            logging.info('SKIPPING TEST A2DP playback and connect test')
+            raise error.TestNAError(
+                    'The DUT does not have an internal speaker')
 
-        @raises: TestNAError if the dut does not support wbs.
-        """
-        capabilities, err = self.bluetooth_facade.get_supported_capabilities()
-        return err is None and bool(capabilities.get('wide band speech'))
+        device = self.devices['BLUETOOTH_AUDIO'][0]
+        test_profile = A2DP_MEDIUM
+        test_sequence = lambda: self.playback_and_connect(device, test_profile)
+        self.au_run_test_sequence(device, test_sequence, test_profile)
+
+
+    @test_wrapper('A2DP playback and disconnect test',
+                  devices={'BLUETOOTH_AUDIO': 1})
+    def au_a2dp_playback_and_disconnect_test(self):
+        """Check the playback stream is still alive after BT disconnected."""
+        device = self.devices['BLUETOOTH_AUDIO'][0]
+        test_profile = A2DP_MEDIUM
+        test_sequence = lambda: self.playback_and_disconnect(
+                device, test_profile)
+        self.au_run_test_sequence(device, test_sequence, test_profile)
+
+
+    @test_wrapper('A2DP playback back2back test',
+                  devices={'BLUETOOTH_AUDIO': 1})
+    def au_a2dp_playback_back2back_test(self):
+        """A2DP playback stream back to back test."""
+        device = self.devices['BLUETOOTH_AUDIO'][0]
+        test_profile = A2DP_MEDIUM
+        test_sequence = lambda: self.playback_back2back(device, test_profile)
+        self.au_run_test_sequence(device, test_sequence, test_profile)
+
+
+    @test_wrapper('A2DP pinned playback test', devices={'BLUETOOTH_AUDIO': 1})
+    def au_a2dp_pinned_playback_test(self):
+        """Pinned playback stream test."""
+        device = self.devices['BLUETOOTH_AUDIO'][0]
+        test_profile = A2DP
+        test_sequence = lambda: self.pinned_playback(device, test_profile)
+        self.au_run_test_sequence(device, test_sequence, test_profile)
 
 
     def au_hfp_run_method(self, device, test_method, test_profile):
@@ -90,7 +151,7 @@ class bluetooth_AdapterAUHealth(BluetoothAdapterQuickTests,
         @param test_profile: which test profile is used, HFP_WBS or HFP_NBS
         """
         if self.check_wbs_capability():
-            if test_profile == HFP_WBS:
+            if test_profile in (HFP_WBS, HFP_WBS_MEDIUM):
                 # Restart cras to ensure that cras goes back to the default
                 # selection of either WBS or NBS.
                 # Any board that supports WBS should use WBS by default, unless
@@ -100,16 +161,16 @@ class bluetooth_AdapterAUHealth(BluetoothAdapterQuickTests,
                 self.restart_cras()
                 # The audio team suggests a simple 2-second sleep.
                 time.sleep(2)
-            elif test_profile == HFP_NBS:
+            elif test_profile in (HFP_NBS, HFP_NBS_MEDIUM):
                 # Cras may be in either WBS or NBS mode. Disable WBS explicitly.
                 if not self.bluetooth_facade.enable_wbs(False):
                     raise error.TestError('failed to disable wbs')
         else:
-            if test_profile == HFP_WBS:
+            if test_profile in (HFP_WBS, HFP_WBS_MEDIUM):
                 # Skip the WBS test on a board that does not support WBS.
                 raise error.TestNAError(
                         'The DUT does not support WBS. Skip the test.')
-            elif test_profile == HFP_NBS:
+            elif test_profile in (HFP_NBS, HFP_NBS_MEDIUM):
                 # Restart cras to ensure that cras goes back to the default
                 # selection of either WBS or NBS.
                 # Any board that does not support WBS should use NBS by default.
@@ -123,40 +184,38 @@ class bluetooth_AdapterAUHealth(BluetoothAdapterQuickTests,
                 device, lambda: test_method(device, test_profile), test_profile)
 
 
-    # TODO(b/163284498) Realtek not ready for WBS yet pending on cras patches.
     @test_wrapper('HFP WBS sinewave test with dut as source',
-                  skip_chipsets=['Realtek-RTL8822C-USB'],
                   devices={'BLUETOOTH_AUDIO':1})
     def au_hfp_wbs_dut_as_source_test(self):
         """HFP WBS test with sinewave streaming from dut to peer."""
         device = self.devices['BLUETOOTH_AUDIO'][0]
-        self.au_hfp_run_method(device, self.test_hfp_dut_as_source, HFP_WBS)
+        self.au_hfp_run_method(device, self.hfp_dut_as_source, HFP_WBS)
 
 
-    # TODO(b/163284498) Realtek not ready for WBS yet pending on cras patches.
     @test_wrapper('HFP WBS sinewave test with dut as sink',
-                  skip_chipsets=['Realtek-RTL8822C-USB'],
                   devices={'BLUETOOTH_AUDIO':1})
     def au_hfp_wbs_dut_as_sink_test(self):
         """HFP WBS test with sinewave streaming from peer to dut."""
         device = self.devices['BLUETOOTH_AUDIO'][0]
-        self.au_hfp_run_method(device, self.test_hfp_dut_as_sink, HFP_WBS)
+        self.au_hfp_run_method(device, self.hfp_dut_as_sink, HFP_WBS)
 
 
     @test_wrapper('HFP NBS sinewave test with dut as source',
-                  devices={'BLUETOOTH_AUDIO':1})
+                  devices={'BLUETOOTH_AUDIO': 1},
+                  supports_floss=True)
     def au_hfp_nbs_dut_as_source_test(self):
         """HFP NBS test with sinewave streaming from dut to peer."""
         device = self.devices['BLUETOOTH_AUDIO'][0]
-        self.au_hfp_run_method(device, self.test_hfp_dut_as_source, HFP_NBS)
+        self.au_hfp_run_method(device, self.hfp_dut_as_source, HFP_NBS)
 
 
     @test_wrapper('HFP NBS sinewave test with dut as sink',
-                  devices={'BLUETOOTH_AUDIO':1})
+                  devices={'BLUETOOTH_AUDIO': 1},
+                  supports_floss=True)
     def au_hfp_nbs_dut_as_sink_test(self):
         """HFP NBS test with sinewave streaming from peer to dut."""
         device = self.devices['BLUETOOTH_AUDIO'][0]
-        self.au_hfp_run_method(device, self.test_hfp_dut_as_sink, HFP_NBS)
+        self.au_hfp_run_method(device, self.hfp_dut_as_sink, HFP_NBS)
 
 
     @test_wrapper('HFP WBS VISQOL test with dut as sink',
@@ -164,7 +223,7 @@ class bluetooth_AdapterAUHealth(BluetoothAdapterQuickTests,
     def au_hfp_wbs_dut_as_sink_visqol_test(self):
         """HFP WBS VISQOL test with audio streaming from peer to dut"""
         device = self.devices['BLUETOOTH_AUDIO'][0]
-        self.au_hfp_run_method(device, self.test_hfp_dut_as_sink_visqol_score,
+        self.au_hfp_run_method(device, self.hfp_dut_as_sink_visqol_score,
                                HFP_WBS)
 
 
@@ -173,7 +232,7 @@ class bluetooth_AdapterAUHealth(BluetoothAdapterQuickTests,
     def au_hfp_wbs_dut_as_source_visqol_test(self):
         """HFP WBS VISQOL test with audio streaming from dut to peer"""
         device = self.devices['BLUETOOTH_AUDIO'][0]
-        self.au_hfp_run_method(device, self.test_hfp_dut_as_source_visqol_score,
+        self.au_hfp_run_method(device, self.hfp_dut_as_source_visqol_score,
                                HFP_WBS)
 
     @test_wrapper('HFP NBS VISQOL test with dut as sink',
@@ -181,7 +240,7 @@ class bluetooth_AdapterAUHealth(BluetoothAdapterQuickTests,
     def au_hfp_nbs_dut_as_sink_visqol_test(self):
         """HFP NBS VISQOL test with audio streaming from peer to dut"""
         device = self.devices['BLUETOOTH_AUDIO'][0]
-        self.au_hfp_run_method(device, self.test_hfp_dut_as_sink_visqol_score,
+        self.au_hfp_run_method(device, self.hfp_dut_as_sink_visqol_score,
                                HFP_NBS)
 
 
@@ -190,8 +249,62 @@ class bluetooth_AdapterAUHealth(BluetoothAdapterQuickTests,
     def au_hfp_nbs_dut_as_source_visqol_test(self):
         """HFP NBS VISQOL test with audio streaming from dut to peer"""
         device = self.devices['BLUETOOTH_AUDIO'][0]
-        self.au_hfp_run_method(device, self.test_hfp_dut_as_source_visqol_score,
+        self.au_hfp_run_method(device, self.hfp_dut_as_source_visqol_score,
                                HFP_NBS)
+
+
+    @test_wrapper('HFP NBS back2back test with dut as source',
+                  devices={'BLUETOOTH_AUDIO': 1})
+    def au_hfp_nbs_dut_as_source_back2back_test(self):
+        """HFP NBS back2back test from dut to peer"""
+        device = self.devices['BLUETOOTH_AUDIO'][0]
+        self.au_hfp_run_method(device, self.hfp_dut_as_source_back2back,
+                               HFP_NBS)
+
+
+    @test_wrapper('HFP WBS back2back test with dut as source',
+                  devices={'BLUETOOTH_AUDIO': 1})
+    def au_hfp_wbs_dut_as_source_back2back_test(self):
+        """HFP WBS back2back test from dut to peer"""
+        device = self.devices['BLUETOOTH_AUDIO'][0]
+        self.au_hfp_run_method(device, self.hfp_dut_as_source_back2back,
+                               HFP_WBS)
+
+
+    @test_wrapper('Switch A2DP to HFP NBS test with dut as source',
+                  devices={'BLUETOOTH_AUDIO': 1})
+    def au_a2dp_to_hfp_nbs_dut_as_source_test(self):
+        """Switch A2DP to HFP NBS test with dut as source."""
+        device = self.devices['BLUETOOTH_AUDIO'][0]
+        self.au_hfp_run_method(device, self.a2dp_to_hfp_dut_as_source,
+                               HFP_NBS_MEDIUM)
+
+
+    @test_wrapper('Switch A2DP to HFP WBS test with dut as source',
+                  devices={'BLUETOOTH_AUDIO': 1})
+    def au_a2dp_to_hfp_wbs_dut_as_source_test(self):
+        """Switch A2DP to HFP WBS test with dut as source."""
+        device = self.devices['BLUETOOTH_AUDIO'][0]
+        self.au_hfp_run_method(device, self.a2dp_to_hfp_dut_as_source,
+                               HFP_WBS_MEDIUM)
+
+
+    @test_wrapper('Switch HFP NBS to A2DP test with dut as source',
+                  devices={'BLUETOOTH_AUDIO': 1})
+    def au_hfp_nbs_to_a2dp_dut_as_source_test(self):
+        """Switch HFP NBS to A2DP test with dut as source."""
+        device = self.devices['BLUETOOTH_AUDIO'][0]
+        self.au_hfp_run_method(device, self.hfp_to_a2dp_dut_as_source,
+                               HFP_NBS_MEDIUM)
+
+
+    @test_wrapper('Switch HFP WBS to A2DP test with dut as source',
+                  devices={'BLUETOOTH_AUDIO': 1})
+    def au_hfp_wbs_to_a2dp_dut_as_source_test(self):
+        """Switch HFP WBS to A2DP test with dut as source."""
+        device = self.devices['BLUETOOTH_AUDIO'][0]
+        self.au_hfp_run_method(device, self.hfp_to_a2dp_dut_as_source,
+                               HFP_WBS_MEDIUM)
 
 
     def au_run_avrcp_method(self, device, test_method):
@@ -220,10 +333,7 @@ class bluetooth_AdapterAUHealth(BluetoothAdapterQuickTests,
         self.au_run_avrcp_method(device, self.test_avrcp_commands)
 
 
-    # Add 'Quick Health' to flags to exclude the test from AVL.
-    # When this test is stable enough later, remove the flags here.
-    @test_wrapper('avrcp media info test', devices={'BLUETOOTH_AUDIO':1},
-                  flags=['Quick Health'])
+    @test_wrapper('avrcp media info test', devices={'BLUETOOTH_AUDIO': 1})
     def au_avrcp_media_info_test(self):
         """AVRCP test to examine metadata propgation."""
         device = self.devices['BLUETOOTH_AUDIO'][0]
@@ -250,6 +360,16 @@ class bluetooth_AdapterAUHealth(BluetoothAdapterQuickTests,
         self.au_hfp_nbs_dut_as_sink_visqol_test()
         self.au_avrcp_command_test()
         self.au_avrcp_media_info_test()
+        self.au_a2dp_playback_and_connect_test()
+        self.au_a2dp_playback_and_disconnect_test()
+        self.au_a2dp_playback_back2back_test()
+        self.au_a2dp_pinned_playback_test()
+        self.au_hfp_nbs_dut_as_source_back2back_test()
+        self.au_hfp_wbs_dut_as_source_back2back_test()
+        self.au_a2dp_to_hfp_nbs_dut_as_source_test()
+        self.au_a2dp_to_hfp_wbs_dut_as_source_test()
+        self.au_hfp_nbs_to_a2dp_dut_as_source_test()
+        self.au_hfp_wbs_to_a2dp_dut_as_source_test()
 
 
     def run_once(self,
@@ -257,7 +377,8 @@ class bluetooth_AdapterAUHealth(BluetoothAdapterQuickTests,
                  num_iterations=1,
                  args_dict=None,
                  test_name=None,
-                 flag='Quick Health'):
+                 flag='Quick Health',
+                 floss=False):
         """Run the batch of Bluetooth stand health tests
 
         @param host: the DUT, usually a chromebook
@@ -269,6 +390,7 @@ class bluetooth_AdapterAUHealth(BluetoothAdapterQuickTests,
         self.quick_test_init(host,
                              use_btpeer=True,
                              flag=flag,
-                             args_dict=args_dict)
+                             args_dict=args_dict,
+                             floss=floss)
         self.au_health_batch_run(num_iterations, test_name)
         self.quick_test_cleanup()

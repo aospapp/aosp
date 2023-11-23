@@ -1,5 +1,5 @@
 rust_defaults {
-    name: "tokio_defaults_tokio",
+    name: "tokio_defaults_tests",
     crate_name: "tokio",
     cargo_env_compat: true,
     test_suites: ["general-tests"],
@@ -43,7 +43,7 @@ rust_defaults {
 
 rust_test {
     name: "tokio_test_tests__require_full",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/_require_full.rs"],
     test_options: {
@@ -53,7 +53,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_buffered",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/buffered.rs"],
     test_options: {
@@ -63,7 +63,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_async_fd",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_async_fd.rs"],
     test_options: {
@@ -73,7 +73,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_async_read",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_async_read.rs"],
     test_options: {
@@ -83,7 +83,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_chain",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_chain.rs"],
     test_options: {
@@ -93,7 +93,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_copy",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_copy.rs"],
     test_options: {
@@ -103,7 +103,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_copy_bidirectional",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_copy_bidirectional.rs"],
     test_options: {
@@ -113,7 +113,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_driver",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_driver.rs"],
     test_options: {
@@ -123,7 +123,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_driver_drop",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_driver_drop.rs"],
     test_options: {
@@ -133,7 +133,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_lines",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_lines.rs"],
     test_options: {
@@ -143,7 +143,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_mem_stream",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_mem_stream.rs"],
     test_options: {
@@ -153,7 +153,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_read",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_read.rs"],
     test_options: {
@@ -163,7 +163,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_read_buf",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_read_buf.rs"],
     test_options: {
@@ -173,7 +173,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_read_exact",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_read_exact.rs"],
     test_options: {
@@ -183,7 +183,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_read_line",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_read_line.rs"],
     test_options: {
@@ -193,7 +193,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_read_to_end",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_read_to_end.rs"],
     test_options: {
@@ -203,7 +203,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_read_to_string",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_read_to_string.rs"],
     test_options: {
@@ -213,7 +213,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_read_until",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_read_until.rs"],
     test_options: {
@@ -223,7 +223,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_split",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_split.rs"],
     test_options: {
@@ -233,7 +233,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_take",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_take.rs"],
     test_options: {
@@ -243,7 +243,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_write",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_write.rs"],
     test_options: {
@@ -253,7 +253,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_write_all",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_write_all.rs"],
     test_options: {
@@ -263,7 +263,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_write_buf",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_write_buf.rs"],
     test_options: {
@@ -273,7 +273,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_io_write_int",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/io_write_int.rs"],
     test_options: {
@@ -283,7 +283,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_macros_join",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/macros_join.rs"],
     test_options: {
@@ -293,7 +293,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_macros_pin",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/macros_pin.rs"],
     test_options: {
@@ -303,7 +303,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_macros_select",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/macros_select.rs"],
     test_options: {
@@ -313,7 +313,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_macros_test",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/macros_test.rs"],
     test_options: {
@@ -323,7 +323,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_macros_try_join",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/macros_try_join.rs"],
     test_options: {
@@ -333,7 +333,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_net_bind_resource",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/net_bind_resource.rs"],
     test_options: {
@@ -343,7 +343,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_net_lookup_host",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/net_lookup_host.rs"],
     test_options: {
@@ -353,7 +353,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_no_rt",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/no_rt.rs"],
     test_options: {
@@ -363,7 +363,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_process_kill_on_drop",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/process_kill_on_drop.rs"],
     test_options: {
@@ -373,7 +373,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_rt_basic",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/rt_basic.rs"],
     test_options: {
@@ -383,7 +383,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_rt_common",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/rt_common.rs"],
     test_options: {
@@ -393,7 +393,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_rt_threaded",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/rt_threaded.rs"],
     test_options: {
@@ -403,7 +403,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_sync_barrier",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/sync_barrier.rs"],
     test_options: {
@@ -413,7 +413,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_sync_broadcast",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/sync_broadcast.rs"],
     test_options: {
@@ -423,7 +423,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_sync_errors",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/sync_errors.rs"],
     test_options: {
@@ -432,18 +432,8 @@ rust_test {
 }
 
 rust_test {
-    name: "tokio_test_tests_sync_mpsc",
-    defaults: ["tokio_defaults_tokio"],
-    host_supported: true,
-    srcs: ["tests/sync_mpsc.rs"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
     name: "tokio_test_tests_sync_mutex",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/sync_mutex.rs"],
     test_options: {
@@ -453,7 +443,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_sync_mutex_owned",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/sync_mutex_owned.rs"],
     test_options: {
@@ -463,7 +453,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_sync_notify",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/sync_notify.rs"],
     test_options: {
@@ -473,7 +463,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_sync_oneshot",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/sync_oneshot.rs"],
     test_options: {
@@ -483,7 +473,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_sync_rwlock",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/sync_rwlock.rs"],
     test_options: {
@@ -493,7 +483,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_sync_semaphore",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/sync_semaphore.rs"],
     test_options: {
@@ -503,7 +493,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_sync_semaphore_owned",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/sync_semaphore_owned.rs"],
     test_options: {
@@ -513,7 +503,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_sync_watch",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/sync_watch.rs"],
     test_options: {
@@ -523,7 +513,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_task_abort",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/task_abort.rs"],
     test_options: {
@@ -533,7 +523,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_task_blocking",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/task_blocking.rs"],
     test_options: {
@@ -543,7 +533,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_task_local",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/task_local.rs"],
     test_options: {
@@ -553,7 +543,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_task_local_set",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/task_local_set.rs"],
     test_options: {
@@ -563,7 +553,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_tcp_accept",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/tcp_accept.rs"],
     test_options: {
@@ -573,7 +563,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_tcp_connect",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/tcp_connect.rs"],
     test_options: {
@@ -583,7 +573,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_tcp_echo",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/tcp_echo.rs"],
     test_options: {
@@ -593,7 +583,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_tcp_into_split",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/tcp_into_split.rs"],
     test_options: {
@@ -603,7 +593,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_tcp_into_std",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/tcp_into_std.rs"],
     test_options: {
@@ -613,7 +603,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_tcp_peek",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/tcp_peek.rs"],
     test_options: {
@@ -623,7 +613,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_tcp_shutdown",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/tcp_shutdown.rs"],
     test_options: {
@@ -633,7 +623,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_tcp_socket",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/tcp_socket.rs"],
     test_options: {
@@ -643,7 +633,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_tcp_split",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/tcp_split.rs"],
     test_options: {
@@ -653,7 +643,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_time_rt",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/time_rt.rs"],
     test_options: {
@@ -663,7 +653,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_udp",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/udp.rs"],
     test_options: {
@@ -673,7 +663,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_uds_cred",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/uds_cred.rs"],
     test_options: {
@@ -683,7 +673,7 @@ rust_test {
 
 rust_test {
     name: "tokio_test_tests_uds_split",
-    defaults: ["tokio_defaults_tokio"],
+    defaults: ["tokio_defaults_tests"],
     host_supported: true,
     srcs: ["tests/uds_split.rs"],
     test_options: {

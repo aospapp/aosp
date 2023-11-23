@@ -18,6 +18,7 @@
 #include <sys/wait.h>
 #include <stdlib.h>
 #include "posixtest.h"
+#include "proc.h"
 
 #define SLEEPSEC 5
 
@@ -34,7 +35,10 @@ int main(void)
 		return PTS_UNRESOLVED;
 	}
 
-	if ((pid = fork()) == 0) {
+	if ((pid = fork()) < 0) {
+		printf("fork() did not return success\n");
+		return PTS_UNRESOLVED;
+	} else if (pid == 0) {
 		/* child here */
 		struct timespec tssleep;
 
@@ -52,7 +56,7 @@ int main(void)
 		/* parent here */
 		int i;
 
-		sleep(1);
+		tst_process_state_wait3(pid, 'S', 1);
 
 		if (kill(pid, SIGSTOP) != 0) {
 			printf("Could not raise SIGSTOP\n");

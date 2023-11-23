@@ -82,6 +82,7 @@
     <!-- Button of footer attributes -->
     <declare-styleable name="SucFooterBarMixin">
         <attr name="sucFooterBarButtonAllCaps" format="boolean" />
+        <attr name="sucFooterBarButtonAlignEnd" format="boolean" />
         <attr name="sucFooterBarButtonCornerRadius" format="dimension" />
         <attr name="sucFooterBarButtonFontFamily" format="string|reference" />
         <attr name="sucFooterBarPaddingTop" format="dimension" />

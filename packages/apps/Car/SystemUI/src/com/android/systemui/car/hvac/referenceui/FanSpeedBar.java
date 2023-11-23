@@ -20,6 +20,7 @@ import static android.car.VehiclePropertyIds.HVAC_AUTO_ON;
 import static android.car.VehiclePropertyIds.HVAC_FAN_SPEED;
 import static android.car.VehiclePropertyIds.HVAC_POWER_ON;
 
+import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
 import android.content.Context;
 import android.content.res.Resources;
@@ -62,8 +63,8 @@ public class FanSpeedBar extends RelativeLayout implements HvacView {
     private FanSpeedBarSegment mFanSpeed3;
     private FanSpeedBarSegment mFanSpeed4;
 
-    private boolean mPowerOn;
-    private boolean mAutoOn;
+    private boolean mPowerOn = false;
+    private boolean mAutoOn = false;
 
     private float mOnAlpha;
     private float mOffAlpha;
@@ -106,6 +107,11 @@ public class FanSpeedBar extends RelativeLayout implements HvacView {
     @Override
     public void setHvacPropertySetter(HvacPropertySetter hvacPropertySetter) {
         mHvacPropertySetter = hvacPropertySetter;
+    }
+
+    @Override
+    public void setConfigInfo(CarPropertyConfig<?> carPropertyConfig) {
+        // no-op.
     }
 
     @Override
@@ -202,6 +208,7 @@ public class FanSpeedBar extends RelativeLayout implements HvacView {
                 mCornerRadius, mCornerRadius, 0, 0});
         mMaxButton.setBackground(maxButtonBg);
         mMaxButton.setTextColor(mButtonInactiveTextColor);
+        updateViewPerAvailability();
     }
 
     @Override

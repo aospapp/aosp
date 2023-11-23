@@ -1,15 +1,22 @@
-#!/usr/bin/python2
+
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 """Implement a modem proxy to talk to a ModemManager1 modem."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.cellular import cellular
+from autotest_lib.client.cros.cellular import cellular_logging
 from autotest_lib.client.cros.cellular import mm1
 from autotest_lib.client.cros.cellular import mm1_constants
+
 import dbus
-import cellular_logging
+import six
 
 log = cellular_logging.SetupCellularLogging('modem1')
 
@@ -88,7 +95,7 @@ class Modem(object):
     def _CopyPropertiesCheckUnique(src, dest):
         """Copies properties from |src| to |dest| and makes sure there are no
            duplicate properties that have different values."""
-        for key, value in src.iteritems():
+        for key, value in six.iteritems(src):
             if key in dest and value != dest[key]:
                 raise KeyError('Duplicate property %s, different values '
                                '("%s", "%s")' % (key, value, dest[key]))
@@ -254,7 +261,7 @@ class ModemManager(object):
 
     def EnumerateDevices(self):
         devices = self.objectmanager.GetManagedObjects()
-        return devices.keys()
+        return list(devices.keys())
 
     def GetModem(self, path):
         return Modem(self, path)

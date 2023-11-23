@@ -48,6 +48,8 @@ void CommConn::sendMessage(vhal_proto::EmulatorMessage const& msg) {
         return;
     }
 
+    std::lock_guard<std::mutex> lock(mSendMessageLock);
+
     write(buffer);
 }
 

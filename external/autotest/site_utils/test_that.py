@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -8,6 +8,7 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
+import json
 import os
 import signal
 import subprocess
@@ -30,40 +31,43 @@ from autotest_lib.site_utils import test_runner_utils
 _QUICKMERGE_SCRIPTNAME = '/mnt/host/source/chromite/bin/autotest_quickmerge'
 
 
-def _get_board_from_host(remote):
-    """Get the board of the remote host.
+def _get_info_from_host(remote, board=None, model=None, ssh_options=''):
+    """Get the info of the remote host if needed.
 
     @param remote: string representing the IP of the remote host.
+    @param board: board arg from CLI.
+    @param model: model arg from CLI.
 
-    @return: A string representing the board of the remote host.
+    @return: board, model string representing the board, model
+        of the remote host.
     """
-    logging.info('Board unspecified, attempting to determine board from host.')
-    host = factory.create_host(remote)
-    try:
-        board = host.get_board().replace(constants.BOARD_PREFIX, '')
-    except error.AutoservRunError:
-        raise test_runner_utils.TestThatRunError(
-                'Cannot determine board, please specify a --board option.')
-    logging.info('Detected host board: %s', board)
-    return board
 
+    if board and model:
+        return board, model
 
-def _get_model_from_host(remote):
-    """Get the model of the remote host.
+    host = factory.create_host(remote, ssh_options=ssh_options)
 
-    @param remote: string representing the IP of the remote host.
+    if not board:
+        logging.info(
+                'Board unspecified, attempting to determine board from host.')
+        try:
+            board = host.get_board().replace(constants.BOARD_PREFIX, '')
+        except error.AutoservRunError:
+            raise test_runner_utils.TestThatRunError(
+                    'Cannot determine board, please specify a --board option.')
+        logging.info('Detected host board: %s', board)
 
-    @return: A string representing the board of the remote host.
-   """
-    logging.info('Model unspecified, attempting to determine model from host.')
-    host = factory.create_host(remote)
-    try:
-        model = host.get_platform()
-    except error.AutoservRunError:
-        raise test_runner_utils.TestThatRunError(
-                'Cannot determine model, please specify a --model option.')
-    logging.info('Detected host model: %s', model)
-    return model
+    if not model:
+        logging.info(
+                'Model unspecified, attempting to determine model from host.')
+        try:
+            model = host.get_platform()
+        except error.AutoservRunError:
+            raise test_runner_utils.TestThatRunError(
+                    'Cannot determine model, please specify a --model option.')
+        logging.info('Detected host model: %s', model)
+
+    return board, model
 
 
 def validate_arguments(arguments):
@@ -89,6 +93,12 @@ def validate_arguments(arguments):
     else:
         if arguments.web:
             raise ValueError('--web flag not supported when running locally')
+
+    try:
+        json.loads(arguments.host_attributes)
+    except TypeError:
+        raise ValueError("--host_attributes must be quoted dict, got: %s" %
+                         arguments.host_attributes)
 
 
 def parse_arguments(argv):
@@ -164,6 +174,42 @@ def _parse_arguments_internal(argv):
     parser.add_argument('--ssh_private_key', action='store',
                         default=test_runner_utils.TEST_KEY_PATH,
                         help='Path to the private ssh key.')
+    parser.add_argument(
+            '--companion_hosts',
+            action='store',
+            default=None,
+            help='Companion duts for the test, quoted space seperated strings')
+    parser.add_argument('--dut_servers',
+                        action='store',
+                        default=None,
+                        help='DUT servers for the test.')
+    parser.add_argument('--minus',
+                        dest='minus',
+                        nargs='*',
+                        help='List of tests to not use.',
+                        default=[''])
+    parser.add_argument('--py_version',
+                        dest='py_version',
+                        help='Python version to use, passed '
+                        'to Autotest modules, defaults to 2.',
+                        default=None)
+    parser.add_argument('--CFT',
+                        action='store_true',
+                        default=False,
+                        dest='CFT',
+                        help="If running in, or mocking, the CFT env.")
+    parser.add_argument('--host_attributes',
+                        action='store',
+                        default='{}',
+                        help='host_attributes')
+    parser.add_argument('--host_labels',
+                        action='store',
+                        default="",
+                        help='host_labels, quoted space seperated strings')
+    parser.add_argument('--label',
+                        action='store',
+                        default="",
+                        help='label for test name')
     return parser.parse_args(argv), remote_argv
 
 
@@ -256,10 +302,6 @@ def _main_for_local_run(argv, arguments):
     @param argv: Script command line arguments.
     @param arguments: Parsed command line arguments.
     """
-    if not os.path.exists('/etc/cros_chroot_version'):
-        print('For local runs, script must be run inside chroot.', file=sys.stderr)
-        return 1
-
     results_directory = test_runner_utils.create_results_directory(
             arguments.results_dir, arguments.board)
     test_runner_utils.add_ssh_identity(results_directory,
@@ -270,13 +312,13 @@ def _main_for_local_run(argv, arguments):
     # --model, and is not set in the default_board file, determine the board by
     # ssh-ing into the host. Also prepend it to argv so we can re-use it when we
     # run test_that from the sysroot.
-    if arguments.board is None:
-        arguments.board = _get_board_from_host(arguments.remote)
-        argv = ['--board=%s' % (arguments.board,)] + argv
-
-    if arguments.model is None:
-        arguments.model = _get_model_from_host(arguments.remote)
-        argv = ['--model=%s' % (arguments.model, )] + argv
+    arguments.board, arguments.model = _get_info_from_host(
+            arguments.remote,
+            arguments.board,
+            arguments.model,
+            ssh_options=arguments.ssh_options)
+    argv = ['--board=%s' % (arguments.board, )] + argv
+    argv = ['--model=%s' % (arguments.model, )] + argv
 
     if arguments.autotest_dir:
         autotest_path = arguments.autotest_dir
@@ -329,7 +371,14 @@ def _main_for_local_run(argv, arguments):
                 debug=arguments.debug,
                 allow_chrome_crashes=arguments.allow_chrome_crashes,
                 pretend=arguments.pretend,
-                job_retry=arguments.retry)
+                job_retry=arguments.retry,
+                companion_hosts=arguments.companion_hosts,
+                minus=arguments.minus,
+                dut_servers=arguments.dut_servers,
+                is_cft=arguments.CFT,
+                host_attributes=json.loads(arguments.host_attributes),
+                host_labels=arguments.host_labels,
+                label=arguments.label)
 
 
 def _main_for_lab_run(argv, arguments):

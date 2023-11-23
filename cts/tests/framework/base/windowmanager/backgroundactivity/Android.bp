@@ -17,7 +17,7 @@ package {
 }
 
 android_test {
-    name: "CtsActivityManagerBackgroundActivityTestCases",
+    name: "CtsWindowManagerBackgroundActivityTestCases",
     defaults: ["cts_defaults"],
 
     // TODO(b/129909356): Consolidate this to CtsWindowManagerDeviceTestCases.apk
@@ -35,6 +35,9 @@ android_test {
         "cts-wm-app-base",
         "cts-core-test-runner-axt",
         "cts-background-activity-common",
+        "cts_window-sidecar",
+        "cts_window-extensions",
+        "cts_window_jetpack_utils",
     ],
 
     test_suites: [
@@ -43,7 +46,11 @@ android_test {
     ],
     data: [
         ":CtsBackgroundActivityAppA",
+        ":CtsBackgroundActivityAppA33",
         ":CtsBackgroundActivityAppB",
+        ":CtsBackgroundActivityAppB33",
+        ":CtsBackgroundActivityAppC",
+        ":CtsBackgroundActivityAppC33",
     ],
     per_testcase_directory: true,
 }

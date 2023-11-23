@@ -46,7 +46,6 @@
 #if !defined(_WIN32)
 #include <sys/ioctl.h>
 #include <termios.h>
-#include <unistd.h>
 #else
 #define _POSIX
 #include <signal.h>
@@ -120,12 +119,12 @@ static void help() {
         "       localabstract:<unix domain socket name>\n"
         "       localreserved:<unix domain socket name>\n"
         "       localfilesystem:<unix domain socket name>\n"
+        "       dev:<character device name>\n"
         "       jdwp:<process pid> (remote only)\n"
         "       vsock:<CID>:<port> (remote only)\n"
         "       acceptfd:<fd> (listen only)\n"
         " forward --remove LOCAL   remove specific forward socket connection\n"
         " forward --remove-all     remove all forward socket connections\n"
-        " ppp TTY [PARAMETER...]   run PPP over USB\n"
         " reverse --list           list all reverse socket connections from device\n"
         " reverse [--no-rebind] REMOTE LOCAL\n"
         "     reverse socket connection using:\n"
@@ -253,6 +252,9 @@ static void help() {
         " $ANDROID_LOG_TAGS        tags to be used by logcat (see logcat --help)\n"
         " $ADB_LOCAL_TRANSPORT_MAX_PORT max emulator scan port (default 5585, 16 emus)\n"
         " $ADB_MDNS_AUTO_CONNECT   comma-separated list of mdns services to allow auto-connect (default adb-tls-connect)\n"
+        "\n"
+        "Online documentation: https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/master/docs/user/adb.1.md\n"
+        "\n"
     );
     // clang-format on
 }
@@ -1009,53 +1011,6 @@ static int adb_wipe_devices() {
     return 1;
 }
 
-static int ppp(int argc, const char** argv) {
-#if defined(_WIN32)
-    error_exit("adb %s not implemented on Win32", argv[0]);
-    __builtin_unreachable();
-#else
-    if (argc < 2) error_exit("usage: adb %s <adb service name> [ppp opts]", argv[0]);
-
-    const char* adb_service_name = argv[1];
-    std::string error_message;
-    int fd = adb_connect(adb_service_name, &error_message);
-    if (fd < 0) {
-        error_exit("could not open adb service %s: %s", adb_service_name, error_message.c_str());
-    }
-
-    pid_t pid = fork();
-    if (pid == -1) {
-        perror_exit("fork failed");
-    }
-
-    if (pid == 0) {
-        // child side
-        int i;
-
-        // copy args
-        const char** ppp_args = (const char**)alloca(sizeof(char*) * argc + 1);
-        ppp_args[0] = "pppd";
-        for (i = 2 ; i < argc ; i++) {
-            //argv[2] and beyond become ppp_args[1] and beyond
-            ppp_args[i - 1] = argv[i];
-        }
-        ppp_args[i-1] = nullptr;
-
-        dup2(fd, STDIN_FILENO);
-        dup2(fd, STDOUT_FILENO);
-        adb_close(STDERR_FILENO);
-        adb_close(fd);
-
-        execvp("pppd", (char* const*)ppp_args);
-        perror_exit("exec pppd failed");
-    }
-
-    // parent side
-    adb_close(fd);
-    return 0;
-#endif /* !defined(_WIN32) */
-}
-
 static bool wait_for_device(const char* service,
                             std::optional<std::chrono::milliseconds> timeout = std::nullopt) {
     std::vector<std::string> components = android::base::Split(service, "-");
@@ -1280,7 +1235,9 @@ static int backup(int argc, const char** argv) {
 static int restore(int argc, const char** argv) {
     fprintf(stdout, "WARNING: adb restore is deprecated and may be removed in a future release\n");
 
-    if (argc != 2) error_exit("restore requires an argument");
+    if (argc < 2) {
+        error_exit("usage: adb restore FILENAME [ARG]...");
+    }
 
     const char* filename = argv[1];
     unique_fd tarFd(adb_open(filename, O_RDONLY));
@@ -1289,8 +1246,17 @@ static int restore(int argc, const char** argv) {
         return -1;
     }
 
+    std::string cmd = "restore:";
+    argc -= 2;
+    argv += 2;
+    while (argc-- > 0) {
+        cmd += " " + escape_arg(*argv++);
+    }
+
+    D("restore. filename=%s cmd=%s", filename, cmd.c_str());
+
     std::string error;
-    unique_fd fd(adb_connect("restore:", &error));
+    unique_fd fd(adb_connect(cmd, &error));
     if (fd < 0) {
         fprintf(stderr, "adb: unable to connect for restore: %s\n", error.c_str());
         return -1;
@@ -1592,6 +1558,7 @@ int adb_commandline(int argc, const char** argv) {
             if (isdigit(argv[0][2])) {
                 id = argv[0] + 2;
             } else {
+                if (argc < 2 || argv[0][2] != '\0') error_exit("-t requires an argument");
                 id = argv[1];
                 --argc;
                 ++argv;
@@ -1980,7 +1947,10 @@ int adb_commandline(int argc, const char** argv) {
 
         parse_push_pull_args(&argv[1], argc - 1, &srcs, &dst, &copy_attrs, &sync, &compression,
                              &dry_run);
-        if (srcs.empty() || !dst) error_exit("push requires an argument");
+        if (srcs.empty() || !dst) {
+            error_exit("push requires <source> and <destination> arguments");
+        }
+
         return do_sync_push(srcs, dst, sync, compression, dry_run) ? 0 : 1;
     } else if (!strcmp(argv[0], "pull")) {
         bool copy_attrs = false;
@@ -2067,8 +2037,6 @@ int adb_commandline(int argc, const char** argv) {
     else if (!strcmp(argv[0], "logcat") || !strcmp(argv[0], "lolcat") ||
              !strcmp(argv[0], "longcat")) {
         return logcat(argc, argv);
-    } else if (!strcmp(argv[0], "ppp")) {
-        return ppp(argc, argv);
     } else if (!strcmp(argv[0], "start-server")) {
         std::string error;
         const int result = adb_connect("host:start-server", &error);

@@ -13,6 +13,7 @@ CRITERIA="Run on DUT with a servo attached and a functional DUT on the servo."
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "servo"
 TEST_TYPE = "server"
+PY_VERSION = 3
 
 DOC = """
 

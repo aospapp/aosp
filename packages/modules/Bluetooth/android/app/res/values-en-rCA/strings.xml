@@ -17,12 +17,13 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="5297865456717871041">"Access download manager."</string>
-    <string name="permdesc_bluetoothShareManager" msgid="1588034776955941477">"Allows the application to access the Bluetooth Share manager and to use it to transfer files."</string>
-    <string name="permlab_bluetoothAcceptlist" msgid="5785922051395856524">"Acceptlist Bluetooth device access."</string>
+    <string name="permdesc_bluetoothShareManager" msgid="1588034776955941477">"Allows the app to access the BluetoothShare manager and use it to transfer files."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="5785922051395856524">"Acceptlist bluetooth device access."</string>
     <string name="permdesc_bluetoothAcceptlist" msgid="259308920158011885">"Allows the app to temporarily acceptlist a Bluetooth device, allowing that device to send files to this device without user confirmation."</string>
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Unknown device"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Unknown"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Not Provided"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Airplane mode"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"You can\'t use Bluetooth in Airplane mode."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -87,13 +88,13 @@
     <string name="bt_sm_2_1_default" msgid="5070195264206471656">"There isn\'t enough space on the SD card to save the file."</string>
     <string name="bt_sm_2_2" msgid="6200119660562110560">"Space needed: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="5049670841391761475">"Too many requests are being processed. Try again later."</string>
-    <string name="status_pending" msgid="4781040740237733479">"File transfer not started yet"</string>
+    <string name="status_pending" msgid="4781040740237733479">"File transfer not started yet."</string>
     <string name="status_running" msgid="7419075903776657351">"File transfer is ongoing."</string>
     <string name="status_success" msgid="7963589000098719541">"File transfer completed successfully."</string>
     <string name="status_not_accept" msgid="1165798802740579658">"Content isn\'t supported."</string>
     <string name="status_forbidden" msgid="4017060451358837245">"Transfer forbidden by target device."</string>
-    <string name="status_canceled" msgid="8441679418717978515">"Transfer cancelled by user."</string>
-    <string name="status_file_error" msgid="5379018888714679311">"Storage issue"</string>
+    <string name="status_canceled" msgid="8441679418717978515">"Transfer canceled by user."</string>
+    <string name="status_file_error" msgid="5379018888714679311">"Storage issue."</string>
     <string name="status_no_sd_card_nosdcard" msgid="6445646484924125975">"No USB storage."</string>
     <string name="status_no_sd_card_default" msgid="8878262565692541241">"No SD card. Insert an SD card to save transferred files."</string>
     <string name="status_connection_error" msgid="8253709700568062220">"Connection unsuccessful."</string>
@@ -115,17 +116,23 @@
     <string name="transfer_menu_open" msgid="5193344638774400131">"Open"</string>
     <string name="transfer_menu_clear" msgid="7213491281898188730">"Clear from list"</string>
     <string name="transfer_clear_dlg_title" msgid="128904516163257225">"Clear"</string>
-    <string name="bluetooth_a2dp_sink_queue_name" msgid="7521243473328258997">"Now playing"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="7521243473328258997">"Now Playing"</string>
     <string name="bluetooth_map_settings_save" msgid="8309113239113961550">"Save"</string>
     <string name="bluetooth_map_settings_cancel" msgid="3374494364625947793">"Cancel"</string>
-    <string name="bluetooth_map_settings_intro" msgid="4748160773998753325">"Select the accounts that you want to share through Bluetooth. You still have to accept any access to the accounts when connecting."</string>
+    <string name="bluetooth_map_settings_intro" msgid="4748160773998753325">"Select the accounts you want to share through Bluetooth. You still have to accept any access to the accounts when connecting."</string>
     <string name="bluetooth_map_settings_count" msgid="183013143617807702">"Slots left:"</string>
-    <string name="bluetooth_map_settings_app_icon" msgid="3501432663809664982">"Application icon"</string>
-    <string name="bluetooth_map_settings_title" msgid="4226030082708590023">"Bluetooth message sharing settings"</string>
+    <string name="bluetooth_map_settings_app_icon" msgid="3501432663809664982">"Application Icon"</string>
+    <string name="bluetooth_map_settings_title" msgid="4226030082708590023">"Bluetooth Message Sharing Settings"</string>
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="755024228476065757">"Cannot select account. 0 slots left"</string>
     <string name="bluetooth_connected" msgid="5687474377090799447">"Bluetooth audio connected"</string>
     <string name="bluetooth_disconnected" msgid="6841396291728343534">"Bluetooth audio disconnected"</string>
-    <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Bluetooth audio"</string>
-    <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Files bigger than 4 GB cannot be transferred"</string>
+    <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Bluetooth Audio"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Files bigger than 4GB cannot be transferred"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Connect to Bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth on in Airplane mode"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"If you keep Bluetooth on, your device will remember to keep it on the next time you\'re in airplane mode"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth stays on"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Your device remembers to keep Bluetooth on in airplane mode. Turn off Bluetooth if you don\'t want it to stay on."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi and Bluetooth stay on"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Your device remembers to keep Wi-Fi and Bluetooth on in airplane mode. Turn off Wi-Fi and Bluetooth if you don\'t want them to stay on."</string>
 </resources>

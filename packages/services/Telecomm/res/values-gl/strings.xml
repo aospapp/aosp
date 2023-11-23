@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"Desconectouse a chamada a <xliff:g id="CALLER">%s</xliff:g> porque se realizou unha chamada de emerxencia."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"Desconectouse a chamada porque se realizou unha chamada de emerxencia."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"Chamada seg. plano"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> chamou en segundo plano. Pode que esta aplicación acceda ao audio e o reproduza durante a chamada."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> está procesando unha chamada en segundo plano. Pode que esta aplicación acceda ao audio e o reproduza durante a chamada."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> deixou de responder"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"Usouse a aplicación para teléfonos que ven co teu dispositivo na chamada"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"Chamada silenciada"</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Chamadas en segundo plano"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Chamadas desconectadas"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Fallaron as aplicacións de teléfono"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"Propagación de chamada"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"Ao facer esta chamada, finalizarase o túa chamada de <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Escolle como facer esta chamada"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"Redirixir a chamada con <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Menú para programadores de telecomunicacións"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Non se pode responder ás chamadas durante unha chamada de emerxencia."</string>
     <string name="cancel" msgid="6733466216239934756">"Cancelar"</string>
+    <string name="back" msgid="6915955601805550206">"Volver"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"Auricular"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"Bluetooth"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"Auriculares con cable"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"Altofalante"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"Externo"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"Descoñecido"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"Emitindo audio noutro dispositivo"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"Colgar"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"Volver aquí"</string>
 </resources>

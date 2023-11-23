@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/uuid
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "uuid"
 description: "A library to generate and parse UUIDs."
 third_party {
@@ -7,14 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/uuid/uuid-0.8.2.crate"
+    value: "https://static.crates.io/crates/uuid/uuid-1.3.0.crate"
   }
-  version: "0.8.2"
-  # Dual-licensed, using the least restrictive per go/thirdpartylicenses#same.
+  version: "1.3.0"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2021
+    year: 2023
     month: 3
-    day: 12
+    day: 29
   }
 }

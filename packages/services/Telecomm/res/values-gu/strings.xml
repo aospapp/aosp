@@ -25,12 +25,12 @@
     <string name="notification_missedCallsMsg" msgid="5055782736170916682">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> ચૂકી ગયેલા કૉલ"</string>
     <string name="notification_missedCallTicker" msgid="6731461957487087769">"<xliff:g id="MISSED_CALL_FROM">%s</xliff:g> નો કૉલ ચૂકી ગયાં"</string>
     <string name="notification_missedCall_call_back" msgid="7900333283939789732">"કૉલ બેક"</string>
-    <string name="notification_missedCall_message" msgid="4054698824390076431">"સંદેશ"</string>
+    <string name="notification_missedCall_message" msgid="4054698824390076431">"મેસેજ"</string>
     <string name="notification_disconnectedCall_title" msgid="1790131923692416928">"ડિસ્કનેક્ટ કરેલો કૉલ"</string>
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"ઇમર્જન્સી કૉલને કારણે <xliff:g id="CALLER">%s</xliff:g>નો કૉલ ડિસ્કનેક્ટ કરવામાં આવ્યો છે."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"ઇમર્જન્સી કૉલને કારણે તમારો કૉલ ડિસ્કનેક્ટ કરવામાં આવ્યો છે."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"બૅકગ્રાઉન્ડ કૉલ"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g>એ કૉલ બેકગ્રાઉન્ડમાં રાખ્યો છે. આ ઍપ કૉલ પરથી ઑડિયો ઍક્સેસ કરીને તેને ચલાવી શકે છે."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"બૅકગ્રાઉન્ડમાં <xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> કોઈ કૉલની પ્રક્રિયા કરી રહ્યું છે. આ ઍપ કૉલ પરથી ઑડિયો ઍક્સેસ કરીને તેને વગાડી શકે છે."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> ઍપ પ્રતિસાદ આપી રહી નથી"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"તમારા કૉલ માટે તમારા ડિવાઇસમાં પહેલેથી ઇન્સ્ટૉલ કરેલી ફોન ઍપનો ઉપયોગ કરવામાં આવ્યો"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"કૉલ મ્યૂટ કરેલ છે."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"બૅકગ્રાઉન્ડ કૉલ"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"ડિસ્કનેક્ટ કરેલા કૉલ"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"ફોન ઍપ ક્રૅશ થઈ"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"કૉલ સ્ટ્રીમ કરી રહ્યાં છીએ"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"આ કૉલ કરવાથી તમારો <xliff:g id="OTHER_APP">%1$s</xliff:g> કૉલ સમાપ્ત થઈ જશે."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"આ કૉલ કેવી રીતે કરવો તે પસંદ કરો"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"<xliff:g id="OTHER_APP">%1$s</xliff:g>નો ઉપયોગ કરીને કૉલ રીડાયરેક્ટ કરો"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"ટેલિકોમ ડેવલપર મેનૂ"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"ઇમર્જન્સી કૉલ ચાલુ હોય, ત્યારે બીજા કોઈ કૉલ લઈ શકાતા નથી."</string>
     <string name="cancel" msgid="6733466216239934756">"રદ કરો"</string>
+    <string name="back" msgid="6915955601805550206">"પાછળ"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"ઇયરપીસ"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"બ્લૂટૂથ"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"વાયરવાળું હૅડસેટ"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"સ્પીકર"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"બાહ્ય"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"અજાણ"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"ઑડિયોને અન્ય ડિવાઇસ પર સ્ટ્રીમ કરી રહ્યાં છીએ"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"સમાપ્ત કરો"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"અહીં સ્વિચ કરો"</string>
 </resources>

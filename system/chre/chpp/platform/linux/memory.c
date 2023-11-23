@@ -103,10 +103,10 @@ void *chppRealloc(void *oldPtr, const size_t newSize, const size_t oldSize) {
   return ptr;
 }
 
-void chppClearTotalAllocBytes() {
+void chppClearTotalAllocBytes(void) {
   gTotalAllocBytes = 0;
 }
 
-size_t chppGetTotalAllocBytes() {
+size_t chppGetTotalAllocBytes(void) {
   return gTotalAllocBytes;
 }

@@ -31,6 +31,7 @@ public class ApkSignerInfo {
     public List<X509Certificate> certs = new ArrayList<>();
     public List<X509Certificate> certificateLineage = new ArrayList<>();
 
+    private final List<ApkVerificationIssue> mInfoMessages = new ArrayList<>();
     private final List<ApkVerificationIssue> mWarnings = new ArrayList<>();
     private final List<ApkVerificationIssue> mErrors = new ArrayList<>();
 
@@ -51,6 +52,14 @@ public class ApkSignerInfo {
     }
 
     /**
+     * Adds a new {@link ApkVerificationIssue} as an info message to this signer config using the
+     * provided {@code issueId} and {@code params}.
+     */
+    public void addInfoMessage(int issueId, Object... params) {
+        mInfoMessages.add(new ApkVerificationIssue(issueId, params));
+    }
+
+    /**
      * Returns {@code true} if any errors were encountered during verification for this signer.
      */
     public boolean containsErrors() {
@@ -65,6 +74,14 @@ public class ApkSignerInfo {
     }
 
     /**
+     * Returns {@code true} if any info messages were encountered during verification of this
+     * signer.
+     */
+    public boolean containsInfoMessages() {
+        return !mInfoMessages.isEmpty();
+    }
+
+    /**
      * Returns the errors encountered during verification for this signer.
      */
     public List<? extends ApkVerificationIssue> getErrors() {
@@ -76,5 +93,12 @@ public class ApkSignerInfo {
      */
     public List<? extends ApkVerificationIssue> getWarnings() {
         return mWarnings;
+    }
+
+    /**
+     * Returns the info messages encountered during verification of this signer.
+     */
+    public List<? extends ApkVerificationIssue> getInfoMessages() {
+        return mInfoMessages;
     }
 }

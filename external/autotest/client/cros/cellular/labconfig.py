@@ -1,14 +1,21 @@
+# Lint as: python2, python3
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import optparse
 import pickle
 import re
+import six
 import subprocess
 
 import common
+
 from autotest_lib.client.cros.cellular import cellular
 from autotest_lib.client.cros.cellular import cellular_logging
 from autotest_lib.client.cros.cellular import labconfig_data
@@ -33,10 +40,13 @@ def get_interface_ip(interface='eth0'):
     stdout = subprocess.Popen(['ip', '-4', 'addr', 'show', 'dev', interface],
                               stdout=subprocess.PIPE).communicate()[0]
 
-    match = re.search(r'inet ([0-9.]+)[/ ]', stdout)
+    if six.PY2:
+        # stdout is a string in py2, but we need it to match a byte pattern.
+        stdout = stdout.encode('ascii')
+    match = re.search(b'inet ([0-9.]+)[/ ]', stdout)
     if not match:
         return None
-    return match.group(1)
+    return match.group(1).decode()
 
 
 class Configuration(object):
@@ -76,7 +86,7 @@ class Configuration(object):
         if name not in labconfig_data.CELLS:
             raise LabConfigError(
                 'Could not find cell %s, valid cells are %s' % (
-                    name, labconfig_data.CELLS.keys()))
+                    name, list(labconfig_data.CELLS.keys())))
 
         return labconfig_data.CELLS[name]
 
@@ -96,15 +106,15 @@ class Configuration(object):
             machine = self.ip
         ifconfig = ''
         if not machine:
-            log.debug('self.ip is : %s ' % self.ip)
+            log.debug('self.ip is : %s ', self.ip)
             # TODO(byronk): use sysfs to find network interface
             possible_interfaces = ['eth0', 'eth1', 'eth_test']
-            log.debug('Looking for an up network interface in : %s' %
+            log.debug('Looking for an up network interface in : %s',
                       possible_interfaces)
             for interface in possible_interfaces:
                 machine = get_interface_ip(interface)
                 if machine:
-                    log.debug('Got an IP address: %s Stopping the search.. ' %
+                    log.debug('Got an IP address: %s Stopping the search.. ',
                               machine)
                     self.ip = machine
                     break
@@ -152,7 +162,7 @@ class Configuration(object):
         @param machine: machine to get rf switch port for
         """
         dut = self._get_dut(machine)
-        print dut
+        print(dut)
         return dut['rf_switch_port']
 
     def get_pickle(self):

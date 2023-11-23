@@ -2,7 +2,7 @@
 
 #  FLAC - Free Lossless Audio Codec
 #  Copyright (C) 2001-2009  Josh Coalson
-#  Copyright (C) 2011-2016  Xiph.Org Foundation
+#  Copyright (C) 2011-2022  Xiph.Org Foundation
 #
 #  This file is part the FLAC project.  FLAC is comprised of several
 #  components distributed under different licenses.  The codec libraries
@@ -25,16 +25,16 @@ export LANG=C LC_ALL=C
 
 dddie="die ERROR: creating files with dd"
 
-PATH=`pwd`/../src/flac:$PATH
-PATH=`pwd`/../src/metaflac:$PATH
-PATH=`pwd`/../src/test_streams:$PATH
-PATH=`pwd`/../objs/$BUILD/bin:$PATH
+PATH="$(pwd)/../src/flac:$PATH"
+PATH="$(pwd)/../src/metaflac:$PATH"
+PATH="$(pwd)/../src/test_streams:$PATH"
+PATH="$(pwd)/../objs/$BUILD/bin:$PATH"
 
 flac${EXE} --help 1>/dev/null 2>/dev/null || die "ERROR can't find flac executable"
 
 run_flac ()
 {
-	if [ x"$FLAC__TEST_WITH_VALGRIND" = xyes ] ; then
+	if [ "$FLAC__TEST_WITH_VALGRIND" = yes ] ; then
 		echo "valgrind --leak-check=yes --show-reachable=yes --num-callers=50 flac $*" >>test_flac.valgrind.log
 		valgrind --leak-check=yes --show-reachable=yes --num-callers=50 --log-fd=4 flac${EXE} $TOTALLY_SILENT --no-error-on-compression-fail $* 4>>test_flac.valgrind.log
 	else
@@ -44,7 +44,7 @@ run_flac ()
 
 run_metaflac ()
 {
-	if [ x"$FLAC__TEST_WITH_VALGRIND" = xyes ] ; then
+	if [ "$FLAC__TEST_WITH_VALGRIND" = yes ] ; then
 		echo "valgrind --leak-check=yes --show-reachable=yes --num-callers=50 metaflac $*" >>test_flac.valgrind.log
 		valgrind --leak-check=yes --show-reachable=yes --num-callers=50 --log-fd=4 metaflac${EXE} $* 4>>test_flac.valgrind.log
 	else
@@ -54,7 +54,7 @@ run_metaflac ()
 
 md5cmp ()
 {
-	n=`( [ -f "$1" ] && [ -f "$2" ] && metaflac${EXE} --show-md5sum --no-filename "$1" "$2" 2>/dev/null || exit 1 ) | uniq | wc -l`
+	n=$( ( [ -f "$1" ] && [ -f "$2" ] && metaflac${EXE} --show-md5sum --no-filename "$1" "$2" 2>/dev/null || exit 1 ) | uniq | wc -l)
 	[ "$n" != "" ] && [ $n = 1 ]
 }
 
@@ -154,9 +154,9 @@ rt_test_raw ()
 {
 	f="$1"
 	extra="$2"
-	channels=`echo $f | awk -F- '{print $2}'`
-	bps=`echo $f | awk -F- '{print $3}'`
-	sign=`echo $f | awk -F- '{print $4}'`
+	channels="$(echo $f | awk -F- '{print $2}')"
+	bps="$(echo $f | awk -F- '{print $3}')"
+	sign="$(echo $f | awk -F- '{print $4}')"
 
 	echo $ECHO_N "round-trip test ($f) encode... " $ECHO_C
 	run_flac --force --verify --force-raw-format --endian=little --sign=$sign --sample-rate=44100 --bps=$bps --channels=$channels --no-padding --lax -o rt.flac $extra $f || die "ERROR"
@@ -182,6 +182,20 @@ rt_test_wav ()
 	rm -f rt.flac rt.wav
 }
 
+rt_test_wav_autokf ()
+{
+	f="$1"
+	extra="$2"
+	echo $ECHO_N "round-trip test ($f) encode... " $ECHO_C
+	run_flac --force --verify --channel-map=none --no-padding --lax -o rt.flac $extra $f || die "ERROR"
+	echo $ECHO_N "decode... " $ECHO_C
+	run_flac --force --decode --channel-map=none $extra rt.flac || die "ERROR"
+	echo $ECHO_N "compare... " $ECHO_C
+	cmp $f rt.wav || die "ERROR: file mismatch"
+	echo "OK"
+	rm -f rt.flac rt.wav
+}
+
 rt_test_w64 ()
 {
 	f="$1"
@@ -190,6 +204,20 @@ rt_test_w64 ()
 	run_flac --force --verify --channel-map=none --no-padding --lax -o rt.flac $extra $f || die "ERROR"
 	echo $ECHO_N "decode... " $ECHO_C
 	run_flac --force --decode --channel-map=none -o rt.w64 $extra rt.flac || die "ERROR"
+	echo $ECHO_N "compare... " $ECHO_C
+	cmp $f rt.w64 || die "ERROR: file mismatch"
+	echo "OK"
+	rm -f rt.flac rt.w64
+}
+
+rt_test_w64_autokf ()
+{
+	f="$1"
+	extra="$2"
+	echo $ECHO_N "round-trip test ($f) encode... " $ECHO_C
+	run_flac --force --verify --channel-map=none --no-padding --lax -o rt.flac $extra $f || die "ERROR"
+	echo $ECHO_N "decode... " $ECHO_C
+	run_flac --force --decode --channel-map=none $extra rt.flac || die "ERROR"
 	echo $ECHO_N "compare... " $ECHO_C
 	cmp $f rt.w64 || die "ERROR: file mismatch"
 	echo "OK"
@@ -210,6 +238,20 @@ rt_test_rf64 ()
 	rm -f rt.flac rt.rf64
 }
 
+rt_test_rf64_autokf ()
+{
+	f="$1"
+	extra="$2"
+	echo $ECHO_N "round-trip test ($f) encode... " $ECHO_C
+	run_flac --force --verify --channel-map=none --no-padding --lax -o rt.flac $extra $f || die "ERROR"
+	echo $ECHO_N "decode... " $ECHO_C
+	run_flac --force --decode --channel-map=none $extra rt.flac || die "ERROR"
+	echo $ECHO_N "compare... " $ECHO_C
+	cmp $f rt.rf64 || die "ERROR: file mismatch"
+	echo "OK"
+	rm -f rt.flac rt.rf64
+}
+
 rt_test_aiff ()
 {
 	f="$1"
@@ -222,6 +264,20 @@ rt_test_aiff ()
 	cmp $f rt.aiff || die "ERROR: file mismatch"
 	echo "OK"
 	rm -f rt.flac rt.aiff
+}
+
+rt_test_autokf ()
+{
+	f="$1"
+	extra="$2"
+	echo $ECHO_N "round-trip test ($f) encode... " $ECHO_C
+	run_flac --force --verify --no-padding --lax -o rt.flac $extra $f || die "ERROR"
+	echo $ECHO_N "decode... " $ECHO_C
+	run_flac --force --decode $extra rt.flac || die "ERROR"
+	echo $ECHO_N "compare... " $ECHO_C
+	cmp $f $3 || die "ERROR: file mismatch"
+	echo "OK"
+	rm -f rt.flac $3
 }
 
 # assumes input file is WAVE; does not check the metadata-preserving features of flac-to-flac; that is checked later
@@ -400,7 +456,7 @@ test_skip_until ()
 		dopt="$wav_dopt"
 	fi
 
-	if ( [ $in_fmt = flac ] || [ $in_fmt = ogg ] ) && ( [ $out_fmt = flac ] || [ $out_fmt = ogg ] ) ; then
+	if [ $in_fmt = flac -o $in_fmt = ogg ] && [ $out_fmt = flac -o $out_fmt = ogg ]; then
 		CMP=md5cmp
 	else
 		CMP=cmp
@@ -690,7 +746,7 @@ echo "testing seek extremes:"
 run_flac --verify --force --no-padding --force-raw-format --endian=big --sign=signed --sample-rate=44100 --bps=16 --channels=2 --blocksize=576 noise.raw || die "ERROR generating FLAC file"
 
 if [ $is_win = no ] ; then
-	total_noise_cdda_samples=`run_metaflac --show-total-samples noise.flac`
+	total_noise_cdda_samples="$(run_metaflac --show-total-samples noise.flac)"
 	[ $? = 0 ] || die "ERROR getting total sample count from noise.flac"
 else
 	# some flavors of cygwin don't seem to treat the \x0d as a word
@@ -704,7 +760,7 @@ run_flac $wav_dopt --skip=0 -o z.wav noise.flac || die "ERROR decoding FLAC file
 echo OK
 
 for delta in 2 1 ; do
-	n=`expr $total_noise_cdda_samples - $delta`
+	n=$((total_noise_cdda_samples - delta))
 	echo $ECHO_N "testing --skip=$n... " $ECHO_C
 	run_flac $wav_dopt --skip=$n -o z.wav noise.flac || die "ERROR decoding FLAC file noise.flac"
 	echo OK
@@ -719,7 +775,7 @@ rm noise.flac z.wav
 #@@@ cat will not work on old cygwin, need to fix
 if [ $is_win = no ] ; then
 	echo $ECHO_N "testing --input-size=50 --skip=10... " $ECHO_C
-	cat 50c.raw | run_flac $raw_eopt --input-size=50 --skip=10 -o z50c.skip10.flac - || die "ERROR generating FLAC file"
+	run_flac $raw_eopt --input-size=50 --skip=10 -o z50c.skip10.flac - < 50c.raw || die "ERROR generating FLAC file"
 	run_flac $raw_dopt -o z50c.skip10.raw z50c.skip10.flac || die "ERROR decoding FLAC file"
 	cmp 50c.skip10.raw z50c.skip10.raw || die "ERROR: file mismatch for --input-size=50 --skip=10"
 	rm -f z50c.skip10.raw z50c.skip10.flac
@@ -802,7 +858,7 @@ test_cue ()
 		dopt="$wav_dopt"
 	fi
 
-	if ( [ $in_fmt = flac ] || [ $in_fmt = ogg ] ) && ( [ $out_fmt = flac ] || [ $out_fmt = ogg ] ) ; then
+	if [ $in_fmt = flac -o $in_fmt = ogg ] && [ $out_fmt = flac -o $out_fmt = ogg ]; then
 		CMP=md5cmp
 	else
 		CMP=cmp
@@ -970,7 +1026,7 @@ if [ $is_win = yes ] ; then
 	run_flac $raw_eopt noise.raw -o fixup.flac || die "ERROR generating FLAC file"
 	run_metaflac --set-total-samples=0 fixup.flac 2> /dev/null
 else
-	cat noise.raw | run_flac $raw_eopt - -c > fixup.flac || die "ERROR generating FLAC file"
+	run_flac $raw_eopt - -c < noise.raw > fixup.flac || die "ERROR generating FLAC file"
 fi
 
 echo $ECHO_N "decode... " $ECHO_C
@@ -995,7 +1051,7 @@ if [ $is_win = yes ] ; then
 	run_flac $raw_eopt noise.raw -o fixup.flac || die "ERROR generating FLAC file"
 	run_metaflac --set-total-samples=0 fixup.flac 2> /dev/null
 else
-	cat noise.raw | run_flac $raw_eopt - -c > fixup.flac || die "ERROR generating FLAC file"
+	run_flac $raw_eopt - -c < noise.raw > fixup.flac || die "ERROR generating FLAC file"
 fi
 
 echo $ECHO_N "decode... " $ECHO_C
@@ -1015,7 +1071,7 @@ rm -f noise.aiff fixup.aiff fixup.flac
 echo "Generating multiple input files from noise..."
 multifile_format_decode="--endian=big --sign=signed"
 multifile_format_encode="$multifile_format_decode --sample-rate=44100 --bps=16 --channels=2 --no-padding"
-short_noise_cdda_samples=`expr $total_noise_cdda_samples / 8`
+short_noise_cdda_samples=$((total_noise_cdda_samples / 8))
 run_flac --verify --force --force-raw-format $multifile_format_encode --until=$short_noise_cdda_samples -o shortnoise.flac noise.raw || die "ERROR generating FLAC file"
 run_flac --decode --force shortnoise.flac -o shortnoise.raw --force-raw-format $multifile_format_decode || die "ERROR generating RAW file"
 run_flac --decode --force shortnoise.flac || die "ERROR generating WAVE file"
@@ -1037,17 +1093,17 @@ cp shortnoise.raw file1.raw
 cp shortnoise.raw file2.raw
 rm -f shortnoise.raw
 # create authoritative sector-aligned files for comparison
-file0_samples=`expr \( $short_noise_cdda_samples / 588 \) \* 588`
-file0_remainder=`expr $short_noise_cdda_samples - $file0_samples`
-file1_samples=`expr \( \( $file0_remainder + $short_noise_cdda_samples \) / 588 \) \* 588`
-file1_remainder=`expr $file0_remainder + $short_noise_cdda_samples - $file1_samples`
-file1_samples=`expr $file1_samples - $file0_remainder`
-file2_samples=`expr \( \( $file1_remainder + $short_noise_cdda_samples \) / 588 \) \* 588`
-file2_remainder=`expr $file1_remainder + $short_noise_cdda_samples - $file2_samples`
-file2_samples=`expr $file2_samples - $file1_remainder`
+file0_samples=$(( (short_noise_cdda_samples / 588) * 588))
+file0_remainder=$((short_noise_cdda_samples - file0_samples))
+file1_samples=$(( ( ( file0_remainder + short_noise_cdda_samples ) / 588 ) * 588))
+file1_remainder=$((file0_remainder + short_noise_cdda_samples - file1_samples))
+file1_samples=$((file1_samples - file0_remainder))
+file2_samples=$(( ( ( file1_remainder + short_noise_cdda_samples ) / 588 ) * 588))
+file2_remainder=$(( file1_remainder + short_noise_cdda_samples - file2_samples))
+file2_samples=$((file2_samples - file1_remainder))
 if [ $file2_remainder != '0' ] ; then
-	file2_samples=`expr $file2_samples + $file2_remainder`
-	file2_remainder=`expr 588 - $file2_remainder`
+	file2_samples=$((file2_samples + file2_remainder))
+	file2_remainder=$((588 - file2_remainder))
 fi
 
 dd if=file0.raw ibs=4 count=$file0_samples of=file0s.raw 2>/dev/null || $dddie
@@ -1177,6 +1233,20 @@ rt_test_w64 wacky2.w64 '--keep-foreign-metadata'
 rt_test_rf64 wacky1.rf64 '--keep-foreign-metadata'
 rt_test_rf64 wacky2.rf64 '--keep-foreign-metadata'
 
+rt_test_wav_autokf wacky1.wav '--keep-foreign-metadata'
+rt_test_wav_autokf wacky2.wav '--keep-foreign-metadata'
+rt_test_w64_autokf wacky1.w64 '--keep-foreign-metadata'
+rt_test_w64_autokf wacky2.w64 '--keep-foreign-metadata'
+rt_test_rf64_autokf wacky1.rf64 '--keep-foreign-metadata'
+rt_test_rf64_autokf wacky2.rf64 '--keep-foreign-metadata'
+
+testdatadir=${top_srcdir}/test/foreign-metadata-test-files
+
+rt_test_autokf "$testdatadir/BWF-WaveFmtEx.wav" '--keep-foreign-metadata' 'rt.wav'
+rt_test_autokf "$testdatadir/AIFF-ID3.aiff" '--keep-foreign-metadata' 'rt.aiff'
+rt_test_autokf "$testdatadir/AIFF-C-sowt-tag.aifc" '--keep-foreign-metadata' 'rt.aifc'
+rt_test_autokf "$testdatadir/AIFF-C-sowt-compression-type-name.aifc" '--keep-foreign-metadata' 'rt.aifc'
+rt_test_autokf "$testdatadir/24bit-WaveFmtPCM.wav" '--keep-foreign-metadata' 'rt.wav'
 
 ############################################################################
 # test the metadata-handling properties of flac-to-flac encoding
@@ -1248,6 +1318,77 @@ flac2flac input-SCVA.flac case04d "--no-padding --no-seektable"
 flac2flac input-SCVA.flac case04e "--no-padding -S 5x"
 # case 04f: on file with SEEKTABLE block and size-changing option specified, drop existing SEEKTABLE, new SEEKTABLE with default points
 #(already covered by case03c)
+
+############################################################################
+# test limiting minimum bitrate
+############################################################################
+
+echo $ECHO_N "Testing --limit-min-bitrate" $ECHO_C
+
+run_flac -f -o out.flac --no-padding --no-seektable --limit-min-bitrate "$testdatadir/input-VA.flac"
+size=$(wc -c < out.flac)
+
+if [ "$size" -lt "1022" ]; then
+    die "ERROR: filesize of flac file encoded with --limit-min-bitrate is smaller than expected"
+fi
+
+echo OK
+
+############################################################################
+# test overflow of total samples field in STREAMINFO
+############################################################################
+
+test_total_samples_overflow ()
+{
+	total_samples=$1
+	expected_stored_total_samples=$2
+	echo $ECHO_N "total_samples overflow test (samples=$total_samples) encode... " $ECHO_C
+	head -c $total_samples /dev/zero | run_flac --force --verify --sign=signed --sample-rate=96000 -b 16384 --channels=1 --endian=little --bps=8 -o big-$total_samples.flac - || die "ERROR"
+	echo $ECHO_N "decode... " $ECHO_C
+	run_flac -t big-$total_samples.flac || die "ERROR"
+	echo $ECHO_N "check... " $ECHO_C
+	run_metaflac --show-total-samples big-$total_samples.flac > big-$total_samples.cmp1
+	echo $expected_stored_total_samples >  big-$total_samples.cmp2
+	diff -q -w big-$total_samples.cmp1 big-$total_samples.cmp2  || die "ERROR"
+	echo "OK"
+	rm -f big-$total_samples.flac big-$total_samples.cmp1 big-$total_samples.cmp2
+}
+
+if [ "$FLAC__TEST_LEVEL" -gt 1 ] ; then
+	test_total_samples_overflow 68719476735 68719476735
+	test_total_samples_overflow 68719476736 0
+	test_total_samples_overflow 68719476737 0
+fi
+
+############################################################################
+# test handling of UTF-8 filenames
+############################################################################
+
+
+test_utf8_handling ()
+{
+	echo $ECHO_N "Test decoding from $1... " $ECHO_C
+	run_flac -d $testdatadir/$1 -o out.wav
+	if [ -f out.wav ] ; then
+		echo "OK"
+	else
+		die "Decoding failed"
+	fi
+	echo $ECHO_N "Test encoding to $1... " $ECHO_C
+	run_flac out.wav -o $1
+	if [ -f $1 ] ; then
+		echo "OK"
+	else
+		die "Encoding failed"
+	fi
+	rm -f $1 out.wav
+}
+
+if [ "$WIN32BUSYBOX" != "yes" ]; then
+	test_utf8_handling שלום.flac
+	test_utf8_handling 🤔.flac
+	test_utf8_handling Prøve.flac
+fi
 
 rm -f out.flac out.meta out1.meta
 

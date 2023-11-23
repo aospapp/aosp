@@ -28,11 +28,12 @@ import tempfile
 import os
 
 from collections import namedtuple
-from typing import Any, Dict
+from typing import Any, Dict, List, Set
 
-import atest_error
-import atest_utils
-import constants
+from atest import atest_error
+from atest import atest_utils
+from atest import constants
+from atest.test_finders import test_info
 
 OLD_OUTPUT_ENV_VAR = 'ATEST_OLD_OUTPUT'
 
@@ -47,8 +48,6 @@ FAILED_STATUS = 'FAILED'
 PASSED_STATUS = 'PASSED'
 IGNORED_STATUS = 'IGNORED'
 ERROR_STATUS = 'ERROR'
-
-ARGS = Dict[str, Any]
 
 
 class TestRunnerBase:
@@ -66,10 +65,10 @@ class TestRunnerBase:
             raise atest_error.NoTestRunnerExecutable('Class var EXECUTABLE is '
                                                      'not defined.')
         if kwargs:
-            for k, v in kwargs.items():
-                if not 'test_infos' in k:
+            for key, value in kwargs.items():
+                if not 'test_infos' in key:
                     logging.debug('ignoring the following args: %s=%s',
-                                  k, v)
+                                  key, value)
 
     def run(self, cmd, output_to_stdout=False, env_vars=None):
         """Shell out and execute command.
@@ -188,7 +187,7 @@ class TestRunnerBase:
         """Checks that host env has met requirements."""
         raise NotImplementedError
 
-    def get_test_runner_build_reqs(self):
+    def get_test_runner_build_reqs(self, test_infos: List[test_info.TestInfo]):
         """Returns a list of build targets required by the test runner."""
         raise NotImplementedError
 
@@ -205,3 +204,21 @@ class TestRunnerBase:
             A list of run commands to run the tests.
         """
         raise NotImplementedError
+
+
+def gather_build_targets(
+        test_infos: List[test_info.TestInfo]) -> Set[str]:
+    """Gets all build targets for the given tests.
+
+    Args:
+        test_infos: List of TestInfo.
+
+    Returns:
+        Set of build targets.
+    """
+    build_targets = set()
+
+    for t_info in test_infos:
+        build_targets |= t_info.build_targets
+
+    return build_targets

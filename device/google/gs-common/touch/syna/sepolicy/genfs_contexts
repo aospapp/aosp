@@ -1,0 +1,2 @@
+genfscon sysfs /devices/platform/10d10000.spi/spi_master/spi0/spi0.0/synaptics_tcm.0/sysfs   u:object_r:sysfs_touch:s0
+

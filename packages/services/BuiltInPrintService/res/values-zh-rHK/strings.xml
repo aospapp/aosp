@@ -52,7 +52,7 @@
     <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi Direct 列印"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi Direct 打印機"</string>
     <string name="searching" msgid="2114018057619514587">"正在搜尋…"</string>
-    <string name="connect_hint_text" msgid="587112503851044234">"您可能需要在打印機的前置面板上核准此連線"</string>
+    <string name="connect_hint_text" msgid="587112503851044234">"你可能需要在打印機的前置面板上核准此連線"</string>
     <string name="connecting_to" msgid="2665161014972086194">"正在連接 <xliff:g id="PRINTER">%1$s</xliff:g>"</string>
     <string name="failed_printer_connection" msgid="4196305972749960362">"無法連接打印機"</string>
     <string name="failed_connection" msgid="8068661997318286575">"無法連接 <xliff:g id="PRINTER">%1$s</xliff:g>"</string>

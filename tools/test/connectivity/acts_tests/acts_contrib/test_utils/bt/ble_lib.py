@@ -28,7 +28,6 @@ from acts_contrib.test_utils.bt.bt_constants import advertising_set_started
 from acts_contrib.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
 
 import time
-import os
 
 
 class BleLib():
@@ -42,9 +41,8 @@ class BleLib():
 
     def _verify_ble_adv_started(self, advertise_callback):
         """Helper for verifying if an advertisment started or not"""
-        regex = "({}|{})".format(
-            adv_succ.format(advertise_callback),
-            adv_fail.format(advertise_callback))
+        regex = "({}|{})".format(adv_succ.format(advertise_callback),
+                                 adv_fail.format(advertise_callback))
         try:
             event = self.dut.ed.pop_events(regex, 5, small_timeout)
         except Empty:
@@ -72,8 +70,9 @@ class BleLib():
                 advertise_callback, advertise_data, advertise_settings,
                 advertise_data)
         else:
-            self.dut.droid.bleStartBleAdvertising(
-                advertise_callback, advertise_data, advertise_settings)
+            self.dut.droid.bleStartBleAdvertising(advertise_callback,
+                                                  advertise_data,
+                                                  advertise_settings)
         if self._verify_ble_adv_started(advertise_callback):
             self.log.info(
                 "Tracking Callback ID: {}".format(advertise_callback))
@@ -150,8 +149,9 @@ class BleLib():
         self.dut.droid.bleSetAdvertiseSettingsIsConnectable(False)
         advertise_callback, advertise_data, advertise_settings = (
             generate_ble_advertise_objects(self.dut.droid))
-        self.dut.droid.bleStartBleAdvertising(
-            advertise_callback, advertise_data, advertise_settings)
+        self.dut.droid.bleStartBleAdvertising(advertise_callback,
+                                              advertise_data,
+                                              advertise_settings)
         if self._verify_ble_adv_started(advertise_callback):
             self.log.info(
                 "Tracking Callback ID: {}".format(advertise_callback))

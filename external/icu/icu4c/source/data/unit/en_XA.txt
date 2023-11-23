@@ -338,6 +338,11 @@ en_XA{
                 one{"[{0} ñåñöšéçöñð one two]"}
                 other{"[{0} ñåñöšéçöñðš one two three]"}
             }
+            quarter{
+                dnam{"[ǫûåŕţéŕš one two]"}
+                one{"[{0} ǫûåŕţéŕ one two]"}
+                other{"[{0} ǫûåŕţéŕš one two]"}
+            }
             second{
                 dnam{"[šéçöñðš one two]"}
                 one{"[{0} šéçöñð one two]"}
@@ -679,11 +684,6 @@ en_XA{
                 other{"[{0} ķîļöĝŕåɱš one two]"}
                 per{"[{0} þéŕ ķîļöĝŕåɱ one two three]"}
             }
-            metric-ton{
-                dnam{"[ɱéţŕîç ţöñš one two]"}
-                one{"[{0} ɱéţŕîç ţöñ one two]"}
-                other{"[{0} ɱéţŕîç ţöñš one two three]"}
-            }
             microgram{
                 dnam{"[ɱîçŕöĝŕåɱš one two]"}
                 one{"[{0} ɱîçŕöĝŕåɱ one two]"}
@@ -725,6 +725,11 @@ en_XA{
                 dnam{"[ţöñš one]"}
                 one{"[{0} ţöñ one two]"}
                 other{"[{0} ţöñš one two]"}
+            }
+            tonne{
+                dnam{"[ɱéţŕîç ţöñš one two]"}
+                one{"[{0} ɱéţŕîç ţöñ one two]"}
+                other{"[{0} ɱéţŕîç ţöñš one two three]"}
             }
         }
         power{
@@ -845,7 +850,9 @@ en_XA{
                 other{"[{0} ðéĝŕééš Ƒåĥŕéñĥéîţ one two three]"}
             }
             generic{
-                dnam{"[° one]"}
+                dnam{"[ðéĝŕééš ţéɱþéŕåţûŕé one two three]"}
+                one{"[{0} ðéĝŕéé ţéɱþéŕåţûŕé one two three]"}
+                other{"[{0} ðéĝŕééš ţéɱþéŕåţûŕé one two three]"}
             }
             kelvin{
                 dnam{"[ķéļṽîñš one two]"}
@@ -1326,6 +1333,11 @@ en_XA{
                 one{"[{0} ñš one]"}
                 other{"[{0} ñš one]"}
             }
+            quarter{
+                dnam{"[ǫţŕ one]"}
+                one{"[{0} ǫţŕ one two]"}
+                other{"[{0} ǫţŕš one two]"}
+            }
             second{
                 dnam{"[šéçš one]"}
                 one{"[{0} šéç one two]"}
@@ -1645,11 +1657,6 @@ en_XA{
                 other{"[{0} ķĝ one]"}
                 per{"[{0}⁄ķĝ one]"}
             }
-            metric-ton{
-                dnam{"[ţ one]"}
-                one{"[{0} ţ one]"}
-                other{"[{0} ţ one]"}
-            }
             microgram{
                 dnam{"[μĝ one]"}
                 one{"[{0} μĝ one]"}
@@ -1691,6 +1698,11 @@ en_XA{
                 dnam{"[ţöñš one]"}
                 one{"[{0} ţñ one]"}
                 other{"[{0} ţñ one]"}
+            }
+            tonne{
+                dnam{"[ţ one]"}
+                one{"[{0} ţ one]"}
+                other{"[{0} ţ one]"}
             }
         }
         power{

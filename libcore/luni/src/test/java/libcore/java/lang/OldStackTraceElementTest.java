@@ -25,11 +25,15 @@ public class OldStackTraceElementTest extends TestCase {
         public void pureJavaMethod(Object test) throws Exception {
             throw new Exception("pure java method");
         }
+    }
 
-        native public void pureNativeMethod(Object test);
+    static {
+        System.loadLibrary("javacoretests");
     }
 
     private Original original;
+
+    private native void pureNativeMethod();
 
     @Override
     protected void setUp() throws Exception {
@@ -185,9 +189,9 @@ public class OldStackTraceElementTest extends TestCase {
                     e.getStackTrace()[0].isNativeMethod());
         }
         try {
-            original.pureNativeMethod(new Object());
+            pureNativeMethod();
             fail();
-        } catch (Error e) {
+        } catch (UnsupportedOperationException e) {
             assertTrue("Incorrect method type",
                     e.getStackTrace()[0].isNativeMethod());
         }

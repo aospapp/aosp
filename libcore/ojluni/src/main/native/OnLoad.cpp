@@ -25,8 +25,6 @@
 extern "C" void register_java_util_zip_ZipFile(JNIEnv* env);
 extern "C" void register_java_util_zip_Inflater(JNIEnv* env);
 extern "C" void register_java_util_zip_Deflater(JNIEnv* env);
-extern "C" void register_java_util_zip_CRC32(JNIEnv* env);
-extern "C" void register_java_util_zip_Adler32(JNIEnv* env);
 extern "C" void register_java_io_FileDescriptor(JNIEnv* env);
 extern "C" void register_sun_nio_ch_DatagramChannelImpl(JNIEnv* env);
 extern "C" void register_sun_nio_ch_DatagramDispatcher(JNIEnv* env);
@@ -62,6 +60,10 @@ extern "C" void register_java_lang_Runtime(JNIEnv* env);
 extern "C" void register_java_lang_UNIXProcess(JNIEnv* env);
 void register_java_lang_Character(JNIEnv* env);
 void register_jdk_internal_misc_VM(JNIEnv* env);
+extern "C" void register_java_util_zip_CRC32(JNIEnv* env);
+extern "C" void register_java_util_zip_Adler32(JNIEnv* env);
+extern "C" void register_java_sun_nio_fs_UnixNativeDispatcher(JNIEnv* env);
+extern "C" void register_java_sun_nio_ch_PollArrayWrapper(JNIEnv* env);
 
 extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
   jint version = JNI_VERSION_1_6;
@@ -74,8 +76,8 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
   // Some registration functions also do some extra local initialization,
   // creating local references in the process. ART does not expect JNI_OnLoad()
   // to leave any local references in the current frame, so create a new one.
-  // Request space for 256 local references (increase if necessary).
-  result = env->PushLocalFrame(256);
+  // Request space for 128 local references (increase if necessary).
+  result = env->PushLocalFrame(128);
   CHECK_EQ(result, 0);
 
   // Some registration functions also record field ids retrieved using
@@ -94,8 +96,6 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
   register_java_util_zip_ZipFile(env);
   register_java_util_zip_Inflater(env);
   register_java_util_zip_Deflater(env);
-  register_java_util_zip_CRC32(env);
-  register_java_util_zip_Adler32(env);
   register_java_io_FileDescriptor(env);
   register_sun_nio_ch_DatagramChannelImpl(env);
   register_sun_nio_ch_DatagramDispatcher(env);
@@ -133,6 +133,11 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
   register_java_lang_UNIXProcess(env);
   register_java_lang_Character(env);
   register_jdk_internal_misc_VM(env);
+
+  register_java_util_zip_CRC32(env);
+  register_java_util_zip_Adler32(env);
+  register_java_sun_nio_fs_UnixNativeDispatcher(env);
+  register_java_sun_nio_ch_PollArrayWrapper(env);
 
   env->PopLocalFrame(/* result */ nullptr);  // Pop the local frame.
   return version;

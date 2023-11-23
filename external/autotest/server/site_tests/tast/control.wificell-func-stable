@@ -8,6 +8,7 @@ TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:wifi_matfunc'
 MAX_RESULT_SIZE_KB = 1024 * 1024
+PY_VERSION = 3
 
 DOC = '''
 Run the stable Tast tests for basic WiFi functions on suite:wifi_matfunc.
@@ -29,7 +30,7 @@ def run(machine):
                  host=hosts.create_host(machine),
                  test_exprs=['("group:wificell" && wificell_func && '
                              '!wificell_unstable)'],
-                 ignore_test_failures=True, max_run_sec=10800,
+                 ignore_test_failures=False, max_run_sec=10800,
                  command_args=args)
 
 parallel_simple(run, machines)

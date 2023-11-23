@@ -98,4 +98,11 @@ pub mod test {
         let res = TestBodySizePacket::parse(&input);
         assert!(res.is_ok());
     }
+
+    #[test]
+    fn test_invalid_grand_child_three_five_size() {
+        let input = [0x1, 0x4, 0x3, 0x4, 0x3, 0x0, 0x2 /*, 0x5*/];
+        let res = GrandParentPacket::parse(&input);
+        assert!(res.is_err());
+    }
 }

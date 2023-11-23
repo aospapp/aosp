@@ -224,7 +224,7 @@ void neighbor::InquiryModule::impl::OnEvent(hci::EventView view) {
       ASSERT(packet.IsValid());
       LOG_INFO(
           "Extended inquiry result addr:%s repetition_mode:%s cod:%s clock_offset:%d rssi:%hhd",
-          packet.GetAddress().ToString().c_str(),
+          ADDRESS_TO_LOGGABLE_CSTR(packet.GetAddress()),
           hci::PageScanRepetitionModeText(packet.GetPageScanRepetitionMode()).c_str(),
           packet.GetClassOfDevice().ToString().c_str(),
           packet.GetClockOffset(),

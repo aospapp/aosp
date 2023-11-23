@@ -10,22 +10,44 @@ use rustyline::validate::Validator;
 use rustyline::{CompletionType, Config, Editor};
 use rustyline_derive::Helper;
 
+use std::collections::HashSet;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
 use crate::console_blue;
+use crate::ClientContext;
 
 #[derive(Helper)]
 struct BtHelper {
-    commands: Vec<String>,
+    // Command rules must follow below format:
+    // cmd arg1 arg2 arg3 ...
+    // where each argument could have multiple options separated by a single '|'
+    //
+    // It is not required to put an argument in angle brackets.
+    //
+    // "address" in options is a keyword, which will be matched by any of the founded
+    // and bonded devices.
+    //
+    // Example:
+    // list <found|bonded> <address>
+    // This will match
+    //     list found any-cached-address
+    // and
+    //     list bond any-cached-address
+    command_rules: Vec<String>,
+    client_context: Arc<Mutex<ClientContext>>,
+}
+
+#[derive(Hash, Eq, PartialEq)]
+struct CommandCandidate {
+    suggest_word: String,
+    matched_len: usize,
 }
 
 impl Completer for BtHelper {
     type Candidate = String;
 
-    // Returns completion based on supported commands.
-    // TODO: Add support to autocomplete BT address, command parameters, etc.
     fn complete(
         &self,
         line: &str,
@@ -33,15 +55,19 @@ impl Completer for BtHelper {
         _ctx: &rustyline::Context<'_>,
     ) -> Result<(usize, Vec<String>), ReadlineError> {
         let slice = &line[..pos];
-        let mut completions = vec![];
+        let candidates = self.get_candidates(slice.to_string().clone());
+        let mut completions =
+            candidates.iter().map(|c| c.suggest_word.clone() + " ").collect::<Vec<String>>();
 
-        for cmd in self.commands.iter() {
-            if cmd.starts_with(slice) {
-                completions.push(cmd.clone());
-            }
-        }
+        completions.sort();
 
-        Ok((0, completions))
+        // |start| points to the starting position of the current token
+        let start = match slice.rfind(' ') {
+            Some(x) => x + 1,
+            None => 0,
+        };
+
+        Ok((start, completions))
     }
 }
 
@@ -52,6 +78,61 @@ impl Hinter for BtHelper {
 impl Highlighter for BtHelper {}
 
 impl Validator for BtHelper {}
+
+impl BtHelper {
+    fn get_candidates(&self, cmd: String) -> HashSet<CommandCandidate> {
+        let mut result = HashSet::<CommandCandidate>::new();
+
+        for rule in self.command_rules.iter() {
+            let n_splits = cmd.split(" ").count();
+            // The tokens should have empty strings removed from them, except the last one.
+            let tokens = cmd
+                .split(" ")
+                .enumerate()
+                .filter_map(|(i, token)| (i == n_splits - 1 || token != "").then(|| token));
+
+            let n_cmd = tokens.clone().count();
+            for (i, (rule_token, cmd_token)) in rule.split(" ").zip(tokens).enumerate() {
+                let mut candidates = Vec::<String>::new();
+                let mut match_some = false;
+
+                for opt in rule_token.replace("<", "").replace(">", "").split("|") {
+                    if opt.eq("address") {
+                        let devices = self.client_context.lock().unwrap().get_devices();
+                        candidates.extend(devices);
+                    } else {
+                        candidates.push(opt.to_string());
+                    }
+                }
+
+                if cmd_token.len() == 0 {
+                    candidates.iter().for_each(|s| {
+                        result.insert(CommandCandidate { suggest_word: s.clone(), matched_len: 0 });
+                    });
+                    break;
+                }
+
+                for opt in candidates {
+                    if opt.starts_with(cmd_token) {
+                        match_some = true;
+                        if i == n_cmd - 1 {
+                            // we add candidates only if it's the last word
+                            result.insert(CommandCandidate {
+                                suggest_word: opt.clone(),
+                                matched_len: cmd_token.len(),
+                            });
+                        }
+                    }
+                }
+
+                if !match_some {
+                    break;
+                }
+            }
+        }
+        result
+    }
+}
 
 /// A future that does async readline().
 ///
@@ -94,16 +175,19 @@ impl AsyncEditor {
     /// Creates new async rustyline editor.
     ///
     /// * `commands` - List of commands for autocomplete.
-    pub fn new(commands: Vec<String>) -> AsyncEditor {
+    pub(crate) fn new(
+        command_rules: Vec<String>,
+        client_context: Arc<Mutex<ClientContext>>,
+    ) -> rustyline::Result<AsyncEditor> {
         let builder = Config::builder()
             .auto_add_history(true)
             .history_ignore_dups(true)
             .completion_type(CompletionType::List);
         let config = builder.build();
-        let mut rl = rustyline::Editor::with_config(config);
-        let helper = BtHelper { commands };
+        let mut rl = rustyline::Editor::with_config(config)?;
+        let helper = BtHelper { command_rules, client_context };
         rl.set_helper(Some(helper));
-        AsyncEditor { rl: Arc::new(Mutex::new(rl)) }
+        Ok(AsyncEditor { rl: Arc::new(Mutex::new(rl)) })
     }
 
     /// Does async readline().

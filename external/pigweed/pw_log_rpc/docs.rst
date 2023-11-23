@@ -28,9 +28,8 @@ Set up the :ref:`module-pw_log_tokenized` log backend.
 3. Connect the tokenized logging handler to the MultiSink
 ---------------------------------------------------------
 Create a :ref:`MultiSink <module-pw_multisink>` instance to buffer log entries.
-Then, make the log backend handler,
-``pw_tokenizer_HandleEncodedMessageWithPayload``, encode log entries in the
-``log::LogEntry`` format, and add them to the ``MultiSink``.
+Then, make the log backend handler, :c:func:`pw_log_tokenized_HandleLog`, encode
+log entries in the ``log::LogEntry`` format, and add them to the ``MultiSink``.
 
 4. Create log drains and filters
 --------------------------------
@@ -296,6 +295,9 @@ conditions must be met for the rule to be met.
 - ``module_equals``: the condition is met if this byte array is empty, or the
   log module equals the contents of this byte array.
 
+- ``thread_equals``: the condition is met if this byte array is empty or the
+  log thread equals the contents of this byte array.
+
 Filter
 ------
 Encapsulates a collection of zero or more ``Filter::Rule``\s and has
@@ -363,7 +365,6 @@ log drains and filters are set up.
   #include "pw_sync/interrupt_spin_lock.h"
   #include "pw_sync/lock_annotations.h"
   #include "pw_sync/mutex.h"
-  #include "pw_tokenizer/tokenize_to_global_handler_with_payload.h"
 
   namespace foo::log {
   namespace {
@@ -410,13 +411,13 @@ log drains and filters are set up.
       },
   }};
   std::array<Filter, 2> filters{
-      Filter(std::as_bytes(std::span("HOST", 4)), logs_to_host_filter_rules),
-      Filter(std::as_bytes(std::span("WEB", 3)), logs_to_server_filter_rules),
+      Filter(pw::as_bytes(pw::span("HOST", 4)), logs_to_host_filter_rules),
+      Filter(pw::as_bytes(pw::span("WEB", 3)), logs_to_server_filter_rules),
   };
   pw::log_rpc::FilterMap filter_map(filters);
 
-  extern "C" void pw_tokenizer_HandleEncodedMessageWithPayload(
-      pw_tokenizer_Payload metadata, const uint8_t message[], size_t size_bytes) {
+  extern "C" void pw_log_tokenized_HandleLog(
+      uint32_t metadata, const uint8_t message[], size_t size_bytes) {
     int64_t timestamp =
         pw::chrono::SystemClock::now().time_since_epoch().count();
     std::lock_guard lock(log_encode_lock);

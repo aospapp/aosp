@@ -18,15 +18,18 @@ const std::string V4L2ComponentName::kVP9Encoder = "c2.v4l2.vp9.encoder";
 const std::string V4L2ComponentName::kH264Decoder = "c2.v4l2.avc.decoder";
 const std::string V4L2ComponentName::kVP8Decoder = "c2.v4l2.vp8.decoder";
 const std::string V4L2ComponentName::kVP9Decoder = "c2.v4l2.vp9.decoder";
+const std::string V4L2ComponentName::kHEVCDecoder = "c2.v4l2.hevc.decoder";
 const std::string V4L2ComponentName::kH264SecureDecoder = "c2.v4l2.avc.decoder.secure";
 const std::string V4L2ComponentName::kVP8SecureDecoder = "c2.v4l2.vp8.decoder.secure";
 const std::string V4L2ComponentName::kVP9SecureDecoder = "c2.v4l2.vp9.decoder.secure";
+const std::string V4L2ComponentName::kHEVCSecureDecoder = "c2.v4l2.hevc.decoder.secure";
 
 // static
 bool V4L2ComponentName::isValid(const char* name) {
     return name == kH264Encoder || name == kVP8Encoder || name == kVP9Encoder ||
            name == kH264Decoder || name == kVP8Decoder || name == kVP9Decoder ||
-           name == kH264SecureDecoder || name == kVP8SecureDecoder || name == kVP9SecureDecoder;
+           name == kHEVCDecoder || name == kH264SecureDecoder || name == kVP8SecureDecoder ||
+           name == kVP9SecureDecoder || name == kHEVCSecureDecoder;
 }
 
 // static

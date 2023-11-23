@@ -16,7 +16,16 @@
 
 package android.platform.helpers;
 
+/** Extends for Settings Intelligence */
 public interface ISettingsIntelligenceHelper extends IAppHelper {
+
+    /**
+     * DATA_URI_STRING* can be appended after PAGE_ACTION_*. It can be opened by "adb shell am start
+     * -a <PAGE_ACTION_*> -d <DATA_URI_STRING_*>". For example, the following command can open "App
+     * info" page: adb shell am start -a android.settings.APPLICATION_DETAILS_SETTINGS -d
+     * package:com.android.settings
+     */
+    public static final String DATA_URI_STRING_APP_INFO = "package:com.android.settings";
 
     public static final String PAGE_ACTION_HOME = "";
     public static final String PAGE_ACTION_ABOUT_PHONE = "android.settings.DEVICE_INFO_SETTINGS";
@@ -25,7 +34,7 @@ public interface ISettingsIntelligenceHelper extends IAppHelper {
     public static final String PAGE_ACTION_ACCOUNT = "android.settings.SYNC_SETTINGS";
     public static final String PAGE_ACTION_APPLICATION = "android.settings.APPLICATION_SETTINGS";
     public static final String PAGE_ACTION_APP_INFO =
-            "android.settings.APPLICATION_DETAILS_SETTINGS -d package:com.android.settings";
+            "android.settings.APPLICATION_DETAILS_SETTINGS";
     public static final String PAGE_ACTION_APP_NOTIFICATIONS =
             "android.settings.NOTIFICATION_SETTINGS";
     public static final String PAGE_ACTION_AUTO_ROTATE_SCREEN =
@@ -59,6 +68,25 @@ public interface ISettingsIntelligenceHelper extends IAppHelper {
     public static final String PAGE_ACTION_WIFI_TETHERING_HOTSPOT =
             "com.android.settings.WIFI_TETHER_SETTINGS";
 
+    String PAGE_ACTION_BLUETOOTH_PAIRING = "android.settings.BLUETOOTH_PAIRING_SETTINGS";
+    String PAGE_ACTION_CONNECTED_ADVANCED =
+            "com.android.settings.ADVANCED_CONNECTED_DEVICE_SETTINGS";
+    String PAGE_ACTION_DISPLAY_LOCKSCRN = "android.settings.LOCK_SCREEN_SETTINGS";
+    String PAGE_ACTION_DISPLAY_TEXT = "android.settings.TEXT_READING_SETTINGS";
+    String PAGE_ACTION_LOCKSCRN_PLAYING = "com.google.intelligence.sense.NOW_PLAYING_SETTINGS";
+    String PAGE_ACTION_NETWORK_INSTALL_CERT = "android.credentials.INSTALL";
+    String PAGE_ACTION_NETWORK_VPN = "android.settings.VPN_SETTINGS";
+    String PAGE_ACTION_SOUND_MEDIA = "android.settings.ACTION_MEDIA_CONTROLS_SETTINGS";
+    String PAGE_ACTION_WIFI_IP = "android.settings.WIFI_IP_SETTINGS";
+    String PAGE_ACTION_WIFI_SAVED = "android.settings.WIFI_SAVED_NETWORK_SETTINGS";
+
+    /**
+     * Sets the intent data uri representing the Settings page to open when open() is called.
+     *
+     * @param dataUriString One of the DATA_URI_STRING* constants.
+     */
+    void setDataUri(String dataUriString);
+
     /**
      * Sets the action representing the Settings page to open when open() is called.
      *
@@ -79,4 +107,7 @@ public interface ISettingsIntelligenceHelper extends IAppHelper {
      * <p>This method opens search page.
      */
     void openSearch();
+
+    /** This method opens Settings homepage */
+    void goToHome();
 }

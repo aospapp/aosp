@@ -166,3 +166,18 @@ class AttachTest(AwareBaseTest):
         # try enabling Aware again (attach)
         dut.droid.wifiAwareAttach()
         autils.wait_for_event(dut, aconsts.EVENT_CB_ON_ATTACHED)
+
+    @test_tracker_info(uuid="")
+    def test_attach_detach_attach_again(self):
+        """Validated there is no delay between Disable Aware and re-enable Aware
+        """
+        dut = self.android_devices[0]
+
+        # enable Aware (attach)
+        dut.droid.wifiAwareAttach()
+        autils.wait_for_event(dut, aconsts.EVENT_CB_ON_ATTACHED)
+
+        dut.droid.wifiAwareDestroyAll()
+        # Restart Aware immediately
+        dut.droid.wifiAwareAttach()
+        autils.wait_for_event(dut, aconsts.EVENT_CB_ON_ATTACHED, timeout=1)

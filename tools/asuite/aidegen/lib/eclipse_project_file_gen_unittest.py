@@ -77,11 +77,8 @@ class EclipseConfUnittests(unittest.TestCase):
     def test_gen_src_path_entries(self, mock_get_root, mock_exist_android_bp):
         """Test generate source folders' class path entries."""
         mock_get_root.return_value = self._ROOT_PATH
-        self.eclipse.src_paths = set([
-            'module/path/src',
-            'module/path/test',
-            'out/src',
-        ])
+        self.eclipse.src_paths = {'module/path/src', 'module/path/test',
+                                  'out/src'}
         expected_result = [
             '    <classpathentry kind="src" path="dependencies/out/src"/>\n',
             '    <classpathentry kind="src" path="src"/>\n',
@@ -103,7 +100,6 @@ class EclipseConfUnittests(unittest.TestCase):
         generated_result = sorted(self.eclipse._gen_src_path_entries())
         self.assertEqual(generated_result, expected_result)
 
-
     @mock.patch.object(common_util, 'get_android_root_dir')
     def test_gen_jar_path_entries(self, mock_get_root):
         """Test generate jar files' class path entries."""
@@ -120,11 +116,8 @@ class EclipseConfUnittests(unittest.TestCase):
 
     def test_get_other_src_folders(self):
         """Test _get_other_src_folders."""
-        self.eclipse.src_paths = set([
-            'module/path/src',
-            'module/path/test',
-            'out/module/path/src',
-        ])
+        self.eclipse.src_paths = {'module/path/src', 'module/path/test',
+                                  'out/module/path/src'}
         expected_result = ['out/module/path/src']
         self.assertEqual(self.eclipse._get_other_src_folders(), expected_result)
 

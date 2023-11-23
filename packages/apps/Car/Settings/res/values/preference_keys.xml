@@ -240,6 +240,17 @@
         opening_links_app_details_reset
     </string>
 
+    <!-- Performance-impacting App Settings -->
+    <string name="pk_performance_impacting_apps_entry" translatable="false">
+        performance_impacting_apps_settings_entry
+    </string>
+    <string name="pk_performance_impacting_apps_settings" translatable="false">
+        performance_impacting_apps_settings
+    </string>
+    <string name="pk_performance_impacting_apps_description" translatable="false">
+        performance_impacting_apps_description
+    </string>
+
     <!-- Special App Access Settings -->
     <string name="pk_modify_system_settings_entry" translatable="false">
         modify_system_settings_entry
@@ -384,8 +395,15 @@
     <string name="pk_location_driver_assistance_state_switch" translatable="false">
         driver_assistance_state_switch
     </string>
+    <string name="pk_location_divider" translatable="false">location_divider</string>
     <string name="pk_location_driver_assistance_preference_group" translatable="false">
         driver_assistance_preference_group
+    </string>
+    <string name="pk_location_driver_assistance_privacy_policy_group" translatable="false">
+        driver_assistance_privacy_policy_group
+    </string>
+    <string name="pk_location_driver_assistance_privacy_policy_header" translatable="false">
+        driver_assistanceprivacy_policy_header
     </string>
 
     <!-- Microphone Settings -->
@@ -438,6 +456,7 @@
     <string name="pk_about_settings_entry" translatable="false">about_settings_entry</string>
     <string name="pk_legal_information_entry" translatable="false">legal_information_entry</string>
     <string name="pk_reset_options_entry" translatable="false">reset_options_entry</string>
+    <string name="pk_restart_infotainment_system">restart_infotainment_system</string>
     <string name="pk_developer_options_entry" translatable="false">developer_options_entry</string>
 
     <!-- Language Settings -->

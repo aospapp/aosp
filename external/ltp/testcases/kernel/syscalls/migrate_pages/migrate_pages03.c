@@ -127,6 +127,11 @@ static void migrate_test(void)
 			tst_res(TFAIL | TERRNO, "migrate_pages() failed");
 			return;
 		}
+
+		if (!tst_remaining_runtime()) {
+			tst_res(TINFO, "Out of runtime, exiting...");
+			break;
+		}
 	}
 	SAFE_SETEUID(0);
 
@@ -134,7 +139,7 @@ static void migrate_test(void)
 }
 
 static struct tst_test test = {
-	.min_kver = "2.6.32",
+	.max_runtime = 300,
 	.needs_root = 1,
 	.setup = setup,
 	.cleanup = cleanup,

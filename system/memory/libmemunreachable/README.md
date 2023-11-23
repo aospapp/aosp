@@ -33,6 +33,80 @@ adb shell setprop libc.debug.malloc.program "''"
 adb shell setprop wrap.[process]  "''"
 ```
 
+Starting with Android U, new malloc debug options have been added
+that allow specific sized allocation to be backtraced. The three
+new options are:
+
+- backtrace\_size
+- backtrace\_min\_size
+- backtrace\_max\_size
+
+When enabling backtracing on all allocations, it is possible to have
+the process run so slowly that the app does not come up. Or the app
+runs so slowly that the leaks do not occur. The best way to avoid any
+slowdowns or timeouts is to first run libmemunreachable and look at
+the sizes of the leaking allocations. If there is only a single
+allocation size, then use backtrace\_size which will indicate that
+backtraces should only be collected for that exact size. For example,
+if the output of dumpsys is:
+
+```
+ Unreachable memory
+  24 bytes in 2 unreachable allocations
+  ABI: 'arm64'
+
+  24 bytes unreachable at 71d37787d0
+   first 20 bytes of contents:
+   71d37787d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ................
+   71d37787e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ................
+
+  24 bytes unreachable at 71d37797d0
+   first 20 bytes of contents:
+   71d37797d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ................
+   71d37797e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ................
+```
+
+Then set the malloc debug options thusly:
+
+```
+adb shell setprop libc.debug.malloc.options "'backtrace backtrace_size=24'"
+```
+
+This will backtrace only 24 byte allocations.
+
+If the output of libmemunreachable has multiple sized allocations, set
+the backtrace\_min\_size and backtrace\_max\_size options to cover all
+of the sizes. For example, if the output of dumpsys is:
+
+```
+ Unreachable memory
+  512 bytes in 2 unreachable allocations
+  ABI: 'arm64'
+
+  320 bytes unreachable at 71d37787d0
+   first 20 bytes of contents:
+   71d37787d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ................
+   71d37787e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ................
+
+  192 bytes unreachable at 71b37b2f50
+   first 20 bytes of contents:
+   71b37b2f50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ................
+   71b37b2f60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ................
+```
+
+Then set the malloc debug options thusly:
+
+```
+adb shell setprop libc.debug.malloc.options "'backtrace backtrace_min_size=192 backtrace_max_size=320'"
+```
+
+This will backtrace allocations of any size between 192 bytes and 320 bytes
+inclusively.
+
+After setting the backtrace size options, restart the application so
+that running dumpsys again will include the actual backtrace of the
+leaking allocations.
+
 ### C interface ###
 
 #### `bool LogUnreachableMemory(bool log_contents, size_t limit)` ####

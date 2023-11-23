@@ -19,8 +19,8 @@
 
 #include <vector>
 
+#include <android/media/MicrophoneInfoFw.h>
 #include <media/audiohal/EffectHalInterface.h>
-#include <media/MicrophoneInfo.h>
 #include <system/audio.h>
 #include <utils/Errors.h>
 #include <utils/RefBase.h>
@@ -110,8 +110,8 @@ class StreamOutHalInterfaceCallback : public virtual RefBase {
     virtual void onError() {}
 
   protected:
-    StreamOutHalInterfaceCallback() {}
-    virtual ~StreamOutHalInterfaceCallback() {}
+    StreamOutHalInterfaceCallback() = default;
+    virtual ~StreamOutHalInterfaceCallback() = default;
 };
 
 class StreamOutHalInterfaceEventCallback : public virtual RefBase {
@@ -119,8 +119,8 @@ public:
     virtual void onCodecFormatChanged(const std::basic_string<uint8_t>& metadataBs) = 0;
 
 protected:
-    StreamOutHalInterfaceEventCallback() {}
-    virtual ~StreamOutHalInterfaceEventCallback() {}
+    StreamOutHalInterfaceEventCallback() = default;
+    virtual ~StreamOutHalInterfaceEventCallback() = default;
 };
 
 class StreamOutHalInterfaceLatencyModeCallback : public virtual RefBase {
@@ -131,8 +131,8 @@ public:
     virtual void onRecommendedLatencyModeChanged(std::vector<audio_latency_mode_t> modes) = 0;
 
 protected:
-    StreamOutHalInterfaceLatencyModeCallback() {}
-    virtual ~StreamOutHalInterfaceLatencyModeCallback() {}
+    StreamOutHalInterfaceLatencyModeCallback() = default;
+    virtual ~StreamOutHalInterfaceLatencyModeCallback() = default;
 };
 
 class StreamOutHalInterface : public virtual StreamHalInterface {
@@ -273,7 +273,7 @@ class StreamInHalInterface : public virtual StreamHalInterface {
     virtual status_t getCapturePosition(int64_t *frames, int64_t *time) = 0;
 
     // Get active microphones
-    virtual status_t getActiveMicrophones(std::vector<media::MicrophoneInfo> *microphones) = 0;
+    virtual status_t getActiveMicrophones(std::vector<media::MicrophoneInfoFw> *microphones) = 0;
 
     // Set direction for capture processing
     virtual status_t setPreferredMicrophoneDirection(audio_microphone_direction_t) = 0;

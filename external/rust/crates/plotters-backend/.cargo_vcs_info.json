@@ -1,5 +1,6 @@
 {
   "git": {
-    "sha1": "def8d8b4033af35963bc9b11cdb444cf99f91b5a"
-  }
+    "sha1": "6bd30045e545e7308b1349c6ffaaa22a4c6eeb94"
+  },
+  "path_in_vcs": "plotters-backend"
 }

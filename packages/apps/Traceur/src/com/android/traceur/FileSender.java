@@ -23,13 +23,15 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.ClipData;
 import android.content.Context;
-import androidx.core.content.FileProvider;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.SystemProperties;
+import android.preference.PreferenceManager;
 import android.util.Patterns;
+import androidx.core.content.FileProvider;
 
 import java.io.File;
 
@@ -42,6 +44,9 @@ public class FileSender {
     private static final String MIME_TYPE = "application/vnd.android.systrace";
 
     public static void postNotification(Context context, File file) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean recordingWasTrace = prefs.getBoolean(
+                    context.getString(R.string.pref_key_recording_was_trace), true);
         // Files are kept on private storage, so turn into Uris that we can
         // grant temporary permissions for.
         final Uri traceUri = getUriForFile(context, file);
@@ -56,11 +61,13 @@ public class FileSender {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_RECEIVER_FOREGROUND);
         intent.putExtra(Intent.EXTRA_INTENT, sendIntent);
 
+        String title = context.getString(
+                recordingWasTrace ? R.string.trace_saved : R.string.stack_samples_saved);
         final Notification.Builder builder =
             new Notification.Builder(context, Receiver.NOTIFICATION_CHANNEL_OTHER)
                 .setSmallIcon(R.drawable.bugfood_icon)
-                .setContentTitle(context.getString(R.string.trace_saved))
-                .setTicker(context.getString(R.string.trace_saved))
+                .setContentTitle(title)
+                .setTicker(title)
                 .setContentText(context.getString(R.string.tap_to_share))
                 .setContentIntent(PendingIntent.getActivity(
                         context, traceUri.hashCode(), intent, PendingIntent.FLAG_ONE_SHOT

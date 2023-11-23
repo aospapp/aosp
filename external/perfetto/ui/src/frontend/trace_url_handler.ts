@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as m from 'mithril';
+import m from 'mithril';
 
 import {Actions} from '../common/actions';
 import {tryGetTrace} from '../common/cache_manager';
@@ -111,7 +111,8 @@ async function maybeOpenCachedTrace(traceUuid: string) {
   // This early out prevents to re-trigger the openTraceFromXXX() action if the
   // URL changes (e.g. if the user navigates back/fwd) while the new trace is
   // being loaded.
-  for (const eng of Object.values(globals.state.engines)) {
+  if (globals.state.engine !== undefined) {
+    const eng = globals.state.engine;
     if (eng.source.type === 'ARRAY_BUFFER' && eng.source.uuid === traceUuid) {
       return;
     }
@@ -140,7 +141,6 @@ async function maybeOpenCachedTrace(traceUuid: string) {
                 'for too long, or if you just mis-pasted the URL.'),
           m('pre', `Trace UUID: ${traceUuid}`),
           ),
-      buttons: [],
     });
     navigateToOldTraceUuid();
     return;
@@ -178,14 +178,14 @@ async function maybeOpenCachedTrace(traceUuid: string) {
     buttons: [
       {
         text: 'Continue',
+        id: 'trace_id_open',  // Used by tests.
         primary: true,
-        id: 'trace_id_open',
         action: () => {
           hasOpenedNewTrace = true;
           globals.dispatch(Actions.openTraceFromBuffer(maybeTrace));
-        }
+        },
       },
-      {text: 'Cancel', primary: false, id: 'trace_id_cancel', action: () => {}},
+      {text: 'Cancel'},
     ],
   });
 
@@ -208,13 +208,13 @@ function loadTraceFromUrl(url: string) {
     // when users click on share we don't fail the re-fetch().
     const fileName = url.split('/').pop() || 'local_trace.pftrace';
     const request = fetch(url)
-                        .then(response => response.blob())
-                        .then(blob => {
+                        .then((response) => response.blob())
+                        .then((blob) => {
                           globals.dispatch(Actions.openTraceFromFile({
                             file: new File([blob], fileName),
                           }));
                         })
-                        .catch(e => alert(`Could not load local trace ${e}`));
+                        .catch((e) => alert(`Could not load local trace ${e}`));
     taskTracker.trackPromise(request, 'Downloading local trace');
   } else {
     globals.dispatch(Actions.openTraceFromUrl({url}));
@@ -228,12 +228,12 @@ function openTraceFromAndroidBugTool() {
   const loadInfo = loadAndroidBugToolInfo();
   taskTracker.trackPromise(loadInfo, 'Loading trace from ABT extension');
   loadInfo
-      .then(info => {
+      .then((info) => {
         globals.dispatch(Actions.openTraceFromFile({
           file: info.file,
         }));
       })
-      .catch(e => {
+      .catch((e) => {
         console.error(e);
       });
 }

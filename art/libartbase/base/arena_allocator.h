@@ -84,6 +84,7 @@ enum ArenaAllocKind {
   kArenaAllocLSE,
   kArenaAllocCFRE,
   kArenaAllocLICM,
+  kArenaAllocWBE,
   kArenaAllocLoopOptimization,
   kArenaAllocSsaLiveness,
   kArenaAllocSsaPhiElimination,
@@ -152,7 +153,7 @@ using ArenaAllocatorStats = ArenaAllocatorStatsImpl<kArenaAllocatorCountAllocati
 
 class ArenaAllocatorMemoryTool {
  public:
-  bool IsRunningOnMemoryTool() { return kMemoryToolIsAvailable; }
+  static constexpr bool IsRunningOnMemoryTool() { return kMemoryToolIsAvailable; }
 
   void MakeDefined(void* ptr, size_t size) {
     if (UNLIKELY(IsRunningOnMemoryTool())) {
@@ -178,19 +179,18 @@ class ArenaAllocatorMemoryTool {
 
 class Arena {
  public:
-  Arena();
+  Arena() : bytes_allocated_(0), memory_(nullptr), size_(0), next_(nullptr) {}
+
   virtual ~Arena() { }
   // Reset is for pre-use and uses memset for performance.
   void Reset();
   // Release is used inbetween uses and uses madvise for memory usage.
   virtual void Release() { }
-  uint8_t* Begin() {
+  uint8_t* Begin() const {
     return memory_;
   }
 
-  uint8_t* End() {
-    return memory_ + size_;
-  }
+  uint8_t* End() const { return memory_ + size_; }
 
   size_t Size() const {
     return size_;
@@ -205,9 +205,9 @@ class Arena {
   }
 
   // Return true if ptr is contained in the arena.
-  bool Contains(const void* ptr) const {
-    return memory_ <= ptr && ptr < memory_ + bytes_allocated_;
-  }
+  bool Contains(const void* ptr) const { return memory_ <= ptr && ptr < memory_ + size_; }
+
+  Arena* Next() const { return next_; }
 
  protected:
   size_t bytes_allocated_;
@@ -289,7 +289,7 @@ class ArenaAllocator
       return AllocWithMemoryToolAlign16(bytes, kind);
     }
     uintptr_t padding =
-        ((reinterpret_cast<uintptr_t>(ptr_) + 15u) & 15u) - reinterpret_cast<uintptr_t>(ptr_);
+        RoundUp(reinterpret_cast<uintptr_t>(ptr_), 16) - reinterpret_cast<uintptr_t>(ptr_);
     ArenaAllocatorStats::RecordAlloc(bytes, kind);
     if (UNLIKELY(padding + bytes > static_cast<size_t>(end_ - ptr_))) {
       static_assert(kArenaAlignment >= 16, "Expecting sufficient alignment for new Arena.");
@@ -355,6 +355,22 @@ class ArenaAllocator
     return pool_;
   }
 
+  Arena* GetHeadArena() const {
+    return arena_head_;
+  }
+
+  uint8_t* CurrentPtr() const {
+    return ptr_;
+  }
+
+  size_t CurrentArenaUnusedBytes() const {
+    DCHECK_LE(ptr_, end_);
+    return end_ - ptr_;
+  }
+  // Resets the current arena in use, which will force us to get a new arena
+  // on next allocation.
+  void ResetCurrentArena();
+
   bool Contains(const void* ptr) const;
 
   // The alignment guaranteed for individual allocations.
@@ -362,6 +378,9 @@ class ArenaAllocator
 
   // The alignment required for the whole Arena rather than individual allocations.
   static constexpr size_t kArenaAlignment = 16u;
+
+  // Extra bytes required by the memory tool.
+  static constexpr size_t kMemoryToolRedZoneBytes = 8u;
 
  private:
   void* AllocWithMemoryTool(size_t bytes, ArenaAllocKind kind);

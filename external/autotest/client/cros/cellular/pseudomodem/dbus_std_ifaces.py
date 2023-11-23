@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -15,10 +16,9 @@ import dbus.service
 import dbus.types
 import logging
 
-import pm_errors
-import utils
-
 from autotest_lib.client.cros.cellular import mm1_constants
+from autotest_lib.client.cros.cellular.pseudomodem import pm_errors
+from autotest_lib.client.cros.cellular.pseudomodem import utils
 
 class MMPropertyError(pm_errors.MMError):
     """
@@ -282,7 +282,7 @@ class DBusProperties(dbus.service.Object):
         """
         old_props = self._properties.get(interface, None)
         if old_props:
-            invalidated = old_props.keys()
+            invalidated = list(old_props.keys())
         else:
             invalidated = []
         self._properties[interface] = properties
@@ -365,7 +365,7 @@ class DBusObjectManager(dbus.service.Object):
         """
         if device in self.devices:
             self.devices.remove(device)
-        interfaces = device.GetInterfacesAndProperties().keys()
+        interfaces = list(device.GetInterfacesAndProperties().keys())
         self.InterfacesRemoved(device.path, interfaces)
         device.remove_from_connection()
 
@@ -386,7 +386,7 @@ class DBusObjectManager(dbus.service.Object):
             results[dbus.types.ObjectPath(device.path)] = (
                     device.GetInterfacesAndProperties())
         logging.info('%s: GetManagedObjects: %s', self.path,
-                     ', '.join(results.keys()))
+                     ', '.join(list(results.keys())))
         return results
 
 

@@ -16,10 +16,12 @@
 
 package android.os.cts;
 
+import static android.system.OsConstants.PR_GET_DUMPABLE;
+
 import android.os.Build;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.RestrictedBuildTest;
 import android.system.Os;
-import static android.system.OsConstants.PR_GET_DUMPABLE;
 
 import junit.framework.TestCase;
 
@@ -75,6 +77,7 @@ public class SecurityFeaturesTest extends TestCase {
      * to exactly equal prctl(PR_GET_DUMPABLE).
      */
     @AppModeFull(reason = "Instant apps cannot access APIs")
+    @RestrictedBuildTest
     public void testPrctlDumpable() throws Exception {
         boolean userBuild = "user".equals(Build.TYPE);
         int prctl_dumpable = Os.prctl(PR_GET_DUMPABLE, 0, 0, 0, 0);

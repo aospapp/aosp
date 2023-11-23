@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package libcore.java.util;
@@ -93,12 +93,12 @@ public class OldTreeMapTest extends junit.framework.TestCase {
         TreeMap reversedTreeMap = new TreeMap(comp);
         assertTrue("TreeMap answered incorrect comparator", reversedTreeMap
                 .comparator() == comp);
-        reversedTreeMap.put(new Integer(1).toString(), new Integer(1));
-        reversedTreeMap.put(new Integer(2).toString(), new Integer(2));
+        reversedTreeMap.put(Integer.valueOf(1).toString(), Integer.valueOf(1));
+        reversedTreeMap.put(Integer.valueOf(2).toString(), Integer.valueOf(2));
         assertTrue("TreeMap does not use comparator (firstKey was incorrect)",
-                reversedTreeMap.firstKey().equals(new Integer(2).toString()));
+                reversedTreeMap.firstKey().equals(Integer.valueOf(2).toString()));
         assertTrue("TreeMap does not use comparator (lastKey was incorrect)",
-                reversedTreeMap.lastKey().equals(new Integer(1).toString()));
+                reversedTreeMap.lastKey().equals(Integer.valueOf(1).toString()));
 
     }
 
@@ -112,8 +112,8 @@ public class OldTreeMapTest extends junit.framework.TestCase {
         }
 
         HashMap hm = new HashMap();
-        hm.put(new Integer(1), "one");
-        hm.put("one", new Integer(1));
+        hm.put(Integer.valueOf(1), "one");
+        hm.put("one", Integer.valueOf(1));
 
         try {
             new TreeMap(hm);
@@ -134,15 +134,15 @@ public class OldTreeMapTest extends junit.framework.TestCase {
         // Test for method java.util.TreeMap(java.util.SortedMap)
         Comparator comp = new ReversedComparator();
         TreeMap reversedTreeMap = new TreeMap(comp);
-        reversedTreeMap.put(new Integer(1).toString(), new Integer(1));
-        reversedTreeMap.put(new Integer(2).toString(), new Integer(2));
+        reversedTreeMap.put(Integer.valueOf(1).toString(), Integer.valueOf(1));
+        reversedTreeMap.put(Integer.valueOf(2).toString(), Integer.valueOf(2));
         TreeMap anotherTreeMap = new TreeMap(reversedTreeMap);
         assertTrue("New tree map does not answer correct comparator",
                 anotherTreeMap.comparator() == comp);
         assertTrue("TreeMap does not use comparator (firstKey was incorrect)",
-                anotherTreeMap.firstKey().equals(new Integer(2).toString()));
+                anotherTreeMap.firstKey().equals(Integer.valueOf(2).toString()));
         assertTrue("TreeMap does not use comparator (lastKey was incorrect)",
-                anotherTreeMap.lastKey().equals(new Integer(1).toString()));
+                anotherTreeMap.lastKey().equals(Integer.valueOf(1).toString()));
 
         try {
             new TreeMap((SortedMap)null);
@@ -159,7 +159,7 @@ public class OldTreeMapTest extends junit.framework.TestCase {
         assertTrue("Returned true for invalid key", !tm.containsKey("XXXXX"));
 
         try {
-            tm.containsKey(new Double(3.14));
+            tm.containsKey(Double.valueOf(3.14));
             fail("ClassCastException expected");
         } catch (ClassCastException e) {
             //expected
@@ -193,7 +193,7 @@ public class OldTreeMapTest extends junit.framework.TestCase {
         assertTrue("Failed to get mapping", tm.get("Hello") == o);
 
         try {
-            tm.get(new Double(3.14));
+            tm.get(Double.valueOf(3.14));
             fail("ClassCastException expected");
         } catch (ClassCastException e) {
             //expected
@@ -317,14 +317,14 @@ public class OldTreeMapTest extends junit.framework.TestCase {
         tm = new TreeMap();
         try {
             assertNull(tm.put(new Object(), new Object()));
-            tm.put(new Integer(1), new Object());
+            tm.put(Integer.valueOf(1), new Object());
             fail("should throw ClassCastException");
         } catch (ClassCastException e) {
             // expected
         }
 
         tm = new TreeMap();
-        assertNull(tm.put(new Integer(1), new Object()));
+        assertNull(tm.put(Integer.valueOf(1), new Object()));
     }
 
      /**
@@ -351,8 +351,8 @@ public class OldTreeMapTest extends junit.framework.TestCase {
                     .equals(element));
         }
         x = new TreeMap();
-        x.put(new Integer(1), "one");
-        x.put(new Integer(2), "two");
+        x.put(Integer.valueOf(1), "one");
+        x.put(Integer.valueOf(2), "two");
 
         try {
             tm.putAll(x);
@@ -376,7 +376,7 @@ public class OldTreeMapTest extends junit.framework.TestCase {
         assertTrue("Failed to remove mapping", !tm.containsKey("990"));
 
         try {
-            tm.remove(new Double(3.14));
+            tm.remove(Double.valueOf(3.14));
             fail("ClassCastException expected");
         } catch (ClassCastException e) {
             //expected
@@ -493,7 +493,7 @@ public class OldTreeMapTest extends junit.framework.TestCase {
     protected void setUp() {
         tm = new TreeMap();
         for (int i = 0; i < objArray.length; i++) {
-            Object x = objArray[i] = new Integer(i);
+            Object x = objArray[i] = Integer.valueOf(i);
             tm.put(x.toString(), x);
         }
     }

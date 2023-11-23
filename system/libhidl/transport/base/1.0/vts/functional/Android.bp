@@ -37,9 +37,9 @@ cc_test {
         "liblog",
         "libutils",
         "libprotobuf-cpp-lite",
-        "libhidl-gen-utils",
     ],
     static_libs: [
+        "libhidl-gen-utils",
         "libinit_test_utils",
     ],
     test_suites: [

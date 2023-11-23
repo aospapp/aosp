@@ -57,12 +57,6 @@ filegroup {
 }
 
 filegroup {
-    name: "py2_httplib2_srcs",
-    srcs: ["python2/httplib2/*.py"],
-    path: "python2/httplib2",
-}
-
-filegroup {
     name: "py3_httplib2_srcs",
     srcs: ["python3/httplib2/*.py"],
     path: "python3/httplib2",
@@ -73,14 +67,5 @@ python_library {
     host_supported: true,
     data: [":cacert_data"],
     pkg_path: "httplib2",
-    version: {
-          py2: {
-              enabled: true,
-              srcs: [":py2_httplib2_srcs"],
-          },
-          py3: {
-              enabled: true,
-              srcs: [":py3_httplib2_srcs"],
-          },
-    },
+    srcs: [":py3_httplib2_srcs"],
 }

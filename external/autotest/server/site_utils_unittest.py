@@ -7,8 +7,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import mox
 import unittest
+from unittest.mock import patch
 
 import common
 from autotest_lib.frontend import setup_django_lite_environment
@@ -19,7 +19,7 @@ from autotest_lib.server.cros.dynamic_suite import suite_common
 import six
 
 
-class SiteUtilsUnittests(mox.MoxTestBase):
+class SiteUtilsUnittests(unittest.TestCase):
     """Test functions in site_utils.py"""
 
     def testParseJobName(self):
@@ -58,32 +58,33 @@ class SiteUtilsUnittests(mox.MoxTestBase):
             self.assertEqual(info, expected_info, '%s failed to be parsed to '
                              '%s' % (test_job_name, expected_info))
 
-
     def testGetViewsFromTko(self):
         """Test method get_test_views_from_tko
         """
         test_results = [
-            ('dummy_Pass', 'GOOD'),
-            ('dummy_Fail.RetrySuccess', 'GOOD'),
-            ('dummy_Fail.RetrySuccess', 'FAIL'),
-            ('dummy_Fail.Fail', 'FAIL'),
-            ('dummy_Fail.Fail', 'FAIL'),
+                ('stub_Pass', 'GOOD'),
+                ('stub_Fail.RetrySuccess', 'GOOD'),
+                ('stub_Fail.RetrySuccess', 'FAIL'),
+                ('stub_Fail.Fail', 'FAIL'),
+                ('stub_Fail.Fail', 'FAIL'),
         ]
 
         expected_test_views = {
-            'dummy_Pass': ['GOOD'],
-            'dummy_Fail.RetrySuccess': ['FAIL', 'GOOD'],
-            'dummy_Fail.Fail': ['FAIL', 'FAIL'],
+                'stub_Pass': ['GOOD'],
+                'stub_Fail.RetrySuccess': ['FAIL', 'GOOD'],
+                'stub_Fail.Fail': ['FAIL', 'FAIL'],
         }
 
-        self.mox.UnsetStubs()
-        tko = self.mox.CreateMock(frontend.TKO)
-        tko.run('get_detailed_test_views', afe_job_id=0).AndReturn(
-            [{'test_name':r[0], 'status':r[1]} for r in test_results])
+        patcher = patch.object(frontend, 'TKO')
+        tko = patcher.start()
+        self.addCleanup(patcher.stop)
 
-        self.mox.ReplayAll()
+        tko.run.return_value = ([{
+                'test_name': r[0],
+                'status': r[1]
+        } for r in test_results])
         test_views = site_utils.get_test_views_from_tko(0, tko)
-        self.mox.VerifyAll()
+        tko.run.assert_called_with('get_detailed_test_views', afe_job_id=0)
 
         self.assertEqual(sorted(test_views.keys()),
                          sorted(expected_test_views.keys()),

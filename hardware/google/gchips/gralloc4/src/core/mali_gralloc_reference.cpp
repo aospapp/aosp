@@ -26,10 +26,7 @@
 #include <mutex>
 
 #include "allocator/mali_gralloc_ion.h"
-#include "allocator/mali_gralloc_shared_memory.h"
 #include "mali_gralloc_buffer.h"
-#include "mali_gralloc_bufferallocation.h"
-#include "mali_gralloc_usages.h"
 
 class BufferManager {
 private:
@@ -47,17 +44,6 @@ private:
 
     std::mutex lock;
     std::map<const private_handle_t *, std::unique_ptr<MappedData>> buffer_map GUARDED_BY(lock);
-
-    static bool should_map_dmabuf(buffer_handle_t handle) {
-        private_handle_t *hnd = (private_handle_t *)handle;
-
-        // TODO(b/187145254): CPU_READ/WRITE buffer is not being properly locked from
-        // MFC. This is a WA for the time being.
-        constexpr auto cpu_access_usage =
-                (GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_SW_READ_OFTEN |
-                 GRALLOC_USAGE_SW_WRITE_RARELY | GRALLOC_USAGE_SW_READ_RARELY);
-        return hnd->get_usage() & cpu_access_usage;
-    }
 
     static off_t get_buffer_size(unsigned int fd) {
         off_t current = lseek(fd, 0, SEEK_CUR);
@@ -213,8 +199,7 @@ public:
         auto &data = *(it->second.get());
 
         data.ref_count++;
-        if (!should_map_dmabuf(handle)) return 0;
-        return map_locked(handle);
+        return 0;
     }
 
     int map(buffer_handle_t handle) EXCLUDES(lock) {

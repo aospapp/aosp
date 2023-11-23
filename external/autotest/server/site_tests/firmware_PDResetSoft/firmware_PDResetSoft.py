@@ -30,13 +30,13 @@ class firmware_PDResetSoft(FirmwareTest):
         @param port_pair: list of 2 connected PD devices
         """
         for dev in port_pair:
-            for _ in xrange(self.RESET_ITERATIONS):
+            for _ in range(self.RESET_ITERATIONS):
                 try:
                     time.sleep(self.PD_CONNECT_DELAY)
                     if dev.soft_reset() == False:
                         raise error.TestFail('Soft Reset Failed')
                 except NotImplementedError:
-                    logging.warn('Device cant soft reset ... skipping')
+                    logging.warning('Device cant soft reset ... skipping')
                     break
 
     def initialize(self, host, cmdline_args, flip_cc=False, dts_mode=False,
@@ -91,7 +91,7 @@ class firmware_PDResetSoft(FirmwareTest):
                     swappable_dev = dev
                     break
             except NotImplementedError:
-                logging.warn('Power role swap not supported on the device')
+                logging.warning('Power role swap not supported on the device')
 
         if swappable_dev:
             try:
@@ -102,5 +102,5 @@ class firmware_PDResetSoft(FirmwareTest):
                 if not swappable_dev.pr_swap():
                     logging.error('Failed to swap power role to the original')
         else:
-            logging.warn('Device pair could not perform power role swap, '
+            logging.warning('Device pair could not perform power role swap, '
                          'ending test')

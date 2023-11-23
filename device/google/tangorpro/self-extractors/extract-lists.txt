@@ -1,0 +1,11 @@
+  google_devices)
+    TO_EXTRACT="\
+            IMAGES/vbmeta_vendor.img \
+            IMAGES/vendor.img \
+            IMAGES/vendor_dlkm.img \
+            RADIO/bootloader.img \
+            system_ext/etc/permissions/privapp-permissions-qorvo.xml \
+            system_ext/priv-app/UwbVendorService/UwbVendorService.apk \
+            "
+    ;;
+

@@ -577,6 +577,16 @@ public class TransportSipMessageValidator {
         }
     }
 
+    /**
+     * This is a listener to handle SipDialog state of delegate
+     * @param listener {@link SipDialogsStateListener}
+     * @param isNeedNotify It indicates whether the current dialogs state should be notified.
+     */
+    public void setSipDialogsListener(SipDialogsStateListener listener,
+            boolean isNeedNotify) {
+        mSipSessionTracker.setSipDialogsListener(listener, isNeedNotify);
+    }
+
     private void logi(String log) {
         Log.i(SipTransportController.LOG_TAG, LOG_TAG + "[" + mSubId + "] " + log);
         mLocalLog.log("[I] " + log);

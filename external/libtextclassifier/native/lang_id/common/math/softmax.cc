@@ -26,7 +26,7 @@ namespace libtextclassifier3 {
 namespace mobile {
 
 float ComputeSoftmaxProbability(const std::vector<float> &scores, int label) {
-  if ((label < 0) || (label >= scores.size())) {
+  if ((label < 0) || (static_cast<size_t>(label) >= scores.size())) {
     SAFTM_LOG(ERROR) << "label " << label << " outside range "
                      << "[0, " << scores.size() << ")";
     return 0.0f;
@@ -43,8 +43,8 @@ float ComputeSoftmaxProbability(const std::vector<float> &scores, int label) {
   // which saves two calls to exp().
   const float label_score = scores[label];
   float denominator = 1.0f;  // Contribution of i == label.
-  for (int i = 0; i < scores.size(); ++i) {
-    if (i == label) continue;
+  for (size_t i = 0; i < scores.size(); ++i) {
+    if (static_cast<int>(i) == label) continue;
     const float delta_score = scores[i] - label_score;
 
     // TODO(salcianu): one can optimize the test below, to avoid any float
@@ -94,7 +94,7 @@ std::vector<float> ComputeSoftmax(const std::vector<float> &scores,
     denominator += exp_score;
   }
 
-  for (int i = 0; i < scores.size(); ++i) {
+  for (size_t i = 0; i < scores.size(); ++i) {
     softmax.push_back(exp_scores[i] / denominator);
   }
   return softmax;

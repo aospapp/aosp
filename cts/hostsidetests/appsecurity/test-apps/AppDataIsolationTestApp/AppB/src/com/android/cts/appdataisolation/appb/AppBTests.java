@@ -18,8 +18,6 @@ package com.android.cts.appdataisolation.appb;
 
 import static com.android.cts.appdataisolation.common.FileUtils.assertDirDoesNotExist;
 import static com.android.cts.appdataisolation.common.FileUtils.assertDirIsAccessible;
-import static com.android.cts.appdataisolation.common.FileUtils.assertDirIsNotAccessible;
-import static com.android.cts.appdataisolation.common.FileUtils.assertFileIsAccessible;
 import static com.android.cts.appdataisolation.common.UserUtils.getCurrentUserId;
 
 import android.content.Context;
@@ -63,8 +61,7 @@ public class AppBTests {
         if (getCurrentUserId() == UserHandle.USER_SYSTEM) {
             assertDirIsAccessible("/data/data/" + APPA_PKG);
         }
-        assertFileIsAccessible("/data/misc/profiles/cur/" + getCurrentUserId() + "/"
-                + APPA_PKG + "/primary.prof");
+        assertDirIsAccessible("/data/misc/profiles/cur/" + getCurrentUserId() + "/" + APPA_PKG);
         assertDirIsAccessible("/data/misc/profiles/ref/" + APPA_PKG);
     }
 

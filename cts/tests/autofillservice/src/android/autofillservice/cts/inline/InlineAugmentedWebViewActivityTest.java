@@ -33,13 +33,13 @@ import android.autofillservice.cts.testcore.CtsAugmentedAutofillService.Augmente
 import android.autofillservice.cts.testcore.Helper;
 import android.autofillservice.cts.testcore.InlineUiBot;
 import android.autofillservice.cts.testcore.InstrumentedAutoFillService.FillRequest;
-import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillValue;
 
 import androidx.test.filters.FlakyTest;
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Test;
 import org.junit.rules.TestRule;

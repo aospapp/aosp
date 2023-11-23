@@ -51,16 +51,6 @@ public interface SearchResultsShim extends Closeable {
     @NonNull
     ListenableFuture<List<SearchResult>> getNextPageAsync();
 
-    /**
-     * @deprecated use {@link #getNextPage}.
-     * @return a {@link ListenableFuture} which resolves to a list of {@link SearchResult} objects.
-     */
-    @NonNull
-    @Deprecated
-    default ListenableFuture<List<SearchResult>> getNextPage() {
-        return getNextPageAsync();
-    }
-
     @Override
     void close();
 }

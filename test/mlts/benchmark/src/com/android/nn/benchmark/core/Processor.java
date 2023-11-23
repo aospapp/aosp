@@ -77,6 +77,7 @@ public class Processor implements Runnable {
 
     private boolean mUseNnApiSupportLibrary;
     private boolean mExtractNnApiSupportLibrary;
+    private String mNnApiSupportLibraryVendor;
 
     public Processor(Context context, Processor.Callback callback, int[] testList) {
         mContext = context;
@@ -94,6 +95,7 @@ public class Processor implements Runnable {
         mModelFilterRegex = null;
         mUseNnApiSupportLibrary = false;
         mExtractNnApiSupportLibrary = false;
+        mNnApiSupportLibraryVendor = "";
     }
 
     public void setUseNNApi(boolean useNNApi) {
@@ -142,6 +144,7 @@ public class Processor implements Runnable {
 
     public void setUseNnApiSupportLibrary(boolean value) { mUseNnApiSupportLibrary = value; }
     public void setExtractNnApiSupportLibrary(boolean value) { mExtractNnApiSupportLibrary = value; }
+    public void setNnApiSupportLibraryVendor(String value) { mNnApiSupportLibraryVendor = value; }
 
     public void enableCompilationCachingBenchmarks(
             float warmupTimeSeconds, float runTimeSeconds, int maxIterations) {
@@ -183,7 +186,8 @@ public class Processor implements Runnable {
                 /*enableIntermediateTensorsDump=*/false,
                 /*mmapModel=*/ false,
                 NNTestBase.shouldUseNnApiSupportLibrary(),
-                NNTestBase.shouldExtractNnApiSupportLibrary()
+                NNTestBase.shouldExtractNnApiSupportLibrary(),
+                NNTestBase.getNnApiSupportLibraryVendor()
             )) {
             tb.setNNApiDeviceName(acceleratorName);
             return tb.setupModel(context);
@@ -210,7 +214,7 @@ public class Processor implements Runnable {
             oldTestBase.destroy();
         }
         NNTestBase tb = t.createNNTestBase(mBackend, /*enableIntermediateTensorsDump=*/false,
-            mMmapModel, mUseNnApiSupportLibrary, mExtractNnApiSupportLibrary);
+            mMmapModel, mUseNnApiSupportLibrary, mExtractNnApiSupportLibrary, mNnApiSupportLibraryVendor);
         if (mBackend == TfLiteBackend.NNAPI) {
             tb.setNNApiDeviceName(mAcceleratorName);
         }

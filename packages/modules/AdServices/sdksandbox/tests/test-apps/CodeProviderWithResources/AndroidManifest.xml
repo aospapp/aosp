@@ -15,13 +15,12 @@
   ~ limitations under the License.
   -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.codeproviderresources">
+          package="com.android.codeproviderresources_1">
 
     <application>
-        hasCode="false"
         <sdk-library android:name="com.android.codeproviderresources" android:versionMajor="1" />
         <property android:name="android.sdksandbox.PROPERTY_SDK_PROVIDER_CLASS_NAME"
-                  android:value="com.android.codeproviderresources.ResourceSandboxedSdkProvider" />
+                  android:value="com.android.codeproviderresources_1.ResourceSandboxedSdkProvider" />
     </application>
 
 </manifest>

@@ -23,7 +23,7 @@
 #include "base/macros.h"
 #include "utils/arm/managed_register_arm.h"
 
-namespace art {
+namespace art HIDDEN {
 namespace arm {
 
 //
@@ -197,6 +197,10 @@ ManagedRegister ArmJniCallingConvention::IntReturnRegister() const {
 
 ManagedRegister ArmManagedRuntimeCallingConvention::MethodRegister() {
   return ArmManagedRegister::FromCoreRegister(R0);
+}
+
+ManagedRegister ArmManagedRuntimeCallingConvention::ArgumentRegisterForMethodExitHook() {
+  return ArmManagedRegister::FromCoreRegister(R2);
 }
 
 void ArmManagedRuntimeCallingConvention::ResetIterator(FrameOffset displacement) {

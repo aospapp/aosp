@@ -18,10 +18,10 @@ package android.server.wm;
 
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_HOME;
 import static android.server.wm.BarTestUtils.assumeHasBars;
+import static android.server.wm.InputMethodVisibilityVerifier.expectImeInvisible;
+import static android.server.wm.InputMethodVisibilityVerifier.expectImeVisible;
 import static android.server.wm.MockImeHelper.createManagedMockImeSession;
-import static android.server.wm.UiDeviceUtils.pressSleepButton;
-import static android.server.wm.UiDeviceUtils.pressUnlockButton;
-import static android.server.wm.UiDeviceUtils.pressWakeupButton;
+import static android.server.wm.UiDeviceUtils.pressBackButton;
 import static android.server.wm.WindowManagerState.STATE_RESUMED;
 import static android.server.wm.app.Components.HOME_ACTIVITY;
 import static android.server.wm.app.Components.SECONDARY_HOME_ACTIVITY;
@@ -40,6 +40,8 @@ import static android.view.WindowManager.LayoutParams.TYPE_WALLPAPER;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.editorMatcher;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectCommand;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent;
+import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEventWithKeyValue;
+import static com.android.cts.mockime.ImeEventStreamTestUtils.hideSoftInputMatcher;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.notExpectEvent;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -52,7 +54,6 @@ import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Activity;
-import android.app.WallpaperManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.ContextWrapper;
@@ -60,8 +61,6 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -71,6 +70,7 @@ import android.server.wm.WindowManagerState.DisplayContent;
 import android.server.wm.WindowManagerState.WindowState;
 import android.server.wm.intent.Activities;
 import android.text.TextUtils;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
@@ -145,6 +145,8 @@ public class MultiDisplaySystemDecorationTests extends MultiDisplayTestBase {
      */
     @Test
     public void testWallpaperShowOnSecondaryDisplays()  {
+        assumeTrue(supportsWallpaper());
+
         final ChangeWallpaperSession wallpaperSession = createManagedChangeWallpaperSession();
 
         final DisplayContent untrustedDisplay = createManagedExternalDisplaySession()
@@ -163,50 +165,6 @@ public class MultiDisplaySystemDecorationTests extends MultiDisplayTestBase {
 
         assertFalse("Wallpaper must not be displayed on the untrusted display",
                 isWallpaperOnDisplay(mWmState, untrustedDisplay.mId));
-    }
-
-    private ChangeWallpaperSession createManagedChangeWallpaperSession() {
-        return mObjectTracker.manage(new ChangeWallpaperSession());
-    }
-
-    private class ChangeWallpaperSession implements AutoCloseable {
-        private final WallpaperManager mWallpaperManager;
-        private Bitmap mTestBitmap;
-
-        public ChangeWallpaperSession() {
-            mWallpaperManager = WallpaperManager.getInstance(mContext);
-        }
-
-        public Bitmap getTestBitmap() {
-            if (mTestBitmap == null) {
-                mTestBitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
-                final Canvas canvas = new Canvas(mTestBitmap);
-                canvas.drawColor(Color.BLUE);
-            }
-            return mTestBitmap;
-        }
-
-        public void setImageWallpaper(Bitmap bitmap) {
-            SystemUtil.runWithShellPermissionIdentity(() ->
-                    mWallpaperManager.setBitmap(bitmap));
-        }
-
-        public void setWallpaperComponent(ComponentName componentName) {
-            SystemUtil.runWithShellPermissionIdentity(() ->
-                    mWallpaperManager.setWallpaperComponent(componentName));
-        }
-
-        @Override
-        public void close() {
-            SystemUtil.runWithShellPermissionIdentity(() -> mWallpaperManager.clearWallpaper());
-            if (mTestBitmap != null) {
-                mTestBitmap.recycle();
-            }
-            // Turning screen off/on to flush deferred color events due to wallpaper changed.
-            pressSleepButton();
-            pressWakeupButton();
-            pressUnlockButton();
-        }
     }
 
     private boolean isWallpaperOnDisplay(WindowManagerState windowManagerState, int displayId) {
@@ -622,6 +580,48 @@ public class MultiDisplaySystemDecorationTests extends MultiDisplayTestBase {
         notExpectEvent(stream, editorMatcher("showSoftInput",
                 imeTestActivitySession.getActivity().mEditText.getPrivateImeOptions()),
                 NOT_EXPECT_TIMEOUT);
+    }
+
+    /**
+     * A regression test for Bug 273630528.
+     *
+     * Test that the IME on the editor activity with embedded in virtual display will be hidden
+     * after pressing the back key.
+     */
+    @Test
+    public void testHideImeWhenImeTargetOnEmbeddedVirtualDisplay() throws Exception {
+        assumeTrue(MSG_NO_MOCK_IME, supportsInstallableIme());
+
+        final VirtualDisplaySession session = createManagedVirtualDisplaySession();
+        final MockImeSession imeSession = createManagedMockImeSession(this);
+        final TestActivitySession<ImeTestActivity> imeActivitySession =
+                createManagedTestActivitySession();
+
+        // Setup a virtual display embedded on an activity.
+        final WindowManagerState.DisplayContent dc = session
+                .setPublicDisplay(true)
+                .setSupportsTouch(true)
+                .createDisplay();
+
+        // Launch a test activity on that virtual display and show IME by tapping the editor.
+        imeActivitySession.launchTestActivityOnDisplay(ImeTestActivity.class, dc.mId);
+        tapAndAssertEditorFocusedOnImeActivity(imeActivitySession, dc.mId);
+        final ImeEventStream stream = imeSession.openEventStream();
+        final String marker = imeActivitySession.getActivity().mEditText.getPrivateImeOptions();
+        expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT);
+
+        // Expect soft-keyboard becomes visible after requesting show IME.
+        showSoftInputAndAssertImeShownOnDisplay(DEFAULT_DISPLAY, imeActivitySession, stream);
+        expectEventWithKeyValue(stream, "onWindowVisibilityChanged", "visible",
+                View.VISIBLE, TIMEOUT);
+        expectImeVisible(TIMEOUT);
+
+        // Pressing back key, expect soft-keyboard will become invisible.
+        pressBackButton();
+        expectEvent(stream, hideSoftInputMatcher(), TIMEOUT);
+        expectEventWithKeyValue(stream, "onWindowVisibilityChanged", "visible",
+                View.GONE, TIMEOUT);
+        expectImeInvisible(TIMEOUT);
     }
 
     /**

@@ -21,16 +21,18 @@
 #include <random>
 #include <thread>
 
+#include <android-base/thread_annotations.h>
 #include <cutils/log.h>
 #include <gtest/gtest.h>
 
 #include "minikin/FontCollection.h"
 #include "minikin/Macros.h"
 #include "minikin/MinikinPaint.h"
-
 #include "FontTestUtils.h"
 #include "MinikinInternal.h"
 #include "PathUtils.h"
+
+using android::base::ScopedLockAssertion;
 
 namespace minikin {
 
@@ -63,7 +65,7 @@ static void thread_main(int tid) {
     {
         // Wait until all threads are created.
         std::unique_lock<std::mutex> lock(gMutex);
-        gCv.wait(lock, [] { return gReady; });
+        gCv.wait(lock, []() EXCLUSIVE_LOCKS_REQUIRED(gMutex) { return gReady; });
     }
 
     std::mt19937 mt(tid);
@@ -90,7 +92,7 @@ TEST(MultithreadTest, ThreadSafeStressTest) {
     std::vector<std::thread> threads;
 
     {
-        std::unique_lock<std::mutex> lock(gMutex);
+        ScopedLockAssertion lock(gMutex);
         threads.reserve(NUM_THREADS);
         for (int i = 0; i < NUM_THREADS; ++i) {
             threads.emplace_back(&thread_main, i);

@@ -30,11 +30,15 @@ import static com.android.car.ui.utils.RotaryConstants.ROTARY_HORIZONTALLY_SCROL
 import static com.android.car.ui.utils.RotaryConstants.ROTARY_VERTICALLY_SCROLLABLE;
 import static com.android.car.ui.utils.RotaryConstants.TOP_BOUND_OFFSET_FOR_NUDGE;
 
+import android.content.ComponentName;
 import android.graphics.Rect;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.SurfaceView;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
+import android.view.inputmethod.InputMethodInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.webkit.WebView;
 
 import androidx.annotation.NonNull;
@@ -426,5 +430,25 @@ final class Utils {
             ancestor = nextAncestor;
         }
         return null;
+    }
+
+    /** Checks if the {@code componentName} is an installed input method. */
+    static boolean isInstalledIme(@Nullable String componentName,
+            @NonNull InputMethodManager imm) {
+        if (TextUtils.isEmpty(componentName)) {
+            return false;
+        }
+        // Use getInputMethodList() to get the installed input methods. Don't do that by fetching
+        // ENABLED_INPUT_METHODS and DISABLED_SYSTEM_INPUT_METHODS from the secure setting,
+        // because RotaryIME may not be included in any of them (b/229144904).
+        ComponentName component = ComponentName.unflattenFromString(componentName);
+        List<InputMethodInfo> imeList = imm.getInputMethodList();
+        for (InputMethodInfo ime : imeList) {
+            ComponentName imeComponent = ime.getComponent();
+            if (component.equals(imeComponent)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

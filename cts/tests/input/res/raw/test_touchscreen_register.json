@@ -1,0 +1,64 @@
+{
+  "id": 1,
+  "type": "uinput",
+  "command": "register",
+  "name": "Test Touch Screen(USB)",
+  "vid": 0x18d1,
+  "pid": 0xabcd,
+  "bus": "usb",
+  "port": "usb:1",
+  "configuration": [
+    {"type": 100, "data": [1]},  // UI_SET_EVBIT : EV_KEY
+    {"type": 100, "data": [3]},  // UI_SET_EVBIT : EV_ABS
+    {"type": 103, "data": [47]},  // UI_SET_ABSBIT : ABS_MT_SLOT
+    {"type": 103, "data": [48]},  // UI_SET_ABSBIT : ABS_MT_TOUCH_MAJOR
+    {"type": 103, "data": [53]},  // UI_SET_ABSBIT : ABS_MT_POSITION_X
+    {"type": 103, "data": [54]},  // UI_SET_ABSBIT : ABS_MT_POSITION_Y
+    {"type": 103, "data": [57]},  // UI_SET_ABSBIT : ABS_MT_TRACKING_ID
+    {"type": 103, "data": [55]},  // UI_SET_ABSBIT : ABS_MT_TOOL_TYPE
+    {"type": 110, "data": [1]},  // UI_SET_PROPBIT : INPUT_PROP_DIRECT
+    {"type": 101, "data": [330]}  // UI_SET_KEYBIT : BTN_TOUCH
+  ],
+  "abs_info": [
+    {"code":0x2f, "info": {       // ABS_MT_SLOT
+      "value": 0,
+      "minimum": 0,
+      "maximum": 9,
+      "fuzz": 0,
+      "flat": 0,
+      "resolution": 0
+    }},
+    {"code":0x39, "info": {       // ABS_MT_TRACKING_ID
+      "value": 0,
+      "minimum": 0,
+      "maximum": 9,
+      "fuzz": 0,
+      "flat": 0,
+      "resolution": 0
+    }},
+    {"code":0x30, "info": {       // ABS_MT_TOUCH_MAJOR
+      "value": 0,
+      "minimum": 0,
+      "maximum": 31,
+      "fuzz": 0,
+      "flat": 0,
+      "resolution": 0
+    }},
+    {"code":0x35, "info": {       // ABS_MT_POSITION_X
+      "value": 0,
+      "minimum": 0,
+      "maximum": 0,               // Will be replaced to real display's width - 1
+      "fuzz": 0,
+      "flat": 0,
+      "resolution": 0
+    }},
+    {"code":0x36, "info": {       // ABS_MT_POSITION_Y
+      "value": 0,
+      "minimum": 0,
+      "maximum": 0,               // Will be replaced to real display's height - 1
+      "fuzz": 0,
+      "flat": 0,
+      "resolution": 0
+    }}
+  ]
+}

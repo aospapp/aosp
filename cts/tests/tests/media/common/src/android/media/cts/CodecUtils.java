@@ -19,17 +19,12 @@ package android.media.cts;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Rect;
-import android.media.cts.CodecImage;
 import android.media.Image;
-import android.media.MediaCodec.BufferInfo;
 import android.os.Environment;
 import android.util.Log;
 
 import java.io.File;
-import java.io.FileDescriptor;
 import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
 public class CodecUtils  {

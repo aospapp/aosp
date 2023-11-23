@@ -380,76 +380,6 @@ $(art_apex_symlink_timestamp): .KATI_SYMLINK_OUTPUTS := $(PRIVATE_LINK_NAME)
 
 art_apex_manifest_file :=
 
-#######################
-# Fake packages for ART
-
-# The art-runtime package depends on the core ART libraries and binaries. It exists so we can
-# manipulate the set of things shipped, e.g., add debug versions and so on.
-
-include $(CLEAR_VARS)
-LOCAL_MODULE := art-runtime
-LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
-LOCAL_LICENSE_CONDITIONS := notice
-LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
-
-# Reference the libraries and binaries in the appropriate APEX module, because
-# they don't have platform variants. However if
-# ART_MODULE_BUILD_FROM_SOURCE isn't true then the APEX
-# modules are disabled, so Soong won't apply the APEX mutators to them, and
-# then they are available with their plain names.
-ifeq (true,$(ART_MODULE_BUILD_FROM_SOURCE))
-  art_module_lib = $(1).com.android.art
-  art_module_debug_lib = $(1).com.android.art.debug
-else
-  art_module_lib = $(1)
-  art_module_debug_lib = $(1)
-endif
-
-# Base requirements.
-LOCAL_REQUIRED_MODULES := \
-    $(call art_module_lib,dalvikvm) \
-    $(call art_module_lib,dex2oat) \
-    $(call art_module_lib,dexoptanalyzer) \
-    $(call art_module_lib,libart) \
-    $(call art_module_lib,libart-compiler) \
-    $(call art_module_lib,libopenjdkjvm) \
-    $(call art_module_lib,libopenjdkjvmti) \
-    $(call art_module_lib,odrefresh) \
-    $(call art_module_lib,profman) \
-    $(call art_module_lib,libadbconnection) \
-    $(call art_module_lib,libperfetto_hprof) \
-
-# Potentially add in debug variants:
-#
-# * We will never add them if PRODUCT_ART_TARGET_INCLUDE_DEBUG_BUILD = false.
-# * We will always add them if PRODUCT_ART_TARGET_INCLUDE_DEBUG_BUILD = true.
-# * Otherwise, we will add them by default to eng builds.
-art_target_include_debug_build := $(PRODUCT_ART_TARGET_INCLUDE_DEBUG_BUILD)
-ifneq (false,$(art_target_include_debug_build))
-ifneq (,$(filter eng,$(TARGET_BUILD_VARIANT)))
-  art_target_include_debug_build := true
-endif
-ifeq (true,$(art_target_include_debug_build))
-LOCAL_REQUIRED_MODULES += \
-    $(call art_module_debug_lib,dex2oatd) \
-    $(call art_module_debug_lib,dexoptanalyzerd) \
-    $(call art_module_debug_lib,libartd) \
-    $(call art_module_debug_lib,libartd-compiler) \
-    $(call art_module_debug_lib,libopenjdkd) \
-    $(call art_module_debug_lib,libopenjdkjvmd) \
-    $(call art_module_debug_lib,libopenjdkjvmtid) \
-    $(call art_module_debug_lib,profmand) \
-    $(call art_module_debug_lib,libadbconnectiond) \
-    $(call art_module_debug_lib,libperfetto_hprofd) \
-
-endif
-endif
-
-art_module_lib :=
-art_module_debug_lib :=
-
-include $(BUILD_PHONY_PACKAGE)
-
 ####################################################################################################
 # Fake packages to ensure generation of libopenjdkd when one builds with mm/mmm/mmma.
 #
@@ -521,7 +451,6 @@ PRIVATE_ART_APEX_DEPENDENCY_LIBS := \
   lib/libart-disassembler.so \
   lib/libartpalette.so \
   lib/libart.so \
-  lib/libbacktrace.so \
   lib/libdexfile.so \
   lib/libdt_fd_forward.so \
   lib/libdt_socket.so \
@@ -542,7 +471,6 @@ PRIVATE_ART_APEX_DEPENDENCY_LIBS := \
   lib/libprofile.so \
   lib/libsigchain.so \
   lib/libunwindstack.so \
-  lib/libziparchive.so \
   lib64/libadbconnection.so \
   lib64/libandroidio.so \
   lib64/libartbase.so \
@@ -551,7 +479,6 @@ PRIVATE_ART_APEX_DEPENDENCY_LIBS := \
   lib64/libart-disassembler.so \
   lib64/libartpalette.so \
   lib64/libart.so \
-  lib64/libbacktrace.so \
   lib64/libdexfile.so \
   lib64/libdt_fd_forward.so \
   lib64/libdt_socket.so \
@@ -572,7 +499,6 @@ PRIVATE_ART_APEX_DEPENDENCY_LIBS := \
   lib64/libprofile.so \
   lib64/libsigchain.so \
   lib64/libunwindstack.so \
-  lib64/libziparchive.so \
 
 PRIVATE_RUNTIME_APEX_DEPENDENCY_FILES := \
   bin/linker \
@@ -625,7 +551,10 @@ define extract-from-apex
     rm -rf $$apex_dir && \
     mkdir -p $$apex_dir && \
     debugfs=$(HOST_OUT)/bin/debugfs_static && \
-    $(HOST_OUT)/bin/deapexer --debugfs_path $$debugfs extract $$apex_file $$apex_dir; \
+    blkid=$(HOST_OUT)/bin/blkid_static && \
+    fsckerofs=$(HOST_OUT)/bin/fsck.erofs && \
+    $(HOST_OUT)/bin/deapexer --debugfs_path $$debugfs --blkid_path $$blkid \
+		--fsckerofs_path $$fsckerofs extract $$apex_file $$apex_dir; \
   fi && \
   for f in $(2); do \
     sf=$$apex_dir/$$f && \
@@ -649,6 +578,13 @@ endef
 #
 # TODO(b/129332183): Remove this when Golem has full support for the
 # ART APEX.
+#
+# TODO(b/129332183): This approach is flawed: We mix DSOs from prebuilt APEXes
+# and prebuilts/runtime/mainline/platform/impl with source built ones, and both
+# may depend on the same DSOs, and some of them don't have stable ABIs.
+# libbase.so in particular is such a problematic dependency. When those
+# dependencies eventually don't work anymore we don't have much choice but to
+# update all prebuilts.
 .PHONY: standalone-apex-files
 standalone-apex-files: deapexer \
                        $(RELEASE_ART_APEX) \
@@ -664,16 +600,11 @@ standalone-apex-files: deapexer \
 	# Also, platform libraries are installed in prebuilts, so copy them over.
 	$(call extract-from-apex,$(RUNTIME_APEX),\
 	  $(PRIVATE_RUNTIME_APEX_DEPENDENCY_FILES)) && \
-	  for libdir in $(TARGET_OUT)/lib $(TARGET_OUT)/lib64; do \
-	    if [ -d $$libdir/bionic ]; then \
-	      mv -f $$libdir/bionic/*.so $$libdir; \
-	    fi || exit 1; \
-	  done && \
-	  for libdir in $(TARGET_OUT)/lib $(TARGET_OUT)/lib64; do \
-	    if [ -d $$libdir ]; then \
-          cp prebuilts/runtime/mainline/platform/impl/$(TARGET_ARCH)/*.so $$libdir; \
-	    fi || exit 1; \
-	  done
+	  libdir=$(TARGET_OUT)/lib$$(expr $(TARGET_ARCH) : '.*\(64\)' || :) && \
+	  if [ -d $$libdir/bionic ]; then \
+	    mv -f $$libdir/bionic/*.so $$libdir; \
+	  fi && \
+	  cp prebuilts/runtime/mainline/platform/impl/$(TARGET_ARCH)/*.so $$libdir
 	$(call extract-from-apex,$(CONSCRYPT_APEX),\
 	  $(PRIVATE_CONSCRYPT_APEX_DEPENDENCY_LIBS))
 	$(call extract-from-apex,$(I18N_APEX),\
@@ -706,6 +637,7 @@ build-art-target-golem: $(RELEASE_ART_APEX) com.android.runtime $(CONSCRYPT_APEX
                         $(TARGET_OUT_EXECUTABLES)/dex2oat_wrapper \
                         $(ART_TARGET_PLATFORM_DEPENDENCIES) \
                         $(ART_TARGET_SHARED_LIBRARY_BENCHMARK) \
+			$(TARGET_OUT_SHARED_LIBRARIES)/libgolemtiagent.so \
                         $(PRODUCT_OUT)/apex/art_boot_images/javalib/$(TARGET_ARCH)/boot.art \
                         standalone-apex-files
 	# remove debug libraries from public.libraries.txt because golem builds
@@ -723,13 +655,8 @@ build-art-target-golem: $(RELEASE_ART_APEX) com.android.runtime $(CONSCRYPT_APEX
 ART_HOST_SHARED_LIBRARY_BENCHMARK := $(ART_HOST_OUT_SHARED_LIBRARIES)/libartbenchmark.so
 build-art-host-golem: build-art-host \
                       $(ART_HOST_SHARED_LIBRARY_BENCHMARK) \
+		      $(ART_HOST_OUT_SHARED_LIBRARIES)/libgolemtiagent.so \
                       $(HOST_OUT_EXECUTABLES)/dex2oat_wrapper
-
-########################################################################
-# Phony target for building what go/lem requires for syncing /system to target.
-.PHONY: build-art-unbundled-golem
-art_apex_jars := $(foreach pair,$(ART_APEX_JARS), $(call word-colon,2,$(pair)))
-build-art-unbundled-golem: art-runtime linker oatdump $(art_apex_jars) conscrypt crash_dump
 
 ########################################################################
 # Rules for building all dependencies for tests.
@@ -738,7 +665,11 @@ build-art-unbundled-golem: art-runtime linker oatdump $(art_apex_jars) conscrypt
 
 build-art-host-gtests: build-art-host $(ART_TEST_HOST_GTEST_DEPENDENCIES)
 
-build-art-host-run-tests: build-art-host $(TEST_ART_RUN_TEST_DEPENDENCIES) $(ART_TEST_HOST_RUN_TEST_DEPENDENCIES)
+build-art-host-run-tests: build-art-host \
+                          $(TEST_ART_RUN_TEST_DEPENDENCIES) \
+                          $(ART_TEST_HOST_RUN_TEST_DEPENDENCIES) \
+                          art-run-test-host-data \
+                          art-run-test-jvm-data
 
 build-art-host-tests: build-art-host-gtests build-art-host-run-tests
 
@@ -746,7 +677,10 @@ build-art-host-tests: build-art-host-gtests build-art-host-run-tests
 
 build-art-target-gtests: build-art-target $(ART_TEST_TARGET_GTEST_DEPENDENCIES)
 
-build-art-target-run-tests: build-art-target $(TEST_ART_RUN_TEST_DEPENDENCIES) $(ART_TEST_TARGET_RUN_TEST_DEPENDENCIES)
+build-art-target-run-tests: build-art-target \
+                            $(TEST_ART_RUN_TEST_DEPENDENCIES) \
+                            $(ART_TEST_TARGET_RUN_TEST_DEPENDENCIES) \
+                            art-run-test-target-data
 
 build-art-target-tests: build-art-target-gtests build-art-target-run-tests
 
@@ -882,7 +816,7 @@ endef
 define create_public_sdk_dex
 public_sdk_$(1)_stub := $$(call get_public_sdk_stub_dex,$(1))
 $$(public_sdk_$(1)_stub): PRIVATE_MIN_SDK_VERSION := $(1)
-$$(public_sdk_$(1)_stub): $$(call resolve-prebuilt-sdk-jar-path,$(1)) $$(DX) $$(ZIP2ZIP)
+$$(public_sdk_$(1)_stub): $$(call resolve-prebuilt-sdk-jar-path,$(1)) $$(D8) $$(ZIP2ZIP)
 	$$(transform-classes.jar-to-dex)
 
 $$(call declare-1p-target,$$(public_sdk_$(1)_stub),art)

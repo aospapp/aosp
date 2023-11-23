@@ -9,7 +9,7 @@ $(call emugl-import,libOpenglCodecCommon$(GOLDFISH_OPENGL_LIB_SUFFIX))
 # Vulkan include dir
 ifeq (true,$(GOLDFISH_OPENGL_BUILD_FOR_HOST))
 
-LOCAL_C_INCLUDES += $(HOST_EMUGL_PATH)/host/include
+LOCAL_C_INCLUDES += $(GFXSTREAM_PROTOCOLS_PATH)/include/vulkan/include
 
 endif
 
@@ -21,7 +21,7 @@ $(call emugl-export,SHARED_LIBRARIES,libandroidemu)
 
 LOCAL_HEADER_LIBRARIES += \
     hwvulkan_headers \
-    vulkan_headers \
+    gfxstream_vulkan_headers \
 
 endif
 

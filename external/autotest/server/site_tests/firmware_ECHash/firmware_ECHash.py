@@ -23,6 +23,9 @@ class firmware_ECHash(FirmwareTest):
 
     def initialize(self, host, cmdline_args):
         super(firmware_ECHash, self).initialize(host, cmdline_args)
+        if self._no_ec_sync:
+            raise error.TestNAError(
+                    "User selected to disable EC software sync")
         self.backup_firmware()
         self.switcher.setup_mode('normal')
         self.setup_usbkey(usbkey=False)

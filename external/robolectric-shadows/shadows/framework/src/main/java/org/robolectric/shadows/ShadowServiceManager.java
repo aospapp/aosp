@@ -55,6 +55,7 @@ import android.os.ServiceManager;
 import android.os.storage.IStorageManager;
 import android.permission.IPermissionManager;
 import android.service.persistentdata.IPersistentDataBlockService;
+import android.view.IWindowManager;
 
 import com.android.internal.app.IAppOpsService;
 import com.android.internal.app.IBatteryStats;
@@ -133,6 +134,9 @@ public class ShadowServiceManager {
     map.put(
         Context.APPWIDGET_SERVICE,
         createBinder(IAppWidgetService.class, "com.android.internal.appwidget.IAppWidgetService"));
+    map.put(
+            Context.WINDOW_SERVICE,
+            createBinder(IWindowManager.class, "android.view.IWindowManager"));
 
     if (RuntimeEnvironment.getApiLevel() >= JELLY_BEAN_MR1) {
       map.put(Context.USER_SERVICE, createBinder(IUserManager.class, "android.os.IUserManager"));

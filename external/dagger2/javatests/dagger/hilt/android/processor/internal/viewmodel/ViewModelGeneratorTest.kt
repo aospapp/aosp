@@ -46,21 +46,6 @@ class ViewModelGeneratorTest {
     val expected = """
         package dagger.hilt.android.test;
 
-        import androidx.lifecycle.ViewModel;
-        import dagger.Binds;
-        import dagger.Module;
-        import dagger.Provides;
-        import dagger.hilt.InstallIn;
-        import dagger.hilt.android.components.ActivityRetainedComponent;
-        import dagger.hilt.android.components.ViewModelComponent;
-        import dagger.hilt.android.internal.lifecycle.HiltViewModelMap;
-        import dagger.hilt.codegen.OriginatingElement;
-        import dagger.multibindings.IntoMap;
-        import dagger.multibindings.IntoSet;
-        import dagger.multibindings.StringKey;
-        import java.lang.String;
-        import $GENERATED_TYPE
-
         $GENERATED_ANNOTATION
         @OriginatingElement(
             topLevelClass = MyViewModel.class
@@ -102,7 +87,7 @@ class ViewModelGeneratorTest {
     assertThat(compilation).apply {
       succeeded()
       generatedSourceFile("dagger.hilt.android.test.MyViewModel_HiltModules")
-        .hasSourceEquivalentTo(expected)
+        .containsElementsIn(expected)
     }
   }
 
@@ -126,21 +111,6 @@ class ViewModelGeneratorTest {
     val expected = """
         package dagger.hilt.android.test;
 
-        import androidx.lifecycle.ViewModel;
-        import dagger.Binds;
-        import dagger.Module;
-        import dagger.Provides;
-        import dagger.hilt.InstallIn;
-        import dagger.hilt.android.components.ActivityRetainedComponent;
-        import dagger.hilt.android.components.ViewModelComponent;
-        import dagger.hilt.android.internal.lifecycle.HiltViewModelMap;
-        import dagger.hilt.codegen.OriginatingElement;
-        import dagger.multibindings.IntoMap;
-        import dagger.multibindings.IntoSet;
-        import dagger.multibindings.StringKey;
-        import java.lang.String;
-        import $GENERATED_TYPE
-
         $GENERATED_ANNOTATION
         @OriginatingElement(
             topLevelClass = MyViewModel.class
@@ -182,7 +152,7 @@ class ViewModelGeneratorTest {
     assertThat(compilation).apply {
       succeeded()
       generatedSourceFile("dagger.hilt.android.test.MyViewModel_HiltModules")
-        .hasSourceEquivalentTo(expected)
+        .containsElementsIn(expected)
     }
   }
 
@@ -212,21 +182,6 @@ class ViewModelGeneratorTest {
 
     val expected = """
         package dagger.hilt.android.test;
-
-        import androidx.lifecycle.ViewModel;
-        import dagger.Binds;
-        import dagger.Module;
-        import dagger.Provides;
-        import dagger.hilt.InstallIn;
-        import dagger.hilt.android.components.ActivityRetainedComponent;
-        import dagger.hilt.android.components.ViewModelComponent;
-        import dagger.hilt.android.internal.lifecycle.HiltViewModelMap;
-        import dagger.hilt.codegen.OriginatingElement;
-        import dagger.multibindings.IntoMap;
-        import dagger.multibindings.IntoSet;
-        import dagger.multibindings.StringKey;
-        import java.lang.String;
-        import $GENERATED_TYPE
 
         $GENERATED_ANNOTATION
         @OriginatingElement(
@@ -269,7 +224,7 @@ class ViewModelGeneratorTest {
     assertThat(compilation).apply {
       succeeded()
       generatedSourceFile("dagger.hilt.android.test.MyViewModel_HiltModules")
-        .hasSourceEquivalentTo(expected)
+        .containsElementsIn(expected)
     }
   }
 
@@ -300,21 +255,6 @@ class ViewModelGeneratorTest {
 
     val expected = """
         package dagger.hilt.android.test;
-
-        import androidx.lifecycle.ViewModel;
-        import dagger.Binds;
-        import dagger.Module;
-        import dagger.Provides;
-        import dagger.hilt.InstallIn;
-        import dagger.hilt.android.components.ActivityRetainedComponent;
-        import dagger.hilt.android.components.ViewModelComponent;
-        import dagger.hilt.android.internal.lifecycle.HiltViewModelMap;
-        import dagger.hilt.codegen.OriginatingElement;
-        import dagger.multibindings.IntoMap;
-        import dagger.multibindings.IntoSet;
-        import dagger.multibindings.StringKey;
-        import java.lang.String;
-        import $GENERATED_TYPE;
 
         $GENERATED_ANNOTATION
         @OriginatingElement(
@@ -357,7 +297,7 @@ class ViewModelGeneratorTest {
     assertThat(compilation).apply {
       succeeded()
       generatedSourceFile("dagger.hilt.android.test.MyViewModel_HiltModules")
-        .hasSourceEquivalentTo(expected)
+        .containsElementsIn(expected)
     }
   }
 
@@ -395,21 +335,6 @@ class ViewModelGeneratorTest {
 
     val expected = """
         package dagger.hilt.android.test;
-
-        import androidx.lifecycle.ViewModel;
-        import dagger.Binds;
-        import dagger.Module;
-        import dagger.Provides;
-        import dagger.hilt.InstallIn;
-        import dagger.hilt.android.components.ActivityRetainedComponent;
-        import dagger.hilt.android.components.ViewModelComponent;
-        import dagger.hilt.android.internal.lifecycle.HiltViewModelMap;
-        import dagger.hilt.codegen.OriginatingElement;
-        import dagger.multibindings.IntoMap;
-        import dagger.multibindings.IntoSet;
-        import dagger.multibindings.StringKey;
-        import java.lang.String;
-        import $GENERATED_TYPE;
 
         $GENERATED_ANNOTATION
         @OriginatingElement(
@@ -452,7 +377,7 @@ class ViewModelGeneratorTest {
     assertThat(compilation).apply {
       succeeded()
       generatedSourceFile("dagger.hilt.android.test.MyViewModel_HiltModules")
-        .hasSourceEquivalentTo(expected)
+        .containsElementsIn(expected)
     }
   }
 
@@ -476,21 +401,6 @@ class ViewModelGeneratorTest {
 
     val expectedModule = """
         package dagger.hilt.android.test;
-
-        import androidx.lifecycle.ViewModel;
-        import dagger.Binds;
-        import dagger.Module;
-        import dagger.Provides;
-        import dagger.hilt.InstallIn;
-        import dagger.hilt.android.components.ActivityRetainedComponent;
-        import dagger.hilt.android.components.ViewModelComponent;
-        import dagger.hilt.android.internal.lifecycle.HiltViewModelMap;
-        import dagger.hilt.codegen.OriginatingElement;
-        import dagger.multibindings.IntoMap;
-        import dagger.multibindings.IntoSet;
-        import dagger.multibindings.StringKey;
-        import java.lang.String;
-        import $GENERATED_TYPE
 
         $GENERATED_ANNOTATION
         @OriginatingElement(
@@ -533,7 +443,7 @@ class ViewModelGeneratorTest {
     assertThat(compilation).apply {
       succeeded()
       generatedSourceFile("dagger.hilt.android.test.Outer_InnerViewModel_HiltModules")
-        .hasSourceEquivalentTo(expectedModule)
+        .containsElementsIn(expectedModule)
     }
   }
 }

@@ -25,6 +25,7 @@ import android.content.Context;
 import android.graphics.Rect;
 import android.os.SystemClock;
 import android.view.InputDevice;
+import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -152,19 +153,36 @@ public class TouchHelper {
     }
 
     public static void injectKey(int keyCode, boolean longPress, boolean sync) {
+        final long downTime = injectKeyActionDown(keyCode, longPress, sync);
+        injectKeyActionUp(keyCode, downTime, /* cancelled = */ false, sync);
+    }
+
+    public static long injectKeyActionDown(int keyCode, boolean longPress, boolean sync) {
         final long downTime = SystemClock.uptimeMillis();
         int repeatCount = 0;
-        KeyEvent downEvent =
+        final KeyEvent downEvent =
                 new KeyEvent(downTime, downTime, KeyEvent.ACTION_DOWN, keyCode, repeatCount);
         getInstrumentation().getUiAutomation().injectInputEvent(downEvent, sync);
         if (longPress) {
             repeatCount += 1;
-            KeyEvent repeatEvent = new KeyEvent(downTime, SystemClock.uptimeMillis(),
+            final KeyEvent repeatEvent = new KeyEvent(downTime, SystemClock.uptimeMillis(),
                     KeyEvent.ACTION_DOWN, keyCode, repeatCount);
             getInstrumentation().getUiAutomation().injectInputEvent(repeatEvent, sync);
         }
-        KeyEvent upEvent = new KeyEvent(downTime, SystemClock.uptimeMillis(),
-                KeyEvent.ACTION_UP, keyCode, 0 /* repeatCount */);
+        return downTime;
+    }
+
+    public static void injectKeyActionUp(int keyCode, long downTime, boolean cancelled,
+            boolean sync) {
+        final int flags;
+        if (cancelled) {
+            flags = KeyEvent.FLAG_CANCELED;
+        } else {
+            flags = 0;
+        }
+        final KeyEvent upEvent = new KeyEvent(downTime, SystemClock.uptimeMillis(),
+                KeyEvent.ACTION_UP, keyCode, /* repeatCount = */ 0, /* metaState= */ 0,
+                KeyCharacterMap.VIRTUAL_KEYBOARD, /* scancode= */ 0, flags);
         getInstrumentation().getUiAutomation().injectInputEvent(upEvent, sync);
     }
 
@@ -173,5 +191,85 @@ public class TouchHelper {
         final int x = bounds.left + bounds.width() / 2;
         final int y = bounds.top + bounds.height() / 2;
         tapOnDisplay(x, y, task.mDisplayId, false /* sync*/);
+    }
+
+    public void triggerBackEventByGesture(int displayId, boolean sync, boolean waitForAnimations) {
+        final Rect bounds = mWmState.getDisplay(displayId).getDisplayRect();
+        int midHeight = bounds.top + bounds.height() / 2;
+        int midWidth = bounds.left + bounds.width() / 2;
+        final SwipeSession session = new SwipeSession(displayId, sync, waitForAnimations);
+        session.quickSwipe(0, midHeight, midWidth, midHeight, 10);
+        mWmState.waitForAppTransitionIdleOnDisplay(displayId);
+    }
+
+    /**
+     * Helper class for injecting a sequence of motion event to simulate a gesture swipe.
+     */
+    static class SwipeSession {
+        private static final int INJECT_INPUT_DELAY_MILLIS = 5;
+        private final int mDisplayId;
+        private final boolean mSync;
+        private final boolean mWaitForAnimations;
+        private int mStartX;
+        private int mStartY;
+        private int mEndX;
+        private int mEndY;
+        private long mStartDownTime = -1;
+        private long mNextEventTime = -1;
+
+        SwipeSession(int displayId,
+                boolean sync, boolean waitForAnimations) {
+            mDisplayId = displayId;
+            mSync = sync;
+            mWaitForAnimations = waitForAnimations;
+        }
+
+        long beginSwipe(int startX, int startY) {
+            mStartX = startX;
+            mStartY = startY;
+            mStartDownTime = SystemClock.uptimeMillis();
+            injectMotion(mStartDownTime, mStartDownTime, MotionEvent.ACTION_DOWN, mStartX, mStartY,
+                    mDisplayId, mSync, mWaitForAnimations);
+            return mStartDownTime;
+        }
+
+        void continueSwipe(int endX, int endY, int steps) {
+            if (steps <= 0) {
+                steps = 1;
+            }
+            mEndX = endX;
+            mEndY = endY;
+            // inject in every INJECT_INPUT_DELAY_MILLIS ms.
+            final int delayMillis = INJECT_INPUT_DELAY_MILLIS;
+            mNextEventTime = mStartDownTime + delayMillis;
+            final int stepGapX = (mEndX - mStartX) / steps;
+            final int stepGapY = (mEndY - mStartY) / steps;
+            for (int i = 0; i < steps; i++) {
+                SystemClock.sleep(delayMillis);
+                final int nextX = mStartX + stepGapX * i;
+                final int nextY = mStartY + stepGapY * i;
+                injectMotion(mStartDownTime, mNextEventTime,
+                        MotionEvent.ACTION_MOVE, nextX, nextY,
+                        mDisplayId, mSync, mWaitForAnimations);
+                mNextEventTime += delayMillis;
+            }
+        }
+
+        void finishSwipe() {
+            injectMotion(mStartDownTime, mNextEventTime, MotionEvent.ACTION_UP, mEndX, mEndY,
+                    mDisplayId, mSync, mWaitForAnimations);
+        }
+
+        void cancelSwipe() {
+            injectMotion(mStartDownTime, mNextEventTime, MotionEvent.ACTION_CANCEL, mEndX, mEndY,
+                    mDisplayId, mSync, mWaitForAnimations);
+        }
+
+        void quickSwipe(int startX, int startY, int endX, int endY, int steps) {
+            beginSwipe(startX, startY);
+            continueSwipe(endX, endY, steps);
+            SystemClock.sleep(INJECT_INPUT_DELAY_MILLIS);
+            finishSwipe();
+        }
     }
 }

@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2018, 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -18,16 +18,19 @@
 .\" * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 .\" * KIND, either express or implied.
 .\" *
+.\" * SPDX-License-Identifier: curl
+.\" *
 .\" **************************************************************************
 .\"
-.TH CURLOPT_UPLOAD_BUFFERSIZE 3 "October 31, 2021" "libcurl 7.80.0" "curl_easy_setopt options"
-
+.TH CURLOPT_UPLOAD_BUFFERSIZE 3 "18 Aug 2018" "libcurl 7.62.0" "curl_easy_setopt options"
 .SH NAME
 CURLOPT_UPLOAD_BUFFERSIZE \- upload buffer size
 .SH SYNOPSIS
+.nf
 #include <curl/curl.h>
 
 CURLcode curl_easy_setopt(CURL *handle, CURLOPT_UPLOAD_BUFFERSIZE, long size);
+.fi
 .SH DESCRIPTION
 Pass a long specifying your preferred \fIsize\fP (in bytes) for the upload
 buffer in libcurl. It makes libcurl uses a larger buffer that gets passed to
@@ -48,7 +51,7 @@ is not used for upload, this buffer will not be allocated at all.
 DO NOT set this option on a handle that is currently used for an active
 transfer as that may lead to unintended consequences.
 .SH DEFAULT
-64 kB
+65536 bytes
 .SH PROTOCOLS
 All
 .SH EXAMPLE

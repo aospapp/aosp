@@ -1,3 +1,5 @@
+use core::num::NonZeroUsize;
+
 use gdbstub::arch::RegId;
 
 /// FPU register identifier.
@@ -77,8 +79,8 @@ impl X86SegmentRegId {
 
 /// 32-bit x86 core + SSE register identifier.
 ///
-/// Source: https://github.com/bminor/binutils-gdb/blob/master/gdb/features/i386/32bit-core.xml
-/// Additionally: https://github.com/bminor/binutils-gdb/blob/master/gdb/features/i386/32bit-sse.xml
+/// Source: <https://github.com/bminor/binutils-gdb/blob/master/gdb/features/i386/32bit-core.xml>
+/// Additionally: <https://github.com/bminor/binutils-gdb/blob/master/gdb/features/i386/32bit-sse.xml>
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
 pub enum X86CoreRegId {
@@ -115,10 +117,10 @@ pub enum X86CoreRegId {
 }
 
 impl RegId for X86CoreRegId {
-    fn from_raw_id(id: usize) -> Option<(Self, usize)> {
+    fn from_raw_id(id: usize) -> Option<(Self, Option<NonZeroUsize>)> {
         use self::X86CoreRegId::*;
 
-        let r = match id {
+        let (r, sz): (X86CoreRegId, usize) = match id {
             0 => (Eax, 4),
             1 => (Ecx, 4),
             2 => (Edx, 4),
@@ -136,14 +138,15 @@ impl RegId for X86CoreRegId {
             40 => (Mxcsr, 4),
             _ => return None,
         };
-        Some(r)
+
+        Some((r, Some(NonZeroUsize::new(sz)?)))
     }
 }
 
 /// 64-bit x86 core + SSE register identifier.
 ///
-/// Source: https://github.com/bminor/binutils-gdb/blob/master/gdb/features/i386/64bit-core.xml
-/// Additionally: https://github.com/bminor/binutils-gdb/blob/master/gdb/features/i386/64bit-sse.xml
+/// Source: <https://github.com/bminor/binutils-gdb/blob/master/gdb/features/i386/64bit-core.xml>
+/// Additionally: <https://github.com/bminor/binutils-gdb/blob/master/gdb/features/i386/64bit-sse.xml>
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
 pub enum X86_64CoreRegId {
@@ -167,13 +170,13 @@ pub enum X86_64CoreRegId {
 }
 
 impl RegId for X86_64CoreRegId {
-    fn from_raw_id(id: usize) -> Option<(Self, usize)> {
+    fn from_raw_id(id: usize) -> Option<(Self, Option<NonZeroUsize>)> {
         use self::X86_64CoreRegId::*;
 
-        let r = match id {
+        let (r, sz): (X86_64CoreRegId, usize) = match id {
             0..=15 => (Gpr(id as u8), 8),
-            16 => (Rip, 4),
-            17 => (Eflags, 8),
+            16 => (Rip, 8),
+            17 => (Eflags, 4),
             18..=23 => (Segment(X86SegmentRegId::from_u8(id as u8 - 18)?), 4),
             24..=31 => (St(id as u8 - 24), 10),
             32..=39 => (Fpu(X87FpuInternalRegId::from_u8(id as u8 - 32)?), 4),
@@ -181,7 +184,8 @@ impl RegId for X86_64CoreRegId {
             56 => (Mxcsr, 4),
             _ => return None,
         };
-        Some(r)
+
+        Some((r, Some(NonZeroUsize::new(sz)?)))
     }
 }
 
@@ -208,7 +212,7 @@ mod tests {
         let mut i = 0;
         let mut sum_reg_sizes = 0;
         while let Some((_, size)) = RId::from_raw_id(i) {
-            sum_reg_sizes += size;
+            sum_reg_sizes += size.unwrap().get();
             i += 1;
         }
 

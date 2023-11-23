@@ -29,6 +29,7 @@
     <option name="preparer-whitelist" value="com.android.tradefed.targetprep.suite.SuiteApkInstaller" />
     <option name="preparer-whitelist" value="com.android.compatibility.common.tradefed.targetprep.ApkInstaller" />
     <option name="preparer-whitelist" value="com.android.compatibility.common.tradefed.targetprep.FilePusher" />
+    <option name="preparer-whitelist" value="com.android.tradefed.targetprep.PythonVirtualenvPreparer" />
 
     <option name="compatibility:collect-tests-only" value="true" />
 

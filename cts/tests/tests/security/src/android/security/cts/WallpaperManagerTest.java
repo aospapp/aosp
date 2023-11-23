@@ -19,9 +19,11 @@ package android.security.cts;
 import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION;
 
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.Manifest;
+import android.app.ActivityManager;
 import android.app.WallpaperManager;
 import android.content.Context;
 import android.content.res.AssetManager;
@@ -74,7 +76,9 @@ public class WallpaperManagerTest extends StsExtraBusinessLogicTestCase {
 
     @After
     public void tearDown() throws Exception {
-        mWallpaperManager.clear(WallpaperManager.FLAG_SYSTEM | WallpaperManager.FLAG_LOCK);
+        if (mWallpaperManager != null) {
+            mWallpaperManager.clear(WallpaperManager.FLAG_SYSTEM | WallpaperManager.FLAG_LOCK);
+        }
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
                 .dropShellPermissionIdentity();
     }
@@ -124,7 +128,8 @@ public class WallpaperManagerTest extends StsExtraBusinessLogicTestCase {
     @Test
     @AsbSecurityTest(cveBugId = 204087139)
     public void testSetMaliciousStream() {
-        unZipMaliciousImageFile();
+        ActivityManager am = mContext.getSystemService(ActivityManager.class);
+        assumeFalse(am.isLowRamDevice());
         final File testImage = unZipMaliciousImageFile();
         Assert.assertTrue(testImage.exists());
         try (InputStream s = mContext.getContentResolver()

@@ -32,93 +32,78 @@ use authfs_aidl_interface::aidl::com::android::virt::fs::{
     },
     IAuthFsService::IAuthFsService,
 };
-use authfs_aidl_interface::binder::Strong;
-use compos_aidl_interface::aidl::com::android::compos::ICompOsService::CompilationMode::CompilationMode;
+use binder::Strong;
+use compos_aidl_interface::aidl::com::android::compos::ICompOsService::{
+    CompilationMode::CompilationMode, OdrefreshArgs::OdrefreshArgs,
+};
 use compos_common::odrefresh::ExitCode;
 
 const FD_SERVER_PORT: i32 = 3264; // TODO: support dynamic port
 
-pub struct OdrefreshContext<'a> {
-    compilation_mode: CompilationMode,
-    system_dir_fd: i32,
-    output_dir_fd: i32,
-    staging_dir_fd: i32,
-    target_dir_name: &'a str,
-    zygote_arch: &'a str,
-    system_server_compiler_filter: &'a str,
-}
-
-impl<'a> OdrefreshContext<'a> {
-    pub fn new(
-        compilation_mode: CompilationMode,
-        system_dir_fd: i32,
-        output_dir_fd: i32,
-        staging_dir_fd: i32,
-        target_dir_name: &'a str,
-        zygote_arch: &'a str,
-        system_server_compiler_filter: &'a str,
-    ) -> Result<Self> {
-        if compilation_mode != CompilationMode::NORMAL_COMPILE {
-            // Conservatively check debuggability.
-            let debuggable =
-                system_properties::read_bool("ro.boot.microdroid.app_debuggable", false)
-                    .unwrap_or(false);
-            if !debuggable {
-                bail!("Requested compilation mode only available in debuggable VMs");
-            }
+fn validate_args(args: &OdrefreshArgs) -> Result<()> {
+    if args.compilationMode != CompilationMode::NORMAL_COMPILE {
+        // Conservatively check debuggability.
+        let debuggable =
+            system_properties::read_bool("ro.boot.microdroid.debuggable", false).unwrap_or(false);
+        if !debuggable {
+            bail!("Requested compilation mode only available in debuggable VMs");
         }
-
-        if system_dir_fd < 0 || output_dir_fd < 0 || staging_dir_fd < 0 {
-            bail!("The remote FDs are expected to be non-negative");
-        }
-        if !matches!(zygote_arch, "zygote64" | "zygote64_32") {
-            bail!("Invalid zygote arch");
-        }
-        // Disallow any sort of path traversal
-        if target_dir_name.contains(path::MAIN_SEPARATOR) {
-            bail!("Invalid target directory {}", target_dir_name);
-        }
-
-        // We're not validating/allowlisting the compiler filter, and just assume the compiler will
-        // reject an invalid string. We need to accept "verify" filter anyway, and potential
-        // performance degration by the attacker is not currently in scope. This also allows ART to
-        // specify new compiler filter and configure through system property without change to
-        // CompOS.
-
-        Ok(Self {
-            compilation_mode,
-            system_dir_fd,
-            output_dir_fd,
-            staging_dir_fd,
-            target_dir_name,
-            zygote_arch,
-            system_server_compiler_filter,
-        })
     }
+
+    if args.systemDirFd < 0 || args.outputDirFd < 0 || args.stagingDirFd < 0 {
+        bail!("The remote FDs are expected to be non-negative");
+    }
+    if !matches!(&args.zygoteArch[..], "zygote64" | "zygote64_32") {
+        bail!("Invalid zygote arch");
+    }
+    // Disallow any sort of path traversal
+    if args.targetDirName.contains(path::MAIN_SEPARATOR) {
+        bail!("Invalid target directory {}", args.targetDirName);
+    }
+
+    // We're not validating/allowlisting the compiler filter, and just assume the compiler will
+    // reject an invalid string. We need to accept "verify" filter anyway, and potential
+    // performance degration by the attacker is not currently in scope. This also allows ART to
+    // specify new compiler filter and configure through system property without change to
+    // CompOS.
+    Ok(())
 }
 
 pub fn odrefresh<F>(
     odrefresh_path: &Path,
-    context: OdrefreshContext,
+    args: &OdrefreshArgs,
     authfs_service: Strong<dyn IAuthFsService>,
     success_fn: F,
 ) -> Result<ExitCode>
 where
     F: FnOnce(PathBuf) -> Result<()>,
 {
+    validate_args(args)?;
+
     // Mount authfs (via authfs_service). The authfs instance unmounts once the `authfs` variable
     // is out of scope.
+
+    let mut input_dir_fd_annotations = vec![InputDirFdAnnotation {
+        fd: args.systemDirFd,
+        // Use the 0th APK of the extra_apks in compos/apk/assets/vm_config*.json
+        manifestPath: "/mnt/extra-apk/0/assets/build_manifest.pb".to_string(),
+        prefix: "system/".to_string(),
+    }];
+    if args.systemExtDirFd >= 0 {
+        input_dir_fd_annotations.push(InputDirFdAnnotation {
+            fd: args.systemExtDirFd,
+            // Use the 1st APK of the extra_apks in compos/apk/assets/vm_config_system_ext_*.json
+            manifestPath: "/mnt/extra-apk/1/assets/build_manifest.pb".to_string(),
+            prefix: "system_ext/".to_string(),
+        });
+    }
+
     let authfs_config = AuthFsConfig {
         port: FD_SERVER_PORT,
-        inputDirFdAnnotations: vec![InputDirFdAnnotation {
-            fd: context.system_dir_fd,
-            // 0 is the index of extra_apks in vm_config_extra_apk.json
-            manifestPath: "/mnt/extra-apk/0/assets/build_manifest.pb".to_string(),
-            prefix: "system/".to_string(),
-        }],
+        inputDirFdAnnotations: input_dir_fd_annotations,
         outputDirFdAnnotations: vec![
-            OutputDirFdAnnotation { fd: context.output_dir_fd },
-            OutputDirFdAnnotation { fd: context.staging_dir_fd },
+            OutputDirFdAnnotation { fd: args.outputDirFd },
+            OutputDirFdAnnotation { fd: args.stagingDirFd },
         ],
         ..Default::default()
     };
@@ -129,44 +114,50 @@ where
     let mut odrefresh_vars = EnvMap::from_current_env();
 
     let mut android_root = mountpoint.clone();
-    android_root.push(context.system_dir_fd.to_string());
+    android_root.push(args.systemDirFd.to_string());
     android_root.push("system");
     odrefresh_vars.set("ANDROID_ROOT", path_to_str(&android_root)?);
     debug!("ANDROID_ROOT={:?}", &android_root);
 
-    let art_apex_data = mountpoint.join(context.output_dir_fd.to_string());
+    if args.systemExtDirFd >= 0 {
+        let mut system_ext_root = mountpoint.clone();
+        system_ext_root.push(args.systemExtDirFd.to_string());
+        system_ext_root.push("system_ext");
+        odrefresh_vars.set("SYSTEM_EXT_ROOT", path_to_str(&system_ext_root)?);
+        debug!("SYSTEM_EXT_ROOT={:?}", &system_ext_root);
+    }
+
+    let art_apex_data = mountpoint.join(args.outputDirFd.to_string());
     odrefresh_vars.set("ART_APEX_DATA", path_to_str(&art_apex_data)?);
     debug!("ART_APEX_DATA={:?}", &art_apex_data);
 
-    let staging_dir = mountpoint.join(context.staging_dir_fd.to_string());
+    let staging_dir = mountpoint.join(args.stagingDirFd.to_string());
 
     set_classpaths(&mut odrefresh_vars, &android_root)?;
 
-    let mut args = vec![
+    let mut command_line_args = vec![
         "odrefresh".to_string(),
         "--compilation-os-mode".to_string(),
-        format!("--zygote-arch={}", context.zygote_arch),
-        format!("--dalvik-cache={}", context.target_dir_name),
+        format!("--zygote-arch={}", args.zygoteArch),
+        format!("--dalvik-cache={}", args.targetDirName),
         format!("--staging-dir={}", staging_dir.display()),
         "--no-refresh".to_string(),
     ];
 
-    if !context.system_server_compiler_filter.is_empty() {
-        args.push(format!(
-            "--system-server-compiler-filter={}",
-            context.system_server_compiler_filter
-        ));
+    if !args.systemServerCompilerFilter.is_empty() {
+        command_line_args
+            .push(format!("--system-server-compiler-filter={}", args.systemServerCompilerFilter));
     }
 
-    let compile_flag = match context.compilation_mode {
+    let compile_flag = match args.compilationMode {
         CompilationMode::NORMAL_COMPILE => "--compile",
         CompilationMode::TEST_COMPILE => "--force-compile",
         other => bail!("Unknown compilation mode {:?}", other),
     };
-    args.push(compile_flag.to_string());
+    command_line_args.push(compile_flag.to_string());
 
-    debug!("Running odrefresh with args: {:?}", &args);
-    let jail = spawn_jailed_task(odrefresh_path, &args, &odrefresh_vars.into_env())
+    debug!("Running odrefresh with args: {:?}", &command_line_args);
+    let jail = spawn_jailed_task(odrefresh_path, &command_line_args, &odrefresh_vars.into_env())
         .context("Spawn odrefresh")?;
     let exit_code = match jail.wait() {
         Ok(_) => 0,
@@ -178,7 +169,7 @@ where
     info!("odrefresh exited with {:?}", exit_code);
 
     if exit_code == ExitCode::CompilationSuccess {
-        let target_dir = art_apex_data.join(context.target_dir_name);
+        let target_dir = art_apex_data.join(&args.targetDirName);
         success_fn(target_dir)?;
     }
 

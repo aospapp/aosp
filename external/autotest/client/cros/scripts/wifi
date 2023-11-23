@@ -1,52 +1,56 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import os
 import sys
+
+# Prevent Autotest smarts from trying to switch us back to python2.
+os.environ['PY_VERSION'] = '3'
 
 import common
 from autotest_lib.client.cros.networking import wifi_proxy
 
 SERVICE_PROP_PARSERS = {
-    'EAP.AnonymousIdentity': unicode,
-    'EAP.CACertID': unicode,
-    'EAP.CACertNSS': unicode,
-    'EAP.CACertPEM': unicode,
-    'EAP.CertID': unicode,
-    'EAP.ClientCert': unicode,
-    'EAP.EAP': unicode,
-    'EAP.Identity': unicode,
-    'EAP.InnerEAP': unicode,
-    'EAP.KeyID': unicode,
-    'EAP.KeyMgmt': unicode,
-    'EAP.Password': unicode,
-    'EAP.PIN': unicode,
-    'EAP.SubjectMatch': unicode,
+    'EAP.AnonymousIdentity': str,
+    'EAP.CACertID': str,
+    'EAP.CACertNSS': str,
+    'EAP.CACertPEM': str,
+    'EAP.CertID': str,
+    'EAP.ClientCert': str,
+    'EAP.EAP': str,
+    'EAP.Identity': str,
+    'EAP.InnerEAP': str,
+    'EAP.KeyID': str,
+    'EAP.KeyMgmt': str,
+    'EAP.Password': str,
+    'EAP.PIN': str,
+    'EAP.SubjectMatch': str,
     'EAP.UseSystemCAs': bool,
-    wifi_proxy.WifiProxy.SERVICE_PROPERTY_SECURITY_CLASS: unicode,
+    wifi_proxy.WifiProxy.SERVICE_PROPERTY_SECURITY_CLASS: str,
     }
 
 
 def usage():
     """ Prints a usage message and returns False. """
     cmd = sys.argv[0]
-    print 'Usage:'
-    print cmd, 'connect <ssid> [passphrase] [security]'
-    print '    |security| defaults to "psk" when |passphrase|',
-    print 'is given without |security|'
-    print
-    print cmd, 'disconnect <ssid> [timeout seconds]'
-    print
-    print cmd, 'connect_with_props <ssid> <timeout seconds>'
-    print '    <Security=[none|psk|802_1x]> [Property=Value ...]'
-    print '    for Property in:'
-    print '\n'.join(['\t\t' + x for x in sorted(SERVICE_PROP_PARSERS.keys())])
-    print
-    print cmd, 'configure <ssid> [passphrase] [security]'
-    print '    |security| defaults to "psk" when |passphrase|',
-    print 'is given without |security|'
+    print('Usage:')
+    print(cmd, 'connect <ssid> [passphrase] [security]')
+    print('    |security| defaults to "psk" when |passphrase|', end=' ')
+    print('is given without |security|')
+    print()
+    print(cmd, 'disconnect <ssid> [timeout seconds]')
+    print()
+    print(cmd, 'connect_with_props <ssid> <timeout seconds>')
+    print('    <SecurityClass=[none|psk|802_1x]> [Property=Value ...]')
+    print('    for Property in:')
+    print('\n'.join(['\t\t' + x for x in sorted(SERVICE_PROP_PARSERS.keys())]))
+    print()
+    print(cmd, 'configure <ssid> [passphrase] [security]')
+    print('    |security| defaults to "psk" when |passphrase|', end=' ')
+    print('is given without |security|')
     return False
 
 
@@ -58,9 +62,9 @@ def configure(ssid, security, passphrase):
     successful = wifi.configure_wifi_service(ssid, security,
                                              security_parameters)
     if successful:
-        print 'Operation succeeded.'
+        print('Operation succeeded.')
     else:
-        print 'Operation failed.'
+        print('Operation failed.')
     return successful
 
 
@@ -88,12 +92,12 @@ def connect(ssid, security, credentials, save_credentials, timeout=15):
             configuration_timeout_seconds=timeout)
     (successful, discovery, association, configuration, reason) = result
     if successful:
-        print 'Operation succeeded.'
+        print('Operation succeeded.')
     else:
-        print 'Operation failed. (%s)' % reason
-    print 'Discovery time: %f.' % discovery
-    print 'Association time: %f.' % association
-    print 'Configuration time: %f.' % configuration
+        print('Operation failed. (%s)' % reason)
+    print('Discovery time: %f.' % discovery)
+    print('Association time: %f.' % association)
+    print('Configuration time: %f.' % configuration)
     return successful
 
 
@@ -113,31 +117,31 @@ def disconnect(ssid, timeout=None):
     result = wifi.disconnect_from_wifi_network(ssid, timeout)
     (successful, duration, reason) = result
     if successful:
-        print 'Operation succeeded.'
+        print('Operation succeeded.')
     else:
-        print 'Operation failed: %s.' % reason
-    print 'Disconnect time: %f.' % duration
+        print('Operation failed: %s.' % reason)
+    print('Disconnect time: %f.' % duration)
     return successful
 
 
-def parse_security_from_credentials(credentials):
-    """Parses SERVICE_PROPERTY_SECURITY from credentials.
+def parse_security_class_from_credentials(credentials):
+    """Parses SERVICE_PROPERTY_SECURITY_CLASS from credentials.
 
     @param credentials dict of service properties that includes credentials
             like the passphrase for psk security.
-    @return SERVICE_PROPERTY_SECURITY value from credentials,
+    @return SERVICE_PROPERTY_SECURITY_CLASS value from credentials,
             or exit if no such key/value in credentials.
 
     """
     security = credentials.pop(
-            wifi_proxy.WifiProxy.SERVICE_PROPERTY_SECURITY, None)
+            wifi_proxy.WifiProxy.SERVICE_PROPERTY_SECURITY_CLASS, None)
     if security is None:
-        print "Error: security type not provided"
+        print("Error: security type not provided")
         usage()
         sys.exit(1)
 
     if security not in ['none', 'wep', 'psk', '802_1x']:
-        print "Error: invalid security type %s" % security
+        print("Error: invalid security type %s" % security)
         usage()
         sys.exit(1)
 
@@ -154,14 +158,14 @@ def parse_service_property(property_string):
     property_name, raw_value = property_string.split('=', 1)
 
     if not property_name in SERVICE_PROP_PARSERS:
-        print '%s is not a recognized service property' % property_name
+        print('%s is not a recognized service property' % property_name)
         usage()
         sys.exit(1)
 
     try:
         return property_name, SERVICE_PROP_PARSERS[property_name](raw_value)
     except:
-        print 'Failed parsing value from %s' % property_string
+        print('Failed parsing value from %s' % property_string)
         usage()
         sys.exit(1)
 
@@ -205,9 +209,9 @@ def main(args):
         timeout = float(args[2])
         credentials = {}
         if len(args) > 3:
-            for i in xrange(3, len(args)):
+            for i in range(3, len(args)):
                 credentials.update((parse_service_property(args[i]),))
-        security = parse_security_from_credentials(credentials)
+        security = parse_security_class_from_credentials(credentials)
         return connect(ssid, security, credentials, save_credentials, timeout)
 
     if command == 'disconnect':

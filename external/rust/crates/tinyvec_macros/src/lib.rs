@@ -1,4 +1,5 @@
 #![no_std]
+#![forbid(unsafe_code)]
 
 // ANDROID: Unconditionally use std to allow building as a dylib.
 extern crate std;

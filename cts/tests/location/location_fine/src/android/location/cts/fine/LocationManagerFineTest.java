@@ -22,6 +22,7 @@ import static android.app.AppOpsManager.OPSTR_MONITOR_HIGH_POWER_LOCATION;
 import static android.app.AppOpsManager.OPSTR_MONITOR_LOCATION;
 import static android.content.pm.PackageManager.FEATURE_AUTOMOTIVE;
 import static android.content.pm.PackageManager.FEATURE_TELEVISION;
+import static android.content.pm.PackageManager.FEATURE_WATCH;
 import static android.location.LocationManager.EXTRA_PROVIDER_ENABLED;
 import static android.location.LocationManager.EXTRA_PROVIDER_NAME;
 import static android.location.LocationManager.FUSED_PROVIDER;
@@ -92,11 +93,13 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.ApiTest;
 import com.android.compatibility.common.util.BatteryUtils;
 import com.android.compatibility.common.util.DeviceConfigStateHelper;
 import com.android.compatibility.common.util.LocationUtils;
 import com.android.compatibility.common.util.ScreenUtils;
 import com.android.compatibility.common.util.ScreenUtils.ScreenResetter;
+import com.android.compatibility.common.util.UserHelper;
 
 import org.junit.After;
 import org.junit.Before;
@@ -130,6 +133,7 @@ public class LocationManagerFineTest {
     private static final String IGNORE_SETTINGS_ALLOWLIST = "ignore_settings_allowlist";
     private static final String ADAS_SETTINGS_ALLOWLIST = "adas_settings_allowlist";
 
+    private final UserHelper mUserHelper = new UserHelper();
     private Random mRandom;
     private Context mContext;
     private LocationManager mManager;
@@ -222,8 +226,12 @@ public class LocationManagerFineTest {
     }
 
     @Test
+    @ApiTest(apis = {"android.Location.LocationManager#getLastKnownLocation"})
     public void testGetLastKnownLocation_AdasLocationSettings_ReturnsLocation() throws Exception {
         assumeTrue(mContext.getPackageManager().hasSystemFeature(FEATURE_AUTOMOTIVE));
+        // ADAS is not supported on passenger users
+        assumeFalse("not supported when running on visible background user",
+                mUserHelper.isVisibleBackgroundUser());
 
         try (LocationListenerCapture capture = new LocationListenerCapture(mContext);
              DeviceConfigStateHelper locationDeviceConfigStateHelper =
@@ -273,8 +281,12 @@ public class LocationManagerFineTest {
     }
 
     @Test
+    @ApiTest(apis = {"android.Location.LocationManager#getLastKnownLocation"})
     public void testGetLastKnownLocation_AdasLocationSettings_ReturnsNull() throws Exception {
         assumeTrue(mContext.getPackageManager().hasSystemFeature(FEATURE_AUTOMOTIVE));
+        // ADAS is not supported on passenger users
+        assumeFalse("not supported when running on visible background user",
+                mUserHelper.isVisibleBackgroundUser());
 
         try (LocationListenerCapture capture = new LocationListenerCapture(mContext);
              DeviceConfigStateHelper locationDeviceConfigStateHelper =
@@ -754,10 +766,13 @@ public class LocationManagerFineTest {
     }
 
     @Test
+    @AppModeFull(reason = "Instant apps can't access ACTION_BATTERY_CHANGED intent")
     public void testRequestLocationUpdates_BatterySaver_GpsDisabledScreenOff() throws Exception {
-        // battery saver is unsupported on auto and tv
+        // battery saver is unsupported on auto, tv and watch
         assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_AUTOMOTIVE));
         assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_TELEVISION));
+        assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_WATCH));
+        assumeTrue(BatteryUtils.isBatterySaverSupported());
 
         PowerManager powerManager = Objects.requireNonNull(
                 mContext.getSystemService(PowerManager.class));
@@ -815,10 +830,13 @@ public class LocationManagerFineTest {
     }
 
     @Test
+    @AppModeFull(reason = "Instant apps can't access ACTION_BATTERY_CHANGED intent")
     public void testRequestLocationUpdates_BatterySaver_AllDisabledScreenOff() throws Exception {
-        // battery saver is unsupported on auto and tv
+        // battery saver is unsupported on auto, tv and watch
         assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_AUTOMOTIVE));
         assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_TELEVISION));
+        assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_WATCH));
+        assumeTrue(BatteryUtils.isBatterySaverSupported());
 
         PowerManager powerManager = Objects.requireNonNull(
                 mContext.getSystemService(PowerManager.class));
@@ -857,10 +875,13 @@ public class LocationManagerFineTest {
     }
 
     @Test
+    @AppModeFull(reason = "Instant apps can't access ACTION_BATTERY_CHANGED intent")
     public void testRequestLocationUpdates_BatterySaver_ThrottleScreenOff() throws Exception {
-        // battery saver is unsupported on auto and tv
+        // battery saver is unsupported on auto, tv and watch
         assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_AUTOMOTIVE));
         assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_TELEVISION));
+        assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_WATCH));
+        assumeTrue(BatteryUtils.isBatterySaverSupported());
 
         PowerManager powerManager = Objects.requireNonNull(
                 mContext.getSystemService(PowerManager.class));
@@ -935,8 +956,12 @@ public class LocationManagerFineTest {
     }
 
     @Test
+    @ApiTest(apis = {"android.Location.LocationManager#requestLocationUpdates"})
     public void testRequestLocationUpdates_AdasGnssBypass() throws Exception {
         assumeTrue(mContext.getPackageManager().hasSystemFeature(FEATURE_AUTOMOTIVE));
+        // ADAS is not supported on passenger users
+        assumeFalse("not supported when running on visible background user",
+                mUserHelper.isVisibleBackgroundUser());
 
         try (LocationListenerCapture capture = new LocationListenerCapture(mContext);
              DeviceConfigStateHelper locationDeviceConfigStateHelper =
@@ -1883,7 +1908,7 @@ public class LocationManagerFineTest {
                     .getSystemService(LocationManager.class)
                     .requestLocationUpdates(
                             TEST_PROVIDER,
-                            new LocationRequest.Builder(600000).build(),
+                            new LocationRequest.Builder(100).build(),
                             Runnable::run,
                             slowCapture);
 
@@ -1912,7 +1937,7 @@ public class LocationManagerFineTest {
             // Verify noteOp for the slow request.
             timeBeforeLocationAccess = System.currentTimeMillis();
             Location loc3 = createLocation(TEST_PROVIDER, 0, 1, 10,
-                    SystemClock.elapsedRealtimeNanos() + 600000000000L);
+                    SystemClock.elapsedRealtimeNanos() + 100000000L);
             mManager.setTestProviderLocation(TEST_PROVIDER, loc3);
             assertNotedOpsSinceLastLocationAccess(
                     timeBeforeLocationAccess,

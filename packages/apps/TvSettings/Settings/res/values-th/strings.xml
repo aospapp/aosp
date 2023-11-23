@@ -31,6 +31,8 @@
     <string name="enabled" msgid="5127188665060746381">"เปิดใช้"</string>
     <string name="disabled" msgid="4589065923272201387">"ปิดใช้"</string>
     <string name="unavailable" msgid="1610732303812180196">"ไม่พร้อมใช้งาน"</string>
+    <string name="allow" msgid="6982558814345894019">"อนุญาต"</string>
+    <string name="deny" msgid="8291577308813053917">"ปฏิเสธ"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"คำแนะนำ"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"การตั้งค่าด่วน"</string>
     <string name="header_category_general_settings" msgid="3897615781153506434">"การตั้งค่าทั่วไป"</string>
@@ -51,6 +53,7 @@
     <string name="sound_category_title" msgid="7899816751041939518">"เสียง"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"แอป"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"ค่ากำหนดอุปกรณ์"</string>
+    <string name="accessibility_category_title" msgid="1552664829936369592">"การช่วยเหลือพิเศษ"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"รีโมตและอุปกรณ์เสริม"</string>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"การแสดงผลและเสียง"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"ความช่วยเหลือและความคิดเห็น"</string>
@@ -109,7 +112,8 @@
     <string name="device_backup_restore" msgid="3634531946308269398">"การสำรองและคืนค่าข้อมูล"</string>
     <string name="device_factory_reset" msgid="1110189450013225971">"รีเซ็ตข้อมูลเป็นค่าเริ่มต้น"</string>
     <string name="device_calibration" msgid="2907914144048739705">"การเทียบมาตรฐาน"</string>
-    <string name="device_energy_saver" msgid="1105023232841036991">"โหมดประหยัดพลังงาน"</string>
+    <string name="device_energy_saver" msgid="6611757996220443028">"ตัวจับเวลาปิด"</string>
+    <string name="device_energy_saver_summary" msgid="5306058475316008429">"ตั้งตัวจับเวลาเพื่อปิดทีวีและประหยัดพลังงาน"</string>
     <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
     <string name="device_fastpair" msgid="1235240814051277047">"อุปกรณ์"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"เลือกรูปแบบ"</string>
@@ -118,7 +122,7 @@
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="4268947520371740146">"DTS-HD"</string>
-    <string name="surround_sound_format_dts_uhd" msgid="2844983210044263719">"DTS-UHD"</string>
+    <string name="surround_sound_format_dts_uhd" msgid="4340749818133578788">"DTS:X"</string>
     <string name="surround_sound_format_dolby_mat" msgid="3029804841912462928">"Dolby Atmos พร้อม Dolby TrueHD"</string>
     <string name="surround_sound_format_dolby_truehd" msgid="5113046743572967088">"Dolby TrueHD"</string>
     <string name="surround_sound_format_e_ac3_joc" msgid="3360344066462262996">"Dolby Atmos พร้อม Dolby Digital Plus"</string>
@@ -147,10 +151,38 @@
     <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"HDMI-CEC"</string>
     <string name="advanced_sound_settings_title" msgid="319921303039469139">"การตั้งค่าเสียงขั้นสูง"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"อนุญาตโหมดเกม"</string>
+    <string name="match_content_dynamic_range_title" msgid="2794980556561655838">"จับคู่ช่วงไดนามิกของเนื้อหา"</string>
+    <string name="match_content_dynamic_range_summary" msgid="2255683926227355398">"เมื่อเปิดใช้ตัวเลือกนี้ ระบบจะสลับเปลี่ยนระหว่างรูปแบบช่วงไดนามิกเพื่อให้ตรงตามเนื้อหา ซึ่งอาจจะทำให้จอดำได้ในระหว่างที่เปลี่ยน\n\nคลิกที่การตั้งค่า \"การแสดงผลขั้นสูง\" เพื่อดูช่วงไดนามิกอื่นๆ เพิ่ม"</string>
+    <string name="preferred_dynamic_range_title" msgid="5064883672337010588">"ช่วงไดนามิกที่ต้องการ"</string>
+    <string name="preferred_dynamic_range_selection_system_title" msgid="4505030483876080996">"การแปลงตามที่ระบบต้องการ"</string>
+    <string name="preferred_dynamic_range_selection_system_desc" msgid="5712920601553613576">"ให้ระบบจัดการการแปลงรูปแบบ"</string>
+    <string name="preferred_dynamic_range_selection_system_summary" msgid="4509062596428781094">"เมื่อเลือกตัวเลือกนี้ ระบบจะกำหนดช่วงไดนามิกที่เหมาะสมเพื่อส่งไปยังจอแสดงผลของคุณและแปลงเนื้อหาเป็นช่วงไดนามิกนี้ตามต้องการ"</string>
+    <string name="preferred_dynamic_range_selection_passthrough_desc" msgid="4831260397179583737">"ตรงกับรูปแบบของเนื้อหาเสมอ"</string>
+    <string name="preferred_dynamic_range_selection_force_title" msgid="4448836594133973103">"การบังคับให้แปลง"</string>
+    <string name="preferred_dynamic_range_selection_force_desc" msgid="1418542349290684513">"บังคับให้แปลงเป็นรูปแบบที่ต้องการ"</string>
+    <string name="preferred_dynamic_range_selection_force_summary" msgid="8381058061765216239">"บังคับให้แปลงเป็นรูปแบบที่ต้องการ การบังคับให้แปลงอาจส่งผลต่อการตั้งค่าอื่นๆ ในโหมดการแสดงผลหรือรูปแบบ HDR"</string>
+    <string name="preferred_dynamic_range_selection_force_sdr_title" msgid="3135104063034317252">"เป็นแบบ SDR เสมอ"</string>
+    <string name="preferred_dynamic_range_selection_force_hdr_title" msgid="1032587815433139859">"เป็นแบบ <xliff:g id="HDR_TYPE">%s</xliff:g> เสมอ"</string>
+    <string name="preferred_dynamic_range_force_dialog_title" msgid="6865110024863661702">"คุณต้องการบังคับเอาต์พุต HDR ไหม"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc" msgid="7758323258282201656">"ระบบจะบังคับการแปลงเป็น <xliff:g id="HDR_TYPE">%s</xliff:g> โดยค่าเริ่มต้น"</string>
+    <string name="preferred_dynamic_range_force_dialog_desc_4k30_issue" msgid="4938418395391206131">"จอแสดงผลจะแสดงที่ความละเอียด 1080p 60Hz ตัวเลือกนี้ใช้ไม่ได้กับจอแสดงผลของคุณเมื่อแสดงที่ความละเอียด 4K 60Hz"</string>
+    <string name="selection_dolby_vision_not_supported_sidebar" msgid="8994591316574824115">"ไม่รองรับ Dolby Vision ที่ความละเอียดปัจจุบัน หากคุณเปิดใช้ Dolby Vision ด้วยตนเอง ความละเอียดของจอแสดงผลจะเปลี่ยนเป็น 1080p 60Hz"</string>
+    <string name="manual_dolby_vision_format_on_4k60_title" msgid="4172263676512376500">"เปลี่ยนความละเอียดเป็น 1080p 60Hz ไหม"</string>
+    <string name="dynamic_range_selection_force_dv_title" msgid="8070148109262327094">"บังคับให้แปลงเป็น Dolby Vision เสมอ"</string>
+    <string name="dynamic_range_selection_force_dv_summary" msgid="1052851029985095562">"หากปิดใช้ Dolby Vision สำหรับรูปแบบ HDR ในการตั้งค่าการแสดงผลขั้นสูง การบังคับให้แปลงเป็น Dolby Vision จะเปิดใช้รูปแบบนี้ขึ้นมาอีกครั้ง"</string>
+    <string name="dynamic_range_selection_force_hdr10_title" msgid="1221688206945051384">"บังคับให้แปลงเป็น HDR10 เสมอ"</string>
+    <string name="dynamic_range_selection_force_hdr10_summary" msgid="7784573527636502784">"หากปิดใช้ HDR10 สำหรับรูปแบบ HDR ในการตั้งค่าการแสดงผลขั้นสูง การบังคับให้แปลงเป็น HDR10 จะเปิดใช้รูปแบบนี้ขึ้นมาอีกครั้ง"</string>
+    <string name="dynamic_range_selection_force_hlg_title" msgid="3976190987768712696">"บังคับให้แปลงเป็น HLG เสมอ"</string>
+    <string name="dynamic_range_selection_force_hlg_summary" msgid="5371949016689544001">"หากปิดใช้ HLG สำหรับรูปแบบ HDR ในการตั้งค่าการแสดงผลขั้นสูง การบังคับให้แปลงเป็น HLG จะเปิดใช้รูปแบบนี้ขึ้นมาอีกครั้ง"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_title" msgid="1305556000063625735">"บังคับให้แปลงเป็น HDR10+ เสมอ"</string>
+    <string name="dynamic_range_selection_force_hdr10plus_summary" msgid="918038386222537401">"หากปิดใช้ HDR10+ สำหรับรูปแบบ HDR ในการตั้งค่าการแสดงผลขั้นสูง การบังคับให้แปลงเป็น HDR10+ จะเปิดใช้รูปแบบนี้ขึ้นมาอีกครั้ง"</string>
+    <string name="dynamic_range_selection_force_sdr_title" msgid="1063579223517652945">"บังคับให้แปลงเป็น SDR เสมอ"</string>
+    <string name="dynamic_range_selection_force_sdr_summary" msgid="2874771365465898941">"การบังคับให้แปลงเป็น SDR จะปิดใช้รูปแบบทั้งหมดสำหรับ HDR ในการตั้งค่าการแสดงผลขั้นสูง"</string>
     <string name="match_content_frame_rate_title" msgid="153291168560947689">"จับคู่อัตราเฟรมของเนื้อหา"</string>
-    <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"ราบรื่น"</string>
+    <string name="match_content_frame_rate_seamless" msgid="5577846750811067585">"ราบรื่นเท่านั้น"</string>
     <string name="match_content_frame_rate_seamless_summary" msgid="2737466163964133210">"อุปกรณ์จะจับคู่เอาต์พุตของตัวเองกับอัตราเฟรมดั้งเดิมของเนื้อหาที่คุณรับชมอยู่หากแอปส่งคำขอ ในกรณีที่ทีวีทำการส่งผ่านได้อย่างราบรื่นเท่านั้น"</string>
-    <string name="match_content_frame_rate_non_seamless" msgid="1534300397118594640">"ไม่ราบรื่น"</string>
+    <string name="match_content_frame_rate_seamless_not_supported_summary" msgid="98559950465123792">"อุปกรณ์แสดงผลที่เชื่อมต่อไม่รองรับการเปลี่ยนอัตราการรีเฟรชที่ราบรื่น ตัวเลือกนี้จะไม่มีผลจนกว่าคุณจะเปลี่ยนเป็นอุปกรณ์แสดงผลที่รองรับ"</string>
+    <string name="match_content_frame_rate_non_seamless" msgid="2702658727234710031">"เสมอ"</string>
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"อุปกรณ์จะจับคู่เอาต์พุตของตัวเองกับอัตราเฟรมดั้งเดิมของเนื้อหาที่คุณรับชมอยู่หากแอปส่งคำขอ ซึ่งอาจทำให้หน้าจอไม่แสดงผลชั่วครู่เมื่อกำลังออกจากหรือเข้าสู่การเล่นวิดีโอ"</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"ไม่เลย"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"อุปกรณ์จะไม่พยายามจับคู่เอาต์พุตของตัวเองกับอัตราเฟรมดั้งเดิมของเนื้อหาที่คุณรับชมอยู่แม้ว่าแอปจะส่งคำขอก็ตาม"</string>
@@ -167,6 +199,7 @@
     <string name="hdr_format_selection_manual_desc" msgid="8865649615882146772">"เลือกรูปแบบด้วยตนเองจากรูปแบบที่พร้อมใช้งาน"</string>
     <string name="hdr_format_supported_title" msgid="1458594819224612431">"รูปแบบที่รองรับ"</string>
     <string name="hdr_format_unsupported_title" msgid="715318408107924941">"รูปแบบที่ไม่รองรับ"</string>
+    <string name="hdr_format_sdr" msgid="7211377112392255102">"SDR"</string>
     <string name="hdr_format_hdr10" msgid="8063543267227491062">"HDR10"</string>
     <string name="hdr_format_hlg" msgid="454510079939620321">"HLG"</string>
     <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"HDR10+"</string>
@@ -182,10 +215,14 @@
     <string name="resolution_selection_title" msgid="2873993320284587853">"ความละเอียด"</string>
     <string name="resolution_selection_auto_title" msgid="4738671207331027385">"อัตโนมัติ"</string>
     <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"เปลี่ยนความละเอียดแล้ว"</string>
+    <string name="resolution_selection_with_mode_dialog_title" msgid="5011192408613100514">"เปลี่ยนความละเอียดเป็น %1$s ไหม"</string>
     <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"เลือก \"ตกลง\" เพื่อเริ่มใช้ %1$s"</string>
+    <string name="resolution_selection_disabled_dolby_vision_dialog_desc" msgid="7952404018654828187">"Dolby Vision ไม่รองรับ %1$s และจะถูกปิดใน \"การตั้งค่าจอแสดงผลขั้นสูง\""</string>
+    <string name="resolution_hdr_description_info" msgid="2408761621976850238">"โหมดนี้รองรับ %1$s\nในทีวีบางเครื่อง คุณอาจต้องเปิด HDMI ที่ได้รับการปรับปรุงเพื่อเปิดใช้งานรูปแบบ HDR เพิ่มเติม ไปที่การตั้งค่าของทีวีเพื่อดูว่ารับรองฟีเจอร์นี้ไหม"</string>
     <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"ยกเลิก"</string>
     <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"ตกลง"</string>
     <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
+    <string name="resolution_display_mode" msgid="6633857172598855480">"<xliff:g id="RESOLUTION">%1$s</xliff:g> (<xliff:g id="REFRESH_RATE">%2$s</xliff:g> Hz)"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"ล้างข้อมูลในแคชไหม"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"การทำงานนี้จะล้างข้อมูลในแคชของแอปทั้งหมด"</string>
     <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
@@ -257,7 +294,6 @@
     <string name="system_inputs" msgid="5552840337357572096">"อินพุต"</string>
     <string name="system_inputs_devices" msgid="2158421111699829399">"อินพุตและอุปกรณ์"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"ตัวควบคุมชุดโฮมเธียเตอร์"</string>
-    <string name="system_accessibility" msgid="3081009195560501010">"การช่วยเหลือพิเศษ"</string>
     <string name="system_developer_options" msgid="8480844257066475479">"ตัวเลือกสำหรับนักพัฒนาแอป"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"ไม่มี"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"การใช้งานและการวินิจฉัย"</string>
@@ -307,6 +343,7 @@
     <string name="do_disclosure_generic" msgid="8390478119591845948">"อุปกรณ์นี้จัดการโดยองค์กรของคุณ"</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"อุปกรณ์เครื่องนี้จัดการโดย <xliff:g id="ORGANIZATION_NAME">%s</xliff:g>"</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
+    <string name="hdr_capability" msgid="3331021013422460270">"- %1$s"</string>
     <string name="learn_more" msgid="820336467414665686">"ดูข้อมูลเพิ่มเติม"</string>
     <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{แอปกล้อง}other{แอปกล้อง}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"แอปปฏิทิน"</string>
@@ -590,6 +627,7 @@
     <string name="recently_accessed_show_all" msgid="5234849189704717855">"ดูทั้งหมด"</string>
     <string name="microphone" msgid="7893752847683941214">"ไมโครโฟน"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"สิทธิ์เข้าถึงไมโครโฟน"</string>
+    <string name="mic_remote_toggle_title" msgid="7153283895012570080">"การเข้าถึงไมโครโฟนบนรีโมต"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"สิทธิ์เข้าถึงไมโครโฟนของแอป"</string>
     <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"การเข้าถึงไมโครโฟนถูกบล็อก"</string>
     <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"หากต้องการเลิกบล็อก ให้สลับสวิตช์ความเป็นส่วนตัวบนอุปกรณ์ไปที่ตำแหน่งเปิดไมโครโฟน เพื่อให้สิทธิ์การเข้าถึงไมโครโฟน"</string>
@@ -599,7 +637,11 @@
     <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"การเข้าถึงกล้องถูกบล็อก"</string>
     <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"หากต้องการเลิกบล็อก ให้สลับสวิตช์ความเป็นส่วนตัวบนอุปกรณ์ไปที่ตำแหน่งเปิดกล้อง เพื่อให้สิทธิ์การเข้าถึงกล้อง"</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"สิทธิ์เข้าถึงไมโครโฟน: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
-    <string name="mic_toggle_info_content" msgid="4699624900513326055">"เมื่อเปิดไว้ แอปและบริการทั้งหมดที่มีสิทธิ์จะเข้าถึงไมโครโฟนในอุปกรณ์นี้ได้\n\nอุปกรณ์ต่อพ่วงเสียงโดยมีโปรโตคอลที่กำหนดเองจะไม่ได้รับผลกระทบจากการตั้งค่านี้"</string>
+    <string name="mic_toggle_info_content" msgid="3187791167208947239">"เมื่อเปิดไว้ แอปและบริการทั้งหมดที่ได้รับอนุญาตให้ใช้ไมโครโฟนก็จะเข้าถึงได้\n\nเมื่อปิดไว้ จะไม่มีแอปหรือบริการใดที่สามารถเข้าถึงไมโครโฟน แต่คุณอาจยังพูดคุยกับ Google Assistant ได้โดยกดปุ่ม Assistant บนรีโมต\n\nอุปกรณ์เสียงซึ่งใช้โปรโตคอลที่กำหนดเองในการสื่อสารกับทีวีอาจไม่ได้รับผลกระทบจากการตั้งค่านี้"</string>
+    <string name="mic_remote_toggle_on_info_title" msgid="8503441878870972046">"ไมโครโฟนเปิดอยู่บนรีโมต"</string>
+    <string name="mic_remote_toggle_on_info_content" msgid="2715872916376493679">"Google Assistant เข้าถึงไมโครโฟนบนรีโมตได้ คุณจะพูดคุยกับ Assistant ได้โดยกดปุ่ม Google Assistant บนรีโมต"</string>
+    <string name="mic_remote_toggle_off_info_title" msgid="4902909833546393713">"ไมโครโฟนปิดอยู่บนรีโมต"</string>
+    <string name="mic_remote_toggle_off_info_content" msgid="8062526350553191004">"คุณจะไม่สามารถพูดคุยกับ Google Assistant โดยใช้รีโมตได้ โปรดเปิดการเข้าถึงไมโครโฟนเพื่อให้ใช้ปุ่ม Google Assistant ได้"</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"สิทธิ์เข้าถึงกล้อง: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="camera_toggle_info_content" msgid="2999965953853204003">"เมื่อเปิดไว้ แอปและบริการทั้งหมดที่มีสิทธิ์จะเข้าถึงกล้องในอุปกรณ์นี้ได้\n\nอุปกรณ์ต่อพ่วงกล้องโดยมีโปรโตคอลที่กำหนดเองจะไม่ได้รับผลกระทบจากการตั้งค่านี้"</string>
     <string name="sensor_toggle_info_on" msgid="4568111889147132257">"เปิด"</string>
@@ -625,14 +667,39 @@
     <string name="location_history_desc" msgid="926674012916014270">"เมื่อประวัติตำแหน่งสำหรับบัญชีนี้เปิดอยู่ Google สามารถจัดเก็บข้อมูลตำแหน่งของอุปกรณ์เพื่อให้แอปใช้งาน\n\nตัวอย่างเช่น Google Maps สามารถแสดงเส้นทาง และ Google Now สามารถแจ้งให้คุณทราบเกี่ยวกับสภาพการจราจรในการเดินทาง\n\nคุณสามารถปิดประวัติตำแหน่งได้ทุกเมื่อ แต่การปิดจะไม่ใช่การลบประวัติตำแหน่ง หากต้องการดูและจัดการประวัติตำแหน่ง โปรดไปที่ maps.google.com/locationhistory"</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"ลบประวัติตำแหน่ง"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"การลบนี้จะลบประวัติตำแหน่งทั้งหมดที่จัดเก็บไว้จากอุปกรณ์นี้สำหรับบัญชี Google นี้ คุณเลิกทำการลบนี้ไม่ได้ แอปบางแอป เช่น Google Now จะหยุดทำงาน"</string>
-    <string name="system_services" msgid="5754310941186053151">"บริการ"</string>
+    <string name="accessibility_screen_readers_category_title" msgid="7742526514873922018">"โปรแกรมอ่านหน้าจอ"</string>
+    <string name="accessibility_display_category_title" msgid="593444602101558017">"จอแสดงผล"</string>
+    <string name="accessibility_interaction_controls_category_title" msgid="5290687835178852745">"ส่วนควบคุมการโต้ตอบ"</string>
+    <string name="accessibility_audio_and_onscreen_text_category_title" msgid="113841605896486212">"เสียงและข้อความบนหน้าจอ"</string>
+    <string name="accessibility_experimental_category_title" msgid="3401773834179170206">"ทดลอง"</string>
+    <string name="accessibility_services_category_title" msgid="8813843874978910442">"บริการ"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"การตั้งค่าบริการ"</string>
+    <string name="accessibility_screen_reader_flattened_component_name" msgid="6834614827111101213">"com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"ข้อความคอนทราสต์สูง"</string>
+    <string name="accessibility_toggle_bold_text_preference_title" msgid="3328992531170432669">"การทำข้อความเป็นตัวหนา"</string>
+    <string name="accessibility_color_correction" msgid="6765093204922184119">"การแก้สี"</string>
+    <string name="color_correction_usage" msgid="4160611639548748657">"ใช้การแก้สี"</string>
+    <string name="color_correction_color_mode" msgid="5081377780734779169">"โหมดสี"</string>
+    <string name="color_correction_mode_deuteranomaly" msgid="1513793544554228224">"ตาบอดสีเขียว"</string>
+    <string name="color_correction_mode_deuteranomaly_summary" msgid="5991561481464520986">"สีแดง/เขียว"</string>
+    <string name="color_correction_mode_protanomaly" msgid="8105793166015115037">"ตาบอดสีแดง"</string>
+    <string name="color_correction_mode_protanomaly_summary" msgid="3247619910784115563">"สีแดง/เขียว"</string>
+    <string name="color_correction_mode_tritanomaly" msgid="757769418392736089">"ตาบอดสีน้ำเงิน"</string>
+    <string name="color_correction_mode_tritanomaly_summary" msgid="137712354510881252">"สีน้ำเงิน/เหลือง"</string>
+    <string name="color_correction_mode_grayscale" msgid="2592973844160514484">"โทนสีเทา"</string>
+    <string name="palette_color_red" msgid="507196433434979086">"แดง"</string>
+    <string name="palette_color_orange" msgid="6209196069366109835">"ส้ม"</string>
+    <string name="palette_color_yellow" msgid="298466132578870590">"เหลือง"</string>
+    <string name="palette_color_green" msgid="4904783063036825668">"เขียว"</string>
+    <string name="palette_color_cyan" msgid="3212217287628948203">"เขียวแกมน้ำเงิน"</string>
+    <string name="palette_color_blue" msgid="8836682634988540630">"น้ำเงิน"</string>
+    <string name="palette_color_purple" msgid="2123828754639683555">"ม่วง"</string>
+    <string name="palette_color_gray" msgid="4014534773994261194">"เทา"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"ทางลัดสำหรับการช่วยเหลือพิเศษ"</string>
     <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"เปิดใช้ทางลัดการเข้าถึง"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"บริการทางลัด"</string>
     <string name="accessibility_shortcut_description" msgid="2050424178481510046">"เมื่อทางลัดเปิดอยู่ ให้กดปุ่มกลับและปุ่มลงค้างไว้ 3 วินาทีเพื่อเริ่มฟีเจอร์การเข้าถึง"</string>
-    <string name="accessibility_captions" msgid="3411554568812306549">"คำบรรยาย"</string>
+    <string name="accessibility_captions" msgid="3411554568812306549">"คำบรรยายแทนเสียง"</string>
     <string name="accessibility_captions_description" msgid="3827820027578548160">"การตั้งค่าการวางซ้อนข้อความคำบรรยายในวิดีโอ"</string>
     <string name="captions_display" msgid="2598662495450633375">"จอแสดงผล"</string>
     <string name="captions_display_on" msgid="480438033345455728">"เปิด"</string>
@@ -651,7 +718,7 @@
     <string name="captions_backgroundshow" msgid="1080183686470477645">"แสดงพื้นหลัง"</string>
     <string name="captions_backgroundcolor" msgid="2056944109914399253">"สีพื้นหลัง"</string>
     <string name="captions_backgroundopacity" msgid="1850126438162000027">"ความทึบแสงของพื้นหลัง"</string>
-    <string name="captioning_preview_text" msgid="3034147586392743237">"คำบรรยายจะมีลักษณะดังนี้"</string>
+    <string name="captioning_preview_text" msgid="3034147586392743237">"คำบรรยายแทนเสียงจะมีลักษณะดังนี้"</string>
     <string name="captions_textopacity" msgid="6055602491649526307">"ความทึบแสงของข้อความ"</string>
     <string name="captions_windowshow" msgid="6002072054703167886">"แสดงหน้าต่าง"</string>
     <string name="captions_windowcolor" msgid="7460430328878876648">"สีของหน้าต่าง"</string>
@@ -731,7 +798,7 @@
     <string name="system_desc_bt_hci_log" msgid="2592649923221658103">"เปิดใช้งานการบันทึกสอดแนมบลูทูธ HCI"</string>
     <string name="system_desc_usb_debugging" msgid="5672275208185222785">"โหมดแก้ปัญหาเมื่อเชื่อมต่อ USB"</string>
     <string name="system_desc_wait_for_debugger" msgid="7213496668606417691">"แอปที่ถูกแก้จะรอให้เครื่องซ่อมแซมเพิ่มก่อนทำงาน"</string>
-    <string name="system_desc_show_layout_bounds" msgid="5275008598296135852">"แสดงหน้าปกคลิป ขอบ ฯลฯ"</string>
+    <string name="system_desc_show_layout_bounds" msgid="5275008598296135852">"แสดงขอบคลิป ระยะขอบ ฯลฯ"</string>
     <string name="system_desc_show_gpu_view_updates" msgid="9088343415389734854">"แสดงมุมมองภายในหน้าต่างเมื่อวาดด้วย GPU"</string>
     <string name="system_desc_show_hardware_layer" msgid="3483713991865249527">"แสดงเลเยอร์ฮาร์ดแวร์เป็นสีเขียวเมื่อมีการอัปเดต"</string>
     <string name="system_desc_show_gpu_overdraw" msgid="74019834911598588">"จากดีที่สุดไปหาแย่ที่สุด: ฟ้า เขียว แดงอ่อน แดง"</string>
@@ -885,12 +952,24 @@
     <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"โปรแกรมรักษาหน้าจอจะเริ่มทำงานหลังจากไม่มีการใช้งานตามระยะเวลานี้ หากไม่ได้เลือกโปรแกรมรักษาหน้าจอไว้ จอแสดงผลจะปิดลง"</string>
     <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"หลังจากไม่ได้ใช้งานเป็นเวลา <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
     <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"ปิดจอแสดงผล"</string>
-    <string name="device_energy_saver_screen_off_description" msgid="4469679706899396071">"หลัง <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
-    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"ปิดหน้าจอหลัง"</string>
-    <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"อนุญาตให้ปิดหน้าจอ"</string>
-    <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"ระหว่างการเล่นสื่อ"</string>
-    <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"ยืนยันการตั้งค่าโหมดประหยัดพลังงาน"</string>
-    <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"โปรดยืนยันการตั้งค่าใหม่เป็น <xliff:g id="SLEEP_TIME">%1$s</xliff:g> ซึ่งอาจทำให้มีการใช้พลังงานเพิ่มขึ้น"</string>
+    <!-- no translation found for device_energy_saver_timeout_description (3206609135199137514) -->
+    <skip />
+    <string name="device_energy_saver_confirmation_title" msgid="7614859812773584773">"ตรวจสอบการตั้งค่ากำลังไฟฟ้าและพลังงาน"</string>
+    <string name="device_energy_saver_confirmation_message" msgid="7789453187001013951">"การเปิดทีวีทิ้งไว้เป็นเวลานานอาจเพิ่มการใช้พลังงาน"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_title" msgid="1468097048101593731">"ปิดใช้การตั้งค่าโหมดประหยัดพลังงาน"</string>
+    <string name="device_energy_saver_disable_allow_turning_screen_off_text" msgid="6334963903866002164">"โปรดยืนยันเพื่อป้องกันไม่ให้จอแสดงผลปิดขณะรับชม ซึ่งอาจทำให้มีการใช้พลังงานเพิ่มขึ้น"</string>
+    <string name="device_energy_saver_sleep_timeout" msgid="1841900768718452039">"เมื่อไม่ได้ใช้งาน"</string>
+    <string name="device_energy_saver_attentive_timeout" msgid="3649486668821348087">"เมื่อรับชม"</string>
+    <string name="device_energy_saver_category_title" msgid="170076161677525986">"ปิดโดยอัตโนมัติ"</string>
+    <string name="device_energy_saver_sleep_timeout_dialog_title" msgid="6588352532253294558">"ปิดโดยอัตโนมัติเมื่อไม่ได้ใช้งาน"</string>
+    <string name="device_energy_saver_attentive_timeout_dialog_title" msgid="3273988875711109352">"ปิดโดยอัตโนมัติเมื่อรับชม"</string>
+    <string name="device_energy_saver_validation_sleep" msgid="7490897287741107840">"ตัวจับเวลา \"เมื่อไม่ได้ใช้งาน\" จะต้องสั้นกว่าตัวจับเวลา \"เมื่อรับชม\""</string>
+    <string name="device_energy_saver_validation_attentive" msgid="1461105528087097435">"ตัวจับเวลา \"เมื่อรับชม\" ต้องนานกว่าตัวจับเวลา \"เมื่อไม่ได้ใช้งาน\""</string>
+    <string name="limit_network_in_standby_toggle_title" msgid="6587185599397355336">"จำกัดการเชื่อมต่อเครือข่ายในโหมดสแตนด์บาย"</string>
+    <string name="limit_network_in_standby_toggle_summary" msgid="9127792748675581174">"ใช้พลังงานน้อยลงในโหมดสแตนด์บาย"</string>
+    <string name="limit_network_in_standby_toggle_info" msgid="566947772381093991">"เมื่ออยู่ในโหมดสแตนด์บาย ทีวีจะยกเลิกการเชื่อมต่อกับเครือข่าย ยกเว้นในกรณีที่ต้องรับการอัปเดตอัตโนมัติ การดำเนินการนี้อาจช่วยลดการใช้พลังงานของทีวีได้ แต่เมื่ออยู่ในโหมดสแตนด์บาย คุณก็อาจใช้ฟังก์ชันต่างๆ เช่น แคสต์และ Google Assistant ไม่ได้เช่นกัน"</string>
+    <string name="limit_network_in_standby_confirm_title" msgid="789232987058850322">"อนุญาตการเชื่อมต่อเครือข่ายในโหมดสแตนด์บาย"</string>
+    <string name="limit_network_in_standby_confirm_message" msgid="7176699480768019689">"หากอนุญาตการเชื่อมต่อเครือข่ายในโหมดสแตนด์บาย ระบบจะใช้พลังงานสแตนด์บายเพิ่มขึ้น"</string>
     <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"ไม่มีบัญชีใดในปัจจุบันที่จัดเก็บข้อมูลสำรองไว้"</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"ต้องการหยุดการสำรองข้อมูลรหัสผ่าน Wi-Fi, บุ๊กมาร์ก, การตั้งค่าอื่นๆ และข้อมูลในแอป และลบสำเนาทั้งหมดในเซิร์ฟเวอร์ของ Google ไหม"</string>
@@ -978,12 +1057,17 @@
     <string name="time_to_start_read_title" msgid="6565449163802837806">"เวลาเริ่มอ่าน"</string>
     <string name="time_to_valid_audio_title" msgid="7246101824813414348">"เวลาเว้นช่วงก่อนบันทึกเสียง"</string>
     <string name="empty_audio_duration_title" msgid="9024377320171450683">"ระยะเวลาของเสียงว่างเปล่า"</string>
+    <string name="record_audio_source_title" msgid="9087784503276397929">"แหล่งที่มาของเสียงที่จะอัด"</string>
+    <string name="record_audio_source_dialog_title" msgid="6556408220589197097">"เลือกแหล่งที่มาของเสียงสำหรับการอัดเสียงครั้งถัดไป"</string>
+    <string name="recorded_microphones_title" msgid="5466988146086215426">"ไมโครโฟนที่จะอัด"</string>
     <string name="show_audio_recording_start_failed" msgid="9131762831381326605">"เริ่มบันทึกเสียงไม่สำเร็จ"</string>
     <string name="show_audio_recording_failed" msgid="8128216664039868681">"การบันทึกเสียงไม่สำเร็จ"</string>
     <string name="title_data_saver" msgid="7500278996154002792">"การประหยัดอินเทอร์เน็ต"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"ปรับคุณภาพของวิดีโอให้ใช้อินเทอร์เน็ตมือถือน้อยลงโดยอัตโนมัติ"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"ปริมาณการใช้อินเทอร์เน็ตและการแจ้งเตือน"</string>
     <string name="data_saver_header_info" msgid="2706725187498535785">"คุณเชื่อมต่ออินเทอร์เน็ตได้ด้วย Wi-Fi, อีเทอร์เน็ต หรือฮอตสปอตของโทรศัพท์"</string>
+    <string name="bluetooth_ask_discovery_title" msgid="4955540555242269694">"ต้องการให้อุปกรณ์บลูทูธอื่นมองเห็นได้ไหม"</string>
+    <string name="bluetooth_ask_discovery_message" msgid="8609666862877703398">"แอปต้องการทำให้อุปกรณ์บลูทูธอื่นมองเห็นทีวีของคุณได้ <xliff:g id="TIMEOUT">%1$d</xliff:g> วินาที"</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"ไม่อนุญาตให้ดำเนินการนี้"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"ปรับระดับเสียงไม่ได้"</string>
@@ -1034,4 +1118,9 @@
     <string name="power_on_behavior" msgid="927607372303160716">"ลักษณะการทำงานเมื่อเปิดเครื่อง"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"รีเซ็ต"</string>
     <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"รหัสการจับคู่อีเทอร์เน็ต"</string>
+    <string name="energy_modes" msgid="1331693860386361744">"โหมดพลังงาน"</string>
+    <string name="energy_modes_summary" msgid="7196407759836930799">"ปรับปรุงประสิทธิภาพการใช้พลังงานเมื่อไม่ได้ใช้งานทีวี"</string>
+    <string name="energy_mode_enables" msgid="357960364751477627">"ฟีเจอร์ที่เปิดใช้"</string>
+    <string name="energy_mode_eco_hint" msgid="1461517905015359947">"โปรดทราบว่าโหมดนี้อาจทำให้อุปกรณ์ใช้พลังงานมากขึ้น"</string>
+    <string name="energy_modes_confirmation_title" msgid="4520280098781914825">"เปิดใช้ \"<xliff:g id="ENERGYMODENAME">%s</xliff:g>\""</string>
 </resources>

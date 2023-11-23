@@ -178,6 +178,35 @@ void CaptureDrawElementsInstancedANGLE_indices(const State &glState,
                                 paramCapture);
 }
 
+void CaptureDrawElementsInstancedBaseInstanceEXT_indices(const State &glState,
+                                                         bool isCallValid,
+                                                         PrimitiveMode mode,
+                                                         GLsizei count,
+                                                         DrawElementsType type,
+                                                         const void *indices,
+                                                         GLsizei instancecount,
+                                                         GLuint baseinstance,
+                                                         angle::ParamCapture *indicesParam)
+{
+    CaptureDrawElements_indices(glState, isCallValid, mode, count, type, indices, indicesParam);
+}
+
+void CaptureDrawElementsInstancedBaseVertexBaseInstanceEXT_indices(
+    const State &glState,
+    bool isCallValid,
+    PrimitiveMode modePacked,
+    GLsizei count,
+    DrawElementsType typePacked,
+    const void *indices,
+    GLsizei instancecount,
+    GLint basevertex,
+    GLuint baseInstance,
+    angle::ParamCapture *indicesParam)
+{
+    CaptureDrawElements_indices(glState, isCallValid, modePacked, count, typePacked, indices,
+                                indicesParam);
+}
+
 void CaptureDrawElementsBaseVertexEXT_indices(const State &glState,
                                               bool isCallValid,
                                               PrimitiveMode modePacked,
@@ -3197,7 +3226,7 @@ void CaptureGetProgramBinaryOES_length(const State &glState,
                                        void *binary,
                                        ParamCapture *paramCapture)
 {
-    UNIMPLEMENTED();
+    paramCapture->readBufferSizeBytes = sizeof(GLsizei);
 }
 
 void CaptureGetProgramBinaryOES_binaryFormat(const State &glState,
@@ -3209,7 +3238,7 @@ void CaptureGetProgramBinaryOES_binaryFormat(const State &glState,
                                              void *binary,
                                              ParamCapture *paramCapture)
 {
-    UNIMPLEMENTED();
+    paramCapture->readBufferSizeBytes = sizeof(GLenum);
 }
 
 void CaptureGetProgramBinaryOES_binary(const State &glState,
@@ -3221,7 +3250,7 @@ void CaptureGetProgramBinaryOES_binary(const State &glState,
                                        void *binary,
                                        ParamCapture *paramCapture)
 {
-    UNIMPLEMENTED();
+    paramCapture->readBufferSizeBytes = bufSize;
 }
 
 void CaptureProgramBinaryOES_binary(const State &glState,
@@ -3916,7 +3945,7 @@ void CaptureProgramUniformMatrix4x3fvEXT_value(const State &glState,
 void CaptureEGLImageTargetTexStorageEXT_attrib_list(const State &glState,
                                                     bool isCallValid,
                                                     GLenum target,
-                                                    GLeglImageOES image,
+                                                    egl::ImageID image,
                                                     const GLint *attrib_list,
                                                     angle::ParamCapture *paramCapture)
 {
@@ -3926,7 +3955,7 @@ void CaptureEGLImageTargetTexStorageEXT_attrib_list(const State &glState,
 void CaptureEGLImageTargetTextureStorageEXT_attrib_list(const State &glState,
                                                         bool isCallValid,
                                                         GLuint texture,
-                                                        GLeglImageOES image,
+                                                        egl::ImageID image,
                                                         const GLint *attrib_list,
                                                         angle::ParamCapture *paramCapture)
 {
@@ -4212,5 +4241,142 @@ void CaptureSelectPerfMonitorCountersAMD_counterList(const State &glState,
                                                      angle::ParamCapture *paramCapture)
 {
     UNIMPLEMENTED();
+}
+
+// ANGLE_shader_pixel_local_storage.
+void CaptureFramebufferPixelLocalClearValuefvANGLE_value(const State &glState,
+                                                         bool isCallValid,
+                                                         GLint plane,
+                                                         const GLfloat *value,
+                                                         angle::ParamCapture *paramCapture)
+{
+    CaptureArray(value, 4, paramCapture);
+}
+
+void CaptureFramebufferPixelLocalClearValueivANGLE_value(const State &glState,
+                                                         bool isCallValid,
+                                                         GLint plane,
+                                                         const GLint *value,
+                                                         angle::ParamCapture *paramCapture)
+{
+    CaptureArray(value, 4, paramCapture);
+}
+
+void CaptureFramebufferPixelLocalClearValueuivANGLE_value(const State &glState,
+                                                          bool isCallValid,
+                                                          GLint plane,
+                                                          const GLuint *value,
+                                                          angle::ParamCapture *paramCapture)
+{
+    CaptureArray(value, 4, paramCapture);
+}
+
+void CaptureBeginPixelLocalStorageANGLE_loadops(const State &glState,
+                                                bool isCallValid,
+                                                GLsizei n,
+                                                const GLenum loadops[],
+                                                angle::ParamCapture *paramCapture)
+{
+    CaptureArray(loadops, n, paramCapture);
+}
+
+void CaptureEndPixelLocalStorageANGLE_storeops(const State &glState,
+                                               bool isCallValid,
+                                               GLsizei n,
+                                               const GLenum *storeops,
+                                               angle::ParamCapture *paramCapture)
+{
+    CaptureArray(storeops, n, paramCapture);
+}
+
+void CaptureGetFramebufferPixelLocalStorageParameterfvANGLE_params(
+    const State &glState,
+    bool isCallValid,
+    GLint plane,
+    GLenum pname,
+    GLfloat *params,
+    angle::ParamCapture *paramCapture)
+{
+    switch (pname)
+    {
+        case GL_PIXEL_LOCAL_CLEAR_VALUE_FLOAT_ANGLE:
+            CaptureGetParameter(glState, pname, sizeof(GLfloat) * 4, paramCapture);
+            break;
+    }
+}
+
+void CaptureGetFramebufferPixelLocalStorageParameterivANGLE_params(
+    const State &glState,
+    bool isCallValid,
+    GLint plane,
+    GLenum pname,
+    GLint *params,
+    angle::ParamCapture *paramCapture)
+{
+    switch (pname)
+    {
+        case GL_PIXEL_LOCAL_FORMAT_ANGLE:
+        case GL_PIXEL_LOCAL_TEXTURE_NAME_ANGLE:
+        case GL_PIXEL_LOCAL_TEXTURE_LEVEL_ANGLE:
+        case GL_PIXEL_LOCAL_TEXTURE_LAYER_ANGLE:
+            CaptureGetParameter(glState, pname, sizeof(GLint), paramCapture);
+            break;
+        case GL_PIXEL_LOCAL_CLEAR_VALUE_INT_ANGLE:
+        case GL_PIXEL_LOCAL_CLEAR_VALUE_UNSIGNED_INT_ANGLE:
+            CaptureGetParameter(glState, pname, sizeof(GLint) * 4, paramCapture);
+            break;
+    }
+}
+
+void CaptureGetFramebufferPixelLocalStorageParameterfvRobustANGLE_length(
+    const State &glState,
+    bool isCallValid,
+    GLint plane,
+    GLenum pname,
+    GLsizei bufSize,
+    GLsizei *length,
+    GLfloat *params,
+    angle::ParamCapture *paramCapture)
+{
+    paramCapture->readBufferSizeBytes = sizeof(GLsizei);
+}
+
+void CaptureGetFramebufferPixelLocalStorageParameterfvRobustANGLE_params(
+    const State &glState,
+    bool isCallValid,
+    GLint plane,
+    GLenum pname,
+    GLsizei bufSize,
+    GLsizei *length,
+    GLfloat *params,
+    angle::ParamCapture *paramCapture)
+{
+    CaptureGetParameter(glState, pname, sizeof(GLfloat) * bufSize, paramCapture);
+}
+
+void CaptureGetFramebufferPixelLocalStorageParameterivRobustANGLE_length(
+    const State &glState,
+    bool isCallValid,
+    GLint plane,
+    GLenum pname,
+    GLsizei bufSize,
+    GLsizei *length,
+    GLint *params,
+    angle::ParamCapture *paramCapture)
+{
+    paramCapture->readBufferSizeBytes = sizeof(GLsizei);
+}
+
+void CaptureGetFramebufferPixelLocalStorageParameterivRobustANGLE_params(
+    const State &glState,
+    bool isCallValid,
+    GLint plane,
+    GLenum pname,
+    GLsizei bufSize,
+    GLsizei *length,
+    GLint *params,
+    angle::ParamCapture *paramCapture)
+{
+    CaptureGetParameter(glState, pname, sizeof(GLint) * bufSize, paramCapture);
 }
 }  // namespace gl

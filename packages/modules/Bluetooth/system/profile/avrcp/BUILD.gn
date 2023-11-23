@@ -35,7 +35,7 @@ static_library("profile_avrcp") {
   ]
 
   deps = [
-    "//bt/system/gd/rust/shim:message_loop_thread_bridge_header",
+    "//bt/system/gd/rust/shim:libbluetooth_rust_interop",
   ]
 
   configs += [

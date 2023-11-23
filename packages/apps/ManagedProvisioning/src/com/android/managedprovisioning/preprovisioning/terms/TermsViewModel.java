@@ -99,20 +99,25 @@ final class TermsViewModel extends ViewModel {
         }
 
         @Override
+        @SuppressWarnings("unchecked")
         public <T extends ViewModel> T create(Class<T> modelClass) {
             if (!TermsViewModel.class.isAssignableFrom(modelClass)) {
                 throw new IllegalArgumentException("Invalid class for creating a "
                         + "TermsViewModel: " + modelClass);
             }
-            return (T) new TermsViewModel(
-                    new TermsProvider(
-                            mApplication.getApplicationContext(),
-                            StoreUtils::readString,
-                            mParams,
-                            new Utils(),
-                            () -> mApplication.getApplicationContext().getPackageManager()
-                                    .getInstalledApplications(
-                                            MATCH_SYSTEM_ONLY | GET_META_DATA)));
+            return (T)
+                    new TermsViewModel(
+                            new TermsProvider(
+                                    mApplication.getApplicationContext(),
+                                    StoreUtils::readString,
+                                    mParams,
+                                    new Utils(),
+                                    () ->
+                                            mApplication
+                                                    .getApplicationContext()
+                                                    .getPackageManager()
+                                                    .getInstalledApplications(
+                                                            MATCH_SYSTEM_ONLY | GET_META_DATA)));
         }
     }
 }

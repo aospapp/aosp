@@ -68,20 +68,14 @@ class UsbUtil {
     }
 
     public static boolean isTheSameDevice(UsbDevice l, UsbDevice r) {
-        if (TextUtils.equals(l.getManufacturerName(), r.getManufacturerName())
+        return TextUtils.equals(l.getManufacturerName(), r.getManufacturerName())
                 && TextUtils.equals(l.getProductName(), r.getProductName())
-                && TextUtils.equals(l.getSerialNumber(), r.getSerialNumber())) {
-            return true;
-        }
-        return false;
+                && TextUtils.equals(l.getSerialNumber(), r.getSerialNumber());
     }
 
     public static boolean isDevicesMatching(UsbDevice l, UsbDevice r) {
-        if (l.getVendorId() == r.getVendorId() && l.getProductId() == r.getProductId()
-                && TextUtils.equals(l.getSerialNumber(), r.getSerialNumber())) {
-            return true;
-        }
-        return false;
+        return l.getVendorId() == r.getVendorId() && l.getProductId() == r.getProductId()
+                && TextUtils.equals(l.getSerialNumber(), r.getSerialNumber());
     }
 
     public static boolean isDeviceConnected(UsbManager usbManager, UsbDevice device) {

@@ -10,3 +10,7 @@ type persist_sensor_reg_file, file_type, vendor_persist_type;
 # end with "data_file".
 type sensor_reg_data_file, file_type, data_file_type;
 
+# Declare the sensor debug data file type. By convention, data file types
+# end with "data_file".
+type sensor_debug_data_file, file_type, data_file_type;
+

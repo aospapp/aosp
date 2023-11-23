@@ -41,7 +41,7 @@ public class MyInteractionService extends VoiceInteractionService {
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(ACTION_CHECK_IS_READY);
         intentFilter.addAction(ACTION_SHOW_SESSION);
-        registerReceiver(mReceiver, intentFilter);
+        registerReceiver(mReceiver, intentFilter, Context.RECEIVER_EXPORTED);
     }
 
     @Override

@@ -37,7 +37,7 @@
     <string name="metadata_duration" msgid="3115494422055472715">"Duration"</string>
     <string name="metadata_date_time" msgid="1090351199248114406">"Taken on"</string>
     <string name="metadata_focal_length" msgid="3440735161407699893">"Focal length"</string>
-    <string name="metadata_focal_format" msgid="8542211707962355623">"<xliff:g id="LENGTH">%1$.2f </xliff:g>"</string>
+    <string name="metadata_focal_format" msgid="8542211707962355623">"<xliff:g id="LENGTH">%1$.2f </xliff:g>mm"</string>
     <string name="metadata_iso_speed_ratings" msgid="1699781252899759058">"ISO equivalent"</string>
     <string name="metadata_iso_format" msgid="4153285204012694861">"ISO <xliff:g id="ISO_SPEED">%1$d</xliff:g>"</string>
     <string name="metadata_artist" msgid="8972421485694988540">"Artist"</string>

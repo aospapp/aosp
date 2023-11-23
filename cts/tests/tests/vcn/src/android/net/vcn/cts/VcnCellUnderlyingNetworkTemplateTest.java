@@ -33,8 +33,7 @@ public class VcnCellUnderlyingNetworkTemplateTest extends VcnUnderlyingNetworkTe
     private static final Set<String> ALLOWED_PLMN_IDS = Set.of("123456", "12345");
     private static final Set<Integer> ALLOWED_CARRIER_IDS = Set.of(100, 101);
 
-    // Package private for use in VcnGatewayConnectionConfigTest
-    static VcnCellUnderlyingNetworkTemplate getTestNetworkTemplate() {
+    private static VcnCellUnderlyingNetworkTemplate.Builder getTestNetworkTemplateBuilder() {
         return new VcnCellUnderlyingNetworkTemplate.Builder()
                 .setMetered(MATCH_REQUIRED)
                 .setRoaming(MATCH_REQUIRED)
@@ -44,19 +43,51 @@ public class VcnCellUnderlyingNetworkTemplateTest extends VcnUnderlyingNetworkTe
                 .setMinDownstreamBandwidthKbps(
                         MIN_ENTRY_DOWN_BANDWIDTH_KBPS, MIN_EXIT_DOWN_BANDWIDTH_KBPS)
                 .setMinUpstreamBandwidthKbps(
-                        MIN_ENTRY_UP_BANDWIDTH_KBPS, MIN_EXIT_UP_BANDWIDTH_KBPS)
-                .build();
+                        MIN_ENTRY_UP_BANDWIDTH_KBPS, MIN_EXIT_UP_BANDWIDTH_KBPS);
+    }
+
+    // Package private for use in VcnGatewayConnectionConfigTest
+    static VcnCellUnderlyingNetworkTemplate getTestNetworkTemplate() {
+        return getTestNetworkTemplateBuilder().build();
+    }
+
+    private static void setAllCapabilities(
+            VcnCellUnderlyingNetworkTemplate.Builder builder, int matchCriteria) {
+        builder.setCbs(matchCriteria);
+        builder.setDun(matchCriteria);
+        builder.setIms(matchCriteria);
+        builder.setInternet(matchCriteria);
+        builder.setMms(matchCriteria);
+        builder.setRcs(matchCriteria);
+    }
+
+    private static void verifyAllCapabilities(
+            VcnCellUnderlyingNetworkTemplate template,
+            int expectMatchCriteriaforNonInternet,
+            int expectMatchCriteriaforInternet) {
+        assertEquals(expectMatchCriteriaforNonInternet, template.getCbs());
+        assertEquals(expectMatchCriteriaforNonInternet, template.getDun());
+        assertEquals(expectMatchCriteriaforNonInternet, template.getIms());
+        assertEquals(expectMatchCriteriaforNonInternet, template.getMms());
+        assertEquals(expectMatchCriteriaforNonInternet, template.getRcs());
+
+        assertEquals(expectMatchCriteriaforInternet, template.getInternet());
     }
 
     @Test
     public void testBuilderAndGetters() {
-        final VcnCellUnderlyingNetworkTemplate networkTemplate = getTestNetworkTemplate();
+        final VcnCellUnderlyingNetworkTemplate.Builder builder = getTestNetworkTemplateBuilder();
+        setAllCapabilities(builder, MATCH_REQUIRED);
+
+        final VcnCellUnderlyingNetworkTemplate networkTemplate = builder.build();
+
         assertEquals(MATCH_REQUIRED, networkTemplate.getMetered());
         assertEquals(MATCH_REQUIRED, networkTemplate.getRoaming());
         assertEquals(MATCH_FORBIDDEN, networkTemplate.getOpportunistic());
         assertEquals(ALLOWED_PLMN_IDS, networkTemplate.getOperatorPlmnIds());
         assertEquals(ALLOWED_CARRIER_IDS, networkTemplate.getSimSpecificCarrierIds());
         verifyBandwidthsWithTestValues(networkTemplate);
+        verifyAllCapabilities(networkTemplate, MATCH_REQUIRED, MATCH_REQUIRED);
     }
 
     @Test
@@ -69,6 +100,7 @@ public class VcnCellUnderlyingNetworkTemplateTest extends VcnUnderlyingNetworkTe
         assertEquals(new HashSet<String>(), networkTemplate.getOperatorPlmnIds());
         assertEquals(new HashSet<Integer>(), networkTemplate.getSimSpecificCarrierIds());
         verifyBandwidthsWithDefaultValues(networkTemplate);
+        verifyAllCapabilities(networkTemplate, MATCH_ANY, MATCH_REQUIRED);
     }
 
     @Test

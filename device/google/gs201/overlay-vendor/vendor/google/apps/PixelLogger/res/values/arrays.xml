@@ -1,0 +1,6 @@
+<resources>
+    <string-array name="logger_entries">
+        <item>qxdm</item>
+        <item>cnss_diag</item>
+    </string-array>
+</resources>

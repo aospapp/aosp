@@ -15,7 +15,6 @@
  */
 package com.google.android.car.garagemode.testapp;
 
-import android.content.res.Configuration;
 import android.os.Bundle;
 import android.view.View;
 
@@ -55,16 +54,6 @@ public class MainActivity extends FragmentActivity {
         findViewById(R.id.offcar_test_btn).setOnClickListener((v) -> mMenuEntries.get(0).onClick());
         findViewById(R.id.exit_button_container).setOnClickListener(
                 (v) -> mMenuEntries.get(1).onClick());
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-    }
-
-    @Override
-    public void onConfigurationChanged(Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
     }
 
     private interface ClickHandler {

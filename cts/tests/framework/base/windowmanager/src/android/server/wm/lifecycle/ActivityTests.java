@@ -38,6 +38,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
+import android.app.ActivityOptions;
 import android.platform.test.annotations.Presubmit;
 
 import androidx.test.filters.MediumTest;
@@ -245,8 +246,12 @@ public class ActivityTests extends ActivityLifecycleClientTestBase {
     @Test
     public void testFinishAffinity_differentAffinity() throws Exception {
         final Activity firstActivity = launchActivityAndWait(FirstActivity.class);
+        final int firstActivityTDAFeatureId = mWmState.getTaskDisplayAreaFeatureId(firstActivity
+                .getComponentName());
+        ActivityOptions activityOptions = getLaunchOptionsForFullscreen();
+        activityOptions.setLaunchTaskDisplayAreaFeatureId(firstActivityTDAFeatureId);
         final Activity differentAffinityActivity = new Launcher(DifferentAffinityActivity.class)
-                .setOptions(getLaunchOptionsForFullscreen())
+                .setOptions(activityOptions)
                 .launch();
         waitAndAssertActivityStates(state(differentAffinityActivity, ON_RESUME),
                 state(firstActivity, ON_STOP));
@@ -265,10 +270,14 @@ public class ActivityTests extends ActivityLifecycleClientTestBase {
     @Test
     public void testFinishAffinity_multiTask() throws Exception {
         final Activity firstActivity = launchActivityAndWait(FirstActivity.class);
+        final int firstActivityTDAFeatureId = mWmState.getTaskDisplayAreaFeatureId(firstActivity
+                .getComponentName());
+        ActivityOptions activityOptions = getLaunchOptionsForFullscreen();
+        activityOptions.setLaunchTaskDisplayAreaFeatureId(firstActivityTDAFeatureId);
         // Launch fullscreen activity in a new task to stop first activity
         final Activity secondActivity = new Launcher(SecondActivity.class)
                 .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
-                .setOptions(getLaunchOptionsForFullscreen())
+                .setOptions(activityOptions)
                 .launch();
         waitAndAssertActivityStates(state(secondActivity, ON_RESUME),
                 state(firstActivity, ON_STOP));

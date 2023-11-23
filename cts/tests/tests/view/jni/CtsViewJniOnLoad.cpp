@@ -18,8 +18,6 @@
 
 #define LOG_TAG "CtsViewJniOnLoad"
 
-extern int register_android_view_cts_ASurfaceControlTest(JNIEnv *);
-extern int register_android_view_cts_ChoreographerNativeTest(JNIEnv* env);
 extern int register_android_view_cts_AKeyEventNativeTest(JNIEnv *env);
 extern int register_android_view_cts_AMotionEventNativeTest(JNIEnv *env);
 extern int register_android_view_cts_InputDeviceKeyLayoutMapTest(JNIEnv *env);
@@ -28,12 +26,6 @@ extern int register_android_view_cts_InputQueueTest(JNIEnv *env);
 jint JNI_OnLoad(JavaVM *vm, void *) {
     JNIEnv *env = NULL;
     if (vm->GetEnv((void**)&env, JNI_VERSION_1_4) != JNI_OK) {
-        return JNI_ERR;
-    }
-    if (register_android_view_cts_ASurfaceControlTest(env)) {
-      return JNI_ERR;
-    }
-    if (register_android_view_cts_ChoreographerNativeTest(env)) {
         return JNI_ERR;
     }
     if (register_android_view_cts_AKeyEventNativeTest(env)) {

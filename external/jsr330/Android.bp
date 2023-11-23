@@ -42,7 +42,16 @@ java_library_static {
     hostdex: true,
     sdk_version: "core_current",
     srcs: ["src/**/*.java"],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.adservices",
+        "com.android.devicelock",
+        "com.android.extservices",
+        "com.android.healthfitness",
+        "com.android.ondevicepersonalization",
+    ],
 }
+
 //
 // TCK (Test Compatibility Kit)
 // -- For DI frameworks that want to test compatibility with javax.
@@ -53,4 +62,9 @@ java_library_host {
         "jsr330",
         "junit",
     ],
+    errorprone: {
+        javacflags: [
+            "-Xep:OverridesJavaxInjectableMethod:WARN",
+        ],
+    },
 }

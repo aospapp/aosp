@@ -63,11 +63,6 @@ java_library {
         // This one is not on device but it's needed when javac compiles code
         // containing lambdas.
         "core-lambda-stubs-for-system-modules",
-        // This one is not on device but it's needed when javac compiles code
-        // containing @Generated annotations produced by some code generation
-        // tools.
-        // See http://b/123891440.
-        "core-generated-annotation-stubs",
     ],
     sdk_version: "none",
     system_modules: "none",
@@ -84,12 +79,44 @@ java_library {
     ],
 }
 
+// Defaults module to strip out android annotations
+java_defaults {
+    name: "system-modules-no-annotations",
+    sdk_version: "none",
+    system_modules: "none",
+    jarjar_rules: "jarjar-strip-annotations-rules.txt",
+}
+
+// Same as core-current-stubs-for-system-modules, but android annotations are
+// stripped.
+java_library {
+    name: "core-current-stubs-for-system-modules-no-annotations",
+    visibility: ["//development/sdk"],
+    defaults: [
+        "system-modules-no-annotations",
+    ],
+    static_libs: [
+        "core-current-stubs-for-system-modules",
+    ],
+    dists: [
+        {
+            // Legacy dist location for the public file.
+            dest: "core-for-system-modules-no-annotations.jar",
+            targets: dist_targets,
+        },
+        {
+            dest: "system-modules/public/core-for-system-modules-no-annotations.jar",
+            targets: dist_targets,
+        },
+    ],
+}
+
 // Used when compiling higher-level code against core.current.stubs.
 java_system_modules {
     name: "core-public-stubs-system-modules",
     visibility: ["//visibility:public"],
     libs: [
-        "core-current-stubs-for-system-modules",
+        "core-current-stubs-for-system-modules-no-annotations",
     ],
 }
 
@@ -124,11 +151,6 @@ java_library {
         // This one is not on device but it's needed when javac compiles code
         // containing lambdas.
         "core-lambda-stubs-for-system-modules",
-        // This one is not on device but it's needed when javac compiles code
-        // containing @Generated annotations produced by some code generation
-        // tools.
-        // See http://b/123891440.
-        "core-generated-annotation-stubs",
     ],
     sdk_version: "none",
     system_modules: "none",
@@ -138,11 +160,29 @@ java_library {
     },
 }
 
+// Same as core-module-lib-stubs-for-system-modules, but android annotations are
+// stripped. This is used by the Java toolchain, while the annotated stub is to
+// be used by Kotlin one.
+java_library {
+    name: "core-module-lib-stubs-for-system-modules-no-annotations",
+    visibility: ["//visibility:private"],
+    defaults: [
+        "system-modules-no-annotations",
+    ],
+    static_libs: [
+        "core-module-lib-stubs-for-system-modules",
+    ],
+    dist: {
+        dest: "system-modules/module-lib/core-for-system-modules-no-annotations.jar",
+        targets: dist_targets,
+    },
+}
+
 // Used when compiling higher-level code with sdk_version "module_current"
 java_system_modules {
     name: "core-module-lib-stubs-system-modules",
     libs: [
-        "core-module-lib-stubs-for-system-modules",
+        "core-module-lib-stubs-for-system-modules-no-annotations",
     ],
     visibility: ["//visibility:public"],
 }
@@ -174,6 +214,24 @@ java_library {
     patch_module: "java.base",
 }
 
+// Same as legacy.core.platform.api.stubs, but android annotations are
+// stripped. This is used by the Java toolchain, while the annotated stub is to
+// be used by Kotlin one.
+java_library {
+    name: "legacy.core.platform.api.no.annotations.stubs",
+    visibility: core_platform_visibility,
+    defaults: [
+        "system-modules-no-annotations",
+    ],
+    hostdex: true,
+    compile_dex: true,
+
+    static_libs: [
+        "legacy.core.platform.api.stubs",
+    ],
+    patch_module: "java.base",
+}
+
 java_library {
     name: "stable.core.platform.api.stubs",
     visibility: core_platform_visibility,
@@ -191,20 +249,33 @@ java_library {
     patch_module: "java.base",
 }
 
+// Same as stable.core.platform.api.stubs, but android annotations are
+// stripped. This is used by the Java toolchain, while the annotated stub is to
+// be used by Kotlin one.
+java_library {
+    name: "stable.core.platform.api.no.annotations.stubs",
+    visibility: core_platform_visibility,
+    defaults: [
+        "system-modules-no-annotations",
+    ],
+    hostdex: true,
+    compile_dex: true,
+
+    static_libs: [
+        "stable.core.platform.api.stubs",
+    ],
+    patch_module: "java.base",
+}
+
 // Used when compiling higher-level code against *.core.platform.api.stubs.
 java_system_modules {
     name: "legacy-core-platform-api-stubs-system-modules",
     visibility: core_platform_visibility,
     libs: [
-        "legacy.core.platform.api.stubs",
+        "legacy.core.platform.api.no.annotations.stubs",
         // This one is not on device but it's needed when javac compiles code
         // containing lambdas.
         "core-lambda-stubs-for-system-modules",
-        // This one is not on device but it's needed when javac compiles code
-        // containing @Generated annotations produced by some code generation
-        // tools.
-        // See http://b/123891440.
-        "core-generated-annotation-stubs",
     ],
 }
 
@@ -212,14 +283,75 @@ java_system_modules {
     name: "stable-core-platform-api-stubs-system-modules",
     visibility: core_platform_visibility,
     libs: [
-        "stable.core.platform.api.stubs",
+        "stable.core.platform.api.no.annotations.stubs",
         // This one is not on device but it's needed when javac compiles code
         // containing lambdas.
         "core-lambda-stubs-for-system-modules",
-        // This one is not on device but it's needed when javac compiles code
-        // containing @Generated annotations produced by some code generation
-        // tools.
-        // See http://b/123891440.
-        "core-generated-annotation-stubs",
     ],
 }
+
+// Used when compiling higher-level code against art.module.public.api.stubs.
+// This abstraction should come from the inner tree linking against the stubs
+// and not from an "sdk", since parts of this abstraction do not belong to an
+// official API (e.g. stub-annotations).
+//
+// This is only intended for use within core libraries and must not be used
+// from outside.
+java_system_modules {
+    name: "art-module-public-api-stubs-system-modules",
+    visibility: [
+        "//art/build/sdk",
+        "//external/conscrypt",
+        "//external/icu/android_icu4j",
+        "//external/wycheproof",
+    ],
+    libs: [
+        "art.module.public.api.stubs",
+        // This one is not on device but it's needed when javac compiles code
+        // containing lambdas.
+        "core-lambda-stubs-for-system-modules",
+
+        // Ensure that core libraries that depend on the public API can access
+        // the UnsupportedAppUsage, CorePlatformApi and IntraCoreApi
+        // annotations.
+        "art.module.api.annotations.for.system.modules",
+    ],
+}
+
+// Used when compiling higher-level code against art.module.public.api.stubs.module_lib.
+//
+// This is only intended for use within core libraries and must not be used
+// from outside.
+java_system_modules {
+    name: "art-module-lib-api-stubs-system-modules",
+    visibility: [
+        "//art/build/sdk",
+        "//external/conscrypt",
+        "//external/icu/android_icu4j",
+    ],
+    libs: [
+        "art.module.public.api.stubs.module_lib",
+    ],
+}
+
+// Used when compiling against art.module.intra.core.api.stubs.
+java_system_modules {
+    name: "art-module-intra-core-api-stubs-system-modules",
+    visibility: [
+        "//art/build/sdk",
+        "//external/bouncycastle",
+        "//external/conscrypt",
+        "//external/icu/android_icu4j",
+    ],
+    libs: [
+        // The intra core API stubs library.
+        "art.module.intra.core.api.stubs",
+
+        // Additional classes needed by javac but which are not present in the stubs.
+        "art-module-intra-core-api-stubs-system-modules-lib",
+    ],
+}
+
+build = [
+    "TxtStubLibraries.bp",
+]

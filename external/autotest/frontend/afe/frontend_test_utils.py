@@ -45,10 +45,10 @@ class FrontendTestMixin(object):
         self.label3.save()
         self.hosts[0].labels.add(self.label1)
         self.hosts[1].labels.add(self.label2)
-        for hostnum in xrange(4,7):  # host5..host7
+        for hostnum in range(4, 7):  # host5..host7
             self.hosts[hostnum].labels.add(self.label6)
         self.hosts[6].labels.add(self.label7)
-        for hostnum in xrange(7,9):  # host8..host9
+        for hostnum in range(7, 9):  # host8..host9
             self.hosts[hostnum].labels.add(self.label6)
             self.hosts[hostnum].labels.add(self.label7)
 

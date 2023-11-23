@@ -24,14 +24,13 @@
     <string name="auto_brightness_title" msgid="9124647862844666581">"Brilho adaptável"</string>
     <string name="auto_brightness_summary" msgid="2002570577219479702">"Ajustar o brilho da tela para o ambiente"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"O Modo noturno está ativado"</string>
-    <string name="night_mode_tile_label" msgid="6603597795502131664">"Modo noturno"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"Rede e Internet"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"Rede móvel"</string>
     <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# chip}one{# chip}other{# chips}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"Ativo/chip"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"Inativo/chip"</string>
-    <string name="mobile_network_active_esim" msgid="5864100786496761032">"Ativo/chip transferido por download"</string>
-    <string name="mobile_network_inactive_esim" msgid="1397332352238119032">"Inativo/chip transferido por download"</string>
+    <string name="mobile_network_active_esim" msgid="5175362818078597096">"Ativo / eSIM"</string>
+    <string name="mobile_network_inactive_esim" msgid="7273712403773327964">"Inativo / eSIM"</string>
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"Adicionar mais"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"Dados móveis"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Acessar os dados pela rede móvel"</string>
@@ -139,7 +138,7 @@
     <string name="wifi_settings_scanning_required_title" msgid="2726782203331704928">"Ativar a \"busca por Wi‑Fi\"?"</string>
     <string name="wifi_settings_scanning_required_turn_on" msgid="4464931023377210050">"Ativar"</string>
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Busca por Wi‑Fi ativada"</string>
-    <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Alternar para dados móveis automaticamente"</string>
+    <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Mudar para dados móveis automaticamente"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Usar dados móveis quando o Wi-Fi perder o acesso à Internet. Cobranças de dados podem ser aplicadas."</string>
     <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Encontrar redes Wi-Fi e conectar"</string>
     <string name="learn_more" msgid="8214605928933358604">"Saiba mais"</string>
@@ -177,6 +176,7 @@
     <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"Mostrar tudo"</string>
     <string name="progress_scanning" msgid="7191583064717479795">"Pesquisar"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"Bluetooth"</string>
+    <string name="bluetooth_toggle_title" msgid="1431803611346881088">"Usar Bluetooth"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"Dispositivo sem nome"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"Dispositivos pareados"</string>
     <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"Parear novo dispositivo"</string>
@@ -221,6 +221,9 @@
     <string name="bluetooth_notif_title" msgid="8374602799367803335">"Solicitação de pareamento"</string>
     <string name="bluetooth_notif_message" msgid="1060821000510108726">"Toque para parear com <xliff:g id="DEVICE_NAME">%1$s</xliff:g>."</string>
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Escolher dispositivo Bluetooth"</string>
+    <string name="bluetooth_bonded_bluetooth_toggle_content_description" msgid="6800772154405846597">"Bluetooth"</string>
+    <string name="bluetooth_bonded_phone_toggle_content_description" msgid="8152794643249938377">"Smartphone"</string>
+    <string name="bluetooth_bonded_media_toggle_content_description" msgid="7803420585378155404">"Mídia"</string>
     <string name="language_settings" msgid="2079258598337245546">"Idiomas"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Idiomas e entrada"</string>
     <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Sugestões"</string>
@@ -300,14 +303,16 @@
     <string name="apps_and_notifications_settings" msgid="8704585874333781975">"Apps e notificações"</string>
     <string name="all_applications" msgid="7798210477486822168">"Mostrar todos os apps"</string>
     <string name="default_applications" msgid="1558183275638697087">"Apps padrão"</string>
+    <string name="performance_impacting_apps" msgid="3439260699394720569">"Apps que afetam o desempenho"</string>
     <string name="app_permissions" msgid="32799922508313948">"Permissões do app"</string>
     <string name="app_permissions_summary" msgid="5402214755935368418">"Controlar acesso de apps aos seus dados"</string>
     <string name="applications_settings" msgid="794261395191035632">"Informações do app"</string>
-    <string name="force_stop" msgid="2153183697014720520">"Forçar fechamento"</string>
-    <string name="force_stop_dialog_title" msgid="3342850939200388694">"Forçar fechamento?"</string>
+    <string name="force_stop" msgid="1616958676171167028">"Parar o app"</string>
+    <string name="force_stop_dialog_title" msgid="4481858344628934971">"Parar o app?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"Se você forçar o fechamento de um app, ele poderá apresentar mau funcionamento."</string>
-    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"Ativar Priorizar o desempenho do app?"</string>
-    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"A ativação pode causar instabilidade no sistema ou impacto de longo prazo no hardware. Continuar?"</string>
+    <string name="force_stop_success_toast_text" msgid="2986272849275894254">"O app <xliff:g id="APP_NAME">%1$s</xliff:g> foi parado."</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="3205297520523665568">"Priorizar o desempenho do app?"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="4321564728229192878">"Isso pode causar instabilidade no sistema ou impacto de longo prazo no hardware. Continuar?"</string>
     <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"Sim"</string>
     <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"Agora não"</string>
     <string name="disable_text" msgid="4358165448648990820">"Desativar"</string>
@@ -375,9 +380,10 @@
     <string name="apps_settings_title" msgid="3982535942394315336">"Apps"</string>
     <string name="apps_recently_opened" msgid="5320377037971195984">"Abertos recentemente"</string>
     <string name="apps_view_all_apps_title" msgid="2322120325505230530">"Ver todos os %1$d apps"</string>
-    <string name="apps_permission_manager_title" msgid="8776335943862484131">"Gerenciador de permissões"</string>
+    <string name="apps_permission_manager_title" msgid="8776335943862484131">"Gestão de permissões"</string>
     <string name="apps_permission_manager_summary" msgid="4180424218228141274">"Controlar acesso de apps aos seus dados"</string>
     <string name="apps_default_apps_summary" msgid="2017792579839972926">"Para o Assistente e mais"</string>
+    <string name="performance_impacting_apps_summary" msgid="7762122057244111162">"{count,plural, =1{# app que afeta o desempenho}one{# app que afeta o desempenho}other{# apps que afetam o desempenho}}"</string>
     <string name="apps_special_app_access_summary" msgid="6464767436309742163">"Para configurações do sistema e outras"</string>
     <string name="special_access" msgid="5730278220917123811">"Acesso especial para apps"</string>
     <string name="show_system" msgid="4401355756969485287">"Mostrar sistema"</string>
@@ -391,6 +397,8 @@
     <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"Se você desativar o acesso a notificações para <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g>, é possível que o acesso \"Não perturbe\" também seja desativado."</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"Desativar"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"Cancelar"</string>
+    <string name="performance_impacting_apps_description" msgid="7361464904617808444">"Esses apps prejudicam o desempenho do sistema e tiveram a execução em segundo plano impedida.\nPriorize o app para permitir o uso em segundo plano e o remover desta lista."</string>
+    <string name="performance_impacting_apps_button_label" msgid="8277507326717608783">"Priorizar app"</string>
     <string name="premium_sms_access_title" msgid="1409118461646148686">"Acesso a SMS premium"</string>
     <string name="premium_sms_access_description" msgid="7119026067677052169">"O SMS premium pode gerar custos e será adicionado à sua conta da operadora. Se você conceder permissão para um app, será possível enviar SMS premium usando esse app."</string>
     <string name="usage_access_title" msgid="7153427122072303254">"Acesso ao uso"</string>
@@ -401,22 +409,27 @@
     <string name="location_settings_title" msgid="901334356682423679">"Local"</string>
     <string name="location_toggle_title" msgid="836779750812064601">"Usar local"</string>
     <string name="location_toggle_summary" msgid="7977868708102299495">"Permitir acesso à localização a apps específicos"</string>
-    <string name="location_toggle_off_warning" msgid="8396854289251143748">"Se você desativar essa configuração, o acesso ao local será removido de todos os apps. Os apps de assistência ao motorista manterão o acesso."</string>
-    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"Usar local para assistência ao motorista"</string>
+    <string name="location_toggle_off_warning" msgid="5959449346865136081">"Se você desativar essa configuração, o acesso à localização de todos os apps vai ser removido, exceto nos que são necessários para assistência ao motorista"</string>
+    <string name="location_driver_assistance_toggle_title" msgid="3780157378527924932">"Usar localização p/ assist. ao motorista"</string>
     <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"A localização do veículo está desativada"</string>
-    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"Apps de assist. ao motorista sem acesso ao local"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="6040822988891113026">"Apps de assist. s/ acesso à localização"</string>
     <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"Alterar"</string>
     <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"Permitir acesso à localização a apps de assistência ao motorista"</string>
-    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"Se você desativar essa configuração, os apps de assistência ao motorista que precisam de informações de localização serão desativados."</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="2733124752598498356">"Se você não usar essa configuração, os apps de assistência ao motorista que precisam de informações de localização vão ser desativados"</string>
     <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"Desativar mesmo assim"</string>
-    <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Solicitações recentes"</string>
-    <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Nenhuma solicitação recente de local"</string>
+    <string name="location_recently_accessed" msgid="522888989582110975">"Acessos recentes"</string>
+    <string name="location_settings_recently_accessed_title" msgid="6016264778609426382">"Acessos recentes"</string>
+    <string name="location_settings_recently_accessed_view_all_title" msgid="6344830628885781448">"Ver tudo"</string>
+    <string name="location_no_recent_access" msgid="2859914321242257931">"Nenhum app recente"</string>
+    <string name="driver_assistance_label" msgid="9217315205754658940">"<xliff:g id="TIME">%1$s</xliff:g> • Assistência ao motorista"</string>
+    <string name="location_driver_assistance_privacy_policy_header_content" msgid="8118086439003674350">"Apps c/ acesso à localização p/ assist."</string>
+    <string name="location_driver_assistance_privacy_policy_button_text" msgid="669921557502414704">"Política de Privacidade"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Permissões no app"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Serviços de localização"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"Usar local"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"A localização pode usar fontes como GPS, Wi-Fi, redes móveis e sensores para ajudar a estimar o local do dispositivo."</string>
     <string name="driver_assistance_settings_title" msgid="4915804073177128915">"Assistência ao motorista"</string>
-    <string name="adas_settings_footer" msgid="5128483877858058534">"As informações de localização enviadas aos apps de assistência ao motorista não contêm dados que identifiquem você. Elas são armazenadas por no máximo dois dias antes de serem excluídas."</string>
+    <string name="adas_settings_footer" msgid="6697021691244459156">"As informações de localização enviadas aos apps de assistência ao motorista não contêm dados que identifiquem você. Elas são armazenadas por no máximo dois dias antes de serem excluídas."</string>
     <string name="microphone_settings_title" msgid="7125554350537136922">"Microfone"</string>
     <string name="microphone_toggle_title" msgid="911586035332827275">"Usar o microfone"</string>
     <string name="microphone_toggle_summary" msgid="2682653449849128626">"Permitir que todos os apps acessem seu microfone"</string>
@@ -432,6 +445,9 @@
     <string name="system_update_settings_title" msgid="8448588267784138855">"Atualizações do sistema"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"Avançadas"</string>
     <string name="system_advanced_summary" msgid="5833643795981791953">"Sobre, informações legais, redefinir e mais"</string>
+    <string name="restart_infotainment_system_title" msgid="5174129167446756511">"Reiniciar o sistema de infoentretenimento"</string>
+    <string name="restart_infotainment_system_dialog_text" msgid="6395281407323116808">"A reinicialização do sistema de infoentretenimento do carro pode levar alguns minutos. Continuar?"</string>
+    <string name="continue_confirmation" msgid="1598892163951467191">"Continuar"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Versão do Android"</string>
     <string name="security_patch" msgid="4794276590178386903">"Nível do patch de segurança do Android"</string>
     <string name="hardware_info" msgid="3973165746261507658">"Modelo e hardware"</string>
@@ -472,11 +488,11 @@
     <string name="developer_options_settings" msgid="1530739225109118480">"Opções do desenvolvedor"</string>
     <string name="reset_options_title" msgid="4388902952861833420">"Opções de redefinição"</string>
     <string name="reset_options_summary" msgid="5508201367420359293">"Redefinição de rede, apps ou dispositivo"</string>
-    <string name="reset_network_title" msgid="1284233059990797263">"Redefinir rede"</string>
-    <string name="reset_network_desc" msgid="602381374544634925">"Isso redefinirá todas as configurações de rede, incluindo:"</string>
-    <string name="reset_network_item_wifi" msgid="7569481589699982698"><li>"Wi‑Fi"</li></string>
+    <string name="reset_network_title" msgid="3077846909739832734">"Redefinir Wi-Fi e Bluetooth"</string>
+    <string name="reset_network_desc" msgid="3332203703135823033">"Esta ação vai redefinir as configurações de Wi-Fi e Bluetooth, removendo a memória das conexões anteriores:"</string>
+    <string name="reset_network_item_wifi" msgid="2876370861806060314"><li>"Senhas e redes Wi-Fi"</li></string>
     <string name="reset_network_item_mobile" msgid="5747282716664480997"><li>"Dados móveis"</li></string>
-    <string name="reset_network_item_bluetooth" msgid="6035019931106921284"><li>"Bluetooth"</li></string>
+    <string name="reset_network_item_bluetooth" msgid="7475279871421815601"><li>"Smartphones e outros dispositivos Bluetooth"</li></string>
     <string name="reset_esim_title" msgid="8132107637911831211">"Limpar todos os eSIMs do veículo"</string>
     <string name="reset_esim_desc" msgid="1437276625485586740">"Essa ação não cancelará seu plano de serviços."</string>
     <string name="reset_esim_error_title" msgid="7245109418130525492">"Não é possível redefinir os eSIMs"</string>
@@ -574,7 +590,7 @@
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"Limpar armazenamento"</string>
     <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"Limpar cache"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"Excluir dados do app?"</string>
-    <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Todos os dados deste app serão excluídos permanentemente. Isso inclui todos os arquivos, configurações, contas, bancos de dados e outros."</string>
+    <string name="storage_clear_data_dlg_text" msgid="3255314337644212283">"Os dados do app vão ser excluídos permanentemente, incluindo arquivos, configurações, bancos de dados, entre outros."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Não foi possível limpar o armazenamento do app."</string>
     <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> ejetado com segurança"</string>
     <string name="storage_unmount_failure" msgid="4591934911541762883">"Não foi possível ejetar <xliff:g id="NAME">%1$s</xliff:g> com segurança"</string>
@@ -644,10 +660,10 @@
     <string name="lockpattern_cancel_button_text" msgid="4068764595622381766">"Cancelar"</string>
     <string name="lockpattern_pattern_confirmed" msgid="5984306638250515385">"Seu novo padrão de desbloqueio"</string>
     <string name="lockpattern_recording_intro_header" msgid="7864149726033694408">"Desenhe um padrão de desbloqueio"</string>
-    <string name="lockpattern_recording_inprogress" msgid="1575019990484725964">"Solte o dedo quando terminar."</string>
+    <string name="lockpattern_recording_inprogress" msgid="1575019990484725964">"Tire o dedo ao terminar"</string>
     <string name="lockpattern_pattern_entered" msgid="6103071005285320575">"Padrão registrado"</string>
     <string name="lockpattern_need_to_confirm" msgid="4648070076022940382">"Desenhe o padrão de novo para confirmar"</string>
-    <string name="lockpattern_recording_incorrect_too_short" msgid="2417932185815083082">"Conecte 4 pontos (mín). Tente novamente."</string>
+    <string name="lockpattern_recording_incorrect_too_short" msgid="2417932185815083082">"Conecte 4 pontos no mínimo. Tente novamente."</string>
     <string name="lockpattern_pattern_wrong" msgid="929223969555399363">"Padrão incorreto"</string>
     <string name="lockpattern_settings_help_how_to_record" msgid="4436556875843192284">"Como desenhar um padrão de desbloqueio"</string>
     <string name="error_saving_lockpattern" msgid="2933512812768570130">"Erro ao salvar o padrão"</string>
@@ -675,6 +691,7 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Cancelar"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Confirmar"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Precisa ter pelo menos quatro caracteres"</string>
+    <string name="locktype_unavailable" msgid="2678317466336249126">"Este tipo de fechadura está indisponível."</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Precisa ter apenas dígitos de 0 a 9."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"O administrador do dispositivo não permite o uso de um PIN recente"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"PINs comuns foram bloqueados pelo administrador de TI. Tente um PIN diferente."</string>
@@ -699,7 +716,6 @@
     <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{Precisa ter menos de # dígito}one{Precisa ter menos de # dígito}other{Precisa ter menos de # dígitos}}"</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Não é permitido usar uma sequência de dígitos em ordem crescente, decrescente ou repetidos"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Opções de bloqueio de tela"</string>
-    <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> dias atrás"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Limpar credenciais"</string>
     <string name="credentials_reset_summary" msgid="6067911547500459637">"Remover todos os certificados"</string>
     <string name="credentials_reset_hint" msgid="3459271621754137661">"Remover todo o conteúdo?"</string>
@@ -722,6 +738,8 @@
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Sair da demonstração"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"DISPENSAR"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"Recurso não disponível enquanto você dirige"</string>
+    <string name="restricted_for_passenger" msgid="7240117443887727753">"Solicitar que o motorista mude a configuração"</string>
+    <string name="restricted_for_driver" msgid="3364388937671526800">"Não é possível realizar esta ação"</string>
     <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"Não é possível adicionar perfis enquanto você dirige"</string>
     <string name="default_search_query" msgid="3137420627428857068">"Pesquisa"</string>
     <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"Assistente e Voice"</string>
@@ -737,6 +755,7 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"Adicionar um perfil"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"Excluir este perfil"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"Adicionar perfil"</string>
+    <string name="cannot_remove_driver_profile" msgid="4109363161608717969">"O perfil foi acessado como motorista. Tente outra vez quando o perfil não estiver nessa função."</string>
     <string name="qc_display_brightness" msgid="2939655289816201170">"Brilho da tela"</string>
     <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"Para ver seus dispositivos, ative o Bluetooth"</string>
     <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"Para parear um dispositivo, abra as configurações do Bluetooth"</string>
@@ -769,6 +788,7 @@
     <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# app ativado}one{# app ativado}other{# apps ativados}}"</string>
     <string name="number_of_device_admins_none" msgid="5547493703413973954">"Nenhum app ativado"</string>
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"Política de veículos da <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>"</string>
+    <string name="work_policy_privacy_settings_no_org_name" msgid="8011687012493940230">"Política de veículos"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Configurações gerenciadas pelo administrador da organização"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Saiba mais sobre o serviço <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
     <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Informações do veículo gerenciado"</string>

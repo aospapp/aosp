@@ -21,7 +21,7 @@
     <string name="usb_pref_delete_title" msgid="3885061814853467483">"USB ଡିଭାଇସ୍ ପାଇଁ ହ୍ୟାଣ୍ଡଲିଂ ଆପ୍‌କୁ କାଢ଼ିଦିଅନ୍ତୁ"</string>
     <string name="usb_pref_delete_message" msgid="5849493572520646218">"ଆପଣ କ\'ଣ ନିଶ୍ଚିତ ଭାବରେ %1$s ପାଇଁ ଡିଫଲ୍ଟ ହ୍ୟାଣ୍ଡଲିଂ ଆପ୍‍କୁ ଡିଲିଟ୍ କରିବାକୁ ଚାହୁଁଛନ୍ତି?"</string>
     <string name="usb_pref_delete_yes" msgid="7803356145103146036">"ହଁ"</string>
-    <string name="usb_pref_delete_cancel" msgid="5999791462730255929">"ବାତିଲ୍ କରନ୍ତୁ"</string>
+    <string name="usb_pref_delete_cancel" msgid="5999791462730255929">"ବାତିଲ କରନ୍ତୁ"</string>
     <string name="usb_resolving_handlers" msgid="1943100136172948686">"ସମର୍ଥିତ ହ୍ୟାଣ୍ଡଲର୍ ପ୍ରାପ୍ତ କରାଯାଉଛି"</string>
     <string name="usb_unknown_device" msgid="4211439272338937095">"ଅଜଣା USB ଡିଭାଇସ୍"</string>
     <string name="usb_boot_service_notification" msgid="8519949189071048797">"USB ଡିଭାଇସ୍‌ଗୁଡ଼ିକର ବିଶ୍ଲେଷଣ କରୁଛି"</string>

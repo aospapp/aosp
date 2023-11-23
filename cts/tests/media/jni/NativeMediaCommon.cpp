@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "NativeMediaCommon.h"
+
 /* TODO(b/153592281)
  * Note: constants used by the native media tests but not available in media ndk api
  */
@@ -39,6 +40,7 @@ const char* AMEDIA_MIMETYPE_AUDIO_AAC = "audio/mp4a-latm";
 const char* AMEDIA_MIMETYPE_AUDIO_FLAC = "audio/flac";
 const char* AMEDIA_MIMETYPE_AUDIO_VORBIS = "audio/vorbis";
 const char* AMEDIA_MIMETYPE_AUDIO_OPUS = "audio/opus";
+const char* AMEDIA_MIMETYPE_AUDIO_RAW = "audio/raw";
 
 /* TODO(b/153592281) */
 const char* TBD_AMEDIACODEC_PARAMETER_KEY_REQUEST_SYNC_FRAME = "request-sync";
@@ -93,13 +95,14 @@ template void flattenField<int32_t>(uint8_t* buffer, int* pos, int32_t value);
 template void flattenField<int64_t>(uint8_t* buffer, int* pos, int64_t value);
 
 bool isFormatSimilar(AMediaFormat* refFormat, AMediaFormat* testFormat) {
-    const char *refMime = nullptr, *testMime = nullptr;
+    const char *refMediaType = nullptr, *testMediaType = nullptr;
     int64_t refKeyDuration, testKeyDuration;
-    bool hasRefMime = AMediaFormat_getString(refFormat, AMEDIAFORMAT_KEY_MIME, &refMime);
-    if (!hasRefMime) return false;
-    bool hasTestMime = AMediaFormat_getString(testFormat, AMEDIAFORMAT_KEY_MIME, &testMime);
-    if (!hasTestMime) return false;
-    if (strcmp(refMime, testMime) != 0) return false;
+    bool hasRefMediaType = AMediaFormat_getString(refFormat, AMEDIAFORMAT_KEY_MIME, &refMediaType);
+    if (!hasRefMediaType) return false;
+    bool hasTestMediaType =
+            AMediaFormat_getString(testFormat, AMEDIAFORMAT_KEY_MIME, &testMediaType);
+    if (!hasTestMediaType) return false;
+    if (strcmp(refMediaType, testMediaType) != 0) return false;
     bool hasRefKeyDuration =
             AMediaFormat_getInt64(refFormat, AMEDIAFORMAT_KEY_DURATION, &refKeyDuration);
     if (!hasRefKeyDuration) return false;
@@ -107,13 +110,13 @@ bool isFormatSimilar(AMediaFormat* refFormat, AMediaFormat* testFormat) {
             AMediaFormat_getInt64(testFormat, AMEDIAFORMAT_KEY_DURATION, &testKeyDuration);
     if (!hasTestKeyDuration) return false;
     if (refKeyDuration != testKeyDuration) {
-        ALOGW("Duration mismatches ref / test = %lld / %lld", (long long) refKeyDuration,
-              (long long) testKeyDuration);
+        ALOGW("Duration mismatches ref / test = %lld / %lld", (long long)refKeyDuration,
+              (long long)testKeyDuration);
         // TODO (b/163477410)(b/163478168)
 //        return false;
     }
     if (!isCSDIdentical(refFormat, testFormat)) return false;
-    if (!strncmp(refMime, "audio/", strlen("audio/"))) {
+    if (!strncmp(refMediaType, "audio/", strlen("audio/"))) {
         int32_t refSampleRate, testSampleRate, refNumChannels, testNumChannels;
         bool hasRefSampleRate =
                 AMediaFormat_getInt32(refFormat, AMEDIAFORMAT_KEY_SAMPLE_RATE, &refSampleRate);
@@ -121,7 +124,7 @@ bool isFormatSimilar(AMediaFormat* refFormat, AMediaFormat* testFormat) {
         bool hasTestSampleRate =
                 AMediaFormat_getInt32(testFormat, AMEDIAFORMAT_KEY_SAMPLE_RATE, &testSampleRate);
         if (!hasTestSampleRate) return false;
-        if (refSampleRate != testSampleRate)return false;
+        if (refSampleRate != testSampleRate) return false;
         bool hasRefNumChannels =
                 AMediaFormat_getInt32(refFormat, AMEDIAFORMAT_KEY_CHANNEL_COUNT, &refNumChannels);
         if (!hasRefNumChannels) return false;
@@ -129,7 +132,7 @@ bool isFormatSimilar(AMediaFormat* refFormat, AMediaFormat* testFormat) {
                 AMediaFormat_getInt32(testFormat, AMEDIAFORMAT_KEY_CHANNEL_COUNT, &testNumChannels);
         if (!hasTestNumChannels) return false;
         if (refNumChannels != testNumChannels) return false;
-    } else if (!strncmp(refMime, "video/", strlen("video/"))) {
+    } else if (!strncmp(refMediaType, "video/", strlen("video/"))) {
         int32_t refWidth, testWidth, refHeight, testHeight;
         bool hasRefWidth = AMediaFormat_getInt32(refFormat, AMEDIAFORMAT_KEY_WIDTH, &refWidth);
         if (!hasRefWidth) return false;
@@ -144,4 +147,67 @@ bool isFormatSimilar(AMediaFormat* refFormat, AMediaFormat* testFormat) {
         if (refHeight != testHeight) return false;
     }
     return true;
+}
+
+bool isMediaTypeOutputUnAffectedBySeek(const char* mediaType) {
+    if (strcmp(mediaType, AMEDIA_MIMETYPE_AUDIO_FLAC) == 0) return true;
+    if (strcmp(mediaType, AMEDIA_MIMETYPE_AUDIO_RAW) == 0) return true;
+    if (strncmp(mediaType, "video/", strlen("video/")) == 0) return true;
+    return false;
+}
+
+AMediaFormat* deSerializeMediaFormat(const char* msg, const char* separator) {
+    // constants to be kept in sync with definitions at MediaFormat.java
+    static const int TYPE_INTEGER = 1;
+    static const int TYPE_FLOAT = 3;
+    static const int TYPE_STRING = 4;
+    std::string limiter{separator};
+    std::string fmtMsg{msg};
+    AMediaFormat* fmt = AMediaFormat_new();
+    if (fmt == nullptr) {
+        ALOGE("no format received");
+        return nullptr;
+    }
+    auto start = 0u;
+    auto end = fmtMsg.find(limiter);
+    std::string keyStr, valueTypeStr, valueStr;
+    for (; end != std::string::npos;) {
+        // key
+        keyStr = fmtMsg.substr(start, end - start);
+        start = end + limiter.length();
+        end = fmtMsg.find(limiter, start);
+        if (end == std::string::npos) {
+            ALOGE("incomplete media format received %s", msg);
+            AMediaFormat_delete(fmt);
+            return nullptr;
+        }
+        // value type
+        valueTypeStr = fmtMsg.substr(start, end - start);
+        start = end + limiter.length();
+        end = fmtMsg.find(limiter, start);
+        if (end == std::string::npos) {
+            ALOGE("incomplete media format received %s", msg);
+            AMediaFormat_delete(fmt);
+            return nullptr;
+        }
+
+        // value
+        valueStr = fmtMsg.substr(start, end - start);
+        start = end + limiter.length();
+        end = fmtMsg.find(limiter, start);
+
+        auto valueType = std::stoi(valueTypeStr);
+        if (valueType == TYPE_INTEGER) {
+            AMediaFormat_setInt32(fmt, keyStr.c_str(), std::stoi(valueStr));
+        } else if (valueType == TYPE_FLOAT) {
+            AMediaFormat_setFloat(fmt, keyStr.c_str(), std::stof(valueStr));
+        } else if (valueType == TYPE_STRING) {
+            AMediaFormat_setString(fmt, keyStr.c_str(), valueStr.c_str());
+        } else {
+            ALOGE("unrecognized type for key %s", keyStr.c_str());
+            AMediaFormat_delete(fmt);
+            return nullptr;
+        }
+    }
+    return fmt;
 }

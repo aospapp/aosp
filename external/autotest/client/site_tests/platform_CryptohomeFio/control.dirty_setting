@@ -14,6 +14,7 @@ NAME = 'platform_CryptohomeFio.dirty_setting'
 TEST_CLASS = 'platform'
 TEST_CATEGORY = 'Stress'
 TEST_TYPE = 'client'
+PY_VERSION = 3
 ATTRIBUTES = "suite:bvt-perbuild"
 
 sysctls_list = [

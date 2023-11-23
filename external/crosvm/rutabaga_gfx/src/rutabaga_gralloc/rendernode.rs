@@ -1,21 +1,25 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #![cfg(feature = "minigbm")]
 
 use std::ffi::CString;
-use std::fs::{File, OpenOptions};
-
+use std::fs::File;
+use std::fs::OpenOptions;
+use std::os::raw::c_char;
+use std::os::raw::c_int;
+use std::os::raw::c_uint;
 #[cfg(target_pointer_width = "64")]
 use std::os::raw::c_ulong;
-use std::os::raw::{c_char, c_int, c_uint};
+use std::os::unix::io::AsRawFd;
 use std::path::Path;
 use std::ptr::null_mut;
 
-use base::{ioctl_iowr_nr, ioctl_with_mut_ref};
+use nix::ioctl_readwrite;
 
-use crate::rutabaga_utils::{RutabagaError, RutabagaResult};
+use crate::rutabaga_utils::RutabagaError;
+use crate::rutabaga_utils::RutabagaResult;
 
 // Consistent with __kernel_size_t in include/uapi/asm-generic/posix_types.h.
 #[cfg(not(target_pointer_width = "64"))]
@@ -26,10 +30,11 @@ type __kernel_size_t = c_uint;
 type __kernel_size_t = c_ulong;
 
 const DRM_IOCTL_BASE: c_uint = 0x64;
+const DRM_IOCTL_VERSION: c_uint = 0x00;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-struct drm_version {
+pub struct drm_version {
     version_major: c_int,
     version_minor: c_int,
     version_patchlevel: c_int,
@@ -41,9 +46,14 @@ struct drm_version {
     desc: *mut c_char,
 }
 
-ioctl_iowr_nr!(DRM_IOCTL_VERSION, DRM_IOCTL_BASE, 0x0, drm_version);
+ioctl_readwrite!(
+    drm_get_version,
+    DRM_IOCTL_BASE,
+    DRM_IOCTL_VERSION,
+    drm_version
+);
 
-fn get_drm_device_name(fd: &File) -> Result<String, ()> {
+fn get_drm_device_name(fd: &File) -> RutabagaResult<String> {
     let mut version = drm_version {
         version_major: 0,
         version_minor: 0,
@@ -57,8 +67,8 @@ fn get_drm_device_name(fd: &File) -> Result<String, ()> {
     };
 
     // Get the length of the device name.
-    if unsafe { ioctl_with_mut_ref(fd, DRM_IOCTL_VERSION(), &mut version) } < 0 {
-        return Err(());
+    unsafe {
+        drm_get_version(fd.as_raw_fd(), &mut version)?;
     }
 
     // Enough bytes to hold the device name and terminating null character.
@@ -76,14 +86,13 @@ fn get_drm_device_name(fd: &File) -> Result<String, ()> {
     };
 
     // Safe as no more than name_len + 1 bytes will be written to name.
-    if unsafe { ioctl_with_mut_ref(fd, DRM_IOCTL_VERSION(), &mut version) } < 0 {
-        return Err(());
+    unsafe {
+        drm_get_version(fd.as_raw_fd(), &mut version)?;
     }
 
-    CString::new(&name_bytes[..(version.name_len as usize)])
-        .map_err(|_| ())?
+    CString::new(&name_bytes[..(version.name_len as usize)])?
         .into_string()
-        .map_err(|_| ())
+        .map_err(|_| RutabagaError::SpecViolation("couldn't convert string"))
 }
 
 /// Returns a `fd` for an opened rendernode device, while filtering out specified

@@ -1,17 +1,23 @@
-# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+# Lint as: python2, python3
+# Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import dbus
 import dbus.service
 import logging
 
-import dbus_std_ifaces
-import pm_constants
-import pm_errors
-import utils
+import six
 
 from autotest_lib.client.cros.cellular import mm1_constants
+from autotest_lib.client.cros.cellular.pseudomodem import dbus_std_ifaces
+from autotest_lib.client.cros.cellular.pseudomodem import pm_constants
+from autotest_lib.client.cros.cellular.pseudomodem import pm_errors
+from autotest_lib.client.cros.cellular.pseudomodem import utils
 
 class IncorrectPasswordError(pm_errors.MMMobileEquipmentError):
     """ Wrapper around MM_MOBILE_EQUIPMENT_ERROR_INCORRECT_PASSWORD. """
@@ -194,7 +200,7 @@ class SIM(dbus_std_ifaces.DBusProperties):
         retries = dbus.Dictionary(signature='uu')
         if not self._show_retries:
             return retries
-        for k, v in self._lock_data.iteritems():
+        for k, v in six.iteritems(self._lock_data):
             retries[dbus.types.UInt32(k)] = dbus.types.UInt32(v['retries'])
         return retries
 

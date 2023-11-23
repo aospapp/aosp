@@ -54,6 +54,19 @@ public class ContactsIndexerDeviceTest {
         } finally {
             mUiAutomation.dropShellPermissionIdentity();
         }
+    }
+
+    @Test
+    public void testFullUpdateJobIsNotScheduled() throws Exception {
+        mUiAutomation.adoptShellPermissionIdentity();
+        try {
+            Bundle args = InstrumentationRegistry.getArguments();
+            int userId = Integer.parseInt(args.getString(USER_ID_KEY));
+            int jobId = MIN_INDEXER_JOB_ID + userId;
+            assertNoJob(jobId);
+        } finally {
+            mUiAutomation.dropShellPermissionIdentity();
+        }
 
     }
 
@@ -65,5 +78,9 @@ public class ContactsIndexerDeviceTest {
 
     private void assertJobWaiting(int jobId) throws Exception {
         assertThat(getJobState(jobId)).contains("waiting");
+    }
+
+    private void assertNoJob(int jobId) throws Exception {
+        assertThat(getJobState(jobId)).contains("unknown");
     }
 }

@@ -23,10 +23,13 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.squareup.javapoet.ClassName;
 import dagger.hilt.processor.internal.AggregatedElements;
 import dagger.hilt.processor.internal.AnnotationValues;
 import dagger.hilt.processor.internal.ClassNames;
 import dagger.hilt.processor.internal.Processors;
+import dagger.hilt.processor.internal.root.ir.AggregatedUninstallModulesIr;
+import java.util.stream.Collectors;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.TypeElement;
@@ -39,6 +42,9 @@ import javax.lang.model.util.Elements;
 @AutoValue
 public abstract class AggregatedUninstallModulesMetadata {
 
+  /** Returns the aggregating element */
+  public abstract TypeElement aggregatingElement();
+
   /** Returns the test annotated with {@link dagger.hilt.android.testing.UninstallModules}. */
   public abstract TypeElement testElement();
 
@@ -47,15 +53,31 @@ public abstract class AggregatedUninstallModulesMetadata {
    */
   public abstract ImmutableList<TypeElement> uninstallModuleElements();
 
-  /** Returns all aggregated deps in the aggregating package mapped by the top-level element. */
+  /** Returns metadata for all aggregated elements in the aggregating package. */
   public static ImmutableSet<AggregatedUninstallModulesMetadata> from(Elements elements) {
-    return AggregatedElements.from(
+    return from(
+        AggregatedElements.from(
             ClassNames.AGGREGATED_UNINSTALL_MODULES_PACKAGE,
             ClassNames.AGGREGATED_UNINSTALL_MODULES,
-            elements)
-        .stream()
+            elements),
+        elements);
+  }
+
+  /** Returns metadata for each aggregated element. */
+  public static ImmutableSet<AggregatedUninstallModulesMetadata> from(
+      ImmutableSet<TypeElement> aggregatedElements, Elements elements) {
+    return aggregatedElements.stream()
         .map(aggregatedElement -> create(aggregatedElement, elements))
         .collect(toImmutableSet());
+  }
+
+  public static AggregatedUninstallModulesIr toIr(AggregatedUninstallModulesMetadata metadata) {
+    return new AggregatedUninstallModulesIr(
+        ClassName.get(metadata.aggregatingElement()),
+        ClassName.get(metadata.testElement()),
+        metadata.uninstallModuleElements().stream()
+            .map(ClassName::get)
+            .collect(Collectors.toList()));
   }
 
   private static AggregatedUninstallModulesMetadata create(TypeElement element, Elements elements) {
@@ -66,6 +88,7 @@ public abstract class AggregatedUninstallModulesMetadata {
         Processors.getAnnotationValues(elements, annotationMirror);
 
     return new AutoValue_AggregatedUninstallModulesMetadata(
+        element,
         elements.getTypeElement(AnnotationValues.getString(values.get("test"))),
         AnnotationValues.getAnnotationValues(values.get("uninstallModules")).stream()
             .map(AnnotationValues::getString)

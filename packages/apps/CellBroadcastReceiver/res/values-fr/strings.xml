@@ -65,7 +65,7 @@
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Rappel d\'alerte"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"Énoncer un message d\'alerte"</string>
     <string name="enable_alert_speech_summary" msgid="2855629032890937297">"Utiliser la synthèse vocale pour énoncer des messages d\'alerte d\'urgence sans fil"</string>
-    <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"Volume normal pour les rappels"</string>
+    <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"Le son d\'un rappel sera émis à un volume normal"</string>
     <string name="emergency_alert_history_title" msgid="8310173569237268431">"Historique des alertes d\'urgence"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"Préférences pour les alertes"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"Diffusions test ETWS"</string>
@@ -87,7 +87,7 @@
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Alertes d\'urgence"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"Recevoir des avertissements relatifs aux événements potentiellement mortels"</string>
     <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"Alertes de test"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Recevoir des tests de l\'opérateur et des tests mensuels du système d\'alertes de sécurité"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Recevoir les tests de l\'opérateur et les tests mensuels du système d\'alertes de sécurité"</string>
     <!-- no translation found for enable_exercise_test_alerts_title (6030780598569873865) -->
     <skip />
     <string name="enable_exercise_test_alerts_summary" msgid="4276766794979567304">"Recevoir une alerte d\'urgence : message en cas d\'exercice/de simulation"</string>

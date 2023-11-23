@@ -1,19 +1,17 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import logging
-import re
 import time
 
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros.input_playback import keyboard
-from autotest_lib.client.cros.power import power_dashboard
 from autotest_lib.client.cros.power import power_test
 
-URL = 'https://browserbench.org/Speedometer2.0/'
+URL = 'http://crospower.page.link/power_Speedometer2'
 RESULT = 'result'
-CONFIDENCE = 'confidence'
 
 class power_Speedometer2(power_test.power_Test):
     """class for running Speedometer2 test in Chrome.
@@ -33,8 +31,14 @@ class power_Speedometer2(power_test.power_Test):
 
         @param url: url of Speedometer2 test page.
         """
-        with chrome.Chrome(init_network_controller=True) as self.cr:
-            tab = self.cr.browser.tabs.New()
+        # --disable-sync disables test account info sync, eg. Wi-Fi credentials,
+        # so that each test run does not remember info from last test run.
+        extra_browser_args = ['--disable-sync']
+        # b/228256145 to avoid powerd restart
+        extra_browser_args.append('--disable-features=FirmwareUpdaterApp')
+        with chrome.Chrome(extra_browser_args=extra_browser_args,
+                           init_network_controller=True) as self.cr:
+            tab = self.cr.browser.tabs[0]
             tab.Activate()
 
             # Run in full-screen.
@@ -42,6 +46,9 @@ class power_Speedometer2(power_test.power_Test):
             if not fullscreen:
                 with keyboard.Keyboard() as keys:
                     keys.press_key('f4')
+
+            # Stop services again as Chrome might have restarted them.
+            self._services.stop_services()
 
             logging.info('Navigating to url: %s', url)
             tab.Navigate(url)
@@ -61,22 +68,13 @@ class power_Speedometer2(power_test.power_Test):
                         RESULT)
             end_time = time.time()
             result = float(result)
-            confidence = tab.EvaluateJavaScript(
-                    'document.getElementById("%s-number").innerHTML' % \
-                    CONFIDENCE)
-            match = re.search(r"((\d+(\.\d+)?)|(\.\d+))", confidence)
-            confidence = float(match.group(0))
 
-            keyvals = {RESULT: result, CONFIDENCE: confidence}
+            keyvals = {RESULT: result}
             for key, val in keyvals.items():
                 logging.info('Speedometer2 %s: %s', key, val)
             self.keyvals.update(keyvals)
             self.output_perf_value(description=RESULT, value=result,
                                    higher_is_better=True)
-            self.output_perf_value(description=CONFIDENCE, value=confidence,
-                                   higher_is_better=False)
 
-            logger = power_dashboard.KeyvalLogger(self._start_time, end_time)
-            logger.add_item(RESULT, result, 'point', 'perf')
-            logger.add_item(CONFIDENCE, confidence, 'point', 'perf')
-            self._meas_logs.append(logger)
+            self._keyvallogger.add_item(RESULT, result, 'point', 'perf')
+            self._keyvallogger.set_end(end_time)

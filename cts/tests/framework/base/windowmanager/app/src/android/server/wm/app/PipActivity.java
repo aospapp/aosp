@@ -23,6 +23,7 @@ import static android.server.wm.app.Components.PipActivity.ACTION_FINISH;
 import static android.server.wm.app.Components.PipActivity.ACTION_LAUNCH_TRANSLUCENT_ACTIVITY;
 import static android.server.wm.app.Components.PipActivity.ACTION_MOVE_TO_BACK;
 import static android.server.wm.app.Components.PipActivity.ACTION_ON_PIP_REQUESTED;
+import static android.server.wm.app.Components.PipActivity.ACTION_SET_ON_PAUSE_REMOTE_CALLBACK;
 import static android.server.wm.app.Components.PipActivity.ACTION_SET_REQUESTED_ORIENTATION;
 import static android.server.wm.app.Components.PipActivity.ACTION_UPDATE_PIP_STATE;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ALLOW_AUTO_PIP;
@@ -32,6 +33,7 @@ import static android.server.wm.app.Components.PipActivity.EXTRA_DISMISS_KEYGUAR
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ASPECT_RATIO_DENOMINATOR;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ASPECT_RATIO_NUMERATOR;
+import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ON_BACK_PRESSED;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ON_PAUSE;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ON_PIP_REQUESTED;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ON_USER_LEAVE_HINT;
@@ -41,6 +43,7 @@ import static android.server.wm.app.Components.PipActivity.EXTRA_FINISH_SELF_ON_
 import static android.server.wm.app.Components.PipActivity.EXTRA_IS_SEAMLESS_RESIZE_ENABLED;
 import static android.server.wm.app.Components.PipActivity.EXTRA_NUMBER_OF_CUSTOM_ACTIONS;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ON_PAUSE_DELAY;
+import static android.server.wm.app.Components.PipActivity.EXTRA_PIP_ON_PAUSE_CALLBACK;
 import static android.server.wm.app.Components.PipActivity.EXTRA_PIP_ORIENTATION;
 import static android.server.wm.app.Components.PipActivity.EXTRA_SET_ASPECT_RATIO_DENOMINATOR;
 import static android.server.wm.app.Components.PipActivity.EXTRA_SET_ASPECT_RATIO_NUMERATOR;
@@ -53,6 +56,7 @@ import static android.server.wm.app.Components.PipActivity.EXTRA_START_ACTIVITY;
 import static android.server.wm.app.Components.PipActivity.EXTRA_SUBTITLE;
 import static android.server.wm.app.Components.PipActivity.EXTRA_TAP_TO_FINISH;
 import static android.server.wm.app.Components.PipActivity.EXTRA_TITLE;
+import static android.server.wm.app.Components.PipActivity.IS_IN_PIP_MODE_RESULT;
 import static android.server.wm.app.Components.PipActivity.UI_STATE_STASHED_RESULT;
 import static android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD;
 
@@ -76,13 +80,17 @@ import android.server.wm.CommandSession;
 import android.util.Log;
 import android.util.Rational;
 
+import androidx.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class PipActivity extends AbstractLifecycleLogActivity {
 
     private boolean mEnteredPictureInPicture;
+    private boolean mEnterPipOnBackPressed;
     private RemoteCallback mCb;
+    private RemoteCallback mOnPauseCallback;
 
     private Handler mHandler = new Handler();
     private BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -91,7 +99,13 @@ public class PipActivity extends AbstractLifecycleLogActivity {
             if (intent != null) {
                 switch (intent.getAction()) {
                     case ACTION_ENTER_PIP:
-                        enterPictureInPictureMode();
+                        enterPictureInPictureMode(new PictureInPictureParams.Builder().build());
+                        if (intent.getExtras() != null) {
+                            mCb = (RemoteCallback) intent.getExtras().get(EXTRA_SET_PIP_CALLBACK);
+                            if (mCb != null) {
+                                mCb.sendResult(new Bundle());
+                            }
+                        }
                         break;
                     case ACTION_MOVE_TO_BACK:
                         moveTaskToBack(false /* nonRoot */);
@@ -141,6 +155,14 @@ public class PipActivity extends AbstractLifecycleLogActivity {
                     case ACTION_LAUNCH_TRANSLUCENT_ACTIVITY:
                         startActivity(new Intent(PipActivity.this, TranslucentTestActivity.class));
                         break;
+                    case ACTION_SET_ON_PAUSE_REMOTE_CALLBACK:
+                        mOnPauseCallback = intent.getParcelableExtra(
+                                EXTRA_PIP_ON_PAUSE_CALLBACK, RemoteCallback.class);
+                        // Signals the caller that we have received the mOnPauseCallback
+                        final RemoteCallback setCallback = intent.getParcelableExtra(
+                                EXTRA_SET_PIP_CALLBACK, RemoteCallback.class);
+                        setCallback.sendResult(Bundle.EMPTY);
+                        break;
                 }
             }
         }
@@ -157,18 +179,16 @@ public class PipActivity extends AbstractLifecycleLogActivity {
         }
 
         // Set the window flag to show over the keyguard
-        if (getIntent().hasExtra(EXTRA_SHOW_OVER_KEYGUARD)) {
-            setShowWhenLocked(true);
-        }
+        setShowWhenLocked(parseBooleanExtra(EXTRA_SHOW_OVER_KEYGUARD));
 
         // Set the window flag to dismiss the keyguard
-        if (getIntent().hasExtra(EXTRA_DISMISS_KEYGUARD)) {
+        if (parseBooleanExtra(EXTRA_DISMISS_KEYGUARD)) {
             getWindow().addFlags(FLAG_DISMISS_KEYGUARD);
         }
 
         boolean enteringPip = false;
         // Enter picture in picture with the given aspect ratio if provided
-        if (getIntent().hasExtra(EXTRA_ENTER_PIP)) {
+        if (parseBooleanExtra(EXTRA_ENTER_PIP)) {
             if (getIntent().hasExtra(EXTRA_ENTER_PIP_ASPECT_RATIO_NUMERATOR)
                     && getIntent().hasExtra(EXTRA_ENTER_PIP_ASPECT_RATIO_DENOMINATOR)) {
                 try {
@@ -210,7 +230,7 @@ public class PipActivity extends AbstractLifecycleLogActivity {
         final PictureInPictureParams.Builder sharedBuilder = new PictureInPictureParams.Builder();
         boolean sharedBuilderChanged = false;
 
-        if (getIntent().hasExtra(EXTRA_ALLOW_AUTO_PIP)) {
+        if (parseBooleanExtra(EXTRA_ALLOW_AUTO_PIP)) {
             sharedBuilder.setAutoEnterEnabled(true);
             sharedBuilderChanged = true;
         }
@@ -241,7 +261,7 @@ public class PipActivity extends AbstractLifecycleLogActivity {
         }
 
         // Enable tap to finish if necessary
-        if (getIntent().hasExtra(EXTRA_TAP_TO_FINISH)) {
+        if (parseBooleanExtra(EXTRA_TAP_TO_FINISH)) {
             setContentView(R.layout.tap_to_finish_pip_layout);
             findViewById(R.id.content).setOnClickListener(v -> {
                 finish();
@@ -283,6 +303,7 @@ public class PipActivity extends AbstractLifecycleLogActivity {
         filter.addAction(ACTION_ON_PIP_REQUESTED);
         filter.addAction(ACTION_CHANGE_ASPECT_RATIO);
         filter.addAction(ACTION_LAUNCH_TRANSLUCENT_ACTIVITY);
+        filter.addAction(ACTION_SET_ON_PAUSE_REMOTE_CALLBACK);
         registerReceiver(mReceiver, filter, Context.RECEIVER_EXPORTED);
 
         // Don't dump configuration when entering PIP to avoid the verifier getting the intermediate
@@ -293,6 +314,8 @@ public class PipActivity extends AbstractLifecycleLogActivity {
             dumpConfiguration(getResources().getConfiguration());
             dumpConfigInfo();
         }
+
+        mEnterPipOnBackPressed = parseBooleanExtra(EXTRA_ENTER_PIP_ON_BACK_PRESSED);
     }
 
     @Override
@@ -300,7 +323,7 @@ public class PipActivity extends AbstractLifecycleLogActivity {
         super.onResume();
 
         // Finish self if requested
-        if (getIntent().hasExtra(EXTRA_FINISH_SELF_ON_RESUME)) {
+        if (parseBooleanExtra(EXTRA_FINISH_SELF_ON_RESUME)) {
             finish();
         }
     }
@@ -315,8 +338,14 @@ public class PipActivity extends AbstractLifecycleLogActivity {
         }
 
         // Enter PIP on move to background
-        if (getIntent().hasExtra(EXTRA_ENTER_PIP_ON_PAUSE)) {
+        if (parseBooleanExtra(EXTRA_ENTER_PIP_ON_PAUSE)) {
             enterPictureInPictureMode(new PictureInPictureParams.Builder().build());
+        }
+
+        if (mOnPauseCallback != null) {
+            Bundle res = new Bundle(1);
+            res.putBoolean(IS_IN_PIP_MODE_RESULT, isInPictureInPictureMode());
+            mOnPauseCallback.sendResult(res);
         }
     }
 
@@ -324,7 +353,7 @@ public class PipActivity extends AbstractLifecycleLogActivity {
     protected void onStop() {
         super.onStop();
 
-        if (getIntent().hasExtra(EXTRA_ASSERT_NO_ON_STOP_BEFORE_PIP) && !mEnteredPictureInPicture) {
+        if (parseBooleanExtra(EXTRA_ASSERT_NO_ON_STOP_BEFORE_PIP) && !mEnteredPictureInPicture) {
             Log.w(getTag(), "Unexpected onStop() called before entering picture-in-picture");
             finish();
         }
@@ -340,7 +369,7 @@ public class PipActivity extends AbstractLifecycleLogActivity {
     @Override
     protected void onUserLeaveHint() {
         super.onUserLeaveHint();
-        if (getIntent().hasExtra(EXTRA_ENTER_PIP_ON_USER_LEAVE_HINT)) {
+        if (parseBooleanExtra(EXTRA_ENTER_PIP_ON_USER_LEAVE_HINT)) {
             enterPictureInPictureMode(new PictureInPictureParams.Builder().build());
         }
     }
@@ -348,7 +377,7 @@ public class PipActivity extends AbstractLifecycleLogActivity {
     @Override
     public boolean onPictureInPictureRequested() {
         onCallback(CommandSession.ActivityCallback.ON_PICTURE_IN_PICTURE_REQUESTED);
-        if (getIntent().hasExtra(EXTRA_ENTER_PIP_ON_PIP_REQUESTED)) {
+        if (parseBooleanExtra(EXTRA_ENTER_PIP_ON_PIP_REQUESTED)) {
             enterPictureInPictureMode(new PictureInPictureParams.Builder().build());
             return true;
         }
@@ -388,15 +417,31 @@ public class PipActivity extends AbstractLifecycleLogActivity {
         dumpConfigInfo();
     }
 
+    @Override
+    public void onBackPressed() {
+        if (mEnterPipOnBackPressed) {
+            enterPictureInPictureMode(new PictureInPictureParams.Builder().build());
+        } else {
+            super.onBackPressed();
+        }
+    }
+
     /**
      * Launches a new instance of the PipActivity in the same task that will automatically enter
      * PiP.
      */
-    static void launchEnterPipActivity(Activity caller) {
+    static void launchEnterPipActivity(Activity caller, @Nullable Bundle overrides) {
         final Intent intent = new Intent(caller, PipActivity.class);
         intent.putExtra(EXTRA_ENTER_PIP, "true");
         intent.putExtra(EXTRA_ASSERT_NO_ON_STOP_BEFORE_PIP, "true");
+        if (overrides != null) {
+            intent.putExtras(overrides);
+        }
         caller.startActivity(intent);
+    }
+
+    private boolean parseBooleanExtra(String key) {
+        return getIntent().hasExtra(key) && Boolean.parseBoolean(getIntent().getStringExtra(key));
     }
 
     /**

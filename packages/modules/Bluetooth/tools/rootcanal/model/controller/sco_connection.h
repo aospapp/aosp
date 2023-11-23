@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 
 #include "hci/address.h"
@@ -24,6 +25,7 @@
 namespace rootcanal {
 
 using ::bluetooth::hci::Address;
+using TaskId = uint32_t;
 
 /*
  * Notes about SCO / eSCO connection establishment:
@@ -59,11 +61,11 @@ struct ScoConnectionParameters {
   uint16_t packet_type;
 
   // Return true if packet_type enables extended SCO packets.
-  bool IsExtended();
+  bool IsExtended() const;
 
   // Return the link parameters for these connection parameters, if the
   // parameters are coherent, none otherwise.
-  std::optional<ScoLinkParameters> GetLinkParameters();
+  std::optional<ScoLinkParameters> GetLinkParameters() const;
 };
 
 enum ScoState {
@@ -74,22 +76,31 @@ enum ScoState {
   SCO_STATE_OPENED,
 };
 
+enum ScoDatapath {
+  NORMAL = 0,   // data is provided by the host over HCI
+  SPOOFED = 1,  // rootcanal generates data itself
+};
+
 class ScoConnection {
  public:
   ScoConnection(Address address, ScoConnectionParameters const& parameters,
-                ScoState state, bool legacy = false)
+                ScoState state, ScoDatapath datapath, bool legacy)
       : address_(address),
         parameters_(parameters),
         link_parameters_(),
         state_(state),
+        datapath_(datapath),
         legacy_(legacy) {}
 
-  virtual ~ScoConnection() = default;
+  ~ScoConnection();
 
   bool IsLegacy() const { return legacy_; }
   Address GetAddress() const { return address_; }
   ScoState GetState() const { return state_; }
   void SetState(ScoState state) { state_ = state; }
+
+  void StartStream(std::function<TaskId()> startStream);
+  void StopStream(std::function<void(TaskId)> stopStream);
 
   ScoConnectionParameters GetConnectionParameters() const {
     return parameters_;
@@ -104,11 +115,20 @@ class ScoConnection {
   // Return true if the negotiation was successful, false otherwise.
   bool NegotiateLinkParameters(ScoConnectionParameters const& peer);
 
+  ScoDatapath GetDatapath() const { return datapath_; }
+
  private:
   Address address_;
   ScoConnectionParameters parameters_;
   ScoLinkParameters link_parameters_;
   ScoState state_;
+
+  // whether we use HCI, spoof the data, or potential future datapaths
+  ScoDatapath datapath_;
+
+  // The handle of the async task managing the SCO stream, used to simulate
+  // offloaded input. None if HCI is used for input packets.
+  std::optional<TaskId> stream_handle_{};
 
   // Mark connections opened with the HCI command Add SCO Connection.
   // The connection status is reported with HCI Connection Complete event

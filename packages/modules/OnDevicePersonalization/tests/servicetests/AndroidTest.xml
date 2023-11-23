@@ -23,11 +23,16 @@
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true"/>
-        <option name="test-file-name" value="OnDevicePersonalizationManagerServicesTests.apk"/>
+        <option name="test-file-name" value="OnDevicePersonalizationManagingServicesTests.apk"/>
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest">
-        <option name="hidden-api-checks" value="false" />
+        <option name="hidden-api-checks" value="false" /> <!-- Allow hidden API uses -->
         <option name="package" value="com.android.ondevicepersonalization.servicetests"/>
     </test>
+
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
+        <option name="mainline-module-package-name" value="com.google.android.ondevicepersonalization" />
+    </object>
+    <option name="config-descriptor:metadata" key="mainline-param" value="com.google.android.ondevicepersonalization.apex" />
 </configuration>

@@ -17,6 +17,7 @@
 package android.app.stubs;
 
 import android.app.Service;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
@@ -69,7 +70,11 @@ public class HeartbeatService extends Service {
                 }
                 // AMS will kill the client if it received callback while being frozen
                 // Otherwise, the client will kill itself with SIGKILL
-                Intent intent = new Intent(IHeartbeat.HEARTBEAT_DONE);
+                Intent intent = new Intent();
+                intent.setAction(IHeartbeat.HEARTBEAT_DONE);
+                intent.setComponent(new ComponentName("android.app.stubs",
+                        "android.app.stubs.HeartbeatReceiver"));
+                intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
                 Log.d(TAG, "Notify the client heartbeat service is done");
                 sendBroadcast(intent);
                 Log.d(TAG, "Notify the monitor heartbeat service is done");

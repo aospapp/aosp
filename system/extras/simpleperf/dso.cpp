@@ -267,6 +267,9 @@ void Dso::SetDemangle(bool demangle) {
 }
 
 extern "C" char* __cxa_demangle(const char* mangled_name, char* buf, size_t* n, int* status);
+#if defined(__linux__) || defined(__darwin__)
+extern "C" char* rustc_demangle(const char* mangled, char* out, size_t* len, int* status);
+#endif
 
 std::string Dso::Demangle(const std::string& name) {
   if (!demangle_) {
@@ -278,19 +281,35 @@ std::string Dso::Demangle(const std::string& name) {
   if (is_linker_symbol) {
     mangled_str += linker_prefix.size();
   }
-  std::string result = name;
-  char* demangled_name = __cxa_demangle(mangled_str, nullptr, nullptr, &status);
-  if (status == 0) {
-    if (is_linker_symbol) {
-      result = std::string("[linker]") + demangled_name;
-    } else {
-      result = demangled_name;
+
+  if (mangled_str[0] == '_') {
+    char* demangled_name = nullptr;
+    int status = -2;  // -2 means name didn't demangle.
+    if (mangled_str[1] == 'Z') {
+      demangled_name = __cxa_demangle(mangled_str, nullptr, nullptr, &status);
+#if defined(__linux__) || defined(__darwin__)
+    } else if (mangled_str[1] == 'R') {
+      demangled_name = rustc_demangle(mangled_str, nullptr, nullptr, &status);
+#endif
     }
-    free(demangled_name);
-  } else if (is_linker_symbol) {
-    result = std::string("[linker]") + mangled_str;
+    if (status == 0) {
+      // demangled successfully
+      std::string result;
+      if (is_linker_symbol) {
+        result = std::string("[linker]") + demangled_name;
+      } else {
+        result = demangled_name;
+      }
+      free(demangled_name);
+      return result;
+    }
   }
-  return result;
+
+  // failed to demangle
+  if (is_linker_symbol) {
+    return std::string("[linker]") + mangled_str;
+  }
+  return name;
 }
 
 bool Dso::SetSymFsDir(const std::string& symfs_dir) {
@@ -554,8 +573,10 @@ class ElfDso : public Dso {
       if (elf) {
         min_vaddr_ = elf->ReadMinExecutableVaddr(&file_offset_of_min_vaddr_);
       } else {
-        LOG(WARNING) << "failed to read min virtual address of " << GetDebugFilePath() << ": "
-                     << status;
+        // This is likely to be a file wrongly thought of as an ELF file, due to stack unwinding.
+        // No need to report it by default.
+        LOG(DEBUG) << "failed to read min virtual address of " << GetDebugFilePath() << ": "
+                   << status;
       }
     }
     *min_vaddr = min_vaddr_;
@@ -617,8 +638,17 @@ class ElfDso : public Dso {
     if (elf) {
       status = elf->ParseSymbols(symbol_callback);
     }
-    ReportReadElfSymbolResult(status, path_, GetDebugFilePath(),
-                              symbols_.empty() ? android::base::WARNING : android::base::DEBUG);
+    android::base::LogSeverity log_level = android::base::WARNING;
+    if (!symbols_.empty() || !symbols.empty()) {
+      // We already have some symbols when recording.
+      log_level = android::base::DEBUG;
+    }
+    if ((status == ElfStatus::FILE_NOT_FOUND || status == ElfStatus::FILE_MALFORMED) &&
+        build_id.IsEmpty()) {
+      // This is likely to be a file wrongly thought of as an ELF file, due to stack unwinding.
+      log_level = android::base::DEBUG;
+    }
+    ReportReadElfSymbolResult(status, path_, GetDebugFilePath(), log_level);
     SortAndFixSymbols(symbols);
     return symbols;
   }
@@ -642,10 +672,7 @@ class KernelDso : public Dso {
       ElfStatus status;
       if (ElfFile::Open(vmlinux_, &build_id, &status)) {
         debug_file_path_ = vmlinux_;
-        has_debug_file_ = true;
       }
-    } else if (IsRegularFile(GetDebugFilePath())) {
-      has_debug_file_ = true;
     }
   }
 
@@ -675,9 +702,7 @@ class KernelDso : public Dso {
 
   std::vector<Symbol> LoadSymbolsImpl() override {
     std::vector<Symbol> symbols;
-    if (has_debug_file_) {
-      ReadSymbolsFromDebugFile(&symbols);
-    }
+    ReadSymbolsFromDebugFile(&symbols);
 
     if (symbols.empty() && !kallsyms_.empty()) {
       ReadSymbolsFromKallsyms(kallsyms_, &symbols);
@@ -696,6 +721,12 @@ class KernelDso : public Dso {
 
  private:
   void ReadSymbolsFromDebugFile(std::vector<Symbol>* symbols) {
+    ElfStatus status;
+    auto elf = ElfFile::Open(GetDebugFilePath(), &status);
+    if (!elf) {
+      return;
+    }
+
     if (!fix_kernel_address_randomization_) {
       LOG(WARNING) << "Don't know how to fix addresses changed by kernel address randomization. So "
                       "symbols in "
@@ -712,10 +743,7 @@ class KernelDso : public Dso {
         symbols->emplace_back(symbol.name, symbol.vaddr, symbol.len);
       }
     };
-    ElfStatus status;
-    if (auto elf = ElfFile::Open(GetDebugFilePath(), &status); elf) {
-      status = elf->ParseSymbols(symbol_callback);
-    }
+    status = elf->ParseSymbols(symbol_callback);
     ReportReadElfSymbolResult(status, path_, GetDebugFilePath());
   }
 
@@ -779,21 +807,18 @@ class KernelDso : public Dso {
   void ParseKernelStartAddr() {
     kernel_start_addr_ = 0;
     kernel_start_file_offset_ = 0;
-    if (has_debug_file_) {
-      ElfStatus status;
-      if (auto elf = ElfFile::Open(GetDebugFilePath(), &status); elf) {
-        for (const auto& section : elf->GetSectionHeader()) {
-          if (section.name == ".text") {
-            kernel_start_addr_ = section.vaddr;
-            kernel_start_file_offset_ = section.file_offset;
-            break;
-          }
+    ElfStatus status;
+    if (auto elf = ElfFile::Open(GetDebugFilePath(), &status); elf) {
+      for (const auto& section : elf->GetSectionHeader()) {
+        if (section.name == ".text") {
+          kernel_start_addr_ = section.vaddr;
+          kernel_start_file_offset_ = section.file_offset;
+          break;
         }
       }
     }
   }
 
-  bool has_debug_file_ = false;
   bool fix_kernel_address_randomization_ = false;
   std::optional<uint64_t> kernel_start_addr_;
   std::optional<uint64_t> kernel_start_file_offset_;
@@ -866,10 +891,9 @@ class KernelModuleDso : public Dso {
     // need to know its relative position in the module memory. There are two ways:
     // 1. Read the kernel module file to calculate the relative position of .text section. It
     // is relatively complex and depends on both PLT entries and the kernel version.
-    // 2. Find a module symbol in .text section, get its address in memory from /proc/kallsyms, and
-    // its vaddr_in_file from the kernel module file. Then other symbols in .text section can be
-    // mapped in the same way.
-    // Below we use the second method.
+    // 2. Find a module symbol in .text section, get its address in memory from /proc/kallsyms,
+    // and its vaddr_in_file from the kernel module file. Then other symbols in .text section can
+    // be mapped in the same way. Below we use the second method.
 
     // 1. Select a module symbol in /proc/kallsyms.
     kernel_dso_->LoadSymbols();
@@ -944,9 +968,9 @@ std::unique_ptr<Dso> Dso::CreateDso(DsoType dso_type, const std::string& dso_pat
     case DSO_UNKNOWN_FILE:
       return std::unique_ptr<Dso>(new UnknownDso(dso_path));
     default:
-      LOG(FATAL) << "Unexpected dso_type " << static_cast<int>(dso_type);
+      LOG(ERROR) << "Unexpected dso_type " << static_cast<int>(dso_type);
+      return nullptr;
   }
-  return nullptr;
 }
 
 std::unique_ptr<Dso> Dso::CreateDsoWithBuildId(DsoType dso_type, const std::string& dso_path,
@@ -963,7 +987,7 @@ std::unique_ptr<Dso> Dso::CreateDsoWithBuildId(DsoType dso_type, const std::stri
       dso.reset(new KernelModuleDso(dso_path, 0, 0, nullptr));
       break;
     default:
-      LOG(FATAL) << "Unexpected dso_type " << static_cast<int>(dso_type);
+      LOG(ERROR) << "Unexpected dso_type " << static_cast<int>(dso_type);
       return nullptr;
   }
   dso->debug_file_path_ = debug_elf_file_finder_.FindDebugFile(dso_path, false, build_id);
@@ -997,6 +1021,32 @@ bool GetBuildIdFromDsoPath(const std::string& dso_path, BuildId* build_id) {
   auto elf = ElfFile::Open(dso_path, &status);
   if (status == ElfStatus::NO_ERROR && elf->GetBuildId(build_id) == ElfStatus::NO_ERROR) {
     return true;
+  }
+  return false;
+}
+
+bool GetBuildId(const Dso& dso, BuildId& build_id) {
+  if (dso.type() == DSO_KERNEL) {
+    if (GetKernelBuildId(&build_id)) {
+      return true;
+    }
+  } else if (dso.type() == DSO_KERNEL_MODULE) {
+    bool has_build_id = false;
+    if (android::base::EndsWith(dso.Path(), ".ko")) {
+      return GetBuildIdFromDsoPath(dso.Path(), &build_id);
+    }
+    if (const std::string& path = dso.Path();
+        path.size() > 2 && path[0] == '[' && path.back() == ']') {
+      // For kernel modules that we can't find the corresponding file, read build id from /sysfs.
+      return GetModuleBuildId(path.substr(1, path.size() - 2), &build_id);
+    }
+  } else if (dso.type() == DSO_ELF_FILE) {
+    if (dso.Path() == DEFAULT_EXECNAME_FOR_THREAD_MMAP || dso.IsForJavaMethod()) {
+      return false;
+    }
+    if (GetBuildIdFromDsoPath(dso.Path(), &build_id)) {
+      return true;
+    }
   }
   return false;
 }

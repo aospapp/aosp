@@ -162,7 +162,8 @@ status_t HidlCamera3Device::initialize(sp<CameraProviderManager> manager,
         return res;
     }
 
-    res = manager->getCameraCharacteristics(mId.string(), mOverrideForPerfClass, &mDeviceInfo);
+    res = manager->getCameraCharacteristics(mId.string(), mOverrideForPerfClass, &mDeviceInfo,
+            /*overrideToPortrait*/false);
     if (res != OK) {
         SET_ERR_L("Could not retrieve camera characteristics: %s (%d)", strerror(-res), res);
         session->close();
@@ -176,7 +177,8 @@ status_t HidlCamera3Device::initialize(sp<CameraProviderManager> manager,
         for (auto& physicalId : physicalCameraIds) {
             // Do not override characteristics for physical cameras
             res = manager->getCameraCharacteristics(
-                    physicalId, /*overrideForPerfClass*/false, &mPhysicalDeviceInfoMap[physicalId]);
+                    physicalId, /*overrideForPerfClass*/false, &mPhysicalDeviceInfoMap[physicalId],
+                    /*overrideToPortrait*/false);
             if (res != OK) {
                 SET_ERR_L("Could not retrieve camera %s characteristics: %s (%d)",
                         physicalId.c_str(), strerror(-res), res);
@@ -201,7 +203,7 @@ status_t HidlCamera3Device::initialize(sp<CameraProviderManager> manager,
                     &mPhysicalDeviceInfoMap[physicalId],
                     mSupportNativeZoomRatio, usePrecorrectArray);
 
-            if (SessionConfigurationUtils::isUltraHighResolutionSensor(
+            if (SessionConfigurationUtils::supportsUltraHighResolutionCapture(
                     mPhysicalDeviceInfoMap[physicalId])) {
                 mUHRCropAndMeteringRegionMappers[physicalId] =
                         UHRCropAndMeteringRegionMapper(mPhysicalDeviceInfoMap[physicalId],
@@ -363,7 +365,8 @@ hardware::Return<void> HidlCamera3Device::processCaptureResult_3_4(
         mNumPartialResults, mVendorTagId, mDeviceInfo, mPhysicalDeviceInfoMap,
         mDistortionMappers, mZoomRatioMappers, mRotateAndCropMappers,
         mTagMonitor, mInputStream, mOutputStreams, mSessionStatsBuilder, listener, *this, *this,
-        *mInterface, mLegacyClient, mMinExpectedDuration}, mResultMetadataQueue
+        *mInterface, mLegacyClient, mMinExpectedDuration, mIsFixedFps, mOverrideToPortrait,
+        mActivePhysicalId}, mResultMetadataQueue
     };
 
     //HidlCaptureOutputStates hidlStates {
@@ -425,7 +428,8 @@ hardware::Return<void> HidlCamera3Device::processCaptureResult(
         mNumPartialResults, mVendorTagId, mDeviceInfo, mPhysicalDeviceInfoMap,
         mDistortionMappers, mZoomRatioMappers, mRotateAndCropMappers,
         mTagMonitor, mInputStream, mOutputStreams, mSessionStatsBuilder, listener, *this, *this,
-        *mInterface, mLegacyClient, mMinExpectedDuration}, mResultMetadataQueue
+        *mInterface, mLegacyClient, mMinExpectedDuration, mIsFixedFps, mOverrideToPortrait,
+        mActivePhysicalId}, mResultMetadataQueue
     };
 
     for (const auto& result : results) {
@@ -472,7 +476,8 @@ hardware::Return<void> HidlCamera3Device::notifyHelper(
         mNumPartialResults, mVendorTagId, mDeviceInfo, mPhysicalDeviceInfoMap,
         mDistortionMappers, mZoomRatioMappers, mRotateAndCropMappers,
         mTagMonitor, mInputStream, mOutputStreams, mSessionStatsBuilder, listener, *this, *this,
-        *mInterface, mLegacyClient, mMinExpectedDuration}, mResultMetadataQueue
+        *mInterface, mLegacyClient, mMinExpectedDuration, mIsFixedFps, mOverrideToPortrait,
+        mActivePhysicalId}, mResultMetadataQueue
     };
     for (const auto& msg : msgs) {
         camera3::notify(states, msg);
@@ -698,9 +703,11 @@ sp<Camera3Device::RequestThread> HidlCamera3Device::createNewRequestThread(
                 sp<Camera3Device::HalInterface> interface,
                 const Vector<int32_t>& sessionParamKeys,
                 bool useHalBufManager,
-                bool supportCameraMute) {
+                bool supportCameraMute,
+                bool overrideToPortrait,
+                bool supportSettingsOverride) {
         return new HidlRequestThread(parent, statusTracker, interface, sessionParamKeys,
-                useHalBufManager, supportCameraMute);
+                useHalBufManager, supportCameraMute, overrideToPortrait, supportSettingsOverride);
 };
 
 sp<Camera3Device::Camera3DeviceInjectionMethods>
@@ -874,7 +881,8 @@ bool HidlCamera3Device::HidlHalInterface::isReconfigurationRequired(
 
 status_t HidlCamera3Device::HidlHalInterface::configureStreams(
         const camera_metadata_t *sessionParams,
-        camera_stream_configuration *config, const std::vector<uint32_t>& bufferSizes) {
+        camera_stream_configuration *config, const std::vector<uint32_t>& bufferSizes,
+        int64_t /*logId*/) {
     ATRACE_NAME("CameraHal::configureStreams");
     if (!valid()) return INVALID_OPERATION;
     status_t res = OK;
@@ -1693,9 +1701,11 @@ HidlCamera3Device::HidlRequestThread::HidlRequestThread(wp<Camera3Device> parent
                 sp<HalInterface> interface,
                 const Vector<int32_t>& sessionParamKeys,
                 bool useHalBufManager,
-                bool supportCameraMute) :
+                bool supportCameraMute,
+                bool overrideToPortrait,
+                bool supportSettingsOverride) :
           RequestThread(parent, statusTracker, interface, sessionParamKeys, useHalBufManager,
-                  supportCameraMute) {}
+                  supportCameraMute, overrideToPortrait, supportSettingsOverride) {}
 
 status_t HidlCamera3Device::HidlRequestThread::switchToOffline(
         const std::vector<int32_t>& streamsToKeep,

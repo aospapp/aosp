@@ -88,6 +88,10 @@ public class ConfigMetricsReportListConverter {
             stringsSet.addAll(report.getStringsList());
             // Each statsReport is for a different metric in the report.
             for (StatsLogProto.StatsLogReport statsReport : report.getMetricsList()) {
+                if (statsReport.getDataCase()
+                        == StatsLogProto.StatsLogReport.DataCase.DATA_NOT_SET) {
+                    continue;
+                }
                 Long metricId = statsReport.getMetricId();
                 if (!metricsStatsReportMap.containsKey(metricId)) {
                     metricsStatsReportMap.put(
@@ -102,7 +106,6 @@ public class ConfigMetricsReportListConverter {
         for (Map.Entry<Long, List<StatsLogProto.StatsLogReport>>
                     entry : metricsStatsReportMap.entrySet()) {
             PersistableBundle statsReportBundle = null;
-            Long metricId = entry.getKey();
             List<StatsLogProto.StatsLogReport> statsReportList = entry.getValue();
             switch (statsReportList.get(0).getDataCase()) {
                 case EVENT_METRICS:
@@ -128,7 +131,7 @@ public class ConfigMetricsReportListConverter {
                     break;
             }
             if (statsReportBundle != null) {
-                metricIdBundleMap.put(metricId, statsReportBundle);
+                metricIdBundleMap.put(entry.getKey(), statsReportBundle);
             }
         }
         return metricIdBundleMap;

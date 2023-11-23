@@ -17,6 +17,7 @@
 package android.cts.install;
 
 import static com.android.cts.install.lib.InstallUtils.getPackageInfo;
+import static com.android.cts.install.lib.PackageInstallerSessionInfoSubject.assertThat;
 import static com.android.cts.shim.lib.ShimPackage.SHIM_APEX_PACKAGE_NAME;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -118,7 +119,7 @@ public final class SamegradeTest {
     /** Confirms versions after staged samegrades applied. */
     @Test
     public void assert_postReboot_phase() throws Exception {
-        assertThat(mSessionRule.retrieveSessionInfo().isStagedSessionApplied()).isTrue();
+        assertThat(mSessionRule.retrieveSessionInfo()).isStagedSessionApplied();
         mInstallRule.assertPackageVersion(mInstallType, VERSION_CODE_SAMEGRADE);
     }
 
@@ -139,8 +140,7 @@ public final class SamegradeTest {
 
     @Test
     public void assert_systemApex_postReboot_phase() throws Exception {
-        final int INSTALLED_ON_DATA_PART = 0;
-        assertThat(mSessionRule.retrieveSessionInfo().isStagedSessionApplied()).isTrue();
+        assertThat(mSessionRule.retrieveSessionInfo()).isStagedSessionApplied();
 
         final PackageInfo shim = getPackageInfo(SHIM_APEX_PACKAGE_NAME);
         assertThat(shim).isNotNull();
@@ -148,8 +148,8 @@ public final class SamegradeTest {
                 .isEqualTo(VERSION_CODE_SAMEGRADE_SYSTEM);
 
         // Check that APEX on /data wins.
-        assertThat(shim.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM)
-                .isEqualTo(INSTALLED_ON_DATA_PART);
+        assertThat(shim.applicationInfo.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)
+                .isEqualTo(ApplicationInfo.FLAG_UPDATED_SYSTEM_APP);
         assertThat(shim.applicationInfo.flags & ApplicationInfo.FLAG_INSTALLED)
                 .isEqualTo(ApplicationInfo.FLAG_INSTALLED);
         assertThat(shim.applicationInfo.sourceDir)

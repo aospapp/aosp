@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -15,18 +16,21 @@ class autoupdate_CannedOmahaUpdate(update_engine_test.UpdateEngineTest):
     version = 1
 
 
-    def run_canned_update(self, allow_failure, update_url):
+    def run_canned_update(self, allow_failure, update_url, interactive):
         """
         Performs the update.
 
         @param allow_failure: True if we dont raise an error on failure.
         @param update_url: The URL to get an update.
+        @param interactive: Whether the update is interactive or not.
 
         """
 
         try:
-            self._check_for_update(update_url, critical_update=True,
-                                   wait_for_completion=True)
+            self._check_for_update(update_url,
+                                   critical_update=True,
+                                   wait_for_completion=True,
+                                   interactive=interactive)
         except error.CmdError as e:
             if not allow_failure:
                 raise error.TestFail('Update attempt failed: %s' %
@@ -35,8 +39,12 @@ class autoupdate_CannedOmahaUpdate(update_engine_test.UpdateEngineTest):
                 logging.info('Ignoring failed update. Failure reason: %s', e)
 
 
-    def run_once(self, payload_url, allow_failure=False, public_key=None,
-                 use_cellular=False):
+    def run_once(self,
+                 payload_url,
+                 allow_failure=False,
+                 public_key=None,
+                 use_cellular=False,
+                 interactive=True):
         """
         Runs an update with a canned response using Nebraska.
 
@@ -44,6 +52,7 @@ class autoupdate_CannedOmahaUpdate(update_engine_test.UpdateEngineTest):
         @param allow_failure: If true, failing the update is expected.
         @param public_key: The public key to serve to the update client.
         @param use_cellular: True if this test uses cellular.
+        @param interactive: Whether the update is interactive or not.
 
         """
 
@@ -52,7 +61,8 @@ class autoupdate_CannedOmahaUpdate(update_engine_test.UpdateEngineTest):
             public_key=public_key) as nebraska:
 
             if not use_cellular:
-                self.run_canned_update(allow_failure, nebraska.get_update_url())
+                self.run_canned_update(allow_failure,
+                                       nebraska.get_update_url(), interactive)
                 return
 
             # Setup DUT so that we have ssh over ethernet but DUT uses
@@ -67,7 +77,8 @@ class autoupdate_CannedOmahaUpdate(update_engine_test.UpdateEngineTest):
                     test_env.shill.connect_service_synchronous(
                             service, CONNECT_TIMEOUT)
                     self.run_canned_update(allow_failure,
-                                           nebraska.get_update_url())
+                                           nebraska.get_update_url(),
+                                           interactive)
             except error.TestError as e:
                 # Raise as test failure instead of test error so it is
                 # propagated to the server test's failure message.

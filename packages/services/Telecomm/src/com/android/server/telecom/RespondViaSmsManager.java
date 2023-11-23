@@ -31,11 +31,13 @@ import android.telecom.Response;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.SmsManager;
 import android.telephony.SubscriptionManager;
+import android.text.BidiFormatter;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.TextUtils;
 import android.widget.Toast;
 
+import java.text.Bidi;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -158,7 +160,9 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
         final String formatString = res.getString(success
                 ? R.string.respond_via_sms_confirmation_format
                 : R.string.respond_via_sms_failure_format);
-        final String confirmationMsg = String.format(formatString, phoneNumber);
+        final BidiFormatter phoneNumberFormatter = BidiFormatter.getInstance();
+        final String confirmationMsg = String.format(formatString,
+                phoneNumberFormatter.unicodeWrap(phoneNumber));
         int startingPosition = confirmationMsg.indexOf(phoneNumber);
         int endingPosition = startingPosition + phoneNumber.length();
 
@@ -207,10 +211,13 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
                         PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
                 sentIntents.add(pendingIntent);
             }
+
             MessageSentReceiver receiver = new MessageSentReceiver(
                     !TextUtils.isEmpty(contactName) ? contactName : phoneNumber,
                     messageParts.size());
-            context.registerReceiver(receiver, new IntentFilter(ACTION_MESSAGE_SENT));
+            IntentFilter messageSentFilter = new IntentFilter(ACTION_MESSAGE_SENT);
+            messageSentFilter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
+            context.registerReceiver(receiver, messageSentFilter, Context.RECEIVER_NOT_EXPORTED);
             smsManager.sendMultipartTextMessage(phoneNumber, null, messageParts,
                     sentIntents/*sentIntent*/, null /*deliveryIntent*/, context.getOpPackageName(),
                     context.getAttributionTag());

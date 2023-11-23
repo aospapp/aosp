@@ -8,3 +8,5 @@
 # Sensor registry data files.
 /data/vendor/sensors/registry(/.*)? u:object_r:sensor_reg_data_file:s0
 
+# Sensor debug data files.
+/data/vendor/sensors/debug(/.*)? u:object_r:sensor_debug_data_file:s0

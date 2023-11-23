@@ -33,12 +33,11 @@ import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.settingslib.utils.ThreadUtils;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.library.enterprise.EnterprisePrivacyFeatureProvider;
-import com.android.tv.settings.library.enterprise.apps.ApplicationFeatureProvider;
-import com.android.tv.settings.library.enterprise.apps.EnterpriseDefaultApps;
-import com.android.tv.settings.library.enterprise.apps.UserAppInfo;
-import com.android.tv.settings.library.overlay.FeatureFactory;
-import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.enterprise.apps.ApplicationFeatureProvider;
+import com.android.tv.settings.enterprise.apps.EnterpriseDefaultApps;
+import com.android.tv.settings.enterprise.apps.UserAppInfo;
+import com.android.tv.settings.overlay.FeatureFactory;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;

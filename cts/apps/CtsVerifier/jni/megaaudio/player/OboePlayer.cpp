@@ -16,6 +16,7 @@
 #include <android/log.h>
 
 #include "OboePlayer.h"
+
 #include "WaveTableSource.h"
 
 #include "AudioSource.h"
@@ -57,34 +58,36 @@ DataCallbackResult OboePlayer::onAudioReady(AudioStream *oboeStream, void *audio
 }
 
 void OboePlayer::onErrorAfterClose(AudioStream *oboeStream, oboe::Result error) {
-    __android_log_print(ANDROID_LOG_INFO, TAG, "==== onErrorAfterClose() error:%d", error);
-
-    startStream();
 }
 
 void OboePlayer::onErrorBeforeClose(AudioStream *, oboe::Result error) {
-    __android_log_print(ANDROID_LOG_INFO, TAG, "==== onErrorBeforeClose() error:%d", error);
 }
 
-StreamBase::Result OboePlayer::setupStream(int32_t channelCount, int32_t sampleRate, int32_t routeDeviceId) {
+StreamBase::Result OboePlayer::setupStream(int32_t channelCount, int32_t sampleRate,
+                    int32_t performanceMode, int32_t sharingMode,
+                    int32_t routeDeviceId) {
+
+   __android_log_print(ANDROID_LOG_INFO, TAG, "setupStream mAudioStream()...");
 
     oboe::Result result = oboe::Result::ErrorInternal;
     if (mAudioStream != nullptr) {
         return ERROR_INVALID_STATE;
     } else {
+        __android_log_print(ANDROID_LOG_INFO, TAG, "  ****");
         std::lock_guard<std::mutex> lock(mStreamLock);
 
         mChannelCount = channelCount;
         mSampleRate = sampleRate;
         mRouteDeviceId = routeDeviceId;
+        __android_log_print(ANDROID_LOG_INFO, TAG, " mChannelCount:%d, mSampleRate:%d",
+                    channelCount, mSampleRate);
 
         // Create an audio stream
         AudioStreamBuilder builder;
         builder.setChannelCount(mChannelCount);
         builder.setSampleRate(mSampleRate);
         builder.setCallback(this);
-        builder.setPerformanceMode(PerformanceMode::LowLatency);
-        builder.setSharingMode(SharingMode::Exclusive);
+
         builder.setSampleRateConversionQuality(SampleRateConversionQuality::None);
         builder.setDirection(Direction::Output);
         switch (mSubtype) {
@@ -96,6 +99,9 @@ StreamBase::Result OboePlayer::setupStream(int32_t channelCount, int32_t sampleR
             builder.setAudioApi(AudioApi::OpenSLES);
             break;
         }
+
+        builder.setPerformanceMode((PerformanceMode) performanceMode);
+        builder.setSharingMode((SharingMode) sharingMode);
 
         if (mRouteDeviceId != ROUTING_DEVICE_NONE) {
             builder.setDeviceId(mRouteDeviceId);
@@ -109,8 +115,8 @@ StreamBase::Result OboePlayer::setupStream(int32_t channelCount, int32_t sampleR
                     "openStream failed. Error: %s", convertToText(result));
         } else {
             // Reduce stream latency by setting the buffer size to a multiple of the burst size
-            // Note: this will fail with ErrorUnimplemented if we are using a callback with OpenSL ES
-            // See oboe::AudioStreamBuffered::setBufferSizeInFrames
+            // Note: this will fail with ErrorUnimplemented if we are using a callback with
+            //  OpenSL ES. See oboe::AudioStreamBuffered::setBufferSizeInFrames
             // This doesn't affect the success of opening the stream.
             int32_t desiredSize = mAudioStream->getFramesPerBurst() * kBufferSizeInBursts;
             mAudioStream->setBufferSizeInFrames(desiredSize);
@@ -118,7 +124,7 @@ StreamBase::Result OboePlayer::setupStream(int32_t channelCount, int32_t sampleR
             mAudioSource->init(desiredSize , mChannelCount);
         }
     }
-
+    __android_log_print(ANDROID_LOG_INFO, TAG, " Done - error:%d", result);
     return OboeErrorToMegaAudioError(result);
 }
 
@@ -142,12 +148,14 @@ bool OboePlayer::getJavaTimestamp(jobject timestampObj) {
     return result == OK;
 }
 
+int OboePlayer::getLastErrorCallbackResult() {
+    return (int)(mAudioStream->getLastErrorCallbackResult());
+}
+
 //
 // JNI functions
 //
 #include <jni.h>
-
-#include <android/log.h>
 
 extern "C" {
 JNIEXPORT JNICALL jlong
@@ -159,10 +167,12 @@ Java_org_hyphonate_megaaudio_player_OboePlayer_allocNativePlayer(
 
 JNIEXPORT jint JNICALL Java_org_hyphonate_megaaudio_player_OboePlayer_setupStreamN(
         JNIEnv *env, jobject thiz, jlong native_player,
-        jint channel_count, jint sample_rate, jint routeDeviceId) {
+        jint channel_count, jint sample_rate, jint performanceMode,
+        jint sharingMode, jint routeDeviceId) {
 
     OboePlayer* player = (OboePlayer*)native_player;
-    return player->setupStream(channel_count, sample_rate, routeDeviceId);
+    return player->setupStream(channel_count, sample_rate, performanceMode, sharingMode,
+                                routeDeviceId);
 }
 
 JNIEXPORT int JNICALL Java_org_hyphonate_megaaudio_player_OboePlayer_teardownStreamN(
@@ -179,22 +189,36 @@ JNIEXPORT JNICALL jint Java_org_hyphonate_megaaudio_player_OboePlayer_startStrea
 }
 
 JNIEXPORT JNICALL jint
-Java_org_hyphonate_megaaudio_player_OboePlayer_stopN(JNIEnv *env, jobject thiz, jlong native_player) {
+Java_org_hyphonate_megaaudio_player_OboePlayer_stopN(JNIEnv *env, jobject thiz,
+            jlong native_player) {
 
    return ((OboePlayer*)(native_player))->stopStream();
 }
 
 JNIEXPORT jint JNICALL
-Java_org_hyphonate_megaaudio_player_OboePlayer_getBufferFrameCountN(JNIEnv *env, jobject thiz,  jlong native_player) {
+Java_org_hyphonate_megaaudio_player_OboePlayer_getBufferFrameCountN(JNIEnv *env, jobject thiz,
+            jlong native_player) {
     return ((OboePlayer*)(native_player))->getNumBufferFrames();
 }
 
-JNIEXPORT jint JNICALL Java_org_hyphonate_megaaudio_player_OboePlayer_getRoutedDeviceIdN(JNIEnv *env, jobject thiz, jlong native_player) {
+JNIEXPORT jint JNICALL Java_org_hyphonate_megaaudio_player_OboePlayer_getRoutedDeviceIdN(
+            JNIEnv *env, jobject thiz, jlong native_player) {
     return ((OboePlayer*)(native_player))->getRoutedDeviceId();
 }
 
-JNIEXPORT jboolean JNICALL Java_org_hyphonate_megaaudio_player_OboePlayer_getTimestampN(JNIEnv *env, jobject thiz, jlong native_player, jobject timestamp) {
+JNIEXPORT jboolean JNICALL Java_org_hyphonate_megaaudio_player_OboePlayer_getTimestampN(
+            JNIEnv *env, jobject thiz, jlong native_player, jobject timestamp) {
     return ((OboePlayer*)native_player)->getJavaTimestamp(timestamp);
+}
+
+JNIEXPORT jint JNICALL Java_org_hyphonate_megaaudio_player_OboePlayer_getStreamStateN(
+            JNIEnv *env, jobject thiz, jlong native_player) {
+    return (int)((OboePlayer*)(native_player))->getState();
+}
+
+JNIEXPORT jint JNICALL Java_org_hyphonate_megaaudio_player_OboePlayer_getLastErrorCallbackResultN(
+            JNIEnv *env, jobject thiz, jlong native_player) {
+    return (int)((OboePlayer*)(native_player))->getLastErrorCallbackResult();
 }
 
 } // extern "C"

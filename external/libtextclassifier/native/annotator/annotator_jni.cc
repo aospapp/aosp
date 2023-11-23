@@ -275,6 +275,7 @@ StatusOr<ScopedLocalRef<jobject>> ClassificationResultWithIntentsToJObject(
             device_locales, classification_result,
             options->reference_time_ms_utc, context, selection_indices,
             app_context, model_context->model()->entity_data_schema(),
+            options->enable_add_contact_intent, options->enable_search_intent,
             &remote_action_templates)) {
       return {Status::UNKNOWN};
     }
@@ -896,6 +897,9 @@ TC3_JNI_METHOD(void, TC3_ANNOTATOR_CLASS_NAME, nativeCloseAnnotator)
 (JNIEnv* env, jobject thiz, jlong ptr) {
   const AnnotatorJniContext* context =
       reinterpret_cast<AnnotatorJniContext*>(ptr);
+  if (context != nullptr && context->model()) {
+    context->model()->CleanUpContactEngine();
+  }
   delete context;
 }
 

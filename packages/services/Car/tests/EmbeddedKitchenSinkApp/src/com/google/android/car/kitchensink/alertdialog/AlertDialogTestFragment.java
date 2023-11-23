@@ -58,13 +58,13 @@ public class AlertDialogTestFragment extends Fragment {
                 builder.setTitle("Alert Title")
                         .setMessage("Message for Alert dialog window, this part is text only")
                         .setPositiveButton(
-                                android.R.string.yes, new DialogInterface.OnClickListener() {
+                                android.R.string.ok, new DialogInterface.OnClickListener() {
                             public void onClick(DialogInterface dialog, int which) {
                                 // do nothing
                             }
                         })
                         .setNegativeButton(
-                                android.R.string.no, new DialogInterface.OnClickListener() {
+                                android.R.string.cancel, new DialogInterface.OnClickListener() {
                             public void onClick(DialogInterface dialog, int which) {
                                 // do nothing
                             }
@@ -82,13 +82,13 @@ public class AlertDialogTestFragment extends Fragment {
                 builder.setTitle("Alert Title")
                         .setView(R.layout.alert_dialog_bluetooth_pin_entry)
                         .setPositiveButton(
-                                android.R.string.yes, new DialogInterface.OnClickListener() {
+                                android.R.string.ok, new DialogInterface.OnClickListener() {
                                     public void onClick(DialogInterface dialog, int which) {
                                         // do nothing
                                     }
                                 })
                         .setNegativeButton(
-                                android.R.string.no, new DialogInterface.OnClickListener() {
+                                android.R.string.cancel, new DialogInterface.OnClickListener() {
                                     public void onClick(DialogInterface dialog, int which) {
                                         // do nothing
                                     }
@@ -106,13 +106,13 @@ public class AlertDialogTestFragment extends Fragment {
                 builder.setTitle("Alert Title")
                         .setView(R.layout.alert_dialog_bluetooth_pin_confirm)
                         .setPositiveButton(
-                                android.R.string.yes, new DialogInterface.OnClickListener() {
+                                android.R.string.ok, new DialogInterface.OnClickListener() {
                                     public void onClick(DialogInterface dialog, int which) {
                                         // do nothing
                                     }
                                 })
                         .setNegativeButton(
-                                android.R.string.no, new DialogInterface.OnClickListener() {
+                                android.R.string.cancel, new DialogInterface.OnClickListener() {
                                     public void onClick(DialogInterface dialog, int which) {
                                         // do nothing
                                     }

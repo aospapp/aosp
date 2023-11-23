@@ -91,6 +91,11 @@ uint32_t GetNativeMethodAnnotationAccessFlags(const DexFile& dex_file,
 bool MethodIsNeverCompile(const DexFile& dex_file,
                           const dex::ClassDef& class_def,
                           uint32_t method_index);
+// Is the method from the `dex_file` with the given `field_index`
+// annotated with @dalvik.annotation.optimization.NeverInline?
+bool MethodIsNeverInline(const DexFile& dex_file,
+                         const dex::ClassDef& class_def,
+                         uint32_t method_index);
 // Is the field from the `dex_file` with the given `field_index`
 // annotated with @dalvik.annotation.optimization.ReachabilitySensitive?
 bool FieldIsReachabilitySensitive(const DexFile& dex_file,
@@ -136,6 +141,16 @@ ObjPtr<mirror::ObjectArray<mirror::String>> GetSignatureAnnotationForClass(
     Handle<mirror::Class> klass) REQUIRES_SHARED(Locks::mutator_lock_);
 const char* GetSourceDebugExtension(Handle<mirror::Class> klass)
     REQUIRES_SHARED(Locks::mutator_lock_);
+ObjPtr<mirror::Class> GetNestHost(Handle<mirror::Class> klass)
+    REQUIRES_SHARED(Locks::mutator_lock_);
+ObjPtr<mirror::ObjectArray<mirror::Class>> GetNestMembers(Handle<mirror::Class> klass)
+    REQUIRES_SHARED(Locks::mutator_lock_);
+ObjPtr<mirror::Object> getRecordAnnotationElement(Handle<mirror::Class> klass,
+                                                  Handle<mirror::Class> array_class,
+                                                  const char* element_name)
+    REQUIRES_SHARED(Locks::mutator_lock_);
+ObjPtr<mirror::ObjectArray<mirror::Class>> GetPermittedSubclasses(Handle<mirror::Class> klass)
+    REQUIRES_SHARED(Locks::mutator_lock_);
 bool IsClassAnnotationPresent(Handle<mirror::Class> klass,
                               Handle<mirror::Class> annotation_class)
     REQUIRES_SHARED(Locks::mutator_lock_);
@@ -168,6 +183,26 @@ class RuntimeEncodedStaticFieldValueIterator : public EncodedStaticFieldValueIte
   ClassLinker* const linker_;  // Linker to resolve literal objects.
   DISALLOW_IMPLICIT_CONSTRUCTORS(RuntimeEncodedStaticFieldValueIterator);
 };
+
+enum class VisitorStatus : uint8_t { kVisitBreak, kVisitNext, kVisitInner };
+
+class AnnotationVisitor {
+ public:
+  virtual ~AnnotationVisitor() {}
+  virtual VisitorStatus VisitAnnotation(const char* annotation_descriptor, uint8_t visibility) = 0;
+  virtual VisitorStatus VisitAnnotationElement(const char* element_name,
+                                               uint8_t type,
+                                               const JValue& value) = 0;
+  virtual VisitorStatus VisitArrayElement(uint8_t depth,
+                                          uint32_t index,
+                                          uint8_t type,
+                                          const JValue& value) = 0;
+};
+
+// Visit all annotation elements and array elements without creating
+// Arrays or Objects in the managed heap.
+void VisitClassAnnotations(Handle<mirror::Class> klass, AnnotationVisitor* visitor)
+    REQUIRES_SHARED(Locks::mutator_lock_);
 
 }  // namespace annotations
 

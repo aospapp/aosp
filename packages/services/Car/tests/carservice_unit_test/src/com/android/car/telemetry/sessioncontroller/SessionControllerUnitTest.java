@@ -31,9 +31,12 @@ import android.car.hardware.power.ICarPowerStateListener;
 import android.content.Context;
 import android.os.Handler;
 import android.os.RemoteException;
+import android.provider.Settings;
+import android.test.mock.MockContentResolver;
 
 import com.android.car.CarLocalServices;
 import com.android.car.power.CarPowerManagementService;
+import com.android.internal.util.test.FakeSettingsProvider;
 
 import org.junit.After;
 import org.junit.Before;
@@ -94,15 +97,16 @@ public class SessionControllerUnitTest
 
     @Before
     public void setUp() {
-        CarLocalServices.removeServiceForTest(CarPowerManagementService.class);
-        CarLocalServices.addService(CarPowerManagementService.class,
-                mMockCarPowerManagementService);
         when(mDirectHandler.post(any(Runnable.class))).thenAnswer(i -> {
             Runnable runnable = i.getArgument(0);
             runnable.run();
             return true;
         });
-        mSessionController = new SessionController(mMockContext, mDirectHandler);
+        MockContentResolver mockContentResolver = new MockContentResolver();
+        mockContentResolver.addProvider(Settings.AUTHORITY, new FakeSettingsProvider());
+        when(mMockContext.getContentResolver()).thenReturn(mockContentResolver);
+        mSessionController = new SessionController(
+                mMockContext, mMockCarPowerManagementService, mDirectHandler);
         verify(mMockCarPowerManagementService).registerInternalListener(
                 mPowerStateListenerCaptor.capture());
     }
@@ -180,6 +184,7 @@ public class SessionControllerUnitTest
         assertThat(annotation.sessionState).isEqualTo(SessionController.STATE_EXIT_DRIVING_SESSION);
         assertThat(annotation.sessionId).isEqualTo(0);
         assertThat(annotation.bootReason).isNull();
+        assertThat(annotation.bootCount).isEqualTo(0);
     }
 
     @Test
@@ -203,5 +208,4 @@ public class SessionControllerUnitTest
         // the result of the call is @NonNull.
         assertThat(mSessionController.getSessionAnnotation().bootReason).isNotNull();
     }
-
 }

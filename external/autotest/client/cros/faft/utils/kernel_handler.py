@@ -7,8 +7,6 @@ import hashlib
 import os
 import re
 
-TMP_FILE_NAME = 'kernel_header_dump'
-
 # Types of kernel modifications.
 KERNEL_BODY_MOD = 1
 KERNEL_VERSION_MOD = 2
@@ -27,6 +25,7 @@ class KernelHandler(object):
     (designated by the partition name, A or B.
 
     @type os_if: autotest_lib.client.cros.faft.utils.os_interface.OSInterface
+    @param is_minios: True if it is a MiniOS kernel; otherwise, False.
     """
 
     # This value is used to alter contents of a byte in the appropriate kernel
@@ -37,12 +36,21 @@ class KernelHandler(object):
     # The maximum kernel size in MB.
     KERNEL_SIZE_MB = 16
 
-    def __init__(self, os_if):
+    def __init__(self, os_if, is_minios=False):
         self.os_if = os_if
         self.dump_file_name = None
         self.partition_map = {}
         self.root_dev = None
         self.initialized = False
+        if is_minios:
+            self.kernel_type = 'MINIOS'
+            self.data_key = 'minios_kernel_data_key.vbprivk'
+            self.keyblock = 'minios_kernel.keyblock'
+        else:
+            self.kernel_type = 'KERN'
+            self.data_key = 'kernel_data_key.vbprivk'
+            self.keyblock = 'kernel.keyblock'
+        self.tmp_file_name = 'kernel_header_dump_%s' % self.kernel_type
 
     def _get_version(self, device):
         """Get version of the kernel hosted on the passed in partition."""
@@ -68,7 +76,7 @@ class KernelHandler(object):
         else:
             target_device = self.root_dev
 
-        kernel_partitions = re.compile('KERN-([AB])')
+        kernel_partitions = re.compile('%s-([AB])' % self.kernel_type)
         disk_map = self.os_if.run_shell_command_get_output(
                 'cgpt show %s' % target_device)
 
@@ -128,8 +136,8 @@ class KernelHandler(object):
         self.dump_kernel(section, self.dump_file_name)
         data = list(self.os_if.read_file(self.dump_file_name))
         if modification_type == KERNEL_BODY_MOD:
-            data[0] = '%c' % ((ord(data[0]) + delta) % 0x100)
-            self.os_if.write_file(self.dump_file_name, ''.join(data))
+            data[0] = (data[0] + delta) % 0x100
+            self.os_if.write_file(self.dump_file_name, bytes(data))
             kernel_to_write = self.dump_file_name
         elif modification_type == KERNEL_VERSION_MOD:
             new_version = delta
@@ -139,8 +147,7 @@ class KernelHandler(object):
                     '--signprivate %s --oldblob %s' %
                     (kernel_to_write, new_version,
                      os.path.join(self.dev_key_path,
-                                  'kernel_data_key.vbprivk'),
-                     self.dump_file_name))
+                                  self.data_key), self.dump_file_name))
         elif modification_type == KERNEL_RESIGN_MOD:
             if key_path and self.os_if.is_dir(key_path):
                 resign_key_path = key_path
@@ -152,9 +159,9 @@ class KernelHandler(object):
                     'vbutil_kernel --repack %s '
                     '--signprivate %s --oldblob %s --keyblock %s' %
                     (kernel_to_write,
-                     os.path.join(resign_key_path, 'kernel_data_key.vbprivk'),
-                     self.dump_file_name,
-                     os.path.join(resign_key_path, 'kernel.keyblock')))
+                     os.path.join(resign_key_path,
+                                  self.data_key), self.dump_file_name,
+                     os.path.join(resign_key_path, self.keyblock)))
         else:
             return  # Unsupported mode, ignore.
         self.write_kernel(section, kernel_to_write)
@@ -200,6 +207,6 @@ class KernelHandler(object):
         """
         self.dev_key_path = dev_key_path
         self.root_dev = self.os_if.get_root_dev()
-        self.dump_file_name = self.os_if.state_dir_file(TMP_FILE_NAME)
+        self.dump_file_name = self.os_if.state_dir_file(self.tmp_file_name)
         self._get_partition_map(internal_disk)
         self.initialized = True

@@ -1,6 +1,6 @@
 //! Implementations for various ARM architectures.
 
-use gdbstub::arch::Arch;
+use gdbstub::arch::{Arch, SingleStepGdbBehavior};
 
 pub mod reg;
 
@@ -30,7 +30,7 @@ impl gdbstub::arch::BreakpointKind for ArmBreakpointKind {
     }
 }
 
-/// Implements `Arch` for ARMv4T
+/// Implements `Arch` for the ARMv4T architecture
 pub enum Armv4t {}
 
 impl Arch for Armv4t {
@@ -41,5 +41,10 @@ impl Arch for Armv4t {
 
     fn target_description_xml() -> Option<&'static str> {
         Some(r#"<target version="1.0"><architecture>armv4t</architecture></target>"#)
+    }
+
+    #[inline(always)]
+    fn single_step_gdb_behavior() -> SingleStepGdbBehavior {
+        SingleStepGdbBehavior::Optional
     }
 }

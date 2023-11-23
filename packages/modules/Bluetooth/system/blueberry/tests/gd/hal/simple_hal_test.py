@@ -18,8 +18,9 @@ from blueberry.tests.gd.cert.truth import assertThat
 from blueberry.tests.gd.cert.py_hal import PyHal
 from blueberry.tests.gd.cert.matchers import HciMatchers
 from blueberry.tests.gd.cert import gd_base_test
-from bluetooth_packets_python3 import hci_packets
+from blueberry.utils import bluetooth
 from mobly import test_runner
+import hci_packets as hci
 
 _GRPC_TIMEOUT = 10
 
@@ -44,47 +45,45 @@ class SimpleHalTest(gd_base_test.GdBaseTestClass):
 
     def test_stream_events(self):
         self.dut_hal.send_hci_command(
-            hci_packets.LeAddDeviceToFilterAcceptListBuilder(hci_packets.FilterAcceptListAddressType.RANDOM,
-                                                             '0C:05:04:03:02:01'))
+            hci.LeAddDeviceToFilterAcceptList(address_type=hci.FilterAcceptListAddressType.RANDOM,
+                                              address=bluetooth.Address('0C:05:04:03:02:01')))
         assertThat(self.dut_hal.get_hci_event_stream()).emits(
             HciMatchers.Exactly(
-                hci_packets.LeAddDeviceToFilterAcceptListCompleteBuilder(1, hci_packets.ErrorCode.SUCCESS)))
+                hci.LeAddDeviceToFilterAcceptListComplete(num_hci_command_packets=1, status=hci.ErrorCode.SUCCESS)))
 
     def test_loopback_hci_command(self):
-        self.dut_hal.send_hci_command(hci_packets.WriteLoopbackModeBuilder(hci_packets.LoopbackMode.ENABLE_LOCAL))
+        self.dut_hal.send_hci_command(hci.WriteLoopbackMode(loopback_mode=hci.LoopbackMode.ENABLE_LOCAL))
 
-        command = hci_packets.LeAddDeviceToFilterAcceptListBuilder(hci_packets.FilterAcceptListAddressType.RANDOM,
-                                                                   '0C:05:04:03:02:01')
+        command = hci.LeAddDeviceToFilterAcceptList(address_type=hci.FilterAcceptListAddressType.RANDOM,
+                                                    address=bluetooth.Address('0C:05:04:03:02:01'))
         self.dut_hal.send_hci_command(command)
 
-        assertThat(self.dut_hal.get_hci_event_stream()).emits(HciMatchers.LoopbackOf(command))
+        assertThat(self.dut_hal.get_hci_event_stream()).emits(HciMatchers.LoopbackOf(command.serialize()))
 
     def test_inquiry_from_dut(self):
-        self.cert_hal.send_hci_command(hci_packets.WriteScanEnableBuilder(hci_packets.ScanEnable.INQUIRY_AND_PAGE_SCAN))
+        self.cert_hal.send_hci_command(hci.WriteScanEnable(scan_enable=hci.ScanEnable.INQUIRY_AND_PAGE_SCAN))
 
-        lap = hci_packets.Lap()
-        lap.lap = 0x33
-        self.dut_hal.send_hci_command(hci_packets.InquiryBuilder(lap, 0x30, 0xff))
+        self.dut_hal.send_hci_command(hci.Inquiry(lap=hci.Lap(lap=0x33), inquiry_length=0x30, num_responses=0xff))
 
         assertThat(self.dut_hal.get_hci_event_stream()).emits(lambda packet: b'\x02\x0f' in packet.payload
                                                               # Expecting an HCI Event (code 0x02, length 0x0f)
                                                              )
 
     def test_le_ad_scan_cert_advertises(self):
-        self.dut_hal.unmask_event(hci_packets.EventCode.LE_META_EVENT)
+        self.dut_hal.unmask_event(hci.EventCode.LE_META_EVENT)
+        self.dut_hal.unmask_le_event(hci.SubeventCode.EXTENDED_ADVERTISING_REPORT)
         self.dut_hal.set_random_le_address('0D:05:04:03:02:01')
 
         self.dut_hal.set_scan_parameters()
         self.dut_hal.start_scanning()
 
-        advertisement = self.cert_hal.create_advertisement(
-            0,
-            '0C:05:04:03:02:01',
-            min_interval=512,
-            max_interval=768,
-            peer_address='A6:A5:A4:A3:A2:A1',
-            tx_power=0x7f,
-            sid=1)
+        advertisement = self.cert_hal.create_advertisement(0,
+                                                           '0C:05:04:03:02:01',
+                                                           min_interval=512,
+                                                           max_interval=768,
+                                                           peer_address='A6:A5:A4:A3:A2:A1',
+                                                           tx_power=0x7f,
+                                                           sid=1)
         advertisement.set_data(b'Im_A_Cert')
         advertisement.start()
 
@@ -95,12 +94,12 @@ class SimpleHalTest(gd_base_test.GdBaseTestClass):
         self.dut_hal.stop_scanning()
 
     def test_le_connection_dut_advertises(self):
-        self.cert_hal.unmask_event(hci_packets.EventCode.LE_META_EVENT)
+        self.cert_hal.unmask_event(hci.EventCode.LE_META_EVENT)
         self.cert_hal.set_random_le_address('0C:05:04:03:02:01')
         self.cert_hal.initiate_le_connection('0D:05:04:03:02:01')
 
         # DUT Advertises
-        self.dut_hal.unmask_event(hci_packets.EventCode.LE_META_EVENT)
+        self.dut_hal.unmask_event(hci.EventCode.LE_META_EVENT)
         advertisement = self.dut_hal.create_advertisement(0, '0D:05:04:03:02:01')
         advertisement.set_data(b'Im_The_DUT')
         advertisement.set_scan_response(b'Im_The_D')
@@ -116,20 +115,19 @@ class SimpleHalTest(gd_base_test.GdBaseTestClass):
         assertThat(self.dut_hal.get_acl_stream()).emits(lambda packet: b'SomeMoreAclData' in packet.payload)
 
     def test_le_filter_accept_list_connection_cert_advertises(self):
-        self.dut_hal.unmask_event(hci_packets.EventCode.LE_META_EVENT)
+        self.dut_hal.unmask_event(hci.EventCode.LE_META_EVENT)
         self.dut_hal.set_random_le_address('0D:05:04:03:02:01')
         self.dut_hal.add_to_filter_accept_list('0C:05:04:03:02:01')
         self.dut_hal.initiate_le_connection_by_filter_accept_list('BA:D5:A4:A3:A2:A1')
 
-        self.cert_hal.unmask_event(hci_packets.EventCode.LE_META_EVENT)
-        advertisement = self.cert_hal.create_advertisement(
-            1,
-            '0C:05:04:03:02:01',
-            min_interval=512,
-            max_interval=768,
-            peer_address='A6:A5:A4:A3:A2:A1',
-            tx_power=0x7F,
-            sid=0)
+        self.cert_hal.unmask_event(hci.EventCode.LE_META_EVENT)
+        advertisement = self.cert_hal.create_advertisement(1,
+                                                           '0C:05:04:03:02:01',
+                                                           min_interval=512,
+                                                           max_interval=768,
+                                                           peer_address='A6:A5:A4:A3:A2:A1',
+                                                           tx_power=0x7F,
+                                                           sid=0)
         advertisement.set_data(b'Im_A_Cert')
         advertisement.start()
 

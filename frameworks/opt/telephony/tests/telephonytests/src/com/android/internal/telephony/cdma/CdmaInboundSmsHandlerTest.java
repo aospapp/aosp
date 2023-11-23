@@ -64,6 +64,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
@@ -111,7 +113,9 @@ public class CdmaInboundSmsHandlerTest extends TelephonyTest {
         try {
             doReturn(new int[]{UserHandle.USER_SYSTEM}).when(mIActivityManager).getRunningUserIds();
         } catch (RemoteException re) {
-            fail("Unexpected RemoteException: " + re.getStackTrace());
+            StringWriter reString = new StringWriter();
+            re.printStackTrace(new PrintWriter(reString));
+            fail("Unexpected RemoteException: " + reString);
         }
 
         mSmsMessage.mWrappedSmsMessage = mCdmaSmsMessage;
@@ -153,7 +157,7 @@ public class CdmaInboundSmsHandlerTest extends TelephonyTest {
                 Telephony.Sms.CONTENT_URI.getAuthority(), mContentProvider);
 
         mCdmaInboundSmsHandler = CdmaInboundSmsHandler.makeInboundSmsHandler(mContext,
-            mSmsStorageMonitor, mPhone, null);
+            mSmsStorageMonitor, mPhone, null, mTestableLooper.getLooper());
         monitorTestableLooper(new TestableLooper(mCdmaInboundSmsHandler.getHandler().getLooper()));
         processAllMessages();
     }

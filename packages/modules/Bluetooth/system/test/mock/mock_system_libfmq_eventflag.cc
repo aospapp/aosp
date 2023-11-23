@@ -19,12 +19,12 @@
  *   Functions generated:11
  */
 
+#include <fmq/EventFlag.h>
+
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <fmq/EventFlag.h>
+#include "test/common/mock_functions.h"
 
 using namespace android;
 using namespace android::hardware;
@@ -56,38 +56,38 @@ void check(bool exp, const char* message) {}
 #endif
 
 EventFlag::EventFlag(std::atomic<uint32_t>* fwAddr, status_t* status) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
-EventFlag::~EventFlag() { mock_function_count_map[__func__]++; }
+EventFlag::~EventFlag() { inc_func_call_count(__func__); }
 status_t EventFlag::createEventFlag(std::atomic<uint32_t>* fwAddr,
                                     EventFlag** flag) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 status_t EventFlag::deleteEventFlag(EventFlag** evFlag) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 status_t EventFlag::unmapEventFlagWord(std::atomic<uint32_t>* efWordPtr,
                                        bool* efWordNeedsUnmapping) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 status_t EventFlag::wait(uint32_t bitmask, uint32_t* efState,
                          int64_t timeoutNanoSeconds, bool retry) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 status_t EventFlag::waitHelper(uint32_t bitmask, uint32_t* efState,
                                int64_t timeoutNanoSeconds) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 status_t EventFlag::wake(uint32_t bitmask) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 void EventFlag::addNanosecondsToCurrentTime(int64_t nanoSeconds,
                                             struct timespec* waitTime) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }

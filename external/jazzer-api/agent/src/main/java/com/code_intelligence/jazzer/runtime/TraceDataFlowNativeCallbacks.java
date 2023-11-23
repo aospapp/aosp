@@ -15,49 +15,32 @@
 package com.code_intelligence.jazzer.runtime;
 
 import com.code_intelligence.jazzer.utils.Utils;
+import com.github.fmeum.rules_jni.RulesJni;
 import java.lang.reflect.Executable;
+import java.nio.charset.Charset;
 
 @SuppressWarnings("unused")
 final public class TraceDataFlowNativeCallbacks {
-  /* trace-cmp */
-  // Calls: void __sanitizer_cov_trace_cmp4(uint32_t Arg1, uint32_t Arg2);
-  public static native void traceCmpInt(int arg1, int arg2, int pc);
+  static {
+    RulesJni.loadLibrary("jazzer_driver", "/com/code_intelligence/jazzer/driver");
+  }
 
-  // Calls: void __sanitizer_cov_trace_const_cmp4(uint32_t Arg1, uint32_t Arg2);
-  public static native void traceConstCmpInt(int arg1, int arg2, int pc);
+  // Note that we are not encoding as modified UTF-8 here: The FuzzedDataProvider transparently
+  // converts CESU8 into modified UTF-8 by coding null bytes on two bytes. Since the fuzzer is more
+  // likely to insert literal null bytes, having both the fuzzer input and the reported string
+  // comparisons be CESU8 should perform even better than the current implementation using modified
+  // UTF-8.
+  private static final Charset FUZZED_DATA_CHARSET = Charset.forName("CESU8");
 
-  // Calls: void __sanitizer_cov_trace_cmp4(uint32_t Arg1, uint32_t Arg2);
-  public static native void traceCmpLong(long arg1, long arg2, int pc);
-
-  // Calls: void __sanitizer_cov_trace_switch(uint64_t Val, uint64_t *Cases);
-  public static native void traceSwitch(long val, long[] cases, int pc);
-
-  // Calls: void __sanitizer_weak_hook_memcmp(void *caller_pc, const void *b1, const void *b2,
-  // size_t n, int result);
   public static native void traceMemcmp(byte[] b1, byte[] b2, int result, int pc);
 
-  // Calls: void __sanitizer_weak_hook_strcmp(void *called_pc, const char *s1, const char *s2, int
-  // result);
-  public static native void traceStrcmp(String s1, String s2, int result, int pc);
+  public static void traceStrcmp(String s1, String s2, int result, int pc) {
+    traceMemcmp(encodeForLibFuzzer(s1), encodeForLibFuzzer(s2), result, pc);
+  }
 
-  // Calls: void __sanitizer_weak_hook_strstr(void *called_pc, const char *s1, const char *s2, char
-  // *result);
-  public static native void traceStrstr(String s1, String s2, int pc);
-
-  /* trace-div */
-  // Calls: void __sanitizer_cov_trace_div4(uint32_t Val);
-  public static native void traceDivInt(int val, int pc);
-
-  // Calls: void __sanitizer_cov_trace_div8(uint64_t Val);
-  public static native void traceDivLong(long val, int pc);
-
-  /* trace-gep */
-  // Calls: void __sanitizer_cov_trace_gep(uintptr_t Idx);
-  public static native void traceGep(long val, int pc);
-
-  /* indirect-calls */
-  // Calls: void __sanitizer_cov_trace_pc_indir(uintptr_t Callee);
-  private static native void tracePcIndir(int callee, int caller);
+  public static void traceStrstr(String s1, String s2, int pc) {
+    traceStrstr0(encodeForLibFuzzer(s2), pc);
+  }
 
   public static void traceReflectiveCall(Executable callee, int pc) {
     String className = callee.getDeclaringClass().getCanonicalName();
@@ -75,17 +58,45 @@ final public class TraceDataFlowNativeCallbacks {
 
   // The caller has to ensure that arg1 and arg2 have the same class.
   public static void traceGenericCmp(Object arg1, Object arg2, int pc) {
-    if (arg1 instanceof String) {
-      traceStrcmp((String) arg1, (String) arg2, 1, pc);
-    } else if (arg1 instanceof Integer || arg1 instanceof Short || arg1 instanceof Byte
-        || arg1 instanceof Character) {
+    if (arg1 instanceof CharSequence) {
+      traceStrcmp(arg1.toString(), arg2.toString(), 1, pc);
+    } else if (arg1 instanceof Integer) {
       traceCmpInt((int) arg1, (int) arg2, pc);
     } else if (arg1 instanceof Long) {
       traceCmpLong((long) arg1, (long) arg2, pc);
+    } else if (arg1 instanceof Short) {
+      traceCmpInt((short) arg1, (short) arg2, pc);
+    } else if (arg1 instanceof Byte) {
+      traceCmpInt((byte) arg1, (byte) arg2, pc);
+    } else if (arg1 instanceof Character) {
+      traceCmpInt((char) arg1, (char) arg2, pc);
+    } else if (arg1 instanceof Number) {
+      traceCmpLong(((Number) arg1).longValue(), ((Number) arg2).longValue(), pc);
     } else if (arg1 instanceof byte[]) {
       traceMemcmp((byte[]) arg1, (byte[]) arg2, 1, pc);
     }
   }
 
+  /* trace-cmp */
+  public static native void traceCmpInt(int arg1, int arg2, int pc);
+  public static native void traceConstCmpInt(int arg1, int arg2, int pc);
+  public static native void traceCmpLong(long arg1, long arg2, int pc);
+  public static native void traceSwitch(long val, long[] cases, int pc);
+  /* trace-div */
+  public static native void traceDivInt(int val, int pc);
+  public static native void traceDivLong(long val, int pc);
+  /* trace-gep */
+  public static native void traceGep(long val, int pc);
+  /* indirect-calls */
+  public static native void tracePcIndir(int callee, int caller);
+
   public static native void handleLibraryLoad();
+
+  private static byte[] encodeForLibFuzzer(String str) {
+    // libFuzzer string hooks only ever consume the first 64 bytes, so we can definitely cut the
+    // string off after 64 characters.
+    return str.substring(0, Math.min(str.length(), 64)).getBytes(FUZZED_DATA_CHARSET);
+  }
+
+  private static native void traceStrstr0(byte[] needle, int pc);
 }

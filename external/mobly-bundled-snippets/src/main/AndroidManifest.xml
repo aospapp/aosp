@@ -29,8 +29,7 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.SEND_SMS" />
-    <application android:allowBackup="false"
-                 android:name="androidx.multidex.MultiDexApplication">
+    <application>
         <meta-data
             android:name="mobly-snippets"
             android:value="com.google.android.mobly.snippet.bundled.AccountSnippet,

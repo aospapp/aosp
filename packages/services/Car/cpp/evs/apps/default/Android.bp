@@ -21,107 +21,79 @@ package {
 
 cc_binary {
     name: "evs_app",
-
-    srcs: [
-        "evs_app.cpp",
-        "EvsStateControl.cpp",
-        "EvsStats.cpp",
-        "RenderBase.cpp",
-        "RenderDirectView.cpp",
-        "RenderTopView.cpp",
-        "ConfigManager.cpp",
-        "glError.cpp",
-        "shader.cpp",
-        "TexWrapper.cpp",
-        "VideoTex.cpp",
-        "StreamHandler.cpp",
-        "FormatConvert.cpp",
-        "RenderPixelCopy.cpp",
+    defaults: [
+        "android.hardware.graphics.common-ndk_shared",
+        "vhalclient_defaults",
     ],
-
+    local_include_dirs: ["inc"],
+    srcs: ["src/*.cpp"],
     shared_libs: [
-        "libbase",
-        "libbinder_ndk",
-        "libcutils",
-        "libutils",
-        "libui",
-        "libhidlbase",
+        "android.hardware.automotive.vehicle@2.0",
+        "android.hardware.camera.device@3.2",
         "libEGL",
         "libGLESv2",
+        "libbase",
+        "libbinder",
+        "libbinder_ndk",
+        "libcamera_metadata",
+        "libcartelemetry-evs-proto",
+        "libcutils",
         "libhardware",
         "libpng",
-        "libcamera_metadata",
-        "android.frameworks.automotive.telemetry-V1-ndk",
-        "android.hardware.camera.device@3.2",
-        "android.hardware.automotive.evs@1.0",
-        "android.hardware.automotive.evs@1.1",
-        "android.hardware.automotive.vehicle@2.0",
-        "libcartelemetry-evs-proto",
         "libprotobuf-cpp-lite",
+        "libui",
+        "libutils",
     ],
-
     static_libs: [
+        "android.frameworks.automotive.telemetry-V1-ndk",
+        "android.hardware.automotive.evs-V2-ndk",
+        "android.hardware.common-V2-ndk",
+        "libaidlcommonsupport",
         "libmath",
         "libjsoncpp",
         "libvhalclient",
     ],
-
     required: [
         "config.json",
         "CarFromTop.png",
         "LabeledChecker.png",
     ],
-
     init_rc: ["evs_app.rc"],
-
-    defaults: ["vhalclient_defaults"],
-
-    cflags: ["-DLOG_TAG=\"EvsApp\""] + [
+    cflags: [
+        "-DLOG_TAG=\"EvsApp\"",
         "-DGL_GLEXT_PROTOTYPES",
         "-DEGL_EGLEXT_PROTOTYPES",
-    ] + [
         "-Wall",
         "-Werror",
         "-Wunused",
         "-Wunreachable-code",
     ],
-
 }
 
 cc_library {
     name: "libcartelemetry-evs-proto",
-    srcs: [
-        ":cartelemetry-evs-proto-srcs",
-    ],
+    srcs: [":cartelemetry-evs-proto-srcs"],
     proto: {
         export_proto_headers: true,
         type: "lite",
     },
-    shared_libs: [
-        "libprotobuf-cpp-lite",
-    ],
+    shared_libs: ["libprotobuf-cpp-lite"],
 }
 
 prebuilt_etc {
     name: "config.json",
-
-    src: "config.json",
+    src: "res/config.json",
     sub_dir: "automotive/evs",
-
 }
 
 prebuilt_etc {
     name: "CarFromTop.png",
-
-    src: "CarFromTop.png",
+    src: "res/CarFromTop.png",
     sub_dir: "automotive/evs",
-
 }
 
 prebuilt_etc {
     name: "LabeledChecker.png",
-
-    src: "LabeledChecker.png",
+    src: "res/LabeledChecker.png",
     sub_dir: "automotive/evs",
-
 }

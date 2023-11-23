@@ -19,6 +19,7 @@ package {
 android_test_helper_app {
     name: "CtsWriteExternalStorageApp",
     defaults: ["cts_support_defaults"],
+    min_sdk_version: "29",
     sdk_version: "test_current",
     static_libs: [
         "CtsWriteExternalStorageWriteGiftLib",

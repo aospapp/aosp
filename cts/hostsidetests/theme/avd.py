@@ -54,8 +54,8 @@ class AVD(object):
                       % (self._emu_path, self._name, self._opts, port_adb, port_tty)
         print(emu_cmd)
 
-        emu_proc = subprocess.Popen(emu_cmd.split(" "), bufsize=-1, stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE)
+        emu_proc = subprocess.Popen(emu_cmd.split(" "), bufsize=-1, stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.STDOUT)
 
         # The emulator ought to be starting now.
         self._adb_name = "emulator-%d" % (port_tty - 1)

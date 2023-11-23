@@ -44,7 +44,7 @@ rust_library {
     host_supported: true,
     crate_name: "rustc_demangle",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.1.21",
+    cargo_pkg_version: "0.1.22",
     srcs: ["src/lib.rs"],
     edition: "2015",
     apex_available: [
@@ -67,7 +67,7 @@ rust_test {
     host_supported: true,
     crate_name: "rustc_demangle",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.1.21",
+    cargo_pkg_version: "0.1.22",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,

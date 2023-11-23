@@ -37,17 +37,12 @@ PRODUCT_PACKAGES += FakeSystemApp
 #
 # All components inherited here go to vendor image
 #
-LOCAL_DISABLE_OMX := true
 LOCAL_PREFER_VENDOR_APEX := true
 $(call inherit-product, device/google/cuttlefish/shared/slim/device_vendor.mk)
-
-# TODO(b/205788876) remove this when openwrt has an image for arm.
-PRODUCT_ENFORCE_MAC80211_HWSIM := false
 
 #
 # Special settings for the target
 #
-$(call inherit-product, device/google/cuttlefish/vsoc_arm64/kernel.mk)
 $(call inherit-product, device/google/cuttlefish/vsoc_arm64/bootloader.mk)
 
 # Exclude features that are not available on AOSP devices.

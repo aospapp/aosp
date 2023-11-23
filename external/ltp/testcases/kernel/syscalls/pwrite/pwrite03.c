@@ -3,7 +3,10 @@
  * Copyright (c) 2017 Carlo Marcelo Arenas Belon <carlo@gmail.com>
  * Copyright (c) 2018 Cyril Hrubis <chrubis@suse.cz>
  */
-/*
+
+/*\
+ * [Description]
+ *
  * Tests for a special case NULL buffer with size 0 is expected to return 0.
  */
 
@@ -14,15 +17,7 @@ static int fd;
 
 static void verify_pwrite(void)
 {
-	TEST(pwrite(fd, NULL, 0, 0));
-
-	if (TST_RET != 0) {
-		tst_res(TFAIL | TTERRNO,
-			"pwrite() should have succeeded with ret=0");
-		return;
-	}
-
-	tst_res(TPASS, "pwrite(fd, NULL, 0) == 0");
+	TST_EXP_PASS(pwrite(fd, NULL, 0, 0), "pwrite(%d, NULL, 0) == 0", fd);
 }
 
 static void setup(void)

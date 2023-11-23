@@ -22,6 +22,7 @@ import (
 	"github.com/google/blueprint/proptools"
 
 	"android/soong/android"
+	"android/soong/bazel"
 	"android/soong/cc"
 	"android/soong/genrule"
 	"android/soong/java"
@@ -63,9 +64,11 @@ var (
 	}, "output", "options", "fqName")
 
 	zipLintRule = pctx.StaticRule("zipLintRule", blueprint.RuleParams{
-		Command:     "rm -f ${output} && ${soong_zip} -o ${output} -C ${intermediatesDir} ${files}",
-		CommandDeps: []string{"${soong_zip}"},
-		Description: "Zipping hidl-lints into ${output}",
+		Rspfile:        "$out.rsp",
+		RspfileContent: "$files",
+		Command:        "rm -f ${output} && ${soong_zip} -o ${output} -C ${intermediatesDir} -l ${out}.rsp",
+		CommandDeps:    []string{"${soong_zip}"},
+		Description:    "Zipping hidl-lints into ${output}",
 	}, "output", "files")
 
 	inheritanceHierarchyRule = pctx.StaticRule("inheritanceHierarchyRule", blueprint.RuleParams{
@@ -94,7 +97,7 @@ var (
 
 func init() {
 	android.RegisterModuleType("prebuilt_hidl_interfaces", prebuiltHidlInterfaceFactory)
-	android.RegisterModuleType("hidl_interface", hidlInterfaceFactory)
+	android.RegisterModuleType("hidl_interface", HidlInterfaceFactory)
 	android.RegisterSingletonType("all_hidl_lints", allHidlLintsFactory)
 	android.RegisterModuleType("hidl_interfaces_metadata", hidlInterfacesMetadataSingletonFactory)
 	pctx.Import("android/soong/android")
@@ -187,7 +190,7 @@ func (m *allHidlLintsSingleton) GenerateBuildActions(ctx android.SingletonContex
 		Output: outPath,
 		Args: map[string]string{
 			"output": outPath.String(),
-			"files":  strings.Join(wrap("-f ", hidlLintOutputs.Strings(), ""), " "),
+			"files":  strings.Join(hidlLintOutputs.Strings(), " "),
 		},
 	})
 }
@@ -431,6 +434,7 @@ type hidlInterfaceProperties struct {
 
 type hidlInterface struct {
 	android.ModuleBase
+	android.BazelModuleBase
 
 	properties hidlInterfaceProperties
 }
@@ -555,7 +559,12 @@ This corresponds to the "-r%s:<some path>" option that would be passed into hidl
 	mctx.CreateModule(android.FileGroupFactory, &fileGroupProperties{
 		Name: proptools.StringPtr(name.fileGroupName()),
 		Srcs: i.properties.Srcs,
-	})
+	},
+		&bazelProperties{
+			&Bazel_module{
+				Bp2build_available: proptools.BoolPtr(false),
+			}},
+	)
 
 	mctx.CreateModule(hidlGenFactory, &nameProperties{
 		Name: proptools.StringPtr(name.sourcesName()),
@@ -609,7 +618,14 @@ This corresponds to the "-r%s:<some path>" option that would be passed into hidl
 			Export_generated_headers: []string{name.headersName()},
 			Apex_available:           i.properties.Apex_available,
 			Min_sdk_version:          getMinSdkVersion(name.string()),
-		}, &i.properties.VndkProperties)
+		}, &i.properties.VndkProperties,
+			// TODO(b/237810289): We need to disable/enable based on if a module has
+			// been converted or not, otherwise mixed build will fail.
+			&bazelProperties{
+				&Bazel_module{
+					Bp2build_available: proptools.BoolPtr(false),
+				}},
+		)
 	}
 
 	if shouldGenerateJava {
@@ -714,17 +730,86 @@ func (h *hidlInterface) DepsMutator(ctx android.BottomUpMutatorContext) {
 	ctx.AddDependency(ctx.Module(), nil, h.properties.Root)
 }
 
-func hidlInterfaceFactory() android.Module {
+func HidlInterfaceFactory() android.Module {
 	i := &hidlInterface{}
 	i.AddProperties(&i.properties)
 	android.InitAndroidModule(i)
 	android.AddLoadHook(i, func(ctx android.LoadHookContext) { hidlInterfaceMutator(ctx, i) })
+	android.InitBazelModule(i)
 
 	return i
 }
 
+type hidlInterfaceAttributes struct {
+	Srcs                bazel.LabelListAttribute
+	Deps                bazel.LabelListAttribute
+	Root                string
+	Root_interface_file bazel.LabelAttribute
+	Min_sdk_version     *string
+	Tags                []string
+}
+
+func (m *hidlInterface) ConvertWithBp2build(ctx android.TopDownMutatorContext) {
+	srcs := bazel.MakeLabelListAttribute(
+		android.BazelLabelForModuleSrc(ctx, m.properties.Srcs))
+
+	// The interface dependencies are added earlier with the suffix of "_interface",
+	// so we need to look for them with the hidlInterfaceSuffix added to the names.
+	// Later we trim the "_interface" suffix. Here is an example:
+	// hidl_interface(
+	//    name = "android.hardware.nfc@1.1",
+	//    deps = [
+	//        "//hardware/interfaces/nfc/1.0:android.hardware.nfc@1.0",
+	//        "//system/libhidl/transport/base/1.0:android.hidl.base@1.0",
+	//    ],
+	// )
+	deps := android.BazelLabelForModuleDeps(ctx, wrap("", m.properties.Interfaces, hidlInterfaceSuffix))
+	var dep_labels []bazel.Label
+	for _, label := range deps.Includes {
+		dep_labels = append(dep_labels,
+			bazel.Label{Label: strings.TrimSuffix(label.Label, hidlInterfaceSuffix)})
+	}
+
+	var root string
+	var root_interface_file bazel.LabelAttribute
+	if module, exists := ctx.ModuleFromName(m.properties.Root); exists {
+		if pkg_root, ok := module.(*hidlPackageRoot); ok {
+			var path string
+			if pkg_root.properties.Path != nil {
+				path = *pkg_root.properties.Path
+			} else {
+				path = ctx.OtherModuleDir(pkg_root)
+			}
+			// The root and root_interface come from the hidl_package_root module that
+			// this module depends on, we don't convert hidl_package_root module
+			// separately since all the other properties of that module are deprecated.
+			root = pkg_root.Name()
+			if path == ctx.ModuleDir() {
+				root_interface_file = *bazel.MakeLabelAttribute(":" + "current.txt")
+			} else {
+				root_interface_file = *bazel.MakeLabelAttribute("//" + path + ":" + "current.txt")
+			}
+		}
+	}
+
+	attrs := &hidlInterfaceAttributes{
+		Srcs:                srcs,
+		Deps:                bazel.MakeLabelListAttribute(bazel.MakeLabelList(dep_labels)),
+		Root:                root,
+		Root_interface_file: root_interface_file,
+		Min_sdk_version:     getMinSdkVersion(m.Name()),
+		Tags:                android.ConvertApexAvailableToTags(m.properties.Apex_available),
+	}
+
+	props := bazel.BazelTargetModuleProperties{
+		Rule_class:        "hidl_interface",
+		Bzl_load_location: "//build/bazel/rules/hidl:hidl_interface.bzl",
+	}
+
+	ctx.CreateBazelTargetModule(props, android.CommonAttributes{Name: strings.TrimSuffix(m.Name(), hidlInterfaceSuffix)}, attrs)
+}
+
 var minSdkVersion = map[string]string{
-	"android.frameworks.bufferhub@1.0":             "29",
 	"android.hardware.audio.common@5.0":            "30",
 	"android.hardware.audio.common@6.0":            "31",
 	"android.hardware.automotive.audiocontrol@1.0": "31",
@@ -736,28 +821,8 @@ var minSdkVersion = map[string]string{
 	"android.hardware.bluetooth.audio@2.2":         "30",
 	"android.hardware.bluetooth@1.0":               "30",
 	"android.hardware.bluetooth@1.1":               "30",
-	"android.hardware.cas.native@1.0":              "29",
-	"android.hardware.cas@1.0":                     "29",
-	"android.hardware.graphics.allocator@2.0":      "29",
-	"android.hardware.graphics.allocator@3.0":      "29",
-	"android.hardware.graphics.allocator@4.0":      "29",
-	"android.hardware.graphics.bufferqueue@1.0":    "29",
-	"android.hardware.graphics.bufferqueue@2.0":    "29",
-	"android.hardware.graphics.common@1.0":         "29",
-	"android.hardware.graphics.common@1.1":         "29",
-	"android.hardware.graphics.common@1.2":         "29",
-	"android.hardware.graphics.mapper@2.0":         "29",
-	"android.hardware.graphics.mapper@2.1":         "29",
-	"android.hardware.graphics.mapper@3.0":         "29",
-	"android.hardware.graphics.mapper@4.0":         "29",
 	"android.hardware.health@1.0":                  "31",
 	"android.hardware.health@2.0":                  "31",
-	"android.hardware.media.bufferpool@2.0":        "29",
-	"android.hardware.media.c2@1.0":                "29",
-	"android.hardware.media.c2@1.1":                "29",
-	"android.hardware.media.c2@1.2":                "29",
-	"android.hardware.media.omx@1.0":               "29",
-	"android.hardware.media@1.0":                   "29",
 	"android.hardware.neuralnetworks@1.0":          "30",
 	"android.hardware.neuralnetworks@1.1":          "30",
 	"android.hardware.neuralnetworks@1.2":          "30",
@@ -778,21 +843,25 @@ var minSdkVersion = map[string]string{
 	"android.hardware.wifi.supplicant@1.2":         "30",
 	"android.hardware.wifi.supplicant@1.3":         "30",
 	"android.hardware.wifi.supplicant@1.4":         "30",
-	"android.hidl.allocator@1.0":                   "29",
 	"android.hidl.manager@1.0":                     "30",
 	"android.hidl.manager@1.1":                     "30",
 	"android.hidl.manager@1.2":                     "30",
-	"android.hidl.memory.token@1.0":                "29",
-	"android.hidl.memory@1.0":                      "29",
-	"android.hidl.safe_union@1.0":                  "29",
-	"android.hidl.token@1.0":                       "29",
 }
 
 func getMinSdkVersion(name string) *string {
 	if ver, ok := minSdkVersion[name]; ok {
 		return proptools.StringPtr(ver)
 	}
-	return nil
+	// legacy, as used
+	if name == "android.hardware.tetheroffload.config@1.0" ||
+		name == "android.hardware.tetheroffload.control@1.0" ||
+		name == "android.hardware.tetheroffload.control@1.1" ||
+		name == "android.hardware.radio@1.0" ||
+		name == "android.hidl.base@1.0" {
+
+		return nil
+	}
+	return proptools.StringPtr("29")
 }
 
 var doubleLoadablePackageNames = []string{
@@ -863,76 +932,76 @@ func canInterfaceExist(name string) bool {
 }
 
 var allAospHidlInterfaces = map[string]bool{
-	"android.frameworks.automotive.display@1.0":         true,
-	"android.frameworks.bufferhub@1.0":                  true,
-	"android.frameworks.cameraservice.common@2.0":       true,
-	"android.frameworks.cameraservice.device@2.0":       true,
-	"android.frameworks.cameraservice.device@2.1":       true,
-	"android.frameworks.cameraservice.service@2.0":      true,
-	"android.frameworks.cameraservice.service@2.1":      true,
-	"android.frameworks.cameraservice.service@2.2":      true,
-	"android.frameworks.displayservice@1.0":             true,
-	"android.frameworks.schedulerservice@1.0":           true,
-	"android.frameworks.sensorservice@1.0":              true,
-	"android.frameworks.stats@1.0":                      true,
-	"android.frameworks.vr.composer@1.0":                true,
-	"android.frameworks.vr.composer@2.0":                true,
-	"android.hardware.atrace@1.0":                       true,
-	"android.hardware.audio@2.0":                        true,
-	"android.hardware.audio@4.0":                        true,
-	"android.hardware.audio@5.0":                        true,
-	"android.hardware.audio@6.0":                        true,
-	"android.hardware.audio@7.0":                        true,
-	"android.hardware.audio@7.1":                        true,
-	"android.hardware.audio.common@2.0":                 true,
-	"android.hardware.audio.common@4.0":                 true,
-	"android.hardware.audio.common@5.0":                 true,
-	"android.hardware.audio.common@6.0":                 true,
-	"android.hardware.audio.common@7.0":                 true,
-	"android.hardware.audio.effect@2.0":                 true,
-	"android.hardware.audio.effect@4.0":                 true,
-	"android.hardware.audio.effect@5.0":                 true,
-	"android.hardware.audio.effect@6.0":                 true,
-	"android.hardware.audio.effect@7.0":                 true,
-	"android.hardware.authsecret@1.0":                   true,
-	"android.hardware.automotive.audiocontrol@1.0":      true,
-	"android.hardware.automotive.audiocontrol@2.0":      true,
-	"android.hardware.automotive.can@1.0":               true,
-	"android.hardware.automotive.evs@1.0":               true,
-	"android.hardware.automotive.evs@1.1":               true,
-	"android.hardware.automotive.sv@1.0":                true,
-	"android.hardware.automotive.vehicle@2.0":           true,
-	"android.hardware.biometrics.face@1.0":              true,
-	"android.hardware.biometrics.fingerprint@2.1":       true,
-	"android.hardware.biometrics.fingerprint@2.2":       true,
-	"android.hardware.biometrics.fingerprint@2.3":       true,
-	"android.hardware.bluetooth@1.0":                    true,
-	"android.hardware.bluetooth@1.1":                    true,
-	"android.hardware.bluetooth.a2dp@1.0":               true,
-	"android.hardware.bluetooth.audio@2.0":              true,
-	"android.hardware.bluetooth.audio@2.1":              true,
-	"android.hardware.bluetooth.audio@2.2":              true,
-	"android.hardware.boot@1.0":                         true,
-	"android.hardware.boot@1.1":                         true,
-	"android.hardware.boot@1.2":                         true,
-	"android.hardware.broadcastradio@1.0":               true,
-	"android.hardware.broadcastradio@1.1":               true,
-	"android.hardware.broadcastradio@2.0":               true,
-	"android.hardware.camera.common@1.0":                true,
-	"android.hardware.camera.device@1.0":                true,
-	"android.hardware.camera.device@3.2":                true,
-	"android.hardware.camera.device@3.3":                true,
-	"android.hardware.camera.device@3.4":                true,
-	"android.hardware.camera.device@3.5":                true,
-	"android.hardware.camera.device@3.6":                true,
-	"android.hardware.camera.device@3.7":                true,
-	"android.hardware.camera.device@3.8":                true,
-	"android.hardware.camera.metadata@3.2":              true,
-	"android.hardware.camera.metadata@3.3":              true,
-	"android.hardware.camera.metadata@3.4":              true,
-	"android.hardware.camera.metadata@3.5":              true,
-	"android.hardware.camera.metadata@3.6":              true,
-        // TODO: Remove metadata@3.8 after AIDL migration b/196432585
+	"android.frameworks.automotive.display@1.0":    true,
+	"android.frameworks.bufferhub@1.0":             true,
+	"android.frameworks.cameraservice.common@2.0":  true,
+	"android.frameworks.cameraservice.device@2.0":  true,
+	"android.frameworks.cameraservice.device@2.1":  true,
+	"android.frameworks.cameraservice.service@2.0": true,
+	"android.frameworks.cameraservice.service@2.1": true,
+	"android.frameworks.cameraservice.service@2.2": true,
+	"android.frameworks.displayservice@1.0":        true,
+	"android.frameworks.schedulerservice@1.0":      true,
+	"android.frameworks.sensorservice@1.0":         true,
+	"android.frameworks.stats@1.0":                 true,
+	"android.frameworks.vr.composer@1.0":           true,
+	"android.frameworks.vr.composer@2.0":           true,
+	"android.hardware.atrace@1.0":                  true,
+	"android.hardware.audio@2.0":                   true,
+	"android.hardware.audio@4.0":                   true,
+	"android.hardware.audio@5.0":                   true,
+	"android.hardware.audio@6.0":                   true,
+	"android.hardware.audio@7.0":                   true,
+	"android.hardware.audio@7.1":                   true,
+	"android.hardware.audio.common@2.0":            true,
+	"android.hardware.audio.common@4.0":            true,
+	"android.hardware.audio.common@5.0":            true,
+	"android.hardware.audio.common@6.0":            true,
+	"android.hardware.audio.common@7.0":            true,
+	"android.hardware.audio.effect@2.0":            true,
+	"android.hardware.audio.effect@4.0":            true,
+	"android.hardware.audio.effect@5.0":            true,
+	"android.hardware.audio.effect@6.0":            true,
+	"android.hardware.audio.effect@7.0":            true,
+	"android.hardware.authsecret@1.0":              true,
+	"android.hardware.automotive.audiocontrol@1.0": true,
+	"android.hardware.automotive.audiocontrol@2.0": true,
+	"android.hardware.automotive.can@1.0":          true,
+	"android.hardware.automotive.evs@1.0":          true,
+	"android.hardware.automotive.evs@1.1":          true,
+	"android.hardware.automotive.sv@1.0":           true,
+	"android.hardware.automotive.vehicle@2.0":      true,
+	"android.hardware.biometrics.face@1.0":         true,
+	"android.hardware.biometrics.fingerprint@2.1":  true,
+	"android.hardware.biometrics.fingerprint@2.2":  true,
+	"android.hardware.biometrics.fingerprint@2.3":  true,
+	"android.hardware.bluetooth@1.0":               true,
+	"android.hardware.bluetooth@1.1":               true,
+	"android.hardware.bluetooth.a2dp@1.0":          true,
+	"android.hardware.bluetooth.audio@2.0":         true,
+	"android.hardware.bluetooth.audio@2.1":         true,
+	"android.hardware.bluetooth.audio@2.2":         true,
+	"android.hardware.boot@1.0":                    true,
+	"android.hardware.boot@1.1":                    true,
+	"android.hardware.boot@1.2":                    true,
+	"android.hardware.broadcastradio@1.0":          true,
+	"android.hardware.broadcastradio@1.1":          true,
+	"android.hardware.broadcastradio@2.0":          true,
+	"android.hardware.camera.common@1.0":           true,
+	"android.hardware.camera.device@1.0":           true,
+	"android.hardware.camera.device@3.2":           true,
+	"android.hardware.camera.device@3.3":           true,
+	"android.hardware.camera.device@3.4":           true,
+	"android.hardware.camera.device@3.5":           true,
+	"android.hardware.camera.device@3.6":           true,
+	"android.hardware.camera.device@3.7":           true,
+	"android.hardware.camera.device@3.8":           true,
+	"android.hardware.camera.metadata@3.2":         true,
+	"android.hardware.camera.metadata@3.3":         true,
+	"android.hardware.camera.metadata@3.4":         true,
+	"android.hardware.camera.metadata@3.5":         true,
+	"android.hardware.camera.metadata@3.6":         true,
+	// TODO: Remove metadata@3.8 after AIDL migration b/196432585
 	"android.hardware.camera.metadata@3.7":              true,
 	"android.hardware.camera.metadata@3.8":              true,
 	"android.hardware.camera.provider@2.4":              true,

@@ -9,20 +9,17 @@
     },
     {
       "path": "external/rust/crates/url"
+    },
+    {
+      "path": "packages/modules/DnsResolver"
     }
   ],
   "presubmit": [
-    {
-      "name": "doh_unit_test"
-    },
     {
       "name": "tinyvec_test_tests_arrayvec"
     }
   ],
   "presubmit-rust": [
-    {
-      "name": "doh_unit_test"
-    },
     {
       "name": "tinyvec_test_tests_arrayvec"
     }

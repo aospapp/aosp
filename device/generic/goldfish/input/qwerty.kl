@@ -98,6 +98,8 @@ key 56    ALT_LEFT
 key 100   ALT_RIGHT
 key 42    SHIFT_LEFT
 key 54    SHIFT_RIGHT
+key 29    CTRL_LEFT
+key 97    CTRL_RIGHT
 key 15    TAB
 key 57    SPACE
 key 150   EXPLORER

@@ -158,9 +158,7 @@ type DroiddocProperties struct {
 	Compat_config *string `android:"path"`
 }
 
-//
 // Common flags passed down to build rule
-//
 type droiddocBuilderFlags struct {
 	bootClasspathArgs  string
 	classpathArgs      string
@@ -193,9 +191,7 @@ func apiCheckEnabled(ctx android.ModuleContext, apiToCheck ApiToCheck, apiVersio
 	return false
 }
 
-//
 // Javadoc
-//
 type Javadoc struct {
 	android.ModuleBase
 	android.DefaultableModuleBase
@@ -252,12 +248,16 @@ func (j *Javadoc) SystemModules() string {
 	return proptools.String(j.properties.System_modules)
 }
 
-func (j *Javadoc) MinSdkVersion(ctx android.EarlyModuleContext) android.SdkSpec {
-	return j.SdkVersion(ctx)
+func (j *Javadoc) MinSdkVersion(ctx android.EarlyModuleContext) android.ApiLevel {
+	return j.SdkVersion(ctx).ApiLevel
 }
 
-func (j *Javadoc) TargetSdkVersion(ctx android.EarlyModuleContext) android.SdkSpec {
-	return j.SdkVersion(ctx)
+func (j *Javadoc) ReplaceMaxSdkVersionPlaceholder(ctx android.EarlyModuleContext) android.ApiLevel {
+	return j.SdkVersion(ctx).ApiLevel
+}
+
+func (j *Javadoc) TargetSdkVersion(ctx android.EarlyModuleContext) android.ApiLevel {
+	return j.SdkVersion(ctx).ApiLevel
 }
 
 func (j *Javadoc) addDeps(ctx android.BottomUpMutatorContext) {
@@ -267,7 +267,7 @@ func (j *Javadoc) addDeps(ctx android.BottomUpMutatorContext) {
 			ctx.AddVariationDependencies(nil, bootClasspathTag, sdkDep.bootclasspath...)
 			ctx.AddVariationDependencies(nil, systemModulesTag, sdkDep.systemModules)
 			ctx.AddVariationDependencies(nil, java9LibTag, sdkDep.java9Classpath...)
-			ctx.AddVariationDependencies(nil, libTag, sdkDep.classpath...)
+			ctx.AddVariationDependencies(nil, sdkLibTag, sdkDep.classpath...)
 		}
 	}
 
@@ -304,6 +304,9 @@ func (j *Javadoc) aidlFlags(ctx android.ModuleContext, aidlPreprocess android.Op
 		flags = append(flags, "-I"+src.String())
 	}
 
+	minSdkVersion := j.MinSdkVersion(ctx).FinalOrFutureInt()
+	flags = append(flags, fmt.Sprintf("--min_sdk_version=%v", minSdkVersion))
+
 	return strings.Join(flags, " "), deps
 }
 
@@ -314,7 +317,7 @@ func (j *Javadoc) genSources(ctx android.ModuleContext, srcFiles android.Paths,
 	outSrcFiles := make(android.Paths, 0, len(srcFiles))
 	var aidlSrcs android.Paths
 
-	aidlIncludeFlags := genAidlIncludeFlags(srcFiles)
+	aidlIncludeFlags := genAidlIncludeFlags(ctx, srcFiles, android.Paths{})
 
 	for _, srcFile := range srcFiles {
 		switch srcFile.Ext() {
@@ -367,7 +370,7 @@ func (j *Javadoc) collectDeps(ctx android.ModuleContext) deps {
 			} else {
 				panic(fmt.Errorf("unknown dependency %q for %q", otherName, ctx.ModuleName()))
 			}
-		case libTag:
+		case libTag, sdkLibTag:
 			if dep, ok := module.(SdkLibraryDependency); ok {
 				deps.classpath = append(deps.classpath, dep.SdkHeaderJars(ctx, j.SdkVersion(ctx))...)
 			} else if ctx.OtherModuleHasProvider(module, JavaInfoProvider) {
@@ -544,9 +547,7 @@ func (j *Javadoc) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	rule.Build("javadoc", "javadoc")
 }
 
-//
 // Droiddoc
-//
 type Droiddoc struct {
 	Javadoc
 
@@ -597,12 +598,17 @@ func (d *Droiddoc) doclavaDocsFlags(ctx android.ModuleContext, cmd *android.Rule
 	// Droiddoc always gets "-source 1.8" because it doesn't support 1.9 sources.  For modules with 1.9
 	// sources, droiddoc will get sources produced by metalava which will have already stripped out the
 	// 1.9 language features.
-	cmd.FlagWithArg("-source ", "1.8").
+	cmd.FlagWithArg("-source ", getStubsJavaVersion().String()).
 		Flag("-J-Xmx1600m").
 		Flag("-J-XX:-OmitStackTraceInFastThrow").
 		Flag("-XDignore.symbol.file").
+		Flag("--ignore-source-errors").
 		FlagWithArg("-doclet ", "com.google.doclava.Doclava").
 		FlagWithInputList("-docletpath ", docletPath.Paths(), ":").
+		FlagWithArg("-Xmaxerrs ", "10").
+		FlagWithArg("-Xmaxwarns ", "10").
+		Flag("-J--add-exports=jdk.javadoc/jdk.javadoc.internal.doclets.formats.html=ALL-UNNAMED").
+		Flag("-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED").
 		FlagWithArg("-hdf page.build ", ctx.Config().BuildId()+"-$(cat "+buildNumberFile.String()+")").OrderOnly(buildNumberFile).
 		FlagWithArg("-hdf page.now ", `"$(date -d @$(cat `+ctx.Config().Getenv("BUILD_DATETIME_FILE")+`) "+%d %b %Y %k:%M")" `)
 
@@ -757,6 +763,7 @@ func dokkaCmd(ctx android.ModuleContext, rule *android.RuleBuilder,
 	return rule.Command().
 		BuiltTool("dokka").
 		Flag(config.JavacVmFlags).
+		Flag("-J--add-opens=java.base/java.lang=ALL-UNNAMED").
 		Flag(srcJarDir.String()).
 		FlagWithInputList("-classpath ", dokkaClasspath, ":").
 		FlagWithArg("-format ", "dac").
@@ -823,9 +830,7 @@ func (d *Droiddoc) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	rule.Build("javadoc", desc)
 }
 
-//
 // Exported Droiddoc Directory
-//
 var droiddocTemplateTag = dependencyTag{name: "droiddoc-template"}
 
 type ExportedDroiddocDirProperties struct {
@@ -858,9 +863,7 @@ func (d *ExportedDroiddocDir) GenerateAndroidBuildActions(ctx android.ModuleCont
 	d.deps = android.PathsForModuleSrc(ctx, []string{filepath.Join(path, "**/*")})
 }
 
-//
 // Defaults
-//
 type DocDefaults struct {
 	android.ModuleBase
 	android.DefaultsModuleBase

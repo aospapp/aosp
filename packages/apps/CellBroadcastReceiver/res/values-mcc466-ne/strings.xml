@@ -18,5 +18,5 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="public_safety_message" msgid="4052407641316309322">"सतर्कतासम्बन्धी सन्देश"</string>
     <string name="enable_cmas_test_alerts_title" msgid="4165080207837566277">"मासिक परीक्षण आवश्यक छ"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="1339769389077152402">"सुरक्षा सतर्कता प्रणालीका परीक्षण सन्देशहरू प्राप्त गर्नुहोस्"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="1339769389077152402">"सुरक्षा सतर्कता प्रणालीका परीक्षण म्यासेजहरू प्राप्त गर्नुहोस्"</string>
 </resources>

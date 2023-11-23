@@ -18,7 +18,7 @@
 
 /* Hearing Aid Profile Interface */
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/location.h>
 #include <base/logging.h>
 #include <hardware/bluetooth.h>
@@ -26,7 +26,7 @@
 
 #include "bta_hearing_aid_api.h"
 #include "btif_common.h"
-#include "btif_storage.h"
+#include "btif_profile_storage.h"
 #include "stack/include/btu.h"
 #include "types/raw_address.h"
 
@@ -68,14 +68,14 @@ class HearingAidInterfaceImpl
 
   void OnConnectionState(ConnectionState state,
                          const RawAddress& address) override {
-    DVLOG(2) << __func__ << " address: " << address;
+    DVLOG(2) << __func__ << " address: " << ADDRESS_TO_LOGGABLE_STR(address);
     do_in_jni_thread(FROM_HERE, Bind(&HearingAidCallbacks::OnConnectionState,
                                      Unretained(callbacks), state, address));
   }
 
   void OnDeviceAvailable(uint8_t capabilities, uint64_t hiSyncId,
                          const RawAddress& address) override {
-    DVLOG(2) << __func__ << " address: " << address
+    DVLOG(2) << __func__ << " address: " << ADDRESS_TO_LOGGABLE_STR(address)
              << ", hiSyncId: " << loghex(hiSyncId)
              << ", capabilities: " << loghex(capabilities);
     do_in_jni_thread(FROM_HERE, Bind(&HearingAidCallbacks::OnDeviceAvailable,
@@ -84,41 +84,35 @@ class HearingAidInterfaceImpl
   }
 
   void Connect(const RawAddress& address) override {
-    DVLOG(2) << __func__ << " address: " << address;
-    do_in_main_thread(FROM_HERE, Bind(&HearingAid::Connect,
-                                      Unretained(HearingAid::Get()), address));
+    DVLOG(2) << __func__ << " address: " << ADDRESS_TO_LOGGABLE_STR(address);
+    do_in_main_thread(FROM_HERE, Bind(&HearingAid::Connect, address));
   }
 
   void Disconnect(const RawAddress& address) override {
-    DVLOG(2) << __func__ << " address: " << address;
-    do_in_main_thread(FROM_HERE, Bind(&HearingAid::Disconnect,
-                                      Unretained(HearingAid::Get()), address));
+    DVLOG(2) << __func__ << " address: " << ADDRESS_TO_LOGGABLE_STR(address);
+    do_in_main_thread(FROM_HERE, Bind(&HearingAid::Disconnect, address));
     do_in_jni_thread(FROM_HERE, Bind(&btif_storage_set_hearing_aid_acceptlist,
                                      address, false));
   }
 
   void AddToAcceptlist(const RawAddress& address) override {
-    VLOG(2) << __func__ << " address: " << address;
-    do_in_main_thread(FROM_HERE, Bind(&HearingAid::AddToAcceptlist,
-                                      Unretained(HearingAid::Get()), address));
+    VLOG(2) << __func__ << " address: " << ADDRESS_TO_LOGGABLE_STR(address);
+    do_in_main_thread(FROM_HERE, Bind(&HearingAid::AddToAcceptlist, address));
     do_in_jni_thread(FROM_HERE, Bind(&btif_storage_set_hearing_aid_acceptlist,
                                      address, true));
   }
 
   void SetVolume(int8_t volume) override {
     DVLOG(2) << __func__ << " volume: " << +volume;
-    do_in_main_thread(FROM_HERE, Bind(&HearingAid::SetVolume,
-                                      Unretained(HearingAid::Get()), volume));
+    do_in_main_thread(FROM_HERE, Bind(&HearingAid::SetVolume, volume));
   }
 
   void RemoveDevice(const RawAddress& address) override {
-    DVLOG(2) << __func__ << " address: " << address;
+    DVLOG(2) << __func__ << " address: " << ADDRESS_TO_LOGGABLE_STR(address);
 
     // RemoveDevice can be called on devices that don't have HA enabled
     if (HearingAid::IsHearingAidRunning()) {
-      do_in_main_thread(FROM_HERE,
-                        Bind(&HearingAid::Disconnect,
-                             Unretained(HearingAid::Get()), address));
+      do_in_main_thread(FROM_HERE, Bind(&HearingAid::Disconnect, address));
     }
 
     do_in_jni_thread(FROM_HERE,

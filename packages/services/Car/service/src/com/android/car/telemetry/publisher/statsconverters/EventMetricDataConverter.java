@@ -16,6 +16,8 @@
 
 package com.android.car.telemetry.publisher.statsconverters;
 
+import static com.android.car.telemetry.publisher.Constants.STATS_BUNDLE_KEY_ELAPSED_TIMESTAMP;
+
 import android.annotation.NonNull;
 import android.os.PersistableBundle;
 
@@ -29,8 +31,6 @@ import java.util.List;
  * Class for converting event metric data to {@link PersistableBundle} compatible format.
  */
 public class EventMetricDataConverter {
-    static final String ELAPSED_TIME_NANOS = "elapsed_timestamp_nanos";
-
     /**
      * Converts a list of {@link StatsLogProto.EventMetricData} to {@link PersistableBundle} format
      * such that along with the elapsed time array each field of the atom has an associated array
@@ -67,7 +67,7 @@ public class EventMetricDataConverter {
         for (int i = 0; i < elapsedTimes.size(); ++i) {
             elapsedTimesArray[i] = elapsedTimes.get(i);
         }
-        bundle.putLongArray(ELAPSED_TIME_NANOS, elapsedTimesArray);
+        bundle.putLongArray(STATS_BUNDLE_KEY_ELAPSED_TIMESTAMP, elapsedTimesArray);
         return bundle;
     }
 }

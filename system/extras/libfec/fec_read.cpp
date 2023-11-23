@@ -325,8 +325,12 @@ static ssize_t verity_read(fec_handle *f, uint8_t *dest, size_t count,
 
         /* copy raw data without error correction */
         if (!raw_pread(f->fd, data, FEC_BLOCKSIZE, curr_offset)) {
-            error("failed to read: %s", strerror(errno));
-            return -1;
+            if (errno == EIO) {
+                warn("I/O error encounter when reading, attempting to recover using fec");
+            } else {
+                error("failed to read: %s", strerror(errno));
+                return -1;
+            }
         }
 
         if (likely(f->hashtree().check_block_hash_with_index(curr, data))) {

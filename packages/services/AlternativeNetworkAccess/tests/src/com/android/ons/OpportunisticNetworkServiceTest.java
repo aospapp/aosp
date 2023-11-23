@@ -76,13 +76,26 @@ public class OpportunisticNetworkServiceTest extends ONSBaseTest {
                 mOpportunisticNetworkService = new OpportunisticNetworkService();
                 mOpportunisticNetworkService.initialize(mContext);
                 mOpportunisticNetworkService.mSubscriptionManager = mSubscriptionManager;
-                iOpportunisticNetworkService = (IOns) mOpportunisticNetworkService.onBind(null);
+                for (int retry = 2; retry > 0; retry--) {
+
+                    iOpportunisticNetworkService = (IOns) mOpportunisticNetworkService.onBind(null);
+
+                    if (iOpportunisticNetworkService != null) {
+                        break;
+                    }
+
+                    try {
+                        Thread.sleep(100);
+                    } catch (Exception e) {
+                        Log.e(TAG, e.toString());
+                    }
+                }
                 mLooper = Looper.myLooper();
                 setReady(true);
                 Looper.loop();
             }
         }).start();
-        waitUntilReady(200);
+        waitUntilReady(300);
     }
 
     @After
@@ -208,6 +221,7 @@ public class OpportunisticNetworkServiceTest extends ONSBaseTest {
         };
 
         try {
+            assertNotNull(iOpportunisticNetworkService);
             iOpportunisticNetworkService.setPreferredDataSubscriptionId(5, false, callbackStub,
                     pkgForDebug);
         } catch (RemoteException ex) {

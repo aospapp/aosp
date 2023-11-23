@@ -26,9 +26,6 @@
 
 namespace perfetto {
 
-// static
-constexpr char MetatraceWriter::kDataSourceName[];
-
 MetatraceWriter::MetatraceWriter() : weak_ptr_factory_(this) {}
 
 MetatraceWriter::~MetatraceWriter() {

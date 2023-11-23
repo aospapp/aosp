@@ -6,8 +6,9 @@ AUTHOR = 'harpreet, krisr, wiley'
 TIME = 'SHORT'
 NAME = 'network_WiFi_ChromeEndToEnd.findVerifyWiFiNetworks'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ('suite:wifi_endtoend, suite:wifi_release')
+ATTRIBUTES = ('suite:wifi_endtoend, suite:wifi_release, suite:infra_qual_wifi')
 DEPENDENCIES = 'wificell'
+PY_VERSION = 3
 
 DOC = """
 WiFi_ChromeEndToEnd test configures two APs and runs the client side

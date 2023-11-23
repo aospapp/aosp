@@ -18,26 +18,27 @@ package android.packageinstaller.install.cts
 import android.app.Activity.RESULT_CANCELED
 import android.app.Activity.RESULT_OK
 import android.content.Intent
+import android.content.pm.InstallSourceInfo
 import android.net.Uri
 import android.platform.test.annotations.AppModeFull
-
-import androidx.test.InstrumentationRegistry
 import androidx.test.runner.AndroidJUnit4
-
+import java.util.concurrent.TimeUnit
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 
-import java.util.concurrent.TimeUnit
-
-private const val INSTALL_BUTTON_ID = "button1"
-private const val CANCEL_BUTTON_ID = "button2"
-
 @RunWith(AndroidJUnit4::class)
 @AppModeFull(reason = "Instant apps cannot install packages")
 class IntentTest : PackageInstallerTestBase() {
-    private val context = InstrumentationRegistry.getTargetContext()
+
+    companion object {
+        // An invalid package name that exceeds the maximum file name length.
+        const val LONG_PACKAGE_NAME = "android.packageinstaller.install.cts.invalidname." +
+                "27jEBRNRG3ozwBsGr1sVIM9U0bVTI2TdyIyeRkZgW4JrJefwNIBAmCg4AzqXiCvG6JjqA0u" +
+                "TCWSFu2YqAVxVdiRKAay19k5VFlSaM7QW9uhvlrLQqsTW01ofFzxNDbp2QfIFHZR6rebKzK" +
+                "Bz6byQFM0DYQnYMwFWXjWkMPNdqkRLykoFLyBup53G68k2n8wl27jEBRNRG3ozwBsGr"
+    }
 
     @After
     fun disableSecureFrp() {
@@ -49,8 +50,6 @@ class IntentTest : PackageInstallerTestBase() {
      */
     @Test
     fun confirmInstallation() {
-        assumeNotWatch()
-
         val installation = startInstallationViaIntent()
         clickInstallerUIButton(INSTALL_BUTTON_ID)
 
@@ -65,8 +64,6 @@ class IntentTest : PackageInstallerTestBase() {
      */
     @Test
     fun cancelInstallation() {
-        assumeNotWatch()
-
         val installation = startInstallationViaIntent()
         clickInstallerUIButton(CANCEL_BUTTON_ID)
 
@@ -76,12 +73,62 @@ class IntentTest : PackageInstallerTestBase() {
     }
 
     /**
+     * Install an app via a package-installer intent, and assign itself as the installer.
+     */
+    @Test
+    fun installWithCallingInstallerPackageName() {
+        val intent = getInstallationIntent()
+        intent.putExtra(Intent.EXTRA_INSTALLER_PACKAGE_NAME, context.opPackageName)
+        val installation = startInstallationViaIntent(intent)
+        clickInstallerUIButton(INSTALL_BUTTON_ID)
+
+        // Install should have succeeded, and system will use the given installer package name
+        // in EXTRA_INSTALLER_PACKAGE_NAME as the installer.
+        assertEquals(RESULT_OK, installation.get(TIMEOUT, TimeUnit.MILLISECONDS))
+        assertEquals(context.opPackageName, getInstallSourceInfo().installingPackageName)
+    }
+
+    /**
+     * Install an app via a package-installer intent, but assign another package as installer
+     * package name.
+     */
+    @Test
+    fun installWithAnotherInstallerPackageName() {
+        val intent = getInstallationIntent()
+        intent.putExtra(Intent.EXTRA_INSTALLER_PACKAGE_NAME, context.opPackageName + ".another")
+        val installation = startInstallationViaIntent(intent)
+        clickInstallerUIButton(INSTALL_BUTTON_ID)
+
+        // Install should have succeeded, but system won't use the given installer package name
+        // in EXTRA_INSTALLER_PACKAGE_NAME as the installer.
+        assertEquals(RESULT_OK, installation.get(TIMEOUT, TimeUnit.MILLISECONDS))
+        assertEquals(getInstallSourceInfo().initiatingPackageName,
+                getInstallSourceInfo().installingPackageName)
+    }
+
+    /**
+     * Install an app via a package-installer intent, but assign an invalid installer
+     * package name which exceeds the maximum file name length.
+     */
+    @Test
+    fun installWithLongInstallerPackageName() {
+        val intent = getInstallationIntent()
+        intent.putExtra(Intent.EXTRA_INSTALLER_PACKAGE_NAME, LONG_PACKAGE_NAME)
+        val installation = startInstallationViaIntent(intent)
+        clickInstallerUIButton(INSTALL_BUTTON_ID)
+
+        // Install should have succeeded, but system won't use the given installer package name
+        // in EXTRA_INSTALLER_PACKAGE_NAME as the installer.
+        assertEquals(RESULT_OK, installation.get(TIMEOUT, TimeUnit.MILLISECONDS))
+        assertEquals(getInstallSourceInfo().initiatingPackageName,
+                getInstallSourceInfo().installingPackageName)
+    }
+
+    /**
      * Make sure that an already installed app can be reinstalled via a "package" uri
      */
     @Test
     fun reinstallViaPackageUri() {
-        assumeNotWatch()
-
         // Regular install
         confirmInstallation()
 
@@ -116,5 +163,9 @@ class IntentTest : PackageInstallerTestBase() {
         } finally {
             setSecureFrp(false)
         }
+    }
+
+    private fun getInstallSourceInfo(): InstallSourceInfo {
+        return pm.getInstallSourceInfo(TEST_APK_PACKAGE_NAME)
     }
 }

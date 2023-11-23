@@ -25,6 +25,12 @@ package {
 
 cc_defaults {
     name: "btcore_fuzz_defaults",
+    cflags: [
+        // http://b/264549607
+        "-Wno-deprecated-builtins",
+        // http://b/267867903
+        "-Wno-deprecated-declarations",
+    ],
     shared_libs: [
         "android.hardware.bluetooth@1.0",
         "android.hardware.bluetooth@1.1",
@@ -32,22 +38,21 @@ cc_defaults {
         "libstatslog_bt",
     ],
     static_libs: [
-        "libosi",
-        "liblog",
         "libbase",
-        "libevent",
-        "libbtcore",
-        "libchrome",
-        "libmodpb64",
-        "libvndksupport",
-        "libbt-common",
-        "libbluetooth-types",
         "libbluetooth-protos",
-        "libprotobuf-cpp-lite",
+        "libbluetooth-types",
         "libbluetooth_rust_interop",
-        "libbt_callbacks_cxx",
+        "libbt-common",
         "libbt_shim_bridge",
         "libbt_shim_ffi",
+        "libbtcore",
+        "libchrome",
+        "libevent",
+        "liblog",
+        "libmodpb64",
+        "libosi",
+        "libprotobuf-cpp-lite",
+        "libvndksupport",
     ],
     include_dirs: [
         "packages/modules/Bluetooth/system",
@@ -57,10 +62,8 @@ cc_defaults {
         "libbluetooth_headers",
     ],
     fuzz_config: {
-        cc: [
-            "android-media-fuzzing-reports@google.com",
-        ],
-        componentid: 155276,
+        cc: ["android-bluetooth-security@google.com"],
+        componentid: 27441,
     },
 }
 

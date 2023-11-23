@@ -27,15 +27,18 @@
 #include <time.h>
 #include <string>
 #include <sstream>
+#include <time.h>
 
 #include "hiddevice.h"
 #include "rmi4update.h"
 
 #define VERSION_MAJOR		1
 #define VERSION_MINOR		3
-#define VERSION_SUBMINOR	5
+#define VERSION_SUBMINOR	12
 
-#define RMI4UPDATE_GETOPTS	"hfd:t:pclv"
+#define RMI4UPDATE_GETOPTS	"hfd:t:pclvm"
+
+bool needDebugMessage; 
 
 void printHelp(const char *prog_name)
 {
@@ -65,9 +68,18 @@ int GetFirmwareProps(const char * deviceFile, std::string &props, bool configid)
 	rc = rmidevice.Open(deviceFile);
 	if (rc)
 		return rc;
+	
+	if (needDebugMessage)
+		rmidevice.m_hasDebug = true;
+
+	// Clear all interrupts before parsing to avoid unexpected interrupts.
+	rmidevice.ToggleInterruptMask(false);
 
 	rmidevice.ScanPDT(0x1);
 	rmidevice.QueryBasicProperties();
+
+	// Restore the interrupts
+	rmidevice.ToggleInterruptMask(true);
 
 	if (configid) {
 		ss << std::hex << rmidevice.GetConfigID();
@@ -108,6 +120,7 @@ int main(int argc, char **argv)
 	bool printFirmwareProps = false;
 	bool printConfigid = false;
 	bool performLockdown = false;
+	needDebugMessage = false;
 	HIDDevice device;
 	enum RMIDeviceType deviceType = RMI_DEVICE_TYPE_ANY;
 
@@ -141,6 +154,9 @@ int main(int argc, char **argv)
 			case 'v':
 				printVersion();
 				return 0;
+			case 'm':
+				needDebugMessage = true;
+				break;
 			default:
 				break;
 
@@ -149,7 +165,7 @@ int main(int argc, char **argv)
 
 	if (printFirmwareProps) {
 		std::string props;
-
+		
 		if (!deviceName) {
 			fprintf(stderr, "Specifiy which device to query\n");
 			return 1;
@@ -188,6 +204,9 @@ int main(int argc, char **argv)
 			return 1;
 	}
 
+	if (needDebugMessage) {
+		device.m_hasDebug = true;
+	}
 
 	RMI4Update update(device, image);
 	rc = update.UpdateFirmware(force, performLockdown);

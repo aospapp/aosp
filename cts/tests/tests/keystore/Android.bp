@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
@@ -62,7 +61,10 @@ android_test {
         "android.test.base",
     ],
     static_libs: [
+        "DeviceAdminApp",
+        "Harrier",
         "Nene",
+        "android-key-attestation",
         "androidx.test.rules",
         "compatibility-device-util-axt",
         "core-tests-support",
@@ -134,9 +136,12 @@ android_test {
         "android.test.runner",
     ],
     static_libs: [
+        "bouncycastle-bcpkix-unbundled",
+        "bouncycastle-unbundled",
         "cts-core-test-runner-axt",
         "wycheproof-keystore",
         "wycheproof-gson",
+        "cts-keystore-test-util",
     ],
     // sdk_version: "test_current",
     platform_apis: true,

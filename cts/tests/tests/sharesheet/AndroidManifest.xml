@@ -47,6 +47,12 @@
                 <data android:mimeType="test/cts"/>
             </intent-filter>
 
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="test/cts_alternate"/>
+            </intent-filter>
+
             <!-- Used to provide Sharing Shortcuts -->
             <meta-data android:name="android.app.shortcuts"
                  android:resource="@xml/shortcuts"/>

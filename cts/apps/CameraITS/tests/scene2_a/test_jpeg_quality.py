@@ -29,17 +29,18 @@ import capture_request_utils
 import image_processing_utils
 import its_session_utils
 
-JPEG_APPN_MARKERS = [[255, 224], [255, 225], [255, 226], [255, 227], [255, 228],
-                     [255, 229], [255, 230], [255, 231], [255, 232], [255, 235]]
-JPEG_DHT_MARKER = [255, 196]  # JPEG Define Huffman Table
-JPEG_DQT_MARKER = [255, 219]  # JPEG Define Quantization Table
-JPEG_DQT_TOL = 0.8  # -20% for each +20 in jpeg.quality (empirical number)
-JPEG_EOI_MARKER = [255, 217]  # JPEG End of Image
-JPEG_SOI_MARKER = [255, 216]  # JPEG Start of Image
-JPEG_SOS_MARKER = [255, 218]  # JPEG Start of Scan
-NAME = os.path.splitext(os.path.basename(__file__))[0]
-QUALITIES = [25, 45, 65, 85]
-SYMBOLS = ['o', 's', 'v', '^', '<', '>']
+_JPEG_APPN_MARKERS = [[255, 224], [255, 225], [255, 226], [255, 227],
+                      [255, 228], [255, 229], [255, 230], [255, 231],
+                      [255, 232], [255, 235]]
+_JPEG_DHT_MARKER = [255, 196]  # JPEG Define Huffman Table
+_JPEG_DQT_MARKER = [255, 219]  # JPEG Define Quantization Table
+_JPEG_DQT_TOL = 0.8  # -20% for each +20 in jpeg.quality (empirical number)
+_JPEG_EOI_MARKER = [255, 217]  # JPEG End of Image
+_JPEG_SOI_MARKER = [255, 216]  # JPEG Start of Image
+_JPEG_SOS_MARKER = [255, 218]  # JPEG Start of Scan
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_QUALITIES = [25, 45, 65, 85]
+_SYMBOLS = ['o', 's', 'v', '^', '<', '>']
 
 
 def is_square(integer):
@@ -60,7 +61,7 @@ def strip_soi_marker(jpeg):
   """
 
   soi = jpeg[0:2]
-  if list(soi) != JPEG_SOI_MARKER:
+  if list(soi) != _JPEG_SOI_MARKER:
     raise AssertionError('JPEG has no Start Of Image marker')
   return jpeg[2:]
 
@@ -82,12 +83,12 @@ def strip_appn_data(jpeg):
   i = 0
   # find APPN markers and strip off payloads at beginning of jpeg
   while i < len(jpeg) - 1:
-    if [jpeg[i], jpeg[i + 1]] in JPEG_APPN_MARKERS:
+    if [jpeg[i], jpeg[i + 1]] in _JPEG_APPN_MARKERS:
       length = jpeg[i + 2] * 256 + jpeg[i + 3] + 2
       logging.debug('stripped APPN length:%d', length)
       jpeg = np.concatenate((jpeg[0:i], jpeg[length:]), axis=None)
-    elif ([jpeg[i], jpeg[i + 1]] == JPEG_DQT_MARKER or
-          [jpeg[i], jpeg[i + 1]] == JPEG_DHT_MARKER):
+    elif ([jpeg[i], jpeg[i + 1]] == _JPEG_DQT_MARKER or
+          [jpeg[i], jpeg[i + 1]] == _JPEG_DHT_MARKER):
       break
     else:
       i += 1
@@ -134,7 +135,7 @@ def extract_dqts(jpeg, debug=False):
     Higher values represent higher compression.
   """
 
-  dqt_markers = find_dqt_markers(JPEG_DQT_MARKER, jpeg)
+  dqt_markers = find_dqt_markers(_JPEG_DQT_MARKER, jpeg)
   logging.debug('DQT header loc(s):%s', dqt_markers)
   lumas = []
   chromas = []
@@ -184,21 +185,21 @@ def plot_data(qualities, lumas, chromas, img_name):
   logging.debug('qualities: %s', str(qualities))
   logging.debug('luma DQT avgs: %s', str(lumas))
   logging.debug('chroma DQT avgs: %s', str(chromas))
-  pylab.title(NAME)
+  pylab.title(_NAME)
   for i in range(lumas.shape[1]):
     pylab.plot(
-        qualities, lumas[:, i], '-g' + SYMBOLS[i], label='luma_dqt' + str(i))
+        qualities, lumas[:, i], '-g' + _SYMBOLS[i], label='luma_dqt' + str(i))
     pylab.plot(
         qualities,
         chromas[:, i],
-        '-r' + SYMBOLS[i],
+        '-r' + _SYMBOLS[i],
         label='chroma_dqt' + str(i))
   pylab.xlim([0, 100])
   pylab.ylim([0, None])
   pylab.xlabel('jpeg.quality')
   pylab.ylabel('DQT luma/chroma matrix averages')
   pylab.legend(loc='upper right', numpoints=1, fancybox=True)
-  matplotlib.pyplot.savefig('%s_plot.png' % img_name)
+  matplotlib.pyplot.savefig(f'{img_name}_plot.png')
 
 
 class JpegQualityTest(its_base_test.ItsBaseTest):
@@ -211,7 +212,7 @@ class JpegQualityTest(its_base_test.ItsBaseTest):
   """
 
   def test_jpeg_quality(self):
-    logging.debug('Starting %s', NAME)
+    logging.debug('Starting %s', _NAME)
     # init variables
     lumas = []
     chromas = []
@@ -236,7 +237,7 @@ class JpegQualityTest(its_base_test.ItsBaseTest):
 
       # do captures over jpeg quality range
       req = capture_request_utils.auto_capture_request()
-      for q in QUALITIES:
+      for q in _QUALITIES:
         logging.debug('jpeg.quality: %.d', q)
         req['android.jpeg.quality'] = q
         cap = cam.do_capture(req, cam.CAP_JPEG)
@@ -257,25 +258,25 @@ class JpegQualityTest(its_base_test.ItsBaseTest):
         # save JPEG image
         img = image_processing_utils.convert_capture_to_rgb_image(
             cap, props=props)
-        img_name = os.path.join(self.log_path, NAME)
-        image_processing_utils.write_image(img, '%s_%d.jpg' % (img_name, q))
+        img_name = os.path.join(self.log_path, _NAME)
+        image_processing_utils.write_image(img, f'{img_name}_{q}.jpg')
 
     # turn lumas/chromas into np array to ease multi-dimensional plots/asserts
     lumas = np.array(lumas)
     chromas = np.array(chromas)
 
     # create plot of luma & chroma averages vs quality
-    plot_data(QUALITIES, lumas, chromas, img_name)
+    plot_data(_QUALITIES, lumas, chromas, img_name)
 
     # assert decreasing luma/chroma with improved jpeg quality
     for i in range(lumas.shape[1]):
       l = lumas[:, i]
       c = chromas[:, i]
-      if not all(y < x * JPEG_DQT_TOL for x, y in zip(l, l[1:])):
-        raise AssertionError(f'luma DQT avgs: {l}, TOL: {JPEG_DQT_TOL}')
+      if not all(y < x * _JPEG_DQT_TOL for x, y in zip(l, l[1:])):
+        raise AssertionError(f'luma DQT avgs: {l}, TOL: {_JPEG_DQT_TOL}')
 
-      if not all(y < x * JPEG_DQT_TOL for x, y in zip(c, c[1:])):
-        raise AssertionError(f'chroma DQT avgs: {c}, TOL: {JPEG_DQT_TOL}')
+      if not all(y < x * _JPEG_DQT_TOL for x, y in zip(c, c[1:])):
+        raise AssertionError(f'chroma DQT avgs: {c}, TOL: {_JPEG_DQT_TOL}')
 
 if __name__ == '__main__':
   test_runner.main()

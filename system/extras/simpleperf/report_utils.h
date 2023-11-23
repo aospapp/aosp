@@ -23,10 +23,55 @@
 #include <unordered_map>
 #include <vector>
 
+#include "RegEx.h"
 #include "dso.h"
 #include "thread_tree.h"
+#include "utils.h"
 
 namespace simpleperf {
+
+class ProguardMappingRetrace {
+ public:
+  // Add proguard mapping.txt to de-obfuscate minified symbols.
+  bool AddProguardMappingFile(std::string_view mapping_file);
+
+  bool DeObfuscateJavaMethods(std::string_view obfuscated_name, std::string* original_name,
+                              bool* synthesized);
+
+ private:
+  struct MappingMethod {
+    std::string original_name;
+    bool contains_classname;
+    bool synthesized;
+  };
+
+  struct MappingClass {
+    std::string original_classname;
+    bool synthesized = false;
+    // Map from obfuscated method names to MappingMethod.
+    std::unordered_map<std::string, MappingMethod> method_map;
+  };
+
+  enum LineType {
+    SYNTHESIZED_COMMENT,
+    CLASS_LINE,
+    METHOD_LINE,
+    LINE_EOF,
+  };
+
+  struct LineInfo {
+    LineType type;
+    std::string_view data;
+  };
+
+  void ParseMethod(MappingClass& mapping_class);
+  void MoveToNextLine();
+
+  // Map from obfuscated class names to ProguardMappingClass.
+  std::unordered_map<std::string, MappingClass> class_map_;
+  std::unique_ptr<LineReader> line_reader_;
+  LineInfo cur_line_;
+};
 
 enum class CallChainExecutionType {
   NATIVE_METHOD,
@@ -48,7 +93,7 @@ struct CallChainReportEntry {
 
 class CallChainReportBuilder {
  public:
-  CallChainReportBuilder(ThreadTree& thread_tree) : thread_tree_(thread_tree) {}
+  CallChainReportBuilder(ThreadTree& thread_tree);
   // If true, remove interpreter frames both before and after a Java frame.
   // Default is true.
   void SetRemoveArtFrame(bool enable) { remove_art_frame_ = enable; }
@@ -67,12 +112,6 @@ class CallChainReportBuilder {
     JavaMethod(Dso* dso, const Symbol* symbol) : dso(dso), symbol(symbol) {}
   };
 
-  struct ProguardMappingClass {
-    std::string original_classname;
-    // Map from minified method names to original method names.
-    std::unordered_map<std::string, std::string> method_map;
-  };
-
   void MarkArtFrame(std::vector<CallChainReportEntry>& callchain);
   void ConvertJITFrame(std::vector<CallChainReportEntry>& callchain);
   void CollectJavaMethods();
@@ -80,11 +119,41 @@ class CallChainReportBuilder {
 
   ThreadTree& thread_tree_;
   bool remove_art_frame_ = true;
+  bool remove_r8_synthesized_frame_ = false;
   bool convert_jit_frame_ = true;
   bool java_method_initialized_ = false;
   std::unordered_map<std::string, JavaMethod> java_method_map_;
-  // Map from minified class names to ProguardMappingClass.
-  std::unordered_map<std::string, ProguardMappingClass> proguard_class_map_;
+  std::unique_ptr<ProguardMappingRetrace> retrace_;
+};
+
+struct ThreadReport {
+  int pid;
+  int tid;
+  const char* thread_name;
+
+  ThreadReport(int pid = 0, int tid = 0, const char* thread_name = nullptr)
+      : pid(pid), tid(tid), thread_name(thread_name) {}
+};
+
+// Report thread info of a sample.
+class ThreadReportBuilder {
+ public:
+  // Aggregate threads with names matching the same regex.
+  bool AggregateThreads(const std::vector<std::string>& thread_name_regex);
+  ThreadReport Build(const ThreadEntry& thread);
+
+ private:
+  void ModifyReportToAggregateThreads(ThreadReport& report);
+
+  struct ThreadNameRegInfo {
+    std::unique_ptr<RegEx> re;
+    ThreadReport report;
+  };
+
+  std::vector<ThreadNameRegInfo> thread_regs_;
+  // Map from thread name to the corresponding index in thread_regs_.
+  // Return -1 if the thread name doesn't match any regular expression.
+  std::unordered_map<std::string, int> thread_map_;
 };
 
 }  // namespace simpleperf

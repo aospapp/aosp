@@ -60,7 +60,7 @@ save_old_setting()
 {
 	cd $TRACING_PATH
 
-	old_trace_options=( `cat trace_options` )
+	old_trace_options=`cat trace_options`
 	old_tracing_on=`cat tracing_on`
 	old_buffer_size=`cat buffer_size_kb`
 	old_tracing_cpumask=`cat tracing_cpumask`
@@ -128,12 +128,11 @@ restore_old_setting()
 	echo $old_buffer_size > buffer_size_kb
 	echo $old_tracing_on > tracing_on
 
-	if [ -e tracing_enabled ];then
+	if [ -e tracing_enabled ]; then
 		echo $old_tracing_enabled > tracing_enabled
 	fi
 
-	for option in $old_trace_options
-	do
+	for option in $old_trace_options; do
 		echo $option > trace_options 2> /dev/null
 	done
 

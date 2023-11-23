@@ -16,10 +16,9 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.permission.cts.appthataccesseslocation"
-    android:versionCode="2">
+    package="android.permission.cts.appthataccesseslocation">
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
-    <application android:label="CtsLocationAccess" />
+    <application android:label="CtsLocationAccess" android:debuggable="true"/>
 </manifest>
 

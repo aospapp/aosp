@@ -3,14 +3,14 @@
 // Primarily by Rod Smith, February 2009, but with a few functions
 // copied from other sources (see attributions below).
 
-/* This program is copyright (c) 2009-2018 by Roderick W. Smith. It is distributed
+/* This program is copyright (c) 2009-2022 by Roderick W. Smith. It is distributed
   under the terms of the GNU GPL version 2, as detailed in the COPYING file. */
 
 #define __STDC_LIMIT_MACROS
-#ifndef __STDC_CONSTANT_MACROS
 #define __STDC_CONSTANT_MACROS
-#endif
+#define __STDC_FORMAT_MACROS
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <errno.h>
@@ -18,8 +18,9 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <string>
+#include <cctype>
+#include <algorithm>
 #include <iostream>
-#include <inttypes.h>
 #include <sstream>
 #include "support.h"
 
@@ -81,7 +82,7 @@ uint64_t GetNumber(uint64_t low, uint64_t high, uint64_t def, const string & pro
          cin.getline(line, 255);
          if (!cin.good())
             exit(5);
-         num = sscanf(line, "%" SCNu64, &response);
+         num = sscanf(line, "%" PRIu64, &response);
          if (num == 1) { // user provided a response
             if ((response < low) || (response > high))
                cout << "Value out of range\n";
@@ -112,48 +113,27 @@ char GetYN(void) {
    return response;
 } // GetYN(void)
 
-// Obtains a sector number, between low and high, from the
-// user, accepting values prefixed by "+" to add sectors to low,
-// or the same with "K", "M", "G", "T", or "P" as suffixes to add
-// kilobytes, megabytes, gigabytes, terabytes, or petabytes,
-// respectively. If a "-" prefix is used, use the high value minus
-// the user-specified number of sectors (or KiB, MiB, etc.). Use the
-// def value as the default if the user just hits Enter. The sSize is
-// the sector size of the device.
-uint64_t GetSectorNum(uint64_t low, uint64_t high, uint64_t def, uint64_t sSize,
-                      const string & prompt) {
-   uint64_t response;
-   char line[255];
-
-   do {
-      cout << prompt;
-      cin.getline(line, 255);
-      if (!cin.good())
-         exit(5);
-      response = IeeeToInt(line, sSize, low, high, def);
-   } while ((response < low) || (response > high));
-   return response;
-} // GetSectorNum()
-
 // Convert an IEEE-1541-2002 value (K, M, G, T, P, or E) to its equivalent in
 // number of sectors. If no units are appended, interprets as the number
 // of sectors; otherwise, interprets as number of specified units and
 // converts to sectors. For instance, with 512-byte sectors, "1K" converts
-// to 2. If value includes a "+", adds low and subtracts 1; if SIValue
+// to 2. If value includes a "+", adds low and subtracts 1; if inValue
 // inclues a "-", subtracts from high. If IeeeValue is empty, returns def.
 // Returns final sector value. In case inValue is invalid, returns 0 (a
 // sector value that's always in use on GPT and therefore invalid); and if
 // inValue works out to something outside the range low-high, returns the
 // computed value; the calling function is responsible for checking the
 // validity of this value.
+// If inValue contains a decimal number (e.g., "9.5G"), quietly truncate it
+// (to "9G" in this example).
 // NOTE: There's a difference in how GCC and VC++ treat oversized values
 // (say, "999999999999999999999") read via the ">>" operator; GCC turns
 // them into the maximum value for the type, whereas VC++ turns them into
 // 0 values. The result is that IeeeToInt() returns UINT64_MAX when
 // compiled with GCC (and so the value is rejected), whereas when VC++
 // is used, the default value is returned.
-uint64_t IeeeToInt(string inValue, uint64_t sSize, uint64_t low, uint64_t high, uint64_t def) {
-   uint64_t response = def, bytesPerUnit = 1, mult = 1, divide = 1;
+uint64_t IeeeToInt(string inValue, uint64_t sSize, uint64_t low, uint64_t high, uint32_t sectorAlignment, uint64_t def) {
+   uint64_t response = def, bytesPerUnit, mult = 1, divide = 1;
    size_t foundAt = 0;
    char suffix = ' ', plusFlag = ' ';
    string suffixes = "KMGTPE";
@@ -180,6 +160,15 @@ uint64_t IeeeToInt(string inValue, uint64_t sSize, uint64_t low, uint64_t high, 
       badInput = 1;
    inString >> response >> suffix;
    suffix = toupper(suffix);
+   foundAt = suffixes.find(suffix);
+   // If suffix is invalid, try to find a valid one. Done because users
+   // sometimes enter decimal numbers; when they do, suffix becomes
+   // '.', and we need to truncate the number and find the real suffix.
+   while (foundAt > (suffixes.length() - 1) && inString.peek() != -1) {
+      inString >> suffix;
+      foundAt = suffixes.find(suffix);
+      suffix = toupper(suffix);
+   }
 
    // If no response, or if response == 0, use default (def)
    if ((inValue.length() == 0) || (response == 0)) {
@@ -189,7 +178,6 @@ uint64_t IeeeToInt(string inValue, uint64_t sSize, uint64_t low, uint64_t high, 
    } // if
 
    // Find multiplication and division factors for the suffix
-   foundAt = suffixes.find(suffix);
    if (foundAt != string::npos) {
       bytesPerUnit = UINT64_C(1) << (10 * (foundAt + 1));
       mult = bytesPerUnit / sSize;
@@ -207,11 +195,12 @@ uint64_t IeeeToInt(string inValue, uint64_t sSize, uint64_t low, uint64_t high, 
    } // if/elseif
 
    if (plusFlag == '+') {
-      // Recompute response based on low part of range (if default == high
-      // value, which should be the case when prompting for the end of a
-      // range) or the defaut value (if default != high, which should be
-      // the case for the first sector of a partition).
-      if (def == high) {
+      // Recompute response based on low part of range (if default is within
+      // sectorAlignment sectors of high, which should be the case when
+      // prompting for the end of a range) or the defaut value (if default is
+      // further away from the high value, which should be the case for the
+      // first sector of a partition).
+      if ((high - def) < sectorAlignment) {
          if (response > 0)
             response--;
          if (response > (UINT64_MAX - low))
@@ -361,3 +350,11 @@ void WinWarning(void) {
       exit(0);
    #endif
 } // WinWarning()
+
+// Returns the input string in lower case
+string ToLower(const string& input) {
+   string lower = input; // allocate correct size through copy
+
+   transform(input.begin(), input.end(), lower.begin(), ::tolower);
+   return lower;
+} // ToLower()

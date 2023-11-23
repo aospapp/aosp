@@ -14,8 +14,6 @@
 */
 package android.bluetooth;
 
-import java.util.Arrays;
-
 import android.os.Parcel;
 import android.os.Parcelable;
 

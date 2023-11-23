@@ -275,6 +275,10 @@ public class AvailableNetworkNotifier {
         }
     }
 
+    public boolean isSettingEnabled() {
+        return mSettingEnabled;
+    }
+
     private boolean isControllerEnabled() {
         UserManager userManager = mContext.getSystemService(UserManager.class);
         UserHandle currentUser = UserHandle.of(mWifiPermissionsUtil.getCurrentUser());
@@ -509,9 +513,10 @@ public class AvailableNetworkNotifier {
     private void startWifiSettings() {
         // Close notification drawer before opening the picker.
         mContext.sendBroadcast(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS));
-        mContext.startActivity(
+        mContext.startActivityAsUser(
                 new Intent(Settings.ACTION_WIFI_SETTINGS)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                UserHandle.CURRENT);
         clearPendingNotification(false /* resetRepeatTime */);
     }
 

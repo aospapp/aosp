@@ -27,22 +27,22 @@ bt_packets = { path = "../packets" }
 gddi = { path = "../gddi" }
 
 # External dependencies
-bytes = "*"
-cxx = "*"
-futures = "*"
-grpcio = "*"
-lazy_static = "*"
-log = "*"
-nix = "*"
-num-traits = "*"
-protobuf = "*"
-thiserror = "*"
-tokio = "*"
-tokio-stream = "*"
-walkdir = "*"
+bytes = "1.0"
+cxx = "1.0"
+futures = "0.3"
+grpcio = "0.9"
+lazy_static = "1.4"
+log = "0.4"
+nix = "0.23"
+num-traits = "0.2"
+protobuf = "2.0"
+thiserror = "1.0"
+tokio = "1.0"
+tokio-stream = "0.1"
+walkdir = "2.2"
 
 # Macro dependencies
-num-derive = "*"
+num-derive = "0.3"
 
 [lib]
 crate-type = ["rlib"]

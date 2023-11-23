@@ -18,4 +18,5 @@
 <resources>
     <color name="button_background">@*android:color/car_dark_blue_grey_600</color>
     <color name="button_text">@android:color/white</color>
+    <drawable name="num_pad_key_background">@android:color/transparent</drawable>
 </resources>

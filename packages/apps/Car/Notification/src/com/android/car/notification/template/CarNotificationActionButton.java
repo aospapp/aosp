@@ -19,6 +19,7 @@ package com.android.car.notification.template;
 import android.annotation.ColorInt;
 import android.annotation.Nullable;
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.view.View;
@@ -35,6 +36,8 @@ public class CarNotificationActionButton extends LinearLayout {
     private final ImageView mImageView;
     private final TextView mTextView;
     private final boolean mUseIconsInActionButton;
+    @ColorInt
+    private final int mDefaultTextColor;
 
     public CarNotificationActionButton(Context context) {
         this(context, /* attrs= */ null);
@@ -58,6 +61,19 @@ public class CarNotificationActionButton extends LinearLayout {
         mImageView = findViewById(R.id.car_action_button_icon);
         mUseIconsInActionButton =
                 context.getResources().getBoolean(R.bool.config_showIconsInActionButtons);
+
+        if (attrs != null) {
+            TypedArray attributes =
+                    context.obtainStyledAttributes(attrs, R.styleable.CarNotificationActionButton);
+            int color = attributes.getColor(
+                    R.styleable.CarNotificationActionButton_textColor, /* defaultValue= */
+                    context.getResources().getColor(R.color.notification_accent_color));
+            attributes.recycle();
+            mDefaultTextColor = color;
+        } else {
+            mDefaultTextColor = context.getResources().getColor(R.color.notification_accent_color);
+        }
+        mTextView.setTextColor(mDefaultTextColor);
     }
 
     /**
@@ -79,6 +95,15 @@ public class CarNotificationActionButton extends LinearLayout {
      */
     public void setTextColor(@ColorInt int color) {
         mTextView.setTextColor(color);
+    }
+
+    /**
+     * @return default text color defined by
+     * {@code R.styleable.CarNotificationActionButton_textColor}
+     */
+    @ColorInt
+    public int getDefaultTextColor() {
+        return mDefaultTextColor;
     }
 
     /**

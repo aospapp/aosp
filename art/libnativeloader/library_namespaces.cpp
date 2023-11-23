@@ -30,6 +30,7 @@
 #include <android-base/macros.h>
 #include <android-base/result.h>
 #include <android-base/strings.h>
+#include <android-base/stringprintf.h>
 #include <nativehelper/scoped_utf_chars.h>
 
 #include "nativeloader/dlext_namespaces.h"
@@ -55,24 +56,26 @@ constexpr const char* kVndkNamespaceName = "vndk";
 // vndk_product namespace for unbundled product apps
 constexpr const char* kVndkProductNamespaceName = "vndk_product";
 
-// classloader-namespace is a linker namespace that is created for the loaded
-// app. To be specific, it is created for the app classloader. When
-// System.load() is called from a Java class that is loaded from the
-// classloader, the classloader-namespace namespace associated with that
-// classloader is selected for dlopen. The namespace is configured so that its
-// search path is set to the app-local JNI directory and it is linked to the
-// system namespace with the names of libs listed in the public.libraries.txt.
-// This way an app can only load its own JNI libraries along with the public libs.
-constexpr const char* kClassloaderNamespaceName = "classloader-namespace";
-// Same thing for vendor APKs.
-constexpr const char* kVendorClassloaderNamespaceName = "vendor-classloader-namespace";
-// If the namespace is shared then add this suffix to form
-// "classloader-namespace-shared" or "vendor-classloader-namespace-shared",
-// respectively. A shared namespace (cf. ANDROID_NAMESPACE_TYPE_SHARED) has
+// clns-XX is a linker namespace that is created for normal apps installed in
+// the data partition. To be specific, it is created for the app classloader.
+// When System.load() is called from a Java class that is loaded from the
+// classloader, the clns namespace associated with that classloader is selected
+// for dlopen. The namespace is configured so that its search path is set to the
+// app-local JNI directory and it is linked to the system namespace with the
+// names of libs listed in the public.libraries.txt and other public libraries.
+// This way an app can only load its own JNI libraries along with the public
+// libs.
+constexpr const char* kClassloaderNamespaceName = "clns";
+// Same thing for unbundled APKs in the vendor partition.
+constexpr const char* kVendorClassloaderNamespaceName = "vendor-clns";
+// Same thing for unbundled APKs in the product partition.
+constexpr const char* kProductClassloaderNamespaceName = "product-clns";
+// If the namespace is shared then add this suffix to help identify it in debug
+// messages. A shared namespace (cf. ANDROID_NAMESPACE_TYPE_SHARED) has
 // inherited all the libraries of the parent classloader namespace, or the
-// system namespace for the main app classloader. It is used to give full
-// access to the platform libraries for apps bundled in the system image,
-// including their later updates installed in /data.
+// system namespace for the main app classloader. It is used to give full access
+// to the platform libraries for apps bundled in the system image, including
+// their later updates installed in /data.
 constexpr const char* kSharedNamespaceSuffix = "-shared";
 
 // (http://b/27588281) This is a workaround for apps using custom classloaders and calling
@@ -81,16 +84,19 @@ constexpr const char* kSharedNamespaceSuffix = "-shared";
 constexpr const char* kAlwaysPermittedDirectories = "/data:/mnt/expand";
 
 constexpr const char* kVendorLibPath = "/vendor/" LIB;
+// TODO(mast): It's unlikely that both paths are necessary for kProductLibPath
+// below, because they can't be two separate directories - either one has to be
+// a symlink to the other.
 constexpr const char* kProductLibPath = "/product/" LIB ":/system/product/" LIB;
 
-const std::regex kVendorDexPathRegex("(^|:)/vendor/");
+const std::regex kVendorDexPathRegex("(^|:)(/system)?/vendor/");
 const std::regex kProductDexPathRegex("(^|:)(/system)?/product/");
 
-// Define origin of APK if it is from vendor partition or product partition
+// Define origin partition of APK
 using ApkOrigin = enum {
   APK_ORIGIN_DEFAULT = 0,
-  APK_ORIGIN_VENDOR = 1,
-  APK_ORIGIN_PRODUCT = 2,
+  APK_ORIGIN_VENDOR = 1,   // Includes both /vendor and /system/vendor
+  APK_ORIGIN_PRODUCT = 2,  // Includes both /product and /system/product
 };
 
 jobject GetParentClassLoader(JNIEnv* env, jobject class_loader) {
@@ -231,51 +237,38 @@ Result<NativeLoaderNamespace*> LibraryNamespaces::Create(JNIEnv* env, uint32_t t
   std::string system_exposed_libraries = default_public_libraries();
   std::string namespace_name = kClassloaderNamespaceName;
   ApkOrigin unbundled_app_origin = APK_ORIGIN_DEFAULT;
-  if ((apk_origin == APK_ORIGIN_VENDOR ||
-       (apk_origin == APK_ORIGIN_PRODUCT &&
-        is_product_vndk_version_defined())) &&
-      !is_shared) {
-    unbundled_app_origin = apk_origin;
-    // For vendor / product apks, give access to the vendor / product lib even though
-    // they are treated as unbundled; the libs and apks are still bundled
-    // together in the vendor / product partition.
-    const char* origin_partition;
-    const char* origin_lib_path;
-    const char* llndk_libraries;
+  const char* apk_origin_msg = "other apk";  // Only for debug logging.
 
-    switch (apk_origin) {
-      case APK_ORIGIN_VENDOR:
-        origin_partition = "vendor";
-        origin_lib_path = kVendorLibPath;
-        llndk_libraries = llndk_libraries_vendor().c_str();
-        break;
-      case APK_ORIGIN_PRODUCT:
-        origin_partition = "product";
-        origin_lib_path = kProductLibPath;
-        llndk_libraries = llndk_libraries_product().c_str();
-        break;
-      default:
-        origin_partition = "unknown";
-        origin_lib_path = "";
-        llndk_libraries = "";
-    }
-    library_path = library_path + ":" + origin_lib_path;
-    permitted_path = permitted_path + ":" + origin_lib_path;
+  if (!is_shared) {
+    if (apk_origin == APK_ORIGIN_VENDOR) {
+      unbundled_app_origin = APK_ORIGIN_VENDOR;
+      apk_origin_msg = "unbundled vendor apk";
 
-    // Also give access to LLNDK libraries since they are available to vendor or product
-    system_exposed_libraries = system_exposed_libraries + ":" + llndk_libraries;
+      // For vendor apks, give access to the vendor libs even though they are
+      // treated as unbundled; the libs and apks are still bundled together in the
+      // vendor partition.
+      library_path = library_path + ':' + kVendorLibPath;
+      permitted_path = permitted_path + ':' + kVendorLibPath;
 
-    // Different name is useful for debugging
-    namespace_name = kVendorClassloaderNamespaceName;
-    ALOGD("classloader namespace configured for unbundled %s apk. library_path=%s",
-          origin_partition, library_path.c_str());
-  } else {
-    auto libs = filter_public_libraries(target_sdk_version, uses_libraries,
-                                        extended_public_libraries());
-    // extended public libraries are NOT available to vendor apks, otherwise it
-    // would be system->vendor violation.
-    if (!libs.empty()) {
-      system_exposed_libraries = system_exposed_libraries + ':' + libs;
+      // Also give access to LLNDK libraries since they are available to vendor.
+      system_exposed_libraries = system_exposed_libraries + ':' + llndk_libraries_vendor();
+
+      // Different name is useful for debugging
+      namespace_name = kVendorClassloaderNamespaceName;
+    } else if (apk_origin == APK_ORIGIN_PRODUCT && is_product_vndk_version_defined()) {
+      unbundled_app_origin = APK_ORIGIN_PRODUCT;
+      apk_origin_msg = "unbundled product apk";
+
+      // Like for vendor apks, give access to the product libs since they are
+      // bundled together in the same partition.
+      library_path = library_path + ':' + kProductLibPath;
+      permitted_path = permitted_path + ':' + kProductLibPath;
+
+      // Also give access to LLNDK libraries since they are available to product.
+      system_exposed_libraries = system_exposed_libraries + ':' + llndk_libraries_product();
+
+      // Different name is useful for debugging
+      namespace_name = kProductClassloaderNamespaceName;
     }
   }
 
@@ -283,6 +276,36 @@ Result<NativeLoaderNamespace*> LibraryNamespaces::Create(JNIEnv* env, uint32_t t
     // Show in the name that the namespace was created as shared, for debugging
     // purposes.
     namespace_name = namespace_name + kSharedNamespaceSuffix;
+  }
+
+  // Append a unique number to the namespace name, to tell them apart when
+  // debugging linker issues, e.g. with debug.ld.all set to "dlopen,dlerror".
+  static int clns_count = 0;
+  namespace_name = android::base::StringPrintf("%s-%d", namespace_name.c_str(), ++clns_count);
+
+  ALOGD(
+      "Configuring %s for %s %s. target_sdk_version=%u, uses_libraries=%s, library_path=%s, "
+      "permitted_path=%s",
+      namespace_name.c_str(),
+      apk_origin_msg,
+      dex_path.c_str(),
+      static_cast<unsigned>(target_sdk_version),
+      android::base::Join(uses_libraries, ':').c_str(),
+      library_path.c_str(),
+      permitted_path.c_str());
+
+  if (unbundled_app_origin != APK_ORIGIN_VENDOR) {
+    // Extended public libraries are NOT available to unbundled vendor apks, but
+    // they are to other apps, including those in system, system_ext, and
+    // product partitions. The reason is that when GSI is used, the system
+    // partition may get replaced, and then vendor apps may fail. It's fine for
+    // product apps, because that partition isn't mounted in GSI tests.
+    auto libs =
+        filter_public_libraries(target_sdk_version, uses_libraries, extended_public_libraries());
+    if (!libs.empty()) {
+      ALOGD("Extending system_exposed_libraries: %s", libs.c_str());
+      system_exposed_libraries = system_exposed_libraries + ':' + libs;
+    }
   }
 
   // Create the app namespace

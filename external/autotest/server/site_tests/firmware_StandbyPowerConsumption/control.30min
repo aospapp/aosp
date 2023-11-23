@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_StandbyPowerConsumption.30min"
 PURPOSE = "Collect power consumption during hibernate."
 TIME = "LONG"
@@ -13,6 +13,7 @@ TEST_CLASS = "firmware"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:powerplay"
 DEPENDENCIES = "servo_state:WORKING, powerplay"
+PY_VERSION = 3
 
 DOC = """
 This test collects and reports the power consumtion data during hibernate state.

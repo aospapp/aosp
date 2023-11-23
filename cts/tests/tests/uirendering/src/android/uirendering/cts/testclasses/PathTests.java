@@ -15,6 +15,8 @@ import androidx.test.runner.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.File;
+
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class PathTests extends ActivityTestBase {
@@ -28,8 +30,19 @@ public class PathTests extends ActivityTestBase {
                     paint.setAntiAlias(true);
                     paint.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
                     paint.setTextSize(26);
-                    Path path = new Path();
+
                     String text = "Abc";
+                    File fontFile = TypefaceTestUtil.getFirstFont(text, paint);
+
+                    if (!fontFile.getName().startsWith("Roboto")) {
+                        Typeface typeface = paint.getTypeface();
+                        paint.setTypeface(
+                                TypefaceTestUtil.getRobotoTypeface(
+                                        typeface.getWeight(),
+                                        typeface.isItalic()));
+                    }
+
+                    Path path = new Path();
                     paint.getTextPath(text, 0, text.length(), 0, 0, path);
                     path.offset(0, 50);
                     canvas.drawPath(path, paint);

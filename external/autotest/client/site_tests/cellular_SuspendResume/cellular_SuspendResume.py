@@ -1,11 +1,20 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from functools import reduce
 
 import dbus
 import logging
 from random import choice, randint
 import time
+
+from six.moves import range
 
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
@@ -15,7 +24,9 @@ from autotest_lib.client.cros.power import power_suspend
 
 # Special import to define the location of the flimflam library.
 from autotest_lib.client.cros import flimflam_test_path
+
 import flimflam
+
 
 SHILL_LOG_SCOPES = 'cellular+dbus+device+dhcp+manager+modem+portal+service'
 
@@ -58,7 +69,7 @@ class cellular_SuspendResume(test.test):
     def filterexns(self, function, exn_list):
         try:
             function()
-        except dbus.exceptions.DBusException, e:
+        except dbus.exceptions.DBusException as e:
             if e._dbus_error_name not in exn_list:
                 raise e
 
@@ -73,14 +84,14 @@ class cellular_SuspendResume(test.test):
         return None
 
     def get_powered(self, device):
-        properties = device.GetProperties(utf8_strings=True)
+        properties = device.GetProperties()
         logging.debug(properties)
         logging.info('Power state of mobile device is %s.',
                      ['off', 'on'][properties['Powered']])
         return properties['Powered']
 
     def _check_powered(self, device, check_enabled):
-        properties = device.GetProperties(utf8_strings=True)
+        properties = device.GetProperties()
         power_state = (properties['Powered'] == 1)
         return power_state if check_enabled else not power_state
 
@@ -133,7 +144,7 @@ class cellular_SuspendResume(test.test):
         while properties is None and time.time() < timeout:
             try:
                 device = self.flim.FindCellularDevice(timeout)
-                properties = device.GetProperties(utf8_strings=True)
+                properties = device.GetProperties()
             except dbus.exceptions.DBusException:
                 logging.debug('Mobile device not ready yet')
                 device = None
@@ -227,13 +238,13 @@ class cellular_SuspendResume(test.test):
         if not service:
             raise error.TestError('Unable to find mobile service')
 
-        props = service.GetProperties(utf8_strings=True)
+        props = service.GetProperties()
         if props['AutoConnect']:
             expected_states = ['ready', 'online', 'portal']
         else:
             expected_states = ['idle']
 
-        for _ in xrange(5):
+        for _ in range(5):
             # Must wait at least 20 seconds to ensure that the suspend occurs
             self.suspend_resume(20)
 
@@ -310,7 +321,7 @@ class cellular_SuspendResume(test.test):
         with chrome.Chrome():
             # Replace the test type with the list of tests
             if (scenario_group not in
-                    cellular_SuspendResume.scenarios.keys()):
+                    list(cellular_SuspendResume.scenarios.keys())):
                 scenario_group = 'all'
             logging.info('Running scenario group: %s' % scenario_group)
             scenarios = cellular_SuspendResume.scenarios[scenario_group]

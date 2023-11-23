@@ -1745,6 +1745,11 @@ TEST(neon_3same) {
   COMPARE_MACRO(Udot(v1.V4S(), v2.V16B(), v3.V16B()),
                 "udot v1.4s, v2.16b, v3.16b");
 
+  COMPARE_MACRO(Usdot(v7.V2S(), v9.V8B(), v30.V8B()),
+                "usdot v7.2s, v9.8b, v30.8b");
+  COMPARE_MACRO(Usdot(v7.V4S(), v9.V16B(), v30.V16B()),
+                "usdot v7.4s, v9.16b, v30.16b");
+
   COMPARE_MACRO(And(v6.V8B(), v7.V8B(), v8.V8B()), "and v6.8b, v7.8b, v8.8b");
   COMPARE_MACRO(And(v6.V16B(), v7.V16B(), v8.V16B()),
                 "and v6.16b, v7.16b, v8.16b");
@@ -2425,6 +2430,15 @@ TEST(neon_byelement) {
   COMPARE_MACRO(Fmlsl2(v28.V4S(), v28.V4H(), v7.H(), 0),
                 "fmlsl2 v28.4s, v28.4h, v7.h[0]");
 
+  COMPARE_MACRO(Sudot(v10.V2S(), v21.V8B(), v31.S4B(), 0),
+                "sudot v10.2s, v21.8b, v31.4b[0]");
+  COMPARE_MACRO(Sudot(v12.V4S(), v23.V16B(), v16.S4B(), 3),
+                "sudot v12.4s, v23.16b, v16.4b[3]");
+  COMPARE_MACRO(Usdot(v10.V2S(), v21.V8B(), v31.S4B(), 0),
+                "usdot v10.2s, v21.8b, v31.4b[0]");
+  COMPARE_MACRO(Usdot(v12.V4S(), v23.V16B(), v16.S4B(), 3),
+                "usdot v12.4s, v23.16b, v16.4b[3]");
+
   CLEANUP();
 }
 
@@ -2434,56 +2448,64 @@ TEST(neon_fp_byelement) {
 
   COMPARE_MACRO(Fmul(v0.V4H(), v1.V4H(), v2.H(), 0),
                 "fmul v0.4h, v1.4h, v2.h[0]");
-  COMPARE_MACRO(Fmul(v2.V8H(), v3.V8H(), v15.H(), 3),
-                "fmul v2.8h, v3.8h, v15.h[3]");
+  COMPARE_MACRO(Fmul(v2.V8H(), v3.V8H(), v15.H(), 7),
+                "fmul v2.8h, v3.8h, v15.h[7]");
   COMPARE_MACRO(Fmul(v0.V2S(), v1.V2S(), v2.S(), 0),
                 "fmul v0.2s, v1.2s, v2.s[0]");
   COMPARE_MACRO(Fmul(v2.V4S(), v3.V4S(), v15.S(), 3),
                 "fmul v2.4s, v3.4s, v15.s[3]");
   COMPARE_MACRO(Fmul(v0.V2D(), v1.V2D(), v2.D(), 0),
                 "fmul v0.2d, v1.2d, v2.d[0]");
+  COMPARE_MACRO(Fmul(v0.V2D(), v1.V2D(), v2.D(), 1),
+                "fmul v0.2d, v1.2d, v2.d[1]");
   COMPARE_MACRO(Fmul(d0, d1, v2.D(), 0), "fmul d0, d1, v2.d[0]");
   COMPARE_MACRO(Fmul(s0, s1, v2.S(), 0), "fmul s0, s1, v2.s[0]");
   COMPARE_MACRO(Fmul(h0, h1, v2.H(), 0), "fmul h0, h1, v2.h[0]");
 
   COMPARE_MACRO(Fmla(v0.V4H(), v1.V4H(), v2.H(), 0),
                 "fmla v0.4h, v1.4h, v2.h[0]");
-  COMPARE_MACRO(Fmla(v2.V8H(), v3.V8H(), v15.H(), 3),
-                "fmla v2.8h, v3.8h, v15.h[3]");
+  COMPARE_MACRO(Fmla(v2.V8H(), v3.V8H(), v15.H(), 7),
+                "fmla v2.8h, v3.8h, v15.h[7]");
   COMPARE_MACRO(Fmla(v0.V2S(), v1.V2S(), v2.S(), 0),
                 "fmla v0.2s, v1.2s, v2.s[0]");
   COMPARE_MACRO(Fmla(v2.V4S(), v3.V4S(), v15.S(), 3),
                 "fmla v2.4s, v3.4s, v15.s[3]");
   COMPARE_MACRO(Fmla(v0.V2D(), v1.V2D(), v2.D(), 0),
                 "fmla v0.2d, v1.2d, v2.d[0]");
+  COMPARE_MACRO(Fmla(v0.V2D(), v1.V2D(), v2.D(), 1),
+                "fmla v0.2d, v1.2d, v2.d[1]");
   COMPARE_MACRO(Fmla(d0, d1, v2.D(), 0), "fmla d0, d1, v2.d[0]");
   COMPARE_MACRO(Fmla(s0, s1, v2.S(), 0), "fmla s0, s1, v2.s[0]");
   COMPARE_MACRO(Fmla(h0, h1, v2.H(), 0), "fmla h0, h1, v2.h[0]");
 
   COMPARE_MACRO(Fmls(v0.V4H(), v1.V4H(), v2.H(), 0),
                 "fmls v0.4h, v1.4h, v2.h[0]");
-  COMPARE_MACRO(Fmls(v2.V8H(), v3.V8H(), v15.H(), 3),
-                "fmls v2.8h, v3.8h, v15.h[3]");
+  COMPARE_MACRO(Fmls(v2.V8H(), v3.V8H(), v15.H(), 7),
+                "fmls v2.8h, v3.8h, v15.h[7]");
   COMPARE_MACRO(Fmls(v0.V2S(), v1.V2S(), v2.S(), 0),
                 "fmls v0.2s, v1.2s, v2.s[0]");
   COMPARE_MACRO(Fmls(v2.V4S(), v3.V4S(), v15.S(), 3),
                 "fmls v2.4s, v3.4s, v15.s[3]");
   COMPARE_MACRO(Fmls(v0.V2D(), v1.V2D(), v2.D(), 0),
                 "fmls v0.2d, v1.2d, v2.d[0]");
+  COMPARE_MACRO(Fmls(v0.V2D(), v1.V2D(), v2.D(), 1),
+                "fmls v0.2d, v1.2d, v2.d[1]");
   COMPARE_MACRO(Fmls(d0, d1, v2.D(), 0), "fmls d0, d1, v2.d[0]");
   COMPARE_MACRO(Fmls(s0, s1, v2.S(), 0), "fmls s0, s1, v2.s[0]");
   COMPARE_MACRO(Fmls(h0, h1, v2.H(), 0), "fmls h0, h1, v2.h[0]");
 
   COMPARE_MACRO(Fmulx(v0.V4H(), v1.V4H(), v2.H(), 0),
                 "fmulx v0.4h, v1.4h, v2.h[0]");
-  COMPARE_MACRO(Fmulx(v2.V8H(), v3.V8H(), v15.H(), 3),
-                "fmulx v2.8h, v3.8h, v15.h[3]");
+  COMPARE_MACRO(Fmulx(v2.V8H(), v3.V8H(), v15.H(), 7),
+                "fmulx v2.8h, v3.8h, v15.h[7]");
   COMPARE_MACRO(Fmulx(v0.V2S(), v1.V2S(), v2.S(), 0),
                 "fmulx v0.2s, v1.2s, v2.s[0]");
   COMPARE_MACRO(Fmulx(v2.V4S(), v3.V4S(), v8.S(), 3),
                 "fmulx v2.4s, v3.4s, v8.s[3]");
   COMPARE_MACRO(Fmulx(v0.V2D(), v1.V2D(), v2.D(), 0),
                 "fmulx v0.2d, v1.2d, v2.d[0]");
+  COMPARE_MACRO(Fmulx(v0.V2D(), v1.V2D(), v2.D(), 1),
+                "fmulx v0.2d, v1.2d, v2.d[1]");
   COMPARE_MACRO(Fmulx(d0, d1, v2.D(), 0), "fmulx d0, d1, v2.d[0]");
   COMPARE_MACRO(Fmulx(s0, s1, v2.S(), 0), "fmulx s0, s1, v2.s[0]");
   COMPARE_MACRO(Fmulx(h0, h1, v2.H(), 0), "fmulx h0, h1, v2.h[0]");
@@ -3099,6 +3121,13 @@ TEST(neon_modimm) {
   COMPARE_MACRO(Movi(v1.V2D(), 0xffff0000ffffff),
                 "movi v1.2d, #0xffff0000ffffff");
 
+  COMPARE_MACRO(Movi(v2.V2D(), 0xff00ff00ff00ff, 0xff00ff00ff00ff),
+                "movi v2.2d, #0xff00ff00ff00ff");
+  COMPARE_MACRO(Movi(v3.V2D(), 0xffff, 0xff00ff00ff00ff),
+                "movi v3.2d, #0xff00ff00ff00ff\n"
+                "mov x16, #0xffff\n"
+                "mov v3.d[1], x16");
+
   COMPARE_MACRO(Fmov(v0.V2S(), 1.0f), "fmov v0.2s, #0x70 (1.0000)");
   COMPARE_MACRO(Fmov(v31.V2S(), -13.0f), "fmov v31.2s, #0xaa (-13.0000)");
   COMPARE_MACRO(Fmov(v0.V4S(), 1.0f), "fmov v0.4s, #0x70 (1.0000)");
@@ -3135,9 +3164,9 @@ TEST(neon_2regmisc) {
   COMPARE_MACRO(Shll2(v6.V2D(), v4.V4S(), 32), "shll2 v6.2d, v4.4s, #32");
 
   // An unallocated form of shll.
-  COMPARE(dci(0x2ee13bff), "unallocated (NEON2RegMisc)");
+  COMPARE(dci(0x2ee13bff), "unallocated (Unallocated)");
   // An unallocated form of shll2.
-  COMPARE(dci(0x6ee13bff), "unallocated (NEON2RegMisc)");
+  COMPARE(dci(0x6ee13bff), "unallocated (Unallocated)");
 
 #define DISASM_INST(M, S) \
   COMPARE_MACRO(Cmeq(v0.M, v1.M, 0), "cmeq v0." S ", v1." S ", #0");
@@ -4347,6 +4376,300 @@ TEST(neon_shift_immediate) {
   COMPARE_MACRO(Fcvtzu(h8, h6, 13), "fcvtzu h8, h6, #13");
   COMPARE_MACRO(Fcvtzu(s8, s6, 13), "fcvtzu s8, s6, #13");
   COMPARE_MACRO(Fcvtzu(d8, d6, 34), "fcvtzu d8, d6, #34");
+  CLEANUP();
+}
+
+TEST(neon_matmul) {
+  SETUP();
+
+  COMPARE_MACRO(Smmla(v0.V4S(), v1.V16B(), v2.V16B()),
+                "smmla v0.4s, v1.16b, v2.16b");
+  COMPARE_MACRO(Ummla(v20.V4S(), v30.V16B(), v31.V16B()),
+                "ummla v20.4s, v30.16b, v31.16b");
+  COMPARE_MACRO(Usmmla(v3.V4S(), v29.V16B(), v13.V16B()),
+                "usmmla v3.4s, v29.16b, v13.16b");
+
+  CLEANUP();
+}
+
+TEST(neon_unallocated_regression_test) {
+  SETUP();
+
+  COMPARE_PREFIX(dci(0x5e20b985), "unallocated");  // abs b, b
+  COMPARE_PREFIX(dci(0x5e60b8e3), "unallocated");  // abs h, h
+  COMPARE_PREFIX(dci(0x5ea0b8d1), "unallocated");  // abs s, s
+  COMPARE_PREFIX(dci(0x5e318764), "unallocated");  // add b, b, b
+  COMPARE_PREFIX(dci(0x5e7f877a), "unallocated");  // add h, h, h
+  COMPARE_PREFIX(dci(0x5eb8842b), "unallocated");  // add s, s, s
+  COMPARE_PREFIX(dci(0x5eb1bbb7), "unallocated");  // addp s, v.s
+  COMPARE_PREFIX(dci(0x4ef1b90c), "unallocated");  // addv d, v.d
+  COMPARE_PREFIX(dci(0x0ef1babc), "unallocated");  // addv d, v.und
+  COMPARE_PREFIX(dci(0x4ee04a0f), "unallocated");  // cls v.d, v.d
+  COMPARE_PREFIX(dci(0x6ee048ef), "unallocated");  // clz v.d, v.d
+  COMPARE_PREFIX(dci(0x5e2099b4), "unallocated");  // cmeq b, b, #
+  COMPARE_PREFIX(dci(0x7e3a8c75), "unallocated");  // cmeq b, b, b
+  COMPARE_PREFIX(dci(0x5e6099a2), "unallocated");  // cmeq h, h, #
+  COMPARE_PREFIX(dci(0x7e7e8ce2), "unallocated");  // cmeq h, h, h
+  COMPARE_PREFIX(dci(0x5ea09a20), "unallocated");  // cmeq s, s, #
+  COMPARE_PREFIX(dci(0x7ea98fbd), "unallocated");  // cmeq s, s, s
+  COMPARE_PREFIX(dci(0x7e208ad0), "unallocated");  // cmge b, b, #
+  COMPARE_PREFIX(dci(0x5e233f3f), "unallocated");  // cmge b, b, b
+  COMPARE_PREFIX(dci(0x7e608b4e), "unallocated");  // cmge h, h, #
+  COMPARE_PREFIX(dci(0x5e643f87), "unallocated");  // cmge h, h, h
+  COMPARE_PREFIX(dci(0x7ea08b3c), "unallocated");  // cmge s, s, #
+  COMPARE_PREFIX(dci(0x5ea63e20), "unallocated");  // cmge s, s, s
+  COMPARE_PREFIX(dci(0x5e208837), "unallocated");  // cmgt b, b, #
+  COMPARE_PREFIX(dci(0x5e2f3591), "unallocated");  // cmgt b, b, b
+  COMPARE_PREFIX(dci(0x5e608bde), "unallocated");  // cmgt h, h, #
+  COMPARE_PREFIX(dci(0x5e7f377b), "unallocated");  // cmgt h, h, h
+  COMPARE_PREFIX(dci(0x5ea08813), "unallocated");  // cmgt s, s, #
+  COMPARE_PREFIX(dci(0x5ead3429), "unallocated");  // cmgt s, s, s
+  COMPARE_PREFIX(dci(0x7e23373d), "unallocated");  // cmhi b, b, b
+  COMPARE_PREFIX(dci(0x7e7937c1), "unallocated");  // cmhi h, h, h
+  COMPARE_PREFIX(dci(0x7ea6361e), "unallocated");  // cmhi s, s, s
+  COMPARE_PREFIX(dci(0x7e3c3e4a), "unallocated");  // cmhs b, b, b
+  COMPARE_PREFIX(dci(0x7e653cb8), "unallocated");  // cmhs h, h, h
+  COMPARE_PREFIX(dci(0x7eb03d39), "unallocated");  // cmhs s, s, s
+  COMPARE_PREFIX(dci(0x7e209894), "unallocated");  // cmle b, b, #
+  COMPARE_PREFIX(dci(0x7e609882), "unallocated");  // cmle h, h, #
+  COMPARE_PREFIX(dci(0x7ea09900), "unallocated");  // cmle s, s, #
+  COMPARE_PREFIX(dci(0x5e20a808), "unallocated");  // cmlt b, b, #
+  COMPARE_PREFIX(dci(0x5e60ab1f), "unallocated");  // cmlt h, h, #
+  COMPARE_PREFIX(dci(0x5ea0ab0d), "unallocated");  // cmlt s, s, #
+  COMPARE_PREFIX(dci(0x5e218cda), "unallocated");  // cmtst b, b, b
+  COMPARE_PREFIX(dci(0x5e718ec4), "unallocated");  // cmtst h, h, h
+  COMPARE_PREFIX(dci(0x5eb38ccd), "unallocated");  // cmtst s, s, s
+  COMPARE_PREFIX(dci(0x4ee05863), "unallocated");  // cnt v.d, v.d
+  COMPARE_PREFIX(dci(0x4e605887), "unallocated");  // cnt v.h, v.h
+  COMPARE_PREFIX(dci(0x4ea05875), "unallocated");  // cnt v.s, v.s
+  COMPARE_PREFIX(dci(0x0ee05a13), "unallocated");  // cnt v.und, v.und
+  COMPARE_PREFIX(dci(0x2e0f419d), "unallocated");  // ext v.b, v.b, v.b, #
+  COMPARE_PREFIX(dci(0x7e216950), "unallocated");  // fcvtxn h, s
+  COMPARE_PREFIX(dci(0x6e216950), "unallocated");  // fcvtxn v.h, v.s
+  COMPARE_PREFIX(dci(0x5f08fc37), "unallocated");  // fcvtzs b, b, #
+  COMPARE_PREFIX(dci(0x4f0cfcb6), "unallocated");  // fcvtzs v.b, v.b, #
+  COMPARE_PREFIX(dci(0x7f08fed0), "unallocated");  // fcvtzu b, b, #
+  COMPARE_PREFIX(dci(0x6f0dfc80), "unallocated");  // fcvtzu v.b, v.b, #
+  COMPARE_PREFIX(dci(0x6e70c813), "unallocated");  // fmaxnmv d, v.d
+  COMPARE_PREFIX(dci(0x2e70ca53), "unallocated");  // fmaxnmv d, v.und
+  COMPARE_PREFIX(dci(0x2e30ca65), "unallocated");  // fmaxnmv s, v.s
+  COMPARE_PREFIX(dci(0x6e70fbfa), "unallocated");  // fmaxv d, v.d
+  COMPARE_PREFIX(dci(0x2e70fa81), "unallocated");  // fmaxv d, v.und
+  COMPARE_PREFIX(dci(0x2e30fb23), "unallocated");  // fmaxv s, v.s
+  COMPARE_PREFIX(dci(0x6ef0c87f), "unallocated");  // fminnmv d, v.d
+  COMPARE_PREFIX(dci(0x2ef0ca2f), "unallocated");  // fminnmv d, v.und
+  COMPARE_PREFIX(dci(0x2eb0ca41), "unallocated");  // fminnmv s, v.s
+  COMPARE_PREFIX(dci(0x6ef0f8ad), "unallocated");  // fminv d, v.d
+  COMPARE_PREFIX(dci(0x2ef0faed), "unallocated");  // fminv d, v.und
+  COMPARE_PREFIX(dci(0x2eb0faff), "unallocated");  // fminv s, v.s
+  COMPARE_PREFIX(dci(0x0fc61a34), "unallocated");  // fmla v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x0fed5909), "unallocated");  // fmls v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x0fd09a0a), "unallocated");  // fmul v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x2fdf99fc), "unallocated");  // fmulx v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x6f310336), "unallocated");  // mla v.b, v.b, v.b[]
+  COMPARE_PREFIX(dci(0x4efd978f), "unallocated");  // mla v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x6fe80bb3), "unallocated");  // mla v.d, v.d, v.d[]
+  COMPARE_PREFIX(dci(0x2fda0aa2), "unallocated");  // mla v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x6f0f4035), "unallocated");  // mls v.b, v.b, v.b[]
+  COMPARE_PREFIX(dci(0x6eee95ed), "unallocated");  // mls v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x6ffa43fa), "unallocated");  // mls v.d, v.d, v.d[]
+  COMPARE_PREFIX(dci(0x2ffd4186), "unallocated");  // mls v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x4f2482ac), "unallocated");  // mul v.b, v.b, v.b[]
+  COMPARE_PREFIX(dci(0x4efc9d87), "unallocated");  // mul v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x4fc58321), "unallocated");  // mul v.d, v.d, v.d[]
+  COMPARE_PREFIX(dci(0x0fef8b9b), "unallocated");  // mul v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x7e20b865), "unallocated");  // neg b, b
+  COMPARE_PREFIX(dci(0x7e60b853), "unallocated");  // neg h, h
+  COMPARE_PREFIX(dci(0x7ea0bbfa), "unallocated");  // neg s, s
+  COMPARE_PREFIX(dci(0x6eea9c50), "unallocated");  // pmul v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x2e789e4c), "unallocated");  // pmul v.h, v.h, v.h
+  COMPARE_PREFIX(dci(0x2ea39e8e), "unallocated");  // pmul v.s, v.s, v.s
+  COMPARE_PREFIX(dci(0x2efb9dbd), "unallocated");  // pmul v.und, v.und, v.und
+  COMPARE_PREFIX(dci(0x4eace101), "unallocated");  // pmull v.d, v.s, v.s
+  COMPARE_PREFIX(dci(0x0e6de3ad), "unallocated");  // pmull v.s, v.h, v.h
+  COMPARE_PREFIX(dci(0x4ee3e2c0), "unallocated");  // pmull v.und, v.d, v.d
+  COMPARE_PREFIX(dci(0x0eede060), "unallocated");  // pmull v.und, v.und, v.und
+  COMPARE_PREFIX(dci(0x6ee00afd), "unallocated");  // rev v.d, v.d
+  COMPARE_PREFIX(dci(0x4e601975), "unallocated");  // rev v.h, v.h
+  COMPARE_PREFIX(dci(0x4ea019f3), "unallocated");  // rev v.s, v.s
+  COMPARE_PREFIX(dci(0x2ee00984), "unallocated");  // rev v.und, v.und
+  COMPARE_PREFIX(dci(0x4ef07cc9), "unallocated");  // saba v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x4ee57554), "unallocated");  // sabd v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x0eb03927), "unallocated");  // saddlv d, v.s
+  COMPARE_PREFIX(dci(0x5f0de4b1), "unallocated");  // scvtf b, b, #
+  COMPARE_PREFIX(dci(0x4f08e468), "unallocated");  // scvtf v.b, v.b, #
+  COMPARE_PREFIX(dci(0x4eed07a2), "unallocated");  // shadd v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x5f0b54ec), "unallocated");  // shl b, b, #
+  COMPARE_PREFIX(dci(0x5f1f56d7), "unallocated");  // shl h, h, #
+  COMPARE_PREFIX(dci(0x5f205498), "unallocated");  // shl s, s, #
+  COMPARE_PREFIX(dci(0x4ef7256c), "unallocated");  // shsub v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x7f095521), "unallocated");  // sli b, b, #
+  COMPARE_PREFIX(dci(0x7f1d579c), "unallocated");  // sli h, h, #
+  COMPARE_PREFIX(dci(0x7f21578b), "unallocated");  // sli s, s, #
+  COMPARE_PREFIX(dci(0x4eeb662a), "unallocated");  // smax v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x4ef6a53f), "unallocated");  // smaxp v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x4ef0aa5e), "unallocated");  // smaxv d, v.d
+  COMPARE_PREFIX(dci(0x0eb0ab90), "unallocated");  // smaxv s, v.s
+  COMPARE_PREFIX(dci(0x4eeb6d0c), "unallocated");  // smin v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x4ee4ac0a), "unallocated");  // sminp v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x4ef1aab8), "unallocated");  // sminv d, v.d
+  COMPARE_PREFIX(dci(0x0eb1a951), "unallocated");  // sminv s, v.s
+  COMPARE_PREFIX(dci(0x4fd32bd8), "unallocated");  // smlal v.und, v.d, v.d[]
+  COMPARE_PREFIX(dci(0x0ff32a9e), "unallocated");  // smlal v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x4ffa6aad), "unallocated");  // smlsl v.und, v.d, v.d[]
+  COMPARE_PREFIX(dci(0x0ff56af4), "unallocated");  // smlsl v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x0e182f6f), "unallocated");  // smov w, v.d[]
+  COMPARE_PREFIX(dci(0x0e042d84), "unallocated");  // smov w, v.s[]
+  COMPARE_PREFIX(dci(0x4e082c53), "unallocated");  // smov x, v.d[]
+  COMPARE_PREFIX(dci(0x4fcfa8ed), "unallocated");  // smull v.und, v.d, v.d[]
+  COMPARE_PREFIX(dci(0x0fdba861), "unallocated");  // smull v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x5e2f93e4), "unallocated");  // sqdmlal h, b, b
+  COMPARE_PREFIX(dci(0x5f113b27), "unallocated");  // sqdmlal h, b, v.b[]
+  COMPARE_PREFIX(dci(0x5fff3b58), "unallocated");  // sqdmlal undd, d, v.d[]
+  COMPARE_PREFIX(dci(0x0e2491d8), "unallocated");  // sqdmlal v.h, v.b, v.b
+  COMPARE_PREFIX(dci(0x4fdb3b2a), "unallocated");  // sqdmlal v.und, v.d, v.d[]
+  COMPARE_PREFIX(dci(0x0ffc3a4a),
+                 "unallocated");  // sqdmlal v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x5e3eb3a7), "unallocated");  // sqdmlsl h, b, b
+  COMPARE_PREFIX(dci(0x5f337121), "unallocated");  // sqdmlsl h, b, v.b[]
+  COMPARE_PREFIX(dci(0x5fd378ae), "unallocated");  // sqdmlsl undd, d, v.d[]
+  COMPARE_PREFIX(dci(0x4e3eb3a7), "unallocated");  // sqdmlsl v.h, v.b, v.b
+  COMPARE_PREFIX(dci(0x4fda78c2), "unallocated");  // sqdmlsl v.und, v.d, v.d[]
+  COMPARE_PREFIX(dci(0x0ff279b3),
+                 "unallocated");  // sqdmlsl v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x5e34b7b7), "unallocated");  // sqdmulh b, b, b
+  COMPARE_PREFIX(dci(0x5f16c106), "unallocated");  // sqdmulh b, b, v.b[]
+  COMPARE_PREFIX(dci(0x5ef8b447), "unallocated");  // sqdmulh d, d, d
+  COMPARE_PREFIX(dci(0x5fc5c113), "unallocated");  // sqdmulh d, d, v.d[]
+  COMPARE_PREFIX(dci(0x4e33b6cd), "unallocated");  // sqdmulh v.b, v.b, v.b
+  COMPARE_PREFIX(dci(0x4f3bc21e), "unallocated");  // sqdmulh v.b, v.b, v.b[]
+  COMPARE_PREFIX(dci(0x4eefb738), "unallocated");  // sqdmulh v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x4ff2cb2b), "unallocated");  // sqdmulh v.d, v.d, v.d[]
+  COMPARE_PREFIX(dci(0x0feacbdd),
+                 "unallocated");  // sqdmulh v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x5e3ed2e8), "unallocated");  // sqdmull h, b, b
+  COMPARE_PREFIX(dci(0x5f23b842), "unallocated");  // sqdmull h, b, v.b[]
+  COMPARE_PREFIX(dci(0x5fc8ba56), "unallocated");  // sqdmull undd, d, v.d[]
+  COMPARE_PREFIX(dci(0x4e38d125), "unallocated");  // sqdmull v.h, v.b, v.b
+  COMPARE_PREFIX(dci(0x4ff5b8b3), "unallocated");  // sqdmull v.und, v.d, v.d[]
+  COMPARE_PREFIX(dci(0x0fdcbac8),
+                 "unallocated");  // sqdmull v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x7fcdd950), "unallocated");  // sqrdmlah d, d, v.d[]
+  COMPARE_PREFIX(dci(0x6fd6d80f), "unallocated");  // sqrdmlah v.d, v.d, v.d[]
+  COMPARE_PREFIX(dci(0x2fecdae5),
+                 "unallocated");  // sqrdmlah v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x7fe0f992), "unallocated");  // sqrdmlsh d, d, v.d[]
+  COMPARE_PREFIX(dci(0x6ff1f9df), "unallocated");  // sqrdmlsh v.d, v.d, v.d[]
+  COMPARE_PREFIX(dci(0x2fcdfad1),
+                 "unallocated");  // sqrdmlsh v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x7e23b7fa), "unallocated");  // sqrdmulh b, b, b
+  COMPARE_PREFIX(dci(0x5f1ad272), "unallocated");  // sqrdmulh b, b, v.b[]
+  COMPARE_PREFIX(dci(0x7ef8b6e0), "unallocated");  // sqrdmulh d, d, d
+  COMPARE_PREFIX(dci(0x5fd7d2a7), "unallocated");  // sqrdmulh d, d, v.d[]
+  COMPARE_PREFIX(dci(0x6e23b7fa), "unallocated");  // sqrdmulh v.b, v.b, v.b
+  COMPARE_PREFIX(dci(0x4f28d32a), "unallocated");  // sqrdmulh v.b, v.b, v.b[]
+  COMPARE_PREFIX(dci(0x6ef0b702), "unallocated");  // sqrdmulh v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x4feddb3f), "unallocated");  // sqrdmulh v.d, v.d, v.d[]
+  COMPARE_PREFIX(dci(0x0fdddaf3),
+                 "unallocated");  // sqrdmulh v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x5f679d27), "unallocated");  // sqrshrn d, d, #
+  COMPARE_PREFIX(dci(0x5f4d9f3b), "unallocated");  // sqrshrn d, h, #
+  COMPARE_PREFIX(dci(0x5f569dfa), "unallocated");  // sqrshrn d, s, #
+  COMPARE_PREFIX(dci(0x5f449d53), "unallocated");  // sqrshrn d, undn, #
+  COMPARE_PREFIX(dci(0x4f609da3), "unallocated");  // sqrshrn v.d, v.und, #
+  COMPARE_PREFIX(dci(0x7f698cee), "unallocated");  // sqrshrun d, d, #
+  COMPARE_PREFIX(dci(0x7f498fd8), "unallocated");  // sqrshrun d, h, #
+  COMPARE_PREFIX(dci(0x7f5d8e9a), "unallocated");  // sqrshrun d, s, #
+  COMPARE_PREFIX(dci(0x7f478e04), "unallocated");  // sqrshrun d, undn, #
+  COMPARE_PREFIX(dci(0x6f568c7d), "unallocated");  // sqrshrun v.d, v.und, #
+  COMPARE_PREFIX(dci(0x5f779488), "unallocated");  // sqshrn d, d, #
+  COMPARE_PREFIX(dci(0x5f4b9715), "unallocated");  // sqshrn d, h, #
+  COMPARE_PREFIX(dci(0x5f579449), "unallocated");  // sqshrn d, s, #
+  COMPARE_PREFIX(dci(0x5f4695ac), "unallocated");  // sqshrn d, undn, #
+  COMPARE_PREFIX(dci(0x4f6096c1), "unallocated");  // sqshrn v.d, v.und, #
+  COMPARE_PREFIX(dci(0x7f6786d1), "unallocated");  // sqshrun d, d, #
+  COMPARE_PREFIX(dci(0x7f4884e3), "unallocated");  // sqshrun d, h, #
+  COMPARE_PREFIX(dci(0x7f5886df), "unallocated");  // sqshrun d, s, #
+  COMPARE_PREFIX(dci(0x7f448464), "unallocated");  // sqshrun d, undn, #
+  COMPARE_PREFIX(dci(0x6f5b8674), "unallocated");  // sqshrun v.d, v.und, #
+  COMPARE_PREFIX(dci(0x4ef2163f), "unallocated");  // srhadd v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x7f09475d), "unallocated");  // sri b, b, #
+  COMPARE_PREFIX(dci(0x7f104771), "unallocated");  // sri h, h, #
+  COMPARE_PREFIX(dci(0x7f2045b4), "unallocated");  // sri s, s, #
+  COMPARE_PREFIX(dci(0x5e2656a3), "unallocated");  // srshl b, b, b
+  COMPARE_PREFIX(dci(0x5e605767), "unallocated");  // srshl h, h, h
+  COMPARE_PREFIX(dci(0x5eb654c2), "unallocated");  // srshl s, s, s
+  COMPARE_PREFIX(dci(0x5f0827c2), "unallocated");  // srshr b, b, #
+  COMPARE_PREFIX(dci(0x5f13249c), "unallocated");  // srshr h, h, #
+  COMPARE_PREFIX(dci(0x5f3526af), "unallocated");  // srshr s, s, #
+  COMPARE_PREFIX(dci(0x5f0e34b0), "unallocated");  // srsra b, b, #
+  COMPARE_PREFIX(dci(0x5f1537ed), "unallocated");  // srsra h, h, #
+  COMPARE_PREFIX(dci(0x5f3934f2), "unallocated");  // srsra s, s, #
+  COMPARE_PREFIX(dci(0x5e24470b), "unallocated");  // sshl b, b, b
+  COMPARE_PREFIX(dci(0x5e624525), "unallocated");  // sshl h, h, h
+  COMPARE_PREFIX(dci(0x5ea846d6), "unallocated");  // sshl s, s, s
+  COMPARE_PREFIX(dci(0x5f0a07bc), "unallocated");  // sshr b, b, #
+  COMPARE_PREFIX(dci(0x5f1d0504), "unallocated");  // sshr h, h, #
+  COMPARE_PREFIX(dci(0x5f3e059d), "unallocated");  // sshr s, s, #
+  COMPARE_PREFIX(dci(0x5f0d17ae), "unallocated");  // ssra b, b, #
+  COMPARE_PREFIX(dci(0x5f1417c2), "unallocated");  // ssra h, h, #
+  COMPARE_PREFIX(dci(0x5f2214c1), "unallocated");  // ssra s, s, #
+  COMPARE_PREFIX(dci(0x7e3a8503), "unallocated");  // sub b, b, b
+  COMPARE_PREFIX(dci(0x7e748657), "unallocated");  // sub h, h, h
+  COMPARE_PREFIX(dci(0x7eaf844c), "unallocated");  // sub s, s, s
+  COMPARE_PREFIX(dci(0x6efb7c3c), "unallocated");  // uaba v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x6ee2749f), "unallocated");  // uabd v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x2eb03807), "unallocated");  // uaddlv d, v.s
+  COMPARE_PREFIX(dci(0x7f08e671), "unallocated");  // ucvtf b, b, #
+  COMPARE_PREFIX(dci(0x6f0ee59b), "unallocated");  // ucvtf v.b, v.b, #
+  COMPARE_PREFIX(dci(0x6eef052d), "unallocated");  // uhadd v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x6eef2707), "unallocated");  // uhsub v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x6ee6675a), "unallocated");  // umax v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x6ef2a430), "unallocated");  // umaxp v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x6ef0a8ae), "unallocated");  // umaxv d, v.d
+  COMPARE_PREFIX(dci(0x2eb0aa70), "unallocated");  // umaxv s, v.s
+  COMPARE_PREFIX(dci(0x6efd6d23), "unallocated");  // umin v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x6ee2accf), "unallocated");  // uminp v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x6ef1aa28), "unallocated");  // uminv d, v.d
+  COMPARE_PREFIX(dci(0x2eb1a831), "unallocated");  // uminv s, v.s
+  COMPARE_PREFIX(dci(0x6ffa2b0b), "unallocated");  // umlal v.und, v.d, v.d[]
+  COMPARE_PREFIX(dci(0x2fdb2acd), "unallocated");  // umlal v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x6fe76bb5), "unallocated");  // umlsl v.und, v.d, v.d[]
+  COMPARE_PREFIX(dci(0x2ff068fb), "unallocated");  // umlsl v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x6fd0a947), "unallocated");  // umull v.und, v.d, v.d[]
+  COMPARE_PREFIX(dci(0x2fc0a8fb), "unallocated");  // umull v.und, v.und, v.d[]
+  COMPARE_PREFIX(dci(0x7f6e9c1b), "unallocated");  // uqrshrn d, d, #
+  COMPARE_PREFIX(dci(0x7f4d9e1b), "unallocated");  // uqrshrn d, h, #
+  COMPARE_PREFIX(dci(0x7f5e9d48), "unallocated");  // uqrshrn d, s, #
+  COMPARE_PREFIX(dci(0x7f419d2e), "unallocated");  // uqrshrn d, undn, #
+  COMPARE_PREFIX(dci(0x6f779e93), "unallocated");  // uqrshrn v.d, v.und, #
+  COMPARE_PREFIX(dci(0x7f649620), "unallocated");  // uqshrn d, d, #
+  COMPARE_PREFIX(dci(0x7f4a950b), "unallocated");  // uqshrn d, h, #
+  COMPARE_PREFIX(dci(0x7f55950e), "unallocated");  // uqshrn d, s, #
+  COMPARE_PREFIX(dci(0x7f4697b5), "unallocated");  // uqshrn d, undn, #
+  COMPARE_PREFIX(dci(0x6f749463), "unallocated");  // uqshrn v.d, v.und, #
+  COMPARE_PREFIX(dci(0x4ee1c88d), "unallocated");  // urecpe v.d, v.d
+  COMPARE_PREFIX(dci(0x6eed17ff), "unallocated");  // urhadd v.d, v.d, v.d
+  COMPARE_PREFIX(dci(0x7e30549c), "unallocated");  // urshl b, b, b
+  COMPARE_PREFIX(dci(0x7e6157c1), "unallocated");  // urshl h, h, h
+  COMPARE_PREFIX(dci(0x7eb65432), "unallocated");  // urshl s, s, s
+  COMPARE_PREFIX(dci(0x7f0b2637), "unallocated");  // urshr b, b, #
+  COMPARE_PREFIX(dci(0x7f13240c), "unallocated");  // urshr h, h, #
+  COMPARE_PREFIX(dci(0x7f232578), "unallocated");  // urshr s, s, #
+  COMPARE_PREFIX(dci(0x6ee1ca96), "unallocated");  // ursqrte v.d, v.d
+  COMPARE_PREFIX(dci(0x7f0a375a), "unallocated");  // ursra b, b, #
+  COMPARE_PREFIX(dci(0x7f12340f), "unallocated");  // ursra h, h, #
+  COMPARE_PREFIX(dci(0x7f2f3549), "unallocated");  // ursra s, s, #
+  COMPARE_PREFIX(dci(0x7e2d47d3), "unallocated");  // ushl b, b, b
+  COMPARE_PREFIX(dci(0x7e694742), "unallocated");  // ushl h, h, h
+  COMPARE_PREFIX(dci(0x7eab45db), "unallocated");  // ushl s, s, s
+  COMPARE_PREFIX(dci(0x7f0d0631), "unallocated");  // ushr b, b, #
+  COMPARE_PREFIX(dci(0x7f1805a4), "unallocated");  // ushr h, h, #
+  COMPARE_PREFIX(dci(0x7f2e063a), "unallocated");  // ushr s, s, #
+  COMPARE_PREFIX(dci(0x7f0c15a4), "unallocated");  // usra b, b, #
+  COMPARE_PREFIX(dci(0x7f1716c7), "unallocated");  // usra h, h, #
+  COMPARE_PREFIX(dci(0x7f261749), "unallocated");  // usra s, s, #
+
   CLEANUP();
 }
 

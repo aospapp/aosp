@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -100,6 +100,7 @@ import java.util.Optional;
 import java.util.Set;
 import libcore.icu.ICU;
 
+// Android-changed: Remove period-of-day from javadoc temporarily.
 /**
  * Formatter for printing and parsing date-time objects.
  * <p>
@@ -151,7 +152,7 @@ import libcore.icu.ICU;
  * class for formatting. The {@link #toFormat()} method returns an
  * implementation of {@code java.text.Format}.
  *
- * <h3 id="predefined">Predefined Formatters</h3>
+ * <h2 id="predefined">Predefined Formatters</h2>
  * <table class="striped" style="text-align:left">
  * <caption>Predefined Formatters</caption>
  * <thead>
@@ -259,7 +260,7 @@ import libcore.icu.ICU;
  * </tbody>
  * </table>
  *
- * <h3 id="patterns">Patterns for Formatting and Parsing</h3>
+ * <h2 id="patterns">Patterns for Formatting and Parsing</h2>
  * Patterns are based on a simple sequence of letters and symbols.
  * A pattern is used to create a Formatter using the
  * {@link #ofPattern(String)} and {@link #ofPattern(String, Locale)} methods.
@@ -397,15 +398,16 @@ import libcore.icu.ICU;
  * 'Z' when the offset to be output would be zero, whereas pattern letter 'x'
  * (lower case) will output '+00', '+0000', or '+00:00'.
  * <p>
- * <b>Offset O</b>: This formats the localized offset based on the number of
- * pattern letters. One letter outputs the {@linkplain TextStyle#SHORT short}
- * form of the localized offset, which is localized offset text, such as 'GMT',
- * with hour without leading zero, optional 2-digit minute and second if
- * non-zero, and colon, for example 'GMT+8'. Four letters outputs the
- * {@linkplain TextStyle#FULL full} form, which is localized offset text,
- * such as 'GMT, with 2-digit hour and minute field, optional second field
- * if non-zero, and colon, for example 'GMT+08:00'. Any other count of letters
- * throws {@code IllegalArgumentException}.
+ * <b>Offset O</b>: With a non-zero offset, this formats the localized offset
+ * based on the number of pattern letters. One letter outputs the
+ * {@linkplain TextStyle#SHORT short} form of the localized offset, which is
+ * localized offset text, such as 'GMT', with hour without leading zero, optional
+ * 2-digit minute and second if non-zero, and colon, for example 'GMT+8'. Four
+ * letters outputs the {@linkplain TextStyle#FULL full} form, which is localized
+ * offset text, such as 'GMT, with 2-digit hour and minute field, optional second
+ * field if non-zero, and colon, for example 'GMT+08:00'. If the offset is zero,
+ * only localized text is output. Any other count of letters throws
+ * {@code IllegalArgumentException}.
  * <p>
  * <b>Offset Z</b>: This formats the offset based on the number of pattern
  * letters. One, two or three letters outputs the hour and minute, without a
@@ -435,7 +437,7 @@ import libcore.icu.ICU;
  * that you want to output directly to ensure that future changes do not break
  * your application.
  *
- * <h3 id="resolving">Resolving</h3>
+ * <h2 id="resolving">Resolving</h2>
  * Parsing is implemented as a two-phase operation.
  * First, the text is parsed using the layout defined by the formatter, producing
  * a {@code Map} of field to value, a {@code ZoneId} and a {@code Chronology}.
@@ -1139,9 +1141,12 @@ public final class DateTimeFormatter {
      * <p>
      * This returns an immutable formatter capable of formatting and parsing
      * the ISO-8601 instant format.
-     * When formatting, the second-of-minute is always output.
+     * When formatting, the instant will always be suffixed by 'Z' to indicate UTC.
+     * The second-of-minute is always output.
      * The nano-of-second outputs zero, three, six or nine digits as necessary.
-     * When parsing, time to at least the seconds field is required.
+     * When parsing, the behaviour of {@link DateTimeFormatterBuilder#appendOffsetId()}
+     * will be used to parse the offset, converting the instant to UTC as necessary.
+     * The time to at least the seconds field is required.
      * Fractional seconds from zero to nine are parsed.
      * The localized decimal style is not used.
      * <p>
@@ -1487,15 +1492,7 @@ public final class DateTimeFormatter {
      * @since 10
      */
     public DateTimeFormatter localizedBy(Locale locale) {
-        if (this.locale.equals(locale)) {
-            return this;
-        }
-
-        // Check for decimalStyle/chronology/timezone in locale object
-        Chronology c = locale.getUnicodeLocaleType("ca") != null ?
-                       Chronology.ofLocale(locale) : chrono;
-        DecimalStyle ds = locale.getUnicodeLocaleType("nu") != null ?
-                       DecimalStyle.of(locale) : decimalStyle;
+        // Override decimalStyle/chronology/timezone for the locale object
         String tzType = locale.getUnicodeLocaleType("tz");
         ZoneId z  = tzType != null ?
                     // Android changed: Use ICU on Android.
@@ -1504,7 +1501,16 @@ public final class DateTimeFormatter {
                         .map(ZoneId::of)
                         .orElse(zone) :
                     zone;
-        return new DateTimeFormatter(printerParser, locale, ds, resolverStyle, resolverFields, c, z);
+        Chronology c = Chronology.ofLocale(locale);
+        DecimalStyle ds = DecimalStyle.of(locale);
+        if (this.locale.equals(locale) &&
+                c.equals(chrono) &&
+                ds.equals(decimalStyle) &&
+                Objects.equals(z, zone)) {
+            return this;
+        } else {
+            return new DateTimeFormatter(printerParser, locale, ds, resolverStyle, resolverFields, c, z);
+        }
     }
 
     //-----------------------------------------------------------------------
@@ -2200,7 +2206,7 @@ public final class DateTimeFormatter {
             Objects.requireNonNull(obj, "obj");
             Objects.requireNonNull(toAppendTo, "toAppendTo");
             Objects.requireNonNull(pos, "pos");
-            if (obj instanceof TemporalAccessor == false) {
+            if (!(obj instanceof TemporalAccessor)) {
                 throw new IllegalArgumentException("Format target must implement TemporalAccessor");
             }
             pos.setBeginIndex(0);

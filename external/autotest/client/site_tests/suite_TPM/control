@@ -2,17 +2,19 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
-NAME = "TPMSmogcheck"
+AUTHOR = "ChromeOS Team"
+NAME = "suite_TPM.TPMSmogcheck"
 PURPOSE = "Execute automated TPM functionality checks."
 TIME = "SHORT"  # <= 15 minutes in execution
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "suite"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This test suite runs automated TPM Smogcheck tests. The purpose of
-the suite is to sanity test basic TPM functionality in less than 10 minutes.
+the suite is to confidence test basic TPM functionality in less than 10
+minutes.
 """
 
 # TPM_TakeOwnership

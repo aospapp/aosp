@@ -36,7 +36,6 @@ import android.content.pm.PackageManager;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
-import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
@@ -57,7 +56,6 @@ public class SetDeviceOwnerPolicyTaskTest extends AndroidTestCase {
     @Mock private AbstractProvisioningTask.Callback mCallback;
     @Mock private Utils mUtils;
 
-    private String mDefaultOwnerName;
     private SetDeviceOwnerPolicyTask mTask;
 
     @Override
@@ -67,9 +65,6 @@ public class SetDeviceOwnerPolicyTaskTest extends AndroidTestCase {
         System.setProperty("dexmaker.dexcache", getContext().getCacheDir().toString());
         MockitoAnnotations.initMocks(this);
 
-        mDefaultOwnerName = getContext().getResources()
-                .getString(R.string.default_owned_device_username);
-
         when(mContext.getPackageManager()).thenReturn(mPackageManager);
         when(mContext.getSystemService(Context.DEVICE_POLICY_SERVICE))
                 .thenReturn(mDevicePolicyManager);
@@ -78,8 +73,8 @@ public class SetDeviceOwnerPolicyTaskTest extends AndroidTestCase {
         when(mPackageManager.getApplicationEnabledSetting(ADMIN_PACKAGE_NAME))
                 .thenReturn(PackageManager.COMPONENT_ENABLED_STATE_DEFAULT);
         when(mUtils.getCurrentDeviceOwnerComponentName(mDevicePolicyManager)).thenReturn(null);
-        when(mDevicePolicyManager.setDeviceOwner(ADMIN_COMPONENT_NAME, mDefaultOwnerName,
-                TEST_USER_ID)).thenReturn(true);
+        when(mDevicePolicyManager.setDeviceOwner(ADMIN_COMPONENT_NAME, TEST_USER_ID))
+                .thenReturn(true);
         when(mUtils.findDeviceAdmin(null, ADMIN_COMPONENT_NAME, mContext, TEST_USER_ID))
                 .thenReturn(ADMIN_COMPONENT_NAME);
     }
@@ -178,8 +173,7 @@ public class SetDeviceOwnerPolicyTaskTest extends AndroidTestCase {
         mTask.run(TEST_USER_ID);
 
         // THEN the management app should have been set as device owner
-        verify(mDevicePolicyManager).setDeviceOwner(ADMIN_COMPONENT_NAME, mDefaultOwnerName,
-                TEST_USER_ID);
+        verify(mDevicePolicyManager).setDeviceOwner(ADMIN_COMPONENT_NAME, TEST_USER_ID);
         verify(mCallback).onSuccess(mTask);
         verifyNoMoreInteractions(mCallback);
     }
@@ -190,7 +184,7 @@ public class SetDeviceOwnerPolicyTaskTest extends AndroidTestCase {
         createTask(ACTION_PROVISION_MANAGED_DEVICE);
 
         // GIVEN that setting device owner is not currently allowed
-        when(mDevicePolicyManager.setDeviceOwner(ADMIN_COMPONENT_NAME, mDefaultOwnerName,
+        when(mDevicePolicyManager.setDeviceOwner(ADMIN_COMPONENT_NAME,
                 TEST_USER_ID)).thenThrow(new IllegalStateException());
 
         // WHEN running the task
@@ -207,8 +201,8 @@ public class SetDeviceOwnerPolicyTaskTest extends AndroidTestCase {
         createTask(ACTION_PROVISION_MANAGED_DEVICE);
 
         // GIVEN that setting device owner fails
-        when(mDevicePolicyManager.setDeviceOwner(ADMIN_COMPONENT_NAME, mDefaultOwnerName,
-                TEST_USER_ID)).thenReturn(false);
+        when(mDevicePolicyManager.setDeviceOwner(
+                ADMIN_COMPONENT_NAME, TEST_USER_ID)).thenReturn(false);
 
         // WHEN running the task
         mTask.run(TEST_USER_ID);
@@ -228,10 +222,9 @@ public class SetDeviceOwnerPolicyTaskTest extends AndroidTestCase {
 
         // THEN the device owner type should have been set as financed when there is a device
         // owner.
-        verify(mDevicePolicyManager).setDeviceOwner(ADMIN_COMPONENT_NAME, mDefaultOwnerName,
-                TEST_USER_ID);
-        verify(mDevicePolicyManager).setDeviceOwnerType(ADMIN_COMPONENT_NAME,
-                DEVICE_OWNER_TYPE_FINANCED);
+        verify(mDevicePolicyManager).setDeviceOwner(ADMIN_COMPONENT_NAME, TEST_USER_ID);
+        verify(mDevicePolicyManager).setDeviceOwnerType(
+                ADMIN_COMPONENT_NAME, DEVICE_OWNER_TYPE_FINANCED);
         verify(mCallback).onSuccess(mTask);
         verifyNoMoreInteractions(mCallback);
     }

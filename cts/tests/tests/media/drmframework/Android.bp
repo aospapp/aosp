@@ -65,7 +65,6 @@ android_test {
         "mts-media",
     ],
     host_required: ["cts-dynamic-config"],
-    // TODO(b/208938664) Change this sdk version suppression to T once it's defined to number (33).
     min_sdk_version: "current",
     target_sdk_version: "current",
 }

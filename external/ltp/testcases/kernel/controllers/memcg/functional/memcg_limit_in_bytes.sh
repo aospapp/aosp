@@ -12,7 +12,6 @@ MEMCG_TESTFUNC=test
 MEMCG_SHMMAX=1
 TST_CNT=15
 
-. memcg_lib.sh
 TST_CLEANUP=cleanup
 
 cleanup()
@@ -89,11 +88,7 @@ test11()
 test12()
 {
 	tst_res TINFO "Test invalid memory.limit_in_bytes"
-	if tst_kvcmp -lt "2.6.31"; then
-		EXPECT_FAIL echo -1 \> memory.limit_in_bytes
-	else
 		EXPECT_PASS echo -1 \> memory.limit_in_bytes
-	fi
 }
 
 test13()
@@ -111,4 +106,5 @@ test15()
 	EXPECT_FAIL echo xx \> memory.limit_in_bytes
 }
 
+. memcg_lib.sh
 tst_run

@@ -734,7 +734,10 @@ public class MethodHandles {
             if (allowedModes == ALL_MODES &&
                     lookupClass.getClassLoader() == Object.class.getClassLoader()) {
                 if ((name.startsWith("java.")
+                            && !name.startsWith("java.io.ObjectStreamClass")
                             && !name.startsWith("java.util.concurrent.")
+                            && !name.equals("java.lang.Daemons$FinalizerWatchdogDaemon")
+                            && !name.equals("java.lang.runtime.ObjectMethods")
                             && !name.equals("java.lang.Thread")) ||
                         (name.startsWith("sun.")
                                 && !name.startsWith("sun.invoke.")
@@ -1048,6 +1051,36 @@ assertEquals("[x, y, z]", pb.command().toString());
             return createMethodHandleForConstructor(constructor);
         }
 
+        // BEGIN Android-added: Add findClass(String) from OpenJDK 17. http://b/270028670
+        // TODO: Unhide this method.
+        /**
+         * Looks up a class by name from the lookup context defined by this {@code Lookup} object,
+         * <a href="MethodHandles.Lookup.html#equiv">as if resolved</a> by an {@code ldc} instruction.
+         * Such a resolution, as specified in JVMS 5.4.3.1 section, attempts to locate and load the class,
+         * and then determines whether the class is accessible to this lookup object.
+         * <p>
+         * The lookup context here is determined by the {@linkplain #lookupClass() lookup class},
+         * its class loader, and the {@linkplain #lookupModes() lookup modes}.
+         *
+         * @param targetName the fully qualified name of the class to be looked up.
+         * @return the requested class.
+         * @throws SecurityException if a security manager is present and it
+         *                           <a href="MethodHandles.Lookup.html#secmgr">refuses access</a>
+         * @throws LinkageError if the linkage fails
+         * @throws ClassNotFoundException if the class cannot be loaded by the lookup class' loader.
+         * @throws IllegalAccessException if the class is not accessible, using the allowed access
+         * modes.
+         * @throws NullPointerException if {@code targetName} is null
+         * @since 9
+         * @jvms 5.4.3.1 Class and Interface Resolution
+         * @hide
+         */
+        public Class<?> findClass(String targetName) throws ClassNotFoundException, IllegalAccessException {
+            Class<?> targetClass = Class.forName(targetName, false, lookupClass.getClassLoader());
+            return accessClass(targetClass);
+        }
+        // END Android-added: Add findClass(String) from OpenJDK 17. http://b/270028670
+
         private MethodHandle createMethodHandleForConstructor(Constructor constructor) {
             Class<?> refc = constructor.getDeclaringClass();
             MethodType constructorType =
@@ -1091,6 +1124,135 @@ assertEquals("[x, y, z]", pb.command().toString());
             // Set the return type for the <init> MethodType to be void.
             return MethodType.methodType(void.class, initPtypes);
         }
+
+        // BEGIN Android-added: Add accessClass(Class) from OpenJDK 17. http://b/270028670
+        /*
+         * Returns IllegalAccessException due to access violation to the given targetClass.
+         *
+         * This method is called by {@link Lookup#accessClass} and {@link Lookup#ensureInitialized}
+         * which verifies access to a class rather a member.
+         */
+        private IllegalAccessException makeAccessException(Class<?> targetClass) {
+            String message = "access violation: "+ targetClass;
+            if (this == MethodHandles.publicLookup()) {
+                message += ", from public Lookup";
+            } else {
+                // Android-changed: Remove unsupported module name.
+                // Module m = lookupClass().getModule();
+                // message += ", from " + lookupClass() + " (" + m + ")";
+                 message += ", from " + lookupClass();
+                // Android-removed: Remove prevLookupClass until supported by Lookup in OpenJDK 17.
+                // if (prevLookupClass != null) {
+                //    message += ", previous lookup " +
+                //            prevLookupClass.getName() + " (" + prevLookupClass.getModule() + ")";
+                // }
+            }
+            return new IllegalAccessException(message);
+        }
+
+        // TODO: Unhide this method.
+        /**
+         * Determines if a class can be accessed from the lookup context defined by
+         * this {@code Lookup} object. The static initializer of the class is not run.
+         * If {@code targetClass} is an array class, {@code targetClass} is accessible
+         * if the element type of the array class is accessible.  Otherwise,
+         * {@code targetClass} is determined as accessible as follows.
+         *
+         * <p>
+         * If {@code targetClass} is in the same module as the lookup class,
+         * the lookup class is {@code LC} in module {@code M1} and
+         * the previous lookup class is in module {@code M0} or
+         * {@code null} if not present,
+         * {@code targetClass} is accessible if and only if one of the following is true:
+         * <ul>
+         * <li>If this lookup has {@link #PRIVATE} access, {@code targetClass} is
+         *     {@code LC} or other class in the same nest of {@code LC}.</li>
+         * <li>If this lookup has {@link #PACKAGE} access, {@code targetClass} is
+         *     in the same runtime package of {@code LC}.</li>
+         * <li>If this lookup has {@link #MODULE} access, {@code targetClass} is
+         *     a public type in {@code M1}.</li>
+         * <li>If this lookup has {@link #PUBLIC} access, {@code targetClass} is
+         *     a public type in a package exported by {@code M1} to at least  {@code M0}
+         *     if the previous lookup class is present; otherwise, {@code targetClass}
+         *     is a public type in a package exported by {@code M1} unconditionally.</li>
+         * </ul>
+         *
+         * <p>
+         * Otherwise, if this lookup has {@link #UNCONDITIONAL} access, this lookup
+         * can access public types in all modules when the type is in a package
+         * that is exported unconditionally.
+         * <p>
+         * Otherwise, {@code targetClass} is in a different module from {@code lookupClass},
+         * and if this lookup does not have {@code PUBLIC} access, {@code lookupClass}
+         * is inaccessible.
+         * <p>
+         * Otherwise, if this lookup has no {@linkplain #previousLookupClass() previous lookup class},
+         * {@code M1} is the module containing {@code lookupClass} and
+         * {@code M2} is the module containing {@code targetClass},
+         * then {@code targetClass} is accessible if and only if
+         * <ul>
+         * <li>{@code M1} reads {@code M2}, and
+         * <li>{@code targetClass} is public and in a package exported by
+         *     {@code M2} at least to {@code M1}.
+         * </ul>
+         * <p>
+         * Otherwise, if this lookup has a {@linkplain #previousLookupClass() previous lookup class},
+         * {@code M1} and {@code M2} are as before, and {@code M0} is the module
+         * containing the previous lookup class, then {@code targetClass} is accessible
+         * if and only if one of the following is true:
+         * <ul>
+         * <li>{@code targetClass} is in {@code M0} and {@code M1}
+         *     {@linkplain Module#reads reads} {@code M0} and the type is
+         *     in a package that is exported to at least {@code M1}.
+         * <li>{@code targetClass} is in {@code M1} and {@code M0}
+         *     {@linkplain Module#reads reads} {@code M1} and the type is
+         *     in a package that is exported to at least {@code M0}.
+         * <li>{@code targetClass} is in a third module {@code M2} and both {@code M0}
+         *     and {@code M1} reads {@code M2} and the type is in a package
+         *     that is exported to at least both {@code M0} and {@code M2}.
+         * </ul>
+         * <p>
+         * Otherwise, {@code targetClass} is not accessible.
+         *
+         * @param targetClass the class to be access-checked
+         * @return the class that has been access-checked
+         * @throws IllegalAccessException if the class is not accessible from the lookup class
+         * and previous lookup class, if present, using the allowed access modes.
+         * @throws SecurityException if a security manager is present and it
+         *                           <a href="MethodHandles.Lookup.html#secmgr">refuses access</a>
+         * @throws NullPointerException if {@code targetClass} is {@code null}
+         * @since 9
+         * @see <a href="#cross-module-lookup">Cross-module lookups</a>
+         * @hide
+         */
+        public Class<?> accessClass(Class<?> targetClass) throws IllegalAccessException {
+            if (!isClassAccessible(targetClass)) {
+                throw makeAccessException(targetClass);
+            }
+            // Android-removed: SecurityManager is unnecessary on Android.
+            // checkSecurityManager(targetClass);
+            return targetClass;
+        }
+
+        boolean isClassAccessible(Class<?> refc) {
+            Objects.requireNonNull(refc);
+            Class<?> caller = lookupClassOrNull();
+            Class<?> type = refc;
+            while (type.isArray()) {
+                type = type.getComponentType();
+            }
+            // Android-removed: Remove prevLookupClass until supported by Lookup in OpenJDK 17.
+            // return caller == null || VerifyAccess.isClassAccessible(type, caller, prevLookupClass, allowedModes);
+            return caller == null || VerifyAccess.isClassAccessible(type, caller, allowedModes);
+        }
+
+        // This is just for calling out to MethodHandleImpl.
+        private Class<?> lookupClassOrNull() {
+            // Android-changed: Android always returns lookupClass and has no concept of TRUSTED.
+            // return (allowedModes == TRUSTED) ? null : lookupClass;
+            return lookupClass;
+        }
+        // END Android-added: Add accessClass(Class) from OpenJDK 17. http://b/270028670
 
         /**
          * Produces an early-bound method handle for a virtual method.
@@ -3296,6 +3458,31 @@ assertEquals("xy", h3.invoke("x", "y", 1, "a", "b", "c"));
     }
 
     /**
+     * Drop the return value of the target handle (if any).
+     * The returned method handle will have a {@code void} return type.
+     *
+     * @param target the method handle to adapt
+     * @return a possibly adapted method handle
+     * @throws NullPointerException if {@code target} is null
+     * @since 16
+     */
+    public static MethodHandle dropReturn(MethodHandle target) {
+        Objects.requireNonNull(target);
+        MethodType oldType = target.type();
+        Class<?> oldReturnType = oldType.returnType();
+        if (oldReturnType == void.class)
+            return target;
+
+        MethodType newType = oldType.changeReturnType(void.class);
+        // Android-changed: no support for BoundMethodHandle or LambdaForm.
+        // BoundMethodHandle result = target.rebind();
+        // LambdaForm lform = result.editor().filterReturnForm(V_TYPE, true);
+        // result = result.copyWith(newType, lform);
+        // return result;
+        return target.asType(newType);
+    }
+
+    /**
      * Adapts a target method handle by pre-processing
      * one or more of its arguments, each with its own unary filter function,
      * and then calling the target with each pre-processed argument
@@ -5448,6 +5635,96 @@ assertEquals("boojum", (String) catTrace.invokeExact("boo", "jum"));
             throw misMatchedTypes("cleanup parameters after (Throwable,result) and target parameter list prefix",
                     cleanup.type(), target.type());
         }
+    }
+
+    /**
+     * Creates a table switch method handle, which can be used to switch over a set of target
+     * method handles, based on a given target index, called selector.
+     * <p>
+     * For a selector value of {@code n}, where {@code n} falls in the range {@code [0, N)},
+     * and where {@code N} is the number of target method handles, the table switch method
+     * handle will invoke the n-th target method handle from the list of target method handles.
+     * <p>
+     * For a selector value that does not fall in the range {@code [0, N)}, the table switch
+     * method handle will invoke the given fallback method handle.
+     * <p>
+     * All method handles passed to this method must have the same type, with the additional
+     * requirement that the leading parameter be of type {@code int}. The leading parameter
+     * represents the selector.
+     * <p>
+     * Any trailing parameters present in the type will appear on the returned table switch
+     * method handle as well. Any arguments assigned to these parameters will be forwarded,
+     * together with the selector value, to the selected method handle when invoking it.
+     *
+     * @apiNote Example:
+     * The cases each drop the {@code selector} value they are given, and take an additional
+     * {@code String} argument, which is concatenated (using {@link String#concat(String)})
+     * to a specific constant label string for each case:
+     * <blockquote><pre>{@code
+     * MethodHandles.Lookup lookup = MethodHandles.lookup();
+     * MethodHandle caseMh = lookup.findVirtual(String.class, "concat",
+     *         MethodType.methodType(String.class, String.class));
+     * caseMh = MethodHandles.dropArguments(caseMh, 0, int.class);
+     *
+     * MethodHandle caseDefault = MethodHandles.insertArguments(caseMh, 1, "default: ");
+     * MethodHandle case0 = MethodHandles.insertArguments(caseMh, 1, "case 0: ");
+     * MethodHandle case1 = MethodHandles.insertArguments(caseMh, 1, "case 1: ");
+     *
+     * MethodHandle mhSwitch = MethodHandles.tableSwitch(
+     *     caseDefault,
+     *     case0,
+     *     case1
+     * );
+     *
+     * assertEquals("default: data", (String) mhSwitch.invokeExact(-1, "data"));
+     * assertEquals("case 0: data", (String) mhSwitch.invokeExact(0, "data"));
+     * assertEquals("case 1: data", (String) mhSwitch.invokeExact(1, "data"));
+     * assertEquals("default: data", (String) mhSwitch.invokeExact(2, "data"));
+     * }</pre></blockquote>
+     *
+     * @param fallback the fallback method handle that is called when the selector is not
+     *                 within the range {@code [0, N)}.
+     * @param targets array of target method handles.
+     * @return the table switch method handle.
+     * @throws NullPointerException if {@code fallback}, the {@code targets} array, or any
+     *                              any of the elements of the {@code targets} array are
+     *                              {@code null}.
+     * @throws IllegalArgumentException if the {@code targets} array is empty, if the leading
+     *                                  parameter of the fallback handle or any of the target
+     *                                  handles is not {@code int}, or if the types of
+     *                                  the fallback handle and all of target handles are
+     *                                  not the same.
+     */
+    public static MethodHandle tableSwitch(MethodHandle fallback, MethodHandle... targets) {
+        Objects.requireNonNull(fallback);
+        Objects.requireNonNull(targets);
+        targets = targets.clone();
+        MethodType type = tableSwitchChecks(fallback, targets);
+        // Android-changed: use a Transformer for the implementation.
+        // return MethodHandleImpl.makeTableSwitch(type, fallback, targets);
+        return new Transformers.TableSwitch(type, fallback, targets);
+    }
+
+    private static MethodType tableSwitchChecks(MethodHandle defaultCase, MethodHandle[] caseActions) {
+        if (caseActions.length == 0)
+            throw new IllegalArgumentException("Not enough cases: " + Arrays.toString(caseActions));
+
+        MethodType expectedType = defaultCase.type();
+
+        if (!(expectedType.parameterCount() >= 1) || expectedType.parameterType(0) != int.class)
+            throw new IllegalArgumentException(
+                "Case actions must have int as leading parameter: " + Arrays.toString(caseActions));
+
+        for (MethodHandle mh : caseActions) {
+            Objects.requireNonNull(mh);
+            // Android-changed: MethodType's not interned.
+            // if (mh.type() != expectedType)
+            if (!mh.type().equals(expectedType))
+                throw new IllegalArgumentException(
+                    "Case actions must have the same type: " + Arrays.toString(caseActions));
+        }
+
+        return expectedType;
     }
 
     // BEGIN Android-added: Code from OpenJDK's MethodHandleImpl.

@@ -145,14 +145,11 @@ public class Iso18013 {
         // encoded DeviceEngagement
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try {
-            ECPoint w = ((ECPublicKey) ephemeralKeyPair.getPublic()).getW();
-            // X and Y are always positive so for interop we remove any leading zeroes
-            // inserted by the BigInteger encoder.
-            byte[] x = stripLeadingZeroes(w.getAffineX().toByteArray());
-            byte[] y = stripLeadingZeroes(w.getAffineY().toByteArray());
             baos.write(new byte[]{41});
-            baos.write(x);
-            baos.write(y);
+
+            ECPoint w = ((ECPublicKey) ephemeralKeyPair.getPublic()).getW();
+            baos.write(Util.convertP256PublicKeyToDERFormat(w));
+
             baos.write(new byte[]{42, 44});
         } catch (IOException e) {
             e.printStackTrace();
@@ -278,19 +275,5 @@ public class Iso18013 {
                 | NoSuchAlgorithmException e) {
             throw new IllegalStateException("Error performing key agreement", e);
         }
-    }
-
-    private static byte[] stripLeadingZeroes(byte[] value) {
-        int n = 0;
-        while (n < value.length && value[n] == 0) {
-            n++;
-        }
-        int newLen = value.length - n;
-        byte[] ret = new byte[newLen];
-        int m = 0;
-        while (n < value.length) {
-            ret[m++] = value[n++];
-        }
-        return ret;
     }
 }

@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="no_upstream_notification_title" msgid="611650570559011140">"Povezivanje putem mobitela nema internet"</string>
-    <string name="no_upstream_notification_message" msgid="6508394877641864863">"Uređaji se ne mogu povezati"</string>
-    <string name="no_upstream_notification_disable_button" msgid="7609346639290990508">"Isključi povezivanje putem mobitela"</string>
-    <string name="upstream_roaming_notification_title" msgid="6032901176124830787">"Pristupna tačka ili povezivanje putem mobitela je uključeno"</string>
-    <string name="upstream_roaming_notification_message" msgid="7599056263326217523">"Mogu nastati dodatni troškovi u romingu"</string>
+    <string name="no_upstream_notification_title" msgid="5897815458155858594">"Dijeljenje internetske veze nema internet"</string>
+    <string name="no_upstream_notification_message" msgid="9037716118606459874">"Nije moguće povezati uređaje"</string>
+    <string name="no_upstream_notification_disable_button" msgid="5284024068281565456">"Isključi dijeljenje internetske veze"</string>
+    <string name="upstream_roaming_notification_title" msgid="186331286017243006">"Pristupna tačka ili dijeljenje internetske veze su uključeni"</string>
+    <string name="upstream_roaming_notification_message" msgid="7692641323940316538">"Mogu nastati dodatni troškovi u romingu"</string>
 </resources>

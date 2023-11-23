@@ -16,9 +16,14 @@
   -->
 
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <!-- Format for temperature in the temperature control view (No decimal) -->
-    <string name="hvac_temperature_format_fahrenheit" translatable="false">%.0f</string>
+    <!-- Default sensor string [CHAR LIMIT=10]-->
+    <string name="default_sensor_string">N/A</string>
 
-    <!-- HVAC panel header [CHAR LIMIT=40]-->
-    <string name="hvac_panel_header">Comfort controls</string>
+    <!-- Message shown when task view is not ready which asks user to wait until system has finished loading [CHAR LIMIT=75]-->
+    <string name="task_view_not_ready_message">Please wait for system to load</string>
+
+    <!-- Subtitle for current profile in profile switch panel [CHAR LIMIT=20]-->
+    <string name="current_profile_subtitle">Current profile</string>
+    <string name="loading_welcome_message">AAOS</string>
+    <string name="loading_action_button_text">Continue</string>
 </resources>

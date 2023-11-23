@@ -23,7 +23,7 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import android.app.Activity;
 import android.app.Notification;
@@ -92,7 +92,7 @@ public class NotificationControllerTest {
         // The next time should show nothing.
         mController.onReceive(mContext,
                 new Intent(NotificationController.INTENT_ACTION_SHOW_NOTIFICATION));
-        verifyZeroInteractions(mNotificationManager);
+        verifyNoInteractions(mNotificationManager);
     }
 
     @Test
@@ -112,7 +112,7 @@ public class NotificationControllerTest {
         // The next time should show nothing.
         mController.onReceive(mContext,
                 new Intent(NotificationController.INTENT_ACTION_SHOW_NOTIFICATION));
-        verifyZeroInteractions(mNotificationManager);
+        verifyNoInteractions(mNotificationManager);
     }
 
     @Test
@@ -128,7 +128,7 @@ public class NotificationControllerTest {
         // Another attempt should not show a notification.
         mController.onReceive(mContext,
                 new Intent(NotificationController.INTENT_ACTION_SHOW_NOTIFICATION));
-        verifyZeroInteractions(mNotificationManager);
+        verifyNoInteractions(mNotificationManager);
 
         // The notification should show against after 14 days.
         mClock.time = TimeUnit.DAYS.toMillis(14);

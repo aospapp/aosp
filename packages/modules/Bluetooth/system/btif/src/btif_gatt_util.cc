@@ -36,6 +36,7 @@
 #include "btif_gatt.h"
 #include "btif_storage.h"
 #include "btif_util.h"
+#include "gd/os/system_properties.h"
 #include "osi/include/allocator.h"
 #include "osi/include/osi.h"
 #include "stack/btm/btm_sec.h"
@@ -75,13 +76,19 @@ static void btif_gatt_set_encryption_cb(UNUSED_ATTR const RawAddress& bd_addr,
 
 void btif_gatt_check_encrypted_link(RawAddress bd_addr,
                                     tBT_TRANSPORT transport_link) {
+  static const bool check_encrypted = bluetooth::os::GetSystemPropertyBool(
+      "bluetooth.gatt.check_encrypted_link.enabled", true);
+  if (!check_encrypted) {
+    LOG_DEBUG("Check skipped due to system config");
+    return;
+  }
   tBTM_LE_PENC_KEYS key;
   if ((btif_storage_get_ble_bonding_key(
            bd_addr, BTM_LE_KEY_PENC, (uint8_t*)&key,
            sizeof(tBTM_LE_PENC_KEYS)) == BT_STATUS_SUCCESS) &&
       !btif_gatt_is_link_encrypted(bd_addr)) {
     LOG_DEBUG("Checking gatt link peer:%s transport:%s",
-              PRIVATE_ADDRESS(bd_addr),
+              ADDRESS_TO_LOGGABLE_CSTR(bd_addr),
               bt_transport_text(transport_link).c_str());
     BTA_DmSetEncryption(bd_addr, transport_link, &btif_gatt_set_encryption_cb,
                         BTM_BLE_SEC_ENCRYPT);

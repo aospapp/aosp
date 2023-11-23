@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"அவசர அழைப்பு மேற்கொள்ளப்பட்டதால் <xliff:g id="CALLER">%s</xliff:g> உடனான அழைப்பு துண்டிக்கப்பட்டது."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"அவசர அழைப்பு மேற்கொள்ளப்படுவதால் உங்கள் அழைப்பு துண்டிக்கப்பட்டுள்ளது."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"பின்னணி அழைப்பு"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"அழைப்பை பின்னணியில் செயல்படும் வகையில் <xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> மாற்றியுள்ளது. அழைப்பின் மூலமாக இந்த ஆப்ஸ் ஆடியோவை அணுகி இயக்கக்கூடும்."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> அழைப்பைப் பின்னணியில் செயலாக்குகிறது. அழைப்பின்போதே இந்த ஆப்ஸ் ஆடியோவை அணுகி அதைச் செயலாக்கக்கூடும்."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> செயலிழந்துவிட்டது"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"உங்கள் சாதனத்துடன் கிடைக்கும் மொபைல் ஆப்ஸ் மூலம் அழைப்பு மேற்கொள்ளப்பட்டது"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"அழைப்பு முடக்கப்பட்டது."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"பின்னணி அழைப்புகள்"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"துண்டிக்கப்பட்ட அழைப்புகள்"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"சிதைவடைந்த மொபைல் ஆப்ஸ்"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"அழைப்பு ஸ்ட்ரீமிங்"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"புதிய அழைப்பைச் செய்தால், செயலில் உள்ள <xliff:g id="OTHER_APP">%1$s</xliff:g> அழைப்பு துண்டிக்கப்படும்."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"இந்த அழைப்பை எவ்வாறு மேற்கொள்ள வேண்டும் எனத் தேர்ந்தெடுக்கவும்"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"<xliff:g id="OTHER_APP">%1$s</xliff:g>ஐப் பயன்படுத்தி அழைப்பைத் திருப்பி விடு"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"டெலிகாம் டெவெலப்பர் மெனு"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"அவசர அழைப்பின்போது அழைப்புகளை ஏற்க முடியாது."</string>
     <string name="cancel" msgid="6733466216239934756">"ரத்துசெய்"</string>
+    <string name="back" msgid="6915955601805550206">"பின்செல்"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"ஒலி கேட்கும் பகுதி"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"புளூடூத்"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"வயர் ஹெட்செட்"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"ஸ்பீக்கர்"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"வெளிப்புறச் சாதனம்"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"தெரியவில்லை"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"வேறு சாதனத்திற்கு ஆடியோவை ஸ்ட்ரீம் செய்கிறது"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"அழைப்பைத் துண்டி"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"இங்கே மாற்று"</string>
 </resources>

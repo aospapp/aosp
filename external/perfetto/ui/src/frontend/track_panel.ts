@@ -13,16 +13,16 @@
 // limitations under the License.
 
 import {hex} from 'color-convert';
-import * as m from 'mithril';
+import m from 'mithril';
 
 import {Actions} from '../common/actions';
 import {TrackState} from '../common/state';
 
-import {TRACK_SHELL_WIDTH} from './css_constants';
+import {SELECTION_FILL_COLOR, TRACK_SHELL_WIDTH} from './css_constants';
 import {PerfettoMouseEvent} from './events';
 import {globals} from './globals';
 import {drawGridLines} from './gridline_helper';
-import {BLANK_CHECKBOX, CHECKBOX, STAR, STAR_BORDER} from './icons';
+import {BLANK_CHECKBOX, CHECKBOX, PIN} from './icons';
 import {Panel, PanelSize} from './panel';
 import {verticalScrollToTrack} from './scroll_helper';
 import {SliceRect, Track} from './track';
@@ -30,6 +30,26 @@ import {trackRegistry} from './track_registry';
 import {
   drawVerticalLineAtTime,
 } from './vertical_line_helper';
+
+function getTitleSize(title: string): string|undefined {
+  const length = title.length;
+  if (length > 55) {
+    return '9px';
+  }
+  if (length > 50) {
+    return '10px';
+  }
+  if (length > 45) {
+    return '11px';
+  }
+  if (length > 40) {
+    return '12px';
+  }
+  if (length > 35) {
+    return '13px';
+  }
+  return undefined;
+}
 
 function isPinned(id: string) {
   return globals.state.pinnedTracks.indexOf(id) !== -1;
@@ -75,7 +95,6 @@ class TrackShell implements m.ClassComponent<TrackShellAttrs> {
         `.track-shell[draggable=true]`,
         {
           class: `${highlightClass} ${dragClass} ${dropClass}`,
-          onmousedown: this.onmousedown.bind(this),
           ondragstart: this.ondragstart.bind(this),
           ondragend: this.ondragend.bind(this),
           ondragover: this.ondragover.bind(this),
@@ -86,6 +105,9 @@ class TrackShell implements m.ClassComponent<TrackShellAttrs> {
             'h1',
             {
               title: attrs.trackState.name,
+              style: {
+                'font-size': getTitleSize(attrs.trackState.name),
+              },
             },
             attrs.trackState.name,
             ('namespace' in attrs.trackState.config) &&
@@ -93,14 +115,17 @@ class TrackShell implements m.ClassComponent<TrackShellAttrs> {
             ),
         m('.track-buttons',
           attrs.track.getTrackShellButtons(),
+          attrs.track.getContextMenu(),
           m(TrackButton, {
             action: () => {
               globals.dispatch(
                   Actions.toggleTrackPinned({trackId: attrs.trackState.id}));
             },
-            i: isPinned(attrs.trackState.id) ? STAR : STAR_BORDER,
+            i: PIN,
+            filledIcon: isPinned(attrs.trackState.id),
             tooltip: isPinned(attrs.trackState.id) ? 'Unpin' : 'Pin to top',
             showButton: isPinned(attrs.trackState.id),
+            fullHeight: true,
           }),
           globals.state.currentSelection !== null &&
                   globals.state.currentSelection.kind === 'AREA' ?
@@ -119,12 +144,6 @@ class TrackShell implements m.ClassComponent<TrackShellAttrs> {
               ''));
   }
 
-  onmousedown(e: MouseEvent) {
-    // Prevent that the click is intercepted by the PanAndZoomHandler and that
-    // we start panning while dragging.
-    e.stopPropagation();
-  }
-
   ondragstart(e: DragEvent) {
     const dataTransfer = e.dataTransfer;
     if (dataTransfer === null) return;
@@ -132,7 +151,6 @@ class TrackShell implements m.ClassComponent<TrackShellAttrs> {
     globals.rafScheduler.scheduleFullRedraw();
     dataTransfer.setData('perfetto/track', `${this.attrs!.trackState.id}`);
     dataTransfer.setDragImage(new Image(), 0, 0);
-    e.stopImmediatePropagation();
   }
 
   ondragend() {
@@ -226,7 +244,7 @@ export class TrackContent implements m.ClassComponent<TrackContentAttrs> {
               e.stopPropagation();
             }
             globals.rafScheduler.scheduleRedraw();
-          }
+          },
         },
         node.children);
   }
@@ -238,17 +256,20 @@ interface TrackComponentAttrs {
 }
 class TrackComponent implements m.ClassComponent<TrackComponentAttrs> {
   view({attrs}: m.CVnode<TrackComponentAttrs>) {
+    // TODO(hjd): The min height below must match the track_shell_title
+    // max height in common.scss so we should read it from CSS to avoid
+    // them going out of sync.
     return m(
         '.track',
         {
           style: {
-            height: `${Math.max(24, attrs.track.getHeight())}px`,
+            height: `${Math.max(18, attrs.track.getHeight())}px`,
           },
           id: 'track_' + attrs.trackState.id,
         },
         [
           m(TrackShell, {track: attrs.track, trackState: attrs.trackState}),
-          m(TrackContent, {track: attrs.track})
+          m(TrackContent, {track: attrs.track}),
         ]);
   }
 
@@ -265,13 +286,20 @@ export interface TrackButtonAttrs {
   i: string;
   tooltip: string;
   showButton: boolean;
+  fullHeight?: boolean;
+  filledIcon?: boolean;
 }
 export class TrackButton implements m.ClassComponent<TrackButtonAttrs> {
   view({attrs}: m.CVnode<TrackButtonAttrs>) {
     return m(
-        'i.material-icons.track-button',
+        'i.track-button',
         {
-          class: `${attrs.showButton ? 'show' : ''}`,
+          class: [
+            (attrs.showButton ? 'show' : ''),
+            (attrs.fullHeight ? 'full-height' : ''),
+            (attrs.filledIcon ? 'material-icons-filled' : 'material-icons'),
+          ].filter(Boolean)
+                     .join(' '),
           onclick: attrs.action,
           title: attrs.tooltip,
         },
@@ -334,20 +362,20 @@ export class TrackPanel extends Panel<TrackPanelAttrs> {
   }
 
   highlightIfTrackSelected(ctx: CanvasRenderingContext2D, size: PanelSize) {
-    const localState = globals.frontendLocalState;
+    const {visibleTimeScale} = globals.frontendLocalState;
     const selection = globals.state.currentSelection;
     const trackState = this.trackState;
     if (!selection || selection.kind !== 'AREA' || trackState === undefined) {
       return;
     }
     const selectedArea = globals.state.areas[selection.areaId];
+    const selectedAreaDuration = selectedArea.end - selectedArea.start;
     if (selectedArea.tracks.includes(trackState.id)) {
-      const timeScale = localState.timeScale;
-      ctx.fillStyle = 'rgba(131, 152, 230, 0.3)';
+      ctx.fillStyle = SELECTION_FILL_COLOR;
       ctx.fillRect(
-          timeScale.timeToPx(selectedArea.startSec) + TRACK_SHELL_WIDTH,
+          visibleTimeScale.tpTimeToPx(selectedArea.start) + TRACK_SHELL_WIDTH,
           0,
-          timeScale.deltaTimeToPx(selectedArea.endSec - selectedArea.startSec),
+          visibleTimeScale.durationToPx(selectedAreaDuration),
           size.height);
     }
   }
@@ -357,8 +385,6 @@ export class TrackPanel extends Panel<TrackPanelAttrs> {
 
     drawGridLines(
         ctx,
-        globals.frontendLocalState.timeScale,
-        globals.frontendLocalState.visibleWindowTime,
         size.width,
         size.height);
 
@@ -370,42 +396,31 @@ export class TrackPanel extends Panel<TrackPanelAttrs> {
 
     this.highlightIfTrackSelected(ctx, size);
 
-    const localState = globals.frontendLocalState;
+    const {visibleTimeScale} = globals.frontendLocalState;
     // Draw vertical line when hovering on the notes panel.
-    if (globals.state.hoveredNoteTimestamp !== -1) {
+    if (globals.state.hoveredNoteTimestamp !== -1n) {
       drawVerticalLineAtTime(
           ctx,
-          localState.timeScale,
+          visibleTimeScale,
           globals.state.hoveredNoteTimestamp,
           size.height,
           `#aaa`);
     }
-    if (globals.state.hoveredLogsTimestamp !== -1) {
+    if (globals.state.hoverCursorTimestamp !== -1n) {
       drawVerticalLineAtTime(
           ctx,
-          localState.timeScale,
-          globals.state.hoveredLogsTimestamp,
+          visibleTimeScale,
+          globals.state.hoverCursorTimestamp,
           size.height,
           `#344596`);
     }
-    if (globals.state.currentSelection !== null) {
-      if (globals.state.currentSelection.kind === 'NOTE') {
-        const note = globals.state.notes[globals.state.currentSelection.id];
-        if (note.noteType === 'DEFAULT') {
-          drawVerticalLineAtTime(
-              ctx,
-              localState.timeScale,
-              note.timestamp,
-              size.height,
-              note.color);
-        }
-      }
 
+    if (globals.state.currentSelection !== null) {
       if (globals.state.currentSelection.kind === 'SLICE' &&
           globals.sliceDetails.wakeupTs !== undefined) {
         drawVerticalLineAtTime(
             ctx,
-            localState.timeScale,
+            visibleTimeScale,
             globals.sliceDetails.wakeupTs,
             size.height,
             `black`);
@@ -419,18 +434,21 @@ export class TrackPanel extends Panel<TrackPanelAttrs> {
             'rgba(' + hex.rgb(note.color.substr(1)).toString() + ', 0.65)';
         drawVerticalLineAtTime(
             ctx,
-            localState.timeScale,
-            globals.state.areas[note.areaId].startSec,
+            visibleTimeScale,
+            globals.state.areas[note.areaId].start,
             size.height,
             transparentNoteColor,
             1);
         drawVerticalLineAtTime(
             ctx,
-            localState.timeScale,
-            globals.state.areas[note.areaId].endSec,
+            visibleTimeScale,
+            globals.state.areas[note.areaId].end,
             size.height,
             transparentNoteColor,
             1);
+      } else if (note.noteType === 'DEFAULT') {
+        drawVerticalLineAtTime(
+            ctx, visibleTimeScale, note.timestamp, size.height, note.color);
       }
     }
   }

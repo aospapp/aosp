@@ -38,13 +38,15 @@ final class PreProvisioningActivityBridgeImpl implements PreProvisioningActivity
             Utils utils,
             ConsentUiHelperCallback callback,
             PreProvisioningActivityBridgeCallbacks bridgeCallbacks,
-            ThemeHelper themeHelper) {
+            ThemeHelper themeHelper,
+            String setupMetricScreenName) {
         mConsentUiHelper = ConsentUiHelperFactory.getInstance(
                 requireNonNull(activity),
                 requireNonNull(callback),
                 requireNonNull(utils),
                 requireNonNull(bridgeCallbacks),
-                requireNonNull(themeHelper));
+                requireNonNull(themeHelper),
+                setupMetricScreenName);
     }
 
     @Override

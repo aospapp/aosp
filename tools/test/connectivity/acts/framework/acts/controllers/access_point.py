@@ -18,6 +18,7 @@ import collections
 import ipaddress
 import os
 import time
+from typing import FrozenSet, Set
 
 from acts import logger
 from acts import utils
@@ -32,6 +33,10 @@ from acts.controllers.ap_lib import hostapd
 from acts.controllers.ap_lib import hostapd_ap_preset
 from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.ap_lib import hostapd_config
+from acts.controllers.ap_lib import radvd
+from acts.controllers.ap_lib import radvd_config
+from acts.controllers.ap_lib.extended_capabilities import ExtendedCapabilities
+from acts.controllers.ap_lib.wireless_network_management import BssTransitionManagementRequest
 from acts.controllers.utils_lib.commands import ip
 from acts.controllers.utils_lib.commands import route
 from acts.controllers.utils_lib.commands import shell
@@ -88,26 +93,30 @@ def get_info(aps):
     return [ap.ssh_settings.hostname for ap in aps]
 
 
-def setup_ap(access_point,
-             profile_name,
-             channel,
-             ssid,
-             mode=None,
-             preamble=None,
-             beacon_interval=None,
-             dtim_period=None,
-             frag_threshold=None,
-             rts_threshold=None,
-             force_wmm=None,
-             hidden=False,
-             security=None,
-             pmf_support=None,
-             additional_ap_parameters=None,
-             password=None,
-             n_capabilities=None,
-             ac_capabilities=None,
-             vht_bandwidth=None,
-             setup_bridge=False):
+def setup_ap(
+        access_point,
+        profile_name,
+        channel,
+        ssid,
+        mode=None,
+        preamble=None,
+        beacon_interval=None,
+        dtim_period=None,
+        frag_threshold=None,
+        rts_threshold=None,
+        force_wmm=None,
+        hidden=False,
+        security=None,
+        pmf_support=None,
+        additional_ap_parameters=None,
+        password=None,
+        n_capabilities=None,
+        ac_capabilities=None,
+        vht_bandwidth=None,
+        wnm_features: FrozenSet[hostapd_constants.WnmFeature] = frozenset(),
+        setup_bridge=False,
+        is_ipv6_enabled=False,
+        is_nat_enabled=True):
     """Creates a hostapd profile and runs it on an ap. This is a convenience
     function that allows us to start an ap with a single function, without first
     creating a hostapd config.
@@ -128,6 +137,13 @@ def setup_ap(access_point,
         additional_ap_parameters: Additional parameters to send the AP.
         password: Password to connect to WLAN if necessary.
         check_connectivity: Whether to check for internet connectivity.
+        wnm_features: WNM features to enable on the AP.
+        setup_bridge: Whether to bridge the LAN interface WLAN interface.
+            Only one WLAN interface can be bridged with the LAN interface
+            and none of the guest networks can be bridged.
+        is_ipv6_enabled: If True, start a IPv6 router advertisement daemon
+        is_nat_enabled: If True, start NAT on the AP to allow the DUT to be able
+            to access the internet if the WAN port is connected to the internet.
 
     Returns:
         An identifier for each ssid being started. These identifiers can be
@@ -154,10 +170,13 @@ def setup_ap(access_point,
                                             pmf_support=pmf_support,
                                             n_capabilities=n_capabilities,
                                             ac_capabilities=ac_capabilities,
-                                            vht_bandwidth=vht_bandwidth)
+                                            vht_bandwidth=vht_bandwidth,
+                                            wnm_features=wnm_features)
     return access_point.start_ap(
         hostapd_config=ap,
+        radvd_config=radvd_config.RadvdConfig() if is_ipv6_enabled else None,
         setup_bridge=setup_bridge,
+        is_nat_enabled=is_nat_enabled,
         additional_parameters=additional_ap_parameters)
 
 
@@ -192,8 +211,8 @@ class AccessPoint(object):
             configs: configs for the access point from config file.
         """
         self.ssh_settings = settings.from_config(configs['ssh_config'])
-        self.log = logger.create_logger(lambda msg: '[Access Point|%s] %s' % (
-            self.ssh_settings.hostname, msg))
+        self.log = logger.create_logger(
+            lambda msg: f'[Access Point|{self.ssh_settings.hostname}] {msg}')
         self.device_pdu_config = configs.get('PduDevice', None)
         self.identifier = self.ssh_settings.hostname
 
@@ -220,6 +239,7 @@ class AccessPoint(object):
         self._aps = dict()
         self._dhcp = None
         self._dhcp_bss = dict()
+        self._radvd = None
         self.bridge = bridge_interface.BridgeInterface(self)
         self.iwconfig = ap_iwconfig.ApIwconfig(self)
 
@@ -258,20 +278,22 @@ class AccessPoint(object):
             self.log.info('No hostapd running')
         # Bring down all wireless interfaces
         for iface in self.wlan:
-            WLAN_DOWN = 'ifconfig {} down'.format(iface)
+            WLAN_DOWN = f'ip link set {iface} down'
             self.ssh.run(WLAN_DOWN)
         # Bring down all bridge interfaces
         bridge_interfaces = self.interfaces.get_bridge_interface()
         if bridge_interfaces:
             for iface in bridge_interfaces:
-                BRIDGE_DOWN = 'ifconfig {} down'.format(iface)
-                BRIDGE_DEL = 'brctl delbr {}'.format(iface)
+                BRIDGE_DOWN = f'ip link set {iface} down'
+                BRIDGE_DEL = f'brctl delbr {iface}'
                 self.ssh.run(BRIDGE_DOWN)
                 self.ssh.run(BRIDGE_DEL)
 
     def start_ap(self,
                  hostapd_config,
+                 radvd_config=None,
                  setup_bridge=False,
+                 is_nat_enabled=True,
                  additional_parameters=None):
         """Starts as an ap using a set of configurations.
 
@@ -284,9 +306,14 @@ class AccessPoint(object):
         Args:
             hostapd_config: hostapd_config.HostapdConfig, The configurations
                 to use when starting up the ap.
+            radvd_config: radvd_config.RadvdConfig, The IPv6 configuration
+                to use when starting up the ap.
             setup_bridge: Whether to bridge the LAN interface WLAN interface.
                 Only one WLAN interface can be bridged with the LAN interface
                 and none of the guest networks can be bridged.
+            is_nat_enabled: If True, start NAT on the AP to allow the DUT to be
+                able to access the internet if the WAN port is connected to the
+                internet.
             additional_parameters: A dictionary of parameters that can sent
                 directly into the hostapd config file.  This can be used for
                 debugging and or adding one off parameters into the config.
@@ -315,7 +342,7 @@ class AccessPoint(object):
         # up to 8 different mac addresses. So in for one interface the range is
         # hex 0-7 and for the other the range is hex 8-f.
         interface_mac_orig = None
-        cmd = "ifconfig %s|grep ether|awk -F' ' '{print $2}'" % interface
+        cmd = f"ip link show {interface}|grep ether|awk -F' ' '{{print $2}}'"
         interface_mac_orig = self.ssh.run(cmd)
         if interface == self.wlan_5g:
             hostapd_config.bssid = interface_mac_orig.stdout[:-1] + '0'
@@ -325,7 +352,7 @@ class AccessPoint(object):
             last_octet = 9
         if interface in self._aps:
             raise ValueError('No WiFi interface available for AP on '
-                             'channel %d' % hostapd_config.channel)
+                             f'channel {hostapd_config.channel}')
 
         apd = hostapd.Hostapd(self.ssh, interface)
         new_instance = _ApInstance(hostapd=apd, subnet=subnet)
@@ -358,8 +385,7 @@ class AccessPoint(object):
                     starting_ip_range = self._AP_5G_SUBNET_STR
                 a, b, c, d = starting_ip_range.split('.')
                 self._dhcp_bss[bss] = dhcp_config.Subnet(
-                    ipaddress.ip_network('%s.%s.%s.%s' %
-                                         (a, b, str(int(c) + counter), d)))
+                    ipaddress.ip_network(f'{a}.{b}.{int(c) + counter}.{d}'))
                 counter = counter + 1
                 last_octet = last_octet + 1
 
@@ -368,7 +394,7 @@ class AccessPoint(object):
         # The DHCP serer requires interfaces to have ips and routes before
         # the server will come up.
         interface_ip = ipaddress.ip_interface(
-            '%s/%s' % (subnet.router, subnet.network.netmask))
+            f'{subnet.router}/{subnet.network.netmask}')
         if setup_bridge is True:
             bridge_interface_name = 'eth_test'
             self.create_bridge(bridge_interface_name, [interface, self.lan])
@@ -382,15 +408,24 @@ class AccessPoint(object):
             # variables represent the interface name, k, and dhcp info, v.
             for k, v in self._dhcp_bss.items():
                 bss_interface_ip = ipaddress.ip_interface(
-                    '%s/%s' % (self._dhcp_bss[k].router,
-                               self._dhcp_bss[k].network.netmask))
+                    f'{self._dhcp_bss[k].router}/{self._dhcp_bss[k].network.netmask}'
+                )
                 self._ip_cmd.set_ipv4_address(str(k), bss_interface_ip)
 
         # Restart the DHCP server with our updated list of subnets.
         configured_subnets = self.get_configured_subnets()
         dhcp_conf = dhcp_config.DhcpConfig(subnets=configured_subnets)
         self.start_dhcp(dhcp_conf=dhcp_conf)
-        self.start_nat()
+        if is_nat_enabled:
+            self.start_nat()
+            self.enable_forwarding()
+        else:
+            self.stop_nat()
+            self.enable_forwarding()
+        if radvd_config:
+            radvd_interface = bridge_interface_name if setup_bridge else interface
+            self._radvd = radvd.Radvd(self.ssh, radvd_interface)
+            self._radvd.start(radvd_config)
 
         bss_interfaces = [bss for bss in hostapd_config.bss_lookup]
         bss_interfaces.append(interface)
@@ -458,6 +493,15 @@ class AccessPoint(object):
                 identifier).hostapd.pull_logs()
         return hostapd_logs
 
+    def enable_forwarding(self):
+        """Enable IPv4 and IPv6 forwarding on the AP.
+
+        When forwarding is enabled, the access point is able to route IP packets
+        between devices in the same subnet.
+        """
+        self.ssh.run('echo 1 > /proc/sys/net/ipv4/ip_forward')
+        self.ssh.run('echo 1 > /proc/sys/net/ipv6/conf/all/forwarding')
+
     def start_nat(self):
         """Start NAT on the AP.
 
@@ -472,10 +516,8 @@ class AccessPoint(object):
         # WLAN/LAN ports will be able to access the internet if the WAN port
         # is connected to the internet.
         self.ssh.run('iptables -t nat -F')
-        self.ssh.run('iptables -t nat -A POSTROUTING -o %s -j MASQUERADE' %
-                     self.wan)
-        self.ssh.run('echo 1 > /proc/sys/net/ipv4/ip_forward')
-        self.ssh.run('echo 1 > /proc/sys/net/ipv6/conf/all/forwarding')
+        self.ssh.run(
+            f'iptables -t nat -A POSTROUTING -o {self.wan} -j MASQUERADE')
 
     def stop_nat(self):
         """Stop NAT on the AP.
@@ -487,8 +529,6 @@ class AccessPoint(object):
         per-interface masquerade rules.
         """
         self.ssh.run('iptables -t nat -F')
-        self.ssh.run('echo 0 > /proc/sys/net/ipv4/ip_forward')
-        self.ssh.run('echo 0 > /proc/sys/net/ipv6/conf/all/forwarding')
 
     def create_bridge(self, bridge_name, interfaces):
         """Create the specified bridge and bridge the specified interfaces.
@@ -499,15 +539,12 @@ class AccessPoint(object):
         """
 
         # Create the bridge interface
-        self.ssh.run(
-            'brctl addbr {bridge_name}'.format(bridge_name=bridge_name))
+        self.ssh.run(f'brctl addbr {bridge_name}')
 
         for interface in interfaces:
-            self.ssh.run('brctl addif {bridge_name} {interface}'.format(
-                bridge_name=bridge_name, interface=interface))
+            self.ssh.run(f'brctl addif {bridge_name} {interface}')
 
-        self.ssh.run(
-            'ip link set {bridge_name} up'.format(bridge_name=bridge_name))
+        self.ssh.run(f'ip link set {bridge_name} up')
 
     def remove_bridge(self, bridge_name):
         """Removes the specified bridge
@@ -521,17 +558,13 @@ class AccessPoint(object):
         #
         # Or if we're doing 2.4Ghz and 5Ghz SSIDs and we've already torn
         # down the bridge once, but we got called for each band.
-        result = self.ssh.run(
-            'brctl show {bridge_name}'.format(bridge_name=bridge_name),
-            ignore_status=True)
+        result = self.ssh.run(f'brctl show {bridge_name}', ignore_status=True)
 
         # If the bridge exists, we'll get an exit_status of 0, indicating
         # success, so we can continue and remove the bridge.
         if result.exit_status == 0:
-            self.ssh.run('ip link set {bridge_name} down'.format(
-                bridge_name=bridge_name))
-            self.ssh.run(
-                'brctl delbr {bridge_name}'.format(bridge_name=bridge_name))
+            self.ssh.run(f'ip link set {bridge_name} down')
+            self.ssh.run(f'brctl delbr {bridge_name}')
 
     def get_bssid_from_ssid(self, ssid, band):
         """Gets the BSSID from a provided SSID
@@ -548,18 +581,17 @@ class AccessPoint(object):
 
         # Get the interface name associated with the given ssid.
         for interface in interfaces:
-            cmd = "iw dev %s info|grep ssid|awk -F' ' '{print $2}'" % (
-                str(interface))
-            iw_output = self.ssh.run(cmd)
+            iw_output = self.ssh.run(
+                f"iw dev {interface} info|grep ssid|awk -F' ' '{{print $2}}'")
             if 'command failed: No such device' in iw_output.stderr:
                 continue
             else:
                 # If the configured ssid is equal to the given ssid, we found
                 # the right interface.
                 if iw_output.stdout == ssid:
-                    cmd = "iw dev %s info|grep addr|awk -F' ' '{print $2}'" % (
-                        str(interface))
-                    iw_output = self.ssh.run(cmd)
+                    iw_output = self.ssh.run(
+                        f"iw dev {interface} info|grep addr|awk -F' ' '{{print $2}}'"
+                    )
                     return iw_output.stdout
         return None
 
@@ -571,23 +603,26 @@ class AccessPoint(object):
         """
 
         if identifier not in list(self._aps.keys()):
-            raise ValueError('Invalid identifier %s given' % identifier)
+            raise ValueError(f'Invalid identifier {identifier} given')
 
         instance = self._aps.get(identifier)
 
-        instance.hostapd.stop()
+        if self._radvd:
+            self._radvd.stop()
         try:
             self.stop_dhcp()
         except dhcp_server.NoInterfaceError:
             pass
+        self.stop_nat()
+        instance.hostapd.stop()
         self._ip_cmd.clear_ipv4_addresses(identifier)
 
         del self._aps[identifier]
         bridge_interfaces = self.interfaces.get_bridge_interface()
         if bridge_interfaces:
             for iface in bridge_interfaces:
-                BRIDGE_DOWN = 'ifconfig {} down'.format(iface)
-                BRIDGE_DEL = 'brctl delbr {}'.format(iface)
+                BRIDGE_DOWN = f'ip link set {iface} down'
+                BRIDGE_DEL = f'brctl delbr {iface}'
                 self.ssh.run(BRIDGE_DOWN)
                 self.ssh.run(BRIDGE_DEL)
 
@@ -628,7 +663,7 @@ class AccessPoint(object):
         iface_lan = self.lan
 
         a, b, c, _ = subnet_str.strip('/24').split('.')
-        bridge_ip = "%s.%s.%s.%s" % (a, b, c, BRIDGE_IP_LAST)
+        bridge_ip = f'{a}.{b}.{c}.{BRIDGE_IP_LAST}'
 
         configs = (iface_wlan, iface_lan, bridge_ip)
 
@@ -642,24 +677,21 @@ class AccessPoint(object):
             send_ra_path: path where sendra path is located on server
         """
         self.scapy_install_path = self.ssh.run('mktemp -d').stdout.rstrip()
-        self.log.info("Scapy install path: %s" % self.scapy_install_path)
+        self.log.info(f'Scapy install path: {self.scapy_install_path}')
         self.ssh.send_file(scapy_path, self.scapy_install_path)
         self.ssh.send_file(send_ra_path, self.scapy_install_path)
 
         scapy = os.path.join(self.scapy_install_path,
                              scapy_path.split('/')[-1])
 
-        untar_res = self.ssh.run('tar -xvf %s -C %s' %
-                                 (scapy, self.scapy_install_path))
-
-        instl_res = self.ssh.run(
-            'cd %s; %s' % (self.scapy_install_path, SCAPY_INSTALL_COMMAND))
+        self.ssh.run(f'tar -xvf {scapy} -C {self.scapy_install_path}')
+        self.ssh.run(f'cd {self.scapy_install_path}; {SCAPY_INSTALL_COMMAND}')
 
     def cleanup_scapy(self):
         """ Cleanup scapy """
         if self.scapy_install_path:
-            cmd = 'rm -rf %s' % self.scapy_install_path
-            self.log.info("Cleaning up scapy %s" % cmd)
+            cmd = f'rm -rf {self.scapy_install_path}'
+            self.log.info(f'Cleaning up scapy {cmd}')
             output = self.ssh.run(cmd)
             self.scapy_install_path = None
 
@@ -681,10 +713,10 @@ class AccessPoint(object):
           rtt: retrans timer of the RA packet
         """
         scapy_command = os.path.join(self.scapy_install_path, RA_SCRIPT)
-        options = ' -m %s -i %d -c %d -l %d -in %s -rtt %s' % (
-            mac, interval, count, lifetime, iface, rtt)
-        self.log.info("Scapy cmd: %s" % scapy_command + options)
-        res = self.ssh.run(scapy_command + options)
+        options = f' -m {mac} -i {interval} -c {count} -l {lifetime} -in {iface} -rtt {rtt}'
+        cmd = scapy_command + options
+        self.log.info(f'Scapy cmd: {cmd}')
+        self.ssh.run(cmd)
 
     def get_icmp6intype134(self):
         """Read the value of Icmp6InType134 and return integer.
@@ -692,8 +724,8 @@ class AccessPoint(object):
         Returns:
             Integer value >0 if grep is successful; 0 otherwise.
         """
-        ra_count_str = self.ssh.run('grep Icmp6InType134 %s || true' %
-                                    PROC_NET_SNMP6).stdout
+        ra_count_str = self.ssh.run(
+            f'grep Icmp6InType134 {PROC_NET_SNMP6} || true').stdout
         if ra_count_str:
             return int(ra_count_str.split()[1])
 
@@ -762,13 +794,11 @@ class AccessPoint(object):
         if hostapd_configs is None:
             hostapd_configs = []
 
-        self.log.info('Power cycling AccessPoint (%s)' %
-                      self.ssh_settings.hostname)
+        self.log.info(f'Power cycling')
         ap_pdu, ap_pdu_port = pdu.get_pdu_port_for_device(
             self.device_pdu_config, pdus)
 
-        self.log.info('Killing power to AccessPoint (%s)' %
-                      self.ssh_settings.hostname)
+        self.log.info(f'Killing power')
         ap_pdu.off(str(ap_pdu_port))
 
         self.log.info('Verifying AccessPoint is unreachable.')
@@ -783,12 +813,12 @@ class AccessPoint(object):
                     'second.')
                 time.sleep(1)
         else:
-            raise ConnectionError('Failed to bring down AccessPoint (%s)' %
-                                  self.ssh_settings.hostname)
+            raise ConnectionError(
+                f'Failed to bring down AccessPoint ({self.ssh_settings.hostname})'
+            )
         self._aps.clear()
 
-        self.log.info('Restoring power to AccessPoint (%s)' %
-                      self.ssh_settings.hostname)
+        self.log.info(f'Restoring power')
         ap_pdu.on(str(ap_pdu_port))
 
         self.log.info('Waiting for AccessPoint to respond to pings.')
@@ -802,9 +832,9 @@ class AccessPoint(object):
                                'Retrying in 1 second.')
                 time.sleep(1)
         else:
-            raise ConnectionError('Timed out waiting for AccessPoint (%s) to '
-                                  'respond to pings.' %
-                                  self.ssh_settings.hostname)
+            raise ConnectionError(
+                f'Timed out waiting for AccessPoint ({self.ssh_settings.hostname}) '
+                'to respond to pings.')
 
         self.log.info('Waiting for AccessPoint to allow ssh connection.')
         timeout = time.time() + ssh_timeout
@@ -819,15 +849,14 @@ class AccessPoint(object):
                 self.log.info('AccessPoint available via ssh.')
                 break
         else:
-            raise ConnectionError('Timed out waiting for AccessPoint (%s) to '
-                                  'allow ssh connection.' %
-                                  self.ssh_settings.hostname)
+            raise ConnectionError(
+                f'Timed out waiting for AccessPoint ({self.ssh_settings.hostname}) '
+                'to allow ssh connection.')
 
         # Allow 5 seconds for OS to finish getting set up
         time.sleep(5)
         self._initial_ap()
-        self.log.info('AccessPoint (%s) power cycled successfully.' %
-                      self.ssh_settings.hostname)
+        self.log.info('Power cycled successfully')
 
         for settings in hostapd_configs:
             if type(settings) == hostapd_config.HostapdConfig:
@@ -845,8 +874,7 @@ class AccessPoint(object):
                     'Items in hostapd_configs list must either be '
                     'hostapd.HostapdConfig objects or dictionaries.')
 
-            self.log.info('Restarting network (%s) on AccessPoint.' %
-                          config.ssid)
+            self.log.info(f'Restarting network {config.ssid}')
             self.start_ap(config,
                           setup_bridge=setup_bridge,
                           additional_parameters=additional_parameters)
@@ -854,14 +882,39 @@ class AccessPoint(object):
     def channel_switch(self, identifier, channel_num):
         """Switch to a different channel on the given AP."""
         if identifier not in list(self._aps.keys()):
-            raise ValueError('Invalid identifier %s given' % identifier)
+            raise ValueError(f'Invalid identifier {identifier} given')
         instance = self._aps.get(identifier)
-        self.log.info('channel switch to channel {}'.format(channel_num))
+        self.log.info(f'channel switch to channel {channel_num}')
         instance.hostapd.channel_switch(channel_num)
 
     def get_current_channel(self, identifier):
         """Find the current channel on the given AP."""
         if identifier not in list(self._aps.keys()):
-            raise ValueError('Invalid identifier %s given' % identifier)
+            raise ValueError(f'Invalid identifier {identifier} given')
         instance = self._aps.get(identifier)
         return instance.hostapd.get_current_channel()
+
+    def get_stas(self, identifier) -> Set[str]:
+        """Return MAC addresses of all associated STAs on the given AP."""
+        if identifier not in list(self._aps.keys()):
+            raise ValueError(f'Invalid identifier {identifier} given')
+        instance = self._aps.get(identifier)
+        return instance.hostapd.get_stas()
+
+    def get_sta_extended_capabilities(self, identifier,
+                                      sta_mac: str) -> ExtendedCapabilities:
+        """Get extended capabilities for the given STA, as seen by the AP."""
+        if identifier not in list(self._aps.keys()):
+            raise ValueError(f'Invalid identifier {identifier} given')
+        instance = self._aps.get(identifier)
+        return instance.hostapd.get_sta_extended_capabilities(sta_mac)
+
+    def send_bss_transition_management_req(
+            self, identifier, sta_mac: str,
+            request: BssTransitionManagementRequest):
+        """Send a BSS Transition Management request to an associated STA."""
+        if identifier not in list(self._aps.keys()):
+            raise ValueError('Invalid identifier {identifier} given')
+        instance = self._aps.get(identifier)
+        return instance.hostapd.send_bss_transition_management_req(
+            sta_mac, request)

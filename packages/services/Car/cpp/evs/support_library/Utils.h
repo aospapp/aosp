@@ -24,9 +24,6 @@ namespace automotive {
 namespace evs {
 namespace support {
 
-using std::vector;
-using std::string;
-
 class Utils {
 public:
     /**
@@ -37,7 +34,7 @@ public:
      *
      * An empty vector is returned if no rear view camera is found.
      */
-    static vector<string> getRearViewCameraIds();
+    static std::vector<std::string> getRearViewCameraIds();
 
     /**
      * Gets camera id for the default rear view camera. For now, we
@@ -46,10 +43,10 @@ public:
      *
      * An empty string is returned if no rear view camera is found.
      */
-    static string getDefaultRearViewCameraId();
+    static std::string getDefaultRearViewCameraId();
 
 private:
-    static vector<string> sCameraIds;
+    static std::vector<std::string> sCameraIds;
 };
 
 }  // namespace support

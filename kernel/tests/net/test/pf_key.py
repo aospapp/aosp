@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2017 The Android Open Source Project
 #
@@ -186,7 +186,7 @@ def ParseExtension(exttype, data):
   if struct_type:
     ext, attrs = cstruct.Read(data, struct_type)
   else:
-    ext, attrs, = data, ""
+    ext, attrs = data, b""
 
   return exttype, ext, attrs
 
@@ -200,6 +200,13 @@ class PfKey(object):
     net_test.SetNonBlocking(self.sock)
     self.seq = 0
 
+  def close(self):
+    self.sock.close()
+    self.sock = None
+
+  def __del__(self):
+    if self.sock: self.close()
+
   def Recv(self):
     reply = self.sock.recv(4096)
     msg = SadbMsg(reply)
@@ -212,16 +219,16 @@ class PfKey(object):
     self.seq += 1
     msg.seq = self.seq
     msg.pid = os.getpid()
-    msg.len = (len(SadbMsg) + len(extensions)) / 8
+    msg.len = (len(SadbMsg) + len(extensions)) // 8
     self.sock.send(msg.Pack() + extensions)
     # print("SEND: " + self.DecodeSadbMsg(msg))
     return self.Recv()
 
   def PackPfKeyExtensions(self, extlist):
-    extensions = ""
+    extensions = b""
     for exttype, extstruct, attrs in extlist:
       extdata = extstruct.Pack()
-      ext = SadbExt(((len(extdata) + len(SadbExt) + len(attrs)) / 8, exttype))
+      ext = SadbExt(((len(extdata) + len(SadbExt) + len(attrs)) // 8, exttype))
       extensions += ext.Pack() + extdata + attrs
     return extensions
 
@@ -233,7 +240,7 @@ class PfKey(object):
     prefixlen = {AF_INET: 32, AF_INET6: 128}[addr.family]
     packed = addr.Pack()
     padbytes = (len(SadbExt) + len(SadbAddress) + len(packed)) % 8
-    packed += "\x00" * padbytes
+    packed += b"\x00" * padbytes
     return (exttype, SadbAddress((0, prefixlen)), packed)
 
   def AddSa(self, src, dst, spi, satype, mode, reqid, encryption,
@@ -243,10 +250,10 @@ class PfKey(object):
     replay = 4
     extlist = [
         (SADB_EXT_SA, SadbSa((htonl(spi), replay, SADB_SASTATE_MATURE,
-                              auth, encryption, 0)), ""),
+                              auth, encryption, 0)), b""),
         self.MakeSadbExtAddr(SADB_EXT_ADDRESS_SRC, src),
         self.MakeSadbExtAddr(SADB_EXT_ADDRESS_DST, dst),
-        (SADB_X_EXT_SA2, SadbXSa2((mode, 0, reqid)), ""),
+        (SADB_X_EXT_SA2, SadbXSa2((mode, 0, reqid)), b""),
         (SADB_EXT_KEY_AUTH, SadbKey((len(auth_key) * 8,)), auth_key),
         (SADB_EXT_KEY_ENCRYPT, SadbKey((len(encryption_key) * 8,)),
          encryption_key)
@@ -258,7 +265,7 @@ class PfKey(object):
     msg = self.MakeSadbMsg(SADB_DELETE, satype)
     extlist = [
         (SADB_EXT_SA, SadbSa((htonl(spi), 4, SADB_SASTATE_MATURE,
-                              0, 0, 0)), ""),
+                              0, 0, 0)), b""),
         self.MakeSadbExtAddr(SADB_EXT_ADDRESS_SRC, src),
         self.MakeSadbExtAddr(SADB_EXT_ADDRESS_DST, dst),
     ]
@@ -302,7 +309,7 @@ class PfKey(object):
     """Returns a list of (SadbMsg, [(extension, attr), ...], ...) tuples."""
     dump = []
     msg = self.MakeSadbMsg(SADB_DUMP, SADB_TYPE_UNSPEC)
-    received = self.SendAndRecv(msg, "")
+    received = self.SendAndRecv(msg, b"")
     while received:
       msg, data = cstruct.Read(received, SadbMsg)
       extlen = self.ExtensionsLength(msg, SadbMsg)

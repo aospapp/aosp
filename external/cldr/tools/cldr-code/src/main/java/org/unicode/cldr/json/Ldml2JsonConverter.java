@@ -1,5 +1,6 @@
 package org.unicode.cldr.json;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -7,18 +8,17 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
-import java.util.logging.Logger;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -30,8 +30,8 @@ import org.unicode.cldr.tool.Option.Options;
 import org.unicode.cldr.util.Annotations;
 import org.unicode.cldr.util.CLDRConfig;
 import org.unicode.cldr.util.CLDRFile;
-import org.unicode.cldr.util.CLDRLocale;
 import org.unicode.cldr.util.CLDRFile.DraftStatus;
+import org.unicode.cldr.util.CLDRLocale;
 import org.unicode.cldr.util.CLDRPaths;
 import org.unicode.cldr.util.CLDRTool;
 import org.unicode.cldr.util.CLDRURLS;
@@ -51,6 +51,7 @@ import org.unicode.cldr.util.Timer;
 import org.unicode.cldr.util.XPathParts;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -58,12 +59,10 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import com.google.gson.stream.JsonWriter;
 import com.ibm.icu.number.IntegerWidth;
 import com.ibm.icu.number.LocalizedNumberFormatter;
 import com.ibm.icu.number.NumberFormatter;
 import com.ibm.icu.number.Precision;
-import com.ibm.icu.util.ICUUncheckedIOException;
 import com.ibm.icu.util.NoUnit;
 
 /**
@@ -405,9 +404,13 @@ public class Ldml2JsonConverter {
             final String path = it.next();
             String fullPath = file.getFullXPath(path);
             String value = file.getWinningValue(path);
+            /*
+             * TODO: check whether this next block is superfluous, and remove it if so
+             * Reference: https://unicode-org.atlassian.net/browse/CLDR-13263
+             */
             if (path.startsWith("//ldml/localeDisplayNames/languages") &&
                 file.getSourceLocaleID(path, null).equals("code-fallback")) {
-                value = file.getConstructedBaileyValue(path, null, null);
+                value = file.getBaileyValue(path, null, null);
             }
 
             if (fullPath == null) {
@@ -447,8 +450,15 @@ public class Ldml2JsonConverter {
                 continue;
             }
 
-            String transformedPath = transformPath(path, pathPrefix);
-            String transformedFullPath = transformPath(fullPath, pathPrefix);
+            // discard draft before transforming
+            final String pathNoDraft = CLDRFile.DRAFT_PATTERN.matcher(path).replaceAll("");
+            final String fullPathNoDraft = CLDRFile.DRAFT_PATTERN.matcher(fullPath).replaceAll("");            
+
+            final String pathNoXmlSpace = CLDRFile.XML_SPACE_PATTERN.matcher(pathNoDraft).replaceAll("");
+            final String fullPathNoXmlSpace = CLDRFile.XML_SPACE_PATTERN.matcher(fullPathNoDraft).replaceAll("");
+
+            final String transformedPath = transformPath(pathNoXmlSpace, pathPrefix);
+            final String transformedFullPath = transformPath(fullPathNoXmlSpace, pathPrefix);
 
             if (transformedPath.isEmpty()) {
                 continue; // skip this path
@@ -758,8 +768,8 @@ public class Ldml2JsonConverter {
     private boolean localeIsModernTier(String filename) {
         boolean isModernTier;
         {
-            final Level localeCoverageLevel = sc.getLocaleCoverageLevel("Cldr", filename);
-            isModernTier = localeCoverageLevel == Level.MODERN || filename.equals("root") || filename.equals("und");
+            final Level localeCoverageLevel = sc.getHighestLocaleCoverageLevel("Cldr", filename);
+            isModernTier = (localeCoverageLevel.getLevel() >= Level.MODERN.getLevel()) || filename.equals("root") || filename.equals("und");
         }
         return isModernTier;
     }
@@ -948,6 +958,25 @@ public class Ldml2JsonConverter {
         writeReadme(outputDir, packageName);
     }
 
+    /**
+     * Write the ## License section
+     */
+    public void writeCopyrightSection(PrintWriter out) {
+        out.println(CldrUtility.getCopyrightMarkdown() + "\n" +
+        "A copy of the license is included as [LICENSE](./LICENSE).");
+    }
+
+    /**
+     * Write the readme fragment from cldr-json-readme.md plus the copyright
+     * @param outf
+     * @throws IOException
+     */
+    private void writeReadmeSection(PrintWriter outf) throws IOException {
+        FileCopier.copy(CldrUtility.getUTF8Data("cldr-json-readme.md"), outf);
+        outf.println();
+        writeCopyrightSection(outf);
+    }
+
     public void writeReadme(String outputDir, String packageName) throws IOException {
         final String basePackageName = getBasePackageName(packageName);
         try (PrintWriter outf = FileUtilities.openUTF8Writer(outputDir + "/" + packageName, "README.md");) {
@@ -967,12 +996,13 @@ public class Ldml2JsonConverter {
             outf.println();
             outf.println(getNpmBadge(packageName));
             outf.println();
-            FileCopier.copy(CldrUtility.getUTF8Data("cldr-json-readme.md"), outf);
+            writeReadmeSection(outf);
         }
         try (PrintWriter outf = FileUtilities.openUTF8Writer(outputDir + "/" + packageName, "LICENSE");) {
             FileCopier.copy(CldrUtility.getUTF8Data("unicode-license.txt"), outf);
         }
     }
+
 
     String getBasePackageName(final String packageName) {
         String basePackageName = packageName;
@@ -1107,6 +1137,37 @@ public class Ldml2JsonConverter {
         outf.close();
     }
 
+    public void writeCoverageLevels(String outputDir) throws IOException {
+        final Splitter SEMICOLON = Splitter.on(';').trimResults();
+        try (BufferedReader r = FileUtilities.openUTF8Reader(CLDRPaths.COMMON_DIRECTORY + "properties/", "coverageLevels.txt");
+            PrintWriter outf = FileUtilities.openUTF8Writer(outputDir + "/cldr-core", "coverageLevels.json");) {
+                final Map<String, String> covlocs = new TreeMap<>();
+                System.out.println("Creating packaging file => " + outputDir + "/cldr-core" + File.separator + "coverageLevels.json from coverageLevels.txt");
+                String line;
+                int no = 0;
+                while ((line = r.readLine()) != null) {
+                    no++;
+                    line = line.trim();
+                    if(line.startsWith("#") || line.isBlank()) {
+                        continue;
+                    }
+                    final List<String> l = SEMICOLON.splitToList(line);
+                    if (l.size() != 2) {
+                        throw new IllegalArgumentException("coverageLevels.txt:"+no+": expected 2 fields, got " + l.size());
+                    }
+                    final String uloc = l.get(0);
+                    final String level = l.get(1);
+                    final String bcp47loc = unicodeLocaleToString(uloc);
+                    if (covlocs.put(bcp47loc, level) != null) {
+                        throw new IllegalArgumentException("coverageLevels.txt:"+no+": duplicate locale " + bcp47loc);
+                    }
+                }
+                JsonObject obj = new JsonObject();
+                obj.add("coverageLevels", gson.toJsonTree(covlocs));
+                outf.println(gson.toJson(obj));
+        }
+    }
+
     public void writeAvailableLocales(String outputDir) throws IOException {
         PrintWriter outf = FileUtilities.openUTF8Writer(outputDir + "/cldr-core", "availableLocales.json");
         System.out.println("Creating packaging file => " + outputDir + "/cldr-core" + File.separator + "availableLocales.json");
@@ -1205,7 +1266,7 @@ public class Ldml2JsonConverter {
         pkgs.println("Package metadata is available at [`cldr-core`/cldr-packages.json](./cldr-json/cldr-core/cldr-packages.json)");
         pkgs.println();
 
-        FileCopier.copy(CldrUtility.getUTF8Data("cldr-json-readme.md"), pkgs);
+        writeReadmeSection(pkgs);
         pkgs.close();
     }
 
@@ -1717,6 +1778,7 @@ public class Ldml2JsonConverter {
             if (type == RunType.main) {
                 writeDefaultContent(outputDir);
                 writeAvailableLocales(outputDir);
+                writeCoverageLevels(outputDir);
             } else if (type == RunType.supplemental) {
                 writeScriptMetadata(outputDir);
                 if (Boolean.parseBoolean(options.get("packagelist").getValue())) {
@@ -1733,9 +1795,8 @@ public class Ldml2JsonConverter {
     private static final Pattern escapePattern = PatternCache.get("\\\\(?!u)");
 
     /**
-     * Escape \ and " in value string.
+     * Escape \ in value string.
      * \ should be replaced by \\, except in case of \u1234
-     * " should be replaced by \"
      * In following code, \\\\ represent one \, because java compiler and
      * regular expression compiler each do one round of escape.
      *
@@ -1746,7 +1807,7 @@ public class Ldml2JsonConverter {
     private String escapeValue(String value) {
         Matcher match = escapePattern.matcher(value);
         String ret = match.replaceAll("\\\\\\\\");
-        return ret.replace("\"", "\\\"").replace("\n", " ").replace("\t", " ");
+        return ret.replace("\n", " ").replace("\t", " ");
     }
 
     /**

@@ -26,6 +26,8 @@
         android:title="@string/hotspot_settings_title"
         android:icon="@drawable/ic_wifi_tethering"
         settings:controller="com.android.car.settings.wifi.WifiTetherPreferenceController"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"
         settings:searchable="false"/>
     <com.android.car.ui.preference.CarUiTwoActionSwitchPreference
         android:icon="@drawable/ic_settings_cellular"
@@ -41,17 +43,24 @@
             android:key="@string/pk_wifi_entry_state_switch"
             android:title="@string/wifi_settings"
             android:summary="@string/wifi_network_state_switch_subtitle"
-            style="@style/ColoredSwitchPreferenceDefaultColorStyle"
+            style="@style/ColoredSwitchPreferenceStyle"
             settings:controller="com.android.car.settings.wifi.WifiStateSwitchPreferenceController"
+            settings:occupant_front_passenger="read"
+            settings:occupant_rear_passenger="read"
             settings:searchable="false"/>
         <com.android.car.settings.common.LogicalPreferenceGroup
             android:key="@string/pk_limited_wifi_list"
             settings:controller="com.android.car.settings.wifi.LimitedWifiEntryListPreferenceController"
+            settings:occupant_front_passenger="read"
+            settings:occupant_rear_passenger="read"
             settings:searchable="false"/>
         <Preference
             android:fragment="com.android.car.settings.wifi.WifiSettingsFragment"
             android:key="@string/pk_wifi_settings_entry"
             android:title="@string/network_and_internet_join_other_network_title"
+            settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"
+            settings:occupant_front_passenger="read"
+            settings:occupant_rear_passenger="read"
             settings:searchable="false"/>
         <com.android.car.settings.common.DividerPreference/>
         <Preference
@@ -60,11 +69,15 @@
             android:title="@string/wifi_preferences_title"
             android:summary="@string/wifi_wakeup"
             settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"
+            settings:occupant_front_passenger="read"
+            settings:occupant_rear_passenger="read"
             settings:searchable="false"/>
     </com.android.car.settings.common.LogicalPreferenceGroup>
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_network_and_internet_extra_settings"
-        settings:controller="com.android.car.settings.common.ExtraSettingsPreferenceController">
+        settings:controller="com.android.car.settings.common.ExtraSettingsPreferenceController"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read">
         <intent>
             <extra android:name="com.android.settings.category"
                    android:value="com.android.settings.category.ia.wireless"/>

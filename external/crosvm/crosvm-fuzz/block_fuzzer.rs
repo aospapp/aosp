@@ -1,20 +1,27 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#![cfg(not(test))]
 #![no_main]
 
-use std::io::{Cursor, Read, Seek, SeekFrom};
+use std::io::Cursor;
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
 use std::mem::size_of;
-use std::sync::atomic::AtomicUsize;
-use std::sync::Arc;
 
 use base::Event;
 use cros_fuzz::fuzz_target;
-use devices::virtio::{base_features, Block, Interrupt, Queue, VirtioDevice};
+use devices::virtio::base_features;
+use devices::virtio::BlockAsync;
+use devices::virtio::Interrupt;
+use devices::virtio::Queue;
+use devices::virtio::VirtioDevice;
 use devices::IrqLevelEvent;
 use hypervisor::ProtectionType;
-use vm_memory::{GuestAddress, GuestMemory};
+use vm_memory::GuestAddress;
+use vm_memory::GuestMemory;
 
 const MEM_SIZE: u64 = 256 * 1024 * 1024;
 const DESC_SIZE: u64 = 16; // Bytes in one virtio descriptor.
@@ -71,32 +78,42 @@ fuzz_target!(|bytes| {
     }
 
     let mut q = Queue::new(QUEUE_SIZE);
-    q.ready = true;
-    q.size = QUEUE_SIZE / 2;
-    q.max_size = QUEUE_SIZE;
+    q.set_size(QUEUE_SIZE / 2);
+    q.set_ready(true);
 
-    let queue_evts: Vec<Event> = vec![Event::new().unwrap()];
-    let queue_evt = queue_evts[0].try_clone().unwrap();
+    let queue_evt = Event::new().unwrap();
 
     let features = base_features(ProtectionType::Unprotected);
 
     let disk_file = tempfile::tempfile().unwrap();
-    let mut block =
-        Block::new(features, Box::new(disk_file), false, true, 512, None, None).unwrap();
+    let mut block = BlockAsync::new(
+        features,
+        Box::new(disk_file),
+        false,
+        true,
+        512,
+        false,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .unwrap();
 
-    block.activate(
-        mem,
-        Interrupt::new(
-            Arc::new(AtomicUsize::new(0)),
-            IrqLevelEvent::new().unwrap(),
-            None,   // msix_config
-            0xFFFF, // VIRTIO_MSI_NO_VECTOR
-        ),
-        vec![q],
-        queue_evts,
-    );
+    block
+        .activate(
+            mem,
+            Interrupt::new(
+                IrqLevelEvent::new().unwrap(),
+                None,   // msix_config
+                0xFFFF, // VIRTIO_MSI_NO_VECTOR
+            ),
+            vec![(q, queue_evt.try_clone().unwrap())],
+        )
+        .unwrap();
 
-    queue_evt.write(77).unwrap(); // Rings the doorbell, any byte will do.
+    queue_evt.signal().unwrap(); // Rings the doorbell
 });
 
 fn read_u64<T: Read>(readable: &mut T) -> u64 {

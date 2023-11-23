@@ -16,8 +16,6 @@
 
 package com.android.cts.deviceowner;
 
-import static android.os.Process.BLUETOOTH_UID;
-
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.bluetooth.BluetoothAdapter;
@@ -28,6 +26,7 @@ import android.os.UserManager;
 import android.util.DebugUtils;
 import android.util.Log;
 
+import com.android.bedstead.nene.TestApis;
 import com.android.internal.util.ArrayUtils;
 
 /**
@@ -43,9 +42,6 @@ public class BluetoothRestrictionTest extends BaseDeviceOwnerTest {
     private static final int ENABLE_TIMEOUT_MS = 20_000;  // ms timeout for BT enable
     private static final int POLL_TIME_MS = 400;          // ms to poll BT state
     private static final int CHECK_WAIT_TIME_MS = 1_000;  // ms to wait before enable/disable
-    private static final int COMPONENT_STATE_TIMEOUT_MS = 10_000;
-    private static final String OPP_LAUNCHER_CLASS =
-            "com.android.bluetooth.opp.BluetoothOppLauncherActivity";
     private BluetoothAdapter mBluetoothAdapter;
     private PackageManager mPackageManager;
 
@@ -122,53 +118,6 @@ public class BluetoothRestrictionTest extends BaseDeviceOwnerTest {
         enable();
     }
 
-    /**
-     * Tests that BluetoothOppLauncherActivity gets disabled when Bluetooth itself or Bluetooth
-     * sharing is disallowed.
-     *
-     * <p> It also checks the state of the activity is set back to default if Bluetooth is not
-     * disallowed anymore.
-     */
-    public void testOppDisabledWhenRestrictionSet() throws Exception {
-        if (mBluetoothAdapter == null || UserManager.isHeadlessSystemUserMode()) {
-            return;
-        }
-
-        String bluetoothPackageName = mContext.getPackageManager()
-                .getPackagesForUid(BLUETOOTH_UID)[0];
-
-        ComponentName oppLauncherComponent = new ComponentName(
-                bluetoothPackageName, OPP_LAUNCHER_CLASS);
-
-        // First verify DISALLOW_BLUETOOTH.
-        testOppDisabledWhenRestrictionSet(UserManager.DISALLOW_BLUETOOTH,
-                oppLauncherComponent);
-
-        // Verify DISALLOW_BLUETOOTH_SHARING which leaves bluetooth workable but the sharing
-        // component should be disabled.
-        testOppDisabledWhenRestrictionSet(UserManager.DISALLOW_BLUETOOTH_SHARING,
-                oppLauncherComponent);
-    }
-
-    /** Verifies that a given restriction disables the bluetooth sharing component. */
-    private void testOppDisabledWhenRestrictionSet(String restriction,
-            ComponentName oppLauncherComponent) {
-        // Add the user restriction.
-        addUserRestriction(restriction);
-
-        // The BluetoothOppLauncherActivity's component should be disabled.
-        assertComponentStateAfterTimeout(
-                oppLauncherComponent, new int[] {PackageManager.COMPONENT_ENABLED_STATE_DISABLED});
-
-        // Remove the user restriction.
-        clearUserRestriction(restriction);
-
-        // The BluetoothOppLauncherActivity's component should be enabled or default.
-        assertComponentStateAfterTimeout(
-                oppLauncherComponent, new int[] {PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                    PackageManager.COMPONENT_ENABLED_STATE_DEFAULT});
-    }
-
     /** Helper to turn BT off.
      * This method will either fail on an assert, or return with BT turned off.
      * Behavior of getState() and isEnabled() are validated along the way.
@@ -224,23 +173,6 @@ public class BluetoothRestrictionTest extends BaseDeviceOwnerTest {
         }
         fail("disable() timeout - BT adapter state is " + btStateToString(state)
                 + " instead of STATE_OFF");
-    }
-
-    private void assertComponentStateAfterTimeout(ComponentName component, int[] expectedState) {
-        final long timeout = SystemClock.elapsedRealtime() + COMPONENT_STATE_TIMEOUT_MS;
-        int state = -1;
-        while (SystemClock.elapsedRealtime() < timeout) {
-            state = mPackageManager.getComponentEnabledSetting(component);
-            if (ArrayUtils.contains(expectedState, state)) {
-                // Success, waiting for component to be fully turned on/off
-                sleep(CHECK_WAIT_TIME_MS);
-                return;
-            }
-            sleep(POLL_TIME_MS);
-        }
-        fail("The state of " + component + " should have been "
-                + ArrayUtils.deepToString(expectedState) + ", it but was "
-                + state + " after timeout.");
     }
 
     /** Helper to turn BT on.

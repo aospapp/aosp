@@ -49,7 +49,10 @@ android_test {
 
     instrumentation_for: "ExperimentalCarService",
 
-    test_suites: ["device-tests"],
+    test_suites: [
+        "device-tests",
+        "automotive-tests",
+    ],
 
     compile_multilib: "both",
 }

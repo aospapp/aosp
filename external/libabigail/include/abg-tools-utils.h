@@ -311,7 +311,8 @@ build_corpus_group_from_kernel_dist_under(const string&	root,
 					  vector<string>&	kabi_wl_paths,
 					  suppr::suppressions_type&	supprs,
 					  bool				verbose,
-					  environment_sptr&		env);
+					  environment_sptr&		env,
+					  corpus::origin	origin = corpus::DWARF_ORIGIN);
 }// end namespace tools_utils
 
 /// A macro that expands to aborting the program when executed.

@@ -44,7 +44,13 @@ static uint64_t RepeatBitsAcrossReg(unsigned reg_size,
   return result;
 }
 
-bool Instruction::CanTakeSVEMovprfx(const Instruction* movprfx) const {
+bool Instruction::CanTakeSVEMovprfx(const char* form,
+                                    const Instruction* movprfx) const {
+  return CanTakeSVEMovprfx(Hash(form), movprfx);
+}
+
+bool Instruction::CanTakeSVEMovprfx(uint32_t form_hash,
+                                    const Instruction* movprfx) const {
   bool movprfx_is_predicated = movprfx->Mask(SVEMovprfxMask) == MOVPRFX_z_p_z;
   bool movprfx_is_unpredicated =
       movprfx->Mask(SVEConstructivePrefix_UnpredicatedMask) == MOVPRFX_z_z;
@@ -58,90 +64,201 @@ bool Instruction::CanTakeSVEMovprfx(const Instruction* movprfx) const {
   bool pg_matches_low8 = movprfx_pg == GetPgLow8();
   bool vform_matches = movprfx_vform == GetSVEVectorFormat();
   bool zd_matches = movprfx_zd == GetRd();
-  bool zd_matches_zm = movprfx_zd == GetRm();
-  bool zd_matches_zn = movprfx_zd == GetRn();
+  bool zd_isnt_zn = movprfx_zd != GetRn();
+  bool zd_isnt_zm = movprfx_zd != GetRm();
 
-  switch (Mask(SVEBitwiseLogicalWithImm_UnpredicatedMask)) {
-    case AND_z_zi:
-    case EOR_z_zi:
-    case ORR_z_zi:
+  switch (form_hash) {
+    case "cdot_z_zzzi_s"_h:
+    case "sdot_z_zzzi_s"_h:
+    case "sudot_z_zzzi_s"_h:
+    case "udot_z_zzzi_s"_h:
+    case "usdot_z_zzzi_s"_h:
+      return (GetRd() != static_cast<int>(ExtractBits(18, 16))) &&
+             movprfx_is_unpredicated && zd_isnt_zn && zd_matches;
+
+    case "cdot_z_zzzi_d"_h:
+    case "sdot_z_zzzi_d"_h:
+    case "udot_z_zzzi_d"_h:
+      return (GetRd() != static_cast<int>(ExtractBits(19, 16))) &&
+             movprfx_is_unpredicated && zd_isnt_zn && zd_matches;
+
+    case "fmlalb_z_zzzi_s"_h:
+    case "fmlalt_z_zzzi_s"_h:
+    case "fmlslb_z_zzzi_s"_h:
+    case "fmlslt_z_zzzi_s"_h:
+    case "smlalb_z_zzzi_d"_h:
+    case "smlalb_z_zzzi_s"_h:
+    case "smlalt_z_zzzi_d"_h:
+    case "smlalt_z_zzzi_s"_h:
+    case "smlslb_z_zzzi_d"_h:
+    case "smlslb_z_zzzi_s"_h:
+    case "smlslt_z_zzzi_d"_h:
+    case "smlslt_z_zzzi_s"_h:
+    case "sqdmlalb_z_zzzi_d"_h:
+    case "sqdmlalb_z_zzzi_s"_h:
+    case "sqdmlalt_z_zzzi_d"_h:
+    case "sqdmlalt_z_zzzi_s"_h:
+    case "sqdmlslb_z_zzzi_d"_h:
+    case "sqdmlslb_z_zzzi_s"_h:
+    case "sqdmlslt_z_zzzi_d"_h:
+    case "sqdmlslt_z_zzzi_s"_h:
+    case "umlalb_z_zzzi_d"_h:
+    case "umlalb_z_zzzi_s"_h:
+    case "umlalt_z_zzzi_d"_h:
+    case "umlalt_z_zzzi_s"_h:
+    case "umlslb_z_zzzi_d"_h:
+    case "umlslb_z_zzzi_s"_h:
+    case "umlslt_z_zzzi_d"_h:
+    case "umlslt_z_zzzi_s"_h:
+      return (GetRd() != GetSVEMulLongZmAndIndex().first) &&
+             movprfx_is_unpredicated && zd_isnt_zn && zd_matches;
+
+    case "cmla_z_zzzi_h"_h:
+    case "cmla_z_zzzi_s"_h:
+    case "fcmla_z_zzzi_h"_h:
+    case "fcmla_z_zzzi_s"_h:
+    case "fmla_z_zzzi_d"_h:
+    case "fmla_z_zzzi_h"_h:
+    case "fmla_z_zzzi_s"_h:
+    case "fmls_z_zzzi_d"_h:
+    case "fmls_z_zzzi_h"_h:
+    case "fmls_z_zzzi_s"_h:
+    case "mla_z_zzzi_d"_h:
+    case "mla_z_zzzi_h"_h:
+    case "mla_z_zzzi_s"_h:
+    case "mls_z_zzzi_d"_h:
+    case "mls_z_zzzi_h"_h:
+    case "mls_z_zzzi_s"_h:
+    case "sqrdcmlah_z_zzzi_h"_h:
+    case "sqrdcmlah_z_zzzi_s"_h:
+    case "sqrdmlah_z_zzzi_d"_h:
+    case "sqrdmlah_z_zzzi_h"_h:
+    case "sqrdmlah_z_zzzi_s"_h:
+    case "sqrdmlsh_z_zzzi_d"_h:
+    case "sqrdmlsh_z_zzzi_h"_h:
+    case "sqrdmlsh_z_zzzi_s"_h:
+      return (GetRd() != GetSVEMulZmAndIndex().first) &&
+             movprfx_is_unpredicated && zd_isnt_zn && zd_matches;
+
+    case "adclb_z_zzz"_h:
+    case "adclt_z_zzz"_h:
+    case "bcax_z_zzz"_h:
+    case "bsl1n_z_zzz"_h:
+    case "bsl2n_z_zzz"_h:
+    case "bsl_z_zzz"_h:
+    case "cdot_z_zzz"_h:
+    case "cmla_z_zzz"_h:
+    case "eor3_z_zzz"_h:
+    case "eorbt_z_zz"_h:
+    case "eortb_z_zz"_h:
+    case "fmlalb_z_zzz"_h:
+    case "fmlalt_z_zzz"_h:
+    case "fmlslb_z_zzz"_h:
+    case "fmlslt_z_zzz"_h:
+    case "nbsl_z_zzz"_h:
+    case "saba_z_zzz"_h:
+    case "sabalb_z_zzz"_h:
+    case "sabalt_z_zzz"_h:
+    case "sbclb_z_zzz"_h:
+    case "sbclt_z_zzz"_h:
+    case "sdot_z_zzz"_h:
+    case "smlalb_z_zzz"_h:
+    case "smlalt_z_zzz"_h:
+    case "smlslb_z_zzz"_h:
+    case "smlslt_z_zzz"_h:
+    case "sqdmlalb_z_zzz"_h:
+    case "sqdmlalbt_z_zzz"_h:
+    case "sqdmlalt_z_zzz"_h:
+    case "sqdmlslb_z_zzz"_h:
+    case "sqdmlslbt_z_zzz"_h:
+    case "sqdmlslt_z_zzz"_h:
+    case "sqrdcmlah_z_zzz"_h:
+    case "sqrdmlah_z_zzz"_h:
+    case "sqrdmlsh_z_zzz"_h:
+    case "uaba_z_zzz"_h:
+    case "uabalb_z_zzz"_h:
+    case "uabalt_z_zzz"_h:
+    case "udot_z_zzz"_h:
+    case "umlalb_z_zzz"_h:
+    case "umlalt_z_zzz"_h:
+    case "umlslb_z_zzz"_h:
+    case "umlslt_z_zzz"_h:
+    case "usdot_z_zzz_s"_h:
+    case "fmmla_z_zzz_s"_h:
+    case "fmmla_z_zzz_d"_h:
+    case "smmla_z_zzz"_h:
+    case "ummla_z_zzz"_h:
+    case "usmmla_z_zzz"_h:
+      return movprfx_is_unpredicated && zd_isnt_zm && zd_isnt_zn && zd_matches;
+
+    case "addp_z_p_zz"_h:
+    case "cadd_z_zz"_h:
+    case "clasta_z_p_zz"_h:
+    case "clastb_z_p_zz"_h:
+    case "decd_z_zs"_h:
+    case "dech_z_zs"_h:
+    case "decw_z_zs"_h:
+    case "faddp_z_p_zz"_h:
+    case "fmaxnmp_z_p_zz"_h:
+    case "fmaxp_z_p_zz"_h:
+    case "fminnmp_z_p_zz"_h:
+    case "fminp_z_p_zz"_h:
+    case "ftmad_z_zzi"_h:
+    case "incd_z_zs"_h:
+    case "inch_z_zs"_h:
+    case "incw_z_zs"_h:
+    case "insr_z_v"_h:
+    case "smaxp_z_p_zz"_h:
+    case "sminp_z_p_zz"_h:
+    case "splice_z_p_zz_con"_h:
+    case "splice_z_p_zz_des"_h:
+    case "sqcadd_z_zz"_h:
+    case "sqdecd_z_zs"_h:
+    case "sqdech_z_zs"_h:
+    case "sqdecw_z_zs"_h:
+    case "sqincd_z_zs"_h:
+    case "sqinch_z_zs"_h:
+    case "sqincw_z_zs"_h:
+    case "srsra_z_zi"_h:
+    case "ssra_z_zi"_h:
+    case "umaxp_z_p_zz"_h:
+    case "uminp_z_p_zz"_h:
+    case "uqdecd_z_zs"_h:
+    case "uqdech_z_zs"_h:
+    case "uqdecw_z_zs"_h:
+    case "uqincd_z_zs"_h:
+    case "uqinch_z_zs"_h:
+    case "uqincw_z_zs"_h:
+    case "ursra_z_zi"_h:
+    case "usra_z_zi"_h:
+    case "xar_z_zzi"_h:
+      return movprfx_is_unpredicated && zd_isnt_zn && zd_matches;
+
+    case "add_z_zi"_h:
+    case "and_z_zi"_h:
+    case "decp_z_p_z"_h:
+    case "eor_z_zi"_h:
+    case "incp_z_p_z"_h:
+    case "insr_z_r"_h:
+    case "mul_z_zi"_h:
+    case "orr_z_zi"_h:
+    case "smax_z_zi"_h:
+    case "smin_z_zi"_h:
+    case "sqadd_z_zi"_h:
+    case "sqdecp_z_p_z"_h:
+    case "sqincp_z_p_z"_h:
+    case "sqsub_z_zi"_h:
+    case "sub_z_zi"_h:
+    case "subr_z_zi"_h:
+    case "umax_z_zi"_h:
+    case "umin_z_zi"_h:
+    case "uqadd_z_zi"_h:
+    case "uqdecp_z_p_z"_h:
+    case "uqincp_z_p_z"_h:
+    case "uqsub_z_zi"_h:
       return movprfx_is_unpredicated && zd_matches;
-  }
-  switch (Mask(SVEBitwiseLogical_PredicatedMask)) {
-    case AND_z_p_zz:
-    case BIC_z_p_zz:
-    case EOR_z_p_zz:
-    case ORR_z_p_zz:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<9, 5>()) return false;
-      return zd_matches;
-  }
-  switch (Mask(SVEBitwiseShiftByImm_PredicatedMask)) {
-    case ASRD_z_p_zi:
-    case ASR_z_p_zi:
-    case LSL_z_p_zi:
-    case LSR_z_p_zi:
-      if (movprfx_is_predicated) {
-        if (!pg_matches_low8) return false;
-        unsigned tsz = ExtractBits<0x00c00300>();
-        VectorFormat instr_vform =
-            SVEFormatFromLaneSizeInBytesLog2(HighestSetBitPosition(tsz));
-        if (movprfx_vform != instr_vform) return false;
-      }
-      return zd_matches;
-  }
-  switch (Mask(SVEBitwiseShiftByVector_PredicatedMask)) {
-    case ASRR_z_p_zz:
-    case ASR_z_p_zz:
-    case LSLR_z_p_zz:
-    case LSL_z_p_zz:
-    case LSRR_z_p_zz:
-    case LSR_z_p_zz:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<9, 5>()) return false;
-      return zd_matches;
-  }
-  switch (Mask(SVEBitwiseShiftByWideElements_PredicatedMask)) {
-    case ASR_z_p_zw:
-    case LSL_z_p_zw:
-    case LSR_z_p_zw:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<9, 5>()) return false;
-      return zd_matches;
-  }
-  switch (Mask(SVEConditionallyBroadcastElementToVectorMask)) {
-    case CLASTA_z_p_zz:
-    case CLASTB_z_p_zz:
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<9, 5>()) return false;
-      return movprfx_is_unpredicated && zd_matches;
-  }
-  switch (Mask(SVECopyFPImm_PredicatedMask)) {
-    case FCPY_z_p_i:
-      if (movprfx_is_predicated) {
-        if (!vform_matches) return false;
-        if (movprfx_pg != GetRx<19, 16>()) return false;
-      }
-      return zd_matches;
-  }
-  switch (Mask(SVECopyGeneralRegisterToVector_PredicatedMask)) {
-    case CPY_z_p_r:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      return zd_matches;
-  }
-  switch (Mask(SVECopyIntImm_PredicatedMask)) {
-    case CPY_z_p_i:
+
+    case "cpy_z_p_i"_h:
       if (movprfx_is_predicated) {
         if (!vform_matches) return false;
         if (movprfx_pg != GetRx<19, 16>()) return false;
@@ -149,397 +266,219 @@ bool Instruction::CanTakeSVEMovprfx(const Instruction* movprfx) const {
       // Only the merging form can take movprfx.
       if (ExtractBit(14) == 0) return false;
       return zd_matches;
+
+    case "fcpy_z_p_i"_h:
+      return (movprfx_is_unpredicated ||
+              ((movprfx_pg == GetRx<19, 16>()) && vform_matches)) &&
+             zd_matches;
+
+    case "flogb_z_p_z"_h:
+      return (movprfx_is_unpredicated ||
+              ((movprfx_vform == GetSVEVectorFormat(17)) && pg_matches_low8)) &&
+             zd_isnt_zn && zd_matches;
+
+    case "asr_z_p_zi"_h:
+    case "asrd_z_p_zi"_h:
+    case "lsl_z_p_zi"_h:
+    case "lsr_z_p_zi"_h:
+    case "sqshl_z_p_zi"_h:
+    case "sqshlu_z_p_zi"_h:
+    case "srshr_z_p_zi"_h:
+    case "uqshl_z_p_zi"_h:
+    case "urshr_z_p_zi"_h:
+      return (movprfx_is_unpredicated ||
+              ((movprfx_vform ==
+                SVEFormatFromLaneSizeInBytesLog2(
+                    GetSVEImmShiftAndLaneSizeLog2(true).second)) &&
+               pg_matches_low8)) &&
+             zd_matches;
+
+    case "fcvt_z_p_z_d2h"_h:
+    case "fcvt_z_p_z_d2s"_h:
+    case "fcvt_z_p_z_h2d"_h:
+    case "fcvt_z_p_z_s2d"_h:
+    case "fcvtx_z_p_z_d2s"_h:
+    case "fcvtzs_z_p_z_d2w"_h:
+    case "fcvtzs_z_p_z_d2x"_h:
+    case "fcvtzs_z_p_z_fp162x"_h:
+    case "fcvtzs_z_p_z_s2x"_h:
+    case "fcvtzu_z_p_z_d2w"_h:
+    case "fcvtzu_z_p_z_d2x"_h:
+    case "fcvtzu_z_p_z_fp162x"_h:
+    case "fcvtzu_z_p_z_s2x"_h:
+    case "scvtf_z_p_z_w2d"_h:
+    case "scvtf_z_p_z_x2d"_h:
+    case "scvtf_z_p_z_x2fp16"_h:
+    case "scvtf_z_p_z_x2s"_h:
+    case "ucvtf_z_p_z_w2d"_h:
+    case "ucvtf_z_p_z_x2d"_h:
+    case "ucvtf_z_p_z_x2fp16"_h:
+    case "ucvtf_z_p_z_x2s"_h:
+      return (movprfx_is_unpredicated ||
+              ((movprfx_vform == kFormatVnD) && pg_matches_low8)) &&
+             zd_isnt_zn && zd_matches;
+
+    case "fcvtzs_z_p_z_fp162h"_h:
+    case "fcvtzu_z_p_z_fp162h"_h:
+    case "scvtf_z_p_z_h2fp16"_h:
+    case "ucvtf_z_p_z_h2fp16"_h:
+      return (movprfx_is_unpredicated ||
+              ((movprfx_vform == kFormatVnH) && pg_matches_low8)) &&
+             zd_isnt_zn && zd_matches;
+
+    case "fcvt_z_p_z_h2s"_h:
+    case "fcvt_z_p_z_s2h"_h:
+    case "fcvtzs_z_p_z_fp162w"_h:
+    case "fcvtzs_z_p_z_s2w"_h:
+    case "fcvtzu_z_p_z_fp162w"_h:
+    case "fcvtzu_z_p_z_s2w"_h:
+    case "scvtf_z_p_z_w2fp16"_h:
+    case "scvtf_z_p_z_w2s"_h:
+    case "ucvtf_z_p_z_w2fp16"_h:
+    case "ucvtf_z_p_z_w2s"_h:
+      return (movprfx_is_unpredicated ||
+              ((movprfx_vform == kFormatVnS) && pg_matches_low8)) &&
+             zd_isnt_zn && zd_matches;
+
+    case "fcmla_z_p_zzz"_h:
+    case "fmad_z_p_zzz"_h:
+    case "fmla_z_p_zzz"_h:
+    case "fmls_z_p_zzz"_h:
+    case "fmsb_z_p_zzz"_h:
+    case "fnmad_z_p_zzz"_h:
+    case "fnmla_z_p_zzz"_h:
+    case "fnmls_z_p_zzz"_h:
+    case "fnmsb_z_p_zzz"_h:
+    case "mad_z_p_zzz"_h:
+    case "mla_z_p_zzz"_h:
+    case "mls_z_p_zzz"_h:
+    case "msb_z_p_zzz"_h:
+      return (movprfx_is_unpredicated || (pg_matches_low8 && vform_matches)) &&
+             zd_isnt_zm && zd_isnt_zn && zd_matches;
+
+    case "abs_z_p_z"_h:
+    case "add_z_p_zz"_h:
+    case "and_z_p_zz"_h:
+    case "asr_z_p_zw"_h:
+    case "asr_z_p_zz"_h:
+    case "asrr_z_p_zz"_h:
+    case "bic_z_p_zz"_h:
+    case "cls_z_p_z"_h:
+    case "clz_z_p_z"_h:
+    case "cnot_z_p_z"_h:
+    case "cnt_z_p_z"_h:
+    case "cpy_z_p_v"_h:
+    case "eor_z_p_zz"_h:
+    case "fabd_z_p_zz"_h:
+    case "fabs_z_p_z"_h:
+    case "fadd_z_p_zz"_h:
+    case "fcadd_z_p_zz"_h:
+    case "fdiv_z_p_zz"_h:
+    case "fdivr_z_p_zz"_h:
+    case "fmax_z_p_zz"_h:
+    case "fmaxnm_z_p_zz"_h:
+    case "fmin_z_p_zz"_h:
+    case "fminnm_z_p_zz"_h:
+    case "fmul_z_p_zz"_h:
+    case "fmulx_z_p_zz"_h:
+    case "fneg_z_p_z"_h:
+    case "frecpx_z_p_z"_h:
+    case "frinta_z_p_z"_h:
+    case "frinti_z_p_z"_h:
+    case "frintm_z_p_z"_h:
+    case "frintn_z_p_z"_h:
+    case "frintp_z_p_z"_h:
+    case "frintx_z_p_z"_h:
+    case "frintz_z_p_z"_h:
+    case "fscale_z_p_zz"_h:
+    case "fsqrt_z_p_z"_h:
+    case "fsub_z_p_zz"_h:
+    case "fsubr_z_p_zz"_h:
+    case "lsl_z_p_zw"_h:
+    case "lsl_z_p_zz"_h:
+    case "lslr_z_p_zz"_h:
+    case "lsr_z_p_zw"_h:
+    case "lsr_z_p_zz"_h:
+    case "lsrr_z_p_zz"_h:
+    case "mul_z_p_zz"_h:
+    case "neg_z_p_z"_h:
+    case "not_z_p_z"_h:
+    case "orr_z_p_zz"_h:
+    case "rbit_z_p_z"_h:
+    case "revb_z_z"_h:
+    case "revh_z_z"_h:
+    case "revw_z_z"_h:
+    case "sabd_z_p_zz"_h:
+    case "sadalp_z_p_z"_h:
+    case "sdiv_z_p_zz"_h:
+    case "sdivr_z_p_zz"_h:
+    case "shadd_z_p_zz"_h:
+    case "shsub_z_p_zz"_h:
+    case "shsubr_z_p_zz"_h:
+    case "smax_z_p_zz"_h:
+    case "smin_z_p_zz"_h:
+    case "smulh_z_p_zz"_h:
+    case "sqabs_z_p_z"_h:
+    case "sqadd_z_p_zz"_h:
+    case "sqneg_z_p_z"_h:
+    case "sqrshl_z_p_zz"_h:
+    case "sqrshlr_z_p_zz"_h:
+    case "sqshl_z_p_zz"_h:
+    case "sqshlr_z_p_zz"_h:
+    case "sqsub_z_p_zz"_h:
+    case "sqsubr_z_p_zz"_h:
+    case "srhadd_z_p_zz"_h:
+    case "srshl_z_p_zz"_h:
+    case "srshlr_z_p_zz"_h:
+    case "sub_z_p_zz"_h:
+    case "subr_z_p_zz"_h:
+    case "suqadd_z_p_zz"_h:
+    case "sxtb_z_p_z"_h:
+    case "sxth_z_p_z"_h:
+    case "sxtw_z_p_z"_h:
+    case "uabd_z_p_zz"_h:
+    case "uadalp_z_p_z"_h:
+    case "udiv_z_p_zz"_h:
+    case "udivr_z_p_zz"_h:
+    case "uhadd_z_p_zz"_h:
+    case "uhsub_z_p_zz"_h:
+    case "uhsubr_z_p_zz"_h:
+    case "umax_z_p_zz"_h:
+    case "umin_z_p_zz"_h:
+    case "umulh_z_p_zz"_h:
+    case "uqadd_z_p_zz"_h:
+    case "uqrshl_z_p_zz"_h:
+    case "uqrshlr_z_p_zz"_h:
+    case "uqshl_z_p_zz"_h:
+    case "uqshlr_z_p_zz"_h:
+    case "uqsub_z_p_zz"_h:
+    case "uqsubr_z_p_zz"_h:
+    case "urecpe_z_p_z"_h:
+    case "urhadd_z_p_zz"_h:
+    case "urshl_z_p_zz"_h:
+    case "urshlr_z_p_zz"_h:
+    case "ursqrte_z_p_z"_h:
+    case "usqadd_z_p_zz"_h:
+    case "uxtb_z_p_z"_h:
+    case "uxth_z_p_z"_h:
+    case "uxtw_z_p_z"_h:
+      return (movprfx_is_unpredicated || (pg_matches_low8 && vform_matches)) &&
+             zd_isnt_zn && zd_matches;
+
+    case "cpy_z_p_r"_h:
+    case "fadd_z_p_zs"_h:
+    case "fmax_z_p_zs"_h:
+    case "fmaxnm_z_p_zs"_h:
+    case "fmin_z_p_zs"_h:
+    case "fminnm_z_p_zs"_h:
+    case "fmul_z_p_zs"_h:
+    case "fsub_z_p_zs"_h:
+    case "fsubr_z_p_zs"_h:
+      return (movprfx_is_unpredicated || (pg_matches_low8 && vform_matches)) &&
+             zd_matches;
+    default:
+      return false;
   }
-  switch (Mask(SVECopySIMDFPScalarRegisterToVector_PredicatedMask)) {
-    case CPY_z_p_v:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      return zd_matches && !zd_matches_zn;
-  }
-  switch (Mask(SVEFPArithmeticWithImm_PredicatedMask)) {
-    case FADD_z_p_zs:
-    case FMAXNM_z_p_zs:
-    case FMAX_z_p_zs:
-    case FMINNM_z_p_zs:
-    case FMIN_z_p_zs:
-    case FMUL_z_p_zs:
-    case FSUBR_z_p_zs:
-    case FSUB_z_p_zs:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      return zd_matches;
-  }
-  switch (Mask(SVEFPArithmetic_PredicatedMask)) {
-    case FABD_z_p_zz:
-    case FADD_z_p_zz:
-    case FDIVR_z_p_zz:
-    case FDIV_z_p_zz:
-    case FMAXNM_z_p_zz:
-    case FMAX_z_p_zz:
-    case FMINNM_z_p_zz:
-    case FMIN_z_p_zz:
-    case FMULX_z_p_zz:
-    case FMUL_z_p_zz:
-    case FSCALE_z_p_zz:
-    case FSUBR_z_p_zz:
-    case FSUB_z_p_zz:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<9, 5>()) return false;
-      return zd_matches;
-  }
-  switch (Mask(SVEFPComplexAdditionMask)) {
-    case FCADD_z_p_zz:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<9, 5>()) return false;
-      return zd_matches;
-  }
-  switch (Mask(SVEFPComplexMulAddIndexMask)) {
-    case FCMLA_z_zzzi_h:
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<18, 16>()) return false;
-      return movprfx_is_unpredicated && zd_matches && !zd_matches_zn;
-    case FCMLA_z_zzzi_s:
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<19, 16>()) return false;
-      return movprfx_is_unpredicated && zd_matches && !zd_matches_zn;
-  }
-  switch (Mask(SVEFPComplexMulAddMask)) {
-    case FCMLA_z_p_zzz:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      return zd_matches && !zd_matches_zm && !zd_matches_zn;
-  }
-  switch (Mask(SVEFPConvertPrecisionMask)) {
-    case FCVT_z_p_z_d2h:
-    case FCVT_z_p_z_d2s:
-    case FCVT_z_p_z_h2d:
-    case FCVT_z_p_z_h2s:
-    case FCVT_z_p_z_s2d:
-    case FCVT_z_p_z_s2h:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      return zd_matches && !zd_matches_zn;
-  }
-  switch (Mask(SVEFPConvertToIntMask)) {
-    case FCVTZS_z_p_z_d2w:
-    case FCVTZS_z_p_z_d2x:
-    case FCVTZS_z_p_z_fp162h:
-    case FCVTZS_z_p_z_fp162w:
-    case FCVTZS_z_p_z_fp162x:
-    case FCVTZS_z_p_z_s2w:
-    case FCVTZS_z_p_z_s2x:
-    case FCVTZU_z_p_z_d2w:
-    case FCVTZU_z_p_z_d2x:
-    case FCVTZU_z_p_z_fp162h:
-    case FCVTZU_z_p_z_fp162w:
-    case FCVTZU_z_p_z_fp162x:
-    case FCVTZU_z_p_z_s2w:
-    case FCVTZU_z_p_z_s2x:
-      if (movprfx_is_predicated) {
-        if (!pg_matches_low8) return false;
-        // The movprfx element size must match the instruction's maximum encoded
-        // element size. We have to partially decode the opc and opc2 fields to
-        // find this.
-        unsigned opc = ExtractBits(23, 22);
-        unsigned opc2 = ExtractBits(18, 17);
-        VectorFormat instr_vform =
-            SVEFormatFromLaneSizeInBytesLog2(std::max(opc, opc2));
-        if (movprfx_vform != instr_vform) return false;
-      }
-      return zd_matches && !zd_matches_zn;
-  }
-  switch (Mask(SVEFPMulAddIndexMask)) {
-    case FMLA_z_zzzi_h:
-    case FMLA_z_zzzi_h_i3h:
-    case FMLA_z_zzzi_s:
-    case FMLS_z_zzzi_h:
-    case FMLS_z_zzzi_h_i3h:
-    case FMLS_z_zzzi_s:
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<18, 16>()) return false;
-      return movprfx_is_unpredicated && zd_matches && !zd_matches_zn;
-    case FMLA_z_zzzi_d:
-    case FMLS_z_zzzi_d:
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<19, 16>()) return false;
-      return movprfx_is_unpredicated && zd_matches && !zd_matches_zn;
-  }
-  switch (Mask(SVEFPMulAddMask)) {
-    case FMAD_z_p_zzz:
-    case FMSB_z_p_zzz:
-    case FNMAD_z_p_zzz:
-    case FNMSB_z_p_zzz:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<20, 16>()) return false;
-      if (movprfx_zd == GetRx<9, 5>()) return false;
-      return zd_matches;
-    case FMLA_z_p_zzz:
-    case FMLS_z_p_zzz:
-    case FNMLA_z_p_zzz:
-    case FNMLS_z_p_zzz:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      return zd_matches && !zd_matches_zm && !zd_matches_zn;
-  }
-  switch (Mask(SVEFPRoundToIntegralValueMask)) {
-    case FRINTA_z_p_z:
-    case FRINTI_z_p_z:
-    case FRINTM_z_p_z:
-    case FRINTN_z_p_z:
-    case FRINTP_z_p_z:
-    case FRINTX_z_p_z:
-    case FRINTZ_z_p_z:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      return zd_matches && !zd_matches_zn;
-  }
-  switch (Mask(SVEFPTrigMulAddCoefficientMask)) {
-    case FTMAD_z_zzi:
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<9, 5>()) return false;
-      return movprfx_is_unpredicated && zd_matches;
-  }
-  switch (Mask(SVEFPUnaryOpMask)) {
-    case FRECPX_z_p_z:
-    case FSQRT_z_p_z:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      return zd_matches && !zd_matches_zn;
-  }
-  switch (Mask(SVEIncDecByPredicateCountMask)) {
-    case DECP_z_p_z:
-    case INCP_z_p_z:
-    case SQDECP_z_p_z:
-    case SQINCP_z_p_z:
-    case UQDECP_z_p_z:
-    case UQINCP_z_p_z:
-      return movprfx_is_unpredicated && zd_matches;
-  }
-  switch (Mask(SVEIncDecVectorByElementCountMask)) {
-    case DECD_z_zs:
-    case DECH_z_zs:
-    case DECW_z_zs:
-    case INCD_z_zs:
-    case INCH_z_zs:
-    case INCW_z_zs:
-      return movprfx_is_unpredicated && zd_matches;
-  }
-  switch (Mask(SVEInsertGeneralRegisterMask)) {
-    case INSR_z_r:
-      return movprfx_is_unpredicated && zd_matches;
-  }
-  switch (Mask(SVEInsertSIMDFPScalarRegisterMask)) {
-    case INSR_z_v:
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<9, 5>()) return false;
-      return movprfx_is_unpredicated && zd_matches;
-  }
-  switch (Mask(SVEIntAddSubtractImm_UnpredicatedMask)) {
-    case ADD_z_zi:
-    case SQADD_z_zi:
-    case SQSUB_z_zi:
-    case SUBR_z_zi:
-    case SUB_z_zi:
-    case UQADD_z_zi:
-    case UQSUB_z_zi:
-      return movprfx_is_unpredicated && zd_matches;
-  }
-  switch (Mask(SVEIntAddSubtractVectors_PredicatedMask)) {
-    case ADD_z_p_zz:
-    case SUBR_z_p_zz:
-    case SUB_z_p_zz:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<9, 5>()) return false;
-      return zd_matches;
-  }
-  switch (Mask(SVEIntConvertToFPMask)) {
-    case SCVTF_z_p_z_h2fp16:
-    case SCVTF_z_p_z_w2d:
-    case SCVTF_z_p_z_w2fp16:
-    case SCVTF_z_p_z_w2s:
-    case SCVTF_z_p_z_x2d:
-    case SCVTF_z_p_z_x2fp16:
-    case SCVTF_z_p_z_x2s:
-    case UCVTF_z_p_z_h2fp16:
-    case UCVTF_z_p_z_w2d:
-    case UCVTF_z_p_z_w2fp16:
-    case UCVTF_z_p_z_w2s:
-    case UCVTF_z_p_z_x2d:
-    case UCVTF_z_p_z_x2fp16:
-    case UCVTF_z_p_z_x2s:
-      if (movprfx_is_predicated) {
-        if (!pg_matches_low8) return false;
-        // The movprfx element size must match the instruction's maximum encoded
-        // element size. We have to partially decode the opc and opc2 fields to
-        // find this.
-        unsigned opc = ExtractBits(23, 22);
-        unsigned opc2 = ExtractBits(18, 17);
-        VectorFormat instr_vform =
-            SVEFormatFromLaneSizeInBytesLog2(std::max(opc, opc2));
-        if (movprfx_vform != instr_vform) return false;
-      }
-      return zd_matches && !zd_matches_zn;
-  }
-  switch (Mask(SVEIntDivideVectors_PredicatedMask)) {
-    case SDIVR_z_p_zz:
-    case SDIV_z_p_zz:
-    case UDIVR_z_p_zz:
-    case UDIV_z_p_zz:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<9, 5>()) return false;
-      return zd_matches;
-  }
-  switch (Mask(SVEIntMinMaxDifference_PredicatedMask)) {
-    case SABD_z_p_zz:
-    case SMAX_z_p_zz:
-    case SMIN_z_p_zz:
-    case UABD_z_p_zz:
-    case UMAX_z_p_zz:
-    case UMIN_z_p_zz:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<9, 5>()) return false;
-      return zd_matches;
-  }
-  switch (Mask(SVEIntMinMaxImm_UnpredicatedMask)) {
-    case SMAX_z_zi:
-    case SMIN_z_zi:
-    case UMAX_z_zi:
-    case UMIN_z_zi:
-      return movprfx_is_unpredicated && zd_matches;
-  }
-  switch (Mask(SVEIntMulAddPredicatedMask)) {
-    case MAD_z_p_zzz:
-    case MSB_z_p_zzz:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<9, 5>()) return false;
-      return zd_matches && !zd_matches_zm;
-    case MLA_z_p_zzz:
-    case MLS_z_p_zzz:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      return zd_matches && !zd_matches_zm && !zd_matches_zn;
-  }
-  switch (Mask(SVEIntMulAddUnpredicatedMask)) {
-    case SDOT_z_zzz:
-    case UDOT_z_zzz:
-      return movprfx_is_unpredicated && zd_matches && !zd_matches_zm &&
-             !zd_matches_zn;
-  }
-  switch (Mask(SVEIntMulImm_UnpredicatedMask)) {
-    case MUL_z_zi:
-      return movprfx_is_unpredicated && zd_matches;
-  }
-  switch (Mask(SVEIntMulVectors_PredicatedMask)) {
-    case MUL_z_p_zz:
-    case SMULH_z_p_zz:
-    case UMULH_z_p_zz:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<9, 5>()) return false;
-      return zd_matches;
-  }
-  switch (Mask(SVEIntUnaryArithmeticPredicatedMask)) {
-    case ABS_z_p_z:
-    case CLS_z_p_z:
-    case CLZ_z_p_z:
-    case CNOT_z_p_z:
-    case CNT_z_p_z:
-    case FABS_z_p_z:
-    case FNEG_z_p_z:
-    case NEG_z_p_z:
-    case NOT_z_p_z:
-    case SXTB_z_p_z:
-    case SXTH_z_p_z:
-    case SXTW_z_p_z:
-    case UXTB_z_p_z:
-    case UXTH_z_p_z:
-    case UXTW_z_p_z:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      return zd_matches && !zd_matches_zn;
-  }
-  switch (Mask(SVEMulIndexMask)) {
-    case SDOT_z_zzzi_s:
-    case UDOT_z_zzzi_s:
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<18, 16>()) return false;
-      return movprfx_is_unpredicated && zd_matches && !zd_matches_zn;
-    case SDOT_z_zzzi_d:
-    case UDOT_z_zzzi_d:
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<19, 16>()) return false;
-      return movprfx_is_unpredicated && zd_matches && !zd_matches_zn;
-  }
-  switch (Mask(SVEPermuteVectorExtractMask)) {
-    case EXT_z_zi_des:
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<9, 5>()) return false;
-      return movprfx_is_unpredicated && zd_matches;
-  }
-  switch (Mask(SVEReverseWithinElementsMask)) {
-    case RBIT_z_p_z:
-    case REVB_z_z:
-    case REVH_z_z:
-    case REVW_z_z:
-      if (movprfx_is_predicated && !(pg_matches_low8 && vform_matches)) {
-        return false;
-      }
-      return zd_matches && !zd_matches_zn;
-  }
-  switch (Mask(SVESaturatingIncDecVectorByElementCountMask)) {
-    case SQDECD_z_zs:
-    case SQDECH_z_zs:
-    case SQDECW_z_zs:
-    case SQINCD_z_zs:
-    case SQINCH_z_zs:
-    case SQINCW_z_zs:
-    case UQDECD_z_zs:
-    case UQDECH_z_zs:
-    case UQDECW_z_zs:
-    case UQINCD_z_zs:
-    case UQINCH_z_zs:
-    case UQINCW_z_zs:
-      return movprfx_is_unpredicated && zd_matches;
-  }
-  switch (Mask(SVEVectorSplice_DestructiveMask)) {
-    case SPLICE_z_p_zz_des:
-      // The movprfx's `zd` must not alias any other inputs.
-      if (movprfx_zd == GetRx<9, 5>()) return false;
-      return movprfx_is_unpredicated && zd_matches;
-  }
-  return false;
 }  // NOLINT(readability/fn_size)
 
 bool Instruction::IsLoad() const {
@@ -610,6 +549,58 @@ std::pair<int, int> Instruction::GetSVEPermuteIndexAndLaneSizeLog2() const {
   return std::make_pair(index, lane_size_in_byte_log_2);
 }
 
+// Get the register and index for SVE indexed multiplies encoded in the forms:
+//  .h : Zm = <18:16>, index = <22><20:19>
+//  .s : Zm = <18:16>, index = <20:19>
+//  .d : Zm = <19:16>, index = <20>
+std::pair<int, int> Instruction::GetSVEMulZmAndIndex() const {
+  int reg_code = GetRmLow16();
+  int index = ExtractBits(20, 19);
+
+  // For .h, index uses bit zero of the size field, so kFormatVnB below implies
+  // half-word lane, with most-significant bit of the index zero.
+  switch (GetSVEVectorFormat()) {
+    case kFormatVnD:
+      index >>= 1;  // Only bit 20 in the index for D lanes.
+      break;
+    case kFormatVnH:
+      index += 4;  // Bit 22 is the top bit of index.
+      VIXL_FALLTHROUGH();
+    case kFormatVnB:
+    case kFormatVnS:
+      reg_code &= 7;  // Three bits used for the register.
+      break;
+    default:
+      VIXL_UNIMPLEMENTED();
+      break;
+  }
+  return std::make_pair(reg_code, index);
+}
+
+// Get the register and index for SVE indexed long multiplies encoded in the
+// forms:
+//  .h : Zm = <18:16>, index = <20:19><11>
+//  .s : Zm = <19:16>, index = <20><11>
+std::pair<int, int> Instruction::GetSVEMulLongZmAndIndex() const {
+  int reg_code = GetRmLow16();
+  int index = ExtractBit(11);
+
+  // For long multiplies, the SVE size field <23:22> encodes the destination
+  // element size. The source element size is half the width.
+  switch (GetSVEVectorFormat()) {
+    case kFormatVnS:
+      reg_code &= 7;
+      index |= ExtractBits(20, 19) << 1;
+      break;
+    case kFormatVnD:
+      index |= ExtractBit(20) << 1;
+      break;
+    default:
+      VIXL_UNIMPLEMENTED();
+      break;
+  }
+  return std::make_pair(reg_code, index);
+}
 
 // Logical immediates can't encode zero, so a return value of zero is used to
 // indicate a failure case. Specifically, where the constraints on imm_s are
@@ -715,6 +706,12 @@ int Instruction::GetSVEBitwiseImmLaneSizeInBytesLog2() const {
       // RESERVED encoding.
       return -1;
   }
+}
+
+int Instruction::GetSVEExtractImmediate() const {
+  const int imm8h_mask = 0x001F0000;
+  const int imm8l_mask = 0x00001C00;
+  return ExtractBits<imm8h_mask | imm8l_mask>();
 }
 
 uint64_t Instruction::DecodeImmBitMask(int32_t n,
@@ -1025,7 +1022,6 @@ VectorFormat VectorFormatHalfWidth(VectorFormat vform) {
       return kFormatVnH;
     case kFormatVnD:
       return kFormatVnS;
-      break;
     default:
       VIXL_UNREACHABLE();
       return kFormatUndefined;
@@ -1034,8 +1030,6 @@ VectorFormat VectorFormatHalfWidth(VectorFormat vform) {
 
 
 VectorFormat VectorFormatDoubleWidth(VectorFormat vform) {
-  VIXL_ASSERT(vform == kFormat8B || vform == kFormat4H || vform == kFormat2S ||
-              vform == kFormatB || vform == kFormatH || vform == kFormatS);
   switch (vform) {
     case kFormat8B:
       return kFormat8H;
@@ -1049,6 +1043,12 @@ VectorFormat VectorFormatDoubleWidth(VectorFormat vform) {
       return kFormatS;
     case kFormatS:
       return kFormatD;
+    case kFormatVnB:
+      return kFormatVnH;
+    case kFormatVnH:
+      return kFormatVnS;
+    case kFormatVnS:
+      return kFormatVnD;
     default:
       VIXL_UNREACHABLE();
       return kFormatUndefined;
@@ -1162,6 +1162,7 @@ bool IsSVEFormat(VectorFormat vform) {
     case kFormatVnS:
     case kFormatVnD:
     case kFormatVnQ:
+    case kFormatVnO:
       return true;
     default:
       return false;
@@ -1283,6 +1284,8 @@ unsigned LaneSizeInBitsFromFormat(VectorFormat vform) {
       return 64;
     case kFormatVnQ:
       return 128;
+    case kFormatVnO:
+      return 256;
     default:
       VIXL_UNREACHABLE();
       return 0;

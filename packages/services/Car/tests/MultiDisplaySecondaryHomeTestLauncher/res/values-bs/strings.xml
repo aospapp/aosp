@@ -25,4 +25,5 @@
     <string name="set_wallpaper" msgid="3650915172749345197">"Postavi pozadinsku sliku"</string>
     <string name="new_instance" msgid="1924479866055190730">"Zatraži pokretanje u novoj instanci"</string>
     <string name="wallpaper_description" msgid="5885164573334720996">"Primjer pozadinske slike za više ekrana"</string>
+    <string name="exit" msgid="3648703694102318310">"Izađi"</string>
 </resources>

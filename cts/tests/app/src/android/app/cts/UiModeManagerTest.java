@@ -15,6 +15,7 @@
  */
 package android.app.cts;
 
+import static android.Manifest.permission.WRITE_SECURE_SETTINGS;
 import static android.app.UiModeManager.MODE_NIGHT_AUTO;
 import static android.app.UiModeManager.MODE_NIGHT_CUSTOM;
 import static android.app.UiModeManager.MODE_NIGHT_CUSTOM_TYPE_BEDTIME;
@@ -35,11 +36,15 @@ import static org.testng.Assert.assertThrows;
 import android.Manifest;
 import android.app.UiAutomation;
 import android.app.UiModeManager;
+import android.app.UiModeManager.ContrastChangeListener;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.ParcelFileDescriptor;
 import android.os.UserHandle;
+import android.provider.Settings;
 import android.test.AndroidTestCase;
 import android.text.TextUtils;
 import android.util.ArraySet;
@@ -47,8 +52,8 @@ import android.util.Log;
 
 import com.android.compatibility.common.util.BatteryUtils;
 import com.android.compatibility.common.util.CommonTestUtils;
-import com.android.compatibility.common.util.SettingsUtils;
-import com.android.compatibility.common.util.UserUtils;
+import com.android.compatibility.common.util.TestUtils;
+import com.android.compatibility.common.util.UserSettings;
 
 import com.google.common.util.concurrent.MoreExecutors;
 
@@ -58,8 +63,13 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 
 public class UiModeManagerTest extends AndroidTestCase {
@@ -68,6 +78,9 @@ public class UiModeManagerTest extends AndroidTestCase {
     private static final long MAX_WAIT_TIME_MS = MAX_WAIT_TIME_SECS * 1000;
     private static final long WAIT_TIME_INCR_MS = 100;
 
+    private static final String CONTRAST_LEVEL = "contrast_level";
+
+    private final UserSettings mSystemUserSettings = new UserSettings(UserHandle.USER_SYSTEM);
     private UiModeManager mUiModeManager;
     private boolean mHasModifiedNightModePermissionAcquired = false;
 
@@ -84,6 +97,8 @@ public class UiModeManagerTest extends AndroidTestCase {
     @Override
     protected void tearDown() throws Exception {
         resetNightMode();
+        BatteryUtils.runDumpsysBatteryReset();
+        BatteryUtils.resetBatterySaver();
     }
 
     private void resetNightMode() {
@@ -303,21 +318,25 @@ public class UiModeManagerTest extends AndroidTestCase {
     public void testSetNightModeActivatedForCustomMode_modeAuto_activateAtBedtime_shouldNotActivateNightMode() {
         acquireModifyNightModePermission();
         mUiModeManager.setNightMode(MODE_NIGHT_AUTO);
+        int uiMode = getContext().getResources().getConfiguration().uiMode &
+                Configuration.UI_MODE_NIGHT_MASK;
 
         assertThat(mUiModeManager.setNightModeActivatedForCustomMode(
                 MODE_NIGHT_CUSTOM_TYPE_BEDTIME, true /* active */)).isFalse();
 
-        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_NO);
+        assertVisibleNightModeInConfiguration(uiMode);
     }
 
     public void testSetNightModeActivatedForCustomMode_customTypeSchedule_activateAtBedtime_shouldNotActivateNightMode() {
         acquireModifyNightModePermission();
         mUiModeManager.setNightModeCustomType(MODE_NIGHT_CUSTOM_TYPE_SCHEDULE);
+        int uiMode = getContext().getResources().getConfiguration().uiMode &
+                Configuration.UI_MODE_NIGHT_MASK;
 
         assertThat(mUiModeManager.setNightModeActivatedForCustomMode(
                 MODE_NIGHT_CUSTOM_TYPE_BEDTIME, true /* active */)).isFalse();
 
-        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_NO);
+        assertVisibleNightModeInConfiguration(uiMode);
     }
 
     public void testSetNightModeActivatedForCustomMode_modeNo_activateAtBedtime_thenCustomTypeBedtime_shouldActivateNightMode() {
@@ -482,8 +501,6 @@ public class UiModeManagerTest extends AndroidTestCase {
         BatteryUtils.enableBatterySaver(false);
         assertEquals(UiModeManager.MODE_NIGHT_NO, mUiModeManager.getNightMode());
         assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_NO);
-
-        BatteryUtils.runDumpsysBatteryReset();
     }
 
     /**
@@ -770,6 +787,106 @@ public class UiModeManagerTest extends AndroidTestCase {
         fail("Expected SecurityException");
     }
 
+    public void testGetContrast() throws Exception {
+        float initialContrast = mUiModeManager.getContrast();
+        putContrastInSettings(0f);
+        try {
+            for (float testContrast : List.of(-1f, 0.5f)) {
+                putContrastInSettings(testContrast);
+                TestUtils.waitUntil("getContrast() should return the new contrast value",
+                        (int) MAX_WAIT_TIME_SECS,
+                        () -> Math.abs(mUiModeManager.getContrast() - testContrast) < 1e-10);
+            }
+        } finally {
+            putContrastInSettings(initialContrast);
+        }
+    }
+
+    public void testAddContrastChangeListener() {
+        float initialContrast = mUiModeManager.getContrast();
+        putContrastInSettings(0f);
+        final Object waitObject = new Object();
+        final List<ContrastChangeListener> listeners = new ArrayList<>();
+
+        // store callback errors here to avoid crashing the whole test suite
+        final AtomicReference<AssertionError> error = new AtomicReference<>(null);
+        final AtomicBoolean atomicBoolean = new AtomicBoolean(false);
+
+        String handlerThreadName = "UiModeManagerTestBackgroundThread";
+        final HandlerThread backgroundThread = new HandlerThread(handlerThreadName);
+        backgroundThread.start();
+        Handler backgroundHandler = new Handler(backgroundThread.getLooper());
+        Executor backgroundExecutor = backgroundHandler::post;
+
+        try {
+            for (float testContrast : List.of(-1f, 0f)) {
+                ContrastChangeListener listener = (float contrast) -> {
+                    synchronized (waitObject) {
+                        try {
+                            assertEquals("Wrong value received by the color contrast listener",
+                                    testContrast, contrast, 1e-10);
+                            assertEquals("The executor should be used to invoke the callback",
+                                    backgroundThread, Thread.currentThread());
+                        } catch (AssertionError e) {
+                            error.set(e);
+                        }
+                        atomicBoolean.set(true);
+                        waitObject.notifyAll();
+                    }
+                };
+                listeners.add(listener);
+                mUiModeManager.addContrastChangeListener(backgroundExecutor, listener);
+                putContrastInSettings(testContrast);
+                waitForAtomicBooleanBecomes(atomicBoolean, true, waitObject,
+                        "The color contrast listener should be called when the setting changes");
+                if (error.get() != null) throw error.get();
+                mUiModeManager.removeContrastChangeListener(listener);
+            }
+        } finally {
+            backgroundThread.quitSafely();
+            putContrastInSettings(initialContrast);
+            listeners.forEach(mUiModeManager::removeContrastChangeListener);
+        }
+    }
+
+    public void testRemoveContrastChangeListener() {
+        float initialContrast = mUiModeManager.getContrast();
+        putContrastInSettings(0f);
+        final Object waitObject = new Object();
+
+        // store callback errors here to avoid crashing the whole test suite
+        final AtomicReference<AssertionError> error = new AtomicReference<>(null);
+        final AtomicBoolean atomicBoolean = new AtomicBoolean(false);
+        Executor mainExecutor = mContext.getMainExecutor();
+        ContrastChangeListener listener = (float value) -> {
+            synchronized (waitObject) {
+                atomicBoolean.set(true);
+                waitObject.notifyAll();
+            }
+        };
+
+        ContrastChangeListener removedListener = (float contrast) -> error.set(new AssertionError(
+                "The listener should not be invoked after being removed"));
+
+        final List<ContrastChangeListener> listeners = List.of(listener, removedListener);
+        try {
+            for (float testContrast: List.of(0.5f, 1f)) {
+                mUiModeManager.addContrastChangeListener(mainExecutor, removedListener);
+                mUiModeManager.addContrastChangeListener(mainExecutor, listener);
+                mUiModeManager.removeContrastChangeListener(removedListener);
+
+                putContrastInSettings(testContrast);
+                waitForAtomicBooleanBecomes(atomicBoolean, true, waitObject,
+                        "The color contrast listener should be called when the setting changes");
+                if (error.get() != null) throw error.get();
+                mUiModeManager.removeContrastChangeListener(listener);
+            }
+        } finally {
+            putContrastInSettings(initialContrast);
+            listeners.forEach(mUiModeManager::removeContrastChangeListener);
+        }
+    }
+
     private boolean isAutomotive() {
         return getContext().getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_AUTOMOTIVE);
@@ -916,15 +1033,23 @@ public class UiModeManagerTest extends AndroidTestCase {
     }
 
     private String getUiNightModeFromSetting() {
-        String key = "ui_night_mode";
-        return UserUtils.isHeadlessSystemUserMode()
-                ? SettingsUtils.getSecureSettingAsUser(UserHandle.USER_SYSTEM, key)
-                : SettingsUtils.getSecureSetting(key);
+        return mSystemUserSettings.get("ui_night_mode");
     }
 
     private void acquireModifyNightModePermission() {
         getInstrumentation().getUiAutomation()
                 .adoptShellPermissionIdentity(Manifest.permission.MODIFY_DAY_NIGHT_MODE);
         mHasModifiedNightModePermissionAcquired = true;
+    }
+
+    private void waitForAtomicBooleanBecomes(AtomicBoolean atomicBoolean,
+            boolean expectedValue, Object waitObject, String condition) {
+        TestUtils.waitOn(waitObject, () -> atomicBoolean.get() == expectedValue,
+                MAX_WAIT_TIME_MS, condition);
+    }
+
+    private void putContrastInSettings(float contrast) {
+        runWithShellPermissionIdentity(() -> Settings.Secure.putFloat(
+                mContext.getContentResolver(), CONTRAST_LEVEL, contrast), WRITE_SECURE_SETTINGS);
     }
 }

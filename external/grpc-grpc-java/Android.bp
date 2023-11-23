@@ -49,7 +49,7 @@ java_library_host {
         "grpc-java-protobuf",
         "grpc-java-protobuf-lite",
         "grpc-java-stub",
-    ]
+    ],
 }
 
 java_library {
@@ -63,7 +63,6 @@ java_library {
         "grpc-java-protobuf-lite",
         "grpc-java-stub",
     ],
-    visibility: ["//packages/modules/Bluetooth/android/blueberry/server"],
 }
 
 java_library {
@@ -78,4 +77,30 @@ java_library {
         "grpc-java-okhttp",
     ],
     sdk_version: "current",
+    min_sdk_version: "30",
+    apex_available: [
+        "com.android.adservices",
+        "com.android.devicelock",
+        "com.android.extservices",
+    ],
+}
+
+java_library {
+    name: "grpc-java-core-android",
+    srcs: [
+        "android/src/main/java/io/grpc/android/*.java",
+    ],
+    libs: [
+        "grpc-java-core",
+        "grpc-java-core-internal",
+        "jsr305",
+        "guava",
+    ],
+    sdk_version: "current",
+    min_sdk_version: "30",
+    apex_available: [
+        "com.android.adservices",
+        "com.android.devicelock",
+        "com.android.extservices",
+    ],
 }

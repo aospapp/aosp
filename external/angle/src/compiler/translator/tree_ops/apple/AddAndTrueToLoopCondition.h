@@ -10,16 +10,17 @@
 #define COMPILER_TRANSLATOR_TREEOPS_APPLE_ADDANDTRUETOLOOPCONDITION_H_
 
 #include "common/angleutils.h"
+#include "common/debug.h"
 
 namespace sh
 {
 class TCompiler;
 class TIntermNode;
 
-#if defined(ANGLE_ENABLE_GLSL) && defined(ANGLE_ENABLE_APPLE_WORKAROUNDS)
-ANGLE_NO_DISCARD bool AddAndTrueToLoopCondition(TCompiler *compiler, TIntermNode *root);
+#if ANGLE_ENABLE_GLSL && ANGLE_PLATFORM_APPLE
+[[nodiscard]] bool AddAndTrueToLoopCondition(TCompiler *compiler, TIntermNode *root);
 #else
-ANGLE_NO_DISCARD ANGLE_INLINE bool AddAndTrueToLoopCondition(TCompiler *compiler, TIntermNode *root)
+[[nodiscard]] ANGLE_INLINE bool AddAndTrueToLoopCondition(TCompiler *compiler, TIntermNode *root)
 {
     UNREACHABLE();
     return false;

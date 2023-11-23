@@ -22,9 +22,10 @@ from unittest import mock
 
 from acloud import errors
 import acloud.create.goldfish_local_image_local_instance as instance_module
+from acloud.internal.lib import driver_test_lib
 
 
-class GoldfishLocalImageLocalInstance(unittest.TestCase):
+class GoldfishLocalImageLocalInstance(driver_test_lib.BaseDriverTest):
     """Test GoldfishLocalImageLocalInstance methods."""
 
     def setUp(self):
@@ -401,7 +402,7 @@ class GoldfishLocalImageLocalInstance(unittest.TestCase):
         image_subdir = os.path.join(self._image_dir, "x86")
         boot_image_path = os.path.join(self._temp_dir, "kernel_images",
                                        "boot-5.10.img")
-        self._CreateEmptyFile(boot_image_path)
+        self.CreateFile(boot_image_path, b"ANDROID!")
         self._CreateEmptyFile(os.path.join(image_subdir, "system.img"))
         self._CreateEmptyFile(os.path.join(image_subdir, "build.prop"))
 

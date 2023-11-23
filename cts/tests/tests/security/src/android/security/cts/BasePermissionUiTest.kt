@@ -263,7 +263,9 @@ abstract class BasePermissionUiTest : StsExtraBusinessLogicTestCase() {
     private fun startActivityForFuture(
         intent: Intent
     ): CompletableFuture<Instrumentation.ActivityResult> =
-        activityRule.launchActivity(null).startActivityForFuture(intent)
+        CompletableFuture<Instrumentation.ActivityResult>().also {
+            activityRule.launchActivity(null).startActivityForFuture(intent, it)
+        }
 
     protected fun assertAppHasPermission(permissionName: String, expectPermission: Boolean) {
         assertEquals(

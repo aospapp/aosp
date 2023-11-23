@@ -1,25 +1,12 @@
-buildscript {
-    repositories {
-        maven {
-            url "https://plugins.gradle.org/m2/"
-        }
-    }
-    dependencies {
-        classpath "net.ltgt.gradle:gradle-errorprone-plugin:0.0.13"
-    }
-}
-
-apply plugin: "net.ltgt.errorprone"
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 28
-    buildToolsVersion '28.0.3'
+    compileSdkVersion 32
 
     defaultConfig {
         applicationId 'com.linkedin.dexmaker'
-        minSdkVersion 8
-        targetSdkVersion 28
+        minSdkVersion 14
+        targetSdkVersion 32
         versionCode 1
         versionName VERSION_NAME
 
@@ -27,15 +14,9 @@ android {
     }
 }
 
-repositories {
-    jcenter()
-    google()
-}
-
 dependencies {
     implementation project(":dexmaker")
 
-    //noinspection GradleDependency
-    androidTestImplementation 'com.android.support.test:runner:0.5'
-    androidTestImplementation 'junit:junit:4.12'
+    androidTestImplementation 'androidx.test:runner:1.4.0'
+    androidTestImplementation 'junit:junit:4.13.2'
 }

@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="no_upstream_notification_title" msgid="5030042590486713460">"ការភ្ជាប់​មិនមានអ៊ីនធឺណិត​ទេ"</string>
-    <string name="no_upstream_notification_message" msgid="3843613362272973447">"មិនអាច​ភ្ជាប់ឧបករណ៍​បានទេ"</string>
-    <string name="no_upstream_notification_disable_button" msgid="6385491461813507624">"បិទការភ្ជាប់"</string>
-    <string name="upstream_roaming_notification_title" msgid="3015912166812283303">"ហតស្ប៉ត ឬការភ្ជាប់​ត្រូវបានបើក"</string>
-    <string name="upstream_roaming_notification_message" msgid="6724434706748439902">"អាចមាន​ការគិតថ្លៃ​បន្ថែម នៅពេល​រ៉ូមីង"</string>
+    <string name="no_upstream_notification_title" msgid="3584617491053416666">"ការភ្ជាប់​មិនមានអ៊ីនធឺណិត​ទេ"</string>
+    <string name="no_upstream_notification_message" msgid="5626323795587558017">"មិនអាច​ភ្ជាប់ឧបករណ៍​បានទេ"</string>
+    <string name="no_upstream_notification_disable_button" msgid="868677179945695858">"បិទការភ្ជាប់"</string>
+    <string name="upstream_roaming_notification_title" msgid="2870229486619751829">"ហតស្ប៉ត ឬការភ្ជាប់​ត្រូវបានបើក"</string>
+    <string name="upstream_roaming_notification_message" msgid="5229740963392849544">"អាចមាន​ការគិតថ្លៃ​បន្ថែម នៅពេល​រ៉ូមីង"</string>
 </resources>

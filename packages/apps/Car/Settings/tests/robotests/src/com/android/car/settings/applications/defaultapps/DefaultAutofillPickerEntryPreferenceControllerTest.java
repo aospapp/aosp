@@ -17,6 +17,8 @@
 package com.android.car.settings.applications.defaultapps;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -110,8 +112,80 @@ public class DefaultAutofillPickerEntryPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_autofillManagerIsNull_unsupportedOnDevice_zoneWrite() {
+        Shadows.shadowOf(RuntimeEnvironment.application).setSystemService(
+                Context.AUTOFILL_MANAGER_SERVICE, null);
+
+        // Reinitialize so that it uses the system service set in this test.
+        CarUiTwoActionIconPreference preference = new CarUiTwoActionIconPreference(mContext);
+        PreferenceControllerTestHelper<DefaultAutofillPickerEntryPreferenceController> helper =
+                new PreferenceControllerTestHelper<>(mContext,
+                        DefaultAutofillPickerEntryPreferenceController.class, preference);
+        DefaultAutofillPickerEntryPreferenceController controller = helper.getController();
+        controller.setAvailabilityStatusForZone("write");
+
+        assertThat(controller.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_autofillManagerIsNull_unsupportedOnDevice_zoneRead() {
+        Shadows.shadowOf(RuntimeEnvironment.application).setSystemService(
+                Context.AUTOFILL_MANAGER_SERVICE, null);
+
+        // Reinitialize so that it uses the system service set in this test.
+        CarUiTwoActionIconPreference preference = new CarUiTwoActionIconPreference(mContext);
+        PreferenceControllerTestHelper<DefaultAutofillPickerEntryPreferenceController> helper =
+                new PreferenceControllerTestHelper<>(mContext,
+                        DefaultAutofillPickerEntryPreferenceController.class, preference);
+        DefaultAutofillPickerEntryPreferenceController controller = helper.getController();
+        controller.setAvailabilityStatusForZone("read");
+
+        assertThat(controller.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_autofillManagerIsNull_unsupportedOnDevice_zoneHidden() {
+        Shadows.shadowOf(RuntimeEnvironment.application).setSystemService(
+                Context.AUTOFILL_MANAGER_SERVICE, null);
+
+        // Reinitialize so that it uses the system service set in this test.
+        CarUiTwoActionIconPreference preference = new CarUiTwoActionIconPreference(mContext);
+        PreferenceControllerTestHelper<DefaultAutofillPickerEntryPreferenceController> helper =
+                new PreferenceControllerTestHelper<>(mContext,
+                        DefaultAutofillPickerEntryPreferenceController.class, preference);
+        DefaultAutofillPickerEntryPreferenceController controller = helper.getController();
+        controller.setAvailabilityStatusForZone("hidden");
+
+        assertThat(controller.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
     public void getAvailabilityStatus_autofillNotSupported_unsupportedOnDevice() {
         when(mAutofillManager.isAutofillSupported()).thenReturn(false);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_autofillNotSupported_unsupportedOnDevice_zoneWrite() {
+        when(mAutofillManager.isAutofillSupported()).thenReturn(false);
+        mController.setAvailabilityStatusForZone("write");
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_autofillNotSupported_unsupportedOnDevice_zoneRead() {
+        when(mAutofillManager.isAutofillSupported()).thenReturn(false);
+        mController.setAvailabilityStatusForZone("read");
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_autofillNotSupported_unsupportedOnDevice_zoneHidden() {
+        when(mAutofillManager.isAutofillSupported()).thenReturn(false);
+        mController.setAvailabilityStatusForZone("hidden");
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(UNSUPPORTED_ON_DEVICE);
     }
@@ -121,6 +195,30 @@ public class DefaultAutofillPickerEntryPreferenceControllerTest {
         when(mAutofillManager.isAutofillSupported()).thenReturn(true);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_autofillSupported_isAvailable_zoneWrite() {
+        when(mAutofillManager.isAutofillSupported()).thenReturn(true);
+        mController.setAvailabilityStatusForZone("write");
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_autofillSupported_isAvailable_zoneRead() {
+        when(mAutofillManager.isAutofillSupported()).thenReturn(true);
+        mController.setAvailabilityStatusForZone("read");
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_autofillSupported_isAvailable_zoneHidden() {
+        when(mAutofillManager.isAutofillSupported()).thenReturn(true);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

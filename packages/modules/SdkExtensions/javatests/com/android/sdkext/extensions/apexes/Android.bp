@@ -43,7 +43,7 @@ apex_test {
 
 // Encapsulate the contributions made by the test_com.android.sdkext to the
 // bootclasspath.
-bootclasspath_fragment {
+bootclasspath_fragment_test {
     name: "test_com.android.sdkext-bootclasspath-fragment",
     contents: [
         "framework-sdkextensions",

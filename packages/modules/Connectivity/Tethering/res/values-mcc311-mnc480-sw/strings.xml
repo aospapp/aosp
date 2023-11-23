@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="no_upstream_notification_title" msgid="611650570559011140">"Kipengele cha kusambaza mtandao hakina intaneti"</string>
-    <string name="no_upstream_notification_message" msgid="6508394877641864863">"Imeshindwa kuunganisha vifaa"</string>
-    <string name="no_upstream_notification_disable_button" msgid="7609346639290990508">"Zima kipengele cha kusambaza mtandao"</string>
-    <string name="upstream_roaming_notification_title" msgid="6032901176124830787">"Umewasha kipengele cha kusambaza mtandao au mtandao pepe"</string>
-    <string name="upstream_roaming_notification_message" msgid="7599056263326217523">"Huenda ukatozwa gharama za ziada ukitumia mitandao ya ng\'ambo"</string>
+    <string name="no_upstream_notification_title" msgid="5897815458155858594">"Huduma ya kusambaza mtandao haina muunganisho wa intaneti"</string>
+    <string name="no_upstream_notification_message" msgid="9037716118606459874">"Imeshindwa kuunganisha vifaa"</string>
+    <string name="no_upstream_notification_disable_button" msgid="5284024068281565456">"Zima kipengele cha kusambaza mtandao"</string>
+    <string name="upstream_roaming_notification_title" msgid="186331286017243006">"Umewasha kipengele cha kusambaza mtandao au mtandao pepe"</string>
+    <string name="upstream_roaming_notification_message" msgid="7692641323940316538">"Huenda ukatozwa gharama za ziada ukitumia mitandao ya ng\'ambo"</string>
 </resources>

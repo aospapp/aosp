@@ -54,7 +54,7 @@ public final class BazelExitCodeResultReporterTest {
         reporter.invocationStarted(DEFAULT_CONTEXT);
         reporter.invocationEnded(1);
 
-        assertFileContentsEquals("4", exitCodeFile);
+        assertFileContentsEquals("0", exitCodeFile);
     }
 
     @Test

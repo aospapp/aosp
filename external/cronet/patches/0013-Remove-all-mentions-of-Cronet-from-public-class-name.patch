@@ -1,0 +1,70 @@
+From 836b1db751555881115d6c85e70b36a8a36557ab Mon Sep 17 00:00:00 2001
+From: Dan Stahr <danstahr@google.com>
+Date: Wed, 11 Jan 2023 11:39:25 +0000
+Subject: [PATCH] Remove all mentions of Cronet from public class names and
+ javadoc.
+
+I left some Cronet references around in places which are closely
+tied to the Cronet implementation and aren't part of the public API.
+These should be harmless.
+
+I also made some minor changes to the API classes to satisfy
+Metalava requirements for hidden methods.
+
+Test: m
+
+Change-Id: I3f9ec5c9c156040d656adabbc2ea8d2796aa6514
+---
+ components/cronet/android/BUILD.gn | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/components/cronet/android/BUILD.gn b/components/cronet/android/BUILD.gn
+index 1f0f51d4350dd..f0da39eece35a 100644
+--- a/components/cronet/android/BUILD.gn
++++ b/components/cronet/android/BUILD.gn
+@@ -242,14 +242,14 @@ android_library("cronet_api_java") {
+     "api/src/android/net/http/BidirectionalStream.java",
+     "api/src/android/net/http/CallbackException.java",
+     "api/src/android/net/http/ConnectionMigrationOptions.java",
+-    "api/src/android/net/http/CronetEngine.java",
+-    "api/src/android/net/http/CronetException.java",
++    "api/src/android/net/http/HttpEngine.java",
++    "api/src/android/net/http/HttpException.java",
+     "api/src/android/net/http/DnsOptions.java",
+     "api/src/android/net/http/ExperimentalBidirectionalStream.java",
+-    "api/src/android/net/http/ExperimentalCronetEngine.java",
+-    "api/src/android/net/http/ExperimentalOptionsTranslatingCronetEngineBuilder.java",
++    "api/src/android/net/http/ExperimentalHttpEngine.java",
++    "api/src/android/net/http/ExperimentalOptionsTranslatingHttpEngineBuilder.java",
+     "api/src/android/net/http/ExperimentalUrlRequest.java",
+-    "api/src/android/net/http/ICronetEngineBuilder.java",
++    "api/src/android/net/http/IHttpEngineBuilder.java",
+     "api/src/android/net/http/InlineExecutionProhibitedException.java",
+     "api/src/android/net/http/NetworkException.java",
+     "api/src/android/net/http/NetworkQualityRttListener.java",
+@@ -261,16 +261,16 @@ android_library("cronet_api_java") {
+     "api/src/android/net/http/UploadDataSink.java",
+     "api/src/android/net/http/UrlRequest.java",
+     "api/src/android/net/http/UrlResponseInfo.java",
+-    "api/src/android/net/http/apihelpers/ByteArrayCronetCallback.java",
++    "api/src/android/net/http/apihelpers/ByteArrayCallback.java",
+     "api/src/android/net/http/apihelpers/ContentTypeParametersParser.java",
+-    "api/src/android/net/http/apihelpers/CronetRequestCompletionListener.java",
+-    "api/src/android/net/http/apihelpers/CronetResponse.java",
++    "api/src/android/net/http/apihelpers/RequestCompletionListener.java",
++    "api/src/android/net/http/apihelpers/HttpResponse.java",
+     "api/src/android/net/http/apihelpers/ImplicitFlowControlCallback.java",
+-    "api/src/android/net/http/apihelpers/InMemoryTransformCronetCallback.java",
+-    "api/src/android/net/http/apihelpers/JsonCronetCallback.java",
++    "api/src/android/net/http/apihelpers/InMemoryTransformCallback.java",
++    "api/src/android/net/http/apihelpers/JsonCallback.java",
+     "api/src/android/net/http/apihelpers/RedirectHandler.java",
+     "api/src/android/net/http/apihelpers/RedirectHandlers.java",
+-    "api/src/android/net/http/apihelpers/StringCronetCallback.java",
++    "api/src/android/net/http/apihelpers/StringCallback.java",
+     "api/src/android/net/http/apihelpers/UploadDataProviders.java",
+     "api/src/android/net/http/apihelpers/UrlRequestCallbacks.java",
+     _generated_interface_api_version_java,
+-- 
+2.41.0.rc0.172.g3f132b7071-goog
+

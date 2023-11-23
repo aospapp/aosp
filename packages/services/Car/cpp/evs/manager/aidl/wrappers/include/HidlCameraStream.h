@@ -39,13 +39,15 @@ public:
             const ::android::hardware::hidl_vec<hidlevs::V1_1::BufferDesc>& buffers) override;
     ::android::hardware::Return<void> notify(const hidlevs::V1_1::EvsEventDesc& event) override;
 
-    HidlCameraStream(const std::shared_ptr<aidlevs::IEvsCameraStream>& camera) :
-          mAidlStream(camera) {}
+    HidlCameraStream(const std::string& id,
+                     const std::shared_ptr<aidlevs::IEvsCameraStream>& camera) :
+          mSourceDeviceId(id), mAidlStream(camera) {}
 
     bool getHidlBuffer(int id, hidlevs::V1_0::BufferDesc* _return);
     bool getHidlBuffer(int id, hidlevs::V1_1::BufferDesc* _return);
 
 private:
+    std::string mSourceDeviceId;
     std::shared_ptr<aidlevs::IEvsCameraStream> mAidlStream;
     std::list<hidlevs::V1_0::BufferDesc> mHidlV0Buffers;
     std::list<hidlevs::V1_1::BufferDesc> mHidlV1Buffers;

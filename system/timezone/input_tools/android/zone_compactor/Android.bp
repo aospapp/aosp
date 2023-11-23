@@ -24,3 +24,16 @@ java_binary_host {
     main_class: "ZoneCompactor",
     srcs: ["main/java/**/*.java"],
 }
+
+java_test_host {
+    name: "zone_compactor_tests",
+    srcs: ["test/java/**/*.java"],
+    test_options: {
+        unit_test: true,
+    },
+    static_libs: [
+        "zone_compactor",
+        "junit",
+        "tztools_common_testing",
+    ],
+}

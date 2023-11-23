@@ -69,9 +69,13 @@ class CompanionActivity : Activity() {
         fun startIntentSender(intentSender: IntentSender) =
                 instance.startIntentSenderForResult(intentSender, 0, null, 0, 0, 0)
 
-        fun waitForActivityResult() =
-                waitForResult(timeout = 1.seconds, interval = 100.milliseconds) { instance.result }
-                    ?: error("onActivityResult() has not been invoked")
+        fun waitForActivityResult(): Pair<Int, Intent?> {
+            val result = waitForResult(timeout = 1.seconds, interval = 100.milliseconds) {
+                instance.result
+            } ?: error("onActivityResult() has not been invoked")
+            instance.result = null
+            return result
+        }
 
         fun finish() = instance.finish()
 

@@ -22,17 +22,18 @@ import static android.net.cts.PacketUtils.IPPROTO_ESP;
 import static android.net.cts.PacketUtils.UDP_HDRLEN;
 import static android.system.OsConstants.IPPROTO_UDP;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import android.os.ParcelFileDescriptor;
 
+import com.android.net.module.util.CollectionUtils;
+
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.function.Predicate;
 
@@ -139,10 +140,8 @@ public class TunUtils {
     public byte[] awaitEspPacketNoPlaintext(
             int spi, byte[] plaintext, boolean useEncap, int expectedPacketSize) throws Exception {
         final byte[] espPkt = awaitPacket(
-                (pkt) -> isEspFailIfSpecifiedPlaintextFound(pkt, spi, useEncap, plaintext));
-
-        // Validate packet size
-        assertEquals(expectedPacketSize, espPkt.length);
+            (pkt) -> expectedPacketSize == pkt.length
+                    && isEspFailIfSpecifiedPlaintextFound(pkt, spi, useEncap, plaintext));
 
         return espPkt; // We've found the packet we're looking for.
     }
@@ -152,11 +151,11 @@ public class TunUtils {
     }
 
     private static boolean isSpiEqual(byte[] pkt, int espOffset, int spi) {
-        // Check SPI byte by byte.
-        return pkt[espOffset] == (byte) ((spi >>> 24) & 0xff)
-                && pkt[espOffset + 1] == (byte) ((spi >>> 16) & 0xff)
-                && pkt[espOffset + 2] == (byte) ((spi >>> 8) & 0xff)
-                && pkt[espOffset + 3] == (byte) (spi & 0xff);
+        ByteBuffer buffer = ByteBuffer.wrap(pkt);
+        buffer.get(new byte[espOffset]); // Skip IP, UDP header
+        int actualSpi = buffer.getInt();
+
+        return actualSpi == spi;
     }
 
     /**
@@ -170,7 +169,7 @@ public class TunUtils {
      */
     private static boolean isEspFailIfSpecifiedPlaintextFound(
             byte[] pkt, int spi, boolean encap, byte[] plaintext) {
-        if (Collections.indexOfSubList(Arrays.asList(pkt), Arrays.asList(plaintext)) != -1) {
+        if (CollectionUtils.indexOfSubArray(pkt, plaintext) != -1) {
             fail("Banned plaintext packet found");
         }
 
@@ -179,8 +178,13 @@ public class TunUtils {
 
     private static boolean isEsp(byte[] pkt, int spi, boolean encap) {
         if (isIpv6(pkt)) {
-            // IPv6 UDP encap not supported by kernels; assume non-encap.
-            return pkt[IP6_PROTO_OFFSET] == IPPROTO_ESP && isSpiEqual(pkt, IP6_HDRLEN, spi);
+            if (encap) {
+                return pkt[IP6_PROTO_OFFSET] == IPPROTO_UDP
+                        && isSpiEqual(pkt, IP6_HDRLEN + UDP_HDRLEN, spi);
+            } else {
+                return pkt[IP6_PROTO_OFFSET] == IPPROTO_ESP && isSpiEqual(pkt, IP6_HDRLEN, spi);
+            }
+
         } else {
             // Use default IPv4 header length (assuming no options)
             if (encap) {

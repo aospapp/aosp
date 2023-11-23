@@ -42,7 +42,7 @@ from update_payload import common
 from update_payload import error
 from update_payload import format_utils
 from update_payload import histogram
-from update_payload import update_metadata_pb2
+import update_metadata_pb2
 
 #
 # Constants.

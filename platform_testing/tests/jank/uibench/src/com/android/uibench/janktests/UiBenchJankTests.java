@@ -21,14 +21,14 @@ import static com.android.uibench.janktests.UiBenchJankTestsHelper.PACKAGE_NAME;
 import static com.android.uibench.janktests.UiBenchJankTestsHelper.SHORT_EXPECTED_FRAMES;
 
 import android.os.SystemClock;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.Until;
 import android.widget.ListView;
 
 import androidx.test.jank.GfxMonitor;
 import androidx.test.jank.JankTest;
 import androidx.test.jank.JankTestBase;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.Until;
 
 import junit.framework.Assert;
 
@@ -145,7 +145,8 @@ public class UiBenchJankTests extends JankTestBase {
     }
 
     public void openSaveLayerInterleaveActivity() {
-        mHelper.launchActivityAndAssert("SaveLayerInterleaveActivity", "General/SaveLayer Animation");
+        mHelper.launchActivityAndAssert(
+                "SaveLayerInterleaveActivity", "General/SaveLayer Animation");
     }
 
     @JankTest(beforeTest = "openSaveLayerInterleaveActivity", expectedFrames = EXPECTED_FRAMES)

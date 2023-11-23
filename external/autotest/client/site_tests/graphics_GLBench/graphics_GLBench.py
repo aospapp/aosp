@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -218,7 +219,7 @@ class graphics_GLBench(graphics_utils.GraphicsTest):
         # Don't throw an exception and remind there is a problem.
         keyvals[testname] = -1.0
         f.write('# knownbad [' + imagefile + '] (setting perf as -1.0)\n')
-        # This failure is whitelisted so don't add to failed_tests.
+        # This failure is allowlisted so don't add to failed_tests.
       elif imagefile in reference_imagenames:
         # Known good reference images (default).
         keyvals[testname] = testrating

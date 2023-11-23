@@ -1,6 +1,14 @@
 # Simpleperf
 
-This file is documentation for simpleperf maintainers.
+Android Studio includes a graphical front end to Simpleperf, documented in
+[Inspect CPU activity with CPU Profiler](https://developer.android.com/studio/profile/cpu-profiler).
+Most users will prefer to use that instead of using Simpleperf directly.
+
+If you prefer to use the command line, Simpleperf is a versatile command-line
+CPU profiling tool included in the NDK for Mac, Linux, and Windows.
+
+This file contains documentation for simpleperf maintainers.
+
 There is also [user documentation](doc/README.md).
 
 ## Building new prebuilts

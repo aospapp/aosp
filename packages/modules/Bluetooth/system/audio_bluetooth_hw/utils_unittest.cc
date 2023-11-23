@@ -21,6 +21,7 @@
 
 namespace {
 
+using ::android::bluetooth::audio::utils::FrameCount;
 using ::android::bluetooth::audio::utils::ParseAudioParams;
 
 class UtilsTest : public testing::Test {
@@ -131,6 +132,11 @@ TEST_F(UtilsTest, HashMapTwoPairsWithFirstKeyEmpty) {
   // map = {[key1]="value1"}
   EXPECT_EQ(map_.size(), 1);
   EXPECT_EQ(map_["key1"], "value1");
+}
+
+TEST_F(UtilsTest, FrameCountTest) {
+  EXPECT_EQ(FrameCount(120000, 44100), 5292);
+  EXPECT_EQ(FrameCount(7500, 32000), 240);
 }
 
 }  // namespace

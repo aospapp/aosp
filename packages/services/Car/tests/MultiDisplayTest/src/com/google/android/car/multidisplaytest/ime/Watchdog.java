@@ -15,9 +15,12 @@
  */
 package com.google.android.car.multidisplaytest.ime;
 
+import android.annotation.AnyThread;
 import android.os.Handler;
 import android.util.Log;
 import android.widget.TextView;
+
+import com.android.internal.annotations.GuardedBy;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -35,6 +38,10 @@ public final class Watchdog {
     private static final Integer MAXQSIZE = 10000;
 
     private final TextView mView;
+
+    private final Object mLock = new Object();
+
+    @GuardedBy("mLock")
     private final ArrayList<String> mEvents;
 
     private Handler mWatchdogHandler;
@@ -45,23 +52,31 @@ public final class Watchdog {
         mEvents = new ArrayList<>();
     }
 
+    @AnyThread
     public void logEvent(String s) {
         Date date = new Date();
         SimpleDateFormat dateFormat = new SimpleDateFormat("[yyyy-MM-dd hh:mm:ss]");
-        mEvents.add(0, dateFormat.format(date) + " " + s);
-
-        if (mEvents.size() > MAXQSIZE) {
-            mEvents.remove(mEvents.size() - 1);
+        synchronized (mLock) {
+            mEvents.add(0, dateFormat.format(date) + " " + s);
+            if (mEvents.size() > MAXQSIZE) {
+                mEvents.remove(mEvents.size() - 1);
+            }
         }
     }
 
-    public synchronized void refresh() {
-        mView.setText(String.join("\n", mEvents));
+    @AnyThread
+    public void refresh() {
+        synchronized (mLock) {
+            mView.setText(String.join("\n", mEvents));
+        }
     }
 
+    @AnyThread
     public void start() {
         Log.d(TAG, "Starting Watchdog");
-        mEvents.clear();
+        synchronized (mLock) {
+            mEvents.clear();
+        }
         mWatchdogHandler = new Handler();
         mRefreshLoop = () -> {
             refresh();

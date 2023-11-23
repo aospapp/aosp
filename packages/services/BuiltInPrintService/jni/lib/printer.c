@@ -77,7 +77,8 @@ static void _destroy(const ifc_print_job_t *this_p) {
     }
 }
 
-static int _start_job(const ifc_print_job_t *this_p, const wprint_job_params_t *job_params) {
+static int _start_job(const ifc_print_job_t *this_p, const wprint_job_params_t *job_params,
+        const printer_capabilities_t *printer_caps) {
     _print_job_t *print_job = IMPL(_print_job_t, ifc, this_p);
 
     if (print_job) {

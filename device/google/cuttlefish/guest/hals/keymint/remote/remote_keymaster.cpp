@@ -24,7 +24,7 @@
 
 namespace keymaster {
 
-RemoteKeymaster::RemoteKeymaster(cuttlefish::KeymasterChannel* channel,
+RemoteKeymaster::RemoteKeymaster(cuttlefish::SharedFdKeymasterChannel* channel,
                                  int32_t message_version)
     : channel_(channel), message_version_(message_version) {}
 
@@ -111,6 +111,64 @@ bool RemoteKeymaster::Initialize() {
     }
   }
 
+  // Pass attestation IDs to the remote KM implementation.
+  // Skip MEID as it is not present on emulators.
+  SetAttestationIdsKM3Request requestKM3(message_version());
+
+  static constexpr char brand_prop_name[] = "ro.product.brand";
+  static constexpr char device_prop_name[] = "ro.product.device";
+  static constexpr char product_prop_name[] = "ro.product.name";
+  static constexpr char serial_prop_name[] = "ro.serialno";
+  static constexpr char manufacturer_prop_name[] = "ro.product.manufacturer";
+  static constexpr char model_prop_name[] = "ro.product.model";
+
+  std::string brand_prop_value =
+      android::base::GetProperty(brand_prop_name, "");
+  std::string device_prop_value =
+      android::base::GetProperty(device_prop_name, "");
+  std::string product_prop_value =
+      android::base::GetProperty(product_prop_name, "");
+  std::string serial_prop_value =
+      android::base::GetProperty(serial_prop_name, "");
+  std::string manufacturer_prop_value =
+      android::base::GetProperty(manufacturer_prop_name, "");
+  std::string model_prop_value =
+      android::base::GetProperty(model_prop_name, "");
+
+  // Currently modem_simulator always returns one fixed value. See
+  // `handleGetIMEI` in
+  // device/google/cuttlefish/host/commands/modem_simulator/misc_service.cpp for
+  // more details.
+  // This should be updated once the below bug is fixed -
+  // b/263188546 - Use device-specific IMEI values rather than one hardcoded
+  // value.
+  std::string imei_value = "867400022047199";
+  requestKM3.base.imei.Reinitialize(imei_value.data(), imei_value.size());
+
+  requestKM3.base.brand.Reinitialize(brand_prop_value.data(),
+                                     brand_prop_value.size());
+  requestKM3.base.device.Reinitialize(device_prop_value.data(),
+                                      device_prop_value.size());
+  requestKM3.base.product.Reinitialize(product_prop_value.data(),
+                                       product_prop_value.size());
+  requestKM3.base.serial.Reinitialize(serial_prop_value.data(),
+                                      serial_prop_value.size());
+  requestKM3.base.manufacturer.Reinitialize(manufacturer_prop_value.data(),
+                                            manufacturer_prop_value.size());
+  requestKM3.base.model.Reinitialize(model_prop_value.data(),
+                                     model_prop_value.size());
+
+  std::string second_imei_value = "867400022047199";
+  requestKM3.second_imei.Reinitialize(second_imei_value.data(),
+                                      second_imei_value.size());
+
+  SetAttestationIdsKM3Response responseKM3 = SetAttestationIdsKM3(requestKM3);
+  if (responseKM3.error != KM_ERROR_OK) {
+    LOG(ERROR) << "Failed to configure keymaster attestation IDs: "
+               << responseKM3.error;
+    return false;
+  }
+
   return true;
 }
 
@@ -185,6 +243,11 @@ void RemoteKeymaster::GenerateRkpKey(const GenerateRkpKeyRequest& request,
 void RemoteKeymaster::GenerateCsr(const GenerateCsrRequest& request,
                                   GenerateCsrResponse* response) {
   ForwardCommand(GENERATE_CSR, request, response);
+}
+
+void RemoteKeymaster::GenerateCsrV2(const GenerateCsrV2Request& request,
+                                    GenerateCsrV2Response* response) {
+  ForwardCommand(GENERATE_CSR_V2, request, response);
 }
 
 void RemoteKeymaster::GetKeyCharacteristics(
@@ -316,6 +379,28 @@ GetRootOfTrustResponse RemoteKeymaster::GetRootOfTrust(
     const GetRootOfTrustRequest& request) {
   GetRootOfTrustResponse response(message_version());
   ForwardCommand(GET_ROOT_OF_TRUST, request, &response);
+  return response;
+}
+
+GetHwInfoResponse RemoteKeymaster::GetHwInfo() {
+  // Unused empty buffer to allow ForwardCommand to have something to serialize
+  Buffer request;
+  GetHwInfoResponse response(message_version());
+  ForwardCommand(GET_HW_INFO, request, &response);
+  return response;
+}
+
+SetAttestationIdsResponse RemoteKeymaster::SetAttestationIds(
+    const SetAttestationIdsRequest& request) {
+  SetAttestationIdsResponse response(message_version());
+  ForwardCommand(SET_ATTESTATION_IDS, request, &response);
+  return response;
+}
+
+SetAttestationIdsKM3Response RemoteKeymaster::SetAttestationIdsKM3(
+    const SetAttestationIdsKM3Request& request) {
+  SetAttestationIdsKM3Response response(message_version());
+  ForwardCommand(SET_ATTESTATION_IDS_KM3, request, &response);
   return response;
 }
 

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#define LOG_TAG "a2dp_encoding"
+#define LOG_TAG "BTAudioA2dpAIDL"
 
 #include "a2dp_encoding_aidl.h"
 
@@ -44,6 +44,7 @@ using ::bluetooth::audio::aidl::codec::A2dpCodecToHalBitsPerSample;
 using ::bluetooth::audio::aidl::codec::A2dpCodecToHalChannelMode;
 using ::bluetooth::audio::aidl::codec::A2dpCodecToHalSampleRate;
 using ::bluetooth::audio::aidl::codec::A2dpLdacToHalConfig;
+using ::bluetooth::audio::aidl::codec::A2dpOpusToHalConfig;
 using ::bluetooth::audio::aidl::codec::A2dpSbcToHalConfig;
 
 /***
@@ -84,19 +85,20 @@ BluetoothAudioCtrlAck A2dpTransport::StartRequest(bool is_low_latency) {
     return a2dp_ack_to_bt_audio_ctrl_ack(A2DP_CTRL_ACK_SUCCESS);
   }
   if (btif_av_stream_ready()) {
+    // check if codec needs to be switched prior to stream start
+    invoke_switch_codec_cb(is_low_latency);
     /*
      * Post start event and wait for audio path to open.
      * If we are the source, the ACK will be sent after the start
      * procedure is completed, othewise send it now.
      */
     a2dp_pending_cmd_ = A2DP_CTRL_CMD_START;
-    btif_av_stream_start();
+    btif_av_stream_start_with_latency(is_low_latency);
     if (btif_av_get_peer_sep() != AVDT_TSEP_SRC) {
       LOG(INFO) << __func__ << ": accepted";
       return a2dp_ack_to_bt_audio_ctrl_ack(A2DP_CTRL_ACK_PENDING);
     }
     a2dp_pending_cmd_ = A2DP_CTRL_CMD_NONE;
-    invoke_switch_codec_cb(is_low_latency);
     return a2dp_ack_to_bt_audio_ctrl_ack(A2DP_CTRL_ACK_SUCCESS);
   }
   LOG(ERROR) << __func__ << ": AV stream is not ready to start";
@@ -136,6 +138,10 @@ void A2dpTransport::StopRequest() {
   LOG(INFO) << __func__ << ": handling";
   a2dp_pending_cmd_ = A2DP_CTRL_CMD_STOP;
   btif_av_stream_stop(RawAddress::kEmpty);
+}
+
+void A2dpTransport::SetLowLatency(bool is_low_latency) {
+  btif_av_set_low_latency(is_low_latency);
 }
 
 bool A2dpTransport::GetPresentationPosition(uint64_t* remote_delay_report_ns,
@@ -265,6 +271,12 @@ bool a2dp_get_selected_hal_codec_config(CodecConfiguration* codec_config) {
     }
     case BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC: {
       if (!A2dpLdacToHalConfig(codec_config, a2dp_config)) {
+        return false;
+      }
+      break;
+    }
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_OPUS: {
+      if (!A2dpOpusToHalConfig(codec_config, a2dp_config)) {
         return false;
       }
       break;

@@ -2,6 +2,9 @@
 
 #include <binder/IInterface.h>
 #include <android/aidl/tests/IOldName.h>
+#include <android/aidl/tests/BnOldName.h>
+#include <binder/Delegate.h>
+
 
 namespace android {
 namespace aidl {
@@ -15,8 +18,9 @@ public:
 
 class IOldNameDelegator : public BnOldName {
 public:
-  explicit IOldNameDelegator(::android::sp<IOldName> &impl) : _aidl_delegate(impl) {}
+  explicit IOldNameDelegator(const ::android::sp<IOldName> &impl) : _aidl_delegate(impl) {}
 
+  ::android::sp<IOldName> getImpl() { return _aidl_delegate; }
   ::android::binder::Status RealName(::android::String16* _aidl_return) override {
     return _aidl_delegate->RealName(_aidl_return);
   }

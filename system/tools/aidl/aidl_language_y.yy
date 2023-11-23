@@ -92,6 +92,7 @@ AidlLocation loc(const yy::parser::location_type& l) {
     std::vector<std::unique_ptr<AidlTypeSpecifier>>* type_args;
     std::vector<std::string>* type_params;
     std::vector<std::unique_ptr<AidlDefinedType>>* declarations;
+    AidlUnstructuredHeaders* unstructured_headers;
 }
 
 %destructor { } <direction>
@@ -117,6 +118,7 @@ AidlLocation loc(const yy::parser::location_type& l) {
 %token '(' ')' ',' '=' '[' ']' '.' '{' '}' ';'
 %token UNKNOWN "unrecognized character"
 %token<token> CPP_HEADER "cpp_header (which can also be used as an identifier)"
+%token<token> NDK_HEADER "ndk_header (which can also be used as an identifier)"
 %token IN "in"
 %token INOUT "inout"
 %token OUT "out"
@@ -176,6 +178,7 @@ AidlLocation loc(const yy::parser::location_type& l) {
 %type<token_list> imports
 %type<declarations> decls
 %type<token> import identifier error qualified_name optional_package
+%type<unstructured_headers> optional_unstructured_headers
 
 %%
 
@@ -206,6 +209,7 @@ document
 identifier
  : IDENTIFIER
  | CPP_HEADER
+ | NDK_HEADER
  ;
 
 optional_package
@@ -294,18 +298,35 @@ type_params
     delete $3;
   };
 
- optional_type_params
-  : /* none */ { $$ = nullptr; }
-  | '<' type_params '>' {
-    $$ = $2;
-  };
+optional_type_params
+ : /* none */ { $$ = nullptr; }
+ | '<' type_params '>' {
+   $$ = $2;
+ };
+
+optional_unstructured_headers
+ : /* none */ { $$ = new AidlUnstructuredHeaders; }
+ | optional_unstructured_headers CPP_HEADER C_STR {
+     $$ = $1;
+     $$->cpp = $3->GetText();
+     delete $2;
+     delete $3;
+ }
+ | optional_unstructured_headers NDK_HEADER C_STR {
+     $$ = $1;
+     $$->ndk = $3->GetText();
+     delete $2;
+     delete $3;
+ }
+ ;
 
 parcelable_decl
- : PARCELABLE qualified_name optional_type_params ';' {
+ : PARCELABLE qualified_name optional_type_params optional_unstructured_headers ';' {
     // No check for type name here. We allow nested types for unstructured parcelables.
-    $$ = new AidlParcelable(loc(@2), $2->GetText(), ps->Package(), $1->GetComments(), "", $3);
+    $$ = new AidlParcelable(loc(@2), $2->GetText(), ps->Package(), $1->GetComments(), *$4, $3);
     delete $1;
     delete $2;
+    delete $4;
  }
  | PARCELABLE qualified_name optional_type_params '{' parcelable_members '}' {
     ps->CheckValidTypeName(*$2, loc(@2));
@@ -313,14 +334,6 @@ parcelable_decl
     delete $1;
     delete $2;
  }
- | PARCELABLE qualified_name CPP_HEADER C_STR ';' {
-    // No check for type name here. We allow nested types for unstructured parcelables.
-    $$ = new AidlParcelable(loc(@2), $2->GetText(), ps->Package(), $1->GetComments(), $4->GetText());
-    delete $1;
-    delete $2;
-    delete $3;
-    delete $4;
-  }
  | PARCELABLE error ';' {
     ps->AddError();
     $$ = nullptr;

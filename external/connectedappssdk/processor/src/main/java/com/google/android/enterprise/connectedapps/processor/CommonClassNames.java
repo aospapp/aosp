@@ -25,8 +25,11 @@ import com.squareup.javapoet.ClassName;
  */
 public class CommonClassNames {
   static final ClassName CONTEXT_CLASSNAME = ClassName.get("android.content", "Context");
+  static final ClassName BUNDLE_CLASSNAME = ClassName.get("android.os", "Bundle");
   static final ClassName PARCEL_CLASSNAME = ClassName.get("android.os", "Parcel");
   static final ClassName PARCELABLE_CLASSNAME = ClassName.get("android.os", "Parcelable");
+  static final ClassName USER_HANDLE_CLASSNAME = ClassName.get("android.os", "UserHandle");
+  static final ClassName PROCESS_CLASSNAME = ClassName.get("android.os", "Process");
   static final ClassName CROSS_PROFILE_FUTURE_RESULT_WRITER =
       ClassName.get(
           "com.google.android.enterprise.connectedapps.internal", "CrossProfileFutureResultWriter");
@@ -46,19 +49,18 @@ public class CommonClassNames {
           "com.google.android.enterprise.connectedapps.exceptions", "ProfileRuntimeException");
   static final ClassName PROFILE_AWARE_UTILS_CLASSNAME =
       ClassName.get("com.google.android.enterprise.connectedapps", "ConnectedAppsUtils");
-  static final ClassName BACKGROUND_EXCEPTION_THROWER_CLASSNAME =
-      ClassName.get(
-          "com.google.android.enterprise.connectedapps.internal", "BackgroundExceptionThrower");
-  static final ClassName PARCEL_UTILITIES_CLASSNAME =
-      ClassName.get("com.google.android.enterprise.connectedapps.internal", "ParcelUtilities");
+  static final ClassName EXCEPTION_THROWER_CLASSNAME =
+      ClassName.get("com.google.android.enterprise.connectedapps.internal", "ExceptionThrower");
+  static final ClassName BUNDLE_UTILITIES_CLASSNAME =
+      ClassName.get("com.google.android.enterprise.connectedapps.internal", "BundleUtilities");
   static final ClassName METHOD_RUNNER_CLASSNAME =
       ClassName.get("com.google.android.enterprise.connectedapps.internal", "MethodRunner");
   static final ClassName BUNDLER_CLASSNAME =
       ClassName.get("com.google.android.enterprise.connectedapps.internal", "Bundler");
   static final ClassName BUNDLER_TYPE_CLASSNAME =
       ClassName.get("com.google.android.enterprise.connectedapps.internal", "BundlerType");
-  static final ClassName PARCEL_CALL_RECEIVER_CLASSNAME =
-      ClassName.get("com.google.android.enterprise.connectedapps.internal", "ParcelCallReceiver");
+  static final ClassName BUNDLE_CALL_RECEIVER_CLASSNAME =
+      ClassName.get("com.google.android.enterprise.connectedapps.internal", "BundleCallReceiver");
   public static final ClassName BINDER_CLASSNAME = ClassName.get("android.os", "Binder");
   public static final ClassName INTENT_CLASSNAME = ClassName.get("android.content", "Intent");
   static final ClassName CROSS_PROFILE_SENDER_CLASSNAME =
@@ -77,14 +79,14 @@ public class CommonClassNames {
       ClassName.get(
           "com.google.android.enterprise.connectedapps.internal",
           "CrossProfileCallbackMultiMerger");
-  static final ClassName CROSS_PROFILE_CALLBACK_PARCEL_CALL_SENDER_CLASSNAME =
+  static final ClassName CROSS_PROFILE_CALLBACK_BUNDLE_CALL_SENDER_CLASSNAME =
       ClassName.get(
           "com.google.android.enterprise.connectedapps.internal",
-          "CrossProfileCallbackParcelCallSender");
-  static final ClassName CROSS_PROFILE_CALLBACK_EXCEPTION_PARCEL_CALL_SENDER_CLASSNAME =
+          "CrossProfileCallbackBundleCallSender");
+  static final ClassName CROSS_PROFILE_CALLBACK_EXCEPTION_BUNDLE_CALL_SENDER_CLASSNAME =
       ClassName.get(
           "com.google.android.enterprise.connectedapps.internal",
-          "CrossProfileCallbackExceptionParcelCallSender");
+          "CrossProfileCallbackExceptionBundleCallSender");
   static final ClassName ASYNC_CALLBACK_PARAM_MULTIMERGER_COMPLETE_LISTENER_CLASSNAME =
       ClassName.get(
           "com.google.android.enterprise.connectedapps.internal.CrossProfileCallbackMultiMerger",
@@ -101,8 +103,12 @@ public class CommonClassNames {
       ClassName.get("com.google.android.enterprise.connectedapps", "ProfileConnector");
   public static final ClassName ABSTRACT_PROFILE_CONNECTOR_CLASSNAME =
       ClassName.get("com.google.android.enterprise.connectedapps", "AbstractProfileConnector");
+  public static final ClassName USER_CONNECTOR_CLASSNAME =
+      ClassName.get("com.google.android.enterprise.connectedapps", "UserConnector");
   public static final ClassName ABSTRACT_USER_CONNECTOR_CLASSNAME =
       ClassName.get("com.google.android.enterprise.connectedapps", "AbstractUserConnector");
+  public static final ClassName USER_CONNECTOR_WRAPPER_CLASSNAME =
+      ClassName.get("com.google.android.enterprise.connectedapps", "UserConnectorWrapper");
   public static final ClassName ABSTRACT_PROFILE_CONNECTOR_BUILDER_CLASSNAME =
       ClassName.get(
           "com.google.android.enterprise.connectedapps.AbstractProfileConnector", "Builder");
@@ -110,11 +116,21 @@ public class CommonClassNames {
       ClassName.get("com.google.android.enterprise.connectedapps.AbstractUserConnector", "Builder");
   public static final ClassName CONNECTION_BINDER_CLASSNAME =
       ClassName.get("com.google.android.enterprise.connectedapps", "ConnectionBinder");
+  public static final ClassName USER_BINDER_FACTORY_CLASSNAME =
+      ClassName.get("com.google.android.enterprise.connectedapps", "UserBinderFactory");
   public static final ClassName SCHEDULED_EXECUTOR_SERVICE_CLASSNAME =
       ClassName.get("java.util.concurrent", "ScheduledExecutorService");
+  public static final ClassName FAKE_PROFILE_CONNECTOR_CLASSNAME =
+      ClassName.get("com.google.android.enterprise.connectedapps.testing", "FakeProfileConnector");
   public static final ClassName ABSTRACT_FAKE_PROFILE_CONNECTOR_CLASSNAME =
       ClassName.get(
           "com.google.android.enterprise.connectedapps.testing", "AbstractFakeProfileConnector");
+  public static final ClassName ABSTRACT_FAKE_USER_CONNECTOR_CLASSNAME =
+      ClassName.get(
+          "com.google.android.enterprise.connectedapps.testing", "AbstractFakeUserConnector");
+  public static final ClassName FAKE_USER_CONNECTOR_WRAPPER_CLASSNAME =
+      ClassName.get(
+          "com.google.android.enterprise.connectedapps.testing", "FakeUserConnectorWrapper");
 
   public static final ClassName VERSION_CLASSNAME = ClassName.get("android.os.Build", "VERSION");
   public static final ClassName VERSION_CODES_CLASSNAME =

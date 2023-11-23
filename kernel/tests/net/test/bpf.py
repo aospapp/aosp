@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2016 The Android Open Source Project
 #
@@ -18,9 +18,9 @@
 
 import ctypes
 import os
-import platform
 import resource
 import socket
+import sys
 
 import csocket
 import cstruct
@@ -32,10 +32,6 @@ import net_test
 # around this problem and pick the right syscall nr, we can additionally check
 # the bitness of the python interpreter. Assume that the 64-bit architectures
 # are not running with COMPAT_UTS_MACHINE and must be 64-bit at all times.
-#
-# Is there a better way of doing this?
-# Is it correct to use os.uname()[4] instead of platform.machine() ?
-# Should we use 'sys.maxsize > 2**32' instead of platform.architecture()[0] ?
 __NR_bpf = {  # pylint: disable=invalid-name
     "aarch64-32bit": 386,
     "aarch64-64bit": 280,
@@ -46,7 +42,18 @@ __NR_bpf = {  # pylint: disable=invalid-name
     "i686-64bit": 321,
     "x86_64-32bit": 357,
     "x86_64-64bit": 321,
-}[os.uname()[4] + "-" + platform.architecture()[0]]
+    "riscv64-64bit": 280,
+}[os.uname()[4] + "-" + ("64" if sys.maxsize > 0x7FFFFFFF else "32") + "bit"]
+
+# After ACK merge of 5.10.168 is when support for this was backported from
+# upstream Linux 5.14 and was merged into ACK android{12,13}-5.10 branches.
+#   ACK android12-5.10 was >= 5.10.168 without this support only for ~4.5 hours
+#   ACK android13-4.10 was >= 5.10.168 without this support only for ~25 hours
+# as such we can >= 5.10.168 instead of > 5.10.168
+HAVE_SO_NETNS_COOKIE = net_test.LINUX_VERSION >= (5, 10, 168)
+
+# Note: This is *not* correct for parisc & sparc architectures
+SO_NETNS_COOKIE = 71
 
 LOG_LEVEL = 1
 LOG_SIZE = 65536
@@ -191,9 +198,6 @@ BpfInsn = cstruct.Struct("bpf_insn", "=BBhi", "code dst_src_reg off imm")
 # pylint: enable=invalid-name
 
 libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
-HAVE_EBPF_SUPPORT = net_test.LINUX_VERSION >= (4, 4, 0)
-HAVE_EBPF_4_9 = net_test.LINUX_VERSION >= (4, 9, 0)
-HAVE_EBPF_4_14 = net_test.LINUX_VERSION >= (4, 14, 0)
 HAVE_EBPF_4_19 = net_test.LINUX_VERSION >= (4, 19, 0)
 HAVE_EBPF_5_4 = net_test.LINUX_VERSION >= (5, 4, 0)
 
@@ -257,11 +261,11 @@ def DeleteMap(map_fd, key):
 
 
 def BpfProgLoad(prog_type, instructions, prog_license=b"GPL"):
-  bpf_prog = "".join(instructions)
+  bpf_prog = b"".join(instructions)
   insn_buff = ctypes.create_string_buffer(bpf_prog)
   gpl_license = ctypes.create_string_buffer(prog_license)
   log_buf = ctypes.create_string_buffer(b"", LOG_SIZE)
-  attr = BpfAttrProgLoad((prog_type, len(insn_buff) / len(BpfInsn),
+  attr = BpfAttrProgLoad((prog_type, len(insn_buff) // len(BpfInsn),
                           ctypes.addressof(insn_buff),
                           ctypes.addressof(gpl_license), LOG_LEVEL,
                           LOG_SIZE, ctypes.addressof(log_buf), 0))

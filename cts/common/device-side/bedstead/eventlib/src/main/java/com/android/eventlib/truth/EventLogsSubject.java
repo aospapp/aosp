@@ -80,7 +80,7 @@ public final class EventLogsSubject<E extends Event> extends Subject {
     }
 
     private void fail() {
-        // TODO(b/197315353): Add non-matching events
+
         failWithoutActual(Fact.simpleFact("Expected event to have occurred matching: "
                 + mActual + " but it did not occur."));
     }

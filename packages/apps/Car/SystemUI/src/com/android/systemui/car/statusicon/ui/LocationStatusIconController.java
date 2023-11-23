@@ -16,25 +16,19 @@
 
 package com.android.systemui.car.statusicon.ui;
 
-import static android.car.user.CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING;
-
-import android.app.ActivityManager;
-import android.car.Car;
-import android.car.user.CarUserManager;
-import android.car.user.UserLifecycleEventFilter;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
 import android.location.LocationManager;
-import android.os.UserHandle;
-import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import com.android.systemui.R;
-import com.android.systemui.car.CarServiceProvider;
 import com.android.systemui.car.statusicon.StatusIconController;
 import com.android.systemui.dagger.qualifiers.Main;
+import com.android.systemui.settings.UserTracker;
 
 import javax.inject.Inject;
 
@@ -47,12 +41,9 @@ public class LocationStatusIconController extends StatusIconController {
     private static final IntentFilter INTENT_FILTER_LOCATION_MODE_CHANGED = new IntentFilter(
             LocationManager.MODE_CHANGED_ACTION);
 
-    private final Context mContext;
+    private final UserTracker mUserTracker;
     private final LocationManager mLocationManager;
-    private final CarServiceProvider mCarServiceProvider;
-
     private boolean mIsLocationActive;
-    private boolean mUserLifecycleListenerRegistered;
 
     private final BroadcastReceiver mLocationReceiver = new BroadcastReceiver() {
         @Override
@@ -61,27 +52,24 @@ public class LocationStatusIconController extends StatusIconController {
         }
     };
 
-    private final CarUserManager.UserLifecycleListener mUserLifecycleListener =
-            new CarUserManager.UserLifecycleListener() {
-                @Override
-                public void onEvent(CarUserManager.UserLifecycleEvent event) {
-                    mContext.getMainExecutor().execute(() -> updateIconVisibilityForCurrentUser());
-                }
-            };
+    private final UserTracker.Callback mUserChangedCallback = new UserTracker.Callback() {
+        @Override
+        public void onUserChanged(int newUser, @NonNull Context userContext) {
+            updateIconVisibilityForCurrentUser();
+        }
+    };
 
     @Inject
     LocationStatusIconController(
             Context context,
-            @Main Resources resources,
-            CarServiceProvider carServiceProvider) {
-
-        mContext = context;
+            UserTracker userTracker,
+            @Main Resources resources) {
+        mUserTracker = userTracker;
         mLocationManager = context.getSystemService(LocationManager.class);
-        mCarServiceProvider = carServiceProvider;
 
         context.registerReceiverForAllUsers(mLocationReceiver, INTENT_FILTER_LOCATION_MODE_CHANGED,
                 /* broadcastPermission= */ null, /* scheduler= */ null);
-        registerForUserChangeEvents();
+        mUserTracker.addCallback(mUserChangedCallback, context.getMainExecutor());
         setIconDrawableToDisplay(resources.getDrawable(R.drawable.ic_location, context.getTheme()));
         updateIconVisibilityForCurrentUser();
     }
@@ -93,24 +81,12 @@ public class LocationStatusIconController extends StatusIconController {
     }
 
     private void updateIconVisibilityForCurrentUser() {
-        int fgUserId = ActivityManager.getCurrentUser();
-        UserHandle fgUserHandle = UserHandle.of(fgUserId);
-        mIsLocationActive = mLocationManager.isLocationEnabledForUser(fgUserHandle);
+        mIsLocationActive = mLocationManager.isLocationEnabledForUser(mUserTracker.getUserHandle());
         updateStatus();
     }
 
-    private void registerForUserChangeEvents() {
-        mCarServiceProvider.addListener(car -> {
-            CarUserManager carUserManager = (CarUserManager) car.getCarManager(
-                    Car.CAR_USER_SERVICE);
-            if (carUserManager != null && !mUserLifecycleListenerRegistered) {
-                UserLifecycleEventFilter filter = new UserLifecycleEventFilter.Builder()
-                        .addEventType(USER_LIFECYCLE_EVENT_TYPE_SWITCHING).build();
-                carUserManager.addListener(Runnable::run, filter, mUserLifecycleListener);
-                mUserLifecycleListenerRegistered = true;
-            } else {
-                Log.e(TAG, "CarUserManager could not be obtained.");
-            }
-        });
+    @Override
+    protected int getId() {
+        return R.id.qc_location_status_icon;
     }
 }

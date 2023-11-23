@@ -51,4 +51,32 @@ public class StringBufferTest extends TestCase {
         assertEquals((int) low, surrogateCP.codePoints().toArray()[1]); // Unmatched surrogate.
         assertEquals((int) '0', surrogateCP.codePoints().toArray()[2]);
     }
+
+    public void testCompareTo() {
+        StringBuffer sb1 = new StringBuffer();
+        StringBuffer sb2 = new StringBuffer("a");
+        assertTrue(sb1.compareTo(sb2) < 0);
+        sb1.append("a");
+        assertEquals(0, sb1.compareTo(sb2));
+
+        // Test special character '\0'
+        sb2.append('\0');
+        assertTrue(sb1.compareTo(sb2) < 0);
+        sb1.append('\0');
+        assertEquals(0, sb1.compareTo(sb2));
+        assertEquals("a\0", sb1.toString());
+
+        // Test a UTF-16 character
+        sb2.append('\u0161');
+        assertTrue(sb1.compareTo(sb2) < 0);
+        sb1.append('\u0161');
+        assertEquals(0, sb1.compareTo(sb2));
+        assertEquals("a\0\u0161", sb1.toString());
+
+        // Now clear the StringBuffer which has "expanded", and test again.
+        sb1.setLength(0);
+        assertEquals(0, new StringBuffer().compareTo(sb1));
+        sb1.append("a");
+        assertEquals(0, new StringBuffer("a").compareTo(sb1));
+    }
 }

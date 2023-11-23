@@ -31,7 +31,6 @@ import com.google.android.enterprise.connectedapps.RobolectricTestUtilities;
 import com.google.android.enterprise.connectedapps.TestScheduledExecutorService;
 import com.google.android.enterprise.connectedapps.exceptions.ProfileRuntimeException;
 import com.google.android.enterprise.connectedapps.exceptions.UnavailableProfileException;
-import com.google.android.enterprise.connectedapps.processor.annotationdiscovery.interfaces.CrossProfileAnnotation;
 import com.google.android.enterprise.connectedapps.testapp.CustomRuntimeException;
 import com.google.android.enterprise.connectedapps.testapp.configuration.TestApplication;
 import com.google.android.enterprise.connectedapps.testapp.connector.TestProfileConnector;
@@ -83,7 +82,7 @@ public class OtherProfileListenableFutureTest {
   @Test
   public void
       other_listenableFuture_automaticConnection_workProfileIsTurnedOff_doesSetUnavailableProfileExceptionImmediately() {
-    testProfileConnector.stopManualConnectionManagement();
+    testProfileConnector.clearConnectionHolders();
     testUtilities.turnOffWorkProfile();
 
     ListenableFuture<Void> future =
@@ -95,7 +94,7 @@ public class OtherProfileListenableFutureTest {
   @Test
   public void
       other_listenableFuture_automaticConnection_workProfileIsTurnedOn_doesNotSetUnavailableProfileException() {
-    testProfileConnector.stopManualConnectionManagement();
+    testProfileConnector.clearConnectionHolders();
     testUtilities.turnOnWorkProfile();
 
     ListenableFuture<Void> future =
@@ -110,7 +109,7 @@ public class OtherProfileListenableFutureTest {
   @Test
   public void other_listenableFuture_automaticConnection_callsMethod()
       throws ExecutionException, InterruptedException {
-    testProfileConnector.stopManualConnectionManagement();
+    testProfileConnector.clearConnectionHolders();
     testUtilities.turnOnWorkProfile();
 
     profileTestCrossProfileType.other().listenableFutureVoidMethod().get();
@@ -121,7 +120,7 @@ public class OtherProfileListenableFutureTest {
   @Test
   public void other_listenableFuture_automaticConnection_setsFuture()
       throws ExecutionException, InterruptedException {
-    testProfileConnector.stopManualConnectionManagement();
+    testProfileConnector.clearConnectionHolders();
     testUtilities.turnOnWorkProfile();
 
     // This would throw an exception if it wasn't set
@@ -131,7 +130,7 @@ public class OtherProfileListenableFutureTest {
   @Test
   public void
       other_listenableFuture_automaticConnection_connectionIsDroppedDuringCall_setUnavailableProfileException() {
-    testProfileConnector.stopManualConnectionManagement();
+    testProfileConnector.clearConnectionHolders();
     testUtilities.turnOnWorkProfile();
     ListenableFuture<Void> future =
         profileTestCrossProfileType.other().listenableFutureMethodWhichNeverSetsTheValue();
@@ -143,138 +142,21 @@ public class OtherProfileListenableFutureTest {
   }
 
   @Test
-  public void other_listenableFuture_timeoutSetOnMethod_doesNotTimeoutEarly() throws Exception {
-    ListenableFuture<Void> listenableFuture =
-        profileTestCrossProfileType
-            .other()
-            .listenableFutureMethodWhichNeverSetsTheValueWith5SecondTimeout();
-
-    scheduledExecutorService.advanceTimeBy(4, TimeUnit.SECONDS);
-
-    assertFutureDoesNotHaveException(listenableFuture, UnavailableProfileException.class);
-  }
-
-  @Test
-  public void other_listenableFuture_timeoutSetOnMethod_timesOut() throws Exception {
-    ListenableFuture<Void> listenableFuture =
-        profileTestCrossProfileType
-            .other()
-            .listenableFutureMethodWhichNeverSetsTheValueWith5SecondTimeout();
-
-    scheduledExecutorService.advanceTimeBy(6, TimeUnit.SECONDS);
-
-    assertFutureHasException(listenableFuture, UnavailableProfileException.class);
-  }
-
-  @Test
-  public void other_listenableFuture_timeoutSetOnType_doesNotTimeoutEarly() throws Exception {
-    ListenableFuture<Void> listenableFuture =
-        profileTestCrossProfileType
-            .other()
-            .listenableFutureMethodWhichNeverSetsTheValueWith7SecondTimeout();
-
-    scheduledExecutorService.advanceTimeBy(6, TimeUnit.SECONDS);
-
-    assertFutureDoesNotHaveException(listenableFuture, UnavailableProfileException.class);
-  }
-
-  @Test
-  public void other_listenableFuture_timeoutSetOnType_timesOut() throws Exception {
-    ListenableFuture<Void> listenableFuture =
-        profileTestCrossProfileType
-            .other()
-            .listenableFutureMethodWhichNeverSetsTheValueWith7SecondTimeout();
-
-    scheduledExecutorService.advanceTimeBy(8, TimeUnit.SECONDS);
-
-    assertFutureHasException(listenableFuture, UnavailableProfileException.class);
-  }
-
-  @Test
-  public void other_listenableFuture_timeoutSetByDefault_doesNotTimeoutEarly() throws Exception {
+  public void other_listenableFuture_doesNotTimeout() throws Exception {
     ListenableFuture<Void> listenableFuture =
         profileTestCrossProfileTypeWhichNeedsContext
             .other()
-            .listenableFutureMethodWhichNeverSetsTheValueWithDefaultTimeout();
+            .listenableFutureMethodWhichNeverSetsTheValue();
 
-    scheduledExecutorService.advanceTimeBy(
-        CrossProfileAnnotation.DEFAULT_TIMEOUT_MILLIS - 1, TimeUnit.MILLISECONDS);
-
-    assertFutureDoesNotHaveException(listenableFuture, UnavailableProfileException.class);
-  }
-
-  @Test
-  public void other_listenableFuture_timeoutSetByDefault_timesOut() throws Exception {
-    ListenableFuture<Void> listenableFuture =
-        profileTestCrossProfileTypeWhichNeedsContext
-            .other()
-            .listenableFutureMethodWhichNeverSetsTheValueWithDefaultTimeout();
-
-    scheduledExecutorService.advanceTimeBy(
-        CrossProfileAnnotation.DEFAULT_TIMEOUT_MILLIS + 1, TimeUnit.MILLISECONDS);
-
-    assertFutureHasException(listenableFuture, UnavailableProfileException.class);
-  }
-
-  @Test
-  public void other_listenableFuture_timeoutSetByCaller_doesNotTimeoutEarly() throws Exception {
-    long timeoutMillis = 5000;
-    ListenableFuture<Void> listenableFuture =
-        profileTestCrossProfileTypeWhichNeedsContext
-            .other()
-            .timeout(timeoutMillis)
-            .listenableFutureMethodWhichNeverSetsTheValueWithDefaultTimeout();
-
-    scheduledExecutorService.advanceTimeBy(timeoutMillis - 1, TimeUnit.MILLISECONDS);
+    scheduledExecutorService.advanceTimeBy(10, TimeUnit.MINUTES);
 
     assertFutureDoesNotHaveException(listenableFuture, UnavailableProfileException.class);
-  }
-
-  @Test
-  public void other_listenableFuture_timeoutSetByCaller_timesOut() throws Exception {
-    long timeoutMillis = 5000;
-    ListenableFuture<Void> listenableFuture =
-        profileTestCrossProfileTypeWhichNeedsContext
-            .other()
-            .timeout(timeoutMillis)
-            .listenableFutureMethodWhichNeverSetsTheValueWithDefaultTimeout();
-
-    scheduledExecutorService.advanceTimeBy(timeoutMillis + 1, TimeUnit.MILLISECONDS);
-
-    assertFutureHasException(listenableFuture, UnavailableProfileException.class);
-  }
-
-  @Test
-  public void other_listenableFuture_doesNotTimeoutAfterCompletion() throws Exception {
-    // We would expect an exception if the timeout continued after completion
-    ListenableFuture<Void> listenableFuture =
-        profileTestCrossProfileType.other().listenableFutureVoidMethod();
-
-    scheduledExecutorService.advanceTimeBy(
-        CrossProfileAnnotation.DEFAULT_TIMEOUT_MILLIS + 1, TimeUnit.MILLISECONDS);
-
-    assertFutureDoesNotHaveException(listenableFuture, UnavailableProfileException.class);
-  }
-
-  @Test
-  public void other_listenableFuture_doesNotTimeoutAfterException() throws Exception {
-    // We would expect an exception if the timeout continued after completion
-    ListenableFuture<Void> unusedFuture =
-        profileTestCrossProfileType
-            .other()
-            .listenableFutureVoidMethodWhichSetsIllegalStateException();
-
-    scheduledExecutorService.advanceTimeBy(
-        CrossProfileAnnotation.DEFAULT_TIMEOUT_MILLIS + 1, TimeUnit.MILLISECONDS);
-
-    // We expect there would be an exception thrown due to setting the future twice if it timed out
-    // now
   }
 
   @Test
   public void other_listenableFuture_throwsException_exceptionIsWrapped() {
     // The exception is only catchable when the connection is already established.
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     try {
       ListenableFuture<Void> unusedFuture =

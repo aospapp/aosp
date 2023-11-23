@@ -43,7 +43,7 @@ rust_defaults {
     name: "crossbeam-queue_test_defaults",
     crate_name: "crossbeam_queue",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.3.4",
+    cargo_pkg_version: "0.3.8",
     test_suites: ["general-tests"],
     auto_gen_config: true,
     edition: "2018",
@@ -85,7 +85,7 @@ rust_library {
     host_supported: true,
     crate_name: "crossbeam_queue",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.3.4",
+    cargo_pkg_version: "0.3.8",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -101,4 +101,6 @@ rust_library {
         "//apex_available:platform",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
 }

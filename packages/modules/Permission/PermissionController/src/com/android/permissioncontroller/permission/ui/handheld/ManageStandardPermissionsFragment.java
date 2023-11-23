@@ -20,7 +20,6 @@ import static androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory;
 import static com.android.permissioncontroller.Constants.EXTRA_SESSION_ID;
 import static com.android.permissioncontroller.Constants.INVALID_SESSION_ID;
 import static com.android.permissioncontroller.permission.ui.handheld.UtilsKt.pressBack;
-import static com.android.permissioncontroller.permission.ui.handheld.v31.DashboardUtilsKt.shouldShowPermissionsDashboard;
 
 import android.app.Application;
 import android.content.Intent;
@@ -39,6 +38,7 @@ import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.permission.ui.ManagePermissionsActivity;
 import com.android.permissioncontroller.permission.ui.UnusedAppsFragment;
 import com.android.permissioncontroller.permission.ui.model.ManageStandardPermissionsViewModel;
+import com.android.permissioncontroller.permission.utils.KotlinUtils;
 import com.android.permissioncontroller.permission.utils.StringUtils;
 import com.android.permissioncontroller.permission.utils.Utils;
 import com.android.settingslib.widget.FooterPreference;
@@ -77,12 +77,20 @@ public final class ManageStandardPermissionsFragment extends ManagePermissionsFr
         mPermissionGroups = mViewModel.getUiDataLiveData().getValue();
 
         mViewModel.getUiDataLiveData().observe(this, permissionGroups -> {
+            // Once we have loaded data for the first time, further loads should be staggered,
+            // for performance reasons.
+            mViewModel.getUiDataLiveData().setLoadStaggered(true);
             if (permissionGroups != null) {
                 mPermissionGroups = permissionGroups;
                 updatePermissionsUi();
             } else {
                 Log.e(LOG_TAG, "ViewModel returned null data, exiting");
                 getActivity().finishAfterTransition();
+            }
+
+            // If we've loaded all LiveDatas, no need to prioritize loading any particular one
+            if (!mViewModel.getUiDataLiveData().isStale()) {
+                mViewModel.getUiDataLiveData().setFirstLoadGroup(null);
             }
         });
 
@@ -115,7 +123,7 @@ public final class ManageStandardPermissionsFragment extends ManagePermissionsFr
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         super.onCreateOptionsMenu(menu, inflater);
 
-        if (shouldShowPermissionsDashboard()) {
+        if (KotlinUtils.INSTANCE.shouldShowPermissionsDashboard()) {
             menu.add(Menu.NONE, MENU_PERMISSION_USAGE, Menu.NONE, R.string.permission_usage_title);
         }
     }
@@ -209,6 +217,9 @@ public final class ManageStandardPermissionsFragment extends ManagePermissionsFr
 
     @Override
     public void showPermissionApps(String permissionGroupName) {
+        // If we return to this page within a reasonable time, prioritize loading data from the
+        // permission group whose page we are going to, as that is group most likely to have changed
+        mViewModel.getUiDataLiveData().setFirstLoadGroup(permissionGroupName);
         mViewModel.showPermissionApps(this, PermissionAppsFragment.createArgs(
                 permissionGroupName, getArguments().getLong(EXTRA_SESSION_ID)));
     }

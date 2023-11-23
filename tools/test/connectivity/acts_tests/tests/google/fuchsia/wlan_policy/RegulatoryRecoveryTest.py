@@ -13,9 +13,9 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License
+
 from acts import signals
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
-import time
 
 
 class RegulatoryRecoveryTest(WifiBaseTest):
@@ -68,7 +68,7 @@ class RegulatoryRecoveryTest(WifiBaseTest):
             # functionality so that there is no automated WLAN behavior.
             fd.wlan_controller.set_country_code("WW")
             fd.wlan_policy_controller.stop_client_connections()
-            fd.wlan_ap_policy_lib.wlanStopAllAccessPoint()
+            fd.sl4f.wlan_ap_policy_lib.wlanStopAllAccessPoint()
 
     def set_country_code(self, fd):
         try:
@@ -101,11 +101,11 @@ class RegulatoryRecoveryTest(WifiBaseTest):
             self.set_country_code(fd)
 
             # Reset the listeners and verify the current state.
-            fd.wlan_policy_lib.wlanSetNewListener()
-            fd.wlan_ap_policy_lib.wlanSetNewListener()
+            fd.sl4f.wlan_policy_lib.wlanSetNewListener()
+            fd.sl4f.wlan_ap_policy_lib.wlanSetNewListener()
 
             # Verify that the client and AP are still stopped.
-            client_state = fd.wlan_policy_lib.wlanGetUpdate()
+            client_state = fd.sl4f.wlan_policy_lib.wlanGetUpdate()
             if client_state["error"]:
                 raise signals.TestFailure(
                     "error querying client state: {}".format(
@@ -115,7 +115,7 @@ class RegulatoryRecoveryTest(WifiBaseTest):
                     "client connections in unexpected state: {}".format(
                         client_state["result"]["state"]))
 
-            ap_state = fd.wlan_ap_policy_lib.wlanGetUpdate()
+            ap_state = fd.sl4f.wlan_ap_policy_lib.wlanGetUpdate()
             if ap_state["error"]:
                 raise signals.TestFailure("error querying AP state: {}".format(
                     ap_state["error"]))
@@ -136,20 +136,19 @@ class RegulatoryRecoveryTest(WifiBaseTest):
             # Start client connections and start an AP before setting the
             # country code.
             fd.wlan_policy_controller.start_client_connections()
-            fd.wlan_ap_policy_lib.wlanStartAccessPoint(test_ssid,
-                                                       test_security_type, "",
-                                                       "local_only", "any")
+            fd.sl4f.wlan_ap_policy_lib.wlanStartAccessPoint(
+                test_ssid, test_security_type, "", "local_only", "any")
 
             # Set the country code.
             self.set_country_code(fd)
 
             # Reset the listeners and verify the current state.
-            fd.wlan_policy_lib.wlanSetNewListener()
-            fd.wlan_ap_policy_lib.wlanSetNewListener()
+            fd.sl4f.wlan_policy_lib.wlanSetNewListener()
+            fd.sl4f.wlan_ap_policy_lib.wlanSetNewListener()
 
             # Verify that client connections are enabled and the AP is brought
             # up again.
-            client_state = fd.wlan_policy_lib.wlanGetUpdate()
+            client_state = fd.sl4f.wlan_policy_lib.wlanGetUpdate()
             if client_state["error"]:
                 raise signals.TestFailure(
                     "error querying client state: {}".format(
@@ -159,7 +158,7 @@ class RegulatoryRecoveryTest(WifiBaseTest):
                     "client connections in unexpected state: {}".format(
                         client_state["result"]["state"]))
 
-            ap_state = fd.wlan_ap_policy_lib.wlanGetUpdate()
+            ap_state = fd.sl4f.wlan_ap_policy_lib.wlanGetUpdate()
             if ap_state["error"]:
                 raise signals.TestFailure("error querying AP state: {}".format(
                     ap_state["error"]))

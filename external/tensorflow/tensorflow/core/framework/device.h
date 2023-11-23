@@ -137,7 +137,7 @@ class Device : public DeviceBase {
   // 'graph' supplies the partition of the graph assigned to this
   // device.
   virtual Status MaybeRewriteGraph(std::unique_ptr<Graph>* /*graph*/) {
-    return Status::OK();
+    return OkStatus();
   }
 
   // Sets `out_context` a new DeviceContext* for executing a graph, or nullptr
@@ -148,7 +148,7 @@ class Device : public DeviceBase {
   // and should call Unref().
   virtual Status TryGetDeviceContext(DeviceContext** out_context) {
     *out_context = nullptr;
-    return Status::OK();
+    return OkStatus();
   }
 
   // Returns the op segment of this device.  The caller can reuse op
@@ -173,6 +173,13 @@ class Device : public DeviceBase {
     return BuildDeviceAttributes(name, device, memory_limit, locality, "");
   }
 
+  // Updates `attributes()`, indicating the XLA global ID associated with this
+  // device. This ID is unique across clients in a multi-client setup. For TPUs
+  // this does not happen until the TPU system has been initialized.
+  void set_xla_global_id(int64_t id) override {
+    device_attributes_.set_xla_global_id(id);
+  }
+
   // Clears the resource manager associated with this device.
   void ClearResourceMgr() { rmgr_->Clear(); }
 
@@ -188,7 +195,7 @@ class Device : public DeviceBase {
   }
 
  private:
-  const DeviceAttributes device_attributes_;
+  DeviceAttributes device_attributes_;
   DeviceNameUtils::ParsedName parsed_name_;
 
   // op_seg_ maps session handle and op name to OpKernel objects.

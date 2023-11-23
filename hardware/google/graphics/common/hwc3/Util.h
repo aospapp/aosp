@@ -28,13 +28,25 @@
                                            FullMethodName{ __PRETTY_FUNCTION__ };           \
                      constexpr static const char *__kFullName__ =  __kFullNameObj__.get();  \
                      ATRACE_NAME(__kFullName__)
+
+#define DEBUG_DISPLAY_FUNC(display)                                                     \
+    constexpr static FullMethodName __kFullNameObj__{__PRETTY_FUNCTION__};              \
+    constexpr static const char *__kFullName__ = __kFullNameObj__.get();                \
+    if (CC_UNLIKELY(ATRACE_ENABLED())) {                                                \
+        ::android::String8 _traceName_;                                                 \
+        _traceName_.appendFormat("%s(display=%" PRId64 ",..)", __kFullName__, display); \
+        ATRACE_BEGIN(_traceName_.string());                                             \
+    }                                                                                   \
+    ScopedTraceEnder _traceEnder_
 #else
 
 #ifdef LOG_FUNC
-#define DEBUG_FUNC() DebugFunction _dbgFnObj_(__func__)
+#define DEBUG_DISPLAY_FUNC(display) DebugFunction _dbgFnObj_(__func__, display)
 #else
-#define DEBUG_FUNC()
+#define DEBUG_DISPLAY_FUNC(display)
 #endif
+
+#define DEBUG_FUNC() DEBUG_DISPLAY_FUNC(std::nullopt)
 
 #endif
 
@@ -51,14 +63,33 @@
 
 namespace aidl::android::hardware::graphics::composer3::impl {
 
+class ScopedTraceEnder {
+public:
+    ~ScopedTraceEnder() { ATRACE_END(); }
+};
+
 class DebugFunction {
 public:
-    DebugFunction(const char* name) : mName(name) { LOG(INFO) << mName << " Enter"; }
+    DebugFunction(const char *name, std::optional<int64_t> display)
+          : mName(name), mDisplay(display) {
+        if (mDisplay) {
+            LOG(INFO) << mName << "(display=" << *mDisplay << ",..) Enter";
+        } else {
+            LOG(INFO) << mName << " Enter";
+        }
+    }
 
-    ~DebugFunction() { LOG(INFO) << mName << " Exit"; }
+    ~DebugFunction() {
+        if (mDisplay) {
+            LOG(INFO) << mName << "(display=" << *mDisplay << ",..) Exit";
+        } else {
+            LOG(INFO) << mName << " Exit";
+        }
+    }
 
 private:
     const char* mName;
+    std::optional<int64_t> mDisplay;
 };
 
 class FullMethodName {

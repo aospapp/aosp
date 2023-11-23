@@ -1,1 +1,2 @@
 get_prop(priv_app, vendor_aware_available_prop)
+dontaudit priv_app sysfs_msm_subsys:file r_file_perms;

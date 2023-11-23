@@ -17,13 +17,16 @@
 package android.security.cts;
 
 import android.platform.test.annotations.AsbSecurityTest;
-import com.android.compatibility.common.util.CrashUtils;
+
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
+import com.android.sts.common.util.TombstoneUtils;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import org.junit.runner.RunWith;
+
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2018_9537 extends SecurityTestCase {
+public class CVE_2018_9537 extends NonRootSecurityTestCase {
 
     /**
      * b/112891564
@@ -34,11 +37,11 @@ public class CVE_2018_9537 extends SecurityTestCase {
     @Test
     public void testPocCVE_2018_9537() throws Exception {
         String binaryName = "CVE-2018-9537";
-        String signals[] = {CrashUtils.SIGSEGV, CrashUtils.SIGBUS, CrashUtils.SIGABRT};
+        String signals[] = {TombstoneUtils.Signals.SIGSEGV, TombstoneUtils.Signals.SIGBUS, TombstoneUtils.Signals.SIGABRT};
         AdbUtils.pocConfig testConfig = new AdbUtils.pocConfig(binaryName, getDevice());
         // example of check crash to skip:
         // Abort message: 'frameworks/av/media/extractors/mkv/MatroskaExtractor.cpp:548 CHECK(mCluster) failed.'
-        testConfig.config = new CrashUtils.Config()
+        testConfig.config = new TombstoneUtils.Config()
                 .setProcessPatterns(binaryName)
                 .appendAbortMessageExcludes("CHECK\\(.*?\\)");
         testConfig.config.setSignals(signals);

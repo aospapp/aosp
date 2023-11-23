@@ -22,6 +22,30 @@
           <!-- Params from config.xml that can be overlaid -->
             <item name="config_isMultichip" type="bool" />
             <item name="config_multichipConfigPath" type="string" />
+            <item name="enable_filters" type="bool" />
+            <item name="filter_distance_inliers_percent" type="integer" />
+            <item name="filter_distance_window" type="integer" />
+            <item name="filter_angle_inliers_percent" type="integer" />
+            <item name="filter_angle_window" type="integer" />
+            <item name="pose_source_type" type="string" />
+            <item name="enable_primer_est_elevation" type="bool" />
+            <item name="enable_primer_aoa" type="bool" />
+            <item name="primer_fov_degrees" type="integer" />
+            <item name="enable_azimuth_mirroring" type="bool" />
+            <item name="predict_rear_azimuths" type="bool" />
+            <item name="mirror_detection_window" type="integer" />
+            <item name="front_mirror_dps" type="integer" />
+            <item name="back_mirror_dps" type="integer" />
+            <item name="prediction_timeout_seconds" type="integer" />
+            <item name="advertise_aoa_criteria_angle" type="integer" />
+            <item name="advertise_time_threshold_millis" type="integer" />
+            <item name="advertise_array_size_to_check" type="integer" />
+            <item name="advertise_array_start_index_to_cal_variance" type="integer" />
+            <item name="advertise_array_end_index_to_cal_variance" type="integer" />
+            <item name="advertise_trusted_variance_value" type="integer" />
+            <item name="rx_data_max_packets_to_store" type="integer" />
+            <item name="background_ranging_enabled" type="bool" />
+            <item name="ranging_error_streak_timer_enabled" type="bool" />
           <!-- Params from config.xml that can be overlaid -->
 
           <!-- Params from strings.xml that can be overlaid -->

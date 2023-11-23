@@ -76,7 +76,7 @@ public abstract class AugmentedAutofillManualActivityLaunchTestCase
         mSafeCleanerRule
                 .run(() -> sAugmentedReplier.assertNoUnhandledFillRequests())
                 .run(() -> {
-                    AugmentedHelper.resetAugmentedService();
+                    AugmentedHelper.resetAugmentedService(sContext);
                     if (mServiceWatcher != null) {
                         mServiceWatcher.waitOnDisconnected();
                     }
@@ -107,10 +107,9 @@ public abstract class AugmentedAutofillManualActivityLaunchTestCase
         }
 
         mServiceWatcher = CtsAugmentedAutofillService.setServiceWatcher();
-        AugmentedHelper.setAugmentedService(CtsAugmentedAutofillService.SERVICE_NAME);
+        AugmentedHelper.setAugmentedService(CtsAugmentedAutofillService.SERVICE_NAME, sContext);
 
         CtsAugmentedAutofillService service = mServiceWatcher.waitOnConnected();
-        service.waitUntilConnected();
         return service;
     }
 }

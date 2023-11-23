@@ -20,7 +20,6 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.widget.NumberPicker;
 
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -29,13 +28,11 @@ import java.util.Map;
  */
 public class NumberPickerNudgeHandler implements View.OnKeyListener {
 
-    private static final Map<Integer, Integer> KEYCODE_TO_DIRECTION_MAP =
-            new HashMap<Integer, Integer>() {{
-                put(KeyEvent.KEYCODE_DPAD_UP, View.FOCUS_UP);
-                put(KeyEvent.KEYCODE_DPAD_DOWN, View.FOCUS_DOWN);
-                put(KeyEvent.KEYCODE_DPAD_LEFT, View.FOCUS_LEFT);
-                put(KeyEvent.KEYCODE_DPAD_RIGHT, View.FOCUS_RIGHT);
-            }};
+    private static final Map<Integer, Integer> KEYCODE_TO_DIRECTION_MAP = Map.of(
+            KeyEvent.KEYCODE_DPAD_UP, View.FOCUS_UP,
+            KeyEvent.KEYCODE_DPAD_DOWN, View.FOCUS_DOWN,
+            KeyEvent.KEYCODE_DPAD_LEFT, View.FOCUS_LEFT,
+            KeyEvent.KEYCODE_DPAD_RIGHT, View.FOCUS_RIGHT);
 
     @Override
     public boolean onKey(View view, int keyCode, KeyEvent event) {

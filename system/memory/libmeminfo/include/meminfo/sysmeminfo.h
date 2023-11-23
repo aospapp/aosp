@@ -52,15 +52,24 @@ class SysMemInfo final {
     static constexpr const char kMemActive[] = "Active:";
     static constexpr const char kMemInactive[] = "Inactive:";
     static constexpr const char kMemUnevictable[] = "Unevictable:";
-
+    static constexpr const char kMemAvailable[] = "MemAvailable:";
+    static constexpr const char kMemActiveAnon[] = "Active(anon):";
+    static constexpr const char kMemInactiveAnon[] = "Inactive(anon):";
+    static constexpr const char kMemActiveFile[] = "Active(file):";
+    static constexpr const char kMemInactiveFile[] = "Inactive(file):";
+    static constexpr const char kMemCmaTotal[] = "CmaTotal:";
+    static constexpr const char kMemCmaFree[] = "CmaFree:";
 
     static constexpr std::initializer_list<std::string_view> kDefaultSysMemInfoTags = {
-            SysMemInfo::kMemTotal,      SysMemInfo::kMemFree,        SysMemInfo::kMemBuffers,
-            SysMemInfo::kMemCached,     SysMemInfo::kMemShmem,       SysMemInfo::kMemSlab,
-            SysMemInfo::kMemSReclaim,   SysMemInfo::kMemSUnreclaim,  SysMemInfo::kMemSwapTotal,
-            SysMemInfo::kMemSwapFree,   SysMemInfo::kMemMapped,      SysMemInfo::kMemVmallocUsed,
-            SysMemInfo::kMemPageTables, SysMemInfo::kMemKernelStack, SysMemInfo::kMemKReclaimable,
-            SysMemInfo::kMemActive,     SysMemInfo::kMemInactive,    SysMemInfo::kMemUnevictable,
+            SysMemInfo::kMemTotal,      SysMemInfo::kMemFree,         SysMemInfo::kMemBuffers,
+            SysMemInfo::kMemCached,     SysMemInfo::kMemShmem,        SysMemInfo::kMemSlab,
+            SysMemInfo::kMemSReclaim,   SysMemInfo::kMemSUnreclaim,   SysMemInfo::kMemSwapTotal,
+            SysMemInfo::kMemSwapFree,   SysMemInfo::kMemMapped,       SysMemInfo::kMemVmallocUsed,
+            SysMemInfo::kMemPageTables, SysMemInfo::kMemKernelStack,  SysMemInfo::kMemKReclaimable,
+            SysMemInfo::kMemActive,     SysMemInfo::kMemInactive,     SysMemInfo::kMemUnevictable,
+            SysMemInfo::kMemAvailable,  SysMemInfo::kMemActiveAnon,   SysMemInfo::kMemInactiveAnon,
+            SysMemInfo::kMemActiveFile, SysMemInfo::kMemInactiveFile, SysMemInfo::kMemCmaTotal,
+            SysMemInfo::kMemCmaFree,
     };
 
     SysMemInfo() = default;
@@ -78,31 +87,48 @@ class SysMemInfo final {
     uint64_t ReadVmallocInfo();
 
     // getters
-    uint64_t mem_total_kb() { return mem_in_kb_[kMemTotal]; }
-    uint64_t mem_free_kb() { return mem_in_kb_[kMemFree]; }
-    uint64_t mem_buffers_kb() { return mem_in_kb_[kMemBuffers]; }
-    uint64_t mem_cached_kb() { return mem_in_kb_[kMemCached]; }
-    uint64_t mem_shmem_kb() { return mem_in_kb_[kMemShmem]; }
-    uint64_t mem_slab_kb() { return mem_in_kb_[kMemSlab]; }
-    uint64_t mem_slab_reclaimable_kb() { return mem_in_kb_[kMemSReclaim]; }
-    uint64_t mem_slab_unreclaimable_kb() { return mem_in_kb_[kMemSUnreclaim]; }
-    uint64_t mem_swap_kb() { return mem_in_kb_[kMemSwapTotal]; }
-    uint64_t mem_swap_free_kb() { return mem_in_kb_[kMemSwapFree]; }
-    uint64_t mem_mapped_kb() { return mem_in_kb_[kMemMapped]; }
-    uint64_t mem_vmalloc_used_kb() { return mem_in_kb_[kMemVmallocUsed]; }
-    uint64_t mem_page_tables_kb() { return mem_in_kb_[kMemPageTables]; }
-    uint64_t mem_kernel_stack_kb() { return mem_in_kb_[kMemKernelStack]; }
-    uint64_t mem_kreclaimable_kb() { return mem_in_kb_[kMemKReclaimable]; }
-    uint64_t mem_active_kb() { return mem_in_kb_[kMemActive]; }
-    uint64_t mem_inactive_kb() { return mem_in_kb_[kMemInactive]; }
-    uint64_t mem_unevictable_kb() { return mem_in_kb_[kMemUnevictable]; }
-    uint64_t mem_zram_kb(const char* zram_dev = nullptr);
+    uint64_t mem_total_kb() const { return find_mem_by_tag(kMemTotal); }
+    uint64_t mem_free_kb() const { return find_mem_by_tag(kMemFree); }
+    uint64_t mem_buffers_kb() const { return find_mem_by_tag(kMemBuffers); }
+    uint64_t mem_cached_kb() const { return find_mem_by_tag(kMemCached); }
+    uint64_t mem_shmem_kb() const { return find_mem_by_tag(kMemShmem); }
+    uint64_t mem_slab_kb() const { return find_mem_by_tag(kMemSlab); }
+    uint64_t mem_slab_reclaimable_kb() const { return find_mem_by_tag(kMemSReclaim); }
+    uint64_t mem_slab_unreclaimable_kb() const { return find_mem_by_tag(kMemSUnreclaim); }
+    uint64_t mem_swap_kb() const { return find_mem_by_tag(kMemSwapTotal); }
+    uint64_t mem_swap_free_kb() const { return find_mem_by_tag(kMemSwapFree); }
+    uint64_t mem_mapped_kb() const { return find_mem_by_tag(kMemMapped); }
+    uint64_t mem_vmalloc_used_kb() const { return find_mem_by_tag(kMemVmallocUsed); }
+    uint64_t mem_page_tables_kb() const { return find_mem_by_tag(kMemPageTables); }
+    uint64_t mem_kernel_stack_kb() const { return find_mem_by_tag(kMemKernelStack); }
+    uint64_t mem_kreclaimable_kb() const { return find_mem_by_tag(kMemKReclaimable); }
+    uint64_t mem_active_kb() const { return find_mem_by_tag(kMemActive); }
+    uint64_t mem_inactive_kb() const { return find_mem_by_tag(kMemInactive); }
+    uint64_t mem_unevictable_kb() const { return find_mem_by_tag(kMemUnevictable); }
+    uint64_t mem_available_kb() const { return find_mem_by_tag(kMemAvailable); }
+    uint64_t mem_active_anon_kb() const { return find_mem_by_tag(kMemActiveAnon); }
+    uint64_t mem_inactive_anon_kb() const { return find_mem_by_tag(kMemInactiveAnon); }
+    uint64_t mem_active_file_kb() const { return find_mem_by_tag(kMemActiveFile); }
+    uint64_t mem_inactive_file_kb() const { return find_mem_by_tag(kMemInactiveFile); }
+    uint64_t mem_cma_total_kb() const { return find_mem_by_tag(kMemCmaTotal); }
+    uint64_t mem_cma_free_kb() const { return find_mem_by_tag(kMemCmaFree); }
+    uint64_t mem_zram_kb(const char* zram_dev = nullptr) const;
+    uint64_t mem_compacted_kb(const char* zram_dev = nullptr);
 
   private:
     std::map<std::string_view, uint64_t> mem_in_kb_;
-    bool MemZramDevice(const char* zram_dev, uint64_t* mem_zram_dev);
+    bool MemZramDevice(const char* zram_dev, uint64_t* mem_zram_dev) const;
+    bool GetTotalMemCompacted(const char* zram_dev, uint64_t* out_mem_compacted);
     bool ReadMemInfo(const char* path, size_t ntags, const std::string_view* tags,
                      std::function<void(std::string_view, uint64_t)> store_val);
+    // Convenience function to avoid duplicating code for each memory category.
+    uint64_t find_mem_by_tag(const char kTag[]) const {
+        auto it = mem_in_kb_.find(kTag);
+        if (it != mem_in_kb_.end()) {
+            return it->second;
+        }
+        return 0;
+    }
 };
 
 // Parse /proc/vmallocinfo and return total physical memory mapped

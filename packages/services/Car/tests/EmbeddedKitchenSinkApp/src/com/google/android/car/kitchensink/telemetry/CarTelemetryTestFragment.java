@@ -21,7 +21,9 @@ import static android.car.telemetry.TelemetryProto.StatsPublisher.SystemMetric.A
 import static android.car.telemetry.TelemetryProto.StatsPublisher.SystemMetric.APP_CRASH_OCCURRED;
 import static android.car.telemetry.TelemetryProto.StatsPublisher.SystemMetric.APP_START_MEMORY_STATE_CAPTURED;
 import static android.car.telemetry.TelemetryProto.StatsPublisher.SystemMetric.PROCESS_CPU_TIME;
+import static android.car.telemetry.TelemetryProto.StatsPublisher.SystemMetric.PROCESS_MEMORY_SNAPSHOT;
 import static android.car.telemetry.TelemetryProto.StatsPublisher.SystemMetric.PROCESS_MEMORY_STATE;
+import static android.car.telemetry.TelemetryProto.StatsPublisher.SystemMetric.PROCESS_START_TIME;
 import static android.car.telemetry.TelemetryProto.StatsPublisher.SystemMetric.WTF_OCCURRED;
 
 import android.annotation.NonNull;
@@ -69,8 +71,12 @@ public class CarTelemetryTestFragment extends Fragment {
     /** Vehicle property via gear change section. */
     private static final String LUA_SCRIPT_ON_GEAR_CHANGE =
             "function onGearChange(published_data, state)\n"
-                    + "    result = {data = \"Hello World!\"}\n"
-                    + "    on_script_finished(result)\n"
+                    + "    t = {}\n"
+                    + "    for k, v in ipairs(published_data) do\n"
+                    + "        t['#' .. k] = 'Gear: ' .. v['vp.intVal'] \n"
+                    + "        log(v[\"vp.intVal\"])\n"
+                    + "    end\n"
+                    + "    on_metrics_report(t)\n"
                     + "end\n";
 
     private static final TelemetryProto.Publisher VEHICLE_PROPERTY_PUBLISHER =
@@ -90,7 +96,7 @@ public class CarTelemetryTestFragment extends Fragment {
                             TelemetryProto.Subscriber.newBuilder()
                                     .setHandler("onGearChange")
                                     .setPublisher(VEHICLE_PROPERTY_PUBLISHER)
-                                    .setPriority(SCRIPT_EXECUTION_PRIORITY_LOW))
+                                    .setPriority(SCRIPT_EXECUTION_PRIORITY_HIGH))
                     .build();
     private static final String ON_GEAR_CHANGE_CONFIG_NAME =
             METRICS_CONFIG_ON_GEAR_CHANGE_V1.getName();
@@ -98,8 +104,8 @@ public class CarTelemetryTestFragment extends Fragment {
     /** ProcessMemoryState section. */
     private static final String LUA_SCRIPT_ON_PROCESS_MEMORY_STATE = new StringBuilder()
             .append("function calculateAverage(tbl)\n")
-            .append("    sum = 0\n")
-            .append("    size = 0\n")
+            .append("    local sum = 0\n")
+            .append("    local size = 0\n")
             .append("    for _, value in ipairs(tbl) do\n")
             .append("        sum = sum + value\n")
             .append("        size = size + 1\n")
@@ -107,18 +113,19 @@ public class CarTelemetryTestFragment extends Fragment {
             .append("    return sum/size\n")
             .append("end\n")
             .append("function onProcessMemory(published_data, state)\n")
-            .append("    result = {}\n")
-            .append("    result.page_fault_avg = calculateAverage(published_data.page_fault)\n")
+            .append("    local result = {}\n")
+            .append("    result.page_fault_avg = calculateAverage("
+                    + "published_data['stats.page_fault'])\n")
             .append("    result.major_page_fault_avg = calculateAverage("
-                    + "published_data.page_major_fault)\n")
+                    + "published_data['stats.page_major_fault'])\n")
             .append("    result.oom_adj_score_avg = calculateAverage("
-                    + "published_data.oom_adj_score)\n")
+                    + "published_data['stats.oom_adj_score'])\n")
             .append("    result.rss_in_bytes_avg = calculateAverage("
-                    + "published_data.rss_in_bytes)\n")
+                    + "published_data['stats.rss_in_bytes'])\n")
             .append("    result.swap_in_bytes_avg = calculateAverage("
-                    + "published_data.swap_in_bytes)\n")
+                    + "published_data['stats.swap_in_bytes'])\n")
             .append("    result.cache_in_bytes_avg = calculateAverage("
-                    + "published_data.cache_in_bytes)\n")
+                    + "published_data['stats.cache_in_bytes'])\n")
             .append("    on_script_finished(result)\n")
             .append("end\n")
             .toString();
@@ -145,8 +152,8 @@ public class CarTelemetryTestFragment extends Fragment {
     /** AppStartMemoryStateCaptured section. */
     private static final String LUA_SCRIPT_ON_APP_START_MEMORY_STATE_CAPTURED = new StringBuilder()
             .append("function calculateAverage(tbl)\n")
-            .append("    sum = 0\n")
-            .append("    size = 0\n")
+            .append("    local sum = 0\n")
+            .append("    local size = 0\n")
             .append("    for _, value in ipairs(tbl) do\n")
             .append("        sum = sum + value\n")
             .append("        size = size + 1\n")
@@ -154,17 +161,18 @@ public class CarTelemetryTestFragment extends Fragment {
             .append("    return sum/size\n")
             .append("end\n")
             .append("function onAppStartMemoryStateCaptured(published_data, state)\n")
-            .append("    result = {}\n")
-            .append("    result.uid = published_data.uid\n")
-            .append("    result.page_fault_avg = calculateAverage(published_data.page_fault)\n")
+            .append("    local result = {}\n")
+            .append("    result.uid = published_data['stats.uid']\n")
+            .append("    result.page_fault_avg = calculateAverage("
+                    + "published_data['stats.page_fault'])\n")
             .append("    result.major_page_fault_avg = calculateAverage("
-                    + "published_data.page_major_fault)\n")
+                    + "published_data['stats.page_major_fault'])\n")
             .append("    result.rss_in_bytes_avg = calculateAverage("
-                    + "published_data.rss_in_bytes)\n")
+                    + "published_data['stats.rss_in_bytes'])\n")
             .append("    result.swap_in_bytes_avg = calculateAverage("
-                    + "published_data.swap_in_bytes)\n")
+                    + "published_data['stats.swap_in_bytes'])\n")
             .append("    result.cache_in_bytes_avg = calculateAverage("
-                    + "published_data.cache_in_bytes)\n")
+                    + "published_data['stats.cache_in_bytes'])\n")
             .append("    on_script_finished(result)\n")
             .append("end\n")
             .toString();
@@ -192,8 +200,8 @@ public class CarTelemetryTestFragment extends Fragment {
     private static final String LUA_SCRIPT_ON_ACTIVITY_FOREGROUND_STATE_CHANGED =
             new StringBuilder()
                     .append("function onActivityForegroundStateChanged(published_data, state)\n")
-                    .append("    result = {}\n")
-                    .append("    n = 0\n")
+                    .append("    local result = {}\n")
+                    .append("    local n = 0\n")
                     .append("    for k, v in pairs(published_data) do\n")
                     .append("        result[k] = v[1]\n")
                     .append("        n = n + 1\n")
@@ -227,8 +235,8 @@ public class CarTelemetryTestFragment extends Fragment {
     private static final String LUA_SCRIPT_ON_PROCESS_CPU_TIME =
             new StringBuilder()
                     .append("function onProcessCpuTime(published_data, state)\n")
-                    .append("    result = {}\n")
-                    .append("    n = 0\n")
+                    .append("    local result = {}\n")
+                    .append("    local n = 0\n")
                     .append("    for k, v in pairs(published_data) do\n")
                     .append("        result[k] = v[1]\n")
                     .append("        n = n + 1\n")
@@ -262,7 +270,7 @@ public class CarTelemetryTestFragment extends Fragment {
     private static final String LUA_SCRIPT_ON_APP_CRASH_OCCURRED =
             new StringBuilder()
                     .append("function onAppCrashOccurred(published_data, state)\n")
-                    .append("    result = {}\n")
+                    .append("    local result = {}\n")
                     .append("    for k, v in pairs(published_data) do\n")
                     .append("        result[k] = v[1]\n")
                     .append("    end\n")
@@ -294,7 +302,7 @@ public class CarTelemetryTestFragment extends Fragment {
     private static final String LUA_SCRIPT_ON_ANR_OCCURRED =
             new StringBuilder()
                     .append("function onAnrOccurred(published_data, state)\n")
-                    .append("    result = {}\n")
+                    .append("    local result = {}\n")
                     .append("    for k, v in pairs(published_data) do\n")
                     .append("        result[k] = v[1]\n")
                     .append("    end\n")
@@ -325,7 +333,7 @@ public class CarTelemetryTestFragment extends Fragment {
     private static final String LUA_SCRIPT_ON_WTF_OCCURRED =
             new StringBuilder()
                     .append("function onWtfOccurred(published_data, state)\n")
-                    .append("    result = {}\n")
+                    .append("    local result = {}\n")
                     .append("    for k, v in pairs(published_data) do\n")
                     .append("        result[k] = v[1]\n")
                     .append("    end\n")
@@ -427,15 +435,13 @@ public class CarTelemetryTestFragment extends Fragment {
                     .append("        iterations = 0\n")
                     .append("    end\n")
                     .append("    state['iterations'] = iterations + 1\n")
-                    .append("    report = {}\n")
-                    .append("    local ts_key = 'timestamp_' .. iterations\n")
-                    .append("    report[ts_key] = published_data['timestamp']\n")
-                    .append("    local meminfo = published_data['meminfo']\n")
+                    .append("    local meminfo = published_data['mem.meminfo']\n")
                     .append("    local available_memory = string.match(meminfo, "
                             + "'.*MemAvailable:%s*(%d+).*')\n")
                     .append("    local mem_key = 'available_memory_' .. iterations\n")
-                    .append("    report[mem_key] = available_memory\n")
-                    .append("    on_metrics_report(report, state)\n")
+                    .append("    published_data[mem_key] = available_memory\n")
+                    .append("    published_data['mem.meminfo'] = nil\n")
+                    .append("    on_metrics_report(published_data, state)\n")
                     .append("end\n")
                     .toString();
     private static final TelemetryProto.Publisher MEMORY_PUBLISHER =
@@ -445,6 +451,8 @@ public class CarTelemetryTestFragment extends Fragment {
                                     .setReadIntervalSec(3)
                                     .setMaxSnapshots(3)
                                     .setMaxPendingTasks(10)
+                                    .addPackageNames("com.android.car")
+                                    .addPackageNames("com.android.car.scriptexecutor")
                                     .build())
                     .build();
     private static final TelemetryProto.MetricsConfig METRICS_CONFIG_MEMORY_V1 =
@@ -460,6 +468,58 @@ public class CarTelemetryTestFragment extends Fragment {
                     .build();
     private static final String MEMORY_CONFIG_NAME =
             METRICS_CONFIG_MEMORY_V1.getName();
+
+    /** ProcessMemorySnapshot section. */
+    private static final String LUA_SCRIPT_ON_PROCESS_MEMORY_SNAPSHOT = new StringBuilder()
+            .append("function onProcessMemorySnapshot(published_data, state)\n")
+            .append("    on_script_finished(published_data)\n")
+            .append("end\n")
+            .toString();
+    private static final TelemetryProto.Publisher PROCESS_MEMORY_SNAPSHOT_PUBLISHER =
+            TelemetryProto.Publisher.newBuilder()
+                    .setStats(
+                            TelemetryProto.StatsPublisher.newBuilder()
+                                    .setSystemMetric(PROCESS_MEMORY_SNAPSHOT))
+                    .build();
+    private static final TelemetryProto.MetricsConfig METRICS_CONFIG_PROCESS_MEMORY_SNAPSHOT_V1 =
+            TelemetryProto.MetricsConfig.newBuilder()
+                    .setName("process_memory_snapshot_metrics_config")
+                    .setVersion(1)
+                    .setScript(LUA_SCRIPT_ON_PROCESS_MEMORY_SNAPSHOT)
+                    .addSubscribers(
+                            TelemetryProto.Subscriber.newBuilder()
+                                    .setHandler("onProcessMemorySnapshot")
+                                    .setPublisher(PROCESS_MEMORY_SNAPSHOT_PUBLISHER)
+                                    .setPriority(SCRIPT_EXECUTION_PRIORITY_HIGH))
+                    .build();
+    private static final String PROCESS_MEMORY_SNAPSHOT_CONFIG_NAME =
+            METRICS_CONFIG_PROCESS_MEMORY_SNAPSHOT_V1.getName();
+
+    /** ProcessStartTime section. */
+    private static final String LUA_SCRIPT_ON_PROCESS_START_TIME = new StringBuilder()
+            .append("function onProcessStartTime(published_data, state)\n")
+            .append("    on_script_finished(published_data)\n")
+            .append("end\n")
+            .toString();
+    private static final TelemetryProto.Publisher PROCESS_START_TIME_PUBLISHER =
+            TelemetryProto.Publisher.newBuilder()
+                    .setStats(
+                            TelemetryProto.StatsPublisher.newBuilder()
+                                    .setSystemMetric(PROCESS_START_TIME))
+                    .build();
+    private static final TelemetryProto.MetricsConfig METRICS_CONFIG_PROCESS_START_TIME_V1 =
+            TelemetryProto.MetricsConfig.newBuilder()
+                    .setName("process_start_time_metrics_config")
+                    .setVersion(1)
+                    .setScript(LUA_SCRIPT_ON_PROCESS_START_TIME)
+                    .addSubscribers(
+                            TelemetryProto.Subscriber.newBuilder()
+                                    .setHandler("onProcessStartTime")
+                                    .setPublisher(PROCESS_START_TIME_PUBLISHER)
+                                    .setPriority(SCRIPT_EXECUTION_PRIORITY_HIGH))
+                    .build();
+    private static final String PROCESS_START_TIME_CONFIG_NAME =
+                METRICS_CONFIG_PROCESS_START_TIME_V1.getName();
 
     private final Executor mExecutor = Executors.newSingleThreadExecutor();
 
@@ -588,6 +648,20 @@ public class CarTelemetryTestFragment extends Fragment {
                 .setOnClickListener(this::onRemoveMemoryConfigBtnClick);
         view.findViewById(R.id.get_memory_report)
                 .setOnClickListener(this::onGetMemoryReportBtnClick);
+        /** StatsPublisher process_memory_snapshot */
+        view.findViewById(R.id.send_on_process_memory_snapshot_config)
+                .setOnClickListener(this::onSendProcessMemorySnapshotConfigBtnClick);
+        view.findViewById(R.id.remove_on_process_memory_snapshot_config)
+                .setOnClickListener(this::onRemoveProcessMemorySnapshotConfigBtnClick);
+        view.findViewById(R.id.get_on_process_memory_snapshot_report)
+                .setOnClickListener(this::onGetProcessMemorySnapshotReportBtnClick);
+        /** StatsPublisher process_start_time */
+        view.findViewById(R.id.send_on_process_start_time_config)
+                .setOnClickListener(this::onSendProcessStartTimeConfigBtnClick);
+        view.findViewById(R.id.remove_on_process_start_time_config)
+                .setOnClickListener(this::onRemoveProcessStartTimeConfigBtnClick);
+        view.findViewById(R.id.get_on_process_start_time_report)
+                .setOnClickListener(this::onGetProcessStartTimeReportBtnClick);
         /** Print mem info button */
         view.findViewById(R.id.print_mem_info_btn).setOnClickListener(this::onPrintMemInfoBtnClick);
         return view;
@@ -815,7 +889,8 @@ public class CarTelemetryTestFragment extends Fragment {
             return new String(bytes);
         } catch (IOException e) {
             throw new RuntimeException(
-                    "Unable to send MetricsConfig, because reading Lua script from file failed.");
+                    "Unable to send MetricsConfig, because reading Lua script from file failed.",
+                    e);
         }
     }
 
@@ -978,6 +1053,42 @@ public class CarTelemetryTestFragment extends Fragment {
         mCarTelemetryManager.getFinishedReport(MEMORY_CONFIG_NAME, mExecutor, mListener);
     }
 
+    private void onSendProcessMemorySnapshotConfigBtnClick(View view) {
+        mCarTelemetryManager.addMetricsConfig(
+                PROCESS_MEMORY_SNAPSHOT_CONFIG_NAME,
+                METRICS_CONFIG_PROCESS_MEMORY_SNAPSHOT_V1.toByteArray(),
+                mExecutor,
+                mAddMetricsConfigCallback);
+    }
+
+    private void onRemoveProcessMemorySnapshotConfigBtnClick(View view) {
+        showOutput("Removing MetricsConfig that listens for PROCESS_MEMORY_SNAPSHOT...");
+        mCarTelemetryManager.removeMetricsConfig(PROCESS_MEMORY_SNAPSHOT_CONFIG_NAME);
+    }
+
+    private void onGetProcessMemorySnapshotReportBtnClick(View view) {
+        mCarTelemetryManager.getFinishedReport(
+                PROCESS_MEMORY_SNAPSHOT_CONFIG_NAME, mExecutor, mListener);
+    }
+
+    private void onSendProcessStartTimeConfigBtnClick(View view) {
+        mCarTelemetryManager.addMetricsConfig(
+                PROCESS_START_TIME_CONFIG_NAME,
+                METRICS_CONFIG_PROCESS_START_TIME_V1.toByteArray(),
+                mExecutor,
+                mAddMetricsConfigCallback);
+    }
+
+    private void onRemoveProcessStartTimeConfigBtnClick(View view) {
+        showOutput("Removing MetricsConfig that listens for PROCESS_START_TIME...");
+        mCarTelemetryManager.removeMetricsConfig(PROCESS_START_TIME_CONFIG_NAME);
+    }
+
+    private void onGetProcessStartTimeReportBtnClick(View view) {
+        mCarTelemetryManager.getFinishedReport(
+                PROCESS_START_TIME_CONFIG_NAME, mExecutor, mListener);
+    }
+
     /** Gets a MemoryInfo object for the device's current memory status. */
     private ActivityManager.MemoryInfo getAvailableMemory() {
         ActivityManager activityManager = getActivity().getSystemService(ActivityManager.class);
@@ -992,11 +1103,6 @@ public class CarTelemetryTestFragment extends Fragment {
         showOutput("MemoryInfo availMem=" + (info.availMem / 1024 / 1024) + "/"
                 + (info.totalMem / 1024 / 1024) + "mb, isLowMem=" + info.lowMemory
                 + ", threshold=" + (info.threshold / 1024 / 1024) + "mb");
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
     }
 
     /**

@@ -16,6 +16,8 @@
  *
  ******************************************************************************/
 
+#define LOG_TAG "SDP_Utils"
+
 /******************************************************************************
  *
  *  This file contains SDP utility functions
@@ -28,14 +30,22 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <ostream>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "btif/include/btif_config.h"
+#include "btif/include/stack_manager.h"
+#include "common/init_flags.h"
+#include "device/include/interop.h"
 #include "osi/include/allocator.h"
+#include "osi/include/log.h"
+#include "osi/include/properties.h"
+#include "stack/include/avrc_api.h"
 #include "stack/include/avrc_defs.h"
 #include "stack/include/bt_hdr.h"
+#include "stack/include/btm_api_types.h"
 #include "stack/include/sdp_api.h"
 #include "stack/include/sdpdefs.h"
 #include "stack/include/stack_metrics_logging.h"
@@ -96,13 +106,18 @@ static std::vector<std::pair<uint16_t, uint16_t>> sdpu_find_profile_version(
         uint16_t uuid = p_ssattr->attr_value.v.u16;
         // Next attribute should be the version attribute
         tSDP_DISC_ATTR* version_attr = p_ssattr->p_next_attr;
-        if (SDP_DISC_ATTR_TYPE(version_attr->attr_len_type) != UINT_DESC_TYPE ||
+        if (version_attr == nullptr ||
+            SDP_DISC_ATTR_TYPE(version_attr->attr_len_type) != UINT_DESC_TYPE ||
             SDP_DISC_ATTR_LEN(version_attr->attr_len_type) != 2) {
-          LOG(WARNING) << __func__ << ": Bad version type "
-                       << loghex(
-                              SDP_DISC_ATTR_TYPE(version_attr->attr_len_type))
-                       << ", or length "
-                       << SDP_DISC_ATTR_LEN(version_attr->attr_len_type);
+          if (version_attr == nullptr) {
+            LOG(WARNING) << __func__ << ": version attr not found";
+          } else {
+            LOG(WARNING) << __func__ << ": Bad version type "
+                         << loghex(
+                                SDP_DISC_ATTR_TYPE(version_attr->attr_len_type))
+                         << ", or length "
+                         << SDP_DISC_ATTR_LEN(version_attr->attr_len_type);
+          }
           return std::vector<std::pair<uint16_t, uint16_t>>();
         }
         // High order 8 bits is the major number, low order is the
@@ -128,7 +143,6 @@ static uint16_t sdpu_find_most_specific_service_uuid(tSDP_DISC_REC* p_rec) {
         SDP_DISC_ATTR_TYPE(p_attr->attr_len_type) == DATA_ELE_SEQ_DESC_TYPE) {
       tSDP_DISC_ATTR* p_first_attr = p_attr->attr_value.v.p_sub_attr;
       if (p_first_attr == nullptr) {
-        android_errorWriteLog(0x534e4554, "227203684");
         return 0;
       }
       if (SDP_DISC_ATTR_TYPE(p_first_attr->attr_len_type) == UUID_DESC_TYPE &&
@@ -171,7 +185,8 @@ void sdpu_log_attribute_metrics(const RawAddress& bda,
        p_rec = p_rec->p_next_rec) {
     uint16_t service_uuid = sdpu_find_most_specific_service_uuid(p_rec);
     if (service_uuid == 0) {
-      LOG(INFO) << __func__ << ": skipping record without service uuid " << bda;
+      LOG(INFO) << __func__ << ": skipping record without service uuid "
+                << ADDRESS_TO_LOGGABLE_STR(bda);
       continue;
     }
     // Log the existence of a profile role
@@ -313,8 +328,11 @@ tCONN_CB* sdpu_find_ccb_by_cid(uint16_t cid) {
 
   /* Look through each connection control block */
   for (xx = 0, p_ccb = sdp_cb.ccb; xx < SDP_MAX_CONNECTIONS; xx++, p_ccb++) {
-    if ((p_ccb->con_state != SDP_STATE_IDLE) && (p_ccb->connection_id == cid))
+    if ((p_ccb->con_state != SDP_STATE_IDLE) &&
+        (p_ccb->con_state != SDP_STATE_CONN_PEND) &&
+        (p_ccb->connection_id == cid)) {
       return (p_ccb);
+    }
   }
 
   /* If here, not found */
@@ -375,6 +393,23 @@ tCONN_CB* sdpu_allocate_ccb(void) {
 
 /*******************************************************************************
  *
+ * Function         sdpu_callback
+ *
+ * Description      Tell the user if they have a callback
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void sdpu_callback(tCONN_CB& ccb, tSDP_REASON reason) {
+  if (ccb.p_cb) {
+    (ccb.p_cb)(reason);
+  } else if (ccb.p_cb2) {
+    (ccb.p_cb2)(reason, ccb.user_data);
+  }
+}
+
+/*******************************************************************************
+ *
  * Function         sdpu_release_ccb
  *
  * Description      This function releases a CCB.
@@ -382,17 +417,149 @@ tCONN_CB* sdpu_allocate_ccb(void) {
  * Returns          void
  *
  ******************************************************************************/
-void sdpu_release_ccb(tCONN_CB* p_ccb) {
+void sdpu_release_ccb(tCONN_CB& ccb) {
   /* Ensure timer is stopped */
-  alarm_cancel(p_ccb->sdp_conn_timer);
+  alarm_cancel(ccb.sdp_conn_timer);
 
   /* Drop any response pointer we may be holding */
-  p_ccb->con_state = SDP_STATE_IDLE;
-  p_ccb->is_attr_search = false;
+  ccb.con_state = SDP_STATE_IDLE;
+  ccb.is_attr_search = false;
 
   /* Free the response buffer */
-  if (p_ccb->rsp_list) SDP_TRACE_DEBUG("releasing SDP rsp_list");
-  osi_free_and_reset((void**)&p_ccb->rsp_list);
+  if (ccb.rsp_list) SDP_TRACE_DEBUG("releasing SDP rsp_list");
+  osi_free_and_reset((void**)&ccb.rsp_list);
+}
+
+/*******************************************************************************
+ *
+ * Function         sdpu_get_active_ccb_cid
+ *
+ * Description      This function checks if any sdp connecting is there for
+ *                  same remote and returns cid if its available
+ *
+ *                  RawAddress : Remote address
+ *
+ * Returns          returns cid if any active sdp connection, else 0.
+ *
+ ******************************************************************************/
+uint16_t sdpu_get_active_ccb_cid(const RawAddress& remote_bd_addr) {
+  uint16_t xx;
+  tCONN_CB* p_ccb;
+
+  // Look through each connection control block for active sdp on given remote
+  for (xx = 0, p_ccb = sdp_cb.ccb; xx < SDP_MAX_CONNECTIONS; xx++, p_ccb++) {
+    if ((p_ccb->con_state == SDP_STATE_CONN_SETUP) ||
+        (p_ccb->con_state == SDP_STATE_CFG_SETUP) ||
+        (p_ccb->con_state == SDP_STATE_CONNECTED)) {
+      if (p_ccb->con_flags & SDP_FLAGS_IS_ORIG &&
+          p_ccb->device_address == remote_bd_addr) {
+        return p_ccb->connection_id;
+      }
+    }
+  }
+
+  // No active sdp channel for this remote
+  return 0;
+}
+
+/*******************************************************************************
+ *
+ * Function         sdpu_process_pend_ccb
+ *
+ * Description      This function process if any sdp ccb pending for connection
+ *                  and reuse the same connection id
+ *
+ *                  tCONN_CB&: connection control block that trigget the process
+ *
+ * Returns          returns true if any pending ccb, else false.
+ *
+ ******************************************************************************/
+bool sdpu_process_pend_ccb_same_cid(tCONN_CB& ccb) {
+  uint16_t xx;
+  tCONN_CB* p_ccb;
+
+  // Look through each connection control block for active sdp on given remote
+  for (xx = 0, p_ccb = sdp_cb.ccb; xx < SDP_MAX_CONNECTIONS; xx++, p_ccb++) {
+    if ((p_ccb->con_state == SDP_STATE_CONN_PEND) &&
+        (p_ccb->connection_id == ccb.connection_id) &&
+        (p_ccb->con_flags & SDP_FLAGS_IS_ORIG)) {
+      p_ccb->con_state = SDP_STATE_CONNECTED;
+      sdp_disc_connected(p_ccb);
+      return true;
+    }
+  }
+  // No pending SDP channel for this remote
+  return false;
+}
+
+/*******************************************************************************
+ *
+ * Function         sdpu_process_pend_ccb_new_cid
+ *
+ * Description      This function process if any sdp ccb pending for connection
+ *                  and update their connection id with a new L2CA connection
+ *
+ *                  tCONN_CB&: connection control block that trigget the process
+ *
+ * Returns          returns true if any pending ccb, else false.
+ *
+ ******************************************************************************/
+bool sdpu_process_pend_ccb_new_cid(tCONN_CB& ccb) {
+  uint16_t xx;
+  tCONN_CB* p_ccb;
+  uint16_t new_cid = 0;
+  bool new_conn = false;
+
+  // Look through each ccb to replace the obsolete cid with a new one.
+  for (xx = 0, p_ccb = sdp_cb.ccb; xx < SDP_MAX_CONNECTIONS; xx++, p_ccb++) {
+    if ((p_ccb->con_state == SDP_STATE_CONN_PEND) &&
+        (p_ccb->connection_id == ccb.connection_id) &&
+        (p_ccb->con_flags & SDP_FLAGS_IS_ORIG)) {
+      if (!new_conn) {
+        // Only change state of the first ccb
+        p_ccb->con_state = SDP_STATE_CONN_SETUP;
+        new_cid =
+            L2CA_ConnectReq2(BT_PSM_SDP, p_ccb->device_address, BTM_SEC_NONE);
+        new_conn = true;
+      }
+      // Check if L2CAP started the connection process
+      if (new_cid != 0) {
+        // update alls cid to the new one for future reference
+        p_ccb->connection_id = new_cid;
+      } else {
+        sdpu_callback(*p_ccb, SDP_CONN_FAILED);
+        sdpu_release_ccb(*p_ccb);
+      }
+    }
+  }
+  return new_conn && new_cid != 0;
+}
+
+/*******************************************************************************
+ *
+ * Function         sdpu_clear_pend_ccb
+ *
+ * Description      This function releases if any sdp ccb pending for connection
+ *
+ *                  uint16_t : Remote CID
+ *
+ * Returns          returns none.
+ *
+ ******************************************************************************/
+void sdpu_clear_pend_ccb(tCONN_CB& ccb) {
+  uint16_t xx;
+  tCONN_CB* p_ccb;
+
+  // Look through each connection control block for active sdp on given remote
+  for (xx = 0, p_ccb = sdp_cb.ccb; xx < SDP_MAX_CONNECTIONS; xx++, p_ccb++) {
+    if ((p_ccb->con_state == SDP_STATE_CONN_PEND) &&
+        (p_ccb->connection_id == ccb.connection_id) &&
+        (p_ccb->con_flags & SDP_FLAGS_IS_ORIG)) {
+      sdpu_callback(*p_ccb, SDP_CONN_FAILED);
+      sdpu_release_ccb(*p_ccb);
+    }
+  }
+  return;
 }
 
 /*******************************************************************************
@@ -1200,5 +1367,250 @@ uint16_t sdpu_is_avrcp_profile_description_list(const tSDP_ATTRIBUTE* p_attr) {
       return AVRC_REV_1_6;
     default:
       return 0;
+  }
+}
+/*******************************************************************************
+ *
+ * Function         sdpu_is_service_id_avrc_target
+ *
+ * Description      This function is to check if attirbute is A/V Remote Control
+ *                  Target
+ *
+ *                  p_attr: attribute to be checked
+ *
+ * Returns          true if service id of attirbute is A/V Remote Control
+ *                  Target, else false
+ *
+ ******************************************************************************/
+bool sdpu_is_service_id_avrc_target(const tSDP_ATTRIBUTE* p_attr) {
+  if (p_attr->id != ATTR_ID_SERVICE_CLASS_ID_LIST || p_attr->len != 3) {
+    return false;
+  }
+
+  uint8_t* p_uuid = p_attr->value_ptr + 1;
+  // check UUID of A/V Remote Control Target
+  if (p_uuid[0] != 0x11 || p_uuid[1] != 0xc) {
+    return false;
+  }
+
+  return true;
+}
+/*******************************************************************************
+ *
+ * Function         spdu_is_avrcp_version_valid
+ *
+ * Description      Check avrcp version is valid
+ *
+ *                  version: the avrcp version to check
+ *
+ * Returns          true if avrcp version is valid, else false
+ *
+ ******************************************************************************/
+bool spdu_is_avrcp_version_valid(const uint16_t version) {
+  return version == AVRC_REV_1_0 || version == AVRC_REV_1_3 ||
+         version == AVRC_REV_1_4 || version == AVRC_REV_1_5 ||
+         version == AVRC_REV_1_6;
+}
+/*******************************************************************************
+ *
+ * Function         sdpu_set_avrc_target_version
+ *
+ * Description      This function is to set AVRCP version of A/V Remote Control
+ *                  Target according to IOP table and cached Bluetooth config
+ *
+ *                  p_attr: attribute to be modified
+ *                  bdaddr: for searching IOP table and BT config
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void sdpu_set_avrc_target_version(const tSDP_ATTRIBUTE* p_attr,
+                                  const RawAddress* bdaddr) {
+  // Check attribute is AVRCP profile description list and get AVRC Target
+  // version
+  uint16_t avrcp_version = sdpu_is_avrcp_profile_description_list(p_attr);
+  LOG_INFO("SDP AVRCP DB Version %x", avrcp_version);
+  if (avrcp_version == 0) {
+    LOG_INFO("Not AVRCP version attribute or version not valid for device %s",
+             ADDRESS_TO_LOGGABLE_CSTR(*bdaddr));
+    return;
+  }
+
+  uint16_t dut_avrcp_version =
+      (bluetooth::common::init_flags::
+           dynamic_avrcp_version_enhancement_is_enabled())
+          ? GetInterfaceToProfiles()
+                ->profileSpecific_HACK->AVRC_GetProfileVersion()
+          : avrcp_version;
+
+  LOG_INFO("Current DUT AVRCP Version %x", dut_avrcp_version);
+  // Some remote devices will have interoperation issue when receive higher
+  // AVRCP version. If those devices are in IOP database and our version higher
+  // than device, we reply a lower version to them.
+  uint16_t iop_version = 0;
+  if (dut_avrcp_version > AVRC_REV_1_4 &&
+      interop_match_addr(INTEROP_AVRCP_1_4_ONLY, bdaddr)) {
+    iop_version = AVRC_REV_1_4;
+  } else if (dut_avrcp_version > AVRC_REV_1_3 &&
+             interop_match_addr(INTEROP_AVRCP_1_3_ONLY, bdaddr)) {
+    iop_version = AVRC_REV_1_3;
+  }
+
+  if (iop_version != 0) {
+    LOG_INFO(
+        "device=%s is in IOP database. "
+        "Reply AVRC Target version %x instead of %x.",
+        ADDRESS_TO_LOGGABLE_CSTR(*bdaddr), iop_version, avrcp_version);
+    uint8_t* p_version = p_attr->value_ptr + 6;
+    UINT16_TO_BE_FIELD(p_version, iop_version);
+    return;
+  }
+
+  // Dynamic AVRCP version. If our version high than remote device's version,
+  // reply version same as its. Otherwise, reply default version.
+  if (!osi_property_get_bool(AVRC_DYNAMIC_AVRCP_ENABLE_PROPERTY, true)) {
+    LOG_INFO(
+        "Dynamic AVRCP version feature is not enabled, skipping this method");
+    return;
+  }
+
+  // Read the remote device's AVRC Controller version from local storage
+  uint16_t cached_version = 0;
+  size_t version_value_size = btif_config_get_bin_length(
+      bdaddr->ToString(), AVRCP_CONTROLLER_VERSION_CONFIG_KEY);
+  if (version_value_size != sizeof(cached_version)) {
+    LOG_ERROR(
+        "cached value len wrong, bdaddr=%s. Len is %zu but should be %zu.",
+        ADDRESS_TO_LOGGABLE_CSTR(*bdaddr), version_value_size,
+        sizeof(cached_version));
+    return;
+  }
+
+  if (!btif_config_get_bin(bdaddr->ToString(),
+                           AVRCP_CONTROLLER_VERSION_CONFIG_KEY,
+                           (uint8_t*)&cached_version, &version_value_size)) {
+    LOG_INFO(
+        "no cached AVRC Controller version for %s. "
+        "Reply default AVRC Target version %x."
+        "DUT AVRC Target version %x.",
+        ADDRESS_TO_LOGGABLE_CSTR(*bdaddr), avrcp_version, dut_avrcp_version);
+    return;
+  }
+
+  if (!spdu_is_avrcp_version_valid(cached_version)) {
+    LOG_ERROR(
+        "cached AVRC Controller version %x of %s is not valid. "
+        "Reply default AVRC Target version %x.",
+        cached_version, ADDRESS_TO_LOGGABLE_CSTR(*bdaddr), avrcp_version);
+    return;
+  }
+
+  if (!bluetooth::common::init_flags::
+          dynamic_avrcp_version_enhancement_is_enabled() &&
+      dut_avrcp_version <= cached_version) {
+    return;
+  }
+
+  uint16_t negotiated_avrcp_version =
+      std::min(dut_avrcp_version, cached_version);
+  LOG_INFO(
+      "read cached AVRC Controller version %x of %s. "
+      "DUT AVRC Target version %x."
+      "Negotiated AVRCP version to update peer %x. ",
+      cached_version, ADDRESS_TO_LOGGABLE_CSTR(*bdaddr), dut_avrcp_version,
+      negotiated_avrcp_version);
+  uint8_t* p_version = p_attr->value_ptr + 6;
+  UINT16_TO_BE_FIELD(p_version, negotiated_avrcp_version);
+}
+/*******************************************************************************
+ *
+ * Function         sdpu_set_avrc_target_features
+ *
+ * Description      This function is to set AVRCP version of A/V Remote Control
+ *                  Target according to IOP table and cached Bluetooth config
+ *
+ *                  p_attr: attribute to be modified
+ *                  bdaddr: for searching IOP table and BT config
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void sdpu_set_avrc_target_features(const tSDP_ATTRIBUTE* p_attr,
+                                   const RawAddress* bdaddr,
+                                   uint16_t avrcp_version) {
+  LOG_INFO("SDP AVRCP Version %x", avrcp_version);
+
+  if ((p_attr->id != ATTR_ID_SUPPORTED_FEATURES) || (p_attr->len != 2) ||
+      (p_attr->value_ptr == nullptr)) {
+    LOG_INFO("Invalid request for AVRC feature ignore");
+    return;
+  }
+
+  if (avrcp_version == 0) {
+    LOG_INFO("AVRCP version not valid for device %s",
+             ADDRESS_TO_LOGGABLE_CSTR(*bdaddr));
+    return;
+  }
+
+  // Dynamic AVRCP version. If our version high than remote device's version,
+  // reply version same as its. Otherwise, reply default version.
+  if (!osi_property_get_bool(AVRC_DYNAMIC_AVRCP_ENABLE_PROPERTY, false)) {
+    LOG_INFO(
+        "Dynamic AVRCP version feature is not enabled, skipping this method");
+    return;
+  }
+  // Read the remote device's AVRC Controller version from local storage
+  uint16_t avrcp_peer_features = 0;
+  size_t version_value_size = btif_config_get_bin_length(
+      bdaddr->ToString(), AV_REM_CTRL_FEATURES_CONFIG_KEY);
+  if (version_value_size != sizeof(avrcp_peer_features)) {
+    LOG_ERROR(
+        "cached value len wrong, bdaddr=%s. Len is %zu but should be %zu.",
+        ADDRESS_TO_LOGGABLE_CSTR(*bdaddr), version_value_size,
+        sizeof(avrcp_peer_features));
+    return;
+  }
+
+  if (!btif_config_get_bin(bdaddr->ToString(), AV_REM_CTRL_FEATURES_CONFIG_KEY,
+                           (uint8_t*)&avrcp_peer_features,
+                           &version_value_size)) {
+    LOG_ERROR("Unable to fetch cached AVRC features");
+    return;
+  }
+
+  bool browsing_supported =
+      ((AVRCP_FEAT_BRW_BIT & avrcp_peer_features) == AVRCP_FEAT_BRW_BIT);
+  bool coverart_supported =
+      ((AVRCP_FEAT_CA_BIT & avrcp_peer_features) == AVRCP_FEAT_CA_BIT);
+
+  LOG_INFO(
+      "SDP AVRCP DB Version 0x%x, browse supported %d, cover art supported %d",
+      avrcp_peer_features, browsing_supported, coverart_supported);
+  if (avrcp_version < AVRC_REV_1_4 || !browsing_supported) {
+    LOG_INFO("Reset Browsing Feature ");
+    p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION] &=
+        ~AVRCP_BROWSE_SUPPORT_BITMASK;
+    p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION] &=
+        ~AVRCP_MULTI_PLAYER_SUPPORT_BITMASK;
+  }
+
+  if (avrcp_version < AVRC_REV_1_6 || !coverart_supported) {
+    LOG_INFO("Reset CoverArt Feature ");
+    p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION - 1] &=
+        ~AVRCP_CA_SUPPORT_BITMASK;
+  }
+
+  if (avrcp_version >= AVRC_REV_1_4 && browsing_supported) {
+    LOG_INFO("Set Browsing Feature ");
+    p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION] |=
+        AVRCP_BROWSE_SUPPORT_BITMASK;
+    p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION] |=
+        AVRCP_MULTI_PLAYER_SUPPORT_BITMASK;
+  }
+
+  if (avrcp_version == AVRC_REV_1_6 && coverart_supported) {
+    LOG_INFO("Set CoverArt Feature ");
+    p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION - 1] |=
+        AVRCP_CA_SUPPORT_BITMASK;
   }
 }

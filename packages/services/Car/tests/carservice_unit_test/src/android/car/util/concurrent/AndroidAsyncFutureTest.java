@@ -26,6 +26,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoSession;
 import org.mockito.quality.Strictness;
 
@@ -53,7 +54,13 @@ public final class AndroidAsyncFutureTest {
 
     @After
     public void tearDown() {
-        mMockSession.finishMocking();
+        try {
+            mMockSession.finishMocking();
+        } finally {
+            // When using inline mock maker, clean up inline mocks to prevent OutOfMemory errors.
+            // See https://github.com/mockito/mockito/issues/1614 and b/259280359.
+            Mockito.framework().clearInlineMocks();
+        }
     }
 
     @Test

@@ -16,12 +16,15 @@
 
 package android.hardware.input.cts.tests;
 
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
 import android.hardware.cts.R;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
+
+import com.android.cts.kernelinfo.KernelInfo;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,6 +36,18 @@ public class SonyDualshock4UsbTest extends InputHidTestCase {
     // Simulates the behavior of PlayStation DualShock4 gamepad (model CUH-ZCT1U)
     public SonyDualshock4UsbTest() {
         super(R.raw.sony_dualshock4_usb_register);
+    }
+
+    @Test
+    public void kernelModule() {
+        /**
+         * Basic support is required on all kernels. After kernel 4.19, devices must have
+         * CONFIG_HID_SONY enabled, which supports advanced features like haptics.
+         */
+        if (KernelInfo.isKernelVersionGreaterThan("4.19")) {
+            assertTrue(KernelInfo.hasConfig("CONFIG_HID_SONY"));
+        }
+        assertTrue(KernelInfo.hasConfig("CONFIG_HID_GENERIC"));
     }
 
     @Test
@@ -52,7 +67,8 @@ public class SonyDualshock4UsbTest extends InputHidTestCase {
 
     @Test
     public void testVibrator() throws Exception {
-        assumeTrue("Requires kernel > 4.19", isKernelVersionGreaterThan("4.19"));
+        // hid-generic and older HID_SONY drivers don't support vibration
+        assumeTrue(KernelInfo.isKernelVersionGreaterThan("4.19"));
         testInputVibratorEvents(R.raw.sony_dualshock4_usb_vibratortests);
     }
 }

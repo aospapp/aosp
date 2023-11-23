@@ -16,7 +16,8 @@
 #include "Resources.h"
 #include "ResourceTracker.h"
 
-namespace goldfish_vk {
+namespace gfxstream {
+namespace vk {
 
 VkResult Validation::on_vkFlushMappedMemoryRanges(
     void*,
@@ -54,4 +55,5 @@ VkResult Validation::on_vkInvalidateMappedMemoryRanges(
     return VK_SUCCESS;
 }
 
-} // namespace goldfish_vk
+}  // namespace vk
+}  // namespace gfxstream

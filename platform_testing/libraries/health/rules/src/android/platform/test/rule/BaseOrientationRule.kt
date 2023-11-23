@@ -16,72 +16,132 @@
 package android.platform.test.rule
 
 import android.graphics.Rect
-import android.os.RemoteException
 import android.platform.test.rule.Orientation.LANDSCAPE
+import android.platform.test.rule.Orientation.NATURAL
 import android.platform.test.rule.Orientation.PORTRAIT
-import android.platform.test.util.HealthTestingUtils
-import androidx.test.uiautomator.By
+import android.platform.test.rule.RotationUtils.clearOrientationOverride
+import android.platform.test.rule.RotationUtils.setOrientationOverride
+import android.platform.test.util.HealthTestingUtils.waitForCondition
+import android.platform.test.util.HealthTestingUtils.waitForValueToSettle
+import android.util.Log
+import androidx.test.InstrumentationRegistry
+import androidx.test.uiautomator.UiDevice
 import com.android.launcher3.tapl.LauncherInstrumentation
 import org.junit.runner.Description
 
 /** Locks the orientation in Landscape before starting the test, and goes back to natural after. */
-class LandscapeOrientationRule : BaseOrientationRule(LANDSCAPE)
+internal class LandscapeOrientationRule : BaseOrientationRule(LANDSCAPE)
 
 /** Locks the orientation in Portrait before starting the test, and goes back to natural after. */
-class PortraitOrientationRule : BaseOrientationRule(PORTRAIT)
+internal class PortraitOrientationRule : BaseOrientationRule(PORTRAIT)
 
-private enum class Orientation {
+class NaturalOrientationRule : BaseOrientationRule(NATURAL)
+
+/**
+ * Possible device orientations.
+ *
+ * See [UiDevice.orientation] for their definitions.
+ */
+enum class Orientation {
     LANDSCAPE,
     PORTRAIT,
+    NATURAL
 }
 
-private val Rect.orientation: Orientation
-    get() = if (width() > height()) { LANDSCAPE } else { PORTRAIT }
+/** Returns whether the device is landscape or portrait , based on display dimensions. */
+val UiDevice.orientation: Orientation
+    get() =
+        if (displayWidth > displayHeight) {
+            LANDSCAPE
+        } else {
+            PORTRAIT
+        }
+
+val UiDevice.naturalOrientation: Orientation
+    get() {
+        if (isNaturalOrientation) {
+            return stableOrientation
+        }
+        return when (stableOrientation) {
+            LANDSCAPE -> PORTRAIT
+            PORTRAIT -> LANDSCAPE
+            else -> throw RuntimeException("Unexpected orientation: $stableOrientation.")
+        }
+    }
+
+// This makes sure that the orientation stabilised before returning it.
+private val UiDevice.stableOrientation: Orientation
+    get() =
+        waitForValueToSettle(
+            /* errorMessage= */ { "Device orientation didn't settle" },
+            /* supplier */ { orientation },
+            /* minimumSettleTime= */ 1_000,
+            /* timeoutMs= */ 5_000
+        )
 
 /** Uses launcher rect to decide which rotation to apply to match [expectedOrientation]. */
-sealed class BaseOrientationRule private constructor(private val expectedOrientation: Orientation) :
+sealed class BaseOrientationRule constructor(private val expectedOrientation: Orientation) :
     TestWatcher() {
 
-    private val mLauncher = LauncherInstrumentation()
-
     override fun starting(description: Description) {
-        try {
-            uiDevice.pressHome()
-            mLauncher.setEnableRotation(true)
-            if (launcherVisibleBounds?.orientation == expectedOrientation) {
-                // In the case of tablets, the default orientation might be landscape already.
-                return
-            }
-            uiDevice.setOrientationLeft()
-            HealthTestingUtils.waitForNullDiag {
-                when (launcherVisibleBounds?.orientation) {
-                    expectedOrientation -> null // No error == success.
-                    null -> "Launcher is not found"
-                    else -> "Visible orientation is not ${expectedOrientation.name}"
-                }
-            }
-        } catch (e: RemoteException) {
-            throw RuntimeException(
-                "RemoteException when forcing ${expectedOrientation.name} rotation on the device",
-                e)
-        }
+        setOrientationOverride(expectedOrientation)
     }
 
     override fun finished(description: Description) {
-        try {
-            uiDevice.setOrientationNatural()
-            mLauncher.setEnableRotation(false)
-            uiDevice.unfreezeRotation()
-        } catch (e: RemoteException) {
-            val message = "RemoteException when restoring natural rotation of the device"
-            throw RuntimeException(message, e)
+        clearOrientationOverride()
+    }
+}
+
+/** Provides a way to set and clear a rotation override. */
+object RotationUtils {
+    private val device: UiDevice =
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+
+    private val launcher: LauncherInstrumentation
+        get() = LauncherInstrumentation()
+
+    /**
+     * Sets device orientation to [expectedOrientation], according to [Rect.orientation] definition.
+     *
+     * Important: call [clearOrientationOverride] after the end of the test. If a single orientation
+     * is needed for the entire test, please use the TestRule [OrientationRule] that automatically
+     * takes care of cleaning the override. Those should be called only when the test needs to
+     * change orientation in the middle.
+     */
+    fun setOrientationOverride(orientation: Orientation) {
+        val expectedOrientation =
+            if (orientation == NATURAL) device.naturalOrientation else orientation
+        launcher.setEnableRotation(true)
+        if (device.stableOrientation == expectedOrientation) {
+            return
+        }
+        changeOrientation()
+        waitForCondition({ "Visible orientation did not become  ${expectedOrientation.name}" }) {
+            device.stableOrientation == expectedOrientation
+        }
+        log("Rotation override set to ${expectedOrientation.name}")
+    }
+
+    private fun changeOrientation() {
+        if (device.isNaturalOrientation) {
+            device.setOrientationLeft()
+        } else {
+            device.setOrientationNatural()
         }
     }
 
-    private val launcherVisibleBounds: Rect?
-        get() {
-            val launcher =
-                uiDevice.findObject(By.res("android", "content").pkg(uiDevice.launcherPackageName))
-            return launcher?.visibleBounds
-        }
+    /** returns stable orientation, doesn't necessarily mean orientation needs to happen */
+    fun waitForOrientationToSettle(): Orientation {
+        return device.stableOrientation
+    }
+
+    fun clearOrientationOverride() {
+        device.setOrientationNatural()
+        launcher.setEnableRotation(false)
+        device.unfreezeRotation()
+        waitForOrientationToSettle()
+        log("Rotation override cleared.")
+    }
+
+    private fun log(message: String) = Log.d("RotationUtils", message)
 }

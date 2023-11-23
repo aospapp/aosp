@@ -1,6 +1,6 @@
 #!/bin/bash -u
 #
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2016 Google LLC
 #
 # This script checks the android device to determine if the app is currently
 # running. For our specific test case we will be checking if the Teapot app

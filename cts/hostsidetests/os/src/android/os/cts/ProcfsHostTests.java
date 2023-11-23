@@ -16,6 +16,7 @@
 
 package android.os.cts;
 
+import com.android.tradefed.util.RunUtil;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.ITestDevice;
@@ -144,7 +145,7 @@ public class ProcfsHostTests extends DeviceTestCase implements IBuildReceiver {
     // Check the file is being updated.
     long waitTime = 0;
     while (waitTime < UPDATE_MAX_WAIT_TIME_MS) {
-      java.lang.Thread.sleep(UPDATE_READ_INTERVAL_MS);
+      RunUtil.getDefault().sleep(UPDATE_READ_INTERVAL_MS);
       waitTime += UPDATE_READ_INTERVAL_MS;
       String newContent = readAndCheckFile(absolutePath, readCommand, pattern);
       if (!newContent.equals(content)) {

@@ -51,7 +51,10 @@ class ClassLoaderContext {
 
   // Special encoding used to denote a foreign ClassLoader was found when trying to encode class
   // loader contexts for each classpath element in a ClassLoader. See
-  // EncodeClassPathContextsForClassLoader. Keep in sync with PackageDexUsage in the framework.
+  // EncodeClassPathContextsForClassLoader. Keep in sync with PackageDexUsage in the framework
+  // (frameworks/base/services/core/java/com/android/server/pm/dex/PackageDexUsage.java) and
+  // DexUseManager in ART Services
+  // (art/libartservice/service/java/com/android/server/art/DexUseManager.java).
   static constexpr const char* kUnsupportedClassLoaderContextEncoding =
       "=UnsupportedClassLoaderContext=";
 
@@ -155,9 +158,8 @@ class ClassLoaderContext {
   // Should only be called if OpenDexFiles() returned true.
   std::vector<const DexFile*> FlattenOpenedDexFiles() const;
 
-  // Return a colon-separated list of dex file locations from this class loader
-  // context after flattening.
-  std::string FlattenDexPaths() const;
+  // Return a list of dex file locations from this class loader context after flattening.
+  std::vector<std::string> FlattenDexPaths() const;
 
   // Verifies that the current context is identical to the context encoded as `context_spec`.
   // Identical means:

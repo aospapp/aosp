@@ -32,7 +32,6 @@ import javax.net.ssl.SSLSession;
  * @hide This class is not part of the Android public SDK API
  */
 @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
-@Internal
 public interface SSLClientSessionCache {
     /**
      * Gets data from a pre-existing session for a given server host and port.

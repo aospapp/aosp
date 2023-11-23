@@ -22,6 +22,7 @@ TIME = "LONG"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This test implements various RSA and SHA by creating and verifying various

@@ -51,7 +51,8 @@ public class ReferenceQueue<T> {
 
     private final Object lock = new Object();
 
-    private static ReferenceQueue currentQueue = null;  // Current target of enqueuePending.
+    // Current target of enqueuePending. Either a Cleaner or a ReferenceQueue.
+    private static Object currentTarget = null;
 
     /**
      * Constructs a new reference-object queue.
@@ -96,13 +97,19 @@ public class ReferenceQueue<T> {
     }
 
     /**
-     * The queue currently being targeted by enqueuePending. Used only to get slightly
-     * informative output for timeouts. May be read via a data race, but only for crash
-     * debugging output.
+     * The queue or Runnable from a sun.misc.Cleaner currently being targeted by enqueuePending.
+     * Used only to get slightly informative output for timeouts. May be read via a data race,
+     * but only for crash debugging output.
      * @hide
      */
-    public static ReferenceQueue getCurrentQueue() {
-        return currentQueue;
+    public static Object getCurrentTarget() {
+        if (currentTarget instanceof sun.misc.Cleaner cleaner) {
+            // The printed version of the Runnable is likely to be more informative than the
+            // Cleaner itself.
+            return cleaner.getThunk();
+        } else {
+            return currentTarget;
+        }
     }
 
     /**
@@ -233,16 +240,22 @@ public class ReferenceQueue<T> {
         Reference<?> start = list;
         do {
             ReferenceQueue queue = list.queue;
-            currentQueue = queue;
-            if (queue == null) {
+            if (queue == null || Cleaner.isCleanerQueue(queue)) {
                 Reference<?> next = list.pendingNext;
-
-                // Make pendingNext a self-loop to preserve the invariant that
+                // Always make pendingNext a self-loop to preserve the invariant that
                 // once enqueued, pendingNext is non-null -- without leaking
                 // the object pendingNext was previously pointing to.
                 list.pendingNext = list;
+                if (queue != null) {
+                    // This is a Cleaner. Run directly without additional synchronization.
+                    Cleaner cl = (sun.misc.Cleaner) list;
+                    currentTarget = cl;
+                    cl.clean();  // Idempotent. No need to check queueNext first.
+                    list.queueNext = sQueueNextUnenqueued;
+                }
                 list = next;
             } else {
+                currentTarget = queue;
                 // To improve performance, we try to avoid repeated
                 // synchronization on the same queue by batching enqueueing of
                 // consecutive references in the list that have the same
@@ -253,11 +266,6 @@ public class ReferenceQueue<T> {
                 synchronized (queue.lock) {
                     do {
                         Reference<?> next = list.pendingNext;
-
-                        // Make pendingNext a self-loop to preserve the
-                        // invariant that once enqueued, pendingNext is
-                        // non-null -- without leaking the object pendingNext
-                        // was previously pointing to.
                         list.pendingNext = list;
                         queue.enqueueLocked(list);
                         list = next;
@@ -267,6 +275,7 @@ public class ReferenceQueue<T> {
             }
             progressCounter.incrementAndGet();
         } while (list != start);
+        currentTarget = null;
     }
 
     /**

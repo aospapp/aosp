@@ -233,7 +233,7 @@ class pxssh (spawn):
         elif i==3: # permission denied -- password was bad.
             self.close()
             raise ExceptionPxssh ('permission denied')
-        elif i==4: # terminal type again? WTF?
+        elif i == 4:  # terminal type again?
             self.close()
             raise ExceptionPxssh ('Weird error. Got "terminal type" prompt twice.')
         elif i==5: # Timeout

@@ -86,7 +86,7 @@ public class TimeZonePickerPreferenceController extends PreferenceController<Pre
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         return DatetimeUtils.getAvailabilityStatus(getContext());
     }
 

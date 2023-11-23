@@ -45,9 +45,9 @@
  */
 class MuxerNativeTestHelper {
   public:
-    explicit MuxerNativeTestHelper(const char* srcPath, const char* mime = nullptr,
+    explicit MuxerNativeTestHelper(const char* srcPath, const char* mediaType = nullptr,
                                    int frameLimit = -1)
-        : mSrcPath(srcPath), mMime(mime), mTrackCount(0), mBuffer(nullptr) {
+        : mSrcPath(srcPath), mMediaType(mediaType), mTrackCount(0), mBuffer(nullptr) {
         mFrameLimit = frameLimit < 0 ? INT_MAX : frameLimit;
         splitMediaToMuxerParameters();
     }
@@ -82,8 +82,8 @@ class MuxerNativeTestHelper {
 
     bool writeAFewSamplesData(AMediaMuxer* muxer, uint32_t fromIndex, uint32_t toIndex);
 
-    bool writeAFewSamplesDataFromTime(AMediaMuxer* muxer, int64_t *fromTime,
-                                            uint32_t numSamples, bool lastSplit);
+    bool writeAFewSamplesDataFromTime(AMediaMuxer* muxer, int64_t* fromTime, uint32_t numSamples,
+                                      bool lastSplit);
 
     bool muxMedia(AMediaMuxer* muxer);
 
@@ -103,7 +103,7 @@ class MuxerNativeTestHelper {
 
     static const int STTS_TOLERANCE_US = 100;
     const char* mSrcPath;
-    const char* mMime;
+    const char* mMediaType;
     int mTrackCount;
     std::vector<AMediaFormat*> mFormat;
     uint8_t* mBuffer;
@@ -145,14 +145,14 @@ void MuxerNativeTestHelper::splitMediaToMuxerParameters() {
     for (size_t trackID = 0; trackID < AMediaExtractor_getTrackCount(extractor); trackID++) {
         AMediaExtractor_selectTrack(extractor, trackID);
         AMediaFormat* format = AMediaExtractor_getTrackFormat(extractor, trackID);
-        if (mMime == nullptr) {
+        if (mMediaType == nullptr) {
             mTrackCount++;
             mFormat.push_back(format);
             mInpIndexMap[trackID] = index++;
         } else {
-            const char* mime;
-            bool hasKey = AMediaFormat_getString(format, AMEDIAFORMAT_KEY_MIME, &mime);
-            if (hasKey && !strcmp(mime, mMime)) {
+            const char* mediaType;
+            bool hasKey = AMediaFormat_getString(format, AMEDIAFORMAT_KEY_MIME, &mediaType);
+            if (hasKey && !strcmp(mediaType, mMediaType)) {
                 mTrackCount++;
                 mFormat.push_back(format);
                 mInpIndexMap[trackID] = index;
@@ -242,7 +242,7 @@ bool MuxerNativeTestHelper::insertSampleData(AMediaMuxer* muxer) {
 }
 
 bool MuxerNativeTestHelper::writeAFewSamplesData(AMediaMuxer* muxer, uint32_t fromIndex,
-                                                        uint32_t toIndex) {
+                                                 uint32_t toIndex) {
     ALOGV("fromIndex:%u, toIndex:%u", fromIndex, toIndex);
     // write all registered tracks in interleaved order
     ALOGV("mTrackIdxOrder.size:%zu", mTrackIdxOrder.size());
@@ -262,7 +262,7 @@ bool MuxerNativeTestHelper::writeAFewSamplesData(AMediaMuxer* muxer, uint32_t fr
         int trackID = mTrackIdxOrder[i];
         int trackIndex = mInpIndexMap.at(trackID);
         ALOGV("trackID:%d, trackIndex:%d, frameCount:%d", trackID, trackIndex,
-                        frameCount[trackIndex]);
+              frameCount[trackIndex]);
         AMediaCodecBufferInfo* info = mBufferInfo[trackIndex][frameCount[trackIndex]];
         ALOGV("Got info offset:%d, size:%d", info->offset, info->size);
         if (AMediaMuxer_writeSampleData(muxer, mOutIndexMap.at(trackIndex), mBuffer, info) !=
@@ -281,9 +281,9 @@ bool MuxerNativeTestHelper::writeAFewSamplesData(AMediaMuxer* muxer, uint32_t fr
     return true;
 }
 
-bool MuxerNativeTestHelper::writeAFewSamplesDataFromTime(AMediaMuxer* muxer, int64_t *fromTime,
-                                                            uint32_t numSamples, bool lastSplit) {
-    for(int tc = 0; tc < mTrackCount; ++tc) {
+bool MuxerNativeTestHelper::writeAFewSamplesDataFromTime(AMediaMuxer* muxer, int64_t* fromTime,
+                                                         uint32_t numSamples, bool lastSplit) {
+    for (int tc = 0; tc < mTrackCount; ++tc) {
         ALOGV("fromTime[%d]:%lld", tc, (long long)fromTime[tc]);
     }
     ALOGV("numSamples:%u", numSamples);
@@ -294,11 +294,11 @@ bool MuxerNativeTestHelper::writeAFewSamplesDataFromTime(AMediaMuxer* muxer, int
         int trackID = mTrackIdxOrder[i++];
         int trackIndex = mInpIndexMap.at(trackID);
         ALOGV("trackID:%d, trackIndex:%d, frameCount:%d", trackID, trackIndex,
-                                frameCount[trackIndex]);
+              frameCount[trackIndex]);
         AMediaCodecBufferInfo* info = mBufferInfo[trackIndex][frameCount[trackIndex]];
         ++frameCount[trackIndex];
         ALOGV("Got info offset:%d, size:%d, PTS:%" PRId64 "", info->offset, info->size,
-                                    info->presentationTimeUs);
+              info->presentationTimeUs);
         if (info->presentationTimeUs < fromTime[trackID]) {
             ALOGV("skipped");
             continue;
@@ -310,14 +310,13 @@ bool MuxerNativeTestHelper::writeAFewSamplesDataFromTime(AMediaMuxer* muxer, int
         } else {
             ++samplesWritten;
         }
-    } while ((lastSplit) ? (i < mTrackIdxOrder.size()) : ((samplesWritten < numSamples) &&
-                (i < mTrackIdxOrder.size())));
+    } while ((lastSplit) ? (i < mTrackIdxOrder.size())
+                         : ((samplesWritten < numSamples) && (i < mTrackIdxOrder.size())));
     ALOGV("samplesWritten:%u", samplesWritten);
 
     delete[] frameCount;
     return true;
 }
-
 
 bool MuxerNativeTestHelper::muxMedia(AMediaMuxer* muxer) {
     return (registerTrack(muxer) && (AMediaMuxer_start(muxer) == AMEDIA_OK) &&
@@ -337,13 +336,13 @@ bool MuxerNativeTestHelper::appendMedia(AMediaMuxer *muxer, uint32_t fromIndex, 
                 ALOGV("%s", AMediaFormat_toString(AMediaMuxer_getTrackFormat(muxer, i)));
                 ALOGV("%s", AMediaFormat_toString(mFormat[i]));
                 for(size_t j = 0; j < mFormat.size(); ++j) {
-                    const char* thatMime = nullptr;
+                    const char* thatMediaType = nullptr;
                     AMediaFormat_getString(AMediaMuxer_getTrackFormat(muxer, i),
-                                                AMEDIAFORMAT_KEY_MIME, &thatMime);
-                    const char* thisMime = nullptr;
-                    AMediaFormat_getString(mFormat[j], AMEDIAFORMAT_KEY_MIME, &thisMime);
-                    ALOGV("strlen(thisMime)%zu", strlen(thisMime));
-                    if (strcmp(thatMime, thisMime) == 0) {
+                                                AMEDIAFORMAT_KEY_MIME, &thatMediaType);
+                    const char* thisMediaType = nullptr;
+                    AMediaFormat_getString(mFormat[j], AMEDIAFORMAT_KEY_MIME, &thisMediaType);
+                    ALOGV("strlen(thisMediaType)%zu", strlen(thisMediaType));
+                    if (strcmp(thatMediaType, thisMediaType) == 0) {
                         ALOGV("appendMedia:i:%zu, j:%zu", i, j);
                         mOutIndexMap[j]=i;
                     }
@@ -369,13 +368,13 @@ bool MuxerNativeTestHelper::appendMediaFromTime(AMediaMuxer *muxer, int64_t *app
             ALOGV("%s", AMediaFormat_toString(AMediaMuxer_getTrackFormat(muxer, i)));
             ALOGV("%s", AMediaFormat_toString(mFormat[i]));
             for(size_t j = 0; j < mFormat.size(); ++j) {
-                const char* thatMime = nullptr;
+                const char* thatMediaType = nullptr;
                 AMediaFormat_getString(AMediaMuxer_getTrackFormat(muxer, i),
-                                            AMEDIAFORMAT_KEY_MIME, &thatMime);
-                const char* thisMime = nullptr;
-                AMediaFormat_getString(mFormat[j], AMEDIAFORMAT_KEY_MIME, &thisMime);
-                ALOGV("strlen(thisMime)%zu", strlen(thisMime));
-                if (strcmp(thatMime, thisMime) == 0) {
+                                       AMEDIAFORMAT_KEY_MIME, &thatMediaType);
+                const char* thisMediaType = nullptr;
+                AMediaFormat_getString(mFormat[j], AMEDIAFORMAT_KEY_MIME, &thisMediaType);
+                ALOGV("strlen(thisMediaType)%zu", strlen(thisMediaType));
+                if (strcmp(thatMediaType, thisMediaType) == 0) {
                     ALOGV("appendMediaFromTime:i:%zu, j:%zu", i, j);
                     mOutIndexMap[j]=i;
                 }
@@ -440,21 +439,23 @@ bool MuxerNativeTestHelper::isSubsetOf(MuxerNativeTestHelper* that) {
 
     for (int i = 0; i < mTrackCount; i++) {
         AMediaFormat* thisFormat = mFormat[i];
-        const char* thisMime = nullptr;
-        AMediaFormat_getString(thisFormat, AMEDIAFORMAT_KEY_MIME, &thisMime);
-        int tolerance = !strncmp(thisMime, "video/", strlen("video/")) ? STTS_TOLERANCE_US : 0;
-        tolerance += 1; // rounding error
+        const char* thisMediaType = nullptr;
+        AMediaFormat_getString(thisFormat, AMEDIAFORMAT_KEY_MIME, &thisMediaType);
+        int tolerance = !strncmp(thisMediaType, "video/", strlen("video/")) ? STTS_TOLERANCE_US : 0;
+        tolerance += 1;  // rounding error
         int j = 0;
         for (; j < that->mTrackCount; j++) {
             AMediaFormat* thatFormat = that->mFormat[j];
-            const char* thatMime = nullptr;
-            AMediaFormat_getString(thatFormat, AMEDIAFORMAT_KEY_MIME, &thatMime);
-            if (thisMime != nullptr && thatMime != nullptr && !strcmp(thisMime, thatMime)) {
+            const char* thatMediaType = nullptr;
+            AMediaFormat_getString(thatFormat, AMEDIAFORMAT_KEY_MIME, &thatMediaType);
+            if (thisMediaType != nullptr && thatMediaType != nullptr &&
+                !strcmp(thisMediaType, thatMediaType)) {
                 if (!isFormatSimilar(thisFormat, thatFormat)) continue;
                 if (mBufferInfo[i].size() <= that->mBufferInfo[j].size()) {
-                    int tolerance =
-                            !strncmp(thisMime, "video/", strlen("video/")) ? STTS_TOLERANCE_US : 0;
-                    tolerance += 1; // rounding error
+                    int tolerance = !strncmp(thisMediaType, "video/", strlen("video/"))
+                                            ? STTS_TOLERANCE_US
+                                            : 0;
+                    tolerance += 1;  // rounding error
                     int k = 0;
                     for (; k < mBufferInfo[i].size(); k++) {
                         ALOGV("k:%d", k);
@@ -475,8 +476,8 @@ bool MuxerNativeTestHelper::isSubsetOf(MuxerNativeTestHelper* that) {
                         if (abs(thisInfo->presentationTimeUs - thatInfo->presentationTimeUs) >
                             tolerance) {
                             ALOGD("time this:%lld, that:%lld",
-                                    (long long)thisInfo->presentationTimeUs,
-                                    (long long)thatInfo->presentationTimeUs);
+                                  (long long)thisInfo->presentationTimeUs,
+                                  (long long)thatInfo->presentationTimeUs);
                             break;
                         }
                     }
@@ -485,8 +486,8 @@ bool MuxerNativeTestHelper::isSubsetOf(MuxerNativeTestHelper* that) {
             }
         }
         if (j == that->mTrackCount) {
-            AMediaFormat_getString(thisFormat, AMEDIAFORMAT_KEY_MIME, &thisMime);
-            ALOGV("For mime %s, Couldn't find a match", thisMime);
+            AMediaFormat_getString(thisFormat, AMEDIAFORMAT_KEY_MIME, &thisMediaType);
+            ALOGV("For media type %s, Couldn't find a match", thisMediaType);
             return false;
         }
     }
@@ -499,23 +500,23 @@ void MuxerNativeTestHelper::offsetTimeStamp(int64_t tsAudioOffsetUs, int64_t tsV
     // video track
     for (int trackID = 0; trackID < mTrackCount; trackID++) {
         int64_t tsOffsetUs = 0;
-        const char* thisMime = nullptr;
-        AMediaFormat_getString(mFormat[trackID], AMEDIAFORMAT_KEY_MIME, &thisMime);
-        if (thisMime != nullptr) {
-            if (strncmp(thisMime, "video/", strlen("video/")) == 0) {
+        const char* thisMediaType = nullptr;
+        AMediaFormat_getString(mFormat[trackID], AMEDIAFORMAT_KEY_MIME, &thisMediaType);
+        if (thisMediaType != nullptr) {
+            if (strncmp(thisMediaType, "video/", strlen("video/")) == 0) {
                 tsOffsetUs = tsVideoOffsetUs;
-            } else if (strncmp(thisMime, "audio/", strlen("audio/")) == 0) {
+            } else if (strncmp(thisMediaType, "audio/", strlen("audio/")) == 0) {
                 tsOffsetUs = tsAudioOffsetUs;
             }
             for (int i = sampleOffset; i < mBufferInfo[trackID].size(); i++) {
-                AMediaCodecBufferInfo *info = mBufferInfo[trackID][i];
+                AMediaCodecBufferInfo* info = mBufferInfo[trackID][i];
                 info->presentationTimeUs += tsOffsetUs;
             }
         }
     }
 }
 
-static bool isCodecContainerPairValid(MuxerFormat format, const char* mime) {
+static bool isCodecContainerPairValid(MuxerFormat format, const char* mediaType) {
     static const std::map<MuxerFormat, std::vector<const char*>> codecListforType = {
             {OUTPUT_FORMAT_MPEG_4,
              {AMEDIA_MIMETYPE_VIDEO_MPEG4, AMEDIA_MIMETYPE_VIDEO_H263, AMEDIA_MIMETYPE_VIDEO_AVC,
@@ -531,13 +532,13 @@ static bool isCodecContainerPairValid(MuxerFormat format, const char* mime) {
     };
 
     if (format == OUTPUT_FORMAT_MPEG_4 &&
-        strncmp(mime, "application/", strlen("application/")) == 0)
+        strncmp(mediaType, "application/", strlen("application/")) == 0)
         return true;
 
     auto it = codecListforType.find(format);
     if (it != codecListforType.end())
         for (auto it2 : it->second)
-            if (strcmp(it2, mime) == 0) return true;
+            if (strcmp(it2, mediaType) == 0) return true;
 
     return false;
 }
@@ -801,13 +802,13 @@ static jboolean nativeTestOffsetPts(JNIEnv* env, jobject, jint format, jstring j
                 for (int i = 0; i < len; i++) {
                     mediaInfo->offsetTimeStamp(audioOffsetUs, videoOffsetUs, coffsetIndices[i]);
                 }
-                FILE *ofp = fopen(cdstPath, "wbe+");
+                FILE* ofp = fopen(cdstPath, "wbe+");
                 if (ofp) {
-                    AMediaMuxer *muxer = AMediaMuxer_new(fileno(ofp), (OutputFormat) format);
+                    AMediaMuxer* muxer = AMediaMuxer_new(fileno(ofp), (OutputFormat)format);
                     mediaInfo->muxMedia(muxer);
                     AMediaMuxer_delete(muxer);
                     fclose(ofp);
-                    auto *outInfo = new MuxerNativeTestHelper(cdstPath);
+                    auto* outInfo = new MuxerNativeTestHelper(cdstPath);
                     isPass = mediaInfo->isSubsetOf(outInfo);
                     if (!isPass) {
                         ALOGE("Validation failed after adding timestamp offsets audio: %lld,"
@@ -835,12 +836,12 @@ static jboolean nativeTestOffsetPts(JNIEnv* env, jobject, jint format, jstring j
 }
 
 static jboolean nativeTestSimpleMux(JNIEnv* env, jobject, jstring jsrcPath, jstring jdstPath,
-                                    jstring jmime, jstring jselector) {
+                                    jstring jMediaType, jstring jselector) {
     bool isPass = true;
-    const char* cmime = env->GetStringUTFChars(jmime, nullptr);
+    const char* cMediaType = env->GetStringUTFChars(jMediaType, nullptr);
     const char* csrcPath = env->GetStringUTFChars(jsrcPath, nullptr);
     const char* cselector = env->GetStringUTFChars(jselector, nullptr);
-    auto* mediaInfo = new MuxerNativeTestHelper(csrcPath, cmime);
+    auto* mediaInfo = new MuxerNativeTestHelper(csrcPath, cMediaType);
     static const std::map<MuxerFormat, const char*> formatStringPair = {
             {OUTPUT_FORMAT_MPEG_4, "mp4"},
             {OUTPUT_FORMAT_WEBM, "webm"},
@@ -863,31 +864,31 @@ static jboolean nativeTestSimpleMux(JNIEnv* env, jobject, jstring jsrcPath, jstr
                 AMediaMuxer_delete(muxer);
                 fclose(ofp);
                 if (muxStatus) {
-                    auto* outInfo = new MuxerNativeTestHelper(cdstPath, cmime);
+                    auto* outInfo = new MuxerNativeTestHelper(cdstPath, cMediaType);
                     result = mediaInfo->isSubsetOf(outInfo);
                     delete outInfo;
                 }
                 if ((muxStatus && !result) ||
-                    (!muxStatus && isCodecContainerPairValid((MuxerFormat)fmt, cmime))) {
+                    (!muxStatus && isCodecContainerPairValid((MuxerFormat)fmt, cMediaType))) {
                     isPass = false;
-                    ALOGE("error: file %s, mime %s, output != clone(input) for format %d", csrcPath,
-                          cmime, fmt);
+                    ALOGE("error: file %s, mediaType %s, output != clone(input) for format %d",
+                          csrcPath, cMediaType, fmt);
                 }
             } else {
                 isPass = false;
-                ALOGE("error: file %s, mime %s, failed to open output file %s", csrcPath, cmime,
-                      cdstPath);
+                ALOGE("error: file %s, mediaType %s, failed to open output file %s", csrcPath,
+                      cMediaType, cdstPath);
             }
         }
         env->ReleaseStringUTFChars(jdstPath, cdstPath);
     } else {
         isPass = false;
-        ALOGE("error: file %s, mime %s, track count exp/rec - %d/%d", csrcPath, cmime, 1,
+        ALOGE("error: file %s, mediaType %s, track count exp/rec - %d/%d", csrcPath, cMediaType, 1,
               mediaInfo->getTrackCount());
     }
     env->ReleaseStringUTFChars(jselector, cselector);
     env->ReleaseStringUTFChars(jsrcPath, csrcPath);
-    env->ReleaseStringUTFChars(jmime, cmime);
+    env->ReleaseStringUTFChars(jMediaType, cMediaType);
     delete mediaInfo;
     return static_cast<jboolean>(isPass);
 }

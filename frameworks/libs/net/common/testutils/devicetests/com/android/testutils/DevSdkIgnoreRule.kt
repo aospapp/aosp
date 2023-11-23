@@ -18,58 +18,41 @@ package com.android.testutils
 
 import android.os.Build
 import androidx.test.InstrumentationRegistry
-import com.android.modules.utils.build.SdkLevel
-import kotlin.test.fail
+import com.android.modules.utils.build.UnboundedSdkLevel
 import org.junit.Assume.assumeTrue
 import org.junit.rules.TestRule
 import org.junit.runner.Description
 import org.junit.runners.model.Statement
 import java.util.regex.Pattern
 
-// TODO: Remove it when Build.VERSION_CODES.SC_V2 is available
-const val SC_V2 = 32
+@Deprecated("Use Build.VERSION_CODES", ReplaceWith("Build.VERSION_CODES.S_V2"))
+const val SC_V2 = Build.VERSION_CODES.S_V2
 
 private val MAX_TARGET_SDK_ANNOTATION_RE = Pattern.compile("MaxTargetSdk([0-9]+)$")
 private val targetSdk = InstrumentationRegistry.getContext().applicationInfo.targetSdkVersion
 
+private fun isDevSdkInRange(minExclusive: String?, maxInclusive: String?): Boolean {
+    return (minExclusive == null || !UnboundedSdkLevel.isAtMost(minExclusive)) &&
+            (maxInclusive == null || UnboundedSdkLevel.isAtMost(maxInclusive))
+}
+
 /**
- * Returns true if the development SDK version of the device is in the provided range.
+ * Returns true if the development SDK version of the device is in the provided annotation range.
  *
- * If the device is not using a release SDK, the development SDK is considered to be higher than
- * [Build.VERSION.SDK_INT].
+ * If the device is not using a release SDK, the development SDK differs from
+ * [Build.VERSION.SDK_INT], and is indicated by the device codenames; see [UnboundedSdkLevel].
  */
-fun isDevSdkInRange(minExclusive: Int?, maxInclusive: Int?): Boolean {
-    return (minExclusive == null || isDevSdkAfter(minExclusive)) &&
-            (maxInclusive == null || isDevSdkUpTo(maxInclusive))
-}
-
-private fun isDevSdkAfter(minExclusive: Int): Boolean {
-    // A development build for T typically has SDK_INT = 30 (R) or SDK_INT = 31 (S), so SDK_INT
-    // alone cannot be used to check the SDK version.
-    // For recent SDKs that still have development builds used for testing, use SdkLevel utilities
-    // instead of SDK_INT.
-    return when (minExclusive) {
-        // TODO: Use Build.VERSION_CODES.SC_V2 when it is available
-        SC_V2 -> SdkLevel.isAtLeastT()
-        // TODO: To use SdkLevel.isAtLeastSv2 when available
-        Build.VERSION_CODES.S -> fail("Do you expect to ignore the test until T? Use SC_V2 instead")
-        Build.VERSION_CODES.R -> SdkLevel.isAtLeastS()
-        // Development builds of SDK versions <= R are not used anymore
-        else -> Build.VERSION.SDK_INT > minExclusive
-    }
-}
-
-private fun isDevSdkUpTo(maxInclusive: Int): Boolean {
-    return when (maxInclusive) {
-        // TODO: Use Build.VERSION_CODES.SC_V2 when it is available
-        SC_V2 -> !SdkLevel.isAtLeastT()
-        // TODO: To use SdkLevel.isAtLeastSv2 when available
-        Build.VERSION_CODES.S ->
-                fail("Do you expect to ignore the test before T? Use SC_V2 instead")
-        Build.VERSION_CODES.R -> !SdkLevel.isAtLeastS()
-        // Development builds of SDK versions <= R are not used anymore
-        else -> Build.VERSION.SDK_INT <= maxInclusive
-    }
+fun isDevSdkInRange(
+    ignoreUpTo: DevSdkIgnoreRule.IgnoreUpTo?,
+    ignoreAfter: DevSdkIgnoreRule.IgnoreAfter?
+): Boolean {
+    val minExclusive =
+            if (ignoreUpTo?.value == 0) ignoreUpTo.codename
+            else ignoreUpTo?.value?.toString()
+    val maxInclusive =
+            if (ignoreAfter?.value == 0) ignoreAfter.codename
+            else ignoreAfter?.value?.toString()
+    return isDevSdkInRange(minExclusive, maxInclusive)
 }
 
 private fun getMaxTargetSdk(description: Description): Int? {
@@ -86,13 +69,23 @@ private fun getMaxTargetSdk(description: Description): Int? {
  * If the device is not using a release SDK, the development SDK is considered to be higher than
  * [Build.VERSION.SDK_INT].
  *
- * @param ignoreClassUpTo Skip all tests in the class if the device dev SDK is <= this value.
- * @param ignoreClassAfter Skip all tests in the class if the device dev SDK is > this value.
+ * @param ignoreClassUpTo Skip all tests in the class if the device dev SDK is <= this codename or
+ *                        SDK level.
+ * @param ignoreClassAfter Skip all tests in the class if the device dev SDK is > this codename or
+ *                         SDK level.
  */
 class DevSdkIgnoreRule @JvmOverloads constructor(
-    private val ignoreClassUpTo: Int? = null,
-    private val ignoreClassAfter: Int? = null
+    private val ignoreClassUpTo: String? = null,
+    private val ignoreClassAfter: String? = null
 ) : TestRule {
+    /**
+     * @param ignoreClassUpTo Skip all tests in the class if the device dev SDK is <= this value.
+     * @param ignoreClassAfter Skip all tests in the class if the device dev SDK is > this value.
+     */
+    @JvmOverloads
+    constructor(ignoreClassUpTo: Int?, ignoreClassAfter: Int? = null) : this(
+            ignoreClassUpTo?.toString(), ignoreClassAfter?.toString())
+
     override fun apply(base: Statement, description: Description): Statement {
         return IgnoreBySdkStatement(base, description)
     }
@@ -103,7 +96,7 @@ class DevSdkIgnoreRule @JvmOverloads constructor(
      * If the device is not using a release SDK, the development SDK is considered to be higher
      * than [Build.VERSION.SDK_INT].
      */
-    annotation class IgnoreAfter(val value: Int)
+    annotation class IgnoreAfter(val value: Int = 0, val codename: String = "")
 
     /**
      * Ignore the test for any development SDK that lower than or equal to [value].
@@ -111,7 +104,7 @@ class DevSdkIgnoreRule @JvmOverloads constructor(
      * If the device is not using a release SDK, the development SDK is considered to be higher
      * than [Build.VERSION.SDK_INT].
      */
-    annotation class IgnoreUpTo(val value: Int)
+    annotation class IgnoreUpTo(val value: Int = 0, val codename: String = "")
 
     private inner class IgnoreBySdkStatement(
         private val base: Statement,
@@ -124,7 +117,7 @@ class DevSdkIgnoreRule @JvmOverloads constructor(
             val devSdkMessage = "Skipping test for build ${Build.VERSION.CODENAME} " +
                     "with SDK ${Build.VERSION.SDK_INT}"
             assumeTrue(devSdkMessage, isDevSdkInRange(ignoreClassUpTo, ignoreClassAfter))
-            assumeTrue(devSdkMessage, isDevSdkInRange(ignoreUpTo?.value, ignoreAfter?.value))
+            assumeTrue(devSdkMessage, isDevSdkInRange(ignoreUpTo, ignoreAfter))
 
             val maxTargetSdk = getMaxTargetSdk(description)
             if (maxTargetSdk != null) {

@@ -24,7 +24,7 @@ import java.util.Collections;
  * Set of tests for LauncherApps attempting to access a non-profiles
  * apps.
  */
-public class LauncherAppsMultiUserTest extends BaseLauncherAppsTest {
+public final class LauncherAppsMultiUserTest extends BaseLauncherAppsTest {
 
     private int mSecondaryUserId;
     private String mSecondaryUserSerialNumber;

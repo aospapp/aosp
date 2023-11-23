@@ -1,15 +1,9 @@
-#
-# configure.in
-#
-# 	This library is free software; you can redistribute it and/or
-#	modify it under the terms of the GNU Lesser General Public
-#	License as published by the Free Software Foundation version 2.1
-#	of the License.
+# SPDX-License-Identifier: LGPL-2.1-only
 #
 # Copyright (c) 2003-2013 Thomas Graf <tgraf@suug.ch>
 #
 
-AC_INIT(libnl-doc, [3.5.0], [http://www.infradead.org/~tgr/libnl/])
+AC_INIT(libnl-doc, [3.7.0], [http://www.infradead.org/~tgr/libnl/])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([foreign])

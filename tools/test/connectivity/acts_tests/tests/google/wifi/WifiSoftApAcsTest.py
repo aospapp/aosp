@@ -16,7 +16,6 @@
 
 import itertools
 import pprint
-import queue
 import sys
 import time
 
@@ -37,6 +36,7 @@ WifiEnums = wutils.WifiEnums
 WIFI_CONFIG_APBAND_AUTO = WifiEnums.WIFI_CONFIG_SOFTAP_BAND_2G_5G
 GET_FREQUENCY_NUM_RETRIES = 3
 
+
 class WifiSoftApAcsTest(WifiBaseTest):
     """Tests for Automatic Channel Selection.
 
@@ -55,17 +55,26 @@ class WifiSoftApAcsTest(WifiBaseTest):
         utils.sync_device_time(self.dut_client)
         # Enable verbose logging on the duts
         self.dut.droid.wifiEnableVerboseLogging(1)
-        asserts.assert_equal(self.dut.droid.wifiGetVerboseLoggingLevel(), 1,
+        asserts.assert_equal(
+            self.dut.droid.wifiGetVerboseLoggingLevel(), 1,
             "Failed to enable WiFi verbose logging on the softap dut.")
         self.dut_client.droid.wifiEnableVerboseLogging(1)
-        asserts.assert_equal(self.dut_client.droid.wifiGetVerboseLoggingLevel(), 1,
+        asserts.assert_equal(
+            self.dut_client.droid.wifiGetVerboseLoggingLevel(), 1,
             "Failed to enable WiFi verbose logging on the client dut.")
-        req_params = ["wifi6_models",]
-        opt_param = ["iperf_server_address", "reference_networks",
-                     "iperf_server_port", "pixel_models"]
-        self.unpack_userparams(
-            req_param_names=req_params, opt_param_names=opt_param)
-        self.chan_map = {v: k for k, v in hostapd_constants.CHANNEL_MAP.items()}
+        req_params = [
+            "wifi6_models",
+        ]
+        opt_param = [
+            "iperf_server_address", "reference_networks", "iperf_server_port",
+            "pixel_models"
+        ]
+        self.unpack_userparams(req_param_names=req_params,
+                               opt_param_names=opt_param)
+        self.chan_map = {
+            v: k
+            for k, v in hostapd_constants.CHANNEL_MAP.items()
+        }
         self.pcap_procs = None
 
     def setup_test(self):
@@ -75,8 +84,8 @@ class WifiSoftApAcsTest(WifiBaseTest):
             if chan.isnumeric():
                 band = '2G' if self.chan_map[int(chan)] < 5000 else '5G'
                 self.packet_capture[0].configure_monitor_mode(band, int(chan))
-                self.pcap_procs = wutils.start_pcap(
-                    self.packet_capture[0], band, self.test_name)
+                self.pcap_procs = wutils.start_pcap(self.packet_capture[0],
+                                                    band, self.test_name)
         self.dut.droid.wakeLockAcquireBright()
         self.dut.droid.wakeUpNow()
 
@@ -128,9 +137,10 @@ class WifiSoftApAcsTest(WifiBaseTest):
         config = wutils.create_softap_config()
         wutils.start_wifi_tethering(self.dut,
                                     config[wutils.WifiEnums.SSID_KEY],
-                                    config[wutils.WifiEnums.PWD_KEY], band=band)
+                                    config[wutils.WifiEnums.PWD_KEY],
+                                    band=band)
         asserts.assert_true(self.dut.droid.wifiIsApEnabled(),
-                             "SoftAp is not reported as running")
+                            "SoftAp is not reported as running")
         wutils.start_wifi_connection_scan_and_ensure_network_found(
             self.dut_client, config[wutils.WifiEnums.SSID_KEY])
         return config
@@ -143,18 +153,19 @@ class WifiSoftApAcsTest(WifiBaseTest):
             softap: The softap network configuration information.
 
         """
-        wutils.connect_to_wifi_network(self.dut_client, softap,
-            check_connectivity=False)
+        wutils.connect_to_wifi_network(self.dut_client,
+                                       softap,
+                                       check_connectivity=False)
         for _ in range(GET_FREQUENCY_NUM_RETRIES):
             softap_info = self.dut_client.droid.wifiGetConnectionInfo()
             self.log.debug("DUT is connected to softAP %s with details: %s" %
                            (softap[wutils.WifiEnums.SSID_KEY], softap_info))
             frequency = softap_info['frequency']
-            self.dut.log.info("DUT SoftAp operates on Channel: {}".
-                              format(WifiEnums.freq_to_channel[frequency]))
+            self.dut.log.info("DUT SoftAp operates on Channel: {}".format(
+                WifiEnums.freq_to_channel[frequency]))
             if frequency > 0:
                 break
-            time.sleep(1) # frequency not updated yet, try again after a delay
+            time.sleep(1)  # frequency not updated yet, try again after a delay
         wutils.verify_11ax_softap(self.dut, self.dut_client, self.wifi6_models)
         return hostapd_constants.CHANNEL_MAP[frequency]
 
@@ -198,11 +209,12 @@ class WifiSoftApAcsTest(WifiBaseTest):
         wutils.connect_to_wifi_network(self.dut_client, network)
         freq = self.dut_client.droid.wifiGetConnectionInfo()["frequency"]
         ap_chan = wutils.WifiEnums.freq_to_channel[freq]
-        self.dut_client.log.info("{} operates on channel: {}"
-                                 .format(network["SSID"], ap_chan))
-        wutils.verify_11ax_wifi_connection(
-            self.dut_client, self.wifi6_models, "wifi6_ap" in self.user_params)
-        t = Thread(target=self.run_iperf_client,args=((network,self.dut_client),))
+        self.dut_client.log.info("{} operates on channel: {}".format(
+            network["SSID"], ap_chan))
+        wutils.verify_11ax_wifi_connection(self.dut_client, self.wifi6_models,
+                                           "wifi6_ap" in self.user_params)
+        t = Thread(target=self.run_iperf_client,
+                   args=((network, self.dut_client), ))
         t.setDaemon(True)
         t.start()
         time.sleep(1)
@@ -220,22 +232,25 @@ class WifiSoftApAcsTest(WifiBaseTest):
             avoid_chan: The channel to avoid during this test.
 
         """
-        if avoid_chan in range(1,12):
+        if avoid_chan in range(1, 12):
             avoid_chan2 = hostapd_constants.AP_DEFAULT_CHANNEL_5G
         elif avoid_chan in range(36, 166):
             avoid_chan2 = hostapd_constants.AP_DEFAULT_CHANNEL_2G
         if chan == avoid_chan or chan == avoid_chan2:
             raise signals.TestFailure("ACS chose the same channel that the "
-                "AP was beaconing on. Channel = %d" % chan)
+                                      "AP was beaconing on. Channel = %d" %
+                                      chan)
 
     """Tests"""
+
     @test_tracker_info(uuid="3507bd18-e787-4380-8725-1872916d4267")
     def test_softap_2G_clean_env(self):
         """Test to bring up SoftAp on 2GHz in clean environment."""
         network = None
         chan = self.start_traffic_and_softap(network, WIFI_CONFIG_APBAND_2G)
         if not chan in range(1, 12):
-            raise signals.TestFailure("ACS chose incorrect channel %d for 2GHz "
+            raise signals.TestFailure(
+                "ACS chose incorrect channel %d for 2GHz "
                 "band" % chan)
 
     @test_tracker_info(uuid="3d18da8b-d29a-45f9-8018-5348e10099e9")
@@ -245,7 +260,8 @@ class WifiSoftApAcsTest(WifiBaseTest):
         chan = self.start_traffic_and_softap(network, WIFI_CONFIG_APBAND_5G)
         if not chan in range(36, 166):
             # Note: This does not treat DFS channel separately.
-            raise signals.TestFailure("ACS chose incorrect channel %d for 5GHz "
+            raise signals.TestFailure(
+                "ACS chose incorrect channel %d for 5GHz "
                 "band" % chan)
 
     @test_tracker_info(uuid="cc353bda-3831-4d6e-b990-e501b8e4eafe")
@@ -255,7 +271,8 @@ class WifiSoftApAcsTest(WifiBaseTest):
         chan = self.start_traffic_and_softap(network, WIFI_CONFIG_APBAND_AUTO)
         if not chan in range(36, 166):
             # Note: This does not treat DFS channel separately.
-            raise signals.TestFailure("ACS chose incorrect channel %d for 5GHz "
+            raise signals.TestFailure(
+                "ACS chose incorrect channel %d for 5GHz "
                 "band" % chan)
 
     @test_tracker_info(uuid="a5f6a926-76d2-46a7-8136-426e35b5a5a8")

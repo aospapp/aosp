@@ -45,6 +45,7 @@ struct EattExtension::impl {
     reg_info_.pL2CA_DisconnectInd_Cb = eatt_disconnect_ind;
     reg_info_.pL2CA_Error_Cb = eatt_error_cb;
     reg_info_.pL2CA_DataInd_Cb = eatt_data_ind;
+    reg_info_.pL2CA_CreditBasedCollisionInd_Cb = eatt_collision_ind;
 
     if (L2CA_RegisterLECoc(BT_PSM_EATT, reg_info_, BTM_SEC_NONE, {}) == 0) {
       LOG(ERROR) << __func__ << " cannot register EATT";
@@ -94,6 +95,11 @@ struct EattExtension::impl {
                                                  p_cfg);
   }
 
+  static void eatt_collision_ind(const RawAddress& bd_addr) {
+    auto p_eatt_impl = GetImplInstance();
+    if (p_eatt_impl) p_eatt_impl->eatt_l2cap_collision_ind(bd_addr);
+  }
+
   static void eatt_error_cb(uint16_t lcid, uint16_t reason) {
     auto p_eatt_impl = GetImplInstance();
     if (p_eatt_impl) p_eatt_impl->eatt_l2cap_error_cb(lcid, reason);
@@ -129,8 +135,8 @@ void EattExtension::Connect(const RawAddress& bd_addr) {
   pimpl_->eatt_impl_->connect(bd_addr);
 }
 
-void EattExtension::Disconnect(const RawAddress& bd_addr) {
-  pimpl_->eatt_impl_->disconnect(bd_addr);
+void EattExtension::Disconnect(const RawAddress& bd_addr, uint16_t cid) {
+  pimpl_->eatt_impl_->disconnect(bd_addr, cid);
 }
 
 void EattExtension::Reconfigure(const RawAddress& bd_addr, uint16_t cid,
@@ -169,7 +175,7 @@ bool EattExtension::IsOutstandingMsgInSendQueue(const RawAddress& bd_addr) {
   return pimpl_->eatt_impl_->is_outstanding_msg_in_send_queue(bd_addr);
 }
 
-EattChannel* EattExtension::GetChannelWithQueuedData(
+EattChannel* EattExtension::GetChannelWithQueuedDataToSend(
     const RawAddress& bd_addr) {
   return pimpl_->eatt_impl_->get_channel_with_queued_data(bd_addr);
 }

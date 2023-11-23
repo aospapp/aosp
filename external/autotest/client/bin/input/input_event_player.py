@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -20,8 +20,14 @@ import os.path
 import re
 import time
 
-from input_device import InputDevice, InputEvent
 from optparse import OptionParser
+# Try to import from the autotest_lib structure. If it fails try the default.
+# If this script was run outside of autotest the "except" would be the flow.
+# If run within, the "try" is the flow.
+try:
+    from autotest_lib.client.bin.input.input_device import InputDevice, InputEvent
+except ImportError:
+    from input_device import InputDevice, InputEvent
 
 
 class InputEventPlayer:

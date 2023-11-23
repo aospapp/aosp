@@ -56,6 +56,16 @@ public class CtsThirdPartyInCallServiceControl extends Service {
             return getPackageManager().checkPermission(permission
                     , getApplication().getPackageName()) == PERMISSION_GRANTED;
         }
+
+        @Override
+        public void setExpectedExtra(String newKey, String newValue) {
+            CtsThirdPartyInCallService.getInstance().setExpectedExtra(newKey, newValue);
+        }
+
+        @Override
+        public boolean waitUntilExpectedExtrasReceived() {
+            return CtsThirdPartyInCallService.getInstance().waitForExtrasChanged();
+        }
     };
 
     @Override

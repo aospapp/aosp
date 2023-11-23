@@ -21,6 +21,7 @@ import re
 import shutil
 import tempfile
 import urllib.request
+from typing import IO
 
 import archive_utils
 from base_updater import Updater
@@ -28,9 +29,7 @@ from base_updater import Updater
 import metadata_pb2  # type: ignore
 import updater_utils
 
-CRATES_IO_URL_PATTERN: str = (r"^https:\/\/crates.io\/crates\/([-\w]+)")
-
-CRATES_IO_URL_RE: re.Pattern = re.compile(CRATES_IO_URL_PATTERN)
+LIBRARY_NAME_PATTERN: str = (r"([-\w]+)")
 
 ALPHA_BETA_PATTERN: str = (r"^.*[0-9]+\.[0-9]+\.[0-9]+-(alpha|beta).*")
 
@@ -39,6 +38,13 @@ ALPHA_BETA_RE: re.Pattern = re.compile(ALPHA_BETA_PATTERN)
 VERSION_PATTERN: str = (r"([0-9]+)\.([0-9]+)\.([0-9]+)")
 
 VERSION_MATCHER: re.Pattern = re.compile(VERSION_PATTERN)
+
+CRATES_IO_ARCHIVE_URL_PATTERN: str = (r"^https:\/\/static.crates.io\/crates\/" +
+                                      LIBRARY_NAME_PATTERN + "/" +
+                                      LIBRARY_NAME_PATTERN + "-" +
+                                      VERSION_PATTERN + ".crate")
+
+CRATES_IO_ARCHIVE_URL_RE: re.Pattern = re.compile(CRATES_IO_ARCHIVE_URL_PATTERN)
 
 DESCRIPTION_PATTERN: str = (r"^description *= *(\".+\")")
 
@@ -51,21 +57,23 @@ class CratesUpdater(Updater):
     download_url: str
     package: str
     package_dir: str
-    temp_file: tempfile.NamedTemporaryFile
+    temp_file: IO
 
     def is_supported_url(self) -> bool:
-        if self._old_url.type != metadata_pb2.URL.HOMEPAGE:
-            return False
-        match = CRATES_IO_URL_RE.match(self._old_url.value)
+        match = CRATES_IO_ARCHIVE_URL_RE.match(self._old_url.value)
         if match is None:
             return False
         self.package = match.group(1)
         return True
 
-    def _get_version_numbers(self, version: str) -> (int, int, int):
+    def _get_version_numbers(self, version: str) -> tuple[int, int, int]:
         match = VERSION_MATCHER.match(version)
         if match is not None:
-            return tuple(int(match.group(i)) for i in range(1, 4))
+            return (
+                int(match.group(1)),
+                int(match.group(2)),
+                int(match.group(3)),
+            )
         return (0, 0, 0)
 
     def _is_newer_version(self, prev_version: str, prev_id: int,
@@ -75,7 +83,7 @@ class CratesUpdater(Updater):
                 (self._get_version_numbers(prev_version), prev_id))
 
     def _find_latest_non_test_version(self) -> None:
-        url = "https://crates.io/api/v1/crates/{}/versions".format(self.package)
+        url = f"https://crates.io/api/v1/crates/{self.package}/versions"
         with urllib.request.urlopen(url) as request:
             data = json.loads(request.read().decode())
         last_id = 0
@@ -97,8 +105,7 @@ class CratesUpdater(Updater):
             self._new_ver = data["crate"]["max_version"]
         # Skip d.d.d-{alpha,beta}* versions
         if ALPHA_BETA_RE.match(self._new_ver):
-            print("Ignore alpha or beta release: {}-{}."
-                  .format(self.package, self._new_ver))
+            print(f"Ignore alpha or beta release: {self.package}-{self._new_ver}.")
             self._find_latest_non_test_version()
         else:
             url = url + "/" + self._new_ver
@@ -109,10 +116,10 @@ class CratesUpdater(Updater):
     def use_current_as_latest(self):
         Updater.use_current_as_latest(self)
         # A shortcut to use the static download path.
-        self.download_url = "https://static.crates.io/crates/{}/{}-{}.crate".format(
-            self.package, self.package, self._new_ver)
+        self.download_url = f"https://static.crates.io/crates/{self.package}/" \
+                            f"{self.package}-{self._new_ver}.crate"
 
-    def update(self) -> None:
+    def update(self, skip_post_update: bool) -> None:
         """Updates the package.
 
         Has to call check() before this function.
@@ -149,8 +156,8 @@ class CratesUpdater(Updater):
                 new_url_list.append(url)
         new_url = metadata_pb2.URL()
         new_url.type = metadata_pb2.URL.ARCHIVE
-        new_url.value = "https://static.crates.io/crates/{}/{}-{}.crate".format(
-            metadata.name, metadata.name, metadata.third_party.version)
+        new_url.value = f"https://static.crates.io/crates/{metadata.name}/" \
+                        f"{metadata.name}-{metadata.third_party.version}.crate"
         new_url_list.append(new_url)
         del metadata.third_party.url[:]
         metadata.third_party.url.extend(new_url_list)
@@ -168,11 +175,11 @@ class CratesUpdater(Updater):
         # track which files existed before the patching.
         rejects = list(self._proj_path.glob('**/*.rej'))
         if len(rejects) > 0:
-            print("Error: Found patch reject files: %s" % str(rejects))
+            print(f"Error: Found patch reject files: {str(rejects)}")
             self._has_errors = True
         # Check for Cargo errors embedded in Android.bp.
         # Note that this should stay in sync with cargo2android.py.
-        with open('%s/Android.bp' % self._proj_path, 'r') as bp_file:
+        with open(f'{self._proj_path}/Android.bp', 'r') as bp_file:
             for line in bp_file:
                 if line.strip() == "Errors in cargo.out:":
                     print("Error: Found Cargo errors in Android.bp")

@@ -76,7 +76,7 @@ void VariableOp::Compute(OpKernelContext* ctx) {
   auto creator = [this](LegacyVar** var) {
     *var = new LegacyVar(dtype_);
     (*var)->tensor()->set_shape(shape_);
-    return Status::OK();
+    return OkStatus();
   };
   LegacyVar* var;
   OP_REQUIRES_OK(ctx, cinfo_.resource_manager()->LookupOrCreate<LegacyVar>(
@@ -166,7 +166,7 @@ class DestroyTemporaryVariableOp : public OpKernel {
                      rm, unique_name));
     if (context->track_allocations()) {
       context->record_persistent_memory_allocation(
-          -static_cast<int64>(tmpvar.AllocatedBytes()));
+          -static_cast<int64_t>(tmpvar.AllocatedBytes()));
     }
   }
 

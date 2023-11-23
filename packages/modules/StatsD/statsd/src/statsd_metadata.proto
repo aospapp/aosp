@@ -56,10 +56,16 @@ message AlertMetadata {
   repeated AlertDimensionKeyedData alert_dim_keyed_data = 2;
 }
 
+message MetricMetadata {
+  optional int64 metric_id = 1;
+  optional int32 restricted_category = 2;
+}
+
 // All metadata for a config in statsd
 message StatsMetadata {
   optional ConfigKey config_key = 1;
   repeated AlertMetadata alert_metadata = 2;
+  repeated MetricMetadata metric_metadata = 3;
 }
 
 message StatsMetadataList {

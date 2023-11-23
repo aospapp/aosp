@@ -33,7 +33,7 @@ _LOG = logging.getLogger(__name__)
 
 
 def argument_parser(
-    parser: Optional[argparse.ArgumentParser] = None
+    parser: Optional[argparse.ArgumentParser] = None,
 ) -> argparse.ArgumentParser:
     """Registers the script's arguments on an argument parser."""
 
@@ -71,9 +71,11 @@ def argument_parser(
         '--target',
         help='GN build target that runs the program',
     )
-    parser.add_argument('--working-directory',
-                        type=pathlib.Path,
-                        help='Directory to execute program in')
+    parser.add_argument(
+        '--working-directory',
+        type=pathlib.Path,
+        help='Directory to execute program in',
+    )
     parser.add_argument(
         'command',
         nargs=argparse.REMAINDER,
@@ -117,6 +119,18 @@ def main() -> int:
 
     # Command starts after the "--".
     command = args.command[1:]
+    # command[0] is the invoker.prog from gn and gn will escape
+    # the various spaces in the command which means when argparse
+    # gets the string argparse believes this as a single argument
+    # and cannot correctly break the string into a list that
+    # subprocess can handle.  By splitting the first element
+    # in the command list, if there is a space, all of the
+    # command[0] elements will be made into a list and if not
+    # then split won't do everything and the old behavior
+    # will continue.
+    front_command = command[0].split(' ')
+    del command[0]
+    command = front_command + command
     extra_kw_args = {}
 
     if args.args_file is not None:
@@ -147,8 +161,9 @@ def main() -> int:
 
     if process.returncode != 0 and args.capture_output:
         _LOG.error('')
-        _LOG.error('Command failed with exit code %d in GN build.',
-                   process.returncode)
+        _LOG.error(
+            'Command failed with exit code %d in GN build.', process.returncode
+        )
         _LOG.error('')
         _LOG.error('Build target:')
         _LOG.error('')

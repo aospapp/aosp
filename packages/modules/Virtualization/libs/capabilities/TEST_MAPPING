@@ -1,0 +1,10 @@
+{
+  "avf-presubmit" : [
+    {
+      "name" : "libcap_rust.test"
+    },
+    {
+      "name" : "libcap_bindgen_test"
+    }
+  ]
+}

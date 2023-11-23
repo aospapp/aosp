@@ -19,17 +19,26 @@ package android.view.inputmethod.cts;
 import static android.content.Intent.ACTION_CLOSE_SYSTEM_DIALOGS;
 import static android.content.Intent.FLAG_RECEIVER_FOREGROUND;
 import static android.content.pm.PackageManager.FEATURE_INPUT_METHODS;
+import static android.server.wm.WindowManagerState.STATE_RESUMED;
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
+import static android.view.inputmethod.cts.util.TestUtils.getOnMainSync;
+import static android.view.inputmethod.cts.util.TestUtils.isInputMethodPickerShown;
 import static android.view.inputmethod.cts.util.TestUtils.waitOnMainUntil;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
+import android.content.Context;
 import android.content.Intent;
+import android.hardware.display.DisplayManager;
+import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.SecurityTest;
-import android.server.wm.ActivityManagerTestBase;
+import android.server.wm.MultiDisplayTestBase;
+import android.server.wm.WindowManagerState;
+import android.view.Display;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.cts.util.TestActivity;
@@ -47,7 +56,8 @@ import java.util.concurrent.TimeUnit;
 
 @MediumTest
 @RunWith(AndroidJUnit4.class)
-public class InputMethodPickerTest extends ActivityManagerTestBase {
+@AppModeFull(reason = "Instant apps cannot rely on ACTION_CLOSE_SYSTEM_DIALOGS")
+public class InputMethodPickerTest extends MultiDisplayTestBase {
 
     private static final long TIMEOUT = TimeUnit.SECONDS.toMillis(5);
 
@@ -56,8 +66,10 @@ public class InputMethodPickerTest extends ActivityManagerTestBase {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        mImManager = mContext.getSystemService(InputMethodManager.class);
 
+        assumeTrue(mContext.getPackageManager().hasSystemFeature(FEATURE_INPUT_METHODS));
+
+        mImManager = mContext.getSystemService(InputMethodManager.class);
         closeSystemDialogsAndWait();
     }
 
@@ -66,11 +78,9 @@ public class InputMethodPickerTest extends ActivityManagerTestBase {
         closeSystemDialogsAndWait();
     }
 
-    @AppModeFull(reason = "Instant apps cannot rely on ACTION_CLOSE_SYSTEM_DIALOGS")
     @SecurityTest(minPatchLevel = "unknown")
     @Test
     public void testInputMethodPicker_hidesUntrustedOverlays() throws Exception {
-        assumeTrue(mContext.getPackageManager().hasSystemFeature(FEATURE_INPUT_METHODS));
         TestActivity testActivity = TestActivity.startSync(activity -> {
             final View view = new View(activity);
             view.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT));
@@ -78,26 +88,81 @@ public class InputMethodPickerTest extends ActivityManagerTestBase {
         });
 
         // Test setup: Show overlay and verify that it worked.
-        getInstrumentation().runOnMainSync(() -> {
-            testActivity.showOverlayWindow();
-        });
+        getInstrumentation().runOnMainSync(testActivity::showOverlayWindow);
         mWmState.waitAndAssertWindowSurfaceShown(TestActivity.OVERLAY_WINDOW_NAME, true);
 
         // Test setup: Show the IME picker and verify that it worked.
-        getInstrumentation().runOnMainSync(() -> {
-            mImManager.showInputMethodPicker();
-        });
-        waitOnMainUntil(() -> mImManager.isInputMethodPickerShown(), TIMEOUT,
+        getInstrumentation().runOnMainSync(mImManager::showInputMethodPicker);
+        waitOnMainUntil(() -> isInputMethodPickerShown(mImManager), TIMEOUT,
                 "Test setup failed: InputMethod picker should be shown");
 
         // Actual Test: Make sure the IME picker hides app overlays.
         mWmState.waitAndAssertWindowSurfaceShown(TestActivity.OVERLAY_WINDOW_NAME, false);
     }
 
+    /**
+     * Test if the IME picker dialog remain to be visible when popup the non-focusable overlay
+     * window with {@link android.view.WindowManager.LayoutParams#FLAG_ALT_FOCUSABLE_IM} flag.
+     *
+     * <p>Regression test for Bug 236101545.</p>
+     */
+    @Test
+    public void testShowInputMethodPicker_noDismissWhenOverlayPopup() throws Exception {
+        TestActivity testActivity = TestActivity.startSync(activity -> {
+            final View view = new View(activity);
+            view.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT));
+            return view;
+        });
+
+        // Test the IME picker dialog won't be dismissed when the overlay popup in parallel.
+        mImManager.showInputMethodPicker();
+        waitOnMainUntil(() -> isInputMethodPickerShown(mImManager), TIMEOUT,
+                "InputMethod picker should be shown");
+        getInstrumentation().runOnMainSync(() ->
+                testActivity.showOverlayWindow(true /* imeFocusable */));
+        SystemClock.sleep(500);
+        assertTrue(getOnMainSync(() -> isInputMethodPickerShown(mImManager)));
+    }
+
+    @Test
+    public void testShowImePickerOnExternalDisplay() throws Exception {
+        assumeTrue(supportsMultiDisplay());
+
+        try (MultiDisplayTestBase.VirtualDisplaySession session =
+                new MultiDisplayTestBase.VirtualDisplaySession()) {
+            // Setup a simulated display.
+            WindowManagerState.DisplayContent dc = session.setSimulateDisplay(true).createDisplay();
+            Display simulatedDisplay = mContext.getSystemService(DisplayManager.class)
+                    .getDisplay(dc.mId);
+
+            // Launch a test activity on the simulated display.
+            TestActivity testActivity = new TestActivity.Starter().withDisplayId(dc.mId)
+                    .startSync(activity -> {
+                        final View view = new View(activity);
+                        view.setLayoutParams(
+                                new LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT));
+                        return view;
+                    }, TestActivity.class);
+            waitAndAssertActivityStateOnDisplay(testActivity.getComponentName(),
+                    STATE_RESUMED, dc.mId, "Activity launched on external display must be resumed");
+
+            // Verify IME picker will be shown when using InputMethodManager instance from
+            // the display context.
+            final Context displayContext = getInstrumentation().getTargetContext()
+                    .createDisplayContext(simulatedDisplay);
+            final InputMethodManager im = displayContext.getSystemService(InputMethodManager.class);
+            im.showInputMethodPicker();
+            waitOnMainUntil(() -> isInputMethodPickerShown(im), TIMEOUT,
+                    "Test failed: InputMethod picker should be shown");
+            mWmState.waitAndAssertImePickerShownOnDisplay(dc.mId,
+                    "Test failed: InputMethod picker should be shown on display #" + dc.mId);
+        }
+    }
+
     private void closeSystemDialogsAndWait() throws Exception {
         mContext.sendBroadcast(
                 new Intent(ACTION_CLOSE_SYSTEM_DIALOGS).setFlags(FLAG_RECEIVER_FOREGROUND));
-        waitOnMainUntil(() -> !mImManager.isInputMethodPickerShown(), TIMEOUT,
+        waitOnMainUntil(() -> !isInputMethodPickerShown(mImManager), TIMEOUT,
                 "Test assertion failed: InputMethod picker should be closed but isn't");
     }
 }

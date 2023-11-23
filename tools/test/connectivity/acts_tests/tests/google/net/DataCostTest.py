@@ -13,11 +13,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import logging
 import os
-import random
-import socket
-import threading
 import time
 
 from acts import asserts
@@ -39,6 +35,7 @@ from acts_contrib.test_utils.net.connectivity_const import MULTIPATH_PREFERENCE_
 DOWNLOAD_PATH = "/sdcard/Download/"
 RELIABLE = RELIABILITY | HANDOVER
 TIMEOUT = 6
+
 
 class DataCostTest(base_test.BaseTestClass):
     """ Tests for Wifi Tethering """
@@ -62,7 +59,6 @@ class DataCostTest(base_test.BaseTestClass):
             ad.droid.connectivitySetDataWarningLimit(sub_id, -1)
             wutils.reset_wifi(ad)
 
-
     def teardown_test(self):
         if self.tcpdump_pid:
             nutils.stop_tcpdump(self.dut, self.tcpdump_pid, self.test_name)
@@ -70,7 +66,7 @@ class DataCostTest(base_test.BaseTestClass):
 
     def on_fail(self, test_name, begin_time):
         self.dut.take_bug_report(test_name, begin_time)
-        dumpsys_info=self.dut.adb.shell("dumpsys netstats --uid")
+        dumpsys_info = self.dut.adb.shell("dumpsys netstats --uid")
         self.dut.log.info(dumpsys_info)
 
     """ Helper functions """
@@ -82,7 +78,7 @@ class DataCostTest(base_test.BaseTestClass):
             ad: Android device object
         """
         ad.log.info("Clear netstats record.")
-        ad.adb.shell("rm /data/system/netstats/*")
+        ad.adb.shell("if [ $(ls /data/system/netstats/) ]; then rm /data/system/netstats/*; fi")
         asserts.assert_equal("", ad.adb.shell("ls /data/system/netstats/"),
                              "Fail to clear netstats.")
         ad.reboot()
@@ -105,8 +101,7 @@ class DataCostTest(base_test.BaseTestClass):
         if out:
             asserts.assert_true(
                 "HANDOVER|RELIABILITY" in out,
-                "Cell multipath preference should be HANDOVER|RELIABILITY."
-            )
+                "Cell multipath preference should be HANDOVER|RELIABILITY.")
 
     def _get_total_data_usage_for_device(self, ad, conn_type, sub_id):
         """ Get total data usage in MB for device
@@ -125,7 +120,7 @@ class DataCostTest(base_test.BaseTestClass):
         end_time = int(time.time() * 1000) + 2 * 1000 * 60 * 60
         data_usage = ad.droid.connectivityQuerySummaryForDevice(
             conn_type, sub_id, 0, end_time)
-        data_usage /= 1000.0 * 1000.0 # convert data_usage to MB
+        data_usage /= 1000.0 * 1000.0  # convert data_usage to MB
         self.log.info("Total data usage is: %s" % data_usage)
         return data_usage
 
@@ -142,12 +137,8 @@ class DataCostTest(base_test.BaseTestClass):
             asserts.assert_true(val >= exp,
                                 "Multipath value should be at least %s" % exp)
 
-    def _verify_multipath_preferences(self,
-                                      ad,
-                                      wifi_pref,
-                                      cell_pref,
-                                      wifi_network,
-                                      cell_network):
+    def _verify_multipath_preferences(self, ad, wifi_pref, cell_pref,
+                                      wifi_network, cell_network):
         """ Verify mutlipath preferences for wifi and cell networks
 
         Args:
@@ -194,8 +185,8 @@ class DataCostTest(base_test.BaseTestClass):
         self.log.info("wifi network %s" % wifi_network)
 
         # verify mulipath preference values
-        self._verify_multipath_preferences(
-            ad, RELIABLE, RELIABLE, wifi_network, cell_network)
+        self._verify_multipath_preferences(ad, RELIABLE, RELIABLE,
+                                           wifi_network, cell_network)
 
         # set low data limit on mobile data
         total_pre = self._get_total_data_usage_for_device(ad, 0, sub_id)
@@ -210,8 +201,8 @@ class DataCostTest(base_test.BaseTestClass):
         curr_time = time.time()
         while time.time() < curr_time + TIMEOUT:
             try:
-                self._verify_multipath_preferences(
-                    ad, RELIABLE, NONE, wifi_network, cell_network)
+                self._verify_multipath_preferences(ad, RELIABLE, NONE,
+                                                   wifi_network, cell_network)
                 return True
             except signals.TestFailure as e:
                 self.log.debug("%s" % e)
@@ -242,8 +233,8 @@ class DataCostTest(base_test.BaseTestClass):
         self.log.info("wifi network %s" % wifi_network)
 
         # verify multipath preference for wifi and cell networks
-        self._verify_multipath_preferences(
-            ad, RELIABLE, RELIABLE, wifi_network, cell_network)
+        self._verify_multipath_preferences(ad, RELIABLE, RELIABLE,
+                                           wifi_network, cell_network)
 
         # download file with cell network
         ad.droid.connectivityNetworkOpenConnection(cell_network,
@@ -260,8 +251,8 @@ class DataCostTest(base_test.BaseTestClass):
         curr_time = time.time()
         while time.time() < curr_time + TIMEOUT:
             try:
-                self._verify_multipath_preferences(
-                    ad, RELIABLE, NONE, wifi_network, cell_network)
+                self._verify_multipath_preferences(ad, RELIABLE, NONE,
+                                                   wifi_network, cell_network)
                 return True
             except signals.TestFailure as e:
                 self.log.debug("%s" % e)

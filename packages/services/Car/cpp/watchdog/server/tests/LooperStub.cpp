@@ -19,6 +19,8 @@
 #include <android-base/chrono_utils.h>
 #include <utils/Looper.h>
 
+#include <inttypes.h>
+
 #include <future>  // NOLINT(build/c++11)
 
 namespace android {
@@ -78,6 +80,12 @@ void LooperStub::sendMessageAtTime(nsecs_t uptime, const android::sp<MessageHand
     Mutex::Autolock lock(mMutex);
     mHandler = handler;
     nsecs_t uptimeDelay = uptime - now();
+    if (uptimeDelay < 0) {
+        ALOGE("Posted message: %d in looper with an elapsed uptime: %" PRId64 "(now=%" PRId64
+              "). Won't process message.",
+              message.what, uptime, uptime - uptimeDelay);
+        return;
+    }
     size_t pos = static_cast<size_t>(ns2s(uptimeDelay));
     while (mCache.size() < pos + 1) {
         mCache.emplace_back(LooperStub::CacheEntry());

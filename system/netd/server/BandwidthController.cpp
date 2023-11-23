@@ -56,7 +56,6 @@
 #include "Fwmark.h"
 #include "NetdConstants.h"
 #include "android/net/INetd.h"
-#include "bpf/BpfUtils.h"
 
 /* Alphabetical */
 #define ALERT_IPT_TEMPLATE "%s %s -m quota2 ! --quota %" PRId64" --name %s\n"

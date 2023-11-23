@@ -24,6 +24,9 @@ import static android.app.AppOpsManager.MODE_FOREGROUND;
 import static android.app.AppOpsManager.MODE_IGNORED;
 import static android.app.AppOpsManager.OPSTR_LEGACY_STORAGE;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
+import static android.health.connect.HealthPermissions.HEALTH_PERMISSION_GROUP;
+
+import static com.android.permissioncontroller.permission.utils.Utils.isHealthPermissionUiEnabled;
 
 import android.Manifest;
 import android.app.ActivityManager;
@@ -55,6 +58,7 @@ import com.android.permissioncontroller.permission.service.LocationAccessCheck;
 import com.android.permissioncontroller.permission.utils.ArrayUtils;
 import com.android.permissioncontroller.permission.utils.KotlinUtils;
 import com.android.permissioncontroller.permission.utils.LocationUtils;
+import com.android.permissioncontroller.permission.utils.PermissionMapping;
 import com.android.permissioncontroller.permission.utils.SoftRestrictedPermissionPolicy;
 import com.android.permissioncontroller.permission.utils.Utils;
 
@@ -147,6 +151,12 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
      */
     private boolean mTriggerLocationAccessCheckOnPersist;
 
+    /**
+     * Set if {@link LocationAccessCheck#cancelBackgroundAccessWarningNotification()} should be
+     * triggered to cancel the warning once the changes are persisted.
+     */
+    private boolean mCancelLocationAccessWarningOnRevoke;
+
     private boolean mIsSelfRevoked;
 
     /**
@@ -175,7 +185,7 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
             return null;
         }
 
-        String group = Utils.getGroupOfPermission(permissionInfo);
+        String group = PermissionMapping.getGroupOfPermission(permissionInfo);
         PackageItemInfo groupInfo = permissionInfo;
         if (group != null) {
             try {
@@ -330,6 +340,8 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
                     & PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0;
 
             final String appOp = PLATFORM_PACKAGE_NAME.equals(requestedPermissionInfo.packageName)
+                    || (isHealthPermissionUiEnabled() && HEALTH_PERMISSION_GROUP.equals(
+                    requestedPermissionInfo.group))
                     ? AppOpsManager.permissionToOp(requestedPermissionInfo.name) : null;
 
             final boolean appOpAllowed;
@@ -1113,6 +1125,8 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
                 break;
             }
 
+            boolean wasGranted = permission.isGrantedIncludingAppOp();
+
             if (mAppSupportsRuntimePermissions) {
                 // Revoke the permission if needed.
                 if (permission.isGranted()) {
@@ -1157,6 +1171,33 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
                     // Mark that the permission is kept granted only for compatibility.
                     if (!permission.isRevokedCompat()) {
                         permission.setRevokedCompat(true);
+                    }
+                }
+            }
+
+            // If we revoke background access to the fine location, we trigger a check to cancel
+            // the location access check notification to avoid stale warnings
+            if (wasGranted && !permission.isGrantedIncludingAppOp()) {
+                if (permission.getName().equals(ACCESS_FINE_LOCATION)) {
+                    Permission bgPerm = permission.getBackgroundPermission();
+                    if (bgPerm != null) {
+                        if (!bgPerm.isGrantedIncludingAppOp()) {
+                            mCancelLocationAccessWarningOnRevoke = true;
+                        }
+                    }
+                } else if (permission.getName().equals(ACCESS_BACKGROUND_LOCATION)) {
+                    ArrayList<Permission> fgPerms = permission.getForegroundPermissions();
+                    if (fgPerms != null) {
+                        int numFgPerms = fgPerms.size();
+                        for (int fgPermNum = 0; fgPermNum < numFgPerms; fgPermNum++) {
+                            Permission fgPerm = fgPerms.get(fgPermNum);
+                            if (fgPerm.getName().equals(ACCESS_FINE_LOCATION)) {
+                                if (!fgPerm.isGrantedIncludingAppOp()) {
+                                    mCancelLocationAccessWarningOnRevoke = true;
+                                }
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -1299,7 +1340,7 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
      * @return {@code true} iff this group supports one-time permissions
      */
     public boolean supportsOneTimeGrant() {
-        return Utils.supportsOneTimeGrant(getName());
+        return PermissionMapping.supportsOneTimeGrant(getName());
     }
 
     public int getFlags() {
@@ -1553,12 +1594,13 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
                     // Enabling/Disabling an app op may put the app in a situation in which it has
                     // a handle to state it shouldn't have, so we have to kill the app. This matches
                     // the revoke runtime permission behavior.
+                    boolean wasChanged;
                     if (permission.isAppOpAllowed()) {
-                        boolean wasChanged = allowAppOp(permission, uid);
-                        shouldKillApp |= wasChanged && !mAppSupportsRuntimePermissions;
+                        wasChanged = allowAppOp(permission, uid);
                     } else {
-                        shouldKillApp |= disallowAppOp(permission, uid);
+                        wasChanged = disallowAppOp(permission, uid);
                     }
+                    shouldKillApp |= wasChanged && !mAppSupportsRuntimePermissions;
                 }
             }
         }
@@ -1570,6 +1612,12 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
         if (mTriggerLocationAccessCheckOnPersist) {
             new LocationAccessCheck(mContext, null).checkLocationAccessSoon();
             mTriggerLocationAccessCheckOnPersist = false;
+        }
+
+        if (mCancelLocationAccessWarningOnRevoke) {
+            new LocationAccessCheck(mContext, null).cancelBackgroundAccessWarningNotification(
+                    mPackageInfo.packageName, mUserHandle, true);
+            mCancelLocationAccessWarningOnRevoke = false;
         }
 
         String packageName = mPackageInfo.packageName;

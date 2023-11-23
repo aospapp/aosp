@@ -13,10 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for `tf.data.experimental.group_by_window()`."""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl.testing import parameterized
 import numpy as np
 
@@ -363,6 +359,44 @@ class GroupByWindowTest(test_base.DatasetTestBase, parameterized.TestCase):
         reduce_func=lambda key, window: dataset_ops.Dataset.from_tensors(key),
         window_size=4)
     self.assertEqual(self.evaluate(dataset.cardinality()), dataset_ops.INFINITE)
+
+  @combinations.generate(test_base.default_test_combinations())
+  def testName(self):
+    dataset = dataset_ops.Dataset.from_tensors(np.int64(42)).group_by_window(
+        key_func=lambda x: x,
+        reduce_func=lambda key, window: window.batch(4),
+        window_size=4,
+        name="group_by_window")
+    self.assertDatasetProduces(dataset, [[42]])
+
+
+class GroupByWindowCheckpointTest(checkpoint_test_base.CheckpointTestBase,
+                                  parameterized.TestCase):
+
+  def _build_dataset(self, components):
+    dataset = dataset_ops.Dataset.from_tensor_slices(components).repeat(-1)
+    dataset = dataset.group_by_window(
+        key_func=lambda x: x % 3,
+        reduce_func=lambda _, xs: xs.batch(4),
+        window_size=4)
+    return dataset
+
+  @combinations.generate(test_base.default_test_combinations())
+  def test(self):
+    components = np.array([0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 0, 0, 2, 2, 0, 0],
+                          dtype=np.int64)
+    self.verify_unused_iterator(
+        lambda: self._build_dataset(components),
+        num_outputs=12,
+        verify_exhausted=False)
+    self.verify_multiple_breaks(
+        lambda: self._build_dataset(components),
+        num_outputs=12,
+        verify_exhausted=False)
+    self.verify_reset_restored_iterator(
+        lambda: self._build_dataset(components),
+        num_outputs=12,
+        verify_exhausted=False)
 
 
 class GroupByWindowCheckpointTest(checkpoint_test_base.CheckpointTestBase,

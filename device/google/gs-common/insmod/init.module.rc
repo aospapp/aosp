@@ -1,0 +1,10 @@
+on init
+    # Loading common kernel modules in background
+    start insmod_sh
+
+service insmod_sh /vendor/bin/insmod.sh /vendor/etc/init.common.cfg
+    class main
+    user root
+    group root system
+    disabled
+    oneshot

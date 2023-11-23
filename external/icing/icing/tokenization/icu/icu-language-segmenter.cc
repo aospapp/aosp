@@ -24,6 +24,7 @@
 #include "icing/text_classifier/lib3/utils/base/status.h"
 #include "icing/text_classifier/lib3/utils/base/statusor.h"
 #include "icing/absl_ports/canonical_errors.h"
+#include "icing/absl_ports/mutex.h"
 #include "icing/legacy/core/icing-string-util.h"
 #include "icing/util/character-iterator.h"
 #include "icing/util/i18n-utils.h"
@@ -48,9 +49,11 @@ class IcuLanguageSegmenterIterator : public LanguageSegmenter::Iterator {
   //   INTERNAL_ERROR if unable to create
   static libtextclassifier3::StatusOr<
       std::unique_ptr<LanguageSegmenter::Iterator>>
-  Create(std::string_view text, std::string_view locale) {
+  Create(const IcuLanguageSegmenter* creator, UBreakIterator* break_iterator,
+         std::string_view text, std::string_view locale) {
     std::unique_ptr<IcuLanguageSegmenterIterator> iterator(
-        new IcuLanguageSegmenterIterator(text, locale));
+        new IcuLanguageSegmenterIterator(creator, break_iterator, text,
+                                         locale));
     if (iterator->Initialize()) {
       return iterator;
     }
@@ -58,8 +61,8 @@ class IcuLanguageSegmenterIterator : public LanguageSegmenter::Iterator {
   }
 
   ~IcuLanguageSegmenterIterator() {
-    ubrk_close(break_iterator_);
     utext_close(u_text_);
+    creator_.ReturnBreakIterator(break_iterator_);
   }
 
   // Advances to the next term. Returns false if it has reached the end.
@@ -244,9 +247,12 @@ class IcuLanguageSegmenterIterator : public LanguageSegmenter::Iterator {
   }
 
  private:
-  explicit IcuLanguageSegmenterIterator(std::string_view text,
+  explicit IcuLanguageSegmenterIterator(const IcuLanguageSegmenter* creator,
+                                        UBreakIterator* break_iterator,
+                                        std::string_view text,
                                         std::string_view locale)
-      : break_iterator_(nullptr),
+      : creator_(*creator),
+        break_iterator_(break_iterator),
         text_(text),
         locale_(locale),
         u_text_(nullptr),
@@ -256,13 +262,14 @@ class IcuLanguageSegmenterIterator : public LanguageSegmenter::Iterator {
 
   // Returns true on success
   bool Initialize() {
+    if (break_iterator_ == nullptr) {
+      return false;
+    }
     UErrorCode status = U_ZERO_ERROR;
     u_text_ = utext_openUTF8(nullptr, text_.data(), text_.length(), &status);
     if (u_text_ == nullptr) {
       return false;
     }
-    break_iterator_ = ubrk_open(UBRK_WORD, locale_.data(), /*text=*/nullptr,
-                                /*textLength=*/0, &status);
     ubrk_setUText(break_iterator_, u_text_, &status);
     return !U_FAILURE(status);
   }
@@ -290,9 +297,11 @@ class IcuLanguageSegmenterIterator : public LanguageSegmenter::Iterator {
     term_start_index_ = 0;
   }
 
+  const IcuLanguageSegmenter& creator_;  // Does not own.
+
   // The underlying class that does the segmentation, ubrk_close() must be
   // called after using.
-  UBreakIterator* break_iterator_;
+  UBreakIterator* break_iterator_;  // Does not own
 
   // Text to be segmented
   std::string_view text_;
@@ -321,18 +330,61 @@ class IcuLanguageSegmenterIterator : public LanguageSegmenter::Iterator {
   int term_end_index_exclusive_;
 };
 
-IcuLanguageSegmenter::IcuLanguageSegmenter(std::string locale)
-    : locale_(std::move(locale)) {}
+/* static */ libtextclassifier3::StatusOr<std::unique_ptr<IcuLanguageSegmenter>>
+IcuLanguageSegmenter::Create(std::string&& locale) {
+  UErrorCode status = U_ZERO_ERROR;
+  UBreakIterator* break_iterator = ubrk_open(
+      UBRK_WORD, locale.c_str(), /*text=*/nullptr, /*textLength=*/0, &status);
+  if (U_FAILURE(status) || break_iterator == nullptr) {
+    return absl_ports::AbortedError(
+        "Unable to create ICU break_iterator for language segmentation");
+  }
+  return std::unique_ptr<IcuLanguageSegmenter>(
+      new IcuLanguageSegmenter(std::move(locale), break_iterator));
+}
+
+UBreakIterator* IcuLanguageSegmenter::ProduceBreakIterator() const {
+  UBreakIterator* itr = nullptr;
+  {
+    absl_ports::unique_lock l(&mutex_);
+    if (cached_break_iterator_ != nullptr) {
+      itr = cached_break_iterator_;
+      cached_break_iterator_ = nullptr;
+    }
+  }
+  if (itr == nullptr) {
+    UErrorCode status = U_ZERO_ERROR;
+    itr = ubrk_open(UBRK_WORD, locale_.c_str(), /*text=*/nullptr,
+                    /*textLength=*/0, &status);
+    if (U_FAILURE(status)) {
+      itr = nullptr;
+    }
+  }
+  return itr;
+}
+
+void IcuLanguageSegmenter::ReturnBreakIterator(UBreakIterator* itr) const {
+  {
+    absl_ports::unique_lock l(&mutex_);
+    if (cached_break_iterator_ == nullptr) {
+      cached_break_iterator_ = itr;
+      return;
+    }
+  }
+  ubrk_close(itr);
+}
 
 libtextclassifier3::StatusOr<std::unique_ptr<LanguageSegmenter::Iterator>>
 IcuLanguageSegmenter::Segment(const std::string_view text) const {
-  return IcuLanguageSegmenterIterator::Create(text, locale_);
+  return IcuLanguageSegmenterIterator::Create(this, ProduceBreakIterator(),
+                                              text, locale_);
 }
 
 libtextclassifier3::StatusOr<std::vector<std::string_view>>
 IcuLanguageSegmenter::GetAllTerms(const std::string_view text) const {
-  ICING_ASSIGN_OR_RETURN(std::unique_ptr<LanguageSegmenter::Iterator> iterator,
-                         Segment(text));
+  ICING_ASSIGN_OR_RETURN(
+      std::unique_ptr<LanguageSegmenter::Iterator> iterator,
+      Segment(text));
   std::vector<std::string_view> terms;
   while (iterator->Advance()) {
     terms.push_back(iterator->GetTerm());

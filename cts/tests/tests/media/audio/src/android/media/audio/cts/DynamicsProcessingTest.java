@@ -16,13 +16,8 @@
 
 package android.media.audio.cts;
 
-import android.media.audio.cts.R;
-
 import android.content.Context;
-import android.media.AudioFormat;
 import android.media.AudioManager;
-import android.media.MediaPlayer;
-import android.media.audiofx.AudioEffect;
 import android.media.audiofx.DynamicsProcessing;
 import android.media.audiofx.DynamicsProcessing.BandBase;
 import android.media.audiofx.DynamicsProcessing.BandStage;
@@ -34,7 +29,6 @@ import android.media.audiofx.DynamicsProcessing.Mbc;
 import android.media.audiofx.DynamicsProcessing.MbcBand;
 import android.media.cts.PostProcTestBase;
 import android.platform.test.annotations.AppModeFull;
-import android.test.AndroidTestCase;
 import android.util.Log;
 
 public class DynamicsProcessingTest extends PostProcTestBase {

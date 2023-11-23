@@ -22,7 +22,7 @@ rust_proc_macro {
     name: "libtokio_macros",
     crate_name: "tokio_macros",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.7.0",
+    cargo_pkg_version: "1.8.2",
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
@@ -30,4 +30,6 @@ rust_proc_macro {
         "libquote",
         "libsyn",
     ],
+    product_available: true,
+    vendor_available: true,
 }

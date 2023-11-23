@@ -21,12 +21,14 @@ import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_M
 import android.annotation.IntDef;
 import android.content.res.Resources;
 import android.graphics.PixelFormat;
+import android.os.Binder;
 import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.InsetsState;
+import android.view.InsetsFrameProvider;
 import android.view.ViewGroup;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -67,20 +69,27 @@ public class SystemBarConfigs {
     public static final int LEFT = 2;
     public static final int RIGHT = 3;
 
+    private static final Binder INSETS_OWNER = new Binder();
+
     /*
         NOTE: The elements' order in the map below must be preserved as-is since the correct
         corresponding values are obtained by the index.
      */
-    private static final int[] BAR_TYPE_MAP = {
-            InsetsState.ITYPE_STATUS_BAR,
-            InsetsState.ITYPE_NAVIGATION_BAR,
-            InsetsState.ITYPE_CLIMATE_BAR,
-            InsetsState.ITYPE_EXTRA_NAVIGATION_BAR
+    public static final InsetsFrameProvider[] BAR_PROVIDER_MAP = {
+            new InsetsFrameProvider(
+                    INSETS_OWNER, 0 /* index */, WindowInsets.Type.statusBars()),
+            new InsetsFrameProvider(
+                    INSETS_OWNER, 0 /* index */, WindowInsets.Type.navigationBars()),
+            new InsetsFrameProvider(
+                    INSETS_OWNER, 1 /* index */, WindowInsets.Type.statusBars()),
+            new InsetsFrameProvider(
+                    INSETS_OWNER, 1 /* index */, WindowInsets.Type.navigationBars()),
     };
 
     private static final Map<@SystemBarSide Integer, Integer> BAR_GRAVITY_MAP = new ArrayMap<>();
     private static final Map<@SystemBarSide Integer, String> BAR_TITLE_MAP = new ArrayMap<>();
-    private static final Map<@SystemBarSide Integer, Integer> BAR_GESTURE_MAP = new ArrayMap<>();
+    private static final Map<@SystemBarSide Integer, InsetsFrameProvider> BAR_GESTURE_MAP =
+            new ArrayMap<>();
 
     private final Resources mResources;
     private final Map<@SystemBarSide Integer, SystemBarConfig> mSystemBarConfigMap =
@@ -95,7 +104,10 @@ public class SystemBarConfigs {
     @Inject
     public SystemBarConfigs(@Main Resources resources) {
         mResources = resources;
+        init();
+    }
 
+    private void init() {
         populateMaps();
         readConfigs();
 
@@ -106,6 +118,20 @@ public class SystemBarConfigs {
 
         setInsetPaddingsForOverlappingCorners();
         sortSystemBarSidesByZOrder();
+    }
+
+    /**
+     * Invalidate cached resources and fetch from resources config file.
+     * TODO: b/260206944, Can remove this after we have a fix for overlaid resources not applied.
+     * <p>
+     * Since SystemBarConfig is a Scoped(Dagger Singleton Annotation), We will have stale values, of
+     * all the resources after the RRO is applied.
+     * Another way is to remove the Scope(Singleton), but the downside is that it will be re-created
+     * everytime.
+     * </p>
+     */
+    void resetSystemBarConfigs() {
+        init();
     }
 
     protected WindowManager.LayoutParams getLayoutParamsBySide(@SystemBarSide int side) {
@@ -194,10 +220,14 @@ public class SystemBarConfigs {
         BAR_TITLE_MAP.put(LEFT, "LeftCarSystemBar");
         BAR_TITLE_MAP.put(RIGHT, "RightCarSystemBar");
 
-        BAR_GESTURE_MAP.put(TOP, InsetsState.ITYPE_TOP_MANDATORY_GESTURES);
-        BAR_GESTURE_MAP.put(BOTTOM, InsetsState.ITYPE_BOTTOM_MANDATORY_GESTURES);
-        BAR_GESTURE_MAP.put(LEFT, InsetsState.ITYPE_LEFT_MANDATORY_GESTURES);
-        BAR_GESTURE_MAP.put(RIGHT, InsetsState.ITYPE_RIGHT_MANDATORY_GESTURES);
+        BAR_GESTURE_MAP.put(TOP, new InsetsFrameProvider(
+                INSETS_OWNER, 0 /* index */, WindowInsets.Type.mandatorySystemGestures()));
+        BAR_GESTURE_MAP.put(BOTTOM, new InsetsFrameProvider(
+                INSETS_OWNER, 1 /* index */, WindowInsets.Type.mandatorySystemGestures()));
+        BAR_GESTURE_MAP.put(LEFT, new InsetsFrameProvider(
+                INSETS_OWNER, 2 /* index */, WindowInsets.Type.mandatorySystemGestures()));
+        BAR_GESTURE_MAP.put(RIGHT, new InsetsFrameProvider(
+                INSETS_OWNER, 3 /* index */, WindowInsets.Type.mandatorySystemGestures()));
     }
 
     private void readConfigs() {
@@ -350,15 +380,10 @@ public class SystemBarConfigs {
             }
         });
 
+        mSystemBarSidesByZOrder.clear();
         systemBarsByZOrder.forEach(systemBarConfig -> {
             mSystemBarSidesByZOrder.add(systemBarConfig.getSide());
         });
-    }
-
-    @InsetsState.InternalInsetsType
-    private int getSystemBarTypeBySide(@SystemBarSide int side) {
-        return mSystemBarConfigMap.get(side) != null
-                ? mSystemBarConfigMap.get(side).getBarType() : null;
     }
 
     // On init, system bars are visible as long as they are enabled.
@@ -459,7 +484,10 @@ public class SystemBarConfigs {
                             | WindowManager.LayoutParams.FLAG_SPLIT_TOUCH,
                     PixelFormat.TRANSLUCENT);
             lp.setTitle(BAR_TITLE_MAP.get(mSide));
-            lp.providesInsetsTypes = new int[]{BAR_TYPE_MAP[mBarType], BAR_GESTURE_MAP.get(mSide)};
+            lp.providedInsets = new InsetsFrameProvider[] {
+                    BAR_PROVIDER_MAP[mBarType],
+                    BAR_GESTURE_MAP.get(mSide)
+            };
             lp.setFitInsetsTypes(0);
             lp.windowAnimations = 0;
             lp.gravity = BAR_GRAVITY_MAP.get(mSide);

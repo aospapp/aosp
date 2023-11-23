@@ -12,7 +12,7 @@ packet BasicFrameWithFcs {
   _checksum_start_(fcs),
   _size_(_payload_) : 16,
   channel_id : 16,
-  _payload_ : [+2*8], // Include Fcs in the _size_
+  _payload_ : [+2], // Include Fcs in the _size_
   fcs : Fcs,
 }
 

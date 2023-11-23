@@ -1,9 +1,15 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import dbus
 import logging
+import six
 import time
 
 from autotest_lib.client.common_lib import utils
@@ -29,7 +35,7 @@ class WifiProxy(shill_proxy.ShillProxy):
         """Iterate over all pushed profiles and remove WiFi entries."""
         profiles = self.get_profiles()
         for profile in profiles:
-            profile_properties = profile.GetProperties(utf8_strings=True)
+            profile_properties = profile.GetProperties()
             entries = profile_properties[self.PROFILE_PROPERTY_ENTRIES]
             for entry_id in entries:
                 try:
@@ -167,8 +173,7 @@ class WifiProxy(shill_proxy.ShillProxy):
             service_object = self.find_matching_service(discovery_params)
             if service_object:
                 try:
-                    service_properties = service_object.GetProperties(
-                            utf8_strings=True)
+                    service_properties = service_object.GetProperties()
                 except dbus.exceptions.DBusException:
                     # This usually means the service handle has become invalid.
                     # Which is sort of like not getting a handle back from
@@ -192,7 +197,7 @@ class WifiProxy(shill_proxy.ShillProxy):
         # to connect it, and watch the states roll by.
         logging.info('Connecting...')
         try:
-            for service_property, value in security_parameters.iteritems():
+            for service_property, value in six.iteritems(security_parameters):
                 service_object.SetProperty(service_property, value)
             if guid is not None:
                 service_object.SetProperty(self.SERVICE_PROPERTY_GUID, guid)
@@ -201,7 +206,7 @@ class WifiProxy(shill_proxy.ShillProxy):
                                            autoconnect)
             service_object.Connect()
             logging.info('Called connect on service')
-        except dbus.exceptions.DBusException, e:
+        except dbus.exceptions.DBusException as e:
             logging.error('Caught an error while trying to connect: %s',
                           e.get_dbus_message())
             return (False, discovery_time, association_time,
@@ -296,7 +301,7 @@ class WifiProxy(shill_proxy.ShillProxy):
                       'BgscanMethod': (dbus.String, method),
                       'BgscanShortInterval': (dbus.UInt16, short_interval),
                       'BgscanSignalThreshold': (dbus.Int32, signal)}
-        for k, (type_cast, value) in attributes.iteritems():
+        for k, (type_cast, value) in six.iteritems(attributes):
             if value is None:
                 continue
 
@@ -312,14 +317,14 @@ class WifiProxy(shill_proxy.ShillProxy):
 
     def get_active_wifi_SSIDs(self):
         """@return list of string SSIDs with at least one BSS we've scanned."""
-        properties = self.manager.GetProperties(utf8_strings=True)
+        properties = self.manager.GetProperties()
         services = [self.get_dbus_object(self.DBUS_TYPE_SERVICE, path)
                     for path in properties[self.MANAGER_PROPERTY_SERVICES]]
         wifi_services = []
         for service in services:
             try:
-                service_properties = self.dbus2primitive(service.GetProperties(
-                        utf8_strings=True))
+                service_properties = self.dbus2primitive(
+                        service.GetProperties())
             except dbus.exceptions.DBusException:
                 pass  # Probably the service disappeared before GetProperties().
             logging.debug('Considering service with properties: %r',
@@ -331,7 +336,7 @@ class WifiProxy(shill_proxy.ShillProxy):
                 # is not a valid ASCII string.
                 ssid = service_properties[self.SERVICE_PROPERTY_HEX_SSID]
                 logging.info('Found active WiFi service: %s', ssid)
-                wifi_services.append(ssid.decode('hex'))
+                wifi_services.append(six.ensure_text(ssid, 'hex'))
         return wifi_services
 
 

@@ -4,6 +4,12 @@ set -e
 
 MODULE_PLAYGROUND=$1
 ROOTFS=$2
+CONFIG_H=$3
+
+feature_enabled() {
+	local feature=$1
+	grep KMOD_FEATURES  $CONFIG_H | head -n 1 | grep -q \+$feature
+}
 
 declare -A map
 map=(
@@ -66,6 +72,9 @@ map=(
 
 gzip_array=(
     "test-depmod/modules-order-compressed/lib/modules/4.4.4/kernel/drivers/block/cciss.ko"
+    )
+
+xz_array=(
     "test-depmod/modules-order-compressed/lib/modules/4.4.4/kernel/drivers/scsi/scsi_mod.ko"
     )
 
@@ -85,38 +94,47 @@ attach_pkcs7_array=(
     "test-modinfo/mod-simple-pkcs7.ko"
     )
 
-for k in ${!map[@]}; do
+for k in "${!map[@]}"; do
     dst=${ROOTFS}/$k
     src=${MODULE_PLAYGROUND}/${map[$k]}
 
-    if test "${dst: -1}" = "/"; then
-        install -d $dst
-        install -t $dst $src
+    if [[ $dst = */ ]]; then
+        install -d "$dst"
+        install -t "$dst" "$src"
     else
-        install -D $src $dst
+        install -D "$src" "$dst"
     fi
 done
 
 # start poking the final rootfs...
 
-# gzip these modules
-for m in "${gzip_array[@]}"; do
-    gzip $ROOTFS/$m
-done
+# compress modules with each format if feature is enabled
+if feature_enabled ZLIB; then
+	for m in "${gzip_array[@]}"; do
+	    gzip "$ROOTFS/$m"
+	done
+fi
 
-# zstd-compress these modules
-for m in "${zstd_array[@]}"; do
-    zstd --rm $ROOTFS/$m
-done
+if feature_enabled XZ; then
+	for m in "${xz_array[@]}"; do
+	    xz "$ROOTFS/$m"
+	done
+fi
+
+if feature_enabled ZSTD; then
+	for m in "${zstd_array[@]}"; do
+	    zstd --rm $ROOTFS/$m
+	done
+fi
 
 for m in "${attach_sha1_array[@]}"; do
-    cat ${MODULE_PLAYGROUND}/dummy.sha1 >> ${ROOTFS}/$m
+    cat "${MODULE_PLAYGROUND}/dummy.sha1" >>"${ROOTFS}/$m"
 done
 
 for m in "${attach_sha256_array[@]}"; do
-    cat ${MODULE_PLAYGROUND}/dummy.sha256 >> ${ROOTFS}/$m
+    cat "${MODULE_PLAYGROUND}/dummy.sha256" >>"${ROOTFS}/$m"
 done
 
 for m in "${attach_pkcs7_array[@]}"; do
-    cat ${MODULE_PLAYGROUND}/dummy.pkcs7 >> ${ROOTFS}/$m
+    cat "${MODULE_PLAYGROUND}/dummy.pkcs7" >>"${ROOTFS}/$m"
 done

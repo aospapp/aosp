@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"ब्लुटुथ"</string>
     <string name="unknown_device" msgid="2317679521750821654">"अज्ञात उपकरण"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"अज्ञात"</string>
+    <string name="not_provided" msgid="6938740494380012614">"प्रदान गरिएको छैन"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"हवाइजहाज मोड"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"हवाइजहाज मोडमा तपाईँले ब्लुटुथ प्रयोग गर्न पाउनु हुन्न।"</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -38,13 +39,13 @@
     <string name="incoming_file_confirm_timeout_content" msgid="3221412098281076974">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" बाट आगमन फाइल स्वीकार्दा समय सकिएको थियो"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5381395500920804895">"आगमन फाइल"</string>
     <string name="incoming_file_confirm_Notification_content" msgid="2669135531488877921">"<xliff:g id="SENDER">%1$s</xliff:g> निम्न फाइल पठाउन तयार हुनुहुन्छ: <xliff:g id="FILE">%2$s</xliff:g>"</string>
-    <string name="notification_receiving" msgid="8445265771083510696">"ब्लुटुथ साझेदारी:<xliff:g id="FILE">%1$s</xliff:g> प्राप्त गर्दै"</string>
-    <string name="notification_received" msgid="2330252358543000567">"ब्लुटुथ साझेदारी: <xliff:g id="FILE">%1$s</xliff:g> प्राप्त भयो"</string>
-    <string name="notification_received_fail" msgid="9059153354809379374">"ब्लुटुथ साझेदारी: फाइल: <xliff:g id="FILE">%1$s</xliff:g> प्राप्त भएन"</string>
-    <string name="notification_sending" msgid="8269912843286868700">"ब्लुटुथ साझेदारी: <xliff:g id="FILE">%1$s</xliff:g> पठाउँदै"</string>
-    <string name="notification_sent" msgid="2685202778935769332">"ब्लुटुथ साझेदारी: <xliff:g id="FILE">%1$s</xliff:g> पठाइयो"</string>
+    <string name="notification_receiving" msgid="8445265771083510696">"ब्लुटुथ सेयर:<xliff:g id="FILE">%1$s</xliff:g> प्राप्त गर्दै"</string>
+    <string name="notification_received" msgid="2330252358543000567">"ब्लुटुथ सेयर: <xliff:g id="FILE">%1$s</xliff:g> प्राप्त भयो"</string>
+    <string name="notification_received_fail" msgid="9059153354809379374">"ब्लुटुथ सेयर: फाइल: <xliff:g id="FILE">%1$s</xliff:g> प्राप्त भएन"</string>
+    <string name="notification_sending" msgid="8269912843286868700">"ब्लुटुथ सेयर: <xliff:g id="FILE">%1$s</xliff:g> पठाउँदै"</string>
+    <string name="notification_sent" msgid="2685202778935769332">"ब्लुटुथ सेयर: <xliff:g id="FILE">%1$s</xliff:g> पठाइयो"</string>
     <string name="notification_sent_complete" msgid="6293391081175517098">"१००% पुरा"</string>
-    <string name="notification_sent_fail" msgid="7449832660578001579">"ब्लुटुथ साझेदारी: फाइल<xliff:g id="FILE">%1$s</xliff:g> पठाइएन"</string>
+    <string name="notification_sent_fail" msgid="7449832660578001579">"ब्लुटुथ सेयर: फाइल<xliff:g id="FILE">%1$s</xliff:g> पठाइएन"</string>
     <string name="download_title" msgid="6449408649671518102">"फाइल स्थानान्तरण"</string>
     <string name="download_line1" msgid="6449220145685308846">"बाट: \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="download_line2" msgid="7634316500490825390">"फाइल: <xliff:g id="FILE">%1$s</xliff:g>"</string>
@@ -107,8 +108,8 @@
     <string name="outbound_history_title" msgid="7614166584551065036">"आउटबाउन्ड स्थानान्तरण"</string>
     <string name="no_transfers" msgid="740521199933899821">"अहिलेसम्म कुनै वस्तु ट्रान्सफर गरिएको छैन।"</string>
     <string name="transfer_clear_dlg_msg" msgid="586117930961007311">"सूचीबाट सम्पूर्ण वस्तुहरू मेटाइने छन्।"</string>
-    <string name="outbound_noti_title" msgid="2045560896819618979">"ब्लुटुथ साझेदारी: पठाइएका फाइलहरू"</string>
-    <string name="inbound_noti_title" msgid="3730993443609581977">"ब्लुटुथ साझेदारी: प्राप्त फाइलहरू"</string>
+    <string name="outbound_noti_title" msgid="2045560896819618979">"ब्लुटुथ सेयर: पठाइएका फाइलहरू"</string>
+    <string name="inbound_noti_title" msgid="3730993443609581977">"ब्लुटुथ सेयर: प्राप्त फाइलहरू"</string>
     <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{# वटा फाइल सेयर गर्न सकिएन।}other{# वटा फाइल सेयर गर्न सकिएन।}}"</string>
     <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{# वटा फाइल सेयर गरियो, %1$s}other{# वटा फाइल सेयर गरियो, %1$s}}"</string>
     <string name="transfer_menu_clear_all" msgid="3014459758656427076">"सूची हटाउनुहोस्"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"ब्लुटुथको अडियो"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"४ जि.बि. भन्दा ठूला फाइलहरूलाई स्थानान्तरण गर्न सकिँदैन"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"ब्लुटुथमा कनेक्ट गर्नुहोस्"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"हवाइजहाज मोडमा ब्लुटुथ अन राखियोस्"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"तपाईंले ब्लुटुथ अन राखिराख्नुभयो भने तपाईंले आफ्नो डिभाइस अर्को पटक हवाइजहाज मोडमा लैजाँदा तपाईंको डिभाइसले ब्लुटुथ अन राख्नु पर्ने कुरा याद गर्छ"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"ब्लुटुथ अन रहन्छ"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"तपाईंको डिभाइस अर्को पटक हवाइजहाज मोडमा लैजाँदा तपाईंको फोनले ब्लुटुथ अन राख्नु पर्ने कुरा याद गर्छ। तपाईं ब्लुटुथ अन भइनरहोस् भन्ने चाहनुहुन्छ भने ब्लुटुथ अफ गर्नुहोस्।"</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi र ब्लुटुथ अन रहिरहने छन्"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"हवाइजहाज मोडमा पनि तपाईंको डिभाइसको Wi-Fi र ब्लुटुथ अन नै रहिरहने छन्। तपाईं Wi-Fi र ब्लुटुथ अन भइनरहोस् भन्ने चाहनुहुन्छ भने तिनलाई अफ गर्नुहोस्।"</string>
 </resources>

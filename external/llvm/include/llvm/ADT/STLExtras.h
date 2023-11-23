@@ -36,7 +36,11 @@ namespace llvm {
 //===----------------------------------------------------------------------===//
 
 template<class Ty>
-struct identity : public std::unary_function<Ty, Ty> {
+struct identity {
+  // Android: In upstream LLVM, identity used to inherit from
+  // std::unary_function<Ty, Ty>, so use Ty here instead of Ty&.
+  using argument_type = Ty;
+  using result_type = Ty;
   Ty &operator()(Ty &self) const {
     return self;
   }
@@ -46,14 +50,24 @@ struct identity : public std::unary_function<Ty, Ty> {
 };
 
 template<class Ty>
-struct less_ptr : public std::binary_function<Ty, Ty, bool> {
+struct less_ptr {
+  // Android: In upstream LLVM, less_ptr used to inherit from
+  // std::binary_function<Ty, Ty, bool>, so use Ty here instead of const Ty*.
+  using first_argument_type = Ty;
+  using second_argument_type = Ty;
+  using result_type = bool;
   bool operator()(const Ty* left, const Ty* right) const {
     return *left < *right;
   }
 };
 
 template<class Ty>
-struct greater_ptr : public std::binary_function<Ty, Ty, bool> {
+struct greater_ptr {
+  // Android: In upstream LLVM, greater_ptr used to inherit from
+  // std::binary_function<Ty, Ty, bool>, so use Ty here instead of const Ty*.
+  using first_argument_type = Ty;
+  using second_argument_type = Ty;
+  using result_type = bool;
   bool operator()(const Ty* left, const Ty* right) const {
     return *right < *left;
   }

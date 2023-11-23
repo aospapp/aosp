@@ -19,6 +19,8 @@ package com.android.car.radio.media;
 import android.content.Context;
 import android.hardware.radio.ProgramSelector;
 import android.hardware.radio.RadioManager.ProgramInfo;
+import android.hardware.radio.RadioMetadata;
+import android.media.MediaMetadata;
 import android.media.Rating;
 import android.media.session.MediaController;
 import android.media.session.MediaSession;
@@ -61,6 +63,20 @@ public class TunerSession {
     private final PlaybackState.Builder mPlaybackStateBuilder =
             new PlaybackState.Builder();
     @Nullable private ProgramInfo mCurrentProgram;
+
+    /**
+     * Custom order that puts RDS_RT ahead of RDS_PS.
+     * RDS_PS is often used to scroll data in RDS_RT in some regions, and for the interests of
+     * driver distration we want to prevent RDS_PS scrolling from updating UI so frequently.
+     */
+    public static final String[] PROGRAM_NAME_ORDER = new String[] {
+            RadioMetadata.METADATA_KEY_PROGRAM_NAME,
+            RadioMetadata.METADATA_KEY_DAB_COMPONENT_NAME,
+            RadioMetadata.METADATA_KEY_DAB_SERVICE_NAME,
+            RadioMetadata.METADATA_KEY_DAB_ENSEMBLE_NAME,
+            RadioMetadata.METADATA_KEY_RDS_RT,
+            RadioMetadata.METADATA_KEY_RDS_PS
+    };
 
     public TunerSession(@NonNull Context context, @NonNull BrowseTree browseTree,
             @NonNull RadioAppServiceWrapper appService, @Nullable ImageResolver imageResolver) {
@@ -107,7 +123,12 @@ public class TunerSession {
         synchronized (mLock) {
             if (info == null) return;
             boolean fav = mRadioStorage.isFavorite(info.getSelector());
-            mSession.setMetadata(ProgramInfoExt.toMediaMetadata(info, fav, mImageResolver));
+            MediaMetadata currMetaData = mSession.getController().getMetadata();
+            MediaMetadata newMetaData = ProgramInfoExt.toMediaDisplayMetadata(info, fav,
+                    mImageResolver, PROGRAM_NAME_ORDER);
+            if (!Objects.equals(currMetaData, newMetaData)) {
+                mSession.setMetadata(newMetaData);
+            }
         }
     }
 

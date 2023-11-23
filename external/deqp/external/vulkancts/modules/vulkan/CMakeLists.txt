@@ -47,7 +47,9 @@ add_subdirectory(postmortem)
 add_subdirectory(fragment_shading_rate)
 add_subdirectory(reconvergence)
 add_subdirectory(mesh_shader)
-
+add_subdirectory(fragment_shading_barycentric)
+add_subdirectory(sc)
+add_subdirectory(video)
 
 include_directories(
 	api
@@ -95,7 +97,10 @@ include_directories(
 	postmortem
 	reconvergence
 	mesh_shader
+	fragment_shading_barycentric
+	video
 	${DEQP_INL_DIR}
+	sc
 	)
 
 set(DEQP_VK_SRCS
@@ -164,7 +169,59 @@ set(DEQP_VK_LIBS
 	deqp-vk-fragment-shading-rate
 	deqp-vk-reconvergence
 	deqp-vk-mesh-shader
+	deqp-vk-fragment-shading-barycentric
+	deqp-vk-video
 	)
+
+set(DEQP_VKSC_LIBS
+	tcutil
+	vkscutil
+	glutil
+	deqp-vksc-api
+	deqp-vksc-pipeline
+	deqp-vksc-binding-model
+	deqp-vksc-spirv-assembly
+	deqp-vksc-shaderrender
+	deqp-vksc-shaderexecutor
+	deqp-vksc-memory
+	deqp-vksc-ubo
+	deqp-vksc-dynamic-state
+	deqp-vksc-ssbo
+	deqp-vksc-query-pool
+#x	deqp-vksc-conditional-rendering
+	deqp-vksc-draw
+	deqp-vksc-device-group
+	deqp-vksc-compute
+	deqp-vksc-image
+#x	deqp-vksc-wsi
+#x	deqp-vksc-sparse-resources
+	deqp-vksc-tessellation
+	deqp-vksc-rasterization
+	deqp-vksc-synchronization
+	deqp-vksc-clipping
+	deqp-vksc-fragment-ops
+	deqp-vksc-texture
+	deqp-vksc-geometry
+	deqp-vksc-robustness
+	deqp-vksc-render-pass
+	deqp-vksc-multiview
+	deqp-vksc-subgroups
+	deqp-vksc-ycbcr
+	deqp-vksc-protected-memory
+	deqp-vksc-memory-model
+#x	deqp-vksc-amber
+	deqp-vksc-imageless-framebuffer
+#x	deqp-vksc-transform-feedback
+	deqp-vksc-descriptor-indexing
+	deqp-vksc-fragment-shader-interlock
+#x	deqp-vksc-modifiers
+#x	deqp-vksc-ray-tracing
+#x	deqp-vksc-ray-query
+#x	deqp-vksc-postmortem
+	deqp-vksc-fragment-shading-rate
+	deqp-vksc-sc
+	)
+
 
 if (DE_COMPILER_IS_MSC AND (DE_PTR_SIZE EQUAL 4))
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LARGEADDRESSAWARE")
@@ -172,21 +229,39 @@ endif ()
 
 PCH(DEQP_VK_SRCS pch.cpp)
 
-add_deqp_module(deqp-vk "${DEQP_VK_SRCS}" "${DEQP_VK_LIBS}" vktTestPackageEntry.cpp)
+add_deqp_module(deqp-vk "${DEQP_VK_SRCS}" "${DEQP_VK_LIBS}" "tcutil-platform" vktTestPackageEntry.cpp )
 
+add_deqp_module_skip_android(deqp-vksc "${DEQP_VK_SRCS}" "${DEQP_VKSC_LIBS}" "tcutil-sc-platform" vktTestPackageEntrySC.cpp)
+target_include_directories(deqp-vksc-package BEFORE PUBLIC ${CMAKE_SOURCE_DIR}/external/vulkancts/framework/vulkan/generated/vulkansc)
+if (NOT DE_OS_IS_ANDROID AND NOT DE_OS_IS_IOS)
+	target_include_directories(deqp-vksc BEFORE PUBLIC ${CMAKE_SOURCE_DIR}/external/vulkancts/framework/vulkan/generated/vulkansc)
+endif ()
 
 add_data_dir(deqp-vk ../../data/vulkan vulkan)
-add_data_dir(deqp-vk ../../mustpass/master/vk-default vk-default)
+add_data_dir(deqp-vk ../../mustpass/main/vk-default vk-default)
 
 # add all directories containing android mustpass
-file(GLOB PATHS_MATCHING_PATTERN ${CMAKE_SOURCE_DIR}/android/cts/master/vk-*/)
+file(GLOB PATHS_MATCHING_PATTERN ${CMAKE_SOURCE_DIR}/android/cts/main/vk-*/)
 FOREACH(FOUND_PATH ${PATHS_MATCHING_PATTERN})
 	IF(IS_DIRECTORY ${FOUND_PATH})
 		SET(LAST_DIRECTORY "")
-		file(RELATIVE_PATH LAST_DIRECTORY ${CMAKE_SOURCE_DIR}/android/cts/master ${FOUND_PATH})
-		add_data_dir(deqp-vk ../../../../android/cts/master/${LAST_DIRECTORY} ${LAST_DIRECTORY})
+		file(RELATIVE_PATH LAST_DIRECTORY ${CMAKE_SOURCE_DIR}/android/cts/main ${FOUND_PATH})
+		add_data_dir(deqp-vk ../../../../android/cts/main/${LAST_DIRECTORY} ${LAST_DIRECTORY})
 	ENDIF()
 ENDFOREACH()
+
+set(BINARY_COPY_DIR "./")
+
+# Video parser used in vulkan video won't be part of android target
+if (DE_OS_IS_WIN32)
+	add_data_dir(deqp-vk ../../../video-parser/src/vk_video_decoder/bin/libs/nv_vkvideo_parser/wddm2_amd64_release	${BINARY_COPY_DIR})
+elseif(DE_OS_IS_UNIX)
+	add_data_dir(deqp-vk ../../../video-parser/src/vk_video_decoder/bin/libs/nv_vkvideo_parser/linux_amd64_release	${BINARY_COPY_DIR})
+endif()
+
+if (DE_OS_IS_WIN32)
+	add_data_dir(deqp-vk ../../../ffmpeg/src/bin	${BINARY_COPY_DIR})
+endif()
 
 if (DE_OS_IS_WIN32 OR DE_OS_IS_UNIX OR DE_OS_IS_OSX)
 	add_executable(vk-build-programs vktBuildPrograms.cpp)

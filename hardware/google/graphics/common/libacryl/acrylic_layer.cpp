@@ -140,7 +140,8 @@ bool AcrylicCanvas::setImageBuffer(int fd[MAX_HW2D_PLANES], size_t len[MAX_HW2D_
 
     for (int i = 0; i < num_buffers; i++) {
         if ((offset[i] < 0) || (static_cast<size_t>(offset[i]) >= len[i])) {
-            ALOGE("Too large offset %ld for length %zu of buffer[%d]", offset[i], len[i], i);
+            ALOGE("Too large offset %jd for length %zu of buffer[%d]",
+                  static_cast<intmax_t>(offset[i]), len[i], i);
             return false;
         }
 
@@ -155,8 +156,8 @@ bool AcrylicCanvas::setImageBuffer(int fd[MAX_HW2D_PLANES], size_t len[MAX_HW2D_
         m.mBufferFd[i] = fd[i];
         mBufferLength[i] = len[i];
         mBufferOffset[i] = offset[i];
-        ALOGD_TEST("Configured buffer[%d]: fd %d, len %zu, offset %u (type: %s)",
-                   i, m.mBufferFd[i], mBufferLength[i], mBufferOffset[i],
+        ALOGD_TEST("Configured buffer[%d]: fd %d, len %zu, offset %jd (type: %s)", i,
+                   m.mBufferFd[i], mBufferLength[i], static_cast<intmax_t>(mBufferOffset[i]),
                    canvasTypeName(mCanvasType));
     }
 

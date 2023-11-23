@@ -1,16 +1,21 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#![cfg(not(test))]
 #![no_main]
+
+use std::io::Cursor;
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
+use std::io::Write;
+use std::mem::size_of;
 
 use base::FileReadWriteAtVolatile;
 use cros_fuzz::fuzz_target;
 use data_model::VolatileSlice;
 use disk::QcowFile;
-
-use std::io::{Cursor, Read, Seek, SeekFrom, Write};
-use std::mem::size_of;
 
 // Take the first 64 bits of data as an address and the next 64 bits as data to
 // store there. The rest of the data is used as a qcow image.

@@ -104,6 +104,7 @@ func (cSuiteTest *CSuiteTest) GenerateAndroidBuildActions(ctx android.ModuleCont
 
 	if cSuiteTest.csuiteTestProperties.Test_config_template == nil {
 		ctx.ModuleErrorf(`'test_config_template' is missing.`)
+		return
 	}
 
 	configTemplatePath := cSuiteTest.buildCopyConfigTemplateCommand(ctx, rule, *cSuiteTest.csuiteTestProperties.Test_config_template)

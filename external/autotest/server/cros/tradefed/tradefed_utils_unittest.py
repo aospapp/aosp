@@ -1,10 +1,13 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 import os
 import unittest
 
-import tradefed_utils
+import common
+
+from autotest_lib.server.cros.tradefed import tradefed_utils
 
 
 def _load_data(filename):
@@ -147,17 +150,17 @@ class TradefedTestTest(unittest.TestCase):
             'tradefed_utils_unittest_data', 'not_exist'))
 
     def test_parse_tradefed_testresults_xml_no_failure(self):
-        waived, accurate = tradefed_utils.parse_tradefed_testresults_xml(
-            os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                         'tradefed_utils_unittest_data', 'test_result.xml'))
+        waived = tradefed_utils.parse_tradefed_testresults_xml(
+                os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                             'tradefed_utils_unittest_data',
+                             'test_result.xml'))
         self.assertEquals(0, len(waived))
-        self.assertTrue(accurate)
 
     def test_parse_tradefed_testresult_xml_waivers(self):
-        waived, accurate = tradefed_utils.parse_tradefed_testresults_xml(
-            os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                         'tradefed_utils_unittest_data',
-                         'gtsplacement_test_result.xml'))
+        waived = tradefed_utils.parse_tradefed_testresults_xml(
+                os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                             'tradefed_utils_unittest_data',
+                             'gtsplacement_test_result.xml'))
         self.assertEquals(0, len(waived))
 
         waivers = set([
@@ -173,10 +176,11 @@ class TradefedTestTest(unittest.TestCase):
             'com.google.android.placement.gts.CoreGmsAppsTest#testGoogleDuoPreloaded',
             'com.google.android.placement.gts.CoreGmsAppsTest#testCoreGmsAppsPreloaded',
             'com.google.android.media.gts.WidevineH264PlaybackTests#testCbcsL1WithUHD30'])
-        waived, accurate = tradefed_utils.parse_tradefed_testresults_xml(
-            os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                         'tradefed_utils_unittest_data',
-                         'gtsplacement_test_result.xml'), waivers=waivers)
+        waived = tradefed_utils.parse_tradefed_testresults_xml(os.path.join(
+                os.path.dirname(os.path.realpath(__file__)),
+                'tradefed_utils_unittest_data',
+                'gtsplacement_test_result.xml'),
+                                                               waivers=waivers)
         self.assertEquals(4, len(waived))
 
     def test_get_perf_metrics_from_test_result_xml(self):

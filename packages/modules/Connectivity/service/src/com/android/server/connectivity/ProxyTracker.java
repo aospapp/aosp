@@ -27,6 +27,7 @@ import android.annotation.Nullable;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.net.LinkProperties;
 import android.net.Network;
 import android.net.PacProxyManager;
 import android.net.Proxy;
@@ -95,6 +96,7 @@ public class ProxyTracker {
         }
 
         public void onPacProxyInstalled(@Nullable Network network, @NonNull ProxyInfo proxy) {
+            Log.i(TAG, "PAC proxy installed on network " + network + " : " + proxy);
             mConnectivityServiceHandler
                     .sendMessage(mConnectivityServiceHandler
                     .obtainMessage(mEvent, new Pair<>(network, proxy)));
@@ -328,9 +330,15 @@ public class ProxyTracker {
      * @param proxyInfo the proxy spec, or null for no proxy.
      */
     public void setDefaultProxy(@Nullable ProxyInfo proxyInfo) {
+        // The code has been accepting empty proxy objects forever, so for backward
+        // compatibility it should continue doing so.
+        if (proxyInfo != null && TextUtils.isEmpty(proxyInfo.getHost())
+                && Uri.EMPTY.equals(proxyInfo.getPacFileUrl())) {
+            proxyInfo = null;
+        }
         synchronized (mProxyLock) {
             if (Objects.equals(mDefaultProxy, proxyInfo)) return;
-            if (proxyInfo != null &&  !proxyInfo.isValid()) {
+            if (proxyInfo != null && !proxyInfo.isValid()) {
                 if (DBG) Log.d(TAG, "Invalid proxy properties, ignoring: " + proxyInfo);
                 return;
             }
@@ -353,6 +361,53 @@ public class ProxyTracker {
             if (mDefaultProxyEnabled) {
                 sendProxyBroadcast();
             }
+        }
+    }
+
+    private boolean isPacProxy(@Nullable final ProxyInfo info) {
+        return null != info && info.isPacProxy();
+    }
+
+    /**
+     * Adjust the proxy in the link properties if necessary.
+     *
+     * It is necessary when the proxy in the passed property is for PAC, and the default proxy
+     * is also for PAC. This is because the original LinkProperties from the network agent don't
+     * include the port for the local proxy as it's not known at creation time, but this class
+     * knows it after the proxy service is started.
+     *
+     * This is safe because there can only ever be one proxy service running on the device, so
+     * if the ProxyInfo in the LinkProperties is for PAC, then the port is necessarily the one
+     * ProxyTracker knows about.
+     *
+     * @param lp the LinkProperties to fix up.
+     * @param network the network of the local proxy server.
+     */
+    // TODO: Leave network unused to support local proxy server per network in the future.
+    public void updateDefaultNetworkProxyPortForPAC(@NonNull final LinkProperties lp,
+            @Nullable Network network) {
+        final ProxyInfo defaultProxy = getDefaultProxy();
+        if (isPacProxy(lp.getHttpProxy()) && isPacProxy(defaultProxy)) {
+            synchronized (mProxyLock) {
+                // At this time, this method can only be called for the default network's LP.
+                // Therefore the PAC file URL in the LP must match the one in the default proxy,
+                // and we just update the port.
+                // Note that the global proxy, if any, is set out of band by the DPM and becomes
+                // the default proxy (it overrides it, see {@link getDefaultProxy}). The PAC URL
+                // in the global proxy might not be the one in the LP of the default
+                // network, so discount this case.
+                if (null == mGlobalProxy && !lp.getHttpProxy().getPacFileUrl()
+                        .equals(defaultProxy.getPacFileUrl())) {
+                    throw new IllegalStateException("Unexpected discrepancy between proxy in LP of "
+                            + "default network and default proxy. The former has a PAC URL of "
+                            + lp.getHttpProxy().getPacFileUrl() + " while the latter has "
+                            + defaultProxy.getPacFileUrl());
+                }
+            }
+            // If this network has a PAC proxy and proxy tracker already knows about
+            // it, now is the right time to patch it in. If proxy tracker does not know
+            // about it yet, then it will be patched in when it learns about it.
+            lp.setHttpProxy(defaultProxy);
         }
     }
 }

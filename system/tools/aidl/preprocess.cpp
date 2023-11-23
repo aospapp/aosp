@@ -91,6 +91,9 @@ struct PreprocessVisitor : AidlVisitor {
     if (const auto& cpp_header = t.GetCppHeader(); !cpp_header.empty()) {
       out << " cpp_header " << cpp_header;
     }
+    if (const auto& ndk_header = t.GetNdkHeader(); !ndk_header.empty()) {
+      out << " ndk_header " << ndk_header;
+    }
     out << ";\n";
   }
   void Visit(const AidlStructuredParcelable& t) override {

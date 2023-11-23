@@ -42,6 +42,7 @@ struct JpegYUV420Input {
   uint32_t width, height;
   bool buffer_owner;
   YCbCrPlanes yuv_planes;
+  int32_t color_space;
 
   JpegYUV420Input() : width(0), height(0), buffer_owner(false) {
   }
@@ -89,6 +90,7 @@ class JpegCompressor {
     size_t height;
     const uint8_t* app1_buffer;
     size_t app1_buffer_size;
+    int32_t color_space;
   };
   size_t CompressYUV420Frame(YUV420Frame frame);
   void ThreadLoop();

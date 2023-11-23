@@ -16,6 +16,7 @@
 
 package com.google.common.collect;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.GwtCompatible;
@@ -154,7 +155,7 @@ public final class Range<C extends Comparable> extends RangeGwtSerializationDepe
   }
 
   static <C extends Comparable<?>> Range<C> create(Cut<C> lowerBound, Cut<C> upperBound) {
-    return new Range<C>(lowerBound, upperBound);
+    return new Range<>(lowerBound, upperBound);
   }
 
   /**
@@ -556,6 +557,15 @@ public final class Range<C extends Comparable> extends RangeGwtSerializationDepe
     } else {
       Cut<C> newLower = (lowerCmp >= 0) ? lowerBound : connectedRange.lowerBound;
       Cut<C> newUpper = (upperCmp <= 0) ? upperBound : connectedRange.upperBound;
+
+      // create() would catch this, but give a confusing error message
+      checkArgument(
+          newLower.compareTo(newUpper) <= 0,
+          "intersection is undefined for disconnected ranges %s and %s",
+          this,
+          connectedRange);
+
+      // TODO(kevinb): all the precondition checks in the constructor are redundant...
       return create(newLower, newUpper);
     }
   }

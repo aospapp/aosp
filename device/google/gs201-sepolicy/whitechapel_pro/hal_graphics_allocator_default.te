@@ -1,0 +1,4 @@
+allow hal_graphics_allocator_default sensor_direct_heap_device:chr_file r_file_perms;
+allow hal_graphics_allocator_default faceauth_heap_device:chr_file r_file_perms;
+allow hal_graphics_allocator_default dmabuf_system_secure_heap_device:chr_file r_file_perms;
+allow hal_graphics_allocator_default vscaler_heap_device:chr_file r_file_perms;

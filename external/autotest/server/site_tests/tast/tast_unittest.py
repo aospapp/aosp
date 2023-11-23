@@ -1,8 +1,12 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import datetime
 import json
@@ -10,13 +14,13 @@ import os
 import shutil
 import tempfile
 import unittest
+import six
 import yaml
 
 import dateutil.parser
 
 import common
-import tast
-
+from autotest_lib.server.site_tests.tast import tast
 from autotest_lib.client.common_lib import base_job
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
@@ -129,10 +133,21 @@ class TastTest(unittest.TestCase):
                 tast.tast._SSP_REMOTE_TEST_RUNNER_PATH if ssp
                 else self._PORTAGE_REMOTE_TEST_RUNNER_PATH)
 
-    def _init_tast_commands(self, tests, ssp=False, build=False,
-                            build_bundle='fakebundle', run_private_tests=False,
-                            run_vars=[], run_varsfiles=[],
-                            download_data_lazily=False):
+    def _init_tast_commands(self,
+                            tests,
+                            ssp=False,
+                            build=False,
+                            build_bundle='fakebundle',
+                            run_private_tests=False,
+                            run_vars=[],
+                            run_varsfiles=[],
+                            download_data_lazily=False,
+                            totalshards=1,
+                            shardindex=0,
+                            companion_duts={},
+                            maybemissingvars='',
+                            port=True,
+                            test_filter_files=[]):
         """Sets fake_tast.py's behavior for 'list' and 'run' commands.
 
         @param tests: List of TestInfo objects.
@@ -142,14 +157,21 @@ class TastTest(unittest.TestCase):
         @param run_varsfiles: filenames should be passed to 'run' via -varsfile.
         @param download_data_lazily: Whether to download external data files
             lazily.
+        @param totalshards: total number of shards.
+        @param shardindex: shard index to be run.
+        @param companion_duts: mapping between roles and DUTs.
+        @param test_filter_files: a list of files specify which tests to disable.
         """
         list_args = [
-            'build=%s' % build,
-            'patterns=%s' % self.TEST_PATTERNS,
-            'sshretries=%d' % tast.tast._SSH_CONNECT_RETRIES,
-            'downloaddata=%s' % ('lazy' if download_data_lazily else 'batch'),
-            'target=%s:%d' % (self.HOST, self.PORT),
-            'verbose=True',
+                'build=%s' % build,
+                'patterns=%s' % self.TEST_PATTERNS,
+                'sshretries=%d' % tast.tast._SSH_CONNECT_RETRIES,
+                'downloaddata=%s' %
+                ('lazy' if download_data_lazily else 'batch'),
+                'totalshards=%d' % totalshards,
+                'shardindex=%d' % shardindex,
+                'target=%s%s' % (self.HOST, ':%d' % self.PORT if port else ''),
+                'verbose=True',
         ]
         if build:
             list_args.extend([
@@ -177,7 +199,15 @@ class TastTest(unittest.TestCase):
         ]
         if run_varsfiles:
             run_args.append('varsfile=%s' % run_varsfiles)
-
+        if companion_duts:
+            role_dut_pairs = []
+            for role, dut in sorted(companion_duts.items()):
+                role_dut_pairs.append('%s:%s%s' %
+                                      (role, dut.hostname,
+                                       ':%d' % dut.port if dut.port else ''))
+            run_args.append('companiondut=%s' % role_dut_pairs)
+        if test_filter_files:
+            run_args.append('testfilterfile=%s' % test_filter_files)
         test_list = json.dumps([t.test() for t in tests])
         run_files = {
             self._results_path(): ''.join(
@@ -206,7 +236,16 @@ class TastTest(unittest.TestCase):
                   run_private_tests=False,
                   varsfiles=[],
                   download_data_lazily=False,
-                  varslist=[]):
+                  clear_tpm=False,
+                  totalshards=1,
+                  shardindex=0,
+                  companion_duts={},
+                  varslist=[],
+                  maybemissingvars='',
+                  use_camera_box=False,
+                  vars_gs_path='',
+                  test_filter_files=[],
+                  report_skipped=False):
         """Writes fake_tast.py's configuration and runs the test.
 
         @param ignore_test_failures: Passed as the identically-named arg to
@@ -223,8 +262,13 @@ class TastTest(unittest.TestCase):
              in |-varsfile| arguments.
         @param download_data_lazily: Whether to download external data files
             lazily.
+        @param clear_tpm: clear the TPM first before running the tast tests.
         @param varslist: list of strings to pass to tast run command as |-vars|
             arguments. Each string should be formatted as "name=value".
+        @param maybemissingvars: a regex to pass to tast run command as
+            |-maybemissingvars| arguments.
+        @param use_camera_box: Whether the test run in CameraBox.
+        @param report_skipped: Whether or not skipped tests should be reported.
         """
         self._test.initialize(self._host,
                               self.TEST_PATTERNS,
@@ -238,12 +282,21 @@ class TastTest(unittest.TestCase):
                               run_private_tests=run_private_tests,
                               varsfiles=varsfiles,
                               download_data_lazily=download_data_lazily,
-                              varslist=varslist)
+                              clear_tpm=clear_tpm,
+                              totalshards=totalshards,
+                              shardindex=shardindex,
+                              companion_duts=companion_duts,
+                              varslist=varslist,
+                              maybemissingvars=maybemissingvars,
+                              use_camera_box=use_camera_box,
+                              vars_gs_path=vars_gs_path,
+                              test_filter_files=test_filter_files,
+                              report_skipped=report_skipped)
         self._test.set_fake_now_for_testing(
                 (NOW - tast._UNIX_EPOCH).total_seconds())
 
         cfg = {}
-        for name, cmd in self._tast_commands.iteritems():
+        for name, cmd in six.iteritems(self._tast_commands):
             cfg[name] = vars(cmd)
         path = os.path.join(os.path.dirname(self._tast_path), 'config.json')
         with open(path, 'a') as f:
@@ -289,11 +342,25 @@ class TastTest(unittest.TestCase):
                          status_string(self._job.status_entries))
         self.assertIs(self._load_job_keyvals(), None)
 
+    def testPassingTestsNoPort(self):
+        """Tests that passing tests are reported correctly."""
+        self._host = FakeHost(self.HOST, None)
+        tests = [
+                TestInfo('pkg.Test1', 0, 2),
+                TestInfo('pkg.Test2', 3, 5),
+                TestInfo('pkg.Test3', 6, 8)
+        ]
+        self._init_tast_commands(tests, port=None)
+        self._run_test()
+        self.assertEqual(status_string(get_status_entries_from_tests(tests)),
+                         status_string(self._job.status_entries))
+        self.assertIs(self._load_job_keyvals(), None)
+
     def testFailingTests(self):
         """Tests that failing tests are reported correctly."""
         tests = [TestInfo('pkg.Test1', 0, 2, errors=[('failed', 1)]),
                  TestInfo('pkg.Test2', 3, 6),
-                 TestInfo('pkg.Test2', 7, 8, errors=[('another', 7)])]
+                 TestInfo('pkg.Test3', 7, 8, errors=[('another', 7)])]
         self._init_tast_commands(tests)
         self._run_test_for_failure([tests[0], tests[2]], [])
         self.assertEqual(status_string(get_status_entries_from_tests(tests)),
@@ -310,10 +377,28 @@ class TastTest(unittest.TestCase):
 
     def testSkippedTest(self):
         """Tests that skipped tests aren't reported."""
-        tests = [TestInfo('pkg.Normal', 0, 1),
-                 TestInfo('pkg.Skipped', 2, 2, skip_reason='missing deps')]
+        tests = [
+                TestInfo('pkg.Normal', 0, 1),
+                TestInfo('pkg.Skipped', 2, 2, skip_reason='missing deps')
+        ]
         self._init_tast_commands(tests)
         self._run_test()
+        self.assertEqual(status_string(get_status_entries_from_tests(tests)),
+                         status_string(self._job.status_entries))
+        self.assertIs(self._load_job_keyvals(), None)
+
+    def testSkippedTestWithReportSkipped(self):
+        """Tests that skipped tests are reported correctly when report_skipped=True."""
+        tests = [
+                TestInfo('pkg.Normal', 0, 1),
+                TestInfo('pkg.Skipped',
+                         2,
+                         3,
+                         skip_reason='missing deps',
+                         report_skipped=True)
+        ]
+        self._init_tast_commands(tests)
+        self._run_test(report_skipped=True)
         self.assertEqual(status_string(get_status_entries_from_tests(tests)),
                          status_string(self._job.status_entries))
         self.assertIs(self._load_job_keyvals(), None)
@@ -359,9 +444,8 @@ class TastTest(unittest.TestCase):
                  TestInfo('pkg.Test3', None, None)]
         self._init_tast_commands(tests)
         self._run_test_for_failure([tests[1]], [tests[2]])
-        self.assertEqual(
-                status_string(get_status_entries_from_tests(tests[:2])),
-                status_string(self._job.status_entries))
+        self.assertEqual(status_string(get_status_entries_from_tests(tests)),
+                         status_string(self._job.status_entries))
         self.assertEqual(self._load_job_keyvals(),
                          {'tast_missing_test.0': 'pkg.Test3'})
 
@@ -381,7 +465,7 @@ class TastTest(unittest.TestCase):
 
         self._run_test_for_failure([tests[1]], [tests[2]])
         self.assertEqual(
-                status_string(get_status_entries_from_tests(tests[:2], msg)),
+                status_string(get_status_entries_from_tests(tests, msg)),
                 status_string(self._job.status_entries))
         self.assertEqual(self._load_job_keyvals(),
                          {'tast_missing_test.0': 'pkg.Test3'})
@@ -439,8 +523,43 @@ class TastTest(unittest.TestCase):
                 'not valid JSON data'
         with self.assertRaises(error.TestFail) as _:
             self._run_test()
-        self.assertEqual(status_string(get_status_entries_from_tests(tests)),
-                         status_string(self._job.status_entries))
+        # Missing tests are reported in the _parse_results which is called after
+        # _run_tests, so missing tests is not available and the status_entries
+        # should include only the first test case.
+        self.assertEqual(
+                status_string(get_status_entries_from_tests(tests[:1])),
+                status_string(self._job.status_entries))
+
+    def testRunCommandWithSharding(self):
+        """Tests that sharding parameter is passing thru without issues."""
+        tests = [TestInfo('pkg.Test1', 0, 2), TestInfo('pkg.Test2', 3, 5)]
+        self._init_tast_commands(tests=tests, totalshards=2, shardindex=1)
+        self._run_test(totalshards=2, shardindex=1)
+
+    def testRunCommandWithCompanionDUTs(self):
+        """Tests that companion dut parameter is passing thru without issues."""
+        tests = [TestInfo('pkg.Test1', 0, 2), TestInfo('pkg.Test2', 3, 5)]
+        companion_duts = {'role1': FakeHost('dut1', 22), 'role2':FakeHost('dut2', 22)}
+        self._init_tast_commands(tests=tests, companion_duts=companion_duts)
+        self._run_test(companion_duts=companion_duts)
+
+    def testRunCommandWithCompanionDUTsNoPort(self):
+        """Tests that companion dut parameter is passing thru without issues."""
+        tests = [TestInfo('pkg.Test1', 0, 2), TestInfo('pkg.Test2', 3, 5)]
+        companion_duts = {
+                'role1': FakeHost('dut1', 22),
+                'role2': FakeHost('dut2', None)
+        }
+        self._init_tast_commands(tests=tests, companion_duts=companion_duts)
+        self._run_test(companion_duts=companion_duts)
+
+    def testRunCommandWithTestFilterFiles(self):
+        """Tests that companion dut parameter is passing thru without issues."""
+        tests = [TestInfo('pkg.Test1', 0, 2), TestInfo('pkg.Test2', 3, 5)]
+        test_filter_files = ['filter_1.txt', 'filter_2.txt']
+        self._init_tast_commands(tests=tests,
+                                 test_filter_files=test_filter_files)
+        self._run_test(test_filter_files=test_filter_files)
 
     def testNoResultsFile(self):
         """Tests that an error is raised if no results file is written."""
@@ -449,7 +568,10 @@ class TastTest(unittest.TestCase):
         self._tast_commands['run'].files_to_write = {}
         with self.assertRaises(error.TestFail) as _:
             self._run_test()
-        self.assertEqual(status_string(get_status_entries_from_tests(tests)),
+        # Missing tests are reported in the _parse_results which is called after
+        # _run_tests, so missing tests is not available and the status_entries
+        # should be empty.
+        self.assertEqual(status_string(get_status_entries_from_tests([])),
                          status_string(self._job.status_entries))
 
     def testNoResultsFileAfterRunCommandFails(self):
@@ -468,7 +590,10 @@ class TastTest(unittest.TestCase):
         first_line = str(cm.exception).split('\n')[0]
         self.assertTrue(FAILURE_MSG in first_line,
                         '"%s" not in "%s"' % (FAILURE_MSG, first_line))
-        self.assertEqual(status_string(get_status_entries_from_tests(tests)),
+        # Missing tests are reported in the _parse_results which is called after
+        # _run_tests, so missing tests is not available and the status_entries
+        # should be empty.
+        self.assertEqual(status_string(get_status_entries_from_tests([])),
                          status_string(self._job.status_entries))
 
     def testMissingTastExecutable(self):
@@ -592,8 +717,9 @@ class TastTest(unittest.TestCase):
         ROUTER_IP = '192.168.1.2:1234'
         PCAP_IP = '192.168.1.3:2345'
         wificell_var = [
-            'router=%s' % ROUTER_IP,
-            'pcap=%s' % PCAP_IP,
+                'router=%s' % ROUTER_IP,
+                'pcap=%s' % PCAP_IP,
+                'routers=%s,%s' % (ROUTER_IP, PCAP_IP),
         ]
         self._init_tast_commands([TestInfo('pkg.Test', 0, 0)],
                                  run_vars=wificell_var)
@@ -603,13 +729,34 @@ class TastTest(unittest.TestCase):
             (WiFiManager.CMDLINE_ROUTER_ADDR, ROUTER_IP),
             (WiFiManager.CMDLINE_PCAP_ADDR, PCAP_IP),
         ]
-        args = map(lambda x: ("%s=%s" % x), arg_list)
+        args = [("%s=%s" % x) for x in arg_list]
         self._run_test(command_args=args)
+
+    def testFirmwareArgs(self):
+        """Tests passing firmware specific args into Tast runner."""
+        vars = ['firmware.no_ec_sync=true']
+        self._init_tast_commands([TestInfo('pkg.Test', 0, 0)], run_vars=vars)
+
+        args = ['no_ec_sync=true']
+        self._run_test(command_args=args)
+
+    def testCameraboxArgs(self):
+        """Tests passing camerabox specific args into Tast runner."""
+        # Now it won't specify any chart IP address if it does not find a valid
+        # one.
+        vars = []
+        self._init_tast_commands([TestInfo('pkg.Test', 0, 0)], run_vars=vars)
+        self._run_test(use_camera_box=True)
 
     def testVarsfileOption(self):
         with tempfile.NamedTemporaryFile(
                 suffix='.yaml', dir=self._temp_dir) as temp_file:
-            yaml.dump({"var1": "val1", "var2": "val2"}, stream=temp_file)
+            yaml.dump({
+                    "var1": "val1",
+                    "var2": "val2"
+            },
+                      stream=temp_file,
+                      encoding='utf-8')
             varsfiles = [temp_file.name]
             self._init_tast_commands([TestInfo('pkg.Test', 0, 0)],
                                      run_varsfiles=varsfiles)
@@ -621,6 +768,79 @@ class TastTest(unittest.TestCase):
                                  run_vars=varslist)
         self._run_test(varslist=varslist)
 
+    def testMaybeMissingVarsOption(self):
+        arg = '.*\.Test'
+        self._init_tast_commands([TestInfo('pkg.Test', 0, 0)],
+                                 maybemissingvars=arg)
+        self._run_test(maybemissingvars=arg)
+
+    def testFillExtvars(self):
+        with tempfile.NamedTemporaryFile(suffix='.yaml',
+                                         dir=self._temp_dir) as temp_file:
+            yaml.dump({
+                    'var1': 'val1',
+                    'var2': 'val2'
+            },
+                      stream=temp_file,
+                      encoding='utf-8')
+
+            host = FakeHost(self.HOST, self.PORT)
+            host.host_info_store = host_info.InMemoryHostInfoStore(
+                    host_info.HostInfo(labels=[
+                            'plus', 'board:octopus', 'fleex', 'os:cros'
+                    ]))
+            self._test.initialize(
+                    host=host,
+                    test_exprs=self.TEST_PATTERNS,
+                    varsfiles=[temp_file.name],
+                    varslist=['var3=val3', 'var4=val4'],
+                    command_args=['arg1', 'arg2=arg2val', 'arg3:arg3val'])
+            self._test._tests_to_run = ['test1', 'test2']
+
+            self.maxDiff = None
+            self.assertDictEqual(
+                    {
+                            'var:var1': 'val1',
+                            'var:var2': 'val2',
+                            'var:var3': 'val3',
+                            'var:var4': 'val4',
+                            'tests:': 'test1\ntest2',
+                            'test:test1': '',
+                            'test:test2': '',
+                            'args:': 'arg1\narg2=arg2val\narg3:arg3val',
+                            'arg:arg1': 'arg1val',
+                            'arg:arg1': '',
+                            'arg:arg2': 'arg2val',
+                            'arg:arg3': 'arg3val',
+                            'labels:': 'plus\nboard:octopus\nfleex\nos:cros',
+                            'label:plus': '',
+                            'label:board': 'octopus',
+                            'label:fleex': '',
+                            'label:os': 'cros',
+                    }, self._test._fill_config_extvars())
+
+    def test_dut_server_arg(self):
+        # Test positive single case
+        cargs = [
+                'dut_servers=100.101.102.103:1111,', 'servo_host=localhost',
+                'servo_port=9999'
+        ]
+        dut_server = tast._dut_server_arg(cargs)
+        self.assertEqual(dut_server, '100.101.102.103:1111')
+
+        # Test no dut_servers provided case:
+        cargs = ['servo_host=localhost', 'servo_port=9999']
+        dut_server = tast._dut_server_arg(cargs)
+        self.assertEqual(dut_server, None)
+
+        # Test multiple dut_servers provided case:
+        cargs = [
+                'dut_servers=100.101.102.103:1111,localhost:1234',
+                'servo_host=localhost', 'servo_port=9999'
+        ]
+        dut_server = tast._dut_server_arg(cargs)
+        self.assertEqual(dut_server, '100.101.102.103:1111')
+
 
 class TestInfo:
     """Wraps information about a Tast test.
@@ -631,8 +851,17 @@ class TestInfo:
     - get expected base_job.status_log_entry objects that unit tests compare
       against what tast.Tast actually recorded
     """
-    def __init__(self, name, start_offset, end_offset, errors=None,
-                 skip_reason=None, attr=None, timeout_ns=0):
+
+    def __init__(self,
+                 name,
+                 start_offset,
+                 end_offset,
+                 errors=None,
+                 skip_reason=None,
+                 attr=None,
+                 timeout_ns=0,
+                 missing_reason=None,
+                 report_skipped=False):
         """
         @param name: Name of the test, e.g. 'ui.ChromeLogin'.
         @param start_offset: Start time as int seconds offset from BASE_TIME,
@@ -648,6 +877,7 @@ class TestInfo:
         @param attr: List of string test attributes assigned to the test, or
             None if no attributes are assigned.
         @param timeout_ns: Test timeout in nanoseconds.
+        @param report_skipped: Decide if skipped tests should be reported
         """
         def from_offset(offset):
             """Returns an offset from BASE_TIME.
@@ -667,6 +897,7 @@ class TestInfo:
         self._skip_reason = skip_reason
         self._attr = list(attr) if attr else []
         self._timeout_ns = timeout_ns
+        self._report_skipped = report_skipped
 
     def name(self):
         # pylint: disable=missing-docstring
@@ -712,23 +943,20 @@ class TestInfo:
         """
         # Deliberately-skipped tests shouldn't have status entries unless errors
         # were also reported.
-        if self._skip_reason and not self._errors:
-            return []
-
-        # Tests that weren't even started (e.g. because of an earlier issue)
-        # shouldn't have status entries.
-        if not self._start_time:
+        if not self._report_skipped and self._skip_reason and not self._errors:
             return []
 
         def make(status_code, dt, msg=''):
             """Makes a base_job.status_log_entry.
 
             @param status_code: String status code.
-            @param dt: datetime.datetime object containing entry time.
+            @param dt: datetime.datetime object containing entry time, and its
+                value should be None if the test is not supposed to be started
             @param msg: String message (typically only set for errors).
             @return: base_job.status_log_entry object.
             """
-            timestamp = int((dt - tast._UNIX_EPOCH).total_seconds())
+            timestamp = int(
+                    (dt - tast._UNIX_EPOCH).total_seconds()) if dt else None
             return base_job.status_log_entry(
                     status_code, None,
                     tast.tast._TEST_NAME_PREFIX + self._name, msg, None,
@@ -736,7 +964,22 @@ class TestInfo:
 
         entries = [make(tast.tast._JOB_STATUS_START, self._start_time)]
 
-        if self._end_time and not self._errors:
+        if not self._start_time:
+            if run_error_msg:
+                reason = '%s due to global error: %s' % (
+                        tast.tast._TEST_DID_NOT_RUN_MSG, run_error_msg)
+            else:
+                reason = tast.tast._TEST_DID_NOT_RUN_MSG
+
+            entries.append(make(tast.tast._JOB_STATUS_NOSTATUS, None, reason))
+            entries.append(make(tast.tast._JOB_STATUS_END_NOSTATUS, None))
+        elif self._end_time and self._skip_reason and not self._errors:
+            entries.append(
+                    make(tast.tast._JOB_STATUS_SKIP, self._end_time,
+                         self._skip_reason))
+            entries.append(make(tast.tast._JOB_STATUS_END_SKIP,
+                                self._end_time))
+        elif self._end_time and not self._errors:
             entries.append(make(tast.tast._JOB_STATUS_GOOD, self._end_time))
             entries.append(make(tast.tast._JOB_STATUS_END_GOOD, self._end_time))
         else:
@@ -840,14 +1083,31 @@ def status_string(entries):
     @param entries: List of base_job.status_log_entry objects.
     @return: String containing space-separated representations of entries.
     """
-    strings = []
-    for entry in entries:
-        timestamp = entry.fields[base_job.status_log_entry.TIMESTAMP_FIELD]
-        s = '[%s %s %s %s]' % (timestamp, entry.operation, entry.status_code,
-                               repr(str(entry.message)))
-        strings.append(s)
+    found_test_strings = []
+    missing_test_strings = []
 
-    return ' '.join(strings)
+    # For each missing test, there are three corresponding entries that we want
+    # to put in missing_test_strings: "START", "NOSTATUS" and "END NOSTATUS".
+    # We cannot tell if the test is missing in the "START" entry. Therefore,
+    # we use missing_tests to keep track of all the missing tests.
+    missing_tests = set(entry.operation for entry in entries
+                        if entry.status_code == tast.tast._JOB_STATUS_NOSTATUS)
+
+    for entry in entries:
+        message = entry.message
+        if isinstance(message, six.binary_type):
+            message = message.decode('utf-8')
+        # Ignore timestamp for missing entry
+        timestamp = entry.fields[base_job.status_log_entry.TIMESTAMP_FIELD]
+        if entry.operation not in missing_tests:
+            s = '[%s %s %s %s]' % (timestamp, entry.operation,
+                                   entry.status_code, repr(message))
+            found_test_strings.append(s)
+        else:
+            s = '[%s %s %s]' % (entry.operation, entry.status_code,
+                                repr(message))
+            missing_test_strings.append(s)
+    return ' '.join(found_test_strings + missing_test_strings)
 
 
 if __name__ == '__main__':

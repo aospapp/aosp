@@ -565,7 +565,7 @@ public class KeyManagementTest extends BaseDeviceAdminTest {
                 }
             } catch (SecurityException e) {
                 assertThat(e.getMessage()).contains(
-                        "Profile Owner is not allowed to access Device IDs.");
+                        "Calling identity is not authorized");
             }
         }
     }

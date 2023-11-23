@@ -22,14 +22,14 @@
 #include <functional>
 #include <iostream>
 
-#include "base/bind.h"
-#include "base/callback.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/logging.h"
 #include "bta/le_audio/broadcaster/broadcaster_types.h"
 #include "bta/le_audio/le_audio_types.h"
 #include "gd/common/strings.h"
 #include "osi/include/log.h"
-#include "service/common/bluetooth/low_energy_constants.h"
+#include "osi/include/properties.h"
 #include "stack/include/ble_advertiser.h"
 #include "stack/include/btm_iso_api.h"
 #include "stack/include/btu.h"
@@ -39,9 +39,20 @@ using bluetooth::hci::IsoManager;
 using bluetooth::hci::iso_manager::big_create_cmpl_evt;
 using bluetooth::hci::iso_manager::big_terminate_cmpl_evt;
 
+using le_audio::CodecManager;
+using le_audio::types::CodecLocation;
+
 using namespace le_audio::broadcaster;
 
 namespace {
+
+// Advertising channels. These should be kept the same as those defined in the
+// stack.
+const int kAdvertisingChannel37 = (1 << 0);
+const int kAdvertisingChannel38 = (1 << 1);
+const int kAdvertisingChannel39 = (1 << 2);
+const int kAdvertisingChannelAll =
+    (kAdvertisingChannel37 | kAdvertisingChannel38 | kAdvertisingChannel39);
 
 class BroadcastStateMachineImpl : public BroadcastStateMachine {
  public:
@@ -67,9 +78,10 @@ class BroadcastStateMachineImpl : public BroadcastStateMachine {
       return false;
     }
 
-    CreateBroadcastAnnouncement(sm_config_.broadcast_id,
-                                sm_config_.announcement,
-                                sm_config_.streaming_phy);
+    CreateBroadcastAnnouncement(
+        sm_config_.is_public, sm_config_.broadcast_name,
+        sm_config_.broadcast_id, sm_config_.public_announcement,
+        sm_config_.announcement, sm_config_.streaming_phy);
     return true;
   }
 
@@ -121,6 +133,29 @@ class BroadcastStateMachineImpl : public BroadcastStateMachine {
   const bluetooth::le_audio::BasicAudioAnnouncementData&
   GetBroadcastAnnouncement() const override {
     return sm_config_.announcement;
+  }
+
+  bool IsPublicBroadcast() override { return sm_config_.is_public; }
+
+  std::string GetBroadcastName() override { return sm_config_.broadcast_name; }
+
+  const bluetooth::le_audio::PublicBroadcastAnnouncementData&
+  GetPublicBroadcastAnnouncement() const override {
+    return sm_config_.public_announcement;
+  }
+
+  void UpdatePublicBroadcastAnnouncement(
+      uint32_t broadcast_id, const std::string& broadcast_name,
+      const bluetooth::le_audio::PublicBroadcastAnnouncementData& announcement)
+      override {
+    std::vector<uint8_t> adv_data;
+    PrepareAdvertisingData(true, broadcast_name, broadcast_id, announcement,
+                           adv_data);
+
+    sm_config_.broadcast_name = broadcast_name;
+    sm_config_.public_announcement = announcement;
+    advertiser_if_->SetData(advertising_sid_, false, adv_data,
+                            base::DoNothing());
   }
 
   void UpdateBroadcastAnnouncement(
@@ -231,7 +266,7 @@ class BroadcastStateMachineImpl : public BroadcastStateMachine {
                           [](const void*) { /* Already streaming */ }};
 
   void OnAddressResponse(uint8_t addr_type, RawAddress addr) {
-    LOG_INFO("own address=%s, type=%d", ToString(addr).c_str(), addr_type);
+    LOG_INFO("own address=%s, type=%d", ADDRESS_TO_LOGGABLE_CSTR(addr), addr_type);
     addr_ = addr;
     addr_type_ = addr_type;
   }
@@ -271,28 +306,35 @@ class BroadcastStateMachineImpl : public BroadcastStateMachine {
   }
 
   void CreateBroadcastAnnouncement(
+      bool is_public, const std::string& broadcast_name,
       bluetooth::le_audio::BroadcastId& broadcast_id,
+      const bluetooth::le_audio::PublicBroadcastAnnouncementData&
+          public_announcement,
       const bluetooth::le_audio::BasicAudioAnnouncementData& announcement,
       uint8_t streaming_phy) {
-    LOG_INFO();
+    LOG_INFO("is_public=%s, broadcast_name=%s, public_features=%d",
+             (is_public ? "public" : "non-public"), broadcast_name.c_str(),
+             public_announcement.features);
     if (advertiser_if_ != nullptr) {
       tBTM_BLE_ADV_PARAMS adv_params;
       tBLE_PERIODIC_ADV_PARAMS periodic_params;
       std::vector<uint8_t> adv_data;
       std::vector<uint8_t> periodic_data;
 
-      PrepareAdvertisingData(broadcast_id, adv_data);
+      PrepareAdvertisingData(is_public, broadcast_name, broadcast_id,
+                             public_announcement, adv_data);
       PreparePeriodicData(announcement, periodic_data);
 
       adv_params.adv_int_min = 0x00A0; /* 160 * 0,625 = 100ms */
       adv_params.adv_int_max = 0x0140; /* 320 * 0,625 = 200ms */
       adv_params.advertising_event_properties = 0;
-      adv_params.channel_map = bluetooth::kAdvertisingChannelAll;
+      adv_params.channel_map = kAdvertisingChannelAll;
       adv_params.adv_filter_policy = 0;
-      adv_params.tx_power = -15;
+      adv_params.tx_power = 8;
       adv_params.primary_advertising_phy = PHY_LE_1M;
       adv_params.secondary_advertising_phy = streaming_phy;
       adv_params.scan_request_notification_enable = 0;
+      adv_params.own_address_type = BLE_ADDR_RANDOM;
 
       periodic_params.max_interval = BroadcastStateMachine::kPaIntervalMax;
       periodic_params.min_interval = BroadcastStateMachine::kPaIntervalMin;
@@ -365,11 +407,10 @@ class BroadcastStateMachineImpl : public BroadcastStateMachine {
     struct bluetooth::hci::iso_manager::big_create_params big_params = {
         .adv_handle = GetAdvertisingSid(),
         .num_bis = sm_config_.codec_wrapper.GetNumChannels(),
-        .sdu_itv = callbacks_->GetSduItv(GetBroadcastId()),
+        .sdu_itv = sm_config_.codec_wrapper.GetDataIntervalUs(),
         .max_sdu_size = sm_config_.codec_wrapper.GetMaxSduSize(),
-        .max_transport_latency =
-            callbacks_->GetMaxTransportLatency(GetBroadcastId()),
-        .rtn = callbacks_->GetNumRetransmit(GetBroadcastId()),
+        .max_transport_latency = sm_config_.qos_config.getMaxTransportLatency(),
+        .rtn = sm_config_.qos_config.getRetransmissionNumber(),
         .phy = sm_config_.streaming_phy,
         .packing = 0x00, /* Sequencial */
         .framing = 0x00, /* Unframed */
@@ -462,11 +503,17 @@ class BroadcastStateMachineImpl : public BroadcastStateMachine {
   void TriggerIsoDatapathSetup(uint16_t conn_handle) {
     LOG_INFO("conn_hdl=%d", conn_handle);
     LOG_ASSERT(active_config_ != std::nullopt);
+    auto data_path_id = bluetooth::hci::iso_manager::kIsoDataPathHci;
+    if (CodecManager::GetInstance()->GetCodecLocation() !=
+        CodecLocation::HOST) {
+      data_path_id = bluetooth::hci::iso_manager::kIsoDataPathPlatformDefault;
+    }
 
-    /* Note: For the LC3 software encoding on the Host side, the coding format
+    /* Note: If the LC3 encoding isn't in the controller side, the coding format
      * should be set to 'Transparent' and no codec configuration shall be sent
      * to the controller. 'codec_id_company' and 'codec_id_vendor' shall be
-     * ignored if 'codec_id_format' is not set to 'Vendor'.
+     * ignored if 'codec_id_format' is not set to 'Vendor'. We currently only
+     * support the codecLocation in the Host or ADSP side.
      */
     auto codec_id = sm_config_.codec_wrapper.GetLeAudioCodecId();
     uint8_t hci_coding_format =
@@ -475,7 +522,7 @@ class BroadcastStateMachineImpl : public BroadcastStateMachine {
             : bluetooth::hci::kIsoCodingFormatVendorSpecific;
     bluetooth::hci::iso_manager::iso_data_path_params param = {
         .data_path_dir = bluetooth::hci::iso_manager::kIsoDataPathDirectionIn,
-        .data_path_id = bluetooth::hci::iso_manager::kIsoDataPathHci,
+        .data_path_id = data_path_id,
         .codec_id_format = hci_coding_format,
         .codec_id_company = codec_id.vendor_company_id,
         .codec_id_vendor = codec_id.vendor_codec_id,
@@ -539,6 +586,10 @@ class BroadcastStateMachineImpl : public BroadcastStateMachine {
               .iso_interval = evt->iso_interval,
               .connection_handles = evt->conn_handles,
           };
+          if (CodecManager::GetInstance()->GetCodecLocation() ==
+              CodecLocation::ADSP) {
+            callbacks_->OnBigCreated(evt->conn_handles);
+          }
           TriggerIsoDatapathSetup(evt->conn_handles[0]);
         } else {
           LOG_ERROR(
@@ -655,6 +706,7 @@ std::ostream& operator<<(
                                     : PHYS[config.streaming_phy])
      << "\n";
   os << "        Codec Wrapper: " << config.codec_wrapper << "\n";
+  os << "        Qos Config: " << config.qos_config << "\n";
   if (config.broadcast_code) {
     os << "        Broadcast Code: [";
     for (auto& el : *config.broadcast_code) {

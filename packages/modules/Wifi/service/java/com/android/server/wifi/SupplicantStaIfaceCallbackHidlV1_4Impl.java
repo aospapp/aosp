@@ -18,6 +18,7 @@ package com.android.server.wifi;
 
 import android.annotation.NonNull;
 import android.hardware.wifi.supplicant.V1_4.DppFailureCode;
+import android.net.wifi.WifiSsid;
 import android.util.Log;
 
 import com.android.server.wifi.hotspot2.WnmData;
@@ -31,21 +32,24 @@ abstract class SupplicantStaIfaceCallbackHidlV1_4Impl extends
     private final SupplicantStaIfaceHalHidlImpl mStaIfaceHal;
     private final String mIfaceName;
     private final WifiMonitor mWifiMonitor;
+    private final SsidTranslator mSsidTranslator;
     private final Object mLock;
     private final SupplicantStaIfaceHalHidlImpl.SupplicantStaIfaceHalCallbackV1_3 mCallbackV13;
     private final SupplicantStaIfaceHalHidlImpl.SupplicantStaIfaceHalCallback mCallbackV10;
 
     SupplicantStaIfaceCallbackHidlV1_4Impl(@NonNull SupplicantStaIfaceHalHidlImpl staIfaceHal,
             @NonNull String ifaceName, @NonNull Object lock,
-            @NonNull WifiMonitor wifiMonitor) {
+            @NonNull WifiMonitor wifiMonitor,
+            @NonNull SsidTranslator ssidTranslator) {
         mStaIfaceHal = staIfaceHal;
         mIfaceName = ifaceName;
         mLock = lock;
         mWifiMonitor = wifiMonitor;
+        mSsidTranslator = ssidTranslator;
         // Create an older callback for function delegation,
         // and it would cascadingly create older one.
         mCallbackV13 = mStaIfaceHal.new SupplicantStaIfaceHalCallbackV1_3(mIfaceName);
-        mCallbackV10 = mStaIfaceHal.new SupplicantStaIfaceHalCallback(mIfaceName);
+        mCallbackV10 = mCallbackV13.getCallbackV10();
     }
 
     @Override
@@ -271,6 +275,11 @@ abstract class SupplicantStaIfaceCallbackHidlV1_4Impl extends
     @Override
     public void onNetworkNotFound(ArrayList<Byte> ssid) {
         mStaIfaceHal.logCallback("onNetworkNotFoundNotification");
-        mWifiMonitor.broadcastNetworkNotFoundEvent(mIfaceName, NativeUtil.encodeSsid(ssid));
+        if (mStaIfaceHal.connectToFallbackSsid(mIfaceName)) {
+            return;
+        }
+        mWifiMonitor.broadcastNetworkNotFoundEvent(mIfaceName,
+                mSsidTranslator.getTranslatedSsidForStaIface(WifiSsid.fromBytes(
+                        NativeUtil.byteArrayFromArrayList(ssid)), mIfaceName).toString());
     }
 }

@@ -19,7 +19,7 @@
 
 #include "Common.h"
 #include "Display.h"
-#include "DrmPresenter.h"
+#include "DrmClient.h"
 #include "FrameComposer.h"
 #include "Gralloc.h"
 #include "Layer.h"
@@ -62,6 +62,10 @@ class GuestFrameComposer : public FrameComposer {
 
   HWC3::Error onActiveConfigChange(Display* /*display*/) override;
 
+  const DrmClient* getDrmPresenter() const override {
+    return &mDrmClient;
+  }
+
  private:
   struct DisplayConfig {
     int width;
@@ -91,14 +95,14 @@ class GuestFrameComposer : public FrameComposer {
     // Additional per display buffer for the composition result.
     buffer_handle_t compositionResultBuffer = nullptr;
 
-    std::unique_ptr<DrmBuffer> compositionResultDrmBuffer;
+    std::shared_ptr<DrmBuffer> compositionResultDrmBuffer;
   };
 
   std::unordered_map<int64_t, DisplayInfo> mDisplayInfos;
 
   Gralloc mGralloc;
 
-  DrmPresenter mDrmPresenter;
+  DrmClient mDrmClient;
 
   // Cuttlefish on QEMU does not have a display. Disable presenting to avoid
   // spamming logcat with DRM commit failures.

@@ -1,0 +1,2 @@
+type sysfs_touch, sysfs_type, fs_type;
+

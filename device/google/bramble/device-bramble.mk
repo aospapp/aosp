@@ -36,7 +36,8 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/virtual_ab_ota/compression_wit
 LOCAL_PATH := device/google/bramble
 
 PRODUCT_SOONG_NAMESPACES += \
-    device/google/bramble
+    device/google/bramble \
+    hardware/qcom/wlan/legacy
 
 DEVICE_PACKAGE_OVERLAYS += device/google/bramble/bramble/overlay
 
@@ -203,3 +204,7 @@ PRODUCT_PRODUCT_PROPERTIES += \
 PRODUCT_PACKAGES += \
     NoCutoutOverlay \
     AvoidAppsInCutoutOverlay
+
+# Workaround for Qualcomm neural network HAL
+PRODUCT_PACKAGES += \
+    libprotobuf-cpp-full-3.9.1-vendorcompat

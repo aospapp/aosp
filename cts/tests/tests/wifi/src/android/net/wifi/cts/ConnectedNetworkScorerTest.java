@@ -340,6 +340,104 @@ public class ConnectedNetworkScorerTest extends WifiJUnit4TestBase {
                         assertThat(radioStats.getTotalPnoScanTimeMillis()).isAtLeast(0);
                         assertThat(radioStats.getTotalHotspot2ScanTimeMillis()).isAtLeast(0);
                     }
+                    int[] links = statsEntry.getLinkIds();
+                    if (links != null) {
+                        for (int link : links) {
+                            assertThat(statsEntry.getLinkState(link)).isIn(Range.closed(
+                                    WifiUsabilityStatsEntry.LINK_STATE_UNKNOWN,
+                                    WifiUsabilityStatsEntry.LINK_STATE_IN_USE));
+                            assertThat(statsEntry.getRssi(link)).isLessThan(0);
+                            assertThat(statsEntry.getRadioId(link)).isAtLeast(0);
+                            assertThat(statsEntry.getTxLinkSpeedMbps(link)).isAtLeast(0);
+                            // -1 is a default value for rx link speed if it is not available.
+                            assertThat(statsEntry.getRxLinkSpeedMbps(link)).isAtLeast(-1);
+                            assertThat(statsEntry.getTotalTxSuccess(link)).isAtLeast(0L);
+                            assertThat(statsEntry.getTotalTxRetries(link)).isAtLeast(0L);
+                            assertThat(statsEntry.getTotalTxBad(link)).isAtLeast(0L);
+                            assertThat(statsEntry.getTotalRxSuccess(link)).isAtLeast(0L);
+                            assertThat(statsEntry.getTotalBeaconRx(link)).isAtLeast(0L);
+                            try {
+                                assertThat(statsEntry.getTimeSliceDutyCycleInPercent(link))
+                                        .isIn(Range.closed(0, 100));
+                            } catch (NoSuchElementException e) {
+                                // pass - Device does not support the field.
+                            }
+
+                            assertThat(statsEntry.getContentionTimeStats(link,
+                                    WME_ACCESS_CATEGORY_BE).getContentionTimeMinMicros()).isAtLeast(
+                                    0);
+                            assertThat(statsEntry.getContentionTimeStats(link,
+                                    WME_ACCESS_CATEGORY_BE).getContentionTimeMaxMicros()).isAtLeast(
+                                    0);
+                            assertThat(statsEntry.getContentionTimeStats(link,
+                                    WME_ACCESS_CATEGORY_BE).getContentionTimeAvgMicros()).isAtLeast(
+                                    0);
+                            assertThat(statsEntry.getContentionTimeStats(link,
+                                    WME_ACCESS_CATEGORY_BE).getContentionNumSamples()).isAtLeast(0);
+                            assertThat(statsEntry.getContentionTimeStats(link,
+                                    WME_ACCESS_CATEGORY_BK).getContentionTimeMinMicros()).isAtLeast(
+                                    0);
+                            assertThat(statsEntry.getContentionTimeStats(link,
+                                    WME_ACCESS_CATEGORY_BK).getContentionTimeMaxMicros()).isAtLeast(
+                                    0);
+                            assertThat(statsEntry.getContentionTimeStats(link,
+                                    WME_ACCESS_CATEGORY_BK).getContentionTimeAvgMicros()).isAtLeast(
+                                    0);
+                            assertThat(statsEntry.getContentionTimeStats(link,
+                                    WME_ACCESS_CATEGORY_BK).getContentionNumSamples()).isAtLeast(0);
+                            assertThat(statsEntry.getContentionTimeStats(link,
+                                    WME_ACCESS_CATEGORY_VI).getContentionTimeMinMicros()).isAtLeast(
+                                    0);
+                            assertThat(statsEntry.getContentionTimeStats(link,
+                                    WME_ACCESS_CATEGORY_VI).getContentionTimeMaxMicros()).isAtLeast(
+                                    0);
+                            assertThat(statsEntry.getContentionTimeStats(link,
+                                    WME_ACCESS_CATEGORY_VI).getContentionTimeAvgMicros()).isAtLeast(
+                                    0);
+                            assertThat(statsEntry.getContentionTimeStats(link,
+                                    WME_ACCESS_CATEGORY_VI).getContentionNumSamples()).isAtLeast(0);
+                            assertThat(statsEntry.getContentionTimeStats(link,
+                                    WME_ACCESS_CATEGORY_VO).getContentionTimeMinMicros()).isAtLeast(
+                                    0);
+                            assertThat(statsEntry.getContentionTimeStats(link,
+                                    WME_ACCESS_CATEGORY_VO).getContentionTimeMaxMicros()).isAtLeast(
+                                    0);
+                            assertThat(statsEntry.getContentionTimeStats(link,
+                                    WME_ACCESS_CATEGORY_VO).getContentionTimeAvgMicros()).isAtLeast(
+                                    0);
+                            assertThat(statsEntry.getContentionTimeStats(link,
+                                    WME_ACCESS_CATEGORY_VO).getContentionNumSamples()).isAtLeast(0);
+
+                            assertThat(statsEntry.getRateStats(link)).isNotNull();
+                            if (statsEntry.getRateStats(link).size() > 0) {
+                                assertThat(statsEntry.getRateStats(link).get(
+                                        0).getPreamble()).isAtLeast(
+                                        0);
+                                assertThat(statsEntry.getRateStats(link).get(
+                                        0).getNumberOfSpatialStreams())
+                                        .isAtLeast(1);
+                                assertThat(statsEntry.getRateStats(link).get(0).getBandwidthInMhz())
+                                        .isAtLeast(0);
+                                assertThat(statsEntry.getRateStats(link).get(
+                                        0).getRateMcsIdx()).isAtLeast(
+                                        0);
+                                assertThat(statsEntry.getRateStats(link).get(0).getBitRateInKbps())
+                                        .isAtLeast(0);
+                                assertThat(statsEntry.getRateStats(link).get(
+                                        0).getTxMpdu()).isAtLeast(
+                                        0);
+                                assertThat(statsEntry.getRateStats(link).get(
+                                        0).getRxMpdu()).isAtLeast(
+                                        0);
+                                assertThat(statsEntry.getRateStats(link).get(
+                                        0).getMpduLost()).isAtLeast(
+                                        0);
+                                assertThat(statsEntry.getRateStats(link).get(
+                                        0).getRetries()).isAtLeast(0);
+                            }
+
+                        }
+                    }
                 }
                 // no longer populated, return default value.
                 assertThat(statsEntry.getCellularDataNetworkType())
@@ -403,7 +501,7 @@ public class ConnectedNetworkScorerTest extends WifiJUnit4TestBase {
         }
     }
 
-    private static abstract class TestConnectedNetworkScorer implements
+    private abstract static class TestConnectedNetworkScorer implements
             WifiManager.WifiConnectedNetworkScorer {
         protected CountDownLatch mCountDownLatch;
         public Integer startSessionId;
@@ -446,6 +544,7 @@ public class ConnectedNetworkScorerTest extends WifiJUnit4TestBase {
 
         @Override
         public void onStart(int sessionId) {
+            super.onStart(sessionId);
             synchronized (mCountDownLatch) {
                 this.startSessionId = sessionId;
                 mCountDownLatch.countDown();
@@ -461,6 +560,7 @@ public class ConnectedNetworkScorerTest extends WifiJUnit4TestBase {
 
         @Override
         public void onStart(WifiConnectedSessionInfo sessionInfo) {
+            super.onStart(sessionInfo);
             synchronized (mCountDownLatch) {
                 this.startSessionId = sessionInfo.getSessionId();
                 this.isUserSelected = sessionInfo.isUserSelected();
@@ -471,6 +571,20 @@ public class ConnectedNetworkScorerTest extends WifiJUnit4TestBase {
                 sessionBuilder.build();
                 mCountDownLatch.countDown();
             }
+        }
+
+        @Override
+        public void onNetworkSwitchAccepted(
+                int sessionId, int targetNetworkId, @NonNull String targetBssid) {
+            super.onNetworkSwitchAccepted(sessionId, targetNetworkId, targetBssid);
+            // Not possible to fake via CTS since it requires two networks and UI interaction.
+        }
+
+        @Override
+        public void onNetworkSwitchRejected(
+                int sessionId, int targetNetworkId, @NonNull String targetBssid) {
+            super.onNetworkSwitchRejected(sessionId, targetNetworkId, targetBssid);
+            // Not possible to fake via CTS since it requires two networks and UI interaction.
         }
     }
 
@@ -632,6 +746,8 @@ public class ConnectedNetworkScorerTest extends WifiJUnit4TestBase {
             assertThat(countDownLatchScorer.await(TIMEOUT, TimeUnit.MILLISECONDS)).isTrue();
             assertThat(connectedNetworkScorer.stopSessionId).isEqualTo(prevSessionId);
 
+            countDownLatchScorer = new CountDownLatch(1);
+            connectedNetworkScorer.resetCountDownLatch(countDownLatchScorer);
             // Wait for the device to connect back.
             PollingCheck.check(
                     "Wifi not connected",
@@ -641,8 +757,6 @@ public class ConnectedNetworkScorerTest extends WifiJUnit4TestBase {
             // Followed by a new onStart() after the connection.
             // Note: There is a 5 second delay between stop/start when restartWifiSubsystem() is
             // invoked, so this should not be racy.
-            countDownLatchScorer = new CountDownLatch(1);
-            connectedNetworkScorer.resetCountDownLatch(countDownLatchScorer);
             assertThat(countDownLatchScorer.await(TIMEOUT, TimeUnit.MILLISECONDS)).isTrue();
             assertThat(connectedNetworkScorer.startSessionId).isNotEqualTo(prevSessionId);
 
@@ -684,7 +798,7 @@ public class ConnectedNetworkScorerTest extends WifiJUnit4TestBase {
 
             savedNetworks = mWifiManager.getPrivilegedConfiguredNetworks();
             WifiConfiguration testNetwork =
-                    TestHelper.findMatchingSavedNetworksWithBssid(mWifiManager, savedNetworks)
+                    TestHelper.findMatchingSavedNetworksWithBssid(mWifiManager, savedNetworks, 1)
                             .get(0);
             // Disconnect & disable auto-join on the saved network to prevent auto-connect from
             // interfering with the test.
@@ -745,7 +859,7 @@ public class ConnectedNetworkScorerTest extends WifiJUnit4TestBase {
                     // Connect using wifi network specifier.
                     WifiNetworkSpecifier specifier =
                             TestHelper.createSpecifierBuilderWithCredentialFromSavedNetwork(
-                                    testNetwork)
+                                    testNetwork, false)
                                     .build();
                     return mTestHelper.testConnectionFlowWithSpecifierWithShellIdentity(
                             testNetwork, specifier, false);

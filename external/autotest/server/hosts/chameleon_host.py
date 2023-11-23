@@ -8,12 +8,12 @@
 import logging
 
 from autotest_lib.client.bin import utils
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.cros.chameleon import chameleon
 from autotest_lib.server.cros import dnsname_mangler
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.server.hosts import ssh_host
-
 
 # Names of the host attributes in the database that represent the values for
 # the chameleon_host and chameleon_port for a servo connected to the DUT.
@@ -126,16 +126,13 @@ class ChameleonHost(ssh_host.SSHHost):
         """
         # TODO(waihong): Add verify and repair logic which are required while
         # deploying to Cros Lab.
-        chameleon_board = None
         try:
             chameleon_board = chameleon.ChameleonBoard(
                     self._chameleon_connection, self)
             return chameleon_board
-        except:
-            self.reboot()
-            chameleon_board = chameleon.ChameleonBoard(
-                self._chameleon_connection, self)
-            return chameleon_board
+        except Exception as e:
+            raise ChameleonHostError('Can not create chameleon board: %s(%s)',
+                                     e.__class__, e)
 
 
 def create_chameleon_host(dut, chameleon_args):
@@ -174,11 +171,17 @@ def create_chameleon_host(dut, chameleon_args):
             if utils.host_is_in_lab_zone(chameleon_hostname):
                 # Be more tolerant on chameleon in the lab because
                 # we don't want dead chameleon blocks non-chameleon tests.
-                if utils.ping(chameleon_hostname, deadline=3):
-                   logging.warning(
-                           'Chameleon %s is not accessible. Please file a bug'
-                           ' to test lab', chameleon_hostname)
-                   return None
+                # We use ssh ping here as BeyondCorp-only hosts cannot make ICMP
+                # ping to chameleon test devices.
+                try:
+                    ssh_host.SSHHost(chameleon_hostname).ssh_ping()
+                except (error.AutoservSSHTimeout,
+                        error.AutoservSshPermissionDeniedError,
+                        error.AutoservSshPingHostError) as e:
+                    logging.warning(
+                            'Chameleon %s is not accessible. Please file a bug'
+                            ' to test lab: %s', chameleon_hostname, e)
+                    return None
                 return ChameleonHost(chameleon_host=chameleon_hostname)
         if chameleon_args:
             return ChameleonHost(**chameleon_args)
@@ -232,7 +235,7 @@ def create_btpeer_host(dut, btpeer_args_list):
         if 'btpeer_host' in args:
             ret_args['chameleon_host'] = args['btpeer_host']
         if 'btpeer_port' in args:
-            ret_args['chameleon_port'] = args['btpeer_port']
+            ret_args['chameleon_port'] = int(args['btpeer_port'])
         if 'btpeer_ssh_port' in args:
             ret_args['port'] = int(args['btpeer_ssh_port'])
         return ret_args

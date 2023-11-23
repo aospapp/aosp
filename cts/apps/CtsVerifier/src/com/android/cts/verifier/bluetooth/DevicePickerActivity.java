@@ -16,7 +16,7 @@
 
 package com.android.cts.verifier.bluetooth;
 
-import com.android.cts.verifier.R;
+import static android.content.Context.RECEIVER_EXPORTED;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -31,12 +31,14 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.AdapterView.OnItemClickListener;
+
+import com.android.cts.verifier.R;
 
 import java.util.Set;
 
@@ -90,7 +92,7 @@ public class DevicePickerActivity extends Activity {
         IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
         filter.addAction(BluetoothDevice.ACTION_FOUND);
-        registerReceiver(mReceiver, filter);
+        registerReceiver(mReceiver, filter, RECEIVER_EXPORTED);
 
         Button scanButton = (Button) findViewById(R.id.bt_scan_button);
         scanButton.setOnClickListener(new OnClickListener() {

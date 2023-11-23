@@ -19,11 +19,9 @@ limitations under the License.
 #include <string>
 #include <vector>
 
-#include "tensorflow/core/framework/graph.pb.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/profiler/tfprof_options.h"
-#include "tensorflow/core/protobuf/config.pb.h"
 
 namespace tensorflow {
 namespace tfprof {
@@ -33,7 +31,7 @@ string FormatTime(int64_t micros);
 
 string FormatMemory(int64_t bytes);
 
-string FormatShapes(const std::vector<int64>& shapes);
+string FormatShapes(const std::vector<int64_t>& shapes);
 
 tensorflow::Status ParseCmdLine(const string& line, string* cmd,
                                 tensorflow::tfprof::Options* opts);

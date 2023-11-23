@@ -23,7 +23,7 @@ use fuse::filesystem::{
     SetattrValid, ZeroCopyReader, ZeroCopyWriter,
 };
 use fuse::sys::OpenOptions as FuseOpenOptions;
-use log::{debug, error, warn};
+use log::{error, trace, warn};
 use std::collections::{btree_map, BTreeMap};
 use std::convert::{TryFrom, TryInto};
 use std::ffi::{CStr, CString, OsStr};
@@ -149,7 +149,7 @@ pub struct DirEntriesSnapshotIterator {
     prev_offset: usize,
 }
 
-impl<'a> DirectoryIterator for DirEntriesSnapshotIterator {
+impl DirectoryIterator for DirEntriesSnapshotIterator {
     fn next(&mut self) -> Option<DirEntry> {
         // This iterator should not be the only reference to the snapshot. The snapshot should
         // still be hold in `dir_handle_table`, i.e. when the FD is not yet closed.
@@ -1062,7 +1062,7 @@ fn check_unsupported_setattr_request(valid: SetattrValid) -> io::Result<()> {
             | SetattrValid::MTIME
             | SetattrValid::MTIME_NOW,
     ) {
-        debug!("Ignoring ctime/atime/mtime change as authfs does not maintain timestamp currently");
+        trace!("Ignoring ctime/atime/mtime change as authfs does not maintain timestamp currently");
     }
     Ok(())
 }

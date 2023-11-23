@@ -18,12 +18,15 @@ package android.jobscheduler.cts;
 
 import android.app.job.JobInfo;
 import android.app.job.JobParameters;
+import android.app.job.JobScheduler;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.os.UserHandle;
+
+import androidx.test.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.BatteryUtils;
 import com.android.compatibility.common.util.SystemUtil;
@@ -33,6 +36,21 @@ import com.android.compatibility.common.util.SystemUtil;
  */
 public class JobParametersTest extends BaseJobSchedulerTest {
     private static final int JOB_ID = JobParametersTest.class.hashCode();
+
+    private NetworkingHelper mNetworkingHelper;
+
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        mNetworkingHelper =
+                new NetworkingHelper(InstrumentationRegistry.getInstrumentation(), mContext);
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        mNetworkingHelper.tearDown();
+        super.tearDown();
+    }
 
     public void testClipData() throws Exception {
         final ClipData clipData = ClipData.newPlainText("test", "testText");
@@ -97,6 +115,35 @@ public class JobParametersTest extends BaseJobSchedulerTest {
         assertFalse(params.isExpeditedJob());
     }
 
+    public void testUserInitiated() throws Exception {
+        mNetworkingHelper.setAllNetworksEnabled(true);
+        startAndKeepTestActivity();
+        JobInfo ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                .setUserInitiated(true)
+                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                .build();
+
+        kTestEnvironment.setExpectedExecutions(1);
+        mJobScheduler.schedule(ji);
+        runSatisfiedJob(JOB_ID);
+        assertTrue("Job didn't fire immediately", kTestEnvironment.awaitExecution());
+
+        JobParameters params = kTestEnvironment.getLastStartJobParameters();
+        assertTrue(params.isUserInitiatedJob());
+
+        ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                .setUserInitiated(false)
+                .build();
+
+        kTestEnvironment.setExpectedExecutions(1);
+        mJobScheduler.schedule(ji);
+        runSatisfiedJob(JOB_ID);
+        assertTrue("Job didn't fire immediately", kTestEnvironment.awaitExecution());
+
+        params = kTestEnvironment.getLastStartJobParameters();
+        assertFalse(params.isUserInitiatedJob());
+    }
+
     public void testJobId() throws Exception {
         JobInfo ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
                 .build();
@@ -108,6 +155,36 @@ public class JobParametersTest extends BaseJobSchedulerTest {
 
         JobParameters params = kTestEnvironment.getLastStartJobParameters();
         assertEquals(JOB_ID, params.getJobId());
+    }
+
+    public void testNamespaceJobParameters() throws Exception {
+        JobScheduler jsA = mJobScheduler.forNamespace("A");
+        JobScheduler jsB = mJobScheduler.forNamespace("B");
+        JobInfo jobA = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                .setExpedited(true)
+                .build();
+        JobInfo jobB = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                .setRequiresStorageNotLow(true)
+                .build();
+
+        kTestEnvironment.setExpectedExecutions(1);
+        setStorageStateLow(true);
+        assertEquals(JobScheduler.RESULT_SUCCESS, jsA.schedule(jobA));
+        assertEquals(JobScheduler.RESULT_SUCCESS, jsB.schedule(jobB));
+
+        runSatisfiedJob(JOB_ID, "A");
+        runSatisfiedJob(JOB_ID, "B");
+        assertTrue("Job A didn't fire", kTestEnvironment.awaitExecution());
+        JobParameters params = kTestEnvironment.getLastStartJobParameters();
+        assertEquals("A", params.getJobNamespace());
+
+        kTestEnvironment.setExpectedExecutions(1);
+        setStorageStateLow(false);
+        runSatisfiedJob(JOB_ID, "A");
+        runSatisfiedJob(JOB_ID, "B");
+        assertTrue("Job B didn't fire", kTestEnvironment.awaitExecution());
+        params = kTestEnvironment.getLastStartJobParameters();
+        assertEquals("B", params.getJobNamespace());
     }
 
     // JobParameters.getNetwork() tested in ConnectivityConstraintTest.
@@ -123,19 +200,17 @@ public class JobParametersTest extends BaseJobSchedulerTest {
 
         // In automotive device, always-on screen and endless battery charging are assumed.
         if (BatteryUtils.hasBattery() && !isAutomotiveDevice()) {
-            BatteryUtils.runDumpsysBatterySetLevel(100);
-            BatteryUtils.runDumpsysBatteryUnplug();
+            setBatteryState(false, 100);
             verifyStopReason(new JobInfo.Builder(JOB_ID, kJobServiceComponent)
                             .setRequiresBatteryNotLow(true).build(),
                     JobParameters.STOP_REASON_CONSTRAINT_BATTERY_NOT_LOW,
-                    () -> BatteryUtils.runDumpsysBatterySetLevel(5));
+                    () -> setBatteryState(false, 5));
 
-            BatteryUtils.runDumpsysBatterySetPluggedIn(true);
-            BatteryUtils.runDumpsysBatterySetLevel(100);
+            setBatteryState(true, 100);
             verifyStopReason(new JobInfo.Builder(JOB_ID, kJobServiceComponent)
                             .setRequiresCharging(true).build(),
                     JobParameters.STOP_REASON_CONSTRAINT_CHARGING,
-                    BatteryUtils::runDumpsysBatteryUnplug);
+                    () -> setBatteryState(false, 100));
         }
 
         setStorageStateLow(false);

@@ -18,6 +18,8 @@
     <!-- Material design rounded radius -->
     <dimen name="material_round_radius">2dp</dimen>
 
+    <dimen name="tab_selector_indicator_height">2dp</dimen>
+    <dimen name="profile_tab_padding">0dp</dimen>
     <dimen name="grid_container_padding">20dp</dimen>
     <dimen name="list_container_padding">0dp</dimen>
     <dimen name="icon_size">40dp</dimen>
@@ -54,6 +56,7 @@
     <dimen name="briefcase_icon_margin">8dp</dimen>
     <dimen name="briefcase_icon_size">14dp</dimen>
     <dimen name="briefcase_icon_size_photo">24dp</dimen>
+    <dimen name="button_corner_radius">2dp</dimen>
 
     <dimen name="drawer_edge_width">12dp</dimen>
 
@@ -126,4 +129,7 @@
     <dimen name="refresh_icon_range">64dp</dimen>
 
     <dimen name="item_doc_inflated_message_padding_top">0dp</dimen>
+    <dimen name="cross_profile_button_corner_radius">0dp</dimen>
+    <dimen name="cross_profile_button_stroke_width">0dp</dimen>
+    <dimen name="cross_profile_button_message_margin_top">4dp</dimen>
 </resources>

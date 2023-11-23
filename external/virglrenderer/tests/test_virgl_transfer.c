@@ -879,7 +879,7 @@ START_TEST(virgl_test_copy_transfer_to_staging_without_iov_fails)
   virgl_encoder_copy_transfer(&ctx, &dst_res, 0, 0, &box, &src_res, 0, synchronized);
 
   ret = virgl_renderer_submit_cmd(ctx.cbuf->buf, ctx.ctx_id, ctx.cbuf->cdw);
-  ck_assert_int_eq(ret, 0);
+  ck_assert_int_eq(ret, EINVAL);
 
   virgl_renderer_ctx_detach_resource(ctx.ctx_id, src_res.handle);
   virgl_renderer_ctx_detach_resource(ctx.ctx_id, dst_res.handle);
@@ -952,6 +952,56 @@ START_TEST(virgl_test_transfer_near_res_bounds_with_stride_succeeds)
 }
 END_TEST
 
+START_TEST(test_vrend_host_backed_memory_no_data_leak)
+{
+   struct iovec iovs[1];
+   int niovs = 1;
+
+   struct virgl_context ctx = {0};
+
+   int ret = testvirgl_init_ctx_cmdbuf(&ctx);
+
+   struct virgl_renderer_resource_create_args res;
+   res.handle = 0x400;
+   res.target = PIPE_BUFFER;
+   res.format = VIRGL_FORMAT_R8_UNORM;
+   res.nr_samples = 0;
+   res.last_level = 0;
+   res.array_size = 1;
+   res.bind = VIRGL_BIND_CUSTOM;
+   res.depth = 1;
+   res.width = 32;
+   res.height = 1;
+   res.flags = 0;
+
+   uint32_t size = 32;
+   uint8_t* data = calloc(1, size);
+   memset(data, 1, 32);
+   iovs[0].iov_base = data;
+   iovs[0].iov_len = size;
+
+   struct pipe_box box = {0,0,0, size, 1,1};
+
+   virgl_renderer_resource_create(&res, NULL, 0);
+   virgl_renderer_ctx_attach_resource(ctx.ctx_id, res.handle);
+
+   ret = virgl_renderer_transfer_read_iov(res.handle, ctx.ctx_id, 0, 0, 0,
+                                          (struct virgl_box *)&box, 0, iovs, niovs);
+
+   ck_assert_int_eq(ret, 0);
+
+   for (int i = 0; i < 32; ++i)
+      ck_assert_int_eq(data[i], 0);
+
+   virgl_renderer_ctx_detach_resource(1, res.handle);
+
+   virgl_renderer_resource_unref(res.handle);
+   free(data);
+
+}
+END_TEST
+
+
 static Suite *virgl_init_suite(void)
 {
   Suite *s;
@@ -981,6 +1031,7 @@ static Suite *virgl_init_suite(void)
   tcase_add_test(tc_core, virgl_test_transfer_buffer_bad_strides);
   tcase_add_test(tc_core, virgl_test_transfer_2d_array_bad_layer_stride);
   tcase_add_test(tc_core, virgl_test_transfer_2d_bad_level);
+  tcase_add_test(tc_core, test_vrend_host_backed_memory_no_data_leak);
 
   tcase_add_loop_test(tc_core, virgl_test_transfer_res_read_valid, 0, PIPE_MAX_TEXTURE_TYPES);
   tcase_add_loop_test(tc_core, virgl_test_transfer_res_write_valid, 0, PIPE_MAX_TEXTURE_TYPES);

@@ -193,7 +193,7 @@ public class QCRowView extends FrameLayout {
         mStartItemsContainer = findViewById(R.id.qc_row_start_items);
         mEndItemsContainer = findViewById(R.id.qc_row_end_items);
         mSeekBarContainer = findViewById(R.id.qc_seekbar_wrapper);
-        mSeekBar = findViewById(R.id.seekbar);
+        mSeekBar = findViewById(R.id.qc_seekbar);
     }
 
     void setActionListener(QCActionListener listener) {
@@ -311,7 +311,10 @@ public class QCRowView extends FrameLayout {
                 (action.isEnabled() || action.isClickableWhileDisabled()) && action.isAvailable();
         switchView.setOnCheckedChangeListener(null);
         switchView.setEnabled(shouldEnableView);
+        switchView.setThumbTintList(getContext().getColorStateList(
+                R.color.qc_switch_thumb_selector));
         switchView.setChecked(action.isChecked());
+        switchView.setContentDescription(action.getContentDescription());
         switchView.setOnTouchListener((v, event) -> {
             if (!action.isEnabled()) {
                 if (event.getActionMasked() == MotionEvent.ACTION_UP) {
@@ -345,6 +348,7 @@ public class QCRowView extends FrameLayout {
         toggleButton.setOnCheckedChangeListener(null);
         Drawable icon = QCViewUtils.getInstance(mContext).getToggleIcon(
                 action.getIcon(), action.isAvailable());
+        toggleButton.setContentDescription(action.getContentDescription());
         toggleButton.setButtonDrawable(icon);
         toggleButton.setChecked(action.isChecked());
         toggleButton.setEnabled(shouldEnableView);
@@ -397,13 +401,15 @@ public class QCRowView extends FrameLayout {
             // remove current action view
             root.removeView(actionView);
         }
-        actionView = mLayoutInflater.inflate(resId, /* root= */ null);
+        actionView = mLayoutInflater.inflate(resId, root, /* attachToRoot= */ false);
         root.addView(actionView);
         return actionView;
     }
 
     private void initSlider(QCSlider slider) {
         mQCSlider = slider;
+        CarUiUtils.makeAllViewsEnabled(mSeekBar, slider.isEnabled());
+
         mSeekBar.setOnSeekBarChangeListener(null);
         mSeekBar.setMin(slider.getMin());
         mSeekBar.setMax(slider.getMax());
@@ -411,6 +417,8 @@ public class QCRowView extends FrameLayout {
         mSeekBar.setEnabled(slider.isEnabled());
         mSeekBar.setClickableWhileDisabled(slider.isClickableWhileDisabled());
         mSeekBar.setDisabledClickListener(seekBar -> fireAction(slider, new Intent()));
+        mSeekBar.setThumbTintList(getContext().getColorStateList(
+                R.color.qc_seekbar_thumb_selector));
         if (!slider.isEnabled() && mInDirectManipulationMode) {
             setInDirectManipulationMode(mSeekBarContainer, mSeekBar, false);
         }

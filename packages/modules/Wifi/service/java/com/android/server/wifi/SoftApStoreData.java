@@ -88,7 +88,8 @@ public class SoftApStoreData implements WifiConfigStore.StoreData {
             throws XmlPullParserException, IOException {
         SoftApConfiguration softApConfig = mDataSource.toSerialize();
         if (softApConfig != null) {
-            XmlUtil.SoftApConfigurationXmlUtil.writeSoftApConfigurationToXml(out, softApConfig);
+            XmlUtil.SoftApConfigurationXmlUtil.writeSoftApConfigurationToXml(out, softApConfig,
+                    encryptionUtil);
         }
     }
 
@@ -103,7 +104,9 @@ public class SoftApStoreData implements WifiConfigStore.StoreData {
         }
 
         SoftApConfiguration softApConfig = XmlUtil.SoftApConfigurationXmlUtil.parseFromXml(
-                in, outerTagDepth, mSettingsMigrationDataHolder);
+                in, outerTagDepth, mSettingsMigrationDataHolder,
+                version >= WifiConfigStore.ENCRYPT_CREDENTIALS_CONFIG_STORE_DATA_VERSION,
+                encryptionUtil);
         if (softApConfig != null) {
             mDataSource.fromDeserialized(softApConfig);
         }

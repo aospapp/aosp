@@ -50,23 +50,16 @@ class BluetoothController(
     }
 
     /**
-     * Sets the Input/Output capability of the device for both classic Bluetooth and BLE operations.
+     * Sets the Input/Output capability of the device for classic Bluetooth operations.
      * Note: In order to let changes take effect, this method will make sure the Bluetooth stack is
      * restarted by blocking calling thread.
      *
      * @param ioCapabilityClassic One of {@link #IO_CAPABILITY_IO}, {@link #IO_CAPABILITY_NONE},
      * ```
      *     {@link #IO_CAPABILITY_KBDISP} or more in {@link BluetoothAdapter}.
-     * @param ioCapabilityBLE
-     * ```
-     * One of {@link #IO_CAPABILITY_IO}, {@link #IO_CAPABILITY_NONE}, {@link
-     * ```
-     *     #IO_CAPABILITY_KBDISP} or more in {@link BluetoothAdapter}.
-     * ```
      */
-    fun setIoCapability(ioCapabilityClassic: Int, ioCapabilityBLE: Int) {
+    fun setIoCapability(ioCapabilityClassic: Int) {
         bluetoothAdapter.ioCapability = ioCapabilityClassic
-        bluetoothAdapter.leIoCapability = ioCapabilityBLE
 
         // Toggling airplane mode on/off to restart Bluetooth stack and reset the BLE.
         try {

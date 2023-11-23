@@ -32,6 +32,8 @@ rust_library {
         "//apex_available:platform",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
 }
 
 rust_defaults {
@@ -94,4 +96,6 @@ rust_binary {
     rustlibs: [
         "libxml_rust",
     ],
+    product_available: true,
+    vendor_available: true,
 }

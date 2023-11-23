@@ -18,6 +18,7 @@
 #include <cutils/fs.h>
 
 #include "Hardware.h"
+#include "Stats.h"
 #include "Vibrator.h"
 
 namespace aidl {
@@ -75,8 +76,8 @@ class VibratorBench : public benchmark::Fixture {
             }
         }
 
-        mVibrator = ndk::SharedRefBase::make<Vibrator>(std::make_unique<HwApi>(),
-                                                       std::make_unique<HwCal>());
+        mVibrator = ndk::SharedRefBase::make<Vibrator>(
+                std::make_unique<HwApi>(), std::make_unique<HwCal>(), std::make_unique<StatsApi>());
     }
 
     static void DefaultArgs(benchmark::internal::Benchmark *b) { b->Unit(benchmark::kMicrosecond); }

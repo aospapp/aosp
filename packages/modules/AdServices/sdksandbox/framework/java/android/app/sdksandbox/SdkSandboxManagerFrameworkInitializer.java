@@ -17,13 +17,15 @@
 package android.app.sdksandbox;
 
 import static android.app.sdksandbox.SdkSandboxManager.SDK_SANDBOX_SERVICE;
+import static android.app.sdksandbox.sdkprovider.SdkSandboxController.SDK_SANDBOX_CONTROLLER_SERVICE;
 
 import android.annotation.SystemApi;
 import android.app.SystemServiceRegistry;
+import android.app.sdksandbox.sdkprovider.SdkSandboxController;
 import android.content.Context;
 
 /**
- * Class holding initialization code for the {@link SdkSandboxManager}.
+ * Class holding initialization code for all Sandbox Runtime system services.
  *
  * @hide
  */
@@ -33,12 +35,12 @@ public class SdkSandboxManagerFrameworkInitializer {
     }
 
     /**
-     * Called by {@link SystemServiceRegistry}'s static initializer and registers all
-     * {@link SdkSandboxManager} service to {@link Context}, so that
-     * {@link Context#getSystemService} can return them.
+     * Called by {@link SystemServiceRegistry}'s static initializer and registers all sandbox
+     * runtime services to {@link Context}, so that {@link Context#getSystemService} can return
+     * them.
      *
-     * @throws IllegalStateException if this is called from anywhere besides
-     *                               {@link SystemServiceRegistry}
+     * @throws IllegalStateException if this is called from anywhere besides {@link
+     *     SystemServiceRegistry}
      */
     public static void registerServiceWrappers() {
         SystemServiceRegistry.registerContextAwareService(
@@ -46,5 +48,15 @@ public class SdkSandboxManagerFrameworkInitializer {
                 (context, service) -> new SdkSandboxManager(
                         context, ISdkSandboxManager.Stub.asInterface(service))
         );
+
+        SystemServiceRegistry.registerContextAwareService(
+                SDK_SANDBOX_CONTROLLER_SERVICE,
+                SdkSandboxController.class,
+                (context) -> new SdkSandboxController(context));
+        // TODO(b/242889021): don't use this workaround on devices that have proper fix
+        SdkSandboxSystemServiceRegistry.getInstance()
+                .registerServiceMutator(
+                        SDK_SANDBOX_CONTROLLER_SERVICE,
+                        (service, context) -> ((SdkSandboxController) service).initialize(context));
     }
 }

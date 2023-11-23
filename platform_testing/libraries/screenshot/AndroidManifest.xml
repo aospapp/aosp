@@ -16,18 +16,6 @@
   -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="platform.test.screenshot" >
-
-    <application>
-        <uses-library android:name="android.test.runner" />
-    </application>
-
-    <uses-sdk
-        android:minSdkVersion="21"
-        android:targetSdkVersion="24" />
-
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:label="Android Screenshot Diff Tests"
-        android:targetPackage="platform.test.screenshot" />
-
+    <!-- To emulate a display size and density. -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
 </manifest>

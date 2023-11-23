@@ -4,17 +4,18 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "platform_ServoPowerStateController.USBPluggedin"
 PURPOSE = "Verify servo PowerStateController functions."
 CRITERIA = "This test will fail if servo does not work as expected."
-ATTRIBUTES = "suite:faft_bios, suite:faft_bios_ro_qual, suite:faft_bios_rw_qual, suite:faft_lv2, suite:faft_normal, suite:faft_bios_ec3po, suite:faft_bios_tot, suite:bvt-perbuild,suite:servo_lab, suite:labqual"
+ATTRIBUTES = "suite:faft_bios, suite:faft_bios_ro_qual, suite:faft_bios_rw_qual, suite:faft_lv2, suite:faft_normal, suite:faft_bios_tot, suite:bvt-perbuild,suite:servo_lab, suite:labqual, suite:distributed_lab_qual_faft"
 DEPENDENCIES = "servo_state:WORKING"
 TIME = "LONG"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 The test specifically exercises all the state transitions from control.nousb,

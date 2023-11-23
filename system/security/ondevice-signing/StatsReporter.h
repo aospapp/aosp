@@ -18,27 +18,44 @@
 
 #include <fstream>
 
+#include "statslog_odsign.h"
+
 // Class to store CompOsArtifactsCheck related metrics.
 // These are flushed to a file kOdsignMetricsFile and consumed by
 // System Server (in class OdsignStatsLogger) & sent to statsd.
 class StatsReporter {
   public:
-    // Keep sync with EarlyBootCompOsArtifactsCheckReported
-    // definition in proto_logging/stats/atoms.proto.
+    // Keep in sync with the EarlyBootCompOsArtifactsCheckReported definition in
+    // proto_logging/stats/atoms.proto.
     struct CompOsArtifactsCheckRecord {
         bool current_artifacts_ok = false;
         bool comp_os_pending_artifacts_exists = false;
         bool use_comp_os_generated_artifacts = false;
     };
 
+    // Keep in sync with the OdsignReported definition in proto_logging/stats/atoms.proto.
+    struct OdsignRecord {
+        int32_t status = art::metrics::statsd::ODSIGN_REPORTED__STATUS__STATUS_UNSPECIFIED;
+    };
+
     // The report is flushed (from buffer) into a file by the destructor.
     ~StatsReporter();
 
-    // Get pointer to comp_os_artifacts_check_record, caller can then modify it.
-    // Note: pointer remains valid for the lifetime of this StatsReporter.
-    CompOsArtifactsCheckRecord* GetComposArtifactsCheckRecord();
+    // Returns a mutable CompOS record. The pointer remains valid for the lifetime of this
+    // StatsReporter. If this function is not called, no CompOS record will be logged.
+    CompOsArtifactsCheckRecord* GetOrCreateComposArtifactsCheckRecord();
+
+    // Returns a mutable odsign record. The pointer remains valid for the lifetime of this
+    // StatsReporter.
+    OdsignRecord* GetOdsignRecord() { return &odsign_record_; }
+
+    // Enables/disables odsign metrics.
+    void SetOdsignRecordEnabled(bool value) { odsign_record_enabled_ = value; }
 
   private:
     // Temporary buffer which stores the metrics.
     std::unique_ptr<CompOsArtifactsCheckRecord> comp_os_artifacts_check_record_;
+
+    OdsignRecord odsign_record_;
+    bool odsign_record_enabled_ = true;
 };

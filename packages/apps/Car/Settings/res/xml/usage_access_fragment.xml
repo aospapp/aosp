@@ -26,7 +26,6 @@
         style="@style/ColoredSwitchPreferenceStyle"
         settings:controller="com.android.car.settings.applications.HideSystemSwitchPreferenceController"
         settings:searchable="false"/>
-    <com.android.car.settings.common.DividerPreference/>
     <Preference
         android:key="@string/pk_usage_access_description"
         android:selectable="false"

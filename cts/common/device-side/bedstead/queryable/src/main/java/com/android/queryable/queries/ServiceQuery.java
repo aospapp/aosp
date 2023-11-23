@@ -29,14 +29,14 @@ import com.android.queryable.info.ServiceInfo;
  */
 public interface ServiceQuery<E extends Queryable> extends Query<ServiceInfo>  {
 
-    /** Create a {@link ServiceQueryHelper}. */
-    static ServiceQuery<ServiceQuery<?>> service() {
-        return new ServiceQueryHelper<>();
+    /** Queries a {@link Service}. */
+    static ServiceQueryHelper.ServiceQueryBase service() {
+        return new ServiceQueryHelper.ServiceQueryBase();
     }
 
     /** Used to query the class name of a service. */
     ClassQuery<E> serviceClass();
 
     /** Query the intent-filters on an activity. */
-    SetQuery<E, IntentFilter, IntentFilterQuery<?>> intentFilters();
+    SetQuery<E, IntentFilter> intentFilters();
 }

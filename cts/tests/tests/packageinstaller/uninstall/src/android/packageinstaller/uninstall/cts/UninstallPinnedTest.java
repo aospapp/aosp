@@ -121,7 +121,7 @@ public class UninstallPinnedTest {
         runWithShellPermissionIdentity(() -> {
             mContext.getPackageManager().getPackageInstaller().uninstall(TEST_PKG_NAME,
                     PendingIntent.getBroadcast(mContext, 1,
-                            new Intent(CALLBACK_ACTION),
+                            new Intent(CALLBACK_ACTION).setPackage(mContext.getPackageName()),
                             PendingIntent.FLAG_MUTABLE).getIntentSender());
         });
 

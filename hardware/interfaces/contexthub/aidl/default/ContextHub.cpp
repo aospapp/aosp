@@ -76,6 +76,22 @@ ScopedAStatus ContextHub::queryNanoapps(int32_t in_contextHubId) {
     }
 }
 
+ScopedAStatus ContextHub::getPreloadedNanoappIds(int32_t /* in_contextHubId */,
+                                                 std::vector<int64_t>* out_preloadedNanoappIds) {
+    if (out_preloadedNanoappIds == nullptr) {
+        return ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+
+    for (uint64_t i = 0; i < 10; ++i) {
+        out_preloadedNanoappIds->push_back(i);
+    }
+    return ndk::ScopedAStatus::ok();
+}
+
+ScopedAStatus ContextHub::onNanSessionStateChanged(const NanSessionStateUpdate& /*in_update*/) {
+    return ndk::ScopedAStatus::ok();
+}
+
 ScopedAStatus ContextHub::registerCallback(int32_t in_contextHubId,
                                            const std::shared_ptr<IContextHubCallback>& in_cb) {
     if (in_contextHubId == kMockHubId) {
@@ -98,6 +114,10 @@ ScopedAStatus ContextHub::sendMessageToHub(int32_t in_contextHubId,
     }
 }
 
+ScopedAStatus ContextHub::setTestMode(bool /* enable */) {
+    return ndk::ScopedAStatus::ok();
+}
+
 ScopedAStatus ContextHub::onHostEndpointConnected(const HostEndpointInfo& in_info) {
     mConnectedHostEndpoints.insert(in_info.hostEndpointId);
 
@@ -107,10 +127,9 @@ ScopedAStatus ContextHub::onHostEndpointConnected(const HostEndpointInfo& in_inf
 ScopedAStatus ContextHub::onHostEndpointDisconnected(char16_t in_hostEndpointId) {
     if (mConnectedHostEndpoints.count(in_hostEndpointId) > 0) {
         mConnectedHostEndpoints.erase(in_hostEndpointId);
-        return ndk::ScopedAStatus::ok();
-    } else {
-        return ndk::ScopedAStatus(AStatus_fromExceptionCode(EX_ILLEGAL_ARGUMENT));
     }
+
+    return ndk::ScopedAStatus::ok();
 }
 
 }  // namespace contexthub

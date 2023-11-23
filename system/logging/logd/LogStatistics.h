@@ -55,7 +55,6 @@ struct LogStatisticsElement {
     log_time realtime;
     const char* msg;
     uint16_t msg_len;
-    uint16_t dropped_count;
     log_id_t log_id;
     uint16_t total_len;
 };
@@ -225,35 +224,10 @@ class EntryBase {
     size_t size_;
 };
 
-class EntryBaseDropped : public EntryBase {
-  public:
-    EntryBaseDropped() : dropped_(0) {}
-    explicit EntryBaseDropped(const LogStatisticsElement& element)
-        : EntryBase(element), dropped_(element.dropped_count) {}
-
-    size_t dropped_count() const { return dropped_; }
-
-    void Add(const LogStatisticsElement& element) {
-        dropped_ += element.dropped_count;
-        EntryBase::Add(element);
-    }
-    bool Subtract(const LogStatisticsElement& element) {
-        dropped_ -= element.dropped_count;
-        return EntryBase::Subtract(element) && dropped_ == 0;
-    }
-    void Drop(const LogStatisticsElement& element) {
-        dropped_ += 1;
-        EntryBase::Drop(element);
-    }
-
-  private:
-    size_t dropped_;
-};
-
-class UidEntry : public EntryBaseDropped {
+class UidEntry : public EntryBase {
   public:
     explicit UidEntry(const LogStatisticsElement& element)
-        : EntryBaseDropped(element), pid_(element.pid) {}
+        : EntryBase(element), pid_(element.pid) {}
 
     pid_t pid() const { return pid_; }
 
@@ -261,7 +235,7 @@ class UidEntry : public EntryBaseDropped {
         if (pid_ != element.pid) {
             pid_ = -1;
         }
-        EntryBaseDropped::Add(element);
+        EntryBase::Add(element);
     }
 
     std::string formatHeader(const std::string& name, log_id_t id) const;
@@ -275,16 +249,14 @@ namespace android {
 uid_t pidToUid(pid_t pid);
 }
 
-class PidEntry : public EntryBaseDropped {
+class PidEntry : public EntryBase {
   public:
     explicit PidEntry(pid_t pid)
-        : EntryBaseDropped(),
-          uid_(android::pidToUid(pid)),
-          name_(android::pidToName(pid)) {}
+        : EntryBase(), uid_(android::pidToUid(pid)), name_(android::pidToName(pid)) {}
     explicit PidEntry(const LogStatisticsElement& element)
-        : EntryBaseDropped(element), uid_(element.uid), name_(android::pidToName(element.pid)) {}
+        : EntryBase(element), uid_(element.uid), name_(android::pidToName(element.pid)) {}
     PidEntry(const PidEntry& element)
-        : EntryBaseDropped(element),
+        : EntryBase(element),
           uid_(element.uid_),
           name_(element.name_ ? strdup(element.name_) : nullptr) {}
     ~PidEntry() { free(name_); }
@@ -311,7 +283,7 @@ class PidEntry : public EntryBaseDropped {
         } else {
             Add(element.pid);
         }
-        EntryBaseDropped::Add(element);
+        EntryBase::Add(element);
     }
 
     std::string formatHeader(const std::string& name, log_id_t id) const;
@@ -322,20 +294,17 @@ class PidEntry : public EntryBaseDropped {
     char* name_;
 };
 
-class TidEntry : public EntryBaseDropped {
+class TidEntry : public EntryBase {
   public:
     TidEntry(pid_t tid, pid_t pid)
-        : EntryBaseDropped(),
-          pid_(pid),
-          uid_(android::pidToUid(tid)),
-          name_(android::tidToName(tid)) {}
+        : EntryBase(), pid_(pid), uid_(android::pidToUid(tid)), name_(android::tidToName(tid)) {}
     explicit TidEntry(const LogStatisticsElement& element)
-        : EntryBaseDropped(element),
+        : EntryBase(element),
           pid_(element.pid),
           uid_(element.uid),
           name_(android::tidToName(element.tid)) {}
     TidEntry(const TidEntry& element)
-        : EntryBaseDropped(element),
+        : EntryBase(element),
           pid_(element.pid_),
           uid_(element.uid_),
           name_(element.name_ ? strdup(element.name_) : nullptr) {}
@@ -366,7 +335,7 @@ class TidEntry : public EntryBaseDropped {
         } else {
             Add(element.tid);
         }
-        EntryBaseDropped::Add(element);
+        EntryBase::Add(element);
     }
 
     std::string formatHeader(const std::string& name, log_id_t id) const;
@@ -378,10 +347,10 @@ class TidEntry : public EntryBaseDropped {
     char* name_;
 };
 
-class TagEntry : public EntryBaseDropped {
+class TagEntry : public EntryBase {
   public:
     explicit TagEntry(const LogStatisticsElement& element)
-        : EntryBaseDropped(element), tag_(element.tag), pid_(element.pid), uid_(element.uid) {}
+        : EntryBase(element), tag_(element.tag), pid_(element.pid), uid_(element.uid) {}
 
     uint32_t key() const { return tag_; }
     pid_t pid() const { return pid_; }
@@ -395,7 +364,7 @@ class TagEntry : public EntryBaseDropped {
         if (pid_ != element.pid) {
             pid_ = -1;
         }
-        EntryBaseDropped::Add(element);
+        EntryBase::Add(element);
     }
 
     std::string formatHeader(const std::string& name, log_id_t id) const;
@@ -445,12 +414,10 @@ class LogStatistics {
 
     size_t mSizes[LOG_ID_MAX] GUARDED_BY(lock_);
     size_t mElements[LOG_ID_MAX] GUARDED_BY(lock_);
-    size_t mDroppedElements[LOG_ID_MAX] GUARDED_BY(lock_);
     size_t mSizesTotal[LOG_ID_MAX] GUARDED_BY(lock_);
     size_t mElementsTotal[LOG_ID_MAX] GUARDED_BY(lock_);
     log_time mOldest[LOG_ID_MAX] GUARDED_BY(lock_);
     log_time mNewest[LOG_ID_MAX] GUARDED_BY(lock_);
-    log_time mNewestDropped[LOG_ID_MAX] GUARDED_BY(lock_);
     static std::atomic<size_t> SizesTotal;
     bool enable;
 
@@ -520,19 +487,12 @@ class LogStatistics {
 
     void AddTotal(log_id_t log_id, uint16_t size) EXCLUDES(lock_);
 
-    // Add is for adding an element to the log buffer.  It may be a chatty element in the case of
-    // log deduplication.  Add the total size of the element to statistics.
+    // Add is for adding an element to the log buffer.
+    // Add the total size of the element to statistics.
     void Add(LogStatisticsElement entry) EXCLUDES(lock_);
-    // Subtract is for removing an element from the log buffer.  It may be a chatty element.
+    // Subtract is for removing an element from the log buffer.
     // Subtract the total size of the element from statistics.
     void Subtract(LogStatisticsElement entry) EXCLUDES(lock_);
-    // Drop is for converting a normal element into a chatty element. entry->setDropped(1) must
-    // follow this call.  Subtract only msg_len from statistics, since a chatty element will remain.
-    void Drop(LogStatisticsElement entry) EXCLUDES(lock_);
-    // Erase is for coalescing two chatty elements into one.  Erase() is called on the element that
-    // is removed from the log buffer.  Subtract the total size of the element, which is by
-    // definition only the size of the LogBufferElement + list overhead for chatty elements.
-    void Erase(LogStatisticsElement element) EXCLUDES(lock_);
 
     void WorstTwoUids(log_id id, size_t threshold, int* worst, size_t* worst_sizes,
                       size_t* second_worst_sizes) const EXCLUDES(lock_);

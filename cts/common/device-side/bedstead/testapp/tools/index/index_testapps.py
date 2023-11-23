@@ -140,6 +140,8 @@ def parse(manifest_content, file_name):
 
     application_element = find_single_element(root.children, "application")
     android_app.test_only = application_element.attributes.get("testOnly", "false") == "true"
+    android_app.label = application_element.attributes.get("label", "")
+    android_app.cross_profile = application_element.attributes.get("crossProfile", "false") == "true"
 
     parse_activities(application_element, android_app)
     parse_services(application_element, android_app)

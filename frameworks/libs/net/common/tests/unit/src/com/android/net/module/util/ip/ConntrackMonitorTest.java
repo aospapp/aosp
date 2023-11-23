@@ -47,7 +47,7 @@ import androidx.test.runner.AndroidJUnit4;
 import com.android.net.module.util.SharedLog;
 import com.android.net.module.util.ip.ConntrackMonitor.ConntrackEvent;
 import com.android.net.module.util.netlink.NetlinkConstants;
-import com.android.net.module.util.netlink.NetlinkSocket;
+import com.android.net.module.util.netlink.NetlinkUtils;
 
 import libcore.util.HexEncoding;
 
@@ -104,7 +104,7 @@ public class ConntrackMonitorTest {
         private void sendMessage(byte[] msg) {
             mHandler.post(() -> {
                 try {
-                    NetlinkSocket.sendMessage(mWriteFd, msg, 0 /* offset */, msg.length,
+                    NetlinkUtils.sendMessage(mWriteFd, msg, 0 /* offset */, msg.length,
                                               TIMEOUT_MS);
                 } catch (ErrnoException | InterruptedIOException e) {
                     fail("Unable to send netfilter message: " + e);

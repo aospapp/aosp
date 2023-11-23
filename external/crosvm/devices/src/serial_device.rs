@@ -1,16 +1,31 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::fmt::{self, Display};
+use std::fmt;
+use std::fmt::Display;
+use std::fs::File;
 use std::fs::OpenOptions;
-use std::io::{self, stdin, stdout};
+use std::io;
+use std::io::stdin;
+use std::io::stdout;
 use std::path::PathBuf;
 
-use base::{error, open_file, syslog, AsRawDescriptor, Event, FileSync, RawDescriptor};
+use base::error;
+use base::open_file;
+#[cfg(windows)]
+use base::platform::Console as WinConsole;
+use base::syslog;
+use base::AsRawDescriptor;
+use base::Event;
+use base::FileSync;
+use base::RawDescriptor;
+use base::ReadNotifier;
 use hypervisor::ProtectionType;
 use remain::sorted;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
+use serde_keyvalue::FromKeyValues;
 use thiserror::Error as ThisError;
 
 pub use crate::sys::serial_device::SerialDevice;
@@ -21,26 +36,38 @@ use crate::sys::serial_device::*;
 pub enum Error {
     #[error("Unable to clone an Event: {0}")]
     CloneEvent(base::Error),
-    #[error("Unable to open/create file: {0}")]
-    FileError(std::io::Error),
-    #[error("Serial device path is invalid")]
-    InvalidPath,
+    #[error("Unable to clone file: {0}")]
+    FileClone(std::io::Error),
+    #[error("Unable to create file '{1}': {0}")]
+    FileCreate(std::io::Error, PathBuf),
+    #[error("Unable to open file '{1}': {0}")]
+    FileOpen(std::io::Error, PathBuf),
+    #[error("Serial device path '{0} is invalid")]
+    InvalidPath(PathBuf),
     #[error("Invalid serial hardware: {0}")]
     InvalidSerialHardware(String),
     #[error("Invalid serial type: {0}")]
     InvalidSerialType(String),
     #[error("Serial device type file requires a path")]
     PathRequired,
-    #[error("Failed to create unbound socket")]
-    SocketCreateFailed,
+    #[error("Failed to connect to socket: {0}")]
+    SocketConnect(std::io::Error),
+    #[error("Failed to create unbound socket: {0}")]
+    SocketCreate(std::io::Error),
     #[error("Unable to open system type serial: {0}")]
     SystemTypeError(std::io::Error),
     #[error("Serial device type {0} not implemented")]
     Unimplemented(SerialType),
 }
 
+/// Trait for types that can be used as input for a serial device.
+pub trait SerialInput: io::Read + ReadNotifier + Send {}
+impl SerialInput for File {}
+#[cfg(windows)]
+impl SerialInput for WinConsole {}
+
 /// Enum for possible type of serial devices
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SerialType {
     File,
@@ -78,6 +105,7 @@ impl Display for SerialType {
 pub enum SerialHardware {
     Serial,        // Standard PC-style (8250/16550 compatible) UART
     VirtioConsole, // virtio-console device
+    Debugcon,      // Bochs style debug port
 }
 
 impl Default for SerialHardware {
@@ -91,6 +119,7 @@ impl Display for SerialHardware {
         let s = match &self {
             SerialHardware::Serial => "serial".to_string(),
             SerialHardware::VirtioConsole => "virtio-console".to_string(),
+            SerialHardware::Debugcon => "debugcon".to_string(),
         };
 
         write!(f, "{}", s)
@@ -101,8 +130,13 @@ fn serial_parameters_default_num() -> u8 {
     1
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Deserialize)]
-#[serde(deny_unknown_fields, default)]
+fn serial_parameters_default_debugcon_port() -> u16 {
+    // Default to the port OVMF expects.
+    0x402
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, FromKeyValues)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case", default)]
 pub struct SerialParameters {
     #[serde(rename = "type")]
     pub type_: SerialType,
@@ -114,7 +148,13 @@ pub struct SerialParameters {
     pub console: bool,
     pub earlycon: bool,
     pub stdin: bool,
+    #[serde(alias = "out_timestamp")]
     pub out_timestamp: bool,
+    #[serde(
+        alias = "debugcon_port",
+        default = "serial_parameters_default_debugcon_port"
+    )]
+    pub debugcon_port: u16,
 }
 
 impl SerialParameters {
@@ -126,23 +166,24 @@ impl SerialParameters {
     ///                process. `evt` will always be added to this vector by this function.
     pub fn create_serial_device<T: SerialDevice>(
         &self,
-        protected_vm: ProtectionType,
+        protection_type: ProtectionType,
         evt: &Event,
         keep_rds: &mut Vec<RawDescriptor>,
     ) -> std::result::Result<T, Error> {
         let evt = evt.try_clone().map_err(Error::CloneEvent)?;
         keep_rds.push(evt.as_raw_descriptor());
-        let input: Option<Box<dyn io::Read + Send>> = if let Some(input_path) = &self.input {
+        cros_tracing::push_descriptors!(keep_rds);
+        let input: Option<Box<dyn SerialInput>> = if let Some(input_path) = &self.input {
             let input_path = input_path.as_path();
 
             let input_file = open_file(input_path, OpenOptions::new().read(true))
-                .map_err(|e| Error::FileError(e.into()))?;
+                .map_err(|e| Error::FileOpen(e.into(), input_path.into()))?;
 
             keep_rds.push(input_file.as_raw_descriptor());
             Some(Box::new(input_file))
         } else if self.stdin {
             keep_rds.push(stdin().as_raw_descriptor());
-            Some(Box::new(ConsoleInput))
+            Some(Box::new(ConsoleInput::new()))
         } else {
             None
         };
@@ -158,18 +199,15 @@ impl SerialParameters {
             SerialType::Syslog => {
                 syslog::push_descriptors(keep_rds);
                 (
-                    Some(Box::new(syslog::Syslogger::new(
-                        syslog::Priority::Info,
-                        syslog::Facility::Daemon,
-                    ))),
+                    Some(Box::new(syslog::Syslogger::new(base::syslog::Level::Info))),
                     None,
                 )
             }
             SerialType::File => match &self.path {
                 Some(path) => {
                     let file = open_file(path, OpenOptions::new().append(true).create(true))
-                        .map_err(|e| Error::FileError(e.into()))?;
-                    let sync = file.try_clone().map_err(Error::FileError)?;
+                        .map_err(|e| Error::FileCreate(e.into(), path.clone()))?;
+                    let sync = file.try_clone().map_err(Error::FileClone)?;
 
                     keep_rds.push(file.as_raw_descriptor());
                     keep_rds.push(sync.as_raw_descriptor());
@@ -179,11 +217,17 @@ impl SerialParameters {
                 None => return Err(Error::PathRequired),
             },
             SerialType::SystemSerialType => {
-                return create_system_type_serial_device(self, protected_vm, evt, input, keep_rds);
+                return create_system_type_serial_device(
+                    self,
+                    protection_type,
+                    evt,
+                    input,
+                    keep_rds,
+                );
             }
         };
         Ok(T::new(
-            protected_vm,
+            protection_type,
             evt,
             input,
             output,
@@ -196,8 +240,9 @@ impl SerialParameters {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_keyvalue::*;
+
+    use super::*;
 
     fn from_serial_arg(options: &str) -> Result<SerialParameters, ParseError> {
         from_key_values(options)
@@ -219,6 +264,7 @@ mod tests {
                 earlycon: false,
                 stdin: false,
                 out_timestamp: false,
+                debugcon_port: 0x402,
             }
         );
 
@@ -233,7 +279,7 @@ mod tests {
         assert_eq!(params.type_, SerialType::Syslog);
         #[cfg(unix)]
         let opt = "type=unix";
-        #[cfg(window)]
+        #[cfg(windows)]
         let opt = "type=namedpipe";
         let params = from_serial_arg(opt).unwrap();
         assert_eq!(params.type_, SerialType::SystemSerialType);
@@ -245,6 +291,8 @@ mod tests {
         assert_eq!(params.hardware, SerialHardware::Serial);
         let params = from_serial_arg("hardware=virtio-console").unwrap();
         assert_eq!(params.hardware, SerialHardware::VirtioConsole);
+        let params = from_serial_arg("hardware=debugcon").unwrap();
+        assert_eq!(params.hardware, SerialHardware::Debugcon);
         let params = from_serial_arg("hardware=foobar");
         assert!(params.is_err());
 
@@ -290,8 +338,28 @@ mod tests {
         let params = from_serial_arg("stdin=foobar");
         assert!(params.is_err());
 
+        // out-timestamp parameter
+        let params = from_serial_arg("out-timestamp").unwrap();
+        assert!(params.out_timestamp);
+        let params = from_serial_arg("out-timestamp=true").unwrap();
+        assert!(params.out_timestamp);
+        let params = from_serial_arg("out-timestamp=false").unwrap();
+        assert!(!params.out_timestamp);
+        let params = from_serial_arg("out-timestamp=foobar");
+        assert!(params.is_err());
+        // backward compatibility
+        let params = from_serial_arg("out_timestamp=true").unwrap();
+        assert!(params.out_timestamp);
+
+        // debugcon-port parameter
+        let params = from_serial_arg("debugcon-port=1026").unwrap();
+        assert_eq!(params.debugcon_port, 1026);
+        // backward compatibility
+        let params = from_serial_arg("debugcon_port=1026").unwrap();
+        assert_eq!(params.debugcon_port, 1026);
+
         // all together
-        let params = from_serial_arg("type=stdout,path=/some/path,hardware=virtio-console,num=5,earlycon,console,stdin,input=/some/input,out_timestamp").unwrap();
+        let params = from_serial_arg("type=stdout,path=/some/path,hardware=virtio-console,num=5,earlycon,console,stdin,input=/some/input,out_timestamp,debugcon_port=12").unwrap();
         assert_eq!(
             params,
             SerialParameters {
@@ -304,6 +372,7 @@ mod tests {
                 earlycon: true,
                 stdin: true,
                 out_timestamp: true,
+                debugcon_port: 12,
             }
         );
 

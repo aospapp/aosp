@@ -53,6 +53,7 @@ public class SystemSetupActivity extends SetupActivity {
     private static final int REQUEST_CODE_START_SETUP_ACTIVITY = 1;
 
     @Inject TvInputManagerHelper mInputManager;
+    @Inject SetupUtils mSetupUtils;
     @Inject UiFlags mUiFlags;
 
     @Override
@@ -97,7 +98,7 @@ public class SystemSetupActivity extends SetupActivity {
                                     params.getString(
                                             SetupSourcesFragment.ACTION_PARAM_KEY_INPUT_ID);
                             TvInputInfo input = mInputManager.getTvInputInfo(inputId);
-                            Intent intent = CommonUtils.createSetupIntent(input);
+                            Intent intent = mSetupUtils.createSetupIntent(this, input);
                             if (intent == null) {
                                 Toast.makeText(
                                                 this,

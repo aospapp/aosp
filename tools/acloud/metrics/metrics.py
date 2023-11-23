@@ -17,6 +17,7 @@ import logging
 
 from acloud.internal import constants
 _NO_METRICS = "--no-metrics"
+_NO_METRICS_COMMANDS = ["delete"]
 
 
 logger = logging.getLogger(__name__)
@@ -44,11 +45,12 @@ def LogUsage(argv):
     """
     if _NO_METRICS in argv:
         return False
+    if len(argv) > 0 and argv[0] in _NO_METRICS_COMMANDS:
+        return False
 
     try:
-        from asuite import atest_utils
         from asuite.metrics import metrics_utils
-        atest_utils.print_data_collection_notice()
+        metrics_utils.print_data_collection_notice()
         metrics_utils.send_start_event(tool_name=constants.TOOL_NAME,
                                        command_line=' '.join(argv),
                                        test_references=[argv[0]])

@@ -102,7 +102,7 @@ message InternalConfig {
   // [CVD only] The kernel build target: "kernel". This is unlikely to change.
   optional string kernel_build_target = 16;
 
-  // [GOLDFISH only] The emulator build target: "sdk_tools_linux".
+  // [GOLDFISH only] The emulator build target: "emulator-linux_x64_nolocationui".
   // It's very unlikely that this will ever change.
   optional string emulator_build_target = 17;
 

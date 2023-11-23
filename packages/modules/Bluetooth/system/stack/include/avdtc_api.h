@@ -86,7 +86,7 @@ typedef void tAVDTC_CTRL_CBACK(uint8_t handle, const RawAddress& bd_addr,
  * Returns          void
  *
  ******************************************************************************/
-extern void AVDTC_Init(tAVDTC_CTRL_CBACK* p_cback);
+void AVDTC_Init(tAVDTC_CTRL_CBACK* p_cback);
 
 /*******************************************************************************
  *
@@ -97,8 +97,8 @@ extern void AVDTC_Init(tAVDTC_CTRL_CBACK* p_cback);
  * Returns          void
  *
  ******************************************************************************/
-extern void AVDTC_DiscoverRsp(const RawAddress& bd_addr, uint8_t label,
-                              tAVDT_SEP_INFO sep_info[], uint8_t num_seps);
+void AVDTC_DiscoverRsp(const RawAddress& bd_addr, uint8_t label,
+                       tAVDT_SEP_INFO sep_info[], uint8_t num_seps);
 
 /*******************************************************************************
  *
@@ -109,8 +109,8 @@ extern void AVDTC_DiscoverRsp(const RawAddress& bd_addr, uint8_t label,
  * Returns          void
  *
  ******************************************************************************/
-extern void AVDTC_GetCapRsp(const RawAddress& bd_addr, uint8_t label,
-                            AvdtpSepConfig* p_cap);
+void AVDTC_GetCapRsp(const RawAddress& bd_addr, uint8_t label,
+                     AvdtpSepConfig* p_cap);
 
 /*******************************************************************************
  *
@@ -121,8 +121,8 @@ extern void AVDTC_GetCapRsp(const RawAddress& bd_addr, uint8_t label,
  * Returns          void
  *
  ******************************************************************************/
-extern void AVDTC_GetAllCapRsp(const RawAddress& bd_addr, uint8_t label,
-                               AvdtpSepConfig* p_cap);
+void AVDTC_GetAllCapRsp(const RawAddress& bd_addr, uint8_t label,
+                        AvdtpSepConfig* p_cap);
 
 /*******************************************************************************
  *
@@ -133,7 +133,7 @@ extern void AVDTC_GetAllCapRsp(const RawAddress& bd_addr, uint8_t label,
  * Returns          void
  *
  ******************************************************************************/
-extern void AVDTC_GetConfigReq(uint8_t handle);
+void AVDTC_GetConfigReq(uint8_t handle);
 
 /*******************************************************************************
  *
@@ -144,8 +144,7 @@ extern void AVDTC_GetConfigReq(uint8_t handle);
  * Returns          void
  *
  ******************************************************************************/
-extern void AVDTC_GetConfigRsp(uint8_t handle, uint8_t label,
-                               AvdtpSepConfig* p_cfg);
+void AVDTC_GetConfigRsp(uint8_t handle, uint8_t label, AvdtpSepConfig* p_cfg);
 
 /*******************************************************************************
  *
@@ -156,7 +155,7 @@ extern void AVDTC_GetConfigRsp(uint8_t handle, uint8_t label,
  * Returns          void
  *
  ******************************************************************************/
-extern void AVDTC_OpenReq(uint8_t handle);
+void AVDTC_OpenReq(uint8_t handle);
 
 /*******************************************************************************
  *
@@ -167,7 +166,7 @@ extern void AVDTC_OpenReq(uint8_t handle);
  * Returns          void
  *
  ******************************************************************************/
-extern void AVDTC_OpenRsp(uint8_t handle, uint8_t label);
+void AVDTC_OpenRsp(uint8_t handle, uint8_t label);
 
 /*******************************************************************************
  *
@@ -178,8 +177,7 @@ extern void AVDTC_OpenRsp(uint8_t handle, uint8_t label);
  * Returns          void
  *
  ******************************************************************************/
-extern void AVDTC_StartRsp(uint8_t* p_handles, uint8_t num_handles,
-                           uint8_t label);
+void AVDTC_StartRsp(uint8_t* p_handles, uint8_t num_handles, uint8_t label);
 
 /*******************************************************************************
  *
@@ -190,7 +188,7 @@ extern void AVDTC_StartRsp(uint8_t* p_handles, uint8_t num_handles,
  * Returns          void
  *
  ******************************************************************************/
-extern void AVDTC_CloseRsp(uint8_t handle, uint8_t label);
+void AVDTC_CloseRsp(uint8_t handle, uint8_t label);
 
 /*******************************************************************************
  *
@@ -201,8 +199,7 @@ extern void AVDTC_CloseRsp(uint8_t handle, uint8_t label);
  * Returns          void
  *
  ******************************************************************************/
-extern void AVDTC_SuspendRsp(uint8_t* p_handles, uint8_t num_handles,
-                             uint8_t label);
+void AVDTC_SuspendRsp(uint8_t* p_handles, uint8_t num_handles, uint8_t label);
 
 /*******************************************************************************
  *
@@ -213,7 +210,7 @@ extern void AVDTC_SuspendRsp(uint8_t* p_handles, uint8_t num_handles,
  * Returns          void
  *
  ******************************************************************************/
-extern void AVDTC_AbortReq(uint8_t handle);
+void AVDTC_AbortReq(uint8_t handle);
 
 /*******************************************************************************
  *
@@ -224,7 +221,7 @@ extern void AVDTC_AbortReq(uint8_t handle);
  * Returns          void
  *
  ******************************************************************************/
-extern void AVDTC_AbortRsp(uint8_t handle, uint8_t label);
+void AVDTC_AbortRsp(uint8_t handle, uint8_t label);
 
 /*******************************************************************************
  *
@@ -235,7 +232,7 @@ extern void AVDTC_AbortRsp(uint8_t handle, uint8_t label);
  * Returns          void
  *
  ******************************************************************************/
-extern void AVDTC_Rej(uint8_t handle, const RawAddress& bd_addr, uint8_t cmd,
-                      uint8_t label, uint8_t err_code, uint8_t err_param);
+void AVDTC_Rej(uint8_t handle, const RawAddress& bd_addr, uint8_t cmd,
+               uint8_t label, uint8_t err_code, uint8_t err_param);
 
 #endif /* AVDT_CAPI_H */

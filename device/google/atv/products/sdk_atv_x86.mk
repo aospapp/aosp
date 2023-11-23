@@ -15,8 +15,6 @@
 #
 PRODUCT_IS_ATV_SDK := true
 
-QEMU_USE_SYSTEM_EXT_PARTITIONS := true
-
 $(call inherit-product, device/google/atv/products/aosp_tv_x86.mk)
 
 # keep this apk for sdk targets for now

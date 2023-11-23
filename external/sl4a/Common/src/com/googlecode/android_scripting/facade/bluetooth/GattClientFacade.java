@@ -270,6 +270,21 @@ public class GattClientFacade extends RpcReceiver {
     }
 
     /**
+     * Reconnect to a Bluetooth GATT server
+     *
+     * @param index the bluetooth gatt index
+     * @throws Exception
+     */
+    @Rpc(description = "Reconnect a bluetooth gatt")
+    public void gattClientReconnect(@RpcParameter(name = "index") Integer index) throws Exception {
+        if (mBluetoothGattList.get(index) != null) {
+            mBluetoothGattList.get(index).connect();
+        } else {
+            throw new Exception("Invalid index input: " + index);
+        }
+    }
+
+    /**
      * Disconnect a bluetooth gatt
      *
      * @param index the bluetooth gatt index

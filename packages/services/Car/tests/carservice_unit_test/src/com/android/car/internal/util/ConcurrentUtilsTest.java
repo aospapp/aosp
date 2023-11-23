@@ -19,6 +19,8 @@ package com.android.car.internal.util;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import org.junit.Test;
 
@@ -40,17 +42,14 @@ public final class ConcurrentUtilsTest {
     }
 
     @Test
-    public void testWaitForFutureNoInterruptInterrupted() {
+    public void testWaitForFutureNoInterruptInterrupted() throws Exception {
         ExecutorService service = ConcurrentUtils.newFixedThreadPool(1, "test pool",
                 /* linuxThreadPriority= */ 0);
-        Future<Boolean> future = service.submit(() -> {
-            return true;
-        });
-        // This would set the interrupt flag on the current thread and cause future.get() to
-        // throw InterruptedException.
-        Thread.currentThread().interrupt();
+        Future<Boolean> mockFuture = mock(Future.class);
+        when(mockFuture.get()).thenThrow(new InterruptedException());
+
         assertThrows(IllegalStateException.class,
-                () -> ConcurrentUtils.waitForFutureNoInterrupt(future, "wait for result"));
+                () -> ConcurrentUtils.waitForFutureNoInterrupt(mockFuture, "wait for result"));
     }
 
     @Test

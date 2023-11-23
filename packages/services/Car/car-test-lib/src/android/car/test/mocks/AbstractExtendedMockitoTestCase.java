@@ -19,10 +19,7 @@ import static com.android.dx.mockito.inline.extended.ExtendedMockito.doAnswer;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSession;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.notNull;
-import static org.mockito.Mockito.when;
 
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
@@ -31,12 +28,13 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.UserIdInt;
 import android.app.ActivityManager;
+import android.car.test.AbstractExpectableTestCase;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.os.Trace;
 import android.os.UserManager;
-import android.provider.Settings;
 import android.util.ArraySet;
 import android.util.Log;
 import android.util.Slog;
@@ -51,18 +49,17 @@ import org.junit.Rule;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
+import org.mockito.Mockito;
 import org.mockito.MockitoSession;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.quality.Strictness;
-import org.mockito.session.MockitoSessionBuilder;
-import org.mockito.stubbing.Answer;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -88,11 +85,13 @@ import java.util.Set;
       libstaticjvmtiagent \
  *  </code></pre>
  */
-public abstract class AbstractExtendedMockitoTestCase {
+public abstract class AbstractExtendedMockitoTestCase extends AbstractExpectableTestCase {
 
-    private static final String TAG = AbstractExtendedMockitoTestCase.class.getSimpleName();
+    static final String TAG = AbstractExtendedMockitoTestCase.class.getSimpleName();
 
     private static final boolean TRACE = false;
+
+    private static final long SYNC_RUNNABLE_MAX_WAIT_TIME = 5_000L;
 
     @SuppressWarnings("IsLoggableTagLength")
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -105,13 +104,31 @@ public abstract class AbstractExtendedMockitoTestCase {
             "I can't believe a test case is using this String as a log TAG! Well done!"
     };
 
+    /**
+     * Number of invocations, used to force a failure on {@link #forceFailure(int, Class, String)}.
+     */
+    private static int sInvocationsCounter;
+
+    /**
+     * Sessions follow the "Highlander Rule": There can be only one!
+     *
+     * <p>So, we keep track of that and force-close it if needed.
+     */
+    @Nullable
+    private static MockitoSession sHighlanderSession;
+
+    /**
+     * Points to where the current session was created.
+     */
+    private static Exception sSessionCreationLocation;
+
     private final List<Class<?>> mStaticSpiedClasses = new ArrayList<>();
+    private final List<Class<?>> mStaticMockedClasses = new ArrayList<>();
 
     // Tracks (S)Log.wtf() calls made during code execution, then used on verifyWtfNeverLogged()
     private final List<RuntimeException> mWtfs = new ArrayList<>();
 
     private MockitoSession mSession;
-    private MockSettings mSettings;
 
     @Nullable
     private final TimingsTraceLog mTracer;
@@ -130,6 +147,13 @@ public abstract class AbstractExtendedMockitoTestCase {
      */
     protected AbstractExtendedMockitoTestCase(String... logTags) {
         Objects.requireNonNull(logTags, "logTags cannot be null");
+
+        sInvocationsCounter++;
+
+        if (VERBOSE) {
+            Log.v(TAG, "constructor for " + getClass() + ": sInvocationsCount="
+                    + sInvocationsCounter + ", logTags=" + Arrays.toString(logTags));
+        }
 
         String prefix = getClass().getSimpleName();
         if (Arrays.equals(logTags, NO_LOG_TAGS)) {
@@ -151,15 +175,43 @@ public abstract class AbstractExtendedMockitoTestCase {
 
     @Before
     public final void startSession() {
+        if (VERBOSE) {
+            Log.v(TAG, "startSession() for " + getTestName() + " on thread "
+                    + Thread.currentThread() + "; sHighlanderSession=" + sHighlanderSession);
+        }
+        finishHighlanderSessionIfNeeded("startSession()");
+
         beginTrace("startSession()");
 
-        beginTrace("startMocking()");
-        mSession = newSessionBuilder().startMocking();
+        createSessionLocation();
+
+        StaticMockitoSessionBuilder builder = mockitoSession()
+                .strictness(getSessionStrictness());
+
+        CustomMockitoSessionBuilder customBuilder =
+                new CustomMockitoSessionBuilder(builder, mStaticSpiedClasses, mStaticMockedClasses)
+                    .spyStatic(Log.class)
+                    .spyStatic(Slog.class);
+
+        beginTrace("onSessionBuilder()");
+        onSessionBuilder(customBuilder);
         endTrace();
 
-        beginTrace("MockSettings()");
-        mSettings = new MockSettings();
+        if (VERBOSE) {
+            Log.v(TAG, "spied classes: " + customBuilder.mStaticSpiedClasses
+                    + " mocked classes:" + customBuilder.mStaticMockedClasses);
+        }
+
+        beginTrace("startMocking()");
+        sHighlanderSession = mSession = builder.initMocks(this).startMocking();
         endTrace();
+
+        if (customBuilder.mCallback != null) {
+            if (VERBOSE) {
+                Log.v(TAG, "Calling " + customBuilder.mCallback);
+            }
+            customBuilder.mCallback.afterSessionStarted();
+        }
 
         beginTrace("interceptWtfCalls()");
         interceptWtfCalls();
@@ -168,18 +220,140 @@ public abstract class AbstractExtendedMockitoTestCase {
         endTrace(); // startSession
     }
 
-    @After
-    public final void finishSession() {
-        beginTrace("finishSession()");
-        completeAllHandlerThreadTasks();
-        if (mSession != null) {
-            beginTrace("finishMocking()");
-            mSession.finishMocking();
-            endTrace();
-        } else {
-            Log.w(TAG, getClass().getSimpleName() + ".finishSession(): no session");
+    private void createSessionLocation() {
+        beginTrace("createSessionLocation()");
+        try {
+            sSessionCreationLocation = new Exception(getTestName());
+        } catch (Exception e) {
+            // Better safe than sorry...
+            Log.e(TAG, "Could not create sSessionCreationLocation with " + getTestName()
+                    + " on thread " + Thread.currentThread(), e);
+            sSessionCreationLocation = e;
         }
         endTrace();
+    }
+
+    @After
+    public final void finishSession() throws Exception {
+        if (VERBOSE) {
+            Log.v(TAG, "finishSession() for " + getTestName() + " on thread "
+                    + Thread.currentThread() + "; sHighlanderSession=" + sHighlanderSession);
+
+        }
+        if (false) { // For obvious reasons, should NEVER be merged as true
+            forceFailure(1, RuntimeException.class, "to simulate an unfinished session");
+        }
+
+        // mSession.finishMocking() must ALWAYS be called (hence the over-protective try/finally
+        // statements), otherwise it would cause failures on future tests as mockito
+        // cannot start a session when a previous one is not finished
+        try {
+            beginTrace("finishSession()");
+            completeAllHandlerThreadTasks();
+        } finally {
+            sHighlanderSession = null;
+            finishSessionMocking();
+        }
+        endTrace();
+    }
+
+    private void finishSessionMocking() {
+        if (mSession == null) {
+            Log.w(TAG, getClass().getSimpleName() + ".finishSession(): no session");
+            return;
+        }
+        try {
+            beginTrace("finishMocking()");
+        } finally {
+            try {
+                mSession.finishMocking();
+            } finally {
+                // Shouldn't need to set mSession to null as JUnit always instantiate a new object,
+                // but it doesn't hurt....
+                mSession = null;
+                clearInlineMocks("finishMocking()");
+                endTrace(); // finishMocking
+            }
+        }
+    }
+
+    protected void clearInlineMocks(String when) {
+        // When using inline mock maker, clean up inline mocks to prevent OutOfMemory
+        // errors. See https://github.com/mockito/mockito/issues/1614 and b/259280359.
+        Log.d(TAG, "Calling Mockito.framework().clearInlineMocks() on " + when);
+        Mockito.framework().clearInlineMocks();
+
+    }
+
+    private void finishHighlanderSessionIfNeeded(String where) {
+        if (sHighlanderSession == null) {
+            if (VERBOSE) {
+                Log.v(TAG, "finishHighlanderSessionIfNeeded(): sHighlanderSession already null");
+            }
+            return;
+        }
+
+        beginTrace("finishHighlanderSessionIfNeeded()");
+
+        if (sSessionCreationLocation != null) {
+            if (VERBOSE) {
+                Log.e(TAG, where + ": There can be only one! Closing unfinished session, "
+                        + "created at", sSessionCreationLocation);
+            } else {
+                Log.e(TAG, where + ": There can be only one! Closing unfinished session, "
+                        + "created at " +  sSessionCreationLocation);
+            }
+        } else {
+            Log.e(TAG, where + ": There can be only one! Closing unfinished session created at "
+                    + "unknown location");
+        }
+        try {
+            sHighlanderSession.finishMocking();
+        } catch (Throwable t) {
+            if (VERBOSE) {
+                Log.e(TAG, "Failed to close unfinished session on " + getTestName(), t);
+            } else {
+                Log.e(TAG, "Failed to close unfinished session on " + getTestName() + ": " + t);
+            }
+        } finally {
+            if (VERBOSE) {
+                Log.v(TAG, "Resetting sHighlanderSession at finishHighlanderSessionIfNeeded()");
+            }
+            sHighlanderSession = null;
+        }
+
+        endTrace();
+    }
+
+    /**
+     * Forces a failure at the given invocation of a test method by throwing an exception.
+     */
+    protected final <T extends Throwable> void forceFailure(int invocationCount,
+            Class<T> failureClass, String reason) throws T {
+        if (sInvocationsCounter != invocationCount) {
+            Log.d(TAG, "forceFailure(" + invocationCount + "): no-op on invocation #"
+                    + sInvocationsCounter);
+            return;
+        }
+        String message = "Throwing on invocation #" + sInvocationsCounter + ": " + reason;
+        Log.e(TAG, message);
+        T throwable;
+        try {
+            Constructor<T> constructor = failureClass.getConstructor(String.class);
+            throwable = constructor.newInstance("Throwing on invocation #" + sInvocationsCounter
+                    + ": " + reason);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Could not create exception of class " + failureClass
+                    + " using msg='" + message + "' as constructor");
+        }
+        throw throwable;
+    }
+
+    /**
+     * Gets the name of the test being run.
+     */
+    protected final String getTestName() {
+        return mWtfCheckerRule.mTestName;
     }
 
     /**
@@ -188,67 +362,45 @@ public abstract class AbstractExtendedMockitoTestCase {
      * <p>This can prevent pending Handler tasks of one test from affecting another. This does not
      * work if the message is posted with delay.
      */
-    protected void completeAllHandlerThreadTasks() {
+    protected final void completeAllHandlerThreadTasks() {
         beginTrace("completeAllHandlerThreadTasks");
         Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
         ArrayList<HandlerThread> handlerThreads = new ArrayList<>(threadSet.size());
         Thread currentThread = Thread.currentThread();
         for (Thread t : threadSet) {
             if (t != currentThread && t instanceof HandlerThread) {
+                if (VERBOSE) {
+                    Log.v(TAG, "Will wait for " + t);
+                }
                 handlerThreads.add((HandlerThread) t);
+            } else if (VERBOSE) {
+                Log.v(TAG, "Skipping " + t);
             }
         }
-        ArrayList<SyncRunnable> syncs = new ArrayList<>(handlerThreads.size());
-        if (VERBOSE) {
-            Log.v(TAG, "will wait for " + handlerThreads.size() + " HandlerThreads");
-        }
-        for (int i = 0; i < handlerThreads.size(); i++) {
-            Handler handler = new Handler(handlerThreads.get(i).getLooper());
+        int size = handlerThreads.size();
+        ArrayList<SyncRunnable> syncs = new ArrayList<>(size);
+        Log.d(TAG, "Waiting for " + size + " HandlerThreads");
+        for (int i = 0; i < size; i++) {
+            HandlerThread thread = handlerThreads.get(i);
+            Looper looper = thread.getLooper();
+            if (looper == null) {
+                Log.w(TAG, "Ignoring thread " + thread + ". It doesn't have a looper.");
+                continue;
+            }
+            if (VERBOSE) {
+                Log.v(TAG, "Waiting for thread " + thread);
+            }
+            Handler handler = new Handler(looper);
             SyncRunnable sr = new SyncRunnable(() -> { });
             handler.post(sr);
             syncs.add(sr);
         }
         beginTrace("waitForComplete");
         for (int i = 0; i < syncs.size(); i++) {
-            syncs.get(i).waitForComplete();
+            syncs.get(i).waitForComplete(SYNC_RUNNABLE_MAX_WAIT_TIME);
         }
         endTrace(); // waitForComplete
         endTrace(); // completeAllHandlerThreadTasks
-    }
-
-    /**
-     * Adds key-value(int) pair in mocked Settings.Global and Settings.Secure
-     */
-    protected void putSettingsInt(@NonNull String key, int value) {
-        mSettings.insertObject(key, value);
-    }
-
-    /**
-     * Gets value(int) from mocked Settings.Global and Settings.Secure
-     */
-    protected int getSettingsInt(@NonNull String key) {
-        return mSettings.getInt(key);
-    }
-
-    /**
-     * Adds key-value(String) pair in mocked Settings.Global and Settings.Secure
-     */
-    protected void putSettingsString(@NonNull String key, @NonNull String value) {
-        mSettings.insertObject(key, value);
-    }
-
-    /**
-     * Gets value(String) from mocked Settings.Global and Settings.Secure
-     */
-    protected String getSettingsString(@NonNull String key) {
-        return mSettings.getString(key);
-    }
-
-    /**
-     * Asserts that the giving settings was not set.
-     */
-    protected void assertSettingsNotSet(String key) {
-        mSettings.assertDoesNotContainsKey(key);
     }
 
     /**
@@ -256,6 +408,9 @@ public abstract class AbstractExtendedMockitoTestCase {
      * test on {@link #startSession()}.
      *
      * <p>Typically, it should be overridden when mocking static methods.
+     *
+     * <p><b>NOTE:</b> you don't need to call it to spy on {@link Log} or {@link Slog}, as those
+     * are already spied on.
      */
     protected void onSessionBuilder(@NonNull CustomMockitoSessionBuilder session) {
         if (VERBOSE) Log.v(TAG, getLogPrefix() + "onSessionBuilder()");
@@ -278,8 +433,9 @@ public abstract class AbstractExtendedMockitoTestCase {
      *
      * @param userId result of such call
      *
-     * @throws IllegalStateException if class didn't override {@link #newSessionBuilder()} and
-     * called {@code spyStatic(ActivityManager.class)} on the session passed to it.
+     * @throws IllegalStateException if class didn't override
+     * {@link #onSessionBuilder(CustomMockitoSessionBuilder)} and called
+     * {@code spyStatic(Binder.class)} on the session passed to it.
      */
     protected final void mockGetCurrentUser(@UserIdInt int userId) {
         if (VERBOSE) Log.v(TAG, getLogPrefix() + "mockGetCurrentUser(" + userId + ")");
@@ -295,8 +451,9 @@ public abstract class AbstractExtendedMockitoTestCase {
      *
      * @param mode result of such call
      *
-     * @throws IllegalStateException if class didn't override {@link #newSessionBuilder()} and
-     * called {@code spyStatic(UserManager.class)} on the session passed to it.
+     * @throws IllegalStateException if class didn't override
+     * {@link #onSessionBuilder(CustomMockitoSessionBuilder)} and called
+     * {@code spyStatic(Binder.class)} on the session passed to it.
      */
     protected final void mockIsHeadlessSystemUserMode(boolean mode) {
         if (VERBOSE) Log.v(TAG, getLogPrefix() + "mockIsHeadlessSystemUserMode(" + mode + ")");
@@ -310,8 +467,9 @@ public abstract class AbstractExtendedMockitoTestCase {
     /**
      * Mocks a call to {@link Binder.getCallingUserHandle()}.
      *
-     * @throws IllegalStateException if class didn't override {@link #newSessionBuilder()} and
-     * called {@code spyStatic(Binder.class)} on the session passed to it.
+     * @throws IllegalStateException if class didn't override
+     * {@link #onSessionBuilder(CustomMockitoSessionBuilder)} and called
+     * {@code spyStatic(Binder.class)} on the session passed to it.
      */
     protected final void mockGetCallingUserHandle(@UserIdInt int userId) {
         if (VERBOSE) Log.v(TAG, getLogPrefix() + "mockBinderCallingUser(" + userId + ")");
@@ -350,20 +508,30 @@ public abstract class AbstractExtendedMockitoTestCase {
     }
 
     private void interceptWtfCalls() {
-        doAnswer((invocation) -> {
-            return addWtf(invocation);
-        }).when(() -> Log.wtf(anyString(), anyString()));
-        doAnswer((invocation) -> {
-            return addWtf(invocation);
-        }).when(() -> Log.wtf(anyString(), anyString(), notNull()));
-        doAnswer((invocation) -> {
-            return addWtf(invocation);
-        }).when(() -> Slog.wtf(anyString(), anyString()));
-        doAnswer((invocation) -> {
-            return addWtf(invocation);
-        }).when(() -> Slog.wtf(anyString(), anyString(), any(Throwable.class)));
-        // NOTE: android.car.builtin.util.Slogf calls android.util.Slog behind the scenes, so no
-        // need to check for calls of the former...
+        try {
+            doAnswer((invocation) -> {
+                return addWtf(invocation);
+            }).when(() -> Log.wtf(anyString(), anyString()));
+            doAnswer((invocation) -> {
+                return addWtf(invocation);
+            }).when(() -> Log.wtf(anyString(), any(Throwable.class)));
+            doAnswer((invocation) -> {
+                return addWtf(invocation);
+            }).when(() -> Log.wtf(anyString(), anyString(), any(Throwable.class)));
+            doAnswer((invocation) -> {
+                return addWtf(invocation);
+            }).when(() -> Slog.wtf(anyString(), anyString()));
+            doAnswer((invocation) -> {
+                return addWtf(invocation);
+            }).when(() -> Slog.wtf(anyString(), any(Throwable.class)));
+            doAnswer((invocation) -> {
+                return addWtf(invocation);
+            }).when(() -> Slog.wtf(anyString(), anyString(), any(Throwable.class)));
+            // NOTE: android.car.builtin.util.Slogf calls android.util.Slog behind the scenes, so no
+            // need to check for calls of the former...
+        } catch (Throwable t) {
+            Log.e(TAG, "interceptWtfCalls(): failed for test " + getTestName(), t);
+        }
     }
 
     private Object addWtf(InvocationOnMock invocation) {
@@ -373,7 +541,7 @@ public abstract class AbstractExtendedMockitoTestCase {
         if (mLogTags != null && mLogTags.contains(actualTag)) {
             mWtfs.add(new IllegalStateException(message));
         } else if (VERBOSE) {
-            Log.v(TAG, "ignoring WTF invocation on tag " + actualTag);
+            Log.v(TAG, "ignoring WTF invocation on tag " + actualTag + ". mLogTags=" + mLogTags);
         }
         return null;
     }
@@ -384,6 +552,9 @@ public abstract class AbstractExtendedMockitoTestCase {
 
     private void verifyWtfNeverLogged() {
         int size = mWtfs.size();
+        if (VERBOSE) {
+            Log.v(TAG, "verifyWtfNeverLogged(): mWtfs=" + mWtfs);
+        }
 
         switch (size) {
             case 0:
@@ -397,44 +568,31 @@ public abstract class AbstractExtendedMockitoTestCase {
         }
     }
 
-    @NonNull
-    private MockitoSessionBuilder newSessionBuilder() {
-        // TODO (b/155523104): change from mock to spy
-        StaticMockitoSessionBuilder builder = mockitoSession()
-                .strictness(getSessionStrictness())
-                .mockStatic(Settings.Global.class)
-                .mockStatic(Settings.System.class)
-                .mockStatic(Settings.Secure.class);
-
-        CustomMockitoSessionBuilder customBuilder =
-                new CustomMockitoSessionBuilder(builder, mStaticSpiedClasses)
-                    .spyStatic(Log.class)
-                    .spyStatic(Slog.class);
-
-        onSessionBuilder(customBuilder);
-
-        if (VERBOSE) Log.v(TAG, "spied classes" + customBuilder.mStaticSpiedClasses);
-
-        return builder.initMocks(this);
-    }
-
     /**
      * Gets a prefix for {@link Log} calls
      */
-    protected String getLogPrefix() {
+    protected final String getLogPrefix() {
         return getClass().getSimpleName() + ".";
     }
 
     /**
      * Asserts the given class is being spied in the Mockito session.
      */
-    protected void assertSpied(Class<?> clazz) {
+    protected final void assertSpied(Class<?> clazz) {
         Preconditions.checkArgument(mStaticSpiedClasses.contains(clazz),
                 "did not call spyStatic() on %s", clazz.getName());
     }
 
     /**
-     * Custom {@code MockitoSessionBuilder} used to make sure some pre-defined mock stations
+     * Asserts the given class is being mocked in the Mockito session.
+     */
+    protected final void assertMocked(Class<?> clazz) {
+        Preconditions.checkArgument(mStaticMockedClasses.contains(clazz),
+                "did not call mockStatic() on %s", clazz.getName());
+    }
+
+    /**
+     * Custom {@code MockitoSessionBuilder} used to make sure some pre-defined mock expectations
      * (like {@link AbstractExtendedMockitoTestCase#mockGetCurrentUser(int)} fail if the test case
      * didn't explicitly set it to spy / mock the required classes.
      *
@@ -444,11 +602,15 @@ public abstract class AbstractExtendedMockitoTestCase {
     public static final class CustomMockitoSessionBuilder {
         private final StaticMockitoSessionBuilder mBuilder;
         private final List<Class<?>> mStaticSpiedClasses;
+        private final List<Class<?>> mStaticMockedClasses;
+
+        private @Nullable SessionCallback mCallback;
 
         private CustomMockitoSessionBuilder(StaticMockitoSessionBuilder builder,
-                List<Class<?>> staticSpiedClasses) {
+                List<Class<?>> staticSpiedClasses, List<Class<?>> staticMockedClasses) {
             mBuilder = builder;
             mStaticSpiedClasses = staticSpiedClasses;
+            mStaticMockedClasses = staticMockedClasses;
         }
 
         /**
@@ -461,26 +623,51 @@ public abstract class AbstractExtendedMockitoTestCase {
             mBuilder.spyStatic(clazz);
             return this;
         }
+
+        /**
+         * Same as {@link StaticMockitoSessionBuilder#mockStatic(Class)}.
+         */
+        public <T> CustomMockitoSessionBuilder mockStatic(Class<T> clazz) {
+            Preconditions.checkState(!mStaticMockedClasses.contains(clazz),
+                    "already called mockStatic() on " + clazz);
+            mStaticMockedClasses.add(clazz);
+            mBuilder.mockStatic(clazz);
+            return this;
+        }
+
+        void setSessionCallback(SessionCallback callback) {
+            mCallback = callback;
+        }
+    }
+
+    // TODO(b/156033195): only used by MockSettings, should go away if that class is refactored to
+    // not mock stuff
+    interface SessionCallback {
+        void afterSessionStarted();
     }
 
     private final class WtfCheckerRule implements TestRule {
+
+        @Nullable
+        private String mTestName;
 
         @Override
         public Statement apply(Statement base, Description description) {
             return new Statement() {
                 @Override
                 public void evaluate() throws Throwable {
-                    String testName = description.getMethodName();
-                    if (VERBOSE) Log.v(TAG, "running " + testName);
+                    mTestName = description.getDisplayName();
+                    String testMethodName = description.getMethodName();
+                    if (VERBOSE) Log.v(TAG, "running " + mTestName);
 
                     Method testMethod = AbstractExtendedMockitoTestCase.this.getClass()
-                            .getMethod(testName);
+                            .getMethod(testMethodName);
                     ExpectWtf expectWtfAnnotation = testMethod.getAnnotation(ExpectWtf.class);
                     Preconditions.checkState(expectWtfAnnotation == null || mLogTags != null,
                             "Must call constructor that pass logTags on %s to use @%s",
                             description.getTestClass(), ExpectWtf.class.getSimpleName());
 
-                    beginTrace("evaluate-" + testName);
+                    beginTrace("evaluate-" + testMethodName);
                     base.evaluate();
                     endTrace();
 
@@ -498,125 +685,6 @@ public abstract class AbstractExtendedMockitoTestCase {
                     }
                 }
             };
-        }
-    }
-
-    // TODO (b/155523104): Add log
-    // TODO (b/156033195): Clean settings API. For example, don't mock xyzForUser() methods (as
-    // they should not be used due to mainline) and explicitly use a MockSettings per user or
-    // something like that (to make sure the code being test is passing the writer userId to
-    // Context.createContextAsUser())
-    private static final class MockSettings {
-        private static final int INVALID_DEFAULT_INDEX = -1;
-        private HashMap<String, Object> mSettingsMapping = new HashMap<>();
-
-        MockSettings() {
-
-            Answer<Object> insertObjectAnswer =
-                    invocation -> insertObjectFromInvocation(invocation, 1, 2);
-            Answer<Integer> getIntAnswer = invocation ->
-                    getAnswer(invocation, Integer.class, 1, 2);
-            Answer<String> getStringAnswer = invocation ->
-                    getAnswer(invocation, String.class, 1, INVALID_DEFAULT_INDEX);
-
-            when(Settings.Global.putInt(any(), any(), anyInt())).thenAnswer(insertObjectAnswer);
-
-            when(Settings.Global.getInt(any(), any(), anyInt())).thenAnswer(getIntAnswer);
-
-            when(Settings.System.putInt(any(), any(), anyInt())).thenAnswer(insertObjectAnswer);
-
-            when(Settings.System.getInt(any(), any(), anyInt())).thenAnswer(getIntAnswer);
-
-            when(Settings.Secure.putIntForUser(any(), any(), anyInt(), anyInt()))
-                    .thenAnswer(insertObjectAnswer);
-
-            when(Settings.Secure.getIntForUser(any(), any(), anyInt(), anyInt()))
-                    .thenAnswer(getIntAnswer);
-
-            when(Settings.Secure.getInt(any(), any(), anyInt())).thenAnswer(getIntAnswer);
-
-            when(Settings.Secure.putStringForUser(any(), anyString(), anyString(), anyInt()))
-                    .thenAnswer(insertObjectAnswer);
-
-            when(Settings.Global.putString(any(), any(), any()))
-                    .thenAnswer(insertObjectAnswer);
-
-            when(Settings.Global.getString(any(), any())).thenAnswer(getStringAnswer);
-
-            when(Settings.System.putIntForUser(any(), any(), anyInt(), anyInt()))
-                    .thenAnswer(insertObjectAnswer);
-
-            when(Settings.System.getIntForUser(any(), any(), anyInt(), anyInt()))
-                    .thenAnswer(getIntAnswer);
-
-            when(Settings.System.putStringForUser(any(), any(), anyString(), anyInt()))
-                    .thenAnswer(insertObjectAnswer);
-
-            when(Settings.System.putString(any(), any(), any()))
-                    .thenAnswer(insertObjectAnswer);
-        }
-
-        private Object insertObjectFromInvocation(InvocationOnMock invocation,
-                int keyIndex, int valueIndex) {
-            String key = (String) invocation.getArguments()[keyIndex];
-            Object value = invocation.getArguments()[valueIndex];
-            insertObject(key, value);
-            return null;
-        }
-
-        private void insertObject(String key, Object value) {
-            if (VERBOSE) Log.v(TAG, "Inserting Setting " + key + ": " + value);
-            mSettingsMapping.put(key, value);
-        }
-
-        private <T> T getAnswer(InvocationOnMock invocation, Class<T> clazz,
-                int keyIndex, int defaultValueIndex) {
-            String key = (String) invocation.getArguments()[keyIndex];
-            T defaultValue = null;
-            if (defaultValueIndex > INVALID_DEFAULT_INDEX) {
-                defaultValue = safeCast(invocation.getArguments()[defaultValueIndex], clazz);
-            }
-            return get(key, defaultValue, clazz);
-        }
-
-        @Nullable
-        private <T> T get(String key, T defaultValue, Class<T> clazz) {
-            if (VERBOSE) {
-                Log.v(TAG, "get(): key=" + key + ", default=" + defaultValue + ", class=" + clazz);
-            }
-            Object value = mSettingsMapping.get(key);
-            if (value == null) {
-                if (VERBOSE) Log.v(TAG, "not found");
-                return defaultValue;
-            }
-
-            if (VERBOSE) Log.v(TAG, "returning " + value);
-            return safeCast(value, clazz);
-        }
-
-        private static <T> T safeCast(Object value, Class<T> clazz) {
-            if (value == null) {
-                return null;
-            }
-            Preconditions.checkArgument(value.getClass() == clazz,
-                    "Setting value has class %s but requires class %s",
-                    value.getClass(), clazz);
-            return clazz.cast(value);
-        }
-
-        private String getString(String key) {
-            return get(key, null, String.class);
-        }
-
-        public int getInt(String key) {
-            return get(key, null, Integer.class);
-        }
-
-        public void assertDoesNotContainsKey(String key) {
-            if (mSettingsMapping.containsKey(key)) {
-                throw new AssertionError("Should not have key " + key + ", but has: "
-                        + mSettingsMapping.get(key));
-            }
         }
     }
 
@@ -646,12 +714,15 @@ public abstract class AbstractExtendedMockitoTestCase {
             }
         }
 
-        private void waitForComplete() {
+        private void waitForComplete(long maxWaitTime) {
+            long t0 = System.currentTimeMillis();
             synchronized (this) {
-                while (!mComplete) {
+                while (!mComplete && System.currentTimeMillis() - t0 < maxWaitTime) {
                     try {
                         wait();
                     } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException("Interrupted SyncRunnable thread", e);
                     }
                 }
             }

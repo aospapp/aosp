@@ -26,7 +26,6 @@ import com.android.tools.metalava.model.MethodItem
 import com.android.tools.metalava.model.ModifierList
 import com.android.tools.metalava.model.PackageItem
 import com.android.tools.metalava.model.TypeParameterList
-import com.android.tools.metalava.model.psi.PsiClassItem
 import com.android.tools.metalava.model.visitors.ItemVisitor
 import com.android.tools.metalava.options
 import java.io.PrintWriter
@@ -192,7 +191,6 @@ class JavaStubWriter(
                     return
                 }
             }
-            (cls as PsiClassItem).psiClass.superClassType
             writer.print(qualifiedName)
         }
     }
@@ -355,7 +353,7 @@ class JavaStubWriter(
 
         val returnType = method.returnType()
         writer.print(
-            returnType?.toTypeString(
+            returnType.toTypeString(
                 outerAnnotations = false,
                 innerAnnotations = generateAnnotations,
                 filter = filterReference

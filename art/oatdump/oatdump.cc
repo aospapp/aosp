@@ -45,7 +45,6 @@
 #include "class_linker-inl.h"
 #include "class_linker.h"
 #include "class_root-inl.h"
-#include "compiled_method.h"
 #include "debug/debug_info.h"
 #include "debug/elf_debug_writer.h"
 #include "debug/method_debug_info.h"
@@ -183,17 +182,17 @@ class OatSymbolizer final {
     builder_->WriteDynamicSection();
 
     const OatHeader& oat_header = oat_file_->GetOatHeader();
-    #define DO_TRAMPOLINE(fn_name)                                                \
-      if (oat_header.Get ## fn_name ## Offset() != 0) {                           \
-        debug::MethodDebugInfo info = {};                                         \
-        info.custom_name = #fn_name;                                              \
-        info.isa = oat_header.GetInstructionSet();                                \
-        info.is_code_address_text_relative = true;                                \
-        size_t code_offset = oat_header.Get ## fn_name ## Offset();               \
-        code_offset -= CompiledCode::CodeDelta(oat_header.GetInstructionSet());   \
-        info.code_address = code_offset - oat_header.GetExecutableOffset();       \
-        info.code_size = 0;  /* The symbol lasts until the next symbol. */        \
-        method_debug_infos_.push_back(std::move(info));                           \
+    #define DO_TRAMPOLINE(fn_name)                                                            \
+      if (oat_header.Get ## fn_name ## Offset() != 0) {                                       \
+        debug::MethodDebugInfo info = {};                                                     \
+        info.custom_name = #fn_name;                                                          \
+        info.isa = oat_header.GetInstructionSet();                                            \
+        info.is_code_address_text_relative = true;                                            \
+        size_t code_offset = oat_header.Get ## fn_name ## Offset();                           \
+        code_offset -= GetInstructionSetEntryPointAdjustment(oat_header.GetInstructionSet()); \
+        info.code_address = code_offset - oat_header.GetExecutableOffset();                   \
+        info.code_size = 0;  /* The symbol lasts until the next symbol. */                    \
+        method_debug_infos_.push_back(std::move(info));                                       \
       }
     DO_TRAMPOLINE(JniDlsymLookupTrampoline);
     DO_TRAMPOLINE(JniDlsymLookupCriticalTrampoline);
@@ -661,16 +660,13 @@ class OatDumper {
           DexContainer::Section* main_section = dex_container->GetMainSection();
           CHECK_EQ(dex_container->GetDataSection()->Size(), 0u);
 
-          const ArtDexFileLoader dex_file_loader;
-          std::unique_ptr<const DexFile> dex(dex_file_loader.Open(
-              main_section->Begin(),
-              main_section->Size(),
-              vdex_dex_file->GetLocation(),
-              vdex_file->GetLocationChecksum(i),
-              /*oat_dex_file=*/ nullptr,
-              /*verify=*/ false,
-              /*verify_checksum=*/ true,
-              &error_msg));
+          ArtDexFileLoader dex_file_loader(
+              main_section->Begin(), main_section->Size(), vdex_dex_file->GetLocation());
+          std::unique_ptr<const DexFile> dex(dex_file_loader.Open(vdex_file->GetLocationChecksum(i),
+                                                                  /*oat_dex_file=*/nullptr,
+                                                                  /*verify=*/false,
+                                                                  /*verify_checksum=*/true,
+                                                                  &error_msg));
           if (dex == nullptr) {
             os << "Failed to load DexFile from layout container: " + error_msg;
             success = false;
@@ -1151,11 +1147,17 @@ class OatDumper {
     if (Runtime::Current() != nullptr) {
       // We need to have the handle scope stay live until after the verifier since the verifier has
       // a handle to the dex cache from hs.
+      ScopedObjectAccess soa(Thread::Current());
       hs.reset(new StackHandleScope<1>(Thread::Current()));
       vios->Stream() << "VERIFIER TYPE ANALYSIS:\n";
       ScopedIndentation indent2(vios);
-      verifier.reset(DumpVerifier(vios, hs.get(),
-                                  dex_method_idx, &dex_file, class_def, code_item,
+      verifier.reset(DumpVerifier(vios,
+                                  soa,
+                                  hs.get(),
+                                  dex_method_idx,
+                                  &dex_file,
+                                  class_def,
+                                  code_item,
                                   method_access_flags));
     }
     {
@@ -1460,14 +1462,15 @@ class OatDumper {
   }
 
   verifier::MethodVerifier* DumpVerifier(VariableIndentationOutputStream* vios,
+                                         ScopedObjectAccess& soa,
                                          StackHandleScope<1>* hs,
                                          uint32_t dex_method_idx,
                                          const DexFile* dex_file,
                                          const dex::ClassDef& class_def,
                                          const dex::CodeItem* code_item,
-                                         uint32_t method_access_flags) {
+                                         uint32_t method_access_flags)
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     if ((method_access_flags & kAccNative) == 0) {
-      ScopedObjectAccess soa(Thread::Current());
       Runtime* const runtime = Runtime::Current();
       DCHECK(options_.class_loader_ != nullptr);
       Handle<mirror::DexCache> dex_cache = hs->NewHandle(
@@ -3017,7 +3020,7 @@ class IMTDumper {
           table_index++;
 
           std::string p_name = ptr2->PrettyMethod(true);
-          if (android::base::StartsWith(p_name, method.c_str())) {
+          if (android::base::StartsWith(p_name, method)) {
             std::cerr << "  Slot "
                       << index
                       << " ("
@@ -3030,7 +3033,7 @@ class IMTDumper {
         }
       } else {
         std::string p_name = ptr->PrettyMethod(true);
-        if (android::base::StartsWith(p_name, method.c_str())) {
+        if (android::base::StartsWith(p_name, method)) {
           std::cerr << "  Slot " << index << " (1)" << std::endl;
           std::cerr << "    " << p_name << std::endl;
         } else {
@@ -3043,7 +3046,7 @@ class IMTDumper {
               for (ArtMethod& iface_method : iface->GetMethods(pointer_size)) {
                 if (ImTable::GetImtIndex(&iface_method) == index) {
                   std::string i_name = iface_method.PrettyMethod(true);
-                  if (android::base::StartsWith(i_name, method.c_str())) {
+                  if (android::base::StartsWith(i_name, method)) {
                     std::cerr << "  Slot " << index << " (1)" << std::endl;
                     std::cerr << "    " << p_name << " (" << i_name << ")" << std::endl;
                   }

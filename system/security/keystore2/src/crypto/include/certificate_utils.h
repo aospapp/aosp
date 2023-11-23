@@ -20,6 +20,7 @@
 #include <openssl/x509.h>
 #include <stdint.h>
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <variant>

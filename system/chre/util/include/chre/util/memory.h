@@ -59,6 +59,14 @@ void uninitializedMoveOrCopy(ElementType *source, size_t count,
 template <typename T, typename... Args>
 T *memoryAlloc(Args &&... args);
 
+/**
+ * Destroys an element and deallocate its memory.
+ *
+ * @param element the element to be destroy. Needs to be from memoryAlloc.
+ */
+template <typename T>
+void memoryFreeAndDestroy(T *element);
+
 }  // namespace chre
 
 #include "chre/util/memory_impl.h"

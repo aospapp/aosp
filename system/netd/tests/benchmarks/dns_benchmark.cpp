@@ -65,11 +65,12 @@ public:
             std::vector<std::string> domains = { "example.com" };
             std::vector<std::string> servers;
             dns.SetupMappings(num_hosts, domains, &mappings);
-
             dns.SetupDNSServers(MAXNS, mappings, &mDns, &servers);
-
-            const std::vector<int> mDefaultParams_Binder = {300, 25, 8, 8, 1000};
-            dns.SetResolversForNetwork(servers, domains, mDefaultParams_Binder);
+            dns.SetResolversFromParcel(ResolverParams::Builder()
+                                               .setDnsServers(servers)
+                                               .setDotServers({})
+                                               .setDomains(domains)
+                                               .build());
         }
     }
 

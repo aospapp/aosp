@@ -1,4 +1,3 @@
-#!/usr/bin/env python2
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -124,10 +123,8 @@ class StorageStateValidator(object):
             if run_badblocks is None:
                 if _is_time_to_run_badblocks_ro(dhp):
                     run_badblocks = BADBLOCK_CHECK_RO
-                # Blocked for now till we confirm that SMART stats is not
-                # detect is before we do.
-                # if usb_boot and _is_time_to_run_badblocks_rw(dhp):
-                #     run_badblocks = BADBLOCK_CHECK_RW
+                if usb_boot and _is_time_to_run_badblocks_rw(dhp):
+                    run_badblocks = BADBLOCK_CHECK_RW
             logging.debug('run_badblocks=%s', run_badblocks)
             if usb_boot and run_badblocks == BADBLOCK_CHECK_RW:
                 self._run_read_write_badblocks_check()

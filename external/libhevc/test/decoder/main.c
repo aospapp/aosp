@@ -175,6 +175,7 @@ typedef struct
 {
     UWORD32 u4_piclen_flag;
     UWORD32 u4_file_save_flag;
+    UWORD32 u4_frame_info_enable;
     UWORD32 u4_chksum_save_flag;
     UWORD32 u4_max_frm_ts;
     IV_COLOR_FORMAT_T e_output_chroma_format;
@@ -198,6 +199,8 @@ typedef struct
     CHAR ac_piclen_fname[STRLENGTH];
     CHAR ac_ip_fname[STRLENGTH];
     CHAR ac_op_fname[STRLENGTH];
+    CHAR ac_qp_map_fname[STRLENGTH];
+    CHAR ac_blk_type_map_fname[STRLENGTH];
     CHAR ac_op_chksum_fname[STRLENGTH];
     ivd_out_bufdesc_t s_disp_buffers[MAX_DISP_BUFFERS];
     iv_yuv_buf_t s_disp_frm_queue[MAX_DISP_BUFFERS];
@@ -250,8 +253,11 @@ typedef enum
     VERSION,
     INPUT_FILE,
     OUTPUT,
+    QP_MAP_FILE,
+    BLK_TYPE_MAP_FILE,
     CHKSUM,
     SAVE_OUTPUT,
+    SAVE_FRAME_INFO,
     SAVE_CHKSUM,
     CHROMA_FORMAT,
     NUM_FRAMES,
@@ -294,6 +300,10 @@ static const argument_t argument_mapping[] =
         "Input file\n" },
     { "-o",  "--output",                 OUTPUT,
         "Output file\n" },
+    { "--",  "--qp_map_file",            QP_MAP_FILE,
+        "QP map file\n\n" },
+    { "--",  "--blk_type_map_file",      BLK_TYPE_MAP_FILE,
+        "Block Type Map file\n" },
     { "--",  "--piclen",                 PICLEN,
         "Flag to signal if the decoder has to use a file containing number of bytes in each picture to be fed in each call\n" },
     { "--",  "--piclen_file",                 PICLEN_FILE,
@@ -302,6 +312,8 @@ static const argument_t argument_mapping[] =
         "Output MD5 Checksum file\n" },
     { "-s", "--save_output",            SAVE_OUTPUT,
         "Save Output file\n" },
+    { "--", "--save_frame_info",        SAVE_FRAME_INFO,
+        "Enable frame_info\n" },
     { "--", "--save_chksum",            SAVE_CHKSUM,
         "Save Check sum file\n" },
     { "--",  "--chroma_format",          CHROMA_FORMAT,
@@ -866,12 +878,16 @@ void codec_exit(CHAR *pc_err_message)
 /*****************************************************************************/
 void dump_output(vid_dec_ctx_t *ps_app_ctx,
                  iv_yuv_buf_t *ps_disp_frm_buf,
+                 ihevcd_cxa_video_decode_op_t *ps_hevcd_decode_op,
                  UWORD32 u4_disp_frm_id,
                  FILE *ps_op_file,
+                 FILE *ps_qp_file,
+                 FILE *ps_cu_type_file,
                  FILE *ps_op_chksum_file,
                  WORD32 i4_op_frm_ts,
                  UWORD32 file_save,
-                 UWORD32 chksum_save)
+                 UWORD32 chksum_save,
+                 UWORD32 cu_info_save)
 
 {
 
@@ -918,8 +934,25 @@ void dump_output(vid_dec_ctx_t *ps_app_ctx,
 
     release_disp_frame(ps_app_ctx->cocodec_obj, u4_disp_id);
 
-    if(0 == file_save && 0 == chksum_save)
+    if(0 == file_save && 0 == chksum_save && 0 == cu_info_save)
         return;
+
+    if(0 != cu_info_save)
+    {
+        UWORD8 *buf;
+        if(ps_hevcd_decode_op->pu1_8x8_blk_qp_map && ps_qp_file)
+        {
+            buf = ps_hevcd_decode_op->pu1_8x8_blk_qp_map;
+            fwrite(buf, 1, ps_hevcd_decode_op->u4_8x8_blk_qp_map_size, ps_qp_file);
+            fflush(ps_qp_file);
+        }
+        if(ps_hevcd_decode_op->pu1_8x8_blk_type_map && ps_cu_type_file)
+        {
+            buf = ps_hevcd_decode_op->pu1_8x8_blk_type_map;
+            fwrite(buf, 1, ps_hevcd_decode_op->u4_8x8_blk_type_map_size, ps_cu_type_file);
+            fflush(ps_cu_type_file);
+        }
+    }
 
     if(NULL == s_dump_disp_frm_buf.pv_y_buf)
         return;
@@ -1162,20 +1195,32 @@ void parse_argument(vid_dec_ctx_t *ps_app_ctx, CHAR *argument, CHAR *value)
         case VERSION:
             break;
         case INPUT_FILE:
-            sscanf(value, "%s", ps_app_ctx->ac_ip_fname);
+            snprintf(value, STRLENGTH, "%s", ps_app_ctx->ac_ip_fname);
             //input_passed = 1;
             break;
 
         case OUTPUT:
-            sscanf(value, "%s", ps_app_ctx->ac_op_fname);
+            snprintf(value, STRLENGTH, "%s", ps_app_ctx->ac_op_fname);
+            break;
+
+        case QP_MAP_FILE:
+            snprintf(value, STRLENGTH, "%s", ps_app_ctx->ac_qp_map_fname);
+            break;
+
+        case BLK_TYPE_MAP_FILE:
+            snprintf(value, STRLENGTH, "%s", ps_app_ctx->ac_blk_type_map_fname);
             break;
 
         case CHKSUM:
-            sscanf(value, "%s", ps_app_ctx->ac_op_chksum_fname);
+            snprintf(value, STRLENGTH, "%s", ps_app_ctx->ac_op_chksum_fname);
             break;
 
         case SAVE_OUTPUT:
             sscanf(value, "%d", &ps_app_ctx->u4_file_save_flag);
+            break;
+
+        case SAVE_FRAME_INFO:
+            sscanf(value, "%d", &ps_app_ctx->u4_frame_info_enable);
             break;
 
         case SAVE_CHKSUM:
@@ -1287,7 +1332,7 @@ void parse_argument(vid_dec_ctx_t *ps_app_ctx, CHAR *argument, CHAR *value)
             break;
 
         case PICLEN_FILE:
-            sscanf(value, "%s", ps_app_ctx->ac_piclen_fname);
+            snprintf(value, STRLENGTH, "%s", ps_app_ctx->ac_piclen_fname);
             break;
 
         case INVALID:
@@ -1596,6 +1641,10 @@ void flush_output(iv_obj_t *codec_obj,
                   UWORD8 *pu1_bs_buf,
                   UWORD32 *pu4_op_frm_ts,
                   FILE *ps_op_file,
+                  FILE *ps_qp_file,
+                  FILE *ps_cu_type_file,
+                  UWORD8 *pu1_qp_map_buf,
+                  UWORD8 *pu1_blk_type_map_buf,
                   FILE *ps_op_chksum_file,
                   UWORD32 u4_ip_frm_ts,
                   UWORD32 u4_bytes_remaining)
@@ -1625,45 +1674,55 @@ void flush_output(iv_obj_t *codec_obj,
 
         if(IV_SUCCESS == ret)
         {
-            ivd_video_decode_ip_t s_video_decode_ip;
-            ivd_video_decode_op_t s_video_decode_op;
+            ihevcd_cxa_video_decode_ip_t s_hevcd_video_decode_ip = {};
+            ihevcd_cxa_video_decode_op_t s_hevcd_video_decode_op = {};
+            ivd_video_decode_ip_t *ps_video_decode_ip =
+                &s_hevcd_video_decode_ip.s_ivd_video_decode_ip_t;
+            ivd_video_decode_op_t *ps_video_decode_op =
+                &s_hevcd_video_decode_op.s_ivd_video_decode_op_t;
 
-            s_video_decode_ip.e_cmd = IVD_CMD_VIDEO_DECODE;
-            s_video_decode_ip.u4_ts = u4_ip_frm_ts;
-            s_video_decode_ip.pv_stream_buffer = pu1_bs_buf;
-            s_video_decode_ip.u4_num_Bytes = u4_bytes_remaining;
-            s_video_decode_ip.u4_size = sizeof(ivd_video_decode_ip_t);
-            s_video_decode_ip.s_out_buffer.u4_min_out_buf_size[0] =
+            ps_video_decode_ip->e_cmd = IVD_CMD_VIDEO_DECODE;
+            ps_video_decode_ip->u4_ts = u4_ip_frm_ts;
+            ps_video_decode_ip->pv_stream_buffer = pu1_bs_buf;
+            ps_video_decode_ip->u4_num_Bytes = u4_bytes_remaining;
+            ps_video_decode_ip->u4_size = sizeof(ihevcd_cxa_video_decode_ip_t);
+            ps_video_decode_ip->s_out_buffer.u4_min_out_buf_size[0] =
                             ps_out_buf->u4_min_out_buf_size[0];
-            s_video_decode_ip.s_out_buffer.u4_min_out_buf_size[1] =
+            ps_video_decode_ip->s_out_buffer.u4_min_out_buf_size[1] =
                             ps_out_buf->u4_min_out_buf_size[1];
-            s_video_decode_ip.s_out_buffer.u4_min_out_buf_size[2] =
+            ps_video_decode_ip->s_out_buffer.u4_min_out_buf_size[2] =
                             ps_out_buf->u4_min_out_buf_size[2];
 
-            s_video_decode_ip.s_out_buffer.pu1_bufs[0] =
+            ps_video_decode_ip->s_out_buffer.pu1_bufs[0] =
                             ps_out_buf->pu1_bufs[0];
-            s_video_decode_ip.s_out_buffer.pu1_bufs[1] =
+            ps_video_decode_ip->s_out_buffer.pu1_bufs[1] =
                             ps_out_buf->pu1_bufs[1];
-            s_video_decode_ip.s_out_buffer.pu1_bufs[2] =
+            ps_video_decode_ip->s_out_buffer.pu1_bufs[2] =
                             ps_out_buf->pu1_bufs[2];
-            s_video_decode_ip.s_out_buffer.u4_num_bufs =
+            ps_video_decode_ip->s_out_buffer.u4_num_bufs =
                             ps_out_buf->u4_num_bufs;
 
-            s_video_decode_op.u4_size = sizeof(ivd_video_decode_op_t);
+            ps_video_decode_op->u4_size = sizeof(ihevcd_cxa_video_decode_op_t);
+            s_hevcd_video_decode_ip.pu1_8x8_blk_qp_map = pu1_qp_map_buf;
+            s_hevcd_video_decode_ip.pu1_8x8_blk_type_map = pu1_blk_type_map_buf;
+            s_hevcd_video_decode_ip.u4_8x8_blk_qp_map_size =
+                (ADAPTIVE_MAX_HT * ADAPTIVE_MAX_WD) >> 6;
+            s_hevcd_video_decode_ip.u4_8x8_blk_type_map_size =
+                (ADAPTIVE_MAX_HT * ADAPTIVE_MAX_WD) >> 6;
 
             /*****************************************************************************/
             /*   API Call: Video Decode                                                  */
             /*****************************************************************************/
-            ret = ivd_cxa_api_function((iv_obj_t *)codec_obj, (void *)&s_video_decode_ip,
-                                       (void *)&s_video_decode_op);
+            ret = ivd_cxa_api_function((iv_obj_t *)codec_obj, (void *)&s_hevcd_video_decode_ip,
+                                       (void *)&s_hevcd_video_decode_op);
 
-            if(1 == s_video_decode_op.u4_output_present)
+            if(1 == ps_video_decode_op->u4_output_present)
             {
-                dump_output(ps_app_ctx, &(s_video_decode_op.s_disp_frm_buf),
-                            s_video_decode_op.u4_disp_buf_id, ps_op_file,
-                            ps_op_chksum_file,
+                dump_output(ps_app_ctx, &(ps_video_decode_op->s_disp_frm_buf),
+                            &s_hevcd_video_decode_op, ps_video_decode_op->u4_disp_buf_id,
+                            ps_op_file, ps_qp_file, ps_cu_type_file, ps_op_chksum_file,
                             *pu4_op_frm_ts, ps_app_ctx->u4_file_save_flag,
-                            ps_app_ctx->u4_chksum_save_flag);
+                            ps_app_ctx->u4_chksum_save_flag, ps_app_ctx->u4_frame_info_enable);
 
                 (*pu4_op_frm_ts)++;
             }
@@ -1725,6 +1784,8 @@ int main(WORD32 argc, CHAR *argv[])
     FILE *ps_piclen_file = NULL;
     FILE *ps_ip_file = NULL;
     FILE *ps_op_file = NULL;
+    FILE *ps_qp_file = NULL;
+    FILE *ps_cu_type_file = NULL;
     FILE *ps_op_chksum_file = NULL;
     WORD32 ret;
     CHAR ac_error_str[STRLENGTH];
@@ -1742,6 +1803,8 @@ int main(WORD32 argc, CHAR *argv[])
     UWORD32 u4_ip_buf_len;
     UWORD32 frm_cnt = 0;
     WORD32 total_bytes_comsumed;
+    UWORD8 *pu1_qp_map_buf = NULL;
+    UWORD8 *pu1_blk_type_map_buf = NULL;
 
 #ifdef PROFILE_ENABLE
     UWORD32 u4_tot_cycles = 0;
@@ -1815,6 +1878,7 @@ int main(WORD32 argc, CHAR *argv[])
     s_app_ctx.display = 0;
     s_app_ctx.full_screen = 0;
     s_app_ctx.u4_piclen_flag = 0;
+    s_app_ctx.u4_frame_info_enable = 0;
     s_app_ctx.fps = DEFAULT_FPS;
     file_pos = 0;
     total_bytes_comsumed = 0;
@@ -1900,11 +1964,12 @@ int main(WORD32 argc, CHAR *argv[])
         {
             if(CONFIG == get_argument(argv[i]))
             {
-                strcpy(ac_cfg_fname, argv[i + 1]);
+                strncpy(ac_cfg_fname, argv[i + 1], STRLENGTH);
+                ac_cfg_fname[STRLENGTH - 1] = '\0';
                 if((fp_cfg_file = fopen(ac_cfg_fname, "r")) == NULL)
                 {
-                    sprintf(ac_error_str, "Could not open Configuration file %s",
-                            ac_cfg_fname);
+                    snprintf(ac_error_str, sizeof(ac_error_str),
+                            "Could not open Configuration file %s", ac_cfg_fname);
                     codec_exit(ac_error_str);
                 }
                 read_cfg_file(&s_app_ctx, fp_cfg_file);
@@ -1920,7 +1985,7 @@ int main(WORD32 argc, CHAR *argv[])
     {
         if((fp_cfg_file = fopen(ac_cfg_fname, "r")) == NULL)
         {
-            sprintf(ac_error_str, "Could not open Configuration file %s",
+            snprintf(ac_error_str, sizeof(ac_error_str), "Could not open Configuration file %s",
                     ac_cfg_fname);
             codec_exit(ac_error_str);
         }
@@ -1928,10 +1993,10 @@ int main(WORD32 argc, CHAR *argv[])
         fclose(fp_cfg_file);
     }
 #else
-    sprintf(filename_with_path, "%s/%s", homedir, ac_cfg_fname);
+    snprintf(filename_with_path, sizeof(filename_with_path), "%s/%s", homedir, ac_cfg_fname);
     if((fp_cfg_file = fopen(filename_with_path, "r")) == NULL)
     {
-        sprintf(ac_error_str, "Could not open Configuration file %s",
+        snprintf(ac_error_str, sizeof(ac_error_str), "Could not open Configuration file %s",
                 ac_cfg_fname);
         codec_exit(ac_error_str);
 
@@ -1964,19 +2029,24 @@ int main(WORD32 argc, CHAR *argv[])
         exit(-1);
     }
 
+    if(1 == s_app_ctx.u4_frame_info_enable)
+    {
+        pu1_qp_map_buf = calloc(ADAPTIVE_MAX_WD * ADAPTIVE_MAX_HT >> 6, 1);
+        pu1_blk_type_map_buf = calloc(ADAPTIVE_MAX_WD * ADAPTIVE_MAX_HT >> 6, 1);
+    }
 
     /***********************************************************************/
     /*          create the file object for input file                      */
     /***********************************************************************/
 #ifdef IOS
-    sprintf(filename_with_path, "%s/%s", homedir, s_app_ctx.ac_ip_fname);
+    snprintf(filename_with_path, sizeof(filename_with_path), "%s/%s", homedir, s_app_ctx.ac_ip_fname);
     ps_ip_file = fopen(filename_with_path, "rb");
 #else
     ps_ip_file = fopen(s_app_ctx.ac_ip_fname, "rb");
 #endif
     if(NULL == ps_ip_file)
     {
-        sprintf(ac_error_str, "Could not open input file %s",
+        snprintf(ac_error_str, sizeof(ac_error_str), "Could not open input file %s",
                 s_app_ctx.ac_ip_fname);
         codec_exit(ac_error_str);
     }
@@ -1986,14 +2056,14 @@ int main(WORD32 argc, CHAR *argv[])
     if(1 == s_app_ctx.u4_piclen_flag)
     {
 #ifdef IOS
-        sprintf(filename_with_path, "%s/%s", homedir, s_app_ctx.ac_piclen_fname);
+        snprintf(filename_with_path, sizeof(filename_with_path), "%s/%s", homedir, s_app_ctx.ac_piclen_fname);
         ps_piclen_file = fopen(filename_with_path, "rb");
 #else
         ps_piclen_file = fopen(s_app_ctx.ac_piclen_fname, "rb");
 #endif
         if(NULL == ps_piclen_file)
         {
-            sprintf(ac_error_str, "Could not open piclen file %s",
+            snprintf(ac_error_str, sizeof(ac_error_str), "Could not open piclen file %s",
                     s_app_ctx.ac_piclen_fname);
             codec_exit(ac_error_str);
         }
@@ -2005,7 +2075,7 @@ int main(WORD32 argc, CHAR *argv[])
     if(1 == s_app_ctx.u4_file_save_flag)
     {
 #ifdef IOS
-        sprintf(filename_with_path, "%s/%s", documentdir, s_app_ctx.ac_op_fname);
+        snprintf(filename_with_path, sizeof(filename_with_path), "%s/%s", documentdir, s_app_ctx.ac_op_fname);
         ps_op_file = fopen(filename_with_path, "wb");
 #else
         ps_op_file = fopen(s_app_ctx.ac_op_fname, "wb");
@@ -2013,9 +2083,35 @@ int main(WORD32 argc, CHAR *argv[])
 
         if(NULL == ps_op_file)
         {
-            sprintf(ac_error_str, "Could not open output file %s",
+            snprintf(ac_error_str, sizeof(ac_error_str), "Could not open output file %s",
                     s_app_ctx.ac_op_fname);
             codec_exit(ac_error_str);
+        }
+    }
+
+    /***********************************************************************/
+    /*          create the file object for cuinfo file                     */
+    /***********************************************************************/
+    if(1 == s_app_ctx.u4_frame_info_enable)
+    {
+#ifdef IOS
+        snprintf(filename_with_path, sizeof(filename_with_path), "%s/%s", documentdir, s_app_ctx.ac_qp_map_fname);
+        ps_qp_file = fopen(filename_with_path, "wb");
+
+        snprintf(filename_with_path, sizeof(filename_with_path), "%s/%s", documentdir, s_app_ctx.ac_blk_type_map_fname);
+        ps_cu_type_file = fopen(filename_with_path, "wb");
+#else
+        ps_qp_file = fopen(s_app_ctx.ac_qp_map_fname, "wb");
+        ps_cu_type_file = fopen(s_app_ctx.ac_blk_type_map_fname, "wb");
+#endif
+
+        if(NULL == ps_qp_file)
+        {
+            snprintf(ac_error_str, sizeof(ac_error_str), "Could not open output file %s", s_app_ctx.ac_qp_map_fname);
+        }
+        if(NULL == ps_cu_type_file)
+        {
+            snprintf(ac_error_str, sizeof(ac_error_str), "Could not open output file %s", s_app_ctx.ac_blk_type_map_fname);
         }
     }
 
@@ -2025,14 +2121,14 @@ int main(WORD32 argc, CHAR *argv[])
     if(1 == s_app_ctx.u4_chksum_save_flag)
     {
 #if IOS
-        sprintf(filename_with_path, "%s/%s", documentdir, s_app_ctx.ac_op_chksum_fname);
+        snprintf(filename_with_path, sizeof(filename_with_path), "%s/%s", documentdir, s_app_ctx.ac_op_chksum_fname);
         ps_op_chksum_file = fopen(filename_with_path, "wb");
 #else
         ps_op_chksum_file = fopen(s_app_ctx.ac_op_chksum_fname, "wb");
 #endif
         if(NULL == ps_op_chksum_file)
         {
-            sprintf(ac_error_str, "Could not open check sum file %s",
+            snprintf(ac_error_str, sizeof(ac_error_str), "Could not open check sum file %s",
                     s_app_ctx.ac_op_chksum_fname);
             codec_exit(ac_error_str);
         }
@@ -2060,6 +2156,7 @@ int main(WORD32 argc, CHAR *argv[])
             s_create_ip.s_ivd_create_ip_t.pv_mem_ctxt = NULL;
             s_create_ip.s_ivd_create_ip_t.u4_size = sizeof(ihevcd_cxa_create_ip_t);
             s_create_op.s_ivd_create_op_t.u4_size = sizeof(ihevcd_cxa_create_op_t);
+            s_create_ip.u4_enable_frame_info = s_app_ctx.u4_frame_info_enable;
 
 
 
@@ -2128,39 +2225,45 @@ int main(WORD32 argc, CHAR *argv[])
 
     }
 
-    flush_output(codec_obj, &s_app_ctx, ps_out_buf,
-                 pu1_bs_buf, &u4_op_frm_ts,
-                 ps_op_file, ps_op_chksum_file,
-                 u4_ip_frm_ts, u4_bytes_remaining);
+    flush_output(codec_obj, &s_app_ctx, ps_out_buf, pu1_bs_buf, &u4_op_frm_ts,
+                 ps_op_file, ps_qp_file, ps_cu_type_file,
+                 pu1_qp_map_buf, pu1_blk_type_map_buf,
+                 ps_op_chksum_file, u4_ip_frm_ts, u4_bytes_remaining);
 
     /*****************************************************************************/
     /*   Decode header to get width and height and buffer sizes                  */
     /*****************************************************************************/
     {
-        ivd_video_decode_ip_t s_video_decode_ip;
-        ivd_video_decode_op_t s_video_decode_op;
+        ihevcd_cxa_video_decode_ip_t s_hevcd_video_decode_ip = {};
+        ihevcd_cxa_video_decode_op_t s_hevcd_video_decode_op = {};
+        ivd_video_decode_ip_t *ps_video_decode_ip =
+            &s_hevcd_video_decode_ip.s_ivd_video_decode_ip_t;
+        ivd_video_decode_op_t *ps_video_decode_op =
+            &s_hevcd_video_decode_op.s_ivd_video_decode_op_t;
 
 
 
         {
-            ivd_ctl_set_config_ip_t s_ctl_ip;
-            ivd_ctl_set_config_op_t s_ctl_op;
+            ihevcd_cxa_ctl_set_config_ip_t s_hevcd_ctl_ip = {};
+            ihevcd_cxa_ctl_set_config_op_t s_hevcd_ctl_op = {};
+            ivd_ctl_set_config_ip_t *ps_ctl_ip = &s_hevcd_ctl_ip.s_ivd_ctl_set_config_ip_t;
+            ivd_ctl_set_config_op_t *ps_ctl_op = &s_hevcd_ctl_op.s_ivd_ctl_set_config_op_t;
 
-
-            s_ctl_ip.u4_disp_wd = STRIDE;
+            ps_ctl_ip->u4_disp_wd = STRIDE;
             if(1 == s_app_ctx.display)
-                s_ctl_ip.u4_disp_wd = s_app_ctx.get_stride();
+                ps_ctl_ip->u4_disp_wd = s_app_ctx.get_stride();
 
-            s_ctl_ip.e_frm_skip_mode = IVD_SKIP_NONE;
-            s_ctl_ip.e_frm_out_mode = IVD_DISPLAY_FRAME_OUT;
-            s_ctl_ip.e_vid_dec_mode = IVD_DECODE_HEADER;
-            s_ctl_ip.e_cmd = IVD_CMD_VIDEO_CTL;
-            s_ctl_ip.e_sub_cmd = IVD_CMD_CTL_SETPARAMS;
-            s_ctl_ip.u4_size = sizeof(ivd_ctl_set_config_ip_t);
-            s_ctl_op.u4_size = sizeof(ivd_ctl_set_config_op_t);
+            ps_ctl_ip->e_frm_skip_mode = IVD_SKIP_NONE;
+            ps_ctl_ip->e_frm_out_mode = IVD_DISPLAY_FRAME_OUT;
+            ps_ctl_ip->e_vid_dec_mode = IVD_DECODE_HEADER;
+            ps_ctl_ip->e_cmd = IVD_CMD_VIDEO_CTL;
+            ps_ctl_ip->e_sub_cmd = IVD_CMD_CTL_SETPARAMS;
+            ps_ctl_ip->u4_size = sizeof(ihevcd_cxa_ctl_set_config_ip_t);
 
-            ret = ivd_cxa_api_function((iv_obj_t*)codec_obj, (void *)&s_ctl_ip,
-                                       (void *)&s_ctl_op);
+            ps_ctl_op->u4_size = sizeof(ihevcd_cxa_ctl_set_config_op_t);
+
+            ret = ivd_cxa_api_function((iv_obj_t*)codec_obj, (void *)&s_hevcd_ctl_ip,
+                                       (void *)&s_hevcd_ctl_op);
             if(ret != IV_SUCCESS)
             {
                 sprintf(ac_error_str,
@@ -2206,37 +2309,44 @@ int main(WORD32 argc, CHAR *argv[])
                 codec_exit(ac_error_str);
             }
 
-            s_video_decode_ip.e_cmd = IVD_CMD_VIDEO_DECODE;
-            s_video_decode_ip.u4_ts = u4_ip_frm_ts;
-            s_video_decode_ip.pv_stream_buffer = pu1_bs_buf;
-            s_video_decode_ip.u4_num_Bytes = u4_bytes_remaining;
-            s_video_decode_ip.u4_size = sizeof(ivd_video_decode_ip_t);
-            s_video_decode_op.u4_size = sizeof(ivd_video_decode_op_t);
+            ps_video_decode_ip->e_cmd = IVD_CMD_VIDEO_DECODE;
+            ps_video_decode_ip->u4_ts = u4_ip_frm_ts;
+            ps_video_decode_ip->pv_stream_buffer = pu1_bs_buf;
+            ps_video_decode_ip->u4_num_Bytes = u4_bytes_remaining;
+            ps_video_decode_ip->u4_size = sizeof(ihevcd_cxa_video_decode_ip_t);
+
+            ps_video_decode_op->u4_size = sizeof(ihevcd_cxa_video_decode_op_t);
+            s_hevcd_video_decode_ip.pu1_8x8_blk_qp_map = pu1_qp_map_buf;
+            s_hevcd_video_decode_ip.pu1_8x8_blk_type_map = pu1_blk_type_map_buf;
+            s_hevcd_video_decode_ip.u4_8x8_blk_qp_map_size =
+                (ADAPTIVE_MAX_HT * ADAPTIVE_MAX_WD) >> 6;
+            s_hevcd_video_decode_ip.u4_8x8_blk_type_map_size =
+                (ADAPTIVE_MAX_HT * ADAPTIVE_MAX_WD) >> 6;
 
             /*****************************************************************************/
             /*   API Call: Header Decode                                                  */
             /*****************************************************************************/
-            ret = ivd_cxa_api_function((iv_obj_t *)codec_obj, (void *)&s_video_decode_ip,
-                                       (void *)&s_video_decode_op);
+            ret = ivd_cxa_api_function((iv_obj_t *)codec_obj, (void *)&s_hevcd_video_decode_ip,
+                                       (void *)&s_hevcd_video_decode_op);
 
             if(ret != IV_SUCCESS)
             {
                 sprintf(ac_error_str, "\nError in header decode %x",
-                        s_video_decode_op.u4_error_code);
+                        ps_video_decode_op->u4_error_code);
                 // codec_exit(ac_error_str);
             }
 
-            u4_num_bytes_dec = s_video_decode_op.u4_num_bytes_consumed;
+            u4_num_bytes_dec = ps_video_decode_op->u4_num_bytes_consumed;
 #ifndef PROFILE_ENABLE
-            printf("%d\n",s_video_decode_op.u4_num_bytes_consumed);
+            printf("%d\n",ps_video_decode_op->u4_num_bytes_consumed);
 #endif
             file_pos += u4_num_bytes_dec;
             total_bytes_comsumed += u4_num_bytes_dec;
         }while(ret != IV_SUCCESS);
 
         /* copy pic_wd and pic_ht to initialize buffers */
-        s_app_ctx.u4_pic_wd = s_video_decode_op.u4_pic_wd;
-        s_app_ctx.u4_pic_ht = s_video_decode_op.u4_pic_ht;
+        s_app_ctx.u4_pic_wd = ps_video_decode_op->u4_pic_wd;
+        s_app_ctx.u4_pic_ht = ps_video_decode_op->u4_pic_ht;
 
         free(pu1_bs_buf);
 
@@ -2698,8 +2808,12 @@ int main(WORD32 argc, CHAR *argv[])
 
 
         {
-            ivd_video_decode_ip_t s_video_decode_ip;
-            ivd_video_decode_op_t s_video_decode_op;
+            ihevcd_cxa_video_decode_ip_t s_hevcd_video_decode_ip = {};
+            ihevcd_cxa_video_decode_op_t s_hevcd_video_decode_op = {};
+            ivd_video_decode_ip_t *ps_video_decode_ip =
+                &s_hevcd_video_decode_ip.s_ivd_video_decode_ip_t;
+            ivd_video_decode_op_t *ps_video_decode_op =
+                &s_hevcd_video_decode_op.s_ivd_video_decode_op_t;
 #ifdef PROFILE_ENABLE
             UWORD32 s_elapsed_time;
             TIMER s_start_timer;
@@ -2707,27 +2821,34 @@ int main(WORD32 argc, CHAR *argv[])
 #endif
 
 
-            s_video_decode_ip.e_cmd = IVD_CMD_VIDEO_DECODE;
-            s_video_decode_ip.u4_ts = u4_ip_frm_ts;
-            s_video_decode_ip.pv_stream_buffer = pu1_bs_buf;
-            s_video_decode_ip.u4_num_Bytes = u4_bytes_remaining;
-            s_video_decode_ip.u4_size = sizeof(ivd_video_decode_ip_t);
-            s_video_decode_ip.s_out_buffer.u4_min_out_buf_size[0] =
+            ps_video_decode_ip->e_cmd = IVD_CMD_VIDEO_DECODE;
+            ps_video_decode_ip->u4_ts = u4_ip_frm_ts;
+            ps_video_decode_ip->pv_stream_buffer = pu1_bs_buf;
+            ps_video_decode_ip->u4_num_Bytes = u4_bytes_remaining;
+            ps_video_decode_ip->u4_size = sizeof(ihevcd_cxa_video_decode_ip_t);
+            ps_video_decode_ip->s_out_buffer.u4_min_out_buf_size[0] =
                             ps_out_buf->u4_min_out_buf_size[0];
-            s_video_decode_ip.s_out_buffer.u4_min_out_buf_size[1] =
+            ps_video_decode_ip->s_out_buffer.u4_min_out_buf_size[1] =
                             ps_out_buf->u4_min_out_buf_size[1];
-            s_video_decode_ip.s_out_buffer.u4_min_out_buf_size[2] =
+            ps_video_decode_ip->s_out_buffer.u4_min_out_buf_size[2] =
                             ps_out_buf->u4_min_out_buf_size[2];
 
-            s_video_decode_ip.s_out_buffer.pu1_bufs[0] =
+            ps_video_decode_ip->s_out_buffer.pu1_bufs[0] =
                             ps_out_buf->pu1_bufs[0];
-            s_video_decode_ip.s_out_buffer.pu1_bufs[1] =
+            ps_video_decode_ip->s_out_buffer.pu1_bufs[1] =
                             ps_out_buf->pu1_bufs[1];
-            s_video_decode_ip.s_out_buffer.pu1_bufs[2] =
+            ps_video_decode_ip->s_out_buffer.pu1_bufs[2] =
                             ps_out_buf->pu1_bufs[2];
-            s_video_decode_ip.s_out_buffer.u4_num_bufs =
+            ps_video_decode_ip->s_out_buffer.u4_num_bufs =
                             ps_out_buf->u4_num_bufs;
-            s_video_decode_op.u4_size = sizeof(ivd_video_decode_op_t);
+
+            ps_video_decode_op->u4_size = sizeof(ihevcd_cxa_video_decode_op_t);
+            s_hevcd_video_decode_ip.pu1_8x8_blk_qp_map = pu1_qp_map_buf;
+            s_hevcd_video_decode_ip.pu1_8x8_blk_type_map = pu1_blk_type_map_buf;
+            s_hevcd_video_decode_ip.u4_8x8_blk_qp_map_size =
+                (ADAPTIVE_MAX_HT * ADAPTIVE_MAX_WD) >> 6;
+            s_hevcd_video_decode_ip.u4_8x8_blk_type_map_size =
+                (ADAPTIVE_MAX_HT * ADAPTIVE_MAX_WD) >> 6;
 
             /* Get display buffer pointers */
             if(1 == s_app_ctx.display)
@@ -2740,9 +2861,9 @@ int main(WORD32 argc, CHAR *argv[])
                     break;
 
                 s_app_ctx.set_disp_buffers(s_app_ctx.pv_disp_ctx, wr_idx,
-                                           &s_video_decode_ip.s_out_buffer.pu1_bufs[0],
-                                           &s_video_decode_ip.s_out_buffer.pu1_bufs[1],
-                                           &s_video_decode_ip.s_out_buffer.pu1_bufs[2]);
+                                           &ps_video_decode_ip->s_out_buffer.pu1_bufs[0],
+                                           &ps_video_decode_ip->s_out_buffer.pu1_bufs[1],
+                                           &ps_video_decode_ip->s_out_buffer.pu1_bufs[2]);
             }
 
             /*****************************************************************************/
@@ -2751,8 +2872,8 @@ int main(WORD32 argc, CHAR *argv[])
 
             GETTIME(&s_start_timer);
 
-            ret = ivd_cxa_api_function((iv_obj_t *)codec_obj, (void *)&s_video_decode_ip,
-                                       (void *)&s_video_decode_op);
+            ret = ivd_cxa_api_function((iv_obj_t *)codec_obj, (void *)&s_hevcd_video_decode_ip,
+                                       (void *)&s_hevcd_video_decode_op);
 
 
             GETTIME(&s_end_timer);
@@ -2774,13 +2895,16 @@ int main(WORD32 argc, CHAR *argv[])
                     peak_avg_max = peak_avg;
                 frm_cnt++;
 
-                printf("FrameNum: %4d TimeTaken(microsec): %6d AvgTime: %6d PeakAvgTimeMax: %6d Output: %2d NumBytes: %6d \n",
-                       frm_cnt, s_elapsed_time, u4_tot_cycles / frm_cnt, peak_avg_max, s_video_decode_op.u4_output_present, s_video_decode_op.u4_num_bytes_consumed);
+                printf("FrameNum: %4d TimeTaken(microsec): %6d AvgTime: %6d PeakAvgTimeMax: %6d"
+                       "Output: %2d NumBytes: %6d \n",
+                       frm_cnt, s_elapsed_time, u4_tot_cycles / frm_cnt, peak_avg_max,
+                       ps_video_decode_op->u4_output_present,
+                       ps_video_decode_op->u4_num_bytes_consumed);
 
             }
 #ifdef INTEL_CE5300
             time_consumed += s_elapsed_time;
-            bytes_consumed += s_video_decode_op.u4_num_bytes_consumed;
+            bytes_consumed += ps_video_decode_op->u4_num_bytes_consumed;
             if(!(frm_cnt % (s_app_ctx.fps)))
             {
                 time_consumed = time_consumed / s_app_ctx.fps;
@@ -2792,25 +2916,25 @@ int main(WORD32 argc, CHAR *argv[])
             }
 #endif
 #else
-            printf("%d\n", s_video_decode_op.u4_num_bytes_consumed);
+            printf("%d\n", ps_video_decode_op->u4_num_bytes_consumed);
 #endif
 
             if(ret != IV_SUCCESS)
             {
                 printf("Error in video Frame decode : ret %x Error %x\n", ret,
-                       s_video_decode_op.u4_error_code);
+                       ps_video_decode_op->u4_error_code);
             }
 
             if((IV_SUCCESS != ret) &&
-                            ((s_video_decode_op.u4_error_code & 0xFF) == IVD_RES_CHANGED))
+                            ((ps_video_decode_op->u4_error_code & 0xFF) == IVD_RES_CHANGED))
             {
                 ivd_ctl_reset_ip_t s_ctl_ip;
                 ivd_ctl_reset_op_t s_ctl_op;
 
-                flush_output(codec_obj, &s_app_ctx, ps_out_buf,
-                             pu1_bs_buf, &u4_op_frm_ts,
-                             ps_op_file, ps_op_chksum_file,
-                             u4_ip_frm_ts, u4_bytes_remaining);
+                flush_output(codec_obj, &s_app_ctx, ps_out_buf, pu1_bs_buf, &u4_op_frm_ts,
+                             ps_op_file, ps_qp_file, ps_cu_type_file,
+                             pu1_qp_map_buf, pu1_blk_type_map_buf,
+                             ps_op_chksum_file, u4_ip_frm_ts, u4_bytes_remaining);
 
                 s_ctl_ip.e_cmd = IVD_CMD_VIDEO_CTL;
                 s_ctl_ip.e_sub_cmd = IVD_CMD_CTL_RESET;
@@ -2875,7 +2999,7 @@ int main(WORD32 argc, CHAR *argv[])
             /*************************************************************************/
             /* Get SEI mastering display color volume parameters                     */
             /*************************************************************************/
-            if(1 == s_video_decode_op.u4_output_present)
+            if(1 == ps_video_decode_op->u4_output_present)
             {
 
                 ihevcd_cxa_ctl_get_sei_mastering_params_ip_t s_ctl_get_sei_mastering_params_ip;
@@ -2902,36 +3026,36 @@ int main(WORD32 argc, CHAR *argv[])
 
 
             if((1 == s_app_ctx.display) &&
-                            (1 == s_video_decode_op.u4_output_present))
+                            (1 == ps_video_decode_op->u4_output_present))
             {
                 dispq_producer_queue(&s_app_ctx);
             }
 
-            if(IV_B_FRAME == s_video_decode_op.e_pic_type)
+            if(IV_B_FRAME == ps_video_decode_op->e_pic_type)
                 s_app_ctx.b_pic_present |= 1;
 
-            u4_num_bytes_dec = s_video_decode_op.u4_num_bytes_consumed;
+            u4_num_bytes_dec = ps_video_decode_op->u4_num_bytes_consumed;
 
             file_pos += u4_num_bytes_dec;
             total_bytes_comsumed += u4_num_bytes_dec;
             u4_ip_frm_ts++;
 
 
-            if(1 == s_video_decode_op.u4_output_present)
+            if(1 == ps_video_decode_op->u4_output_present)
             {
-                width = s_video_decode_op.s_disp_frm_buf.u4_y_wd;
-                height = s_video_decode_op.s_disp_frm_buf.u4_y_ht;
-                dump_output(&s_app_ctx, &(s_video_decode_op.s_disp_frm_buf),
-                            s_video_decode_op.u4_disp_buf_id, ps_op_file,
-                            ps_op_chksum_file,
+                width = ps_video_decode_op->s_disp_frm_buf.u4_y_wd;
+                height = ps_video_decode_op->s_disp_frm_buf.u4_y_ht;
+                dump_output(&s_app_ctx, &(ps_video_decode_op->s_disp_frm_buf),
+                            &s_hevcd_video_decode_op, ps_video_decode_op->u4_disp_buf_id,
+                            ps_op_file, ps_qp_file, ps_cu_type_file, ps_op_chksum_file,
                             u4_op_frm_ts, s_app_ctx.u4_file_save_flag,
-                            s_app_ctx.u4_chksum_save_flag);
+                            s_app_ctx.u4_chksum_save_flag, s_app_ctx.u4_frame_info_enable);
 
                 u4_op_frm_ts++;
             }
             else
             {
-                if((s_video_decode_op.u4_error_code >> IVD_FATALERROR) & 1)
+                if((ps_video_decode_op->u4_error_code >> IVD_FATALERROR) & 1)
                 {
                     printf("Fatal error\n");
                     break;
@@ -2944,10 +3068,11 @@ int main(WORD32 argc, CHAR *argv[])
     /***********************************************************************/
     /*      To get the last decoded frames, call process with NULL input    */
     /***********************************************************************/
-    flush_output(codec_obj, &s_app_ctx, ps_out_buf,
-                 pu1_bs_buf, &u4_op_frm_ts,
-                 ps_op_file, ps_op_chksum_file,
-                 u4_ip_frm_ts, u4_bytes_remaining);
+    flush_output(codec_obj, &s_app_ctx, ps_out_buf, pu1_bs_buf, &u4_op_frm_ts,
+                 ps_op_file, ps_qp_file, ps_cu_type_file,
+                 pu1_qp_map_buf, pu1_blk_type_map_buf,
+                 ps_op_chksum_file, u4_ip_frm_ts, u4_bytes_remaining);
+
 
     /* set disp_end flag */
     s_app_ctx.quit = 1;
@@ -3020,6 +3145,13 @@ int main(WORD32 argc, CHAR *argv[])
         {
             fclose(ps_op_chksum_file);
         }
+        if(1 == s_app_ctx.u4_frame_info_enable)
+        {
+            if(NULL != ps_qp_file)
+                fclose(ps_qp_file);
+            if(NULL != ps_cu_type_file)
+                fclose(ps_cu_type_file);
+        }
 
     }
 
@@ -3035,6 +3167,13 @@ int main(WORD32 argc, CHAR *argv[])
 
     free(ps_out_buf);
     free(pu1_bs_buf);
+    if(1 == s_app_ctx.u4_frame_info_enable)
+    {
+        if(pu1_qp_map_buf)
+            free(pu1_qp_map_buf);
+        if(pu1_blk_type_map_buf)
+            free(pu1_blk_type_map_buf);
+    }
 
     if(s_app_ctx.display_thread_handle)
         free(s_app_ctx.display_thread_handle);

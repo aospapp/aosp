@@ -40,10 +40,12 @@ import static android.media.AudioManager.VIBRATE_SETTING_ON;
 import static android.media.AudioManager.VIBRATE_SETTING_ONLY_SILENT;
 import static android.media.AudioManager.VIBRATE_TYPE_NOTIFICATION;
 import static android.media.AudioManager.VIBRATE_TYPE_RINGER;
+import static android.media.audio.cts.AudioTestUtil.resetVolumeIndex;
 import static android.provider.Settings.Global.APPLY_RAMPING_RINGER;
 import static android.provider.Settings.System.SOUND_EFFECTS_ENABLED;
 
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertThrows;
 
 import android.Manifest;
 import android.app.NotificationChannel;
@@ -59,15 +61,16 @@ import android.media.AudioDescriptor;
 import android.media.AudioDeviceAttributes;
 import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
+import android.media.AudioHalVersionInfo;
 import android.media.AudioManager;
+import android.media.AudioMixerAttributes;
 import android.media.AudioProfile;
 import android.media.AudioTrack;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.media.MicrophoneInfo;
-import android.media.audio.cts.R;
 import android.media.audiopolicy.AudioProductStrategy;
-import android.media.cts.NonMediaMainlineTest;
+import android.media.audiopolicy.AudioVolumeGroup;
 import android.media.cts.Utils;
 import android.os.Build;
 import android.os.SystemClock;
@@ -85,6 +88,7 @@ import androidx.test.InstrumentationRegistry;
 import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.MediaUtils;
+import com.android.compatibility.common.util.NonMainlineTest;
 import com.android.compatibility.common.util.SettingsStateKeeperRule;
 import com.android.internal.annotations.GuardedBy;
 
@@ -98,40 +102,51 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 public class AudioManagerTest extends InstrumentationTestCase {
-    private final static String TAG = "AudioManagerTest";
+    private static final String TAG = "AudioManagerTest";
 
-    private final static long ASYNC_TIMING_TOLERANCE_MS = 50;
-    private final static long POLL_TIME_VOLUME_ADJUST = 200;
-    private final static long POLL_TIME_UPDATE_INTERRUPTION_FILTER = 5000;
-    private final static int MP3_TO_PLAY = R.raw.testmp3; // ~ 5 second mp3
-    private final static long POLL_TIME_PLAY_MUSIC = 2000;
-    private final static long TIME_TO_PLAY = 2000;
-    private final static String APPOPS_OP_STR = "android:write_settings";
-    private final static Set<Integer> ALL_KNOWN_ENCAPSULATION_TYPES = new HashSet<>() {{
-            add(AudioProfile.AUDIO_ENCAPSULATION_TYPE_IEC61937);
-    }};
-    private final static Set<Integer> ALL_ENCAPSULATION_TYPES = new HashSet<>() {{
-            add(AudioProfile.AUDIO_ENCAPSULATION_TYPE_NONE);
-            add(AudioProfile.AUDIO_ENCAPSULATION_TYPE_IEC61937);
-    }};
-    private final static HashSet<Integer> ALL_AUDIO_STANDARDS = new HashSet<>() {{
-            add(AudioDescriptor.STANDARD_NONE);
-            add(AudioDescriptor.STANDARD_EDID);
-    }};
-    private static final HashMap<Integer, Integer> DIRECT_OFFLOAD_MAP = new HashMap<>() {{
-            put(AudioManager.PLAYBACK_OFFLOAD_NOT_SUPPORTED,
-                    AudioManager.DIRECT_PLAYBACK_NOT_SUPPORTED);
-            put(AudioManager.PLAYBACK_OFFLOAD_SUPPORTED,
-                    AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED);
-            put(AudioManager.PLAYBACK_OFFLOAD_GAPLESS_SUPPORTED,
-                    AudioManager.DIRECT_PLAYBACK_OFFLOAD_GAPLESS_SUPPORTED);
-        }};
+    private static final long ASYNC_TIMING_TOLERANCE_MS = 50;
+    private static final long POLL_TIME_VOLUME_ADJUST = 400;
+    private static final long POLL_TIME_UPDATE_INTERRUPTION_FILTER = 5000;
+    private static final int MP3_TO_PLAY = R.raw.testmp3; // ~ 5 second mp3
+    private static final long POLL_TIME_PLAY_MUSIC = 2000;
+    private static final long TIME_TO_PLAY = 2000;
+    private static final long TIME_TO_WAIT_CALLBACK_MS = 1000;
+    private static final String APPOPS_OP_STR = "android:write_settings";
+    private static final Set<Integer> ALL_KNOWN_ENCAPSULATION_TYPES = Set.of(
+            AudioProfile.AUDIO_ENCAPSULATION_TYPE_IEC61937,
+            AudioProfile.AUDIO_ENCAPSULATION_TYPE_PCM);
+    private static final Set<Integer> ALL_ENCAPSULATION_TYPES = Set.of(
+            AudioProfile.AUDIO_ENCAPSULATION_TYPE_NONE,
+            AudioProfile.AUDIO_ENCAPSULATION_TYPE_IEC61937,
+            AudioProfile.AUDIO_ENCAPSULATION_TYPE_PCM);
+    private static final Set<Integer> ALL_AUDIO_STANDARDS = Set.of(
+            AudioDescriptor.STANDARD_NONE,
+            AudioDescriptor.STANDARD_EDID,
+            AudioDescriptor.STANDARD_SADB,
+            AudioDescriptor.STANDARD_VSADB);
+    private static final Map<Integer, Integer> DIRECT_OFFLOAD_MAP = Map.of(
+            AudioManager.PLAYBACK_OFFLOAD_NOT_SUPPORTED,
+                AudioManager.DIRECT_PLAYBACK_NOT_SUPPORTED,
+            AudioManager.PLAYBACK_OFFLOAD_SUPPORTED,
+                AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED,
+            AudioManager.PLAYBACK_OFFLOAD_GAPLESS_SUPPORTED,
+                AudioManager.DIRECT_PLAYBACK_OFFLOAD_GAPLESS_SUPPORTED);
+    private static final Set<Integer> ALL_MIXER_BEHAVIORS = Set.of(
+            AudioMixerAttributes.MIXER_BEHAVIOR_DEFAULT,
+            AudioMixerAttributes.MIXER_BEHAVIOR_BIT_PERFECT);
+    private static final int[] PUBLIC_STREAM_TYPES = { STREAM_VOICE_CALL,
+            STREAM_SYSTEM, STREAM_RING, STREAM_MUSIC,
+            STREAM_ALARM, STREAM_NOTIFICATION,
+            STREAM_DTMF,  STREAM_ACCESSIBILITY };
+    private static final int VOLUME_CHANGED_INTENT_TIMEOUT_MS = 3000; // 3s
+
     private static final int INVALID_DIRECT_PLAYBACK_MODE = -1;
     private AudioManager mAudioManager;
     private NotificationManager mNm;
@@ -281,6 +296,9 @@ public class AudioManagerTest extends InstrumentationTestCase {
         if (isAutomotive()) {
             return;
         }
+        if (!hasBuiltinSpeaker()) {
+            return;
+        }
         final MyBlockingIntentReceiver receiver = new MyBlockingIntentReceiver(
                 AudioManager.ACTION_SPEAKERPHONE_STATE_CHANGED);
         final boolean initialSpeakerphoneState = mAudioManager.isSpeakerphoneOn();
@@ -303,15 +321,89 @@ public class AudioManagerTest extends InstrumentationTestCase {
         }
     }
 
+    private boolean hasBuiltinSpeaker() {
+        AudioDeviceInfo[] devices = mAudioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+        for (AudioDeviceInfo device : devices) {
+            final int type = device.getType();
+            if (type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+                    || type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @AppModeFull(reason = "ACTION_VOLUME_CHANGED is not sent to Instant apps (no FLAG_RECEIVER_VISIBLE_TO_INSTANT_APPS)")
+    public void testVolumeChangedIntent() throws Exception {
+        final MyBlockingIntentReceiver receiver =
+                new MyBlockingIntentReceiver(AudioManager.ACTION_VOLUME_CHANGED);
+        if (mAudioManager.isVolumeFixed()) {
+            return;
+        }
+        // safe media can block the raising the volume, disable it
+        getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity(Manifest.permission.STATUS_BAR_SERVICE);
+        mAudioManager.disableSafeMediaVolume();
+
+        try {
+            mContext.registerReceiver(receiver,
+                    new IntentFilter(AudioManager.ACTION_VOLUME_CHANGED));
+            // only listen for the STREAM_MUSIC volume changes
+            receiver.setWaitForIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, STREAM_MUSIC);
+            int mediaVol = mAudioManager.getStreamVolume(STREAM_MUSIC);
+            final int origVol = mediaVol;
+            final int maxMediaVol = mAudioManager.getStreamMaxVolume(STREAM_MUSIC);
+            // change media volume from current value
+            mAudioManager.setStreamVolume(STREAM_MUSIC,
+                    mediaVol == maxMediaVol ? --mediaVol : ++mediaVol,
+                    0 /*flags*/);
+            // verify a change was reported
+            final boolean intentFired = receiver.waitForExpectedAction(
+                    VOLUME_CHANGED_INTENT_TIMEOUT_MS);
+            assertTrue("VOLUME_CHANGED_ACTION wasn't fired for change from "
+                    + origVol + " to " + mediaVol, intentFired);
+            // verify the new value is in the extras
+            final Intent intent = receiver.getIntent();
+            assertEquals("Not an intent for STREAM_MUSIC", STREAM_MUSIC,
+                    intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1));
+            assertEquals("New STREAM_MUSIC volume not as expected", mediaVol,
+                    intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, -1));
+            assertEquals("Previous STREAM_MUSIC volume not as expected", origVol,
+                    intent.getIntExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, -1));
+        } finally {
+            mContext.unregisterReceiver(receiver);
+            getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+        }
+    }
+
     private static final class MyBlockingIntentReceiver extends BroadcastReceiver {
+        private static final String TAG = "BlockingIntentRcvr";
         private final SafeWaitObject mLock = new SafeWaitObject();
         // the action for the intent to check
         private final String mAction;
+        private String mWaitForExtra;
+        private int mWaitForExtraInt = Integer.MAX_VALUE;
         @GuardedBy("mLock")
-        private boolean mIntentReceived = false;
+        private volatile boolean mIntentReceived = false;
+        @GuardedBy("mLock")
+        private Intent mIntent;
 
         MyBlockingIntentReceiver(String action) {
             mAction = action;
+            mIntent = null;
+            mWaitForExtra = null;
+        }
+
+        /**
+         * Sets an optional extra along with an expected value that need to match for the received
+         * intent to be considered as valid for {@link #waitForExpectedAction(long)}.
+         * When querying the intent for the extra int value, the default is Integer.MIN_VALUE.
+         * @param extra
+         * @param expectedInt
+         */
+        public void setWaitForIntExtra(String extra, int expectedInt) {
+            mWaitForExtra = extra;
+            mWaitForExtraInt = expectedInt;
         }
 
         @Override
@@ -321,17 +413,58 @@ public class AudioManagerTest extends InstrumentationTestCase {
                 return;
             }
             synchronized (mLock) {
+                if (mWaitForExtra != null) {
+                    final int extraIntVal = intent.getIntExtra(mWaitForExtra, Integer.MIN_VALUE);
+                    if (extraIntVal != mWaitForExtraInt) {
+                        Log.i(TAG, "extra received: " + extraIntVal);
+                        return;
+                    } else {
+                        Log.i(TAG, "expected extra received: " + mWaitForExtraInt);
+                    }
+                }
                 mIntentReceived = true;
-                mLock.safeNotify();
+                mIntent = intent;
+                mLock.notify();
             }
         }
 
+        /**
+         * Wait for the intent up to a given time
+         * @param timeOutMs the timeout in ms
+         * @return true if the intent fire, false if it didn't fire within the timeout
+         */
         public boolean waitForExpectedAction(long timeOutMs) {
             synchronized (mLock) {
-                try {
-                    mLock.safeWait(timeOutMs);
-                } catch (InterruptedException e) { }
-                return mIntentReceived;
+                Log.i(TAG, "starting wait: expected extra:"
+                        + mWaitForExtra + " val:" + mWaitForExtraInt);
+                final boolean res = mLock.waitFor(timeOutMs, () -> mIntentReceived);
+                Log.i(TAG, "wait stopped, intent received:" + mIntentReceived);
+                return res;
+            }
+        }
+
+        public Intent getIntent() {
+            synchronized (mLock) {
+                return mIntent;
+            }
+        }
+    }
+
+    private static final class MyBlockingRunnableListener {
+        private final SafeWaitObject mLock = new SafeWaitObject();
+        @GuardedBy("mLock")
+        private boolean mEventReceived = false;
+
+        public void onSomeEventThatsExpected() {
+            synchronized (mLock) {
+                mEventReceived = true;
+                mLock.notify();
+            }
+        }
+
+        public boolean waitForExpectedEvent(long timeOutMs) {
+            synchronized (mLock) {
+                return mLock.waitFor(timeOutMs, () -> mEventReceived);
             }
         }
     }
@@ -430,6 +563,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
         getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
     }
 
+    @AppModeFull(reason = "Instant apps cannot hold android.permission.WRITE_SETTINGS")
     public void testSetEncodedSurroundMode() throws Exception {
         getInstrumentation().getUiAutomation().adoptShellPermissionIdentity(
                 Manifest.permission.WRITE_SETTINGS);
@@ -630,6 +764,130 @@ public class AudioManagerTest extends InstrumentationTestCase {
             assertEquals(mHasVibrator ? RINGER_MODE_VIBRATE : RINGER_MODE_SILENT,
                     mAudioManager.getRingerMode());
         }
+    }
+
+    /**
+     * Test that in RINGER_MODE_VIBRATE we observe:
+     * if NOTIFICATION & RING are not aliased:
+     *   ADJUST_UNMUTE NOTIFICATION -> no change (no mode change, NOTIF still muted)
+     *   ADJUST_UNMUTE NOTIFICATION + FLAG_ALLOW_RINGER_MODES -> MODE_NORMAL
+     * if NOTIFICATION & RING are aliased:
+     *   ADJUST_UNMUTE NOTIFICATION -> MODE_NORMAL
+     *   ADJUST_UNMUTE NOTIFICATION + FLAG_ALLOW_RINGER_MODES -> MODE_NORMAL
+     * @throws Exception
+     */
+    public void testAdjustUnmuteNotificationInVibrate() throws Exception {
+        Log.i(TAG, "starting testAdjustUnmuteNotificationInVibrate");
+        if (mSkipRingerTests) {
+            Log.i(TAG, "skipping testAdjustUnmuteNotificationInVibrate");
+            return;
+        }
+        if (!mHasVibrator) {
+            Log.i(TAG, "skipping testAdjustUnmuteNotificationInVibrate, no vibrator");
+            return;
+        }
+        // set mode to VIBRATE
+        Utils.toggleNotificationPolicyAccess(
+                mContext.getPackageName(), getInstrumentation(), true);
+        mAudioManager.setRingerMode(RINGER_MODE_VIBRATE);
+        assertEquals(RINGER_MODE_VIBRATE, mAudioManager.getRingerMode());
+        Utils.toggleNotificationPolicyAccess(
+                mContext.getPackageName(), getInstrumentation(), false);
+
+        getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity(Manifest.permission.MODIFY_AUDIO_SETTINGS_PRIVILEGED);
+        final int notifiAliasedStream = mAudioManager.getStreamTypeAlias(STREAM_NOTIFICATION);
+        getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+
+        // verify expected muting from the VIBRATE mode
+        assertStreamMuted(STREAM_RING, true,
+                "RING not muted in MODE_VIBRATE");
+        assertStreamMuted(STREAM_NOTIFICATION, true,
+                "NOTIFICATION not muted in MODE_VIBRATE");
+
+        if (notifiAliasedStream == STREAM_NOTIFICATION) {
+            Log.i(TAG, "testAdjustUnmuteNotificationInVibrate: NOTIF independent");
+            // unmute NOTIFICATION
+            mAudioManager.adjustStreamVolume(STREAM_NOTIFICATION, AudioManager.ADJUST_UNMUTE, 0);
+            // verify it had no effect
+            assertStreamMuted(STREAM_NOTIFICATION, true, "NOTIFICATION did unmute");
+            // unmuting NOTIFICATION should not have exited RINGER_MODE_VIBRATE
+            assertEquals(RINGER_MODE_VIBRATE, mAudioManager.getRingerMode());
+
+            // unmute NOTIFICATION with FLAG_ALLOW_RINGER_MODES
+            mAudioManager.adjustStreamVolume(STREAM_NOTIFICATION,
+                    AudioManager.ADJUST_UNMUTE, AudioManager.FLAG_ALLOW_RINGER_MODES);
+            // verify it unmuted NOTIFICATION and RING
+            assertStreamMuted(STREAM_NOTIFICATION, false,
+                    "NOTIFICATION (+FLAG_ALLOW_RINGER_MODES) didn't unmute");
+            assertStreamMuted(STREAM_RING, false, "RING didn't unmute");
+            // unmuting NOTIFICATION w/ FLAG_ALLOW_RINGER_MODES should have exited MODE_VIBRATE
+            assertEquals(RINGER_MODE_NORMAL, mAudioManager.getRingerMode());
+        } else if (notifiAliasedStream == STREAM_RING) {
+            Log.i(TAG, "testAdjustUnmuteNotificationInVibrate: NOTIF/RING aliased");
+            // unmute NOTIFICATION (should be just like unmuting RING)
+            mAudioManager.adjustStreamVolume(STREAM_NOTIFICATION, AudioManager.ADJUST_UNMUTE, 0);
+            // verify it unmuted both RING and NOTIFICATION
+            assertStreamMuted(STREAM_NOTIFICATION, false, "NOTIFICATION didn't unmute");
+            assertStreamMuted(STREAM_RING, false, "RING didn't unmute");
+            // unmuting NOTIFICATION should have exited RINGER_MODE_VIBRATE
+            assertEquals(RINGER_MODE_NORMAL, mAudioManager.getRingerMode());
+
+            // test again with FLAG_ALLOW_RINGER_MODES
+            Utils.toggleNotificationPolicyAccess(
+                    mContext.getPackageName(), getInstrumentation(), true);
+            mAudioManager.setRingerMode(RINGER_MODE_VIBRATE);
+            assertEquals(RINGER_MODE_VIBRATE, mAudioManager.getRingerMode());
+            Utils.toggleNotificationPolicyAccess(
+                    mContext.getPackageName(), getInstrumentation(), false);
+            // unmute NOTIFICATION (should be just like unmuting RING)
+            mAudioManager.adjustStreamVolume(STREAM_NOTIFICATION,
+                    AudioManager.ADJUST_UNMUTE, AudioManager.FLAG_ALLOW_RINGER_MODES);
+            // verify it unmuted both RING and NOTIFICATION
+            assertStreamMuted(STREAM_NOTIFICATION, false, "NOTIFICATION didn't unmute");
+            assertStreamMuted(STREAM_RING, false, "RING didn't unmute");
+            // unmuting NOTIFICATION should have exited RINGER_MODE_VIBRATE
+            assertEquals(RINGER_MODE_NORMAL, mAudioManager.getRingerMode());
+        }
+    }
+
+    /**
+     * Test that in RINGER_MODE_SILENT we observe:
+     * ADJUST_UNMUTE NOTIFICATION -> no change (no mode change, NOTIF still muted)
+     *
+     * Note that in SILENT we cannot test ADJUST_UNMUTE NOTIFICATION + FLAG_ALLOW_RINGER_MODES
+     * because it depends on VolumePolicy.volumeUpToExitSilent.
+     * TODO add test API to query VolumePolicy, expected in MODE_SILENT:
+     * ADJUST_UNMUTE NOTIFICATION + FLAG_ALLOW_RINGER_MODE ->
+     *                            no change if VolumePolicy.volumeUpToExitSilent false (default?)
+     * ADJUST_UNMUTE NOTIFICATION + FLAG_ALLOW_RINGER_MODE ->
+     *                            MODE_NORMAL if VolumePolicy.volumeUpToExitSilent true
+     * @throws Exception
+     */
+    public void testAdjustUnmuteNotificationInSilent() throws Exception {
+        if (mSkipRingerTests) {
+            return;
+        }
+        // set mode to SILENT
+        Utils.toggleNotificationPolicyAccess(
+                mContext.getPackageName(), getInstrumentation(), true);
+        mAudioManager.setRingerMode(RINGER_MODE_SILENT);
+        assertEquals(RINGER_MODE_SILENT, mAudioManager.getRingerMode());
+        Utils.toggleNotificationPolicyAccess(
+                mContext.getPackageName(), getInstrumentation(), false);
+
+        // verify expected muting from the SILENT mode
+        assertStreamMuted(STREAM_RING, true,
+                "RING not muted in MODE_SILENT");
+        assertStreamMuted(STREAM_NOTIFICATION, true,
+                "NOTIFICATION not muted in MODE_SILENT");
+
+        // unmute NOTIFICATION
+        mAudioManager.adjustStreamVolume(STREAM_NOTIFICATION, AudioManager.ADJUST_UNMUTE, 0);
+        // verify it had no effect
+        assertStreamMuted(STREAM_NOTIFICATION, true, "NOTIFICATION did unmute");
+        // unmuting NOTIFICATION should not have exited RINGER_MODE_SILENT
+        assertEquals(RINGER_MODE_SILENT, mAudioManager.getRingerMode());
     }
 
     public void testSetRingerModePolicyAccess() throws Exception {
@@ -1566,11 +1824,6 @@ public class AudioManagerTest extends InstrumentationTestCase {
         mAudioManager.adjustVolume(37, 0);
     }
 
-    private final int[] PUBLIC_STREAM_TYPES = { STREAM_VOICE_CALL,
-            STREAM_SYSTEM, STREAM_RING, STREAM_MUSIC,
-            STREAM_ALARM, STREAM_NOTIFICATION,
-            STREAM_DTMF,  STREAM_ACCESSIBILITY };
-
     public void testGetStreamVolumeDbWithIllegalArguments() throws Exception {
         Exception ex = null;
         // invalid stream type
@@ -1707,6 +1960,23 @@ public class AudioManagerTest extends InstrumentationTestCase {
         }
     }
 
+    public void testIsHotwordStreamSupported() {
+        // Validate API requires permission
+        assertThrows(SecurityException.class, () -> mAudioManager.isHotwordStreamSupported(false));
+        assertThrows(SecurityException.class, () -> mAudioManager.isHotwordStreamSupported(true));
+        // Validate functionality when caller holds appropriate permissions
+        InstrumentationRegistry.getInstrumentation()
+                               .getUiAutomation()
+                               .adoptShellPermissionIdentity(
+                                Manifest.permission.CAPTURE_AUDIO_HOTWORD);
+        boolean result1 = mAudioManager.isHotwordStreamSupported(false);
+        boolean result2 = mAudioManager.isHotwordStreamSupported(true);
+
+        InstrumentationRegistry.getInstrumentation()
+                               .getUiAutomation()
+                               .dropShellPermissionIdentity();
+    }
+
     public void testGetAudioHwSyncForSession() {
         // AudioManager.getAudioHwSyncForSession is not supported before S
         if (ApiLevelUtil.isAtMost(Build.VERSION_CODES.R)) {
@@ -1834,7 +2104,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
             Log.i(TAG, "Skip testPreferredDevicesForStrategy as there is no strategy for media");
             return;
         }
-
+        Log.i(TAG, "Found strategy " + strategyForMedia.getName() + " for media");
         try {
             mAudioManager.setPreferredDeviceForStrategy(strategyForMedia, ada);
             fail("setPreferredDeviceForStrategy must fail due to no permission");
@@ -1864,8 +2134,13 @@ public class AudioManagerTest extends InstrumentationTestCase {
             fail("addOnPreferredDevicesForStrategyChangedListener must fail due to no permission");
         } catch (SecurityException e) {
         }
-        // There is not listener added at server side. Nothing to remove.
-        mAudioManager.removeOnPreferredDevicesForStrategyChangedListener(listener);
+        try {
+            // removeOnPreferredDevicesForStrategyChangedListener should throw on non-registered
+            // listener.
+            mAudioManager.removeOnPreferredDevicesForStrategyChangedListener(listener);
+            fail("removeOnPreferredDevicesForStrategyChangedListener must fail on bad listener");
+        } catch (IllegalArgumentException e) {
+        }
     }
 
     static class MyPrevDevicesForCapturePresetChangedListener implements
@@ -1916,14 +2191,14 @@ public class AudioManagerTest extends InstrumentationTestCase {
     public void testGetDevices() {
         AudioDeviceInfo[] devices = mAudioManager.getDevices(AudioManager.GET_DEVICES_ALL);
         for (AudioDeviceInfo device : devices) {
-            HashSet<Integer> formats = IntStream.of(device.getEncodings()).boxed()
-                    .collect(Collectors.toCollection(HashSet::new));
-            HashSet<Integer> channelMasks = IntStream.of(device.getChannelMasks()).boxed()
-                    .collect(Collectors.toCollection(HashSet::new));
-            HashSet<Integer> channelIndexMasks = IntStream.of(device.getChannelIndexMasks()).boxed()
-                    .collect(Collectors.toCollection(HashSet::new));
-            HashSet<Integer> sampleRates = IntStream.of(device.getSampleRates()).boxed()
-                    .collect(Collectors.toCollection(HashSet::new));
+            Set<Integer> formats = IntStream.of(device.getEncodings()).boxed()
+                    .collect(Collectors.toSet());
+            Set<Integer> channelMasks = IntStream.of(device.getChannelMasks()).boxed()
+                    .collect(Collectors.toSet());
+            Set<Integer> channelIndexMasks = IntStream.of(device.getChannelIndexMasks()).boxed()
+                    .collect(Collectors.toSet());
+            Set<Integer> sampleRates = IntStream.of(device.getSampleRates()).boxed()
+                    .collect(Collectors.toSet());
             HashSet<Integer> formatsFromProfile = new HashSet<>();
             HashSet<Integer> channelMasksFromProfile = new HashSet<>();
             HashSet<Integer> channelIndexMasksFromProfile = new HashSet<>();
@@ -1998,6 +2273,107 @@ public class AudioManagerTest extends InstrumentationTestCase {
         }
     }
 
+    @AppModeFull(reason = "Instant apps cannot hold permission.MODIFY_AUDIO_SETTINGS_PRIVILEGED")
+    public void testIndependentStreamTypes() throws Exception {
+        Log.i(TAG, "starting testIndependentStreamTypes");
+        getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity(Manifest.permission.MODIFY_AUDIO_SETTINGS_PRIVILEGED);
+        try {
+            final List<Integer> independentStreamTypes = mAudioManager.getIndependentStreamTypes();
+            assertNotNull("Null list of independent stream types", independentStreamTypes);
+            final boolean usesGroups = mAudioManager.isVolumeControlUsingVolumeGroups();
+            Log.i(TAG, "testIndependentStreamTypes: usesGroups:" + usesGroups
+                    + " independentTypes" + independentStreamTypes);
+            if (usesGroups) {
+                assertTrue("Empty list of independent stream types with volume groups",
+                        independentStreamTypes.size() > 0);
+                return;
+            }
+            assertTrue("Unexpected number of independent stream types "
+                    + independentStreamTypes.size(), independentStreamTypes.size() > 0);
+            // verify independent streams are not aliased
+            for (int indepStream : independentStreamTypes) {
+                final int alias = mAudioManager.getStreamTypeAlias(indepStream);
+                assertEquals("Independent stream " + indepStream + " has alias " + alias,
+                        indepStream, alias);
+            }
+            // verify aliased streams are not independent, and non-aliased streams are
+            for (int stream : PUBLIC_STREAM_TYPES) {
+                final int alias = mAudioManager.getStreamTypeAlias(stream);
+                if (alias != stream) {
+                    assertFalse("Stream" + stream + " aliased to " + alias
+                            + " but marked independent", independentStreamTypes.contains(stream));
+                } else {
+                    // independent stream
+                    assertTrue("Stream " + stream
+                            + " has no alias but is not marked as independent",
+                            independentStreamTypes.contains(stream));
+                }
+            }
+        } finally {
+            getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+        }
+    }
+
+    @AppModeFull(reason = "Instant apps cannot hold permission.MODIFY_AUDIO_SETTINGS_PRIVILEGED")
+    public void testStreamTypeAliasChange() throws Exception {
+        if (!mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Log.i(TAG, "skipping testStreamTypeAliasChange, not a phone");
+            return;
+        }
+        Log.i(TAG, "starting testStreamTypeAliasChange");
+        getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity(Manifest.permission.MODIFY_AUDIO_SETTINGS_PRIVILEGED);
+
+        // get initial state
+        final int notifAliasAtStart = mAudioManager.getStreamTypeAlias(STREAM_NOTIFICATION);
+        if (notifAliasAtStart != STREAM_NOTIFICATION && notifAliasAtStart != STREAM_RING) {
+            // skipping test because it can't take advantage of the test API to modify
+            // the notification alias
+            Log.i(TAG, "skipping testStreamTypeAliasChange: NOTIFICATION aliased to stream "
+                    + notifAliasAtStart);
+            return;
+        }
+        boolean notifAliasedToRingAtStart = (notifAliasAtStart == STREAM_RING);
+        final MyBlockingRunnableListener streamAliasCb = new MyBlockingRunnableListener();
+        Runnable onStreamAliasChanged = () -> streamAliasCb.onSomeEventThatsExpected();
+        try {
+            if (!notifAliasedToRingAtStart) {
+                // if notif and ring are not aliased, they should each be independent streams
+                final List<Integer> indies = mAudioManager.getIndependentStreamTypes();
+                assertTrue("NOTIFICATION not in independent streams " + indies,
+                        indies.contains(STREAM_NOTIFICATION));
+                assertTrue("RING not in independent streams " + indies,
+                        indies.contains(STREAM_RING));
+            }
+            mAudioManager.addOnStreamAliasingChangedListener(
+                    Executors.newSingleThreadExecutor(),
+                    onStreamAliasChanged);
+            mAudioManager.setNotifAliasRingForTest(!notifAliasedToRingAtStart);
+            final String aliasing = notifAliasedToRingAtStart ? "unaliasing" : "aliasing";
+            assertTrue(aliasing + " RING and NOTIFICATION didn't trigger callback",
+                    streamAliasCb.waitForExpectedEvent(TIME_TO_WAIT_CALLBACK_MS));
+            final int expectedNotifAlias = notifAliasedToRingAtStart ? STREAM_NOTIFICATION
+                    : STREAM_RING;
+            assertEquals("After " + aliasing + " alias incorrect",
+                    expectedNotifAlias, mAudioManager.getStreamTypeAlias(STREAM_NOTIFICATION));
+            if (notifAliasedToRingAtStart) {
+                // if notif and ring were aliased, they should now be independent streams
+                final List<Integer> indies = mAudioManager.getIndependentStreamTypes();
+                assertTrue("After alias change, NOTIFICATION not in independent streams "
+                                + indies,
+                        indies.contains(STREAM_NOTIFICATION));
+                assertTrue("After alias change, RING not in independent streams " + indies,
+                        indies.contains(STREAM_RING));
+            }
+
+        } finally {
+            mAudioManager.setNotifAliasRingForTest(notifAliasedToRingAtStart);
+            mAudioManager.removeOnStreamAliasingChangedListener(onStreamAliasChanged);
+            getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+        }
+    }
+
     public void testAssistantUidRouting() {
         try {
             mAudioManager.addAssistantServicesUids(new int[0]);
@@ -2030,8 +2406,346 @@ public class AudioManagerTest extends InstrumentationTestCase {
         }
     }
 
+    @AppModeFull(reason = "Instant apps cannot hold android.permission.MODIFY_AUDIO_ROUTING")
+    public void testBluetoothVariableLatency() throws Exception {
+        assertThrows(SecurityException.class,
+                () -> mAudioManager.supportsBluetoothVariableLatency());
+        assertThrows(SecurityException.class,
+                () -> mAudioManager.setBluetoothVariableLatencyEnabled(false));
+        assertThrows(SecurityException.class,
+                () -> mAudioManager.setBluetoothVariableLatencyEnabled(true));
+        assertThrows(SecurityException.class,
+                () -> mAudioManager.isBluetoothVariableLatencyEnabled());
+
+        getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity(Manifest.permission.MODIFY_AUDIO_ROUTING);
+        if (mAudioManager.supportsBluetoothVariableLatency()) {
+            boolean savedEnabled = mAudioManager.isBluetoothVariableLatencyEnabled();
+            mAudioManager.setBluetoothVariableLatencyEnabled(false);
+            assertFalse(mAudioManager.isBluetoothVariableLatencyEnabled());
+            mAudioManager.setBluetoothVariableLatencyEnabled(true);
+            assertTrue(mAudioManager.isBluetoothVariableLatencyEnabled());
+            mAudioManager.setBluetoothVariableLatencyEnabled(savedEnabled);
+        }
+        getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+    }
+
     public void testGetHalVersion() {
-        assertNotEquals(null, AudioManager.getHalVersion());
+        AudioHalVersionInfo halVersion = AudioManager.getHalVersion();
+        assertNotEquals(null, halVersion);
+        assertTrue(
+                AudioHalVersionInfo.AUDIO_HAL_TYPE_AIDL == halVersion.getHalType()
+                        || AudioHalVersionInfo.AUDIO_HAL_TYPE_HIDL == halVersion.getHalType());
+        assertTrue(halVersion.getMajorVersion() > 0);
+        assertTrue(halVersion.getMinorVersion() >= 0);
+    }
+
+    public void testPreferredMixerAttributes() {
+        final AudioAttributes attr = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA).build();
+        final AudioMixerAttributes defaultMixerAttributes = new AudioMixerAttributes.Builder(
+                new AudioFormat.Builder()
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+                        .setSampleRate(48000)
+                        .build())
+                .setMixerBehavior(AudioMixerAttributes.MIXER_BEHAVIOR_DEFAULT)
+                .build();
+        for (AudioDeviceInfo device : mAudioManager.getDevices(AudioManager.GET_DEVICES_ALL)) {
+            MyPreferredMixerAttrListener listener =
+                    new MyPreferredMixerAttrListener(attr, device.getId());
+            mAudioManager.addOnPreferredMixerAttributesChangedListener(
+                    Executors.newSingleThreadExecutor(), listener);
+            List<AudioMixerAttributes> supportedMixerAttributes =
+                    mAudioManager.getSupportedMixerAttributes(device);
+            if (supportedMixerAttributes.isEmpty()) {
+                // Setting preferred mixer attributes is not supported
+                assertFalse(mAudioManager.setPreferredMixerAttributes(
+                        attr, device, defaultMixerAttributes));
+            } else {
+                for (AudioMixerAttributes mixerAttr : supportedMixerAttributes) {
+                    assertNotNull(mixerAttr.getFormat());
+                    assertTrue(ALL_MIXER_BEHAVIORS.contains(mixerAttr.getMixerBehavior()));
+                    listener.reset();
+                    assertTrue(mAudioManager.setPreferredMixerAttributes(attr, device, mixerAttr));
+                    try {
+                        // Wait a while for callback to be called.
+                        Thread.sleep(TIME_TO_WAIT_CALLBACK_MS);
+                    } catch (InterruptedException e) {
+                    }
+                    assertTrue(listener.isPreferredMixerAttributesChanged());
+                    final AudioMixerAttributes mixerAttrFromQuery =
+                            mAudioManager.getPreferredMixerAttributes(attr, device);
+                    assertEquals(mixerAttr, mixerAttrFromQuery);
+                    listener.reset();
+                    assertTrue(mAudioManager.clearPreferredMixerAttributes(attr, device));
+                    try {
+                        // Wait a while for callback to be called.
+                        Thread.sleep(TIME_TO_WAIT_CALLBACK_MS);
+                    } catch (InterruptedException e) {
+                    }
+                    assertTrue(listener.isPreferredMixerAttributesChanged());
+                    assertNull(mAudioManager.getPreferredMixerAttributes(attr, device));
+                }
+            }
+            mAudioManager.removeOnPreferredMixerAttributesChangedListener(listener);
+        }
+    }
+
+    public void testAdjustVolumeGroupVolume() {
+        getInstrumentation().getUiAutomation().adoptShellPermissionIdentity(
+                Manifest.permission.MODIFY_AUDIO_SETTINGS_PRIVILEGED,
+                Manifest.permission.MODIFY_AUDIO_ROUTING,
+                Manifest.permission.QUERY_AUDIO_STATE,
+                Manifest.permission.MODIFY_PHONE_STATE);
+
+        List<AudioVolumeGroup> audioVolumeGroups = mAudioManager.getAudioVolumeGroups();
+        assertTrue(audioVolumeGroups.size() > 0);
+
+        final AudioAttributes callAa = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                .build();
+        int voiceCallVolumeGroup = mAudioManager.getVolumeGroupIdForAttributes(callAa);
+
+        assertNotEquals(voiceCallVolumeGroup, AudioVolumeGroup.DEFAULT_VOLUME_GROUP);
+
+        AudioVolumeGroupCallbackHelper vgCbReceiver = new AudioVolumeGroupCallbackHelper();
+        mAudioManager.registerVolumeGroupCallback(mContext.getMainExecutor(), vgCbReceiver);
+
+        try {
+            // Validate Audio Volume Groups callback reception
+            for (final AudioVolumeGroup audioVolumeGroup : audioVolumeGroups) {
+                int volumeGroupId = audioVolumeGroup.getId();
+                int[] avgStreamTypes = audioVolumeGroup.getLegacyStreamTypes();
+                if (avgStreamTypes.length != 0) {
+                    // filters out bijective as API is dispatched to stream.
+                    // Following compatibility test will ensure API are dispatched
+                    continue;
+                }
+                int indexMax = mAudioManager.getVolumeGroupMaxVolumeIndex(volumeGroupId);
+                int indexMin = mAudioManager.getVolumeGroupMinVolumeIndex(volumeGroupId);
+                boolean isMutable = (indexMin == 0) || (volumeGroupId == voiceCallVolumeGroup);
+
+                // Set the receiver to filter only the current group callback
+                int index = resetVolumeIndex(indexMin, indexMax);
+                vgCbReceiver.setExpectedVolumeGroup(volumeGroupId);
+                mAudioManager.setVolumeGroupVolumeIndex(volumeGroupId, index, 0/*flags*/);
+                assertTrue(vgCbReceiver.waitForExpectedVolumeGroupChanged(
+                        AudioVolumeGroupCallbackHelper.ASYNC_TIMEOUT_MS));
+                int readIndex = mAudioManager.getVolumeGroupVolumeIndex(volumeGroupId);
+                assertEquals("Failed to set volume for group id "
+                        + volumeGroupId, readIndex, index);
+
+                while (index < indexMax) {
+                    vgCbReceiver.setExpectedVolumeGroup(volumeGroupId);
+                    mAudioManager.adjustVolumeGroupVolume(
+                            volumeGroupId, AudioManager.ADJUST_RAISE, 0/*flags*/);
+                    assertTrue(vgCbReceiver.waitForExpectedVolumeGroupChanged(
+                            AudioVolumeGroupCallbackHelper.ASYNC_TIMEOUT_MS));
+                    readIndex = mAudioManager.getVolumeGroupVolumeIndex(volumeGroupId);
+                    index += 1;
+                    assertEquals(readIndex, index);
+                }
+                // Max reached
+                vgCbReceiver.setExpectedVolumeGroup(volumeGroupId);
+                mAudioManager.adjustVolumeGroupVolume(
+                        volumeGroupId, AudioManager.ADJUST_RAISE, 0/*flags*/);
+                assertTrue("Cb expected for group "
+                        + volumeGroupId, vgCbReceiver.waitForExpectedVolumeGroupChanged(
+                        AudioVolumeGroupCallbackHelper.ASYNC_TIMEOUT_MS));
+                readIndex = mAudioManager.getVolumeGroupVolumeIndex(volumeGroupId);
+                assertEquals(readIndex, indexMax);
+
+                while (index > indexMin) {
+                    vgCbReceiver.setExpectedVolumeGroup(volumeGroupId);
+                    mAudioManager.adjustVolumeGroupVolume(
+                            volumeGroupId, AudioManager.ADJUST_LOWER, 0/*flags*/);
+                    assertTrue(vgCbReceiver.waitForExpectedVolumeGroupChanged(
+                            AudioVolumeGroupCallbackHelper.ASYNC_TIMEOUT_MS));
+                    index -= 1;
+                    readIndex = mAudioManager.getVolumeGroupVolumeIndex(volumeGroupId);
+                    assertEquals("Failed to decrease volume for group id "
+                            + volumeGroupId, readIndex, index);
+                }
+                // Min reached
+                vgCbReceiver.setExpectedVolumeGroup(volumeGroupId);
+                mAudioManager.adjustVolumeGroupVolume(
+                        volumeGroupId, AudioManager.ADJUST_LOWER, 0/*flags*/);
+                assertTrue("Cb expected for group "
+                        + volumeGroupId, vgCbReceiver.waitForExpectedVolumeGroupChanged(
+                        AudioVolumeGroupCallbackHelper.ASYNC_TIMEOUT_MS));
+                readIndex = mAudioManager.getVolumeGroupVolumeIndex(volumeGroupId);
+                assertEquals("Failed to decrease volume for group id "
+                        + volumeGroupId, readIndex, indexMin);
+
+                // Mute/Unmute
+                if (isMutable) {
+                    int lastAudibleIndex;
+                    index = resetVolumeIndex(indexMin, indexMax);
+                    vgCbReceiver.setExpectedVolumeGroup(volumeGroupId);
+                    mAudioManager.setVolumeGroupVolumeIndex(volumeGroupId, index, 0/*flags*/);
+                    assertTrue(vgCbReceiver.waitForExpectedVolumeGroupChanged(
+                            AudioVolumeGroupCallbackHelper.ASYNC_TIMEOUT_MS));
+
+                    readIndex = mAudioManager.getVolumeGroupVolumeIndex(volumeGroupId);
+                    assertEquals("Failed to set volume for group id "
+                            + volumeGroupId, readIndex, index);
+
+                    lastAudibleIndex =
+                            mAudioManager.getLastAudibleVolumeForVolumeGroup(volumeGroupId);
+                    assertEquals(lastAudibleIndex, index);
+                    assertFalse(mAudioManager.isVolumeGroupMuted(volumeGroupId));
+
+                    // Mute
+                    vgCbReceiver.setExpectedVolumeGroup(volumeGroupId);
+                    mAudioManager.adjustVolumeGroupVolume(
+                            volumeGroupId, AudioManager.ADJUST_MUTE, 0/*flags*/);
+                    assertTrue(vgCbReceiver.waitForExpectedVolumeGroupChanged(
+                            AudioVolumeGroupCallbackHelper.ASYNC_TIMEOUT_MS));
+                    readIndex = mAudioManager.getVolumeGroupVolumeIndex(volumeGroupId);
+                    assertEquals("Failed to mute volume for group id "
+                            + volumeGroupId, readIndex, indexMin);
+                    assertEquals(lastAudibleIndex,
+                            mAudioManager.getLastAudibleVolumeForVolumeGroup(volumeGroupId));
+                    assertTrue(mAudioManager.isVolumeGroupMuted(volumeGroupId));
+
+                    // Unmute
+                    vgCbReceiver.setExpectedVolumeGroup(volumeGroupId);
+                    mAudioManager.adjustVolumeGroupVolume(
+                            volumeGroupId, AudioManager.ADJUST_UNMUTE, 0/*flags*/);
+                    assertTrue(vgCbReceiver.waitForExpectedVolumeGroupChanged(
+                            AudioVolumeGroupCallbackHelper.ASYNC_TIMEOUT_MS));
+                    readIndex = mAudioManager.getVolumeGroupVolumeIndex(volumeGroupId);
+                    assertEquals("Failed to unmute volume for group id "
+                            + volumeGroupId, readIndex, lastAudibleIndex);
+                    assertEquals(lastAudibleIndex,
+                            mAudioManager.getLastAudibleVolumeForVolumeGroup(volumeGroupId));
+                    assertFalse(mAudioManager.isVolumeGroupMuted(volumeGroupId));
+
+                    // Toggle Mute (from unmuted)
+                    vgCbReceiver.setExpectedVolumeGroup(volumeGroupId);
+                    mAudioManager.adjustVolumeGroupVolume(
+                            volumeGroupId, AudioManager.ADJUST_TOGGLE_MUTE, 0/*flags*/);
+                    assertTrue(vgCbReceiver.waitForExpectedVolumeGroupChanged(
+                            AudioVolumeGroupCallbackHelper.ASYNC_TIMEOUT_MS));
+                    readIndex = mAudioManager.getVolumeGroupVolumeIndex(volumeGroupId);
+                    assertEquals("Failed to mute volume for group id "
+                            + volumeGroupId, readIndex, indexMin);
+                    assertEquals(lastAudibleIndex,
+                            mAudioManager.getLastAudibleVolumeForVolumeGroup(volumeGroupId));
+                    assertTrue(mAudioManager.isVolumeGroupMuted(volumeGroupId));
+
+                    // Toggle Mute (from muted)
+                    vgCbReceiver.setExpectedVolumeGroup(volumeGroupId);
+                    mAudioManager.adjustVolumeGroupVolume(
+                            volumeGroupId, AudioManager.ADJUST_TOGGLE_MUTE, 0/*flags*/);
+                    assertTrue(vgCbReceiver.waitForExpectedVolumeGroupChanged(
+                            AudioVolumeGroupCallbackHelper.ASYNC_TIMEOUT_MS));
+                    readIndex = mAudioManager.getVolumeGroupVolumeIndex(volumeGroupId);
+                    assertEquals("Failed to unmute volume for group id "
+                            + volumeGroupId, readIndex, lastAudibleIndex);
+                    assertEquals(lastAudibleIndex,
+                            mAudioManager.getLastAudibleVolumeForVolumeGroup(volumeGroupId));
+                    assertFalse(mAudioManager.isVolumeGroupMuted(volumeGroupId));
+                } else {
+                    int lastAudibleIndex;
+                    index = resetVolumeIndex(indexMin, indexMax);
+                    vgCbReceiver.setExpectedVolumeGroup(volumeGroupId);
+                    mAudioManager.setVolumeGroupVolumeIndex(volumeGroupId, index, 0/*flags*/);
+                    assertTrue(vgCbReceiver.waitForExpectedVolumeGroupChanged(
+                            AudioVolumeGroupCallbackHelper.ASYNC_TIMEOUT_MS));
+                    readIndex = mAudioManager.getVolumeGroupVolumeIndex(volumeGroupId);
+                    assertEquals(readIndex, index);
+
+                    lastAudibleIndex =
+                            mAudioManager.getLastAudibleVolumeForVolumeGroup(volumeGroupId);
+                    assertEquals(lastAudibleIndex, index);
+                    assertFalse(mAudioManager.isVolumeGroupMuted(volumeGroupId));
+
+                    // Mute
+                    vgCbReceiver.setExpectedVolumeGroup(volumeGroupId);
+                    mAudioManager.adjustVolumeGroupVolume(
+                            volumeGroupId, AudioManager.ADJUST_MUTE, 0/*flags*/);
+                    assertFalse(vgCbReceiver.waitForExpectedVolumeGroupChanged(
+                            AudioVolumeGroupCallbackHelper.ASYNC_TIMEOUT_MS));
+                    readIndex = mAudioManager.getVolumeGroupVolumeIndex(volumeGroupId);
+                    assertEquals("Unexpected volume mute for group id " + volumeGroupId
+                            + " readIndex=" + readIndex, readIndex, lastAudibleIndex);
+                    assertEquals(lastAudibleIndex,
+                            mAudioManager.getLastAudibleVolumeForVolumeGroup(volumeGroupId));
+                    assertFalse(mAudioManager.isVolumeGroupMuted(volumeGroupId));
+
+                    // Unmute
+                    vgCbReceiver.setExpectedVolumeGroup(volumeGroupId);
+                    mAudioManager.adjustVolumeGroupVolume(
+                            volumeGroupId, AudioManager.ADJUST_UNMUTE, 0/*flags*/);
+                    assertFalse(vgCbReceiver.waitForExpectedVolumeGroupChanged(
+                            AudioVolumeGroupCallbackHelper.ASYNC_TIMEOUT_MS));
+                    readIndex = mAudioManager.getVolumeGroupVolumeIndex(volumeGroupId);
+                    assertEquals(readIndex, lastAudibleIndex);
+                    assertEquals(lastAudibleIndex,
+                            mAudioManager.getLastAudibleVolumeForVolumeGroup(volumeGroupId));
+                    assertFalse(mAudioManager.isVolumeGroupMuted(volumeGroupId));
+
+                    // Toggle Mute (from unmuted)
+                    vgCbReceiver.setExpectedVolumeGroup(volumeGroupId);
+                    mAudioManager.adjustVolumeGroupVolume(
+                            volumeGroupId, AudioManager.ADJUST_TOGGLE_MUTE, 0/*flags*/);
+                    assertFalse(vgCbReceiver.waitForExpectedVolumeGroupChanged(
+                            AudioVolumeGroupCallbackHelper.ASYNC_TIMEOUT_MS));
+                    readIndex = mAudioManager.getVolumeGroupVolumeIndex(volumeGroupId);
+                    assertEquals(readIndex, lastAudibleIndex);
+                    assertEquals(lastAudibleIndex,
+                            mAudioManager.getLastAudibleVolumeForVolumeGroup(volumeGroupId));
+                    assertFalse(mAudioManager.isVolumeGroupMuted(volumeGroupId));
+
+                    // Toggle Mute (from muted)
+                    vgCbReceiver.setExpectedVolumeGroup(volumeGroupId);
+                    mAudioManager.adjustVolumeGroupVolume(
+                            volumeGroupId, AudioManager.ADJUST_TOGGLE_MUTE, 0/*flags*/);
+                    assertFalse(vgCbReceiver.waitForExpectedVolumeGroupChanged(
+                            AudioVolumeGroupCallbackHelper.ASYNC_TIMEOUT_MS));
+                    readIndex = mAudioManager.getVolumeGroupVolumeIndex(volumeGroupId);
+                    assertEquals(readIndex, lastAudibleIndex);
+                    assertEquals(lastAudibleIndex,
+                            mAudioManager.getLastAudibleVolumeForVolumeGroup(volumeGroupId));
+                    assertFalse(mAudioManager.isVolumeGroupMuted(volumeGroupId));
+                }
+            }
+        } finally {
+            mAudioManager.unregisterVolumeGroupCallback(vgCbReceiver);
+            getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+        }
+    }
+
+    private final class MyPreferredMixerAttrListener
+            implements AudioManager.OnPreferredMixerAttributesChangedListener {
+        private final AudioAttributes mAttr;
+        private final int mDeviceId;
+
+        private AtomicBoolean mIsCalled = new AtomicBoolean();
+
+        MyPreferredMixerAttrListener(AudioAttributes attr, int deviceId) {
+            mAttr = attr;
+            mDeviceId = deviceId;
+        }
+
+        @Override
+        public void onPreferredMixerAttributesChanged(AudioAttributes attributes,
+                                                      AudioDeviceInfo device,
+                                                      AudioMixerAttributes mixerAttr) {
+            if (device.getId() == mDeviceId && mAttr.equals(attributes)) {
+                mIsCalled.set(true);
+            }
+        }
+
+        public void reset() {
+            mIsCalled.set(false);
+        }
+
+        public boolean isPreferredMixerAttributesChanged() {
+            return mIsCalled.get();
+        }
     }
 
     private void assertStreamVolumeEquals(int stream, int expectedVolume) throws Exception {

@@ -210,7 +210,7 @@ static bool PromptOverwrite(const std::string& dst) {
   }
 }
 
-class TestWriter : public zip_archive::Writer {
+class TestWriter final : public zip_archive::Writer {
  public:
   bool Append(uint8_t* buf, size_t size) {
     crc = static_cast<uint32_t>(crc32(crc, reinterpret_cast<const Bytef*>(buf),

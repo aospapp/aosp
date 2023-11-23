@@ -16,25 +16,16 @@
   -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.safetycenter.cts">
-
     <application>
-        <receiver android:name=".testing.SafetySourceBroadcastReceiver"
-                  android:exported="false">
-            <intent-filter>
-                <action android:name="android.safetycenter.action.REFRESH_SAFETY_SOURCES"/>
-            </intent-filter>
-        </receiver>
-
         <uses-library android:name="android.test.runner"/>
     </application>
+
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:label="CTS tests for SafetyCenter"
                      android:targetPackage="android.safetycenter.cts">
-        <meta-data android:name="listener"
-                   android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
-
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+    <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"/>
 </manifest>

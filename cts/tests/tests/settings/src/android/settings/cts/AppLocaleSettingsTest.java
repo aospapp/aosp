@@ -17,6 +17,7 @@
 package android.settings.cts;
 
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
 
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -39,11 +40,19 @@ import org.junit.runner.RunWith;
 public class AppLocaleSettingsTest {
     @Test
     public void testAppLocaleSettingsExist() throws RemoteException {
+        assumeFalse(
+                "Skipping test: AppLocaleSettings is not supported in Wear OS",
+                isWatch());
         final Intent intent = new Intent(Settings.ACTION_APP_LOCALE_SETTINGS);
         intent.setData(Uri.parse("package:com.my.app"));
         final ResolveInfo ri = InstrumentationRegistry.getTargetContext()
                 .getPackageManager().resolveActivity(
                 intent, PackageManager.MATCH_DEFAULT_ONLY);
         assertTrue(ri != null);
+    }
+
+    private boolean isWatch() {
+        return InstrumentationRegistry.getTargetContext()
+                .getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
     }
 }

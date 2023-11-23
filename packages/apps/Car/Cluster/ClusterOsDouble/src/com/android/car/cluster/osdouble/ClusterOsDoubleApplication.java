@@ -18,12 +18,16 @@ package com.android.car.cluster.osdouble;
 
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 
+import android.annotation.NonNull;
 import android.app.ActivityOptions;
 import android.app.Application;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.display.DisplayManager;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.Display;
 import android.view.DisplayAddress;
@@ -34,45 +38,126 @@ import android.view.DisplayAddress;
 public class ClusterOsDoubleApplication extends Application {
     public static final String TAG = "ClusterOsDouble";
 
-    private DisplayManager mDisplayManager;
-
     @Override
     public void onCreate() {
         super.onCreate();
         Context context = getApplicationContext();
-        mDisplayManager = context.getSystemService(DisplayManager.class);
         int displayPort = context.getResources().getInteger(R.integer.config_clusterDisplayPort);
-        if (displayPort == 0) {
-            Log.e(TAG, "Invalid resource: config_clusterDisplayPort");
-            // Won't throw the exception, if so, it'll restart the application continuously,
-            // because this is the persistent application.
-            return;
-        }
-        int displayId = findDisplay(displayPort);
-        if (displayId == Display.INVALID_DISPLAY) {
-            Log.e(TAG, "Can't find the display with portId: " + displayPort);
+        String displayUniqueId = context.getResources().getString(
+                R.string.config_clusterDisplayUniqueId);
+
+        if (displayPort <= 0 && TextUtils.isEmpty(displayUniqueId)) {
+            Log.e(TAG, "Cluster display isn't configured.");
             return;
         }
 
-        Intent intent = Intent.makeMainActivity(
-                ComponentName.createRelative(context, ClusterOsDoubleActivity.class.getName()));
-        intent.addFlags(FLAG_ACTIVITY_NEW_TASK);
-
-        ActivityOptions options = ActivityOptions.makeBasic().setLaunchDisplayId(displayId);
-        context.startActivity(intent, options.toBundle());
+        DisplayManager displayManager = context.getSystemService(DisplayManager.class);
+        ClusterDisplayMonitor clusterDisplayMonitor = new ClusterDisplayMonitor(context,
+                displayManager, displayPort, displayUniqueId);
+        clusterDisplayMonitor.start(new Handler(Looper.myLooper()));
     }
 
-    private int findDisplay(int displayPort) {
-        for (Display display : mDisplayManager.getDisplays()) {
-            DisplayAddress address = display.getAddress();
-            if (!(address instanceof DisplayAddress.Physical)) {
-                continue;
-            }
-            DisplayAddress.Physical physical = (DisplayAddress.Physical) address;
-            if (physical.getPort() == displayPort) {
-                return display.getDisplayId();
-            }
+    /**
+     * Monitors displays and starts the cluster activity when the correct display becomes available.
+     */
+    private static class ClusterDisplayMonitor {
+        private final Context mContext;
+        private final DisplayManager mDisplayManager;
+        private final int mDisplayPort;
+        private final String mDisplayUniqueId;
+
+        private final DisplayManager.DisplayListener mDisplayListener =
+                new DisplayManager.DisplayListener() {
+                    @Override
+                    public void onDisplayAdded(int displayId) {
+                        int clusterDisplayId = findClusterDisplayId();
+                        if (clusterDisplayId == displayId) {
+                            Log.d(TAG, "Display " + displayId + " was added. Starting cluster.");
+                            onDisplayReadyForCluster(displayId);
+                        }
+                    }
+
+                    @Override
+                    public void onDisplayRemoved(int displayId) {
+                        // No-op
+                    }
+
+                    @Override
+                    public void onDisplayChanged(int displayId) {
+                        // No-op
+                    }
+                };
+
+        public ClusterDisplayMonitor(Context context, DisplayManager displayManager,
+                int displayPort, String displayUniqueId) {
+            mContext = context;
+            mDisplayManager = displayManager;
+            mDisplayPort = displayPort;
+            mDisplayUniqueId = displayUniqueId;
         }
-        return Display.INVALID_DISPLAY;
+
+        public void start(Handler handler) {
+            int clusterDisplayId = findClusterDisplayId();
+            if (clusterDisplayId != Display.INVALID_DISPLAY) {
+                onDisplayReadyForCluster(clusterDisplayId);
+            }
+            // This listener will never get unregistered. This is only ok as long as this is a
+            // persistent app that is not expected to stop.
+            mDisplayManager.registerDisplayListener(mDisplayListener, handler);
+        }
+
+        private void onDisplayReadyForCluster(int displayId) {
+            Intent intent = Intent.makeMainActivity(
+                    ComponentName.createRelative(mContext,
+                            ClusterOsDoubleActivity.class.getName()));
+            intent.addFlags(FLAG_ACTIVITY_NEW_TASK);
+
+            ActivityOptions options = ActivityOptions.makeBasic().setLaunchDisplayId(displayId);
+            mContext.startActivity(intent, options.toBundle());
+        }
+
+        private int findClusterDisplayId() {
+            int displayId = Display.INVALID_DISPLAY;
+            if (mDisplayPort > 0) {
+                displayId = findDisplayByPort(mDisplayPort);
+                if (displayId == Display.INVALID_DISPLAY) {
+                    Log.e(TAG, "Can't find the display with portId: " + mDisplayPort);
+                }
+            } else if (!TextUtils.isEmpty(mDisplayUniqueId)) {
+                displayId = findDisplayIdByUniqueId(mDisplayUniqueId);
+                if (displayId == Display.INVALID_DISPLAY) {
+                    Log.e(TAG, "Can't find the display with uniqueId: " + mDisplayUniqueId);
+                }
+            } else {
+                // This should not ever happen.
+                Log.wtf(TAG, "No valid cluster display configs found.");
+            }
+
+            return displayId;
+        }
+
+        private int findDisplayIdByUniqueId(@NonNull String displayUniqueId) {
+            for (Display display : mDisplayManager.getDisplays()) {
+                if (displayUniqueId.equals(display.getUniqueId())) {
+                    return display.getDisplayId();
+                }
+            }
+            return Display.INVALID_DISPLAY;
+        }
+
+        private int findDisplayByPort(int displayPort) {
+            for (Display display : mDisplayManager.getDisplays()) {
+                DisplayAddress address = display.getAddress();
+                if (!(address instanceof DisplayAddress.Physical)) {
+                    continue;
+                }
+                DisplayAddress.Physical physical = (DisplayAddress.Physical) address;
+                if (physical.getPort() == displayPort) {
+                    return display.getDisplayId();
+                }
+            }
+            return Display.INVALID_DISPLAY;
+        }
     }
+
 }

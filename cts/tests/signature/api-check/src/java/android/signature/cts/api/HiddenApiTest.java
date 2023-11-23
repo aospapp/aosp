@@ -66,7 +66,7 @@ public class HiddenApiTest extends AbstractApiTest {
     private final static Predicate<DexMember> FIELD_FILTER =
             dexMember -> (dexMember instanceof DexField);
 
-    @Test
+    @Test(timeout = 900000)
     public void testSignatureMethodsThroughReflection() {
         doTestSignature(METHOD_FILTER,/* reflection= */ true, /* jni= */ false);
     }

@@ -15,7 +15,9 @@
 */
 #include "AddressSpaceStream.h"
 
-#include "android/base/Tracing.h"
+#include "VirtGpu.h"
+#include "aemu/base/Tracing.h"
+#include "virtgpu_gfxstream_protocol.h"
 
 #if PLATFORM_SDK_VERSION < 26
 #include <cutils/log.h>
@@ -26,15 +28,14 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-
-#include <sys/mman.h>
+#include <unistd.h>
 
 static const size_t kReadSize = 512 * 1024;
 static const size_t kWriteOffset = kReadSize;
 
-AddressSpaceStream* createAddressSpaceStream(size_t ignored_bufSize) {
+AddressSpaceStream* createAddressSpaceStream(size_t ignored_bufSize,
+                                             HealthMonitor<>* healthMonitor) {
     // Ignore incoming ignored_bufSize
     (void)ignored_bufSize;
 
@@ -142,111 +143,88 @@ AddressSpaceStream* createAddressSpaceStream(size_t ignored_bufSize) {
     AddressSpaceStream* res =
         new AddressSpaceStream(
             child_device_handle, version, context,
-            ringOffset, bufferOffset, false /* not virtio */, ops);
+            ringOffset, bufferOffset, ops, healthMonitor);
 
     return res;
 }
 
-#if defined(VIRTIO_GPU) && !defined(HOST_BUILD)
-AddressSpaceStream* createVirtioGpuAddressSpaceStream(const struct StreamCreate &streamCreate) {
-    auto handle = reinterpret_cast<address_space_handle_t>(streamCreate.streamHandle);
-    struct address_space_virtgpu_info virtgpu_info;
+address_space_handle_t virtgpu_address_space_open() {
+    return (address_space_handle_t)(-EINVAL);
+}
 
-    ALOGD("%s: create subdevice and get resp\n", __func__);
-    if (!virtgpu_address_space_create_context_with_subdevice(
-            handle, GoldfishAddressSpaceSubdeviceType::VirtioGpuGraphics,
-            &virtgpu_info)) {
-        ALOGE("AddressSpaceStream::create failed (create subdevice)\n");
-        if (virtgpu_info.resp_mapped_ptr) {
-            munmap(virtgpu_info.resp_mapped_ptr, 4096);
-        }
-        virtgpu_address_space_close(handle);
+void virtgpu_address_space_close(address_space_handle_t fd) {
+    // Handle opened by VirtioGpuDevice wrapper
+}
+
+bool virtgpu_address_space_ping(address_space_handle_t fd, struct address_space_ping* info) {
+    int ret;
+    struct VirtGpuExecBuffer exec = {};
+    VirtGpuDevice& instance = VirtGpuDevice::getInstance();
+    struct gfxstreamContextPing ping = {};
+
+    ping.hdr.opCode = GFXSTREAM_CONTEXT_PING;
+    ping.resourceId = info->resourceId;
+
+    exec.command = static_cast<void*>(&ping);
+    exec.command_size = sizeof(ping);
+
+    ret = instance.execBuffer(exec, nullptr);
+    if (ret)
+        return false;
+
+    return true;
+}
+
+AddressSpaceStream* createVirtioGpuAddressSpaceStream(HealthMonitor<>* healthMonitor) {
+    VirtGpuBlobPtr pipe, blob;
+    VirtGpuBlobMappingPtr pipeMapping, blobMapping;
+    struct VirtGpuExecBuffer exec = {};
+    struct VirtGpuCreateBlob blobCreate = {};
+    struct gfxstreamContextCreate contextCreate = {};
+
+    char* blobAddr, *bufferPtr;
+    int ret;
+
+    // HACK: constants that are currently used.
+    // Ideal solution would use virtio-gpu capabilities to report both ringSize and bufferSize
+    uint32_t ringSize = 12288;
+    uint32_t bufferSize = 1048576;
+
+    VirtGpuDevice& instance = VirtGpuDevice::getInstance();
+
+    blobCreate.blobId = 0;
+    blobCreate.blobMem = kBlobMemHost3d;
+    blobCreate.flags = kBlobFlagMappable;
+    blobCreate.size = ringSize + bufferSize;
+    blob = instance.createBlob(blobCreate);
+    if (!blob)
         return nullptr;
-    }
-    ALOGD("%s: create subdevice and get resp (done)\n", __func__);
 
-    struct address_space_ping request;
-    uint32_t ringSize = 0;
-    uint32_t bufferSize = 0;
+    // Context creation command
+    contextCreate.hdr.opCode = GFXSTREAM_CONTEXT_CREATE;
+    contextCreate.resourceId = blob->getResourceHandle();
 
-    request.metadata = ASG_GET_RING;
-    if (!virtgpu_address_space_ping_with_response(
-        &virtgpu_info, &request)) {
-        ALOGE("AddressSpaceStream::create failed (get ring version)\n");
-        if (virtgpu_info.resp_mapped_ptr) {
-            munmap(virtgpu_info.resp_mapped_ptr, 4096);
-        }
-        virtgpu_address_space_close(handle);
+    exec.command = static_cast<void*>(&contextCreate);
+    exec.command_size = sizeof(contextCreate);
+
+    ret = instance.execBuffer(exec, blob);
+    if (ret)
         return nullptr;
-    }
-    ringSize = request.size;
 
-    request.metadata = ASG_GET_BUFFER;
-    if (!virtgpu_address_space_ping_with_response(
-        &virtgpu_info, &request)) {
-        ALOGE("AddressSpaceStream::create failed (get ring version)\n");
-        if (virtgpu_info.resp_mapped_ptr) {
-            munmap(virtgpu_info.resp_mapped_ptr, 4096);
-        }
-        virtgpu_address_space_close(handle);
+    // Wait occurs on global timeline -- should we use context specific one?
+    ret = blob->wait();
+    if (ret)
         return nullptr;
-    }
-    bufferSize = request.size;
 
-    request.metadata = ASG_SET_VERSION;
-    request.size = 1; // version 1
-
-    if (!virtgpu_address_space_ping_with_response(
-        &virtgpu_info, &request)) {
-        ALOGE("AddressSpaceStream::create failed (set version)\n");
-        if (virtgpu_info.resp_mapped_ptr) {
-            munmap(virtgpu_info.resp_mapped_ptr, 4096);
-        }
-        virtgpu_address_space_close(handle);
+    blobMapping = blob->createMapping();
+    if (!blobMapping)
         return nullptr;
-    }
 
-    ALOGD("%s: ping returned. context ring and buffer sizes %u %u\n", __func__,
-            ringSize, bufferSize);
+    blobAddr = reinterpret_cast<char*>(blobMapping->asRawPtr());
 
-    uint64_t hostmem_id = request.metadata;
-    uint32_t version = request.size;
-    size_t hostmem_alloc_size =
-        (size_t)(ringSize + bufferSize);
-
-    ALOGD("%s: hostmem size: %zu\n", __func__, hostmem_alloc_size);
-
-    struct address_space_virtgpu_hostmem_info hostmem_info;
-    if (!virtgpu_address_space_allocate_hostmem(
-            handle,
-            hostmem_alloc_size,
-            hostmem_id,
-            &hostmem_info)) {
-        ALOGE("AddressSpaceStream::create failed (alloc hostmem)\n");
-        if (virtgpu_info.resp_mapped_ptr) {
-            munmap(virtgpu_info.resp_mapped_ptr, 4096);
-        }
-        virtgpu_address_space_close(handle);
-        return nullptr;
-    }
-
-    request.metadata = ASG_GET_CONFIG;
-    if (!virtgpu_address_space_ping_with_response(
-        &virtgpu_info, &request)) {
-        ALOGE("AddressSpaceStream::create failed (get config)\n");
-        if (virtgpu_info.resp_mapped_ptr) {
-            munmap(virtgpu_info.resp_mapped_ptr, 4096);
-        }
-        virtgpu_address_space_close(handle);
-        return nullptr;
-    }
-
-    char* ringPtr = (char*)hostmem_info.ptr;
-    char* bufferPtr = ((char*)hostmem_info.ptr) + sizeof(struct asg_ring_storage);
-
+    bufferPtr = blobAddr + sizeof(struct asg_ring_storage);
     struct asg_context context =
-        asg_context_create(
-            (char*)ringPtr, (char*)bufferPtr, bufferSize);
+        asg_context_create(blobAddr, bufferPtr, bufferSize);
 
     context.ring_config->transfer_mode = 1;
     context.ring_config->host_consumed_pos = 0;
@@ -256,23 +234,15 @@ AddressSpaceStream* createVirtioGpuAddressSpaceStream(const struct StreamCreate 
         .open = virtgpu_address_space_open,
         .close = virtgpu_address_space_close,
         .ping = virtgpu_address_space_ping,
-        .allocate_hostmem = virtgpu_address_space_allocate_hostmem,
-        .ping_with_response = virtgpu_address_space_ping_with_response,
     };
 
-    if (virtgpu_info.resp_mapped_ptr) {
-        munmap(virtgpu_info.resp_mapped_ptr, 4096);
-    }
-
     AddressSpaceStream* res =
-        new AddressSpaceStream(
-            handle, version, context,
-            0, 0, true /* is virtio */, ops);
+            new AddressSpaceStream((address_space_handle_t)(-1), 1, context, 0, 0, ops, healthMonitor);
 
+    res->setMapping(blobMapping);
+    res->setResourceId(contextCreate.resourceId);
     return res;
 }
-#endif // VIRTIO_GPU && !HOST_BUILD
-
 
 AddressSpaceStream::AddressSpaceStream(
     address_space_handle_t handle,
@@ -280,10 +250,9 @@ AddressSpaceStream::AddressSpaceStream(
     struct asg_context context,
     uint64_t ringOffset,
     uint64_t writeBufferOffset,
-    bool virtioMode,
-    struct address_space_ops ops) :
+    struct address_space_ops ops,
+    HealthMonitor<>* healthMonitor) :
     IOStream(context.ring_config->flush_interval),
-    m_virtioMode(virtioMode),
     m_ops(ops),
     m_tmpBuf(0),
     m_tmpBufSize(0),
@@ -306,9 +275,11 @@ AddressSpaceStream::AddressSpaceStream(
     m_written(0),
     m_backoffIters(0),
     m_backoffFactor(1),
-    m_ringStorageSize(sizeof(struct asg_ring_storage) + m_writeBufferSize) {
+    m_ringStorageSize(sizeof(struct asg_ring_storage) + m_writeBufferSize),
+    m_healthMonitor(healthMonitor) {
     // We'll use this in the future, but at the moment,
     // it's a potential compile Werror.
+    (void)m_ringStorageSize;
     (void)m_version;
 }
 
@@ -316,16 +287,14 @@ AddressSpaceStream::~AddressSpaceStream() {
     flush();
     ensureType3Finished();
     ensureType1Finished();
-    if (m_virtioMode) {
-        if (m_context.to_host) {
-            munmap(m_context.to_host, m_ringStorageSize);
-        }
-    } else {
+
+    if (!m_mapping) {
         m_ops.unmap(m_context.to_host, sizeof(struct asg_ring_storage));
         m_ops.unmap(m_context.buffer, m_writeBufferSize);
         m_ops.unclaim_shared(m_handle, m_ringOffset);
         m_ops.unclaim_shared(m_handle, m_writeBufferOffset);
     }
+
     m_ops.close(m_handle);
     if (m_readBuf) free(m_readBuf);
     if (m_tmpBuf) free(m_tmpBuf);
@@ -337,6 +306,7 @@ size_t AddressSpaceStream::idealAllocSize(size_t len) {
 }
 
 void *AddressSpaceStream::allocBuffer(size_t minSize) {
+    auto watchdog = WATCHDOG_BUILDER(m_healthMonitor, "ASG watchdog").build();
     AEMU_SCOPED_TRACE("allocBuffer");
     ensureType3Finished();
 
@@ -484,6 +454,7 @@ const unsigned char *AddressSpaceStream::read(void *buf, size_t *inout_len) {
 
 int AddressSpaceStream::writeFully(const void *buf, size_t size)
 {
+    auto watchdog = WATCHDOG_BUILDER(m_healthMonitor, "ASG watchdog").build();
     AEMU_SCOPED_TRACE("writeFully");
     ensureType3Finished();
     ensureType1Finished();
@@ -549,6 +520,7 @@ int AddressSpaceStream::writeFully(const void *buf, size_t size)
 
 int AddressSpaceStream::writeFullyAsync(const void *buf, size_t size)
 {
+    auto watchdog = WATCHDOG_BUILDER(m_healthMonitor, "ASG watchdog").build();
     AEMU_SCOPED_TRACE("writeFullyAsync");
     ensureType3Finished();
     ensureType1Finished();
@@ -638,10 +610,8 @@ ssize_t AddressSpaceStream::speculativeRead(unsigned char* readBuffer, size_t tr
     ensureType1Finished();
 
     size_t actuallyRead = 0;
-    size_t readIters = 0;
 
     while (!actuallyRead) {
-        ++readIters;
 
         uint32_t readAvail =
             ring_buffer_available_read(
@@ -672,9 +642,11 @@ ssize_t AddressSpaceStream::speculativeRead(unsigned char* readBuffer, size_t tr
 }
 
 void AddressSpaceStream::notifyAvailable() {
+    auto watchdog = WATCHDOG_BUILDER(m_healthMonitor, "ASG watchdog").build();
     AEMU_SCOPED_TRACE("PING");
     struct address_space_ping request;
     request.metadata = ASG_NOTIFY_AVAILABLE;
+    request.resourceId = m_resourceId;
     m_ops.ping(m_handle, &request);
     ++m_notifs;
 }
@@ -713,6 +685,7 @@ void AddressSpaceStream::ensureConsumerFinishing() {
 }
 
 void AddressSpaceStream::ensureType1Finished() {
+    auto watchdog = WATCHDOG_BUILDER(m_healthMonitor, "ASG watchdog").build();
     AEMU_SCOPED_TRACE("ensureType1Finished");
 
     uint32_t currAvailRead =
@@ -729,6 +702,7 @@ void AddressSpaceStream::ensureType1Finished() {
 }
 
 void AddressSpaceStream::ensureType3Finished() {
+    auto watchdog = WATCHDOG_BUILDER(m_healthMonitor, "ASG watchdog").build();
     AEMU_SCOPED_TRACE("ensureType3Finished");
     uint32_t availReadLarge =
         ring_buffer_available_read(
@@ -753,6 +727,7 @@ void AddressSpaceStream::ensureType3Finished() {
 
 int AddressSpaceStream::type1Write(uint32_t bufferOffset, size_t size) {
 
+    auto watchdog = WATCHDOG_BUILDER(m_healthMonitor, "ASG watchdog").build();
     AEMU_SCOPED_TRACE("type1Write");
 
     ensureType3Finished();

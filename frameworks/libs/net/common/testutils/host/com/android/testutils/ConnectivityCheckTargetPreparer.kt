@@ -21,6 +21,7 @@ import com.android.tradefed.invoker.TestInformation
 import com.android.tradefed.result.CollectingTestListener
 import com.android.tradefed.result.ddmlib.DefaultRemoteAndroidTestRunner
 import com.android.tradefed.targetprep.BaseTargetPreparer
+import com.android.tradefed.targetprep.TargetSetupError
 import com.android.tradefed.targetprep.suite.SuiteApkInstaller
 
 private const val CONNECTIVITY_CHECKER_APK = "ConnectivityChecker.apk"
@@ -52,13 +53,14 @@ class ConnectivityCheckTargetPreparer : BaseTargetPreparer() {
 
         val receiver = CollectingTestListener()
         if (!testInformation.device.runInstrumentationTests(runner, receiver)) {
-            throw AssertionError("Device state check failed to complete")
+            throw TargetSetupError("Device state check failed to complete",
+                    testInformation.device.deviceDescriptor)
         }
 
         val runResult = receiver.currentRunResults
         if (runResult.isRunFailure) {
-            throw AssertionError("Failed to check device state before the test: " +
-                    runResult.runFailureMessage)
+            throw TargetSetupError("Failed to check device state before the test: " +
+                    runResult.runFailureMessage, testInformation.device.deviceDescriptor)
         }
 
         if (!runResult.hasFailedTests()) return
@@ -67,7 +69,8 @@ class ConnectivityCheckTargetPreparer : BaseTargetPreparer() {
             else "$testDescription: ${testResult.stackTrace}"
         }.joinToString("\n")
 
-        throw AssertionError("Device setup checks failed. Check the test bench: \n$errorMsg")
+        throw TargetSetupError("Device setup checks failed. Check the test bench: \n$errorMsg",
+                testInformation.device.deviceDescriptor)
     }
 
     override fun tearDown(testInformation: TestInformation?, e: Throwable?) {

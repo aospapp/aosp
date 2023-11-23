@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"הכפפה לשירות ההקרנה למסך"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"מאפשרת למשתמש לבצע הכפפה לממשק ברמה עליונה של שירות הקרנה למסך. הרשאה זו לעולם אינה נחוצה לאפליקציות רגילות."</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"שירות לקוח VMS"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"הכפפה ללקוחות VMS"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"עיבוד של אשכול הכלים"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"קבלת נתונים של אשכול כלים"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"שירות הקלט של הרכב"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"ניהול אירועי קלט"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"אי אפשר להשתמש בתכונה הזו במהלך הנהיגה"</string>
     <string name="exit_button_message" msgid="5375678491245394542">"כדי להפעיל מחדש את האפליקציה במצב בטוח, יש ללחוץ על <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
     <string name="exit_button" msgid="3491899413031549265">"הקודם"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"תתבצע מחיקה של המכשיר"</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"לא ניתן להשתמש באפליקציה של האדמין. הנתונים שבמכשיר יימחקו עכשיו.\n\nאם יש לך שאלות, אפשר ליצור קשר עם האדמין של הארגון."</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"האפליקציה <xliff:g id="ID_1">^1</xliff:g> משפיעה על ביצועי המערכת"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"כדי לשפר את ביצועי המערכת, כדאי להשבית את האפליקציה. יש לך אפשרות להפעיל שוב את האפליקציה ב\'הגדרות\'."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"כדי להמשיך להשתמש באפליקציה, צריך לקבוע לה עדיפות גבוהה."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"כדי לשפר את ביצועי המערכת, צריך להסיר את האפליקציה."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"השבתת האפליקציה"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"האפליקציה הזו נחסמה להפעלה ברקע. כדי שהאפליקציה תמשיך לפעול ברקע צריך לקבוע לה עדיפות גבוהה."</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"סגירה"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"קביעת עדיפות לאפליקציה"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"הסרת האפליקציה"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> הושבתה. אפשר להפעיל אותה שוב ב\'הגדרות\'."</string>
 </resources>

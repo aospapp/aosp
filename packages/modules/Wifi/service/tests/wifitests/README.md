@@ -29,5 +29,5 @@ for results. By default the results are generated as a set of HTML pages. For ex
 the following from the root out your source tree to generate results in the wifi_coverage directory
 
 ```
-frameworks/opt/net/wifi/tests/wifitests/coverage.sh wifi_coverage
+packages/modules/Wifi/service/tests/wifitests/coverage.sh wifi_coverage
 ```

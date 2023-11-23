@@ -32,6 +32,7 @@ import android.os.Message;
 import android.provider.Telephony;
 import android.telephony.Annotation;
 import android.telephony.Annotation.NetworkType;
+import android.telephony.AnomalyReporter;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -44,6 +45,7 @@ import android.util.IndentingPrintWriter;
 import android.util.LocalLog;
 
 import com.android.internal.telephony.Phone;
+import com.android.internal.telephony.data.DataConfigManager.DataConfigManagerCallback;
 import com.android.internal.telephony.data.DataNetworkController.DataNetworkControllerCallback;
 import com.android.telephony.Rlog;
 
@@ -54,6 +56,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
@@ -63,9 +66,6 @@ import java.util.stream.Collectors;
  */
 public class DataProfileManager extends Handler {
     private static final boolean VDBG = true;
-
-    /** Event for data config updated. */
-    private static final int EVENT_DATA_CONFIG_UPDATED = 1;
 
     /** Event for APN database changed. */
     private static final int EVENT_APN_DATABASE_CHANGED = 2;
@@ -77,6 +77,13 @@ public class DataProfileManager extends Handler {
     private final String mLogTag;
     private final LocalLog mLocalLog = new LocalLog(128);
 
+    /**
+     * Should only be used by update updateDataProfiles() to indicate whether resend IA to modem
+     * regardless whether IA changed.
+     **/
+    private final boolean FORCED_UPDATE_IA = true;
+    private final boolean ONLY_UPDATE_IA_IF_CHANGED = false;
+
     /** Data network controller. */
     private final @NonNull DataNetworkController mDataNetworkController;
 
@@ -86,7 +93,11 @@ public class DataProfileManager extends Handler {
     /** Cellular data service. */
     private final @NonNull DataServiceManager mWwanDataServiceManager;
 
-    /** All data profiles for the current carrier. */
+    /**
+     * All data profiles for the current carrier. Note only data profiles loaded from the APN
+     * database will be stored here. The on-demand data profiles (generated dynamically, for
+     * example, enterprise data profiles with differentiator) are not stored here.
+     */
     private final @NonNull List<DataProfile> mAllDataProfiles = new ArrayList<>();
 
     /** The data profile used for initial attach. */
@@ -94,6 +105,9 @@ public class DataProfileManager extends Handler {
 
     /** The preferred data profile used for internet. */
     private @Nullable DataProfile mPreferredDataProfile = null;
+
+    /** The last data profile that's successful for internet connection. */
+    private @Nullable DataProfile mLastInternetDataProfile = null;
 
     /** Preferred data profile set id. */
     private int mPreferredDataProfileSetId = Telephony.Carriers.NO_APN_SET_ID;
@@ -153,10 +167,16 @@ public class DataProfileManager extends Handler {
                 new DataNetworkControllerCallback(this::post) {
                     @Override
                     public void onInternetDataNetworkConnected(
-                            @NonNull List<DataProfile> dataProfiles) {
-                        DataProfileManager.this.onInternetDataNetworkConnected(dataProfiles);
-                    }});
-        mDataConfigManager.registerForConfigUpdate(this, EVENT_DATA_CONFIG_UPDATED);
+                            @NonNull List<DataNetwork> internetNetworks) {
+                        DataProfileManager.this.onInternetDataNetworkConnected(internetNetworks);
+                    }
+                });
+        mDataConfigManager.registerCallback(new DataConfigManagerCallback(this::post) {
+            @Override
+            public void onCarrierConfigChanged() {
+                DataProfileManager.this.onCarrierConfigUpdated();
+            }
+        });
         mPhone.getContext().getContentResolver().registerContentObserver(
                 Telephony.Carriers.CONTENT_URI, true, new ContentObserver(this) {
                     @Override
@@ -171,16 +191,13 @@ public class DataProfileManager extends Handler {
     @Override
     public void handleMessage(Message msg) {
         switch (msg.what) {
-            case EVENT_DATA_CONFIG_UPDATED:
-                onDataConfigUpdated();
-                break;
             case EVENT_SIM_REFRESH:
                 log("Update data profiles due to SIM refresh.");
-                updateDataProfiles();
+                updateDataProfiles(FORCED_UPDATE_IA);
                 break;
             case EVENT_APN_DATABASE_CHANGED:
                 log("Update data profiles due to APN db updated.");
-                updateDataProfiles();
+                updateDataProfiles(ONLY_UPDATE_IA_IF_CHANGED);
                 break;
             default:
                 loge("Unexpected event " + msg);
@@ -189,11 +206,11 @@ public class DataProfileManager extends Handler {
     }
 
     /**
-     * Called when data config was updated.
+     * Called when carrier config was updated.
      */
-    private void onDataConfigUpdated() {
-        log("Update data profiles due to config updated.");
-        updateDataProfiles();
+    private void onCarrierConfigUpdated() {
+        log("Update data profiles due to carrier config updated.");
+        updateDataProfiles(FORCED_UPDATE_IA);
 
         //TODO: more works needed to be done here.
     }
@@ -231,8 +248,10 @@ public class DataProfileManager extends Handler {
     /**
      * Update all data profiles, including preferred data profile, and initial attach data profile.
      * Also send those profiles down to the modem if needed.
+     *
+     * @param forceUpdateIa If {@code true}, we should always send IA again to modem.
      */
-    private void updateDataProfiles() {
+    private void updateDataProfiles(boolean forceUpdateIa) {
         List<DataProfile> profiles = new ArrayList<>();
         if (mDataConfigManager.isConfigCarrierSpecific()) {
             Cursor cursor = mPhone.getContext().getContentResolver().query(
@@ -242,7 +261,7 @@ public class DataProfileManager extends Handler {
                 loge("Cannot access APN database through telephony provider.");
                 return;
             }
-
+            boolean isInternetSupported = false;
             while (cursor.moveToNext()) {
                 ApnSetting apn = ApnSetting.makeApnSetting(cursor);
                 if (apn != null) {
@@ -253,14 +272,44 @@ public class DataProfileManager extends Handler {
                             .build();
                     profiles.add(dataProfile);
                     log("Added " + dataProfile);
+
+                    isInternetSupported |= apn.canHandleType(ApnSetting.TYPE_DEFAULT);
+                    if (mDataConfigManager.isApnConfigAnomalyReportEnabled()) {
+                        checkApnSetting(apn);
+                    }
                 }
             }
             cursor.close();
+
+            if (!isInternetSupported
+                    && !profiles.isEmpty() // APN database has been read successfully
+                    && mDataConfigManager.isApnConfigAnomalyReportEnabled()) {
+                reportAnomaly("Carrier doesn't support internet.",
+                        "9af73e18-b523-4dc5-adab-363eb6613305");
+            }
+        }
+
+        DataProfile dataProfile;
+
+        if (!profiles.isEmpty()) { // APN database has been read successfully after SIM loaded
+            // Check if any of the profile already supports IMS, if not, add the default one.
+            dataProfile = profiles.stream()
+                    .filter(dp -> dp.canSatisfy(NetworkCapabilities.NET_CAPABILITY_IMS))
+                    .findFirst()
+                    .orElse(null);
+            if (dataProfile == null) {
+                profiles.add(new DataProfile.Builder()
+                        .setApnSetting(buildDefaultApnSetting("DEFAULT IMS", "ims",
+                                ApnSetting.TYPE_IMS))
+                        .setTrafficDescriptor(new TrafficDescriptor("ims", null))
+                        .build());
+                log("Added default IMS data profile.");
+            }
         }
 
         // Check if any of the profile already supports ENTERPRISE, if not, check if DPC has
         // configured one and retrieve the same.
-        DataProfile dataProfile = profiles.stream()
+        dataProfile = profiles.stream()
                 .filter(dp -> dp.canSatisfy(NetworkCapabilities.NET_CAPABILITY_ENTERPRISE))
                 .findFirst()
                 .orElse(null);
@@ -270,20 +319,6 @@ public class DataProfileManager extends Handler {
                 profiles.add(dataProfile);
                 log("Added enterprise profile " + dataProfile);
             }
-        }
-
-        // Check if any of the profile already supports IMS, if not, add the default one.
-        dataProfile = profiles.stream()
-                .filter(dp -> dp.canSatisfy(NetworkCapabilities.NET_CAPABILITY_IMS))
-                .findFirst()
-                .orElse(null);
-        if (dataProfile == null) {
-            profiles.add(new DataProfile.Builder()
-                    .setApnSetting(buildDefaultApnSetting("DEFAULT IMS", "ims",
-                            ApnSetting.TYPE_IMS))
-                    .setTrafficDescriptor(new TrafficDescriptor("ims", null))
-                    .build());
-            log("Added default IMS data profile.");
         }
 
         // Check if any of the profile already supports EIMS, if not, add the default one.
@@ -301,6 +336,10 @@ public class DataProfileManager extends Handler {
         }
 
         dedupeDataProfiles(profiles);
+
+        if (mDataConfigManager.isApnConfigAnomalyReportEnabled()) {
+            checkDataProfiles(profiles);
+        }
 
         log("Found " + profiles.size() + " data profiles. profiles = " + profiles);
 
@@ -323,7 +362,7 @@ public class DataProfileManager extends Handler {
         }
 
         updateDataProfilesAtModem();
-        updateInitialAttachDataProfileAtModem();
+        updateInitialAttachDataProfileAtModem(forceUpdateIa);
 
         if (profilesChanged) {
             mDataProfileManagerCallbacks.forEach(callback -> callback.invokeFromExecutor(
@@ -365,23 +404,38 @@ public class DataProfileManager extends Handler {
     /**
      * Called when internet data is connected.
      *
-     * @param dataProfiles The connected internet data networks' profiles.
+     * @param internetNetworks The connected internet data networks.
      */
-    private void onInternetDataNetworkConnected(@NonNull List<DataProfile> dataProfiles) {
-        // If there is already a preferred data profile set, then we don't need to do anything.
-        if (mPreferredDataProfile != null) return;
+    private void onInternetDataNetworkConnected(@NonNull List<DataNetwork> internetNetworks) {
+        DataProfile defaultProfile = null;
+        if (internetNetworks.size() == 1) {
+            // Most of the cases there should be only one.
+            defaultProfile = internetNetworks.get(0).getDataProfile();
+        } else if (internetNetworks.size() > 1) {
+            // but in case there are multiple, find the default internet network, and choose the
+            // one which has longest life cycle.
+            logv("onInternetDataNetworkConnected: mPreferredDataProfile=" + mPreferredDataProfile
+                    + " internetNetworks=" + internetNetworks);
+            defaultProfile = internetNetworks.stream()
+                    .filter(network -> mPreferredDataProfile == null
+                            || canPreferredDataProfileSatisfy(
+                            network.getAttachedNetworkRequestList()))
+                    .map(DataNetwork::getDataProfile)
+                    .min(Comparator.comparingLong(DataProfile::getLastSetupTimestamp))
+                    .orElse(null);
+        }
 
-        // If there is no preferred data profile, then we should use one of the data profiles,
-        // which is good for internet, as the preferred data profile.
+        // Update a working internet data profile as a future candidate for preferred data profile
+        // after APNs are reset to default
+        mLastInternetDataProfile = defaultProfile;
 
-        // Most of the cases there should be only one, but in case there are multiple, choose the
-        // one which has longest life cycle.
-        DataProfile dataProfile = dataProfiles.stream()
-                .max(Comparator.comparingLong(DataProfile::getLastSetupTimestamp).reversed())
-                .orElse(null);
+        // If the live default internet network is not using the preferred data profile, since
+        // brought up a network means it passed sophisticated checks, update the preferred data
+        // profile so that this network won't be torn down in future network evaluations.
+        if (defaultProfile == null || defaultProfile.equals(mPreferredDataProfile)) return;
         // Save the preferred data profile into database.
-        setPreferredDataProfile(dataProfile);
-        updateDataProfiles();
+        setPreferredDataProfile(defaultProfile);
+        updateDataProfiles(ONLY_UPDATE_IA_IF_CHANGED);
     }
 
     /**
@@ -434,7 +488,7 @@ public class DataProfileManager extends Handler {
      * the preferred data profile from database.
      */
     private void setPreferredDataProfile(@Nullable DataProfile dataProfile) {
-        log("setPreferredDataProfile: " + dataProfile);
+        logl("setPreferredDataProfile: " + dataProfile);
 
         String subId = Long.toString(mPhone.getSubId());
         Uri uri = Uri.withAppendedPath(Telephony.Carriers.PREFERRED_APN_URI, subId);
@@ -465,6 +519,16 @@ public class DataProfileManager extends Handler {
                 if (preferredDataProfile != null) {
                     // Save the carrier specified preferred data profile into database
                     setPreferredDataProfile(preferredDataProfile);
+                } else {
+                    preferredDataProfile = mAllDataProfiles.stream()
+                            .filter(dp -> areDataProfilesSharingApn(dp, mLastInternetDataProfile))
+                            .findFirst()
+                            .orElse(null);
+                    if (preferredDataProfile != null) {
+                        log("updatePreferredDataProfile: preferredDB is empty and no carrier "
+                                + "default configured, setting preferred to be prev internet DP.");
+                        setPreferredDataProfile(preferredDataProfile);
+                    }
                 }
             }
         } else {
@@ -493,8 +557,10 @@ public class DataProfileManager extends Handler {
      * Some carriers might explicitly require that using "user-added" APN for initial
      * attach. In this case, exception can be configured through
      * {@link CarrierConfigManager#KEY_ALLOWED_INITIAL_ATTACH_APN_TYPES_STRING_ARRAY}.
+     *
+     * @param forceUpdateIa If {@code true}, we should always send IA again to modem.
      */
-    private void updateInitialAttachDataProfileAtModem() {
+    private void updateInitialAttachDataProfileAtModem(boolean forceUpdateIa) {
         DataProfile initialAttachDataProfile = null;
 
         // Sort the data profiles so the preferred data profile is at the beginning.
@@ -510,11 +576,12 @@ public class DataProfileManager extends Handler {
             if (initialAttachDataProfile != null) break;
         }
 
-        if (!Objects.equals(mInitialAttachDataProfile, initialAttachDataProfile)) {
+        if (forceUpdateIa || !Objects.equals(mInitialAttachDataProfile, initialAttachDataProfile)) {
             mInitialAttachDataProfile = initialAttachDataProfile;
-            logl("Initial attach data profile updated as " + mInitialAttachDataProfile);
+            logl("Initial attach data profile updated as " + mInitialAttachDataProfile
+                    + " or forceUpdateIa= " + forceUpdateIa);
             // TODO: Push the null data profile to modem on new AIDL HAL. Modem should clear the IA
-            //  APN.
+            //  APN, tracking for U b/227579876, now using forceUpdateIa which always push to modem
             if (mInitialAttachDataProfile != null) {
                 mWwanDataServiceManager.setInitialAttachApn(mInitialAttachDataProfile,
                         mPhone.getServiceState().getDataRoamingFromRegistration(), null);
@@ -557,14 +624,18 @@ public class DataProfileManager extends Handler {
      *
      * @param networkRequest The network request.
      * @param networkType The current data network type.
+     * @param ignorePermanentFailure {@code true} to ignore {@link ApnSetting#getPermanentFailed()}.
+     * This should be set to true for condition-based retry/setup.
      * @return The data profile. {@code null} if can't find any satisfiable data profile.
      */
     public @Nullable DataProfile getDataProfileForNetworkRequest(
-            @NonNull TelephonyNetworkRequest networkRequest, @NetworkType int networkType) {
+            @NonNull TelephonyNetworkRequest networkRequest, @NetworkType int networkType,
+            boolean ignorePermanentFailure) {
         ApnSetting apnSetting = null;
         if (networkRequest.hasAttribute(TelephonyNetworkRequest
                 .CAPABILITY_ATTRIBUTE_APN_SETTING)) {
-            apnSetting = getApnSettingForNetworkRequest(networkRequest, networkType);
+            apnSetting = getApnSettingForNetworkRequest(networkRequest, networkType,
+                    ignorePermanentFailure);
         }
 
         TrafficDescriptor.Builder trafficDescriptorBuilder = new TrafficDescriptor.Builder();
@@ -623,13 +694,31 @@ public class DataProfileManager extends Handler {
      *
      * @param networkRequest The network request.
      * @param networkType The current data network type.
+     * @param ignorePermanentFailure {@code true} to ignore {@link ApnSetting#getPermanentFailed()}.
+     * This should be set to true for condition-based retry/setup.
      * @return The APN setting. {@code null} if can't find any satisfiable data profile.
      */
     private @Nullable ApnSetting getApnSettingForNetworkRequest(
-            @NonNull TelephonyNetworkRequest networkRequest, @NetworkType int networkType) {
+            @NonNull TelephonyNetworkRequest networkRequest, @NetworkType int networkType,
+            boolean ignorePermanentFailure) {
         if (!networkRequest.hasAttribute(
                 TelephonyNetworkRequest.CAPABILITY_ATTRIBUTE_APN_SETTING)) {
             loge("Network request does not have APN setting attribute.");
+            return null;
+        }
+
+        // If the preferred data profile can be used, always use it if it can satisfy the network
+        // request with current network type (even though it's been marked as permanent failed.)
+        if (mPreferredDataProfile != null
+                && networkRequest.canBeSatisfiedBy(mPreferredDataProfile)
+                && mPreferredDataProfile.getApnSetting() != null
+                && mPreferredDataProfile.getApnSetting().canSupportNetworkType(networkType)) {
+            if (ignorePermanentFailure || !mPreferredDataProfile.getApnSetting()
+                    .getPermanentFailed()) {
+                return mPreferredDataProfile.getApnSetting();
+            }
+            log("The preferred data profile is permanently failed. Only condition based retry "
+                    + "can happen.");
             return null;
         }
 
@@ -637,11 +726,9 @@ public class DataProfileManager extends Handler {
         // Preferred data profile should be returned in the top of the list.
         List<DataProfile> dataProfiles = mAllDataProfiles.stream()
                 .filter(networkRequest::canBeSatisfiedBy)
-                // Put the preferred data profile at the top of the list, then the longest time
-                // hasn't used data profile will be in the front so all the data profiles can be
-                // tried.
-                .sorted(Comparator.comparing((DataProfile dp) -> !dp.equals(mPreferredDataProfile))
-                        .thenComparingLong(DataProfile::getLastSetupTimestamp))
+                // The longest time hasn't used data profile will be in the front so all the data
+                // profiles can be tried.
+                .sorted(Comparator.comparing(DataProfile::getLastSetupTimestamp))
                 .collect(Collectors.toList());
         for (DataProfile dataProfile : dataProfiles) {
             logv("Satisfied profile: " + dataProfile + ", last setup="
@@ -676,17 +763,39 @@ public class DataProfileManager extends Handler {
             return null;
         }
 
+        // Check if data profiles are permanently failed.
+        dataProfiles = dataProfiles.stream()
+                .filter(dp -> ignorePermanentFailure || !dp.getApnSetting().getPermanentFailed())
+                .collect(Collectors.toList());
+        if (dataProfiles.size() == 0) {
+            log("The suitable data profiles are all in permanent failed state.");
+            return null;
+        }
+
         return dataProfiles.get(0).getApnSetting();
     }
 
     /**
-     * Check if the data profile is the preferred data profile.
+     * Check if the data profile is essentially the preferred data profile. The non-essential
+     * elements include e.g.APN Id.
      *
      * @param dataProfile The data profile to check.
-     * @return {@code true} if the data profile is the preferred data profile.
+     * @return {@code true} if the data profile is essentially the preferred data profile.
      */
     public boolean isDataProfilePreferred(@NonNull DataProfile dataProfile) {
-        return dataProfile.equals(mPreferredDataProfile);
+        return areDataProfilesSharingApn(dataProfile, mPreferredDataProfile);
+    }
+
+    /**
+     * @param networkRequests The required network requests
+     * @return {@code true} if we currently have a preferred data profile that's capable of
+     * satisfying the required network requests; {@code false} if we have no preferred, or the
+     * preferred cannot satisfy the required requests.
+     */
+    public boolean canPreferredDataProfileSatisfy(
+            @NonNull DataNetworkController.NetworkRequestList networkRequests) {
+        return mPreferredDataProfile != null && networkRequests.stream()
+                .allMatch(request -> request.canBeSatisfiedBy(mPreferredDataProfile));
     }
 
     /**
@@ -707,19 +816,7 @@ public class DataProfileManager extends Handler {
                 new NetworkRequest.Builder()
                         .addCapability(NetworkCapabilities.NET_CAPABILITY_DUN)
                         .build(), mPhone);
-        return getDataProfileForNetworkRequest(networkRequest, networkType) != null;
-    }
-
-     /**
-     * Check if any preferred data profile exists.
-     *
-     * @return {@code true} if any preferred data profile exists
-     */
-    public boolean isAnyPreferredDataProfileExisting() {
-        for (DataProfile dataProfile : mAllDataProfiles) {
-            if (dataProfile.isPreferred()) return true;
-        }
-        return false;
+        return getDataProfileForNetworkRequest(networkRequest, networkType, true) != null;
     }
 
     /**
@@ -746,6 +843,72 @@ public class DataProfileManager extends Handler {
                 }
             }
             i++;
+        }
+    }
+
+    /**
+     * Trigger anomaly report if APN Setting contains invalid info.
+     *
+     * @param setting The Apn setting to be checked.
+     */
+    private void checkApnSetting(@NonNull ApnSetting setting) {
+        if (setting.canHandleType(ApnSetting.TYPE_MMS)) {
+            if (setting.getMmsc() == null) {
+                reportAnomaly("MMS is supported but no MMSC configured " + setting,
+                        "9af73e18-b523-4dc5-adab-19d86c6a3685");
+            } else if (!setting.getMmsc().toString().matches("^https?:\\/\\/.+")) {
+                reportAnomaly("Apn config mmsc should start with http but is "
+                                + setting.getMmsc(),
+                        "9af73e18-b523-4dc5-adab-ec754d959d4d");
+            }
+            if (!TextUtils.isEmpty(setting.getMmsProxyAddressAsString())
+                    && setting.getMmsProxyAddressAsString().matches("^https?:\\/\\/.+")) {
+                reportAnomaly("Apn config mmsc_proxy should NOT start with http but is "
+                                + setting.getMmsc(), "9af73e18-b523-4dc5-adab-ec754d959d4d");
+            }
+        }
+    }
+
+    /**
+     * Trigger anomaly report if any two Apn Settings share the same APN name while having
+     * overlapped network types.
+     *
+     * @param profiles The list of data profiles to be checked.
+     */
+    private void checkDataProfiles(List<DataProfile> profiles) {
+        for (int i = 0; i < profiles.size(); i++) {
+            ApnSetting a = profiles.get(i).getApnSetting();
+            if (a == null) continue;
+            if (// Lingering network is not the default and doesn't cover all the regular networks
+                    (int) TelephonyManager.NETWORK_TYPE_BITMASK_UNKNOWN
+                    != a.getLingeringNetworkTypeBitmask()
+                            && (a.getNetworkTypeBitmask() | a.getLingeringNetworkTypeBitmask())
+                    != a.getLingeringNetworkTypeBitmask()) {
+                reportAnomaly("Apn[" + a.getApnName() + "] network "
+                                + TelephonyManager.convertNetworkTypeBitmaskToString(
+                                        a.getNetworkTypeBitmask()) + " should be a subset of "
+                                + "the lingering network "
+                                + TelephonyManager.convertNetworkTypeBitmaskToString(
+                                a.getLingeringNetworkTypeBitmask()),
+                        "9af73e18-b523-4dc5-adab-4bb24355d838");
+            }
+            for (int j = i + 1; j < profiles.size(); j++) {
+                ApnSetting b = profiles.get(j).getApnSetting();
+                if (b == null) continue;
+                String apnNameA = a.getApnName();
+                String apnNameB = b.getApnName();
+                if (TextUtils.equals(apnNameA, apnNameB)
+                        // TelephonyManager.NETWORK_TYPE_BITMASK_UNKNOWN means all network types
+                        && (a.getNetworkTypeBitmask()
+                        == (int) TelephonyManager.NETWORK_TYPE_BITMASK_UNKNOWN
+                        || b.getNetworkTypeBitmask()
+                        == (int) TelephonyManager.NETWORK_TYPE_BITMASK_UNKNOWN
+                        || (a.getNetworkTypeBitmask() & b.getNetworkTypeBitmask()) != 0)) {
+                    reportAnomaly("Found overlapped network type under the APN name "
+                                    + a.getApnName(),
+                            "9af73e18-b523-4dc5-adab-4bb24555d839");
+                }
+            }
         }
     }
 
@@ -806,6 +969,9 @@ public class DataProfileManager extends Handler {
                 ? apn1.getMtuV4() : apn2.getMtuV4());
         apnBuilder.setMtuV6(apn2.getMtuV6() <= ApnSetting.UNSET_MTU
                 ? apn1.getMtuV6() : apn2.getMtuV6());
+        // legacy properties that don't matter
+        apnBuilder.setMvnoType(apn1.getMvnoType());
+        apnBuilder.setMvnoMatchData(apn1.getMvnoMatchData());
 
         // The following fields in apn1 and apn2 should be the same, otherwise ApnSetting.similar()
         // should fail earlier.
@@ -820,8 +986,6 @@ public class DataProfileManager extends Handler {
         apnBuilder.setMaxConns(apn1.getMaxConns());
         apnBuilder.setWaitTime(apn1.getWaitTime());
         apnBuilder.setMaxConnsTime(apn1.getMaxConnsTime());
-        apnBuilder.setMvnoType(apn1.getMvnoType());
-        apnBuilder.setMvnoMatchData(apn1.getMvnoMatchData());
         apnBuilder.setApnSetId(apn1.getApnSetId());
         apnBuilder.setCarrierId(apn1.getCarrierId());
         apnBuilder.setSkip464Xlat(apn1.getSkip464Xlat());
@@ -834,39 +998,43 @@ public class DataProfileManager extends Handler {
     }
 
     /**
-     * Get data profile by APN name and/or traffic descriptor.
+     * Check if the provided data profile is still compatible with the current environment. Note
+     * this method ignores APN id check and traffic descriptor check. A data profile with traffic
+     * descriptor only can always be used in any condition.
      *
-     * @param apnName APN name.
-     * @param trafficDescriptor Traffic descriptor.
-     *
-     * @return Data profile by APN name and/or traffic descriptor. Either one of APN name or
-     * traffic descriptor should be provided. {@code null} if data profile is not found.
+     * @param dataProfile The data profile to check.
+     * @return {@code true} if the provided data profile can be still used in current environment.
      */
-    public @Nullable DataProfile getDataProfile(@Nullable String apnName,
-            @Nullable TrafficDescriptor trafficDescriptor) {
-        if (apnName == null && trafficDescriptor == null) return null;
-
-        List<DataProfile> dataProfiles = mAllDataProfiles;
-
-        // Check if any existing data profile has the same traffic descriptor.
-        if (trafficDescriptor != null) {
-            dataProfiles = mAllDataProfiles.stream()
-                    .filter(dp -> trafficDescriptor.equals(dp.getTrafficDescriptor()))
-                    .collect(Collectors.toList());
+    public boolean isDataProfileCompatible(@NonNull DataProfile dataProfile) {
+        if (dataProfile == null) {
+            return false;
         }
 
-        // Check if any existing data profile has the same APN name.
-        if (apnName != null) {
-            dataProfiles = dataProfiles.stream()
-                    .filter(dp -> dp.getApnSetting() != null
-                            && (dp.getApnSetting().getApnSetId()
-                            == Telephony.Carriers.MATCH_ALL_APN_SET_ID
-                            || dp.getApnSetting().getApnSetId() == mPreferredDataProfileSetId))
-                    .filter(dp -> apnName.equals(dp.getApnSetting().getApnName()))
-                    .collect(Collectors.toList());
+        if (dataProfile.getApnSetting() == null && dataProfile.getTrafficDescriptor() != null) {
+            // A traffic descriptor only data profile can be always used. Traffic descriptors are
+            // always generated on the fly instead loaded from the database.
+            return true;
         }
 
-        return dataProfiles.isEmpty() ? null : dataProfiles.get(0);
+        // Check the APN from the profile is compatible and matches preferred data profile set id.
+        return mAllDataProfiles.stream()
+                .filter(dp -> dp.getApnSetting() != null
+                        && (dp.getApnSetting().getApnSetId()
+                        == Telephony.Carriers.MATCH_ALL_APN_SET_ID
+                        || dp.getApnSetting().getApnSetId() == mPreferredDataProfileSetId))
+                .anyMatch(dp -> areDataProfilesSharingApn(dataProfile, dp));
+    }
+
+    /**
+     * @return {@code true} if both data profiles' APN setting are non-null and essentially the same
+     * (non-essential elements include e.g.APN Id).
+     */
+    public boolean areDataProfilesSharingApn(@Nullable DataProfile a, @Nullable DataProfile b) {
+        return a != null
+                && b != null
+                && a.getApnSetting() != null
+                && a.getApnSetting().equals(b.getApnSetting(),
+                mPhone.getServiceState().getDataRoamingFromRegistration());
     }
 
     /**
@@ -885,6 +1053,17 @@ public class DataProfileManager extends Handler {
      */
     public void unregisterCallback(@NonNull DataProfileManagerCallback callback) {
         mDataProfileManagerCallbacks.remove(callback);
+    }
+
+    /**
+     * Trigger the anomaly report with the specified UUID.
+     *
+     * @param anomalyMsg Description of the event
+     * @param uuid UUID associated with that event
+     */
+    private void reportAnomaly(@NonNull String anomalyMsg, @NonNull String uuid) {
+        logl(anomalyMsg);
+        AnomalyReporter.reportAnomaly(UUID.fromString(uuid), anomalyMsg, mPhone.getCarrierId());
     }
 
     /**
@@ -945,9 +1124,16 @@ public class DataProfileManager extends Handler {
         pw.println("Preferred data profile from db=" + getPreferredDataProfileFromDb());
         pw.println("Preferred data profile from config=" + getPreferredDataProfileFromConfig());
         pw.println("Preferred data profile set id=" + mPreferredDataProfileSetId);
+        pw.println("Last internet data profile=" + mLastInternetDataProfile);
         pw.println("Initial attach data profile=" + mInitialAttachDataProfile);
         pw.println("isTetheringDataProfileExisting=" + isTetheringDataProfileExisting(
                 TelephonyManager.NETWORK_TYPE_LTE));
+        pw.println("Permanent failed profiles=");
+        pw.increaseIndent();
+        mAllDataProfiles.stream()
+                .filter(dp -> dp.getApnSetting() != null && dp.getApnSetting().getPermanentFailed())
+                .forEach(pw::println);
+        pw.decreaseIndent();
 
         pw.println("Local logs:");
         pw.increaseIndent();

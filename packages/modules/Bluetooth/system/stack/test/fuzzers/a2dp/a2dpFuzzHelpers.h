@@ -32,8 +32,9 @@
 
 #define MAX_DB_SIZE 4096
 
-tA2DP_SDP_DB_PARAMS generateDBParams(FuzzedDataProvider* fdp) {
-  std::vector<uint16_t> attr_list = generateArbitraryAttrList(fdp);
+tA2DP_SDP_DB_PARAMS generateDBParams(FuzzedDataProvider* fdp,
+                                     std::vector<uint16_t>& attr_list) {
+  attr_list = generateArbitraryAttrList(fdp);
 
   tA2DP_SDP_DB_PARAMS db_params;
   db_params.db_len = fdp->ConsumeIntegralInRange<uint32_t>(0, MAX_DB_SIZE);

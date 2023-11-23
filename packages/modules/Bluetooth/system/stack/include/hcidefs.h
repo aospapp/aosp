@@ -455,6 +455,9 @@
 #define HCI_CONTROLLER_DAB_GET_BUFFER_TIME 0x01
 #define HCI_CONTROLLER_DAB_SET_BUFFER_TIME 0x02
 
+/* SOC Logging OCF */
+#define HCI_VS_HOST_LOG_OPCODE (0x0017 | HCI_GRP_VENDOR_SPECIFIC)
+
 /* subcode for multi adv feature */
 #define BTM_BLE_MULTI_ADV_SET_PARAM 0x01
 #define BTM_BLE_MULTI_ADV_WRITE_ADV_DATA 0x02
@@ -613,6 +616,7 @@ constexpr uint8_t HCI_LE_STATES_INIT_CENTRAL_PERIPHERAL_BIT = 41;
 
 #define HCI_LE_PERIODIC_ADV_SYNC_TRANSFERE_RECEIVED_EVT 0x18
 #define HCI_LE_BIGINFO_ADVERTISING_REPORT_EVT 0x22
+#define HCI_LE_SUBRATE_CHANGE_EVT 0x23
 
 #define HCI_VENDOR_SPECIFIC_EVT 0xFF /* Vendor specific events */
 
@@ -734,6 +738,7 @@ typedef enum : uint16_t {
 #define HCI_EIR_OOB_SSP_HASH_C_TYPE 0x0E
 #define HCI_EIR_OOB_SSP_RAND_R_TYPE 0x0F
 #define HCI_EIR_RSI_TYPE 0x2E
+#define HCI_EIR_APPEARANCE_TYPE 0x19
 
 /* Definitions for Write Simple Pairing Mode */
 #define HCI_SP_MODE_ENABLED 0x01
@@ -829,6 +834,9 @@ typedef enum : uint8_t {
 /* Define an invalid value for a handle */
 #define HCI_INVALID_HANDLE 0xFFFF
 
+/* Define the max valid value for a connection handle */
+#define HCI_HANDLE_MAX 0xEFF
+
 /* Define the preamble length for all HCI Commands.
  * This is 2-bytes for opcode and 1 byte for length
 */
@@ -888,14 +896,37 @@ typedef struct {
 
 /* Parameter information for HCI_BRCM_SET_ACL_PRIORITY */
 #define HCI_BRCM_ACL_PRIORITY_PARAM_SIZE 3
-#define HCI_BRCM_ACL_PRIORITY_LOW 0x00
-#define HCI_BRCM_ACL_PRIORITY_HIGH 0xFF
 #define HCI_BRCM_SET_ACL_PRIORITY (0x0057 | HCI_GRP_VENDOR_SPECIFIC)
+#define HCI_BRCM_ACL_NORMAL_PRIORITY 0x00
+#define HCI_BRCM_ACL_HIGH_PRIORITY 0xFF
+#define HCI_BRCM_ACL_HIGH_PRIORITY_LOW_LATENCY 0xF3
 
 #define LMP_COMPID_GOOGLE 0xE0
 
 // TODO(zachoverflow): remove this once broadcom specific hacks are removed
 #define LMP_COMPID_BROADCOM 15
+
+// TODO: Remove this once Synaptics specific code is removed
+#define LMP_COMPID_SYNAPTICS 0x0A76
+
+// TODO Remove this once all QTI specific hacks are removed.
+#define LMP_COMPID_QTI 0x001D
+
+// TODO Remove this once all UNISOC specific hacks are removed.
+#define LMP_COMPID_UNISOC 0x073F
+
+/* Parameter information for HCI_SYNA_SET_ACL_PRIORITY */
+#define HCI_SYNA_ACL_PRIORITY_PARAM_SIZE 3
+#define HCI_SYNA_ACL_NORMAL_PRIORITY 0xF0
+#define HCI_SYNA_ACL_HIGH_PRIORITY 0xF2
+#define HCI_SYNA_ACL_HIGH_PRIORITY_LOW_LATENCY 0xF3
+#define HCI_SYNA_SET_ACL_PRIORITY (0x0057 | HCI_GRP_VENDOR_SPECIFIC)
+
+/* Parameter information for HCI_UNISOC_SET_ACL_PRIORITY */
+#define HCI_UNISOC_ACL_PRIORITY_PARAM_SIZE 3
+#define HCI_UNISOC_SET_ACL_PRIORITY (0x0057 | HCI_GRP_VENDOR_SPECIFIC)
+#define HCI_UNISOC_ACL_NORMAL_PRIORITY 0x00
+#define HCI_UNISOC_ACL_HIGH_PRIORITY 0xFF
 
 /*
  * Define packet size
@@ -1027,6 +1058,9 @@ typedef struct {
 #define HCI_LE_CIS_PERIPHERAL(x) ((x)[3] & 0x20)
 #define HCI_LE_ISO_BROADCASTER(x) ((x)[3] & 0x40)
 #define HCI_LE_SYNCHRONIZED_RECEIVER(x) ((x)[3] & 0x80)
+
+#define HCI_LE_CONN_SUBRATING_SUPPORT(x) ((x)[4] & 0x20)
+#define HCI_LE_CONN_SUBRATING_HOST_SUPPORT(x) ((x)[4] & 0x40)
 
 /* Supported Commands*/
 #define HCI_NUM_SUPP_COMMANDS_BYTES 64

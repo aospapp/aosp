@@ -220,7 +220,7 @@ static void dump_log_msg(const char* prefix, log_msg* msg, int lid) {
 #endif
 
 // b/26447386 confirm fixed
-void timeout_negative(const char* command) {
+void timeout_negative([[maybe_unused]] const char* command) {
 #ifdef __ANDROID__
     log_msg msg_wrap, msg_timeout;
     bool content_wrap = false, content_timeout = false, written = false;

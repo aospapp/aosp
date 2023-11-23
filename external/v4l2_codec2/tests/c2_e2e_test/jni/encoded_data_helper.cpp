@@ -43,12 +43,12 @@ bool GetPosForNextNALUHeader(const std::string& data, size_t* next_header_pos) {
     }
     if (pos + 3 >= data.size()) return false;  // No more NALUs
 
-    // NALU header is the first byte after Annex-B start code.
+    // NALU header is the first byte after Annex-B start code for H264/HEVC.
     *next_header_pos = pos + 3;
     return true;
 }
 
-// For H264, return data bytes of next AU fragment in |data| from |next_pos|,
+// For H264/HEVC, return data bytes of next AU fragment in |data| from |next_pos|,
 // and update the position to |next_pos|.
 std::string GetBytesForNextAU(const std::string& data, size_t* next_pos) {
     // Helpful description:
@@ -144,6 +144,7 @@ void EncodedDataHelper::SliceToFragments(const std::string& data) {
         std::unique_ptr<Fragment> fragment(new Fragment());
         switch (type_) {
         case VideoCodecType::H264:
+        case VideoCodecType::HEVC:
             fragment->data = GetBytesForNextAU(data, &next_pos);
             if (!ParseAUFragmentType(fragment.get())) continue;
             if (!seen_csd && !fragment->csd_flag)
@@ -178,23 +179,37 @@ bool EncodedDataHelper::ParseAUFragmentType(Fragment* fragment) {
             return false;
         }
 
-        // Check NALU type ([3:7], 5-bit).
-        uint8_t nalu_type = nalu_header & 0x1f;
-        switch (nalu_type) {
-        case NON_IDR_SLICE:
-        case IDR_SLICE:
-            // If AU contains both CSD and VCL NALUs (e.g. PPS + IDR_SLICE), don't
-            // raise csd_flag, treat this fragment as VCL one.
-            fragment->csd_flag = false;
-            return true;  // fragment in interest as VCL.
-        case SPS:
-        case PPS:
-            fragment->csd_flag = true;
-            // Continue on finding the subsequent NALUs, it may have VCL data.
-            break;
-        default:
-            // Skip uninterested NALU type.
-            break;
+        if (type_ == VideoCodecType::H264) {
+            // Check NALU type ([3:7], 5-bit).
+            uint8_t nalu_type = nalu_header & 0x1f;
+            switch (nalu_type) {
+            case NON_IDR_SLICE:
+            case IDR_SLICE:
+                // If AU contains both CSD and VCL NALUs (e.g. PPS + IDR_SLICE), don't
+                // raise csd_flag, treat this fragment as VCL one.
+                fragment->csd_flag = false;
+                return true;  // fragment in interest as VCL.
+            case SPS:
+            case PPS:
+                fragment->csd_flag = true;
+                // Continue on finding the subsequent NALUs, it may have VCL data.
+                break;
+            default:
+                // Skip uninterested NALU type.
+                break;
+            }
+        } else if (type_ == VideoCodecType::HEVC) {
+            // Check NALU type ([1:7], 6-bit).
+            uint8_t nalu_type = (nalu_header & 0x7e) >> 1;
+            if (nalu_type >= VCL_NALU_MIN && nalu_type <= VCL_NALU_MAX) {
+                // If AU contains both CSD and VCL NALUs (e.g. PPS + IDR_SLICE), don't
+                // raise csd_flag, treat this fragment as VCL one.
+                fragment->csd_flag = false;
+                return true;  // fragment in interest as VCL.
+            } else if (nalu_type >= CSD_NALU_MIN && nalu_type <= CSD_NALU_MAX) {
+                fragment->csd_flag = true;
+                // Continue on finding the subsequent NALUs, it may have VCL data.
+            }
         }
     }
     return fragment->csd_flag;  // fragment in interest as CSD.

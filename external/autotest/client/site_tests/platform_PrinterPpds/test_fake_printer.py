@@ -1,4 +1,3 @@
-#!/usr/bin/python2
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -22,7 +21,7 @@ def main():
         pass
 
     # Another test - let's try to send something
-    message = 'lkds;fsdjfsdjflsdjfsd;lfsad;adfsfa324dsfcxvdsvdf'
+    message = b'lkds;fsdjfsdjflsdjfsd;lfsad;adfsfa324dsfcxvdsvdf'
     port = 12345
     with FakePrinter(port) as printer:
         # Opens a socket and sends the message

@@ -70,14 +70,11 @@ TEST(StatisticsCalculator, ExpandedSamplesCorrection) {
   constexpr int k10MsSamples = kSampleRateHz / 100;
   constexpr int kPacketSizeMs = 20;
   constexpr size_t kSamplesPerPacket = kPacketSizeMs * kSampleRateHz / 1000;
-  // Assume 2 packets in the buffer.
-  constexpr size_t kNumSamplesInBuffer = 2 * kSamplesPerPacket;
 
   // Advance time by 10 ms.
   stats.IncreaseCounter(k10MsSamples, kSampleRateHz);
 
-  stats.GetNetworkStatistics(kSampleRateHz, kNumSamplesInBuffer,
-                             kSamplesPerPacket, &stats_output);
+  stats.GetNetworkStatistics(kSamplesPerPacket, &stats_output);
 
   EXPECT_EQ(0u, stats_output.expand_rate);
   EXPECT_EQ(0u, stats_output.speech_expand_rate);
@@ -86,8 +83,7 @@ TEST(StatisticsCalculator, ExpandedSamplesCorrection) {
   stats.ExpandedVoiceSamplesCorrection(-100);
   stats.ExpandedNoiseSamplesCorrection(-100);
   stats.IncreaseCounter(k10MsSamples, kSampleRateHz);
-  stats.GetNetworkStatistics(kSampleRateHz, kNumSamplesInBuffer,
-                             kSamplesPerPacket, &stats_output);
+  stats.GetNetworkStatistics(kSamplesPerPacket, &stats_output);
   // Expect no change, since negative values are disallowed.
   EXPECT_EQ(0u, stats_output.expand_rate);
   EXPECT_EQ(0u, stats_output.speech_expand_rate);
@@ -96,8 +92,7 @@ TEST(StatisticsCalculator, ExpandedSamplesCorrection) {
   stats.ExpandedVoiceSamplesCorrection(50);
   stats.ExpandedNoiseSamplesCorrection(200);
   stats.IncreaseCounter(k10MsSamples, kSampleRateHz);
-  stats.GetNetworkStatistics(kSampleRateHz, kNumSamplesInBuffer,
-                             kSamplesPerPacket, &stats_output);
+  stats.GetNetworkStatistics(kSamplesPerPacket, &stats_output);
   // Calculate expected rates in Q14. Expand rate is noise + voice, while
   // speech expand rate is only voice.
   EXPECT_EQ(((50u + 200u) << 14) / k10MsSamples, stats_output.expand_rate);
@@ -182,6 +177,30 @@ TEST(StatisticsCalculator, InterruptionCounterDoNotLogBeforeDecoding) {
   stats.EndExpandEvent(fs_hz);
   lts = stats.GetLifetimeStatistics();
   EXPECT_EQ(1, lts.interruption_count);
+}
+
+TEST(StatisticsCalculator, DiscardedPackets) {
+  StatisticsCalculator statistics_calculator;
+  EXPECT_EQ(0u,
+            statistics_calculator.GetLifetimeStatistics().packets_discarded);
+
+  statistics_calculator.PacketsDiscarded(1);
+  EXPECT_EQ(1u,
+            statistics_calculator.GetLifetimeStatistics().packets_discarded);
+
+  statistics_calculator.PacketsDiscarded(10);
+  EXPECT_EQ(11u,
+            statistics_calculator.GetLifetimeStatistics().packets_discarded);
+
+  // Calling `SecondaryPacketsDiscarded` does not modify `packets_discarded`.
+  statistics_calculator.SecondaryPacketsDiscarded(1);
+  EXPECT_EQ(11u,
+            statistics_calculator.GetLifetimeStatistics().packets_discarded);
+
+  // Calling `FlushedPacketBuffer` does not modify `packets_discarded`.
+  statistics_calculator.FlushedPacketBuffer();
+  EXPECT_EQ(11u,
+            statistics_calculator.GetLifetimeStatistics().packets_discarded);
 }
 
 }  // namespace webrtc

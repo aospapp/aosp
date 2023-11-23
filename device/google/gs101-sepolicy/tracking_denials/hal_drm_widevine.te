@@ -1,0 +1,4 @@
+# b/223502652
+dontaudit hal_drm_widevine vndbinder_device:chr_file { read };
+# b/232714489
+dontaudit hal_drm_widevine default_prop:file { read };

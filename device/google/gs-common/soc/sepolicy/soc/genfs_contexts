@@ -1,0 +1,10 @@
+genfscon sysfs /devices/system/chip-id/ap_hw_tune_str  u:object_r:sysfs_chip_id:s0
+genfscon sysfs /devices/system/chip-id/evt_ver         u:object_r:sysfs_chip_id:s0
+genfscon sysfs /devices/system/chip-id/lot_id          u:object_r:sysfs_chip_id:s0
+genfscon sysfs /devices/system/chip-id/product_id      u:object_r:sysfs_chip_id:s0
+genfscon sysfs /devices/system/chip-id/revision        u:object_r:sysfs_chip_id:s0
+genfscon sysfs /devices/system/chip-id/raw_str         u:object_r:sysfs_chip_id:s0
+
+genfscon debugfs /dma_buf/bufinfo                      u:object_r:vendor_dmabuf_debugfs:s0
+genfscon debugfs /page_pinner                          u:object_r:vendor_page_pinner_debugfs:s0
+genfscon debugfs /cma                                  u:object_r:vendor_cma_debugfs:s0

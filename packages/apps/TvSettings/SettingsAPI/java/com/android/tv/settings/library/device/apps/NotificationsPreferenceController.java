@@ -25,7 +25,6 @@ import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.content.res.Resources;
 import android.os.RemoteException;
 import android.util.Log;
 
@@ -126,24 +125,19 @@ public class NotificationsPreferenceController extends AbstractPreferenceControl
                     app.packageName, PackageManager.GET_SIGNATURES);
             return LibUtils.isSystemPackage(
                     context.getResources(), context.getPackageManager(), info)
-                    || isNonBlockablePackage(context.getResources(), app.packageName);
+                    || isNonBlockablePackage(info);
         } catch (PackageManager.NameNotFoundException e) {
             e.printStackTrace();
         }
         return false;
     }
 
-    private boolean isNonBlockablePackage(Resources resources, String packageName) {
-        final String[] nonBlockablePkgs = resources.getStringArray(
-                resources.getIdentifier("config_nonBlockableNotificationPackages",
-                        "array", "android"));
-        for (String pkg : nonBlockablePkgs) {
-            // The non blockable package list can contain channels in the `package:channelId`
-            // format. Since TV settings don't support notifications channels, we'll consider
-            // the package non blockable if one of its channels is blocked
-            if (pkg != null && packageName.equals(pkg.split(":", 2)[0])) {
-                return true;
-            }
+    private boolean isNonBlockablePackage(PackageInfo app) {
+        try {
+            return mNotificationManager.isImportanceLocked(app.packageName,
+                    app.applicationInfo.uid);
+        } catch (RemoteException e) {
+            Log.w(TAG, "Error calling NotificationManager ", e);
         }
         return false;
     }

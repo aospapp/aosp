@@ -18,6 +18,7 @@ package com.google.android.enterprise.connectedapps.processor.containers;
 import com.google.android.enterprise.connectedapps.annotations.AvailabilityRestrictions;
 import com.google.android.enterprise.connectedapps.annotations.CustomProfileConnector;
 import com.google.android.enterprise.connectedapps.annotations.CustomProfileConnector.ProfileType;
+import com.google.android.enterprise.connectedapps.annotations.UncaughtExceptionsPolicy;
 import com.google.android.enterprise.connectedapps.processor.GeneratorUtilities;
 import com.google.android.enterprise.connectedapps.processor.SupportedTypes;
 import com.google.auto.value.AutoValue;
@@ -27,7 +28,6 @@ import com.squareup.javapoet.ClassName;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
@@ -49,6 +49,8 @@ public abstract class ProfileConnectorInfo {
     abstract ImmutableCollection<TypeElement> importsClasses();
 
     abstract AvailabilityRestrictions availabilityRestrictions();
+
+    abstract UncaughtExceptionsPolicy uncaughtExceptionsPolicy();
   }
 
   public abstract TypeElement connectorElement();
@@ -71,22 +73,21 @@ public abstract class ProfileConnectorInfo {
 
   public abstract AvailabilityRestrictions availabilityRestrictions();
 
-  public static ProfileConnectorInfo create(
-      ProcessingEnvironment processingEnv,
-      TypeElement connectorElement,
-      SupportedTypes globalSupportedTypes) {
+  public abstract UncaughtExceptionsPolicy uncaughtExceptionsPolicy();
 
-    Elements elements = processingEnv.getElementUtils();
+  public static ProfileConnectorInfo create(
+      Context context, TypeElement connectorElement, SupportedTypes globalSupportedTypes) {
+    Elements elements = context.elements();
 
     CustomProfileConnectorAnnotationInfo annotationInfo =
-        extractFromCustomProfileConnectorAnnotation(processingEnv, elements, connectorElement);
+        extractFromCustomProfileConnectorAnnotation(context, elements, connectorElement);
 
     Set<TypeElement> parcelableWrappers = new HashSet<>(annotationInfo.parcelableWrapperClasses());
     Set<TypeElement> futureWrappers = new HashSet<>(annotationInfo.futureWrapperClasses());
 
     for (TypeElement importConnectorClass : annotationInfo.importsClasses()) {
       ProfileConnectorInfo importConnector =
-          ProfileConnectorInfo.create(processingEnv, importConnectorClass, globalSupportedTypes);
+          ProfileConnectorInfo.create(context, importConnectorClass, globalSupportedTypes);
       parcelableWrappers.addAll(importConnector.parcelableWrapperClasses());
       futureWrappers.addAll(importConnector.futureWrapperClasses());
     }
@@ -98,22 +99,18 @@ public abstract class ProfileConnectorInfo {
         globalSupportedTypes
             .asBuilder()
             .addParcelableWrappers(
-                ParcelableWrapper.createCustomParcelableWrappers(
-                    processingEnv.getTypeUtils(),
-                    processingEnv.getElementUtils(),
-                    parcelableWrappers))
-            .addFutureWrappers(
-                FutureWrapper.createCustomFutureWrappers(
-                    processingEnv.getTypeUtils(), processingEnv.getElementUtils(), futureWrappers))
+                ParcelableWrapper.createCustomParcelableWrappers(context, parcelableWrappers))
+            .addFutureWrappers(FutureWrapper.createCustomFutureWrappers(context, futureWrappers))
             .build(),
         ImmutableSet.copyOf(parcelableWrappers),
         ImmutableSet.copyOf(futureWrappers),
         annotationInfo.importsClasses(),
-        annotationInfo.availabilityRestrictions());
+        annotationInfo.availabilityRestrictions(),
+        annotationInfo.uncaughtExceptionsPolicy());
   }
 
   private static CustomProfileConnectorAnnotationInfo extractFromCustomProfileConnectorAnnotation(
-      ProcessingEnvironment processingEnv, Elements elements, TypeElement connectorElement) {
+      Context context, Elements elements, TypeElement connectorElement) {
     CustomProfileConnector customProfileConnector =
         connectorElement.getAnnotation(CustomProfileConnector.class);
 
@@ -124,18 +121,19 @@ public abstract class ProfileConnectorInfo {
           ImmutableSet.of(),
           ImmutableSet.of(),
           ImmutableSet.of(),
-          AvailabilityRestrictions.DEFAULT);
+          AvailabilityRestrictions.DEFAULT,
+          UncaughtExceptionsPolicy.NOTIFY_RETHROW);
     }
 
     Collection<TypeElement> parcelableWrappers =
         GeneratorUtilities.extractClassesFromAnnotation(
-            processingEnv.getTypeUtils(), customProfileConnector::parcelableWrappers);
+            context.types(), customProfileConnector::parcelableWrappers);
     Collection<TypeElement> futureWrappers =
         GeneratorUtilities.extractClassesFromAnnotation(
-            processingEnv.getTypeUtils(), customProfileConnector::futureWrappers);
+            context.types(), customProfileConnector::futureWrappers);
     Collection<TypeElement> imports =
         GeneratorUtilities.extractClassesFromAnnotation(
-            processingEnv.getTypeUtils(), customProfileConnector::imports);
+            context.types(), customProfileConnector::imports);
 
     String serviceClassName = customProfileConnector.serviceClassName();
 
@@ -147,7 +145,8 @@ public abstract class ProfileConnectorInfo {
         ImmutableSet.copyOf(parcelableWrappers),
         ImmutableSet.copyOf(futureWrappers),
         ImmutableSet.copyOf(imports),
-        customProfileConnector.availabilityRestrictions());
+        customProfileConnector.availabilityRestrictions(),
+        customProfileConnector.uncaughtExceptionsPolicy());
   }
 
   public static ClassName getDefaultServiceName(Elements elements, TypeElement connectorElement) {

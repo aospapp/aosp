@@ -33,7 +33,6 @@ import org.junit.Test;
 import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -72,7 +71,7 @@ public final class HdmiCecPowerStatusTest extends BaseHdmiCecCtsTest {
         sendDeviceToSleep();
 
         // Turn device on
-        wakeUpDevice();
+        wakeUpDeviceWithoutWait();
 
         String reportPowerStatus = hdmiCecClient.checkExpectedOutput(LogicalAddress.BROADCAST,
                 CecOperand.REPORT_POWER_STATUS);
@@ -103,7 +102,7 @@ public final class HdmiCecPowerStatusTest extends BaseHdmiCecCtsTest {
             wakeUpDevice();
 
             // Move device to standby
-            sendDeviceToSleep();
+            sendDeviceToSleepWithoutWait();
 
             String reportPowerStatus =
                     hdmiCecClient.checkExpectedOutput(
@@ -138,12 +137,9 @@ public final class HdmiCecPowerStatusTest extends BaseHdmiCecCtsTest {
             // Turn device off
             sendDeviceToSleep();
 
-            List<Integer> keycodes = new ArrayList<>();
-            keycodes.add(HdmiCecConstants.CEC_KEYCODE_POWER_ON_FUNCTION);
-            keycodes.add(HdmiCecConstants.CEC_KEYCODE_POWER_OFF_FUNCTION);
-
-            // Send a <UCP>[Power On] immediately followed by a <UCP>[Power Off]
-            hdmiCecClient.sendMultipleUserControlPressAndRelease(LogicalAddress.TV, keycodes);
+            device.executeShellCommand("input keyevent KEYCODE_WAKEUP");
+            TimeUnit.MILLISECONDS.sleep(200);
+            device.executeShellCommand("input keyevent KEYCODE_SLEEP");
 
             String reportPowerStatus =
                     hdmiCecClient.checkExpectedOutput(CecOperand.REPORT_POWER_STATUS);
@@ -197,12 +193,9 @@ public final class HdmiCecPowerStatusTest extends BaseHdmiCecCtsTest {
             wakeUpDevice();
             WakeLockHelper.acquirePartialWakeLock(getDevice());
 
-            List<Integer> keycodes = new ArrayList<>();
-            keycodes.add(HdmiCecConstants.CEC_KEYCODE_POWER_OFF_FUNCTION);
-            keycodes.add(HdmiCecConstants.CEC_KEYCODE_POWER_ON_FUNCTION);
-
-            // Send a <UCP>[Power Off] immediately followed by a <UCP>[Power On]
-            hdmiCecClient.sendMultipleUserControlPressAndRelease(LogicalAddress.TV, keycodes);
+            device.executeShellCommand("input keyevent KEYCODE_SLEEP");
+            TimeUnit.MILLISECONDS.sleep(200);
+            device.executeShellCommand("input keyevent KEYCODE_WAKEUP");
 
             String reportPowerStatus =
                     hdmiCecClient.checkExpectedOutput(CecOperand.REPORT_POWER_STATUS);
@@ -420,8 +413,8 @@ public final class HdmiCecPowerStatusTest extends BaseHdmiCecCtsTest {
         // Acquire the wakelock.
         WakeLockHelper.acquirePartialWakeLock(device);
         try {
-            // All <UCP> commands will be sent from TV.
-            LogicalAddress source = LogicalAddress.TV;
+            // All <UCP> commands will be sent from cec client device.
+            LogicalAddress source = hdmiCecClient.getSelfDevice();
             hdmiCecClient.sendUserControlPressAndRelease(
                     source, HdmiCecConstants.CEC_KEYCODE_POWER_TOGGLE_FUNCTION, false);
             waitForTransitionTo(HdmiCecConstants.CEC_POWER_STATUS_STANDBY);
@@ -459,10 +452,12 @@ public final class HdmiCecPowerStatusTest extends BaseHdmiCecCtsTest {
             TimeUnit.SECONDS.sleep(waitSeconds);
             waitForTransitionTo(HdmiCecConstants.CEC_POWER_STATUS_ON);
 
-            // Send <UCP> [Power]. DUT should go to standby.
+            // Send <UCP> [Power]. DUT should remain in ON state.
             hdmiCecClient.sendUserControlPressAndRelease(
                     source, HdmiCecConstants.CEC_KEYCODE_POWER, false);
-            waitForTransitionTo(HdmiCecConstants.CEC_POWER_STATUS_STANDBY);
+            waitForTransitionTo(HdmiCecConstants.CEC_POWER_STATUS_ON);
+
+            sendDeviceToSleep();
 
             // Send <UCP> [Power]. DUT should wakeup.
             hdmiCecClient.sendUserControlPressAndRelease(

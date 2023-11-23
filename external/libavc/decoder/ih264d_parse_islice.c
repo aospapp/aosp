@@ -865,6 +865,12 @@ WORD32 ih264d_parse_islice_data_cavlc(dec_struct_t * ps_dec,
             ps_cur_deblk_mb->u1_mb_qp = ps_dec->u1_qp;
         }
 
+        if(ps_dec->u1_enable_mb_info)
+        {
+            ih264d_populate_mb_info_map(ps_dec, ps_cur_mb_info, ps_cur_mb_info->u2_mbx << 1,
+                                        ps_cur_mb_info->u2_mby << 1, ps_cur_deblk_mb->u1_mb_qp);
+        }
+
         uc_more_data_flag = MORE_RBSP_DATA(ps_bitstrm);
 
         if(u1_mbaff)
@@ -1082,6 +1088,12 @@ WORD32 ih264d_parse_islice_data_cabac(dec_struct_t * ps_dec,
                 if(ret != OK)
                     return ret;
                 ps_cur_deblk_mb->u1_mb_qp = ps_dec->u1_qp;
+            }
+
+            if(ps_dec->u1_enable_mb_info)
+            {
+                ih264d_populate_mb_info_map(ps_dec, ps_cur_mb_info, ps_cur_mb_info->u2_mbx << 1,
+                                            ps_cur_mb_info->u2_mby << 1, ps_cur_deblk_mb->u1_mb_qp);
             }
 
             if(u1_mbaff)
@@ -1376,6 +1388,7 @@ WORD32 ih264d_parse_islice(dec_struct_t *ps_dec,
     UWORD32 *pu4_bitstrm_ofst = &ps_dec->ps_bitstrm->u4_ofst;
     UWORD32 u4_temp;
     WORD32 i_temp;
+    WORD64 i8_temp;
     WORD32 ret;
 
     /*--------------------------------------------------------------------*/
@@ -1400,7 +1413,7 @@ WORD32 ih264d_parse_islice(dec_struct_t *ps_dec,
     /* G050 */
 
     /* Read slice_qp_delta */
-    WORD64 i8_temp = (WORD64)ps_pps->u1_pic_init_qp
+    i8_temp = (WORD64)ps_pps->u1_pic_init_qp
                         + ih264d_sev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
     if((i8_temp < MIN_H264_QP) || (i8_temp > MAX_H264_QP))
         return ERROR_INV_RANGE_QP_T;

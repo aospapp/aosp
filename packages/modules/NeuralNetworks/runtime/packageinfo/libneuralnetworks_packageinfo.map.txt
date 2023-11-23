@@ -15,8 +15,8 @@
 #
 LIBNEURALNETWORKS_PACKAGE_INFO {
   global:
-    ANeuralNetworks_fetch_PackageInfo; # apex
-    ANeuralNetworks_free_PackageInfo; # apex
+    ANeuralNetworks_fetch_PackageInfo; # systemapi
+    ANeuralNetworks_free_PackageInfo; # systemapi
   local:
     *;
 };

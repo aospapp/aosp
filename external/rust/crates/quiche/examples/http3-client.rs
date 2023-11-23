@@ -29,6 +29,8 @@ extern crate log;
 
 use std::net::ToSocketAddrs;
 
+use quiche::h3::NameValue;
+
 use ring::rand::*;
 
 const MAX_DATAGRAM_SIZE: usize = 1350;
@@ -42,7 +44,7 @@ fn main() {
     let cmd = &args.next().unwrap();
 
     if args.len() != 1 {
-        println!("Usage: {} URL", cmd);
+        println!("Usage: {cmd} URL");
         println!("\nSee tools/apps/ for more complete implementations.");
         return;
     }
@@ -50,7 +52,7 @@ fn main() {
     let url = url::Url::parse(&args.next().unwrap()).unwrap();
 
     // Setup the event loop.
-    let poll = mio::Poll::new().unwrap();
+    let mut poll = mio::Poll::new().unwrap();
     let mut events = mio::Events::with_capacity(1024);
 
     // Resolve server address.
@@ -66,16 +68,11 @@ fn main() {
 
     // Create the UDP socket backing the QUIC connection, and register it with
     // the event loop.
-    let socket = std::net::UdpSocket::bind(bind_addr).unwrap();
-
-    let socket = mio::net::UdpSocket::from_socket(socket).unwrap();
-    poll.register(
-        &socket,
-        mio::Token(0),
-        mio::Ready::readable(),
-        mio::PollOpt::edge(),
-    )
-    .unwrap();
+    let mut socket =
+        mio::net::UdpSocket::bind(bind_addr.parse().unwrap()).unwrap();
+    poll.registry()
+        .register(&mut socket, mio::Token(0), mio::Interest::READABLE)
+        .unwrap();
 
     // Create the configuration for the QUIC connection.
     let mut config = quiche::Config::new(quiche::PROTOCOL_VERSION).unwrap();
@@ -106,9 +103,13 @@ fn main() {
 
     let scid = quiche::ConnectionId::from_ref(&scid);
 
+    // Get local address.
+    let local_addr = socket.local_addr().unwrap();
+
     // Create a QUIC connection and initiate handshake.
     let mut conn =
-        quiche::connect(url.domain(), &scid, peer_addr, &mut config).unwrap();
+        quiche::connect(url.domain(), &scid, local_addr, peer_addr, &mut config)
+            .unwrap();
 
     info!(
         "connecting to {:} from {:} with scid {}",
@@ -119,7 +120,7 @@ fn main() {
 
     let (write, send_info) = conn.send(&mut out).expect("initial send failed");
 
-    while let Err(e) = socket.send_to(&out[..write], &send_info.to) {
+    while let Err(e) = socket.send_to(&out[..write], send_info.to) {
         if e.kind() == std::io::ErrorKind::WouldBlock {
             debug!("send() would block");
             continue;
@@ -189,7 +190,10 @@ fn main() {
 
             debug!("got {} bytes", len);
 
-            let recv_info = quiche::RecvInfo { from };
+            let recv_info = quiche::RecvInfo {
+                to: local_addr,
+                from,
+            };
 
             // Process potentially coalesced packets.
             let read = match conn.recv(&mut buf[..len], recv_info) {
@@ -215,7 +219,7 @@ fn main() {
         if conn.is_established() && http3_conn.is_none() {
             http3_conn = Some(
                 quiche::h3::Connection::with_transport(&mut conn, &h3_config)
-                    .unwrap(),
+                .expect("Unable to create HTTP/3 connection, check the server's uni stream limit and window size"),
             );
         }
 
@@ -238,7 +242,8 @@ fn main() {
                     Ok((stream_id, quiche::h3::Event::Headers { list, .. })) => {
                         info!(
                             "got response headers {:?} on stream id {}",
-                            list, stream_id
+                            hdrs_to_strings(&list),
+                            stream_id
                         );
                     },
 
@@ -266,7 +271,18 @@ fn main() {
                         conn.close(true, 0x00, b"kthxbye").unwrap();
                     },
 
+                    Ok((_stream_id, quiche::h3::Event::Reset(e))) => {
+                        error!(
+                            "request was reset by peer with {}, closing...",
+                            e
+                        );
+
+                        conn.close(true, 0x00, b"kthxbye").unwrap();
+                    },
+
                     Ok((_flow_id, quiche::h3::Event::Datagram)) => (),
+
+                    Ok((_, quiche::h3::Event::PriorityUpdate)) => unreachable!(),
 
                     Ok((goaway_id, quiche::h3::Event::GoAway)) => {
                         info!("GOAWAY id={}", goaway_id);
@@ -304,7 +320,7 @@ fn main() {
                 },
             };
 
-            if let Err(e) = socket.send_to(&out[..write], &send_info.to) {
+            if let Err(e) = socket.send_to(&out[..write], send_info.to) {
                 if e.kind() == std::io::ErrorKind::WouldBlock {
                     debug!("send() would block");
                     break;
@@ -324,7 +340,18 @@ fn main() {
 }
 
 fn hex_dump(buf: &[u8]) -> String {
-    let vec: Vec<String> = buf.iter().map(|b| format!("{:02x}", b)).collect();
+    let vec: Vec<String> = buf.iter().map(|b| format!("{b:02x}")).collect();
 
     vec.join("")
+}
+
+pub fn hdrs_to_strings(hdrs: &[quiche::h3::Header]) -> Vec<(String, String)> {
+    hdrs.iter()
+        .map(|h| {
+            let name = String::from_utf8_lossy(h.name()).to_string();
+            let value = String::from_utf8_lossy(h.value()).to_string();
+
+            (name, value)
+        })
+        .collect()
 }

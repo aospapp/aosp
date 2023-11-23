@@ -17,6 +17,7 @@
 package com.android.bedstead.nene.notifications;
 
 import android.service.notification.StatusBarNotification;
+import android.util.Log;
 
 import com.android.bedstead.nene.exceptions.NeneException;
 import com.android.queryable.Queryable;
@@ -28,9 +29,13 @@ import com.android.queryable.queries.StringQueryHelper;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Deque;
+import java.util.HashSet;
+import java.util.Set;
 
 /** Query for notifications. */
 public final class NotificationListenerQuery implements Queryable {
+
+    private static final String LOG_TAG = "NotificationListener";
 
     private final StringQueryHelper<NotificationListenerQuery> mPackageName =
             new StringQueryHelper<>(this);
@@ -40,6 +45,7 @@ public final class NotificationListenerQuery implements Queryable {
     private boolean mHasStartedFetchingResults = false;
     private final Deque<StatusBarNotification> mStatusBarNotifications;
     private int mSkippedPollResults = 0;
+    private Set<StatusBarNotification> mNonMatchingNotifications = new HashSet<>();
 
     NotificationListenerQuery(Deque<StatusBarNotification> statusBarNotifications) {
         mStatusBarNotifications = statusBarNotifications;
@@ -96,15 +102,31 @@ public final class NotificationListenerQuery implements Queryable {
                 if (skipResults < 0) {
                     return m;
                 }
+            } else {
+                Log.d(LOG_TAG, "Found non-matching notification " + m);
+                mNonMatchingNotifications.add(m);
             }
         }
 
         return null;
     }
 
+    /**
+     * Get notifications which were received but didn't match the query.
+     */
+    Set<StatusBarNotification> nonMatchingNotifications() {
+        return mNonMatchingNotifications;
+    }
+
     private boolean matches(StatusBarNotification sbn) {
         return StringQueryHelper.matches(mPackageName, sbn.getPackageName())
                 && NotificationQueryHelper.matches(mNotification, sbn.getNotification());
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        return Queryable.isEmptyQuery(mPackageName)
+                && Queryable.isEmptyQuery(mNotification);
     }
 
     @Override

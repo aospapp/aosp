@@ -183,7 +183,6 @@ public final class GazeDetection implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return "GazeDetection{"
                 + "confidenceLevel=" + confidenceLevel

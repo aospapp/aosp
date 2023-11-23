@@ -18,7 +18,6 @@ package com.android.car.telemetry.publisher;
 
 import static com.android.car.telemetry.publisher.MemoryPublisher.BUNDLE_KEY_COLLECT_INDEFINITELY;
 import static com.android.car.telemetry.publisher.MemoryPublisher.BUNDLE_KEY_NUM_SNAPSHOTS_UNTIL_FINISH;
-import static com.android.car.telemetry.publisher.MemoryPublisher.DATA_BUNDLE_KEY_MEMINFO;
 import static com.android.car.telemetry.publisher.MemoryPublisher.THROTTLE_MILLIS;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -32,18 +31,27 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.app.ActivityManager;
 import android.car.telemetry.TelemetryProto;
+import android.content.Context;
+import android.os.Debug;
 import android.os.Looper;
 import android.os.Message;
 import android.os.PersistableBundle;
 import android.os.SystemClock;
+import android.provider.Settings;
+import android.test.mock.MockContentResolver;
 
 import com.android.car.telemetry.ResultStore;
 import com.android.car.telemetry.databroker.DataSubscriber;
+import com.android.car.telemetry.sessioncontroller.SessionAnnotation;
+import com.android.car.telemetry.sessioncontroller.SessionController;
 import com.android.car.test.FakeHandlerWrapper;
+import com.android.internal.util.test.FakeSettingsProvider;
 
 import com.google.common.collect.Range;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -58,6 +66,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.List;
 
 @RunWith(MockitoJUnitRunner.class)
 public class MemoryPublisherTest {
@@ -68,13 +78,20 @@ public class MemoryPublisherTest {
             .append("MemAvailable:    5312884 kB\n")
             .append("Buffers:          224380 kB\n")
             .toString();
+    private static final TelemetryProto.MemoryPublisher BASE_MEMORY_PUBLISHER =
+            TelemetryProto.MemoryPublisher.newBuilder()
+                    .setReadIntervalSec(TEN_SECONDS)
+                    .setMaxSnapshots(2)
+                    .setMaxPendingTasks(10)
+                    .build();
     private static final TelemetryProto.Publisher MEMORY_PUBLISHER_TEN_SEC =
             TelemetryProto.Publisher.newBuilder()
+                    .setMemory(BASE_MEMORY_PUBLISHER)
+                    .build();
+    private static final TelemetryProto.Publisher MEMORY_PUBLISHER_PROCESS_MEMORY_TEN_SEC =
+            TelemetryProto.Publisher.newBuilder()
                     .setMemory(
-                            TelemetryProto.MemoryPublisher.newBuilder()
-                                    .setReadIntervalSec(TEN_SECONDS)
-                                    .setMaxSnapshots(2)
-                                    .setMaxPendingTasks(10))
+                            BASE_MEMORY_PUBLISHER.toBuilder().addPackageNames("com.android.car"))
                     .build();
     private static final TelemetryProto.Subscriber SUBSCRIBER_TEN_SEC =
             TelemetryProto.Subscriber.newBuilder()
@@ -97,10 +114,18 @@ public class MemoryPublisherTest {
 
     @Captor
     private ArgumentCaptor<PersistableBundle> mBundleCaptor;
+    @Captor
+    private ArgumentCaptor<SessionController.SessionControllerCallback> mSessionCallbackCaptor;
+    @Mock
+    private ActivityManager mMockActivityManager;
+    @Mock
+    private Context mMockContext;
     @Mock
     private DataSubscriber mMockDataSubscriber;
     @Mock
     private ResultStore mMockResultStore;
+    @Mock
+    private SessionController mMockSessionController;
 
     @Before
     public void setUp() throws Exception {
@@ -113,9 +138,32 @@ public class MemoryPublisherTest {
         when(mMockDataSubscriber.getSubscriber()).thenReturn(SUBSCRIBER_TEN_SEC);
         when(mMockDataSubscriber.getMetricsConfig()).thenReturn(METRICS_CONFIG);
         when(mMockDataSubscriber.getPublisherParam()).thenReturn(SUBSCRIBER_TEN_SEC.getPublisher());
+        // set up mocks for reading process meminfo
+        when(mMockContext.getSystemService(ActivityManager.class)).thenReturn(mMockActivityManager);
+        when(mMockActivityManager.getRunningAppProcesses()).thenReturn(List.of(
+                new ActivityManager.RunningAppProcessInfo(
+                        "com.android.car", 123, null),
+                new ActivityManager.RunningAppProcessInfo(
+                        "com.android.car.scriptexecutor", 456, null)));
+        when(mMockActivityManager.getProcessMemoryInfo(any())).thenAnswer(i -> {
+            int length = ((int[]) i.getArguments()[0]).length;
+            Debug.MemoryInfo[] mis = new Debug.MemoryInfo[length];
+            Debug.MemoryInfo mi = new Debug.MemoryInfo();
+            Arrays.fill(mis, mi);
+            return mis;
+        });
+        MockContentResolver mockContentResolver = new MockContentResolver();
+        mockContentResolver.addProvider(Settings.AUTHORITY, new FakeSettingsProvider());
+        when(mMockContext.getContentResolver()).thenReturn(mockContentResolver);
 
         // create MemoryPublisher
         mPublisher = createPublisher(mTempFile.toPath());
+        verify(mMockSessionController).registerCallback(mSessionCallbackCaptor.capture());
+    }
+
+    @After
+    public void tearDown() {
+        mPublisher.removeAllDataSubscribers();
     }
 
     /**
@@ -124,20 +172,158 @@ public class MemoryPublisherTest {
      */
     private MemoryPublisher createPublisher(Path meminfoPath) {
         return new MemoryPublisher(
+                mMockContext,
                 mFakePublisherListener,
                 mFakeHandlerWrapper.getMockHandler(),
                 mMockResultStore,
+                mMockSessionController,
                 meminfoPath);
     }
 
     @Test
-    public void testAddDataSubscriber_pullsMeminfo() {
+    public void testAddDataSubscriber_whenNoPackageName_pullsDeviceMeminfo() {
         mPublisher.addDataSubscriber(mMockDataSubscriber);
 
         assertThat(mPublisher.hasDataSubscriber(mMockDataSubscriber)).isTrue();
-        verify(mMockDataSubscriber).push(mBundleCaptor.capture());
-        assertThat(mBundleCaptor.getValue().getString(DATA_BUNDLE_KEY_MEMINFO))
+        verify(mMockDataSubscriber).push(mBundleCaptor.capture(), anyBoolean());
+        assertThat(mBundleCaptor.getValue().keySet().stream().toList()).containsExactly(
+                Constants.MEMORY_BUNDLE_KEY_MEMINFO, Constants.MEMORY_BUNDLE_KEY_TIMESTAMP);
+        assertThat(mBundleCaptor.getValue().getString(Constants.MEMORY_BUNDLE_KEY_MEMINFO))
                 .isEqualTo(FAKE_MEMINFO);
+    }
+
+    @Test
+    public void testAddDataSubscriber_whenMatchingPackageName_pullsDeviceAndProcessMeminfo() {
+        DataSubscriber dataSubscriber = mock(DataSubscriber.class);
+        when(dataSubscriber.getSubscriber()).thenReturn(
+                SUBSCRIBER_TEN_SEC.toBuilder()
+                        .setPublisher(MEMORY_PUBLISHER_PROCESS_MEMORY_TEN_SEC).build());
+        when(dataSubscriber.getPublisherParam()).thenReturn(
+                MEMORY_PUBLISHER_PROCESS_MEMORY_TEN_SEC);
+
+        mPublisher.addDataSubscriber(dataSubscriber);
+
+        assertThat(mPublisher.hasDataSubscriber(dataSubscriber)).isTrue();
+        verify(dataSubscriber).push(mBundleCaptor.capture(), anyBoolean());
+        PersistableBundle bundle = mBundleCaptor.getValue();
+        assertThat(bundle.keySet().stream().toList()).containsExactly(
+                Constants.MEMORY_BUNDLE_KEY_MEMINFO,
+                Constants.MEMORY_BUNDLE_KEY_TIMESTAMP,
+                "com.android.car:0:com.android.car");
+        PersistableBundle processBundle = bundle.getPersistableBundle(
+                "com.android.car:0:com.android.car");
+        assertThat(processBundle.keySet().stream().toList()).containsExactly(
+                Constants.MEMORY_BUNDLE_KEY_TOTAL_SWAPPABLE_PSS,
+                Constants.MEMORY_BUNDLE_KEY_TOTAL_PRIVATE_DIRTY,
+                Constants.MEMORY_BUNDLE_KEY_TOTAL_SHARED_DIRTY,
+                Constants.MEMORY_BUNDLE_KEY_TOTAL_PRIVATE_CLEAN,
+                Constants.MEMORY_BUNDLE_KEY_TOTAL_SHARED_CLEAN,
+                "mem.summary.java-heap",
+                "mem.summary.total-pss",
+                "mem.summary.private-other",
+                "mem.summary.native-heap",
+                "mem.summary.stack",
+                "mem.summary.system",
+                "mem.summary.code",
+                "mem.summary.graphics",
+                "mem.summary.total-swap");
+    }
+
+    @Test
+    public void testAddDataSubscriber_multipleMatchingPackageName_pullsDeviceAndProcessMeminfo() {
+        // setup processes
+        ActivityManager.RunningAppProcessInfo process1 = new ActivityManager.RunningAppProcessInfo(
+                "com.android.car", 111, null);
+        process1.uid = 12345;
+        ActivityManager.RunningAppProcessInfo process2 = new ActivityManager.RunningAppProcessInfo(
+                "com.android.car", 222, null);
+        process2.uid = 67890;
+        when(mMockActivityManager.getRunningAppProcesses()).thenReturn(List.of(process1, process2));
+        // set up subscribers that listen for process memory
+        DataSubscriber dataSubscriber = mock(DataSubscriber.class);
+        when(dataSubscriber.getSubscriber()).thenReturn(
+                SUBSCRIBER_TEN_SEC.toBuilder()
+                        .setPublisher(MEMORY_PUBLISHER_PROCESS_MEMORY_TEN_SEC).build());
+        when(dataSubscriber.getPublisherParam()).thenReturn(
+                MEMORY_PUBLISHER_PROCESS_MEMORY_TEN_SEC);
+
+        mPublisher.addDataSubscriber(dataSubscriber);
+
+        assertThat(mPublisher.hasDataSubscriber(dataSubscriber)).isTrue();
+        verify(dataSubscriber).push(mBundleCaptor.capture(), anyBoolean());
+        PersistableBundle bundle = mBundleCaptor.getValue();
+        assertThat(bundle.keySet().stream().toList()).containsExactly(
+                Constants.MEMORY_BUNDLE_KEY_MEMINFO,
+                Constants.MEMORY_BUNDLE_KEY_TIMESTAMP,
+                "com.android.car:12345:com.android.car",
+                "com.android.car:67890:com.android.car");
+        PersistableBundle processBundle1 = bundle.getPersistableBundle(
+                "com.android.car:12345:com.android.car");
+        PersistableBundle processBundle2 = bundle.getPersistableBundle(
+                "com.android.car:67890:com.android.car");
+        assertThat(processBundle1.keySet().stream().toList()).containsExactly(
+                Constants.MEMORY_BUNDLE_KEY_TOTAL_SWAPPABLE_PSS,
+                Constants.MEMORY_BUNDLE_KEY_TOTAL_PRIVATE_DIRTY,
+                Constants.MEMORY_BUNDLE_KEY_TOTAL_SHARED_DIRTY,
+                Constants.MEMORY_BUNDLE_KEY_TOTAL_PRIVATE_CLEAN,
+                Constants.MEMORY_BUNDLE_KEY_TOTAL_SHARED_CLEAN,
+                "mem.summary.java-heap",
+                "mem.summary.total-pss",
+                "mem.summary.private-other",
+                "mem.summary.native-heap",
+                "mem.summary.stack",
+                "mem.summary.system",
+                "mem.summary.code",
+                "mem.summary.graphics",
+                "mem.summary.total-swap");
+        assertThat(processBundle2.keySet().stream().toList()).containsExactly(
+                Constants.MEMORY_BUNDLE_KEY_TOTAL_SWAPPABLE_PSS,
+                Constants.MEMORY_BUNDLE_KEY_TOTAL_PRIVATE_DIRTY,
+                Constants.MEMORY_BUNDLE_KEY_TOTAL_SHARED_DIRTY,
+                Constants.MEMORY_BUNDLE_KEY_TOTAL_PRIVATE_CLEAN,
+                Constants.MEMORY_BUNDLE_KEY_TOTAL_SHARED_CLEAN,
+                "mem.summary.java-heap",
+                "mem.summary.total-pss",
+                "mem.summary.private-other",
+                "mem.summary.native-heap",
+                "mem.summary.stack",
+                "mem.summary.system",
+                "mem.summary.code",
+                "mem.summary.graphics",
+                "mem.summary.total-swap");
+    }
+
+    @Test
+    public void testAddDataSubscriber_whenPackageNameNotFound_doesNotPullProcessMeminfo() {
+        String packageName = "com.example.does.not.exist";
+        DataSubscriber dataSubscriber = mock(DataSubscriber.class);
+        TelemetryProto.Publisher publisher = TelemetryProto.Publisher.newBuilder().setMemory(
+                BASE_MEMORY_PUBLISHER.toBuilder().addPackageNames(packageName)).build();
+        when(dataSubscriber.getSubscriber()).thenReturn(
+                SUBSCRIBER_TEN_SEC.toBuilder().setPublisher(publisher).build());
+        when(dataSubscriber.getPublisherParam()).thenReturn(publisher);
+
+        mPublisher.addDataSubscriber(dataSubscriber);
+
+        assertThat(mPublisher.hasDataSubscriber(dataSubscriber)).isTrue();
+        verify(dataSubscriber).push(mBundleCaptor.capture(), anyBoolean());
+        assertThat(mBundleCaptor.getValue().keySet().stream().toList()).containsExactly(
+                Constants.MEMORY_BUNDLE_KEY_MEMINFO, Constants.MEMORY_BUNDLE_KEY_TIMESTAMP);
+    }
+
+    @Test
+    public void testAddDataSubscriber_annotatesWithDrivingSessionData() {
+        SessionAnnotation sessionAnnotation = new SessionAnnotation(
+                2, SessionController.STATE_ENTER_DRIVING_SESSION, 123, 1234, "reboot", 0);
+
+        mSessionCallbackCaptor.getValue().onSessionStateChanged(sessionAnnotation);
+        mPublisher.addDataSubscriber(mMockDataSubscriber);
+
+        verify(mMockDataSubscriber).push(mBundleCaptor.capture(), anyBoolean());
+        PersistableBundle report = mBundleCaptor.getValue();
+        assertThat(report.getInt(Constants.ANNOTATION_BUNDLE_KEY_SESSION_ID)).isEqualTo(2);
+        assertThat(report.getString(Constants.ANNOTATION_BUNDLE_KEY_BOOT_REASON))
+                .isEqualTo("reboot");
     }
 
     @Test
@@ -189,7 +375,7 @@ public class MemoryPublisherTest {
         // verify the MetricsConfig is removed
         assertThat(mFakeHandlerWrapper.getQueuedMessages()).hasSize(0);
         assertThat(mPublisher.hasDataSubscriber(mMockDataSubscriber)).isFalse();
-        verify(mMockDataSubscriber, times(2)).push(any());
+        verify(mMockDataSubscriber, times(2)).push(any(), anyBoolean());
         assertThat(mFakePublisherListener.mFinishedConfig).isEqualTo(METRICS_CONFIG);
     }
 
@@ -240,24 +426,6 @@ public class MemoryPublisherTest {
     }
 
     @Test
-    public void testReadMeminfo_whenPreviousStateExists_shouldContinueFromPrevious() {
-        PersistableBundle publisherState = new PersistableBundle();
-        publisherState.putInt(BUNDLE_KEY_NUM_SNAPSHOTS_UNTIL_FINISH, 1);
-        publisherState.putBoolean(BUNDLE_KEY_COLLECT_INDEFINITELY, false);
-        when(mMockResultStore.getPublisherData(any(), anyBoolean())).thenReturn(publisherState);
-        mPublisher = createPublisher(mTempFile.toPath());
-
-        // since there is 1 snapshot left, this is the last read and the subscriber will be removed
-        mPublisher.addDataSubscriber(mMockDataSubscriber);
-        mFakeHandlerWrapper.dispatchQueuedMessages();
-
-        assertThat(mPublisher.hasDataSubscriber(mMockDataSubscriber)).isFalse();
-        assertThat(mFakeHandlerWrapper.getQueuedMessages()).hasSize(0);
-        verify(mMockResultStore).removePublisherData(eq(MemoryPublisher.class.getSimpleName()));
-        assertThat(mFakePublisherListener.mFinishedConfig).isEqualTo(METRICS_CONFIG);
-    }
-
-    @Test
     public void testRemoveDataSubscriber_ifDoesNotMatch_keepsSubscriber() {
         mPublisher.addDataSubscriber(mMockDataSubscriber);
         DataSubscriber differentSubscriber = Mockito.mock(DataSubscriber.class);
@@ -281,7 +449,7 @@ public class MemoryPublisherTest {
     @Test
     public void testReadMeminfo_shouldThrottlePublisher() {
         // 100 MemoryPublisher-related tasks pending script execution > the throttle limit
-        when(mMockDataSubscriber.push(any())).thenReturn(100);
+        when(mMockDataSubscriber.push(any(), anyBoolean())).thenReturn(100);
 
         mPublisher.addDataSubscriber(mMockDataSubscriber);
 
@@ -289,6 +457,24 @@ public class MemoryPublisherTest {
         assertThat(mFakeHandlerWrapper.getQueuedMessages()).hasSize(1);
         Message message = mFakeHandlerWrapper.getQueuedMessages().get(0);
         assertThatMessageIsScheduledWithGivenDelay(message, THROTTLE_MILLIS);
+    }
+
+    @Test
+    public void testReadMeminfo_whenPreviousStateExists_shouldContinueFromPrevious() {
+        PersistableBundle publisherState = new PersistableBundle();
+        publisherState.putInt(BUNDLE_KEY_NUM_SNAPSHOTS_UNTIL_FINISH, 1);
+        publisherState.putBoolean(BUNDLE_KEY_COLLECT_INDEFINITELY, false);
+        when(mMockResultStore.getPublisherData(any(), anyBoolean())).thenReturn(publisherState);
+        mPublisher = createPublisher(mTempFile.toPath());
+
+        // since there is 1 snapshot left, this is the last read and the subscriber will be removed
+        mPublisher.addDataSubscriber(mMockDataSubscriber);
+        mFakeHandlerWrapper.dispatchQueuedMessages();
+
+        assertThat(mPublisher.hasDataSubscriber(mMockDataSubscriber)).isFalse();
+        assertThat(mFakeHandlerWrapper.getQueuedMessages()).hasSize(0);
+        verify(mMockResultStore).removePublisherData(eq(MemoryPublisher.class.getSimpleName()));
+        assertThat(mFakePublisherListener.mFinishedConfig).isEqualTo(METRICS_CONFIG);
     }
 
     private static void assertThatMessageIsScheduledWithGivenDelay(Message msg, long delayMillis) {

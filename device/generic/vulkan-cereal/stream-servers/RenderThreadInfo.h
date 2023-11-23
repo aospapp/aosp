@@ -20,19 +20,13 @@
 #include <memory>
 #include <unordered_set>
 
-#include "RenderContext.h"
-#include "StalePtrRegistry.h"
-#include "SyncThread.h"
-#include "VkDecoder.h"
-#include "WindowSurface.h"
-#include "base/Stream.h"
-#include "gles1_dec/GLESv1Decoder.h"
-#include "gles2_dec/GLESv2Decoder.h"
+#include "aemu/base/files/Stream.h"
 #include "renderControl_dec/renderControl_dec.h"
+#include "RenderThreadInfoGl.h"
+#include "RenderThreadInfoMagma.h"
+#include "RenderThreadInfoVk.h"
 
-typedef uint32_t HandleType;
-typedef std::unordered_set<HandleType> ThreadContextSet;
-typedef std::unordered_set<HandleType> WindowSurfaceSet;
+namespace gfxstream {
 
 // A class used to model the state of each RenderThread related
 struct RenderThreadInfo {
@@ -50,31 +44,20 @@ struct RenderThreadInfo {
     // Loop over all active render thread infos
     static void forAllRenderThreadInfos(std::function<void(RenderThreadInfo*)>);
 
-    // Current EGL context, draw surface and read surface.
-    HandleType currContextHandleFromLoad;
-    HandleType currDrawSurfHandleFromLoad;
-    HandleType currReadSurfHandleFromLoad;
+    void initGl();
 
-    RenderContextPtr currContext;
-    WindowSurfacePtr currDrawSurf;
-    WindowSurfacePtr currReadSurf;
-
-    // Decoder states.
-    GLESv1Decoder                   m_glDec;
-    GLESv2Decoder                   m_gl2Dec;
     renderControl_decoder_context_t m_rcDec;
-    std::unique_ptr<VkDecoder> m_vkDec;
-
-    // All the contexts that are created by this render thread.
-    // New emulator manages contexts in guest process level,
-    // m_contextSet should be deprecated. It is only kept for
-    // backward compatibility reason.
-    ThreadContextSet                m_contextSet;
-    // all the window surfaces that are created by this render thread
-    WindowSurfaceSet                m_windowSet;
 
     // The unique id of owner guest process of this render thread
     uint64_t                        m_puid = 0;
+    std::optional<std::string>      m_processName;
+
+    std::optional<gl::RenderThreadInfoGl> m_glInfo;
+    std::optional<vk::RenderThreadInfoVk> m_vkInfo;
+    std::optional<RenderThreadInfoMagma> m_magmaInfo;
+
+    // Whether this thread was used to perform composition.
+    bool m_isCompositionThread = false;
 
     // Functions to save / load a snapshot
     // They must be called after Framebuffer snapshot
@@ -85,5 +68,7 @@ struct RenderThreadInfo {
     // FrameBuffer repopulates the contexts.
     void postLoadRefreshCurrentContextSurfacePtrs();
 };
+
+}  // namespace gfxstream
 
 #endif

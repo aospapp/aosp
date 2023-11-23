@@ -20,6 +20,9 @@
 #include "AudioSink.h"
 
 class DefaultAudioSink: public AudioSink {
+public:
+    DefaultAudioSink() : AudioSink() {}
+
     virtual void start();
     virtual void stop();
 

@@ -15,6 +15,9 @@
  */
 package com.android.server.uwb.util;
 
+import static com.android.server.uwb.data.UwbUciConstants.UWB_DEVICE_EXT_MAC_ADDRESS_LEN;
+import static com.android.server.uwb.data.UwbUciConstants.UWB_DEVICE_SHORT_MAC_ADDRESS_LEN;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -91,6 +94,16 @@ public class DataTypeConversionUtil {
     }
 
     /**
+     * Convert the byte array to int16 using big endian.
+     */
+    public static short byteArrayToI16(byte[] bytes) {
+        if (bytes.length != 2) {
+            throw new NumberFormatException("Expected length 2 but was " + bytes.length);
+        }
+        return ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN).getShort();
+    }
+
+    /**
      * Convert the byte array to int using big endian.
      */
     public static int byteArrayToI32(byte[] bytes) {
@@ -105,7 +118,7 @@ public class DataTypeConversionUtil {
      */
     public static int arbitraryByteArrayToI32(byte[] bytes) {
         if (bytes.length > 4 || bytes.length < 1) {
-            throw new NumberFormatException("Expected length less than 4 but was " + bytes.length);
+            throw new NumberFormatException("Expected length less than 5 but was " + bytes.length);
         }
         ByteBuffer byteBuffer = ByteBuffer.allocate(Integer.BYTES);
         byteBuffer.position(Integer.BYTES - bytes.length);
@@ -127,5 +140,49 @@ public class DataTypeConversionUtil {
         return ByteBuffer.allocate(Integer.BYTES).order(ByteOrder.LITTLE_ENDIAN).putInt(n).array();
     }
 
+    /**
+     * Convert the byte array (in Little Endian format) to a long. The input array could be: of
+     * shorter size (eg: 2 bytes, to represent a shortMacAddress). It could also have length of 8
+     * bytes, but have the MSB 6 bytes zeroed out (the 2 LSB bytes contain the MacAddress).
+     */
+    public static long macAddressByteArrayToLong(byte[] bytes) {
+        if (bytes.length == 2) {
+            return ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getShort();
+        } else if (bytes.length == 4) {
+            return ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getInt();
+        } else if (bytes.length == 8) {
+            if (isExtendedMSBZeroedOut(bytes)) {
+                return ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getShort();
+            } else {
+                return ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getLong();
+            }
+        } else {
+            throw new NumberFormatException("Expected length one of (2, 4, 8) but was "
+                    + bytes.length);
+        }
+    }
+
+    /**
+     * Convert the byte array that contains a Short MacAddress format (2 bytes long), into an
+     * Extended MacAddress format (8 bytes long), by padding it with 6 MSB zeroed-out bytes.
+     */
+    public static byte[] convertShortMacAddressBytesToExtended(byte[] bytes) {
+        if (bytes.length == UWB_DEVICE_SHORT_MAC_ADDRESS_LEN) {
+            return ByteBuffer.allocate(UWB_DEVICE_EXT_MAC_ADDRESS_LEN).put(bytes).array();
+        } else if (bytes.length == UWB_DEVICE_EXT_MAC_ADDRESS_LEN) {
+            return bytes;
+        } else {
+            throw new NumberFormatException("Expected length one of (2, 8) but was "
+                    + bytes.length);
+        }
+    }
+
+    // Check if the MSB bytes are zeroed out.
+    private static boolean isExtendedMSBZeroedOut(byte[] bytes) {
+        for (int i = UWB_DEVICE_SHORT_MAC_ADDRESS_LEN; i < UWB_DEVICE_EXT_MAC_ADDRESS_LEN; i++) {
+            if (bytes[i] != 0) return false;
+        }
+        return true;
+    }
     private DataTypeConversionUtil() {}
 }

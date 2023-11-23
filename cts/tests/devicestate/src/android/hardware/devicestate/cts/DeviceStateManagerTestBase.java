@@ -18,12 +18,6 @@ package android.hardware.devicestate.cts;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
-import static android.hardware.devicestate.cts.DeviceStateUtils.assertValidState;
-import static android.hardware.devicestate.DeviceStateManager.MAXIMUM_DEVICE_STATE;
-import static android.hardware.devicestate.DeviceStateManager.MINIMUM_DEVICE_STATE;
-
-import static org.junit.Assert.assertTrue;
-
 import android.hardware.devicestate.DeviceStateManager;
 import android.hardware.devicestate.DeviceStateRequest;
 import android.server.wm.ActivityManagerTestBase;
@@ -31,17 +25,13 @@ import android.server.wm.ActivityManagerTestBase;
 import androidx.annotation.CallSuper;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-
-import com.android.compatibility.common.util.SystemUtil;
-import com.android.compatibility.common.util.ThrowingRunnable;
-
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 import org.junit.Before;
 import org.junit.runner.RunWith;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -77,12 +67,14 @@ public abstract class DeviceStateManagerTestBase extends ActivityManagerTestBase
      * {@link java.lang.InterruptedException} will be thrown.
      */
     protected final void runWithRequestActive(@NonNull DeviceStateRequest request,
+            boolean isBaseStateRequest,
             @NonNull Runnable runnable) throws Throwable {
         final UncaughtExceptionHandler exceptionHandler = new UncaughtExceptionHandler();
         final RequestAwareThread thread = new RequestAwareThread(request, runnable);
         thread.setUncaughtExceptionHandler(exceptionHandler);
-        try (DeviceStateRequestSession session
-                     = new DeviceStateRequestSession(mDeviceStateManager, request, thread)) {
+        try (DeviceStateRequestSession session =
+                     new DeviceStateRequestSession(mDeviceStateManager, request,
+                isBaseStateRequest, thread)) {
             // Set the exception handler to get the exception and rethrow.
             thread.start();
             // Wait for the request aware thread to finish executing the runnable. If the request

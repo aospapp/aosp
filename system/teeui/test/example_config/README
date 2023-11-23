@@ -72,6 +72,9 @@ provided, the values will default to the values for Blueline.
           },
           {
             "native-test-flag": "--volUpButtonBottom=<distance from the bottom of the UP power button to the top of the screen in mm>"
+          },
+          {
+             "native-test-flag": "--saveScreen"
           }
         ]
     }

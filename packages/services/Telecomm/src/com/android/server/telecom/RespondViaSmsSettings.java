@@ -89,6 +89,8 @@ public class RespondViaSmsSettings extends PreferenceActivity
         if (actionBar != null) {
             // android.R.id.home will be triggered in onOptionsItemSelected()
             actionBar.setDisplayHomeAsUpEnabled(true);
+            // set the talkback voice prompt to "Back" instead of "Navigate Up"
+            actionBar.setHomeActionContentDescription(R.string.back);
         }
     }
 

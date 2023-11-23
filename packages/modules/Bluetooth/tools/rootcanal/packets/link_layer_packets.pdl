@@ -7,15 +7,11 @@ enum PacketType : 8 {
     UNKNOWN = 0x00,
     ACL = 0x01,
     DISCONNECT = 0x02,
-    ENCRYPT_CONNECTION = 0x03,
-    ENCRYPT_CONNECTION_RESPONSE = 0x04,
-    EVENT = 0x05,
     INQUIRY = 0x06,
     INQUIRY_RESPONSE = 0x07,
-    IO_CAPABILITY_REQUEST = 0x08,
-    IO_CAPABILITY_RESPONSE = 0x09,
-    IO_CAPABILITY_NEGATIVE_RESPONSE = 0x0A,
-    LE_ADVERTISEMENT = 0x0B,
+    LE_LEGACY_ADVERTISING_PDU = 0x0B,
+    LE_EXTENDED_ADVERTISING_PDU = 0x37,
+    LE_PERIODIC_ADVERTISING_PDU = 0x40,
     LE_CONNECT = 0x0C,
     LE_CONNECT_COMPLETE = 0x0D,
     LE_SCAN = 0x0E,
@@ -41,13 +37,6 @@ enum PacketType : 8 {
     ISO = 0x22,
     ISO_CONNECTION_REQUEST = 0x23,
     ISO_CONNECTION_RESPONSE = 0x24,
-    OOB_DATA = 0x25,
-    OOB_DATA_RESPONSE = 0x26,
-    PASSKEY = 0x27,
-    PASSKEY_FAILED = 0x28,
-    KEYPRESS_NOTIFICATION = 0x29,
-    PIN_REQUEST = 0x2A,
-    PIN_RESPONSE = 0x2B,
     LE_READ_REMOTE_FEATURES = 0x2C,
     LE_READ_REMOTE_FEATURES_RESPONSE = 0x2D,
     LE_CONNECTION_PARAMETER_REQUEST = 0x2E,
@@ -56,7 +45,17 @@ enum PacketType : 8 {
     SCO_CONNECTION_REQUEST = 0x30,
     SCO_CONNECTION_RESPONSE = 0x31,
     SCO_DISCONNECT = 0x32,
-    RSSI_WRAPPER = 0x33,
+
+    LMP = 0x34,
+
+    PING_REQUEST = 0x35,
+    PING_RESPONSE = 0x36,
+    ROLE_SWITCH_REQUEST = 0x38,
+    ROLE_SWITCH_RESPONSE = 0x39,
+
+    LL_PHY_REQ = 0x50,
+    LL_PHY_RSP = 0x51,
+    LL_PHY_UPDATE_IND = 0x52,
 }
 
 packet LinkLayerPacket {
@@ -67,19 +66,13 @@ packet LinkLayerPacket {
 }
 
 packet Acl : LinkLayerPacket (type = ACL) {
-  _payload_,
+  packet_boundary_flag : 8,
+  broadcast_flag : 8,
+  data: 8[],
 }
 
 packet Disconnect : LinkLayerPacket (type = DISCONNECT) {
   reason : 8,
-}
-
-packet EncryptConnection : LinkLayerPacket (type = ENCRYPT_CONNECTION) {
-  key : 8[],
-}
-
-packet EncryptConnectionResponse : LinkLayerPacket (type = ENCRYPT_CONNECTION_RESPONSE) {
-  key : 8[],
 }
 
 enum InquiryState : 8 {
@@ -95,6 +88,7 @@ enum InquiryType : 8 {
 
 packet Inquiry : LinkLayerPacket (type = INQUIRY) {
   inquiry_type : InquiryType,
+  lap : 8, // The IAC is derived from the LAP
 }
 
 packet BasicInquiryResponse : LinkLayerPacket(type = INQUIRY_RESPONSE) {
@@ -115,23 +109,7 @@ packet InquiryResponseWithRssi : BasicInquiryResponse (inquiry_type = RSSI)  {
 
 packet ExtendedInquiryResponse : BasicInquiryResponse (inquiry_type = EXTENDED)  {
   rssi: 8,
-  extended_data : 8[],
-}
-
-packet IoCapabilityRequest : LinkLayerPacket (type = IO_CAPABILITY_REQUEST) {
-  io_capability : 8,
-  oob_data_present : 8,
-  authentication_requirements : 8,
-}
-
-packet IoCapabilityResponse : LinkLayerPacket (type = IO_CAPABILITY_RESPONSE) {
-  io_capability : 8,
-  oob_data_present : 8,
-  authentication_requirements : 8,
-}
-
-packet IoCapabilityNegativeResponse : LinkLayerPacket (type = IO_CAPABILITY_NEGATIVE_RESPONSE) {
-  reason : 8,
+  extended_inquiry_response : 8[240],
 }
 
 enum AddressType : 8 {
@@ -141,42 +119,81 @@ enum AddressType : 8 {
   RANDOM_IDENTITY = 3,
 }
 
-enum AdvertisementType : 8 {
+// Legacy advertising PDU types.
+// Vol 6, Part B § 2.3.1 Advertising PDUs.
+enum LegacyAdvertisingType : 8 {
   ADV_IND = 0,          // Connectable and scannable
   ADV_DIRECT_IND = 1,   // Connectable directed, high duty cycle
   ADV_SCAN_IND = 2,     // Scannable undirected
   ADV_NONCONN_IND = 3,  // Non connectable undirected
-  SCAN_RESPONSE = 4,    // Aliased with connectable directed, low duty cycle
 }
 
-packet LeAdvertisement : LinkLayerPacket (type = LE_ADVERTISEMENT) {
-  address_type : AddressType,
-  advertisement_type : AdvertisementType,
-  data : 8[],
+packet LeLegacyAdvertisingPdu : LinkLayerPacket (type = LE_LEGACY_ADVERTISING_PDU) {
+  advertising_address_type: AddressType,
+  target_address_type: AddressType,
+  advertising_type: LegacyAdvertisingType,
+  advertising_data: 8[],
+}
+
+enum PrimaryPhyType : 8 {
+  LE_1M = 0x01,
+  LE_CODED = 0x03,
+}
+
+enum SecondaryPhyType : 8 {
+  NO_PACKETS = 0x00,
+  LE_1M = 0x01,
+  LE_2M = 0x02,
+  LE_CODED = 0x03,
+}
+
+packet LeExtendedAdvertisingPdu : LinkLayerPacket (type = LE_EXTENDED_ADVERTISING_PDU) {
+  advertising_address_type: AddressType,
+  target_address_type: AddressType,
+  connectable: 1,
+  scannable: 1,
+  directed: 1,
+  _reserved_: 5,
+  sid: 8, // 0xff when not provided
+  tx_power: 8,
+  primary_phy: PrimaryPhyType,
+  secondary_phy: SecondaryPhyType,
+  periodic_advertising_interval: 16,
+  advertising_data: 8[],
+}
+
+packet LePeriodicAdvertisingPdu : LinkLayerPacket (type = LE_PERIODIC_ADVERTISING_PDU) {
+  advertising_address_type: AddressType,
+  sid: 8, // 0xff when not provided
+  tx_power: 8,
+  advertising_interval: 16,
+  advertising_data: 8[],
 }
 
 packet LeConnect : LinkLayerPacket (type = LE_CONNECT) {
-  le_connection_interval_min : 16,
-  le_connection_interval_max : 16,
-  le_connection_latency : 16,
-  le_connection_supervision_timeout : 16,
-  address_type : 8,
+  initiating_address_type : AddressType,
+  advertising_address_type : AddressType,
+  conn_interval : 16,
+  conn_peripheral_latency : 16,
+  conn_supervision_timeout : 16,
 }
 
 packet LeConnectComplete : LinkLayerPacket (type = LE_CONNECT_COMPLETE) {
-  le_connection_interval : 16,
-  le_connection_latency : 16,
-  le_connection_supervision_timeout : 16,
-  address_type : 8,
+  initiating_address_type : AddressType,
+  advertising_address_type : AddressType,
+  conn_interval : 16,
+  conn_peripheral_latency : 16,
+  conn_supervision_timeout : 16,
 }
 
 packet LeScan : LinkLayerPacket (type = LE_SCAN) {
+  scanning_address_type : AddressType,
+  advertising_address_type : AddressType,
 }
 
 packet LeScanResponse : LinkLayerPacket (type = LE_SCAN_RESPONSE) {
-  address_type : AddressType,
-  advertisement_type : AdvertisementType,
-  data : 8[],
+  advertising_address_type : AddressType,
+  scan_response_data : 8[],
 }
 
 packet Page : LinkLayerPacket (type = PAGE) {
@@ -317,48 +334,12 @@ packet IsoConnectionResponse  : LinkLayerPacket (type = ISO_CONNECTION_RESPONSE)
   _reserved_ : 4,
 }
 
-packet OobData : LinkLayerPacket (type = OOB_DATA){
-  c_p_194 : 8[16],
-  r_p_194 : 8[16],
-  c_p_256 : 8[16],
-  r_p_256 : 8[16],
-}
-
-packet OobDataResponse : LinkLayerPacket (type = OOB_DATA_RESPONSE){
-  matched : 1,
-  _reserved_ : 7,
-}
-
 enum PasskeyNotificationType : 8 {
   ENTRY_STARTED = 0x00,
   DIGIT_ENTERED = 0x01,
   DIGIT_ERASED = 0x02,
   CLEARED = 0x03,
   ENTRY_COMPLETED = 0x04,
-}
-
-packet Passkey : LinkLayerPacket (type = PASSKEY){
-  passkey : 20,
-  _reserved_ : 4,
-}
-
-packet PasskeyFailed : LinkLayerPacket (type = PASSKEY_FAILED){
-}
-
-packet KeypressNotification : LinkLayerPacket (type = KEYPRESS_NOTIFICATION){
-  notification_type : PasskeyNotificationType,
-}
-
-packet PinRequest : LinkLayerPacket (type = PIN_REQUEST) {
-  _size_(pin_code) : 5, // 0x01 - 0x10
-  _reserved_ : 3,
-  pin_code : 8[], // string parameter, first octet first
-}
-
-packet PinResponse : LinkLayerPacket (type = PIN_RESPONSE) {
-  _size_(pin_code) : 5, // 0x01 - 0x10
-  _reserved_ : 3,
-  pin_code : 8[], // string parameter, first octet first
 }
 
 packet LeReadRemoteFeatures : LinkLayerPacket (type = LE_READ_REMOTE_FEATURES) {
@@ -391,6 +372,7 @@ packet ScoConnectionRequest : LinkLayerPacket (type = SCO_CONNECTION_REQUEST) {
   _reserved_ : 6,
   retransmission_effort : 8,
   packet_type : 16,
+  class_of_device : ClassOfDevice,
 }
 
 packet ScoConnectionResponse : LinkLayerPacket (type = SCO_CONNECTION_RESPONSE) {
@@ -408,7 +390,37 @@ packet ScoDisconnect : LinkLayerPacket (type = SCO_DISCONNECT) {
   reason : 8,
 }
 
-packet RssiWrapper : LinkLayerPacket (type = RSSI_WRAPPER) {
-  rssi : 8,
+packet Lmp : LinkLayerPacket (type = LMP) {
   _payload_,
+}
+
+packet PingRequest : LinkLayerPacket (type = PING_REQUEST) {
+}
+
+packet PingResponse : LinkLayerPacket (type = PING_RESPONSE) {
+}
+
+packet RoleSwitchRequest : LinkLayerPacket (type = ROLE_SWITCH_REQUEST) {
+  initiator_new_role: 8,
+}
+
+packet RoleSwitchResponse : LinkLayerPacket (type = ROLE_SWITCH_RESPONSE) {
+  status: 8,
+  initiator_new_role: 8,
+}
+
+packet LlPhyReq : LinkLayerPacket (type = LL_PHY_REQ) {
+  tx_phys: 8,
+  rx_phys: 8,
+}
+
+packet LlPhyRsp : LinkLayerPacket (type = LL_PHY_RSP) {
+  tx_phys: 8,
+  rx_phys: 8,
+}
+
+packet LlPhyUpdateInd : LinkLayerPacket (type = LL_PHY_UPDATE_IND) {
+  phy_c_to_p: 8,
+  phy_p_to_c: 8,
+  instant: 16,
 }

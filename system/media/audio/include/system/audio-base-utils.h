@@ -134,6 +134,7 @@ enum {
     AUDIO_USAGE_MAX           = AUDIO_USAGE_CALL_ASSISTANT,
     AUDIO_USAGE_CNT           = AUDIO_USAGE_CALL_ASSISTANT + 1,
 
+    AUDIO_LATENCY_MODE_INVALID = -1,
     AUDIO_LATENCY_MODE_CNT    = AUDIO_LATENCY_MODE_LOW + 1,
 }; // enum
 
@@ -234,6 +235,10 @@ static CONST_ARRAY audio_devices_t AUDIO_DEVICE_OUT_BLE_UNICAST_ARRAY[] = {
     AUDIO_DEVICE_OUT_BLE_SPEAKER,               // 0x20000001u
 };
 
+static CONST_ARRAY audio_devices_t AUDIO_DEVICE_OUT_BLE_BROADCAST_ARRAY[] = {
+    AUDIO_DEVICE_OUT_BLE_BROADCAST,             // 0x20000002u
+};
+
 // inline constexpr
 static CONST_ARRAY audio_devices_t AUDIO_DEVICE_IN_ALL_ARRAY[] = {
     AUDIO_DEVICE_IN_COMMUNICATION,              // 0x80000001u
@@ -319,6 +324,8 @@ static const uint32_t AUDIO_DEVICE_OUT_BLE_CNT = AUDIO_ARRAY_SIZE(
                                                      AUDIO_DEVICE_OUT_ALL_BLE_ARRAY);
 static const uint32_t AUDIO_DEVICE_OUT_BLE_UNICAST_CNT = AUDIO_ARRAY_SIZE(
                                                      AUDIO_DEVICE_OUT_BLE_UNICAST_ARRAY);
+static const uint32_t AUDIO_DEVICE_OUT_BLE_BROADCAST_CNT = AUDIO_ARRAY_SIZE(
+                                                     AUDIO_DEVICE_OUT_BLE_BROADCAST_ARRAY);
 
 static const uint32_t AUDIO_DEVICE_IN_CNT = AUDIO_ARRAY_SIZE(AUDIO_DEVICE_IN_ALL_ARRAY);
 static const uint32_t AUDIO_DEVICE_IN_SCO_CNT = AUDIO_ARRAY_SIZE(AUDIO_DEVICE_IN_ALL_SCO_ARRAY);
@@ -366,6 +373,8 @@ static_assert(isSorted(AUDIO_DEVICE_OUT_ALL_BLE_ARRAY),
               "AUDIO_DEVICE_OUT_ALL_BLE_ARRAY must be sorted");
 static_assert(isSorted(AUDIO_DEVICE_OUT_BLE_UNICAST_ARRAY),
               "AUDIO_DEVICE_OUT_BLE_UNICAST_ARRAY must be sorted");
+static_assert(isSorted(AUDIO_DEVICE_OUT_BLE_BROADCAST_ARRAY),
+              "AUDIO_DEVICE_OUT_BLE_BROADCAST_ARRAY must be sorted");
 static_assert(isSorted(AUDIO_DEVICE_IN_ALL_ARRAY),
               "AUDIO_DEVICE_IN_ALL_ARRAY must be sorted");
 static_assert(isSorted(AUDIO_DEVICE_IN_ALL_SCO_ARRAY),
@@ -384,6 +393,7 @@ static_assert(AUDIO_DEVICE_OUT_USB_CNT == std::size(AUDIO_DEVICE_OUT_ALL_USB_ARR
 static_assert(AUDIO_DEVICE_OUT_DIGITAL_CNT == std::size(AUDIO_DEVICE_OUT_ALL_DIGITAL_ARRAY));
 static_assert(AUDIO_DEVICE_OUT_BLE_CNT == std::size(AUDIO_DEVICE_OUT_ALL_BLE_ARRAY));
 static_assert(AUDIO_DEVICE_OUT_BLE_UNICAST_CNT == std::size(AUDIO_DEVICE_OUT_BLE_UNICAST_ARRAY));
+static_assert(AUDIO_DEVICE_OUT_BLE_BROADCAST_CNT == std::size(AUDIO_DEVICE_OUT_BLE_BROADCAST_ARRAY));
 static_assert(AUDIO_DEVICE_IN_CNT == std::size(AUDIO_DEVICE_IN_ALL_ARRAY));
 static_assert(AUDIO_DEVICE_IN_SCO_CNT == std::size(AUDIO_DEVICE_IN_ALL_SCO_ARRAY));
 static_assert(AUDIO_DEVICE_IN_USB_CNT == std::size(AUDIO_DEVICE_IN_ALL_USB_ARRAY));

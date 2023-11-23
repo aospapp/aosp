@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -85,15 +85,16 @@ fn bindings_generation() -> io::Result<()> {
     println!("cargo:rerun-if-changed={}", header_path.display());
     let status = Command::new(&bindgen)
         .args(&["--default-enum-style", "rust"])
-        .args(&["--blacklist-type", "__rlim64_t"])
+        .args(&["--blocklist-type", "__rlim64_t"])
         .args(&["--raw-line", "pub type __rlim64_t = u64;"])
-        .args(&["--blacklist-type", "__u\\d{1,2}"])
+        .args(&["--blocklist-type", "__u\\d{1,2}"])
         .args(&["--raw-line", "pub type __u8 = u8;"])
         .args(&["--raw-line", "pub type __u16 = u16;"])
         .args(&["--raw-line", "pub type __u32 = u32;"])
-        .args(&["--blacklist-type", "__uint64_t"])
-        .args(&["--whitelist-function", "^minijail_.*"])
-        .args(&["--whitelist-var", "^MINIJAIL_.*"])
+        .args(&["--blocklist-type", "__uint64_t"])
+        .args(&["--allowlist-function", "^minijail_.*"])
+        .args(&["--allowlist-var", "^MINIJAIL_.*"])
+        .arg("--size_t-is-usize")
         .arg("--no-layout-tests")
         .arg("--disable-header-comment")
         .args(&["--output", gen_file.to_str().unwrap()])

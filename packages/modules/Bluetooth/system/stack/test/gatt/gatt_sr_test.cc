@@ -26,12 +26,11 @@
 #include "stack/test/common/mock_eatt.h"
 #undef LOG_TAG
 #include "stack/gatt/gatt_sr.cc"
+#include "test/common/mock_functions.h"
 #include "types/bluetooth/uuid.h"
 #include "types/raw_address.h"
 
 #define MAX_UINT16 ((uint16_t)0xffff)
-
-std::map<std::string, int> mock_function_count_map;
 
 tGATT_CB gatt_cb;
 
@@ -63,10 +62,12 @@ bool background_connect_remove(uint8_t app_id, const RawAddress& address) {
 bool direct_connect_remove(uint8_t app_id, const RawAddress& address) {
   return false;
 }
+bool is_background_connection(const RawAddress& address) { return false; }
+
 }  // namespace connection_manager
 
-BT_HDR* attp_build_sr_msg(tGATT_TCB& tcb, uint8_t op_code,
-                          tGATT_SR_MSG* p_msg) {
+BT_HDR* attp_build_sr_msg(tGATT_TCB& tcb, uint8_t op_code, tGATT_SR_MSG* p_msg,
+                          uint16_t payload_size) {
   test_state_.attp_build_sr_msg.op_code_ = op_code;
   return nullptr;
 }
@@ -125,26 +126,7 @@ void l2cble_set_fixed_channel_tx_data_length(const RawAddress& remote_bda,
                                              uint16_t fix_cid,
                                              uint16_t tx_mtu) {}
 void L2CA_SetLeFixedChannelTxDataLength(const RawAddress& remote_bda,
-                                        uint16_t fix_cid,
-                                        uint16_t tx_mtu) {}
-bool SDP_AddAttribute(uint32_t handle, uint16_t attr_id, uint8_t attr_type,
-                      uint32_t attr_len, uint8_t* p_val) {
-  return false;
-}
-bool SDP_AddProtocolList(uint32_t handle, uint16_t num_elem,
-                         tSDP_PROTOCOL_ELEM* p_elem_list) {
-  return false;
-}
-bool SDP_AddServiceClassIdList(uint32_t handle, uint16_t num_services,
-                               uint16_t* p_service_uuids) {
-  return false;
-}
-bool SDP_AddUuidSequence(uint32_t handle, uint16_t attr_id, uint16_t num_uuids,
-                         uint16_t* p_uuids) {
-  return false;
-}
-uint32_t SDP_CreateRecord(void) { return 0; }
-
+                                        uint16_t fix_cid, uint16_t tx_mtu) {}
 void ApplicationRequestCallback(uint16_t conn_id, uint32_t trans_id,
                                 tGATTS_REQ_TYPE type, tGATTS_DATA* p_data) {
   test_state_.application_request_callback.conn_id_ = conn_id;
@@ -162,7 +144,7 @@ void gatt_sr_update_cl_status(tGATT_TCB& p_tcb, bool chg_aware) {
 /**
  * Test class to test selected functionality in stack/gatt/gatt_sr.cc
  */
-extern void allocation_tracker_uninit(void);
+void allocation_tracker_uninit(void);
 namespace {
 uint16_t kHandle = 1;
 bt_gatt_db_attribute_type_t kGattCharacteristicType = BTGATT_DB_CHARACTERISTIC;

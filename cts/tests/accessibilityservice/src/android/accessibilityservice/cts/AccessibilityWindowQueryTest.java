@@ -16,25 +16,22 @@
 
 package android.accessibilityservice.cts;
 
-import static android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils.filterForEventType;
 import static android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils.filterForEventTypeWithAction;
 import static android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils.filterWindowsChangTypesAndWindowId;
 import static android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils.filterWindowsChangeTypesAndWindowTitle;
 import static android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils.filterWindowsChangedWithChangeTypes;
+import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.findWindowByTitle;
 import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.launchActivityAndWaitForItToBeOnscreen;
 import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.launchActivityOnSpecifiedDisplayAndWaitForItToBeOnscreen;
 import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.supportsMultiDisplay;
 import static android.accessibilityservice.cts.utils.AsyncUtils.DEFAULT_TIMEOUT_MS;
 import static android.accessibilityservice.cts.utils.DisplayUtils.VirtualDisplaySession;
 import static android.accessibilityservice.cts.utils.DisplayUtils.getStatusBarHeight;
-import static android.app.WindowConfiguration.WINDOWING_MODE_SPLIT_SCREEN_PRIMARY;
-import static android.app.WindowConfiguration.WINDOWING_MODE_SPLIT_SCREEN_SECONDARY;
 import static android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE;
 import static android.view.accessibility.AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUS_CLEARED;
 import static android.view.accessibility.AccessibilityEvent.TYPE_VIEW_CLICKED;
 import static android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED;
 import static android.view.accessibility.AccessibilityEvent.TYPE_VIEW_LONG_CLICKED;
-import static android.view.accessibility.AccessibilityEvent.TYPE_WINDOWS_CHANGED;
 import static android.view.accessibility.AccessibilityEvent.WINDOWS_CHANGE_ACCESSIBILITY_FOCUSED;
 import static android.view.accessibility.AccessibilityEvent.WINDOWS_CHANGE_ADDED;
 import static android.view.accessibility.AccessibilityNodeInfo.ACTION_CLEAR_ACCESSIBILITY_FOCUS;
@@ -59,16 +56,19 @@ import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
 import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
-import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.accessibilityservice.cts.activities.AccessibilityWindowQueryActivity;
 import android.accessibilityservice.cts.activities.NonDefaultDisplayActivity;
 import android.app.Activity;
-import android.app.ActivityTaskManager;
 import android.app.Instrumentation;
+import android.app.LocaleManager;
+import android.app.PictureInPictureParams;
 import android.app.UiAutomation;
 import android.graphics.Rect;
+import android.os.LocaleList;
+import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.text.TextUtils;
 import android.util.Log;
@@ -83,12 +83,13 @@ import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import android.view.accessibility.AccessibilityWindowInfo;
 import android.widget.Button;
 
+import androidx.annotation.NonNull;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.SystemUtil;
-import com.android.compatibility.common.util.TestUtils;
 
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
@@ -103,6 +104,7 @@ import org.junit.runner.RunWith;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Queue;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -116,6 +118,8 @@ import java.util.function.Function;
  */
 @AppModeFull
 @RunWith(AndroidJUnit4.class)
+@CddTest(requirements = {"3.10/C-1-1,C-1-2"})
+@Presubmit
 public class AccessibilityWindowQueryTest {
     private static final String LOG_TAG = "AccessibilityWindowQueryTest";
     private static String CONTENT_VIEW_RES_NAME =
@@ -578,14 +582,18 @@ public class AccessibilityWindowQueryTest {
                 .hasSystemFeature(FEATURE_PICTURE_IN_PICTURE)) {
             return;
         }
-        sUiAutomation.executeAndWaitForEvent(() -> {
-            sInstrumentation.runOnMainSync(() -> {
-                mActivity.enterPictureInPictureMode();
-            });
-        }, filterForEventType(TYPE_WINDOWS_CHANGED), DEFAULT_TIMEOUT_MS);
-        sInstrumentation.waitForIdleSync();
+        sUiAutomation.executeAndWaitForEvent(() -> sInstrumentation.runOnMainSync(
+                () -> mActivity.enterPictureInPictureMode(
+                        new PictureInPictureParams.Builder().build())),
+                event -> (event.getWindowChanges() & AccessibilityEvent.WINDOWS_CHANGE_PIP) != 0
+                        && sUiAutomation.getWindows().stream().anyMatch(
+                                info -> info.getId() == event.getWindowId()
+                                        && info.isInPictureInPictureMode()
+                ),
+                DEFAULT_TIMEOUT_MS);
 
         // We should be able to find a picture-in-picture window now
+
         int numPictureInPictureWindows = 0;
         final List<AccessibilityWindowInfo> windows = sUiAutomation.getWindows();
         final int windowCount = windows.size();
@@ -595,7 +603,7 @@ public class AccessibilityWindowQueryTest {
                 numPictureInPictureWindows++;
             }
         }
-        assertTrue(numPictureInPictureWindows >= 1);
+        assertTrue(numPictureInPictureWindows > 0);
     }
 
     @Test
@@ -701,6 +709,83 @@ public class AccessibilityWindowQueryTest {
                 Log.e(LOG_TAG, "remove view fail:" + e.toString());
             }
         }
+    }
+
+    @Test
+    public void testChangeWindowSize_transitionTimeIsChanged()
+            throws TimeoutException {
+        final WindowManager wm =
+                sInstrumentation.getContext().getSystemService(WindowManager.class);
+        final View viewRoot = new View(sInstrumentation.getContext());
+        final String windowTitle = "application sub-panel";
+        final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.TYPE_APPLICATION_SUB_PANEL);
+        params.accessibilityTitle = windowTitle;
+        final Rect displayBounds = wm.getCurrentWindowMetrics().getBounds();
+        params.width = displayBounds.width() / 2;
+        params.height = displayBounds.height() / 2;
+        params.token = mActivity.getWindow().getDecorView().getWindowToken();
+        final WindowLocationFilter windowLocationFilter = new WindowLocationFilter(sUiAutomation,
+                viewRoot, windowTitle);
+        try {
+            sUiAutomation.executeAndWaitForEvent(
+                    () -> sInstrumentation.runOnMainSync(() -> wm.addView(viewRoot, params)),
+                    windowLocationFilter, DEFAULT_TIMEOUT_MS);
+            AccessibilityWindowInfo targetWindow = windowLocationFilter.getTargetWindow();
+            final long firstTransitionTime = targetWindow.getTransitionTimeMillis();
+            assertTrue(firstTransitionTime > 0);
+
+            SystemClock.sleep(50);
+            params.width = displayBounds.width() / 4;
+            params.height = displayBounds.height() / 4;
+            sUiAutomation.executeAndWaitForEvent(() -> sInstrumentation.runOnMainSync(
+                    () -> wm.updateViewLayout(viewRoot, params)),
+                    windowLocationFilter, DEFAULT_TIMEOUT_MS);
+            targetWindow = windowLocationFilter.getTargetWindow();
+
+            assertTrue(targetWindow.getTransitionTimeMillis() > (firstTransitionTime + 50L));
+        } finally {
+            wm.removeView(viewRoot);
+        }
+    }
+
+    @Test
+    public void testWindowLocale_setGet() throws Exception {
+        final LocaleManager manager = mActivity.getSystemService(LocaleManager.class);
+        final LocaleList systemLocales = manager.getSystemLocales();
+        final Locale testLocaleEn = Locale.ENGLISH;
+        final Locale testLocaleDe = Locale.GERMAN;
+        AccessibilityWindowInfo window;
+
+        try {
+            window = sUiAutomation.getRootInActiveWindow().getWindow();
+            assertEquals(systemLocales, window.getLocales());
+
+            // First returned locale should be the app locale.
+            setActivityLocale(manager, new LocaleList(testLocaleEn));
+            window = sUiAutomation.getRootInActiveWindow().getWindow();
+            assertEquals(testLocaleEn, window.getLocales().get(0));
+
+            // System locale is appended to the end, but order should be the same.
+            setActivityLocale(manager, new LocaleList(testLocaleEn, testLocaleDe));
+            window = sUiAutomation.getRootInActiveWindow().getWindow();
+            LocaleList locales = window.getLocales();
+            assertEquals(testLocaleEn, locales.get(0));
+            assertEquals(testLocaleDe, locales.get(1));
+        } finally {
+            setActivityLocale(manager, LocaleList.getEmptyLocaleList());
+        }
+    }
+
+    private void setActivityLocale(LocaleManager localeManager, LocaleList localeList)
+            throws TimeoutException {
+        sUiAutomation.executeAndWaitForEvent(
+                () -> sInstrumentation.runOnMainSync(
+                        () -> localeManager.setApplicationLocales(localeList)),
+                event -> {
+                    AccessibilityNodeInfo root = sUiAutomation.getRootInActiveWindow();
+                    return root != null && root.getWindow() != null;
+                }, DEFAULT_TIMEOUT_MS);
     }
 
     private AccessibilityWindowInfo findWindow(List<AccessibilityWindowInfo> windows,
@@ -940,6 +1025,48 @@ public class AccessibilityWindowQueryTest {
                 }
             }
             return true;
+        }
+    }
+
+    /**
+     * Finds the {@link AccessibilityWindowInfo} associated with the given window tile and match
+     * the actual location of the viewRoot.
+     */
+    private static class WindowLocationFilter implements UiAutomation.AccessibilityEventFilter {
+
+        private final View mViewRoot;
+        private final String mWindowTitle;
+        private final UiAutomation mUiAutomation;
+        private final Rect mTempBounds = new Rect();
+        private AccessibilityWindowInfo mTargetWindow;
+
+        WindowLocationFilter(@NonNull UiAutomation uiAutomation, @NonNull View viewRoot,
+                @NonNull String windowTitle) {
+            mUiAutomation = uiAutomation;
+            mViewRoot = viewRoot;
+            mWindowTitle = windowTitle;
+        }
+        @Override
+        public boolean accept(AccessibilityEvent event) {
+            final AccessibilityWindowInfo window = findWindowByTitle(mUiAutomation, mWindowTitle);
+            if (window == null) return false;
+
+            window.getBoundsInScreen(mTempBounds);
+            final int[] location = new int[2];
+            mViewRoot.getLocationOnScreen(location);
+            if (location[0] == mTempBounds.left && location[1] == mTempBounds.top) {
+                mTargetWindow = window;
+                return  true;
+            }
+            return false;
+        }
+
+        public void reset() {
+            mTargetWindow = null;
+        }
+
+        public AccessibilityWindowInfo getTargetWindow() {
+            return mTargetWindow;
         }
     }
 }

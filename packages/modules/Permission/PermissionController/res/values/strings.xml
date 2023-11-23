@@ -38,6 +38,14 @@
     update the string "quick_settings_camera_mic_blocked" in SystemUi [CHAR LIMIT=NONE] -->
     <string name="blocked">Blocked</string>
 
+    <!-- Label indicating sensor is on. If you update this string, please update the string
+    "switch_bar_on" in SystemUI or do not use the default string for the LocationTile [CHAR LIMIT=NONE] -->
+    <string name="on">On</string>
+
+    <!-- Label indicating sensor is off. If you update this string, please update the string
+    "switch_bar_off" in SystemUI or do not use the default string for the LocationTile [CHAR LIMIT=NONE] -->
+    <string name="off">Off</string>
+
     <!-- Button label for uninstall or disable actions [CHAR LIMIT=none] -->
     <string name="uninstall_or_disable">Uninstall or disable</string>
 
@@ -58,6 +66,21 @@
 
     <!-- Title for the dialog button to get more info about a permission. [CHAR LIMIT=15] -->
     <string name="grant_dialog_button_more_info">More info</string>
+
+    <!-- Title for the dialog button to allow access to all of a resource. [CHAR LIMIT=60] -->
+    <string name="grant_dialog_button_allow_all">Allow all</string>
+
+    <!-- Title for the dialog button to allow access to all of a resource always. [CHAR LIMIT=60] -->
+    <string name="grant_dialog_button_always_allow_all">Always allow all</string>
+
+    <!-- Title for the dialog button to allow access to select photos to be shared. [CHAR LIMIT=60] -->
+    <string name="grant_dialog_button_allow_selected_photos">Select photos and videos</string>
+
+    <!-- Title for the dialog button to allow access to select more photos to be shared. [CHAR LIMIT=60] -->
+    <string name="grant_dialog_button_allow_more_selected_photos">Select more</string>
+
+    <!-- Title for the dialog button to not select more data (example: photos or contacts) to be shared. [CHAR LIMIT=60] -->
+    <string name="grant_dialog_button_dont_select_more">Don\u2019t select more</string>
 
     <!-- Title for the dialog button to deny a permission grant despite a warning of implications. [CHAR LIMIT=30] -->
     <string name="grant_dialog_button_deny_anyway">Don\u2019t allow anyway</string>
@@ -307,19 +330,6 @@
    <!-- Title of the permission dialog for accessibility purposes- spoken to the user. [CHAR LIMIT=none] -->
    <string name="permission_request_title">Permission request</string>
 
-    <!-- Title for the dialog that warns the user they need to turn off screen overlays
-         before permissions can be changed. [CHAR LIMIT=NONE] -->
-   <string name="screen_overlay_title">Screen overlay detected</string>
-
-   <!-- Message for the dialog that warns the user they need to turn off screen overlays
-        before permissions can be changed. The "Settings > Apps" conveys to the user to
-        go to Settings and click on apps, this may need updates in RTL languages. [CHAR LIMIT=NONE] -->
-   <string name="screen_overlay_message">To change this permission setting, you first have to turn off the screen overlay from Settings \u003e Apps</string>
-
-    <!-- Button for the dialog that warns the user they need to turn off screen overlays
-         before permissions can be changed. [CHAR LIMIT=NONE] -->
-    <string name="screen_overlay_button">Open settings</string>
-
     <!-- Title of dialog telling users that Install/Uninstall action is not supported on Android Wear. [CHAR LIMIT=30] -->
     <string name="wear_not_allowed_dlg_title">Android Wear</string>
     <!-- Title of dialog telling users that Install/Uninstall action is not supported on Android Wear. [CHAR LIMIT=none] -->
@@ -387,6 +397,9 @@
     <!-- Link text for intent out to location provider [CHAR LIMIT=20] -->
     <string name="permission_usage_access_dialog_learn_more">Learn more</string>
 
+    <!-- Content description for the learn more info icon on Privacy Dashboard and app permission groups page [CHAR LIMIT=100] -->
+    <string name="learn_more_content_description">Learn more about <xliff:g id="permgroup" example="Location">%1$s</xliff:g></string>
+
     <!-- Summary for preference to manage a permission for a group like location or microphone [CHAR LIMIT=60] -->
     <string name="manage_permission_summary">Control app access to your <xliff:g id="permgroup" example="Location">%1$s</xliff:g></string>
 
@@ -401,25 +414,25 @@
 
     <!-- Duration used for a permission in days -->
     <string name="duration_used_days">{count, plural,
-        =1      {1 day}
+        =1      {# day}
         other   {# days}
     }</string>
 
     <!-- Duration used for a permission in hours -->
     <string name="duration_used_hours">{count, plural,
-        =1      {1 hour}
+        =1      {# hour}
         other   {# hours}
     }</string>
 
     <!-- Duration used for a permission in minutes -->
     <string name="duration_used_minutes">{count, plural,
-        =1      {1 min}
+        =1      {# min}
         other   {# mins}
     }</string>
 
     <!-- Duration used for a permission in seconds -->
     <string name="duration_used_seconds">{count, plural,
-        =1      {1 sec}
+        =1      {# sec}
         other   {# secs}
     }</string>
 
@@ -429,20 +442,23 @@
     <!-- Description for showing permission accesses accessed any time [CHAR LIMIT=30] -->
     <string name="permission_usage_any_time">Any time</string>
 
-    <!-- Description for showing permissions accessed in the last 7 days [CHAR LIMIT=30] -->
-    <string name="permission_usage_last_7_days">Last 7 days</string>
+    <!-- Description for showing permissions accessed in the last n days [CHAR LIMIT=30] -->
+    <string name="permission_usage_last_n_days">{count, plural,
+        =1    {Last # day}
+        other {Last # days}
+    }</string>
 
-    <!-- Description for showing permissions accessed in the last day [CHAR LIMIT=30] -->
-    <string name="permission_usage_last_day">Last 24 hours</string>
+    <!-- Description for showing permissions accessed in the last n hours [CHAR LIMIT=30] -->
+    <string name="permission_usage_last_n_hours">{count, plural,
+        =1    {Last # hour}
+        other {Last # hours}
+    }</string>
 
-    <!-- Description for showing permissions accessed in the last hour [CHAR LIMIT=30] -->
-    <string name="permission_usage_last_hour">Last 1 hour</string>
-
-    <!-- Description for showing permissions accessed in the last 15 minutes [CHAR LIMIT=30] -->
-    <string name="permission_usage_last_15_minutes">Last 15 minutes</string>
-
-    <!-- Description for showing permissions accessed in the last minute [CHAR LIMIT=30] -->
-    <string name="permission_usage_last_minute">Last 1 minute</string>
+    <!-- Description for showing permissions accessed in the last n minutes [CHAR LIMIT=30] -->
+    <string name="permission_usage_last_n_minutes">{count, plural,
+        =1    {Last # minute}
+        other {Last # minutes}
+    }</string>
 
     <!-- Label when no apps have used the requested permissions [CHAR LIMIT=30] -->
     <string name="no_permission_usages">No permission usages</string>
@@ -483,11 +499,17 @@
     <!-- Label for the title of the permission bar chart showing how often the most common permissions are used [CHAR LIMIT=50] -->
     <string name="permission_usage_bar_chart_title_last_minute">Permission usage in last 1 minute</string>
 
-    <!-- Summary text if a permission usage is not used in past 24 hours [CHAR LIMIT=60] -->
-    <string name="permission_usage_preference_summary_not_used_24h">Not used in past 24 hours</string>
+    <!-- Summary text if a permission usage is not used in past n days [CHAR LIMIT=60] -->
+    <string name="permission_usage_preference_summary_not_used_in_past_n_days">{count, plural,
+        =1    {Not used in past # day}
+        other {Not used in past # days}
+    }</string>
 
-    <!-- Summary text if a permission usage is not used in past 7 days [CHAR LIMIT=60] -->
-    <string name="permission_usage_preference_summary_not_used_7d">Not used in past 7 days</string>
+    <!-- Summary text if a permission usage is not used in past n hours [CHAR LIMIT=60] -->
+    <string name="permission_usage_preference_summary_not_used_in_past_n_hours">{count, plural,
+        =1    {Not used in past # hour}
+        other {Not used in past # hours}
+    }</string>
 
     <!-- Label for the permission usage preference that shows how many apps have used various permissions [CHAR LIMIT=50] -->
     <string name="permission_usage_preference_label">{count, plural,
@@ -573,6 +595,9 @@
     <!-- Title for the dialog button to allow a permission grant only when the app is in the foreground. [CHAR LIMIT=60] -->
     <string name="app_permission_button_allow_foreground">Allow only while using the app</string>
 
+    <!-- Title for the dialog button to allow the user to always allow access to all resources guarded by a permission. [CHAR LIMIT=60] -->
+    <string name="app_permission_button_always_allow_all">Always allow all</string>
+
     <!-- Title for the dialog button to require an app to ask for a permission next time they need it. [CHAR LIMIT=60] -->
     <string name="app_permission_button_ask">Ask every time</string>
 
@@ -651,9 +676,6 @@
     <!-- Title for a page where users can manage whether or not they want Android to automatically remove permissions [CHAR LIMIT=40] -->
     <string name="auto_manage_title">Manage permissions automatically</string>
 
-    <!-- Label for an "off" button [CHAR LIMIT=30] -->
-    <string name="off">Off</string>
-
     <!-- Summary describing the permissions that have been removed from an app, when one permission is removed [CHAR LIMIT=none] -->
     <string name="auto_revoked_app_summary_one"><xliff:g id="permission_name" example="Location">%s</xliff:g> permission removed</string>
 
@@ -670,10 +692,14 @@
     <string name="unused_apps_page_summary">If an app is unused for a few months:\n\n\u2022 Permissions are removed to protect your data\n\u2022 Notifications are stopped to save battery\n\u2022 Temporary files are removed to free up space\n\nTo allow permissions and notifications again, open the app.</string>
 
     <!-- Summary for the screen on TV that shows all unused apps that have been hibernated [CHAR LIMIT=none] -->
-    <string name="unused_apps_page_tv_summary">If an app is unused for a few months:\n\n\u2022 Permissions are removed to protect your data\n\u2022 Temporary files are removed to free up space\n\nTo allow permissions again, open the app.</string>
+    <string name="unused_apps_page_tv_summary">If an app is unused for a month:\n\n\u2022 Permissions are removed to protect your data\n\u2022 Temporary files are removed to free up space\n\nTo allow permissions again, open the app.</string>
 
     <!-- Title for a category of apps that were last used several months ago [CHAR LIMIT=none] -->
-    <string name="last_opened_category_title">Last opened more than <xliff:g id="number" example="3">%s</xliff:g> months ago</string>
+    <string name="last_opened_category_title"> {count, plural,
+        =1{Last opened more than # month ago}
+        other{Last opened more than # months ago}
+        }
+    </string>
 
     <!-- Summary for showing when an app was last used [CHAR LIMIT=none] -->
     <string name="last_opened_summary">App last opened on <xliff:g id="date" example="March 12, 2020">%s</xliff:g></string>
@@ -776,19 +802,19 @@
 
     <!-- Time in hours -->
     <string name="hours">{count, plural,
-        =1      {1 hour}
+        =1      {# hour}
         other   {# hours}
     }</string>
 
     <!-- Time in minutes -->
     <string name="minutes">{count, plural,
-        =1      {1 minute}
+        =1      {# minute}
         other   {# minutes}
     }</string>
 
     <!-- Time in seconds -->
     <string name="seconds">{count, plural,
-        =1      {1 second}
+        =1      {# second}
         other   {# seconds}
     }</string>
 
@@ -818,6 +844,15 @@
 
     <!-- The notification content for the hibernation reminder notification [CHAR LIMIT=none] -->
     <string name="unused_apps_notification_content">Permissions and temporary files have been removed and notifications were stopped. Tap to review.</string>
+
+    <!-- The safety center card title for apps being auto-revoked [CHAR LIMIT=60] -->
+    <string name="unused_apps_safety_center_card_title">Review apps with permissions removed</string>
+
+    <!-- The safety center card summary for apps being auto-revoked [CHAR LIMIT=none] -->
+    <string name="unused_apps_safety_center_card_content">For apps that you haven\u2019t used in a while, permissions and temporary files were removed and notifications were stopped.</string>
+
+    <!-- The action on the auto-revoked card to see unused apps [CHAR LIMIT=60] -->
+    <string name="unused_apps_safety_center_action_title">Review apps</string>
 
     <!-- The notification title for the notification that shows up at the end of a drive where the user made a permission decision [CHAR LIMIT=60] -->
     <string name="post_drive_permission_decision_reminder_title">Check recent permissions</string>
@@ -864,23 +899,44 @@
     <!-- The notification content for background location access reminder notification [CHAR LIMIT=none] -->
     <string name="background_location_access_reminder_notification_content">This app can always access your location. Tap to change.</string>
 
-    <!-- The notification title for background location access reminder notification [DO NOT TRANSLATE] [CHAR LIMIT=60] -->
-    <string name="notification_listener_reminder_notification_title">Review app with notification listener access</string>
+    <!-- The notification title for notification listener reminder notification [CHAR LIMIT=60] -->
+    <string name="notification_listener_reminder_notification_title">Review app with access to your notifications</string>
 
-    <!-- The notification title for background location access reminder notification [DO NOT TRANSLATE] [CHAR LIMIT=60] -->
-    <string name="notification_listener_reminder_notification_title_plural">{count, plural,
-        =1      {Review app with notification listener access}
-        other   {Review apps with notification listener access}
-        }</string>
+    <!-- The notification content for notification listener reminder notification [CHAR LIMIT=none] -->
+    <string name="notification_listener_reminder_notification_content"><xliff:g id="app_name" example="Gmail">%s</xliff:g> can dismiss, act on, and access content inside your notifications</string>
 
-    <!-- The notification content for background location access reminder notification [DO NOT TRANSLATE] [CHAR LIMIT=none] -->
-    <string name="notification_listener_reminder_notification_content"><xliff:g id="app_name" example="Gmail">%s</xliff:g> can read all your notifications.</string>
+    <!-- The warning card (in safety center) content for notification listener access [CHAR LIMIT=none] -->
+    <string name="notification_listener_warning_card_content">This app can dismiss, act on, and access content inside your notifications. Some apps require this access to function as intended.</string>
 
-    <!-- The notification content for background location access reminder notification [DO NOT TRANSLATE] [CHAR LIMIT=none] -->
-    <string name="notification_listener_reminder_notification_content_plural">{count, plural,
-        =1      {<xliff:g id="app_name" example="Gmail">%s</xliff:g> can read all your notifications.}
-        other   {# apps can read all your notifications.}
-        }</string>
+    <!-- The label for remove access button on safety center warning card [CHAR LIMIT=60] -->
+    <string name="notification_listener_remove_access_button_label">Remove access</string>
+
+    <!-- The label for notification listener settings button from safety center warning card [CHAR LIMIT=60] -->
+    <string name="notification_listener_review_app_button_label">See more options</string>
+
+    <!-- Success message for remove access action on safety center warning card [CHAR LIMIT=60] -->
+    <string name="notification_listener_remove_access_success_label">Access removed</string>
+
+    <!-- The title for notification reminders, and for warning cards in safety center, for apps with full device (accessibility) access [CHAR LIMIT=60] -->
+    <string name="accessibility_access_reminder_notification_title">Review app with full device access</string>
+
+    <!-- The notification content for full device (accessibility) access reminder notification [CHAR LIMIT=none] -->
+    <string name="accessibility_access_reminder_notification_content"><xliff:g id="app_name" example="Gmail">%s</xliff:g> can view your screen and perform actions on your device. Accessibility apps need this type of access to function as intended.</string>
+
+    <!-- The warning card (in safety center) content for full device (accessibility) access [CHAR LIMIT=none] -->
+    <string name="accessibility_access_warning_card_content">This app can view your screen and perform actions on your device. Accessibility apps need this type of access to function as intended, but check the app and make sure you trust it.</string>
+
+    <!-- The label for button on safety center warning card to remove full (accessibility) access from a given app [CHAR LIMIT=60] -->
+    <string name="accessibility_remove_access_button_label">Remove access</string>
+
+    <!-- The label button on safety center warning card to view full list of apps with full (accessibility) access [CHAR LIMIT=60] -->
+    <string name="accessibility_show_all_apps_button_label">View apps with full access</string>
+
+    <!-- Success message for remove access action on safety center warning card [CHAR LIMIT=60] -->
+    <string name="accessibility_remove_access_success_label">Access removed</string>
+
+    <!-- Fallback for notification title (name of app delivering notification) in case PbA string not defined [CHAR LIMIT=60] -->
+    <string name="safety_center_notification_app_label">Android System</string>
 
     <!-- The notification title for the notification that a permission auto revoke has happened [CHAR LIMIT=60] -->
     <string name="auto_revoke_after_notification_title">App permissions removed to protect privacy</string>
@@ -1150,6 +1206,15 @@
     <!-- Description for the companion device computer profile role. [CHAR LIMIT=NONE] -->
     <string name="role_companion_device_computer_description">This service shares your photos, media, and notifications from your phone to other devices.</string>
 
+    <!-- Label for the NOTES role. [CHAR LIMIT=30] -->
+    <string name="role_notes_label">Default notes app</string>
+    <!-- Short label for the NOTES role. [CHAR LIMIT=30] -->
+    <string name="role_notes_short_label">Notes app</string>
+    <!-- Description for the NOTES role. [CHAR LIMIT=NONE] -->
+    <string name="role_notes_description">Apps that allow you to take notes on your device</string>
+    <!-- Search keywords for the NOTES role. [CHAR LIMIT=NONE] -->
+    <string name="role_notes_search_keywords">notes</string>
+
     <!-- Subtitle for the application that is the current default application [CHAR LIMIT=30] -->
     <string name="request_role_current_default">Current default</string>
 
@@ -1387,6 +1452,10 @@ Allow <xliff:g id="app_name" example="Gmail">%4$s</xliff:g> to upload a bug repo
     <string name="permgrouprequest_read_media_visual">Allow &lt;b><xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b> to access photos and videos on this device?</string>
 
     <!-- Message shown to the user when the apps requests permission from this group. If ever possible this should stay below 80 characters (assuming the parameters takes 20 characters). Don't abbreviate until the message reaches 120 characters though. [CHAR LIMIT=120] -->
+    <string name="permgrouprequest_more_photos">Allow
+        &lt;b><xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b> to access more photos and videos on this device?</string>
+
+    <!-- Message shown to the user when the apps requests permission from this group. If ever possible this should stay below 80 characters (assuming the parameters takes 20 characters). Don't abbreviate until the message reaches 120 characters though. [CHAR LIMIT=120] -->
     <string name="permgrouprequest_microphone">Allow
         &lt;b><xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b> to record audio?</string>
     <!-- Subtitle of the message shown to the user when the apps requests permission to use the microphone only while app is in foreground [CHAR LIMIT=150]-->
@@ -1448,10 +1517,10 @@ Allow <xliff:g id="app_name" example="Gmail">%4$s</xliff:g> to upload a bug repo
 
     <!-- Notification shown to the user when location permissions are auto-granted by admin policy. These are for when the admin is forcing the permission and the user cannot control it. [CHAR LIMIT=120]-->
     <string name="auto_granted_permissions">Controlled permissions</string>
-    <!-- Content of the notification [CHAR LIMIT=120]-->
-    <string name="auto_granted_location_permission_notification_title">Location can be accessed</string>
+    <!-- Title of the notification [CHAR LIMIT=120]-->
+    <string name="auto_granted_location_permission_notification_title"><xliff:g id="app_name" example="Gmail">%1$s</xliff:g> has location access</string>
     <!-- Body of the notification, that does not include the app name and is specific to location permissions. [CHAR LIMIT=120]-->
-    <string name="auto_granted_permission_notification_body">Your IT admin is allowing <xliff:g id="app_name" example="Gmail">%s</xliff:g> to access your location</string>
+    <string name="auto_granted_permission_notification_body">Your organization allows <xliff:g id="app_name" example="Gmail">%1$s</xliff:g> to access your location</string>
 
     <!-- The title of (and the button label for a link to) the screen that lists permissions that aren't considered the most relevant to the user at the moment, and thus did not make to the "main" screen. [CHAR LIMIT=80] -->
     <string name="other_permissions_label">Other permissions</string>
@@ -1500,27 +1569,49 @@ Allow <xliff:g id="app_name" example="Gmail">%4$s</xliff:g> to upload a bug repo
     <string name="blocked_sensor_button_label">Change</string>
 
     <!-- Title for page containing overall view of device safety status [CHAR LIMIT=30] -->
-    <string name="safety_center_dashboard_page_title">Security &amp; Privacy</string>
+    <string name="safety_center_dashboard_page_title">Security &amp; privacy</string>
     <!-- Label for the button that triggers a new scan for safety center data [CHAR LIMIT=60] -->
-    <string name="safety_center_rescan_button">Scan</string>
+    <string name="safety_center_rescan_button">Scan device</string>
     <!-- Content description for the button dismisses a safety center issue [CHAR LIMIT=NONE] -->
     <string name="safety_center_issue_card_dismiss_button">Dismiss</string>
+    <!-- Title for a dialog confirming if a user wants to dismiss a safety center issue [CHAR LIMIT=NONE] -->
+    <string name="safety_center_issue_card_dismiss_confirmation_title">Dismiss this alert?</string>
+    <!-- Message for a dialog confirming if a user wants to dismiss a safety center issue [CHAR LIMIT=NONE] -->
+    <string name="safety_center_issue_card_dismiss_confirmation_message">Review your security and privacy settings any time to add more protection</string>
+    <!-- Label for a button to dismiss a safety center issue in a confirmation dialog [CHAR LIMIT=30] -->
+    <string name="safety_center_issue_card_confirm_dismiss_button">Dismiss</string>
+    <!-- Label for a button to cancel dismissing a safety center issue in a confirmation dialog [CHAR LIMIT=30] -->
+    <string name="safety_center_issue_card_cancel_dismiss_button">Cancel</string>
+    <!-- Title for a section that contains security and privacy related settings on the Security and Privacy page [CHAR LIMIT=60] -->
+    <string name="safety_center_entries_category_title">Settings</string>
+    <!-- Content description for the safety status preference title and summary in the Safety Center [CHAR LIMIT=NONE]-->
+    <string name="safety_status_preference_title_and_summary_content_description">Security and privacy status. <xliff:g id="overall safety status" example="Looks Good">%1$s</xliff:g>. <xliff:g id="summary of device status" example="This device is up to date">%2$s</xliff:g></string>
     <!-- Label for the button that takes the user to the settings page for Android Security  [CHAR LIMIT=60] -->
     <string name="security_settings">Security Settings</string>
     <!-- Label for the permission usage section of safety center QS page[CHAR LIMIT=30] -->
-    <string name="sensor_permissions_qs">Sensor Permissions</string>
+    <string name="sensor_permissions_qs">Permissions</string>
+    <!-- Title of the safety and privacy quick settings tile [CHAR LIMIT=NONE] -->
+    <string name="safety_privacy_qs_tile_title">Security &amp; privacy</string>
+    <!-- Subtitle of the safety and privacy quick settings tile [CHAR LIMIT=NONE] -->
+    <string name="safety_privacy_qs_tile_subtitle">Check status</string>
     <!-- Label for the privacy controls section of safety center QS page [CHAR LIMIT=30] -->
-    <string name="privacy_controls_qs">Privacy Controls</string>
+    <string name="privacy_controls_qs">Your privacy controls</string>
+    <!-- Label for the button that opens safety center in safety center QS page [CHAR LIMIT=30] -->
+    <string name="security_settings_button_label_qs">More settings</string>
+    <!-- Label for the toggle that changes camera access in safety center QS page [CHAR LIMIT=30] -->
+    <string name="camera_toggle_label_qs">Camera access</string>
+    <!-- Label for the toggle that changes microphone access in safety center QS page [CHAR LIMIT=30] -->
+    <string name="microphone_toggle_label_qs">Mic access</string>
     <!-- Label when permissions were removed via safety center QS page [CHAR LIMIT=30] -->
     <string name="permissions_removed_qs">Permission removed</string>
     <!-- Label to see camera usage in safety center QS page [CHAR LIMIT=50] -->
-    <string name="camera_usage_qs">See more camera usage</string>
+    <string name="camera_usage_qs">See recent camera usage</string>
     <!-- Label to see microphone usage in safety center QS page [CHAR LIMIT=50] -->
-    <string name="microphone_usage_qs">See more microphone usage</string>
-    <!-- Label to remove camera permission in safety center QS page [CHAR LIMIT=50] -->
-    <string name="remove_camera_qs">Remove camera permission</string>
-    <!-- Label to remove microphone permission in safety center QS page [CHAR LIMIT=50] -->
-    <string name="remove_microphone_qs">Remove microphone permission</string>
+    <string name="microphone_usage_qs">See recent mic usage</string>
+    <!-- Label to remove camera permission for an app in safety center QS page [CHAR LIMIT=50] -->
+    <string name="remove_camera_qs">Remove permission for this app</string>
+    <!-- Label to remove microphone permission for an app in safety center QS page [CHAR LIMIT=50] -->
+    <string name="remove_microphone_qs">Remove permission for this app</string>
     <!-- Label to manage service in safety center QS page [CHAR LIMIT=50] -->
     <string name="manage_service_qs">Manage service</string>
     <!-- Label to manage permissions in safety center QS page [CHAR LIMIT=50] -->
@@ -1541,11 +1632,6 @@ Allow <xliff:g id="app_name" example="Gmail">%4$s</xliff:g> to upload a bug repo
     <string name="active_app_usage_2_qs">Being used by <xliff:g id="app_name" example="Gmail">%1$s</xliff:g> (<xliff:g id="attribution_label" example="For Wallet">%2$s</xliff:g>  \u2022 <xliff:g id="proxy_label" example="Speech services">%3$s</xliff:g>)</string>
     <!-- Label for recent app usage with sub-attribution and proxy label in safety center QS page [CHAR LIMIT=NONE] -->
     <string name="recent_app_usage_2_qs">Recently used by <xliff:g id="app_name" example="Gmail">%1$s</xliff:g> (<xliff:g id="attribution_label" example="For Wallet">%2$s</xliff:g>  \u2022 <xliff:g id="proxy_label" example="Speech services">%3$s</xliff:g>)</string>
-
-    <!-- Title of the safety and privacy quick settings tile [CHAR LIMIT=NONE] -->
-    <string name="safety_privacy_qs_tile_title">Security &amp; Privacy</string>
-    <!-- Subtitle of the safety and privacy quick settings tile [CHAR LIMIT=NONE] -->
-    <string name="safety_privacy_qs_tile_subtitle">Check status</string>
 
     <!-- Positive button for media confirm dialog [CHAR LIMIT=40] -->
     <string name="media_confirm_dialog_positive_button">Confirm</string>
@@ -1583,4 +1669,185 @@ Allow <xliff:g id="app_name" example="Gmail">%4$s</xliff:g> to upload a bug repo
     <string name="media_confirm_dialog_message_q_to_s_visual_allow">This app doesn\u2019t support the latest version of Android. If this app can access photos and videos, it will also be allowed to access music and audio files.</string>
     <!-- Message for media confirm dialog (when user denies visual group of q_to_s app) [CHAR LIMIT=NONE] -->
     <string name="media_confirm_dialog_message_q_to_s_visual_deny">This app doesn\u2019t support the latest version of Android. If this app can\u2019t access music and audio files, it also won\u2019t be allowed to access photos and videos.</string>
+
+    <!-- Title for background location access reminder notification [CHAR LIMIT=80] -->
+    <string name="safety_center_background_location_access_notification_title">Review app with background location access</string>
+    <!-- Content for background location access reminder notification [CHAR LIMIT=80]-->
+    <string name="safety_center_background_location_access_reminder_notification_content"><xliff:g id="app_name" example="Gmail">%s</xliff:g> can always access your location, even when the app is closed</string>
+    <!-- Title for background location access reminder warning card [CHAR LIMIT=80]-->
+    <string name="safety_center_background_location_access_reminder_title">Review app with background location access</string>
+    <!-- Content for background location access reminder warning card [CHAR LIMIT=NONE] -->
+    <string name="safety_center_background_location_access_reminder_summary">This app can always access your location, even when it\u2019s closed.\u000a\u000aSome safety and emergency apps require access to your location in the background to work as intended.</string>
+    <!-- Success message when background location access permission is changed [CHAR LIMIT=40]-->
+    <string name="safety_center_background_location_access_revoked">Access changed</string>
+    <!-- Label for button to view recent location access [CHAR LIMIT=60]-->
+    <string name="safety_center_view_recent_location_access">See recent location usage</string>
+
+    <!-- Do not translate. config value for the camera toggle -->
+    <string name="camera_toggle_enable_config">camera_toggle_enabled</string>
+    <!-- Do not translate. config value for the mic toggle -->
+    <string name="mic_toggle_enable_config">mic_toggle_enabled</string>
+    <!-- Do not translate. config value for whether to show clipboard access notifications -->
+    <string name="clipboard_show_access_notifications_config">clipboard_show_access_notifications</string>
+    <!-- Do not translate. config value for the default state of the clipboard access notifications -->
+    <string name="show_access_notifications_default_config">show_access_notifications</string>
+
+    <!-- Title of the Privacy controls page[CHAR LIMIT=NONE] -->
+    <string name="privacy_controls_title">Privacy controls</string>
+    <!-- Label for the camera use toggle [CHAR LIMIT=40] -->
+    <string name="camera_toggle_title">Camera access</string>
+    <!-- Label for the mic use toggle [CHAR LIMIT=40] -->
+    <string name="mic_toggle_title">Microphone access</string>
+    <!-- Describes what is affected by a permission toggle [CHAR LIMIT=NONE] -->
+    <string name="perm_toggle_description">For apps and services</string>
+    <!-- Describes what is affected by the mic toggle [CHAR LIMIT=NONE] -->
+    <string name="mic_toggle_description">For apps and services. If this setting is off, microphone data may still be shared when you call an emergency number.</string>
+    <!-- Subtitle for the link to location settings [CHAR LIMIT=NONE] -->
+    <string name="location_settings_subtitle">See apps and services that have access to location</string>
+    <!-- Title for toggle controlling whether notifications are shown when an app pastes from clipboard. [CHAR LIMIT=50] -->
+    <string name="show_clip_access_notification_title">Show clipboard access</string>
+    <!-- Summary for toggle controlling whether notifications are shown when an app pastes from clipboard. [CHAR LIMIT=NONE] -->
+    <string name="show_clip_access_notification_summary">Show a message when apps access text, images, or other content you\u2019ve copied</string>
+    <!-- Title for toggle controlling whether to show the first letter while typing passwords. [CHAR LIMIT=50]-->
+    <string name="show_password_title">Show passwords</string>
+    <!-- Summary for toggle controlling whether to show the first letter while typing passwords. [CHAR LIMIT=NONE] -->
+    <string name="show_password_summary">Display characters briefly as you type</string>
+
+    <!-- Link for Safety Label Data Sharing help center page. [CHAR LIMIT=NONE]-->
+    <string name="data_sharing_help_center_link" translatable="false"></string>
+
+    <!-- Permission Rationale - Start -->
+
+    <!-- Permission rationale message when an app requests a location permission. Third parties are
+    other organizations outside of the app developer. These could be companies or even governmental
+    organizations. But because we aren't able to be inclusive of all possibilities, phrasing should
+    be as generic as possible while still helping users understand they aren't just sharing data
+    with the developer company. [CHAR LIMIT=130] -->
+    <string name="permission_rationale_message_location">This app stated it may share location data with third parties</string>
+
+    <!-- Title message shown for Permission Rationale dialog for Location permission [CHAR LIMIT=50] -->
+    <string name="permission_rationale_location_title">Data sharing and location</string>
+
+    <!-- Title shown for Permission Rationale "where data sharing come from" section [CHAR LIMIT=70] -->
+    <string name="permission_rationale_data_sharing_source_title">Where data sharing info comes from</string>
+
+    <!-- Message shown to the user letting them know that data usage information was provided by
+     the developer to the device manufacturer." [CHAR LIMIT=200] -->
+    <string name="permission_rationale_data_sharing_device_manufacturer_message">The developer provided info to this device\'s manufacturer about how this app shares data. The developer may update this info over time.</string>
+
+   <!-- Message shown to the user letting them know where data usage information came from which
+    will map to app store labels/names." [CHAR LIMIT=200] -->
+    <string name="permission_rationale_data_sharing_source_message">The developer provided info to <annotation id="link"><annotation id="install_source" example="App Store">%1$s</annotation></annotation> about how this app shares data. The developer may update this info over time.</string>
+
+    <!-- Title shown for Permission Rationale data sharing purposes section [CHAR LIMIT=50] -->
+    <string name="permission_rationale_location_purpose_title">This app may share location data for:</string>
+
+    <!-- Message shown to the user letting them know that data will be shared and for which
+    purposes. Purposes will be in bullet list form and are one or many of the following: "app
+    functionality", "analytics", "developer communications", "advertising or marketing",
+    "fraud prevention, security, and compliance", "personalization", "account management".
+    [CHAR LIMIT=NONE] -->
+    <string name="permission_rationale_purpose_message" translatable="false"><annotation id="purpose_list" example="purpose 1, purpose 2, purpose 3">%1$s</annotation></string>
+
+    <!-- Title shown for Permission Rationale "Data sharing varies" section [CHAR LIMIT=50] -->
+    <string name="permission_rationale_permission_data_sharing_varies_title">Data sharing varies</string>
+
+    <!-- Message shown for Permission Rationale "Data sharing varies" section [CHAR LIMIT=200] -->
+    <string name="permission_rationale_data_sharing_varies_message">Data practices may vary based on your app version, use, region, and age. <annotation id="link">More about data sharing</annotation></string>
+
+    <!-- Message shown for Permission Rationale "Data sharing varies" section, but without learn more link [CHAR LIMIT=200] -->
+    <string name="permission_rationale_data_sharing_varies_message_without_link">Data practices may vary based on your app version, use, region, and age.</string>
+
+    <!-- Title shown for Permission Rationale location permission settings section [CHAR LIMIT=40] -->
+    <string name="permission_rationale_location_settings_title">Your location data</string>
+
+    <!-- Message shown to the user letting them where to change permission settings in the future [CHAR LIMIT=100] -->
+    <string name="permission_rationale_permission_settings_message">Change this app’s access in <annotation id="link">privacy settings</annotation></string>
+
+    <!-- Permission usage purpose shown for Permission Rationale. This will be used with the
+    permission_rationale_purpose_message string in for of bullet list. [CHAR LIMIT=30] -->
+    <string name="permission_rationale_purpose_app_functionality">App functionality</string>
+
+    <!-- Permission usage purpose shown for Permission Rationale. This will be used with the
+    permission_rationale_purpose_message string in for of bullet list. [CHAR LIMIT=30] -->
+    <string name="permission_rationale_purpose_analytics">Analytics</string>
+
+    <!-- Permission usage purpose shown for Permission Rationale. This will be used with the
+    permission_rationale_purpose_message string in for of bullet list. [CHAR LIMIT=50] -->
+    <string name="permission_rationale_purpose_developer_communications">Developer communications</string>
+
+    <!-- Permission usage purpose shown for Permission Rationale. This will be used with the
+    permission_rationale_purpose_message string in for of bullet list. [CHAR LIMIT=50] -->
+    <string name="permission_rationale_purpose_advertising">Advertising or marketing</string>
+
+    <!-- Permission usage purpose shown for Permission Rationale. This will be used with the
+    permission_rationale_purpose_message string in for of bullet list. [CHAR LIMIT=75] -->
+    <string name="permission_rationale_purpose_fraud_prevention_security">Fraud prevention, security, and compliance</string>
+
+    <!-- Permission usage purpose shown for Permission Rationale. This will be used with the
+    permission_rationale_purpose_message string in for of bullet list. [CHAR LIMIT=50] -->
+    <string name="permission_rationale_purpose_personalization">Personalization</string>
+
+    <!-- Permission usage purpose shown for Permission Rationale. This will be used with the
+    permission_rationale_purpose_message string in for of bullet list. [CHAR LIMIT=50] -->
+    <string name="permission_rationale_purpose_account_management">Account management</string>
+
+    <!-- Text for an app's permission rationale header [CHAR LIMIT=60]-->
+    <string name="app_permission_rationale_message">Data safety</string>
+
+    <!-- Text for linking to an app's location permission rationale dialog. [CHAR LIMIT=60] -->
+    <string name="app_location_permission_rationale_title">Location data may be shared</string>
+
+    <!-- Description for the app's location permission rationale dialog content. [CHAR LIMIT=130] -->
+    <string name="app_location_permission_rationale_subtitle">This app stated it may share your location data with third parties</string>
+
+    <!-- Permission Rationale - End -->
+
+    <!-- Safety Label Change Notifications Start -->
+
+    <!-- Title for Data Sharing updates page, which displays updates from apps on their data sharing
+     practices. Also used as the title for Data Sharing updates page entry point from Safety Center.
+      [CHAR LIMIT=70] -->
+    <string name="data_sharing_updates_title">Data sharing updates for location</string>
+    <!-- Summary for Data Sharing updates page entry point in Safety Center. Clicking on the entry
+    will navigate to Data Sharing updates page, which displays updates from apps on their data
+    sharing practices. [CHAR LIMIT=130] -->
+    <string name="data_sharing_updates_summary">Review apps that changed the way they may share your location data</string>
+    <!-- Subtitle for Data Sharing updates page, which displays updates from apps on their data
+     sharing practices. [CHAR LIMIT=320] -->
+    <string name="data_sharing_updates_subtitle">These apps have changed the way they may share your location data. They may not have shared it before, or may now share it for advertising or marketing purposes.</string>
+    <!-- Footer message for Data Sharing updates page, which displays updates from apps on their
+     data sharing practices. [CHAR LIMIT=420] -->
+    <string name="data_sharing_updates_footer_message">The developers of these apps provided info about their data sharing practices to an app store. They may update it over time.\n\nData sharing practices may vary based on your app version, use, region, and age.</string>
+    <!-- Link for Data Sharing Help Center page, which will open a web page detailing what app data
+     sharing policies mean. [CHAR LIMIT=60] -->
+    <string name="learn_about_data_sharing">Learn about data sharing</string>
+    <!-- Message indicating that an app now shares location data with third parties for the purpose
+     of advertising, when it earlier did not share location data for the purpose of advertising, but
+      did for other purposes. Third parties are other companies or organizations.
+       [CHAR LIMIT=100] -->
+    <string name="shares_location_with_third_parties">Your location data is now shared with third parties</string>
+    <!-- Message indicating that an app now shares location data with third parties for the purpose
+     of advertising, when it earlier did not. Third parties are other companies or organizations.
+      [CHAR LIMIT=160] -->
+    <string name="shares_location_with_third_parties_for_advertising">Your location data is now shared with third parties for advertising or marketing</string>
+    <!-- Header for the number of updates in the last days. [CHAR LIMIT=40] -->
+    <!-- TODO(b/261914980): Update with final strings for 0 and 1 case. -->
+    <string name="updated_in_last_days">{count, plural,
+        =0    {Updated within the last day}
+        =1    {Updated within the last day}
+        other {Updated within # days}
+        }</string>
+    <!-- Message indicating that no apps have provided recent updates. [CHAR LIMIT=100] -->
+    <string name="no_updates_at_this_time">No updates at this time</string>
+
+    <!-- Notification title for safety label changes notification [CHAR LIMIT=70] -->
+    <string name="safety_label_changes_notification_title">Data sharing updates</string>
+    <!-- Notification description for safety label changes notification [CHAR LIMIT=120] -->
+    <string name="safety_label_changes_notification_desc">Some apps changed the way they may share your location data</string>
+
+    <!-- Content description for the Gear icon -->
+    <string name="safety_label_changes_gear_description">Settings</string>
+
+    <!-- Safety Label Change Notifications End -->
 </resources>

@@ -15,28 +15,62 @@
  */
 package org.hyphonate.megaaudio.player;
 
-import android.media.AudioDeviceInfo;
+import android.util.Log;
 
 import org.hyphonate.megaaudio.common.BuilderBase;
 
+/**
+ * Class to construct contrete Player objects.
+ */
 public class PlayerBuilder extends BuilderBase {
+    @SuppressWarnings("unused")
+    private static final String TAG = PlayerBuilder.class.getSimpleName();
+    @SuppressWarnings("unused")
+    private static final boolean LOG = false;
+
+    /**
+     * Provides audio data for this stream.
+     */
     private AudioSourceProvider mSourceProvider;
 
     public PlayerBuilder() {
-
     }
 
+    //
+    // Player-Specific Attributes
+    //
+    /**
+     * Specifies the player type
+     * @param playerType Composed from API Types & API subtypes (defined in BuilderBase)
+     * @return this PlayerBuilder (for cascaded calls)
+     */
     public PlayerBuilder setPlayerType(int playerType) {
         mType = playerType;
         return this;
     }
 
+    /**
+     * Specifies the AudioSourceProvider which will allocate an AudioSource subclass object
+     * to provide audio data for this stream.
+     * @param sourceProvider Allocates the AudioSource to for provide audio
+     * for the created stream.
+     * @return this PlayerBuilder (for cascaded calls)
+     */
     public PlayerBuilder setSourceProvider(AudioSourceProvider sourceProvider) {
         mSourceProvider = sourceProvider;
         return this;
     }
 
+    /**
+     * Allocates an initializes an API-specific player stream.
+     * @return The allocated player or null in case of error or if a player type of TYPE_NONE
+     * is specified.
+     * @throws BadStateException if an invalid API has been specified.
+     */
     public Player build() throws BadStateException {
+        if (LOG) {
+            Log.i(TAG, "build() mSourceProvider:" + mSourceProvider);
+        }
         if (mSourceProvider == null) {
             throw new BadStateException();
         }
@@ -49,12 +83,12 @@ public class PlayerBuilder extends BuilderBase {
                 break;
 
             case TYPE_JAVA:
-                player = new JavaPlayer(mSourceProvider);
+                player = new JavaPlayer(this, mSourceProvider);
                 break;
 
-            case TYPE_OBOE:{
+            case TYPE_OBOE: {
                 int playerSubType = mType & SUB_TYPE_MASK;
-                player = new OboePlayer(mSourceProvider, playerSubType);
+                player = new OboePlayer(this, mSourceProvider, playerSubType);
             }
             break;
 
@@ -65,7 +99,10 @@ public class PlayerBuilder extends BuilderBase {
         return player;
     }
 
+    /**
+     * Exception class used to signal a failure to allocate an API-specific stream in the build()
+     * method.
+     */
     public class BadStateException extends Throwable {
-
     }
 }

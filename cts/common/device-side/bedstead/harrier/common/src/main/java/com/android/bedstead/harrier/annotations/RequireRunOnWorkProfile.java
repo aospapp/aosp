@@ -16,14 +16,15 @@
 
 package com.android.bedstead.harrier.annotations;
 
-import static com.android.bedstead.harrier.OptionalBoolean.ANY;
-import static com.android.bedstead.harrier.OptionalBoolean.TRUE;
-import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.EARLY;
+import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.REQUIRE_RUN_ON_PRECEDENCE;
 import static com.android.bedstead.nene.packages.CommonPackages.FEATURE_DEVICE_ADMIN;
+import static com.android.bedstead.nene.types.OptionalBoolean.ANY;
+import static com.android.bedstead.nene.types.OptionalBoolean.TRUE;
 
-import com.android.bedstead.harrier.OptionalBoolean;
-import com.android.bedstead.harrier.annotations.enterprise.EnsureHasProfileOwner;
+import com.android.bedstead.harrier.annotations.enterprise.AdditionalQueryParameters;
 import com.android.bedstead.harrier.annotations.meta.RequireRunOnProfileAnnotation;
+import com.android.bedstead.nene.types.OptionalBoolean;
+import com.android.queryable.annotations.Query;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -46,10 +47,25 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @RequireRunOnProfileAnnotation(value = "android.os.usertype.profile.MANAGED",
         hasProfileOwner = true)
-@EnsureHasProfileOwner
 @RequireFeature(FEATURE_DEVICE_ADMIN)
 public @interface RequireRunOnWorkProfile {
     OptionalBoolean installInstrumentedAppInParent() default ANY;
+
+    String DEFAULT_KEY = "profileOwner";
+
+    /**
+     * The key used to identify the profile owner.
+     *
+     * <p>This can be used with {@link AdditionalQueryParameters} to modify the requirements for
+     * the DPC. */
+    String dpcKey() default DEFAULT_KEY;
+
+    /**
+     * Requirements for the Profile Owner.
+     *
+     * <p>Defaults to the default version of RemoteDPC.
+     */
+    Query dpc() default @Query();
 
     /**
      * Whether the profile owner's DPC should be returned by calls to {@code Devicestate#dpc()}.
@@ -58,6 +74,9 @@ public @interface RequireRunOnWorkProfile {
      */
     boolean dpcIsPrimary() default false;
 
+    /** Whether the work profile device will be in COPE mode. */
+    boolean isOrganizationOwned() default false;
+
     /**
      * Affiliation ids to be set for the profile owner.
      */
@@ -65,6 +84,8 @@ public @interface RequireRunOnWorkProfile {
 
     /**
      * Should we ensure that we are switched to the parent of the profile.
+     *
+     * <p>ANY will be treated as TRUE if no other annotation has forced a switch.
      */
     OptionalBoolean switchedToParentUser() default TRUE;
 
@@ -78,5 +99,5 @@ public @interface RequireRunOnWorkProfile {
      *
      * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
      */
-    int weight() default EARLY;
+    int weight() default REQUIRE_RUN_ON_PRECEDENCE;
 }

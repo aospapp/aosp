@@ -1,76 +1,116 @@
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-
 #[cfg(feature = "bytemuck")]
 use bytemuck::{Pod, Zeroable};
-
 use core::{
     cmp::Ordering,
+    iter::{Product, Sum},
+    num::FpCategory,
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign},
+};
+#[cfg(not(target_arch = "spirv"))]
+use core::{
     fmt::{
         Binary, Debug, Display, Error, Formatter, LowerExp, LowerHex, Octal, UpperExp, UpperHex,
     },
-    num::{FpCategory, ParseFloatError},
+    num::ParseFloatError,
     str::FromStr,
 };
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "zerocopy")]
+use zerocopy::{AsBytes, FromBytes};
 
 pub(crate) mod convert;
 
 /// A 16-bit floating point type implementing the [`bfloat16`] format.
 ///
 /// The [`bfloat16`] floating point format is a truncated 16-bit version of the IEEE 754 standard
-/// `binary32`, a.k.a `f32`. [`bf16`] has approximately the same dynamic range as `f32` by having
-/// a lower precision than [`f16`]. While [`f16`] has a precision of 11 bits, [`bf16`] has a
-/// precision of only 8 bits.
+/// `binary32`, a.k.a [`f32`]. [`bf16`] has approximately the same dynamic range as [`f32`] by
+/// having a lower precision than [`f16`][crate::f16]. While [`f16`][crate::f16] has a precision of
+/// 11 bits, [`bf16`] has a precision of only 8 bits.
 ///
-/// Like [`f16`], [`bf16`] does not offer arithmetic operations as it is intended for compact
-/// storage rather than calculations. Operations should be performed with `f32` or higher-precision
-/// types and converted to/from [`bf16`] as necessary.
+/// Like [`f16`][crate::f16], [`bf16`] does not offer arithmetic operations as it is intended for
+/// compact storage rather than calculations. Operations should be performed with [`f32`] or
+/// higher-precision types and converted to/from [`bf16`] as necessary.
 ///
 /// [`bfloat16`]: https://en.wikipedia.org/wiki/Bfloat16_floating-point_format
-/// [`bf16`]: struct.bf16.html
-/// [`f16`]: struct.f16.html
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy, Default)]
 #[repr(transparent)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 #[cfg_attr(feature = "bytemuck", derive(Zeroable, Pod))]
+#[cfg_attr(feature = "zerocopy", derive(AsBytes, FromBytes))]
 pub struct bf16(u16);
 
 impl bf16 {
-    /// Constructs a [`bf16`](struct.bf16.html) value from the raw bits.
+    /// Constructs a [`bf16`] value from the raw bits.
     #[inline]
+    #[must_use]
     pub const fn from_bits(bits: u16) -> bf16 {
         bf16(bits)
     }
 
-    /// Constructs a [`bf16`](struct.bf16.html) value from a 32-bit floating point value.
+    /// Constructs a [`bf16`] value from a 32-bit floating point value.
     ///
     /// If the 32-bit value is too large to fit, ±∞ will result. NaN values are preserved.
     /// Subnormal values that are too tiny to be represented will result in ±0. All other values
     /// are truncated and rounded to the nearest representable value.
     #[inline]
+    #[must_use]
     pub fn from_f32(value: f32) -> bf16 {
+        Self::from_f32_const(value)
+    }
+
+    /// Constructs a [`bf16`] value from a 32-bit floating point value.
+    ///
+    /// This function is identical to [`from_f32`][Self::from_f32] except it never uses hardware
+    /// intrinsics, which allows it to be `const`. [`from_f32`][Self::from_f32] should be preferred
+    /// in any non-`const` context.
+    ///
+    /// If the 32-bit value is too large to fit, ±∞ will result. NaN values are preserved.
+    /// Subnormal values that are too tiny to be represented will result in ±0. All other values
+    /// are truncated and rounded to the nearest representable value.
+    #[inline]
+    #[must_use]
+    pub const fn from_f32_const(value: f32) -> bf16 {
         bf16(convert::f32_to_bf16(value))
     }
 
-    /// Constructs a [`bf16`](struct.bf16.html) value from a 64-bit floating point value.
+    /// Constructs a [`bf16`] value from a 64-bit floating point value.
     ///
     /// If the 64-bit value is to large to fit, ±∞ will result. NaN values are preserved.
     /// 64-bit subnormal values are too tiny to be represented and result in ±0. Exponents that
     /// underflow the minimum exponent will result in subnormals or ±0. All other values are
     /// truncated and rounded to the nearest representable value.
     #[inline]
+    #[must_use]
     pub fn from_f64(value: f64) -> bf16 {
+        Self::from_f64_const(value)
+    }
+
+    /// Constructs a [`bf16`] value from a 64-bit floating point value.
+    ///
+    /// This function is identical to [`from_f64`][Self::from_f64] except it never uses hardware
+    /// intrinsics, which allows it to be `const`. [`from_f64`][Self::from_f64] should be preferred
+    /// in any non-`const` context.
+    ///
+    /// If the 64-bit value is to large to fit, ±∞ will result. NaN values are preserved.
+    /// 64-bit subnormal values are too tiny to be represented and result in ±0. Exponents that
+    /// underflow the minimum exponent will result in subnormals or ±0. All other values are
+    /// truncated and rounded to the nearest representable value.
+    #[inline]
+    #[must_use]
+    pub const fn from_f64_const(value: f64) -> bf16 {
         bf16(convert::f64_to_bf16(value))
     }
 
-    /// Converts a [`bf16`](struct.bf16.html) into the underlying bit representation.
+    /// Converts a [`bf16`] into the underlying bit representation.
     #[inline]
+    #[must_use]
     pub const fn to_bits(self) -> u16 {
         self.0
     }
 
-    /// Return the memory representation of the underlying bit representation as a byte array in
+    /// Returns the memory representation of the underlying bit representation as a byte array in
     /// little-endian byte order.
     ///
     /// # Examples
@@ -81,11 +121,12 @@ impl bf16 {
     /// assert_eq!(bytes, [0x48, 0x41]);
     /// ```
     #[inline]
-    pub fn to_le_bytes(self) -> [u8; 2] {
+    #[must_use]
+    pub const fn to_le_bytes(self) -> [u8; 2] {
         self.0.to_le_bytes()
     }
 
-    /// Return the memory representation of the underlying bit representation as a byte array in
+    /// Returns the memory representation of the underlying bit representation as a byte array in
     /// big-endian (network) byte order.
     ///
     /// # Examples
@@ -96,15 +137,17 @@ impl bf16 {
     /// assert_eq!(bytes, [0x41, 0x48]);
     /// ```
     #[inline]
-    pub fn to_be_bytes(self) -> [u8; 2] {
+    #[must_use]
+    pub const fn to_be_bytes(self) -> [u8; 2] {
         self.0.to_be_bytes()
     }
 
-    /// Return the memory representation of the underlying bit representation as a byte array in
+    /// Returns the memory representation of the underlying bit representation as a byte array in
     /// native byte order.
     ///
-    /// As the target platform's native endianness is used, portable code should use `to_be_bytes`
-    /// or `to_le_bytes`, as appropriate, instead.
+    /// As the target platform's native endianness is used, portable code should use
+    /// [`to_be_bytes`][bf16::to_be_bytes] or [`to_le_bytes`][bf16::to_le_bytes], as appropriate,
+    /// instead.
     ///
     /// # Examples
     ///
@@ -118,11 +161,12 @@ impl bf16 {
     /// });
     /// ```
     #[inline]
-    pub fn to_ne_bytes(self) -> [u8; 2] {
+    #[must_use]
+    pub const fn to_ne_bytes(self) -> [u8; 2] {
         self.0.to_ne_bytes()
     }
 
-    /// Create a floating point value from its representation as a byte array in little endian.
+    /// Creates a floating point value from its representation as a byte array in little endian.
     ///
     /// # Examples
     ///
@@ -132,11 +176,12 @@ impl bf16 {
     /// assert_eq!(value, bf16::from_f32(12.5));
     /// ```
     #[inline]
-    pub fn from_le_bytes(bytes: [u8; 2]) -> bf16 {
+    #[must_use]
+    pub const fn from_le_bytes(bytes: [u8; 2]) -> bf16 {
         bf16::from_bits(u16::from_le_bytes(bytes))
     }
 
-    /// Create a floating point value from its representation as a byte array in big endian.
+    /// Creates a floating point value from its representation as a byte array in big endian.
     ///
     /// # Examples
     ///
@@ -146,14 +191,16 @@ impl bf16 {
     /// assert_eq!(value, bf16::from_f32(12.5));
     /// ```
     #[inline]
-    pub fn from_be_bytes(bytes: [u8; 2]) -> bf16 {
+    #[must_use]
+    pub const fn from_be_bytes(bytes: [u8; 2]) -> bf16 {
         bf16::from_bits(u16::from_be_bytes(bytes))
     }
 
-    /// Create a floating point value from its representation as a byte array in native endian.
+    /// Creates a floating point value from its representation as a byte array in native endian.
     ///
     /// As the target platform's native endianness is used, portable code likely wants to use
-    /// `from_be_bytes` or `from_le_bytes`, as appropriate instead.
+    /// [`from_be_bytes`][bf16::from_be_bytes] or [`from_le_bytes`][bf16::from_le_bytes], as
+    /// appropriate instead.
     ///
     /// # Examples
     ///
@@ -167,23 +214,52 @@ impl bf16 {
     /// assert_eq!(value, bf16::from_f32(12.5));
     /// ```
     #[inline]
-    pub fn from_ne_bytes(bytes: [u8; 2]) -> bf16 {
+    #[must_use]
+    pub const fn from_ne_bytes(bytes: [u8; 2]) -> bf16 {
         bf16::from_bits(u16::from_ne_bytes(bytes))
     }
 
-    /// Converts a [`bf16`](struct.bf16.html) value into an `f32` value.
+    /// Converts a [`bf16`] value into an [`f32`] value.
     ///
-    /// This conversion is lossless as all values can be represented exactly in `f32`.
+    /// This conversion is lossless as all values can be represented exactly in [`f32`].
     #[inline]
+    #[must_use]
     pub fn to_f32(self) -> f32 {
+        self.to_f32_const()
+    }
+
+    /// Converts a [`bf16`] value into an [`f32`] value.
+    ///
+    /// This function is identical to [`to_f32`][Self::to_f32] except it never uses hardware
+    /// intrinsics, which allows it to be `const`. [`to_f32`][Self::to_f32] should be preferred
+    /// in any non-`const` context.
+    ///
+    /// This conversion is lossless as all values can be represented exactly in [`f32`].
+    #[inline]
+    #[must_use]
+    pub const fn to_f32_const(self) -> f32 {
         convert::bf16_to_f32(self.0)
     }
 
-    /// Converts a [`bf16`](struct.bf16.html) value into an `f64` value.
+    /// Converts a [`bf16`] value into an [`f64`] value.
     ///
-    /// This conversion is lossless as all values can be represented exactly in `f64`.
+    /// This conversion is lossless as all values can be represented exactly in [`f64`].
     #[inline]
+    #[must_use]
     pub fn to_f64(self) -> f64 {
+        self.to_f64_const()
+    }
+
+    /// Converts a [`bf16`] value into an [`f64`] value.
+    ///
+    /// This function is identical to [`to_f64`][Self::to_f64] except it never uses hardware
+    /// intrinsics, which allows it to be `const`. [`to_f64`][Self::to_f64] should be preferred
+    /// in any non-`const` context.
+    ///
+    /// This conversion is lossless as all values can be represented exactly in [`f64`].
+    #[inline]
+    #[must_use]
+    pub const fn to_f64_const(self) -> f64 {
         convert::bf16_to_f64(self.0)
     }
 
@@ -201,6 +277,7 @@ impl bf16 {
     /// assert!(!f.is_nan());
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_nan(self) -> bool {
         self.0 & 0x7FFFu16 > 0x7F80u16
     }
@@ -224,6 +301,7 @@ impl bf16 {
     /// assert!(neg_inf.is_infinite());
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_infinite(self) -> bool {
         self.0 & 0x7FFFu16 == 0x7F80u16
     }
@@ -247,6 +325,7 @@ impl bf16 {
     /// assert!(!neg_inf.is_finite());
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_finite(self) -> bool {
         self.0 & 0x7F80u16 != 0x7F80u16
     }
@@ -273,7 +352,8 @@ impl bf16 {
     /// assert!(!lower_than_min.is_normal());
     /// ```
     #[inline]
-    pub fn is_normal(self) -> bool {
+    #[must_use]
+    pub const fn is_normal(self) -> bool {
         let exp = self.0 & 0x7F80u16;
         exp != 0x7F80u16 && exp != 0
     }
@@ -295,7 +375,8 @@ impl bf16 {
     /// assert_eq!(num.classify(), FpCategory::Normal);
     /// assert_eq!(inf.classify(), FpCategory::Infinite);
     /// ```
-    pub fn classify(self) -> FpCategory {
+    #[must_use]
+    pub const fn classify(self) -> FpCategory {
         let exp = self.0 & 0x7F80u16;
         let man = self.0 & 0x007Fu16;
         match (exp, man) {
@@ -309,9 +390,9 @@ impl bf16 {
 
     /// Returns a number that represents the sign of `self`.
     ///
-    /// * 1.0 if the number is positive, +0.0 or `INFINITY`
-    /// * −1.0 if the number is negative, −0.0` or `NEG_INFINITY`
-    /// * NaN if the number is NaN
+    /// * 1.0 if the number is positive, +0.0 or [`INFINITY`][bf16::INFINITY]
+    /// * −1.0 if the number is negative, −0.0` or [`NEG_INFINITY`][bf16::NEG_INFINITY]
+    /// * [`NAN`][bf16::NAN] if the number is NaN
     ///
     /// # Examples
     ///
@@ -325,13 +406,14 @@ impl bf16 {
     ///
     /// assert!(bf16::NAN.signum().is_nan());
     /// ```
-    pub fn signum(self) -> bf16 {
+    #[must_use]
+    pub const fn signum(self) -> bf16 {
         if self.is_nan() {
             self
         } else if self.0 & 0x8000u16 != 0 {
-            bf16::from_f32(-1.0)
+            Self::NEG_ONE
         } else {
-            bf16::from_f32(1.0)
+            Self::ONE
         }
     }
 
@@ -353,6 +435,7 @@ impl bf16 {
     /// assert!(nan.is_sign_positive() != nan.is_sign_negative());
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_sign_positive(self) -> bool {
         self.0 & 0x8000u16 == 0
     }
@@ -375,89 +458,326 @@ impl bf16 {
     /// assert!(nan.is_sign_positive() != nan.is_sign_negative());
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_sign_negative(self) -> bool {
         self.0 & 0x8000u16 != 0
     }
 
-    /// Approximate number of [`bf16`](struct.bf16.html) significant digits in base 10.
+    /// Returns a number composed of the magnitude of `self` and the sign of `sign`.
+    ///
+    /// Equal to `self` if the sign of `self` and `sign` are the same, otherwise equal to `-self`.
+    /// If `self` is NaN, then NaN with the sign of `sign` is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use half::prelude::*;
+    /// let f = bf16::from_f32(3.5);
+    ///
+    /// assert_eq!(f.copysign(bf16::from_f32(0.42)), bf16::from_f32(3.5));
+    /// assert_eq!(f.copysign(bf16::from_f32(-0.42)), bf16::from_f32(-3.5));
+    /// assert_eq!((-f).copysign(bf16::from_f32(0.42)), bf16::from_f32(3.5));
+    /// assert_eq!((-f).copysign(bf16::from_f32(-0.42)), bf16::from_f32(-3.5));
+    ///
+    /// assert!(bf16::NAN.copysign(bf16::from_f32(1.0)).is_nan());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub const fn copysign(self, sign: bf16) -> bf16 {
+        bf16((sign.0 & 0x8000u16) | (self.0 & 0x7FFFu16))
+    }
+
+    /// Returns the maximum of the two numbers.
+    ///
+    /// If one of the arguments is NaN, then the other argument is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use half::prelude::*;
+    /// let x = bf16::from_f32(1.0);
+    /// let y = bf16::from_f32(2.0);
+    ///
+    /// assert_eq!(x.max(y), y);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn max(self, other: bf16) -> bf16 {
+        if other > self && !other.is_nan() {
+            other
+        } else {
+            self
+        }
+    }
+
+    /// Returns the minimum of the two numbers.
+    ///
+    /// If one of the arguments is NaN, then the other argument is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use half::prelude::*;
+    /// let x = bf16::from_f32(1.0);
+    /// let y = bf16::from_f32(2.0);
+    ///
+    /// assert_eq!(x.min(y), x);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn min(self, other: bf16) -> bf16 {
+        if other < self && !other.is_nan() {
+            other
+        } else {
+            self
+        }
+    }
+
+    /// Restrict a value to a certain interval unless it is NaN.
+    ///
+    /// Returns `max` if `self` is greater than `max`, and `min` if `self` is less than `min`.
+    /// Otherwise this returns `self`.
+    ///
+    /// Note that this function returns NaN if the initial value was NaN as well.
+    ///
+    /// # Panics
+    /// Panics if `min > max`, `min` is NaN, or `max` is NaN.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use half::prelude::*;
+    /// assert!(bf16::from_f32(-3.0).clamp(bf16::from_f32(-2.0), bf16::from_f32(1.0)) == bf16::from_f32(-2.0));
+    /// assert!(bf16::from_f32(0.0).clamp(bf16::from_f32(-2.0), bf16::from_f32(1.0)) == bf16::from_f32(0.0));
+    /// assert!(bf16::from_f32(2.0).clamp(bf16::from_f32(-2.0), bf16::from_f32(1.0)) == bf16::from_f32(1.0));
+    /// assert!(bf16::NAN.clamp(bf16::from_f32(-2.0), bf16::from_f32(1.0)).is_nan());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn clamp(self, min: bf16, max: bf16) -> bf16 {
+        assert!(min <= max);
+        let mut x = self;
+        if x < min {
+            x = min;
+        }
+        if x > max {
+            x = max;
+        }
+        x
+    }
+
+    /// Returns the ordering between `self` and `other`.
+    ///
+    /// Unlike the standard partial comparison between floating point numbers,
+    /// this comparison always produces an ordering in accordance to
+    /// the `totalOrder` predicate as defined in the IEEE 754 (2008 revision)
+    /// floating point standard. The values are ordered in the following sequence:
+    ///
+    /// - negative quiet NaN
+    /// - negative signaling NaN
+    /// - negative infinity
+    /// - negative numbers
+    /// - negative subnormal numbers
+    /// - negative zero
+    /// - positive zero
+    /// - positive subnormal numbers
+    /// - positive numbers
+    /// - positive infinity
+    /// - positive signaling NaN
+    /// - positive quiet NaN.
+    ///
+    /// The ordering established by this function does not always agree with the
+    /// [`PartialOrd`] and [`PartialEq`] implementations of `bf16`. For example,
+    /// they consider negative and positive zero equal, while `total_cmp`
+    /// doesn't.
+    ///
+    /// The interpretation of the signaling NaN bit follows the definition in
+    /// the IEEE 754 standard, which may not match the interpretation by some of
+    /// the older, non-conformant (e.g. MIPS) hardware implementations.
+    ///
+    /// # Examples
+    /// ```
+    /// # use half::bf16;
+    /// let mut v: Vec<bf16> = vec![];
+    /// v.push(bf16::ONE);
+    /// v.push(bf16::INFINITY);
+    /// v.push(bf16::NEG_INFINITY);
+    /// v.push(bf16::NAN);
+    /// v.push(bf16::MAX_SUBNORMAL);
+    /// v.push(-bf16::MAX_SUBNORMAL);
+    /// v.push(bf16::ZERO);
+    /// v.push(bf16::NEG_ZERO);
+    /// v.push(bf16::NEG_ONE);
+    /// v.push(bf16::MIN_POSITIVE);
+    ///
+    /// v.sort_by(|a, b| a.total_cmp(&b));
+    ///
+    /// assert!(v
+    ///     .into_iter()
+    ///     .zip(
+    ///         [
+    ///             bf16::NEG_INFINITY,
+    ///             bf16::NEG_ONE,
+    ///             -bf16::MAX_SUBNORMAL,
+    ///             bf16::NEG_ZERO,
+    ///             bf16::ZERO,
+    ///             bf16::MAX_SUBNORMAL,
+    ///             bf16::MIN_POSITIVE,
+    ///             bf16::ONE,
+    ///             bf16::INFINITY,
+    ///             bf16::NAN
+    ///         ]
+    ///         .iter()
+    ///     )
+    ///     .all(|(a, b)| a.to_bits() == b.to_bits()));
+    /// ```
+    // Implementation based on: https://doc.rust-lang.org/std/primitive.f32.html#method.total_cmp
+    #[inline]
+    #[must_use]
+    pub fn total_cmp(&self, other: &Self) -> Ordering {
+        let mut left = self.to_bits() as i16;
+        let mut right = other.to_bits() as i16;
+        left ^= (((left >> 15) as u16) >> 1) as i16;
+        right ^= (((right >> 15) as u16) >> 1) as i16;
+        left.cmp(&right)
+    }
+
+    /// Alternate serialize adapter for serializing as a float.
+    ///
+    /// By default, [`bf16`] serializes as a newtype of [`u16`]. This is an alternate serialize
+    /// implementation that serializes as an [`f32`] value. It is designed for use with
+    /// `serialize_with` serde attributes. Deserialization from `f32` values is already supported by
+    /// the default deserialize implementation.
+    ///
+    /// # Examples
+    ///
+    /// A demonstration on how to use this adapater:
+    ///
+    /// ```
+    /// use serde::{Serialize, Deserialize};
+    /// use half::bf16;
+    ///
+    /// #[derive(Serialize, Deserialize)]
+    /// struct MyStruct {
+    ///     #[serde(serialize_with = "bf16::serialize_as_f32")]
+    ///     value: bf16 // Will be serialized as f32 instead of u16
+    /// }
+    /// ```
+    #[cfg(feature = "serde")]
+    pub fn serialize_as_f32<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_f32(self.to_f32())
+    }
+
+    /// Alternate serialize adapter for serializing as a string.
+    ///
+    /// By default, [`bf16`] serializes as a newtype of [`u16`]. This is an alternate serialize
+    /// implementation that serializes as a string value. It is designed for use with
+    /// `serialize_with` serde attributes. Deserialization from string values is already supported
+    /// by the default deserialize implementation.
+    ///
+    /// # Examples
+    ///
+    /// A demonstration on how to use this adapater:
+    ///
+    /// ```
+    /// use serde::{Serialize, Deserialize};
+    /// use half::bf16;
+    ///
+    /// #[derive(Serialize, Deserialize)]
+    /// struct MyStruct {
+    ///     #[serde(serialize_with = "bf16::serialize_as_string")]
+    ///     value: bf16 // Will be serialized as a string instead of u16
+    /// }
+    /// ```
+    #[cfg(feature = "serde")]
+    pub fn serialize_as_string<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.to_string())
+    }
+
+    /// Approximate number of [`bf16`] significant digits in base 10
     pub const DIGITS: u32 = 2;
-    /// [`bf16`](struct.bf16.html)
-    /// [machine epsilon](https://en.wikipedia.org/wiki/Machine_epsilon) value.
+    /// [`bf16`]
+    /// [machine epsilon](https://en.wikipedia.org/wiki/Machine_epsilon) value
     ///
     /// This is the difference between 1.0 and the next largest representable number.
     pub const EPSILON: bf16 = bf16(0x3C00u16);
-    /// [`bf16`](struct.bf16.html) positive Infinity (+∞).
+    /// [`bf16`] positive Infinity (+∞)
     pub const INFINITY: bf16 = bf16(0x7F80u16);
-    /// Number of [`bf16`](struct.bf16.html) significant digits in base 2.
+    /// Number of [`bf16`] significant digits in base 2
     pub const MANTISSA_DIGITS: u32 = 8;
-    /// Largest finite [`bf16`](struct.bf16.html) value.
+    /// Largest finite [`bf16`] value
     pub const MAX: bf16 = bf16(0x7F7F);
-    /// Maximum possible [`bf16`](struct.bf16.html) power of 10 exponent.
+    /// Maximum possible [`bf16`] power of 10 exponent
     pub const MAX_10_EXP: i32 = 38;
-    /// Maximum possible [`bf16`](struct.bf16.html) power of 2 exponent.
+    /// Maximum possible [`bf16`] power of 2 exponent
     pub const MAX_EXP: i32 = 128;
-    /// Smallest finite [`bf16`](struct.bf16.html) value.
+    /// Smallest finite [`bf16`] value
     pub const MIN: bf16 = bf16(0xFF7F);
-    /// Minimum possible normal [`bf16`](struct.bf16.html) power of 10 exponent.
+    /// Minimum possible normal [`bf16`] power of 10 exponent
     pub const MIN_10_EXP: i32 = -37;
-    /// One greater than the minimum possible normal [`bf16`](struct.bf16.html) power of 2 exponent.
+    /// One greater than the minimum possible normal [`bf16`] power of 2 exponent
     pub const MIN_EXP: i32 = -125;
-    /// Smallest positive normal [`bf16`](struct.bf16.html) value.
+    /// Smallest positive normal [`bf16`] value
     pub const MIN_POSITIVE: bf16 = bf16(0x0080u16);
-    /// [`bf16`](struct.bf16.html) Not a Number (NaN).
+    /// [`bf16`] Not a Number (NaN)
     pub const NAN: bf16 = bf16(0x7FC0u16);
-    /// [`bf16`](struct.bf16.html) negative infinity (-∞).
+    /// [`bf16`] negative infinity (-∞).
     pub const NEG_INFINITY: bf16 = bf16(0xFF80u16);
-    /// The radix or base of the internal representation of [`bf16`](struct.bf16.html).
+    /// The radix or base of the internal representation of [`bf16`]
     pub const RADIX: u32 = 2;
 
-    /// Minimum positive subnormal [`bf16`](struct.bf16.html) value.
+    /// Minimum positive subnormal [`bf16`] value
     pub const MIN_POSITIVE_SUBNORMAL: bf16 = bf16(0x0001u16);
-    /// Maximum subnormal [`bf16`](struct.bf16.html) value.
+    /// Maximum subnormal [`bf16`] value
     pub const MAX_SUBNORMAL: bf16 = bf16(0x007Fu16);
 
-    /// [`bf16`](struct.bf16.html) 1
+    /// [`bf16`] 1
     pub const ONE: bf16 = bf16(0x3F80u16);
-    /// [`bf16`](struct.bf16.html) 0
+    /// [`bf16`] 0
     pub const ZERO: bf16 = bf16(0x0000u16);
-    /// [`bf16`](struct.bf16.html) -0
+    /// [`bf16`] -0
     pub const NEG_ZERO: bf16 = bf16(0x8000u16);
+    /// [`bf16`] -1
+    pub const NEG_ONE: bf16 = bf16(0xBF80u16);
 
-    /// [`bf16`](struct.bf16.html) Euler's number (ℯ).
+    /// [`bf16`] Euler's number (ℯ)
     pub const E: bf16 = bf16(0x402Eu16);
-    /// [`bf16`](struct.bf16.html) Archimedes' constant (π).
+    /// [`bf16`] Archimedes' constant (π)
     pub const PI: bf16 = bf16(0x4049u16);
-    /// [`bf16`](struct.bf16.html) 1/π
+    /// [`bf16`] 1/π
     pub const FRAC_1_PI: bf16 = bf16(0x3EA3u16);
-    /// [`bf16`](struct.bf16.html) 1/√2
+    /// [`bf16`] 1/√2
     pub const FRAC_1_SQRT_2: bf16 = bf16(0x3F35u16);
-    /// [`bf16`](struct.bf16.html) 2/π
+    /// [`bf16`] 2/π
     pub const FRAC_2_PI: bf16 = bf16(0x3F23u16);
-    /// [`bf16`](struct.bf16.html) 2/√π
+    /// [`bf16`] 2/√π
     pub const FRAC_2_SQRT_PI: bf16 = bf16(0x3F90u16);
-    /// [`bf16`](struct.bf16.html) π/2
+    /// [`bf16`] π/2
     pub const FRAC_PI_2: bf16 = bf16(0x3FC9u16);
-    /// [`bf16`](struct.bf16.html) π/3
+    /// [`bf16`] π/3
     pub const FRAC_PI_3: bf16 = bf16(0x3F86u16);
-    /// [`bf16`](struct.bf16.html) π/4
+    /// [`bf16`] π/4
     pub const FRAC_PI_4: bf16 = bf16(0x3F49u16);
-    /// [`bf16`](struct.bf16.html) π/6
+    /// [`bf16`] π/6
     pub const FRAC_PI_6: bf16 = bf16(0x3F06u16);
-    /// [`bf16`](struct.bf16.html) π/8
+    /// [`bf16`] π/8
     pub const FRAC_PI_8: bf16 = bf16(0x3EC9u16);
-    /// [`bf16`](struct.bf16.html) 𝗅𝗇 10
+    /// [`bf16`] 𝗅𝗇 10
     pub const LN_10: bf16 = bf16(0x4013u16);
-    /// [`bf16`](struct.bf16.html) 𝗅𝗇 2
+    /// [`bf16`] 𝗅𝗇 2
     pub const LN_2: bf16 = bf16(0x3F31u16);
-    /// [`bf16`](struct.bf16.html) 𝗅𝗈𝗀₁₀ℯ
+    /// [`bf16`] 𝗅𝗈𝗀₁₀ℯ
     pub const LOG10_E: bf16 = bf16(0x3EDEu16);
-    /// [`bf16`](struct.bf16.html) 𝗅𝗈𝗀₁₀2
+    /// [`bf16`] 𝗅𝗈𝗀₁₀2
     pub const LOG10_2: bf16 = bf16(0x3E9Au16);
-    /// [`bf16`](struct.bf16.html) 𝗅𝗈𝗀₂ℯ
+    /// [`bf16`] 𝗅𝗈𝗀₂ℯ
     pub const LOG2_E: bf16 = bf16(0x3FB9u16);
-    /// [`bf16`](struct.bf16.html) 𝗅𝗈𝗀₂10
+    /// [`bf16`] 𝗅𝗈𝗀₂10
     pub const LOG2_10: bf16 = bf16(0x4055u16);
-    /// [`bf16`](struct.bf16.html) √2
+    /// [`bf16`] √2
     pub const SQRT_2: bf16 = bf16(0x3FB5u16);
 }
 
@@ -590,6 +910,7 @@ impl PartialOrd for bf16 {
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl FromStr for bf16 {
     type Err = ParseFloatError;
     fn from_str(src: &str) -> Result<bf16, ParseFloatError> {
@@ -597,123 +918,401 @@ impl FromStr for bf16 {
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl Debug for bf16 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{:?}", self.to_f32())
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl Display for bf16 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{}", self.to_f32())
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl LowerExp for bf16 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{:e}", self.to_f32())
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl UpperExp for bf16 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{:E}", self.to_f32())
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl Binary for bf16 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{:b}", self.0)
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl Octal for bf16 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{:o}", self.0)
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl LowerHex for bf16 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{:x}", self.0)
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl UpperHex for bf16 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{:X}", self.0)
     }
 }
 
-#[cfg(feature = "num-traits")]
-mod impl_num_traits {
-    use super::bf16;
-    use num_traits::{FromPrimitive, ToPrimitive};
+impl Neg for bf16 {
+    type Output = Self;
 
-    impl ToPrimitive for bf16 {
-        fn to_i64(&self) -> Option<i64> {
-            Self::to_f32(*self).to_i64()
-        }
-        fn to_u64(&self) -> Option<u64> {
-            Self::to_f32(*self).to_u64()
-        }
-        fn to_i8(&self) -> Option<i8> {
-            Self::to_f32(*self).to_i8()
-        }
-        fn to_u8(&self) -> Option<u8> {
-            Self::to_f32(*self).to_u8()
-        }
-        fn to_i16(&self) -> Option<i16> {
-            Self::to_f32(*self).to_i16()
-        }
-        fn to_u16(&self) -> Option<u16> {
-            Self::to_f32(*self).to_u16()
-        }
-        fn to_i32(&self) -> Option<i32> {
-            Self::to_f32(*self).to_i32()
-        }
-        fn to_u32(&self) -> Option<u32> {
-            Self::to_f32(*self).to_u32()
-        }
-        fn to_f32(&self) -> Option<f32> {
-            Some(Self::to_f32(*self))
-        }
-        fn to_f64(&self) -> Option<f64> {
-            Some(Self::to_f64(*self))
-        }
+    fn neg(self) -> Self::Output {
+        Self(self.0 ^ 0x8000)
+    }
+}
+
+impl Neg for &bf16 {
+    type Output = <bf16 as Neg>::Output;
+
+    #[inline]
+    fn neg(self) -> Self::Output {
+        Neg::neg(*self)
+    }
+}
+
+impl Add for bf16 {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::from_f32(Self::to_f32(self) + Self::to_f32(rhs))
+    }
+}
+
+impl Add<&bf16> for bf16 {
+    type Output = <bf16 as Add<bf16>>::Output;
+
+    #[inline]
+    fn add(self, rhs: &bf16) -> Self::Output {
+        self.add(*rhs)
+    }
+}
+
+impl Add<&bf16> for &bf16 {
+    type Output = <bf16 as Add<bf16>>::Output;
+
+    #[inline]
+    fn add(self, rhs: &bf16) -> Self::Output {
+        (*self).add(*rhs)
+    }
+}
+
+impl Add<bf16> for &bf16 {
+    type Output = <bf16 as Add<bf16>>::Output;
+
+    #[inline]
+    fn add(self, rhs: bf16) -> Self::Output {
+        (*self).add(rhs)
+    }
+}
+
+impl AddAssign for bf16 {
+    #[inline]
+    fn add_assign(&mut self, rhs: Self) {
+        *self = (*self).add(rhs);
+    }
+}
+
+impl AddAssign<&bf16> for bf16 {
+    #[inline]
+    fn add_assign(&mut self, rhs: &bf16) {
+        *self = (*self).add(rhs);
+    }
+}
+
+impl Sub for bf16 {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::from_f32(Self::to_f32(self) - Self::to_f32(rhs))
+    }
+}
+
+impl Sub<&bf16> for bf16 {
+    type Output = <bf16 as Sub<bf16>>::Output;
+
+    #[inline]
+    fn sub(self, rhs: &bf16) -> Self::Output {
+        self.sub(*rhs)
+    }
+}
+
+impl Sub<&bf16> for &bf16 {
+    type Output = <bf16 as Sub<bf16>>::Output;
+
+    #[inline]
+    fn sub(self, rhs: &bf16) -> Self::Output {
+        (*self).sub(*rhs)
+    }
+}
+
+impl Sub<bf16> for &bf16 {
+    type Output = <bf16 as Sub<bf16>>::Output;
+
+    #[inline]
+    fn sub(self, rhs: bf16) -> Self::Output {
+        (*self).sub(rhs)
+    }
+}
+
+impl SubAssign for bf16 {
+    #[inline]
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = (*self).sub(rhs);
+    }
+}
+
+impl SubAssign<&bf16> for bf16 {
+    #[inline]
+    fn sub_assign(&mut self, rhs: &bf16) {
+        *self = (*self).sub(rhs);
+    }
+}
+
+impl Mul for bf16 {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self::from_f32(Self::to_f32(self) * Self::to_f32(rhs))
+    }
+}
+
+impl Mul<&bf16> for bf16 {
+    type Output = <bf16 as Mul<bf16>>::Output;
+
+    #[inline]
+    fn mul(self, rhs: &bf16) -> Self::Output {
+        self.mul(*rhs)
+    }
+}
+
+impl Mul<&bf16> for &bf16 {
+    type Output = <bf16 as Mul<bf16>>::Output;
+
+    #[inline]
+    fn mul(self, rhs: &bf16) -> Self::Output {
+        (*self).mul(*rhs)
+    }
+}
+
+impl Mul<bf16> for &bf16 {
+    type Output = <bf16 as Mul<bf16>>::Output;
+
+    #[inline]
+    fn mul(self, rhs: bf16) -> Self::Output {
+        (*self).mul(rhs)
+    }
+}
+
+impl MulAssign for bf16 {
+    #[inline]
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = (*self).mul(rhs);
+    }
+}
+
+impl MulAssign<&bf16> for bf16 {
+    #[inline]
+    fn mul_assign(&mut self, rhs: &bf16) {
+        *self = (*self).mul(rhs);
+    }
+}
+
+impl Div for bf16 {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        Self::from_f32(Self::to_f32(self) / Self::to_f32(rhs))
+    }
+}
+
+impl Div<&bf16> for bf16 {
+    type Output = <bf16 as Div<bf16>>::Output;
+
+    #[inline]
+    fn div(self, rhs: &bf16) -> Self::Output {
+        self.div(*rhs)
+    }
+}
+
+impl Div<&bf16> for &bf16 {
+    type Output = <bf16 as Div<bf16>>::Output;
+
+    #[inline]
+    fn div(self, rhs: &bf16) -> Self::Output {
+        (*self).div(*rhs)
+    }
+}
+
+impl Div<bf16> for &bf16 {
+    type Output = <bf16 as Div<bf16>>::Output;
+
+    #[inline]
+    fn div(self, rhs: bf16) -> Self::Output {
+        (*self).div(rhs)
+    }
+}
+
+impl DivAssign for bf16 {
+    #[inline]
+    fn div_assign(&mut self, rhs: Self) {
+        *self = (*self).div(rhs);
+    }
+}
+
+impl DivAssign<&bf16> for bf16 {
+    #[inline]
+    fn div_assign(&mut self, rhs: &bf16) {
+        *self = (*self).div(rhs);
+    }
+}
+
+impl Rem for bf16 {
+    type Output = Self;
+
+    fn rem(self, rhs: Self) -> Self::Output {
+        Self::from_f32(Self::to_f32(self) % Self::to_f32(rhs))
+    }
+}
+
+impl Rem<&bf16> for bf16 {
+    type Output = <bf16 as Rem<bf16>>::Output;
+
+    #[inline]
+    fn rem(self, rhs: &bf16) -> Self::Output {
+        self.rem(*rhs)
+    }
+}
+
+impl Rem<&bf16> for &bf16 {
+    type Output = <bf16 as Rem<bf16>>::Output;
+
+    #[inline]
+    fn rem(self, rhs: &bf16) -> Self::Output {
+        (*self).rem(*rhs)
+    }
+}
+
+impl Rem<bf16> for &bf16 {
+    type Output = <bf16 as Rem<bf16>>::Output;
+
+    #[inline]
+    fn rem(self, rhs: bf16) -> Self::Output {
+        (*self).rem(rhs)
+    }
+}
+
+impl RemAssign for bf16 {
+    #[inline]
+    fn rem_assign(&mut self, rhs: Self) {
+        *self = (*self).rem(rhs);
+    }
+}
+
+impl RemAssign<&bf16> for bf16 {
+    #[inline]
+    fn rem_assign(&mut self, rhs: &bf16) {
+        *self = (*self).rem(rhs);
+    }
+}
+
+impl Product for bf16 {
+    #[inline]
+    fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
+        bf16::from_f32(iter.map(|f| f.to_f32()).product())
+    }
+}
+
+impl<'a> Product<&'a bf16> for bf16 {
+    #[inline]
+    fn product<I: Iterator<Item = &'a bf16>>(iter: I) -> Self {
+        bf16::from_f32(iter.map(|f| f.to_f32()).product())
+    }
+}
+
+impl Sum for bf16 {
+    #[inline]
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        bf16::from_f32(iter.map(|f| f.to_f32()).sum())
+    }
+}
+
+impl<'a> Sum<&'a bf16> for bf16 {
+    #[inline]
+    fn sum<I: Iterator<Item = &'a bf16>>(iter: I) -> Self {
+        bf16::from_f32(iter.map(|f| f.to_f32()).product())
+    }
+}
+
+#[cfg(feature = "serde")]
+struct Visitor;
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for bf16 {
+    fn deserialize<D>(deserializer: D) -> Result<bf16, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        deserializer.deserialize_newtype_struct("bf16", Visitor)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::de::Visitor<'de> for Visitor {
+    type Value = bf16;
+
+    fn expecting(&self, formatter: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+        write!(formatter, "tuple struct bf16")
     }
 
-    impl FromPrimitive for bf16 {
-        fn from_i64(n: i64) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_u64(n: u64) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_i8(n: i8) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_u8(n: u8) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_i16(n: i16) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_u16(n: u16) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_i32(n: i32) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_u32(n: u32) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_f32(n: f32) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_f64(n: f64) -> Option<Self> {
-            n.to_f64().map(|x| Self::from_f64(x))
-        }
+    fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(bf16(<u16 as Deserialize>::deserialize(deserializer)?))
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        v.parse().map_err(|_| {
+            serde::de::Error::invalid_value(serde::de::Unexpected::Str(v), &"a float string")
+        })
+    }
+
+    fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(bf16::from_f32(v))
+    }
+
+    fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(bf16::from_f64(v))
     }
 }
 
@@ -725,22 +1324,60 @@ mod impl_num_traits {
 #[cfg(test)]
 mod test {
     use super::*;
-    use core;
     use core::cmp::Ordering;
+    #[cfg(feature = "num-traits")]
+    use num_traits::{AsPrimitive, FromPrimitive, ToPrimitive};
     use quickcheck_macros::quickcheck;
+
+    #[cfg(feature = "num-traits")]
+    #[test]
+    fn as_primitive() {
+        let two = bf16::from_f32(2.0);
+        assert_eq!(<i32 as AsPrimitive<bf16>>::as_(2), two);
+        assert_eq!(<bf16 as AsPrimitive<i32>>::as_(two), 2);
+
+        assert_eq!(<f32 as AsPrimitive<bf16>>::as_(2.0), two);
+        assert_eq!(<bf16 as AsPrimitive<f32>>::as_(two), 2.0);
+
+        assert_eq!(<f64 as AsPrimitive<bf16>>::as_(2.0), two);
+        assert_eq!(<bf16 as AsPrimitive<f64>>::as_(two), 2.0);
+    }
+
+    #[cfg(feature = "num-traits")]
+    #[test]
+    fn to_primitive() {
+        let two = bf16::from_f32(2.0);
+        assert_eq!(ToPrimitive::to_i32(&two).unwrap(), 2i32);
+        assert_eq!(ToPrimitive::to_f32(&two).unwrap(), 2.0f32);
+        assert_eq!(ToPrimitive::to_f64(&two).unwrap(), 2.0f64);
+    }
+
+    #[cfg(feature = "num-traits")]
+    #[test]
+    fn from_primitive() {
+        let two = bf16::from_f32(2.0);
+        assert_eq!(<bf16 as FromPrimitive>::from_i32(2).unwrap(), two);
+        assert_eq!(<bf16 as FromPrimitive>::from_f32(2.0).unwrap(), two);
+        assert_eq!(<bf16 as FromPrimitive>::from_f64(2.0).unwrap(), two);
+    }
 
     #[test]
     fn test_bf16_consts_from_f32() {
         let one = bf16::from_f32(1.0);
         let zero = bf16::from_f32(0.0);
         let neg_zero = bf16::from_f32(-0.0);
+        let neg_one = bf16::from_f32(-1.0);
         let inf = bf16::from_f32(core::f32::INFINITY);
         let neg_inf = bf16::from_f32(core::f32::NEG_INFINITY);
         let nan = bf16::from_f32(core::f32::NAN);
 
         assert_eq!(bf16::ONE, one);
         assert_eq!(bf16::ZERO, zero);
+        assert!(zero.is_sign_positive());
         assert_eq!(bf16::NEG_ZERO, neg_zero);
+        assert!(neg_zero.is_sign_negative());
+        assert_eq!(bf16::NEG_ONE, neg_one);
+        assert!(neg_one.is_sign_negative());
         assert_eq!(bf16::INFINITY, inf);
         assert_eq!(bf16::NEG_INFINITY, neg_inf);
         assert!(nan.is_nan());
@@ -1177,9 +1814,8 @@ mod test {
     }
 
     impl quickcheck::Arbitrary for bf16 {
-        fn arbitrary<G: quickcheck::Gen>(g: &mut G) -> Self {
-            use rand::Rng;
-            bf16(g.gen())
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            bf16(u16::arbitrary(g))
         }
     }
 

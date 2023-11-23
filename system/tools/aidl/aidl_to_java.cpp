@@ -245,8 +245,34 @@ static private <T extends android.os.Parcelable> void writeTypedObject(
 )";
 }
 
+static void GenerateTypedListHelper(CodeWriter& out, const Options& options) {
+  out << R"(static private <T extends android.os.Parcelable> void writeTypedList(
+    android.os.Parcel parcel, java.util.List<T> value, int parcelableFlags) {
+  if (value == null) {
+    parcel.writeInt(-1);
+  } else {
+    int N = value.size();
+    int i = 0;
+    parcel.writeInt(N);
+    while (i < N) {
+)";
+
+  if (options.GetMinSdkVersion() < 23u) {
+    out << "writeTypedObject(parcel, value.get(i), parcelableFlags);";
+  } else {
+    out << "parcel.writeTypedObject(value.get(i), parcelableFlags);";
+  }
+
+  out << R"(
+      i++;
+    }
+  }
+}
+)";
+}
+
 void GenerateParcelHelpers(CodeWriter& out, const AidlDefinedType& defined_type,
-                           const Options& options) {
+                           const AidlTypenames& typenames, const Options& options) {
   // root-level type contains all necessary helpers
   if (defined_type.GetParentType()) {
     return;
@@ -254,9 +280,11 @@ void GenerateParcelHelpers(CodeWriter& out, const AidlDefinedType& defined_type,
   // visits method parameters and parcelable fields to collect types which
   // requires read/write/create helpers.
   struct Visitor : AidlVisitor {
+    const AidlTypenames& typenames;
     const Options& options;
     set<ParcelHelperGenerator> helpers;
-    Visitor(const Options& options) : options(options) {}
+    Visitor(const AidlTypenames& typenames, const Options& options)
+        : typenames(typenames), options(options) {}
     void Visit(const AidlTypeSpecifier& type) override {
       auto name = type.GetName();
       if (auto defined_type = type.GetDefinedType(); defined_type) {
@@ -276,9 +304,16 @@ void GenerateParcelHelpers(CodeWriter& out, const AidlDefinedType& defined_type,
             }
           }
         }
+
+        if (name == "List" && type.IsGeneric()) {
+          const auto& element_name = type.GetTypeParameters()[0]->GetName();
+          if (typenames.IsParcelable(element_name) && options.GetMinSdkVersion() <= 33u) {
+            helpers.insert(&GenerateTypedListHelper);
+          }
+        }
       }
     }
-  } v{options};
+  } v{typenames, options};
 
   VisitTopDown(v, defined_type);
   if (!v.helpers.empty()) {
@@ -378,7 +413,13 @@ void WriteToParcelFor(const CodeGeneratorContext& c) {
            } else if (element_type_name == "IBinder") {
              c.writer << c.parcel << ".writeBinderList(" << c.var << ");\n";
            } else if (c.typenames.IsParcelable(element_type_name)) {
-             c.writer << c.parcel << ".writeTypedList(" << c.var << ");\n";
+             if (c.min_sdk_version > 33u) {
+               c.writer << c.parcel << ".writeTypedList(" << c.var << ", " << c.write_to_parcel_flag
+                        << ");\n";
+             } else {
+               c.writer << "_Parcel.writeTypedList(" << c.parcel << ", " << c.var << ", "
+                        << c.write_to_parcel_flag << ");\n";
+             }
            } else if (c.typenames.GetInterface(element_type)) {
              c.writer << c.parcel << ".writeInterfaceList(" << c.var << ");\n";
            } else {

@@ -24,8 +24,9 @@ import com.android.queryable.info.BroadcastReceiverInfo;
 /** Query for an {@link BroadcastReceiver}. */
 public interface BroadcastReceiverQuery<E extends Queryable> extends Query<BroadcastReceiverInfo>  {
 
-    static BroadcastReceiverQuery<BroadcastReceiverQuery<?>> broadcastReceiver() {
-        return new BroadcastReceiverQueryHelper<>();
+    /** Queries a {@link BroadcastReceiver}*/
+    static BroadcastReceiverQueryHelper.BroadcastReceiverQueryBase broadcastReceiver() {
+        return new BroadcastReceiverQueryHelper.BroadcastReceiverQueryBase();
     }
 
     ClassQuery<E> receiverClass();

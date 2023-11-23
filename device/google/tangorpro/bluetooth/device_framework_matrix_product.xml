@@ -1,0 +1,35 @@
+<compatibility-matrix version="1.0" type="framework" level="7">
+    <hal format="hidl" optional="true">
+        <name>hardware.google.bluetooth.bt_channel_avoidance</name>
+        <version>1.0</version>
+        <interface>
+            <name>IBTChannelAvoidance</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl" optional="true">
+        <name>hardware.google.bluetooth.sar</name>
+        <version>1.1</version>
+        <interface>
+            <name>IBluetoothSar</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl" optional="true">
+        <name>hardware.google.bluetooth.ext</name>
+        <version>1.0</version>
+        <interface>
+            <name>IBluetoothExt</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl" optional="true">
+        <name>hardware.google.bluetooth.ccc</name>
+        <transport>hwbinder</transport>
+        <version>1.1</version>
+        <interface>
+            <name>IBluetoothCcc</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+</compatibility-matrix>

@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"vincular um serviço de projeção"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"Permite que o proprietário vincule a interface de nível superior de um serviço de projeção. Nunca deve ser necessário para apps normais."</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"Serviço de cliente VMS"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"Vincular clientes VMS"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"Renderização de cluster de instrumento"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"Receber dados do cluster de instrumento"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"Serviço de entrada do carro"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"Gerenciar eventos de entrada"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"Não é possível usar esse recurso enquanto você dirige"</string>
     <string name="exit_button_message" msgid="5375678491245394542">"Para reiniciar o app com recursos de segurança, selecione <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
     <string name="exit_button" msgid="3491899413031549265">"Voltar"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"Seu dispositivo será limpo"</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"Não é possível usar o aplicativo para administrador. Seu dispositivo passará por uma limpeza.\n\nEm caso de dúvidas, entre em contato com o administrador da organização."</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"O app <xliff:g id="ID_1">^1</xliff:g> está afetando o desempenho do sistema"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"Desative o app para melhorar o desempenho do sistema. Você pode ativá-lo novamente em \"Configurações\"."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"Se quiser continuar usando o app, priorize-o."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"Desinstale o app para melhorar o desempenho do sistema."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"Desativar app"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"Este app teve a execução em segundo plano interrompida. Priorize o app para continuar usando em segundo plano."</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"Fechar"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"Priorizar app"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"Desinstalar app"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"O app <xliff:g id="ID_1">^1</xliff:g> foi desativado. Você pode ativá-lo novamente em \"Configurações\"."</string>
 </resources>

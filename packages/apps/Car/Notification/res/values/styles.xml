@@ -20,6 +20,13 @@
         <item name="android:maxLines">1</item>
     </style>
 
+    <style name="NotificationCenterHeaderText" parent="@android:TextAppearance.DeviceDefault">
+        <item name="android:layout_marginStart">@dimen/notification_card_margin_horizontal</item>
+        <item name="android:paddingBottom">@dimen/notification_header_text_padding_bottom</item>
+        <item name="android:paddingTop">@dimen/notification_header_text_padding_top</item>
+        <item name="android:textAppearance">?android:attr/textAppearanceLarge</item>
+    </style>
+
     <style name="NotificationHeaderText" parent="@android:TextAppearance.DeviceDefault">
         <item name="android:gravity">center_vertical</item>
         <item name="android:maxWidth">@dimen/notification_text_max_width</item>

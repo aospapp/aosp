@@ -5,12 +5,13 @@
 #ifndef UI_EVENTS_OZONE_EVDEV_TOUCH_EVDEV_TYPES_H_
 #define UI_EVENTS_OZONE_EVDEV_TOUCH_EVDEV_TYPES_H_
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(__ANDROID_HOST__)
 #include <compare>
 #endif
 #include <stddef.h>
 
 #include "base/component_export.h"
+#include "base/time/time.h"
 #include "ui/events/event_constants.h"
 
 namespace ui {
@@ -25,7 +26,7 @@ struct COMPONENT_EXPORT(EVDEV) InProgressTouchEvdev {
   InProgressTouchEvdev(const InProgressTouchEvdev& other);
   ~InProgressTouchEvdev();
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(__ANDROID_HOST__)
   auto operator<=>(const InProgressTouchEvdev&) const = default;
 #endif
 
@@ -75,6 +76,23 @@ struct COMPONENT_EXPORT(EVDEV) InProgressTouchEvdev {
   float tilt_y = 0;
   ui::EventPointerType reported_tool_type = ui::EventPointerType::kTouch;
   bool stylus_button = false;
+};
+
+std::ostream& operator<<(std::ostream& out, const InProgressTouchEvdev& touch);
+
+// Contains information about stylus event, the useful relate ddevice info and
+// the timestamp.
+struct COMPONENT_EXPORT(EVDEV) InProgressStylusState {
+  InProgressStylusState();
+  InProgressStylusState(const InProgressStylusState& other);
+  ~InProgressStylusState();
+
+  InProgressTouchEvdev stylus_event;
+  // Stylus x and y resolution, used for normalization.
+  int x_res = 1;
+  int y_res = 1;
+
+  base::TimeTicks timestamp = base::TimeTicks();
 };
 
 }  // namespace ui

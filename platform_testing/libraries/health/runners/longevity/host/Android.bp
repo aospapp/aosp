@@ -29,6 +29,7 @@ java_library_static {
         "test-composers",
     ],
     sdk_version: "24",
+    java_version: "1.8",
 }
 
 java_library_host {

@@ -27,6 +27,7 @@ import android.car.Car;
 import android.car.CarManagerBase;
 import android.car.CarOccupantZoneManager;
 import android.car.annotation.AddedInOrBefore;
+import android.car.annotation.ApiRequirements;
 import android.car.builtin.util.Slogf;
 import android.os.Handler;
 import android.os.IBinder;
@@ -47,10 +48,7 @@ import java.util.concurrent.Executor;
 
 /**
  * This API allows capturing selected input events.
- *
- * @hide
  */
-@SystemApi
 public final class CarInputManager extends CarManagerBase {
 
     private static final String TAG = CarInputManager.class.getSimpleName();
@@ -67,7 +65,10 @@ public final class CarInputManager extends CarManagerBase {
      * Display types are defined in {@link android.car.CarOccupantZoneManager}. This manager only
      * accepts the driver display types ({@link CarOccupantZoneManager#DISPLAY_TYPE_MAIN} and
      * {@link CarOccupantZoneManager#DISPLAY_TYPE_INSTRUMENT_CLUSTER}).
+     *
+     * @hide
      */
+    @SystemApi
     public interface CarInputCaptureCallback {
         /**
          * Key events were captured.
@@ -114,14 +115,20 @@ public final class CarInputManager extends CarManagerBase {
 
     /**
      * Client will wait for grant if the request is failing due to higher priority client.
+     *
+     * @hide
      */
+    @SystemApi
     @AddedInOrBefore(majorVersion = 33)
     public static final int CAPTURE_REQ_FLAGS_ALLOW_DELAYED_GRANT = 0x1;
 
     /**
      * Client wants to capture the keys for the whole display. This is only allowed to system
      * process.
+     *
+     * @hide
      */
+    @SystemApi
     @AddedInOrBefore(majorVersion = 33)
     public static final int CAPTURE_REQ_FLAGS_TAKE_ALL_EVENTS_FOR_DISPLAY = 0x2;
 
@@ -136,7 +143,10 @@ public final class CarInputManager extends CarManagerBase {
     /**
      * This is special type to cover all INPUT_TYPE_*. This is used for clients using
      * {@link #CAPTURE_REQ_FLAGS_TAKE_ALL_EVENTS_FOR_DISPLAY} flag.
+     *
+     * @hide
      */
+    @SystemApi
     @AddedInOrBefore(majorVersion = 33)
     public static final int INPUT_TYPE_ALL_INPUTS = 1;
 
@@ -181,6 +191,20 @@ public final class CarInputManager extends CarManagerBase {
     @AddedInOrBefore(majorVersion = 33)
     public static final int INPUT_TYPE_CUSTOM_INPUT_EVENT = 200;
 
+    /**
+     * This is for touch mode input type.
+     */
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.TIRAMISU_0)
+    public static final int INPUT_TYPE_TOUCH_SCREEN = 210;
+
+    /**
+     * This is for displays that don't support any input type
+     */
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.TIRAMISU_0)
+    public static final int INPUT_TYPE_NONE = -1;
+
     /** @hide */
     @Retention(RetentionPolicy.SOURCE)
     @IntDef(prefix = "INPUT_TYPE_", value = {
@@ -191,20 +215,28 @@ public final class CarInputManager extends CarManagerBase {
             INPUT_TYPE_NAVIGATE_KEYS,
             INPUT_TYPE_SYSTEM_NAVIGATE_KEYS,
             INPUT_TYPE_CUSTOM_INPUT_EVENT,
+            INPUT_TYPE_TOUCH_SCREEN,
+            INPUT_TYPE_NONE,
     })
     @Target({ElementType.TYPE_USE})
     public @interface InputTypeEnum {}
 
     /**
      * The client's request has succeeded and capture will start.
+     *
+     * @hide
      */
+    @SystemApi
     @AddedInOrBefore(majorVersion = 33)
     public static final int INPUT_CAPTURE_RESPONSE_SUCCEEDED = 0;
 
     /**
      * The client's request has failed due to higher priority client already capturing. If priority
      * for the clients are the same, last client making request will be allowed to capture.
+     *
+     * @hide
      */
+    @SystemApi
     @AddedInOrBefore(majorVersion = 33)
     public static final int INPUT_CAPTURE_RESPONSE_FAILED = 1;
 
@@ -213,7 +245,10 @@ public final class CarInputManager extends CarManagerBase {
      * {@code requestFlags} and capturing is blocked due to existing higher priority client.
      * When the higher priority client stops capturing, this client can capture events after
      * getting @link CarInputCaptureCallback#onCaptureStateChanged(int, int[])} call.
+     *
+     * @hide
      */
+    @SystemApi
     @AddedInOrBefore(majorVersion = 33)
     public static final int INPUT_CAPTURE_RESPONSE_DELAYED = 2;
 
@@ -283,7 +318,10 @@ public final class CarInputManager extends CarManagerBase {
      * @param requestFlags the capture request flag
      * @param callback the callback to receive the input events
      * @return the input capture response indicating if registration succeed, failed or delayed
+     *
+     * @hide
      */
+    @SystemApi
     @RequiresPermission(anyOf = {PERMISSION_FRAMEWORK_MONITOR_INPUT,
             Car.PERMISSION_CAR_MONITOR_INPUT})
     @InputCaptureResponseEnum
@@ -312,7 +350,10 @@ public final class CarInputManager extends CarManagerBase {
      * @param callback the callback to receive the input events
      * @return the input capture response indicating if registration succeed, failed or delayed
      * @see CarInputManager#requestInputEventCapture(int, int[], int, CarInputCaptureCallback)
+     *
+     * @hide
      */
+    @SystemApi
     @RequiresPermission(anyOf = {PERMISSION_FRAMEWORK_MONITOR_INPUT,
             Car.PERMISSION_CAR_MONITOR_INPUT})
     @InputCaptureResponseEnum
@@ -339,7 +380,10 @@ public final class CarInputManager extends CarManagerBase {
 
     /**
      * Stops capturing of given display.
+     *
+     * @hide
      */
+    @SystemApi
     @AddedInOrBefore(majorVersion = 33)
     public void releaseInputEventCapture(@DisplayTypeEnum int targetDisplayType) {
         CallbackHolder callbackHolder;
@@ -366,7 +410,10 @@ public final class CarInputManager extends CarManagerBase {
      * @param event the key event to inject
      * @param targetDisplayType the display type associated with the key event
      * @throws RemoteException in case of failure when invoking car input service
+     *
+     * @hide
      */
+    @SystemApi
     @RequiresPermission(android.Manifest.permission.INJECT_EVENTS)
     @AddedInOrBefore(majorVersion = 33)
     public void injectKeyEvent(@NonNull KeyEvent event, @DisplayTypeEnum int targetDisplayType) {

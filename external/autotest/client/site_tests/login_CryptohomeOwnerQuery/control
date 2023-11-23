@@ -9,6 +9,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "login"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This test verifies that the owner user query in cryptohome reports the proper

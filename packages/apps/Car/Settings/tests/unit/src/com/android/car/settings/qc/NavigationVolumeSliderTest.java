@@ -26,6 +26,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.android.car.qc.QCItem;
 import com.android.car.qc.QCList;
 import com.android.car.qc.QCRow;
+import com.android.car.qc.QCSlider;
 import com.android.car.settings.R;
 
 import org.junit.Before;
@@ -72,6 +73,40 @@ public class NavigationVolumeSliderTest extends VolumeSliderTestCase {
     @Test
     public void onNotifyChange_updatesVolume() {
         verifyVolumeChanged(mVolumeSlider, GROUP_ID);
+    }
+
+    @Test
+    public void getQCItem_createsVolumeSlider_zoneWrite() {
+        mVolumeSlider.setAvailabilityStatusForZone("write");
+        QCItem item = mVolumeSlider.getQCItem();
+        assertThat(item).isNotNull();
+        assertThat(item instanceof QCList).isTrue();
+        QCList list = (QCList) item;
+        assertThat(list.getRows().size()).isEqualTo(1);
+        QCRow row = list.getRows().get(0);
+        QCSlider slider = row.getSlider();
+        assertThat(slider.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsVolumeSlider_zoneRead() {
+        mVolumeSlider.setAvailabilityStatusForZone("read");
+        QCItem item = mVolumeSlider.getQCItem();
+        assertThat(item).isNotNull();
+        assertThat(item instanceof QCList).isTrue();
+        QCList list = (QCList) item;
+        assertThat(list.getRows().size()).isEqualTo(1);
+        QCRow row = list.getRows().get(0);
+        QCSlider slider = row.getSlider();
+        assertThat(slider.isEnabled()).isFalse();
+        assertThat(slider.isClickableWhileDisabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsVolumeSlider_zoneHidden() {
+        mVolumeSlider.setAvailabilityStatusForZone("hidden");
+        QCItem item = mVolumeSlider.getQCItem();
+        assertThat(item).isNull();
     }
 
     protected QCRow getNavigationVolumeSlider() {

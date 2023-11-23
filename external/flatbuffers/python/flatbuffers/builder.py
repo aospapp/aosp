@@ -23,6 +23,8 @@ from .compat import range_func
 from .compat import memoryview_type
 from .compat import import_numpy, NumpyRequiredForThisFeature
 
+import warnings
+
 np = import_numpy()
 ## @file
 ## @addtogroup flatbuffers_python_api
@@ -75,6 +77,13 @@ class BuilderNotFinishedError(RuntimeError):
     """
     pass
 
+class EndVectorLengthMismatched(RuntimeError):
+    """
+    The number of elements passed to EndVector does not match the number 
+    specified in StartVector.
+    """
+    pass
+
 
 # VtableMetadataFields is the count of metadata fields in each vtable.
 VtableMetadataFields = 2
@@ -103,7 +112,7 @@ class Builder(object):
 
     ## @cond FLATBUFFERS_INTENRAL
     __slots__ = ("Bytes", "current_vtable", "head", "minalign", "objectEnd",
-                 "vtables", "nested", "forceDefaults", "finished")
+                 "vtables", "nested", "forceDefaults", "finished", "vectorNumElems")
 
     """Maximum buffer size constant, in bytes.
 
@@ -113,7 +122,7 @@ class Builder(object):
     MAX_BUFFER_SIZE = 2**31
     ## @endcond
 
-    def __init__(self, initialSize):
+    def __init__(self, initialSize=1024):
         """Initializes a Builder of size `initial_size`.
 
         The internal buffer is grown as needed.
@@ -371,20 +380,29 @@ class Builder(object):
 
         self.assertNotNested()
         self.nested = True
+        self.vectorNumElems = numElems
         self.Prep(N.Uint32Flags.bytewidth, elemSize*numElems)
         self.Prep(alignment, elemSize*numElems)  # In case alignment > int.
         return self.Offset()
     ## @endcond
 
-    def EndVector(self, vectorNumElems):
+    def EndVector(self, numElems = None):
         """EndVector writes data necessary to finish vector construction."""
 
         self.assertNested()
         ## @cond FLATBUFFERS_INTERNAL
         self.nested = False
         ## @endcond
+               
+        if numElems:
+            warnings.warn("numElems is deprecated.", 
+                          DeprecationWarning, stacklevel=2)
+            if numElems != self.vectorNumElems:
+                raise EndVectorLengthMismatched();
+
         # we already made space for this, so write without PrependUint32
-        self.PlaceUOffsetT(vectorNumElems)
+        self.PlaceUOffsetT(self.vectorNumElems)
+        self.vectorNumElems = None
         return self.Offset()
 
     def CreateString(self, s, encoding='utf-8', errors='strict'):
@@ -411,7 +429,8 @@ class Builder(object):
         ## @endcond
         self.Bytes[self.Head():self.Head()+l] = x
 
-        return self.EndVector(len(x))
+        self.vectorNumElems = len(x)
+        return self.EndVector()
 
     def CreateByteVector(self, x):
         """CreateString writes a byte vector."""
@@ -432,7 +451,8 @@ class Builder(object):
         ## @endcond
         self.Bytes[self.Head():self.Head()+l] = x
 
-        return self.EndVector(len(x))
+        self.vectorNumElems = len(x)
+        return self.EndVector()
 
     def CreateNumpyVector(self, x):
         """CreateNumpyVector writes a numpy array into the buffer."""
@@ -467,7 +487,8 @@ class Builder(object):
         # tobytes ensures c_contiguous ordering
         self.Bytes[self.Head():self.Head()+l] = x_lend.tobytes(order='C')
 
-        return self.EndVector(x.size)
+        self.vectorNumElems = x.size
+        return self.EndVector()
 
     ## @cond FLATBUFFERS_INTERNAL
     def assertNested(self):
@@ -557,9 +578,11 @@ class Builder(object):
         self.Place(off, flags)
 
     def PrependSlot(self, flags, o, x, d):
-        N.enforce_number(x, flags)
-        N.enforce_number(d, flags)
-        if x != d or self.forceDefaults:
+        if x is not None:
+            N.enforce_number(x, flags)
+        if d is not None:
+            N.enforce_number(d, flags)
+        if x != d or (self.forceDefaults and d is not None):
             self.Prepend(flags, x)
             self.Slot(o)
 

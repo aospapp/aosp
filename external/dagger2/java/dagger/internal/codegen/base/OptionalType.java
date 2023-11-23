@@ -17,22 +17,21 @@
 package dagger.internal.codegen.base;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static dagger.internal.codegen.extension.DaggerStreams.toImmutableMap;
+import static dagger.internal.codegen.extension.DaggerStreams.valuesOf;
+import static dagger.internal.codegen.xprocessing.XTypes.isDeclared;
 
-import com.google.auto.common.MoreElements;
-import com.google.auto.common.MoreTypes;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Equivalence;
+import com.google.common.collect.ImmutableMap;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
-import dagger.model.Key;
-import java.util.Optional;
-import javax.lang.model.element.Name;
-import javax.lang.model.type.DeclaredType;
+import dagger.internal.codegen.javapoet.TypeNames;
+import dagger.spi.model.Key;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.type.TypeVisitor;
-import javax.lang.model.util.SimpleTypeVisitor8;
 
 /**
  * Information about an {@code Optional} {@link TypeMirror}.
@@ -41,44 +40,58 @@ import javax.lang.model.util.SimpleTypeVisitor8;
  */
 @AutoValue
 public abstract class OptionalType {
+  private XType type;
 
   /** A variant of {@code Optional}. */
   public enum OptionalKind {
     /** {@link com.google.common.base.Optional}. */
-    GUAVA_OPTIONAL(com.google.common.base.Optional.class, "absent"),
+    GUAVA_OPTIONAL(TypeNames.GUAVA_OPTIONAL, "absent"),
 
     /** {@link java.util.Optional}. */
-    JDK_OPTIONAL(java.util.Optional.class, "empty"),
-    ;
+    JDK_OPTIONAL(TypeNames.JDK_OPTIONAL, "empty");
 
-    private final Class<?> clazz;
-    private final String absentFactoryMethodName;
+    // Keep a cache from class name to OptionalKind for quick look-up.
+    private static final ImmutableMap<ClassName, OptionalKind> OPTIONAL_KIND_BY_CLASS_NAME =
+        valuesOf(OptionalKind.class)
+            .collect(toImmutableMap(value -> value.className, value -> value));
 
-    OptionalKind(Class<?> clazz, String absentFactoryMethodName) {
-      this.clazz = clazz;
-      this.absentFactoryMethodName = absentFactoryMethodName;
+    private final ClassName className;
+    private final String absentMethodName;
+
+    OptionalKind(ClassName className, String absentMethodName) {
+      this.className = className;
+      this.absentMethodName = absentMethodName;
+    }
+
+    private static boolean isOptionalKind(XTypeElement type) {
+      return OPTIONAL_KIND_BY_CLASS_NAME.containsKey(type.getClassName());
+    }
+
+    private static OptionalKind of(XTypeElement type) {
+      return OPTIONAL_KIND_BY_CLASS_NAME.get(type.getClassName());
     }
 
     /** Returns {@code valueType} wrapped in the correct class. */
     public ParameterizedTypeName of(TypeName valueType) {
-      return ParameterizedTypeName.get(ClassName.get(clazz), valueType);
+      return ParameterizedTypeName.get(className, valueType);
     }
 
     /** Returns an expression for the absent/empty value. */
     public CodeBlock absentValueExpression() {
-      return CodeBlock.of("$T.$L()", clazz, absentFactoryMethodName);
+      return CodeBlock.of("$T.$L()", className, absentMethodName);
     }
 
     /**
      * Returns an expression for the absent/empty value, parameterized with {@link #valueType()}.
      */
     public CodeBlock parameterizedAbsentValueExpression(OptionalType optionalType) {
-      return CodeBlock.of("$T.<$T>$L()", clazz, optionalType.valueType(), absentFactoryMethodName);
+      return CodeBlock.of(
+          "$T.<$T>$L()", className, optionalType.valueType().getTypeName(), absentMethodName);
     }
 
     /** Returns an expression for the present {@code value}. */
     public CodeBlock presentExpression(CodeBlock value) {
-      return CodeBlock.of("$T.of($L)", clazz, value);
+      return CodeBlock.of("$T.of($L)", className, value);
     }
 
     /**
@@ -86,56 +99,36 @@ public abstract class OptionalType {
      * matter what type the value is.
      */
     public CodeBlock presentObjectExpression(CodeBlock value) {
-      return CodeBlock.of("$T.<$T>of($L)", clazz, Object.class, value);
+      return CodeBlock.of("$T.<$T>of($L)", className, TypeName.OBJECT, value);
     }
   }
 
-  private static final TypeVisitor<Optional<OptionalKind>, Void> OPTIONAL_KIND =
-      new SimpleTypeVisitor8<Optional<OptionalKind>, Void>(Optional.empty()) {
-        @Override
-        public Optional<OptionalKind> visitDeclared(DeclaredType t, Void p) {
-          for (OptionalKind optionalKind : OptionalKind.values()) {
-            Name qualifiedName = MoreElements.asType(t.asElement()).getQualifiedName();
-            if (qualifiedName.contentEquals(optionalKind.clazz.getCanonicalName())) {
-              return Optional.of(optionalKind);
-            }
-          }
-          return Optional.empty();
-        }
-      };
-
-  /**
-   * The optional type itself, wrapped using {@link MoreTypes#equivalence()}.
-   *
-   * @deprecated Use {@link #declaredOptionalType()} instead.
-   */
-  @Deprecated
-  protected abstract Equivalence.Wrapper<DeclaredType> wrappedDeclaredOptionalType();
+  /** The optional type itself. */
+  abstract TypeName typeName();
 
   /** The optional type itself. */
-  @SuppressWarnings("deprecation")
-  private DeclaredType declaredOptionalType() {
-    return wrappedDeclaredOptionalType().get();
+  private XType type() {
+    return type;
   }
 
   /** Which {@code Optional} type is used. */
   public OptionalKind kind() {
-    return declaredOptionalType().accept(OPTIONAL_KIND, null).get();
+    return OptionalKind.of(type().getTypeElement());
   }
 
   /** The value type. */
-  public TypeMirror valueType() {
-    return declaredOptionalType().getTypeArguments().get(0);
+  public XType valueType() {
+    return type().getTypeArguments().get(0);
   }
 
   /** Returns {@code true} if {@code type} is an {@code Optional} type. */
-  private static boolean isOptional(TypeMirror type) {
-    return type.accept(OPTIONAL_KIND, null).isPresent();
+  private static boolean isOptional(XType type) {
+    return isDeclared(type) && OptionalKind.isOptionalKind(type.getTypeElement());
   }
 
   /** Returns {@code true} if {@code key.type()} is an {@code Optional} type. */
   public static boolean isOptional(Key key) {
-    return isOptional(key.type());
+    return isOptional(key.type().xprocessing());
   }
 
   /**
@@ -143,9 +136,11 @@ public abstract class OptionalType {
    *
    * @throws IllegalArgumentException if {@code type} is not an {@code Optional} type
    */
-  public static OptionalType from(TypeMirror type) {
+  public static OptionalType from(XType type) {
     checkArgument(isOptional(type), "%s must be an Optional", type);
-    return new AutoValue_OptionalType(MoreTypes.equivalence().wrap(MoreTypes.asDeclared(type)));
+    OptionalType optionalType = new AutoValue_OptionalType(type.getTypeName());
+    optionalType.type = type;
+    return optionalType;
   }
 
   /**
@@ -154,6 +149,6 @@ public abstract class OptionalType {
    * @throws IllegalArgumentException if {@code key.type()} is not an {@code Optional} type
    */
   public static OptionalType from(Key key) {
-    return from(key.type());
+    return from(key.type().xprocessing());
   }
 }

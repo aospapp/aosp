@@ -1,12 +1,12 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 import collections
-import os
-import mox
-import types
+import six
 import unittest
+from unittest.mock import patch
 
 import common
+
 from autotest_lib.client.common_lib import autotemp
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import lsbrelease_utils
@@ -40,7 +40,16 @@ value_a: A
 random: 1
 wireless_ssid_1.2.3.4/24: ssid_1
 wireless_ssid_4.3.2.1/16: ssid_2
+
+[SECTION_F]
+value_7: %sexample
+value_8: %%sexample
+value_9: %%\(example\)
+value_10: %\(branch\)s
+value_11: %%\(branch\)s
+
 """
+
 
 moblab_config_ini_contents = """
 [SECTION_C]
@@ -59,18 +68,21 @@ value_1: somebody@remotehost
 def create_config_files():
     """Create config files to be used for test."""
     global_temp = autotemp.tempfile("global", ".ini", text=True)
-    os.write(global_temp.fd, global_config_ini_contents)
+    with open(global_temp.name, 'w') as gt:
+        gt.write(global_config_ini_contents)
 
     moblab_temp = autotemp.tempfile("moblab", ".ini", text=True)
-    os.write(moblab_temp.fd, moblab_config_ini_contents)
+    with open(moblab_temp.name, 'w') as mt:
+        mt.write(moblab_config_ini_contents)
 
     shadow_temp = autotemp.tempfile("shadow", ".ini", text=True)
-    os.write(shadow_temp.fd, shadow_config_ini_contents)
+    with open(shadow_temp.name, 'w') as st:
+        st.write(shadow_config_ini_contents)
 
     return (global_temp, shadow_temp, moblab_temp)
 
 
-class global_config_test(mox.MoxTestBase):
+class global_config_test(unittest.TestCase):
     """Test class"""
     # grab the singelton
     conf = global_config.global_config
@@ -117,23 +129,23 @@ class global_config_test(mox.MoxTestBase):
     def test_string(self):
         """Test converting string value."""
         val = self.conf.get_config_value("SECTION_A", "value_2")
-        self.assertEquals(type(val),bytes)
+        self.assertTrue(isinstance(val, six.string_types))
         self.assertEquals(val, "hello")
 
 
-    def setIsMoblab(self, is_moblab):
+    def setIsMoblab(self, value):
         """Set lsbrelease_utils.is_moblab result.
 
-        @param is_moblab: Value to have lsbrelease_utils.is_moblab to return.
+        @param value: Value to have lsbrelease_utils.is_moblab to return.
         """
-        self.mox.StubOutWithMock(lsbrelease_utils, 'is_moblab')
-        lsbrelease_utils.is_moblab().AndReturn(is_moblab)
-
+        patcher = patch.object(lsbrelease_utils, 'is_moblab')
+        is_moblab = patcher.start()
+        self.addCleanup(patcher.stop)
+        is_moblab.return_value = value
 
     def test_override_non_moblab(self):
         """Test value overriding works in non-moblab setup."""
         self.setIsMoblab(False)
-        self.mox.ReplayAll()
 
         self.conf.reset_config_values()
 
@@ -149,7 +161,6 @@ class global_config_test(mox.MoxTestBase):
     def test_override_moblab(self):
         """Test value overriding works in moblab setup."""
         self.setIsMoblab(True)
-        self.mox.ReplayAll()
 
         self.conf.reset_config_values()
 
@@ -183,6 +194,24 @@ class global_config_test(mox.MoxTestBase):
         val = self.conf.get_config_value("SECTION_A", "value_6", bool)
         self.assertEquals(val, False)
 
+
+    def test_special(self):
+        """Test converting special instances of '%, %%, %s, %%(), %()'."""
+        val7 = self.conf.get_config_value("SECTION_F", "value_7")
+        val8 = self.conf.get_config_value("SECTION_F", "value_8")
+        val9 = self.conf.get_config_value("SECTION_F", "value_9")
+        val10 = self.conf.get_config_value("SECTION_F", "value_10")
+        val11 = self.conf.get_config_value("SECTION_F", "value_11")
+
+        # This is the same parsing done within dev_server and other libs...
+        val10 = (val10.replace('\\', '') % {'branch': 'test_str'})
+        val11 = (val11.replace('\\', '') % {'branch': 'test_str'})
+
+        self.assertEquals(val7, '%sexample')
+        self.assertEquals(val8, '%sexample')
+        self.assertEquals(val9, '%\(example\)')
+        self.assertEquals(val10, 'test_str')
+        self.assertEquals(val11, 'test_str')
 
     def test_defaults(self):
         """Test default value works."""

@@ -1,4 +1,4 @@
-#!/usr/bin/python2 -u
+#!/usr/bin/python3 -u
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -29,6 +29,7 @@ from autotest_lib.site_utils.admin_audit import rpm_validator
 
 RETURN_CODES = autotest_enum.AutotestEnum(
         'OK',
+        'SERVO_VERIFICATION_FAILURE',
         'STAGE_USB_FAILURE',
         'INSTALL_FIRMWARE_FAILURE',
         'INSTALL_TEST_IMAGE_FAILURE',
@@ -67,6 +68,14 @@ def main():
             return
 
         is_labstation = (host_info.get().os == "labstation")
+
+        if 'servo-verification' in opts.actions:
+            try:
+                if not is_labstation:
+                    preparedut.verify_servo(host)
+            except Exception as err:
+                logging.error("fail to check servo: %s", err)
+                return RETURN_CODES.SERVO_VERIFICATION_FAILURE
 
         if 'stage-usb' in opts.actions:
             try:
@@ -142,9 +151,10 @@ def _parse_args():
             'actions',
             nargs='+',
             choices=[
-                    'stage-usb', 'install-test-image', 'install-firmware',
-                    'verify-recovery-mode', 'run-pre-deploy-verification',
-                    'update-label', 'setup-labstation'
+                    'servo-verification', 'stage-usb', 'install-test-image',
+                    'install-firmware', 'verify-recovery-mode',
+                    'run-pre-deploy-verification', 'update-label',
+                    'setup-labstation'
             ],
             help='DUT preparation actions to execute.',
     )
@@ -218,6 +228,7 @@ def create_host(hostname, host_info, results_dir):
                                       host_info_store=host_info,
                                       try_lab_servo=need_servo,
                                       try_servo_repair=need_servo,
+                                      try_servo_recovery=need_servo,
                                       servo_uart_logs_dir=dut_logs_dir)
 
 

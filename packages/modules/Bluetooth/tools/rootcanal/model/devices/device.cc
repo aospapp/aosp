@@ -21,63 +21,25 @@
 namespace rootcanal {
 
 std::string Device::ToString() const {
-  std::string dev = GetTypeString() + "@" + properties_.GetAddress().ToString();
-
-  return dev;
-}
-
-void Device::RegisterPhyLayer(std::shared_ptr<PhyLayer> phy) {
-  phy_layers_.push_back(phy);
-}
-
-void Device::UnregisterPhyLayers() {
-  for (auto phy : phy_layers_) {
-    if (phy != nullptr) {
-      phy->Unregister();
-    }
-  }
-  phy_layers_.clear();
-}
-
-void Device::UnregisterPhyLayer(Phy::Type phy_type, uint32_t factory_id) {
-  for (auto& phy : phy_layers_) {
-    if (phy != nullptr && phy->IsFactoryId(factory_id) &&
-        phy->GetType() == phy_type) {
-      phy->Unregister();
-      phy.reset();
-      return;
-    }
-  }
-}
-
-bool Device::IsAdvertisementAvailable() const {
-  return (advertising_interval_ms_ > std::chrono::milliseconds(0)) &&
-         (std::chrono::steady_clock::now() >=
-          last_advertisement_ + advertising_interval_ms_);
-}
-
-void Device::SendLinkLayerPacket(
-    std::shared_ptr<model::packets::LinkLayerPacketBuilder> to_send,
-    Phy::Type phy_type) {
-  for (auto phy : phy_layers_) {
-    if (phy != nullptr && phy->GetType() == phy_type) {
-      phy->Send(to_send);
-    }
-  }
-}
-
-void Device::SendLinkLayerPacket(model::packets::LinkLayerPacketView to_send,
-                                 Phy::Type phy_type) {
-  for (auto phy : phy_layers_) {
-    if (phy != nullptr && phy->GetType() == phy_type) {
-      phy->Send(to_send);
-    }
-  }
+  return GetTypeString() + "@" + address_.ToString();
 }
 
 void Device::Close() {
-  if (close_callback_) {
+  if (close_callback_ != nullptr) {
     close_callback_();
+  }
+}
+
+void Device::SendLinkLayerPacket(
+    std::shared_ptr<model::packets::LinkLayerPacketBuilder> packet,
+    Phy::Type type, int8_t tx_power) {
+  SendLinkLayerPacket(packet->SerializeToBytes(), type, tx_power);
+}
+
+void Device::SendLinkLayerPacket(std::vector<uint8_t> const& packet,
+                                 Phy::Type type, int8_t tx_power) {
+  if (send_ll_ != nullptr) {
+    send_ll_(packet, type, tx_power);
   }
 }
 
@@ -85,8 +47,10 @@ void Device::RegisterCloseCallback(std::function<void()> close_callback) {
   close_callback_ = close_callback;
 }
 
-void Device::SetAddress(Address) {
-  LOG_INFO("%s does not implement %s", GetTypeString().c_str(), __func__);
+void Device::RegisterLinkLayerChannel(
+    std::function<void(std::vector<uint8_t> const&, Phy::Type, int8_t)>
+        send_ll) {
+  send_ll_ = send_ll;
 }
 
 }  // namespace rootcanal

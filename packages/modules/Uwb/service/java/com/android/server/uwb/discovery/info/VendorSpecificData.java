@@ -29,6 +29,7 @@ import com.google.common.primitives.Bytes;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
+import java.util.Optional;
 
 /**
  * Holds FiRa UWB vendor specific data according to FiRa BLE OOB v1.0 specification.
@@ -50,27 +51,33 @@ public class VendorSpecificData {
      * Generate the VendorSpecificData from raw bytes array.
      *
      * @param bytes byte array containing the UWB vendor specific data.
+     * @param vendorId Optionally provide the vendor id if already extracted from the bytes.
      * @return decode bytes into {@link VendorSpecificData}, else null if invalid.
      */
     @Nullable
-    public static VendorSpecificData fromBytes(@NonNull byte[] bytes) {
+    public static VendorSpecificData fromBytes(@NonNull byte[] bytes, Optional<Integer> vendorId) {
         if (ArrayUtils.isEmpty(bytes)) {
             logw("Failed to convert empty into UWB vendor specific data.");
             return null;
         }
 
-        if (bytes.length < MIN_VENDOR_SPECIFIC_DATA_SIZE) {
+        if (!vendorId.isPresent() && bytes.length < MIN_VENDOR_SPECIFIC_DATA_SIZE) {
             logw("Failed to convert bytes into UWB vendor specific data due to invalid data size.");
             return null;
         }
 
         ByteBuffer buffer = ByteBuffer.wrap(bytes);
-        int vendorId = buffer.order(ByteOrder.LITTLE_ENDIAN).getShort();
+        int id;
+        if (vendorId.isPresent()) {
+            id = vendorId.get().intValue();
+        } else {
+            id = buffer.order(ByteOrder.LITTLE_ENDIAN).getShort();
+        }
 
         byte[] vendorData = new byte[buffer.remaining()];
         buffer.order(ByteOrder.BIG_ENDIAN).get(vendorData);
 
-        return new VendorSpecificData(vendorId, vendorData);
+        return new VendorSpecificData(id, vendorData);
     }
 
     /**

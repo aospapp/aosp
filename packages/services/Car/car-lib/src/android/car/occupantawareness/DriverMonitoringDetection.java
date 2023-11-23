@@ -74,7 +74,6 @@ public final class DriverMonitoringDetection implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return "DriverMonitoringDetection{"
                 + "confidenceLevel="

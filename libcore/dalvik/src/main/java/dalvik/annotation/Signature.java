@@ -23,8 +23,12 @@ import java.lang.annotation.Target;
 
 /**
  * A system annotation used to provide the {@code Signature} attribute.
+ * @hide
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.ANNOTATION_TYPE)
-@interface Signature {}
+@Target({ElementType.TYPE, ElementType.ANNOTATION_TYPE})
+public @interface Signature {
+
+    String[] value();
+}
 

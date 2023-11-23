@@ -173,4 +173,47 @@ interface IDisplay {
      */
     PanelCalibrationStatus getPanelCalibrationStatus();
 
+
+   /**
+     * Query Dim Brightness Mode Supported. The dim brightness is a lower minimum brightness,
+     * which is not listed in the brightness table. This API is to query whether the dim
+     * brightness mode is supported or not.
+     *
+     * @return true if Dim Brightness Mode is supported on this platform, false otherwise.
+     */
+    boolean isDbmSupported();
+
+    /**
+     * Set Dim Brightness Mode. If enabled, it will set the dim brightness when reaching the
+     * minimum brightness which can be different from the actual minimum brightness from the
+     * brightness table we can achieve.
+     *
+     * @param enabled true to enable, false to disable the mode.
+     */
+    void setDbmState(in boolean enabled);
+
+    /**
+     * Set Display Peak Refresh Rate
+     *
+     * @param rate (frame per second).
+     */
+    void setPeakRefreshRate(in int rate);
+
+    /**
+     * Set Low Power Mode
+     *
+     * @param enabled.
+     */
+    void setLowPowerMode(in boolean enabled);
+
+    /**
+     * Query Operation Rate supporting status. Only if the display panel supports
+     * operation rate switching, peak refresh rate and low power mode status from Android
+     * framework are needed to forward into lower display software which manages operation
+     * rate.
+     *
+     * @return true if operation rate switch is supported.
+     *         false if not supported.
+     */
+    boolean isOperationRateSupported();
 }

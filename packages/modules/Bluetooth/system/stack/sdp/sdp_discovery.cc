@@ -70,9 +70,14 @@ static uint8_t* add_attr(uint8_t* p, uint8_t* p_end, tSDP_DISCOVERY_DB* p_db,
  *
  ******************************************************************************/
 static uint8_t* sdpu_build_uuid_seq(uint8_t* p_out, uint16_t num_uuids,
-                                    Uuid* p_uuid_list) {
+                                    Uuid* p_uuid_list, uint16_t& bytes_left) {
   uint16_t xx;
   uint8_t* p_len;
+
+  if (bytes_left < 2) {
+    DCHECK(0) << "SDP: No space for data element header";
+    return (p_out);
+  }
 
   /* First thing is the data element header */
   UINT8_TO_BE_STREAM(p_out, (DATA_ELE_SEQ_DESC_TYPE << 3) | SIZE_IN_NEXT_BYTE);
@@ -81,9 +86,20 @@ static uint8_t* sdpu_build_uuid_seq(uint8_t* p_out, uint16_t num_uuids,
   p_len = p_out;
   p_out += 1;
 
+  /* Account for data element header and length */
+  bytes_left -= 2;
+
   /* Now, loop through and put in all the UUID(s) */
   for (xx = 0; xx < num_uuids; xx++, p_uuid_list++) {
     int len = p_uuid_list->GetShortestRepresentationSize();
+
+    if (len + 1 > bytes_left) {
+      DCHECK(0) << "SDP: Too many UUIDs for internal buffer";
+      break;
+    } else {
+      bytes_left -= (len + 1);
+    }
+
     if (len == Uuid::kNumBytes16) {
       UINT8_TO_BE_STREAM(p_out, (UUID_DESC_TYPE << 3) | SIZE_TWO_BYTES);
       UINT16_TO_BE_STREAM(p_out, p_uuid_list->As16Bit());
@@ -120,6 +136,7 @@ static void sdp_snd_service_search_req(tCONN_CB* p_ccb, uint8_t cont_len,
   uint8_t *p, *p_start, *p_param_len;
   BT_HDR* p_cmd = (BT_HDR*)osi_malloc(SDP_DATA_BUF_SIZE);
   uint16_t param_len;
+  uint16_t bytes_left = SDP_DATA_BUF_SIZE;
 
   /* Prepare the buffer for sending the packet to L2CAP */
   p_cmd->offset = L2CAP_MIN_OFFSET;
@@ -134,9 +151,24 @@ static void sdp_snd_service_search_req(tCONN_CB* p_ccb, uint8_t cont_len,
   p_param_len = p;
   p += 2;
 
-/* Build the UID sequence. */
+  /* Account for header size, max service record count and
+   * continuation state */
+  const uint16_t base_bytes = (sizeof(BT_HDR) + L2CAP_MIN_OFFSET +
+                               3u + /* service search request header */
+                               2u + /* param len */
+                               3u + ((p_cont) ? cont_len : 0));
+
+  if (base_bytes > bytes_left) {
+    DCHECK(0) << "SDP: Overran SDP data buffer";
+    osi_free(p_cmd);
+    return;
+  }
+
+  bytes_left -= base_bytes;
+
+  /* Build the UID sequence. */
   p = sdpu_build_uuid_seq(p, p_ccb->p_db->num_uuid_filters,
-                          p_ccb->p_db->uuid_filters);
+                          p_ccb->p_db->uuid_filters, bytes_left);
 
   /* Set max service record count */
   UINT16_TO_BE_STREAM(p, sdp_cb.max_recs_per_search);
@@ -213,7 +245,6 @@ void sdp_disc_server_rsp(tCONN_CB* p_ccb, BT_HDR* p_msg) {
   uint8_t* p_end = p + p_msg->len;
 
   if (p_msg->len < 1) {
-    android_errorWriteLog(0x534e4554, "79883568");
     sdp_disconnect(p_ccb, SDP_GENERIC_ERROR);
     return;
   }
@@ -269,7 +300,6 @@ static void process_service_search_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
   uint8_t cont_len;
 
   if (p_reply + 8 > p_reply_end) {
-    android_errorWriteLog(0x534e4554, "74249842");
     sdp_disconnect(p_ccb, SDP_GENERIC_ERROR);
     return;
   }
@@ -280,7 +310,7 @@ static void process_service_search_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
 
   orig = p_ccb->num_handles;
   p_ccb->num_handles += cur_handles;
-  if (p_ccb->num_handles == 0) {
+  if (p_ccb->num_handles == 0 || p_ccb->num_handles < orig) {
     SDP_TRACE_WARNING("SDP - Rcvd ServiceSearchRsp, no matches");
     sdp_disconnect(p_ccb, SDP_NO_RECS_MATCH);
     return;
@@ -292,7 +322,6 @@ static void process_service_search_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
     p_ccb->num_handles = sdp_cb.max_recs_per_search;
 
   if (p_reply + ((p_ccb->num_handles - orig) * 4) + 1 > p_reply_end) {
-    android_errorWriteLog(0x534e4554, "74249842");
     sdp_disconnect(p_ccb, SDP_GENERIC_ERROR);
     return;
   }
@@ -307,7 +336,6 @@ static void process_service_search_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
       return;
     }
     if (p_reply + cont_len > p_reply_end) {
-      android_errorWriteLog(0x534e4554, "68161546");
       sdp_disconnect(p_ccb, SDP_INVALID_CONT_STATE);
       return;
     }
@@ -341,7 +369,7 @@ static bool sdp_copy_raw_data(tCONN_CB* p_ccb, bool offset) {
   uint8_t* p_end;
   uint8_t type;
 
-  if (p_ccb->p_db->raw_data) {
+  if (p_ccb->p_db && p_ccb->p_db->raw_data) {
     cpy_len = p_ccb->p_db->raw_size - p_ccb->p_db->raw_used;
     list_len = p_ccb->list_len;
     p = &p_ccb->rsp_list[0];
@@ -481,8 +509,6 @@ static void process_service_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
       if ((p_reply + *p_reply + 1) <= p_reply_end) {
         memcpy(p, p_reply, *p_reply + 1);
         p += *p_reply + 1;
-      } else {
-        android_errorWriteLog(0x534e4554, "68161546");
       }
     } else
       UINT8_TO_BE_STREAM(p, 0);
@@ -528,7 +554,6 @@ static void process_service_search_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
   if (p_reply) {
     if (p_reply + 4 /* transaction ID and length */ + sizeof(lists_byte_count) >
         p_reply_end) {
-      android_errorWriteLog(0x534e4554, "79884292");
       sdp_disconnect(p_ccb, SDP_INVALID_PDU_SIZE);
       return;
     }
@@ -546,7 +571,6 @@ static void process_service_search_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
     }
 
     if (p_reply + lists_byte_count + 1 /* continuation */ > p_reply_end) {
-      android_errorWriteLog(0x534e4554, "79884292");
       sdp_disconnect(p_ccb, SDP_INVALID_PDU_SIZE);
       return;
     }
@@ -570,6 +594,7 @@ static void process_service_search_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
   if ((cont_request_needed) || (!p_reply)) {
     BT_HDR* p_msg = (BT_HDR*)osi_malloc(SDP_DATA_BUF_SIZE);
     uint8_t* p;
+    uint16_t bytes_left = SDP_DATA_BUF_SIZE;
 
     p_msg->offset = L2CAP_MIN_OFFSET;
     p = p_start = (uint8_t*)(p_msg + 1) + L2CAP_MIN_OFFSET;
@@ -583,9 +608,24 @@ static void process_service_search_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
     p_param_len = p;
     p += 2;
 
-/* Build the UID sequence. */
+    /* Account for header size, max service record count and
+     * continuation state */
+    const uint16_t base_bytes = (sizeof(BT_HDR) + L2CAP_MIN_OFFSET +
+                                 3u + /* service search request header */
+                                 2u + /* param len */
+                                 3u + /* max service record count */
+                                 ((p_reply) ? (*p_reply) : 0));
+
+    if (base_bytes > bytes_left) {
+      sdp_disconnect(p_ccb, SDP_INVALID_CONT_STATE);
+      return;
+    }
+
+    bytes_left -= base_bytes;
+
+    /* Build the UID sequence. */
     p = sdpu_build_uuid_seq(p, p_ccb->p_db->num_uuid_filters,
-                            p_ccb->p_db->uuid_filters);
+                            p_ccb->p_db->uuid_filters, bytes_left);
 
     /* Max attribute byte count */
     UINT16_TO_BE_STREAM(p, sdp_cb.max_attr_list_size);
@@ -602,8 +642,6 @@ static void process_service_search_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
       if ((p_reply + *p_reply + 1) <= p_reply_end) {
         memcpy(p, p_reply, *p_reply + 1);
         p += *p_reply + 1;
-      } else {
-        android_errorWriteLog(0x534e4554, "68161546");
       }
     } else
       UINT8_TO_BE_STREAM(p, 0);
@@ -641,7 +679,6 @@ static void process_service_search_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
 
   if ((type >> 3) != DATA_ELE_SEQ_DESC_TYPE) {
     LOG_WARN("Wrong element in attr_rsp type:0x%02x", type);
-    android_errorWriteLog(0x534e4554, "224545125");
     sdp_disconnect(p_ccb, SDP_ILLEGAL_PARAMETER);
     return;
   }
@@ -815,7 +852,6 @@ static uint8_t* add_attr(uint8_t* p, uint8_t* p_end, tSDP_DISCOVERY_DB* p_db,
 
   p_attr_end = p + attr_len;
   if (p_attr_end > p_end) {
-    android_errorWriteLog(0x534e4554, "115900043");
     SDP_TRACE_WARNING("%s: SDP - Attribute length beyond p_end", __func__);
     return NULL;
   }

@@ -18,20 +18,18 @@ package com.android.server.wifi.p2p;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.app.test.MockAnswerUtil;
 import android.hardware.wifi.V1_0.IWifiIface;
 import android.hardware.wifi.V1_0.IWifiP2pIface;
 import android.hardware.wifi.V1_0.WifiStatus;
 import android.hardware.wifi.V1_0.WifiStatusCode;
 import android.net.wifi.nl80211.WifiNl80211Manager;
 import android.os.Handler;
-import android.os.RemoteException;
 import android.os.WorkSource;
 
 import androidx.test.filters.SmallTest;
@@ -41,8 +39,10 @@ import com.android.server.wifi.HalDeviceManager.InterfaceDestroyedListener;
 import com.android.server.wifi.HalDeviceManager.ManagerStatusListener;
 import com.android.server.wifi.PropertyService;
 import com.android.server.wifi.WifiBaseTest;
+import com.android.server.wifi.WifiMetrics;
 import com.android.server.wifi.WifiNative;
 import com.android.server.wifi.WifiVendorHal;
+import com.android.server.wifi.hal.WifiHal;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -69,6 +69,7 @@ public class WifiP2pNativeInterfaceManagementTest extends WifiBaseTest {
     @Mock private WifiVendorHal mWifiVendorHal;
     @Mock private WifiNl80211Manager mWifiNl80211Manager;
     @Mock private WifiNative mWifiNative;
+    @Mock private WifiMetrics mWifiMetrics;
     private WifiP2pNative mWifiP2pNative;
     private WifiStatus mWifiStatusSuccess;
     private ManagerStatusListener mManagerStatusListener;
@@ -84,14 +85,7 @@ public class WifiP2pNativeInterfaceManagementTest extends WifiBaseTest {
 
         when(mHalDeviceManager.isSupported()).thenReturn(true);
         when(mHalDeviceManager.createP2pIface(any(InterfaceDestroyedListener.class),
-                any(Handler.class), any(WorkSource.class))).thenReturn(mIWifiP2pIface);
-        doAnswer(new MockAnswerUtil.AnswerWithArguments() {
-            public void answer(IWifiIface.getNameCallback cb)
-                    throws RemoteException {
-                cb.onValues(mWifiStatusSuccess, P2P_IFACE_NAME);
-            }
-        }).when(mIWifiP2pIface).getName(any(IWifiIface.getNameCallback.class));
-
+                any(Handler.class), any(WorkSource.class))).thenReturn(P2P_IFACE_NAME);
         when(mSupplicantP2pIfaceHal.isInitializationStarted()).thenReturn(true);
         when(mSupplicantP2pIfaceHal.initialize()).thenReturn(true);
         when(mSupplicantP2pIfaceHal.isInitializationComplete()).thenReturn(true);
@@ -99,9 +93,8 @@ public class WifiP2pNativeInterfaceManagementTest extends WifiBaseTest {
         when(mPropertyService.getString(P2P_INTERFACE_PROPERTY, P2P_IFACE_NAME))
               .thenReturn(P2P_IFACE_NAME);
 
-        mWifiP2pNative = new WifiP2pNative(mWifiNl80211Manager, mWifiNative,
-                              mWifiVendorHal, mSupplicantP2pIfaceHal, mHalDeviceManager,
-                              mPropertyService);
+        mWifiP2pNative = new WifiP2pNative(mWifiNl80211Manager, mWifiNative, mWifiMetrics,
+                mWifiVendorHal, mSupplicantP2pIfaceHal, mHalDeviceManager, mPropertyService);
     }
 
     /**
@@ -145,7 +138,7 @@ public class WifiP2pNativeInterfaceManagementTest extends WifiBaseTest {
 
         mWifiP2pNative.teardownInterface();
 
-        verify(mHalDeviceManager).removeIface(any(IWifiIface.class));
+        verify(mHalDeviceManager).removeP2pIface(anyString());
         verify(mSupplicantP2pIfaceHal).teardownIface(eq(P2P_IFACE_NAME));
     }
 
@@ -161,7 +154,7 @@ public class WifiP2pNativeInterfaceManagementTest extends WifiBaseTest {
 
         mWifiP2pNative.teardownInterface();
 
-        verify(mHalDeviceManager, never()).removeIface(any(IWifiIface.class));
+        verify(mHalDeviceManager, never()).removeIface(any(WifiHal.WifiInterface.class));
         verify(mSupplicantP2pIfaceHal).teardownIface(eq(P2P_IFACE_NAME));
     }
 }

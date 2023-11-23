@@ -1,0 +1,2 @@
+type sysfs_gps, sysfs_type, fs_type;
+type sysfs_gps_assert, sysfs_type, fs_type;

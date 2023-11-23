@@ -46,7 +46,7 @@ public class HardwareRevisionPreferenceController extends PreferenceController<P
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return AVAILABLE_FOR_VIEWING;
     }
 }

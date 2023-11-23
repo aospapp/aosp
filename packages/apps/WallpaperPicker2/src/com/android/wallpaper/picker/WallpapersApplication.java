@@ -18,7 +18,7 @@ package com.android.wallpaper.picker;
 import android.app.Application;
 
 import com.android.wallpaper.module.InjectorProvider;
-import com.android.wallpaper.module.WallpapersInjector;
+import com.android.wallpaper.module.WallpaperPicker2Injector;
 
 /**
  * Application subclass that initializes the injector.
@@ -30,6 +30,6 @@ public class WallpapersApplication extends Application {
         super.onCreate();
 
         // Initialize the injector.
-        InjectorProvider.setInjector(new WallpapersInjector());
+        InjectorProvider.setInjector(new WallpaperPicker2Injector());
     }
 }

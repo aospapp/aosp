@@ -44,6 +44,8 @@ public:
     android::base::Result<bool> getPowerComponentState(
             const ::aidl::android::frameworks::automotive::powerpolicy::PowerComponent componentId)
             const;
+    // Gets the current state of the given custom component.
+    android::base::Result<bool> getCustomPowerComponentState(const int componentId) const;
     // Gets the accumulated state of all components after applying power policies.
     CarPowerPolicyPtr getAccumulatedPolicy() const;
     // Dumps the internal status.

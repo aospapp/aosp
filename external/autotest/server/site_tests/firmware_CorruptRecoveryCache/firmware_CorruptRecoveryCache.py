@@ -28,7 +28,8 @@ class firmware_CorruptRecoveryCache(FirmwareTest):
         super(firmware_CorruptRecoveryCache, self).initialize(
                 host, cmdline_args)
         self.backup_firmware()
-        self.switcher.setup_mode('dev' if dev_mode else 'normal')
+        self.switcher.setup_mode('dev' if dev_mode else 'normal',
+                                 allow_gbb_force=True)
         self.setup_usbkey(usbkey=True, host=False)
 
     def cleanup(self):
@@ -76,7 +77,7 @@ class firmware_CorruptRecoveryCache(FirmwareTest):
         if not self.cache_exist():
             raise error.TestNAError('No RECOVERY_MRC_CACHE was found on DUT.')
 
-        self.faft_client.bios.corrupt_body('rec', True)
+        self.faft_client.bios.corrupt_mrc_cache()
         self.boot_to_recovery()
 
         if not self.check_cache_rebuilt():

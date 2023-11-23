@@ -14,21 +14,3 @@ license {
         "LICENSE.rst",
     ],
 }
-
-python_library {
-    name: "py-jinja",
-    host_supported: true,
-    srcs: ["src/jinja2/*.py"],
-    libs: [
-        "py-markupsafe",
-        "py-setuptools",
-    ],
-    version: {
-        py2: {
-            enabled: false,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
-}

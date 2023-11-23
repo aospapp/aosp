@@ -51,8 +51,71 @@ public final class DeviceAdminAddExplanationPreferenceControllerTest extends
     }
 
     @Test
+    public void testGetAvailabilityStatus_noAdmin_zoneWrite() throws Exception {
+        DeviceAdminAddExplanationPreferenceController controller =
+                new DeviceAdminAddExplanationPreferenceController(mSpiedContext, mPreferenceKey,
+                        mFragmentController, mUxRestrictions);
+        mController.setExplanation("To conquer the universe");
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noAdmin_zoneRead() throws Exception {
+        DeviceAdminAddExplanationPreferenceController controller =
+                new DeviceAdminAddExplanationPreferenceController(mSpiedContext, mPreferenceKey,
+                        mFragmentController, mUxRestrictions);
+        mController.setExplanation("To conquer the universe");
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noAdmin_zoneHidden() throws Exception {
+        DeviceAdminAddExplanationPreferenceController controller =
+                new DeviceAdminAddExplanationPreferenceController(mSpiedContext, mPreferenceKey,
+                        mFragmentController, mUxRestrictions);
+        mController.setExplanation("To conquer the universe");
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_deviceOwner_noReason() throws Exception {
         mockDeviceOwner();
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_deviceOwner_noReason_zoneWrite() throws Exception {
+        mockDeviceOwner();
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_deviceOwner_noReason_zoneRead() throws Exception {
+        mockDeviceOwner();
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_deviceOwner_noReason_zoneHidden() throws Exception {
+        mockDeviceOwner();
+        mController.setAvailabilityStatusForZone("hidden");
 
         PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 PreferenceController.CONDITIONALLY_UNAVAILABLE);
@@ -68,8 +131,65 @@ public final class DeviceAdminAddExplanationPreferenceControllerTest extends
     }
 
     @Test
+    public void testGetAvailabilityStatus_deviceOwner_withReason_zoneWrite() throws Exception {
+        mockDeviceOwner();
+        mController.setExplanation("To conquer the universe");
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_deviceOwner_withReason_zoneRead() throws Exception {
+        mockDeviceOwner();
+        mController.setExplanation("To conquer the universe");
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_deviceOwner_withReason_zoneHidden() throws Exception {
+        mockDeviceOwner();
+        mController.setExplanation("To conquer the universe");
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_profileOwner_noReason() throws Exception {
         mockProfileOwner();
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_profileOwner_noReason_zoneWrite() throws Exception {
+        mockProfileOwner();
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_profileOwner_noReason_zoneRead() throws Exception {
+        mockProfileOwner();
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_profileOwner_noReason_zoneHidden() throws Exception {
+        mockProfileOwner();
+        mController.setAvailabilityStatusForZone("hidden");
 
         PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 PreferenceController.CONDITIONALLY_UNAVAILABLE);
@@ -85,8 +205,65 @@ public final class DeviceAdminAddExplanationPreferenceControllerTest extends
     }
 
     @Test
+    public void testGetAvailabilityStatus_profileOwner_withReason_zoneWrite() throws Exception {
+        mockProfileOwner();
+        mController.setExplanation("To conquer the universe");
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_profileOwner_withReason_zoneRead() throws Exception {
+        mockProfileOwner();
+        mController.setExplanation("To conquer the universe");
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_profileOwner_withReason_zoneHidden() throws Exception {
+        mockProfileOwner();
+        mController.setExplanation("To conquer the universe");
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void testGetRealAvailabilityStatus_nullReason() throws Exception {
         mController.setExplanation(null);
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetRealAvailabilityStatus_nullReason_zoneWrite() throws Exception {
+        mController.setExplanation(null);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetRealAvailabilityStatus_nullReason_zoneRead() throws Exception {
+        mController.setExplanation(null);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetRealAvailabilityStatus_nullReason_zoneHidden() throws Exception {
+        mController.setExplanation(null);
+        mController.setAvailabilityStatusForZone("hidden");
 
         PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 PreferenceController.CONDITIONALLY_UNAVAILABLE);
@@ -101,11 +278,65 @@ public final class DeviceAdminAddExplanationPreferenceControllerTest extends
     }
 
     @Test
+    public void testGetAvailabilityStatus_emptyReason_zoneWrite() throws Exception {
+        mController.setExplanation("");
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_emptyReason_zoneRead() throws Exception {
+        mController.setExplanation("");
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_emptyReason_zoneHidden() throws Exception {
+        mController.setExplanation("");
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void testGetAvailabilityStatus_validReason() throws Exception {
         mController.setExplanation("To conquer the universe");
 
         PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 PreferenceController.AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_validReason_zoneWrite() throws Exception {
+        mController.setExplanation("To conquer the universe");
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_validReason_zoneRead() throws Exception {
+        mController.setExplanation("To conquer the universe");
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_validReason_zoneHidden() throws Exception {
+        mController.setExplanation("To conquer the universe");
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

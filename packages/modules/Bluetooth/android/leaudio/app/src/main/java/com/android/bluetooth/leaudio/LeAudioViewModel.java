@@ -81,6 +81,10 @@ public class LeAudioViewModel extends AndroidViewModel {
         bluetoothProxy.hapSetActivePreset(device, preset_index);
     }
 
+    public void hapSetActivePresetForGroup(BluetoothDevice device, int preset_index) {
+        bluetoothProxy.hapSetActivePresetForGroup(device, preset_index);
+    }
+
     public void hapChangePresetName(BluetoothDevice device, int preset_index, String name) {
         bluetoothProxy.hapChangePresetName(device, preset_index, name);
     }

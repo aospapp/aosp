@@ -23,6 +23,11 @@ import android.content.res.Resources;
 
 import androidx.test.InstrumentationRegistry;
 
+import android.content.Context;
+import android.content.res.Resources;
+
+import androidx.test.InstrumentationRegistry;
+
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 

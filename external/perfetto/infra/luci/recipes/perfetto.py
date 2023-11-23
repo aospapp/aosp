@@ -43,15 +43,7 @@ ARTIFACTS = [
         'name': 'trace_processor_shell'
     },
     {
-        'name':
-            'trace_to_text',
-
-        # trace_to_text is really a host exeutable, doesn't make sense to build
-        # it when cross-compiling .
-        'exclude_platforms': [
-            'android-arm', 'android-arm64', 'android-x86', 'android-x64',
-            'linux-arm', 'linux-arm64'
-        ]
+        'name': 'traceconv',
     },
     {
         'name': 'tracebox',
@@ -184,7 +176,7 @@ def RunSteps(api, repository):
       # Store information about the git revision and the tag if available.
       ctx.git_revision = api.step(
           'rev-parse', ['git', 'rev-parse', 'HEAD'],
-          stdout=api.raw_io.output()).stdout.strip()
+          stdout=api.raw_io.output_text()).stdout.strip()
       ctx.maybe_git_tag = ref.replace(
           'refs/tags/', '') if ref.startswith('refs/tags/') else None
 

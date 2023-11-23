@@ -1,0 +1,2 @@
+allow vendor_init proc_touch:file w_file_perms;
+

@@ -79,7 +79,7 @@ TEST(GeneratedServiceClientTest, DataSuccessfullyExchanged) {
     GreetResponse response;
     response.set_greeting("Hello, Tester age 78");
 
-    std::vector<uint8_t> responseBytes(response.ByteSize());
+    std::vector<uint8_t> responseBytes(response.ByteSizeLong());
     ASSERT_TRUE(response.SerializeToArray(responseBytes.data(), responseBytes.size()));
 
     EXPECT_CALL(client, CallApp(_, _, DecodesToProtoMessage(request), _))
@@ -114,7 +114,7 @@ TEST(GeneratedServiceClientTest, AppErrorsPropagatedWithoutResponseDecode) {
     GreetResponse response;
     response.set_greeting("Ignore me");
 
-    std::vector<uint8_t> responseBytes(response.ByteSize());
+    std::vector<uint8_t> responseBytes(response.ByteSizeLong());
     ASSERT_TRUE(response.SerializeToArray(responseBytes.data(), responseBytes.size()));
 
     EXPECT_CALL(client, CallApp(_, _, _, _))

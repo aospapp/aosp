@@ -142,6 +142,10 @@ class C2GoldfishHevcDec : public SimpleC2Component {
         }
     } mBitstreamColorAspects;
 
+    MetaDataColorAspects mSentMetadata = {1, 0, 0, 0};
+
+    void sendMetadata();
+
     // profile
     struct timeval mTimeStart;
     struct timeval mTimeEnd;

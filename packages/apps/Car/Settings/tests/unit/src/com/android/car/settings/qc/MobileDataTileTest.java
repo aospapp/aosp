@@ -146,6 +146,31 @@ public class MobileDataTileTest extends BaseSettingsQCItemTestCase {
         verify(mDataUsageController).setMobileDataEnabled(true);
     }
 
+    @Test
+    public void getQCItem_createsTile_zoneWrite() {
+        when(mDataUsageController.isMobileDataSupported()).thenReturn(true);
+        mMobileDataTile.setAvailabilityStatusForZone("write");
+        QCTile tile = getTile();
+        assertThat(tile.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsTile_zoneRead() {
+        when(mDataUsageController.isMobileDataSupported()).thenReturn(true);
+        mMobileDataTile.setAvailabilityStatusForZone("read");
+        QCTile tile = getTile();
+        assertThat(tile.isEnabled()).isFalse();
+        assertThat(tile.isClickableWhileDisabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsTile_zoneHidden() {
+        when(mDataUsageController.isMobileDataSupported()).thenReturn(true);
+        mMobileDataTile.setAvailabilityStatusForZone("hidden");
+        QCItem item = mMobileDataTile.getQCItem();
+        assertThat(item).isNull();
+    }
+
     private QCTile getTile() {
         QCItem item = mMobileDataTile.getQCItem();
         assertThat(item instanceof QCTile).isTrue();

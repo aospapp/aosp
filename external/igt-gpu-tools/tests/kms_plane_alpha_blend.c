@@ -161,8 +161,11 @@ static void prepare_crtc(data_t *data, igt_output_t *output, enum pipe pipe)
 	igt_output_set_pipe(output, pipe);
 
 	/* create the pipe_crc object for this pipe */
+
+#if defined (USE_CRC)
 	igt_pipe_crc_free(data->pipe_crc);
 	data->pipe_crc = igt_pipe_crc_new(data->gfx_fd, pipe, INTEL_PIPE_CRC_SOURCE_AUTO);
+#endif
 
 	mode = igt_output_get_mode(output);
 	w = mode->hdisplay;
@@ -249,8 +252,10 @@ static void basic_alpha(data_t *data, enum pipe pipe, igt_plane_t *plane)
 
 	/* Testcase 1: alpha = 0.0, plane should be transparant. */
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_start(data->pipe_crc);
 	igt_pipe_crc_get_single(data->pipe_crc, &ref_crc);
+#endif
 
 	igt_plane_set_fb(plane, &data->argb_fb_0);
 
@@ -259,18 +264,22 @@ static void basic_alpha(data_t *data, enum pipe pipe, igt_plane_t *plane)
 		igt_plane_set_prop_value(plane, IGT_PLANE_ALPHA, i | (i << 8));
 		igt_display_commit2(display, COMMIT_ATOMIC);
 
+#if defined (USE_CRC)
 		igt_pipe_crc_get_current(display->drm_fd, data->pipe_crc, &crc);
 		igt_assert_crc_equal(&ref_crc, &crc);
+#endif
 	}
 
 	/* And test alpha = 0, should give same CRC, but doesn't on some i915 platforms. */
 	igt_plane_set_prop_value(plane, IGT_PLANE_ALPHA, 0);
 	igt_display_commit2(display, COMMIT_ATOMIC);
 
+#if defined (USE_CRC)
 	igt_pipe_crc_get_current(display->drm_fd, data->pipe_crc, &crc);
 	igt_assert_crc_equal(&ref_crc, &crc);
 
 	igt_pipe_crc_stop(data->pipe_crc);
+#endif
 }
 
 static void argb_opaque(data_t *data, enum pipe pipe, igt_plane_t *plane)
@@ -281,13 +290,17 @@ static void argb_opaque(data_t *data, enum pipe pipe, igt_plane_t *plane)
 	/* alpha = 1.0, plane should be fully opaque, test with an opaque fb */
 	igt_plane_set_fb(plane, &data->xrgb_fb);
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &ref_crc);
+#endif
 
 	igt_plane_set_fb(plane, &data->argb_fb_100);
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &crc);
 
 	igt_assert_crc_equal(&ref_crc, &crc);
+#endif
 }
 
 static void argb_transparant(data_t *data, enum pipe pipe, igt_plane_t *plane)
@@ -298,13 +311,17 @@ static void argb_transparant(data_t *data, enum pipe pipe, igt_plane_t *plane)
 	/* alpha = 1.0, plane should be fully opaque, test with a transparant fb */
 	igt_plane_set_fb(plane, NULL);
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &ref_crc);
+#endif
 
 	igt_plane_set_fb(plane, &data->argb_fb_0);
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &crc);
 
 	igt_assert_crc_equal(&ref_crc, &crc);
+#endif
 }
 
 static void constant_alpha_min(data_t *data, enum pipe pipe, igt_plane_t *plane)
@@ -314,18 +331,24 @@ static void constant_alpha_min(data_t *data, enum pipe pipe, igt_plane_t *plane)
 
 	igt_plane_set_fb(plane, NULL);
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &ref_crc);
+#endif
 
 	igt_plane_set_prop_enum(plane, IGT_PLANE_PIXEL_BLEND_MODE, "None");
 	igt_plane_set_prop_value(plane, IGT_PLANE_ALPHA, 0);
 	igt_plane_set_fb(plane, &data->argb_fb_100);
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &crc);
 	igt_assert_crc_equal(&ref_crc, &crc);
+#endif
 
 	igt_plane_set_fb(plane, &data->argb_fb_0);
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &crc);
+#endif
 	igt_assert_crc_equal(&ref_crc, &crc);
 }
 
@@ -341,17 +364,23 @@ static void constant_alpha_mid(data_t *data, enum pipe pipe, igt_plane_t *plane)
 	igt_plane_set_prop_value(plane, IGT_PLANE_ALPHA, 0x7fff);
 	igt_plane_set_fb(plane, &data->xrgb_fb);
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &ref_crc);
+#endif
 
 	igt_plane_set_fb(plane, &data->argb_fb_cov_0);
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &crc);
 	igt_assert_crc_equal(&ref_crc, &crc);
+#endif
 
 	igt_plane_set_fb(plane, &data->argb_fb_100);
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &crc);
 	igt_assert_crc_equal(&ref_crc, &crc);
+#endif
 }
 
 static void constant_alpha_max(data_t *data, enum pipe pipe, igt_plane_t *plane)
@@ -364,22 +393,30 @@ static void constant_alpha_max(data_t *data, enum pipe pipe, igt_plane_t *plane)
 
 	igt_plane_set_fb(plane, &data->argb_fb_100);
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &ref_crc);
+#endif
 
 	igt_plane_set_prop_enum(plane, IGT_PLANE_PIXEL_BLEND_MODE, "None");
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &crc);
 	igt_assert_crc_equal(&ref_crc, &crc);
+#endif
 
 	igt_plane_set_fb(plane, &data->argb_fb_cov_0);
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &crc);
 	igt_assert_crc_equal(&ref_crc, &crc);
+#endif
 
 	igt_plane_set_fb(plane, &data->xrgb_fb);
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &crc);
 	igt_assert_crc_equal(&ref_crc, &crc);
+#endif
 
 	igt_plane_set_fb(plane, NULL);
 }
@@ -394,7 +431,9 @@ static void alpha_7efc(data_t *data, enum pipe pipe, igt_plane_t *plane)
 		igt_plane_set_fb(igt_pipe_get_plane_type(&display->pipes[pipe], DRM_PLANE_TYPE_PRIMARY), &data->gray_fb);
 
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_start(data->pipe_crc);
+#endif
 
 	/* for coverage, plane alpha and fb alpha should be swappable, so swap fb and alpha */
 	for (i = 0; i < 256; i += 8) {
@@ -402,17 +441,23 @@ static void alpha_7efc(data_t *data, enum pipe pipe, igt_plane_t *plane)
 		igt_plane_set_fb(plane, &data->argb_fb_fc);
 		igt_display_commit2(display, COMMIT_ATOMIC);
 
+#if defined (USE_CRC)
 		igt_pipe_crc_get_current(display->drm_fd, data->pipe_crc, &ref_crc);
+#endif
 
 		igt_plane_set_prop_value(plane, IGT_PLANE_ALPHA, (i << 8) | i);
 		igt_plane_set_fb(plane, &data->argb_fb_7e);
 		igt_display_commit2(display, COMMIT_ATOMIC);
 
+#if defined (USE_CRC)
 		igt_pipe_crc_get_current(display->drm_fd, data->pipe_crc, &crc);
 		igt_assert_crc_equal(&ref_crc, &crc);
+#endif
 	}
 
+#if defined (USE_CRC)
 	igt_pipe_crc_stop(data->pipe_crc);
+#endif
 }
 
 static void coverage_7efc(data_t *data, enum pipe pipe, igt_plane_t *plane)
@@ -423,7 +468,9 @@ static void coverage_7efc(data_t *data, enum pipe pipe, igt_plane_t *plane)
 
 	igt_plane_set_prop_enum(plane, IGT_PLANE_PIXEL_BLEND_MODE, "Coverage");
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_start(data->pipe_crc);
+#endif
 
 	/* for coverage, plane alpha and fb alpha should be swappable, so swap fb and alpha */
 	for (i = 0; i < 256; i += 8) {
@@ -431,17 +478,23 @@ static void coverage_7efc(data_t *data, enum pipe pipe, igt_plane_t *plane)
 		igt_plane_set_fb(plane, &data->argb_fb_cov_fc);
 		igt_display_commit2(display, COMMIT_ATOMIC);
 
+#if defined (USE_CRC)
 		igt_pipe_crc_get_current(display->drm_fd, data->pipe_crc, &ref_crc);
+#endif
 
 		igt_plane_set_prop_value(plane, IGT_PLANE_ALPHA, (i << 8) | i);
 		igt_plane_set_fb(plane, &data->argb_fb_cov_7e);
 		igt_display_commit2(display, COMMIT_ATOMIC);
 
+#if defined (USE_CRC)
 		igt_pipe_crc_get_current(display->drm_fd, data->pipe_crc, &crc);
 		igt_assert_crc_equal(&ref_crc, &crc);
+#endif
 	}
 
+#if defined (USE_CRC)
 	igt_pipe_crc_stop(data->pipe_crc);
+#endif
 }
 
 static void coverage_premult_constant(data_t *data, enum pipe pipe, igt_plane_t *plane)
@@ -456,23 +509,29 @@ static void coverage_premult_constant(data_t *data, enum pipe pipe, igt_plane_t 
 	igt_plane_set_prop_enum(plane, IGT_PLANE_PIXEL_BLEND_MODE, "Coverage");
 	igt_plane_set_fb(plane, &data->argb_fb_cov_7e);
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_start(data->pipe_crc);
 	igt_pipe_crc_get_single(data->pipe_crc, &ref_crc);
+#endif
 
 	igt_plane_set_prop_enum(plane, IGT_PLANE_PIXEL_BLEND_MODE, "Pre-multiplied");
 	igt_plane_set_fb(plane, &data->argb_fb_7e);
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_get_current(display->drm_fd, data->pipe_crc, &crc);
 	igt_assert_crc_equal(&ref_crc, &crc);
+#endif
 
 	igt_plane_set_prop_enum(plane, IGT_PLANE_PIXEL_BLEND_MODE, "None");
 	igt_plane_set_prop_value(plane, IGT_PLANE_ALPHA, 0x7e7e);
 	igt_plane_set_fb(plane, &data->argb_fb_cov_7e);
 	igt_display_commit2(display, COMMIT_ATOMIC);
+#if defined (USE_CRC)
 	igt_pipe_crc_get_current(display->drm_fd, data->pipe_crc, &crc);
 	igt_assert_crc_equal(&ref_crc, &crc);
 
 	igt_pipe_crc_stop(data->pipe_crc);
+#endif
 }
 
 static void run_test_on_pipe_planes(data_t *data, enum pipe pipe, bool blend,
@@ -566,7 +625,9 @@ igt_main
 
 	igt_fixture {
 		data.gfx_fd = drm_open_driver(DRIVER_ANY);
+#if defined (USE_CRC)
 		igt_require_pipe_crc(data.gfx_fd);
+#endif
 		igt_display_require(&data.display, data.gfx_fd);
 		igt_require(data.display.is_atomic);
 	}

@@ -21,13 +21,5 @@ python_library {
     srcs: [
         "timeout_decorator.py",
     ],
-    version: {
-        py2: {
-            enabled: false,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     pkg_path: "timeout_decorator",
 }

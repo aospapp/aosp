@@ -16,18 +16,17 @@
 
 #pragma once
 
-#include <android/util/ProtoOutputStream.h>
-#include <private/android_filesystem_config.h>
+#include <aidl/android/os/IStatsSubscriptionCallback.h>
 
 #include <condition_variable>
 #include <mutex>
 #include <thread>
 
 #include "external/StatsPullerManager.h"
+#include "packages/UidMap.h"
+#include "shell/ShellSubscriberClient.h"
 #include "src/shell/shell_config.pb.h"
 #include "src/statsd_config.pb.h"
-#include "logd/LogEvent.h"
-#include "packages/UidMap.h"
 
 namespace android {
 namespace os {
@@ -54,91 +53,64 @@ namespace statsd {
  * The stream would be in the following format:
  * |size_t|shellData proto|size_t|shellData proto|....
  *
- * Only one shell subscriber is allowed at a time because each shell subscriber blocks one thread
- * until it exits.
  */
 class ShellSubscriber : public virtual RefBase {
 public:
-    ShellSubscriber(sp<UidMap> uidMap, sp<StatsPullerManager> pullerMgr)
-        : mUidMap(uidMap), mPullerMgr(pullerMgr){};
+    ShellSubscriber(sp<UidMap> uidMap, sp<StatsPullerManager> pullerMgr,
+                    const std::shared_ptr<LogEventFilter>& logEventFilter)
+        : mUidMap(uidMap), mPullerMgr(pullerMgr), mLogEventFilter(logEventFilter){};
 
-    void startNewSubscription(int inFd, int outFd, int timeoutSec);
+    ~ShellSubscriber();
+
+    // Create new ShellSubscriberClient with file descriptors to manage a new subscription.
+    bool startNewSubscription(int inFd, int outFd, int64_t timeoutSec);
+
+    // Create new ShellSubscriberClient with Binder callback to manage a new subscription.
+    bool startNewSubscription(
+            const vector<uint8_t>& subscriptionConfig,
+            const shared_ptr<aidl::android::os::IStatsSubscriptionCallback>& callback);
 
     void onLogEvent(const LogEvent& event);
 
+    void flushSubscription(
+            const shared_ptr<aidl::android::os::IStatsSubscriptionCallback>& callback);
+
+    void unsubscribe(const shared_ptr<aidl::android::os::IStatsSubscriptionCallback>& callback);
+
+    static size_t getMaxSizeKb() {
+        return ShellSubscriberClient::getMaxSizeKb();
+    }
+
+    static size_t getMaxSubscriptions() {
+        return kMaxSubscriptions;
+    }
+
 private:
-    struct PullInfo {
-        PullInfo(const SimpleAtomMatcher& matcher, int64_t interval,
-                 const std::vector<std::string>& packages, const std::vector<int32_t>& uids)
-            : mPullerMatcher(matcher),
-              mInterval(interval),
-              mPrevPullElapsedRealtimeMs(0),
-              mPullPackages(packages),
-              mPullUids(uids) {
-        }
-        SimpleAtomMatcher mPullerMatcher;
-        int64_t mInterval;
-        int64_t mPrevPullElapsedRealtimeMs;
-        std::vector<std::string> mPullPackages;
-        std::vector<int32_t> mPullUids;
-    };
+    bool startNewSubscriptionLocked(unique_ptr<ShellSubscriberClient> client);
 
-    struct SubscriptionInfo {
-        SubscriptionInfo(const int& inputFd, const int& outputFd)
-            : mInputFd(inputFd), mOutputFd(outputFd), mClientAlive(true) {
-        }
+    void pullAndSendHeartbeats();
 
-        int mInputFd;
-        int mOutputFd;
-        std::vector<SimpleAtomMatcher> mPushedMatchers;
-        std::vector<PullInfo> mPulledInfo;
-        bool mClientAlive;
-    };
-
-    int claimToken();
-
-    bool readConfig(std::shared_ptr<SubscriptionInfo> subscriptionInfo);
-
-    void spawnHelperThread(int myToken);
-
-    void waitForSubscriptionToEndLocked(std::shared_ptr<SubscriptionInfo> myInfo,
-                                        int myToken,
-                                        std::unique_lock<std::mutex>& lock,
-                                        int timeoutSec);
-
-    // Helper thread that pulls atoms at a regular frequency and sends
-    // heartbeats to perfd if statsd hasn't recently sent any data. Statsd must
-    // send heartbeats for perfd to escape a blocking read call and recheck if
-    // the user has terminated the subscription.
-    void pullAndSendHeartbeats(int myToken);
-
-    void writePulledAtomsLocked(const vector<std::shared_ptr<LogEvent>>& data,
-                                const SimpleAtomMatcher& matcher);
-
-    void getUidsForPullAtom(vector<int32_t>* uids, const PullInfo& pullInfo);
-
-    void attemptWriteToPipeLocked(size_t dataSize);
+    /* Tells LogEventFilter about atom ids to parse */
+    void updateLogEventFilterLocked() const;
 
     sp<UidMap> mUidMap;
 
     sp<StatsPullerManager> mPullerMgr;
 
-    android::util::ProtoOutputStream mProto;
+    std::shared_ptr<LogEventFilter> mLogEventFilter;
 
+    // Protects mClientSet, mThreadAlive, and ShellSubscriberClient
     mutable std::mutex mMutex;
 
-    std::condition_variable mSubscriptionShouldEnd;
+    std::set<unique_ptr<ShellSubscriberClient>> mClientSet;
 
-    std::shared_ptr<SubscriptionInfo> mSubscriptionInfo = nullptr;
+    bool mThreadAlive = false;
 
-    int mToken = 0;
+    std::condition_variable mThreadSleepCV;
 
-    const int32_t DEFAULT_PULL_UID = AID_SYSTEM;
+    std::thread mThread;
 
-    // Tracks when we last send data to perfd. We need that time to determine
-    // when next to send a heartbeat.
-    int64_t mLastWriteMs = 0;
-    const int64_t kMsBetweenHeartbeats = 1000;
+    static constexpr size_t kMaxSubscriptions = 20;
 };
 
 }  // namespace statsd

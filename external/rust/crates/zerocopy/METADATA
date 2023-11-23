@@ -1,0 +1,19 @@
+name: "zerocopy"
+description: "Utilities for zero-copy parsing and serialization"
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://crates.io/crates/zerocopy"
+  }
+  url {
+    type: ARCHIVE
+    value: "https://static.crates.io/crates/zerocopy/zerocopy-0.6.1.crate"
+  }
+  version: "0.6.1"
+  license_type: NOTICE
+  last_upgrade_date {
+    year: 2022
+    month: 11
+    day: 18
+  }
+}

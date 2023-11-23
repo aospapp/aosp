@@ -65,6 +65,22 @@ android_test_helper_app {
     },
 }
 
+genrule {
+    name: "CtsApkVerityTestAppApkIdSig",
+    srcs: [":CtsApkVerityTestApp"],
+    cmd: "for file in $(in); do " +
+        "   if [[ $$file == *.apk.idsig ]]; then " +
+        "     cp $$file $(out); " +
+        "   fi " +
+        " done",
+    out: ["CtsApkVerityTestApp.apk.idsig"],
+    dist: {
+        targets: [
+            "cts",
+        ],
+    },
+}
+
 cc_library_shared {
     name: "libCtsApkVerityTestAppJni",
     srcs: ["jni/**/*.cpp"],

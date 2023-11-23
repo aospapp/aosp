@@ -25,6 +25,8 @@ import com.android.tradefed.log.LogUtil;
 import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.util.RunInterruptedException;
+import com.android.tradefed.util.RunUtil;
 
 import java.io.File;
 import java.util.regex.Matcher;
@@ -158,11 +160,7 @@ public class NumberBlockingTest extends DeviceTestCase implements IBuildReceiver
             if (output.contains(desiredState)) {
                 return;
             }
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                // Do nothing.
-            }
+            RunUtil.getDefault().sleep(100);
         }
         fail("User state of " + userId + " was '" + output + "' rather than " + desiredState);
     }
@@ -263,14 +261,14 @@ public class NumberBlockingTest extends DeviceTestCase implements IBuildReceiver
             int retries = 0;
             while (!getDevice().getInstalledPackageNames().contains(packageName)
                     && retries < 10) {
-                Thread.sleep(50);
+                RunUtil.getDefault().sleep(50);
                 retries++;
             }
 
             assertTrue(getDevice().getInstalledPackageNames().contains(packageName));
         } catch (DeviceNotAvailableException dne) {
             fail("Device not available.");
-        } catch (InterruptedException ie) {
+        } catch (RunInterruptedException ie) {
             fail("Failed to wait for change.");
         }
     }

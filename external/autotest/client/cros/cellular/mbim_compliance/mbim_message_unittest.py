@@ -7,15 +7,16 @@ import logging
 import unittest
 
 import common
-from autotest_lib.client.cros.cellular.mbim_compliance import mbim_constants
+
 from autotest_lib.client.cros.cellular.mbim_compliance import \
-        mbim_command_message
+    mbim_command_message
+from autotest_lib.client.cros.cellular.mbim_compliance import mbim_constants
 from autotest_lib.client.cros.cellular.mbim_compliance import mbim_errors
 from autotest_lib.client.cros.cellular.mbim_compliance import mbim_message
 from autotest_lib.client.cros.cellular.mbim_compliance import \
-        mbim_message_request
+    mbim_message_request
 from autotest_lib.client.cros.cellular.mbim_compliance import \
-        mbim_message_response
+    mbim_message_response
 
 
 class TestMessage(mbim_message.MBIMControlMessage):
@@ -52,7 +53,7 @@ class MBIMMessageTestCase(unittest.TestCase):
         with self.assertRaisesRegexp(
                 mbim_errors.MBIMComplianceControlMessageError,
                 '^Missing field value'):
-                message = TestMessage()
+            message = TestMessage()
 
 
     def test_argument_mismatch(self):
@@ -63,7 +64,7 @@ class MBIMMessageTestCase(unittest.TestCase):
         with self.assertRaisesRegexp(
                 mbim_errors.MBIMComplianceControlMessageError,
                 '^Unexpected fields'):
-                message = TestMessage(message_type=4, fake=5)
+            message = TestMessage(message_type=4, fake=5)
 
 
     def test_message_default_value_set(self):
@@ -195,9 +196,10 @@ class MBIMMessageTestCase(unittest.TestCase):
         self.assertEqual(message.transaction_id, 1)
         self.assertEqual(message.total_fragments, 2)
         self.assertEqual(message.current_fragment, 0)
-        self.assertEqual(message.device_service_id,
-                         '\x02\x00\x06\xEE\x00\x00\x00\x00\x80\x40\x20\x10'
-                         '\x00\xAA\xBB\xCC')
+        self.assertEqual(
+                message.device_service_id,
+                b'\x02\x00\x06\xEE\x00\x00\x00\x00\x80\x40\x20\x10'
+                b'\x00\xAA\xBB\xCC')
         self.assertEqual(message.cid, 1)
         self.assertEqual(message.status_codes,
                          mbim_constants.MBIM_STATUS_SUCCESS)
@@ -268,9 +270,10 @@ class MBIMMessageTestCase(unittest.TestCase):
         self.assertEqual(message.transaction_id, 1)
         self.assertEqual(message.total_fragments, 5)
         self.assertEqual(message.current_fragment, 0)
-        self.assertEqual(message.device_service_id,
-                         '\xA2\x89\xCC3\xBC\xBB\x8BO\xB6\xB0\x13>\xC2\xAA\xE6'
-                         '\xDF')
+        self.assertEqual(
+                message.device_service_id,
+                b'\xA2\x89\xCC3\xBC\xBB\x8BO\xB6\xB0\x13>\xC2\xAA\xE6'
+                b'\xDF')
         self.assertEqual(message.cid, 1)
         self.assertEqual(message.status_codes,
                          mbim_constants.MBIM_STATUS_SUCCESS)

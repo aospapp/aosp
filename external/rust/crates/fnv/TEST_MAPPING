@@ -2,7 +2,13 @@
 {
   "imports": [
     {
+      "path": "external/rust/crates/hashbrown"
+    },
+    {
       "path": "external/rust/crates/vulkano"
+    },
+    {
+      "path": "packages/modules/Virtualization/virtualizationmanager"
     }
   ],
   "presubmit": [

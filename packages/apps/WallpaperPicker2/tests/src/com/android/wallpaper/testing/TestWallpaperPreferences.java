@@ -50,12 +50,13 @@ public class TestWallpaperPreferences implements WallpaperPreferences {
     private List<String> mHomeScreenAttributions;
     private long mHomeScreenBitmapHashCode;
     private int mHomeWallpaperManagerId;
-    private String mHomeScreenPackageName;
     private String mHomeScreenServiceName;
+    private String mLockScreenServiceName;
     private String mHomeActionUrl;
     private String mHomeBaseImageUrl;
     private String mHomeCollectionId;
     private String mHomeWallpaperRemoteId;
+    private String mHomeWallpaperRecentsKey;
 
     private List<String> mLockScreenAttributions;
     private long mLockScreenBitmapHashCode;
@@ -63,6 +64,7 @@ public class TestWallpaperPreferences implements WallpaperPreferences {
     private String mLockActionUrl;
     private String mLockCollectionId;
     private String mLockWallpaperRemoteId;
+    private String mLockWallpaperRecentsKey;
 
     private List<Long> mDailyRotations;
     private long mDailyWallpaperEnabledTimestamp;
@@ -81,6 +83,8 @@ public class TestWallpaperPreferences implements WallpaperPreferences {
     private int mHomeWallpaperActionIconRes;
     private int mLockWallpaperActionLabelRes;
     private int mLockWallpaperActionIconRes;
+    private String mHomeWallpaperEffects;
+    private String mLockWallpaperEffects;
     private HashMap<String, String> mWallStoredColor;
 
     public TestWallpaperPreferences() {
@@ -188,7 +192,7 @@ public class TestWallpaperPreferences implements WallpaperPreferences {
         mHomeScreenAttributions = null;
         mWallpaperPresentationMode = WallpaperPreferences.PRESENTATION_MODE_STATIC;
         mHomeScreenBitmapHashCode = 0;
-        mHomeScreenPackageName = null;
+        mHomeScreenServiceName = null;
         mHomeWallpaperManagerId = 0;
     }
 
@@ -200,16 +204,6 @@ public class TestWallpaperPreferences implements WallpaperPreferences {
     @Override
     public void setHomeWallpaperHashCode(long hashCode) {
         mHomeScreenBitmapHashCode = hashCode;
-    }
-
-    @Override
-    public String getHomeWallpaperPackageName() {
-        return mHomeScreenPackageName;
-    }
-
-    @Override
-    public void setHomeWallpaperPackageName(String packageName) {
-        mHomeScreenPackageName = packageName;
     }
 
     @Override
@@ -242,6 +236,26 @@ public class TestWallpaperPreferences implements WallpaperPreferences {
     public void setHomeWallpaperRemoteId(String wallpaperRemoteId) {
         mHomeWallpaperRemoteId = wallpaperRemoteId;
         setFirstWallpaperApplyDateIfNeeded();
+    }
+
+    @Override
+    public String getHomeWallpaperRecentsKey() {
+        return mHomeWallpaperRecentsKey;
+    }
+
+    @Override
+    public void setHomeWallpaperRecentsKey(String recentsKey) {
+        mHomeWallpaperRecentsKey = recentsKey;
+    }
+
+    @Override
+    public String getHomeWallpaperEffects() {
+        return mHomeWallpaperEffects;
+    }
+
+    @Override
+    public void setHomeWallpaperEffects(String effects) {
+        mHomeWallpaperEffects = effects;
     }
 
     @Override
@@ -340,6 +354,36 @@ public class TestWallpaperPreferences implements WallpaperPreferences {
     public void setLockWallpaperRemoteId(String wallpaperRemoteId) {
         mLockWallpaperRemoteId = wallpaperRemoteId;
         setFirstWallpaperApplyDateIfNeeded();
+    }
+
+    @Override
+    public String getLockWallpaperRecentsKey() {
+        return mLockWallpaperRecentsKey;
+    }
+
+    @Override
+    public void setLockWallpaperRecentsKey(String recentsKey) {
+        mLockWallpaperRecentsKey = recentsKey;
+    }
+
+    @Override
+    public String getLockWallpaperServiceName() {
+        return mLockScreenServiceName;
+    }
+
+    @Override
+    public void setLockWallpaperServiceName(String serviceName) {
+        mLockScreenServiceName = serviceName;
+    }
+
+    @Override
+    public String getLockWallpaperEffects() {
+        return mLockWallpaperEffects;
+    }
+
+    @Override
+    public void setLockWallpaperEffects(String wallpaperEffects) {
+        mLockWallpaperEffects = wallpaperEffects;
     }
 
     @Override

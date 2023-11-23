@@ -32,18 +32,22 @@ import com.android.car.internal.util.DataClass;
 @DataClass(genToString = true, genBuilder = true, genHiddenConstDefs = true)
 public final class CpuAvailabilityMonitoringConfig implements Parcelable {
     /** Constant to monitor all cpusets. */
+    @Cpuset
     @AddedInOrBefore(majorVersion = 33)
     public static final int CPUSET_ALL = 1;
 
     /** Constant to monitor only background cpusets. */
+    @Cpuset
     @AddedInOrBefore(majorVersion = 33)
     public static final int CPUSET_BACKGROUND = 2;
 
     /** Constant to ignore the CPU availability lower bound percent. */
+    @IgnorePercent
     @AddedInOrBefore(majorVersion = 33)
     public static final int IGNORE_PERCENT_LOWER_BOUND = 0;
 
     /** Constant to ignore the CPU availability upper bound percent. */
+    @IgnorePercent
     @AddedInOrBefore(majorVersion = 33)
     public static final int IGNORE_PERCENT_UPPER_BOUND = 100;
 
@@ -57,10 +61,12 @@ public final class CpuAvailabilityMonitoringConfig implements Parcelable {
      * <p>When the timeout action is notification, the timeout resets on each notification and the
      * listener is again on the next timeout. This repeats until the listener is explicitly removed.
      */
+    @TimeoutAction
     @AddedInOrBefore(majorVersion = 33)
     public static final int TIMEOUT_ACTION_NOTIFICATION = 1;
 
     /** Constant to remove the listener on timeout. */
+    @TimeoutAction
     @AddedInOrBefore(majorVersion = 33)
     public static final int TIMEOUT_ACTION_REMOVE = 2;
 
@@ -302,7 +308,6 @@ public final class CpuAvailabilityMonitoringConfig implements Parcelable {
 
     @Override
     @DataClass.Generated.Member
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         // You can override field toString logic by defining methods like:
         // String fieldNameToString() { ... }
@@ -561,10 +566,10 @@ public final class CpuAvailabilityMonitoringConfig implements Parcelable {
     }
 
     @DataClass.Generated(
-            time = 1645637084585L,
+            time = 1673057982096L,
             codegenVersion = "1.0.23",
             sourceFile = "packages/services/Car/car-lib/src/android/car/os/CpuAvailabilityMonitoringConfig.java",
-            inputSignatures = "public static final  int CPUSET_ALL\npublic static final  int CPUSET_BACKGROUND\npublic static final  int IGNORE_PERCENT_LOWER_BOUND\npublic static final  int IGNORE_PERCENT_UPPER_BOUND\npublic static final  int MONITORING_TIMEOUT_NEVER\npublic static final  int TIMEOUT_ACTION_NOTIFICATION\npublic static final  int TIMEOUT_ACTION_REMOVE\nprivate @android.car.os.CpuAvailabilityMonitoringConfig.Cpuset int mCpuset\nprivate  int mLowerBoundPercent\nprivate  int mUpperBoundPercent\nprivate @android.annotation.SuppressLint long mTimeoutInSeconds\nprivate @android.car.os.CpuAvailabilityMonitoringConfig.TimeoutAction int mTimeoutAction\nclass CpuAvailabilityMonitoringConfig extends java.lang.Object implements [android.os.Parcelable]\n@com.android.car.internal.util.DataClass(genToString=true, genBuilder=true, genHiddenConstDefs=true)")
+            inputSignatures = "public static final @android.car.os.CpuAvailabilityMonitoringConfig.Cpuset @android.car.annotation.AddedInOrBefore int CPUSET_ALL\npublic static final @android.car.os.CpuAvailabilityMonitoringConfig.Cpuset @android.car.annotation.AddedInOrBefore int CPUSET_BACKGROUND\npublic static final @android.car.os.CpuAvailabilityMonitoringConfig.IgnorePercent @android.car.annotation.AddedInOrBefore int IGNORE_PERCENT_LOWER_BOUND\npublic static final @android.car.os.CpuAvailabilityMonitoringConfig.IgnorePercent @android.car.annotation.AddedInOrBefore int IGNORE_PERCENT_UPPER_BOUND\npublic static final @android.car.annotation.AddedInOrBefore int MONITORING_TIMEOUT_NEVER\npublic static final @android.car.os.CpuAvailabilityMonitoringConfig.TimeoutAction @android.car.annotation.AddedInOrBefore int TIMEOUT_ACTION_NOTIFICATION\npublic static final @android.car.os.CpuAvailabilityMonitoringConfig.TimeoutAction @android.car.annotation.AddedInOrBefore int TIMEOUT_ACTION_REMOVE\nprivate @android.car.os.CpuAvailabilityMonitoringConfig.Cpuset int mCpuset\nprivate  int mLowerBoundPercent\nprivate  int mUpperBoundPercent\nprivate @android.annotation.SuppressLint long mTimeoutInSeconds\nprivate @android.car.os.CpuAvailabilityMonitoringConfig.TimeoutAction int mTimeoutAction\nclass CpuAvailabilityMonitoringConfig extends java.lang.Object implements [android.os.Parcelable]\n@com.android.car.internal.util.DataClass(genToString=true, genBuilder=true, genHiddenConstDefs=true)")
     @Deprecated
     private void __metadata() {}
 

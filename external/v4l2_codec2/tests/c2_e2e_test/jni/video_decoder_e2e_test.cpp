@@ -50,10 +50,10 @@ public:
     // "input_file_path:width:height:num_frames:num_fragments:min_fps_render:
     //  min_fps_no_render:video_codec_profile[:output_file_path]"
     // - |input_file_path| is compressed video stream in H264 Annex B (NAL) format
-    //   (H264) or IVF (VP8/9).
+    //   (H264/HEVC) or IVF (VP8/9).
     // - |width| and |height| are visible frame size in pixels.
     // - |num_frames| is the number of picture frames for the input stream.
-    // - |num_fragments| is the number of AU (H264) or frame (VP8/9) in the input
+    // - |num_fragments| is the number of AU (H264/HEVC) or frame (VP8/9) in the input
     //   stream. (Unused. Test will automatically parse the number.)
     // - |min_fps_render| and |min_fps_no_render| are minimum frames/second speeds
     //   expected to be achieved with and without rendering respective.

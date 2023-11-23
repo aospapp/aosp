@@ -41,17 +41,23 @@ struct CompilerWorkaroundsD3D
     bool enableIEEEStrictness = false;
 };
 
+enum class FragDepthUsage
+{
+    Unused,
+    Any,
+    Greater,
+    Less
+};
+
 class ShaderD3D : public ShaderImpl
 {
   public:
-    ShaderD3D(const gl::ShaderState &state,
-              const angle::FeaturesD3D &features,
-              const gl::Extensions &extensions);
+    ShaderD3D(const gl::ShaderState &state, RendererD3D *renderer);
     ~ShaderD3D() override;
 
     std::shared_ptr<WaitableCompileEvent> compile(const gl::Context *context,
                                                   gl::ShCompilerInstance *compilerInstance,
-                                                  ShCompileOptions options) override;
+                                                  ShCompileOptions *options) override;
 
     std::string getDebugInfo() const override;
 
@@ -85,10 +91,12 @@ class ShaderD3D : public ShaderImpl
     bool usesPointSize() const { return mUsesPointSize; }
     bool usesPointCoord() const { return mUsesPointCoord; }
     bool usesDepthRange() const { return mUsesDepthRange; }
-    bool usesFragDepth() const { return mUsesFragDepth; }
     bool usesVertexID() const { return mUsesVertexID; }
     bool usesViewID() const { return mUsesViewID; }
     bool hasANGLEMultiviewEnabled() const { return mHasANGLEMultiviewEnabled; }
+    FragDepthUsage getFragDepthUsage() const { return mFragDepthUsage; }
+    uint8_t getClipDistanceArraySize() const { return mClipDistanceSize; }
+    uint8_t getCullDistanceArraySize() const { return mCullDistanceSize; }
 
     ShShaderOutput getCompilerOutputType() const;
 
@@ -103,14 +111,17 @@ class ShaderD3D : public ShaderImpl
     bool mUsesPointSize;
     bool mUsesPointCoord;
     bool mUsesDepthRange;
-    bool mUsesFragDepth;
     bool mHasANGLEMultiviewEnabled;
     bool mUsesVertexID;
     bool mUsesViewID;
     bool mUsesDiscardRewriting;
     bool mUsesNestedBreak;
     bool mRequiresIEEEStrictCompiling;
+    FragDepthUsage mFragDepthUsage;
+    uint8_t mClipDistanceSize;
+    uint8_t mCullDistanceSize;
 
+    RendererD3D *mRenderer;
     ShShaderOutput mCompilerOutputType;
     mutable std::string mDebugInfo;
     std::map<std::string, unsigned int> mUniformRegisterMap;
@@ -121,7 +132,6 @@ class ShaderD3D : public ShaderImpl
     unsigned int mReadonlyImage2DRegisterIndex;
     unsigned int mImage2DRegisterIndex;
     std::set<std::string> mUsedImage2DFunctionNames;
-    ShCompileOptions mAdditionalOptions;
 };
 }  // namespace rx
 

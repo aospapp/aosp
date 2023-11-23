@@ -20,7 +20,6 @@
 
 #include "cutils/log.h"
 #include "cutils/properties.h"
-#include "cutils/threads.h"
 
 extern "C" {
 
@@ -100,17 +99,5 @@ void __android_log_assert(const char* condition, const char* tag,
   abort();
 }
 
-int sync_wait(int fd, int timeout) {
-  return -1;
-}
-
-pid_t gettid() {
-  static thread_local pid_t id = 0;
-  if (!id) {
-    static std::atomic<pid_t> next_thread_id{1};
-    id = next_thread_id++;
-  }
-  return id;
-}
-
+int sync_wait(int fd, int timeout) { return -1; }
 }

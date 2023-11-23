@@ -154,6 +154,7 @@ cc_defaults {
         "-Wno-switch",
         "-Wno-typedef-redefinition",
         "-Wno-uninitialized",
+        "-Wno-implicit-const-int-float-conversion",
         "-DHAVE_TIMESPEC_GET",
     ],
 

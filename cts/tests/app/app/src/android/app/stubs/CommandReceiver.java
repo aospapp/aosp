@@ -27,9 +27,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.media.session.MediaSession;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
+import android.os.RemoteCallback;
 import android.os.RemoteException;
 import android.text.TextUtils;
 import android.util.ArrayMap;
@@ -66,6 +68,7 @@ public class CommandReceiver extends BroadcastReceiver {
     public static final int COMMAND_STOP_FOREGROUND_SERVICE_STICKY = 21;
     public static final int COMMAND_EMPTY = 22;
     public static final int COMMAND_START_FOREGROUND_SERVICE_SPOOF_PACKAGE_NAME = 23;
+    public static final int COMMAND_CREATE_ACTIVE_MEDIA_SESSION = 24;
 
     public static final int RESULT_CHILD_PROCESS_STARTED = IBinder.FIRST_CALL_TRANSACTION;
     public static final int RESULT_CHILD_PROCESS_STOPPED = IBinder.FIRST_CALL_TRANSACTION + 1;
@@ -98,6 +101,8 @@ public class CommandReceiver extends BroadcastReceiver {
 
     /** The child process, started via {@link #COMMAND_START_CHILD_PROCESS} */
     private static Process sChildProcess;
+
+    private static MediaSession mMediaSession = null;
 
     /**
      * Handle the different types of binding/unbinding requests.
@@ -177,6 +182,10 @@ public class CommandReceiver extends BroadcastReceiver {
                 break;
             case COMMAND_START_FOREGROUND_SERVICE_SPOOF_PACKAGE_NAME:
                 doStartForegroundServiceSpoofPackageName(context, intent);
+                break;
+            case COMMAND_CREATE_ACTIVE_MEDIA_SESSION:
+                doStartMediaPlayback(context, intent.getParcelableExtra(
+                        Intent.EXTRA_REMOTE_CALLBACK, RemoteCallback.class));
                 break;
         }
     }
@@ -429,6 +438,44 @@ public class CommandReceiver extends BroadcastReceiver {
         }
     }
 
+    private void doStartMediaPlayback(Context context, RemoteCallback callback) {
+        mMediaSession = new MediaSession(context, TAG);
+        mMediaSession.setCallback(new MediaSession.Callback() {
+            @Override
+            public void onPlay() {
+                super.onPlay();
+                final Intent fgsIntent = new Intent(context, LocalForegroundService.class);
+                fgsIntent.putExtras(LocalForegroundService.newCommand(
+                        LocalForegroundService.COMMAND_START_FOREGROUND));
+                try {
+                    context.startForegroundService(fgsIntent);
+                } catch (ForegroundServiceStartNotAllowedException e) {
+                    Log.e(TAG, "Error while trying to start an FGS", e);
+                }
+            }
+
+            @Override
+            public void onPause() {
+                super.onPause();
+                final Intent intent = new Intent(context, LocalForegroundService.class);
+                intent.putExtras(LocalForegroundService.newCommand(
+                        LocalForegroundService.COMMAND_STOP_FOREGROUND_DONT_REMOVE_NOTIFICATION));
+                context.startService(intent);
+            }
+
+            @Override
+            public void onStop() {
+                super.onStop();
+                final Intent intent = new Intent(context, LocalForegroundService.class);
+                context.stopService(intent);
+                mMediaSession.release();
+            }
+        });
+        mMediaSession.setActive(true);
+
+        callback.sendResult(null);
+    }
+
     private String getTargetPackage(Intent intent) {
         return intent.getStringExtra(EXTRA_TARGET_PACKAGE);
     }
@@ -464,7 +511,9 @@ public class CommandReceiver extends BroadcastReceiver {
     private static Intent makeIntent(int command, String sourcePackage,
             String targetPackage, int flags, Bundle extras) {
         Intent intent = new Intent();
-        if (command == COMMAND_BIND_SERVICE || command == COMMAND_START_FOREGROUND_SERVICE) {
+        if (command == COMMAND_BIND_SERVICE || command == COMMAND_START_FOREGROUND_SERVICE
+                || command == COMMAND_STOP_FOREGROUND_SERVICE || command == COMMAND_START_ACTIVITY
+                || command == COMMAND_START_FOREGROUND_SERVICE_LOCATION || command == COMMAND_UNBIND_SERVICE) {
             intent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         }
         intent.setComponent(new ComponentName(sourcePackage, "android.app.stubs.CommandReceiver"));

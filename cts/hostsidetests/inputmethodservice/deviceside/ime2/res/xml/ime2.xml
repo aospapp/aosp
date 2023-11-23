@@ -16,5 +16,6 @@
 -->
 
 <input-method xmlns:android="http://schemas.android.com/apk/res/android"
-    android:supportsSwitchingToNextInputMethod="true">
+              android:supportsStylusHandwriting="true"
+              android:supportsSwitchingToNextInputMethod="true">
 </input-method>

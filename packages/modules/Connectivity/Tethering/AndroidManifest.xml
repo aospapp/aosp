@@ -43,6 +43,7 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- Sending non-protected broadcast from system uid is not allowed. -->
     <protected-broadcast android:name="com.android.server.connectivity.tethering.DISABLE_TETHERING" />
 
     <application

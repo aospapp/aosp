@@ -331,6 +331,7 @@ public class AddAccessoryActivity extends FragmentActivity
         return super.onKeyUp(keyCode, event);
     }
 
+    @SuppressWarnings("MissingSuperCall") // TODO: Fix me
     @Override
     public void onNewIntent(Intent intent) {
         if (ACTION_CONNECT_INPUT.equals(intent.getAction()) &&

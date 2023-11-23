@@ -63,13 +63,14 @@ static int test_barrier_fsync(struct io_uring *ring)
 	int i, fd, ret;
 	off_t off;
 
-	fd = open("testfile", O_WRONLY | O_CREAT, 0644);
+	fd = open("fsync-testfile", O_WRONLY | O_CREAT, 0644);
 	if (fd < 0) {
 		perror("open");
 		return 1;
 	}
+	unlink("fsync-testfile");
 
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < ARRAY_SIZE(iovecs); i++) {
 		iovecs[i].iov_base = t_malloc(4096);
 		iovecs[i].iov_len = 4096;
 	}
@@ -129,11 +130,15 @@ static int test_barrier_fsync(struct io_uring *ring)
 		io_uring_cqe_seen(ring, cqe);
 	}
 
-	unlink("testfile");
-	return 0;
+
+	ret = 0;
+	goto out;
 err:
-	unlink("testfile");
-	return 1;
+	ret = 1;
+out:
+	for (i = 0; i < ARRAY_SIZE(iovecs); i++)
+		free(iovecs[i].iov_base);
+	return ret;
 }
 
 #define FILE_SIZE 1024

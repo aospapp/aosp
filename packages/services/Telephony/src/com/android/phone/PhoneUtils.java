@@ -31,6 +31,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Message;
 import android.os.PersistableBundle;
+import android.os.UserHandle;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.telecom.PhoneAccount;
@@ -469,7 +470,7 @@ public class PhoneUtils {
 
                 // build the dialog
                 final AlertDialog newDialog =
-                        FrameworksUtils.makeAlertDialogBuilder(contextThemeWrapper)
+                        new AlertDialog.Builder(contextThemeWrapper)
                         .setMessage(text)
                         .setView(dialogView)
                         .setPositiveButton(R.string.send_button, mUSSDDialogListener)
@@ -701,31 +702,28 @@ public class PhoneUtils {
         Log.d(LOG_TAG, msg);
     }
 
-    public static PhoneAccountHandle makePstnPhoneAccountHandle(String id) {
-        return makePstnPhoneAccountHandleWithPrefix(id, "", false);
-    }
-
-    public static PhoneAccountHandle makePstnPhoneAccountHandle(int phoneId) {
-        return makePstnPhoneAccountHandle(PhoneFactory.getPhone(phoneId));
-    }
-
     public static PhoneAccountHandle makePstnPhoneAccountHandle(Phone phone) {
-        return makePstnPhoneAccountHandleWithPrefix(phone, "", false);
+        return makePstnPhoneAccountHandleWithPrefix(phone, "",
+                false, phone.getUserHandle());
     }
 
     public static PhoneAccountHandle makePstnPhoneAccountHandleWithPrefix(
-            Phone phone, String prefix, boolean isEmergency) {
+            Phone phone, String prefix, boolean isEmergency, UserHandle userHandle) {
         // TODO: Should use some sort of special hidden flag to decorate this account as
         // an emergency-only account
         String id = isEmergency ? EMERGENCY_ACCOUNT_HANDLE_ID : prefix +
                 String.valueOf(phone.getSubId());
-        return makePstnPhoneAccountHandleWithPrefix(id, prefix, isEmergency);
+        return makePstnPhoneAccountHandleWithId(id, userHandle);
     }
 
-    public static PhoneAccountHandle makePstnPhoneAccountHandleWithPrefix(
-            String id, String prefix, boolean isEmergency) {
+    public static PhoneAccountHandle makePstnPhoneAccountHandleWithId(
+            String id, UserHandle userHandle) {
         ComponentName pstnConnectionServiceName = getPstnConnectionServiceName();
-        return new PhoneAccountHandle(pstnConnectionServiceName, id);
+        // If user handle is null, resort to default constructor to use phone process's
+        // user handle
+        return userHandle == null
+                ? new PhoneAccountHandle(pstnConnectionServiceName, id)
+                : new PhoneAccountHandle(pstnConnectionServiceName, id, userHandle);
     }
 
     public static int getSubIdForPhoneAccount(PhoneAccount phoneAccount) {

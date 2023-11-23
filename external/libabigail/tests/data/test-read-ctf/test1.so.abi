@@ -16,8 +16,13 @@
     </enum-decl>
     <typedef-decl name='opaque_enum' type-id='type-id-4' id='type-id-3'/>
     <typedef-decl name='opaque_struct' type-id='type-id-2' id='type-id-5'/>
-    <type-decl name='unsigned int' size-in-bits='32' alignment-in-bits='32' id='type-id-6'/>
-    <pointer-type-def type-id='type-id-3' size-in-bits='64' alignment-in-bits='64' id='type-id-7'/>
-    <pointer-type-def type-id='type-id-5' size-in-bits='64' alignment-in-bits='64' id='type-id-8'/>
+    <pointer-type-def type-id='type-id-3' size-in-bits='64' alignment-in-bits='64' id='type-id-6'/>
+    <pointer-type-def type-id='type-id-5' size-in-bits='64' alignment-in-bits='64' id='type-id-7'/>
+    <function-decl name='fn' visibility='default' binding='global' size-in-bits='64' alignment-in-bits='8' elf-symbol-id='fn'>
+      <parameter type-id='type-id-7'/>
+      <parameter type-id='type-id-6'/>
+      <return type-id='type-id-8'/>
+    </function-decl>
+    <type-decl name='void' id='type-id-8'/>
   </abi-instr>
 </abi-corpus>

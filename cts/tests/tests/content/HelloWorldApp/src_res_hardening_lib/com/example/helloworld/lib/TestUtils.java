@@ -261,7 +261,7 @@ public class TestUtils {
                     }
                 }
             };
-            context.registerReceiver(mReceiver, intentFilter, null, mHandler);
+            context.registerReceiver(mReceiver, intentFilter, null, mHandler, Context.RECEIVER_EXPORTED);
         }
 
         /**

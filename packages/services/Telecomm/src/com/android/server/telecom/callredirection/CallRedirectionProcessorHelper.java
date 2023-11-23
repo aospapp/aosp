@@ -23,6 +23,7 @@ import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.PersistableBundle;
+import android.os.UserHandle;
 import android.telecom.CallRedirectionService;
 import android.telecom.GatewayInfo;
 import android.telecom.Log;
@@ -53,8 +54,9 @@ public class CallRedirectionProcessorHelper {
     }
 
     @VisibleForTesting
-    public ComponentName getUserDefinedCallRedirectionService() {
-        String packageName = mCallsManager.getRoleManagerAdapter().getDefaultCallRedirectionApp();
+    public ComponentName getUserDefinedCallRedirectionService(UserHandle userHandle) {
+        String packageName = mCallsManager.getRoleManagerAdapter().getDefaultCallRedirectionApp(
+                userHandle);
         if (TextUtils.isEmpty(packageName)) {
             Log.i(this, "PackageName is empty. Not performing user-defined call redirection.");
             return null;

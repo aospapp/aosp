@@ -1,4 +1,5 @@
 use std::env;
+use std::env::VarError;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
@@ -16,7 +17,7 @@ fn version_is_nightly(version: &str) -> bool {
     version.contains("nightly")
 }
 
-fn main() {
+fn cfg_rust_version() {
     let rustc = env::var("RUSTC").expect("RUSTC unset");
 
     let mut child = process::Command::new(rustc)
@@ -39,8 +40,16 @@ fn main() {
     if version_is_nightly(&rustc_version) {
         println!("cargo:rustc-cfg=rustc_nightly");
     }
+}
 
-    write_version();
+fn cfg_serde() {
+    match env::var("CARGO_FEATURE_WITH_SERDE") {
+        Ok(_) => {
+            println!("cargo:rustc-cfg=serde");
+        }
+        Err(VarError::NotUnicode(..)) => panic!(),
+        Err(VarError::NotPresent) => {}
+    }
 }
 
 fn out_dir() -> PathBuf {
@@ -75,4 +84,10 @@ fn write_version() {
     .unwrap();
     writeln!(file, "pub const {}: () = ();", version_ident).unwrap();
     file.flush().unwrap();
+}
+
+fn main() {
+    cfg_rust_version();
+    cfg_serde();
+    write_version();
 }

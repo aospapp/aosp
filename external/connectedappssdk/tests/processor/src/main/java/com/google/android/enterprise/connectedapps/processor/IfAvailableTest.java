@@ -57,7 +57,7 @@ public class IfAvailableTest {
                 annotatedNotesProvider(annotationPrinter),
                 annotatedNotesCrossProfileType(annotationPrinter));
 
-    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_IfAvailable");
+    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".NotesType_IfAvailable");
   }
 
   @Test
@@ -79,7 +79,7 @@ public class IfAvailableTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_IfAvailable")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_IfAvailable")
         .contentsAsUtf8String()
         .contains("void refreshNotes()");
   }
@@ -104,7 +104,7 @@ public class IfAvailableTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_IfAvailable")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_IfAvailable")
         .contentsAsUtf8String()
         .contains("int refreshNotes(int defaultValue)");
   }
@@ -131,7 +131,7 @@ public class IfAvailableTest {
                 installationListener(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_IfAvailable")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_IfAvailable")
         .contentsAsUtf8String()
         .contains("void refreshNotes(InstallationListener listener)");
   }
@@ -158,7 +158,7 @@ public class IfAvailableTest {
                 installationListenerWithStringParam(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_IfAvailable")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_IfAvailable")
         .contentsAsUtf8String()
         .contains(
             "void refreshNotes(String s, InstallationListener listener, String defaultValue)");
@@ -185,7 +185,7 @@ public class IfAvailableTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_IfAvailable")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_IfAvailable")
         .contentsAsUtf8String()
         .contains("ListenableFuture<String> refreshNotes(String defaultValue)");
   }

@@ -50,7 +50,7 @@ const (
 	// file.
 	FSETID
 
-	// KILL allows a process to sent a kill(2) signal to any other
+	// KILL allows a process to send a kill(2) signal to any other
 	// process - overriding the limitation that there be a
 	// [E]UID match between source and target process.
 	KILL
@@ -63,7 +63,7 @@ const (
 	SETGID
 
 	// SETUID allows a process to freely manipulate its own UIDs:
-	//   - arbitraily set the UID, EUID, REUID and RESUID
+	//   - arbitrarily set the UID, EUID, REUID and RESUID
 	//     values
 	//   - allows the forging of UID credentials passed over a
 	//     socket
@@ -85,7 +85,7 @@ const (
 	// default, as its unsuppressed behavior was not
 	// auditable: it could asynchronously grant its own
 	// Permitted capabilities to and remove capabilities from
-	// other processes arbitraily. The former leads to
+	// other processes arbitrarily. The former leads to
 	// undefined behavior, and the latter is better served by
 	// the kill system call.]
 	SETPCAP
@@ -230,8 +230,6 @@ const (
 	//   - override the maximum number of consoles for console
 	//     allocation
 	//   - override the maximum number of keymaps
-	//
-	//
 	SYS_RESOURCE
 
 	// SYS_TIME allows a process to perform time manipulation of clocks:
@@ -261,6 +259,11 @@ const (
 	AUDIT_CONTROL
 
 	// SETFCAP allows a process to set capabilities on files.
+	// Permits a process to uid_map the uid=0 of the
+	// parent user namespace into that of the child
+	// namespace. Also, permits a process to override
+	// securebits locks through user namespace
+	// creation.
 	SETFCAP
 
 	// MAC_OVERRIDE allows a process to override Manditory Access Control

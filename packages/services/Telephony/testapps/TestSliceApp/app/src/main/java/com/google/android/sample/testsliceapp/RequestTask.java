@@ -16,24 +16,35 @@
 package com.google.android.sample.testsliceapp;
 
 import android.net.Network;
+import android.os.AsyncTask;
+import android.util.Log;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Scanner;
 
-class RequestTask{
+class RequestTask extends AsyncTask<Network, Integer, Integer> {
+    protected Integer doInBackground(Network... network) {
+        ping(network[0]);
+        return 0;
+    }
     String ping(Network network) {
         URL url = null;
         try {
             url = new URL("http://www.google.com");
         } catch (Exception e) {
+            Log.d("SliceTest", "exception: " + e);
         }
         if (url != null) {
             try {
-                return httpGet(network, url);
+                Log.d("SliceTest", "ping " + url);
+                String result = httpGet(network, url);
+                Log.d("SliceTest", "result " + result);
+                return result;
             } catch (Exception e) {
+                Log.d("SliceTest", "exception: " + e);
             }
         }
         return "";
@@ -47,7 +58,9 @@ class RequestTask{
         HttpURLConnection connection = (HttpURLConnection) network.openConnection(httpUrl);
         try {
             InputStream inputStream = connection.getInputStream();
-            return new BufferedInputStream(inputStream).toString();
+            Log.d("httpGet", "httpUrl + " + httpUrl);
+            Scanner scanner = new Scanner(inputStream).useDelimiter("\\A");
+            return scanner.hasNext() ? scanner.next() : "";
         } finally {
             connection.disconnect();
         }

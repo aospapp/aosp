@@ -32,16 +32,79 @@ LF = '\n'
 CRLF = '\r\n'
 
 
-def GetDefaultStyleForDir(dirname):
-  """Return default style name for a given directory.
+def _GetExcludePatternsFromYapfIgnore(filename):
+  """Get a list of file patterns to ignore from .yapfignore."""
+  ignore_patterns = []
+  if os.path.isfile(filename) and os.access(filename, os.R_OK):
+    with open(filename, 'r') as fd:
+      for line in fd:
+        if line.strip() and not line.startswith('#'):
+          ignore_patterns.append(line.strip())
 
-  Looks for .style.yapf or setup.cfg in the parent directories.
+    if any(e.startswith('./') for e in ignore_patterns):
+      raise errors.YapfError('path in .yapfignore should not start with ./')
+
+  return ignore_patterns
+
+
+def _GetExcludePatternsFromPyprojectToml(filename):
+  """Get a list of file patterns to ignore from pyproject.toml."""
+  ignore_patterns = []
+  try:
+    import toml
+  except ImportError:
+    raise errors.YapfError(
+        "toml package is needed for using pyproject.toml as a "
+        "configuration file")
+
+  if os.path.isfile(filename) and os.access(filename, os.R_OK):
+    pyproject_toml = toml.load(filename)
+    ignore_patterns = pyproject_toml.get('tool',
+                                         {}).get('yapfignore',
+                                                 {}).get('ignore_patterns', [])
+    if any(e.startswith('./') for e in ignore_patterns):
+      raise errors.YapfError('path in pyproject.toml should not start with ./')
+
+  return ignore_patterns
+
+
+def GetExcludePatternsForDir(dirname):
+  """Return patterns of files to exclude from ignorefile in a given directory.
+
+  Looks for .yapfignore in the directory dirname.
 
   Arguments:
     dirname: (unicode) The name of the directory.
 
   Returns:
-    The filename if found, otherwise return the global default (pep8).
+    A List of file patterns to exclude if ignore file is found, otherwise empty
+    List.
+  """
+  ignore_patterns = []
+
+  yapfignore_file = os.path.join(dirname, '.yapfignore')
+  if os.path.exists(yapfignore_file):
+    ignore_patterns += _GetExcludePatternsFromYapfIgnore(yapfignore_file)
+
+  pyproject_toml_file = os.path.join(dirname, 'pyproject.toml')
+  if os.path.exists(pyproject_toml_file):
+    ignore_patterns += _GetExcludePatternsFromPyprojectToml(pyproject_toml_file)
+  return ignore_patterns
+
+
+def GetDefaultStyleForDir(dirname, default_style=style.DEFAULT_STYLE):
+  """Return default style name for a given directory.
+
+  Looks for .style.yapf or setup.cfg or pyproject.toml in the parent
+  directories.
+
+  Arguments:
+    dirname: (unicode) The name of the directory.
+    default_style: The style to return if nothing is found. Defaults to the
+                   global default style ('pep8') unless otherwise specified.
+
+  Returns:
+    The filename if found, otherwise return the default style.
   """
   dirname = os.path.abspath(dirname)
   while True:
@@ -52,23 +115,47 @@ def GetDefaultStyleForDir(dirname):
 
     # See if we have a setup.cfg file with a '[yapf]' section.
     config_file = os.path.join(dirname, style.SETUP_CONFIG)
-    if os.path.exists(config_file):
-      with open(config_file) as fd:
+    try:
+      fd = open(config_file)
+    except IOError:
+      pass  # It's okay if it's not there.
+    else:
+      with fd:
         config = py3compat.ConfigParser()
         config.read_file(fd)
         if config.has_section('yapf'):
           return config_file
 
-    dirname = os.path.dirname(dirname)
+    # See if we have a pyproject.toml file with a '[tool.yapf]'  section.
+    config_file = os.path.join(dirname, style.PYPROJECT_TOML)
+    try:
+      fd = open(config_file)
+    except IOError:
+      pass  # It's okay if it's not there.
+    else:
+      with fd:
+        try:
+          import toml
+        except ImportError:
+          raise errors.YapfError(
+              "toml package is needed for using pyproject.toml as a "
+              "configuration file")
+
+        pyproject_toml = toml.load(config_file)
+        style_dict = pyproject_toml.get('tool', {}).get('yapf', None)
+        if style_dict is not None:
+          return config_file
+
     if (not dirname or not os.path.basename(dirname) or
         dirname == os.path.abspath(os.path.sep)):
       break
+    dirname = os.path.dirname(dirname)
 
   global_file = os.path.expanduser(style.GLOBAL_STYLE)
   if os.path.exists(global_file):
     return global_file
 
-  return style.DEFAULT_STYLE
+  return default_style
 
 
 def GetCommandLineFiles(command_line_file_list, recursive, exclude):
@@ -116,30 +203,44 @@ def _FindPythonFiles(filenames, recursive, exclude):
   """Find all Python files."""
   if exclude and any(e.startswith('./') for e in exclude):
     raise errors.YapfError("path in '--exclude' should not start with ./")
+  exclude = exclude and [e.rstrip("/" + os.path.sep) for e in exclude]
 
   python_files = []
   for filename in filenames:
     if filename != '.' and exclude and IsIgnored(filename, exclude):
       continue
     if os.path.isdir(filename):
-      if recursive:
-        # TODO(morbo): Look into a version of os.walk that can handle recursion.
-        excluded_dirs = []
-        for dirpath, _, filelist in os.walk(filename):
-          if dirpath != '.' and exclude and IsIgnored(dirpath, exclude):
-            excluded_dirs.append(dirpath)
-            continue
-          elif any(dirpath.startswith(e) for e in excluded_dirs):
-            continue
-          for f in filelist:
-            filepath = os.path.join(dirpath, f)
-            if exclude and IsIgnored(filepath, exclude):
-              continue
-            if IsPythonFile(filepath):
-              python_files.append(filepath)
-      else:
+      if not recursive:
         raise errors.YapfError(
             "directory specified without '--recursive' flag: %s" % filename)
+
+      # TODO(morbo): Look into a version of os.walk that can handle recursion.
+      excluded_dirs = []
+      for dirpath, dirnames, filelist in os.walk(filename):
+        if dirpath != '.' and exclude and IsIgnored(dirpath, exclude):
+          excluded_dirs.append(dirpath)
+          continue
+        elif any(dirpath.startswith(e) for e in excluded_dirs):
+          continue
+        for f in filelist:
+          filepath = os.path.join(dirpath, f)
+          if exclude and IsIgnored(filepath, exclude):
+            continue
+          if IsPythonFile(filepath):
+            python_files.append(filepath)
+        # To prevent it from scanning the contents excluded folders, os.walk()
+        # lets you amend its list of child dirs `dirnames`. These edits must be
+        # made in-place instead of creating a modified copy of `dirnames`.
+        # list.remove() is slow and list.pop() is a headache. Instead clear
+        # `dirnames` then repopulate it.
+        dirnames_ = [dirnames.pop(0) for i in range(len(dirnames))]
+        for dirname in dirnames_:
+          dir_ = os.path.join(dirpath, dirname)
+          if IsIgnored(dir_, exclude):
+            excluded_dirs.append(dir_)
+          else:
+            dirnames.append(dirname)
+
     elif os.path.isfile(filename):
       python_files.append(filename)
 
@@ -148,10 +249,12 @@ def _FindPythonFiles(filenames, recursive, exclude):
 
 def IsIgnored(path, exclude):
   """Return True if filename matches any patterns in exclude."""
-  path = path.lstrip('/')
-  while path.startswith('./'):
+  if exclude is None:
+    return False
+  path = path.lstrip(os.path.sep)
+  while path.startswith('.' + os.path.sep):
     path = path[2:]
-  return any(fnmatch.fnmatch(path, e.rstrip('/')) for e in exclude)
+  return any(fnmatch.fnmatch(path, e.rstrip(os.path.sep)) for e in exclude)
 
 
 def IsPythonFile(filename):

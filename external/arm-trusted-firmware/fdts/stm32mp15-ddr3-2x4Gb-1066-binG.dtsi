@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
 /*
- * Copyright (C) 2018, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2018-2021, STMicroelectronics - All Rights Reserved
  */
 
 /*
@@ -15,7 +15,7 @@
  * Save Date: 2020.02.20, save Time: 18:49:33
  */
 
-#define DDR_MEM_NAME	"DDR3-DDR3L 32bits 533000Khz"
+#define DDR_MEM_NAME	"DDR3-DDR3L 32bits 533000kHz"
 #define DDR_MEM_SPEED	533000
 #define DDR_MEM_SIZE	0x40000000
 

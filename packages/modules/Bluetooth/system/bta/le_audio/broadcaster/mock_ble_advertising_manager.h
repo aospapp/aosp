@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <base/bind.h>
-#include <base/callback.h>
+#include <base/functional/bind.h>
+#include <base/functional/callback.h>
 #include <base/memory/weak_ptr.h>
 #include <gmock/gmock.h>
 
@@ -86,7 +86,8 @@ class MockBleAdvertisingManager : public BleAdvertisingManager {
               (uint8_t inst_id, std::vector<uint8_t> data, MultiAdvCb cb),
               (override));
   MOCK_METHOD((void), SetPeriodicAdvertisingEnable,
-              (uint8_t inst_id, uint8_t enable, MultiAdvCb cb), (override));
+              (uint8_t inst_id, bool enable, bool include_adi, MultiAdvCb cb),
+              (override));
   MOCK_METHOD((void), Unregister, (uint8_t inst_id), (override));
   MOCK_METHOD((void), Suspend, (), (override));
   MOCK_METHOD((void), Resume, (), (override));

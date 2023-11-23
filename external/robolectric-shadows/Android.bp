@@ -54,27 +54,6 @@ robolectric_build_props {
     name: "robolectric_build_props",
 }
 
-// package the framework raw/uncompiled resources and assets into a jar
-// This logic can be removed once the transition to binary resources is complete
-java_library {
-    name: "robolectric_framework_raw_res_orig",
-    java_resources: [":robolectric_framework_raw_res_files"],
-}
-
-// Move the raw/uncompiled resources and assets into raw-res/
-// This logic can be removed once the transition to binary resources is complete
-java_genrule_host {
-    name: "robolectric_framework_raw_res",
-    out: ["robolectric_framework_raw_res.jar"],
-    srcs: [":robolectric_framework_raw_res_orig"],
-    tools: ["zip2zip"],
-    cmd: "$(location zip2zip) " +
-        "-i $(location :robolectric_framework_raw_res_orig) " +
-        "-o $(location robolectric_framework_raw_res.jar) " +
-        "-x META-INF/**/* " +
-        "**/*:raw-res/",
-}
-
 java_genrule_host {
     name: "robolectric_framework_res",
     tools: ["zip2zip"],
@@ -105,6 +84,7 @@ java_device_for_host {
         "services.accessibility",
         "telephony-common",
         "android.car",
+        "android.car.builtin",
     ],
 }
 
@@ -114,7 +94,6 @@ java_library_host {
         "robolectric_android-all-device-deps",
         "robolectric_tzdata",
         "robolectric_framework_res",
-        "robolectric_framework_raw_res",
     ],
     dist: {
         targets: [
@@ -154,11 +133,11 @@ java_library_host {
         "Robolectric_sandbox",
         "Robolectric_junit",
         "Robolectric_utils",
-        "asm-9.2",
+        "ow2-asm",
         "junit",
-        "asm-tree-9.2",
+        "ow2-asm-tree",
         "guava",
-        "asm-commons-9.2",
+        "ow2-asm-commons",
         "bouncycastle-unbundled",
         "robolectric-sqlite4java-0.282",
         "hamcrest",
@@ -177,7 +156,49 @@ java_library_host {
 java_host_for_device {
     name: "Robolectric_all-target",
     libs: ["Robolectric_all"],
-    visibility: ["//visibility:public"],
+    visibility: [
+      ":__subpackages__",
+      //java references
+      "//frameworks/opt/net/wifi/libs/WifiTrackerLib/tests:__pkg__",
+      "//prebuilts/sdk/current/androidx:__pkg__",
+      "//prebuilts/sdk/current/aaos-libs:__pkg__",
+      "//packages/apps/TV/tests/common:__pkg__",
+      //robolectric tests
+      "//vendor:__subpackages__",
+      "//platform_testing/robolab/roboStandaloneProj/tests:__pkg__",
+      "//external/mobile-data-download/javatests:__pkg__",
+      "//frameworks/base/services/robotests:__pkg__",
+      "//frameworks/base/services/robotests/backup:__pkg__",
+      "//frameworks/base/packages/SettingsLib/tests/robotests:__pkg__",
+      "//frameworks/base/packages/SystemUI:__pkg__",
+      "//frameworks/opt/car/setupwizard/library/main/tests/robotests:__pkg__",
+      "//frameworks/opt/localepicker/tests:__pkg__",
+      "//frameworks/opt/wear/signaldetector/robotests:__pkg__",
+      "//frameworks/opt/wear/robotests:__pkg__",
+      "//packages/modules/Connectivity/nearby/tests/multidevices/clients/test_support/snippet_helper/tests:__pkg__",
+      "//packages/modules/Connectivity/nearby/tests/robotests:__pkg__",
+      "//packages/modules/DeviceLock/DeviceLockController/tests/robolectric:__pkg__",
+      "//packages/services/Car/tests/CarLibTests:__pkg__",
+      "//packages/services/Mms/tests/robotests:__pkg__",
+      "//packages/apps/QuickAccessWallet/tests/robolectric:__pkg__",
+      "//packages/apps/ManagedProvisioning/tests/robotests:__pkg__",
+      "//packages/apps/Car/libs/car-media-common/tests/robotests",
+      "//packages/apps/Car/libs/car-ui-lib",
+      "//packages/apps/Car/Notification/tests/robotests:__pkg__",
+      "//packages/apps/Car/Cluster/DirectRenderingCluster/tests/robotests:__pkg__",
+      "//packages/apps/Car/Settings/tests/robotests:__pkg__",
+      "//packages/apps/EmergencyInfo/tests/robolectric:__pkg__",
+      "//packages/apps/StorageManager/robotests:__pkg__",
+      "//packages/apps/Settings/tests/robotests:__pkg__",
+      "//packages/apps/ThemePicker/tests/robotests:__pkg__",
+      "//packages/apps/WallpaperPicker2/tests/robotests:__pkg__",
+      "//packages/apps/TvSettings/Settings/tests/robotests:__pkg__",
+      "//packages/apps/KeyChain/robotests:__pkg__",
+      "//packages/apps/CertInstaller/robotests:__pkg__",
+      //tm-dev additions
+      "//frameworks/base/packages/BackupEncryption/test/robolectric-integration:__pkg__",
+      "//frameworks/base/packages/BackupEncryption/test/robolectric:__pkg__",
+    ],
 }
 
 // Make dependencies available as host jars

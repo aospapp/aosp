@@ -30,10 +30,6 @@ public class ExpandableListActivityTest extends ActivityTestsBase {
                 ExpandableListTestActivity.class));
     }
 
-    public void testSelect() {
-        runLaunchpad(LaunchpadActivity.EXPANDLIST_SELECT);
-    }
-
     public void testView() {
         runLaunchpad(LaunchpadActivity.EXPANDLIST_VIEW);
     }

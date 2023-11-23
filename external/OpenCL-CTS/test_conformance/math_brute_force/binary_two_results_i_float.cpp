@@ -14,15 +14,19 @@
 // limitations under the License.
 //
 
+#include "common.h"
 #include "function_list.h"
 #include "test_functions.h"
 #include "utility.h"
 
+#include <cinttypes>
 #include <climits>
 #include <cstring>
 
-static int BuildKernel(const char *name, int vectorSize, cl_kernel *k,
-                       cl_program *p, bool relaxedMode)
+namespace {
+
+int BuildKernel(const char *name, int vectorSize, cl_kernel *k, cl_program *p,
+                bool relaxedMode)
 {
     const char *c[] = { "__kernel void math_kernel",
                         sizeNames[vectorSize],
@@ -113,24 +117,23 @@ static int BuildKernel(const char *name, int vectorSize, cl_kernel *k,
     return MakeKernel(kern, (cl_uint)kernSize, testName, k, p, relaxedMode);
 }
 
-typedef struct BuildKernelInfo
+struct BuildKernelInfo2
 {
-    cl_uint offset; // the first vector size to build
     cl_kernel *kernels;
-    cl_program *programs;
+    Programs &programs;
     const char *nameInCode;
     bool relaxedMode; // Whether to build with -cl-fast-relaxed-math.
-} BuildKernelInfo;
+};
 
-static cl_int BuildKernelFn(cl_uint job_id, cl_uint thread_id UNUSED, void *p)
+cl_int BuildKernelFn(cl_uint job_id, cl_uint thread_id UNUSED, void *p)
 {
-    BuildKernelInfo *info = (BuildKernelInfo *)p;
-    cl_uint i = info->offset + job_id;
-    return BuildKernel(info->nameInCode, i, info->kernels + i,
-                       info->programs + i, info->relaxedMode);
+    BuildKernelInfo2 *info = (BuildKernelInfo2 *)p;
+    cl_uint vectorSize = gMinVectorSizeIndex + job_id;
+    return BuildKernel(info->nameInCode, vectorSize, info->kernels + vectorSize,
+                       &(info->programs[vectorSize]), info->relaxedMode);
 }
 
-typedef struct ComputeReferenceInfoF_
+struct ComputeReferenceInfoF
 {
     const float *x;
     const float *y;
@@ -139,9 +142,9 @@ typedef struct ComputeReferenceInfoF_
     double (*f_ffpI)(double, double, int *);
     cl_uint lim;
     cl_uint count;
-} ComputeReferenceInfoF;
+};
 
-static cl_int ReferenceF(cl_uint jid, cl_uint tid, void *userInfo)
+cl_int ReferenceF(cl_uint jid, cl_uint tid, void *userInfo)
 {
     ComputeReferenceInfoF *cri = (ComputeReferenceInfoF *)userInfo;
     cl_uint lim = cri->lim;
@@ -161,13 +164,15 @@ static cl_int ReferenceF(cl_uint jid, cl_uint tid, void *userInfo)
     return CL_SUCCESS;
 }
 
+} // anonymous namespace
+
 int TestFunc_FloatI_Float_Float(const Func *f, MTdata d, bool relaxedMode)
 {
     int error;
 
     logFunctionInfo(f->name, sizeof(cl_float), relaxedMode);
 
-    cl_program programs[VECTOR_SIZE_COUNT];
+    Programs programs;
     cl_kernel kernels[VECTOR_SIZE_COUNT];
     float maxError = 0.0f;
     int ftz = f->ftz || gForceFTZ || 0 == (CL_FP_DENORM & gFloatCapabilities);
@@ -188,8 +193,8 @@ int TestFunc_FloatI_Float_Float(const Func *f, MTdata d, bool relaxedMode)
 
     // Init the kernels
     {
-        BuildKernelInfo build_info = { gMinVectorSizeIndex, kernels, programs,
-                                       f->nameInCode, relaxedMode };
+        BuildKernelInfo2 build_info{ kernels, programs, f->nameInCode,
+                                     relaxedMode };
         if ((error = ThreadPool_Do(BuildKernelFn,
                                    gMaxVectorSizeIndex - gMinVectorSizeIndex,
                                    &build_info)))
@@ -375,7 +380,7 @@ int TestFunc_FloatI_Float_Float(const Func *f, MTdata d, bool relaxedMode)
                 if (iptrUndefined) iErr = 0;
 
                 int fail = !(fabsf(err) <= float_ulps && iErr == 0);
-                if (ftz && fail)
+                if ((ftz || relaxedMode) && fail)
                 {
                     // retry per section 6.5.3.2
                     if (IsFloatResultSubnormal(correct, float_ulps))
@@ -509,16 +514,17 @@ int TestFunc_FloatI_Float_Float(const Func *f, MTdata d, bool relaxedMode)
 
                 if (fail)
                 {
-                    vlog_error(
-                        "\nERROR: %s%s: {%f, %lld} ulp error at {%a, %a} "
-                        "({0x%8.8x, 0x%8.8x}): *{%a, %d} ({0x%8.8x, "
-                        "0x%8.8x}) vs. {%a, %d} ({0x%8.8x, 0x%8.8x})\n",
-                        f->name, sizeNames[k], err, iErr, ((float *)gIn)[j],
-                        ((float *)gIn2)[j], ((cl_uint *)gIn)[j],
-                        ((cl_uint *)gIn2)[j], ((float *)gOut_Ref)[j],
-                        ((int *)gOut_Ref2)[j], ((cl_uint *)gOut_Ref)[j],
-                        ((cl_uint *)gOut_Ref2)[j], test, q2[j],
-                        ((cl_uint *)&test)[0], ((cl_uint *)q2)[j]);
+                    vlog_error("\nERROR: %s%s: {%f, %" PRId64
+                               "} ulp error at {%a, %a} "
+                               "({0x%8.8x, 0x%8.8x}): *{%a, %d} ({0x%8.8x, "
+                               "0x%8.8x}) vs. {%a, %d} ({0x%8.8x, 0x%8.8x})\n",
+                               f->name, sizeNames[k], err, iErr,
+                               ((float *)gIn)[j], ((float *)gIn2)[j],
+                               ((cl_uint *)gIn)[j], ((cl_uint *)gIn2)[j],
+                               ((float *)gOut_Ref)[j], ((int *)gOut_Ref2)[j],
+                               ((cl_uint *)gOut_Ref)[j],
+                               ((cl_uint *)gOut_Ref2)[j], test, q2[j],
+                               ((cl_uint *)&test)[0], ((cl_uint *)q2)[j]);
                     error = -1;
                     goto exit;
                 }
@@ -529,8 +535,9 @@ int TestFunc_FloatI_Float_Float(const Func *f, MTdata d, bool relaxedMode)
         {
             if (gVerboseBruteForce)
             {
-                vlog("base:%14u step:%10zu  bufferSize:%10zd \n", i, step,
-                     BUFFER_SIZE);
+                vlog("base:%14" PRIu64 " step:%10" PRIu64
+                     "  bufferSize:%10d \n",
+                     i, step, BUFFER_SIZE);
             }
             else
             {
@@ -547,8 +554,8 @@ int TestFunc_FloatI_Float_Float(const Func *f, MTdata d, bool relaxedMode)
         else
             vlog("passed");
 
-        vlog("\t{%8.2f, %lld} @ {%a, %a}", maxError, maxError2, maxErrorVal,
-             maxErrorVal2);
+        vlog("\t{%8.2f, %" PRId64 "} @ {%a, %a}", maxError, maxError2,
+             maxErrorVal, maxErrorVal2);
     }
 
     vlog("\n");
@@ -558,7 +565,6 @@ exit:
     for (auto k = gMinVectorSizeIndex; k < gMaxVectorSizeIndex; k++)
     {
         clReleaseKernel(kernels[k]);
-        clReleaseProgram(programs[k]);
     }
 
     return error;

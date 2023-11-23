@@ -25,8 +25,8 @@ allow hal_graphics_composer_default sysfs_leds:file rw_file_perms;
 # allow HWC to get vendor_persist_sys_default_prop
 get_prop(hal_graphics_composer_default, vendor_persist_sys_default_prop)
 
-# allow HWC to get vendor_display_prop
-get_prop(hal_graphics_composer_default, vendor_display_prop)
+# allow HWC to get/set vendor_display_prop
+set_prop(hal_graphics_composer_default, vendor_display_prop)
 
 # allow HWC to get device_config_surface_flinger_native_boot_prop for adpf flags
 get_prop(hal_graphics_composer_default, device_config_surface_flinger_native_boot_prop)

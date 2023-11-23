@@ -20,6 +20,9 @@ import static android.net.wifi.WifiInfo.SECURITY_TYPE_PSK;
 
 import static com.android.wifitrackerlib.StandardWifiEntry.StandardWifiEntryKey;
 import static com.android.wifitrackerlib.StandardWifiEntry.ssidAndSecurityTypeToStandardWifiEntryKey;
+import static com.android.wifitrackerlib.TestUtils.BAD_LEVEL;
+import static com.android.wifitrackerlib.TestUtils.BAD_RSSI;
+import static com.android.wifitrackerlib.TestUtils.GOOD_RSSI;
 import static com.android.wifitrackerlib.TestUtils.buildScanResult;
 import static com.android.wifitrackerlib.TestUtils.buildWifiConfiguration;
 import static com.android.wifitrackerlib.WifiEntry.SECURITY_NONE;
@@ -28,17 +31,20 @@ import static com.android.wifitrackerlib.WifiEntry.WIFI_LEVEL_UNREACHABLE;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.net.ConnectivityDiagnosticsManager;
 import android.net.ConnectivityManager;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.net.wifi.WifiScanner;
 import android.os.Handler;
 import android.os.test.TestLooper;
 
@@ -65,7 +71,9 @@ public class StandardNetworkDetailsTrackerTest {
     @Mock private Lifecycle mMockLifecycle;
     @Mock private Context mMockContext;
     @Mock private WifiManager mMockWifiManager;
+    @Mock private WifiScanner mWifiScanner;
     @Mock private ConnectivityManager mMockConnectivityManager;
+    @Mock private ConnectivityDiagnosticsManager mMockConnectivityDiagnosticsManager;
     @Mock private Clock mMockClock;
 
     private TestLooper mTestLooper;
@@ -102,6 +110,15 @@ public class StandardNetworkDetailsTrackerTest {
         when(mMockWifiManager.isEnhancedOpenSupported()).thenReturn(true);
         when(mMockWifiManager.getScanResults()).thenReturn(new ArrayList<>());
         when(mMockWifiManager.getWifiState()).thenReturn(WifiManager.WIFI_STATE_ENABLED);
+        when(mMockWifiManager.calculateSignalLevel(TestUtils.GOOD_RSSI))
+                .thenReturn(TestUtils.GOOD_LEVEL);
+        when(mMockWifiManager.calculateSignalLevel(TestUtils.OKAY_RSSI))
+                .thenReturn(TestUtils.OKAY_LEVEL);
+        when(mMockWifiManager.calculateSignalLevel(TestUtils.BAD_RSSI))
+                .thenReturn(TestUtils.BAD_LEVEL);
+        when(mMockContext.getSystemService(ConnectivityDiagnosticsManager.class))
+                .thenReturn(mMockConnectivityDiagnosticsManager);
+        when(mMockContext.getSystemService(WifiScanner.class)).thenReturn(mWifiScanner);
         when(mMockClock.millis()).thenReturn(START_MILLIS);
     }
 
@@ -117,26 +134,6 @@ public class StandardNetworkDetailsTrackerTest {
                 createTestStandardNetworkDetailsTracker(key.toString());
 
         assertThat(tracker.getWifiEntry().getKey()).isEqualTo(key.toString());
-    }
-
-    /**
-     * Tests that SCAN_RESULTS_AVAILABLE_ACTION updates the level of the entry.
-     */
-    @Test
-    public void testHandleOnStart_scanResultUpdaterUpdateCorrectly() throws Exception {
-        final StandardWifiEntryKey key =
-                ssidAndSecurityTypeToStandardWifiEntryKey("ssid", SECURITY_NONE);
-        final StandardNetworkDetailsTracker tracker =
-                createTestStandardNetworkDetailsTracker(key.toString());
-        final ScanResult other = buildScanResult("ssid2", "bssid", START_MILLIS, -50 /* rssi */);
-        when(mMockWifiManager.getScanResults()).thenReturn(Collections.singletonList(other));
-
-        //tracker.onStart();
-        tracker.handleOnStart();
-
-        final long invalidCount = tracker.mScanResultUpdater.getScanResults().stream().filter(
-                scanResult -> !"ssid".equals(scanResult.SSID)).count();
-        assertThat(invalidCount).isEqualTo(0);
     }
 
     /**
@@ -267,7 +264,6 @@ public class StandardNetworkDetailsTrackerTest {
 
         // WifiEntry should correspond to the saved config
         WifiEntry wifiEntry = tracker.getWifiEntry();
-//        assertThat(wifiEntry.getSecurityTypes().size()).isEqualTo(1);
         assertThat(wifiEntry.getSecurityTypes().get(0)).isEqualTo(WifiInfo.SECURITY_TYPE_SAE);
         assertThat(wifiEntry.getLevel()).isEqualTo(WIFI_LEVEL_UNREACHABLE);
 
@@ -280,9 +276,42 @@ public class StandardNetworkDetailsTrackerTest {
 
         // WifiEntry should correspond to the unsaved scan
         wifiEntry = tracker.getWifiEntry();
-//        assertThat(wifiEntry.getSecurityTypes().size()).isEqualTo(1);
         assertThat(wifiEntry.getSecurityTypes().get(0)).isEqualTo(SECURITY_TYPE_PSK);
         assertThat(wifiEntry.getLevel()).isNotEqualTo(WIFI_LEVEL_UNREACHABLE);
+    }
 
+    /**
+     * Tests that we update the chosen entry's ScanResults correctly after a WifiScanner scan.
+     */
+    @Test
+    public void testScanner_wifiScannerResultReceived_scanResultsUpdated() {
+        final String ssid = "ssid";
+        final WifiConfiguration config = buildWifiConfiguration(ssid);
+        when(mMockWifiManager.getPrivilegedConfiguredNetworks())
+                .thenReturn(Collections.singletonList(config));
+        StandardNetworkDetailsTracker tracker = createTestStandardNetworkDetailsTracker(
+                ssidAndSecurityTypeToStandardWifiEntryKey(ssid, SECURITY_NONE).toString());
+        tracker.onStart();
+        mTestLooper.dispatchAll();
+        verify(mMockContext).registerReceiver(mBroadcastReceiverCaptor.capture(),
+                any(), any(), any());
+        mBroadcastReceiverCaptor.getValue().onReceive(mMockContext,
+                new Intent(WifiManager.WIFI_STATE_CHANGED_ACTION).putExtra(
+                        WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_ENABLED));
+        ArgumentCaptor<WifiScanner.ScanListener> mScanListenerCaptor =
+                ArgumentCaptor.forClass(WifiScanner.ScanListener.class);
+        verify(mWifiScanner).startScan(any(), mScanListenerCaptor.capture());
+        ScanResult[] scanResults = new ScanResult[]{
+                buildScanResult(ssid, "bssid", START_MILLIS, BAD_RSSI),
+                buildScanResult("different ssid", "bssid", START_MILLIS, GOOD_RSSI),
+        };
+        WifiScanner.ScanData scanData = mock(WifiScanner.ScanData.class);
+        when(scanData.getResults()).thenReturn(scanResults);
+
+        mScanListenerCaptor.getValue().onResults(new WifiScanner.ScanData[]{scanData});
+        mTestLooper.dispatchAll();
+
+        // Updated with the correct SSID and ignored the different SSID.
+        assertThat(tracker.getWifiEntry().getLevel()).isEqualTo(BAD_LEVEL);
     }
 }

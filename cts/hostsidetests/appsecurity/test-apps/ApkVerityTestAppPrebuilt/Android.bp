@@ -29,9 +29,3 @@ filegroup {
     ],
 }
 
-filegroup {
-    name: "CtsApkVerityTestPrebuiltFilesArm64",
-    srcs: [
-        "arm64/*",
-    ],
-}

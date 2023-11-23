@@ -18,16 +18,20 @@ package simple.type {
   public class SimpleTypes {
     ctor public SimpleTypes();
     method public java.util.List<java.lang.Integer> getListInt();
+    method public java.util.List<java.lang.Integer> getOptionalIntList();
     method public java.util.List<java.lang.String> getUnionTest();
     method public java.util.List<simple.type.EnumType> getYesOrNo();
     method public boolean isExample1();
     method public boolean isExample2();
     method public boolean isExample3();
+    method public boolean isValue();
     method public void setExample1(boolean);
     method public void setExample2(boolean);
     method public void setExample3(boolean);
     method public void setListInt(java.util.List<java.lang.Integer>);
+    method public void setOptionalIntList(java.util.List<java.lang.Integer>);
     method public void setUnionTest(java.util.List<java.lang.String>);
+    method public void setValue(boolean);
   }
 
   public class SingleChoice {
@@ -43,6 +47,7 @@ package simple.type {
   public class XmlParser {
     ctor public XmlParser();
     method public static simple.type.MultiChoice readMultiChoice(java.io.InputStream) throws javax.xml.datatype.DatatypeConfigurationException, java.io.IOException, org.xmlpull.v1.XmlPullParserException;
+    method public static java.math.BigInteger readPercent(java.io.InputStream) throws javax.xml.datatype.DatatypeConfigurationException, java.io.IOException, org.xmlpull.v1.XmlPullParserException;
     method public static simple.type.SimpleTypes readSimpleTypes(java.io.InputStream) throws javax.xml.datatype.DatatypeConfigurationException, java.io.IOException, org.xmlpull.v1.XmlPullParserException;
     method public static simple.type.SingleChoice readSingleChoice(java.io.InputStream) throws javax.xml.datatype.DatatypeConfigurationException, java.io.IOException, org.xmlpull.v1.XmlPullParserException;
     method public static String readText(org.xmlpull.v1.XmlPullParser) throws java.io.IOException, org.xmlpull.v1.XmlPullParserException;
@@ -55,6 +60,7 @@ package simple.type {
     method public static void write(simple.type.XmlWriter, simple.type.SimpleTypes) throws java.io.IOException;
     method public static void write(simple.type.XmlWriter, simple.type.MultiChoice) throws java.io.IOException;
     method public static void write(simple.type.XmlWriter, simple.type.SingleChoice) throws java.io.IOException;
+    method public static void writePercent(simple.type.XmlWriter, java.math.BigInteger) throws java.io.IOException;
   }
 
 }

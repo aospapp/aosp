@@ -32,6 +32,6 @@
 #ifndef BTSNOOP_MEM_BUFFER_SIZE
 #endif
 
-#ifndef OS_ANDROID
+#ifndef __ANDROID__
 #else
 #endif

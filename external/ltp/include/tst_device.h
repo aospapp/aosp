@@ -7,10 +7,13 @@
 #define TST_DEVICE_H__
 
 #include <unistd.h>
+#include <stdint.h>
+#include <sys/stat.h>
 
 struct tst_device {
 	const char *dev;
 	const char *fs_type;
+	uint64_t size;
 };
 
 /*
@@ -46,7 +49,7 @@ int tst_clear_device(const char *dev);
  * free loopdev). If path is non-NULL, it will be filled with free loopdev path.
  *
  */
-int tst_find_free_loopdev(const char *path, size_t path_len);
+int tst_find_free_loopdev(char *path, size_t path_len);
 
 /*
  * Attaches a file to a loop device.
@@ -56,6 +59,11 @@ int tst_find_free_loopdev(const char *path, size_t path_len);
  * @return Zero on success, non-zero otherwise.
  */
 int tst_attach_device(const char *dev_path, const char *file_path);
+
+/*
+ * Get size (in MB) of the given device
+ */
+uint64_t tst_get_device_size(const char *dev_path);
 
 /*
  * Detaches a file from a loop device fd.
@@ -100,9 +108,22 @@ void tst_purge_dir(const char *path);
 
 /*
  * Find the file or path belongs to which block dev
- * @path  Path to find the backing dev
- * @dev   The block dev
+ * @path       Path to find the backing dev
+ * @dev        The buffer to store the block dev in
+ * @dev_size   The length of the block dev buffer
  */
-void tst_find_backing_dev(const char *path, char *dev);
+void tst_find_backing_dev(const char *path, char *dev, size_t dev_size);
 
-#endif	/* TST_DEVICE_H__ */
+/*
+ * Stat the device mounted on a given path.
+ */
+void tst_stat_mount_dev(const char *const mnt_path, struct stat *const st);
+
+/*
+ * Returns the size of a physical device block size for the specific path
+ * @path   Path to find the block size
+ * @return Size of the block size
+ */
+int tst_dev_block_size(const char *path);
+
+#endif /* TST_DEVICE_H__ */

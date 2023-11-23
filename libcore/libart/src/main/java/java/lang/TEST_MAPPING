@@ -13,6 +13,14 @@
           "include-filter": "libcore.java.lang"
         }
       ]
+    },
+    {
+      "name": "CtsLibcoreOjTestCases",
+      "options": [
+        {
+          "include-filter": "test.java.lang"
+        }
+      ]
     }
   ]
 }

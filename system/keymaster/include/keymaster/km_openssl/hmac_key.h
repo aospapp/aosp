@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include "symmetric_key.h"
 
 namespace keymaster {
@@ -50,7 +52,8 @@ class HmacKey : public SymmetricKey {
   public:
     HmacKey(KeymasterKeyBlob&& key_material, AuthorizationSet&& hw_enforced,
             AuthorizationSet&& sw_enforced, const KeyFactory* key_factory)
-        : SymmetricKey(move(key_material), move(hw_enforced), move(sw_enforced), key_factory) {}
+        : SymmetricKey(std::move(key_material), std::move(hw_enforced), std::move(sw_enforced),
+                       key_factory) {}
 };
 
 }  // namespace keymaster

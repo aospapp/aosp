@@ -3,7 +3,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import contextlib
+# contextlib.nested is deprecated and removed in python3
+# Since the apis are quite different, keep track of whether to use nested or not
+# based on the availability of contextlib.nested and take different code paths.
+try:
+    from contextlib import nested
+    use_nested = True
+except ImportError:
+    import contextlib
+    use_nested = False
+
 import dbus
 import errno
 import functools
@@ -24,8 +33,8 @@ def terminate_old(script_name, sigterm_timeout=5, sigkill_timeout=3):
     line.  This should avoid including processes such as editors and 'tail' of
     logs, which might match a simple pkill.
 
-    exe=/usr/local/bin/python2.7
-    cmdline=['/usr/bin/python2', '-u', '/usr/local/autotest/.../rpc_server.py']
+    exe=/usr/local/bin/python3
+    cmdline=['/usr/bin/python3', '-u', '/usr/local/autotest/.../rpc_server.py']
 
     @param script_name: The filename of the main script, used to match processes
     @param sigterm_timeout: Wait N seconds after SIGTERM before trying SIGKILL.
@@ -73,13 +82,13 @@ def terminate_old(script_name, sigterm_timeout=5, sigkill_timeout=3):
         except psutil.NoSuchProcess as e:
             logging.debug('%s: %s', e, proc)
         except psutil.Error as e:
-            logging.warn('%s: %s', e, proc)
+            logging.warning('%s: %s', e, proc)
 
     (terminated, running) = psutil.wait_procs(running, sigterm_timeout)
     if not running:
         return
 
-    running.sort()
+    running.sort(key=lambda p: p.pid)
     logging.info('Trying SIGKILL: pids=%s', [p.pid for p in running])
     for proc in running:
         try:
@@ -87,12 +96,12 @@ def terminate_old(script_name, sigterm_timeout=5, sigkill_timeout=3):
         except psutil.NoSuchProcess as e:
             logging.debug('%s: %s', e, proc)
         except psutil.Error as e:
-            logging.warn('%s: %s', e, proc)
+            logging.warning('%s: %s', e, proc)
 
     (sigkilled, running) = psutil.wait_procs(running, sigkill_timeout)
     if running:
-        running.sort()
-        logging.warn('Found leftover processes %s; address may be in use!',
+        running.sort(key=lambda p: p.pid)
+        logging.warning('Found leftover processes %s; address may be in use!',
                      [p.pid for p in running])
     else:
         logging.debug('Leftover processes have exited.')
@@ -101,7 +110,7 @@ def terminate_old(script_name, sigterm_timeout=5, sigkill_timeout=3):
 class XmlRpcServer(threading.Thread):
     """Simple XMLRPC server implementation.
 
-    In theory, Python should provide a sane XMLRPC server implementation as
+    In theory, Python should provide a valid XMLRPC server implementation as
     part of its standard library.  In practice the provided implementation
     doesn't handle signals, not even EINTR.  As a result, we have this class.
 
@@ -154,13 +163,12 @@ class XmlRpcServer(threading.Thread):
         self._server.register_instance(delegate)
         self._delegates.append(delegate)
 
-
     def run(self):
         """Block and handle many XmlRpc requests."""
         logging.info('XmlRpcServer starting...')
-        # TODO(wiley) nested is deprecated, but we can't use the replacement
-        #       until we move to Python 3.0.
-        with contextlib.nested(*self._delegates):
+
+        def stack_inner():
+            """Handle requests to server until asked to stop running."""
             while self._keep_running:
                 try:
                     self._server.handle_request()
@@ -169,6 +177,14 @@ class XmlRpcServer(threading.Thread):
                     # handle this kind of error.
                     if v[0] != errno.EINTR:
                         raise
+
+        if use_nested:
+            with nested(*self._delegates):
+                stack_inner()
+        else:
+            with contextlib.ExitStack() as stack:
+                delegates = [stack.enter_context(d) for d in self._delegates]
+                stack_inner()
 
         for delegate in self._delegates:
             if hasattr(delegate, 'cleanup'):

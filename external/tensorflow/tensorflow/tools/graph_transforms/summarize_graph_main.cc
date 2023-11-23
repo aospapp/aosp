@@ -77,7 +77,7 @@ void PrintBenchmarkUsage(const std::vector<const NodeDef*>& placeholders,
       dtype = node->attr().at("dtype").type();
     }
     input_layer_types.push_back(DataTypeString(dtype));
-    std::vector<int64> sizes;
+    std::vector<int64_t> sizes;
     PartialTensorShape shape;
     if (node->attr().count("shape")) {
       TensorShapeProto shape_proto = node->attr().at("shape").shape();
@@ -138,7 +138,7 @@ Status PrintStructure(const GraphDef& graph) {
     }
     std::cout << std::endl;
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status SummarizeGraph(const GraphDef& graph, const string& graph_path,
@@ -284,7 +284,7 @@ Status SummarizeGraph(const GraphDef& graph, const string& graph_path,
     TF_RETURN_IF_ERROR(PrintStructure(graph));
   }
 
-  return Status::OK();
+  return OkStatus();
 }
 
 int ParseFlagsAndSummarizeGraph(int argc, char* argv[]) {

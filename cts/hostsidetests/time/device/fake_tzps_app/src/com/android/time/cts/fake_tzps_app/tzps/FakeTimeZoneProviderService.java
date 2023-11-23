@@ -23,6 +23,7 @@ import static android.app.time.cts.shell.FakeTimeZoneProviderAppShellHelper.PROV
 import android.app.time.cts.shell.FakeTimeZoneProviderAppShellHelper;
 import android.os.SystemClock;
 import android.service.timezone.TimeZoneProviderService;
+import android.service.timezone.TimeZoneProviderStatus;
 import android.service.timezone.TimeZoneProviderSuggestion;
 
 import com.android.time.cts.fake_tzps_app.fixture.FakeTimeZoneProviderRegistry;
@@ -60,7 +61,12 @@ public class FakeTimeZoneProviderService extends TimeZoneProviderService {
         return mState;
     }
 
-    public void fakeReportUncertain() {
+    public void fakeReportUncertain(TimeZoneProviderStatus providerStatus) {
+        reportUncertain(providerStatus);
+        mState = FakeTimeZoneProviderAppShellHelper.PROVIDER_STATE_UNCERTAIN;
+    }
+
+    public void fakeReportUncertainLegacy() {
         reportUncertain();
         mState = FakeTimeZoneProviderAppShellHelper.PROVIDER_STATE_UNCERTAIN;
     }
@@ -70,7 +76,17 @@ public class FakeTimeZoneProviderService extends TimeZoneProviderService {
         mState = PROVIDER_STATE_PERM_FAILED;
     }
 
-    public void fakeReportSuggestion(List<String> timeZoneIds) {
+    public void fakeReportSuggestion(List<String> timeZoneIds,
+            TimeZoneProviderStatus providerStatus) {
+        TimeZoneProviderSuggestion suggestion = new TimeZoneProviderSuggestion.Builder()
+                .setTimeZoneIds(timeZoneIds)
+                .setElapsedRealtimeMillis(SystemClock.elapsedRealtime())
+                .build();
+        reportSuggestion(suggestion, providerStatus);
+        mState = PROVIDER_STATE_CERTAIN;
+    }
+
+    public void fakeReportSuggestionLegacy(List<String> timeZoneIds) {
         TimeZoneProviderSuggestion suggestion = new TimeZoneProviderSuggestion.Builder()
                 .setTimeZoneIds(timeZoneIds)
                 .setElapsedRealtimeMillis(SystemClock.elapsedRealtime())

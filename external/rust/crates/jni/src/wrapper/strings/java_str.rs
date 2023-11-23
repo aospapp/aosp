@@ -49,7 +49,7 @@ impl<'a: 'b, 'b: 'c, 'c> From<&'c JavaStr<'a, 'b>> for &'c JNIStr {
 
 impl<'a: 'b, 'b: 'c, 'c> From<&'c JavaStr<'a, 'b>> for Cow<'c, str> {
     fn from(other: &'c JavaStr) -> Cow<'c, str> {
-        let jni_str: &JNIStr = &*other;
+        let jni_str: &JNIStr = other;
         jni_str.into()
     }
 }
@@ -63,7 +63,7 @@ impl<'a: 'b, 'b> From<JavaStr<'a, 'b>> for String {
 
 impl<'a: 'b, 'b> Drop for JavaStr<'a, 'b> {
     fn drop(&mut self) {
-        match self.env.release_string_utf_chars(self.obj, self.internal) {
+        match unsafe { self.env.release_string_utf_chars(self.obj, self.internal) } {
             Ok(()) => {}
             Err(e) => warn!("error dropping java str: {}", e),
         }

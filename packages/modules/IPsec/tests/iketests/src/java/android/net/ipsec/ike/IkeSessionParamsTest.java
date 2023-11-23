@@ -16,6 +16,10 @@
 
 package android.net.ipsec.test.ike;
 
+import static android.net.ipsec.test.ike.IkeSessionParams.ESP_ENCAP_TYPE_NONE;
+import static android.net.ipsec.test.ike.IkeSessionParams.ESP_ENCAP_TYPE_UDP;
+import static android.net.ipsec.test.ike.IkeSessionParams.ESP_IP_VERSION_IPV4;
+import static android.net.ipsec.test.ike.IkeSessionParams.ESP_IP_VERSION_IPV6;
 import static android.net.ipsec.test.ike.IkeSessionParams.IKE_DPD_DELAY_SEC_DEFAULT;
 import static android.net.ipsec.test.ike.IkeSessionParams.IKE_HARD_LIFETIME_SEC_DEFAULT;
 import static android.net.ipsec.test.ike.IkeSessionParams.IKE_HARD_LIFETIME_SEC_MAXIMUM;
@@ -395,6 +399,23 @@ public final class IkeSessionParamsTest {
             fail("Expected to fail due to invalid DPD delay");
         } catch (IllegalArgumentException expected) {
         }
+    }
+
+
+    @Test(expected = UnsupportedOperationException.class)
+    public void testBuildWithInValidIpProtocol_v4ESP() throws Exception {
+        buildWithPskCommon(REMOTE_IPV4_HOST_ADDRESS)
+                .setIpVersion(ESP_IP_VERSION_IPV4)
+                .setEncapType(ESP_ENCAP_TYPE_NONE)
+                .build();
+    }
+
+    @Test(expected = UnsupportedOperationException.class)
+    public void testBuildWithInValidIpProtocol_v6UDP() throws Exception {
+        buildWithPskCommon(REMOTE_IPV4_HOST_ADDRESS)
+                .setIpVersion(ESP_IP_VERSION_IPV6)
+                .setEncapType(ESP_ENCAP_TYPE_UDP)
+                .build();
     }
 
     @Test

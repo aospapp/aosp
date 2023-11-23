@@ -122,4 +122,8 @@ func NinjaAndShellEscape(s string) string {
 	return ShellEscape(NinjaEscape(s))
 }
 
+func NinjaAndShellEscapeIncludingSpaces(s string) string {
+	return ShellEscapeIncludingSpaces(NinjaEscape(s))
+}
+
 var singleQuoteReplacer = strings.NewReplacer(`'`, `'\''`)

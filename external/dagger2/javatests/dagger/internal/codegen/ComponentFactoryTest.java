@@ -18,7 +18,7 @@ package dagger.internal.codegen;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static dagger.internal.codegen.Compilers.compilerWithOptions;
-import static dagger.internal.codegen.binding.ComponentCreatorAnnotation.COMPONENT_FACTORY;
+import static dagger.internal.codegen.base.ComponentCreatorAnnotation.COMPONENT_FACTORY;
 import static dagger.internal.codegen.binding.ErrorMessages.creatorMessagesFor;
 
 import com.google.testing.compile.Compilation;

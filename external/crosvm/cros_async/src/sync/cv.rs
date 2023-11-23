@@ -1,20 +1,22 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::{
-    cell::UnsafeCell,
-    hint, mem,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
-};
+use std::cell::UnsafeCell;
+use std::hint;
+use std::mem;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
-use super::super::sync::{
-    mu::{MutexGuard, MutexReadGuard, RawMutex},
-    waiter::{Kind as WaiterKind, Waiter, WaiterAdapter, WaiterList, WaitingFor},
-};
+use super::super::sync::mu::MutexGuard;
+use super::super::sync::mu::MutexReadGuard;
+use super::super::sync::mu::RawMutex;
+use super::super::sync::waiter::Kind as WaiterKind;
+use super::super::sync::waiter::Waiter;
+use super::super::sync::waiter::WaiterAdapter;
+use super::super::sync::waiter::WaiterList;
+use super::super::sync::waiter::WaitingFor;
 
 const SPINLOCK: usize = 1 << 0;
 const HAS_WAITERS: usize = 1 << 1;
@@ -449,35 +451,36 @@ fn cancel_waiter(cv: usize, waiter: &Waiter, wake_next: bool) {
     unsafe { (*condvar).cancel_waiter(waiter, wake_next) }
 }
 
+// TODO(b/194338842): Fix tests for windows
+#[cfg(unix)]
 #[cfg(test)]
 mod test {
-    use super::*;
+    use std::future::Future;
+    use std::mem;
+    use std::ptr;
+    use std::rc::Rc;
+    use std::sync::mpsc::channel;
+    use std::sync::mpsc::Sender;
+    use std::sync::Arc;
+    use std::task::Context;
+    use std::task::Poll;
+    use std::thread;
+    use std::thread::JoinHandle;
+    use std::time::Duration;
 
-    use std::{
-        future::Future,
-        mem, ptr,
-        rc::Rc,
-        sync::{
-            mpsc::{channel, Sender},
-            Arc,
-        },
-        task::{Context, Poll},
-        thread::{
-            JoinHandle, {self},
-        },
-        time::Duration,
-    };
-
-    use futures::{
-        channel::oneshot,
-        select,
-        task::{waker_ref, ArcWake},
-        FutureExt,
-    };
-    use futures_executor::{LocalPool, LocalSpawner, ThreadPool};
+    use futures::channel::oneshot;
+    use futures::select;
+    use futures::task::waker_ref;
+    use futures::task::ArcWake;
+    use futures::FutureExt;
+    use futures_executor::LocalPool;
+    use futures_executor::LocalSpawner;
+    use futures_executor::ThreadPool;
     use futures_util::task::LocalSpawnExt;
 
-    use super::super::super::{block_on, sync::Mutex};
+    use super::super::super::block_on;
+    use super::super::super::sync::Mutex;
+    use super::*;
 
     // Dummy waker used when we want to manually drive futures.
     struct TestWaker;

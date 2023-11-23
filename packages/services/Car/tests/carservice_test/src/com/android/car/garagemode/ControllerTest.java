@@ -36,7 +36,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.car.Car;
 import android.car.hardware.power.CarPowerManager;
 import android.content.Context;
 import android.content.Intent;
@@ -83,15 +82,12 @@ public class ControllerTest {
     @Mock private Context mContextMock;
     @Mock private Looper mLooperMock;
     @Mock private Handler mHandlerMock;
-    @Mock private Car mCarMock;
     @Mock private CarUserService mCarUserServiceMock;
     @Mock private SystemInterface mSystemInterfaceMock;
     @Mock private CarPowerManagementService mCarPowerManagementServiceMock;
     private CarUserService mCarUserServiceOriginal;
-    private SystemInterface mSystemInterfaceOriginal;
     private CarPowerManagementService mCarPowerManagementServiceOriginal;
     @Captor private ArgumentCaptor<Intent> mIntentCaptor;
-    @Captor private ArgumentCaptor<Integer> mIntegerCaptor;
 
     private Controller mController;
     private File mTempTestDir;
@@ -128,7 +124,6 @@ public class ControllerTest {
         CarLocalServices.removeServiceForTest(CarUserService.class);
         CarLocalServices.addService(CarUserService.class, mCarUserServiceOriginal);
         CarLocalServices.removeServiceForTest(SystemInterface.class);
-        CarLocalServices.addService(SystemInterface.class, mSystemInterfaceOriginal);
         CarLocalServices.removeServiceForTest(CarPowerManagementService.class);
         CarLocalServices.addService(CarPowerManagementService.class,
                 mCarPowerManagementServiceOriginal);

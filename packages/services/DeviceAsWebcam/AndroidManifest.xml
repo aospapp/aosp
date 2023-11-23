@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+     coreApp="true"
+     android:sharedUserId="android.uid.system"
+     package="com.android.DeviceAsWebcam">
+    <uses-feature android:name="android.hardware.usb.host"/>
+    <uses-feature android:name="android.hardware.camera.any" android:required="true"/>
+    <uses-feature android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+
+    <application
+         android:label="@string/app_label">
+        <receiver android:name=".DeviceAsWebcamReceiver"
+             android:exported="true">
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_STATE"/>
+            </intent-filter>
+        </receiver>
+
+        <activity android:name=".DeviceAsWebcamPreview"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:label="@string/app_label">
+        </activity>
+
+        <service android:name=".DeviceAsWebcamFgService"/>
+    </application>
+</manifest>

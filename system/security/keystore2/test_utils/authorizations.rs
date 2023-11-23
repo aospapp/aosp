@@ -17,11 +17,13 @@
 use std::ops::Deref;
 
 use android_hardware_security_keymint::aidl::android::hardware::security::keymint::{
-    Algorithm::Algorithm, Digest::Digest, EcCurve::EcCurve, KeyParameter::KeyParameter,
-    KeyParameterValue::KeyParameterValue, KeyPurpose::KeyPurpose, Tag::Tag,
+    Algorithm::Algorithm, BlockMode::BlockMode, Digest::Digest, EcCurve::EcCurve,
+    KeyParameter::KeyParameter, KeyParameterValue::KeyParameterValue, KeyPurpose::KeyPurpose,
+    PaddingMode::PaddingMode, Tag::Tag,
 };
 
 /// Helper struct to create set of Authorizations.
+#[derive(Debug, Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct AuthSetBuilder(Vec<KeyParameter>);
 
 impl Default for AuthSetBuilder {
@@ -69,12 +71,94 @@ impl AuthSetBuilder {
         self
     }
 
-    /// Add Attestation-ID.
-    pub fn attestation_app_id(mut self, b: Vec<u8>) -> Self {
+    /// Add No_auth_required.
+    pub fn no_auth_required(mut self) -> Self {
         self.0.push(KeyParameter {
-            tag: Tag::ATTESTATION_APPLICATION_ID,
-            value: KeyParameterValue::Blob(b),
+            tag: Tag::NO_AUTH_REQUIRED,
+            value: KeyParameterValue::BoolValue(true),
         });
+        self
+    }
+
+    /// Add RSA_public_exponent.
+    pub fn rsa_public_exponent(mut self, e: i64) -> Self {
+        self.0.push(KeyParameter {
+            tag: Tag::RSA_PUBLIC_EXPONENT,
+            value: KeyParameterValue::LongInteger(e),
+        });
+        self
+    }
+
+    /// Add key size.
+    pub fn key_size(mut self, s: i32) -> Self {
+        self.0.push(KeyParameter { tag: Tag::KEY_SIZE, value: KeyParameterValue::Integer(s) });
+        self
+    }
+
+    /// Add block mode.
+    pub fn block_mode(mut self, b: BlockMode) -> Self {
+        self.0.push(KeyParameter { tag: Tag::BLOCK_MODE, value: KeyParameterValue::BlockMode(b) });
+        self
+    }
+
+    /// Add certificate_not_before.
+    pub fn cert_not_before(mut self, b: i64) -> Self {
+        self.0.push(KeyParameter {
+            tag: Tag::CERTIFICATE_NOT_BEFORE,
+            value: KeyParameterValue::DateTime(b),
+        });
+        self
+    }
+
+    /// Add certificate_not_after.
+    pub fn cert_not_after(mut self, a: i64) -> Self {
+        self.0.push(KeyParameter {
+            tag: Tag::CERTIFICATE_NOT_AFTER,
+            value: KeyParameterValue::DateTime(a),
+        });
+        self
+    }
+
+    /// Add padding mode.
+    pub fn padding_mode(mut self, p: PaddingMode) -> Self {
+        self.0.push(KeyParameter { tag: Tag::PADDING, value: KeyParameterValue::PaddingMode(p) });
+        self
+    }
+
+    /// Add mgf_digest.
+    pub fn mgf_digest(mut self, d: Digest) -> Self {
+        self.0.push(KeyParameter {
+            tag: Tag::RSA_OAEP_MGF_DIGEST,
+            value: KeyParameterValue::Digest(d),
+        });
+        self
+    }
+
+    /// Add nonce.
+    pub fn nonce(mut self, b: Vec<u8>) -> Self {
+        self.0.push(KeyParameter { tag: Tag::NONCE, value: KeyParameterValue::Blob(b) });
+        self
+    }
+
+    /// Add CALLER_NONCE.
+    pub fn caller_nonce(mut self) -> Self {
+        self.0.push(KeyParameter {
+            tag: Tag::CALLER_NONCE,
+            value: KeyParameterValue::BoolValue(true),
+        });
+        self
+    }
+
+    /// Add MAC length.
+    pub fn mac_length(mut self, l: i32) -> Self {
+        self.0.push(KeyParameter { tag: Tag::MAC_LENGTH, value: KeyParameterValue::Integer(l) });
+        self
+    }
+
+    /// Add min MAC length.
+    pub fn min_mac_length(mut self, l: i32) -> Self {
+        self.0
+            .push(KeyParameter { tag: Tag::MIN_MAC_LENGTH, value: KeyParameterValue::Integer(l) });
         self
     }
 }

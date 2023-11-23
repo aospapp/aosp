@@ -14,12 +14,11 @@
 
 package android.accessibilityservice.cts.activities;
 
+import android.accessibilityservice.cts.R;
 import android.os.Bundle;
 import android.view.View;
-
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
-import android.accessibilityservice.cts.R;
 
 /**
  * Activity for testing the accessibility APIs for querying of

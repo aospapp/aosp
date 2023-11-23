@@ -1,0 +1,10 @@
+pixel_bugreport(dump_modemlog)
+
+allow dump_modemlog mnt_vendor_file:dir search;
+allow dump_modemlog modem_efs_file:dir search;
+allow dump_modemlog modem_efs_file:file r_file_perms;
+allow dump_modemlog vendor_slog_file:dir r_dir_perms;
+allow dump_modemlog vendor_slog_file:file r_file_perms;
+allow dump_modemlog radio_vendor_data_file:dir create_dir_perms;
+allow dump_modemlog radio_vendor_data_file:file create_file_perms;
+set_prop(dump_modemlog, vendor_modem_prop)

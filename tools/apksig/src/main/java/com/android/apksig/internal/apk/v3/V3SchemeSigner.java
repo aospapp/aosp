@@ -70,7 +70,7 @@ public class V3SchemeSigner {
     private final DataSource mEocd;
     private final List<SignerConfig> mSignerConfigs;
     private final int mBlockId;
-    private final OptionalInt mOptionalRotationMinSdkVersion;
+    private final OptionalInt mOptionalV31MinSdkVersion;
     private final boolean mRotationTargetsDevRelease;
 
     private V3SchemeSigner(DataSource beforeCentralDir,
@@ -79,7 +79,7 @@ public class V3SchemeSigner {
             List<SignerConfig> signerConfigs,
             RunnablesExecutor executor,
             int blockId,
-            OptionalInt optionalRotationMinSdkVersion,
+            OptionalInt optionalV31MinSdkVersion,
             boolean rotationTargetsDevRelease) {
         mBeforeCentralDir = beforeCentralDir;
         mCentralDir = centralDir;
@@ -87,7 +87,7 @@ public class V3SchemeSigner {
         mSignerConfigs = signerConfigs;
         mExecutor = executor;
         mBlockId = blockId;
-        mOptionalRotationMinSdkVersion = optionalRotationMinSdkVersion;
+        mOptionalV31MinSdkVersion = optionalV31MinSdkVersion;
         mRotationTargetsDevRelease = rotationTargetsDevRelease;
     }
 
@@ -378,25 +378,30 @@ public class V3SchemeSigner {
     }
 
     private byte[] generateAdditionalAttributes(SignerConfig signerConfig) {
-        if (signerConfig.mSigningCertificateLineage != null) {
-            byte[] lineageAttr = generateV3SignerAttribute(signerConfig.mSigningCertificateLineage);
-            // If this rotation is not targeting a development release, or if this is not a v3.1
-            // signer block then just return the lineage attribute.
-            if (!mRotationTargetsDevRelease
-                    || mBlockId != V3SchemeConstants.APK_SIGNATURE_SCHEME_V31_BLOCK_ID) {
-                return lineageAttr;
-            }
-            byte[] devReleaseRotationAttr = generateV31RotationTargetsDevReleaseAttribute();
-            byte[] attributes = new byte[lineageAttr.length + devReleaseRotationAttr.length];
-            System.arraycopy(lineageAttr, 0, attributes, 0, lineageAttr.length);
-            System.arraycopy(devReleaseRotationAttr, 0, attributes, lineageAttr.length,
-                    devReleaseRotationAttr.length);
-            return attributes;
-        } else if (mOptionalRotationMinSdkVersion.isPresent()) {
-            return generateV3RotationMinSdkVersionStrippingProtectionAttribute(
-                    mOptionalRotationMinSdkVersion.getAsInt());
+        List<byte[]> attributes = new ArrayList<>();
+        if (signerConfig.signingCertificateLineage != null) {
+            attributes.add(generateV3SignerAttribute(signerConfig.signingCertificateLineage));
         }
-        return new byte[0];
+        if ((mRotationTargetsDevRelease || signerConfig.signerTargetsDevRelease)
+                && mBlockId == V3SchemeConstants.APK_SIGNATURE_SCHEME_V31_BLOCK_ID) {
+            attributes.add(generateV31RotationTargetsDevReleaseAttribute());
+        }
+        if (mOptionalV31MinSdkVersion.isPresent()
+                && mBlockId == V3SchemeConstants.APK_SIGNATURE_SCHEME_V3_BLOCK_ID) {
+            attributes.add(generateV3RotationMinSdkVersionStrippingProtectionAttribute(
+                    mOptionalV31MinSdkVersion.getAsInt()));
+        }
+        int attributesSize = attributes.stream().mapToInt(attribute -> attribute.length).sum();
+        byte[] attributesBuffer = new byte[attributesSize];
+        if (attributesSize == 0) {
+            return new byte[0];
+        }
+        int index = 0;
+        for (byte[] attribute : attributes) {
+            System.arraycopy(attribute, 0, attributesBuffer, index, attribute.length);
+            index += attribute.length;
+        }
+        return attributesBuffer;
     }
 
     private static final class V3SignatureSchemeBlock {
@@ -426,7 +431,7 @@ public class V3SchemeSigner {
 
         private RunnablesExecutor mExecutor = RunnablesExecutor.MULTI_THREADED;
         private int mBlockId = V3SchemeConstants.APK_SIGNATURE_SCHEME_V3_BLOCK_ID;
-        private OptionalInt mOptionalRotationMinSdkVersion = OptionalInt.empty();
+        private OptionalInt mOptionalV31MinSdkVersion = OptionalInt.empty();
         private boolean mRotationTargetsDevRelease = false;
 
         /**
@@ -470,7 +475,21 @@ public class V3SchemeSigner {
          * is not modified or removed from the APK's signature block.
          */
         public Builder setRotationMinSdkVersion(int rotationMinSdkVersion) {
-            mOptionalRotationMinSdkVersion = OptionalInt.of(rotationMinSdkVersion);
+            return setMinSdkVersionForV31(rotationMinSdkVersion);
+        }
+
+        /**
+         * Sets the {@code minSdkVersion} to be written as an additional attribute in each
+         * signer's block.
+         *
+         * <p>This value provides the stripping protection to ensure a v3.1 signing block is not
+         * modified or removed from the APK's signature block.
+         */
+        public Builder setMinSdkVersionForV31(int minSdkVersion) {
+            if (minSdkVersion == V3SchemeConstants.DEV_RELEASE) {
+                minSdkVersion = V3SchemeConstants.PROD_RELEASE;
+            }
+            mOptionalV31MinSdkVersion = OptionalInt.of(minSdkVersion);
             return this;
         }
 
@@ -505,7 +524,7 @@ public class V3SchemeSigner {
                     mSignerConfigs,
                     mExecutor,
                     mBlockId,
-                    mOptionalRotationMinSdkVersion,
+                    mOptionalV31MinSdkVersion,
                     mRotationTargetsDevRelease);
         }
     }

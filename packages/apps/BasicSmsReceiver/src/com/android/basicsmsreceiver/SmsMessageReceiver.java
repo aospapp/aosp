@@ -84,7 +84,8 @@ public class SmsMessageReceiver extends BroadcastReceiver {
         // intent of a previous message and notification.
         di.setType(Integer.toString(notificationId));
 
-        PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, di, 0);
+        PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, di,
+                PendingIntent.FLAG_IMMUTABLE);
         return pendingIntent;
     }
 

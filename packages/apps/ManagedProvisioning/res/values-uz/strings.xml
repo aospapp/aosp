@@ -29,7 +29,7 @@
     <string name="next" msgid="1004321437324424398">"Keyingisi"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Ish profili sozlanmoqda…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"AT administratoringiz sozlamalar, korporativ ruxsat, ilovalar, ruxsatlar, maʼlumotlar va ushbu profil bilan aloqador tarmoq faoliyatini, shuningdek, chaqiruvlar va kontaktlarni qidirish tarixini kuzatishi va boshqarishi mumkin. Batafsil axborot olish va tashkilotingiz maxfiylik siyosati bilan tanishib chiqish uchun AT administratoringizga murojaat qiling."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"AT administratoringiz bu qurilmaga oid sozlamalar, korporativ kirish huquqi, ilovalar, ruxsatnomalar va maʼlumotlarni, jumladan, tarmoqdagi faollik va qurilmangiz joylashuvi, chaqiruvlar tarixi hamda kontakt qidiruv tarixi axborotini kuzatishi va boshqarishi mumkin.<xliff:g id="LINE_BREAK">
+    <string name="admin_has_ability_to_monitor_device" msgid="7786186939607332934">"AT administratoringiz <xliff:g id="DEVICE_NAME">%1$s</xliff:g> qurilmasiga oid sozlamalar, korporativ kirish huquqi, ilovalar, ruxsatnomalar va maʼlumotlarni, jumladan, tarmoqdagi faollik va qurilmangiz joylashuvi, chaqiruvlar tarixi hamda kontakt qidiruv tarixi maʼlumotlarini kuzatishi va boshqarishi mumkin.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Batafsil axborot, jumladan, tashkilotingiz maxfiylik siyosati haqida maʼlumot olish uchun AT administratoringizga murojaat qiling."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"O‘g‘ridan himoyalanish funksiyasidan foydalanish uchun qurilmangiz ekran qulfi parollangan bo‘lishi kerak."</string>
@@ -50,8 +50,8 @@
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Agar davom etsangiz, bu profildagi barcha ilovalar va ma’lumotlar o‘chirib tashlanadi."</string>
     <string name="delete_profile" msgid="2299218578684663459">"O‘chirish"</string>
     <string name="cancel_delete_profile" msgid="5155447537894046036">"Bekor qilish"</string>
-    <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"Ishchi profilni sozlash uchun qurilmadagi ma’lumotlarni shifrlash lozim. Bu biroz vaqt olishi mumkin."</string>
-    <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"Bu qurilmani sozlash uchun undagi ma’lumotlarni shifrlash lozim. Bu biroz vaqt olishi mumkin."</string>
+    <string name="encrypt_device_text_for_profile_owner_setup" msgid="6865483664167134470">"Ishchi profilni sozlash uchun <xliff:g id="DEVICE_NAME">%1$s</xliff:g> qurilmasidagi maʼlumotlarni shifrlash lozim. Bu biroz vaqt olishi mumkin."</string>
+    <string name="encrypt_device_text_for_device_owner_setup" msgid="230099563510460941">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> qurilmasini sozlash uchun undagi maʼlumotlarni shifrlash lozim. Bu biroz vaqt olishi mumkin."</string>
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"Qurilma shifrlansinmi?"</string>
     <string name="encrypt" msgid="1749320161747489212">"Shifrlash"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"Shifrlash tugallandi"</string>
@@ -59,7 +59,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Ishchi profilingizni sozlab bo‘lmadi. IT bo‘limiga murojaat qiling yoki keyinroq qayta urinib ko‘ring."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Ishchi profilni qo‘shib bo‘lmadi"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Ishchi profilni almashtirib yoki o‘chirib bo‘lmadi"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"Ishchi profilni bu qurilmaga qo‘shib bo‘lmaydi. Savollaringizni AT administratoringizga yuboring."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4866281518235832928">"Ishchi profilni <xliff:g id="DEVICE_NAME">%1$s</xliff:g> qurilmasiga qoʻshib boʻlmaydi. Savollaringizni AT administratoringizga yuboring."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Qurilmadagi launcherni o‘zgartiring"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Bu launcher ishchi profilda ishlamaydi"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Bekor qilish"</string>
@@ -67,9 +67,9 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Foydalanuvchi hisobini sozlab bo‘lmadi"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Ishchi qurilma foydalanuvchisi"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Ishchi qurilma sozlanmoqda…"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Bu qurilmada sozlash uchun zarur shifrlash funksiyasi ishlamaydi. Yordam olish uchun AT administratoringizga murojaat qiling."</string>
-    <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Sozlash to‘xtatilib, parametrlar asl holatiga qaytarilsinmi?"</string>
-    <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Barcha parametrlar asl holatiga qaytariladi va sozlashni qaytadan boshlash kerak bo‘ladi"</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="410347019947997299">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> qurilmasida sozlash uchun zarur shifrlash funksiyasi ishlamaydi. Yordam olish uchun AT administratoringizga murojaat qiling."</string>
+    <string name="stop_setup_reset_device_question" msgid="2323844935990001069">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> qurilmasini sozlash va tiklash toʻxtatilsinmi?"</string>
+    <string name="this_will_reset_take_back_first_screen" msgid="5881727570968119259">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> qurilmasining barcha parametrlari asl holatiga qaytariladi va sozlashni qaytadan boshlash kerak boʻladi"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"Sozlash to‘xtatilib, qurilmangizdagi ma’lumotlar tozalab tashlansinmi?"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"Bekor qilish"</string>
     <string name="device_owner_error_ok" msgid="2002250763093787051">"OK"</string>
@@ -79,10 +79,10 @@
     <string name="something_went_wrong" msgid="3593223774041784329">"Xatolik yuz berdi"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Qurilma sozlanmadi. Yordam olish uchun AT administratoringizga murojaat qiling."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Yordam uchun AT administratoringizga murojaat qiling"</string>
-    <string name="reset_device" msgid="5483853913241939262">"Bu qurilmani tiklang va yana sozlash uchun urining"</string>
-    <string name="device_already_set_up" msgid="507881934487140294">"Qurilma allaqachon sozlangan"</string>
+    <string name="reset_device" msgid="265029891515486543">"Ushbu <xliff:g id="DEVICE_NAME">%1$s</xliff:g> qurilmasini tiklang va qaytadan sozlang"</string>
+    <string name="device_already_set_up" msgid="2916285974248611835">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> sozlangan"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Wi-Fi tarmoqqa ulanmadi"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Qurilmangizda zavod sozlamalarini tiklashga qarshi himoya yoqilgan. Yordam olish uchun AT administratoringizga murojaat qiling."</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="5922267426079555686">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> qurilmasida zavod sozlamalarini tiklashga qarshi himoya yoqilgan. Yordam olish uchun AT administratoringizga murojaat qiling."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"O‘chirilmoqda"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"Iltimos, kuting…"</string>
     <string name="error_hash_mismatch" msgid="1145488923243178454">"Nazorat qiymati bilan aloqador muammo tufayli administrator ilovasidan foydalanib boʻlmadi. AT administratoriga murojaat qiling."</string>
@@ -128,9 +128,9 @@
     <string name="comp_profile_benefits_description" msgid="379837075456998273">"Ish profili orqali ishchi ilovalarni bir joyga saqlash mumkin"</string>
     <string name="setup_profile_encryption" msgid="5241291404536277038">"Profilni sozlash. Shifrlash."</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"Profilni sozlash. Jarayon ko‘rsatilmoqda."</string>
-    <string name="setup_device" msgid="6725265673245816366">"Qurilmangizni sozlash"</string>
-    <string name="setup_device_encryption" msgid="7852944465414197103">"Qurilmani sozlash. Shifrlash."</string>
-    <string name="setup_device_progress" msgid="7035335208571175393">"Qurilmani sozlash. Jarayon ko‘rsatilmoqda."</string>
+    <string name="setup_device" msgid="1679201701102889156">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> kartasini sozlang"</string>
+    <string name="setup_device_encryption" msgid="2628196093806001835">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> kartasini sozlash. Shifrlash"</string>
+    <string name="setup_device_progress" msgid="8792474713196537598">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> kartasini sozlash. Jarayon koʻrsatilmoqda"</string>
     <string name="learn_more_label" msgid="2723716758654655009">"Batafsil tugmasi"</string>
     <string name="mdm_icon_label" msgid="3399134595549660561">"<xliff:g id="ICON_LABEL">%1$s</xliff:g> ikonkasi"</string>
     <string name="section_heading" msgid="3924666803774291908">"<xliff:g id="SECTION_HEADING">%1$s</xliff:g> bo‘limi sarlavhasi."</string>
@@ -145,7 +145,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_title" msgid="5416045931532004811">"Sozlash bekor qilinsinmi?"</string>
     <string name="cancel_setup_and_factory_reset_dialog_msg" msgid="808442439937994485">"Barcha parametrlar zavod holatiga qaytariladi va sozlashni qaytadan boshlash kerak bo‘ladi."</string>
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Bekor qilish"</string>
-    <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Qurilma sozlamalarini tiklash"</string>
+    <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Sozlamalarni tozalash"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> va <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> va <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
@@ -158,42 +158,45 @@
     <string name="brand_screen_header" msgid="8865808542690116648">"Bu qurilma tashkilotingizga tegishli"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Bu telefonni boshqarish va nazorat qilish uchun quyidagi ilovadan foydalaniladi"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Hisobingiz boshqariladi"</string>
-    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Xavfsizlik qoidalarini kuzatish uchun administrator mobil qurilmalarni boshqarish tizimidan foydalanadi."</string>
+    <string name="account_management_disclaimer_subheader" msgid="8991450067243733878">"Xavfsizlik qoidalarini kuzatish uchun administrator mobil qurilmalarni boshqarish tizimidan foydalanadi."</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Sozlash uchun tayyorlanmoqda…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Keling, ish profilingizni sozlaymiz"</string>
-    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Ishga oid ilovalar ishchi profilda saqlanadi"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Ishga oid ilovalar ish profilida saqlanadi"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Ishni tugatganingizdan keyin ish ilovalarini pauzalash"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Ish profilingizdagi maʼlumotlar faqat administratoringizga koʻrinadi"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Ish profilingiz sozlanmoqda…"</string>
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Ishga oid ilovalar ish profilida saqlanadi. Ishni tugatganingizdan keyin ishga oid ilovalarni pauza qilishingiz mumkin. Ish profilingizdagi maʼlumotlar faqat AT administratoringizga koʻrinadi."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Keling, ishchi qurilmangizni sozlaymiz"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Ishchi ilovalarni osongina ishlating"</string>
-    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Bu qurilma maxfiy emas"</string>
-    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"AT administratoringiz bu qurilmadagi maʼlumotlaringiz va harakatlaringizni koʻra olishi mumkin."</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="142633978260399682">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> maxfiy emas"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="3981784440341141618">"AT administratoringiz <xliff:g id="DEVICE_NAME">%1$s</xliff:g> qurilmasidagi maʼlumotlaringiz va harakatlaringizni koʻra olishi mumkin"</string>
     <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Harakatlaringiz va maʼlumotlaringiz"</string>
     <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Ilovalar uchun ruxsatlar"</string>
-    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"AT administratori bu qurilmadagi ilovalar uchun mikrofon, kamera va joylashuv kabi ruxsatlarni sozlashi mumkin."</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="1973320148595109400">"AT administratori <xliff:g id="DEVICE_NAME">%1$s</xliff:g> qurilmasidagi ilovalar uchun mikrofon, kamera va joylashuv kabi ruxsatlarni sozlashi mumkin."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Qurilma sozlanmoqda…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Ishchi ilovalardan osongina foydalanish uchun bu qurilmadan foydalaning. Bu qurilma maxfiy emas, AT administratoringiz maʼlumotlaringiz va harakatlaringizni koʻra oladi."</string>
-    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Ishchi ilovalardan osongina foydalanish uchun bu qurilmadan foydalaning. Bu qurilma maxfiy emas, AT administratoringiz harakatlaringiz va maʼlumotlaringizni koʻra oladi. AT administratori bu qurilmadagi ilovalar uchun mikrofon, kamera va joylashuv kabi ruxstlarni sozlashi mumkin."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="2532673962822596806">"Ishchi ilovalardan osongina foydalanish uchun <xliff:g id="DEVICE_NAME_0">%1$s</xliff:g> qurilmasidan foydalaning. <xliff:g id="DEVICE_NAME_1">%1$s</xliff:g> qurilmasi maxfiy emas, AT administratoringiz maʼlumotlaringiz va harakatlaringizni koʻra oladi."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="3487964472228264628">"Ishchi ilovalardan osongina foydalanish uchun <xliff:g id="DEVICE_NAME_0">%1$s</xliff:g> qurilmasidan foydalaning. <xliff:g id="DEVICE_NAME_1">%1$s</xliff:g> qurilmasi maxfiy emas, AT administratoringiz harakatlaringiz va maʼlumotlaringizni koʻra oladi. AT administratori bu qurilmadagi ilovalar uchun mikrofon, kamera va joylashuv kabi ruxsatlarni sozlashi mumkin."</string>
     <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Bu qurilmani AT administratoringizga qaytarib bering"</string>
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Avvalgi ekranga qayting yoki bu qurilmani asliga qaytarib, uni AT administratoringizga qaytarib bering."</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Bekor qilish"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Asliga qaytarish va qurilmani qaytarish"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_header" msgid="7938653381656306039">"Qurilmani sozlash imkonsiz"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_subheader" msgid="5158035482490079567">"Bu qurilmani toʻliq boshqariluvchi rejimga qayd qilish imkonsiz. Qurilma sozlamalarini asliga qaytaring va AT administratoriga murojaat qiling."</string>
+    <string name="fully_managed_device_reset_button" msgid="5957116315144904542">"Asliga qaytarish"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Ishga oid ilovalar – ish profilida, admin boshqaradi"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Shaxsiy ilovalar – ishga oid ilovalardan alohida"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Admin bu qurilmani boshqarishi va ilovalarni bloklashi mumkin"</string>
-    <string name="cope_provisioning_summary" msgid="993014104601034878">"Ishga oid ilovalar ish profilida saqlanadi va AT administratoringiz tomonidan boshqariladi. Shaxsiy ilovalar ishga oid ilovalardan ajratilgan va yashirilgan. AT administratoringiz bu qurilmani boshqara oladi va ayrim ilovalarni bloklay oladi"</string>
+    <string name="cope_provisioning_summary" msgid="4993405755138454918">"Ishga oid ilovalar ish profilida saqlanadi va AT administratoringiz tomonidan boshqariladi. Shaxsiy ilovalar ishga oid ilovalardan ajratilgan va yashirilgan. AT administratoringiz <xliff:g id="DEVICE_NAME">%1$s</xliff:g> qurilmasini boshqara oladi va ayrim ilovalarni bloklay oladi"</string>
     <string name="just_a_sec" msgid="6244676028626237220">"Bir soniya…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Maxfiylik eslatmasi"</string>
-    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"AT administratoringiz bu qurilmadagi maʼlumotlaringiz va harakatlaringizni koʻra olishi mumkin"</string>
-    <string name="financed_device_screen_header" msgid="6875169548352717124">"Bu qurilma <xliff:g id="CREDITOR_NAME">%s</xliff:g> tomonidan berilgan."</string>
-    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Bu qurilma uchun toʻlovlarni bajarish"</string>
-    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"Bu qurilma toʻlovlarini amalga oshirishingiz uchun <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ilovasini oʻrnatishi mumkin."</string>
-    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Bu qurilmadan foydalanish cheklanishi mumkin"</string>
-    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"Agar toʻlovlarni amalga oshirmasangiz, <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> bu qurilmadan foydalanishni cheklashi mumkin."</string>
-    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Qurilma sozlanmadi. AT administratoringizga murojaat qiling va Yaroqsiz nazorat summasi haqida fikr almashing."</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2107315052054483060">"AT administratoringiz <xliff:g id="DEVICE_NAME">%1$s</xliff:g> qurilmasidagi maʼlumotlaringiz va harakatlaringizni koʻra olishi mumkin"</string>
+    <string name="financed_device_screen_header" msgid="5934940812896302344">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> qurilmasini <xliff:g id="CREDITOR_NAME">%2$s</xliff:g> taqdim qilgan"</string>
+    <string name="financed_make_payments_subheader_title" msgid="743966229235451097">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> uchun toʻlovlarni amalga oshiring"</string>
+    <string name="financed_make_payments_subheader_description" msgid="7391276584735956742">"<xliff:g id="DEVICE_NAME">%3$s</xliff:g> qurilmasi toʻlovlarini amalga oshirishingiz uchun <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ilovasini oʻrnatishi mumkin."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="4248650736543742083">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> qurilmasi cheklanishi mumkin"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="1539908048861880628">"Agar toʻlovlarni amalga oshirmasangiz, <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> <xliff:g id="DEVICE_NAME">%2$s</xliff:g> qurilmasidan foydalanishni cheklashi mumkin."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="5098975629103567172">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> sozlanmadi. AT administratoringizga murojaat qiling va Yaroqsiz nazorat summasi haqida fikr almashing."</string>
     <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Keyinroq qayta urining yoki yordam olish uchun AT administratoringizga murojaat qiling."</string>
-    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Qurilma sozlanmadi. AT administratoringizga murojaat qiling va Yoʻqolgan yoki buzilgan komponentlar haqida fikr almashing."</string>
+    <string name="error_role_holder_package_invalid" msgid="8159929740916126242">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> sozlanmadi. AT administratoringizga murojaat qiling va Yoʻqolgan yoki buzilgan komponentlar haqida fikr almashing."</string>
     <string name="setting_up" msgid="1478847967385506664">"Sozlanmoqda…"</string>
 </resources>

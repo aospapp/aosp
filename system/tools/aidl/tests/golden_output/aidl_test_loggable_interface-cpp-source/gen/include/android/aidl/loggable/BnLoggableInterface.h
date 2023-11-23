@@ -4,6 +4,10 @@
 #include <android/aidl/loggable/ILoggableInterface.h>
 #include <functional>
 #include <android/binder_to_string.h>
+#include <android/aidl/loggable/BnLoggableInterface.h>
+#include <android/aidl/loggable/ILoggableInterface.h>
+#include <binder/Delegate.h>
+
 
 namespace android {
 namespace aidl {
@@ -32,8 +36,9 @@ public:
 
 class ILoggableInterfaceDelegator : public BnLoggableInterface {
 public:
-  explicit ILoggableInterfaceDelegator(::android::sp<ILoggableInterface> &impl) : _aidl_delegate(impl) {}
+  explicit ILoggableInterfaceDelegator(const ::android::sp<ILoggableInterface> &impl) : _aidl_delegate(impl) {}
 
+  ::android::sp<ILoggableInterface> getImpl() { return _aidl_delegate; }
   ::android::binder::Status LogThis(bool boolValue, ::std::vector<bool>* boolArray, int8_t byteValue, ::std::vector<uint8_t>* byteArray, char16_t charValue, ::std::vector<char16_t>* charArray, int32_t intValue, ::std::vector<int32_t>* intArray, int64_t longValue, ::std::vector<int64_t>* longArray, float floatValue, ::std::vector<float>* floatArray, double doubleValue, ::std::vector<double>* doubleArray, const ::android::String16& stringValue, ::std::vector<::android::String16>* stringArray, ::std::vector<::android::String16>* listValue, const ::android::aidl::loggable::Data& dataValue, const ::android::sp<::android::IBinder>& binderValue, ::std::optional<::android::os::ParcelFileDescriptor>* pfdValue, ::std::vector<::android::os::ParcelFileDescriptor>* pfdArray, ::std::vector<::android::String16>* _aidl_return) override {
     return _aidl_delegate->LogThis(boolValue, boolArray, byteValue, byteArray, charValue, charArray, intValue, intArray, longValue, longArray, floatValue, floatArray, doubleValue, doubleArray, stringValue, stringArray, listValue, dataValue, binderValue, pfdValue, pfdArray, _aidl_return);
   }

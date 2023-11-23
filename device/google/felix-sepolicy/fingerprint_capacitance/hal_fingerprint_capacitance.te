@@ -1,0 +1,35 @@
+# hal_fingerprint_capacitance definition
+type hal_fingerprint_capacitance, domain;
+hal_server_domain(hal_fingerprint_capacitance, hal_fingerprint)
+
+type hal_fingerprint_capacitance_exec, exec_type, vendor_file_type, file_type;
+init_daemon_domain(hal_fingerprint_capacitance)
+
+set_prop(hal_fingerprint_capacitance, vendor_fingerprint_prop)
+
+# allow fingerprint to access file
+allow hal_fingerprint_capacitance fingerprint_device:chr_file rw_file_perms;
+allow hal_fingerprint_capacitance tee_device:chr_file rw_file_perms;
+allow hal_fingerprint_capacitance sysfs_fingerprint:dir r_dir_perms;
+allow hal_fingerprint_capacitance sysfs_fingerprint:file rw_file_perms;
+
+# allow fingerprint to access power hal
+hal_client_domain(hal_fingerprint_capacitance, hal_power);
+
+# allow fingerprint to find fwk service
+allow hal_fingerprint_capacitance fwk_stats_service:service_manager find;
+
+# allow fingerprint to access sysfs_leds
+allow hal_fingerprint_capacitance sysfs_leds:dir search;
+allow hal_fingerprint_capacitance sysfs_leds:file rw_file_perms;
+
+# allow fingerprint to access input_device
+allow hal_fingerprint_capacitance input_device:dir r_dir_perms;
+allow hal_fingerprint_capacitance input_device:chr_file rw_file_perms;
+
+# allow fingerprint to access hwservice
+hwbinder_use(hal_fingerprint_capacitance)
+add_hwservice(hal_fingerprint_capacitance, hal_fingerprint_capacitance_ext_hwservice)
+
+# allow fingerprint to access fwk sensor hwservice
+allow hal_fingerprint_capacitance fwk_sensor_hwservice:hwservice_manager find;

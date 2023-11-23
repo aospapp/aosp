@@ -1,22 +1,36 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+mod read_dir;
+
 use std::cmp::min;
-use std::collections::{btree_map, BTreeMap};
-use std::ffi::{CStr, CString};
+use std::collections::btree_map;
+use std::collections::BTreeMap;
+use std::ffi::CStr;
+use std::ffi::CString;
 use std::fs::File;
-use std::io::{self, Cursor, Read, Write};
-use std::mem::{self, MaybeUninit};
+use std::io;
+use std::io::Cursor;
+use std::io::Read;
+use std::io::Write;
+use std::mem;
+use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::FileExt;
-use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::os::unix::io::AsRawFd;
+use std::os::unix::io::FromRawFd;
+use std::os::unix::io::RawFd;
 use std::path::Path;
+use std::str::FromStr;
 
-use sys_util::{read_dir::read_dir, syscall};
+use read_dir::read_dir;
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::protocol::*;
+use crate::syscall;
 
 // Tlopen and Tlcreate flags.  Taken from "include/net/9p/9p.h" in the linux tree.
 const P9_RDONLY: u32 = 0o00000000;
@@ -100,6 +114,17 @@ const P9_SETATTR_MTIME: u32 = 0x00000020;
 const P9_SETATTR_CTIME: u32 = 0x00000040;
 const P9_SETATTR_ATIME_SET: u32 = 0x00000080;
 const P9_SETATTR_MTIME_SET: u32 = 0x00000100;
+
+// 9p lock constants. Taken from "include/net/9p/9p.h" in the linux kernel.
+const _P9_LOCK_TYPE_RDLCK: u8 = 0;
+const _P9_LOCK_TYPE_WRLCK: u8 = 1;
+const P9_LOCK_TYPE_UNLCK: u8 = 2;
+const _P9_LOCK_FLAGS_BLOCK: u8 = 1;
+const _P9_LOCK_FLAGS_RECLAIM: u8 = 2;
+const P9_LOCK_SUCCESS: u8 = 0;
+const _P9_LOCK_BLOCKED: u8 = 1;
+const _P9_LOCK_ERROR: u8 = 2;
+const _P9_LOCK_GRACE: u8 = 3;
 
 // Minimum and maximum message size that we'll expect from the client.
 const MIN_MESSAGE_SIZE: u32 = 256;
@@ -233,6 +258,16 @@ impl<'a, T> Deref for MaybeOwned<'a, T> {
     }
 }
 
+impl<'a, T> AsRef<T> for MaybeOwned<'a, T> {
+    fn as_ref(&self) -> &T {
+        use MaybeOwned::*;
+        match self {
+            Borrowed(borrowed) => borrowed,
+            Owned(ref owned) => owned,
+        }
+    }
+}
+
 fn ebadf() -> io::Error {
     io::Error::from_raw_os_error(libc::EBADF)
 }
@@ -262,7 +297,7 @@ fn ascii_casefold_lookup(proc: &File, parent: &File, name: &[u8]) -> io::Result<
 fn lookup(parent: &File, name: &CStr) -> io::Result<File> {
     // Safe because this doesn't modify any memory and we check the return value.
     let fd = syscall!(unsafe {
-        libc::openat(
+        libc::openat64(
             parent.as_raw_fd(),
             name.as_ptr(),
             libc::O_PATH | libc::O_NOFOLLOW | libc::O_CLOEXEC,
@@ -276,27 +311,30 @@ fn lookup(parent: &File, name: &CStr) -> io::Result<File> {
 fn do_walk(
     proc: &File,
     wnames: Vec<String>,
-    start: File,
+    start: &File,
     ascii_casefold: bool,
     mds: &mut Vec<libc::stat64>,
 ) -> io::Result<File> {
-    let mut current = start;
+    let mut current = MaybeOwned::Borrowed(start);
 
     for wname in wnames {
         let name = string_to_cstring(wname)?;
-        current = lookup(&current, &name).or_else(|e| {
+        current = MaybeOwned::Owned(lookup(current.as_ref(), &name).or_else(|e| {
             if ascii_casefold {
                 if let Some(libc::ENOENT) = e.raw_os_error() {
-                    return ascii_casefold_lookup(proc, &current, name.to_bytes());
+                    return ascii_casefold_lookup(proc, current.as_ref(), name.to_bytes());
                 }
             }
 
             Err(e)
-        })?;
+        })?);
         mds.push(stat(&current)?);
     }
 
-    Ok(current)
+    match current {
+        MaybeOwned::Owned(owned) => Ok(owned),
+        MaybeOwned::Borrowed(borrowed) => borrowed.try_clone(),
+    }
 }
 
 fn open_fid(proc: &File, path: &File, p9_flags: u32) -> io::Result<File> {
@@ -317,7 +355,7 @@ fn open_fid(proc: &File, path: &File, p9_flags: u32) -> io::Result<File> {
     // Safe because this doesn't modify any memory and we check the return value. We need to
     // clear the O_NOFOLLOW flag because we want to follow the proc symlink.
     let fd = syscall!(unsafe {
-        libc::openat(
+        libc::openat64(
             proc.as_raw_fd(),
             pathname.as_ptr(),
             flags & !libc::O_NOFOLLOW,
@@ -328,7 +366,7 @@ fn open_fid(proc: &File, path: &File, p9_flags: u32) -> io::Result<File> {
     Ok(unsafe { File::from_raw_fd(fd) })
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Config {
     pub root: Box<Path>,
     pub msize: u32,
@@ -337,6 +375,34 @@ pub struct Config {
     pub gid_map: ServerGidMap,
 
     pub ascii_casefold: bool,
+}
+
+impl FromStr for Config {
+    type Err = &'static str;
+
+    fn from_str(params: &str) -> Result<Self, Self::Err> {
+        let mut cfg = Self::default();
+        if params.is_empty() {
+            return Ok(cfg);
+        }
+        for opt in params.split(':') {
+            let mut o = opt.splitn(2, '=');
+            let kind = o.next().ok_or("`cfg` options mut not be empty")?;
+            let value = o
+                .next()
+                .ok_or("`cfg` options must be of the form `kind=value`")?;
+            match kind {
+                "ascii_casefold" => {
+                    let ascii_casefold = value
+                        .parse()
+                        .map_err(|_| "`ascii_casefold` must be a boolean")?;
+                    cfg.ascii_casefold = ascii_casefold;
+                }
+                _ => return Err("unrecognized option for p9 config"),
+            }
+        }
+        Ok(cfg)
+    }
 }
 
 impl Default for Config {
@@ -377,7 +443,7 @@ impl Server {
 
         // Safe because this doesn't modify any memory and we check the return value.
         let fd = syscall!(unsafe {
-            libc::openat(
+            libc::openat64(
                 libc::AT_FDCWD,
                 proc_cstr.as_ptr(),
                 libc::O_PATH | libc::O_NOFOLLOW | libc::O_CLOEXEC,
@@ -405,38 +471,50 @@ impl Server {
         let Tframe { tag, msg } = WireFormat::decode(&mut reader.take(self.cfg.msize as u64))?;
 
         let rmsg = match msg {
-            Tmessage::Version(ref version) => self.version(version).map(Rmessage::Version),
-            Tmessage::Flush(ref flush) => self.flush(flush).and(Ok(Rmessage::Flush)),
-            Tmessage::Walk(walk) => self.walk(walk).map(Rmessage::Walk),
-            Tmessage::Read(ref read) => self.read(read).map(Rmessage::Read),
-            Tmessage::Write(ref write) => self.write(write).map(Rmessage::Write),
-            Tmessage::Clunk(ref clunk) => self.clunk(clunk).and(Ok(Rmessage::Clunk)),
-            Tmessage::Remove(ref remove) => self.remove(remove).and(Ok(Rmessage::Remove)),
-            Tmessage::Attach(ref attach) => self.attach(attach).map(Rmessage::Attach),
-            Tmessage::Auth(ref auth) => self.auth(auth).map(Rmessage::Auth),
-            Tmessage::Statfs(ref statfs) => self.statfs(statfs).map(Rmessage::Statfs),
-            Tmessage::Lopen(ref lopen) => self.lopen(lopen).map(Rmessage::Lopen),
-            Tmessage::Lcreate(lcreate) => self.lcreate(lcreate).map(Rmessage::Lcreate),
-            Tmessage::Symlink(ref symlink) => self.symlink(symlink).map(Rmessage::Symlink),
-            Tmessage::Mknod(ref mknod) => self.mknod(mknod).map(Rmessage::Mknod),
-            Tmessage::Rename(ref rename) => self.rename(rename).and(Ok(Rmessage::Rename)),
-            Tmessage::Readlink(ref readlink) => self.readlink(readlink).map(Rmessage::Readlink),
-            Tmessage::GetAttr(ref get_attr) => self.get_attr(get_attr).map(Rmessage::GetAttr),
-            Tmessage::SetAttr(ref set_attr) => self.set_attr(set_attr).and(Ok(Rmessage::SetAttr)),
-            Tmessage::XattrWalk(ref xattr_walk) => {
+            Ok(Tmessage::Version(ref version)) => self.version(version).map(Rmessage::Version),
+            Ok(Tmessage::Flush(ref flush)) => self.flush(flush).and(Ok(Rmessage::Flush)),
+            Ok(Tmessage::Walk(walk)) => self.walk(walk).map(Rmessage::Walk),
+            Ok(Tmessage::Read(ref read)) => self.read(read).map(Rmessage::Read),
+            Ok(Tmessage::Write(ref write)) => self.write(write).map(Rmessage::Write),
+            Ok(Tmessage::Clunk(ref clunk)) => self.clunk(clunk).and(Ok(Rmessage::Clunk)),
+            Ok(Tmessage::Remove(ref remove)) => self.remove(remove).and(Ok(Rmessage::Remove)),
+            Ok(Tmessage::Attach(ref attach)) => self.attach(attach).map(Rmessage::Attach),
+            Ok(Tmessage::Auth(ref auth)) => self.auth(auth).map(Rmessage::Auth),
+            Ok(Tmessage::Statfs(ref statfs)) => self.statfs(statfs).map(Rmessage::Statfs),
+            Ok(Tmessage::Lopen(ref lopen)) => self.lopen(lopen).map(Rmessage::Lopen),
+            Ok(Tmessage::Lcreate(lcreate)) => self.lcreate(lcreate).map(Rmessage::Lcreate),
+            Ok(Tmessage::Symlink(ref symlink)) => self.symlink(symlink).map(Rmessage::Symlink),
+            Ok(Tmessage::Mknod(ref mknod)) => self.mknod(mknod).map(Rmessage::Mknod),
+            Ok(Tmessage::Rename(ref rename)) => self.rename(rename).and(Ok(Rmessage::Rename)),
+            Ok(Tmessage::Readlink(ref readlink)) => self.readlink(readlink).map(Rmessage::Readlink),
+            Ok(Tmessage::GetAttr(ref get_attr)) => self.get_attr(get_attr).map(Rmessage::GetAttr),
+            Ok(Tmessage::SetAttr(ref set_attr)) => {
+                self.set_attr(set_attr).and(Ok(Rmessage::SetAttr))
+            }
+            Ok(Tmessage::XattrWalk(ref xattr_walk)) => {
                 self.xattr_walk(xattr_walk).map(Rmessage::XattrWalk)
             }
-            Tmessage::XattrCreate(ref xattr_create) => self
+            Ok(Tmessage::XattrCreate(ref xattr_create)) => self
                 .xattr_create(xattr_create)
                 .and(Ok(Rmessage::XattrCreate)),
-            Tmessage::Readdir(ref readdir) => self.readdir(readdir).map(Rmessage::Readdir),
-            Tmessage::Fsync(ref fsync) => self.fsync(fsync).and(Ok(Rmessage::Fsync)),
-            Tmessage::Lock(ref lock) => self.lock(lock).map(Rmessage::Lock),
-            Tmessage::GetLock(ref get_lock) => self.get_lock(get_lock).map(Rmessage::GetLock),
-            Tmessage::Link(link) => self.link(link).and(Ok(Rmessage::Link)),
-            Tmessage::Mkdir(mkdir) => self.mkdir(mkdir).map(Rmessage::Mkdir),
-            Tmessage::RenameAt(rename_at) => self.rename_at(rename_at).and(Ok(Rmessage::RenameAt)),
-            Tmessage::UnlinkAt(unlink_at) => self.unlink_at(unlink_at).and(Ok(Rmessage::UnlinkAt)),
+            Ok(Tmessage::Readdir(ref readdir)) => self.readdir(readdir).map(Rmessage::Readdir),
+            Ok(Tmessage::Fsync(ref fsync)) => self.fsync(fsync).and(Ok(Rmessage::Fsync)),
+            Ok(Tmessage::Lock(ref lock)) => self.lock(lock).map(Rmessage::Lock),
+            Ok(Tmessage::GetLock(ref get_lock)) => self.get_lock(get_lock).map(Rmessage::GetLock),
+            Ok(Tmessage::Link(link)) => self.link(link).and(Ok(Rmessage::Link)),
+            Ok(Tmessage::Mkdir(mkdir)) => self.mkdir(mkdir).map(Rmessage::Mkdir),
+            Ok(Tmessage::RenameAt(rename_at)) => {
+                self.rename_at(rename_at).and(Ok(Rmessage::RenameAt))
+            }
+            Ok(Tmessage::UnlinkAt(unlink_at)) => {
+                self.unlink_at(unlink_at).and(Ok(Rmessage::UnlinkAt))
+            }
+            Err(e) => {
+                // The header was successfully decoded, but the body failed to decode - send an
+                // error response for this tag.
+                let error = format!("Tframe message decode failed: {}", e);
+                Err(io::Error::new(io::ErrorKind::InvalidData, error))
+            }
         };
 
         // Errors while handling requests are never fatal.
@@ -464,7 +542,7 @@ impl Server {
 
                 // Safe because this doesn't modify any memory and we check the return value.
                 let fd = syscall!(unsafe {
-                    libc::openat(
+                    libc::openat64(
                         libc::AT_FDCWD,
                         root.as_ptr(),
                         libc::O_PATH | libc::O_NOFOLLOW | libc::O_CLOEXEC,
@@ -520,11 +598,7 @@ impl Server {
         }
 
         // We need to walk the tree.  First get the starting path.
-        let start = self
-            .fids
-            .get(&walk.fid)
-            .ok_or_else(ebadf)
-            .and_then(|fid| fid.path.try_clone())?;
+        let start = &self.fids.get(&walk.fid).ok_or_else(ebadf)?.path;
 
         // Now walk the tree and break on the first error, if any.
         let expected_len = walk.wnames.len();
@@ -678,7 +752,7 @@ impl Server {
 
         // Safe because this doesn't modify any memory and we check the return value.
         let fd = syscall!(unsafe {
-            libc::openat(fid.path.as_raw_fd(), name.as_ptr(), flags, lcreate.mode)
+            libc::openat64(fid.path.as_raw_fd(), name.as_ptr(), flags, lcreate.mode)
         })?;
 
         // Safe because we just opened this fd and we know it is valid.
@@ -687,6 +761,7 @@ impl Server {
         let iounit = st.st_blksize as u32;
 
         fid.file = Some(file);
+        fid.filetype = FileType::Regular;
 
         // This fid now refers to the newly created file so we need to update the O_PATH fd for it
         // as well.
@@ -715,9 +790,24 @@ impl Server {
         Err(io::Error::from_raw_os_error(libc::EOPNOTSUPP))
     }
 
-    fn readlink(&mut self, _readlink: &Treadlink) -> io::Result<Rreadlink> {
-        // symlinks are not allowed
-        Err(io::Error::from_raw_os_error(libc::EACCES))
+    fn readlink(&mut self, readlink: &Treadlink) -> io::Result<Rreadlink> {
+        let fid = self.fids.get(&readlink.fid).ok_or_else(ebadf)?;
+
+        let mut link = vec![0; libc::PATH_MAX as usize];
+
+        // Safe because this will only modify `link` and we check the return value.
+        let len = syscall!(unsafe {
+            libc::readlinkat(
+                fid.path.as_raw_fd(),
+                [0].as_ptr(),
+                link.as_mut_ptr() as *mut libc::c_char,
+                link.len(),
+            )
+        })? as usize;
+        link.truncate(len);
+        let target = String::from_utf8(link)
+            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+        Ok(Rreadlink { target })
     }
 
     fn get_attr(&mut self, get_attr: &Tgetattr) -> io::Result<Rgetattr> {
@@ -751,21 +841,13 @@ impl Server {
 
     fn set_attr(&mut self, set_attr: &Tsetattr) -> io::Result<()> {
         let fid = self.fids.get(&set_attr.fid).ok_or_else(ebadf)?;
-
-        let file = if let Some(ref file) = fid.file {
-            MaybeOwned::Borrowed(file)
-        } else {
-            let flags = match fid.filetype {
-                FileType::Regular => P9_RDWR,
-                FileType::Directory => P9_RDONLY | P9_DIRECTORY,
-                FileType::Other => P9_RDWR,
-            };
-            MaybeOwned::Owned(open_fid(&self.proc, &fid.path, P9_NONBLOCK | flags)?)
-        };
+        let path = string_to_cstring(format!("self/fd/{}", fid.path.as_raw_fd()))?;
 
         if set_attr.valid & P9_SETATTR_MODE != 0 {
             // Safe because this doesn't modify any memory and we check the return value.
-            syscall!(unsafe { libc::fchmod(file.as_raw_fd(), set_attr.mode) })?;
+            syscall!(unsafe {
+                libc::fchmodat(self.proc.as_raw_fd(), path.as_ptr(), set_attr.mode, 0)
+            })?;
         }
 
         if set_attr.valid & (P9_SETATTR_UID | P9_SETATTR_GID) != 0 {
@@ -781,10 +863,18 @@ impl Server {
             };
 
             // Safe because this doesn't modify any memory and we check the return value.
-            syscall!(unsafe { libc::fchown(file.as_raw_fd(), uid, gid) })?;
+            syscall!(unsafe { libc::fchownat(self.proc.as_raw_fd(), path.as_ptr(), uid, gid, 0) })?;
         }
 
         if set_attr.valid & P9_SETATTR_SIZE != 0 {
+            let file = if fid.filetype == FileType::Directory {
+                return Err(io::Error::from_raw_os_error(libc::EISDIR));
+            } else if let Some(ref file) = fid.file {
+                MaybeOwned::Borrowed(file)
+            } else {
+                MaybeOwned::Owned(open_fid(&self.proc, &fid.path, P9_NONBLOCK | P9_RDWR)?)
+            };
+
             file.set_len(set_attr.size)?;
         }
 
@@ -813,7 +903,14 @@ impl Server {
             ];
 
             // Safe because file is valid and we have initialized times fully.
-            let ret = unsafe { libc::futimens(file.as_raw_fd(), &times as *const libc::timespec) };
+            let ret = unsafe {
+                libc::utimensat(
+                    self.proc.as_raw_fd(),
+                    path.as_ptr(),
+                    &times as *const libc::timespec,
+                    0,
+                )
+            };
             if ret < 0 {
                 return Err(io::Error::last_os_error());
             }
@@ -825,10 +922,12 @@ impl Server {
             // Setting -1 as the uid and gid will not actually change anything but will
             // still update the ctime.
             let ret = unsafe {
-                libc::fchown(
-                    file.as_raw_fd(),
+                libc::fchownat(
+                    self.proc.as_raw_fd(),
+                    path.as_ptr(),
                     libc::uid_t::max_value(),
                     libc::gid_t::max_value(),
+                    0,
                 )
             };
             if ret < 0 {
@@ -914,13 +1013,65 @@ impl Server {
         Ok(())
     }
 
-    fn lock(&mut self, _lock: &Tlock) -> io::Result<Rlock> {
-        // File locking is not supported.
-        Err(io::Error::from_raw_os_error(libc::EOPNOTSUPP))
+    /// Implement posix byte range locking code.
+    /// Our implementation mirrors that of QEMU/9p - that is to say,
+    /// we essentially punt on mirroring lock state between client/server
+    /// and defer lock semantics to the VFS layer on the client side. Aside
+    /// from fd existence check we always return success. QEMU reference:
+    /// <https://github.com/qemu/qemu/blob/754f756cc4c6d9d14b7230c62b5bb20f9d655888/hw/9pfs/9p.c#L3669>
+    ///
+    /// NOTE: this means that files locked on the client may be interefered with
+    /// from either the server's side, or from other clients (guests). This
+    /// tracks with QEMU implementation, and will be obviated if crosvm decides
+    /// to drop 9p in favor of virtio-fs. QEMU only allows for a single client,
+    /// and we leave it to users of the crate to provide actual lock handling.
+    fn lock(&mut self, lock: &Tlock) -> io::Result<Rlock> {
+        // Ensure fd passed in TLOCK request exists and has a mapping.
+        let fd = self
+            .fids
+            .get(&lock.fid)
+            .and_then(|fid| fid.file.as_ref())
+            .ok_or_else(ebadf)?
+            .as_raw_fd();
+
+        syscall!(unsafe {
+            // Safe because zero-filled libc::stat is a valid value, fstat
+            // populates the struct fields.
+            let mut stbuf: libc::stat64 = std::mem::zeroed();
+            // Safe because this doesn't modify memory and we check the return value.
+            libc::fstat64(fd, &mut stbuf)
+        })?;
+
+        Ok(Rlock {
+            status: P9_LOCK_SUCCESS,
+        })
     }
-    fn get_lock(&mut self, _get_lock: &Tgetlock) -> io::Result<Rgetlock> {
-        // File locking is not supported.
-        Err(io::Error::from_raw_os_error(libc::EOPNOTSUPP))
+
+    ///
+    /// Much like lock(), defer locking semantics to VFS and return success.
+    ///
+    fn get_lock(&mut self, get_lock: &Tgetlock) -> io::Result<Rgetlock> {
+        // Ensure fd passed in GETTLOCK request exists and has a mapping.
+        let fd = self
+            .fids
+            .get(&get_lock.fid)
+            .and_then(|fid| fid.file.as_ref())
+            .ok_or_else(ebadf)?
+            .as_raw_fd();
+
+        // Safe because this doesn't modify memory and we check the return value.
+        syscall!(unsafe {
+            let mut stbuf: libc::stat64 = std::mem::zeroed();
+            libc::fstat64(fd, &mut stbuf)
+        })?;
+
+        Ok(Rgetlock {
+            type_: P9_LOCK_TYPE_UNLCK,
+            start: get_lock.start,
+            length: get_lock.length,
+            proc_id: get_lock.proc_id,
+            client_id: get_lock.client_id.clone(),
+        })
     }
 
     fn link(&mut self, link: Tlink) -> io::Result<()> {

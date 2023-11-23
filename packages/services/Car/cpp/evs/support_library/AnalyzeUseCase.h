@@ -16,12 +16,12 @@
 #ifndef CAR_LIB_EVS_SUPPORT_ANALYZE_USECASE_H
 #define CAR_LIB_EVS_SUPPORT_ANALYZE_USECASE_H
 
-#include <thread>
-
-#include "BaseUseCase.h"
-#include "StreamHandler.h"
 #include "BaseAnalyzeCallback.h"
+#include "BaseUseCase.h"
 #include "ResourceManager.h"
+#include "StreamHandler.h"
+
+#include <thread>
 
 using ::android::sp;
 using ::android::hardware::Return;
@@ -39,8 +39,7 @@ public:
     virtual bool startVideoStream() override;
     virtual void stopVideoStream() override;
 
-    static AnalyzeUseCase createDefaultUseCase(string cameraId,
-                                               BaseAnalyzeCallback* cb = nullptr);
+    static AnalyzeUseCase createDefaultUseCase(string cameraId, BaseAnalyzeCallback* cb = nullptr);
 
 private:
     bool initialize();
@@ -48,8 +47,8 @@ private:
     bool mIsInitialized = false;
     BaseAnalyzeCallback* mAnalyzeCallback = nullptr;
 
-    sp<StreamHandler>           mStreamHandler;
-    sp<ResourceManager>         mResourceManager;
+    sp<StreamHandler> mStreamHandler;
+    sp<ResourceManager> mResourceManager;
 };
 
 }  // namespace support
@@ -57,4 +56,4 @@ private:
 }  // namespace automotive
 }  // namespace android
 
-#endif // CAR_LIB_EVS_SUPPORT_ANALYZE_USECASE_H
+#endif  // CAR_LIB_EVS_SUPPORT_ANALYZE_USECASE_H

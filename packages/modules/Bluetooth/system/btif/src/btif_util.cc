@@ -112,9 +112,10 @@ const char* dump_dm_search_event(uint16_t event) {
     CASE_RETURN_STR(BTA_DM_INQ_RES_EVT)
     CASE_RETURN_STR(BTA_DM_INQ_CMPL_EVT)
     CASE_RETURN_STR(BTA_DM_DISC_RES_EVT)
-    CASE_RETURN_STR(BTA_DM_DISC_BLE_RES_EVT)
+    CASE_RETURN_STR(BTA_DM_GATT_OVER_LE_RES_EVT)
     CASE_RETURN_STR(BTA_DM_DISC_CMPL_EVT)
     CASE_RETURN_STR(BTA_DM_SEARCH_CANCEL_CMPL_EVT)
+    CASE_RETURN_STR(BTA_DM_GATT_OVER_SDP_RES_EVT)
 
     default:
       return "UNKNOWN MSG ID";
@@ -159,7 +160,6 @@ const char* dump_dm_event(uint16_t event) {
     CASE_RETURN_STR(BTA_DM_BLE_AUTH_CMPL_EVT)
     CASE_RETURN_STR(BTA_DM_DEV_UNPAIRED_EVT)
     CASE_RETURN_STR(BTA_DM_ENER_INFO_READ)
-    CASE_RETURN_STR(BTA_DM_REPORT_BONDING_EVT)
 
     default:
       return "UNKNOWN DM EVENT";
@@ -179,7 +179,7 @@ const char* dump_hf_event(uint16_t event) {
     CASE_RETURN_STR(BTA_AG_MIC_EVT)
     CASE_RETURN_STR(BTA_AG_AT_CKPD_EVT)
     CASE_RETURN_STR(BTA_AG_DISABLE_EVT)
-    CASE_RETURN_STR(BTA_AG_WBS_EVT)
+    CASE_RETURN_STR(BTA_AG_CODEC_EVT)
     CASE_RETURN_STR(BTA_AG_AT_A_EVT)
     CASE_RETURN_STR(BTA_AG_AT_D_EVT)
     CASE_RETURN_STR(BTA_AG_AT_CHLD_EVT)
@@ -335,6 +335,19 @@ const char* dump_bt_status(bt_status_t status) {
   }
 }
 
+const char* dump_rc_opcode(uint8_t opcode) {
+  switch (opcode) {
+    CASE_RETURN_STR(AVRC_OP_UNIT_INFO)
+    CASE_RETURN_STR(AVRC_OP_SUB_INFO)
+    CASE_RETURN_STR(AVRC_OP_VENDOR)
+    CASE_RETURN_STR(AVRC_OP_PASS_THRU)
+    CASE_RETURN_STR(AVRC_OP_BROWSE)
+    CASE_RETURN_STR(AVRC_OP_INVALID)
+    default:
+      return "UNKNOWN_OPCODE";
+  }
+}
+
 const char* dump_rc_event(uint8_t event) {
   switch (event) {
     CASE_RETURN_STR(BTA_AV_RC_OPEN_EVT)
@@ -355,6 +368,7 @@ const char* dump_rc_event(uint8_t event) {
 
 const char* dump_rc_notification_event_id(uint8_t event_id) {
   switch (event_id) {
+    CASE_RETURN_STR(AVRC_EVT_INVALID)
     CASE_RETURN_STR(AVRC_EVT_PLAY_STATUS_CHANGE)
     CASE_RETURN_STR(AVRC_EVT_TRACK_CHANGE)
     CASE_RETURN_STR(AVRC_EVT_TRACK_REACHED_END)

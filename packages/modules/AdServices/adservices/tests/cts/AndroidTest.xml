@@ -16,20 +16,53 @@
 <configuration description="Config for CTS AdServices test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
-    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsAdServicesDeviceTestCases.apk" />
     </target_preparer>
+
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <!-- Disable kill switches to ignore the effect of actual PH values. -->
+        <option name="run-command" value="setprop debug.adservices.global_kill_switch false" />
+        <option name="run-command" value="setprop debug.adservices.fledge_select_ads_kill_switch false" />
+        <option name="run-command" value="setprop debug.adservices.fledge_custom_audience_service_kill_switch false" />
+
+        <!-- Override Consent Manager to debug mode to grant user consent -->
+        <option name="run-command" value="setprop debug.adservices.consent_manager_debug_mode true" />
+        <option name="teardown-command" value="setprop debug.adservices.consent_manager_debug_mode false"/>
+
+        <!-- Force enable enrollment checks for FLEDGE when testing enrollment -->
+        <option name="run-command" value="setprop debug.adservices.disable_fledge_enrollment_check false" />
+
+        <!-- Increase the allowed API queries per second -->
+        <option name="run-command" value="setprop debug.adservices.sdk_request_permits_per_second 100000" />
+        <option name="teardown-command" value="setprop debug.adservices.sdk_request_permits_per_second 1" />
+
+        <!-- Temporarily disable Device Config sync -->
+        <option name="run-command" value="device_config set_sync_disabled_for_tests persistent" />
+        <option name="teardown-command" value="device_config set_sync_disabled_for_tests none" />
+
+        <!-- Temporarily enable enrollment seed for testing -->
+        <option name="run-command"
+                value="device_config put adservices enable_enrollment_test_seed true" />
+        <option name="teardown-command"
+                value="device_config put adservices enable_enrollment_test_seed false" />
+
+        <!-- Disable Register Ad Beacon Feature -->
+        <option name="run-command" value="setprop debug.adservices.fledge_register_ad_beacon_enabled false" />
+    </target_preparer>
+
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.adservices.cts" />
-        <option name="hidden-api-checks" value="false" />
     </test>
+
     <object type="module_controller"
             class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController" >
         <option name="mainline-module-package-name" value="com.google.android.adservices" />
     </object>
+    <option name="config-descriptor:metadata" key="mainline-param" value="com.google.android.adservices.apex" />
 </configuration>
 

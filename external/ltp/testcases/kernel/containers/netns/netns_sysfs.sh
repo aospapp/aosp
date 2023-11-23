@@ -11,17 +11,12 @@ TST_CLEANUP=do_cleanup
 TST_SETUP=do_setup
 TST_TESTFUNC=do_test
 TST_NEEDS_TMPDIR=1
-. tst_test.sh
 
 do_setup()
 {
 	NS_TYPE="net,mnt"
 	DUMMYDEV_HOST="dummy_test0"
 	DUMMYDEV="dummy_test1"
-
-	if tst_kvcmp -lt "2.6.35"; then
-		tst_brk TCONF "sysfs is not mount namespace aware for kernels older than 2.6.35"
-	fi
 
 	setns_check
 	if [ $? -eq 32 ]; then
@@ -50,7 +45,6 @@ do_cleanup()
 	kill -9 $NS_HANDLE 2>/dev/null
 }
 
-
 do_test()
 {
 	EXPECT_PASS ns_exec $NS_HANDLE $NS_TYPE test -e /sys/class/net/$DUMMYDEV
@@ -58,4 +52,5 @@ do_test()
 	EXPECT_FAIL test -e /sys/class/net/$DUMMYDEV
 }
 
+. tst_test.sh
 tst_run

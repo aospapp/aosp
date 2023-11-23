@@ -18,9 +18,6 @@ package android.media.audio.cts;
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
-import android.util.Log;
-
-import com.android.compatibility.common.util.CtsAndroidTestCase;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

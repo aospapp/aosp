@@ -3,8 +3,9 @@
 # found in the LICENSE file.
 
 import logging
-import time
+from threading import Timer
 
+from autotest_lib.client.bin.input import linux_input
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 
@@ -15,43 +16,60 @@ class firmware_ECKeyboard(FirmwareTest):
     """
     version = 1
 
-    # Delay between commands
-    CMD_DELAY = 1
+    # Delay to ensure client is ready to read the key press.
+    KEY_PRESS_DELAY = 2
 
-    # Delay to wait until developer console is open.
-    DEV_CONSOLE_DELAY = 2
+    # Map the to-be-tested keys to the expected linux keycodes.
+    TEST_KEY_MAP = {
+            '0': linux_input.KEY_0,
+            'b': linux_input.KEY_B,
+            'e': linux_input.KEY_E,
+            'o': linux_input.KEY_O,
+            'r': linux_input.KEY_R,
+            's': linux_input.KEY_S,
+            't': linux_input.KEY_T,
+            '<enter>': linux_input.KEY_ENTER,
+            '<ctrl_l>': linux_input.KEY_LEFTCTRL,
+            '<alt_l>': linux_input.KEY_LEFTALT
+    }
 
     def initialize(self, host, cmdline_args):
         super(firmware_ECKeyboard, self).initialize(host, cmdline_args)
         # Only run in normal mode
         self.switcher.setup_mode('normal')
 
-    def switch_tty2(self):
-        """Switch to tty2 console."""
-        self.ec.key_down('<ctrl_l>')
-        self.ec.key_down('<alt_l>')
-        self.ec.key_down('<f2>')
-        self.ec.key_up('<f2>')
-        self.ec.key_up('<alt_l>')
-        self.ec.key_up('<ctrl_l>')
-        time.sleep(self.DEV_CONSOLE_DELAY)
+    def cleanup(self):
+        self.faft_client.system.run_shell_command('start ui')
+        super(firmware_ECKeyboard, self).cleanup()
 
-    def reboot_by_keyboard(self):
-        """
-        Simulate key press sequence to log into console and then issue reboot
-        command.
-        """
-        self.switch_tty2()
-        self.ec.send_key_string('root<enter>')
-        time.sleep(self.CMD_DELAY)
-        self.ec.send_key_string('test0000<enter>')
-        time.sleep(self.CMD_DELAY)
-        self.ec.send_key_string('reboot<enter>')
+    def send_string(self, keys):
+        """Send a string over a servo"""
+        for key in keys:
+            self.servo.set_nocheck('arb_key_config', key)
+            self.servo.set_nocheck('arb_key', 'tab')
 
     def run_once(self):
         """Runs a single iteration of the test."""
         if not self.check_ec_capability(['keyboard']):
             raise error.TestNAError("Nothing needs to be tested on this device")
 
-        logging.info("Use key press simulation to issue reboot command.")
-        self.switcher.mode_aware_reboot('custom', self.reboot_by_keyboard)
+        test_keys = []
+        expected_keycodes = []
+
+        for key in self.TEST_KEY_MAP:
+            test_keys.append(key)
+            expected_keycodes.append(self.TEST_KEY_MAP[key])
+
+        # Stop UI so that key presses don't go to Chrome.
+        self.faft_client.system.run_shell_command('stop ui')
+
+        if self.servo.has_control('init_usb_keyboard'):
+            logging.debug('Turning off HID keyboard emulator.')
+            self.servo.set_nocheck('init_usb_keyboard', 'off')
+
+        Timer(self.KEY_PRESS_DELAY, lambda: self.send_string(test_keys)).start(
+        )
+        keys_matched = self.faft_client.system.check_keys(expected_keycodes)
+        logging.debug("Matched %d keys", keys_matched)
+        if (keys_matched < 0):
+            raise error.TestFail("Some test keys are not captured.")

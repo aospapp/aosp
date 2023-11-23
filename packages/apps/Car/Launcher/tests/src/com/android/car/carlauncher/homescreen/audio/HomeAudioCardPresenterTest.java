@@ -27,6 +27,7 @@ import android.view.View;
 import com.android.car.carlauncher.homescreen.HomeCardInterface;
 import com.android.car.carlauncher.homescreen.ui.CardHeader;
 import com.android.car.carlauncher.homescreen.ui.DescriptiveTextView;
+import com.android.car.carlauncher.homescreen.ui.DescriptiveTextWithControlsView;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -34,8 +35,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-
-import java.util.Collections;
 
 @RunWith(JUnit4.class)
 public class HomeAudioCardPresenterTest {
@@ -89,6 +88,28 @@ public class HomeAudioCardPresenterTest {
         verify(mView, never()).updateContentView(any());
         verify(mModel).onClick(mFragmentView);
         verify(mOtherModel, never()).onClick(any());
+    }
+
+    @Test
+    public void onModelUpdated_activePhoneCall_doesNotUpdateFragment() {
+        //setUpActivePhoneCall in presenter
+        CardHeader callModelHeader = new CardHeader("dialer", /* appIcon = */
+                null);
+        DescriptiveTextWithControlsView callModelContent = new DescriptiveTextWithControlsView(
+                /* image = */ null, "callerNumber", "ongoingCall");
+        when(mOtherModel.getCardHeader()).thenReturn(callModelHeader);
+        when(mOtherModel.getCardContent()).thenReturn(callModelContent);
+        mPresenter.onModelUpdated(mOtherModel);
+
+        // send MediaModel update during ongoing call
+        mPresenter.onModelUpdated(mModel);
+
+        //verify call
+        verify(mView).updateHeaderView(callModelHeader);
+        verify(mView).updateContentView(callModelContent);
+        verify(mView, never()).hideCard();
+        verify(mView, never()).updateHeaderView(CARD_HEADER);
+        verify(mView, never()).updateContentView(CARD_CONTENT);
     }
 
     @Test

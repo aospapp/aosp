@@ -14,7 +14,9 @@
 
 #include "icing/tokenization/plain-tokenizer.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <vector>
 
 #include "icing/text_classifier/lib3/utils/base/statusor.h"
 #include "icing/tokenization/language-segmenter.h"
@@ -64,11 +66,12 @@ class PlainTokenIterator : public Tokenizer::Iterator {
     return found_next_valid_term;
   }
 
-  Token GetToken() const override {
-    if (current_term_.empty()) {
-      return Token(Token::Type::INVALID);
+  std::vector<Token> GetTokens() const override {
+    std::vector<Token> result;
+    if (!current_term_.empty()) {
+      result.push_back(Token(Token::Type::REGULAR, current_term_));
     }
-    return Token(Token::Type::REGULAR, current_term_);
+    return result;
   }
 
   libtextclassifier3::StatusOr<CharacterIterator> CalculateTokenStart()
@@ -140,7 +143,8 @@ libtextclassifier3::StatusOr<std::vector<Token>> PlainTokenizer::TokenizeAll(
                          Tokenize(text));
   std::vector<Token> tokens;
   while (iterator->Advance()) {
-    tokens.push_back(iterator->GetToken());
+    std::vector<Token> batch_tokens = iterator->GetTokens();
+    tokens.insert(tokens.end(), batch_tokens.begin(), batch_tokens.end());
   }
   return tokens;
 }

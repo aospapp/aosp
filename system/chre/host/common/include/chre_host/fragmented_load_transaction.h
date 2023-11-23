@@ -29,6 +29,10 @@
 namespace android {
 namespace chre {
 
+// A special fragment id indicating the loading is not started yet. First
+// fragment starts from id 1.
+static constexpr uint32_t kNoFragmentId = 0;
+
 /**
  * A struct which represents a single fragmented request. The caller should use
  * this class along with FragmentedLoadTransaction to get global attributes for

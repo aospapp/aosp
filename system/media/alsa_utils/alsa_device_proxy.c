@@ -44,7 +44,7 @@ static const unsigned format_byte_size_map[] = {
 };
 
 int proxy_prepare(alsa_device_proxy * proxy, const alsa_device_profile* profile,
-                   struct pcm_config * config)
+                  struct pcm_config * config, bool require_exact_match)
 {
     int ret = 0;
 
@@ -58,6 +58,8 @@ int proxy_prepare(alsa_device_proxy * proxy, const alsa_device_profile* profile,
 
     if (config->format != PCM_FORMAT_INVALID && profile_is_format_valid(profile, config->format)) {
         proxy->alsa_config.format = config->format;
+    } else if (require_exact_match) {
+        ret = -EINVAL;
     } else {
         proxy->alsa_config.format = profile->default_config.format;
         ALOGW("Invalid format %d - using default %d.",
@@ -70,6 +72,8 @@ int proxy_prepare(alsa_device_proxy * proxy, const alsa_device_profile* profile,
 
     if (config->rate != 0 && profile_is_sample_rate_valid(profile, config->rate)) {
         proxy->alsa_config.rate = config->rate;
+    } else if (require_exact_match) {
+        ret = -EINVAL;
     } else {
         proxy->alsa_config.rate = profile->default_config.rate;
         ALOGW("Invalid sample rate %u - using default %u.",
@@ -82,6 +86,8 @@ int proxy_prepare(alsa_device_proxy * proxy, const alsa_device_profile* profile,
 
     if (config->channels != 0 && profile_is_channel_count_valid(profile, config->channels)) {
         proxy->alsa_config.channels = config->channels;
+    } else if (require_exact_match) {
+        ret = -EINVAL;
     } else {
         proxy->alsa_config.channels = profile_get_closest_channel_count(profile, config->channels);
         ALOGW("Invalid channel count %u - using closest %u.",
@@ -114,7 +120,7 @@ int proxy_prepare(alsa_device_proxy * proxy, const alsa_device_profile* profile,
     // let's check to make sure we can ACTUALLY use the maximum rate (with the channel count)
     // Note that profile->sample_rates is sorted highest to lowest, so the scan will get
     // us the highest working rate
-    int max_rate_index = proxy_scan_rates(proxy, profile->sample_rates);
+    int max_rate_index = proxy_scan_rates(proxy, profile->sample_rates, require_exact_match);
     if (max_rate_index >= 0) {
         if (proxy->alsa_config.rate > profile->sample_rates[max_rate_index]) {
             ALOGW("Limiting sampling rate from %u to %u.",
@@ -290,7 +296,9 @@ void proxy_dump(const alsa_device_proxy* proxy, int fd)
     }
 }
 
-int proxy_scan_rates(alsa_device_proxy * proxy, const unsigned sample_rates[]) {
+int proxy_scan_rates(alsa_device_proxy * proxy,
+                     const unsigned sample_rates[],
+                     bool require_exact_match) {
     const alsa_device_profile* profile = proxy->profile;
     if (profile->card < 0 || profile->device < 0) {
         return -EINVAL;
@@ -302,6 +310,10 @@ int proxy_scan_rates(alsa_device_proxy * proxy, const unsigned sample_rates[]) {
     struct pcm * alsa_pcm;
     int rate_index = 0;
     while (sample_rates[rate_index] != 0) {
+        if (require_exact_match && alsa_config.rate != sample_rates[rate_index]) {
+            rate_index++;
+            continue;
+        }
         alsa_config.rate = sample_rates[rate_index];
         alsa_pcm = pcm_open(profile->card, profile->device,
                 profile->direction | PCM_MONOTONIC, &alsa_config);

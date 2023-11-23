@@ -38,14 +38,11 @@ class firmware_Cr50WilcoRmaFactoryMode(Cr50Test):
         if not self.cr50.has_command('bpforce'):
             raise error.TestNAError('Cannot run test without bpforce')
 
-        # Switch to dev mode and open CCD, so the test has access to gsctool
-        # and bpforce.
-        self.fast_ccd_open(enable_testlab=True)
-        self.switcher.setup_mode('dev')
-
         # Keep track of whether Cr50 is in factory mode to minimize cleanup.
         self._in_factory_mode = False
 
+        # Open CCD, so the test has access to bpforce
+        self.fast_ccd_open(enable_testlab=True)
 
     def cleanup(self):
         try:

@@ -78,11 +78,21 @@ const IDRegister::Field AA64ISAR1::kBF16(44);
 const IDRegister::Field AA64ISAR1::kDGH(48);
 const IDRegister::Field AA64ISAR1::kI8MM(52);
 
+const IDRegister::Field AA64ISAR2::kRPRES(4);
+
+const IDRegister::Field AA64MMFR0::kECV(60);
+
 const IDRegister::Field AA64MMFR1::kLO(16);
+const IDRegister::Field AA64MMFR1::kAFP(44);
 
 const IDRegister::Field AA64MMFR2::kAT(32);
 
+const IDRegister::Field AA64ZFR0::kSVEver(0);
+const IDRegister::Field AA64ZFR0::kAES(4);
+const IDRegister::Field AA64ZFR0::kBitPerm(16);
 const IDRegister::Field AA64ZFR0::kBF16(20);
+const IDRegister::Field AA64ZFR0::kSHA3(32);
+const IDRegister::Field AA64ZFR0::kSM4(40);
 const IDRegister::Field AA64ZFR0::kI8MM(44);
 const IDRegister::Field AA64ZFR0::kF32MM(52);
 const IDRegister::Field AA64ZFR0::kF64MM(56);
@@ -168,9 +178,22 @@ CPUFeatures AA64ISAR1::GetCPUFeatures() const {
   return f;
 }
 
+CPUFeatures AA64ISAR2::GetCPUFeatures() const {
+  CPUFeatures f;
+  if (Get(kRPRES) >= 1) f.Combine(CPUFeatures::kRPRES);
+  return f;
+}
+
+CPUFeatures AA64MMFR0::GetCPUFeatures() const {
+  CPUFeatures f;
+  if (Get(kECV) >= 1) f.Combine(CPUFeatures::kECV);
+  return f;
+}
+
 CPUFeatures AA64MMFR1::GetCPUFeatures() const {
   CPUFeatures f;
   if (Get(kLO) >= 1) f.Combine(CPUFeatures::kLORegions);
+  if (Get(kAFP) >= 1) f.Combine(CPUFeatures::kAFP);
   return f;
 }
 
@@ -187,7 +210,13 @@ CPUFeatures AA64ZFR0::GetCPUFeatures() const {
   if (Get(kF64MM) >= 1) f.Combine(CPUFeatures::kSVEF64MM);
   if (Get(kF32MM) >= 1) f.Combine(CPUFeatures::kSVEF32MM);
   if (Get(kI8MM) >= 1) f.Combine(CPUFeatures::kSVEI8MM);
+  if (Get(kSM4) >= 1) f.Combine(CPUFeatures::kSVESM4);
+  if (Get(kSHA3) >= 1) f.Combine(CPUFeatures::kSVESHA3);
   if (Get(kBF16) >= 1) f.Combine(CPUFeatures::kSVEBF16);
+  if (Get(kBitPerm) >= 1) f.Combine(CPUFeatures::kSVEBitPerm);
+  if (Get(kAES) >= 1) f.Combine(CPUFeatures::kSVEAES);
+  if (Get(kAES) >= 2) f.Combine(CPUFeatures::kSVEPmull128);
+  if (Get(kSVEver) >= 1) f.Combine(CPUFeatures::kSVE2);
   return f;
 }
 
@@ -262,14 +291,15 @@ CPUFeatures CPU::InferCPUFeaturesFromOS(
        CPUFeatures::kPAuthGeneric,
        // Bits 32-39
        CPUFeatures::kDCCVADP,
-       CPUFeatures::kNone,  // "sve2"
-       CPUFeatures::kNone,  // "sveaes"
-       CPUFeatures::kNone,  // "svepmull"
-       CPUFeatures::kNone,  // "svebitperm"
-       CPUFeatures::kNone,  // "svesha3"
-       CPUFeatures::kNone,  // "svesm4"
-       CPUFeatures::kFrintToFixedSizedInt,
+       CPUFeatures::kSVE2,
+       CPUFeatures::kSVEAES,
+       CPUFeatures::kSVEPmull128,
+       CPUFeatures::kSVEBitPerm,
+       CPUFeatures::kSVESHA3,
+       CPUFeatures::kSVESM4,
+       CPUFeatures::kAXFlag,
        // Bits 40-47
+       CPUFeatures::kFrintToFixedSizedInt,
        CPUFeatures::kSVEI8MM,
        CPUFeatures::kSVEF32MM,
        CPUFeatures::kSVEF64MM,
@@ -277,9 +307,13 @@ CPUFeatures CPU::InferCPUFeaturesFromOS(
        CPUFeatures::kI8MM,
        CPUFeatures::kBF16,
        CPUFeatures::kDGH,
-       CPUFeatures::kRNG,
        // Bits 48+
-       CPUFeatures::kBTI};
+       CPUFeatures::kRNG,
+       CPUFeatures::kBTI,
+       CPUFeatures::kMTE,
+       CPUFeatures::kECV,
+       CPUFeatures::kAFP,
+       CPUFeatures::kRPRES};
 
   uint64_t hwcap_low32 = getauxval(AT_HWCAP);
   uint64_t hwcap_high32 = getauxval(AT_HWCAP2);
@@ -290,6 +324,10 @@ CPUFeatures CPU::InferCPUFeaturesFromOS(
   VIXL_STATIC_ASSERT(ArrayLength(kFeatureBits) < 64);
   for (size_t i = 0; i < ArrayLength(kFeatureBits); i++) {
     if (hwcap & (UINT64_C(1) << i)) features.Combine(kFeatureBits[i]);
+  }
+  // MTE support from HWCAP2 signifies FEAT_MTE1 and FEAT_MTE2 support
+  if (features.Has(CPUFeatures::kMTE)) {
+    features.Combine(CPUFeatures::kMTEInstructions);
   }
 #endif  // VIXL_USE_LINUX_HWCAP
 

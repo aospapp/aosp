@@ -116,6 +116,7 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -667,6 +668,39 @@ public class JSR166TestCase extends TestCase {
     public static long LONG_DELAY_MS;
 
     /**
+     * A delay significantly longer than LONG_DELAY_MS.
+     * Use this in a thread that is waited for via awaitTermination(Thread).
+     */
+    public static long LONGER_DELAY_MS;
+
+    private static final long RANDOM_TIMEOUT;
+    private static final long RANDOM_EXPIRED_TIMEOUT;
+    private static final TimeUnit RANDOM_TIMEUNIT;
+    static {
+        ThreadLocalRandom rnd = ThreadLocalRandom.current();
+        long[] timeouts = { Long.MIN_VALUE, -1, 0, 1, Long.MAX_VALUE };
+        RANDOM_TIMEOUT = timeouts[rnd.nextInt(timeouts.length)];
+        RANDOM_EXPIRED_TIMEOUT = timeouts[rnd.nextInt(3)];
+        TimeUnit[] timeUnits = TimeUnit.values();
+        RANDOM_TIMEUNIT = timeUnits[rnd.nextInt(timeUnits.length)];
+    }
+
+    /**
+     * Returns a timeout for use when any value at all will do.
+     */
+    static long randomTimeout() { return RANDOM_TIMEOUT; }
+
+    /**
+     * Returns a timeout that means "no waiting", i.e. not positive.
+     */
+    static long randomExpiredTimeout() { return RANDOM_EXPIRED_TIMEOUT; }
+
+    /**
+     * Returns a random non-null TimeUnit.
+     */
+    static TimeUnit randomTimeUnit() { return RANDOM_TIMEUNIT; }
+
+    /**
      * Returns the shortest timed delay. This can be scaled up for
      * slow machines using the jsr166.delay.factor system property,
      * or via jtreg's -timeoutFactor: flag.
@@ -1192,6 +1226,129 @@ public class JSR166TestCase extends TestCase {
     public static final Integer m5  = new Integer(-5);
     public static final Integer m6  = new Integer(-6);
     public static final Integer m10 = new Integer(-10);
+
+    static Item[] seqItems(int size) {
+        Item[] s = new Item[size];
+        for (int i = 0; i < size; ++i)
+            s[i] = new Item(i);
+        return s;
+    }
+    static Item[] negativeSeqItems(int size) {
+        Item[] s = new Item[size];
+        for (int i = 0; i < size; ++i)
+            s[i] = new Item(-i);
+        return s;
+    }
+
+    // Many tests rely on defaultItems all being sequential nonnegative
+    public static final Item[] defaultItems = seqItems(SIZE);
+
+    static Item itemFor(int i) { // check cache for defaultItems
+        Item[] items = defaultItems;
+        return (i >= 0 && i < items.length) ? items[i] : new Item(i);
+    }
+
+    public static final Item itemZero  = defaultItems[0];
+    public static final Item itemOne   = defaultItems[1];
+    public static final Item itemTwo   = defaultItems[2];
+    public static final Item itemThree = defaultItems[3];
+    public static final Item itemFour  = defaultItems[4];
+    public static final Item itemFive  = defaultItems[5];
+    public static final Item itemSix   = defaultItems[6];
+    public static final Item itemSeven = defaultItems[7];
+    public static final Item itemEight = defaultItems[8];
+    public static final Item itemNine  = defaultItems[9];
+    public static final Item itemTen   = defaultItems[10];
+
+    public static final Item[] negativeItems = negativeSeqItems(SIZE);
+
+    public static final Item minusOne   = negativeItems[1];
+    public static final Item minusTwo   = negativeItems[2];
+    public static final Item minusThree = negativeItems[3];
+    public static final Item minusFour  = negativeItems[4];
+    public static final Item minusFive  = negativeItems[5];
+    public static final Item minusSix   = negativeItems[6];
+    public static final Item minusSeven = negativeItems[7];
+    public static final Item minusEight = negativeItems[8];
+    public static final Item minusNone  = negativeItems[9];
+    public static final Item minusTen   = negativeItems[10];
+
+    // elements expected to be missing
+    public static final Item fortytwo = new Item(42);
+    public static final Item eightysix = new Item(86);
+    public static final Item ninetynine = new Item(99);
+
+    // Interop across Item, int
+
+    static void mustEqual(Item x, Item y) {
+        if (x != y)
+            assertEquals(x.value, y.value);
+    }
+    static void mustEqual(Item x, int y) {
+        assertEquals(x.value, y);
+    }
+    static void mustEqual(int x, Item y) {
+        assertEquals(x, y.value);
+    }
+    static void mustEqual(int x, int y) {
+        assertEquals(x, y);
+    }
+    static void mustEqual(Object x, Object y) {
+        if (x != y)
+            assertEquals(x, y);
+    }
+    static void mustEqual(int x, Object y) {
+        if (y instanceof Item)
+            assertEquals(x, ((Item)y).value);
+        else fail();
+    }
+    static void mustEqual(Object x, int y) {
+        if (x instanceof Item)
+            assertEquals(((Item)x).value, y);
+        else fail();
+    }
+    static void mustEqual(boolean x, boolean y) {
+        assertEquals(x, y);
+    }
+    static void mustEqual(long x, long y) {
+        assertEquals(x, y);
+    }
+    static void mustEqual(double x, double y) {
+        assertEquals(x, y);
+    }
+    static void mustContain(Collection<Item> c, int i) {
+        assertTrue(c.contains(itemFor(i)));
+    }
+    static void mustContain(Collection<Item> c, Item i) {
+        assertTrue(c.contains(i));
+    }
+    static void mustNotContain(Collection<Item> c, int i) {
+        assertFalse(c.contains(itemFor(i)));
+    }
+    static void mustNotContain(Collection<Item> c, Item i) {
+        assertFalse(c.contains(i));
+    }
+    static void mustRemove(Collection<Item> c, int i) {
+        assertTrue(c.remove(itemFor(i)));
+    }
+    static void mustRemove(Collection<Item> c, Item i) {
+        assertTrue(c.remove(i));
+    }
+    static void mustNotRemove(Collection<Item> c, int i) {
+        Item[] items = defaultItems;
+        Item x = (i >= 0 && i < items.length) ? items[i] : new Item(i);
+        assertFalse(c.remove(x));
+    }
+    static void mustNotRemove(Collection<Item> c, Item i) {
+        assertFalse(c.remove(i));
+    }
+    static void mustAdd(Collection<Item> c, int i) {
+        assertTrue(c.add(itemFor(i)));
+    }
+    static void mustAdd(Collection<Item> c, Item i) {
+        assertTrue(c.add(i));
+    }
+
 
     /**
      * Runs Runnable r with a security policy that permits precisely

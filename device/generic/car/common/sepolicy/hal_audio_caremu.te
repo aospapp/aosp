@@ -11,3 +11,8 @@ binder_use(hal_audio_caremu)
 
 # Enable audiocontrol to listen to power policy daemon.
 carpowerpolicy_callback_domain(hal_audio_caremu)
+
+hal_client_domain(hal_audio_caremu, hal_allocator)
+get_prop(hal_audio_caremu, vendor_caremu_audiohal_prop)
+
+allow hal_audio_caremu audioserver:fifo_file write;

@@ -90,7 +90,8 @@ public class DefaultAutofillPickerPreferenceController extends
         }
 
         CharSequence appName = info.loadLabel();
-        String message = getContext().getString(R.string.autofill_confirmation_message, appName);
+        String message = getContext().getString(R.string.autofill_confirmation_message,
+                Html.escapeHtml(appName));
         return Html.fromHtml(message, Html.FROM_HTML_MODE_LEGACY);
     }
 }

@@ -18,14 +18,12 @@ from acts import asserts
 from acts import utils
 
 from acts.controllers.access_point import setup_ap
-from acts.controllers.ap_lib import hostapd_ap_preset
 from acts.controllers.ap_lib import hostapd_constants
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
-from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 
 
-class WlanPhyComplianceABGTest(AbstractDeviceWlanDeviceBaseTest):
+class WlanPhyComplianceABGTest(WifiBaseTest):
     """Tests for validating 11a, 11b, and 11g PHYS.
 
     Test Bed Requirement:

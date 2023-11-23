@@ -25,6 +25,7 @@
 
 #include <inttypes.h>
 #include <stdint.h>
+#include <unistd.h>
 
 #include <string>
 #include <unordered_map>
@@ -42,19 +43,35 @@ constexpr const char kProcDirPath[] = "/proc";
 constexpr const char kStatFileFormat[] = "/%" PRIu32 "/stat";
 constexpr const char kTaskDirFormat[] = "/%" PRIu32 "/task";
 constexpr const char kStatusFileFormat[] = "/%" PRIu32 "/status";
+constexpr const char kTimeInStateFormat[] = "/%" PRIu32 "/time_in_state";
+// Per-pid/tid stats.
+// The int64_t type is used due to AIDL limitations representing long field values.
+struct PidStat {
+    std::string comm = "";
+    std::string state = "";
+    int64_t startTimeMillis = 0;
+    int64_t cpuTimeMillis = 0;
+    uint64_t majorFaults = 0;
+};
 
 // Per-process stats.
 struct ProcessStats {
     std::string comm = "";
-    uint64_t startTime = 0;  // Useful when identifying PID reuse
+    int64_t startTimeMillis = 0;  // Useful when identifying PID reuse
+    int64_t cpuTimeMillis = 0;
+    // Stats in below fields are aggregated across all threads
+    uint64_t totalCpuCycles = 0;
     uint64_t totalMajorFaults = 0;
     int totalTasksCount = 0;
     int ioBlockedTasksCount = 0;
+    std::unordered_map<pid_t, uint64_t> cpuCyclesByTid = {};
     std::string toString() const;
 };
 
 // Per-UID stats.
 struct UidProcStats {
+    int64_t cpuTimeMillis = 0;
+    uint64_t cpuCycles = 0;
     uint64_t totalMajorFaults = 0;
     int totalTasksCount = 0;
     int ioBlockedTasksCount = 0;
@@ -83,7 +100,10 @@ public:
 class UidProcStatsCollector final : public UidProcStatsCollectorInterface {
 public:
     explicit UidProcStatsCollector(const std::string& path = kProcDirPath) :
-          mPath(path), mLatestStats({}) {}
+          mMillisPerClockTick(1000 / sysconf(_SC_CLK_TCK)),
+          mPath(path),
+          mLatestStats({}),
+          mDeltaStats({}) {}
 
     ~UidProcStatsCollector() {}
 
@@ -108,6 +128,10 @@ public:
 
     const std::string dirPath() const { return mPath; }
 
+    static android::base::Result<PidStat> readStatFileForPid(pid_t pid);
+
+    static android::base::Result<std::tuple<uid_t, pid_t>> readPidStatusFileForPid(pid_t pid);
+
 private:
     android::base::Result<std::unordered_map<uid_t, UidProcStats>> readUidProcStatsLocked() const;
 
@@ -116,6 +140,9 @@ private:
     // 2. Aggregated per-process status at |mPath| + |kStatusFileFormat|
     // 3. Tid stat file at |mPath| + |kTaskDirFormat| + |kStatFileFormat|
     android::base::Result<std::tuple<uid_t, ProcessStats>> readProcessStatsLocked(pid_t pid) const;
+
+    // Number of milliseconds per clock cycle.
+    int32_t mMillisPerClockTick;
 
     // Proc directory path. Default value is |kProcDirPath|.
     // Updated by tests to point to a different location when needed.
@@ -131,13 +158,17 @@ private:
     // Otherwise, set to false.
     bool mEnabled GUARDED_BY(mMutex);
 
+    // True if the tid time_in_state file at
+    // |mPath| + |kTaskDirFormat| + |kTimeInStateFormat| is available.
+    bool mTimeInStateEnabled GUARDED_BY(mMutex);
+
     // Latest dump of per-UID stats.
     std::unordered_map<uid_t, UidProcStats> mLatestStats GUARDED_BY(mMutex);
 
     // Latest delta of per-uid stats.
     std::unordered_map<uid_t, UidProcStats> mDeltaStats GUARDED_BY(mMutex);
 
-    FRIEND_TEST(IoPerfCollectionTest, TestValidProcPidContents);
+    FRIEND_TEST(PerformanceProfilerTest, TestValidProcPidContents);
     FRIEND_TEST(UidProcStatsCollectorTest, TestValidStatFiles);
     FRIEND_TEST(UidProcStatsCollectorTest, TestHandlesProcessTerminationBetweenScanningAndParsing);
     FRIEND_TEST(UidProcStatsCollectorTest, TestHandlesPidTidReuse);

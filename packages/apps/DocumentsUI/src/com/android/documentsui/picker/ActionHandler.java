@@ -62,9 +62,12 @@ import com.android.documentsui.queries.SearchViewManager;
 import com.android.documentsui.roots.ProvidersAccess;
 import com.android.documentsui.services.FileOperationService;
 
+import com.android.documentsui.util.VersionUtils;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.concurrent.Executor;
 
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -78,6 +81,8 @@ class ActionHandler<T extends FragmentActivity & Addons> extends AbstractActionH
     private final ActivityConfig mConfig;
     private final LastAccessedStorage mLastAccessed;
     private final UserIdManager mUserIdManager;
+    private final static Pattern PATTERN_BLOCK_PATH = Pattern.compile(
+        ".*:android\\/(?:data|obb|sandbox)$");
 
     private UpdatePickResultTask mUpdatePickResultTask;
 
@@ -157,6 +162,14 @@ class ActionHandler<T extends FragmentActivity & Addons> extends AbstractActionH
     private boolean launchToInitialUri(Intent intent) {
         Uri uri = intent.getParcelableExtra(DocumentsContract.EXTRA_INITIAL_URI);
         if (uri != null) {
+            // In android S and above if path contains Android/data, Android/obb
+            // or Android/sandbox redirect to the root for which
+            // FLAG_DIR_BLOCKS_OPEN_DOCUMENT_TREE is already set
+            if(Shared.shouldRestrictStorageAccessFramework(mActivity)
+                && (PATTERN_BLOCK_PATH.matcher(uri.getPath().toLowerCase(Locale.ROOT)).matches())){
+                loadDeviceRoot();
+                return true;
+            }
             if (DocumentsContract.isRootUri(mActivity, uri)) {
                 loadRoot(uri, UserId.DEFAULT_USER);
                 return true;

@@ -15,6 +15,7 @@
 package android
 
 import (
+	"github.com/google/blueprint"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -909,5 +910,157 @@ func TestSortedUniqueNamedPaths(t *testing.T) {
 			t.Logf("expected: %v", expected)
 			AssertDeepEquals(t, "SortedUniqueNamedPaths ", expected, actual)
 		})
+	}
+}
+
+func TestSetAndroidMkEntriesWithTestOptions(t *testing.T) {
+	tests := []struct {
+		name        string
+		testOptions CommonTestOptions
+		expected    map[string][]string
+	}{
+		{
+			name:        "empty",
+			testOptions: CommonTestOptions{},
+			expected:    map[string][]string{},
+		},
+		{
+			name: "is unit test",
+			testOptions: CommonTestOptions{
+				Unit_test: boolPtr(true),
+			},
+			expected: map[string][]string{
+				"LOCAL_IS_UNIT_TEST": []string{"true"},
+			},
+		},
+		{
+			name: "is not unit test",
+			testOptions: CommonTestOptions{
+				Unit_test: boolPtr(false),
+			},
+			expected: map[string][]string{},
+		},
+		{
+			name: "empty tag",
+			testOptions: CommonTestOptions{
+				Tags: []string{},
+			},
+			expected: map[string][]string{},
+		},
+		{
+			name: "single tag",
+			testOptions: CommonTestOptions{
+				Tags: []string{"tag1"},
+			},
+			expected: map[string][]string{
+				"LOCAL_TEST_OPTIONS_TAGS": []string{"tag1"},
+			},
+		},
+		{
+			name: "multiple tag",
+			testOptions: CommonTestOptions{
+				Tags: []string{"tag1", "tag2", "tag3"},
+			},
+			expected: map[string][]string{
+				"LOCAL_TEST_OPTIONS_TAGS": []string{"tag1", "tag2", "tag3"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualEntries := AndroidMkEntries{
+				EntryMap: map[string][]string{},
+			}
+			tt.testOptions.SetAndroidMkEntries(&actualEntries)
+			actual := actualEntries.EntryMap
+			t.Logf("actual: %v", actual)
+			t.Logf("expected: %v", tt.expected)
+			AssertDeepEquals(t, "TestProcessCommonTestOptions ", tt.expected, actual)
+		})
+	}
+}
+
+type fakeBlueprintModule struct{}
+
+func (fakeBlueprintModule) Name() string { return "foo" }
+
+func (fakeBlueprintModule) GenerateBuildActions(blueprint.ModuleContext) {}
+
+type sourceProducerTestModule struct {
+	fakeBlueprintModule
+	source Path
+}
+
+func (s sourceProducerTestModule) Srcs() Paths { return Paths{s.source} }
+
+type outputFileProducerTestModule struct {
+	fakeBlueprintModule
+	output map[string]Path
+	error  map[string]error
+}
+
+func (o outputFileProducerTestModule) OutputFiles(tag string) (Paths, error) {
+	return PathsIfNonNil(o.output[tag]), o.error[tag]
+}
+
+type pathContextAddMissingDependenciesWrapper struct {
+	PathContext
+	missingDeps []string
+}
+
+func (p *pathContextAddMissingDependenciesWrapper) AddMissingDependencies(deps []string) {
+	p.missingDeps = append(p.missingDeps, deps...)
+}
+func (p *pathContextAddMissingDependenciesWrapper) OtherModuleName(module blueprint.Module) string {
+	return module.Name()
+}
+
+func TestOutputFileForModule(t *testing.T) {
+	testcases := []struct {
+		name        string
+		module      blueprint.Module
+		tag         string
+		env         map[string]string
+		config      func(*config)
+		expected    string
+		missingDeps []string
+	}{
+		{
+			name:     "SourceFileProducer",
+			module:   &sourceProducerTestModule{source: PathForTesting("foo.txt")},
+			expected: "foo.txt",
+		},
+		{
+			name:     "OutputFileProducer",
+			module:   &outputFileProducerTestModule{output: map[string]Path{"": PathForTesting("foo.txt")}},
+			expected: "foo.txt",
+		},
+		{
+			name:     "OutputFileProducer_tag",
+			module:   &outputFileProducerTestModule{output: map[string]Path{"foo": PathForTesting("foo.txt")}},
+			tag:      "foo",
+			expected: "foo.txt",
+		},
+		{
+			name: "OutputFileProducer_AllowMissingDependencies",
+			config: func(config *config) {
+				config.TestProductVariables.Allow_missing_dependencies = boolPtr(true)
+			},
+			module:      &outputFileProducerTestModule{},
+			missingDeps: []string{"foo"},
+			expected:    "missing_output_file/foo",
+		},
+	}
+	for _, tt := range testcases {
+		config := TestConfig(buildDir, tt.env, "", nil)
+		if tt.config != nil {
+			tt.config(config.config)
+		}
+		ctx := &pathContextAddMissingDependenciesWrapper{
+			PathContext: PathContextForTesting(config),
+		}
+		got := OutputFileForModule(ctx, tt.module, tt.tag)
+		AssertPathRelativeToTopEquals(t, "expected source path", tt.expected, got)
+		AssertArrayString(t, "expected missing deps", tt.missingDeps, ctx.missingDeps)
 	}
 }

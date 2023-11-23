@@ -459,7 +459,7 @@ void impeg2_mc_fullx_fully_8x8(UWORD8 *pu1_out,
 
     for(i = 0; i < BLK_SIZE; i++)
     {
-        memcpy(pu1_out, pu1_ref, BLK_SIZE);
+        memmove(pu1_out, pu1_ref, BLK_SIZE);
         pu1_ref += u4_ref_wid;
         pu1_out += u4_out_wid;
     }

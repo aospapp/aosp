@@ -1,0 +1,13 @@
+name: "roboto-flex"
+description: "Roboto Flex upgrades Roboto so it becomes a more powerful typeface system."
+
+third_party {
+  url {
+    type: ARCHIVE
+    value: "https://github.com/google/fonts/tree/main/ofl/robotoflex"
+  }
+  version: "3.000"
+  license_note: "contains OFL fonts"
+  license_type: BY_EXCEPTION_ONLY
+  last_upgrade_date { year: 2023 month: 4 day: 6 }
+}

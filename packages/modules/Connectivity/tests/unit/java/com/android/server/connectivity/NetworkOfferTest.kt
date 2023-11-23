@@ -42,7 +42,7 @@ class NetworkOfferTest {
 
     @Test
     fun testOfferNeededUnneeded() {
-        val score = FullScore(50, POLICY_NONE, KEEP_CONNECTED_NONE)
+        val score = FullScore(POLICY_NONE, KEEP_CONNECTED_NONE)
         val offer = NetworkOffer(score, NetworkCapabilities.Builder().build(), mockCallback,
                 1 /* providerId */)
         val request1 = mock(NetworkRequest::class.java)

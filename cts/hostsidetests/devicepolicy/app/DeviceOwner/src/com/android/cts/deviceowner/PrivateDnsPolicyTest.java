@@ -20,6 +20,7 @@ import static android.app.admin.DevicePolicyManager.PRIVATE_DNS_MODE_OPPORTUNIST
 import static android.app.admin.DevicePolicyManager.PRIVATE_DNS_MODE_PROVIDER_HOSTNAME;
 
 import android.app.admin.DevicePolicyManager;
+import android.net.ConnectivityManager;
 import android.os.UserManager;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -98,7 +99,9 @@ public class PrivateDnsPolicyTest extends BaseDeviceOwnerTest {
                 expectedResult, resultCode);
     }
 
-    public void testSetOpportunisticMode() {
+    public void testSetOpportunisticMode() throws Exception {
+        waitForNetwork();
+
         callSetGlobalPrivateDnsOpportunisticModeExpectingResult(
                 DevicePolicyManager.PRIVATE_DNS_SET_NO_ERROR);
 
@@ -108,7 +111,9 @@ public class PrivateDnsPolicyTest extends BaseDeviceOwnerTest {
         assertThat(mDevicePolicyManager.getGlobalPrivateDnsHost(getWho())).isNull();
     }
 
-    public void testSetSpecificHostMode() {
+    public void testSetSpecificHostMode() throws Exception {
+        waitForNetwork();
+
         callSetGlobalPrivateDnsHostModeExpectingResult(
                 VALID_PRIVATE_DNS_HOST,
                 DevicePolicyManager.PRIVATE_DNS_SET_NO_ERROR);
@@ -132,7 +137,9 @@ public class PrivateDnsPolicyTest extends BaseDeviceOwnerTest {
                 DevicePolicyManager.PRIVATE_DNS_SET_ERROR_HOST_NOT_SERVING);
     }
 
-    public void testCanSetModeDespiteUserRestriction() {
+    public void testCanSetModeDespiteUserRestriction() throws Exception {
+        waitForNetwork();
+
         // First set a specific host and assert that applied.
         callSetGlobalPrivateDnsHostModeExpectingResult(
                 VALID_PRIVATE_DNS_HOST,
@@ -152,5 +159,14 @@ public class PrivateDnsPolicyTest extends BaseDeviceOwnerTest {
                 mDevicePolicyManager.getGlobalPrivateDnsMode(getWho())).isEqualTo(
                 PRIVATE_DNS_MODE_OPPORTUNISTIC);
         assertThat(mDevicePolicyManager.getGlobalPrivateDnsHost(getWho())).isNull();
+    }
+
+    private void waitForNetwork() throws InterruptedException {
+        ConnectivityManager cm = mContext.getSystemService(ConnectivityManager.class);
+        long deadline = System.currentTimeMillis() + 10_000;
+        while (cm.getActiveNetwork() == null && System.currentTimeMillis() < deadline) {
+            Thread.sleep(1000);
+        }
+        assertNotNull("No active network present", cm.getActiveNetwork());
     }
 }

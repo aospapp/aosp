@@ -11,10 +11,13 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package libcore.dalvik.system;
+
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import libcore.io.Streams;
 
@@ -25,8 +28,6 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.Assert.*;
 
 class ClassLoaderTestSupport {
     private static final String PACKAGE_PATH = "dalvik/system/";
@@ -89,6 +90,7 @@ class ClassLoaderTestSupport {
         } finally {
             in.close();
         }
+        assertTrue(destination.setReadOnly());
     }
 
 }

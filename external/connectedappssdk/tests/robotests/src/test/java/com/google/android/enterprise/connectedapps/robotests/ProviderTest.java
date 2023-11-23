@@ -43,7 +43,7 @@ public class ProviderTest {
 
   @Before
   public void setup() {
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
   }
 
   @Test

@@ -7,6 +7,7 @@ NAME = 'network_DhcpStaticIP'
 ATTRIBUTES = "suite:network_nightly"
 TIME = 'SHORT'
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 DOC = """
   Tests that we can negotiate a lease on an IPv4 address via DHCP,

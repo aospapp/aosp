@@ -56,6 +56,7 @@ public class LegacyPasspointConfig {
 
     @Override
     public int hashCode() {
-        return Objects.hash(mFqdn, mFriendlyName, mRoamingConsortiumOis, mRealm, mImsi);
+        return Objects.hash(mFqdn, mFriendlyName, Arrays.hashCode(mRoamingConsortiumOis), mRealm,
+                mImsi);
     }
 }

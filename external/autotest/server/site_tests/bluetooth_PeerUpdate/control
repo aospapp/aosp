@@ -8,12 +8,13 @@ AUTHOR = 'chromeos-bluetooth'
 NAME = 'bluetooth_PeerUpdate'
 PURPOSE = 'Update chameleond on Bluetooth peer device'
 CRITERIA = 'Bluetooth peer should be present'
-ATTRIBUTES = 'suite:bluetooth_e2e, suite:bluetooth_mtbf'
+ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_wifi_testbed_update'
 TIME = 'SHORT'    # This test takes about 1 minutes while running locally
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
 DEPENDENCIES = 'bluetooth, working_bluetooth_btpeer:1'
+PY_VERSION = 3
 
 DOC = """
 

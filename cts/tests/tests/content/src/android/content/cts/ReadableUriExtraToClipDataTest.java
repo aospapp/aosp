@@ -57,7 +57,7 @@ public class ReadableUriExtraToClipDataTest extends AndroidTestCase {
             };
         IntentFilter filter = new IntentFilter();
         filter.addAction(ReadableFileReceiverActivity.ACTION_CONFIRM_READ_SUCCESS);
-        getContext().registerReceiver(mReceiver, filter);
+        getContext().registerReceiver(mReceiver, filter, Context.RECEIVER_EXPORTED);
 
         for (String fileName : FILE_NAMES) {
             File testFile = new File(getContext().getFilesDir() + File.separator + fileName);

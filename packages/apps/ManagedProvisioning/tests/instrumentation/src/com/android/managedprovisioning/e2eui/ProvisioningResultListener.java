@@ -67,8 +67,10 @@ public class ProvisioningResultListener {
     }
 
     public void register() {
-        mContext.registerReceiver(mReceiver, new IntentFilter(ACTION_PROVISION_RESULT_BROADCAST));
-        mContext.registerReceiver(mReceiver, new IntentFilter(ACTION_PROVISION_RESULT_INTENT));
+        mContext.registerReceiver(mReceiver, new IntentFilter(ACTION_PROVISION_RESULT_BROADCAST),
+                Context.RECEIVER_EXPORTED/*UNAUDITED*/);
+        mContext.registerReceiver(mReceiver, new IntentFilter(ACTION_PROVISION_RESULT_INTENT),
+                Context.RECEIVER_EXPORTED/*UNAUDITED*/);
         mIsRegistered = true;
     }
 

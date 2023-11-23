@@ -16,8 +16,8 @@
   -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@android:id/background"
-        android:width="@dimen/qc_toggle_size"
-        android:height="@dimen/qc_toggle_size"
+        android:width="@dimen/qc_toggle_background_size"
+        android:height="@dimen/qc_toggle_background_size"
         android:start="@dimen/qc_toggle_background_padding"
         android:top="@dimen/qc_toggle_background_padding"
         android:drawable="@drawable/qc_toggle_button_background">

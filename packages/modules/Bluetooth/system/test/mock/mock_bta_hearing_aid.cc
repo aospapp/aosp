@@ -19,16 +19,15 @@
  *   Functions generated:8
  */
 
+#include <base/functional/bind.h>
+#include <base/functional/callback.h>
+#include <base/strings/string_number_conversions.h>
+
+#include <cstdint>
 #include <map>
 #include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <base/bind.h>
-#include <base/callback.h>
-#include <base/strings/string_number_conversions.h>
-#include <cstdint>
 #include <vector>
+
 #include "bta/include/bta_gatt_api.h"
 #include "bta/include/bta_gatt_queue.h"
 #include "bta/include/bta_hearing_aid_api.h"
@@ -40,6 +39,7 @@ extern std::map<std::string, int> mock_function_count_map;
 #include "stack/include/acl_api_types.h"
 #include "stack/include/gap_api.h"
 #include "stack/include/l2c_api.h"
+#include "test/common/mock_functions.h"
 #include "types/bluetooth/uuid.h"
 #include "types/bt_transport.h"
 #include "types/raw_address.h"
@@ -49,25 +49,40 @@ extern std::map<std::string, int> mock_function_count_map;
 #endif
 
 int HearingAid::GetDeviceCount() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
+
 void HearingAid::AddFromStorage(const HearingDevice& dev_info,
                                 uint16_t is_acceptlisted) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
-void HearingAid::DebugDump(int fd) { mock_function_count_map[__func__]++; }
-HearingAid* HearingAid::Get() {
-  mock_function_count_map[__func__]++;
-  return nullptr;
-}
+
+void HearingAid::DebugDump(int fd) { inc_func_call_count(__func__); }
+
 bool HearingAid::IsHearingAidRunning() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
-void HearingAid::CleanUp() { mock_function_count_map[__func__]++; }
+
+void HearingAid::CleanUp() { inc_func_call_count(__func__); }
+
 void HearingAid::Initialize(
     bluetooth::hearing_aid::HearingAidCallbacks* callbacks,
     base::Closure initCb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
+
+void HearingAid::Connect(const RawAddress& address) {
+  inc_func_call_count(__func__);
+}
+
+void HearingAid::Disconnect(const RawAddress& address) {
+  inc_func_call_count(__func__);
+}
+
+void HearingAid::AddToAcceptlist(const RawAddress& address) {
+  inc_func_call_count(__func__);
+}
+
+void HearingAid::SetVolume(int8_t volume) { inc_func_call_count(__func__); }

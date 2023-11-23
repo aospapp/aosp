@@ -32,6 +32,17 @@ public class EmptyDeviceAdmin extends DeviceAdminReceiver {
     }
 
     @Override
+    public void onEnabled(Context context, Intent intent) {
+        // Normally DeviceOwnerChangedReceiver should be triggered by ACTION_DEVICE_OWNER_CHANGED
+        // however there could be a race condition where the package is still in stopped state
+        // when ACTION_DEVICE_OWNER_CHANGED is being sent, resulting in the broadcast not
+        // received. To mitigate that, try manually running DeviceOwnerChangedReceiver as well.
+        // This should be safe as long as DeviceOwnerChangedReceiver is idempotent.
+        context.sendBroadcast(new Intent(DeviceOwnerChangedReceiver.ACTION_TRANSFER_DEVICE_OWNER)
+                .setComponent(new ComponentName(context, DeviceOwnerChangedReceiver.class)));
+    }
+
+    @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
         Log.d(TAG, "onReceive(): user=" + context.getUserId() + ", action=" + action);

@@ -16,9 +16,8 @@
 
 #include "perfetto/ext/base/string_utils.h"
 
+#include <optional>
 #include "test/gtest_and_gmock.h"
-
-#include "perfetto/ext/base/optional.h"
 
 namespace perfetto {
 namespace base {
@@ -50,23 +49,23 @@ TEST(StringUtilsTest, Uppercase) {
 }
 
 TEST(StringUtilsTest, CStringToUInt32) {
-  EXPECT_EQ(CStringToUInt32("0"), make_optional<uint32_t>(0U));
-  EXPECT_EQ(CStringToUInt32("1"), make_optional<uint32_t>(1U));
-  EXPECT_EQ(CStringToUInt32("42"), make_optional<uint32_t>(42U));
-  EXPECT_EQ(CStringToUInt32(""), nullopt);
-  EXPECT_EQ(CStringToUInt32("!?"), nullopt);
-  EXPECT_EQ(CStringToUInt32("abc"), nullopt);
-  EXPECT_EQ(CStringToUInt32("123 abc"), nullopt);
+  EXPECT_EQ(CStringToUInt32("0"), std::make_optional<uint32_t>(0U));
+  EXPECT_EQ(CStringToUInt32("1"), std::make_optional<uint32_t>(1U));
+  EXPECT_EQ(CStringToUInt32("42"), std::make_optional<uint32_t>(42U));
+  EXPECT_EQ(CStringToUInt32(""), std::nullopt);
+  EXPECT_EQ(CStringToUInt32("!?"), std::nullopt);
+  EXPECT_EQ(CStringToUInt32("abc"), std::nullopt);
+  EXPECT_EQ(CStringToUInt32("123 abc"), std::nullopt);
 }
 
 TEST(StringUtilsTest, CStringToInt32) {
-  EXPECT_EQ(CStringToInt32("0"), make_optional<int32_t>(0));
-  EXPECT_EQ(CStringToInt32("1"), make_optional<int32_t>(1));
-  EXPECT_EQ(CStringToInt32("-42"), make_optional<int32_t>(-42));
-  EXPECT_EQ(CStringToInt32(""), nullopt);
-  EXPECT_EQ(CStringToInt32("!?"), nullopt);
-  EXPECT_EQ(CStringToInt32("abc"), nullopt);
-  EXPECT_EQ(CStringToInt32("123 abc"), nullopt);
+  EXPECT_EQ(CStringToInt32("0"), std::make_optional<int32_t>(0));
+  EXPECT_EQ(CStringToInt32("1"), std::make_optional<int32_t>(1));
+  EXPECT_EQ(CStringToInt32("-42"), std::make_optional<int32_t>(-42));
+  EXPECT_EQ(CStringToInt32(""), std::nullopt);
+  EXPECT_EQ(CStringToInt32("!?"), std::nullopt);
+  EXPECT_EQ(CStringToInt32("abc"), std::nullopt);
+  EXPECT_EQ(CStringToInt32("123 abc"), std::nullopt);
 }
 
 TEST(StringUtilsTest, CStringToDouble) {
@@ -74,66 +73,68 @@ TEST(StringUtilsTest, CStringToDouble) {
   EXPECT_DOUBLE_EQ(CStringToDouble("1").value(), 1l);
   EXPECT_DOUBLE_EQ(CStringToDouble("-42").value(), -42l);
   EXPECT_DOUBLE_EQ(CStringToDouble("-42.5").value(), -42.5l);
-  EXPECT_EQ(CStringToDouble(""), nullopt);
-  EXPECT_EQ(CStringToDouble("!?"), nullopt);
-  EXPECT_EQ(CStringToDouble("abc"), nullopt);
-  EXPECT_EQ(CStringToDouble("123 abc"), nullopt);
+  EXPECT_EQ(CStringToDouble(""), std::nullopt);
+  EXPECT_EQ(CStringToDouble("!?"), std::nullopt);
+  EXPECT_EQ(CStringToDouble("abc"), std::nullopt);
+  EXPECT_EQ(CStringToDouble("123 abc"), std::nullopt);
 }
 
 TEST(StringUtilsTest, StringToUInt32) {
-  EXPECT_EQ(StringToUInt32("0"), make_optional<uint32_t>(0U));
-  EXPECT_EQ(StringToUInt32("1"), make_optional<uint32_t>(1U));
-  EXPECT_EQ(StringToUInt32("42"), make_optional<uint32_t>(42U));
-  EXPECT_EQ(StringToUInt32("a", 16), make_optional<uint32_t>(10U));
+  EXPECT_EQ(StringToUInt32("0"), std::make_optional<uint32_t>(0U));
+  EXPECT_EQ(StringToUInt32("1"), std::make_optional<uint32_t>(1U));
+  EXPECT_EQ(StringToUInt32("42"), std::make_optional<uint32_t>(42U));
+  EXPECT_EQ(StringToUInt32("a", 16), std::make_optional<uint32_t>(10U));
   EXPECT_EQ(StringToUInt32("fffffff0", 16),
-            make_optional<uint32_t>(0xfffffff0));
-  EXPECT_EQ(StringToUInt32(""), nullopt);
-  EXPECT_EQ(StringToUInt32("!?"), nullopt);
-  EXPECT_EQ(StringToUInt32("abc"), nullopt);
-  EXPECT_EQ(StringToUInt32("123 abc"), nullopt);
-  EXPECT_EQ(StringToUInt32("beefz", 16), nullopt);
+            std::make_optional<uint32_t>(0xfffffff0));
+  EXPECT_EQ(StringToUInt32(""), std::nullopt);
+  EXPECT_EQ(StringToUInt32("!?"), std::nullopt);
+  EXPECT_EQ(StringToUInt32("abc"), std::nullopt);
+  EXPECT_EQ(StringToUInt32("123 abc"), std::nullopt);
+  EXPECT_EQ(StringToUInt32("beefz", 16), std::nullopt);
 }
 
 TEST(StringUtilsTest, StringToInt32) {
-  EXPECT_EQ(StringToInt32("0"), make_optional<int32_t>(0));
-  EXPECT_EQ(StringToInt32("1"), make_optional<int32_t>(1));
-  EXPECT_EQ(StringToInt32("-42"), make_optional<int32_t>(-42));
-  EXPECT_EQ(StringToInt32("42", 16), make_optional<int32_t>(0x42));
-  EXPECT_EQ(StringToInt32("7ffffffe", 16), make_optional<int32_t>(0x7ffffffe));
-  EXPECT_EQ(StringToInt32(""), nullopt);
-  EXPECT_EQ(StringToInt32("!?"), nullopt);
-  EXPECT_EQ(StringToInt32("abc"), nullopt);
-  EXPECT_EQ(StringToInt32("123 abc"), nullopt);
-  EXPECT_EQ(StringToInt32("beefz", 16), nullopt);
+  EXPECT_EQ(StringToInt32("0"), std::make_optional<int32_t>(0));
+  EXPECT_EQ(StringToInt32("1"), std::make_optional<int32_t>(1));
+  EXPECT_EQ(StringToInt32("-42"), std::make_optional<int32_t>(-42));
+  EXPECT_EQ(StringToInt32("42", 16), std::make_optional<int32_t>(0x42));
+  EXPECT_EQ(StringToInt32("7ffffffe", 16),
+            std::make_optional<int32_t>(0x7ffffffe));
+  EXPECT_EQ(StringToInt32(""), std::nullopt);
+  EXPECT_EQ(StringToInt32("!?"), std::nullopt);
+  EXPECT_EQ(StringToInt32("abc"), std::nullopt);
+  EXPECT_EQ(StringToInt32("123 abc"), std::nullopt);
+  EXPECT_EQ(StringToInt32("beefz", 16), std::nullopt);
 }
 
 TEST(StringUtilsTest, StringToUInt64) {
-  EXPECT_EQ(StringToUInt64("0"), make_optional<uint64_t>(0u));
-  EXPECT_EQ(StringToUInt64("1"), make_optional<uint64_t>(1u));
+  EXPECT_EQ(StringToUInt64("0"), std::make_optional<uint64_t>(0u));
+  EXPECT_EQ(StringToUInt64("1"), std::make_optional<uint64_t>(1u));
   EXPECT_EQ(StringToUInt64("5000000000"),
-            make_optional<uint64_t>(5000000000ULL));
+            std::make_optional<uint64_t>(5000000000ULL));
   EXPECT_EQ(StringToUInt64("7ffffffffffffffe", 16),
-            make_optional<uint64_t>(0x7ffffffffffffffeULL));
+            std::make_optional<uint64_t>(0x7ffffffffffffffeULL));
   EXPECT_EQ(StringToUInt64("9ffffffffffffffe", 16),
-            make_optional<uint64_t>(0x9ffffffffffffffeULL));
-  EXPECT_EQ(StringToUInt64(""), nullopt);
-  EXPECT_EQ(StringToUInt64("abc"), nullopt);
-  EXPECT_EQ(StringToUInt64("beefz", 16), nullopt);
+            std::make_optional<uint64_t>(0x9ffffffffffffffeULL));
+  EXPECT_EQ(StringToUInt64(""), std::nullopt);
+  EXPECT_EQ(StringToUInt64("abc"), std::nullopt);
+  EXPECT_EQ(StringToUInt64("beefz", 16), std::nullopt);
 }
 
 TEST(StringUtilsTest, StringToInt64) {
-  EXPECT_EQ(StringToInt64("0"), make_optional<int64_t>(0));
-  EXPECT_EQ(StringToInt64("1"), make_optional<int64_t>(1));
+  EXPECT_EQ(StringToInt64("0"), std::make_optional<int64_t>(0));
+  EXPECT_EQ(StringToInt64("1"), std::make_optional<int64_t>(1));
   EXPECT_EQ(StringToInt64("-5000000000"),
-            make_optional<int64_t>(-5000000000LL));
-  EXPECT_EQ(StringToInt64("5000000000"), make_optional<int64_t>(5000000000LL));
+            std::make_optional<int64_t>(-5000000000LL));
+  EXPECT_EQ(StringToInt64("5000000000"),
+            std::make_optional<int64_t>(5000000000LL));
   EXPECT_EQ(StringToInt64("7ffffffffffffffe", 16),
-            make_optional<int64_t>(0x7ffffffffffffffeLL));
+            std::make_optional<int64_t>(0x7ffffffffffffffeLL));
   EXPECT_EQ(StringToInt64("9ffffffe", 16),
-            make_optional<int64_t>(0x9ffffffeLL));
-  EXPECT_EQ(StringToInt64(""), nullopt);
-  EXPECT_EQ(StringToInt64("abc"), nullopt);
-  EXPECT_EQ(StringToInt64("beefz", 16), nullopt);
+            std::make_optional<int64_t>(0x9ffffffeLL));
+  EXPECT_EQ(StringToInt64(""), std::nullopt);
+  EXPECT_EQ(StringToInt64("abc"), std::nullopt);
+  EXPECT_EQ(StringToInt64("beefz", 16), std::nullopt);
 }
 
 TEST(StringUtilsTest, StringToDouble) {
@@ -143,13 +144,13 @@ TEST(StringUtilsTest, StringToDouble) {
   EXPECT_DOUBLE_EQ(StringToDouble("-42.5").value(), -42.5l);
   EXPECT_DOUBLE_EQ(StringToDouble("0.5").value(), .5l);
   EXPECT_DOUBLE_EQ(StringToDouble(".5").value(), .5l);
-  EXPECT_EQ(StringToDouble(""), nullopt);
-  EXPECT_EQ(StringToDouble("!?"), nullopt);
-  EXPECT_EQ(StringToDouble("abc"), nullopt);
-  EXPECT_EQ(StringToDouble("123 abc"), nullopt);
-  EXPECT_EQ(StringToDouble("124,456"), nullopt);
-  EXPECT_EQ(StringToDouble("4 2"), nullopt);
-  EXPECT_EQ(StringToDouble(" - 42"), nullopt);
+  EXPECT_EQ(StringToDouble(""), std::nullopt);
+  EXPECT_EQ(StringToDouble("!?"), std::nullopt);
+  EXPECT_EQ(StringToDouble("abc"), std::nullopt);
+  EXPECT_EQ(StringToDouble("123 abc"), std::nullopt);
+  EXPECT_EQ(StringToDouble("124,456"), std::nullopt);
+  EXPECT_EQ(StringToDouble("4 2"), std::nullopt);
+  EXPECT_EQ(StringToDouble(" - 42"), std::nullopt);
 }
 
 TEST(StringUtilsTest, StartsWith) {
@@ -249,6 +250,16 @@ TEST(StringUtilsTest, Strip) {
   EXPECT_EQ(StripChars("foobar", "oa", '_'), "f__b_r");
   EXPECT_EQ(StripChars("foobar", "fbr", '_'), "_oo_a_");
   EXPECT_EQ(StripChars("foobar", "froab", '_'), "______");
+}
+
+TEST(StringUtilsTest, TrimWhitespace) {
+  EXPECT_EQ(TrimWhitespace(""), "");
+  EXPECT_EQ(TrimWhitespace(" "), "");
+  EXPECT_EQ(TrimWhitespace("\t\n"), "");
+
+  EXPECT_EQ(TrimWhitespace("\tx\n\n"), "x");
+  EXPECT_EQ(TrimWhitespace("\tx\n"), "x");
+  EXPECT_EQ(TrimWhitespace("\tx\nx\n"), "x\nx");
 }
 
 TEST(StringUtilsTest, Contains) {
@@ -414,6 +425,72 @@ TEST(StringUtilsTest, StackString) {
     EXPECT_EQ(s.ToStdString(), std::string(s.c_str()));
     EXPECT_EQ(s.string_view().ToStdString(), s.ToStdString());
   }
+}
+
+TEST(FindLineTest, InvalidOffset1) {
+  std::string str = "abc\ndef\n\nghi";
+  uint32_t offset = 3;
+
+  auto error = FindLineWithOffset(base::StringView(str), offset);
+
+  EXPECT_FALSE(error.has_value());
+}
+
+TEST(FindLineTest, InvalidOffset2) {
+  std::string str = "abc\ndef\n\nghi";
+  uint32_t offset = 8;
+
+  auto error = FindLineWithOffset(base::StringView(str), offset);
+
+  EXPECT_FALSE(error.has_value());
+}
+
+TEST(FindLineTest, FirstCharacter) {
+  std::string str = "abc\ndef\n\nghi";
+  uint32_t offset = 0;
+
+  auto error = FindLineWithOffset(base::StringView(str), offset);
+
+  EXPECT_TRUE(error.has_value());
+  ASSERT_EQ(error.value().line_num, 1ul);
+  ASSERT_EQ(error.value().line_offset, 0ul);
+  ASSERT_EQ(error.value().line, "abc");
+}
+
+TEST(FindLineTest, StandardCheck) {
+  std::string str = "abc\ndef\n\nghi";
+  uint32_t offset = 5;
+
+  auto error = FindLineWithOffset(base::StringView(str), offset);
+
+  EXPECT_TRUE(error.has_value());
+  ASSERT_EQ(error.value().line_num, 2ul);
+  ASSERT_EQ(error.value().line_offset, 1ul);
+  ASSERT_EQ(error.value().line, "def");
+}
+
+TEST(FindLineTest, TwoBreakLines) {
+  std::string str = "abc\ndef\n\nghi";
+  uint32_t offset = 10;
+
+  auto error = FindLineWithOffset(base::StringView(str), offset);
+
+  EXPECT_TRUE(error.has_value());
+  ASSERT_EQ(error.value().line_num, 4ul);
+  ASSERT_EQ(error.value().line_offset, 1ul);
+  ASSERT_EQ(error.value().line, "ghi");
+}
+
+TEST(FindLineTest, EndsWithBreakLine) {
+  std::string str = "abc\ndef\n\nghi\n";
+  uint32_t offset = 10;
+
+  auto error = FindLineWithOffset(base::StringView(str), offset);
+
+  EXPECT_TRUE(error.has_value());
+  ASSERT_EQ(error.value().line_num, 4ul);
+  ASSERT_EQ(error.value().line_offset, 1ul);
+  ASSERT_EQ(error.value().line, "ghi");
 }
 
 }  // namespace

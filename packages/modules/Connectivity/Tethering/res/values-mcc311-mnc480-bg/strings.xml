@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="no_upstream_notification_title" msgid="611650570559011140">"Тетърингът няма връзка с интернет"</string>
-    <string name="no_upstream_notification_message" msgid="6508394877641864863">"Устройствата не могат да установят връзка"</string>
-    <string name="no_upstream_notification_disable_button" msgid="7609346639290990508">"Изключване на тетъринга"</string>
-    <string name="upstream_roaming_notification_title" msgid="6032901176124830787">"Точката за достъп или тетърингът са включени"</string>
-    <string name="upstream_roaming_notification_message" msgid="7599056263326217523">"Възможно е да ви бъдат начислени допълнителни такси при роуминг"</string>
+    <string name="no_upstream_notification_title" msgid="5897815458155858594">"Няма връзка с интернет за тетъринг"</string>
+    <string name="no_upstream_notification_message" msgid="9037716118606459874">"Устройствата не могат да установят връзка"</string>
+    <string name="no_upstream_notification_disable_button" msgid="5284024068281565456">"Изключване на функцията за тетъринг"</string>
+    <string name="upstream_roaming_notification_title" msgid="186331286017243006">"Точката за достъп или функцията за тетъринг са включени"</string>
+    <string name="upstream_roaming_notification_message" msgid="7692641323940316538">"Възможно е да ви бъдат начислени допълнителни такси при роуминг"</string>
 </resources>

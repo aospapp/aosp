@@ -23,48 +23,68 @@
 //! }
 //! ```
 
-use libc::{
-    c_char,
-    c_int,
-};
-use std::ffi::{OsString,OsStr,CStr};
-use std::os::unix::ffi::OsStrExt;
-use std::mem::{MaybeUninit, size_of};
-use std::os::unix::io::{RawFd,AsRawFd,FromRawFd};
-use std::ptr;
-use crate::unistd::read;
-use crate::Result;
-use crate::NixPath;
 use crate::errno::Errno;
+use crate::unistd::read;
+use crate::NixPath;
+use crate::Result;
+use cfg_if::cfg_if;
+use libc::{c_char, c_int};
+use std::ffi::{CStr, OsStr, OsString};
+use std::mem::{size_of, MaybeUninit};
+use std::os::unix::ffi::OsStrExt;
+use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::ptr;
 
 libc_bitflags! {
     /// Configuration options for [`inotify_add_watch`](fn.inotify_add_watch.html).
     pub struct AddWatchFlags: u32 {
+        /// File was accessed.
         IN_ACCESS;
+        /// File was modified.
         IN_MODIFY;
+        /// Metadata changed.
         IN_ATTRIB;
+        /// Writable file was closed.
         IN_CLOSE_WRITE;
+        /// Nonwritable file was closed.
         IN_CLOSE_NOWRITE;
+        /// File was opened.
         IN_OPEN;
+        /// File was moved from X.
         IN_MOVED_FROM;
+        /// File was moved to Y.
         IN_MOVED_TO;
+        /// Subfile was created.
         IN_CREATE;
+        /// Subfile was deleted.
         IN_DELETE;
+        /// Self was deleted.
         IN_DELETE_SELF;
+        /// Self was moved.
         IN_MOVE_SELF;
 
+        /// Backing filesystem was unmounted.
         IN_UNMOUNT;
+        /// Event queue overflowed.
         IN_Q_OVERFLOW;
+        /// File was ignored.
         IN_IGNORED;
 
+        /// Combination of `IN_CLOSE_WRITE` and `IN_CLOSE_NOWRITE`.
         IN_CLOSE;
+        /// Combination of `IN_MOVED_FROM` and `IN_MOVED_TO`.
         IN_MOVE;
 
+        /// Only watch the path if it is a directory.
         IN_ONLYDIR;
+        /// Don't follow symlinks.
         IN_DONT_FOLLOW;
 
+        /// Event occurred against directory.
         IN_ISDIR;
+        /// Only send event once.
         IN_ONESHOT;
+        /// All of the events.
         IN_ALL_EVENTS;
     }
 }
@@ -72,7 +92,9 @@ libc_bitflags! {
 libc_bitflags! {
     /// Configuration options for [`inotify_init1`](fn.inotify_init1.html).
     pub struct InitFlags: c_int {
+        /// Set the `FD_CLOEXEC` flag on the file descriptor.
         IN_CLOEXEC;
+        /// Set the `O_NONBLOCK` flag on the open file description referred to by the new file descriptor.
         IN_NONBLOCK;
     }
 }
@@ -81,7 +103,7 @@ libc_bitflags! {
 /// other interfaces consuming file descriptors, epoll for example.
 #[derive(Debug, Clone, Copy)]
 pub struct Inotify {
-    fd: RawFd
+    fd: RawFd,
 }
 
 /// This object is returned when you create a new watch on an inotify instance.
@@ -89,7 +111,7 @@ pub struct Inotify {
 /// know which watch triggered which event.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct WatchDescriptor {
-    wd: i32
+    wd: i32,
 }
 
 /// A single inotify event.
@@ -109,7 +131,7 @@ pub struct InotifyEvent {
     pub cookie: u32,
     /// Filename. This field exists only if the event was triggered for a file
     /// inside the watched directory.
-    pub name: Option<OsString>
+    pub name: Option<OsString>,
 }
 
 impl Inotify {
@@ -119,9 +141,7 @@ impl Inotify {
     ///
     /// For more information see, [inotify_init(2)](https://man7.org/linux/man-pages/man2/inotify_init.2.html).
     pub fn init(flags: InitFlags) -> Result<Inotify> {
-        let res = Errno::result(unsafe {
-            libc::inotify_init1(flags.bits())
-        });
+        let res = Errno::result(unsafe { libc::inotify_init1(flags.bits()) });
 
         res.map(|fd| Inotify { fd })
     }
@@ -131,15 +151,13 @@ impl Inotify {
     /// Returns a watch descriptor. This is not a File Descriptor!
     ///
     /// For more information see, [inotify_add_watch(2)](https://man7.org/linux/man-pages/man2/inotify_add_watch.2.html).
-    pub fn add_watch<P: ?Sized + NixPath>(self,
-                                          path: &P,
-                                          mask: AddWatchFlags)
-                                            -> Result<WatchDescriptor>
-    {
-        let res = path.with_nix_path(|cstr| {
-            unsafe {
-                libc::inotify_add_watch(self.fd, cstr.as_ptr(), mask.bits())
-            }
+    pub fn add_watch<P: ?Sized + NixPath>(
+        self,
+        path: &P,
+        mask: AddWatchFlags,
+    ) -> Result<WatchDescriptor> {
+        let res = path.with_nix_path(|cstr| unsafe {
+            libc::inotify_add_watch(self.fd, cstr.as_ptr(), mask.bits())
         })?;
 
         Errno::result(res).map(|wd| WatchDescriptor { wd })
@@ -151,16 +169,15 @@ impl Inotify {
     /// Returns an EINVAL error if the watch descriptor is invalid.
     ///
     /// For more information see, [inotify_rm_watch(2)](https://man7.org/linux/man-pages/man2/inotify_rm_watch.2.html).
-    #[cfg(target_os = "linux")]
     pub fn rm_watch(self, wd: WatchDescriptor) -> Result<()> {
-        let res = unsafe { libc::inotify_rm_watch(self.fd, wd.wd) };
-
-        Errno::result(res).map(drop)
-    }
-
-    #[cfg(target_os = "android")]
-    pub fn rm_watch(self, wd: WatchDescriptor) -> Result<()> {
-        let res = unsafe { libc::inotify_rm_watch(self.fd, wd.wd as u32) };
+        cfg_if! {
+            if #[cfg(target_os = "linux")] {
+                let arg = wd.wd;
+            } else if #[cfg(target_os = "android")] {
+                let arg = wd.wd as u32;
+            }
+        }
+        let res = unsafe { libc::inotify_rm_watch(self.fd, arg) };
 
         Errno::result(res).map(drop)
     }
@@ -186,7 +203,7 @@ impl Inotify {
                 ptr::copy_nonoverlapping(
                     buffer.as_ptr().add(offset),
                     event.as_mut_ptr() as *mut u8,
-                    (BUFSIZ - offset).min(header_size)
+                    (BUFSIZ - offset).min(header_size),
                 );
                 event.assume_init()
             };
@@ -195,9 +212,7 @@ impl Inotify {
                 0 => None,
                 _ => {
                     let ptr = unsafe {
-                        buffer
-                            .as_ptr()
-                            .add(offset + header_size)
+                        buffer.as_ptr().add(offset + header_size)
                             as *const c_char
                     };
                     let cstr = unsafe { CStr::from_ptr(ptr) };
@@ -210,7 +225,7 @@ impl Inotify {
                 wd: WatchDescriptor { wd: event.wd },
                 mask: AddWatchFlags::from_bits_truncate(event.mask),
                 cookie: event.cookie,
-                name
+                name,
             });
 
             offset += header_size + event.len as usize;

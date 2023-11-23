@@ -20,7 +20,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.res.Resources;
 import android.util.Log;
 
 import java.net.URISyntaxException;
@@ -31,14 +30,18 @@ import java.net.URISyntaxException;
 public class CarLauncherUtils {
 
     private static final String TAG = "CarLauncherUtils";
+    private static final String ACTION_APP_GRID = "com.android.car.carlauncher.ACTION_APP_GRID";
 
     private CarLauncherUtils() {
     }
 
+    public static Intent getAppsGridIntent() {
+        return new Intent(ACTION_APP_GRID);
+    }
+
     /** Intent used to find/launch the maps activity to run in the relevant DisplayArea. */
     public static Intent getMapsIntent(Context context) {
-        Intent defaultIntent =
-                Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_MAPS);
+        Intent defaultIntent = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MAPS);
         defaultIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         PackageManager pm = context.getPackageManager();
         ComponentName defaultActivity = defaultIntent.resolveActivity(pm);
@@ -99,19 +102,5 @@ public class CarLauncherUtils {
                     + intentString + "\". Falling back to fullscreen map.");
             return getMapsIntent(context);
         }
-    }
-
-    static boolean isCustomDisplayPolicyDefined(Context context) {
-        Resources resources = context.getResources();
-        String customPolicyName = null;
-        try {
-            customPolicyName = resources
-                    .getString(
-                            com.android.internal
-                                    .R.string.config_deviceSpecificDisplayAreaPolicyProvider);
-        } catch (Resources.NotFoundException ex) {
-            Log.w(TAG, "custom policy provider not defined");
-        }
-        return customPolicyName != null && !customPolicyName.isEmpty();
     }
 }

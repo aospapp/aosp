@@ -25,7 +25,7 @@ java_library(
     srcs = ["ProguardProcessor.java"],
     javacopts = DOCLINT_HTML_AND_SYNTAX + DOCLINT_REFERENCES,
     deps = [
-        "@google_bazel_common//third_party/java/auto:service",
+        "//third_party/java/auto:service",
     ],
 )
 

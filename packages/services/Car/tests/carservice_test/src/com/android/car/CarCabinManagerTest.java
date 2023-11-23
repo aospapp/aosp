@@ -111,9 +111,9 @@ public class CarCabinManagerTest extends MockedCarTestBase {
 
     @Test
     public void testError() throws Exception {
-        final int PROP = VehicleProperty.DOOR_LOCK;
-        final int AREA = VehicleAreaWindow.ROW_1_LEFT;
-        final int ERR_CODE = 42;
+        final int propId = VehicleProperty.DOOR_LOCK;
+        final int areaId = VehicleAreaDoor.ROW_1_LEFT;
+        final int errorCode = 42;
 
         CountDownLatch errorLatch = new CountDownLatch(1);
         MutableInt propertyIdReceived = new MutableInt(0);
@@ -132,11 +132,11 @@ public class CarCabinManagerTest extends MockedCarTestBase {
                 errorLatch.countDown();
             }
         });
-        mCarCabinManager.setBooleanProperty(PROP, AREA, true);
-        getAidlMockedVehicleHal().injectError(ERR_CODE, PROP, AREA);
+        mCarCabinManager.setBooleanProperty(propId, areaId, true);
+        getAidlMockedVehicleHal().injectError(errorCode, propId, areaId);
         assertTrue(errorLatch.await(DEFAULT_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS));
-        assertEquals(PROP, propertyIdReceived.value);
-        assertEquals(AREA, areaIdReceived.value);
+        assertEquals(propId, propertyIdReceived.value);
+        assertEquals(areaId, areaIdReceived.value);
     }
 
 

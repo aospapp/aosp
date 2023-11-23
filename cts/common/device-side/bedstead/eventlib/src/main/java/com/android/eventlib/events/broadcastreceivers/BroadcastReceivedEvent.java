@@ -28,6 +28,8 @@ import com.android.eventlib.EventLogsQuery;
 import com.android.queryable.info.BroadcastReceiverInfo;
 import com.android.queryable.queries.BroadcastReceiverQuery;
 import com.android.queryable.queries.BroadcastReceiverQueryHelper;
+import com.android.queryable.queries.IntegerQuery;
+import com.android.queryable.queries.IntegerQueryHelper;
 import com.android.queryable.queries.IntentQuery;
 import com.android.queryable.queries.IntentQueryHelper;
 import com.android.queryable.util.SerializableParcelWrapper;
@@ -53,6 +55,8 @@ public final class BroadcastReceivedEvent extends Event {
         BroadcastReceiverQueryHelper<BroadcastReceivedEventQuery> mBroadcastReceiver =
                 new BroadcastReceiverQueryHelper<>(this);
         IntentQueryHelper<BroadcastReceivedEventQuery> mIntent = new IntentQueryHelper<>(this);
+        IntegerQueryHelper<BroadcastReceivedEventQuery> mResultCode = new IntegerQueryHelper<>(
+                this);
 
         private BroadcastReceivedEventQuery(String packageName) {
             super(BroadcastReceivedEvent.class, packageName);
@@ -64,6 +68,15 @@ public final class BroadcastReceivedEvent extends Event {
         @CheckResult
         public IntentQuery<BroadcastReceivedEventQuery> whereIntent() {
             return mIntent;
+        }
+
+        /**
+         * Query result code received via {@link BroadcastReceiver#getResultCode()} in {@link
+         * BroadcastReceiver#onReceive(Context, Intent)}.
+         */
+        @CheckResult
+        public IntegerQuery<BroadcastReceivedEventQuery> whereResultCode() {
+            return mResultCode;
         }
 
         /** Query {@link BroadcastReceiver}. */
@@ -80,6 +93,9 @@ public final class BroadcastReceivedEvent extends Event {
             if (!mBroadcastReceiver.matches(event.mBroadcastReceiver)) {
                 return false;
             }
+            if (!mResultCode.matches(event.mResultCode)) {
+                return false;
+            }
             return true;
         }
 
@@ -94,17 +110,19 @@ public final class BroadcastReceivedEvent extends Event {
 
     /** Begins logging a {@link BroadcastReceivedEvent}. */
     public static BroadcastReceivedEventLogger logger(
-            BroadcastReceiver broadcastReceiver, Context context, Intent intent) {
-        return new BroadcastReceivedEventLogger(broadcastReceiver, context, intent);
+            BroadcastReceiver broadcastReceiver, Context context, Intent intent, int resultCode) {
+        return new BroadcastReceivedEventLogger(broadcastReceiver, context, intent, resultCode);
     }
 
     /** {@link EventLogger} for {@link BroadcastReceivedEvent}. */
     public static final class BroadcastReceivedEventLogger
             extends EventLogger<BroadcastReceivedEvent> {
         private BroadcastReceivedEventLogger(
-                BroadcastReceiver broadcastReceiver, Context context, Intent intent) {
+                BroadcastReceiver broadcastReceiver, Context context, Intent intent,
+                int resultCode) {
             super(context, new BroadcastReceivedEvent());
             mEvent.mIntent = new SerializableParcelWrapper<>(intent);
+            mEvent.mResultCode = resultCode;
             setBroadcastReceiver(broadcastReceiver);
         }
 
@@ -138,6 +156,7 @@ public final class BroadcastReceivedEvent extends Event {
 
     protected SerializableParcelWrapper<Intent> mIntent;
     protected BroadcastReceiverInfo mBroadcastReceiver;
+    protected int mResultCode;
 
     /**
      * The {@link Intent} passed into {@link BroadcastReceiver#onReceive(Context, Intent)}.
@@ -158,6 +177,7 @@ public final class BroadcastReceivedEvent extends Event {
     public String toString() {
         return "BroadcastReceivedEvent{"
                 + " intent=" + intent()
+                + " resultCode=" + mResultCode
                 + ", broadcastReceiver=" + mBroadcastReceiver
                 + ", packageName='" + mPackageName + "'"
                 + ", timestamp=" + mTimestamp

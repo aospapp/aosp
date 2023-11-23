@@ -23,12 +23,15 @@ from acts import signals
 from acts import tracelogger
 from acts.controllers.android_device import AndroidDevice
 from acts.utils import rand_ascii_str
+from acts.libs.proc.job import TimeoutError
 from acts.libs.utils.multithread import multithread_func
 from acts_contrib.test_utils.tel.loggers.protos.telephony_metric_pb2 import TelephonyVoiceTestResult
 from acts_contrib.test_utils.tel.loggers.telephony_metric_logger import TelephonyMetricLogger
 from acts_contrib.test_utils.tel.tel_defines import INVALID_SUB_ID
 from acts_contrib.test_utils.tel.tel_defines import MAX_WAIT_TIME_SMS_RECEIVE
+from acts_contrib.test_utils.tel.tel_defines import SimSlotInfo
 from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_ANDROID_STATE_SETTLING
+from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_IN_CALL
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_CELLULAR_PREFERRED
 from acts_contrib.test_utils.tel.tel_defines import YOUTUBE_PACKAGE_NAME
 from acts_contrib.test_utils.tel.tel_data_utils import active_file_download_test
@@ -57,6 +60,7 @@ from acts_contrib.test_utils.tel.tel_subscription_utils import set_dds_on_slot
 from acts_contrib.test_utils.tel.tel_subscription_utils import set_message_subid
 from acts_contrib.test_utils.tel.tel_subscription_utils import set_subid_for_data
 from acts_contrib.test_utils.tel.tel_subscription_utils import set_voice_sub_id
+from acts_contrib.test_utils.tel.tel_test_utils import change_slot
 from acts_contrib.test_utils.tel.tel_test_utils import get_operator_name
 from acts_contrib.test_utils.tel.tel_test_utils import num_active_calls
 from acts_contrib.test_utils.tel.tel_test_utils import power_off_sim
@@ -83,21 +87,28 @@ CallResult = TelephonyVoiceTestResult.CallResult.Value
 def dsds_dds_swap_message_streaming_test(
     log: tracelogger.TraceLogger,
     ads: Sequence[AndroidDevice],
-    test_rat: list,
-    test_slot: list,
-    init_dds: int,
+    sim_slot: Sequence[SimSlotInfo],
+    test_rat: Sequence[str],
+    test_slot: Sequence[SimSlotInfo] = [
+        SimSlotInfo.SLOT_0,
+        SimSlotInfo.SLOT_1,
+        SimSlotInfo.SLOT_0],
+    init_dds: int = 0,
     msg_type: str = "SMS",
     direction: str = "mt",
     streaming: bool = True,
     expected_result: bool = True) -> bool:
-    """Make MO and MT message at specific slot in specific RAT with DDS at
+    """Make MO/MT message at specific slot in specific RAT with DDS at
     specific slot and do the same steps after dds swap.
 
     Args:
         log: Logger object.
         ads: A list of Android device objects.
+        sim_slot: a list which contains 2 slots for logical slot 0 and 1.
+            e.g. [SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1]
         test_rat: RAT for both slots of primary device.
         test_slot: The slot which make/receive MO/MT SMS/MMS of primary device.
+            e.g. [SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_0]
         dds_slot: Preferred data slot of primary device.
         msg_type: SMS or MMS to send.
         direction: The direction of message("mo" or "mt") at first.
@@ -109,43 +120,32 @@ def dsds_dds_swap_message_streaming_test(
         TestFailure if failed.
     """
     result = True
+    to_change_slot = True
+    dds_slot = [sim.value[0] for sim in sim_slot]
+    if init_dds != dds_slot[0]:
+        dds_slot = dds_slot[::-1]
+        dds_slot.append(dds_slot[0])
+    else:
+        dds_slot.append(init_dds)
 
-    for test_slot, dds_slot in zip(test_slot, [init_dds, 1-init_dds]):
+    for test_slot, dds_slot in zip(test_slot, dds_slot):
         ads[0].log.info("test_slot: %d, dds_slot: %d", test_slot, dds_slot)
         result = result and dsds_message_streaming_test(
             log=log,
             ads=ads,
+            sim_slot=sim_slot,
             test_rat=test_rat,
             test_slot=test_slot,
             dds_slot=dds_slot,
             msg_type=msg_type,
             direction=direction,
+            to_change_slot=to_change_slot,
             streaming=streaming,
             expected_result=expected_result
         )
+        to_change_slot = False
         if not result:
             return result
-
-    log.info("Switch DDS back.")
-    if not set_dds_on_slot(ads[0], init_dds):
-        ads[0].log.error(
-            "Failed to set DDS at slot %s on %s",(init_dds, ads[0].serial))
-        return False
-
-    log.info("Check phones is in desired RAT.")
-    phone_setup_on_rat(
-        log,
-        ads[0],
-        test_rat[test_slot],
-        get_subid_from_slot_index(log, ads[0], init_dds)
-    )
-
-    log.info("Check HTTP connection after DDS switch.")
-    if not verify_http_connection(log, ads[0]):
-        ads[0].log.error("Failed to verify http connection.")
-        return False
-    else:
-        ads[0].log.info("Verify http connection successfully.")
 
     return result
 
@@ -154,11 +154,15 @@ def dsds_dds_swap_call_streaming_test(
     log: tracelogger.TraceLogger,
     tel_logger: TelephonyMetricLogger.for_test_case,
     ads: Sequence[AndroidDevice],
-    test_rat: list,
-    test_slot: list,
-    init_dds: int,
-    direction: str = "mo",
-    duration: int = 360,
+    sim_slot: Sequence[SimSlotInfo],
+    test_rat: Sequence[str],
+    init_dds: int = 0,
+    test_slot: Sequence[SimSlotInfo] = [
+        SimSlotInfo.SLOT_0,
+        SimSlotInfo.SLOT_1,
+        SimSlotInfo.SLOT_0],
+    direction: Optional[str] = None,
+    duration: int = WAIT_TIME_IN_CALL,
     streaming: bool = True,
     is_airplane_mode: bool = False,
     wfc_mode: Sequence[str] = [
@@ -175,10 +179,14 @@ def dsds_dds_swap_call_streaming_test(
         log: Logger object.
         tel_logger: Logger object for telephony proto.
         ads: A list of Android device objects.
+        sim_slot: a list which contains 2 slots for logical slot 0 and 1.
+            e.g. [SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1]
         test_rat: RAT for both slots of primary device.
-        test_slot: The slot which make/receive MO/MT call of primary device.
         init_dds: Initial preferred data slot of primary device.
+        test_slot: The slot which make/receive MO/MT call of primary device.
+            e.g. [SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_0]
         direction: The direction of call("mo" or "mt").
+        duration: In call time of voice call.
         streaming: True for playing Youtube and False on the contrary.
         is_airplane_mode: True or False for WFC setup
         wfc_mode: Cellular preferred or Wi-Fi preferred.
@@ -193,18 +201,27 @@ def dsds_dds_swap_call_streaming_test(
         TestFailure if failed.
     """
     result = True
+    to_change_slot = True
+    dds_slot = [sim.value[0] for sim in sim_slot]
+    if init_dds != dds_slot[0]:
+        dds_slot = dds_slot[::-1]
+        dds_slot.append(dds_slot[0])
+    else:
+        dds_slot.append(init_dds)
 
-    for test_slot, dds_slot in zip(test_slot, [init_dds, 1-init_dds]):
+    for test_slot, dds_slot in zip(test_slot, dds_slot):
         ads[0].log.info("test_slot: %d, dds_slot: %d", test_slot, dds_slot)
-        result = result and dsds_long_call_streaming_test(
+        result = result and dsds_call_streaming_test(
             log=log,
             tel_logger=tel_logger,
             ads=ads,
+            sim_slot=sim_slot,
             test_rat=test_rat,
-            test_slot=test_slot,
             dds_slot=dds_slot,
+            test_slot=test_slot,
             direction=direction,
             duration=duration,
+            to_change_slot=to_change_slot,
             streaming=streaming,
             is_airplane_mode=is_airplane_mode,
             wfc_mode=wfc_mode,
@@ -213,42 +230,24 @@ def dsds_dds_swap_call_streaming_test(
             turn_off_wifi_in_the_end=turn_off_wifi_in_the_end,
             turn_off_airplane_mode_in_the_end=turn_off_airplane_mode_in_the_end
         )
+        to_change_slot = False
         if not result:
             return result
-
-    log.info("Switch DDS back.")
-    if not set_dds_on_slot(ads[0], init_dds):
-        ads[0].log.error(
-            "Failed to set DDS at slot %s on %s",(init_dds, ads[0].serial))
-        return False
-
-    log.info("Check phones is in desired RAT.")
-    phone_setup_on_rat(
-        log,
-        ads[0],
-        test_rat[test_slot],
-        get_subid_from_slot_index(log, ads[0], init_dds)
-    )
-
-    log.info("Check HTTP connection after DDS switch.")
-    if not verify_http_connection(log, ads[0]):
-        ads[0].log.error("Failed to verify http connection.")
-        return False
-    else:
-        ads[0].log.info("Verify http connection successfully.")
 
     return result
 
 
-def dsds_long_call_streaming_test(
+def dsds_call_streaming_test(
     log: tracelogger.TraceLogger,
     tel_logger: TelephonyMetricLogger.for_test_case,
     ads: Sequence[AndroidDevice],
-    test_rat: list,
-    test_slot: int,
+    sim_slot: Sequence[SimSlotInfo],
+    test_rat: Sequence[str],
     dds_slot: int,
-    direction: str = "mo",
-    duration: int = 360,
+    test_slot: Optional[SimSlotInfo] = None,
+    direction: Optional[str] = None,
+    duration: int = WAIT_TIME_IN_CALL,
+    to_change_slot: bool = True,
     streaming: bool = True,
     is_airplane_mode: bool = False,
     wfc_mode: Sequence[str] = [
@@ -265,10 +264,21 @@ def dsds_long_call_streaming_test(
         log: Logger object.
         tel_logger: Logger object for telephony proto.
         ads: A list of Android device objects.
+        sim_slot: a list which contains 2 slots for logical slot 0 and 1.
+            e.g. [SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1]
         test_rat: RAT for both slots of primary device.
-        test_slot: The slot which make/receive MO/MT call of primary device.
+            e.g. ["5g_volte", "5g_volte"]
         dds_slot: Preferred data slot of primary device.
+                  0 for pSIM,
+                  1 for eSIM port 0,
+                  2 for eSIM port 1.
+        test_slot: The slot which make/receive MO/MT call of primary device.
+            e.g. SimSlotInfo.SLOT_0 for pSIM
+                 SimSlotInfo.SLOT_1 for eSIM port 0
+                 SimSlotInfo.SLOT_2 for eSIM port 1
         direction: The direction of call("mo" or "mt").
+        duration: In call time of voice call.
+        to_change_slot: True to change slot, False otherwise.
         streaming: True for playing Youtube and False on the contrary.
         is_airplane_mode: True or False for WFC setup
         wfc_mode: Cellular preferred or Wi-Fi preferred.
@@ -282,6 +292,16 @@ def dsds_long_call_streaming_test(
     Returns:
         TestFailure if failed.
     """
+    rat_dict = dict((x, y) for x, y in list(zip(sim_slot, test_rat)))
+    wfc_mode_dict = dict((x, y) for x, y in list(zip(sim_slot, wfc_mode)))
+
+    if to_change_slot:
+        log.info("Step 0: Switch to specific SIM slot combination.")
+        try:
+            change_slot(ads[0], sim_slot)
+        except TimeoutError:
+            ads[0].log.warning("Device not support MEP.")
+
     log.info("Step 1: Switch DDS.")
     if not set_dds_on_slot(ads[0], dds_slot):
         ads[0].log.error(
@@ -296,18 +316,20 @@ def dsds_long_call_streaming_test(
         ads[0].log.info("Verify http connection successfully.")
 
     log.info("Step 3: Set up phones in desired RAT.")
+    if test_slot:
+        non_test_slot = list(set(sim_slot) - set([test_slot]))[0]
     if direction == "mo":
         # setup voice subid on primary device.
         ad_mo = ads[0]
-        mo_sub_id = get_subid_from_slot_index(log, ad_mo, test_slot)
+        mo_sub_id = get_subid_from_slot_index(log, ad_mo, test_slot.value[0])
         if mo_sub_id == INVALID_SUB_ID:
-            ad_mo.log.warning("Failed to get sub ID at slot %s.", test_slot)
+            ad_mo.log.warning("Failed to get sub ID at slot %s.", test_slot.value[0])
             return False
         mo_other_sub_id = get_subid_from_slot_index(
-            log, ad_mo, 1-test_slot)
+            log, ad_mo, non_test_slot.value[0])
         sub_id_list = [mo_sub_id, mo_other_sub_id]
         set_voice_sub_id(ad_mo, mo_sub_id)
-        ad_mo.log.info("Sub ID for outgoing call at slot %s: %s", test_slot,
+        ad_mo.log.info("Sub ID for outgoing call at slot %s: %s", test_slot.value[0],
         get_outgoing_voice_sub_id(ad_mo))
 
         # setup voice subid on secondary device.
@@ -316,6 +338,7 @@ def dsds_long_call_streaming_test(
         if mt_sub_id == INVALID_SUB_ID:
             ad_mt.log.warning("Failed to get sub ID at default voice slot.")
             return False
+        mo_slot = test_slot.value[0]
         mt_slot = get_slot_index_from_subid(ad_mt, mt_sub_id)
         set_voice_sub_id(ad_mt, mt_sub_id)
         ad_mt.log.info("Sub ID for incoming call at slot %s: %s", mt_slot,
@@ -325,39 +348,39 @@ def dsds_long_call_streaming_test(
         phone_setup_on_rat(
             log,
             ad_mo,
-            test_rat[1-test_slot],
+            rat_dict[non_test_slot],
             mo_other_sub_id,
             is_airplane_mode,
-            wfc_mode[1-test_slot],
+            wfc_mode_dict[non_test_slot],
             wifi_network_ssid,
             wifi_network_pass)
         # assign phone setup argv for test slot.
         mo_phone_setup_func_argv = (
             log,
             ad_mo,
-            test_rat[test_slot],
+            rat_dict[test_slot],
             mo_sub_id,
             is_airplane_mode,
-            wfc_mode[test_slot],
+            wfc_mode_dict[test_slot],
             wifi_network_ssid,
             wifi_network_pass)
         verify_caller_func = is_phone_in_call_on_rat(
-            log, ad_mo, test_rat[test_slot], only_return_fn=True)
+            log, ad_mo, rat_dict[test_slot], only_return_fn=True)
         mt_phone_setup_func_argv = (log, ad_mt, 'general')
         verify_callee_func = is_phone_in_call_on_rat(
             log, ad_mt, 'general', only_return_fn=True)
-    else:
+    elif direction == "mt":
         # setup voice subid on primary device.
         ad_mt = ads[0]
-        mt_sub_id = get_subid_from_slot_index(log, ad_mt, test_slot)
+        mt_sub_id = get_subid_from_slot_index(log, ad_mt, test_slot.value[0])
         if mt_sub_id == INVALID_SUB_ID:
-            ad_mt.log.warning("Failed to get sub ID at slot %s.", test_slot)
+            ad_mt.log.warning("Failed to get sub ID at slot %s.", test_slot.value[0])
             return False
         mt_other_sub_id = get_subid_from_slot_index(
-            log, ad_mt, 1-test_slot)
+            log, ad_mt, non_test_slot.value[0])
         sub_id_list = [mt_sub_id, mt_other_sub_id]
         set_voice_sub_id(ad_mt, mt_sub_id)
-        ad_mt.log.info("Sub ID for incoming call at slot %s: %s", test_slot,
+        ad_mt.log.info("Sub ID for incoming call at slot %s: %s", test_slot.value[0],
         get_outgoing_voice_sub_id(ad_mt))
 
         # setup voice subid on secondary device.
@@ -367,6 +390,7 @@ def dsds_long_call_streaming_test(
             ad_mo.log.warning("Failed to get sub ID at default voice slot.")
             return False
         mo_slot = get_slot_index_from_subid(ad_mo, mo_sub_id)
+        mt_slot = test_slot.value[0]
         set_voice_sub_id(ad_mo, mo_sub_id)
         ad_mo.log.info("Sub ID for outgoing call at slot %s: %s", mo_slot,
         get_outgoing_voice_sub_id(ad_mo))
@@ -375,27 +399,29 @@ def dsds_long_call_streaming_test(
         phone_setup_on_rat(
             log,
             ad_mt,
-            test_rat[1-test_slot],
+            rat_dict[non_test_slot],
             mt_other_sub_id,
             is_airplane_mode,
-            wfc_mode[1-test_slot],
+            wfc_mode_dict[non_test_slot],
             wifi_network_ssid,
             wifi_network_pass)
         # assign phone setup argv for test slot.
         mt_phone_setup_func_argv = (
             log,
             ad_mt,
-            test_rat[test_slot],
+            rat_dict[test_slot],
             mt_sub_id,
             is_airplane_mode,
-            wfc_mode[test_slot],
+            wfc_mode_dict[test_slot],
             wifi_network_ssid,
             wifi_network_pass)
         verify_callee_func = is_phone_in_call_on_rat(
-            log, ad_mt, test_rat[test_slot], only_return_fn=True)
+            log, ad_mt, rat_dict[test_slot], only_return_fn=True)
         mo_phone_setup_func_argv = (log, ad_mo, 'general')
         verify_caller_func = is_phone_in_call_on_rat(
             log, ad_mo, 'general', only_return_fn=True)
+    else:
+        return True
 
     tasks = [(phone_setup_on_rat, mo_phone_setup_func_argv),
              (phone_setup_on_rat, mt_phone_setup_func_argv)]
@@ -438,7 +464,7 @@ def dsds_long_call_streaming_test(
 
     # For the tese cases related to WFC in which Wi-Fi will be turned off in the
     # end.
-    rat_list = [test_rat[test_slot], test_rat[1-test_slot]]
+    rat_list = [rat_dict[test_slot], rat_dict[non_test_slot]]
 
     if turn_off_wifi_in_the_end:
         log.info("Step 5-2: Turning off Wi-Fi......")
@@ -712,14 +738,16 @@ def dsds_voice_call_test(
 def dsds_message_streaming_test(
     log: tracelogger.TraceLogger,
     ads: Sequence[AndroidDevice],
-    test_rat: list,
-    test_slot: int,
+    sim_slot: Sequence[SimSlotInfo],
+    test_rat: Sequence[str],
+    test_slot: SimSlotInfo,
     dds_slot: int,
     msg_type: str = "SMS",
     direction: str = "mt",
+    to_change_slot: bool = True,
     streaming: bool = True,
     expected_result: bool = True) -> bool:
-    """Make MO and MT SMS/MMS at specific slot in specific RAT with DDS at
+    """Make MO or MT SMS/MMS at specific slot in specific RAT with DDS at
     specific slot.
 
     Test step:
@@ -732,11 +760,21 @@ def dsds_message_streaming_test(
     Args:
         log: Logger object.
         ads: A list of Android device objects.
+        sim_slot: a list which contains 2 slots for logical slot 0 and 1.
+            e.g. [SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1]
         test_rat: RAT for both slots of primary device.
-        test_slot: The slot which make/receive MO/MT SMS/MMS of primary device.
+            e.g. ["5g_volte", "5g_volte"]
+        test_slot: The slot which make/receive MO/MT call of primary device.
+            e.g. SimSlotInfo.SLOT_0 for pSIM
+                 SimSlotInfo.SLOT_1 for eSIM port 0
+                 SimSlotInfo.SLOT_2 for eSIM port 1
         dds_slot: Preferred data slot of primary device.
+                  0 for pSIM,
+                  1 for eSIM port 0,
+                  2 for eSIM port 1.
         msg_type: SMS or MMS to send.
         direction: The direction of message("mo" or "mt") at first.
+        to_change_slot: True to change slot, False otherwise.
         streaming: True for playing Youtube before send/receive SMS/MMS and
             False on the contrary.
         expected_result: True or False
@@ -744,6 +782,15 @@ def dsds_message_streaming_test(
     Returns:
         TestFailure if failed.
     """
+    rat_dict = dict((x, y) for x, y in list(zip(sim_slot, test_rat)))
+
+    if to_change_slot:
+        log.info("Step 0: Switch to specific SIM slot combination.")
+        try:
+            change_slot(ads[0], sim_slot)
+        except TimeoutError:
+            ads[0].log.warning("Device not support MEP.")
+
     log.info("Step 1: Switch DDS.")
     if not set_dds_on_slot(ads[0], dds_slot):
         ads[0].log.error(
@@ -758,18 +805,19 @@ def dsds_message_streaming_test(
         ads[0].log.info("Verify http connection successfully.")
 
     log.info("Step 3: Set up phones in desired RAT.")
+    non_test_slot = list(set(sim_slot) - set([test_slot]))[0]
     if direction == "mo":
         # setup message subid on primary device.
         ad_mo = ads[0]
-        mo_sub_id = get_subid_from_slot_index(log, ad_mo, test_slot)
+        mo_sub_id = get_subid_from_slot_index(log, ad_mo, test_slot.value[0])
         if mo_sub_id == INVALID_SUB_ID:
-            ad_mo.log.warning("Failed to get sub ID at slot %s.", test_slot)
+            ad_mo.log.warning("Failed to get sub ID at slot %s.", test_slot.value[0])
             return False
         mo_other_sub_id = get_subid_from_slot_index(
-            log, ad_mo, 1-test_slot)
+            log, ad_mo, non_test_slot.value[0])
         sub_id_list = [mo_sub_id, mo_other_sub_id]
         set_message_subid(ad_mo, mo_sub_id)
-        ad_mo.log.info("Sub ID for outgoing call at slot %s: %s", test_slot,
+        ad_mo.log.info("Sub ID for outgoing call at slot %s: %s", test_slot.value[0],
             get_outgoing_message_sub_id(ad_mo))
 
         # setup message subid on secondary device.
@@ -787,26 +835,27 @@ def dsds_message_streaming_test(
         phone_setup_on_rat(
             log,
             ad_mo,
-            test_rat[1-test_slot],
+            rat_dict[non_test_slot],
             mo_other_sub_id)
         # assign phone setup argv for test slot.
         mo_phone_setup_func_argv = (
             log,
             ad_mo,
-            test_rat[test_slot],
+            rat_dict[test_slot],
             mo_sub_id)
+        mt_phone_setup_func_argv = (log, ad_mt, 'general')
     else:
         # setup message subid on primary device.
         ad_mt = ads[0]
-        mt_sub_id = get_subid_from_slot_index(log, ad_mt, test_slot)
+        mt_sub_id = get_subid_from_slot_index(log, ad_mt, test_slot.value[0])
         if mt_sub_id == INVALID_SUB_ID:
-            ad_mt.log.warning("Failed to get sub ID at slot %s.", test_slot)
+            ad_mt.log.warning("Failed to get sub ID at slot %s.", test_slot.value[0])
             return False
         mt_other_sub_id = get_subid_from_slot_index(
-            log, ad_mt, 1-test_slot)
+            log, ad_mt, non_test_slot.value[0])
         sub_id_list = [mt_sub_id, mt_other_sub_id]
         set_message_subid(ad_mt, mt_sub_id)
-        ad_mt.log.info("Sub ID for incoming call at slot %s: %s", test_slot,
+        ad_mt.log.info("Sub ID for incoming call at slot %s: %s", test_slot.value[0],
             get_outgoing_message_sub_id(ad_mt))
 
         # setup message subid on secondary device.
@@ -824,13 +873,13 @@ def dsds_message_streaming_test(
         phone_setup_on_rat(
             log,
             ad_mt,
-            test_rat[1-test_slot],
+            rat_dict[non_test_slot],
             mt_other_sub_id)
         # assign phone setup argv for test slot.
         mt_phone_setup_func_argv = (
             log,
             ad_mt,
-            test_rat[test_slot],
+            rat_dict[test_slot],
             mt_sub_id)
         mo_phone_setup_func_argv = (log, ad_mo, 'general')
 
@@ -866,24 +915,15 @@ def dsds_message_streaming_test(
                     current_msg_sub_id)
                 expected_result = False
 
-    result_first = msim_message_test(log, ad_mo, ad_mt, mo_sub_id, mt_sub_id,
+    result = msim_message_test(log, ad_mo, ad_mt, mo_sub_id, mt_sub_id,
         msg=msg_type, expected_result=expected_result)
 
-    if not result_first:
+    if not result:
         log_messaging_screen_shot(ad_mo, test_name="%s_tx" % msg_type)
         log_messaging_screen_shot(ad_mt, test_name="%s_rx" % msg_type)
 
-    result_second = msim_message_test(log, ad_mt, ad_mo, mt_sub_id, mo_sub_id,
-        msg=msg_type, expected_result=expected_result)
-
-    if not result_second:
-        log_messaging_screen_shot(ad_mt, test_name="%s_tx" % msg_type)
-        log_messaging_screen_shot(ad_mo, test_name="%s_rx" % msg_type)
-
-    result = result_first and result_second
-
     log.info("Step 5: Verify RAT and HTTP connection.")
-    rat_list = [test_rat[test_slot], test_rat[1-test_slot]]
+    rat_list = [rat_dict[test_slot], rat_dict[non_test_slot]]
     for rat, sub_id in zip(rat_list, sub_id_list):
         if not wait_for_network_idle(log, ads[0], rat, sub_id):
             raise signals.TestFailure(
@@ -1084,6 +1124,8 @@ def dds_switch_during_data_transfer_test(
         log: logger object
         tel_logger: logger object for telephony proto
         ads: list of android devices
+        sim_slot: a list which contains 2 slots for logical slot 0 and 1.
+            e.g. [SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1]
         nw_rat: RAT for both slots of the primary device
         call_slot: Slot for making voice call
         call_direction: "mo" or "mt" or None to stoping making call.
@@ -1833,6 +1875,7 @@ def msim_call_forwarding(
         callee_slot,
         forwarded_callee_slot,
         dds_slot,
+        sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
         caller_rat=["", ""],
         callee_rat=["", ""],
         forwarded_callee_rat=["", ""],
@@ -1859,6 +1902,8 @@ def msim_call_forwarding(
                         (0 or 1)
         forwarded_callee_slot: Slot of 3rd device receiving forwarded call.
         dds_slot: Preferred data slot
+        sim_slot: a list which contains 2 slots for logical slot 0 and 1.
+            e.g. [SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1]
         caller_rat: RAT for both slots of the 2nd device
         callee_rat: RAT for both slots of the primary device
         forwarded_callee_rat: RAT for both slots of the 3rd device
@@ -1874,6 +1919,12 @@ def msim_call_forwarding(
     ad_caller = ads[1]
     ad_callee = ads[0]
     ad_forwarded_callee = ads[2]
+
+    log.info("Step 0: Switch to specific SIM slot combination.")
+    try:
+        change_slot(ad_callee, sim_slot)
+    except TimeoutError:
+        ad_callee.log.warning("Device not support MEP.")
 
     if callee_slot is not None:
         callee_sub_id = get_subid_from_slot_index(
@@ -2107,6 +2158,7 @@ def msim_call_voice_conf(
         p1_slot,
         p2_slot,
         dds_slot,
+        sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
         host_rat=["volte", "volte"],
         p1_rat="",
         p2_rat="",
@@ -2132,6 +2184,8 @@ def msim_call_voice_conf(
         p1_slot: Slot on the participant device for the call
         p2_slot: Slot on another participant device for the call
         dds_slot: Preferred data slot
+        sim_slot: a list which contains 2 slots for logical slot 0 and 1.
+            e.g. [SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1]
         host_rat: RAT for both slots of the primary device
         p1_rat: RAT for both slots of the participant device
         p2_rat: RAT for both slots of another participant device
@@ -2146,6 +2200,12 @@ def msim_call_voice_conf(
     ad_host = ads[0]
     ad_p1 = ads[1]
     ad_p2 = ads[2]
+
+    log.info("Step 0: Switch to specific SIM slot combination.")
+    try:
+        change_slot(ad_host, sim_slot)
+    except TimeoutError:
+        ad_host.log.warning("Device not support MEP.")
 
     if host_slot is not None:
         host_sub_id = get_subid_from_slot_index(
@@ -2537,6 +2597,7 @@ def msim_volte_wfc_call_voice_conf(
         ads,
         host_slot,
         dds_slot,
+        sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
         host_rat=["5g_wfc", "5g_wfc"],
         merge=True,
         disable_cw=False,
@@ -2566,6 +2627,8 @@ def msim_volte_wfc_call_voice_conf(
         host_slot: Slot on the primary device to host the comference call.
                     0 or 1 (0 for pSIM or 1 for eSIM)call
         dds_slot: Preferred data slot
+        sim_slot: a list which contains 2 slots for logical slot 0 and 1.
+            e.g. [SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1]
         host_rat: RAT for both slots of the primary devicevice
         merge: True for merging 2 calls into the conference call. False for
                 not merging 2 separated call.
@@ -2588,6 +2651,12 @@ def msim_volte_wfc_call_voice_conf(
     ad_host = ads[0]
     ad_p1 = ads[1]
     ad_p2 = ads[2]
+
+    log.info("Step 0: Switch to specific SIM slot combination.")
+    try:
+        change_slot(ad_host, sim_slot)
+    except TimeoutError:
+        ad_host.log.warning("Device not support MEP.")
 
     host_sub_id = get_subid_from_slot_index(log, ad_host, host_slot)
     if host_sub_id == INVALID_SUB_ID:

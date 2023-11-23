@@ -31,6 +31,7 @@ import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
 import com.android.car.ui.preference.CarUiPreference;
+import com.android.settingslib.Utils;
 import com.android.settingslib.applications.ApplicationsState;
 
 import java.util.ArrayList;
@@ -105,7 +106,11 @@ public class RecentAppsListPreferenceController extends PreferenceController<Pre
 
         Preference pref = new CarUiPreference(context);
         pref.setTitle(appEntry.label);
-        pref.setIcon(appEntry.icon);
+        if (appEntry.icon == null) {
+            pref.setIcon(Utils.getBadgedIcon(context, appEntry.info));
+        } else {
+            pref.setIcon(appEntry.icon);
+        }
         pref.setSummary(DateUtils.getRelativeTimeSpanString(usageStats.getLastTimeStamp(),
                 System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS));
         pref.setOnPreferenceClickListener(p -> {

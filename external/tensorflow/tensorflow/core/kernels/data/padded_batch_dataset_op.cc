@@ -94,7 +94,7 @@ class PaddedBatchDatasetOp::Dataset : public DatasetBase {
       const string& prefix) const override {
     name_utils::IteratorPrefixParams params;
     params.op_version = op_version_;
-    return absl::make_unique<Iterator>(Iterator::Params{
+    return std::make_unique<Iterator>(Iterator::Params{
         this, name_utils::IteratorPrefix(kDatasetType, prefix, params)});
   }
 
@@ -113,7 +113,7 @@ class PaddedBatchDatasetOp::Dataset : public DatasetBase {
     return name_utils::DatasetDebugString(kDatasetType, params);
   }
 
-  int64 Cardinality() const override {
+  int64_t CardinalityInternal() const override {
     int64_t n = input_->Cardinality();
     if (n == kInfiniteCardinality || n == kUnknownCardinality) {
       return n;
@@ -123,7 +123,7 @@ class PaddedBatchDatasetOp::Dataset : public DatasetBase {
 
   Status InputDatasets(std::vector<const DatasetBase*>* inputs) const override {
     inputs->push_back(input_);
-    return Status::OK();
+    return OkStatus();
   }
 
   Status CheckExternalState() const override {
@@ -145,7 +145,7 @@ class PaddedBatchDatasetOp::Dataset : public DatasetBase {
       Node* node;
       Tensor t(DT_INT64, TensorShape({padded_shapes_[i].dims()}));
       for (int j = 0; j < padded_shapes_[i].dims(); j++) {
-        t.vec<int64>()(j) = padded_shapes_[i].dim_size(j);
+        t.vec<int64_t>()(j) = padded_shapes_[i].dim_size(j);
       }
       TF_RETURN_IF_ERROR(b->AddTensor(t, &node));
       padded_shapes.emplace_back(node);
@@ -169,7 +169,7 @@ class PaddedBatchDatasetOp::Dataset : public DatasetBase {
     b->BuildAttrValue(output_dtypes(), &output_types);
 
     AttrValue N;
-    b->BuildAttrValue<int64>(padded_shapes_.size(), &N);
+    b->BuildAttrValue<int64_t>(padded_shapes_.size(), &N);
 
     TF_RETURN_IF_ERROR(b->AddDataset(
         this, {{0, input_graph_node}, {1, batch_size}, {4, drop_remainder}},
@@ -178,7 +178,7 @@ class PaddedBatchDatasetOp::Dataset : public DatasetBase {
          {kToutputTypes, output_types},
          {kNumPaddedShapes, N}},
         output));
-    return Status::OK();
+    return OkStatus();
   }
 
  private:
@@ -201,7 +201,7 @@ class PaddedBatchDatasetOp::Dataset : public DatasetBase {
         mutex_lock l(mu_);
         if (!input_impl_) {
           *end_of_sequence = true;
-          return Status::OK();
+          return OkStatus();
         } else {
           *end_of_sequence = false;
           batch_elements.reserve(dataset()->batch_size_);
@@ -222,18 +222,18 @@ class PaddedBatchDatasetOp::Dataset : public DatasetBase {
 
       if (batch_elements.empty()) {
         DCHECK(*end_of_sequence);
-        return Status::OK();
+        return OkStatus();
       }
 
       if (dataset()->drop_remainder_ &&
           batch_elements.size() < dataset()->batch_size_) {
         *end_of_sequence = true;
-        return Status::OK();
+        return OkStatus();
       }
 
       TF_RETURN_IF_ERROR(CopyBatch(ctx, batch_elements, out_tensors));
       *end_of_sequence = false;
-      return Status::OK();
+      return OkStatus();
     }
 
    protected:
@@ -249,7 +249,7 @@ class PaddedBatchDatasetOp::Dataset : public DatasetBase {
         TF_RETURN_IF_ERROR(SaveInput(ctx, writer, input_impl_));
       else
         TF_RETURN_IF_ERROR(writer->WriteScalar(full_name(kExhausted), ""));
-      return Status::OK();
+      return OkStatus();
     }
 
     Status RestoreInternal(IteratorContext* ctx,
@@ -262,7 +262,7 @@ class PaddedBatchDatasetOp::Dataset : public DatasetBase {
             dataset()->input_->MakeIterator(ctx, this, prefix(), &input_impl_));
         TF_RETURN_IF_ERROR(RestoreInput(ctx, reader, input_impl_));
       }
-      return Status::OK();
+      return OkStatus();
     }
 
     TraceMeMetadata GetTraceMeMetadata() const override {
@@ -280,8 +280,6 @@ class PaddedBatchDatasetOp::Dataset : public DatasetBase {
     Status CopyBatch(IteratorContext* ctx,
                      const std::vector<std::vector<Tensor>>& batch_elements,
                      std::vector<Tensor>* out_tensors) {
-      static bool in_experiment =
-          GetExperiments().contains("parallelize_batch_copy");
       const size_t num_tuple_components = batch_elements[0].size();
       const int64_t num_batch_elements = batch_elements.size();
       for (size_t component_index = 0; component_index < num_tuple_components;
@@ -359,12 +357,11 @@ class PaddedBatchDatasetOp::Dataset : public DatasetBase {
                 batch_elements[index][component_index], &batch_component,
                 index));
           }
-          return Status::OK();
+          return OkStatus();
         };
 
-        if (dataset()->parallel_copy_ ||
-            (in_experiment && (batch_component.AllocatedBytes() /
-                               num_batch_elements) >= (1 << 15))) {
+        if (dataset()->parallel_copy_ && (batch_component.AllocatedBytes() /
+                                          num_batch_elements) >= (1 << 15)) {
           BlockingCounter counter(num_batch_elements);
           Status status;
           mutex status_mu;
@@ -398,14 +395,14 @@ class PaddedBatchDatasetOp::Dataset : public DatasetBase {
           }
         }
       }
-      return Status::OK();
+      return OkStatus();
     }
 
     mutex mu_;
     std::unique_ptr<IteratorBase> input_impl_ TF_GUARDED_BY(mu_);
   };
 
-  const int64 batch_size_;
+  const int64_t batch_size_;
   const bool drop_remainder_;
   const bool parallel_copy_;
   const std::vector<PartialTensorShape> padded_shapes_;
@@ -427,7 +424,8 @@ PaddedBatchDatasetOp::PaddedBatchDatasetOp(OpKernelConstruction* ctx)
 void PaddedBatchDatasetOp::MakeDataset(OpKernelContext* ctx, DatasetBase* input,
                                        DatasetBase** output) {
   int64_t batch_size;
-  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64>(ctx, kBatchSize, &batch_size));
+  OP_REQUIRES_OK(ctx,
+                 ParseScalarArgument<int64_t>(ctx, kBatchSize, &batch_size));
   OP_REQUIRES(ctx, batch_size > 0,
               errors::InvalidArgument("Batch size must be greater than zero."));
 
@@ -452,7 +450,7 @@ void PaddedBatchDatasetOp::MakeDataset(OpKernelContext* ctx, DatasetBase* input,
                 errors::InvalidArgument("All padded shapes must be vectors"));
     PartialTensorShape padded_shape;
     OP_REQUIRES_OK(ctx, PartialTensorShape::MakePartialShape(
-                            padded_shape_t.vec<int64>().data(),
+                            padded_shape_t.vec<int64_t>().data(),
                             padded_shape_t.NumElements(), &padded_shape));
     padded_shapes.push_back(std::move(padded_shape));
   }

@@ -397,12 +397,11 @@ public final class TestAppInstancePermissions implements PermissionsController {
             mTestAppInstance.testApp().pkg().denyPermission(mTestAppInstance.user(), permission);
         }
         for (String appOp : grantedAppOps) {
-            mTestAppInstance.testApp().pkg().appOps().set(
-                    mTestAppInstance.user(), appOp, AppOpsMode.ALLOWED);
+            mTestAppInstance.testApp().pkg().appOps(mTestAppInstance.user()).set(
+                    appOp, AppOpsMode.ALLOWED);
         }
         for (String appOp : deniedAppOps) {
-            mTestAppInstance.testApp().pkg().appOps().set(
-                    mTestAppInstance.user(), appOp, AppOpsMode.IGNORED);
+            mTestAppInstance.testApp().pkg().appOps().set(appOp, AppOpsMode.IGNORED);
         }
     }
 

@@ -1,5 +1,6 @@
 {
   "AmSlam": { "class": ["APPS"],  "path": ["foo/bar/AmSlam"],  "tags": ["tests"],  "installed": ["out/target/product/generic/data/app/AmSlam/AmSlam.apk"], "module_name": "AmSlam" },
+  "AmSlamTests": { "class": ["APPS"],  "path": ["foo/bar/AmSlam/test"],  "tags": ["tests"],  "installed": ["out/target/product/generic/data/app/AmSlam/AmSlamTests.apk"], "module_name": "AmSlamTests" },
   "CtsJankDeviceTestCases": { "class": ["APPS"],  "path": ["foo/bar/jank"],  "tags": ["optional"],  "installed": ["out/target/product/generic/data/app/CtsJankDeviceTestCases/CtsJankDeviceTestCases.apk"], "module_name": "CtsJankDeviceTestCases" },
   "CtsUiDeviceTestCases": { "class": ["APPS"],  "path": ["tf/core/CtsUiDeviceTestCases"],  "tags": ["optional"],  "installed": ["out/target/product/generic/data/app/CtsUiDeviceTestCases/CtsUiDeviceTestCases.apk"], "module_name": "CtsJankDeviceTestCases" },
   "VtsTarget": { "class": ["FAKE"],  "path": ["foo/bar/jank"],  "tags": ["optional"],  "installed": ["out/target/product/generic/VtsTarget"], "module_name": "VtsTarget" },

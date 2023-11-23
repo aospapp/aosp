@@ -18,17 +18,17 @@
 
 #include "OveruseConfigurationXmlHelper.h"
 
+#include <aidl/android/automotive/watchdog/PerStateBytes.h>
+#include <aidl/android/automotive/watchdog/internal/ApplicationCategoryType.h>
+#include <aidl/android/automotive/watchdog/internal/ComponentType.h>
+#include <aidl/android/automotive/watchdog/internal/IoOveruseAlertThreshold.h>
+#include <aidl/android/automotive/watchdog/internal/IoOveruseConfiguration.h>
+#include <aidl/android/automotive/watchdog/internal/PackageMetadata.h>
+#include <aidl/android/automotive/watchdog/internal/PerStateIoOveruseThreshold.h>
+#include <aidl/android/automotive/watchdog/internal/ResourceSpecificConfiguration.h>
 #include <android-base/parseint.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
-#include <android/automotive/watchdog/PerStateBytes.h>
-#include <android/automotive/watchdog/internal/ApplicationCategoryType.h>
-#include <android/automotive/watchdog/internal/ComponentType.h>
-#include <android/automotive/watchdog/internal/IoOveruseAlertThreshold.h>
-#include <android/automotive/watchdog/internal/IoOveruseConfiguration.h>
-#include <android/automotive/watchdog/internal/PackageMetadata.h>
-#include <android/automotive/watchdog/internal/PerStateIoOveruseThreshold.h>
-#include <android/automotive/watchdog/internal/ResourceSpecificConfiguration.h>
 
 #include <tinyxml2.h>
 
@@ -39,15 +39,15 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
-using ::android::automotive::watchdog::PerStateBytes;
-using ::android::automotive::watchdog::internal::ApplicationCategoryType;
-using ::android::automotive::watchdog::internal::ComponentType;
-using ::android::automotive::watchdog::internal::IoOveruseAlertThreshold;
-using ::android::automotive::watchdog::internal::IoOveruseConfiguration;
-using ::android::automotive::watchdog::internal::PackageMetadata;
-using ::android::automotive::watchdog::internal::PerStateIoOveruseThreshold;
-using ::android::automotive::watchdog::internal::ResourceOveruseConfiguration;
-using ::android::automotive::watchdog::internal::ResourceSpecificConfiguration;
+using ::aidl::android::automotive::watchdog::PerStateBytes;
+using ::aidl::android::automotive::watchdog::internal::ApplicationCategoryType;
+using ::aidl::android::automotive::watchdog::internal::ComponentType;
+using ::aidl::android::automotive::watchdog::internal::IoOveruseAlertThreshold;
+using ::aidl::android::automotive::watchdog::internal::IoOveruseConfiguration;
+using ::aidl::android::automotive::watchdog::internal::PackageMetadata;
+using ::aidl::android::automotive::watchdog::internal::PerStateIoOveruseThreshold;
+using ::aidl::android::automotive::watchdog::internal::ResourceOveruseConfiguration;
+using ::aidl::android::automotive::watchdog::internal::ResourceSpecificConfiguration;
 using ::android::base::EqualsIgnoreCase;
 using ::android::base::Error;
 using ::android::base::Join;
@@ -57,7 +57,6 @@ using ::android::base::StartsWith;
 using ::android::base::StringAppendF;
 using ::android::base::StringPrintf;
 using ::android::base::Trim;
-using ::android::binder::Status;
 using ::tinyxml2::XML_SUCCESS;
 using ::tinyxml2::XMLDeclaration;
 using ::tinyxml2::XMLDocument;

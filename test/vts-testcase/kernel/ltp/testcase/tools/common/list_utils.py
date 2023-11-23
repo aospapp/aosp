@@ -15,19 +15,9 @@
 #
 
 import itertools
+from typing import List
 
-def DeduplicateKeepOrder(input):
-    '''Remove duplicate items from a sequence while keeping the item order.
-
-    Args:
-        input: a sequence that might have duplicated items.
-
-    Returns:
-        A deduplicated list where item order is kept.
-    '''
-    return MergeUniqueKeepOrder(input)
-
-def MergeUniqueKeepOrder(*lists):
+def DeduplicateKeepOrder(*lists: List) -> List:
     '''Merge two list, remove duplicate items, and order.
 
     Args:

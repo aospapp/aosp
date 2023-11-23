@@ -26,6 +26,7 @@
 #include "chre/platform/context.h"
 #include "chre/platform/fatal_error.h"
 #include "chre/platform/linux/platform_log.h"
+#include "chre/platform/linux/task_util/task_manager.h"
 #include "chre/platform/log.h"
 #include "chre/platform/system_timer.h"
 #include "chre/util/time.h"
@@ -94,6 +95,9 @@ int main(int argc, char **argv) {
     // configuration to support multiple sources.
 #endif  // CHRE_AUDIO_SUPPORT_ENABLED
 
+    // Initialize the TaskManager.
+    chre::TaskManagerSingleton::init();
+
     // Initialize the system.
     chre::init();
 
@@ -122,6 +126,7 @@ int main(int argc, char **argv) {
     });
     chreThread.join();
 
+    chre::TaskManagerSingleton::deinit();
     chre::deinit();
     chre::PlatformLogSingleton::deinit();
   } catch (TCLAP::ExitException) {

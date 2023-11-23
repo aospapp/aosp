@@ -33,4 +33,11 @@
     <option name="compatibility:exclude-filter" value="VtsHalConfirmationUIV1_0TargetTest *ConfirmationUIHidlTest.MalformedUTF8Test1/*"/>
     <option name="compatibility:exclude-filter" value="VtsHalConfirmationUIV1_0TargetTest *ConfirmationUIHidlTest.MalformedUTF8Test2/*"/>
     <option name="compatibility:exclude-filter" value="VtsHalConfirmationUIV1_0TargetTest *ConfirmationUIHidlTest.MalformedUTF8Test3/*"/>
+
+    <!-- b/281630896: Disable tests for UDC as not enough soak time to test the proposed fix in ag/23905225. -->
+    <option name="compatibility:exclude-filter" value="VtsHalUwbTargetTest *UwbAidl.ChipClose/*"/>
+    <option name="compatibility:exclude-filter" value="VtsHalUwbTargetTest *UwbAidl.ChipCoreInit/*"/>
+    <option name="compatibility:exclude-filter" value="VtsHalUwbTargetTest *UwbAidl.ChipOpen/*"/>
+    <option name="compatibility:exclude-filter" value="VtsHalUwbTargetTest *UwbAidl.ChipSessionInit/*"/>
+    <option name="compatibility:exclude-filter" value="VtsHalUwbTargetTest *UwbAidl.ChipGetSupportedAndroidUciVersion/*"/>
 </configuration>

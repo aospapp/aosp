@@ -23,6 +23,7 @@ import static android.mediapc.cts.CodecTestBase.SELECT_VIDEO;
 import static android.mediapc.cts.CodecTestBase.getMimesOfAvailableCodecs;
 import static android.mediapc.cts.CodecTestBase.selectCodecs;
 import static android.mediapc.cts.CodecTestBase.selectHardwareCodecs;
+
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
@@ -47,6 +48,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.CddTest;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -105,7 +107,7 @@ public class CodecInitializationLatencyTest {
         mTestFiles.put(MediaFormat.MIMETYPE_VIDEO_AVC, "bbb_1920x1080_6mbps_30fps_avc.mp4");
         mTestFiles.put(MediaFormat.MIMETYPE_VIDEO_H263, "bbb_cif_768kbps_30fps_h263.mp4");
         mTestFiles.put(MediaFormat.MIMETYPE_VIDEO_HEVC, "bbb_1920x1080_4mbps_30fps_hevc.mp4");
-        mTestFiles.put(MediaFormat.MIMETYPE_VIDEO_MPEG2, "bbb_1920x1080_mpeg2_main_high.mp4");
+        mTestFiles.put(MediaFormat.MIMETYPE_VIDEO_MPEG2, "bbb_1920x1080_12mbps_30fps_mpeg2.mp4");
         mTestFiles.put(MediaFormat.MIMETYPE_VIDEO_MPEG4, "bbb_cif_768kbps_30fps_mpeg4.mkv");
         mTestFiles.put(MediaFormat.MIMETYPE_VIDEO_VP8, "bbb_1920x1080_6mbps_30fps_vp8.webm");
         mTestFiles.put(MediaFormat.MIMETYPE_VIDEO_VP9, "bbb_1920x1080_4mbps_30fps_vp9.webm");
@@ -166,7 +168,7 @@ public class CodecInitializationLatencyTest {
      *
      * @return Collection of Parameters {0}_{1} -- MIME_CodecName
      */
-    @Parameterized.Parameters(name = "{index}({0}_{1})")
+    @Parameterized.Parameters(name = "{index}_{0}_{1}")
     public static Collection<Object[]> inputParams() {
         // Prepares the params list with the required Hardware video codecs and all available
         // audio codecs present in the device.

@@ -1,5 +1,6 @@
 #![allow(
     clippy::assertions_on_constants,
+    clippy::assertions_on_result_states,
     clippy::cast_possible_truncation,
     clippy::cast_possible_wrap,
     clippy::float_cmp,
@@ -51,6 +52,7 @@ fn test_c_return() {
         cast::c_char_to_unsigned(ffi::c_return_slice_char(&shared)),
     );
     assert_eq!("2020", ffi::c_return_rust_string());
+    assert_eq!("Hello \u{fffd}World", ffi::c_return_rust_string_lossy());
     assert_eq!("2020", ffi::c_return_unique_ptr_string().to_str().unwrap());
     assert_eq!(4, ffi::c_return_unique_ptr_vector_u8().len());
     assert_eq!(
@@ -69,6 +71,8 @@ fn test_c_return() {
             .map(|o| o.z)
             .sum(),
     );
+    assert_eq!(b"\x02\0\x02\0"[..], ffi::c_return_rust_vec_u8());
+    assert_eq!([true, true, false][..], ffi::c_return_rust_vec_bool());
     assert_eq!(2020, ffi::c_return_identity(2020));
     assert_eq!(2021, ffi::c_return_sum(2020, 1));
     match ffi::c_return_enum(0) {
@@ -167,6 +171,10 @@ fn test_c_take() {
     check!(ffi::c_take_rust_vec_shared(shared_test_vec.clone()));
     check!(ffi::c_take_rust_vec_shared_index(shared_test_vec.clone()));
     check!(ffi::c_take_rust_vec_shared_push(shared_test_vec.clone()));
+    check!(ffi::c_take_rust_vec_shared_truncate(
+        shared_test_vec.clone()
+    ));
+    check!(ffi::c_take_rust_vec_shared_clear(shared_test_vec.clone()));
     check!(ffi::c_take_rust_vec_shared_forward_iterator(
         shared_test_vec,
     ));
@@ -256,7 +264,10 @@ fn test_c_method_calls() {
     assert_eq!(2023, *ffi::Shared { z: 2023 }.c_method_mut_on_shared());
 
     let val = 42;
-    let mut array = ffi::Array { a: [0, 0, 0, 0] };
+    let mut array = ffi::Array {
+        a: [0, 0, 0, 0],
+        b: ffi::Buffer::default(),
+    };
     array.c_set_array(val);
     assert_eq!(array.a.len() as i32 * val, array.r_get_array_sum());
 }

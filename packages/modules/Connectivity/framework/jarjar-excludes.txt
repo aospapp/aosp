@@ -1,0 +1,30 @@
+# INetworkStatsProvider / INetworkStatsProviderCallback are referenced from net-tests-utils, which
+# may be used by tests that do not apply connectivity jarjar rules.
+# TODO: move files to a known internal package (like android.net.connectivity.visiblefortesting)
+# so that they do not need jarjar
+android\.net\.netstats\.provider\.INetworkStatsProvider(\$.+)?
+android\.net\.netstats\.provider\.INetworkStatsProviderCallback(\$.+)?
+
+# INetworkAgent / INetworkAgentRegistry are used in NetworkAgentTest
+# TODO: move files to android.net.connectivity.visiblefortesting
+android\.net\.INetworkAgent(\$.+)?
+android\.net\.INetworkAgentRegistry(\$.+)?
+
+# IConnectivityDiagnosticsCallback used in ConnectivityDiagnosticsManagerTest
+# TODO: move files to android.net.connectivity.visiblefortesting
+android\.net\.IConnectivityDiagnosticsCallback(\$.+)?
+
+
+# KeepaliveUtils is used by ConnectivityManager CTS
+# TODO: move into service-connectivity so framework-connectivity stops using
+# ServiceConnectivityResources (callers need high permissions to find/query the resource apk anyway)
+# and have a ConnectivityManager test API instead
+android\.net\.util\.KeepaliveUtils(\$.+)?
+
+# TODO (b/217115866): add jarjar rules for Nearby
+android\.nearby\..+
+
+# Don't touch anything that's already under android.net.http (cronet)
+# This is required since android.net.http contains api classes and hidden classes.
+# TODO: Remove this after hidden classes are moved to different package
+android\.net\.http\..+

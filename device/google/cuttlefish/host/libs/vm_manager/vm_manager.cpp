@@ -16,12 +16,18 @@
 
 #include "host/libs/vm_manager/vm_manager.h"
 
+#include <iomanip>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
 #include <android-base/logging.h>
 #include <fruit/fruit.h>
 
-#include <iomanip>
-#include <memory>
-
+#include "common/libs/utils/result.h"
+#include "host/libs/config/command_source.h"
 #include "host/libs/config/cuttlefish_config.h"
 #include "host/libs/vm_manager/crosvm_manager.h"
 #include "host/libs/vm_manager/gem5_manager.h"
@@ -50,30 +56,58 @@ std::unique_ptr<VmManager> GetVmManager(const std::string& name, Arch arch) {
   return vmm;
 }
 
-std::string ConfigureMultipleBootDevices(const std::string& pci_path,
-                                         int pci_offset, int num_disks) {
+Result<std::unordered_map<std::string, std::string>>
+ConfigureMultipleBootDevices(const std::string& pci_path, int pci_offset,
+                             int num_disks) {
   int num_boot_devices =
       (num_disks < VmManager::kDefaultNumBootDevices) ? num_disks : VmManager::kDefaultNumBootDevices;
-  std::string boot_devices_prop = "androidboot.boot_devices=";
+  std::string boot_devices_prop_val = "";
   for (int i = 0; i < num_boot_devices; i++) {
     std::stringstream stream;
     stream << std::setfill('0') << std::setw(2) << std::hex
            << pci_offset + i + VmManager::kDefaultNumHvcs + VmManager::kMaxDisks - num_disks;
-    boot_devices_prop += pci_path + stream.str() + ".0,";
+    boot_devices_prop_val += pci_path + stream.str() + ".0,";
   }
-  boot_devices_prop.pop_back();
-  return {boot_devices_prop};
+  boot_devices_prop_val.pop_back();
+  return {{{"androidboot.boot_devices", boot_devices_prop_val}}};
 }
 
-fruit::Component<fruit::Required<const CuttlefishConfig>, VmManager>
+class VmmCommands : public CommandSource {
+ public:
+  INJECT(VmmCommands(const CuttlefishConfig& config, VmManager& vmm))
+      : config_(config), vmm_(vmm) {}
+
+  // CommandSource
+  Result<std::vector<MonitorCommand>> Commands() override {
+    return vmm_.StartCommands(config_);
+  }
+
+  // SetupFeature
+  std::string Name() const override { return "VirtualMachineManager"; }
+  bool Enabled() const override { return true; }
+
+ private:
+  std::unordered_set<SetupFeature*> Dependencies() const override { return {}; }
+  bool Setup() override { return true; }
+
+  const CuttlefishConfig& config_;
+  VmManager& vmm_;
+};
+
+fruit::Component<fruit::Required<const CuttlefishConfig,
+                                 const CuttlefishConfig::InstanceSpecific>,
+                 VmManager>
 VmManagerComponent() {
-  return fruit::createComponent().registerProvider(
-      [](const CuttlefishConfig& config) {
-        auto vmm = GetVmManager(config.vm_manager(), config.target_arch());
+  return fruit::createComponent()
+      .registerProvider([](const CuttlefishConfig& config,
+                           const CuttlefishConfig::InstanceSpecific& instance) {
+        auto vmm = GetVmManager(config.vm_manager(), instance.target_arch());
         CHECK(vmm) << "Invalid VMM/Arch: \"" << config.vm_manager() << "\""
-                   << (int)config.target_arch() << "\"";
+                   << (int)instance.target_arch() << "\"";
         return vmm.release();  // fruit takes ownership of raw pointers
-      });
+      })
+      .addMultibinding<CommandSource, VmmCommands>()
+      .addMultibinding<SetupFeature, VmmCommands>();
 }
 
 } // namespace vm_manager

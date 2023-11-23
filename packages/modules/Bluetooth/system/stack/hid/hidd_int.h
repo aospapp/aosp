@@ -69,13 +69,13 @@ typedef struct dev_ctb {
   bool pending_vc_unplug;
 } tHID_DEV_CTB;
 
-extern tHID_STATUS hidd_conn_reg(void);
-extern void hidd_conn_dereg(void);
-extern tHID_STATUS hidd_conn_initiate(void);
-extern tHID_STATUS hidd_conn_disconnect(void);
-extern tHID_STATUS hidd_conn_send_data(uint8_t channel, uint8_t msg_type,
-                                       uint8_t param, uint8_t data,
-                                       uint16_t len, uint8_t* p_data);
+tHID_STATUS hidd_conn_reg(void);
+void hidd_conn_dereg(void);
+tHID_STATUS hidd_conn_initiate(void);
+tHID_STATUS hidd_conn_disconnect(void);
+tHID_STATUS hidd_conn_send_data(uint8_t channel, uint8_t msg_type,
+                                uint8_t param, uint8_t data, uint16_t len,
+                                uint8_t* p_data);
 
 #ifdef __cplusplus
 extern "C" {

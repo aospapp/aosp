@@ -20,7 +20,6 @@ import static org.testng.Assert.assertEquals;
 
 import java.util.Locale;
 import org.testng.annotations.Test;
-;
 
 /**
  * Verify that the locale is reset to Locale.US before/after each test is run.

@@ -22,7 +22,6 @@ package {
 aidl_interface {
     name: "connectivity_native_aidl_interface",
     local_include_dir: "binder",
-    vendor_available: true,
     srcs: [
         "binder/android/net/connectivity/aidl/*.aidl",
     ],
@@ -139,37 +138,59 @@ java_library {
     name: "service-connectivity-pre-jarjar",
     sdk_version: "system_server_current",
     min_sdk_version: "30",
+    // NetworkStackApiShimSettingsForCurrentBranch provides the latest available shims depending on
+    // the branch to "service-connectivity".
+    // There are Tethering.apk and TetheringNext.apk variants for the tethering APEX,
+    // which use NetworkStackApiStableShims and NetworkStackApiCurrentShims respectively.
+    // Note that there can be no service-connectivity-next because it would need to be configured in
+    // default_art_config.mk which doesn't support conditionals, hence this scheme of using a
+    // variable here.
+    defaults: ["NetworkStackApiShimSettingsForCurrentBranch"],
     srcs: [
         "src/**/*.java",
         ":framework-connectivity-shared-srcs",
         ":services-connectivity-shared-srcs",
-        // TODO: move to net-utils-device-common
-        ":connectivity-module-utils-srcs",
+        ":statslog-connectivity-java-gen",
     ],
     libs: [
         "framework-annotations-lib",
+        "framework-configinfrastructure",
         "framework-connectivity-pre-jarjar",
+        // The framework-connectivity-t library is only available on T+ platforms
+        // so any calls to it must be protected with a check to ensure that it is
+        // available. The linter will detect any unprotected calls through an API
+        // but not direct calls to the implementation. So, this depends on the
+        // module lib stubs directly to ensure the linter will work correctly
+        // as depending on framework-connectivity-t would cause it to be compiled
+        // against the implementation because the two libraries are in the same
+        // APEX.
         "framework-connectivity-t.stubs.module_lib",
-        "framework-tethering.stubs.module_lib",
-        "framework-wifi.stubs.module_lib",
+        // TODO: figure out why just using "framework-tethering" uses the stubs, even though both
+        // service-connectivity and framework-tethering are in the same APEX.
+        "framework-tethering.impl",
+        "framework-wifi",
         "unsupportedappusage",
         "ServiceConnectivityResources",
+        "framework-statsd",
     ],
     static_libs: [
         // Do not add libs here if they are already included
         // in framework-connectivity
+        "androidx.annotation_annotation",
+        "connectivity-net-module-utils-bpf",
         "connectivity_native_aidl_interface-lateststable-java",
-        "dnsresolver_aidl_interface-V9-java",
+        "dnsresolver_aidl_interface-V11-java",
         "modules-utils-shell-command-handler",
         "net-utils-device-common",
         "net-utils-device-common-bpf",
+        "net-utils-device-common-ip",
         "net-utils-device-common-netlink",
         "net-utils-services-common",
         "netd-client",
         "networkstack-client",
         "PlatformProperties",
         "service-connectivity-protos",
-        "NetworkStackApiStableShims",
+        "service-connectivity-stats-protos",
     ],
     apex_available: [
         "com.android.tethering",
@@ -195,32 +216,52 @@ java_library {
     apex_available: [
         "com.android.tethering",
     ],
-    lint: { strict_updatability_linting: true },
+    lint: {
+        strict_updatability_linting: true,
+    },
 }
 
 java_defaults {
     name: "service-connectivity-defaults",
     sdk_version: "system_server_current",
     min_sdk_version: "30",
+    defaults: [
+        "standalone-system-server-module-optimize-defaults",
+    ],
     // This library combines system server jars that have access to different bootclasspath jars.
     // Lower SDK service jars must not depend on higher SDK jars as that would let them
     // transitively depend on the wrong bootclasspath jars. Sources also cannot be added here as
-    // they would transitively depend on bootclasspath jars that may not be available.
+    // they would depend on bootclasspath jars that may not be available.
     static_libs: [
         "service-connectivity-pre-jarjar",
         "service-connectivity-tiramisu-pre-jarjar",
         "service-nearby-pre-jarjar",
+    ],
+    // The below libraries are not actually needed to build since no source is compiled
+    // (only combining prebuilt static_libs), but they are necessary so that R8 has the right
+    // references to optimize the code. Without these, there will be missing class warnings and
+    // code may be wrongly optimized.
+    // R8 runs after jarjar, so the framework-X libraries need to be the post-jarjar artifacts
+    // (.impl), if they are not just stubs, so that the name of jarjared classes match.
+    libs: [
+        "androidx.annotation_annotation",
+        "framework-annotations-lib",
+        "framework-connectivity.impl",
+        "framework-connectivity-t.impl",
+        "framework-tethering.impl",
+        "framework-wifi",
+        "libprotobuf-java-nano",
     ],
     jarjar_rules: ":connectivity-jarjar-rules",
     apex_available: [
         "com.android.tethering",
     ],
     optimize: {
-        enabled: true,
-        shrink: true,
         proguard_flags_files: ["proguard.flags"],
     },
-    lint: { strict_updatability_linting: true },
+    lint: {
+        strict_updatability_linting: true,
+    },
 }
 
 // A special library created strictly for use by the tests as they need the
@@ -241,9 +282,29 @@ java_library {
     installable: true,
 }
 
-filegroup {
+java_library_static {
+    name: "service-connectivity-stats-protos",
+    sdk_version: "system_current",
+    min_sdk_version: "30",
+    proto: {
+        type: "lite",
+    },
+    srcs: [
+        "src/com/android/metrics/stats.proto",
+    ],
+    static_libs: ["ConnectivityServiceprotos"],
+    apex_available: ["com.android.tethering"],
+}
+
+genrule {
     name: "connectivity-jarjar-rules",
-    srcs: ["jarjar-rules.txt"],
+    defaults: ["jarjar-rules-combine-defaults"],
+    srcs: [
+        ":framework-connectivity-jarjar-rules",
+        ":service-connectivity-jarjar-gen",
+        ":service-nearby-jarjar-gen",
+    ],
+    out: ["connectivity-jarjar-rules.txt"],
     visibility: ["//packages/modules/Connectivity:__subpackages__"],
 }
 
@@ -253,4 +314,49 @@ filegroup {
     name: "traffic-controller-utils",
     srcs: ["src/com/android/server/BpfNetMaps.java"],
     visibility: ["//packages/modules/Connectivity:__subpackages__"],
+}
+
+java_genrule {
+    name: "service-connectivity-jarjar-gen",
+    tool_files: [
+        ":service-connectivity-pre-jarjar{.jar}",
+        ":service-connectivity-tiramisu-pre-jarjar{.jar}",
+        "jarjar-excludes.txt",
+    ],
+    tools: [
+        "jarjar-rules-generator",
+    ],
+    out: ["service_connectivity_jarjar_rules.txt"],
+    cmd: "$(location jarjar-rules-generator) " +
+        "$(location :service-connectivity-pre-jarjar{.jar}) " +
+        "$(location :service-connectivity-tiramisu-pre-jarjar{.jar}) " +
+        "--prefix android.net.connectivity " +
+        "--excludes $(location jarjar-excludes.txt) " +
+        "--output $(out)",
+    visibility: ["//visibility:private"],
+}
+
+java_genrule {
+    name: "service-nearby-jarjar-gen",
+    tool_files: [
+        ":service-nearby-pre-jarjar{.jar}",
+        "jarjar-excludes.txt",
+    ],
+    tools: [
+        "jarjar-rules-generator",
+    ],
+    out: ["service_nearby_jarjar_rules.txt"],
+    cmd: "$(location jarjar-rules-generator) " +
+        "$(location :service-nearby-pre-jarjar{.jar}) " +
+        "--prefix com.android.server.nearby " +
+        "--excludes $(location jarjar-excludes.txt) " +
+        "--output $(out)",
+    visibility: ["//visibility:private"],
+}
+
+genrule {
+    name: "statslog-connectivity-java-gen",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --java $(out) --module connectivity --javaPackage com.android.server --javaClass ConnectivityStatsLog",
+    out: ["com/android/server/ConnectivityStatsLog.java"],
 }

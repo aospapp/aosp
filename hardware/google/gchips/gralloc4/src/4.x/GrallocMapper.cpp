@@ -35,14 +35,9 @@ using android::hardware::hidl_vec;
 using android::hardware::Void;
 
 
-GrallocMapper::GrallocMapper()
-{
-}
+GrallocMapper::GrallocMapper() {}
 
-GrallocMapper::~GrallocMapper()
-{
-	mali_gralloc_ion_close();
-}
+GrallocMapper::~GrallocMapper() {}
 
 Return<void> GrallocMapper::createDescriptor(const BufferDescriptorInfo &descriptorInfo, createDescriptor_cb hidl_cb)
 {

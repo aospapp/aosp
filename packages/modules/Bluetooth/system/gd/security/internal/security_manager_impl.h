@@ -46,6 +46,8 @@ static constexpr hci::AuthenticationRequirements kDefaultAuthenticationRequireme
 
 namespace internal {
 
+static constexpr uint16_t kInvalidConnectionHandle = 0xFFFF;
+
 struct LeFixedChannelEntry {
   std::unique_ptr<l2cap::le::FixedChannel> channel_;
   std::unique_ptr<os::EnqueueBuffer<packet::BasePacketBuilder>> enqueue_buffer_;
@@ -278,7 +280,7 @@ class SecurityManagerImpl : public channel::ISecurityManagerChannelListener, pub
 
   struct {
     hci::AddressWithType address_;
-    uint16_t connection_handle_;
+    uint16_t connection_handle_{kInvalidConnectionHandle};
     std::unique_ptr<PairingHandlerLe> handler_;
   } pending_le_pairing_;
 

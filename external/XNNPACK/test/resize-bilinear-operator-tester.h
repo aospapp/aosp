@@ -16,6 +16,8 @@
 #include <random>
 #include <vector>
 
+#include <fp16.h>
+
 #include <xnnpack.h>
 
 
@@ -220,6 +222,92 @@ class ResizeBilinearOperatorTester {
     return this->iterations_;
   }
 
+  void TestNHWCxF16() const {
+    if (align_corners()) {
+      ASSERT_FALSE(tf_legacy_mode());
+    }
+
+    std::random_device random_device;
+    auto rng = std::mt19937(random_device());
+    std::uniform_real_distribution<float> f32dist;
+
+    std::vector<uint16_t> input(XNN_EXTRA_BYTES / sizeof(uint16_t) +
+      (batch_size() * input_height() * input_width() - 1) * input_pixel_stride() + channels());
+    std::vector<uint16_t> output((batch_size() * output_height() * output_width() - 1) * output_pixel_stride() + channels());
+    std::vector<float> output_ref(batch_size() * output_height() * output_width() * channels());
+    for (size_t iteration = 0; iteration < iterations(); iteration++) {
+      std::generate(input.begin(), input.end(), [&]() { return fp16_ieee_from_fp32_value(f32dist(rng)); });
+      std::fill(output.begin(), output.end(), UINT16_C(0x7E00) /* NaN */);
+
+      // Compute reference results.
+      const float offset = (tf_legacy_mode() || align_corners()) ? 0.0f : 0.5f;
+      for (size_t batch_index = 0; batch_index < batch_size(); batch_index++) {
+        for (size_t output_y = 0; output_y < output_height(); output_y++) {
+          const float input_y = (float(output_y) + offset) * height_scale() - offset;
+          const int64_t input_y_top = std::max<int64_t>(int64_t(std::floor(input_y)), 0);
+          const int64_t input_y_bottom = std::min<int64_t>(int64_t(std::ceil(input_y)), input_height() - 1);
+          const float y_alpha = fp16_ieee_to_fp32_value(fp16_ieee_from_fp32_value(input_y - std::floor(input_y)));
+          for (size_t output_x = 0; output_x < output_width(); output_x++) {
+            const float input_x = (float(output_x) + offset) * width_scale() - offset;
+            const int64_t input_x_left = std::max<int64_t>(int64_t(std::floor(input_x)), 0);
+            const int64_t input_x_right = std::min<int64_t>(int64_t(std::ceil(input_x)), input_width() - 1);
+            const float x_alpha = fp16_ieee_to_fp32_value(fp16_ieee_from_fp32_value(input_x - std::floor(input_x)));
+            for (size_t c = 0; c < channels(); c++) {
+              output_ref[((batch_index * output_height() + output_y) * output_width() + output_x) * channels() + c] =
+                fp16_ieee_to_fp32_value(input[((batch_index * input_height() + input_y_top) * input_width() + input_x_left) * input_pixel_stride() + c]) * (1.0f - y_alpha) * (1.0f - x_alpha) +
+                fp16_ieee_to_fp32_value(input[((batch_index * input_height() + input_y_top) * input_width() + input_x_right) * input_pixel_stride() + c]) * (1.0f - y_alpha) * x_alpha +
+                fp16_ieee_to_fp32_value(input[((batch_index * input_height() + input_y_bottom) * input_width() + input_x_left) * input_pixel_stride() + c]) * y_alpha * (1.0f - x_alpha) +
+                fp16_ieee_to_fp32_value(input[((batch_index * input_height() + input_y_bottom) * input_width() + input_x_right) * input_pixel_stride() + c]) * y_alpha * x_alpha;
+            }
+          }
+        }
+      }
+
+      // Create, setup, run, and destroy Resize Bilinear operator.
+      ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
+      xnn_operator_t resize_bilinear_op = nullptr;
+
+      const xnn_status status = xnn_create_resize_bilinear2d_nhwc_f16(
+          channels(), input_pixel_stride(), output_pixel_stride(),
+          (align_corners() ? XNN_FLAG_ALIGN_CORNERS : 0) | (tf_legacy_mode() ? XNN_FLAG_TENSORFLOW_LEGACY_MODE : 0),
+          &resize_bilinear_op);
+      if (status == xnn_status_unsupported_hardware) {
+        GTEST_SKIP();
+      }
+      ASSERT_EQ(xnn_status_success, status);
+      ASSERT_NE(nullptr, resize_bilinear_op);
+
+      // Smart pointer to automatically delete resize_bilinear_op.
+      std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_resize_bilinear_op(resize_bilinear_op, xnn_delete_operator);
+
+      ASSERT_EQ(xnn_status_success,
+        xnn_setup_resize_bilinear2d_nhwc_f16(
+          resize_bilinear_op,
+          batch_size(), input_height(), input_width(),
+          output_height(), output_width(),
+          input.data(), output.data(),
+          nullptr /* thread pool */));
+
+      ASSERT_EQ(xnn_status_success,
+        xnn_run_operator(resize_bilinear_op, nullptr /* thread pool */));
+
+      // Verify results.
+      for (size_t i = 0; i < batch_size(); i++) {
+        for (size_t y = 0; y < output_height(); y++) {
+          for (size_t x = 0; x < output_width(); x++) {
+            for (size_t c = 0; c < channels(); c++) {
+              ASSERT_NEAR(
+                  fp16_ieee_to_fp32_value(output[((i * output_height() + y) * output_width() + x) * output_pixel_stride() + c]),
+                  output_ref[((i * output_height() + y) * output_width() + x) * channels() + c],
+                  std::max(1.0e-4f, std::abs(output_ref[((i * output_height() + y) * output_width() + x) * channels() + c]) * 1.0e-2f)) <<
+                "in batch index " << i << ", pixel (" << y << ", " << x << "), channel " << c;
+            }
+          }
+        }
+      }
+    }
+  }
+
   void TestNHWCxF32() const {
     if (align_corners()) {
       ASSERT_FALSE(tf_legacy_mode());
@@ -227,13 +315,13 @@ class ResizeBilinearOperatorTester {
 
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto f32rng = std::bind(std::uniform_real_distribution<float>(), rng);
+    std::uniform_real_distribution<float> f32dist;
 
     std::vector<float> input((batch_size() * input_height() * input_width() - 1) * input_pixel_stride() + channels() + XNN_EXTRA_BYTES / sizeof(float));
     std::vector<float> output((batch_size() * output_height() * output_width() - 1) * output_pixel_stride() + channels());
     std::vector<float> output_ref(batch_size() * output_height() * output_width() * channels());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(input.begin(), input.end(), std::ref(f32rng));
+      std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
       std::fill(output.begin(), output.end(), std::nanf(""));
 
       // Compute reference results.
@@ -308,14 +396,14 @@ class ResizeBilinearOperatorTester {
 
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto i8rng = std::bind(std::uniform_int_distribution<int32_t>(
-      std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()), std::ref(rng));
+    std::uniform_int_distribution<int32_t> i8dist(
+      std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max());
 
     std::vector<int8_t> input((batch_size() * input_height() * input_width() - 1) * input_pixel_stride() + channels() + XNN_EXTRA_BYTES / sizeof(int8_t));
     std::vector<int8_t> output((batch_size() * output_height() * output_width() - 1) * output_pixel_stride() + channels());
     std::vector<float> output_ref(batch_size() * output_height() * output_width() * channels());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(input.begin(), input.end(), std::ref(i8rng));
+      std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
       std::fill(output.begin(), output.end(), INT8_C(0xA5));
 
       // Compute reference results.
@@ -391,14 +479,14 @@ class ResizeBilinearOperatorTester {
 
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto u8rng = std::bind(
-      std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), std::ref(rng));
+    std::uniform_int_distribution<int32_t> u8dist(
+      std::numeric_limits<uint8_t>::min(), std::numeric_limits<uint8_t>::max());
 
     std::vector<uint8_t> input((batch_size() * input_height() * input_width() - 1) * input_pixel_stride() + channels() + XNN_EXTRA_BYTES / sizeof(uint8_t));
     std::vector<uint8_t> output((batch_size() * output_height() * output_width() - 1) * output_pixel_stride() + channels());
     std::vector<float> output_ref(batch_size() * output_height() * output_width() * channels());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(input.begin(), input.end(), std::ref(u8rng));
+      std::generate(input.begin(), input.end(), [&]() { return u8dist(rng); });
       std::fill(output.begin(), output.end(), UINT8_C(0xA5));
 
       // Compute reference results.
@@ -474,13 +562,13 @@ class ResizeBilinearOperatorTester {
 
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto f32rng = std::bind(std::uniform_real_distribution<float>(), rng);
+    std::uniform_real_distribution<float> f32dist;
 
     std::vector<float> input((batch_size() * input_height() * input_width() - 1) * input_pixel_stride() + channels() + XNN_EXTRA_BYTES / sizeof(float));
     std::vector<float> output((batch_size() * output_height() * output_width() - 1) * output_pixel_stride() + channels());
     std::vector<float> output_ref(batch_size() * output_height() * output_width() * channels());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(input.begin(), input.end(), std::ref(f32rng));
+      std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
       std::fill(output.begin(), output.end(), std::nanf(""));
 
       // Compute reference results.

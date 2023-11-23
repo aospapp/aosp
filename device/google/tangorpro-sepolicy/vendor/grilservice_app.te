@@ -1,0 +1,2 @@
+# setBluetoothModeBasedTxPowerCap for SAR
+binder_call(grilservice_app, hal_bluetooth_synabtlinux)

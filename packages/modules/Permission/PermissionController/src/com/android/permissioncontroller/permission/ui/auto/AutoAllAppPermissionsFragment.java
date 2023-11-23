@@ -48,6 +48,7 @@ import com.android.permissioncontroller.auto.AutoSettingsFrameFragment;
 import com.android.permissioncontroller.permission.model.AppPermissionGroup;
 import com.android.permissioncontroller.permission.model.Permission;
 import com.android.permissioncontroller.permission.utils.ArrayUtils;
+import com.android.permissioncontroller.permission.utils.PermissionMapping;
 import com.android.permissioncontroller.permission.utils.Utils;
 
 import java.util.ArrayList;
@@ -158,7 +159,8 @@ public class AutoAllAppPermissionsFragment extends AutoSettingsFrameFragment {
 
                 if ((perm.protectionLevel & PermissionInfo.PROTECTION_MASK_BASE)
                         == PermissionInfo.PROTECTION_DANGEROUS) {
-                    PackageItemInfo group = getGroup(Utils.getGroupOfPermission(perm), pm);
+                    PackageItemInfo group =
+                            getGroup(PermissionMapping.getGroupOfPermission(perm), pm);
                     if (group == null) {
                         group = perm;
                     }
@@ -192,9 +194,9 @@ public class AutoAllAppPermissionsFragment extends AutoSettingsFrameFragment {
                 return 1;
             } else if (rKey.equals(KEY_OTHER)) {
                 return -1;
-            } else if (Utils.isModernPermissionGroup(lKey)
-                    != Utils.isModernPermissionGroup(rKey)) {
-                return Utils.isModernPermissionGroup(lKey) ? -1 : 1;
+            } else if (PermissionMapping.isPlatformPermissionGroup(lKey)
+                    != PermissionMapping.isPlatformPermissionGroup(rKey)) {
+                return PermissionMapping.isPlatformPermissionGroup(lKey) ? -1 : 1;
             }
             return lhs.getTitle().toString().compareTo(rhs.getTitle().toString());
         });

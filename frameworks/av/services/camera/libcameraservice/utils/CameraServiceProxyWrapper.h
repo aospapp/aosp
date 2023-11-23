@@ -24,6 +24,7 @@
 #include <utils/String16.h>
 #include <utils/StrongPointer.h>
 #include <utils/Timers.h>
+#include <random>
 
 #include <camera/CameraSessionStats.h>
 
@@ -32,72 +33,105 @@ namespace android {
 class CameraServiceProxyWrapper {
 private:
     // Guard mCameraServiceProxy
-    static Mutex sProxyMutex;
+    Mutex mProxyMutex;
     // Cached interface to the camera service proxy in system service
-    static sp<hardware::ICameraServiceProxy> sCameraServiceProxy;
+    sp<hardware::ICameraServiceProxy> mCameraServiceProxy;
 
-    struct CameraSessionStatsWrapper {
+    class CameraSessionStatsWrapper {
+      private:
         hardware::CameraSessionStats mSessionStats;
         Mutex mLock; // lock for per camera session stats
 
-        CameraSessionStatsWrapper(const String16& cameraId, int facing, int newCameraState,
-                const String16& clientName, int apiLevel, bool isNdk, int32_t latencyMs) :
-            mSessionStats(cameraId, facing, newCameraState, clientName, apiLevel, isNdk, latencyMs)
-            {}
+        /**
+         * Update the session stats of a given camera device (open/close/active/idle) with
+         * the camera proxy service in the system service
+         */
+        void updateProxyDeviceState(sp<hardware::ICameraServiceProxy>& proxyBinder);
 
-        void onOpen();
-        void onClose(int32_t latencyMs);
+      public:
+        CameraSessionStatsWrapper(const String16& cameraId, int facing, int newCameraState,
+                                  const String16& clientName, int apiLevel, bool isNdk,
+                                  int32_t latencyMs, int64_t logId)
+            : mSessionStats(cameraId, facing, newCameraState, clientName, apiLevel, isNdk,
+                            latencyMs, logId) {}
+
+        void onOpen(sp<hardware::ICameraServiceProxy>& proxyBinder);
+        void onClose(sp<hardware::ICameraServiceProxy>& proxyBinder, int32_t latencyMs,
+                bool deviceError);
         void onStreamConfigured(int operatingMode, bool internalReconfig, int32_t latencyMs);
-        void onActive(float maxPreviewFps);
-        void onIdle(int64_t requestCount, int64_t resultErrorCount, bool deviceError,
+        void onActive(sp<hardware::ICameraServiceProxy>& proxyBinder, float maxPreviewFps);
+        void onIdle(sp<hardware::ICameraServiceProxy>& proxyBinder,
+                int64_t requestCount, int64_t resultErrorCount, bool deviceError,
                 const std::string& userTag, int32_t videoStabilizationMode,
                 const std::vector<hardware::CameraStreamStats>& streamStats);
+
+        String16 updateExtensionSessionStats(const hardware::CameraExtensionSessionStats& extStats);
+
+        // Returns the logId associated with this event.
+        int64_t getLogId();
     };
 
     // Lock for camera session stats map
-    static Mutex mLock;
+    Mutex mLock;
     // Map from camera id to the camera's session statistics
-    static std::map<String8, std::shared_ptr<CameraSessionStatsWrapper>> mSessionStatsMap;
+    std::map<String8, std::shared_ptr<CameraSessionStatsWrapper>> mSessionStatsMap;
 
-    /**
-     * Update the session stats of a given camera device (open/close/active/idle) with
-     * the camera proxy service in the system service
-     */
-    static void updateProxyDeviceState(
-            const hardware::CameraSessionStats& sessionStats);
+    std::random_device mRandomDevice;  // pulls 32-bit random numbers from /dev/urandom
 
-    static sp<hardware::ICameraServiceProxy> getCameraServiceProxy();
+    sp<hardware::ICameraServiceProxy> getCameraServiceProxy();
+
+    // Returns a randomly generated ID that is suitable for logging the event. A new identifier
+    // should only be generated for an open event. All other events for the cameraId should use the
+    // ID generated for the open event associated with them.
+    static int64_t generateLogId(std::random_device& randomDevice);
 
 public:
+    CameraServiceProxyWrapper(sp<hardware::ICameraServiceProxy> serviceProxy = nullptr) :
+            mCameraServiceProxy(serviceProxy)
+    { }
+
+    static sp<hardware::ICameraServiceProxy> getDefaultCameraServiceProxy();
+
     // Open
-    static void logOpen(const String8& id, int facing,
+    void logOpen(const String8& id, int facing,
             const String16& clientPackageName, int apiLevel, bool isNdk,
             int32_t latencyMs);
 
     // Close
-    static void logClose(const String8& id, int32_t latencyMs);
+    void logClose(const String8& id, int32_t latencyMs, bool deviceError);
 
     // Stream configuration
-    static void logStreamConfigured(const String8& id, int operatingMode, bool internalReconfig,
+    void logStreamConfigured(const String8& id, int operatingMode, bool internalReconfig,
             int32_t latencyMs);
 
     // Session state becomes active
-    static void logActive(const String8& id, float maxPreviewFps);
+    void logActive(const String8& id, float maxPreviewFps);
 
     // Session state becomes idle
-    static void logIdle(const String8& id,
+    void logIdle(const String8& id,
             int64_t requestCount, int64_t resultErrorCount, bool deviceError,
             const std::string& userTag, int32_t videoStabilizationMode,
             const std::vector<hardware::CameraStreamStats>& streamStats);
 
     // Ping camera service proxy for user update
-    static void pingCameraServiceProxy();
+    void pingCameraServiceProxy();
 
     // Return the current top activity rotate and crop override.
-    static int getRotateAndCropOverride(String16 packageName, int lensFacing, int userId);
+    int getRotateAndCropOverride(String16 packageName, int lensFacing, int userId);
+
+    // Return the current top activity autoframing.
+    int getAutoframingOverride(const String16& packageName);
 
     // Detect if the camera is disabled by device policy.
-    static bool isCameraDisabled();
+    bool isCameraDisabled(int userId);
+
+    // Returns the logId currently associated with the given cameraId. See 'mLogId' in
+    // frameworks/av/camera/include/camera/CameraSessionStats.h for more details about this
+    // identifier. Returns a non-0 value on success.
+    int64_t getCurrentLogIdForCamera(const String8& cameraId);
+
+    // Update the stored extension stats to the latest values
+    String16 updateExtensionStats(const hardware::CameraExtensionSessionStats& extStats);
 };
 
 } // android

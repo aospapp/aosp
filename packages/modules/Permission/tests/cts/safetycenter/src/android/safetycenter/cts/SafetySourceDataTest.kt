@@ -20,7 +20,8 @@ import android.app.PendingIntent
 import android.app.PendingIntent.FLAG_IMMUTABLE
 import android.content.Context
 import android.content.Intent
-import android.os.Build.VERSION_CODES.TIRAMISU
+import android.os.Build
+import android.os.Bundle
 import android.safetycenter.SafetySourceData
 import android.safetycenter.SafetySourceData.SEVERITY_LEVEL_CRITICAL_WARNING
 import android.safetycenter.SafetySourceData.SEVERITY_LEVEL_INFORMATION
@@ -28,11 +29,13 @@ import android.safetycenter.SafetySourceData.SEVERITY_LEVEL_RECOMMENDATION
 import android.safetycenter.SafetySourceData.SEVERITY_LEVEL_UNSPECIFIED
 import android.safetycenter.SafetySourceIssue
 import android.safetycenter.SafetySourceStatus
-import android.safetycenter.cts.testing.EqualsHashCodeToStringTester
+import androidx.core.os.bundleOf
 import androidx.test.core.app.ApplicationProvider.getApplicationContext
+import androidx.test.core.os.Parcelables.forceParcel
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.ext.truth.os.ParcelableSubject.assertThat
 import androidx.test.filters.SdkSuppress
+import com.android.safetycenter.testing.EqualsHashCodeToStringTester
 import com.google.common.truth.Truth.assertThat
 import kotlin.test.assertFailsWith
 import org.junit.Test
@@ -40,7 +43,6 @@ import org.junit.runner.RunWith
 
 /** CTS tests for [SafetySourceData]. */
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = TIRAMISU, codeName = "Tiramisu")
 class SafetySourceDataTest {
     private val context: Context = getApplicationContext()
 
@@ -76,6 +78,71 @@ class SafetySourceDataTest {
             SafetySourceData.Builder().addIssue(firstIssue).addIssue(secondIssue).build()
 
         assertThat(safetySourceData.issues).containsExactly(firstIssue, secondIssue).inOrder()
+    }
+
+    @Test
+    fun getIssues_mutationsAreNotAllowed() {
+        val data =
+            SafetySourceData.Builder()
+                .setStatus(createStatus(SEVERITY_LEVEL_CRITICAL_WARNING))
+                .addIssue(createIssue(SEVERITY_LEVEL_CRITICAL_WARNING, 0))
+                .addIssue(createIssue(SEVERITY_LEVEL_RECOMMENDATION, 1))
+                .build()
+        val mutatedIssues = data.issues
+
+        assertFailsWith(UnsupportedOperationException::class) {
+            mutatedIssues.add(createIssue(SEVERITY_LEVEL_INFORMATION, 2))
+        }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun getExtras_withDefaultBuilder_returnsEmptyBundle() {
+        val safetySourceData =
+            SafetySourceData.Builder().setStatus(createStatus(SEVERITY_LEVEL_INFORMATION)).build()
+
+        assertThat(safetySourceData.extras.keySet()).isEmpty()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun getExtras_whenSetExplicitly_returnsExtras() {
+        val safetySourceData =
+            SafetySourceData.Builder()
+                .setStatus(createStatus(SEVERITY_LEVEL_INFORMATION))
+                .setExtras(bundleOf(EXTRA_KEY to EXTRA_VALUE))
+                .build()
+
+        assertThat(safetySourceData.extras.keySet()).containsExactly(EXTRA_KEY)
+        assertThat(safetySourceData.extras.getString(EXTRA_KEY, "")).isEqualTo(EXTRA_VALUE)
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun getExtras_whenCleared_returnsEmptyBundle() {
+        val safetySourceData =
+            SafetySourceData.Builder()
+                .setStatus(createStatus(SEVERITY_LEVEL_INFORMATION))
+                .setExtras(bundleOf(EXTRA_KEY to EXTRA_VALUE))
+                .clearExtras()
+                .build()
+
+        assertThat(safetySourceData.extras.keySet()).isEmpty()
+    }
+
+    @Test
+    fun builder_addIssue_doesNotMutatePreviouslyBuiltInstance() {
+        val firstIssue = createIssue(SEVERITY_LEVEL_INFORMATION, 1)
+        val secondIssue = createIssue(SEVERITY_LEVEL_INFORMATION, 2)
+        val safetySourceDataBuilder =
+            SafetySourceData.Builder()
+                .setStatus(createStatus(SEVERITY_LEVEL_INFORMATION))
+                .addIssue(firstIssue)
+        val issues = safetySourceDataBuilder.build().issues
+
+        safetySourceDataBuilder.addIssue(secondIssue)
+
+        assertThat(issues).containsExactly(firstIssue)
     }
 
     @Test
@@ -158,21 +225,6 @@ class SafetySourceDataTest {
     }
 
     @Test
-    fun build_withInformationStatusAndRecommendationIssues_throwsIllegalArgumentException() {
-        val builder =
-            SafetySourceData.Builder()
-                .setStatus(createStatus(SEVERITY_LEVEL_INFORMATION))
-                .addIssue(createIssue(SEVERITY_LEVEL_RECOMMENDATION))
-
-        val exception = assertFailsWith(IllegalArgumentException::class) { builder.build() }
-        assertThat(exception)
-            .hasMessageThat()
-            .isEqualTo(
-                "Safety source data must not contain any issue with a severity level both greater" +
-                    " than SEVERITY_LEVEL_INFORMATION and greater than the status severity level")
-    }
-
-    @Test
     fun build_withRecommendationStatusAndNoIssues_doesNotThrow() {
         val builder =
             SafetySourceData.Builder().setStatus(createStatus(SEVERITY_LEVEL_RECOMMENDATION))
@@ -201,6 +253,32 @@ class SafetySourceDataTest {
     }
 
     @Test
+    fun build_withUnspecifiedStatusAndRecommendationIssues_throwsIllegalArgumentException() {
+        val builder =
+            SafetySourceData.Builder()
+                .setStatus(createStatus(SEVERITY_LEVEL_UNSPECIFIED))
+                .addIssue(createIssue(SEVERITY_LEVEL_RECOMMENDATION))
+
+        val exception = assertFailsWith(IllegalArgumentException::class) { builder.build() }
+        assertThat(exception)
+            .hasMessageThat()
+            .isEqualTo("Safety source data cannot have issues that are more severe than its status")
+    }
+
+    @Test
+    fun build_withInformationStatusAndRecommendationIssues_throwsIllegalArgumentException() {
+        val builder =
+            SafetySourceData.Builder()
+                .setStatus(createStatus(SEVERITY_LEVEL_INFORMATION))
+                .addIssue(createIssue(SEVERITY_LEVEL_RECOMMENDATION))
+
+        val exception = assertFailsWith(IllegalArgumentException::class) { builder.build() }
+        assertThat(exception)
+            .hasMessageThat()
+            .isEqualTo("Safety source data cannot have issues that are more severe than its status")
+    }
+
+    @Test
     fun build_withRecommendationStatusAndCriticalIssues_throwsIllegalArgumentException() {
         val builder =
             SafetySourceData.Builder()
@@ -210,9 +288,20 @@ class SafetySourceDataTest {
         val exception = assertFailsWith(IllegalArgumentException::class) { builder.build() }
         assertThat(exception)
             .hasMessageThat()
-            .isEqualTo(
-                "Safety source data must not contain any issue with a severity level both greater" +
-                    " than SEVERITY_LEVEL_INFORMATION and greater than the status severity level")
+            .isEqualTo("Safety source data cannot have issues that are more severe than its status")
+    }
+
+    @Test
+    fun build_duplicateIssueIds_throwsIllegalArgumentException() {
+        val builder =
+            SafetySourceData.Builder()
+                .addIssue(createIssue(SEVERITY_LEVEL_RECOMMENDATION, id = 0))
+                .addIssue(createIssue(SEVERITY_LEVEL_CRITICAL_WARNING, id = 0))
+
+        val exception = assertFailsWith(IllegalArgumentException::class) { builder.build() }
+        assertThat(exception)
+            .hasMessageThat()
+            .isEqualTo("Safety source data cannot have duplicate issue ids")
     }
 
     @Test
@@ -236,18 +325,37 @@ class SafetySourceDataTest {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun parcelRoundTrip_withExtras_recreatesEqual() {
+        val safetySourceData =
+            SafetySourceData.Builder()
+                .setStatus(createStatus(SEVERITY_LEVEL_RECOMMENDATION))
+                .addIssue(createIssue(SEVERITY_LEVEL_RECOMMENDATION, 1))
+                .addIssue(createIssue(SEVERITY_LEVEL_INFORMATION, 2))
+                .setExtras(bundleOf(EXTRA_KEY to EXTRA_VALUE))
+                .build()
+        val recreatedSafetySourceData = forceParcel(safetySourceData, SafetySourceData.CREATOR)
+
+        assertThat(recreatedSafetySourceData).isEqualTo(safetySourceData)
+        assertThat(recreatedSafetySourceData.extras.keySet()).containsExactly(EXTRA_KEY)
+        assertThat(recreatedSafetySourceData.extras.getString(EXTRA_KEY, "")).isEqualTo(EXTRA_VALUE)
+    }
+
+    @Test
     fun equalsHashCodeToString_usingEqualsHashCodeToStringTester() {
         val firstStatus = createStatus(SEVERITY_LEVEL_INFORMATION, 1)
         val secondStatus = createStatus(SEVERITY_LEVEL_INFORMATION, 2)
         val firstIssue = createIssue(SEVERITY_LEVEL_INFORMATION, 1)
         val secondIssue = createIssue(SEVERITY_LEVEL_INFORMATION, 2)
-        EqualsHashCodeToStringTester()
+        EqualsHashCodeToStringTester.ofParcelable(parcelableCreator = SafetySourceData.CREATOR)
             .addEqualityGroup(
                 SafetySourceData.Builder().setStatus(firstStatus).build(),
-                SafetySourceData.Builder().setStatus(firstStatus).build())
+                SafetySourceData.Builder().setStatus(firstStatus).build()
+            )
             .addEqualityGroup(
                 SafetySourceData.Builder().addIssue(firstIssue).addIssue(secondIssue).build(),
-                SafetySourceData.Builder().addIssue(firstIssue).addIssue(secondIssue).build())
+                SafetySourceData.Builder().addIssue(firstIssue).addIssue(secondIssue).build()
+            )
             .addEqualityGroup(
                 SafetySourceData.Builder()
                     .setStatus(firstStatus)
@@ -258,18 +366,116 @@ class SafetySourceDataTest {
                     .setStatus(firstStatus)
                     .addIssue(firstIssue)
                     .addIssue(secondIssue)
-                    .build())
+                    .build()
+            )
             .addEqualityGroup(SafetySourceData.Builder().setStatus(secondStatus).build())
             .addEqualityGroup(
-                SafetySourceData.Builder().addIssue(secondIssue).addIssue(firstIssue).build())
+                SafetySourceData.Builder().addIssue(secondIssue).addIssue(firstIssue).build()
+            )
             .addEqualityGroup(SafetySourceData.Builder().addIssue(firstIssue).build())
             .addEqualityGroup(
                 SafetySourceData.Builder()
                     .setStatus(secondStatus)
                     .addIssue(firstIssue)
                     .addIssue(secondIssue)
-                    .build())
+                    .build()
+            )
             .test()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun equalsHashCode_atLeastU_usingEqualsHashCodeToStringTester() {
+        val firstStatus = createStatus(SEVERITY_LEVEL_INFORMATION, 1)
+        val secondStatus = createStatus(SEVERITY_LEVEL_INFORMATION, 2)
+        val firstIssue = createIssue(SEVERITY_LEVEL_INFORMATION, 1)
+        val secondIssue = createIssue(SEVERITY_LEVEL_INFORMATION, 2)
+        val filledExtras = bundleOf(EXTRA_KEY to EXTRA_VALUE)
+        EqualsHashCodeToStringTester.ofParcelable(
+                parcelableCreator = SafetySourceData.CREATOR,
+                ignoreToString = true,
+                createCopy = { SafetySourceData.Builder(it).build() }
+            )
+            .addEqualityGroup(
+                SafetySourceData.Builder().setStatus(firstStatus).build(),
+                SafetySourceData.Builder().setStatus(firstStatus).setExtras(filledExtras).build()
+            )
+            .addEqualityGroup(
+                SafetySourceData.Builder().addIssue(firstIssue).addIssue(secondIssue).build(),
+                SafetySourceData.Builder()
+                    .addIssue(firstIssue)
+                    .addIssue(secondIssue)
+                    .setExtras(filledExtras)
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceData.Builder()
+                    .setStatus(firstStatus)
+                    .addIssue(firstIssue)
+                    .addIssue(secondIssue)
+                    .build(),
+                SafetySourceData.Builder()
+                    .setStatus(firstStatus)
+                    .addIssue(firstIssue)
+                    .addIssue(secondIssue)
+                    .setExtras(filledExtras)
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceData.Builder().setStatus(secondStatus).build(),
+                SafetySourceData.Builder().setStatus(secondStatus).setExtras(filledExtras).build()
+            )
+            .addEqualityGroup(
+                SafetySourceData.Builder().addIssue(secondIssue).addIssue(firstIssue).build(),
+                SafetySourceData.Builder()
+                    .addIssue(secondIssue)
+                    .addIssue(firstIssue)
+                    .setExtras(filledExtras)
+                    .build()
+            )
+            .addEqualityGroup(
+                SafetySourceData.Builder().addIssue(firstIssue).build(),
+                SafetySourceData.Builder().addIssue(firstIssue).setExtras(filledExtras).build()
+            )
+            .addEqualityGroup(
+                SafetySourceData.Builder()
+                    .setStatus(secondStatus)
+                    .addIssue(firstIssue)
+                    .addIssue(secondIssue)
+                    .build(),
+                SafetySourceData.Builder()
+                    .setStatus(secondStatus)
+                    .addIssue(firstIssue)
+                    .addIssue(secondIssue)
+                    .setExtras(filledExtras)
+                    .build()
+            )
+            .test()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun toString_withExtras_containsHasExtras() {
+        val safetySourceDataWithExtras =
+            SafetySourceData.Builder()
+                .setStatus(createStatus(SEVERITY_LEVEL_INFORMATION))
+                .setExtras(bundleOf(EXTRA_KEY to EXTRA_VALUE))
+                .build()
+
+        val stringRepresentation = safetySourceDataWithExtras.toString()
+
+        assertThat(stringRepresentation).contains("(has extras)")
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+    fun toString_withoutExtras_doesNotContainHasExtras() {
+        val safetySourceDataWithoutExtras =
+            SafetySourceData.Builder().setStatus(createStatus(SEVERITY_LEVEL_INFORMATION)).build()
+
+        val stringRepresentation = safetySourceDataWithoutExtras.toString()
+
+        assertThat(stringRepresentation).doesNotContain("(has extras)")
     }
 
     private fun createStatus(severityLevel: Int, id: Int = 0) =
@@ -279,7 +485,9 @@ class SafetySourceDataTest {
                     context,
                     /* requestCode = */ 0,
                     Intent("Status PendingIntent $id"),
-                    FLAG_IMMUTABLE))
+                    FLAG_IMMUTABLE
+                )
+            )
             .build()
 
     private fun createIssue(severityLevel: Int, id: Int = 0) =
@@ -288,7 +496,8 @@ class SafetySourceDataTest {
                 "Issue summary $id",
                 "Issue summary $id",
                 severityLevel,
-                "Issue type id $id")
+                "Issue type id $id"
+            )
             .addAction(
                 SafetySourceIssue.Action.Builder(
                         "Action id $id",
@@ -297,7 +506,18 @@ class SafetySourceDataTest {
                             context,
                             /* requestCode = */ 0,
                             Intent("Issue PendingIntent $id"),
-                            FLAG_IMMUTABLE))
-                    .build())
+                            FLAG_IMMUTABLE
+                        )
+                    )
+                    .build()
+            )
             .build()
+
+    private companion object {
+        /** Key of extra data in [Bundle]. */
+        const val EXTRA_KEY = "extra_key"
+
+        /** Value of extra data in [Bundle]. */
+        const val EXTRA_VALUE = "extra_value"
+    }
 }

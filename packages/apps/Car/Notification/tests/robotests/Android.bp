@@ -24,11 +24,9 @@ android_robolectric_test {
     ],
 
     libs: [
-        "Robolectric_all-target",
         "robolectric_android-all-stub",
         "androidx.test.rules",
         "androidx.test.core",
-        "mockito-robolectric-prebuilt",
         "truth-prebuilt",
         "testng",
         "android.car-system-stubs",
@@ -41,4 +39,5 @@ android_robolectric_test {
     test_options: {
         timeout: 36000,
     },
+    upstream: true,
 }

@@ -141,7 +141,9 @@ TEST_F(IntentGeneratorTest, HandlesDefaultClassification) {
       /*device_locales=*/nullptr, classification, /*reference_time_ms_utc=*/0,
       /*text=*/"", /*selection_indices=*/{kInvalidIndex, kInvalidIndex},
       /*context=*/nullptr,
-      /*annotations_entity_data_schema=*/nullptr, &intents));
+      /*annotations_entity_data_schema=*/nullptr,
+      /*enable_add_contact_intent=*/false, /*enable_search_intent=*/false,
+      &intents));
   EXPECT_THAT(intents, IsEmpty());
 }
 
@@ -163,7 +165,9 @@ return {
       JniHelper::NewStringUTF(GetJenv(), "en-US").ValueOrDie().get(),
       classification,
       /*reference_time_ms_utc=*/0, "test", {0, 4}, /*context=*/nullptr,
-      /*annotations_entity_data_schema=*/nullptr, &intents));
+      /*annotations_entity_data_schema=*/nullptr,
+      /*enable_add_contact_intent=*/false, /*enable_search_intent=*/false,
+      &intents));
   EXPECT_THAT(intents, IsEmpty());
 }
 
@@ -190,13 +194,133 @@ return {
       classification,
       /*reference_time_ms_utc=*/0, "333 E Wonderview Ave", {0, 20},
       GetAndroidContext(),
-      /*annotations_entity_data_schema=*/nullptr, &intents));
+      /*annotations_entity_data_schema=*/nullptr,
+      /*enable_add_contact_intent=*/false, /*enable_search_intent=*/false,
+      &intents));
   EXPECT_THAT(intents, SizeIs(1));
   EXPECT_EQ(intents[0].title_without_entity.value(), "Map");
   EXPECT_EQ(intents[0].title_with_entity.value(), "333 E Wonderview Ave");
   EXPECT_EQ(intents[0].description.value(), "Locate selected address");
   EXPECT_EQ(intents[0].action.value(), "android.intent.action.VIEW");
   EXPECT_EQ(intents[0].data.value(), "geo:0,0?q=333%20E%20Wonderview%20Ave");
+}
+
+TEST_F(IntentGeneratorTest, HandlesAddContactIntentEnabledGeneration) {
+  flatbuffers::DetachedBuffer intent_factory_model =
+      BuildTestIntentFactoryModel("address", R"lua(
+if external.enable_add_contact_intent then return {
+  {
+    title_without_entity = external.android.R.map,
+    title_with_entity = external.entity.text,
+    description = external.android.R.map_desc,
+    action = "android.intent.action.VIEW",
+    data = "geo:0,0?q=" ..
+    external.android.urlencode(external.entity.text),
+  }
+} else return {} end)lua");
+  std::unique_ptr<IntentGenerator> generator = IntentGenerator::Create(
+      flatbuffers::GetRoot<IntentFactoryModel>(intent_factory_model.data()),
+      /*resources=*/resources_, jni_cache_);
+  ClassificationResult classification = {"address", 1.0};
+  std::vector<RemoteActionTemplate> intents;
+  EXPECT_TRUE(generator->GenerateIntents(
+      JniHelper::NewStringUTF(GetJenv(), "en-US").ValueOrDie().get(),
+      classification,
+      /*reference_time_ms_utc=*/0, "333 E Wonderview Ave", {0, 20},
+      GetAndroidContext(),
+      /*annotations_entity_data_schema=*/nullptr,
+      /*enable_add_contact_intent=*/true, /*enable_search_intent=*/false,
+      &intents));
+  EXPECT_THAT(intents, SizeIs(1));
+  EXPECT_EQ(intents[0].title_without_entity.value(), "Map");
+}
+
+TEST_F(IntentGeneratorTest, HandlesAddContactIntentDisabledGeneration) {
+  flatbuffers::DetachedBuffer intent_factory_model =
+      BuildTestIntentFactoryModel("address", R"lua(
+if external.enable_add_contact_intent then return {
+  {
+    title_without_entity = external.android.R.map,
+    title_with_entity = external.entity.text,
+    description = external.android.R.map_desc,
+    action = "android.intent.action.VIEW",
+    data = "geo:0,0?q=" ..
+    external.android.urlencode(external.entity.text),
+  }
+} else return {} end)lua");
+  std::unique_ptr<IntentGenerator> generator = IntentGenerator::Create(
+      flatbuffers::GetRoot<IntentFactoryModel>(intent_factory_model.data()),
+      /*resources=*/resources_, jni_cache_);
+  ClassificationResult classification = {"address", 1.0};
+  std::vector<RemoteActionTemplate> intents;
+  EXPECT_TRUE(generator->GenerateIntents(
+      JniHelper::NewStringUTF(GetJenv(), "en-US").ValueOrDie().get(),
+      classification,
+      /*reference_time_ms_utc=*/0, "333 E Wonderview Ave", {0, 20},
+      GetAndroidContext(),
+      /*annotations_entity_data_schema=*/nullptr,
+      /*enable_add_contact_intent=*/false, /*enable_search_intent=*/false,
+      &intents));
+  EXPECT_THAT(intents, SizeIs(0));
+}
+
+TEST_F(IntentGeneratorTest, HandlesAddSearchIntentEnabledGeneration) {
+  flatbuffers::DetachedBuffer intent_factory_model =
+      BuildTestIntentFactoryModel("address", R"lua(
+if external.enable_search_intent then return {
+  {
+    title_without_entity = external.android.R.map,
+    title_with_entity = external.entity.text,
+    description = external.android.R.map_desc,
+    action = "android.intent.action.VIEW",
+    data = "geo:0,0?q=" ..
+    external.android.urlencode(external.entity.text),
+  }
+} else return {} end)lua");
+  std::unique_ptr<IntentGenerator> generator = IntentGenerator::Create(
+      flatbuffers::GetRoot<IntentFactoryModel>(intent_factory_model.data()),
+      /*resources=*/resources_, jni_cache_);
+  ClassificationResult classification = {"address", 1.0};
+  std::vector<RemoteActionTemplate> intents;
+  EXPECT_TRUE(generator->GenerateIntents(
+      JniHelper::NewStringUTF(GetJenv(), "en-US").ValueOrDie().get(),
+      classification,
+      /*reference_time_ms_utc=*/0, "333 E Wonderview Ave", {0, 20},
+      GetAndroidContext(),
+      /*annotations_entity_data_schema=*/nullptr,
+      /*enable_add_contact_intent=*/false, /*enable_search_intent=*/true,
+      &intents));
+  EXPECT_THAT(intents, SizeIs(1));
+  EXPECT_EQ(intents[0].title_without_entity.value(), "Map");
+}
+
+TEST_F(IntentGeneratorTest, HandlesSearchIntentDisabledGeneration) {
+  flatbuffers::DetachedBuffer intent_factory_model =
+      BuildTestIntentFactoryModel("address", R"lua(
+if external.enable_search_intent then return {
+  {
+    title_without_entity = external.android.R.map,
+    title_with_entity = external.entity.text,
+    description = external.android.R.map_desc,
+    action = "android.intent.action.VIEW",
+    data = "geo:0,0?q=" ..
+    external.android.urlencode(external.entity.text),
+  }
+} else return {} end)lua");
+  std::unique_ptr<IntentGenerator> generator = IntentGenerator::Create(
+      flatbuffers::GetRoot<IntentFactoryModel>(intent_factory_model.data()),
+      /*resources=*/resources_, jni_cache_);
+  ClassificationResult classification = {"address", 1.0};
+  std::vector<RemoteActionTemplate> intents;
+  EXPECT_TRUE(generator->GenerateIntents(
+      JniHelper::NewStringUTF(GetJenv(), "en-US").ValueOrDie().get(),
+      classification,
+      /*reference_time_ms_utc=*/0, "333 E Wonderview Ave", {0, 20},
+      GetAndroidContext(),
+      /*annotations_entity_data_schema=*/nullptr,
+      /*enable_add_contact_intent=*/false, /*enable_search_intent=*/false,
+      &intents));
+  EXPECT_THAT(intents, SizeIs(0));
 }
 
 TEST_F(IntentGeneratorTest, HandlesCallbacks) {
@@ -233,7 +357,9 @@ return {
       classification,
       /*reference_time_ms_utc=*/0, "this is a test", {0, 14},
       GetAndroidContext(),
-      /*annotations_entity_data_schema=*/nullptr, &intents));
+      /*annotations_entity_data_schema=*/nullptr,
+      /*enable_add_contact_intent=*/false, /*enable_search_intent=*/false,
+      &intents));
   EXPECT_THAT(intents, SizeIs(1));
   EXPECT_EQ(intents[0].data.value(), "encoded=this%20is%20a%20test");
   EXPECT_THAT(intents[0].category, ElementsAre("test_category"));
@@ -450,7 +576,9 @@ return {
       classification,
       /*reference_time_ms_utc=*/0, "333 E Wonderview Ave", {0, 20},
       GetAndroidContext(),
-      /*annotations_entity_data_schema=*/nullptr, &intents));
+      /*annotations_entity_data_schema=*/nullptr,
+      /*enable_add_contact_intent=*/false, /*enable_search_intent=*/false,
+      &intents));
   EXPECT_THAT(intents, SizeIs(1));
   EXPECT_EQ(intents[0].title_without_entity.value(), "Karte");
   EXPECT_EQ(intents[0].description.value(), "Ausgewählte Adresse finden");
@@ -601,7 +729,9 @@ return {
       JniHelper::NewStringUTF(GetJenv(), "en-US").ValueOrDie().get(),
       classification,
       /*reference_time_ms_utc=*/0, "highground", {0, 10}, GetAndroidContext(),
-      /*annotations_entity_data_schema=*/entity_data_schema, &intents));
+      /*annotations_entity_data_schema=*/entity_data_schema,
+      /*enable_add_contact_intent=*/false, /*enable_search_intent=*/false,
+      &intents));
   EXPECT_THAT(intents, SizeIs(1));
   EXPECT_THAT(intents[0].extra, SizeIs(3));
   EXPECT_EQ(intents[0].extra["name"].ConstRefValue<std::string>(), "kenobi");
@@ -639,7 +769,9 @@ TEST_F(IntentGeneratorTest, ReadExtras) {
       JniHelper::NewStringUTF(GetJenv(), "en-US").ValueOrDie().get(),
       classification,
       /*reference_time_ms_utc=*/0, "test", {0, 4}, GetAndroidContext(),
-      /*annotations_entity_data_schema=*/nullptr, &intents));
+      /*annotations_entity_data_schema=*/nullptr,
+      /*enable_add_contact_intent=*/false, /*enable_search_intent=*/false,
+      &intents));
 
   EXPECT_THAT(intents, SizeIs(1));
   RemoteActionTemplate intent = intents[0];

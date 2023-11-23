@@ -208,4 +208,12 @@ public class DecimalFormatSymbolsTest extends junit.framework.TestCase {
         assertEquals('X', DecimalFormatSymbols.maybeStripMarkers(alm + "X", fallback));
         assertEquals('X', DecimalFormatSymbols.maybeStripMarkers(alm + "X" + rtl, fallback));
     }
+
+    public void testSetMonetaryGroupingSeparator() {
+        DecimalFormatSymbols dfs = DecimalFormatSymbols.getInstance(Locale.US);
+        assertEquals(',', dfs.getMonetaryGroupingSeparator());
+
+        dfs.setMonetaryGroupingSeparator(' ');
+        assertEquals(' ', dfs.getMonetaryGroupingSeparator());
+    }
 }

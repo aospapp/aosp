@@ -25,10 +25,13 @@ static void
 vkr_dispatch_vkGetQueryPoolResults(UNUSED struct vn_dispatch_context *dispatch,
                                    struct vn_command_vkGetQueryPoolResults *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkGetQueryPoolResults_args_handle(args);
-   args->ret = vkGetQueryPoolResults(args->device, args->queryPool, args->firstQuery,
-                                     args->queryCount, args->dataSize, args->pData,
-                                     args->stride, args->flags);
+   args->ret = vk->GetQueryPoolResults(args->device, args->queryPool, args->firstQuery,
+                                       args->queryCount, args->dataSize, args->pData,
+                                       args->stride, args->flags);
 }
 
 static void
@@ -36,9 +39,10 @@ vkr_dispatch_vkResetQueryPool(UNUSED struct vn_dispatch_context *dispatch,
                               struct vn_command_vkResetQueryPool *args)
 {
    struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
 
    vn_replace_vkResetQueryPool_args_handle(args);
-   dev->ResetQueryPool(args->device, args->queryPool, args->firstQuery, args->queryCount);
+   vk->ResetQueryPool(args->device, args->queryPool, args->firstQuery, args->queryCount);
 }
 
 void

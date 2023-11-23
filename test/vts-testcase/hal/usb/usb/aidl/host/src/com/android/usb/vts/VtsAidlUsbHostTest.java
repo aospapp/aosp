@@ -23,6 +23,8 @@ import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.testtype.junit4.BeforeClassWithInfo;
+import com.android.tradefed.util.RunInterruptedException;
+import com.android.tradefed.util.RunUtil;
 import com.google.common.base.Strings;
 
 import java.util.Arrays;
@@ -39,7 +41,7 @@ import org.junit.runner.RunWith;
 public final class VtsAidlUsbHostTest extends BaseHostJUnit4Test {
     public static final String TAG = VtsAidlUsbHostTest.class.getSimpleName();
 
-    private static final String HAL_SERVICE = "android.hardware.usb-service";
+    private static final String HAL_SERVICE = "android.hardware.usb.IUsb/default";
     private static final long CONN_TIMEOUT = 5000;
 
     private static boolean mHasService;
@@ -56,7 +58,7 @@ public final class VtsAidlUsbHostTest extends BaseHostJUnit4Test {
     public static void beforeClassWithDevice(TestInformation testInfo) throws Exception {
         String serviceFound =
                 testInfo.getDevice()
-                        .executeShellCommand(String.format("ps -A | grep \"%s\"", HAL_SERVICE))
+                        .executeShellCommand(String.format("dumpsys -l | grep \"%s\"", HAL_SERVICE))
                         .trim();
         mHasService = !Strings.isNullOrEmpty(serviceFound);
     }
@@ -79,18 +81,18 @@ public final class VtsAidlUsbHostTest extends BaseHostJUnit4Test {
             public void run() {
                 try {
                     mDevice.waitForDeviceNotAvailable(CONN_TIMEOUT);
-                    Thread.sleep(500);
+                    RunUtil.getDefault().sleep(500);
                     mDevice.waitForDeviceAvailable(CONN_TIMEOUT);
                     mReconnected.set(true);
                 } catch (DeviceNotAvailableException dnae) {
                     CLog.e("Device is not available");
-                } catch (InterruptedException ie) {
+                } catch (RunInterruptedException ie) {
                     CLog.w("Thread.sleep interrupted");
                 }
             }
         }).start();
 
-        Thread.sleep(100);
+        RunUtil.getDefault().sleep(100);
         String cmd = "svc usb resetUsbPort";
         CLog.i("Invoke shell command [" + cmd + "]");
         long startTime = System.currentTimeMillis();
@@ -102,9 +104,9 @@ public final class VtsAidlUsbHostTest extends BaseHostJUnit4Test {
             return;
         }
 
-        Thread.sleep(100);
+        RunUtil.getDefault().sleep(100);
         while (!mReconnected.get() && System.currentTimeMillis() - startTime < CONN_TIMEOUT) {
-            Thread.sleep(300);
+            RunUtil.getDefault().sleep(300);
         }
 
         Assert.assertTrue("usb not reconnect", mReconnected.get());

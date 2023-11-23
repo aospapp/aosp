@@ -1,7 +1,0 @@
-# EdgeTPU service
-com.google.edgetpu.IEdgeTpuAppService/default              u:object_r:edgetpu_app_service:s0
-com.google.edgetpu.IEdgeTpuVendorService/default           u:object_r:edgetpu_vendor_service:s0
-
-# TPU NNAPI Service
-android.hardware.neuralnetworks.IDevice/google-edgetpu	   u:object_r:edgetpu_nnapi_service:s0
-

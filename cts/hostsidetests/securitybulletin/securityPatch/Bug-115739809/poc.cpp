@@ -153,6 +153,8 @@ static void sanitizeMessage(const InputMessage& msg, InputMessage* outMsg) {
                 memcpy(&outMsg->body.motion.pointers[i].coords.values[0],
                         &msg.body.motion.pointers[i].coords.values[0],
                         count * sizeof(msg.body.motion.pointers[i].coords.values[0]));
+                outMsg->body.motion.pointers[i].coords.isResampled =
+                        msg.body.motion.pointers[i].coords.isResampled;
             }
             break;
         }

@@ -65,6 +65,22 @@ public class VulkanFeaturesTest {
     private static final String VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME =
             "VK_ANDROID_external_memory_android_hardware_buffer";
     private static final int VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_SPEC_VERSION = 2;
+
+    private static final String VK_KHR_SURFACE = "VK_KHR_surface";
+    private static final int VK_KHR_SURFACE_SPEC_VERSION = 25;
+
+    private static final String VK_KHR_ANDROID_SURFACE = "VK_KHR_android_surface";
+    private static final int VK_KHR_ANDROID_SURFACE_SPEC_VERSION = 6;
+
+    private static final String VK_KHR_SWAPCHAIN = "VK_KHR_swapchain";
+    private static final int VK_KHR_SWAPCHAIN_SPEC_VERSION = 68;
+
+    private static final String VK_KHR_MAINTENANCE1 = "VK_KHR_maintenance1";
+    private static final int VK_KHR_MAINTENANCE1_SPEC_VERSION = 1;
+
+    private static final String VK_KHR_INCREMENTAL_PRESENT = "VK_KHR_incremental_present";
+    private static final int VK_KHR_INCREMENTAL_PRESENT_SPEC_VERSION = 1;
+
     private static final int VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT = 0x8;
     private static final int VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT = 0x10;
     private static final int VK_PHYSICAL_DEVICE_TYPE_CPU = 4;
@@ -108,6 +124,7 @@ public class VulkanFeaturesTest {
         mVulkanDevices = getVulkanDevices(mVkJSON);
         mBestDevice = getBestDevice();
     }
+
     @CddTest(requirement = "7.1.4.2/C-1-1,C-2-1")
     @Test
     public void testVulkanHardwareFeatures() throws JSONException {
@@ -182,6 +199,28 @@ public class VulkanFeaturesTest {
         }
     }
 
+    @CddTest(requirement = "3.3.1/C-0-12")
+    @Test
+    public void testVulkanApplicationBinaryInterfaceRequirements() throws JSONException {
+        assumeTrue("Skipping because Vulkan is not supported", mVulkanHardwareVersion != null);
+
+        if (hasOnlyCpuDevice()) {
+            return;
+        }
+
+        assertTrue("Devices must support the core Vulkan 1.1",
+                mVulkanHardwareVersion.version >= VULKAN_1_1);
+    }
+
+    @CddTest(requirement = "7.1.4.2/C-1-3")
+    @Test
+    public void testVulkanApiForEachDevice() throws JSONException {
+        for (JSONObject device : mVulkanDevices) {
+            assertTrue("All enumerated VPhysicalDevice must support Vulkan 1.1",
+                    determineHardwareVersion(device) >= VULKAN_1_1);
+        }
+    }
+
     @CddTest(requirement = "7.1.4.2/C-3-1")
     @Test
     public void testVulkan1_1Requirements() throws JSONException {
@@ -214,15 +253,18 @@ public class VulkanFeaturesTest {
                     "externalFenceFeatures", 0x3 /* importable + exportable */));
     }
 
-    @CddTest(requirement = "7.1.4.2/C-1-7")
+    @CddTest(requirement = "7.1.4.2/C-1-7, 3.3.1/C-0-12")
     @Test
     public void testVulkanRequiredExtensions() throws JSONException {
         assumeTrue("Skipping because Vulkan is not supported", mVulkanDevices.length > 0);
 
-        assertVulkanInstanceExtension("VK_KHR_surface", 25);
-        assertVulkanInstanceExtension("VK_KHR_android_surface", 6);
-        assertVulkanDeviceExtension("VK_KHR_swapchain", 68);
-        assertVulkanDeviceExtension("VK_KHR_incremental_present", 1);
+        assertVulkanInstanceExtension(VK_KHR_SURFACE, VK_KHR_SURFACE_SPEC_VERSION);
+        assertVulkanInstanceExtension(VK_KHR_ANDROID_SURFACE, VK_KHR_ANDROID_SURFACE_SPEC_VERSION);
+
+        assertVulkanDeviceExtension(VK_KHR_SWAPCHAIN, VK_KHR_SWAPCHAIN_SPEC_VERSION);
+        assertVulkanDeviceExtension(VK_KHR_INCREMENTAL_PRESENT,
+                VK_KHR_INCREMENTAL_PRESENT_SPEC_VERSION);
+        assertVulkanDeviceExtension(VK_KHR_MAINTENANCE1, VK_KHR_MAINTENANCE1_SPEC_VERSION);
     }
 
     @CddTest(requirement = "7.9.2/C-1-5")
@@ -255,6 +297,22 @@ public class VulkanFeaturesTest {
         int expectedVariant = 0x0;
         int actualVariant = (mVulkanHardwareVersion.version >> 29) & 0x7;
         assertEquals(expectedVariant, actualVariant);
+    }
+
+    private static native String nativeGetABPSupport();
+    private static native String nativeGetABPCpuOnlySupport();
+
+    @CddTest(requirement = "7.1.4.2/C-1-13")
+    @Test
+    public void testAndroidBaselineProfile2021Support() throws JSONException {
+        assumeTrue("Skipping because Vulkan is not supported", mVulkanHardwareVersion != null);
+
+        if (!hasOnlyCpuDevice()) {
+            assertEquals("This device must support the ABP 2021.", "", nativeGetABPSupport());
+        } else {
+            assertEquals("This device must support the ABP 2021.", "",
+                    nativeGetABPCpuOnlySupport());
+        }
     }
 
     private JSONObject getBestDevice() throws JSONException {

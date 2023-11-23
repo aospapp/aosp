@@ -86,42 +86,6 @@ Result<vector<string>> FakeIoDelegate::ListFiles(const string& dir) const {
   return files;
 }
 
-void FakeIoDelegate::AddStubParcelable(const string& canonical_name,
-                                       const string& cpp_header) {
-  string package, class_name, rel_path;
-  SplitPackageClass(canonical_name, &rel_path, &package, &class_name);
-  string contents;
-  if (cpp_header.empty()) {
-    contents = StringPrintf("package %s;\nparcelable %s;",
-                            package.c_str(), class_name.c_str());
-  } else {
-    contents = StringPrintf("package %s;\nparcelable %s cpp_header \"%s\";",
-                            package.c_str(), class_name.c_str(),
-                            cpp_header.c_str());
-  }
-  SetFileContents(rel_path, contents);
-}
-
-void FakeIoDelegate::AddStubInterface(const string& canonical_name) {
-  string package, class_name, rel_path;
-  SplitPackageClass(canonical_name, &rel_path, &package, &class_name);
-  string contents = StringPrintf("package %s;\ninterface %s { }",
-                                 package.c_str(), class_name.c_str());
-  SetFileContents(rel_path, contents);
-}
-
-void FakeIoDelegate::AddCompoundParcelable(const string& canonical_name,
-                                           const vector<string>& subclasses) {
-  string package, class_name, rel_path;
-  SplitPackageClass(canonical_name, &rel_path, &package, &class_name);
-  string contents = StringPrintf("package %s;\n", package.c_str());
-  for (const string& subclass : subclasses) {
-    StringAppendF(&contents, "parcelable %s.%s;\n",
-                  class_name.c_str(), subclass.c_str());
-  }
-  SetFileContents(rel_path, contents);
-}
-
 void FakeIoDelegate::AddBrokenFilePath(const std::string& path) {
   broken_files_.insert(path);
 }

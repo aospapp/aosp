@@ -267,7 +267,7 @@ en_XA{
         TM{"[Ţûŕķɱéñîšţåñ one two]"}
         TN{"[Ţûñîšîå one two]"}
         TO{"[Ţöñĝå one]"}
-        TR{"[Ţûŕķéý one]"}
+        TR{"[Ţüŕķîýé one two]"}
         TT{"[Ţŕîñîðåð ⅋ Ţöƀåĝö one two three]"}
         TV{"[Ţûṽåļû one]"}
         TW{"[Ţåîŵåñ one]"}
@@ -311,7 +311,9 @@ en_XA{
         CI{"[Îṽöŕý Çöåšţ one two]"}
         CV{"[Çåƀö Ṽéŕðé one two]"}
         CZ{"[Çžéçĥ Ŕéþûƀļîç one two]"}
+        NZ{"[Åöţéåŕöå Ñéŵ Žéåļåñð one two three]"}
         SZ{"[Šŵåžîļåñð one two]"}
         TL{"[Éåšţ Ţîɱöŕ one two]"}
+        TR{"[Ţûŕķéý one]"}
     }
 }

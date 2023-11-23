@@ -7,6 +7,7 @@ NAME = 'tast.runtime-probe'
 TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:runtime_probe_perbuild'
+PY_VERSION = 3
 
 # tast.py uses binaries installed from autotest_server_package.tar.bz2.
 REQUIRE_SSP = True
@@ -26,10 +27,11 @@ import yaml
 
 def run(machine):
     host = hosts.create_host(machine)
-    with tempfile.NamedTemporaryFile(suffix='.yaml') as temp_file:
+    with tempfile.NamedTemporaryFile(suffix='.yaml', mode='w') as temp_file:
         host_info = host.host_info_store.get()
-        yaml.dump({"autotest_host_info_labels": json.dumps(host_info.labels)},
-                  stream=temp_file)
+        yaml.safe_dump({'autotest_host_info_labels':
+                        json.dumps(host_info.labels)}, stream=temp_file)
+        temp_file.flush()
         job.run_test('tast',
                      host=host,
                      test_exprs=['("group:runtime_probe")'],

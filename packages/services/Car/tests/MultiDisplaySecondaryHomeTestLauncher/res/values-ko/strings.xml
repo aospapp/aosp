@@ -25,4 +25,5 @@
     <string name="set_wallpaper" msgid="3650915172749345197">"배경화면 설정"</string>
     <string name="new_instance" msgid="1924479866055190730">"새 인스턴스에서 실행 요청"</string>
     <string name="wallpaper_description" msgid="5885164573334720996">"샘플 다중 디스플레이 배경화면"</string>
+    <string name="exit" msgid="3648703694102318310">"종료"</string>
 </resources>

@@ -6,16 +6,17 @@ rust_defaults {
     name: "zipfuse.defaults",
     crate_name: "zipfuse",
     srcs: ["src/main.rs"],
-    edition: "2018",
+    edition: "2021",
     prefer_rlib: true,
     rustlibs: [
         "libanyhow",
         "libclap",
         "libfuse_rust",
         "liblibc",
-        "libzip",
-        "libscopeguard",
         "liblog_rust",
+        "librustutils",
+        "libscopeguard",
+        "libzip",
     ],
     // libfuse_rust, etc don't support 32-bit targets
     multilib: {

@@ -16,20 +16,25 @@
 
 package android.car.cts.builtin.util;
 
+import static android.Manifest.permission.INTERACT_ACROSS_USERS;
+
+import static com.android.bedstead.nene.permissions.CommonPermissions.ACCESS_VOICE_INTERACTION_SERVICE;
+
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Instrumentation;
 import android.car.builtin.util.AssistUtilsHelper;
+import android.car.test.PermissionsCheckerRule;
+import android.car.test.PermissionsCheckerRule.EnsureHasPermission;
 import android.content.Context;
 import android.util.Log;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
-import org.junit.After;
-import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -38,25 +43,17 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
+@EnsureHasPermission(value = {ACCESS_VOICE_INTERACTION_SERVICE, INTERACT_ACROSS_USERS})
 public final class AssistUtilsHelperTest {
+
     private static final String TAG = AssistUtilsHelper.class.getSimpleName();
-    private static final String PERMISSION_ACCESS_VOICE_INTERACTION_SERVICE =
-            "android.permission.ACCESS_VOICE_INTERACTION_SERVICE";
     private static final int TIMEOUT = 20_000;
+
+    @Rule
+    public final PermissionsCheckerRule mPermissionsCheckerRule = new PermissionsCheckerRule();
 
     private final Instrumentation mInstrumentation = InstrumentationRegistry.getInstrumentation();
     private final Context mContext = mInstrumentation.getContext();
-
-    @Before
-    public void setUp() throws Exception {
-        mInstrumentation.getUiAutomation().adoptShellPermissionIdentity(
-                PERMISSION_ACCESS_VOICE_INTERACTION_SERVICE);
-    }
-
-    @After
-    public void cleanUp() {
-        mInstrumentation.getUiAutomation().dropShellPermissionIdentity();
-    }
 
     @Test
     public void testOnShownCallback() throws Exception {

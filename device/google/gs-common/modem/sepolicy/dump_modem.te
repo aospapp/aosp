@@ -1,0 +1,10 @@
+pixel_bugreport(dump_modem)
+
+allow dump_modem modem_stat_data_file:dir search;
+allow dump_modem modem_stat_data_file:file r_file_perms;
+allow dump_modem sscoredump_vendor_data_crashinfo_file:dir r_dir_perms;
+allow dump_modem sscoredump_vendor_data_crashinfo_file:file r_file_perms;
+allow dump_modem vendor_log_file:dir search;
+allow dump_modem vendor_rfsd_log_file:dir r_dir_perms;
+allow dump_modem vendor_rfsd_log_file:file r_file_perms;
+allow dump_modem vendor_toolbox_exec:file execute_no_trans;

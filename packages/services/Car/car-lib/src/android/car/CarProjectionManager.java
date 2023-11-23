@@ -336,7 +336,6 @@ public final class CarProjectionManager extends CarManagerBase {
     @SuppressWarnings("deprecation")
     private static Set<Integer> translateVoiceSearchFilter(int voiceSearchFilter) {
         Set<Integer> rv = new ArraySet<>(Integer.bitCount(voiceSearchFilter));
-        int i = 0;
         if ((voiceSearchFilter & PROJECTION_VOICE_SEARCH) != 0) {
             rv.add(KEY_EVENT_VOICE_SEARCH_SHORT_PRESS_KEY_UP);
         }
@@ -410,16 +409,19 @@ public final class CarProjectionManager extends CarManagerBase {
      * Callbacks on the event handler will be run on the given {@link Executor}, or, if it is null,
      * the {@link Handler} designated to run callbacks for {@link Car}.
      *
-     * @param events        The set of key events to which to subscribe.
-     * @param executor      An {@link Executor} on which to run callbacks.
-     * @param eventHandler  The {@link ProjectionKeyEventHandler} to call when those events occur.
+     * @param events            The set of key events to which to subscribe.
+     * @param callbackExecutor  An {@link Executor} on which to run callbacks.
+     * @param eventHandler      The {@link ProjectionKeyEventHandler} to call when those events
+     *                          occur.
      */
     @RequiresPermission(Car.PERMISSION_CAR_PROJECTION)
     @AddedInOrBefore(majorVersion = 33)
     public void addKeyEventHandler(
             @NonNull Set<@KeyEventNum Integer> events,
-            @CallbackExecutor @Nullable Executor executor,
+            @CallbackExecutor @Nullable Executor callbackExecutor,
             @NonNull ProjectionKeyEventHandler eventHandler) {
+        Executor executor = callbackExecutor;
+
         BitSet eventMask = new BitSet();
         for (int event : events) {
             Preconditions.checkArgument(event >= 0 && event < NUM_KEY_EVENTS, "Invalid key event");
@@ -692,11 +694,17 @@ public final class CarProjectionManager extends CarManagerBase {
             } else {
                 // Already subscribed to Car Service, immediately notify listener with the current
                 // projection status in the event handler thread.
+                int currentProjectionState = mCarProjectionStatusListener.mCurrentState;
+                String currentProjectionPackageName =
+                        mCarProjectionStatusListener.mCurrentPackageName;
+                List<ProjectionStatus> projectionStatusDetails =
+                        Collections.unmodifiableList(mCarProjectionStatusListener.mDetails);
+
                 getEventHandler().post(() ->
                         listener.onProjectionStatusChanged(
-                                mCarProjectionStatusListener.mCurrentState,
-                                mCarProjectionStatusListener.mCurrentPackageName,
-                                mCarProjectionStatusListener.mDetails));
+                                currentProjectionState,
+                                currentProjectionPackageName,
+                                projectionStatusDetails));
             }
         }
     }

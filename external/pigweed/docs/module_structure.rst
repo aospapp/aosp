@@ -103,9 +103,8 @@ C++ module structure
 
 C++ public headers
 ~~~~~~~~~~~~~~~~~~
-Located ``{pw_module_dir}/public/<module>``. These are headers that must be
-exposed due to C++ limitations (i.e. are included from the public interface,
-but are not intended for public use).
+Located ``{pw_module_dir}/public/<module>``. These headers are the public
+interface for the module.
 
 **Public headers** should take the form:
 
@@ -166,9 +165,9 @@ For example, the ``pw_unit_test`` module provides a header override for
     public_overrides/gtest/gtest.h
 
     public/pw_unit_test
-    public/pw_unit_test/framework.h
     public/pw_unit_test/simple_printing_event_handler.h
     public/pw_unit_test/event_handler.h
+    public/pw_unit_test/internal/framework.h
 
 Note that the overrides are in a separate directory ``public_overrides``.
 
@@ -387,6 +386,28 @@ The GN build system provides the
 :ref:`pw_facade template<module-pw_build-facade>` as a convenient way to declare
 facades.
 
+Multiple Facades
+~~~~~~~~~~~~~~~~
+A module may contain multiple facades. Each facade's public override headers
+must be contained in separate folders in the backend implementation, so that
+it's possible to use multiple backends for a module.
+
+.. code-block::
+
+  # pw_foo contains 2 facades, foo and bar
+  pw_foo/...
+    # Public headers
+    # public/pw_foo/foo.h #includes pw_foo_backend/foo.h
+    # public/pw_foo/bar.h #includes pw_foo_backend/bar.h
+    public/pw_foo/foo.h
+    public/pw_foo/bar.h
+
+  pw_foo_backend/...
+
+    # Public override headers for facade1 and facade2 go in separate folders
+    foo_public_overrides/pw_foo_backend/foo.h
+    bar_public_overrides/pw_foo_backend/bar.h
+
 Documentation
 -------------
 Documentation should go in the root module folder, typically in the
@@ -442,6 +463,8 @@ To create a new Pigweed module, follow the below steps.
    - Declare tests in ``pw_test_group("tests")``
    - Declare docs in ``pw_docs_group("docs")``
 
+   Both ``tests`` and ``docs`` are required, even if the module is empty!
+
 6. Add Bazel build support in ``{pw_module_dir}/BUILD.bazel``
 
 7. Add CMake build support in ``{pw_module_dir}/CMakeLists.txt``
@@ -463,6 +486,6 @@ To create a new Pigweed module, follow the below steps.
 
 11. Run :ref:`module-pw_module-module-check`
 
-    - ``$ pw module-check {pw_module_dir}``
+    - ``$ pw module check {pw_module_dir}``
 
 12. Contribute your module to upstream Pigweed (optional but encouraged!)

@@ -25,6 +25,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.initMocks;
+
 import static java.lang.Math.abs;
 
 import android.app.Instrumentation;
@@ -36,6 +37,7 @@ import android.platform.test.longevity.samples.testing.SampleBasicProfileSuite;
 import android.platform.test.longevity.samples.testing.SampleExtraArgsSuite;
 import android.platform.test.longevity.samples.testing.SampleTimedProfileSuite;
 import android.platform.test.scenario.annotation.Scenario;
+
 import androidx.test.InstrumentationRegistry;
 
 import org.junit.After;

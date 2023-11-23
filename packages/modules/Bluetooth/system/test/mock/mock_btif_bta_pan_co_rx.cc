@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "test/mock/mock_btif_bta_pan_co_rx.h"
 
@@ -57,11 +55,11 @@ struct bta_pan_co_tx_path bta_pan_co_tx_path;
 
 // Mocked functions, if any
 uint8_t bta_pan_co_init(uint8_t* q_level) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::btif_bta_pan_co_rx::bta_pan_co_init(q_level);
 }
 void bta_pan_co_close(uint16_t handle, uint8_t app_id) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::btif_bta_pan_co_rx::bta_pan_co_close(handle, app_id);
 }
 void bta_pan_co_mfilt_ind(UNUSED_ATTR uint16_t handle,
@@ -69,7 +67,7 @@ void bta_pan_co_mfilt_ind(UNUSED_ATTR uint16_t handle,
                           UNUSED_ATTR tBTA_PAN_STATUS result,
                           UNUSED_ATTR uint16_t len,
                           UNUSED_ATTR uint8_t* p_filters) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::btif_bta_pan_co_rx::bta_pan_co_mfilt_ind(handle, indication,
                                                        result, len, p_filters);
 }
@@ -78,22 +76,22 @@ void bta_pan_co_pfilt_ind(UNUSED_ATTR uint16_t handle,
                           UNUSED_ATTR tBTA_PAN_STATUS result,
                           UNUSED_ATTR uint16_t len,
                           UNUSED_ATTR uint8_t* p_filters) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::btif_bta_pan_co_rx::bta_pan_co_pfilt_ind(handle, indication,
                                                        result, len, p_filters);
 }
 void bta_pan_co_rx_flow(UNUSED_ATTR uint16_t handle, UNUSED_ATTR uint8_t app_id,
                         UNUSED_ATTR bool enable) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::btif_bta_pan_co_rx::bta_pan_co_rx_flow(handle, app_id, enable);
 }
 void bta_pan_co_rx_path(UNUSED_ATTR uint16_t handle,
                         UNUSED_ATTR uint8_t app_id) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::btif_bta_pan_co_rx::bta_pan_co_rx_path(handle, app_id);
 }
 void bta_pan_co_tx_path(uint16_t handle, uint8_t app_id) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::btif_bta_pan_co_rx::bta_pan_co_tx_path(handle, app_id);
 }
 

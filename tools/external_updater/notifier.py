@@ -72,13 +72,12 @@ def _read_owner_file(proj):
 
 
 def _send_email(proj, latest_ver, recipient, upgrade_log):
-    print('Sending email for {}: {}'.format(proj, latest_ver))
+    print(f'Sending email for {proj}: {latest_ver}')
     msg = ""
     match = CHANGE_URL_RE.search(upgrade_log)
     if match is not None:
         subject = "[Succeeded]"
-        msg = 'An upgrade change is generated at:\n{}'.format(
-            match.group(1))
+        msg = f'An upgrade change is generated at:\n{match.group(1)}'
     else:
         subject = "[Failed]"
         msg = 'Failed to generate upgrade change. See logs below for details.'
@@ -151,9 +150,9 @@ def _process_results(args, history, results):
                 proj_history[latest_ver] = int(time.time())
                 proj_history[NOTIFIED_TIME_KEY_NAME] = int(time.time())
             except subprocess.CalledProcessError as err:
-                msg = """Failed to send email for {} ({}).
-stdout: {}
-stderr: {}""".format(proj, latest_ver, err.stdout, err.stderr)
+                msg = f"""Failed to send email for {proj} ({latest_ver}).
+stdout: {stdout}
+stderr: {err.stderr}"""
                 print(msg)
 
 
@@ -181,24 +180,23 @@ def send_notification(args):
 def _upgrade(proj):
     # pylint: disable=subprocess-run-check
     out = subprocess.run([
-        'out/soong/host/linux-x86/bin/external_updater', 'update',
-        '--branch_and_commit', '--push_change', proj
+        'out/soong/host/linux-x86/bin/external_updater', 'update', proj
     ],
                          stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE,
                          cwd=_get_android_top())
     stdout = out.stdout.decode('utf-8')
     stderr = out.stderr.decode('utf-8')
-    return """
+    return f"""
 ====================
 |    Debug Info    |
 ====================
 -=-=-=-=stdout=-=-=-=-
-{}
+{stdout}
 
 -=-=-=-=stderr=-=-=-=-
-{}
-""".format(stdout, stderr)
+{stderr}
+"""
 
 
 def _check_updates(args):

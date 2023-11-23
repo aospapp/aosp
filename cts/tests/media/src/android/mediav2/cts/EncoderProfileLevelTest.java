@@ -16,834 +16,490 @@
 
 package android.mediav2.cts;
 
+import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible;
+import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUVP010;
+import static android.media.MediaCodecInfo.CodecProfileLevel.*;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
-import android.media.MediaExtractor;
 import android.media.MediaFormat;
-import android.media.MediaMuxer;
+import android.mediav2.common.cts.EncoderConfigParams;
+import android.mediav2.common.cts.EncoderProfileLevelTestBase;
+import android.mediav2.common.cts.OutputManager;
 import android.util.Log;
-import android.util.Pair;
+
+import com.android.compatibility.common.util.ApiTest;
+import com.android.compatibility.common.util.CddTest;
 
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
-
-import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUVP010;
-import static android.media.MediaCodecInfo.CodecProfileLevel.*;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import java.util.Objects;
 
 /**
- * Validate profile and level configuration for listed encoder components
+ * EncoderProfileLevelTest validates the profile, level information advertised by the component
+ * in its codec capabilities. The test sets profile and level keys in media format and uses it
+ * during encoder configuration. Upon successful configuration, frames are queued for encoding
+ * (byte buffer mode) and the encoded output (bitstream) is expected to contain the same profile
+ * that was used during configure. The level shall be at least the input configured level.
+ * <p>
+ * NOTE: The test configures level information basing on standard guidelines, not arbitrarily so
+ * encoders are expected to maintain at least the input configured level
+ * <p>
+ * The test parses the bitstream (csd or frame header) and determines profile and level
+ * information. This serves as reference for further validation. The test checks if the output
+ * format returned by component contains same profile and level information as the bitstream. The
+ * output of encoder is muxed and is extracted. The extracted format is expected to contain same
+ * profile and level information as the bitstream.
+ * <p>
+ * As per cdd, if a device contains an encoder capable of encoding a profile/level combination
+ * then it should contain a decoder capable of decoding the same profile/level combination. This
+ * is verified.
+ * <p>
+ * If device implementations support encoding in a media type, then as per cdd they are expected to
+ * handle certain profile and level configurations. This is verified.
  */
 @RunWith(Parameterized.class)
-public class EncoderProfileLevelTest extends CodecEncoderTestBase {
+public class EncoderProfileLevelTest extends EncoderProfileLevelTestBase {
     private static final String LOG_TAG = EncoderProfileLevelTest.class.getSimpleName();
-    private static final HashMap<String, Pair<int[], Integer>> mProfileLevelCdd = new HashMap<>();
+    private static final HashMap<String, CddRequirements> CDD_REQUIREMENTS_MAP = new HashMap<>();
 
-    private final boolean mUseHighBitDepth;
+    private static class CddRequirements {
+        private int[] mProfiles;
+        private int mLevel;
+        private int mHeight;
+        private int mWidth;
 
-    private MediaFormat mConfigFormat;
-    private MediaMuxer mMuxer;
-
-    public EncoderProfileLevelTest(String encoder, String mime, int bitrate, int encoderInfo1,
-            int encoderInfo2, int frameRate, boolean useHighBitDepth) {
-        super(encoder, mime, new int[]{bitrate}, new int[]{encoderInfo1}, new int[]{encoderInfo2});
-        mUseHighBitDepth = useHighBitDepth;
-        if (mIsAudio) {
-            mSampleRate = encoderInfo1;
-            mChannels = encoderInfo2;
-        } else {
-            mWidth = encoderInfo1;
-            mHeight = encoderInfo2;
-            mFrameRate = frameRate;
+        CddRequirements(int[] profiles, int level, int width, int height) {
+            mProfiles = profiles;
+            mLevel = level;
+            mWidth = width;
+            mHeight = height;
         }
-        setUpParams(1);
-        mConfigFormat = mFormats.get(0);
+
+        CddRequirements(int[] profiles) {
+            this(profiles, -1 /* level */, -1 /* width */, -1 /* height */);
+        }
+
+        CddRequirements(int[] profiles, int level) {
+            this(profiles, level, -1 /* width */, -1 /* height */);
+        }
+
+        public int[] getProfiles() {
+            return mProfiles;
+        }
+
+        public int getLevel() {
+            return mLevel;
+        }
+
+        public int getWidth() {
+            return mWidth;
+        }
+
+        public int getHeight() {
+            return mHeight;
+        }
+    }
+    public EncoderProfileLevelTest(String encoder, String mediaType,
+            EncoderConfigParams[] encCfgParams, @SuppressWarnings("unused") String testLabel,
+            String allTestParams) {
+        super(encoder, mediaType, encCfgParams, allTestParams);
     }
 
-    @Parameterized.Parameters(name = "{index}({0}_{1}_{2}_{3}_{4}_{6})")
+    private static List<Object[]> prepareTestArgs(Object[] arg, int[] profiles, int colorFormat) {
+        List<Object[]> argsList = new ArrayList<>();
+        final int[] maxBFrames = {0, 2};
+        final String mediaType = (String) arg[0];
+        boolean isVideo = mediaType.startsWith("video/");
+        final int br = (int) arg[1];
+        final int param1 = (int) arg[2];
+        final int param2 = (int) arg[3];
+        final int fps = (int) arg[4];
+        final int level = (int) arg[5];
+        if (isVideo) {
+            for (int maxBframe : maxBFrames) {
+                if (maxBframe != 0) {
+                    if (!mediaType.equals(MediaFormat.MIMETYPE_VIDEO_AVC)
+                            && !mediaType.equals(MediaFormat.MIMETYPE_VIDEO_HEVC)) {
+                        continue;
+                    }
+                }
+                Object[] testArgs = new Object[3];
+                testArgs[0] = arg[0];
+                testArgs[1] = getVideoEncoderCfgParams(mediaType, br, param1, param2, fps,
+                        colorFormat, maxBframe, profiles, level);
+                testArgs[2] = String.format("%dkbps_%dx%d_%dfps_%s_%d_%d-bframes", br / 1000,
+                        param1, param2, fps, colorFormatToString(colorFormat, -1),
+                        level, maxBframe);
+                argsList.add(testArgs);
+            }
+        } else {
+            Object[] testArgs = new Object[3];
+            testArgs[0] = arg[0];
+            testArgs[1] = getAudioEncoderCfgParams(mediaType, br, param1, param2, profiles);
+            testArgs[2] = String.format("%dkbps_%dkHz_%dch", br / 1000, param1 / 1000, param2);
+            argsList.add(testArgs);
+        }
+        return argsList;
+    }
+
+    private static EncoderConfigParams[] getVideoEncoderCfgParams(String mediaType, int bitRate,
+            int width, int height, int frameRate, int colorFormat, int maxBframe, int[] profiles,
+            int level) {
+        ArrayList<EncoderConfigParams> cfgParams = new ArrayList<>();
+        for (int profile : profiles) {
+            if (maxBframe != 0) {
+                if (mediaType.equals(MediaFormat.MIMETYPE_VIDEO_AVC) && (
+                        profile == AVCProfileBaseline
+                                || profile == AVCProfileConstrainedBaseline)) {
+                    continue;
+                }
+            }
+            cfgParams.add(new EncoderConfigParams.Builder(mediaType)
+                    .setBitRate(bitRate)
+                    .setWidth(width)
+                    .setHeight(height)
+                    .setFrameRate(frameRate)
+                    .setMaxBFrames(maxBframe)
+                    .setProfile(profile)
+                    .setLevel(level)
+                    .setColorFormat(colorFormat)
+                    .build());
+        }
+        return cfgParams.toArray(new EncoderConfigParams[0]);
+    }
+
+    private static EncoderConfigParams[] getAudioEncoderCfgParams(String mediaType, int bitRate,
+            int sampleRate, int channelCount, int[] profiles) {
+        EncoderConfigParams[] cfgParams = new EncoderConfigParams[profiles.length];
+        for (int i = 0; i < profiles.length; i++) {
+            cfgParams[i] = new EncoderConfigParams.Builder(mediaType)
+                    .setBitRate(bitRate)
+                    .setSampleRate(sampleRate)
+                    .setChannelCount(channelCount)
+                    .setProfile(profiles[i])
+                    .build();
+        }
+        return cfgParams;
+    }
+
+    @Parameterized.Parameters(name = "{index}_{0}_{1}_{3}")
     public static Collection<Object[]> input() {
         final boolean isEncoder = true;
         final boolean needAudio = true;
         final boolean needVideo = true;
-        final List<Object[]> exhaustiveArgsList = Arrays.asList(new Object[][]{
-                // Audio - CodecMime, bit-rate, sample rate, channel count
-                {MediaFormat.MIMETYPE_AUDIO_AAC, 64000, 48000, 1, -1},
-                {MediaFormat.MIMETYPE_AUDIO_AAC, 128000, 48000, 2, -1},
-                // Video - CodecMime, bit-rate, height, width, frame-rate
-                // TODO (b/151423508)
-                /*{MediaFormat.MIMETYPE_VIDEO_AVC, 64000, 176, 144, 15},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 128000, 176, 144, 15},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 192000, 352, 288, 7},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 384000, 352, 288, 15},*/
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 768000, 352, 288, 30},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 2000000, 352, 288, 30},
-                // TODO (b/151423508)
-                /*{MediaFormat.MIMETYPE_VIDEO_AVC, 4000000, 352, 576, 25},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 4000000, 720, 576, 12},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 10000000, 720, 576, 25},*/
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 14000000, 1280, 720, 30},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 20000000, 1280, 1024, 42},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 20000000, 2048, 1024, 30},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 50000000, 2048, 1024, 30},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 50000000, 2048, 1080, 60},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 135000000, 3672, 1536, 25},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 240000000, 4096, 2304, 25},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 240000000, 4096, 2304, 50},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 240000000, 8192, 4320, 30},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 480000000, 8192, 4320, 60},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, 800000000, 8192, 4320, 120},
+        final Object[][] exhaustiveArgsList = new Object[][]{
+                // Audio - CodecMediaType, bit-rate, sample rate, channel count, level
+                {MediaFormat.MIMETYPE_AUDIO_AAC, 64000, 48000, 1, -1, -1},
+                {MediaFormat.MIMETYPE_AUDIO_AAC, 128000, 48000, 2, -1, -1},
+                // Video - CodecMediaType, bit-rate, height, width, frame-rate, level
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 64000, 128, 96, 30, AVCLevel1},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 128000, 176, 144, 15, AVCLevel1b},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 192000, 320, 240, 10, AVCLevel11},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 384000, 320, 240, 20, AVCLevel12},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 512000, 352, 240, 30, AVCLevel13},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 832000, 352, 288, 30, AVCLevel2},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 1000000, 576, 352, 25, AVCLevel21},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 1500000, 640, 480, 15, AVCLevel22},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 2000000, 720, 480, 30, AVCLevel3},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 3000000, 1280, 720, 30, AVCLevel31},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 6000000, 1280, 1024, 42, AVCLevel32},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 10000000, 1920, 1088, 30, AVCLevel4},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 25000000, 2048, 1024, 30, AVCLevel41},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 50000000, 2048, 1088, 60, AVCLevel42},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 60000000, 2560, 1920, 30, AVCLevel5},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 80000000, 4096, 2048, 30, AVCLevel51},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 120000000, 4096, 2160, 60, AVCLevel52},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 240000000, 8192, 4320, 30, AVCLevel6},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 480000000, 8192, 4320, 60, AVCLevel61},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, 800000000, 8192, 4320, 120, AVCLevel62},
 
-                {MediaFormat.MIMETYPE_VIDEO_MPEG2, 4000000, 352, 288, 30},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG2, 15000000, 720, 576, 30},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG2, 60000000, 1440, 1088, 60},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG2, 80000000, 1920, 1088, 60},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG2, 80000000, 1920, 1088, 60},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG2, 4000000, 352, 288, 30, MPEG2LevelLL},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG2, 15000000, 720, 480, 30, MPEG2LevelML},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG2, 60000000, 1440, 1088, 30, MPEG2LevelH14},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG2, 80000000, 1920, 1088, 30, MPEG2LevelHL},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG2, 80000000, 1920, 1088, 60, MPEG2LevelHP},
 
-                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 64000, 176, 144, 15},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 64000, 176, 144, 30},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 128000, 176, 144, 15},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 128000, 352, 288, 30},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 384000, 352, 288, 30},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 4000000, 640, 480, 30},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 8000000, 720, 576, 30},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 12000000, 1280, 720, 30},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 128000, 176, 144, 30},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 384000, 352, 288, 30},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 768000, 352, 288, 30},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 1500000, 352, 288, 30},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 3000000, 704, 576, 30},
-                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 8000000, 720, 576, 30},
+                {MediaFormat.MIMETYPE_VIDEO_VP9, 200000, 256, 144, 15, VP9Level1},
+                {MediaFormat.MIMETYPE_VIDEO_VP9, 512000, 384, 192, 30, VP9Level11},
+                {MediaFormat.MIMETYPE_VIDEO_VP9, 1000000, 480, 256, 30, VP9Level2},
+                {MediaFormat.MIMETYPE_VIDEO_VP9, 1500000, 640, 384, 30, VP9Level21},
+                {MediaFormat.MIMETYPE_VIDEO_VP9, 1600000, 720, 480, 30, VP9Level3},
+                {MediaFormat.MIMETYPE_VIDEO_VP9, 4000000, 1280, 720, 30, VP9Level31},
+                {MediaFormat.MIMETYPE_VIDEO_VP9, 5000000, 1920, 1080, 30, VP9Level4},
+                {MediaFormat.MIMETYPE_VIDEO_VP9, 16000000, 2048, 1088, 60, VP9Level41},
+                {MediaFormat.MIMETYPE_VIDEO_VP9, 20000000, 3840, 2160, 30, VP9Level5},
+                {MediaFormat.MIMETYPE_VIDEO_VP9, 80000000, 4096, 2176, 60, VP9Level51},
+                {MediaFormat.MIMETYPE_VIDEO_VP9, 160000000, 4096, 2176, 120, VP9Level52},
+                {MediaFormat.MIMETYPE_VIDEO_VP9, 180000000, 8192, 4352, 30, VP9Level6},
+                {MediaFormat.MIMETYPE_VIDEO_VP9, 240000000, 8192, 4352, 60, VP9Level61},
+                {MediaFormat.MIMETYPE_VIDEO_VP9, 480000000, 8192, 4352, 120, VP9Level62},
 
-                // TODO (b/151430764)
-                /*{MediaFormat.MIMETYPE_VIDEO_VP9, 200000, 256, 144, 15},
-                {MediaFormat.MIMETYPE_VIDEO_VP9, 8000000, 384, 192, 30},
-                {MediaFormat.MIMETYPE_VIDEO_VP9, 1800000, 480, 256, 30},
-                {MediaFormat.MIMETYPE_VIDEO_VP9, 3600000, 640, 384, 30},
-                {MediaFormat.MIMETYPE_VIDEO_VP9, 7200000, 1080, 512, 30},*/
-                {MediaFormat.MIMETYPE_VIDEO_VP9, 12000000, 1280, 768, 30},
-                {MediaFormat.MIMETYPE_VIDEO_VP9, 18000000, 2048, 1088, 30},
-                {MediaFormat.MIMETYPE_VIDEO_VP9, 30000000, 2048, 1088, 60},
-                {MediaFormat.MIMETYPE_VIDEO_VP9, 60000000, 4096, 2176, 30},
-                {MediaFormat.MIMETYPE_VIDEO_VP9, 120000000, 4096, 2176, 60},
-                {MediaFormat.MIMETYPE_VIDEO_VP9, 180000000, 4096, 2176, 120},
-                {MediaFormat.MIMETYPE_VIDEO_VP9, 180000000, 8192, 4352, 30},
-                {MediaFormat.MIMETYPE_VIDEO_VP9, 240000000, 8192, 4352, 60},
-                {MediaFormat.MIMETYPE_VIDEO_VP9, 480000000, 8192, 4352, 120},
+                {MediaFormat.MIMETYPE_VIDEO_H263, 64000, 176, 144, 15, H263Level10},
+                {MediaFormat.MIMETYPE_VIDEO_H263, 128000, 176, 144, 15, H263Level45},
+                {MediaFormat.MIMETYPE_VIDEO_H263, 128000, 352, 288, 15, H263Level20},
+                {MediaFormat.MIMETYPE_VIDEO_H263, 384000, 352, 288, 30, H263Level30},
+                {MediaFormat.MIMETYPE_VIDEO_H263, 2048000, 352, 288, 30, H263Level40},
+                {MediaFormat.MIMETYPE_VIDEO_H263, 4096000, 352, 240, 60, H263Level50},
+                {MediaFormat.MIMETYPE_VIDEO_H263, 8192000, 720, 240, 60, H263Level60},
+                {MediaFormat.MIMETYPE_VIDEO_H263, 16384000, 720, 576, 50, H263Level70},
 
-                {MediaFormat.MIMETYPE_VIDEO_H263, 64000, 176, 144, 15},
-                {MediaFormat.MIMETYPE_VIDEO_H263, 128000, 176, 144, 15},
-                {MediaFormat.MIMETYPE_VIDEO_H263, 128000, 176, 144, 30},
-                {MediaFormat.MIMETYPE_VIDEO_H263, 128000, 352, 288, 15},
-                {MediaFormat.MIMETYPE_VIDEO_H263, 384000, 352, 288, 30},
-                {MediaFormat.MIMETYPE_VIDEO_H263, 2048000, 352, 288, 30},
-                {MediaFormat.MIMETYPE_VIDEO_H263, 4096000, 352, 240, 60},
-                {MediaFormat.MIMETYPE_VIDEO_H263, 4096000, 352, 288, 50},
-                {MediaFormat.MIMETYPE_VIDEO_H263, 8192000, 720, 240, 60},
-                {MediaFormat.MIMETYPE_VIDEO_H263, 8192000, 720, 288, 50},
-                {MediaFormat.MIMETYPE_VIDEO_H263, 16384000, 720, 480, 60},
-                {MediaFormat.MIMETYPE_VIDEO_H263, 16384000, 720, 576, 50},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 128000, 176, 144, 15, HEVCMainTierLevel1},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 512000, 352, 288, 30, HEVCMainTierLevel2},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 1000000, 640, 360, 30, HEVCMainTierLevel21},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 1000000, 512, 512, 30, HEVCMainTierLevel3},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 1600000, 720, 480, 30, HEVCMainTierLevel3},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 4000000, 1280, 720, 30, HEVCMainTierLevel31},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 5000000, 1920, 1080, 30, HEVCMainTierLevel4},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 16000000, 1920, 1080, 30, HEVCHighTierLevel4},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 20000000, 1920, 1080, 60, HEVCMainTierLevel41},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 30000000, 1920, 1080, 60, HEVCHighTierLevel41},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 20000000, 3840, 2160, 30, HEVCMainTierLevel5},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 50000000, 3840, 2160, 30, HEVCHighTierLevel5},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 40000000, 3840, 2160, 60, HEVCMainTierLevel51},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 80000000, 3840, 2160, 60, HEVCHighTierLevel51},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 50000000, 3840, 2160, 120, HEVCMainTierLevel52},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 100000000, 3840, 2160, 120, HEVCHighTierLevel52},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 50000000, 7680, 4320, 30, HEVCMainTierLevel6},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 80000000, 7680, 4320, 30, HEVCHighTierLevel6},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 100000000, 7680, 4320, 60, HEVCMainTierLevel61},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 240000000, 7680, 4320, 60, HEVCHighTierLevel61},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 200000000, 7680, 4320, 120, HEVCMainTierLevel62},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 360000000, 7680, 4320, 120, HEVCHighTierLevel62},
 
-                {MediaFormat.MIMETYPE_VIDEO_HEVC, 128000, 176, 144, 15},
-                {MediaFormat.MIMETYPE_VIDEO_HEVC, 1500000, 352, 288, 30},
-                // TODO (b/152576008) - Limit HEVC Encoder test to 512x512
-                {MediaFormat.MIMETYPE_VIDEO_HEVC, 3000000, 512, 512, 30},
-                //{MediaFormat.MIMETYPE_VIDEO_HEVC, 3000000, 640, 360, 30},
-                //{MediaFormat.MIMETYPE_VIDEO_HEVC, 6000000, 960, 540, 30},
-                {MediaFormat.MIMETYPE_VIDEO_HEVC, 10000000, 1280, 720, 33},
-                {MediaFormat.MIMETYPE_VIDEO_HEVC, 12000000, 2048, 1080, 30},
-                {MediaFormat.MIMETYPE_VIDEO_HEVC, 20000000, 2048, 1080, 60},
-                {MediaFormat.MIMETYPE_VIDEO_HEVC, 25000000, 4096, 2160, 30},
-                {MediaFormat.MIMETYPE_VIDEO_HEVC, 40000000, 4096, 2160, 60},
-                {MediaFormat.MIMETYPE_VIDEO_HEVC, 60000000, 4096, 2160, 120},
-                {MediaFormat.MIMETYPE_VIDEO_HEVC, 60000000, 8192, 4320, 30},
-                {MediaFormat.MIMETYPE_VIDEO_HEVC, 120000000, 8192, 4320, 60},
-                {MediaFormat.MIMETYPE_VIDEO_HEVC, 240000000, 8192, 4320, 120},
-
-                {MediaFormat.MIMETYPE_VIDEO_AV1, 1500000, 426, 240, 30},
-                {MediaFormat.MIMETYPE_VIDEO_AV1, 3000000, 640, 360, 30},
-                {MediaFormat.MIMETYPE_VIDEO_AV1, 6000000, 854, 480, 30},
-                {MediaFormat.MIMETYPE_VIDEO_AV1, 10000000, 1280, 720, 30},
-                {MediaFormat.MIMETYPE_VIDEO_AV1, 12000000, 1920, 1080, 30},
-                {MediaFormat.MIMETYPE_VIDEO_AV1, 20000000, 1920, 1080, 60},
-                {MediaFormat.MIMETYPE_VIDEO_AV1, 30000000, 3840, 2160, 30},
-                {MediaFormat.MIMETYPE_VIDEO_AV1, 40000000, 3840, 2160, 60},
-                {MediaFormat.MIMETYPE_VIDEO_AV1, 60000000, 3840, 2160, 120},
-                {MediaFormat.MIMETYPE_VIDEO_AV1, 60000000, 7680, 4320, 30},
-                {MediaFormat.MIMETYPE_VIDEO_AV1, 100000000, 7680, 4320, 60},
-                {MediaFormat.MIMETYPE_VIDEO_AV1, 160000000, 7680, 4320, 120},
-
-                {MediaFormat.MIMETYPE_VIDEO_VP8, 512000, 176, 144, 20},
-                {MediaFormat.MIMETYPE_VIDEO_VP8, 512000, 480, 360, 20},
-        });
+                {MediaFormat.MIMETYPE_VIDEO_AV1, 1500000, 426, 240, 30, AV1Level2},
+                {MediaFormat.MIMETYPE_VIDEO_AV1, 3000000, 640, 360, 30, AV1Level21},
+                {MediaFormat.MIMETYPE_VIDEO_AV1, 6000000, 854, 480, 30, AV1Level3},
+                {MediaFormat.MIMETYPE_VIDEO_AV1, 10000000, 1280, 720, 30, AV1Level31},
+                {MediaFormat.MIMETYPE_VIDEO_AV1, 12000000, 1920, 1080, 30, AV1Level4},
+                {MediaFormat.MIMETYPE_VIDEO_AV1, 20000000, 1920, 1080, 60, AV1Level41},
+                {MediaFormat.MIMETYPE_VIDEO_AV1, 30000000, 3840, 2160, 30, AV1Level5},
+                {MediaFormat.MIMETYPE_VIDEO_AV1, 40000000, 3840, 2160, 60, AV1Level51},
+                {MediaFormat.MIMETYPE_VIDEO_AV1, 60000000, 3840, 2160, 120, AV1Level52},
+                {MediaFormat.MIMETYPE_VIDEO_AV1, 60000000, 7680, 4320, 30, AV1Level6},
+                {MediaFormat.MIMETYPE_VIDEO_AV1, 100000000, 7680, 4320, 60, AV1Level61},
+                {MediaFormat.MIMETYPE_VIDEO_AV1, 160000000, 7680, 4320, 120, AV1Level62},
+        };
         final List<Object[]> argsList = new ArrayList<>();
         for (Object[] arg : exhaustiveArgsList) {
-            int argLength = exhaustiveArgsList.get(0).length;
-            Object[] testArgs = new Object[argLength + 1];
-            System.arraycopy(arg, 0, testArgs, 0, argLength);
-            testArgs[argLength] = false;
-            argsList.add(testArgs);
-            // P010 support was added in Android T, hence limit the following tests to Android T and
-            // above
-            if (IS_AT_LEAST_T) {
-                if (mProfileHdrMap.get(arg[0]) != null) {
-                    Object[] testArgsHighBitDepth = new Object[argLength + 1];
-                    System.arraycopy(arg, 0, testArgsHighBitDepth, 0, argLength);
-                    testArgsHighBitDepth[argLength] = true;
-                    argsList.add(testArgsHighBitDepth);
-                }
+            final String mediaType = (String) arg[0];
+            argsList.addAll(prepareTestArgs(arg,
+                    Objects.requireNonNull(PROFILE_SDR_MAP.get(mediaType)),
+                    COLOR_FormatYUV420Flexible));
+            // P010 support was added in Android T, hence limit the following tests to Android
+            // T and above
+            if (IS_AT_LEAST_T && PROFILE_HLG_MAP.get(mediaType) != null) {
+                argsList.addAll(prepareTestArgs(arg,
+                        Objects.requireNonNull(PROFILE_HLG_MAP.get(mediaType)),
+                        COLOR_FormatYUVP010));
             }
+        }
+        final Object[][] mpeg4SimpleProfileArgsList = new Object[][]{
+                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 64000, 176, 144, 15, MPEG4Level0},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 128000, 176, 144, 15, MPEG4Level0b},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 64000, 128, 96, 30, MPEG4Level1},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 128000, 352, 288, 15, MPEG4Level2},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 384000, 352, 288, 30, MPEG4Level3},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 4000000, 640, 480, 30, MPEG4Level4a},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 8000000, 720, 576, 24, MPEG4Level5},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 12000000, 1280, 720, 30, MPEG4Level6},
+        };
+        for (Object[] arg : mpeg4SimpleProfileArgsList) {
+            argsList.addAll(prepareTestArgs(arg, new int[]{MPEG4ProfileSimple},
+                    COLOR_FormatYUV420Flexible));
+        }
+        final Object[][] mpeg4AdvSimpleProfileArgsList = new Object[][]{
+                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 128000, 176, 144, 30, MPEG4Level1},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 384000, 352, 288, 15, MPEG4Level2},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 768000, 352, 288, 30, MPEG4Level3},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 1500000, 352, 288, 30, MPEG4Level3b},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 3000000, 704, 576, 15, MPEG4Level4},
+                {MediaFormat.MIMETYPE_VIDEO_MPEG4, 8000000, 720, 576, 30, MPEG4Level5},
+        };
+        for (Object[] arg : mpeg4AdvSimpleProfileArgsList) {
+            argsList.addAll(prepareTestArgs(arg, new int[]{MPEG4ProfileAdvancedSimple},
+                    COLOR_FormatYUV420Flexible));
         }
         return prepareParamList(argsList, isEncoder, needAudio, needVideo, false);
     }
 
     static {
-        mProfileLevelCdd.put(MediaFormat.MIMETYPE_AUDIO_AAC,
-                new Pair<>(new int[]{AACObjectLC, AACObjectHE, AACObjectELD}, -1));
-        mProfileLevelCdd.put(MediaFormat.MIMETYPE_VIDEO_H263,
-                new Pair<>(new int[]{H263ProfileBaseline}, H263Level45));
-        mProfileLevelCdd.put(MediaFormat.MIMETYPE_VIDEO_AVC,
-                new Pair<>(new int[]{AVCProfileBaseline}, AVCLevel3));
-        mProfileLevelCdd.put(MediaFormat.MIMETYPE_VIDEO_HEVC,
-                new Pair<>(new int[]{HEVCProfileMain}, HEVCMainTierLevel3));
-        mProfileLevelCdd.put(MediaFormat.MIMETYPE_VIDEO_VP8,
-                new Pair<>(new int[]{VP8ProfileMain}, VP8Level_Version0));
-        mProfileLevelCdd.put(MediaFormat.MIMETYPE_VIDEO_VP9,
-                new Pair<>(new int[]{VP9Profile0}, VP9Level3));
-    }
-
-    private int getMinLevel(String mime, int width, int height, int frameRate, int bitrate,
-            int profile) {
-        switch (mime) {
-            case MediaFormat.MIMETYPE_VIDEO_AVC:
-                return getMinLevelAVC(width, height, frameRate, bitrate);
-            case MediaFormat.MIMETYPE_VIDEO_HEVC:
-                return getMinLevelHEVC(width, height, frameRate, bitrate);
-            case MediaFormat.MIMETYPE_VIDEO_H263:
-                return getMinLevelH263(width, height, frameRate, bitrate);
-            case MediaFormat.MIMETYPE_VIDEO_MPEG2:
-                return getMinLevelMPEG2(width, height, frameRate, bitrate);
-            case MediaFormat.MIMETYPE_VIDEO_MPEG4:
-                return getMinLevelMPEG4(width, height, frameRate, bitrate, profile);
-            // complex features disabled in VP8 Level/Version 0
-            case MediaFormat.MIMETYPE_VIDEO_VP8:
-                return VP8Level_Version0;
-            case MediaFormat.MIMETYPE_VIDEO_VP9:
-                return getMinLevelVP9(width, height, frameRate, bitrate);
-            case MediaFormat.MIMETYPE_VIDEO_AV1:
-                return getMinLevelAV1(width, height, frameRate, bitrate);
-            default:
-                return -1;
+        // Following lists profiles, level, maxWidth and maxHeight mandated by the CDD.
+        // CodecMediaType, profiles, level, maxWidth, maxHeight
+        CDD_REQUIREMENTS_MAP.put(MediaFormat.MIMETYPE_AUDIO_AAC,
+                new CddRequirements(new int[]{AACObjectLC, AACObjectHE, AACObjectELD}));
+        CDD_REQUIREMENTS_MAP.put(MediaFormat.MIMETYPE_VIDEO_H263,
+                new CddRequirements(new int[]{H263ProfileBaseline}, H263Level45));
+        CDD_REQUIREMENTS_MAP.put(MediaFormat.MIMETYPE_VIDEO_AVC,
+                new CddRequirements(new int[]{AVCProfileBaseline}, AVCLevel3));
+        CDD_REQUIREMENTS_MAP.put(MediaFormat.MIMETYPE_VIDEO_HEVC,
+                new CddRequirements(new int[]{HEVCProfileMain}, HEVCMainTierLevel3, 512, 512));
+        CDD_REQUIREMENTS_MAP.put(MediaFormat.MIMETYPE_VIDEO_VP9,
+                new CddRequirements(new int[]{VP9Profile0}, VP9Level3));
+        if (IS_AT_LEAST_U) {
+            CDD_REQUIREMENTS_MAP.put(MediaFormat.MIMETYPE_VIDEO_AV1,
+                    new CddRequirements(new int[]{AV1ProfileMain8, AV1ProfileMain10}));
         }
     }
 
-    private int getMinLevelAVC(int width, int height, int frameRate, int bitrate) {
-        class LevelLimitAVC {
-            private LevelLimitAVC(int level, int mbsPerSec, long mbs, int bitrate) {
-                this.level = level;
-                this.mbsPerSec = mbsPerSec;
-                this.mbs = mbs;
-                this.bitrate = bitrate;
-            }
-
-            private final int level;
-            private final int mbsPerSec;
-            private final long mbs;
-            private final int bitrate;
-        }
-        LevelLimitAVC[] limitsAVC = {
-                new LevelLimitAVC(AVCLevel1, 1485, 99, 64000),
-                new LevelLimitAVC(AVCLevel1b, 1485, 99, 128000),
-                new LevelLimitAVC(AVCLevel11, 3000, 396, 192000),
-                new LevelLimitAVC(AVCLevel12, 6000, 396, 384000),
-                new LevelLimitAVC(AVCLevel13, 11880, 396, 768000),
-                new LevelLimitAVC(AVCLevel2, 11880, 396, 2000000),
-                new LevelLimitAVC(AVCLevel21, 19800, 792, 4000000),
-                new LevelLimitAVC(AVCLevel22, 20250, 1620, 4000000),
-                new LevelLimitAVC(AVCLevel3, 40500, 1620, 10000000),
-                new LevelLimitAVC(AVCLevel31, 108000, 3600, 14000000),
-                new LevelLimitAVC(AVCLevel32, 216000, 5120, 20000000),
-                new LevelLimitAVC(AVCLevel4, 245760, 8192, 20000000),
-                new LevelLimitAVC(AVCLevel41, 245760, 8192, 50000000),
-                new LevelLimitAVC(AVCLevel42, 522240, 8704, 50000000),
-                new LevelLimitAVC(AVCLevel5, 589824, 22080, 135000000),
-                new LevelLimitAVC(AVCLevel51, 983040, 36864, 240000000),
-                new LevelLimitAVC(AVCLevel52, 2073600, 36864, 240000000),
-                new LevelLimitAVC(AVCLevel6, 4177920, 139264, 240000000),
-                new LevelLimitAVC(AVCLevel61, 8355840, 139264, 480000000),
-                new LevelLimitAVC(AVCLevel62, 16711680, 139264, 800000000),
-        };
-        long mbs = ((width + 15) / 16) * ((height + 15) / 16);
-        float mbsPerSec = mbs * frameRate;
-        for (LevelLimitAVC levelLimitsAVC : limitsAVC) {
-            if (mbs <= levelLimitsAVC.mbs && mbsPerSec <= levelLimitsAVC.mbsPerSec
-                    && bitrate <= levelLimitsAVC.bitrate) {
-                return levelLimitsAVC.level;
-            }
-        }
-        // if none of the levels suffice, select the highest level
-        return AVCLevel62;
-    }
-
-    private int getMinLevelHEVC(int width, int height, int frameRate, int bitrate) {
-        class LevelLimitHEVC {
-            private LevelLimitHEVC(int level, int frameRate, long samples, int bitrate) {
-                this.level = level;
-                this.frameRate = frameRate;
-                this.samples = samples;
-                this.bitrate = bitrate;
-            }
-
-            private final int level;
-            private final int frameRate;
-            private final long samples;
-            private final int bitrate;
-        }
-        LevelLimitHEVC[] limitsHEVC = {
-                new LevelLimitHEVC(HEVCMainTierLevel1, 15, 36864, 128000),
-                new LevelLimitHEVC(HEVCMainTierLevel2, 30, 122880, 1500000),
-                new LevelLimitHEVC(HEVCMainTierLevel21, 30, 245760, 3000000),
-                new LevelLimitHEVC(HEVCMainTierLevel3, 30, 552960, 6000000),
-                new LevelLimitHEVC(HEVCMainTierLevel31, 30, 983040, 10000000),
-                new LevelLimitHEVC(HEVCMainTierLevel4, 30, 2228224, 12000000),
-                new LevelLimitHEVC(HEVCHighTierLevel4, 30, 2228224, 30000000),
-                new LevelLimitHEVC(HEVCMainTierLevel41, 60, 2228224, 20000000),
-                new LevelLimitHEVC(HEVCHighTierLevel41, 60, 2228224, 50000000),
-                new LevelLimitHEVC(HEVCMainTierLevel5, 30, 8912896, 25000000),
-                new LevelLimitHEVC(HEVCHighTierLevel5, 30, 8912896, 100000000),
-                new LevelLimitHEVC(HEVCMainTierLevel51, 60, 8912896, 40000000),
-                new LevelLimitHEVC(HEVCHighTierLevel51, 60, 8912896, 160000000),
-                new LevelLimitHEVC(HEVCMainTierLevel52, 120, 8912896, 60000000),
-                new LevelLimitHEVC(HEVCHighTierLevel52, 120, 8912896, 240000000),
-                new LevelLimitHEVC(HEVCMainTierLevel6, 30, 35651584, 60000000),
-                new LevelLimitHEVC(HEVCHighTierLevel6, 30, 35651584, 240000000),
-                new LevelLimitHEVC(HEVCMainTierLevel61, 60, 35651584, 120000000),
-                new LevelLimitHEVC(HEVCHighTierLevel61, 60, 35651584, 480000000),
-                new LevelLimitHEVC(HEVCMainTierLevel62, 120, 35651584, 240000000),
-                new LevelLimitHEVC(HEVCHighTierLevel62, 120, 35651584, 800000000),
-        };
-        long samples = width * height;
-        for (LevelLimitHEVC levelLimitsHEVC : limitsHEVC) {
-            if (samples <= levelLimitsHEVC.samples && frameRate <= levelLimitsHEVC.frameRate
-                    && bitrate <= levelLimitsHEVC.bitrate) {
-                return levelLimitsHEVC.level;
-            }
-        }
-        // if none of the levels suffice, select the highest level
-        return HEVCHighTierLevel62;
-    }
-
-    private int getMinLevelH263(int width, int height, int frameRate, int bitrate) {
-        class LevelLimitH263 {
-            private LevelLimitH263(int level, int height, int width, int frameRate,
-                    int bitrate) {
-                this.level = level;
-                this.height = height;
-                this.width = width;
-                this.frameRate = frameRate;
-                this.bitrate = bitrate;
-            }
-
-            private final int level;
-            private final int height;
-            private final int width;
-            private final int frameRate;
-            private final int bitrate;
-        }
-        LevelLimitH263[] limitsH263 = {
-                new LevelLimitH263(H263Level10, 176, 144, 15, 64000),
-                new LevelLimitH263(H263Level45, 176, 144, 15, 128000),
-                new LevelLimitH263(H263Level20, 176, 144, 30, 128000),
-                new LevelLimitH263(H263Level20, 352, 288, 15, 128000),
-                new LevelLimitH263(H263Level30, 352, 288, 30, 384000),
-                new LevelLimitH263(H263Level40, 352, 288, 30, 2048000),
-                new LevelLimitH263(H263Level50, 352, 240, 60, 4096000),
-                new LevelLimitH263(H263Level50, 352, 288, 50, 4096000),
-                new LevelLimitH263(H263Level60, 720, 240, 60, 8192000),
-                new LevelLimitH263(H263Level60, 720, 288, 50, 8192000),
-                new LevelLimitH263(H263Level70, 720, 480, 60, 16384000),
-                new LevelLimitH263(H263Level70, 720, 576, 50, 16384000),
-        };
-        for (LevelLimitH263 levelLimitsH263 : limitsH263) {
-            if (height <= levelLimitsH263.height && width <= levelLimitsH263.width &&
-                    frameRate <= levelLimitsH263.frameRate && bitrate <= levelLimitsH263.bitrate) {
-                return levelLimitsH263.level;
-            }
-        }
-        // if none of the levels suffice, select the highest level
-        return H263Level70;
-    }
-
-    private int getMinLevelVP9(int width, int height, int frameRate, int bitrate) {
-        class LevelLimitVP9 {
-            private LevelLimitVP9(int level, long sampleRate, int size, int breadth,
-                    int bitrate) {
-                this.level = level;
-                this.sampleRate = sampleRate;
-                this.size = size;
-                this.breadth = breadth;
-                this.bitrate = bitrate;
-            }
-
-            private final int level;
-            private final long sampleRate;
-            private final int size;
-            private final int breadth;
-            private final int bitrate;
-        }
-        LevelLimitVP9[] limitsVP9 = {
-                new LevelLimitVP9(VP9Level1, 829440, 36864, 512, 200000),
-                new LevelLimitVP9(VP9Level11, 2764800, 73728, 768, 800000),
-                new LevelLimitVP9(VP9Level2, 4608000, 122880, 960, 1800000),
-                new LevelLimitVP9(VP9Level21, 9216000, 245760, 1344, 3600000),
-                new LevelLimitVP9(VP9Level3, 20736000, 552960, 2048, 7200000),
-                new LevelLimitVP9(VP9Level31, 36864000, 983040, 2752, 12000000),
-                new LevelLimitVP9(VP9Level4, 83558400, 2228224, 4160, 18000000),
-                new LevelLimitVP9(VP9Level41, 160432128, 2228224, 4160, 30000000),
-                new LevelLimitVP9(VP9Level5, 311951360, 8912896, 8384, 60000000),
-                new LevelLimitVP9(VP9Level51, 588251136, 8912896, 8384, 120000000),
-                new LevelLimitVP9(VP9Level52, 1176502272, 8912896, 8384, 180000000),
-                new LevelLimitVP9(VP9Level6, 1176502272, 35651584, 16832, 180000000),
-                new LevelLimitVP9(VP9Level61, 2353004544L, 35651584, 16832, 240000000),
-                new LevelLimitVP9(VP9Level62, 4706009088L, 35651584, 16832, 480000000),
-        };
-        int size = width * height;
-        int sampleRate = size * frameRate;
-        int breadth = Math.max(width, height);
-        for (LevelLimitVP9 levelLimitsVP9 : limitsVP9) {
-            if (sampleRate <= levelLimitsVP9.sampleRate && size <= levelLimitsVP9.size &&
-                    breadth <= levelLimitsVP9.breadth && bitrate <= levelLimitsVP9.bitrate) {
-                return levelLimitsVP9.level;
-            }
-        }
-        // if none of the levels suffice, select the highest level
-        return VP9Level62;
-    }
-
-    private int getMinLevelMPEG2(int width, int height, int frameRate, int bitrate) {
-        class LevelLimitMPEG2 {
-            private LevelLimitMPEG2(int level, long sampleRate, int width, int height,
-                    int frameRate, int bitrate) {
-                this.level = level;
-                this.sampleRate = sampleRate;
-                this.width = width;
-                this.height = height;
-                this.frameRate = frameRate;
-                this.bitrate = bitrate;
-            }
-
-            private final int level;
-            private final long sampleRate;
-            private final int width;
-            private final int height;
-            private final int frameRate;
-            private final int bitrate;
-        }
-        // main profile limits, higher profiles will also support selected level
-        LevelLimitMPEG2[] limitsMPEG2 = {
-                new LevelLimitMPEG2(MPEG2LevelLL, 3041280, 352, 288, 30, 4000000),
-                new LevelLimitMPEG2(MPEG2LevelML, 10368000, 720, 576, 30, 15000000),
-                new LevelLimitMPEG2(MPEG2LevelH14, 47001600, 1440, 1088, 60, 60000000),
-                new LevelLimitMPEG2(MPEG2LevelHL, 62668800, 1920, 1088, 60, 80000000),
-                new LevelLimitMPEG2(MPEG2LevelHP, 125337600, 1920, 1088, 60, 80000000),
-        };
-        int size = width * height;
-        int sampleRate = size * frameRate;
-        for (LevelLimitMPEG2 levelLimitsMPEG2 : limitsMPEG2) {
-            if (sampleRate <= levelLimitsMPEG2.sampleRate && width <= levelLimitsMPEG2.width &&
-                    height <= levelLimitsMPEG2.height && frameRate <= levelLimitsMPEG2.frameRate &&
-                    bitrate <= levelLimitsMPEG2.bitrate) {
-                return levelLimitsMPEG2.level;
-            }
-        }
-        // if none of the levels suffice, select the highest level
-        return MPEG2LevelHP;
-    }
-
-    private int getMinLevelMPEG4(int width, int height, int frameRate, int bitrate, int profile) {
-        class LevelLimitMPEG4 {
-            private LevelLimitMPEG4(int profile, int level, long sampleRate, int width,
-                    int height, int frameRate, int bitrate) {
-                this.profile = profile;
-                this.level = level;
-                this.sampleRate = sampleRate;
-                this.width = width;
-                this.height = height;
-                this.frameRate = frameRate;
-                this.bitrate = bitrate;
-            }
-
-            private final int profile;
-            private final int level;
-            private final long sampleRate;
-            private final int width;
-            private final int height;
-            private final int frameRate;
-            private final int bitrate;
-        }
-        // simple profile limits, higher profiles will also support selected level
-        LevelLimitMPEG4[] limitsMPEG4 = {
-                new LevelLimitMPEG4(MPEG4ProfileSimple, MPEG4Level0, 380160, 176, 144, 15, 64000),
-                new LevelLimitMPEG4(MPEG4ProfileSimple, MPEG4Level1, 380160, 176, 144, 30, 64000),
-                new LevelLimitMPEG4(MPEG4ProfileSimple, MPEG4Level0b, 380160, 176, 144, 15, 128000),
-                new LevelLimitMPEG4(MPEG4ProfileSimple, MPEG4Level2, 1520640, 352, 288, 30, 128000),
-                new LevelLimitMPEG4(MPEG4ProfileSimple, MPEG4Level3, 3041280, 352, 288, 30, 384000),
-                new LevelLimitMPEG4(
-                        MPEG4ProfileSimple, MPEG4Level4a, 9216000, 640, 480, 30, 4000000),
-                new LevelLimitMPEG4(
-                        MPEG4ProfileSimple, MPEG4Level5, 10368000, 720, 576, 30, 8000000),
-                new LevelLimitMPEG4(
-                        MPEG4ProfileSimple, MPEG4Level6, 27648000, 1280, 720, 30, 12000000),
-                new LevelLimitMPEG4(
-                        MPEG4ProfileAdvancedSimple, MPEG4Level1, 760320, 176, 144, 30, 128000),
-                new LevelLimitMPEG4(
-                        MPEG4ProfileAdvancedSimple, MPEG4Level2, 1520640, 352, 288, 30, 384000),
-                new LevelLimitMPEG4(
-                        MPEG4ProfileAdvancedSimple, MPEG4Level3, 3041280, 352, 288, 30, 768000),
-                new LevelLimitMPEG4(
-                        MPEG4ProfileAdvancedSimple, MPEG4Level3b, 3041280, 352, 288, 30, 1500000),
-                new LevelLimitMPEG4(
-                        MPEG4ProfileAdvancedSimple, MPEG4Level4, 3041280, 704, 576, 30, 3000000),
-                new LevelLimitMPEG4(
-                        MPEG4ProfileAdvancedSimple, MPEG4Level5, 3041280, 720, 576, 30, 8000000),
-        };
-        int size = width * height;
-        int sampleRate = size * frameRate;
-        for (LevelLimitMPEG4 levelLimitsMPEG4 : limitsMPEG4) {
-            if (((profile & (MPEG4ProfileAdvancedSimple | MPEG4ProfileSimple)) != 0) &&
-                    profile != levelLimitsMPEG4.profile) continue;
-            if (sampleRate <= levelLimitsMPEG4.sampleRate && width <= levelLimitsMPEG4.width &&
-                    height <= levelLimitsMPEG4.height && frameRate <= levelLimitsMPEG4.frameRate &&
-                    bitrate <= levelLimitsMPEG4.bitrate) {
-                return levelLimitsMPEG4.level;
-            }
-        }
-        // if none of the levels suffice, select the highest level
-        return MPEG4Level6;
-    }
-
-    private int getMinLevelAV1(int width, int height, int frameRate, int bitrate) {
-        class LevelLimitAV1 {
-            private LevelLimitAV1(int level, int size, int width, int height, long sampleRate,
-                    int bitrate) {
-                this.level = level;
-                this.size = size;
-                this.width = width;
-                this.height = height;
-                this.sampleRate = sampleRate;
-                this.bitrate = bitrate;
-            }
-
-            private final int level;
-            private final int size;
-            private final int width;
-            private final int height;
-            private final long sampleRate;
-            private final int bitrate;
-        }
-        // taking bitrate from main profile, will also be supported by high profile
-        LevelLimitAV1[] limitsAV1 = {
-                new LevelLimitAV1(AV1Level2, 147456, 2048, 1152, 4423680, 1500000),
-                new LevelLimitAV1(AV1Level21, 278784, 2816, 1584, 8363520, 3000000),
-                new LevelLimitAV1(AV1Level3, 665856, 4352, 2448, 19975680, 6000000),
-                new LevelLimitAV1(AV1Level31, 1065024, 5504, 3096, 31950720, 10000000),
-                new LevelLimitAV1(AV1Level4, 2359296, 6144, 3456, 70778880, 12000000),
-                new LevelLimitAV1(AV1Level41, 2359296, 6144, 3456, 141557760, 20000000),
-                new LevelLimitAV1(AV1Level5, 8912896, 8192, 4352, 267386880, 30000000),
-                new LevelLimitAV1(AV1Level51, 8912896, 8192, 4352, 534773760, 40000000),
-                new LevelLimitAV1(AV1Level52, 8912896, 8192, 4352, 1069547520, 60000000),
-                new LevelLimitAV1(AV1Level53, 8912896, 8192, 4352, 1069547520, 60000000),
-                new LevelLimitAV1(AV1Level6, 35651584, 16384, 8704, 1069547520, 60000000),
-                new LevelLimitAV1(AV1Level61, 35651584, 16384, 8704, 2139095040, 100000000),
-                new LevelLimitAV1(AV1Level62, 35651584, 16384, 8704, 4278190080L, 160000000),
-                new LevelLimitAV1(AV1Level63, 35651584, 16384, 8704, 4278190080L, 160000000),
-        };
-        int size = width * height;
-        int sampleRate = size * frameRate;
-        for (LevelLimitAV1 levelLimitsAV1 : limitsAV1) {
-            if (size <= levelLimitsAV1.size && width <= levelLimitsAV1.width &&
-                    height <= levelLimitsAV1.height && sampleRate <= levelLimitsAV1.sampleRate &&
-                    bitrate <= levelLimitsAV1.bitrate) {
-                return levelLimitsAV1.level;
-            }
-        }
-        // if none of the levels suffice or high profile, select the highest level
-        return AV1Level73;
-    }
-
-    private int getAacProfile(MediaFormat format) {
-        int aacProfile = format.getInteger(MediaFormat.KEY_AAC_PROFILE, -1);
-        int profile = format.getInteger(MediaFormat.KEY_PROFILE, -1);
-
-        if (aacProfile != -1 && profile != -1) {
-            // If both aac-profile and profile are present in format, then they must be the same
-            assertTrue("aac-profile " + aacProfile + " and profile " + profile + " are different.",
-                    aacProfile == profile);
-            return aacProfile;
-        } else if (aacProfile != -1) {
-            return aacProfile;
-        } else if (profile != -1) {
-            return profile;
+    void checkIfTrackFormatIsOk(MediaFormat trackFormat) {
+        assertEquals("Input media type and extracted media type are not identical " + mTestEnv
+                        + mTestConfig, mActiveEncCfg.mMediaType,
+                trackFormat.getString(MediaFormat.KEY_MIME));
+        if (mIsVideo) {
+            assertEquals("Input width and extracted width are not same " + mTestEnv + mTestConfig,
+                    mActiveEncCfg.mWidth, getWidth(trackFormat));
+            assertEquals("Input height and extracted height are not same " + mTestEnv + mTestConfig,
+                    mActiveEncCfg.mHeight, getHeight(trackFormat));
         } else {
-            Log.e(LOG_TAG,
-                    "format doesn't contain either KEY_AAC_PROFILE or KEY_PROFILE");
-            return -1;
+            int expSampleRate = mActiveEncCfg.mProfile != AACObjectHE ? mActiveEncCfg.mSampleRate
+                    : mActiveEncCfg.mSampleRate / 2;
+            int expChCount = mActiveEncCfg.mProfile != AACObjectHE_PS ? mActiveEncCfg.mChannelCount
+                    : mActiveEncCfg.mChannelCount / 2;
+            assertEquals("Input sample rate and extracted sample rate are not same " + mTestEnv
+                            + mTestConfig, expSampleRate,
+                    trackFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE));
+            assertEquals("Input channe count and extracted channel count are not same " + mTestEnv
+                            + mTestConfig, expChCount,
+                    trackFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT));
         }
     }
 
-    @Override
-    boolean isFormatSimilar(MediaFormat inpFormat, MediaFormat outFormat) {
-        if (!super.isFormatSimilar(inpFormat, outFormat)) {
-            Log.e(LOG_TAG, "Basic channel-rate/resolution comparisons failed");
+    private boolean shallSupportProfileAndLevel(EncoderConfigParams cfg) {
+        CddRequirements requirement =
+                Objects.requireNonNull(CDD_REQUIREMENTS_MAP.get(cfg.mMediaType));
+        int[] profileCdd = requirement.getProfiles();
+        int levelCdd = requirement.getLevel();
+        int widthCdd = requirement.getWidth();
+        int heightCdd = requirement.getHeight();
+
+        // Check if CDD doesn't require support beyond certain resolutions.
+        if (widthCdd != -1 && mActiveEncCfg.mWidth > widthCdd) {
             return false;
         }
-        String inpMime = inpFormat.getString(MediaFormat.KEY_MIME);
-        String outMime = outFormat.getString(MediaFormat.KEY_MIME);
-        assertTrue("Input and Output mimes are different.", inpMime.equals(outMime));
-        if (outMime.startsWith("audio/")) {
-            if (outFormat.getString(MediaFormat.KEY_MIME).equals(MediaFormat.MIMETYPE_AUDIO_AAC)) {
-                int inputProfileKey, outputProfileKey;
-                outputProfileKey = getAacProfile(outFormat);
-                inputProfileKey = getAacProfile(inpFormat);
-                if (outputProfileKey != inputProfileKey) {
-                    Log.e(LOG_TAG, "aac-profile in output " + outputProfileKey +
-                            " doesn't match configured input " + inputProfileKey);
-                    return false;
-                }
-            }
-        } else if (outMime.startsWith("video/")) {
-            if (!outFormat.containsKey(MediaFormat.KEY_PROFILE)) {
-                Log.e(LOG_TAG, "Output format doesn't contain profile key");
-                //TODO (b/151398466)
-                if (true) return true;
-                return false;
-            }
-            if (!outFormat.containsKey(MediaFormat.KEY_LEVEL)) {
-                Log.e(LOG_TAG, "Output format doesn't contain level key");
-                //TODO (b/151398466)
-                if (true) return true;
-                return false;
-            }
-            if (!inpFormat.containsKey(MediaFormat.KEY_PROFILE)) {
-                Log.e(LOG_TAG, "Input format doesn't contain profile key");
-                return false;
-            }
-            if (!inpFormat.containsKey(MediaFormat.KEY_LEVEL)) {
-                Log.e(LOG_TAG, "Input format doesn't contain level key");
-                return false;
-            }
-            if (outFormat.getInteger(MediaFormat.KEY_PROFILE)
-                    != inpFormat.getInteger(MediaFormat.KEY_PROFILE)) {
-                Log.e(LOG_TAG, "profile in output doesn't match configured input");
-                return false;
-            }
-            if (outFormat.getInteger(MediaFormat.KEY_LEVEL)
-                    != inpFormat.getInteger(MediaFormat.KEY_LEVEL)) {
-                Log.e(LOG_TAG, "level key in output doesn't match configured input");
-                return false;
-            }
-        } else {
-            Log.w(LOG_TAG, "non media mime:" + outMime);
+        if (heightCdd != -1 && mActiveEncCfg.mHeight > heightCdd) {
+            return false;
         }
-        return true;
+
+        for (int cddProfile : profileCdd) {
+            if (cfg.mProfile == cddProfile) {
+                if (!cfg.mIsAudio) {
+                    if (cfg.mLevel <= levelCdd) {
+                        if (cfg.mMediaType.equalsIgnoreCase(MediaFormat.MIMETYPE_VIDEO_H263)
+                                && cfg.mLevel != MediaCodecInfo.CodecProfileLevel.H263Level45
+                                && cfg.mLevel > MediaCodecInfo.CodecProfileLevel.H263Level10) {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
-     * Sets profile and level keys in config format for encoder and validates the keys in output
-     * format if component supports the configuration and also verifies whether cdd mandated
-     * (profile, level) combination is supported
-     * Write the encoder output in all container formats that can hold the mime and validates the
-     * keys in extracted format.
+     * Check description of class {@link EncoderProfileLevelTest}
      */
+    @CddTest(requirements = {"2.2.2/5.1/H-0-3", "2.2.2/5.1/H-0-4", "2.2.2/5.1/H-0-5", "5/C-0-3",
+            "5.2.1/C-1-1", "5.2.2/C-1-1", "5.2.4/C-1-2", "5.2.5/C-1-1", "5.2.6/C-1-1"})
+    @ApiTest(apis = {"android.media.MediaFormat#KEY_PROFILE",
+            "android.media.MediaFormat#KEY_AAC_PROFILE",
+            "android.media.MediaFormat#KEY_LEVEL"})
     @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testValidateProfileLevel() throws IOException, InterruptedException {
-        int[] profiles;
-        String inputTestFile = mInputFile;
-        MediaFormat format = mConfigFormat;
-        String outputFilePrefix = "tmp";
-        if (mIsAudio) {
-            profiles = mProfileMap.get(mMime);
-        } else {
-            if (mUseHighBitDepth) {
-                Assume.assumeTrue(hasSupportForColorFormat(mCodecName, mMime, COLOR_FormatYUVP010));
-                format.setInteger(MediaFormat.KEY_COLOR_FORMAT, COLOR_FormatYUVP010);
-                mBytesPerSample = 2;
-                inputTestFile = INPUT_VIDEO_FILE_HBD;
-                outputFilePrefix += "_10bit";
-                profiles = mProfileHlgMap.get(mMime);
-            } else {
-                profiles = mProfileSdrMap.get(mMime);
-            }
-        }
-        assertTrue("no profile entry found for mime" + mMime, profiles != null);
+        int minLevel = getMinLevel(mMediaType, mEncCfgParams[0].mWidth, mEncCfgParams[0].mHeight,
+                mEncCfgParams[0].mFrameRate, mEncCfgParams[0].mBitRate, mEncCfgParams[0].mProfile);
+        assertEquals("Calculated minimum acceptable level does not match the entry in test table "
+                + mTestConfig, mEncCfgParams[0].mLevel, minLevel);
 
-        // cdd check initialization
-        boolean cddSupportedMime = mProfileLevelCdd.get(mMime) != null;
-        int[] profileCdd = new int[0];
-        int levelCdd = 0;
-        if (cddSupportedMime) {
-            Pair<int[], Integer> cddProfileLevel = mProfileLevelCdd.get(mMime);
-            profileCdd = cddProfileLevel.first;
-            levelCdd = cddProfileLevel.second;
+        if (mIsVideo && mEncCfgParams[0].mInputBitDepth != 8) {
+            Assume.assumeTrue(mCodecName + " doesn't support " + colorFormatToString(
+                            mEncCfgParams[0].mColorFormat, mEncCfgParams[0].mInputBitDepth),
+                    hasSupportForColorFormat(mCodecName, mMediaType,
+                            mEncCfgParams[0].mColorFormat));
         }
-        mOutputBuff = new OutputManager();
-        setUpSource(inputTestFile);
-        mSaveToMem = true;
-
-        String tempMuxedFile = File.createTempFile(outputFilePrefix, ".bin").getAbsolutePath();
+        // TODO(b/280510792): Remove the following once level can be configured correctly in
+        // c2.android.av1.encoder
+        if (mCodecName.equals("c2.android.av1.encoder")) {
+            Assume.assumeFalse("Disable frame rate > 30 for " + mCodecName,
+                    mEncCfgParams[0].mFrameRate > 30);
+        }
+        boolean cddSupportedMediaType = CDD_REQUIREMENTS_MAP.get(mMediaType) != null;
         {
+            mActiveRawRes = EncoderInput.getRawResource(mEncCfgParams[0]);
+            assertNotNull("no raw resource found for testing config : "
+                    + mEncCfgParams[0] + mTestConfig + mTestEnv, mActiveRawRes);
+            setUpSource(mActiveRawRes.mFileName);
+            mSaveToMem = true;
+            mMuxOutput = true;
+            mOutputBuff = new OutputManager();
             mCodec = MediaCodec.createByCodecName(mCodecName);
             MediaCodecInfo.CodecCapabilities codecCapabilities =
-                    mCodec.getCodecInfo().getCapabilitiesForType(mMime);
-            for (int profile : profiles) {
-                format.setInteger(MediaFormat.KEY_PROFILE, profile);
-                // for aac encoder, alongwith setting profile, also set aac-profile as some
-                // encoders may only support one of the two keys
-                if (mMime.equals(MediaFormat.MIMETYPE_AUDIO_AAC)) {
-                    format.setInteger(MediaFormat.KEY_AAC_PROFILE, profile);
-                }
-                int level = mIsAudio ? 0 : getMinLevel(mMime, mWidth, mHeight,
-                        format.getInteger(MediaFormat.KEY_FRAME_RATE),
-                        format.getInteger(MediaFormat.KEY_BIT_RATE), profile);
-                assertTrue("no min level found for mime" + mMime, level != -1);
-                if (!mIsAudio) format.setInteger(MediaFormat.KEY_LEVEL, level);
+                    mCodec.getCodecInfo().getCapabilitiesForType(mMediaType);
+            int configsTested = 0;
+            for (EncoderConfigParams cfg : mEncCfgParams) {
+                mActiveEncCfg = cfg;
+                MediaFormat format = cfg.getFormat();
                 if (!codecCapabilities.isFormatSupported(format)) {
-                    if (cddSupportedMime) {
-                        boolean shallSupportProfileLevel = false;
-                        if (mIsAudio) {
-                            for (int cddProfile : profileCdd) {
-                                if (profile == cddProfile) {
-                                    shallSupportProfileLevel = true;
-                                }
-                            }
-                        } else if (profile == profileCdd[0] && level == levelCdd) {
-                            shallSupportProfileLevel = true;
-                        }
-
-                        // TODO (b/193173880) Check if there is at least one component that
-                        // supports this profile and level combination
-                        if (shallSupportProfileLevel) {
+                    if (cddSupportedMediaType) {
+                        if (shallSupportProfileAndLevel(cfg)) {
                             ArrayList<MediaFormat> formats = new ArrayList<>();
                             formats.add(format);
-                            assertFalse(
-                                    "No components support cdd requirement profile level with \n "
-                                            + "format :" + format + " for mime: " + mMime,
-                                    selectCodecs(mMime, formats, null, false).isEmpty());
+                            assertFalse("No components present on the device supports cdd "
+                                    + "required encode format:- " + format + mTestConfig + mTestEnv,
+                                    selectCodecs(mMediaType, formats, null, true).isEmpty());
                         }
-                        Log.w(LOG_TAG,
-                                "Component: " + mCodecName + " doesn't support cdd format: " +
-                                        format);
+                        Log.d(LOG_TAG, mCodecName + " doesn't support format: " + format);
                     }
                     continue;
                 }
-
-                // Verify that device supports decoding the encoded file
-                ArrayList<MediaFormat> formatList = new ArrayList<>();
-                formatList.add(format);
-                assertTrue("Device advertises support for encoding " +
-                                format.toString() + " but not decoding it",
-                        selectCodecs(mMime, formatList, null, false).size() > 0);
-                formatList.clear();
 
                 mOutputBuff.reset();
-                mInfoList.clear();
                 configureCodec(format, false, true, true);
                 mCodec.start();
-                doWork(1);
+                doWork(5);
                 queueEOS();
                 waitForAllOutputs();
-                MediaFormat outFormat = mCodec.getOutputFormat();
-                /* TODO(b/147348711) */
-                if (false) mCodec.stop();
-                else mCodec.reset();
-                String log =
-                        String.format("format: %s \n codec: %s, mode: %s:: ", format, mCodecName,
-                                "sync");
-                assertFalse(log + " unexpected error", mAsyncHandle.hasSeenError());
-                assertTrue(log + "configured format and output format are not similar." +
-                                (ENABLE_LOGS ? "\n output format:" + outFormat : ""),
-                        isFormatSimilar(format, outFormat));
+                mCodec.reset();
 
-                // TODO (b/151398466)
-                if (mMime.equals(MediaFormat.MIMETYPE_AUDIO_AAC)) {
-                    Assume.assumeTrue("neither KEY_AAC_PROFILE nor KEY_PROFILE are present",
-                            outFormat.containsKey(MediaFormat.KEY_AAC_PROFILE) ||
-                                    outFormat.containsKey(MediaFormat.KEY_PROFILE));
-                } else {
-                    Assume.assumeTrue("KEY_PROFILE not present",
-                            outFormat.containsKey(MediaFormat.KEY_PROFILE));
-                }
-                Assume.assumeTrue(outFormat.containsKey(MediaFormat.KEY_LEVEL));
-                // TODO (b/166300446) avc mime fails validation
-                if (mMime.equals(MediaFormat.MIMETYPE_VIDEO_AVC)) {
-                    Log.w(LOG_TAG, "Skip validation after muxing for mime = " + mMime);
-                    continue;
-                }
-                // TODO (b/166305723) hevc mime fails validation
-                if (mMime.equals(MediaFormat.MIMETYPE_VIDEO_HEVC)) {
-                    Log.w(LOG_TAG, "Skip validation after muxing for mime = " + mMime);
-                    continue;
-                }
-                // TODO (b/166300448) h263 and mpeg4 mimes fails validation
-                if (mMime.equals(MediaFormat.MIMETYPE_VIDEO_H263) ||
-                            mMime.equals(MediaFormat.MIMETYPE_VIDEO_MPEG4)) {
-                    Log.w(LOG_TAG, "Skip validation after muxing for mime = " + mMime);
-                    continue;
-                }
-                // TODO (b/184889671) aac for profile AACObjectHE fails validation
-                // TODO (b/184890155) aac for profile AACObjectLD, AACObjectELD fails validation
-                if (mMime.equals(MediaFormat.MIMETYPE_AUDIO_AAC) &&
-                            profile != AACObjectLC) {
-                    Log.w(LOG_TAG, "Skip validation after muxing for mime = " + mMime +
-                            " profile " + profile);
-                    continue;
-                }
+                MediaFormat trackFormat = validateProfileAndLevel();
 
-                for (int muxerFormat = MediaMuxer.OutputFormat.MUXER_OUTPUT_FIRST;
-                     muxerFormat <= MediaMuxer.OutputFormat.MUXER_OUTPUT_LAST; muxerFormat++) {
-                    if (!MuxerTest.isCodecContainerPairValid(mMime, muxerFormat)) continue;
-                    ByteBuffer mBuff = mOutputBuff.getBuffer();
-                    mMuxer = new MediaMuxer(tempMuxedFile, muxerFormat);
-                    try {
-                        mMuxer.addTrack(outFormat);
-                        mMuxer.start();
-                        for (int i = 0; i < mInfoList.size(); i++) {
-                            mMuxer.writeSampleData(0, mBuff, mInfoList.get(i));
-                        }
-                        mMuxer.stop();
-                    } catch (Exception e) {
-                        fail(log + "error! failed write to muxer format " + muxerFormat);
-                    } finally {
-                        mMuxer.release();
-                        mMuxer = null;
-                    }
-                    MediaExtractor extractor = new MediaExtractor();
-                    extractor.setDataSource(tempMuxedFile);
-                    assertEquals("Should be only 1 track ", 1, extractor.getTrackCount());
-                    MediaFormat extractedFormat = extractor.getTrackFormat(0);
-                    assertTrue(log + "\nmuxer input config = " + outFormat +
-                                       "\ninput format and extracted format are not similar." +
-                                       "\nextracted format:" + extractedFormat +
-                                       "\ncontainer format = " + muxerFormat,
-                            isFormatSimilar(format, extractedFormat));
-                    extractor.release();
+                deleteMuxedFile();
+
+                // validate extracted format for mandatory keys
+                if (trackFormat != null) checkIfTrackFormatIsOk(trackFormat);
+
+                // Verify if device has an equivalent decoder for the current format
+                ArrayList<MediaFormat> formatList = new ArrayList<>();
+                if (mProfileLevel != null && mProfileLevel.second != -1
+                        && cfg.mLevel != mProfileLevel.second) {
+                    format.setInteger(MediaFormat.KEY_LEVEL, mProfileLevel.second);
                 }
+                formatList.add(format);
+                assertTrue("Device advertises support for encoding " + format + " but cannot"
+                                + " decode it. \n" + mTestConfig + mTestEnv,
+                        selectCodecs(mMediaType, formatList, null, false).size() > 0);
+                configsTested++;
             }
             mCodec.release();
+            Assume.assumeTrue("skipping test, formats not supported by component",
+                    configsTested > 0);
         }
-        new File(tempMuxedFile).delete();
     }
 }

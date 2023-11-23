@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS 的 CDMA 來電等候功能已關閉"</string>
     <string name="updating_title" msgid="6130548922615719689">"通話設定"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"只有管理員使用者可以變更通話設定。"</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"只有管理員或公司內部使用者可以變更手機帳戶設定。"</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"設定 (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"通話設定錯誤"</string>
     <string name="reading_settings" msgid="1605904432450871183">"正在讀取設定…"</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"無法保留通話。"</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"連上無線網路即可撥打電話。"</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"請啟用 Wi-Fi 通話功能以撥打電話。"</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"如要撥打電話，請停用衛星模式。"</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"緊急救援資訊"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"擁有者"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"再次輕觸即可查看資訊"</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"飛航模式已開啟"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"無法存取 SIM 卡"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"無法使用行動網路"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"衛星模式已開啟"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"你嘗試撥打的電話號碼有問題，錯誤代碼 1。"</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"無法完成通話，錯誤代碼 3。"</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"無法完成通話，錯誤代碼 6。"</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"取消"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"將可移除的 eSIM 卡設為預設 eSIM 卡"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"行動無線電電源"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"模擬無法使用服務的情況 (僅限偵錯版本)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"查看 SIM 通訊錄"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"查看固定撥號"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"查看服務撥號號碼"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"已連線"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"待命"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"不明"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"主要"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pkts"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"位元組"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"已傳送的數據："</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"留言待取："</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"電話號碼："</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"選取無線電頻帶"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"語音網路類型："</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"數據網路類型："</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"覆寫網路類型："</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"Voice 原始註冊狀態："</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"資料原始註冊狀態："</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"WLAN 資料原始註冊狀態："</string>
     <string name="phone_index_label" msgid="6222406512768964268">"選取電話索引"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"設定偏好的網路類型："</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"連線偵測 (ping) 主機名稱 (www.google.com) IPv4："</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"你的藍牙訊號微弱，建議你改用擴音模式。"</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"通話品質通知"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"不適用的 SIP 帳戶"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"無法透過個人應用程式傳送訊息"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"貴機構僅允許透過工作應用程式傳送訊息"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"取消"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"切換至工作資料夾"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"安裝工作訊息應用程式"</string>
 </resources>

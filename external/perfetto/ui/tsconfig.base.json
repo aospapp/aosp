@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "baseUrl": ".",
-    "target": "es6",
+    "target": "es2020",
     "module": "commonjs",
     "moduleResolution": "node",
     // Lints and checks.
@@ -23,5 +23,6 @@
     "noUnusedParameters": true,            // Report errors on unused parameters.
     "noImplicitReturns": true,             // Report error when not all code paths in function return a value.
     "noFallthroughCasesInSwitch": true,    // Report errors for fallthrough cases in switch statement.
+    "useUnknownInCatchVariables": false,   // Use any for excpetions. TODO(hjd): Remove and typecheck uses.
   }
 }

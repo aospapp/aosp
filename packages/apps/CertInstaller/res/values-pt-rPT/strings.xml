@@ -58,7 +58,7 @@
     <string name="cert_too_large_error" msgid="8715414972725646285">"Não foi possível instalar porque o tamanho do certificado é demasiado grande."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Não foi possível instalar, porque não foi possível localizar o ficheiro do certificado."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Não foi possível instalar, porque não foi possível ler o ficheiro do certificado."</string>
-    <string name="cert_temp_error" msgid="617276803992714550">"Falha temporária. Tente novamente mais tarde."</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"Falha temporária. Tente mais tarde."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Apenas o proprietário deste dispositivo pode instalar certificados."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Utilização de credenciais:"</string>
   <string-array name="credential_usage">

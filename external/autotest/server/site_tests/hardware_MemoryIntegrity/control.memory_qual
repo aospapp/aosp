@@ -8,6 +8,9 @@ PURPOSE = 'Check memory integrity after long idle/suspend'
 TIME = 'LENGTHY'
 TEST_CLASS = 'hardware'
 TEST_TYPE = 'server'
+ATTRIBUTES = "suite:memory_qual2"
+EXTENDED_TIMEOUT = 9000 # 2.5 hours
+PY_VERSION = 3
 
 DOC = """
 This test call hardware_StorageFio to write data once to the ramfs and

@@ -16,6 +16,30 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+genrule {
+  name: "statslog-sdksandbox-java-gen",
+  tools: ["stats-log-api-gen"],
+  cmd: "$(location stats-log-api-gen) --java $(out) --module sdksandbox" +
+       " --javaPackage com.android.sdksandbox.service.stats --javaClass SdkSandboxStatsLog" +
+       " --minApiLevel 33",
+  out: ["com/android/sdksandbox/service/stats/SdkSandboxStatsLog.java"],
+}
+
+java_library {
+    name: "sdksandbox-statsd",
+    sdk_version: "system_server_current",
+    min_sdk_version: "33",
+    srcs: [
+        ":statslog-sdksandbox-java-gen",
+    ],
+    libs: [
+        "framework-statsd.stubs.module_lib",
+    ],
+    apex_available: [
+        "com.android.adservices",
+    ],
+}
+
 filegroup {
     name: "service-sdksandbox-sources",
     srcs: [
@@ -28,33 +52,58 @@ filegroup {
 java_sdk_library {
     name: "service-sdksandbox",
     srcs: [
+        ":framework-sdksandbox-aidl-sources",
         ":service-sdksandbox-sources",
         ":sdksandbox_aidl",
     ],
+    aidl: {
+        // TODO(b/161393989): Enable when TRACE_TAG_AIDL is exposed to mainline modules
+        generate_traces: false
+    },
     sdk_version: "system_server_current",
-    min_sdk_version: "Tiramisu",
     permitted_packages: [
+        "android.app.sdksandbox",
         "com.android.sdksandbox",
         "com.android.server.sdksandbox",
     ],
+    jarjar_rules: "jarjar_rules.txt",
     libs: [
+         "androidx.annotation_annotation",
+        "framework-configinfrastructure",
+        "framework-adservices.impl",
         "framework-sdksandbox.impl",
+        "framework-statsd.stubs.module_lib",
         "jsr305",
+    ],
+    static_libs: [
+        "sdksandbox-statsd",
+        "modules-utils-build",
+        "modules-utils-backgroundthread",
+        "modules-utils-build",
+        "modules-utils-shell-command-handler",
     ],
     defaults: [
         "framework-system-server-module-defaults",
+        "framework-system-server-module-optimize-defaults",
         "sdksandbox-java-defaults",
     ],
     visibility: [
         "//packages/modules/AdServices:__subpackages__",
     ],
     impl_library_visibility: [
+        "//packages/modules/AdServices/adservices/service",
+        "//packages/modules/AdServices/adservices/tests/unittest/system-service",
         "//packages/modules/AdServices/sdksandbox/tests/unittest",
-        // TODO(222118402): remove once code is moved.
-        "//packages/modules/SupplementalProcess/tests/unittest",
+        "//packages/modules/AdServices/sdksandbox/tests/testutils",
         "//frameworks/base/services/tests/mockingservicestests",
         "//frameworks/base/services/tests/wmtests",
     ],
     installable: true,
     apex_available: ["com.android.adservices"],
+    jacoco: {
+        exclude_filter: [
+            "android.app.sdksandbox.**",
+            "com.android.sdksandbox.**",
+        ],
+    },
 }

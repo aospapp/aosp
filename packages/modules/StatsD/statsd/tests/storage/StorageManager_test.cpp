@@ -12,11 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "src/storage/StorageManager.h"
+
 #include <android-base/unique_fd.h>
+#include <android-modules-utils/sdk_level.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <stdio.h>
-#include "src/storage/StorageManager.h"
+
+#include "android-base/stringprintf.h"
+#include "stats_log_util.h"
+#include "tests/statsd_test_util.h"
+#include "utils/DbUtils.h"
 
 #ifdef __ANDROID__
 
@@ -25,6 +32,7 @@ namespace os {
 namespace statsd {
 
 using namespace testing;
+using android::modules::sdklevel::IsAtLeastU;
 using std::make_shared;
 using std::shared_ptr;
 using std::vector;
@@ -194,6 +202,120 @@ TEST(StorageManagerTest, AppendConfigReportTest4) {
     EXPECT_FALSE(fileExist(file2_history));
 
     clearLocalHistoryTestFiles();
+}
+
+TEST(StorageManagerTest, TrainInfoReadWrite32To64BitTest) {
+    InstallTrainInfo trainInfo;
+    trainInfo.trainVersionCode = 12345;
+    trainInfo.trainName = "This is a train name #)$(&&$";
+    trainInfo.status = 1;
+    const char* expIds = "test_ids";
+    trainInfo.experimentIds.assign(expIds, expIds + strlen(expIds));
+
+    // Write the train info. fork the code to always write in 32 bit.
+    StorageManager::deleteSuffixedFiles(TRAIN_INFO_DIR, trainInfo.trainName.c_str());
+    std::string fileName = base::StringPrintf("%s/%ld_%s", TRAIN_INFO_DIR, (long)getWallClockSec(),
+                                              trainInfo.trainName.c_str());
+
+    int fd = open(fileName.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR);
+    ASSERT_NE(fd, -1);
+
+    size_t result;
+    // Write the magic word
+    result = write(fd, &TRAIN_INFO_FILE_MAGIC, sizeof(TRAIN_INFO_FILE_MAGIC));
+    ASSERT_EQ(result, sizeof(TRAIN_INFO_FILE_MAGIC));
+
+    // Write the train version
+    const size_t trainVersionCodeByteCount = sizeof(trainInfo.trainVersionCode);
+    result = write(fd, &trainInfo.trainVersionCode, trainVersionCodeByteCount);
+    ASSERT_EQ(result, trainVersionCodeByteCount);
+
+    // Write # of bytes in trainName to file.
+    // NB: this is changed from size_t to int32_t for this test.
+    const int32_t trainNameSize = trainInfo.trainName.size();
+    const size_t trainNameSizeByteCount = sizeof(trainNameSize);
+    result = write(fd, (uint8_t*)&trainNameSize, trainNameSizeByteCount);
+    ASSERT_EQ(result, trainNameSizeByteCount);
+
+    // Write trainName to file
+    result = write(fd, trainInfo.trainName.c_str(), trainNameSize);
+    ASSERT_EQ(result, trainNameSize);
+
+    // Write status to file
+    const size_t statusByteCount = sizeof(trainInfo.status);
+    result = write(fd, (uint8_t*)&trainInfo.status, statusByteCount);
+    ASSERT_EQ(result, statusByteCount);
+
+    // Write experiment id count to file.
+    // NB: this is changed from size_t to int32_t for this test.
+    const int32_t experimentIdsCount = trainInfo.experimentIds.size();
+    const size_t experimentIdsCountByteCount = sizeof(experimentIdsCount);
+    result = write(fd, (uint8_t*)&experimentIdsCount, experimentIdsCountByteCount);
+    ASSERT_EQ(result, experimentIdsCountByteCount);
+
+    // Write experimentIds to file
+    for (size_t i = 0; i < experimentIdsCount; i++) {
+        const int64_t experimentId = trainInfo.experimentIds[i];
+        const size_t experimentIdByteCount = sizeof(experimentId);
+        result = write(fd, &experimentId, experimentIdByteCount);
+        ASSERT_EQ(result, experimentIdByteCount);
+    }
+
+    // Write bools to file
+    const size_t boolByteCount = sizeof(trainInfo.requiresStaging);
+    result = write(fd, (uint8_t*)&trainInfo.requiresStaging, boolByteCount);
+    ASSERT_EQ(result, boolByteCount);
+    result = write(fd, (uint8_t*)&trainInfo.rollbackEnabled, boolByteCount);
+    ASSERT_EQ(result, boolByteCount);
+    result = write(fd, (uint8_t*)&trainInfo.requiresLowLatencyMonitor, boolByteCount);
+    ASSERT_EQ(result, boolByteCount);
+    close(fd);
+
+    InstallTrainInfo trainInfoResult;
+    EXPECT_TRUE(StorageManager::readTrainInfo(trainInfo.trainName, trainInfoResult));
+
+    EXPECT_EQ(trainInfo.trainVersionCode, trainInfoResult.trainVersionCode);
+    ASSERT_EQ(trainInfo.trainName.size(), trainInfoResult.trainName.size());
+    EXPECT_EQ(trainInfo.trainName, trainInfoResult.trainName);
+    EXPECT_EQ(trainInfo.status, trainInfoResult.status);
+    ASSERT_EQ(trainInfo.experimentIds.size(), trainInfoResult.experimentIds.size());
+    EXPECT_EQ(trainInfo.experimentIds, trainInfoResult.experimentIds);
+}
+
+TEST(StorageManagerTest, DeleteUnmodifiedOldDbFiles) {
+    if (!IsAtLeastU()) {
+        GTEST_SKIP();
+    }
+    ConfigKey key(123, 12345);
+    unique_ptr<LogEvent> event = CreateRestrictedLogEvent(/*atomTag=*/10, /*timestampNs=*/1000);
+    dbutils::createTableIfNeeded(key, /*metricId=*/1, *event);
+    EXPECT_TRUE(StorageManager::hasFile(
+            base::StringPrintf("%s/%s", STATS_RESTRICTED_DATA_DIR, "123_12345.db").c_str()));
+
+    int64_t wallClockSec = getWallClockSec() + (StatsdStats::kMaxAgeSecond + 1);
+    StorageManager::enforceDbGuardrails(STATS_RESTRICTED_DATA_DIR, wallClockSec,
+                                        /*maxBytes=*/INT_MAX);
+
+    EXPECT_FALSE(StorageManager::hasFile(
+            base::StringPrintf("%s/%s", STATS_RESTRICTED_DATA_DIR, "123_12345.db").c_str()));
+}
+
+TEST(StorageManagerTest, DeleteLargeDbFiles) {
+    if (!IsAtLeastU()) {
+        GTEST_SKIP();
+    }
+    ConfigKey key(123, 12345);
+    unique_ptr<LogEvent> event = CreateRestrictedLogEvent(/*atomTag=*/10, /*timestampNs=*/1000);
+    dbutils::createTableIfNeeded(key, /*metricId=*/1, *event);
+    EXPECT_TRUE(StorageManager::hasFile(
+            base::StringPrintf("%s/%s", STATS_RESTRICTED_DATA_DIR, "123_12345.db").c_str()));
+
+    StorageManager::enforceDbGuardrails(STATS_RESTRICTED_DATA_DIR,
+                                        /*wallClockSec=*/getWallClockSec(),
+                                        /*maxBytes=*/0);
+
+    EXPECT_FALSE(StorageManager::hasFile(
+            base::StringPrintf("%s/%s", STATS_RESTRICTED_DATA_DIR, "123_12345.db").c_str()));
 }
 
 }  // namespace statsd

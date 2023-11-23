@@ -45,14 +45,13 @@ public class TestCrossProfileTypeWhichNeedsContext {
         ProfileTestCrossProfileType.create(ConnectorSingleton.getConnector(context));
   }
 
-  @CrossProfile // Timeout is not specified on type or method so will be default
-  public ListenableFuture<Void> listenableFutureMethodWhichNeverSetsTheValueWithDefaultTimeout() {
+  @CrossProfile
+  public ListenableFuture<Void> listenableFutureMethodWhichNeverSetsTheValue() {
     return SettableFuture.create();
   }
 
-  @CrossProfile // Timeout is not specified on type or method so will be default
-  public void asyncMethodWhichNeverCallsBackWithDefaultTimeout(
-      TestStringCallbackListener callback) {}
+  @CrossProfile
+  public void asyncMethodWhichNeverCallsBack(TestStringCallbackListener callback) {}
 
   @CrossProfile
   public void voidMethod() {
@@ -63,7 +62,11 @@ public class TestCrossProfileTypeWhichNeedsContext {
   public void connectToOtherProfile() {
     // This, when called cross-profile, causes the other profile to create a connection back to the
     // original profile
-    ConnectorSingleton.getConnector(context).startConnecting();
+    try {
+      ConnectorSingleton.getConnector(context).connect(this);
+    } catch (UnavailableProfileException e) {
+      throw new IllegalStateException("Error connecting", e);
+    }
   }
 
   @CrossProfile

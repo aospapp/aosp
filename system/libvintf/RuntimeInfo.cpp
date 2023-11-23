@@ -20,6 +20,7 @@
 #include "RuntimeInfo.h"
 
 #include <android-base/logging.h>
+#include <android-base/strings.h>
 #include <kver/kernel_release.h>
 
 #include "CompatibilityMatrix.h"
@@ -194,6 +195,14 @@ Level RuntimeInfo::gkiAndroidReleaseToLevel(uint64_t androidRelease) {
         << "Convert Android " << androidRelease << " to level '" << ret
         << "' goes out of bounds. Fix by adding a new Level enum.";
     return ret;
+}
+
+bool RuntimeInfo::kernelReleaseIsMainline(std::string_view kernelRelease) {
+    static constexpr char kMainline[] = "-mainline-";
+    static constexpr char kMainlineSuffix[] = "-mainline";
+
+    return kernelRelease.find(kMainline) != std::string::npos ||
+           android::base::EndsWith(kernelRelease, kMainlineSuffix);
 }
 
 } // namespace vintf

@@ -17,9 +17,30 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="1647136562008520313">"Hintergrund &amp; Stil"</string>
+    <string name="app_name" msgid="1647136562008520313">"Hintergrund und Stil"</string>
     <string name="theme_title" msgid="2144932106319405101">"Design"</string>
-    <string name="clock_title" msgid="2126046720254613991">"Uhr"</string>
+    <string name="clock_title" msgid="1974314575211361352">"Benutzerdefinierte Uhr"</string>
+    <string name="clock_description" msgid="3563839327378948">"Benutzerdefinierte Uhr wählen"</string>
+    <string name="clock_picker_entry_content_description" msgid="8377139273468595734">"Benutzerdefinierte Uhr ändern"</string>
+    <string name="select_clock_action_description" msgid="5025888763471843648">"Zifferblatt-Option <xliff:g id="ID_1">%1$s</xliff:g>"</string>
+    <string name="clock_settings_title" msgid="2050906379377120431">"Uhr-Farbe &amp; -Größe"</string>
+    <string name="clock_color_and_size_title" msgid="7146791234905111351">"Uhr-Farbe &amp; -Größe"</string>
+    <string name="clock_color_and_size_description" msgid="6578061553012886817">"<xliff:g id="ID_1">%1$s</xliff:g>, <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="clock_color" msgid="8081608867289156163">"Farbe"</string>
+    <string name="clock_color_red" msgid="3843504214807597810">"Rot"</string>
+    <string name="clock_color_orange" msgid="4175805201144275804">"Orange"</string>
+    <string name="clock_color_yellow" msgid="7391699163247349977">"Gelb"</string>
+    <string name="clock_color_green" msgid="1991157556500156596">"Grün"</string>
+    <string name="clock_color_blue" msgid="4037792003465759149">"Blau"</string>
+    <string name="clock_color_indigo" msgid="8910855386698452917">"Indigo"</string>
+    <string name="clock_color_violet" msgid="3454503847169375826">"Violett"</string>
+    <string name="clock_color_gray" msgid="9221530636948859231">"Grau"</string>
+    <string name="clock_color_teal" msgid="7499223425741344251">"Blaugrün"</string>
+    <string name="clock_size" msgid="5028923902364418263">"Größe"</string>
+    <string name="clock_size_dynamic" msgid="1023930312455061642">"Dynamisch"</string>
+    <string name="clock_size_dynamic_description" msgid="2776620745774561662">"Die Größe der Uhr ändert sich je nach Inhalt auf dem Sperrbildschirm"</string>
+    <string name="clock_size_large" msgid="3143248715744138979">"Groß"</string>
+    <string name="clock_size_small" msgid="2280449912094164133">"Klein"</string>
     <string name="grid_title" msgid="1688173478777254123">"App-Raster"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"Anwenden"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Zum Bearbeiten tippen"</string>
@@ -85,8 +106,34 @@
     <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"App-Raster ändern"</string>
     <string name="wallpaper_color_tab" msgid="1447926591721403840">"Hintergrundfarben"</string>
+    <string name="wallpaper_color_subheader" msgid="4044464573669965670">"Symbole, Texte und mehr passen farblich zum Hintergrund"</string>
     <string name="wallpaper_color_title" msgid="5687965239180986458">"Hintergrundfarbe"</string>
     <string name="preset_color_tab" msgid="3133391839341329314">"Standardfarben"</string>
+    <string name="preset_color_tab_2" msgid="1444107326712562538">"Andere Farben"</string>
+    <string name="preset_color_subheader" msgid="8230588536141279371">"Beliebige Farbe für Symbole, Uhr und mehr auswählen"</string>
     <string name="color_changed" msgid="7029571720331641235">"Farbe geändert"</string>
     <string name="adaptive_color_title" msgid="1336508599235896205">"Dynamisch"</string>
+    <string name="color_picker_title" msgid="6666830057938082864">"Systemfarben"</string>
+    <string name="keyguard_slot_name_bottom_start" msgid="8747677880200629719">"Linke Verknüpf."</string>
+    <string name="keyguard_slot_name_bottom_end" msgid="2525487375680217083">"Rechte Verknüpf."</string>
+    <string name="keyguard_affordance_none" msgid="1751643933430782312">"Keine"</string>
+    <string name="keyguard_affordance_enablement_dialog_headline" msgid="365379085932610314">"Verknüpfung kann nicht hinzugefügt werden"</string>
+    <string name="keyguard_affordance_enablement_dialog_action_template" msgid="8117011931337357438">"<xliff:g id="APPNAME">%1$s</xliff:g> öffnen"</string>
+    <string name="keyguard_affordance_enablement_dialog_message" msgid="6136286758939253570">"Wenn du die <xliff:g id="APPNAME">%1$s</xliff:g> App als eine Verknüpfung hinzufügen möchtest, müssen folgende Bedingungen erfüllt sein"</string>
+    <string name="keyguard_affordance_enablement_dialog_dismiss_button" msgid="629754625264422508">"Fertig"</string>
+    <string name="keyguard_quick_affordance_title" msgid="4242813186995735584">"Verknüpfungen"</string>
+    <string name="keyguard_quick_affordance_section_title" msgid="2806304242671717309">"Verknüpfungen"</string>
+    <string name="keyguard_quick_affordance_two_selected_template" msgid="1757099194522296363">"<xliff:g id="FIRST">%1$s</xliff:g>, <xliff:g id="SECOND">%2$s</xliff:g>"</string>
+    <string name="keyguard_quick_affordance_none_selected" msgid="8494127020144112003">"Keine"</string>
+    <string name="show_notifications_on_lock_screen" msgid="4157744243084646720">"Benachrichtigungen auf dem Sperrbildschirm einblenden"</string>
+    <string name="hide_notifications_on_lock_screen" msgid="7413548956484779174">"Benachrichtigungen auf dem Sperrbildschirm ausblenden"</string>
+    <string name="more_settings_section_title" msgid="1331425454775815958">"Weitere Sperrbildschirmoptionen"</string>
+    <string name="more_settings_section_description" msgid="1860115709122398325">"Datenschutz, Now Playing und mehr"</string>
+    <string name="more_colors" msgid="3191071655353004591">"Weitere Farben"</string>
+    <string name="content_description_dynamic_color_option" msgid="2191721655642529886">"Primäres dynamisches Design"</string>
+    <string name="content_description_neutral_color_option" msgid="3385443834001275301">"Primäres neutrales Design"</string>
+    <string name="content_description_vibrant_color_option" msgid="2230249305878632821">"Primäres lebhaftes Design"</string>
+    <string name="content_description_expressive_color_option" msgid="6081295313456341282">"Primäres ausdrucksstarkes Design"</string>
+    <string name="content_description_default_color_option" msgid="7011899327541080695">"Standardfarboption"</string>
+    <string name="content_description_color_option" msgid="4169813692012119578">"Farboption <xliff:g id="ID_1">%1$d</xliff:g>"</string>
 </resources>

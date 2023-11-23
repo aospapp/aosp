@@ -22,6 +22,7 @@
 
 #define EXT_DYNAMIC_RANGE 11
 
+#define EXT_SAC_DATA 12
 #define SBR_EXTENSION 13
 #define SBR_EXTENSION_CRC 14
 
@@ -48,6 +49,14 @@ typedef struct {
   WORD32 extension_type;
   WORD32 size_payload;
   WORD8 *ptr_sbr_data;
+  WORD8 *ptr_prev_sbr_data;
+  WORD32 prev_size_payload;
+  WORD32 frame_error_flag[2];
+  WORD32 use_frame_slot;
+  WORD32 prev_sbr_ele_id;
+  WORD32 prev_extension_type;
+  WORD32 size_payload_old;
+  WORD8 sbr_prev_data[MAXSBRBYTES];
 } ia_sbr_element_stream_struct;
 
 typedef struct {
@@ -65,12 +74,18 @@ typedef struct {
 } ia_sbr_scr_struct;
 
 IA_ERRORCODE ixheaacd_applysbr(
-    ia_handle_sbr_dec_inst_struct self,
-    ia_aac_dec_sbr_bitstream_struct *p_sbr_bit_stream, WORD16 *core_sample_buf,
-    WORD16 *codec_num_channels, FLAG frame_status, FLAG down_samp_flag,
-    FLAG down_mix_flag, ia_sbr_scr_struct *sbr_scratch_struct, WORD32 ps_enable,
-    WORD32 ch_fac, WORD32 slot_element, ia_bit_buf_struct *it_bit_buff,
-    ia_drc_dec_struct *pstr_drc_dec, WORD eld_sbr_flag, WORD audio_object_type);
+    ia_handle_sbr_dec_inst_struct self, ia_aac_dec_sbr_bitstream_struct *p_sbr_bit_stream,
+    WORD16 *core_sample_buf, WORD16 *codec_num_channels, FLAG frame_status, FLAG down_samp_flag,
+    FLAG down_mix_flag, ia_sbr_scr_struct *sbr_scratch_struct, WORD32 ps_enable, WORD32 ch_fac,
+    WORD32 slot_element, ia_bit_buf_struct *it_bit_buff, ia_drc_dec_struct *pstr_drc_dec,
+    WORD eld_sbr_flag, WORD audio_object_type, WORD32 init_flag, WORD32 ldmps_present,
+    WORD32 frame_size, WORD32 heaac_mps_present, WORD32 ec_flag, FLAG first_frame);
+
+IA_ERRORCODE ixheaacd_parse_sbr(ia_handle_sbr_dec_inst_struct self,
+                                ia_aac_dec_sbr_bitstream_struct *p_sbr_bit_stream,
+                                WORD16 *codec_num_channels, FLAG frame_status,
+                                ia_sbr_scr_struct *sbr_scratch_struct,
+                                ia_bit_buf_struct *it_bit_buff, WORD32 audio_object_type);
 
 WORD32 ixheaacd_getsize_sbr_persistent();
 
@@ -78,4 +93,4 @@ VOID ixheaacd_set_sbr_persistent_buffers(VOID *aac_persistent_mem_v,
                                          WORD32 *persistent_used,
                                          WORD32 channels, WORD32 ps_enable);
 
-#endif
+#endif /* IXHEAACD_SBRDECODER_H */

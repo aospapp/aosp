@@ -14,19 +14,21 @@
 
 #include "icing/schema/schema-util.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <queue>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "icing/text_classifier/lib3/utils/base/status.h"
 #include "icing/absl_ports/annotate.h"
 #include "icing/absl_ports/canonical_errors.h"
 #include "icing/absl_ports/str_cat.h"
 #include "icing/absl_ports/str_join.h"
-#include "icing/legacy/core/icing-string-util.h"
 #include "icing/proto/schema.pb.h"
 #include "icing/proto/term.pb.h"
 #include "icing/util/logging.h"
@@ -107,148 +109,340 @@ bool IsTermMatchTypeCompatible(const StringIndexingConfig& old_indexed,
          old_indexed.tokenizer_type() == new_indexed.tokenizer_type();
 }
 
+bool IsIntegerNumericMatchTypeCompatible(
+    const IntegerIndexingConfig& old_indexed,
+    const IntegerIndexingConfig& new_indexed) {
+  return old_indexed.numeric_match_type() == new_indexed.numeric_match_type();
+}
+
 void AddIncompatibleChangeToDelta(
     std::unordered_set<std::string>& incompatible_delta,
     const SchemaTypeConfigProto& old_type_config,
-    const SchemaUtil::DependencyMap& new_schema_dependency_map,
+    const SchemaUtil::DependentMap& new_schema_dependent_map,
     const SchemaUtil::TypeConfigMap& old_type_config_map,
     const SchemaUtil::TypeConfigMap& new_type_config_map) {
   // If this type is incompatible, then every type that depends on it might
-  // also be incompatible. Use the dependency map to mark those ones as
+  // also be incompatible. Use the dependent map to mark those ones as
   // incompatible too.
   incompatible_delta.insert(old_type_config.schema_type());
-  auto parent_types_itr =
-      new_schema_dependency_map.find(old_type_config.schema_type());
-  if (parent_types_itr != new_schema_dependency_map.end()) {
-    for (std::string_view parent_type : parent_types_itr->second) {
+  auto dependent_types_itr =
+      new_schema_dependent_map.find(old_type_config.schema_type());
+  if (dependent_types_itr != new_schema_dependent_map.end()) {
+    for (const auto& [dependent_type, _] : dependent_types_itr->second) {
       // The types from new_schema that depend on the current
       // old_type_config may not present in old_schema.
       // Those types will be listed at schema_delta.schema_types_new
       // instead.
-      std::string parent_type_str(parent_type);
-      if (old_type_config_map.find(parent_type_str) !=
+      std::string dependent_type_str(dependent_type);
+      if (old_type_config_map.find(dependent_type_str) !=
           old_type_config_map.end()) {
-        incompatible_delta.insert(std::move(parent_type_str));
+        incompatible_delta.insert(std::move(dependent_type_str));
       }
     }
   }
 }
 
+// Returns if C1 <= C2 based on the following rule, where C1 and C2 are
+// cardinalities that can be one of REPEATED, OPTIONAL, or REQUIRED.
+//
+// Rule: REQUIRED < OPTIONAL < REPEATED
+bool CardinalityLessThanEq(PropertyConfigProto::Cardinality::Code C1,
+                           PropertyConfigProto::Cardinality::Code C2) {
+  if (C1 == C2) {
+    return true;
+  }
+  if (C1 == PropertyConfigProto::Cardinality::REQUIRED) {
+    return C2 == PropertyConfigProto::Cardinality::OPTIONAL ||
+           C2 == PropertyConfigProto::Cardinality::REPEATED;
+  }
+  if (C1 == PropertyConfigProto::Cardinality::OPTIONAL) {
+    return C2 == PropertyConfigProto::Cardinality::REPEATED;
+  }
+  return false;
+}
+
 }  // namespace
 
-libtextclassifier3::Status ExpandTranstiveDependencies(
-    const SchemaUtil::DependencyMap& child_to_direct_parent_map,
-    std::string_view type,
-    SchemaUtil::DependencyMap* expanded_child_to_parent_map,
-    std::unordered_set<std::string_view>* pending_expansions,
-    std::unordered_set<std::string_view>* orphaned_types) {
-  auto expanded_itr = expanded_child_to_parent_map->find(type);
-  if (expanded_itr != expanded_child_to_parent_map->end()) {
-    // We've already expanded this type. Just return.
+libtextclassifier3::Status CalculateTransitiveNestedTypeRelations(
+    const SchemaUtil::DependentMap& direct_nested_types_map,
+    const std::unordered_set<std::string_view>& joinable_types,
+    std::string_view type, bool path_contains_joinable_property,
+    SchemaUtil::DependentMap* expanded_nested_types_map,
+    std::unordered_map<std::string_view, bool>&&
+        pending_expansion_paths_indexable,
+    std::unordered_set<std::string_view>* sink_types) {
+  // TODO(b/280698121): Implement optimizations to this code to avoid reentering
+  // a node after it's already been expanded.
+
+  auto itr = direct_nested_types_map.find(type);
+  if (itr == direct_nested_types_map.end()) {
+    // It's a sink node. Just return.
+    sink_types->insert(type);
     return libtextclassifier3::Status::OK;
   }
-  auto itr = child_to_direct_parent_map.find(type);
-  if (itr == child_to_direct_parent_map.end()) {
-    // It's an orphan. Just return.
-    orphaned_types->insert(type);
-    return libtextclassifier3::Status::OK;
-  }
-  pending_expansions->insert(type);
-  std::unordered_set<std::string_view> expanded_dependencies;
+  std::unordered_map<std::string_view, std::vector<const PropertyConfigProto*>>
+      expanded_relations;
 
-  // Add all of the direct parent dependencies.
-  expanded_dependencies.reserve(itr->second.size());
-  expanded_dependencies.insert(itr->second.begin(), itr->second.end());
+  // Add all of the adjacent outgoing relations.
+  expanded_relations.reserve(itr->second.size());
+  expanded_relations.insert(itr->second.begin(), itr->second.end());
 
-  // Iterate through each direct parent and add their indirect parents.
-  for (std::string_view dep : itr->second) {
-    // 1. Check if we're in the middle of expanding this type - IOW there's a
-    // cycle!
-    if (pending_expansions->count(dep) > 0) {
-      return absl_ports::InvalidArgumentError(
-          absl_ports::StrCat("Infinite loop detected in type configs. '", type,
-                             "' references itself."));
+  // Iterate through each adjacent outgoing relation and add their indirect
+  // outgoing relations.
+  for (const auto& [adjacent_type, adjacent_property_protos] : itr->second) {
+    // Make a copy of pending_expansion_paths_indexable for every iteration.
+    std::unordered_map<std::string_view, bool> pending_expansion_paths_copy(
+        pending_expansion_paths_indexable);
+
+    // 1. Check the nested indexable config of the edge (type -> adjacent_type),
+    //    and the joinable config of the current path up to adjacent_type.
+    //
+    // The nested indexable config is true if any of the PropertyConfigProtos
+    // representing the connecting edge has index_nested_properties=true.
+    bool is_edge_nested_indexable = std::any_of(
+        adjacent_property_protos.begin(), adjacent_property_protos.end(),
+        [](const PropertyConfigProto* property_config) {
+          return property_config->document_indexing_config()
+              .index_nested_properties();
+        });
+    // TODO(b/265304217): change this once we add joinable_properties_list.
+    // Check if addition of the new edge (type->adjacent_type) makes the path
+    // joinable.
+    bool new_path_contains_joinable_property =
+        joinable_types.count(type) > 0 || path_contains_joinable_property;
+    // Set is_nested_indexable field for the current edge
+    pending_expansion_paths_copy[type] = is_edge_nested_indexable;
+
+    // If is_edge_nested_indexable=false, then all paths to adjacent_type
+    // currently in the pending_expansions map are also not nested indexable.
+    if (!is_edge_nested_indexable) {
+      for (auto& pending_expansion : pending_expansion_paths_copy) {
+        pending_expansion.second = false;
+      }
     }
 
-    // 2. Expand this type as needed.
-    ICING_RETURN_IF_ERROR(ExpandTranstiveDependencies(
-        child_to_direct_parent_map, dep, expanded_child_to_parent_map,
-        pending_expansions, orphaned_types));
-    if (orphaned_types->count(dep) > 0) {
-      // Dep is an orphan. Just skip to the next dep.
+    // 2. Check if we're in the middle of expanding this type - IOW
+    // there's a cycle!
+    //
+    // This cycle is not allowed if either:
+    //  1. The cycle starting at adjacent_type is nested indexable, OR
+    //  2. The current path contains a joinable property.
+    auto adjacent_itr = pending_expansion_paths_copy.find(adjacent_type);
+    if (adjacent_itr != pending_expansion_paths_copy.end()) {
+      if (adjacent_itr->second || new_path_contains_joinable_property) {
+        return absl_ports::InvalidArgumentError(absl_ports::StrCat(
+            "Invalid cycle detected in type configs. '", type,
+            "' references itself and is nested-indexable or nested-joinable."));
+      }
+      // The cycle is allowed and there's no need to keep iterating the loop.
+      // Move on to the next adjacent value.
       continue;
     }
 
-    // 3. Dep has been fully expanded. Add all of its dependencies to this
-    // type's dependencies.
-    auto dep_expanded_itr = expanded_child_to_parent_map->find(dep);
-    expanded_dependencies.reserve(expanded_dependencies.size() +
-                                  dep_expanded_itr->second.size());
-    expanded_dependencies.insert(dep_expanded_itr->second.begin(),
-                                 dep_expanded_itr->second.end());
+    // 3. Expand this type as needed.
+    ICING_RETURN_IF_ERROR(CalculateTransitiveNestedTypeRelations(
+        direct_nested_types_map, joinable_types, adjacent_type,
+        new_path_contains_joinable_property, expanded_nested_types_map,
+        std::move(pending_expansion_paths_copy), sink_types));
+    if (sink_types->count(adjacent_type) > 0) {
+      // "adjacent" is a sink node. Just skip to the next.
+      continue;
+    }
+
+    // 4. "adjacent" has been fully expanded. Add all of its transitive
+    // outgoing relations to this type's transitive outgoing relations.
+    auto adjacent_expanded_itr = expanded_nested_types_map->find(adjacent_type);
+    expanded_relations.reserve(expanded_relations.size() +
+                               adjacent_expanded_itr->second.size());
+    for (const auto& [transitive_reachable, _] :
+         adjacent_expanded_itr->second) {
+      // Insert a transitive reachable node `transitive_reachable` for `type` if
+      // it wasn't previously reachable.
+      // Since there is no direct edge between `type` and `transitive_reachable`
+      // we insert an empty vector into the dependent map.
+      expanded_relations.insert({transitive_reachable, {}});
+    }
   }
-  expanded_child_to_parent_map->insert(
-      {type, std::move(expanded_dependencies)});
+  for (const auto& kvp : expanded_relations) {
+    expanded_nested_types_map->operator[](type).insert(kvp);
+  }
+  return libtextclassifier3::Status::OK;
+}
+
+template <typename T>
+libtextclassifier3::Status CalculateAcyclicTransitiveRelations(
+    const SchemaUtil::TypeRelationMap<T>& direct_relation_map,
+    std::string_view type,
+    SchemaUtil::TypeRelationMap<T>* expanded_relation_map,
+    std::unordered_set<std::string_view>* pending_expansions,
+    std::unordered_set<std::string_view>* sink_types) {
+  auto expanded_itr = expanded_relation_map->find(type);
+  if (expanded_itr != expanded_relation_map->end()) {
+    // We've already expanded this type. Just return.
+    return libtextclassifier3::Status::OK;
+  }
+  auto itr = direct_relation_map.find(type);
+  if (itr == direct_relation_map.end()) {
+    // It's a sink node. Just return.
+    sink_types->insert(type);
+    return libtextclassifier3::Status::OK;
+  }
+  pending_expansions->insert(type);
+  std::unordered_map<std::string_view, T> expanded_relations;
+
+  // Add all of the adjacent outgoing relations.
+  expanded_relations.reserve(itr->second.size());
+  expanded_relations.insert(itr->second.begin(), itr->second.end());
+
+  // Iterate through each adjacent outgoing relation and add their indirect
+  // outgoing relations.
+  for (const auto& [adjacent, _] : itr->second) {
+    // 1. Check if we're in the middle of expanding this type - IOW there's a
+    // cycle!
+    if (pending_expansions->count(adjacent) > 0) {
+      return absl_ports::InvalidArgumentError(
+          absl_ports::StrCat("Invalid cycle detected in type configs. '", type,
+                             "' references or inherits from itself."));
+    }
+
+    // 2. Expand this type as needed.
+    ICING_RETURN_IF_ERROR(CalculateAcyclicTransitiveRelations(
+        direct_relation_map, adjacent, expanded_relation_map,
+        pending_expansions, sink_types));
+    if (sink_types->count(adjacent) > 0) {
+      // "adjacent" is a sink node. Just skip to the next.
+      continue;
+    }
+
+    // 3. "adjacent" has been fully expanded. Add all of its transitive outgoing
+    // relations to this type's transitive outgoing relations.
+    auto adjacent_expanded_itr = expanded_relation_map->find(adjacent);
+    expanded_relations.reserve(expanded_relations.size() +
+                               adjacent_expanded_itr->second.size());
+    for (const auto& [transitive_reachable, _] :
+         adjacent_expanded_itr->second) {
+      // Insert a transitive reachable node `transitive_reachable` for `type`.
+      // Also since there is no direct edge between `type` and
+      // `transitive_reachable`, the direct edge is initialized by default.
+      expanded_relations.insert({transitive_reachable, T()});
+    }
+  }
+  expanded_relation_map->insert({type, std::move(expanded_relations)});
   pending_expansions->erase(type);
   return libtextclassifier3::Status::OK;
 }
 
-// Expands the dependencies represented by the child_to_direct_parent_map to
-// also include indirect parents.
+// Calculate and return the expanded nested-type map from
+// direct_nested_type_map. This expands the direct_nested_type_map to also
+// include indirect nested-type relations.
 //
-// Ex. Suppose we have a schema with four types A, B, C, D. A has a property of
-// type B and B has a property of type C. C and D only have non-document
-// properties.
+// Ex. Suppose we have the following relations in direct_nested_type_map.
 //
-// The child to direct parent dependency map for this schema would be:
-// C -> B
-// B -> A
+// C -> B (Schema type B has a document property of type C)
+// B -> A (Schema type A has a document property of type B)
 //
-// This function would expand it so that A is also present as an indirect parent
-// of C.
-libtextclassifier3::StatusOr<SchemaUtil::DependencyMap>
-ExpandTranstiveDependencies(
-    const SchemaUtil::DependencyMap& child_to_direct_parent_map) {
-  SchemaUtil::DependencyMap expanded_child_to_parent_map;
+// Then, this function would expand the map by adding C -> A to the map.
+libtextclassifier3::StatusOr<SchemaUtil::DependentMap>
+CalculateTransitiveNestedTypeRelations(
+    const SchemaUtil::DependentMap& direct_nested_type_map,
+    const std::unordered_set<std::string_view>& joinable_types,
+    bool allow_circular_schema_definitions) {
+  SchemaUtil::DependentMap expanded_nested_type_map;
+  // Types that have no outgoing relations.
+  std::unordered_set<std::string_view> sink_types;
+
+  if (allow_circular_schema_definitions) {
+    // Map of nodes that are pending expansion -> whether the path from each key
+    // node to the 'current' node is nested_indexable.
+    // A copy of this map is made for each new node that we expand.
+    std::unordered_map<std::string_view, bool>
+        pending_expansion_paths_indexable;
+    for (const auto& kvp : direct_nested_type_map) {
+      ICING_RETURN_IF_ERROR(CalculateTransitiveNestedTypeRelations(
+          direct_nested_type_map, joinable_types, kvp.first,
+          /*path_contains_joinable_property=*/false, &expanded_nested_type_map,
+          std::unordered_map<std::string_view, bool>(
+              pending_expansion_paths_indexable),
+          &sink_types));
+    }
+  } else {
+    // If allow_circular_schema_definitions is false, then fallback to the old
+    // way of detecting cycles.
+    // Types that we are expanding.
+    std::unordered_set<std::string_view> pending_expansions;
+    for (const auto& kvp : direct_nested_type_map) {
+      ICING_RETURN_IF_ERROR(CalculateAcyclicTransitiveRelations(
+          direct_nested_type_map, kvp.first, &expanded_nested_type_map,
+          &pending_expansions, &sink_types));
+    }
+  }
+  return expanded_nested_type_map;
+}
+
+// Calculate and return the expanded inheritance map from
+// direct_nested_type_map. This expands the direct_inheritance_map to also
+// include indirect inheritance relations.
+//
+// Ex. Suppose we have the following relations in direct_inheritance_map.
+//
+// C -> B (Schema type C is B's parent_type )
+// B -> A (Schema type B is A's parent_type)
+//
+// Then, this function would expand the map by adding C -> A to the map.
+libtextclassifier3::StatusOr<SchemaUtil::InheritanceMap>
+CalculateTransitiveInheritanceRelations(
+    const SchemaUtil::InheritanceMap& direct_inheritance_map) {
+  SchemaUtil::InheritanceMap expanded_inheritance_map;
 
   // Types that we are expanding.
   std::unordered_set<std::string_view> pending_expansions;
 
-  // Types that have no parents that depend on them.
-  std::unordered_set<std::string_view> orphaned_types;
-  for (const auto& kvp : child_to_direct_parent_map) {
-    ICING_RETURN_IF_ERROR(ExpandTranstiveDependencies(
-        child_to_direct_parent_map, kvp.first, &expanded_child_to_parent_map,
-        &pending_expansions, &orphaned_types));
+  // Types that have no outgoing relation.
+  std::unordered_set<std::string_view> sink_types;
+  for (const auto& kvp : direct_inheritance_map) {
+    ICING_RETURN_IF_ERROR(CalculateAcyclicTransitiveRelations(
+        direct_inheritance_map, kvp.first, &expanded_inheritance_map,
+        &pending_expansions, &sink_types));
   }
-  return expanded_child_to_parent_map;
+  return expanded_inheritance_map;
 }
 
-// Builds a transitive child-parent dependency map. 'Orphaned' types (types with
-// no parents) will not be present in the map.
+// Builds a transitive dependent map. Types with no dependents will not be
+// present in the map as keys.
 //
 // Ex. Suppose we have a schema with four types A, B, C, D. A has a property of
 // type B and B has a property of type C. C and D only have non-document
 // properties.
 //
-// The transitive child-parent dependency map for this schema would be:
-// C -> A, B
-// B -> A
+// The transitive dependent map for this schema would be:
+// C -> A, B (both A and B depend on C)
+// B -> A (A depends on B)
 //
-// A and D would be considered orphaned properties because no type refers to
+// A and D will not be present in the map as keys because no type depends on
 // them.
 //
 // RETURNS:
-//   On success, a transitive child-parent dependency map of all types in the
-//   schema.
+//   On success, a transitive dependent map of all types in the schema.
 //   INVALID_ARGUMENT if the schema contains a cycle or an undefined type.
 //   ALREADY_EXISTS if a schema type is specified more than once in the schema
-libtextclassifier3::StatusOr<SchemaUtil::DependencyMap>
-BuildTransitiveDependencyGraph(const SchemaProto& schema) {
-  // Child to parent map.
-  SchemaUtil::DependencyMap child_to_direct_parent_map;
+libtextclassifier3::StatusOr<SchemaUtil::DependentMap>
+BuildTransitiveDependentGraph(const SchemaProto& schema,
+                              bool allow_circular_schema_definitions) {
+  // We expand the nested-type dependent map and inheritance map differently
+  // when calculating transitive relations. These two types of relations also
+  // should not be transitive so we keep these as separate maps.
+  //
+  // e.g. For schema type A, B and C, B depends on A through inheritance, and
+  // C depends on B by having a property with type B, we will have the two
+  // relations {A, B} and {B, C} in the dependent map, but will not have {A, C}
+  // in the map.
+  SchemaUtil::DependentMap direct_nested_type_map;
+  SchemaUtil::InheritanceMap direct_inheritance_map;
 
-  // Add all first-order dependencies.
+  // Set of schema types that have at least one joinable property.
+  std::unordered_set<std::string_view> joinable_types;
+
+  // Add all first-order dependents.
   std::unordered_set<std::string_view> known_types;
   std::unordered_set<std::string_view> unknown_types;
   for (const auto& type_config : schema.types()) {
@@ -259,27 +453,29 @@ BuildTransitiveDependencyGraph(const SchemaProto& schema) {
     }
     known_types.insert(schema_type);
     unknown_types.erase(schema_type);
+    // Insert inheritance relations into the inheritance map.
+    for (std::string_view parent_schema_type : type_config.parent_types()) {
+      if (known_types.count(parent_schema_type) == 0) {
+        unknown_types.insert(parent_schema_type);
+      }
+      direct_inheritance_map[parent_schema_type][schema_type] = true;
+    }
     for (const auto& property_config : type_config.properties()) {
+      if (property_config.joinable_config().value_type() !=
+          JoinableConfig::ValueType::NONE) {
+        joinable_types.insert(schema_type);
+      }
+      // Insert nested-type relations into the nested-type map.
       if (property_config.data_type() ==
           PropertyConfigProto::DataType::DOCUMENT) {
         // Need to know what schema_type these Document properties should be
         // validated against
         std::string_view property_schema_type(property_config.schema_type());
-        if (property_schema_type == schema_type) {
-          return absl_ports::InvalidArgumentError(
-              absl_ports::StrCat("Infinite loop detected in type configs. '",
-                                 schema_type, "' references itself."));
-        }
         if (known_types.count(property_schema_type) == 0) {
           unknown_types.insert(property_schema_type);
         }
-        auto itr = child_to_direct_parent_map.find(property_schema_type);
-        if (itr == child_to_direct_parent_map.end()) {
-          child_to_direct_parent_map.insert(
-              {property_schema_type, std::unordered_set<std::string_view>()});
-          itr = child_to_direct_parent_map.find(property_schema_type);
-        }
-        itr->second.insert(schema_type);
+        direct_nested_type_map[property_schema_type][schema_type].push_back(
+            &property_config);
       }
     }
   }
@@ -287,19 +483,57 @@ BuildTransitiveDependencyGraph(const SchemaProto& schema) {
     return absl_ports::InvalidArgumentError(absl_ports::StrCat(
         "Undefined 'schema_type's: ", absl_ports::StrJoin(unknown_types, ",")));
   }
-  return ExpandTranstiveDependencies(child_to_direct_parent_map);
+
+  // Merge two expanded maps into a single dependent_map, without making
+  // inheritance and nested-type relations transitive.
+  ICING_ASSIGN_OR_RETURN(SchemaUtil::DependentMap merged_dependent_map,
+                         CalculateTransitiveNestedTypeRelations(
+                             direct_nested_type_map, joinable_types,
+                             allow_circular_schema_definitions));
+  ICING_ASSIGN_OR_RETURN(
+      SchemaUtil::InheritanceMap expanded_inheritance_map,
+      CalculateTransitiveInheritanceRelations(direct_inheritance_map));
+  for (const auto& [parent_type, inheritance_relation] :
+       expanded_inheritance_map) {
+    // Insert the parent_type into the dependent map if it is not present
+    // already.
+    merged_dependent_map.insert({parent_type, {}});
+    merged_dependent_map[parent_type].reserve(inheritance_relation.size());
+    for (const auto& [child_type, _] : inheritance_relation) {
+      // Insert the child_type into parent_type's dependent map if it's not
+      // present already, in which case the value will be an empty vector.
+      merged_dependent_map[parent_type].insert({child_type, {}});
+    }
+  }
+  return merged_dependent_map;
 }
 
-libtextclassifier3::StatusOr<SchemaUtil::DependencyMap> SchemaUtil::Validate(
-    const SchemaProto& schema) {
-  // 1. Build the dependency map. This will detect any cycles, non-existent or
+libtextclassifier3::StatusOr<SchemaUtil::InheritanceMap>
+SchemaUtil::BuildTransitiveInheritanceGraph(const SchemaProto& schema) {
+  SchemaUtil::InheritanceMap direct_inheritance_map;
+  for (const auto& type_config : schema.types()) {
+    for (std::string_view parent_schema_type : type_config.parent_types()) {
+      direct_inheritance_map[parent_schema_type][type_config.schema_type()] =
+          true;
+    }
+  }
+  return CalculateTransitiveInheritanceRelations(direct_inheritance_map);
+}
+
+libtextclassifier3::StatusOr<SchemaUtil::DependentMap> SchemaUtil::Validate(
+    const SchemaProto& schema, bool allow_circular_schema_definitions) {
+  // 1. Build the dependent map. This will detect any cycles, non-existent or
   // duplicate types in the schema.
-  ICING_ASSIGN_OR_RETURN(SchemaUtil::DependencyMap dependency_map,
-                         BuildTransitiveDependencyGraph(schema));
+  ICING_ASSIGN_OR_RETURN(
+      SchemaUtil::DependentMap dependent_map,
+      BuildTransitiveDependentGraph(schema, allow_circular_schema_definitions));
 
   // Tracks PropertyConfigs within a SchemaTypeConfig that we've validated
   // already.
   std::unordered_set<std::string_view> known_property_names;
+
+  // Tracks PropertyConfigs containing joinable properties.
+  std::unordered_set<std::string_view> schema_types_with_joinable_property;
 
   // 2. Validate the properties of each type.
   for (const auto& type_config : schema.types()) {
@@ -347,10 +581,62 @@ libtextclassifier3::StatusOr<SchemaUtil::DependencyMap> SchemaUtil::Validate(
             property_config.string_indexing_config(), data_type, schema_type,
             property_name));
       }
+
+      ICING_RETURN_IF_ERROR(ValidateJoinableConfig(
+          property_config.joinable_config(), data_type,
+          property_config.cardinality(), schema_type, property_name));
+      if (property_config.joinable_config().value_type() !=
+          JoinableConfig::ValueType::NONE) {
+        schema_types_with_joinable_property.insert(schema_type);
+      }
     }
   }
 
-  return dependency_map;
+  // BFS traverse the dependent graph to make sure that no nested levels
+  // (properties with DOCUMENT data type) have REPEATED cardinality while
+  // depending on schema types with joinable property.
+  std::queue<std::string_view> frontier;
+  for (const auto& schema_type : schema_types_with_joinable_property) {
+    frontier.push(schema_type);
+  }
+  std::unordered_set<std::string_view> traversed =
+      std::move(schema_types_with_joinable_property);
+  while (!frontier.empty()) {
+    std::string_view schema_type = frontier.front();
+    frontier.pop();
+
+    const auto it = dependent_map.find(schema_type);
+    if (it == dependent_map.end()) {
+      continue;
+    }
+
+    // Check every type that has a property of type schema_type.
+    for (const auto& [next_schema_type, property_configs] : it->second) {
+      // Check all properties in "next_schema_type" that are of type
+      // "schema_type".
+      for (const PropertyConfigProto* property_config : property_configs) {
+        if (property_config != nullptr &&
+            property_config->cardinality() ==
+                PropertyConfigProto::Cardinality::REPEATED) {
+          return absl_ports::InvalidArgumentError(absl_ports::StrCat(
+              "Schema type '", next_schema_type,
+              "' cannot have REPEATED nested document property '",
+              property_config->property_name(),
+              "' while connecting to some joinable properties"));
+        }
+      }
+
+      if (traversed.count(next_schema_type) == 0) {
+        traversed.insert(next_schema_type);
+        frontier.push(next_schema_type);
+      }
+    }
+  }
+
+  // Verify that every child type's property set has included all compatible
+  // properties from parent types.
+  ICING_RETURN_IF_ERROR(ValidateInheritedProperties(schema));
+  return dependent_map;
 }
 
 libtextclassifier3::Status SchemaUtil::ValidateSchemaType(
@@ -436,6 +722,149 @@ libtextclassifier3::Status SchemaUtil::ValidateStringIndexingConfig(
   return libtextclassifier3::Status::OK;
 }
 
+libtextclassifier3::Status SchemaUtil::ValidateJoinableConfig(
+    const JoinableConfig& config, PropertyConfigProto::DataType::Code data_type,
+    PropertyConfigProto::Cardinality::Code cardinality,
+    std::string_view schema_type, std::string_view property_name) {
+  if (config.value_type() == JoinableConfig::ValueType::QUALIFIED_ID) {
+    if (data_type != PropertyConfigProto::DataType::STRING) {
+      return absl_ports::InvalidArgumentError(
+          absl_ports::StrCat("Qualified id joinable property '", property_name,
+                             "' is required to have STRING data type"));
+    }
+
+    if (cardinality == PropertyConfigProto::Cardinality::REPEATED) {
+      return absl_ports::InvalidArgumentError(
+          absl_ports::StrCat("Qualified id joinable property '", property_name,
+                             "' cannot have REPEATED cardinality"));
+    }
+  }
+
+  if (config.propagate_delete() &&
+      config.value_type() != JoinableConfig::ValueType::QUALIFIED_ID) {
+    return absl_ports::InvalidArgumentError(
+        absl_ports::StrCat("Field 'property_name' '", property_name,
+                           "' is required to have QUALIFIED_ID joinable "
+                           "value type with delete propagation enabled"));
+  }
+
+  return libtextclassifier3::Status::OK;
+}
+
+/* static */ bool SchemaUtil::IsIndexedProperty(
+    const PropertyConfigProto& property_config) {
+  switch (property_config.data_type()) {
+    case PropertyConfigProto::DataType::STRING:
+      return property_config.string_indexing_config().term_match_type() !=
+                 TermMatchType::UNKNOWN &&
+             property_config.string_indexing_config().tokenizer_type() !=
+                 StringIndexingConfig::TokenizerType::NONE;
+    case PropertyConfigProto::DataType::INT64:
+      return property_config.integer_indexing_config().numeric_match_type() !=
+             IntegerIndexingConfig::NumericMatchType::UNKNOWN;
+    case PropertyConfigProto::DataType::UNKNOWN:
+    case PropertyConfigProto::DataType::DOUBLE:
+    case PropertyConfigProto::DataType::BOOLEAN:
+    case PropertyConfigProto::DataType::BYTES:
+    case PropertyConfigProto::DataType::DOCUMENT:
+      return false;
+  }
+}
+
+bool SchemaUtil::IsParent(const SchemaUtil::InheritanceMap& inheritance_map,
+                          std::string_view parent_type,
+                          std::string_view child_type) {
+  auto iter = inheritance_map.find(parent_type);
+  if (iter == inheritance_map.end()) {
+    return false;
+  }
+  return iter->second.count(child_type) > 0;
+}
+
+bool SchemaUtil::IsInheritedPropertyCompatible(
+    const SchemaUtil::InheritanceMap& inheritance_map,
+    const PropertyConfigProto& child_property_config,
+    const PropertyConfigProto& parent_property_config) {
+  // Check if child_property_config->cardinality() <=
+  // parent_property_config->cardinality().
+  // Subtype may require a stricter cardinality, but cannot loosen cardinality
+  // requirements.
+  if (!CardinalityLessThanEq(child_property_config.cardinality(),
+                             parent_property_config.cardinality())) {
+    return false;
+  }
+
+  // Now we can assume T1 and T2 are not nullptr, and cardinality check passes.
+  if (child_property_config.data_type() !=
+          PropertyConfigProto::DataType::DOCUMENT ||
+      parent_property_config.data_type() !=
+          PropertyConfigProto::DataType::DOCUMENT) {
+    return child_property_config.data_type() ==
+           parent_property_config.data_type();
+  }
+
+  // Now we can assume T1 and T2 are both document type.
+  return child_property_config.schema_type() ==
+             parent_property_config.schema_type() ||
+         IsParent(inheritance_map, parent_property_config.schema_type(),
+                  child_property_config.schema_type());
+}
+
+libtextclassifier3::Status SchemaUtil::ValidateInheritedProperties(
+    const SchemaProto& schema) {
+  // Create a inheritance map
+  ICING_ASSIGN_OR_RETURN(SchemaUtil::InheritanceMap inheritance_map,
+                         BuildTransitiveInheritanceGraph(schema));
+
+  // Create a map that maps from type name to property names, and then from
+  // property names to PropertyConfigProto.
+  std::unordered_map<
+      std::string, std::unordered_map<std::string, const PropertyConfigProto*>>
+      property_map;
+  for (const SchemaTypeConfigProto& type_config : schema.types()) {
+    // Skipping building entries for types without any child or parent, since
+    // such entry will never be used.
+    if (type_config.parent_types().empty() &&
+        inheritance_map.count(type_config.schema_type()) == 0) {
+      continue;
+    }
+    auto& curr_property_map = property_map[type_config.schema_type()];
+    for (const PropertyConfigProto& property_config :
+         type_config.properties()) {
+      curr_property_map[property_config.property_name()] = &property_config;
+    }
+  }
+
+  // Validate child properties.
+  for (const SchemaTypeConfigProto& type_config : schema.types()) {
+    const std::string& child_type_name = type_config.schema_type();
+    auto& child_property_map = property_map[child_type_name];
+
+    for (const std::string& parent_type_name : type_config.parent_types()) {
+      auto& parent_property_map = property_map[parent_type_name];
+
+      for (const auto& [property_name, parent_property_config] :
+           parent_property_map) {
+        auto child_property_iter = child_property_map.find(property_name);
+        if (child_property_iter == child_property_map.end()) {
+          return absl_ports::InvalidArgumentError(absl_ports::StrCat(
+              "Property ", property_name, " is not present in child type ",
+              child_type_name, ", but it is defined in the parent type ",
+              parent_type_name, "."));
+        }
+        if (!IsInheritedPropertyCompatible(inheritance_map,
+                                           *child_property_iter->second,
+                                           *parent_property_config)) {
+          return absl_ports::InvalidArgumentError(absl_ports::StrCat(
+              "Property ", property_name, " from child type ", child_type_name,
+              " is not compatible to the parent type ", parent_type_name, "."));
+        }
+      }
+    }
+  }
+  return libtextclassifier3::Status::OK;
+}
+
 void SchemaUtil::BuildTypeConfigMap(
     const SchemaProto& schema, SchemaUtil::TypeConfigMap* type_config_map) {
   type_config_map->clear();
@@ -455,14 +884,20 @@ SchemaUtil::ParsedPropertyConfigs SchemaUtil::ParsePropertyConfigs(
         property_config.property_name(), &property_config);
     if (property_config.cardinality() ==
         PropertyConfigProto::Cardinality::REQUIRED) {
-      parsed_property_configs.num_required_properties++;
+      ++parsed_property_configs.num_required_properties;
     }
 
     // A non-default term_match_type indicates that this property is meant to be
     // indexed.
-    if (property_config.string_indexing_config().term_match_type() !=
-        TermMatchType::UNKNOWN) {
-      parsed_property_configs.num_indexed_properties++;
+    if (IsIndexedProperty(property_config)) {
+      ++parsed_property_configs.num_indexed_properties;
+    }
+
+    // A non-default value_type indicates that this property is meant to be
+    // joinable.
+    if (property_config.joinable_config().value_type() !=
+        JoinableConfig::ValueType::NONE) {
+      ++parsed_property_configs.num_joinable_properties;
     }
   }
 
@@ -471,7 +906,7 @@ SchemaUtil::ParsedPropertyConfigs SchemaUtil::ParsePropertyConfigs(
 
 const SchemaUtil::SchemaDelta SchemaUtil::ComputeCompatibilityDelta(
     const SchemaProto& old_schema, const SchemaProto& new_schema,
-    const DependencyMap& new_schema_dependency_map) {
+    const DependentMap& new_schema_dependent_map) {
   SchemaDelta schema_delta;
 
   TypeConfigMap old_type_config_map, new_type_config_map;
@@ -501,6 +936,7 @@ const SchemaUtil::SchemaDelta SchemaUtil::ComputeCompatibilityDelta(
     // be reindexed.
     int32_t old_required_properties = 0;
     int32_t old_indexed_properties = 0;
+    int32_t old_joinable_properties = 0;
 
     // If there is a different number of properties, then there must have been a
     // change.
@@ -509,6 +945,7 @@ const SchemaUtil::SchemaDelta SchemaUtil::ComputeCompatibilityDelta(
         new_schema_type_and_config->second.properties_size();
     bool is_incompatible = false;
     bool is_index_incompatible = false;
+    bool is_join_incompatible = false;
     for (const auto& old_property_config : old_type_config.properties()) {
       if (old_property_config.cardinality() ==
           PropertyConfigProto::Cardinality::REQUIRED) {
@@ -517,11 +954,16 @@ const SchemaUtil::SchemaDelta SchemaUtil::ComputeCompatibilityDelta(
 
       // A non-default term_match_type indicates that this property is meant to
       // be indexed.
-      bool is_indexed_property =
-          old_property_config.string_indexing_config().term_match_type() !=
-          TermMatchType::UNKNOWN;
+      bool is_indexed_property = IsIndexedProperty(old_property_config);
       if (is_indexed_property) {
         ++old_indexed_properties;
+      }
+
+      bool is_joinable_property =
+          old_property_config.joinable_config().value_type() !=
+          JoinableConfig::ValueType::NONE;
+      if (is_joinable_property) {
+        ++old_joinable_properties;
       }
 
       auto new_property_name_and_config =
@@ -537,6 +979,7 @@ const SchemaUtil::SchemaDelta SchemaUtil::ComputeCompatibilityDelta(
             "' was not defined in new schema");
         is_incompatible = true;
         is_index_incompatible |= is_indexed_property;
+        is_join_incompatible |= is_joinable_property;
         continue;
       }
 
@@ -559,11 +1002,19 @@ const SchemaUtil::SchemaDelta SchemaUtil::ComputeCompatibilityDelta(
       if (!IsTermMatchTypeCompatible(
               old_property_config.string_indexing_config(),
               new_property_config->string_indexing_config()) ||
+          !IsIntegerNumericMatchTypeCompatible(
+              old_property_config.integer_indexing_config(),
+              new_property_config->integer_indexing_config()) ||
           old_property_config.document_indexing_config()
                   .index_nested_properties() !=
               new_property_config->document_indexing_config()
                   .index_nested_properties()) {
         is_index_incompatible = true;
+      }
+
+      if (old_property_config.joinable_config().value_type() !=
+          new_property_config->joinable_config().value_type()) {
+        is_join_incompatible = true;
       }
     }
 
@@ -586,26 +1037,43 @@ const SchemaUtil::SchemaDelta SchemaUtil::ComputeCompatibilityDelta(
     // reindex everything.
     if (new_parsed_property_configs.num_indexed_properties >
         old_indexed_properties) {
-      ICING_VLOG(1) << absl_ports::StrCat(
-          "Set of indexed properties in schema type '",
-          old_type_config.schema_type(),
-          "' has  changed, required reindexing.");
+      ICING_VLOG(1) << "Set of indexed properties in schema type '"
+                    << old_type_config.schema_type()
+                    << "' has changed, required reindexing.";
       is_index_incompatible = true;
+    }
+
+    // If we've gained any new joinable properties, then the joinable property
+    // ids may change. Since the joinable property ids are stored in the cache,
+    // we'll need to reconstruct joinable cache.
+    if (new_parsed_property_configs.num_joinable_properties >
+        old_joinable_properties) {
+      ICING_VLOG(1) << "Set of joinable properties in schema type '"
+                    << old_type_config.schema_type()
+                    << "' has changed, required reconstructing joinable cache.";
+      is_join_incompatible = true;
     }
 
     if (is_incompatible) {
       AddIncompatibleChangeToDelta(schema_delta.schema_types_incompatible,
-                                   old_type_config, new_schema_dependency_map,
+                                   old_type_config, new_schema_dependent_map,
                                    old_type_config_map, new_type_config_map);
     }
 
     if (is_index_incompatible) {
       AddIncompatibleChangeToDelta(schema_delta.schema_types_index_incompatible,
-                                   old_type_config, new_schema_dependency_map,
+                                   old_type_config, new_schema_dependent_map,
                                    old_type_config_map, new_type_config_map);
     }
 
-    if (!is_incompatible && !is_index_incompatible && has_property_changed) {
+    if (is_join_incompatible) {
+      AddIncompatibleChangeToDelta(schema_delta.schema_types_join_incompatible,
+                                   old_type_config, new_schema_dependent_map,
+                                   old_type_config_map, new_type_config_map);
+    }
+
+    if (!is_incompatible && !is_index_incompatible && !is_join_incompatible &&
+        has_property_changed) {
       schema_delta.schema_types_changed_fully_compatible.insert(
           old_type_config.schema_type());
     }

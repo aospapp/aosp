@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"အရေးပေါ်ဖုန်းခေါ်ဆိုမှု ပြုလုပ်နေသောကြောင့် <xliff:g id="CALLER">%s</xliff:g> ထံသို့ ခေါ်ဆိုမှုကို ဖြတ်တောက်လိုက်သည်။"</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"အရေးပေါ်ဖုန်းခေါ်ဆိုမှု ပြုလုပ်နေသောကြောင့် သင်၏ ခေါ်ဆိုမှုကို ဖြတ်တောက်လိုက်သည်။"</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"နောက်ခံမှ ခေါ်ဆိုမှု"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> သည် ခေါ်ဆိုမှုကို နောက်ခံသို့ ထည့်လိုက်ပါသည်။ ဤအက်ပ်သည် ခေါ်ဆိုမှုမှတစ်ဆင့် အသံများကို သုံးခြင်းနှင့် ဖွင့်ခြင်းတို့ ပြုလုပ်နိုင်ပါသည်။"</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> သည် ခေါ်ဆိုမှုကို နောက်ခံတွင် လုပ်ဆောင်နေသည်။ ဤအက်ပ်သည် ခေါ်ဆိုမှုမှတစ်ဆင့် အသံသုံးခြင်းနှင့် ဖွင့်ခြင်းတို့ကို ပြုလုပ်နေခြင်း ဖြစ်နိုင်သည်။"</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> က တုံ့ပြန်ခြင်းကို ရပ်လိုက်သည်"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"သင့်စက်ပစ္စည်းနှင့် အတူပါလာသော ဖုန်းအက်ပ်သုံးပြီး ခေါ်ဆိုမှုကို ပြုလုပ်ထားသည်"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"နားထောင်ရုံသာ (စကားပြောပိတ်ထားသည်)"</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"နောက်ခံမှ ခေါ်ဆိုမှုများ"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"ပြတ်တောက်သွားသည့် ခေါ်ဆိုမှုများ"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"ရပ်တန့်သွားသော ဖုန်းအက်ပ်များ"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"ခေါ်ဆိုမှု တိုက်ရိုက်လွှင့်ခြင်း"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"ဤခေါ်ဆိုမှု ပြုလုပ်ပါက <xliff:g id="OTHER_APP">%1$s</xliff:g> သုံးပြီးပြောနေခြင်းကို ဖြတ်ပစ်ပါမည်။"</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"ဤခေါ်ဆိုမှု ပြုလုပ်ပုံကို ရွေးချယ်ပါ"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"ခေါ်ဆိုမှုကို <xliff:g id="OTHER_APP">%1$s</xliff:g> ဖြင့် တစ်ဆင့်ပြန်ညွှန်ရန်"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Telecom ဆော့ဖ်ဝဲအင်ဂျင်နီယာ မီနူး"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"အရေးပေါ်ခေါ်ဆိုမှု ပြုလုပ်နေစဉ် ဖုန်းမခေါ်နိုင်ပါ။"</string>
     <string name="cancel" msgid="6733466216239934756">"မလုပ်တော့"</string>
+    <string name="back" msgid="6915955601805550206">"နောက်သို့"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"တယ်လီဖုန်းနားခွက်"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"ဘလူးတုသ်"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"ကြိုးတပ် မိုက်ခွက်ပါနားကြပ်"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"စပီကာ"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"ပြင်ပ"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"မသိ"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"အသံကို အခြားစက်တွင် တိုက်ရိုက်လွှင့်နေသည်"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"ဖုန်းချရန်"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"ဤနေရာသို့ လွှဲပြောင်းရန်"</string>
 </resources>

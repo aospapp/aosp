@@ -18,8 +18,17 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_title" msgid="1995858460392177468">"מרכז האפליקציות ברכב"</string>
+    <string name="reset_appgrid_title" msgid="814562055108028366">"איפוס תצוגת האפליקציות לסידור מ-א\' עד ת\'"</string>
+    <string name="reset_appgrid_dialogue_message" msgid="8275758912490987735">"הפונקציה הזו תסיר את כל סידורי התצוגה שהותאמו אישית. רוצה להמשיך?"</string>
     <string name="app_launcher_title_all_apps" msgid="3215107396036838217">"כל האפליקציות"</string>
     <string name="app_launcher_title_media_only" msgid="4400886555907422816">"אפליקציות מדיה"</string>
+    <string name="app_launcher_stop_app_action" msgid="1081680842410279692">"עצירת האפליקציה"</string>
+    <string name="app_launcher_app_info_action" msgid="6388181061002827660">"פרטי האפליקציה"</string>
+    <string name="app_launcher_stop_app_success_toast_text" msgid="2117271772351005349">"עצרת את האפליקציה <xliff:g id="APP_NAME">%1$s</xliff:g>."</string>
+    <string name="app_launcher_stop_app_dialog_title" msgid="8276889322638001144">"לעצור את האפליקציה?"</string>
+    <string name="app_launcher_stop_app_dialog_text" msgid="3264059639436254372">"אם סוגרים אפליקציה באופן ידני, ייתכן שהיא לא תפעל כהלכה."</string>
+    <string name="app_launcher_stop_app_cant_stop_text" msgid="4766841417948746773">"לא ניתן להפסיק את פעולת האפליקציה."</string>
+    <string name="default_media_song_title" msgid="2970305231647817808"></string>
     <string name="driving_toast_text" msgid="149483091947120092">"לא ניתן להשתמש באפליקציה <xliff:g id="APP_NAME">%1$s</xliff:g> במהלך הנהיגה."</string>
     <string name="tap_for_more_info_text" msgid="2043549383814415585">"יש להקיש על הכרטיס למידע נוסף"</string>
     <string name="tap_to_launch_text" msgid="6910695705119260847">"יש להקיש על הכרטיס להפעלה"</string>
@@ -28,10 +37,14 @@
     <string name="dialing_call_text" msgid="415326503409745490">"החיוג מתבצע…"</string>
     <string name="projected_launch_text" msgid="5809132353957907500">"הפעלה של Android Auto"</string>
     <string name="projected_onclick_launch_error_toast_text" msgid="7462478007773137082">"לא ניתן להפעיל את Android Auto. לא נמצאה פעילות."</string>
-    <string name="projection_devices" msgid="916314090031116598">"{count,plural, =1{מכשיר אחד}two{# מכשירים}many{# מכשירים}other{# מכשירים}}"</string>
+    <string name="projection_devices" msgid="916314090031116598">"{count,plural, =1{מכשיר אחד}one{# מכשירים}two{# מכשירים}other{# מכשירים}}"</string>
     <string name="weather_app_name" msgid="8048146303519139993">"מזג אוויר"</string>
     <string name="fake_weather_main_text" msgid="8117240999340284429">"--° שמשי"</string>
     <string name="fake_weather_footer_text" msgid="4570172025869749926">"Mountain View • H: --° L: --°‎"</string>
     <string name="hide_debug_apps" msgid="6128313544379622475">"הסתרת אפליקציות לניפוי באגים"</string>
     <string name="show_debug_apps" msgid="4521073121286325786">"הצגת אפליקציות לניפוי באגים"</string>
+    <string name="times_separator" msgid="6180368193321715816">"/"</string>
+    <string name="recents_empty_state_text" msgid="6703106170272215731">"אין פריטים אחרונים"</string>
+    <string name="recents_clear_all_text" msgid="2088678071417053923">"ניקוי הכול"</string>
+    <string name="failure_opening_recent_task_message" msgid="9097595793150874357">"האפליקציה לא זמינה"</string>
 </resources>

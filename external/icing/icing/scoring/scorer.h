@@ -16,13 +16,11 @@
 #define ICING_SCORING_SCORER_H_
 
 #include <memory>
+#include <unordered_map>
 
-#include "icing/text_classifier/lib3/utils/base/statusor.h"
 #include "icing/index/hit/doc-hit-info.h"
 #include "icing/index/iterator/doc-hit-info-iterator.h"
 #include "icing/proto/scoring.pb.h"
-#include "icing/store/document-id.h"
-#include "icing/store/document-store.h"
 
 namespace icing {
 namespace lib {
@@ -31,20 +29,6 @@ namespace lib {
 class Scorer {
  public:
   virtual ~Scorer() = default;
-
-  // Factory function to create a Scorer which does not take ownership of any
-  // input components (DocumentStore), and all pointers must refer to valid
-  // objects that outlive the created Scorer instance. The default score will be
-  // returned only when the scorer fails to find or calculate a score for the
-  // document.
-  //
-  // Returns:
-  //   A Scorer on success
-  //   FAILED_PRECONDITION on any null pointer input
-  //   INVALID_ARGUMENT if fails to create an instance
-  static libtextclassifier3::StatusOr<std::unique_ptr<Scorer>> Create(
-      const ScoringSpecProto& scoring_spec, double default_score,
-      const DocumentStore* document_store, const SchemaStore* schema_store);
 
   // Returns a non-negative score of a document. The score can be a
   // document-associated score which comes from the DocumentProto directly, an

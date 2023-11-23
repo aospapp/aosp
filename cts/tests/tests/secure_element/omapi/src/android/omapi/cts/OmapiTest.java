@@ -33,6 +33,7 @@ import android.se.omapi.Session;
 
 import androidx.test.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.ApiTest;
 import com.android.compatibility.common.util.PropertyUtil;
 
 import org.junit.After;
@@ -54,6 +55,7 @@ public class OmapiTest {
     private final static String UICC_READER_PREFIX = "SIM";
     private final static String ESE_READER_PREFIX = "eSE";
     private final static String SD_READER_PREFIX = "SD";
+    private final static String OMAPI_VERSION = "3.3";
     private final static byte[] SELECTABLE_AID =
             new byte[]{(byte) 0xA0, 0x00, 0x00, 0x04, 0x76, 0x41, 0x6E, 0x64,
                     0x72, 0x6F, 0x69, 0x64, 0x43, 0x54, 0x53, 0x31};
@@ -535,7 +537,8 @@ public class OmapiTest {
         return transmitResponse;
     }
 
-    private byte[] internalTransmitApduWithoutP2(Reader reader, byte[] apdu) throws IOException {
+    private byte[] internalTransmitApduWithoutP2(Reader reader, byte[] apdu,
+            boolean testLogicalChannel) throws IOException {
         byte[] transmitResponse = null;
         Session session = null;
         Channel channel = null;
@@ -543,7 +546,11 @@ public class OmapiTest {
             assertTrue(reader.isSecureElementPresent());
             session = reader.openSession();
             assertNotNull("null session", session);
-            channel = session.openLogicalChannel(SELECTABLE_AID);
+            if (testLogicalChannel) {
+                channel = session.openLogicalChannel(SELECTABLE_AID);
+            } else {
+                channel = session.openBasicChannel(SELECTABLE_AID);
+            }
             assertNotNull("Null Channel", channel);
             byte[] selectResponse = channel.getSelectResponse();
             assertNotNull("Null Select Response", selectResponse);
@@ -676,6 +683,8 @@ public class OmapiTest {
      * Verifies that the default P2 value (0x00) is not modified by the underlying implementation.
      */
     @Test
+    @ApiTest(apis = {"android.se.omapi.Session#openBasicChannel",
+            "android.se.omapi.Session#openLogicalChannel"})
     public void testP2Value() {
         assumeTrue(supportOMAPIReaders());
         try {
@@ -683,11 +692,20 @@ public class OmapiTest {
             Reader[] readers = seService.getReaders();
 
             for (Reader reader : readers) {
-                byte[] response = internalTransmitApduWithoutP2(reader, CHECK_SELECT_P2_APDU);
+                byte[] response = internalTransmitApduWithoutP2(reader, CHECK_SELECT_P2_APDU, true);
                 assertGreaterOrEqual(response.length, 3);
                 assertThat(response[response.length - 1] & 0xFF, is(0x00));
                 assertThat(response[response.length - 2] & 0xFF, is(0x90));
                 assertThat(response[response.length - 3] & 0xFF, is(0x00));
+
+                // skip basic channel verification for UICC reader
+                if (reader.getName().startsWith(UICC_READER_PREFIX)) {
+                    continue;
+                }
+                response = internalTransmitApduWithoutP2(reader, CHECK_SELECT_P2_APDU, false);
+                assertGreaterOrEqual(response.length, 3);
+                assertThat(response[response.length - 1] & 0xFF, is(0x00));
+                assertThat(response[response.length - 2] & 0xFF, is(0x90));
             }
         } catch (Exception e) {
           fail("unexpected exception " + e);
@@ -718,6 +736,142 @@ public class OmapiTest {
                     assertFalse("channel is still open", channelA.isOpen());
                     assertFalse("channel is still open", channelB.isOpen());
                 } finally {
+                    if (session != null) session.close();
+                }
+            }
+        } catch (Exception e) {
+            fail("unexpected exception " + e);
+        }
+    }
+
+    /** Tests SEService getVersion API */
+    @Test
+    @ApiTest(apis = "android.se.omapi.SEService#getVersion")
+    public void testGetOmapiVersion() {
+        try {
+            waitForConnection();
+            assertTrue("Unexpected OMAPI version", seService.getVersion().equals(OMAPI_VERSION));
+        } catch (Exception e) {
+            fail("unexpected exception " + e);
+        }
+    }
+
+    /** Tests Reader closeSession API */
+    @Test
+    @ApiTest(apis = {"android.se.omapi.Reader#closeSessions", "android.se.omapi.Session#isClosed"})
+    public void testCloseSessions() {
+        assumeTrue(supportOMAPIReaders());
+        try {
+            waitForConnection();
+            Reader[] readers = seService.getReaders();
+
+            for (Reader reader : readers) {
+                Session sessionA = null;
+                Session sessionB = null;
+                try {
+                    assertTrue(reader.isSecureElementPresent());
+                    sessionA = reader.openSession();
+                    assertNotNull("null session", sessionA);
+                    assertFalse("session is closed", sessionA.isClosed());
+
+                    sessionB = reader.openSession();
+                    assertNotNull("null session", sessionB);
+                    assertFalse("session is closed", sessionB.isClosed());
+
+                    sessionA.getReader().closeSessions();
+                    assertTrue("session is still open", sessionA.isClosed());
+                    assertTrue("session is still open", sessionB.isClosed());
+                } finally {
+                    if (sessionA != null) sessionA.close();
+                    if (sessionB != null) sessionB.close();
+                }
+            }
+        } catch (Exception e) {
+            fail("unexpected exception " + e);
+        }
+    }
+
+    /** Tests Reader reset API */
+    @Test
+    @ApiTest(apis = "android.se.omapi.Reader#reset")
+    public void testOmapiReaderReset() {
+        assumeTrue(supportOMAPIReaders());
+        try {
+            waitForConnection();
+            Reader[] readers = seService.getReaders();
+
+            for (Reader reader : readers) {
+                try {
+                    reader.reset();
+                    fail("reset function is not blocked by permission ");
+                } catch (SecurityException e) {
+                    // Catch the expected exception here
+                }
+            }
+        } catch (Exception e) {
+            fail("unexpected exception " + e);
+        }
+    }
+
+    /** Tests Channel getSession API */
+    @Test
+    @ApiTest(apis = {"android.se.omapi.Channel#getSession", "android.se.omapi.Session#isClosed",
+            "android.se.omapi.Channel#isBasicChannel"})
+    public void testGetSession() {
+        assumeTrue(supportOMAPIReaders());
+        try {
+            waitForConnection();
+            Reader[] readers = seService.getReaders();
+
+            for (Reader reader : readers) {
+                Session session = null;
+                Channel channel = null;
+                try {
+                    session = reader.openSession();
+                    assertNotNull("Could not open session", session);
+                    channel = session.openLogicalChannel(SELECTABLE_AID, (byte) 0x00);
+                    assertFalse("channel is not LogicalChannel", channel.isBasicChannel());
+
+                    channel.getSession().close();
+                    assertTrue(session.isClosed());
+                } finally {
+                    if (channel != null) channel.close();
+                    if (session != null) session.close();
+                }
+            }
+        } catch (Exception e) {
+            fail("unexpected exception " + e);
+        }
+    }
+
+    /** Tests Channel selectNext API */
+    @Test
+    @ApiTest(apis = "android.se.omapi.Channel#selectNext")
+    public void testSelectNext() {
+        assumeTrue(supportOMAPIReaders());
+        try {
+            waitForConnection();
+            Reader[] readers = seService.getReaders();
+
+            for (Reader reader : readers) {
+                Session session = null;
+                Channel channel = null;
+                try {
+                    session = reader.openSession();
+                    assertNotNull("Could not open session", session);
+                    channel = session.openLogicalChannel(SELECTABLE_AID, (byte) 0x00);
+                    // no further Applet exists with this AID
+                    assertFalse(channel.selectNext());
+
+                    // send APDU to check selected applet stays selected on this channel
+                    for (byte[] apdu : NO_DATA_APDU) {
+                        byte[] response = channel.transmit(apdu);
+                        assertThat(response.length, is(2));
+                        assertThat(response[response.length - 1] & 0xFF, is(0x00));
+                        assertThat(response[response.length - 2] & 0xFF, is(0x90));
+                    }
+                } finally {
+                    if (channel != null) channel.close();
                     if (session != null) session.close();
                 }
             }

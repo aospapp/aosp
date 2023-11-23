@@ -1,9 +1,11 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import contextlib
 import logging
+import os
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import autotest
@@ -20,9 +22,13 @@ class ChromeLogin(object):
         if hard_reboot and self._host.servo:
             self._hard_reboot_on_failure = True
 
-    def __init__(self, host, board=None, dont_override_profile=False,
-                 enable_default_apps=False, toggle_ndk=False,
-                 nativebridge64=False):
+    def __init__(self,
+                 host,
+                 board=None,
+                 dont_override_profile=False,
+                 enable_default_apps=False,
+                 toggle_ndk=False,
+                 log_dir=None):
         """Initializes the ChromeLogin object.
 
         @param board: optional parameter to extend timeout for login for slow
@@ -30,7 +36,8 @@ class ChromeLogin(object):
         @param dont_override_profile: reuses the existing test profile if any
         @param enable_default_apps: enables default apps (like Files app)
         @param toggle_ndk: toggles native bridge engine switch.
-        @param nativebridge64: enables 64-bit native bridge experiment.
+        @param log_dir: Any log files for this Chrome session is written to this
+               directory.
         """
         self._host = host
         self._timeout = constants.LOGIN_BOARD_TIMEOUT.get(
@@ -40,7 +47,7 @@ class ChromeLogin(object):
         self._need_reboot = False
         self._hard_reboot_on_failure = False
         self._toggle_ndk = toggle_ndk
-        self._nativebridge64 = nativebridge64
+        self._log_dir = log_dir
 
     def _cmd_builder(self, verbose=False):
         """Gets remote command to start browser with ARC enabled."""
@@ -54,6 +61,9 @@ class ChromeLogin(object):
         cmd += ' --no-startup-window'
         # Disable several forms of auto-installation to stablize the tests.
         cmd += ' --no-arc-syncs'
+        # TODO(b/196460968) delete after M96 branch, or after finishing the
+        # experiment.
+        cmd += ' --feature=NotificationsRefresh'
         # Toggle the translation from houdini to ndk
         if self._toggle_ndk:
             cmd += ' --toggle_ndk'
@@ -65,8 +75,6 @@ class ChromeLogin(object):
         if self._enable_default_apps:
             logging.info('Using --enable_default_apps to start Chrome.')
             cmd += ' --enable_default_apps'
-        if self._nativebridge64:
-            cmd += ' --nativebridge64'
         if not verbose:
             cmd += ' > /dev/null 2>&1'
         return cmd
@@ -92,7 +100,7 @@ class ChromeLogin(object):
         if install_autotest:
             # Installs the autotest client to the DUT by running a no-op test.
             autotest.Autotest(self._host).run_timed_test(
-                'dummy_Pass', timeout=2 * timeout, check_client_result=True)
+                    'stub_Pass', timeout=2 * timeout, check_client_result=True)
             # The (re)run the login script.
             self._login_by_script(timeout=timeout, verbose=verbose)
 
@@ -127,7 +135,15 @@ class ChromeLogin(object):
                 raise error.TestError('Failed to login to Chrome')
 
     def exit(self):
-        """On exit restart the browser or reboot the machine."""
+        """On exit restart the browser or reboot the machine.
+
+        If self._log_dir is set, the VM kernel log is written
+        to a file.
+
+        """
+        if self._log_dir:
+            self._write_kernel_log()
+
         if not self._need_reboot:
             try:
                 self._restart()
@@ -136,6 +152,23 @@ class ChromeLogin(object):
                 self.need_reboot()
         if self._need_reboot:
             self._reboot()
+
+    def _write_kernel_log(self):
+        """Writes ARCVM kernel logs."""
+        if not os.path.exists(self._log_dir):
+            os.makedirs(self._log_dir)
+
+        output_path = os.path.join(
+                self._log_dir, '%s_vm_pstore_dump.txt' % self._host.hostname)
+
+        with open(output_path, 'w') as f:
+            try:
+                logging.info('Getting VM kernel logs.')
+                self._host.run('/usr/bin/vm_pstore_dump', stdout_tee=f)
+            except Exception as e:
+                logging.error('vm_pstore_dump command failed: %s', e)
+            else:
+                logging.info('Wrote VM kernel logs.')
 
     def _restart(self):
         """Restart Chrome browser."""

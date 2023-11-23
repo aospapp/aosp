@@ -71,7 +71,8 @@ PureSoftRemoteProvisioningContext::DeriveBytesFromHbk(const std::string& context
     return result;
 }
 
-std::unique_ptr<cppbor::Map> PureSoftRemoteProvisioningContext::CreateDeviceInfo() const {
+std::unique_ptr<cppbor::Map>
+PureSoftRemoteProvisioningContext::CreateDeviceInfo(uint32_t csrVersion) const {
     auto result = std::make_unique<cppbor::Map>(cppbor::Map());
 
     // The following placeholders show how the DeviceInfo map would be populated.
@@ -101,7 +102,10 @@ std::unique_ptr<cppbor::Map> PureSoftRemoteProvisioningContext::CreateDeviceInfo
     if (vendor_patchlevel_) {
         result->add(cppbor::Tstr("vendor_patch_level"), cppbor::Uint(*vendor_patchlevel_));
     }
-    result->add(cppbor::Tstr("version"), cppbor::Uint(2));
+    // "version" field was removed from DeviceInfo in CSR v3.
+    if (csrVersion < 3) {
+        result->add(cppbor::Tstr("version"), cppbor::Uint(csrVersion));
+    }
     result->add(cppbor::Tstr("fused"), cppbor::Uint(0));
 
     // "software" security level is not supported, so lie and say we're a TEE
@@ -137,7 +141,6 @@ PureSoftRemoteProvisioningContext::GenerateBcc(bool testMode) const {
                        .add(CoseKey::KEY_TYPE, OCTET_KEY_PAIR)
                        .add(CoseKey::ALGORITHM, EDDSA)
                        .add(CoseKey::CURVE, ED25519)
-                       .add(CoseKey::KEY_OPS, VERIFY)
                        .add(CoseKey::PUBKEY_X, pubKey)
                        .canonicalize();
     auto sign1Payload = cppbor::Map()
@@ -191,6 +194,35 @@ PureSoftRemoteProvisioningContext::GenerateHmacSha256(const cppcose::bytevec& in
         return std::nullopt;
     }
     return *result;
+}
+
+void PureSoftRemoteProvisioningContext::GetHwInfo(GetHwInfoResponse* hwInfo) const {
+    hwInfo->version = 3;
+    hwInfo->rpcAuthorName = "Google";
+    hwInfo->supportedEekCurve = 2 /* CURVE_25519 */;
+    hwInfo->uniqueId = "default keymint";
+    hwInfo->supportedNumKeysInCsr = 20;
+}
+
+cppcose::ErrMsgOr<cppbor::Array>
+PureSoftRemoteProvisioningContext::BuildCsr(const std::vector<uint8_t>& challenge,
+                                            cppbor::Array keysToSign) const {
+    LazyInitProdBcc();
+    uint32_t csrVersion = 3;
+    auto deviceInfo = std::move(*CreateDeviceInfo(csrVersion));
+    auto csrPayload = cppbor::Array()
+                          .add(csrVersion)
+                          .add("keymint" /* CertificateType */)
+                          .add(std::move(deviceInfo))
+                          .add(std::move(keysToSign));
+    auto signedDataPayload = cppbor::Array().add(challenge).add(cppbor::Bstr(csrPayload.encode()));
+    auto signedData = constructCoseSign1(devicePrivKey_, signedDataPayload.encode(), {} /* aad */);
+
+    return cppbor::Array()
+        .add(1 /* version */)
+        .add(cppbor::Map() /* UdsCerts */)
+        .add(std::move(*bcc_.clone()->asArray()) /* DiceCertChain */)
+        .add(std::move(*signedData) /* SignedData */);
 }
 
 void PureSoftRemoteProvisioningContext::SetSystemVersion(uint32_t os_version,

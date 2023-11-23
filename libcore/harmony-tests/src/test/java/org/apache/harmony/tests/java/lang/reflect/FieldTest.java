@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.tests.java.lang.reflect;
@@ -191,7 +191,7 @@ public class FieldTest extends junit.framework.TestCase {
                 val.doubleValue() == Double.MAX_VALUE);
         // Test getting a static field;
         f = TestField.class.getDeclaredField("doubleSField");
-        f.set(x, new Double(1.0));
+        f.set(x, Double.valueOf(1.0));
         val = (Double) f.get(x);
         assertEquals("Returned incorrect double field value", 1.0, val.doubleValue());
 
@@ -245,28 +245,28 @@ public class FieldTest extends junit.framework.TestCase {
                 primitiveType = Character.toUpperCase(primitiveType);
                 switch (primitiveType) {
                 case 'I': // int
-                    res = new Integer(f.getInt(o));
+                    res = Integer.valueOf(f.getInt(o));
                     break;
                 case 'J': // long
-                    res = new Long(f.getLong(o));
+                    res = Long.valueOf(f.getLong(o));
                     break;
                 case 'Z': // boolean
-                    res = new Boolean(f.getBoolean(o));
+                    res = Boolean.valueOf(f.getBoolean(o));
                     break;
                 case 'S': // short
-                    res = new Short(f.getShort(o));
+                    res = Short.valueOf(f.getShort(o));
                     break;
                 case 'B': // byte
-                    res = new Byte(f.getByte(o));
+                    res = Byte.valueOf(f.getByte(o));
                     break;
                 case 'C': // char
-                    res = new Character(f.getChar(o));
+                    res = Character.valueOf(f.getChar(o));
                     break;
                 case 'D': // double
-                    res = new Double(f.getDouble(o));
+                    res = Double.valueOf(f.getDouble(o));
                     break;
                 case 'F': // float
-                    res = new Float(f.getFloat(o));
+                    res = Float.valueOf(f.getFloat(o));
                     break;
                 default:
                     res = f.get(o);
@@ -429,9 +429,9 @@ public class FieldTest extends junit.framework.TestCase {
         char types[] = { 'L', 'B', 'S', 'C', 'I', 'J', 'F', 'D' };
         Field fields[] = { objectField, byteField, shortField, charField,
                 intField, longField, floatField, doubleField };
-        Object values[] = { new Byte((byte) 1), new Byte((byte) 1),
-                new Short((short) 1), new Character((char) 1), new Integer(1),
-                new Long(1), new Float(1), new Double(1) };
+        Object values[] = { Byte.valueOf((byte) 1), Byte.valueOf((byte) 1),
+                Short.valueOf((short) 1), Character.valueOf((char) 1), Integer.valueOf(1),
+                Long.valueOf(1), Float.valueOf(1), Double.valueOf(1) };
 
         // test set methods
         for (int i = 0; i < types.length; i++) {
@@ -1069,7 +1069,7 @@ public class FieldTest extends junit.framework.TestCase {
         double val = 0.0;
         try {
             f = TestField.class.getDeclaredField("doubleField");
-            f.set(x, new Double(1.0));
+            f.set(x, Double.valueOf(1.0));
             val = f.getDouble(x);
         } catch (Exception e) {
             fail("Exception during set test : " + e.getMessage());
@@ -1080,7 +1080,7 @@ public class FieldTest extends junit.framework.TestCase {
         boolean thrown = false;
         try {
             f = TestField.class.getDeclaredField("booleanField");
-            f.set(x, new Double(1.0));
+            f.set(x, Double.valueOf(1.0));
             fail("Accessed field of invalid type");
         } catch (IllegalArgumentException ex) {
             thrown = true;
@@ -1102,7 +1102,7 @@ public class FieldTest extends junit.framework.TestCase {
 
         // Test setting a static field;
         f = TestField.class.getDeclaredField("doubleSField");
-        f.set(null, new Double(1.0));
+        f.set(null, Double.valueOf(1.0));
         val = f.getDouble(x);
         assertEquals("Returned incorrect double field value", 1.0, val);
     }

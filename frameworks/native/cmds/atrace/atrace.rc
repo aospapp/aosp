@@ -181,6 +181,8 @@ on late-init
     chmod 0666 /sys/kernel/tracing/events/clk/clk_enable/enable
     chmod 0666 /sys/kernel/debug/tracing/events/clk/clk_set_rate/enable
     chmod 0666 /sys/kernel/tracing/events/clk/clk_set_rate/enable
+    chmod 0666 /sys/kernel/debug/tracing/events/printk/console/enable
+    chmod 0666 /sys/kernel/tracing/events/printk/console/enable
 
     # disk
     chmod 0666 /sys/kernel/tracing/events/f2fs/f2fs_get_data_block/enable
@@ -289,14 +291,37 @@ on late-init
 # Setup synthetic events
     chmod 0666 /sys/kernel/tracing/synthetic_events
     chmod 0666 /sys/kernel/debug/tracing/synthetic_events
+    copy /system/etc/ftrace_synthetic_events.conf /sys/kernel/tracing/synthetic_events
+    copy /system/etc/ftrace_synthetic_events.conf /sys/kernel/debug/tracing/synthetic_events
 
-    # rss_stat_throttled
-    write /sys/kernel/tracing/synthetic_events "rss_stat_throttled unsigned int mm_id; unsigned int curr; int member; long size"
-    write /sys/kernel/debug/tracing/synthetic_events "rss_stat_throttled unsigned int mm_id; unsigned int curr; int member; long size"
-
-    # allow creating event triggers
-    chmod 0666 /sys/kernel/debug/tracing/events/kmem/rss_stat/trigger
+    # allow creating rss_stat event triggers
     chmod 0666 /sys/kernel/tracing/events/kmem/rss_stat/trigger
+    chmod 0666 /sys/kernel/debug/tracing/events/kmem/rss_stat/trigger
+
+    # allow enabling rss_stat_throttled
+    chmod 0666 /sys/kernel/tracing/events/synthetic/rss_stat_throttled/enable
+    chmod 0666 /sys/kernel/debug/tracing/events/synthetic/rss_stat_throttled/enable
+
+    # allow creating suspend_resume triggers
+    chmod 0666 /sys/kernel/tracing/events/power/suspend_resume/trigger
+    chmod 0666 /sys/kernel/debug/tracing/events/power/suspend_resume/trigger
+
+    # allow enabling suspend_resume_minimal
+    chmod 0666 /sys/kernel/tracing/events/synthetic/suspend_resume_minimal/enable
+    chmod 0666 /sys/kernel/debug/tracing/events/synthetic/suspend_resume_minimal/enable
+
+on late-init && property:ro.boot.fastboot.boottrace=enabled
+    setprop debug.atrace.tags.enableflags 802922
+    setprop persist.traced.enable 0
+    write /sys/kernel/tracing/events/binder/binder_transaction/enable 1
+    write /sys/kernel/tracing/events/binder/binder_transaction_received/enable 1
+    write /sys/kernel/tracing/events/binder/binder_transaction_alloc_buf/enable 1
+    write /sys/kernel/tracing/events/binder/binder_set_priority/enable 1
+    write /sys/kernel/tracing/events/binder/binder_lock/enable 1
+    write /sys/kernel/tracing/events/binder/binder_locked/enable 1
+    write /sys/kernel/tracing/events/binder/binder_unlock/enable 1
+    write /sys/kernel/debug/tracing/tracing_on 1
+    write /sys/kernel/tracing/tracing_on 1
 
 # Only create the tracing instance if persist.mm_events.enabled
 # Attempting to remove the tracing instance after it has been created
@@ -386,10 +411,149 @@ on post-fs-data && property:persist.mm_events.enabled=true
     chmod 0666 /sys/kernel/debug/tracing/instances/mm_events/per_cpu/cpu23/trace
     chmod 0666 /sys/kernel/tracing/instances/mm_events/per_cpu/cpu23/trace
 
+# Handle hyp tracing instance
+on late-init && property:ro.boot.hypervisor.vm.supported=1
+
+# Hypervisor tracing instance doesn't support changing trace_clock
+    chmod 0440 /sys/kernel/debug/tracing/hyp/trace_clock
+    chmod 0440 /sys/kernel/tracing/hyp/trace_clock
+
+    chmod 0660 /sys/kernel/debug/tracing/hyp/buffer_size_kb
+    chmod 0660 /sys/kernel/tracing/hyp/buffer_size_kb
+
+    chmod 0660 /sys/kernel/debug/tracing/hyp/tracing_on
+    chmod 0660 /sys/kernel/tracing/hyp/tracing_on
+
+# Tracing disabled by default
+    write /sys/kernel/debug/tracing/hyp/tracing_on 0
+    write /sys/kernel/tracing/hyp/tracing_on 0
+
+# Read and truncate the hyp trace.
+    chmod 0660 /sys/kernel/debug/tracing/hyp/trace
+    chmod 0660 /sys/kernel/tracing/hyp/trace
+
+# Read and truncate the per-CPU kernel trace.
+# Cannot use wildcards in .rc files. Update this if there is a phone with
+# TODO(b/249050813, ioffe): introduce per-cpu wildcard
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu0/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu0/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu1/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu1/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu2/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu2/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu3/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu3/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu4/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu4/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu5/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu5/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu6/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu6/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu7/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu7/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu8/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu8/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu9/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu9/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu10/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu10/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu11/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu11/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu12/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu12/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu13/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu13/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu14/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu14/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu15/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu15/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu16/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu16/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu17/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu17/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu18/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu18/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu19/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu19/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu20/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu20/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu21/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu21/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu22/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu22/trace
+    chmod 0660 /sys/kernel/debug/tracing/hyp/per_cpu/cpu23/trace
+    chmod 0660 /sys/kernel/tracing/hyp/per_cpu/cpu23/trace
+
+    chmod 0440 /sys/kernel/debug/tracing/hyp/events/header_page
+    chmod 0440 /sys/kernel/tracing/hyp/events/header_page
+
+# Hyp events start here
+
+# hyp_enter event
+    chmod 0660 /sys/kernel/debug/tracing/hyp/events/hyp/hyp_enter/enable
+    chmod 0660 /sys/kernel/tracing/hyp/events/hyp/hyp_enter/enable
+# TODO(b/249050813): should this be handled in kernel?
+    chmod 0440 /sys/kernel/debug/tracing/hyp/events/hyp/hyp_enter/format
+    chmod 0440 /sys/kernel/tracing/hyp/events/hyp/hyp_enter/format
+    chmod 0440 /sys/kernel/debug/tracing/hyp/events/hyp/hyp_enter/id
+    chmod 0440 /sys/kernel/tracing/hyp/events/hyp/hyp_enter/id
+
+# hyp_exit event
+    chmod 0660 /sys/kernel/debug/tracing/hyp/events/hyp/hyp_exit/enable
+    chmod 0660 /sys/kernel/tracing/hyp/events/hyp/hyp_exit/enable
+# TODO(b/249050813): should this be handled in kernel?
+    chmod 0440 /sys/kernel/debug/tracing/hyp/events/hyp/hyp_exit/format
+    chmod 0440 /sys/kernel/tracing/hyp/events/hyp/hyp_exit/format
+    chmod 0440 /sys/kernel/debug/tracing/hyp/events/hyp/hyp_exit/id
+    chmod 0440 /sys/kernel/tracing/hyp/events/hyp/hyp_exit/id
+
+# host_hcall event
+    chmod 0660 /sys/kernel/debug/tracing/hyp/events/hyp/host_hcall/enable
+    chmod 0660 /sys/kernel/tracing/hyp/events/hyp/host_hcall/enable
+# TODO(b/249050813): should this be handled in kernel?
+    chmod 0440 /sys/kernel/debug/tracing/hyp/events/hyp/host_hcall/format
+    chmod 0440 /sys/kernel/tracing/hyp/events/hyp/host_hcall/format
+    chmod 0440 /sys/kernel/debug/tracing/hyp/events/hyp/host_hcall/id
+    chmod 0440 /sys/kernel/tracing/hyp/events/hyp/host_hcall/id
+
+# host_smc event
+    chmod 0660 /sys/kernel/debug/tracing/hyp/events/hyp/host_smc/enable
+    chmod 0660 /sys/kernel/tracing/hyp/events/hyp/host_smc/enable
+# TODO(b/249050813): should this be handled in kernel?
+    chmod 0440 /sys/kernel/debug/tracing/hyp/events/hyp/host_smc/format
+    chmod 0440 /sys/kernel/tracing/hyp/events/hyp/host_smc/format
+    chmod 0440 /sys/kernel/debug/tracing/hyp/events/hyp/host_smc/id
+    chmod 0440 /sys/kernel/tracing/hyp/events/hyp/host_smc/id
+
+# host_mem_abort event
+    chmod 0660 /sys/kernel/debug/tracing/hyp/events/hyp/host_mem_abort/enable
+    chmod 0660 /sys/kernel/tracing/hyp/events/hyp/host_mem_abort/enable
+# TODO(b/249050813): should this be handled in kernel?
+    chmod 0440 /sys/kernel/debug/tracing/hyp/events/hyp/host_mem_abort/format
+    chmod 0440 /sys/kernel/tracing/hyp/events/hyp/host_mem_abort/format
+    chmod 0440 /sys/kernel/debug/tracing/hyp/events/hyp/host_mem_abort/id
+    chmod 0440 /sys/kernel/tracing/hyp/events/hyp/host_mem_abort/id
+
+
 on property:persist.debug.atrace.boottrace=1
     start boottrace
 
 # Run atrace with the categories written in a file
 service boottrace /system/bin/atrace --async_start -f /data/misc/boottrace/categories
+    user root
     disabled
     oneshot
+
+on property:sys.boot_completed=1 && property:ro.boot.fastboot.boottrace=enabled
+    setprop debug.atrace.tags.enableflags 0
+    setprop persist.traced.enable 1
+    write /sys/kernel/tracing/events/binder/binder_transaction/enable 0
+    write /sys/kernel/tracing/events/binder/binder_transaction_received/enable 0
+    write /sys/kernel/tracing/events/binder/binder_transaction_alloc_buf/enable 0
+    write /sys/kernel/tracing/events/binder/binder_set_priority/enable 0
+    write /sys/kernel/tracing/events/binder/binder_lock/enable 0
+    write /sys/kernel/tracing/events/binder/binder_locked/enable 0
+    write /sys/kernel/tracing/events/binder/binder_unlock/enable 0
+    write /sys/kernel/debug/tracing/tracing_on 0
+    write /sys/kernel/tracing/tracing_on 0
+

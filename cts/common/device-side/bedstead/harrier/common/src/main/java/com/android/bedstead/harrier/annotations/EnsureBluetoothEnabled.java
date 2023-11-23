@@ -24,9 +24,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Mark that a test method requires a bluetooth to be enabled.
+ * Mark that a test method requires bluetooth to be enabled.
  *
- * <p>You can use {@code Devicestate} to ensure that the device enters
+ * <p>You can use {@code DeviceState} to ensure that the device enters
  * the correct state for the method.
  */
 @Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE, ElementType.TYPE})

@@ -118,7 +118,7 @@ class DlkmPartitionTest : public testing::Test {
     runtime_info = android::vintf::VintfObject::GetRuntimeInfo();
     ASSERT_NE(nullptr, runtime_info);
 
-    const auto product_first_api_level =
+    product_first_api_level =
         android::base::GetIntProperty("ro.product.first_api_level", 0);
     ASSERT_NE(0, product_first_api_level)
         << "ro.product.first_api_level is undefined.";
@@ -136,13 +136,20 @@ class DlkmPartitionTest : public testing::Test {
 
   std::shared_ptr<const android::vintf::RuntimeInfo> runtime_info;
   int vendor_api_level;
+  int product_first_api_level;
 };
 
 TEST_F(DlkmPartitionTest, VendorDlkmPartition) {
   if (vendor_api_level < __ANDROID_API_S__) {
     GTEST_SKIP()
-        << "Exempt from vendor_dlkm partition test. ro.vendor.api_level: "
-        << vendor_api_level;
+        << "Exempt from vendor_dlkm partition test. ro.vendor.api_level ("
+        << vendor_api_level << ") < " << __ANDROID_API_S__;
+  }
+  // Only enforce this test on products launched with Android T and later.
+  if (product_first_api_level < __ANDROID_API_T__) {
+    GTEST_SKIP() << "Exempt from vendor_dlkm partition test. "
+                    "ro.product.first_api_level ("
+                 << product_first_api_level << ") < " << __ANDROID_API_T__;
   }
   if (runtime_info->kernelVersion().dropMinor() !=
           android::vintf::Version{5, 4} &&

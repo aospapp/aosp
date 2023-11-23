@@ -33,7 +33,7 @@ aidl_interface {
 aidl_interface {
     name: "pixel_stateresidency_provider_aidl_interface",
     unstable: true,
-    imports: ["android.hardware.power.stats-V1"],
+    imports: ["android.hardware.power.stats-V2"],
     srcs: [
         "android/vendor/powerstats/IPixelStateResidencyProvider.aidl",
         "android/vendor/powerstats/IPixelStateResidencyCallback.aidl",

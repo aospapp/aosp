@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"Повикот до <xliff:g id="CALLER">%s</xliff:g> се исклучи поради воспоставувањето итен повик."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"Повикот ќе се исклучи поради воспоставувањето итен повик."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"Повик во заднина"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> воспостави повик во заднината. Апликацијава можеби пристапува до и пушта аудио во повикот."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> обработува повик во заднината. Апликацијава можеби пристапува до и пушта аудио во повикот."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> падна"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"Повикот се обави на апликацијата за телефон што дојде со уредот"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"Повикот е со исклучен звук"</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Повици во заднина"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Прекинати повици"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Паднати апликации за телефон"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"Стримување повик"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"Ако се воспостави повиков, вашиот повик на <xliff:g id="OTHER_APP">%1$s</xliff:g> ќе заврши."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Изберете како да се воспостави повиков"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"Пренасочи го повикот со <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
@@ -109,7 +110,7 @@
     <string name="phone_settings_number_not_in_contact_txt" msgid="2602249106007265757">"Броеви што не се наведени во „Контакти“"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="963327038085718969">"Блокирани броеви што не се наведени во вашите „Контакти“"</string>
     <string name="phone_settings_private_num_txt" msgid="6339272760338475619">"Приватно"</string>
-    <string name="phone_settings_private_num_summary_txt" msgid="6755758240544021037">"Блокирај повикувачи со сокриен број"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="6755758240544021037">"Блокирај повикувачи со скриен број"</string>
     <string name="phone_settings_payphone_txt" msgid="5003987966052543965">"Телефонска говорница"</string>
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"Блокирај повици од телефонски говорници"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Непознато"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"Програмерско мени за телекомуникации"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Не може да примате повици во тек на итен повик."</string>
     <string name="cancel" msgid="6733466216239934756">"Откажи"</string>
+    <string name="back" msgid="6915955601805550206">"Назад"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"Слушалка"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"Bluetooth"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"Жичени слушалки"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"Звучник"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"Надворешно"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"Непознато"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"Звукот се стримува на друг уред"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"Спушти"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"Префрли овде"</string>
 </resources>

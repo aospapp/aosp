@@ -21,7 +21,7 @@
 
 #include "base/locks.h"
 #include "base/macros.h"
-#include "indirect_reference_table.h"
+#include "local_reference_table.h"
 #include "obj_ptr.h"
 #include "reference_table.h"
 
@@ -63,9 +63,8 @@ class JNIEnvExt : public JNIEnv {
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::alloc_tracker_lock_);
 
-  void UpdateLocal(IndirectRef iref, ObjPtr<mirror::Object> obj) REQUIRES_SHARED(Locks::mutator_lock_) {
-    locals_.Update(iref, obj);
-  }
+  void UpdateLocal(IndirectRef iref, ObjPtr<mirror::Object> obj)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   jobject NewLocalRef(mirror::Object* obj) REQUIRES_SHARED(Locks::mutator_lock_);
   void DeleteLocalRef(jobject obj) REQUIRES_SHARED(Locks::mutator_lock_);
@@ -80,13 +79,13 @@ class JNIEnvExt : public JNIEnv {
     return locals_.Capacity();
   }
 
-  IRTSegmentState GetLocalRefCookie() const { return local_ref_cookie_; }
-  void SetLocalRefCookie(IRTSegmentState new_cookie) { local_ref_cookie_ = new_cookie; }
+  jni::LRTSegmentState GetLocalRefCookie() const { return local_ref_cookie_; }
+  void SetLocalRefCookie(jni::LRTSegmentState new_cookie) { local_ref_cookie_ = new_cookie; }
 
-  IRTSegmentState GetLocalsSegmentState() const REQUIRES_SHARED(Locks::mutator_lock_) {
+  jni::LRTSegmentState GetLocalsSegmentState() const REQUIRES_SHARED(Locks::mutator_lock_) {
     return locals_.GetSegmentState();
   }
-  void SetLocalSegmentState(IRTSegmentState new_state) REQUIRES_SHARED(Locks::mutator_lock_) {
+  void SetLocalSegmentState(jni::LRTSegmentState new_state) REQUIRES_SHARED(Locks::mutator_lock_) {
     locals_.SetSegmentState(new_state);
   }
 
@@ -151,19 +150,17 @@ class JNIEnvExt : public JNIEnv {
       REQUIRES(!Locks::thread_list_lock_, !Locks::jni_function_table_lock_);
 
  private:
-  // Checking "locals" requires the mutator lock, but at creation time we're
-  // really only interested in validity, which isn't changing. To avoid grabbing
-  // the mutator lock, factored out and tagged with NO_THREAD_SAFETY_ANALYSIS.
-  static bool CheckLocalsValid(JNIEnvExt* in) NO_THREAD_SAFETY_ANALYSIS;
-
   // Override of function tables. This applies to both default as well as instrumented (CheckJNI)
   // function tables.
   static const JNINativeInterface* table_override_ GUARDED_BY(Locks::jni_function_table_lock_);
 
-  // The constructor should not be called directly. It may leave the object in an erroneous state,
-  // and the result needs to be checked.
-  JNIEnvExt(Thread* self, JavaVMExt* vm, std::string* error_msg)
+  // The constructor should not be called directly. Use `Create()` that initializes
+  // the new `JNIEnvExt` object by calling `Initialize()`.
+  JNIEnvExt(Thread* self, JavaVMExt* vm)
       REQUIRES(!Locks::jni_function_table_lock_);
+
+  // Initialize the `JNIEnvExt` object.
+  bool Initialize(std::string* error_msg);
 
   // Link to Thread::Current().
   Thread* const self_;
@@ -172,15 +169,15 @@ class JNIEnvExt : public JNIEnv {
   JavaVMExt* const vm_;
 
   // Cookie used when using the local indirect reference table.
-  IRTSegmentState local_ref_cookie_;
+  jni::LRTSegmentState local_ref_cookie_;
 
   // JNI local references.
-  IndirectReferenceTable locals_ GUARDED_BY(Locks::mutator_lock_);
+  jni::LocalReferenceTable locals_;
 
   // Stack of cookies corresponding to PushLocalFrame/PopLocalFrame calls.
   // TODO: to avoid leaks (and bugs), we need to clear this vector on entry (or return)
   // to a native method.
-  std::vector<IRTSegmentState> stacked_local_ref_cookies_;
+  std::vector<jni::LRTSegmentState> stacked_local_ref_cookies_;
 
   // Entered JNI monitors, for bulk exit on thread detach.
   ReferenceTable monitors_;
@@ -211,6 +208,7 @@ class JNIEnvExt : public JNIEnv {
   friend class Thread;
   friend IndirectReferenceTable* GetIndirectReferenceTable(ScopedObjectAccess& soa,
                                                            IndirectRefKind kind);
+  friend jni::LocalReferenceTable* GetLocalReferenceTable(ScopedObjectAccess& soa);
   friend void ThreadResetFunctionTable(Thread* thread, void* arg);
   ART_FRIEND_TEST(JniInternalTest, JNIEnvExtOffsets);
 };
@@ -232,7 +230,7 @@ class ScopedJniEnvLocalRefState {
 
  private:
   JNIEnvExt* const env_;
-  const IRTSegmentState saved_local_ref_cookie_;
+  const jni::LRTSegmentState saved_local_ref_cookie_;
 
   DISALLOW_COPY_AND_ASSIGN(ScopedJniEnvLocalRefState);
 };

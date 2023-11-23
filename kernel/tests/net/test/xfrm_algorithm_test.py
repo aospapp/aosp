@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2017 The Android Open Source Project
 #
@@ -20,7 +20,6 @@ import os
 import itertools
 from scapy import all as scapy
 from socket import *  # pylint: disable=wildcard-import
-import subprocess
 import threading
 import unittest
 
@@ -94,7 +93,7 @@ AEAD_ALGOS = [
 def GenerateKey(key_len):
   if key_len % 8 != 0:
     raise ValueError("Invalid key length in bits: " + str(key_len))
-  return os.urandom(key_len / 8)
+  return os.urandom(key_len // 8)
 
 # Does the kernel support this algorithm?
 def HaveAlgo(crypt_algo, auth_algo, aead_algo):
@@ -143,13 +142,13 @@ def AlgoEnforcedOrEnabled(crypt, auth, aead, target_algo, target_kernel):
 # Return true if this algorithm should be enforced or is enabled on this kernel
 def AuthEnforcedOrEnabled(authCase):
   auth = authCase[0]
-  crypt = xfrm.XfrmAlgo(("ecb(cipher_null)", 0))
+  crypt = xfrm.XfrmAlgo((b"ecb(cipher_null)", 0))
   return AlgoEnforcedOrEnabled(crypt, auth, None, auth.name, authCase[1])
 
 # Return true if this algorithm should be enforced or is enabled on this kernel
 def CryptEnforcedOrEnabled(cryptCase):
   crypt = cryptCase[0]
-  auth = xfrm.XfrmAlgoAuth(("digest_null", 0, 0))
+  auth = xfrm.XfrmAlgoAuth((b"digest_null", 0, 0))
   return AlgoEnforcedOrEnabled(crypt, auth, None, crypt.name, cryptCase[1])
 
 # Return true if this algorithm should be enforced or is enabled on this kernel
@@ -183,16 +182,16 @@ class XfrmAlgorithmTest(xfrm_base.XfrmLazyTest):
     param_string = ""
     if cryptCase is not None:
       crypt = cryptCase[0]
-      param_string += "%s_%d_" % (crypt.name, crypt.key_len)
+      param_string += "%s_%d_" % (crypt.name.decode(), crypt.key_len)
 
     if authCase is not None:
       auth = authCase[0]
-      param_string += "%s_%d_%d_" % (auth.name, auth.key_len,
+      param_string += "%s_%d_%d_" % (auth.name.decode(), auth.key_len,
           auth.trunc_len)
 
     if aeadCase is not None:
       aead = aeadCase[0]
-      param_string += "%s_%d_%d_" % (aead.name, aead.key_len,
+      param_string += "%s_%d_%d_" % (aead.name.decode(), aead.key_len,
           aead.icv_len)
 
     param_string += "%s_%s" % ("IPv4" if version == 4 else "IPv6",
@@ -233,17 +232,17 @@ class XfrmAlgorithmTest(xfrm_base.XfrmLazyTest):
     local_addr = self.MyAddress(version, netid)
     remote_addr = self.GetRemoteSocketAddress(version)
     auth_left = (xfrm.XfrmAlgoAuth((auth.name, auth.key_len, auth.trunc_len)),
-                 os.urandom(auth.key_len / 8)) if auth else None
+                 os.urandom(auth.key_len // 8)) if auth else None
     auth_right = (xfrm.XfrmAlgoAuth((auth.name, auth.key_len, auth.trunc_len)),
-                  os.urandom(auth.key_len / 8)) if auth else None
+                  os.urandom(auth.key_len // 8)) if auth else None
     crypt_left = (xfrm.XfrmAlgo((crypt.name, crypt.key_len)),
-                  os.urandom(crypt.key_len / 8)) if crypt else None
+                  os.urandom(crypt.key_len // 8)) if crypt else None
     crypt_right = (xfrm.XfrmAlgo((crypt.name, crypt.key_len)),
-                   os.urandom(crypt.key_len / 8)) if crypt else None
+                   os.urandom(crypt.key_len // 8)) if crypt else None
     aead_left = (xfrm.XfrmAlgoAead((aead.name, aead.key_len, aead.icv_len)),
-                 os.urandom(aead.key_len / 8)) if aead else None
+                 os.urandom(aead.key_len // 8)) if aead else None
     aead_right = (xfrm.XfrmAlgoAead((aead.name, aead.key_len, aead.icv_len)),
-                  os.urandom(aead.key_len / 8)) if aead else None
+                  os.urandom(aead.key_len // 8)) if aead else None
     spi_left = 0xbeefface
     spi_right = 0xcafed00d
     req_ids = [100, 200, 300, 400]  # Used to match templates and SAs.
@@ -341,8 +340,8 @@ class XfrmAlgorithmTest(xfrm_base.XfrmLazyTest):
         self.assertEqual(remote_addr, peer[0])
         self.assertEqual(client_port, peer[1])
         data = accepted.recv(2048)
-        self.assertEqual("hello request", data)
-        accepted.send("hello response")
+        self.assertEqual(b"hello request", data)
+        accepted.send(b"hello response")
       except Exception as e:
         server_error = e
       finally:
@@ -354,8 +353,8 @@ class XfrmAlgorithmTest(xfrm_base.XfrmLazyTest):
         data, peer = sock.recvfrom(2048)
         self.assertEqual(remote_addr, peer[0])
         self.assertEqual(client_port, peer[1])
-        self.assertEqual("hello request", data)
-        sock.sendto("hello response", peer)
+        self.assertEqual(b"hello request", data)
+        sock.sendto(b"hello response", peer)
       except Exception as e:
         server_error = e
       finally:
@@ -382,11 +381,12 @@ class XfrmAlgorithmTest(xfrm_base.XfrmLazyTest):
 
     with TapTwister(fd=self.tuns[netid].fileno(), validator=AssertEncrypted):
       sock_left.connect((remote_addr, right_port))
-      sock_left.send("hello request")
+      sock_left.send(b"hello request")
       data = sock_left.recv(2048)
-      self.assertEqual("hello response", data)
+      self.assertEqual(b"hello response", data)
       sock_left.close()
-      server.join()
+      server.join(timeout=2.0)
+      self.assertFalse(server.is_alive(), "Timed out waiting for server exit")
     if server_error:
       raise server_error
 

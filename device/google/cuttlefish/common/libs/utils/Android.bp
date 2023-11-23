@@ -21,19 +21,24 @@ cc_library {
     name: "libcuttlefish_utils",
     srcs: [
         "archive.cpp",
-        "subprocess.cpp",
-        "environment.cpp",
-        "flag_parser.cpp",
-        "shared_fd_flag.cpp",
-        "files.cpp",
-        "users.cpp",
-        "network.cpp",
         "base64.cpp",
+        "environment.cpp",
+        "files.cpp",
+        "flag_parser.cpp",
+        "flags_validator.cpp",
+        "inotify.cpp",
+        "json.cpp",
+        "network.cpp",
+        "proc_file_utils.cpp",
+        "scope_guard.cpp",
+        "shared_fd_flag.cpp",
+        "socket2socket_proxy.cpp",
+        "subprocess.cpp",
         "tcp_socket.cpp",
         "tee_logging.cpp",
         "unix_sockets.cpp",
+        "users.cpp",
         "vsock_connection.cpp",
-        "socket2socket_proxy.cpp",
     ],
     shared: {
         shared_libs: [
@@ -56,16 +61,33 @@ cc_library {
     defaults: ["cuttlefish_host"],
 }
 
+cc_library_static {
+    name: "libcuttlefish_utils_product",
+    srcs: [
+        "inotify.cpp",
+    ],
+    shared_libs: [
+        "libbase",
+        "liblog",
+    ],
+    stl: "libc++_static",
+    defaults: ["cuttlefish_guest_product_only"],
+}
+
 cc_test_host {
     name: "libcuttlefish_utils_test",
     srcs: [
         "flag_parser_test.cpp",
+        "proc_file_utils_test.cpp",
+        "result_test.cpp",
+        "unique_resource_allocator_test.cpp",
         "unix_sockets_test.cpp",
     ],
     static_libs: [
         "libbase",
         "libcuttlefish_fs",
         "libcuttlefish_utils",
+        "libgmock",
     ],
     shared_libs: [
         "libcrypto",

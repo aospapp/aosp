@@ -1,0 +1,12 @@
+type dump_gsc, domain;
+type dump_gsc_exec, exec_type, vendor_file_type, file_type;
+domain_auto_trans(hal_dumpstate_default, dump_gsc_exec, dump_gsc)
+hal_client_domain(dump_gsc, hal_dumpstate)
+
+allow dump_gsc dumpstate:fd use;
+allow dump_gsc dumpstate:fifo_file { write getattr };
+allow dump_gsc shell_data_file:file { write getattr };
+allow dump_gsc citadel_updater:file execute_no_trans;
+allow dump_gsc citadeld_service:service_manager find;
+binder_call(dump_gsc, citadeld)
+vndbinder_use(dump_gsc)

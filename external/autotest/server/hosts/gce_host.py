@@ -4,10 +4,9 @@
 
 import logging
 import os
-import string
 
 import common
-from chromite.lib import gce
+from autotest_lib.utils.frozen_chromite.lib import gce
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import lsbrelease_utils
@@ -82,12 +81,12 @@ class GceHost(abstract_ssh.AbstractSSHHost):
         """
         keys = self.gce.GetCommonInstanceMetadata(
                 SSH_KEYS_METADATA_KEY) or ''
-        key_set = set(string.split(keys, '\n'))
+        key_set = set(keys.split('\n'))
         new_key_set = (key_set | set(to_add)) - set(to_remove)
         if key_set != new_key_set:
             self.gce.SetCommonInstanceMetadata(
                     SSH_KEYS_METADATA_KEY,
-                    string.join(list(new_key_set), '\n'))
+                    '\n'.join(list(new_key_set)))
 
     def add_ssh_key(self, username, ssh_key):
         """Adds a new SSH key in GCE metadata.

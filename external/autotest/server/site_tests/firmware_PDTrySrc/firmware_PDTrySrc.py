@@ -50,7 +50,7 @@ class firmware_PDTrySrc(FirmwareTest):
         stats = [0, 0]
         random.seed()
         # Try N disconnect/connects
-        for attempt in xrange(self.CONNECT_ITERATIONS):
+        for attempt in range(self.CONNECT_ITERATIONS):
             try:
                 # Disconnect time from 1 to 1.5 seconds
                 disc_time = self.PD_DISCONNECT_TIME + random.random() / 2
@@ -114,7 +114,7 @@ class firmware_PDTrySrc(FirmwareTest):
         # sequence does not affect the SRC/SNK connection. PDTester provides
         # a 'fakedisconnect' feature which more closely resembles unplugging
         # and replugging a Type C cable.
-        for side in xrange(len(port_pair)):
+        for side in range(len(port_pair)):
             original_drp[side] = port_pair[side].drp_get()
             if port_pair[side].is_pdtester:
                 # Identify PDTester and DUT device
@@ -130,11 +130,15 @@ class firmware_PDTrySrc(FirmwareTest):
                 except NotImplementedError:
                     raise error.TestFail('Both devices must support DRP')
 
+            # Setting DRP on ServoV4 ('usbc_action drp') triggers reconnect
+            # Wait some time to ensure that no operation will occur during test
+            time.sleep(port_pair[p_idx].utils.CONNECT_TIME)
+
             # Check to see if DUT supports Try.SRC mode
             try_src_supported = port_pair[d_idx].try_src(True)
 
             if not try_src_supported:
-                logging.warn('DUT does not support Try.SRC feature. '
+                logging.warning('DUT does not support Try.SRC feature. '
                              'Skip running Try.SRC-enabled test case.')
             else:
                 # Run disconnect/connect sequence with Try.SRC enabled
@@ -179,5 +183,5 @@ class firmware_PDTrySrc(FirmwareTest):
             # Reenable Try.SRC mode
             port_pair[d_idx].try_src(True)
             # Restore the original dualrole settings
-            for side in xrange(len(port_pair)):
+            for side in range(len(port_pair)):
                 port_pair[side].drp_set(original_drp[side])

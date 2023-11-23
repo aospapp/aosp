@@ -1,0 +1,13 @@
+namespace com.android.ondevicepersonalization.services.fbs;
+
+table EventFields {
+    metrics:Metrics;
+}
+
+table Metrics {
+    long_values:[long];
+    double_values:[double];
+    boolean_values:[bool];
+}
+
+root_type EventFields;

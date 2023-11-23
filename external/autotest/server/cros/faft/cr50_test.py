@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,8 +8,7 @@ from __future__ import print_function
 import logging
 import os
 import pprint
-import StringIO
-import subprocess
+import six
 import time
 
 from autotest_lib.client.bin import utils
@@ -22,7 +22,7 @@ class Cr50Test(FirmwareTest):
     """Base class that sets up helper objects/functions for cr50 tests."""
     version = 1
 
-    RELEASE_POOLS = ['faft-cr50-experimental']
+    RELEASE_POOLS = ['faft-cr50-experimental', 'faft-cr50']
     RESPONSE_TIMEOUT = 180
     GS_PRIVATE = 'gs://chromeos-localmirror-private/distfiles/'
     # Prod signed test images are stored in the private cr50 directory.
@@ -52,17 +52,6 @@ class Cr50Test(FirmwareTest):
             ERASEFLASHINFO_IMAGE: ['chip_bid'],
     }
     PP_SHORT_INTERVAL = 3
-    # Cr50 may have flash operation errors during the test. Here's an example
-    # of one error message.
-    # do_flash_op:245 errors 20 fsh_pe_control 40720004
-    # The stuff after the ':' may change, but all flash operation errors
-    # contain do_flash_op. do_flash_op is only ever printed if there is an
-    # error during the flash operation. Just search for do_flash_op to simplify
-    # the search string and make it applicable to all flash op errors.
-    CR50_FLASH_OP_ERROR_MSG = 'do_flash_op'
-    # USB issues may show up with the timer sof calibration overflow interrupt.
-    # Count these during cleanup.
-    CR50_USB_ERROR = 'timer_sof_calibration_overflow_int'
 
     def initialize(self,
                    host,
@@ -81,7 +70,7 @@ class Cr50Test(FirmwareTest):
             raise error.TestNAError('Test can only be run on devices with '
                                     'access to the Cr50 console')
         # TODO(b/149948314): remove when dual-v4 is sorted out.
-        if 'ccd_cr50' in self.servo.get_servo_version():
+        if 'ccd' in self.servo.get_servo_version():
             self.servo.disable_ccd_watchdog_for_test()
 
         logging.info('Test Args: %r', full_args)
@@ -101,6 +90,15 @@ class Cr50Test(FirmwareTest):
         tpm_utils.ClearTPMOwnerRequest(self.host, wait_for_ready=True)
         # Clear the FWMP, so it can't disable CCD.
         self.clear_fwmp()
+
+        # TODO(b/218492933) : find better way to disable rddkeepalive
+        # Disable rddkeepalive, so the test can disable ccd.
+        self.cr50.send_command('ccd testlab open')
+        self.cr50.send_command('rddkeepalive disable')
+        # faft-cr50 locks and reopens ccd. This will restrict some capabilities
+        # c2d2 uses to control the duts. Set the capabilities to Always, so
+        # individiual tests don't need to care that much.
+        self.cr50.enable_servo_control_caps()
 
         if self.can_set_ccd_level:
             # Lock cr50 so the console will be restricted
@@ -224,11 +222,33 @@ class Cr50Test(FirmwareTest):
             logging.info('Running qual image. No update needed.')
             return
         logging.info('Cr50 qual update required.')
-        filesystem_util.make_rootfs_writable(self.host)
+        self.make_rootfs_writable()
         self._update_device_images_and_running_cr50_firmware(
                 qual_state, qual_path, prod_path, prepvt_path)
         logging.info("Recording qual device state as 'original' device state")
         self._save_original_state(qual_path)
+
+    def make_rootfs_writable(self):
+        """Make rootfs writeable. Recover the dut if necessary."""
+        path = None
+        try:
+            filesystem_util.make_rootfs_writable(self.host)
+            return
+        except error.AutoservRunError as e:
+            if 'cannot remount' not in e.result_obj.stderr:
+                raise
+            path = e.result_obj.stderr.partition(
+                    'cannot remount')[2].split()[0]
+        # This shouldn't be possible.
+        if not path:
+            raise error.TestError('Need path to repair filesystem')
+        logging.info('repair %s', path)
+        # Repair the block. Assume yes to all questions. The exit status will be
+        # 3, so ignore errors. make_rootfs_writable will fail if something
+        # actually went wrong.
+        self.host.run('e2fsck -y %s' % path, ignore_status=True)
+        self.host.reboot()
+        filesystem_util.make_rootfs_writable(self.host)
 
     def _saved_cr50_state(self, state):
         """Returns True if the test has saved the given state
@@ -461,6 +481,39 @@ class Cr50Test(FirmwareTest):
 
         self._retry_cr50_update(image_path, 3, True)
 
+    def _discharging_factory_mode_cleanup(self):
+        """Try to get the dut back into charging mode.
+
+        Shutdown the DUT, fake disconnect AC, and then turn on the DUT to
+        try to recover the EC.
+
+        When Cr50 enters factory mode on Wilco, the EC disables charging.
+        Try to run the sequence to get the Wilco EC out of the factory mode
+        state, so it reenables charging.
+        """
+        if self.faft_config.chrome_ec:
+            return
+        charge_state = self.host.get_power_supply_info()['Battery']['state']
+        logging.info('Charge state: %r', charge_state)
+        if 'Discharging' not in charge_state:
+            logging.info('Charge state is ok')
+            return
+
+        if not self.servo.is_servo_v4_type_c():
+            raise error.TestError(
+                    'Cannot recover charging without Type C servo')
+        # Disconnect the charger and reset the dut to recover charging.
+        logging.info('Recovering charging')
+        self.faft_client.system.run_shell_command('poweroff')
+        time.sleep(self.cr50.SHORT_WAIT)
+        self.servo.set_nocheck('servo_v4_uart_cmd', 'fakedisconnect 100 20000')
+        time.sleep(self.cr50.SHORT_WAIT)
+        self._try_to_bring_dut_up()
+        charge_state = self.host.get_power_supply_info()['Battery']['state']
+        logging.info('Charge state: %r', charge_state)
+        if 'Discharging' in charge_state:
+            logging.warning('DUT still discharging')
+
     def _cleanup_required(self, state_mismatch, image_type):
         """Return True if the update can fix something in the mismatched state.
 
@@ -524,7 +577,7 @@ class Cr50Test(FirmwareTest):
         mismatch = {}
         state = self.get_image_and_bid_state()
 
-        for k, expected_val in expected_state.iteritems():
+        for k, expected_val in six.iteritems(expected_state):
             val = state[k]
             if val != expected_val:
                 mismatch[k] = 'expected: %s, current: %s' % (expected_val, val)
@@ -555,7 +608,7 @@ class Cr50Test(FirmwareTest):
                 # Even if we can't open cr50, do our best to reset the rest of
                 # the system state. Log a warning here.
                 logging.warning('Unable to Open cr50', exc_info=True)
-            self.cr50.send_command('ccd reset')
+            self.cr50.ccd_reset(servo_en=False)
             if not self.cr50.ccd_is_reset():
                 raise error.TestFail('Could not reset ccd')
 
@@ -573,6 +626,26 @@ class Cr50Test(FirmwareTest):
         elif self.original_ccd_level != self.cr50.get_ccd_level():
             self.cr50.set_ccd_level(self.original_ccd_level)
 
+    def fast_ccd_open(self,
+                      enable_testlab=False,
+                      reset_ccd=True,
+                      dev_mode=False):
+        """Check for watchdog resets after opening ccd.
+
+        Args:
+            enable_testlab: If True, enable testlab mode after cr50 is open.
+            reset_ccd: If True, reset ccd after open.
+            dev_mode: True if the device should be in dev mode after ccd is
+                      is opened.
+        """
+        try:
+            super(Cr50Test, self).fast_ccd_open(enable_testlab, reset_ccd,
+                                                dev_mode)
+        except Exception as e:
+            # Check for cr50 watchdog resets.
+            self.cr50.check_for_console_errors('Fast ccd open')
+            raise
+
     def cleanup(self):
         """Attempt to cleanup the cr50 state. Then run firmware cleanup"""
         try:
@@ -586,39 +659,15 @@ class Cr50Test(FirmwareTest):
 
             self._try_to_bring_dut_up()
             self._restore_cr50_state()
+
+            # Make sure the sarien EC isn't stuck in factory mode.
+            self._discharging_factory_mode_cleanup()
         finally:
             super(Cr50Test, self).cleanup()
 
         # Check the logs captured during firmware_test cleanup for cr50 errors.
-        self._get_cr50_stats_from_uart_capture()
+        self.cr50.check_for_console_errors('Test Cleanup')
         self.servo.allow_ccd_watchdog_for_test()
-
-    def _get_cr50_stats_from_uart_capture(self):
-        """Check cr50 uart output for errors.
-
-        Use the logs captured during firmware_test cleanup to check for cr50
-        errors. Flash operation issues aren't obvious unless you check the logs.
-        All flash op errors print do_flash_op and it isn't printed during normal
-        operation. Open the cr50 uart file and count the number of times this is
-        printed. Log the number of errors.
-        """
-        cr50_uart_file = self.servo.get_uart_logfile('cr50')
-        if not cr50_uart_file:
-            logging.info('There is not a cr50 uart file')
-            return
-
-        flash_error_count = 0
-        usb_error_count = 0
-        with open(cr50_uart_file, 'r') as f:
-            for line in f:
-                if self.CR50_FLASH_OP_ERROR_MSG in line:
-                    flash_error_count += 1
-                if self.CR50_USB_ERROR in line:
-                    usb_error_count += 1
-
-        # Log any flash operation errors.
-        logging.info('do_flash_op count: %d', flash_error_count)
-        logging.info('usb error count: %d', usb_error_count)
 
     def _update_device_images_and_running_cr50_firmware(
             self, state, release_path, prod_path, prepvt_path):
@@ -641,6 +690,7 @@ class Cr50Test(FirmwareTest):
             self.update_cr50_image_and_board_id(release_path,
                                                 state['chip_bid'])
 
+        self._try_to_bring_dut_up()
         new_mismatch = self._check_running_image_and_board_id(state)
         # Copy the original .prod and .prepvt images back onto the DUT.
         if (self._cleanup_required(new_mismatch, self.DEVICE_IMAGES)
@@ -682,10 +732,10 @@ class Cr50Test(FirmwareTest):
         try:
             self.cr50.ccd_enable()
         except Exception as e:
-            logging.warn('Ignored exception enabling ccd %r', str(e))
+            logging.warning('Ignored exception enabling ccd %r', str(e))
         self.cr50.send_command('ccd testlab open')
         self.cr50.send_command('rddkeepalive disable')
-        self.cr50.send_command('ccd reset')
+        self.cr50.ccd_reset()
         self.cr50.send_command('wp follow_batt_pres atboot')
 
     def _restore_ccd_settings(self):
@@ -702,6 +752,7 @@ class Cr50Test(FirmwareTest):
         # reboot to normal mode if the device is in dev mode.
         self.enter_mode_after_checking_cr50_state('normal')
 
+        self._try_to_bring_dut_up()
         tpm_utils.ClearTPMOwnerRequest(self.host, wait_for_ready=True)
         self.clear_fwmp()
 
@@ -911,6 +962,9 @@ class Cr50Test(FirmwareTest):
         """
         tmp_dest = '/tmp/' + os.path.basename(path)
 
+        # Make sure the dut is sshable before installing the image.
+        self._try_to_bring_dut_up()
+
         dest, image_ver = cr50_utils.InstallImage(self.host, path, tmp_dest)
         # Use the -p option to make sure the DUT does a clean reboot.
         cr50_utils.GSCTool(self.host, ['-a', dest, '-p'])
@@ -958,55 +1012,24 @@ class Cr50Test(FirmwareTest):
         @param name: The name to give the job
         @param expect_error: True if the command should fail
         """
-        set_pwd_cmd = utils.sh_escape(cmd)
-        full_ssh_command = '%s "%s"' % (self.host.ssh_command(options='-tt'),
-                                        set_pwd_cmd)
         logging.info('Running: %s', cmd)
         logging.info('Password: %s', password)
-
         # Make sure the test waits long enough to avoid ccd rate limiting.
         time.sleep(self.cr50.CCD_PASSWORD_RATE_LIMIT)
-
-        stdout = StringIO.StringIO()
-        # Start running the gsctool Command in the background.
-        gsctool_job = utils.BgJob(
-                full_ssh_command,
-                nickname='%s_with_password' % name,
-                stdout_tee=stdout,
-                stderr_tee=utils.TEE_TO_LOGS,
-                stdin=subprocess.PIPE)
-        if gsctool_job == None:
-            raise error.TestFail('could not start gsctool command %r' % cmd)
-
-        try:
-            # Wait for enter prompt
-            gsctool_job.process_output()
-            logging.info(stdout.getvalue().strip())
-            # Enter the password
-            gsctool_job.sp.stdin.write(password + '\n')
-
-            # Wait for re-enter prompt
-            gsctool_job.process_output()
-            logging.info(stdout.getvalue().strip())
-            # Re-enter the password
-            gsctool_job.sp.stdin.write(password + '\n')
-            time.sleep(self.cr50.CONSERVATIVE_CCD_WAIT)
-            gsctool_job.process_output()
-        finally:
-            exit_status = utils.nuke_subprocess(gsctool_job.sp)
-            output = stdout.getvalue().strip()
-            logging.info('%s stdout: %s', name, output)
-            logging.info('%s exit status: %s', name, exit_status)
-            if exit_status:
-                message = ('gsctool %s failed using %r: %s %s' %
-                           (name, password, exit_status, output))
-                if expect_error:
-                    logging.info(message)
-                else:
-                    raise error.TestFail(message)
-            elif expect_error:
-                raise error.TestFail('%s with %r did not fail when expected' %
-                                     (name, password))
+        full_cmd = "echo -e '%s\n%s\n' | %s" % (password, password, cmd)
+        result = self.host.run(full_cmd, ignore_status=expect_error)
+        if result.exit_status:
+            message = ('gsctool %s failed using %r: %s %s' %
+                       (name, password, result.exit_status, result.stderr))
+            if expect_error:
+                logging.info(message)
+            else:
+                raise error.TestFail(message)
+        elif expect_error:
+            raise error.TestFail('%s with %r did not fail when expected' %
+                                 (name, password))
+        else:
+            logging.info('ran %s password command: %r', name, result.stdout)
 
     def set_ccd_password(self, password, expect_error=False):
         """Set the ccd password"""

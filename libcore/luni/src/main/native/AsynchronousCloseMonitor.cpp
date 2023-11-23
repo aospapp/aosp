@@ -66,6 +66,8 @@ static AsynchronousCloseMonitorImpl* blockedThreadList = NULL;
  */
 #if defined(__Fuchsia__)
 static const int BLOCKED_THREAD_SIGNAL = SIGRTMIN + 2;
+#elif !defined (__BIONIC__)
+static const int BLOCKED_THREAD_SIGNAL = SIGRTMAX - 2;
 #else
 static const int BLOCKED_THREAD_SIGNAL = __SIGRTMIN + 2;
 #endif

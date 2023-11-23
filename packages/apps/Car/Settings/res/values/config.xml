@@ -20,12 +20,8 @@
     <bool name="config_global_force_single_pane">true</bool>
     <!-- Fully qualified class name for the homepage fragment. -->
     <string name="config_homepage_fragment_class" translatable="false">com.android.car.settings.home.HomepageFragment</string>
-    <!-- Whether quick settings should be the root settings activity or not. -->
-    <bool name="config_is_quick_settings_root">false</bool>
     <!-- Whether to show the launcher icon for settings home or not. -->
     <bool name="config_enable_home_settings_icon">true</bool>
-    <!-- Whether to show the launcher icon for quick settings or not. -->
-    <bool name="config_enable_quick_settings_icon">false</bool>
     <!-- Whether system_update_settings should be shown or not. -->
     <bool name="config_show_system_update_settings">true</bool>
     <!-- Whether Wi-Fi Mac address should be shown or not. -->
@@ -165,4 +161,7 @@
         Delay in milliseconds between preference onclick calls
     -->
     <integer name="config_preference_onclick_debounce_ms">200</integer>
+
+    <!-- Whether to scan and start a custom pair device flow. -->
+    <bool name="config_use_custom_pair_device_flow">true</bool>
 </resources>

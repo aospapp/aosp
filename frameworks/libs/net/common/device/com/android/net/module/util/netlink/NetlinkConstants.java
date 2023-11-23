@@ -141,6 +141,7 @@ public class NetlinkConstants {
 
     /* see include/uapi/linux/sock_diag.h */
     public static final short SOCK_DIAG_BY_FAMILY = 20;
+    public static final short SOCK_DESTROY = 21;
 
     // Netlink groups.
     public static final int RTMGRP_LINK = 1;

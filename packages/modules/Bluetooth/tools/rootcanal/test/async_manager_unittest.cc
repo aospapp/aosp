@@ -32,9 +32,8 @@
 #include <mutex>               // for mutex
 #include <ratio>               // for ratio
 #include <string>              // for string
-#include <tuple>               // for tuple
-
-#include "osi/include/osi.h"  // for OSI_NO_INTR
+#include <thread>
+#include <tuple>  // for tuple
 
 namespace rootcanal {
 
@@ -110,19 +109,25 @@ class AsyncManagerSocketTest : public ::testing::Test {
 
   void ReadIncomingMessage(int fd) {
     int n;
-    OSI_NO_INTR(n = read(fd, server_buffer_, kBufferSize - 1));
-    ASSERT_GE(n, 0) << strerror(errno);
+    do {
+      n = read(fd, server_buffer_, kBufferSize - 1);
+    } while (n == -1 && errno == EAGAIN);
 
-    if (n == 0) {  // got EOF
+    if (n == 0 || errno == EBADF) {
+      // Got EOF, or file descriptor disconnected.
       async_manager_.StopWatchingFileDescriptor(fd);
       close(fd);
     } else {
+      ASSERT_GE(n, 0) << strerror(errno);
       n = write(fd, "1", 1);
     }
   }
 
   void SetUp() override {
     memset(server_buffer_, 0, kBufferSize);
+    memset(client_buffer_, 0, kBufferSize);
+    socket_fd_ = -1;
+    connection_fd_ = -1;
 
     socket_fd_ = StartServer();
 
@@ -137,7 +142,9 @@ class AsyncManagerSocketTest : public ::testing::Test {
   void TearDown() override {
     async_manager_.StopWatchingFileDescriptor(socket_fd_);
     close(socket_fd_);
-    ASSERT_TRUE(CheckBufferEquals());
+    close(connection_fd_);
+    ASSERT_EQ(std::string_view(server_buffer_, kBufferSize),
+              std::string_view(client_buffer_, kBufferSize));
   }
 
   int ConnectClient() {
@@ -191,6 +198,8 @@ TEST_F(AsyncManagerSocketTest, TestOneConnection) {
 }
 
 TEST_F(AsyncManagerSocketTest, CanUnsubscribeInCallback) {
+  using namespace std::chrono_literals;
+
   int socket_cli_fd = ConnectClient();
   WriteFromClient(socket_cli_fd);
   AwaitServerResponse(socket_cli_fd);
@@ -209,10 +218,56 @@ TEST_F(AsyncManagerSocketTest, CanUnsubscribeInCallback) {
 
   while (!stopped) {
     write(socket_cli_fd, data.data(), data.size());
+    std::this_thread::sleep_for(5ms);
   }
 
   SUCCEED();
   close(socket_cli_fd);
+}
+
+TEST_F(AsyncManagerSocketTest, CanUnsubscribeTaskFromWithinTask) {
+  Event running;
+  using namespace std::chrono_literals;
+  async_manager_.ExecAsyncPeriodically(1, 1ms, 2ms, [&running, this]() {
+    EXPECT_TRUE(async_manager_.CancelAsyncTask(1))
+        << "We were scheduled, so cancel should return true";
+    EXPECT_FALSE(async_manager_.CancelAsyncTask(1))
+        << "We were not scheduled, so cancel should return false";
+    running.set(true);
+  });
+
+  EXPECT_TRUE(running.wait_for(100ms));
+}
+
+TEST_F(AsyncManagerSocketTest, UnsubScribeWaitsUntilCompletion) {
+  using namespace std::chrono_literals;
+  Event running;
+  std::atomic<bool> cancel_done = false;
+  std::atomic<bool> task_complete = false;
+  AsyncTaskId task_id = async_manager_.ExecAsyncPeriodically(
+      1, 1ms, 2ms, [&running, &cancel_done, &task_complete]() {
+        // Let the other thread now we are in the callback..
+        running.set(true);
+        // Wee bit of a hack that relies on timing..
+        std::this_thread::sleep_for(20ms);
+        EXPECT_FALSE(cancel_done.load())
+            << "Task cancellation did not wait for us to complete!";
+        task_complete.store(true);
+      });
+
+  EXPECT_TRUE(running.wait_for(100ms));
+  auto start = std::chrono::system_clock::now();
+
+  // There is a 20ms wait.. so we know that this should take some time.
+  EXPECT_TRUE(async_manager_.CancelAsyncTask(task_id))
+      << "We were scheduled, so cancel should return true";
+  cancel_done.store(true);
+  EXPECT_TRUE(task_complete.load())
+      << "We managed to cancel a task while it was not yet finished.";
+  auto end = std::chrono::system_clock::now();
+  auto passed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+  EXPECT_GT(passed_ms.count(), 10);
 }
 
 TEST_F(AsyncManagerSocketTest, NoEventsAfterUnsubscribe) {

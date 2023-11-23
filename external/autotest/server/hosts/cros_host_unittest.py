@@ -1,8 +1,8 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # pylint: disable=missing-docstring
 
-import mock
 import unittest
+from unittest import mock
 
 import common
 

@@ -16,6 +16,7 @@
 
 #include "HidlEnumerator.h"
 
+#include "Constants.h"
 #include "HidlCamera.h"
 #include "HidlDisplay.h"
 #include "utils/include/Utils.h"
@@ -46,12 +47,18 @@ HidlEnumerator::~HidlEnumerator() {
 }
 
 Return<void> HidlEnumerator::getCameraList(getCameraList_cb _hidl_cb) {
+    if (!mEnumerator) {
+        LOG(ERROR) << "A reference to AIDL IEvsEnumerator is invalid.";
+        _hidl_cb({});
+        return {};
+    }
+
     std::vector<CameraDesc> aidlCameras;
     if (auto status = mEnumerator->getCameraList(&aidlCameras); !status.isOk()) {
         LOG(ERROR) << "Failed to get a list of cameras, status = "
                    << status.getServiceSpecificError();
         _hidl_cb({});
-        return Status::fromExceptionCode(Status::EX_TRANSACTION_FAILED);
+        return {};
     }
 
     ::android::hardware::hidl_vec<hidlevs::V1_0::CameraDesc> hidlCameras(aidlCameras.size());
@@ -65,6 +72,11 @@ Return<void> HidlEnumerator::getCameraList(getCameraList_cb _hidl_cb) {
 
 Return<::android::sp<hidlevs::V1_0::IEvsCamera>> HidlEnumerator::openCamera(
         const hidl_string& cameraId) {
+    if (!mEnumerator) {
+        LOG(ERROR) << "A reference to AIDL IEvsEnumerator is invalid.";
+        return nullptr;
+    }
+
     std::shared_ptr<IEvsCamera> aidlCamera;
     // IEvsEnumerator will open a camera with its default configuration.
     auto status = mEnumerator->openCamera(cameraId, {}, &aidlCamera);
@@ -84,6 +96,11 @@ Return<::android::sp<hidlevs::V1_0::IEvsCamera>> HidlEnumerator::openCamera(
 
 Return<void> HidlEnumerator::closeCamera(
         const ::android::sp<hidlevs::V1_0::IEvsCamera>& cameraObj) {
+    if (!mEnumerator) {
+        LOG(ERROR) << "A reference to AIDL IEvsEnumerator is invalid.";
+        return {};
+    }
+
     if (!cameraObj) {
         LOG(WARNING) << "Ignoring a call with an invalid camera object";
         return {};
@@ -95,16 +112,22 @@ Return<void> HidlEnumerator::closeCamera(
 }
 
 Return<::android::sp<hidlevs::V1_0::IEvsDisplay>> HidlEnumerator::openDisplay() {
+    if (!mEnumerator) {
+        LOG(ERROR) << "A reference to AIDL IEvsEnumerator is invalid.";
+        return nullptr;
+    }
+
+    auto displayId = kDisplayIdUnavailable;
     if (mAidlDisplayIds.empty()) {
-        auto status = mEnumerator->getDisplayIdList(&mAidlDisplayIds);
-        if (!status.isOk()) {
-            LOG(ERROR) << "Failed to get a display list";
-            return nullptr;
+        if (auto status = mEnumerator->getDisplayIdList(&mAidlDisplayIds);
+            !status.isOk() || mAidlDisplayIds.empty()) {
+            LOG(WARNING) << "Use the default display ID because we failed to get a display list.";
+        } else {
+            displayId = mAidlDisplayIds[0];
         }
     }
 
     std::shared_ptr<IEvsDisplay> aidlDisplay;
-    auto displayId = mAidlDisplayIds[0];
     if (auto status = mEnumerator->openDisplay(displayId, &aidlDisplay); !status.isOk()) {
         LOG(ERROR) << "Failed to open a display " << displayId;
         return nullptr;
@@ -123,6 +146,11 @@ Return<::android::sp<hidlevs::V1_0::IEvsDisplay>> HidlEnumerator::openDisplay() 
 
 Return<void> HidlEnumerator::closeDisplay(
         const ::android::sp<hidlevs::V1_0::IEvsDisplay>& display) {
+    if (!mEnumerator) {
+        LOG(ERROR) << "A reference to AIDL IEvsEnumerator is invalid.";
+        return {};
+    }
+
     if (display != mHidlDisplay.promote()) {
         LOG(DEBUG) << "Ignores an invalid request to close the display";
         return {};
@@ -133,9 +161,14 @@ Return<void> HidlEnumerator::closeDisplay(
 }
 
 Return<hidlevs::V1_0::DisplayState> HidlEnumerator::getDisplayState() {
+    if (!mEnumerator) {
+        LOG(ERROR) << "A reference to AIDL IEvsEnumerator is invalid.";
+        return hidlevs::V1_0::DisplayState::DEAD;
+    }
+
     DisplayState aidlState;
     if (auto status = mEnumerator->getDisplayState(&aidlState); !status.isOk()) {
-        return hidlevs::V1_0::DisplayState::DEAD;
+        return hidlevs::V1_0::DisplayState::NOT_OPEN;
     }
 
     return Utils::makeToHidl(aidlState);
@@ -143,12 +176,18 @@ Return<hidlevs::V1_0::DisplayState> HidlEnumerator::getDisplayState() {
 
 // Methods from hardware::automotive::evs::V1_1::IEvsEnumerator follow.
 Return<void> HidlEnumerator::getCameraList_1_1(getCameraList_1_1_cb _hidl_cb) {
+    if (!mEnumerator) {
+        LOG(ERROR) << "A reference to AIDL IEvsEnumerator is invalid.";
+        _hidl_cb({});
+        return {};
+    }
+
     std::vector<CameraDesc> aidlCameras;
     if (auto status = mEnumerator->getCameraList(&aidlCameras); !status.isOk()) {
         LOG(ERROR) << "Failed to get a list of cameras, status = "
                    << status.getServiceSpecificError();
         _hidl_cb({});
-        return Status::fromExceptionCode(Status::EX_TRANSACTION_FAILED);
+        return {};
     }
 
     ::android::hardware::hidl_vec<hidlevs::V1_1::CameraDesc> hidlCameras(aidlCameras.size());
@@ -163,17 +202,22 @@ Return<void> HidlEnumerator::getCameraList_1_1(getCameraList_1_1_cb _hidl_cb) {
 Return<::android::sp<hidlevs::V1_1::IEvsCamera>> HidlEnumerator::openCamera_1_1(
         const hidl_string& cameraId,
         const ::android::hardware::camera::device::V3_2::Stream& hidlCfg) {
+    if (!mEnumerator) {
+        LOG(ERROR) << "A reference to AIDL IEvsEnumerator is invalid.";
+        return nullptr;
+    }
+
     Stream cfg = std::move(Utils::makeFromHidl(hidlCfg));
     std::shared_ptr<IEvsCamera> aidlCamera;
-    auto status = mEnumerator->openCamera(cameraId, cfg, &aidlCamera);
-    if (!status.isOk()) {
-        LOG(ERROR) << "Failed to open a camera " << cameraId;
+    if (auto status = mEnumerator->openCamera(cameraId, cfg, &aidlCamera); !status.isOk()) {
+        LOG(ERROR) << "Failed to open a camera " << cameraId
+                   << ", error = " << status.getServiceSpecificError();
         return nullptr;
     }
 
     auto hidlCamera = new (std::nothrow) HidlCamera(aidlCamera);
     if (hidlCamera == nullptr) {
-        LOG(ERROR) << "Failed to open a camera " << cameraId;
+        LOG(ERROR) << "Failed to create a HidlCamera object " << cameraId;
         return nullptr;
     }
 
@@ -181,9 +225,16 @@ Return<::android::sp<hidlevs::V1_1::IEvsCamera>> HidlEnumerator::openCamera_1_1(
 }
 
 Return<void> HidlEnumerator::getDisplayIdList(getDisplayIdList_cb _list_cb) {
+    if (!mEnumerator) {
+        LOG(ERROR) << "A reference to AIDL IEvsEnumerator is invalid.";
+        _list_cb({});
+        return {};
+    }
+
     if (auto status = mEnumerator->getDisplayIdList(&mAidlDisplayIds); !status.isOk()) {
         LOG(ERROR) << "Failed to get a display list";
-        return Status::fromExceptionCode(Status::EX_TRANSACTION_FAILED);
+        _list_cb({});
+        return {};
     }
 
     _list_cb(mAidlDisplayIds);
@@ -191,6 +242,11 @@ Return<void> HidlEnumerator::getDisplayIdList(getDisplayIdList_cb _list_cb) {
 }
 
 Return<::android::sp<hidlevs::V1_1::IEvsDisplay>> HidlEnumerator::openDisplay_1_1(uint8_t id) {
+    if (!mEnumerator) {
+        LOG(ERROR) << "A reference to AIDL IEvsEnumerator is invalid.";
+        return nullptr;
+    }
+
     std::shared_ptr<IEvsDisplay> aidlDisplay;
     auto status = mEnumerator->openDisplay(id, &aidlDisplay);
     if (!status.isOk()) {
@@ -209,7 +265,8 @@ Return<::android::sp<hidlevs::V1_1::IEvsDisplay>> HidlEnumerator::openDisplay_1_
     return hidlDisplay;
 }
 
-Return<void> HidlEnumerator::getUltrasonicsArrayList(getUltrasonicsArrayList_cb _hidl_cb) {
+Return<void> HidlEnumerator::getUltrasonicsArrayList(
+        [[maybe_unused]] getUltrasonicsArrayList_cb _hidl_cb) {
     // TODO(b/149874793): Add implementation for EVS Manager and Sample driver
     _hidl_cb({});
     return {};

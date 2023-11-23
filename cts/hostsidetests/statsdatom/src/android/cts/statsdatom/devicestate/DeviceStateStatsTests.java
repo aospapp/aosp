@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.devicestate;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.cts.statsdatom.lib.AtomTestUtils;
@@ -26,9 +27,11 @@ import android.cts.statsdatom.lib.ReportUtils;
 import com.android.os.AtomsProto;
 import com.android.os.StatsLog;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.device.DeviceFoldableState;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.compatibility.common.util.PollingCheck;
 
 import java.util.Arrays;
 import java.util.List;
@@ -47,7 +50,7 @@ public class DeviceStateStatsTests extends DeviceTestCase implements IBuildRecei
         assertThat(mCtsBuild).isNotNull();
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -98,6 +101,10 @@ public class DeviceStateStatsTests extends DeviceTestCase implements IBuildRecei
 
     private void testDeviceStateChange(int nextState) throws Exception {
         getDevice().executeShellCommand("cmd device_state state " + nextState);
+
+        // wait device state change complete.
+        PollingCheck.waitFor(2000, () -> nextState == getDevice()
+                .getCurrentFoldableState().getIdentifier());
 
         List<StatsLog.EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         assertThat(data.size()).isEqualTo(1);

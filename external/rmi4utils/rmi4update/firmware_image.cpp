@@ -54,6 +54,16 @@ void FirmwareImage::ParseHierarchicalImg()
 	unsigned int length;
 	unsigned char *content;
 	unsigned short container_id;
+	unsigned int sigature_size;
+	
+	for (ii = 0; ii < BLv7_MAX; ii++) {
+		m_signatureInfo[ii].bExisted = false;
+		m_signatureInfo[ii].size = 0;
+	}
+
+	if (m_bootloaderVersion == RMI_IMG_V10_SIGNATURE_VERSION_NUMBER) {
+		fprintf (stdout, "has signature\n");	
+	}
 
 	m_cntrAddr = extract_long(&m_memBlock[RMI_IMG_V10_CNTR_ADDR_OFFSET]);
 	descriptor = (struct container_descriptor *)(m_memBlock + m_cntrAddr);
@@ -68,21 +78,37 @@ void FirmwareImage::ParseHierarchicalImg()
 				descriptor->container_id[1] << 8;
 		content = m_memBlock + extract_long(descriptor->content_address);
 		length = extract_long(descriptor->content_length);
+		sigature_size = extract_long(descriptor->signature_size);
 		switch (container_id) {
 		case BL_CONTAINER:
 			m_bootloaderVersion = *content;
 			break;
 		case UI_CONTAINER:
 		case CORE_CODE_CONTAINER:
+			if (sigature_size != 0) {
+				fprintf(stdout, "CORE CODE signature size : 0x%x\n", sigature_size);
+				m_signatureInfo[BLv7_CORE_CODE].bExisted = true;
+				m_signatureInfo[BLv7_CORE_CODE].size = sigature_size;
+			}
 			m_firmwareData = content;
 			m_firmwareSize = length;
 			break;
 		case FLASH_CONFIG_CONTAINER:
+			if (sigature_size != 0) {
+				fprintf(stdout, "FLASH CONFIG signature size : 0x%x\n", sigature_size);
+				m_signatureInfo[BLv7_FLASH_CONFIG].bExisted = true;
+				m_signatureInfo[BLv7_FLASH_CONFIG].size = sigature_size;
+			}
 			m_flashConfigData = content;
 			m_flashConfigSize = length;
 			break;
 		case UI_CONFIG_CONTAINER:
 		case CORE_CONFIG_CONTAINER:
+			if (sigature_size != 0) {
+				fprintf(stdout, "CORE CONFIG signature size : 0x%x\n", sigature_size);
+				m_signatureInfo[BLv7_CORE_CONFIG].bExisted = true;
+				m_signatureInfo[BLv7_CORE_CONFIG].size = sigature_size;
+			}
 			m_configData = content;
 			m_configSize = length;
 			break;
@@ -97,6 +123,26 @@ void FirmwareImage::ParseHierarchicalImg()
 			m_firmwareBuildID = extract_long(content + 4);
 			memcpy(m_productID, (content + 0x18), RMI_PRODUCT_ID_LENGTH);
 			m_productID[RMI_PRODUCT_ID_LENGTH] = 0;
+			if ((descriptor->major_version == 0) && 
+				(descriptor->minor_version > 0)) {
+				m_hasFirmwareVersion = true;
+				fprintf(stdout, "General Information version : %d.%d\n", descriptor->major_version, descriptor->minor_version);
+				m_firmwareVersion = *(content + 0x26) << 8 | *(content + 0x27);
+				fprintf(stdout, "Firmware version : 0x%x\n", m_firmwareVersion);
+			}
+			break;
+		case FIXED_LOCATION_DATA_CONTAINER:
+			if (sigature_size != 0) {
+				fprintf(stdout, "FLD signature size : 0x%x\n", sigature_size);
+				m_signatureInfo[BLv7_FLD].bExisted = true;
+				m_signatureInfo[BLv7_FLD].size = sigature_size;
+			}
+			m_fldData = content;
+			m_fldSize = length;
+			break;
+		case GLOBAL_PARAMETERS_CONTAINER:
+			m_globalparaData = content;
+			m_globalparaSize = length;
 			break;
 		default:
 			break;
@@ -182,6 +228,7 @@ int FirmwareImage::Initialize(const char * filename)
 			m_lockdownData = &m_memBlock[RMI_IMG_LOCKDOWN_V5_OFFSET];
 			break;
 		case 16:
+		case RMI_IMG_V10_SIGNATURE_VERSION_NUMBER:
 			ParseHierarchicalImg();
 			break;
 		default:
@@ -224,6 +271,17 @@ int FirmwareImage::VerifyImageMatchesDevice(unsigned long deviceFirmwareSize,
 	}
 	
 	return UPDATE_SUCCESS;
+}
+
+int FirmwareImage::VerifyImageProductID(char* deviceProductID)
+{
+	if (strcmp(m_productID, deviceProductID) == 0) {
+		fprintf(stdout, "image matched\n");
+		return UPDATE_SUCCESS;
+	} else {
+		fprintf (stdout, "image not match, terminated\n");
+		return UPDATE_FAIL_VERIFY_IMAGE_PRODUCTID_NOT_MATCH;
+	}
 }
 
 FirmwareImage::~FirmwareImage()

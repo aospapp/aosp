@@ -27,6 +27,7 @@ import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.Network;
 import android.os.PersistableBundle;
+import android.os.SystemClock;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
@@ -109,30 +110,8 @@ public class IwlanHelper {
         return info;
     }
 
-    public static List<InetAddress> getAddressesForNetwork(Network network, Context context) {
-        ConnectivityManager connectivityManager =
-                context.getSystemService(ConnectivityManager.class);
-        List<InetAddress> gatewayList = new ArrayList<>();
-        if (network != null) {
-            LinkProperties linkProperties = connectivityManager.getLinkProperties(network);
-            if (linkProperties != null) {
-                for (LinkAddress linkAddr : linkProperties.getLinkAddresses()) {
-                    InetAddress inetAddr = linkAddr.getAddress();
-                    // skip linklocal and loopback addresses
-                    if (!inetAddr.isLoopbackAddress() && !inetAddr.isLinkLocalAddress()) {
-                        gatewayList.add(inetAddr);
-                    }
-                }
-                if (linkProperties.getNat64Prefix() != null) {
-                    mNat64Prefix = linkProperties.getNat64Prefix();
-                }
-            }
-        }
-        return gatewayList;
-    }
-
-    public static List<InetAddress> getStackedAddressesForNetwork(
-            Network network, Context context) {
+    // Retrieves all IP addresses for this Network, including stacked IPv4 link addresses.
+    public static List<InetAddress> getAllAddressesForNetwork(Network network, Context context) {
         ConnectivityManager connectivityManager =
                 context.getSystemService(ConnectivityManager.class);
         List<InetAddress> gatewayList = new ArrayList<>();
@@ -141,9 +120,13 @@ public class IwlanHelper {
             if (linkProperties != null) {
                 for (LinkAddress linkAddr : linkProperties.getAllLinkAddresses()) {
                     InetAddress inetAddr = linkAddr.getAddress();
-                    if ((inetAddr instanceof Inet4Address)) {
+                    // skip linklocal and loopback addresses
+                    if (!inetAddr.isLoopbackAddress() && !inetAddr.isLinkLocalAddress()) {
                         gatewayList.add(inetAddr);
                     }
+                }
+                if (linkProperties.getNat64Prefix() != null) {
+                    mNat64Prefix = linkProperties.getNat64Prefix();
                 }
             }
         }
@@ -161,22 +144,24 @@ public class IwlanHelper {
     }
 
     public static boolean hasIpv6Address(List<InetAddress> localAddresses) {
-        for (InetAddress address : localAddresses) {
-            if (address instanceof Inet6Address) {
-                return true;
+        if (localAddresses != null) {
+            for (InetAddress address : localAddresses) {
+                if (address instanceof Inet6Address) {
+                    return true;
+                }
             }
         }
-
         return false;
     }
 
     public static boolean hasIpv4Address(List<InetAddress> localAddresses) {
-        for (InetAddress address : localAddresses) {
-            if (address instanceof Inet4Address) {
-                return true;
+        if (localAddresses != null) {
+            for (InetAddress address : localAddresses) {
+                if (address instanceof Inet4Address) {
+                    return true;
+                }
             }
         }
-
         return false;
     }
 
@@ -312,5 +297,10 @@ public class IwlanHelper {
                 updateLastKnownCountryCode(newCountryCode);
             }
         }
+    }
+
+    static long elapsedRealtime() {
+        /*Returns milliseconds since boot, including time spent in sleep.*/
+        return SystemClock.elapsedRealtime();
     }
 }

@@ -169,6 +169,12 @@ static { PERMILLE = null; }
 
 @libcore.util.NonNull public static final java.text.NumberFormat.Field SIGN;
 static { SIGN = null; }
+
+@libcore.util.NonNull public static final java.text.NumberFormat.Field PREFIX;
+static { SIGN = null; }
+
+@libcore.util.NonNull public static final java.text.NumberFormat.Field SUFFIX;
+static { SIGN = null; }
 }
 
 }

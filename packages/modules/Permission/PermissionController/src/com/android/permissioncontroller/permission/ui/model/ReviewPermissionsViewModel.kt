@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.permissioncontroller.permission.ui.model.v33
+package com.android.permissioncontroller.permission.ui.model
 
 import android.app.Application
 import android.content.Context
@@ -32,6 +32,7 @@ import com.android.permissioncontroller.permission.data.PackagePermissionsLiveDa
 import com.android.permissioncontroller.permission.data.SmartUpdateMediatorLiveData
 import com.android.permissioncontroller.permission.data.get
 import com.android.permissioncontroller.permission.model.livedatatypes.LightAppPermGroup
+import com.android.permissioncontroller.permission.utils.PermissionMapping
 import com.android.permissioncontroller.permission.utils.Utils
 import com.android.permissioncontroller.permission.utils.navigateSafe
 import com.android.settingslib.RestrictedLockUtils
@@ -99,7 +100,8 @@ class ReviewPermissionsViewModel(
         }
         val isPlatformPermission = group.packageName == Utils.OS_PKG
         // Show legacy permissions only if the user chose that.
-        return !(isPlatformPermission && !Utils.isModernPermissionGroup(group.permGroupName))
+        return !(isPlatformPermission &&
+            !PermissionMapping.isPlatformPermissionGroup(group.permGroupName))
     }
 
     fun isPackageUpdated(): Boolean {

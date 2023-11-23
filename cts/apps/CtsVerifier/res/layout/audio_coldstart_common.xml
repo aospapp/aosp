@@ -27,15 +27,15 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:soundEffectsEnabled="false"
-            android:text="@string/audio_general_start"
-            android:id="@+id/coldstart_start_btn" />
+            android:text="@string/audio_general_run"
+            android:id="@+id/coldstart_run_btn" />
 
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:soundEffectsEnabled="false"
-            android:text="@string/audio_general_stop"
-            android:id="@+id/coldstart_stop_btn" />
+            android:text="@string/audio_general_cancel"
+            android:id="@+id/coldstart_cancel_btn" />
     </LinearLayout>
 
     <TextView

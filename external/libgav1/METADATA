@@ -8,8 +8,14 @@ third_party {
     value: "http://go/libgav1-doc"
   }
   url {
-    type: PIPER
-    value: "//depot/google3/third_party/libgav1"
+    type: GIT
+    value: "https://chromium.googlesource.com/codecs/libgav1"
   }
+  version: "dc2ae123784cf1a9504d6b4eba112170574e31e0"
   license_type: NOTICE
+  last_upgrade_date {
+    year: 2022
+    month: 10
+    day: 4
+  }
 }

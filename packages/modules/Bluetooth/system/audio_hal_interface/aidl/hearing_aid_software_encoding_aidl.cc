@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "BTAudioClientHearingAid"
+#define LOG_TAG "BTAudioHearingAidAIDL"
 
 #include "hearing_aid_software_encoding_aidl.h"
 
@@ -73,6 +73,8 @@ class HearingAidTransport
       ::bluetooth::audio::aidl::hearing_aid::read(p_buf, sizeof(p_buf));
     }
   }
+
+  void SetLowLatency(bool is_low_latency) override {}
 
   bool GetPresentationPosition(uint64_t* remote_delay_report_ns,
                                uint64_t* total_bytes_read,

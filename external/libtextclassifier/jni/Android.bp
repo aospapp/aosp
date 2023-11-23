@@ -24,7 +24,10 @@ package {
 java_library_static {
     name: "libtextclassifier-java",
     srcs: ["**/*.java"],
-    static_libs: ["guava"],
+    static_libs: [
+        "guava",
+        "error_prone_annotations",
+    ],
     sdk_version: "system_current",
     min_sdk_version: "28",
 }

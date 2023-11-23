@@ -29,7 +29,8 @@
 
     <application
             android:label="@string/title"
-            android:theme="@style/SystemUpdaterTheme">
+            android:theme="@style/SystemUpdaterTheme"
+            android:supportsRtl="true">
         <activity
             android:name="com.android.car.systemupdater.SystemUpdaterActivity"
             android:exported="true"

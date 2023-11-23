@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -201,5 +202,5 @@ class rlz_CheckPing(test.test):
                                tag="check_ping_not_resent")
 
             # Confirm VPD settings are also unchanged
-            self._check_rlz_vpd_settings_post_ping(
-                should_send_rlz_ping=0, rlz_embargo_end_date=None)
+            self._check_rlz_vpd_settings_post_ping(should_send_rlz_ping=0,
+                                                   rlz_embargo_end_date=None)

@@ -23,6 +23,7 @@ import static org.testng.Assert.expectThrows;
 
 import androidx.test.core.app.ApplicationProvider;
 import com.google.android.downloader.DownloadConstraints;
+import com.google.android.downloader.DownloadDestination;
 import com.google.android.downloader.DownloadRequest;
 import com.google.android.downloader.DownloadResult;
 import com.google.android.downloader.Downloader;
@@ -82,7 +83,7 @@ public final class ModelDownloaderServiceImplTest {
 
     targetModelFile.deleteOnExit();
     targetMetadataFile.deleteOnExit();
-    when(downloader.newRequestBuilder(any(), any()))
+    when(downloader.newRequestBuilder(any(), any(DownloadDestination.class)))
         .thenReturn(
             DownloadRequest.newBuilder()
                 .setUri(URI.create(DOWNLOAD_URI))

@@ -131,6 +131,9 @@ public class Camera2OneCameraOpenerImpl implements OneCameraOpener {
                         // then we must call close.
                         device.close();
                         openCallback.onCameraClosed();
+                    } else {
+                        // Disconnected during active session
+                        openCallback.onCameraInterrupted();
                     }
                 }
 
@@ -144,7 +147,12 @@ public class Camera2OneCameraOpenerImpl implements OneCameraOpener {
 
                 @Override
                 public void onError(CameraDevice device, int error) {
-                    if (isFirstCallback) {
+                    if (error == CameraDevice.StateCallback.ERROR_CAMERA_IN_USE) {
+                        // Tolerate ERROR_CAMERA_IN_USE for split-screen.
+                        isFirstCallback = false;
+                        device.close();
+                        openCallback.onCameraInUse();
+                    } else if (isFirstCallback) {
                         isFirstCallback = false;
                         device.close();
                         openCallback.onFailure();
@@ -197,7 +205,11 @@ public class Camera2OneCameraOpenerImpl implements OneCameraOpener {
             handler.post(new Runnable() {
                 @Override
                 public void run() {
-                    openCallback.onFailure();
+                    if (ex.getReason() == CameraAccessException.CAMERA_IN_USE) {
+                        openCallback.onCameraInUse();
+                    } else {
+                        openCallback.onFailure();
+                    }
                 }
             });
         } catch (UnsupportedOperationException ex) {

@@ -61,11 +61,13 @@ ${value.sdk_notes | javadoc(metadata)}\
 % for outer_namespace in metadata.outer_namespaces: ## assumes single 'android' namespace
   % for section in outer_namespace.sections:
     % if section.find_first(lambda x: isinstance(x, metadata_model.Entry) and x.kind == xml_name) and \
-         any_visible(section, xml_name, ('public','hidden', 'ndk_public', 'java_public') ):
+         any_visible(section, xml_name, ('public','hidden', 'ndk_public', 'java_public', \
+         'fwk_java_public') ):
       % for inner_namespace in get_children_by_filtering_kind(section, xml_name, 'namespaces'):
 ## We only support 1 level of inner namespace, i.e. android.a.b and android.a.b.c works, but not android.a.b.c.d
 ## If we need to support more, we should use a recursive function here instead.. but the indentation gets trickier.
-        % for entry in filter_visibility(inner_namespace.entries, ('hidden','public', 'ndk_public', 'java_public')):
+        % for entry in filter_visibility(inner_namespace.entries, ('hidden','public', 'ndk_public', \
+        'java_public', 'fwk_pubic')):
           % if entry.enum \
               and not (entry.typedef and entry.typedef.languages.get('java')) \
               and not entry.is_clone():
@@ -75,7 +77,7 @@ ${generate_enum(entry, target_class)}\
       % endfor
       % for entry in filter_visibility( \
           get_children_by_filtering_kind(section, xml_name, 'entries'), \
-                                         ('hidden', 'public', 'ndk_public', 'java_public')):
+              ('hidden', 'public', 'ndk_public', 'java_public', 'fwk_java_public')):
         % if entry.enum \
              and not (entry.typedef and entry.typedef.languages.get('java')) \
              and not entry.is_clone():

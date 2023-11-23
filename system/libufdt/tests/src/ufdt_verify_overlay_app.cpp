@@ -98,11 +98,7 @@ int main(int argc, char **argv) {
     }
 
     const char *final_file = argv[1];
-    char** overlay_file_names = new char*[argc - 2];
-
-    for(int argv_idx = 2; argv_idx < argc; argv_idx++) {
-        overlay_file_names[argv_idx - 2] = argv[argv_idx];
-    }
+    char **overlay_file_names = &argv[2];
     int ret = verify_overlay_files(final_file, overlay_file_names, argc - 2);
 
     return ret == 0 ? ret : 1;

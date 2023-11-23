@@ -21,9 +21,8 @@ package {
 
 android_app {
     name: "ServiceConnectivityResources",
-    sdk_version: "module_30",
+    sdk_version: "module_current",
     min_sdk_version: "30",
-    target_sdk_version: "33",
     resource_dirs: [
         "res",
     ],

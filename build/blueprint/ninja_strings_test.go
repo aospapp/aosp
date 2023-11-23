@@ -87,7 +87,7 @@ var ninjaParseTestCases = []struct {
 		strs:  []string{"$ ", " "},
 	}, {
 		input: "foo $ bar",
-		err:   "invalid character after '$' at byte offset 5",
+		err:   `error parsing ninja string "foo $ bar": invalid character after '$' at byte offset 5`,
 	},
 	{
 		input: "foo $",
@@ -95,11 +95,11 @@ var ninjaParseTestCases = []struct {
 	},
 	{
 		input: "foo ${} bar",
-		err:   "empty variable name at byte offset 6",
+		err:   `error parsing ninja string "foo ${} bar": empty variable name at byte offset 6`,
 	},
 	{
 		input: "foo ${abc!} bar",
-		err:   "invalid character in variable name at byte offset 9",
+		err:   `error parsing ninja string "foo ${abc!} bar": invalid character in variable name at byte offset 9`,
 	},
 	{
 		input: "foo ${abc",

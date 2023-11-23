@@ -19,7 +19,7 @@
     <string name="app_label" msgid="1090682794607161063">"ଜରୁରୀକାଳୀନ ସୂଚନା"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"ଡାକ୍ତରୀ ସୂଚନା"</string>
     <string name="add_medical_info" msgid="483921612415907139">"ସୂଚନା ଯୋଗ କରନ୍ତୁ"</string>
-    <string name="edit_info" msgid="5973929805855224805">"ଜରୁରୀକାଳୀନ ସୂଚନାକୁ ଏଡିଟ୍ କରନ୍ତୁ"</string>
+    <string name="edit_info" msgid="5973929805855224805">"ଜରୁରୀକାଳୀନ ସୂଚନାକୁ ଏଡିଟ କରନ୍ତୁ"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"ସୂଚନା"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"ଯୋଗାଯୋଗ"</string>
     <string name="name" msgid="4286267457738861977">"ନାମ"</string>
@@ -88,14 +88,14 @@
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"ଜରୁରୀକାଳୀନ ଯୋଗାଯୋଗ"</string>
-    <string name="add_emergency_contact" msgid="4063577069613981029">"ଯୋଗାଯୋଗକୁ ଯୋଗ କରନ୍ତୁ"</string>
-    <string name="fail_load_contact_picker" msgid="817205483833876726">"ଯୋଗାଯୋଗ ପିକର୍ ମିଳିଲାନାହିଁ"</string>
-    <string name="fail_display_contact" msgid="4128854688897045879">"ଯୋଗାଯୋଗକୁ ଦେଖାଇହେବନାହିଁ"</string>
+    <string name="add_emergency_contact" msgid="4063577069613981029">"କଣ୍ଟାକ୍ଟ ଯୋଗ କରନ୍ତୁ"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"କଣ୍ଟାକ୍ଟ ପିକର ମିଳିଲାନାହିଁ"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"କଣ୍ଟାକ୍ଟ ଦେଖାଇ ହେବ ନାହିଁ"</string>
     <string name="remove_contact" msgid="6934983445723096759">"<xliff:g id="CONTACT_NAME">%1$s</xliff:g>କୁ ଆପାତାକାଳୀନ ଯୋଗାଯୋଗରୁ କାଢ଼ିଦିଅନ୍ତୁ?"</string>
-    <string name="remove_contact_icon_text" msgid="4576641386490101363">"ଯୋଗାଯୋଗକୁ କାଢ଼ିଦିଅନ୍ତୁ"</string>
-    <string name="fail_add_contact" msgid="6511490846952942291">"ଯୋଗାଯୋଗ ସୂଚନାକୁ ଠିକ୍ ଭାବେ ପଢ଼ି ହେଉନାହିଁ"</string>
+    <string name="remove_contact_icon_text" msgid="4576641386490101363">"କଣ୍ଟାକ୍ଟ କାଢ଼ି ଦିଅନ୍ତୁ"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"କଣ୍ଟାକ୍ଟ ସୂଚନାକୁ ଠିକ୍ ଭାବେ ପଢ଼ି ହେଉନାହିଁ"</string>
     <string name="remove" msgid="1243949503772376064">"କାଢ଼ିଦିଅନ୍ତୁ"</string>
-    <string name="cancel" msgid="7401575239009060939">"ବାତିଲ୍‍"</string>
+    <string name="cancel" msgid="7401575239009060939">"ବାତିଲ"</string>
     <string name="ok" msgid="163967937451981024">"ଠିକ୍ ଅଛି"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"ଫୋନ୍ ମାଲିକଙ୍କର କିଛି ସୂଚନା ନାହିଁ"</string>

@@ -34,6 +34,6 @@
 package android.automotive.watchdog.internal;
 @Backing(type="int")
 enum GarageMode {
-  GARAGE_MODE_OFF = 0,
-  GARAGE_MODE_ON = 1,
+  GARAGE_MODE_OFF,
+  GARAGE_MODE_ON,
 }

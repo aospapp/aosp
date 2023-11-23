@@ -19,6 +19,7 @@ package {
 
 android_test {
     name: "platform-screenshot-diff-test",
+    manifest: "src/androidTest/manifest/AndroidManifest.xml",
     platform_apis: true,
     optimize: {
         enabled: false
@@ -42,9 +43,11 @@ android_test {
     test_suites: ["general-tests"],
 }
 
-java_library {
+android_library {
     name: "platform-screenshot-diff-core",
+    manifest: "AndroidManifest.xml",
     platform_apis: true,
+    lint: { test: true },
     optimize: {
         enabled: false
     },
@@ -53,8 +56,12 @@ java_library {
     ],
     static_libs: [
         "androidx.annotation_annotation",
-	"androidx.test.ext.junit",
+        "androidx.test.ext.junit",
         "platform-screenshot-diff-proto",
+        "androidx.test.runner",
+        "androidx.test.espresso.core",
+        "androidx.appcompat_appcompat",
+        "guava",
     ],
 }
 

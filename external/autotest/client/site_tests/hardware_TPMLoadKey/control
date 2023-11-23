@@ -10,6 +10,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "Hardware"
 TEST_TYPE = "Client"
+PY_VERSION = 3
 
 DOC = """
     This test determines that the TPM can execute a TPM LoadKey function.

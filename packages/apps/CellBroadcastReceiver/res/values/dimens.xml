@@ -26,4 +26,6 @@
     <!-- Max height of alert dialog's text content -->
     <dimen name="alert_dialog_maxheight_content_panel">0dip</dimen>
 
+    <!-- Preference screen top margin -->
+    <dimen name="pref_top_margin">24dp</dimen>
 </resources>

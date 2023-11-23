@@ -28,6 +28,7 @@
 #define VIXL_AARCH64_SIMULATOR_AARCH64_H_
 
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 #include "../globals-vixl.h"
@@ -555,6 +556,13 @@ class LogicVRegister {
     return element;
   }
 
+  int UintArray(VectorFormat vform, uint64_t* dst) const {
+    for (int i = 0; i < LaneCountFromFormat(vform); i++) {
+      dst[i] = Uint(vform, i);
+    }
+    return LaneCountFromFormat(vform);
+  }
+
   uint64_t UintLeftJustified(VectorFormat vform, int index) const {
     return Uint(vform, index) << (64 - LaneSizeInBitsFromFormat(vform));
   }
@@ -637,6 +645,8 @@ class LogicVRegister {
     if (IsSVEFormat(vform)) register_.NotifyAccessAsZ();
     register_.Insert(index, value);
   }
+
+  void Clear() { register_.Clear(); }
 
   // When setting a result in a register larger than the result itself, the top
   // bits of the register must be cleared.
@@ -1131,11 +1141,6 @@ class Simulator : public DecoderVisitor {
     VIXL_ASSERT(IsWordAligned(pc_));
     pc_modified_ = false;
 
-    if (movprfx_ != NULL) {
-      VIXL_CHECK(pc_->CanTakeSVEMovprfx(movprfx_));
-      movprfx_ = NULL;
-    }
-
     // On guarded pages, if BType is not zero, take an exception on any
     // instruction other than BTI, PACI[AB]SP, HLT or BRK.
     if (PcIsInGuardedPage() && (ReadBType() != DefaultBType)) {
@@ -1150,6 +1155,9 @@ class Simulator : public DecoderVisitor {
       }
     }
 
+    bool last_instr_was_movprfx =
+        (form_hash_ == "movprfx_z_z"_h) || (form_hash_ == "movprfx_z_p_z"_h);
+
     // decoder_->Decode(...) triggers at least the following visitors:
     //  1. The CPUFeaturesAuditor (`cpu_features_auditor_`).
     //  2. The PrintDisassembler (`print_disasm_`), if enabled.
@@ -1157,6 +1165,13 @@ class Simulator : public DecoderVisitor {
     // User can add additional visitors at any point, but the Simulator requires
     // that the ordering above is preserved.
     decoder_->Decode(pc_);
+
+    if (last_instr_was_movprfx) {
+      VIXL_ASSERT(last_instr_ != NULL);
+      VIXL_CHECK(pc_->CanTakeSVEMovprfx(form_hash_, last_instr_));
+    }
+
+    last_instr_ = ReadPc();
     IncrementPc();
     LogAllWrittenRegisters();
     UpdateBType();
@@ -1164,18 +1179,75 @@ class Simulator : public DecoderVisitor {
     VIXL_CHECK(cpu_features_auditor_.InstructionIsAvailable());
   }
 
-// Declare all Visitor functions.
-#define DECLARE(A) \
-  virtual void Visit##A(const Instruction* instr) VIXL_OVERRIDE;
+  virtual void Visit(Metadata* metadata,
+                     const Instruction* instr) VIXL_OVERRIDE;
+
+#define DECLARE(A) virtual void Visit##A(const Instruction* instr);
   VISITOR_LIST_THAT_RETURN(DECLARE)
 #undef DECLARE
-
-
 #define DECLARE(A) \
-  VIXL_NO_RETURN virtual void Visit##A(const Instruction* instr) VIXL_OVERRIDE;
+  VIXL_NO_RETURN virtual void Visit##A(const Instruction* instr);
   VISITOR_LIST_THAT_DONT_RETURN(DECLARE)
 #undef DECLARE
 
+  void Simulate_PdT_PgZ_ZnT_ZmT(const Instruction* instr);
+  void Simulate_PdT_Xn_Xm(const Instruction* instr);
+  void Simulate_ZdB_Zn1B_Zn2B_imm(const Instruction* instr);
+  void Simulate_ZdB_ZnB_ZmB(const Instruction* instr);
+  void Simulate_ZdD_ZnD_ZmD_imm(const Instruction* instr);
+  void Simulate_ZdH_PgM_ZnS(const Instruction* instr);
+  void Simulate_ZdH_ZnH_ZmH_imm(const Instruction* instr);
+  void Simulate_ZdS_PgM_ZnD(const Instruction* instr);
+  void Simulate_ZdS_PgM_ZnS(const Instruction* instr);
+  void Simulate_ZdS_ZnS_ZmS_imm(const Instruction* instr);
+  void Simulate_ZdT_PgM_ZnT(const Instruction* instr);
+  void Simulate_ZdT_PgZ_ZnT_ZmT(const Instruction* instr);
+  void Simulate_ZdT_ZnT_ZmT(const Instruction* instr);
+  void Simulate_ZdT_ZnT_ZmTb(const Instruction* instr);
+  void Simulate_ZdT_ZnT_const(const Instruction* instr);
+  void Simulate_ZdaD_ZnS_ZmS_imm(const Instruction* instr);
+  void Simulate_ZdaH_ZnH_ZmH_imm_const(const Instruction* instr);
+  void Simulate_ZdaS_ZnH_ZmH(const Instruction* instr);
+  void Simulate_ZdaS_ZnH_ZmH_imm(const Instruction* instr);
+  void Simulate_ZdaS_ZnS_ZmS_imm_const(const Instruction* instr);
+  void Simulate_ZdaT_PgM_ZnTb(const Instruction* instr);
+  void Simulate_ZdaT_ZnT_ZmT(const Instruction* instr);
+  void Simulate_ZdaT_ZnT_const(const Instruction* instr);
+  void Simulate_ZdaT_ZnTb_ZmTb(const Instruction* instr);
+  void Simulate_ZdnT_PgM_ZdnT_ZmT(const Instruction* instr);
+  void Simulate_ZdnT_PgM_ZdnT_const(const Instruction* instr);
+  void Simulate_ZdnT_ZdnT_ZmT_const(const Instruction* instr);
+  void Simulate_ZtD_PgZ_ZnD_Xm(const Instruction* instr);
+  void Simulate_ZtD_Pg_ZnD_Xm(const Instruction* instr);
+  void Simulate_ZtS_PgZ_ZnS_Xm(const Instruction* instr);
+  void Simulate_ZtS_Pg_ZnS_Xm(const Instruction* instr);
+
+  void SimulateSVEHalvingAddSub(const Instruction* instr);
+  void SimulateSVESaturatingArithmetic(const Instruction* instr);
+  void SimulateSVEIntArithPair(const Instruction* instr);
+  void SimulateSVENarrow(const Instruction* instr);
+  void SimulateSVEInterleavedArithLong(const Instruction* instr);
+  void SimulateSVEShiftLeftImm(const Instruction* instr);
+  void SimulateSVEAddSubCarry(const Instruction* instr);
+  void SimulateSVEAddSubHigh(const Instruction* instr);
+  void SimulateSVEIntMulLongVec(const Instruction* instr);
+  void SimulateSVESaturatingIntMulLongIdx(const Instruction* instr);
+  void SimulateSVEExclusiveOrRotate(const Instruction* instr);
+  void SimulateSVEBitwiseTernary(const Instruction* instr);
+  void SimulateSVEComplexDotProduct(const Instruction* instr);
+  void SimulateSVEMulIndex(const Instruction* instr);
+  void SimulateSVEMlaMlsIndex(const Instruction* instr);
+  void SimulateSVEComplexIntMulAdd(const Instruction* instr);
+  void SimulateSVESaturatingMulAddHigh(const Instruction* instr);
+  void SimulateSVESaturatingMulHighIndex(const Instruction* instr);
+  void SimulateSVEFPConvertLong(const Instruction* instr);
+  void SimulateMatrixMul(const Instruction* instr);
+  void SimulateSVEFPMatrixMul(const Instruction* instr);
+  void SimulateNEONMulByElementLong(const Instruction* instr);
+  void SimulateNEONFPMulByElement(const Instruction* instr);
+  void SimulateNEONFPMulByElementLong(const Instruction* instr);
+  void SimulateNEONComplexMulByElement(const Instruction* instr);
+  void SimulateNEONDotProdByElement(const Instruction* instr);
 
   // Integer register accessors.
 
@@ -2790,6 +2862,14 @@ class Simulator : public DecoderVisitor {
                         uint64_t left,
                         uint64_t right,
                         int carry_in = 0);
+  std::pair<uint64_t, uint8_t> AddWithCarry(unsigned reg_size,
+                                            uint64_t left,
+                                            uint64_t right,
+                                            int carry_in);
+  using vixl_uint128_t = std::pair<uint64_t, uint64_t>;
+  vixl_uint128_t Add128(vixl_uint128_t x, vixl_uint128_t y);
+  vixl_uint128_t Mul64(uint64_t x, uint64_t y);
+  vixl_uint128_t Neg128(vixl_uint128_t x);
   void LogicalHelper(const Instruction* instr, int64_t op2);
   void ConditionalCompareHelper(const Instruction* instr, int64_t op2);
   void LoadStoreHelper(const Instruction* instr,
@@ -2834,7 +2914,9 @@ class Simulator : public DecoderVisitor {
                       int64_t value,
                       Extend extend_type,
                       unsigned left_shift = 0) const;
-  uint16_t PolynomialMult(uint8_t op1, uint8_t op2) const;
+  uint64_t PolynomialMult(uint64_t op1,
+                          uint64_t op2,
+                          int lane_size_in_bits) const;
 
   void ld1(VectorFormat vform, LogicVRegister dst, uint64_t addr);
   void ld1(VectorFormat vform, LogicVRegister dst, int index, uint64_t addr);
@@ -3065,66 +3147,6 @@ class Simulator : public DecoderVisitor {
                        LogicVRegister dst,
                        const LogicVRegister& src1,
                        const LogicVRegister& src2);
-  LogicVRegister smull(VectorFormat vform,
-                       LogicVRegister dst,
-                       const LogicVRegister& src1,
-                       const LogicVRegister& src2,
-                       int index);
-  LogicVRegister smull2(VectorFormat vform,
-                        LogicVRegister dst,
-                        const LogicVRegister& src1,
-                        const LogicVRegister& src2,
-                        int index);
-  LogicVRegister umull(VectorFormat vform,
-                       LogicVRegister dst,
-                       const LogicVRegister& src1,
-                       const LogicVRegister& src2,
-                       int index);
-  LogicVRegister umull2(VectorFormat vform,
-                        LogicVRegister dst,
-                        const LogicVRegister& src1,
-                        const LogicVRegister& src2,
-                        int index);
-  LogicVRegister smlal(VectorFormat vform,
-                       LogicVRegister dst,
-                       const LogicVRegister& src1,
-                       const LogicVRegister& src2,
-                       int index);
-  LogicVRegister smlal2(VectorFormat vform,
-                        LogicVRegister dst,
-                        const LogicVRegister& src1,
-                        const LogicVRegister& src2,
-                        int index);
-  LogicVRegister umlal(VectorFormat vform,
-                       LogicVRegister dst,
-                       const LogicVRegister& src1,
-                       const LogicVRegister& src2,
-                       int index);
-  LogicVRegister umlal2(VectorFormat vform,
-                        LogicVRegister dst,
-                        const LogicVRegister& src1,
-                        const LogicVRegister& src2,
-                        int index);
-  LogicVRegister smlsl(VectorFormat vform,
-                       LogicVRegister dst,
-                       const LogicVRegister& src1,
-                       const LogicVRegister& src2,
-                       int index);
-  LogicVRegister smlsl2(VectorFormat vform,
-                        LogicVRegister dst,
-                        const LogicVRegister& src1,
-                        const LogicVRegister& src2,
-                        int index);
-  LogicVRegister umlsl(VectorFormat vform,
-                       LogicVRegister dst,
-                       const LogicVRegister& src1,
-                       const LogicVRegister& src2,
-                       int index);
-  LogicVRegister umlsl2(VectorFormat vform,
-                        LogicVRegister dst,
-                        const LogicVRegister& src1,
-                        const LogicVRegister& src2,
-                        int index);
   LogicVRegister umulh(VectorFormat vform,
                        LogicVRegister dst,
                        const LogicVRegister& src1,
@@ -3134,31 +3156,16 @@ class Simulator : public DecoderVisitor {
                          const LogicVRegister& src1,
                          const LogicVRegister& src2,
                          int index);
-  LogicVRegister sqdmull2(VectorFormat vform,
-                          LogicVRegister dst,
-                          const LogicVRegister& src1,
-                          const LogicVRegister& src2,
-                          int index);
   LogicVRegister sqdmlal(VectorFormat vform,
                          LogicVRegister dst,
                          const LogicVRegister& src1,
                          const LogicVRegister& src2,
                          int index);
-  LogicVRegister sqdmlal2(VectorFormat vform,
-                          LogicVRegister dst,
-                          const LogicVRegister& src1,
-                          const LogicVRegister& src2,
-                          int index);
   LogicVRegister sqdmlsl(VectorFormat vform,
                          LogicVRegister dst,
                          const LogicVRegister& src1,
                          const LogicVRegister& src2,
                          int index);
-  LogicVRegister sqdmlsl2(VectorFormat vform,
-                          LogicVRegister dst,
-                          const LogicVRegister& src1,
-                          const LogicVRegister& src2,
-                          int index);
   LogicVRegister sqdmulh(VectorFormat vform,
                          LogicVRegister dst,
                          const LogicVRegister& src1,
@@ -3169,21 +3176,11 @@ class Simulator : public DecoderVisitor {
                           const LogicVRegister& src1,
                           const LogicVRegister& src2,
                           int index);
-  LogicVRegister sdot(VectorFormat vform,
-                      LogicVRegister dst,
-                      const LogicVRegister& src1,
-                      const LogicVRegister& src2,
-                      int index);
   LogicVRegister sqrdmlah(VectorFormat vform,
                           LogicVRegister dst,
                           const LogicVRegister& src1,
                           const LogicVRegister& src2,
                           int index);
-  LogicVRegister udot(VectorFormat vform,
-                      LogicVRegister dst,
-                      const LogicVRegister& src1,
-                      const LogicVRegister& src2,
-                      int index);
   LogicVRegister sqrdmlsh(VectorFormat vform,
                           LogicVRegister dst,
                           const LogicVRegister& src1,
@@ -3233,6 +3230,7 @@ class Simulator : public DecoderVisitor {
                      const LogicVRegister& src2);
   LogicVRegister bsl(VectorFormat vform,
                      LogicVRegister dst,
+                     const LogicVRegister& src_mask,
                      const LogicVRegister& src1,
                      const LogicVRegister& src2);
   LogicVRegister cls(VectorFormat vform,
@@ -3286,11 +3284,19 @@ class Simulator : public DecoderVisitor {
   LogicVRegister uadalp(VectorFormat vform,
                         LogicVRegister dst,
                         const LogicVRegister& src);
+  LogicVRegister ror(VectorFormat vform,
+                     LogicVRegister dst,
+                     const LogicVRegister& src,
+                     int rotation);
   LogicVRegister ext(VectorFormat vform,
                      LogicVRegister dst,
                      const LogicVRegister& src1,
                      const LogicVRegister& src2,
                      int index);
+  LogicVRegister rotate_elements_right(VectorFormat vform,
+                                       LogicVRegister dst,
+                                       const LogicVRegister& src,
+                                       int index);
   template <typename T>
   LogicVRegister fcadd(VectorFormat vform,
                        LogicVRegister dst,
@@ -3331,6 +3337,40 @@ class Simulator : public DecoderVisitor {
                        LogicVRegister acc,
                        const LogicPRegister& pg,
                        const LogicVRegister& src);
+  LogicVRegister cadd(VectorFormat vform,
+                      LogicVRegister dst,
+                      const LogicVRegister& src1,
+                      const LogicVRegister& src2,
+                      int rot,
+                      bool saturate = false);
+  LogicVRegister cmla(VectorFormat vform,
+                      LogicVRegister dst,
+                      const LogicVRegister& srca,
+                      const LogicVRegister& src1,
+                      const LogicVRegister& src2,
+                      int rot);
+  LogicVRegister cmla(VectorFormat vform,
+                      LogicVRegister dst,
+                      const LogicVRegister& srca,
+                      const LogicVRegister& src1,
+                      const LogicVRegister& src2,
+                      int index,
+                      int rot);
+  LogicVRegister bgrp(VectorFormat vform,
+                      LogicVRegister dst,
+                      const LogicVRegister& src1,
+                      const LogicVRegister& src2,
+                      bool do_bext = false);
+  LogicVRegister bdep(VectorFormat vform,
+                      LogicVRegister dst,
+                      const LogicVRegister& src1,
+                      const LogicVRegister& src2);
+  LogicVRegister histogram(VectorFormat vform,
+                           LogicVRegister dst,
+                           const LogicPRegister& pg,
+                           const LogicVRegister& src1,
+                           const LogicVRegister& src2,
+                           bool do_segmented = false);
   LogicVRegister index(VectorFormat vform,
                        LogicVRegister dst,
                        uint64_t start,
@@ -3353,6 +3393,10 @@ class Simulator : public DecoderVisitor {
                                           LogicVRegister dst,
                                           const LogicVRegister& src,
                                           int src_index);
+  LogicVRegister dup_elements_to_segments(
+      VectorFormat vform,
+      LogicVRegister dst,
+      const std::pair<int, int>& src_and_index);
   LogicVRegister dup_immediate(VectorFormat vform,
                                LogicVRegister dst,
                                uint64_t imm);
@@ -3368,6 +3412,10 @@ class Simulator : public DecoderVisitor {
                              LogicVRegister dst,
                              const SimPRegister& pg,
                              const LogicVRegister& src);
+  LogicVRegister mov_alternating(VectorFormat vform,
+                                 LogicVRegister dst,
+                                 const LogicVRegister& src,
+                                 int start_at);
   LogicPRegister mov_merging(LogicPRegister dst,
                              const LogicPRegister& pg,
                              const LogicPRegister& src);
@@ -3383,8 +3431,18 @@ class Simulator : public DecoderVisitor {
   LogicVRegister sshl(VectorFormat vform,
                       LogicVRegister dst,
                       const LogicVRegister& src1,
-                      const LogicVRegister& src2);
+                      const LogicVRegister& src2,
+                      bool shift_is_8bit = true);
   LogicVRegister ushl(VectorFormat vform,
+                      LogicVRegister dst,
+                      const LogicVRegister& src1,
+                      const LogicVRegister& src2,
+                      bool shift_is_8bit = true);
+  LogicVRegister sshr(VectorFormat vform,
+                      LogicVRegister dst,
+                      const LogicVRegister& src1,
+                      const LogicVRegister& src2);
+  LogicVRegister ushr(VectorFormat vform,
                       LogicVRegister dst,
                       const LogicVRegister& src1,
                       const LogicVRegister& src2);
@@ -3396,6 +3454,11 @@ class Simulator : public DecoderVisitor {
                                   const LogicPRegister& pg,
                                   const LogicVRegister& src2,
                                   int offset_from_last_active);
+  LogicPRegister match(VectorFormat vform,
+                       LogicPRegister dst,
+                       const LogicVRegister& haystack,
+                       const LogicVRegister& needles,
+                       bool negate_match);
   LogicVRegister compact(VectorFormat vform,
                          LogicVRegister dst,
                          const LogicPRegister& pg,
@@ -3465,13 +3528,15 @@ class Simulator : public DecoderVisitor {
                        const LogicVRegister& src);
   LogicVRegister uxtl(VectorFormat vform,
                       LogicVRegister dst,
-                      const LogicVRegister& src);
+                      const LogicVRegister& src,
+                      bool is_2 = false);
   LogicVRegister uxtl2(VectorFormat vform,
                        LogicVRegister dst,
                        const LogicVRegister& src);
   LogicVRegister sxtl(VectorFormat vform,
                       LogicVRegister dst,
-                      const LogicVRegister& src);
+                      const LogicVRegister& src,
+                      bool is_2 = false);
   LogicVRegister sxtl2(VectorFormat vform,
                        LogicVRegister dst,
                        const LogicVRegister& src);
@@ -3505,10 +3570,6 @@ class Simulator : public DecoderVisitor {
                      const LogicVRegister& tab3,
                      const LogicVRegister& tab4,
                      const LogicVRegister& ind);
-  LogicVRegister Table(VectorFormat vform,
-                       LogicVRegister dst,
-                       const LogicVRegister& src,
-                       const LogicVRegister& tab);
   LogicVRegister Table(VectorFormat vform,
                        LogicVRegister dst,
                        const LogicVRegister& ind,
@@ -3750,10 +3811,12 @@ class Simulator : public DecoderVisitor {
                        int shift);
   LogicVRegister suqadd(VectorFormat vform,
                         LogicVRegister dst,
-                        const LogicVRegister& src);
+                        const LogicVRegister& src1,
+                        const LogicVRegister& src2);
   LogicVRegister usqadd(VectorFormat vform,
                         LogicVRegister dst,
-                        const LogicVRegister& src);
+                        const LogicVRegister& src1,
+                        const LogicVRegister& src2);
   LogicVRegister sqshl(VectorFormat vform,
                        LogicVRegister dst,
                        const LogicVRegister& src,
@@ -3875,7 +3938,8 @@ class Simulator : public DecoderVisitor {
                      LogicVRegister dst,
                      const LogicVRegister& src1,
                      const LogicVRegister& src2,
-                     bool is_signed);
+                     bool is_src1_signed,
+                     bool is_src2_signed);
   LogicVRegister sdot(VectorFormat vform,
                       LogicVRegister dst,
                       const LogicVRegister& src1,
@@ -3884,12 +3948,41 @@ class Simulator : public DecoderVisitor {
                       LogicVRegister dst,
                       const LogicVRegister& src1,
                       const LogicVRegister& src2);
+  LogicVRegister usdot(VectorFormat vform,
+                       LogicVRegister dst,
+                       const LogicVRegister& src1,
+                       const LogicVRegister& src2);
+  LogicVRegister cdot(VectorFormat vform,
+                      LogicVRegister dst,
+                      const LogicVRegister& acc,
+                      const LogicVRegister& src1,
+                      const LogicVRegister& src2,
+                      int rot);
+  LogicVRegister sqrdcmlah(VectorFormat vform,
+                           LogicVRegister dst,
+                           const LogicVRegister& srca,
+                           const LogicVRegister& src1,
+                           const LogicVRegister& src2,
+                           int rot);
+  LogicVRegister sqrdcmlah(VectorFormat vform,
+                           LogicVRegister dst,
+                           const LogicVRegister& srca,
+                           const LogicVRegister& src1,
+                           const LogicVRegister& src2,
+                           int index,
+                           int rot);
   LogicVRegister sqrdmlash(VectorFormat vform,
                            LogicVRegister dst,
                            const LogicVRegister& src1,
                            const LogicVRegister& src2,
                            bool round = true,
                            bool sub_op = false);
+  LogicVRegister sqrdmlash_d(VectorFormat vform,
+                             LogicVRegister dst,
+                             const LogicVRegister& src1,
+                             const LogicVRegister& src2,
+                             bool round = true,
+                             bool sub_op = false);
   LogicVRegister sqrdmlah(VectorFormat vform,
                           LogicVRegister dst,
                           const LogicVRegister& src1,
@@ -3902,6 +3995,21 @@ class Simulator : public DecoderVisitor {
                           bool round = true);
   LogicVRegister sqdmulh(VectorFormat vform,
                          LogicVRegister dst,
+                         const LogicVRegister& src1,
+                         const LogicVRegister& src2);
+  LogicVRegister matmul(VectorFormat vform_dst,
+                        LogicVRegister dst,
+                        const LogicVRegister& src1,
+                        const LogicVRegister& src2,
+                        bool src1_signed,
+                        bool src2_signed);
+  template <typename T>
+  LogicVRegister fmatmul(VectorFormat vform,
+                         LogicVRegister srcdst,
+                         const LogicVRegister& src1,
+                         const LogicVRegister& src2);
+  LogicVRegister fmatmul(VectorFormat vform,
+                         LogicVRegister srcdst,
                          const LogicVRegister& src1,
                          const LogicVRegister& src2);
 #define NEON_3VREG_LOGIC_LIST(V) \
@@ -3923,23 +4031,14 @@ class Simulator : public DecoderVisitor {
   V(sabdl2)                      \
   V(uabdl)                       \
   V(uabdl2)                      \
-  V(smull)                       \
   V(smull2)                      \
-  V(umull)                       \
   V(umull2)                      \
-  V(smlal)                       \
   V(smlal2)                      \
-  V(umlal)                       \
   V(umlal2)                      \
-  V(smlsl)                       \
   V(smlsl2)                      \
-  V(umlsl)                       \
   V(umlsl2)                      \
-  V(sqdmlal)                     \
   V(sqdmlal2)                    \
-  V(sqdmlsl)                     \
   V(sqdmlsl2)                    \
-  V(sqdmull)                     \
   V(sqdmull2)
 
 #define DEFINE_LOGIC_FUNC(FXN)                   \
@@ -3949,6 +4048,26 @@ class Simulator : public DecoderVisitor {
                      const LogicVRegister& src2);
   NEON_3VREG_LOGIC_LIST(DEFINE_LOGIC_FUNC)
 #undef DEFINE_LOGIC_FUNC
+
+#define NEON_MULL_LIST(V) \
+  V(smull)                \
+  V(umull)                \
+  V(smlal)                \
+  V(umlal)                \
+  V(smlsl)                \
+  V(umlsl)                \
+  V(sqdmlal)              \
+  V(sqdmlsl)              \
+  V(sqdmull)
+
+#define DECLARE_NEON_MULL_OP(FN)                \
+  LogicVRegister FN(VectorFormat vform,         \
+                    LogicVRegister dst,         \
+                    const LogicVRegister& src1, \
+                    const LogicVRegister& src2, \
+                    bool is_2 = false);
+  NEON_MULL_LIST(DECLARE_NEON_MULL_OP)
+#undef DECLARE_NEON_MULL_OP
 
 #define NEON_FP3SAME_LIST(V) \
   V(fadd, FPAdd, false)      \
@@ -4111,6 +4230,9 @@ class Simulator : public DecoderVisitor {
   LogicVRegister fexpa(VectorFormat vform,
                        LogicVRegister dst,
                        const LogicVRegister& src);
+  LogicVRegister flogb(VectorFormat vform,
+                       LogicVRegister dst,
+                       const LogicVRegister& src);
   template <typename T>
   LogicVRegister fscale(VectorFormat vform,
                         LogicVRegister dst,
@@ -4137,9 +4259,8 @@ class Simulator : public DecoderVisitor {
                        FPRounding rounding_mode,
                        bool inexact_exception = false,
                        FrintMode frint_mode = kFrintToInteger);
-  LogicVRegister fcvt(VectorFormat vform,
-                      unsigned dst_data_size_in_bits,
-                      unsigned src_data_size_in_bits,
+  LogicVRegister fcvt(VectorFormat dst_vform,
+                      VectorFormat src_vform,
                       LogicVRegister dst,
                       const LogicPRegister& pg,
                       const LogicVRegister& src);
@@ -4256,6 +4377,10 @@ class Simulator : public DecoderVisitor {
                        const LogicPRegister& pg,
                        const LogicVRegister& src);
 
+  LogicVRegister interleave_top_bottom(VectorFormat vform,
+                                       LogicVRegister dst,
+                                       const LogicVRegister& src);
+
   template <typename T>
   struct TFPPairOp {
     typedef T (Simulator::*type)(T a, T b);
@@ -4355,6 +4480,9 @@ class Simulator : public DecoderVisitor {
 
   template <typename T>
   T FPMinNM(T a, T b);
+
+  template <typename T>
+  T FPMulNaNs(T op1, T op2);
 
   template <typename T>
   T FPMul(T op1, T op2);
@@ -4491,6 +4619,27 @@ class Simulator : public DecoderVisitor {
                                        const LogicVRegister& src2,
                                        bool is_wide_elements);
 
+  // Pack all even- or odd-numbered elements of source vector side by side and
+  // place in elements of lower half the destination vector, and leave the upper
+  // half all zero.
+  //    [...| H | G | F | E | D | C | B | A ]
+  // => [...................| G | E | C | A ]
+  LogicVRegister pack_even_elements(VectorFormat vform,
+                                    LogicVRegister dst,
+                                    const LogicVRegister& src);
+
+  //    [...| H | G | F | E | D | C | B | A ]
+  // => [...................| H | F | D | B ]
+  LogicVRegister pack_odd_elements(VectorFormat vform,
+                                   LogicVRegister dst,
+                                   const LogicVRegister& src);
+
+  LogicVRegister adcl(VectorFormat vform,
+                      LogicVRegister dst,
+                      const LogicVRegister& src1,
+                      const LogicVRegister& src2,
+                      bool top);
+
   template <typename T>
   LogicVRegister FTMaddHelper(VectorFormat vform,
                               LogicVRegister dst,
@@ -4587,9 +4736,9 @@ class Simulator : public DecoderVisitor {
   bool pc_modified_;
   const Instruction* pc_;
 
-  // If non-NULL, the last instruction was a movprfx, and validity needs to be
-  // checked.
-  Instruction const* movprfx_;
+  // Pointer to the last simulated instruction, used for checking the validity
+  // of the current instruction with movprfx.
+  Instruction const* last_instr_;
 
   // Branch type register, used for branch target identification.
   BType btype_;
@@ -4613,6 +4762,13 @@ class Simulator : public DecoderVisitor {
   static const char* preg_names[];
 
  private:
+  using FormToVisitorFnMap =
+      std::unordered_map<uint32_t,
+                         std::function<void(Simulator*, const Instruction*)>>;
+  static const FormToVisitorFnMap* GetFormToVisitorFnMap();
+
+  uint32_t form_hash_;
+
   static const PACKey kPACKeyIA;
   static const PACKey kPACKeyIB;
   static const PACKey kPACKeyDA;

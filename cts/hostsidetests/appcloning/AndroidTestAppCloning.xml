@@ -22,8 +22,8 @@
     <!-- Clone user profile is meant to exist only alongside a real system user.
     It does not exist for a headless system user, or a secondary user -->
     <option name="config-descriptor:metadata" key="parameter" value="not_secondary_user" />
-    <test class="com.android.tradefed.testtype.HostTest" >
-        <option name="class" value="com.android.cts.appcloning.AppCloningHostTest" />
+    <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
+        <option name="jar" value="CtsAppCloningHostTest.jar" />
     </test>
 
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">

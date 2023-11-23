@@ -38,10 +38,15 @@ source_set("service") {
   deps = [
     "../../../gn:default_deps",
     "../../base",
+    "../../base:version",
     "../../tracing/core",
     "../../tracing/core:service",
     "../../tracing/ipc/service",
   ]
+  if (enable_perfetto_zlib) {
+    deps += [ "../../tracing/core:zlib_compressor" ]
+  }
+
   sources = [
     "builtin_producer.cc",
     "builtin_producer.h",

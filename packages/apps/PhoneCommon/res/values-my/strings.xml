@@ -34,7 +34,7 @@
     <string name="callFailed_noSignal" msgid="7700332004458210245">"ထုတ်လွှင့်မှု မရှိပါ"</string>
     <string name="callFailed_limitExceeded" msgid="2877263157928717415">"ACM ကန့်သတ်ချက်ကို ​ ကျော်လွန်နေ"</string>
     <string name="callFailed_powerOff" msgid="2212239757387143765">"ရေဒီယို ပိတ်ထား"</string>
-    <string name="callFailed_simError" msgid="510948380244092037">"ဆင်းမ် မရှိ သို့မဟုတ် ဆင်းမ် အမှား"</string>
+    <string name="callFailed_simError" msgid="510948380244092037">"ဆင်းမ်ကတ် မရှိ သို့မဟုတ် ဆင်းမ်ကတ် အမှား"</string>
     <string name="callFailed_outOfService" msgid="2917536349269880601">"ဆဲလ်လူလာ ကွန်ရက် မရှိပါ"</string>
     <string name="callFailed_fdn_only" msgid="584249308311672690">"အထွက် ခေါ်ဆိုမှုများကို FDN မှ ကန့်သတ်ထားပါသည်။"</string>
     <string name="callFailed_dialToUssd" msgid="6794913139176808973">"ဖုန်းခေါ်ဆိုမှုကို USSD တောင်းဆိုမှုသို့ ပြောင်းထားပါသည်"</string>

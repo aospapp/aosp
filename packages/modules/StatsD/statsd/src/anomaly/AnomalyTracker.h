@@ -22,15 +22,17 @@
 
 #include "AlarmMonitor.h"
 #include "config/ConfigKey.h"
+#include "guardrail/StatsdStats.h"
+#include "hash.h"
 #include "src/statsd_config.pb.h"    // Alert
 #include "src/statsd_metadata.pb.h"  // AlertMetadata
-#include "hash.h"
-#include "stats_util.h"  // HashableDimensionKey and DimToValMap
+#include "stats_util.h"              // HashableDimensionKey and DimToValMap
 
 namespace android {
 namespace os {
 namespace statsd {
 
+using std::optional;
 using std::shared_ptr;
 using std::unordered_map;
 
@@ -109,7 +111,7 @@ public:
         return mNumOfPastBuckets;
     }
 
-    std::pair<bool, uint64_t> getProtoHash() const;
+    std::pair<optional<InvalidConfigReason>, uint64_t> getProtoHash() const;
 
     // Sets an alarm for the given timestamp.
     // Replaces previous alarm if one already exists.
@@ -217,10 +219,10 @@ protected:
     FRIEND_TEST(AnomalyTrackerTest, TestSparseBuckets);
     FRIEND_TEST(GaugeMetricProducerTest, TestAnomalyDetection);
     FRIEND_TEST(CountMetricProducerTest, TestAnomalyDetectionUnSliced);
-    FRIEND_TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_single_bucket);
-    FRIEND_TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_partial_bucket);
-    FRIEND_TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_multiple_buckets);
-    FRIEND_TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_long_refractory_period);
+    FRIEND_TEST(AnomalyDurationDetectionE2eTest, TestDurationMetric_SUM_single_bucket);
+    FRIEND_TEST(AnomalyDurationDetectionE2eTest, TestDurationMetric_SUM_partial_bucket);
+    FRIEND_TEST(AnomalyDurationDetectionE2eTest, TestDurationMetric_SUM_multiple_buckets);
+    FRIEND_TEST(AnomalyDurationDetectionE2eTest, TestDurationMetric_SUM_long_refractory_period);
 
     FRIEND_TEST(ConfigUpdateTest, TestUpdateAlerts);
 };

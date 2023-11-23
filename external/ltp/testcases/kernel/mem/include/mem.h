@@ -1,9 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright (c) Linux Test Project, 2011-2021
+ */
 #ifndef _MEM_H
 #define _MEM_H
 #include "config.h"
 #include "tst_test.h"
-#include "tst_cgroup.h"
 #include "ksm_helper.h"
+#include "tst_memutils.h"
 
 #if defined(__powerpc__) || defined(__powerpc64__)
 #define MAXNODES		256
@@ -46,6 +50,8 @@ void testoom(int mempolicy, int lite, int retcode, int allow_sigkill);
 
 void create_same_memory(int size, int num, int unit);
 void test_ksm_merge_across_nodes(unsigned long nr_pages);
+void ksm_group_check(int run, int pg_shared, int pg_sharing, int pg_volatile,
+                     int pg_unshared, int sleep_msecs, int pages_to_scan);
 
 /* THP */
 
@@ -61,7 +67,7 @@ void check_hugepage(void);
 void write_memcg(void);
 
 /* cpuset/memcg - include/tst_cgroup.h */
-void write_cpusets(const struct tst_cgroup_group *cg, long nd);
+void write_cpusets(const struct tst_cg_group *cg, long nd);
 
 /* shared */
 unsigned int get_a_numa_node(void);

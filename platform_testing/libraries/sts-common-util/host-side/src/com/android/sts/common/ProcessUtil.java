@@ -18,6 +18,7 @@ package com.android.sts.common;
 
 import com.android.ddmlib.Log;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.IFileEntry;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
@@ -28,15 +29,39 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeoutException;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+/** Various helpers to find, wait, and kill processes on the device */
 public final class ProcessUtil {
+    public static class KillException extends Exception {
+        public enum Reason {
+            UNKNOWN,
+            INVALID_SIGNAL,
+            INSUFFICIENT_PERMISSIONS,
+            NO_SUCH_PROCESS;
+        }
+
+        private Reason reason;
+
+        public KillException(String errorMessage, Reason r) {
+            super(errorMessage);
+            this.reason = r;
+        }
+
+        public Reason getReason() {
+            return this.reason;
+        }
+    }
 
     private static final String LOG_TAG = ProcessUtil.class.getSimpleName();
 
-    private static final long PROCESS_WAIT_TIMEOUT_MS = 10_000;
-    private static final long PROCESS_POLL_PERIOD_MS = 250;
+    public static final long PROCESS_WAIT_TIMEOUT_MS = 10_000;
+    public static final long PROCESS_POLL_PERIOD_MS = 250;
+    public static final String[] INTENT_QUERY_CMDS = {
+        "resolve-activity", "query-activities", "query-services", "query-receivers"
+    };
 
     private ProcessUtil() {}
 
@@ -55,7 +80,10 @@ public final class ProcessUtil {
         CommandResult pgrepRes =
                 device.executeShellV2Command(String.format("pgrep -f -l %s", pgrepRegex));
         if (pgrepRes.getStatus() != CommandStatus.SUCCESS) {
-            Log.w(LOG_TAG, String.format("pgrep failed with stderr: %s", pgrepRes.getStderr()));
+            Log.d(
+                    LOG_TAG,
+                    String.format(
+                            "pgrep '%s' failed with stderr: %s", pgrepRegex, pgrepRes.getStderr()));
             return Optional.empty();
         }
         Map<Integer, String> pidToCommand = new HashMap<>();
@@ -66,6 +94,26 @@ public final class ProcessUtil {
             pidToCommand.put(pid, comm);
         }
         return Optional.of(pidToCommand);
+    }
+
+    /**
+     * Get a single pid matching a pattern passed to `pgrep`. Throw an {@link
+     * IllegalArgumentException} when there are more than one PID matching the pattern.
+     *
+     * @param device the device to use
+     * @param pgrepRegex a String representing the regex for pgrep
+     * @return an Optional Integer of the pid; empty if pgrep did not return EXIT_SUCCESS
+     */
+    public static Optional<Integer> pidOf(ITestDevice device, String pgrepRegex)
+            throws DeviceNotAvailableException, IllegalArgumentException {
+        Optional<Map<Integer, String>> pids = pidsOf(device, pgrepRegex);
+        if (!pids.isPresent()) {
+            return Optional.empty();
+        } else if (pids.get().size() == 1) {
+            return Optional.of(pids.get().keySet().iterator().next());
+        } else {
+            throw new IllegalArgumentException("More than one process found for: " + pgrepRegex);
+        }
     }
 
     /**
@@ -134,8 +182,8 @@ public final class ProcessUtil {
      * @param device the device to use
      * @param pid the id of the process to wait until exited
      */
-    static void waitPidExited(ITestDevice device, int pid)
-            throws TimeoutException, DeviceNotAvailableException {
+    public static void waitPidExited(ITestDevice device, int pid)
+            throws TimeoutException, DeviceNotAvailableException, KillException {
         waitPidExited(device, pid, PROCESS_WAIT_TIMEOUT_MS);
     }
 
@@ -147,14 +195,20 @@ public final class ProcessUtil {
      * @param pid the id of the process to wait until exited
      * @param timeoutMs how long to wait before throwing a TimeoutException
      */
-    static void waitPidExited(ITestDevice device, int pid, long timeoutMs)
-            throws TimeoutException, DeviceNotAvailableException {
+    public static void waitPidExited(ITestDevice device, int pid, long timeoutMs)
+            throws TimeoutException, DeviceNotAvailableException, KillException {
         long endTime = System.currentTimeMillis() + timeoutMs;
         CommandResult res = null;
         while (true) {
             // kill -0 asserts that the process is alive and readable
             res = device.executeShellV2Command(String.format("kill -0 %d", pid));
             if (res.getStatus() != CommandStatus.SUCCESS) {
+                String err = res.getStderr();
+                if (!err.contains("No such process")) {
+                    throw new KillException(
+                            "kill -0 returned stderr: " + err,
+                            KillException.Reason.NO_SUCH_PROCESS);
+                }
                 // the process is most likely killed
                 return;
             }
@@ -176,9 +230,34 @@ public final class ProcessUtil {
      * @param pid the id of the process to wait until exited
      * @param timeoutMs how long to wait before throwing a TimeoutException
      */
-    static void killPid(ITestDevice device, int pid, long timeoutMs)
-            throws DeviceNotAvailableException, TimeoutException {
-        CommandUtil.runAndCheck(device, String.format("kill -9 %d", pid));
+    public static void killPid(ITestDevice device, int pid, long timeoutMs)
+            throws DeviceNotAvailableException, TimeoutException, KillException {
+        killPid(device, pid, 9, timeoutMs);
+    }
+
+    /**
+     * Send a signal to a process and wait for it to be exited.
+     *
+     * @param device the device to use
+     * @param pid the id of the process to wait until exited
+     * @param signal the signal to send to the process
+     * @param timeoutMs how long to wait before throwing a TimeoutException
+     */
+    public static void killPid(ITestDevice device, int pid, int signal, long timeoutMs)
+            throws DeviceNotAvailableException, TimeoutException, KillException {
+        CommandResult res = device.executeShellV2Command(String.format("kill -%d %d", signal, pid));
+        if (res.getStatus() != CommandStatus.SUCCESS) {
+            String err = res.getStderr();
+            if (err.contains("invalid signal specification")) {
+                throw new KillException(err, KillException.Reason.INVALID_SIGNAL);
+            } else if (err.contains("Operation not permitted")) {
+                throw new KillException(err, KillException.Reason.INSUFFICIENT_PERMISSIONS);
+            } else if (err.contains("No such process")) {
+                throw new KillException(err, KillException.Reason.NO_SUCH_PROCESS);
+            } else {
+                throw new KillException(err, KillException.Reason.UNKNOWN);
+            }
+        }
         waitPidExited(device, pid, timeoutMs);
     }
 
@@ -190,8 +269,8 @@ public final class ProcessUtil {
      * @param timeoutMs how long to wait before throwing a TimeoutException
      * @return whether any processes were killed
      */
-    static boolean killAll(ITestDevice device, String pgrepRegex, long timeoutMs)
-            throws DeviceNotAvailableException, TimeoutException {
+    public static boolean killAll(ITestDevice device, String pgrepRegex, long timeoutMs)
+            throws DeviceNotAvailableException, TimeoutException, KillException {
         return killAll(device, pgrepRegex, timeoutMs, true);
     }
 
@@ -205,9 +284,9 @@ public final class ProcessUtil {
      * @param expectExist whether an exception should be thrown when no processes were killed
      * @return whether any processes were killed
      */
-    static boolean killAll(
+    public static boolean killAll(
             ITestDevice device, String pgrepRegex, long timeoutMs, boolean expectExist)
-            throws DeviceNotAvailableException, TimeoutException {
+            throws DeviceNotAvailableException, TimeoutException, KillException {
         Optional<Map<Integer, String>> pids = pidsOf(device, pgrepRegex);
         if (!pids.isPresent()) {
             // no pids to kill
@@ -217,9 +296,18 @@ public final class ProcessUtil {
             }
             return false;
         }
+
         for (int pid : pids.get().keySet()) {
-            killPid(device, pid, timeoutMs);
+            try {
+                killPid(device, pid, timeoutMs);
+            } catch (KillException e) {
+                // ignore pids that do not exist
+                if (e.getReason() != KillException.Reason.NO_SUCH_PROCESS) {
+                    throw e;
+                }
+            }
         }
+
         return true;
     }
 
@@ -227,14 +315,14 @@ public final class ProcessUtil {
      * Kill a process at the beginning and end of a test.
      *
      * @param device the device to use
-     * @param pid the id of the process to kill
+     * @param pgrepRegex the name pattern of the process to kill to give to pgrep
      * @param beforeCloseKill a runnable for any actions that need to cleanup before killing the
      *     process in a normal environment at the end of the test. Can be null.
      * @return An object that will kill the process again when it is closed
      */
     public static AutoCloseable withProcessKill(
             final ITestDevice device, final String pgrepRegex, final Runnable beforeCloseKill)
-            throws DeviceNotAvailableException, TimeoutException {
+            throws DeviceNotAvailableException, TimeoutException, KillException {
         return withProcessKill(device, pgrepRegex, beforeCloseKill, PROCESS_WAIT_TIMEOUT_MS);
     }
 
@@ -242,10 +330,10 @@ public final class ProcessUtil {
      * Kill a process at the beginning and end of a test.
      *
      * @param device the device to use
-     * @param pid the id of the process to kill
-     * @param timeoutMs how long in milliseconds to wait for the process to kill
+     * @param pgrepRegex the name pattern of the process to kill to give to pgrep
      * @param beforeCloseKill a runnable for any actions that need to cleanup before killing the
      *     process in a normal environment at the end of the test. Can be null.
+     * @param timeoutMs how long in milliseconds to wait for the process to kill
      * @return An object that will kill the process again when it is closed
      */
     public static AutoCloseable withProcessKill(
@@ -253,11 +341,17 @@ public final class ProcessUtil {
             final String pgrepRegex,
             final Runnable beforeCloseKill,
             final long timeoutMs)
-            throws DeviceNotAvailableException, TimeoutException {
+            throws DeviceNotAvailableException, TimeoutException, KillException {
         return new AutoCloseable() {
             {
-                if (!killAll(device, pgrepRegex, timeoutMs, /*expectExist*/ false)) {
-                    Log.d(LOG_TAG, String.format("did not kill any processes for %s", pgrepRegex));
+                try {
+                    if (!killAll(device, pgrepRegex, timeoutMs, /*expectExist*/ false)) {
+                        Log.d(
+                                LOG_TAG,
+                                String.format("did not kill any processes for %s", pgrepRegex));
+                    }
+                } catch (KillException e) {
+                    Log.d(LOG_TAG, "failed to kill a process");
                 }
             }
 
@@ -266,13 +360,20 @@ public final class ProcessUtil {
                 if (beforeCloseKill != null) {
                     beforeCloseKill.run();
                 }
-                killAll(device, pgrepRegex, timeoutMs, /*expectExist*/ false);
+                try {
+                    killAll(device, pgrepRegex, timeoutMs, /*expectExist*/ false);
+                } catch (KillException e) {
+                    if (e.getReason() != KillException.Reason.NO_SUCH_PROCESS) {
+                        throw e;
+                    }
+                }
             }
         };
     }
 
     /**
-     * Returns the currently open file names of the specified process.
+     * Returns the currently open file names of the specified process. This does not include shared
+     * libraries linked by the linker.
      *
      * @param device device to be run on
      * @param pid the id of the process to search
@@ -300,7 +401,8 @@ public final class ProcessUtil {
     }
 
     /**
-     * Returns file names of the specified file, loaded by the specified process.
+     * Returns file names of the specified file, loaded by the specified process. This does not
+     * include shared libraries linked.
      *
      * @param device device to be run on
      * @param pid the id of the process to search
@@ -316,9 +418,71 @@ public final class ProcessUtil {
         }
         List<String> openFiles = openFilesOption.get();
         return Optional.of(
-                openFiles
-                        .stream()
+                openFiles.stream()
                         .filter((f) -> filePattern.matcher(f).matches())
                         .collect(Collectors.toList()));
+    }
+
+    /**
+     * Returns file entry of the first file loaded by the specified process with specified name.
+     * This includes shared libraries linked.
+     *
+     * @param device device to be run on
+     * @param process pgrep pattern of process to look for
+     * @param filenameSubstr part of file name/path loaded by the process
+     * @return an Opotional of IFileEntry of the path of the file on the device if exists.
+     */
+    public static Optional<IFileEntry> findFileLoadedByProcess(
+            ITestDevice device, String process, String filenameSubstr)
+            throws DeviceNotAvailableException {
+        Optional<Integer> pid = ProcessUtil.pidOf(device, process);
+        if (pid.isPresent()) {
+            String cmd = "lsof -p " + pid.get().toString() + " | awk '{print $NF}'";
+            String[] openFiles = CommandUtil.runAndCheck(device, cmd).getStdout().split("\n");
+            for (String f : openFiles) {
+                if (f.contains(filenameSubstr)) {
+                    return Optional.of(device.getFileEntry(f.trim()));
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    /*
+    * To get application process pids of all applications that can handle the target intent
+    * @param queryCmd Query command to be used. One of the values present in INTENT_QUERY_CMDS
+    * @param intentOptions Map of intent option to value for target intent
+    * @param device device to be run on
+    * @return Optional Map of pid to process name of application processes that can handle the
+           target intent
+    */
+    public static Optional<Map<Integer, String>> getAllProcessIdsFromComponents(
+            String queryCmd, Map<String, String> intentOptions, ITestDevice device)
+            throws DeviceNotAvailableException, RuntimeException {
+        if (!Arrays.asList(INTENT_QUERY_CMDS).contains(queryCmd)) {
+            throw new RuntimeException("Unknown command " + queryCmd);
+        }
+        String cmd = "pm " + queryCmd + " ";
+        for (Map.Entry<String, String> entry : intentOptions.entrySet()) {
+            cmd += entry.getKey() + " " + entry.getValue() + " ";
+        }
+        CommandResult result = device.executeShellV2Command(cmd);
+        String resultString = result.getStdout();
+        Log.i(LOG_TAG, String.format("Executed cmd: %s \nOutput: %s", cmd, resultString));
+
+        // As target string (process name) is coming from system itself, regex here only checks for
+        // presence of valid characters in process name and not for the actual order of characters
+        Pattern processNamePattern = Pattern.compile("processName=(?<name>[a-zA-Z0-9_\\.:]+)");
+        Matcher matcher = processNamePattern.matcher(resultString);
+        Map<Integer, String> pidNameMap = new HashMap<Integer, String>();
+        while (matcher.find()) {
+            String process = matcher.group("name");
+            pidsOf(device, process)
+                    .ifPresent(
+                            (pids) -> {
+                                pidNameMap.putAll(pids);
+                            });
+        }
+        return pidNameMap.isEmpty() ? Optional.empty() : Optional.of(pidNameMap);
     }
 }

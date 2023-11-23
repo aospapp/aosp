@@ -17,5 +17,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="device_pref_category_title" msgid="6900784241621768228">"Тутум"</string>
+    <string name="device_pref_category_title" msgid="6900784241621768228">"Система"</string>
 </resources>

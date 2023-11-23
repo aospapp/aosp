@@ -24,6 +24,7 @@ import android.os.Bundle;
 import android.os.UserManager;
 import android.provider.Settings;
 import android.util.ArrayMap;
+import android.util.Log;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.AdapterView;
@@ -40,9 +41,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-public class PolicyTransparencyTestActivity extends PassFailButtons.Activity implements
+public final class PolicyTransparencyTestActivity extends PassFailButtons.Activity implements
         View.OnClickListener, CompoundButton.OnCheckedChangeListener,
         AdapterView.OnItemSelectedListener {
+
+    private static final String TAG = PolicyTransparencyTestActivity.class.getSimpleName();
+
     public static final String ACTION_SHOW_POLICY_TRANSPARENCY_TEST =
             "com.android.cts.verifier.managedprovisioning.action.SHOW_POLICY_TRANSPARENCY_TEST";
 
@@ -234,6 +238,7 @@ public class PolicyTransparencyTestActivity extends PassFailButtons.Activity imp
         final PolicyTestItem testItem = POLICY_TEST_ITEMS.get(mTest);
         final Intent intent = new Intent(CommandReceiverActivity.ACTION_EXECUTE_COMMAND);
         intent.putExtra(CommandReceiverActivity.EXTRA_COMMAND, testItem.command);
+        Log.d(TAG, "onItemSelected(): command=" + testItem.command);
         startActivity(intent);
     }
 

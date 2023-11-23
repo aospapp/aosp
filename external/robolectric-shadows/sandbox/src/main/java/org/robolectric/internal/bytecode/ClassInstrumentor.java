@@ -42,7 +42,7 @@ public abstract class ClassInstrumentor {
       final InstrumentationConfiguration config,
       ClassNodeProvider classNodeProvider) {
     ClassNode classNode =
-        new ClassNode(Opcodes.ASM4) {
+        new ClassNode(Opcodes.ASM9) {
           @Override
           public FieldVisitor visitField(
               int access, String name, String desc, String signature, Object value) {
@@ -366,7 +366,7 @@ public abstract class ClassInstrumentor {
 
   //todo rename
   private MethodNode redirectorMethod(MutableClass mutableClass, MethodNode method, String newName) {
-    MethodNode redirector = new MethodNode(Opcodes.ASM4, newName, method.desc, method.signature, exceptionArray(method));
+    MethodNode redirector = new MethodNode(Opcodes.ASM9, newName, method.desc, method.signature, exceptionArray(method));
     redirector.access = method.access & ~(Opcodes.ACC_NATIVE | Opcodes.ACC_ABSTRACT | Opcodes.ACC_FINAL);
     makeMethodPrivate(redirector);
     RobolectricGeneratorAdapter generator = new RobolectricGeneratorAdapter(redirector);

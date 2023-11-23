@@ -1,4 +1,4 @@
-# Bug component: 25423
-adyabr@google.com
-stoza@google.com
+file:platform/frameworks/base:/graphics/java/android/graphics/OWNERS
+file:platform/frameworks/native:/services/surfaceflinger/OWNERS
 
+# Bug component: 1075131

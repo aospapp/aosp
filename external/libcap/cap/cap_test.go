@@ -106,6 +106,18 @@ func same(a, b *Set) error {
 	return nil
 }
 
+func confirmExpectedExport(t *testing.T, info string, c *Set, size uint) {
+	if ex, err := c.Export(); err != nil {
+		t.Fatalf("[%s] failed to export empty set: %v", info, err)
+	} else if n := 5 + 3*size; uint(len(ex)) != n {
+		t.Fatalf("[%s] wrong length: got=%d [%0x] want=%d", info, len(ex), ex, n)
+	} else if im, err := Import(ex); err != nil {
+		t.Fatalf("[%s] failed to import empty set: %v", info, err)
+	} else if got, want := im.String(), c.String(); got != want {
+		t.Fatalf("[%s] import != export: got=%q want=%q [%02x]", info, got, want, ex)
+	}
+}
+
 func TestImportExport(t *testing.T) {
 	wantQ := "=ep cap_chown-e 63+ip"
 	if q, err := FromText(wantQ); err != nil {
@@ -116,15 +128,7 @@ func TestImportExport(t *testing.T) {
 
 	// Sanity check empty import/export.
 	c := NewSet()
-	if ex, err := c.Export(); err != nil {
-		t.Fatalf("failed to export empty set: %v", err)
-	} else if len(ex) != 5 {
-		t.Fatalf("wrong length: got=%d want=%d", len(ex), 5)
-	} else if im, err := Import(ex); err != nil {
-		t.Fatalf("failed to import empty set: %v", err)
-	} else if got, want := im.String(), c.String(); got != want {
-		t.Fatalf("import != export: got=%q want=%q", got, want)
-	}
+	confirmExpectedExport(t, "empty", c, MinExtFlagSize)
 	// Now keep flipping bits on and off and validate that all
 	// forms of import/export work.
 	for i := uint(0); i < 7000; i += 13 {
@@ -143,6 +147,24 @@ func TestImportExport(t *testing.T) {
 			t.Fatalf("[%d] miscompare (%q vs. %q): %v", i, got, parsed, err)
 		}
 	}
+
+	oMin := MinExtFlagSize
+	for j := uint(0); j < 5; j++ {
+		t.Logf("exporting with min flag size %d", j)
+		MinExtFlagSize = j
+		c = NewSet()
+		for i := uint(0); i < maxValues; i++ {
+			s := Flag(i % 3)
+			v := Value(i)
+			c.SetFlag(s, true, v)
+			size := 1 + i/8
+			if size < MinExtFlagSize {
+				size = MinExtFlagSize
+			}
+			confirmExpectedExport(t, fmt.Sprintf("%d added %d %v %v", j, i, s, v), c, size)
+		}
+	}
+	MinExtFlagSize = oMin
 }
 
 func TestIAB(t *testing.T) {
@@ -210,5 +232,69 @@ func TestIAB(t *testing.T) {
 				t.Errorf("[%d,%d] got=%q want=%q", n, i, replay, iab)
 			}
 		}
+	}
+}
+
+func TestFuncLaunch(t *testing.T) {
+	if _, err := FuncLauncher(func(data interface{}) error {
+		return nil
+	}).Launch(nil); err != nil {
+		t.Fatalf("trivial launcher failed: %v", err)
+	}
+
+	for i := 0; i < 100; i++ {
+		expect := i & 1
+		before, err := Prctl(prGetKeepCaps)
+		if err != nil {
+			t.Fatalf("failed to get PR_KEEP_CAPS: %v", err)
+		}
+		if before != expect {
+			t.Fatalf("invalid initial state: got=%d want=%d", before, expect)
+		}
+
+		if _, err := FuncLauncher(func(data interface{}) error {
+			was, ok := data.(int)
+			if !ok {
+				return fmt.Errorf("data was not an int: %v", data)
+			}
+			if _, err := Prctlw(prSetKeepCaps, uintptr(1-was)); err != nil {
+				return err
+			}
+			if v, err := Prctl(prGetKeepCaps); err != nil {
+				return err
+			} else if v == was {
+				return fmt.Errorf("PR_KEEP_CAPS unchanged: got=%d, want=%v", v, 1-was)
+			}
+			// All good.
+			return nil
+		}).Launch(before); err != nil {
+			t.Fatalf("trivial launcher failed: %v", err)
+		}
+
+		// Now validate that the main process is still OK.
+		if after, err := Prctl(prGetKeepCaps); err != nil {
+			t.Fatalf("failed to get PR_KEEP_CAPS: %v", err)
+		} else if before != after {
+			t.Fatalf("FuncLauncher leaked privileged state: got=%v want=%v", after, before)
+		}
+
+		// Now force the other way
+		if _, err := Prctlw(prSetKeepCaps, uintptr(1-expect)); err != nil {
+			t.Fatalf("[%d] attempt to flip PR_KEEP_CAPS failed: %v", i, err)
+		}
+	}
+}
+
+func TestFill(t *testing.T) {
+	c, err := FromText("cap_setfcap=p")
+	if err != nil {
+		t.Fatalf("failed to parse: %v", err)
+	}
+	c.Fill(Effective, Permitted)
+	c.ClearFlag(Permitted)
+	c.Fill(Inheritable, Effective)
+	c.ClearFlag(Effective)
+	if got, want := c.String(), "cap_setfcap=i"; got != want {
+		t.Errorf("Fill failed: got=%q want=%q", got, want)
 	}
 }

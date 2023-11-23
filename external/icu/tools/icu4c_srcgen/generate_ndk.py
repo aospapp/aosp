@@ -220,6 +220,7 @@ IGNORED_INCLUDE_DEPENDENCY = {
 }
 
 IGNORED_HEADER_FOR_DOXYGEN_GROUPING = set([
+    "ubidi.h", # ubidi.h has the @{ ... @} group block already.
     "uconfig.h", # pre-defined config that NDK users shouldn't change
     "platform.h", # pre-defined variable not to be changed by the NDK users
     "utf_old.h", # deprecated UTF macros
@@ -260,7 +261,7 @@ def add_ndk_required_doxygen_grouping():
 
         cmd_add_addtogroup_annotation = ['sed',
                '-i',
-               '0,/^\( *\)\(\* *\\\\file\)/s//\\1* @addtogroup ICU4C\\n\\1* @{\\n\\1\\2/',
+               '0,/^\( *\)\(\* *\\\\file\)/s//\\1* @addtogroup icu4c ICU4C\\n\\1* @{\\n\\1\\2/',
                src_path
                ]
 

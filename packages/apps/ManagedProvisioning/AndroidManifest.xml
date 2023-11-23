@@ -134,6 +134,12 @@
             android:immersive="true"
             android:theme="@style/SudThemeGlifV4.Light"/>
 
+        <activity
+            android:name=".provisioning.ResetDeviceActivity"
+            android:excludeFromRecents="true"
+            android:immersive="true"
+            android:theme="@style/SudThemeGlifV4.Light"/>
+
         <!--
             Nfc bump entry for device owner provisioning, protected by a permission so only the Nfc
             stack can trigger this.

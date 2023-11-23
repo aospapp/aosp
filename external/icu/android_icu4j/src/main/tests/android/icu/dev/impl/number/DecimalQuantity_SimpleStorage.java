@@ -964,4 +964,8 @@ public class DecimalQuantity_SimpleStorage implements DecimalQuantity {
   public boolean isHasIntegerValue() {
     return scaleBigDecimal(toBigDecimal()) >= 0;
   }
+
+  @Override public String toExponentString() {
+    return this.toPlainString();
+  }
 }

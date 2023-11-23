@@ -22,11 +22,10 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 #include "common/message_loop_thread.h"
 #include "common/repeating_timer.h"
 #include "common/time_util.h"
+#include "test/common/mock_functions.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
@@ -34,27 +33,27 @@ extern std::map<std::string, int> mock_function_count_map;
 
 using namespace bluetooth::common;
 
-RepeatingTimer::~RepeatingTimer() { mock_function_count_map[__func__]++; }
+RepeatingTimer::~RepeatingTimer() { inc_func_call_count(__func__); }
 bool RepeatingTimer::IsScheduled() const {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool RepeatingTimer::SchedulePeriodic(
     const base::WeakPtr<MessageLoopThread>& thread,
     const base::Location& from_here, base::Closure task,
     base::TimeDelta period) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 void RepeatingTimer::Cancel() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   expected_time_next_task_us_ = 0;
 }
-void RepeatingTimer::CancelAndWait() { mock_function_count_map[__func__]++; }
+void RepeatingTimer::CancelAndWait() { inc_func_call_count(__func__); }
 void RepeatingTimer::CancelClosure(std::promise<void> promise) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void RepeatingTimer::CancelHelper(std::promise<void> promise) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
-void RepeatingTimer::RunTask() { mock_function_count_map[__func__]++; }
+void RepeatingTimer::RunTask() { inc_func_call_count(__func__); }

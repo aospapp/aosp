@@ -27,6 +27,7 @@ except ImportError:
     from urllib2 import Request
     from urllib2 import urlopen
 
+
 _JSON_HEADERS = {'Content-Type': 'application/json'}
 _METRICS_RESPONSE = 'done'
 _METRICS_TIMEOUT = 2 #seconds
@@ -70,17 +71,15 @@ def log_event(metrics_url, unused_key_fallback=True, **kwargs):
 
 
 def _get_grouping_key():
-    """Get grouping key. Returns UUID.uuid4."""
+    """Get grouping key. Returns UUID.uuid5."""
     meta_file = os.path.join(os.path.expanduser('~'),
                              '.config', 'asuite', '.metadata')
-    if os.path.isfile(meta_file):
-        with open(meta_file) as f:
-            try:
-                return uuid.UUID(f.read(), version=4)
-            except ValueError:
-                logging.debug('malformed group_key in file, rewriting')
-    # Cache uuid to file. Raise exception if any file access error.
-    key = uuid.uuid4()
+    # (b/278503654) Treat non-human invocation as the same user when the email
+    # is null.
+    # Prevent circular import.
+    #pylint: disable=import-outside-toplevel
+    from atest.metrics import metrics_base
+    key = uuid.uuid5(uuid.NAMESPACE_DNS, metrics_base.get_user_email())
     dir_path = os.path.dirname(meta_file)
     if os.path.isfile(dir_path):
         os.remove(dir_path)

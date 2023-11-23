@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.tests.java.lang.ref;
@@ -29,7 +29,7 @@ public class ReferenceQueueTest extends junit.framework.TestCase {
     static Boolean b;
 
     static Integer integer;
-    boolean isThrown = false;
+    volatile boolean isThrown = false;
 
     protected void doneSuite() {
         b = null;
@@ -46,7 +46,7 @@ public class ReferenceQueueTest extends junit.framework.TestCase {
             } catch (Exception e) {}
             // store in a static so it won't be gc'ed because the jit
             // optimized it out
-            integer = new Integer(667);
+            integer = Integer.valueOf(667);
             SoftReference sr = new SoftReference(integer, rq);
             sr.enqueue();
         }
@@ -60,7 +60,7 @@ public class ReferenceQueueTest extends junit.framework.TestCase {
     public void test_poll() {
         // store in a static so it won't be gc'ed because the jit
         // optimized it out
-        b = new Boolean(true);
+        b = Boolean.valueOf(true);
         Object obj = new Object();
         String str = "Test";
 
@@ -107,7 +107,7 @@ public class ReferenceQueueTest extends junit.framework.TestCase {
     public void test_remove() {
         // store in a static so it won't be gc'ed because the jit
         // optimized it out
-        b = new Boolean(true);
+        b = Boolean.valueOf(true);
 
         SoftReference sr = new SoftReference(b, rq);
         sr.enqueue();
@@ -123,26 +123,32 @@ public class ReferenceQueueTest extends junit.framework.TestCase {
         sr.enqueue();
 
         class RemoveThread extends Thread {
+            public final CountDownLatch inBlock = new CountDownLatch(1);
+            public final CountDownLatch outOfBlock = new CountDownLatch(1);
             public void run() {
                 try {
+                    inBlock.countDown();
                     rq.remove();
                 } catch(InterruptedException ie) {
                     isThrown = true;
                 }
+                outOfBlock.countDown();
             }
         }
         RemoveThread rt = new RemoveThread();
         rt.start();
         try {
-            Thread.sleep(100);
+            rt.inBlock.await();
+            // Sleep in case rt sets flag right before pausing.
+            Thread.sleep(50);
         } catch(InterruptedException ie) {
-
+            fail("Unexpected interrupt");
         }
         rt.interrupt();
         try {
-            Thread.sleep(100);
+            rt.outOfBlock.await();
         } catch(InterruptedException ie) {
-
+            fail("Unexpected interrupt");
         }
         assertTrue(isThrown);
         assertNull(rq.poll());
@@ -169,7 +175,7 @@ public class ReferenceQueueTest extends junit.framework.TestCase {
 
         Object obj = new Object();
         WeakReference wr = new WeakReference(obj, rq);
-        Boolean b = new Boolean(true);
+        Boolean b = Boolean.valueOf(true);
         SoftReference sr = new SoftReference(b, rq);
         String str = "Test";
         PhantomReference pr = new PhantomReference(str, rq);
@@ -212,12 +218,16 @@ public class ReferenceQueueTest extends junit.framework.TestCase {
         try {
             rt.inBlock.await();
             // Try to be inside of rq.remove(1000L) if possible.
-            Thread.sleep(10);
-        } catch(InterruptedException ie) {}
+            Thread.sleep(50);
+        } catch(InterruptedException ie) {
+            fail("Unexpected interrupt");
+        }
         rt.interrupt();
         try {
             rt.outOfBlock.await();
-        } catch(InterruptedException ie) {}
+        } catch(InterruptedException ie) {
+            fail("Unexpected interrupt");
+        }
         assertTrue(isThrown);
         assertNull(rq.poll());
 

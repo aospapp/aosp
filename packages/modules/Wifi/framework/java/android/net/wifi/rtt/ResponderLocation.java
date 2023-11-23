@@ -480,8 +480,11 @@ public final class ResponderLocation implements Parcelable {
 
         // Ensure the IE contains the correct leading bytes
         byte[] leadBufferBytes = Arrays.copyOfRange(buffer, bufferPtr, expectedLeadBytes.length);
-        if (!Arrays.equals(leadBufferBytes, expectedLeadBytes)) {
-            return false;
+        // Ignore variable field measurement token number check, which is the first byte
+        for (int i = 1; i < leadBufferBytes.length; i++) {
+            if (leadBufferBytes[i] != expectedLeadBytes[i]) {
+                return false;
+            }
         }
 
         // Iterate through the sub-elements contained in the Information Element (IE)

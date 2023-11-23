@@ -31,6 +31,7 @@ cc_library_headers {
         "com.android.neuralnetworks",
         "test_com.android.neuralnetworks",
     ],
+    min_sdk_version: "30",
     sdk_version: "current",
 }
 
@@ -38,6 +39,7 @@ cc_library_static {
     name: "philox_random",
     host_supported: true,
     vendor_available: true,
+    min_sdk_version: "30",
     apex_available: [
         "//apex_available:platform",
         "com.android.neuralnetworks",

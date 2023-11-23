@@ -9,12 +9,13 @@ CRITERIA = """
 This test will fail if, after playback of two fingers for back/forward
 long swipes, the active tab does not navigate as expected.
 """
-ATTRIBUTES = "suite:touch"
+ATTRIBUTES = "suite:touch_replay"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "touch"
 TEST_TYPE = "client"
 DEPENDENCIES = "touchpad"
+PY_VERSION = 3
 
 DOC = """
 Plays back touchpad gestures (if present) and checks for back/fwd navigation.

@@ -15,7 +15,10 @@ allow uwb_vendor_app uwb_vendor_data_file:dir create_dir_perms;
 
 allow hal_uwb_vendor_default self:global_capability_class_set { sys_nice };
 allow hal_uwb_vendor_default kernel:process { setsched };
+# UwbVendorService must be able to read USRA version from vendor_secure_element_prop
 get_prop(uwb_vendor_app, vendor_secure_element_prop)
+# UwbVendorService must be able to write country code prop
+set_prop(uwb_vendor_app, vendor_uwb_calibration_country_code)
 
 binder_call(uwb_vendor_app, hal_uwb_vendor_default)
 ')

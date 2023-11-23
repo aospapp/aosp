@@ -16,14 +16,14 @@
 
 package com.google.uwb.support.ccc;
 
-import static com.android.internal.util.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
-import android.annotation.NonNull;
 import android.os.Build.VERSION_CODES;
 import android.os.PersistableBundle;
 import android.uwb.UwbManager;
 
 import androidx.annotation.IntRange;
+import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
 import com.google.uwb.support.base.RequiredParam;
@@ -42,6 +42,7 @@ public class CccOpenRangingParams extends CccParams {
     private static final String KEY_UWB_CONFIG = "uwb_config";
     private static final String KEY_PULSE_SHAPE_COMBO = "pulse_shape_combo";
     private static final String KEY_SESSION_ID = "session_id";
+    private static final String KEY_SESSION_TYPE = "session_type";
     private static final String KEY_RAN_MULTIPLIER = "ran_multiplier";
     private static final String KEY_CHANNEL = "channel";
     private static final String KEY_NUM_CHAPS_PER_SLOT = "num_chaps_per_slot";
@@ -50,11 +51,14 @@ public class CccOpenRangingParams extends CccParams {
     private static final String KEY_SYNC_CODE_INDEX = "sync_code_index";
     private static final String KEY_HOPPING_CONFIG_MODE = "hopping_config_mode";
     private static final String KEY_HOPPING_SEQUENCE = "hopping_sequence";
+    private static final String KEY_LAST_STS_INDEX_USED = "last_sts_index_used";
+    private static final String KEY_INITIATION_TIME_MS = "initiation_time_ms";
 
     private final CccProtocolVersion mProtocolVersion;
     @UwbConfig private final int mUwbConfig;
     private final CccPulseShapeCombo mPulseShapeCombo;
     private final int mSessionId;
+    @SessionType private final int mSessionType;
     private final int mRanMultiplier;
     @Channel private final int mChannel;
     private final int mNumChapsPerSlot;
@@ -63,12 +67,15 @@ public class CccOpenRangingParams extends CccParams {
     @SyncCodeIndex private final int mSyncCodeIndex;
     @HoppingConfigMode private final int mHoppingConfigMode;
     @HoppingSequence private final int mHoppingSequence;
+    private final int mLastStsIndexUsed;
+    private final long mInitiationTimeMs;
 
     private CccOpenRangingParams(
             CccProtocolVersion protocolVersion,
             @UwbConfig int uwbConfig,
             CccPulseShapeCombo pulseShapeCombo,
             int sessionId,
+            @SessionType int sessionType,
             int ranMultiplier,
             @Channel int channel,
             int numChapsPerSlot,
@@ -76,11 +83,14 @@ public class CccOpenRangingParams extends CccParams {
             int numSlotsPerRound,
             @SyncCodeIndex int syncCodeIndex,
             @HoppingConfigMode int hoppingConfigMode,
-            @HoppingSequence int hoppingSequence) {
+            @HoppingSequence int hoppingSequence,
+            int lastStsIndexUsed,
+            long initiationTimeMs) {
         mProtocolVersion = protocolVersion;
         mUwbConfig = uwbConfig;
         mPulseShapeCombo = pulseShapeCombo;
         mSessionId = sessionId;
+        mSessionType = sessionType;
         mRanMultiplier = ranMultiplier;
         mChannel = channel;
         mNumChapsPerSlot = numChapsPerSlot;
@@ -89,6 +99,8 @@ public class CccOpenRangingParams extends CccParams {
         mSyncCodeIndex = syncCodeIndex;
         mHoppingConfigMode = hoppingConfigMode;
         mHoppingSequence = hoppingSequence;
+        mLastStsIndexUsed = lastStsIndexUsed;
+        mInitiationTimeMs = initiationTimeMs;
     }
 
     @Override
@@ -103,6 +115,7 @@ public class CccOpenRangingParams extends CccParams {
         bundle.putInt(KEY_UWB_CONFIG, mUwbConfig);
         bundle.putString(KEY_PULSE_SHAPE_COMBO, mPulseShapeCombo.toString());
         bundle.putInt(KEY_SESSION_ID, mSessionId);
+        bundle.putInt(KEY_SESSION_TYPE, mSessionType);
         bundle.putInt(KEY_RAN_MULTIPLIER, mRanMultiplier);
         bundle.putInt(KEY_CHANNEL, mChannel);
         bundle.putInt(KEY_NUM_CHAPS_PER_SLOT, mNumChapsPerSlot);
@@ -111,6 +124,8 @@ public class CccOpenRangingParams extends CccParams {
         bundle.putInt(KEY_SYNC_CODE_INDEX, mSyncCodeIndex);
         bundle.putInt(KEY_HOPPING_CONFIG_MODE, mHoppingConfigMode);
         bundle.putInt(KEY_HOPPING_SEQUENCE, mHoppingSequence);
+        bundle.putInt(KEY_LAST_STS_INDEX_USED, mLastStsIndexUsed);
+        bundle.putLong(KEY_INITIATION_TIME_MS, mInitiationTimeMs);
         return bundle;
     }
 
@@ -146,6 +161,9 @@ public class CccOpenRangingParams extends CccParams {
                 .setSyncCodeIndex(bundle.getInt(KEY_SYNC_CODE_INDEX))
                 .setHoppingConfigMode(bundle.getInt(KEY_HOPPING_CONFIG_MODE))
                 .setHoppingSequence(bundle.getInt(KEY_HOPPING_SEQUENCE))
+                .setLastStsIndexUsed(bundle.getInt(
+                        KEY_LAST_STS_INDEX_USED, CccParams.LAST_STS_INDEX_USED_UNSET))
+                .setInitiationTimeMs(bundle.getLong(KEY_INITIATION_TIME_MS))
                 .build();
     }
 
@@ -164,6 +182,11 @@ public class CccOpenRangingParams extends CccParams {
 
     public int getSessionId() {
         return mSessionId;
+    }
+
+    @SessionType
+    public int getSessionType() {
+        return mSessionType;
     }
 
     @IntRange(from = 0, to = 255)
@@ -203,12 +226,21 @@ public class CccOpenRangingParams extends CccParams {
         return mHoppingSequence;
     }
 
+    public int getLastStsIndexUsed() {
+        return mLastStsIndexUsed;
+    }
+
+    public long getInitiationTimeMs() {
+        return mInitiationTimeMs;
+    }
+
     /** Builder */
     public static final class Builder {
         private RequiredParam<CccProtocolVersion> mProtocolVersion = new RequiredParam<>();
         @UwbConfig private RequiredParam<Integer> mUwbConfig = new RequiredParam<>();
         private RequiredParam<CccPulseShapeCombo> mPulseShapeCombo = new RequiredParam<>();
         private RequiredParam<Integer> mSessionId = new RequiredParam<>();
+        @SessionType private int mSessionType = CccParams.SESSION_TYPE_CCC;
         private RequiredParam<Integer> mRanMultiplier = new RequiredParam<>();
         @Channel private RequiredParam<Integer> mChannel = new RequiredParam<>();
         @ChapsPerSlot private RequiredParam<Integer> mNumChapsPerSlot = new RequiredParam<>();
@@ -221,6 +253,10 @@ public class CccOpenRangingParams extends CccParams {
 
         @HoppingSequence private RequiredParam<Integer> mHoppingSequence = new RequiredParam<>();
 
+        private int mLastStsIndexUsed = CccParams.LAST_STS_INDEX_USED_UNSET;
+
+        private long mInitiationTimeMs = 0;
+
         public Builder() {}
 
         public Builder(@NonNull Builder builder) {
@@ -228,6 +264,7 @@ public class CccOpenRangingParams extends CccParams {
             mUwbConfig.set(builder.mUwbConfig.get());
             mPulseShapeCombo.set(builder.mPulseShapeCombo.get());
             mSessionId.set(builder.mSessionId.get());
+            mSessionType = builder.mSessionType;
             mRanMultiplier.set(builder.mRanMultiplier.get());
             mChannel.set(builder.mChannel.get());
             mNumChapsPerSlot.set(builder.mNumChapsPerSlot.get());
@@ -236,6 +273,24 @@ public class CccOpenRangingParams extends CccParams {
             mSyncCodeIndex.set(builder.mSyncCodeIndex.get());
             mHoppingConfigMode.set(builder.mHoppingConfigMode.get());
             mHoppingSequence.set(builder.mHoppingSequence.get());
+            mLastStsIndexUsed = builder.mLastStsIndexUsed;
+            mInitiationTimeMs = builder.mInitiationTimeMs;
+        }
+
+        public Builder(@NonNull CccOpenRangingParams params) {
+            mProtocolVersion.set(params.mProtocolVersion);
+            mUwbConfig.set(params.mUwbConfig);
+            mPulseShapeCombo.set(params.mPulseShapeCombo);
+            mSessionId.set(params.mSessionId);
+            mSessionType = params.mSessionType;
+            mRanMultiplier.set(params.mRanMultiplier);
+            mChannel.set(params.mChannel);
+            mNumChapsPerSlot.set(params.mNumChapsPerSlot);
+            mNumResponderNodes.set(params.mNumResponderNodes);
+            mNumSlotsPerRound.set(params.mNumSlotsPerRound);
+            mSyncCodeIndex.set(params.mSyncCodeIndex);
+            mHoppingConfigMode.set(params.mHoppingConfigMode);
+            mHoppingSequence.set(params.mHoppingSequence);
         }
 
         public Builder setProtocolVersion(CccProtocolVersion version) {
@@ -298,12 +353,24 @@ public class CccOpenRangingParams extends CccParams {
             return this;
         }
 
+        public Builder setLastStsIndexUsed(int lastStsIndexUsed) {
+            mLastStsIndexUsed = lastStsIndexUsed;
+            return this;
+        }
+
+        /** Set initiation time in ms */
+        public Builder setInitiationTimeMs(long initiationTimeMs) {
+            mInitiationTimeMs = initiationTimeMs;
+            return this;
+        }
+
         public CccOpenRangingParams build() {
             return new CccOpenRangingParams(
                     mProtocolVersion.get(),
                     mUwbConfig.get(),
                     mPulseShapeCombo.get(),
                     mSessionId.get(),
+                    mSessionType,
                     mRanMultiplier.get(),
                     mChannel.get(),
                     mNumChapsPerSlot.get(),
@@ -311,7 +378,9 @@ public class CccOpenRangingParams extends CccParams {
                     mNumSlotsPerRound.get(),
                     mSyncCodeIndex.get(),
                     mHoppingConfigMode.get(),
-                    mHoppingSequence.get());
+                    mHoppingSequence.get(),
+                    mLastStsIndexUsed,
+                    mInitiationTimeMs);
         }
     }
 }

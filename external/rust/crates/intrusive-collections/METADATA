@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/intrusive-collections
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "intrusive-collections"
 description: "Intrusive collections for Rust (linked list and red-black tree)"
 third_party {
@@ -7,13 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/intrusive-collections/intrusive-collections-0.9.3.crate"
+    value: "https://static.crates.io/crates/intrusive-collections/intrusive-collections-0.9.5.crate"
   }
-  version: "0.9.3"
+  version: "0.9.5"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2022
-    month: 3
-    day: 1
+    year: 2023
+    month: 2
+    day: 16
   }
 }

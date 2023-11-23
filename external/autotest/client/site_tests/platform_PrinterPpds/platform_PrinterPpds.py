@@ -2,6 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import dbus
 import gzip
 import logging
@@ -21,6 +25,7 @@ import helpers
 import fake_printer
 import log_reader
 import multithreaded_processor
+from six.moves import range
 
 # Timeout for printing documents in seconds
 _FAKE_PRINTER_TIMEOUT = 200
@@ -368,10 +373,10 @@ class platform_PrinterPpds(test.test):
                             self._archivers[doc_name].save_file(
                                     ppd_name, '.out', doc, apply_gzip=True)
                             self._archivers[doc_name].save_file(
-                                    ppd_name, '.log', logs)
+                                    ppd_name, '.log', logs.encode())
                             if pipeline is not None:
                                 self._archivers[doc_name].save_file(
-                                        ppd_name, '.sh', pipeline)
+                                        ppd_name, '.sh', pipeline.encode())
                             # Set new digest
                             self._new_digests[doc_name][ppd_name] = digest
                             self._new_sizes[doc_name][ppd_name] = len(doc)

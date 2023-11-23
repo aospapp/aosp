@@ -17,10 +17,12 @@ package androidx.camera.extensions.impl;
 
 import android.content.Context;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraExtensionCharacteristics;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.MeteringRectangle;
+import android.hardware.camera2.params.SessionConfiguration;
 import android.media.Image;
 import android.media.ImageWriter;
 import android.os.Build;
@@ -130,6 +132,26 @@ public final class HdrImageCaptureExtenderImpl implements ImageCaptureExtenderIm
                     }
 
                     @Override
+                    public void onPostviewOutputSurface(Surface surface) {
+
+                    }
+
+                    @Override
+                    public void processWithPostview(
+                            Map<Integer, Pair<Image, TotalCaptureResult>> results,
+                            ProcessResultImpl resultCallback, Executor executor) {
+                        if (!isPostviewAvailable()) {
+                            throw new RuntimeException("The extension doesn't support postview");
+                        }
+
+                        if (resultCallback != null) {
+                            process(results, resultCallback, executor);
+                        } else {
+                            process(results);
+                        }
+                    }
+
+                    @Override
                     public void process(Map<Integer, Pair<Image, TotalCaptureResult>> results,
                             ProcessResultImpl resultCallback, Executor executor) {
                         Pair<Image, TotalCaptureResult> result = results.get(NORMAL_STAGE_ID);
@@ -184,12 +206,25 @@ public final class HdrImageCaptureExtenderImpl implements ImageCaptureExtenderIm
                                             jpegOrientation));
                                 }
 
+                                Integer strength = result.second.get(
+                                        CaptureResult.EXTENSION_STRENGTH);
+                                if (strength != null) {
+                                    captureResults.add(new Pair<>(CaptureResult.EXTENSION_STRENGTH,
+                                            strength));
+                                }
+
+                                captureResults.add(new Pair<>(CaptureResult.EXTENSION_CURRENT_TYPE,
+                                            CameraExtensionCharacteristics.EXTENSION_HDR));
+
                                 if (executor != null) {
                                     executor.execute(() -> resultCallback.onCaptureCompleted(
                                             shutterTimestamp, captureResults));
+                                    executor.execute(() ->
+                                            resultCallback.onCaptureProcessProgressed(100));
                                 } else {
                                     resultCallback.onCaptureCompleted(shutterTimestamp,
                                             captureResults);
+                                    resultCallback.onCaptureProcessProgressed(100);
                                 }
                             }
                         }
@@ -264,6 +299,11 @@ public final class HdrImageCaptureExtenderImpl implements ImageCaptureExtenderIm
                     }
 
                     @Override
+                    public void onResolutionUpdate(Size size, Size postviewSize) {
+
+                    }
+
+                    @Override
                     public void onImageFormatUpdate(int imageFormat) {
 
                     }
@@ -332,6 +372,11 @@ public final class HdrImageCaptureExtenderImpl implements ImageCaptureExtenderIm
     }
 
     @Override
+    public List<Pair<Integer, Size[]>> getSupportedPostviewResolutions(Size captureSize) {
+        return new ArrayList<>();
+    }
+
+    @Override
     public Range<Long> getEstimatedCaptureLatencyRange(Size captureOutputSize) {
         return null;
     }
@@ -340,7 +385,7 @@ public final class HdrImageCaptureExtenderImpl implements ImageCaptureExtenderIm
     public List<CaptureRequest.Key> getAvailableCaptureRequestKeys() {
         final CaptureRequest.Key [] CAPTURE_REQUEST_SET = {CaptureRequest.CONTROL_ZOOM_RATIO,
             CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_REGIONS,
-            CaptureRequest.CONTROL_AF_TRIGGER};
+            CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.EXTENSION_STRENGTH};
         return Arrays.asList(CAPTURE_REQUEST_SET);
     }
 
@@ -348,7 +393,28 @@ public final class HdrImageCaptureExtenderImpl implements ImageCaptureExtenderIm
     public List<CaptureResult.Key> getAvailableCaptureResultKeys() {
         final CaptureResult.Key [] CAPTURE_RESULT_SET = {CaptureResult.CONTROL_ZOOM_RATIO,
             CaptureResult.CONTROL_AF_MODE, CaptureResult.CONTROL_AF_REGIONS,
-            CaptureResult.CONTROL_AF_TRIGGER, CaptureResult.CONTROL_AF_STATE};
+            CaptureResult.CONTROL_AF_TRIGGER, CaptureResult.CONTROL_AF_STATE,
+            CaptureResult.EXTENSION_CURRENT_TYPE, CaptureResult.EXTENSION_STRENGTH};
         return Arrays.asList(CAPTURE_RESULT_SET);
+    }
+
+    @Override
+    public int onSessionType() {
+        return SessionConfiguration.SESSION_REGULAR;
+    }
+
+    @Override
+    public boolean isCaptureProcessProgressAvailable() {
+        return true;
+    }
+
+    @Override
+    public Pair<Long, Long> getRealtimeCaptureLatency() {
+        return null;
+    }
+
+    @Override
+    public boolean isPostviewAvailable() {
+        return false;
     }
 }

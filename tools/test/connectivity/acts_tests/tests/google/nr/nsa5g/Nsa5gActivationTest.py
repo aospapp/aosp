@@ -17,8 +17,6 @@
     Test Script for 5G Activation scenarios
 """
 
-import time
-
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts_contrib.test_utils.tel.tel_test_utils import reboot_device
@@ -37,9 +35,7 @@ class Nsa5gActivationTest(TelephonyBaseTest):
     def teardown_class(self):
         TelephonyBaseTest.teardown_class(self)
 
-
     """ Tests Begin """
-
 
     @test_tracker_info(uuid="b10b3779-b535-4cac-a12f-2fb6daed55a5")
     @TelephonyBaseTest.tel_test_wrap
@@ -55,10 +51,10 @@ class Nsa5gActivationTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
 
-        return test_activation_by_condition(self.android_devices[0],
-                                            nr_type='nsa',
-                                            precond_func=lambda: cycle_airplane_mode(self.android_devices[0]))
-
+        return test_activation_by_condition(
+            self.android_devices[0],
+            nr_type='nsa',
+            precond_func=lambda: cycle_airplane_mode(self.android_devices[0]))
 
     @test_tracker_info(uuid="d4f5f0c5-cc58-4531-96dd-32eed9121b95")
     @TelephonyBaseTest.tel_test_wrap
@@ -74,10 +70,10 @@ class Nsa5gActivationTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
 
-        return test_activation_by_condition(self.android_devices[0],
-                                            nr_type='nsa',
-                                            precond_func=lambda: reboot_device(self.android_devices[0]))
-
+        return test_activation_by_condition(
+            self.android_devices[0],
+            nr_type='nsa',
+            precond_func=lambda: reboot_device(self.android_devices[0]))
 
     @test_tracker_info(uuid="1ceda4b5-4a6a-43fa-8976-67cbfb7eab5b")
     @TelephonyBaseTest.tel_test_wrap

@@ -1,6 +1,7 @@
 #![allow(
     clippy::cast_sign_loss,
     clippy::default_trait_access,
+    clippy::derive_partial_eq_without_eq,
     clippy::doc_markdown,
     clippy::enum_glob_use,
     clippy::if_same_then_else,
@@ -34,11 +35,12 @@ mod derive;
 mod expand;
 mod generics;
 mod syntax;
+mod tokens;
 mod type_id;
 
-#[cfg(feature = "experimental")]
+#[cfg(feature = "experimental-enum-variants-from-header")]
 mod clang;
-#[cfg(feature = "experimental")]
+#[cfg(feature = "experimental-enum-variants-from-header")]
 mod load;
 
 use crate::syntax::file::Module;

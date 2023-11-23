@@ -52,13 +52,15 @@ static struct tcase {
 
 static void run(unsigned int i)
 {
+	int fd3 = -1;
+
 	/* tesfile2 will be unlinked by test0. */
 	if (access(testfile2, F_OK))
 		SAFE_FILE_PRINTF(testfile2, testfile2);
 
 	/* testfile3 will be unlined by test1. */
 	if (access(testfile3, F_OK))
-		SAFE_OPEN(testfile3, O_CREAT | O_RDWR, 0600);
+		fd3 = SAFE_OPEN(testfile3, O_CREAT | O_RDWR, 0600);
 
 	/* subpathdir will be unlinked by test6. */
 	if (access(subpathdir, F_OK))
@@ -80,6 +82,9 @@ static void run(unsigned int i)
 
 	if (!tc[i].fd)
 		SAFE_CLOSE(fd);
+
+	if (fd3 > 0)
+		SAFE_CLOSE(fd3);
 }
 
 static void setup(void)
@@ -102,7 +107,6 @@ static void cleanup(void)
 static struct tst_test test = {
 	.needs_tmpdir = 1,
 	.tcnt = ARRAY_SIZE(tc),
-	.min_kver = "2.6.16",
 	.setup = setup,
 	.test = run,
 	.cleanup = cleanup,

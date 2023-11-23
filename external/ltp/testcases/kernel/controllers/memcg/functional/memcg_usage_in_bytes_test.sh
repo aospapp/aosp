@@ -9,16 +9,12 @@
 MEMCG_TESTFUNC=test
 TST_CNT=2
 
-. memcg_lib.sh
-
-MEM_TO_ALLOC=$((PAGESIZE * 1024))
-MEM_LIMIT=$((MEM_TO_ALLOC * 2))
-
 test1()
 {
 	tst_res TINFO "Test memory.usage_in_bytes"
 	test_mem_stat "--mmap-anon" $MEM_TO_ALLOC $MEM_TO_ALLOC \
-		"memory.usage_in_bytes" $MEM_TO_ALLOC false
+		"memory.usage_in_bytes" $MEM_TO_ALLOC \
+		$MEM_EXPECTED_UPPER false
 }
 
 test2()
@@ -26,10 +22,17 @@ test2()
 	tst_res TINFO "Test memory.memsw.usage_in_bytes"
 	memcg_require_memsw
 
-	echo $MEM_LIMIT > memory.limit_in_bytes
-	echo $MEM_LIMIT > memory.memsw.limit_in_bytes
+	EXPECT_PASS echo $MEM_LIMIT \> memory.limit_in_bytes
+	EXPECT_PASS echo $MEM_LIMIT \> memory.memsw.limit_in_bytes
 	test_mem_stat "--mmap-anon" $MEM_TO_ALLOC $MEM_TO_ALLOC \
-		"memory.memsw.usage_in_bytes" $MEM_TO_ALLOC false
+		"memory.memsw.usage_in_bytes" $MEM_TO_ALLOC \
+		$MEM_EXPECTED_UPPER false
 }
+
+. memcg_lib.sh
+
+MEM_TO_ALLOC=$((PAGESIZE * 1024))
+MEM_EXPECTED_UPPER=$((MEM_TO_ALLOC + MEM_USAGE_RANGE))
+MEM_LIMIT=$((MEM_TO_ALLOC * 2))
 
 tst_run

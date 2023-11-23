@@ -27,7 +27,8 @@ GetItemAttributesResponseBuilder::MakeBuilder(Status status, size_t mtu) {
   return builder;
 }
 
-bool GetItemAttributesResponseBuilder::AddAttributeEntry(AttributeEntry entry) {
+size_t GetItemAttributesResponseBuilder::AddAttributeEntry(
+    AttributeEntry entry) {
   CHECK(entries_.size() < 0xFF);
 
   size_t remaining_space = mtu_ - size();
@@ -36,24 +37,22 @@ bool GetItemAttributesResponseBuilder::AddAttributeEntry(AttributeEntry entry) {
   }
 
   if (entry.empty()) {
-    return false;
+    return 0;
   }
 
   entries_.insert(entry);
-  return true;
+  return entry.size();
 }
 
-bool GetItemAttributesResponseBuilder::AddAttributeEntry(Attribute attribute,
-                                                         std::string value) {
+size_t GetItemAttributesResponseBuilder::AddAttributeEntry(
+    Attribute attribute, const std::string& value) {
   return AddAttributeEntry(AttributeEntry(attribute, value));
 }
 
 size_t GetItemAttributesResponseBuilder::size() const {
-  size_t len = BrowsePacket::kMinSize();
-  len += 1;  // Status
-  if (status_ != Status::NO_ERROR) return len;
+  size_t len = kHeaderSize();
+  if (status_ != Status::NO_ERROR) return kErrorHeaderSize();
 
-  len += 1;  // Number of attributes
   for (const auto& entry : entries_) {
     len += entry.size();
   }

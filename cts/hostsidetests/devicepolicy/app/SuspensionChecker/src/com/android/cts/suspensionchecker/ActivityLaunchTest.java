@@ -18,16 +18,11 @@ package com.android.cts.suspensionchecker;
 
 import static com.google.common.truth.Truth.assertThat;
 
-
-import static org.junit.Assert.fail;
-
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import java.util.concurrent.TimeUnit;
 
 /**
  * Class to test whether activities from this package can be launched and not suspended.
@@ -44,18 +39,5 @@ public class ActivityLaunchTest {
     public void testCannotStartActivity() throws Exception {
         assertThat(LaunchCheckingActivity.checkLaunch(InstrumentationRegistry.getContext()))
                 .isFalse();
-    }
-
-    @Test
-    public void testWaitForActivityNotLaunchable() throws Exception {
-        // Wait up to 1 minute checking if the app is not launchable anymore.
-        final long deadline = System.nanoTime() + TimeUnit.MINUTES.toNanos(1);
-        while (System.nanoTime() < deadline) {
-            if (!LaunchCheckingActivity.checkLaunch(InstrumentationRegistry.getContext())) {
-                return;
-            }
-            Thread.sleep(1000);
-        }
-        fail("Activity is still launchable");
     }
 }

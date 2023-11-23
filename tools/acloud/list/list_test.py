@@ -45,8 +45,9 @@ class ListTest(driver_test_lib.BaseDriverTest):
         super().setUp()
         self.Patch(instance, "_GetElapsedTime", return_value=0)
         self.Patch(instance.RemoteInstance, "_GetZoneName")
+        self.Patch(instance.RemoteInstance, "_GetProjectName")
         self.Patch(instance, "GetInstanceIP", return_value=ssh.IP())
-        self.Patch(instance.RemoteInstance, "GetAdbVncPortFromSSHTunnel")
+        self.Patch(instance.RemoteInstance, "GetForwardedPortsFromSSHTunnel")
         self.Patch(adb_tools, "AdbTools")
         self.Patch(adb_tools.AdbTools, "IsAdbConnected", return_value=False)
         self.Patch(auth, "CreateCredentials")
@@ -161,7 +162,8 @@ class ListTest(driver_test_lib.BaseDriverTest):
 
         local_ins = mock.MagicMock()
         local_ins.CvdStatus.return_value = True
-        self.Patch(instance, "LocalInstance", return_value=local_ins)
+        self.Patch(instance, "GetCuttleFishLocalInstances",
+                   return_value=[local_ins])
 
         ins_list = list_instance._GetLocalCuttlefishInstances(id_cfg_pairs)
         self.assertEqual(2, len(ins_list))
@@ -198,11 +200,12 @@ class ListTest(driver_test_lib.BaseDriverTest):
             y_res=728,
             dpi=240,
             instance_dir="fake_dir",
-            adb_ip_port="127.0.0.1:6520"
+            adb_ip_port="127.0.0.1:6520",
+            root_dir="root/cuttlefish_runtime"
         )
         self.Patch(cvd_runtime_config, "CvdRuntimeConfig",
                    return_value=cf_config)
-        self.Patch(instance.LocalInstance, "GetDevidInfoFromCvdFleet",
+        self.Patch(instance.LocalInstance, "_GetDevidInfoFromCvdStatus",
                    return_value=None)
 
         ins = instance.LocalInstance("fake_cf_path")

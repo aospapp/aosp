@@ -16,9 +16,11 @@
 #ifndef _LIBRENDER_HWC2_H
 #define _LIBRENDER_HWC2_H
 
-#ifdef _MSC_VER
+#include <memory>
 #include <stdint.h>
-#endif
+#include <vector>
+
+namespace gfxstream {
 
 /* Copied from Android source */
 
@@ -111,5 +113,15 @@ typedef struct compose_device_v2 {
     uint32_t numLayers;
     struct compose_layer layer[0];
 } ComposeDevice_v2;
+
+typedef struct FlatComposeRequest {
+    uint32_t displayId;
+    uint32_t targetHandle;
+    std::vector<ComposeLayer> layers;
+} FlatComposeRequest;
+std::unique_ptr<FlatComposeRequest> ToFlatComposeRequest(const ComposeDevice* in);
+std::unique_ptr<FlatComposeRequest> ToFlatComposeRequest(const ComposeDevice_v2* in);
+
+}  // namespace gfxstream
 
 #endif

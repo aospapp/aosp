@@ -53,7 +53,7 @@ public class OtherProfileTest {
                 annotatedNotesProvider(annotationPrinter),
                 annotatedNotesCrossProfileType(annotationPrinter));
 
-    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_OtherProfile");
+    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".NotesType_OtherProfile");
   }
 
   @Test
@@ -66,10 +66,9 @@ public class OtherProfileTest {
                 annotatedNotesCrossProfileType(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_OtherProfile")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_OtherProfile")
         .contentsAsUtf8String()
-        .contains(
-            "class ProfileNotesType_OtherProfile implements" + " ProfileNotesType_SingleSender");
+        .contains("class NotesType_OtherProfile implements NotesType_SingleSender");
   }
 
   @Test
@@ -82,9 +81,8 @@ public class OtherProfileTest {
                 annotatedNotesCrossProfileType(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_OtherProfile")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_OtherProfile")
         .contentsAsUtf8String()
-        .contains(
-            "public ProfileNotesType_OtherProfile(ProfileConnector connector)");
+        .contains("public NotesType_OtherProfile(ProfileConnector connector)");
   }
 }

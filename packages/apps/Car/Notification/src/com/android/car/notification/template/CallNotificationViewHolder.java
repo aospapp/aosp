@@ -21,7 +21,6 @@ import android.view.View;
 
 import com.android.car.notification.AlertEntry;
 import com.android.car.notification.NotificationClickHandlerFactory;
-import com.android.car.notification.NotificationUtils;
 import com.android.car.notification.R;
 
 /**
@@ -47,8 +46,8 @@ public class CallNotificationViewHolder extends CarNotificationBaseViewHolder {
      */
     @Override
     public void bind(AlertEntry alertEntry, boolean isInGroup,
-            boolean isHeadsUp) {
-        super.bind(alertEntry, isInGroup, isHeadsUp);
+            boolean isHeadsUp, boolean isSeen) {
+        super.bind(alertEntry, isInGroup, isHeadsUp, isSeen);
         bindBody(alertEntry);
         mHeaderView.bind(alertEntry, isInGroup);
         mActionsView.bind(mClickHandlerFactory, alertEntry);
@@ -62,10 +61,8 @@ public class CallNotificationViewHolder extends CarNotificationBaseViewHolder {
         Bundle extraData = notification.extras;
         CharSequence title = extraData.getCharSequence(Notification.EXTRA_TITLE);
         CharSequence text = extraData.getCharSequence(Notification.EXTRA_TEXT);
-        boolean useLauncherIcon = NotificationUtils.shouldUseLauncherIcon(getContext(),
-                alertEntry.getStatusBarNotification());
-        mBodyView.bind(title, text, useLauncherIcon,
-                loadAppLauncherIcon(alertEntry.getStatusBarNotification()),
+        mBodyView.bind(title, text,
+                alertEntry.getStatusBarNotification(),
                 notification.getLargeIcon(), /* titleIcon= */ null, /* countText= */ null,
                 notification.showsTime() ? notification.when : null);
     }

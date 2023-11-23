@@ -9,10 +9,11 @@ package {
 
 aidl_interface {
     name: "android.hardware.input.processor",
+    host_supported: true,
     vendor_available: true,
     srcs: ["android/hardware/input/processor/*.aidl"],
     imports: [
-        "android.hardware.input.common",
+        "android.hardware.input.common-V1",
     ],
     stability: "vintf",
     backend: {

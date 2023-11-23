@@ -16,7 +16,6 @@
 
 package com.android.traceur;
 
-
 import android.app.IntentService;
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -26,6 +25,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.os.UserManager;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.text.format.DateUtils;
@@ -46,6 +46,8 @@ public class TraceService extends IntentService {
             "com.android.traceur.NOTIFY_SESSION_STOLEN";
     private static String INTENT_ACTION_STOP_TRACING = "com.android.traceur.STOP_TRACING";
     private static String INTENT_ACTION_START_TRACING = "com.android.traceur.START_TRACING";
+    private static String INTENT_ACTION_START_STACK_SAMPLING =
+            "com.android.traceur.START_STACK_SAMPLING";
 
     private static String INTENT_EXTRA_TAGS= "tags";
     private static String INTENT_EXTRA_BUFFER = "buffer";
@@ -73,6 +75,12 @@ public class TraceService extends IntentService {
         intent.putExtra(INTENT_EXTRA_LONG_TRACE, longTrace);
         intent.putExtra(INTENT_EXTRA_LONG_TRACE_SIZE, maxLongTraceSizeMb);
         intent.putExtra(INTENT_EXTRA_LONG_TRACE_DURATION, maxLongTraceDurationMinutes);
+        context.startForegroundService(intent);
+    }
+
+    public static void startStackSampling(final Context context) {
+        Intent intent = new Intent(context, TraceService.class);
+        intent.setAction(INTENT_ACTION_START_STACK_SAMPLING);
         context.startForegroundService(intent);
     }
 
@@ -108,7 +116,8 @@ public class TraceService extends IntentService {
     @Override
     public void onHandleIntent(Intent intent) {
         Context context = getApplicationContext();
-        // Checks that developer options are enabled before continuing.
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        // Checks that developer options are enabled and the user is an admin before continuing.
         boolean developerOptionsEnabled =
                 Settings.Global.getInt(context.getContentResolver(),
                         Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0;
@@ -117,6 +126,18 @@ public class TraceService extends IntentService {
             EventLog.writeEvent(0x534e4554, "204992293", -1, "");
             return;
         }
+        UserManager userManager = context.getSystemService(UserManager.class);
+        boolean isAdminUser = userManager.isAdminUser();
+        boolean debuggingDisallowed = userManager.hasUserRestriction(
+                UserManager.DISALLOW_DEBUGGING_FEATURES);
+        if (!isAdminUser || debuggingDisallowed) {
+            return;
+        }
+
+        boolean recordingWasTrace = prefs.getBoolean(
+                context.getString(R.string.pref_key_recording_was_trace), true);
+        TraceUtils.RecordingType type = recordingWasTrace ? TraceUtils.RecordingType.TRACE
+                                                          : TraceUtils.RecordingType.STACK_SAMPLES;
 
         if (intent.getAction().equals(INTENT_ACTION_START_TRACING)) {
             startTracingInternal(intent.getStringArrayListExtra(INTENT_EXTRA_TAGS),
@@ -128,12 +149,14 @@ public class TraceService extends IntentService {
                     Integer.parseInt(context.getString(R.string.default_long_trace_size))),
                 intent.getIntExtra(INTENT_EXTRA_LONG_TRACE_DURATION,
                     Integer.parseInt(context.getString(R.string.default_long_trace_duration))));
+        } else if (intent.getAction().equals(INTENT_ACTION_START_STACK_SAMPLING)) {
+            startStackSamplingInternal();
         } else if (intent.getAction().equals(INTENT_ACTION_STOP_TRACING)) {
-            stopTracingInternal(TraceUtils.getOutputFilename(), false, false);
+            stopTracingInternal(TraceUtils.getOutputFilename(type), false);
         } else if (intent.getAction().equals(INTENT_ACTION_NOTIFY_SESSION_STOPPED)) {
-            stopTracingInternal(TraceUtils.getOutputFilename(), true, false);
+            stopTracingInternal(TraceUtils.getOutputFilename(type), false);
         } else if (intent.getAction().equals(INTENT_ACTION_NOTIFY_SESSION_STOLEN)) {
-            stopTracingInternal("", false, true);
+            stopTracingInternal("", true);
         }
     }
 
@@ -141,33 +164,21 @@ public class TraceService extends IntentService {
             boolean longTrace, int maxLongTraceSizeMb, int maxLongTraceDurationMinutes) {
         Context context = getApplicationContext();
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+
         Intent stopIntent = new Intent(Receiver.STOP_ACTION,
             null, context, Receiver.class);
         stopIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
 
-        String title = context.getString(R.string.trace_is_being_recorded);
-        String msg = context.getString(R.string.tap_to_stop_tracing);
-
         boolean attachToBugreport =
                 prefs.getBoolean(context.getString(R.string.pref_key_attach_to_bugreport), true);
 
-        Notification.Builder notification =
-            new Notification.Builder(context, Receiver.NOTIFICATION_CHANNEL_TRACING)
-                .setSmallIcon(R.drawable.bugfood_icon)
-                .setContentTitle(title)
-                .setTicker(title)
-                .setContentText(msg)
-                .setContentIntent(
-                    PendingIntent.getBroadcast(context, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE))
-                .setOngoing(true)
-                .setLocalOnly(true)
-                .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
-                .setColor(getColor(
-                    com.android.internal.R.color.system_notification_accent_color));
-
-        if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
-            notification.extend(new Notification.TvExtender());
-        }
+        Notification.Builder notification = getTraceurNotification(
+                context.getString(R.string.trace_is_being_recorded),
+                context.getString(R.string.tap_to_stop_tracing),
+                Receiver.NOTIFICATION_CHANNEL_TRACING);
+        notification.setOngoing(true)
+                .setContentIntent(PendingIntent.getBroadcast(context, 0, stopIntent,
+                          PendingIntent.FLAG_IMMUTABLE));
 
         startForeground(TRACE_NOTIFICATION, notification.build());
 
@@ -183,36 +194,78 @@ public class TraceService extends IntentService {
             QsService.updateTile();
             stopForeground(Service.STOP_FOREGROUND_REMOVE);
         }
+
+        // This is used to keep track of whether the most recent recording was a trace for the
+        // purpose of 1) determining which notification should be sent after the recording is done,
+        // and 2) choosing the filename format for the saved recording.
+        prefs.edit().putBoolean(
+                context.getString(R.string.pref_key_recording_was_trace), true).commit();
     }
 
-    private void stopTracingInternal(String outputFilename, boolean forceStop,
-            boolean sessionStolen) {
+    private void startStackSamplingInternal() {
         Context context = getApplicationContext();
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+
+        Intent stopIntent = new Intent(Receiver.STOP_ACTION, null, context, Receiver.class);
+        stopIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+
+        boolean attachToBugreport =
+                prefs.getBoolean(context.getString(R.string.pref_key_attach_to_bugreport), true);
+
+        Notification.Builder notification = getTraceurNotification(
+                context.getString(R.string.stack_samples_are_being_recorded),
+                context.getString(R.string.tap_to_stop_stack_sampling),
+                Receiver.NOTIFICATION_CHANNEL_TRACING);
+        notification.setOngoing(true)
+                .setContentIntent(PendingIntent.getBroadcast(context, 0, stopIntent,
+                          PendingIntent.FLAG_IMMUTABLE));
+
+        startForeground(TRACE_NOTIFICATION, notification.build());
+
+        if (TraceUtils.stackSampleStart(attachToBugreport)) {
+            stopForeground(Service.STOP_FOREGROUND_DETACH);
+        } else {
+            // Starting stack sampling was unsuccessful, so ensure that it is stopped and the
+            // preference is reset.
+            TraceUtils.traceStop();
+            prefs.edit().putBoolean(
+                    context.getString(R.string.pref_key_stack_sampling_on), false).commit();
+            QsService.updateTile();
+            stopForeground(Service.STOP_FOREGROUND_REMOVE);
+        }
+
+        // This is used to keep track of whether the most recent recording was a trace for the
+        // purpose of 1) determining which notification should be sent after the recording is done,
+        // and 2) choosing the filename format for the saved recording.
+        prefs.edit().putBoolean(
+                context.getString(R.string.pref_key_recording_was_trace), false).commit();
+    }
+
+    private void stopTracingInternal(String outputFilename, boolean sessionStolen) {
+        Context context = getApplicationContext();
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         NotificationManager notificationManager =
             getSystemService(NotificationManager.class);
 
-        Notification.Builder notification;
-        if (sessionStolen) {
-            notification = getBaseTraceurNotification()
-                .setContentTitle(getString(R.string.attaching_to_report))
-                .setTicker(getString(R.string.attaching_to_report))
-                .setProgress(1, 0, true);
-        } else {
-            notification = getBaseTraceurNotification()
-                .setContentTitle(getString(R.string.saving_trace))
-                .setTicker(getString(R.string.saving_trace))
-                .setProgress(1, 0, true);
-        }
+        // This helps determine which text to show on the post-recording notifications.
+        boolean recordingWasTrace = prefs.getBoolean(
+                context.getString(R.string.pref_key_recording_was_trace), true);
+
+        Notification.Builder notification = getTraceurNotification(context.getString(
+                sessionStolen ? R.string.attaching_to_report :
+                        recordingWasTrace ? R.string.saving_trace : R.string.saving_stack_samples),
+                null, Receiver.NOTIFICATION_CHANNEL_OTHER);
+        notification.setProgress(1, 0, true);
 
         startForeground(SAVING_TRACE_NOTIFICATION, notification.build());
 
         notificationManager.cancel(TRACE_NOTIFICATION);
 
         if (sessionStolen) {
-            Notification.Builder notificationAttached = getBaseTraceurNotification()
-                .setContentTitle(getString(R.string.attached_to_report))
-                .setTicker(getString(R.string.attached_to_report))
-                .setAutoCancel(true);
+            Notification.Builder notificationAttached = getTraceurNotification(
+                    context.getString(R.string.attached_to_report), null,
+                    Receiver.NOTIFICATION_CHANNEL_OTHER);
+            notification.setAutoCancel(true);
 
             Intent openIntent =
                     getPackageManager().getLaunchIntentForPackage(BETTERBUG_PACKAGE_NAME);
@@ -226,17 +279,21 @@ public class TraceService extends IntentService {
                                 | PendingIntent.FLAG_IMMUTABLE));
             }
 
-            // Adds an action button to the notification for starting a new trace.
-            Intent restartIntent = new Intent(context, InternalReceiver.class);
-            restartIntent.setAction(InternalReceiver.START_ACTION);
-            PendingIntent restartPendingIntent = PendingIntent.getBroadcast(context, 0,
-                    restartIntent, PendingIntent.FLAG_ONE_SHOT
-                            | PendingIntent.FLAG_CANCEL_CURRENT
-                            | PendingIntent.FLAG_IMMUTABLE);
-            Notification.Action action = new Notification.Action.Builder(
-                    R.drawable.bugfood_icon, context.getString(R.string.start_new_trace),
-                    restartPendingIntent).build();
-            notificationAttached.addAction(action);
+            // Adds an action button to the notification for starting a new trace. This is currently
+            // not enabled for stack samples because we don't expect continuous stack samples
+            // (repeatedly stopped and attached to different bug reports) to be a common use case.
+            if (recordingWasTrace) {
+                Intent restartIntent = new Intent(context, InternalReceiver.class);
+                restartIntent.setAction(InternalReceiver.START_ACTION);
+                PendingIntent restartPendingIntent = PendingIntent.getBroadcast(context, 0,
+                        restartIntent, PendingIntent.FLAG_ONE_SHOT
+                                | PendingIntent.FLAG_CANCEL_CURRENT
+                                | PendingIntent.FLAG_IMMUTABLE);
+                Notification.Action action = new Notification.Action.Builder(
+                        R.drawable.bugfood_icon, context.getString(R.string.start_new_trace),
+                        restartPendingIntent).build();
+                notificationAttached.addAction(action);
+            }
 
             NotificationManager.from(context).notify(0, notificationAttached.build());
         } else {
@@ -252,15 +309,22 @@ public class TraceService extends IntentService {
         TraceUtils.cleanupOlderFiles(MIN_KEEP_COUNT, MIN_KEEP_AGE);
     }
 
-    private Notification.Builder getBaseTraceurNotification() {
+    // Creates a Traceur notification for the given channel using the provided title and message.
+    private Notification.Builder getTraceurNotification(String title, String msg, String channel) {
         Context context = getApplicationContext();
-        Notification.Builder notification =
-                new Notification.Builder(this, Receiver.NOTIFICATION_CHANNEL_OTHER)
-                    .setSmallIcon(R.drawable.bugfood_icon)
-                    .setLocalOnly(true)
-                    .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
-                    .setColor(context.getColor(
-                            com.android.internal.R.color.system_notification_accent_color));
+        Notification.Builder notification = new Notification.Builder(context, channel)
+                .setContentTitle(title)
+                .setTicker(title)
+                .setSmallIcon(R.drawable.bugfood_icon)
+                .setLocalOnly(true)
+                .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+                .setColor(context.getColor(
+                        com.android.internal.R.color.system_notification_accent_color));
+
+        // Some Traceur notifications only have a title.
+        if (msg != null) {
+            notification.setContentText(msg);
+        }
 
         if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
             notification.extend(new Notification.TvExtender());

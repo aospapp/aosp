@@ -18,6 +18,7 @@
 #define CPP_DISPLAYPROXY_INCLUDE_CARDISPLAYPROXYSERVICE_H_
 
 #include <aidl/android/frameworks/automotive/display/BnCarDisplayProxy.h>
+#include <gui/Surface.h>
 #include <gui/SurfaceControl.h>
 #include <ui/DisplayMode.h>
 #include <ui/DisplayState.h>
@@ -31,6 +32,8 @@ struct DisplayRecord {
 
 class CarDisplayProxy : public ::aidl::android::frameworks::automotive::display::BnCarDisplayProxy {
 public:
+    ~CarDisplayProxy() { mSurfaceList.clear(); }
+
     // Methods from ::aidl::android::frameworks::automotive::display::ICarDisplayProxy
     ::ndk::ScopedAStatus getDisplayIdList(std::vector<int64_t>* _aidl_return) override;
     ::ndk::ScopedAStatus getDisplayInfo(
@@ -40,14 +43,23 @@ public:
             int64_t id, ::aidl::android::hardware::common::NativeHandle* _aidl_return) override;
     ::ndk::ScopedAStatus hideWindow(int64_t id) override;
     ::ndk::ScopedAStatus showWindow(int64_t id) override;
+    ::ndk::ScopedAStatus getSurface(int64_t id,
+                                    ::aidl::android::view::Surface* _aidl_return) override;
 
 private:
     uint8_t getDisplayPort(uint64_t id) { return (id & 0xF); }
     ::android::sp<::android::IBinder> getDisplayInfoFromSurfaceComposerClient(
             int64_t id, ::android::ui::DisplayMode* displayMode,
             ::android::ui::DisplayState* displayState);
+    ::ndk::ScopedAStatus getDisplayRecord(
+            int64_t id, ::android::sp<::android::IBinder>* outDisplayToken,
+            ::android::sp<::android::SurfaceControl>* outSurfaceControl);
 
+    // Bookkeeping display records and Surface objects. Because this service is
+    // single-threaded, these variables are not needed to be protected
+    // explicitly.
     std::unordered_map<uint64_t, DisplayRecord> mDisplays;
+    std::unordered_map<uint64_t, ::android::sp<::android::Surface>> mSurfaceList;
 };
 
 }  // namespace aidl::android::frameworks::automotive::display::implementation

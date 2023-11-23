@@ -417,14 +417,30 @@ TEST_F(ReactorTest, on_write_ready) {
 TEST_F(ReactorTest, modify_registration) {
   FakeReactable fake_reactable;
   auto* reactable = reactor_->Register(
-      fake_reactable.fd_, Bind(&FakeReactable::OnReadReady, common::Unretained(&fake_reactable)), common::Closure());
-  reactor_->ModifyRegistration(
-      reactable, common::Closure(), Bind(&FakeReactable::OnWriteReady, common::Unretained(&fake_reactable)));
+      fake_reactable.fd_,
+      Bind(&FakeReactable::OnReadReady, common::Unretained(&fake_reactable)),
+      Bind(&FakeReactable::OnWriteReady, common::Unretained(&fake_reactable)));
+
   auto reactor_thread = std::thread(&Reactor::Run, reactor_);
-  uint64_t value = 0;
-  auto read_result = eventfd_read(fake_reactable.fd_, &value);
-  EXPECT_EQ(read_result, 0);
-  EXPECT_EQ(value, FakeReactable::kSampleOutputValue);
+
+  using namespace std::chrono_literals;
+  auto future = g_promise->get_future();
+
+  auto write_result = eventfd_write(fake_reactable.fd_, FakeReactable::kSetPromise);
+  ASSERT_EQ(write_result, 0);
+  ASSERT_EQ(future.wait_for(10ms), std::future_status::ready);
+  ASSERT_EQ(future.get(), kReadReadyValue);
+
+  /* Disable on_read callback */
+  reactor_->ModifyRegistration(reactable, Reactor::REACT_ON_WRITE_ONLY);
+
+  delete g_promise;
+  g_promise = new std::promise<int>;
+  future = g_promise->get_future();
+
+  write_result = eventfd_write(fake_reactable.fd_, FakeReactable::kSetPromise);
+  ASSERT_EQ(write_result, 0);
+  ASSERT_NE(future.wait_for(10ms), std::future_status::ready);
 
   reactor_->Stop();
   reactor_thread.join();

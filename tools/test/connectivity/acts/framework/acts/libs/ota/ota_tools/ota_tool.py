@@ -44,4 +44,3 @@ class OtaTool(object):
         Args:
             ota_runner: The OTA Runner that handles the device information.
         """
-        pass

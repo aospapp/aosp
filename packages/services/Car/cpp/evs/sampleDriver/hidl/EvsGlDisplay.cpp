@@ -20,9 +20,6 @@
 #include <ui/GraphicBufferMapper.h>
 #include <utils/SystemClock.h>
 
-using ::android::frameworks::automotive::display::V1_0::HwDisplayConfig;
-using ::android::frameworks::automotive::display::V1_0::HwDisplayState;
-
 namespace android {
 namespace hardware {
 namespace automotive {
@@ -30,34 +27,32 @@ namespace evs {
 namespace V1_1 {
 namespace implementation {
 
+using ::android::frameworks::automotive::display::V1_0::HwDisplayConfig;
+using ::android::frameworks::automotive::display::V1_0::HwDisplayState;
+
 #ifdef EVS_DEBUG
 static bool sDebugFirstFrameDisplayed = false;
 #endif
 
-
-EvsGlDisplay::EvsGlDisplay(sp<IAutomotiveDisplayProxyService> pDisplayProxy, uint64_t displayId)
-    : mDisplayProxy(pDisplayProxy),
-      mDisplayId(displayId) {
+EvsGlDisplay::EvsGlDisplay(sp<IAutomotiveDisplayProxyService> pDisplayProxy, uint64_t displayId) :
+      mDisplayProxy(pDisplayProxy), mDisplayId(displayId) {
     LOG(DEBUG) << "EvsGlDisplay instantiated";
 
     // Set up our self description
     // NOTE:  These are arbitrary values chosen for testing
-    mInfo.displayId             = "Mock Display";
-    mInfo.vendorFlags           = 3870;
+    mInfo.displayId = "Mock Display";
+    mInfo.vendorFlags = 3870;
 }
-
 
 EvsGlDisplay::~EvsGlDisplay() {
     LOG(DEBUG) << "EvsGlDisplay being destroyed";
     forceShutdown();
 }
 
-
 /**
  * This gets called if another caller "steals" ownership of the display
  */
-void EvsGlDisplay::forceShutdown()
-{
+void EvsGlDisplay::forceShutdown() {
     LOG(DEBUG) << "EvsGlDisplay forceShutdown";
     std::lock_guard<std::mutex> lock(mAccessLock);
 
@@ -84,19 +79,17 @@ void EvsGlDisplay::forceShutdown()
     mRequestedState = EvsDisplayState::DEAD;
 }
 
-
 /**
  * Returns basic information about the EVS display provided by the system.
  * See the description of the DisplayDesc structure for details.
  */
-Return<void> EvsGlDisplay::getDisplayInfo(getDisplayInfo_cb _hidl_cb)  {
+Return<void> EvsGlDisplay::getDisplayInfo(getDisplayInfo_cb _hidl_cb) {
     LOG(DEBUG) << __FUNCTION__;
 
     // Send back our self description
     _hidl_cb(mInfo);
     return Void();
 }
-
 
 /**
  * Clients may set the display state to express their desired state.
@@ -122,14 +115,14 @@ Return<EvsResult> EvsGlDisplay::setDisplayState(EvsDisplayState state) {
     }
 
     switch (state) {
-    case EvsDisplayState::NOT_VISIBLE:
-        mGlWrapper.hideWindow(mDisplayProxy, mDisplayId);
-        break;
-    case EvsDisplayState::VISIBLE:
-        mGlWrapper.showWindow(mDisplayProxy, mDisplayId);
-        break;
-    default:
-        break;
+        case EvsDisplayState::NOT_VISIBLE:
+            mGlWrapper.hideWindow(mDisplayProxy, mDisplayId);
+            break;
+        case EvsDisplayState::VISIBLE:
+            mGlWrapper.showWindow(mDisplayProxy, mDisplayId);
+            break;
+        default:
+            break;
     }
 
     // Record the requested state
@@ -138,7 +131,6 @@ Return<EvsResult> EvsGlDisplay::setDisplayState(EvsDisplayState state) {
     return EvsResult::OK;
 }
 
-
 /**
  * The HAL implementation should report the actual current state, which might
  * transiently differ from the most recently requested state.  Note, however, that
@@ -146,13 +138,12 @@ Return<EvsResult> EvsGlDisplay::setDisplayState(EvsDisplayState state) {
  * the device layer, making it undesirable for the HAL implementation to
  * spontaneously change display states.
  */
-Return<EvsDisplayState> EvsGlDisplay::getDisplayState()  {
+Return<EvsDisplayState> EvsGlDisplay::getDisplayState() {
     LOG(DEBUG) << __FUNCTION__;
     std::lock_guard<std::mutex> lock(mAccessLock);
 
     return mRequestedState;
 }
-
 
 /**
  * This call returns a handle to a frame buffer associated with the display.
@@ -160,7 +151,7 @@ Return<EvsDisplayState> EvsGlDisplay::getDisplayState()  {
  * must be returned via a call to returnTargetBufferForDisplay() even if the
  * display is no longer visible.
  */
-Return<void> EvsGlDisplay::getTargetBuffer(getTargetBuffer_cb _hidl_cb)  {
+Return<void> EvsGlDisplay::getTargetBuffer(getTargetBuffer_cb _hidl_cb) {
     LOG(DEBUG) << __FUNCTION__;
     std::lock_guard<std::mutex> lock(mAccessLock);
 
@@ -184,25 +175,22 @@ Return<void> EvsGlDisplay::getTargetBuffer(getTargetBuffer_cb _hidl_cb)  {
         }
 
         // Assemble the buffer description we'll use for our render target
-        mBuffer.width       = mGlWrapper.getWidth();
-        mBuffer.height      = mGlWrapper.getHeight();
-        mBuffer.format      = HAL_PIXEL_FORMAT_RGBA_8888;
-        mBuffer.usage       = GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_COMPOSER;
-        mBuffer.bufferId    = 0x3870;  // Arbitrary magic number for self recognition
-        mBuffer.pixelSize   = 4;
+        mBuffer.width = mGlWrapper.getWidth();
+        mBuffer.height = mGlWrapper.getHeight();
+        mBuffer.format = HAL_PIXEL_FORMAT_RGBA_8888;
+        mBuffer.usage = GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_COMPOSER;
+        mBuffer.bufferId = 0x3870;  // Arbitrary magic number for self recognition
+        mBuffer.pixelSize = 4;
 
         // Allocate the buffer that will hold our displayable image
         buffer_handle_t handle = nullptr;
         GraphicBufferAllocator& alloc(GraphicBufferAllocator::get());
-        status_t result = alloc.allocate(mBuffer.width, mBuffer.height,
-                                         mBuffer.format, 1,
-                                         mBuffer.usage, &handle,
-                                         &mBuffer.stride,
-                                         0, "EvsGlDisplay");
+        status_t result =
+                alloc.allocate(mBuffer.width, mBuffer.height, mBuffer.format, 1, mBuffer.usage,
+                               &handle, &mBuffer.stride, 0, "EvsGlDisplay");
         if (result != NO_ERROR) {
-            LOG(ERROR) << "Error " << result
-                       << " allocating " << mBuffer.width << " x " << mBuffer.height
-                       << " graphics buffer.";
+            LOG(ERROR) << "Error " << result << " allocating " << mBuffer.width << " x "
+                       << mBuffer.height << " graphics buffer.";
             _hidl_cb({});
             mGlWrapper.shutdown();
             return Void();
@@ -216,7 +204,7 @@ Return<void> EvsGlDisplay::getTargetBuffer(getTargetBuffer_cb _hidl_cb)  {
 
         mBuffer.memHandle = handle;
         LOG(DEBUG) << "Allocated new buffer " << mBuffer.memHandle.getNativeHandle()
-                   << " with stride " <<  mBuffer.stride;
+                   << " with stride " << mBuffer.stride;
         mFrameBusy = false;
     }
 
@@ -241,19 +229,17 @@ Return<void> EvsGlDisplay::getTargetBuffer(getTargetBuffer_cb _hidl_cb)  {
     }
 }
 
-
 /**
  * This call tells the display that the buffer is ready for display.
  * The buffer is no longer valid for use by the client after this call.
  */
-Return<EvsResult> EvsGlDisplay::returnTargetBufferForDisplay(const BufferDesc_1_0& buffer)  {
+Return<EvsResult> EvsGlDisplay::returnTargetBufferForDisplay(const BufferDesc_1_0& buffer) {
     LOG(VERBOSE) << __FUNCTION__ << " " << buffer.memHandle.getNativeHandle();
     std::lock_guard<std::mutex> lock(mAccessLock);
 
     // Nobody should call us with a null handle
     if (!buffer.memHandle.getNativeHandle()) {
-        LOG(ERROR) << __FUNCTION__
-                   << " called without a valid buffer handle.";
+        LOG(ERROR) << __FUNCTION__ << " called without a valid buffer handle.";
         return EvsResult::INVALID_ARG;
     }
     if (buffer.bufferId != mBuffer.bufferId) {
@@ -284,8 +270,8 @@ Return<EvsResult> EvsGlDisplay::returnTargetBufferForDisplay(const BufferDesc_1_
         LOG(WARNING) << "Got a frame returned while not visible - ignoring.";
     } else {
         // Update the texture contents with the provided data
-// TODO:  Why doesn't it work to pass in the buffer handle we got from HIDL?
-//        if (!mGlWrapper.updateImageTexture(buffer)) {
+        // TODO:  Why doesn't it work to pass in the buffer handle we got from HIDL?
+        //        if (!mGlWrapper.updateImageTexture(buffer)) {
         if (!mGlWrapper.updateImageTexture(mBuffer)) {
             return EvsResult::UNDERLYING_SERVICE_ERROR;
         }
@@ -294,17 +280,14 @@ Return<EvsResult> EvsGlDisplay::returnTargetBufferForDisplay(const BufferDesc_1_
         mGlWrapper.renderImageToScreen();
 #ifdef EVS_DEBUG
         if (!sDebugFirstFrameDisplayed) {
-            LOG(DEBUG) << "EvsFirstFrameDisplayTiming start time: "
-                       << elapsedRealtime() << " ms.";
+            LOG(DEBUG) << "EvsFirstFrameDisplayTiming start time: " << elapsedRealtime() << " ms.";
             sDebugFirstFrameDisplayed = true;
         }
 #endif
-
     }
 
     return EvsResult::OK;
 }
-
 
 Return<void> EvsGlDisplay::getDisplayInfo_1_1(getDisplayInfo_1_1_cb _info_cb) {
     if (mDisplayProxy != nullptr) {
@@ -315,10 +298,9 @@ Return<void> EvsGlDisplay::getDisplayInfo_1_1(getDisplayInfo_1_1_cb _info_cb) {
     }
 }
 
-
-} // namespace implementation
-} // namespace V1_1
-} // namespace evs
-} // namespace automotive
-} // namespace hardware
-} // namespace android
+}  // namespace implementation
+}  // namespace V1_1
+}  // namespace evs
+}  // namespace automotive
+}  // namespace hardware
+}  // namespace android

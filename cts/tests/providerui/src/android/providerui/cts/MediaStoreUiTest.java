@@ -45,20 +45,20 @@ import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.provider.cts.ProviderTestUtils;
 import android.providerui.cts.GetResultActivity.Result;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.BySelector;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject;
-import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.UiObjectNotFoundException;
-import android.support.test.uiautomator.UiSelector;
-import android.support.test.uiautomator.Until;
 import android.system.Os;
 import android.text.format.DateUtils;
 import android.util.Log;
 import android.util.Pair;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObject;
+import androidx.test.uiautomator.UiObject2;
+import androidx.test.uiautomator.UiObjectNotFoundException;
+import androidx.test.uiautomator.UiSelector;
+import androidx.test.uiautomator.Until;
 
 import org.junit.After;
 import org.junit.Before;
@@ -281,6 +281,11 @@ public class MediaStoreUiTest {
     public void testOpenFile_onMediaDocumentsProvider_failsWithoutAccess() throws Exception {
         if (!supportsHardware()) return;
 
+        String rawText = "TEST";
+        // Read and write grants will be provided to the file associated with this pair.
+        // Stages a text file which contains raw text "TEST"
+        Pair<Uri, File> uriFilePairWithGrants =  prepareFileAndFetchDetails(rawText);
+
         clearDocumentsUi();
         final Intent intent = new Intent();
         intent.setAction(Intent.ACTION_OPEN_DOCUMENT);
@@ -289,10 +294,6 @@ public class MediaStoreUiTest {
         mActivity.startActivityForResult(intent, REQUEST_CODE);
         mDevice.waitForIdle();
 
-        String rawText = "TEST";
-        // Read and write grants will be provided to the file associated with this pair.
-        // Stages a text file which contains raw text "TEST"
-        Pair<Uri, File> uriFilePairWithGrants =  prepareFileAndFetchDetails(rawText);
         // Read and write grants will not be provided to the file associated with this pair
         // Stages a text file which contains raw text "TEST"
         Pair<Uri, File> uriFilePairWithoutGrants =  prepareFileAndFetchDetails(rawText);

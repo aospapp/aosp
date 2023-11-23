@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "test/mock/mock_osi_socket.h"
 
@@ -56,50 +54,50 @@ struct socket_write_and_transfer_fd socket_write_and_transfer_fd;
 
 // Mocked functions, if any
 socket_t* socket_accept(const socket_t* socket) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_socket::socket_accept(socket);
 }
 ssize_t socket_bytes_available(const socket_t* socket) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_socket::socket_bytes_available(socket);
 }
 void socket_free(socket_t* socket) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_socket::socket_free(socket);
 }
 bool socket_listen(const socket_t* socket, port_t port) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_socket::socket_listen(socket, port);
 }
 socket_t* socket_new(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_socket::socket_new();
 }
 socket_t* socket_new_from_fd(int fd) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_socket::socket_new_from_fd(fd);
 }
 ssize_t socket_read(const socket_t* socket, void* buf, size_t count) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_socket::socket_read(socket, buf, count);
 }
 void socket_register(socket_t* socket, reactor_t* reactor, void* context,
                      socket_cb read_cb, socket_cb write_cb) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_socket::socket_register(socket, reactor, context, read_cb,
                                           write_cb);
 }
 void socket_unregister(socket_t* socket) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_socket::socket_unregister(socket);
 }
 ssize_t socket_write(const socket_t* socket, const void* buf, size_t count) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_socket::socket_write(socket, buf, count);
 }
 ssize_t socket_write_and_transfer_fd(const socket_t* socket, const void* buf,
                                      size_t count, int fd) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_socket::socket_write_and_transfer_fd(socket, buf,
                                                               count, fd);
 }

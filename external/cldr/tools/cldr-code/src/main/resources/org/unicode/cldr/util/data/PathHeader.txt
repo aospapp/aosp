@@ -103,7 +103,8 @@
 //ldml/dates/calendars/calendar[@type="%A"]/timeFormats/timeFormatLength[@type="%A"]/timeFormat[@type="%A"]/pattern[@type="%A"]       ; Special  ; Suppress ; &calendar($1) ; &calField(Formats:Standard:time)-$2 ; HIDE
 //ldml/dates/calendars/calendar[@type="%A"]/timeFormats/timeFormatLength[@type="%A"]/timeFormat[@type="%A"]/datetimeSkeleton       ; Special  ; Suppress ; &calendar($1) ; &calField(Formats:Standard:time)-$2 ; HIDE
 
-//ldml/dates/calendars/calendar[@type="%N"]/dateTimeFormats/dateTimeFormatLength[@type="%A"]/dateTimeFormat[@type="%A"]/pattern[@type="%A"]       ; DateTime ; &calendar($1) ; &calField(Formats:Standard:dateTime) ; $2 ; LTR_ALWAYS
+//ldml/dates/calendars/calendar[@type="%N"]/dateTimeFormats/dateTimeFormatLength[@type="%A"]/dateTimeFormat[@type="(standard)"]/pattern[@type="%A"]       ; DateTime ; &calendar($1) ; &calField(Formats:Standard:dateTime) ; $2 ; LTR_ALWAYS
+//ldml/dates/calendars/calendar[@type="%N"]/dateTimeFormats/dateTimeFormatLength[@type="%A"]/dateTimeFormat[@type="%A"]/pattern[@type="%A"]       ; DateTime ; &calendar($1) ; &calField(Formats:Standard:dateTime) ; $2-$3 ; LTR_ALWAYS
 //ldml/dates/calendars/calendar[@type="%A"]/dateTimeFormats/dateTimeFormatLength[@type="%A"]/dateTimeFormat[@type="%A"]/pattern[@type="%A"]       ; Special  ; Suppress ; &calendar($1) ; &calField(Formats:Standard:dateTime)-$2 ; HIDE
 
 //ldml/dates/calendars/calendar[@type="gregorian"]/dateTimeFormats/availableFormats/dateFormatItem[@id="(E*(a|b|B)*[h]%a)"]     ; DateTime ; &calendar(gregorian); &calField(Formats:Flexible:time12) ; $1 ; LTR_ALWAYS
@@ -152,11 +153,15 @@
 
 //ldml/numbers/symbols[@numberSystem="%A"]/timeSeparator                                                ; Numbers ; Symbols ; Time Symbols &numberingSystem($1) ; Time Separator
 //ldml/numbers/symbols[@numberSystem="%A"]/%E                                                           ; Numbers ; Symbols ; Symbols &numberingSystem($1) ; &number($2)
+//ldml/numbers/(currency)Formats[@numberSystem="%A"]/%EFormatLength/%EFormat[@type="%A"]/pattern[@type="%A"][@alt="%A"]    ; Numbers ; Number Formatting Patterns ; Standard Patterns &numberingSystem($2) ; &numberFormat($5-$1)-$7 ; LTR_ALWAYS
 //ldml/numbers/%EFormats[@numberSystem="%A"]/%EFormatLength/%EFormat[@type="%A"]/pattern[@type="%A"]    ; Numbers ; Number Formatting Patterns ; Standard Patterns &numberingSystem($2) ; &numberFormat($5-$1) ; LTR_ALWAYS
+//ldml/numbers/currencyFormats[@numberSystem="%A"]/currencyPatternAppendISO                             ; Numbers ; Number Formatting Patterns ; Append-ISO-Code Pattern &numberingSystem($1) ; appendISOCode ; LTR_ALWAYS
 //ldml/numbers/currencyFormats[@numberSystem="%A"]/unitPattern[@count="%A"]                             ; Numbers ; Number Formatting Patterns ; Currency Unit Patterns &numberingSystem($1) ; &count(currencies-$2) ; LTR_ALWAYS
 //ldml/numbers/miscPatterns[@numberSystem="%A"]/pattern[@type=\"%A\"]                                   ; Numbers ; Number Formatting Patterns ; Miscellaneous Patterns &numberingSystem($1) ; $2 ; LTR_ALWAYS
 
+//ldml/numbers/(currency)Formats[@numberSystem="latn"]/%EFormatLength[@type="(short)"]/%EFormat[@type="%A"]/pattern[@type="%A"][@count="%A"][@alt="%A"] ; Numbers ; Compact Decimal Formatting ; Short Currency &numberingSystem(latn); &count2($6-digits-$3-$7)-$8
 //ldml/numbers/(currency)Formats[@numberSystem="latn"]/%EFormatLength[@type="(short)"]/%EFormat[@type="%A"]/pattern[@type="%A"][@count="%A"] ; Numbers ; Compact Decimal Formatting ; Short Currency &numberingSystem(latn); &count2($6-digits-$3-$7)
+//ldml/numbers/(currency)Formats[@numberSystem="%A"]/%EFormatLength[@type="(short)"]/%EFormat[@type="%A"]/pattern[@type="%A"][@count="%A"][@alt="%A"] ; Numbers ; Compact Decimal Formatting (Other Numbering Systems) ; Short Currency &numberingSystem($2) ; &count2($7-digits-$4-$8)-$9 ; HIDE
 //ldml/numbers/(currency)Formats[@numberSystem="%A"]/%EFormatLength[@type="(short)"]/%EFormat[@type="%A"]/pattern[@type="%A"][@count="%A"] ; Numbers ; Compact Decimal Formatting (Other Numbering Systems) ; Short Currency &numberingSystem($2) ; &count2($7-digits-$4-$8) ; HIDE
 //ldml/numbers/%EFormats[@numberSystem="latn"]/%EFormatLength[@type="(long)"]/%EFormat[@type="%A"]/pattern[@type="%A"][@count="%A"]  ; Numbers ; Compact Decimal Formatting ; Long Formats &numberingSystem(latn) ; &count2($6-digits-$3-$7)
 //ldml/numbers/%EFormats[@numberSystem="%A"]/%EFormatLength[@type="(long)"]/%EFormat[@type="%A"]/pattern[@type="%A"][@count="%A"]  ; Numbers ; Compact Decimal Formatting (Other Numbering Systems) ; Long Formats &numberingSystem($2) ; &count2($7-digits-$4-$8) ; HIDE
@@ -169,7 +174,7 @@
 //ldml/numbers/currencies/currency[@type="%A"]/displayName$                 ; Currencies ; &continentFromCurrency($1) ; &categoryFromCurrency($1) ; &count($1-name)
 //ldml/numbers/currencies/currency[@type="%A"]/symbol$                      ; Currencies ; &continentFromCurrency($1) ; &categoryFromCurrency($1) ; &currencySymbol($1-symbol)
 //ldml/numbers/currencies/currency[@type="%A"]/symbol[@alt="narrow"]        ; Currencies ; &continentFromCurrency($1) ; &categoryFromCurrency($1) ; &currencySymbol($1-symbol-narrow)
-//ldml/numbers/currencies/currency[@type="%A"]/symbol[@alt="variant"]        ; Currencies ; &continentFromCurrency($1) ; &categoryFromCurrency($1) ; &currencySymbol($1-symbol-variant)
+//ldml/numbers/currencies/currency[@type="%A"]/symbol[@alt="variant"]       ; Currencies ; &continentFromCurrency($1) ; &categoryFromCurrency($1) ; &currencySymbol($1-symbol-variant)
 
 //ldml/numbers/currencies/currency[@type="%A"]/decimal				; Currencies ; &continentFromCurrency($1) ; &categoryFromCurrency($1) ; &count($1-name)-decimal
 //ldml/numbers/currencies/currency[@type="%A"]/group				; Currencies ; &continentFromCurrency($1) ; &categoryFromCurrency($1) ; &count($1-name)-grouping
@@ -280,10 +285,24 @@
 //ldml/localeDisplayNames/transformNames/transformName[@type="%A"]          ; Misc ; Transforms ; null ; $1
 
 
-//ldml/numbers/minimalPairs/ordinalMinimalPairs[@ordinal=\"%A\"]     ; Misc ; Minimal Pairs ; Ordinal ; $1 ; LTR_ALWAYS
-//ldml/numbers/minimalPairs/pluralMinimalPairs[@count=\"%A\"]        ; Misc ; Minimal Pairs ; Plural ; $1 ; LTR_ALWAYS
-//ldml/numbers/minimalPairs/caseMinimalPairs[@case=\"%A\"]        ; Misc ; Minimal Pairs ; Case ; $1 ; LTR_ALWAYS
-//ldml/numbers/minimalPairs/genderMinimalPairs[@gender=\"%A\"]        ; Misc ; Minimal Pairs ; Gender ; $1 ; LTR_ALWAYS
+//ldml/numbers/minimalPairs/ordinalMinimalPairs[@ordinal=\"%A\"]     ; Misc ; Minimal Pairs ; Ordinal ; &pluralNumber($1) ; LTR_ALWAYS
+//ldml/numbers/minimalPairs/pluralMinimalPairs[@count=\"%A\"]        ; Misc ; Minimal Pairs ; Plural ; &pluralNumber($1) ; LTR_ALWAYS
+//ldml/numbers/minimalPairs/caseMinimalPairs[@case=\"%A\"]        ; Misc ; Minimal Pairs ; Case (for measurement units) ; &caseNumber($1) ; LTR_ALWAYS
+//ldml/numbers/minimalPairs/genderMinimalPairs[@gender=\"%A\"]        ; Misc ; Minimal Pairs ; Gender (for measurement units) ; &genderNumber($1) ; LTR_ALWAYS
+
+//ldml/personNames/nameOrderLocales[@order=\"%A\"][@alt=\"%A\"]   ; Misc ; Person Name Formats ; &personNameSection(NameOrder) ; $1-$2
+//ldml/personNames/nameOrderLocales[@order=\"%A\"]   ; Misc ; Person Name Formats ; &personNameSection(NameOrder) ; $1
+//ldml/personNames/foreignSpaceReplacement[@xml:space=\"%A\"][@alt=\"%A\"]   ; Misc ; Person Name Formats ; &personNameSection(AuxiliaryItems) ; foreignSpaceReplacement-$2
+//ldml/personNames/foreignSpaceReplacement[@xml:space=\"%A\"]   ; Misc ; Person Name Formats ; &personNameSection(AuxiliaryItems) ; foreignSpaceReplacement
+//ldml/personNames/foreignSpaceReplacement[@alt=\"%A\"]   ; Misc ; Person Name Formats ; &personNameSection(AuxiliaryItems) ; foreignSpaceReplacement-$1
+//ldml/personNames/foreignSpaceReplacement   ; Misc ; Person Name Formats ; &personNameSection(AuxiliaryItems) ; foreignSpaceReplacement
+//ldml/personNames/initialPattern[@type=\"%A\"][@alt=\"%A\"]   ; Misc ; Person Name Formats ; &personNameSection(AuxiliaryItems) ; pattern-$1-$2
+//ldml/personNames/initialPattern[@type=\"%A\"]   ; Misc ; Person Name Formats ; &personNameSection(AuxiliaryItems) ; pattern-$1
+//ldml/personNames/personName[@order=\"%A\"][@length=\"%A\"][@usage=\"%A\"][@formality=\"%A\"]/namePattern[@alt=\"%A\"]     ; Misc ; Person Name Formats ; &personNameSection(PersonName:$1-$2) ; &personNameOrder($3-$4-$5)
+//ldml/personNames/personName[@order=\"%A\"][@length=\"%A\"][@usage=\"%A\"][@formality=\"%A\"]/namePattern      ; Misc ; Person Name Formats ; &personNameSection(PersonName:$1-$2) ; &personNameOrder($3-$4)
+//ldml/personNames/sampleName[@item=\"%A\"]/nameField[@type=\"%A\"][@alt=\"%A\"]        ; Misc ; Person Name Formats ; &personNameSection(SampleName:$1) ; &sampleNameOrder($2-$3)
+//ldml/personNames/sampleName[@item=\"%A\"]/nameField[@type=\"%A\"]        ; Misc ; Person Name Formats ;  &personNameSection(SampleName:$1) ; &sampleNameOrder($2)
+
 
 #Emoji, etc.
 
@@ -458,6 +477,8 @@
 
 //supplementalData/timeData/hours[@allowed="%A"][@preferred="%A"]/_%E			; Supplemental ; WeekData ; hours-$2-$3 ; $1 ; HIDE
 
+//supplementalData/personNamesDefaults/nameOrderLocalesDefault[@order="%A"]			; Supplemental ; Person Name Formats ; NameOrder ; $1 ; HIDE
+
 //supplementalData/measurementData/measurementSystem[@type="%A"]/_territories			; Supplemental ; Measurement ; default ; $1 ; HIDE
 //supplementalData/measurementData/measurementSystem[@type="%A"][@category="%A"]/_territories			; Supplemental ; Measurement ; $2 ; $1 ; HIDE
 //supplementalData/measurementData/paperSize[@type="%A"]/_territories			; Supplemental ; Measurement ; Paper ; $1 ; HIDE
@@ -488,6 +509,7 @@
 //supplementalData/unitPreferenceData/unitPreferences[@category="%A"][@usage="%A"][@scope="%A"]/unitPreference[@regions="%A"][@alt="%A"]			; Supplemental ; Units ; $1/$2/$3 ; $4-$5 ; HIDE
 
 
+//supplementalData/unitIdComponents/unitIdComponent[@type="%A"]/_values	; Supplemental ; Units ; IdComponent ; $1-values ; HIDE
 //supplementalData/unitConstants/unitConstant[@constant="%A"]/_value	; Supplemental ; Units ; Constant ; $1-value ; HIDE
 //supplementalData/unitConstants/unitConstant[@constant="%A"]/_status	; Supplemental ; Units ; Constant ; $1-status ; HIDE
 //supplementalData/unitQuantities/unitQuantity[@baseUnit="%A"]/_quantity	; Supplemental ; Units ; Quantity ; $1-value ; HIDE

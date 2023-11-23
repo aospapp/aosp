@@ -17,6 +17,7 @@
 package vogar.tasks;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -90,7 +91,14 @@ public final class BuildActionTask extends Task {
         if (run.debugging) {
             javac.debug();
         }
-        if (javaFile != null) {
+        if (javaFile == null) {
+            if (JAVA_SOURCE_PATTERN.matcher(action.getTargetClass()).find()) {
+                // This is likely a missing source file rather than a class
+                // named something.java....
+                throw new FileNotFoundException("Unlikely classname, assuming missing source file: "
+                    + action.getTargetClass());
+            }
+        } else {
             if (!JAVA_SOURCE_PATTERN.matcher(javaFile.toString()).find()) {
                 throw new CommandFailedException(Collections.<String>emptyList(),
                         Collections.singletonList("Cannot compile: " + javaFile));

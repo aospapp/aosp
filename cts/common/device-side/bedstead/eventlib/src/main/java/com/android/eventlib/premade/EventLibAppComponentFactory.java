@@ -91,6 +91,17 @@ public final class EventLibAppComponentFactory extends AppComponentFactory {
         try {
             return super.instantiateService(classLoader, className, intent);
         } catch (ClassNotFoundException e) {
+            if (className.endsWith("ContentSuggestionsService")) {
+                Log.d(LOG_TAG, "Service class (" + className
+                        + ") not found, routing to EventLibContentSuggestionsService");
+
+                EventLibContentSuggestionsService service = (EventLibContentSuggestionsService)
+                        super.instantiateService(classLoader,
+                                EventLibContentSuggestionsService.class.getName(), intent);
+                service.setOverrideServiceClassName(className);
+                return service;
+            }
+
             Log.d(LOG_TAG, "Service class (" + className
                     + ") not found, routing to EventLibService");
 

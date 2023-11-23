@@ -21,7 +21,6 @@ import android.media.DrmInitData;
 import android.content.res.AssetFileDescriptor;
 import android.media.DrmInitData;
 import android.media.MediaExtractor;
-import android.media.cts.Preconditions;
 import android.media.cts.TestMediaDataSource;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
@@ -31,6 +30,7 @@ import android.util.Log;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.MediaUtils;
+import com.android.compatibility.common.util.Preconditions;
 
 import java.io.File;
 import java.io.FileNotFoundException;

@@ -220,6 +220,8 @@ static void emitBuildFile(Formatter& out, const FQName& fqName, std::vector<FQNa
     out << "aidl_interface {\n";
     out << "    name: \"" << AidlHelper::getAidlPackage(fqName) << "\",\n";
     out << "    vendor_available: true,\n";
+    out << "    host_supported: true,\n";
+    out << "    frozen: false,\n";
     out << "    srcs: [\"" << AidlHelper::getAidlPackagePath(fqName) << "/*.aidl\"],\n";
     out << "    stability: \"vintf\",\n";
     out << "    backend: {\n";
@@ -231,12 +233,7 @@ static void emitBuildFile(Formatter& out, const FQName& fqName, std::vector<FQNa
     out << "            enabled: true,\n";
     out << "        },\n";
     out << "        java: {\n";
-    out << "            sdk_version: \"module_current\",\n";
-    out << "        },\n";
-    out << "        ndk: {\n";
-    out << "            vndk: {\n";
-    out << "                enabled: true,\n";
-    out << "            },\n";
+    out << "            sdk_version: \"system_current\",\n";
     out << "        },\n";
     out << "    },\n";
     out << "}\n\n";
@@ -265,7 +262,7 @@ static void emitBuildFile(Formatter& out, const FQName& fqName, std::vector<FQNa
     emitAidlSharedLibs(out, fqName, AidlBackend::JAVA);
     emitHidlSharedLibs(out, targets, AidlBackend::JAVA);
     out << "    ],\n";
-    out << "    sdk_version: \"module_current\",\n";
+    out << "    sdk_version: \"system_current\",\n";
     out << "}\n\n";
 }
 

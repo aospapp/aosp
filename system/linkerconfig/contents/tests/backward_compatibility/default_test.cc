@@ -30,7 +30,7 @@ struct linkerconfig_default_backward_compatibility : ::testing::Test {
     MockVariables("Q");
     ApexInfo vndk_apex;
     vndk_apex.name = "com.android.vndk.vQ";
-    ctx.AddApexModule(vndk_apex);
+    ctx.SetApexModules({vndk_apex});
   }
   Context ctx;
 };

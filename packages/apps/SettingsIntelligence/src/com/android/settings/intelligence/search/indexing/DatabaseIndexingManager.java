@@ -16,13 +16,13 @@
 
 package com.android.settings.intelligence.search.indexing;
 
-import static com.android.settings.intelligence.search.query.DatabaseResultTask.SELECT_COLUMNS;
-import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.DATA_AUTHORITY;
-import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.DATA_PACKAGE;
+import static com.android.settings.intelligence.search.SearchFeatureProvider.DEBUG;
 import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.CLASS_NAME;
+import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.DATA_AUTHORITY;
 import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.DATA_ENTRIES;
 import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.DATA_KEYWORDS;
 import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.DATA_KEY_REF;
+import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.DATA_PACKAGE;
 import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.DATA_SUMMARY_ON;
 import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.DATA_SUMMARY_ON_NORMALIZED;
 import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.DATA_TITLE;
@@ -35,8 +35,9 @@ import static com.android.settings.intelligence.search.indexing.IndexDatabaseHel
 import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.PAYLOAD;
 import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.PAYLOAD_TYPE;
 import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.SCREEN_TITLE;
+import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.TOP_LEVEL_MENU_KEY;
 import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.Tables.TABLE_PREFS_INDEX;
-import static com.android.settings.intelligence.search.SearchFeatureProvider.DEBUG;
+import static com.android.settings.intelligence.search.query.DatabaseResultTask.SELECT_COLUMNS;
 
 import android.content.ContentValues;
 import android.content.Context;
@@ -47,13 +48,15 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
 import android.os.AsyncTask;
 import android.provider.SearchIndexablesContract;
-import androidx.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.android.settings.intelligence.nano.SettingsIntelligenceLogProto;
 import com.android.settings.intelligence.overlay.FeatureFactory;
+import com.android.settings.intelligence.search.sitemap.HighlightableMenu;
 import com.android.settings.intelligence.search.sitemap.SiteMapPair;
 
 import java.util.List;
@@ -160,9 +163,21 @@ public class DatabaseIndexingManager {
             database.beginTransaction();
 
             // Convert all Pre-index data to Index data and and insert to db.
-            final List<IndexData> indexData = getIndexData(preIndexData);
-            insertIndexData(database, indexData);
+            List<IndexData> indexData = getIndexData(preIndexData);
+
+            // Load SiteMap before writing index data into DB for updating payload
             insertSiteMapData(database, getSiteMapPairs(indexData, preIndexData.getSiteMapPairs()));
+            // Flag to re-init site map data in SiteMapManager.
+            FeatureFactory.get(mContext).searchFeatureProvider()
+                    .getSiteMapManager()
+                    .setInitialized(false);
+
+            // Update payload based on the site map to find the top menu entry
+            if (HighlightableMenu.isFeatureEnabled(mContext)) {
+                indexData = updateIndexDataPayload(mContext, indexData);
+            }
+
+            insertIndexData(database, indexData);
 
             // Only check for non-indexable key updates after initial index.
             // Enabled state with non-indexable keys is checked when items are first inserted.
@@ -178,7 +193,7 @@ public class DatabaseIndexingManager {
 
     private List<IndexData> getIndexData(PreIndexData data) {
         if (mConverter == null) {
-            mConverter = getIndexDataConverter(mContext);
+            mConverter = getIndexDataConverter();
         }
         return mConverter.convertPreIndexDataToIndexData(data);
     }
@@ -186,7 +201,7 @@ public class DatabaseIndexingManager {
     private List<SiteMapPair> getSiteMapPairs(List<IndexData> indexData,
             List<Pair<String, String>> siteMapClassNames) {
         if (mConverter == null) {
-            mConverter = getIndexDataConverter(mContext);
+            mConverter = getIndexDataConverter();
         }
         return mConverter.convertSiteMapPairs(indexData, siteMapClassNames);
     }
@@ -199,6 +214,13 @@ public class DatabaseIndexingManager {
             database.replaceOrThrow(IndexDatabaseHelper.Tables.TABLE_SITE_MAP,
                     null /* nullColumnHack */, pair.toContentValue());
         }
+    }
+
+    private List<IndexData> updateIndexDataPayload(Context context, List<IndexData> indexData) {
+        if (mConverter == null) {
+            mConverter = getIndexDataConverter();
+        }
+        return mConverter.updateIndexDataPayload(context, indexData);
     }
 
     /**
@@ -232,6 +254,7 @@ public class DatabaseIndexingManager {
             values.put(DATA_KEY_REF, dataRow.key);
             values.put(PAYLOAD_TYPE, dataRow.payloadType);
             values.put(PAYLOAD, dataRow.payload);
+            values.put(TOP_LEVEL_MENU_KEY, dataRow.topLevelMenuKey);
 
             database.replaceOrThrow(TABLE_PREFS_INDEX, null, values);
         }
@@ -316,8 +339,13 @@ public class DatabaseIndexingManager {
      * Protected method to get a new IndexDataConverter instance. This method can be overridden
      * in subclasses to substitute in a custom IndexDataConverter.
      */
+    protected IndexDataConverter getIndexDataConverter() {
+        return new IndexDataConverter();
+    }
+
+    @Deprecated
     protected IndexDataConverter getIndexDataConverter(Context context) {
-        return new IndexDataConverter(context);
+        return getIndexDataConverter();
     }
 
     public class IndexingTask extends AsyncTask<Void, Void, Void> {

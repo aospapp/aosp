@@ -21,6 +21,18 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+// bionic kernel uapi linux/udp.h header is munged...
+#define __kernel_udphdr udphdr
+#include <linux/udp.h>
+
+// Offsets from beginning of L4 (TCP/UDP) header
+#define TCP_OFFSET(field) offsetof(struct tcphdr, field)
+#define UDP_OFFSET(field) offsetof(struct udphdr, field)
+
+// Offsets from beginning of L3 (IPv4/IPv6) header
+#define IP4_OFFSET(field) offsetof(struct iphdr, field)
+#define IP6_OFFSET(field) offsetof(struct ipv6hdr, field)
+
 // this returns 0 iff skb->sk is NULL
 static uint64_t (*bpf_get_socket_cookie)(struct __sk_buff* skb) = (void*)BPF_FUNC_get_socket_cookie;
 
@@ -28,8 +40,11 @@ static uint32_t (*bpf_get_socket_uid)(struct __sk_buff* skb) = (void*)BPF_FUNC_g
 
 static int (*bpf_skb_pull_data)(struct __sk_buff* skb, __u32 len) = (void*)BPF_FUNC_skb_pull_data;
 
-static int (*bpf_skb_load_bytes)(struct __sk_buff* skb, int off, void* to,
+static int (*bpf_skb_load_bytes)(const struct __sk_buff* skb, int off, void* to,
                                  int len) = (void*)BPF_FUNC_skb_load_bytes;
+
+static int (*bpf_skb_load_bytes_relative)(const struct __sk_buff* skb, int off, void* to, int len,
+                                          int start_hdr) = (void*)BPF_FUNC_skb_load_bytes_relative;
 
 static int (*bpf_skb_store_bytes)(struct __sk_buff* skb, __u32 offset, const void* from, __u32 len,
                                   __u64 flags) = (void*)BPF_FUNC_skb_store_bytes;
@@ -71,3 +86,30 @@ static inline __always_inline void try_make_writable(struct __sk_buff* skb, int 
     if (len > skb->len) len = skb->len;
     if (skb->data_end - skb->data < len) bpf_skb_pull_data(skb, len);
 }
+
+// constants for passing in to 'bool egress'
+static const bool INGRESS = false;
+static const bool EGRESS = true;
+
+// constants for passing in to 'bool downstream'
+static const bool UPSTREAM = false;
+static const bool DOWNSTREAM = true;
+
+// constants for passing in to 'bool is_ethernet'
+static const bool RAWIP = false;
+static const bool ETHER = true;
+
+// constants for passing in to 'bool updatetime'
+static const bool NO_UPDATETIME = false;
+static const bool UPDATETIME = true;
+
+// constants for passing in to ignore_on_eng / ignore_on_user / ignore_on_userdebug
+// define's instead of static const due to tm-mainline-prod compiler static_assert limitations
+#define LOAD_ON_ENG false
+#define LOAD_ON_USER false
+#define LOAD_ON_USERDEBUG false
+#define IGNORE_ON_ENG true
+#define IGNORE_ON_USER true
+#define IGNORE_ON_USERDEBUG true
+
+#define KVER_4_14 KVER(4, 14, 0)

@@ -15,6 +15,8 @@
 ** limitations under the License.
 */
 
+#include <utility>
+
 #include <openssl/evp.h>
 #include <openssl/x509v3.h>
 
@@ -146,7 +148,7 @@ keymaster_error_t make_attestation_cert(const EVP_PKEY* evp_pkey, const X509_NAM
         return error;
     }
 
-    *cert_out = move(certificate);
+    *cert_out = std::move(certificate);
     return KM_ERROR_OK;
 }
 
@@ -266,7 +268,7 @@ CertificateChain generate_attestation(const AsymmetricKey& key,
     }
 
     return generate_attestation(pkey.get(), key.sw_enforced(), key.hw_enforced(), attest_params,
-                                move(attest_key), context, error);
+                                std::move(attest_key), context, error);
 }
 
 CertificateChain generate_attestation(const EVP_PKEY* evp_key,              //
@@ -317,7 +319,7 @@ CertificateChain generate_attestation(const EVP_PKEY* evp_key,              //
     *error = sign_cert(certificate.get(), signing_key_ptr);
     if (*error != KM_ERROR_OK) return {};
 
-    return make_cert_chain(certificate.get(), move(cert_chain), error);
+    return make_cert_chain(certificate.get(), std::move(cert_chain), error);
 }
 
 }  // namespace keymaster

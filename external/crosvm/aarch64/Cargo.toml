@@ -1,20 +1,26 @@
 [package]
 name = "aarch64"
 version = "0.1.0"
-authors = ["The Chromium OS Authors"]
+authors = ["The ChromiumOS Authors"]
 edition = "2021"
+
+[features]
+gdb = ["gdbstub", "gdbstub_arch", "arch/gdb", "hypervisor/gdb"]
 
 [dependencies]
 arch = { path = "../arch" }
+cros_fdt = { path = "../cros_fdt" }
 data_model = { path = "../common/data_model" }
 devices = { path = "../devices" }
+gdbstub = { version = "0.6.3", optional = true }
+gdbstub_arch = { version = "0.2.4", optional = true }
 hypervisor = { path = "../hypervisor" }
+jail = { path = "../jail" }
 kernel_cmdline = { path = "../kernel_cmdline" }
-kvm = { path = "../kvm" }
-kvm_sys = { path = "../kvm_sys" }
+kernel_loader = { path = "../kernel_loader" }
 libc = "*"
 memoffset = "0.6"
-minijail = { path = "../../minijail/rust/minijail" } # ignored by ebuild
+rand = "0.8"
 remain = "*"
 resources = { path = "../resources" }
 sync = { path = "../common/sync" }
@@ -22,3 +28,9 @@ base = { path = "../base" }
 thiserror = "*"
 vm_control = { path = "../vm_control" }
 vm_memory = { path = "../vm_memory" }
+
+[target.'cfg(unix)'.dependencies]
+minijail = "*"
+
+[target.'cfg(target_os="linux")'.dependencies]
+swap = { path = "../swap", optional = true }

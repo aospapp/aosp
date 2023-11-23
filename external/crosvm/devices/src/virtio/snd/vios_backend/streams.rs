@@ -1,26 +1,36 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2021 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 use std::collections::VecDeque;
-use std::ops::Deref;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::channel;
+use std::sync::mpsc::Receiver;
+use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use std::time::Instant;
 
-use crate::virtio::{DescriptorChain, Interrupt, Queue, Reader, Writer};
-use base::{error, set_rt_prio_limit, set_rt_round_robin, warn};
+use base::error;
+use base::set_rt_prio_limit;
+use base::set_rt_round_robin;
+use base::warn;
 use data_model::Le32;
 use sync::Mutex;
 use vm_memory::GuestMemory;
 
 use super::Error as VioSError;
+use super::Result;
+use super::SoundError;
 use super::*;
-use super::{Result, SoundError};
 use crate::virtio::snd::common::from_virtio_frame_rate;
 use crate::virtio::snd::constants::*;
 use crate::virtio::snd::layout::*;
+use crate::virtio::DescriptorChain;
+use crate::virtio::Interrupt;
+use crate::virtio::Queue;
+use crate::virtio::Reader;
+use crate::virtio::Writer;
 
 /// Messages that the worker can send to the stream (thread).
 pub enum StreamMsg {
@@ -49,7 +59,7 @@ pub struct Stream {
     guest_memory: GuestMemory,
     control_queue: Arc<Mutex<Queue>>,
     io_queue: Arc<Mutex<Queue>>,
-    interrupt: Arc<Interrupt>,
+    interrupt: Interrupt,
     capture: bool,
     current_state: StreamState,
     period: Duration,
@@ -64,14 +74,14 @@ impl Stream {
         stream_id: u32,
         vios_client: Arc<VioSClient>,
         guest_memory: GuestMemory,
-        interrupt: Arc<Interrupt>,
+        interrupt: Interrupt,
         control_queue: Arc<Mutex<Queue>>,
         io_queue: Arc<Mutex<Queue>>,
         capture: bool,
     ) -> Result<StreamProxy> {
         let (sender, receiver): (Sender<StreamMsg>, Receiver<StreamMsg>) = channel();
         let thread = thread::Builder::new()
-            .name(format!("virtio_snd stream {}", stream_id))
+            .name(format!("v_snd_stream:{stream_id}"))
             .spawn(move || {
                 try_set_real_time_priority();
 
@@ -211,7 +221,7 @@ impl Stream {
             desc,
             &self.guest_memory,
             &self.control_queue,
-            self.interrupt.deref(),
+            &self.interrupt,
         )?;
         self.current_state = next_state;
         Ok(true)
@@ -278,7 +288,7 @@ impl Stream {
                             desc_index,
                             writer.bytes_written() as u32,
                         );
-                        io_queue_lock.trigger_interrupt(&self.guest_memory, self.interrupt.deref());
+                        io_queue_lock.trigger_interrupt(&self.guest_memory, &self.interrupt);
                     }
                 }
             }
@@ -296,7 +306,7 @@ impl Stream {
                         desc,
                         &self.guest_memory,
                         &self.io_queue,
-                        self.interrupt.deref(),
+                        &self.interrupt,
                     )?;
                 }
             }
@@ -326,7 +336,7 @@ impl Drop for Stream {
                 desc,
                 &self.guest_memory,
                 &self.io_queue,
-                self.interrupt.deref(),
+                &self.interrupt,
             ) {
                 error!(
                     "virtio-snd: Failed to reply buffer on stream {}: {}",

@@ -17,19 +17,27 @@
 package com.android.queryable.queries;
 
 import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
+import static com.android.queryable.queries.IntentQuery.intent;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Intent;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
 import com.android.queryable.Queryable;
 
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
-public class IntentQueryHelperTest {
+@RunWith(BedsteadJUnit4.class)
+public final class IntentQueryHelperTest {
+
+    @ClassRule @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
 
     private final Queryable mQuery = null;
     private static final String STRING_VALUE = "String";
@@ -102,5 +110,43 @@ public class IntentQueryHelperTest {
         intentQueryHelper.extras().key("").stringValue().isEqualTo("");
 
         assertParcelsCorrectly(IntentQueryHelper.class, intentQueryHelper);
+    }
+
+    @Test
+    public void intentQueryHelper_queries() {
+        Intent intent = new Intent();
+        intent.putExtra(/* key= */ STRING_VALUE, /* value= */ STRING_VALUE);
+
+        assertThat(intent()
+                .where().extras().key(STRING_VALUE).exists()
+                .matches(intent)).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_isEmpty_returnsTrue() {
+        IntentQueryHelper<Queryable> intentQueryHelper =
+                new IntentQueryHelper<>(mQuery);
+
+        assertThat(intentQueryHelper.isEmptyQuery()).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_hasActionQuery_returnsFalse() {
+        IntentQueryHelper<Queryable> intentQueryHelper =
+                new IntentQueryHelper<>(mQuery);
+
+        intentQueryHelper.action().isNotNull();
+
+        assertThat(intentQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasExtrasQuery_returnsFalse() {
+        IntentQueryHelper<Queryable> intentQueryHelper =
+                new IntentQueryHelper<>(mQuery);
+
+        intentQueryHelper.extras().key("a").exists();
+
+        assertThat(intentQueryHelper.isEmptyQuery()).isFalse();
     }
 }

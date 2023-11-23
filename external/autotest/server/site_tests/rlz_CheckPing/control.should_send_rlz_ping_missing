@@ -10,6 +10,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:rlz"
+PY_VERSION = 3
 DOC = """
 This tests that no first-use event (CAF) ping is sent if the
 should_send_rlz_ping vpd setting is missing. The install event

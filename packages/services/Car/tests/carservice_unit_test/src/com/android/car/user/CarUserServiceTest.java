@@ -17,29 +17,41 @@
 package com.android.car.user;
 
 import static android.car.test.mocks.AndroidMockitoHelper.mockAmStartUserInBackground;
+import static android.car.test.mocks.AndroidMockitoHelper.mockAmStartUserInBackgroundVisibleOnDisplay;
 import static android.car.test.mocks.AndroidMockitoHelper.mockAmSwitchUser;
+import static android.car.test.mocks.AndroidMockitoHelper.mockCarGetPlatformVersion;
+import static android.car.test.mocks.AndroidMockitoHelper.mockContextCreateContextAsUser;
 import static android.car.test.mocks.AndroidMockitoHelper.mockDpmLogoutUser;
+import static android.car.test.mocks.AndroidMockitoHelper.mockForceStopUser;
+import static android.car.test.mocks.AndroidMockitoHelper.mockForceStopUserThrows;
 import static android.car.test.mocks.AndroidMockitoHelper.mockStopUserWithDelayedLocking;
 import static android.car.test.mocks.AndroidMockitoHelper.mockStopUserWithDelayedLockingThrows;
 import static android.car.test.mocks.AndroidMockitoHelper.mockUmCreateGuest;
 import static android.car.test.mocks.AndroidMockitoHelper.mockUmCreateUser;
 import static android.car.test.mocks.AndroidMockitoHelper.mockUmGetUserSwitchability;
+import static android.car.test.mocks.AndroidMockitoHelper.mockUmGetVisibleUsers;
 import static android.car.test.mocks.AndroidMockitoHelper.mockUmHasUserRestrictionForUser;
+import static android.car.test.mocks.AndroidMockitoHelper.mockUmIsUserVisible;
+import static android.car.test.mocks.AndroidMockitoHelper.mockUmIsVisibleBackgroundUsersOnDefaultDisplaySupported;
+import static android.car.test.mocks.AndroidMockitoHelper.mockUmIsVisibleBackgroundUsersSupported;
 import static android.car.test.mocks.JavaMockitoHelper.getResult;
 
 import static com.android.car.user.MockedUserHandleBuilder.expectEphemeralUserExists;
 import static com.android.car.user.MockedUserHandleBuilder.expectGuestUserExists;
 import static com.android.car.user.MockedUserHandleBuilder.expectRegularUserExists;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.doAnswer;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -47,18 +59,23 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertThrows;
-import static org.testng.Assert.expectThrows;
 
 import android.annotation.Nullable;
+import android.annotation.UserIdInt;
 import android.app.ActivityManager;
+import android.car.Car;
+import android.car.CarOccupantZoneManager;
+import android.car.CarVersion;
 import android.car.ICarResultReceiver;
+import android.car.PlatformVersion;
+import android.car.SyncResultCallback;
+import android.car.VehicleAreaSeat;
 import android.car.builtin.app.ActivityManagerHelper;
 import android.car.builtin.os.UserManagerHelper;
 import android.car.drivingstate.ICarUxRestrictionsChangeListener;
 import android.car.settings.CarSettings;
-import android.car.test.mocks.AbstractExtendedMockitoTestCase.ExpectWtf;
 import android.car.test.mocks.BlockingAnswer;
+import android.car.test.mocks.MockSettings;
 import android.car.user.CarUserManager;
 import android.car.user.CarUserManager.UserLifecycleEvent;
 import android.car.user.CarUserManager.UserLifecycleListener;
@@ -66,12 +83,17 @@ import android.car.user.UserCreationResult;
 import android.car.user.UserIdentificationAssociationResponse;
 import android.car.user.UserLifecycleEventFilter;
 import android.car.user.UserRemovalResult;
+import android.car.user.UserStartRequest;
+import android.car.user.UserStartResponse;
 import android.car.user.UserStartResult;
+import android.car.user.UserStopRequest;
+import android.car.user.UserStopResponse;
 import android.car.user.UserStopResult;
 import android.car.user.UserSwitchResult;
 import android.car.util.concurrent.AndroidFuture;
 import android.content.Context;
 import android.hardware.automotive.vehicle.CreateUserRequest;
+import android.hardware.automotive.vehicle.CreateUserResponse;
 import android.hardware.automotive.vehicle.CreateUserStatus;
 import android.hardware.automotive.vehicle.InitialUserInfoRequestType;
 import android.hardware.automotive.vehicle.InitialUserInfoResponseAction;
@@ -84,8 +106,10 @@ import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
+import android.view.Display;
 
 import com.android.car.hal.HalCallback;
+import com.android.car.internal.ResultCallbackImpl;
 import com.android.car.internal.util.DebugUtils;
 
 import org.junit.Before;
@@ -93,8 +117,11 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Unit tests for the {@link CarUserService}.
@@ -103,8 +130,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
 
     private static final String TAG = CarUserServiceTest.class.getSimpleName();
 
-    private static final int PRE_CREATION_STAGE_BEFORE_SUSPEND = 1;
-    private static final int PRE_CREATION_STAGE_ON_SYSTEM_START = 2;
+    private static final int TEST_USER_ID = 101;
+    private static final int TEST_DISPLAY_ID = 201;
+    private static final int TEST_OCCUPANT_ZONE_ID = 2;
 
     @Mock
     private Binder mMockBinder;
@@ -114,9 +142,23 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     private ICarResultReceiver mLifecycleEventReceiver;
     @Mock
     private ICarResultReceiver mAnotherLifecycleEventReceiver;
+    @Mock
+    private Context mMockUserContext;
+
+    private MockSettings mMockSettings;
+
+    private final int mContextUserId = 42;
 
     public CarUserServiceTest() {
         super(CarUserService.TAG);
+    }
+
+    @Override
+    protected void onSessionBuilder(CustomMockitoSessionBuilder builder) {
+        mMockSettings = new MockSettings(builder);
+        super.onSessionBuilder(builder);
+
+        builder.spyStatic(Car.class);
     }
 
     @Before
@@ -138,7 +180,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
 
     @Test
     public void testSetInitialUser() throws Exception {
-        UserHandle user = UserHandle.of(101);
+        UserHandle user = UserHandle.of(TEST_USER_ID);
 
         mCarUserService.setInitialUser(user);
 
@@ -156,8 +198,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
 
     @Test
     public void testSendInitialUserToSystemServer() throws Exception {
-        UserHandle user = UserHandle.of(101);
-        mCarUserService.setCarServiceHelper(mICarServiceHelper);
+        UserHandle user = UserHandle.of(TEST_USER_ID);
 
         mCarUserService.setInitialUser(user);
 
@@ -166,7 +207,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
 
     @Test
     public void testsetInitialUserFromSystemServer() throws Exception {
-        UserHandle user = UserHandle.of(101);
+        UserHandle user = UserHandle.of(TEST_USER_ID);
 
         mCarUserService.setInitialUserFromSystemServer(user);
 
@@ -185,11 +226,14 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockGetUxRestrictions(/* restricted= */ true);
         ICarUxRestrictionsChangeListener listener = initService();
 
-        mCarUserService.setCarServiceHelper(mICarServiceHelper);
         verify(mICarServiceHelper).setSafetyMode(false);
 
         updateUxRestrictions(listener, /* restricted= */ false);
+
         verify(mICarServiceHelper).setSafetyMode(true);
+
+        updateUxRestrictions(listener, /* restricted= */ true);
+        verify(mICarServiceHelper, times(2)).setSafetyMode(false);
     }
 
     @Test
@@ -197,7 +241,6 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockGetUxRestrictions(/* restricted= */ false);
         ICarUxRestrictionsChangeListener listener = initService();
 
-        mCarUserService.setCarServiceHelper(mICarServiceHelper);
         verify(mICarServiceHelper).setSafetyMode(true);
 
         updateUxRestrictions(listener, /* restricted= */ true);
@@ -217,9 +260,10 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     public void testRemoveUser_binderMethod() {
         CarUserService spy = spy(mCarUserService);
 
-        spy.removeUser(42, mUserRemovalFuture);
+        spy.removeUser(42, mUserRemovalResultCallbackImpl);
 
-        verify(spy).removeUser(42, NO_CALLER_RESTRICTIONS, mUserRemovalFuture);
+        verify(spy).removeUser(42, /* hasCallerRestrictions= */ false,
+                mUserRemovalResultCallbackImpl);
     }
 
     @Test
@@ -337,6 +381,182 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     }
 
     @Test
+    public void testOnUserStarting_systemUser_noop() throws Exception {
+        // Arrange.
+        mockUmIsVisibleBackgroundUsersSupported(mMockedUserManager, true);
+
+        // Act.
+        sendUserStartingEvent(UserHandle.SYSTEM.getIdentifier());
+
+        // Verify.
+        verify(mCarOccupantZoneService, never()).assignVisibleUserToOccupantZone(anyInt(),
+                any(UserHandle.class));
+    }
+
+    @Test
+    public void testOnUserStarting_afterUserVisible_occupantZoneAssignment() throws Exception {
+        // Arrange.
+        mockUmGetVisibleUsers(mMockedUserManager, TEST_USER_ID);
+        when(mMockedUserManager.isUserRunning(UserHandle.of(TEST_USER_ID))).thenReturn(false);
+
+        mockCarServiceHelperGetMainDisplayAssignedToUser(TEST_USER_ID, TEST_DISPLAY_ID);
+
+        List<CarOccupantZoneManager.OccupantZoneInfo> infos = new ArrayList<>();
+        CarOccupantZoneManager.OccupantZoneInfo zoneInfo =
+                new CarOccupantZoneManager.OccupantZoneInfo(
+                        TEST_OCCUPANT_ZONE_ID, CarOccupantZoneManager.OCCUPANT_TYPE_FRONT_PASSENGER,
+                        VehicleAreaSeat.SEAT_ROW_1_RIGHT);
+        infos.add(zoneInfo);
+        when(mCarOccupantZoneService.getAllOccupantZones()).thenReturn(infos);
+
+        int[] displayIds = new int[] { TEST_DISPLAY_ID };
+        when(mCarOccupantZoneService.getAllDisplaysForOccupantZone(TEST_OCCUPANT_ZONE_ID))
+                .thenReturn(displayIds);
+
+        when(mCarOccupantZoneService.assignVisibleUserToOccupantZone(
+                TEST_OCCUPANT_ZONE_ID, UserHandle.of(TEST_USER_ID)))
+                    .thenReturn(CarOccupantZoneManager.USER_ASSIGNMENT_RESULT_OK);
+
+        mockUmIsVisibleBackgroundUsersSupported(mMockedUserManager, true);
+
+        // Act.
+        sendUserVisibleEvent(TEST_USER_ID);
+        sendUserStartingEvent(TEST_USER_ID);
+
+        // Verify.
+        verify(mCarOccupantZoneService).assignVisibleUserToOccupantZone(
+                TEST_OCCUPANT_ZONE_ID, UserHandle.of(TEST_USER_ID));
+    }
+
+    @Test
+    public void testOnUserVisible_afterUserStarting_occupantZoneAssignment() throws Exception {
+        // Arrange.
+        mockUmGetVisibleUsers(mMockedUserManager);
+        when(mMockedUserManager.isUserRunning(UserHandle.of(TEST_USER_ID))).thenReturn(true);
+
+        mockCarServiceHelperGetMainDisplayAssignedToUser(TEST_USER_ID, TEST_DISPLAY_ID);
+
+        List<CarOccupantZoneManager.OccupantZoneInfo> infos = new ArrayList<>();
+        CarOccupantZoneManager.OccupantZoneInfo zoneInfo =
+                new CarOccupantZoneManager.OccupantZoneInfo(
+                        TEST_OCCUPANT_ZONE_ID, CarOccupantZoneManager.OCCUPANT_TYPE_FRONT_PASSENGER,
+                        VehicleAreaSeat.SEAT_ROW_1_RIGHT);
+        infos.add(zoneInfo);
+        when(mCarOccupantZoneService.getAllOccupantZones()).thenReturn(infos);
+
+        int[] displayIds = new int[] { TEST_DISPLAY_ID };
+        when(mCarOccupantZoneService.getAllDisplaysForOccupantZone(TEST_OCCUPANT_ZONE_ID))
+                .thenReturn(displayIds);
+
+        when(mCarOccupantZoneService.assignVisibleUserToOccupantZone(
+                TEST_OCCUPANT_ZONE_ID, UserHandle.of(TEST_USER_ID)))
+                    .thenReturn(CarOccupantZoneManager.USER_ASSIGNMENT_RESULT_OK);
+
+        mockUmIsVisibleBackgroundUsersSupported(mMockedUserManager, true);
+
+        // Act.
+        sendUserStartingEvent(TEST_USER_ID);
+        sendUserVisibleEvent(TEST_USER_ID);
+
+        // Verify.
+        verify(mCarOccupantZoneService).assignVisibleUserToOccupantZone(
+                TEST_OCCUPANT_ZONE_ID, UserHandle.of(TEST_USER_ID));
+    }
+
+    // This simulates the case that this user started, but never became visible,
+    // then stopped in the past before becoming visible and starting again.
+    @Test
+    public void testOnUserVisible_afterPastUserStartingNotVisible_noOccupantZoneAssignment()
+            throws Exception {
+        // Arrange.
+        mockContextCreateContextAsUser(mMockContext, mMockUserContext, TEST_USER_ID);
+        when(mMockUserContext.getSystemService(UserManager.class)).thenReturn(mMockedUserManager);
+        mockUmIsUserVisible(mMockedUserManager, false);
+        when(mMockedUserManager.isUserRunning(UserHandle.of(TEST_USER_ID))).thenReturn(false);
+
+        mockUmIsVisibleBackgroundUsersSupported(mMockedUserManager, true);
+
+        // Act.
+        sendUserStartingEvent(TEST_USER_ID);
+        sendUserVisibleEvent(TEST_USER_ID);
+
+        // Verify.
+        verify(mCarOccupantZoneService, never()).assignVisibleUserToOccupantZone(anyInt(),
+                any(UserHandle.class));
+    }
+
+    @Test
+    public void testOnUserVisibleAndStarted_nonSystemUser_startsSystemUI() throws Exception {
+        // Arrange.
+        mockUmGetVisibleUsers(mMockedUserManager);
+        when(mMockedUserManager.isUserRunning(UserHandle.of(TEST_USER_ID))).thenReturn(true);
+        mockContextCreateContextAsUser(mMockContext, mMockUserContext, TEST_USER_ID);
+        mockCarServiceHelperGetMainDisplayAssignedToUser(TEST_USER_ID, TEST_DISPLAY_ID);
+        mockUmIsVisibleBackgroundUsersSupported(mMockedUserManager, true);
+
+        // Act.
+        sendUserStartingEvent(TEST_USER_ID);
+        sendUserVisibleEvent(TEST_USER_ID);
+
+        // Verify.
+        verify(mMockUserContext).startService(any());
+    }
+
+    @Test
+    public void testOnUserVisibleAndStarted_backgroundUserOnDefaultDisplay_noSystemUIStart()
+            throws Exception {
+        // Arrange.
+        mockUmGetVisibleUsers(mMockedUserManager);
+        when(mMockedUserManager.isUserRunning(UserHandle.of(TEST_USER_ID))).thenReturn(true);
+        mockContextCreateContextAsUser(mMockContext, mMockUserContext, TEST_USER_ID);
+        mockCarServiceHelperGetMainDisplayAssignedToUser(TEST_USER_ID, Display.DEFAULT_DISPLAY);
+        mockUmIsVisibleBackgroundUsersSupported(mMockedUserManager, true);
+        mockUmIsVisibleBackgroundUsersOnDefaultDisplaySupported(mMockedUserManager, true);
+
+        // Act.
+        sendUserStartingEvent(TEST_USER_ID);
+        sendUserVisibleEvent(TEST_USER_ID);
+
+        // Verify.
+        verify(mMockUserContext, never()).startService(any());
+    }
+
+    @Test
+    public void testOnUserInvisible_systemUser_noop() throws Exception {
+        // Arrange.
+        mockUmIsVisibleBackgroundUsersSupported(mMockedUserManager, true);
+
+        // Act.
+        sendUserInvisibleEvent(UserHandle.SYSTEM.getIdentifier());
+
+        // Verify.
+        verify(mCarOccupantZoneService, never()).unassignOccupantZone(anyInt());
+    }
+
+    @Test
+    public void testOnUserInvisible_nonSystemUser_occupantZoneUnassignment() throws Exception {
+        // Arrange.
+        doReturn(mMockedActivityManager).when(mMockContext).getSystemService(ActivityManager.class);
+        doNothing().when(mMockedActivityManager).forceStopPackageAsUser(anyString(), anyInt());
+        CarOccupantZoneManager.OccupantZoneInfo zoneInfo =
+                new CarOccupantZoneManager.OccupantZoneInfo(
+                        TEST_OCCUPANT_ZONE_ID, CarOccupantZoneManager.OCCUPANT_TYPE_FRONT_PASSENGER,
+                        VehicleAreaSeat.SEAT_ROW_1_RIGHT);
+        when(mCarOccupantZoneService.getOccupantZoneForUser(UserHandle.of(TEST_USER_ID)))
+                .thenReturn(zoneInfo);
+        when(mCarOccupantZoneService.unassignOccupantZone(TEST_OCCUPANT_ZONE_ID))
+                .thenReturn(CarOccupantZoneManager.USER_ASSIGNMENT_RESULT_OK);
+
+        mockUmIsVisibleBackgroundUsersSupported(mMockedUserManager, true);
+
+        // Act.
+        sendUserInvisibleEvent(TEST_USER_ID);
+
+        // Verify.
+        verify(mCarOccupantZoneService).unassignOccupantZone(TEST_OCCUPANT_ZONE_ID);
+    }
+
+    @Test
     public void testResetLifecycleListenerForApp() throws Exception {
         // Arrange: add 2 receivers.
         mCarUserService.setLifecycleListenerForApp("package1", /* filter= */null,
@@ -391,6 +611,34 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         // Verify: receivers are called or not depending on what their filter evaluates to.
         verify(mLifecycleEventReceiver, never()).send(anyInt(), any());
         verify(mAnotherLifecycleEventReceiver, times(2)).send(anyInt(), any());
+    }
+
+    @Test
+    public void testOnUserLifecycleEvent_notifyReceiver_targetVersionCheck() throws Exception {
+        // Arrange: add receivers.
+        mCarUserService.setLifecycleListenerForApp("package1",
+                new UserLifecycleEventFilter.Builder()
+                        .addEventType(CarUserManager.USER_LIFECYCLE_EVENT_TYPE_CREATED).build(),
+                mLifecycleEventReceiver);
+        mCarUserService.setLifecycleListenerForApp("package2",
+                new UserLifecycleEventFilter.Builder()
+                        .addEventType(CarUserManager.USER_LIFECYCLE_EVENT_TYPE_CREATED).build(),
+                mAnotherLifecycleEventReceiver);
+
+        when(mCarPackageManagerService.getTargetCarVersion("package1"))
+                .thenReturn(CarVersion.VERSION_CODES.TIRAMISU_0);
+        when(mCarPackageManagerService.getTargetCarVersion("package2"))
+                .thenReturn(CarVersion.VERSION_CODES.TIRAMISU_1);
+
+        // Act: User created event occurs.
+        sendUserLifecycleEvent(/* fromUser */ 0, mRegularUserId,
+                CarUserManager.USER_LIFECYCLE_EVENT_TYPE_CREATED);
+        waitForHandlerThreadToFinish();
+
+        // Verify: receivers are called or not depending on whether the target version meets
+        // requirement.
+        verify(mLifecycleEventReceiver, never()).send(anyInt(), any());
+        verify(mAnotherLifecycleEventReceiver).send(anyInt(), any());
     }
 
     @Test
@@ -465,7 +713,8 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     @Test
     public void testInitializeGuestRestrictions_IfNotAlreadySet() {
         sendUserUnlockedEvent(UserHandle.USER_SYSTEM);
-        assertThat(getSettingsInt(CarSettings.Global.DEFAULT_USER_RESTRICTIONS_SET)).isEqualTo(1);
+        assertThat(mMockSettings.getInt(CarSettings.Global.DEFAULT_USER_RESTRICTIONS_SET))
+                .isEqualTo(1);
     }
 
     @Test
@@ -494,18 +743,17 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
      */
     @Test
     public void testBackgroundUserList() throws RemoteException {
-        int user1 = 101;
-        int user2 = 102;
-        int user3 = 103;
-        int user4Guest = 104;
-        int user5 = 105;
+        int user1 = TEST_USER_ID;
+        int user2 = TEST_USER_ID + 1;
+        int user3 = TEST_USER_ID + 2;
+        int user4Guest = TEST_USER_ID + 3;
+        int user5 = TEST_USER_ID + 4;
 
-        UserHandle user1Handle = expectRegularUserExists(mMockedUserHandleHelper, user1);
-        UserHandle user2Handle = expectRegularUserExists(mMockedUserHandleHelper, user2);
-        UserHandle user3Handle = expectRegularUserExists(mMockedUserHandleHelper, user3);
-        UserHandle user4GuestHandle = expectGuestUserExists(mMockedUserHandleHelper, user4Guest,
-                /* isEphemeral= */ true);
-        UserHandle user5Handle = expectRegularUserExists(mMockedUserHandleHelper, user5);
+        expectRegularUserExists(mMockedUserHandleHelper, user1);
+        expectRegularUserExists(mMockedUserHandleHelper, user2);
+        expectRegularUserExists(mMockedUserHandleHelper, user3);
+        expectGuestUserExists(mMockedUserHandleHelper, user4Guest, /* isEphemeral= */ true);
+        expectRegularUserExists(mMockedUserHandleHelper, user5);
 
         mockGetCurrentUser(user1);
         sendUserUnlockedEvent(UserHandle.USER_SYSTEM);
@@ -537,13 +785,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
      */
     @Test
     public void testBackgroundUsersStartStopKeepBackgroundUserList() throws Exception {
-        int user1 = 101;
-        int user2 = 102;
-        int user3 = 103;
-
-        UserHandle user1Handle = UserHandle.of(user1);
-        UserHandle user2Handle = UserHandle.of(user2);
-        UserHandle user3Handle = UserHandle.of(user3);
+        int user1 = TEST_USER_ID;
+        int user2 = TEST_USER_ID + 1;
+        int user3 = TEST_USER_ID + 2;
 
         mockGetCurrentUser(user1);
         sendUserUnlockedEvent(UserHandle.USER_SYSTEM);
@@ -572,65 +816,47 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
 
     @Test
     public void testStopUser_success() throws Exception {
-        int userId = 101;
-        mockStopUserWithDelayedLocking(userId, ActivityManager.USER_OP_SUCCESS);
+        mockStopUserWithDelayedLocking(TEST_USER_ID, ActivityManager.USER_OP_SUCCESS);
 
         AndroidFuture<UserStopResult> userStopResult = new AndroidFuture<>();
-        stopUser(userId, userStopResult);
+        stopUser(TEST_USER_ID, userStopResult);
 
-        assertThat(getUserStopResult(userStopResult, userId).getStatus())
+        assertThat(getUserStopResult(userStopResult, TEST_USER_ID).getStatus())
                 .isEqualTo(UserStopResult.STATUS_SUCCESSFUL);
-        assertThat(getUserStopResult(userStopResult, userId).isSuccess()).isTrue();
+        assertThat(getUserStopResult(userStopResult, TEST_USER_ID).isSuccess()).isTrue();
     }
 
     @Test
     public void testStopUser_permissionDenied() throws Exception {
-        int userId = 101;
         mockManageUsersPermission(android.Manifest.permission.MANAGE_USERS, false);
         mockManageUsersPermission(android.Manifest.permission.CREATE_USERS, false);
 
         AndroidFuture<UserStopResult> userStopResult = new AndroidFuture<>();
-        assertThrows(SecurityException.class, () -> stopUser(userId, userStopResult));
+        assertThrows(SecurityException.class, () -> stopUser(TEST_USER_ID, userStopResult));
     }
 
     @Test
     public void testStopUser_fail() throws Exception {
-        int userId = 101;
+        mockStopUserWithDelayedLockingThrows(TEST_USER_ID, new IllegalStateException());
+
         AndroidFuture<UserStopResult> userStopResult = new AndroidFuture<>();
-        CarUserService carUserServiceLocal = new CarUserService(
-                mMockContext,
-                mUserHal,
-                mMockedUserManager,
-                mMockedUserHandleHelper,
-                mMockedDevicePolicyManager,
-                mMockedActivityManager,
-                /* maxRunningUsers= */ 3,
-                mInitialUserSetter,
-                mUserPreCreator,
-                mCarUxRestrictionService,
-                mMockedHandler);
-        mockStopUserWithDelayedLockingThrows(userId, new IllegalStateException());
+        stopUser(TEST_USER_ID, userStopResult);
 
-        carUserServiceLocal.stopUser(userId, userStopResult);
-
-        ArgumentCaptor<Runnable> runnableCaptor =
-                ArgumentCaptor.forClass(Runnable.class);
-        verify(mMockedHandler).post(runnableCaptor.capture());
-        Runnable runnable = runnableCaptor.getValue();
-        expectThrows(IllegalStateException.class, ()-> runnable.run());
+        assertThat(getUserStopResult(userStopResult, TEST_USER_ID).getStatus())
+                .isEqualTo(UserStopResult.STATUS_ANDROID_FAILURE);
+        assertThat(getUserStopResult(userStopResult, TEST_USER_ID).isSuccess()).isFalse();
     }
 
     @Test
     public void testStopUser_userDoesNotExist() throws Exception {
-        int userId = 101;
-        mockStopUserWithDelayedLocking(userId, ActivityManager.USER_OP_UNKNOWN_USER);
+        mockStopUserWithDelayedLocking(TEST_USER_ID, ActivityManager.USER_OP_UNKNOWN_USER);
 
         AndroidFuture<UserStopResult> userStopResult = new AndroidFuture<>();
-        stopUser(userId, userStopResult);
+        stopUser(TEST_USER_ID, userStopResult);
 
-        assertThat(getUserStopResult(userStopResult, userId).getStatus())
+        assertThat(getUserStopResult(userStopResult, TEST_USER_ID).getStatus())
                 .isEqualTo(UserStopResult.STATUS_USER_DOES_NOT_EXIST);
-        assertThat(getUserStopResult(userStopResult, userId).isSuccess()).isFalse();
+        assertThat(getUserStopResult(userStopResult, TEST_USER_ID).isSuccess()).isFalse();
     }
 
     @Test
@@ -647,33 +873,104 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     }
 
     @Test
-    public void testStopUser_currentUser() throws Exception {
-        int userId = 101;
-        mockStopUserWithDelayedLocking(userId, ActivityManager.USER_OP_IS_CURRENT);
+    public void testStopUser_amThrowsRuntimeException() throws Exception {
+        int userId = UserHandle.USER_SYSTEM;
+        mockStopUserWithDelayedLockingThrows(userId, new RuntimeException());
 
         AndroidFuture<UserStopResult> userStopResult = new AndroidFuture<>();
         stopUser(userId, userStopResult);
 
         assertThat(getUserStopResult(userStopResult, userId).getStatus())
-                .isEqualTo(UserStopResult.STATUS_FAILURE_CURRENT_USER);
+                .isEqualTo(UserStopResult.STATUS_ANDROID_FAILURE);
         assertThat(getUserStopResult(userStopResult, userId).isSuccess()).isFalse();
     }
 
     @Test
-    public void testStopBackgroundUserForSystemUser() throws Exception {
-        mockStopUserWithDelayedLocking(
-                UserHandle.USER_SYSTEM, ActivityManager.USER_OP_ERROR_IS_SYSTEM);
+    public void testStopUser_currentUser() throws Exception {
+        mockStopUserWithDelayedLocking(TEST_USER_ID, ActivityManager.USER_OP_IS_CURRENT);
 
-        assertThat(mCarUserService.stopBackgroundUserInGagageMode(UserHandle.USER_SYSTEM))
-                .isFalse();
+        AndroidFuture<UserStopResult> userStopResult = new AndroidFuture<>();
+        stopUser(TEST_USER_ID, userStopResult);
+
+        assertThat(getUserStopResult(userStopResult, TEST_USER_ID).getStatus())
+                .isEqualTo(UserStopResult.STATUS_FAILURE_CURRENT_USER);
+        assertThat(getUserStopResult(userStopResult, TEST_USER_ID).isSuccess()).isFalse();
     }
 
     @Test
-    public void testStopBackgroundUserForFgUser() throws Exception {
-        int userId = 101;
-        mockStopUserWithDelayedLocking(userId, ActivityManager.USER_OP_IS_CURRENT);
+    public void testStopUser_withDelayedLocking_success() throws Exception {
+        mockStopUserWithDelayedLocking(TEST_USER_ID, ActivityManager.USER_OP_SUCCESS);
 
-        assertThat(mCarUserService.stopBackgroundUserInGagageMode(userId)).isFalse();
+        UserStopRequest request =
+                new UserStopRequest.Builder(UserHandle.of(TEST_USER_ID)).setForce().build();
+        stopUser(request, mUserStopResultCallbackImpl);
+
+        assertThat(getUserStopResponse().getStatus()).isEqualTo(UserStopResponse.STATUS_SUCCESSFUL);
+        assertThat(getUserStopResponse().isSuccess()).isTrue();
+    }
+
+    @Test
+    public void testStopUser_withDelayedLocking_permissionDenied() throws Exception {
+        mockManageUsersPermission(android.Manifest.permission.MANAGE_USERS, false);
+        mockInteractAcrossUsersPermission(false);
+
+        UserStopRequest request =
+                new UserStopRequest.Builder(UserHandle.of(TEST_USER_ID)).setForce().build();
+        assertThrows(SecurityException.class, () -> stopUser(request, mUserStopResultCallbackImpl));
+    }
+
+    @Test
+    public void testStopUser_withDelayedLocking_fail() throws Exception {
+        mockStopUserWithDelayedLockingThrows(TEST_USER_ID, new IllegalStateException());
+
+        UserStopRequest request =
+                new UserStopRequest.Builder(UserHandle.of(TEST_USER_ID)).setForce().build();
+        stopUser(request, mUserStopResultCallbackImpl);
+
+        assertThat(getUserStopResponse().getStatus())
+                .isEqualTo(UserStopResponse.STATUS_ANDROID_FAILURE);
+        assertThat(getUserStopResponse().isSuccess()).isFalse();
+    }
+
+    @Test
+    public void testStopUser_withoutDelayedLocking_success() throws Exception {
+        mockForceStopUser(TEST_USER_ID, ActivityManager.USER_OP_SUCCESS);
+
+        UserStopRequest request =
+                new UserStopRequest.Builder(UserHandle.of(TEST_USER_ID))
+                        .setForce().withDelayedLocking(false).build();
+        stopUser(request, mUserStopResultCallbackImpl);
+
+        assertThat(getUserStopResponse().getStatus()).isEqualTo(UserStopResponse.STATUS_SUCCESSFUL);
+        assertThat(getUserStopResponse().isSuccess()).isTrue();
+    }
+
+    @Test
+    public void testStopUser_withoutDelayedLocking_fail() throws Exception {
+        mockForceStopUserThrows(TEST_USER_ID, new IllegalStateException());
+
+        UserStopRequest request =
+                new UserStopRequest.Builder(UserHandle.of(TEST_USER_ID))
+                        .setForce().withDelayedLocking(false).build();
+        stopUser(request, mUserStopResultCallbackImpl);
+
+        assertThat(getUserStopResponse().getStatus())
+                .isEqualTo(UserStopResponse.STATUS_ANDROID_FAILURE);
+        assertThat(getUserStopResponse().isSuccess()).isFalse();
+    }
+
+    @Test
+    public void testStopBackgroundUserInGarageMode() throws Exception {
+        mockStopUserWithDelayedLocking(TEST_USER_ID, ActivityManager.USER_OP_SUCCESS);
+        expectThat(mCarUserService.stopBackgroundUserInGagageMode(TEST_USER_ID)).isTrue();
+
+        mockStopUserWithDelayedLocking(TEST_USER_ID, ActivityManager.USER_OP_IS_CURRENT);
+        expectThat(mCarUserService.stopBackgroundUserInGagageMode(TEST_USER_ID)).isFalse();
+
+        mockStopUserWithDelayedLocking(UserHandle.USER_SYSTEM,
+                ActivityManager.USER_OP_ERROR_IS_SYSTEM);
+        expectThat(mCarUserService.stopBackgroundUserInGagageMode(UserHandle.USER_SYSTEM))
+                .isFalse();
     }
 
     @Test
@@ -684,9 +981,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         int removedUserId = removeUser.getIdentifier();
         mockRemoveUserNoCallback(removeUser, UserManager.REMOVE_RESULT_DEFERRED);
 
-        removeUser(removedUserId, mUserRemovalFuture);
+        removeUser(removedUserId, mUserRemovalResultCallbackImpl);
 
-        assertUserRemovalResultStatus(getUserRemovalResult(removedUserId),
+        assertUserRemovalResultStatus(getUserRemovalResult(),
                 UserRemovalResult.STATUS_SUCCESSFUL_SET_EPHEMERAL);
         assertNoHalUserRemoval();
     }
@@ -699,9 +996,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         int removedUserId = removeUser.getIdentifier();
         mockRemoveUser(removeUser, UserManager.REMOVE_RESULT_ALREADY_BEING_REMOVED);
 
-        removeUser(removedUserId, mUserRemovalFuture);
+        removeUser(removedUserId, mUserRemovalResultCallbackImpl);
 
-        assertUserRemovalResultStatus(getUserRemovalResult(removedUserId),
+        assertUserRemovalResultStatus(getUserRemovalResult(),
                 UserRemovalResult.STATUS_SUCCESSFUL);
         assertHalRemove(currentUser, removeUser);
     }
@@ -715,9 +1012,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         int removedUserId = removeUser.getIdentifier();
         mockRemoveUserNoCallback(removeUser, UserManager.REMOVE_RESULT_DEFERRED);
 
-        removeUser(mAdminUserId, NO_CALLER_RESTRICTIONS, mUserRemovalFuture);
+        removeUser(mAdminUserId, NO_CALLER_RESTRICTIONS, mUserRemovalResultCallbackImpl);
 
-        assertUserRemovalResultStatus(getUserRemovalResult(removedUserId),
+        assertUserRemovalResultStatus(getUserRemovalResult(),
                 UserRemovalResult.STATUS_SUCCESSFUL_LAST_ADMIN_SET_EPHEMERAL);
         assertNoHalUserRemoval();
     }
@@ -725,9 +1022,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     @Test
     public void testRemoveUser_userNotExist() throws Exception {
         int removedUserId = 15;
-        removeUser(removedUserId, NO_CALLER_RESTRICTIONS, mUserRemovalFuture);
+        removeUser(removedUserId, NO_CALLER_RESTRICTIONS, mUserRemovalResultCallbackImpl);
 
-        assertUserRemovalResultStatus(getUserRemovalResult(removedUserId),
+        assertUserRemovalResultStatus(getUserRemovalResult(),
                 UserRemovalResult.STATUS_USER_DOES_NOT_EXIST);
     }
 
@@ -740,9 +1037,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockExistingUsersAndCurrentUser(existingUsers, currentUser);
         mockRemoveUser(removeUser);
 
-        removeUser(mAdminUserId, NO_CALLER_RESTRICTIONS, mUserRemovalFuture);
+        removeUser(mAdminUserId, NO_CALLER_RESTRICTIONS, mUserRemovalResultCallbackImpl);
 
-        assertUserRemovalResultStatus(getUserRemovalResult(mAdminUserId),
+        assertUserRemovalResultStatus(getUserRemovalResult(),
                 UserRemovalResult.STATUS_SUCCESSFUL_LAST_ADMIN_REMOVED);
         assertHalRemove(currentUser, removeUser);
     }
@@ -757,9 +1054,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         int removedUserId = removeUser.getIdentifier();
         mockRemoveUser(removeUser);
 
-        removeUser(removedUserId, NO_CALLER_RESTRICTIONS, mUserRemovalFuture);
+        removeUser(removedUserId, NO_CALLER_RESTRICTIONS, mUserRemovalResultCallbackImpl);
 
-        assertUserRemovalResultStatus(getUserRemovalResult(removedUserId),
+        assertUserRemovalResultStatus(getUserRemovalResult(),
                 UserRemovalResult.STATUS_SUCCESSFUL);
         assertHalRemove(currentUser, removeUser);
     }
@@ -772,8 +1069,8 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         int removedUserId = removeUser.getIdentifier();
         mockRemoveUser(removeUser);
 
-        removeUser(removedUserId, NO_CALLER_RESTRICTIONS, mUserRemovalFuture);
-        UserRemovalResult result = getUserRemovalResult(removedUserId);
+        removeUser(removedUserId, NO_CALLER_RESTRICTIONS, mUserRemovalResultCallbackImpl);
+        UserRemovalResult result = getUserRemovalResult();
 
         assertUserRemovalResultStatus(result, UserRemovalResult.STATUS_SUCCESSFUL);
         assertHalRemove(currentUser, removeUser);
@@ -787,9 +1084,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockUserHalSupported(false);
         mockRemoveUser(removeUser);
 
-        removeUser(removedUserId, NO_CALLER_RESTRICTIONS, mUserRemovalFuture);
+        removeUser(removedUserId, NO_CALLER_RESTRICTIONS, mUserRemovalResultCallbackImpl);
 
-        assertUserRemovalResultStatus(getUserRemovalResult(removedUserId),
+        assertUserRemovalResultStatus(getUserRemovalResult(),
                 UserRemovalResult.STATUS_SUCCESSFUL);
         assertNoHalUserRemoval();
     }
@@ -800,9 +1097,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         int targetUserId = mRegularUserId;
         mockRemoveUser(mRegularUser, UserManager.REMOVE_RESULT_ERROR_UNKNOWN);
 
-        removeUser(targetUserId, NO_CALLER_RESTRICTIONS, mUserRemovalFuture);
+        removeUser(targetUserId, NO_CALLER_RESTRICTIONS, mUserRemovalResultCallbackImpl);
 
-        assertUserRemovalResultStatus(getUserRemovalResult(targetUserId),
+        assertUserRemovalResultStatus(getUserRemovalResult(),
                 UserRemovalResult.STATUS_ANDROID_FAILURE);
     }
 
@@ -816,7 +1113,8 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockRemoveUser(removeUser, /* overrideDevicePolicy= */ true);
 
         assertThrows(SecurityException.class,
-                () -> removeUser(removedUserId, HAS_CALLER_RESTRICTIONS, mUserRemovalFuture));
+                () -> removeUser(removedUserId, HAS_CALLER_RESTRICTIONS,
+                        mUserRemovalResultCallbackImpl));
     }
 
     @Test
@@ -829,7 +1127,8 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockRemoveUser(removeUser, /* overrideDevicePolicy= */ true);
 
         assertThrows(SecurityException.class,
-                () -> removeUser(removedUserId, HAS_CALLER_RESTRICTIONS, mUserRemovalFuture));
+                () -> removeUser(removedUserId, HAS_CALLER_RESTRICTIONS,
+                        mUserRemovalResultCallbackImpl));
     }
 
     @Test
@@ -842,9 +1141,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockRemoveUserNoCallback(removeUser, /* overrideDevicePolicy= */ true,
                 UserManager.REMOVE_RESULT_DEFERRED);
 
-        removeUser(removedUserId, HAS_CALLER_RESTRICTIONS, mUserRemovalFuture);
+        removeUser(removedUserId, HAS_CALLER_RESTRICTIONS, mUserRemovalResultCallbackImpl);
 
-        assertUserRemovalResultStatus(getUserRemovalResult(removedUserId),
+        assertUserRemovalResultStatus(getUserRemovalResult(),
                 UserRemovalResult.STATUS_SUCCESSFUL_SET_EPHEMERAL);
         assertNoHalUserRemoval();
     }
@@ -858,9 +1157,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockExistingUsersAndCurrentUser(mExistingUsers, currentUser);
         mockRemoveUser(removeUser, /* overrideDevicePolicy= */ true);
 
-        removeUser(removedUserId, HAS_CALLER_RESTRICTIONS, mUserRemovalFuture);
+        removeUser(removedUserId, HAS_CALLER_RESTRICTIONS, mUserRemovalResultCallbackImpl);
 
-        assertUserRemovalResultStatus(getUserRemovalResult(removedUserId),
+        assertUserRemovalResultStatus(getUserRemovalResult(),
                 UserRemovalResult.STATUS_SUCCESSFUL);
         assertHalRemove(currentUser, removeUser, /* overrideDevicePolicy= */ true);
     }
@@ -874,9 +1173,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockExistingUsersAndCurrentUser(mExistingUsers, currentUser);
         mockRemoveUser(removeUser, /* overrideDevicePolicy= */ true);
 
-        removeUser(removedUserId, HAS_CALLER_RESTRICTIONS, mUserRemovalFuture);
+        removeUser(removedUserId, HAS_CALLER_RESTRICTIONS, mUserRemovalResultCallbackImpl);
 
-        assertUserRemovalResultStatus(getUserRemovalResult(removedUserId),
+        assertUserRemovalResultStatus(getUserRemovalResult(),
                 UserRemovalResult.STATUS_SUCCESSFUL);
         assertHalRemove(currentUser, removeUser, /* overrideDevicePolicy= */ true);
     }
@@ -891,25 +1190,28 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockRemoveUserNoCallback(removeUser, /* overrideDevicePolicy= */ true,
                 UserManager.REMOVE_RESULT_DEFERRED);
 
-        removeUser(removedUserId, HAS_CALLER_RESTRICTIONS, mUserRemovalFuture);
+        removeUser(removedUserId, HAS_CALLER_RESTRICTIONS, mUserRemovalResultCallbackImpl);
 
-        assertUserRemovalResultStatus(getUserRemovalResult(removedUserId),
+        assertUserRemovalResultStatus(getUserRemovalResult(),
                 UserRemovalResult.STATUS_SUCCESSFUL_SET_EPHEMERAL);
         assertNoHalUserRemoval();
     }
 
     @Test
-    public void testSwitchUser_nullReceiver() throws Exception {
+    public void testSwitchUser_nullCallback() throws Exception {
         mockExistingUsersAndCurrentUser(mAdminUser);
 
         assertThrows(NullPointerException.class,
-                () -> switchUser(mAdminUserId, mAsyncCallTimeoutMs, null));
+                () -> switchUser(mAdminUserId, ASYNC_CALL_TIMEOUT_MS, null));
     }
 
     @Test
     public void testSwitchUser_nonExistingTarget() throws Exception {
-        assertThrows(IllegalArgumentException.class, () -> mCarUserService
-                .switchUser(NON_EXISTING_USER, mAsyncCallTimeoutMs, mUserSwitchFuture));
+        switchUser(NON_EXISTING_USER, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
+
+        assertUserSwitchResult(getUserSwitchResult(),
+                UserSwitchResult.STATUS_INVALID_REQUEST);
+        verifyNoLogoutUser();
     }
 
     @Test
@@ -919,9 +1221,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockUmGetUserSwitchability(mMockedUserManager,
                 UserManager.SWITCHABILITY_STATUS_SYSTEM_USER_LOCKED);
 
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResult(getUserSwitchResult(mGuestUserId),
+        assertUserSwitchResult(getUserSwitchResult(),
                 UserSwitchResult.STATUS_NOT_SWITCHABLE);
         verifyNoLogoutUser();
     }
@@ -930,9 +1232,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     public void testSwitchUser_targetSameAsCurrentUser() throws Exception {
         mockExistingUsersAndCurrentUser(mAdminUser);
 
-        switchUser(mAdminUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mAdminUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResult(getUserSwitchResult(mAdminUserId).getStatus(),
+        assertUserSwitchResult(getUserSwitchResult().getStatus(),
                 UserSwitchResult.STATUS_OK_USER_ALREADY_IN_FOREGROUND);
         verifyNoUserSwitch();
         verifyNoLogoutUser();
@@ -944,9 +1246,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockUserHalSupported(false);
         mockAmSwitchUser(mMockedActivityManager, mRegularUser, true);
 
-        switchUser(mRegularUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mRegularUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResult(getUserSwitchResult(mRegularUserId),
+        assertUserSwitchResult(getUserSwitchResult(),
                 UserSwitchResult.STATUS_SUCCESSFUL);
 
         // update current user due to successful user switch
@@ -963,9 +1265,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockUserHalSupported(false);
         // Don't need to call mockAmSwitchUser() because it returns false by default
 
-        switchUser(mRegularUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mRegularUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResultForAndroidFailure(getUserSwitchResult(mRegularUserId),
+        assertUserSwitchResultForAndroidFailure(getUserSwitchResult(),
                 UserManager.USER_OPERATION_ERROR_UNKNOWN);
         assertNoHalUserSwitch();
         verifyNoLogoutUser();
@@ -980,9 +1282,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockHalSwitch(mAdminUserId, mGuestUser, mSwitchUserResponse);
         mockAmSwitchUser(mMockedActivityManager, mGuestUser, true);
 
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResult(getUserSwitchResult(mGuestUserId),
+        assertUserSwitchResult(getUserSwitchResult(),
                 UserSwitchResult.STATUS_SUCCESSFUL);
 
         // update current user due to successful user switch
@@ -1001,9 +1303,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockHalSwitch(mAdminUserId, mGuestUser, mSwitchUserResponse);
         mockAmSwitchUser(mMockedActivityManager, mGuestUser, false);
 
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResult(getUserSwitchResult(mGuestUserId),
+        assertUserSwitchResult(getUserSwitchResult(),
                 UserSwitchResult.STATUS_ANDROID_FAILURE);
         assertPostSwitch(requestId, mAdminUserId, mGuestUserId);
         verifyNoLogoutUser();
@@ -1016,9 +1318,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mSwitchUserResponse.errorMessage = "Error Message";
         mockHalSwitch(mAdminUserId, mGuestUser, mSwitchUserResponse);
 
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResultWithError(getUserSwitchResult(mGuestUserId),
+        assertUserSwitchResultWithError(getUserSwitchResult(),
                 UserSwitchResult.STATUS_HAL_FAILURE, mSwitchUserResponse.errorMessage);
         verifyNoUserSwitch();
         verifyNoLogoutUser();
@@ -1029,9 +1331,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockExistingUsersAndCurrentUser(mAdminUser);
         mockHalSwitch(mAdminUserId, mGuestUser, /* response= */ null);
 
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResultWithError(getUserSwitchResult(mGuestUserId),
+        assertUserSwitchResultWithError(getUserSwitchResult(),
                 UserSwitchResult.STATUS_HAL_INTERNAL_FAILURE, /* expectedErrorMessage= */ null);
         verifyNoUserSwitch();
         verifyNoLogoutUser();
@@ -1044,9 +1346,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockHalSwitch(mAdminUserId, HalCallback.STATUS_WRONG_HAL_RESPONSE,
                 mSwitchUserResponse, mGuestUser);
 
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResult(getUserSwitchResult(mGuestUserId),
+        assertUserSwitchResult(getUserSwitchResult(),
                 UserSwitchResult.STATUS_HAL_INTERNAL_FAILURE);
         verifyNoUserSwitch();
         verifyNoLogoutUser();
@@ -1058,9 +1360,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockExistingUsersAndCurrentUser(mAdminUser);
 
         initService();
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResult(getUserSwitchResult(mGuestUserId),
+        assertUserSwitchResult(getUserSwitchResult(),
                 UserSwitchResult.STATUS_UX_RESTRICTION_FAILURE);
         assertNoHalUserSwitch();
         verifyNoUserSwitch();
@@ -1078,15 +1380,15 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
 
         // Should be ok first time...
         ICarUxRestrictionsChangeListener listener = initService();
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
-        assertUserSwitchResult(getUserSwitchResult(mGuestUserId),
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
+        assertUserSwitchResult(getUserSwitchResult(),
                 UserSwitchResult.STATUS_SUCCESSFUL);
 
         // ...but then fail after the state changed
         mockCurrentUser(mGuestUser);
         updateUxRestrictions(listener, /* restricted= */ true); // changed state
-        switchUser(mAdminUserId, mAsyncCallTimeoutMs, mUserSwitchFuture2);
-        assertUserSwitchResult(getUserSwitchResult2(mAdminUserId),
+        switchUser(mAdminUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl2);
+        assertUserSwitchResult(getUserSwitchResult2(),
                 UserSwitchResult.STATUS_UX_RESTRICTION_FAILURE);
 
         // Verify only initial call succeeded (if second was also called the mocks, verify() would
@@ -1105,7 +1407,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mSwitchUserResponse.requestId = requestId;
         mockHalSwitch(mAdminUserId, mGuestUser, mSwitchUserResponse);
         mockAmSwitchUser(mMockedActivityManager, mGuestUser, true);
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
         // calling another user switch before unlock
         int newRequestId = 43;
@@ -1114,11 +1416,11 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         switchUserResponse.requestId = newRequestId;
         mockHalSwitch(mAdminUserId, mRegularUser, switchUserResponse);
         mockAmSwitchUser(mMockedActivityManager, mRegularUser, true);
-        switchUser(mRegularUserId, mAsyncCallTimeoutMs, mUserSwitchFuture2);
+        switchUser(mRegularUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl2);
 
-        assertUserSwitchResult(getUserSwitchResult(mGuestUserId),
+        assertUserSwitchResult(getUserSwitchResult(),
                 UserSwitchResult.STATUS_SUCCESSFUL);
-        assertUserSwitchResult(getUserSwitchResult2(mRegularUserId),
+        assertUserSwitchResult(getUserSwitchResult2(),
                 UserSwitchResult.STATUS_SUCCESSFUL);
         assertNoPostSwitch();
         assertHalSwitch(mAdminUserId, mGuestUserId);
@@ -1135,7 +1437,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mSwitchUserResponse.requestId = requestId;
         mockHalSwitch(mAdminUserId, mGuestUser, mSwitchUserResponse);
         mockAmSwitchUser(mMockedActivityManager, mGuestUser, true);
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
         // calling another user switch before unlock
         int newRequestId = 43;
@@ -1144,15 +1446,15 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         switchUserResponse.requestId = newRequestId;
         mockHalSwitch(mAdminUserId, mRegularUser, switchUserResponse);
         mockAmSwitchUser(mMockedActivityManager, mRegularUser, true);
-        switchUser(mRegularUserId, mAsyncCallTimeoutMs, mUserSwitchFuture2);
+        switchUser(mRegularUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl2);
         mockCurrentUser(mRegularUser);
         sendUserUnlockedEvent(mRegularUserId);
 
         if (false) { // TODO(b/214437189): add this assertion (right now it's returning SUCCESSFUL
-            assertUserSwitchResult(getUserSwitchResult(mGuestUserId),
+            assertUserSwitchResult(getUserSwitchResult(),
                     UserSwitchResult.STATUS_TARGET_USER_ABANDONED_DUE_TO_A_NEW_REQUEST);
         }
-        assertUserSwitchResult(getUserSwitchResult2(mRegularUserId),
+        assertUserSwitchResult(getUserSwitchResult2(),
                 UserSwitchResult.STATUS_SUCCESSFUL);
         assertPostSwitch(newRequestId, mRegularUserId, mRegularUserId);
         assertHalSwitch(mAdminUserId, mGuestUserId);
@@ -1171,9 +1473,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockAmSwitchUser(mMockedActivityManager, mGuestUser, true);
 
         // First switch, using CarUserManager
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResult(getUserSwitchResult(mGuestUserId),
+        assertUserSwitchResult(getUserSwitchResult(),
                 UserSwitchResult.STATUS_SUCCESSFUL);
         // update current user due to successful user switch
         mockCurrentUser(mGuestUser);
@@ -1196,7 +1498,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         int requestId = 42;
         mSwitchUserResponse.status = SwitchUserStatus.SUCCESS;
         mSwitchUserResponse.requestId = requestId;
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
         // calling another user switch before unlock
         int newRequestId = 43;
@@ -1205,13 +1507,13 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         switchUserResponse.requestId = newRequestId;
         mockHalSwitch(mAdminUserId, mRegularUser, switchUserResponse);
         mockAmSwitchUser(mMockedActivityManager, mRegularUser, true);
-        switchUser(mRegularUserId, mAsyncCallTimeoutMs, mUserSwitchFuture2);
+        switchUser(mRegularUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl2);
 
         if (false) { // TODO(b/214437189): add this assertion (right now it times out)
-            assertUserSwitchResult(getUserSwitchResult(mGuestUserId),
+            assertUserSwitchResult(getUserSwitchResult(),
                     UserSwitchResult.STATUS_TARGET_USER_ABANDONED_DUE_TO_A_NEW_REQUEST);
         }
-        assertUserSwitchResult(getUserSwitchResult2(mRegularUserId),
+        assertUserSwitchResult(getUserSwitchResult2(),
                 UserSwitchResult.STATUS_SUCCESSFUL);
         assertNoPostSwitch();
         assertHalSwitch(mAdminUserId, mGuestUserId);
@@ -1226,7 +1528,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         int requestId = 42;
         mSwitchUserResponse.status = SwitchUserStatus.SUCCESS;
         mSwitchUserResponse.requestId = requestId;
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
         // calling another user switch before unlock
         int newRequestId = 43;
@@ -1235,16 +1537,16 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         switchUserResponse.requestId = newRequestId;
         mockHalSwitch(mAdminUserId, mRegularUser, switchUserResponse);
         mockAmSwitchUser(mMockedActivityManager, mRegularUser, true);
-        switchUser(mRegularUserId, mAsyncCallTimeoutMs, mUserSwitchFuture2);
+        switchUser(mRegularUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl2);
 
         mockCurrentUser(mRegularUser);
         sendUserUnlockedEvent(mRegularUserId);
 
         if (false) { // TODO(b/214437189): add this assertion (right now it times out)
-            assertUserSwitchResult(getUserSwitchResult(mGuestUserId),
+            assertUserSwitchResult(getUserSwitchResult(),
                     UserSwitchResult.STATUS_TARGET_USER_ABANDONED_DUE_TO_A_NEW_REQUEST);
         }
-        assertUserSwitchResult(getUserSwitchResult2(mRegularUserId),
+        assertUserSwitchResult(getUserSwitchResult2(),
                 UserSwitchResult.STATUS_SUCCESSFUL);
         assertPostSwitch(newRequestId, mRegularUserId, mRegularUserId);
         assertHalSwitch(mAdminUserId, mGuestUserId);
@@ -1261,7 +1563,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mSwitchUserResponse.requestId = requestId;
         BlockingAnswer<Void> blockingAnswer = mockHalSwitchLateResponse(mAdminUserId,
                 mGuestUser, mSwitchUserResponse);
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
         // calling another user switch before unlock
         int newRequestId = 43;
@@ -1270,15 +1572,15 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         switchUserResponse.requestId = newRequestId;
         mockHalSwitch(mAdminUserId, mRegularUser, switchUserResponse);
         mockAmSwitchUser(mMockedActivityManager, mRegularUser, true);
-        switchUser(mRegularUserId, mAsyncCallTimeoutMs, mUserSwitchFuture2);
+        switchUser(mRegularUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl2);
 
         mockCurrentUser(mRegularUser);
         sendUserUnlockedEvent(mRegularUserId);
         blockingAnswer.unblock();
 
-        assertUserSwitchResult(getUserSwitchResult(mGuestUserId),
+        assertUserSwitchResult(getUserSwitchResult(),
                 UserSwitchResult.STATUS_TARGET_USER_ABANDONED_DUE_TO_A_NEW_REQUEST);
-        assertUserSwitchResult(getUserSwitchResult2(mRegularUserId),
+        assertUserSwitchResult(getUserSwitchResult2(),
                 UserSwitchResult.STATUS_SUCCESSFUL);
         assertPostSwitch(newRequestId, mRegularUserId, mRegularUserId);
         assertHalSwitch(mAdminUserId, mGuestUserId);
@@ -1293,13 +1595,13 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mSwitchUserResponse.status = SwitchUserStatus.SUCCESS;
         mSwitchUserResponse.requestId = requestId;
 
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
         // calling another user switch before unlock
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture2);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl2);
 
         // TODO(b/214437189): should also assert first call
-        assertUserSwitchResult(getUserSwitchResult2(mGuestUserId),
+        assertUserSwitchResult(getUserSwitchResult2(),
                 UserSwitchResult.STATUS_TARGET_USER_ALREADY_BEING_SWITCHED_TO);
         assertNoPostSwitch();
         assertHalSwitch(mAdminUserId, mGuestUserId);
@@ -1315,13 +1617,13 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockHalSwitch(mAdminUserId, mGuestUser, mSwitchUserResponse);
         mockAmSwitchUser(mMockedActivityManager, mGuestUser, true);
 
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
         // calling another user switch before unlock
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture2);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl2);
 
-        assertUserSwitchResult(getUserSwitchResult(mGuestUserId),
+        assertUserSwitchResult(getUserSwitchResult(),
                 UserSwitchResult.STATUS_SUCCESSFUL);
-        assertUserSwitchResult(getUserSwitchResult2(mGuestUserId),
+        assertUserSwitchResult(getUserSwitchResult2(),
                 UserSwitchResult.STATUS_TARGET_USER_ALREADY_BEING_SWITCHED_TO);
         assertNoPostSwitch();
         assertHalSwitch(mAdminUserId, mGuestUserId);
@@ -1338,18 +1640,18 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockHalSwitch(mAdminUserId, mGuestUser, mSwitchUserResponse);
         mockAmSwitchUser(mMockedActivityManager, mGuestUser, true);
 
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
         int newRequestId = 43;
         mSwitchUserResponse.requestId = newRequestId;
 
         // calling another user switch before unlock
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture2);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl2);
         mockCurrentUser(mGuestUser);
         sendUserUnlockedEvent(mGuestUserId);
 
-        assertUserSwitchResult(getUserSwitchResult(mGuestUserId),
+        assertUserSwitchResult(getUserSwitchResult(),
                 UserSwitchResult.STATUS_SUCCESSFUL);
-        assertUserSwitchResult(getUserSwitchResult2(mGuestUserId),
+        assertUserSwitchResult(getUserSwitchResult2(),
                 UserSwitchResult.STATUS_TARGET_USER_ALREADY_BEING_SWITCHED_TO);
         assertPostSwitch(requestId, mGuestUserId, mGuestUserId);
         assertHalSwitch(mAdminUserId, mGuestUserId);
@@ -1361,7 +1663,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockManageUsersPermission(android.Manifest.permission.MANAGE_USERS, false);
 
         assertThrows(SecurityException.class, () -> mCarUserService
-                .switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture));
+                .switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl));
     }
 
     @Test
@@ -1393,7 +1695,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         int targetUserId = mGuestUserId;
         mockCallerUid(Binder.getCallingUid(), true);
         mCarUserService.setUserSwitchUiCallback(mSwitchUserUiReceiver);
-        switchUser(targetUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(targetUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
         // Act - trigger legacy switch
         sendUserSwitchingEvent(mAdminUserId, targetUserId);
@@ -1417,7 +1719,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockHalSwitch(mAdminUserId, mGuestUser, mSwitchUserResponse);
         mockAmSwitchUser(mMockedActivityManager, mGuestUser, true);
 
-        switchUser(mGuestUserId, mAsyncCallTimeoutMs, mUserSwitchFuture);
+        switchUser(mGuestUserId, ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
         // update current user due to successful user switch
         verify(mSwitchUserUiReceiver).send(mGuestUserId, null);
@@ -1462,10 +1764,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     public void testLogoutUser_currentUserNotSwitchedByDeviceAdmin() throws Exception {
         mockNoLogoutUserId();
 
-        logoutUser(mAsyncCallTimeoutMs, mUserSwitchFuture);
+        logoutUser(ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResult(getResult(mUserSwitchFuture, "result of user not logged in"),
-                UserSwitchResult.STATUS_NOT_LOGGED_IN);
+        assertUserSwitchResult(getUserSwitchResult(), UserSwitchResult.STATUS_NOT_LOGGED_IN);
         verifyNoLogoutUser();
         verifyNoUserSwitch();
     }
@@ -1478,10 +1779,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockUmGetUserSwitchability(mMockedUserManager,
                 UserManager.SWITCHABILITY_STATUS_SYSTEM_USER_LOCKED);
 
-        logoutUser(mAsyncCallTimeoutMs, mUserSwitchFuture);
+        logoutUser(ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResult(getUserSwitchResult(mAdminUserId),
-                UserSwitchResult.STATUS_SUCCESSFUL);
+        assertUserSwitchResult(getUserSwitchResult(), UserSwitchResult.STATUS_SUCCESSFUL);
         verifyLogoutUser();
         verifyNoUserSwitch();
     }
@@ -1492,10 +1792,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockUserHalSupported(false);
         mockDpmLogoutUser(mMockedDevicePolicyManager, UserManager.USER_OPERATION_SUCCESS);
 
-        logoutUser(mAsyncCallTimeoutMs, mUserSwitchFuture);
+        logoutUser(ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResult(getUserSwitchResult(mAdminUserId),
-                UserSwitchResult.STATUS_SUCCESSFUL);
+        assertUserSwitchResult(getUserSwitchResult(), UserSwitchResult.STATUS_SUCCESSFUL);
         verifyLogoutUser();
         verifyNoUserSwitch();
     }
@@ -1506,9 +1805,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockUserHalSupported(false);
         mockDpmLogoutUser(mMockedDevicePolicyManager, UserManager.USER_OPERATION_ERROR_MAX_USERS);
 
-        logoutUser(mAsyncCallTimeoutMs, mUserSwitchFuture);
+        logoutUser(ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResultForAndroidFailure(getUserSwitchResult(mAdminUserId),
+        assertUserSwitchResultForAndroidFailure(getUserSwitchResult(),
                 UserManager.USER_OPERATION_ERROR_MAX_USERS);
         verifyLogoutUser();
         verifyNoUserSwitch();
@@ -1525,10 +1824,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockHalSwitch(mGuestUserId, mAdminUser, mSwitchUserResponse);
         mockAmSwitchUser(mMockedActivityManager, mAdminUser, true);
 
-        logoutUser(mAsyncCallTimeoutMs, mUserSwitchFuture);
+        logoutUser(ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResult(getUserSwitchResult(mAdminUserId),
-                UserSwitchResult.STATUS_SUCCESSFUL);
+        assertUserSwitchResult(getUserSwitchResult(), UserSwitchResult.STATUS_SUCCESSFUL);
 
         // update current user due to successful user switch
         mockCurrentUser(mAdminUser);
@@ -1549,9 +1847,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockHalSwitch(mGuestUserId, mAdminUser, mSwitchUserResponse);
         mockDpmLogoutUser(mMockedDevicePolicyManager, UserManager.USER_OPERATION_ERROR_MAX_USERS);
 
-        logoutUser(mAsyncCallTimeoutMs, mUserSwitchFuture);
+        logoutUser(ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResultForAndroidFailure(getUserSwitchResult(mAdminUserId),
+        assertUserSwitchResultForAndroidFailure(getUserSwitchResult(),
                 UserManager.USER_OPERATION_ERROR_MAX_USERS);
         verifyLogoutUser();
         verifyNoUserSwitch();
@@ -1567,10 +1865,10 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mSwitchUserResponse.errorMessage = "Error Message";
         mockHalSwitch(mGuestUserId, mAdminUser, mSwitchUserResponse);
 
-        logoutUser(mAsyncCallTimeoutMs, mUserSwitchFuture);
+        logoutUser(ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResultWithError(getUserSwitchResult(mAdminUserId),
-                UserSwitchResult.STATUS_HAL_FAILURE, mSwitchUserResponse.errorMessage);
+        assertUserSwitchResultWithError(getUserSwitchResult(), UserSwitchResult.STATUS_HAL_FAILURE,
+                mSwitchUserResponse.errorMessage);
 
         verifyNoLogoutUser();
         verifyNoUserSwitch();
@@ -1582,9 +1880,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockLogoutUser(mAdminUser);
 
         initService();
-        logoutUser(mAsyncCallTimeoutMs, mUserSwitchFuture);
+        logoutUser(ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl);
 
-        assertUserSwitchResult(getUserSwitchResult(mAdminUserId),
+        assertUserSwitchResult(getUserSwitchResult(),
                 UserSwitchResult.STATUS_UX_RESTRICTION_FAILURE);
         verifyNoLogoutUser();
         assertNoHalUserSwitch();
@@ -1596,20 +1894,21 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockManageUsersPermission(android.Manifest.permission.MANAGE_USERS, false);
 
         assertThrows(SecurityException.class, () -> mCarUserService
-                .logoutUser(mAsyncCallTimeoutMs, mUserSwitchFuture));
+                .logoutUser(ASYNC_CALL_TIMEOUT_MS, mUserSwitchResultCallbackImpl));
     }
 
     @Test
     public void testCreateUser_nullType() throws Exception {
-        assertThrows(NullPointerException.class, () -> mCarUserService
-                .createUser("dude", null, 108, mAsyncCallTimeoutMs, new AndroidFuture<>(),
+        assertThrows(NullPointerException.class,
+                () -> mCarUserService.createUser("dude", null, 108, ASYNC_CALL_TIMEOUT_MS,
+                        new ResultCallbackImpl<>(Runnable::run, new SyncResultCallback<>()),
                         NO_CALLER_RESTRICTIONS));
     }
 
     @Test
     public void testCreateUser_nullReceiver() throws Exception {
         assertThrows(NullPointerException.class, () -> mCarUserService
-                .createUser("dude", "TypeONegative", 108, mAsyncCallTimeoutMs, null,
+                .createUser("dude", "TypeONegative", 108, ASYNC_CALL_TIMEOUT_MS, null,
                         NO_CALLER_RESTRICTIONS));
     }
 
@@ -1619,7 +1918,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
                 UserManager.USER_OPERATION_ERROR_MAX_USERS);
         mockUmCreateUser(mMockedUserManager, "dude", "TypeONegative", 108, response);
 
-        createUser("dude", "TypeONegative", 108, mAsyncCallTimeoutMs, mUserCreationFuture,
+        createUser("dude", "TypeONegative", 108, ASYNC_CALL_TIMEOUT_MS, mUserCreationResultCallback,
                 NO_CALLER_RESTRICTIONS);
 
         UserCreationResult result = getUserCreationResult();
@@ -1639,7 +1938,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         RuntimeException exception = new RuntimeException("D'OH!");
         mockUmCreateUser(mMockedUserManager, "dude", "TypeONegative", 108, exception);
 
-        createUser("dude", "TypeONegative", 108, mAsyncCallTimeoutMs, mUserCreationFuture,
+        createUser("dude", "TypeONegative", 108, ASYNC_CALL_TIMEOUT_MS, mUserCreationResultCallback,
                 NO_CALLER_RESTRICTIONS);
 
         UserCreationResult result = getUserCreationResult();
@@ -1661,7 +1960,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockHalCreateUser(HalCallback.STATUS_INVALID, /* not_used_status= */ -1);
         mockRemoveUser(newUser);
 
-        createUser("dude", "TypeONegative", 108, mAsyncCallTimeoutMs, mUserCreationFuture,
+        createUser("dude", "TypeONegative", 108, ASYNC_CALL_TIMEOUT_MS, mUserCreationResultCallback,
                 NO_CALLER_RESTRICTIONS);
 
         UserCreationResult result = getUserCreationResult();
@@ -1681,7 +1980,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockHalCreateUser(HalCallback.STATUS_OK, CreateUserStatus.FAILURE);
         mockRemoveUser(newUser);
 
-        createUser("dude", "TypeONegative", 108, mAsyncCallTimeoutMs, mUserCreationFuture,
+        createUser("dude", "TypeONegative", 108, ASYNC_CALL_TIMEOUT_MS, mUserCreationResultCallback,
                 NO_CALLER_RESTRICTIONS);
 
         UserCreationResult result = getUserCreationResult();
@@ -1702,7 +2001,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockHalCreateUser(HalCallback.STATUS_HAL_SET_TIMEOUT, /* response= */ null);
         mockRemoveUser(newUser);
 
-        createUser("dude", "TypeONegative", 108, mAsyncCallTimeoutMs, mUserCreationFuture,
+        createUser("dude", "TypeONegative", 108, ASYNC_CALL_TIMEOUT_MS, mUserCreationResultCallback,
                 NO_CALLER_RESTRICTIONS);
 
         UserCreationResult result = getUserCreationResult();
@@ -1724,7 +2023,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockHalCreateUserThrowsRuntimeException(exception);
         mockRemoveUser(newUser);
 
-        createUser("dude", "TypeONegative", 108, mAsyncCallTimeoutMs, mUserCreationFuture,
+        createUser("dude", "TypeONegative", 108, ASYNC_CALL_TIMEOUT_MS, mUserCreationResultCallback,
                 NO_CALLER_RESTRICTIONS);
 
         UserCreationResult result = getUserCreationResult();
@@ -1742,12 +2041,11 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     public void testCreateUser_halNotSupported_success() throws Exception {
         mockUserHalSupported(false);
         mockExistingUsersAndCurrentUser(mAdminUser);
-        int userId = mRegularUserId;
         mockUmCreateUser(mMockedUserManager, "dude", UserManager.USER_TYPE_FULL_SECONDARY,
                 UserManagerHelper.FLAG_EPHEMERAL, mRegularUser);
 
         createUser("dude", UserManager.USER_TYPE_FULL_SECONDARY, UserManagerHelper.FLAG_EPHEMERAL,
-                mAsyncCallTimeoutMs, mUserCreationFuture, NO_CALLER_RESTRICTIONS);
+                ASYNC_CALL_TIMEOUT_MS, mUserCreationResultCallback, NO_CALLER_RESTRICTIONS);
 
         UserCreationResult result = getUserCreationResult();
         assertThat(result.getStatus()).isEqualTo(UserCreationResult.STATUS_SUCCESSFUL);
@@ -1768,9 +2066,9 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
                 /* flags= */ 0, UserHandle.of(42));
 
         createUser("dude", UserManager.USER_TYPE_FULL_SECONDARY, /* flags= */ 0,
-                mAsyncCallTimeoutMs, mUserCreationFuture, NO_CALLER_RESTRICTIONS);
+                ASYNC_CALL_TIMEOUT_MS, mUserCreationResultCallback, NO_CALLER_RESTRICTIONS);
 
-        assertUserCreationWithInternalErrorMessage(mUserCreationFuture,
+        assertUserCreationWithInternalErrorMessage(mSyncResultCallbackForCreateUser,
                 UserCreationResult.STATUS_ANDROID_FAILURE,
                 CarUserService.ERROR_TEMPLATE_DISALLOW_ADD_USER, Process.myUserHandle(),
                 UserManager.DISALLOW_ADD_USER);
@@ -1790,7 +2088,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
                 mockHalCreateUser(HalCallback.STATUS_OK, CreateUserStatus.SUCCESS);
 
         createUser("dude", UserManager.USER_TYPE_FULL_SECONDARY, UserManagerHelper.FLAG_EPHEMERAL,
-                mAsyncCallTimeoutMs, mUserCreationFuture, NO_CALLER_RESTRICTIONS);
+                ASYNC_CALL_TIMEOUT_MS, mUserCreationResultCallback, NO_CALLER_RESTRICTIONS);
 
         // Assert request
         CreateUserRequest request = requestCaptor.getValue();
@@ -1824,7 +2122,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
                 mockHalCreateUser(HalCallback.STATUS_OK, CreateUserStatus.SUCCESS);
 
         createUser("guest", UserManager.USER_TYPE_FULL_GUEST, /* flags= */ 0,
-                mAsyncCallTimeoutMs, mUserCreationFuture, NO_CALLER_RESTRICTIONS);
+                ASYNC_CALL_TIMEOUT_MS, mUserCreationResultCallback, NO_CALLER_RESTRICTIONS);
 
         // Assert request
         CreateUserRequest request = requestCaptor.getValue();
@@ -1850,15 +2148,63 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     }
 
     @Test
+    public void testCreateUser_concurrentRequests_success() throws Exception {
+        mockExistingUsersAndCurrentUser(mAdminUser);
+        when(mMockedUserManager.createUser(any()))
+                .thenReturn(new NewUserResponse(UserHandle.of(mGuestUserId),
+                        UserManager.USER_OPERATION_SUCCESS));
+
+        CreateUserResponse successResponse = new CreateUserResponse();
+        successResponse.status = CreateUserStatus.SUCCESS;
+        CreateUserResponse failResponse = new CreateUserResponse();
+        failResponse.status = CreateUserStatus.FAILURE;
+        AtomicBoolean halInUse = new AtomicBoolean(false);
+        doAnswer((invocation) -> {
+            Log.d(TAG, "Answering user HAL createUser invication: " + invocation);
+            @SuppressWarnings("unchecked")
+            HalCallback<CreateUserResponse> callback =
+                    (HalCallback<CreateUserResponse>) invocation.getArguments()[2];
+            if (halInUse.getAndSet(/* newValue= */ true)) {
+                Log.d(TAG, "HAL is in use. Concurrent operation fails");
+                // HAL is in use. Fail with STATUS_CONCURRENT_OPERATION.
+                callback.onResponse(HalCallback.STATUS_CONCURRENT_OPERATION, failResponse);
+                halInUse.set(false);
+            } else {
+                Log.d(TAG, "HAL not in use. Posting a delayed job to create user HAL");
+                mHandler.postDelayed(() -> {
+                    callback.onResponse(HalCallback.STATUS_OK, successResponse);
+                    halInUse.set(false);
+                }, ASYNC_CALL_TIMEOUT_MS);
+            }
+            return null;
+        }).when(mUserHal).createUser(any(), anyInt(), any());
+
+        // Request creating 2 users concurretnly.
+        mCarUserService.createUser("guest1", UserManager.USER_TYPE_FULL_GUEST, /* flags= */ 0,
+                ASYNC_CALL_TIMEOUT_MS, mUserCreationResultCallback, NO_CALLER_RESTRICTIONS);
+        mCarUserService.createUser("guest2", UserManager.USER_TYPE_FULL_GUEST, /* flags= */ 0,
+                ASYNC_CALL_TIMEOUT_MS, mUserCreationResultCallback2, NO_CALLER_RESTRICTIONS);
+        waitForHandlerThreadToFinish();
+
+        assertWithMessage("1st user creation result status")
+                .that(getUserCreationResult().getStatus())
+                .isEqualTo(UserCreationResult.STATUS_SUCCESSFUL);
+        assertWithMessage("2nd user creation result status")
+                .that(getUserCreationResult2().getStatus())
+                .isEqualTo(UserCreationResult.STATUS_SUCCESSFUL);
+    }
+
+    @Test
     public void testCreateUser_guest_failsWithNonZeroFlags() throws Exception {
         mockExistingUsersAndCurrentUser(mAdminUser);
 
         String name = "guest";
         int flags = UserManagerHelper.FLAG_EPHEMERAL;
-        createUser(name, UserManager.USER_TYPE_FULL_GUEST, flags, mAsyncCallTimeoutMs,
-                mUserCreationFuture, NO_CALLER_RESTRICTIONS);
+        createUser(name, UserManager.USER_TYPE_FULL_GUEST, flags, ASYNC_CALL_TIMEOUT_MS,
+                mUserCreationResultCallback, NO_CALLER_RESTRICTIONS);
 
-        assertUserCreationInvalidArgumentsFailureWithInternalErrorMessage(mUserCreationFuture,
+        assertUserCreationInvalidArgumentsFailureWithInternalErrorMessage(
+                mSyncResultCallbackForCreateUser,
                 CarUserService.ERROR_TEMPLATE_INVALID_FLAGS_FOR_GUEST_CREATION, flags, name);
     }
 
@@ -1867,15 +2213,15 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         String nullName = null;
         mockExistingUsersAndCurrentUser(mAdminUser);
         int userId = 300;
-        UserHandle expectedeUser = expectEphemeralUserExists(mMockedUserHandleHelper, userId);
+        UserHandle expectedUser = expectEphemeralUserExists(mMockedUserHandleHelper, userId);
 
         mockUmCreateUser(mMockedUserManager, nullName, UserManager.USER_TYPE_FULL_SECONDARY,
-                UserManagerHelper.FLAG_EPHEMERAL, expectedeUser);
+                UserManagerHelper.FLAG_EPHEMERAL, expectedUser);
         ArgumentCaptor<CreateUserRequest> requestCaptor =
                 mockHalCreateUser(HalCallback.STATUS_OK, CreateUserStatus.SUCCESS);
 
         createUser(nullName, UserManager.USER_TYPE_FULL_SECONDARY, UserManagerHelper.FLAG_EPHEMERAL,
-                mAsyncCallTimeoutMs, mUserCreationFuture, NO_CALLER_RESTRICTIONS);
+                ASYNC_CALL_TIMEOUT_MS, mUserCreationResultCallback, NO_CALLER_RESTRICTIONS);
 
         // Assert request
         CreateUserRequest request = requestCaptor.getValue();
@@ -1903,13 +2249,15 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     @Test
     public void testCreateUser_binderMethod() {
         CarUserService spy = spy(mCarUserService);
-        AndroidFuture<UserCreationResult> receiver = new AndroidFuture<>();
+        ResultCallbackImpl<UserCreationResult> resultCallbackImpl = new ResultCallbackImpl<>(
+                Runnable::run, new SyncResultCallback<>());
         int flags = 42;
         int timeoutMs = 108;
 
-        spy.createUser("name", "type", flags, timeoutMs, receiver);
+        spy.createUser("name", "type", flags, timeoutMs, resultCallbackImpl,
+                NO_CALLER_RESTRICTIONS);
 
-        verify(spy).createUser("name", "type", flags, timeoutMs, receiver,
+        verify(spy).createUser("name", "type", flags, timeoutMs, resultCallbackImpl,
                 NO_CALLER_RESTRICTIONS);
     }
 
@@ -1920,9 +2268,10 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockGetCallingUserHandle(currentUser.getIdentifier());
 
         createUser("name", UserManager.USER_TYPE_FULL_SECONDARY, UserManagerHelper.FLAG_ADMIN,
-                mAsyncCallTimeoutMs, mUserCreationFuture, HAS_CALLER_RESTRICTIONS);
+                ASYNC_CALL_TIMEOUT_MS, mUserCreationResultCallback, HAS_CALLER_RESTRICTIONS);
 
-        assertUserCreationInvalidArgumentsFailureWithInternalErrorMessage(mUserCreationFuture,
+        assertUserCreationInvalidArgumentsFailureWithInternalErrorMessage(
+                mSyncResultCallbackForCreateUser,
                 CarUserService.ERROR_TEMPLATE_NON_ADMIN_CANNOT_CREATE_ADMIN_USERS,
                 mRegularUser.getIdentifier());
     }
@@ -1951,18 +2300,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     }
 
     @Test
-    @ExpectWtf
-    public void testCreateUserEvenWhenDisallowed_noHelper() throws Exception {
-        UserHandle userHandle = mCarUserService.createUserEvenWhenDisallowed("name",
-                UserManager.USER_TYPE_FULL_SECONDARY, UserManagerHelper.FLAG_ADMIN);
-        waitForHandlerThreadToFinish();
-
-        assertThat(userHandle).isNull();
-    }
-
-    @Test
     public void testCreateUserEvenWhenDisallowed_remoteException() throws Exception {
-        mCarUserService.setCarServiceHelper(mICarServiceHelper);
         when(mICarServiceHelper.createUserEvenWhenDisallowed(any(), any(), anyInt()))
                 .thenThrow(new RemoteException("D'OH!"));
 
@@ -1976,7 +2314,6 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     @Test
     public void testCreateUserEvenWhenDisallowed_success() throws Exception {
         UserHandle user = UserHandle.of(100);
-        mCarUserService.setCarServiceHelper(mICarServiceHelper);
         when(mICarServiceHelper.createUserEvenWhenDisallowed("name",
                 UserManager.USER_TYPE_FULL_SECONDARY, UserManagerHelper.FLAG_ADMIN))
                         .thenReturn(user);
@@ -1990,73 +2327,191 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     }
 
     @Test
-    public void testStartUserInBackground_success() throws Exception {
-        int userId = 101;
+    public void testStartUser_success() throws Exception {
+        initUserAndDisplay(TEST_USER_ID, TEST_DISPLAY_ID);
+
+        UserStartRequest request = new UserStartRequest.Builder(UserHandle.of(TEST_USER_ID))
+                .setDisplayId(TEST_DISPLAY_ID).build();
+        startUser(request, mUserStartResultCallbackImpl);
+
+        assertThat(getUserStartResponse().getStatus())
+                .isEqualTo(UserStartResponse.STATUS_SUCCESSFUL);
+        assertThat(getUserStartResponse().isSuccess()).isTrue();
+    }
+
+    @Test
+    public void testStartUser_userAlreadyVisibleOnDisplay_success()
+            throws Exception {
+        initUserAndDisplay(TEST_USER_ID, TEST_DISPLAY_ID);
+        mockCarServiceHelperGetMainDisplayAssignedToUser(TEST_USER_ID, TEST_DISPLAY_ID);
+
+        UserStartRequest request = new UserStartRequest.Builder(UserHandle.of(TEST_USER_ID))
+                .setDisplayId(TEST_DISPLAY_ID).build();
+        startUser(request, mUserStartResultCallbackImpl);
+
+        assertThat(getUserStartResponse().getStatus())
+                .isEqualTo(UserStartResponse.STATUS_SUCCESSFUL_USER_ALREADY_VISIBLE_ON_DISPLAY);
+        assertThat(getUserStartResponse().isSuccess()).isTrue();
+    }
+
+    @Test
+    public void testStartUser_permissionDenied() throws Exception {
+        mockManageUsersPermission(android.Manifest.permission.MANAGE_USERS, false);
+        mockInteractAcrossUsersPermission(false);
+
+        UserStartRequest request = new UserStartRequest.Builder(UserHandle.of(TEST_USER_ID))
+                .setDisplayId(TEST_DISPLAY_ID).build();
+        assertThrows(SecurityException.class,
+                () -> startUser(request, mUserStartResultCallbackImpl));
+    }
+
+    @Test
+    public void testStartUser_userInvalid() throws Exception {
+        UserStartRequest request = new UserStartRequest.Builder(UserHandle.SYSTEM)
+                .setDisplayId(TEST_DISPLAY_ID).build();
+        startUser(request, mUserStartResultCallbackImpl);
+
+        assertThat(getUserStartResponse().getStatus())
+                .isEqualTo(UserStartResponse.STATUS_USER_INVALID);
+        assertThat(getUserStartResponse().isSuccess()).isFalse();
+    }
+
+    @Test
+    public void testStartUser_userDoesNotExist() throws Exception {
+        UserStartRequest request = new UserStartRequest.Builder(UserHandle.of(TEST_USER_ID))
+                .setDisplayId(TEST_DISPLAY_ID).build();
+        startUser(request, mUserStartResultCallbackImpl);
+
+        assertThat(getUserStartResponse().getStatus())
+                .isEqualTo(UserStartResponse.STATUS_USER_DOES_NOT_EXIST);
+        assertThat(getUserStartResponse().isSuccess()).isFalse();
+    }
+
+    @Test
+    public void testStartUser_displayUnavailable() throws Exception {
+        initUserAndDisplay(TEST_USER_ID, TEST_DISPLAY_ID);
+        mockCarOccupantZoneServiceGetUserForDisplay(TEST_DISPLAY_ID, TEST_USER_ID + 1);
+
+        UserStartRequest request = new UserStartRequest.Builder(UserHandle.of(TEST_USER_ID))
+                .setDisplayId(TEST_DISPLAY_ID).build();
+        startUser(request, mUserStartResultCallbackImpl);
+
+        assertThat(getUserStartResponse().getStatus())
+                .isEqualTo(UserStartResponse.STATUS_DISPLAY_UNAVAILABLE);
+        assertThat(getUserStartResponse().isSuccess()).isFalse();
+    }
+
+    @Test
+    public void testStartUser_userOnAnotherDisplay() throws Exception {
+        initUserAndDisplay(TEST_USER_ID, TEST_DISPLAY_ID);
+        mockCarServiceHelperGetMainDisplayAssignedToUser(TEST_USER_ID, TEST_DISPLAY_ID + 1);
+
+        UserStartRequest request = new UserStartRequest.Builder(UserHandle.of(TEST_USER_ID))
+                .setDisplayId(TEST_DISPLAY_ID).build();
+        startUser(request, mUserStartResultCallbackImpl);
+
+        assertThat(getUserStartResponse().getStatus())
+                .isEqualTo(UserStartResponse.STATUS_USER_ASSIGNED_TO_ANOTHER_DISPLAY);
+        assertThat(getUserStartResponse().isSuccess()).isFalse();
+    }
+
+    @Test
+    public void testStartUser_onDefaultDisplay_notPassengerOnly()
+            throws Exception {
         mockCurrentUser(mRegularUser);
-        UserHandle newUser = expectRegularUserExists(mMockedUserHandleHelper, userId);
+        expectRegularUserExists(mMockedUserHandleHelper, TEST_USER_ID);
+        mockAmStartUserInBackground(TEST_USER_ID, true);
+        mockUmIsVisibleBackgroundUsersOnDefaultDisplaySupported(mMockedUserManager, false);
+
+        UserStartRequest request =
+                new UserStartRequest.Builder(UserHandle.of(TEST_USER_ID))
+                    .setDisplayId(Display.DEFAULT_DISPLAY)
+                    .build();
+        startUser(request, mUserStartResultCallbackImpl);
+
+        assertThat(getUserStartResponse().getStatus())
+                .isEqualTo(UserStartResponse.STATUS_DISPLAY_INVALID);
+        assertThat(getUserStartResponse().isSuccess()).isFalse();
+    }
+
+    @Test
+    public void testStartUser_withoutDisplayId_startsUserInBackground() throws Exception {
+        mockCurrentUser(mRegularUser);
+        expectRegularUserExists(mMockedUserHandleHelper, TEST_USER_ID);
+        mockAmStartUserInBackground(TEST_USER_ID, true);
+
+        UserStartRequest request =
+                new UserStartRequest.Builder(UserHandle.of(TEST_USER_ID)).build();
+        startUser(request, mUserStartResultCallbackImpl);
+
+        assertThat(getUserStartResponse().getStatus())
+                .isEqualTo(UserStartResponse.STATUS_SUCCESSFUL);
+        assertThat(getUserStartResponse().isSuccess()).isTrue();
+    }
+
+    @Test
+    public void testStartUserInBackground_success() throws Exception {
+        mockCurrentUser(mRegularUser);
+        UserHandle newUser = expectRegularUserExists(mMockedUserHandleHelper, TEST_USER_ID);
         mockAmStartUserInBackground(newUser.getIdentifier(), true);
 
         AndroidFuture<UserStartResult> userStartResult = new AndroidFuture<>();
         startUserInBackground(newUser.getIdentifier(), userStartResult);
 
-        assertThat(getUserStartResult(userStartResult, userId).getStatus())
+        assertThat(getUserStartResult(userStartResult, TEST_USER_ID).getStatus())
                 .isEqualTo(UserStartResult.STATUS_SUCCESSFUL);
-        assertThat(getUserStartResult(userStartResult, userId).isSuccess()).isTrue();
+        assertThat(getUserStartResult(userStartResult, TEST_USER_ID).isSuccess()).isTrue();
     }
 
     @Test
     public void testStartUserInBackground_permissionDenied() throws Exception {
-        int userId = 101;
         mockManageUsersPermission(android.Manifest.permission.MANAGE_USERS, false);
         mockManageUsersPermission(android.Manifest.permission.CREATE_USERS, false);
 
         AndroidFuture<UserStartResult> userStartResult = new AndroidFuture<>();
         assertThrows(SecurityException.class,
-                () -> startUserInBackground(userId, userStartResult));
+                () -> startUserInBackground(TEST_USER_ID, userStartResult));
     }
 
     @Test
     public void testStartUserInBackground_fail() throws Exception {
-        int userId = 101;
-        UserHandle user = expectRegularUserExists(mMockedUserHandleHelper, userId);
+        expectRegularUserExists(mMockedUserHandleHelper, TEST_USER_ID);
         mockCurrentUser(mRegularUser);
-        mockAmStartUserInBackground(userId, false);
+        mockAmStartUserInBackground(TEST_USER_ID, false);
 
         AndroidFuture<UserStartResult> userStartResult = new AndroidFuture<>();
-        startUserInBackground(userId, userStartResult);
+        startUserInBackground(TEST_USER_ID, userStartResult);
 
-        assertThat(getUserStartResult(userStartResult, userId).getStatus())
+        assertThat(getUserStartResult(userStartResult, TEST_USER_ID).getStatus())
                 .isEqualTo(UserStartResult.STATUS_ANDROID_FAILURE);
-        assertThat(getUserStartResult(userStartResult, userId).isSuccess()).isFalse();
+        assertThat(getUserStartResult(userStartResult, TEST_USER_ID).isSuccess()).isFalse();
     }
 
     @Test
     public void testStartUserInBackground_currentUser() throws Exception {
-        int userId = 101;
-        UserHandle newUser = expectRegularUserExists(mMockedUserHandleHelper, userId);
+        UserHandle newUser = expectRegularUserExists(mMockedUserHandleHelper, TEST_USER_ID);
         mockGetCurrentUser(newUser.getIdentifier());
         mockAmStartUserInBackground(newUser.getIdentifier(), true);
 
         AndroidFuture<UserStartResult> userStartResult = new AndroidFuture<>();
         startUserInBackground(newUser.getIdentifier(), userStartResult);
 
-        assertThat(getUserStartResult(userStartResult, userId).getStatus())
+        assertThat(getUserStartResult(userStartResult, TEST_USER_ID).getStatus())
                 .isEqualTo(UserStartResult.STATUS_SUCCESSFUL_USER_IS_CURRENT_USER);
-        assertThat(getUserStartResult(userStartResult, userId).isSuccess()).isTrue();
+        assertThat(getUserStartResult(userStartResult, TEST_USER_ID).isSuccess()).isTrue();
     }
 
     @Test
     public void testStartUserInBackground_userDoesNotExist() throws Exception {
-        int userId = 101;
         mockCurrentUser(mRegularUser);
-        mockAmStartUserInBackground(userId, true);
+        mockAmStartUserInBackground(TEST_USER_ID, true);
 
         AndroidFuture<UserStartResult> userStartResult = new AndroidFuture<>();
-        startUserInBackground(userId, userStartResult);
+        startUserInBackground(TEST_USER_ID, userStartResult);
 
-        assertThat(getUserStartResult(userStartResult, userId).getStatus())
+        assertThat(getUserStartResult(userStartResult, TEST_USER_ID).getStatus())
                 .isEqualTo(UserStartResult.STATUS_USER_DOES_NOT_EXIST);
-        assertThat(getUserStartResult(userStartResult, userId).isSuccess()).isFalse();
+        assertThat(getUserStartResult(userStartResult, TEST_USER_ID).isSuccess()).isFalse();
     }
 
     @Test
@@ -2135,34 +2590,34 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     @Test
     public void testSetUserIdentificationAssociation_nullTypes() throws Exception {
         assertThrows(IllegalArgumentException.class, () -> mCarUserService
-                .setUserIdentificationAssociation(mAsyncCallTimeoutMs,
+                .setUserIdentificationAssociation(ASYNC_CALL_TIMEOUT_MS,
                         null, new int[] {42}, mUserAssociationRespFuture));
     }
 
     @Test
     public void testSetUserIdentificationAssociation_emptyTypes() throws Exception {
         assertThrows(IllegalArgumentException.class, () -> mCarUserService
-                .setUserIdentificationAssociation(mAsyncCallTimeoutMs,
+                .setUserIdentificationAssociation(ASYNC_CALL_TIMEOUT_MS,
                         new int[0], new int[] {42}, mUserAssociationRespFuture));
     }
 
     @Test
     public void testSetUserIdentificationAssociation_nullValues() throws Exception {
         assertThrows(IllegalArgumentException.class, () -> mCarUserService
-                .setUserIdentificationAssociation(mAsyncCallTimeoutMs,
+                .setUserIdentificationAssociation(ASYNC_CALL_TIMEOUT_MS,
                         new int[] {42}, null, mUserAssociationRespFuture));
     }
     @Test
     public void testSetUserIdentificationAssociation_sizeMismatch() throws Exception {
         assertThrows(IllegalArgumentException.class, () -> mCarUserService
-                .setUserIdentificationAssociation(mAsyncCallTimeoutMs,
+                .setUserIdentificationAssociation(ASYNC_CALL_TIMEOUT_MS,
                         new int[] {1}, new int[] {2, 2}, mUserAssociationRespFuture));
     }
 
     @Test
     public void testSetUserIdentificationAssociation_nullFuture() throws Exception {
         assertThrows(IllegalArgumentException.class, () -> mCarUserService
-                .setUserIdentificationAssociation(mAsyncCallTimeoutMs,
+                .setUserIdentificationAssociation(ASYNC_CALL_TIMEOUT_MS,
                         new int[] {42}, new int[] {42}, null));
     }
 
@@ -2170,7 +2625,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     public void testSetUserIdentificationAssociation_noPermission() throws Exception {
         mockManageUsersPermission(android.Manifest.permission.MANAGE_USERS, false);
         assertThrows(SecurityException.class, () -> mCarUserService
-                .setUserIdentificationAssociation(mAsyncCallTimeoutMs,
+                .setUserIdentificationAssociation(ASYNC_CALL_TIMEOUT_MS,
                         new int[] {42}, new int[] {42}, mUserAssociationRespFuture));
     }
 
@@ -2178,7 +2633,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     public void testSetUserIdentificationAssociation_noCurrentUser() throws Exception {
         // Should fail because we're not mocking UserManager.getUserInfo() to set the flag
         assertThrows(IllegalArgumentException.class, () -> mCarUserService
-                .setUserIdentificationAssociation(mAsyncCallTimeoutMs,
+                .setUserIdentificationAssociation(ASYNC_CALL_TIMEOUT_MS,
                         new int[] {42}, new int[] {42}, mUserAssociationRespFuture));
     }
 
@@ -2188,7 +2643,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         int[] values = new int[] { 10, 20, 30 };
         mockUserHalUserAssociationSupported(false);
 
-        mCarUserService.setUserIdentificationAssociation(mAsyncCallTimeoutMs, types, values,
+        mCarUserService.setUserIdentificationAssociation(ASYNC_CALL_TIMEOUT_MS, types, values,
                 mUserAssociationRespFuture);
         UserIdentificationAssociationResponse response = getUserAssociationRespResult();
 
@@ -2204,7 +2659,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockHalSetUserIdentificationAssociationFailure("D'OH!");
         int[] types = new int[] { 1, 2, 3 };
         int[] values = new int[] { 10, 20, 30 };
-        mCarUserService.setUserIdentificationAssociation(mAsyncCallTimeoutMs, types, values,
+        mCarUserService.setUserIdentificationAssociation(ASYNC_CALL_TIMEOUT_MS, types, values,
                 mUserAssociationRespFuture);
 
         UserIdentificationAssociationResponse response = getUserAssociationRespResult();
@@ -2222,7 +2677,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mockHalSetUserIdentificationAssociationFailure(/* errorMessage= */ null);
         int[] types = new int[] { 1, 2, 3 };
         int[] values = new int[] { 10, 20, 30 };
-        mCarUserService.setUserIdentificationAssociation(mAsyncCallTimeoutMs, types, values,
+        mCarUserService.setUserIdentificationAssociation(ASYNC_CALL_TIMEOUT_MS, types, values,
                 mUserAssociationRespFuture);
 
         UserIdentificationAssociationResponse response = getUserAssociationRespResult();
@@ -2240,7 +2695,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         int[] values = new int[] { 10, 20, 30 };
         mockHalSetUserIdentificationAssociationSuccess(currentUser, types, values, "D'OH!");
 
-        mCarUserService.setUserIdentificationAssociation(mAsyncCallTimeoutMs, types, values,
+        mCarUserService.setUserIdentificationAssociation(ASYNC_CALL_TIMEOUT_MS, types, values,
                 mUserAssociationRespFuture);
 
         UserIdentificationAssociationResponse response = getUserAssociationRespResult();
@@ -2251,10 +2706,10 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     }
 
     @Test
-    public void testInitBootUser_halNotSupported() {
+    public void testPriorityInit_halNotSupported() {
         mockUserHalSupported(false);
 
-        mCarUserService.initBootUser();
+        mCarUserService.priorityInit();
         waitForHandlerThreadToFinish();
 
         verify(mInitialUserSetter).set(argThat((info) -> {
@@ -2264,11 +2719,11 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     }
 
     @Test
-    public void testInitBootUser_halNullResponse() throws Exception {
+    public void testPriorityInit_halNullResponse() throws Exception {
         mockExistingUsersAndCurrentUser(mAdminUser);
         mockHalGetInitialInfo(mAdminUserId, null);
 
-        mCarUserService.initBootUser();
+        mCarUserService.priorityInit();
         waitForHandlerThreadToFinish();
 
         verify(mInitialUserSetter).set(argThat((info) -> {
@@ -2277,30 +2732,30 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     }
 
     @Test
-    public void testInitBootUser_halDefaultResponse() throws Exception {
+    public void testPriorityInit_halDefaultResponse() throws Exception {
         mockExistingUsersAndCurrentUser(mAdminUser);
         mGetUserInfoResponse.action = InitialUserInfoResponseAction.DEFAULT;
         mGetUserInfoResponse.userLocales = "LOL";
         mockHalGetInitialInfo(mAdminUserId, mGetUserInfoResponse);
 
-        mCarUserService.initBootUser();
+        mCarUserService.priorityInit();
         waitForHandlerThreadToFinish();
 
         verify(mInitialUserSetter).set(argThat((info) -> {
             return info.type == InitialUserSetter.TYPE_DEFAULT_BEHAVIOR
-                    && info.userLocales.equals("LOL");
+                    && Objects.equals(info.userLocales, "LOL");
         }));
     }
 
     @Test
-    public void testInitBootUser_halSwitchResponse() throws Exception {
+    public void testPriorityInit_halSwitchResponse() throws Exception {
         int switchUserId = mGuestUserId;
         mockExistingUsersAndCurrentUser(mAdminUser);
         mGetUserInfoResponse.action = InitialUserInfoResponseAction.SWITCH;
         mGetUserInfoResponse.userToSwitchOrCreate.userId = switchUserId;
         mockHalGetInitialInfo(mAdminUserId, mGetUserInfoResponse);
 
-        mCarUserService.initBootUser();
+        mCarUserService.priorityInit();
         waitForHandlerThreadToFinish();
 
         verify(mInitialUserSetter).set(argThat((info) -> {
@@ -2310,7 +2765,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
     }
 
     @Test
-    public void testInitBootUser_halCreateResponse() throws Exception {
+    public void testPriorityInit_halCreateResponse() throws Exception {
         int newUserFlags = 42;
         String newUserName = "TheDude";
         mockExistingUsersAndCurrentUser(mAdminUser);
@@ -2319,7 +2774,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         mGetUserInfoResponse.userNameToCreate = newUserName;
         mockHalGetInitialInfo(mAdminUserId, mGetUserInfoResponse);
 
-        mCarUserService.initBootUser();
+        mCarUserService.priorityInit();
         waitForHandlerThreadToFinish();
 
         verify(mInitialUserSetter).set(argThat((info) -> {
@@ -2329,39 +2784,11 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         }));
     }
 
-    @Test
-    public void testInitBootUser_preCreateUser() throws Exception {
-        mockUserPreCreationStage(PRE_CREATION_STAGE_ON_SYSTEM_START);
-
-        CarUserService service = newCarUserService(/* switchGuestUserBeforeGoingSleep= */ false);
-
-        service.initBootUser();
-        waitForHandlerThreadToFinish();
-
-        verify(mUserPreCreator).managePreCreatedUsers();
-    }
-
-    @Test
-    public void testInitBootUser_noPreCreateUser() throws Exception {
-        mCarUserService.initBootUser();
-        waitForHandlerThreadToFinish();
-
-        verify(mUserPreCreator, never()).managePreCreatedUsers();
-    }
-
-    @Test
-    public void testUpdatePreCreatedUser_success() throws Exception {
-        mCarUserService.updatePreCreatedUsers();
-        waitForHandlerThreadToFinish();
-
-        verify(mUserPreCreator).managePreCreatedUsers();
-    }
 
     @Test
     public void testOnSuspend_replace() throws Exception {
         mockExistingUsersAndCurrentUser(mGuestUser);
         when(mInitialUserSetter.canReplaceGuestUser(any())).thenReturn(true);
-        mockUserPreCreationStage(PRE_CREATION_STAGE_BEFORE_SUSPEND);
 
         CarUserService service = newCarUserService(/* switchGuestUserBeforeGoingSleep= */ true);
         service.onSuspend();
@@ -2370,40 +2797,17 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
         verify(mInitialUserSetter).set(argThat((info) -> {
             return info.type == InitialUserSetter.TYPE_REPLACE_GUEST;
         }));
-        verify(mUserPreCreator).managePreCreatedUsers();
     }
 
     @Test
     public void testOnSuspend_notReplace() throws Exception {
         mockExistingUsersAndCurrentUser(mAdminUser);
-        mockUserPreCreationStage(PRE_CREATION_STAGE_BEFORE_SUSPEND);
 
         CarUserService service = newCarUserService(/* switchGuestUserBeforeGoingSleep= */ true);
         service.onSuspend();
         waitForHandlerThreadToFinish();
 
         verify(mInitialUserSetter, never()).set(any());
-        verify(mUserPreCreator).managePreCreatedUsers();
-    }
-
-    @Test
-    public void testOnSuspend_preCreateUser() throws Exception {
-        mockUserPreCreationStage(PRE_CREATION_STAGE_BEFORE_SUSPEND);
-
-        CarUserService service = newCarUserService(/* switchGuestUserBeforeGoingSleep= */ false);
-
-        service.onSuspend();
-        waitForHandlerThreadToFinish();
-
-        verify(mUserPreCreator).managePreCreatedUsers();
-    }
-
-    @Test
-    public void testOnSuspend_noPreCreateUser() throws Exception {
-        mCarUserService.onSuspend();
-        waitForHandlerThreadToFinish();
-
-        verify(mUserPreCreator, never()).managePreCreatedUsers();
     }
 
     @Test
@@ -2433,7 +2837,7 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
 
         verify(mInitialUserSetter).set(argThat((info) -> {
             return info.type == InitialUserSetter.TYPE_DEFAULT_BEHAVIOR && info.replaceGuest
-                    && info.userLocales.equals("LOL");
+                    && Objects.equals(info.userLocales, "LOL");
         }));
     }
 
@@ -2509,11 +2913,44 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
                 ActivityManager.USER_OP_ERROR_RELATED_USERS_CANNOT_STOP);
     }
 
-    private void mockUserPreCreationStage(int stage) {
-        when(mMockedResources
-                .getInteger(com.android.car.R.integer.config_userPreCreationStage))
-                        .thenReturn(stage);
+    @Test
+    public void testIsUserVisible_platformVersionAtLeastUDC() throws Exception {
+        mockCarGetPlatformVersion(PlatformVersion.VERSION_CODES.UPSIDE_DOWN_CAKE_0);
+        mockUmGetVisibleUsers(mMockedUserManager, mContextUserId);
+
+        boolean visible = mCarUserService.isUserVisible(mContextUserId);
+
+        assertWithMessage("isUserVisible(%s)", mContextUserId).that(visible).isTrue();
     }
+
+    @Test
+    public void testIsUserVisible_platformVersionNotAtLeastUDC() throws Exception {
+        mockCarGetPlatformVersion(PlatformVersion.VERSION_CODES.TIRAMISU_0);
+        mockUmGetVisibleUsers(mMockedUserManager, mContextUserId);
+
+        boolean visible = mCarUserService.isUserVisible(mContextUserId);
+
+        assertWithMessage("isUserVisible(%s)", mContextUserId).that(visible).isFalse();
+    }
+
+    @Test
+    public void testIsUserVisible() throws Exception {
+        mockUmGetVisibleUsers(mMockedUserManager, mContextUserId);
+
+        boolean visible = mCarUserService.isUserVisible(mContextUserId);
+
+        assertWithMessage("isUserVisible(%s)", mContextUserId).that(visible).isTrue();
+    }
+
+    @Test
+    public void testIsUserVisible_nope() throws Exception {
+        mockUmGetVisibleUsers(mMockedUserManager);
+
+        boolean visible = mCarUserService.isUserVisible(mContextUserId);
+
+        assertWithMessage("isUserVisible(%s)", mContextUserId).that(visible).isFalse();
+    }
+
 
     private void assertUserSwitchResult(UserSwitchResult result, int expectedStatus) {
         assertUserSwitchResult(result.getStatus(), expectedStatus);
@@ -2566,8 +3003,8 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
                 .that(carConstant).isEqualTo(amConstant);
     }
 
-    private void logoutUser(int timeoutMs, AndroidFuture<UserSwitchResult> receiver) {
-        mCarUserService.logoutUser(timeoutMs, receiver);
+    private void logoutUser(int timeoutMs, ResultCallbackImpl<UserSwitchResult> callback) {
+        mCarUserService.logoutUser(timeoutMs, callback);
         waitForHandlerThreadToFinish();
     }
 
@@ -2585,5 +3022,13 @@ public final class CarUserServiceTest extends BaseCarUserServiceTestCase {
 
     private UserStopResult getUserStopResult(AndroidFuture<UserStopResult> future, int userId) {
         return getResult(future, "stopping user %d", userId);
+    }
+
+    private void initUserAndDisplay(@UserIdInt int userId, int displayId) throws Exception {
+        expectRegularUserExists(mMockedUserHandleHelper, userId);
+        mockAmStartUserInBackgroundVisibleOnDisplay(userId, displayId, true);
+        mockCarOccupantZoneServiceGetUserForDisplay(displayId,
+                CarOccupantZoneManager.INVALID_USER_ID);
+        mockCarServiceHelperGetMainDisplayAssignedToUser(userId, Display.INVALID_DISPLAY);
     }
 }

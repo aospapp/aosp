@@ -16,6 +16,9 @@
 
 package dagger.internal.codegen.javapoet;
 
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
+
+import androidx.room.compiler.processing.XType;
 import com.google.auto.common.MoreTypes;
 import com.squareup.javapoet.CodeBlock;
 import dagger.internal.codegen.langmodel.DaggerTypes;
@@ -45,6 +48,11 @@ public final class Expression {
   }
 
   /** Creates a new {@link Expression} with a {@link TypeMirror} and {@link CodeBlock}. */
+  public static Expression create(XType type, CodeBlock expression) {
+    return create(toJavac(type), expression);
+  }
+
+  /** Creates a new {@link Expression} with a {@link TypeMirror} and {@link CodeBlock}. */
   public static Expression create(TypeMirror type, CodeBlock expression) {
     return new Expression(type, expression);
   }
@@ -53,8 +61,23 @@ public final class Expression {
    * Creates a new {@link Expression} with a {@link TypeMirror}, {@linkplain CodeBlock#of(String,
    * Object[]) format, and arguments}.
    */
+  public static Expression create(XType type, String format, Object... args) {
+    return create(toJavac(type), format, args);
+  }
+
+  /**
+   * Creates a new {@link Expression} with a {@link TypeMirror}, {@linkplain CodeBlock#of(String,
+   * Object[]) format, and arguments}.
+   */
   public static Expression create(TypeMirror type, String format, Object... args) {
     return create(type, CodeBlock.of(format, args));
+  }
+
+  /** Returns a new expression that casts the current expression to {@code newType}. */
+  // TODO(ronshapiro): consider overloads that take a Types and Elements and only cast if necessary,
+  // or just embedding a Types/Elements instance in an Expression.
+  public Expression castTo(XType newType) {
+    return castTo(toJavac(newType));
   }
 
   /** Returns a new expression that casts the current expression to {@code newType}. */

@@ -16,8 +16,15 @@
 
 from acts.controllers.android_lib.tel import tel_utils
 from acts.controllers.cellular_lib import BaseCellularDut
+import os
+import time
 
 GET_BUILD_VERSION = 'getprop ro.build.version.release'
+PIXELLOGGER_CONTROL = 'am broadcast -n com.android.pixellogger/.receiver.' \
+                      'AlwaysOnLoggingReceiver -a com.android.pixellogger.' \
+                      'service.logging.LoggingService.' \
+                      'ACTION_CONFIGURE_ALWAYS_ON_LOGGING ' \
+                      '-e intent_key_enable "{}"'
 
 NETWORK_TYPE_TO_BITMASK = {
     BaseCellularDut.PreferredNetworkType.LTE_ONLY: '01000001000000000000',
@@ -36,6 +43,8 @@ class AndroidCellularDut(BaseCellularDut.BaseCellularDut):
         """
         self.ad = ad
         self.log = logger
+        logger.info('Initializing Android DUT with baseband version {}'.format(
+            ad.adb.getprop('gsm.version.baseband')))
 
     def toggle_airplane_mode(self, new_state=True):
         """ Turns airplane mode on / off.
@@ -80,15 +89,18 @@ class AndroidCellularDut(BaseCellularDut.BaseCellularDut):
           type: an instance of class PreferredNetworkType
         """
 
+        self.log.info('setting preferred network type: {}'.format(type))
         # If android version is S or later, uses bit mask to set and return.
         version = self.ad.adb.shell(GET_BUILD_VERSION)
+        self.log.info('The android version is {}'.format(version))
         try:
             version_in_number = int(version)
             if version_in_number > 11:
-                set_network_cmd = 'cmd phone set-allowed-network-types-for-users '
-                set_network_cmd += NETWORK_TYPE_TO_BITMASK[type]
+                base_cmd = 'cmd phone set-allowed-network-types-for-users -s 0 '
+                set_network_cmd = base_cmd + NETWORK_TYPE_TO_BITMASK[type]
                 self.ad.adb.shell(set_network_cmd)
-                get_network_cmd = 'cmd phone get-allowed-network-types-for-users'
+                get_network_cmd = ('cmd phone '
+                                   'get-allowed-network-types-for-users -s 0')
                 allowed_network = self.ad.adb.shell(get_network_cmd)
                 self.log.info('The allowed network: {}'.format(allowed_network))
                 return
@@ -115,3 +127,33 @@ class AndroidCellularDut(BaseCellularDut.BaseCellularDut):
 
         Will be deprecated and replaced by get_rx_tx_power_levels. """
         tel_utils.get_telephony_signal_strength(self.ad)
+
+    def start_modem_logging(self):
+        """ Starts on-device log collection. """
+        self.ad.adb.shell('rm /data/vendor/slog/*.* -f')
+        self.ad.adb.shell(PIXELLOGGER_CONTROL.format('true'))
+
+    def stop_modem_logging(self):
+        """ Stops log collection and pulls logs. """
+        output_path = self.ad.device_log_path + '/modem/'
+        os.makedirs(output_path, exist_ok=True)
+        self.ad.adb.shell(PIXELLOGGER_CONTROL.format('false'))
+
+    def toggle_data(self, new_state=True):
+        """ Turns on/off of the cellular data.
+
+        Args:
+            new_state: True to enable cellular data
+        """
+        self.log.info('Toggles cellular data on: {}'.format(new_state))
+        if new_state:
+            self.ad.adb.shell('settings put global mobile_data 1')
+            self.ad.adb.shell('svc data enable')
+            time.sleep(5)
+            self.log.info('global mobile data: {}'.format(
+                self.ad.adb.shell('settings get global mobile_data')))
+        else:
+            self.ad.adb.shell('settings put global mobile_data 0')
+            self.ad.adb.shell('svc data disable')
+            self.log.info('global mobile data: {}'.format(
+                self.ad.adb.shell('settings get global mobile_data')))

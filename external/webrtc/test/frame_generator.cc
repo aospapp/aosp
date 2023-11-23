@@ -16,23 +16,15 @@
 #include <memory>
 
 #include "api/video/i010_buffer.h"
+#include "api/video/nv12_buffer.h"
 #include "api/video/video_rotation.h"
 #include "common_video/include/video_frame_buffer.h"
 #include "common_video/libyuv/include/webrtc_libyuv.h"
-#include "rtc_base/bind.h"
 #include "rtc_base/checks.h"
-#include "rtc_base/keep_ref_until_done.h"
 #include "test/frame_utils.h"
 
 namespace webrtc {
 namespace test {
-namespace {
-
-// Helper method for keeping a reference to passed pointers.
-void KeepBufferRefs(rtc::scoped_refptr<webrtc::VideoFrameBuffer>,
-                    rtc::scoped_refptr<webrtc::VideoFrameBuffer>) {}
-
-}  // namespace
 
 SquareGenerator::SquareGenerator(int width,
                                  int height,
@@ -70,7 +62,8 @@ FrameGeneratorInterface::VideoFrameData SquareGenerator::NextFrame() {
   rtc::scoped_refptr<VideoFrameBuffer> buffer = nullptr;
   switch (type_) {
     case OutputType::kI420:
-    case OutputType::kI010: {
+    case OutputType::kI010:
+    case OutputType::kNV12: {
       buffer = CreateI420Buffer(width_, height_);
       break;
     }
@@ -79,16 +72,17 @@ FrameGeneratorInterface::VideoFrameData SquareGenerator::NextFrame() {
           CreateI420Buffer(width_, height_);
       rtc::scoped_refptr<I420Buffer> axx_buffer =
           CreateI420Buffer(width_, height_);
-      buffer = WrapI420ABuffer(
-          yuv_buffer->width(), yuv_buffer->height(), yuv_buffer->DataY(),
-          yuv_buffer->StrideY(), yuv_buffer->DataU(), yuv_buffer->StrideU(),
-          yuv_buffer->DataV(), yuv_buffer->StrideV(), axx_buffer->DataY(),
-          axx_buffer->StrideY(),
-          rtc::Bind(&KeepBufferRefs, yuv_buffer, axx_buffer));
+      buffer = WrapI420ABuffer(yuv_buffer->width(), yuv_buffer->height(),
+                               yuv_buffer->DataY(), yuv_buffer->StrideY(),
+                               yuv_buffer->DataU(), yuv_buffer->StrideU(),
+                               yuv_buffer->DataV(), yuv_buffer->StrideV(),
+                               axx_buffer->DataY(), axx_buffer->StrideY(),
+                               // To keep references alive.
+                               [yuv_buffer, axx_buffer] {});
       break;
     }
     default:
-      RTC_NOTREACHED() << "The given output format is not supported.";
+      RTC_DCHECK_NOTREACHED() << "The given output format is not supported.";
   }
 
   for (const auto& square : squares_)
@@ -96,6 +90,8 @@ FrameGeneratorInterface::VideoFrameData SquareGenerator::NextFrame() {
 
   if (type_ == OutputType::kI010) {
     buffer = I010Buffer::Copy(*buffer->ToI420());
+  } else if (type_ == OutputType::kNV12) {
+    buffer = NV12Buffer::Copy(*buffer->ToI420());
   }
 
   return VideoFrameData(buffer, absl::nullopt);
@@ -203,6 +199,68 @@ bool YuvFileGenerator::ReadNextFrame() {
     file_index_ = (file_index_ + 1) % files_.size();
     last_read_buffer_ =
         test::ReadI420Buffer(static_cast<int>(width_),
+                             static_cast<int>(height_), files_[file_index_]);
+    RTC_CHECK(last_read_buffer_);
+  }
+  return frame_index_ != prev_frame_index || file_index_ != prev_file_index;
+}
+
+NV12FileGenerator::NV12FileGenerator(std::vector<FILE*> files,
+                                     size_t width,
+                                     size_t height,
+                                     int frame_repeat_count)
+    : file_index_(0),
+      frame_index_(std::numeric_limits<size_t>::max()),
+      files_(files),
+      width_(width),
+      height_(height),
+      frame_size_(CalcBufferSize(VideoType::kNV12,
+                                 static_cast<int>(width_),
+                                 static_cast<int>(height_))),
+      frame_buffer_(new uint8_t[frame_size_]),
+      frame_display_count_(frame_repeat_count),
+      current_display_count_(0) {
+  RTC_DCHECK_GT(width, 0);
+  RTC_DCHECK_GT(height, 0);
+  RTC_DCHECK_GT(frame_repeat_count, 0);
+}
+
+NV12FileGenerator::~NV12FileGenerator() {
+  for (FILE* file : files_)
+    fclose(file);
+}
+
+FrameGeneratorInterface::VideoFrameData NV12FileGenerator::NextFrame() {
+  // Empty update by default.
+  VideoFrame::UpdateRect update_rect{0, 0, 0, 0};
+  if (current_display_count_ == 0) {
+    const bool got_new_frame = ReadNextFrame();
+    // Full update on a new frame from file.
+    if (got_new_frame) {
+      update_rect = VideoFrame::UpdateRect{0, 0, static_cast<int>(width_),
+                                           static_cast<int>(height_)};
+    }
+  }
+  if (++current_display_count_ >= frame_display_count_)
+    current_display_count_ = 0;
+
+  return VideoFrameData(last_read_buffer_, update_rect);
+}
+
+bool NV12FileGenerator::ReadNextFrame() {
+  size_t prev_frame_index = frame_index_;
+  size_t prev_file_index = file_index_;
+  last_read_buffer_ = test::ReadNV12Buffer(
+      static_cast<int>(width_), static_cast<int>(height_), files_[file_index_]);
+  ++frame_index_;
+  if (!last_read_buffer_) {
+    // No more frames to read in this file, rewind and move to next file.
+    rewind(files_[file_index_]);
+
+    frame_index_ = 0;
+    file_index_ = (file_index_ + 1) % files_.size();
+    last_read_buffer_ =
+        test::ReadNV12Buffer(static_cast<int>(width_),
                              static_cast<int>(height_), files_[file_index_]);
     RTC_CHECK(last_read_buffer_);
   }
@@ -371,7 +429,8 @@ void ScrollingImageFrameGenerator::CropSourceToScrolledImage(
                      &i420_buffer->DataY()[offset_y], i420_buffer->StrideY(),
                      &i420_buffer->DataU()[offset_u], i420_buffer->StrideU(),
                      &i420_buffer->DataV()[offset_v], i420_buffer->StrideV(),
-                     KeepRefUntilDone(i420_buffer)),
+                     // To keep reference alive.
+                     [i420_buffer] {}),
       update_rect);
 }
 

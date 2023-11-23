@@ -46,6 +46,7 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         self.args.config_file = ""
         self.args.build_target = "fake_build_target"
         self.args.adb_port = None
+        self.args.fastboot_port = None
         self.args.launch_args = None
         self.Patch(list_instances, "ChooseOneRemoteInstance", return_value=mock.MagicMock())
         self.Patch(list_instances, "GetInstancesFromInstanceNames", return_value=mock.MagicMock())
@@ -120,9 +121,11 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         # Specified --local-*-image with dirs.
         self.args.local_kernel_image = expected_image_dir
         self.args.local_system_image = expected_image_dir
+        self.args.local_vendor_image = expected_image_dir
         self.AvdSpec._ProcessImageArgs(self.args)
         self.assertEqual(self.AvdSpec.local_kernel_image, expected_image_dir)
         self.assertEqual(self.AvdSpec.local_system_image, expected_image_dir)
+        self.assertEqual(self.AvdSpec.local_vendor_image, expected_image_dir)
 
         # Specified --local-*-image with files.
         self.args.local_kernel_image = expected_image_file
@@ -134,12 +137,14 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         # Specified --local-*-image without args.
         self.args.local_kernel_image = constants.FIND_IN_BUILD_ENV
         self.args.local_system_image = constants.FIND_IN_BUILD_ENV
+        self.args.local_vendor_image = constants.FIND_IN_BUILD_ENV
         with mock.patch("acloud.create.avd_spec.utils."
                         "GetBuildEnvironmentVariable",
                         return_value=expected_image_dir):
             self.AvdSpec._ProcessImageArgs(self.args)
         self.assertEqual(self.AvdSpec.local_kernel_image, expected_image_dir)
         self.assertEqual(self.AvdSpec.local_system_image, expected_image_dir)
+        self.assertEqual(self.AvdSpec.local_vendor_image, expected_image_dir)
 
     def testProcessAutoconnect(self):
         """Test process autoconnect."""
@@ -390,7 +395,10 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         self.args.kernel_branch = "kernel_branch"
         self.args.kernel_build_target = "kernel_build_target"
         self.args.kernel_build_id = "kernel_build_id"
-        self.args.kernel_artifact = "kernel_artifact"
+        self.args.boot_branch = "boot_branch"
+        self.args.boot_build_target = "boot_build_target"
+        self.args.boot_build_id = "boot_build_id"
+        self.args.boot_artifact = "boot_artifact"
         self.AvdSpec._ProcessRemoteBuildArgs(self.args)
         self.assertEqual(
             {constants.BUILD_BRANCH: "system_branch",
@@ -400,9 +408,14 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         self.assertEqual(
             {constants.BUILD_BRANCH: "kernel_branch",
              constants.BUILD_TARGET: "kernel_build_target",
-             constants.BUILD_ID: "kernel_build_id",
-             constants.BUILD_ARTIFACT: "kernel_artifact"},
+             constants.BUILD_ID: "kernel_build_id"},
             self.AvdSpec.kernel_build_info)
+        self.assertEqual(
+            {constants.BUILD_BRANCH: "boot_branch",
+             constants.BUILD_TARGET: "boot_build_target",
+             constants.BUILD_ID: "boot_build_id",
+             constants.BUILD_ARTIFACT: "boot_artifact"},
+            self.AvdSpec.boot_build_info)
         self.assertEqual(
             {constants.BUILD_BRANCH: "ota_branch",
              constants.BUILD_TARGET: "ota_build_target",
@@ -487,6 +500,7 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         self.AvdSpec._ProcessMiscArgs(self.args)
         self.assertEqual(self.AvdSpec.autoconnect, False)
         self.assertEqual(self.AvdSpec.connect_adb, False)
+        self.assertEqual(self.AvdSpec.connect_fastboot, False)
         self.assertEqual(self.AvdSpec.connect_vnc, False)
         self.assertEqual(self.AvdSpec.connect_webrtc, False)
 
@@ -494,6 +508,7 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         self.AvdSpec._ProcessMiscArgs(self.args)
         self.assertEqual(self.AvdSpec.autoconnect, True)
         self.assertEqual(self.AvdSpec.connect_adb, True)
+        self.assertEqual(self.AvdSpec.connect_fastboot, True)
         self.assertEqual(self.AvdSpec.connect_vnc, True)
         self.assertEqual(self.AvdSpec.connect_webrtc, False)
 
@@ -501,6 +516,15 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         self.AvdSpec._ProcessMiscArgs(self.args)
         self.assertEqual(self.AvdSpec.autoconnect, True)
         self.assertEqual(self.AvdSpec.connect_adb, True)
+        self.assertEqual(self.AvdSpec.connect_fastboot, True)
+        self.assertEqual(self.AvdSpec.connect_vnc, False)
+        self.assertEqual(self.AvdSpec.connect_webrtc, False)
+
+        self.args.autoconnect = constants.INS_KEY_FASTBOOT
+        self.AvdSpec._ProcessMiscArgs(self.args)
+        self.assertEqual(self.AvdSpec.autoconnect, True)
+        self.assertEqual(self.AvdSpec.connect_adb, True)
+        self.assertEqual(self.AvdSpec.connect_fastboot, True)
         self.assertEqual(self.AvdSpec.connect_vnc, False)
         self.assertEqual(self.AvdSpec.connect_webrtc, False)
 
@@ -508,6 +532,7 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         self.AvdSpec._ProcessMiscArgs(self.args)
         self.assertEqual(self.AvdSpec.autoconnect, True)
         self.assertEqual(self.AvdSpec.connect_adb, True)
+        self.assertEqual(self.AvdSpec.connect_fastboot, True)
         self.assertEqual(self.AvdSpec.connect_vnc, False)
         self.assertEqual(self.AvdSpec.connect_webrtc, True)
 
@@ -531,6 +556,23 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         self.args.cheeps_features = ['a', 'b', 'c']
         self.AvdSpec._ProcessMiscArgs(self.args)
         self.assertEqual(self.args.cheeps_features, ['a', 'b', 'c'])
+
+        # Verify connect_hostname
+        self.mock_config.connect_hostname = True
+        self.AvdSpec._ProcessMiscArgs(self.args)
+        self.assertTrue(self.AvdSpec.connect_hostname)
+        self.args.connect_hostname = True
+        self.mock_config.connect_hostname = False
+        self.assertTrue(self.AvdSpec.connect_hostname)
+
+        # Verify fetch_cvd_version
+        self.args.fetch_cvd_build_id = None
+        self.AvdSpec._ProcessMiscArgs(self.args)
+        self.assertEqual(self.AvdSpec.fetch_cvd_version, "LKGB")
+
+        self.args.fetch_cvd_build_id = "23456"
+        self.AvdSpec._ProcessMiscArgs(self.args)
+        self.assertEqual(self.AvdSpec.fetch_cvd_version, "23456")
 
 
 if __name__ == "__main__":

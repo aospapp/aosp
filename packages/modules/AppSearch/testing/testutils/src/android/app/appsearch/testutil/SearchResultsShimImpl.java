@@ -21,6 +21,7 @@ import android.app.appsearch.AppSearchResult;
 import android.app.appsearch.SearchResult;
 import android.app.appsearch.SearchResults;
 import android.app.appsearch.SearchResultsShim;
+import android.app.appsearch.exceptions.AppSearchException;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -48,11 +49,19 @@ public class SearchResultsShimImpl implements SearchResultsShim {
     public ListenableFuture<List<SearchResult>> getNextPageAsync() {
         SettableFuture<AppSearchResult<List<SearchResult>>> future = SettableFuture.create();
         mSearchResults.getNextPage(mExecutor, future::set);
-        return Futures.transform(future, AppSearchResult::getResultValue, mExecutor);
+        return Futures.transformAsync(future, this::transformResult, mExecutor);
     }
 
     @Override
     public void close() {
         mSearchResults.close();
+    }
+
+    private <T> ListenableFuture<T> transformResult(
+            @NonNull AppSearchResult<T> result) throws AppSearchException {
+        if (!result.isSuccess()) {
+            throw new AppSearchException(result.getResultCode(), result.getErrorMessage());
+        }
+        return Futures.immediateFuture(result.getResultValue());
     }
 }

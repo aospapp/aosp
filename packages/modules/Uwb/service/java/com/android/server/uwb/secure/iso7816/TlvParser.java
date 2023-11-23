@@ -124,6 +124,15 @@ public class TlvParser {
         return parseTlvs(new ByteArrayWrapper(message));
     }
 
+    /**
+     * Parses a byte array message to a TlvDatum object.
+     * @param message It should only contain one tlv.
+     * @return The TlvDatum instance.
+     */
+    public static TlvDatum parseOneTlv(byte[] message) {
+        return parseOneTlv(new ByteArrayWrapper(message));
+    }
+
     private static TlvDatum parseTlv(ByteArrayWrapper byteArrayWrapper) throws IOException {
         byte[] tag = byteArrayWrapper.read(/* bytes= */ 1);
         // When first byte is of the form 0bXXX11111, the tag contains a 2nd byte.

@@ -107,12 +107,13 @@ class VtsKernelCheckpointTest(unittest.TestCase):
 
     def testCheckpointEnabled(self):
         out, err, return_code = self.dut.Execute("getprop ro.product.first_api_level")
+        first_api_level = 0
         try:
           first_api_level = int(out)
-          self.assertTrue(first_api_level < 29 or self.isCheckpoint_,
-                             "User Data Checkpoint is disabled")
         except:
           pass
+        self.assertTrue(first_api_level < 29 or self.isCheckpoint_,
+                           "User Data Checkpoint is disabled")
 
     def testRollback(self):
         if not self.isCheckpoint_:

@@ -32,6 +32,9 @@ android_test {
         "platform-test-annotations",
         "truth-prebuilt",
         "CtsMockInputMethodLib",
+        "androidx.test.uiautomator_uiautomator",
+        "androidx.test.espresso.core",
+        "cts-wm-util",
     ],
 
     libs: ["android.test.runner"],

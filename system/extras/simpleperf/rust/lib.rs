@@ -48,7 +48,7 @@ pub enum RecordScope {
 }
 
 /// Trigger an ETM trace event.
-pub fn record(trace_file: &Path, duration: &Duration, scope: RecordScope) {
+pub fn record(trace_file: &Path, duration: &Duration, binary_filter: &str, scope: RecordScope) {
     let event_name: CString = match scope {
         RecordScope::USERSPACE => CString::new("cs-etm:u").unwrap(),
         RecordScope::KERNEL => CString::new("cs-etm:k").unwrap(),
@@ -56,9 +56,15 @@ pub fn record(trace_file: &Path, duration: &Duration, scope: RecordScope) {
     };
     let trace_file = path_to_cstr(trace_file);
     let duration = duration.as_secs_f32();
+    let binary_filter = CString::new(binary_filter).unwrap();
 
     unsafe {
-        simpleperf_profcollect_bindgen::Record(event_name.as_ptr(), trace_file.as_ptr(), duration);
+        simpleperf_profcollect_bindgen::Record(
+            event_name.as_ptr(),
+            trace_file.as_ptr(),
+            duration,
+            binary_filter.as_ptr(),
+        );
     }
 }
 
@@ -74,5 +80,20 @@ pub fn process(trace_path: &Path, profile_path: &Path, binary_filter: &str) {
             profile_path.as_ptr(),
             binary_filter.as_ptr(),
         );
+    }
+}
+
+/// Save logs in file.
+pub fn set_log_file(filename: &Path) {
+    let log_file = path_to_cstr(filename);
+    unsafe {
+        simpleperf_profcollect_bindgen::SetLogFile(log_file.as_ptr());
+    }
+}
+
+/// Stop using log file.
+pub fn reset_log_file() {
+    unsafe {
+        simpleperf_profcollect_bindgen::ResetLogFile();
     }
 }

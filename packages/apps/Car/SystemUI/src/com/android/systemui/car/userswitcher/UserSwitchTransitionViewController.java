@@ -71,6 +71,7 @@ public class UserSwitchTransitionViewController extends OverlayViewController {
 
     @GuardedBy("this")
     private boolean mShowing;
+    private int mNewUserId = UserHandle.USER_NULL;
     private int mPreviousUserId = UserHandle.USER_NULL;
     private Runnable mCancelRunnable;
 
@@ -101,6 +102,12 @@ public class UserSwitchTransitionViewController extends OverlayViewController {
         return 0;
     }
 
+    @Override
+    protected void showInternal() {
+        populateDialog(mPreviousUserId, mNewUserId);
+        super.showInternal();
+    }
+
     /**
      * Makes the user switch transition view appear and draws the content inside of it if a user
      * that is different from the previous user is provided and if the dialog is not already
@@ -117,10 +124,8 @@ public class UserSwitchTransitionViewController extends OverlayViewController {
                 Log.e(TAG, "unable to notify window manager service regarding user switch");
             }
 
+            mNewUserId = newUserId;
             start();
-            populateDialog(mPreviousUserId, newUserId);
-            // next time a new user is selected, this current new user will be the previous user.
-            mPreviousUserId = newUserId;
             // In case the window is still showing after WINDOW_SHOWN_TIMEOUT_MS, then hide the
             // window and log a warning message.
             mCancelRunnable = mMainExecutor.executeDelayed(mWindowShownTimeoutCallback,
@@ -131,6 +136,8 @@ public class UserSwitchTransitionViewController extends OverlayViewController {
     void handleHide() {
         if (!mShowing) return;
         mMainExecutor.execute(() -> {
+            // next time a new user is selected, this current new user will be the previous user.
+            mPreviousUserId = mNewUserId;
             mShowing = false;
             stop();
             if (mCancelRunnable != null) {

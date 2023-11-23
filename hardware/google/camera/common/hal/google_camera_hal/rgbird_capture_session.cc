@@ -987,7 +987,8 @@ status_t RgbirdCaptureSession::Initialize(
 
   // Create result dispatcher
   result_dispatcher_ =
-      ResultDispatcher::Create(kPartialResult, process_capture_result, notify);
+      ResultDispatcher::Create(kPartialResult, process_capture_result, notify,
+                               stream_config, "RgbirdDispatcher");
   if (result_dispatcher_ == nullptr) {
     ALOGE("%s: Cannot create result dispatcher.", __FUNCTION__);
     return UNKNOWN_ERROR;

@@ -24,11 +24,14 @@ import android.hardware.radio.RadioError;
 import android.hardware.radio.RadioIndicationType;
 import android.hardware.radio.RadioResponseInfo;
 import android.hardware.radio.sim.CardStatus;
+import android.hardware.radio.sim.Carrier;
+import android.hardware.radio.sim.CarrierRestrictions;
 import android.hardware.radio.sim.IRadioSim;
 import android.hardware.radio.sim.IRadioSimIndication;
 import android.hardware.radio.sim.IRadioSimResponse;
 import android.hardware.radio.sim.SimRefreshResult;
 import android.os.AsyncResult;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Message;
 import android.os.RemoteException;
@@ -43,10 +46,11 @@ public class IRadioSimImpl extends IRadioSim.Stub {
     private final MockModemService mService;
     private IRadioSimResponse mRadioSimResponse;
     private IRadioSimIndication mRadioSimIndication;
-    private static MockModemConfigInterface[] sMockModemConfigInterfaces;
+    private MockModemConfigInterface mMockModemConfigInterface;
     private Object mCacheUpdateMutex;
     private final Handler mHandler;
     private int mSubId;
+    private String mTag;
 
     // ***** Events
     static final int EVENT_SIM_CARD_STATUS_CHANGED = 1;
@@ -54,33 +58,36 @@ public class IRadioSimImpl extends IRadioSim.Stub {
     static final int EVENT_SIM_INFO_CHANGED = 3;
 
     // ***** Cache of modem attributes/status
-    private int mNumOfLogicalSim;
     private CardStatus mCardStatus;
     private ArrayList<SimAppData> mSimAppList;
 
+    private Carrier[] mCarrierList;
+    private int mCarrierRestrictionStatus =
+            CarrierRestrictions.CarrierRestrictionStatus.UNKNOWN;
+
     public IRadioSimImpl(
-            MockModemService service, MockModemConfigInterface[] interfaces, int instanceId) {
-        Log.d(TAG, "Instantiated");
+            MockModemService service, MockModemConfigInterface configInterface, int instanceId) {
+        mTag = TAG + "-" + instanceId;
+        Log.d(mTag, "Instantiated");
 
         this.mService = service;
-        sMockModemConfigInterfaces = interfaces;
+        mMockModemConfigInterface = configInterface;
         mSubId = instanceId;
         mCardStatus = new CardStatus();
         mCacheUpdateMutex = new Object();
         mHandler = new IRadioSimHandler();
-        mNumOfLogicalSim = sMockModemConfigInterfaces.length;
 
         // Register events
-        sMockModemConfigInterfaces[mSubId].registerForCardStatusChanged(
-                mHandler, EVENT_SIM_CARD_STATUS_CHANGED, null);
+        mMockModemConfigInterface.registerForCardStatusChanged(
+                mSubId, mHandler, EVENT_SIM_CARD_STATUS_CHANGED, null);
 
         // Register events
-        sMockModemConfigInterfaces[mSubId].registerForSimAppDataChanged(
-                mHandler, EVENT_SIM_APP_DATA_CHANGED, null);
+        mMockModemConfigInterface.registerForSimAppDataChanged(
+                mSubId, mHandler, EVENT_SIM_APP_DATA_CHANGED, null);
 
         // Register events
-        sMockModemConfigInterfaces[mSubId].registerForSimInfoChanged(
-                mHandler, EVENT_SIM_INFO_CHANGED, null);
+        mMockModemConfigInterface.registerForSimInfoChanged(
+                mSubId, mHandler, EVENT_SIM_INFO_CHANGED, null);
     }
 
     /** Handler class to handle callbacks */
@@ -91,29 +98,29 @@ public class IRadioSimImpl extends IRadioSim.Stub {
             synchronized (mCacheUpdateMutex) {
                 switch (msg.what) {
                     case EVENT_SIM_CARD_STATUS_CHANGED:
-                        Log.d(TAG, "Received EVENT_SIM_CARD_STATUS_CHANGED");
+                        Log.d(mTag, "Received EVENT_SIM_CARD_STATUS_CHANGED");
                         ar = (AsyncResult) msg.obj;
                         if (ar != null && ar.exception == null) {
                             mCardStatus = (CardStatus) ar.result;
-                            Log.i(TAG, "Sim card status: " + mCardStatus);
+                            Log.i(mTag, "Sim card status: " + mCardStatus);
                             simStatusChanged();
                         } else {
-                            Log.e(TAG, msg.what + " failure. Exception: " + ar.exception);
+                            Log.e(mTag, msg.what + " failure. Exception: " + ar.exception);
                         }
                         break;
 
                     case EVENT_SIM_APP_DATA_CHANGED:
-                        Log.d(TAG, "Received EVENT_SIM_APP_DATA_CHANGED");
+                        Log.d(mTag, "Received EVENT_SIM_APP_DATA_CHANGED");
                         ar = (AsyncResult) msg.obj;
                         if (ar != null && ar.exception == null) {
                             mSimAppList = (ArrayList<SimAppData>) ar.result;
                             if (mSimAppList != null) {
-                                Log.i(TAG, "number of SIM app data: " + mSimAppList.size());
+                                Log.i(mTag, "number of SIM app data: " + mSimAppList.size());
                             } else {
-                                Log.e(TAG, "mSimAppList = null");
+                                Log.e(mTag, "mSimAppList = null");
                             }
                         } else {
-                            Log.e(TAG, msg.what + " failure. Exception: " + ar.exception);
+                            Log.e(mTag, msg.what + " failure. Exception: " + ar.exception);
                         }
                         break;
 
@@ -122,7 +129,7 @@ public class IRadioSimImpl extends IRadioSim.Stub {
                         if (ar != null && ar.exception == null) {
                             SimInfoChangedResult simInfoChangeResult =
                                     (SimInfoChangedResult) ar.result;
-                            Log.d(TAG, "Received EVENT_SIM_INFO_CHANGED: " + simInfoChangeResult);
+                            Log.d(mTag, "Received EVENT_SIM_INFO_CHANGED: " + simInfoChangeResult);
                             SimRefreshResult simRefreshResult = new SimRefreshResult();
                             switch (simInfoChangeResult.mSimInfoType) {
                                 case SimInfoChangedResult.SIM_INFO_TYPE_MCC_MNC:
@@ -137,7 +144,7 @@ public class IRadioSimImpl extends IRadioSim.Stub {
                                     break;
                             }
                         } else {
-                            Log.e(TAG, msg.what + " failure. Exception: " + ar.exception);
+                            Log.e(mTag, msg.what + " failure. Exception: " + ar.exception);
                         }
                         break;
                 }
@@ -149,7 +156,7 @@ public class IRadioSimImpl extends IRadioSim.Stub {
     @Override
     public void setResponseFunctions(
             IRadioSimResponse radioSimResponse, IRadioSimIndication radioSimIndication) {
-        Log.d(TAG, "setResponseFunctions");
+        Log.d(mTag, "setResponseFunctions");
         mRadioSimResponse = radioSimResponse;
         mRadioSimIndication = radioSimIndication;
         mService.countDownLatch(MockModemService.LATCH_RADIO_INTERFACES_READY);
@@ -157,14 +164,14 @@ public class IRadioSimImpl extends IRadioSim.Stub {
 
     @Override
     public void responseAcknowledgement() {
-        Log.d(TAG, "responseAcknowledgement");
+        Log.d(mTag, "responseAcknowledgement");
         // TODO
         // acknowledgeRequest(in int serial);
     }
 
     @Override
     public void areUiccApplicationsEnabled(int serial) {
-        Log.d(TAG, "areUiccApplicationsEnabled");
+        Log.d(mTag, "areUiccApplicationsEnabled");
 
         boolean enabled = true;
 
@@ -172,13 +179,13 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.areUiccApplicationsEnabledResponse(rsp, enabled);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to areUiccApplicationsEnabled from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to areUiccApplicationsEnabled from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void changeIccPin2ForApp(int serial, String oldPin2, String newPin2, String aid) {
-        Log.d(TAG, "changeIccPin2ForApp");
+        Log.d(mTag, "changeIccPin2ForApp");
         // TODO: cache value
 
         int remainingRetries = 3;
@@ -187,13 +194,13 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.changeIccPin2ForAppResponse(rsp, remainingRetries);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to changeIccPin2ForApp from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to changeIccPin2ForApp from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void changeIccPinForApp(int serial, String oldPin, String newPin, String aid) {
-        Log.d(TAG, "changeIccPinForApp");
+        Log.d(mTag, "changeIccPinForApp");
         // TODO: cache value
 
         int remainingRetries = 3;
@@ -202,42 +209,51 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.changeIccPinForAppResponse(rsp, remainingRetries);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to changeIccPinForApp from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to changeIccPinForApp from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void enableUiccApplications(int serial, boolean enable) {
-        Log.d(TAG, "enableUiccApplications");
+        Log.d(mTag, "enableUiccApplications");
         // TODO: cache value
 
         RadioResponseInfo rsp = mService.makeSolRsp(serial, RadioError.REQUEST_NOT_SUPPORTED);
         try {
             mRadioSimResponse.enableUiccApplicationsResponse(rsp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to enableUiccApplications from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to enableUiccApplications from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void getAllowedCarriers(int serial) {
-        Log.d(TAG, "getAllowedCarriers");
+        Log.d(mTag, "getAllowedCarriers");
 
         android.hardware.radio.sim.CarrierRestrictions carriers =
                 new android.hardware.radio.sim.CarrierRestrictions();
+        if (mCarrierList == null || mCarrierList.length < 1) {
+            carriers.allowedCarriers = new Carrier[0];
+        } else {
+            carriers.allowedCarriers = mCarrierList;
+        }
+        carriers.excludedCarriers = new Carrier[0];
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU) {
+            carriers.status = mCarrierRestrictionStatus;
+        }
         int multiSimPolicy = android.hardware.radio.sim.SimLockMultiSimPolicy.NO_MULTISIM_POLICY;
 
-        RadioResponseInfo rsp = mService.makeSolRsp(serial, RadioError.REQUEST_NOT_SUPPORTED);
+        RadioResponseInfo rsp = mService.makeSolRsp(serial);
         try {
             mRadioSimResponse.getAllowedCarriersResponse(rsp, carriers, multiSimPolicy);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to getAllowedCarriers from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to getAllowedCarriers from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void getCdmaSubscription(int serial) {
-        Log.d(TAG, "getCdmaSubscription");
+        Log.d(mTag, "getCdmaSubscription");
 
         String mdn = "";
         String hSid = "";
@@ -249,13 +265,13 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.getCdmaSubscriptionResponse(rsp, mdn, hSid, hNid, min, prl);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to getCdmaSubscription from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to getCdmaSubscription from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void getCdmaSubscriptionSource(int serial) {
-        Log.d(TAG, "getCdmaSubscriptionSource");
+        Log.d(mTag, "getCdmaSubscriptionSource");
 
         int source = 0; // CdmaSubscriptionSource.RUIM_SIM
 
@@ -263,14 +279,14 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.getCdmaSubscriptionSourceResponse(rsp, source);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to getCdmaSubscriptionSource from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to getCdmaSubscriptionSource from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void getFacilityLockForApp(
             int serial, String facility, String password, int serviceClass, String appId) {
-        Log.d(TAG, "getFacilityLockForApp");
+        Log.d(mTag, "getFacilityLockForApp");
         int numOfSimApp = mSimAppList.size();
         int responseError = RadioError.NONE;
         int simAppIdx;
@@ -304,10 +320,10 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         }
 
         if (!isHandled) {
-            Log.e(TAG, "Not support sim application aid = " + appId);
+            Log.e(mTag, "Not support sim application aid = " + appId);
             responseError = RadioError.NO_SUCH_ELEMENT;
         } else if (!isFacilitySupport) {
-            Log.e(TAG, "Not support facility = " + facility);
+            Log.e(mTag, "Not support facility = " + facility);
             responseError = RadioError.REQUEST_NOT_SUPPORTED;
         } else if (responseData == -1) {
             responseError = RadioError.INTERNAL_ERR;
@@ -317,13 +333,13 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.getFacilityLockForAppResponse(rsp, responseData);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to getFacilityLockForApp from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to getFacilityLockForApp from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void getIccCardStatus(int serial) {
-        Log.d(TAG, "getIccCardStatus");
+        Log.d(mTag, "getIccCardStatus");
         CardStatus cardStatus;
 
         synchronized (mCacheUpdateMutex) {
@@ -334,13 +350,13 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.getIccCardStatusResponse(rsp, cardStatus);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to getIccCardStatus from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to getIccCardStatus from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void getImsiForApp(int serial, String aid) {
-        Log.d(TAG, "getImsiForApp");
+        Log.d(mTag, "getImsiForApp");
         String imsi = "";
         int numOfSimApp = mSimAppList.size();
         int responseError = RadioError.NONE;
@@ -359,7 +375,7 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         }
 
         if (!isHandled) {
-            Log.e(TAG, "Not support sim application aid = " + aid);
+            Log.e(mTag, "Not support sim application aid = " + aid);
             responseError = RadioError.NO_SUCH_ELEMENT;
         }
 
@@ -367,13 +383,13 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.getImsiForAppResponse(rsp, imsi);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to getImsiForApp from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to getImsiForApp from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void getSimPhonebookCapacity(int serial) {
-        Log.d(TAG, "getSimPhonebookCapacity");
+        Log.d(mTag, "getSimPhonebookCapacity");
 
         android.hardware.radio.sim.PhonebookCapacity capacity =
                 new android.hardware.radio.sim.PhonebookCapacity();
@@ -382,32 +398,45 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.getSimPhonebookCapacityResponse(rsp, capacity);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to getSimPhonebookCapacity from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to getSimPhonebookCapacity from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void getSimPhonebookRecords(int serial) {
-        Log.d(TAG, "getSimPhonebookRecords");
+        Log.d(mTag, "getSimPhonebookRecords");
 
         RadioResponseInfo rsp = mService.makeSolRsp(serial, RadioError.REQUEST_NOT_SUPPORTED);
         try {
             mRadioSimResponse.getSimPhonebookRecordsResponse(rsp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to getSimPhonebookRecords from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to getSimPhonebookRecords from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void iccCloseLogicalChannel(int serial, int channelId) {
-        Log.d(TAG, "iccCloseLogicalChannel");
+        Log.d(mTag, "iccCloseLogicalChannel");
         // TODO: cache value
 
         RadioResponseInfo rsp = mService.makeSolRsp(serial, RadioError.REQUEST_NOT_SUPPORTED);
         try {
             mRadioSimResponse.iccCloseLogicalChannelResponse(rsp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to iccCloseLogicalChannel from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to iccCloseLogicalChannel from AIDL. Exception" + ex);
+        }
+    }
+
+    @Override
+    public void iccCloseLogicalChannelWithSessionInfo(int serial,
+            android.hardware.radio.sim.SessionInfo sessionInfo) {
+        Log.d(mTag, "iccCloseLogicalChannelWithSessionInfo");
+        RadioResponseInfo rsp = mService.makeSolRsp(serial, RadioError.REQUEST_NOT_SUPPORTED);
+        try {
+            mRadioSimResponse.iccCloseLogicalChannelWithSessionInfoResponse(rsp);
+        } catch (RemoteException ex) {
+            Log.e(mTag,
+                    "Failed to iccCloseLogicalChannelWithSessionInfo from AIDL. Exception" + ex);
         }
     }
 
@@ -415,7 +444,7 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         StringBuffer bcdString = new StringBuffer();
 
         if (str.length() % 2 != 0) {
-            Log.d(TAG, "Invalid string(" + str + ") for Bcd format");
+            Log.d(mTag, "Invalid string(" + str + ") for Bcd format");
             return "";
         }
 
@@ -454,7 +483,7 @@ public class IRadioSimImpl extends IRadioSim.Stub {
             }
 
             if (!foundAid) {
-                Log.e(TAG, "Not support sim application aid = " + aid);
+                Log.e(mTag, "Not support sim application aid = " + aid);
                 iccIoResult.sw1 = 0x6A;
                 iccIoResult.sw2 = 0x82;
             } else {
@@ -464,17 +493,17 @@ public class IRadioSimImpl extends IRadioSim.Stub {
                             String bcdIccid =
                                     encodeBcdString(mSimAppList.get(simAppIdx).getIccid());
                             iccIoResult.simResponse = bcdIccid;
-                            Log.d(TAG, "Get IccIo result: ICCID = " + iccIoResult.simResponse);
+                            Log.d(mTag, "Get IccIo result: ICCID = " + iccIoResult.simResponse);
                             iccIoResult.sw1 = 0x90;
                             responseError = RadioError.NONE;
                         } else if (command == COMMAND_GET_RESPONSE) {
                             iccIoResult.simResponse = mSimAppList.get(simAppIdx).getIccidInfo();
-                            Log.d(TAG, "Get IccIo result: ICCID = " + iccIoResult.simResponse);
+                            Log.d(mTag, "Get IccIo result: ICCID = " + iccIoResult.simResponse);
                             iccIoResult.sw1 = 0x90;
                             responseError = RadioError.NONE;
                         } else {
                             Log.d(
-                                    TAG,
+                                    mTag,
                                     "Command("
                                             + command
                                             + ") not support for file id = 0x"
@@ -484,7 +513,7 @@ public class IRadioSimImpl extends IRadioSim.Stub {
                         }
                         break;
                     default:
-                        Log.d(TAG, "Not find EF file id = 0x" + Integer.toHexString(fileId));
+                        Log.d(mTag, "Not find EF file id = 0x" + Integer.toHexString(fileId));
                         iccIoResult.sw1 = 0x6A;
                         iccIoResult.sw2 = 0x82;
                         break;
@@ -497,7 +526,7 @@ public class IRadioSimImpl extends IRadioSim.Stub {
 
     @Override
     public void iccIoForApp(int serial, android.hardware.radio.sim.IccIo iccIo) {
-        Log.d(TAG, "iccIoForApp");
+        Log.d(mTag, "iccIoForApp");
         int responseError = RadioError.NONE;
         android.hardware.radio.sim.IccIoResult iccIoResult =
                 new android.hardware.radio.sim.IccIoResult();
@@ -525,13 +554,13 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.iccIoForAppResponse(rsp, iccIoResult);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to iccIoForApp from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to iccIoForApp from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void iccOpenLogicalChannel(int serial, String aid, int p2) {
-        Log.d(TAG, "iccOpenLogicalChannel");
+        Log.d(mTag, "iccOpenLogicalChannel");
         // TODO: cache value
         int channelId = 0;
         byte[] selectResponse = new byte[0];
@@ -540,14 +569,14 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.iccOpenLogicalChannelResponse(rsp, channelId, selectResponse);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to iccOpenLogicalChannel from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to iccOpenLogicalChannel from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void iccTransmitApduBasicChannel(
             int serial, android.hardware.radio.sim.SimApdu message) {
-        Log.d(TAG, "iccTransmitApduBasicChannel");
+        Log.d(mTag, "iccTransmitApduBasicChannel");
         // TODO: cache value
         android.hardware.radio.sim.IccIoResult iccIoResult =
                 new android.hardware.radio.sim.IccIoResult();
@@ -556,14 +585,14 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.iccTransmitApduBasicChannelResponse(rsp, iccIoResult);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to iccTransmitApduBasicChannel from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to iccTransmitApduBasicChannel from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void iccTransmitApduLogicalChannel(
             int serial, android.hardware.radio.sim.SimApdu message) {
-        Log.d(TAG, "iccTransmitApduLogicalChannel");
+        Log.d(mTag, "iccTransmitApduLogicalChannel");
         // TODO: cache value
         android.hardware.radio.sim.IccIoResult iccIoResult =
                 new android.hardware.radio.sim.IccIoResult();
@@ -572,26 +601,26 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.iccTransmitApduBasicChannelResponse(rsp, iccIoResult);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to iccTransmitApduLogicalChannel from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to iccTransmitApduLogicalChannel from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void reportStkServiceIsRunning(int serial) {
-        Log.d(TAG, "reportStkServiceIsRunning");
+        Log.d(mTag, "reportStkServiceIsRunning");
 
         RadioResponseInfo rsp = mService.makeSolRsp(serial, RadioError.REQUEST_NOT_SUPPORTED);
         try {
             mRadioSimResponse.reportStkServiceIsRunningResponse(rsp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to reportStkServiceIsRunning from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to reportStkServiceIsRunning from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void requestIccSimAuthentication(
             int serial, int authContext, String authData, String aid) {
-        Log.d(TAG, "requestIccSimAuthentication");
+        Log.d(mTag, "requestIccSimAuthentication");
         // TODO: cache value
         android.hardware.radio.sim.IccIoResult iccIoResult =
                 new android.hardware.radio.sim.IccIoResult();
@@ -600,13 +629,13 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.requestIccSimAuthenticationResponse(rsp, iccIoResult);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to requestIccSimAuthentication from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to requestIccSimAuthentication from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void sendEnvelope(int serial, String contents) {
-        Log.d(TAG, "sendEnvelope");
+        Log.d(mTag, "sendEnvelope");
         // TODO: cache value
         String commandResponse = "";
 
@@ -614,13 +643,13 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.sendEnvelopeResponse(rsp, commandResponse);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to sendEnvelope from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to sendEnvelope from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void sendEnvelopeWithStatus(int serial, String contents) {
-        Log.d(TAG, "sendEnvelopeWithStatus");
+        Log.d(mTag, "sendEnvelopeWithStatus");
         // TODO: cache value
         android.hardware.radio.sim.IccIoResult iccIoResult =
                 new android.hardware.radio.sim.IccIoResult();
@@ -629,20 +658,20 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.sendEnvelopeWithStatusResponse(rsp, iccIoResult);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to sendEnvelopeWithStatus from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to sendEnvelopeWithStatus from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void sendTerminalResponseToSim(int serial, String contents) {
-        Log.d(TAG, "sendTerminalResponseToSim");
+        Log.d(mTag, "sendTerminalResponseToSim");
         // TODO: cache value
 
         RadioResponseInfo rsp = mService.makeSolRsp(serial, RadioError.REQUEST_NOT_SUPPORTED);
         try {
             mRadioSimResponse.sendTerminalResponseToSimResponse(rsp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to sendTerminalResponseToSim from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to sendTerminalResponseToSim from AIDL. Exception" + ex);
         }
     }
 
@@ -651,41 +680,41 @@ public class IRadioSimImpl extends IRadioSim.Stub {
             int serial,
             android.hardware.radio.sim.CarrierRestrictions carriers,
             int multiSimPolicy) {
-        Log.d(TAG, "sendTerminalResponseToSim");
+        Log.d(mTag, "sendTerminalResponseToSim");
         // TODO: cache value
 
         RadioResponseInfo rsp = mService.makeSolRsp(serial, RadioError.REQUEST_NOT_SUPPORTED);
         try {
             mRadioSimResponse.setAllowedCarriersResponse(rsp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to setAllowedCarriers from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to setAllowedCarriers from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void setCarrierInfoForImsiEncryption(
             int serial, android.hardware.radio.sim.ImsiEncryptionInfo imsiEncryptionInfo) {
-        Log.d(TAG, "setCarrierInfoForImsiEncryption");
+        Log.d(mTag, "setCarrierInfoForImsiEncryption");
         // TODO: cache value
 
         RadioResponseInfo rsp = mService.makeSolRsp(serial, RadioError.REQUEST_NOT_SUPPORTED);
         try {
             mRadioSimResponse.setCarrierInfoForImsiEncryptionResponse(rsp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to setCarrierInfoForImsiEncryption from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to setCarrierInfoForImsiEncryption from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void setCdmaSubscriptionSource(int serial, int cdmaSub) {
-        Log.d(TAG, "setCdmaSubscriptionSource");
+        Log.d(mTag, "setCdmaSubscriptionSource");
         // TODO: cache value
 
         RadioResponseInfo rsp = mService.makeSolRsp(serial, RadioError.REQUEST_NOT_SUPPORTED);
         try {
             mRadioSimResponse.setCdmaSubscriptionSourceResponse(rsp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to setCdmaSubscriptionSource from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to setCdmaSubscriptionSource from AIDL. Exception" + ex);
         }
     }
 
@@ -697,7 +726,7 @@ public class IRadioSimImpl extends IRadioSim.Stub {
             String password,
             int serviceClass,
             String appId) {
-        Log.d(TAG, "setFacilityLockForApp");
+        Log.d(mTag, "setFacilityLockForApp");
         // TODO: cache value
         int retry = 10;
 
@@ -705,40 +734,39 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.setFacilityLockForAppResponse(rsp, retry);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to setFacilityLockForApp from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to setFacilityLockForApp from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void setSimCardPower(int serial, int powerUp) {
-        Log.d(TAG, "setSimCardPower");
+        Log.d(mTag, "setSimCardPower");
         // TODO: cache value
-        int retry = 10;
 
         RadioResponseInfo rsp = mService.makeSolRsp(serial, RadioError.REQUEST_NOT_SUPPORTED);
         try {
             mRadioSimResponse.setSimCardPowerResponse(rsp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to setSimCardPower from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to setSimCardPower from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void setUiccSubscription(int serial, android.hardware.radio.sim.SelectUiccSub uiccSub) {
-        Log.d(TAG, "setUiccSubscription");
+        Log.d(mTag, "setUiccSubscription");
         // TODO: cache value
 
         RadioResponseInfo rsp = mService.makeSolRsp(serial, RadioError.REQUEST_NOT_SUPPORTED);
         try {
             mRadioSimResponse.setUiccSubscriptionResponse(rsp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to setUiccSubscription from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to setUiccSubscription from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void supplyIccPin2ForApp(int serial, String pin2, String aid) {
-        Log.d(TAG, "supplyIccPin2ForApp");
+        Log.d(mTag, "supplyIccPin2ForApp");
         // TODO: cache value
         int setFacilityLockForApp = 10;
 
@@ -746,13 +774,13 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.supplyIccPin2ForAppResponse(rsp, setFacilityLockForApp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to supplyIccPin2ForApp from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to supplyIccPin2ForApp from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void supplyIccPinForApp(int serial, String pin, String aid) {
-        Log.d(TAG, "supplyIccPinForApp");
+        Log.d(mTag, "supplyIccPinForApp");
         // TODO: cache value
         int setFacilityLockForApp = 10;
 
@@ -760,13 +788,13 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.supplyIccPinForAppResponse(rsp, setFacilityLockForApp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to supplyIccPinForApp from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to supplyIccPinForApp from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void supplyIccPuk2ForApp(int serial, String puk2, String pin2, String aid) {
-        Log.d(TAG, "supplyIccPuk2ForApp");
+        Log.d(mTag, "supplyIccPuk2ForApp");
         // TODO: cache value
         int setFacilityLockForApp = 10;
 
@@ -774,13 +802,13 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.supplyIccPuk2ForAppResponse(rsp, setFacilityLockForApp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to supplyIccPuk2ForApp from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to supplyIccPuk2ForApp from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void supplyIccPukForApp(int serial, String puk, String pin, String aid) {
-        Log.d(TAG, "supplyIccPukForApp");
+        Log.d(mTag, "supplyIccPukForApp");
         // TODO: cache value
         int setFacilityLockForApp = 10;
 
@@ -788,13 +816,13 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.supplyIccPukForAppResponse(rsp, setFacilityLockForApp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to supplyIccPukForApp from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to supplyIccPukForApp from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void supplySimDepersonalization(int serial, int persoType, String controlKey) {
-        Log.d(TAG, "supplySimDepersonalization");
+        Log.d(mTag, "supplySimDepersonalization");
         // TODO: cache value
         int retPersoType = persoType;
         int setFacilityLockForApp = 10;
@@ -804,14 +832,14 @@ public class IRadioSimImpl extends IRadioSim.Stub {
             mRadioSimResponse.supplySimDepersonalizationResponse(
                     rsp, retPersoType, setFacilityLockForApp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to supplySimDepersonalization from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to supplySimDepersonalization from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void updateSimPhonebookRecords(
             int serial, android.hardware.radio.sim.PhonebookRecordInfo recordInfo) {
-        Log.d(TAG, "updateSimPhonebookRecords");
+        Log.d(mTag, "updateSimPhonebookRecords");
         // TODO: cache value
         int updatedRecordIndex = 0;
 
@@ -819,166 +847,168 @@ public class IRadioSimImpl extends IRadioSim.Stub {
         try {
             mRadioSimResponse.updateSimPhonebookRecordsResponse(rsp, updatedRecordIndex);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to updateSimPhonebookRecords from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to updateSimPhonebookRecords from AIDL. Exception" + ex);
         }
     }
 
     public void carrierInfoForImsiEncryption() {
-        Log.d(TAG, "carrierInfoForImsiEncryption");
+        Log.d(mTag, "carrierInfoForImsiEncryption");
 
         if (mRadioSimIndication != null) {
             try {
                 mRadioSimIndication.carrierInfoForImsiEncryption(RadioIndicationType.UNSOLICITED);
             } catch (RemoteException ex) {
-                Log.e(TAG, "Failed to carrierInfoForImsiEncryption from AIDL. Exception" + ex);
+                Log.e(mTag, "Failed to carrierInfoForImsiEncryption from AIDL. Exception" + ex);
             }
         } else {
-            Log.e(TAG, "null mRadioSimIndication");
+            Log.e(mTag, "null mRadioSimIndication");
         }
     }
 
     public void cdmaSubscriptionSourceChanged(int cdmaSource) {
-        Log.d(TAG, "carrierInfoForImsiEncryption");
+        Log.d(mTag, "carrierInfoForImsiEncryption");
 
         if (mRadioSimIndication != null) {
             try {
                 mRadioSimIndication.cdmaSubscriptionSourceChanged(
                         RadioIndicationType.UNSOLICITED, cdmaSource);
             } catch (RemoteException ex) {
-                Log.e(TAG, "Failed to cdmaSubscriptionSourceChanged from AIDL. Exception" + ex);
+                Log.e(mTag, "Failed to cdmaSubscriptionSourceChanged from AIDL. Exception" + ex);
             }
         } else {
-            Log.e(TAG, "null mRadioSimIndication");
+            Log.e(mTag, "null mRadioSimIndication");
         }
     }
 
     public void simPhonebookChanged() {
-        Log.d(TAG, "simPhonebookChanged");
+        Log.d(mTag, "simPhonebookChanged");
 
         if (mRadioSimIndication != null) {
             try {
                 mRadioSimIndication.simPhonebookChanged(RadioIndicationType.UNSOLICITED);
             } catch (RemoteException ex) {
-                Log.e(TAG, "Failed to simPhonebookChanged from AIDL. Exception" + ex);
+                Log.e(mTag, "Failed to simPhonebookChanged from AIDL. Exception" + ex);
             }
         } else {
-            Log.e(TAG, "null mRadioSimIndication");
+            Log.e(mTag, "null mRadioSimIndication");
         }
     }
 
     public void simPhonebookRecordsReceived(
             byte status, android.hardware.radio.sim.PhonebookRecordInfo[] records) {
-        Log.d(TAG, "simPhonebookRecordsReceived");
+        Log.d(mTag, "simPhonebookRecordsReceived");
 
         if (mRadioSimIndication != null) {
             try {
                 mRadioSimIndication.simPhonebookRecordsReceived(
                         RadioIndicationType.UNSOLICITED, status, records);
             } catch (RemoteException ex) {
-                Log.e(TAG, "Failed to simPhonebookRecordsReceived from AIDL. Exception" + ex);
+                Log.e(mTag, "Failed to simPhonebookRecordsReceived from AIDL. Exception" + ex);
             }
         } else {
-            Log.e(TAG, "null mRadioSimIndication");
+            Log.e(mTag, "null mRadioSimIndication");
         }
     }
 
     public void simRefresh(SimRefreshResult refreshResult) {
-        Log.d(TAG, "simRefresh");
+        Log.d(mTag, "simRefresh");
 
         if (mRadioSimIndication != null) {
             try {
                 mRadioSimIndication.simRefresh(RadioIndicationType.UNSOLICITED, refreshResult);
             } catch (RemoteException ex) {
-                Log.e(TAG, "Failed to simRefresh from AIDL. Exception" + ex);
+                Log.e(mTag, "Failed to simRefresh from AIDL. Exception" + ex);
             }
         } else {
-            Log.e(TAG, "null mRadioSimIndication");
+            Log.e(mTag, "null mRadioSimIndication");
         }
     }
 
     public void simStatusChanged() {
-        Log.d(TAG, "simStatusChanged");
+        Log.d(mTag, "simStatusChanged");
 
         if (mRadioSimIndication != null) {
             try {
                 mRadioSimIndication.simStatusChanged(RadioIndicationType.UNSOLICITED);
             } catch (RemoteException ex) {
-                Log.e(TAG, "Failed to simStatusChanged from AIDL. Exception" + ex);
+                Log.e(mTag, "Failed to simStatusChanged from AIDL. Exception" + ex);
             }
         } else {
-            Log.e(TAG, "null mRadioSimIndication");
+            Log.e(mTag, "null mRadioSimIndication");
         }
     }
 
     public void stkEventNotify(String cmd) {
-        Log.d(TAG, "stkEventNotify");
+        Log.d(mTag, "stkEventNotify");
 
         if (mRadioSimIndication != null) {
             try {
                 mRadioSimIndication.stkEventNotify(RadioIndicationType.UNSOLICITED, cmd);
             } catch (RemoteException ex) {
-                Log.e(TAG, "Failed to stkEventNotify from AIDL. Exception" + ex);
+                Log.e(mTag, "Failed to stkEventNotify from AIDL. Exception" + ex);
             }
         } else {
-            Log.e(TAG, "null mRadioSimIndication");
+            Log.e(mTag, "null mRadioSimIndication");
         }
     }
 
     public void stkProactiveCommand(String cmd) {
-        Log.d(TAG, "stkProactiveCommand");
+        Log.d(mTag, "stkProactiveCommand");
 
         if (mRadioSimIndication != null) {
             try {
                 mRadioSimIndication.stkProactiveCommand(RadioIndicationType.UNSOLICITED, cmd);
             } catch (RemoteException ex) {
-                Log.e(TAG, "Failed to stkProactiveCommand from AIDL. Exception" + ex);
+                Log.e(mTag, "Failed to stkProactiveCommand from AIDL. Exception" + ex);
             }
         } else {
-            Log.e(TAG, "null mRadioSimIndication");
+            Log.e(mTag, "null mRadioSimIndication");
         }
     }
 
     public void stkSessionEnd() {
-        Log.d(TAG, "stkSessionEnd");
+        Log.d(mTag, "stkSessionEnd");
 
         if (mRadioSimIndication != null) {
             try {
                 mRadioSimIndication.stkSessionEnd(RadioIndicationType.UNSOLICITED);
             } catch (RemoteException ex) {
-                Log.e(TAG, "Failed to stkSessionEnd from AIDL. Exception" + ex);
+                Log.e(mTag, "Failed to stkSessionEnd from AIDL. Exception" + ex);
             }
         } else {
-            Log.e(TAG, "null mRadioSimIndication");
+            Log.e(mTag, "null mRadioSimIndication");
         }
     }
 
     public void subscriptionStatusChanged(boolean activate) {
-        Log.d(TAG, "subscriptionStatusChanged");
+        Log.d(mTag, "subscriptionStatusChanged");
 
         if (mRadioSimIndication != null) {
             try {
                 mRadioSimIndication.subscriptionStatusChanged(
                         RadioIndicationType.UNSOLICITED, activate);
             } catch (RemoteException ex) {
-                Log.e(TAG, "Failed to subscriptionStatusChanged from AIDL. Exception" + ex);
+                Log.e(mTag, "Failed to subscriptionStatusChanged from AIDL. Exception" + ex);
             }
         } else {
-            Log.e(TAG, "null mRadioSimIndication");
+            Log.e(mTag, "null mRadioSimIndication");
         }
     }
 
     public void uiccApplicationsEnablementChanged(boolean enabled) {
-        Log.d(TAG, "uiccApplicationsEnablementChanged");
+        Log.d(mTag, "uiccApplicationsEnablementChanged");
 
         if (mRadioSimIndication != null) {
             try {
                 mRadioSimIndication.uiccApplicationsEnablementChanged(
                         RadioIndicationType.UNSOLICITED, enabled);
             } catch (RemoteException ex) {
-                Log.e(TAG, "Failed to uiccApplicationsEnablementChanged from AIDL. Exception" + ex);
+                Log.e(
+                        mTag,
+                        "Failed to uiccApplicationsEnablementChanged from AIDL. Exception" + ex);
             }
         } else {
-            Log.e(TAG, "null mRadioSimIndication");
+            Log.e(mTag, "null mRadioSimIndication");
         }
     }
 
@@ -990,5 +1020,10 @@ public class IRadioSimImpl extends IRadioSim.Stub {
     @Override
     public int getInterfaceVersion() {
         return IRadioSim.VERSION;
+    }
+
+    public void updateCarrierRestrictionStatusInfo(Carrier[] carrierList, int carrierRestrictionStatus) {
+        mCarrierList = carrierList;
+        mCarrierRestrictionStatus = carrierRestrictionStatus;
     }
 }

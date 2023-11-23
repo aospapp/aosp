@@ -38,6 +38,7 @@ public class CarNotificationOlderViewHolder extends RecyclerView.ViewHolder {
     private final Button mClearAllButton;
     private final CarNotificationItemController mNotificationItemController;
     private final boolean mShowOlder;
+    private final float mAlpha;
 
     public CarNotificationOlderViewHolder(Context context, View view,
             @NonNull CarNotificationItemController notificationItemController) {
@@ -47,6 +48,16 @@ public class CarNotificationOlderViewHolder extends RecyclerView.ViewHolder {
         mClearAllButton = view.findViewById(R.id.clear_all_button);
         mShowOlder = context.getResources().getBoolean(R.bool.config_showRecentAndOldHeaders);
         mNotificationItemController = notificationItemController;
+        mAlpha = context.getResources().getFloat(R.dimen.config_olderNotificationsAlpha);
+
+        if (mNotificationOlderText != null) {
+            mNotificationOlderText.setAlpha(mAlpha);
+        }
+        if (mClearAllButton != null) {
+            mClearAllButton.setOnClickListener(
+                    v -> mNotificationItemController.clearAllNotifications());
+            mClearAllButton.setAlpha(mAlpha);
+        }
     }
 
     /**
@@ -66,15 +77,9 @@ public class CarNotificationOlderViewHolder extends RecyclerView.ViewHolder {
 
             if (showClearAllButton) {
                 mClearAllButton.setVisibility(View.VISIBLE);
-                if (!mClearAllButton.hasOnClickListeners()) {
-                    mClearAllButton.setOnClickListener(view -> {
-                        mNotificationItemController.clearAllNotifications();
-                    });
-                }
             } else {
                 mClearAllButton.setVisibility(View.GONE);
             }
-
             return;
         }
 

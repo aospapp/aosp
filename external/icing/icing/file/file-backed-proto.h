@@ -22,6 +22,7 @@
 #ifndef ICING_FILE_FILE_BACKED_PROTO_H_
 #define ICING_FILE_FILE_BACKED_PROTO_H_
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -37,6 +38,7 @@
 #include "icing/legacy/core/icing-string-util.h"
 #include "icing/util/crc32.h"
 #include "icing/util/logging.h"
+#include "icing/util/status-macros.h"
 
 namespace icing {
 namespace lib {
@@ -66,13 +68,20 @@ class FileBackedProto {
   // Reset the internal file_path for the file backed proto.
   // Example use:
   //   auto file_backed_proto1 = *FileBackedProto<Proto>::Create(...);
-  //   auto file_backed_proto2 = *FileBackedProto<Proto>::Create(...);
+  //   auto file_backed_google::protobuf = *FileBackedProto<Proto>::Create(...);
   //   filesystem.SwapFiles(file1, file2);
   //   file_backed_proto1.SetSwappedFilepath(file2);
-  //   file_backed_proto2.SetSwappedFilepath(file1);
+  //   file_backed_google::protobuf.SetSwappedFilepath(file1);
   void SetSwappedFilepath(std::string_view swapped_to_file_path) {
     file_path_ = swapped_to_file_path;
   }
+
+  // Computes the checksum of the proto stored in this file and returns it.
+  // RETURNS:
+  //   - the checksum of the proto or 0 if the file is empty/non-existent
+  //   - INTERNAL_ERROR if an IO error or a corruption was encountered.
+  libtextclassifier3::StatusOr<Crc32> ComputeChecksum() const
+      ICING_LOCKS_EXCLUDED(mutex_);
 
   // Returns a reference to the proto read from the file. It
   // internally caches the read proto so that future calls are fast.
@@ -103,6 +112,11 @@ class FileBackedProto {
   FileBackedProto& operator=(const FileBackedProto&) = delete;
 
  private:
+  // Internal method to handle reading the proto from disk.
+  // Requires the caller to hold an exclusive lock on mutex_.
+  libtextclassifier3::StatusOr<const ProtoT*> ReadInternal() const
+      ICING_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
   // Upper bound of file-size that is supported.
   static constexpr int32_t kMaxFileSize = 1 * 1024 * 1024;  // 1 MiB.
 
@@ -113,6 +127,8 @@ class FileBackedProto {
   std::string file_path_;
 
   mutable std::unique_ptr<ProtoT> cached_proto_ ICING_GUARDED_BY(mutex_);
+
+  mutable std::unique_ptr<Header> cached_header_ ICING_GUARDED_BY(mutex_);
 };
 
 template <typename ProtoT>
@@ -124,12 +140,35 @@ FileBackedProto<ProtoT>::FileBackedProto(const Filesystem& filesystem,
     : filesystem_(&filesystem), file_path_(file_path) {}
 
 template <typename ProtoT>
+libtextclassifier3::StatusOr<Crc32> FileBackedProto<ProtoT>::ComputeChecksum()
+    const {
+  absl_ports::unique_lock l(&mutex_);
+  if (cached_proto_ == nullptr) {
+    auto read_status = ReadInternal();
+    if (!read_status.ok()) {
+      if (absl_ports::IsNotFound(read_status.status())) {
+        // File doesn't exist. So simply return 0.
+        return Crc32();
+      }
+      return read_status.status();
+    }
+  }
+  return Crc32(cached_header_->proto_checksum);
+}
+
+template <typename ProtoT>
 libtextclassifier3::StatusOr<const ProtoT*> FileBackedProto<ProtoT>::Read()
     const {
   ICING_VLOG(1) << "Reading proto from file: " << file_path_;
 
   absl_ports::unique_lock l(&mutex_);
 
+  return ReadInternal();
+}
+
+template <typename ProtoT>
+libtextclassifier3::StatusOr<const ProtoT*>
+FileBackedProto<ProtoT>::ReadInternal() const {
   // Return cached proto if we've already read from disk.
   if (cached_proto_ != nullptr) {
     ICING_VLOG(1) << "Reusing cached proto for file: " << file_path_;
@@ -157,8 +196,7 @@ libtextclassifier3::StatusOr<const ProtoT*> FileBackedProto<ProtoT>::Read()
                 << " of size: " << file_size;
 
   Header header;
-  if (!filesystem_->PRead(fd.get(), &header, sizeof(Header),
-                          /*offset=*/0)) {
+  if (!filesystem_->PRead(fd.get(), &header, sizeof(Header), /*offset=*/0)) {
     return absl_ports::InternalError(
         absl_ports::StrCat("Unable to read header of: ", file_path_));
   }
@@ -193,6 +231,7 @@ libtextclassifier3::StatusOr<const ProtoT*> FileBackedProto<ProtoT>::Read()
 
   ICING_VLOG(1) << "Successfully read proto from file: " << file_path_;
   cached_proto_ = std::move(proto);
+  cached_header_ = std::make_unique<Header>(std::move(header));
   return cached_proto_.get();
 }
 
@@ -253,6 +292,7 @@ libtextclassifier3::Status FileBackedProto<ProtoT>::Write(
 
   ICING_VLOG(1) << "Successfully wrote proto to file: " << file_path_;
   cached_proto_ = std::move(new_proto);
+  cached_header_ = std::make_unique<Header>(std::move(header));
   return libtextclassifier3::Status::OK;
 }
 

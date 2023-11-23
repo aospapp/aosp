@@ -1,0 +1,27 @@
+type debug_camera_app, domain, coredomain;
+
+userdebug_or_eng(`
+	app_domain(debug_camera_app)
+	net_domain(debug_camera_app)
+
+	allow debug_camera_app app_api_service:service_manager find;
+	allow debug_camera_app audioserver_service:service_manager find;
+	allow debug_camera_app cameraserver_service:service_manager find;
+	allow debug_camera_app mediaextractor_service:service_manager find;
+	allow debug_camera_app mediametrics_service:service_manager find;
+	allow debug_camera_app mediaserver_service:service_manager find;
+
+	# Allows camera app to access the GXP device.
+	allow debug_camera_app gxp_device:chr_file rw_file_perms;
+
+	# Allows camera app to search for GXP firmware file.
+	allow debug_camera_app vendor_fw_file:dir search;
+
+	# Allows camera app to access the PowerHAL.
+	hal_client_domain(debug_camera_app, hal_power)
+')
+userdebug_or_eng(`
+	# Allows GCA-Eng to find and access the EdgeTPU.
+	allow debug_camera_app edgetpu_app_service:service_manager find;
+	allow debug_camera_app edgetpu_device:chr_file { getattr read write ioctl map };
+')

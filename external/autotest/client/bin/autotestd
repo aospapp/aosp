@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 import common
 import sys, os, subprocess, fcntl
@@ -48,7 +48,7 @@ open(os.path.join(logdir, 'started'), 'w').close()
 exit_code = subprocess.call("{} {}".format(sys.executable, cmd),
                             shell=True,
                             close_fds=False)
-exit_file.write('%+04d' % exit_code)
+exit_file.write(b'%+04d' % exit_code)
 exit_file.flush()
 fcntl.flock(exit_file, fcntl.LOCK_UN)
 exit_file.close()

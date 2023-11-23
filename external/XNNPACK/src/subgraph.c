@@ -18,6 +18,10 @@
 #include <xnnpack/subgraph.h>
 
 
+#ifndef XNN_ENABLE_SPARSE
+  #error "XNN_ENABLE_SPARSE not defined"
+#endif
+
 enum xnn_status xnn_create_subgraph(
     uint32_t external_value_ids,
     uint32_t flags,
@@ -43,7 +47,8 @@ enum xnn_status xnn_create_subgraph(
 
   subgraph->values = xnn_allocate_zero_memory(external_value_ids * sizeof(struct xnn_value));
   if (subgraph->values == NULL) {
-    xnn_log_error("failed to allocate %zu bytes for subgraph values", external_value_ids * sizeof(struct xnn_value));
+    xnn_log_error("failed to allocate %zu bytes for subgraph values",
+      (size_t) external_value_ids * sizeof(struct xnn_value));
     goto error;
   }
   for (size_t i = 0; i < external_value_ids; i++) {
@@ -202,7 +207,7 @@ void xnn_subgraph_analyze_consumers_and_producers(xnn_subgraph_t subgraph)
   // Remove unreferenced values.
   for (uint32_t i = 0; i < subgraph->num_values; i++) {
     struct xnn_value* value = &subgraph->values[i];
-    if (value->flags & XNN_VALUE_FLAG_EXTERNAL_OUTPUT) {
+    if (xnn_value_is_external_output(value)) {
       value->num_consumers += 1;
     }
   }
@@ -215,6 +220,11 @@ void xnn_subgraph_analyze_consumers_and_producers(xnn_subgraph_t subgraph)
 
 uint32_t xnn_check_nchw_compatibility(xnn_subgraph_t subgraph, struct xnn_node* node) {
   if (node->compute_type != xnn_compute_type_fp32) {
+    if (node->type != xnn_node_type_invalid) {
+      xnn_log_info(
+          "Node %s compute type %d is incompatible with sparse inference",
+          xnn_node_type_to_string(node->type), node->compute_type);
+    }
     return 0;
   }
 
@@ -224,31 +234,66 @@ uint32_t xnn_check_nchw_compatibility(xnn_subgraph_t subgraph, struct xnn_node* 
       // - 1x1 convolution (no stride, no dilation, no padding, no groups)
       // - 3x3 stride-2 convolution (no dilation, padding 1 on each side, no groups, 3 input channels)
       if (node->params.convolution_2d.groups != 1) {
+        xnn_log_info("Node %s groups (%" PRIu32 ") "
+                     "is incompatible with sparse inference",
+                     xnn_node_type_to_string(node->type),
+                     node->params.convolution_2d.groups);
         return 0;
       }
       if ((node->params.convolution_2d.dilation_height | node->params.convolution_2d.dilation_width) != 1) {
+        xnn_log_info("Node %s dilation (height=%" PRIu32 ", width=%" PRIu32 ") "
+                     "is incompatible with sparse inference",
+                     xnn_node_type_to_string(node->type),
+                     node->params.convolution_2d.dilation_height,
+                     node->params.convolution_2d.dilation_width);
         return 0;
       }
       if ((node->params.convolution_2d.kernel_height | node->params.convolution_2d.kernel_width) == 1) {
         if ((node->params.convolution_2d.input_padding_top | node->params.convolution_2d.input_padding_right |
-             node->params.convolution_2d.input_padding_bottom | node->params.convolution_2d.input_padding_left) != 0)
-        {
+             node->params.convolution_2d.input_padding_bottom | node->params.convolution_2d.input_padding_left) != 0) {
+          xnn_log_info("Node %s (1x1 kernel) padding (top=%" PRIu32 ", right=%" PRIu32", bottom=%" PRIu32 ", left=%" PRIu32") "
+                       "is incompatible with sparse inference",
+                       xnn_node_type_to_string(node->type),
+                       node->params.convolution_2d.input_padding_top,
+                       node->params.convolution_2d.input_padding_right,
+                       node->params.convolution_2d.input_padding_bottom,
+                       node->params.convolution_2d.input_padding_left);
           return 0;
         }
         if ((node->params.convolution_2d.subsampling_height | node->params.convolution_2d.subsampling_width) != 1) {
+          xnn_log_info("Node %s (1x1 kernel) subsampling (height=%" PRIu32 ", width=%" PRIu32 ") "
+                       "is incompatible with sparse inference",
+                       xnn_node_type_to_string(node->type),
+                       node->params.convolution_2d.subsampling_height,
+                       node->params.convolution_2d.subsampling_width);
           return 0;
         }
         return XNN_LAYOUT_FLAG_COMPATIBLE_NCHW;
       } else if (node->params.convolution_2d.kernel_height == 3 && node->params.convolution_2d.kernel_width == 3) {
         if (node->params.convolution_2d.input_padding_top != 1 || node->params.convolution_2d.input_padding_right != 1 ||
-            node->params.convolution_2d.input_padding_bottom != 1 || node->params.convolution_2d.input_padding_left != 1)
-        {
+            node->params.convolution_2d.input_padding_bottom != 1 || node->params.convolution_2d.input_padding_left != 1) {
+          xnn_log_info("Node %s (3x3 kernel) padding (top=%" PRIu32 ", right=%" PRIu32 ", bottom=%" PRIu32 ", left=%" PRIu32 ") "
+                       "is incompatible with sparse inference",
+                       xnn_node_type_to_string(node->type),
+                       node->params.convolution_2d.input_padding_top,
+                       node->params.convolution_2d.input_padding_right,
+                       node->params.convolution_2d.input_padding_bottom,
+                       node->params.convolution_2d.input_padding_left);
           return 0;
         }
         if ((node->params.convolution_2d.subsampling_height | node->params.convolution_2d.subsampling_width) != 2) {
+          xnn_log_info("Node %s (3x3 kernel) subsampling (height=%" PRIu32 ", width=%" PRIu32 ") "
+                       "is incompatible with sparse inference",
+                       xnn_node_type_to_string(node->type),
+                       node->params.convolution_2d.subsampling_height,
+                       node->params.convolution_2d.subsampling_width);
           return 0;
         }
         if (node->params.convolution_2d.group_input_channels != 3) {
+          xnn_log_info("Node %s (3x3 kernel) input channels (%zu) "
+                       "is incompatible with sparse inference",
+                       xnn_node_type_to_string(node->type),
+                       node->params.convolution_2d.group_input_channels);
           return 0;
         }
         return XNN_LAYOUT_FLAG_COMPATIBLE_NHWC2NCHW;
@@ -261,15 +306,31 @@ uint32_t xnn_check_nchw_compatibility(xnn_subgraph_t subgraph, struct xnn_node* 
       // - 5x5 stride-1 convolution (no dilation, padding 2 on each side)
       // - 5x5 stride-2 convolution (no dilation, padding 2 on each side)
       if ((node->params.depthwise_convolution_2d.dilation_height | node->params.depthwise_convolution_2d.dilation_width) != 1) {
+        xnn_log_info("Node %s dilation (height=%" PRIu32 ", width=%" PRIu32 ") "
+                     "is incompatible with sparse inference",
+                     xnn_node_type_to_string(node->type),
+                     node->params.convolution_2d.dilation_height,
+                     node->params.convolution_2d.dilation_width);
         return 0;
       }
       if (node->flags & XNN_FLAG_TENSORFLOW_SAME_PADDING) {
+        xnn_log_info("Node %s flags (%" PRIu32 ") has padding incompatible with sparse inference",
+                     xnn_node_type_to_string(node->type),
+                     node->flags);
         return 0;
       }
       if (node->params.depthwise_convolution_2d.depth_multiplier != 1) {
+        xnn_log_info("Node %s depth_multiplier (%" PRIu32 ") is incompatible with sparse inference",
+                     xnn_node_type_to_string(node->type),
+                     node->params.depthwise_convolution_2d.depth_multiplier);
         return 0;
       }
       if (node->params.depthwise_convolution_2d.subsampling_height != node->params.depthwise_convolution_2d.subsampling_width) {
+        xnn_log_info("Node %s subsampling (height=%" PRIu32 ", width=%" PRIu32 ") "
+                     "is incompatible with sparse inference",
+                     xnn_node_type_to_string(node->type),
+                     node->params.depthwise_convolution_2d.subsampling_height,
+                     node->params.depthwise_convolution_2d.subsampling_width);
         return 0;
       }
       switch (node->params.depthwise_convolution_2d.subsampling_height) {
@@ -277,22 +338,55 @@ uint32_t xnn_check_nchw_compatibility(xnn_subgraph_t subgraph, struct xnn_node* 
         case 2:
           break;
         default:
+          xnn_log_info("Node %s subsampling_height (%" PRIu32 ") "
+                       "is incompatible with sparse inference",
+                        xnn_node_type_to_string(node->type),
+                        node->params.depthwise_convolution_2d.subsampling_height);
           return 0;
       }
       if (node->params.depthwise_convolution_2d.kernel_height != node->params.depthwise_convolution_2d.kernel_width) {
+         xnn_log_info("Node %s kernel (height=%" PRIu32 ", width=%" PRIu32 ") "
+                      "is incompatible with sparse inference",
+                      xnn_node_type_to_string(node->type),
+                      node->params.depthwise_convolution_2d.kernel_height,
+                      node->params.depthwise_convolution_2d.kernel_width);
         return 0;
       }
       switch (node->params.depthwise_convolution_2d.kernel_height) {
         case 3:
-          return node->params.depthwise_convolution_2d.input_padding_top == 1 &&
-                 node->params.depthwise_convolution_2d.input_padding_right == 1 &&
-                 node->params.depthwise_convolution_2d.input_padding_bottom == 1 &&
-                 node->params.depthwise_convolution_2d.input_padding_left == 1 ? XNN_LAYOUT_FLAG_COMPATIBLE_NCHW : 0;
+          if (node->params.depthwise_convolution_2d.input_padding_top == 1 &&
+              node->params.depthwise_convolution_2d.input_padding_right == 1 &&
+              node->params.depthwise_convolution_2d.input_padding_bottom == 1 &&
+              node->params.depthwise_convolution_2d.input_padding_left == 1) {
+            return XNN_LAYOUT_FLAG_COMPATIBLE_NCHW;
+          } else {
+            xnn_log_info("Node %s (3x3 kernel) padding "
+                         "(top=%" PRIu32 ", right=%" PRIu32 ", bottom=%" PRIu32 ", left=%" PRIu32 ") "
+                         "is incompatible with sparse inference",
+                         xnn_node_type_to_string(node->type),
+                         node->params.depthwise_convolution_2d.input_padding_top,
+                         node->params.depthwise_convolution_2d.input_padding_right,
+                         node->params.depthwise_convolution_2d.input_padding_bottom,
+                         node->params.depthwise_convolution_2d.input_padding_left);
+            return 0;
+          }
         case 5:
-          return node->params.depthwise_convolution_2d.input_padding_top == 2 &&
-                 node->params.depthwise_convolution_2d.input_padding_right == 2 &&
-                 node->params.depthwise_convolution_2d.input_padding_bottom == 2 &&
-                 node->params.depthwise_convolution_2d.input_padding_left == 2 ? XNN_LAYOUT_FLAG_COMPATIBLE_NCHW : 0;
+          if (node->params.depthwise_convolution_2d.input_padding_top == 2 &&
+              node->params.depthwise_convolution_2d.input_padding_right == 2 &&
+              node->params.depthwise_convolution_2d.input_padding_bottom == 2 &&
+              node->params.depthwise_convolution_2d.input_padding_left == 2) {
+            return XNN_LAYOUT_FLAG_COMPATIBLE_NCHW;
+          } else {
+            xnn_log_info("Node %s (5x5 kernel) padding "
+                         "(top=%" PRIu32 ", right=%" PRIu32 ", bottom=%" PRIu32 ", left=%" PRIu32 ") "
+                         "is incompatible with sparse inference",
+                         xnn_node_type_to_string(node->type),
+                         node->params.depthwise_convolution_2d.input_padding_top,
+                         node->params.depthwise_convolution_2d.input_padding_right,
+                         node->params.depthwise_convolution_2d.input_padding_bottom,
+                         node->params.depthwise_convolution_2d.input_padding_left);
+            return 0;
+          }
         default:
           return 0;
       }
@@ -307,6 +401,8 @@ uint32_t xnn_check_nchw_compatibility(xnn_subgraph_t subgraph, struct xnn_node* 
       if (subgraph->values[node->inputs[0]].shape.num_dims != 4 ||
           subgraph->values[node->inputs[1]].shape.num_dims != 4)
       {
+        xnn_log_info("Node %s inputs shape is incompatible with sparse inference",
+                     xnn_node_type_to_string(node->type));
         return 0;
       }
 
@@ -338,8 +434,14 @@ uint32_t xnn_check_nchw_compatibility(xnn_subgraph_t subgraph, struct xnn_node* 
 
       return XNN_LAYOUT_FLAG_COMPATIBLE_NCHW;
     case xnn_node_type_static_resize_bilinear_2d:
-      return subgraph->values[node->inputs[0]].shape.dim[1] > 1 &&
-             subgraph->values[node->inputs[0]].shape.dim[2] > 1 ? XNN_LAYOUT_FLAG_COMPATIBLE_NCHW : 0;
+      if (subgraph->values[node->inputs[0]].shape.dim[1] > 1 &&
+          subgraph->values[node->inputs[0]].shape.dim[2] > 1) {
+        return XNN_LAYOUT_FLAG_COMPATIBLE_NCHW;
+      } else {
+        xnn_log_info("Node %s inputs shape is incompatible with sparse inference",
+                     xnn_node_type_to_string(node->type));
+        return 0;
+      }
     case xnn_node_type_abs:
     case xnn_node_type_bankers_rounding:
     case xnn_node_type_ceiling:
@@ -353,7 +455,13 @@ uint32_t xnn_check_nchw_compatibility(xnn_subgraph_t subgraph, struct xnn_node* 
     case xnn_node_type_square:
       assert(node->num_inputs == 1);
       assert(node->num_outputs == 1);
-      return subgraph->values[node->inputs[0]].shape.num_dims == 4 ? XNN_LAYOUT_FLAG_COMPATIBLE_NCHW : 0;
+      if (subgraph->values[node->inputs[0]].shape.num_dims == 4) {
+        return XNN_LAYOUT_FLAG_COMPATIBLE_NCHW;
+      } else {
+        xnn_log_info("Node %s inputs shape is incompatible with sparse inference",
+                     xnn_node_type_to_string(node->type));
+        return 0;
+      }
     default:
       return false;
   }
@@ -391,7 +499,7 @@ void xnn_subgraph_rewrite_for_nchw(xnn_subgraph_t subgraph)
           // during the initial NCHW compatibility check for the Node.
           continue;
         }
-        if ((value->flags & (XNN_VALUE_FLAG_EXTERNAL_INPUT | XNN_VALUE_FLAG_EXTERNAL_OUTPUT)) != 0) {
+        if (xnn_value_is_external(value)) {
           // External value, invalid cluster
           node->layout_flags |= XNN_LAYOUT_FLAG_INCOMPATIBLE_CLUSTER;
           continue;
@@ -440,7 +548,7 @@ void xnn_subgraph_rewrite_for_nchw(xnn_subgraph_t subgraph)
           // during the initial NCHW compatibility check for the Node.
           continue;
         }
-        if ((value->flags & (XNN_VALUE_FLAG_EXTERNAL_INPUT | XNN_VALUE_FLAG_EXTERNAL_OUTPUT)) != 0) {
+        if (xnn_value_is_external(value)) {
           // External value, invalid cluster
           node->layout_flags |= XNN_LAYOUT_FLAG_INCOMPATIBLE_CLUSTER;
           continue;
@@ -485,7 +593,7 @@ void xnn_subgraph_rewrite_for_nchw(xnn_subgraph_t subgraph)
         // Static data, skip this input value because it doesn't have a producer Node.
         continue;
       }
-      assert((value->flags & (XNN_VALUE_FLAG_EXTERNAL_INPUT | XNN_VALUE_FLAG_EXTERNAL_OUTPUT)) == 0);
+      assert(!xnn_value_is_external(value));
       value->num_nchw_compatible_consumers += 1;
     }
   }
@@ -505,7 +613,7 @@ void xnn_subgraph_rewrite_for_nchw(xnn_subgraph_t subgraph)
         // Static data, skip this input value because it doesn't have a producer Node.
         continue;
       }
-      assert((value->flags & (XNN_VALUE_FLAG_EXTERNAL_INPUT | XNN_VALUE_FLAG_EXTERNAL_OUTPUT)) == 0);
+      assert(!xnn_value_is_external(value));
       assert(value->num_nchw_compatible_consumers > 0);
       if (value->num_nchw_compatible_consumers != value->num_consumers) {
         subgraph->nodes[node->cluster_leader].layout_flags |= XNN_LAYOUT_FLAG_INCOMPATIBLE_CLUSTER;
@@ -566,7 +674,7 @@ void xnn_subgraph_rewrite_for_nchw(xnn_subgraph_t subgraph)
         // Static data, skip this input value because it doesn't have a producer Node.
         continue;
       }
-      assert((value->flags & (XNN_VALUE_FLAG_EXTERNAL_INPUT | XNN_VALUE_FLAG_EXTERNAL_OUTPUT)) == 0);
+      assert(!xnn_value_is_external(value));
       assert(value->num_nchw_compatible_consumers > 0);
       assert(value->num_nchw_compatible_consumers == value->num_consumers);
       if (value->layout != xnn_layout_type_nchw) {
@@ -581,7 +689,7 @@ void xnn_subgraph_rewrite_for_nchw(xnn_subgraph_t subgraph)
   }
 }
 
-void xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph)
+bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph)
 {
   xnn_log_info("Analyzing subgraph for FP16 compatibility");
 
@@ -600,33 +708,78 @@ void xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph)
     }
 
     if (node->compute_type != xnn_compute_type_fp32) {
-      xnn_log_info("FP16 rewrite aborted: node #%" PRIu32 " (%s) is not FP32", n, xnn_node_type_to_string(node->type));
-      return;
+      xnn_log_warning("FP16 rewrite aborted: node #%" PRIu32 " (%s) is not FP32", n, xnn_node_type_to_string(node->type));
+      return false;
+    }
+    for (uint32_t i = 0; i < node->num_inputs; i++) {
+      if (subgraph->values[node->inputs[i]].layout == xnn_layout_type_nchw) {
+        xnn_log_warning(
+          "FP16 rewrite aborted: input #%" PRIu32 " (Value #%" PRIu32 ") of node #%" PRIu32 " (%s) has NCHW layout",
+          i, node->inputs[i], n, xnn_node_type_to_string(node->type));
+        return false;
+      }
+    }
+    for (uint32_t o = 0; o < node->num_outputs; o++) {
+      if (subgraph->values[node->outputs[o]].layout == xnn_layout_type_nchw) {
+        xnn_log_warning(
+          "FP16 rewrite aborted: output #%" PRIu32 " (Value #%" PRIu32 ") of node #%" PRIu32 " (%s) has NCHW layout",
+          o, node->outputs[o], n, xnn_node_type_to_string(node->type));
+        return false;
+      }
     }
     switch (node->type) {
+      case xnn_node_type_abs:
       case xnn_node_type_add2:
-        assert(node->num_inputs == 2);
+      case xnn_node_type_divide:
+      case xnn_node_type_maximum2:
+      case xnn_node_type_minimum2:
+      case xnn_node_type_multiply2:
+      case xnn_node_type_concatenate2:
+      case xnn_node_type_concatenate3:
+      case xnn_node_type_concatenate4:
+      case xnn_node_type_squared_difference:
+      case xnn_node_type_subtract:
         for (uint32_t i = 0; i < node->num_inputs; i++) {
           if (subgraph->values[node->inputs[i]].data != NULL) {
-            xnn_log_info("FP16 rewrite aborted: node #%" PRIu32 " (%s) has static input %i",
+            xnn_log_warning("FP16 rewrite aborted: node #%" PRIu32 " (%s) has static input %" PRIu32,
               n, xnn_node_type_to_string(node->type), i);
-            return;
+            return false;
           }
         }
         break;
+      case xnn_node_type_average_pooling_2d:
+      case xnn_node_type_bankers_rounding:
+      case xnn_node_type_ceiling:
+      case xnn_node_type_clamp:
       case xnn_node_type_convolution_2d:
+      case xnn_node_type_deconvolution_2d:
       case xnn_node_type_depthwise_convolution_2d:
+      case xnn_node_type_depth_to_space:
+      case xnn_node_type_elu:
+      case xnn_node_type_even_split2:
+      case xnn_node_type_even_split3:
+      case xnn_node_type_even_split4:
+      case xnn_node_type_floor:
+      case xnn_node_type_fully_connected:
       case xnn_node_type_global_average_pooling_2d:
       case xnn_node_type_hardswish:
+      case xnn_node_type_leaky_relu:
       case xnn_node_type_max_pooling_2d:
+      case xnn_node_type_negate:
       case xnn_node_type_prelu:
+      case xnn_node_type_sigmoid:
+      case xnn_node_type_softmax:
       case xnn_node_type_static_constant_pad:
       case xnn_node_type_static_reshape:
+      case xnn_node_type_static_resize_bilinear_2d:
+      case xnn_node_type_static_transpose:
+      case xnn_node_type_square:
+      case xnn_node_type_square_root:
         break;
       default:
-        xnn_log_info("FP16 rewrite aborted: node #%" PRIu32 " (%s) is not supported for FP16 inference",
+        xnn_log_warning("FP16 rewrite aborted: node #%" PRIu32 " (%s) is not supported for FP16 inference",
           n, xnn_node_type_to_string(node->type));
-        return;
+        return false;
     }
   }
 
@@ -637,7 +790,9 @@ void xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph)
     struct xnn_node* node = &subgraph->nodes[n];
     switch (node->type) {
       case xnn_node_type_convolution_2d:
+      case xnn_node_type_deconvolution_2d:
       case xnn_node_type_depthwise_convolution_2d:
+      case xnn_node_type_fully_connected:
       case xnn_node_type_prelu:
         subgraph->values[node->inputs[0]].fp16_compatible = true;
         subgraph->values[node->outputs[0]].fp16_compatible = true;
@@ -665,7 +820,7 @@ void xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph)
     if (value->fp16_compatible) {
       assert(value->data == NULL);
       assert(value->datatype == xnn_datatype_fp32);
-      if ((value->flags & (XNN_VALUE_FLAG_EXTERNAL_INPUT | XNN_VALUE_FLAG_EXTERNAL_OUTPUT)) != 0) {
+      if (xnn_value_is_external(value)) {
         struct xnn_value* fp16_value = xnn_subgraph_new_internal_value(subgraph);
 
         // Recompute value due to potential reallocation in xnn_subgraph_new_internal_value
@@ -694,11 +849,16 @@ void xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph)
   }
   for (uint32_t n = 0; n < subgraph->num_nodes; n++) {
     struct xnn_node* node = &subgraph->nodes[n];
+    if (node->type == xnn_node_type_invalid) {
+      // Node was fused away, skip.
+      continue;
+    }
+
     assert(node->compute_type == xnn_compute_type_fp32);
     node->compute_type = xnn_compute_type_fp16;
     if (node->type == xnn_node_type_static_constant_pad) {
       node->params.static_pad.padding_value =
-        fp16_ieee_from_fp32_value(fp32_from_bits(node->params.static_pad.padding_value));
+        fp16_ieee_from_fp32_value(uint32_as_float(node->params.static_pad.padding_value));
     }
     for (uint32_t i = 0; i < node->num_inputs; i++) {
       const uint32_t fp16_id = subgraph->values[node->inputs[i]].fp16_id;
@@ -727,8 +887,11 @@ void xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph)
         assert(value->data == NULL);
         assert(value->datatype == xnn_datatype_fp16);
         assert(subgraph->values[value->fp32_id].datatype == xnn_datatype_fp32);
-        assert(subgraph->values[value->fp32_id].flags & XNN_VALUE_FLAG_EXTERNAL_INPUT);
-        num_external_inputs += 1;
+        // This value isn't always an external input, it could be an external output of the current subgraph (due to
+        // partition), and be simultaneously consumed by the current node.
+        if (xnn_value_is_external_input(&subgraph->values[value->fp32_id])) {
+          num_external_inputs += 1;
+        }
       }
     }
     for (uint32_t o = 0; o < node->num_outputs; o++) {
@@ -736,7 +899,7 @@ void xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph)
       if (value->fp32_id != XNN_INVALID_VALUE_ID) {
         assert(value->datatype == xnn_datatype_fp16);
         assert(subgraph->values[value->fp32_id].datatype == xnn_datatype_fp32);
-        assert(subgraph->values[value->fp32_id].flags & XNN_VALUE_FLAG_EXTERNAL_OUTPUT);
+        assert(xnn_value_is_external_output(&subgraph->values[value->fp32_id]));
         num_external_outputs += 1;
       }
     }
@@ -775,37 +938,28 @@ void xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph)
     for (uint32_t i = 0; i < node->num_inputs; i++) {
       const struct xnn_value* value = &subgraph->values[node->inputs[i]];
       if (value->fp32_id != XNN_INVALID_VALUE_ID && value->first_consumer == n - 1) {
-        xnn_log_debug("Inserted FP32->FP16 Convert Node from tensor #%"PRIu32" to tensor #%"PRIu32,
-          value->fp32_id, value->id);
-        const uint32_t output_node_id = output_node->id;
-        assert(output_node >= subgraph->nodes);
-        xnn_node_clear(output_node);
-        output_node->id = output_node_id;
-        xnn_init_convert_node(output_node, xnn_compute_type_fp32_to_fp16, value->fp32_id, value->id, 0 /* flags */);
-        output_node -= 1;
+        // Only insert convert nodes if the value actually is an external input. This value could be an external output,
+        // if that's the case, we have already inserted a convert node in loop above for outputs.
+        if (xnn_value_is_external_input(&subgraph->values[value->fp32_id])) {
+          xnn_log_debug("Inserted FP32->FP16 Convert Node from tensor #%"PRIu32" to tensor #%"PRIu32,
+                        value->fp32_id, value->id);
+          const uint32_t output_node_id = output_node->id;
+          assert(output_node >= subgraph->nodes);
+          xnn_node_clear(output_node);
+          output_node->id = output_node_id;
+          xnn_init_convert_node(output_node, xnn_compute_type_fp32_to_fp16, value->fp32_id, value->id, 0 /* flags */);
+          output_node -= 1;
+        }
       }
     }
   }
+
+  return true;
 }
 
-enum xnn_status xnn_subgraph_optimize(
-  xnn_subgraph_t subgraph,
-  uint32_t flags)
+enum xnn_status xnn_subgraph_fusion(
+    xnn_subgraph_t subgraph)
 {
-  xnn_subgraph_analyze_consumers_and_producers(subgraph);
-
-  // Remove unreferenced values.
-  for (uint32_t i = 0; i < subgraph->num_values; i++) {
-    struct xnn_value* value = &subgraph->values[i];
-    if (value->type == xnn_value_type_invalid) {
-      continue;
-    }
-
-    if ((value->flags & XNN_VALUE_FLAG_EXTERNAL_INPUT) == 0 && value->num_consumers == 0) {
-      xnn_value_clear(value);
-    }
-  }
-
   // Fuse Nodes where possible
   for (uint32_t i = 0; i < subgraph->num_values; i++) {
     struct xnn_value* value = &subgraph->values[i];
@@ -936,15 +1090,52 @@ enum xnn_status xnn_subgraph_optimize(
     }
   }
 
+  return xnn_status_success;
+}
+
+enum xnn_status xnn_subgraph_optimize(
+  xnn_subgraph_t subgraph,
+  uint32_t flags)
+{
+  xnn_subgraph_analyze_consumers_and_producers(subgraph);
+
+  // Remove unreferenced values.
+  for (uint32_t i = 0; i < subgraph->num_values; i++) {
+    struct xnn_value* value = &subgraph->values[i];
+    if (value->type == xnn_value_type_invalid) {
+      continue;
+    }
+
+    if (!xnn_value_is_external_input(value) && value->num_consumers == 0) {
+      xnn_value_clear(value);
+    }
+  }
+
+
+  if (!(flags & XNN_FLAG_NO_OPERATOR_FUSION)) {
+    xnn_subgraph_fusion(subgraph);
+  }
+
   #if XNN_ENABLE_SPARSE
-    if ((flags & XNN_FLAG_SPARSE_INFERENCE) && (xnn_params.init_flags & XNN_INIT_FLAG_CHW_OPT)) {
+    if ((flags & XNN_FLAG_HINT_SPARSE_INFERENCE) && (xnn_params.init_flags & XNN_INIT_FLAG_CHW_OPT)) {
       xnn_subgraph_rewrite_for_nchw(subgraph);
     }
   #endif
 
+  if ((flags & XNN_FLAG_FORCE_FP16_INFERENCE) && !(xnn_params.init_flags & XNN_INIT_FLAG_F16)) {
+    xnn_log_error("failed to force FP16 inference: hardware supports neither native nor emulated FP16 operators");
+    return xnn_status_unsupported_hardware;
+  }
   #ifndef XNN_NO_F16_OPERATORS
-    if ((flags & XNN_FLAG_FP16_INFERENCE) && (xnn_params.init_flags & XNN_INIT_FLAG_F16)) {
-      xnn_subgraph_rewrite_for_fp16(subgraph);
+    const bool try_native_fp16 =
+      (flags & XNN_FLAG_HINT_FP16_INFERENCE) && (xnn_params.init_flags & XNN_INIT_FLAG_F16_NATIVE);
+    const bool force_fp16 = (flags & XNN_FLAG_FORCE_FP16_INFERENCE);
+    if (try_native_fp16 || force_fp16) {
+      const bool fp16_rewrite_succeeded = xnn_subgraph_rewrite_for_fp16(subgraph);
+      if (force_fp16 && !fp16_rewrite_succeeded) {
+        xnn_log_error("failed to force FP16 inference: subgraph is incompatible with FP16 operators");
+        return xnn_status_unsupported_parameter;
+      }
     }
   #endif  // XNN_NO_F16_OPERATORS
 

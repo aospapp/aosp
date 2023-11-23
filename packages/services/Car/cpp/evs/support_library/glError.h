@@ -22,9 +22,9 @@ namespace automotive {
 namespace evs {
 namespace support {
 
-const char *getEGLError(void);
+const char* getEGLError(void);
 
-const char *getGLFramebufferError(void);
+const char* getGLFramebufferError(void);
 
 }  // namespace support
 }  // namespace evs

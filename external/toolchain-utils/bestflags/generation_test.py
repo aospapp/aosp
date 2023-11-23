@@ -1,4 +1,4 @@
-# Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
+# Copyright 2013 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 """Generation unittest.
@@ -6,13 +6,14 @@
 Part of the Chrome build flags optimization.
 """
 
-__author__ = 'yuhenglong@google.com (Yuheng Long)'
+__author__ = "yuhenglong@google.com (Yuheng Long)"
 
 import random
 import unittest
 
 from generation import Generation
 from mock_task import IdentifierMockTask
+
 
 # Pick an integer at random.
 TEST_STAGE = -125
@@ -26,47 +27,47 @@ STRIDE = 7
 
 
 class GenerationTest(unittest.TestCase):
-  """This class test the Generation class.
+    """This class test the Generation class.
 
-  Given a set of tasks in the generation, if there is any task that is pending,
-  then the Done method will return false, and true otherwise.
-  """
-
-  def testDone(self):
-    """"Test the Done method.
-
-    Produce a generation with a set of tasks. Set the cost of the task one by
-    one and verify that the Done method returns false before setting the cost
-    for all the tasks. After the costs of all the tasks are set, the Done method
-    should return true.
+    Given a set of tasks in the generation, if there is any task that is pending,
+    then the Done method will return false, and true otherwise.
     """
 
-    random.seed(0)
+    def testDone(self):
+        """ "Test the Done method.
 
-    testing_tasks = range(NUM_TASKS)
+        Produce a generation with a set of tasks. Set the cost of the task one by
+        one and verify that the Done method returns false before setting the cost
+        for all the tasks. After the costs of all the tasks are set, the Done method
+        should return true.
+        """
 
-    # The tasks for the generation to be tested.
-    tasks = [IdentifierMockTask(TEST_STAGE, t) for t in testing_tasks]
+        random.seed(0)
 
-    gen = Generation(set(tasks), None)
+        testing_tasks = range(NUM_TASKS)
 
-    # Permute the list.
-    permutation = [(t * STRIDE) % NUM_TASKS for t in range(NUM_TASKS)]
-    permuted_tasks = [testing_tasks[index] for index in permutation]
+        # The tasks for the generation to be tested.
+        tasks = [IdentifierMockTask(TEST_STAGE, t) for t in testing_tasks]
 
-    # The Done method of the Generation should return false before all the tasks
-    # in the permuted list are set.
-    for testing_task in permuted_tasks:
-      assert not gen.Done()
+        gen = Generation(set(tasks), None)
 
-      # Mark a task as done by calling the UpdateTask method of the generation.
-      # Send the generation the task as well as its results.
-      gen.UpdateTask(IdentifierMockTask(TEST_STAGE, testing_task))
+        # Permute the list.
+        permutation = [(t * STRIDE) % NUM_TASKS for t in range(NUM_TASKS)]
+        permuted_tasks = [testing_tasks[index] for index in permutation]
 
-    # The Done method should return true after all the tasks in the permuted
-    # list is set.
-    assert gen.Done()
+        # The Done method of the Generation should return false before all the tasks
+        # in the permuted list are set.
+        for testing_task in permuted_tasks:
+            assert not gen.Done()
+
+            # Mark a task as done by calling the UpdateTask method of the generation.
+            # Send the generation the task as well as its results.
+            gen.UpdateTask(IdentifierMockTask(TEST_STAGE, testing_task))
+
+        # The Done method should return true after all the tasks in the permuted
+        # list is set.
+        assert gen.Done()
 
 
-if __name__ == '__main__':
-  unittest.main()
+if __name__ == "__main__":
+    unittest.main()

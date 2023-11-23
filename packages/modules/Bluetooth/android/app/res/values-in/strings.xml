@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Perangkat tidak diketahui"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Tidak diketahui"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Tidak Tersedia"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Mode pesawat"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Anda tidak dapat menggunakan Bluetooth dalam mode Pesawat."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -38,13 +39,13 @@
     <string name="incoming_file_confirm_timeout_content" msgid="3221412098281076974">"Terjadi waktu tunggu saat menerima file masuk dari \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5381395500920804895">"File masuk"</string>
     <string name="incoming_file_confirm_Notification_content" msgid="2669135531488877921">"<xliff:g id="SENDER">%1$s</xliff:g> siap mengirim file: <xliff:g id="FILE">%2$s</xliff:g>"</string>
-    <string name="notification_receiving" msgid="8445265771083510696">"Berbagi Bluetooth: Menerima <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="notification_received" msgid="2330252358543000567">"Berbagi Bluetooth: Telah menerima <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="notification_received_fail" msgid="9059153354809379374">"Berbagi Bluetooth: File <xliff:g id="FILE">%1$s</xliff:g> tidak diterima"</string>
-    <string name="notification_sending" msgid="8269912843286868700">"Berbagi Bluetooth: Mengirim <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="notification_sent" msgid="2685202778935769332">"Berbagi Bluetooth: Telah mengirim <xliff:g id="FILE">%1$s</xliff:g>"</string>
+    <string name="notification_receiving" msgid="8445265771083510696">"Berbagi via Bluetooth: Sedang menerima <xliff:g id="FILE">%1$s</xliff:g>"</string>
+    <string name="notification_received" msgid="2330252358543000567">"Berbagi via Bluetooth: Telah menerima <xliff:g id="FILE">%1$s</xliff:g>"</string>
+    <string name="notification_received_fail" msgid="9059153354809379374">"Berbagi via Bluetooth: File <xliff:g id="FILE">%1$s</xliff:g> gagal diterima"</string>
+    <string name="notification_sending" msgid="8269912843286868700">"Berbagi via Bluetooth: Sedang mengirim <xliff:g id="FILE">%1$s</xliff:g>"</string>
+    <string name="notification_sent" msgid="2685202778935769332">"Berbagi via Bluetooth: Telah mengirim <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_sent_complete" msgid="6293391081175517098">"100% selesai"</string>
-    <string name="notification_sent_fail" msgid="7449832660578001579">"Berbagi Bluetooth: File <xliff:g id="FILE">%1$s</xliff:g> tidak terkirim"</string>
+    <string name="notification_sent_fail" msgid="7449832660578001579">"Berbagi via Bluetooth: File <xliff:g id="FILE">%1$s</xliff:g> gagal dikirim"</string>
     <string name="download_title" msgid="6449408649671518102">"Transfer file"</string>
     <string name="download_line1" msgid="6449220145685308846">"Dari: \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="download_line2" msgid="7634316500490825390">"File: <xliff:g id="FILE">%1$s</xliff:g>"</string>
@@ -100,15 +101,15 @@
     <string name="status_protocol_error" msgid="3231573735130475654">"Permintaan tidak dapat ditangani dengan semestinya."</string>
     <string name="status_unknown_error" msgid="314676481744304866">"Kesalahan tidak dikenal."</string>
     <string name="btopp_live_folder" msgid="4859989703965326287">"Bluetooth diterima"</string>
-    <string name="opp_notification_group" msgid="150067508422520653">"Berbagi Bluetooth"</string>
+    <string name="opp_notification_group" msgid="150067508422520653">"Berbagi via Bluetooth"</string>
     <string name="download_success" msgid="3438268368708549686">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> Telah selesai diterima."</string>
     <string name="upload_success" msgid="143787470859042049">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> Telah selesai dikirim."</string>
     <string name="inbound_history_title" msgid="189623888169624862">"Transfer masuk"</string>
     <string name="outbound_history_title" msgid="7614166584551065036">"Transfer keluar"</string>
     <string name="no_transfers" msgid="740521199933899821">"Histori transfer kosong."</string>
     <string name="transfer_clear_dlg_msg" msgid="586117930961007311">"Semua item akan dihapus dari daftar."</string>
-    <string name="outbound_noti_title" msgid="2045560896819618979">"Berbagi bluetooth: Telah mengirimkan file"</string>
-    <string name="inbound_noti_title" msgid="3730993443609581977">"Berbagi Bluetooth: File yang diterima"</string>
+    <string name="outbound_noti_title" msgid="2045560896819618979">"Berbagi via Bluetooth: Telah mengirim file"</string>
+    <string name="inbound_noti_title" msgid="3730993443609581977">"Berbagi via Bluetooth: Telah menerima file"</string>
     <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{# gagal.}other{# gagal.}}"</string>
     <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{# berhasil, %1$s}other{# berhasil, %1$s}}"</string>
     <string name="transfer_menu_clear_all" msgid="3014459758656427076">"Hapus daftar"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Bluetooth Audio"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"File yang berukuran lebih dari 4GB tidak dapat ditransfer"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Hubungkan ke Bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth aktif dalam mode pesawat"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Jika Bluetooth tetap diaktifkan, perangkat akan ingat untuk tetap mengaktifkannya saat berikutnya perangkat disetel ke mode pesawat"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth tetap aktif"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Perangkat akan mengingat untuk tetap mengaktifkan Bluetooth dalam mode pesawat. Nonaktifkan jika Anda tidak ingin Bluetooth terus aktif."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi dan Bluetooth tetap aktif"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Perangkat akan mengingat untuk tetap mengaktifkan Wi-Fi dan Bluetooth dalam mode pesawat. Nonaktifkan jika Anda tidak ingin Wi-Fi dan Bluetooth terus aktif."</string>
 </resources>

@@ -13,12 +13,11 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations under
 # the License.
-import sys
 import time
 import acts.controllers.iperf_client as ipc
 from acts_contrib.test_utils.bt.BtInterferenceBaseTest import BtInterferenceBaseTest
 from acts_contrib.test_utils.power.PowerBaseTest import ObjNew
-from multiprocessing import Process, Queue
+from multiprocessing import Process
 from acts_contrib.test_utils.bt.BtInterferenceBaseTest import setup_ap_connection
 from acts_contrib.test_utils.wifi import wifi_power_test_utils as wputils
 from acts.signals import TestPass
@@ -27,9 +26,10 @@ from acts.signals import TestPass
 class StartIperfTrafficTest(BtInterferenceBaseTest):
     """
     """
+
     def __init__(self, configs):
         super().__init__(configs)
-        req_params =["IperfDuration"]
+        req_params = ["IperfDuration"]
         self.unpack_userparams(req_params)
 
     def setup_class(self):

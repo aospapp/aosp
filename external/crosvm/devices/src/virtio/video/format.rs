@@ -1,11 +1,14 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 //! Data structures that represent video format information in virtio video devices.
 
-use std::convert::{From, Into, TryFrom};
-use std::fmt::{self, Display};
+use std::convert::From;
+use std::convert::Into;
+use std::convert::TryFrom;
+use std::fmt;
+use std::fmt::Display;
 use std::io;
 
 use base::error;
@@ -46,8 +49,8 @@ pub enum Profile {
 impl_try_from_le32_for_enumn!(Profile, "profile");
 
 impl Profile {
-    #[cfg(any(feature = "video-encoder", feature = "libvda"))]
-    pub fn to_format(&self) -> Format {
+    #[cfg(any(feature = "video-encoder", feature = "libvda", feature = "vaapi"))]
+    pub fn to_format(self) -> Format {
         use Profile::*;
         match self {
             H264Baseline
@@ -61,7 +64,7 @@ impl Profile {
             | H264ScalableHigh
             | H264StereoHigh
             | H264MultiviewHigh => Format::H264,
-            HevcMain | HevcMain10 | HevcMainStillPicture => Format::HEVC,
+            HevcMain | HevcMain10 | HevcMainStillPicture => Format::Hevc,
             VP8Profile0 | VP8Profile1 | VP8Profile2 | VP8Profile3 => Format::VP8,
             VP9Profile0 | VP9Profile1 | VP9Profile2 | VP9Profile3 => Format::VP9,
         }
@@ -98,7 +101,7 @@ pub enum Format {
 
     // Bitstream formats
     H264 = VIRTIO_VIDEO_FORMAT_H264,
-    HEVC = VIRTIO_VIDEO_FORMAT_HEVC,
+    Hevc = VIRTIO_VIDEO_FORMAT_HEVC,
     VP8 = VIRTIO_VIDEO_FORMAT_VP8,
     VP9 = VIRTIO_VIDEO_FORMAT_VP9,
 }
@@ -111,7 +114,7 @@ impl Display for Format {
             NV12 => write!(f, "NV12"),
             YUV420 => write!(f, "YUV420"),
             H264 => write!(f, "H264"),
-            HEVC => write!(f, "HEVC"),
+            Hevc => write!(f, "HEVC"),
             VP8 => write!(f, "VP8"),
             VP9 => write!(f, "VP9"),
         }
@@ -121,8 +124,8 @@ impl Display for Format {
 #[derive(PartialEq, Eq, PartialOrd, Ord, N, Clone, Copy, Debug)]
 #[repr(u32)]
 pub enum BitrateMode {
-    VBR = VIRTIO_VIDEO_BITRATE_MODE_VBR,
-    CBR = VIRTIO_VIDEO_BITRATE_MODE_CBR,
+    Vbr = VIRTIO_VIDEO_BITRATE_MODE_VBR,
+    Cbr = VIRTIO_VIDEO_BITRATE_MODE_CBR,
 }
 impl_try_from_le32_for_enumn!(BitrateMode, "bitrate_mode");
 
@@ -130,24 +133,24 @@ impl_try_from_le32_for_enumn!(BitrateMode, "bitrate_mode");
 #[derive(Debug, Copy, Clone)]
 pub enum Bitrate {
     /// Constant bitrate.
-    CBR { target: u32 },
+    Cbr { target: u32 },
     /// Variable bitrate.
-    VBR { target: u32, peak: u32 },
+    Vbr { target: u32, peak: u32 },
 }
 
 #[cfg(feature = "video-encoder")]
 impl Bitrate {
     pub fn mode(&self) -> BitrateMode {
         match self {
-            Bitrate::CBR { .. } => BitrateMode::CBR,
-            Bitrate::VBR { .. } => BitrateMode::VBR,
+            Bitrate::Cbr { .. } => BitrateMode::Cbr,
+            Bitrate::Vbr { .. } => BitrateMode::Vbr,
         }
     }
 
     pub fn target(&self) -> u32 {
         match self {
-            Bitrate::CBR { target } => *target,
-            Bitrate::VBR { target, .. } => *target,
+            Bitrate::Cbr { target } => *target,
+            Bitrate::Vbr { target, .. } => *target,
         }
     }
 }
@@ -170,6 +173,10 @@ impl_from_for_interconvertible_structs!(virtio_video_plane_format, PlaneFormat, 
 
 impl PlaneFormat {
     pub fn get_plane_layout(format: Format, width: u32, height: u32) -> Option<Vec<PlaneFormat>> {
+        // Halved size for UV sampling, but rounded up to cover all samples in case of odd input
+        // resolution.
+        let half_width = (width + 1) / 2;
+        let half_height = (height + 1) / 2;
         match format {
             Format::NV12 => Some(vec![
                 // Y plane, 1 sample per pixel.
@@ -181,8 +188,25 @@ impl PlaneFormat {
                 PlaneFormat {
                     // Add one vertical line so odd resolutions result in an extra UV line to cover all the
                     // Y samples.
-                    plane_size: width * ((height + 1) / 2),
+                    plane_size: width * half_height,
                     stride: width,
+                },
+            ]),
+            Format::YUV420 => Some(vec![
+                // Y plane, 1 sample per pixel.
+                PlaneFormat {
+                    plane_size: width * height,
+                    stride: width,
+                },
+                // U plane, 1 sample per group of 4 pixels.
+                PlaneFormat {
+                    plane_size: half_width * half_height,
+                    stride: half_width,
+                },
+                // V plane, same layout as U plane.
+                PlaneFormat {
+                    plane_size: half_width * half_height,
+                    stride: half_width,
                 },
             ]),
             _ => None,
@@ -226,6 +250,7 @@ pub struct FormatDesc {
     pub mask: u64,
     pub format: Format,
     pub frame_formats: Vec<FrameFormat>,
+    pub plane_align: u32,
 }
 
 impl Response for FormatDesc {
@@ -236,7 +261,7 @@ impl Response for FormatDesc {
             // ChromeOS only supports single-buffer mode.
             planes_layout: Le32::from(VIRTIO_VIDEO_PLANES_LAYOUT_SINGLE_BUFFER),
             // No alignment is required on boards that we currently support.
-            plane_align: Le32::from(0),
+            plane_align: Le32::from(self.plane_align),
             num_frames: Le32::from(self.frame_formats.len() as u32),
         })?;
         self.frame_formats.iter().try_for_each(|ff| ff.write(w))
@@ -302,4 +327,5 @@ pub struct Rect {
 pub struct FramePlane {
     pub offset: usize,
     pub stride: usize,
+    pub size: usize,
 }

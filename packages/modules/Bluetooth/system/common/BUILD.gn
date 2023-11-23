@@ -20,7 +20,6 @@ static_library("common") {
     "message_loop_thread.cc",
     "metric_id_allocator.cc",
     "metrics_linux.cc",
-    "once_timer.cc",
     "os_utils.cc",
     "repeating_timer.cc",
     "stop_watch_legacy.cc",

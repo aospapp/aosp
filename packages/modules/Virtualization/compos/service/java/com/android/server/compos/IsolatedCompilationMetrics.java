@@ -17,6 +17,7 @@
 package com.android.server.compos;
 
 import android.annotation.IntDef;
+import android.app.job.JobParameters;
 import android.os.SystemClock;
 import android.util.Log;
 
@@ -35,9 +36,17 @@ class IsolatedCompilationMetrics {
 
     // TODO(b/218525257): Move the definition of these enums to atoms.proto
     @Retention(RetentionPolicy.SOURCE)
-    @IntDef({RESULT_UNKNOWN, RESULT_SUCCESS, RESULT_UNKNOWN_FAILURE, RESULT_FAILED_TO_START,
-            RESULT_JOB_CANCELED, RESULT_COMPILATION_FAILED, RESULT_UNEXPECTED_COMPILATION_RESULT,
-            RESULT_COMPOSD_DIED})
+    @IntDef({
+        RESULT_UNKNOWN,
+        RESULT_SUCCESS,
+        RESULT_UNKNOWN_FAILURE,
+        RESULT_FAILED_TO_START,
+        RESULT_JOB_CANCELED,
+        RESULT_COMPILATION_FAILED,
+        RESULT_UNEXPECTED_COMPILATION_RESULT,
+        RESULT_COMPOSD_DIED,
+        RESULT_FAILED_TO_ENABLE_FSVERITY
+    })
     public @interface CompilationResult {}
 
     // Keep this in sync with Result enum in IsolatedCompilationEnded in
@@ -58,6 +67,9 @@ class IsolatedCompilationMetrics {
             .ISOLATED_COMPILATION_ENDED__COMPILATION_RESULT__RESULT_UNEXPECTED_COMPILATION_RESULT;
     public static final int RESULT_COMPOSD_DIED =
             ArtStatsLog.ISOLATED_COMPILATION_ENDED__COMPILATION_RESULT__RESULT_COMPOSD_DIED;
+    public static final int RESULT_FAILED_TO_ENABLE_FSVERITY =
+            ArtStatsLog
+                    .ISOLATED_COMPILATION_ENDED__COMPILATION_RESULT__RESULT_FAILED_TO_ENABLE_FSVERITY;
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({SCHEDULING_RESULT_UNKNOWN, SCHEDULING_SUCCESS, SCHEDULING_FAILURE})
@@ -84,12 +96,24 @@ class IsolatedCompilationMetrics {
         mCompilationStartTimeMs = SystemClock.elapsedRealtime();
     }
 
+    public void onCompilationJobCanceled(@JobParameters.StopReason int jobStopReason) {
+        statsLogPostCompilation(RESULT_JOB_CANCELED, jobStopReason);
+    }
+
     public void onCompilationEnded(@CompilationResult int result) {
+        statsLogPostCompilation(result, JobParameters.STOP_REASON_UNDEFINED);
+    }
+
+    private void statsLogPostCompilation(@CompilationResult int result,
+                @JobParameters.StopReason int jobStopReason) {
+
         long compilationTime = mCompilationStartTimeMs == 0 ? -1
                 : SystemClock.elapsedRealtime() - mCompilationStartTimeMs;
         mCompilationStartTimeMs = 0;
 
-        ArtStatsLog.write(ArtStatsLog.ISOLATED_COMPILATION_ENDED, compilationTime, result);
-        Log.i(TAG, "ISOLATED_COMPILATION_ENDED: " + result + ", " + compilationTime);
+        ArtStatsLog.write(ArtStatsLog.ISOLATED_COMPILATION_ENDED, compilationTime,
+                result, jobStopReason);
+        Log.i(TAG, "ISOLATED_COMPILATION_ENDED: " + result + ", " + compilationTime
+                + ", " + jobStopReason);
     }
 }

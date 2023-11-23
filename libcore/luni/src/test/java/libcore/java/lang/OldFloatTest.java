@@ -5,7 +5,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -61,7 +61,7 @@ public class OldFloatTest extends TestCase {
     }
 
     public void test_hashCode() {
-        assertTrue(new Float(Float.MAX_VALUE).hashCode() != new Float(Float.MIN_VALUE).hashCode());
+        assertTrue(Float.valueOf(Float.MAX_VALUE).hashCode() != Float.valueOf(Float.MIN_VALUE).hashCode());
     }
 
     public void test_intBitsToFloatI() {
@@ -75,8 +75,8 @@ public class OldFloatTest extends TestCase {
     }
 
     public void test_intValue() {
-        assertEquals(Integer.MAX_VALUE, new Float(Float.MAX_VALUE).intValue());
-        assertEquals(0, new Float(Float.MIN_VALUE).intValue());
+        assertEquals(Integer.MAX_VALUE, Float.valueOf(Float.MAX_VALUE).intValue());
+        assertEquals(0, Float.valueOf(Float.MIN_VALUE).intValue());
     }
 
     public void test_isNaNF() {
@@ -86,7 +86,7 @@ public class OldFloatTest extends TestCase {
     }
 
     public void test_longValue() {
-        assertEquals(Long.MAX_VALUE, new Float(Float.MAX_VALUE).longValue());
-        assertEquals(0, new Float(Float.MIN_VALUE).longValue());
+        assertEquals(Long.MAX_VALUE, Float.valueOf(Float.MAX_VALUE).longValue());
+        assertEquals(0, Float.valueOf(Float.MIN_VALUE).longValue());
     }
 }

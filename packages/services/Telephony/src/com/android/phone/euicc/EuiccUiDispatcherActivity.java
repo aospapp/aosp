@@ -29,6 +29,7 @@ import android.os.UserHandle;
 import android.permission.LegacyPermissionManager;
 import android.service.euicc.EuiccService;
 import android.telephony.euicc.EuiccManager;
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -58,6 +59,8 @@ public class EuiccUiDispatcherActivity extends Activity {
     private LegacyPermissionManager mPermissionManager;
     private boolean mGrantPermissionDone = false;
     private ThreadPoolExecutor mExecutor;
+    // Used for CTS EuiccManager action verification
+    private static ComponentName mTestEuiccUiComponentName;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -94,6 +97,18 @@ public class EuiccUiDispatcherActivity extends Activity {
         }
     }
 
+    /**
+    * This API used to set the Test EuiccUiComponent for CTS
+    * @param packageName package which handles the intent
+    * @param componentName ui component to be launched for testing
+    */
+    public static void setTestEuiccUiComponent(String packageName, String componentName) {
+        mTestEuiccUiComponentName = null;
+        if (!TextUtils.isEmpty(packageName) && !TextUtils.isEmpty(componentName)) {
+            mTestEuiccUiComponentName = new ComponentName(packageName, componentName);
+        }
+    }
+
     @VisibleForTesting
     @Nullable
     Intent resolveEuiccUiIntent() {
@@ -107,6 +122,13 @@ public class EuiccUiDispatcherActivity extends Activity {
         if (euiccUiIntent == null) {
             Log.w(TAG, "Unable to handle intent");
             return null;
+        }
+
+        if (mTestEuiccUiComponentName != null) {
+            Log.i(TAG, "Test mode");
+            euiccUiIntent.setComponent(mTestEuiccUiComponentName);
+            mTestEuiccUiComponentName = null;
+            return euiccUiIntent;
         }
 
         revokePermissionFromLuiApps(euiccUiIntent);
@@ -147,6 +169,12 @@ public class EuiccUiDispatcherActivity extends Activity {
                 break;
             case EuiccManager.ACTION_PROVISION_EMBEDDED_SUBSCRIPTION:
                 intent.setAction(EuiccService.ACTION_PROVISION_EMBEDDED_SUBSCRIPTION);
+                break;
+            case EuiccManager.ACTION_TRANSFER_EMBEDDED_SUBSCRIPTIONS:
+                intent.setAction(EuiccService.ACTION_TRANSFER_EMBEDDED_SUBSCRIPTIONS);
+                break;
+            case EuiccManager.ACTION_CONVERT_TO_EMBEDDED_SUBSCRIPTION:
+                intent.setAction(EuiccService.ACTION_CONVERT_TO_EMBEDDED_SUBSCRIPTION);
                 break;
             default:
                 Log.w(TAG, "Unsupported action: " + action);

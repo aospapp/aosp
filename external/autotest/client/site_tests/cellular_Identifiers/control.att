@@ -13,8 +13,9 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
 TEST_TYPE = "client"
-ATTRIBUTES = "suite:cellular_ota"
+ATTRIBUTES = "suite:cellular_ota, suite:cellular-cq"
 DEPENDENCIES = "carrier:att"
+PY_VERSION = 3
 DOC = """
   Tests that a cellular modem provides correct identification information
 

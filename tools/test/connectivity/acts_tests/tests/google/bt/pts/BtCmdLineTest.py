@@ -23,10 +23,8 @@ Optional config parameters:
 """
 from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from cmd_input import CmdInput
-from queue import Empty
 
 import os
-import uuid
 
 from acts_contrib.test_utils.tel.tel_test_utils import setup_droid_properties
 

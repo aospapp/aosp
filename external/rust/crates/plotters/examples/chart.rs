@@ -1,8 +1,8 @@
 use plotters::prelude::*;
 
+const OUT_FILE_NAME: &'static str = "plotters-doc-data/sample.png";
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let root_area =
-        BitMapBackend::new("plotters-doc-data/sample.png", (1024, 768)).into_drawing_area();
+    let root_area = BitMapBackend::new(OUT_FILE_NAME, (1024, 768)).into_drawing_area();
 
     root_area.fill(&WHITE)?;
 
@@ -68,7 +68,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .margin_right(20)
             .caption(format!("y = x^{}", 1 + 2 * idx), ("sans-serif", 40))
             .build_cartesian_2d(-1f32..1f32, -1f32..1f32)?;
-        cc.configure_mesh().x_labels(5).y_labels(3).draw()?;
+        cc.configure_mesh()
+            .x_labels(5)
+            .y_labels(3)
+            .max_light_lines(4)
+            .draw()?;
 
         cc.draw_series(LineSeries::new(
             (-1f32..1f32)
@@ -79,6 +83,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ))?;
     }
 
+    // To avoid the IO failure being ignored silently, we manually call the present function
+    root_area.present().expect("Unable to write result to file, please make sure 'plotters-doc-data' dir exists under current dir");
+    println!("Result has been saved to {}", OUT_FILE_NAME);
     Ok(())
 }
 #[test]

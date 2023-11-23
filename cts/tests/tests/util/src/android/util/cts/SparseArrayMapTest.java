@@ -75,6 +75,36 @@ public class SparseArrayMapTest {
     }
 
     @Test
+    public void testStoreOverride() {
+        SparseArrayMap<String, Integer> sam = new SparseArrayMap<>();
+
+        for (int i = 0; i < KEYS_1.length; i++) {
+            assertNull(sam.add(0, KEYS_1[i], i));
+        }
+        for (int i = 0; i < KEYS_1.length; i++) {
+            assertEquals(i, sam.add(0, KEYS_1[i], i * 2).intValue());
+        }
+        for (int i = 0; i < KEYS_2.length; i++) {
+            assertNull(sam.add(1, KEYS_2[i], i));
+        }
+        for (int i = 0; i < KEYS_2.length; i++) {
+            assertEquals(i, sam.add(1, KEYS_2[i], i * 2).intValue());
+        }
+
+        assertEquals(KEYS_1.length, sam.numElementsForKey(0));
+        assertEquals(KEYS_2.length, sam.numElementsForKey(1));
+
+        for (int i = 0; i < KEYS_1.length; i++) {
+            assertEquals(2 * i, sam.get(0, KEYS_1[i]).intValue());
+            assertNull(sam.get(1, KEYS_1[i]));
+        }
+        for (int i = 0; i < KEYS_2.length; i++) {
+            assertNull(sam.get(0, KEYS_2[i]));
+            assertEquals(2 * i, sam.get(1, KEYS_2[i]).intValue());
+        }
+    }
+
+    @Test
     public void testClear() {
         SparseArrayMap<String, Integer> sam = new SparseArrayMap<>();
         for (int i = 0; i < KEYS_1.length; i++) {

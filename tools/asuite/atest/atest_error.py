@@ -35,6 +35,9 @@ class MissingPackageNameError(TestDiscoveryException):
 class TooManyMethodsError(TestDiscoveryException):
     """Raised when input string contains more than one # character."""
 
+class MoreThanOneClassError(TestDiscoveryException):
+    """Raised when multiple classes given in 'classA,classB' pattern."""
+
 class MethodWithoutClassError(TestDiscoveryException):
     """Raised when method is appended via # but no class file specified."""
 

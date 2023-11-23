@@ -25,7 +25,9 @@ import static com.android.internal.net.eap.test.message.EapMessage.EAP_CODE_REQU
 import static com.android.internal.net.eap.test.message.EapMessage.EAP_CODE_SUCCESS;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.CHALLENGE_RESPONSE_INVALID_KC;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.CHALLENGE_RESPONSE_INVALID_SRES;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_SIM_CLIENT_ERROR_UNABLE_TO_PROCESS;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_SIM_IDENTITY_BYTES;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_SIM_NOTIFICATION_RESPONSE;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EMSK;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.ID_INT;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.KC_1_BYTES;
@@ -34,9 +36,12 @@ import static com.android.internal.net.eap.test.message.EapTestMessageDefinition
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.SRES_1_BYTES;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.SRES_2_BYTES;
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.VALID_CHALLENGE_RESPONSE;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtNotification.GENERAL_FAILURE_PRE_CHALLENGE;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtNotification.SUCCESS;
 import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_MAC;
 import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_RAND;
 import static com.android.internal.net.eap.test.message.simaka.EapSimTypeData.EAP_SIM_CHALLENGE;
+import static com.android.internal.net.eap.test.message.simaka.EapSimTypeData.EAP_SIM_NOTIFICATION;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.NONCE_MT;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.RAND_1;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.RAND_1_BYTES;
@@ -60,6 +65,7 @@ import android.telephony.TelephonyManager;
 import com.android.internal.net.eap.test.EapResult;
 import com.android.internal.net.eap.test.EapResult.EapError;
 import com.android.internal.net.eap.test.EapResult.EapFailure;
+import com.android.internal.net.eap.test.EapResult.EapResponse;
 import com.android.internal.net.eap.test.EapResult.EapSuccess;
 import com.android.internal.net.eap.test.exceptions.EapInvalidRequestException;
 import com.android.internal.net.eap.test.exceptions.simaka.EapSimAkaAuthenticationFailureException;
@@ -70,6 +76,7 @@ import com.android.internal.net.eap.test.message.EapMessage;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtMac;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtNonceMt;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtNotification;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtRandSim;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaTypeData.DecodeResult;
 import com.android.internal.net.eap.test.message.simaka.EapSimTypeData;
@@ -355,5 +362,36 @@ public class EapSimChallengeStateTest extends EapSimStateTest {
                         TelephonyManager.AUTHTYPE_EAP_SIM,
                         BASE_64_RAND_1);
         verifyNoMoreInteractions(mMockEapSimTypeDataDecoder, mMockTelephonyManager);
+    }
+
+    @Test
+    public void testHandleEapSimNotificationPbitBeforeAuthenticated() throws Exception {
+        testHandleSimNotificationBeforeAuthenticated(true, EAP_SIM_NOTIFICATION_RESPONSE);
+    }
+
+    @Test
+    public void testHandleEapSimNotificationPBitZeroBeforeAuthenticated() throws Exception {
+        testHandleSimNotificationBeforeAuthenticated(false, EAP_SIM_CLIENT_ERROR_UNABLE_TO_PROCESS);
+    }
+
+    private void testHandleSimNotificationBeforeAuthenticated(
+            boolean isPreAuthNotification, byte[] expectedEapResponse) throws Exception {
+        EapData eapData = new EapData(EAP_TYPE_SIM, DUMMY_EAP_TYPE_DATA);
+        EapMessage eapMessage = new EapMessage(EAP_CODE_REQUEST, ID_INT, eapData);
+        EapSimTypeData typeData =
+                new EapSimTypeData(
+                        EAP_SIM_NOTIFICATION,
+                        Arrays.asList(
+                                isPreAuthNotification
+                                        ? new AtNotification(GENERAL_FAILURE_PRE_CHALLENGE)
+                                        : new AtNotification(SUCCESS)));
+        DecodeResult<EapSimTypeData> decodeResult = new DecodeResult<>(typeData);
+        doReturn(decodeResult).when(mMockEapSimTypeDataDecoder).decode(eq(DUMMY_EAP_TYPE_DATA));
+        EapResponse eapResponse = (EapResponse) mEapSimMethodStateMachine.process(eapMessage);
+
+        assertArrayEquals(expectedEapResponse, eapResponse.packet);
+        assertTrue(mEapSimMethodStateMachine.getState() instanceof ChallengeState);
+        verify(mMockEapSimTypeDataDecoder).decode(DUMMY_EAP_TYPE_DATA);
+        verifyNoMoreInteractions(mMockTelephonyManager, mMockEapSimTypeDataDecoder);
     }
 }

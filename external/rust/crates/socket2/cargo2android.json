@@ -1,0 +1,13 @@
+{
+  "apex-available": [
+    "//apex_available:platform",
+    "com.android.btservices",
+    "com.android.resolv",
+    "com.android.uwb"
+  ],
+  "device": true,
+  "features": "all",
+  "min-sdk-version": "29",
+  "vendor-available": true,
+  "run": true
+}

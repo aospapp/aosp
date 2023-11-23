@@ -25,3 +25,10 @@ java_library {
         "*.proto",
     ],
 }
+
+filegroup {
+    name: "style_proto",
+    srcs: [
+        "*.proto",
+    ],
+}

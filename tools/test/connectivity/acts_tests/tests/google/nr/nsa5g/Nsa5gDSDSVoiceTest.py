@@ -14,22 +14,42 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import time
+
+from acts import signals
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts_contrib.test_utils.tel.loggers.telephony_metric_logger import TelephonyMetricLogger
+from acts_contrib.test_utils.tel.tel_defines import SimSlotInfo
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_CELLULAR_PREFERRED
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
-from acts_contrib.test_utils.tel.tel_dsds_utils import dsds_long_call_streaming_test
+from acts_contrib.test_utils.tel.tel_dsds_utils import dsds_call_streaming_test
 from acts_contrib.test_utils.tel.tel_dsds_utils import dsds_voice_call_test
 from acts_contrib.test_utils.tel.tel_dsds_utils import enable_slot_after_voice_call_test
 from acts_contrib.test_utils.tel.tel_dsds_utils import enable_slot_after_data_call_test
 from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_idle
+
+_WAIT_TIME_FOR_MEP_ENABLE_INTERVAL = 60
+_WAIT_TIME_FOR_MEP_ENABLE = 180
 
 
 class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
     def setup_class(self):
         TelephonyBaseTest.setup_class(self)
         self.tel_logger = TelephonyMetricLogger.for_test_case()
+        if getattr(self.android_devices[0], 'mep', False):
+            start_time = time.monotonic()
+            timeout = start_time + _WAIT_TIME_FOR_MEP_ENABLE
+            while time.monotonic() < timeout:
+                mep_logs = self.android_devices[0].search_logcat(
+                    "UNSOL_SIM_SLOT_STATUS_CHANGED")
+                if mep_logs:
+                    for mep_log in mep_logs:
+                        if "num_ports=2" in mep_log["log_message"]:
+                            break
+                time.sleep(_WAIT_TIME_FOR_MEP_ENABLE_INTERVAL)
+            else:
+                self.log.warning("Couldn't found MEP enabled logs.")
 
     def teardown_test(self):
         ensure_phones_idle(self.log, self.android_devices)
@@ -43,15 +63,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 5G NSA VoLTE
             - DDS at pSIM (slot 0)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            0,
-            None,
-            0,
-            mo_rat=["5g_volte", "5g_volte"],
-            call_direction="mo")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "5g_volte"],
+            dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_0,
+            direction="mo",
+            streaming=False)
 
     @test_tracker_info(uuid="b05b6aea-7c48-4412-b0b1-f57192fc786c")
     @TelephonyBaseTest.tel_test_wrap
@@ -61,15 +82,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 5G NSA VoLTE
             - DDS at pSIM (slot 0)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            None,
-            0,
-            0,
-            mt_rat=["5g_volte", "5g_volte"],
-            call_direction="mt")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "5g_volte"],
+            dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_0,
+            direction="mt",
+            streaming=False)
 
     @test_tracker_info(uuid="213d5e6f-97df-4c2a-9745-4e40a704853a")
     @TelephonyBaseTest.tel_test_wrap
@@ -79,15 +101,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 5G NSA VoLTE
             - DDS at pSIM (slot 0)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            1,
-            None,
-            0,
-            mo_rat=["5g_volte", "5g_volte"],
-            call_direction="mo")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "5g_volte"],
+            dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mo",
+            streaming=False)
 
     @test_tracker_info(uuid="48a06a2f-b3d0-4b0e-85e5-2d439ee3147b")
     @TelephonyBaseTest.tel_test_wrap
@@ -97,15 +120,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 5G NSA VoLTE
             - DDS at pSIM (slot 0)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            None,
-            1,
-            0,
-            mt_rat=["5g_volte", "5g_volte"],
-            call_direction="mt")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "5g_volte"],
+            dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mt",
+            streaming=False)
 
     # psim 5g nsa volte & esim 5g nsa volte & dds slot 1
     @test_tracker_info(uuid="406bd5e5-b549-470d-b15a-20b4bb5ff3db")
@@ -116,15 +140,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 5G NSA VoLTE
             - DDS at pSIM (slot 1)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            0,
-            None,
-            1,
-            mo_rat=["5g_volte", "5g_volte"],
-            call_direction="mo")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "5g_volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
+            direction="mo",
+            streaming=False)
 
     @test_tracker_info(uuid="a1e52cee-78ab-4d6e-859b-faf542b8056b")
     @TelephonyBaseTest.tel_test_wrap
@@ -134,15 +159,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 5G NSA VoLTE
             - DDS at pSIM (slot 1)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            None,
-            0,
-            1,
-            mt_rat=["5g_volte", "5g_volte"],
-            call_direction="mt")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "5g_volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
+            direction="mt",
+            streaming=False)
 
     @test_tracker_info(uuid="3b9d796c-b658-4bff-aae0-1243ce8c3d54")
     @TelephonyBaseTest.tel_test_wrap
@@ -152,15 +178,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 5G NSA VoLTE
             - DDS at pSIM (slot 1)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            1,
-            None,
-            1,
-            mo_rat=["5g_volte", "5g_volte"],
-            call_direction="mo")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "5g_volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mo",
+            streaming=False)
 
     @test_tracker_info(uuid="e3edd065-72e1-4067-901c-1454706e9f43")
     @TelephonyBaseTest.tel_test_wrap
@@ -170,15 +197,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 5G NSA VoLTE
             - DDS at pSIM (slot 1)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            None,
-            1,
-            1,
-            mt_rat=["5g_volte", "5g_volte"],
-            call_direction="mt")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "5g_volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mt",
+            streaming=False)
 
     # psim 5g nsa volte & esim 4g volte & dds slot 0
     @test_tracker_info(uuid="2890827d-deb2-42ea-921d-3b45f7645d61")
@@ -189,15 +217,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 4G VoLTE
             - DDS at pSIM (slot 0)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            0,
-            None,
-            0,
-            mo_rat=["5g_volte", "volte"],
-            call_direction="mo")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "volte"],
+            dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_0,
+            direction="mo",
+            streaming=False)
 
     @test_tracker_info(uuid="83d9b127-25da-4c19-a3a0-470a5ced020b")
     @TelephonyBaseTest.tel_test_wrap
@@ -207,15 +236,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 4G VoLTE
             - DDS at pSIM (slot 0)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            None,
-            0,
-            0,
-            mt_rat=["5g_volte", "volte"],
-            call_direction="mt")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "volte"],
+            dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_0,
+            direction="mt",
+            streaming=False)
 
     @test_tracker_info(uuid="14c29c79-d100-4f03-b3df-f2ae4a172cc5")
     @TelephonyBaseTest.tel_test_wrap
@@ -225,15 +255,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 4G VoLTE
             - DDS at pSIM (slot 0)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            1,
-            None,
-            0,
-            mo_rat=["5g_volte", "volte"],
-            call_direction="mo")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "volte"],
+            dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mo",
+            streaming=False)
 
     @test_tracker_info(uuid="12a59cc1-8c1e-44a0-836b-0d842c0746a3")
     @TelephonyBaseTest.tel_test_wrap
@@ -243,15 +274,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 4G VoLTE
             - DDS at pSIM (slot 0)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            None,
-            1,
-            0,
-            mt_rat=["5g_volte", "volte"],
-            call_direction="mt")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "volte"],
+            dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mt",
+            streaming=False)
 
     # psim 5g nsa volte & esim 4g volte & dds slot 1
     @test_tracker_info(uuid="9dfa66cc-f464-4964-9e5a-07e01d3e263e")
@@ -262,15 +294,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 4G VoLTE
             - DDS at pSIM (slot 0)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            0,
-            None,
-            1,
-            mo_rat=["5g_volte", "volte"],
-            call_direction="mo")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
+            direction="mo",
+            streaming=False)
 
     @test_tracker_info(uuid="97e9ecc0-e377-46a8-9b13-ecedcb98922b")
     @TelephonyBaseTest.tel_test_wrap
@@ -280,15 +313,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 4G VoLTE
             - DDS at pSIM (slot 0)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            None,
-            0,
-            1,
-            mt_rat=["5g_volte", "volte"],
-            call_direction="mt")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
+            direction="mt",
+            streaming=False)
 
     @test_tracker_info(uuid="5814cd18-e33b-45c5-b129-bec7e3992d8e")
     @TelephonyBaseTest.tel_test_wrap
@@ -298,15 +332,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 4G VoLTE
             - DDS at pSIM (slot 0)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            1,
-            None,
-            1,
-            mo_rat=["5g_volte", "volte"],
-            call_direction="mo")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mo",
+            streaming=False)
 
     @test_tracker_info(uuid="457dd160-f7b1-4cfd-920f-1f5ab64f6d78")
     @TelephonyBaseTest.tel_test_wrap
@@ -316,15 +351,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 4G VoLTE
             - DDS at pSIM (slot 0)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            None,
-            1,
-            1,
-            mt_rat=["5g_volte", "volte"],
-            call_direction="mt")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mt",
+            streaming=False)
 
     # psim 4g volte & esim 5g nsa volte & dds slot 0
     @test_tracker_info(uuid="db5fca13-bcd8-420b-9953-256186efa290")
@@ -335,15 +371,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 5G NSA VoLTE
             - DDS at eSIM (slot 0)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            0,
-            None,
-            0,
-            mo_rat=["volte", "5g_volte"],
-            call_direction="mo")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["volte", "5g_volte"],
+            dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_0,
+            direction="mo",
+            streaming=False)
 
     @test_tracker_info(uuid="2fe76eda-20b2-46ab-a1f4-c2c2bc501f38")
     @TelephonyBaseTest.tel_test_wrap
@@ -353,15 +390,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 5G NSA VoLTE
             - DDS at eSIM (slot 0)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            None,
-            0,
-            0,
-            mt_rat=["volte", "5g_volte"],
-            call_direction="mt")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["volte", "5g_volte"],
+            dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_0,
+            direction="mt",
+            streaming=False)
 
     @test_tracker_info(uuid="90005074-e21f-47c3-9965-54b513214600")
     @TelephonyBaseTest.tel_test_wrap
@@ -371,15 +409,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 5G NSA VoLTE
             - DDS at eSIM (slot 0)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            1,
-            None,
-            0,
-            mo_rat=["volte", "5g_volte"],
-            call_direction="mo")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["volte", "5g_volte"],
+            dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mo",
+            streaming=False)
 
     @test_tracker_info(uuid="eaf94a45-66d0-41d0-8cb2-153fa3f751f9")
     @TelephonyBaseTest.tel_test_wrap
@@ -389,15 +428,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 5G NSA VoLTE
             - DDS at eSIM (slot 0)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            None,
-            1,
-            0,
-            mt_rat=["volte", "5g_volte"],
-            call_direction="mt")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["volte", "5g_volte"],
+            dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mt",
+            streaming=False)
 
     # psim 4g volte & esim 5g nsa volte & dds slot 1
     @test_tracker_info(uuid="8ee47ad7-24b6-4cd3-9443-6ab677695eb7")
@@ -408,15 +448,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 5G NSA VoLTE
             - DDS at eSIM (slot 1)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            0,
-            None,
-            1,
-            mo_rat=["volte", "5g_volte"],
-            call_direction="mo")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["volte", "5g_volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
+            direction="mo",
+            streaming=False)
 
     @test_tracker_info(uuid="8795b95d-a138-45cd-b45c-41ad4021589a")
     @TelephonyBaseTest.tel_test_wrap
@@ -426,15 +467,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 5G NSA VoLTE
             - DDS at eSIM (slot 1)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            None,
-            0,
-            1,
-            mt_rat=["volte", "5g_volte"],
-            call_direction="mt")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["volte", "5g_volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
+            direction="mt",
+            streaming=False)
 
     @test_tracker_info(uuid="33f2fa73-de7b-4b68-b9b8-aa08f6511e1a")
     @TelephonyBaseTest.tel_test_wrap
@@ -444,15 +486,16 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 5G NSA VoLTE
             - DDS at eSIM (slot 1)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            1,
-            None,
-            1,
-            mo_rat=["volte", "5g_volte"],
-            call_direction="mo")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["volte", "5g_volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mo",
+            streaming=False)
 
     @test_tracker_info(uuid="b1ae55f1-dfd4-4e50-a0e3-df3b3ae29c68")
     @TelephonyBaseTest.tel_test_wrap
@@ -462,15 +505,473 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             - eSIM 5G NSA VoLTE
             - DDS at eSIM (slot 1)
         """
-        return dsds_voice_call_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            None,
-            1,
-            1,
-            mt_rat=["volte", "5g_volte"],
-            call_direction="mt")
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["volte", "5g_volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mt",
+            streaming=False)
+
+    # e+e
+    @test_tracker_info(uuid="9c35e485-b813-4af2-b30f-d331337a6eaf")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_0_mo_5g_nsa_volte_esim_port_1_5g_nsa_volte_dds_1(self):
+        """A MO VoLTE call dialed at eSIM port 0, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 0 (SimSlotInfo.SLOT_1)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mo",
+            streaming=False)
+
+    @test_tracker_info(uuid="d321af5a-ec10-4933-9fe4-ebbc2ac52756")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_0_mt_5g_nsa_volte_esim_port_1_5g_nsa_volte_dds_1(self):
+        """A MT VoLTE call dialed at eSIM port 0, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 0 (SimSlotInfo.SLOT_1)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mt",
+            streaming=False)
+
+    @test_tracker_info(uuid="ca53ccbb-bcc9-4c04-897e-ac95dfb8178d")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_1_mo_5g_nsa_volte_esim_port_0_5g_nsa_volte_dds_1(self):
+        """A MO VoLTE call dialed at eSIM port 1, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 0 (SimSlotInfo.SLOT_1)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_2,
+            direction="mo",
+            streaming=False)
+
+    @test_tracker_info(uuid="0417e06b-2669-454c-b825-ac21a115a4b5")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_1_mt_5g_nsa_volte_esim_port_0_5g_nsa_volte_dds_1(self):
+        """A MT VoLTE call dialed at eSIM port 1, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 0 (SimSlotInfo.SLOT_1)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_2,
+            direction="mt",
+            streaming=False)
+
+    @test_tracker_info(uuid="d61c930e-4fca-46f6-a946-753ddfbd0a46")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_0_mo_5g_nsa_volte_esim_port_1_5g_nsa_volte_dds_2(self):
+        """A MO VoLTE call dialed at eSIM port 0, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 1 (SimSlotInfo.SLOT_2)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            dds_slot=2,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mo",
+            streaming=False)
+
+    @test_tracker_info(uuid="c157cad9-7d04-40fb-9fe5-c9d691d6b7e9")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_0_mt_5g_nsa_volte_esim_port_1_5g_nsa_volte_dds_2(self):
+        """A MT VoLTE call dialed at eSIM port 0, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 1 (SimSlotInfo.SLOT_2)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            dds_slot=2,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mt",
+            streaming=False)
+
+    @test_tracker_info(uuid="acaa152c-4e0a-4caa-86a6-6689ff519e9e")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_1_mo_5g_nsa_volte_esim_port_0_5g_nsa_volte_dds_2(self):
+        """A MO VoLTE call dialed at eSIM port 1, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 1 (SimSlotInfo.SLOT_2)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            dds_slot=2,
+            test_slot=SimSlotInfo.SLOT_2,
+            direction="mo",
+            streaming=False)
+
+    @test_tracker_info(uuid="d8f45a79-e86b-4292-96a0-fc32067b1d90")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_1_mt_5g_nsa_volte_esim_port_0_5g_nsa_volte_dds_2(self):
+        """A MT VoLTE call dialed at eSIM port 1, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 1 (SimSlotInfo.SLOT_2)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            dds_slot=2,
+            test_slot=SimSlotInfo.SLOT_2,
+            direction="mt",
+            streaming=False)
+
+    @test_tracker_info(uuid="fa199595-9081-4a1b-b0ce-dcff190dc403")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_0_mo_5g_nsa_volte_esim_port_1_4g_volte_dds_1(self):
+        """A MO VoLTE call dialed at eSIM port 0, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 0 (SimSlotInfo.SLOT_1)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mo",
+            streaming=False)
+
+    @test_tracker_info(uuid="a6d3f4b4-085e-4ca4-94f7-d1bcccdaaa03")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_0_mt_5g_nsa_volte_esim_port_1_4g_volte_dds_1(self):
+        """A MT VoLTE call dialed at eSIM port 0, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 0 (SimSlotInfo.SLOT_1)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mt",
+            streaming=False)
+
+    @test_tracker_info(uuid="22c202e0-b488-4700-acbe-3c3f53f6d7f1")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_1_mo_4g_volte_esim_port_0_5g_nsa_volte_dds_1(self):
+        """A MO VoLTE call dialed at eSIM port 1, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 0 (SimSlotInfo.SLOT_1)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_2,
+            direction="mo",
+            streaming=False)
+
+    @test_tracker_info(uuid="4a6de885-b092-42ae-9209-7b4d2407034c")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_1_mt_4g_volte_esim_port_0_5g_nsa_volte_dds_1(self):
+        """A MT VoLTE call dialed at eSIM port 1, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 0 (SimSlotInfo.SLOT_1)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_2,
+            direction="mt",
+            streaming=False)
+
+    @test_tracker_info(uuid="003d9ffe-c057-4191-8289-3419de874c02")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_0_mo_5g_nsa_volte_esim_port_1_4g_volte_dds_2(self):
+        """A MO VoLTE call dialed at eSIM port 0, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 1 (SimSlotInfo.SLOT_2)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "volte"],
+            dds_slot=2,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mo",
+            streaming=False)
+
+    @test_tracker_info(uuid="	c4fdc99c-1d6c-4466-b811-ca948a48b53c")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_0_mt_5g_nsa_volte_esim_port_1_4g_volte_dds_2(self):
+        """A MT VoLTE call dialed at eSIM port 0, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 1 (SimSlotInfo.SLOT_2)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "volte"],
+            dds_slot=2,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mt",
+            streaming=False)
+
+    @test_tracker_info(uuid="95c6b512-2dbc-4435-a0ba-133d79ace3bc")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_1_mo_4g_volte_esim_port_0_5g_nsa_volte_dds_2(self):
+        """A MO VoLTE call dialed at eSIM port 1, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 1 (SimSlotInfo.SLOT_2)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "volte"],
+            dds_slot=2,
+            test_slot=SimSlotInfo.SLOT_2,
+            direction="mo",
+            streaming=False)
+
+    @test_tracker_info(uuid="a51d65d2-00e1-489c-8ede-132c4449638c")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_1_mt_4g_volte_esim_port_0_5g_nsa_volte_dds_2(self):
+        """A MT VoLTE call dialed at eSIM port 1, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 1 (SimSlotInfo.SLOT_2)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "volte"],
+            dds_slot=2,
+            test_slot=SimSlotInfo.SLOT_2,
+            direction="mt",
+            streaming=False)
+
+    @test_tracker_info(uuid="c0108b40-a7dd-482e-88c5-910996e0e35c")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_0_mo_4g_volte_esim_port_1_5g_nsa_volte_dds_1(self):
+        """A MO VoLTE call dialed at eSIM port 0, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 0 (SimSlotInfo.SLOT_1)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["volte", "5g_volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mo",
+            streaming=False)
+
+    @test_tracker_info(uuid="077db5cb-f41e-4ccd-a921-217b37eeab93")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_0_mt_4g_volte_esim_port_1_5g_nsa_volte_dds_1(self):
+        """A MT VoLTE call dialed at eSIM port 0, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 0 (SimSlotInfo.SLOT_1)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["volte", "5g_volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mt",
+            streaming=False)
+
+    @test_tracker_info(uuid="a6d910c7-bbf5-4cec-b0c3-e08f0c9ab9e8")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_1_mo_5g_nsa_volte_esim_port_0_4g_volte_dds_1(self):
+        """A MO VoLTE call dialed at eSIM port 1, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 0 (SimSlotInfo.SLOT_1)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["volte", "5g_volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_2,
+            direction="mo",
+            streaming=False)
+
+    @test_tracker_info(uuid="25678592-49aa-4070-a889-4193ab02d575")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_1_mt_5g_nsa_volte_esim_port_0_4g_volte_dds_1(self):
+        """A MT VoLTE call dialed at eSIM port 1, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 0 (SimSlotInfo.SLOT_1)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["volte", "5g_volte"],
+            dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_2,
+            direction="mt",
+            streaming=False)
+
+    @test_tracker_info(uuid="610a4a93-1db5-4938-82b1-cdbcd0de9140")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_0_mo_4g_volte_esim_port_1_5g_nsa_volte_dds_2(self):
+        """A MO VoLTE call dialed at eSIM port 0, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 1 (SimSlotInfo.SLOT_2)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["volte", "5g_volte"],
+            dds_slot=2,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mo",
+            streaming=False)
+
+    @test_tracker_info(uuid="ac2d2dcd-cc0d-4500-b27b-3806a7f008dd")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_0_mt_4g_volte_esim_port_1_5g_nsa_volte_dds_2(self):
+        """A MT VoLTE call dialed at eSIM port 0, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 1 (SimSlotInfo.SLOT_2)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["volte", "5g_volte"],
+            dds_slot=2,
+            test_slot=SimSlotInfo.SLOT_1,
+            direction="mt",
+            streaming=False)
+
+    @test_tracker_info(uuid="b5dfe6dc-a9cd-46d6-a227-359cc3ac05cc")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_1_mo_5g_nsa_volte_esim_port_0_4g_volte_dds_2(self):
+        """A MO VoLTE call dialed at eSIM port 1, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 1 (SimSlotInfo.SLOT_2)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["volte", "5g_volte"],
+            dds_slot=2,
+            test_slot=SimSlotInfo.SLOT_2,
+            direction="mo",
+            streaming=False)
+
+    @test_tracker_info(uuid="1449a187-d388-4b74-bd8f-d45827441604")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_msim_voice_esim_port_1_mt_5g_nsa_volte_esim_port_0_4g_volte_dds_2(self):
+        """A MT VoLTE call dialed at eSIM port 1, where
+            - eSIM port 0 5G NSA VoLTE
+            - eSIM port 1 5G NSA VoLTE
+            - DDS at eSIM port 1 (SimSlotInfo.SLOT_2)
+        """
+        return dsds_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["volte", "5g_volte"],
+            dds_slot=2,
+            test_slot=SimSlotInfo.SLOT_2,
+            direction="mt",
+            streaming=False)
 
     @test_tracker_info(uuid="f94d5fd2-79ac-426a-9a0d-1ba72e070b19")
     @TelephonyBaseTest.tel_test_wrap
@@ -2163,13 +2664,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=1,
             dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
             direction="mo",
             duration=360,
             streaming=False)
@@ -2185,13 +2687,13 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=1,
             dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
             direction="mt",
             duration=360,
             streaming=False)
@@ -2207,13 +2709,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "volte"],
-            test_slot=1,
             dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
             direction="mo",
             duration=360,
             streaming=False)
@@ -2229,13 +2732,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "volte"],
-            test_slot=1,
             dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
             direction="mt",
             duration=360,
             streaming=False)
@@ -2251,13 +2755,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["volte", "5g_volte"],
-            test_slot=1,
             dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
             direction="mo",
             duration=360,
             streaming=False)
@@ -2273,13 +2778,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["volte", "5g_volte"],
-            test_slot=1,
             dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
             direction="mt",
             duration=360,
             streaming=False)
@@ -2295,13 +2801,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=0,
             dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
             direction="mo",
             duration=360,
             streaming=False)
@@ -2317,13 +2824,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=0,
             dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
             direction="mt",
             duration=360,
             streaming=False)
@@ -2339,13 +2847,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "volte"],
-            test_slot=0,
             dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
             direction="mo",
             duration=360,
             streaming=False)
@@ -2361,13 +2870,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "volte"],
-            test_slot=0,
             dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
             direction="mt",
             duration=360,
             streaming=False)
@@ -2383,13 +2893,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["volte", "5g_volte"],
-            test_slot=0,
             dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
             direction="mo",
             duration=360,
             streaming=False)
@@ -2405,13 +2916,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["volte", "5g_volte"],
-            test_slot=0,
             dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
             direction="mt",
             duration=360,
             streaming=False)
@@ -2427,13 +2939,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["volte", "volte"],
-            test_slot=1,
             dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
             direction="mo",
             duration=360,
             streaming=False)
@@ -2449,13 +2962,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["volte", "volte"],
-            test_slot=1,
             dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
             direction="mt",
             duration=360,
             streaming=False)
@@ -2471,13 +2985,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["volte", "volte"],
-            test_slot=0,
             dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
             direction="mo",
             duration=360,
             streaming=False)
@@ -2493,13 +3008,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["volte", "volte"],
-            test_slot=0,
             dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
             direction="mt",
             duration=360,
             streaming=False)
@@ -2515,13 +3031,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=1,
             dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
             direction="mo",
             duration=360,
             streaming=True)
@@ -2537,13 +3054,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=1,
             dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
             direction="mt",
             duration=360,
             streaming=True)
@@ -2559,13 +3077,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "volte"],
-            test_slot=1,
             dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
             direction="mo",
             duration=360,
             streaming=True)
@@ -2581,13 +3100,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "volte"],
-            test_slot=1,
             dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
             direction="mt",
             duration=360,
             streaming=True)
@@ -2603,13 +3123,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["volte", "5g_volte"],
-            test_slot=1,
             dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
             direction="mo",
             duration=360,
             streaming=True)
@@ -2625,13 +3146,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["volte", "5g_volte"],
-            test_slot=1,
             dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
             direction="mt",
             duration=360,
             streaming=True)
@@ -2647,13 +3169,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=0,
             dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
             direction="mo",
             duration=360,
             streaming=True)
@@ -2669,13 +3192,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=0,
             dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
             direction="mt",
             duration=360,
             streaming=True)
@@ -2691,13 +3215,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "volte"],
-            test_slot=0,
             dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
             direction="mo",
             duration=360,
             streaming=True)
@@ -2713,13 +3238,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "volte"],
-            test_slot=0,
             dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
             direction="mt",
             duration=360,
             streaming=True)
@@ -2735,13 +3261,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["volte", "5g_volte"],
-            test_slot=0,
             dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
             direction="mo",
             duration=360,
             streaming=True)
@@ -2757,13 +3284,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["volte", "5g_volte"],
-            test_slot=0,
             dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
             direction="mt",
             duration=360,
             streaming=True)
@@ -2779,13 +3307,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["volte", "volte"],
-            test_slot=1,
             dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
             direction="mo",
             duration=360,
             streaming=True)
@@ -2801,13 +3330,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["volte", "volte"],
-            test_slot=1,
             dds_slot=0,
+            test_slot=SimSlotInfo.SLOT_1,
             direction="mt",
             duration=360,
             streaming=True)
@@ -2823,13 +3353,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["volte", "volte"],
-            test_slot=0,
             dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
             direction="mo",
             duration=360,
             streaming=True)
@@ -2845,13 +3376,14 @@ class Nsa5gDSDSVoiceTest(TelephonyBaseTest):
             After call end will check the eSIM if is attach to the network
             with assigned RAT successfully and data works fine.
         """
-        return dsds_long_call_streaming_test(
+        return dsds_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["volte", "volte"],
-            test_slot=0,
             dds_slot=1,
+            test_slot=SimSlotInfo.SLOT_0,
             direction="mt",
             duration=360,
             streaming=True)

@@ -35,6 +35,8 @@ cc_library {
         "CryptoHalAidl.cpp",
         "DrmUtils.cpp",
         "DrmHalListener.cpp",
+        "DrmStatus.cpp",
+        "DrmMetricsLogger.cpp",
     ],
 
     local_include_dirs: [
@@ -74,6 +76,7 @@ cc_library {
     static_libs: [
         "resourcemanager_aidl_interface-ndk",
         "libaidlcommonsupport",
+        "libjsoncpp",
     ],
 
     export_shared_lib_headers: [

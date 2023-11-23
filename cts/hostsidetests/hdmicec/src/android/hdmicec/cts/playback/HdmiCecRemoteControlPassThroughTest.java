@@ -132,7 +132,7 @@ public final class HdmiCecRemoteControlPassThroughTest extends BaseHdmiCecCtsTes
             sendUcpMenuCommand(HdmiCecConstants.CEC_KEYCODE_SETUP_MENU, "SETTINGS");
         }
         if ((remoteControlProfileSource & 0x10) == 0x10) {
-            sendUcpMenuCommand(HdmiCecConstants.CEC_KEYCODE_ROOT_MENU, "MENU");
+            sendUcpMenuCommand(HdmiCecConstants.CEC_KEYCODE_ROOT_MENU, "HOME");
         }
     }
 

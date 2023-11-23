@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -58,8 +58,12 @@
 #define ARM_TRUSTED_DRAM_ID		1
 #define ARM_DRAM_ID			2
 
-/* The first 4KB of Trusted SRAM are used as shared memory */
+#ifdef PLAT_ARM_TRUSTED_SRAM_BASE
+#define ARM_TRUSTED_SRAM_BASE		PLAT_ARM_TRUSTED_SRAM_BASE
+#else
 #define ARM_TRUSTED_SRAM_BASE		UL(0x04000000)
+#endif /* PLAT_ARM_TRUSTED_SRAM_BASE */
+
 #define ARM_SHARED_RAM_BASE		ARM_TRUSTED_SRAM_BASE
 #define ARM_SHARED_RAM_SIZE		UL(0x00001000)	/* 4 KB */
 
@@ -70,38 +74,84 @@
 					 ARM_SHARED_RAM_SIZE)
 
 /*
- * The top 16MB of DRAM1 is configured as secure access only using the TZC
+ * The top 16MB (or 64MB if RME is enabled) of DRAM1 is configured as
+ * follows:
  *   - SCP TZC DRAM: If present, DRAM reserved for SCP use
+ *   - L1 GPT DRAM: Reserved for L1 GPT if RME is enabled
+ *   - REALM DRAM: Reserved for Realm world if RME is enabled
  *   - AP TZC DRAM: The remaining TZC secured DRAM reserved for AP use
+ *
+ *              RME enabled(64MB)                RME not enabled(16MB)
+ *              --------------------             -------------------
+ *              |                  |             |                 |
+ *              |  AP TZC (~28MB)  |             |  AP TZC (~14MB) |
+ *              --------------------             -------------------
+ *              |                  |             |                 |
+ *              |  REALM (32MB)    |             |  EL3 TZC (2MB)  |
+ *              --------------------             -------------------
+ *              |                  |             |                 |
+ *              |  EL3 TZC (3MB)   |             |    SCP TZC      |
+ *              --------------------  0xFFFF_FFFF-------------------
+ *              | L1 GPT + SCP TZC |
+ *              |       (~1MB)     |
+ *  0xFFFF_FFFF --------------------
  */
-#define ARM_TZC_DRAM1_SIZE		UL(0x01000000)
-
-#define ARM_SCP_TZC_DRAM1_BASE		(ARM_DRAM1_BASE +		\
-					 ARM_DRAM1_SIZE -		\
-					 ARM_SCP_TZC_DRAM1_SIZE)
-#define ARM_SCP_TZC_DRAM1_SIZE		PLAT_ARM_SCP_TZC_DRAM1_SIZE
-#define ARM_SCP_TZC_DRAM1_END		(ARM_SCP_TZC_DRAM1_BASE +	\
-					 ARM_SCP_TZC_DRAM1_SIZE - 1U)
-
+#if ENABLE_RME
+#define ARM_TZC_DRAM1_SIZE              UL(0x04000000) /* 64MB */
 /*
- * Define a 2MB region within the TZC secured DRAM for use by EL3 runtime
+ * Define a region within the TZC secured DRAM for use by EL3 runtime
  * firmware. This region is meant to be NOLOAD and will not be zero
  * initialized. Data sections with the attribute `arm_el3_tzc_dram` will be
- * placed here.
+ * placed here. 3MB region is reserved if RME is enabled, 2MB otherwise.
  */
-#define ARM_EL3_TZC_DRAM1_BASE		(ARM_SCP_TZC_DRAM1_BASE - ARM_EL3_TZC_DRAM1_SIZE)
-#define ARM_EL3_TZC_DRAM1_SIZE		UL(0x00200000) /* 2 MB */
+#define ARM_EL3_TZC_DRAM1_SIZE		UL(0x00300000) /* 3MB */
+#define ARM_L1_GPT_SIZE			UL(0x00100000) /* 1MB */
+#define ARM_REALM_SIZE			UL(0x02000000) /* 32MB */
+#else
+#define ARM_TZC_DRAM1_SIZE		UL(0x01000000) /* 16MB */
+#define ARM_EL3_TZC_DRAM1_SIZE		UL(0x00200000) /* 2MB */
+#define ARM_L1_GPT_SIZE			UL(0)
+#define ARM_REALM_SIZE			UL(0)
+#endif /* ENABLE_RME */
+
+#define ARM_SCP_TZC_DRAM1_BASE		(ARM_DRAM1_BASE +		\
+					ARM_DRAM1_SIZE -		\
+					(ARM_SCP_TZC_DRAM1_SIZE +	\
+					ARM_L1_GPT_SIZE))
+#define ARM_SCP_TZC_DRAM1_SIZE		PLAT_ARM_SCP_TZC_DRAM1_SIZE
+#define ARM_SCP_TZC_DRAM1_END		(ARM_SCP_TZC_DRAM1_BASE +	\
+					ARM_SCP_TZC_DRAM1_SIZE - 1U)
+#if ENABLE_RME
+#define ARM_L1_GPT_ADDR_BASE		(ARM_DRAM1_BASE +		\
+					ARM_DRAM1_SIZE -		\
+					ARM_L1_GPT_SIZE)
+#define ARM_L1_GPT_END			(ARM_L1_GPT_ADDR_BASE +		\
+					ARM_L1_GPT_SIZE - 1U)
+
+#define ARM_REALM_BASE			(ARM_DRAM1_BASE +		\
+					ARM_DRAM1_SIZE -		\
+					(ARM_SCP_TZC_DRAM1_SIZE +	\
+					ARM_EL3_TZC_DRAM1_SIZE +	\
+					ARM_REALM_SIZE +		\
+					ARM_L1_GPT_SIZE))
+#define ARM_REALM_END                   (ARM_REALM_BASE + ARM_REALM_SIZE - 1U)
+#endif /* ENABLE_RME */
+
+#define ARM_EL3_TZC_DRAM1_BASE		(ARM_SCP_TZC_DRAM1_BASE -	\
+					ARM_EL3_TZC_DRAM1_SIZE)
 #define ARM_EL3_TZC_DRAM1_END		(ARM_EL3_TZC_DRAM1_BASE +	\
 					ARM_EL3_TZC_DRAM1_SIZE - 1U)
 
 #define ARM_AP_TZC_DRAM1_BASE		(ARM_DRAM1_BASE +		\
-					 ARM_DRAM1_SIZE -		\
-					 ARM_TZC_DRAM1_SIZE)
+					ARM_DRAM1_SIZE -		\
+					ARM_TZC_DRAM1_SIZE)
 #define ARM_AP_TZC_DRAM1_SIZE		(ARM_TZC_DRAM1_SIZE -		\
-					 (ARM_SCP_TZC_DRAM1_SIZE +	\
-					 ARM_EL3_TZC_DRAM1_SIZE))
+					(ARM_SCP_TZC_DRAM1_SIZE +	\
+					ARM_EL3_TZC_DRAM1_SIZE +	\
+					ARM_REALM_SIZE +		\
+					ARM_L1_GPT_SIZE))
 #define ARM_AP_TZC_DRAM1_END		(ARM_AP_TZC_DRAM1_BASE +	\
-					 ARM_AP_TZC_DRAM1_SIZE - 1U)
+					ARM_AP_TZC_DRAM1_SIZE - 1U)
 
 /* Define the Access permissions for Secure peripherals to NS_DRAM */
 #if ARM_CRYPTOCELL_INTEG
@@ -149,8 +199,12 @@
 					 ARM_TZC_DRAM1_SIZE)
 #define ARM_NS_DRAM1_END		(ARM_NS_DRAM1_BASE +		\
 					 ARM_NS_DRAM1_SIZE - 1U)
-
+#ifdef PLAT_ARM_DRAM1_BASE
+#define ARM_DRAM1_BASE			PLAT_ARM_DRAM1_BASE
+#else
 #define ARM_DRAM1_BASE			ULL(0x80000000)
+#endif /* PLAT_ARM_DRAM1_BASE */
+
 #define ARM_DRAM1_SIZE			ULL(0x80000000)
 #define ARM_DRAM1_END			(ARM_DRAM1_BASE +		\
 					 ARM_DRAM1_SIZE - 1U)
@@ -198,45 +252,58 @@
 	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_6, GIC_HIGHEST_SEC_PRIORITY, (grp), \
 			GIC_INTR_CFG_EDGE)
 
-#define ARM_MAP_SHARED_RAM		MAP_REGION_FLAT(		\
-						ARM_SHARED_RAM_BASE,	\
-						ARM_SHARED_RAM_SIZE,	\
-						MT_DEVICE | MT_RW | MT_SECURE)
+#define ARM_MAP_SHARED_RAM	MAP_REGION_FLAT(			\
+					ARM_SHARED_RAM_BASE,		\
+					ARM_SHARED_RAM_SIZE,		\
+					MT_DEVICE | MT_RW | EL3_PAS)
 
-#define ARM_MAP_NS_DRAM1		MAP_REGION_FLAT(		\
-						ARM_NS_DRAM1_BASE,	\
-						ARM_NS_DRAM1_SIZE,	\
-						MT_MEMORY | MT_RW | MT_NS)
+#define ARM_MAP_NS_DRAM1	MAP_REGION_FLAT(			\
+					ARM_NS_DRAM1_BASE,		\
+					ARM_NS_DRAM1_SIZE,		\
+					MT_MEMORY | MT_RW | MT_NS)
 
-#define ARM_MAP_DRAM2			MAP_REGION_FLAT(		\
-						ARM_DRAM2_BASE,		\
-						ARM_DRAM2_SIZE,		\
-						MT_MEMORY | MT_RW | MT_NS)
+#define ARM_MAP_DRAM2		MAP_REGION_FLAT(			\
+					ARM_DRAM2_BASE,			\
+					ARM_DRAM2_SIZE,			\
+					MT_MEMORY | MT_RW | MT_NS)
 
-#define ARM_MAP_TSP_SEC_MEM		MAP_REGION_FLAT(		\
-						TSP_SEC_MEM_BASE,	\
-						TSP_SEC_MEM_SIZE,	\
-						MT_MEMORY | MT_RW | MT_SECURE)
+#define ARM_MAP_TSP_SEC_MEM	MAP_REGION_FLAT(			\
+					TSP_SEC_MEM_BASE,		\
+					TSP_SEC_MEM_SIZE,		\
+					MT_MEMORY | MT_RW | MT_SECURE)
 
 #if ARM_BL31_IN_DRAM
-#define ARM_MAP_BL31_SEC_DRAM		MAP_REGION_FLAT(		\
-						BL31_BASE,		\
-						PLAT_ARM_MAX_BL31_SIZE,	\
-						MT_MEMORY | MT_RW | MT_SECURE)
+#define ARM_MAP_BL31_SEC_DRAM	MAP_REGION_FLAT(			\
+					BL31_BASE,			\
+					PLAT_ARM_MAX_BL31_SIZE,		\
+					MT_MEMORY | MT_RW | MT_SECURE)
 #endif
 
-#define ARM_MAP_EL3_TZC_DRAM		MAP_REGION_FLAT(			\
-						ARM_EL3_TZC_DRAM1_BASE,	\
-						ARM_EL3_TZC_DRAM1_SIZE,	\
-						MT_MEMORY | MT_RW | MT_SECURE)
+#define ARM_MAP_EL3_TZC_DRAM	MAP_REGION_FLAT(			\
+					ARM_EL3_TZC_DRAM1_BASE,		\
+					ARM_EL3_TZC_DRAM1_SIZE,		\
+					MT_MEMORY | MT_RW | EL3_PAS)
 
 #if defined(SPD_spmd)
-#define ARM_MAP_TRUSTED_DRAM		MAP_REGION_FLAT(		    \
-						PLAT_ARM_TRUSTED_DRAM_BASE, \
-						PLAT_ARM_TRUSTED_DRAM_SIZE, \
-						MT_MEMORY | MT_RW | MT_SECURE)
+#define ARM_MAP_TRUSTED_DRAM	MAP_REGION_FLAT(			\
+					PLAT_ARM_TRUSTED_DRAM_BASE,	\
+					PLAT_ARM_TRUSTED_DRAM_SIZE,	\
+					MT_MEMORY | MT_RW | MT_SECURE)
 #endif
 
+#if ENABLE_RME
+#define ARM_MAP_RMM_DRAM	MAP_REGION_FLAT(			\
+					PLAT_ARM_RMM_BASE,		\
+					PLAT_ARM_RMM_SIZE,		\
+					MT_MEMORY | MT_RW | MT_REALM)
+
+
+#define ARM_MAP_GPT_L1_DRAM	MAP_REGION_FLAT(			\
+					ARM_L1_GPT_ADDR_BASE,		\
+					ARM_L1_GPT_SIZE,		\
+					MT_MEMORY | MT_RW | EL3_PAS)
+
+#endif /* ENABLE_RME */
 
 /*
  * Mapping for the BL1 RW region. This mapping is needed by BL2 in order to
@@ -247,7 +314,7 @@
 #define ARM_MAP_BL1_RW		MAP_REGION_FLAT(	\
 					BL1_RW_BASE,	\
 					BL1_RW_LIMIT - BL1_RW_BASE, \
-					MT_MEMORY | MT_RW | MT_SECURE)
+					MT_MEMORY | MT_RW | EL3_PAS)
 
 /*
  * If SEPARATE_CODE_AND_RODATA=1 we define a region for each section
@@ -257,35 +324,35 @@
 #define ARM_MAP_BL_RO			MAP_REGION_FLAT(			\
 						BL_CODE_BASE,			\
 						BL_CODE_END - BL_CODE_BASE,	\
-						MT_CODE | MT_SECURE),		\
+						MT_CODE | EL3_PAS),		\
 					MAP_REGION_FLAT(			\
 						BL_RO_DATA_BASE,		\
 						BL_RO_DATA_END			\
 							- BL_RO_DATA_BASE,	\
-						MT_RO_DATA | MT_SECURE)
+						MT_RO_DATA | EL3_PAS)
 #else
 #define ARM_MAP_BL_RO			MAP_REGION_FLAT(			\
 						BL_CODE_BASE,			\
 						BL_CODE_END - BL_CODE_BASE,	\
-						MT_CODE | MT_SECURE)
+						MT_CODE | EL3_PAS)
 #endif
 #if USE_COHERENT_MEM
 #define ARM_MAP_BL_COHERENT_RAM		MAP_REGION_FLAT(			\
 						BL_COHERENT_RAM_BASE,		\
 						BL_COHERENT_RAM_END		\
 							- BL_COHERENT_RAM_BASE, \
-						MT_DEVICE | MT_RW | MT_SECURE)
+						MT_DEVICE | MT_RW | EL3_PAS)
 #endif
 #if USE_ROMLIB
 #define ARM_MAP_ROMLIB_CODE		MAP_REGION_FLAT(			\
 						ROMLIB_RO_BASE,			\
 						ROMLIB_RO_LIMIT	- ROMLIB_RO_BASE,\
-						MT_CODE | MT_SECURE)
+						MT_CODE | EL3_PAS)
 
 #define ARM_MAP_ROMLIB_DATA		MAP_REGION_FLAT(			\
 						ROMLIB_RW_BASE,			\
 						ROMLIB_RW_END	- ROMLIB_RW_BASE,\
-						MT_MEMORY | MT_RW | MT_SECURE)
+						MT_MEMORY | MT_RW | EL3_PAS)
 #endif
 
 /*
@@ -300,7 +367,15 @@
 #define ARM_MAP_BL_CONFIG_REGION	MAP_REGION_FLAT(ARM_BL_RAM_BASE,	\
 						(ARM_FW_CONFIGS_LIMIT		\
 							- ARM_BL_RAM_BASE),	\
-						MT_MEMORY | MT_RW | MT_SECURE)
+						MT_MEMORY | MT_RW | EL3_PAS)
+/*
+ * Map L0_GPT with read and write permissions
+ */
+#if ENABLE_RME
+#define ARM_MAP_L0_GPT_REGION		MAP_REGION_FLAT(ARM_L0_GPT_ADDR_BASE,	\
+						ARM_L0_GPT_SIZE,		\
+						MT_MEMORY | MT_RW | MT_ROOT)
+#endif
 
 /*
  * The max number of regions like RO(code), coherent and data required by
@@ -312,16 +387,44 @@
 					 ARM_BL_REGIONS)
 
 /* Memory mapped Generic timer interfaces  */
+#ifdef PLAT_ARM_SYS_CNTCTL_BASE
+#define ARM_SYS_CNTCTL_BASE		PLAT_ARM_SYS_CNTCTL_BASE
+#else
 #define ARM_SYS_CNTCTL_BASE		UL(0x2a430000)
+#endif
+
+#ifdef PLAT_ARM_SYS_CNTREAD_BASE
+#define ARM_SYS_CNTREAD_BASE		PLAT_ARM_SYS_CNTREAD_BASE
+#else
 #define ARM_SYS_CNTREAD_BASE		UL(0x2a800000)
+#endif
+
+#ifdef PLAT_ARM_SYS_TIMCTL_BASE
+#define ARM_SYS_TIMCTL_BASE		PLAT_ARM_SYS_TIMCTL_BASE
+#else
 #define ARM_SYS_TIMCTL_BASE		UL(0x2a810000)
+#endif
+
+#ifdef PLAT_ARM_SYS_CNT_BASE_S
+#define ARM_SYS_CNT_BASE_S		PLAT_ARM_SYS_CNT_BASE_S
+#else
 #define ARM_SYS_CNT_BASE_S		UL(0x2a820000)
+#endif
+
+#ifdef PLAT_ARM_SYS_CNT_BASE_NS
+#define ARM_SYS_CNT_BASE_NS		PLAT_ARM_SYS_CNT_BASE_NS
+#else
 #define ARM_SYS_CNT_BASE_NS		UL(0x2a830000)
+#endif
 
 #define ARM_CONSOLE_BAUDRATE		115200
 
 /* Trusted Watchdog constants */
+#ifdef PLAT_ARM_SP805_TWDG_BASE
+#define ARM_SP805_TWDG_BASE		PLAT_ARM_SP805_TWDG_BASE
+#else
 #define ARM_SP805_TWDG_BASE		UL(0x2a490000)
+#endif
 #define ARM_SP805_TWDG_CLK_HZ		32768
 /* The TBBR document specifies a watchdog timeout of 256 seconds. SP805
  * asserts reset after two consecutive countdowns (2 x 128 = 256 sec) */
@@ -373,15 +476,32 @@
  */
 #define ARM_FW_CONFIGS_LIMIT		(ARM_BL_RAM_BASE + (PAGE_SIZE * 2))
 
+#if ENABLE_RME
+/*
+ * Store the L0 GPT on Trusted SRAM next to firmware
+ * configuration memory, 4KB aligned.
+ */
+#define ARM_L0_GPT_SIZE			(PAGE_SIZE)
+#define ARM_L0_GPT_ADDR_BASE		(ARM_FW_CONFIGS_LIMIT)
+#define ARM_L0_GPT_LIMIT		(ARM_L0_GPT_ADDR_BASE + ARM_L0_GPT_SIZE)
+#else
+#define ARM_L0_GPT_SIZE			U(0)
+#endif
+
 /*******************************************************************************
  * BL1 specific defines.
  * BL1 RW data is relocated from ROM to RAM at runtime so we need 2 sets of
  * addresses.
  ******************************************************************************/
 #define BL1_RO_BASE			PLAT_ARM_TRUSTED_ROM_BASE
+#ifdef PLAT_BL1_RO_LIMIT
+#define BL1_RO_LIMIT			PLAT_BL1_RO_LIMIT
+#else
 #define BL1_RO_LIMIT			(PLAT_ARM_TRUSTED_ROM_BASE	\
 					 + (PLAT_ARM_TRUSTED_ROM_SIZE - \
 					    PLAT_ARM_MAX_ROMLIB_RO_SIZE))
+#endif
+
 /*
  * Put BL1 RW at the top of the Trusted SRAM.
  */
@@ -458,6 +578,14 @@
 #else
 #define BL31_LIMIT			(ARM_BL_RAM_BASE + ARM_BL_RAM_SIZE)
 #endif
+#endif
+
+/******************************************************************************
+ * RMM specific defines
+ *****************************************************************************/
+#if ENABLE_RME
+#define RMM_BASE			(ARM_REALM_BASE)
+#define RMM_LIMIT			(RMM_BASE + ARM_REALM_SIZE)
 #endif
 
 #if !defined(__aarch64__) || JUNO_AARCH32_EL3_RUNTIME

@@ -58,16 +58,12 @@ public class DisplayAreaPolicyTests extends ActivityManagerTestBase {
     }
 
     /**
-     * DisplayContent should have feature id of FEATURE_ROOT. It should be organized.
+     * DisplayContent should have feature id of FEATURE_ROOT.
      */
     @Test
     public void testDisplayContent() {
         for (DisplayContent displayContent : mDisplays) {
             assertThat(displayContent.getFeatureId()).isEqualTo(FEATURE_ROOT);
-            // DisplayAreaOrganizerController registers the organizer for the trusted displays only.
-            if (isTrustedDisplay(displayContent)) {
-                assertThat(displayContent.isOrganized()).isTrue();
-            }
         }
     }
 

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -8,8 +9,8 @@ from autotest_lib.client.cros.power import power_status
 
 
 class power_StatsCPUFreq(test.test):
+    """ Gather CPU frequency statistics """
     version = 1
-
 
     def run_once(self, test_time=60):
         cpufreq_stats = power_status.CPUFreqStats()
@@ -27,4 +28,3 @@ class power_StatsCPUFreq(test.test):
         current_stats = cpufreq_stats.refresh()
         logging.info('CPUFreq stats in the last %d seconds :\n %s',
                      test_time, current_stats)
-

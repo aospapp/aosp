@@ -20,8 +20,9 @@ import static android.car.user.CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHIN
 import static android.os.Process.INVALID_UID;
 
 import static com.android.car.CarLog.TAG_AM;
+import static com.android.car.CarServiceUtils.getHandlerThread;
+import static com.android.car.CarServiceUtils.isEventOfType;
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
-import static com.android.car.util.Utils.isEventOfType;
 
 import android.annotation.NonNull;
 import android.annotation.UserIdInt;
@@ -47,6 +48,8 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.hardware.display.DisplayManager;
 import android.net.Uri;
+import android.os.BaseBundle;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.os.UserHandle;
@@ -57,7 +60,6 @@ import android.view.Display;
 
 import com.android.car.CarLocalServices;
 import com.android.car.CarServiceBase;
-import com.android.car.CarServiceUtils;
 import com.android.car.R;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.car.internal.util.IndentingPrintWriter;
@@ -66,7 +68,10 @@ import com.android.car.user.UserHandleHelper;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
+import java.lang.reflect.Array;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * Monitors top activity for a display and guarantee activity in fixed mode is re-launched if it has
@@ -89,12 +94,15 @@ public final class FixedActivityService implements CarServiceBase {
         public final Intent intent;
 
         @NonNull
-        public final ActivityOptions activityOptions;
+        public final Bundle activityOptions;
 
         @UserIdInt
         public final int userId;
 
         public boolean isVisible;
+        // Whether startActivity was called for this Activity. If the flag is false,
+        // FixedActivityService will call startActivity() even if the Activity is currently visible.
+        public boolean isStarted;
 
         public long lastLaunchTimeMs;
 
@@ -108,7 +116,7 @@ public final class FixedActivityService implements CarServiceBase {
 
         public boolean failureLogged;
 
-        RunningActivityInfo(@NonNull Intent intent, @NonNull ActivityOptions activityOptions,
+        RunningActivityInfo(@NonNull Intent intent, @NonNull Bundle activityOptions,
                 @UserIdInt int userId) {
             this.intent = intent;
             this.activityOptions = activityOptions;
@@ -248,7 +256,7 @@ public final class FixedActivityService implements CarServiceBase {
         mContext = context;
         mActivityService = activityService;
         mDm = displayManager;
-        mHandler = new Handler(CarServiceUtils.getHandlerThread(
+        mHandler = new Handler(getHandlerThread(
                 FixedActivityService.class.getSimpleName()).getLooper());
         mUserHandleHelper = userHandleHelper;
     }
@@ -348,7 +356,7 @@ public final class FixedActivityService implements CarServiceBase {
      *         launched. It will return false for {@link Display#INVALID_DISPLAY} {@code displayId}.
      */
     private boolean launchIfNecessary(int displayId) {
-        List<TaskInfo> infos = mActivityService.getTopTasks();
+        List<? extends TaskInfo> infos = mActivityService.getVisibleTasksInternal();
         if (infos == null) {
             Slogf.e(TAG_AM, "cannot get RootTaskInfo from AM");
             return false;
@@ -425,7 +433,7 @@ public final class FixedActivityService implements CarServiceBase {
             for (int i = 0; i < mRunningActivities.size(); i++) {
                 RunningActivityInfo activityInfo = mRunningActivities.valueAt(i);
                 long timeSinceLastLaunchMs = now - activityInfo.lastLaunchTimeMs;
-                if (activityInfo.isVisible) {
+                if (activityInfo.isVisible && activityInfo.isStarted) {
                     if (timeSinceLastLaunchMs >= CRASH_FORGET_INTERVAL_MS) {
                         activityInfo.consecutiveRetries = 0;
                     }
@@ -465,9 +473,9 @@ public final class FixedActivityService implements CarServiceBase {
                     postRecheck(RECHECK_INTERVAL_MS);
                     postRecheck(CRASH_FORGET_INTERVAL_MS);
                     ContextHelper.startActivityAsUser(mContext, activityInfo.intent,
-                            activityInfo.activityOptions.toBundle(),
-                            UserHandle.of(activityInfo.userId));
+                            activityInfo.activityOptions, UserHandle.of(activityInfo.userId));
                     activityInfo.isVisible = true;
+                    activityInfo.isStarted = true;
                     activityInfo.lastLaunchTimeMs = SystemClock.elapsedRealtime();
                 } catch (Exception e) { // Catch all for any app related issues.
                     Slogf.w(TAG_AM, "Cannot start activity:" + activityInfo.intent, e);
@@ -579,6 +587,7 @@ public final class FixedActivityService implements CarServiceBase {
         if (!isComponentAvailable(component, userId)) {
             return false;
         }
+        Bundle optionsBundle = options.toBundle();
         boolean startMonitoringEvents = false;
         synchronized (mLock) {
             if (mRunningActivities.size() == 0) {
@@ -586,8 +595,8 @@ public final class FixedActivityService implements CarServiceBase {
             }
             RunningActivityInfo activityInfo = mRunningActivities.get(displayId);
             boolean replaceEntry = true;
-            if (activityInfo != null && activityInfo.intent.equals(intent)
-                    && options.equals(activityInfo.activityOptions)
+            if (activityInfo != null && intentEquals(activityInfo.intent, intent)
+                    && bundleEquals(optionsBundle, activityInfo.activityOptions)
                     && userId == activityInfo.userId) {
                 replaceEntry = false;
                 if (activityInfo.isVisible) { // already shown.
@@ -595,7 +604,7 @@ public final class FixedActivityService implements CarServiceBase {
                 }
             }
             if (replaceEntry) {
-                activityInfo = new RunningActivityInfo(intent, options, userId);
+                activityInfo = new RunningActivityInfo(intent, optionsBundle, userId);
                 mRunningActivities.put(displayId, activityInfo);
             }
         }
@@ -627,5 +636,64 @@ public final class FixedActivityService implements CarServiceBase {
         if (stopMonitoringEvents) {
             stopMonitoringEvents();
         }
+    }
+
+    // Intent doesn't have the deep equals method.
+    private static boolean intentEquals(Intent intent1, Intent intent2) {
+        // both are null? return true
+        if (intent1 == null && intent2 == null) {
+            return true;
+        }
+        // Only one is null? return false
+        if (intent1 == null || intent2 == null) {
+            return false;
+        }
+        return intent1.getComponent().equals(intent2.getComponent())
+                && bundleEquals(intent1.getExtras(), intent2.getExtras());
+    }
+
+    private static boolean bundleEquals(BaseBundle bundle1, BaseBundle bundle2) {
+        // both are null? return true
+        if (bundle1 == null && bundle2 == null) {
+            return true;
+        }
+        // Only one is null? return false
+        if (bundle1 == null || bundle2 == null) {
+            return false;
+        }
+        if (bundle1.size() != bundle2.size()) {
+            return false;
+        }
+        Set<String> keys = bundle1.keySet();
+        for (String key : keys) {
+            Object value1 = bundle1.get(key);
+            Object value2 = bundle2.get(key);
+            if (value1 != null && value1.getClass().isArray()
+                    && value2 != null && value2.getClass().isArray()) {
+                if (!arrayEquals(value1, value2)) {
+                    return false;
+                }
+            } else if (value1 instanceof BaseBundle && value2 instanceof BaseBundle) {
+                if (!bundleEquals((BaseBundle) value1, (BaseBundle) value2)) {
+                    return false;
+                }
+            } else if (!Objects.equals(value1, value2)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean arrayEquals(Object value1, Object value2) {
+        final int length = Array.getLength(value1);
+        if (length != Array.getLength(value2)) {
+            return false;
+        }
+        for (int i = 0; i < length; i++) {
+            if (!Objects.equals(Array.get(value1, i), Array.get(value2, i))) {
+                return false;
+            }
+        }
+        return true;
     }
 }

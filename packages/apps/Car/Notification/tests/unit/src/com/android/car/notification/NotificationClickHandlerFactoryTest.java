@@ -36,6 +36,7 @@ import android.app.PendingIntent;
 import android.app.RemoteInput;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Bundle;
 import android.os.Looper;
 import android.os.RemoteException;
 import android.os.UserHandle;
@@ -246,8 +247,7 @@ public class NotificationClickHandlerFactoryTest {
                 0).onClick(mView);
         try {
             verify(mReplyActionPendingIntent).sendAndReturnResult(any(Context.class), eq(0),
-                    any(Intent.class),
-                    isNull(), isNull(), isNull(), isNull());
+                    any(Intent.class), isNull(), isNull(), isNull(), any(Bundle.class));
         } catch (PendingIntent.CanceledException e) {
             // ignore
         }
@@ -283,7 +283,7 @@ public class NotificationClickHandlerFactoryTest {
                 0).onClick(mView);
         try {
             verify(mActionIntent).sendAndReturnResult(isNull(), eq(0), isNull(), isNull(),
-                    isNull(), isNull(), isNull());
+                    isNull(), isNull(), any(Bundle.class));
         } catch (PendingIntent.CanceledException e) {
             // ignore
         }

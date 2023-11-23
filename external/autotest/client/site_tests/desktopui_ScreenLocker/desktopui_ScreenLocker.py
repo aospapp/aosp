@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import gobject
 import logging
 
 from autotest_lib.client.bin import test, utils
@@ -13,6 +12,11 @@ from autotest_lib.client.cros.input_playback import input_playback
 
 from datetime import datetime
 from dbus.mainloop.glib import DBusGMainLoop
+# AU tests use ToT client code, but ToT -3 client version.
+try:
+    from gi.repository import GObject
+except ImportError:
+    import gobject as GObject
 
 class desktopui_ScreenLocker(test.test):
     """This is a client side test that exercises the screenlocker."""
@@ -67,7 +71,7 @@ class desktopui_ScreenLocker(test.test):
         if self.screen_locked:
             raise error.TestFail('Screen already locked')
         signal_listener = session_manager.ScreenIsLockedSignalListener(
-                gobject.MainLoop())
+                GObject.MainLoop())
         ext = self._chrome.autotest_ext
 
         start = datetime.now()

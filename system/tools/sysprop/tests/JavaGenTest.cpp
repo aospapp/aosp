@@ -122,6 +122,7 @@ public final class TestProperties {
     private TestProperties () {}
 
     private static Boolean tryParseBoolean(String str) {
+        if (str == null) return null;
         switch (str.toLowerCase(Locale.US)) {
             case "1":
             case "true":
@@ -342,6 +343,7 @@ public final class TestProperties {
     private TestProperties () {}
 
     private static Boolean tryParseBoolean(String str) {
+        if (str == null) return null;
         switch (str.toLowerCase(Locale.US)) {
             case "1":
             case "true":

@@ -33,106 +33,142 @@ android_library_import {
     name: "firebase-common-aar",
     aars: ["libs/firebase-common-19.5.0.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 android_library_import {
     name: "firebase-components-aar",
     aars: ["libs/firebase-components-16.1.0.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 android_library_import {
     name: "firebase-iid-aar",
     aars: ["libs/firebase-iid-21.0.1.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 android_library_import {
     name: "firebase-iid-interop-aar",
     aars: ["libs/firebase-iid-interop-17.0.0.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 android_library_import {
     name: "firebase-installations-aar",
     aars: ["libs/firebase-installations-16.3.5.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 android_library_import {
     name: "firebase-installations-interop-aar",
     aars: ["libs/firebase-installations-interop-16.0.1.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 android_library_import {
     name: "firebase-messaging-aar",
     aars: ["libs/firebase-messaging-21.0.1.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 android_library_import {
     name: "play-services-basement-aar",
     aars: ["libs/play-services-basement-17.0.0.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 android_library_import {
     name: "play-services-cloud-messaging-aar",
     aars: ["libs/play-services-cloud-messaging-16.0.0.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 android_library_import {
     name: "play-services-tasks-aar",
     aars: ["libs/play-services-tasks-17.0.0.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 android_library_import {
     name: "transport-api-aar",
     aars: ["libs/transport-api-2.2.0.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 java_import {
     name: "firebase-encoders-jar",
     jars: ["libs/firebase-encoders-16.1.0.jar"],
     sdk_version: "system_current",
+    min_sdk_version: "33",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 android_library_import {
     name: "firebase-measurement-connector-aar",
     aars: ["libs/firebase-measurement-connector-18.0.0.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 android_library_import {
     name: "firebase-encoders-json-aar",
     aars: ["libs/firebase-encoders-json-17.1.0.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 android_library_import {
     name: "firebase-datatransport-aar",
     aars: ["libs/firebase-datatransport-17.0.10.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 android_library_import {
     name: "play-services-stats-aar",
     aars: ["libs/play-services-stats-17.0.0.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 android_library_import {
     name: "transport-runtime-aar",
     aars: ["libs/transport-runtime-2.2.0.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }
 
 android_library_import {
     name: "transport-backend-cct-aar",
     aars: ["libs/transport-backend-cct-2.3.3.aar"],
     sdk_version: "system_current",
+    min_sdk_version: "14",
+    apex_available: ["//apex_available:platform", "com.android.devicelock"],
 }

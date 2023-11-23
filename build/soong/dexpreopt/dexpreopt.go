@@ -100,7 +100,19 @@ func GenerateDexpreoptRule(ctx android.BuilderContext, globalSoong *GlobalSoongC
 	return rule, nil
 }
 
+// If dexpreopt is applicable to the module, returns whether dexpreopt is disabled. Otherwise, the
+// behavior is undefined.
+// When it returns true, dexpreopt artifacts will not be generated, but profile will still be
+// generated if profile-guided compilation is requested.
 func dexpreoptDisabled(ctx android.PathContext, global *GlobalConfig, module *ModuleConfig) bool {
+	if ctx.Config().UnbundledBuild() {
+		return true
+	}
+
+	if global.DisablePreopt {
+		return true
+	}
+
 	if contains(global.DisablePreoptModules, module.Name) {
 		return true
 	}
@@ -201,6 +213,11 @@ func GetSystemServerDexLocation(ctx android.PathContext, global *GlobalConfig, l
 	if apex := global.AllApexSystemServerJars(ctx).ApexOfJar(lib); apex != "" {
 		return fmt.Sprintf("/apex/%s/javalib/%s.jar", apex, lib)
 	}
+
+	if apex := global.AllPlatformSystemServerJars(ctx).ApexOfJar(lib); apex == "system_ext" {
+		return fmt.Sprintf("/system_ext/framework/%s.jar", lib)
+	}
+
 	return fmt.Sprintf("/system/framework/%s.jar", lib)
 }
 
@@ -394,10 +411,14 @@ func dexpreoptCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig, g
 	if !android.PrefixInList(preoptFlags, "--compiler-filter=") {
 		var compilerFilter string
 		if systemServerJars.ContainsJar(module.Name) {
-			// Jars of system server, use the product option if it is set, speed otherwise.
 			if global.SystemServerCompilerFilter != "" {
+				// Use the product option if it is set.
 				compilerFilter = global.SystemServerCompilerFilter
+			} else if profile != nil {
+				// Use "speed-profile" for system server jars that have a profile.
+				compilerFilter = "speed-profile"
 			} else {
+				// Use "speed" for system server jars that do not have a profile.
 				compilerFilter = "speed"
 			}
 		} else if contains(global.SpeedApps, module.Name) || contains(global.SystemServerApps, module.Name) {
@@ -484,6 +505,10 @@ func dexpreoptCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig, g
 
 	if profile != nil {
 		cmd.FlagWithInput("--profile-file=", profile)
+	}
+
+	if global.EnableUffdGc {
+		cmd.Flag("--runtime-arg").Flag("-Xgc:CMC")
 	}
 
 	rule.Install(odexPath, odexInstallPath)

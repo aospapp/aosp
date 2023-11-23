@@ -1,0 +1,34 @@
+type convert-to-ext4-sh, domain, coredomain;
+type convert-to-ext4-sh_exec, system_file_type, exec_type, file_type;
+
+userdebug_or_eng(`
+  permissive convert-to-ext4-sh;
+
+  init_daemon_domain(convert-to-ext4-sh)
+
+  allow convert-to-ext4-sh block_device:dir search;
+  allow convert-to-ext4-sh e2fs_exec:file rx_file_perms;
+  allow convert-to-ext4-sh efs_block_device:blk_file rw_file_perms;
+  allow convert-to-ext4-sh kernel:process setsched;
+  allow convert-to-ext4-sh kmsg_device:chr_file rw_file_perms;
+  allow convert-to-ext4-sh persist_block_device:blk_file { getattr ioctl open read write };
+  allow convert-to-ext4-sh shell_exec:file rx_file_perms;
+  allow convert-to-ext4-sh sysfs_fs_ext4_features:dir { read search };
+  allow convert-to-ext4-sh sysfs_fs_ext4_features:file read;
+  allow convert-to-ext4-sh tmpfs:dir { add_name create mounton open };
+  allow convert-to-ext4-sh tmpfs:dir { remove_name rmdir rw_file_perms setattr };
+  allow convert-to-ext4-sh tmpfs:file { create rw_file_perms unlink };
+  allow convert-to-ext4-sh toolbox_exec:file rx_file_perms;
+  allow convert-to-ext4-sh vendor_persist_type:dir { rw_file_perms search };
+  allow convert-to-ext4-sh vendor_persist_type:file rw_file_perms;
+
+  allowxperm convert-to-ext4-sh { efs_block_device persist_block_device}:blk_file ioctl {
+    BLKDISCARD BLKPBSZGET BLKDISCARDZEROES BLKROGET LOOP_CLR_FD
+  };
+
+  dontaudit convert-to-ext4-sh labeledfs:filesystem  { mount unmount };
+  dontaudit convert-to-ext4-sh self:capability { chown fowner fsetid dac_read_search sys_admin sys_rawio };
+  dontaudit convert-to-ext4-sh unlabeled:dir { add_name create mounton open rw_file_perms search setattr };
+  dontaudit convert-to-ext4-sh unlabeled:file { create rw_file_perms setattr };
+  dontaudit convert-to-ext4-sh convert-to-ext4-sh:capability { dac_override };
+')

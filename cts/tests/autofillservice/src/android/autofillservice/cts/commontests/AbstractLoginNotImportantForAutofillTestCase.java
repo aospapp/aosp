@@ -23,11 +23,12 @@ import static android.autofillservice.cts.testcore.CannedFillResponse.NO_RESPONS
 import android.autofillservice.cts.activities.LoginNotImportantForAutofillActivity;
 import android.autofillservice.cts.testcore.CannedAugmentedFillResponse;
 import android.autofillservice.cts.testcore.CtsAugmentedAutofillService.AugmentedFillRequest;
-import android.support.test.uiautomator.UiObject2;
 import android.view.View;
 import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillValue;
 import android.widget.EditText;
+
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Test;
 

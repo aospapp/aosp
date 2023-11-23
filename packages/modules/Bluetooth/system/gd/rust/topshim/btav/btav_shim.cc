@@ -19,8 +19,7 @@
 #include <cstdio>
 #include <memory>
 
-#include "base/callback.h"
-#include "gd/rust/topshim/common/utils.h"
+#include "base/functional/callback.h"
 #include "include/hardware/avrcp/avrcp.h"
 #include "include/hardware/bluetooth.h"
 #include "rust/cxx.h"
@@ -33,15 +32,25 @@ namespace rusty = ::bluetooth::topshim::rust;
 namespace bluetooth::avrcp {
 class AvrcpMediaInterfaceImpl : public MediaInterface {
  public:
-  void SendKeyEvent([[maybe_unused]] uint8_t key, [[maybe_unused]] KeyState state) {}
+  void SendKeyEvent(uint8_t key, KeyState state) {
+    rusty::avrcp_send_key_event(key, state == KeyState::PUSHED);
+  }
 
-  void GetSongInfo([[maybe_unused]] SongInfoCallback cb) override {}
+  void GetSongInfo(SongInfoCallback cb) override {
+    cb.Run(songInfo_);
+  }
 
-  void GetPlayStatus([[maybe_unused]] PlayStatusCallback cb) override {}
+  void GetPlayStatus(PlayStatusCallback cb) override {
+    cb.Run(playStatus_);
+  }
 
-  void GetNowPlayingList([[maybe_unused]] NowPlayingCallback cb) override {}
+  void GetNowPlayingList(NowPlayingCallback cb) override {
+    cb.Run(currentSongId_, nowPlayingList_);
+  }
 
-  void GetMediaPlayerList([[maybe_unused]] MediaListCallback cb) override {}
+  void GetMediaPlayerList(MediaListCallback cb) override {
+    cb.Run(currentPlayer_, playerList_);
+  }
 
   void GetFolderItems(
       [[maybe_unused]] uint16_t player_id,
@@ -51,36 +60,103 @@ class AvrcpMediaInterfaceImpl : public MediaInterface {
   void SetBrowsedPlayer(
       [[maybe_unused]] uint16_t player_id, [[maybe_unused]] SetBrowsedPlayerCallback browse_cb) override {}
 
-  void RegisterUpdateCallback([[maybe_unused]] MediaCallbacks* callback) override {}
+  void RegisterUpdateCallback(MediaCallbacks* callback) override {
+    mediaCb_ = callback;
+  }
 
-  void UnregisterUpdateCallback([[maybe_unused]] MediaCallbacks* callback) override {}
+  void UnregisterUpdateCallback([[maybe_unused]] MediaCallbacks* callback) override {
+    mediaCb_ = nullptr;
+  }
 
   void PlayItem(
       [[maybe_unused]] uint16_t player_id,
       [[maybe_unused]] bool now_playing,
       [[maybe_unused]] std::string media_id) override {}
 
-  void SetActiveDevice([[maybe_unused]] const RawAddress& address) override {}
+  void SetActiveDevice(const RawAddress& addr) override {
+    rusty::avrcp_set_active_device(addr);
+  }
+
+  void SetPlaybackStatus(const PlayState& state) {
+    playStatus_.state = state;
+    if (mediaCb_) mediaCb_->SendMediaUpdate(/*track_changed*/ false, /*play_state*/ true, /*queuefalse*/ false);
+  }
+
+  void SetPosition(int64_t position_us) {
+    // Unit conversion from microsecond to millisecond.
+    playStatus_.position = position_us / 1000;
+    if (mediaCb_) mediaCb_->SendMediaUpdate(/*track_changed*/ false, /*play_state*/ true, /*queuefalse*/ false);
+  }
+
+  void SetMetadata(const std::string& title, const std::string& artist, const std::string& album, int64_t length_us) {
+    if (title.length() || artist.length() || album.length()) {
+      songInfo_.attributes.clear();
+      // Reuse title for media_id, ideally this should be a shorter UID.
+      songInfo_.media_id = title;
+      if (title.length()) songInfo_.attributes.emplace(avrcp::AttributeEntry(avrcp::Attribute::TITLE, title));
+      if (artist.length()) songInfo_.attributes.emplace(avrcp::AttributeEntry(avrcp::Attribute::ARTIST_NAME, artist));
+      if (album.length()) songInfo_.attributes.emplace(avrcp::AttributeEntry(avrcp::Attribute::ALBUM_NAME, album));
+      // Floss's media implementation does not fully support the "Now Playing List," as Floss does not receive
+      // additional media information other than the current playing one. However, not all peripherals request metadata
+      // through the "Get Element Attributes" request. Instead, many get such information through the "Track Changed
+      // Notification." Hence, fill the playlist with one item here and have the Current Song ID always point to the
+      // only entry to support the track changed notification.
+      nowPlayingList_.clear();
+      nowPlayingList_.emplace_back(songInfo_);
+      currentSongId_ = songInfo_.media_id;
+      if (mediaCb_) mediaCb_->SendMediaUpdate(/*track_changed*/ true, /*play_state*/ false, /*queuefalse*/ false);
+    }
+
+    if (length_us) {
+      // Unit conversion from microsecond to millisecond.
+      playStatus_.duration = length_us / 1000;
+      if (mediaCb_) mediaCb_->SendMediaUpdate(/*track_changed*/ false, /*play_state*/ true, /*queuefalse*/ false);
+    }
+  }
+
+  uint16_t AddPlayer(std::string name, bool browsing_supported) {
+    playerList_.push_back(MediaPlayerInfo{player_id_, name, browsing_supported});
+
+    if (mediaCb_)
+      mediaCb_->SendFolderUpdate(
+          /*available_players*/ true, /*addressed_players*/ true, /*uids_changed*/ false);
+
+    return player_id_++;
+  }
+
+ private:
+  MediaCallbacks* mediaCb_;
+
+  PlayStatus playStatus_;
+  SongInfo songInfo_;
+  std::string currentSongId_;
+  std::vector<MediaPlayerInfo> playerList_;
+  std::vector<SongInfo> nowPlayingList_;
+  uint16_t currentPlayer_;
+
+  uint16_t player_id_ = 0;
 };
 
 class VolumeInterfaceImpl : public VolumeInterface {
  public:
-  void DeviceConnected([[maybe_unused]] const RawAddress& bdaddr) override {
-    rusty::avrcp_absolute_volume_enabled(false);
+  void DeviceConnected(const RawAddress& addr) override {
+    rusty::avrcp_device_connected(addr, /*absolute_volume_enabled=*/false);
   }
 
-  void DeviceConnected([[maybe_unused]] const RawAddress& bdaddr, VolumeChangedCb cb) override {
+  void DeviceConnected(const RawAddress& addr, VolumeChangedCb cb) override {
     volumeCb = std::move(cb);
-    rusty::avrcp_absolute_volume_enabled(true);
+    rusty::avrcp_device_connected(addr, /*absolute_volume_enabled=*/true);
   }
 
-  void DeviceDisconnected([[maybe_unused]] const RawAddress& bdaddr) override {
+  void DeviceDisconnected(const RawAddress& addr) override {
     volumeCb.Reset();
-    rusty::avrcp_absolute_volume_enabled(false);
+    rusty::avrcp_device_disconnected(addr);
   }
 
   // Set TG's (Android, ChromeOS) volume.
   void SetVolume(int8_t volume) override {
+    if (volume < 0) return;
+
     rusty::avrcp_absolute_volume_update(volume);
   }
 
@@ -105,15 +181,16 @@ static A2dpIntf* g_a2dpif;
 static AvrcpIntf* g_avrcpif;
 
 static A2dpCodecConfig to_rust_codec_config(const btav_a2dp_codec_config_t& config) {
-  A2dpCodecConfig rconfig = {.codec_type = static_cast<uint8_t>(config.codec_type),
-                             .codec_priority = config.codec_priority,
-                             .sample_rate = static_cast<uint8_t>(config.sample_rate),
-                             .bits_per_sample = static_cast<uint8_t>(config.bits_per_sample),
-                             .channel_mode = static_cast<uint8_t>(config.channel_mode),
-                             .codec_specific_1 = config.codec_specific_1,
-                             .codec_specific_2 = config.codec_specific_2,
-                             .codec_specific_3 = config.codec_specific_3,
-                             .codec_specific_4 = config.codec_specific_4};
+  A2dpCodecConfig rconfig = {
+      .codec_type = static_cast<uint8_t>(config.codec_type),
+      .codec_priority = config.codec_priority,
+      .sample_rate = static_cast<uint8_t>(config.sample_rate),
+      .bits_per_sample = static_cast<uint8_t>(config.bits_per_sample),
+      .channel_mode = static_cast<uint8_t>(config.channel_mode),
+      .codec_specific_1 = config.codec_specific_1,
+      .codec_specific_2 = config.codec_specific_2,
+      .codec_specific_3 = config.codec_specific_3,
+      .codec_specific_4 = config.codec_specific_4};
   return rconfig;
 }
 
@@ -141,27 +218,33 @@ static ::rust::Vec<A2dpCodecConfig> to_rust_codec_config_vec(const std::vector<b
   return rconfigs;
 }
 
-static void connection_state_cb(const RawAddress& bd_addr, btav_connection_state_t state) {
-  RustRawAddress addr = rusty::CopyToRustAddress(bd_addr);
-  rusty::connection_state_callback(addr, state);
+static A2dpError to_rust_error(const btav_error_t& error) {
+  A2dpError a2dp_error = {
+      .status = error.status,
+      .error_code = error.error_code,
+      .error_msg = error.error_msg.value_or(""),
+  };
+  return a2dp_error;
 }
-static void audio_state_cb(const RawAddress& bd_addr, btav_audio_state_t state) {
-  RustRawAddress addr = rusty::CopyToRustAddress(bd_addr);
+
+static void connection_state_cb(const RawAddress& addr, btav_connection_state_t state, const btav_error_t& error) {
+  A2dpError a2dp_error = to_rust_error(error);
+  rusty::connection_state_callback(addr, state, a2dp_error);
+}
+static void audio_state_cb(const RawAddress& addr, btav_audio_state_t state) {
   rusty::audio_state_callback(addr, state);
 }
 static void audio_config_cb(
-    const RawAddress& bd_addr,
+    const RawAddress& addr,
     btav_a2dp_codec_config_t codec_config,
     std::vector<btav_a2dp_codec_config_t> codecs_local_capabilities,
     std::vector<btav_a2dp_codec_config_t> codecs_selectable_capabilities) {
-  RustRawAddress addr = rusty::CopyToRustAddress(bd_addr);
   A2dpCodecConfig cfg = to_rust_codec_config(codec_config);
   ::rust::Vec<A2dpCodecConfig> lcaps = to_rust_codec_config_vec(codecs_local_capabilities);
   ::rust::Vec<A2dpCodecConfig> scaps = to_rust_codec_config_vec(codecs_selectable_capabilities);
   rusty::audio_config_callback(addr, cfg, lcaps, scaps);
 }
-static bool mandatory_codec_preferred_cb(const RawAddress& bd_addr) {
-  RustRawAddress addr = rusty::CopyToRustAddress(bd_addr);
+static bool mandatory_codec_preferred_cb(const RawAddress& addr) {
   rusty::mandatory_codec_preferred_callback(addr);
   return true;
 }
@@ -196,24 +279,19 @@ int A2dpIntf::init() const {
   return intf_->init(&internal::g_callbacks, 1, a, b);
 }
 
-int A2dpIntf::connect(RustRawAddress bt_addr) const {
-  RawAddress addr = rusty::CopyFromRustAddress(bt_addr);
+uint32_t A2dpIntf::connect(RawAddress addr) const {
   return intf_->connect(addr);
 }
-int A2dpIntf::disconnect(RustRawAddress bt_addr) const {
-  RawAddress addr = rusty::CopyFromRustAddress(bt_addr);
+uint32_t A2dpIntf::disconnect(RawAddress addr) const {
   return intf_->disconnect(addr);
 }
-int A2dpIntf::set_silence_device(RustRawAddress bt_addr, bool silent) const {
-  RawAddress addr = rusty::CopyFromRustAddress(bt_addr);
+int A2dpIntf::set_silence_device(RawAddress addr, bool silent) const {
   return intf_->set_silence_device(addr, silent);
 }
-int A2dpIntf::set_active_device(RustRawAddress bt_addr) const {
-  RawAddress addr = rusty::CopyFromRustAddress(bt_addr);
+int A2dpIntf::set_active_device(RawAddress addr) const {
   return intf_->set_active_device(addr);
 }
-int A2dpIntf::config_codec(RustRawAddress bt_addr, ::rust::Vec<A2dpCodecConfig> codec_preferences) const {
-  RawAddress addr = rusty::CopyFromRustAddress(bt_addr);
+int A2dpIntf::config_codec(RawAddress addr, ::rust::Vec<A2dpCodecConfig> codec_preferences) const {
   std::vector<btav_a2dp_codec_config_t> prefs;
   for (size_t i = 0; i < codec_preferences.size(); ++i) {
     prefs.push_back(internal::from_rust_codec_config(codec_preferences[i]));
@@ -222,7 +300,7 @@ int A2dpIntf::config_codec(RustRawAddress bt_addr, ::rust::Vec<A2dpCodecConfig> 
 }
 
 void A2dpIntf::cleanup() const {
-  // TODO: Implement.
+  intf_->cleanup();
 }
 bool A2dpIntf::set_audio_config(A2dpCodecConfig rconfig) const {
   bluetooth::audio::a2dp::AudioConfig config = {
@@ -237,6 +315,9 @@ bool A2dpIntf::start_audio_request() const {
 }
 bool A2dpIntf::stop_audio_request() const {
   return bluetooth::audio::a2dp::StopRequest();
+}
+bool A2dpIntf::suspend_audio_request() const {
+  return bluetooth::audio::a2dp::SuspendRequest();
 }
 RustPresentationPosition A2dpIntf::get_presentation_position() const {
   bluetooth::audio::a2dp::PresentationPosition p = bluetooth::audio::a2dp::GetPresentationPosition();
@@ -267,25 +348,47 @@ std::unique_ptr<AvrcpIntf> GetAvrcpProfile(const unsigned char* btif) {
 AvrcpIntf::~AvrcpIntf() {}
 
 void AvrcpIntf::init() {
-  intf_->Init(&mAvrcpInterface, &mVolumeInterface);
+  intf_->Init(&mAvrcpInterface, &mVolumeInterface, nullptr);
 }
 
 void AvrcpIntf::cleanup() {
   intf_->Cleanup();
 }
 
-int AvrcpIntf::connect(RustRawAddress bt_addr) {
-  RawAddress addr = rusty::CopyFromRustAddress(bt_addr);
+uint32_t AvrcpIntf::connect(RawAddress addr) {
   return intf_->ConnectDevice(addr);
 }
-int AvrcpIntf::disconnect(RustRawAddress bt_addr) {
-  RawAddress addr = rusty::CopyFromRustAddress(bt_addr);
+uint32_t AvrcpIntf::disconnect(RawAddress addr) {
   return intf_->DisconnectDevice(addr);
 }
 
 void AvrcpIntf::set_volume(int8_t volume) {
   return mVolumeInterface.SetDeviceVolume(volume);
 }
+
+void AvrcpIntf::set_playback_status(const ::rust::String& status) {
+  avrcp::PlayState state = avrcp::PlayState::STOPPED;
+
+  if (status == "stopped") state = avrcp::PlayState::STOPPED;
+  if (status == "playing") state = avrcp::PlayState::PLAYING;
+  if (status == "paused") state = avrcp::PlayState::PAUSED;
+
+  mAvrcpInterface.SetPlaybackStatus(state);
+}
+
+void AvrcpIntf::set_position(int64_t position) {
+  mAvrcpInterface.SetPosition(position);
+}
+
+void AvrcpIntf::set_metadata(
+    const ::rust::String& title, const ::rust::String& artist, const ::rust::String& album, int64_t length_us) {
+  mAvrcpInterface.SetMetadata(std::string(title), std::string(artist), std::string(album), length_us);
+}
+
+uint16_t AvrcpIntf::add_player(const ::rust::String& name, bool browsing_supported) {
+  return mAvrcpInterface.AddPlayer(std::string(name), browsing_supported);
+}
+
 }  // namespace rust
 }  // namespace topshim
 }  // namespace bluetooth

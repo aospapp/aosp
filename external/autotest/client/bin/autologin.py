@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 #
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -38,10 +38,15 @@ def main(args):
                         help='Prevent startup window from opening (no doodle).')
     parser.add_argument('--no-arc-syncs', action='store_true',
                         help='Prevent ARC sync behavior as much as possible.')
-    parser.add_argument('--toggle_ndk', action='store_true',
+    parser.add_argument('--toggle_ndk',
+                        action='append_const',
+                        dest='feature',
+                        const='ArcNativeBridgeExperiment',
                         help='Toggle the translation from houdini to ndk')
-    parser.add_argument('--nativebridge64', action='store_true',
-                        help='Enables the experiment for 64-bit native bridges')
+    parser.add_argument('-f',
+                        '--feature',
+                        action='append',
+                        help='Enables the specified Chrome feature flag')
     parser.add_argument('--url', help='Navigate to URL.')
     args = parser.parse_args(args)
 
@@ -53,11 +58,8 @@ def main(args):
     browser_args = []
     if args.no_startup_window:
         browser_args.append('--no-startup-window')
-    if args.toggle_ndk:
-        browser_args.append('--enable-features=ArcNativeBridgeExperiment')
-    if args.nativebridge64:
-        browser_args.append(
-            '--enable-features=ArcNativeBridge64BitSupportExperiment')
+    if args.feature:
+        browser_args.append('--enable-features=%s' % ','.join(args.feature))
 
     # Avoid calling close() on the Chrome object; this keeps the session active.
     cr = chrome.Chrome(
@@ -72,8 +74,8 @@ def main(args):
         disable_default_apps=(not args.enable_default_apps),
         dont_override_profile=args.dont_override_profile)
     if args.url:
-      tab = cr.browser.tabs[0]
-      tab.Navigate(args.url)
+        tab = cr.browser.tabs[0]
+        tab.Navigate(args.url)
 
 
 if __name__ == '__main__':

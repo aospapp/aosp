@@ -11,6 +11,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "kernel"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
     Sends commands to the TPM in a tight loop for some length of time, in

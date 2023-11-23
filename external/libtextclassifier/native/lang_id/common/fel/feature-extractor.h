@@ -52,6 +52,7 @@
 #include "lang_id/common/lite_base/macros.h"
 #include "lang_id/common/registry.h"
 #include "lang_id/common/stl-util.h"
+#include "absl/strings/string_view.h"
 
 namespace libtextclassifier3 {
 namespace mobile {
@@ -261,7 +262,7 @@ class GenericFeatureFunction {
 
   // Returns/sets/clears function name prefix.
   const std::string &prefix() const { return prefix_; }
-  void set_prefix(const std::string &prefix) { prefix_ = prefix; }
+  void set_prefix(absl::string_view prefix) { prefix_ = std::string(prefix); }
 
  protected:
   // Returns the feature type for single-type feature functions.
@@ -341,7 +342,7 @@ class FeatureFunction
   // the relevant cc_library was not linked-in).
   static Self *Instantiate(const GenericFeatureExtractor *extractor,
                            const FeatureFunctionDescriptor *fd,
-                           const std::string &prefix) {
+                           absl::string_view prefix) {
     Self *f = Self::Create(fd->type());
     if (f != nullptr) {
       f->set_extractor(extractor);
@@ -440,7 +441,7 @@ class NestedFeatureFunction : public FeatureFunction<OBJ, ARGS...> {
   SAFTM_MUST_USE_RESULT static bool CreateNested(
       const GenericFeatureExtractor *extractor,
       const FeatureFunctionDescriptor *fd, std::vector<NES *> *functions,
-      const std::string &prefix) {
+      absl::string_view prefix) {
     for (int i = 0; i < fd->feature_size(); ++i) {
       const FeatureFunctionDescriptor &sub = fd->feature(i);
       NES *f = NES::Instantiate(extractor, &sub, prefix);
@@ -614,7 +615,7 @@ class FeatureExtractor : public GenericFeatureExtractor {
     result->reserve(this->feature_types());
 
     // Extract features.
-    for (int i = 0; i < functions_.size(); ++i) {
+    for (size_t i = 0; i < functions_.size(); ++i) {
       functions_[i]->Evaluate(workspaces, object, args..., result);
     }
   }
@@ -636,7 +637,7 @@ class FeatureExtractor : public GenericFeatureExtractor {
 
   // Collect all feature types used in the feature extractor.
   void GetFeatureTypes(std::vector<FeatureType *> *types) const override {
-    for (int i = 0; i < functions_.size(); ++i) {
+    for (size_t i = 0; i < functions_.size(); ++i) {
       functions_[i]->GetFeatureTypes(types);
     }
   }

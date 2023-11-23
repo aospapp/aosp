@@ -1,8 +1,5 @@
 {
-  "apex-available": [
-    "//apex_available:platform",
-    "com.android.virt"
-  ],
+  "add-toplevel-block": "cargo2android_nostd.bp",
   "device": true,
   "run": true,
   "vendor-available": true

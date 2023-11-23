@@ -318,6 +318,13 @@ enum class BranchType {
   kUnconditional,
 };
 
+// Instruction to use for alignment.
+// kNop should be used for loops, branch targets. kHlt for end of function.
+enum class AlignInstruction {
+  kHlt,
+  kNop,
+};
+
 class Assembler : public AssemblerBase {
  public:
   using AssemblerBase::AssemblerBase;
@@ -334,14 +341,17 @@ class Assembler : public AssemblerBase {
   void cmp(XRegister xn, uint16_t imm12);
   void cmp(XRegister xn, XRegister xm);
   void csel(XRegister xd, XRegister xn, XRegister xm, Condition c);
+  void hlt();
   void ldp(XRegister xt1, XRegister xt2, MemOperand xn);
   void ldp(XRegister xt1, XRegister xt2, MemOperand xn, int32_t imm);
   void ldr(XRegister xt, MemOperand xn);
   void ldr(XRegister xt, MemOperand xn, int32_t imm);
   void mov(XRegister xd, XRegister xn);
+  void nop();
   void prfm(PrefetchOp prfop, MemOperand xn);
   void ret();
   void stp(XRegister xt1, XRegister xt2, MemOperand xn);
+  void str(XRegister xt1, MemOperand xn);
   void sub(XRegister xd, XRegister xn, XRegister xm);
   void subs(XRegister xd, XRegister xn, uint16_t imm12);
   void tbnz(XRegister xd, uint8_t bit, Label& l);
@@ -351,13 +361,17 @@ class Assembler : public AssemblerBase {
 
   // SIMD instructions
   void dup(DRegister dd, VRegisterLane vn);
+  void fabs(VRegister vd, VRegister vn);
   void fadd(VRegister vd, VRegister vn, VRegister vm);
   void fmax(VRegister vd, VRegister vn, VRegister vm);
   void fmin(VRegister vd, VRegister vn, VRegister vm);
   void fmla(VRegister vd, VRegister vn, VRegisterLane vm);
+  void fmul(VRegister vd, VRegister vn, VRegister vm);
+  void fneg(VRegister vd, VRegister vn);
   void ld1(VRegisterList vs, MemOperand xn, int32_t imm);
   void ld1r(VRegisterList xs, MemOperand xn);
   void ld2r(VRegisterList xs, MemOperand xn);
+  void ld3r(VRegisterList xs, MemOperand xn);
   void ldp(DRegister dt1, DRegister dt2, MemOperand xn);
   void ldp(DRegister dt1, DRegister dt2, MemOperand xn, int32_t imm);
   void ldp(QRegister qt1, QRegister qt2, MemOperand xn, int32_t imm);
@@ -375,6 +389,9 @@ class Assembler : public AssemblerBase {
   void str(SRegister st, MemOperand xn);
   void str(SRegister st, MemOperand xn, int32_t imm);
 
+  // Aligns the buffer to n (must be a power of 2).
+  void align(uint8_t n, AlignInstruction instr);
+  void align(uint8_t n) { align(n, AlignInstruction::kNop); }
   // Binds Label l to the current location in the code buffer.
   void bind(Label& l);
 

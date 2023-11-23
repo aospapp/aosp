@@ -70,7 +70,12 @@ public:
             return;
 
         for (unsigned int i = 0; i < mCmds->layer_count; i++) {
-            unsigned int idx = (mCmds->layer_hdr_mode[i].offset >> 8) - 2;
+            unsigned int idx;
+
+            if (mWriter->hasColorFillLayer())
+                idx = (mCmds->layer_hdr_mode[i].offset >> 8) - 3;
+            else
+                idx = (mCmds->layer_hdr_mode[i].offset >> 8) - 2;
 
             // If premultiplied alpha values are de-premultied before HDR conversion,
             // it should be multiplied again after the conversion. But some of the HDR processors

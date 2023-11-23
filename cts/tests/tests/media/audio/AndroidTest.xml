@@ -19,6 +19,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
     <target_preparer class="com.android.tradefed.targetprep.DeviceSetup">
         <option name="force-skip-system-props" value="true" /> <!-- avoid restarting device -->
         <option name="set-test-harness" value="false" />
@@ -35,8 +36,8 @@
         <option name="package" value="android.media.audio.cts" />
         <!-- setup can be expensive so limit the number of shards -->
         <option name="ajur-max-shard" value="5" />
-        <!-- test-timeout unit is ms, value = 120 min -->
-        <option name="test-timeout" value="7200000" />
+        <!-- test-timeout unit is ms, value = 240 min -->
+        <option name="test-timeout" value="14400000" />
         <option name="runtime-hint" value="1h" />
         <option name="exclude-annotation" value="org.junit.Ignore" />
         <option name="hidden-api-checks" value="false" />

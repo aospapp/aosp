@@ -4,12 +4,16 @@
 
 import dbus
 import dbus.service
-import gobject
+# AU tests use ToT client code, but ToT -3 client version.
+try:
+    from gi.repository import GObject
+except ImportError:
+    import gobject as GObject
 import logging
 
-import pm_errors
-import pm_constants
-import utils
+from . import pm_errors
+from . import pm_constants
+from . import utils
 
 from autotest_lib.client.cros.cellular import mm1_constants
 
@@ -189,7 +193,7 @@ class StateMachine(dbus.service.Object):
         delays.
 
         """
-        gobject.idle_add(StateMachine.Step, self)
+        GObject.idle_add(StateMachine.Step, self)
 
 
     def _GetIsmObjectName(self):

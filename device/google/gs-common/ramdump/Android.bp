@@ -1,0 +1,16 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+cc_binary {
+    name: "dump_ramdump",
+    srcs: ["dump_ramdump.cpp"],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+    shared_libs: ["libbase"],
+    vendor: true,
+    relative_install_path: "dump",
+}

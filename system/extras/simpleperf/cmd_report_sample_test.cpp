@@ -18,8 +18,8 @@
 
 #include <android-base/file.h>
 #include <android-base/strings.h>
-#include <regex>
 
+#include "RegEx.h"
 #include "command.h"
 #include "get_test_data.h"
 
@@ -96,8 +96,8 @@ TEST(cmd_report_sample, trace_offcpu) {
       {"context_switch:", "switch_on: false", "time: 676374953363850", "thread_id: 6525"},
   };
   for (auto& test_case : cases) {
-    auto pattern = std::regex(android::base::Join(test_case, R"((\s|\n|\r)+)"));
-    ASSERT_TRUE(std::regex_search(data, pattern));
+    auto regex = RegEx::Create(android::base::Join(test_case, R"((\s|\n|\r)+)"));
+    ASSERT_TRUE(regex->Search(data));
   }
 }
 

@@ -665,15 +665,15 @@
     <type-decl name='void' id='type-id-24'/>
   </abi-instr>
   <abi-instr address-size='64' path='dbus-bus.c' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus' language='LANG_C89'>
+    <!-- long unsigned int -->
+    <type-decl name='long unsigned int' size-in-bits='64' id='type-id-25'/>
     <!-- unnamed&#45;enum&#45;underlying&#45;type&#45;32 -->
-    <type-decl name='unnamed-enum-underlying-type-32' is-anonymous='yes' size-in-bits='32' alignment-in-bits='32' id='type-id-25'/>
-    <!-- unsigned long int -->
-    <type-decl name='unsigned long int' size-in-bits='64' id='type-id-26'/>
+    <type-decl name='unnamed-enum-underlying-type-32' is-anonymous='yes' size-in-bits='32' alignment-in-bits='32' id='type-id-26'/>
     <!-- typedef DBusConnection DBusConnection -->
     <typedef-decl name='DBusConnection' type-id='type-id-27' filepath='../dbus/dbus-connection.h' line='51' column='1' id='type-id-28'/>
     <!-- enum DBusBusType -->
     <enum-decl name='DBusBusType' naming-typedef-id='type-id-29' filepath='../dbus/dbus-shared.h' line='57' column='1' id='type-id-30'>
-      <underlying-type type-id='type-id-25'/>
+      <underlying-type type-id='type-id-26'/>
       <enumerator name='DBUS_BUS_SESSION' value='0'/>
       <enumerator name='DBUS_BUS_SYSTEM' value='1'/>
       <enumerator name='DBUS_BUS_STARTER' value='2'/>
@@ -890,7 +890,7 @@
       <!-- const char* -->
       <return type-id='type-id-7'/>
     </function-decl>
-    <!-- unsigned long int dbus_bus_get_unix_user(DBusConnection*, const char*, DBusError*) -->
+    <!-- long unsigned int dbus_bus_get_unix_user(DBusConnection*, const char*, DBusError*) -->
     <function-decl name='dbus_bus_get_unix_user' mangled-name='dbus_bus_get_unix_user' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-bus.c' line='865' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_bus_get_unix_user'>
       <!-- parameter of type 'DBusConnection*' -->
       <parameter type-id='type-id-31' name='connection' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-bus.c' line='865' column='1'/>
@@ -898,8 +898,8 @@
       <parameter type-id='type-id-7' name='name' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-bus.c' line='866' column='1'/>
       <!-- parameter of type 'DBusError*' -->
       <parameter type-id='type-id-20' name='error' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-bus.c' line='867' column='1'/>
-      <!-- unsigned long int -->
-      <return type-id='type-id-26'/>
+      <!-- long unsigned int -->
+      <return type-id='type-id-25'/>
     </function-decl>
     <!-- char* dbus_bus_get_id(DBusConnection*, DBusError*) -->
     <function-decl name='dbus_bus_get_id' mangled-name='dbus_bus_get_id' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-bus.c' line='948' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_bus_get_id'>
@@ -987,7 +987,7 @@
     <!-- DBusHeaderField[10] -->
     <array-type-def dimensions='1' type-id='type-id-49' size-in-bits='320' id='type-id-50'>
       <!-- <anonymous range>[10] -->
-      <subrange length='10' type-id='type-id-26' id='type-id-51'/>
+      <subrange length='10' type-id='type-id-25' id='type-id-51'/>
     </array-type-def>
     <!-- long int -->
     <type-decl name='long int' size-in-bits='64' id='type-id-52'/>
@@ -1260,7 +1260,7 @@
     <typedef-decl name='DBusObjectPathVTable' type-id='type-id-82' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-connection.h' line='53' column='1' id='type-id-83'/>
     <!-- enum DBusDispatchStatus -->
     <enum-decl name='DBusDispatchStatus' naming-typedef-id='type-id-47' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-connection.h' line='80' column='1' id='type-id-84'>
-      <underlying-type type-id='type-id-25'/>
+      <underlying-type type-id='type-id-26'/>
       <enumerator name='DBUS_DISPATCH_DATA_REMAINS' value='0'/>
       <enumerator name='DBUS_DISPATCH_COMPLETE' value='1'/>
       <enumerator name='DBUS_DISPATCH_NEED_MEMORY' value='2'/>
@@ -1283,7 +1283,7 @@
     <typedef-decl name='DBusDispatchStatusFunction' type-id='type-id-95' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-connection.h' line='128' column='1' id='type-id-46'/>
     <!-- typedef void (void*)* DBusWakeupMainFunction -->
     <typedef-decl name='DBusWakeupMainFunction' type-id='type-id-61' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-connection.h' line='135' column='1' id='type-id-44'/>
-    <!-- typedef typedef dbus_bool_t (DBusConnection*, unsigned long int, void*)* DBusAllowUnixUserFunction -->
+    <!-- typedef typedef dbus_bool_t (DBusConnection*, long unsigned int, void*)* DBusAllowUnixUserFunction -->
     <typedef-decl name='DBusAllowUnixUserFunction' type-id='type-id-96' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-connection.h' line='143' column='1' id='type-id-97'/>
     <!-- typedef typedef dbus_bool_t (DBusConnection*, const char*, void*)* DBusAllowWindowsUserFunction -->
     <typedef-decl name='DBusAllowWindowsUserFunction' type-id='type-id-98' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-connection.h' line='153' column='1' id='type-id-99'/>
@@ -1385,7 +1385,7 @@
     <typedef-decl name='DBusObjectTree' type-id='type-id-107' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-object-tree.h' line='30' column='1' id='type-id-108'/>
     <!-- enum DBusHandlerResult -->
     <enum-decl name='DBusHandlerResult' naming-typedef-id='type-id-109' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-shared.h' line='67' column='1' id='type-id-110'>
-      <underlying-type type-id='type-id-25'/>
+      <underlying-type type-id='type-id-26'/>
       <enumerator name='DBUS_HANDLER_RESULT_HANDLED' value='0'/>
       <enumerator name='DBUS_HANDLER_RESULT_NOT_YET_HANDLED' value='1'/>
       <enumerator name='DBUS_HANDLER_RESULT_NEED_MEMORY' value='2'/>
@@ -1440,18 +1440,18 @@
     <pointer-type-def type-id='type-id-124' size-in-bits='64' id='type-id-125'/>
     <!-- dbus_int32_t* -->
     <pointer-type-def type-id='type-id-53' size-in-bits='64' id='type-id-126'/>
+    <!-- long unsigned int* -->
+    <pointer-type-def type-id='type-id-25' size-in-bits='64' id='type-id-127'/>
     <!-- typedef DBusHandlerResult (DBusConnection*, DBusMessage*, void*)* -->
-    <pointer-type-def type-id='type-id-127' size-in-bits='64' id='type-id-100'/>
+    <pointer-type-def type-id='type-id-128' size-in-bits='64' id='type-id-100'/>
     <!-- typedef dbus_bool_t (DBusConnection*, const char*, void*)* -->
-    <pointer-type-def type-id='type-id-128' size-in-bits='64' id='type-id-98'/>
-    <!-- typedef dbus_bool_t (DBusConnection*, unsigned long int, void*)* -->
-    <pointer-type-def type-id='type-id-129' size-in-bits='64' id='type-id-96'/>
+    <pointer-type-def type-id='type-id-129' size-in-bits='64' id='type-id-98'/>
+    <!-- typedef dbus_bool_t (DBusConnection*, long unsigned int, void*)* -->
+    <pointer-type-def type-id='type-id-130' size-in-bits='64' id='type-id-96'/>
     <!-- typedef dbus_bool_t (DBusTimeout*, void*)* -->
-    <pointer-type-def type-id='type-id-130' size-in-bits='64' id='type-id-90'/>
+    <pointer-type-def type-id='type-id-131' size-in-bits='64' id='type-id-90'/>
     <!-- typedef dbus_bool_t (DBusWatch*, void*)* -->
-    <pointer-type-def type-id='type-id-131' size-in-bits='64' id='type-id-85'/>
-    <!-- unsigned long int* -->
-    <pointer-type-def type-id='type-id-26' size-in-bits='64' id='type-id-132'/>
+    <pointer-type-def type-id='type-id-132' size-in-bits='64' id='type-id-85'/>
     <!-- void (DBusConnection*, typedef DBusDispatchStatus, void*)* -->
     <pointer-type-def type-id='type-id-133' size-in-bits='64' id='type-id-95'/>
     <!-- void (DBusConnection*, void*)* -->
@@ -1912,21 +1912,21 @@
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-decl>
-    <!-- dbus_bool_t dbus_connection_get_unix_user(DBusConnection*, unsigned long int*) -->
+    <!-- dbus_bool_t dbus_connection_get_unix_user(DBusConnection*, long unsigned int*) -->
     <function-decl name='dbus_connection_get_unix_user' mangled-name='dbus_connection_get_unix_user' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-connection.c' line='5190' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_connection_get_unix_user'>
       <!-- parameter of type 'DBusConnection*' -->
       <parameter type-id='type-id-31' name='connection' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-connection.c' line='5190' column='1'/>
-      <!-- parameter of type 'unsigned long int*' -->
-      <parameter type-id='type-id-132' name='uid' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-connection.c' line='5191' column='1'/>
+      <!-- parameter of type 'long unsigned int*' -->
+      <parameter type-id='type-id-127' name='uid' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-connection.c' line='5191' column='1'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-decl>
-    <!-- dbus_bool_t dbus_connection_get_unix_process_id(DBusConnection*, unsigned long int*) -->
+    <!-- dbus_bool_t dbus_connection_get_unix_process_id(DBusConnection*, long unsigned int*) -->
     <function-decl name='dbus_connection_get_unix_process_id' mangled-name='dbus_connection_get_unix_process_id' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-connection.c' line='5226' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_connection_get_unix_process_id'>
       <!-- parameter of type 'DBusConnection*' -->
       <parameter type-id='type-id-31' name='connection' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-connection.c' line='5226' column='1'/>
-      <!-- parameter of type 'unsigned long int*' -->
-      <parameter type-id='type-id-132' name='pid' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-connection.c' line='5227' column='1'/>
+      <!-- parameter of type 'long unsigned int*' -->
+      <parameter type-id='type-id-127' name='pid' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-connection.c' line='5227' column='1'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-decl>
@@ -2227,7 +2227,7 @@
       <return type-id='type-id-52'/>
     </function-decl>
     <!-- DBusHandlerResult (DBusConnection*, DBusMessage*, void*) -->
-    <function-type size-in-bits='64' id='type-id-127'>
+    <function-type size-in-bits='64' id='type-id-128'>
       <!-- parameter of type 'DBusConnection*' -->
       <parameter type-id='type-id-31'/>
       <!-- parameter of type 'DBusMessage*' -->
@@ -2238,7 +2238,7 @@
       <return type-id='type-id-109'/>
     </function-type>
     <!-- dbus_bool_t (DBusConnection*, const char*, void*) -->
-    <function-type size-in-bits='64' id='type-id-128'>
+    <function-type size-in-bits='64' id='type-id-129'>
       <!-- parameter of type 'DBusConnection*' -->
       <parameter type-id='type-id-31'/>
       <!-- parameter of type 'const char*' -->
@@ -2248,19 +2248,19 @@
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-type>
-    <!-- dbus_bool_t (DBusConnection*, unsigned long int, void*) -->
-    <function-type size-in-bits='64' id='type-id-129'>
+    <!-- dbus_bool_t (DBusConnection*, long unsigned int, void*) -->
+    <function-type size-in-bits='64' id='type-id-130'>
       <!-- parameter of type 'DBusConnection*' -->
       <parameter type-id='type-id-31'/>
-      <!-- parameter of type 'unsigned long int' -->
-      <parameter type-id='type-id-26'/>
+      <!-- parameter of type 'long unsigned int' -->
+      <parameter type-id='type-id-25'/>
       <!-- parameter of type 'void*' -->
       <parameter type-id='type-id-8'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-type>
     <!-- dbus_bool_t (DBusTimeout*, void*) -->
-    <function-type size-in-bits='64' id='type-id-130'>
+    <function-type size-in-bits='64' id='type-id-131'>
       <!-- parameter of type 'DBusTimeout*' -->
       <parameter type-id='type-id-120'/>
       <!-- parameter of type 'void*' -->
@@ -2269,7 +2269,7 @@
       <return type-id='type-id-13'/>
     </function-type>
     <!-- dbus_bool_t (DBusWatch*, void*) -->
-    <function-type size-in-bits='64' id='type-id-131'>
+    <function-type size-in-bits='64' id='type-id-132'>
       <!-- parameter of type 'DBusWatch*' -->
       <parameter type-id='type-id-121'/>
       <!-- parameter of type 'void*' -->
@@ -2324,12 +2324,10 @@
     </function-type>
   </abi-instr>
   <abi-instr address-size='64' path='dbus-errors.c' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus' language='LANG_C89'>
-    <!-- variadic parameter type -->
-    <type-decl name='variadic parameter type' id='type-id-142'/>
     <!-- const DBusError -->
-    <qualified-type-def type-id='type-id-6' const='yes' id='type-id-143'/>
+    <qualified-type-def type-id='type-id-6' const='yes' id='type-id-142'/>
     <!-- const DBusError* -->
-    <pointer-type-def type-id='type-id-143' size-in-bits='64' id='type-id-144'/>
+    <pointer-type-def type-id='type-id-142' size-in-bits='64' id='type-id-143'/>
     <!-- void dbus_error_init(DBusError*) -->
     <function-decl name='dbus_error_init' mangled-name='dbus_error_init' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-errors.c' line='188' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_error_init'>
       <!-- parameter of type 'DBusError*' -->
@@ -2367,7 +2365,7 @@
     <!-- dbus_bool_t dbus_error_has_name(const DBusError*, const char*) -->
     <function-decl name='dbus_error_has_name' mangled-name='dbus_error_has_name' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-errors.c' line='302' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_error_has_name'>
       <!-- parameter of type 'const DBusError*' -->
-      <parameter type-id='type-id-144' name='error' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-errors.c' line='302' column='1'/>
+      <parameter type-id='type-id-143' name='error' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-errors.c' line='302' column='1'/>
       <!-- parameter of type 'const char*' -->
       <parameter type-id='type-id-7' name='name' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-errors.c' line='303' column='1'/>
       <!-- typedef dbus_bool_t -->
@@ -2376,7 +2374,7 @@
     <!-- dbus_bool_t dbus_error_is_set(const DBusError*) -->
     <function-decl name='dbus_error_is_set' mangled-name='dbus_error_is_set' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-errors.c' line='329' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_error_is_set'>
       <!-- parameter of type 'const DBusError*' -->
-      <parameter type-id='type-id-144' name='error' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-errors.c' line='329' column='1'/>
+      <parameter type-id='type-id-143' name='error' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-errors.c' line='329' column='1'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-decl>
@@ -2394,19 +2392,19 @@
     </function-decl>
   </abi-instr>
   <abi-instr address-size='64' path='dbus-memory.c' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus' language='LANG_C89'>
-    <!-- typedef unsigned long int size_t -->
-    <typedef-decl name='size_t' type-id='type-id-26' filepath='/usr/lib/gcc/x86_64-redhat-linux/4.4.7/include/stddef.h' line='211' column='1' id='type-id-145'/>
+    <!-- typedef long unsigned int size_t -->
+    <typedef-decl name='size_t' type-id='type-id-25' filepath='/usr/lib/gcc/x86_64-redhat-linux/4.4.7/include/stddef.h' line='211' column='1' id='type-id-144'/>
     <!-- void* dbus_malloc(size_t) -->
     <function-decl name='dbus_malloc' mangled-name='dbus_malloc' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-memory.c' line='461' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_malloc'>
       <!-- parameter of type 'typedef size_t' -->
-      <parameter type-id='type-id-145' name='bytes' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-memory.c' line='461' column='1'/>
+      <parameter type-id='type-id-144' name='bytes' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-memory.c' line='461' column='1'/>
       <!-- void* -->
       <return type-id='type-id-8'/>
     </function-decl>
     <!-- void* dbus_malloc0(size_t) -->
     <function-decl name='dbus_malloc0' mangled-name='dbus_malloc0' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-memory.c' line='531' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_malloc0'>
       <!-- parameter of type 'typedef size_t' -->
-      <parameter type-id='type-id-145' name='bytes' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-memory.c' line='531' column='1'/>
+      <parameter type-id='type-id-144' name='bytes' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-memory.c' line='531' column='1'/>
       <!-- void* -->
       <return type-id='type-id-8'/>
     </function-decl>
@@ -2415,7 +2413,7 @@
       <!-- parameter of type 'void*' -->
       <parameter type-id='type-id-8' name='memory' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-memory.c' line='601' column='1'/>
       <!-- parameter of type 'typedef size_t' -->
-      <parameter type-id='type-id-145' name='bytes' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-memory.c' line='602' column='1'/>
+      <parameter type-id='type-id-144' name='bytes' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-memory.c' line='602' column='1'/>
       <!-- void* -->
       <return type-id='type-id-8'/>
     </function-decl>
@@ -2441,7 +2439,7 @@
   </abi-instr>
   <abi-instr address-size='64' path='dbus-message.c' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus' language='LANG_C89'>
     <!-- struct __va_list_tag -->
-    <class-decl name='__va_list_tag' size-in-bits='192' is-struct='yes' visibility='default' id='type-id-146'>
+    <class-decl name='__va_list_tag' size-in-bits='192' is-struct='yes' visibility='default' id='type-id-145'>
       <data-member access='public' layout-offset-in-bits='0'>
         <!-- unsigned int __va_list_tag::gp_offset -->
         <var-decl name='gp_offset' type-id='type-id-3' visibility='default'/>
@@ -2460,9 +2458,9 @@
       </data-member>
     </class-decl>
     <!-- typedef DBusMessageIter DBusMessageIter -->
-    <typedef-decl name='DBusMessageIter' type-id='type-id-147' filepath='../dbus/dbus-message.h' line='46' column='1' id='type-id-148'/>
+    <typedef-decl name='DBusMessageIter' type-id='type-id-146' filepath='../dbus/dbus-message.h' line='46' column='1' id='type-id-147'/>
     <!-- struct DBusMessageIter -->
-    <class-decl name='DBusMessageIter' size-in-bits='576' is-struct='yes' visibility='default' filepath='../dbus/dbus-message.h' line='52' column='1' id='type-id-147'>
+    <class-decl name='DBusMessageIter' size-in-bits='576' is-struct='yes' visibility='default' filepath='../dbus/dbus-message.h' line='52' column='1' id='type-id-146'>
       <data-member access='public' layout-offset-in-bits='0'>
         <!-- void* DBusMessageIter::dummy1 -->
         <var-decl name='dummy1' type-id='type-id-8' visibility='default' filepath='../dbus/dbus-message.h' line='53' column='1'/>
@@ -2521,13 +2519,13 @@
       </data-member>
     </class-decl>
     <!-- DBusMessageIter* -->
-    <pointer-type-def type-id='type-id-148' size-in-bits='64' id='type-id-149'/>
+    <pointer-type-def type-id='type-id-147' size-in-bits='64' id='type-id-148'/>
     <!-- __va_list_tag* -->
-    <pointer-type-def type-id='type-id-146' size-in-bits='64' id='type-id-150'/>
+    <pointer-type-def type-id='type-id-145' size-in-bits='64' id='type-id-149'/>
     <!-- const DBusMessage -->
-    <qualified-type-def type-id='type-id-63' const='yes' id='type-id-151'/>
+    <qualified-type-def type-id='type-id-63' const='yes' id='type-id-150'/>
     <!-- const DBusMessage* -->
-    <pointer-type-def type-id='type-id-151' size-in-bits='64' id='type-id-152'/>
+    <pointer-type-def type-id='type-id-150' size-in-bits='64' id='type-id-151'/>
     <!-- void dbus_message_set_serial(DBusMessage*, dbus_uint32_t) -->
     <function-decl name='dbus_message_set_serial' mangled-name='dbus_message_set_serial' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='254' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_message_set_serial'>
       <!-- parameter of type 'DBusMessage*' -->
@@ -2631,7 +2629,7 @@
     <!-- DBusMessage* dbus_message_copy(const DBusMessage*) -->
     <function-decl name='dbus_message_copy' mangled-name='dbus_message_copy' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='1587' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_message_copy'>
       <!-- parameter of type 'const DBusMessage*' -->
-      <parameter type-id='type-id-152' name='message' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='1587' column='1'/>
+      <parameter type-id='type-id-151' name='message' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='1587' column='1'/>
       <!-- DBusMessage* -->
       <return type-id='type-id-37'/>
     </function-decl>
@@ -2673,7 +2671,7 @@
       <!-- parameter of type 'int' -->
       <parameter type-id='type-id-2' name='first_arg_type' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='1825' column='1'/>
       <!-- parameter of type '__va_list_tag*' -->
-      <parameter type-id='type-id-150' name='var_args' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='1826' column='1'/>
+      <parameter type-id='type-id-149' name='var_args' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='1826' column='1'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-decl>
@@ -2698,7 +2696,7 @@
       <!-- parameter of type 'int' -->
       <parameter type-id='type-id-2' name='first_arg_type' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2011' column='1'/>
       <!-- parameter of type '__va_list_tag*' -->
-      <parameter type-id='type-id-150' name='var_args' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2012' column='1'/>
+      <parameter type-id='type-id-149' name='var_args' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2012' column='1'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-decl>
@@ -2707,58 +2705,58 @@
       <!-- parameter of type 'DBusMessage*' -->
       <parameter type-id='type-id-37' name='message' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2064' column='1'/>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2065' column='1'/>
+      <parameter type-id='type-id-148' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2065' column='1'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-decl>
     <!-- dbus_bool_t dbus_message_iter_has_next(DBusMessageIter*) -->
     <function-decl name='dbus_message_iter_has_next' mangled-name='dbus_message_iter_has_next' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2095' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_message_iter_has_next'>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2095' column='1'/>
+      <parameter type-id='type-id-148' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2095' column='1'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-decl>
     <!-- dbus_bool_t dbus_message_iter_next(DBusMessageIter*) -->
     <function-decl name='dbus_message_iter_next' mangled-name='dbus_message_iter_next' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2114' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_message_iter_next'>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2114' column='1'/>
+      <parameter type-id='type-id-148' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2114' column='1'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-decl>
     <!-- int dbus_message_iter_get_arg_type(DBusMessageIter*) -->
     <function-decl name='dbus_message_iter_get_arg_type' mangled-name='dbus_message_iter_get_arg_type' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2139' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_message_iter_get_arg_type'>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2139' column='1'/>
+      <parameter type-id='type-id-148' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2139' column='1'/>
       <!-- int -->
       <return type-id='type-id-2'/>
     </function-decl>
     <!-- int dbus_message_iter_get_element_type(DBusMessageIter*) -->
     <function-decl name='dbus_message_iter_get_element_type' mangled-name='dbus_message_iter_get_element_type' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2158' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_message_iter_get_element_type'>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2158' column='1'/>
+      <parameter type-id='type-id-148' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2158' column='1'/>
       <!-- int -->
       <return type-id='type-id-2'/>
     </function-decl>
     <!-- void dbus_message_iter_recurse(DBusMessageIter*, DBusMessageIter*) -->
     <function-decl name='dbus_message_iter_recurse' mangled-name='dbus_message_iter_recurse' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2195' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_message_iter_recurse'>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2195' column='1'/>
+      <parameter type-id='type-id-148' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2195' column='1'/>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='sub' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2196' column='1'/>
+      <parameter type-id='type-id-148' name='sub' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2196' column='1'/>
       <!-- void -->
       <return type-id='type-id-24'/>
     </function-decl>
     <!-- char* dbus_message_iter_get_signature(DBusMessageIter*) -->
     <function-decl name='dbus_message_iter_get_signature' mangled-name='dbus_message_iter_get_signature' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2220' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_message_iter_get_signature'>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2220' column='1'/>
+      <parameter type-id='type-id-148' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2220' column='1'/>
       <!-- char* -->
       <return type-id='type-id-21'/>
     </function-decl>
     <!-- void dbus_message_iter_get_basic(DBusMessageIter*, void*) -->
     <function-decl name='dbus_message_iter_get_basic' mangled-name='dbus_message_iter_get_basic' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2293' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_message_iter_get_basic'>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2293' column='1'/>
+      <parameter type-id='type-id-148' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2293' column='1'/>
       <!-- parameter of type 'void*' -->
       <parameter type-id='type-id-8' name='value' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2294' column='1'/>
       <!-- void -->
@@ -2767,14 +2765,14 @@
     <!-- int dbus_message_iter_get_array_len(DBusMessageIter*) -->
     <function-decl name='dbus_message_iter_get_array_len' mangled-name='dbus_message_iter_get_array_len' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2346' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_message_iter_get_array_len'>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2346' column='1'/>
+      <parameter type-id='type-id-148' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2346' column='1'/>
       <!-- int -->
       <return type-id='type-id-2'/>
     </function-decl>
     <!-- void dbus_message_iter_get_fixed_array(DBusMessageIter*, void*, int*) -->
     <function-decl name='dbus_message_iter_get_fixed_array' mangled-name='dbus_message_iter_get_fixed_array' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2391' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_message_iter_get_fixed_array'>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2391' column='1'/>
+      <parameter type-id='type-id-148' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2391' column='1'/>
       <!-- parameter of type 'void*' -->
       <parameter type-id='type-id-8' name='value' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2392' column='1'/>
       <!-- parameter of type 'int*' -->
@@ -2787,14 +2785,14 @@
       <!-- parameter of type 'DBusMessage*' -->
       <parameter type-id='type-id-37' name='message' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2421' column='1'/>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2422' column='1'/>
+      <parameter type-id='type-id-148' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2422' column='1'/>
       <!-- void -->
       <return type-id='type-id-24'/>
     </function-decl>
     <!-- dbus_bool_t dbus_message_iter_append_basic(DBusMessageIter*, int, void*) -->
     <function-decl name='dbus_message_iter_append_basic' mangled-name='dbus_message_iter_append_basic' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2656' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_message_iter_append_basic'>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2656' column='1'/>
+      <parameter type-id='type-id-148' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2656' column='1'/>
       <!-- parameter of type 'int' -->
       <parameter type-id='type-id-2' name='type' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2657' column='1'/>
       <!-- parameter of type 'void*' -->
@@ -2805,7 +2803,7 @@
     <!-- dbus_bool_t dbus_message_iter_append_fixed_array(DBusMessageIter*, int, void*, int) -->
     <function-decl name='dbus_message_iter_append_fixed_array' mangled-name='dbus_message_iter_append_fixed_array' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2791' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_message_iter_append_fixed_array'>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2791' column='1'/>
+      <parameter type-id='type-id-148' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2791' column='1'/>
       <!-- parameter of type 'int' -->
       <parameter type-id='type-id-2' name='element_type' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2792' column='1'/>
       <!-- parameter of type 'void*' -->
@@ -2818,31 +2816,31 @@
     <!-- dbus_bool_t dbus_message_iter_open_container(DBusMessageIter*, int, const char*, DBusMessageIter*) -->
     <function-decl name='dbus_message_iter_open_container' mangled-name='dbus_message_iter_open_container' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2849' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_message_iter_open_container'>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2849' column='1'/>
+      <parameter type-id='type-id-148' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2849' column='1'/>
       <!-- parameter of type 'int' -->
       <parameter type-id='type-id-2' name='type' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2850' column='1'/>
       <!-- parameter of type 'const char*' -->
       <parameter type-id='type-id-7' name='contained_signature' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2851' column='1'/>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='sub' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2852' column='1'/>
+      <parameter type-id='type-id-148' name='sub' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2852' column='1'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-decl>
     <!-- dbus_bool_t dbus_message_iter_close_container(DBusMessageIter*, DBusMessageIter*) -->
     <function-decl name='dbus_message_iter_close_container' mangled-name='dbus_message_iter_close_container' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2918' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_message_iter_close_container'>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2918' column='1'/>
+      <parameter type-id='type-id-148' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2918' column='1'/>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='sub' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2919' column='1'/>
+      <parameter type-id='type-id-148' name='sub' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2919' column='1'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-decl>
     <!-- void dbus_message_iter_abandon_container(DBusMessageIter*, DBusMessageIter*) -->
     <function-decl name='dbus_message_iter_abandon_container' mangled-name='dbus_message_iter_abandon_container' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2951' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_message_iter_abandon_container'>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2951' column='1'/>
+      <parameter type-id='type-id-148' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2951' column='1'/>
       <!-- parameter of type 'DBusMessageIter*' -->
-      <parameter type-id='type-id-149' name='sub' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2952' column='1'/>
+      <parameter type-id='type-id-148' name='sub' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-message.c' line='2952' column='1'/>
       <!-- void -->
       <return type-id='type-id-24'/>
     </function-decl>
@@ -3193,7 +3191,7 @@
   </abi-instr>
   <abi-instr address-size='64' path='dbus-pending-call.c' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus' language='LANG_C89'>
     <!-- typedef void (DBusPendingCall*, void*)* DBusPendingCallNotifyFunction -->
-    <typedef-decl name='DBusPendingCallNotifyFunction' type-id='type-id-153' filepath='../dbus/dbus-connection.h' line='162' column='1' id='type-id-139'/>
+    <typedef-decl name='DBusPendingCallNotifyFunction' type-id='type-id-152' filepath='../dbus/dbus-connection.h' line='162' column='1' id='type-id-139'/>
     <!-- struct DBusPendingCall -->
     <class-decl name='DBusPendingCall' size-in-bits='576' is-struct='yes' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-pending-call.c' line='63' column='1' id='type-id-80'>
       <data-member access='public' layout-offset-in-bits='0'>
@@ -3238,7 +3236,7 @@
       </data-member>
     </class-decl>
     <!-- void (DBusPendingCall*, void*)* -->
-    <pointer-type-def type-id='type-id-154' size-in-bits='64' id='type-id-153'/>
+    <pointer-type-def type-id='type-id-153' size-in-bits='64' id='type-id-152'/>
     <!-- DBusPendingCall* dbus_pending_call_ref(DBusPendingCall*) -->
     <function-decl name='dbus_pending_call_ref' mangled-name='dbus_pending_call_ref' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-pending-call.c' line='577' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_pending_call_ref'>
       <!-- parameter of type 'DBusPendingCall*' -->
@@ -3331,7 +3329,7 @@
       <return type-id='type-id-8'/>
     </function-decl>
     <!-- void (DBusPendingCall*, void*) -->
-    <function-type size-in-bits='64' id='type-id-154'>
+    <function-type size-in-bits='64' id='type-id-153'>
       <!-- parameter of type 'DBusPendingCall*' -->
       <parameter type-id='type-id-117'/>
       <!-- parameter of type 'void*' -->
@@ -3342,48 +3340,48 @@
   </abi-instr>
   <abi-instr address-size='64' path='dbus-server.c' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus' language='LANG_C89'>
     <!-- char[16] -->
-    <array-type-def dimensions='1' type-id='type-id-1' size-in-bits='128' id='type-id-155'>
+    <array-type-def dimensions='1' type-id='type-id-1' size-in-bits='128' id='type-id-154'>
       <!-- <anonymous range>[16] -->
-      <subrange length='16' type-id='type-id-26' id='type-id-156'/>
+      <subrange length='16' type-id='type-id-25' id='type-id-155'/>
     </array-type-def>
     <!-- dbus_uint32_t[4] -->
-    <array-type-def dimensions='1' type-id='type-id-4' size-in-bits='128' id='type-id-157'>
+    <array-type-def dimensions='1' type-id='type-id-4' size-in-bits='128' id='type-id-156'>
       <!-- <anonymous range>[4] -->
-      <subrange length='4' type-id='type-id-26' id='type-id-158'/>
+      <subrange length='4' type-id='type-id-25' id='type-id-157'/>
     </array-type-def>
     <!-- union DBusGUID -->
-    <union-decl name='DBusGUID' size-in-bits='128' visibility='default' filepath='../dbus/dbus-internals.h' line='351' column='1' id='type-id-159'>
+    <union-decl name='DBusGUID' size-in-bits='128' visibility='default' filepath='../dbus/dbus-internals.h' line='351' column='1' id='type-id-158'>
       <data-member access='public'>
         <!-- dbus_uint32_t DBusGUID::as_uint32s[4] -->
-        <var-decl name='as_uint32s' type-id='type-id-157' visibility='default' filepath='../dbus/dbus-internals.h' line='352' column='1'/>
+        <var-decl name='as_uint32s' type-id='type-id-156' visibility='default' filepath='../dbus/dbus-internals.h' line='352' column='1'/>
       </data-member>
       <data-member access='public'>
         <!-- char DBusGUID::as_bytes[16] -->
-        <var-decl name='as_bytes' type-id='type-id-155' visibility='default' filepath='../dbus/dbus-internals.h' line='353' column='1'/>
+        <var-decl name='as_bytes' type-id='type-id-154' visibility='default' filepath='../dbus/dbus-internals.h' line='353' column='1'/>
       </data-member>
     </union-decl>
     <!-- typedef DBusServerVTable DBusServerVTable -->
-    <typedef-decl name='DBusServerVTable' type-id='type-id-160' filepath='../dbus/dbus-server-protected.h' line='38' column='1' id='type-id-161'/>
+    <typedef-decl name='DBusServerVTable' type-id='type-id-159' filepath='../dbus/dbus-server-protected.h' line='38' column='1' id='type-id-160'/>
     <!-- struct DBusServerVTable -->
-    <class-decl name='DBusServerVTable' size-in-bits='128' is-struct='yes' visibility='default' filepath='../dbus/dbus-server-protected.h' line='44' column='1' id='type-id-160'>
+    <class-decl name='DBusServerVTable' size-in-bits='128' is-struct='yes' visibility='default' filepath='../dbus/dbus-server-protected.h' line='44' column='1' id='type-id-159'>
       <data-member access='public' layout-offset-in-bits='0'>
         <!-- void (DBusServer*)* DBusServerVTable::finalize -->
-        <var-decl name='finalize' type-id='type-id-162' visibility='default' filepath='../dbus/dbus-server-protected.h' line='45' column='1'/>
+        <var-decl name='finalize' type-id='type-id-161' visibility='default' filepath='../dbus/dbus-server-protected.h' line='45' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='64'>
         <!-- void (DBusServer*)* DBusServerVTable::disconnect -->
-        <var-decl name='disconnect' type-id='type-id-162' visibility='default' filepath='../dbus/dbus-server-protected.h' line='48' column='1'/>
+        <var-decl name='disconnect' type-id='type-id-161' visibility='default' filepath='../dbus/dbus-server-protected.h' line='48' column='1'/>
       </data-member>
     </class-decl>
     <!-- struct DBusServer -->
-    <class-decl name='DBusServer' size-in-bits='1216' is-struct='yes' visibility='default' filepath='../dbus/dbus-server-protected.h' line='57' column='1' id='type-id-163'>
+    <class-decl name='DBusServer' size-in-bits='1216' is-struct='yes' visibility='default' filepath='../dbus/dbus-server-protected.h' line='57' column='1' id='type-id-162'>
       <data-member access='public' layout-offset-in-bits='0'>
         <!-- DBusAtomic DBusServer::refcount -->
         <var-decl name='refcount' type-id='type-id-33' visibility='default' filepath='../dbus/dbus-server-protected.h' line='58' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='64'>
         <!-- const DBusServerVTable* DBusServer::vtable -->
-        <var-decl name='vtable' type-id='type-id-164' visibility='default' filepath='../dbus/dbus-server-protected.h' line='59' column='1'/>
+        <var-decl name='vtable' type-id='type-id-163' visibility='default' filepath='../dbus/dbus-server-protected.h' line='59' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='128'>
         <!-- DBusRMutex* DBusServer::mutex -->
@@ -3391,7 +3389,7 @@
       </data-member>
       <data-member access='public' layout-offset-in-bits='192'>
         <!-- DBusGUID DBusServer::guid -->
-        <var-decl name='guid' type-id='type-id-165' visibility='default' filepath='../dbus/dbus-server-protected.h' line='62' column='1'/>
+        <var-decl name='guid' type-id='type-id-164' visibility='default' filepath='../dbus/dbus-server-protected.h' line='62' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='320'>
         <!-- DBusString DBusServer::guid_hex -->
@@ -3423,7 +3421,7 @@
       </data-member>
       <data-member access='public' layout-offset-in-bits='896'>
         <!-- DBusNewConnectionFunction DBusServer::new_connection_function -->
-        <var-decl name='new_connection_function' type-id='type-id-166' visibility='default' filepath='../dbus/dbus-server-protected.h' line='76' column='1'/>
+        <var-decl name='new_connection_function' type-id='type-id-165' visibility='default' filepath='../dbus/dbus-server-protected.h' line='76' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='960'>
         <!-- void* DBusServer::new_connection_data -->
@@ -3447,23 +3445,23 @@
       </data-member>
     </class-decl>
     <!-- typedef DBusGUID DBusGUID -->
-    <typedef-decl name='DBusGUID' type-id='type-id-159' filepath='../dbus/dbus-sysdeps.h' line='507' column='1' id='type-id-165'/>
+    <typedef-decl name='DBusGUID' type-id='type-id-158' filepath='../dbus/dbus-sysdeps.h' line='507' column='1' id='type-id-164'/>
     <!-- typedef DBusServer DBusServer -->
-    <typedef-decl name='DBusServer' type-id='type-id-163' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.h' line='42' column='1' id='type-id-167'/>
+    <typedef-decl name='DBusServer' type-id='type-id-162' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.h' line='42' column='1' id='type-id-166'/>
     <!-- typedef void (DBusServer*, DBusConnection*, void*)* DBusNewConnectionFunction -->
-    <typedef-decl name='DBusNewConnectionFunction' type-id='type-id-168' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.h' line='47' column='1' id='type-id-166'/>
+    <typedef-decl name='DBusNewConnectionFunction' type-id='type-id-167' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.h' line='47' column='1' id='type-id-165'/>
     <!-- DBusServer* -->
-    <pointer-type-def type-id='type-id-167' size-in-bits='64' id='type-id-169'/>
+    <pointer-type-def type-id='type-id-166' size-in-bits='64' id='type-id-168'/>
     <!-- const DBusServerVTable -->
-    <qualified-type-def type-id='type-id-161' const='yes' id='type-id-170'/>
+    <qualified-type-def type-id='type-id-160' const='yes' id='type-id-169'/>
     <!-- const DBusServerVTable* -->
-    <pointer-type-def type-id='type-id-170' size-in-bits='64' id='type-id-164'/>
+    <pointer-type-def type-id='type-id-169' size-in-bits='64' id='type-id-163'/>
     <!-- const char** -->
-    <pointer-type-def type-id='type-id-7' size-in-bits='64' id='type-id-171'/>
+    <pointer-type-def type-id='type-id-7' size-in-bits='64' id='type-id-170'/>
     <!-- void (DBusServer*)* -->
-    <pointer-type-def type-id='type-id-172' size-in-bits='64' id='type-id-162'/>
+    <pointer-type-def type-id='type-id-171' size-in-bits='64' id='type-id-161'/>
     <!-- void (DBusServer*, DBusConnection*, void*)* -->
-    <pointer-type-def type-id='type-id-173' size-in-bits='64' id='type-id-168'/>
+    <pointer-type-def type-id='type-id-172' size-in-bits='64' id='type-id-167'/>
     <!-- DBusServer* dbus_server_listen(const char*, DBusError*) -->
     <function-decl name='dbus_server_listen' mangled-name='dbus_server_listen' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='549' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_server_listen'>
       <!-- parameter of type 'const char*' -->
@@ -3471,56 +3469,56 @@
       <!-- parameter of type 'DBusError*' -->
       <parameter type-id='type-id-20' name='error' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='550' column='1'/>
       <!-- DBusServer* -->
-      <return type-id='type-id-169'/>
+      <return type-id='type-id-168'/>
     </function-decl>
     <!-- DBusServer* dbus_server_ref(DBusServer*) -->
     <function-decl name='dbus_server_ref' mangled-name='dbus_server_ref' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='687' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_server_ref'>
       <!-- parameter of type 'DBusServer*' -->
-      <parameter type-id='type-id-169' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='687' column='1'/>
+      <parameter type-id='type-id-168' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='687' column='1'/>
       <!-- DBusServer* -->
-      <return type-id='type-id-169'/>
+      <return type-id='type-id-168'/>
     </function-decl>
     <!-- void dbus_server_unref(DBusServer*) -->
     <function-decl name='dbus_server_unref' mangled-name='dbus_server_unref' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='720' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_server_unref'>
       <!-- parameter of type 'DBusServer*' -->
-      <parameter type-id='type-id-169' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='720' column='1'/>
+      <parameter type-id='type-id-168' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='720' column='1'/>
       <!-- void -->
       <return type-id='type-id-24'/>
     </function-decl>
     <!-- void dbus_server_disconnect(DBusServer*) -->
     <function-decl name='dbus_server_disconnect' mangled-name='dbus_server_disconnect' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='770' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_server_disconnect'>
       <!-- parameter of type 'DBusServer*' -->
-      <parameter type-id='type-id-169' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='770' column='1'/>
+      <parameter type-id='type-id-168' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='770' column='1'/>
       <!-- void -->
       <return type-id='type-id-24'/>
     </function-decl>
     <!-- dbus_bool_t dbus_server_get_is_connected(DBusServer*) -->
     <function-decl name='dbus_server_get_is_connected' mangled-name='dbus_server_get_is_connected' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='797' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_server_get_is_connected'>
       <!-- parameter of type 'DBusServer*' -->
-      <parameter type-id='type-id-169' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='797' column='1'/>
+      <parameter type-id='type-id-168' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='797' column='1'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-decl>
     <!-- char* dbus_server_get_address(DBusServer*) -->
     <function-decl name='dbus_server_get_address' mangled-name='dbus_server_get_address' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='818' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_server_get_address'>
       <!-- parameter of type 'DBusServer*' -->
-      <parameter type-id='type-id-169' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='818' column='1'/>
+      <parameter type-id='type-id-168' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='818' column='1'/>
       <!-- char* -->
       <return type-id='type-id-21'/>
     </function-decl>
     <!-- char* dbus_server_get_id(DBusServer*) -->
     <function-decl name='dbus_server_get_id' mangled-name='dbus_server_get_id' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='854' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_server_get_id'>
       <!-- parameter of type 'DBusServer*' -->
-      <parameter type-id='type-id-169' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='854' column='1'/>
+      <parameter type-id='type-id-168' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='854' column='1'/>
       <!-- char* -->
       <return type-id='type-id-21'/>
     </function-decl>
     <!-- void dbus_server_set_new_connection_function(DBusServer*, DBusNewConnectionFunction, void*, DBusFreeFunction) -->
     <function-decl name='dbus_server_set_new_connection_function' mangled-name='dbus_server_set_new_connection_function' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='889' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_server_set_new_connection_function'>
       <!-- parameter of type 'DBusServer*' -->
-      <parameter type-id='type-id-169' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='889' column='1'/>
+      <parameter type-id='type-id-168' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='889' column='1'/>
       <!-- parameter of type 'typedef DBusNewConnectionFunction' -->
-      <parameter type-id='type-id-166' name='function' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='890' column='1'/>
+      <parameter type-id='type-id-165' name='function' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='890' column='1'/>
       <!-- parameter of type 'void*' -->
       <parameter type-id='type-id-8' name='data' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='891' column='1'/>
       <!-- parameter of type 'typedef DBusFreeFunction' -->
@@ -3531,7 +3529,7 @@
     <!-- dbus_bool_t dbus_server_set_watch_functions(DBusServer*, DBusAddWatchFunction, DBusRemoveWatchFunction, DBusWatchToggledFunction, void*, DBusFreeFunction) -->
     <function-decl name='dbus_server_set_watch_functions' mangled-name='dbus_server_set_watch_functions' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='929' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_server_set_watch_functions'>
       <!-- parameter of type 'DBusServer*' -->
-      <parameter type-id='type-id-169' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='929' column='1'/>
+      <parameter type-id='type-id-168' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='929' column='1'/>
       <!-- parameter of type 'typedef DBusAddWatchFunction' -->
       <parameter type-id='type-id-86' name='add_function' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='930' column='1'/>
       <!-- parameter of type 'typedef DBusRemoveWatchFunction' -->
@@ -3548,7 +3546,7 @@
     <!-- dbus_bool_t dbus_server_set_timeout_functions(DBusServer*, DBusAddTimeoutFunction, DBusRemoveTimeoutFunction, DBusTimeoutToggledFunction, void*, DBusFreeFunction) -->
     <function-decl name='dbus_server_set_timeout_functions' mangled-name='dbus_server_set_timeout_functions' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='982' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_server_set_timeout_functions'>
       <!-- parameter of type 'DBusServer*' -->
-      <parameter type-id='type-id-169' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='982' column='1'/>
+      <parameter type-id='type-id-168' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='982' column='1'/>
       <!-- parameter of type 'typedef DBusAddTimeoutFunction' -->
       <parameter type-id='type-id-91' name='add_function' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='983' column='1'/>
       <!-- parameter of type 'typedef DBusRemoveTimeoutFunction' -->
@@ -3565,9 +3563,9 @@
     <!-- dbus_bool_t dbus_server_set_auth_mechanisms(DBusServer*, const char**) -->
     <function-decl name='dbus_server_set_auth_mechanisms' mangled-name='dbus_server_set_auth_mechanisms' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='1033' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_server_set_auth_mechanisms'>
       <!-- parameter of type 'DBusServer*' -->
-      <parameter type-id='type-id-169' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='1033' column='1'/>
+      <parameter type-id='type-id-168' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='1033' column='1'/>
       <!-- parameter of type 'const char**' -->
-      <parameter type-id='type-id-171' name='mechanisms' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='1034' column='1'/>
+      <parameter type-id='type-id-170' name='mechanisms' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='1034' column='1'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-decl>
@@ -3588,7 +3586,7 @@
     <!-- dbus_bool_t dbus_server_set_data(DBusServer*, int, void*, DBusFreeFunction) -->
     <function-decl name='dbus_server_set_data' mangled-name='dbus_server_set_data' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='1116' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_server_set_data'>
       <!-- parameter of type 'DBusServer*' -->
-      <parameter type-id='type-id-169' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='1116' column='1'/>
+      <parameter type-id='type-id-168' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='1116' column='1'/>
       <!-- parameter of type 'int' -->
       <parameter type-id='type-id-2' name='slot' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='1117' column='1'/>
       <!-- parameter of type 'void*' -->
@@ -3601,23 +3599,23 @@
     <!-- void* dbus_server_get_data(DBusServer*, int) -->
     <function-decl name='dbus_server_get_data' mangled-name='dbus_server_get_data' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='1156' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_server_get_data'>
       <!-- parameter of type 'DBusServer*' -->
-      <parameter type-id='type-id-169' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='1156' column='1'/>
+      <parameter type-id='type-id-168' name='server' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='1156' column='1'/>
       <!-- parameter of type 'int' -->
       <parameter type-id='type-id-2' name='slot' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-server.c' line='1157' column='1'/>
       <!-- void* -->
       <return type-id='type-id-8'/>
     </function-decl>
     <!-- void (DBusServer*) -->
-    <function-type size-in-bits='64' id='type-id-172'>
+    <function-type size-in-bits='64' id='type-id-171'>
       <!-- parameter of type 'DBusServer*' -->
-      <parameter type-id='type-id-169'/>
+      <parameter type-id='type-id-168'/>
       <!-- void -->
       <return type-id='type-id-24'/>
     </function-type>
     <!-- void (DBusServer*, DBusConnection*, void*) -->
-    <function-type size-in-bits='64' id='type-id-173'>
+    <function-type size-in-bits='64' id='type-id-172'>
       <!-- parameter of type 'DBusServer*' -->
-      <parameter type-id='type-id-169'/>
+      <parameter type-id='type-id-168'/>
       <!-- parameter of type 'DBusConnection*' -->
       <parameter type-id='type-id-31'/>
       <!-- parameter of type 'void*' -->
@@ -3628,7 +3626,7 @@
   </abi-instr>
   <abi-instr address-size='64' path='dbus-signature.c' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus' language='LANG_C89'>
     <!-- struct DBusSignatureIter -->
-    <class-decl name='DBusSignatureIter' size-in-bits='256' is-struct='yes' naming-typedef-id='type-id-174' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.h' line='45' column='1' id='type-id-175'>
+    <class-decl name='DBusSignatureIter' size-in-bits='256' is-struct='yes' naming-typedef-id='type-id-173' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.h' line='45' column='1' id='type-id-174'>
       <data-member access='public' layout-offset-in-bits='0'>
         <!-- void* DBusSignatureIter::dummy1 -->
         <var-decl name='dummy1' type-id='type-id-8' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.h' line='46' column='1'/>
@@ -3651,17 +3649,17 @@
       </data-member>
     </class-decl>
     <!-- typedef DBusSignatureIter DBusSignatureIter -->
-    <typedef-decl name='DBusSignatureIter' type-id='type-id-175' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.h' line='51' column='1' id='type-id-174'/>
+    <typedef-decl name='DBusSignatureIter' type-id='type-id-174' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.h' line='51' column='1' id='type-id-173'/>
     <!-- DBusSignatureIter* -->
-    <pointer-type-def type-id='type-id-174' size-in-bits='64' id='type-id-176'/>
+    <pointer-type-def type-id='type-id-173' size-in-bits='64' id='type-id-175'/>
     <!-- const DBusSignatureIter -->
-    <qualified-type-def type-id='type-id-174' const='yes' id='type-id-177'/>
+    <qualified-type-def type-id='type-id-173' const='yes' id='type-id-176'/>
     <!-- const DBusSignatureIter* -->
-    <pointer-type-def type-id='type-id-177' size-in-bits='64' id='type-id-178'/>
+    <pointer-type-def type-id='type-id-176' size-in-bits='64' id='type-id-177'/>
     <!-- void dbus_signature_iter_init(DBusSignatureIter*, const char*) -->
     <function-decl name='dbus_signature_iter_init' mangled-name='dbus_signature_iter_init' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='67' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_signature_iter_init'>
       <!-- parameter of type 'DBusSignatureIter*' -->
-      <parameter type-id='type-id-176' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='67' column='1'/>
+      <parameter type-id='type-id-175' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='67' column='1'/>
       <!-- parameter of type 'const char*' -->
       <parameter type-id='type-id-7' name='signature' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='68' column='1'/>
       <!-- void -->
@@ -3670,37 +3668,37 @@
     <!-- int dbus_signature_iter_get_current_type(const DBusSignatureIter*) -->
     <function-decl name='dbus_signature_iter_get_current_type' mangled-name='dbus_signature_iter_get_current_type' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='92' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_signature_iter_get_current_type'>
       <!-- parameter of type 'const DBusSignatureIter*' -->
-      <parameter type-id='type-id-178' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='92' column='1'/>
+      <parameter type-id='type-id-177' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='92' column='1'/>
       <!-- int -->
       <return type-id='type-id-2'/>
     </function-decl>
     <!-- char* dbus_signature_iter_get_signature(const DBusSignatureIter*) -->
     <function-decl name='dbus_signature_iter_get_signature' mangled-name='dbus_signature_iter_get_signature' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='112' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_signature_iter_get_signature'>
       <!-- parameter of type 'const DBusSignatureIter*' -->
-      <parameter type-id='type-id-178' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='112' column='1'/>
+      <parameter type-id='type-id-177' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='112' column='1'/>
       <!-- char* -->
       <return type-id='type-id-21'/>
     </function-decl>
     <!-- int dbus_signature_iter_get_element_type(const DBusSignatureIter*) -->
     <function-decl name='dbus_signature_iter_get_element_type' mangled-name='dbus_signature_iter_get_element_type' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='146' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_signature_iter_get_element_type'>
       <!-- parameter of type 'const DBusSignatureIter*' -->
-      <parameter type-id='type-id-178' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='146' column='1'/>
+      <parameter type-id='type-id-177' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='146' column='1'/>
       <!-- int -->
       <return type-id='type-id-2'/>
     </function-decl>
     <!-- dbus_bool_t dbus_signature_iter_next(DBusSignatureIter*) -->
     <function-decl name='dbus_signature_iter_next' mangled-name='dbus_signature_iter_next' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='164' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_signature_iter_next'>
       <!-- parameter of type 'DBusSignatureIter*' -->
-      <parameter type-id='type-id-176' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='164' column='1'/>
+      <parameter type-id='type-id-175' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='164' column='1'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-decl>
     <!-- void dbus_signature_iter_recurse(const DBusSignatureIter*, DBusSignatureIter*) -->
     <function-decl name='dbus_signature_iter_recurse' mangled-name='dbus_signature_iter_recurse' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='207' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_signature_iter_recurse'>
       <!-- parameter of type 'const DBusSignatureIter*' -->
-      <parameter type-id='type-id-178' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='207' column='1'/>
+      <parameter type-id='type-id-177' name='iter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='207' column='1'/>
       <!-- parameter of type 'DBusSignatureIter*' -->
-      <parameter type-id='type-id-176' name='subiter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='208' column='1'/>
+      <parameter type-id='type-id-175' name='subiter' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-signature.c' line='208' column='1'/>
       <!-- void -->
       <return type-id='type-id-24'/>
     </function-decl>
@@ -3820,144 +3818,144 @@
   </abi-instr>
   <abi-instr address-size='64' path='dbus-threads.c' comp-dir-path='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus' language='LANG_C89'>
     <!-- typedef DBusMutex DBusMutex -->
-    <typedef-decl name='DBusMutex' type-id='type-id-179' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='41' column='1' id='type-id-180'/>
+    <typedef-decl name='DBusMutex' type-id='type-id-178' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='41' column='1' id='type-id-179'/>
     <!-- typedef DBusMutex* ()* DBusMutexNewFunction -->
-    <typedef-decl name='DBusMutexNewFunction' type-id='type-id-181' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='46' column='1' id='type-id-182'/>
+    <typedef-decl name='DBusMutexNewFunction' type-id='type-id-180' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='46' column='1' id='type-id-181'/>
     <!-- typedef void (DBusMutex*)* DBusMutexFreeFunction -->
-    <typedef-decl name='DBusMutexFreeFunction' type-id='type-id-183' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='48' column='1' id='type-id-184'/>
+    <typedef-decl name='DBusMutexFreeFunction' type-id='type-id-182' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='48' column='1' id='type-id-183'/>
     <!-- typedef typedef dbus_bool_t (DBusMutex*)* DBusMutexLockFunction -->
-    <typedef-decl name='DBusMutexLockFunction' type-id='type-id-185' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='50' column='1' id='type-id-186'/>
+    <typedef-decl name='DBusMutexLockFunction' type-id='type-id-184' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='50' column='1' id='type-id-185'/>
     <!-- typedef typedef dbus_bool_t (DBusMutex*)* DBusMutexUnlockFunction -->
-    <typedef-decl name='DBusMutexUnlockFunction' type-id='type-id-185' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='52' column='1' id='type-id-187'/>
+    <typedef-decl name='DBusMutexUnlockFunction' type-id='type-id-184' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='52' column='1' id='type-id-186'/>
     <!-- typedef DBusMutex* ()* DBusRecursiveMutexNewFunction -->
-    <typedef-decl name='DBusRecursiveMutexNewFunction' type-id='type-id-181' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='61' column='1' id='type-id-188'/>
+    <typedef-decl name='DBusRecursiveMutexNewFunction' type-id='type-id-180' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='61' column='1' id='type-id-187'/>
     <!-- typedef void (DBusMutex*)* DBusRecursiveMutexFreeFunction -->
-    <typedef-decl name='DBusRecursiveMutexFreeFunction' type-id='type-id-183' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='64' column='1' id='type-id-189'/>
+    <typedef-decl name='DBusRecursiveMutexFreeFunction' type-id='type-id-182' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='64' column='1' id='type-id-188'/>
     <!-- typedef void (DBusMutex*)* DBusRecursiveMutexLockFunction -->
-    <typedef-decl name='DBusRecursiveMutexLockFunction' type-id='type-id-183' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='68' column='1' id='type-id-190'/>
+    <typedef-decl name='DBusRecursiveMutexLockFunction' type-id='type-id-182' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='68' column='1' id='type-id-189'/>
     <!-- typedef void (DBusMutex*)* DBusRecursiveMutexUnlockFunction -->
-    <typedef-decl name='DBusRecursiveMutexUnlockFunction' type-id='type-id-183' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='72' column='1' id='type-id-191'/>
+    <typedef-decl name='DBusRecursiveMutexUnlockFunction' type-id='type-id-182' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='72' column='1' id='type-id-190'/>
     <!-- typedef DBusCondVar* ()* DBusCondVarNewFunction -->
-    <typedef-decl name='DBusCondVarNewFunction' type-id='type-id-192' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='77' column='1' id='type-id-193'/>
+    <typedef-decl name='DBusCondVarNewFunction' type-id='type-id-191' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='77' column='1' id='type-id-192'/>
     <!-- typedef void (DBusCondVar*)* DBusCondVarFreeFunction -->
-    <typedef-decl name='DBusCondVarFreeFunction' type-id='type-id-194' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='80' column='1' id='type-id-195'/>
+    <typedef-decl name='DBusCondVarFreeFunction' type-id='type-id-193' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='80' column='1' id='type-id-194'/>
     <!-- typedef void (DBusCondVar*, DBusMutex*)* DBusCondVarWaitFunction -->
-    <typedef-decl name='DBusCondVarWaitFunction' type-id='type-id-196' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='92' column='1' id='type-id-197'/>
+    <typedef-decl name='DBusCondVarWaitFunction' type-id='type-id-195' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='92' column='1' id='type-id-196'/>
     <!-- typedef typedef dbus_bool_t (DBusCondVar*, DBusMutex*, int)* DBusCondVarWaitTimeoutFunction -->
-    <typedef-decl name='DBusCondVarWaitTimeoutFunction' type-id='type-id-198' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='101' column='1' id='type-id-199'/>
+    <typedef-decl name='DBusCondVarWaitTimeoutFunction' type-id='type-id-197' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='101' column='1' id='type-id-198'/>
     <!-- typedef void (DBusCondVar*)* DBusCondVarWakeOneFunction -->
-    <typedef-decl name='DBusCondVarWakeOneFunction' type-id='type-id-194' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='108' column='1' id='type-id-200'/>
+    <typedef-decl name='DBusCondVarWakeOneFunction' type-id='type-id-193' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='108' column='1' id='type-id-199'/>
     <!-- typedef void (DBusCondVar*)* DBusCondVarWakeAllFunction -->
-    <typedef-decl name='DBusCondVarWakeAllFunction' type-id='type-id-194' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='114' column='1' id='type-id-201'/>
+    <typedef-decl name='DBusCondVarWakeAllFunction' type-id='type-id-193' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='114' column='1' id='type-id-200'/>
     <!-- struct DBusThreadFunctions -->
-    <class-decl name='DBusThreadFunctions' size-in-bits='1216' is-struct='yes' naming-typedef-id='type-id-202' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='153' column='1' id='type-id-203'>
+    <class-decl name='DBusThreadFunctions' size-in-bits='1216' is-struct='yes' naming-typedef-id='type-id-201' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='153' column='1' id='type-id-202'>
       <data-member access='public' layout-offset-in-bits='0'>
         <!-- unsigned int DBusThreadFunctions::mask -->
         <var-decl name='mask' type-id='type-id-3' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='154' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='64'>
         <!-- DBusMutexNewFunction DBusThreadFunctions::mutex_new -->
-        <var-decl name='mutex_new' type-id='type-id-182' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='156' column='1'/>
+        <var-decl name='mutex_new' type-id='type-id-181' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='156' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='128'>
         <!-- DBusMutexFreeFunction DBusThreadFunctions::mutex_free -->
-        <var-decl name='mutex_free' type-id='type-id-184' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='157' column='1'/>
+        <var-decl name='mutex_free' type-id='type-id-183' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='157' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='192'>
         <!-- DBusMutexLockFunction DBusThreadFunctions::mutex_lock -->
-        <var-decl name='mutex_lock' type-id='type-id-186' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='158' column='1'/>
+        <var-decl name='mutex_lock' type-id='type-id-185' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='158' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='256'>
         <!-- DBusMutexUnlockFunction DBusThreadFunctions::mutex_unlock -->
-        <var-decl name='mutex_unlock' type-id='type-id-187' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='159' column='1'/>
+        <var-decl name='mutex_unlock' type-id='type-id-186' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='159' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='320'>
         <!-- DBusCondVarNewFunction DBusThreadFunctions::condvar_new -->
-        <var-decl name='condvar_new' type-id='type-id-193' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='161' column='1'/>
+        <var-decl name='condvar_new' type-id='type-id-192' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='161' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='384'>
         <!-- DBusCondVarFreeFunction DBusThreadFunctions::condvar_free -->
-        <var-decl name='condvar_free' type-id='type-id-195' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='162' column='1'/>
+        <var-decl name='condvar_free' type-id='type-id-194' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='162' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='448'>
         <!-- DBusCondVarWaitFunction DBusThreadFunctions::condvar_wait -->
-        <var-decl name='condvar_wait' type-id='type-id-197' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='163' column='1'/>
+        <var-decl name='condvar_wait' type-id='type-id-196' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='163' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='512'>
         <!-- DBusCondVarWaitTimeoutFunction DBusThreadFunctions::condvar_wait_timeout -->
-        <var-decl name='condvar_wait_timeout' type-id='type-id-199' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='164' column='1'/>
+        <var-decl name='condvar_wait_timeout' type-id='type-id-198' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='164' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='576'>
         <!-- DBusCondVarWakeOneFunction DBusThreadFunctions::condvar_wake_one -->
-        <var-decl name='condvar_wake_one' type-id='type-id-200' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='165' column='1'/>
+        <var-decl name='condvar_wake_one' type-id='type-id-199' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='165' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='640'>
         <!-- DBusCondVarWakeAllFunction DBusThreadFunctions::condvar_wake_all -->
-        <var-decl name='condvar_wake_all' type-id='type-id-201' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='166' column='1'/>
+        <var-decl name='condvar_wake_all' type-id='type-id-200' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='166' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='704'>
         <!-- DBusRecursiveMutexNewFunction DBusThreadFunctions::recursive_mutex_new -->
-        <var-decl name='recursive_mutex_new' type-id='type-id-188' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='168' column='1'/>
+        <var-decl name='recursive_mutex_new' type-id='type-id-187' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='168' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='768'>
         <!-- DBusRecursiveMutexFreeFunction DBusThreadFunctions::recursive_mutex_free -->
-        <var-decl name='recursive_mutex_free' type-id='type-id-189' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='169' column='1'/>
+        <var-decl name='recursive_mutex_free' type-id='type-id-188' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='169' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='832'>
         <!-- DBusRecursiveMutexLockFunction DBusThreadFunctions::recursive_mutex_lock -->
-        <var-decl name='recursive_mutex_lock' type-id='type-id-190' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='170' column='1'/>
+        <var-decl name='recursive_mutex_lock' type-id='type-id-189' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='170' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='896'>
         <!-- DBusRecursiveMutexUnlockFunction DBusThreadFunctions::recursive_mutex_unlock -->
-        <var-decl name='recursive_mutex_unlock' type-id='type-id-191' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='171' column='1'/>
+        <var-decl name='recursive_mutex_unlock' type-id='type-id-190' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='171' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='960'>
         <!-- void ()* DBusThreadFunctions::padding1 -->
-        <var-decl name='padding1' type-id='type-id-204' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='173' column='1'/>
+        <var-decl name='padding1' type-id='type-id-203' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='173' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='1024'>
         <!-- void ()* DBusThreadFunctions::padding2 -->
-        <var-decl name='padding2' type-id='type-id-204' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='174' column='1'/>
+        <var-decl name='padding2' type-id='type-id-203' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='174' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='1088'>
         <!-- void ()* DBusThreadFunctions::padding3 -->
-        <var-decl name='padding3' type-id='type-id-204' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='175' column='1'/>
+        <var-decl name='padding3' type-id='type-id-203' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='175' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='1152'>
         <!-- void ()* DBusThreadFunctions::padding4 -->
-        <var-decl name='padding4' type-id='type-id-204' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='176' column='1'/>
+        <var-decl name='padding4' type-id='type-id-203' visibility='default' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='176' column='1'/>
       </data-member>
     </class-decl>
     <!-- typedef DBusThreadFunctions DBusThreadFunctions -->
-    <typedef-decl name='DBusThreadFunctions' type-id='type-id-203' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='178' column='1' id='type-id-202'/>
+    <typedef-decl name='DBusThreadFunctions' type-id='type-id-202' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.h' line='178' column='1' id='type-id-201'/>
     <!-- DBusCondVar* ()* -->
-    <pointer-type-def type-id='type-id-205' size-in-bits='64' id='type-id-192'/>
+    <pointer-type-def type-id='type-id-204' size-in-bits='64' id='type-id-191'/>
     <!-- DBusMutex* -->
-    <pointer-type-def type-id='type-id-180' size-in-bits='64' id='type-id-206'/>
+    <pointer-type-def type-id='type-id-179' size-in-bits='64' id='type-id-205'/>
     <!-- DBusMutex* ()* -->
-    <pointer-type-def type-id='type-id-207' size-in-bits='64' id='type-id-181'/>
+    <pointer-type-def type-id='type-id-206' size-in-bits='64' id='type-id-180'/>
     <!-- const DBusThreadFunctions -->
-    <qualified-type-def type-id='type-id-202' const='yes' id='type-id-208'/>
+    <qualified-type-def type-id='type-id-201' const='yes' id='type-id-207'/>
     <!-- const DBusThreadFunctions* -->
-    <pointer-type-def type-id='type-id-208' size-in-bits='64' id='type-id-209'/>
+    <pointer-type-def type-id='type-id-207' size-in-bits='64' id='type-id-208'/>
     <!-- typedef dbus_bool_t (DBusCondVar*, DBusMutex*, int)* -->
-    <pointer-type-def type-id='type-id-210' size-in-bits='64' id='type-id-198'/>
+    <pointer-type-def type-id='type-id-209' size-in-bits='64' id='type-id-197'/>
     <!-- typedef dbus_bool_t (DBusMutex*)* -->
-    <pointer-type-def type-id='type-id-211' size-in-bits='64' id='type-id-185'/>
+    <pointer-type-def type-id='type-id-210' size-in-bits='64' id='type-id-184'/>
     <!-- void ()* -->
-    <pointer-type-def type-id='type-id-212' size-in-bits='64' id='type-id-204'/>
+    <pointer-type-def type-id='type-id-211' size-in-bits='64' id='type-id-203'/>
     <!-- void (DBusCondVar*)* -->
-    <pointer-type-def type-id='type-id-213' size-in-bits='64' id='type-id-194'/>
+    <pointer-type-def type-id='type-id-212' size-in-bits='64' id='type-id-193'/>
     <!-- void (DBusCondVar*, DBusMutex*)* -->
-    <pointer-type-def type-id='type-id-214' size-in-bits='64' id='type-id-196'/>
+    <pointer-type-def type-id='type-id-213' size-in-bits='64' id='type-id-195'/>
     <!-- void (DBusMutex*)* -->
-    <pointer-type-def type-id='type-id-215' size-in-bits='64' id='type-id-183'/>
+    <pointer-type-def type-id='type-id-214' size-in-bits='64' id='type-id-182'/>
     <!-- struct DBusMutex -->
-    <class-decl name='DBusMutex' is-struct='yes' visibility='default' is-declaration-only='yes' id='type-id-179'/>
+    <class-decl name='DBusMutex' is-struct='yes' visibility='default' is-declaration-only='yes' id='type-id-178'/>
     <!-- dbus_bool_t dbus_threads_init(const DBusThreadFunctions*) -->
     <function-decl name='dbus_threads_init' mangled-name='dbus_threads_init' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.c' line='391' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_threads_init'>
       <!-- parameter of type 'const DBusThreadFunctions*' -->
-      <parameter type-id='type-id-209' name='functions' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.c' line='391' column='1'/>
+      <parameter type-id='type-id-208' name='functions' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-threads.c' line='391' column='1'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-decl>
@@ -3967,58 +3965,58 @@
       <return type-id='type-id-13'/>
     </function-decl>
     <!-- DBusCondVar* () -->
-    <function-type size-in-bits='64' id='type-id-205'>
+    <function-type size-in-bits='64' id='type-id-204'>
       <!-- DBusCondVar* -->
       <return type-id='type-id-36'/>
     </function-type>
     <!-- DBusMutex* () -->
-    <function-type size-in-bits='64' id='type-id-207'>
+    <function-type size-in-bits='64' id='type-id-206'>
       <!-- DBusMutex* -->
-      <return type-id='type-id-206'/>
+      <return type-id='type-id-205'/>
     </function-type>
     <!-- dbus_bool_t (DBusCondVar*, DBusMutex*, int) -->
-    <function-type size-in-bits='64' id='type-id-210'>
+    <function-type size-in-bits='64' id='type-id-209'>
       <!-- parameter of type 'DBusCondVar*' -->
       <parameter type-id='type-id-36'/>
       <!-- parameter of type 'DBusMutex*' -->
-      <parameter type-id='type-id-206'/>
+      <parameter type-id='type-id-205'/>
       <!-- parameter of type 'int' -->
       <parameter type-id='type-id-2'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-type>
     <!-- dbus_bool_t (DBusMutex*) -->
-    <function-type size-in-bits='64' id='type-id-211'>
+    <function-type size-in-bits='64' id='type-id-210'>
       <!-- parameter of type 'DBusMutex*' -->
-      <parameter type-id='type-id-206'/>
+      <parameter type-id='type-id-205'/>
       <!-- typedef dbus_bool_t -->
       <return type-id='type-id-13'/>
     </function-type>
     <!-- void () -->
-    <function-type size-in-bits='64' id='type-id-212'>
+    <function-type size-in-bits='64' id='type-id-211'>
       <!-- void -->
       <return type-id='type-id-24'/>
     </function-type>
     <!-- void (DBusCondVar*) -->
-    <function-type size-in-bits='64' id='type-id-213'>
+    <function-type size-in-bits='64' id='type-id-212'>
       <!-- parameter of type 'DBusCondVar*' -->
       <parameter type-id='type-id-36'/>
       <!-- void -->
       <return type-id='type-id-24'/>
     </function-type>
     <!-- void (DBusCondVar*, DBusMutex*) -->
-    <function-type size-in-bits='64' id='type-id-214'>
+    <function-type size-in-bits='64' id='type-id-213'>
       <!-- parameter of type 'DBusCondVar*' -->
       <parameter type-id='type-id-36'/>
       <!-- parameter of type 'DBusMutex*' -->
-      <parameter type-id='type-id-206'/>
+      <parameter type-id='type-id-205'/>
       <!-- void -->
       <return type-id='type-id-24'/>
     </function-type>
     <!-- void (DBusMutex*) -->
-    <function-type size-in-bits='64' id='type-id-215'>
+    <function-type size-in-bits='64' id='type-id-214'>
       <!-- parameter of type 'DBusMutex*' -->
-      <parameter type-id='type-id-206'/>
+      <parameter type-id='type-id-205'/>
       <!-- void -->
       <return type-id='type-id-24'/>
     </function-type>
@@ -4060,9 +4058,9 @@
       </data-member>
     </class-decl>
     <!-- typedef typedef dbus_bool_t (void*)* DBusTimeoutHandler -->
-    <typedef-decl name='DBusTimeoutHandler' type-id='type-id-216' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-timeout.h' line='41' column='1' id='type-id-140'/>
+    <typedef-decl name='DBusTimeoutHandler' type-id='type-id-215' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-timeout.h' line='41' column='1' id='type-id-140'/>
     <!-- typedef dbus_bool_t (void*)* -->
-    <pointer-type-def type-id='type-id-217' size-in-bits='64' id='type-id-216'/>
+    <pointer-type-def type-id='type-id-216' size-in-bits='64' id='type-id-215'/>
     <!-- int dbus_timeout_get_interval(DBusTimeout*) -->
     <function-decl name='dbus_timeout_get_interval' mangled-name='dbus_timeout_get_interval' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-timeout.c' line='416' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_timeout_get_interval'>
       <!-- parameter of type 'DBusTimeout*' -->
@@ -4103,7 +4101,7 @@
       <return type-id='type-id-13'/>
     </function-decl>
     <!-- dbus_bool_t (void*) -->
-    <function-type size-in-bits='64' id='type-id-217'>
+    <function-type size-in-bits='64' id='type-id-216'>
       <!-- parameter of type 'void*' -->
       <parameter type-id='type-id-8'/>
       <!-- typedef dbus_bool_t -->
@@ -4177,9 +4175,9 @@
       </data-member>
     </class-decl>
     <!-- typedef typedef dbus_bool_t (DBusWatch*, unsigned int, void*)* DBusWatchHandler -->
-    <typedef-decl name='DBusWatchHandler' type-id='type-id-218' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-watch.h' line='43' column='1' id='type-id-141'/>
+    <typedef-decl name='DBusWatchHandler' type-id='type-id-217' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-watch.h' line='43' column='1' id='type-id-141'/>
     <!-- typedef dbus_bool_t (DBusWatch*, unsigned int, void*)* -->
-    <pointer-type-def type-id='type-id-219' size-in-bits='64' id='type-id-218'/>
+    <pointer-type-def type-id='type-id-218' size-in-bits='64' id='type-id-217'/>
     <!-- int dbus_watch_get_fd(DBusWatch*) -->
     <function-decl name='dbus_watch_get_fd' mangled-name='dbus_watch_get_fd' filepath='/tmp/legendre/spack-stage/spack-stage-hI99PR/dbus-1.9.0/dbus/dbus-watch.c' line='536' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='dbus_watch_get_fd'>
       <!-- parameter of type 'DBusWatch*' -->
@@ -4243,7 +4241,7 @@
       <return type-id='type-id-13'/>
     </function-decl>
     <!-- dbus_bool_t (DBusWatch*, unsigned int, void*) -->
-    <function-type size-in-bits='64' id='type-id-219'>
+    <function-type size-in-bits='64' id='type-id-218'>
       <!-- parameter of type 'DBusWatch*' -->
       <parameter type-id='type-id-121'/>
       <!-- parameter of type 'unsigned int' -->

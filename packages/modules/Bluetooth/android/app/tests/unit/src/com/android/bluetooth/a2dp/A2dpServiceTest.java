@@ -29,6 +29,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.media.AudioManager;
+import android.media.BluetoothProfileConnectionInfo;
 import android.os.Looper;
 import android.os.ParcelUuid;
 
@@ -37,18 +39,17 @@ import androidx.test.filters.MediumTest;
 import androidx.test.rule.ServiceTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.bluetooth.R;
 import com.android.bluetooth.TestUtils;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 
 import org.junit.After;
 import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -91,6 +92,7 @@ public class A2dpServiceTest {
         }
 
         TestUtils.setAdapterService(mAdapterService);
+        doReturn(true).when(mAdapterService).isA2dpOffloadEnabled();
         doReturn(MAX_CONNECTED_AUDIO_DEVICES).when(mAdapterService).getMaxConnectedAudioDevices();
         doReturn(true, false).when(mAdapterService).isStartedProfile(anyString());
         doReturn(false).when(mAdapterService).isQuietModeEnabled();
@@ -106,6 +108,7 @@ public class A2dpServiceTest {
 
         // Set up the Connection State Changed receiver
         IntentFilter filter = new IntentFilter();
+        filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CODEC_CONFIG_CHANGED);
@@ -779,6 +782,70 @@ public class A2dpServiceTest {
         Assert.assertEquals(mTestDevice, mA2dpService.getActiveDevice());
     }
 
+    @Test
+    public void testSetActiveDevice_withNull_returnsFalse() {
+        // Null is not accepted.
+        Assert.assertFalse(mA2dpService.setActiveDevice(null));
+    }
+
+    /**
+     * Test whether removeActiveDevice(false) suppresses noisy intent.
+     * Music should keep playing.
+     * (e.g. user selected LE headset via UI)
+     */
+    @Test
+    public void testRemoveActiveDevice_whenStopAudioIsFalse_suppressNoisyIntent() {
+        connectDevice(mTestDevice);
+        doReturn(true).when(mA2dpNativeInterface).setActiveDevice(any(BluetoothDevice.class));
+        Assert.assertTrue(mA2dpService.setActiveDevice(mTestDevice));
+        Assert.assertEquals(mTestDevice, mA2dpService.getActiveDevice());
+        AudioManager audioManager = mock(AudioManager.class);
+        mA2dpService.mAudioManager = audioManager;
+
+        Assert.assertTrue(mA2dpService.disconnect(mTestDevice));
+        verifyConnectionStateIntent(TIMEOUT_MS, mTestDevice, BluetoothProfile.STATE_DISCONNECTING,
+                BluetoothProfile.STATE_CONNECTED);
+        mA2dpService.removeActiveDevice(false);
+
+        ArgumentCaptor<BluetoothProfileConnectionInfo> connectionInfoArgumentCaptor =
+                ArgumentCaptor.forClass(BluetoothProfileConnectionInfo.class);
+        verify(audioManager).handleBluetoothActiveDeviceChanged(
+                isNull(), eq(mTestDevice), connectionInfoArgumentCaptor.capture());
+        BluetoothProfileConnectionInfo connectionInfo =
+                connectionInfoArgumentCaptor.getValue();
+        // Should suppress noisy intent. (i.e. Music should keep playing)
+        Assert.assertTrue(connectionInfo.isSuppressNoisyIntent());
+    }
+
+    /**
+     * Test whether removeActiveDevice(true) does not suppress noisy intent.
+     * Music should pause.
+     * (e.g. The solely connected BT device is disconnected)
+     */
+    @Test
+    public void testRemoveActiveDevice_whenStopAudioIsFalse_doesNotSuppressNoisyIntent() {
+        connectDevice(mTestDevice);
+        doReturn(true).when(mA2dpNativeInterface).setActiveDevice(any(BluetoothDevice.class));
+        Assert.assertTrue(mA2dpService.setActiveDevice(mTestDevice));
+        Assert.assertEquals(mTestDevice, mA2dpService.getActiveDevice());
+        AudioManager audioManager = mock(AudioManager.class);
+        mA2dpService.mAudioManager = audioManager;
+
+        Assert.assertTrue(mA2dpService.disconnect(mTestDevice));
+        verifyConnectionStateIntent(TIMEOUT_MS, mTestDevice, BluetoothProfile.STATE_DISCONNECTING,
+                BluetoothProfile.STATE_CONNECTED);
+        mA2dpService.removeActiveDevice(true);
+
+        ArgumentCaptor<BluetoothProfileConnectionInfo> connectionInfoArgumentCaptor =
+                ArgumentCaptor.forClass(BluetoothProfileConnectionInfo.class);
+        verify(audioManager).handleBluetoothActiveDeviceChanged(
+                isNull(), eq(mTestDevice), connectionInfoArgumentCaptor.capture());
+        BluetoothProfileConnectionInfo connectionInfo =
+                connectionInfoArgumentCaptor.getValue();
+        // Should not suppress noisy intent. (i.e. Music should pause)
+        Assert.assertFalse(connectionInfo.isSuppressNoisyIntent());
+    }
+
     /**
      * Test that whether updateOptionalCodecsSupport() method is working as intended
      * when a Bluetooth device is connected with A2DP.
@@ -863,6 +930,31 @@ public class A2dpServiceTest {
                 BluetoothA2dp.OPTIONAL_CODECS_NOT_SUPPORTED, false,
                 BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED,
                 verifySupportTime, verifyNotSupportTime, verifyEnabledTime);
+    }
+
+    /**
+     * Tests that {@link A2dpService#sendPreferredAudioProfileChangeToAudioFramework()} sends
+     * requests to the audio framework when there is an active A2DP device.
+     */
+    @Test
+    public void testSendPreferredAudioProfileChangeToAudioFramework() {
+        doReturn(true).when(mA2dpNativeInterface).setActiveDevice(any(BluetoothDevice.class));
+        Assert.assertTrue(mA2dpService.removeActiveDevice(true));
+        Assert.assertNull(mA2dpService.getActiveDevice());
+
+        // Send 0 requests when the active device is null
+        Assert.assertEquals(0, mA2dpService.sendPreferredAudioProfileChangeToAudioFramework());
+
+        // Send 1 request when there is an A2DP active device
+        connectDevice(mTestDevice);
+        Assert.assertTrue(mA2dpService.setActiveDevice(mTestDevice));
+        Assert.assertEquals(mTestDevice, mA2dpService.getActiveDevice());
+        Assert.assertEquals(1, mA2dpService.sendPreferredAudioProfileChangeToAudioFramework());
+    }
+
+    @Test
+    public void testDumpDoesNotCrash() {
+        mA2dpService.dump(new StringBuilder());
     }
 
     private void connectDevice(BluetoothDevice device) {

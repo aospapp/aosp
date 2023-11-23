@@ -46,4 +46,8 @@ public class ConstantsShim extends com.android.networkstack.apishim.api29.Consta
     public static final int NET_CAPABILITY_NOT_VCN_MANAGED = 28;
     public static final int NET_CAPABILITY_ENTERPRISE = 29;
     public static final int TRANSPORT_TEST = 7;
+
+    // Constants defined in android.content.pm.PackageManager
+    public static final String PROPERTY_SELF_CERTIFIED_NETWORK_CAPABILITIES =
+            "android.net.PROPERTY_SELF_CERTIFIED_NETWORK_CAPABILITIES";
 }

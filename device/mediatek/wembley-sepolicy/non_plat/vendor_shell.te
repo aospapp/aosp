@@ -1,5 +1,0 @@
-# ==============================================
-# MTK Policy Rule
-# =============================================
-# Purpose : allow vendor_shell to run aeev
-allow vendor_shell aee_aedv_exec:file execute_no_trans;

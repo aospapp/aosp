@@ -8,11 +8,11 @@ rust_library {
     crate_name: "microdroid_metadata",
     srcs: ["src/lib.rs"],
     prefer_rlib: true,
-    edition: "2018",
+    edition: "2021",
     rustlibs: [
         "libanyhow",
         "libmicrodroid_metadata_proto_rust",
-        "libprotobuf",
+        "libprotobuf_deprecated",
     ],
     apex_available: [
         "com.android.virt",

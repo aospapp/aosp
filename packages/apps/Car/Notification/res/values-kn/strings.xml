@@ -26,7 +26,7 @@
     <string name="action_canned_reply" msgid="4045960823021872834">"\"ಡ್ರೈವ್ ಮಾಡುತ್ತಿದ್ದೇನೆ.\""</string>
     <string name="canned_reply_message" msgid="7959257272917598063">"ಡ್ರೈವ್ ಮಾಡುತ್ತಿದ್ದೇನೆ."</string>
     <string name="toast_message_sent_success" msgid="1159956191974273064">"ಸಂದೇಶವನ್ನು ಯಶಸ್ವಿಯಾಗಿ ಕಳುಹಿಸಲಾಗಿದೆ."</string>
-    <string name="notification_service_label" msgid="7512186049723777468">"ಕಾರ್‌ ಅಧಿಸೂಚನೆ ಕೇಳುವ ಸೇವೆ"</string>
+    <string name="notification_service_label" msgid="7512186049723777468">"ಕಾರ್‌ ನೋಟಿಫಿಕೇಶನ್ ಕೇಳುವ ಸೇವೆ"</string>
     <string name="notifications" msgid="2865534625906329283">"ಅಧಿಸೂಚನೆಯ ಕೇಂದ್ರ"</string>
     <string name="clear_all" msgid="1845314281571237722">"ತೆರವುಗೊಳಿಸಿ"</string>
     <string name="ellipsized_string" msgid="6993649229498857557">"…"</string>
@@ -49,4 +49,11 @@
     <string name="see_more_message" msgid="6343183827924395955">"ಇನ್ನಷ್ಟು ನೋಡಿ"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"ಹೊಸ ಸಂದೇಶ"</string>
     <string name="manage_text" msgid="4225197445283791757">"ನಿರ್ವಹಿಸಿ"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"ನ್ಯಾವಿಗೇಶನ್"</string>
+    <string name="category_call" msgid="2249490790700877973">"ಕರೆ"</string>
+    <string name="category_message" msgid="451360226248504859">"ಸಂದೇಶ"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"ಗಮನ ರಸ್ತೆ ಕಡೆಗೆ ಇರಲಿ ಫೀಚರ್‌ನ ನಿರ್ಬಂಧ"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"ಇತ್ತೀಚಿನ ಎಪಿಸೋಡ್‌ಗಳನ್ನು ವೀಕ್ಷಿಸಿ"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"ವಾಹನ ಚಾಲನೆಯ ಮೇಲೆ ಗಮನಹರಿಸಿ"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"ಕೆಲವು ಹೊಸ ನೋಟಿಫಿಕೇಶನ್‌ಗಳನ್ನು ನೋಟಿಫಿಕೇಶನ್‌ ಕೇಂದ್ರದಲ್ಲಿ ಉಳಿಸಲಾಗುತ್ತದೆ"</string>
 </resources>

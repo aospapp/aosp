@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "power_Resume.iterations"
 PURPOSE = "Measure the amount of time it takes to resume from suspend."
 CRITERIA = "This test is a benchmark."
@@ -11,6 +11,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Logging"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This test will search /var/log/messages for pertinent strings to determine if

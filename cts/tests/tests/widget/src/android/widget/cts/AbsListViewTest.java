@@ -122,6 +122,8 @@ public class AbsListViewTest {
             new ActivityTestRule<>(ListViewCtsActivity.class);
 
     private Instrumentation mInstrumentation;
+    private CtsTouchUtils mCtsTouchUtils;
+    private CtsKeyEventUtil mCtsKeyEventUtil;
     private AbsListView mListView;
     private Context mContext;
     private AttributeSet mAttributeSet;
@@ -134,6 +136,8 @@ public class AbsListViewTest {
     @Before
     public void setup() throws Throwable {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mCtsTouchUtils = new CtsTouchUtils(mInstrumentation.getTargetContext());
+        mCtsKeyEventUtil = new CtsKeyEventUtil(mInstrumentation.getTargetContext());
         final Activity activity = mActivityRule.getActivity();
         // Always use the activity context
         mContext = activity;
@@ -245,7 +249,7 @@ public class AbsListViewTest {
 
         reset(mockScrollListener);
 
-        CtsTouchUtils.emulateScrollToBottom(mInstrumentation, mActivityRule, mListView);
+        mCtsTouchUtils.emulateScrollToBottom(mInstrumentation, mActivityRule, mListView);
 
         ArgumentCaptor<Integer> firstVisibleItemCaptor = ArgumentCaptor.forClass(Integer.class);
         ArgumentCaptor<Integer> visibleItemCountCaptor = ArgumentCaptor.forClass(Integer.class);
@@ -450,7 +454,7 @@ public class AbsListViewTest {
             assertEquals(1, mListView.getSelectedItemPosition());
             final int[] pt = new int[2];
             mListView.getLocationOnScreen(pt);
-            CtsTouchUtils.emulateDragGesture(mInstrumentation, mActivityRule,
+            mCtsTouchUtils.emulateDragGesture(mInstrumentation, mActivityRule,
                     pt[0] + 2, pt[1] + 2, 0, 10);
             assertEquals(AdapterView.INVALID_POSITION, mListView.getSelectedItemPosition());
             // leave touch-mode
@@ -741,7 +745,7 @@ public class AbsListViewTest {
         verifyZeroInteractions(mockOnItemLongClickListener);
 
         // Now long click our view
-        CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mActivityRule, v, 500);
+        mCtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mActivityRule, v, 500);
         // and wait until our mock listener is invoked with the expected view
         verify(mockOnItemLongClickListener, within(5000)).onItemLongClick(listView, v, 2,
                 listView.getItemIdAtPosition(2));
@@ -1148,7 +1152,7 @@ public class AbsListViewTest {
 
         // Emulate long-click on the middle item of the currently visible content
         final int positionForInitialSelection = (firstVisiblePosition + lastVisiblePosition) / 2;
-        CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mActivityRule,
+        mCtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mActivityRule,
                 mListView.getChildAt(positionForInitialSelection));
         // wait until our listener has been notified that the item has been checked
         verify(mMultiChoiceModeListener, within(1000)).onItemCheckedStateChanged(
@@ -1159,7 +1163,7 @@ public class AbsListViewTest {
 
         if (firstVisiblePosition != positionForInitialSelection) {
             // Tap the first element in our list
-            CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule,
+            mCtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule,
                     mListView.getChildAt(firstVisiblePosition));
             // wait until our listener has been notified that the item has been checked
             verify(mMultiChoiceModeListener, within(1000)).onItemCheckedStateChanged(
@@ -1170,11 +1174,11 @@ public class AbsListViewTest {
         }
 
         // Scroll down
-        CtsTouchUtils.emulateScrollToBottom(mInstrumentation, mActivityRule, mListView);
+        mCtsTouchUtils.emulateScrollToBottom(mInstrumentation, mActivityRule, mListView);
         final int lastListPosition = COUNTRY_LIST.length - 1;
         if (lastListPosition != positionForInitialSelection) {
             // Tap the last element in our list
-            CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule,
+            mCtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule,
                     mListView.getChildAt(mListView.getChildCount() - 1));
             // wait until our listener has been notified that the item has been checked
             verify(mMultiChoiceModeListener, within(1000)).onItemCheckedStateChanged(
@@ -1232,7 +1236,7 @@ public class AbsListViewTest {
 
         // Emulate a downwards gesture that should bring us all the way to the last element
         // of the list (when fast scroll is enabled)
-        CtsTouchUtils.emulateDragGesture(mInstrumentation, mActivityRule,
+        mCtsTouchUtils.emulateDragGesture(mInstrumentation, mActivityRule,
                 rightEdgeX - 1,              // X start of the drag
                 topEdgeY + 1,                // Y start of the drag
                 0,                           // X amount of the drag (vertical)
@@ -1242,7 +1246,7 @@ public class AbsListViewTest {
 
         // Emulate an upwards gesture that should bring us all the way to the first element
         // of the list (when fast scroll is enabled)
-        CtsTouchUtils.emulateDragGesture(mInstrumentation, mActivityRule,
+        mCtsTouchUtils.emulateDragGesture(mInstrumentation, mActivityRule,
                 rightEdgeX - 1,               // X start of the drag
                 bottomEdgeY - 1,              // Y start of the drag
                 0,                            // X amount of the drag (vertical)
@@ -1304,7 +1308,7 @@ public class AbsListViewTest {
         // KEYCODE_ENTER is handled by isConfirmKey, so it comsumed before sendToTextFilter called.
         // because of this, make keyevent with repeat count.
         KeyEvent event = new KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 1);
-        CtsKeyEventUtil.sendKey(mInstrumentation, listView, event);
+        mCtsKeyEventUtil.sendKey(mInstrumentation, listView, event);
         assertTrue(listView.isTextFilterEnabled());
 
         // we expect keyevent will be passed with nothing to do
@@ -1314,7 +1318,7 @@ public class AbsListViewTest {
         // KEYCODE_NUMPAD_ENTER is handled by isConfirmKey, too.
         // so make keyevent with repeat count.
         event = new KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_NUMPAD_ENTER, 1);
-        CtsKeyEventUtil.sendKey(mInstrumentation, listView, event);
+        mCtsKeyEventUtil.sendKey(mInstrumentation, listView, event);
         assertTrue(listView.isTextFilterEnabled());
 
         // we expect keyevent will be passed with nothing to do, like KEYCODE_ENTER

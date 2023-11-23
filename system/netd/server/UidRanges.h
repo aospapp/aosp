@@ -51,12 +51,10 @@ public:
 
     // check if 'mRanges' has uid overlap between elements.
     bool overlapsSelf() const;
-    // check if this object has uid overlap with the input object.
-    bool overlaps(const UidRanges& other) const;
+
     bool empty() const { return mRanges.empty(); }
 
   private:
-    // Keep it sorted. The overlaps() implements binary search, which requires a sorted data.
     std::vector<UidRangeParcel> mRanges;
 };
 

@@ -25,17 +25,21 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.BitmapShader;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.ColorSpace;
 import android.graphics.Paint;
 import android.graphics.Point;
 import android.graphics.Shader;
 import android.uirendering.cts.bitmapverifiers.SamplePointVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 
+import androidx.annotation.ColorLong;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.test.filters.MediumTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -138,6 +142,38 @@ public class ColorSpaceTests extends ActivityTestBase {
                 ));
     }
 
+    @Test
+    public void testHlgWhitePoint() {
+        final ColorSpace bt2020_hlg = ColorSpace.get(ColorSpace.Named.BT2020_HLG);
+        ColorSpace.Connector connector = ColorSpace.connect(ColorSpace.get(ColorSpace.Named.SRGB),
+                bt2020_hlg);
+        float[] connectorResult = connector.transform(1f, 1f, 1f);
+        Assert.assertEquals(.75f, connectorResult[0], 0.001f);
+        Assert.assertEquals(.75f, connectorResult[1], 0.001f);
+        Assert.assertEquals(.75f, connectorResult[2], 0.001f);
+
+        Color bitmapResult = transformViaBitmap(Color.pack(Color.WHITE), bt2020_hlg);
+        Assert.assertEquals(.75f, bitmapResult.red(), 0.001f);
+        Assert.assertEquals(.75f, bitmapResult.green(), 0.001f);
+        Assert.assertEquals(.75f, bitmapResult.blue(), 0.001f);
+    }
+
+    @Test
+    public void testPqWhitePoint() {
+        final ColorSpace bt2020_pq = ColorSpace.get(ColorSpace.Named.BT2020_PQ);
+        ColorSpace.Connector connector = ColorSpace.connect(ColorSpace.get(ColorSpace.Named.SRGB),
+                bt2020_pq);
+        float[] connectorResult = connector.transform(1f, 1f, 1f);
+        Assert.assertEquals(.58f, connectorResult[0], 0.001f);
+        Assert.assertEquals(.58f, connectorResult[1], 0.001f);
+        Assert.assertEquals(.58f, connectorResult[2], 0.001f);
+
+        Color bitmapResult = transformViaBitmap(Color.pack(Color.WHITE), bt2020_pq);
+        Assert.assertEquals(.58f, bitmapResult.red(), 0.001f);
+        Assert.assertEquals(.58f, bitmapResult.green(), 0.001f);
+        Assert.assertEquals(.58f, bitmapResult.blue(), 0.001f);
+    }
+
     private void drawAsset(@NonNull Canvas canvas, Bitmap bitmap) {
         // Render bitmap directly
         canvas.save();
@@ -188,5 +224,12 @@ public class ColorSpaceTests extends ActivityTestBase {
     @NonNull
     private static Point point(int x, int y) {
         return new Point(x, y);
+    }
+
+    private static Color transformViaBitmap(@ColorLong long source, ColorSpace dest) {
+        Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.RGBA_F16, false, dest);
+        Canvas canvas = new Canvas(bitmap);
+        canvas.drawColor(source);
+        return bitmap.getColor(0, 0);
     }
 }

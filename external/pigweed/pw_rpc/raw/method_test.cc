@@ -18,6 +18,7 @@
 
 #include "gtest/gtest.h"
 #include "pw_bytes/array.h"
+#include "pw_containers/algorithm.h"
 #include "pw_protobuf/decoder.h"
 #include "pw_protobuf/encoder.h"
 #include "pw_rpc/internal/config.h"
@@ -30,8 +31,8 @@
 namespace pw::rpc::internal {
 namespace {
 
-namespace TestRequest = ::pw::rpc::test::TestRequest;
-namespace TestResponse = ::pw::rpc::test::TestResponse;
+namespace TestRequest = ::pw::rpc::test::pwpb::TestRequest;
+namespace TestResponse = ::pw::rpc::test::pwpb::TestResponse;
 
 // Create a fake service for use with the MethodImplTester.
 class TestRawService final : public Service {
@@ -116,7 +117,7 @@ class FakeService : public FakeServiceBase<FakeService> {
     ConstByteSpan payload(test_response);
 
     ASSERT_EQ(OkStatus(),
-              responder.Finish(std::span(response).first(payload.size()),
+              responder.Finish(span(response).first(payload.size()),
                                Status::Unauthenticated()));
   }
 
@@ -141,15 +142,15 @@ class FakeService : public FakeServiceBase<FakeService> {
           static_cast<TestRequest::Fields>(decoder.FieldNumber());
 
       switch (field) {
-        case TestRequest::Fields::INTEGER:
+        case TestRequest::Fields::kInteger:
           ASSERT_EQ(OkStatus(), decoder.ReadInt64(&last_request.integer));
           break;
-        case TestRequest::Fields::STATUS_CODE:
+        case TestRequest::Fields::kStatusCode:
           ASSERT_EQ(OkStatus(), decoder.ReadUint32(&last_request.status_code));
           break;
       }
     }
-  };
+  }
 
   struct {
     int64_t integer;
@@ -203,7 +204,7 @@ TEST(RawMethod, AsyncUnaryRpc0_SendsResponse) {
   kAsyncUnary0.Invoke(context.get(), context.request({}));
 
   const Packet& packet = context.output().last_packet();
-  EXPECT_EQ(PacketType::RESPONSE, packet.type());
+  EXPECT_EQ(pwpb::PacketType::RESPONSE, packet.type());
   EXPECT_EQ(Status::Unknown(), packet.status());
   EXPECT_EQ(context.service_id(), packet.service_id());
   EXPECT_EQ(kAsyncUnary0.id(), packet.method_id());
@@ -238,11 +239,10 @@ TEST(RawMethod, ServerReader_HandlesRequests) {
 
   constexpr const char kRequestValue[] = "This is a request payload!!!";
   std::array<std::byte, 128> encoded_request = {};
-  auto encoded = context.client_stream(std::as_bytes(std::span(kRequestValue)))
+  auto encoded = context.client_stream(as_bytes(span(kRequestValue)))
                      .Encode(encoded_request);
   ASSERT_EQ(OkStatus(), encoded.status());
-  ASSERT_EQ(OkStatus(),
-            context.server().ProcessPacket(*encoded, context.output()));
+  ASSERT_EQ(OkStatus(), context.server().ProcessPacket(*encoded));
 
   EXPECT_STREQ(reinterpret_cast<const char*>(request.data()), kRequestValue);
 }
@@ -253,7 +253,7 @@ TEST(RawMethod, ServerReaderWriter_WritesResponses) {
   kBidirectionalStream.Invoke(context.get(), context.request({}));
 
   constexpr const char kRequestValue[] = "O_o";
-  const auto kRequestBytes = std::as_bytes(std::span(kRequestValue));
+  const auto kRequestBytes = as_bytes(span(kRequestValue));
   EXPECT_EQ(OkStatus(),
             context.service().last_reader_writer.Write(kRequestBytes));
 
@@ -262,10 +262,7 @@ TEST(RawMethod, ServerReaderWriter_WritesResponses) {
   ASSERT_EQ(OkStatus(), encoded.status());
 
   ConstByteSpan sent_payload = context.output().last_packet().payload();
-  EXPECT_TRUE(std::equal(kRequestBytes.begin(),
-                         kRequestBytes.end(),
-                         sent_payload.begin(),
-                         sent_payload.end()));
+  EXPECT_TRUE(pw::containers::Equal(kRequestBytes, sent_payload));
 }
 
 TEST(RawServerWriter, Write_SendsPayload) {
@@ -277,7 +274,7 @@ TEST(RawServerWriter, Write_SendsPayload) {
   EXPECT_EQ(context.service().last_writer.Write(data), OkStatus());
 
   const internal::Packet& packet = context.output().last_packet();
-  EXPECT_EQ(packet.type(), internal::PacketType::SERVER_STREAM);
+  EXPECT_EQ(packet.type(), pwpb::PacketType::SERVER_STREAM);
   EXPECT_EQ(packet.channel_id(), context.channel_id());
   EXPECT_EQ(packet.service_id(), context.service_id());
   EXPECT_EQ(packet.method_id(), context.get().method().id());
@@ -293,7 +290,7 @@ TEST(RawServerWriter, Write_EmptyBuffer) {
   ASSERT_EQ(context.service().last_writer.Write({}), OkStatus());
 
   const internal::Packet& packet = context.output().last_packet();
-  EXPECT_EQ(packet.type(), internal::PacketType::SERVER_STREAM);
+  EXPECT_EQ(packet.type(), pwpb::PacketType::SERVER_STREAM);
   EXPECT_EQ(packet.channel_id(), context.channel_id());
   EXPECT_EQ(packet.service_id(), context.service_id());
   EXPECT_EQ(packet.method_id(), context.get().method().id());
@@ -313,6 +310,12 @@ TEST(RawServerWriter, Write_Closed_ReturnsFailedPrecondition) {
 }
 
 TEST(RawServerWriter, Write_PayloadTooLargeForEncodingBuffer_ReturnsInternal) {
+  // The payload is never too large for the encoding buffer when dynamic
+  // allocation is enabled.
+#if PW_RPC_DYNAMIC_ALLOCATION
+  GTEST_SKIP();
+#endif  // !PW_RPC_DYNAMIC_ALLOCATION
+
   ServerContextForTest<FakeService> context(kServerStream);
   rpc_lock().lock();
   kServerStream.Invoke(context.get(), context.request({}));

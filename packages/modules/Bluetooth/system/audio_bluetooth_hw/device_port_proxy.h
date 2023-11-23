@@ -113,6 +113,8 @@ class BluetoothAudioPort {
 
   virtual bool IsA2dp() const { return false; }
 
+  virtual bool IsLeAudio() const { return false; }
+
   virtual bool GetPreferredDataIntervalUs(size_t* interval_us) const {
     return false;
   };
@@ -163,6 +165,20 @@ class BluetoothAudioPortAidl : public BluetoothAudioPort {
     return session_type_ == SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH ||
            session_type_ ==
                SessionType::A2DP_HARDWARE_OFFLOAD_ENCODING_DATAPATH;
+  }
+
+  bool IsLeAudio() const override {
+    return session_type_ == SessionType::LE_AUDIO_SOFTWARE_ENCODING_DATAPATH ||
+           session_type_ == SessionType::LE_AUDIO_SOFTWARE_DECODING_DATAPATH ||
+           session_type_ ==
+               SessionType::LE_AUDIO_HARDWARE_OFFLOAD_ENCODING_DATAPATH ||
+           session_type_ ==
+               SessionType::LE_AUDIO_HARDWARE_OFFLOAD_DECODING_DATAPATH ||
+           session_type_ ==
+               SessionType::LE_AUDIO_BROADCAST_SOFTWARE_ENCODING_DATAPATH ||
+           session_type_ ==
+               SessionType::
+                   LE_AUDIO_BROADCAST_HARDWARE_OFFLOAD_ENCODING_DATAPATH;
   }
 
   bool GetPreferredDataIntervalUs(size_t* interval_us) const override;

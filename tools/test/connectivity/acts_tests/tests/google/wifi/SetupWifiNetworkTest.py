@@ -16,7 +16,6 @@
 
 import logging
 import socket
-import sys
 
 from acts import base_test
 from acts.controllers.ap_lib import hostapd_ap_preset
@@ -86,8 +85,8 @@ class SetupWifiNetworkTest(base_test.BaseTestClass):
             "socket_port", "socket_timeout_secs"
         ]
         opt_params = []
-        self.unpack_userparams(
-            req_param_names=req_params, opt_param_names=opt_params)
+        self.unpack_userparams(req_param_names=req_params,
+                               opt_param_names=opt_params)
         # Setup the AP environment
         self.setup_ap()
         # AP enviroment created. Wait for client to teardown the environment
@@ -99,8 +98,8 @@ class SetupWifiNetworkTest(base_test.BaseTestClass):
             "socket_timeout_secs"
         ]
         opt_params = []
-        self.unpack_userparams(
-            req_param_names=req_params, opt_param_names=opt_params)
+        self.unpack_userparams(req_param_names=req_params,
+                               opt_param_names=opt_params)
         # Setup the AP environment
         self.setup_ap()
         # AP enviroment created. Wait for client to teardown the environment

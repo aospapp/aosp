@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -117,7 +117,7 @@ public class Support_Format extends TestCase {
 
         // called from support_messageformat tests
         public FieldContainer(int start, int end, Attribute attribute, int value) {
-            this(start, end, attribute, new Integer(value));
+            this(start, end, attribute, Integer.valueOf(value));
         }
 
         // called from support_messageformat tests

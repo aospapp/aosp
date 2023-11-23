@@ -1,0 +1,7 @@
+# Excluded dEQP test cases when testing ANGLE
+
+# http://b/261634197
+dEQP-GLES31.functional.synchronization.in_invocation.ssbo_alias_overwrite
+
+# http://b/273271471
+dEQP-GLES2.functional.shaders.algorithm.rgb_to_hsl_vertex

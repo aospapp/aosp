@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cstdlib>
 
+#include "common/PackedEnums.h"
 #include "common/platform.h"
 #include "gpu_info_util/SystemInfo.h"
 #include "test_utils/runner/TestSuite.h"
@@ -172,8 +173,16 @@ bool ShouldAlwaysForceNewDisplay()
     return (!systemInfo || !IsWindows() || systemInfo->hasAMDGPU());
 }
 
-GPUTestConfig::API GetTestConfigAPIFromRenderer(EGLenum renderer, EGLenum deviceType)
+GPUTestConfig::API GetTestConfigAPIFromRenderer(angle::GLESDriverType driverType,
+                                                EGLenum renderer,
+                                                EGLenum deviceType)
 {
+    if (driverType != angle::GLESDriverType::AngleEGL &&
+        driverType != angle::GLESDriverType::AngleVulkanSecondariesEGL)
+    {
+        return GPUTestConfig::kAPIUnknown;
+    }
+
     switch (renderer)
     {
         case EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE:
@@ -196,7 +205,7 @@ GPUTestConfig::API GetTestConfigAPIFromRenderer(EGLenum renderer, EGLenum device
         case EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE:
             return GPUTestConfig::kAPIMetal;
         default:
-            std::cerr << "Unknown Renderer enum: 0x%X\n" << renderer;
+            std::cerr << "Unknown Renderer enum: 0x" << std::hex << renderer << "\n";
             return GPUTestConfig::kAPIUnknown;
     }
 }
@@ -324,11 +333,6 @@ std::ostream &operator<<(std::ostream &ostream, const GLColorRGB &color)
     return ostream;
 }
 
-bool operator==(const GLColor32F &a, const GLColor32F &b)
-{
-    return a.R == b.R && a.G == b.G && a.B == b.B && a.A == b.A;
-}
-
 std::ostream &operator<<(std::ostream &ostream, const GLColor32F &color)
 {
     ostream << "(" << color.R << ", " << color.G << ", " << color.B << ", " << color.A << ")";
@@ -348,12 +352,22 @@ void LoadEntryPointsWithUtilLoader(angle::GLESDriverType driverType)
 #if defined(ANGLE_USE_UTIL_LOADER)
     PFNEGLGETPROCADDRESSPROC getProcAddress;
     ANGLETestEnvironment::GetDriverLibrary(driverType)->getAs("eglGetProcAddress", &getProcAddress);
-    ASSERT_NE(nullptr, getProcAddress);
+    ASSERT(nullptr != getProcAddress);
 
-    LoadEGL(getProcAddress);
-    LoadGLES(getProcAddress);
+    LoadUtilEGL(getProcAddress);
+    LoadUtilGLES(getProcAddress);
 #endif  // defined(ANGLE_USE_UTIL_LOADER)
 }
+
+bool IsFormatEmulated(GLenum target)
+{
+    GLint readFormat;
+    glGetTexParameteriv(target, GL_IMPLEMENTATION_COLOR_READ_FORMAT, &readFormat);
+
+    // This helper only works for compressed formats
+    return gl::IsEmulatedCompressedFormat(readFormat);
+}
+
 }  // namespace angle
 
 using namespace angle;
@@ -510,9 +524,13 @@ void ANGLETestBase::initOSWindow()
         mFixture->osWindow = mOSWindowSingleton;
     }
 
-    if (!mFixture->osWindow)
+    if (mFixture->osWindow == nullptr)
     {
         mFixture->osWindow = OSWindow::New();
+        if (mFixture->osWindow == nullptr)
+        {
+            FATAL() << "Failed to create a new window";
+        }
         mFixture->osWindow->disableErrorMessageDialog();
         if (!mFixture->osWindow->initialize(windowName.c_str(), 128, 128))
         {
@@ -537,10 +555,13 @@ void ANGLETestBase::initOSWindow()
     switch (mCurrentParams->driver)
     {
         case GLESDriverType::AngleEGL:
+        case GLESDriverType::AngleVulkanSecondariesEGL:
         case GLESDriverType::SystemEGL:
+        case GLESDriverType::ZinkEGL:
         {
             mFixture->eglWindow =
-                EGLWindow::New(mCurrentParams->majorVersion, mCurrentParams->minorVersion);
+                EGLWindow::New(mCurrentParams->clientType, mCurrentParams->majorVersion,
+                               mCurrentParams->minorVersion, mCurrentParams->profileMask);
             break;
         }
 
@@ -606,9 +627,9 @@ void ANGLETestBase::ANGLETestSetUp()
 
     // Check the skip list.
 
-    angle::GPUTestConfig::API api = GetTestConfigAPIFromRenderer(mCurrentParams->getRenderer(),
-                                                                 mCurrentParams->getDeviceType());
-    GPUTestConfig testConfig      = GPUTestConfig(api, 0);
+    angle::GPUTestConfig::API api = GetTestConfigAPIFromRenderer(
+        mCurrentParams->driver, mCurrentParams->getRenderer(), mCurrentParams->getDeviceType());
+    GPUTestConfig testConfig = GPUTestConfig(api, 0);
 
     std::stringstream fullTestNameStr;
     fullTestNameStr << testInfo->test_case_name() << "." << testInfo->name();
@@ -659,8 +680,8 @@ void ANGLETestBase::ANGLETestSetUp()
     int osWindowWidth  = mFixture->osWindow->getWidth();
     int osWindowHeight = mFixture->osWindow->getHeight();
 
-    const bool isRotated = mCurrentParams->isEnabled(Feature::EmulatedPrerotation90) ||
-                           mCurrentParams->isEnabled(Feature::EmulatedPrerotation270);
+    const bool isRotated = mCurrentParams->isEnableRequested(Feature::EmulatedPrerotation90) ||
+                           mCurrentParams->isEnableRequested(Feature::EmulatedPrerotation270);
     if (isRotated)
     {
         std::swap(osWindowWidth, osWindowHeight);
@@ -705,10 +726,28 @@ void ANGLETestBase::ANGLETestSetUp()
             FAIL() << "Internal parameter conflict error.";
         }
 
-        if (mFixture->eglWindow->initializeSurface(
-                mFixture->osWindow, driverLib, mFixture->configParams) != GLWindowResult::NoError)
+        const GLWindowResult windowResult = mFixture->eglWindow->initializeSurface(
+            mFixture->osWindow, driverLib, mFixture->configParams);
+
+        if (windowResult != GLWindowResult::NoError)
         {
-            FAIL() << "egl surface init failed.";
+            if (windowResult != GLWindowResult::Error)
+            {
+                // If the test requests an extension that isn't supported, automatically skip the
+                // test.
+                GTEST_SKIP() << "Test skipped due to missing extension";
+            }
+            else if (mFixture->configParams.multisample)
+            {
+                // If the test requests a multisampled window that isn't supported, automatically
+                // skip the test.
+                GTEST_SKIP() << "Test skipped due to no multisampled configs available";
+            }
+            else
+            {
+                // Otherwise fail the test.
+                FAIL() << "egl surface init failed.";
+            }
         }
 
         if (!mDeferContextInit && !mFixture->eglWindow->initializeContext())
@@ -787,7 +826,6 @@ void ANGLETestBase::ANGLETestTearDown()
         mFixture->eglWindow->destroySurface();
     }
 
-    // Check for quit message
     Event myEvent;
     while (mFixture->osWindow->popEvent(&myEvent))
     {
@@ -802,11 +840,31 @@ void ANGLETestBase::ReleaseFixtures()
 {
     for (auto it = gFixtures.begin(); it != gFixtures.end(); it++)
     {
-        if (it->second.eglWindow)
+        TestFixture &fixture = it->second;
+        if (fixture.eglWindow != nullptr)
         {
-            it->second.eglWindow->destroyGL();
+            fixture.eglWindow->destroyGL();
+            EGLWindow::Delete(&fixture.eglWindow);
+        }
+
+        if (IsAndroid())
+        {
+            if (mOSWindowSingleton != nullptr)
+            {
+                OSWindow::Delete(&mOSWindowSingleton);
+            }
+            fixture.osWindow = nullptr;
+        }
+        else
+        {
+            if (fixture.osWindow != nullptr)
+            {
+                OSWindow::Delete(&fixture.osWindow);
+            }
         }
     }
+
+    gFixtures.clear();
 }
 
 void ANGLETestBase::swapBuffers()
@@ -1395,6 +1453,11 @@ void ANGLETestBase::setRobustResourceInit(bool enabled)
     mFixture->configParams.robustResourceInit = enabled;
 }
 
+void ANGLETestBase::setMutableRenderBuffer(bool enabled)
+{
+    mFixture->configParams.mutableRenderBuffer = enabled;
+}
+
 void ANGLETestBase::setContextProgramCacheEnabled(bool enabled)
 {
     mFixture->configParams.contextProgramCacheEnabled = enabled;
@@ -1466,15 +1529,6 @@ void ANGLETestBase::ignoreD3D11SDKLayersWarnings()
     mIgnoreD3D11SDKLayersWarnings = true;
 }
 
-void ANGLETestBase::treatPlatformWarningsAsErrors()
-{
-#if defined(ANGLE_PLATFORM_WINDOWS)
-    // Only do warnings-as-errors on 8 and above. We may fall back to the old
-    // compiler DLL on Windows 7.
-    gPlatformContext.warningsAsErrors = IsWindows8OrGreater();
-#endif  // defined(ANGLE_PLATFORM_WINDOWS)
-}
-
 ANGLETestBase::ScopedIgnorePlatformMessages::ScopedIgnorePlatformMessages()
 {
     gPlatformContext.ignoreMessages = true;
@@ -1491,6 +1545,8 @@ Optional<EGLint> ANGLETestBase::mLastRendererType;
 Optional<angle::GLESDriverType> ANGLETestBase::mLastLoadedDriver;
 
 std::unique_ptr<Library> ANGLETestEnvironment::gAngleEGLLibrary;
+std::unique_ptr<Library> ANGLETestEnvironment::gAngleVulkanSecondariesEGLLibrary;
+std::unique_ptr<Library> ANGLETestEnvironment::gMesaEGLLibrary;
 std::unique_ptr<Library> ANGLETestEnvironment::gSystemEGLLibrary;
 std::unique_ptr<Library> ANGLETestEnvironment::gSystemWGLLibrary;
 
@@ -1508,10 +1564,14 @@ Library *ANGLETestEnvironment::GetDriverLibrary(angle::GLESDriverType driver)
     {
         case angle::GLESDriverType::AngleEGL:
             return GetAngleEGLLibrary();
+        case angle::GLESDriverType::AngleVulkanSecondariesEGL:
+            return GetAngleVulkanSecondariesEGLLibrary();
         case angle::GLESDriverType::SystemEGL:
             return GetSystemEGLLibrary();
         case angle::GLESDriverType::SystemWGL:
             return GetSystemWGLLibrary();
+        case angle::GLESDriverType::ZinkEGL:
+            return GetMesaEGLLibrary();
         default:
             return nullptr;
     }
@@ -1527,6 +1587,32 @@ Library *ANGLETestEnvironment::GetAngleEGLLibrary()
     }
 #endif  // defined(ANGLE_USE_UTIL_LOADER)
     return gAngleEGLLibrary.get();
+}
+
+// static
+Library *ANGLETestEnvironment::GetAngleVulkanSecondariesEGLLibrary()
+{
+#if defined(ANGLE_USE_UTIL_LOADER)
+    if (!gAngleVulkanSecondariesEGLLibrary)
+    {
+        gAngleVulkanSecondariesEGLLibrary.reset(
+            OpenSharedLibrary(ANGLE_VULKAN_SECONDARIES_EGL_LIBRARY_NAME, SearchType::ModuleDir));
+    }
+#endif  // defined(ANGLE_USE_UTIL_LOADER)
+    return gAngleVulkanSecondariesEGLLibrary.get();
+}
+
+// static
+Library *ANGLETestEnvironment::GetMesaEGLLibrary()
+{
+#if defined(ANGLE_USE_UTIL_LOADER)
+    if (!gMesaEGLLibrary)
+    {
+        gMesaEGLLibrary.reset(
+            OpenSharedLibrary(ANGLE_MESA_EGL_LIBRARY_NAME, SearchType::ModuleDir));
+    }
+#endif  // defined(ANGLE_USE_UTIL_LOADER)
+    return gMesaEGLLibrary.get();
 }
 
 // static

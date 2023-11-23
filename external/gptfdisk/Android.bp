@@ -33,6 +33,7 @@ cc_defaults {
     name: "gptfdisk_default_flags",
     cflags: [
         "-Wno-unused-parameter",
+        "-Wno-macro-redefined",
         "-Wno-pragma-pack",
         "-Werror",
         "-fPIC",

@@ -43,7 +43,7 @@ class WifiWpa2PersonalTest(WifiBaseTest):
     super().setup_class()
     self.dut = self.android_devices[0]
     req_params = ["roaming_attn"]
-    opt_params = ["pixel_models", "cnss_diag_file"]
+    opt_params = []
     self.unpack_userparams(req_params, opt_params)
 
   def setup_test(self):

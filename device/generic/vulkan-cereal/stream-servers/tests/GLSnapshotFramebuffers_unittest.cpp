@@ -19,7 +19,9 @@
 
 #include <map>
 
-namespace emugl {
+namespace gfxstream {
+namespace gl {
+namespace {
 
 struct GlFramebufferAttachment {
     GLenum type;
@@ -154,4 +156,6 @@ TEST_F(SnapshotGlFramebufferObjectTest, BindColor0Texture2D) {
     doCheckedSnapshot();
 }
 
-}  // namespace emugl
+}  // namespace
+}  // namespace gl
+}  // namespace gfxstream

@@ -26,8 +26,9 @@ import android.autofillservice.cts.testcore.CannedFillResponse;
 import android.autofillservice.cts.testcore.CannedFillResponse.CannedDataset;
 import android.autofillservice.cts.testcore.MyDrawable;
 import android.graphics.Rect;
-import android.support.test.uiautomator.UiObject2;
 import android.view.View;
+
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.After;
 import org.junit.Before;

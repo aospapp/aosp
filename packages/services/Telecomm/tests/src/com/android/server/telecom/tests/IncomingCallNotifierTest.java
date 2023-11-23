@@ -17,9 +17,12 @@
 package com.android.server.telecom.tests;
 
 import android.app.NotificationManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.os.Build;
+import android.os.UserHandle;
+import android.telecom.PhoneAccountHandle;
 import android.telecom.VideoProfile;
 import android.test.suitebuilder.annotation.SmallTest;
 
@@ -72,6 +75,8 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
 
         when(mAudioCall.getVideoState()).thenReturn(VideoProfile.STATE_AUDIO_ONLY);
         when(mAudioCall.getTargetPhoneAccountLabel()).thenReturn("Bar");
+        when(mAudioCall.getAssociatedUser()).
+                thenReturn(UserHandle.CURRENT);
         when(mVideoCall.getVideoState()).thenReturn(VideoProfile.STATE_BIDIRECTIONAL);
         when(mVideoCall.getTargetPhoneAccountLabel()).thenReturn("Bar");
         when(mRingingCall.isSelfManaged()).thenReturn(true);
@@ -79,6 +84,8 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
         when(mRingingCall.getState()).thenReturn(CallState.RINGING);
         when(mRingingCall.getVideoState()).thenReturn(VideoProfile.STATE_AUDIO_ONLY);
         when(mRingingCall.getTargetPhoneAccountLabel()).thenReturn("Foo");
+        when(mRingingCall.getAssociatedUser()).
+                thenReturn(UserHandle.CURRENT);
         when(mRingingCall.getHandoverState()).thenReturn(HandoverState.HANDOVER_NONE);
     }
 
@@ -95,8 +102,10 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
     @Test
     public void testSingleCall() {
         mIncomingCallNotifier.onCallAdded(mAudioCall);
-        verify(mNotificationManager, never()).notify(eq(IncomingCallNotifier.NOTIFICATION_TAG),
-                eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL), any());
+        verify(mNotificationManager, never()).notifyAsUser(
+                eq(IncomingCallNotifier.NOTIFICATION_TAG),
+                eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL), any(),
+                eq(UserHandle.CURRENT));
     }
 
     /**
@@ -107,8 +116,10 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
     public void testIncomingDuringOngoingCall() {
         when(mCallsManagerProxy.hasUnholdableCallsForOtherConnectionService(any())).thenReturn(false);
         mIncomingCallNotifier.onCallAdded(mRingingCall);
-        verify(mNotificationManager, never()).notify(eq(IncomingCallNotifier.NOTIFICATION_TAG),
-                eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL), any());
+        verify(mNotificationManager, never()).notifyAsUser(
+                eq(IncomingCallNotifier.NOTIFICATION_TAG),
+                eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL), any(),
+                eq(UserHandle.CURRENT));
     }
 
     /**
@@ -123,8 +134,10 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
 
         mIncomingCallNotifier.onCallAdded(mAudioCall);
         mIncomingCallNotifier.onCallAdded(mRingingCall);
-        verify(mNotificationManager, never()).notify(eq(IncomingCallNotifier.NOTIFICATION_TAG),
-                eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL), any());;
+        verify(mNotificationManager, never()).notifyAsUser(
+                eq(IncomingCallNotifier.NOTIFICATION_TAG),
+                eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL), any(),
+                eq(UserHandle.CURRENT));
     }
 
     /**
@@ -139,11 +152,13 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
 
         mIncomingCallNotifier.onCallAdded(mAudioCall);
         mIncomingCallNotifier.onCallAdded(mRingingCall);
-        verify(mNotificationManager).notify(eq(IncomingCallNotifier.NOTIFICATION_TAG),
-                eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL), any());
+        verify(mNotificationManager).notifyAsUser(
+                eq(IncomingCallNotifier.NOTIFICATION_TAG),
+                eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL), any(),
+                eq(UserHandle.CURRENT));
         mIncomingCallNotifier.onCallRemoved(mRingingCall);
-        verify(mNotificationManager).cancel(eq(IncomingCallNotifier.NOTIFICATION_TAG),
-                eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL));
+        verify(mNotificationManager).cancelAsUser(eq(IncomingCallNotifier.NOTIFICATION_TAG),
+                eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL), eq(UserHandle.CURRENT));
     }
 
     /**
@@ -161,8 +176,10 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
         mIncomingCallNotifier.onCallAdded(mRingingCall);
 
         // Incoming call is in the middle of a handover, don't expect to be notified.
-        verify(mNotificationManager, never()).notify(eq(IncomingCallNotifier.NOTIFICATION_TAG),
-                eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL), any());;
+        verify(mNotificationManager, never()).notifyAsUser(
+                eq(IncomingCallNotifier.NOTIFICATION_TAG),
+                eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL), any(),
+                eq(UserHandle.CURRENT));
     }
 
     /**
@@ -180,7 +197,9 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
         mIncomingCallNotifier.onCallAdded(mRingingCall);
 
         // Incoming call is done a handover, don't expect to be notified.
-        verify(mNotificationManager, never()).notify(eq(IncomingCallNotifier.NOTIFICATION_TAG),
-                eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL), any());;
+        verify(mNotificationManager, never()).notifyAsUser(
+                eq(IncomingCallNotifier.NOTIFICATION_TAG),
+                eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL), any(),
+                eq(UserHandle.CURRENT));
     }
 }

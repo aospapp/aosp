@@ -16,6 +16,7 @@
 
 #include "annotator/number/number_test-include.h"
 
+#include <set>
 #include <string>
 #include <vector>
 
@@ -34,37 +35,57 @@ namespace test_internal {
 using ::testing::AllOf;
 using ::testing::ElementsAre;
 using ::testing::Field;
+using ::testing::IsEmpty;
 using ::testing::Matcher;
 using ::testing::UnorderedElementsAre;
 
+namespace {
+const flatbuffers::DetachedBuffer* CreateOptionsData(ModeFlag enabled_modes) {
+  NumberAnnotatorOptionsT options;
+  options.enabled = true;
+  options.priority_score = -10.0;
+  options.float_number_priority_score = 1.0;
+  options.enabled_annotation_usecases =
+      1 << AnnotationUsecase_ANNOTATION_USECASE_RAW;
+  options.max_number_of_digits = 20;
+  options.enabled_modes = enabled_modes;
+
+  options.percentage_priority_score = 1.0;
+  options.percentage_annotation_usecases =
+      (1 << AnnotationUsecase_ANNOTATION_USECASE_RAW) +
+      (1 << AnnotationUsecase_ANNOTATION_USECASE_SMART);
+  std::set<std::string> percent_suffixes(
+      {"パーセント", "percent", "pércént", "pc", "pct", "%", "٪", "﹪", "％"});
+  for (const std::string& string_value : percent_suffixes) {
+    options.percentage_pieces_string.append(string_value);
+    options.percentage_pieces_string.push_back('\0');
+  }
+
+  flatbuffers::FlatBufferBuilder builder;
+  builder.Finish(NumberAnnotatorOptions::Pack(builder, &options));
+  return new flatbuffers::DetachedBuffer(builder.Release());
+}
+}  // namespace
+
 const NumberAnnotatorOptions*
-NumberAnnotatorTest::TestingNumberAnnotatorOptions() {
-  static const flatbuffers::DetachedBuffer* options_data = []() {
-    NumberAnnotatorOptionsT options;
-    options.enabled = true;
-    options.priority_score = -10.0;
-    options.float_number_priority_score = 1.0;
-    options.enabled_annotation_usecases =
-        1 << AnnotationUsecase_ANNOTATION_USECASE_RAW;
-    options.max_number_of_digits = 20;
+NumberAnnotatorTest::TestingNumberAnnotatorOptions(ModeFlag enabled_modes) {
+  static const flatbuffers::DetachedBuffer* options_data_selection =
+      CreateOptionsData(ModeFlag_SELECTION);
+  static const flatbuffers::DetachedBuffer* options_data_no_selection =
+      CreateOptionsData(ModeFlag_ANNOTATION_AND_CLASSIFICATION);
+  static const flatbuffers::DetachedBuffer* options_data_all =
+      CreateOptionsData(ModeFlag_ALL);
 
-    options.percentage_priority_score = 1.0;
-    options.percentage_annotation_usecases =
-        (1 << AnnotationUsecase_ANNOTATION_USECASE_RAW) +
-        (1 << AnnotationUsecase_ANNOTATION_USECASE_SMART);
-    std::set<std::string> percent_suffixes({"パーセント", "percent", "pércént",
-                                            "pc", "pct", "%", "٪", "﹪", "％"});
-    for (const std::string& string_value : percent_suffixes) {
-      options.percentage_pieces_string.append(string_value);
-      options.percentage_pieces_string.push_back('\0');
-    }
-
-    flatbuffers::FlatBufferBuilder builder;
-    builder.Finish(NumberAnnotatorOptions::Pack(builder, &options));
-    return new flatbuffers::DetachedBuffer(builder.Release());
-  }();
-
-  return flatbuffers::GetRoot<NumberAnnotatorOptions>(options_data->data());
+  if (enabled_modes == ModeFlag_SELECTION) {
+    return flatbuffers::GetRoot<NumberAnnotatorOptions>(
+        options_data_selection->data());
+  } else if (enabled_modes == ModeFlag_ANNOTATION_AND_CLASSIFICATION) {
+    return flatbuffers::GetRoot<NumberAnnotatorOptions>(
+        options_data_no_selection->data());
+  } else {
+    return flatbuffers::GetRoot<NumberAnnotatorOptions>(
+        options_data_all->data());
+  }
 }
 
 MATCHER_P(IsCorrectCollection, collection, "collection is " + collection) {
@@ -124,6 +145,14 @@ TEST_F(NumberAnnotatorTest, ClassifiesAndParsesNumberCorrectly) {
   EXPECT_FLOAT_EQ(classification_result.numeric_double_value, 12345);
 }
 
+TEST_F(NumberAnnotatorForSelectionTest,
+       ClassifyTextDisabledClassificationReturnsFalse) {
+  ClassificationResult classification_result;
+  EXPECT_FALSE(number_annotator_.ClassifyText(
+      UTF8ToUnicodeText("... 12345 ..."), {4, 9},
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, &classification_result));
+}
+
 TEST_F(NumberAnnotatorTest, ClassifiesAndParsesNumberAsFloatCorrectly) {
   ClassificationResult classification_result;
   EXPECT_TRUE(number_annotator_.ClassifyText(
@@ -167,7 +196,7 @@ TEST_F(NumberAnnotatorTest, FindsAllIntegerAndFloatNumbersInText) {
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("how much is 2 plus 5 divided by 7% minus 3.14 "
                         "what about 68.9# or 68.9#?"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(result,
               UnorderedElementsAre(
@@ -268,7 +297,8 @@ TEST_F(NumberAnnotatorTest, ClassifiesNonAsciiJaPercentageCorrectSuffix) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("明日の降水確率は10パーセント  音量を12にセット"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_CLASSIFICATION,
+      &result));
   EXPECT_THAT(result,
               UnorderedElementsAre(
                   IsAnnotatedSpan(CodepointSpan(8, 10), "number",
@@ -285,7 +315,7 @@ TEST_F(NumberAnnotatorTest, FindsAllNumbersInText) {
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("... 12345 ... 9 is my number and 27% or 68# #38 ＃39 "
                         "but not $99."),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(
       result,
@@ -307,12 +337,23 @@ TEST_F(NumberAnnotatorTest, FindsAllNumbersInText) {
                           /*int_value=*/39, /*double_value=*/39.0)));
 }
 
+TEST_F(NumberAnnotatorForAnnotationAndClassificationTest,
+       FindsAllDisabledModeReturnsNoResults) {
+  std::vector<AnnotatedSpan> result;
+  EXPECT_TRUE(number_annotator_.FindAll(
+      UTF8ToUnicodeText("... 12345 ... 9 is my number and 27% or 68# #38 ＃39 "
+                        "but not $99."),
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_SELECTION, &result));
+
+  EXPECT_THAT(result, IsEmpty());
+}
+
 TEST_F(NumberAnnotatorTest, FindsNoNumberInText) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("... 12345a ... 12345..12345 and 123a45 are not valid. "
                         "And -#5% is also bad."),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_SELECTION, &result));
   ASSERT_EQ(result.size(), 0);
 }
 
@@ -323,7 +364,8 @@ TEST_F(NumberAnnotatorTest, FindsNumberWithPunctuation) {
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText(
           "It's 12, 13, 14! Or 15??? For sure 16: 17; 18. and －19"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_CLASSIFICATION,
+      &result));
 
   EXPECT_THAT(result,
               UnorderedElementsAre(
@@ -348,7 +390,7 @@ TEST_F(NumberAnnotatorTest, FindsFloatNumberWithPunctuation) {
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("It's 12.123, 13.45, 14.54321! Or 15.1? Maybe 16.33: "
                         "17.21; but for sure 18.90."),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(result,
               UnorderedElementsAre(
@@ -379,7 +421,7 @@ TEST_F(NumberAnnotatorTest, HandlesNumbersAtBeginning) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("-5"), AnnotationUsecase_ANNOTATION_USECASE_RAW,
-      &result));
+      ModeFlag_SELECTION, &result));
 
   EXPECT_THAT(result, UnorderedElementsAre(IsAnnotatedSpan(
                           CodepointSpan(0, 2), "number",
@@ -390,7 +432,7 @@ TEST_F(NumberAnnotatorTest, HandlesNegativeNumbers) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("Number -5 and -5% and not number --5%"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(result,
               UnorderedElementsAre(
@@ -408,7 +450,7 @@ TEST_F(NumberAnnotatorTest, FindGoodPercentageContexts) {
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText(
           "5 percent, 10 pct, 25 pc and 17%, -5 percent, 10％ are percentages"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_SELECTION, &result));
 
   EXPECT_THAT(result,
               UnorderedElementsAre(
@@ -448,7 +490,7 @@ TEST_F(NumberAnnotatorTest, FindSinglePercentageInContext) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("5%"), AnnotationUsecase_ANNOTATION_USECASE_RAW,
-      &result));
+      ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(result, UnorderedElementsAre(
                           IsAnnotatedSpan(CodepointSpan(0, 1), "number",
@@ -463,7 +505,7 @@ TEST_F(NumberAnnotatorTest, IgnoreBadPercentageContexts) {
   // A valid number is followed by only one punctuation element.
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("10, pct, 25 prc, 5#: percentage are not percentages"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(result,
               UnorderedElementsAre(
@@ -478,7 +520,7 @@ TEST_F(NumberAnnotatorTest, IgnoreBadPercentagePunctuationContexts) {
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText(
           "#!24% or :?33 percent are not valid percentages, nor numbers."),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_TRUE(result.empty());
 }
@@ -488,7 +530,7 @@ TEST_F(NumberAnnotatorTest, FindPercentageInNonAsciiContext) {
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText(
           "At the café 10% or 25 percent of people are nice. Only 10%!"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(result,
               UnorderedElementsAre(
@@ -748,7 +790,7 @@ TEST_F(NumberAnnotatorTest, WhenSuffixWithoutNumberDoesNotParseIt) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("... % ..."), AnnotationUsecase_ANNOTATION_USECASE_RAW,
-      &result));
+      ModeFlag_ANNOTATION, &result));
 
   ASSERT_EQ(result.size(), 0);
 }
@@ -757,7 +799,7 @@ TEST_F(NumberAnnotatorTest, WhenPrefixWithoutNumberDoesNotParseIt) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("... $ ..."), AnnotationUsecase_ANNOTATION_USECASE_RAW,
-      &result));
+      ModeFlag_ANNOTATION, &result));
 
   ASSERT_EQ(result.size(), 0);
 }
@@ -766,7 +808,7 @@ TEST_F(NumberAnnotatorTest, WhenPrefixAndSuffixWithoutNumberDoesNotParseIt) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("... $% ..."), AnnotationUsecase_ANNOTATION_USECASE_RAW,
-      &result));
+      ModeFlag_ANNOTATION, &result));
 
   ASSERT_EQ(result.size(), 0);
 }
@@ -786,7 +828,7 @@ TEST_F(NumberAnnotatorTest, ForNumberAnnotationsSetsScoreAndPriorityScore) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("Come at 9 or 10 ok?"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(result,
               UnorderedElementsAre(
@@ -811,7 +853,7 @@ TEST_F(NumberAnnotatorTest,
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("Results are between 12.5 and 13.5, right?"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
   EXPECT_THAT(result,
               UnorderedElementsAre(
                   IsAnnotatedSpan(CodepointSpan(20, 24), "number",
@@ -845,7 +887,7 @@ TEST_F(NumberAnnotatorTest, ForPercentageAnnotationsSetsScoreAndPriorityScore) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("Results are between 9% and 10 percent."),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
   EXPECT_THAT(result,
               UnorderedElementsAre(
                   IsAnnotatedSpan(CodepointSpan(20, 21), "number",
@@ -887,7 +929,8 @@ TEST_F(NumberAnnotatorTest, NumberDisabledPercentageEnabledForSmartUsecase) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("Accuracy for experiment 3 is 9%."),
-      AnnotationUsecase_ANNOTATION_USECASE_SMART, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_SMART, ModeFlag_ANNOTATION,
+      &result));
   EXPECT_THAT(result, UnorderedElementsAre(
                           IsAnnotatedSpan(CodepointSpan(29, 31), "percentage",
                                           /*int_value=*/9, /*double_value=*/9.0,
@@ -898,7 +941,7 @@ TEST_F(NumberAnnotatorTest, MathOperatorsNotAnnotatedAsNumbersFindAll) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("how much is 2 + 2 or 5 - 96 * 89"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(result,
               UnorderedElementsAre(
@@ -928,7 +971,7 @@ TEST_F(NumberAnnotatorTest, SlashSeparatesTwoNumbersFindAll) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("what's 1 + 2/3 * 4／5 * 6 / 7"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(result,
               UnorderedElementsAre(
@@ -972,7 +1015,7 @@ TEST_F(NumberAnnotatorTest, SlashDoesNotSeparatesTwoNumbersFindAll) {
   // 2 in the "2/" context is a number because / is punctuation
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("what's 2a2/3 or 2/s4 or 2/ or /3 or //3 or 2//"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(result, UnorderedElementsAre(IsAnnotatedSpan(
                           CodepointSpan(24, 25), "number",
@@ -983,7 +1026,7 @@ TEST_F(NumberAnnotatorTest, BracketsContextAnnotatedFindAll) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("The interval is: (12, 13) or [-12, -4.5)"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(result,
               UnorderedElementsAre(
@@ -1002,7 +1045,7 @@ TEST_F(NumberAnnotatorTest, BracketsContextNotAnnotatedFindAll) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("The interval is: -(12, 138*)"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_TRUE(result.empty());
 }
@@ -1012,7 +1055,7 @@ TEST_F(NumberAnnotatorTest, FractionalNumberDotsFindAll) {
   // Dots source: https://unicode-search.net/unicode-namesearch.pl?term=period
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("3.1 3﹒2 3．3"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(result, UnorderedElementsAre(
                           IsAnnotatedSpan(CodepointSpan(0, 3), "number",
@@ -1032,7 +1075,7 @@ TEST_F(NumberAnnotatorTest, NonAsciiDigitsFindAll) {
   // Digits source: https://unicode-search.net/unicode-namesearch.pl?term=digit
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("３ ３﹒２ ３．３%"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(result, UnorderedElementsAre(
                           IsAnnotatedSpan(CodepointSpan(0, 1), "number",
@@ -1052,7 +1095,7 @@ TEST_F(NumberAnnotatorTest, AnnotatedZeroPrecededNumbersFindAll) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("Numbers: 0.9 or 09 or 09.9 or 032310"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(result, UnorderedElementsAre(
                           IsAnnotatedSpan(CodepointSpan(9, 12), "number",
@@ -1072,7 +1115,7 @@ TEST_F(NumberAnnotatorTest, ZeroAfterDotFindAll) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("15.0 16.00"), AnnotationUsecase_ANNOTATION_USECASE_RAW,
-      &result));
+      ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(result,
               UnorderedElementsAre(
@@ -1086,7 +1129,7 @@ TEST_F(NumberAnnotatorTest, NineDotNineFindAll) {
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(number_annotator_.FindAll(
       UTF8ToUnicodeText("9.9 9.99 99.99 99.999 99.9999"),
-      AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+      AnnotationUsecase_ANNOTATION_USECASE_RAW, ModeFlag_ANNOTATION, &result));
 
   EXPECT_THAT(result,
               UnorderedElementsAre(

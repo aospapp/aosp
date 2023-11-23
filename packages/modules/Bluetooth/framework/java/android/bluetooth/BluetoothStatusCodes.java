@@ -25,7 +25,6 @@ import android.annotation.SystemApi;
  * occupies the max integer value.
  */
 public final class BluetoothStatusCodes {
-
     private BluetoothStatusCodes() {}
 
     /**
@@ -214,6 +213,27 @@ public final class BluetoothStatusCodes {
      */
     @SystemApi
     public static final int ERROR_REMOTE_OPERATION_NOT_SUPPORTED = 27;
+
+    /**
+     * Indicates that the callback is not registered and therefore, this operation is not allowed.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final int ERROR_CALLBACK_NOT_REGISTERED = 28;
+
+    /**
+     * Indicates that there is another active request and therefore, this operation is not allowed.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final int ERROR_ANOTHER_ACTIVE_REQUEST = 29;
+
+    /**
+     * Indicates that the feature status is not configured yet.
+     */
+    public static final int FEATURE_NOT_CONFIGURED = 30;
 
     /**
      * A GATT writeCharacteristic request is not permitted on the remote device.
@@ -491,6 +511,25 @@ public final class BluetoothStatusCodes {
     public static final int ERROR_HAP_INVALID_PRESET_INDEX = 1211;
 
     /**
+     * Indicates that LE connection is required but not exist or disconnected.
+     * <p>
+     * Example solution: create LE connection then retry again.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final int ERROR_NO_LE_CONNECTION = 1300;
+
+    /**
+     * Indicates internal error of distance measurement, such as read RSSI data fail.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final int ERROR_DISTANCE_MEASUREMENT_INTERNAL = 1301;
+
+
+    /**
      * Indicates that the RFCOMM listener could not be started due to the requested UUID already
      * being in use.
      *
@@ -540,6 +579,15 @@ public final class BluetoothStatusCodes {
      */
     @SystemApi
     public static final int RFCOMM_LISTENER_NO_SOCKET_AVAILABLE = 2005;
+
+    /**
+     * Error code indicating that this operation is not allowed because the remote device does not
+     * support both BR/EDR audio and BLE Audio.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final int ERROR_NOT_DUAL_MODE_AUDIO_DEVICE = 3000;
 
     /**
      * Indicates that an unknown error has occurred.

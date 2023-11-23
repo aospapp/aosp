@@ -96,8 +96,8 @@ int main(int argc, char **argv)
 	case 'h':
 	    usage(0);
 	case 'l':
-	    printf("%s has a you choose license: BSD 3-clause or GPL2\n"
-		"Copyright (c) 1997,2007 Andrew G. Morgan"
+	    printf("%s see LICENSE file for details.\n"
+		"Copyright (c) 1997,2007,2021 Andrew G. Morgan"
 		" <morgan@kernel.org>\n", argv[0]);
 	    exit(0);
 	default:

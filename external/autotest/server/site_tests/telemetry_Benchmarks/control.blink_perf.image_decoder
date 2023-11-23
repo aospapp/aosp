@@ -6,7 +6,7 @@
 
 from autotest_lib.client.common_lib import utils
 
-AUTHOR = 'Chrome OS Team'
+AUTHOR = 'ChromeOS Team'
 NAME = 'telemetry_Benchmarks.blink_perf.image_decoder'
 # Disable this test until it can be fixed: http://b/170998795
 # ATTRIBUTES = 'suite:crosbolt_perf_nightly'
@@ -14,11 +14,12 @@ TIME = 'LONG'
 TEST_CATEGORY = 'Benchmark'
 TEST_CLASS = 'performance'
 TEST_TYPE = 'server'
+PY_VERSION = 3
 
 DOC = '''
 This server side test suite executes the Telemetry Benchmark:
 blink_perf.image_decoder
-This is part of Chrome for Chrome OS performance testing.
+This is part of Chrome for ChromeOS performance testing.
 
 Pass local=True to run with local telemetry and no AFE server.
 '''

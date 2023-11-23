@@ -39,7 +39,6 @@ cc_defaults {
         "base/file_utils.cc",
         "base/flags.cc",
         "base/hex_dump.cc",
-        "base/hiddenapi_flags.cc",
         "base/logging.cc",
         "base/malloc_arena_pool.cc",
         "base/membarrier.cc",
@@ -66,10 +65,16 @@ cc_defaults {
                 "base/globals_unix.cc",
                 "base/mem_map_unix.cc",
             ],
+            static: {
+                cflags: ["-DART_STATIC_LIBARTBASE"],
+            },
             static_libs: [
+                "libcap",
+                "libmodules-utils-build",
                 // ZipArchive support, the order matters here to get all symbols.
                 "libziparchive",
             ],
+            whole_static_libs: ["libtinyxml2"],
             shared_libs: [
                 "libz",
                 "liblog",
@@ -79,6 +84,9 @@ cc_defaults {
                 "libbase",
             ],
             export_shared_lib_headers: ["libbase"], // ART's macros.h depends on libbase's macros.h.
+            export_static_lib_headers: [
+                "libcap",
+            ],
         },
         not_windows: {
             srcs: [
@@ -88,6 +96,7 @@ cc_defaults {
             static: {
                 cflags: ["-DART_STATIC_LIBARTBASE"],
             },
+            whole_static_libs: ["libtinyxml2"],
             shared_libs: [
                 "libziparchive",
                 "libz",
@@ -98,6 +107,14 @@ cc_defaults {
                 "libbase",
             ],
             export_shared_lib_headers: ["libbase"], // ART's macros.h depends on libbase's macros.h.
+        },
+        linux_glibc: {
+            static_libs: [
+                "libcap",
+            ],
+            export_static_lib_headers: [
+                "libcap",
+            ],
         },
         windows: {
             srcs: [
@@ -112,6 +129,7 @@ cc_defaults {
                 // For common macros.
                 "libbase",
             ],
+            whole_static_libs: ["libtinyxml2"],
             export_static_lib_headers: ["libbase"], // ART's macros.h depends on libbase's macros.h.
 
             cflags: ["-Wno-thread-safety"],
@@ -134,6 +152,18 @@ cc_defaults {
         "libz",
         "libziparchive",
     ],
+    target: {
+        android: {
+            whole_static_libs: [
+                "libcap",
+            ],
+        },
+        linux_glibc: {
+            whole_static_libs: [
+                "libcap",
+            ],
+        },
+    },
 }
 
 cc_defaults {
@@ -181,13 +211,11 @@ art_cc_library {
         "com.android.art.debug",
     ],
 
-    shared_libs: [
-        "libbase",
-        "libziparchive",
-    ],
-    export_shared_lib_headers: ["libbase"],
     target: {
         windows: {
+            // Control the enabled property here rather than in
+            // libartbase_defaults, to ensure it overrides properties inherited
+            // from other defaults.
             enabled: true,
             shared: {
                 enabled: false,
@@ -206,13 +234,13 @@ art_cc_library {
     apex_available: [
         "com.android.art.debug",
     ],
-    shared_libs: [
-        "libbase",
-        "libziparchive",
-    ],
-    export_shared_lib_headers: ["libbase"],
+
     target: {
         windows: {
+            // Control the enabled property here rather than in
+            // libartbase_defaults, to ensure it overrides properties inherited
+            // from other defaults, in particular any inherited via
+            // art_debug_defaults.
             enabled: true,
             shared: {
                 enabled: false,
@@ -228,7 +256,7 @@ art_cc_defaults {
     ],
     shared_libs: [
         "libbase",
-        "libbacktrace",
+        "libunwindstack",
     ],
     header_libs: [
         "libnativehelper_header_only",
@@ -236,11 +264,13 @@ art_cc_defaults {
     static: {
         whole_static_libs: [
             "libc++fs",
+            "libcap",
         ],
     },
     shared: {
         static_libs: [
             "libc++fs",
+            "libcap",
         ],
     },
 }
@@ -390,6 +420,8 @@ cc_library_headers {
     export_include_dirs: ["."],
     shared_libs: ["libbase"],
     export_shared_lib_headers: ["libbase"],
+
+    whole_static_libs: ["libtinyxml2"],
 
     apex_available: [
         "com.android.art",

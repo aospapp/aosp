@@ -7,7 +7,7 @@
       "name": "fmq_test"
     }
   ],
-  "hwasan-postsubmit": [
+  "hwasan-presubmit": [
     {
       "name": "fmq_unit_tests"
     },

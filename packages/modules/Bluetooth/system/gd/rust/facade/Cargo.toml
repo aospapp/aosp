@@ -24,18 +24,18 @@ bt_facade_proto = { path = "../facade_proto" }
 bt_packets = { path = "../packets" }
 
 # External deps
-bytes = "*"
-cxx = "*"
-futures = "*"
-grpcio = "*"
-log = "*"
-protobuf = "*"
-tokio = "*"
+bytes = "1.0"
+cxx = "1.0"
+futures = "0.3"
+grpcio = "0.9"
+log = "0.4"
+protobuf = "2.0"
+tokio = "1.0"
 
 # Binary-only deps
-clap = "*"
-lazy_static = "*"
-nix = "*"
+clap = "3.0"
+lazy_static = "1.0"
+nix = "0.23"
 bt_common = { path = "../common" }
 
 

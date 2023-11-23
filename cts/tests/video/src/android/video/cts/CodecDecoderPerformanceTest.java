@@ -16,10 +16,14 @@
 
 package android.video.cts;
 
+import static org.junit.Assert.assertTrue;
+
 import android.media.MediaFormat;
 import android.util.Log;
 
 import androidx.test.filters.LargeTest;
+
+import com.android.compatibility.common.util.ApiTest;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,8 +34,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import static org.junit.Assert.assertTrue;
-
 @RunWith(Parameterized.class)
 public class CodecDecoderPerformanceTest extends CodecDecoderPerformanceTestBase {
     private static final String LOG_TAG = CodecDecoderPerformanceTest.class.getSimpleName();
@@ -41,7 +43,7 @@ public class CodecDecoderPerformanceTest extends CodecDecoderPerformanceTestBase
         super(decoderName, testFile, keyPriority, scalingFactor);
     }
 
-    @Parameterized.Parameters(name = "{index}({0}_{2}_{3})")
+    @Parameterized.Parameters(name = "{index}_{0}_{2}_{3}")
     public static Collection<Object[]> input() throws IOException {
         final String[] fileList = new String[]{
                 // Video - Filename
@@ -117,6 +119,8 @@ public class CodecDecoderPerformanceTest extends CodecDecoderPerformanceTestBase
     /**
      * Validates performance of hardware accelerated video decoders
      */
+    @ApiTest(apis = {"android.media.MediaFormat#KEY_PRIORITY",
+            "android.media.MediaFormat#KEY_OPERATING_RATE"})
     @LargeTest
     @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testPerformanceOfHardwareVideoDecoders() throws IOException, InterruptedException {

@@ -19,10 +19,9 @@ package {
 android_test_helper_app {
     name: "CodeProviderWithResources",
     defaults: ["platform_app_defaults"],
-    certificate: ":cts-keyset-test-b",
+    certificate: ":sdksandbox-test",
     srcs: [
        "src/**/*.java",
-       ":framework-sdksandbox-sources",
     ],
     resource_dirs: ["res"],
     platform_apis: true,
@@ -31,5 +30,7 @@ android_test_helper_app {
         enabled: true,
     },
     test_suites: ["general-tests"],
+    min_sdk_version: "33",
+    target_sdk_version: "33",
 }
 

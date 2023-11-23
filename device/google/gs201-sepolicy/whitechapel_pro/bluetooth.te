@@ -1,0 +1,5 @@
+allow bluetooth proc_vendor_sched:dir r_dir_perms;
+allow bluetooth proc_vendor_sched:file w_file_perms;
+
+allow hal_bluetooth_btlinux aoc_device:chr_file { getattr open read write };
+allow hal_bluetooth_btlinux device:dir r_dir_perms;

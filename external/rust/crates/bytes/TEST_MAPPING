@@ -2,6 +2,9 @@
 {
   "imports": [
     {
+      "path": "external/rust/crates/async-stream"
+    },
+    {
       "path": "external/rust/crates/futures-util"
     },
     {
@@ -12,13 +15,34 @@
     },
     {
       "path": "external/rust/crates/tokio-test"
+    },
+    {
+      "path": "external/uwb/src"
+    },
+    {
+      "path": "packages/modules/DnsResolver"
+    },
+    {
+      "path": "packages/modules/Virtualization/apkdmverity"
+    },
+    {
+      "path": "packages/modules/Virtualization/authfs"
+    },
+    {
+      "path": "packages/modules/Virtualization/avmd"
+    },
+    {
+      "path": "packages/modules/Virtualization/libs/apkverify"
+    },
+    {
+      "path": "packages/modules/Virtualization/microdroid_manager"
+    },
+    {
+      "path": "packages/modules/Virtualization/virtualizationmanager"
     }
   ],
   "presubmit": [
     {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
       "name": "bytes_test_tests_test_buf"
     },
     {
@@ -47,31 +71,10 @@
     },
     {
       "name": "bytes_test_tests_test_take"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
-    {
-      "name": "rustBinderTest"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ],
   "presubmit-rust": [
     {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
       "name": "bytes_test_tests_test_buf"
     },
     {
@@ -100,24 +103,6 @@
     },
     {
       "name": "bytes_test_tests_test_take"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
-    {
-      "name": "rustBinderTest"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ]
 }

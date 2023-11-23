@@ -54,8 +54,8 @@ android_library(
     ],
     deps = [
         "//:dagger_with_compiler",
-        "@google_bazel_common//third_party/java/auto:value",
-        "@google_bazel_common//third_party/java/error_prone:annotations",
+        "//third_party/java/auto:value",
+        "//third_party/java/error_prone:annotations",
         "@maven//:androidx_annotation_annotation",
     ],
 )
@@ -65,14 +65,6 @@ pom_file(
     artifact_id = "dagger-android",
     artifact_name = "Dagger Android",
     packaging = "aar",
-    targets = [":android"],
-)
-
-# b/37741866 and https://github.com/google/dagger/issues/715
-pom_file(
-    name = "jarimpl-pom",
-    artifact_id = "dagger-android-jarimpl",
-    artifact_name = "Dagger Android",
     targets = [":android"],
 )
 
@@ -87,8 +79,8 @@ android_library(
     tags = ["maven_coordinates=com.google.dagger:dagger-android-legacy:" + POM_VERSION],
     exports = [
         "//:dagger_with_compiler",
-        "@google_bazel_common//third_party/java/auto:value",
-        "@google_bazel_common//third_party/java/error_prone:annotations",
+        "//third_party/java/auto:value",
+        "//third_party/java/error_prone:annotations",
         "@maven//:com_android_support_support_annotations",
     ],
 )

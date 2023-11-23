@@ -8,6 +8,15 @@
 
 def _client_trampoline():
     path = job.stage_control_file(trampoline_testname)
-    execfile(path, globals(), globals())
+    with open(path, "r") as fh:
+
+        code_obj = compile(
+                fh.read(),
+                path,
+                mode="exec",
+                flags=0,
+                dont_inherit=1,
+        )
+        exec(code_obj, globals(), globals())
 
 _client_trampoline()

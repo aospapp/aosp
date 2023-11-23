@@ -58,7 +58,11 @@ java_library {
     srcs: ["src/main/java/**/*.java"],
     sdk_version: "current",
     errorprone: {
-        javacflags: ["-Xep:MissingOverride:OFF"],
+        javacflags: [
+            "-Xep:MissingOverride:OFF",
+            "-Xep:IdentityBinaryExpression:OFF",
+            "-Xep:BoxedPrimitiveEquality:OFF",
+        ],
     },
 }
 

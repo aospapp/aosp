@@ -9,10 +9,9 @@
 
 #include <assert.h>
 
-#include <fp16.h>
-
 #include <xnnpack/dwconv.h>
 #include <xnnpack/math.h>
+#include <xnnpack/unaligned.h>
 
 
 void xnn_qc8_dwconv_minmax_fp32_ukernel_up1x9__scalar_imagic(
@@ -25,15 +24,15 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_up1x9__scalar_imagic(
     size_t output_increment,
     size_t input_offset,
     const int8_t* zero,
-    const union xnn_qs8_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(channels != 0);
   assert(output_width != 0);
 
-  const float vmagic_bias = params->scalar_imagic.magic_bias;
-  const int32_t vmagic_min = params->scalar_imagic.magic_min;
-  const int32_t vmagic_max = params->scalar_imagic.magic_max;
-  const int32_t vmagic_bias_less_zero_point = params->scalar_imagic.magic_bias_less_zero_point;
+  const float vmagic_bias = params->fp32_scalar_imagic.magic_bias;
+  const int32_t vmagic_min = params->fp32_scalar_imagic.magic_min;
+  const int32_t vmagic_max = params->fp32_scalar_imagic.magic_max;
+  const int32_t vmagic_bias_less_zero_point = params->fp32_scalar_imagic.magic_bias_less_zero_point;
   do {
     const int8_t* i0 = input[0];
     assert(i0 != NULL);
@@ -85,7 +84,7 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_up1x9__scalar_imagic(
     size_t c = channels;
     const void* w = weights;
     do {
-      int32_t vacc = *((const int32_t*) w);
+      int32_t vacc = unaligned_load_s32(w);
 
       const int32_t vi0 = (int32_t) *i0++;
       const int32_t vk0 = ((const int8_t*) ((uintptr_t) w + sizeof(int32_t)))[0];
@@ -117,13 +116,12 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_up1x9__scalar_imagic(
 
       w = (const void*) ((uintptr_t) w + sizeof(int32_t) + 9 * sizeof(int8_t));
 
-      typedef XNN_UNALIGNED float unaligned_float;
-      const float vscale = *((const unaligned_float*) w);
+      const float vscale = unaligned_load_f32(w);
       w = (const void*) ((const float*) w + 1);
       float vfpacc = (float) vacc * vscale;
 
       vfpacc += vmagic_bias;
-      int32_t vout = (int32_t) fp32_to_bits(vfpacc);
+      int32_t vout = (int32_t) float_as_uint32(vfpacc);
       vout = math_max_s32(vout, vmagic_min);
       vout = math_min_s32(vout, vmagic_max);
       vout -= vmagic_bias_less_zero_point;

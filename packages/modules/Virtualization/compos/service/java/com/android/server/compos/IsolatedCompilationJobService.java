@@ -204,7 +204,7 @@ public class IsolatedCompilationJobService extends JobService {
                 Log.w(TAG, "Failed to cancel CompilationTask", e);
             }
 
-            mMetrics.onCompilationEnded(IsolatedCompilationMetrics.RESULT_JOB_CANCELED);
+            mMetrics.onCompilationJobCanceled(mParams.getStopReason());
             try {
                 task.asBinder().unlinkToDeath(this, 0);
             } catch (NoSuchElementException e) {
@@ -232,6 +232,10 @@ public class IsolatedCompilationJobService extends JobService {
 
                 case ICompilationTaskCallback.FailureReason.UnexpectedCompilationResult:
                     result = IsolatedCompilationMetrics.RESULT_UNEXPECTED_COMPILATION_RESULT;
+                    break;
+
+                case ICompilationTaskCallback.FailureReason.FailedToEnableFsverity:
+                    result = IsolatedCompilationMetrics.RESULT_FAILED_TO_ENABLE_FSVERITY;
                     break;
 
                 default:

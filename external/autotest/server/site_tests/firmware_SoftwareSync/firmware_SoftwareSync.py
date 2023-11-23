@@ -26,6 +26,10 @@ class firmware_SoftwareSync(FirmwareTest):
         if not self.check_ec_capability():
             raise error.TestNAError("Nothing needs to be tested on this device")
 
+        if self._no_ec_sync:
+            raise error.TestNAError(
+                    "User selected to disable EC software sync")
+
         # In order to test software sync, it must be enabled.
         self.clear_set_gbb_flags(vboot.GBB_FLAG_DISABLE_EC_SOFTWARE_SYNC, 0)
         self.backup_firmware()
@@ -159,7 +163,7 @@ class firmware_SoftwareSync(FirmwareTest):
         # The boot mode should be "NORMAL".
         logging.info('Check the boot mode is NORMAL mode.')
         if not self.cr50.check_boot_mode('NORMAL'):
-            logging.warn('You may want to run %r in cr50 console to uncorrupt'
+            logging.warning('You may want to run %r in cr50 console to uncorrupt'
                          ' EC hash.', ec_corrupt_cmd)
             raise error.TestFail('Boot mode is not NORMAL.')
 

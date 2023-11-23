@@ -16,4 +16,13 @@
 
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <integer name="config_wifiFrameworkSecureNetworkBonus">540</integer>
+
+    <string-array translatable="false" name="config_wifiOobPseudonymEnabled_carrier_overrides">
+        <item><xliff:g id="carrier_id_prefix">:::1187:::</xliff:g>true</item>
+    </string-array>
+
+    <!-- Carrier specific override for the URL of entitlement server retrieving OOB pseudonym. -->
+    <string-array translatable="false" name="config_wifiOobPseudonymEntitlementServerUrl_carrier_overrides">
+        <item><xliff:g id="carrier_id_prefix">:::1187:::</xliff:g>https://sentitlement2.mobile.att.net/WFC</item>
+    </string-array>
 </resources>

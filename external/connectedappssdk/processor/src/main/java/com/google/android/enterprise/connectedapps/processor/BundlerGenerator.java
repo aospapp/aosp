@@ -15,8 +15,11 @@
  */
 package com.google.android.enterprise.connectedapps.processor;
 
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.append;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.transformClassName;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.BUNDLER_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.BUNDLER_TYPE_CLASSNAME;
+import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.BUNDLE_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PARCEL_CLASSNAME;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.stream.Collectors.toList;
@@ -87,6 +90,8 @@ final class BundlerGenerator {
             .build());
 
     makeParcelable(classBuilder, className);
+    addWriteToBundleMethod(classBuilder);
+    addReadFromBundleMethod(classBuilder);
     addWriteToParcelMethod(classBuilder);
     addReadFromParcelMethod(classBuilder);
     addCreateArrayMethod(classBuilder);
@@ -106,7 +111,6 @@ final class BundlerGenerator {
     generatorUtilities.addDefaultParcelableMethods(classBuilder, bundlerClassName);
   }
 
-
   private void addWriteToParcelMethod(TypeSpec.Builder classBuilder) {
     CodeBlock.Builder methodCode = CodeBlock.builder();
 
@@ -122,9 +126,10 @@ final class BundlerGenerator {
             .addAnnotation(Override.class)
             .addModifiers(Modifier.PUBLIC)
             // This is for passing rawtypes into the Parcelable*.of() methods
+            // ReflectedParcelable isn't a problem because it's the same APK on both sides
             .addAnnotation(
                 AnnotationSpec.builder(SuppressWarnings.class)
-                    .addMember("value", "\"unchecked\"")
+                    .addMember("value", "{\"unchecked\", \"ReflectedParcelable\"}")
                     .build())
             .addParameter(PARCEL_CLASSNAME, "parcel")
             .addParameter(Object.class, "value")
@@ -263,8 +268,124 @@ final class BundlerGenerator {
     codeBuilder.addStatement("return new $T[size]", type.getTypeMirror());
   }
 
+  private void addWriteToBundleMethod(TypeSpec.Builder classBuilder) {
+    CodeBlock.Builder methodCode = CodeBlock.builder();
+
+    List<Type> types =
+        crossProfileType.supportedTypes().usableTypes().stream()
+            .filter(Type::canBeBundled)
+            .filter(t -> !t.isPrimitive())
+            .collect(toList());
+
+    addWriteToBundleTypes(methodCode, types);
+
+    classBuilder.addMethod(
+        MethodSpec.methodBuilder("writeToBundle")
+            // This is for passing rawtypes into the Parcelable*.of() methods
+            .addAnnotation(
+                AnnotationSpec.builder(SuppressWarnings.class)
+                    .addMember("value", "{\"unchecked\", \"ReflectedParcelable\"}")
+                    .build())
+            .addAnnotation(Override.class)
+            .addModifiers(Modifier.PUBLIC)
+            .addParameter(BUNDLE_CLASSNAME, "bundle")
+            .addParameter(String.class, "key")
+            .addParameter(Object.class, "value")
+            .addParameter(BUNDLER_TYPE_CLASSNAME, "valueType")
+            .addCode(methodCode.build())
+            .build());
+  }
+
+  private void addWriteToBundleTypes(CodeBlock.Builder codeBuilder, List<Type> types) {
+    codeBuilder.beginControlFlow(
+        "if ($S.equals(valueType.rawTypeQualifiedName()))", "java.lang.Void");
+    codeBuilder.addStatement("return");
+    for (Type type : types) {
+      codeBuilder.nextControlFlow(
+          "else if ($S.equals(valueType.rawTypeQualifiedName()))",
+          TypeUtils.getRawTypeQualifiedName(type.getTypeMirror()));
+      addWriteToBundleType(codeBuilder, type);
+    }
+    codeBuilder.endControlFlow();
+
+    codeBuilder.addStatement(
+        "throw new $T(\"Type \" + valueType.rawTypeQualifiedName() + \" cannot be written to"
+            + " Bundle\")",
+        IllegalArgumentException.class);
+  }
+
+  private void addWriteToBundleType(CodeBlock.Builder codeBuilder, Type type) {
+    CodeBlock convertedValue =
+        CodeBlock.of("($L) value", TypeUtils.getRawTypeQualifiedName(type.getTypeMirror()));
+    codeBuilder.addStatement(
+        crossProfileType
+            .supportedTypes()
+            .generatePutIntoBundleCode("bundle", type, "key", convertedValue.toString()));
+    codeBuilder.addStatement("return");
+  }
+
+  private void addReadFromBundleMethod(TypeSpec.Builder classBuilder) {
+    CodeBlock.Builder methodCode = CodeBlock.builder();
+
+    List<Type> types =
+        crossProfileType.supportedTypes().usableTypes().stream()
+            .filter(Type::canBeBundled)
+            .collect(toList());
+
+    methodCode.addStatement("bundle.setClassLoader($T.class.getClassLoader())", BUNDLER_CLASSNAME);
+
+    addReadFromBundleTypes(methodCode, types);
+
+    methodCode.addStatement(
+        "throw new $T(\"Type \" + valueType.rawTypeQualifiedName() + \" cannot be read from"
+            + " Bundle\")",
+        IllegalArgumentException.class);
+
+    classBuilder.addMethod(
+        MethodSpec.methodBuilder("readFromBundle")
+            .addAnnotation(
+                AnnotationSpec.builder(SuppressWarnings.class)
+                    .addMember("value", "\"unchecked\"")
+                    .build())
+            .addAnnotation(Override.class)
+            .addModifiers(Modifier.PUBLIC)
+            .returns(Object.class)
+            .addParameter(BUNDLE_CLASSNAME, "bundle")
+            .addParameter(String.class, "key")
+            .addParameter(BUNDLER_TYPE_CLASSNAME, "valueType")
+            .addCode(methodCode.build())
+            .build());
+  }
+
+  private void addReadFromBundleTypes(CodeBlock.Builder codeBuilder, List<Type> types) {
+
+    codeBuilder.beginControlFlow(
+        "if ($S.equals(valueType.rawTypeQualifiedName()))", "java.lang.Void");
+    codeBuilder.addStatement("return null");
+    for (Type type : types) {
+      codeBuilder.nextControlFlow(
+          "else if ($S.equals(valueType.rawTypeQualifiedName()))",
+          TypeUtils.getRawTypeQualifiedName(type.getTypeMirror()));
+      addReadFromBundleType(codeBuilder, type);
+    }
+    codeBuilder.endControlFlow();
+  }
+
+  private void addReadFromBundleType(CodeBlock.Builder codeBuilder, Type type) {
+    TypeMirror objectType = type.getTypeMirror();
+    if (objectType.getKind().isPrimitive()) {
+      PrimitiveType primitiveType = (PrimitiveType) objectType;
+      objectType = generatorContext.types().boxedClass(primitiveType).asType();
+    }
+
+    codeBuilder.addStatement(
+        "return ($L) $L",
+        TypeUtils.getRawTypeQualifiedName(objectType),
+        crossProfileType.supportedTypes().generateGetFromBundleCode("bundle", type, "key"));
+  }
+
   static ClassName getBundlerClassName(
       GeneratorContext generatorContext, CrossProfileTypeInfo crossProfileType) {
-    return GeneratorUtilities.appendToClassName(crossProfileType.profileClassName(), "_Bundler");
+    return transformClassName(crossProfileType.generatedClassName(), append("_Bundler"));
   }
 }

@@ -7,6 +7,7 @@ NAME = 'tast.skylab-staging'
 ATTRIBUTES = "suite:skylab_staging_test"
 TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
+PY_VERSION = 3
 
 # tast.py uses binaries installed from autotest_server_package.tar.bz2.
 REQUIRE_SSP = True

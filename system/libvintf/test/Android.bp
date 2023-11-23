@@ -47,7 +47,6 @@ cc_test {
         "libgmock",
         "libgtest",
         "libassemblevintf",
-        "libhidl-gen-utils",
         "libvts_vintf_test_common",
     ],
 
@@ -94,7 +93,6 @@ cc_test {
         "libgtest",
         "libgmock",
         "libvintf",
-        "libhidl-gen-utils",
         "libz",
     ],
     header_libs: [

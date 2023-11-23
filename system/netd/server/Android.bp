@@ -45,7 +45,6 @@ cc_library_static {
         "system/netd/include",
         "system/netd/server/binder",
     ],
-    header_libs: ["bpf_headers"],
     srcs: [
         "BandwidthController.cpp",
         "Controllers.cpp",
@@ -86,8 +85,8 @@ cc_library_static {
     },
 }
 
-cc_binary {
-    name: "netd",
+cc_defaults {
+    name: "netd_default_sources",
     defaults: [
         "netd_aidl_interface_lateststable_cpp_shared",
         "netd_defaults",
@@ -96,16 +95,13 @@ cc_binary {
         "external/mdnsresponder/mDNSShared",
         "system/netd/include",
     ],
-    init_rc: ["netd.rc"],
-    required: [
-        "bpfloader",
-    ],
-    header_libs: ["bpf_headers"],
     shared_libs: [
         "android.system.net.netd@1.0",
         "android.system.net.netd@1.1",
+        "android.system.net.netd-V1-ndk",
         "libbase",
         "libbinder",
+        "libbinder_ndk",
         "libcutils",
         "libdl",
         "libhidlbase",
@@ -138,6 +134,7 @@ cc_binary {
         "MDnsSdListener.cpp",
         "MDnsService.cpp",
         "NetdCommand.cpp",
+        "NetdHwAidlService.cpp",
         "NetdHwService.cpp",
         "NetdNativeService.cpp",
         "NetlinkHandler.cpp",
@@ -149,8 +146,22 @@ cc_binary {
         "Process.cpp",
         "UnreachableNetwork.cpp",
         "VirtualNetwork.cpp",
-        "main.cpp",
         "oem_iptables_hook.cpp",
+    ],
+}
+
+cc_binary {
+    name: "netd",
+    defaults: [
+        "netd_default_sources",
+    ],
+    init_rc: ["netd.rc"],
+    vintf_fragments: ["android.system.net.netd-service.xml"],
+    required: [
+        "bpfloader",
+    ],
+    srcs: [
+        "main.cpp",
     ],
     sanitize: {
         cfi: true,
@@ -204,7 +215,6 @@ cc_test {
         "system/netd/server/binder",
         "system/netd/tests",
     ],
-    header_libs: ["bpf_headers"],
     tidy_timeout_srcs: [
         "BandwidthControllerTest.cpp",
         "InterfaceControllerTest.cpp",
@@ -247,3 +257,57 @@ cc_test {
     ],
     // tidy: false,  // cuts test build time by almost 1 minute
 }
+
+cc_defaults {
+    name: "netd_aidl_fuzzer_defaults",
+    defaults: [
+        "netd_default_sources",
+    ],
+    srcs: [
+        "Controllers.cpp",
+    ],
+    fuzz_config: {
+        cc: [
+            "cken@google.com",
+        ],
+    }
+}
+
+cc_fuzz {
+    name: "mdns_service_fuzzer",
+    defaults: [
+        "service_fuzzer_defaults",
+        "netd_aidl_fuzzer_defaults",
+    ],
+    srcs: [
+        "aidl-fuzzers/MDnsServiceFuzzer.cpp",
+    ],
+    fuzz_config: {
+        cc: [
+            "paulhu@google.com",
+        ],
+    }
+}
+
+cc_fuzz {
+    name: "netd_hw_service_fuzzer",
+    defaults: [
+        "service_fuzzer_defaults",
+        "netd_aidl_fuzzer_defaults",
+    ],
+    srcs: [
+        "aidl-fuzzers/NetdHwAidlServiceFuzzer.cpp",
+    ],
+}
+
+cc_fuzz {
+    name: "netd_native_service_fuzzer",
+    defaults: [
+        "service_fuzzer_defaults",
+        "netd_aidl_fuzzer_defaults",
+    ],
+    srcs: [
+        "aidl-fuzzers/NetdNativeServiceFuzzer.cpp",
+    ],
+}
+

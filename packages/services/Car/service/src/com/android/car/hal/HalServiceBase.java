@@ -16,10 +16,13 @@
 
 package com.android.car.hal;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
 
 import android.annotation.NonNull;
 import android.car.builtin.util.Slogf;
 import android.hardware.automotive.vehicle.VehiclePropError;
+
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -78,6 +81,7 @@ public abstract class HalServiceBase {
      *                   {@link #getAllSupportedProperties()} or {@link #isSupportedProperty(int)}.
      *                   It can be empty if no property is available.
      */
+    @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
     public void takeProperties(@NonNull Collection<HalPropConfig> properties) {
         return;
     }
@@ -85,6 +89,7 @@ public abstract class HalServiceBase {
     /**
      * Handles property changes from HAL.
      */
+    @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
     public void onHalEvents(List<HalPropValue> values) {
         return;
     }

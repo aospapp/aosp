@@ -19,7 +19,9 @@ package {
 filegroup {
     name: "services.bluetooth-sources",
     srcs: [
-        "java/**/*.java",
+        ":statslog-bluetooth-java-gen",
+        "src/**/*.java",
+        "src/**/*.kt",
     ],
     visibility: [
         "//frameworks/base/services",
@@ -38,20 +40,23 @@ java_defaults {
             enabled: false,
         },
     },
+    apex_available: [
+        "com.android.btservices",
+    ],
+    min_sdk_version: "Tiramisu",
+    defaults_visibility: [
+        ":__subpackages__",
+    ],
 }
 
-// pre-jarjar version of service-uwb that builds against pre-jarjar version of framework-bluetooth
+// pre-jarjar version of service-bluetooth that builds against pre-jarjar version of framework-bluetooth
 java_library {
     name: "service-bluetooth-pre-jarjar",
     installable: false,
     defaults: ["service-bluetooth-common-defaults"],
     srcs: [
         ":services.bluetooth-sources",
-        ":bluetooth-proto-enums-java-gen",
-        ":bluetooth-manager-service-proto-java-gen",
     ],
-    // java_api_finder must accompany `srcs`
-    plugins: ["java_api_finder"],
 
     sdk_version: "system_server_current",
 
@@ -61,19 +66,19 @@ java_library {
     libs: [
         "framework-annotations-lib",
         "framework-bluetooth-pre-jarjar",
-        "app-compat-annotations",
+        "framework-configinfrastructure",
+        "framework-statsd.stubs.module_lib",
+        "service-bluetooth.change-ids",
     ],
 
     static_libs: [
         "androidx.annotation_annotation",
         "androidx.appcompat_appcompat",
+        "bluetooth-manager-service-proto-java-gen",
+        "bluetooth-nano-protos",
+        "bluetooth-proto-enums-java-gen",
         "modules-utils-shell-command-handler",
     ],
-
-    apex_available: [
-        "com.android.bluetooth",
-    ],
-    min_sdk_version: "Tiramisu"
 }
 
 // service-bluetooth static library
@@ -83,13 +88,12 @@ java_library {
     defaults: ["service-bluetooth-common-defaults"],
     installable: true,
     static_libs: [
-        "service-bluetooth-pre-jarjar",
         "androidx.appcompat_appcompat",
+        "service-bluetooth-pre-jarjar",
     ],
 
     libs: [
         "framework-bluetooth.impl",
-        "app-compat-annotations",
     ],
     sdk_version: "system_server_current",
 
@@ -103,40 +107,42 @@ java_library {
     visibility: [
         "//packages/modules/Bluetooth/apex",
     ],
-    apex_available: [
-        "com.android.bluetooth",
-    ],
-    min_sdk_version: "Tiramisu"
 }
 
-gensrcs {
+java_library {
     name: "bluetooth-manager-service-proto-java-gen",
-    depfile: true,
-
-    tools: [
-        "aprotoc",
-        "protoc-gen-javastream",
-        "soong_zip",
-    ],
-
-    cmd: "mkdir -p $(genDir)/$(in) " +
-        "&& $(location aprotoc) " +
-        "  --plugin=$(location protoc-gen-javastream) " +
-        "  --dependency_out=$(depfile) " +
-        "  --javastream_out=$(genDir)/$(in) " +
-        "  -Iexternal/protobuf/src " +
-        "  -I . " +
-        "  $(in) " +
-        "&& $(location soong_zip) -jar -o $(out) -C $(genDir)/$(in) -D $(genDir)/$(in)",
-
+    installable: false,
+    proto: {
+        type: "stream",
+        include_dirs: [
+            "external/protobuf/src",
+        ],
+    },
     srcs: [
         ":srcs_bluetooth_manager_service_proto",
     ],
-    output_extension: "srcjar",
+    sdk_version: "system_server_current",
+    apex_available: [
+        "com.android.btservices",
+    ],
+    min_sdk_version: "Tiramisu",
 }
 
-platform_compat_config
-{
-    name: "bluetooth-compat-config",
-    src: ":service-bluetooth-pre-jarjar",
+java_library {
+    name: "bluetooth-nano-protos",
+    sdk_version: "system_current",
+    min_sdk_version: "Tiramisu",
+    proto: {
+        type: "nano",
+    },
+    srcs: [
+        ":system-messages-proto-src",
+    ],
+    libs: ["libprotobuf-java-nano"],
+    apex_available: [
+        "com.android.btservices",
+    ],
+    lint: {
+        strict_updatability_linting: true,
+    },
 }

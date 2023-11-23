@@ -18,6 +18,7 @@ import csv
 import os
 import posixpath
 import time
+import zipfile
 import acts_contrib.test_utils.wifi.wifi_test_utils as wutils
 
 from acts import context
@@ -126,6 +127,7 @@ class OtaSnifferBase(object):
 
 class MockSniffer(OtaSnifferBase):
     """Class that implements mock sniffer for test development and debug."""
+
     def __init__(self, config):
         self.log = logger.create_tagged_trace_logger('Mock Sniffer')
 
@@ -443,6 +445,11 @@ class TsharkSnifferBase(OtaSnifferBase):
 
         if self.sniffer_output_file_type == 'csv':
             log_file = self._process_tshark_dump(log_file)
+        if self.sniffer_output_file_type == 'pcap':
+            zip_file_path = log_file[:-4] + "zip"
+            zipfile.ZipFile(zip_file_path, 'w', zipfile.ZIP_DEFLATED).write(
+                log_file, arcname=log_file.split('/')[-1])
+            os.remove(log_file)
 
         self.sniffer_proc_pid = None
         return log_file
@@ -450,6 +457,7 @@ class TsharkSnifferBase(OtaSnifferBase):
 
 class TsharkSnifferOnUnix(TsharkSnifferBase):
     """Class that implements Tshark based sniffer controller on Unix systems."""
+
     def _scan_for_networks(self):
         """Scans the wireless networks on the sniffer.
 
@@ -480,6 +488,7 @@ class TsharkSnifferOnUnix(TsharkSnifferBase):
 
 class TsharkSnifferOnLinux(TsharkSnifferBase):
     """Class that implements Tshark based sniffer controller on Linux."""
+
     def __init__(self, config):
         super().__init__(config)
         self._init_sniffer()

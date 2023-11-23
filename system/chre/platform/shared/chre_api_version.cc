@@ -27,12 +27,16 @@ static_assert(CHRE_PATCH_VERSION <= UINT16_MAX,
 static_assert(CHRE_PLATFORM_ID <= UINT64_MAX,
               "Platform ID must fit in 64 bits");
 
+extern "C" DLL_EXPORT const uint16_t _chrePatchVersion
+    __attribute__((section(".unstable_id"))) __attribute__((aligned(8))) =
+        CHRE_PATCH_VERSION;
+
 DLL_EXPORT uint32_t chreGetApiVersion(void) {
   return CHRE_API_VERSION;
 }
 
 DLL_EXPORT uint32_t chreGetVersion(void) {
-  return chreGetApiVersion() | CHRE_PATCH_VERSION;
+  return chreGetApiVersion() | _chrePatchVersion;
 }
 
 DLL_EXPORT uint64_t chreGetPlatformId(void) {

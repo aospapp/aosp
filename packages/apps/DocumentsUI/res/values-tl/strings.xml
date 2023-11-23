@@ -63,7 +63,7 @@
     <string name="button_extract" msgid="1038674453689912247">"I-extract"</string>
     <string name="button_move" msgid="8596460499325291272">"Ilipat"</string>
     <string name="button_dismiss" msgid="7235249361023803349">"I-dismiss"</string>
-    <string name="button_retry" msgid="4011461781916631389">"Subukang Muli"</string>
+    <string name="button_retry" msgid="4011461781916631389">"Subukan Ulit"</string>
     <string name="button_clear" msgid="5412304437764369441">"I-clear"</string>
     <string name="button_show_provider" msgid="6905880493806292753">"Ipakita sa provider"</string>
     <string name="button_back" msgid="1888621708934742182">"Bumalik"</string>
@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"Hindi na-save ang dokumento"</string>
     <string name="create_error" msgid="3092144450044861994">"Hindi nagawa ang folder"</string>
     <string name="query_error" msgid="6625421453613879336">"Hindi ma-load ang content sa ngayon"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Naka-pause ang profile sa trabaho"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"I-on"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"Naka-pause ang mga app para sa trabaho"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"I-on ang mga app para sa trabaho"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Hindi makapili ng mga file sa trabaho"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Hindi ka pinapayagan ng iyong IT admin na mag-access ng mga file sa trabaho mula sa personal na app"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Hindi makapili ng mga personal na file"</string>

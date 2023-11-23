@@ -62,7 +62,7 @@ public abstract class WifiBasePreferenceController<V extends Preference> extends
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         return WifiUtil.getAvailabilityStatus(getContext());
     }
 

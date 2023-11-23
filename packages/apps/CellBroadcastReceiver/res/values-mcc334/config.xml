@@ -15,29 +15,103 @@
 -->
 
 <resources>
-    <!-- Channel 4370, 4383 -->
+    <!-- Channel 4370, 4383, 919 -->
     <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
-        <item>0x1112:rat=gsm, emergency=true, alert_duration=86400000, always_on=true</item>
-        <item>0x111F:rat=gsm, emergency=true, alert_duration=86400000, always_on=true</item>
+        <item>0x1112:rat=gsm, emergency=true, alert_duration=8000, always_on=true</item>
+        <item>0x111F:rat=gsm, emergency=true, alert_duration=8000, always_on=true</item>
+        <!-- Channel 919 is the secondary channel for level 1-3, following the highest level config -->
+        <item>0x397:rat=gsm, emergency=true, alert_duration=8000, always_on=true</item>
     </string-array>
 
-    <!-- Channel 50, 919, 6400, and 4396-4399 -->
-    <string-array name="additional_cbs_channels_strings" translatable="false">
-        <item>0x397:rat=gsm, emergency=true, alert_duration=86400000</item>
-        <!-- Channel 50 for area update info -->
-        <item>0x032:type=area, emergency=false</item>
-        <!-- Channel 6400 for Information messages -->
-        <item>0x1900:rat=gsm, emergency=false</item>
+    <!-- 4371~4372, 4384~4385 -->
+    <string-array name="cmas_alert_extreme_channels_range_strings" translatable="false">
+        <item>0x1113-0x1114:rat=gsm, alert_duration=8000, emergency=true</item>
+        <item>0x1120-0x1121:rat=gsm, alert_duration=8000, emergency=true</item>
+    </string-array>
+
+    <!-- 4373~4378, 4386~4391 -->
+    <string-array name="cmas_alerts_severe_range_strings" translatable="false">
+        <item>0x1115-0x111A:rat=gsm, alert_duration=8000, emergency=true</item>
+        <item>0x1122-0x1127:rat=gsm, alert_duration=8000, emergency=true</item>
+    </string-array>
+
+    <!-- 4379 -->
+    <string-array name="cmas_amber_alerts_channels_range_strings" translatable="false">
+        <item>0x111B:rat=gsm, alert_duration=8000, emergency=true</item>
+    </string-array>
+
+    <!-- 4380, 519 -->
+    <string-array name="required_monthly_test_range_strings" translatable="false">
+        <item>0x111C:rat=gsm, alert_duration=8000, emergency=true</item>
+        <!-- Channel 519 is the secondary channel for test and exercise alert -->
+        <item>0x207:rat=gsm, alert_duration=8000, emergency=true</item>
+    </string-array>
+
+    <!-- 4381 -->
+    <string-array name="exercise_alert_range_strings" translatable="false">
+        <item>0x111D:rat=gsm, alert_duration=8000, emergency=true</item>
+    </string-array>
+
+    <!-- Channel 6400 -->
+    <string-array name="public_safety_messages_channels_range_strings" translatable="false">
+        <item>0x1900:rat=gsm, alert_duration=8000, emergency=true</item>
+    </string-array>
+
+    <!-- Channel 4396-4399 -->
+    <string-array name="emergency_alerts_channels_range_strings" translatable="false">
         <!-- Channel 4396-4399 reserved for future -->
-        <item>0x112C-0x112F:rat=gsm, emergency=true</item>
+        <item>0x112C-0x112F:rat=gsm, alert_duration=8000, emergency=true</item>
     </string-array>
 
-    <!-- Play alert sound in full volume regardless Do Not Disturb is on -->
+    <string-array name="operator_defined_alert_range_strings" translatable="false" />
+    <string-array name="etws_alerts_range_strings" translatable="false" />
+    <string-array name="etws_test_alerts_range_strings" translatable="false" />
+
+    <!-- Whether to show presidential alert settings -->
+    <bool name="show_presidential_alerts_settings">true</bool>
+    <!-- Whether to show test settings -->
+    <bool name="show_test_settings">false</bool>
+    <!-- whether to display a separate exercise test settings. today, most of time, exercise channels was controlled by the main test toggle. -->
+    <bool name="show_separate_exercise_settings">true</bool>
+    <!-- Whether to display exercise test settings when testing mode is off. -->
+    <bool name="show_exercise_settings">true</bool>
+    <!-- Exercise test alerts toggle default value -->
+    <bool name="test_exercise_alerts_enabled_default">true</bool>
+    <!-- Whether to disable cell broadcast severe alert when extreme alert is disabled -->
+    <bool name="disable_severe_when_extreme_disabled">false</bool>
+    <!-- Whether to display state/local test settings, some countries/carriers want to enable it by default and not allow users to disable -->
+    <bool name="show_state_local_test_settings">false</bool>
+    <!-- Whether enabling capture message screen -->
+    <bool name="disable_capture_alert_dialog">true</bool>
+    <!-- Whether enabling copy message text into clipboard by long press -->
+    <!-- Check the configuration 'link_method' as well to make the url copy disabled as needed -->
+    <bool name="enable_text_copy">false</bool>
+    <!-- Text links generating method. does not allow text to be copied. so we can't use smart linkify. -->
+    <string name="link_method" translatable="false">legacy_linkify</string>
+
+    <!-- Values that for the vibration pattern. -->
+    <integer-array name="default_vibration_pattern">
+        <item>0</item>      <!-- the number of milliseconds to wait before turning the vibrator on -->
+        <item>500</item>    <!-- the number of milliseconds for which to keep the vibrator on before turning it off -->
+        <item>500</item>    <!-- Subsequent values alternate between durations in milliseconds to turn the vibrator off or to turn the vibrator on -->
+        <item>500</item>
+        <item>500</item>
+        <item>500</item>
+        <item>500</item>
+        <item>500</item>
+        <item>500</item>
+        <item>500</item>
+        <item>500</item>
+        <item>500</item>
+        <item>500</item>
+        <item>500</item>
+        <item>500</item>
+        <item>500</item>
+        <item>500</item>
+     </integer-array>
+
+    <!-- always overriding dnd settings: Play alert sound in full volume regardless DND is on. Applied to all channels -->
     <bool name="override_dnd">true</bool>
-
-    <!-- Link method -->
-    <string name="link_method" translatable="false">none</string>
-
-    <!-- Show area update info settings in CellBroadcastReceiver and information in SIM status in Settings app -->
-    <bool name="config_showAreaUpdateInfoSettings">true</bool>
+    <!-- Whether to show the alert dialog title -->
+    <bool name="show_alert_title">false</bool>
 </resources>

@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"binde til en projeksjonstjeneste"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"Lar dokken binde seg til det øverste nivået av grensesnittet for en projiseringstjeneste. Skal aldri være nødvendig for vanlige apper."</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"VMS-klienttjeneste"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"Bind til VMS-klienter"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"Gjengivelse på instrumentpanelet"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"Mottak av data fra instrumentpanelet"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"Bilens inndatatjeneste"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"Behandling av inndatahendelser"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"Du kan ikke bruke denne funksjonen når du kjører"</string>
     <string name="exit_button_message" msgid="5375678491245394542">"For å starte på nytt med sikre appfunksjoner, velg <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
     <string name="exit_button" msgid="3491899413031549265">"Tilbake"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"Enheten blir slettet"</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"Administratorappen kan ikke brukes. Enheten din blir nå tømt.\n\nTa kontakt med administratoren for organisasjonen din hvis du har spørsmål."</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> påvirker systemytelsen"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"Deaktiver appen for å forbedre systemytelsen. Du kan aktivere appen igjen i innstillingene."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"Prioriter appen for å fortsette å bruke den."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"Avinstaller appen for å forbedre systemytelsen."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"Deaktiver appen"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"Denne appen er blitt forhindret fra å kjøre i bakgrunnen. Prioriter appen hvis du vil den skal kunne kjøre i bakgrunnen."</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"Lukk"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"Prioriter appen"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"Avinstaller appen"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> er deaktivert. Du kan aktivere den igjen i innstillingene."</string>
 </resources>

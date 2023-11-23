@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,9 +7,9 @@ import dbus
 import dbus.types
 import logging
 
-import modem
-import pm_constants
-import utils
+from autotest_lib.client.cros.cellular.pseudomodem import modem
+from autotest_lib.client.cros.cellular.pseudomodem import pm_constants
+from autotest_lib.client.cros.cellular.pseudomodem import utils
 
 from autotest_lib.client.cros.cellular import mm1_constants
 

@@ -115,6 +115,10 @@ extern int     cap_set_flag(cap_t, cap_flag_t, int, const cap_value_t *,
 			    cap_flag_value_t);
 extern int     cap_clear(cap_t);
 extern int     cap_clear_flag(cap_t, cap_flag_t);
+extern int     cap_fill(cap_t, cap_flag_t, cap_flag_t);
+
+#define CAP_DIFFERS(result, flag)  (((result) & (1 << (flag))) != 0)
+extern int     cap_compare(cap_t, cap_t);
 
 extern cap_flag_value_t cap_iab_get_vector(cap_iab_t, cap_iab_vector_t,
 					 cap_value_t);
@@ -145,9 +149,10 @@ extern int     cap_reset_ambient(void);
 #define CAP_AMBIENT_SUPPORTED() (cap_get_ambient(CAP_CHOWN) >= 0)
 
 /* libcap/cap_extint.c */
-extern ssize_t cap_size(cap_t);
-extern ssize_t cap_copy_ext(void *, cap_t, ssize_t);
-extern cap_t   cap_copy_int(const void *);
+extern ssize_t cap_size(cap_t cap_d);
+extern ssize_t cap_copy_ext(void *cap_ext, cap_t cap_d, ssize_t length);
+extern cap_t   cap_copy_int(const void *cap_ext);
+extern cap_t   cap_copy_int_check(const void *cap_ext, ssize_t length);
 
 /* libcap/cap_text.c */
 extern cap_t   cap_from_text(const char *);
@@ -157,9 +162,6 @@ extern char *  cap_to_name(cap_value_t);
 
 extern char *     cap_iab_to_text(cap_iab_t iab);
 extern cap_iab_t  cap_iab_from_text(const char *text);
-
-#define CAP_DIFFERS(result, flag)  (((result) & (1 << (flag))) != 0)
-extern int     cap_compare(cap_t, cap_t);
 
 /* libcap/cap_proc.c */
 extern void cap_set_syscall(long int (*new_syscall)(long int,
@@ -175,6 +177,10 @@ extern const char *cap_mode_name(cap_mode_t flavor);
 extern unsigned cap_get_secbits(void);
 extern int cap_set_secbits(unsigned bits);
 
+extern int cap_prctl(long int pr_cmd, long int arg1, long int arg2,
+		     long int arg3, long int arg4, long int arg5);
+extern int cap_prctlw(long int pr_cmd, long int arg1, long int arg2,
+		      long int arg3, long int arg4, long int arg5);
 extern int cap_setuid(uid_t uid);
 extern int cap_setgroups(gid_t gid, size_t ngroups, const gid_t groups[]);
 
@@ -185,6 +191,7 @@ typedef struct cap_launch_s *cap_launch_t;
 
 extern cap_launch_t cap_new_launcher(const char *arg0, const char * const *argv,
 				     const char * const *envp);
+extern cap_launch_t cap_func_launcher(int (callback_fn)(void *detail));
 extern void cap_launcher_callback(cap_launch_t attr,
 				  int (callback_fn)(void *detail));
 extern void cap_launcher_setuid(cap_launch_t attr, uid_t uid);
@@ -193,7 +200,7 @@ extern void cap_launcher_setgroups(cap_launch_t attr, gid_t gid,
 extern void cap_launcher_set_mode(cap_launch_t attr, cap_mode_t flavor);
 extern cap_iab_t cap_launcher_set_iab(cap_launch_t attr, cap_iab_t iab);
 extern void cap_launcher_set_chroot(cap_launch_t attr, const char *chroot);
-extern pid_t cap_launch(cap_launch_t attr, void *data);
+extern pid_t cap_launch(cap_launch_t attr, void *detail);
 
 /*
  * system calls - look to libc for function to system call

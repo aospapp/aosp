@@ -105,11 +105,11 @@ TEST_F(RouteControllerTest, TestRouteFlush) {
 
     EXPECT_EQ(0, flushRoutes(table1));
 
-    EXPECT_EQ(-ESRCH, modifyIpRoute(RTM_DELROUTE, NETLINK_ROUTE_CREATE_FLAGS, table1, "lo",
+    EXPECT_EQ(-ESRCH, modifyIpRoute(RTM_DELROUTE, NETLINK_REQUEST_FLAGS, table1, "lo",
                                     "192.0.2.2/32", nullptr, 0 /* mtu */, 0 /* priority */));
-    EXPECT_EQ(-ESRCH, modifyIpRoute(RTM_DELROUTE, NETLINK_ROUTE_CREATE_FLAGS, table1, "lo",
+    EXPECT_EQ(-ESRCH, modifyIpRoute(RTM_DELROUTE, NETLINK_REQUEST_FLAGS, table1, "lo",
                                     "192.0.2.3/32", nullptr, 0 /* mtu */, 0 /* priority */));
-    EXPECT_EQ(0, modifyIpRoute(RTM_DELROUTE, NETLINK_ROUTE_CREATE_FLAGS, table2, "lo",
+    EXPECT_EQ(0, modifyIpRoute(RTM_DELROUTE, NETLINK_REQUEST_FLAGS, table2, "lo",
                                "192.0.2.4/32", nullptr, 0 /* mtu */, 0 /* priority */));
 }
 

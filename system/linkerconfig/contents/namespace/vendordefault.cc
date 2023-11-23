@@ -19,6 +19,8 @@
 
 #include "linkerconfig/namespacebuilder.h"
 
+#include <android-base/strings.h>
+
 #include "linkerconfig/common.h"
 #include "linkerconfig/environment.h"
 
@@ -46,9 +48,9 @@ Namespace BuildVendorNamespace([[maybe_unused]] const Context& ctx,
 
   if (ctx.IsVndkAvailable()) {
     ns.GetLink("rs").AddSharedLib("libRS_internal.so");
+    ns.AddRequires(base::Split(Var("LLNDK_LIBRARIES_VENDOR", ""), ":"));
     ns.GetLink(ctx.GetSystemNamespaceName())
-        .AddSharedLib(
-            {Var("LLNDK_LIBRARIES_VENDOR"), Var("SANITIZER_DEFAULT_VENDOR")});
+        .AddSharedLib(Var("SANITIZER_DEFAULT_VENDOR"));
     ns.GetLink("vndk").AddSharedLib({Var("VNDK_SAMEPROCESS_LIBRARIES_VENDOR"),
                                      Var("VNDK_CORE_LIBRARIES_VENDOR")});
     if (android::linkerconfig::modules::IsVndkInSystemNamespace()) {
@@ -57,7 +59,6 @@ Namespace BuildVendorNamespace([[maybe_unused]] const Context& ctx,
     }
   }
 
-  ns.AddRequires(std::vector{"libneuralnetworks.so"});
   ns.AddRequires(ctx.GetVendorRequireLibs());
   ns.AddProvides(ctx.GetVendorProvideLibs());
   return ns;

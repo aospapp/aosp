@@ -4,6 +4,9 @@
     <string name="system_tracing" msgid="4719188511746319848">"سسٹم ٹریسنگ"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"کارکردگی کو بہتر بنانے کیلئے سسٹم کی سرگرمی ریکارڈ کر کے بعد میں اس کا تجزیہ کریں"</string>
     <string name="record_trace" msgid="6416875085186661845">"ٹریس ریکارڈ کریں"</string>
+    <string name="record_trace_summary" msgid="6705357754827849292">"\"ٹریس ترتیبات\" میں سیٹ کنفیگریشن کا استعمال کر کے سسٹم ٹریس کو کیپچر کرتا ہے"</string>
+    <string name="record_stack_samples" msgid="3498368637185702335">"‏CPU پروفائل ریکارڈ کریں"</string>
+    <string name="record_stack_samples_summary" msgid="7827953921526410478">"‏کال اسٹیک کے نمونے لینے کو \"cpu\" زمرہ چیک کر کے ٹریسز میں بھی فعال کیا جاسکتا ہے"</string>
     <string name="start_new_trace" msgid="8177130420802170353">"نیا ٹریس شروع کریں"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"ڈیبگ کے لائق ایپلیکیشنز ٹریس کریں"</string>
     <string name="categories" msgid="2280163673538611008">"زمرے"</string>
@@ -17,7 +20,9 @@
     <string name="show_quick_settings_tile" msgid="4971147332635291585">"فوری ترتیبات والی ٹائل دکھائیں"</string>
     <string name="saving_trace" msgid="1468692734770800541">"ٹریس محفوظ کیا جا رہا ہے"</string>
     <string name="trace_saved" msgid="5869970594780992309">"ٹریس محفوظ ہو گیا"</string>
-    <string name="tap_to_share" msgid="6766732404489536899">"اپنے ٹریس کا اشتراک کرنے کیلئے تھپتھپائیں"</string>
+    <string name="saving_stack_samples" msgid="8174915522390525221">"اسٹیک کے نمونے محفوظ کرنا"</string>
+    <string name="stack_samples_saved" msgid="8863295751647724616">"اسٹیک کے نمونے محفوظ ہو گئے"</string>
+    <string name="tap_to_share" msgid="4440713575852187545">"اپنی ریکارڈنگ کا اشتراک کرنے کے لیے تھپتھپائیں"</string>
     <string name="attaching_to_report" msgid="2629202947947275886">"بگ رپورٹ پر ٹریس کو منسلک کیا جارہا ہے"</string>
     <string name="attached_to_report" msgid="5806905349184608870">"بگ رپورٹ پر ٹریس منسلک کی گئی"</string>
     <string name="attached_to_report_summary" msgid="7665675771190391355">"‏BetterBug کو کھولنے کے لیے تھپتھپائیں"</string>
@@ -25,18 +30,19 @@
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"ٹریس کرنے کے کچھ زمرے دستیاب نہیں ہیں:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"ٹریس کو ریکارڈ کیا جا رہا ہے"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"ٹریس کرنا بند کرنے کے لیے تھپتھپائيں"</string>
-    <string name="clear_saved_traces" msgid="4809195654452260944">"محفوظ کردہ ٹریسز کو صاف کریں"</string>
-    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"ٹریسز ایک ماہ بعد صاف ہو جاتے ہیں"</string>
-    <string name="clear_saved_traces_question" msgid="2184026613055303818">"محفوظ کردہ ٹریسز کو صاف کریں؟"</string>
-    <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"سبھی ٹریسز کو /ڈیٹا/لوکل/ٹریسز/ سے ہٹا دیا جائے گا"</string>
+    <string name="stack_samples_are_being_recorded" msgid="8669254939248349583">"اسٹیک کے نمونے ریکارڈ کیے جا رہے ہیں"</string>
+    <string name="tap_to_stop_stack_sampling" msgid="5911317684139059415">"اسٹیک کے نمونے کو روکنے کے لیے تھپتھپائیں"</string>
+    <string name="clear_saved_files" msgid="9156079311231446825">"محفوظ کردہ فائلز صاف کریں"</string>
+    <string name="clear_saved_files_summary" msgid="109751867417553670">"ریکارڈنگز ایک ماہ بعد صاف کی جاتی ہے"</string>
+    <string name="clear_saved_files_question" msgid="8586686617760838834">"محفوظ کردہ فائلز صاف کریں؟"</string>
+    <string name="all_recordings_will_be_deleted" msgid="7731693738485947891">"سبھی ریکارڈنگز کو /ڈیٹا/لوکل/ٹریسز/ سے ہٹا دیا جائے گا"</string>
     <string name="clear" msgid="5484761795406948056">"صاف کریں"</string>
     <string name="system_traces_storage_title" msgid="8294090839883366871">"سسٹم ٹریسز"</string>
     <string name="keywords" msgid="736547007949049535">"‏systrace، ٹریس، کارکردگی"</string>
-    <string name="share_trace" msgid="4528525067822044385">"ٹریس کا اشتراک کریں؟"</string>
+    <string name="share_file" msgid="1982029143280382271">"فائل کا اشتراک کریں؟"</string>
     <string name="system_trace_sensitive_data" msgid="3069389866696009549">"سسٹم ٹریسنگ کی فائلز حساس سسٹم وار ایپ ڈیٹا (جیسے کہ ایپ کا استعمال) شامل ہو سکتی ہیں۔ صرف سسٹم ٹریسز بھروسے مند ایپس کا لوگوں کے ساتھ اشتراک کریں۔"</string>
     <string name="share" msgid="8443979083706282338">"اشتراک کریں"</string>
     <string name="dont_show_again" msgid="6662492041164390600">"دوبارہ نہ دکھائیں"</string>
-    <string name="use_perfetto_beta" msgid="2725630143916520160">"‏Perfetto کا استعمال کریں (بی ٹا)"</string>
     <string name="long_traces" msgid="5110949471775966329">"لمبے ٹریسز"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"آلہ کے اسٹوریج میں مسلسل محفوظ ہو رہا ہے"</string>
     <string name="long_traces_summary_betterbug" msgid="445546400875135624">"آلے کی اسٹوریج میں مستقل طور پر محفوظ کیا گیا (بگ رپورٹس کے ساتھ خودکار طور پر منسلک نہیں کیا جائے گا)"</string>
@@ -58,9 +64,12 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"‎16384 KB"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"‎32768 KB"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"‎65536 KB"</string>
-    <string name="stop_on_bugreport" msgid="2045328149107284734">"بگ رپورٹس کے لیے ٹریس کرنا روکیں"</string>
-    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"بگ رپورٹس شروع ہونے پر فعال ٹریس ریکارڈنگز ختم ہو جاتی ہیں"</string>
-    <string name="attach_to_bug_report" msgid="2953745117960948415">"بگ رپورٹس پر ٹریسز منسلک کریں"</string>
-    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"‏بگ رپورٹ جمع ہونے پر خود کار طریقے سے پیشرفت کے ٹریسز کو BetterBug میں بھیج دیا جاتا ہے"</string>
-    <string name="link_to_traces" msgid="6569969595898995517">"ٹریس فائلز دیکھیں"</string>
+    <string name="stop_on_bugreport" msgid="4591832600597126422">"بگ رپورٹس کے لیے ریکارڈنگ بند کریں"</string>
+    <string name="stop_on_bugreport_summary" msgid="1601834864982891381">"بگ رپورٹس شروع ہونے پر فعال ریکارڈنگز ختم ہو جاتی ہیں"</string>
+    <string name="attach_to_bug_report" msgid="5388986830016247490">"بگ رپورٹس کے ساتھ ریکارڈنگز منسلک کریں"</string>
+    <string name="attach_to_bug_report_summary" msgid="4213730623971240002">"‏بگ رپورٹ جمع ہونے پر خودکار طور پر جاری ریکارڈنگز BetterBug کو بھیجیں"</string>
+    <string name="link_to_traces" msgid="1404687523304348490">"محفوظ کردہ فائلز دیکھیں"</string>
+    <string name="pref_category_trace_settings" msgid="6507535407023329628">"ٹریس کی ترتیبات"</string>
+    <string name="pref_category_saved_files" msgid="1477491400970413291">"محفوظ کردہ فائلز"</string>
+    <string name="pref_category_misc" msgid="6217624054980014683">"متفرقات"</string>
 </resources>

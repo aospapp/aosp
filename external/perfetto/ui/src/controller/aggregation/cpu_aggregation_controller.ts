@@ -15,9 +15,8 @@
 import {ColumnDef} from '../../common/aggregation_data';
 import {Engine} from '../../common/engine';
 import {Area, Sorting} from '../../common/state';
-import {toNs} from '../../common/time';
-import {Config, CPU_SLICE_TRACK_KIND} from '../../tracks/cpu_slices/common';
-import {globals} from '../globals';
+import {globals} from '../../frontend/globals';
+import {Config, CPU_SLICE_TRACK_KIND} from '../../tracks/cpu_slices';
 
 import {AggregationController} from './aggregation_controller';
 
@@ -46,8 +45,8 @@ export class CpuAggregationController extends AggregationController {
         JOIN thread_state USING(utid)
         WHERE cpu IN (${selectedCpus}) AND
         state = "Running" AND
-        thread_state.ts + thread_state.dur > ${toNs(area.startSec)} AND
-        thread_state.ts < ${toNs(area.endSec)} group by utid`;
+        thread_state.ts + thread_state.dur > ${area.start} AND
+        thread_state.ts < ${area.end} group by utid`;
 
     await engine.query(query);
     return true;
@@ -75,40 +74,40 @@ export class CpuAggregationController extends AggregationController {
         title: 'PID',
         kind: 'NUMBER',
         columnConstructor: Uint16Array,
-        columnId: 'pid'
+        columnId: 'pid',
       },
       {
         title: 'Thread',
         kind: 'STRING',
         columnConstructor: Uint16Array,
-        columnId: 'thread_name'
+        columnId: 'thread_name',
       },
       {
         title: 'TID',
         kind: 'NUMBER',
         columnConstructor: Uint16Array,
-        columnId: 'tid'
+        columnId: 'tid',
       },
       {
         title: 'Wall duration (ms)',
         kind: 'TIMESTAMP_NS',
         columnConstructor: Float64Array,
         columnId: 'total_dur',
-        sum: true
+        sum: true,
       },
       {
         title: 'Avg Wall duration (ms)',
         kind: 'TIMESTAMP_NS',
         columnConstructor: Float64Array,
-        columnId: 'avg_dur'
+        columnId: 'avg_dur',
       },
       {
         title: 'Occurrences',
         kind: 'NUMBER',
         columnConstructor: Uint16Array,
         columnId: 'occurrences',
-        sum: true
-      }
+        sum: true,
+      },
     ];
   }
 }

@@ -19,7 +19,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assist_action_play_label" msgid="6278705468288338172">"Reproduzir"</string>
     <string name="assist_action_reply_label" msgid="6946087036560525072">"Responder"</string>
-    <string name="action_mute_short" msgid="5239851786101022633">"Desativar o som"</string>
+    <string name="action_mute_short" msgid="5239851786101022633">"Ignorar"</string>
     <string name="action_mute_long" msgid="6846675719189989477">"Desativar o som da conversa"</string>
     <string name="action_unmute_short" msgid="7157822835069715986">"Reativar o som"</string>
     <string name="action_unmute_long" msgid="22482625837159466">"Reativar o som da conversa"</string>
@@ -49,4 +49,11 @@
     <string name="see_more_message" msgid="6343183827924395955">"Veja mais"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"Nova mensagem"</string>
     <string name="manage_text" msgid="4225197445283791757">"Gerir"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"navegação"</string>
+    <string name="category_call" msgid="2249490790700877973">"chamada"</string>
+    <string name="category_message" msgid="451360226248504859">"msg"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"Supressão de Olhe para a frente"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"Mantenha-se a par das últimas novidades"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"Foque-se na condução"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"Algumas novas notificações são guardadas no Centro de notificações"</string>
 </resources>

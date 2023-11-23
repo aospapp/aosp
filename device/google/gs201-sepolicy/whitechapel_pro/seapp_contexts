@@ -1,0 +1,71 @@
+# Samsung S.LSI IMS
+user=_app isPrivApp=true name=.ShannonImsService domain=vendor_ims_app levelFrom=all
+user=_app isPrivApp=true name=com.shannon.imsservice domain=vendor_ims_app levelFrom=all
+user=_app isPrivApp=true name=com.shannon.imsservice:remote domain=vendor_ims_remote_app levelFrom=all
+user=_app isPrivApp=true name=com.shannon.qualifiednetworksservice domain=vendor_qualifiednetworks_app levelFrom=all
+user=_app isPrivApp=true name=com.shannon.rcsservice domain=vendor_rcs_app levelFrom=all
+user=_app isPrivApp=true name=com.shannon.rcsservice:shannonrcsservice domain=vendor_rcs_service_app levelFrom=all
+user=_app isPrivApp=true name=com.samsung.slsi.telephony.oemril domain=oemrilservice_app levelFrom=all
+
+# Samsung S.LSI telephony
+user=system seinfo=platform name=com.samsung.slsi.telephony.silentlogging domain=vendor_telephony_silentlogging_app levelFrom=all
+user=system seinfo=platform name=com.samsung.slsi.telephony.silentlogging:remote domain=vendor_silentlogging_remote_app levelFrom=all
+user=system seinfo=platform name=com.samsung.slsi.telephony.testmode domain=vendor_telephony_test_app levelFrom=all
+user=system seinfo=platform name=com.samsung.slsi.telephony.uartswitch domain=vendor_telephony_uartswitch_app levelFrom=all
+user=system seinfo=platform name=com.samsung.slsi.sysdebugmode domain=vendor_telephony_debug_app levelFrom=all
+user=system seinfo=platform name=com.samsung.slsi.telephony.networktestmode domain=vendor_telephony_network_test_app levelFrom=all
+
+# Samsung S.LSI engineer mode
+user=_app seinfo=platform name=com.samsung.slsi.engineermode domain=vendor_engineermode_app levelFrom=all
+
+# coredump/ramdump
+user=_app seinfo=platform name=com.android.ramdump domain=ramdump_app type=app_data_file levelFrom=all
+
+# Domain for OFLBasicAgentApp to support NFC/eSIM fw upgrade
+user=_app isPrivApp=true  seinfo=platform name=com.thales.device.ofl.app.basicagent domain=ofl_app type=app_data_file levelFrom=user
+
+# Domain for omadm
+user=_app isPrivApp=true seinfo=platform name=com.android.omadm.service domain=omadm_app type=app_data_file levelFrom=all
+
+# HbmSVManager
+user=_app seinfo=platform name=com.android.hbmsvmanager domain=hbmsvmanager_app type=app_data_file levelFrom=all
+
+# grilservice
+user=_app isPrivApp=true name=com.google.android.grilservice domain=grilservice_app levelFrom=all
+
+# Domain for connectivity monitor
+user=_app isPrivApp=true seinfo=platform name=com.google.android.connectivitymonitor domain=con_monitor_app type=app_data_file levelFrom=all
+
+# Modem Diagnostic System
+user=_app isPrivApp=true seinfo=mds name=com.google.mds domain=modem_diagnostic_app type=app_data_file levelFrom=user
+
+# CBRS setup app
+user=_app seinfo=platform name=com.google.googlecbrs domain=cbrs_setup_app type=app_data_file levelFrom=user
+
+# Qorvo UWB system app
+# TODO(b/222204912): Should this run under uwb user?
+user=_app isPrivApp=true seinfo=uwb name=com.qorvo.uwb.vendorservice domain=uwb_vendor_app type=uwb_vendor_data_file levelFrom=all
+
+# Domain for EuiccSupportPixel
+user=_app isPrivApp=true seinfo=EuiccSupportPixel name=com.google.euiccpixel domain=euiccpixel_app type=app_data_file levelFrom=all
+
+# Sub System Ramdump
+user=system seinfo=platform name=com.google.SSRestartDetector domain=ssr_detector_app type=system_app_data_file levelFrom=user
+
+# Google Camera
+user=_app isPrivApp=true seinfo=google name=com.google.android.GoogleCamera domain=google_camera_app type=app_data_file levelFrom=all
+
+# Google Camera Eng
+user=_app seinfo=CameraEng name=com.google.android.GoogleCameraEng domain=debug_camera_app type=app_data_file levelFrom=all
+
+# Also allow GoogleCameraNext, the fishfood version, the same access as GoogleCamera
+user=_app seinfo=CameraFishfood name=com.google.android.apps.googlecamera.fishfood domain=google_camera_app type=app_data_file levelFrom=all
+
+# Also label GoogleCameraNext, built with debug keys as debug_camera_app.
+user=_app seinfo=CameraEng name=com.google.android.apps.googlecamera.fishfood domain=debug_camera_app type=app_data_file levelFrom=all
+
+# Domain for CatEngineService
+user=system seinfo=platform name=com.google.android.CatEngine domain=cat_engine_service_app type=system_app_data_file levelFrom=all
+
+# CccDkTimeSyncService
+user=_app isPrivApp=true name=com.google.pixel.digitalkey.timesync domain=vendor_cccdktimesync_app type=app_data_file levelFrom=all

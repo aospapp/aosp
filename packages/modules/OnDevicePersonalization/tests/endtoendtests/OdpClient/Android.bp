@@ -22,9 +22,9 @@ android_test_helper_app {
     platform_apis: true,
     srcs: [
         "src/**/odpclient/*.java",
-        ":framework-ondevicepersonalization-sources",
-        ":framework-ondevicepersonalization-aidl",
-        ":ondevicepersonalization-sources",
+    ],
+    libs: [
+        "framework-ondevicepersonalization.impl",
     ],
     static_libs: [
         "androidx.annotation_annotation",
@@ -34,4 +34,5 @@ android_test_helper_app {
         "res",
     ],
     manifest: "AndroidManifest.xml",
+    certificate: "platform",
 }

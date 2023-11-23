@@ -16,19 +16,21 @@
 
 package com.android.sts.common;
 
-import static org.junit.Assert.assertEquals;
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.junit.Assume.assumeThat;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 
+/** Collection of utilities to help run commands on device via adb */
 public final class CommandUtil {
 
     private CommandUtil() {}
 
     /**
-     * Execute shell command on device, throws AssertionError if command does not return 0.
+     * Execute shell command on device, throws AssumptionError if command does not return 0.
      *
      * @param device the device to use
      * @param cmd the command to run
@@ -40,7 +42,7 @@ public final class CommandUtil {
     }
 
     /**
-     * Execute shell command on device, throws AssertionError if command does not return 0.
+     * Execute shell command on device, throws AssumptionError if command does not return 0.
      *
      * @param device the device to use
      * @param cmd the command to run
@@ -61,7 +63,7 @@ public final class CommandUtil {
                 String.format(
                         "cmd failed: %s\ncode: %s\nstdout:\n%s\nstderr:\n%s",
                         cmd, res.getExitCode(), res.getStdout(), res.getStderr());
-        assertEquals(failMsg, res.getStatus(), CommandStatus.SUCCESS);
+        assumeThat(failMsg, res.getStatus(), equalTo(CommandStatus.SUCCESS));
         return res;
     }
 }

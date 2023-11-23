@@ -372,8 +372,8 @@ class RangeCoveredRegister {
      */
     public boolean isRangeCovered(int low, int high) {
         if (mMode == MODE.LINEAR) {
-            int iLow = Math.max(Math.round((low - mLow) / mStep), 0);
-            int iHigh = Math.min(Math.round((high - mLow) / mStep), mCovered.length-1);
+            int iLow = Math.max((low - mLow) / mStep, 0);
+            int iHigh = Math.min((high - mLow) / mStep, mCovered.length - 1);
 
             for (int i = iLow; i <= iHigh; ++i) {
                 if (!mCovered[i]) {

@@ -29,7 +29,8 @@ struct IfaceData {
 
 struct IfaceConfig {
   IfaceData mobile_tap;
-  IfaceData wireless_tap;
+  IfaceData bridged_wireless_tap;
+  IfaceData non_bridged_wireless_tap;
   IfaceData ethernet_tap;
 };
 

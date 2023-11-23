@@ -1,0 +1,11 @@
+drops {
+  android_build_drop {
+    build_id: "9462492"
+    target: "tangorpro"
+    source_file: "system_dlkm.modules.load"
+  }
+  dest_file: "system_dlkm.modules.load"
+  version: "Linux version 5.10.107-android13-4-688373-g11c98100b8c3-ab9462492 (build-user@build-host) (Android (8508608, based on r450784e) clang version 14.0.7 (https://android.googlesource.com/toolchain/llvm-project 4c603efb0cca074e9238af8b4106c30add4418f6), LLD 14.0.7) #1 SMP PREEMPT Thu Dec 1 03:25:43 UTC 2022"
+  version_group: "kernel-and-modules"
+  git_project: "device/google/tangorpro-kernel"
+}

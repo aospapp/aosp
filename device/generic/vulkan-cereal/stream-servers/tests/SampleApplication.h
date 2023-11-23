@@ -14,21 +14,22 @@
 
 #pragma once
 
-#include "OpenGLESDispatch/GLESv2Dispatch.h"
-#include "RenderContext.h"
-#include "base/Compiler.h"
-#include "FenceSync.h"
-#include "Hwc2.h"
-
 #include <cinttypes>
 #include <functional>
 #include <memory>
 
-class FrameBuffer;
-class OSWindow;
-struct RenderThreadInfo;
+#include "Hwc2.h"
+#include "OpenGLESDispatch/GLESv2Dispatch.h"
+#include "aemu/base/Compiler.h"
+#include "gl/EmulatedEglContext.h"
+#include "gl/EmulatedEglFenceSync.h"
 
-namespace emugl {
+class OSWindow;
+
+namespace gfxstream {
+
+class FrameBuffer;
+struct RenderThreadInfo;
 
 // Determines whether the host GPU should be used.
 bool shouldUseHostGpu();
@@ -46,49 +47,49 @@ class ColorBufferQueue;
 // Creates a window (or runs headless) to be used in a sample app.
 class SampleApplication {
 public:
-    SampleApplication(int windowWidth = 256, int windowHeight = 256,
-                      int refreshRate = 60, GLESApi glVersion = GLESApi_3_0,
-                      bool compose = false);
-    ~SampleApplication();
+ SampleApplication(int windowWidth = 256, int windowHeight = 256, int refreshRate = 60,
+                   gl::GLESApi glVersion = gl::GLESApi_3_0, bool compose = false);
+ virtual ~SampleApplication();
 
-    // A basic draw loop that works similar to most simple
-    // GL apps that run on desktop.
-    //
-    // Per frame:
-    //
-    // a single GL context for drawing,
-    // a color buffer to blit,
-    // and a call to post that color buffer.
-    void rebind();
-    void drawLoop();
+ // A basic draw loop that works similar to most simple
+ // GL apps that run on desktop.
+ //
+ // Per frame:
+ //
+ // a single GL context for drawing,
+ // a color buffer to blit,
+ // and a call to post that color buffer.
+ void rebind();
+ void drawLoop();
 
-    // A more complex loop that uses 3 separate contexts
-    // to simulate what goes on in Android:
-    //
-    // Per frame
-    //
-    // a GL 'app' context for drawing,
-    // a SurfaceFlinger context for rendering the "Layer",
-    // and a HWC context for posting.
-    void surfaceFlingerComposerLoop();
+ // A more complex loop that uses 3 separate contexts
+ // to simulate what goes on in Android:
+ //
+ // Per frame
+ //
+ // a GL 'app' context for drawing,
+ // a SurfaceFlinger context for rendering the "Layer",
+ // and a HWC context for posting.
+ void surfaceFlingerComposerLoop();
 
-    // TODO:
-    // void HWC2Loop();
+ // TODO:
+ // void HWC2Loop();
 
-    // Just initialize, draw, and swap buffers once.
-    void drawOnce();
+ // Just initialize, draw, and swap buffers once.
+ void drawOnce();
 
+ bool isSwANGLE();
 private:
     void drawWorkerWithCompose(ColorBufferQueue& app2sfQueue, ColorBufferQueue& sf2appQueue);
     void drawWorker(ColorBufferQueue& app2sfQueue, ColorBufferQueue& sf2appQueue,
                 ColorBufferQueue& sf2hwcQueue, ColorBufferQueue& hwc2sfQueue);
-    FenceSync* getFenceSync();
+    gl::EmulatedEglFenceSync* getFenceSync();
 
-protected:
+   protected:
     virtual void initialize() = 0;
     virtual void draw() = 0;
 
-    virtual const GLESv2Dispatch* getGlDispatch();
+    virtual const gl::GLESv2Dispatch* getGlDispatch();
 
     int mWidth = 256;
     int mHeight = 256;
@@ -96,7 +97,7 @@ protected:
 
     bool mUseSubWindow = false;
     OSWindow* mWindow = nullptr;
-    std::unique_ptr<FrameBuffer> mFb = {};
+    FrameBuffer* mFb = nullptr;
     std::unique_ptr<RenderThreadInfo> mRenderThreadInfo = {};
 
     int mXOffset= 400;
@@ -112,4 +113,4 @@ protected:
     DISALLOW_COPY_ASSIGN_AND_MOVE(SampleApplication);
 };
 
-} // namespace emugl
+}  // namespace gfxstream

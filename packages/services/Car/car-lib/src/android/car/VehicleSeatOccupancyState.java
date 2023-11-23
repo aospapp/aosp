@@ -23,7 +23,7 @@ import android.car.annotation.AddedInOrBefore;
  * set and get this VHAL property.
  * @hide
  */
-public class VehicleSeatOccupancyState {
+public final class VehicleSeatOccupancyState {
     @AddedInOrBefore(majorVersion = 33)
     public static final int UNKNOWN = 0;
     @AddedInOrBefore(majorVersion = 33)

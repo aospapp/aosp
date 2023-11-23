@@ -14,19 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-
-
-import sys
-import collections
-import random
 import time
-import datetime
-import os
-import logging
-import json
-import subprocess
-import math
-import re
 
 from acts import asserts
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
@@ -62,8 +50,8 @@ class TelLabGFTModemConnectivityHelperTest(GFTInOutBaseTest):
         GFTInOutBaseTest.setup_test(self)
         self.check_network()
 
-
     """Tests"""
+
     @test_tracker_info(uuid="c602e556-8273-4c75-b8fa-4d51ba514654")
     @TelephonyBaseTest.tel_test_wrap
     def test_in_out_no_service(self):
@@ -82,9 +70,8 @@ class TelLabGFTModemConnectivityHelperTest(GFTInOutBaseTest):
         self.adjust_wifi_signal(IN_SERVICE_POWER_LEVEL)
         time.sleep(WAIT_FOR_SERVICE_TIME)
         if not self.check_network():
-          return False
+            return False
         return True
-
 
     @test_tracker_info(uuid="e58c7347-a930-4a3a-a740-a6d1cfb19ca0")
     @TelephonyBaseTest.tel_test_wrap
@@ -99,27 +86,35 @@ class TelLabGFTModemConnectivityHelperTest(GFTInOutBaseTest):
                 True if pass; False if fail.
         """
         test_result = True
-        for x in range (loop):
-            self.log.info("%s loop: %s/%s" %(self.current_test_name,x+1, loop))
+        for x in range(loop):
+            self.log.info("%s loop: %s/%s" %
+                          (self.current_test_name, x + 1, loop))
             self.adjust_cellular_signal(IN_SERVICE_POWER_LEVEL)
             self.adjust_wifi_signal(IN_SERVICE_POWER_LEVEL)
 
             # Make a MO VoLTE call in service area.
-            tasks = [(self._initiate_call, (ad, )) for ad in self.android_devices]
+            tasks = [(self._initiate_call, (ad, ))
+                     for ad in self.android_devices]
             if not multithread_func(self.log, tasks):
                 return False
-            tasks = [(is_phone_in_call_volte, (ad.log, ad, )) for ad in self.android_devices]
+            tasks = [(is_phone_in_call_volte, (
+                ad.log,
+                ad,
+            )) for ad in self.android_devices]
             test_result = multithread_func(self.log, tasks)
 
             # Move to poor service -> no service area
             self.adjust_atten_slowly(10, NO_SERVICE_AREA)
             time.sleep(NO_SERVICE_TIME)
             # check call status
-            tasks = [(is_phone_in_call_volte, (ad.log, ad, )) for ad in self.android_devices]
+            tasks = [(is_phone_in_call_volte, (
+                ad.log,
+                ad,
+            )) for ad in self.android_devices]
             test_result = multithread_func(self.log, tasks)
             for ad in self.android_devices:
                 telecom_state = ad.droid.telecomGetCallState()
-                ad.log.info("telecom_state %s" %(telecom_state))
+                ad.log.info("telecom_state %s" % (telecom_state))
             # Move back to service area
             self.adjust_atten_slowly(10, IN_SERVICE_AREA)
             time.sleep(WAIT_FOR_SERVICE_TIME)
@@ -135,10 +130,10 @@ class TelLabGFTModemConnectivityHelperTest(GFTInOutBaseTest):
             return True if call initiate successfully
         """
         mt = ad.mt_phone_number
-        ad.log.info("set mt number to %s" %(mt))
+        ad.log.info("set mt number to %s" % (mt))
         ad.log.info("check network status before initiate call")
         self.check_network()
-        ad.log.info("_initiate_call to %s" %(mt))
+        ad.log.info("_initiate_call to %s" % (mt))
         if not initiate_call(self.log, ad, mt):
             return False
         return True

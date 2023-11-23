@@ -1,4 +1,9 @@
 {
+  "mainline-presubmit": [
+    {
+      "name": "derive_sdk_test[com.google.android.sdkext.apex]"
+    }
+  ],
   "presubmit": [
     {
       "name": "CtsSdkExtensionsTestCases"

@@ -54,10 +54,10 @@ public class NullBindingTest extends BaseTelecomTestWithMockServices {
 
     @Override
     protected void tearDown() throws Exception {
-        super.tearDown();
         if (mShouldTestTelecom) {
             mTelecomManager.unregisterPhoneAccount(TEST_NULL_BINDING_HANDLE);
         }
+        super.tearDown();
     }
 
     /**

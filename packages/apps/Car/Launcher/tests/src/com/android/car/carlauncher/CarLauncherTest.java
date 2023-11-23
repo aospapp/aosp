@@ -33,6 +33,8 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
+import androidx.test.filters.Suppress;
+
 
 import org.junit.After;
 import org.junit.Rule;
@@ -42,6 +44,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+@Suppress // To be ignored until b/224978827 is fixed
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 public class CarLauncherTest {

@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    android::gsi::GsiService::Register();
+    android::gsi::GsiService::Register(android::gsi::kGsiServiceName);
     {
         sp<ProcessState> ps(ProcessState::self());
         ps->startThreadPool();

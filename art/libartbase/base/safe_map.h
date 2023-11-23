@@ -49,8 +49,9 @@ class SafeMap {
   SafeMap() = default;
   SafeMap(const SafeMap&) = default;
   SafeMap(SafeMap&&) noexcept = default;
+  explicit SafeMap(const allocator_type& allocator) : map_(allocator) {}
   explicit SafeMap(const key_compare& cmp, const allocator_type& allocator = allocator_type())
-    : map_(cmp, allocator) {
+      : map_(cmp, allocator) {
   }
 
   Self& operator=(const Self& rhs) {
@@ -149,7 +150,7 @@ class SafeMap {
 
   template <typename CreateFn>
   V& GetOrCreate(const K& k, CreateFn create) {
-    static_assert(std::is_same_v<V, std::result_of_t<CreateFn()>>,
+    static_assert(std::is_same_v<V, std::invoke_result_t<CreateFn>>,
                   "Argument `create` should return a value of type V.");
     auto lb = lower_bound(k);
     if (lb != end() && !key_comp()(k, lb->first)) {

@@ -1,13 +1,13 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (c) 2018 Oracle and/or its affiliates. All Rights Reserved.
+# Copyright (c) 2019-2022 Petr Vorel <pvorel@suse.cz>
 # Author: Alexey Kodanev <alexey.kodanev@oracle.com>
 
 TST_NEEDS_TMPDIR=1
 TST_NEEDS_ROOT=1
 TST_NEEDS_CMDS="sysctl tc"
-
-. tst_net.sh
+TST_NEEDS_DRIVERS="sch_netem"
 
 def_alg="cubic"
 prev_qlen=
@@ -30,7 +30,7 @@ tcp_cc_cleanup()
 		tst_set_sysctl net.ipv4.tcp_congestion_control $prev_alg
 
 	[ "$prev_qlen" ] && \
-		tst_rhost_run -c "ip li set txqueuelen $prev_qlen $rmt_dev"
+		tst_rhost_run -c "ip link set txqueuelen $prev_qlen $rmt_dev"
 
 	[ "$prev_queue" ] && \
 		tst_rhost_run -c "tc qdisc replace $rmt_dev root $prev_queue"
@@ -103,3 +103,5 @@ tcp_cc_test01()
 
 	tst_netload_compare $res0 $res1 $threshold
 }
+
+. tst_net.sh

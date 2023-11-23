@@ -44,12 +44,13 @@ rust_library {
     host_supported: true,
     crate_name: "tinyvec",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.5.1",
+    cargo_pkg_version: "1.6.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
         "alloc",
         "default",
+        "std",
         "tinyvec_macros",
     ],
     rustlibs: [
@@ -59,25 +60,23 @@ rust_library {
         "//apex_available:platform",
         "com.android.resolv",
     ],
+    product_available: true,
+    vendor_available: true,
     min_sdk_version: "29",
 }
 
-rust_test {
-    name: "tinyvec_test_tests_arrayvec",
-    host_supported: true,
-    crate_name: "arrayvec",
+rust_defaults {
+    name: "tinyvec_test_defaults",
+    crate_name: "tinyvec",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.5.1",
-    srcs: ["tests/arrayvec.rs"],
+    cargo_pkg_version: "1.6.0",
     test_suites: ["general-tests"],
     auto_gen_config: true,
-    test_options: {
-        unit_test: true,
-    },
     edition: "2018",
     features: [
         "alloc",
         "default",
+        "std",
         "tinyvec_macros",
     ],
     rustlibs: [
@@ -88,3 +87,41 @@ rust_test {
         "libtinyvec_macros",
     ],
 }
+
+rust_test {
+    name: "tinyvec_test_tests_arrayvec",
+    defaults: ["tinyvec_test_defaults"],
+    host_supported: true,
+    srcs: ["tests/arrayvec.rs"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
+rust_test {
+    name: "tinyvec_test_tests_tinyvec",
+    defaults: ["tinyvec_test_defaults"],
+    host_supported: true,
+    srcs: ["tests/tinyvec.rs"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
+rust_library_rlib {
+    name: "libtinyvec_nostd",
+    crate_name: "tinyvec",
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.5.1",
+    srcs: ["src/lib.rs"],
+    edition: "2018",
+    prefer_rlib: true,
+    no_stdlibs: true,
+    stdlibs: [
+        "libcompiler_builtins.rust_sysroot",
+        "libcore.rust_sysroot",
+    ],
+    vendor_available: true,
+    min_sdk_version: "29",
+}
+

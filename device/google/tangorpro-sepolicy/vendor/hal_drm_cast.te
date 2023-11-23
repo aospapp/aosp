@@ -1,0 +1,9 @@
+type hal_drm_cast, domain;
+type hal_drm_cast_exec, exec_type, vendor_file_type, file_type;
+
+init_daemon_domain(hal_drm_cast)
+hal_server_domain(hal_drm_cast, hal_drm)
+
+allow hal_drm_cast mnt_vendor_file:dir search;
+allow hal_drm_cast persist_file:dir search;
+allow hal_drm_cast device_cert_file:file r_file_perms;

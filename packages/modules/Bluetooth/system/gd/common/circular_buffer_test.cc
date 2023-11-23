@@ -68,6 +68,7 @@ TEST(CircularBufferTest, simple_drain) {
 }
 
 TEST(CircularBufferTest, test_timestamps) {
+  timestamp_ = 0;
   bluetooth::common::TimestampedCircularBuffer<std::string> buffer(10, std::make_unique<TestTimestamper>());
 
   buffer.Push(std::string("One"));

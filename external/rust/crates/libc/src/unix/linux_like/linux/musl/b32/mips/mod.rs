@@ -172,14 +172,6 @@ pub const O_NOFOLLOW: ::c_int = 0o400000;
 pub const O_ASYNC: ::c_int = 0o10000;
 pub const O_LARGEFILE: ::c_int = 0x2000;
 
-pub const RLIMIT_RSS: ::c_int = 7;
-pub const RLIMIT_NOFILE: ::c_int = 5;
-pub const RLIMIT_AS: ::c_int = 6;
-pub const RLIMIT_NPROC: ::c_int = 8;
-pub const RLIMIT_MEMLOCK: ::c_int = 9;
-pub const RLIMIT_NLIMITS: ::c_int = 15;
-pub const RLIM_NLIMITS: ::c_int = RLIMIT_NLIMITS;
-
 pub const MCL_CURRENT: ::c_int = 0x0001;
 pub const MCL_FUTURE: ::c_int = 0x0002;
 pub const CBAUD: ::tcflag_t = 0o0010017;
@@ -785,6 +777,14 @@ pub const SYS_faccessat2: ::c_long = 4000 + 439;
 pub const SYS_process_madvise: ::c_long = 4000 + 440;
 pub const SYS_epoll_pwait2: ::c_long = 4000 + 441;
 pub const SYS_mount_setattr: ::c_long = 4000 + 442;
+pub const SYS_quotactl_fd: ::c_long = 4000 + 443;
+pub const SYS_landlock_create_ruleset: ::c_long = 4000 + 444;
+pub const SYS_landlock_add_rule: ::c_long = 4000 + 445;
+pub const SYS_landlock_restrict_self: ::c_long = 4000 + 446;
+pub const SYS_memfd_secret: ::c_long = 4000 + 447;
+pub const SYS_process_mrelease: ::c_long = 4000 + 448;
+pub const SYS_futex_waitv: ::c_long = 4000 + 449;
+pub const SYS_set_mempolicy_home_node: ::c_long = 4000 + 450;
 
 cfg_if! {
     if #[cfg(libc_align)] {

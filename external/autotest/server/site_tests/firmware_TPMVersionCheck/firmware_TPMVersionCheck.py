@@ -17,7 +17,8 @@ class firmware_TPMVersionCheck(FirmwareTest):
     def initialize(self, host, cmdline_args, dev_mode=False, ec_wp=None):
         super(firmware_TPMVersionCheck, self).initialize(host, cmdline_args,
                                                          ec_wp=ec_wp)
-        self.switcher.setup_mode('dev' if dev_mode else 'normal')
+        self.switcher.setup_mode('dev' if dev_mode else 'normal',
+                                 allow_gbb_force=True)
         self.setup_usbkey(usbkey=False)
 
     def run_once(self):

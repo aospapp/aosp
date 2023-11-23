@@ -17,14 +17,15 @@
 #include "CameraUsageStats.h"
 
 #include <android-base/logging.h>
+
 #include <statslog_evs.h>
 
 namespace {
 
-    // Length of frame roundtrip history
-    const int kMaxHistoryLength = 100;
+// Length of frame roundtrip history
+const int kMaxHistoryLength = 100;
 
-}
+}  // namespace
 
 namespace android {
 namespace automotive {
@@ -37,8 +38,7 @@ using ::android::base::StringAppendF;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::automotive::evs::V1_1::BufferDesc;
 
-void CameraUsageStats::updateFrameStatsOnArrival(
-        const hidl_vec<BufferDesc>& bufs) {
+void CameraUsageStats::updateFrameStatsOnArrival(const hidl_vec<BufferDesc>& bufs) {
     const auto now = android::uptimeMillis();
     for (const auto& b : bufs) {
         auto it = mBufferHistory.find(b.bufferId);
@@ -50,15 +50,12 @@ void CameraUsageStats::updateFrameStatsOnArrival(
     }
 }
 
-
-void CameraUsageStats::updateFrameStatsOnReturn(
-        const hidl_vec<BufferDesc>& bufs) {
+void CameraUsageStats::updateFrameStatsOnReturn(const hidl_vec<BufferDesc>& bufs) {
     const auto now = android::uptimeMillis();
     for (auto& b : bufs) {
         auto it = mBufferHistory.find(b.bufferId);
         if (it == mBufferHistory.end()) {
-            LOG(WARNING) << "Buffer " << b.bufferId << " from "
-                         << b.deviceId << " is unknown.";
+            LOG(WARNING) << "Buffer " << b.bufferId << " from " << b.deviceId << " is unknown.";
         } else {
             const auto roundtrip = now - it->second.timestamp;
             it->second.history.emplace(roundtrip);
@@ -79,54 +76,44 @@ void CameraUsageStats::updateFrameStatsOnReturn(
     }
 }
 
-
 void CameraUsageStats::framesReceived(int n) {
     AutoMutex lock(mMutex);
     mStats.framesReceived += n;
 }
 
-
-void CameraUsageStats::framesReceived(
-        const hidl_vec<BufferDesc>& bufs) {
+void CameraUsageStats::framesReceived(const hidl_vec<BufferDesc>& bufs) {
     AutoMutex lock(mMutex);
     mStats.framesReceived += bufs.size();
 
     updateFrameStatsOnArrival(bufs);
 }
 
-
 void CameraUsageStats::framesReturned(int n) {
     AutoMutex lock(mMutex);
     mStats.framesReturned += n;
 }
 
-
-void CameraUsageStats::framesReturned(
-        const hidl_vec<BufferDesc>& bufs) {
+void CameraUsageStats::framesReturned(const hidl_vec<BufferDesc>& bufs) {
     AutoMutex lock(mMutex);
     mStats.framesReturned += bufs.size();
 
     updateFrameStatsOnReturn(bufs);
 }
 
-
 void CameraUsageStats::framesIgnored(int n) {
     AutoMutex lock(mMutex);
     mStats.framesIgnored += n;
 }
-
 
 void CameraUsageStats::framesSkippedToSync(int n) {
     AutoMutex lock(mMutex);
     mStats.framesSkippedToSync += n;
 }
 
-
 void CameraUsageStats::eventsReceived() {
     AutoMutex lock(mMutex);
     ++mStats.erroneousEventsCount;
 }
-
 
 void CameraUsageStats::updateNumClients(size_t n) {
     AutoMutex lock(mMutex);
@@ -135,24 +122,20 @@ void CameraUsageStats::updateNumClients(size_t n) {
     }
 }
 
-
 int64_t CameraUsageStats::getTimeCreated() const {
     AutoMutex lock(mMutex);
     return mTimeCreatedMs;
 }
-
 
 int64_t CameraUsageStats::getFramesReceived() const {
     AutoMutex lock(mMutex);
     return mStats.framesReceived;
 }
 
-
 int64_t CameraUsageStats::getFramesReturned() const {
     AutoMutex lock(mMutex);
     return mStats.framesReturned;
 }
-
 
 CameraUsageStatsRecord CameraUsageStats::snapshot() {
     AutoMutex lock(mMutex);
@@ -173,7 +156,6 @@ CameraUsageStatsRecord CameraUsageStats::snapshot() {
     return mStats;
 }
 
-
 Result<void> CameraUsageStats::writeStats() const {
     AutoMutex lock(mMutex);
 
@@ -192,14 +174,12 @@ Result<void> CameraUsageStats::writeStats() const {
     return {};
 }
 
-
 std::string CameraUsageStats::toString(const CameraUsageStatsRecord& record, const char* indent) {
     return record.toString(indent);
 }
 
-} // namespace implementation
-} // namespace V1_1
-} // namespace evs
-} // namespace automotive
-} // namespace android
-
+}  // namespace implementation
+}  // namespace V1_1
+}  // namespace evs
+}  // namespace automotive
+}  // namespace android

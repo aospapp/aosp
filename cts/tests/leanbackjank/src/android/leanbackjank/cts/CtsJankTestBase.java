@@ -17,11 +17,11 @@
 package android.leanbackjank.cts;
 
 import android.os.Bundle;
-import android.support.test.uiautomator.UiDevice;
 
 import androidx.test.jank.GfxMonitor;
 import androidx.test.jank.JankTestBase;
 import androidx.test.jank.WindowContentFrameStatsMonitor;
+import androidx.test.uiautomator.UiDevice;
 
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.ResultType;

@@ -18,16 +18,17 @@ package android.media.misc.cts;
 
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.media.cts.NonMediaMainlineTest;
 import android.os.Environment;
 import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
+
+import com.android.compatibility.common.util.NonMainlineTest;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaScannerNotificationTest extends AndroidTestCase {
 

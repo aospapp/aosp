@@ -1,16 +1,17 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from __future__ import print_function
+
 
 import argparse
 import os
 import re
 
-import chaos_capture_analyzer
-import chaos_log_analyzer
+from . import chaos_capture_analyzer
+from . import chaos_log_analyzer
 
 class ChaosTestInfo(object):
     """ Class to gather the relevant test information from a folder. """

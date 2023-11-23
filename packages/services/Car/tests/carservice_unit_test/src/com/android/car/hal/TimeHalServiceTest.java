@@ -151,6 +151,20 @@ public final class TimeHalServiceTest {
     }
 
     @Test
+    public void testInitSubscribesToProperty() {
+        TimeHalService timeHalService = mTimeHalServiceProvider.get();
+        timeHalService.takeProperties(Collections.singletonList(CAR_TIME_PROP));
+        long testTimeNanos = 123_456_789_456_123L;
+        when(mVehicleHal.get(anyInt())).thenReturn(
+                newExternalCarTimeValue(testTimeNanos));
+
+        timeHalService.init();
+
+        assertThat(timeHalService.isExternalCarTimeSupported()).isTrue();
+        verify(mVehicleHal).subscribeProperty(timeHalService, EXTERNAL_CAR_TIME);
+    }
+
+    @Test
     public void testReleaseUnregistersBroadcastReceiver() {
         TimeHalService timeHalService = mTimeHalServiceProvider.get();
         timeHalService.takeProperties(Collections.singletonList(ANDROID_TIME_PROP));

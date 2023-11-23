@@ -26,6 +26,7 @@ import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestMetrics;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.tradefed.util.RunUtil;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -61,10 +62,7 @@ public class MemoryTests extends BaseHostJUnit4Test {
         throws DeviceNotAvailableException, IOException {
             getDevice().startLogcat();
             // Wait until starting logcat for the device.
-            try {
-                Thread.sleep(LOG_START_DELAY);
-            } catch (InterruptedException e) {
-            }
+            RunUtil.getDefault().sleep(LOG_START_DELAY);
             getDevice().clearLogcat();
 
             String pkgname = "com.android.game.qualification.allocstress";

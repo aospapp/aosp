@@ -1,0 +1,1 @@
+binder_call(hal_radioext_default, hal_bluetooth_default)

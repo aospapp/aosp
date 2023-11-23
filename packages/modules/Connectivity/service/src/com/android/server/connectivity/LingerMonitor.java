@@ -25,7 +25,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
-import android.net.ConnectivityResources;
 import android.net.NetworkCapabilities;
 import android.os.SystemClock;
 import android.os.UserHandle;
@@ -229,8 +228,8 @@ public class LingerMonitor {
             @Nullable final NetworkAgentInfo toNai) {
         if (VDBG) {
             Log.d(TAG, "noteLingerDefaultNetwork from=" + fromNai.toShortString()
-                    + " everValidated=" + fromNai.everValidated
-                    + " lastValidated=" + fromNai.lastValidated
+                    + " firstValidated=" + fromNai.getFirstValidationTime()
+                    + " lastValidated=" + fromNai.getCurrentValidationTime()
                     + " to=" + toNai.toShortString());
         }
 
@@ -253,7 +252,7 @@ public class LingerMonitor {
         // 1. User connects to wireless printer.
         // 2. User turns on cellular data.
         // 3. We show a notification.
-        if (!fromNai.everValidated) return;
+        if (!fromNai.everValidated()) return;
 
         // If this network is a captive portal, don't notify. This cannot happen on initial connect
         // to a captive portal, because the everValidated check above will fail. However, it can
@@ -286,7 +285,7 @@ public class LingerMonitor {
         // because its score changed.
         // TODO: instead of just skipping notification, keep a note of it, and show it if it becomes
         // unvalidated.
-        if (fromNai.lastValidated) return;
+        if (fromNai.isValidated()) return;
 
         if (!isNotificationEnabled(fromNai, toNai)) return;
 

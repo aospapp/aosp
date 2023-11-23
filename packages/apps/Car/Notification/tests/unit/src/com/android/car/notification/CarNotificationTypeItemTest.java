@@ -115,24 +115,13 @@ public class CarNotificationTypeItemTest {
     }
 
     @Test
-    public void groupExpandedNotificationType_shouldHaveCorrectValues() {
+    public void groupNotificationType_shouldHaveCorrectValues() {
         CarNotificationTypeItem groupExpanded = CarNotificationTypeItem.of(
-                NotificationViewType.GROUP_EXPANDED);
+                NotificationViewType.GROUP);
         assertThat(groupExpanded.getNotificationType()).isEqualTo(
-                NotificationViewType.GROUP_EXPANDED);
+                NotificationViewType.GROUP);
 
         assertProperties(groupExpanded, NO_TEMPLATE, R.layout.group_notification_template,
-                GroupNotificationViewHolder.class);
-    }
-
-    @Test
-    public void groupCollapsedNotificationType_shouldHaveCorrectValues() {
-        CarNotificationTypeItem groupCollapsed = CarNotificationTypeItem.of(
-                NotificationViewType.GROUP_COLLAPSED);
-        assertThat(groupCollapsed.getNotificationType()).isEqualTo(
-                NotificationViewType.GROUP_COLLAPSED);
-
-        assertProperties(groupCollapsed, NO_TEMPLATE, R.layout.group_notification_template,
                 GroupNotificationViewHolder.class);
     }
 

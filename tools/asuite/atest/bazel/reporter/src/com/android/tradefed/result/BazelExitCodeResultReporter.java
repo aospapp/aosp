@@ -49,7 +49,6 @@ public final class BazelExitCodeResultReporter implements ITestInvocationListene
 
     private boolean mHasRunFailures;
     private boolean mHasTestFailures;
-    private int mTestCount = 0;
 
     @VisibleForTesting
     BazelExitCodeResultReporter(FileSystem fs) {
@@ -58,21 +57,6 @@ public final class BazelExitCodeResultReporter implements ITestInvocationListene
 
     public BazelExitCodeResultReporter() {
         this(FileSystems.getDefault());
-    }
-
-    @Override
-    public void testRunStarted(String name, int numTests) {
-        testRunStarted(name, numTests, 0);
-    }
-
-    @Override
-    public void testRunStarted(String name, int numTests, int attemptNumber) {
-        testRunStarted(name, numTests, attemptNumber, System.currentTimeMillis());
-    }
-
-    @Override
-    public void testRunStarted(String name, int numTests, int attemptNumber, long startTime) {
-        mTestCount += numTests;
     }
 
     @Override
@@ -127,18 +111,12 @@ public final class BazelExitCodeResultReporter implements ITestInvocationListene
             return ExitCode.TESTS_FAILED;
         }
 
-        // Return NO_TESTS_FOUND only when there are no run failures.
-        if (mTestCount == 0) {
-            return ExitCode.NO_TESTS_FOUND;
-        }
-
         return ExitCode.SUCCESS;
     }
 
     private enum ExitCode {
         SUCCESS(0),
         TESTS_FAILED(3),
-        NO_TESTS_FOUND(4),
         RUN_FAILURE(6);
 
         private final int value;

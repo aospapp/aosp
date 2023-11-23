@@ -1,0 +1,69 @@
+# pip install mkdocs mkdocs-material
+# mkdocs serve
+# mkdocs gh-deploy
+
+site_name: KotlinPoet
+repo_name: KotlinPoet
+repo_url: https://github.com/square/kotlinpoet
+site_description: "A Kotlin API for generating .kt source files"
+site_author: Square, Inc.
+remote_branch: gh-pages
+
+copyright: 'Copyright &copy; 2015 Square, Inc.'
+
+theme:
+  name: 'material'
+  logo: 'images/icon-square.png'
+  favicon: 'images/icon-square.png'
+  palette:
+    - media: '(prefers-color-scheme: light)'
+      scheme: default
+      primary: 'cyan'
+      accent: 'deep-purple'
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: '(prefers-color-scheme: dark)'
+      scheme: slate
+      primary: 'black'
+      accent: 'blue-grey'
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+extra_css:
+  - 'css/app.css'
+
+markdown_extensions:
+  - smarty
+  - codehilite:
+      guess_lang: false
+  - footnotes
+  - meta
+  - toc:
+      permalink: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.inlinehilite
+  - pymdownx.magiclink
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.emoji
+  - tables
+  - admonition
+
+nav:
+  - 'Overview':
+    - 'KotlinPoet': index.md
+    - 'Interop - JavaPoet': interop-javapoet.md
+    - 'Interop - kotlinx-metadata': interop-kotlinx-metadata.md
+    - 'Interop - KSP': interop-ksp.md
+  - 'API':
+    - 'kotlinpoet': 1.x/kotlinpoet/index.html
+    - 'interop-javapoet': 1.x/interop-javapoet/index.html
+    - 'interop-kotlinx-metadata': 1.x/interop-kotlinx-metadata/index.html
+    - 'interop-ksp': 1.x/interop-ksp/index.html
+  - 'Stack Overflow ⏏': https://stackoverflow.com/questions/tagged/kotlinpoet?sort=active
+  - 'Change Log': changelog.md
+  - 'Contributing': contributing.md

@@ -39,12 +39,16 @@ import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.AppModeInstant;
 
 import com.android.compatibility.common.util.FeatureUtil;
+import com.android.tradefed.log.LogUtil;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.tradefed.testtype.junit4.DeviceTestRunOptions;
+import com.android.tradefed.util.RunUtil;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.function.ThrowingRunnable;
 import org.junit.runner.RunWith;
 
 import java.util.concurrent.TimeUnit;
@@ -57,7 +61,7 @@ import java.util.concurrent.TimeoutException;
 public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
 
     private static final long WAIT_TIMEOUT = TimeUnit.SECONDS.toMillis(1);
-    private static final long PACKAGE_OP_TIMEOUT = TimeUnit.SECONDS.toMillis(7);
+    private static final long PACKAGE_OP_TIMEOUT = TimeUnit.SECONDS.toMillis(15);
     private static final long POLLING_INTERVAL = 100;
     private static final String COMPAT_CHANGE_DO_NOT_DOWNSCALE_TO_1080P_ON_TV =
             "DO_NOT_DOWNSCALE_TO_1080P_ON_TV";
@@ -126,15 +130,28 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
      * <p>This method verifies that IME is available in IMMS.</p>
      * @param apkFileName IME apk to install
      * @param imeId of the IME being installed.
+     * @param forceQueryable True to enable ime becoming visible on the device.
      * @throws Exception
      */
-    private void installImePackageSync(String apkFileName, String imeId) throws Exception {
-        installPackage(apkFileName, "-r");
+    private void installImePackageSync(String apkFileName, String imeId, boolean forceQueryable)
+            throws Exception {
+        final DeviceTestRunOptions options = new DeviceTestRunOptions(null /* unused */);
+        options.setApkFileName(apkFileName);
+        options.setInstallArgs("-r");
+        options.setForceQueryable(forceQueryable);
+        installPackage(options);
         waitUntilImesAreAvailable(imeId);
 
         // Compatibility scaling may affect how watermarks are rendered in such a way so that we
         // won't be able to detect them on screenshots.
         disableAppCompatScalingForPackageIfNeeded(ComponentNameUtils.retrievePackageName(imeId));
+    }
+
+    /**
+     * @see #installImePackageSync(String, String, boolean)
+     */
+    private void installImePackageSync(String apkFileName, String imeId) throws Exception {
+        installImePackageSync(apkFileName, imeId, true /* forceQueryable */);
     }
 
     private void disableAppCompatScalingForPackageIfNeeded(String packageName) throws Exception {
@@ -165,8 +182,10 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
         sendTestStartEvent(DeviceTestConstants.TEST_SWITCH_IME1_TO_IME2);
         installPossibleInstantPackage(
                 EditTextAppConstants.APK, EditTextAppConstants.PACKAGE, instant);
+        shell(ShellCommandUtils.waitForBroadcastBarrier());
         installImePackageSync(Ime1Constants.APK, Ime1Constants.IME_ID);
         installImePackageSync(Ime2Constants.APK, Ime2Constants.IME_ID);
+        shell(ShellCommandUtils.waitForBroadcastBarrier());
         shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
         shell(ShellCommandUtils.enableIme(Ime2Constants.IME_ID));
         waitUntilImesAreEnabled(Ime1Constants.IME_ID, Ime2Constants.IME_ID);
@@ -198,6 +217,7 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
         installPossibleInstantPackage(
                 EditTextAppConstants.APK, EditTextAppConstants.PACKAGE, instant);
         installImePackageSync(Ime1Constants.APK, Ime1Constants.IME_ID);
+        shell(ShellCommandUtils.waitForBroadcastBarrier());
         shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
         waitUntilImesAreEnabled(Ime1Constants.IME_ID);
 
@@ -205,6 +225,7 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
         assertTrue(runDeviceTestMethod(DeviceTestConstants.TEST_CREATE_IME1));
 
         uninstallPackageSyncIfExists(Ime1Constants.PACKAGE);
+        shell(ShellCommandUtils.waitForBroadcastBarrier());
         assertImeNotSelectedInSecureSettings(Ime1Constants.IME_ID, WAIT_TIMEOUT);
     }
 
@@ -231,12 +252,14 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
         installPossibleInstantPackage(
                 EditTextAppConstants.APK, EditTextAppConstants.PACKAGE, instant);
         installImePackageSync(Ime1Constants.APK, Ime1Constants.IME_ID);
+        shell(ShellCommandUtils.waitForBroadcastBarrier());
         shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
         waitUntilImesAreEnabled(Ime1Constants.IME_ID);
         shell(ShellCommandUtils.setCurrentImeSync(Ime1Constants.IME_ID));
         assertTrue(runDeviceTestMethod(DeviceTestConstants.TEST_CREATE_IME1));
 
         shell(ShellCommandUtils.disableIme(Ime1Constants.IME_ID));
+        shell(ShellCommandUtils.waitForBroadcastBarrier());
         assertImeNotSelectedInSecureSettings(Ime1Constants.IME_ID, WAIT_TIMEOUT);
     }
 
@@ -264,6 +287,7 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
                 EditTextAppConstants.APK, EditTextAppConstants.PACKAGE, instant);
         installImePackageSync(Ime1Constants.APK, Ime1Constants.IME_ID);
         installImePackageSync(Ime2Constants.APK, Ime2Constants.IME_ID);
+        shell(ShellCommandUtils.waitForBroadcastBarrier());
         shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
         shell(ShellCommandUtils.enableIme(Ime2Constants.IME_ID));
         waitUntilImesAreEnabled(Ime1Constants.IME_ID, Ime2Constants.IME_ID);
@@ -290,12 +314,14 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
         testSwitchInputMethod(true);
     }
 
-    private void testSwitchToNextInput(boolean instant) throws Exception {
+    private void testSwitchToNextInput(boolean instant, boolean imeForceQueryable)
+            throws Exception {
         sendTestStartEvent(DeviceTestConstants.TEST_SWITCH_NEXT_INPUT);
         installPossibleInstantPackage(
                 EditTextAppConstants.APK, EditTextAppConstants.PACKAGE, instant);
-        installImePackageSync(Ime1Constants.APK, Ime1Constants.IME_ID);
-        installImePackageSync(Ime2Constants.APK, Ime2Constants.IME_ID);
+        installImePackageSync(Ime1Constants.APK, Ime1Constants.IME_ID, imeForceQueryable);
+        installImePackageSync(Ime2Constants.APK, Ime2Constants.IME_ID, imeForceQueryable);
+        shell(ShellCommandUtils.waitForBroadcastBarrier());
         shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
         // Make sure that there is at least one more IME that specifies
         // supportsSwitchingToNextInputMethod="true"
@@ -312,7 +338,7 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
     @AppModeFull
     @Test
     public void testSwitchToNextInputFull() throws Exception {
-        testSwitchToNextInput(false);
+        testSwitchToNextInput(false, true /* imeForceQueryable */);
     }
 
     /**
@@ -321,15 +347,35 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
     @AppModeInstant
     @Test
     public void testSwitchToNextInputInstant() throws Exception {
-        testSwitchToNextInput(true);
+        testSwitchToNextInput(true, true /* imeForceQueryable */);
     }
 
-    private void testSwitchToPreviousInput(boolean instant) throws Exception {
+    /**
+     * Test "InputMethodService#switchToNextInputMethod" API for full (non-instant) apps.
+     */
+    @AppModeFull
+    @Test
+    public void testSwitchToNextInputFull_callerCannotSeeTargetInput() throws Exception {
+        testSwitchToNextInput(false, false /* imeForceQueryable */);
+    }
+
+    /**
+     * Test "InputMethodService#switchToNextInputMethod" API for instant apps.
+     */
+    @AppModeInstant
+    @Test
+    public void testSwitchToNextInputInstant_callerCannotSeeTargetInput() throws Exception {
+        testSwitchToNextInput(true, false /* imeForceQueryable */);
+    }
+
+    private void testSwitchToPreviousInput(boolean instant, boolean imeForceQueryable)
+            throws Exception {
         sendTestStartEvent(DeviceTestConstants.TEST_SWITCH_PREVIOUS_INPUT);
         installPossibleInstantPackage(
                 EditTextAppConstants.APK, EditTextAppConstants.PACKAGE, instant);
-        installImePackageSync(Ime1Constants.APK, Ime1Constants.IME_ID);
-        installImePackageSync(Ime2Constants.APK, Ime2Constants.IME_ID);
+        installImePackageSync(Ime1Constants.APK, Ime1Constants.IME_ID, imeForceQueryable);
+        installImePackageSync(Ime2Constants.APK, Ime2Constants.IME_ID, imeForceQueryable);
+        shell(ShellCommandUtils.waitForBroadcastBarrier());
         shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
         shell(ShellCommandUtils.enableIme(Ime2Constants.IME_ID));
         waitUntilImesAreEnabled(Ime1Constants.IME_ID, Ime2Constants.IME_ID);
@@ -344,7 +390,7 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
     @AppModeFull
     @Test
     public void testSwitchToPreviousInputFull() throws Exception {
-        testSwitchToPreviousInput(false);
+        testSwitchToPreviousInput(false, true /* imeForceQueryable */);
     }
 
     /**
@@ -353,7 +399,25 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
     @AppModeInstant
     @Test
     public void testSwitchToPreviousInputInstant() throws Exception {
-        testSwitchToPreviousInput(true);
+        testSwitchToPreviousInput(true, true /* imeForceQueryable */);
+    }
+
+    /**
+     * Test "InputMethodService#switchToPreviousInputMethod" API for full (non-instant) apps.
+     */
+    @AppModeFull
+    @Test
+    public void testSwitchToPreviousInputFull_callerCannotSeeTargetInput() throws Exception {
+        testSwitchToPreviousInput(false, false /* imeForceQueryable */);
+    }
+
+    /**
+     * Test "InputMethodService#switchToPreviousInputMethod" API for instant apps.
+     */
+    @AppModeInstant
+    @Test
+    public void testSwitchToPreviousInputInstant_callerCannotSeeTargetInput() throws Exception {
+        testSwitchToPreviousInput(true, false /* imeForceQueryable */);
     }
 
     private void testInputUnbindsOnImeStopped(boolean instant) throws Exception {
@@ -362,6 +426,7 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
                 EditTextAppConstants.APK, EditTextAppConstants.PACKAGE, instant);
         installImePackageSync(Ime1Constants.APK, Ime1Constants.IME_ID);
         installImePackageSync(Ime2Constants.APK, Ime2Constants.IME_ID);
+        shell(ShellCommandUtils.waitForBroadcastBarrier());
         shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
         shell(ShellCommandUtils.enableIme(Ime2Constants.IME_ID));
         waitUntilImesAreEnabled(Ime1Constants.IME_ID, Ime2Constants.IME_ID);
@@ -395,6 +460,7 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
         installPossibleInstantPackage(
                 EditTextAppConstants.APK, EditTextAppConstants.PACKAGE, instant);
         installImePackageSync(Ime1Constants.APK, Ime1Constants.IME_ID);
+        shell(ShellCommandUtils.waitForBroadcastBarrier());
         shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
         waitUntilImesAreEnabled(Ime1Constants.IME_ID);
         shell(ShellCommandUtils.setCurrentImeSync(Ime1Constants.IME_ID));
@@ -423,18 +489,21 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
     }
 
     private void testImeVisibilityAfterImeSwitching(boolean instant) throws Exception {
-        sendTestStartEvent(DeviceTestConstants.TEST_SWITCH_IME1_TO_IME2);
-        installPossibleInstantPackage(
-                EditTextAppConstants.APK, EditTextAppConstants.PACKAGE, instant);
-        installImePackageSync(Ime1Constants.APK, Ime1Constants.IME_ID);
-        installImePackageSync(Ime2Constants.APK, Ime2Constants.IME_ID);
-        shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
-        shell(ShellCommandUtils.enableIme(Ime2Constants.IME_ID));
-        waitUntilImesAreEnabled(Ime1Constants.IME_ID, Ime2Constants.IME_ID);
-        shell(ShellCommandUtils.setCurrentImeSync(Ime1Constants.IME_ID));
+        runWithRetries(3, () -> {
+            sendTestStartEvent(DeviceTestConstants.TEST_SWITCH_IME1_TO_IME2);
+            installPossibleInstantPackage(
+                    EditTextAppConstants.APK, EditTextAppConstants.PACKAGE, instant);
+            installImePackageSync(Ime1Constants.APK, Ime1Constants.IME_ID);
+            installImePackageSync(Ime2Constants.APK, Ime2Constants.IME_ID);
+            shell(ShellCommandUtils.waitForBroadcastBarrier());
+            shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
+            shell(ShellCommandUtils.enableIme(Ime2Constants.IME_ID));
+            waitUntilImesAreEnabled(Ime1Constants.IME_ID, Ime2Constants.IME_ID);
+            shell(ShellCommandUtils.setCurrentImeSync(Ime1Constants.IME_ID));
 
-        assertTrue(runDeviceTestMethod(
-                DeviceTestConstants.TEST_IME_VISIBILITY_AFTER_IME_SWITCHING));
+            assertTrue(runDeviceTestMethod(
+                    DeviceTestConstants.TEST_IME_VISIBILITY_AFTER_IME_SWITCHING));
+        });
     }
 
     /**
@@ -469,6 +538,7 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
                 EditTextAppConstants.APK, EditTextAppConstants.PACKAGE, instant);
         installImePackageSync(Ime1Constants.APK, Ime1Constants.IME_ID);
         installImePackageSync(Ime2Constants.APK, Ime2Constants.IME_ID);
+        shell(ShellCommandUtils.waitForBroadcastBarrier());
         shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
         shell(ShellCommandUtils.enableIme(Ime2Constants.IME_ID));
         waitUntilImesAreEnabled(Ime1Constants.IME_ID, Ime2Constants.IME_ID);
@@ -547,7 +617,7 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
             if (!imeId.equals(shell(ShellCommandUtils.getCurrentIme()))) {
                 break;
             }
-            Thread.sleep(POLLING_INTERVAL);
+            RunUtil.getDefault().sleep(POLLING_INTERVAL);
             timeout -= POLLING_INTERVAL;
         }
     }
@@ -567,6 +637,35 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
     private void waitUntilImesAreEnabled(String... imeIds) throws Exception {
         waitUntilImesAreAvailableOrEnabled(true, imeIds);
     }
+
+    /**
+     * Call a function multiple times consecutively, if assertion in it fails first.
+     *
+     * <p>Retry running a provided action multiple times, if an {@link AssertionError} is thrown in
+     * a previous run. Only throws the error when the action failed at all previous consecutive
+     * runs. Other types of exceptions are not suppressed.</p>
+     *
+     * @param maxTries maximal amount of attempt that should be performed before throwing the
+     * {@link AssertionError}, if applicable
+     * @param action the action to perform
+     */
+    private static void runWithRetries(int maxTries, ThrowingRunnable action) throws Exception {
+        for (int attempt = 1; true; attempt++) {
+            try {
+                action.run();
+                return;
+            } catch (AssertionError e) {
+                if (attempt < maxTries) {
+                    LogUtil.CLog.i("Attempt " + attempt + " failed; retrying", e);
+                } else {
+                    throw e;
+                }
+            } catch (Throwable e) {
+                throw new Exception(e);
+            }
+        }
+    }
+
 
     private void waitUntilImesAreAvailableOrEnabled(
             boolean shouldBeEnabled, String... imeIds) throws Exception {

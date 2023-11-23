@@ -103,14 +103,15 @@ public class MockJobService extends JobService {
             JobWorkItem work;
             int index = 0;
             while ((work = params.dequeueWork()) != null) {
-                Log.i(TAG, "Received work #" + index + ": " + work.getIntent());
+                final Intent intent = work.getIntent();
+                Log.i(TAG, "Received work #" + index + ": " + intent);
                 mReceivedWork.add(work);
 
                 int flags = 0;
 
                 if (index < expectedWork.length) {
                     TestWorkItem expected = expectedWork[index];
-                    int grantFlags = work.getIntent().getFlags();
+                    int grantFlags = intent == null ? 0 : intent.getFlags();
                     if (expected.requireUrisGranted != null) {
                         for (int ui = 0; ui < expected.requireUrisGranted.length; ui++) {
                             if ((grantFlags & Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0) {

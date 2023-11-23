@@ -131,6 +131,21 @@ public class Ipv6UtilsTest {
         assertEquals(0, icmpv6.code);
     }
 
+    @Test
+    public void testBuildEchoReplyPacket() {
+        final ByteBuffer b = Ipv6Utils.buildEchoReplyPacket(LINK_LOCAL, ALL_NODES);
+
+        Ipv6Header ipv6 = Struct.parse(Ipv6Header.class, b);
+        assertEquals(255, ipv6.hopLimit);
+        assertEquals(OsConstants.IPPROTO_ICMPV6, ipv6.nextHeader);
+        assertEquals(LINK_LOCAL, ipv6.srcIp);
+        assertEquals(ALL_NODES, ipv6.dstIp);
+
+        Icmpv6Header icmpv6 = Struct.parse(Icmpv6Header.class, b);
+        assertEquals(NetworkStackConstants.ICMPV6_ECHO_REPLY_TYPE, icmpv6.type);
+        assertEquals(0, icmpv6.code);
+    }
+
     private void assertPioEquals(PrefixInformationOption pio, String prefix, byte flags,
             long valid, long preferred) {
         assertEquals(NetworkStackConstants.ICMPV6_ND_OPTION_PIO, pio.type);

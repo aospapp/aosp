@@ -20,10 +20,10 @@ import android.system.ErrnoException;
 
 import androidx.annotation.NonNull;
 
-import com.android.net.module.util.BpfMap;
-import com.android.net.module.util.IBpfMap.ThrowingBiConsumer;
+import com.android.net.module.util.IBpfMap;
 import com.android.net.module.util.Struct;
 
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -32,20 +32,19 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  *
- * Fake BPF map class for tests that have no no privilege to access real BPF maps. All member
- * functions which eventually call JNI to access the real native BPF map are overridden.
+ * Fake BPF map class for tests that have no privilege to access real BPF maps. TestBpfMap does not
+ * load JNI and all member functions do not access real BPF maps.
  *
- * Inherits from BpfMap instead of implementing IBpfMap so that any class using a BpfMap can use
- * this class in its tests.
+ * Implements IBpfMap so that any class using IBpfMap can use this class in its tests.
  *
  * @param <K> the key type
  * @param <V> the value type
  */
-public class TestBpfMap<K extends Struct, V extends Struct> extends BpfMap<K, V> {
+public class TestBpfMap<K extends Struct, V extends Struct> implements IBpfMap<K, V> {
     private final ConcurrentHashMap<K, V> mMap = new ConcurrentHashMap<>();
 
+    // TODO: Remove this constructor
     public TestBpfMap(final Class<K> key, final Class<V> value) {
-        super(key, value);
     }
 
     @Override
@@ -132,5 +131,9 @@ public class TestBpfMap<K extends Struct, V extends Struct> extends BpfMap<K, V>
     public void clear() throws ErrnoException {
         // TODO: consider using mocked #getFirstKey and #deleteEntry to implement.
         mMap.clear();
+    }
+
+    @Override
+    public void close() throws IOException {
     }
 }

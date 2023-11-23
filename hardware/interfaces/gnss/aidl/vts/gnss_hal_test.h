@@ -64,6 +64,7 @@ class GnssHalTest : public android::hardware::gnss::common::GnssHalTestTemplate<
 
     virtual void SetUp() override;
     virtual void SetUpGnssCallback() override;
+    virtual void TearDown() override;
 
     void CheckLocation(const android::hardware::gnss::GnssLocation& location,
                        const bool check_speed);
@@ -100,6 +101,11 @@ class GnssHalTest : public android::hardware::gnss::common::GnssHalTestTemplate<
     void collectMeasurementIntervals(const sp<GnssMeasurementCallbackAidl>& callback,
                                      const int numMeasurementEvents, const int timeoutSeconds,
                                      std::vector<int>& deltaMs);
+    void collectSvInfoListTimestamps(const int numMeasurementEvents, const int timeoutSeconds,
+                                     std::vector<int>& deltasMs);
+    void checkGnssDataFields(const sp<GnssMeasurementCallbackAidl>& callback,
+                             const int numMeasurementEvents, const int timeoutSeconds,
+                             const bool isFullTracking);
     void assertMeanAndStdev(int intervalMillis, std::vector<int>& deltasMillis);
 
     sp<IGnssAidl> aidl_gnss_hal_;

@@ -16,6 +16,8 @@
 
 package android.net.apf;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -280,10 +282,6 @@ public class ApfGenerator {
             }
             // Calculate distance from end of this instruction to instruction.offset.
             final int targetLabelOffset = targetLabelInstruction.offset - (offset + size());
-            if (targetLabelOffset < 0) {
-                throw new IllegalInstructionException("backward branches disallowed; label: " +
-                        mTargetLabel);
-            }
             return targetLabelOffset;
         }
 
@@ -372,7 +370,8 @@ public class ApfGenerator {
      * {@code version} of the APF interpreter. Throws {@code IllegalInstructionException} if
      * the requested version is unsupported.
      */
-    ApfGenerator(int version) throws IllegalInstructionException {
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
+    public ApfGenerator(int version) throws IllegalInstructionException {
         mVersion = version;
         requireApfVersion(MIN_APF_VERSION);
     }

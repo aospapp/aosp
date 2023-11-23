@@ -20,10 +20,9 @@ from acts.controllers.fuchsia_lib.base_lib import BaseLib
 
 
 class FuchsiaLoggingLib(BaseLib):
-    def __init__(self, addr, tc, client_id):
-        self.address = addr
-        self.test_counter = tc
-        self.client_id = client_id
+
+    def __init__(self, addr: str) -> None:
+        super().__init__(addr, "logging")
 
     def logE(self, message):
         """Log a message of level Error directly to the syslog.
@@ -38,10 +37,8 @@ class FuchsiaLoggingLib(BaseLib):
         test_args = {
             "message": '[%s] %s' % (datetime.datetime.now(), message),
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def logI(self, message):
         """Log a message of level Info directly to the syslog.
@@ -54,10 +51,8 @@ class FuchsiaLoggingLib(BaseLib):
         """
         test_cmd = "logging_facade.LogInfo"
         test_args = {"message": '[%s] %s' % (datetime.datetime.now(), message)}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def logW(self, message):
         """Log a message of level Warning directly to the syslog.
@@ -70,7 +65,5 @@ class FuchsiaLoggingLib(BaseLib):
         """
         test_cmd = "logging_facade.LogWarn"
         test_args = {"message": '[%s] %s' % (datetime.datetime.now(), message)}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)

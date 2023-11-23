@@ -14,10 +14,10 @@
 * limitations under the License.
 */
 #pragma once
-#include "base/Stream.h"
+#include "aemu/base/files/Stream.h"
 #include "IOStream.h"
 
-namespace emugl {
+namespace gfxstream {
 
 class ReadBuffer {
 public:
@@ -44,4 +44,4 @@ private:
     size_t m_neededFreeTailSize = 0;
 };
 
-}  // namespace emugl
+}  // namespace gfxstream

@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <chre.h>
 #include <cinttypes>
 
+#include "chre_api/chre.h"
 #include "chre_audio_concurrency_test_manager.h"
 
 namespace chre {

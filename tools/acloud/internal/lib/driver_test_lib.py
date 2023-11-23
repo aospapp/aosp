@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Driver test library."""
+
+import os
 import unittest
 
 from unittest import mock
@@ -47,3 +49,10 @@ class BaseDriverTest(unittest.TestCase):
         patcher = mock.patch.object(*args, **kwargs)
         self._patchers.append(patcher)
         return patcher.start()
+
+    @staticmethod
+    def CreateFile(path, data=b""):
+        """Create and write binary data to a file."""
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as file_obj:
+            file_obj.write(data)

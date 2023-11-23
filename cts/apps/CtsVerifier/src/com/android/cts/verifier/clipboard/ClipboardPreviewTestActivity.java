@@ -18,48 +18,21 @@ package com.android.cts.verifier.clipboard;
 
 
 import android.content.ClipData;
+import android.content.ClipDescription;
 import android.content.ClipboardManager;
-import android.graphics.Color;
 import android.os.Bundle;
+import android.os.PersistableBundle;
 import android.view.View;
 import android.widget.Button;
 
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
-import java.util.concurrent.ThreadLocalRandom;
-
 
 /**
- * A CTS Verifier test case for validating the user-visible clipboard preview.
- *
- * This test assumes bluetooth is turned on and the device is already paired with a second device.
- * Note: the second device need not be an Android device; it could be a laptop or desktop.
+ * A CTS Verifier test case for validating the user-visible clipboard confirmation.
  */
 public class ClipboardPreviewTestActivity extends PassFailButtons.Activity {
-
-    /**
-     * The content of the test file being transferred.
-     */
-    private static final String TEST_STRING = "Sample Test String";
-    /**
-     * The name of the test file being transferred.
-     */
-    private final int[] mSecretCode = new int[4];
-    private final int[] mSecretGuess = new int[4];
-    private final int[] mButtons = {
-            R.id.clipboard_preview_test_b0,
-            R.id.clipboard_preview_test_b1,
-            R.id.clipboard_preview_test_b2,
-            R.id.clipboard_preview_test_b3,
-            R.id.clipboard_preview_test_b4,
-            R.id.clipboard_preview_test_b5,
-            R.id.clipboard_preview_test_b6,
-            R.id.clipboard_preview_test_b7,
-            R.id.clipboard_preview_test_b8,
-            R.id.clipboard_preview_test_b9
-    };
-    private int mGuessIndex = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,87 +47,29 @@ public class ClipboardPreviewTestActivity extends PassFailButtons.Activity {
         copyButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                generateAndCopySecret();
+                setClipboardData();
             }
         });
-        disableKeypad();
+        disablePassFail();
     }
 
-    private void generateAndCopySecret() {
-        String s = "";
-        resetState();
-        for (int i = 0; i < mSecretCode.length; ++i) {
-            mSecretCode[i] = ThreadLocalRandom.current().nextInt(0, 10);
-            s += mSecretCode[i];
-        }
+    private void setClipboardData() {
         ClipboardManager cm = this.getSystemService(ClipboardManager.class);
-        cm.setPrimaryClip(ClipData.newPlainText("Secret", s));
-        enableKeypad();
+
+        ClipData cd = ClipData.newPlainText("",
+                getString(R.string.clipboard_preview_test_secret));
+        PersistableBundle pb = new PersistableBundle(1);
+        pb.putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true);
+        cd.getDescription().setExtras(pb);
+        cm.setPrimaryClip(cd);
+        enablePassFail();
     }
 
-    private void enableKeypad() {
-        for (int i = 0; i < mButtons.length; ++i) {
-            Button numButton = findViewById(mButtons[i]);
-            numButton.setBackgroundColor(Color.GREEN);
-            int finalI = i;
-            numButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    buttonClicked(finalI);
-                }
-            });
-        }
-    }
-
-    private void disableKeypad() {
-        for (int i = 0; i < mButtons.length; ++i) {
-            Button numButton = findViewById(mButtons[i]);
-            numButton.setOnClickListener(null);
-            numButton.setBackgroundColor(Color.LTGRAY);
-        }
-    }
-
-    private void resetState() {
-        for (int i = 0; i < mSecretGuess.length; ++i) {
-            mSecretGuess[i] = -1;
-        }
-        mGuessIndex = 0;
-        View v = findViewById(R.id.clipboard_preview_test_pass_fail);
+    private void disablePassFail() {
         findViewById(R.id.clipboard_preview_test_pass_fail).setVisibility(View.INVISIBLE);
-        findViewById(R.id.fail_button).setVisibility(View.VISIBLE);
-        findViewById(R.id.pass_button).setVisibility(View.VISIBLE);
     }
 
-    private void buttonClicked(int i) {
-        if (mGuessIndex < mSecretGuess.length) {
-            mSecretGuess[mGuessIndex] = i;
-            ++mGuessIndex;
-        }
-        checkSolution();
-    }
-
-    private void checkSolution() {
-        boolean testPassed = true;
-        if (mGuessIndex == mSecretGuess.length) {
-            for (int i = 0; i < mSecretGuess.length && i < mSecretCode.length; ++i) {
-                if (mSecretGuess[i] != mSecretCode[i]) {
-                    testPassed = false;
-                }
-            }
-            markPassed(testPassed);
-            disableKeypad();
-        }
-    }
-
-    private void markPassed(boolean passed) {
+    private void enablePassFail() {
         findViewById(R.id.clipboard_preview_test_pass_fail).setVisibility(View.VISIBLE);
-        if (passed) {
-            findViewById(R.id.fail_button).setVisibility(View.INVISIBLE);
-        } else {
-            findViewById(R.id.pass_button).setVisibility(View.INVISIBLE);
-        }
-
     }
-
-
 }

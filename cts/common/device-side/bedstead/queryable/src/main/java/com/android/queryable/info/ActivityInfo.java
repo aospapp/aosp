@@ -24,6 +24,8 @@ import android.content.IntentFilter;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+import com.android.queryable.collections.QueryableIntentFilterHashSet;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -84,8 +86,8 @@ public final class ActivityInfo extends ClassInfo {
     }
 
     /** Return the intent filters of this activity.*/
-    public Set<IntentFilter> intentFilters() {
-        return mIntentFilters;
+    public QueryableIntentFilterHashSet intentFilters() {
+        return new QueryableIntentFilterHashSet(mIntentFilters);
     }
 
     @Override

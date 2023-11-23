@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <memory>
 #include <string_view>
+#include <vector>
 
 #include "icing/text_classifier/lib3/utils/base/statusor.h"
 #include "icing/absl_ports/canonical_errors.h"
@@ -54,9 +55,10 @@ class Tokenizer {
     // Advances to the next token. Returns false if it has reached the end.
     virtual bool Advance() = 0;
 
-    // Returns the current token. It can be called only when Advance() returns
-    // true, otherwise an invalid token could be returned.
-    virtual Token GetToken() const = 0;
+    // Returns the current token, maybe with compound tokens as well. It can be
+    // called only when Advance() returns true, otherwise an empty Token vector
+    // may be returned.
+    virtual std::vector<Token> GetTokens() const = 0;
 
     virtual libtextclassifier3::StatusOr<CharacterIterator>
     CalculateTokenStart() {

@@ -49,12 +49,17 @@
 #include <android/binder_interface_utils.h>
 #include <android/binder_parcelable_utils.h>
 #define HAS_NDK_INTERFACE
-#else
+#endif
+
+// TODO: some things include libbinder without having access to libbase. This is
+// due to frameworks/native/include, which symlinks to libbinder headers, so even
+// though we don't use it here, we detect a different header, so that we are more
+// confident libbase will be included
+#if __has_include(<binder/RpcSession.h>)
 #include <binder/IBinder.h>
 #include <binder/IInterface.h>
-#include <binder/ParcelFileDescriptor.h>
-#include <binder/ParcelableHolder.h>
-#endif  //_has_include
+#define HAS_CPP_INTERFACE
+#endif
 
 namespace android {
 namespace internal {
@@ -104,10 +109,12 @@ class IsPointerLike {
             IsInstantiationOf<_U, sp>::value ||  // for IBinder and interface types in the C++
                                                  // backend
 #endif
-                    IsInstantiationOf<_U, std::optional>::value ||  // for @nullable types in the
-                                                                    // C++/NDK backends
-                    IsInstantiationOf<_U, std::shared_ptr>::value,  // for interface types in the
-                                                                    // NDK backends
+                    IsInstantiationOf<_U, std::optional>::value ||    // for @nullable types in the
+                                                                      // C++/NDK backends
+                    IsInstantiationOf<_U, std::unique_ptr>::value ||  // for @nullable(heap=true)
+                                                                      // in C++/NDK backends
+                    IsInstantiationOf<_U, std::shared_ptr>::value,    // for interface types in the
+                                                                      // NDK backends
 
             std::true_type>
     _test(int);
@@ -132,46 +139,52 @@ class IsIterable {
 };
 
 template <typename _T>
-class ToEmptyString {
-    template <typename _U>
-    static std::enable_if_t<
-#ifdef HAS_NDK_INTERFACE
-            std::is_base_of_v<::ndk::ICInterface, _U> ||
-                    std::is_same_v<::ndk::AParcelableHolder, _U>
-#else
-            std::is_base_of_v<IInterface, _U> || std::is_same_v<IBinder, _U> ||
-                    std::is_same_v<os::ParcelFileDescriptor, _U> ||
-                    std::is_same_v<os::ParcelableHolder, _U>
-#endif
-            ,
-            std::true_type>
-    _test(int);
-    template <typename _U>
-    static std::false_type _test(...);
-
-   public:
-    enum { value = decltype(_test<_T>(0))::value };
+struct TypeDependentFalse {
+    enum { value = false };
 };
 
 }  // namespace details
 
 template <typename _T>
 std::string ToString(const _T& t) {
-    if constexpr (details::ToEmptyString<_T>::value) {
-        return "";
-    } else if constexpr (std::is_same_v<bool, _T>) {
+    if constexpr (std::is_same_v<bool, _T>) {
         return t ? "true" : "false";
     } else if constexpr (std::is_same_v<char16_t, _T>) {
+        // TODO(b/244494451): codecvt is deprecated in C++17 -- suppress the
+        // warnings. There's no replacement in the standard library yet.
+        _Pragma("clang diagnostic push")
+                _Pragma("clang diagnostic ignored \"-Wdeprecated-declarations\"");
         return std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>().to_bytes(t);
+        _Pragma("clang diagnostic pop");
     } else if constexpr (std::is_arithmetic_v<_T>) {
         return std::to_string(t);
     } else if constexpr (std::is_same_v<std::string, _T>) {
         return t;
 #ifdef HAS_NDK_INTERFACE
     } else if constexpr (std::is_same_v<::ndk::SpAIBinder, _T>) {
-        return (t.get() == nullptr) ? "(null)" : "";
+        std::stringstream ss;
+        ss << "binder:" << std::hex << t.get();
+        return ss.str();
     } else if constexpr (std::is_same_v<::ndk::ScopedFileDescriptor, _T>) {
-        return (t.get() == -1) ? "(null)" : "";
+        return "fd:" + std::to_string(t.get());
+    } else if constexpr (std::is_base_of_v<::ndk::ICInterface, _T>) {
+        // TODO(b/266248339): this format is to make it easy to handle resolv_integration_test
+        // freezing the output format. We would like to print more info.
+        return "<interface>";
+#if __ANDROID_API__ >= 31
+    } else if constexpr (std::is_same_v<::ndk::AParcelableHolder, _T>) {
+        return "AParcelableHolder";
+#endif
+#endif  // HAS_NDK_INTERFACE
+#ifdef HAS_CPP_INTERFACE
+    } else if constexpr (std::is_base_of_v<IInterface, _T>) {
+        std::stringstream ss;
+        ss << "interface:" << std::hex << &t;
+        return ss.str();
+    } else if constexpr (std::is_same_v<IBinder, _T>) {
+        std::stringstream ss;
+        ss << "binder:" << std::hex << &t;
+        return ss.str();
 #endif
 #ifdef HAS_STRING16
     } else if constexpr (std::is_same_v<String16, _T>) {
@@ -205,11 +218,27 @@ std::string ToString(const _T& t) {
         out << "]";
         return out.str();
     } else {
-        return "{no toString() implemented}";
+        static_assert(details::TypeDependentFalse<_T>::value, "no toString implemented, huh?");
     }
 }
 
 }  // namespace internal
 }  // namespace android
+
+#ifdef HAS_STRONG_POINTER
+#undef HAS_STRONG_POINTER
+#endif
+
+#ifdef HAS_STRING16
+#undef HAS_STRING16
+#endif
+
+#ifdef HAS_NDK_INTERFACE
+#undef HAS_NDK_INTERFACE
+#endif
+
+#ifdef HAS_CPP_INTERFACE
+#undef HAS_CPP_INTERFACE
+#endif
 
 /** @} */

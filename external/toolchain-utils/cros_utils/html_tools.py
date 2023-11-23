@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019 The Chromium OS Authors. All rights reserved.
+# Copyright 2019 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -7,7 +7,8 @@
 
 
 def GetPageHeader(page_title):
-  return """<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    return (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html>
 <head>
@@ -32,64 +33,68 @@ function displayRow(id){
 </head>
 <body>
 
-""" % page_title
+"""
+        % page_title
+    )
 
 
 def GetListHeader():
-  return '<ul>'
+    return "<ul>"
 
 
 def GetListItem(text):
-  return '<li>%s</li>' % text
+    return "<li>%s</li>" % text
 
 
 def GetListFooter():
-  return '</ul>'
+    return "</ul>"
 
 
 def GetList(items):
-  return '<ul>%s</ul>' % ''.join(['<li>%s</li>' % item for item in items])
+    return "<ul>%s</ul>" % "".join(["<li>%s</li>" % item for item in items])
 
 
 def GetParagraph(text):
-  return '<p>%s</p>' % text
+    return "<p>%s</p>" % text
 
 
 def GetFooter():
-  return '</body>\n</html>'
+    return "</body>\n</html>"
 
 
 def GetHeader(text, h=1):
-  return '<h%s>%s</h%s>' % (h, text, h)
+    return "<h%s>%s</h%s>" % (h, text, h)
 
 
 def GetTableHeader(headers):
-  row = ''.join(['<th>%s</th>' % header for header in headers])
-  return '<table><tr>%s</tr>' % row
+    row = "".join(["<th>%s</th>" % header for header in headers])
+    return "<table><tr>%s</tr>" % row
 
 
 def GetTableFooter():
-  return '</table>'
+    return "</table>"
 
 
 def FormatLineBreaks(text):
-  return text.replace('\n', '<br/>')
+    return text.replace("\n", "<br/>")
 
 
 def GetTableCell(text):
-  return '<td>%s</td>' % FormatLineBreaks(str(text))
+    return "<td>%s</td>" % FormatLineBreaks(str(text))
 
 
 def GetTableRow(columns):
-  return '<tr>%s</tr>' % '\n'.join([GetTableCell(column) for column in columns])
+    return "<tr>%s</tr>" % "\n".join(
+        [GetTableCell(column) for column in columns]
+    )
 
 
 def GetTable(headers, rows):
-  table = [GetTableHeader(headers)]
-  table.extend([GetTableRow(row) for row in rows])
-  table.append(GetTableFooter())
-  return '\n'.join(table)
+    table = [GetTableHeader(headers)]
+    table.extend([GetTableRow(row) for row in rows])
+    table.append(GetTableFooter())
+    return "\n".join(table)
 
 
 def GetLink(link, text):
-  return "<a href='%s'>%s</a>" % (link, text)
+    return "<a href='%s'>%s</a>" % (link, text)

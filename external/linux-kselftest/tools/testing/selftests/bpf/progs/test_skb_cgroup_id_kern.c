@@ -6,7 +6,7 @@
 
 #include <string.h>
 
-#include "bpf_helpers.h"
+#include <bpf/bpf_helpers.h>
 
 #define NUM_CGROUP_LEVELS	4
 
@@ -41,7 +41,5 @@ int log_cgroup_id(struct __sk_buff *skb)
 
 	return TC_ACT_OK;
 }
-
-int _version SEC("version") = 1;
 
 char _license[] SEC("license") = "GPL";

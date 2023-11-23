@@ -24,6 +24,9 @@ import android.widget.LinearLayout;
 import com.google.android.setupcompat.R;
 import com.google.android.setupcompat.partnerconfig.PartnerConfigHelper;
 import com.google.android.setupcompat.template.FooterActionButton;
+import com.google.android.setupcompat.util.Logger;
+import java.util.ArrayList;
+import java.util.Collections;
 
 /**
  * An extension of LinearLayout that automatically switches to vertical orientation when it can't
@@ -32,6 +35,8 @@ import com.google.android.setupcompat.template.FooterActionButton;
  * <p>Modified from {@code com.android.internal.widget.ButtonBarLayout}
  */
 public class ButtonBarLayout extends LinearLayout {
+
+  private static final Logger LOG = new Logger(ButtonBarLayout.class);
 
   private boolean stacked = false;
   private int originalPaddingLeft;
@@ -82,6 +87,8 @@ public class ButtonBarLayout extends LinearLayout {
       return;
     }
     this.stacked = stacked;
+    boolean isUnstack = false;
+    int primaryStyleButtonCount = 0;
     int childCount = getChildCount();
     for (int i = 0; i < childCount; i++) {
       View child = getChildAt(i);
@@ -94,16 +101,34 @@ public class ButtonBarLayout extends LinearLayout {
         Float weight = (Float) child.getTag(R.id.suc_customization_original_weight);
         if (weight != null) {
           childParams.weight = weight;
+        } else {
+          // If the tag in the child is gone, it will be unstack and the child in the container will
+          // be disorder.
+          isUnstack = true;
+        }
+        if (isPrimaryButtonStyle(child)) {
+          primaryStyleButtonCount++;
         }
       }
       child.setLayoutParams(childParams);
     }
 
     setOrientation(stacked ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
-
-    // Reverse the child order, so that the primary button is towards the top when vertical
-    for (int i = childCount - 1; i >= 0; i--) {
-      bringChildToFront(getChildAt(i));
+    if (isUnstack) {
+      LOG.w("Reorder the FooterActionButtons in the container");
+      ArrayList<View> childViewsInContainerInOrder =
+          getChildViewsInContainerInOrder(
+              childCount, /* isOnePrimaryButton= */ (primaryStyleButtonCount <= 1));
+      for (int i = 0; i < childCount; i++) {
+        View view = childViewsInContainerInOrder.get(i);
+        if (view != null) {
+          bringChildToFront(view);
+        }
+      }
+    } else {
+      for (int i = childCount - 1; i >= 0; i--) {
+        bringChildToFront(getChildAt(i));
+      }
     }
 
     if (stacked) {
@@ -120,6 +145,52 @@ public class ButtonBarLayout extends LinearLayout {
     } else {
       setPadding(originalPaddingLeft, getPaddingTop(), originalPaddingRight, getPaddingBottom());
     }
+  }
+
+  private boolean isPrimaryButtonStyle(View child) {
+    return child instanceof FooterActionButton
+        && ((FooterActionButton) child).isPrimaryButtonStyle();
+  }
+
+  /**
+   * Return a array which store child views in the container and in the order (secondary button,
+   * space view, primary button), if only one primary button, the child views will replace null
+   * value in specific proper position, if there are two primary buttons, expected get the original
+   * child by the order (space view, secondary button, primary button), so insert the space view to
+   * the middle in the array.
+   */
+  private ArrayList<View> getChildViewsInContainerInOrder(
+      int childCount, boolean isOnePrimaryButton) {
+    int childViewsInContainerCount = 3;
+    int secondaryButtonIndex = 0;
+    int spaceViewIndex = 1;
+    int primaryButtonIndex = 2;
+
+    ArrayList<View> childFooterButtons = new ArrayList<>();
+
+    if (isOnePrimaryButton) {
+      childFooterButtons.addAll(Collections.nCopies(childViewsInContainerCount, null));
+    }
+
+    for (int i = 0; i < childCount; i++) {
+      View childAt = getChildAt(i);
+      if (isOnePrimaryButton) {
+        if (isPrimaryButtonStyle(childAt)) {
+          childFooterButtons.set(primaryButtonIndex, childAt);
+        } else if (!(childAt instanceof FooterActionButton)) {
+          childFooterButtons.set(spaceViewIndex, childAt);
+        } else {
+          childFooterButtons.set(secondaryButtonIndex, childAt);
+        }
+      } else {
+        if (!(childAt instanceof FooterActionButton)) {
+          childFooterButtons.add(spaceViewIndex, childAt);
+        } else {
+          childFooterButtons.add(getChildAt(i));
+        }
+      }
+    }
+    return childFooterButtons;
   }
 
   private boolean isFooterButtonsEventlyWeighted(Context context) {

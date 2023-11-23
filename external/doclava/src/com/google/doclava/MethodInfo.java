@@ -19,7 +19,6 @@ package com.google.doclava;
 import com.google.clearsilver.jsilver.data.Data;
 import com.google.doclava.apicheck.AbstractMethodInfo;
 import com.google.doclava.apicheck.ApiInfo;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -630,6 +629,7 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
     TagInfo.makeHDF(data, base + ".deprecated", deprecatedTags());
     TagInfo.makeHDF(data, base + ".seeAlso", seeTags());
     data.setValue(base + ".since", getSince());
+    data.setValue(base + ".sdkextsince", getSdkExtSince());
     if (isDeprecated()) {
       data.setValue(base + ".deprecatedsince", getDeprecatedSince());
     }

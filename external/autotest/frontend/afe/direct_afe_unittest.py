@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #pylint: disable-msg=C0111
 import unittest
 import common

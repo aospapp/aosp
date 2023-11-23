@@ -3,8 +3,11 @@
 load(":testdata/providers_for_attributes_test/dep.bzl", "DepProviderInfo")
 
 def my_rule_impl(ctx):
+    _ignore = [ctx]  # @unused
     return []
 
+# buildifier: disable=provider-params
+# buildifier: disable=unsorted-dict-items
 MyProviderInfo = provider(
     fields = {
         "foo": "Something foo-related.",
@@ -12,9 +15,11 @@ MyProviderInfo = provider(
     },
 )
 
+# buildifier: disable=provider-params
 OtherProviderInfo = provider()
 other_provider_info = OtherProviderInfo(fields = ["foo"])
 
+# buildifier: disable=unsorted-dict-items
 my_rule = rule(
     implementation = my_rule_impl,
     doc = "This rule does things.",

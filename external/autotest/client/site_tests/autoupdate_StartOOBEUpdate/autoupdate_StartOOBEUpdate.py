@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -15,7 +16,7 @@ from autotest_lib.client.cros.update_engine import update_engine_test
 class autoupdate_StartOOBEUpdate(update_engine_test.UpdateEngineTest):
     """Starts a forced update at OOBE.
 
-    Chrome OS will restart when the update is complete so this test will just
+    ChromeOS will restart when the update is complete so this test will just
     start the update. The rest of the processing will be done in a server
     side test.
     """
@@ -28,26 +29,55 @@ class autoupdate_StartOOBEUpdate(update_engine_test.UpdateEngineTest):
         self._clear_custom_lsb_release()
 
 
-    def _skip_to_oobe_update_screen(self):
-        """Skips to the OOBE update check screen."""
-        self._oobe.WaitForJavaScriptCondition("typeof Oobe == 'function' && "
-                                              "Oobe.readyForTesting",
-                                              timeout=30)
-        self._oobe.ExecuteJavaScript('Oobe.skipToUpdateForTesting()')
+    def _navigate_to_oobe_update_screen(self):
+        """Navigates to the OOBE update check screen."""
+        timeout = 30
+        self._oobe.WaitForJavaScriptCondition(
+                "typeof Oobe == 'function' && typeof OobeAPI == 'object' && "
+                "Oobe.readyForTesting",
+                timeout=timeout)
+        self._oobe.WaitForJavaScriptCondition(
+                "OobeAPI.screens.WelcomeScreen.isVisible()", timeout=timeout)
+        self._oobe.ExecuteJavaScript(
+                "OobeAPI.screens.WelcomeScreen.clickNext()")
 
+        if not self._oobe.EvaluateJavaScript(
+                "OobeAPI.screens.NetworkScreen.shouldSkip()"):
+            self._oobe.WaitForJavaScriptCondition(
+                    "OobeAPI.screens.NetworkScreen.isVisible()",
+                    timeout=timeout)
+            self._oobe.ExecuteJavaScript(
+                    "OobeAPI.screens.NetworkScreen.clickNext()")
 
-    def _start_oobe_update(self, update_url, critical_update, full_payload):
+        if not self._oobe.EvaluateJavaScript(
+                "OobeAPI.screens.EulaScreen.shouldSkip()"):
+            self._oobe.WaitForJavaScriptCondition(
+                    "OobeAPI.screens.EulaScreen.isVisible()", timeout=timeout)
+            self._oobe.WaitForJavaScriptCondition(
+                    "OobeAPI.screens.EulaScreen.nextButton.isEnabled()",
+                    timeout=timeout)
+            self._oobe.ExecuteJavaScript(
+                    "OobeAPI.screens.EulaScreen.clickNext()")
+
+        # TODO(yunkez): remove this check after M92 is in stable
+        if self._oobe.EvaluateJavaScript(
+                "typeof OobeAPI.screens.UpdateScreen == 'object'"):
+            self._oobe.WaitForJavaScriptCondition(
+                    "OobeAPI.screens.UpdateScreen.isVisible()",
+                    timeout=timeout)
+        else:
+            self._oobe.WaitForJavaScriptCondition("!$('oobe-update').hidden",
+                                                  timeout=timeout)
+
+    def _start_oobe_update(self, update_url, critical_update):
         """
         Jump to the update check screen at OOBE and wait for update to start.
 
         @param update_url: The omaha update URL we expect to call.
         @param critical_update: True if the update is critical.
-        @param full_payload: Whether we want the full payload or delta.
 
         """
-        self._create_custom_lsb_release(update_url,
-                                        critical_update=critical_update,
-                                        full_payload=full_payload)
+        self._create_custom_lsb_release(update_url)
         # Start chrome instance to interact with OOBE.
         extra_browser_args = []
         if lsbrelease_utils.get_device_type() != 'CHROMEBOOK':
@@ -55,7 +85,7 @@ class autoupdate_StartOOBEUpdate(update_engine_test.UpdateEngineTest):
         self._chrome = chrome.Chrome(auto_login=False,
                                      extra_browser_args=extra_browser_args)
         self._oobe = self._chrome.browser.oobe
-        self._skip_to_oobe_update_screen()
+        self._navigate_to_oobe_update_screen()
 
         timeout = 180
         err_str = 'Update did not start within %d seconds.' % timeout
@@ -76,15 +106,17 @@ class autoupdate_StartOOBEUpdate(update_engine_test.UpdateEngineTest):
                     raise e
 
 
-    def run_once(self, update_url=None, payload_url=None, cellular=False,
-                 critical_update=True, full_payload=None,
-                 interrupt_network=False, interrupt_progress=0.0):
+    def run_once(self,
+                 payload_url=None,
+                 cellular=False,
+                 critical_update=True,
+                 full_payload=None,
+                 interrupt_network=False,
+                 interrupt_progress=0.0):
         """
         Test that will start a forced update at OOBE.
 
-        @param update_url: The omaha URL to call from the OOBE update screen.
-        @param payload_url: Payload url to pass to Nebraska for non-critical
-                            and cellular tests.
+        @param payload_url: Payload url to pass to Nebraska.
         @param cellular: True if we should run this test using a sim card.
         @param critical_update: True if we should have deadline:now in omaha
                                 response.
@@ -100,36 +132,40 @@ class autoupdate_StartOOBEUpdate(update_engine_test.UpdateEngineTest):
 
         """
 
-        if critical_update and not cellular:
-            self._start_oobe_update(update_url, critical_update, full_payload)
-            if interrupt_network:
-                self._wait_for_progress(interrupt_progress)
-                self._take_screenshot(self._BEFORE_INTERRUPT_FILENAME)
-                completed = self._get_update_progress()
-                self._disconnect_reconnect_network_test(update_url)
-                self._take_screenshot(self._AFTER_INTERRUPT_FILENAME)
-
-                if self._is_update_engine_idle():
-                    raise error.TestFail(
-                        'The update was IDLE after interrupt.')
-                if not self._update_continued_where_it_left_off(completed):
-                    raise error.TestFail('The update did not continue where '
-                                         'it left off after interruption.')
-
-                # Remove screenshots since the interrupt test succeeded.
-                self._remove_screenshots()
-            return
-
-        # Setup a Nebraska instance on the DUT for cellular tests and
-        # non-critical updates. Ceullar tests cannot reach devservers.
-        # Non-critical tests don't need a devserver.
         with nebraska_wrapper.NebraskaWrapper(
-            log_dir=self.resultsdir, payload_url=payload_url) as nebraska:
+                log_dir=self.resultsdir,
+                payload_url=payload_url,
+                persist_metadata=True) as nebraska:
 
-            update_url = nebraska.get_update_url(
-                critical_update=critical_update)
+            config = {
+                    'critical_update': critical_update,
+                    'full_payload': full_payload
+            }
+            nebraska.update_config(**config)
+            update_url = nebraska.get_update_url()
+            # Create a nebraska config, which causes nebraska to start up before update_engine.
+            # This will allow nebraska to be up right after system startup so it can be used in interruption tests.
+            nebraska.create_startup_config(**config)
+
             if not cellular:
-                self._start_oobe_update(update_url, critical_update, None)
+                self._start_oobe_update(update_url, critical_update)
+                if interrupt_network:
+                    self._wait_for_progress(interrupt_progress)
+                    self._take_screenshot(self._BEFORE_INTERRUPT_FILENAME)
+                    completed = self._get_update_progress()
+                    self._disconnect_reconnect_network_test()
+                    self._take_screenshot(self._AFTER_INTERRUPT_FILENAME)
+
+                    if self._is_update_engine_idle():
+                        raise error.TestFail(
+                                'The update was IDLE after interrupt.')
+                    if not self._update_continued_where_it_left_off(completed):
+                        raise error.TestFail(
+                                'The update did not continue where '
+                                'it left off after interruption.')
+
+                    # Remove screenshots since the interrupt test succeeded.
+                    self._remove_screenshots()
                 return
 
             try:
@@ -141,10 +177,13 @@ class autoupdate_StartOOBEUpdate(update_engine_test.UpdateEngineTest):
                     test_env.shill.connect_service_synchronous(service,
                                                                connect_timeout)
 
-                    self._start_oobe_update(update_url, critical_update, None)
+                    self._start_oobe_update(update_url, critical_update)
 
-                    # Remove the custom omaha server from lsb release because
-                    # after we reboot it will no longer be running.
+                    # Set the nebraska startup config's no_update=True for the
+                    # post-reboot update check, just in case we don't have time
+                    # to server-side.
+                    config['no_update'] = True
+                    nebraska.create_startup_config(**config)
                     self._clear_custom_lsb_release()
 
                     # Need to return from this client test before OOBE reboots

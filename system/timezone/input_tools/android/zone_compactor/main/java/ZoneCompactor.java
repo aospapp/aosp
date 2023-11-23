@@ -53,8 +53,6 @@ public class ZoneCompactor {
 
   // Concatenate the contents of 'inFile' onto 'out'.
   private static void copyFile(File inFile, OutputStream out) throws Exception {
-    byte[] ret = new byte[0];
-
     InputStream in = new FileInputStream(inFile);
     byte[] buf = new byte[8192];
     while (true) {
@@ -63,11 +61,6 @@ public class ZoneCompactor {
         break;
       }
       out.write(buf, 0, nbytes);
-
-      byte[] nret = new byte[ret.length + nbytes];
-      System.arraycopy(ret, 0, nret, 0, ret.length);
-      System.arraycopy(buf, 0, nret, ret.length, nbytes);
-      ret = nret;
     }
     out.flush();
   }
@@ -75,33 +68,41 @@ public class ZoneCompactor {
   public ZoneCompactor(String setupFile, String dataDirectory, String outputDirectory,
           String version) throws Exception {
     // Read the setup file and concatenate all the data.
-    ByteArrayOutputStream allData = new ByteArrayOutputStream();
-    BufferedReader reader = new BufferedReader(new FileReader(setupFile));
-    String s;
-    int offset = 0;
-    while ((s = reader.readLine()) != null) {
-      s = s.trim();
-      StringTokenizer st = new StringTokenizer(s);
-      String lineType = st.nextToken();
-      if (lineType.startsWith("Link")) {
-        String to = st.nextToken();
-        String from = st.nextToken();
-        links.put(from, to);
-      } else if (lineType.startsWith("Zone")) {
-        String zoneId = st.nextToken();
-        String link = links.get(zoneId);
-        if (link == null) {
-          File sourceFile = new File(dataDirectory, zoneId);
-          long length = sourceFile.length();
-          offsets.put(zoneId, offset);
-          lengths.put(zoneId, (int) length);
-
-          offset += length;
-          copyFile(sourceFile, allData);
+    Set<String> zoneIds = new LinkedHashSet<>();
+    try (BufferedReader reader = new BufferedReader(new FileReader(setupFile))) {
+      String s;
+      while ((s = reader.readLine()) != null) {
+        s = s.trim();
+        StringTokenizer st = new StringTokenizer(s);
+        String lineType = st.nextToken();
+        if (lineType.startsWith("Link")) {
+          String to = st.nextToken();
+          String from = st.nextToken();
+          links.put(from, to);
+        } else if (lineType.startsWith("Zone")) {
+          String zoneId = st.nextToken();
+          if (!zoneIds.add(zoneId)) {
+            throw new IllegalStateException(String.format("There are at least two Zone entries "
+                    + "for %s in the setup file", zoneId));
+          }
         }
       }
     }
-    reader.close();
+
+    ByteArrayOutputStream allData = new ByteArrayOutputStream();
+
+    int offset = 0;
+    for (String zoneId : zoneIds) {
+      if (!links.containsKey(zoneId)) {
+        File sourceFile = new File(dataDirectory, zoneId);
+        long length = sourceFile.length();
+        offsets.put(zoneId, offset);
+        lengths.put(zoneId, (int) length);
+
+        offset += length;
+        copyFile(sourceFile, allData);
+      }
+    }
 
     // Fill in fields for links.
     for (String from : links.keySet()) {

@@ -1,5 +1,10 @@
 // Program gowns is a small program to explore and demonstrate using
 // Go to Wrap a child in a NameSpace under Linux.
+//
+// Note, this program is under active development and should not be
+// considered stable. That is, it is more a worked example and may
+// change command line arguments and behavior from release to release.
+// Should it become stable, I'll remove this comment.
 package main
 
 import (
@@ -119,7 +124,6 @@ func parseRanges(detail *nsDetail, ids string, id int) []syscall.SysProcIDMap {
 
 	base++
 	for _, next := range ranges(ids) {
-		fmt.Println("next:", next)
 		list = append(list,
 			syscall.SysProcIDMap{
 				ContainerID: base,

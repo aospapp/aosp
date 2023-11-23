@@ -1,0 +1,22 @@
+{
+  "presubmit-large": [
+    {
+      "name": "CtsPermission3TestCases",
+      "options": [
+        {
+          "exclude-annotation": "android.platform.test.annotations.FlakyTest"
+        }
+      ]
+    }
+  ],
+  "mainline-presubmit": [
+        {
+            "name": "CtsPermission3TestCases[com.google.android.permission.apex]",
+            "options": [
+                {
+                    "exclude-annotation": "android.platform.test.annotations.FlakyTest"
+                }
+            ]
+        }
+    ]
+}

@@ -1,9 +1,13 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import logging
-import Queue
+try:
+    import queue
+except ImportError:
+    import Queue as queue
 import time
 import traceback
 
@@ -20,7 +24,7 @@ class APCartridge(object):
 
 
     def __init__(self):
-        self.cartridge = Queue.Queue()
+        self.cartridge = queue.Queue()
 
 
     def push_configurators(self, configurators):

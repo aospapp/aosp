@@ -35,3 +35,10 @@ java_library_static {
     },
     sdk_version: "core_platform",
 }
+
+filegroup {
+    name: "device_policy_proto",
+    srcs: [
+        "*.proto",
+    ],
+}

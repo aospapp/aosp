@@ -42,16 +42,16 @@ checkPath ${TF_JAVA}
 
 # check java version
 java_version_string=$(${TF_JAVA} -version 2>&1)
-JAVA_VERSION=$(echo "$java_version_string" | grep 'version [ "]\(1\.8\|9\|11\).*[ "]')
+JAVA_VERSION=$(echo "$java_version_string" | grep 'version [ "]\(1\.8\|9\|11\|17\).*[ "]')
 if [ "${JAVA_VERSION}" == "" ]; then
-    >&2 echo "Wrong java version. 1.8, 9 or 11 is required. Found $java_version_string"
+    >&2 echo "Wrong java version. 1.8, 9, 11 or 17 is required. Found $java_version_string"
     >&2 echo "PATH value:"
     >&2 echo "$PATH"
     exit 8
 fi
 
 # check if java is above 9 and supports add-opens
-JAVA_VERSION=$(echo "$java_version_string" | grep 'version [ "]\(9\|11\).*[ "]')
+JAVA_VERSION=$(echo "$java_version_string" | grep 'version [ "]\(9\|11\|17\).*[ "]')
 if [ "${JAVA_VERSION}" != "" ]; then
     ADD_OPENS_FLAG="--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.reflect.annotation=ALL-UNNAMED"
 fi

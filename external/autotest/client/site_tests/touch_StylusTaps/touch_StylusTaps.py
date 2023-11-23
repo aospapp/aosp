@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -39,7 +40,7 @@ class touch_StylusTaps(touch_playback_test_base.touch_playback_test_base):
         self._filepaths = self._find_test_files('stylus', [self._CLICK_NAME])
         if not self._filepaths:
             logging.info('Missing gesture files, Aborting test.')
-            return
+            raise error.TestNAError('Missing input data for this board name.')
 
         # Log in and start test.
         with chrome.Chrome(init_network_controller=True) as cr:

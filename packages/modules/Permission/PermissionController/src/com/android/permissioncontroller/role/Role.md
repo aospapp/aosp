@@ -61,8 +61,10 @@ is optional and defaults to `false`.
 - `label`: The string resource for the label of the role, e.g. `@string/role_sms_label`, which says
 "Default SMS app". For default apps, this string will appear in the default app detail page as the
 title. This attribute is required if the role is `visible`.
-- `minSdkVersion`: The minimum SDK version for the role to be available, e.g. `31` for Android S.
-This attribute is optional and defaults to `Build.VERSION_CODES.BASE`.
+- `maxSdkVersion`: The maximum SDK version for the role to be available (inclusive), e.g. `31` for
+Android S. This attribute is optional and defaults to `Build.VERSION_CODES.CUR_DEVELOPMENT`.
+- `minSdkVersion`: The minimum SDK version for the role to be available (inclusive), e.g. `31` for
+Android S. This attribute is optional and defaults to `Build.VERSION_CODES.BASE`.
 - `requestDescription`: The string resource for the description in the request role dialog, e.g.
 `@string/role_sms_request_description`, which says "Gets access to contacts, SMS, phone". This
 description should describe to the user the privileges that are going to be granted, and should not
@@ -86,10 +88,13 @@ defaults to `false`.
 - `static`: Whether this role is static, i.e. the role will always be assigned to its default
 holders. This attribute is optional and defaults to `false`.
 - `systemOnly`: Whether this role only allows system apps to hold it. This attribute is optional and
-defaults to `false.
+defaults to `false`.
 - `visible`: Whether this role is visible to users. If a role is invisible (a.k.a. hidden) to users,
 users won't be able to find it in Settings, and apps won't be able to request it. The role can still
 be managed by system APIs and shell command.
+- `uiBehavior`: Optional name of a [`RoleUiBehavior`](ui/behavior/RoleUiBehavior.java) class to
+control certain role UI behavior in Java code, e.g. `DialerRoleUiBehavior`. This can be useful
+when the XML syntax cannot express certain UI behavior specific to the role.
 
 The following tags can be specified inside a `<role>` tag:
 
@@ -172,6 +177,7 @@ dumpsys role
 You can also manage the role holders with `cmd role`:
 
 ```bash
+cmd role get-role-holders [--user USER_ID] ROLE
 cmd role add-role-holder [--user USER_ID] ROLE PACKAGE [FLAGS]
 cmd role remove-role-holder [--user USER_ID] ROLE PACKAGE [FLAGS]
 cmd role clear-role-holders [--user USER_ID] ROLE [FLAGS]

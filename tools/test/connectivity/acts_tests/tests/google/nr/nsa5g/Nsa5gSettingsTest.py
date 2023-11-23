@@ -13,25 +13,18 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-
 '''
     Test Script for Telephony Settings on nsa 5G
 '''
 
-import time
-
 from acts.test_decorators import test_tracker_info
-from acts_contrib.test_utils.net import ui_utils
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
-from acts_contrib.test_utils.tel.tel_defines import MOBILE_DATA
-from acts_contrib.test_utils.tel.tel_defines import USE_SIM
-from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_BETWEEN_STATE_CHECK
-from acts_contrib.test_utils.tel.tel_ops_utils import get_resource_value
-from acts_contrib.test_utils.tel.tel_ops_utils import wait_and_click_element
+from acts_contrib.test_utils.tel.tel_defines import GEN_5G
 from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_idle
-from acts_contrib.test_utils.tel.tel_test_utils import get_current_override_network_type
-from acts_contrib.test_utils.tel.tel_5g_test_utils import provision_device_for_5g
-from acts_contrib.test_utils.tel.tel_5g_utils import is_current_network_5g
+from acts_contrib.test_utils.tel.tel_settings_utils import att_apn_test
+from acts_contrib.test_utils.tel.tel_settings_utils import tmo_apn_test
+from acts_contrib.test_utils.tel.tel_settings_utils import toggle_mobile_data_test
+from acts_contrib.test_utils.tel.tel_settings_utils import toggle_sim_test
 
 
 class Nsa5gSettingsTest(TelephonyBaseTest):
@@ -45,8 +38,8 @@ class Nsa5gSettingsTest(TelephonyBaseTest):
     def teardown_test(self):
         ensure_phones_idle(self.log, self.android_devices)
 
-
     """ Tests Begin """
+
     @test_tracker_info(uuid='57debc2d-ca17-4363-8d03-9bc068fdc624')
     @TelephonyBaseTest.tel_test_wrap
     def test_5g_nsa_disable_enable_sim(self):
@@ -66,55 +59,7 @@ class Nsa5gSettingsTest(TelephonyBaseTest):
             True is tests passes else False
         """
         ad = self.android_devices[0]
-
-        if not provision_device_for_5g(ad.log, ad, nr_type='nsa'):
-            return False
-        time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
-
-        ad.adb.shell('am start -a android.settings.WIRELESS_SETTINGS')
-        wait_and_click_element(ad, 'SIMs')
-
-        switch_value = get_resource_value(ad, USE_SIM)
-        if switch_value == 'true':
-            ad.log.info('SIM is enabled as expected')
-        else:
-            ad.log.error('SIM should be enabled but SIM is disabled')
-            return False
-
-        label_text = USE_SIM
-        label_resource_id = 'com.android.settings:id/switch_text'
-
-        ad.log.info('Disable SIM')
-        wait_and_click_element(ad, label_text, label_resource_id)
-
-        button_resource_id = 'android:id/button1'
-        wait_and_click_element(ad, 'Yes', button_resource_id)
-        switch_value = get_resource_value(ad, USE_SIM)
-        if switch_value == 'false':
-            ad.log.info('SIM is disabled as expected')
-        else:
-            ad.log.error('SIM should be disabled but SIM is enabled')
-            return False
-
-        ad.log.info('Enable SIM')
-        wait_and_click_element(ad, label_text, label_resource_id)
-
-        wait_and_click_element(ad, 'Yes', button_resource_id)
-        switch_value = get_resource_value(ad, USE_SIM)
-        if switch_value == 'true':
-            ad.log.info('SIM is enabled as expected')
-        else:
-            ad.log.error('SIM should be enabled but SIM is disabled')
-            return False
-
-        time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
-
-        if is_current_network_5g(ad, nr_type = 'nsa', timeout=60):
-            ad.log.info('Success! attached on 5g NSA')
-        else:
-            ad.log.error('Failure - expected NR_NSA, current %s',
-                         get_current_override_network_type(ad))
-            return False
+        return toggle_sim_test(ad, GEN_5G, 'nsa')
 
     @test_tracker_info(uuid='7233780b-eabf-4bb6-ae96-3574d0cd4fa2')
     @TelephonyBaseTest.tel_test_wrap
@@ -136,40 +81,96 @@ class Nsa5gSettingsTest(TelephonyBaseTest):
         """
         ad = self.android_devices[0]
 
-        if not provision_device_for_5g(ad.log, ad, nr_type='nsa'):
-            return False
-        time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
+        return toggle_mobile_data_test(ad, GEN_5G, 'nsa')
 
-        ad.adb.shell('am start -a android.settings.WIRELESS_SETTINGS')
-        wait_and_click_element(ad, 'SIMs')
-        switch_value = get_resource_value(ad, MOBILE_DATA)
+    @test_tracker_info(uuid='42e45721-0052-4bcc-8a10-2686dfb86648')
+    @TelephonyBaseTest.tel_test_wrap
+    def test_5g_nsa_apn_settings_att_sms(self):
+        """Test ATT APN and SMS
 
-        if switch_value == 'true':
-            ad.log.info('Mobile data is enabled as expected')
-        else:
-            ad.log.error('Mobile data should be enabled but it is disabled')
+        Steps:
+            1. Provision device to nsa 5G
+            2. Launch Settings - Network & Internet
+            3. Click on SIMs
+            4. Click on Access Point Names
+            5. Add New APN
+            6. Save New APN
+            7. Switch APN to New APN
+            8. Check Network is connected to nsa 5G
+            9. Send SMS
 
-        ad.log.info('Disable mobile data')
-        ad.droid.telephonyToggleDataConnection(False)
-        time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
-        switch_value = get_resource_value(ad, MOBILE_DATA)
-        if switch_value == 'false':
-            ad.log.info('Mobile data is disabled as expected')
-        else:
-            ad.log.error('Mobile data should be disabled but it is enabled')
+        Returns:
+            True is tests passes else False
+        """
+        caller, callee = self.android_devices[0], self.android_devices[1]
 
-        ad.log.info('Enabling mobile data')
-        ad.droid.telephonyToggleDataConnection(True)
-        time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
-        switch_value = get_resource_value(ad, MOBILE_DATA)
-        if switch_value == 'true':
-            ad.log.info('Mobile data is enabled as expected')
-        else:
-            ad.log.error('Mobile data should be enabled but it is disabled')
+        return att_apn_test(self.log, caller, callee, GEN_5G, nr_type='nsa', msg_type='sms')
 
-        if is_current_network_5g(ad, nr_type = 'nsa', timeout=60):
-            ad.log.info('Success! attached on 5g NSA')
-        else:
-            ad.log.error('Failure - expected NR_NSA, current %s',
-                         get_current_override_network_type(ad))
+    @test_tracker_info(uuid='5a295807-c5cb-4a5a-ad25-e44d4a16cfe6')
+    @TelephonyBaseTest.tel_test_wrap
+    def test_5g_nsa_apn_settings_att_mms(self):
+        """Test ATT APN and MMS
 
+        Steps:
+            1. Provision device to nsa 5G
+            2. Launch Settings - Network & Internet
+            3. Click on SIMs
+            4. Click on Access Point Names
+            5. Add New APN
+            6. Add ATT APN details and Save
+            7. Switch APN to New APN
+            8. Check Network is connected to nsa 5G
+            9. Send MMS
+
+        Returns:
+            True is tests passes else False
+        """
+        caller, callee = self.android_devices[0], self.android_devices[1]
+
+        return att_apn_test(self.log, caller, callee, GEN_5G, nr_type='nsa', msg_type='mms')
+
+    @test_tracker_info(uuid='952b3861-0516-42e6-a221-23934bdab13c')
+    @TelephonyBaseTest.tel_test_wrap
+    def test_5g_nsa_apn_settings_tmo_sms(self):
+        """Test TMO APN and SMS
+
+        Steps:
+            1. Provision device to nsa 5G
+            2. Launch Settings - Network & Internet
+            3. Click on SIMs
+            4. Click on Access Point Names
+            5. Add New APN
+            6. Save New APN
+            7. Switch APN to New APN
+            8. Check Network is connected to nsa 5G
+            9. Send SMS
+
+        Returns:
+            True is tests passes else False
+        """
+        caller, callee = self.android_devices[0], self.android_devices[1]
+
+        return tmo_apn_test(self.log, caller, callee, GEN_5G, nr_type='nsa', msg_type='sms')
+
+    @test_tracker_info(uuid='62d66d9e-b7de-419b-b079-9d0112cb28dc')
+    @TelephonyBaseTest.tel_test_wrap
+    def test_5g_nsa_apn_settings_tmo_mms(self):
+        """Test TMO APN and MMS
+
+        Steps:
+            1. Provision device to nsa 5G
+            2. Launch Settings - Network & Internet
+            3. Click on SIMs
+            4. Click on Access Point Names
+            5. Add New APN
+            6. Add ATT APN details and Save
+            7. Switch APN to New APN
+            8. Check Network is connected to nsa 5G
+            9. Send MMS
+
+        Returns:
+            True is tests passes else False
+        """
+        caller, callee = self.android_devices[0], self.android_devices[1]
+
+        return tmo_apn_test(self.log, caller, callee, GEN_5G, nr_type='nsa', msg_type='mms')

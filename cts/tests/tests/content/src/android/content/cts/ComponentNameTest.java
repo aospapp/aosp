@@ -159,6 +159,8 @@ public class ComponentNameTest extends AndroidTestCase {
         componentName2 = new ComponentName(componentName1.getPackageName(),
                 componentName1.getClassName() + "different name");
         assertFalse(componentName1.equals(componentName2));
+
+        assertFalse(componentName1.equals(null));
     }
 
     public void testToString() {

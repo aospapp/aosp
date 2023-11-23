@@ -23,7 +23,7 @@ java_library {
     static_libs: [
         "ub-uiautomator",
         "androidx.test.rules",
-        "androidx.test.uiautomator",
+        "androidx.test.uiautomator_uiautomator",
         "activity-helper",
         "commands-helper",
         "device-helper",

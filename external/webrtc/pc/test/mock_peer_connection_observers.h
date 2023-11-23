@@ -74,7 +74,9 @@ class MockPeerConnectionObserver : public PeerConnectionObserver {
   MediaStreamInterface* RemoteStream(const std::string& label) {
     return remote_streams_->find(label);
   }
-  StreamCollectionInterface* remote_streams() const { return remote_streams_; }
+  StreamCollectionInterface* remote_streams() const {
+    return remote_streams_.get();
+  }
   void OnAddStream(rtc::scoped_refptr<MediaStreamInterface> stream) override {
     last_added_stream_ = stream;
     remote_streams_->AddStream(stream);
@@ -82,9 +84,12 @@ class MockPeerConnectionObserver : public PeerConnectionObserver {
   void OnRemoveStream(
       rtc::scoped_refptr<MediaStreamInterface> stream) override {
     last_removed_stream_ = stream;
-    remote_streams_->RemoveStream(stream);
+    remote_streams_->RemoveStream(stream.get());
   }
   void OnRenegotiationNeeded() override { renegotiation_needed_ = true; }
+  void OnNegotiationNeededEvent(uint32_t event_id) override {
+    latest_negotiation_needed_event_ = event_id;
+  }
   void OnDataChannel(
       rtc::scoped_refptr<DataChannelInterface> data_channel) override {
     last_datachannel_ = data_channel;
@@ -113,8 +118,6 @@ class MockPeerConnectionObserver : public PeerConnectionObserver {
   }
   void OnIceCandidate(const IceCandidateInterface* candidate) override {
     RTC_DCHECK(pc_);
-    RTC_DCHECK(PeerConnectionInterface::kIceGatheringNew !=
-               pc_->ice_gathering_state());
     candidates_.push_back(std::make_unique<JsepIceCandidate>(
         candidate->sdp_mid(), candidate->sdp_mline_index(),
         candidate->candidate()));
@@ -214,8 +217,18 @@ class MockPeerConnectionObserver : public PeerConnectionObserver {
     return candidates;
   }
 
-  bool negotiation_needed() const { return renegotiation_needed_; }
-  void clear_negotiation_needed() { renegotiation_needed_ = false; }
+  bool legacy_renegotiation_needed() const { return renegotiation_needed_; }
+  void clear_legacy_renegotiation_needed() { renegotiation_needed_ = false; }
+
+  bool has_negotiation_needed_event() {
+    return latest_negotiation_needed_event_.has_value();
+  }
+  uint32_t latest_negotiation_needed_event() {
+    return latest_negotiation_needed_event_.value_or(0u);
+  }
+  void clear_latest_negotiation_needed_event() {
+    latest_negotiation_needed_event_ = absl::nullopt;
+  }
 
   rtc::scoped_refptr<PeerConnectionInterface> pc_;
   PeerConnectionInterface::SignalingState state_;
@@ -223,6 +236,7 @@ class MockPeerConnectionObserver : public PeerConnectionObserver {
   rtc::scoped_refptr<DataChannelInterface> last_datachannel_;
   rtc::scoped_refptr<StreamCollection> remote_streams_;
   bool renegotiation_needed_ = false;
+  absl::optional<uint32_t> latest_negotiation_needed_event_;
   bool ice_gathering_complete_ = false;
   bool ice_connected_ = false;
   bool callback_triggered_ = false;
@@ -247,32 +261,45 @@ class MockCreateSessionDescriptionObserver
         error_("MockCreateSessionDescriptionObserver not called") {}
   virtual ~MockCreateSessionDescriptionObserver() {}
   void OnSuccess(SessionDescriptionInterface* desc) override {
+    MutexLock lock(&mutex_);
     called_ = true;
     error_ = "";
     desc_.reset(desc);
   }
   void OnFailure(webrtc::RTCError error) override {
+    MutexLock lock(&mutex_);
     called_ = true;
     error_ = error.message();
   }
-  bool called() const { return called_; }
-  bool result() const { return error_.empty(); }
-  const std::string& error() const { return error_; }
+  bool called() const {
+    MutexLock lock(&mutex_);
+    return called_;
+  }
+  bool result() const {
+    MutexLock lock(&mutex_);
+    return error_.empty();
+  }
+  const std::string& error() const {
+    MutexLock lock(&mutex_);
+    return error_;
+  }
   std::unique_ptr<SessionDescriptionInterface> MoveDescription() {
+    MutexLock lock(&mutex_);
     return std::move(desc_);
   }
 
  private:
-  bool called_;
-  std::string error_;
-  std::unique_ptr<SessionDescriptionInterface> desc_;
+  mutable Mutex mutex_;
+  bool called_ RTC_GUARDED_BY(mutex_);
+  std::string error_ RTC_GUARDED_BY(mutex_);
+  std::unique_ptr<SessionDescriptionInterface> desc_ RTC_GUARDED_BY(mutex_);
 };
 
 class MockSetSessionDescriptionObserver
     : public webrtc::SetSessionDescriptionObserver {
  public:
   static rtc::scoped_refptr<MockSetSessionDescriptionObserver> Create() {
-    return new rtc::RefCountedObject<MockSetSessionDescriptionObserver>();
+    return rtc::make_ref_counted<MockSetSessionDescriptionObserver>();
   }
 
   MockSetSessionDescriptionObserver()
@@ -280,25 +307,57 @@ class MockSetSessionDescriptionObserver
         error_("MockSetSessionDescriptionObserver not called") {}
   ~MockSetSessionDescriptionObserver() override {}
   void OnSuccess() override {
+    MutexLock lock(&mutex_);
+
     called_ = true;
     error_ = "";
   }
   void OnFailure(webrtc::RTCError error) override {
+    MutexLock lock(&mutex_);
     called_ = true;
     error_ = error.message();
   }
 
-  bool called() const { return called_; }
-  bool result() const { return error_.empty(); }
-  const std::string& error() const { return error_; }
+  bool called() const {
+    MutexLock lock(&mutex_);
+    return called_;
+  }
+  bool result() const {
+    MutexLock lock(&mutex_);
+    return error_.empty();
+  }
+  const std::string& error() const {
+    MutexLock lock(&mutex_);
+    return error_;
+  }
 
  private:
+  mutable Mutex mutex_;
   bool called_;
   std::string error_;
 };
 
-class MockSetRemoteDescriptionObserver
-    : public rtc::RefCountedObject<SetRemoteDescriptionObserverInterface> {
+class FakeSetLocalDescriptionObserver
+    : public SetLocalDescriptionObserverInterface {
+ public:
+  bool called() const { return error_.has_value(); }
+  RTCError& error() {
+    RTC_DCHECK(error_.has_value());
+    return *error_;
+  }
+
+  // SetLocalDescriptionObserverInterface implementation.
+  void OnSetLocalDescriptionComplete(RTCError error) override {
+    error_ = std::move(error);
+  }
+
+ private:
+  // Set on complete, on success this is set to an RTCError::OK() error.
+  absl::optional<RTCError> error_;
+};
+
+class FakeSetRemoteDescriptionObserver
+    : public SetRemoteDescriptionObserverInterface {
  public:
   bool called() const { return error_.has_value(); }
   RTCError& error() {
@@ -318,32 +377,51 @@ class MockSetRemoteDescriptionObserver
 
 class MockDataChannelObserver : public webrtc::DataChannelObserver {
  public:
+  struct Message {
+    std::string data;
+    bool binary;
+  };
+
   explicit MockDataChannelObserver(webrtc::DataChannelInterface* channel)
       : channel_(channel) {
     channel_->RegisterObserver(this);
-    state_ = channel_->state();
+    states_.push_back(channel_->state());
   }
   virtual ~MockDataChannelObserver() { channel_->UnregisterObserver(); }
 
   void OnBufferedAmountChange(uint64_t previous_amount) override {}
 
-  void OnStateChange() override { state_ = channel_->state(); }
+  void OnStateChange() override { states_.push_back(channel_->state()); }
   void OnMessage(const DataBuffer& buffer) override {
     messages_.push_back(
-        std::string(buffer.data.data<char>(), buffer.data.size()));
+        {std::string(buffer.data.data<char>(), buffer.data.size()),
+         buffer.binary});
   }
 
-  bool IsOpen() const { return state_ == DataChannelInterface::kOpen; }
-  std::vector<std::string> messages() const { return messages_; }
+  bool IsOpen() const { return state() == DataChannelInterface::kOpen; }
+  std::vector<Message> messages() const { return messages_; }
   std::string last_message() const {
-    return messages_.empty() ? std::string() : messages_.back();
+    if (messages_.empty())
+      return {};
+
+    return messages_.back().data;
+  }
+  bool last_message_is_binary() const {
+    if (messages_.empty())
+      return false;
+    return messages_.back().binary;
   }
   size_t received_message_count() const { return messages_.size(); }
 
+  DataChannelInterface::DataState state() const { return states_.back(); }
+  const std::vector<DataChannelInterface::DataState>& states() const {
+    return states_;
+  }
+
  private:
   rtc::scoped_refptr<webrtc::DataChannelInterface> channel_;
-  DataChannelInterface::DataState state_;
-  std::vector<std::string> messages_;
+  std::vector<DataChannelInterface::DataState> states_;
+  std::vector<Message> messages_;
 };
 
 class MockStatsObserver : public webrtc::StatsObserver {

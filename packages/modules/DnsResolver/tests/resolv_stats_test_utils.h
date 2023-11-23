@@ -32,6 +32,9 @@ android::net::NetworkDnsEventReported fromNetworkDnsEventReportedStr(const std::
 void PrintTo(const DnsQueryEvents& event, std::ostream* os);
 void PrintTo(const DnsQueryEvent& event, std::ostream* os);
 void PrintTo(const android::net::NetworkDnsEventReported& event, std::ostream* os);
+void PrintTo(const Servers& event, std::ostream* os);
+void PrintTo(const Server& event, std::ostream* os);
+void PrintTo(const NetworkDnsServerSupportReported& event, std::ostream* os);
 
 MATCHER_P(DnsQueryEventEq, other, "") {
     return ::testing::ExplainMatchResult(
@@ -118,6 +121,49 @@ MATCHER_P(NetworkDnsEventEq, other, "") {
                     ::testing::Property("dns_query_events",
                                         &android::net::NetworkDnsEventReported::dns_query_events,
                                         DnsQueryEventsEq(other.dns_query_events()))),
+            arg, result_listener);
+}
+
+MATCHER_P(ServerEq, other, "") {
+    return ::testing::ExplainMatchResult(
+            ::testing::AllOf(
+                    ::testing::Property("protocol", &Server::protocol,
+                                        ::testing::Eq(other.protocol())),
+                    ::testing::Property("index", &Server::index, ::testing::Eq(other.index())),
+                    ::testing::Property("validated", &Server::validated,
+                                        ::testing::Eq(other.validated()))),
+            arg, result_listener);
+}
+
+MATCHER_P(ServersEq, other, "") {
+    const int server_size = arg.server_size();
+    if (server_size != other.server_size()) {
+        return false;
+    }
+
+    for (int i = 0; i < server_size; ++i) {
+        if (!::testing::Value(arg.server(i), ServerEq(other.server(i)))) {
+            *result_listener << "Expected server num: " << i << " \n";
+            PrintTo(arg.server(i), result_listener->stream());
+            *result_listener << "Actual server num: " << i << " ";
+            PrintTo(other.server(i), result_listener->stream());
+            return false;
+        }
+    }
+    return true;
+}
+
+MATCHER_P(NetworkDnsServerSupportEq, other, "") {
+    return ::testing::ExplainMatchResult(
+            ::testing::AllOf(
+                    ::testing::Property("network_type",
+                                        &NetworkDnsServerSupportReported::network_type,
+                                        ::testing::Eq(other.network_type())),
+                    ::testing::Property("private_dns_modes",
+                                        &NetworkDnsServerSupportReported::private_dns_modes,
+                                        ::testing::Eq(other.private_dns_modes())),
+                    ::testing::Property("servers", &NetworkDnsServerSupportReported::servers,
+                                        ServersEq(other.servers()))),
             arg, result_listener);
 }
 

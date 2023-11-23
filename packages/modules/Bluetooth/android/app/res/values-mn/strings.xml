@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Үл мэдэгдэх төхөөрөмж"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Тодорхойгүй"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Олгоогүй"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Нислэгийн горим"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Та Нислэгийн горимд Bluetooth ашиглах боломжгүй."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Bluetooth Аудио"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"4ГБ-с дээш хэмжээтэй файлыг шилжүүлэх боломжгүй"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Bluetooth-тэй холбогдох"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Нислэгийн горимд Bluetooth асаалттай"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Хэрэв та Bluetooth-г асаалттай байлгавал таныг дараагийн удаа нислэгийн горимд байх үед төхөөрөмж тань үүнийг асаалттай байлгахыг санана"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth асаалттай хэвээр байна"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Таны төхөөрөмж Bluetooth-г нислэгийн горимд асаалттай байлгахыг санана. Хэрэв та асаалттай байлгахыг хүсэхгүй байвал Bluetooth-г унтраана уу."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi болон Bluetooth асаалттай хэвээр байна"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Таны төхөөрөмж Wi-Fi болон Bluetooth-г нислэгийн горимд асаалттай байлгахыг санана. Хэрэв та Wi-Fi болон Bluetooth-г асаалттай байлгахыг хүсэхгүй байвал тэдгээрийг унтраана уу."</string>
 </resources>

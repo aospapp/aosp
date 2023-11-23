@@ -12,5 +12,7 @@
     <string name="unknownName" msgid="6755061296103155293">"ଅଜଣା ନାମ"</string>
     <string name="localPhoneName" msgid="9119254982537191352">"ମୋର ନାମ"</string>
     <string name="defaultnumber" msgid="5348816189286607406">"000000"</string>
-    <string name="pbap_notification_group" msgid="4215789331721465381">"ବ୍ଲୁଟୂଥ୍‍‌ ଯୋଗାଯୋଗ ସେୟାର୍‌ କରନ୍ତୁ"</string>
+    <string name="pbap_notification_group" msgid="4215789331721465381">"ବ୍ଲୁଟୂଥ କଣ୍ଟାକ୍ଟ ସେୟାର କରନ୍ତୁ"</string>
+    <string name="phonebook_advance_feature_support" msgid="8129553051734505128">"ଫୋନବୁକର ଉନ୍ନତ ଫିଚର ସମର୍ଥିତ ନୁହେଁ"</string>
+    <string name="repair_for_adv_phonebook_feature" msgid="3489797973131684927">"ଉନ୍ନତ ଫୋନବୁକ ଫିଚର ପାଇଁ ପୁଣି-ପେୟାର କରନ୍ତୁ"</string>
 </resources>

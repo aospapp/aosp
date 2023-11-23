@@ -60,7 +60,7 @@
  * Returns          Data flow mask.
  *
  ******************************************************************************/
-extern uint8_t bta_pan_co_init(uint8_t* q_level);
+uint8_t bta_pan_co_init(uint8_t* q_level);
 
 /*******************************************************************************
  *
@@ -73,7 +73,7 @@ extern uint8_t bta_pan_co_init(uint8_t* q_level);
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_pan_co_close(uint16_t handle, uint8_t app_id);
+void bta_pan_co_close(uint16_t handle, uint8_t app_id);
 
 /*******************************************************************************
  *
@@ -88,7 +88,7 @@ extern void bta_pan_co_close(uint16_t handle, uint8_t app_id);
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_pan_co_tx_path(uint16_t handle, uint8_t app_id);
+void bta_pan_co_tx_path(uint16_t handle, uint8_t app_id);
 
 /*******************************************************************************
  *
@@ -103,7 +103,7 @@ extern void bta_pan_co_tx_path(uint16_t handle, uint8_t app_id);
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_pan_co_rx_path(uint16_t handle, uint8_t app_id);
+void bta_pan_co_rx_path(uint16_t handle, uint8_t app_id);
 
 /*******************************************************************************
  *
@@ -119,7 +119,7 @@ extern void bta_pan_co_rx_path(uint16_t handle, uint8_t app_id);
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_pan_co_rx_flow(uint16_t handle, uint8_t app_id, bool enable);
+void bta_pan_co_rx_flow(uint16_t handle, uint8_t app_id, bool enable);
 
 /*******************************************************************************
  *
@@ -130,9 +130,9 @@ extern void bta_pan_co_rx_flow(uint16_t handle, uint8_t app_id, bool enable);
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_pan_co_pfilt_ind(uint16_t handle, bool indication,
-                                 tBTA_PAN_STATUS result, uint16_t len,
-                                 uint8_t* p_filters);
+void bta_pan_co_pfilt_ind(uint16_t handle, bool indication,
+                          tBTA_PAN_STATUS result, uint16_t len,
+                          uint8_t* p_filters);
 
 /*******************************************************************************
  *
@@ -143,8 +143,8 @@ extern void bta_pan_co_pfilt_ind(uint16_t handle, bool indication,
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_pan_co_mfilt_ind(uint16_t handle, bool indication,
-                                 tBTA_PAN_STATUS result, uint16_t len,
-                                 uint8_t* p_filters);
+void bta_pan_co_mfilt_ind(uint16_t handle, bool indication,
+                          tBTA_PAN_STATUS result, uint16_t len,
+                          uint8_t* p_filters);
 
 #endif /* BTA_PAN_CO_H */

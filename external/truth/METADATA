@@ -1,0 +1,17 @@
+name: "truth"
+description:
+    "Fluent assertions for Java and Android"
+
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://truth.dev/"
+  }
+  url {
+    type: GIT
+    value: "https://github.com/google/truth.git"
+  }
+  version: "release_1_1_3"
+  last_upgrade_date { year: 2022 month: 10 day: 13 }
+  license_type: NOTICE
+}

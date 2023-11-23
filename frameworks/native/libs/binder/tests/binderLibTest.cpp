@@ -30,6 +30,7 @@
 #include <android-base/properties.h>
 #include <android-base/result-gmock.h>
 #include <android-base/result.h>
+#include <android-base/scopeguard.h>
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
 #include <binder/Binder.h>
@@ -82,6 +83,7 @@ static char binderserverarg[] = "--binderserver";
 static constexpr int kSchedPolicy = SCHED_RR;
 static constexpr int kSchedPriority = 7;
 static constexpr int kSchedPriorityMore = 8;
+static constexpr int kKernelThreads = 15;
 
 static String16 binderLibTestServiceName = String16("test.binderLib");
 
@@ -113,8 +115,16 @@ enum BinderLibTestTranscationCode {
     BINDER_LIB_TEST_NOP_TRANSACTION_WAIT,
     BINDER_LIB_TEST_GETPID,
     BINDER_LIB_TEST_ECHO_VECTOR,
+    BINDER_LIB_TEST_GET_NON_BLOCKING_FD,
     BINDER_LIB_TEST_REJECT_OBJECTS,
     BINDER_LIB_TEST_CAN_GET_SID,
+    BINDER_LIB_TEST_GET_MAX_THREAD_COUNT,
+    BINDER_LIB_TEST_SET_MAX_THREAD_COUNT,
+    BINDER_LIB_TEST_IS_THREADPOOL_STARTED,
+    BINDER_LIB_TEST_LOCK_UNLOCK,
+    BINDER_LIB_TEST_PROCESS_LOCK,
+    BINDER_LIB_TEST_UNLOCK_AFTER_MS,
+    BINDER_LIB_TEST_PROCESS_TEMPORARY_LOCK
 };
 
 pid_t start_server_process(int arg2, bool usePoll = false)
@@ -247,13 +257,11 @@ class BinderLibTest : public ::testing::Test {
         {
             int32_t id;
             Parcel data, reply;
-            sp<IBinder> binder;
 
             EXPECT_THAT(m_server->transact(code, data, &reply), StatusEq(NO_ERROR));
 
-            EXPECT_FALSE(binder != nullptr);
-            binder = reply.readStrongBinder();
-            EXPECT_TRUE(binder != nullptr);
+            sp<IBinder> binder = reply.readStrongBinder();
+            EXPECT_NE(nullptr, binder);
             EXPECT_THAT(reply.readInt32(&id), StatusEq(NO_ERROR));
             if (idPtr)
                 *idPtr = id;
@@ -442,6 +450,12 @@ TEST_F(BinderLibTest, CannotUseBinderAfterFork) {
     EXPECT_DEATH({ ProcessState::self(); }, "libbinder ProcessState can not be used after fork");
 }
 
+TEST_F(BinderLibTest, AddManagerToManager) {
+    sp<IServiceManager> sm = defaultServiceManager();
+    sp<IBinder> binder = IInterface::asBinder(sm);
+    EXPECT_EQ(NO_ERROR, sm->addService(String16("binderLibTest-manager"), binder));
+}
+
 TEST_F(BinderLibTest, WasParceled) {
     auto binder = sp<BBinder>::make();
     EXPECT_FALSE(binder->wasParceled());
@@ -493,7 +507,13 @@ TEST_F(BinderLibTest, Freeze) {
     }
 
     EXPECT_EQ(-EAGAIN, IPCThreadState::self()->freeze(pid, true, 0));
-    EXPECT_EQ(-EAGAIN, IPCThreadState::self()->freeze(pid, true, 0));
+
+    // b/268232063 - succeeds ~0.08% of the time
+    {
+        auto ret = IPCThreadState::self()->freeze(pid, true, 0);
+        EXPECT_TRUE(ret == -EAGAIN || ret == OK);
+    }
+
     EXPECT_EQ(NO_ERROR, IPCThreadState::self()->freeze(pid, true, 1000));
     EXPECT_EQ(FAILED_TRANSACTION, m_server->transact(BINDER_LIB_TEST_NOP_TRANSACTION, data, &reply));
 
@@ -1146,6 +1166,56 @@ TEST_F(BinderLibTest, VectorSent) {
     EXPECT_EQ(readValue, testValue);
 }
 
+TEST_F(BinderLibTest, FileDescriptorRemainsNonBlocking) {
+    sp<IBinder> server = addServer();
+    ASSERT_TRUE(server != nullptr);
+
+    Parcel reply;
+    EXPECT_THAT(server->transact(BINDER_LIB_TEST_GET_NON_BLOCKING_FD, {} /*data*/, &reply),
+                StatusEq(NO_ERROR));
+    base::unique_fd fd;
+    EXPECT_THAT(reply.readUniqueFileDescriptor(&fd), StatusEq(OK));
+
+    const int result = fcntl(fd.get(), F_GETFL);
+    ASSERT_NE(result, -1);
+    EXPECT_EQ(result & O_NONBLOCK, O_NONBLOCK);
+}
+
+// see ProcessState.cpp BINDER_VM_SIZE = 1MB.
+// This value is not exposed, but some code in the framework relies on being able to use
+// buffers near the cap size.
+constexpr size_t kSizeBytesAlmostFull = 950'000;
+constexpr size_t kSizeBytesOverFull = 1'050'000;
+
+TEST_F(BinderLibTest, GargantuanVectorSent) {
+    sp<IBinder> server = addServer();
+    ASSERT_TRUE(server != nullptr);
+
+    for (size_t i = 0; i < 10; i++) {
+        // a slight variation in size is used to consider certain possible caching implementations
+        const std::vector<uint64_t> testValue((kSizeBytesAlmostFull + i) / sizeof(uint64_t), 42);
+
+        Parcel data, reply;
+        data.writeUint64Vector(testValue);
+        EXPECT_THAT(server->transact(BINDER_LIB_TEST_ECHO_VECTOR, data, &reply), StatusEq(NO_ERROR))
+                << i;
+        std::vector<uint64_t> readValue;
+        EXPECT_THAT(reply.readUint64Vector(&readValue), StatusEq(OK));
+        EXPECT_EQ(readValue, testValue);
+    }
+}
+
+TEST_F(BinderLibTest, LimitExceededVectorSent) {
+    sp<IBinder> server = addServer();
+    ASSERT_TRUE(server != nullptr);
+    const std::vector<uint64_t> testValue(kSizeBytesOverFull / sizeof(uint64_t), 42);
+
+    Parcel data, reply;
+    data.writeUint64Vector(testValue);
+    EXPECT_THAT(server->transact(BINDER_LIB_TEST_ECHO_VECTOR, data, &reply),
+                StatusEq(FAILED_TRANSACTION));
+}
+
 TEST_F(BinderLibTest, BufRejected) {
     Parcel data, reply;
     uint32_t buf;
@@ -1221,6 +1291,53 @@ TEST_F(BinderLibTest, GotSid) {
     EXPECT_THAT(server->transact(BINDER_LIB_TEST_CAN_GET_SID, data, nullptr), StatusEq(OK));
 }
 
+struct TooManyFdsFlattenable : Flattenable<TooManyFdsFlattenable> {
+    TooManyFdsFlattenable(size_t fdCount) : mFdCount(fdCount) {}
+
+    // Flattenable protocol
+    size_t getFlattenedSize() const {
+        // Return a valid non-zero size here so we don't get an unintended
+        // BAD_VALUE from Parcel::write
+        return 16;
+    }
+    size_t getFdCount() const { return mFdCount; }
+    status_t flatten(void *& /*buffer*/, size_t & /*size*/, int *&fds, size_t &count) const {
+        for (size_t i = 0; i < count; i++) {
+            fds[i] = STDIN_FILENO;
+        }
+        return NO_ERROR;
+    }
+    status_t unflatten(void const *& /*buffer*/, size_t & /*size*/, int const *& /*fds*/,
+                       size_t & /*count*/) {
+        /* This doesn't get called */
+        return NO_ERROR;
+    }
+
+    size_t mFdCount;
+};
+
+TEST_F(BinderLibTest, TooManyFdsFlattenable) {
+    rlimit origNofile;
+    int ret = getrlimit(RLIMIT_NOFILE, &origNofile);
+    ASSERT_EQ(0, ret);
+
+    // Restore the original file limits when the test finishes
+    base::ScopeGuard guardUnguard([&]() { setrlimit(RLIMIT_NOFILE, &origNofile); });
+
+    rlimit testNofile = {1024, 1024};
+    ret = setrlimit(RLIMIT_NOFILE, &testNofile);
+    ASSERT_EQ(0, ret);
+
+    Parcel parcel;
+    // Try to write more file descriptors than supported by the OS
+    TooManyFdsFlattenable tooManyFds1(1024);
+    EXPECT_THAT(parcel.write(tooManyFds1), StatusEq(-EMFILE));
+
+    // Try to write more file descriptors than the internal limit
+    TooManyFdsFlattenable tooManyFds2(1025);
+    EXPECT_THAT(parcel.write(tooManyFds2), StatusEq(BAD_VALUE));
+}
+
 TEST(ServiceNotifications, Unregister) {
     auto sm = defaultServiceManager();
     using LocalRegistrationCallback = IServiceManager::LocalRegistrationCallback;
@@ -1232,6 +1349,89 @@ TEST(ServiceNotifications, Unregister) {
 
     EXPECT_EQ(sm->registerForNotifications(String16("RogerRafa"), cb), OK);
     EXPECT_EQ(sm->unregisterForNotifications(String16("RogerRafa"), cb), OK);
+}
+
+TEST_F(BinderLibTest, ThreadPoolAvailableThreads) {
+    Parcel data, reply;
+    sp<IBinder> server = addServer();
+    ASSERT_TRUE(server != nullptr);
+    EXPECT_THAT(server->transact(BINDER_LIB_TEST_GET_MAX_THREAD_COUNT, data, &reply),
+                StatusEq(NO_ERROR));
+    int32_t replyi = reply.readInt32();
+    // Expect 16 threads: kKernelThreads = 15 + Pool thread == 16
+    EXPECT_TRUE(replyi == kKernelThreads || replyi == kKernelThreads + 1);
+    EXPECT_THAT(server->transact(BINDER_LIB_TEST_PROCESS_LOCK, data, &reply), NO_ERROR);
+
+    /*
+     * This will use all threads in the pool expect the main pool thread.
+     * The service should run fine without locking, and the thread count should
+     * not exceed 16 (15 Max + pool thread).
+     */
+    std::vector<std::thread> ts;
+    for (size_t i = 0; i < kKernelThreads; i++) {
+        ts.push_back(std::thread([&] {
+            Parcel local_reply;
+            EXPECT_THAT(server->transact(BINDER_LIB_TEST_LOCK_UNLOCK, data, &local_reply),
+                        NO_ERROR);
+        }));
+    }
+
+    data.writeInt32(500);
+    // Give a chance for all threads to be used
+    EXPECT_THAT(server->transact(BINDER_LIB_TEST_UNLOCK_AFTER_MS, data, &reply), NO_ERROR);
+
+    for (auto &t : ts) {
+        t.join();
+    }
+
+    EXPECT_THAT(server->transact(BINDER_LIB_TEST_GET_MAX_THREAD_COUNT, data, &reply),
+                StatusEq(NO_ERROR));
+    replyi = reply.readInt32();
+    EXPECT_EQ(replyi, kKernelThreads + 1);
+}
+
+TEST_F(BinderLibTest, ThreadPoolStarted) {
+    Parcel data, reply;
+    sp<IBinder> server = addServer();
+    ASSERT_TRUE(server != nullptr);
+    EXPECT_THAT(server->transact(BINDER_LIB_TEST_IS_THREADPOOL_STARTED, data, &reply), NO_ERROR);
+    EXPECT_TRUE(reply.readBool());
+}
+
+size_t epochMillis() {
+    using std::chrono::duration_cast;
+    using std::chrono::milliseconds;
+    using std::chrono::seconds;
+    using std::chrono::system_clock;
+    return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+}
+
+TEST_F(BinderLibTest, HangingServices) {
+    Parcel data, reply;
+    sp<IBinder> server = addServer();
+    ASSERT_TRUE(server != nullptr);
+    int32_t delay = 1000; // ms
+    data.writeInt32(delay);
+    // b/266537959 - must take before taking lock, since countdown is started in the remote
+    // process there.
+    size_t epochMsBefore = epochMillis();
+    EXPECT_THAT(server->transact(BINDER_LIB_TEST_PROCESS_TEMPORARY_LOCK, data, &reply), NO_ERROR);
+    std::vector<std::thread> ts;
+    for (size_t i = 0; i < kKernelThreads + 1; i++) {
+        ts.push_back(std::thread([&] {
+            Parcel local_reply;
+            EXPECT_THAT(server->transact(BINDER_LIB_TEST_LOCK_UNLOCK, data, &local_reply),
+                        NO_ERROR);
+        }));
+    }
+
+    for (auto &t : ts) {
+        t.join();
+    }
+    size_t epochMsAfter = epochMillis();
+
+    // deadlock occurred and threads only finished after 1s passed.
+    EXPECT_GE(epochMsAfter, epochMsBefore + delay);
 }
 
 class BinderLibRpcTestBase : public BinderLibTest {
@@ -1634,15 +1834,72 @@ public:
                 reply->writeUint64Vector(vector);
                 return NO_ERROR;
             }
+            case BINDER_LIB_TEST_GET_NON_BLOCKING_FD: {
+                std::array<int, 2> sockets;
+                const bool created = socketpair(AF_UNIX, SOCK_SEQPACKET, 0, sockets.data()) == 0;
+                if (!created) {
+                    ALOGE("Could not create socket pair");
+                    return UNKNOWN_ERROR;
+                }
+
+                const int result = fcntl(sockets[0], F_SETFL, O_NONBLOCK);
+                if (result != 0) {
+                    ALOGE("Could not make socket non-blocking: %s", strerror(errno));
+                    return UNKNOWN_ERROR;
+                }
+                base::unique_fd out(sockets[0]);
+                status_t writeResult = reply->writeUniqueFileDescriptor(out);
+                if (writeResult != NO_ERROR) {
+                    ALOGE("Could not write unique_fd");
+                    return writeResult;
+                }
+                close(sockets[1]); // we don't need the other side of the fd
+                return NO_ERROR;
+            }
             case BINDER_LIB_TEST_REJECT_OBJECTS: {
                 return data.objectsCount() == 0 ? BAD_VALUE : NO_ERROR;
             }
             case BINDER_LIB_TEST_CAN_GET_SID: {
                 return IPCThreadState::self()->getCallingSid() == nullptr ? BAD_VALUE : NO_ERROR;
             }
+            case BINDER_LIB_TEST_GET_MAX_THREAD_COUNT: {
+                reply->writeInt32(ProcessState::self()->getThreadPoolMaxTotalThreadCount());
+                return NO_ERROR;
+            }
+            case BINDER_LIB_TEST_IS_THREADPOOL_STARTED: {
+                reply->writeBool(ProcessState::self()->isThreadPoolStarted());
+                return NO_ERROR;
+            }
+            case BINDER_LIB_TEST_PROCESS_LOCK: {
+                m_blockMutex.lock();
+                return NO_ERROR;
+            }
+            case BINDER_LIB_TEST_LOCK_UNLOCK: {
+                std::lock_guard<std::mutex> _l(m_blockMutex);
+                return NO_ERROR;
+            }
+            case BINDER_LIB_TEST_UNLOCK_AFTER_MS: {
+                int32_t ms = data.readInt32();
+                return unlockInMs(ms);
+            }
+            case BINDER_LIB_TEST_PROCESS_TEMPORARY_LOCK: {
+                m_blockMutex.lock();
+                sp<BinderLibTestService> thisService = this;
+                int32_t value = data.readInt32();
+                // start local thread to unlock in 1s
+                std::thread t([=] { thisService->unlockInMs(value); });
+                t.detach();
+                return NO_ERROR;
+            }
             default:
                 return UNKNOWN_TRANSACTION;
         };
+    }
+
+    status_t unlockInMs(int32_t ms) {
+        usleep(ms * 1000);
+        m_blockMutex.unlock();
+        return NO_ERROR;
     }
 
 private:
@@ -1655,6 +1912,7 @@ private:
     sp<IBinder> m_strongRef;
     sp<IBinder> m_callback;
     bool m_exitOnDestroy;
+    std::mutex m_blockMutex;
 };
 
 int run_server(int index, int readypipefd, bool usePoll)
@@ -1756,6 +2014,7 @@ int run_server(int index, int readypipefd, bool usePoll)
              }
         }
     } else {
+        ProcessState::self()->setThreadPoolMaxThreadCount(kKernelThreads);
         ProcessState::self()->startThreadPool();
         IPCThreadState::self()->joinThreadPool();
     }

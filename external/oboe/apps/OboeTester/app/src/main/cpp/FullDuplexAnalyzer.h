@@ -37,9 +37,9 @@ public:
      * Caller should override this method.
      */
     oboe::DataCallbackResult onBothStreamsReady(
-            const void *inputData,
+            const float *inputData,
             int   numInputFrames,
-            void *outputData,
+            float *outputData,
             int   numOutputFrames
     ) override;
 
@@ -53,10 +53,21 @@ public:
         mRecording = recording;
     }
 
+    bool isWriteReadDeltaValid() {
+        return mWriteReadDeltaValid;
+    }
+
+    int64_t getWriteReadDelta() {
+        return mWriteReadDelta;
+    }
+
 private:
     MultiChannelRecording  *mRecording = nullptr;
 
     LoopbackProcessor * const mLoopbackProcessor;
+
+    std::atomic<bool> mWriteReadDeltaValid{false};
+    std::atomic<int64_t> mWriteReadDelta{0};
 };
 
 

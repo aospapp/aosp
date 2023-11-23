@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Neznana naprava"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Neznano"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Ni navedeno"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Način za letalo"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Bluetootha ne morete uporabljati v načinu za letalo."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Zvok prek Bluetootha"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Datotek, večjih od 4 GB, ni mogoče prenesti"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Povezovanje z Bluetoothom"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth je vklopljen v načinu za letalo"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Če pustite Bluetooth vklopljen, bo naprava ob naslednjem preklopu na način za letalo pustila Bluetooth vklopljen."</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth ostane vklopljen"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Naprava v načinu za letalo pusti Bluetooth vklopljen. Če ne želite, da Bluetooth ostane vklopljen, ga izklopite."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi in Bluetooth ostaneta vklopljena"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Naprava v načinu za letalo pusti Wi-Fi in Bluetooth vklopljena. Če ne želite, da Wi-Fi in Bluetooth ostaneta vklopljena, ju izklopite."</string>
 </resources>

@@ -34,7 +34,7 @@ struct TestIdentifier
     static bool ParseFromString(const std::string &str, TestIdentifier *idOut);
 
     bool valid() const { return !testName.empty(); }
-    void sprintfName(char *outBuffer) const;
+    void snprintfName(char *outBuffer, size_t maxLen) const;
 
     std::string testSuiteName;
     std::string testName;
@@ -123,10 +123,34 @@ struct ProcessInfo : angle::NonCopyable
 
 using TestQueue = std::queue<std::vector<TestIdentifier>>;
 
+class MetricWriter
+{
+  public:
+    MetricWriter() {}
+
+    void enable(const std::string &testArtifactDirectory);
+
+    void writeInfo(const std::string &name,
+                   const std::string &backend,
+                   const std::string &story,
+                   const std::string &metric,
+                   const std::string &units);
+
+    void writeDoubleValue(double value);
+    void writeIntegerValue(size_t value);
+
+    void close();
+
+  private:
+    std::string mPath;
+    FILE *mFile = nullptr;
+};
+
 class TestSuite
 {
   public:
     TestSuite(int *argc, char **argv);
+    TestSuite(int *argc, char **argv, std::function<void()> registerTestsCallback);
     ~TestSuite();
 
     int run();
@@ -137,6 +161,7 @@ class TestSuite
                             const std::string &units);
 
     static TestSuite *GetInstance() { return mInstance; }
+    static MetricWriter &GetMetricWriter() { return GetInstance()->mMetricWriter; }
 
     // Returns the path to the artifact in the output directory.
     bool hasTestArtifactsDirectory() const;
@@ -159,19 +184,21 @@ class TestSuite
         mTestExpectationsParser.setTestExpectationsAllowMask(mask);
     }
 
+    const std::string &getTestExecutableName() const { return mTestExecutableName; }
+
   private:
-    bool parseSingleArg(const char *argument);
+    bool parseSingleArg(int *argc, char **argv, int argIndex);
     bool launchChildTestProcess(uint32_t batchId, const std::vector<TestIdentifier> &testsInBatch);
     bool finishProcess(ProcessInfo *processInfo);
     int printFailuresAndReturnCount() const;
     void startWatchdog();
     void dumpTestExpectationsErrorMessages();
     int getSlowTestTimeout() const;
+    void writeOutputFiles(bool interrupted);
 
     static TestSuite *mInstance;
 
     std::string mTestExecutableName;
-    std::string mTestSuiteName;
     TestQueue mTestQueue;
     std::string mFilterString;
     std::string mFilterFile;
@@ -204,10 +231,14 @@ class TestSuite
     std::vector<ProcessInfo> mCurrentProcesses;
     std::thread mWatchdogThread;
     HistogramWriter mHistogramWriter;
+    MetricWriter mMetricWriter;
     std::string mTestArtifactDirectory;
     GPUTestExpectationsParser mTestExpectationsParser;
+
+    class TestEventListener;
 };
 
+std::string ReplaceDashesWithQuestionMark(std::string dashesString);
 bool GetTestResultsFromFile(const char *fileName, TestResults *resultsOut);
 }  // namespace angle
 

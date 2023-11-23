@@ -79,6 +79,7 @@ Declarations of codec functions, data types, and macros.
 
 #define OI_SBC_SYNCWORD 0x9c
 #define OI_SBC_ENHANCED_SYNCWORD 0x9d
+#define OI_SBC_MSBC_SYNCWORD 0xad
 
 /**@name Sampling frequencies */
 /**@{*/
@@ -136,6 +137,9 @@ Declarations of codec functions, data types, and macros.
 /**< A block size of 16 blocks was used to encode the stream. One possible value
  * for the @a blocks parameter of OI_CODEC_SBC_EncoderConfigure() */
 #define SBC_BLOCKS_16 3
+/**< A block size of 15 blocks was used to encode the stream. One possible value
+ * for the @a blocks parameter of OI_CODEC_SBC_EncoderConfigure() */
+#define SBC_BLOCKS_15 4
 /**@}*/
 
 /**@name Bit allocation methods */
@@ -238,6 +242,7 @@ typedef struct {
   uint8_t restrictSubbands;
   uint8_t enhancedEnabled;
   uint8_t bufferedBlocks;
+  uint8_t mSbcEnabled;
 } OI_CODEC_SBC_DECODER_CONTEXT;
 
 typedef struct {
@@ -296,6 +301,9 @@ OI_STATUS OI_CODEC_SBC_DecoderReset(OI_CODEC_SBC_DECODER_CONTEXT* context,
  */
 OI_STATUS OI_CODEC_SBC_DecoderLimit(OI_CODEC_SBC_DECODER_CONTEXT* context,
                                     OI_BOOL enhanced, uint8_t subbands);
+
+OI_STATUS OI_CODEC_SBC_DecoderConfigureMSbc(
+    OI_CODEC_SBC_DECODER_CONTEXT* context);
 
 /**
  * This function sets the decoder parameters for a raw decode where the decoder

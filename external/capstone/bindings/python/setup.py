@@ -140,6 +140,13 @@ def build_libraries():
         # Do not build tests & static library
         os.system('cmake -DCMAKE_BUILD_TYPE=RELEASE -DCAPSTONE_BUILD_TESTS=0 -DCAPSTONE_BUILD_STATIC=0 -G "NMake Makefiles" ..')
         os.system("nmake")
+    elif "bsd" in SYSTEM:
+        # *BSD distinguishes make (BSD) vs gmake (GNU). Use cmake + bsd make :-)
+        if not os.path.exists("build"): os.mkdir("build")
+        os.chdir("build")
+        # Do not build tests & static library
+        os.system('cmake -DCMAKE_BUILD_TYPE=RELEASE -DCAPSTONE_BUILD_TESTS=0 -DCAPSTONE_BUILD_STATIC=0 ..')
+        os.system("make")
     else:   # Unix incl. cygwin
         os.system("CAPSTONE_BUILD_CORE_ONLY=yes bash ./make.sh")
 
@@ -199,10 +206,11 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
     name = get_platform()
     if 'linux' in name:
         # linux_* platform tags are disallowed because the python ecosystem is fubar
-        # linux builds should be built in the centos 5 vm for maximum compatibility
+        # linux builds should be built in the centos 6 vm for maximum compatibility
         # see https://github.com/pypa/manylinux
-        # see also https://github.com/angr/angr-dev/blob/master/bdist.sh
-        sys.argv.insert(idx + 1, 'manylinux1_' + platform.machine())
+        # see also https://github.com/angr/angr-dev/blob/master/bdist.sh and
+        # https://www.python.org/dev/peps/pep-0599/
+        sys.argv.insert(idx + 1, 'manylinux2014_' + platform.machine())
     else:
         # https://www.python.org/dev/peps/pep-0425/
         sys.argv.insert(idx + 1, name.replace('.', '_').replace('-', '_'))

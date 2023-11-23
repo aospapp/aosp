@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as rpc from 'noice-json-rpc';
+import rpc from 'noice-json-rpc';
 
 // To really understand how this works it is useful to see the implementation
 // of noice-json-rpc.
@@ -70,7 +70,7 @@ export class DevToolsSocket implements rpc.LikeSocket {
 
   private attachToTarget(
       target: chrome.debugger.Debuggee, then: (error?: string) => void) {
-    chrome.debugger.attach(target, /*requiredVersion=*/ '1.3', () => {
+    chrome.debugger.attach(target, /* requiredVersion=*/ '1.3', () => {
       if (chrome.runtime.lastError) {
         then(chrome.runtime.lastError.message);
         return;

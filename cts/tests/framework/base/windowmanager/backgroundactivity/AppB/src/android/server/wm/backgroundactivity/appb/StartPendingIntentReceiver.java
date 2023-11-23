@@ -16,31 +16,53 @@
 
 package android.server.wm.backgroundactivity.appb;
 
-import static android.server.wm.backgroundactivity.appb.Components.StartPendingIntentReceiver.PENDING_INTENT_EXTRA;
 import static android.server.wm.backgroundactivity.common.CommonComponents.EVENT_NOTIFIER_EXTRA;
 
+import android.app.ActivityOptions;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Bundle;
 import android.os.ResultReceiver;
 import android.server.wm.backgroundactivity.common.CommonComponents.Event;
+import android.util.Log;
 
 /**
  * Receive pending intent from AppA and launch it
  */
 public class StartPendingIntentReceiver extends BroadcastReceiver {
+    public static final String TAG = "StartPendingIntentReceiver";
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        PendingIntent pendingIntent = intent.getParcelableExtra(PENDING_INTENT_EXTRA);
+        Components appB = Components.get(context);
+
+        PendingIntent pendingIntent = intent.getParcelableExtra(
+                appB.START_PENDING_INTENT_RECEIVER_EXTRA.PENDING_INTENT);
         ResultReceiver eventNotifier = intent.getParcelableExtra(EVENT_NOTIFIER_EXTRA);
         if (eventNotifier != null) {
             eventNotifier.send(Event.APP_B_START_PENDING_INTENT_BROADCAST_RECEIVED, null);
         }
 
         try {
-            pendingIntent.send();
+            Bundle bundle;
+            if (intent.hasExtra(appB.START_PENDING_INTENT_ACTIVITY_EXTRA.ALLOW_BAL)) {
+                ActivityOptions options = ActivityOptions.makeBasic();
+                final boolean allowBal = intent.getBooleanExtra(
+                        appB.START_PENDING_INTENT_ACTIVITY_EXTRA.ALLOW_BAL, false);
+                options.setPendingIntentBackgroundActivityLaunchAllowed(allowBal);
+                bundle = options.toBundle();
+            } else if (intent.getBooleanExtra(
+                    appB.START_PENDING_INTENT_ACTIVITY_EXTRA.USE_NULL_BUNDLE, false)) {
+                bundle = null;
+            } else {
+                bundle = ActivityOptions.makeBasic().toBundle();
+            }
+            Log.d(TAG, "sending " + pendingIntent + " with " + bundle + " from "
+                    + context.getPackageName() + " at "
+                    + context.getApplicationInfo().targetSdkVersion);
+            pendingIntent.send(bundle);
         } catch (PendingIntent.CanceledException e) {
             e.printStackTrace();
         }

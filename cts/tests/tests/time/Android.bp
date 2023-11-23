@@ -29,7 +29,7 @@ android_test {
         "androidx.test.rules",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
-        "device_time_shell_utils",
+        "device-time-shell-utils",
     ],
     srcs: ["src/**/*.java"],
     sdk_version: "system_current",

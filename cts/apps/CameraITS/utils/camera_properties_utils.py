@@ -15,11 +15,12 @@
 
 
 import logging
-import unittest
+import math
 from mobly import asserts
 import numpy as np
 import capture_request_utils
 
+FD_CAL_RTOL = 0.20
 LENS_FACING_FRONT = 0
 LENS_FACING_BACK = 1
 LENS_FACING_EXTERNAL = 2
@@ -31,6 +32,16 @@ NUM_POSE_TRANSLATION_PARAMS = 3  # number of terms in poseTranslation
 SKIP_RET_MSG = 'Test skipped'
 SOLID_COLOR_TEST_PATTERN = 1
 COLOR_BARS_TEST_PATTERN = 2
+USE_CASE_STILL_CAPTURE = 2
+DEFAULT_AE_TARGET_FPS_RANGE = (15, 30)
+COLOR_SPACES = [
+    'SRGB', 'LINEAR_SRGB', 'EXTENDED_SRGB',
+    'LINEAR_EXTENDED_SRGB', 'BT709', 'BT2020',
+    'DCI_P3', 'DISPLAY_P3', 'NTSC_1953', 'SMPTE_C',
+    'ADOBE_RGB', 'PRO_PHOTO_RGB', 'ACES', 'ACESCG',
+    'CIE_XYZ', 'CIE_LAB', 'BT2020_HLG', 'BT2020_PQ'
+]
+SETTINGS_OVERRIDE_ZOOM = 1
 
 
 def legacy(props):
@@ -382,6 +393,17 @@ def jpeg_quality(props):
       'android.jpeg.quality' in props['camera.characteristics.requestKeys'])
 
 
+def jpeg_orientation(props):
+  """Returns whether a device supports JPEG orientation."""
+  return ('camera.characteristics.requestKeys' in props) and (
+      'android.jpeg.orientation' in props['camera.characteristics.requestKeys'])
+
+
+def sensor_orientation(props):
+  """Returns the sensor orientation of the camera."""
+  return props['android.sensor.orientation']
+
+
 def zoom_ratio_range(props):
   """Returns whether a device supports zoom capabilities.
 
@@ -393,6 +415,18 @@ def zoom_ratio_range(props):
   """
   return 'android.control.zoomRatioRange' in props and props[
       'android.control.zoomRatioRange'] is not None
+
+def low_latency_zoom(props):
+  """Returns whether a device supports low latency zoom via settings override.
+
+  Args:
+    props: Camera properties object.
+
+  Returns:
+    Boolean. True if device supports SETTINGS_OVERRIDE_ZOOM.
+  """
+  return ('android.control.availableSettingsOverrides') in props and (
+      SETTINGS_OVERRIDE_ZOOM in props['android.control.availableSettingsOverrides'])
 
 
 def sync_latency(props):
@@ -426,6 +460,40 @@ def get_max_digital_zoom(props):
   if 'android.scaler.availableMaxDigitalZoom' in props:
     z_max = props['android.scaler.availableMaxDigitalZoom']
   return z_max
+
+
+def get_ae_target_fps_ranges(props):
+  """Returns the AE target FPS ranges supported by the camera device.
+
+  Args:
+    props: Camera properties object.
+
+  Returns:
+    A list of AE target FPS ranges supported by the camera device.
+  """
+  ranges = []  # return empty list instead of Boolean if no FPS range in props
+  if 'android.control.aeAvailableTargetFpsRanges' in props:
+    ranges = props['android.control.aeAvailableTargetFpsRanges']
+  return ranges
+
+
+def get_fps_range_to_test(fps_ranges):
+  """Returns an AE target FPS range to test based on camera device properties.
+
+  Args:
+    fps_ranges: list of AE target FPS ranges supported by camera.
+      e.g. [[7, 30], [24, 30], [30, 30]]
+  Returns:
+    An AE target FPS range for testing.
+  """
+  accepted_range = list(DEFAULT_AE_TARGET_FPS_RANGE)
+  logging.debug('AE target FPS ranges: %s', fps_ranges)
+  for (fps_range_min, fps_range_max) in fps_ranges:
+    if (fps_range_max == accepted_range[1] and
+        fps_range_min < accepted_range[0]):
+      accepted_range[0] = fps_range_min
+  logging.debug('Accepted AE target FPS range: %s', accepted_range)
+  return accepted_range
 
 
 def ae_lock(props):
@@ -514,7 +582,7 @@ def noise_reduction_mode(props, mode):
     mode: Integer indicating noise reduction mode to check for availability.
 
   Returns:
-    Boolean. Ture if devices supports noise reduction mode(s).
+    Boolean. True if devices supports noise reduction mode(s).
   """
   return ('android.noiseReduction.availableNoiseReductionModes' in props and
           mode in props['android.noiseReduction.availableNoiseReductionModes'])
@@ -557,6 +625,20 @@ def edge_mode(props, mode):
       'android.edge.availableEdgeModes']
 
 
+def tonemap_mode(props, mode):
+    """Returns whether a device supports the tonemap mode.
+
+    Args:
+        props: Camera properties object.
+        mode: Integer, indicating the tonemap mode to check for availability.
+
+    Return:
+        Boolean.
+    """
+    return 'android.tonemap.availableToneMapModes' in props and mode in props[
+        'android.tonemap.availableToneMapModes']
+
+
 def yuv_reprocess(props):
   """Returns whether a device supports YUV reprocessing.
 
@@ -594,6 +676,17 @@ def stream_use_case(props):
   """
   return 'android.request.availableCapabilities' in props and 19 in props[
       'android.request.availableCapabilities']
+
+def cropped_raw_stream_use_case(props):
+  """Returns whether a device supports the CROPPED_RAW stream use case.
+
+  Args:
+    props: Camera properties object.
+
+  Returns:
+     Boolean. True if the device supports the CROPPED_RAW stream use case.
+  """
+  return stream_use_case(props) and 6 in props['android.scaler.availableStreamUseCases']
 
 
 def intrinsic_calibration(props):
@@ -649,12 +742,12 @@ def get_intrinsic_calibration(props, debug, fd=None):
     fd_w_pix = pixel_w * fd / sensor_w
     fd_h_pix = pixel_h * fd / sensor_h
 
-    if not np.isclose(fd_w_pix, ical[0], rtol=0.20):
-      raise ValueError('fd_w(pixels): %.2f\tcal[0](pixels): %.2f\tTOL=20%%' % (
-          fd_w_pix, ical[0]))
-    if not np.isclose(fd_h_pix, ical[1], rtol=0.20):
-      raise ValueError('fd_h(pixels): %.2f\tcal[1](pixels): %.2f\tTOL=20%%' % (
-          fd_h_pix, ical[0]))
+    if not math.isclose(fd_w_pix, ical[0], rel_tol=FD_CAL_RTOL):
+      raise ValueError(f'fd_w(pixels): {fd_w_pix:.2f}\tcal[0](pixels): '
+                       f'{ical[0]:.2f}\tTOL=20%')
+    if not math.isclose(fd_h_pix, ical[1], rel_tol=FD_CAL_RTOL):
+      raise ValueError(f'fd_h(pixels): {fd_h_pix:.2f}\tcal[1](pixels): '
+                       f'{ical[1]:.2f}\tTOL=20%')
 
   # generate instrinsic matrix
   k = np.array([[ical[0], ical[4], ical[2]],
@@ -855,6 +948,46 @@ def linear_tonemap(props):
            3 in props.get('android.tonemap.availableToneMapModes')))
 
 
-if __name__ == '__main__':
-  unittest.main()
+def get_reprocess_formats(props):
+  """Retrieve the list of supported reprocess formats.
 
+  Args:
+    props: The camera properties.
+
+  Returns:
+    A list of supported reprocess formats.
+  """
+  reprocess_formats = []
+  if yuv_reprocess(props):
+    reprocess_formats.append('yuv')
+  if private_reprocess(props):
+    reprocess_formats.append('private')
+  return reprocess_formats
+
+
+def color_space_to_int(color_space):
+  """Returns the integer ordinal of a named color space.
+
+  Args:
+    color_space: The color space string.
+
+  Returns:
+    Int. Ordinal of the color space.
+  """
+  if color_space == 'UNSPECIFIED':
+    return -1
+
+  return COLOR_SPACES.index(color_space)
+
+
+def autoframing(props):
+  """Returns whether a device supports autoframing.
+
+  Args:
+    props: Camera properties object.
+
+  Returns:
+    Boolean. True if android.control.autoframing is supported.
+  """
+  return 'android.control.autoframingAvailable' in props and props[
+    'android.control.autoframingAvailable'] == 1

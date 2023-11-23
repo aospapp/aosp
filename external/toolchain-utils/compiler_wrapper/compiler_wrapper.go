@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -151,6 +151,7 @@ func callCompilerInternal(env env, cfg *config, inputCmd *command) (exitCode int
 		}
 	} else {
 		cSrcFile, tidyFlags, tidyMode := processClangTidyFlags(mainBuilder)
+		cSrcFile, iwyuFlags, iwyuMode := processIWYUFlags(mainBuilder)
 		if mainBuilder.target.compilerType == clangType {
 			err := prepareClangCommand(mainBuilder)
 			if err != nil {
@@ -176,6 +177,20 @@ func callCompilerInternal(env env, cfg *config, inputCmd *command) (exitCode int
 					return 0, err
 				}
 			}
+
+			if iwyuMode != iwyuModeNone {
+				if iwyuMode == iwyuModeError {
+					panic(fmt.Sprintf("Unknown IWYU mode"))
+				}
+
+				allowCCache = false
+				clangCmdWithoutRemoteBuildAndCCache := mainBuilder.build()
+				err := runIWYU(env, clangCmdWithoutRemoteBuildAndCCache, cSrcFile, iwyuFlags)
+				if err != nil {
+					return 0, err
+				}
+			}
+
 			if remoteBuildUsed, err = processRemoteBuildAndCCacheFlags(allowCCache, mainBuilder); err != nil {
 				return 0, err
 			}
@@ -199,6 +214,12 @@ func callCompilerInternal(env env, cfg *config, inputCmd *command) (exitCode int
 			}
 			workAroundKernelBugWithRetries = true
 		}
+	}
+
+	// If builds matching some heuristic should crash, crash them. Since this is purely a
+	// debugging tool, don't offer any nice features with it (e.g., rusage, ...).
+	if shouldUseCrashBuildsHeuristic && mainBuilder.target.compilerType == clangType {
+		return buildWithAutocrash(env, cfg, compilerCmd)
 	}
 
 	bisectStage := getBisectStage(env)
@@ -354,7 +375,6 @@ func calcCommonPreUserArgs(builder *commandBuilder) {
 	builder.addPreUserArgs(builder.cfg.commonFlags...)
 	if !builder.cfg.isHostWrapper {
 		processLibGCCFlags(builder)
-		processPieFlags(builder)
 		processThumbCodeFlags(builder)
 		processStackProtectorFlags(builder)
 		processX86Flags(builder)

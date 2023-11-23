@@ -37,6 +37,7 @@ java_plugin {
         "ConnectedAppsSDK_Annotations",
         "guava-android-annotation-stubs",
         "auto_value_annotations",
+        "error_prone_annotations",
         "guava",
         "ConnectedAppsSDK_Annotations",
         "ConnectedAppsSDK_Test_Annotations"
@@ -72,9 +73,10 @@ android_library {
     static_libs: [
         "ConnectedAppsSDK_Annotations",
         "guava-android-annotation-stubs",
+        "error_prone_annotations",
     ],
     manifest: "sdk/src/main/AndroidManifest.xml",
-    min_sdk_version: "27",
+    min_sdk_version: "28",
 }
 
 android_library {
@@ -88,7 +90,7 @@ android_library {
         "androidx.test.ext.junit",
     ],
     manifest: "testing/sdk/src/main/AndroidManifest.xml",
-    min_sdk_version: "27",
+    min_sdk_version: "28",
 }
 
 android_library {
@@ -98,7 +100,7 @@ android_library {
         "tests/shared/src/main/java/**/*.java"
     ],
     manifest: "tests/shared/src/main/AndroidManifest.xml",
-    min_sdk_version: "27",
+    min_sdk_version: "28",
     static_libs: [
         "ConnectedAppsSDK_Annotations",
         "ConnectedAppsSDK",
@@ -128,5 +130,5 @@ android_test {
         "testng", // for assertThrows
     ],
     manifest: "tests/instrumented/src/AndroidManifest.xml",
-    min_sdk_version: "27"
+    min_sdk_version: "28"
 }

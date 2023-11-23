@@ -22,9 +22,8 @@
 //
 // Unlike the BearSSL notes, we use u128 in the 64-bit implementation.
 
-use super::{super::Block, Xi};
-use crate::endian::BigEndian;
-use core::convert::TryInto;
+use super::{Block, Xi, BLOCK_LEN};
+use crate::polyfill::ChunksFixed;
 
 #[cfg(target_pointer_width = "64")]
 fn gcm_mul64_nohw(a: u64, b: u64) -> (u64, u64) {
@@ -223,11 +222,12 @@ pub(super) fn gmult(xi: &mut Xi, h: super::u128) {
     })
 }
 
-pub(super) fn ghash(xi: &mut Xi, h: super::u128, input: &[u8]) {
+pub(super) fn ghash(xi: &mut Xi, h: super::u128, input: &[[u8; BLOCK_LEN]]) {
     with_swapped_xi(xi, |swapped| {
-        input.chunks_exact(16).for_each(|inp| {
-            swapped[0] ^= u64::from_be_bytes(inp[8..].try_into().unwrap());
-            swapped[1] ^= u64::from_be_bytes(inp[..8].try_into().unwrap());
+        input.iter().for_each(|input| {
+            let input: &[[u8; 8]; 2] = input.chunks_fixed();
+            swapped[0] ^= u64::from_be_bytes(input[1]);
+            swapped[1] ^= u64::from_be_bytes(input[0]);
             gcm_polyval_nohw(swapped, h);
         });
     });
@@ -235,8 +235,8 @@ pub(super) fn ghash(xi: &mut Xi, h: super::u128, input: &[u8]) {
 
 #[inline]
 fn with_swapped_xi(Xi(xi): &mut Xi, f: impl FnOnce(&mut [u64; 2])) {
-    let unswapped = xi.u64s_be_to_native();
+    let unswapped: [u64; 2] = (*xi).into();
     let mut swapped: [u64; 2] = [unswapped[1], unswapped[0]];
     f(&mut swapped);
-    *xi = Block::from_u64_be(BigEndian::from(swapped[1]), BigEndian::from(swapped[0]))
+    *xi = Block::from([swapped[1], swapped[0]])
 }

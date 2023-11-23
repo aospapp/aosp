@@ -146,9 +146,10 @@ Result SensorBase::flush() {
 }
 
 Result HWSensorBase::flush() {
-    SensorBase::flush();
-    sendAdditionalInfoReport();
-    return Result::OK;
+    Result result = Result::OK;
+    result = SensorBase::flush();
+    if (result == Result::OK) sendAdditionalInfoReport();
+    return result;
 }
 
 template <size_t N>

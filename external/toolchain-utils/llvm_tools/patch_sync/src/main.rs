@@ -1,3 +1,7 @@
+// Copyright 2022 The ChromiumOS Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
 mod android_utils;
 mod patch_parsing;
 mod version_control;
@@ -9,7 +13,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use structopt::StructOpt;
 
-use patch_parsing::{filter_patches_by_platform, PatchCollection, PatchDictSchema};
+use patch_parsing::{filter_patches_by_platform, PatchCollection, PatchDictSchema, VersionRange};
 use version_control::RepoSetupContext;
 
 fn main() -> Result<()> {
@@ -133,13 +137,21 @@ fn transpose_subcmd(args: TransposeOpt) -> Result<()> {
     let android_patches_path = ctx.android_patches_path();
 
     // Get new Patches -------------------------------------------------------
-    let (cur_cros_collection, new_cros_patches) = patch_parsing::new_patches(
+    let patch_parsing::PatchTemporalDiff {
+        cur_collection: cur_cros_collection,
+        new_patches: new_cros_patches,
+        version_updates: cros_version_updates,
+    } = patch_parsing::new_patches(
         &cros_patches_path,
         &ctx.old_cros_patch_contents(&args.old_cros_ref)?,
         "chromiumos",
     )
     .context("finding new patches for chromiumos")?;
-    let (cur_android_collection, new_android_patches) = patch_parsing::new_patches(
+    let patch_parsing::PatchTemporalDiff {
+        cur_collection: cur_android_collection,
+        new_patches: new_android_patches,
+        version_updates: android_version_updates,
+    } = patch_parsing::new_patches(
         &android_patches_path,
         &ctx.old_android_patch_contents(&args.old_android_ref)?,
         "android",
@@ -164,7 +176,7 @@ fn transpose_subcmd(args: TransposeOpt) -> Result<()> {
         })?
     };
     let new_android_patches = new_android_patches.filter_patches(|p| {
-        match (p.get_start_version(), p.get_end_version()) {
+        match (p.get_from_version(), p.get_until_version()) {
             (Some(start), Some(end)) => start <= android_llvm_version && android_llvm_version < end,
             (Some(start), None) => start <= android_llvm_version,
             (None, Some(end)) => android_llvm_version < end,
@@ -172,9 +184,17 @@ fn transpose_subcmd(args: TransposeOpt) -> Result<()> {
         }
     });
 
+    // Need to filter version updates to only existing patches to the other platform.
+    let cros_version_updates =
+        filter_version_changes(cros_version_updates, &cur_android_collection);
+    let android_version_updates =
+        filter_version_changes(android_version_updates, &cur_cros_collection);
+
     if args.verbose {
-        display_patches("New patches from Chromium OS", &new_cros_patches);
+        display_patches("New patches from ChromiumOS", &new_cros_patches);
+        display_version_updates("Version updates from ChromiumOS", &cros_version_updates);
         display_patches("New patches from Android", &new_android_patches);
+        display_version_updates("Version updates from Android", &android_version_updates);
     }
 
     if args.dry_run {
@@ -188,9 +208,11 @@ fn transpose_subcmd(args: TransposeOpt) -> Result<()> {
         ModifyOpt {
             new_cros_patches,
             cur_cros_collection,
+            cros_version_updates,
             cros_reviewers: args.cros_reviewers,
             new_android_patches,
             cur_android_collection,
+            android_version_updates,
             android_reviewers: args.android_reviewers,
         },
     )
@@ -199,9 +221,11 @@ fn transpose_subcmd(args: TransposeOpt) -> Result<()> {
 struct ModifyOpt {
     new_cros_patches: PatchCollection,
     cur_cros_collection: PatchCollection,
+    cros_version_updates: Vec<(String, Option<VersionRange>)>,
     cros_reviewers: Vec<String>,
     new_android_patches: PatchCollection,
     cur_android_collection: PatchCollection,
+    android_version_updates: Vec<(String, Option<VersionRange>)>,
     android_reviewers: Vec<String>,
 }
 
@@ -213,11 +237,16 @@ fn modify_repos(ctx: &RepoSetupContext, no_commit: bool, opt: ModifyOpt) -> Resu
     // Transpose Patches -----------------------------------------------------
     let mut cur_android_collection = opt.cur_android_collection;
     let mut cur_cros_collection = opt.cur_cros_collection;
-    if !opt.new_cros_patches.is_empty() {
+    // Apply any version ranges and new patches, then write out.
+    if !opt.new_cros_patches.is_empty() || !opt.cros_version_updates.is_empty() {
+        cur_android_collection =
+            cur_android_collection.update_version_ranges(&opt.cros_version_updates);
         opt.new_cros_patches
             .transpose_write(&mut cur_android_collection)?;
     }
-    if !opt.new_android_patches.is_empty() {
+    if !opt.new_android_patches.is_empty() || !opt.android_version_updates.is_empty() {
+        cur_cros_collection =
+            cur_cros_collection.update_version_ranges(&opt.android_version_updates);
         opt.new_android_patches
             .transpose_write(&mut cur_cros_collection)?;
     }
@@ -246,6 +275,25 @@ fn modify_repos(ctx: &RepoSetupContext, no_commit: bool, opt: ModifyOpt) -> Resu
     Ok(())
 }
 
+/// Filter version changes that can't apply to a given collection.
+fn filter_version_changes<T>(
+    version_updates: T,
+    other_platform_collection: &PatchCollection,
+) -> Vec<(String, Option<VersionRange>)>
+where
+    T: IntoIterator<Item = (String, Option<VersionRange>)>,
+{
+    version_updates
+        .into_iter()
+        .filter(|(rel_patch_path, _)| {
+            other_platform_collection
+                .patches
+                .iter()
+                .any(|p| &p.rel_patch_path == rel_patch_path)
+        })
+        .collect()
+}
+
 fn display_patches(prelude: &str, collection: &PatchCollection) {
     println!("{}", prelude);
     if collection.patches.is_empty() {
@@ -253,6 +301,17 @@ fn display_patches(prelude: &str, collection: &PatchCollection) {
         return;
     }
     println!("{}", collection);
+}
+
+fn display_version_updates(prelude: &str, version_updates: &[(String, Option<VersionRange>)]) {
+    println!("{}", prelude);
+    if version_updates.is_empty() {
+        println!("  [No Version Changes]");
+        return;
+    }
+    for (rel_patch_path, _) in version_updates {
+        println!("*  {}", rel_patch_path);
+    }
 }
 
 #[derive(Debug, structopt::StructOpt)]
@@ -281,7 +340,7 @@ enum Opt {
         #[structopt(long = "cros-checkout", parse(from_os_str))]
         cros_checkout_path: PathBuf,
 
-        /// Emails to send review requests to during Chromium OS upload.
+        /// Emails to send review requests to during ChromiumOS upload.
         /// Comma separated.
         #[structopt(long = "cros-rev")]
         cros_reviewers: Option<String>,

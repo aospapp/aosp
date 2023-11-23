@@ -16,8 +16,6 @@
 
 package com.android.compatibility.common.util;
 
-import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
-
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
@@ -31,6 +29,8 @@ import androidx.test.InstrumentationRegistry;
 public final class ShellUtils {
 
     private static final String TAG = "ShellHelper";
+
+    private static final UserHelper sUserHelper = new UserHelper();
 
     /**
      * Runs a Shell command, returning a trimmed response.
@@ -59,9 +59,8 @@ public final class ShellUtils {
         final int x = (int) (xy[0] + (viewWidth / 2.0f));
         final int y = (int) (xy[1] + (viewHeight / 2.0f));
 
-        runShellCommand("input touchscreen tap %d %d", x, y);
+        runShellCommand("%s tap %d %d", sUserHelper.getInputCmd("touchscreen"), x, y);
     }
-
 
     private ShellUtils() {
         throw new UnsupportedOperationException("contain static methods only");
@@ -73,7 +72,7 @@ public final class ShellUtils {
      * @param keyCode key event to fire.
      */
     public static void sendKeyEvent(String keyCode) {
-        runShellCommand("input keyevent " + keyCode);
+        runShellCommand("%s %s", sUserHelper.getInputCmd("keyevent"), keyCode);
     }
 
     /**
@@ -81,6 +80,7 @@ public final class ShellUtils {
      */
     public static void setOverlayPermissions(@NonNull String packageName, boolean allowed) {
         final String action = allowed ? "allow" : "ignore";
-        runShellCommand("appops set %s SYSTEM_ALERT_WINDOW %s", packageName, action);
+        runShellCommand("%s %s SYSTEM_ALERT_WINDOW %s",
+                sUserHelper.getAppopsCmd("set"), packageName, action);
     }
 }

@@ -31,6 +31,7 @@
 #define LOG_TAG "bt_btm_pm"
 
 #include <base/strings/stringprintf.h>
+
 #include <cstdint>
 #include <unordered_map>
 
@@ -38,7 +39,6 @@
 #include "device/include/controller.h"
 #include "device/include/interop.h"
 #include "main/shim/dumpsys.h"
-#include "main/shim/link_policy.h"
 #include "main/shim/shim.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"  // UNUSED_ATTR
@@ -125,16 +125,7 @@ tBTM_STATUS BTM_PmRegister(uint8_t mask, uint8_t* p_pm_id,
   if (bluetooth::shim::is_gd_link_policy_enabled()) {
     ASSERT(p_pm_id != nullptr);
     ASSERT(p_cb != nullptr);
-    if (mask & BTM_PM_DEREG) {
-      return (bluetooth::shim::UnregisterLinkPolicyClient(p_cb))
-                 ? (BTM_SUCCESS)
-                 : (BTM_NO_RESOURCES);
-    } else {
-      *p_pm_id = 0;
-      return (bluetooth::shim::RegisterLinkPolicyClient(p_cb))
-                 ? (BTM_SUCCESS)
-                 : (BTM_NO_RESOURCES);
-    }
+    return BTM_NO_RESOURCES;
   }
 
   /* de-register */
@@ -157,11 +148,18 @@ tBTM_STATUS BTM_PmRegister(uint8_t mask, uint8_t* p_pm_id,
 }
 
 void BTM_PM_OnConnected(uint16_t handle, const RawAddress& remote_bda) {
+  if (pm_mode_db.find(handle) != pm_mode_db.end()) {
+    LOG_ERROR("Overwriting power mode db entry handle:%hu peer:%s", handle,
+              ADDRESS_TO_LOGGABLE_CSTR(remote_bda));
+  }
   pm_mode_db[handle] = {};
   pm_mode_db[handle].Init(remote_bda, handle);
 }
 
 void BTM_PM_OnDisconnected(uint16_t handle) {
+  if (pm_mode_db.find(handle) == pm_mode_db.end()) {
+    LOG_ERROR("Erasing unknown power mode db entry handle:%hu", handle);
+  }
   pm_mode_db.erase(handle);
   if (handle == pm_pend_link) {
     pm_pend_link = 0;
@@ -187,7 +185,7 @@ tBTM_STATUS BTM_SetPowerMode(uint8_t pm_id, const RawAddress& remote_bda,
 
   if (!p_mode) {
     LOG_ERROR("pm_id: %u, p_mode is null for %s", unsigned(pm_id),
-              PRIVATE_ADDRESS(remote_bda));
+              ADDRESS_TO_LOGGABLE_CSTR(remote_bda));
     return BTM_ILLEGAL_VALUE;
   }
 
@@ -195,7 +193,7 @@ tBTM_STATUS BTM_SetPowerMode(uint8_t pm_id, const RawAddress& remote_bda,
   auto* p_cb = btm_pm_get_power_manager_from_address(remote_bda);
   if (p_cb == nullptr) {
     LOG_WARN("Unable to find power manager for peer: %s",
-             PRIVATE_ADDRESS(remote_bda));
+             ADDRESS_TO_LOGGABLE_CSTR(remote_bda));
     return BTM_UNKNOWN_ADDR;
   }
   uint16_t handle = p_cb->handle_;
@@ -212,12 +210,6 @@ tBTM_STATUS BTM_SetPowerMode(uint8_t pm_id, const RawAddress& remote_bda,
     mode &= (~BTM_PM_MD_FORCE);
   }
 
-  if (bluetooth::shim::is_gd_link_policy_enabled()) {
-    tBTM_PM_PWR_MD power_mode_request = *p_mode;
-    power_mode_request.mode &= (~BTM_PM_MD_FORCE);
-    return bluetooth::shim::BTM_SetPowerMode(handle, power_mode_request);
-  }
-
   if (mode != BTM_PM_MD_ACTIVE) {
     const controller_t* controller = controller_get_interface();
     if ((mode == BTM_PM_MD_HOLD && !controller->supports_hold_mode()) ||
@@ -225,7 +217,7 @@ tBTM_STATUS BTM_SetPowerMode(uint8_t pm_id, const RawAddress& remote_bda,
         (mode == BTM_PM_MD_PARK && !controller->supports_park_mode()) ||
         interop_match_addr(INTEROP_DISABLE_SNIFF, &remote_bda)) {
       LOG_ERROR("pm_id %u mode %u is not supported for %s", pm_id, mode,
-                PRIVATE_ADDRESS(remote_bda));
+                ADDRESS_TO_LOGGABLE_CSTR(remote_bda));
       return BTM_MODE_UNSUPPORTED;
     }
   }
@@ -266,14 +258,14 @@ tBTM_STATUS BTM_SetPowerMode(uint8_t pm_id, const RawAddress& remote_bda,
     if (handle != pm_pend_link) {
       p_cb->state |= BTM_PM_STORED_MASK;
       LOG_INFO("Setting stored bitmask for peer:%s",
-               PRIVATE_ADDRESS(remote_bda));
+               ADDRESS_TO_LOGGABLE_CSTR(remote_bda));
     }
     return BTM_CMD_STORED;
   }
 
   LOG_INFO(
       "Setting power mode for peer:%s current_mode:%s[%hhu] new_mode:%s[%hhu]",
-      PRIVATE_ADDRESS(remote_bda), power_mode_state_text(p_cb->state).c_str(),
+      ADDRESS_TO_LOGGABLE_CSTR(remote_bda), power_mode_state_text(p_cb->state).c_str(),
       p_cb->state, power_mode_text(p_mode->mode).c_str(), p_mode->mode);
 
   return btm_pm_snd_md_req(p_cb->handle_, pm_id, p_cb->handle_, p_mode);
@@ -300,7 +292,7 @@ bool BTM_ReadPowerMode(const RawAddress& remote_bda, tBTM_PM_MODE* p_mode) {
   }
   tBTM_PM_MCB* p_mcb = btm_pm_get_power_manager_from_address(remote_bda);
   if (p_mcb == nullptr) {
-    LOG_WARN("Unknown device:%s", PRIVATE_ADDRESS(remote_bda));
+    LOG_WARN("Unknown device:%s", ADDRESS_TO_LOGGABLE_CSTR(remote_bda));
     return false;
   }
   *p_mode = static_cast<tBTM_PM_MODE>(p_mcb->state);
@@ -330,7 +322,7 @@ tBTM_STATUS BTM_SetSsrParams(const RawAddress& remote_bda, uint16_t max_lat,
   tBTM_PM_MCB* p_cb = btm_pm_get_power_manager_from_address(remote_bda);
   if (p_cb == nullptr) {
     LOG_WARN("Unable to find power manager for peer:%s",
-             PRIVATE_ADDRESS(remote_bda));
+             ADDRESS_TO_LOGGABLE_CSTR(remote_bda));
     return BTM_UNKNOWN_ADDR;
   }
 
@@ -338,11 +330,6 @@ tBTM_STATUS BTM_SetSsrParams(const RawAddress& remote_bda, uint16_t max_lat,
   if (!controller->supports_sniff_subrating()) {
     LOG_INFO("No controller support for sniff subrating");
     return BTM_SUCCESS;
-  }
-
-  if (bluetooth::shim::is_gd_link_policy_enabled()) {
-    return bluetooth::shim::BTM_SetSsrParams(p_cb->handle_, max_lat, min_rmt_to,
-                                             min_loc_to);
   }
 
   if (p_cb->state == BTM_PM_ST_ACTIVE || p_cb->state == BTM_PM_ST_SNIFF) {
@@ -638,7 +625,7 @@ static void btm_pm_continue_pending_mode_changes() {
     if (entry.second.state & BTM_PM_STORED_MASK) {
       entry.second.state &= ~BTM_PM_STORED_MASK;
       LOG_INFO("Found another link requiring power mode change:%s",
-               PRIVATE_ADDRESS(entry.second.bda_));
+               ADDRESS_TO_LOGGABLE_CSTR(entry.second.bda_));
       btm_pm_snd_md_req(entry.second.handle_, BTM_PM_SET_ONLY_ID,
                         entry.second.handle_, NULL);
       return;
@@ -689,7 +676,7 @@ void btm_pm_proc_cmd_status(tHCI_STATUS status) {
   if ((pm_pend_id != BTM_PM_SET_ONLY_ID) && (pm_reg_db.mask & BTM_PM_REG_SET)) {
     const RawAddress bd_addr = pm_mode_db[pm_pend_link].bda_;
     LOG_DEBUG("Notifying callback that link power mode is complete peer:%s",
-              PRIVATE_ADDRESS(bd_addr));
+              ADDRESS_TO_LOGGABLE_CSTR(bd_addr));
     (*pm_reg_db.cback)(bd_addr, pm_status, 0, status);
   }
 
@@ -803,7 +790,7 @@ void process_ssr_event(tHCI_STATUS status, uint16_t handle,
   LOG_DEBUG(
       "Notified sniff subrating registered clients cnt:%d peer:%s use_ssr:%s "
       "status:%s",
-      cnt, PRIVATE_ADDRESS(bd_addr), logbool(use_ssr).c_str(),
+      cnt, ADDRESS_TO_LOGGABLE_CSTR(bd_addr), logbool(use_ssr).c_str(),
       hci_error_code_text(status).c_str());
 }
 
@@ -812,11 +799,6 @@ void btm_pm_on_sniff_subrating(tHCI_STATUS status, uint16_t handle,
                                uint16_t maximum_receive_latency,
                                uint16_t minimum_remote_timeout,
                                uint16_t minimum_local_timeout) {
-  if (bluetooth::shim::is_gd_link_policy_enabled()) {
-    return bluetooth::shim::btm_pm_on_sniff_subrating(
-        status, handle, maximum_transmit_latency, maximum_receive_latency,
-        minimum_remote_timeout, minimum_local_timeout);
-  }
   process_ssr_event(status, handle, maximum_transmit_latency,
                     maximum_receive_latency);
 }
@@ -913,11 +895,6 @@ tBTM_CONTRL_STATE BTM_PM_ReadControllerState(void) {
 
 void btm_pm_on_mode_change(tHCI_STATUS status, uint16_t handle,
                            tHCI_MODE current_mode, uint16_t interval) {
-  if (bluetooth::shim::is_gd_link_policy_enabled()) {
-    return bluetooth::shim::btm_pm_on_mode_change(status, handle, current_mode,
-                                                  interval);
-  }
-
   btm_sco_chk_pend_unpark(status, handle);
   btm_pm_proc_mode_change(status, handle, current_mode, interval);
 }

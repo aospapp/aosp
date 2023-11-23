@@ -27,9 +27,9 @@
 #include "avct_api.h"
 #include "avct_int.h"
 #include "bt_target.h"
-#include "bt_utils.h"
 #include "bta/include/bta_api.h"
 #include "btm_api.h"
+#include "device/include/device_iot_config.h"
 #include "osi/include/allocator.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
@@ -68,7 +68,8 @@ static BT_HDR* avct_lcb_msg_asmbl(tAVCT_LCB* p_lcb, BT_HDR* p_buf) {
   pkt_type = AVCT_PKT_TYPE(p);
 
   /* quick sanity check on length */
-  if (p_buf->len < avct_lcb_pkt_type_len[pkt_type]) {
+  if (p_buf->len < avct_lcb_pkt_type_len[pkt_type] ||
+      (sizeof(BT_HDR) + p_buf->offset + p_buf->len) > BT_DEFAULT_BUFFER_SIZE) {
     osi_free(p_buf);
     AVCT_TRACE_WARNING("Bad length during reassembly");
     p_ret = NULL;
@@ -89,13 +90,18 @@ static BT_HDR* avct_lcb_msg_asmbl(tAVCT_LCB* p_lcb, BT_HDR* p_buf) {
     if (p_lcb->p_rx_msg != NULL)
       AVCT_TRACE_WARNING("Got start during reassembly");
 
-    osi_free(p_lcb->p_rx_msg);
+    osi_free_and_reset((void**)&p_lcb->p_rx_msg);
 
     /*
      * Allocate bigger buffer for reassembly. As lower layers are
      * not aware of possible packet size after reassembly, they
      * would have allocated smaller buffer.
      */
+    if (sizeof(BT_HDR) + p_buf->offset + p_buf->len > BT_DEFAULT_BUFFER_SIZE) {
+      osi_free(p_buf);
+      p_ret = NULL;
+      return p_ret;
+    }
     p_lcb->p_rx_msg = (BT_HDR*)osi_malloc(BT_DEFAULT_BUFFER_SIZE);
     memcpy(p_lcb->p_rx_msg, p_buf, sizeof(BT_HDR) + p_buf->offset + p_buf->len);
 
@@ -245,6 +251,8 @@ void avct_lcb_open_ind(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data) {
 
   /* if no ccbs bound to this lcb, disconnect */
   if (!bind) {
+    DEVICE_IOT_CONFIG_ADDR_INT_ADD_ONE(p_lcb->peer_addr,
+                                       IOT_CONF_KEY_AVRCP_CONN_FAIL_COUNT);
     avct_lcb_event(p_lcb, AVCT_LCB_INT_CLOSE_EVT, p_data);
   }
 }
@@ -268,6 +276,8 @@ void avct_lcb_open_fail(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data) {
     if (p_ccb->allocated && (p_ccb->p_lcb == p_lcb)) {
       avct_ccb_dealloc(p_ccb, AVCT_CONNECT_CFM_EVT, p_data->result,
                        &p_lcb->peer_addr);
+      DEVICE_IOT_CONFIG_ADDR_INT_ADD_ONE(p_lcb->peer_addr,
+                                         IOT_CONF_KEY_AVRCP_CONN_FAIL_COUNT);
     }
   }
 }
@@ -404,6 +414,8 @@ void avct_lcb_chnl_disc(tAVCT_LCB* p_lcb, UNUSED_ATTR tAVCT_LCB_EVT* p_data) {
  ******************************************************************************/
 void avct_lcb_bind_fail(UNUSED_ATTR tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data) {
   avct_ccb_dealloc(p_data->p_ccb, AVCT_CONNECT_CFM_EVT, AVCT_RESULT_FAIL, NULL);
+  DEVICE_IOT_CONFIG_ADDR_INT_ADD_ONE(p_lcb->peer_addr,
+                                     IOT_CONF_KEY_AVRCP_CONN_FAIL_COUNT);
 }
 
 /*******************************************************************************

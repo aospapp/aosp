@@ -1,0 +1,17 @@
+# *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
+#     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
+#     DEPENDING ON IT IN YOUR PROJECT. ***
+name: "notosansjavanese"
+description:
+    "Noto is a global font collection for writing in all modern and ancientlanguages. Noto Sans Javanese is an unmodulated (“sans serif”) design fortexts in the Southeast Asian Javanese script. It has 405 glyphs."
+
+third_party {
+  url {
+    type: ARCHIVE
+    value: "https://github.com/google/fonts/tree/main/ofl/notosansjavanese"
+  }
+  version: "2.000"
+  license_note: "contains OFL fonts"
+  license_type: BY_EXCEPTION_ONLY
+  last_upgrade_date { year: 2020 month: 2 day: 10 }
+}

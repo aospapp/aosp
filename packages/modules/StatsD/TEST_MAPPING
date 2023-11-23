@@ -27,7 +27,7 @@
       "name" : "statsd_test"
     }
   ],
-  "hwasan-postsubmit" : [
+  "hwasan-presubmit" : [
     {
       "name" : "FrameworkStatsdTest"
     },

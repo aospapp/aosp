@@ -97,6 +97,24 @@ class CommConn : public MessageSender {
     virtual bool isOpen() = 0;
 
     /**
+     * Serialized and send the given message to the other side.
+     */
+    void sendMessage(const vhal_proto::EmulatorMessage& msg) final;
+
+  protected:
+    MessageProcessor* mMessageProcessor;
+
+  private:
+    std::unique_ptr<std::thread> mReadThread;
+    std::mutex mSendMessageLock;
+
+    /**
+     * A thread that reads messages in a loop, and responds. You can stop this thread by calling
+     * stop().
+     */
+    void readThread();
+
+    /**
      * Blocking call to read data from the connection.
      *
      * @return std::vector<uint8_t> Serialized protobuf data received from emulator.  This will be
@@ -112,21 +130,6 @@ class CommConn : public MessageSender {
      * @return int Number of bytes transmitted, or -1 if failed.
      */
     virtual int write(const std::vector<uint8_t>& data) = 0;
-
-    /**
-     * Serialized and send the given message to the other side.
-     */
-    void sendMessage(const vhal_proto::EmulatorMessage& msg);
-
-  protected:
-    std::unique_ptr<std::thread> mReadThread;
-    MessageProcessor* mMessageProcessor;
-
-    /**
-     * A thread that reads messages in a loop, and responds. You can stop this thread by calling
-     * stop().
-     */
-    void readThread();
 };
 
 }  // namespace impl

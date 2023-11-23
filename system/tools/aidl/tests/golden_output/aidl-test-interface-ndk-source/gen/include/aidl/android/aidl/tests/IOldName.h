@@ -14,8 +14,11 @@ namespace aidl {
 namespace android {
 namespace aidl {
 namespace tests {
+class IOldNameDelegator;
+
 class IOldName : public ::ndk::ICInterface {
 public:
+  typedef IOldNameDelegator DefaultDelegator;
   static const char* descriptor;
   IOldName();
   virtual ~IOldName();

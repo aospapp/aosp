@@ -16,6 +16,7 @@ limitations under the License.
 #include "tensorflow/python/util/function_parameter_canonicalizer.h"
 
 #include "absl/container/flat_hash_set.h"
+#include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/platform/macros.h"
 #include "tensorflow/python/lib/core/py_util.h"
 #include "tensorflow/python/lib/core/safe_pyobject_ptr.h"
@@ -71,7 +72,7 @@ bool FunctionParameterCanonicalizer::Canonicalize(
 
   DCheckPyGilState();
   DCHECK(PyTuple_CheckExact(args));
-  DCHECK(PyDict_CheckExact(kwargs));
+  DCHECK(kwargs == nullptr || PyDict_CheckExact(kwargs));
   DCHECK_EQ(result.size(), interned_arg_names_.size());
 
   const int args_size = Py_SIZE(args);
@@ -106,10 +107,15 @@ bool FunctionParameterCanonicalizer::Canonicalize(
       // string table.
       if (TF_PREDICT_FALSE(index == interned_arg_names_.size())) {
         // `key` might not be an interend string, so get the interned string
-        // and try again.
+        // and try again.  Note: we need to call INCREF before we use
+        // InternInPlace, to prevent the key in the dictionary from being
+        // prematurely deleted in the case where InternInPlace switches `key`
+        // to point at a new object.  We call DECREF(key) once we're done
+        // (which might decref the original key *or* the interned version).
+        Py_INCREF(key);
         PyUnicodeInternInPlaceCompat(&key);
-
         index = InternedArgNameLinearSearch(key);
+        Py_DECREF(key);
 
         // Stil not found, then return an error.
         if (TF_PREDICT_FALSE(index == interned_arg_names_.size())) {

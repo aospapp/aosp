@@ -101,7 +101,7 @@ struct ReadThread : public IOThread {
     }
 
     void threadLoop() {
-        util::setThreadPriority(PRIORITY_URGENT_AUDIO);
+        util::setThreadPriority(SP_AUDIO_SYS, PRIORITY_AUDIO);
         mTid.set_value(pthread_self());
 
         while (true) {
@@ -294,7 +294,7 @@ Return<void> StreamIn::getParameters(const hidl_vec<ParameterValue>& context,
                                      const hidl_vec<hidl_string>& keys,
                                      getParameters_cb _hidl_cb) {
     (void)context;
-    _hidl_cb((keys.size() > 0) ? FAILURE(Result::NOT_SUPPORTED) : Result::OK, {});
+    _hidl_cb((keys.size() > 0) ? Result::NOT_SUPPORTED : Result::OK, {});
     return Void();
 }
 

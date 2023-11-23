@@ -15,39 +15,48 @@
  */
 #pragma once
 
-#include <EGL/egl.h>
-#include <GLES/gl.h>
-#include <GLES3/gl3.h>
-#include <vulkan/vulkan.h>
-
 #include <functional>
 #include <future>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
-#include "DisplayVk.h"
+#include "Compositor.h"
+#include "ContextHelper.h"
 #include "Hwc2.h"
 #include "PostCommands.h"
-#include "base/Compiler.h"
-#include "base/Lock.h"
-#include "base/MessageChannel.h"
+#include "aemu/base/Compiler.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/synchronization/MessageChannel.h"
+#include "gl/DisplayGl.h"
 #include "host-common/window_agent.h"
 
+namespace gfxstream {
+namespace gl {
+class DisplayGl;
+}  // namespace gl
+}  // namespace gfxstream
+
+namespace gfxstream {
+namespace vk {
+class DisplayVk;
+}  // namespace vk
+}  // namespace gfxstream
+
+namespace gfxstream {
 class ColorBuffer;
 class FrameBuffer;
 struct RenderThreadInfo;
 
 class PostWorker {
    public:
-    using BindSubwinCallback = std::function<bool(void)>;
-
-    PostWorker(BindSubwinCallback&& cb, bool mainThreadPostingOnly, EGLContext eglContext,
-               EGLSurface eglSurface, DisplayVk*);
+    PostWorker(bool mainThreadPostingOnly, Compositor* compositor, gl::DisplayGl* displayGl,
+               vk::DisplayVk* displayVk);
     ~PostWorker();
 
     // post: posts the next color buffer.
     // Assumes framebuffer lock is held.
-    void post(ColorBuffer* cb);
+    void post(ColorBuffer* cb, std::unique_ptr<Post::CompletionCallback> postCallback);
 
     // viewport: (re)initializes viewport dimensions.
     // Assumes framebuffer lock is held.
@@ -58,39 +67,27 @@ class PostWorker {
     // compose: compse the layers into final framebuffer. The callback will be
     // called when the CPU side job completes. The passed in future in the
     // callback will be completed when the GPU opereation completes.
-    void compose(ComposeDevice* p, uint32_t bufferSize,
-                 std::shared_ptr<Post::ComposeCallback>);
-
-    // compose: compse the layers into final framebuffer, version 2. The
-    // callback will be called when the CPU side job completes. The passed in
-    // future in the callback will be completed when the GPU opereation
-    // completes.
-    void compose(ComposeDevice_v2* p, uint32_t bufferSize,
-                 std::shared_ptr<Post::ComposeCallback>);
+    void compose(std::unique_ptr<FlatComposeRequest> composeRequest,
+                 std::unique_ptr<Post::CompletionCallback> composeCallback);
 
     // clear: blanks out emulator display when refreshing the subwindow
     // if there is no last posted color buffer to show yet.
     void clear();
 
-    void screenshot(ColorBuffer* cb, int screenwidth, int screenheight,
-                    GLenum format, GLenum type, int skinRotation, void* pixels);
+    void screenshot(ColorBuffer* cb, int screenwidth, int screenheight, GLenum format, GLenum type,
+                    int skinRotation, void* pixels, Rect rect);
+
+    // The block task will set the scheduledSignal promise when the task is scheduled, and wait
+    // until continueSignal is ready before completes.
+    void block(std::promise<void> scheduledSignal, std::future<void> continueSignal);
 
    private:
     // Impl versions of the above, so we can run it from separate threads
-    void postImpl(ColorBuffer* cb);
+    std::shared_future<void> postImpl(ColorBuffer* cb);
+    gl::DisplayGl::PostLayer postWithOverlay(ColorBuffer* cb);
     void viewportImpl(int width, int height);
-    void composeImpl(const ComposeDevice* p);
-    std::shared_future<void> composev2Impl(const ComposeDevice_v2* p);
+    std::shared_future<void> composeImpl(const FlatComposeRequest& composeRequest);
     void clearImpl();
-
-    // Subwindow binding
-    void bind();
-    void unbind();
-
-    void glesComposeLayer(ComposeLayer* l, uint32_t w, uint32_t h);
-    void fillMultiDisplayPostStruct(ComposeLayer* l, hwc_rect_t displayArea,
-                                    hwc_frect_t cropArea,
-                                    hwc_transform_t transform);
 
     // If m_mainThreadPostingOnly is true, schedule the task to UI thread by
     // using m_runOnUiThread. Otherwise, execute the task on the current thread.
@@ -98,36 +95,29 @@ class PostWorker {
 
    private:
     using UiThreadRunner = std::function<void(UiUpdateFunc, void*, bool)>;
-    struct PostArgs {
-        ColorBuffer* postCb;
-        int width;
-        int height;
-        std::vector<char> composeBuffer;
-    };
 
     FrameBuffer* mFb;
 
-    std::function<bool(void)> mBindSubwin;
+    Compositor* m_compositor = nullptr;
 
-    bool m_needsToRebindWindow = true;
     int m_viewportWidth = 0;
     int m_viewportHeight = 0;
-    GLuint m_composeFbo = 0;
 
     bool m_mainThreadPostingOnly = false;
     UiThreadRunner m_runOnUiThread = 0;
-    EGLContext mContext = EGL_NO_CONTEXT;
 
+    // TODO(b/233939967): conslidate DisplayGl and DisplayVk into
+    // `Display* const m_display`.
+    gl::DisplayGl* const m_displayGl;
     // The implementation for Vulkan native swapchain. Only initialized when
     // useVulkan is set when calling FrameBuffer::initialize(). PostWorker
     // doesn't take the ownership of this DisplayVk object.
-    DisplayVk* const m_displayVk;
-    // With Vulkan swapchain, compose also means to post to the WSI surface.
-    // In this case, don't do anything in the subsequent resource flush.
-    std::optional<uint32_t> m_lastVkComposeColorBuffer = std::nullopt;
+    vk::DisplayVk* const m_displayVk;
     std::unordered_map<uint32_t, std::shared_future<void>> m_composeTargetToComposeFuture;
 
     bool isComposeTargetReady(uint32_t targetHandle);
 
     DISALLOW_COPY_AND_ASSIGN(PostWorker);
 };
+
+}  // namespace gfxstream

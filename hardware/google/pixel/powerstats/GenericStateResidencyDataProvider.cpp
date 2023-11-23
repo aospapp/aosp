@@ -131,7 +131,7 @@ static bool getStateData(
     auto endState = stateResidencyConfigs.cend();
     auto pred = [](auto a, char const *b) {
         // return true if b matches the header contained in a, ignoring whitespace
-        return (a.second.header == android::base::Trim(std::string(b)));
+        return (a.second.header == android::base::Trim(b));
     };
 
     result->stateResidencyData.resize(numStates);
@@ -176,7 +176,7 @@ bool GenericStateResidencyDataProvider::getResults(
     auto endConfig = mPowerEntityConfigs.cend();
     auto pred = [](auto a, char const *b) {
         // return true if b matches the header contained in a, ignoring whitespace
-        return (a.second.mHeader == android::base::Trim(std::string(b)));
+        return (a.second.mHeader == android::base::Trim(b));
     };
     bool skipFindNext = false;
 

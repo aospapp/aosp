@@ -57,16 +57,17 @@
 #include "object_lock.h"
 #include "runtime.h"
 #include "transform.h"
+#include "well_known_classes-inl.h"
 
 namespace openjdkjvmti {
 
 bool ClassLoaderHelper::AddToClassLoader(art::Thread* self,
                                          art::Handle<art::mirror::ClassLoader> loader,
                                          const art::DexFile* dex_file) {
-  art::ScopedObjectAccessUnchecked soa(self);
   art::StackHandleScope<3> hs(self);
-  if (art::ClassLinker::IsBootClassLoader(soa, loader.Get())) {
-    art::Runtime::Current()->GetClassLinker()->AppendToBootClassPath(self, dex_file);
+  if (art::ClassLinker::IsBootClassLoader(loader.Get())) {
+    art::Runtime::Current()->AppendToBootClassPath(
+        dex_file->GetLocation(), dex_file->GetLocation(), {dex_file});
     return true;
   }
   art::Handle<art::mirror::Object> java_dex_file_obj(
@@ -139,15 +140,14 @@ art::ObjPtr<art::mirror::ObjectArray<art::mirror::Object>> ClassLoaderHelper::Ge
     art::Handle<art::mirror::ClassLoader> loader) {
   art::StackHandleScope<4> hs(self);
 
-  art::Handle<art::mirror::Class>
-      base_dex_loader_class(hs.NewHandle(self->DecodeJObject(
-          art::WellKnownClasses::dalvik_system_BaseDexClassLoader)->AsClass()));
+  art::Handle<art::mirror::Class> base_dex_loader_class =
+      hs.NewHandle(art::WellKnownClasses::dalvik_system_BaseDexClassLoader.Get());
 
   // Get all the ArtFields so we can look in the BaseDexClassLoader
-  art::ArtField* path_list_field = art::jni::DecodeArtField(
-      art::WellKnownClasses::dalvik_system_BaseDexClassLoader_pathList);
+  art::ArtField* path_list_field =
+      art::WellKnownClasses::dalvik_system_BaseDexClassLoader_pathList;
   art::ArtField* dex_path_list_element_field =
-      art::jni::DecodeArtField(art::WellKnownClasses::dalvik_system_DexPathList_dexElements);
+      art::WellKnownClasses::dalvik_system_DexPathList_dexElements;
 
   // Check if loader is a BaseDexClassLoader
   art::Handle<art::mirror::Class> loader_class(hs.NewHandle(loader->GetClass()));

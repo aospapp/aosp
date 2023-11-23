@@ -482,18 +482,76 @@ vn_replace_VkSamplerYcbcrConversionInfo_handle(VkSamplerYcbcrConversionInfo *val
     } while (pnext);
 }
 
-/* struct VkViewport */
+/* struct VkShaderModuleCreateInfo chain */
+
+static inline void *
+vn_decode_VkShaderModuleCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
+{
+    /* no known/supported struct */
+    if (vn_decode_simple_pointer(dec))
+        vn_cs_decoder_set_fatal(dec);
+    return NULL;
+}
 
 static inline void
-vn_encode_VkViewport(struct vn_cs_encoder *enc, const VkViewport *val)
+vn_decode_VkShaderModuleCreateInfo_self_temp(struct vn_cs_decoder *dec, VkShaderModuleCreateInfo *val)
 {
-    vn_encode_float(enc, &val->x);
-    vn_encode_float(enc, &val->y);
-    vn_encode_float(enc, &val->width);
-    vn_encode_float(enc, &val->height);
-    vn_encode_float(enc, &val->minDepth);
-    vn_encode_float(enc, &val->maxDepth);
+    /* skip val->{sType,pNext} */
+    vn_decode_VkFlags(dec, &val->flags);
+    vn_decode_size_t(dec, &val->codeSize);
+    if (vn_peek_array_size(dec)) {
+        const size_t array_size = vn_decode_array_size(dec, val->codeSize / 4);
+        val->pCode = vn_cs_decoder_alloc_temp(dec, sizeof(*val->pCode) * array_size);
+        if (!val->pCode) return;
+        vn_decode_uint32_t_array(dec, (uint32_t *)val->pCode, array_size);
+    } else {
+        vn_decode_array_size(dec, val->codeSize / 4);
+        val->pCode = NULL;
+    }
 }
+
+static inline void
+vn_decode_VkShaderModuleCreateInfo_temp(struct vn_cs_decoder *dec, VkShaderModuleCreateInfo *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkShaderModuleCreateInfo_pnext_temp(dec);
+    vn_decode_VkShaderModuleCreateInfo_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkShaderModuleCreateInfo_handle_self(VkShaderModuleCreateInfo *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    /* skip val->flags */
+    /* skip val->codeSize */
+    /* skip val->pCode */
+}
+
+static inline void
+vn_replace_VkShaderModuleCreateInfo_handle(VkShaderModuleCreateInfo *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO:
+            vn_replace_VkShaderModuleCreateInfo_handle_self((VkShaderModuleCreateInfo *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
+}
+
+/* struct VkViewport */
 
 static inline void
 vn_decode_VkViewport_temp(struct vn_cs_decoder *dec, VkViewport *val)
@@ -605,6 +663,366 @@ vn_replace_VkRect2D_handle(VkRect2D *val)
 {
     vn_replace_VkOffset2D_handle(&val->offset);
     vn_replace_VkExtent2D_handle(&val->extent);
+}
+
+/* union VkClearColorValue */
+
+static inline void
+vn_decode_VkClearColorValue_temp(struct vn_cs_decoder *dec, VkClearColorValue *val)
+{
+    uint32_t tag;
+    vn_decode_uint32_t(dec, &tag);
+    switch (tag) {
+    case 0:
+        {
+            const size_t array_size = vn_decode_array_size(dec, 4);
+            vn_decode_float_array(dec, val->float32, array_size);
+        }
+        break;
+    case 1:
+        {
+            const size_t array_size = vn_decode_array_size(dec, 4);
+            vn_decode_int32_t_array(dec, val->int32, array_size);
+        }
+        break;
+    case 2:
+        {
+            const size_t array_size = vn_decode_array_size(dec, 4);
+            vn_decode_uint32_t_array(dec, val->uint32, array_size);
+        }
+        break;
+    default:
+        vn_cs_decoder_set_fatal(dec);
+        break;
+    }
+}
+
+/* struct VkMutableDescriptorTypeListEXT */
+
+static inline void
+vn_decode_VkMutableDescriptorTypeListEXT_temp(struct vn_cs_decoder *dec, VkMutableDescriptorTypeListEXT *val)
+{
+    vn_decode_uint32_t(dec, &val->descriptorTypeCount);
+    if (vn_peek_array_size(dec)) {
+        const size_t array_size = vn_decode_array_size(dec, val->descriptorTypeCount);
+        val->pDescriptorTypes = vn_cs_decoder_alloc_temp(dec, sizeof(*val->pDescriptorTypes) * array_size);
+        if (!val->pDescriptorTypes) return;
+        vn_decode_VkDescriptorType_array(dec, (VkDescriptorType *)val->pDescriptorTypes, array_size);
+    } else {
+        vn_decode_array_size(dec, val->descriptorTypeCount);
+        val->pDescriptorTypes = NULL;
+    }
+}
+
+static inline void
+vn_replace_VkMutableDescriptorTypeListEXT_handle(VkMutableDescriptorTypeListEXT *val)
+{
+    /* skip val->descriptorTypeCount */
+    /* skip val->pDescriptorTypes */
+}
+
+/* struct VkMutableDescriptorTypeCreateInfoEXT chain */
+
+static inline void *
+vn_decode_VkMutableDescriptorTypeCreateInfoEXT_pnext_temp(struct vn_cs_decoder *dec)
+{
+    /* no known/supported struct */
+    if (vn_decode_simple_pointer(dec))
+        vn_cs_decoder_set_fatal(dec);
+    return NULL;
+}
+
+static inline void
+vn_decode_VkMutableDescriptorTypeCreateInfoEXT_self_temp(struct vn_cs_decoder *dec, VkMutableDescriptorTypeCreateInfoEXT *val)
+{
+    /* skip val->{sType,pNext} */
+    vn_decode_uint32_t(dec, &val->mutableDescriptorTypeListCount);
+    if (vn_peek_array_size(dec)) {
+        const uint32_t iter_count = vn_decode_array_size(dec, val->mutableDescriptorTypeListCount);
+        val->pMutableDescriptorTypeLists = vn_cs_decoder_alloc_temp(dec, sizeof(*val->pMutableDescriptorTypeLists) * iter_count);
+        if (!val->pMutableDescriptorTypeLists) return;
+        for (uint32_t i = 0; i < iter_count; i++)
+            vn_decode_VkMutableDescriptorTypeListEXT_temp(dec, &((VkMutableDescriptorTypeListEXT *)val->pMutableDescriptorTypeLists)[i]);
+    } else {
+        vn_decode_array_size(dec, val->mutableDescriptorTypeListCount);
+        val->pMutableDescriptorTypeLists = NULL;
+    }
+}
+
+static inline void
+vn_decode_VkMutableDescriptorTypeCreateInfoEXT_temp(struct vn_cs_decoder *dec, VkMutableDescriptorTypeCreateInfoEXT *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_EXT)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkMutableDescriptorTypeCreateInfoEXT_pnext_temp(dec);
+    vn_decode_VkMutableDescriptorTypeCreateInfoEXT_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkMutableDescriptorTypeCreateInfoEXT_handle_self(VkMutableDescriptorTypeCreateInfoEXT *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    /* skip val->mutableDescriptorTypeListCount */
+    if (val->pMutableDescriptorTypeLists) {
+       for (uint32_t i = 0; i < val->mutableDescriptorTypeListCount; i++)
+            vn_replace_VkMutableDescriptorTypeListEXT_handle(&((VkMutableDescriptorTypeListEXT *)val->pMutableDescriptorTypeLists)[i]);
+    }
+}
+
+static inline void
+vn_replace_VkMutableDescriptorTypeCreateInfoEXT_handle(VkMutableDescriptorTypeCreateInfoEXT *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_EXT:
+            vn_replace_VkMutableDescriptorTypeCreateInfoEXT_handle_self((VkMutableDescriptorTypeCreateInfoEXT *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
+}
+
+/* struct VkDescriptorImageInfo */
+
+static inline void
+vn_decode_VkDescriptorImageInfo_temp(struct vn_cs_decoder *dec, VkDescriptorImageInfo *val)
+{
+    vn_decode_VkSampler_lookup(dec, &val->sampler);
+    vn_decode_VkImageView_lookup(dec, &val->imageView);
+    vn_decode_VkImageLayout(dec, &val->imageLayout);
+}
+
+static inline void
+vn_replace_VkDescriptorImageInfo_handle(VkDescriptorImageInfo *val)
+{
+    vn_replace_VkSampler_handle(&val->sampler);
+    vn_replace_VkImageView_handle(&val->imageView);
+    /* skip val->imageLayout */
+}
+
+/* struct VkDescriptorBufferInfo */
+
+static inline void
+vn_decode_VkDescriptorBufferInfo_temp(struct vn_cs_decoder *dec, VkDescriptorBufferInfo *val)
+{
+    vn_decode_VkBuffer_lookup(dec, &val->buffer);
+    vn_decode_VkDeviceSize(dec, &val->offset);
+    vn_decode_VkDeviceSize(dec, &val->range);
+}
+
+static inline void
+vn_replace_VkDescriptorBufferInfo_handle(VkDescriptorBufferInfo *val)
+{
+    vn_replace_VkBuffer_handle(&val->buffer);
+    /* skip val->offset */
+    /* skip val->range */
+}
+
+/* struct VkWriteDescriptorSetInlineUniformBlock chain */
+
+static inline void *
+vn_decode_VkWriteDescriptorSetInlineUniformBlock_pnext_temp(struct vn_cs_decoder *dec)
+{
+    /* no known/supported struct */
+    if (vn_decode_simple_pointer(dec))
+        vn_cs_decoder_set_fatal(dec);
+    return NULL;
+}
+
+static inline void
+vn_decode_VkWriteDescriptorSetInlineUniformBlock_self_temp(struct vn_cs_decoder *dec, VkWriteDescriptorSetInlineUniformBlock *val)
+{
+    /* skip val->{sType,pNext} */
+    vn_decode_uint32_t(dec, &val->dataSize);
+    if (vn_peek_array_size(dec)) {
+        const size_t array_size = vn_decode_array_size(dec, val->dataSize);
+        val->pData = vn_cs_decoder_alloc_temp(dec, array_size);
+        if (!val->pData) return;
+        vn_decode_blob_array(dec, (void *)val->pData, array_size);
+    } else {
+        vn_decode_array_size(dec, val->dataSize);
+        val->pData = NULL;
+    }
+}
+
+static inline void
+vn_decode_VkWriteDescriptorSetInlineUniformBlock_temp(struct vn_cs_decoder *dec, VkWriteDescriptorSetInlineUniformBlock *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_INLINE_UNIFORM_BLOCK)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkWriteDescriptorSetInlineUniformBlock_pnext_temp(dec);
+    vn_decode_VkWriteDescriptorSetInlineUniformBlock_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkWriteDescriptorSetInlineUniformBlock_handle_self(VkWriteDescriptorSetInlineUniformBlock *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    /* skip val->dataSize */
+    /* skip val->pData */
+}
+
+static inline void
+vn_replace_VkWriteDescriptorSetInlineUniformBlock_handle(VkWriteDescriptorSetInlineUniformBlock *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_INLINE_UNIFORM_BLOCK:
+            vn_replace_VkWriteDescriptorSetInlineUniformBlock_handle_self((VkWriteDescriptorSetInlineUniformBlock *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
+}
+
+/* struct VkWriteDescriptorSet chain */
+
+static inline void *
+vn_decode_VkWriteDescriptorSet_pnext_temp(struct vn_cs_decoder *dec)
+{
+    VkBaseOutStructure *pnext;
+    VkStructureType stype;
+
+    if (!vn_decode_simple_pointer(dec))
+        return NULL;
+
+    vn_decode_VkStructureType(dec, &stype);
+    switch ((int32_t)stype) {
+    case VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_INLINE_UNIFORM_BLOCK:
+        pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkWriteDescriptorSetInlineUniformBlock));
+        if (pnext) {
+            pnext->sType = stype;
+            pnext->pNext = vn_decode_VkWriteDescriptorSet_pnext_temp(dec);
+            vn_decode_VkWriteDescriptorSetInlineUniformBlock_self_temp(dec, (VkWriteDescriptorSetInlineUniformBlock *)pnext);
+        }
+        break;
+    default:
+        /* unexpected struct */
+        pnext = NULL;
+        vn_cs_decoder_set_fatal(dec);
+        break;
+    }
+
+    return pnext;
+}
+
+static inline void
+vn_decode_VkWriteDescriptorSet_self_temp(struct vn_cs_decoder *dec, VkWriteDescriptorSet *val)
+{
+    /* skip val->{sType,pNext} */
+    vn_decode_VkDescriptorSet_lookup(dec, &val->dstSet);
+    vn_decode_uint32_t(dec, &val->dstBinding);
+    vn_decode_uint32_t(dec, &val->dstArrayElement);
+    vn_decode_uint32_t(dec, &val->descriptorCount);
+    vn_decode_VkDescriptorType(dec, &val->descriptorType);
+    if (vn_peek_array_size(dec)) {
+        const uint32_t iter_count = vn_decode_array_size(dec, val->descriptorCount);
+        val->pImageInfo = vn_cs_decoder_alloc_temp(dec, sizeof(*val->pImageInfo) * iter_count);
+        if (!val->pImageInfo) return;
+        for (uint32_t i = 0; i < iter_count; i++)
+            vn_decode_VkDescriptorImageInfo_temp(dec, &((VkDescriptorImageInfo *)val->pImageInfo)[i]);
+    } else {
+        vn_decode_array_size_unchecked(dec);
+        val->pImageInfo = NULL;
+    }
+    if (vn_peek_array_size(dec)) {
+        const uint32_t iter_count = vn_decode_array_size(dec, val->descriptorCount);
+        val->pBufferInfo = vn_cs_decoder_alloc_temp(dec, sizeof(*val->pBufferInfo) * iter_count);
+        if (!val->pBufferInfo) return;
+        for (uint32_t i = 0; i < iter_count; i++)
+            vn_decode_VkDescriptorBufferInfo_temp(dec, &((VkDescriptorBufferInfo *)val->pBufferInfo)[i]);
+    } else {
+        vn_decode_array_size_unchecked(dec);
+        val->pBufferInfo = NULL;
+    }
+    if (vn_peek_array_size(dec)) {
+        const uint32_t iter_count = vn_decode_array_size(dec, val->descriptorCount);
+        val->pTexelBufferView = vn_cs_decoder_alloc_temp(dec, sizeof(*val->pTexelBufferView) * iter_count);
+        if (!val->pTexelBufferView) return;
+        for (uint32_t i = 0; i < iter_count; i++)
+            vn_decode_VkBufferView_lookup(dec, &((VkBufferView *)val->pTexelBufferView)[i]);
+    } else {
+        vn_decode_array_size_unchecked(dec);
+        val->pTexelBufferView = NULL;
+    }
+}
+
+static inline void
+vn_decode_VkWriteDescriptorSet_temp(struct vn_cs_decoder *dec, VkWriteDescriptorSet *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkWriteDescriptorSet_pnext_temp(dec);
+    vn_decode_VkWriteDescriptorSet_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkWriteDescriptorSet_handle_self(VkWriteDescriptorSet *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    vn_replace_VkDescriptorSet_handle(&val->dstSet);
+    /* skip val->dstBinding */
+    /* skip val->dstArrayElement */
+    /* skip val->descriptorCount */
+    /* skip val->descriptorType */
+    if (val->pImageInfo) {
+       for (uint32_t i = 0; i < val->descriptorCount; i++)
+            vn_replace_VkDescriptorImageInfo_handle(&((VkDescriptorImageInfo *)val->pImageInfo)[i]);
+    }
+    if (val->pBufferInfo) {
+       for (uint32_t i = 0; i < val->descriptorCount; i++)
+            vn_replace_VkDescriptorBufferInfo_handle(&((VkDescriptorBufferInfo *)val->pBufferInfo)[i]);
+    }
+    if (val->pTexelBufferView) {
+       for (uint32_t i = 0; i < val->descriptorCount; i++)
+            vn_replace_VkBufferView_handle(&((VkBufferView *)val->pTexelBufferView)[i]);
+    }
+}
+
+static inline void
+vn_replace_VkWriteDescriptorSet_handle(VkWriteDescriptorSet *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET:
+            vn_replace_VkWriteDescriptorSet_handle_self((VkWriteDescriptorSet *)pnext);
+            break;
+        case VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_INLINE_UNIFORM_BLOCK:
+            vn_replace_VkWriteDescriptorSetInlineUniformBlock_handle_self((VkWriteDescriptorSetInlineUniformBlock *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
 }
 
 /* struct VkMemoryDedicatedRequirements chain */
@@ -751,6 +1169,69 @@ vn_decode_VkMemoryRequirements2_partial_temp(struct vn_cs_decoder *dec, VkMemory
     val->sType = stype;
     val->pNext = vn_decode_VkMemoryRequirements2_pnext_partial_temp(dec);
     vn_decode_VkMemoryRequirements2_self_partial_temp(dec, val);
+}
+
+/* struct VkMemoryBarrier2 chain */
+
+static inline void *
+vn_decode_VkMemoryBarrier2_pnext_temp(struct vn_cs_decoder *dec)
+{
+    /* no known/supported struct */
+    if (vn_decode_simple_pointer(dec))
+        vn_cs_decoder_set_fatal(dec);
+    return NULL;
+}
+
+static inline void
+vn_decode_VkMemoryBarrier2_self_temp(struct vn_cs_decoder *dec, VkMemoryBarrier2 *val)
+{
+    /* skip val->{sType,pNext} */
+    vn_decode_VkFlags64(dec, &val->srcStageMask);
+    vn_decode_VkFlags64(dec, &val->srcAccessMask);
+    vn_decode_VkFlags64(dec, &val->dstStageMask);
+    vn_decode_VkFlags64(dec, &val->dstAccessMask);
+}
+
+static inline void
+vn_decode_VkMemoryBarrier2_temp(struct vn_cs_decoder *dec, VkMemoryBarrier2 *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_MEMORY_BARRIER_2)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkMemoryBarrier2_pnext_temp(dec);
+    vn_decode_VkMemoryBarrier2_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkMemoryBarrier2_handle_self(VkMemoryBarrier2 *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    /* skip val->srcStageMask */
+    /* skip val->srcAccessMask */
+    /* skip val->dstStageMask */
+    /* skip val->dstAccessMask */
+}
+
+static inline void
+vn_replace_VkMemoryBarrier2_handle(VkMemoryBarrier2 *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_MEMORY_BARRIER_2:
+            vn_replace_VkMemoryBarrier2_handle_self((VkMemoryBarrier2 *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
 }
 
 #pragma GCC diagnostic pop

@@ -84,7 +84,7 @@ bool ReadFileToString(const std::string& path, std::string* content,
 
 bool WriteStringToFile(const std::string& content, const std::string& path,
                        bool follow_symlinks = false);
-bool WriteStringToFd(const std::string& content, borrowed_fd fd);
+bool WriteStringToFd(std::string_view content, borrowed_fd fd);
 
 #if !defined(_WIN32)
 bool WriteStringToFile(const std::string& content, const std::string& path,
@@ -105,6 +105,7 @@ bool ReadFully(borrowed_fd fd, void* data, size_t byte_count);
 bool ReadFullyAtOffset(borrowed_fd fd, void* data, size_t byte_count, off64_t offset);
 
 bool WriteFully(borrowed_fd fd, const void* data, size_t byte_count);
+bool WriteFullyAtOffset(borrowed_fd fd, const void* data, size_t byte_count, off64_t offset);
 
 bool RemoveFileIfExists(const std::string& path, std::string* err = nullptr);
 
@@ -118,8 +119,8 @@ std::string GetExecutableDirectory();
 
 // Like the regular basename and dirname, but thread-safe on all
 // platforms and capable of correctly handling exotic Windows paths.
-std::string Basename(const std::string& path);
-std::string Dirname(const std::string& path);
+std::string Basename(std::string_view path);
+std::string Dirname(std::string_view path);
 
 }  // namespace base
 }  // namespace android

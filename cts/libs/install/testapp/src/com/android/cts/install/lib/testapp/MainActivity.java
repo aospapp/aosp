@@ -29,8 +29,8 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         try {
-            new ProcessUserData().processUserData(this);
-        } catch (ProcessUserData.UserDataException e) {
+            new ProcessBroadcast().processUserData(this);
+        } catch (ProcessBroadcast.UserDataException e) {
             throw new AssertionError("Failed to process app user data", e);
         }
     }

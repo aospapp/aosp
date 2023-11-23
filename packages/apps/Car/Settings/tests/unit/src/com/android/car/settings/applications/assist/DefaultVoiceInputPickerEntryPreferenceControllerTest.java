@@ -16,6 +16,8 @@
 
 package com.android.car.settings.applications.assist;
 
+import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
 import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -126,6 +128,42 @@ public class DefaultVoiceInputPickerEntryPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_sameComponents_returnsConditionallyUnavailable_zoneWrite() {
+        ExtendedMockito.when(VoiceInputUtils.getCurrentService(mContext)).thenReturn(
+                new ComponentName(TEST_PACKAGE, TEST_VOICE));
+        when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(
+                new ComponentName(TEST_PACKAGE, TEST_VOICE));
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_sameComponents_returnsConditionallyUnavailable_zoneRead() {
+        ExtendedMockito.when(VoiceInputUtils.getCurrentService(mContext)).thenReturn(
+                new ComponentName(TEST_PACKAGE, TEST_VOICE));
+        when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(
+                new ComponentName(TEST_PACKAGE, TEST_VOICE));
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_sameComponents_returnsConditionallyUnavailable_zoneHidden() {
+        ExtendedMockito.when(VoiceInputUtils.getCurrentService(mContext)).thenReturn(
+                new ComponentName(TEST_PACKAGE, TEST_VOICE));
+        when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(
+                new ComponentName(TEST_PACKAGE, TEST_VOICE));
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_bothNull_returnsConditionallyUnavailable() {
         ExtendedMockito.when(VoiceInputUtils.getCurrentService(mContext)).thenReturn(null);
         when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(null);
@@ -135,9 +173,60 @@ public class DefaultVoiceInputPickerEntryPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_bothNull_returnsConditionallyUnavailable_zoneWrite() {
+        ExtendedMockito.when(VoiceInputUtils.getCurrentService(mContext)).thenReturn(null);
+        when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(null);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_bothNull_returnsConditionallyUnavailable_zoneRead() {
+        ExtendedMockito.when(VoiceInputUtils.getCurrentService(mContext)).thenReturn(null);
+        when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(null);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_bothNull_returnsConditionallyUnavailable_zoneHidden() {
+        ExtendedMockito.when(VoiceInputUtils.getCurrentService(mContext)).thenReturn(null);
+        when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(null);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_differentComponents_returnsAvailable() {
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(
                 PreferenceController.AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_differentComponents_returnsAvailable_zoneWrite() {
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_differentComponents_returnsAvailable_zoneRead() {
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_differentComponents_returnsAvailable_zoneHidden() {
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test
@@ -175,6 +264,60 @@ public class DefaultVoiceInputPickerEntryPreferenceControllerTest {
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(
                 PreferenceController.CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void onChange_changeRegisteredSetting_callsRefreshUi_zoneWrite() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+
+        when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(
+                new ComponentName(TEST_PACKAGE, TEST_ASSIST));
+        mPreferenceController.mSettingObserver.onChange(/* selfChange= */ false,
+                Settings.Secure.getUriFor(Settings.Secure.ASSISTANT));
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void onChange_changeRegisteredSetting_callsRefreshUi_zoneRead() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+
+        when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(
+                new ComponentName(TEST_PACKAGE, TEST_ASSIST));
+        mPreferenceController.mSettingObserver.onChange(/* selfChange= */ false,
+                Settings.Secure.getUriFor(Settings.Secure.ASSISTANT));
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void onChange_changeRegisteredSetting_callsRefreshUi_zoneHidden() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+
+        when(mMockAssistUtils.getAssistComponentForUser(mUserId)).thenReturn(
+                new ComponentName(TEST_PACKAGE, TEST_ASSIST));
+        mPreferenceController.mSettingObserver.onChange(/* selfChange= */ false,
+                Settings.Secure.getUriFor(Settings.Secure.ASSISTANT));
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

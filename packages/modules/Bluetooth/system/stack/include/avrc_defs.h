@@ -379,6 +379,7 @@ typedef uint8_t tAVRC_PLAYSTATE;
 
 /* Define the events that can be registered for notifications
 */
+#define AVRC_EVT_INVALID 0x00
 #define AVRC_EVT_PLAY_STATUS_CHANGE 0x01
 #define AVRC_EVT_TRACK_CHANGE 0x02
 #define AVRC_EVT_TRACK_REACHED_END 0x03

@@ -45,12 +45,12 @@ def le_scan_for_device_by_name(fd,
     """
     if self_manage_scan:
         scan_filter = {"name_substring": search_name}
-        fd.gattc_lib.bleStartBleScan(scan_filter)
+        fd.sl4f.gattc_lib.bleStartBleScan(scan_filter)
     end_time = time.time() + timeout
     found_device = None
     while time.time() < end_time and not found_device:
         time.sleep(1)
-        scan_res = fd.gattc_lib.bleGetDiscoveredDevices()['result']
+        scan_res = fd.sl4f.gattc_lib.bleGetDiscoveredDevices()['result']
         for device in scan_res:
             name, did, connectable = device["name"], device["id"], device[
                 "connectable"]
@@ -59,7 +59,7 @@ def le_scan_for_device_by_name(fd,
                          format(name, did))
                 found_device = device
     if self_manage_scan:
-        fd.gattc_lib.bleStopBleScan()
+        fd.sl4f.gattc_lib.bleStopBleScan()
     if not found_device:
         log.error("Failed to find device with name {}.".format(search_name))
     return found_device
@@ -83,12 +83,12 @@ def bredr_scan_for_device_by_name(fd,
     Returns:
         The dictionary of device information.
     """
-    fd.bts_lib.requestDiscovery(True)
+    fd.sl4f.bts_lib.requestDiscovery(True)
 
     end_time = time.time() + timeout
     found_device = None
     while time.time() < end_time and not found_device:
-        scan_res = fd.bts_lib.getKnownRemoteDevices()['result']
+        scan_res = fd.sl4f.bts_lib.getKnownRemoteDevices()['result']
         for device in scan_res:
             name, did = scan_res[device]["name"], scan_res[device]["id"]
             if name == search_name or (partial_match and search_name in name):
@@ -96,7 +96,7 @@ def bredr_scan_for_device_by_name(fd,
                     name, did))
                 found_device = did
         time.sleep(1)
-    fd.bts_lib.requestDiscovery(False)
+    fd.sl4f.bts_lib.requestDiscovery(False)
     if not found_device:
         log.error("Failed to find device with name {}.".format(search_name))
         return found_device
@@ -110,14 +110,14 @@ def unbond_all_known_devices(fd, log):
         fd: The Fuchsia device to unbond devices from.
         log: The log var passed in from the test.
     """
-    fd.bts_lib.requestDiscovery(True)
-    device_list = fd.bts_lib.getKnownRemoteDevices()['result']
-    fd.bts_lib.requestDiscovery(False)
+    fd.sl4f.bts_lib.requestDiscovery(True)
+    device_list = fd.sl4f.bts_lib.getKnownRemoteDevices()['result']
+    fd.sl4f.bts_lib.requestDiscovery(False)
     for device in device_list:
         d = device_list[device]
         if d['bonded'] or d['connected']:
             log.info("Unbonding device: {}".format(d))
-            log.info(fd.bts_lib.forgetDevice(d['id'])['result'])
+            log.info(fd.sl4f.bts_lib.forgetDevice(d['id'])['result'])
 
 
 def verify_device_state_by_name(fd, log, search_name, state, services=None):
@@ -131,13 +131,13 @@ def verify_device_state_by_name(fd, log, search_name, state, services=None):
         services: An optional list of services to expect based on the connected
             device.
     """
-    fd.bts_lib.requestDiscovery(True)
+    fd.sl4f.bts_lib.requestDiscovery(True)
 
     seconds_allowed_for_state_change = 10
     end_time = time.time() + seconds_allowed_for_state_change
     found_state = None
     while time.time() < end_time and not found_state:
-        device_list = fd.bts_lib.getKnownRemoteDevices()['result']
+        device_list = fd.sl4f.bts_lib.getKnownRemoteDevices()['result']
         for device in device_list:
             d = device_list[device]
             name = d['name']
@@ -153,7 +153,7 @@ def verify_device_state_by_name(fd, log, search_name, state, services=None):
                     break
         time.sleep(1)
     #TODO: Verify services.
-    fd.bts_lib.requestDiscovery(False)
+    fd.sl4f.bts_lib.requestDiscovery(False)
     return found_state
 
 

@@ -23,6 +23,7 @@ import android.media.MediaPlayer;
 import android.provider.Settings;
 import android.util.Log;
 
+import com.android.emergency.action.EmergencyActionUtils;
 import com.android.emergency.R;
 
 
@@ -115,6 +116,7 @@ public class EmergencyActionAlarmHelper {
 
     private boolean isPlayWarningSoundEnabled() {
         return Settings.Secure.getInt(mContext.getContentResolver(),
-                Settings.Secure.EMERGENCY_GESTURE_SOUND_ENABLED, 0) != 0;
+                Settings.Secure.EMERGENCY_GESTURE_SOUND_ENABLED,
+                EmergencyActionUtils.isDefaultEmergencyGestureSoundEnabled(mContext) ? 1 : 0) != 0;
     }
 }

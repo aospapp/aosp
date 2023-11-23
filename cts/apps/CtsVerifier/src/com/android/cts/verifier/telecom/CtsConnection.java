@@ -25,6 +25,7 @@ import android.telecom.Connection;
 import android.telecom.DisconnectCause;
 import android.telecom.VideoProfile;
 import android.util.ArraySet;
+import android.util.Log;
 
 import com.android.compatibility.common.util.ApiTest;
 import com.android.cts.verifier.R;
@@ -39,6 +40,8 @@ import java.util.concurrent.TimeUnit;
  */
 @ApiTest(apis={"android.Telecom.Connection"})
 public class CtsConnection extends Connection {
+    public static final String TAG = "CtsConnection";
+
     /**
      * Listener used to inform the CtsVerifier app of changes to a connection.
      */
@@ -98,6 +101,11 @@ public class CtsConnection extends Connection {
         if (mListener != null) {
             mListener.forEach(l -> l.onHold(CtsConnection.this));
         }
+
+        if (mMediaPlayer != null && mMediaPlayer.isPlaying()) {
+            Log.d(TAG, "onHold: pausing media player");
+            mMediaPlayer.pause();
+        }
     }
 
     @Override
@@ -107,6 +115,11 @@ public class CtsConnection extends Connection {
         if (mListener != null) {
             mListener.forEach(l -> l.onUnhold(CtsConnection.this));
         }
+
+        if (mMediaPlayer != null) {
+            Log.d(TAG, "onUnhold: starting media player");
+            mMediaPlayer.start();
+        }
     }
 
     @Override
@@ -115,6 +128,7 @@ public class CtsConnection extends Connection {
         setActive();
 
         if (mMediaPlayer != null && !mMediaPlayer.isPlaying()) {
+            Log.d(TAG, "onAnswer: playing media");
             mMediaPlayer.start();
         }
 
@@ -172,6 +186,7 @@ public class CtsConnection extends Connection {
     }
 
     private MediaPlayer createMediaPlayer() {
+        Log.d(TAG, "createMediaPlayer");
         AudioAttributes voiceCallAttributes = new AudioAttributes.Builder()
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                 .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)

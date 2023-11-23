@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * repro-CVE-2020-29373 -- Reproducer for CVE-2020-29373.
  *
@@ -20,6 +21,7 @@
 
 #include <unistd.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -154,7 +156,13 @@ int main(int argc, char *argv[])
 	if (!c) {
 		close(rcv_sock);
 
-		if (chroot(tmpdir)) {
+		r = chroot(tmpdir);
+		if (r) {
+			if (errno == EPERM) {
+				fprintf(stderr, "chroot not allowed, skip\n");
+				return 0;
+			}
+
 			perror("chroot()");
 			return 1;
 		}

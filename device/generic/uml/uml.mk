@@ -83,7 +83,6 @@ PRODUCT_PACKAGES += \
     storaged \
     thermalserviced \
     tombstoned \
-    tzdatacheck \
     vndservice \
     vndservicemanager \
 
@@ -128,5 +127,4 @@ PRODUCT_HOST_PACKAGES += \
     fastboot \
     make_f2fs \
     mke2fs \
-    tzdatacheck \
 

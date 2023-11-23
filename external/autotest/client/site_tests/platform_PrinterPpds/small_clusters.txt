@@ -1,4 +1,4 @@
-brother-20191213-DCP7180DN.ppd.gz	brother-20191213-DCP7189DW.ppd.gz	brother-20191213-DCP7190DN.ppd.gz	brother-20191213-DCPB7500D.ppd.gz	brother-20191213-DCPB7520DW.ppd.gz	brother-20191213-DCPB7530DN.ppd.gz	brother-20191213-DCPB7535DW.ppd.gz	brother-20191213-DCPL2535DW.ppd.gz	brother-20191213-DCPL2540DN.ppd.gz	brother-20191213-DCPL2540DW.ppd.gz	brother-20191213-DCPL2550DN.ppd.gz	brother-20191213-DCPL2550DW.ppd.gz	brother-20191213-DCPL2551DN.ppd.gz	brother-20191213-DCPL2560DW.ppd.gz	brother-20191213-HL2560DN.ppd.gz	brother-20191213-HL2569DW.ppd.gz	brother-20191213-HL2590DN.ppd.gz	brother-20191213-HLB2050DN.ppd.gz	brother-20191213-HLB2080DW.ppd.gz	brother-20191213-HLL2360D.ppd.gz	brother-20191213-HLL2370DN.ppd.gz	brother-20191213-HLL2370DW.ppd.gz	brother-20191213-HLL2371DN.ppd.gz	brother-20191213-HLL2375DW.ppd.gz	brother-20191213-HLL2380DW.ppd.gz	brother-20191213-HLL2395DW.ppd.gz	brother-20191213-MFC7880DN.ppd.gz	brother-20191213-MFC7889DW.ppd.gz	brother-20191213-MFC7890DN.ppd.gz	brother-20191213-MFCB7715DW.ppd.gz	brother-20191213-MFCB7720DN.ppd.gz	brother-20191213-MFCL2715DW.ppd.gz	brother-20191213-MFCL2720DN.ppd.gz	brother-20191213-MFCL2720DW.ppd.gz	brother-20191213-MFCL2730DN.ppd.gz	brother-20191213-MFCL2730DW.ppd.gz	brother-20191213-MFCL2740DW.ppd.gz	brother-20191213-MFCL2750DW.ppd.gz	brother-20200131-DCP7070DW.ppd.gz	brother-20200131-FAX7860DW.ppd.gz	brother-20200131-HL2250DN.ppd.gz	brother-20200131-HL2270DW.ppd.gz	brother-20200131-HL2280DW.ppd.gz	brother-20200131-HLL2360DN.ppd.gz	brother-20200131-HLL2360DW.ppd.gz	brother-20200131-HLL2365DW.ppd.gz	brother-20200131-HLL2372DN.ppd.gz	brother-20200131-MFC7470D.ppd.gz	brother-20200131-MFC7860DN.ppd.gz	brother-20200131-MFC7860DW.ppd.gz	brother-20200131-MFCL2705DW.ppd.gz
+brother-20191213-DCP7180DN.ppd.gz	brother-20191213-DCP7189DW.ppd.gz	brother-20191213-DCP7190DN.ppd.gz	brother-20191213-DCPB7500D.ppd.gz	brother-20191213-DCPB7520DW.ppd.gz	brother-20191213-DCPB7530DN.ppd.gz	brother-20191213-DCPB7535DW.ppd.gz	brother-20191213-DCPL2535DW.ppd.gz	brother-20191213-DCPL2540DN.ppd.gz	brother-20191213-DCPL2540DW.ppd.gz	brother-20191213-DCPL2550DN.ppd.gz	brother-20191213-DCPL2550DW.ppd.gz	brother-20191213-DCPL2551DN.ppd.gz	brother-20191213-DCPL2560DW.ppd.gz	brother-20191213-HL2560DN.ppd.gz	brother-20191213-HL2569DW.ppd.gz	brother-20191213-HL2590DN.ppd.gz	brother-20191213-HLB2050DN.ppd.gz	brother-20191213-HLB2080DW.ppd.gz	brother-20191213-HLL2360D.ppd.gz	brother-20191213-HLL2370DN.ppd.gz	brother-20191213-HLL2370DW.ppd.gz	brother-20191213-HLL2371DN.ppd.gz	brother-20191213-HLL2375DW.ppd.gz	brother-20191213-HLL2380DW.ppd.gz	brother-20191213-HLL2395DW.ppd.gz	brother-20191213-MFC7880DN.ppd.gz	brother-20191213-MFC7889DW.ppd.gz	brother-20191213-MFC7890DN.ppd.gz	brother-20191213-MFCB7715DW.ppd.gz	brother-20191213-MFCB7720DN.ppd.gz	brother-20191213-MFCL2715DW.ppd.gz	brother-20191213-MFCL2720DN.ppd.gz	brother-20191213-MFCL2720DW.ppd.gz	brother-20191213-MFCL2730DN.ppd.gz	brother-20191213-MFCL2730DW.ppd.gz	brother-20191213-MFCL2740DW.ppd.gz	brother-20191213-MFCL2750DW.ppd.gz	brother-20210413-MFCB7710DN.ppd.gz	brother-20200131-DCP7070DW.ppd.gz	brother-20200131-FAX7860DW.ppd.gz	brother-20200131-HL2250DN.ppd.gz	brother-20200131-HL2270DW.ppd.gz	brother-20200131-HL2280DW.ppd.gz	brother-20200131-HLL2360DN.ppd.gz	brother-20200131-HLL2360DW.ppd.gz	brother-20200131-HLL2365DW.ppd.gz	brother-20200131-HLL2372DN.ppd.gz	brother-20200131-MFC7470D.ppd.gz	brother-20200131-MFC7860DN.ppd.gz	brother-20200131-MFC7860DW.ppd.gz	brother-20200131-MFCL2705DW.ppd.gz
 brother-20191213-DCP7195DW.ppd.gz	brother-20191213-HLL2385DW.ppd.gz	brother-20191213-MFC7895DW.ppd.gz	brother-20191213-MFCL2770DW.ppd.gz	brother-20200131-DCP8070D.ppd.gz	brother-20200131-HL2595DW.ppd.gz	brother-20200131-MFC8370DN.ppd.gz
 brother-20191213-DCPL5500DN.ppd.gz	brother-20191213-DCPL5502DN.ppd.gz	brother-20191213-DCPL5600DN.ppd.gz	brother-20191213-DCPL5602DN.ppd.gz	brother-20191213-DCPL5650DN.ppd.gz	brother-20191213-DCPL5652DN.ppd.gz	brother-20191213-HL5580D.ppd.gz	brother-20191213-HL5585D.ppd.gz	brother-20191213-HL5590DN.ppd.gz	brother-20191213-HLL5000D.ppd.gz	brother-20191213-HLL5100DN.ppd.gz	brother-20191213-HLL5102DW.ppd.gz	brother-20191213-HLL5200DW.ppd.gz	brother-20191213-HLL5202DW.ppd.gz	brother-20191213-MFC8530DN.ppd.gz	brother-20191213-MFC8535DN.ppd.gz	brother-20191213-MFC8540DN.ppd.gz	brother-20191213-MFCL5700DN.ppd.gz	brother-20191213-MFCL5700DW.ppd.gz	brother-20191213-MFCL5702DW.ppd.gz	brother-20191213-MFCL5750DW.ppd.gz	brother-20191213-MFCL5755DW.ppd.gz	brother-20191213-MFCL5800DW.ppd.gz	brother-20191213-MFCL5802DW.ppd.gz	brother-20191213-MFCL5850DW.ppd.gz	brother-20191213-MFCL5900DW.ppd.gz	brother-20191213-MFCL5902DW.ppd.gz	brother-20191213-MFCL6700DW.ppd.gz	brother-20191213-MFCL6702DW.ppd.gz	brother-20191213-MFCL6750DW.ppd.gz	brother-20200131-HL5340D.ppd.gz	brother-20200131-HL5350DN.ppd.gz	brother-20200131-HL5370DW.ppd.gz	brother-20200131-HL5380DN.ppd.gz
 brother-20191213-DCPL6600DW.ppd.gz	brother-20191213-HLL6300DW.ppd.gz	brother-20191213-HLL6400DW.ppd.gz	brother-20191213-HLL6402DW.ppd.gz	brother-20191213-MFCL6800DW.ppd.gz	brother-20191213-MFCL6900DW.ppd.gz	brother-20191213-MFCL6902DW.ppd.gz
@@ -16,6 +16,7 @@ brother-20201006-DCP7090DW-cups-en.ppd.gz	brother-20201006-DCP7095D-cups-en.ppd.
 brother-20201006-HL2290-cups-en.ppd.gz
 brother-20201006-HL2295D-cups-en.ppd.gz	brother-20201006-HLB2000D-cups-en.ppd.gz	brother-20201006-HLL2310D-cups-en.ppd.gz	brother-20201006-HLL2325DW-cups-en.ppd.gz	brother-20201006-HLL2330D-cups-en.ppd.gz	brother-20201006-HLL2335D-cups-en.ppd.gz	brother-20201006-HLL2350DW-cups-en.ppd.gz	brother-20201006-HLL2357DW-cups-en.ppd.gz
 brother-20201006-MFCL2685DW-cups-en.ppd.gz	brother-20201006-MFCL2707DW-cups-en.ppd.gz
+brother-20210413-MFC5705DW.ppd.gz
 cups-20170101-Generic-PDF_Printer-PDF.ppd.gz
 dymo-20200714-lm280.ppd.gz
 dymo-20200714-lm400.ppd.gz
@@ -158,7 +159,7 @@ epson-20200615-1_6_41-Epson-PX-G5300-epson-escpr-en.ppd.gz
 epson-20200615-1_6_41-Epson-PX-M160T_Series-epson-escpr-en.ppd.gz	epson-20200615-1_6_41-Epson-PX-S160T_Series-epson-escpr-en.ppd.gz
 epson-20200615-1_6_41-Epson-PX-M350F-epson-escpr-en.ppd.gz	epson-20200615-1_6_41-Epson-PX-S350-epson-escpr-en.ppd.gz
 epson-20200615-1_6_41-Epson-PX-M5040F-epson-escpr-en.ppd.gz
-epson-20200615-1_6_41-Epson-PX-M5041F-epson-escpr-en.ppd.gz	epson-20200615-1_6_41-Epson-PX-S5040-epson-escpr-en.ppd.gz
+epson-20200615-1_6_41-Epson-PX-M5041F-epson-escpr-en.ppd.gz
 epson-20200615-1_6_41-Epson-PX-M650A-epson-escpr-en.ppd.gz	epson-20200615-1_6_41-Epson-PX-M650F-epson-escpr-en.ppd.gz
 epson-20200615-1_6_41-Epson-PX-M7050FP-epson-escpr-en.ppd.gz	epson-20200615-1_6_41-Epson-PX-M7050FX-epson-escpr-en.ppd.gz	epson-20200615-1_6_41-Epson-PX-M7050_Series-epson-escpr-en.ppd.gz	epson-20200615-1_6_41-Epson-PX-S7050PS-epson-escpr-en.ppd.gz	epson-20200615-1_6_41-Epson-PX-S7050X-epson-escpr-en.ppd.gz	epson-20200615-1_6_41-Epson-PX-S7050_Series-epson-escpr-en.ppd.gz
 epson-20200615-1_6_41-Epson-PX-M740F-epson-escpr-en.ppd.gz	epson-20200615-1_6_41-Epson-PX-S740-epson-escpr-en.ppd.gz
@@ -257,6 +258,8 @@ epson-20200615-Epson-LX-10010MF_Series_PS3.ppd.gz
 epson-20200615-Epson-WF-C17590_Series_PS3.ppd.gz
 epson-20200615-Epson-WF-C20590_PS.ppd.gz
 epson-20200615-Epson-WF-M20590_Series_PS3.ppd.gz
+epson-20210521-1_6_41-Epson-PX-S5040-epson-escpr-en.ppd.gz
+epson-20210703-Epson-L1210_Series-epson-escpr-en.ppd.gz	epson-20210703-Epson-L3210_Series-epson-escpr-en.ppd.gz
 foomatic-20170101-Samsung-M332x_382x_402x-Postscript.ppd.gz
 foomatic-20190909-Ricoh-IM_430F-PostscriptMono-Ricoh.ppd.gz	ricoh-20200403-Ricoh-IM_430F.ppd.gz	ricoh-20200403-Ricoh-IPSiO_SP_4210.ppd.gz	ricoh-20200403-Ricoh-IPSiO_SP_4300.ppd.gz	ricoh-20200403-Ricoh-IPSiO_SP_4310.ppd.gz	ricoh-20200403-Ricoh-IPSiO_SP_6110.ppd.gz	ricoh-20200403-Ricoh-IPSiO_SP_6120.ppd.gz	ricoh-20200403-Ricoh-IPSiO_SP_6210.ppd.gz	ricoh-20200403-Ricoh-IPSiO_SP_6220.ppd.gz	ricoh-20200403-Ricoh-IPSiO_SP_6310.ppd.gz	ricoh-20200403-Ricoh-IPSiO_SP_6320.ppd.gz	ricoh-20200403-Ricoh-IPSiO_SP_6330.ppd.gz	ricoh-20200403-Ricoh-IPSiO_SP_8100.ppd.gz	ricoh-20200403-Ricoh-IPSiO_SP_8100M.ppd.gz	ricoh-20200403-Ricoh-IPSiO_SP_8200.ppd.gz	ricoh-20200403-Ricoh-IPSiO_SP_8200M.ppd.gz	ricoh-20200403-Ricoh-IPSiO_SP_8300.ppd.gz	ricoh-20200403-Ricoh-IPSiO_SP_8300M.ppd.gz	ricoh-20200403-Ricoh-IP_500SF.ppd.gz	ricoh-20200403-Ricoh-MP_1301_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_1601_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_2553_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_2554_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_2555_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_305plus_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_305plus_SPF_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_3353_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_3554_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_3555_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_401SPF_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_4054_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_4055_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_5054_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_5055_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_6054_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_6055_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_6503_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_7503_JPN.ppd.gz	ricoh-20200403-Ricoh-MP_9003_JPN.ppd.gz	ricoh-20200403-Ricoh-P_500_JPN.ppd.gz	ricoh-20200403-Ricoh-P_501_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_1107EXP.ppd.gz	ricoh-20200403-Ricoh-Pro_1357EXP.ppd.gz	ricoh-20200403-Ricoh-Pro_6100HT_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_6100_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8100S_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8110HT_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8110S_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8110Y_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8120HT_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8120S_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8120Y_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8200S_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8210HT_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8210S_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8210Y_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8220HT_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8220S_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8220Y_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8300S_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8310HT_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8310S_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8310Y_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8320HT_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8320S_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_8320Y_JPN.ppd.gz	ricoh-20200403-Ricoh-Pro_907EXP.ppd.gz	ricoh-20200403-Ricoh-SP_4500_JPN.ppd.gz	ricoh-20200403-Ricoh-SP_4510SF_JPN.ppd.gz	ricoh-20200403-Ricoh-SP_4510_JPN.ppd.gz	ricoh-20200403-Ricoh-SP_6410_JPN.ppd.gz	ricoh-20200403-Ricoh-SP_6420M_JPN.ppd.gz	ricoh-20200403-Ricoh-SP_6420_JPN.ppd.gz	ricoh-20200403-Ricoh-SP_6430M_JPN.ppd.gz	ricoh-20200403-Ricoh-SP_6430_JPN.ppd.gz	ricoh-20200403-Ricoh-SP_6440M_JPN.ppd.gz	ricoh-20200403-Ricoh-SP_6440_JPN.ppd.gz	ricoh-20200403-Ricoh-SP_6450_JPN.ppd.gz	ricoh-20200403-Ricoh-SP_8400M_JPN.ppd.gz	ricoh-20200403-Ricoh-SP_8400M_a1_JPN.ppd.gz	ricoh-20200403-Ricoh-SP_8400_JPN.ppd.gz	ricoh-20200403-Ricoh-SP_8400a1_JPN.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_1100.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_1350.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_2550.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_2552.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_3350.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_3352.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_4000.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_4002.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_5000.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_5002.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_6000.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_6001.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_6001GP.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_6002.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_6002GP.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_7500.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_7500T.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_7501.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_7502.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_8000.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_8000T.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_9000.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_9001.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_9001T.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_9002.ppd.gz	ricoh-20200403-Ricoh-imagio_MP_9002T.ppd.gz	ricoh-20200403-Ricoh-imagio_Neo_452.ppd.gz	ricoh-20200403-Ricoh-imagio_Neo_453.ppd.gz
 foomatic-20190909-Ricoh-IM_430_PDF.ppd.gz	foomatic-20200219-Gestetner-IM_350-PDF-Gestetner.ppd.gz	foomatic-20200219-Gestetner-IM_430-PDF-Gestetner.ppd.gz	foomatic-20200219-Lanier-IM_350-PDF-Lanier.ppd.gz	foomatic-20200219-Lanier-IM_430-PDF-Lanier.ppd.gz	foomatic-20200219-NRG-IM_350-PDF-NRG.ppd.gz	foomatic-20200219-NRG-IM_430-PDF-NRG.ppd.gz	foomatic-20200219-Ricoh-IM_350-PDF-Ricoh.ppd.gz	foomatic-20200219-Savin-IM_350-PDF-Savin.ppd.gz	foomatic-20200219-Savin-IM_430-PDF-Savin.ppd.gz
@@ -278,9 +281,9 @@ foomatic-20200219-Apple-ImageWriter-iwhi.ppd.gz
 foomatic-20200219-Apple-ImageWriter_II-iwhi.ppd.gz
 foomatic-20200219-Apple-ImageWriter_LQ-iwhi.ppd.gz
 foomatic-20200219-Apple-LaserWriter_IIg-Postscript.ppd.gz	foomatic-20200219-DEC-LN07-Postscript.ppd.gz	foomatic-20200219-NEC-SilentWriter_LC_890-Postscript.ppd.gz	foomatic-20200219-NEC-Silentwriter2_S60P-Postscript.ppd.gz	foomatic-20200219-NEC-Silentwriter2_model_290-Postscript.ppd.gz	foomatic-20200219-NEC-Silentwriter_95f-Postscript.ppd.gz	foomatic-20200219-Oki-OL830Plus-Postscript.ppd.gz	foomatic-20200219-Panasonic-KX-P5400-Postscript.ppd.gz
-foomatic-20200219-Apple-LaserWriter_Select_360-ljet2p.ppd.gz	foomatic-20200219-Brother-DCP-1200-ljet2p.ppd.gz	foomatic-20200219-Brother-HL-1040-ljet2p.ppd.gz	foomatic-20200219-Brother-HL-630-ljet2p.ppd.gz	foomatic-20200219-Brother-MFC-6550MC-ljet2p.ppd.gz	foomatic-20200219-Brother-MFC-9500-ljet2p.ppd.gz	foomatic-20200219-Brother-MFC-9600-ljet2p.ppd.gz	foomatic-20200219-Lexmark-Valuewriter_300-ljet2p.ppd.gz	foomatic-20200219-NEC-SuperScript_1260-ljet2p.ppd.gz	foomatic-20200219-NEC-SuperScript_860-ljet2p.ppd.gz	foomatic-20200219-NEC-SuperScript_870-ljet2p.ppd.gz	foomatic-20200219-Oki-OL400e-ljet2p.ppd.gz	foomatic-20200219-Oki-OL400ex-ljet2p.ppd.gz	foomatic-20200219-Oki-OL600e-ljet2p.ppd.gz	foomatic-20200219-Panasonic-KX-P4410-ljet2p.ppd.gz	foomatic-20200219-Panasonic-KX-P6500-ljet2p.ppd.gz	foomatic-20200219-Raven-LP-410-ljet2p.ppd.gz	foomatic-20200219-Star-LS-04-ljet2p.ppd.gz	foomatic-20200219-Xerox-DocuPrint_P12-ljet2p.ppd.gz
+foomatic-20200219-Apple-LaserWriter_Select_360-ljet2p.ppd.gz	foomatic-20200219-Brother-DCP-1200-ljet2p.ppd.gz	foomatic-20200219-Brother-HL-1040-ljet2p.ppd.gz	foomatic-20200219-Brother-HL-630-ljet2p.ppd.gz	foomatic-20200219-Brother-MFC-6550MC-ljet2p.ppd.gz	foomatic-20200219-Brother-MFC-9500-ljet2p.ppd.gz	foomatic-20200219-Brother-MFC-9600-ljet2p.ppd.gz	foomatic-20200219-HP-LaserJet_2D-ljet2p.ppd.gz	foomatic-20200219-HP-LaserJet_2P-ljet2p.ppd.gz	foomatic-20200219-HP-LaserJet_2P_Plus-ljet2p.ppd.gz	foomatic-20200219-Lexmark-Valuewriter_300-ljet2p.ppd.gz	foomatic-20200219-NEC-SuperScript_1260-ljet2p.ppd.gz	foomatic-20200219-NEC-SuperScript_860-ljet2p.ppd.gz	foomatic-20200219-NEC-SuperScript_870-ljet2p.ppd.gz	foomatic-20200219-Oki-OL400e-ljet2p.ppd.gz	foomatic-20200219-Oki-OL400ex-ljet2p.ppd.gz	foomatic-20200219-Oki-OL600e-ljet2p.ppd.gz	foomatic-20200219-Panasonic-KX-P4410-ljet2p.ppd.gz	foomatic-20200219-Panasonic-KX-P6500-ljet2p.ppd.gz	foomatic-20200219-Raven-LP-410-ljet2p.ppd.gz	foomatic-20200219-Star-LS-04-ljet2p.ppd.gz	foomatic-20200219-Xerox-DocuPrint_P12-ljet2p.ppd.gz
 foomatic-20200219-Apple-StyleWriter_1200-lpstyl.ppd.gz	foomatic-20200219-Apple-StyleWriter_I-lpstyl.ppd.gz	foomatic-20200219-Apple-StyleWriter_II-lpstyl.ppd.gz
-foomatic-20200219-Brother-DCP-7010-ljet4.ppd.gz	foomatic-20200219-Brother-DCP-7020-ljet4.ppd.gz	foomatic-20200219-Brother-HL-1050-ljet4.ppd.gz	foomatic-20200219-Brother-HL-1060-ljet4.ppd.gz	foomatic-20200219-Brother-HL-10h-ljet4.ppd.gz	foomatic-20200219-Brother-HL-1260-ljet4.ppd.gz	foomatic-20200219-Brother-HL-2035-ljet4.ppd.gz	foomatic-20200219-Brother-HL-2040-ljet4.ppd.gz	foomatic-20200219-Brother-HL-2135-ljet4.ppd.gz	foomatic-20200219-Brother-HL-2142-ljet4.ppd.gz	foomatic-20200219-Brother-HL-660-ljet4.ppd.gz	foomatic-20200219-Brother-HL-760-ljet4.ppd.gz	foomatic-20200219-Brother-HL-960-ljet4.ppd.gz	foomatic-20200219-Canon-LBP-1260-ljet4.ppd.gz	foomatic-20200219-DEC-LN17-ljet4.ppd.gz	foomatic-20200219-Epson-EPL-5700-ljet4.ppd.gz	foomatic-20200219-Fujitsu-PrintPartner_10V-ljet4.ppd.gz	foomatic-20200219-Fujitsu-PrintPartner_16DV-ljet4.ppd.gz	foomatic-20200219-IBM-Page_Printer_3112-ljet4.ppd.gz	foomatic-20200219-Infotec-4651_MF-ljet4.ppd.gz	foomatic-20200219-Lexmark-Optra_E-ljet4.ppd.gz	foomatic-20200219-Lexmark-Optra_Eplus-ljet4.ppd.gz	foomatic-20200219-Minolta-PagePro_6-ljet4.ppd.gz	foomatic-20200219-Minolta-PagePro_6ex-ljet4.ppd.gz	foomatic-20200219-Minolta-PagePro_8-ljet4.ppd.gz	foomatic-20200219-NEC-SuperScript_1800-ljet4.ppd.gz	foomatic-20200219-NEC-SuperScript_660i-ljet4.ppd.gz	foomatic-20200219-Oki-B410-ljet4.ppd.gz	foomatic-20200219-Oki-OL810ex-ljet4.ppd.gz	foomatic-20200219-Oki-Okipage_10e-ljet4.ppd.gz	foomatic-20200219-Oki-Okipage_10ex-ljet4.ppd.gz	foomatic-20200219-Oki-Okipage_14ex-ljet4.ppd.gz	foomatic-20200219-Oki-Okipage_6ex-ljet4.ppd.gz	foomatic-20200219-Oki-Okipage_8p-ljet4.ppd.gz	foomatic-20200219-Ricoh-Aficio_700-ljet4.ppd.gz	foomatic-20200219-Samsung-ML-4600-ljet4.ppd.gz	foomatic-20200219-Samsung-ML-5000a-ljet4.ppd.gz	foomatic-20200219-Samsung-ML-6000-ljet4.ppd.gz	foomatic-20200219-Samsung-ML-6100-ljet4.ppd.gz	foomatic-20200219-Samsung-ML-85-ljet4.ppd.gz	foomatic-20200219-Samsung-QL-5100A-ljet4.ppd.gz	foomatic-20200219-Samsung-QL-6050-ljet4.ppd.gz	foomatic-20200219-Sharp-AR-161-ljet4.ppd.gz	foomatic-20200219-Xerox-Able_1406-ljet4.ppd.gz	foomatic-20200219-Xerox-DocuPrint_4508-ljet4.ppd.gz	foomatic-20200219-Xerox-DocuPrint_N4512-ljet4.ppd.gz	foomatic-20200219-Xerox-DocuPrint_N4512PS-ljet4.ppd.gz	foomatic-20200219-Xerox-DocuPrint_P1202-ljet4.ppd.gz	foomatic-20200219-Xerox-DocuPrint_P8e-ljet4.ppd.gz	foomatic-20200219-Xerox-Document_Centre_400-ljet4.ppd.gz
+foomatic-20200219-Brother-DCP-7010-ljet4.ppd.gz	foomatic-20200219-Brother-DCP-7020-ljet4.ppd.gz	foomatic-20200219-Brother-HL-1050-ljet4.ppd.gz	foomatic-20200219-Brother-HL-1060-ljet4.ppd.gz	foomatic-20200219-Brother-HL-10h-ljet4.ppd.gz	foomatic-20200219-Brother-HL-1260-ljet4.ppd.gz	foomatic-20200219-Brother-HL-2035-ljet4.ppd.gz	foomatic-20200219-Brother-HL-2040-ljet4.ppd.gz	foomatic-20200219-Brother-HL-2135-ljet4.ppd.gz	foomatic-20200219-Brother-HL-2142-ljet4.ppd.gz	foomatic-20200219-Brother-HL-660-ljet4.ppd.gz	foomatic-20200219-Brother-HL-760-ljet4.ppd.gz	foomatic-20200219-Brother-HL-960-ljet4.ppd.gz	foomatic-20200219-Canon-LBP-1260-ljet4.ppd.gz	foomatic-20200219-DEC-LN17-ljet4.ppd.gz	foomatic-20200219-Epson-EPL-5700-ljet4.ppd.gz	foomatic-20200219-Fujitsu-PrintPartner_10V-ljet4.ppd.gz	foomatic-20200219-Fujitsu-PrintPartner_16DV-ljet4.ppd.gz	foomatic-20200219-HP-Color_LaserJet_5000-ljet4.ppd.gz	foomatic-20200219-IBM-Page_Printer_3112-ljet4.ppd.gz	foomatic-20200219-Infotec-4651_MF-ljet4.ppd.gz	foomatic-20200219-Lexmark-Optra_E-ljet4.ppd.gz	foomatic-20200219-Lexmark-Optra_Eplus-ljet4.ppd.gz	foomatic-20200219-Minolta-PagePro_6-ljet4.ppd.gz	foomatic-20200219-Minolta-PagePro_6ex-ljet4.ppd.gz	foomatic-20200219-Minolta-PagePro_8-ljet4.ppd.gz	foomatic-20200219-NEC-SuperScript_1800-ljet4.ppd.gz	foomatic-20200219-NEC-SuperScript_660i-ljet4.ppd.gz	foomatic-20200219-Oki-B410-ljet4.ppd.gz	foomatic-20200219-Oki-OL810ex-ljet4.ppd.gz	foomatic-20200219-Oki-Okipage_10e-ljet4.ppd.gz	foomatic-20200219-Oki-Okipage_10ex-ljet4.ppd.gz	foomatic-20200219-Oki-Okipage_14ex-ljet4.ppd.gz	foomatic-20200219-Oki-Okipage_6ex-ljet4.ppd.gz	foomatic-20200219-Oki-Okipage_8p-ljet4.ppd.gz	foomatic-20200219-Ricoh-Aficio_700-ljet4.ppd.gz	foomatic-20200219-Samsung-ML-4600-ljet4.ppd.gz	foomatic-20200219-Samsung-ML-5000a-ljet4.ppd.gz	foomatic-20200219-Samsung-ML-6000-ljet4.ppd.gz	foomatic-20200219-Samsung-ML-6100-ljet4.ppd.gz	foomatic-20200219-Samsung-ML-85-ljet4.ppd.gz	foomatic-20200219-Samsung-QL-5100A-ljet4.ppd.gz	foomatic-20200219-Samsung-QL-6050-ljet4.ppd.gz	foomatic-20200219-Sharp-AR-161-ljet4.ppd.gz	foomatic-20200219-Xerox-Able_1406-ljet4.ppd.gz	foomatic-20200219-Xerox-DocuPrint_4508-ljet4.ppd.gz	foomatic-20200219-Xerox-DocuPrint_N4512-ljet4.ppd.gz	foomatic-20200219-Xerox-DocuPrint_N4512PS-ljet4.ppd.gz	foomatic-20200219-Xerox-DocuPrint_P1202-ljet4.ppd.gz	foomatic-20200219-Xerox-DocuPrint_P8e-ljet4.ppd.gz	foomatic-20200219-Xerox-Document_Centre_400-ljet4.ppd.gz
 foomatic-20200219-Brother-DCP-8020-Postscript-Brother.ppd.gz	foomatic-20200219-Brother-MFC-8420-Postscript-Brother.ppd.gz
 foomatic-20200219-Brother-DCP-8025D-Postscript-Brother.ppd.gz
 foomatic-20200219-Brother-DCP-8040-Postscript-Brother.ppd.gz
@@ -292,7 +295,7 @@ foomatic-20200219-Brother-HJ-400-lq850.ppd.gz	foomatic-20200219-Canon-BJ-300-lq8
 foomatic-20200219-Brother-HL-1020-hl7x0.ppd.gz	foomatic-20200219-Brother-HL-720-hl7x0.ppd.gz	foomatic-20200219-Brother-HL-730-hl7x0.ppd.gz	foomatic-20200219-Brother-HL-820-hl7x0.ppd.gz	foomatic-20200219-Brother-MFC-9050-hl7x0.ppd.gz
 foomatic-20200219-Brother-HL-1030-hl1250.ppd.gz
 foomatic-20200219-Brother-HL-1070-ljet4.ppd.gz	foomatic-20200219-Canon-GP_335-ljet4.ppd.gz
-foomatic-20200219-Brother-HL-10V-ljet3.ppd.gz	foomatic-20200219-Canon-LBP-4sx-ljet3.ppd.gz	foomatic-20200219-DEC-1800-ljet3.ppd.gz	foomatic-20200219-Epson-ActionLaser_1100-ljet3.ppd.gz	foomatic-20200219-Epson-EPL-5200-ljet3.ppd.gz	foomatic-20200219-Epson-EPL-5200plus-ljet3.ppd.gz	foomatic-20200219-Fujitsu-PrintPartner_8000-ljet3.ppd.gz	foomatic-20200219-Generic-PCL_5_Printer-ljet3.ppd.gz	foomatic-20200219-Tally-MT908-ljet3.ppd.gz
+foomatic-20200219-Brother-HL-10V-ljet3.ppd.gz	foomatic-20200219-Canon-LBP-4sx-ljet3.ppd.gz	foomatic-20200219-DEC-1800-ljet3.ppd.gz	foomatic-20200219-Epson-ActionLaser_1100-ljet3.ppd.gz	foomatic-20200219-Epson-EPL-5200-ljet3.ppd.gz	foomatic-20200219-Epson-EPL-5200plus-ljet3.ppd.gz	foomatic-20200219-Fujitsu-PrintPartner_8000-ljet3.ppd.gz	foomatic-20200219-Generic-PCL_5_Printer-ljet3.ppd.gz	foomatic-20200219-HP-LaserJet_3-ljet3.ppd.gz	foomatic-20200219-Tally-MT908-ljet3.ppd.gz
 foomatic-20200219-Brother-HL-1230-hl1250.ppd.gz
 foomatic-20200219-Brother-HL-1240-laserjet.ppd.gz
 foomatic-20200219-Brother-HL-1250-ljet4.ppd.gz	foomatic-20200219-Brother-HL-1430-ljet4.ppd.gz	foomatic-20200219-Brother-HL-1440-ljet4.ppd.gz
@@ -315,7 +318,7 @@ foomatic-20200219-Brother-HL-3070CW-Postscript-Brother.ppd.gz
 foomatic-20200219-Brother-HL-3260N-Postscript-Brother.ppd.gz
 foomatic-20200219-Brother-HL-3450CN-Postscript-Brother.ppd.gz
 foomatic-20200219-Brother-HL-4050CDN-Postscript-Brother.ppd.gz	foomatic-20200219-Brother-HL-4070CDW-Postscript-Brother.ppd.gz
-foomatic-20200219-Brother-HL-4Ve-laserjet.ppd.gz	foomatic-20200219-Brother-MFC-8300-laserjet.ppd.gz	foomatic-20200219-Brother-MFC-8600-laserjet.ppd.gz	foomatic-20200219-Citizen-ProJet_II-laserjet.ppd.gz	foomatic-20200219-Epson-ActionLaser_II-laserjet.ppd.gz	foomatic-20200219-Generic-PCL_4_Printer-laserjet.ppd.gz	foomatic-20200219-IBM-4019-laserjet.ppd.gz	foomatic-20200219-IBM-4029_030_LaserPrinter_10-laserjet.ppd.gz	foomatic-20200219-IBM-4312-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-1000-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-1010-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-1200-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-1200S-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-1800-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-2000-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-2010-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-2200-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-2200S-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-3000-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-3010-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-3300-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-5000-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-800-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-800T-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-820-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-1500-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-1550-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-1550plus-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-3400-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-3400plus-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-3500-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-400-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-5500-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-850-laserjet.ppd.gz	foomatic-20200219-Kyocera-P-2000-laserjet.ppd.gz	foomatic-20200219-Kyocera-P-2002-laserjet.ppd.gz	foomatic-20200219-Oki-OL400-laserjet.ppd.gz	foomatic-20200219-Oki-OL610e_S-laserjet.ppd.gz	foomatic-20200219-Oki-OL800-laserjet.ppd.gz	foomatic-20200219-Olivetti-PG_306-laserjet.ppd.gz	foomatic-20200219-PCPI-1030-laserjet.ppd.gz	foomatic-20200219-Panasonic-KX-P6150-laserjet.ppd.gz	foomatic-20200219-Seiko-SpeedJET_200-laserjet.ppd.gz	foomatic-20200219-Star-LaserPrinter_8-laserjet.ppd.gz
+foomatic-20200219-Brother-HL-4Ve-laserjet.ppd.gz	foomatic-20200219-Brother-MFC-8300-laserjet.ppd.gz	foomatic-20200219-Brother-MFC-8600-laserjet.ppd.gz	foomatic-20200219-Citizen-ProJet_II-laserjet.ppd.gz	foomatic-20200219-Epson-ActionLaser_II-laserjet.ppd.gz	foomatic-20200219-Generic-PCL_4_Printer-laserjet.ppd.gz	foomatic-20200219-HP-LaserJet-laserjet.ppd.gz	foomatic-20200219-HP-LaserJet_2-laserjet.ppd.gz	foomatic-20200219-IBM-4019-laserjet.ppd.gz	foomatic-20200219-IBM-4029_030_LaserPrinter_10-laserjet.ppd.gz	foomatic-20200219-IBM-4312-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-1000-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-1010-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-1200-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-1200S-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-1800-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-2000-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-2010-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-2200-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-2200S-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-3000-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-3010-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-3300-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-5000-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-800-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-800T-laserjet.ppd.gz	foomatic-20200219-Kyocera-F-820-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-1500-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-1550-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-1550plus-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-3400-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-3400plus-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-3500-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-400-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-5500-laserjet.ppd.gz	foomatic-20200219-Kyocera-FS-850-laserjet.ppd.gz	foomatic-20200219-Kyocera-P-2000-laserjet.ppd.gz	foomatic-20200219-Kyocera-P-2002-laserjet.ppd.gz	foomatic-20200219-Oki-OL400-laserjet.ppd.gz	foomatic-20200219-Oki-OL610e_S-laserjet.ppd.gz	foomatic-20200219-Oki-OL800-laserjet.ppd.gz	foomatic-20200219-Olivetti-PG_306-laserjet.ppd.gz	foomatic-20200219-PCPI-1030-laserjet.ppd.gz	foomatic-20200219-Panasonic-KX-P6150-laserjet.ppd.gz	foomatic-20200219-Seiko-SpeedJET_200-laserjet.ppd.gz	foomatic-20200219-Star-LaserPrinter_8-laserjet.ppd.gz
 foomatic-20200219-Brother-HL-5030-ljet4.ppd.gz	foomatic-20200219-Brother-HL-5040-ljet4.ppd.gz
 foomatic-20200219-Brother-HL-5050-Postscript-Brother.ppd.gz	foomatic-20200219-Brother-HL-5070N-Postscript-Brother.ppd.gz
 foomatic-20200219-Brother-HL-5140-ljet4.ppd.gz
@@ -327,7 +330,7 @@ foomatic-20200219-Brother-HL-6050-Postscript-Brother.ppd.gz
 foomatic-20200219-Brother-HL-6050D_DN-Postscript-Brother.ppd.gz
 foomatic-20200219-Brother-HL-7050-Postscript-Brother.ppd.gz
 foomatic-20200219-Brother-HL-7050N-pxlmono.ppd.gz
-foomatic-20200219-Brother-HL-8-ljetplus.ppd.gz	foomatic-20200219-Lexmark-Winwriter_400-ljetplus.ppd.gz	foomatic-20200219-Panasonic-KX-P4450-ljetplus.ppd.gz
+foomatic-20200219-Brother-HL-8-ljetplus.ppd.gz	foomatic-20200219-HP-LaserJet_Plus-ljetplus.ppd.gz	foomatic-20200219-Lexmark-Winwriter_400-ljetplus.ppd.gz	foomatic-20200219-Panasonic-KX-P4450-ljetplus.ppd.gz
 foomatic-20200219-Brother-HL-8050N-Postscript-Brother.ppd.gz
 foomatic-20200219-Brother-MC-3000-epson.ppd.gz	foomatic-20200219-Panasonic-KX-P2123-epson.ppd.gz
 foomatic-20200219-Brother-MFC-7450-Postscript-Brother.ppd.gz
@@ -408,7 +411,7 @@ foomatic-20200219-Canon-iR-ADV_C9060_9070-Postscript-Canon.ppd.gz
 foomatic-20200219-Canon-iR-ADV_C9065_9075-Postscript-Canon.ppd.gz
 foomatic-20200219-Canon-iR-ADV_C9270_9280-Postscript-Canon.ppd.gz
 foomatic-20200219-Canon-imageRunner_C2570-Postscript.ppd.gz	foomatic-20200219-Canon-imageRunner_C2570i-Postscript.ppd.gz	foomatic-20200219-Canon-imageRunner_C2620N-Postscript.ppd.gz	foomatic-20200219-Canon-imageRunner_C3100-Postscript.ppd.gz	foomatic-20200219-Canon-imageRunner_C3170-Postscript.ppd.gz	foomatic-20200219-Canon-imageRunner_C3170i-Postscript.ppd.gz	foomatic-20200219-Canon-imageRunner_C3200-Postscript.ppd.gz	foomatic-20200219-Canon-imageRunner_C5800-Postscript.ppd.gz	foomatic-20200219-Canon-imageRunner_C6800-Postscript.ppd.gz	foomatic-20200219-Genicom-microLaser_210-Postscript.ppd.gz	foomatic-20200219-NEC-SuperScript_4600N-Postscript.ppd.gz	foomatic-20200219-Oce-cm2510-Postscript.ppd.gz	foomatic-20200219-Oce-cm3521-Postscript.ppd.gz	foomatic-20200219-Oce-cm4010-Postscript.ppd.gz	foomatic-20200219-Oce-cm4520-Postscript.ppd.gz	foomatic-20200219-Oce-cm4521-Postscript.ppd.gz	foomatic-20200219-Oce-cm5520-Postscript.ppd.gz	foomatic-20200219-Oce-cm6520-Postscript.ppd.gz	foomatic-20200219-Oki-C5540_MFP-Postscript.ppd.gz	foomatic-20200219-Oki-C5550_MFP-Postscript.ppd.gz	foomatic-20200219-Oki-C5750-Postscript.ppd.gz	foomatic-20200219-Oki-C6050-Postscript.ppd.gz	foomatic-20200219-Oki-C6150-Postscript.ppd.gz	foomatic-20200219-Oki-C710-Postscript.ppd.gz	foomatic-20200219-Oki-C9800_MFP-Postscript.ppd.gz	foomatic-20200219-Panasonic-KX-P8420-Postscript.ppd.gz	foomatic-20200219-Panasonic-KX-P8475-Postscript.ppd.gz	foomatic-20200219-Tektronix-Phaser_780-Postscript.ppd.gz	foomatic-20200219-Tektronix-Phaser_850-Postscript.ppd.gz	foomatic-20200219-Toshiba-e-Studio_2500c-Postscript.ppd.gz	foomatic-20200219-Toshiba-e-Studio_281c-Postscript.ppd.gz	foomatic-20200219-Toshiba-e-Studio_3500c-Postscript.ppd.gz	foomatic-20200219-Toshiba-e-Studio_3510c-Postscript.ppd.gz	foomatic-20200219-Toshiba-e-Studio_3511-Postscript.ppd.gz	foomatic-20200219-Toshiba-e-Studio_351c-Postscript.ppd.gz	foomatic-20200219-Toshiba-e-Studio_4511-Postscript.ppd.gz	foomatic-20200219-Toshiba-e-Studio_451c-Postscript.ppd.gz	foomatic-20200219-Xante-FilmMaker_4-Postscript.ppd.gz	foomatic-20200219-Xerox-DocuColor_2006-Postscript.ppd.gz	foomatic-20200219-Xerox-Phaser_6120-Postscript.ppd.gz	foomatic-20200219-Xerox-Phaser_6130-Postscript.ppd.gz	foomatic-20200219-Xerox-Phaser_6180-Postscript.ppd.gz	foomatic-20200219-Xerox-Phaser_6360-Postscript.ppd.gz	foomatic-20200219-Xerox-Phaser_7400-Postscript.ppd.gz	foomatic-20200219-Xerox-Phaser_7760-Postscript.ppd.gz	foomatic-20200219-Xerox-Phaser_8560-Postscript.ppd.gz	foomatic-20200219-Xerox-Phaser_8860-Postscript.ppd.gz	foomatic-20200219-Xerox-WorkCentre_24-Postscript.ppd.gz	foomatic-20200219-Xerox-WorkCentre_7228-Postscript.ppd.gz	foomatic-20200219-Xerox-WorkCentre_7232-Postscript.ppd.gz	foomatic-20200219-Xerox-WorkCentre_C2424-Postscript.ppd.gz	foomatic-20200219-Xerox-WorkCentre_M24-Postscript.ppd.gz
-foomatic-20200219-Citizen-ProJet_IIc-cdj500.ppd.gz	foomatic-20200219-DEC-DECwriter_520ic-cdj500.ppd.gz	foomatic-20200219-Olivetti-JP470-cdj500.ppd.gz
+foomatic-20200219-Citizen-ProJet_IIc-cdj500.ppd.gz	foomatic-20200219-DEC-DECwriter_520ic-cdj500.ppd.gz	foomatic-20200219-HP-DeskJet_420C-cdj500.ppd.gz	foomatic-20200219-Olivetti-JP470-cdj500.ppd.gz
 foomatic-20200219-Compaq-IJ1200-drv_z42.ppd.gz	foomatic-20200219-Lexmark-X73-drv_z42.ppd.gz	foomatic-20200219-Lexmark-Z42-drv_z42.ppd.gz	foomatic-20200219-Lexmark-Z43-drv_z42.ppd.gz
 foomatic-20200219-Compaq-IJ750-lxm3200X.ppd.gz	foomatic-20200219-Lexmark-3200-lxm3200X.ppd.gz	foomatic-20200219-Lexmark-Z31-lxm3200X.ppd.gz
 foomatic-20200219-Compaq-IJ900-lxm5700m.ppd.gz	foomatic-20200219-Lexmark-5700-lxm5700m.ppd.gz	foomatic-20200219-Xerox-WorkCentre_470cx-lxm5700m.ppd.gz
@@ -524,6 +527,7 @@ foomatic-20200219-Generic-ESC_P_Dot_Matrix_Printer-lq850.ppd.gz
 foomatic-20200219-Generic-IBM-Compatible_Dot_Matrix_Printer-ibmpro.ppd.gz
 foomatic-20200219-Generic-PCL_3_Printer-pcl3.ppd.gz
 foomatic-20200219-Generic-PCL_6_PCL_XL_Printer-ljet4.ppd.gz
+foomatic-20200219-Generic-PCL_6_PCL_XL_Printer-pxlcolor.ppd.gz
 foomatic-20200219-Generic-PostScript_Printer-Postscript.ppd.gz
 foomatic-20200219-Gestetner-10512-pxlmono-Gestetner.ppd.gz	foomatic-20200219-Infotec-IS2105-pxlmono-Infotec.ppd.gz	foomatic-20200219-Lanier-LD0105-pxlmono-Lanier.ppd.gz	foomatic-20200219-NRG-10515_10518_10512-pxlmono-NRG.ppd.gz	foomatic-20200219-Ricoh-Aficio_2105-pxlmono-Ricoh.ppd.gz	foomatic-20200219-Savin-40105-pxlmono-Savin.ppd.gz
 foomatic-20200219-Gestetner-2212-pxlmono-Gestetner.ppd.gz	foomatic-20200219-Gestetner-2712-pxlmono-Gestetner.ppd.gz	foomatic-20200219-Gestetner-3212-pxlmono-Gestetner.ppd.gz	foomatic-20200219-Infotec-IS2022-pxlmono-Infotec.ppd.gz	foomatic-20200219-Infotec-IS2027-pxlmono-Infotec.ppd.gz	foomatic-20200219-Infotec-IS2032-pxlmono-Infotec.ppd.gz	foomatic-20200219-Lanier-5622-pxlmono-Lanier.ppd.gz	foomatic-20200219-Lanier-5627-pxlmono-Lanier.ppd.gz	foomatic-20200219-Lanier-5632-pxlmono-Lanier.ppd.gz	foomatic-20200219-NRG-2205_2238_2212-pxlmono-NRG.ppd.gz	foomatic-20200219-NRG-2705_2738_2712-pxlmono-NRG.ppd.gz	foomatic-20200219-NRG-3205_3238_3212-pxlmono-NRG.ppd.gz	foomatic-20200219-Ricoh-Aficio_1022-pxlmono-Ricoh.ppd.gz	foomatic-20200219-Ricoh-Aficio_1027-pxlmono-Ricoh.ppd.gz	foomatic-20200219-Ricoh-Aficio_1032-pxlmono-Ricoh.ppd.gz	foomatic-20200219-Savin-2522-pxlmono-Savin.ppd.gz	foomatic-20200219-Savin-2527-pxlmono-Savin.ppd.gz	foomatic-20200219-Savin-2532-pxlmono-Savin.ppd.gz
@@ -655,6 +659,40 @@ foomatic-20200219-Gestetner-SP_C320DN-PDF-Gestetner.ppd.gz	foomatic-20200219-Lan
 foomatic-20200219-Gestetner-SP_C420DN-PDF-Gestetner.ppd.gz	foomatic-20200219-Lanier-LP331cn_SP_C420-PDF-Lanier.ppd.gz	foomatic-20200219-NRG-SP_C420DN-PDF-NRG.ppd.gz	foomatic-20200219-Ricoh-Aficio_SP_C420DN-PDF-Ricoh.ppd.gz	foomatic-20200219-Savin-CLP131DN-PDF-Savin.ppd.gz
 foomatic-20200219-Gestetner-SP_C430DN-PDF-Gestetner.ppd.gz	foomatic-20200219-Gestetner-SP_C431DN-PDF-Gestetner.ppd.gz	foomatic-20200219-Lanier-LP137CN-PDF-Lanier.ppd.gz	foomatic-20200219-Lanier-LP142CN-PDF-Lanier.ppd.gz	foomatic-20200219-Lanier-SP_C430DN-PDF-Lanier.ppd.gz	foomatic-20200219-Lanier-SP_C431DN-PDF-Lanier.ppd.gz	foomatic-20200219-NRG-SP_C430DN-PDF-NRG.ppd.gz	foomatic-20200219-NRG-SP_C431DN-PDF-NRG.ppd.gz	foomatic-20200219-Ricoh-Aficio_SP_C430DN-PDF-Ricoh.ppd.gz	foomatic-20200219-Ricoh-Aficio_SP_C431DN-PDF-Ricoh.ppd.gz	foomatic-20200219-Savin-CLP37DN-PDF-Savin.ppd.gz	foomatic-20200219-Savin-CLP42DN-PDF-Savin.ppd.gz
 foomatic-20200219-Gestetner-SP_W2470-PDF-Gestetner.ppd.gz	foomatic-20200219-Lanier-LP124w-PDF-Lanier.ppd.gz	foomatic-20200219-NRG-SP_W2470-PDF-NRG.ppd.gz	foomatic-20200219-Ricoh-Aficio_SP_W2470-PDF-Ricoh.ppd.gz	foomatic-20200219-Savin-2404WDP-PDF-Savin.ppd.gz
+foomatic-20200219-HP-2563-lp2563.ppd.gz
+foomatic-20200219-HP-Business_Inkjet_9100-Postscript.ppd.gz	foomatic-20200219-Lexmark-C500n-Postscript.ppd.gz	foomatic-20200219-Lexmark-C530dn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C532dn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C532n-Postscript.ppd.gz	foomatic-20200219-Lexmark-C534dn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C534dtn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C534n-Postscript.ppd.gz	foomatic-20200219-Lexmark-C770dtn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C770n-Postscript.ppd.gz	foomatic-20200219-Lexmark-C772dn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C772n-Postscript.ppd.gz	foomatic-20200219-Lexmark-C780dn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C780dtn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C780n-Postscript.ppd.gz	foomatic-20200219-Lexmark-C782dn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C782dtn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C782n-Postscript.ppd.gz	foomatic-20200219-Lexmark-C920n-Postscript.ppd.gz	foomatic-20200219-Lexmark-C935dn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C935dtn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C935hdn-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_C710-Postscript.ppd.gz	foomatic-20200219-Lexmark-X560n-Postscript.ppd.gz
+foomatic-20200219-HP-DesignJet_100plus-cdnj500.ppd.gz	foomatic-20200219-HP-DesignJet_110-cdnj500.ppd.gz	foomatic-20200219-HP-DesignJet_120-cdnj500.ppd.gz	foomatic-20200219-HP-DesignJet_130-cdnj500.ppd.gz	foomatic-20200219-HP-DesignJet_30-cdnj500.ppd.gz	foomatic-20200219-HP-DesignJet_5000-cdnj500.ppd.gz	foomatic-20200219-HP-DesignJet_5500-cdnj500.ppd.gz	foomatic-20200219-HP-DesignJet_70-cdnj500.ppd.gz	foomatic-20200219-HP-DesignJet_90-cdnj500.ppd.gz
+foomatic-20200219-HP-DesignJet_1050C-Postscript-HP.ppd.gz
+foomatic-20200219-HP-DesignJet_1055CM-Postscript-HP.ppd.gz
+foomatic-20200219-HP-DesignJet_230-dnj650c.ppd.gz
+foomatic-20200219-HP-DesignJet_2500CP-Postscript-HP.ppd.gz
+foomatic-20200219-HP-DesignJet_3500CP-Postscript-HP.ppd.gz
+foomatic-20200219-HP-DesignJet_350C-dnj650c.ppd.gz	foomatic-20200219-HP-DesignJet_650C-dnj650c.ppd.gz
+foomatic-20200219-HP-DesignJet_500-dnj650c.ppd.gz	foomatic-20200219-HP-DesignJet_800-dnj650c.ppd.gz
+foomatic-20200219-HP-DesignJet_5000PS-Postscript-HP.ppd.gz
+foomatic-20200219-HP-DesignJet_500ps-dnj650c.ppd.gz
+foomatic-20200219-HP-DesignJet_5500ps-Postscript-HP.ppd.gz
+foomatic-20200219-HP-DesignJet_750-dnj750X.upp.ppd.gz	foomatic-20200219-HP-DesignJet_750C_Plus-dnj750X.upp.ppd.gz
+foomatic-20200219-HP-DesignJet_800PS-Postscript-HP.ppd.gz
+foomatic-20200219-HP-DesignJet_ColorPro_CAD-pcl3.ppd.gz	foomatic-20200219-NEC-SuperScript_650C-pcl3.ppd.gz	foomatic-20200219-NEC-SuperScript_750C-pcl3.ppd.gz	foomatic-20200219-Xerox-DocuPrint_C11-pcl3.ppd.gz
+foomatic-20200219-HP-DeskJet_1000C-pnm2ppa.ppd.gz
+foomatic-20200219-HP-DeskJet_200-pcl3.ppd.gz
+foomatic-20200219-HP-DeskJet_310-pcl3.ppd.gz
+foomatic-20200219-HP-DeskJet_320-pcl3.ppd.gz
+foomatic-20200219-HP-DeskJet_340C-pcl3.ppd.gz
+foomatic-20200219-HP-DeskJet_540C-pcl3.ppd.gz
+foomatic-20200219-HP-DeskJet_560C-pcl3.ppd.gz
+foomatic-20200219-HP-DeskJet_712C-pnm2ppa.ppd.gz
+foomatic-20200219-HP-DeskJet_722C-pnm2ppa.ppd.gz
+foomatic-20200219-HP-DeskJet_820C-pnm2ppa.ppd.gz
+foomatic-20200219-HP-DeskJet_Plus-pcl3.ppd.gz
+foomatic-20200219-HP-DeskJet_Portable-pcl3.ppd.gz
+foomatic-20200219-HP-LaserJet_3P_w_PCL5-ljet4.ppd.gz
+foomatic-20200219-HP-LaserJet_4P-ljet4.ppd.gz
+foomatic-20200219-HP-LaserJet_5-ljet4.ppd.gz	foomatic-20200219-HP-LaserJet_6-ljet4.ppd.gz
+foomatic-20200219-HP-LaserJet_5M-Postscript.ppd.gz
+foomatic-20200219-HP-OfficeJet_500-cdj550.ppd.gz	foomatic-20200219-Oki-Okijet_2500-cdj550.ppd.gz	foomatic-20200219-Xerox-DocuPrint_C6-cdj550.ppd.gz	foomatic-20200219-Xerox-DocuPrint_C8-cdj550.ppd.gz	foomatic-20200219-Xerox-DocuPrint_XJ6C-cdj550.ppd.gz	foomatic-20200219-Xerox-Document_Homecentre-cdj550.ppd.gz	foomatic-20200219-Xerox-WorkCentre_450cp-cdj550.ppd.gz
+foomatic-20200219-HP-PaintJet_XL300-pjxl300.ppd.gz
 foomatic-20200219-IBM-3853_JetPrinter-jetp3852.ppd.gz
 foomatic-20200219-IBM-4303_Network_Color_Printer-Postscript.ppd.gz	foomatic-20200219-Oki-Okipage_8c-Postscript.ppd.gz	foomatic-20200219-Xerox-DocuPrint_C20-Postscript.ppd.gz	foomatic-20200219-Xerox-DocuPrint_C55-Postscript.ppd.gz
 foomatic-20200219-Imagen-ImPress-imagen.ppd.gz
@@ -791,7 +829,6 @@ foomatic-20200219-Lanier-SP_C840DN-PDF-Lanier.ppd.gz	foomatic-20200219-Lanier-SP
 foomatic-20200219-Lexmark-1020_Business-pcl3.ppd.gz	foomatic-20200219-Lexmark-3000-pcl3.ppd.gz	foomatic-20200219-NEC-SuperScript_100C-pcl3.ppd.gz	foomatic-20200219-NEC-SuperScript_150C-pcl3.ppd.gz	foomatic-20200219-Samsung-SI-630A-pcl3.ppd.gz
 foomatic-20200219-Lexmark-4039_10plus-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_E310-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_E312-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_Ep-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_K_1220-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_M410-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_M412-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_W810-Postscript.ppd.gz
 foomatic-20200219-Lexmark-C2132-Postscript-Lexmark.ppd.gz
-foomatic-20200219-Lexmark-C500n-Postscript.ppd.gz	foomatic-20200219-Lexmark-C530dn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C532dn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C532n-Postscript.ppd.gz	foomatic-20200219-Lexmark-C534dn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C534dtn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C534n-Postscript.ppd.gz	foomatic-20200219-Lexmark-C770dtn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C770n-Postscript.ppd.gz	foomatic-20200219-Lexmark-C772dn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C772n-Postscript.ppd.gz	foomatic-20200219-Lexmark-C780dn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C780dtn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C780n-Postscript.ppd.gz	foomatic-20200219-Lexmark-C782dn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C782dtn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C782n-Postscript.ppd.gz	foomatic-20200219-Lexmark-C920n-Postscript.ppd.gz	foomatic-20200219-Lexmark-C935dn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C935dtn-Postscript.ppd.gz	foomatic-20200219-Lexmark-C935hdn-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_C710-Postscript.ppd.gz	foomatic-20200219-Lexmark-X560n-Postscript.ppd.gz
 foomatic-20200219-Lexmark-C510-Postscript-Lexmark.ppd.gz
 foomatic-20200219-Lexmark-C510b-Postscript.ppd.gz	foomatic-20200219-Lexmark-C752b-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_Rplus-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_S_1250-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_S_1855-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_Se_3455-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_T610-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_T612-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_T614-Postscript.ppd.gz	foomatic-20200219-Lexmark-Optra_T616-Postscript.ppd.gz	foomatic-20200219-Lexmark-T430-Postscript.ppd.gz	foomatic-20200219-Lexmark-T640-Postscript.ppd.gz	foomatic-20200219-Lexmark-T642-Postscript.ppd.gz	foomatic-20200219-Lexmark-T644-Postscript.ppd.gz	foomatic-20200219-Lexmark-W812-Postscript.ppd.gz	foomatic-20200219-Lexmark-W840-Postscript.ppd.gz
 foomatic-20200219-Lexmark-C520-Postscript-Lexmark.ppd.gz
@@ -839,7 +876,6 @@ foomatic-20200219-NEC-P2X-necp2xX.upp.ppd.gz
 foomatic-20200219-NEC-PICTY180-picty180.ppd.gz
 foomatic-20200219-NEC-PinWriter_P6-necp6.ppd.gz	foomatic-20200219-NEC-PinWriter_P60-necp6.ppd.gz	foomatic-20200219-NEC-PinWriter_P6_plus-necp6.ppd.gz	foomatic-20200219-NEC-PinWriter_P7-necp6.ppd.gz	foomatic-20200219-NEC-PinWriter_P70-necp6.ppd.gz	foomatic-20200219-NEC-PinWriter_P7_plus-necp6.ppd.gz
 foomatic-20200219-NEC-Pinwriter_P20-necp6.ppd.gz	foomatic-20200219-Star-LC24-100-necp6.ppd.gz
-foomatic-20200219-NEC-SuperScript_650C-pcl3.ppd.gz	foomatic-20200219-NEC-SuperScript_750C-pcl3.ppd.gz	foomatic-20200219-Xerox-DocuPrint_C11-pcl3.ppd.gz
 foomatic-20200219-NRG-SP_3500N-Postscript-NRG.ppd.gz	foomatic-20200219-NRG-SP_3500SF-Postscript-NRG.ppd.gz	foomatic-20200219-Ricoh-Aficio_SP_3500N-Postscript-Ricoh.ppd.gz	foomatic-20200219-Ricoh-Aficio_SP_3500SF-Postscript-Ricoh.ppd.gz
 foomatic-20200219-NRG-SP_3510DN-Postscript-NRG.ppd.gz	foomatic-20200219-NRG-SP_3510SF-Postscript-NRG.ppd.gz	foomatic-20200219-Ricoh-Aficio_SP_3510DN-Postscript-Ricoh.ppd.gz	foomatic-20200219-Ricoh-Aficio_SP_3510SF-Postscript-Ricoh.ppd.gz
 foomatic-20200219-NRG-SP_C242DN-Postscript-NRG.ppd.gz	foomatic-20200219-NRG-SP_C242SF-Postscript-NRG.ppd.gz	foomatic-20200219-Ricoh-Aficio_SP_C242DN-Postscript-Ricoh.ppd.gz	foomatic-20200219-Ricoh-Aficio_SP_C242SF-Postscript-Ricoh.ppd.gz
@@ -878,7 +914,6 @@ foomatic-20200219-Oki-ML_320-okiibm.ppd.gz	foomatic-20200219-Oki-ML_321-okiibm.p
 foomatic-20200219-Oki-Microline_182-oki182.ppd.gz	foomatic-20200219-Oki-Microline_192plus-oki182.ppd.gz
 foomatic-20200219-Oki-OL400w-oki4drv.ppd.gz	foomatic-20200219-Oki-Okipage_4w-oki4drv.ppd.gz	foomatic-20200219-Oki-Okipage_4wplus-oki4drv.ppd.gz	foomatic-20200219-Oki-Okipage_6w-oki4drv.ppd.gz	foomatic-20200219-Oki-Okipage_8w-oki4drv.ppd.gz	foomatic-20200219-Oki-Okipage_8w_Lite-oki4drv.ppd.gz	foomatic-20200219-Oki-Okipage_8z-oki4drv.ppd.gz
 foomatic-20200219-Oki-OL410e-ljet4.ppd.gz	foomatic-20200219-Oki-Super_6e-ljet4.ppd.gz	foomatic-20200219-Ricoh-Aficio_401-ljet4.ppd.gz
-foomatic-20200219-Oki-Okijet_2500-cdj550.ppd.gz	foomatic-20200219-Xerox-DocuPrint_C6-cdj550.ppd.gz	foomatic-20200219-Xerox-DocuPrint_C8-cdj550.ppd.gz	foomatic-20200219-Xerox-DocuPrint_XJ6C-cdj550.ppd.gz	foomatic-20200219-Xerox-Document_Homecentre-cdj550.ppd.gz	foomatic-20200219-Xerox-WorkCentre_450cp-cdj550.ppd.gz
 foomatic-20200219-Olivetti-JP350S-laserjet.ppd.gz
 foomatic-20200219-Olivetti-JP450-djet500.ppd.gz
 foomatic-20200219-Panasonic-KX-P1150-eps9high.ppd.gz
@@ -893,7 +928,6 @@ foomatic-20200219-Ricoh-GX_3050N-pxlcolor-Ricoh.ppd.gz
 foomatic-20200219-Ricoh-GX_3050SFN-pxlcolor-Ricoh.ppd.gz	foomatic-20200219-Ricoh-GX_5050N-pxlcolor-Ricoh.ppd.gz
 foomatic-20200219-Ricoh-GX_E3350N-pxlcolor-Ricoh.ppd.gz
 foomatic-20200219-Ricoh-GX_E5550N-pxlcolor-Ricoh.ppd.gz
-foomatic-20200219-Ricoh-SP_2300L-pcl5-Ricoh.ppd.gz	foomatic-20200219-Ricoh-SP_2300SFL-pcl5-Ricoh.ppd.gz
 foomatic-20200219-Ricoh-SP_330DN-Postscript-Ricoh.ppd.gz	foomatic-20200219-Ricoh-SP_3710DN-Postscript-Ricoh.ppd.gz
 foomatic-20200219-Ricoh-SP_330SFN-Postscript-Ricoh.ppd.gz	foomatic-20200219-Ricoh-SP_330SN-Postscript-Ricoh.ppd.gz	foomatic-20200219-Ricoh-SP_3710SF-Postscript-Ricoh.ppd.gz
 foomatic-20200219-Ricoh-SP_3700-Postscript-Ricoh.ppd.gz
@@ -1030,100 +1064,68 @@ foomatic-20200219-Toshiba-e-Studio_850-Postscript-Toshiba.ppd.gz
 foomatic-20200219-Xerox-DocuPrint_XJ8C-lxm5700m.ppd.gz
 foomatic-20200219-Xerox-Phaser_3160N-pxlcolor.ppd.gz
 fuji_xerox-20200402-fuji-xerox-20200402-fx-apeosportv-c3375.ppd.gz	fuji_xerox-20200402-fuji-xerox-20200402-fx-apeosportv-c4475.ppd.gz	fuji_xerox-20200402-fuji-xerox-20200402-fx-docucentreiv-c2263.ppd.gz	fuji_xerox-20200402-fuji-xerox-20200402-fx-docucentreiv-c2275.ppd.gz	fuji_xerox-20200402-fuji-xerox-20200402-fx-docucentreiv-c3370.ppd.gz	fuji_xerox-20200402-fuji-xerox-20200402-fx-docucentreiv-c3375.ppd.gz	fuji_xerox-20200402-fuji-xerox-20200402-fx-docucolor-1450-ga.ppd.gz	fuji_xerox-20200402-fuji-xerox-20200402-fx-docuprint-205.ppd.gz	fuji_xerox-20200402-fuji-xerox-20200402-fx-docuprint-c3050.ppd.gz	fuji_xerox-20200402-fuji-xerox-20200402-fx-docuprint-c3450-d.ppd.gz	fuji_xerox-20200402-fuji-xerox-20200402-fx-docuprint-c4000-d.ppd.gz
+fujifilm-20210604-DOCUPRINTM235DW.ppd.gz	fujifilm-20210604-DOCUPRINTM235Z.ppd.gz	fujifilm-20210604-DOCUPRINTM275Z.ppd.gz	fujifilm-20210604-DOCUPRINTP235D.ppd.gz	fujifilm-20210604-DOCUPRINTP275DW.ppd.gz
+fujifilm-20210604-DOCUPRINTM285Z.ppd.gz	fujifilm-20210604-DOCUPRINTP285DW.ppd.gz
+fujifilm-20210604-DOCUPRINTM375DF.ppd.gz	fujifilm-20210604-DOCUPRINTM375Z.ppd.gz	fujifilm-20210604-DOCUPRINTM385Z.ppd.gz	fujifilm-20210604-DOCUPRINTP360DW.ppd.gz	fujifilm-20210604-DOCUPRINTP375D.ppd.gz	fujifilm-20210604-DOCUPRINTP375DW.ppd.gz	fujifilm-20210604-MULTIWRITER5350.ppd.gz	konica_minolta-20210401-konica-minolta-20210401-bizhub4000i.ppd.gz	konica_minolta-20210401-konica-minolta-20210401-bizhub4020i.ppd.gz	konica_minolta-20210401-konica-minolta-20210401-bizhub5020i.ppd.gz
+fujifilm-20210604-DOCUPRINTP385DW.ppd.gz	konica_minolta-20210401-konica-minolta-20210401-bizhub5000i.ppd.gz
 hp-20171121-hplip-3.17.10-hp-color_laserjet-ps.ppd.gz
-hp-20171121-hplip-3.17.10-hp-deskjet_f4210_series.ppd.gz	hp-20171121-hplip-3.17.10-hp-deskjet_f4213_series.ppd.gz
 hp-20171121-hplip-3.17.10-hp-laserjet_4-ps.ppd.gz
-hp-20171121-hplip-3.17.10-hp-laserjet_4si-ps.ppd.gz
-hp-20171121-hplip-3.17.10-hp-laserjet_4v-ps.ppd.gz
-hp-20171121-hplip-3.17.10-hp-laserjet_6p-ps.ppd.gz
 hp-20171121-hplip-3.17.10-hp-laserjet_p1505n-pcl3.ppd.gz	hp-20171121-hplip-3.17.10-hp-laserjet_p2014-pcl3.ppd.gz	hp-20171121-hplip-3.17.10-hp-laserjet_p2014n-pcl3.ppd.gz
-hp-20171121-hplip-3.17.10-hp-laserjet_p2055_series-ps.ppd.gz
-hp-20171121-hplip-3.17.10-hp-laserjet_p4010_series-ps.ppd.gz
 hp-20190111-hplip-3.18.12-hp-PCL3-Class1B.ppd.gz
 hp-20190111-hplip-3.18.12-hp-designjet_z6200_42in_photo-ps.ppd.gz
 hp-20190111-hplip-3.18.12-hp-designjet_z6200_60in_photo-ps.ppd.gz
 hp-20190111-hplip-3.18.12-hp-designjet_z6810ps_42in-ps.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Ampere.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Ampere.ppd.gz
-hp-20190918-hplip-3.19.6-hp-CLE17.ppd.gz	hplip-20200303-hplip-3.19.12-hp-CLE17.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Copperhead.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Copperhead.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Copperhead12.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Copperhead12.ppd.gz
-hp-20190918-hplip-3.19.6-hp-CopperheadIPH.ppd.gz	hplip-20200303-hplip-3.19.12-hp-CopperheadIPH.ppd.gz
-hp-20190918-hplip-3.19.6-hp-CopperheadIPH15.ppd.gz	hplip-20200303-hplip-3.19.12-hp-CopperheadIPH15.ppd.gz
-hp-20190918-hplip-3.19.6-hp-CopperheadIPH17.ppd.gz	hplip-20200303-hplip-3.19.12-hp-CopperheadIPH17.ppd.gz
-hp-20190918-hplip-3.19.6-hp-CopperheadXLP.ppd.gz	hplip-20200303-hplip-3.19.12-hp-CopperheadXLP.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Corbett.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Corbett.ppd.gz
-hp-20190918-hplip-3.19.6-hp-DJ55xx.ppd.gz	hplip-20200303-hplip-3.19.12-hp-DJ55xx.ppd.gz
-hp-20190918-hplip-3.19.6-hp-DJ9xxVIP.ppd.gz	hplip-20200303-hplip-3.19.12-hp-DJ9xxVIP.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Gemstone.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Gemstone.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Kapan.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Kapan.ppd.gz
-hp-20190918-hplip-3.19.6-hp-LJ-Class1.ppd.gz	hplip-20200303-hplip-3.19.12-hp-LJ-Class1.ppd.gz
-hp-20190918-hplip-3.19.6-hp-LJ-Class2.ppd.gz	hplip-20200303-hplip-3.19.12-hp-LJ-Class2.ppd.gz
-hp-20190918-hplip-3.19.6-hp-LJ-Class3.ppd.gz	hplip-20200303-hplip-3.19.12-hp-LJ-Class3.ppd.gz
-hp-20190918-hplip-3.19.6-hp-LJ-Class6.ppd.gz	hplip-20200303-hplip-3.19.12-hp-LJ-Class6.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Mimas.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Mimas.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Mimas15.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Mimas15.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Mimas17.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Mimas17.ppd.gz
-hp-20190918-hplip-3.19.6-hp-MimasTDR.ppd.gz	hplip-20200303-hplip-3.19.12-hp-MimasTDR.ppd.gz
-hp-20190918-hplip-3.19.6-hp-OJ7000.ppd.gz	hplip-20200303-hplip-3.19.12-hp-OJ7000.ppd.gz
-hp-20190918-hplip-3.19.6-hp-OJProKx50.ppd.gz	hplip-20200303-hplip-3.19.12-hp-OJProKx50.ppd.gz
-hp-20190918-hplip-3.19.6-hp-P15_CISS.ppd.gz	hplip-20200303-hplip-3.19.12-hp-P15_CISS.ppd.gz
-hp-20190918-hplip-3.19.6-hp-PSP100.ppd.gz	hplip-20200303-hplip-3.19.12-hp-PSP100.ppd.gz
-hp-20190918-hplip-3.19.6-hp-PSP470.ppd.gz	hplip-20200303-hplip-3.19.12-hp-PSP470.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Pyramid.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Pyramid.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Pyramid15.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Pyramid15.ppd.gz
-hp-20190918-hplip-3.19.6-hp-PyramidPlus.ppd.gz	hplip-20200303-hplip-3.19.12-hp-PyramidPlus.ppd.gz
-hp-20190918-hplip-3.19.6-hp-PyramidRefresh15.ppd.gz	hplip-20200303-hplip-3.19.12-hp-PyramidRefresh15.ppd.gz
-hp-20190918-hplip-3.19.6-hp-PyramidRefresh17.ppd.gz	hplip-20200303-hplip-3.19.12-hp-PyramidRefresh17.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Python.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Python.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Python10.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Python10.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Python11.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Python11.ppd.gz
-hp-20190918-hplip-3.19.6-hp-SPDOfficejetProAsize.ppd.gz	hplip-20200303-hplip-3.19.12-hp-SPDOfficejetProAsize.ppd.gz
-hp-20190918-hplip-3.19.6-hp-SPDOfficejetProBsize.ppd.gz	hplip-20200303-hplip-3.19.12-hp-SPDOfficejetProBsize.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Saipan.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Saipan.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Saipan15B.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Saipan15B.ppd.gz
-hp-20190918-hplip-3.19.6-hp-Stabler.ppd.gz	hplip-20200303-hplip-3.19.12-hp-Stabler.ppd.gz
-hp-20190918-hplip-3.19.6-hp-StingrayOJ.ppd.gz	hplip-20200303-hplip-3.19.12-hp-StingrayOJ.ppd.gz
-hp-20190918-hplip-3.19.6-hp-ViperMinusVIP.ppd.gz	hplip-20200303-hplip-3.19.12-hp-ViperMinusVIP.ppd.gz
-hp-20190918-hplip-3.19.6-hp-ViperPlusVIP.ppd.gz	hplip-20200303-hplip-3.19.12-hp-ViperPlusVIP.ppd.gz
-hp-20190918-hplip-3.19.6-hp-cm8060_mfp_with_edgeline-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-cm8050_mfp_with_edgeline-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-cm8060_mfp_with_edgeline-ps.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Ampere.ppd.gz	hplip-20201209-hplip-3.20.11-hp-Ampere.ppd.gz
+hp-20190918-hplip-3.19.6-hp-CLE.ppd.gz
+hp-20190918-hplip-3.19.6-hp-CLE17.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Copperhead.ppd.gz	hplip-20201209-hplip-3.20.11-hp-Copperhead.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Copperhead12.ppd.gz	hplip-20201209-hplip-3.20.11-hp-Copperhead12.ppd.gz
+hp-20190918-hplip-3.19.6-hp-CopperheadIPH.ppd.gz	hplip-20201209-hplip-3.20.11-hp-CopperheadIPH.ppd.gz
+hp-20190918-hplip-3.19.6-hp-CopperheadIPH15.ppd.gz	hplip-20201209-hplip-3.20.11-hp-CopperheadIPH15.ppd.gz
+hp-20190918-hplip-3.19.6-hp-CopperheadIPH17.ppd.gz	hplip-20201209-hplip-3.20.11-hp-CopperheadIPH17.ppd.gz
+hp-20190918-hplip-3.19.6-hp-CopperheadXLP.ppd.gz	hplip-20201209-hplip-3.20.11-hp-CopperheadXLP.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Corbett.ppd.gz	hplip-20201209-hplip-3.20.11-hp-Corbett.ppd.gz
+hp-20190918-hplip-3.19.6-hp-DJ55xx.ppd.gz	hplip-20201209-hplip-3.20.11-hp-DJ55xx.ppd.gz
+hp-20190918-hplip-3.19.6-hp-DJ9xxVIP.ppd.gz	hplip-20201209-hplip-3.20.11-hp-DJ9xxVIP.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Gemstone.ppd.gz	hplip-20201209-hplip-3.20.11-hp-Gemstone.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Kapan.ppd.gz	hplip-20201209-hplip-3.20.11-hp-Kapan.ppd.gz
+hp-20190918-hplip-3.19.6-hp-LJ-Class1.ppd.gz	hplip-20201209-hplip-3.20.11-hp-LJ-Class1.ppd.gz
+hp-20190918-hplip-3.19.6-hp-LJ-Class2.ppd.gz	hplip-20201209-hplip-3.20.11-hp-LJ-Class2.ppd.gz
+hp-20190918-hplip-3.19.6-hp-LJ-Class3.ppd.gz	hplip-20201209-hplip-3.20.11-hp-LJ-Class3.ppd.gz
+hp-20190918-hplip-3.19.6-hp-LJ-Class6.ppd.gz	hplip-20201209-hplip-3.20.11-hp-LJ-Class6.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Mimas.ppd.gz	hplip-20201209-hplip-3.20.11-hp-Mimas.ppd.gz	hplip-20210520-hplip-3.21.4-hp-envy_6400_series.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Mimas15.ppd.gz	hplip-20201209-hplip-3.20.11-hp-Mimas15.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Mimas17.ppd.gz
+hp-20190918-hplip-3.19.6-hp-MimasTDR.ppd.gz	hplip-20201209-hplip-3.20.11-hp-MimasTDR.ppd.gz
+hp-20190918-hplip-3.19.6-hp-OJ7000.ppd.gz	hplip-20201209-hplip-3.20.11-hp-OJ7000.ppd.gz
+hp-20190918-hplip-3.19.6-hp-P15_CISS.ppd.gz
+hp-20190918-hplip-3.19.6-hp-PSP100.ppd.gz	hplip-20201209-hplip-3.20.11-hp-PSP100.ppd.gz
+hp-20190918-hplip-3.19.6-hp-PSP470.ppd.gz	hplip-20201209-hplip-3.20.11-hp-PSP470.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Pyramid.ppd.gz	hplip-20201209-hplip-3.20.11-hp-Pyramid.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Pyramid15.ppd.gz	hplip-20201209-hplip-3.20.11-hp-Pyramid15.ppd.gz
+hp-20190918-hplip-3.19.6-hp-PyramidPlus.ppd.gz	hplip-20201209-hplip-3.20.11-hp-PyramidPlus.ppd.gz
+hp-20190918-hplip-3.19.6-hp-PyramidRefresh15.ppd.gz	hplip-20201209-hplip-3.20.11-hp-PyramidRefresh15.ppd.gz
+hp-20190918-hplip-3.19.6-hp-PyramidRefresh17.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Python.ppd.gz	hplip-20201209-hplip-3.20.11-hp-Python.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Python10.ppd.gz	hplip-20201209-hplip-3.20.11-hp-Python10.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Python11.ppd.gz	hplip-20201209-hplip-3.20.11-hp-Python11.ppd.gz
+hp-20190918-hplip-3.19.6-hp-SPDOfficejetProAsize.ppd.gz	hplip-20201209-hplip-3.20.11-hp-SPDOfficejetProAsize.ppd.gz
+hp-20190918-hplip-3.19.6-hp-SPDOfficejetProBsize.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Saipan.ppd.gz	hplip-20201209-hplip-3.20.11-hp-Saipan.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Saipan15B.ppd.gz	hplip-20201209-hplip-3.20.11-hp-Saipan15B.ppd.gz
+hp-20190918-hplip-3.19.6-hp-Stabler.ppd.gz	hplip-20201209-hplip-3.20.11-hp-Stabler.ppd.gz
+hp-20190918-hplip-3.19.6-hp-StingrayOJ.ppd.gz	hplip-20201209-hplip-3.20.11-hp-StingrayOJ.ppd.gz
+hp-20190918-hplip-3.19.6-hp-ViperMinusVIP.ppd.gz	hplip-20201209-hplip-3.20.11-hp-ViperMinusVIP.ppd.gz
+hp-20190918-hplip-3.19.6-hp-ViperPlusVIP.ppd.gz	hplip-20201209-hplip-3.20.11-hp-ViperPlusVIP.ppd.gz
 hp-20190918-hplip-3.19.6-hp-color_designjet_xl_3600-ps.ppd.gz
-hp-20190918-hplip-3.19.6-hp-color_laserjet_pro_mfp_m277-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-color_laserjet_pro_mfp_m277-ps.ppd.gz
 hp-20190918-hplip-3.19.6-hp-designjet_t2600dr-ps.ppd.gz
-hp-20190918-hplip-3.19.6-hp-laserjet_200_color_m251-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-laserjet_200_color_m251-ps.ppd.gz
-hp-20190918-hplip-3.19.6-hp-laserjet_m1522_mfp-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-laserjet_m1522_mfp-ps.ppd.gz
-hp-20190918-hplip-3.19.6-hp-laserjet_m2727_mfp_series-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-laserjet_m2727_mfp_series-ps.ppd.gz
-hp-20190918-hplip-3.19.6-hp-postscript-inkjet.ppd.gz	hplip-20200303-hplip-3.19.12-hp-postscript-inkjet.ppd.gz
-hp-20190918-hplip-3.19.6-hp-postscript-laserjet-pro.ppd.gz	hplip-20200303-hplip-3.19.12-hp-postscript-laserjet-pro.ppd.gz
-hp-20190918-hplip-3.19.6-hp-postscript-laserjet.ppd.gz	hplip-20200303-hplip-3.19.12-hp-postscript-laserjet.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-DJGenericVIP.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-PCL3-Class3.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-PCL3-Class3A.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-PCL3-Class3B.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-PCL4-Class1.ppd.gz	hplip-20201028-hplip-3.19.12-hp-PCL4-Class1.ppd.gz
+hp-20190918-hplip-3.19.6-hp-postscript-inkjet.ppd.gz	hplip-20201209-hplip-3.20.11-hp-postscript-inkjet.ppd.gz
+hp-20190918-hplip-3.19.6-hp-postscript-laserjet-pro.ppd.gz
+hp-20190918-hplip-3.19.6-hp-postscript-laserjet.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-color_designjet_xl_3600-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-color_laserjet_2550_series-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-color_laserjet_2605-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-color_laserjet_2605dn-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-color_laserjet_2605dtn-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-color_laserjet_2700-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-color_laserjet_2700n-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-color_laserjet_2800-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-color_laserjet_2820-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-color_laserjet_2830-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-color_laserjet_2840-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-color_laserjet_cm1015-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-color_laserjet_cm1017-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-color_laserjet_e85055-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-color_laserjet_flowmfp_m776-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-color_laserjet_m856-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-color_laserjet_mfp_m776-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_4000ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-designjet_4020ps-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_4500mfp.ppd.gz	hplip-20200303-hplip-3.19.12-hp-designjet_4500ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-designjet_4520mfp-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-designjet_4520ps-ps.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-designjet_Z6_24in-ps.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-designjet_Z6_44in-ps.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-designjet_Z6dr_44in-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_Z9_24in-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_Z9_44in-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_Z9dr_44in-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_d5800-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_t1100ps_24in-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-designjet_t1120ps_24in-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_t1100ps_44in-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-designjet_t1120ps_44in-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_t1200_postscript-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_t1300_postscript-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_t1500-postscript.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-designjet_t1530-postscript.ppd.gz	hplip-20200303-hplip-3.19.12-hp-designjet_t2530-postscript.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-designjet_t1600_printer-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-designjet_t2600-ps.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-designjet_t1600dr-ps.ppd.gz
@@ -1131,50 +1133,109 @@ hplip-20200303-hplip-3.19.12-hp-designjet_t1700_postscript-ps.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-designjet_t1700dr_postscript-ps.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-designjet_t1708_postscript-ps.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-designjet_t1708dr_postscript-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_t2300_postscript-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_t2500-postscript.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-designjet_t2600dr-ps.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-designjet_t3500-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_t7100ps-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_t7100ps_monochrome-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_t7200-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_t770_postscript-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_t770ps_24in-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_t790ps_24in-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_t790ps_44in-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-designjet_t795ps_44in-ps.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-designjet_t920-postscript.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-designjet_t930-postscript.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_z2600_postscript-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_z5200_postscript-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_z5400-postscript.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_z5600_postscript-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_z6100ps_42in_photo-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_z6100ps_60in_photo-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_z6600-postscript.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_z6610ps_60in-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_z6800_photo-postscript.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-designjet_z6810ps_60in-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-deskjet_3420.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_3425.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_3450.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-deskjet_3700_series.ppd.gz	hp-20190918-hplip-3.19.6-hp-CLE.ppd.gz	hplip-20200303-hplip-3.19.12-hp-CLE.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-deskjet_950c.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-deskjet_d1600_series.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-deskjet_d2600_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_ink_advant_k109a-z.ppd.gz	hplip-20200303-hplip-3.19.12-hp-officejet_4000_k210.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-deskjet_d4100_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_d4200_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_d4300_series.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-deskjet_f300_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_f4100_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-officejet_5600_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-psc_1400_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-psc_1310_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-officejet_4200_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-officejet_j5500_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_3650.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_3840.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_d2400_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-officejet_5500_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-officejet_j3600_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-psc_1300_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_d2300_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-officejet_4255.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_3600.ppd.gz	hplip-20200303-hplip-3.19.12-hp-910.ppd.gz	hplip-20200303-hplip-3.19.12-hp-915.ppd.gz	hplip-20200303-hplip-3.19.12-hp-officejet_j3500_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-psc_1358_series.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-laserjet_100_color_mfp_m175-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-officejet_4300_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_f2200_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-psc_1200_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_f2100_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_d1400_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_3740.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_d1500_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_3500.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_3910.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_d1300_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_3320.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_3550.ppd.gz	hplip-20200303-hplip-3.19.12-hp-officejet_4100_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-psc_1100_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_3940.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_3325.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_3900.ppd.gz	hplip-20200303-hplip-3.19.12-hp-deskjet_3920.ppd.gz	hplip-20200303-hplip-3.19.12-hp-officejet_4105.ppd.gz	hplip-20200303-hplip-3.19.12-hp-officejet_4115_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-psc_1000_series.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-pagewide_p55250-ps.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-pagewide_xl_3900ps_mfp-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-pagewide_xl_4000ps-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-pagewide_xl_4000ps_mfp-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-pagewide_xl_4500ps-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-pagewide_xl_4500ps_mfp-ps.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-pagewide_xl_4100ps-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-pagewide_xl_4100ps_mfp-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-pagewide_xl_4600ps-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-pagewide_xl_4600ps_mfp-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-pagewide_xl_5000ps-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-pagewide_xl_5000ps_mfp-ps.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-pagewide_xl_5000ps_blueprinter-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-pagewide_xl_5100ps-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-pagewide_xl_6000ps_mfp-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-pagewide_xl_5100ps_mfp-ps.ppd.gz	hplip-20200303-hplip-3.19.12-hp-pagewide_xl_6000ps-ps.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-pagewide_xl_5100ps_mfp_blueprinter-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-pagewide_xl_8000ps-ps.ppd.gz
 hplip-20200303-hplip-3.19.12-hp-pagewide_xl_8000ps_blueprinter-ps.ppd.gz
-hplip-20200303-hplip-3.19.12-hp-photosmart_a530_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-photosmart_a630_series.ppd.gz	hplip-20200303-hplip-3.19.12-hp-photosmart_a640_series.ppd.gz
+hplip-20201209-hplip-3.20.11-apollo-2100.ppd.gz	hplip-20201209-hplip-3.20.11-apollo-2150.ppd.gz	hplip-20201209-hplip-3.20.11-apollo-p2000-u.ppd.gz
+hplip-20201209-hplip-3.20.11-apollo-2200.ppd.gz	hplip-20201209-hplip-3.20.11-apollo-p2250.ppd.gz
+hplip-20201209-hplip-3.20.11-apollo-2500.ppd.gz	hplip-20201209-hplip-3.20.11-apollo-2600.ppd.gz	hplip-20201209-hplip-3.20.11-apollo-2650.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-2000c.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-2500c.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-CLE17.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-Mimas17.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-P15_CISS.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-PyramidRefresh17.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-SPDOfficejetProBsize.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-business_inkjet_1200.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_pro_k5400.ppd.gz	hplip-20201209-hplip-3.20.11-hp-business_inkjet_1100.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_pro_k5300.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-cm8060_mfp_with_edgeline-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-color_laserjet_2550_series-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-color_laserjet_2605dtn-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-color_laserjet_2700n-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-color_laserjet_2840-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-color_laserjet_cm1017-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-color_laserjet_e85055-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-color_laserjet_flowmfp_m776-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-color_laserjet_m856-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-color_laserjet_mfp_m776-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-color_laserjet_pro_mfp_m277-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_4000ps.ppd.gz	hplip-20201209-hplip-3.20.11-hp-designjet_4020ps-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_4500mfp.ppd.gz	hplip-20201209-hplip-3.20.11-hp-designjet_4500ps.ppd.gz	hplip-20201209-hplip-3.20.11-hp-designjet_4520mfp-ps.ppd.gz	hplip-20201209-hplip-3.20.11-hp-designjet_4520ps-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_Z9_24in-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_Z9_44in-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_Z9dr_44in-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_d5800-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_t1100ps_24in-ps.ppd.gz	hplip-20201209-hplip-3.20.11-hp-designjet_t1120ps_24in-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_t1100ps_44in-ps.ppd.gz	hplip-20201209-hplip-3.20.11-hp-designjet_t1120ps_44in-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_t1200_postscript-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_t1300_postscript-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_t1500-postscript.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_t2300_postscript-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_t2500-postscript.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_t7100ps-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_t7100ps_monochrome-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_t7200-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_t770_postscript-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_t770ps_24in-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_t790ps_24in-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_t790ps_44in-ps.ppd.gz	hplip-20201209-hplip-3.20.11-hp-designjet_t795ps_44in-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_z2600_postscript-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_z5200_postscript-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_z5400-postscript.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_z5600_postscript-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_z6100ps_42in_photo-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_z6100ps_60in_photo-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_z6600-postscript.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_z6610ps_60in-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_z6800_photo-postscript.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-designjet_z6810ps_60in-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_1120.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_1125.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_1220c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_1280.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_9300.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_3420.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3425.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3450.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_350.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_400l.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_3700_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-CLE.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_400.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_500c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_540.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_550c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_series_310.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_series_320.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_500.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_505j.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_510.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_520.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_lx.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_series_350.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_600.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_640c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_692.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_695.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_612c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_648c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_693.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_697.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_series_700.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_series_710.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_series_720.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_series_725.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_656c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_630c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_632c.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_660.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_series_630.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_1100.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_670.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_670c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_670tv.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_672c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_680.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_682.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_series_520.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_series_570.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_series_580.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_series_590.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_series_610.ppd.gz	hplip-20201209-hplip-3.20.11-hp-printer_scanner_copier_300.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_825c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_845c.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_870c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_855c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_pro_1150c.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_9800.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_9600.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_k7100.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_d1600_series.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_d2600_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_ink_advant_k109a-z.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_4000_k210.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_d4100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_d4200_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_d4300_series.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_f300_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_f4100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_5600_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_1400_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_1310_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_4200_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_j5500_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3650.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3840.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_d2400_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_5500_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_j3600_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_d2300_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_4255.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3600.ppd.gz	hplip-20201209-hplip-3.20.11-hp-910.ppd.gz	hplip-20201209-hplip-3.20.11-hp-915.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_j3500_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_1358_series.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-deskjet_f4200_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_c4400_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_c4200_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_c3100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_c6200_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_j5700_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_c4100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_c4500_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_6300_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_6500.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_c5100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_c5200_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_2350_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_6200_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_j4500_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_2570_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_c6100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_1500_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_1600_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_5100.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_5400_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_6800.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_j6400_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_7700_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_c7100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_6980_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_7200_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_2600_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_3200_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_8000_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_5700.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_d2500_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_7800_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_8200_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_8400_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_c4340_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_d5100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_2400_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_6600.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_3300_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_7400_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_8100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_c4380_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_c7200_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_d7100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_d7200_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_d7300_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_5650.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_5900_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_6100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_7400_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_7200_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_7900_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_c5500_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_d5060_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_d5300_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_2500_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_6940_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_7300_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_2700_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_3100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_7550.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_d5400_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_d6100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_d7400_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_2210_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_5850.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_j4680_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_7600_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_2300_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-business_inkjet_1000.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_5552.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_5600.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_5652.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_5800.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_d730.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_f735.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_ink_advant_k209a-z.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_6150_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_j4660_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_7345.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_2200_series.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-laserjet_100_color_mfp_m175-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-laserjet_m1522_mfp-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-laserjet_m2727_mfp_series-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-officejet_4300_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_f2200_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_1200_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_f2100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_d1400_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3740.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_d1500_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3500.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3910.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_d1300_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3320.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3550.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_4100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_1100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3940.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3325.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3900.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3920.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_4105.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_4115_series.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-officejet_5100_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_920c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_940c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3820.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_970c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_975c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3816.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_930c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_955c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_v40.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_p1000.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_p1100.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3810.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3819.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3822.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_3870.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_916c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_932c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_933c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_934c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_935c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_948c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_950c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_952c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_957c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_959c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_g55.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_g55xi.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_g85.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_g85xi.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_g95.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_k60.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_k60xi.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_k80.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_k80xi.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_v30.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_v40xi.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_v45.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_720.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_750.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_750xi.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_760.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_780.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_780xi.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_900_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_920.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_950.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_950vr.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_950xi.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-officejet_pro_1170c_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_890c.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-officejet_pro_k8600.ppd.gz	hp-20190918-hplip-3.19.6-hp-OJProKx50.ppd.gz	hplip-20201209-hplip-3.20.11-hp-OJProKx50.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-officejet_t_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_895c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_843c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-psc_500.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_812c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_815c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_816c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_830c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_832c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_841c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_842c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_880c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-deskjet_882c.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_r40xi.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_r45.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_r60.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_r65.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_r80.ppd.gz	hplip-20201209-hplip-3.20.11-hp-officejet_r80xi.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-pagewide_p55250-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-pagewide_xl_4000ps-ps.ppd.gz	hplip-20201209-hplip-3.20.11-hp-pagewide_xl_4000ps_mfp-ps.ppd.gz	hplip-20201209-hplip-3.20.11-hp-pagewide_xl_4500ps-ps.ppd.gz	hplip-20201209-hplip-3.20.11-hp-pagewide_xl_4500ps_mfp-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-pagewide_xl_5000ps-ps.ppd.gz	hplip-20201209-hplip-3.20.11-hp-pagewide_xl_5000ps_mfp-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-pagewide_xl_5100ps-ps.ppd.gz	hplip-20201209-hplip-3.20.11-hp-pagewide_xl_6000ps_mfp-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-pagewide_xl_5100ps_mfp-ps.ppd.gz	hplip-20201209-hplip-3.20.11-hp-pagewide_xl_6000ps-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-pagewide_xl_8000ps-ps.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-photosmart_420_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_330_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_370_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_320_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_a430_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_a520_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_a310_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_380_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_a440_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_a510_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_a320_series.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-photosmart_8700_series.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-photosmart_a530_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_a630_series.ppd.gz	hplip-20201209-hplip-3.20.11-hp-photosmart_a640_series.ppd.gz
+hplip-20201209-hplip-3.20.11-hp-photosmart_c8100_series.ppd.gz
+hplip-20201217-hplip-3.20.11-hp-PCLM_COLOR.ppd.gz
+hplip-20201217-hplip-3.20.11-hp-PCLM_MONO.ppd.gz
+hplip-20210520-hplip-3.21.4-hp-PCLM-MONO.ppd.gz
+hplip-20210520-hplip-3.21.4-hp-postscript-laserjet-pro.ppd.gz
+hplip-20210520-hplip-3.21.4-hp-postscript-laserjet.ppd.gz
 konica_minolta-20200331-konica-minolta-20200331-konica-minolta-226i.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-246i.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-266i.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-306i.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-227.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-287.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-308.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-308e.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-367.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-368.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-368e.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-4052.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-458.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-458e.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-4752.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-558.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-558e.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-658e.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-758-jp-eu.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-808-us.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-958.ppd.gz
 konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-c226.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-c227.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-c258.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-c266.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-c287.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-c308.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-c3351.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-c368.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-c3851.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-c3851fs.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-c458.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-c558.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-c658.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-c659.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-bizhub-c759.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-c250i.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-c300i.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-c3300i.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-c3320i.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-c3350i.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-c360i.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-c4000i.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-c4050i.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-c450i.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-c550i.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-c650i.ppd.gz	konica_minolta-20200331-konica-minolta-20200331-konica-minolta-workplace-hub.ppd.gz
 kyocera-20180809-Kyocera_TASKalfa_3051ci.ppd.gz
@@ -1276,7 +1337,25 @@ kyocera-20200716-Kyocera_TASKalfa_4012iJ.ppd.gz
 kyocera-20200716-Kyocera_TASKalfa_5003iJ.ppd.gz	kyocera-20200716-Kyocera_TASKalfa_6003iJ.ppd.gz
 kyocera-20200716-Kyocera_TASKalfa_7003iJ.ppd.gz	kyocera-20200716-Kyocera_TASKalfa_9003iJ.ppd.gz
 kyocera-20200716-Kyocera_TASKalfa_7353ciJ.ppd.gz	kyocera-20200716-Kyocera_TASKalfa_8353ciJ.ppd.gz
-kyocera-20200716-TA_P-4531_MFP.ppd.gz	kyocera-20200716-TA_P-4531i_MFP.ppd.gz
+kyocera-20210301-TA_2507ci.ppd.gz	kyocera-20210301-TA_3207ci.ppd.gz	kyocera-20210301-TA_4007ci.ppd.gz	kyocera-20210301-TA_5007ci.ppd.gz	kyocera-20210301-TA_6007ci.ppd.gz	kyocera-20210309-TA_2507ci.ppd.gz	kyocera-20210309-TA_3207ci.ppd.gz	kyocera-20210309-TA_4007ci.ppd.gz	kyocera-20210309-TA_5007ci.ppd.gz	kyocera-20210309-TA_6007ci.ppd.gz
+kyocera-20210301-TA_302ci.ppd.gz	kyocera-20210301-TA_352ci.ppd.gz	kyocera-20210301-TA_402ci.ppd.gz	kyocera-20210301-TA_502ci.ppd.gz	kyocera-20210309-TA_302ci.ppd.gz	kyocera-20210309-TA_352ci.ppd.gz	kyocera-20210309-TA_402ci.ppd.gz	kyocera-20210309-TA_502ci.ppd.gz
+kyocera-20210301-TA_3262i.ppd.gz	kyocera-20210301-TA_4062i.ppd.gz	kyocera-20210309-TA_3262i.ppd.gz	kyocera-20210309-TA_4062i.ppd.gz
+kyocera-20210301-TA_357ci.ppd.gz	kyocera-20210301-TA_P-C3062DN.ppd.gz	kyocera-20210301-TA_P-C3062i_MFP.ppd.gz	kyocera-20210301-TA_P-C3066i_MFP.ppd.gz	kyocera-20210301-TA_P-C3562DN.ppd.gz	kyocera-20210301-TA_P-C3562i_MFP.ppd.gz	kyocera-20210301-TA_P-C3566i_MFP.ppd.gz	kyocera-20210301-TA_P-C4072DN.ppd.gz	kyocera-20210309-TA_357ci.ppd.gz	kyocera-20210309-TA_P-C3062DN.ppd.gz	kyocera-20210309-TA_P-C3062i_MFP.ppd.gz	kyocera-20210309-TA_P-C3066i_MFP.ppd.gz	kyocera-20210309-TA_P-C3562DN.ppd.gz	kyocera-20210309-TA_P-C3562i_MFP.ppd.gz	kyocera-20210309-TA_P-C3566i_MFP.ppd.gz	kyocera-20210309-TA_P-C4072DN.ppd.gz
+kyocera-20210301-TA_5057i.ppd.gz	kyocera-20210301-TA_6057i.ppd.gz	kyocera-20210301-TA_P-6040DN.ppd.gz	kyocera-20210309-TA_5057i.ppd.gz	kyocera-20210309-TA_6057i.ppd.gz	kyocera-20210309-TA_P-6040DN.ppd.gz
+kyocera-20210301-TA_7057i.ppd.gz	kyocera-20210301-TA_8057i.ppd.gz	kyocera-20210309-TA_7057i.ppd.gz	kyocera-20210309-TA_8057i.ppd.gz
+kyocera-20210301-TA_7307ci.ppd.gz	kyocera-20210301-TA_8307ci.ppd.gz	kyocera-20210309-TA_7307ci.ppd.gz	kyocera-20210309-TA_8307ci.ppd.gz
+kyocera-20210301-TA_P-2540i_MFP.ppd.gz	kyocera-20210309-TA_P-2540i_MFP.ppd.gz
+kyocera-20210301-TA_P-3521_MFP.ppd.gz	kyocera-20210301-TA_P-3522DW.ppd.gz	kyocera-20210301-TA_P-3527w_MFP.ppd.gz	kyocera-20210301-TA_P-4020DN.ppd.gz	kyocera-20210301-TA_P-4020DW.ppd.gz	kyocera-20210301-TA_P-4020_MFP.ppd.gz	kyocera-20210301-TA_P-4025w_MFP.ppd.gz	kyocera-20210301-TA_P-4026iw_MFP.ppd.gz	kyocera-20210309-TA_P-3521_MFP.ppd.gz	kyocera-20210309-TA_P-3522DW.ppd.gz	kyocera-20210309-TA_P-3527w_MFP.ppd.gz	kyocera-20210309-TA_P-4020DN.ppd.gz	kyocera-20210309-TA_P-4020DW.ppd.gz	kyocera-20210309-TA_P-4020_MFP.ppd.gz	kyocera-20210309-TA_P-4025w_MFP.ppd.gz	kyocera-20210309-TA_P-4026iw_MFP.ppd.gz
+kyocera-20210301-TA_P-4531_MFP.ppd.gz	kyocera-20210301-TA_P-4531i_MFP.ppd.gz	kyocera-20210301-TA_P-4536_MFP.ppd.gz	kyocera-20210301-TA_P-4536i_MFP.ppd.gz	kyocera-20210301-TA_P-5536i_MFP.ppd.gz	kyocera-20210301-TA_P-6038i_MFP.ppd.gz	kyocera-20210301-TA_P-6038if_MFP.ppd.gz	kyocera-20210309-TA_P-4531_MFP.ppd.gz	kyocera-20210309-TA_P-4531i_MFP.ppd.gz	kyocera-20210309-TA_P-4536_MFP.ppd.gz	kyocera-20210309-TA_P-4536i_MFP.ppd.gz	kyocera-20210309-TA_P-5536i_MFP.ppd.gz	kyocera-20210309-TA_P-6038i_MFP.ppd.gz	kyocera-20210309-TA_P-6038if_MFP.ppd.gz
+kyocera-20210301-TA_P-4532DN.ppd.gz	kyocera-20210301-TA_P-5032DN.ppd.gz	kyocera-20210301-TA_P-5532DN.ppd.gz	kyocera-20210301-TA_P-6033DN.ppd.gz	kyocera-20210309-TA_P-4532DN.ppd.gz	kyocera-20210309-TA_P-5032DN.ppd.gz	kyocera-20210309-TA_P-5532DN.ppd.gz	kyocera-20210309-TA_P-6033DN.ppd.gz
+kyocera-20210301-TA_P-C2155w_MFP.ppd.gz	kyocera-20210301-TA_P-C2650DW.ppd.gz	kyocera-20210301-TA_P-C2655w_MFP.ppd.gz	kyocera-20210309-TA_P-C2155w_MFP.ppd.gz	kyocera-20210309-TA_P-C2650DW.ppd.gz	kyocera-20210309-TA_P-C2655w_MFP.ppd.gz
+kyocera-20210301-TA_P-C2480i_MFP.ppd.gz	kyocera-20210309-TA_P-C2480i_MFP.ppd.gz
+kyocera-20210630-Kyocera_CS_4004i.ppd.gz	kyocera-20210630-Kyocera_CS_5004i.ppd.gz	kyocera-20210630-Kyocera_CS_6004i.ppd.gz	kyocera-20210630-Kyocera_CS_7004i.ppd.gz	kyocera-20210630-Kyocera_TASKalfa_4004i.ppd.gz	kyocera-20210630-Kyocera_TASKalfa_5004i.ppd.gz	kyocera-20210630-Kyocera_TASKalfa_6004i.ppd.gz	kyocera-20210630-Kyocera_TASKalfa_7004i.ppd.gz
+kyocera-20210630-Kyocera_CS_4054ci.ppd.gz	kyocera-20210630-Kyocera_CS_5054ci.ppd.gz	kyocera-20210630-Kyocera_CS_6054ci.ppd.gz	kyocera-20210630-Kyocera_CS_7054ci.ppd.gz	kyocera-20210630-Kyocera_TASKalfa_4054ci.ppd.gz	kyocera-20210630-Kyocera_TASKalfa_5054ci.ppd.gz	kyocera-20210630-Kyocera_TASKalfa_6054ci.ppd.gz	kyocera-20210630-Kyocera_TASKalfa_7054ci.ppd.gz
+kyocera-20210630-Kyocera_TASKalfa_2554ci_J.ppd.gz	kyocera-20210630-Kyocera_TASKalfa_3554ci_J.ppd.gz	kyocera-20210630-Kyocera_TASKalfa_4054ci_J.ppd.gz	kyocera-20210630-Kyocera_TASKalfa_5054ci_J.ppd.gz	kyocera-20210630-Kyocera_TASKalfa_6054ci_J.ppd.gz	kyocera-20210630-Kyocera_TASKalfa_7054ci_J.ppd.gz
+kyocera-20210630-Kyocera_TASKalfa_5004i_J.ppd.gz	kyocera-20210630-Kyocera_TASKalfa_6004i_J.ppd.gz	kyocera-20210630-Kyocera_TASKalfa_7004i_J.ppd.gz
+kyocera-20210630-TA_2508ci.ppd.gz	kyocera-20210630-TA_3508ci.ppd.gz	kyocera-20210630-TA_4008ci.ppd.gz	kyocera-20210630-TA_5008ci.ppd.gz	kyocera-20210630-TA_6008ci.ppd.gz	kyocera-20210630-TA_7008ci.ppd.gz
+kyocera-20210630-TA_5058i.ppd.gz	kyocera-20210630-TA_6058i.ppd.gz	kyocera-20210630-TA_7058i.ppd.gz
 lanier-20190916-Lanier-IM_550_PDF.ppd.gz	lanier-20190916-Lanier-IM_600_PDF.ppd.gz	nrg-20190916-NRG-IM_550_PDF.ppd.gz	nrg-20190916-NRG-IM_600_PDF.ppd.gz	ricoh-20190916-Ricoh-IM_550_PDF.ppd.gz	ricoh-20190916-Ricoh-IM_600_PDF.ppd.gz	savin-20190916-Savin-IM_550_PDF.ppd.gz	savin-20190916-Savin-IM_600_PDF.ppd.gz
 lanier-20190916-Lanier-IM_600SR_PDF.ppd.gz	nrg-20190916-NRG-IM_600SR_PDF.ppd.gz	ricoh-20190916-Ricoh-IM_600SR_PDF.ppd.gz	savin-20190916-Savin-IM_600SR_PDF.ppd.gz
 lanier-20190916-Lanier-P_800_PDF.ppd.gz	lanier-20190916-Lanier-P_801_PDF.ppd.gz	nrg-20190916-NRG-P_800_PDF.ppd.gz	nrg-20190916-NRG-P_801_PDF.ppd.gz	ricoh-20190916-Ricoh-P_800_PDF.ppd.gz	ricoh-20190916-Ricoh-P_801_PDF.ppd.gz	savin-20190916-Savin-P_800_PDF.ppd.gz	savin-20190916-Savin-P_801_PDF.ppd.gz
@@ -1349,7 +1428,6 @@ lexmark-20201101-Lexmark_XM3100_Series.ppd.gz
 lexmark-20201101-Lexmark_XM5100_Series.ppd.gz
 lexmark-20201101-Lexmark_XM7100_Series.ppd.gz
 oki-20200129-oki-c542-ps.ppd.gz	oki-20200329-OKI-C532-PS.ppd.gz	oki-20200329-OKI-MC563-PS.ppd.gz	oki-20200329-OKI-MC573-PS.ppd.gz
-oki-20200329-ES8434-PS.ppd.gz	oki-20200329-OKI-C834-PS.ppd.gz
 oki-20200329-OKB432_a.ppd.gz	oki-20200329-OKM492_a.ppd.gz
 oki-20200329-OKB512_a.ppd.gz	oki-20200329-OKM562_a.ppd.gz
 oki-20200329-OKB841_a110.ppd.gz
@@ -1358,11 +1436,12 @@ oki-20200329-OKI-C612-PS.ppd.gz
 oki-20200329-OKI-C712-PS.ppd.gz
 oki-20200329-OKI-C833-PS.ppd.gz
 oki-20200329-OKI-C843-PS.ppd.gz
-oki-20200329-OKI-C844-PS.ppd.gz
 oki-20201022-ES6450_PS.ppd.gz	oki-20201022-OKI_C650_PS.ppd.gz
-oki-20201022-OKI_MC843_PS.ppd.gz	oki-20201022-OKI_MC863_PS.ppd.gz
-oki-20201022-OKI_MC853_PS.ppd.gz	oki-20201022-OKI_MC873_PS.ppd.gz
-oki-20201022-OKI_MC883_PS.ppd.gz
+oki-20210628-ES8434_PS.ppd.gz	oki-20210628-OKI_C834_PS.ppd.gz
+oki-20210628-OKI_C844_PS.ppd.gz
+oki-20210628-OKI_MC843_PS.ppd.gz	oki-20210628-OKI_MC863_PS.ppd.gz
+oki-20210628-OKI_MC853_PS.ppd.gz	oki-20210628-OKI_MC873_PS.ppd.gz
+oki-20210628-OKI_MC883_PS.ppd.gz
 ricoh-20190916-Ricoh-IPSiO_SP_3400L_PXL.ppd.gz	ricoh-20190916-Ricoh-IPSiO_SP_3410SF_PXL.ppd.gz	ricoh-20190916-Ricoh-IPSiO_SP_3410_PXL.ppd.gz
 ricoh-20190916-Ricoh-IPSiO_SP_3510SF_PXL.ppd.gz	ricoh-20190916-Ricoh-IPSiO_SP_3510_PXL.ppd.gz
 ricoh-20190916-Ricoh-MP_C306Z_JPN_PDF.ppd.gz
@@ -1383,7 +1462,7 @@ ricoh-20200221-Ricoh-SP_C342M_JPN_PDF.ppd.gz
 ricoh-20200527-Gestetner-GS3021_PDF.ppd.gz	ricoh-20200527-Ricoh-M_C2001_PDF.ppd.gz
 ricoh-20200527-Infotec-Pro_C5300S_PDF.ppd.gz	ricoh-20200527-Infotec-Pro_C5310S_PDF.ppd.gz	ricoh-20200527-Lanier-Pro_C5300S_PDF.ppd.gz	ricoh-20200527-Lanier-Pro_C5310S_PDF.ppd.gz	ricoh-20200527-NRG-Pro_C5300S_PDF.ppd.gz	ricoh-20200527-NRG-Pro_C5310S_PDF.ppd.gz	ricoh-20200527-Ricoh-Pro_C5300S_PDF.ppd.gz	ricoh-20200527-Ricoh-Pro_C5310S_PDF.ppd.gz	ricoh-20200527-Savin-Pro_C5300S_PDF.ppd.gz	ricoh-20200527-Savin-Pro_C5310S_PDF.ppd.gz
 ricoh-20200527-Lanier-IM_C6500_PDF.ppd.gz	ricoh-20200527-Lanier-IM_C8000_PDF.ppd.gz	ricoh-20200527-NRG-IM_C6500_PDF.ppd.gz	ricoh-20200527-NRG-IM_C8000_PDF.ppd.gz	ricoh-20200527-Ricoh-IM_C6500_PDF.ppd.gz	ricoh-20200527-Ricoh-IM_C8000_PDF.ppd.gz	ricoh-20200527-Savin-IM_C6500_PDF.ppd.gz	ricoh-20200527-Savin-IM_C8000_PDF.ppd.gz
-ricoh-20200527-Ricoh-P_6000_JPN.ppd.gz	ricoh-20200527-Ricoh-P_6010M_JPN.ppd.gz	ricoh-20200527-Ricoh-P_6010_JPN.ppd.gz	ricoh-20200527-Ricoh-P_6020M_JPN.ppd.gz	ricoh-20200527-Ricoh-P_6020_JPN.ppd.gz	ricoh-20200527-Ricoh-P_6030M_JPN.ppd.gz	ricoh-20200527-Ricoh-P_6030_JPN.ppd.gz
+ricoh-20200527-Ricoh-P_6000_JPN.ppd.gz	ricoh-20200527-Ricoh-P_6010M_JPN.ppd.gz	ricoh-20200527-Ricoh-P_6010_JPN.ppd.gz	ricoh-20200527-Ricoh-P_6020M_JPN.ppd.gz	ricoh-20200527-Ricoh-P_6020_JPN.ppd.gz	ricoh-20200527-Ricoh-P_6030M_JPN.ppd.gz	ricoh-20200527-Ricoh-P_6030_JPN.ppd.gz	ricoh-20210222-Ricoh-IM_7000_JPN.ppd.gz	ricoh-20210222-Ricoh-IM_8000_JPN.ppd.gz	ricoh-20210222-Ricoh-IM_9000T_JPN.ppd.gz	ricoh-20210222-Ricoh-IM_9000_JPN.ppd.gz	ricoh-20210824-Ricoh-IM_2500_JPN.ppd.gz	ricoh-20210824-Ricoh-IM_3500_JPN.ppd.gz	ricoh-20210824-Ricoh-IM_4000_JPN.ppd.gz	ricoh-20210824-Ricoh-IM_5000_JPN.ppd.gz	ricoh-20210824-Ricoh-IM_6000_JPN.ppd.gz
 ricoh-20200821-Infotec-Pro_C5300SL_PDF.ppd.gz	ricoh-20200821-NRG-Pro_C5300SL_PDF.ppd.gz	ricoh-20200821-Ricoh-Pro_C5300SL_PDF.ppd.gz
 ricoh-20200821-Lanier-IM_C530FB_PDF.ppd.gz	ricoh-20200821-NRG-IM_C530FB_PDF.ppd.gz	ricoh-20200821-Ricoh-IM_C530FB_PDF.ppd.gz	ricoh-20200821-Savin-IM_C530FB_PDF.ppd.gz
 ricoh-20200821-Lanier-IM_C530F_PDF.ppd.gz	ricoh-20200821-NRG-IM_C530F_PDF.ppd.gz	ricoh-20200821-Ricoh-IM_C530F_PDF.ppd.gz	ricoh-20200821-Savin-IM_C530F_PDF.ppd.gz
@@ -1391,6 +1470,13 @@ ricoh-20200821-Ricoh-IM_C2509J_PDF.ppd.gz
 ricoh-20200821-Ricoh-IM_C3509J_PDF.ppd.gz
 ricoh-20200821-Ricoh-IM_C6500_JPN.ppd.gz	ricoh-20200821-Ricoh-IM_C8000_JPN.ppd.gz	ricoh-20200821-Ricoh-Pro_C5300S_JPN.ppd.gz	ricoh-20200821-Ricoh-Pro_C5310S_JPN.ppd.gz
 ricoh-20200930-Ricoh_Generic_PS_Printer.ppd.gz
+ricoh-20210222-Gestetner-G3020c_PXL.ppd.gz
+ricoh-20210222-Lanier-IM_7000_PDF.ppd.gz	ricoh-20210222-Lanier-IM_8000_PDF.ppd.gz	ricoh-20210222-Lanier-IM_9000_PDF.ppd.gz	ricoh-20210222-NRG-IM_7000_PDF.ppd.gz	ricoh-20210222-NRG-IM_8000_PDF.ppd.gz	ricoh-20210222-NRG-IM_9000_PDF.ppd.gz	ricoh-20210222-Ricoh-IM_7000_PDF.ppd.gz	ricoh-20210222-Ricoh-IM_8000_PDF.ppd.gz	ricoh-20210222-Ricoh-IM_9000_PDF.ppd.gz	ricoh-20210222-Savin-IM_7000_PDF.ppd.gz	ricoh-20210222-Savin-IM_8000_PDF.ppd.gz	ricoh-20210222-Savin-IM_9000_PDF.ppd.gz
+ricoh-20210601-Gestetner-GS3025m_PDF.ppd.gz	ricoh-20210601-Gestetner-GS3030m_PDF.ppd.gz	ricoh-20210601-Gestetner-GS3035m_PDF.ppd.gz	ricoh-20210601-Gestetner-IM_2500_PDF.ppd.gz	ricoh-20210601-Gestetner-IM_3000_PDF.ppd.gz	ricoh-20210601-Gestetner-IM_3500_PDF.ppd.gz	ricoh-20210601-Lanier-IM_2500_PDF.ppd.gz	ricoh-20210601-Lanier-IM_3000_PDF.ppd.gz	ricoh-20210601-Lanier-IM_3500_PDF.ppd.gz	ricoh-20210601-NRG-IM_2500_PDF.ppd.gz	ricoh-20210601-NRG-IM_3000_PDF.ppd.gz	ricoh-20210601-NRG-IM_3500_PDF.ppd.gz	ricoh-20210601-Ricoh-IM_2500_PDF.ppd.gz	ricoh-20210601-Ricoh-IM_2509J_PDF.ppd.gz	ricoh-20210601-Ricoh-IM_3000_PDF.ppd.gz	ricoh-20210601-Ricoh-IM_3009J_PDF.ppd.gz	ricoh-20210601-Ricoh-IM_3500_PDF.ppd.gz	ricoh-20210601-Ricoh-IM_3509J_PDF.ppd.gz	ricoh-20210601-Savin-IM_2500_PDF.ppd.gz	ricoh-20210601-Savin-IM_3000_PDF.ppd.gz	ricoh-20210601-Savin-IM_3500_PDF.ppd.gz
+ricoh-20210601-Gestetner-GS3040m_PDF.ppd.gz	ricoh-20210601-Gestetner-GS3050m_PDF.ppd.gz	ricoh-20210601-Gestetner-IM_4000_PDF.ppd.gz	ricoh-20210601-Gestetner-IM_5000_PDF.ppd.gz	ricoh-20210601-Lanier-IM_4000_PDF.ppd.gz	ricoh-20210601-Lanier-IM_5000_PDF.ppd.gz	ricoh-20210601-NRG-IM_4000_PDF.ppd.gz	ricoh-20210601-NRG-IM_5000_PDF.ppd.gz	ricoh-20210601-Ricoh-IM_4000_PDF.ppd.gz	ricoh-20210601-Ricoh-IM_5000_PDF.ppd.gz	ricoh-20210601-Savin-IM_4000_PDF.ppd.gz	ricoh-20210601-Savin-IM_5000_PDF.ppd.gz
+ricoh-20210601-Gestetner-GS3060m_PDF.ppd.gz	ricoh-20210601-Gestetner-IM_6000_PDF.ppd.gz	ricoh-20210601-Lanier-IM_6000_PDF.ppd.gz	ricoh-20210601-NRG-IM_6000_PDF.ppd.gz	ricoh-20210601-Ricoh-IM_6000_PDF.ppd.gz	ricoh-20210601-Savin-IM_6000_PDF.ppd.gz
+ricoh-20210601-Ricoh-M_C2000_PXL.ppd.gz
+ricoh-20210601-Ricoh-SP_2300L_PXL.ppd.gz	ricoh-20210601-Ricoh-SP_2300SFL_PXL.ppd.gz
 sharp-20180409-Sharp-AR-M452U-ps.ppd.gz	sharp-20180409-Sharp-MX-M282N-ps.ppd.gz	sharp-20180409-Sharp-MX-M362N-ps.ppd.gz	sharp-20180409-Sharp-MX-M363U-ps.ppd.gz	sharp-20180409-Sharp-MX-M452N-ps.ppd.gz	sharp-20180409-Sharp-MX-M453U-ps.ppd.gz	sharp-20180409-Sharp-MX-M502N-ps.ppd.gz	sharp-20180409-Sharp-MX-M503U-ps.ppd.gz
 sharp-20180409-Sharp-MX-2640NR-ps.ppd.gz	sharp-20180409-Sharp-MX-3140NR-ps.ppd.gz	sharp-20180409-Sharp-MX-3640NR-ps.ppd.gz	sharp-20191219-Sharp-MX-2640N-ps.ppd.gz	sharp-20191219-Sharp-MX-3140N-ps.ppd.gz	sharp-20191219-Sharp-MX-3640N-ps.ppd.gz
 sharp-20180409-Sharp-MX-M283N-ps.ppd.gz	sharp-20180409-Sharp-MX-M363N-ps.ppd.gz	sharp-20180409-Sharp-MX-M453N-ps.ppd.gz	sharp-20180409-Sharp-MX-M503N-ps.ppd.gz
@@ -1470,6 +1556,21 @@ sharp-20191230-Sharp-MX-M3071-ps.ppd.gz	sharp-20191230-Sharp-MX-M3571-ps.ppd.gz	
 sharp-20191230-Sharp-MX-M3531-ps-jp.ppd.gz
 sharp-20191230-Sharp-MX-M6570-ps.ppd.gz	sharp-20191230-Sharp-MX-M7570-ps.ppd.gz
 sharp-20191230-Sharp-MX-M905-ps.ppd.gz
+sharp-20210601-SHARP_MX-B467F.ppd.gz
+sharp-20210601-SHARP_MX-B467P.ppd.gz
+sharp-20210601-SHARP_MX-B557F.ppd.gz	sharp-20210601-SHARP_MX-B707F.ppd.gz
+sharp-20210601-SHARP_MX-B557P.ppd.gz	sharp-20210601-SHARP_MX-B707P.ppd.gz
+sharp-20210601-SHARP_MX-C357F.ppd.gz
+sharp-20210601-SHARP_MX-C407F.ppd.gz	sharp-20210601-SHARP_MX-C507F.ppd.gz
+sharp-20210601-SHARP_MX-C407P.ppd.gz
+sharp-20210601-SHARP_MX-C507P.ppd.gz
+sharp-20210601-SHARP_MX-C557F.ppd.gz	sharp-20210601-SHARP_MX-C607F.ppd.gz
+sharp-20210601-SHARP_MX-C607P.ppd.gz
+sharp-20210601-Sharp-BP-20M22-ps.ppd.gz	sharp-20210601-Sharp-BP-20M24-ps.ppd.gz
+sharp-20210601-Sharp-BP-20M28-ps.ppd.gz	sharp-20210601-Sharp-BP-20M31-ps.ppd.gz	sharp-20210601-Sharp-BP-21M22-ps.ppd.gz
+sharp-20210601-Sharp-BP-30C25-ps.ppd.gz
+sharp-20210601-Sharp-BP-30M28-ps.ppd.gz	sharp-20210601-Sharp-BP-30M31-ps.ppd.gz	sharp-20210601-Sharp-BP-30M35-ps.ppd.gz
+sharp-20210601-Sharp-MX-7081-ps.ppd.gz	sharp-20210601-Sharp-MX-8081-ps.ppd.gz
 star-20171009-starcupsdrv-3.6.0-hsp7000r.ppd.gz
 star-20171009-starcupsdrv-3.6.0-hsp7000s.ppd.gz
 star-20171009-starcupsdrv-3.6.0-hsp7000v.ppd.gz
@@ -1535,3 +1636,8 @@ xerox-20191030-xrxb615.ppd.gz
 xerox-20200129-xrxC9065.ppd.gz	xerox-20200129-xrxC9070.ppd.gz
 xerox-20200226-xrxB9100.ppd.gz	xerox-20200226-xrxB9110.ppd.gz	xerox-20200226-xrxB9125.ppd.gz	xerox-20200226-xrxB9136.ppd.gz
 xerox-20201014-xrxC8000W.ppd.gz
+xerox-20210715-xrxB225.ppd.gz	xerox-20210715-xrxB230.ppd.gz	xerox-20210715-xrxB235.ppd.gz
+xerox-20210715-xrxB310.ppd.gz
+xerox-20210715-xrxC230.ppd.gz	xerox-20210715-xrxC235.ppd.gz
+xerox-20210715-xrxEC8036.ppd.gz	xerox-20210715-xrxEC8056.ppd.gz
+zebra-20210504-SP-005645A.ppd.gz

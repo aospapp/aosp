@@ -56,7 +56,8 @@ public class AlarmAtomTests {
                 onReceiveLatch.countDown();
             }
         };
-        sContext.registerReceiver(receiver, new IntentFilter(action));
+        sContext.registerReceiver(receiver, new IntentFilter(action),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         try {
             mAlarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
                     SystemClock.elapsedRealtime() + 5_000, pi);

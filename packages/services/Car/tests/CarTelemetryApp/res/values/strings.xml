@@ -23,6 +23,8 @@
     <string name="log_hint" translatable="false">Logs displayed here.</string>
     <string name="clear_button" translatable="false">CLEAR</string>
     <string name="history_button" translatable="false">HISTORY</string>
+    <string name="add_button" translatable="false">ADD</string>
+    <string name="remove_button" translatable="false">REMOVE</string>
     <string name="results" translatable="false">Results:</string>
     <string name="errors" translatable="false">Errors:</string>
     <string name="showing_history" translatable="false">Showing History For:</string>

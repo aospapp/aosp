@@ -16,6 +16,10 @@
 
 package libcore.java.util;
 
+import static org.junit.Assert.assertThrows;
+
+import org.junit.Assert;
+
 import java.util.DoubleSummaryStatistics;
 
 public class DoubleSummaryStatisticsTest extends junit.framework.TestCase {
@@ -88,6 +92,44 @@ public class DoubleSummaryStatisticsTest extends junit.framework.TestCase {
 
         dss1.accept(Double.NaN);
         assertEquals(Double.NaN, dss1.getAverage());
+    }
+
+    public void test_constructorLongDoubleDoubleDouble_throws_IAE_onInvalidArgumentsCombination() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new DoubleSummaryStatistics(-1, 0, 0, 0));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new DoubleSummaryStatistics(1, Double.NaN, 0, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> new DoubleSummaryStatistics(1, 0, Double.NaN, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> new DoubleSummaryStatistics(1, 0, 0, Double.NaN));
+        assertThrows(IllegalArgumentException.class,
+                () -> new DoubleSummaryStatistics(1, Double.NaN, Double.NaN, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> new DoubleSummaryStatistics(1, Double.NaN, 0, Double.NaN));
+        assertThrows(IllegalArgumentException.class,
+                () -> new DoubleSummaryStatistics(1, 0, Double.NaN, Double.NaN));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new DoubleSummaryStatistics(1, /* min= */ 2, /* max= */ 1, 0));
+    }
+
+    public void test_constructorLongDoubleDoubleDouble_takesArgumentsIntoAccountWhenCountIsNonZero() {
+        var dss = new DoubleSummaryStatistics(2, 10, 20, 30);
+        assertEquals(2, dss.getCount());
+        assertEquals(10d, dss.getMin());
+        assertEquals(20d, dss.getMax());
+        assertEquals(30d, dss.getSum());
+    }
+
+    public void test_constructorLongDoubleDoubleDouble_ignoresMinMaxSum_whenCountIsZero() {
+        var dss = new DoubleSummaryStatistics(0, 10, 20, 30);
+
+        assertEquals(0, dss.getCount());
+        assertEquals(Double.POSITIVE_INFINITY, dss.getMin());
+        assertEquals(Double.NEGATIVE_INFINITY, dss.getMax());
+        assertEquals(0d, dss.getSum());
     }
 
     private static DoubleSummaryStatistics getDoubleSummaryStatisticsData1() {

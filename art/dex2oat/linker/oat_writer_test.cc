@@ -24,7 +24,6 @@
 #include "base/unix_file/fd_file.h"
 #include "class_linker.h"
 #include "common_compiler_driver_test.h"
-#include "compiled_method-inl.h"
 #include "compiler.h"
 #include "debug/method_debug_info.h"
 #include "dex/class_accessor-inl.h"
@@ -32,6 +31,7 @@
 #include "dex/quick_compiler_callbacks.h"
 #include "dex/test_dex_file_builder.h"
 #include "dex/verification_results.h"
+#include "driver/compiled_method-inl.h"
 #include "driver/compiler_driver.h"
 #include "driver/compiler_options.h"
 #include "entrypoints/quick/quick_entrypoints.h"
@@ -107,6 +107,7 @@ class OatTest : public CommonCompilerDriverTest {
     TimingLogger timings("WriteElf", false, false);
     ClearBootImageOption();
     OatWriter oat_writer(*compiler_options_,
+                         verification_results_.get(),
                          &timings,
                          /*profile_compilation_info*/nullptr,
                          CompactDexLevel::kCompactDexLevelNone);
@@ -134,6 +135,7 @@ class OatTest : public CommonCompilerDriverTest {
     TimingLogger timings("WriteElf", false, false);
     ClearBootImageOption();
     OatWriter oat_writer(*compiler_options_,
+                         verification_results_.get(),
                          &timings,
                          profile_compilation_info,
                          CompactDexLevel::kCompactDexLevelNone);
@@ -156,6 +158,7 @@ class OatTest : public CommonCompilerDriverTest {
     TimingLogger timings("WriteElf", false, false);
     ClearBootImageOption();
     OatWriter oat_writer(*compiler_options_,
+                         verification_results_.get(),
                          &timings,
                          profile_compilation_info,
                          CompactDexLevel::kCompactDexLevelNone);
@@ -181,7 +184,7 @@ class OatTest : public CommonCompilerDriverTest {
     if (!oat_writer.WriteAndOpenDexFiles(
         vdex_file,
         verify,
-        /*update_input_vdex=*/ false,
+        /*use_existing_vdex=*/ false,
         copy,
         &opened_dex_files_maps,
         &opened_dex_files)) {
@@ -505,7 +508,7 @@ TEST_F(OatTest, OatHeaderSizeCheck) {
   EXPECT_EQ(68U, sizeof(OatHeader));
   EXPECT_EQ(4U, sizeof(OatMethodOffsets));
   EXPECT_EQ(4U, sizeof(OatQuickMethodHeader));
-  EXPECT_EQ(167 * static_cast<size_t>(GetInstructionSetPointerSize(kRuntimeISA)),
+  EXPECT_EQ(170 * static_cast<size_t>(GetInstructionSetPointerSize(kRuntimeISA)),
             sizeof(QuickEntryPoints));
 }
 

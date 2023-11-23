@@ -21,6 +21,8 @@ import android.util.ArraySet;
 import android.util.Log;
 import android.util.Pair;
 
+import com.android.internal.annotations.GuardedBy;
+
 import java.io.IOException;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -37,6 +39,7 @@ final class AoapInterface {
 
     /** Set of all accessory mode product IDs */
     private static final ArraySet<Integer> USB_ACCESSORY_MODE_PRODUCT_ID = new ArraySet<>(4);
+
     static {
         USB_ACCESSORY_MODE_PRODUCT_ID.add(0x2D00);
         USB_ACCESSORY_MODE_PRODUCT_ID.add(0x2D01);
@@ -57,11 +60,11 @@ final class AoapInterface {
     /**
      * Control request for retrieving device's protocol version
      *
-     *  requestType:    USB_DIR_IN | USB_TYPE_VENDOR
-     *  request:        ACCESSORY_GET_PROTOCOL
-     *  value:          0
-     *  index:          0
-     *  data            version number (16 bits little endian)
+     * requestType:    USB_DIR_IN | USB_TYPE_VENDOR
+     * request:        ACCESSORY_GET_PROTOCOL
+     * value:          0
+     * index:          0
+     * data            version number (16 bits little endian)
      *                     1 for original accessory support
      *                     2 adds HID and device to host audio support
      */
@@ -70,14 +73,14 @@ final class AoapInterface {
     /**
      * Control request for host to send a string to the device
      *
-     *  requestType:    USB_DIR_OUT | USB_TYPE_VENDOR
-     *  request:        ACCESSORY_SEND_STRING
-     *  value:          0
-     *  index:          string ID
-     *  data            zero terminated UTF8 string
+     * requestType:    USB_DIR_OUT | USB_TYPE_VENDOR
+     * request:        ACCESSORY_SEND_STRING
+     * value:          0
+     * index:          string ID
+     * data            zero terminated UTF8 string
      *
-     *  The device can later retrieve these strings via the
-     *  ACCESSORY_GET_STRING_* ioctls
+     * The device can later retrieve these strings via the
+     * ACCESSORY_GET_STRING_* ioctls
      */
     public static final int ACCESSORY_SEND_STRING = 52;
 
@@ -85,11 +88,11 @@ final class AoapInterface {
      * Control request for starting device in accessory mode.
      * The host sends this after setting all its strings to the device.
      *
-     *  requestType:    USB_DIR_OUT | USB_TYPE_VENDOR
-     *  request:        ACCESSORY_START
-     *  value:          0
-     *  index:          0
-     *  data            none
+     * requestType:    USB_DIR_OUT | USB_TYPE_VENDOR
+     * request:        ACCESSORY_START
+     * value:          0
+     * index:          0
+     * data            none
      */
     public static final int ACCESSORY_START = 53;
 
@@ -103,16 +106,19 @@ final class AoapInterface {
      */
     public static final int AOAP_TIMEOUT_MS = 50;
 
+    private static final Object sLock = new Object();
+
     /**
      * Set of VID:PID pairs denylisted through config_AoapIncompatibleDeviceIds. Only
      * isDeviceDenylisted() should ever access this variable.
      */
+    @GuardedBy("sLock")
     private static Set<Pair<Integer, Integer>> sDenylistedVidPidPairs;
 
     private static final String TAG = AoapInterface.class.getSimpleName();
 
     @Retention(RetentionPolicy.SOURCE)
-    @Target({ ElementType.FIELD, ElementType.PARAMETER })
+    @Target({ElementType.FIELD, ElementType.PARAMETER})
     public @interface Direction {}
 
     @Direction
@@ -150,7 +156,7 @@ final class AoapInterface {
         if (len != buffer.length) {
             Log.w(TAG, "sendString for " + index + ":" + string + " failed. Retrying...");
             len = transfer(conn, WRITE, ACCESSORY_SEND_STRING, index, buffer,
-                buffer.length);
+                    buffer.length);
             if (len != buffer.length) {
                 throw new IOException("Failed to send string " + index + ": \"" + string + "\"");
             }
@@ -166,31 +172,35 @@ final class AoapInterface {
         }
     }
 
-    public static synchronized boolean isDeviceDenylisted(Context context, UsbDevice device) {
-        if (sDenylistedVidPidPairs == null) {
-            sDenylistedVidPidPairs = new HashSet<>();
-            String[] idPairs =
-                context.getResources().getStringArray(R.array.config_AoapIncompatibleDeviceIds);
-            for (String idPair : idPairs) {
-                boolean success = false;
-                String[] tokens = idPair.split(":");
-                if (tokens.length == 2) {
-                    try {
-                        sDenylistedVidPidPairs.add(Pair.create(Integer.parseInt(tokens[0], 16),
-                                                                Integer.parseInt(tokens[1], 16)));
-                        success = true;
-                    } catch (NumberFormatException e) {
+    public static boolean isDeviceDenylisted(Context context, UsbDevice device) {
+        synchronized (sLock) {
+            if (sDenylistedVidPidPairs == null) {
+                sDenylistedVidPidPairs = new HashSet<>();
+                String[] idPairs =
+                        context.getResources().getStringArray(
+                                R.array.config_AoapIncompatibleDeviceIds);
+                for (String idPair : idPairs) {
+                    boolean success = false;
+                    String[] tokens = idPair.split(":");
+                    if (tokens.length == 2) {
+                        try {
+                            sDenylistedVidPidPairs.add(Pair.create(Integer.parseInt(tokens[0], 16),
+                                    Integer.parseInt(tokens[1], 16)));
+                            success = true;
+                        } catch (NumberFormatException e) {
+                            Log.e(TAG, "Fail to parse " + idPair, e);
+                        }
+                    }
+                    if (!success) {
+                        Log.e(TAG, "config_AoapIncompatibleDeviceIds contains malformed value: "
+                                + idPair);
                     }
                 }
-                if (!success) {
-                    Log.e(TAG, "config_AoapIncompatibleDeviceIds contains malformed value: "
-                            + idPair);
-                }
             }
-        }
 
-        return sDenylistedVidPidPairs.contains(Pair.create(device.getVendorId(),
-                                                            device.getProductId()));
+            return sDenylistedVidPidPairs.contains(Pair.create(device.getVendorId(),
+                    device.getProductId()));
+        }
     }
 
     public static boolean isDeviceInAoapMode(UsbDevice device) {
@@ -218,6 +228,6 @@ final class AoapInterface {
                 return -1;
         }
         return conn.controlTransfer(directionConstant | UsbConstants.USB_TYPE_VENDOR, string, 0,
-            index, buffer, length, AOAP_TIMEOUT_MS);
+                index, buffer, length, AOAP_TIMEOUT_MS);
     }
 }

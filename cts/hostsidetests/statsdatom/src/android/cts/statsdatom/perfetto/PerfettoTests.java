@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.perfetto;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.cts.statsdatom.lib.AtomTestUtils;
@@ -72,7 +73,7 @@ public class PerfettoTests extends DeviceTestCase implements IBuildReceiver {
         super.setUp();
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -95,7 +96,7 @@ public class PerfettoTests extends DeviceTestCase implements IBuildReceiver {
         ConfigUtils.uploadConfig(getDevice(), config);
 
         startPerfettoTrace();
-        Thread.sleep(WAIT_AFTER_START_PERFETTO_MS);
+        RunUtil.getDefault().sleep(WAIT_AFTER_START_PERFETTO_MS);
 
         // While the trace would not have finished in this time, we expect at least
         // the trace to have been started.
@@ -117,7 +118,7 @@ public class PerfettoTests extends DeviceTestCase implements IBuildReceiver {
         ConfigUtils.uploadConfig(getDevice(), config);
 
         startPerfettoTrace();
-        Thread.sleep(WAIT_AFTER_START_PERFETTO_MS);
+        RunUtil.getDefault().sleep(WAIT_AFTER_START_PERFETTO_MS);
 
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         assertThat(extractPerfettoUploadedEvents(data))
@@ -138,7 +139,7 @@ public class PerfettoTests extends DeviceTestCase implements IBuildReceiver {
         ConfigUtils.uploadConfig(getDevice(), config);
 
         startPerfettoTrace();
-        Thread.sleep(WAIT_AFTER_START_PERFETTO_MS);
+        RunUtil.getDefault().sleep(WAIT_AFTER_START_PERFETTO_MS);
 
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         assertThat(extractPerfettoUploadedEvents(data))
@@ -159,7 +160,7 @@ public class PerfettoTests extends DeviceTestCase implements IBuildReceiver {
         ConfigUtils.uploadConfig(getDevice(), config);
 
         runTriggerPerfetto();
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         assertThat(data).hasSize(1);

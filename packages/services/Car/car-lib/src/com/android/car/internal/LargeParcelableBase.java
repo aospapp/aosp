@@ -53,7 +53,7 @@ public abstract class LargeParcelableBase implements Parcelable, Closeable {
     public static final int MAX_DIRECT_PAYLOAD_SIZE = 4096;
     private static final String TAG = LargeParcelable.class.getSimpleName();
 
-    private static final boolean DBG_PAYLOAD = false;
+    private static final boolean DBG_PAYLOAD = Log.isLoggable(TAG, Log.DEBUG);
     private static final int DBG_DUMP_LENGTH = 16;
 
     private static final int NULL_PAYLOAD = 0;
@@ -115,7 +115,7 @@ public abstract class LargeParcelableBase implements Parcelable, Closeable {
     }
 
     @Override
-    public final void writeToParcel(@NonNull Parcel dest, int flags) {
+    public void writeToParcel(@NonNull Parcel dest, int flags) {
         int startPosition = dest.dataPosition();
         SharedMemory sharedMemory;
         synchronized (mLock) {
@@ -140,9 +140,15 @@ public abstract class LargeParcelableBase implements Parcelable, Closeable {
         boolean noSharedMemory = totalPayloadSize <= MAX_DIRECT_PAYLOAD_SIZE;
         boolean hasNonNullPayload = true;
         if (noSharedMemory) {
+            if (DBG_PAYLOAD) {
+                Log.d(TAG, "not using shared memory");
+            }
             dest.appendFrom(dataParcel, 0, totalPayloadSize);
             dataParcel.recycle();
         } else {
+            if (DBG_PAYLOAD) {
+                Log.d(TAG, "using shared memory");
+            }
             sharedMemory = serializeParcelToSharedMemory(dataParcel);
             dataParcel.recycle();
             synchronized (mLock) {

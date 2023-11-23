@@ -20,11 +20,10 @@ license {
 
 rust_library {
     name: "libcombine",
-    // has rustc warnings
     host_supported: true,
     crate_name: "combine",
     cargo_env_compat: true,
-    cargo_pkg_version: "4.6.3",
+    cargo_pkg_version: "4.6.6",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -41,5 +40,7 @@ rust_library {
         "//apex_available:platform",
         "com.android.uwb",
     ],
+    product_available: true,
+    vendor_available: true,
     min_sdk_version: "29",
 }

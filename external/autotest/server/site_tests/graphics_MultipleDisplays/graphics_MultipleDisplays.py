@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -107,9 +108,7 @@ class graphics_MultipleDisplays(test.test):
                 window boundaries.
         """
         new_bounds = {'top': 0, 'left': 0, 'width': 0, 'height': 0}
-        display_info = filter(
-            lambda d: d.is_internal == config.internal_display,
-            self._display_facade.get_display_info())
+        display_info = [d for d in self._display_facade.get_display_info() if d.is_internal == config.internal_display]
         display_info = display_info[0]
 
         # Since we are "snapping" windows left and right, set the width to half
@@ -143,8 +142,7 @@ class graphics_MultipleDisplays(test.test):
         # FPS information for saving later
         self._fps_list = chameleon_port.get_captured_fps_list()
 
-        stuck_fps_list = filter(lambda fps: fps < self.STUCK_FPS_THRESHOLD,
-                                self._fps_list)
+        stuck_fps_list = [fps for fps in self._fps_list if fps < self.STUCK_FPS_THRESHOLD]
         if len(stuck_fps_list) > self.MAXIMUM_STUCK_MEASUREMENTS:
             msg = 'Too many measurements {} are < {} FPS. GPU hang?'.format(
                 self._fps_list, self.STUCK_FPS_THRESHOLD)
@@ -159,7 +157,7 @@ class graphics_MultipleDisplays(test.test):
 
         if self._subtest not in self.WINDOW_CONFIGS:
             msg = '{} is not a valid subtest. Choices are {}.'.format(
-                self._subtest, self.WINDOW_CONFIGS.keys())
+                self._subtest, list(self.WINDOW_CONFIGS.keys()))
             raise ValueError(msg)
 
         for window_config in self.WINDOW_CONFIGS[self._subtest]:

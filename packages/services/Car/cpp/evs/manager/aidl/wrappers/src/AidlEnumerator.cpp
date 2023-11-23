@@ -18,12 +18,15 @@
 
 #include "AidlCamera.h"
 #include "AidlDisplay.h"
+#include "Constants.h"
 #include "utils/include/Utils.h"
 
 #include <aidl/android/hardware/automotive/evs/Rotation.h>
 #include <aidl/android/hardware/automotive/evs/StreamType.h>
 #include <android-base/logging.h>
 #include <android/binder_manager.h>
+
+#include <limits>
 
 namespace {
 
@@ -57,16 +60,22 @@ namespace aidl::android::automotive::evs::implementation {
 
 namespace hidlevs = ::android::hardware::automotive::evs;
 
-AidlEnumerator::AidlEnumerator(const ::android::sp<hidlevs::V1_0::IEvsEnumerator>& service) {
+AidlEnumerator::AidlEnumerator(const ::android::sp<hidlevs::V1_0::IEvsEnumerator>& service,
+                               bool forceV1_0) {
     auto serviceV1 = hidlevs::V1_1::IEvsEnumerator::castFrom(service).withDefault(nullptr);
-    if (!serviceV1) {
+    if (forceV1_0 || !serviceV1) {
+        // AidlEnumerator is initialized in V1_0::IEvsEnumerator support mode in
+        // below conditions:
+        // 1. A given camera object is an implementation of V1_0::IEvsEnumerator
+        //    (fails to upcast as V1_1::IEvsEnumertor).
+        // 2. A caller explicitly creates AidlEnumerator object in
+        //    V1_0::IEvsEnumerator mode by setting forceV1_0 as true.
+        // 3. Or, A given camera object is invalid (nullptr).
         mImpl = std::make_shared<ImplV0>(service);
+        LOG(DEBUG) << "Initialized in HIDL V1.0 support mode.";
     } else {
         mImpl = std::make_shared<ImplV1>(serviceV1);
-    }
-
-    if (!mImpl) {
-        LOG(ERROR) << "Failed to initialize AidlEnumerator instance";
+        LOG(DEBUG) << "Initialized in HIDL V1.1 support mode.";
     }
 }
 
@@ -89,19 +98,31 @@ ScopedAStatus AidlEnumerator::getStreamList(const CameraDesc& desc,
                                             std::vector<Stream>* _aidl_return) {
     LOG(DEBUG) << __FUNCTION__;
 
-    camera_metadata_t* pMetadata = const_cast<camera_metadata_t*>(
-            reinterpret_cast<const camera_metadata_t*>(desc.metadata.data()));
-    camera_metadata_entry_t streamConfig;
-    if (find_camera_metadata_entry(pMetadata, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
-                                   &streamConfig)) {
+    if (desc.metadata.empty()) {
+        LOG(DEBUG) << "Camera metadata is empty.";
         return ScopedAStatus::ok();
     }
 
-    const unsigned numStreamConfigs = streamConfig.count / sizeof(StreamConfiguration);
-    _aidl_return->resize(numStreamConfigs);
+    camera_metadata_t* pMetadata = const_cast<camera_metadata_t*>(
+            reinterpret_cast<const camera_metadata_t*>(desc.metadata.data()));
+    const size_t expectedSize = desc.metadata.size();
+    if (validate_camera_metadata_structure(pMetadata, &expectedSize) != ::android::OK) {
+        LOG(WARNING) << "Camera metadata is invalid.";
+        return ScopedAStatus::fromServiceSpecificError(static_cast<int>(EvsResult::INVALID_ARG));
+    }
+
+    camera_metadata_entry_t streamConfig;
+    if (find_camera_metadata_entry(pMetadata, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
+                                   &streamConfig) != ::android::OK) {
+        LOG(DEBUG) << "ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS does not exist in the camera "
+                      "metadata.";
+        return ScopedAStatus::ok();
+    }
+
+    _aidl_return->resize(streamConfig.count);
     const StreamConfiguration* pCurrentConfig =
             reinterpret_cast<StreamConfiguration*>(streamConfig.data.i32);
-    for (unsigned i = 0; i < numStreamConfigs; ++i, ++pCurrentConfig) {
+    for (unsigned i = 0; i < streamConfig.count; ++i, ++pCurrentConfig) {
         Stream current = {
                 .id = pCurrentConfig->id,
                 .streamType =
@@ -147,7 +168,6 @@ ScopedAStatus AidlEnumerator::openDisplay(int32_t id, std::shared_ptr<IEvsDispla
     }
 
     mHidlDisplay = hidlDisplay;
-
     auto aidlDisplay = ::ndk::SharedRefBase::make<AidlDisplay>(hidlDisplay);
     mAidlDisplay = aidlDisplay;
     *_aidl_return = std::move(aidlDisplay);
@@ -186,6 +206,12 @@ ScopedAStatus AidlEnumerator::getDisplayState(DisplayState* _aidl_return) {
     return ScopedAStatus::ok();
 }
 
+ScopedAStatus AidlEnumerator::getDisplayStateById(int32_t /* displayId */,
+                                                  DisplayState* /* _aidl_return */) {
+    // No counterpart in the HIDL interfaces.
+    return Utils::buildScopedAStatusFromEvsResult(EvsResult::NOT_SUPPORTED);
+}
+
 ScopedAStatus AidlEnumerator::getDisplayIdList(std::vector<uint8_t>* _aidl_return) {
     LOG(DEBUG) << __FUNCTION__;
     return mImpl->getDisplayIdList(_aidl_return);
@@ -219,7 +245,11 @@ ScopedAStatus AidlEnumerator::closeUltrasonicsArray(
 }
 
 ScopedAStatus AidlEnumerator::ImplV0::getCameraList(std::vector<CameraDesc>* _aidl_return) {
-    mHidlEnumerator->getCameraList([&_aidl_return](auto hidl_cameras) {
+    if (!mHidlEnumerator) {
+        return Utils::buildScopedAStatusFromEvsResult(EvsResult::RESOURCE_NOT_AVAILABLE);
+    }
+
+    mHidlEnumerator->getCameraList([_aidl_return](auto hidl_cameras) {
         _aidl_return->resize(hidl_cameras.size());
         auto it = _aidl_return->begin();
         for (const auto& camera : hidl_cameras) {
@@ -232,45 +262,95 @@ ScopedAStatus AidlEnumerator::ImplV0::getCameraList(std::vector<CameraDesc>* _ai
 
 ScopedAStatus AidlEnumerator::ImplV0::closeCamera(
         const ::android::sp<hidlevs::V1_0::IEvsCamera>& cameraObj) {
+    if (!mHidlEnumerator) {
+        return Utils::buildScopedAStatusFromEvsResult(EvsResult::RESOURCE_NOT_AVAILABLE);
+    }
+
     mHidlEnumerator->closeCamera(cameraObj);
     return ScopedAStatus::ok();
 }
 
 ScopedAStatus AidlEnumerator::ImplV0::openCamera(const std::string& id, const Stream& /*cfg*/,
                                                  std::shared_ptr<IEvsCamera>* _aidl_return) {
+    if (!mHidlEnumerator) {
+        return Utils::buildScopedAStatusFromEvsResult(EvsResult::RESOURCE_NOT_AVAILABLE);
+    }
+
     ::android::sp<hidlevs::V1_0::IEvsCamera> hidlCamera = mHidlEnumerator->openCamera(id);
     if (!hidlCamera) {
         LOG(ERROR) << "Failed to open a camera " << id;
         return Utils::buildScopedAStatusFromEvsResult(EvsResult::INVALID_ARG);
     }
 
-    *_aidl_return = std::move(::ndk::SharedRefBase::make<AidlCamera>(hidlCamera));
+    *_aidl_return =
+            std::move(::ndk::SharedRefBase::make<AidlCamera>(hidlCamera, /* forceV1_0= */ true));
 
     return ScopedAStatus::ok();
 }
 
-::android::sp<hidlevs::V1_0::IEvsDisplay> AidlEnumerator::ImplV0::openDisplay(int32_t /*id*/) {
-    return mHidlEnumerator->openDisplay();
+::android::sp<hidlevs::V1_0::IEvsDisplay> AidlEnumerator::ImplV0::openDisplay(int32_t id) {
+    if (!mHidlEnumerator) {
+        LOG(ERROR) << "AidlEnumerator is not initialized yet.";
+        return nullptr;
+    }
+
+    if (id != kDisplayIdUnavailable &&
+        (id < std::numeric_limits<uint8_t>::min() || id > std::numeric_limits<uint8_t>::max())) {
+        LOG(ERROR) << "A given display ID, " << id << ", is invalid.";
+        return nullptr;
+    }
+
+    LOG(DEBUG) << "A given display ID is ignored because HIDL IEvsEnumerator::openDisplay() opens "
+                  "the default display always.";
+    ::android::sp<hidlevs::V1_0::IEvsDisplay> hidlDisplay = mHidlEnumerator->openDisplay();
+    mActiveHidlDisplay = hidlDisplay;
+    return hidlDisplay;
 }
 
 ScopedAStatus AidlEnumerator::ImplV0::closeDisplay(
         const ::android::sp<hidlevs::V1_0::IEvsDisplay>& display) {
+    if (!mHidlEnumerator) {
+        return Utils::buildScopedAStatusFromEvsResult(EvsResult::RESOURCE_NOT_AVAILABLE);
+    }
+
+    if (display != mActiveHidlDisplay.promote()) {
+        LOG(WARNING) << "Ignore a request to close a display with an incorrect display handle.";
+        return ScopedAStatus::ok();
+    }
+
     mHidlEnumerator->closeDisplay(display);
     return ScopedAStatus::ok();
 }
 
-ScopedAStatus AidlEnumerator::ImplV0::getDisplayIdList(std::vector<uint8_t>* /*_aidl_return*/) {
-    return ScopedAStatus::ok();
+ScopedAStatus AidlEnumerator::ImplV0::getDisplayIdList(
+        [[maybe_unused]] std::vector<uint8_t>* _aidl_return) {
+    if (!mHidlEnumerator) {
+        return Utils::buildScopedAStatusFromEvsResult(EvsResult::RESOURCE_NOT_AVAILABLE);
+    }
+
+    // android::hardware::automotive::evs::V1_0::IEvsEnumerator does not declare
+    // a method that returns any display ID because
+    // android::hardware::automotive::evs::V1_0::IEvsDisplay always uses the
+    // default (internal) display; hence, we return a NOT_SUPPORTED.
+    return Utils::buildScopedAStatusFromEvsResult(EvsResult::NOT_SUPPORTED);
 }
 
 ScopedAStatus AidlEnumerator::ImplV1::closeCamera(
         const ::android::sp<hidlevs::V1_0::IEvsCamera>& cameraObj) {
+    if (!mHidlEnumerator) {
+        return Utils::buildScopedAStatusFromEvsResult(EvsResult::RESOURCE_NOT_AVAILABLE);
+    }
+
     mHidlEnumerator->closeCamera(cameraObj);
     return ScopedAStatus::ok();
 }
 
 ScopedAStatus AidlEnumerator::ImplV1::getCameraList(std::vector<CameraDesc>* _aidl_return) {
-    mHidlEnumerator->getCameraList_1_1([&_aidl_return](auto hidl_cameras) {
+    if (!mHidlEnumerator) {
+        return Utils::buildScopedAStatusFromEvsResult(EvsResult::RESOURCE_NOT_AVAILABLE);
+    }
+
+    mHidlEnumerator->getCameraList_1_1([_aidl_return](auto hidl_cameras) {
         _aidl_return->resize(hidl_cameras.size());
         auto it = _aidl_return->begin();
         for (const auto& camera : hidl_cameras) {
@@ -283,6 +363,10 @@ ScopedAStatus AidlEnumerator::ImplV1::getCameraList(std::vector<CameraDesc>* _ai
 
 ScopedAStatus AidlEnumerator::ImplV1::openCamera(const std::string& id, const Stream& cfg,
                                                  std::shared_ptr<IEvsCamera>* _aidl_return) {
+    if (!mHidlEnumerator) {
+        return Utils::buildScopedAStatusFromEvsResult(EvsResult::RESOURCE_NOT_AVAILABLE);
+    }
+
     auto hidlStreamConfig = std::move(Utils::makeToHidl(cfg));
     ::android::sp<hidlevs::V1_1::IEvsCamera> hidlCamera =
             mHidlEnumerator->openCamera_1_1(id, hidlStreamConfig);
@@ -297,19 +381,37 @@ ScopedAStatus AidlEnumerator::ImplV1::openCamera(const std::string& id, const St
 }
 
 ::android::sp<hidlevs::V1_0::IEvsDisplay> AidlEnumerator::ImplV1::openDisplay(int32_t id) {
+    if (!mHidlEnumerator) {
+        LOG(ERROR) << "AidlEnumerator is not initialized yet.";
+        return nullptr;
+    }
+
+    if (id < std::numeric_limits<uint8_t>::min() || id > std::numeric_limits<uint8_t>::max()) {
+        LOG(ERROR) << "A given display ID, " << id << ", is invalid.";
+        return nullptr;
+    }
+
     ::android::sp<hidlevs::V1_1::IEvsDisplay> hidlDisplay = mHidlEnumerator->openDisplay_1_1(id);
     return hidlDisplay;
 }
 
 ScopedAStatus AidlEnumerator::ImplV1::closeDisplay(
         const ::android::sp<hidlevs::V1_0::IEvsDisplay>& display) {
+    if (!mHidlEnumerator) {
+        return Utils::buildScopedAStatusFromEvsResult(EvsResult::RESOURCE_NOT_AVAILABLE);
+    }
+
     mHidlEnumerator->closeDisplay(display);
     return ScopedAStatus::ok();
 }
 
 ScopedAStatus AidlEnumerator::ImplV1::getDisplayIdList(std::vector<uint8_t>* _aidl_return) {
+    if (!mHidlEnumerator) {
+        return Utils::buildScopedAStatusFromEvsResult(EvsResult::RESOURCE_NOT_AVAILABLE);
+    }
+
     mHidlEnumerator->getDisplayIdList(
-            [&_aidl_return](auto& list) { *_aidl_return = std::move(list); });
+            [_aidl_return](auto& list) { *_aidl_return = std::move(list); });
     return ScopedAStatus::ok();
 }
 

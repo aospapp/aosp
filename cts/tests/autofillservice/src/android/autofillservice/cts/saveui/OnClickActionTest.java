@@ -43,9 +43,10 @@ import android.service.autofill.CharSequenceTransformation;
 import android.service.autofill.FillContext;
 import android.service.autofill.OnClickAction;
 import android.service.autofill.VisibilitySetterAction;
-import android.support.test.uiautomator.UiObject2;
 import android.view.View;
 import android.view.autofill.AutofillId;
+
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Test;
 

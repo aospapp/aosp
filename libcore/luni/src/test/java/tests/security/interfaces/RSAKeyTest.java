@@ -47,4 +47,15 @@ public class RSAKeyTest extends TestCase {
         key = (RSAKey) gen.generatePublic(new RSAPublicKeySpec(n, e));
         assertEquals("invalid modulus", n, key.getModulus());
     }
+
+    public void test_getParams() {
+        assertNull(new NoopRSAKey().getParams());
+    }
+
+    private class NoopRSAKey implements RSAKey {
+        @Override
+        public BigInteger getModulus() {
+            return null;
+        }
+    }
 }

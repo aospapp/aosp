@@ -44,10 +44,16 @@ rust_library {
     host_supported: true,
     crate_name: "unicode_width",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.1.9",
+    cargo_pkg_version: "0.1.10",
     srcs: ["src/lib.rs"],
     edition: "2015",
     features: ["default"],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }
 
 rust_test {
@@ -56,7 +62,7 @@ rust_test {
     host_supported: true,
     crate_name: "unicode_width",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.1.9",
+    cargo_pkg_version: "0.1.10",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,

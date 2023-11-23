@@ -18,8 +18,9 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="public_safety_message" msgid="7237115648380675159">"முக்கியத் தகவல்"</string>
     <string name="enable_public_safety_messages_title" msgid="4037404034274507696">"முக்கியத் தகவல்"</string>
+    <string name="cmas_presidential_level_alert" msgid="8876632274257614262">"அவசரகால எச்சரிக்கை"</string>
     <string name="cmas_required_monthly_test" msgid="9061179556831144678">"அவசரக்கால எச்சரிக்கை: சோதனை மெசேஜ்"</string>
     <string name="cmas_exercise_alert" msgid="3061507852301643814">"அவசரகால எச்சரிக்கை: பயிற்சி/டிரில் மெசேஜ்"</string>
-    <string name="pws_other_message_identifiers" msgid="4992476982074198144">"அவசரகால எச்சரிக்கை: சோதனை மெசேஜ்"</string>
+    <string name="pws_other_message_identifiers" msgid="3831917966117253553">"அவசரகால எச்சரிக்கை"</string>
     <string name="button_dismiss" msgid="5823921161712171097">"மறை"</string>
 </resources>

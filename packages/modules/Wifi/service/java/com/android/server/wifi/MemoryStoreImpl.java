@@ -57,7 +57,11 @@ final class MemoryStoreImpl implements WifiScoreCard.MemoryStore {
 
     private boolean mBroken = false;
     private void handleException(Exception e) {
-        Log.wtf(TAG, "Exception using IpMemoryStore - disabling WifiScoreReport persistence", e);
+        // Skip Log.wtf when device is shutting down
+        if (!mWifiInjector.getActiveModeWarden().isShuttingDown()) {
+            Log.wtf(TAG, "Exception using IpMemoryStore - disabling WifiScoreReport persistence",
+                    e);
+        }
         mBroken = true;
     }
 

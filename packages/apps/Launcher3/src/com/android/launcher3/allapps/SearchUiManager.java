@@ -64,7 +64,8 @@ public interface SearchUiManager {
     /**
      * sets highlight result's title
      */
-    default void setFocusedResultTitle(@Nullable  CharSequence title) { }
+    default void setFocusedResultTitle(
+            @Nullable CharSequence title, @Nullable CharSequence subtitle, boolean showArrow) {}
 
     /** Refresh the currently displayed list of results. */
     default void refreshResults() {}

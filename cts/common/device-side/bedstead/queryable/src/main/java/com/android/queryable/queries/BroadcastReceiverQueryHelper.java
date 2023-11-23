@@ -20,7 +20,10 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
+import com.android.queryable.QueryableBaseWithMatch;
 import com.android.queryable.info.BroadcastReceiverInfo;
+
+import java.util.Objects;
 
 /** Implementation of {@link BroadcastReceiverQuery}. */
 public final class BroadcastReceiverQueryHelper<E extends Queryable>
@@ -29,9 +32,30 @@ public final class BroadcastReceiverQueryHelper<E extends Queryable>
     private final transient E mQuery;
     private final ClassQueryHelper<E> mReceiverClassQueryHelper;
 
-    BroadcastReceiverQueryHelper() {
-        mQuery = (E) this;
-        mReceiverClassQueryHelper = new ClassQueryHelper<>(mQuery);
+    public static final class BroadcastReceiverQueryBase extends
+            QueryableBaseWithMatch<BroadcastReceiverInfo,
+                    BroadcastReceiverQueryHelper<BroadcastReceiverQueryBase>> {
+        BroadcastReceiverQueryBase() {
+            super();
+            setQuery(new BroadcastReceiverQueryHelper<>(this));
+        }
+
+        BroadcastReceiverQueryBase(Parcel in) {
+            super(in);
+        }
+
+        public static final Parcelable.Creator<BroadcastReceiverQueryHelper.BroadcastReceiverQueryBase> CREATOR =
+                new Parcelable.Creator<>() {
+                    public BroadcastReceiverQueryHelper.BroadcastReceiverQueryBase createFromParcel(
+                            Parcel in) {
+                        return new BroadcastReceiverQueryHelper.BroadcastReceiverQueryBase(in);
+                    }
+
+                    public BroadcastReceiverQueryHelper.BroadcastReceiverQueryBase[] newArray(
+                            int size) {
+                        return new BroadcastReceiverQueryHelper.BroadcastReceiverQueryBase[size];
+                    }
+                };
     }
 
     public BroadcastReceiverQueryHelper(E query) {
@@ -48,6 +72,11 @@ public final class BroadcastReceiverQueryHelper<E extends Queryable>
     @Override
     public ClassQuery<E> receiverClass() {
         return mReceiverClassQueryHelper;
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        return Queryable.isEmptyQuery(mReceiverClassQueryHelper);
     }
 
     /** {@code true} if all filters are met by {@code value}. */
@@ -83,4 +112,17 @@ public final class BroadcastReceiverQueryHelper<E extends Queryable>
                     return new BroadcastReceiverQueryHelper[size];
                 }
     };
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof BroadcastReceiverQueryHelper)) return false;
+        BroadcastReceiverQueryHelper<?> that = (BroadcastReceiverQueryHelper<?>) o;
+        return Objects.equals(mReceiverClassQueryHelper, that.mReceiverClassQueryHelper);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mReceiverClassQueryHelper);
+    }
 }

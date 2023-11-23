@@ -35,4 +35,5 @@ android_robolectric_test {
         // timeout in seconds.
         timeout: 36000,
     },
+    upstream: true,
 }

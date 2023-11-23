@@ -24,8 +24,16 @@ import android.util.Log;
 
 import com.android.internal.telephony.PhoneConfigurationManager;
 
-import org.mockito.MockitoAnnotations;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
+import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -34,11 +42,15 @@ import java.util.concurrent.TimeUnit;
  * Helper class to load Mockito Resources into a test.
  */
 public class TelephonyTestBase {
+    @Rule public final MockitoRule mocks = MockitoJUnit.rule();
 
     protected TestContext mContext;
 
+    private final HashMap<InstanceKey, Object> mOldInstances = new HashMap<>();
+    private final LinkedList<InstanceKey> mInstanceKeys = new LinkedList<>();
+
+    @Before
     public void setUp() throws Exception {
-        MockitoAnnotations.initMocks(this);
         mContext = spy(new TestContext());
         // Set up the looper if it does not exist on the test thread.
         if (Looper.myLooper() == null) {
@@ -54,9 +66,11 @@ public class TelephonyTestBase {
         }
     }
 
+    @After
     public void tearDown() throws Exception {
         // Ensure there are no static references to handlers after test completes.
         PhoneConfigurationManager.unregisterAllMultiSimConfigChangeRegistrants();
+        restoreInstances();
     }
 
     protected final boolean waitForExecutorAction(Executor executor, long timeoutMillis) {
@@ -103,6 +117,61 @@ public class TelephonyTestBase {
             Thread.sleep(ms);
         } catch (InterruptedException e) {
             Log.e("TelephonyTestBase", "InterruptedException while waiting: " + e);
+        }
+    }
+
+    protected synchronized void replaceInstance(final Class c, final String instanceName,
+            final Object obj, final Object newValue)
+            throws Exception {
+        Field field = c.getDeclaredField(instanceName);
+        field.setAccessible(true);
+
+        InstanceKey key = new InstanceKey(c, instanceName, obj);
+        if (!mOldInstances.containsKey(key)) {
+            mOldInstances.put(key, field.get(obj));
+            mInstanceKeys.add(key);
+        }
+        field.set(obj, newValue);
+    }
+
+    private synchronized void restoreInstances() throws Exception {
+        Iterator<InstanceKey> it = mInstanceKeys.descendingIterator();
+
+        while (it.hasNext()) {
+            InstanceKey key = it.next();
+            Field field = key.mClass.getDeclaredField(key.mInstName);
+            field.setAccessible(true);
+            field.set(key.mObj, mOldInstances.get(key));
+        }
+
+        mInstanceKeys.clear();
+        mOldInstances.clear();
+    }
+
+    private static class InstanceKey {
+        public final Class mClass;
+        public final String mInstName;
+        public final Object mObj;
+        InstanceKey(final Class c, final String instName, final Object obj) {
+            mClass = c;
+            mInstName = instName;
+            mObj = obj;
+        }
+
+        @Override
+        public int hashCode() {
+            return (mClass.getName().hashCode() * 31 + mInstName.hashCode()) * 31;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj == null || obj.getClass() != getClass()) {
+                return false;
+            }
+
+            InstanceKey other = (InstanceKey) obj;
+            return (other.mClass == mClass && other.mInstName.equals(mInstName)
+                    && other.mObj == mObj);
         }
     }
 

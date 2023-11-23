@@ -1,14 +1,21 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import unittest
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 
 import common
 import dbus
+import six
+import unittest
+
 from autotest_lib.client.common_lib.cros import dbus_send
+
 
 EXAMPLE_SHILL_GET_PROPERTIES_OUTPUT = (
 'method return sender=org.freedesktop.DBus -> destination=:1.37 serial=3 '
@@ -78,10 +85,6 @@ EXAMPLE_SHILL_GET_PROPERTIES_OUTPUT = (
       dict entry(
          string "IgnoredDNSSearchPaths"
          variant             string "gateway.2wire.net"
-      )
-      dict entry(
-         string "LinkMonitorTechnologies"
-         variant             string "wifi"
       )
       dict entry(
          string "NoAutoConnectTechnologies"
@@ -160,7 +163,6 @@ PARSED_SHILL_GET_PROPERTIES_OUTPUT = {
     'EnabledTechnologies': ['ethernet'],
     'HostName': '',
     'IgnoredDNSSearchPaths': 'gateway.2wire.net',
-    'LinkMonitorTechnologies': 'wifi',
     'NoAutoConnectTechnologies': '',
     'OfflineMode': False,
     'PortalCheckInterval': 30,
@@ -206,7 +208,7 @@ class DBusSendTest(unittest.TestCase):
         assert result.sender == 'org.freedesktop.DBus', (
             'Sender == %r' % result.sender)
         assert result.responder == ':1.37', 'Responder == %r' % result.responder
-        for k, v in PARSED_SHILL_GET_PROPERTIES_OUTPUT.iteritems():
+        for k, v in six.iteritems(PARSED_SHILL_GET_PROPERTIES_OUTPUT):
             assert k in result.response, '%r not in response' % k
             actual_v = result.response.pop(k)
             assert actual_v == v, 'Expected %r, got %r' % (v, actual_v)

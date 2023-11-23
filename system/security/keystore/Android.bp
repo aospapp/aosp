@@ -31,7 +31,6 @@ cc_defaults {
         ],
     },
 
-    clang: true,
 }
 
 cc_binary {

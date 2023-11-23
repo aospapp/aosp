@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -81,7 +82,9 @@ class autoupdate_UserData(update_engine_test.UpdateEngineTest):
     def _perform_after_update_checks(self):
         """Check the user preferences and files are the same."""
         with chrome.Chrome(dont_override_profile=True,
-                           autotest_ext=True) as cr:
+                           autotest_ext=True,
+                           username=self._LOGIN_TEST_USERNAME,
+                           password=self._LOGIN_TEST_PASSWORD) as cr:
             # Check test file is still present.
             if not os.path.exists(self._TEST_FILE):
                 raise error.TestFail('Test file was not present after update.')
@@ -112,7 +115,9 @@ class autoupdate_UserData(update_engine_test.UpdateEngineTest):
         if payload_url:
             with nebraska_wrapper.NebraskaWrapper(
                 log_dir=self.resultsdir, payload_url=payload_url) as nebraska:
-                with chrome.Chrome(autotest_ext=True) as cr:
+                with chrome.Chrome(autotest_ext=True,
+                                   username=self._LOGIN_TEST_USERNAME,
+                                   password=self._LOGIN_TEST_PASSWORD) as cr:
                     self._cr = cr
                     utils.run(['echo', 'hello', '>', self._TEST_FILE])
                     self._modify_input_methods()

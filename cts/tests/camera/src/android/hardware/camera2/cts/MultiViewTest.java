@@ -957,8 +957,10 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
                 // do a single capture
                 capture(id, requestBuilder.build(), resultListener);
                 // wait for capture done
-                stListener0.waitForPreviewDone(WAIT_FOR_COMMAND_TO_COMPLETE);
-                stListener1.waitForPreviewDone(WAIT_FOR_COMMAND_TO_COMPLETE);
+                boolean previewDone = stListener0.waitForPreviewDone(WAIT_FOR_COMMAND_TO_COMPLETE);
+                assertTrue("Unable to start preview", previewDone);
+                previewDone = stListener1.waitForPreviewDone(WAIT_FOR_COMMAND_TO_COMPLETE);
+                assertTrue("Unable to start preview", previewDone);
 
                 // get bitmap from both TextureView and compare
                 Bitmap bitmap0 = mTextureView[viewIdx0].getBitmap();

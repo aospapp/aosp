@@ -61,13 +61,32 @@ CodecManager::GetOffloadCodecConfig(types::LeAudioContextType ctx_type) {
   return pimpl_->GetOffloadCodecConfig(ctx_type);
 }
 
+const ::le_audio::broadcast_offload_config*
+CodecManager::GetBroadcastOffloadConfig() {
+  if (!pimpl_) return nullptr;
+  return pimpl_->GetBroadcastOffloadConfig();
+}
+
+void CodecManager::UpdateBroadcastConnHandle(
+    const std::vector<uint16_t>& conn_handle,
+    std::function<void(const ::le_audio::broadcast_offload_config& config)>
+        update_receiver) {
+  if (pimpl_)
+    return pimpl_->UpdateBroadcastConnHandle(conn_handle, update_receiver);
+}
+
+int CodecManager::GetAidlVersionInUsed() const {
+  if (!pimpl_) return -1;
+  return pimpl_->GetAidlVersionInUsed();
+}
+
 void CodecManager::Start(
     const std::vector<bluetooth::le_audio::btle_audio_codec_config_t>&
         offloading_preference) {
   // It is needed here as CodecManager which is a singleton creates it, but in
   // this mock we want to destroy and recreate the mock on each test case.
   if (!pimpl_) {
-    pimpl_ = std::make_unique<impl>();
+    pimpl_ = std::make_unique<testing::NiceMock<impl>>();
   }
 
   mock_codec_manager_pimpl_ = pimpl_.get();

@@ -8,12 +8,13 @@ AUTHOR = 'chromeos-bluetooth'
 NAME = 'bluetooth_AdapterAUHealth.au_hfp_wbs_dut_as_source_test'
 PURPOSE = ('Batch of Bluetooth Classic Audio health tests')
 CRITERIA = 'Pass the HFP WBS test'
-ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_e2e'
+ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_e2e, suite:bluetooth_e2e_cq'
 TIME = 'SHORT'  # Approximately 2 mins
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
 DEPENDENCIES = 'bluetooth, working_bluetooth_btpeer:1'
+PY_VERSION = 3
 
 DOC = """
     A Batch of Bluetooth Bluetooth audio health tests. This test is written

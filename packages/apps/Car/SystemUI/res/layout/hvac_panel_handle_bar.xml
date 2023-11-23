@@ -17,11 +17,8 @@
 
 <merge xmlns:android="http://schemas.android.com/apk/res/android">
     <View
-        android:id="@+id/handle_bar"
-        android:layout_width="match_parent"
+        android:layout_width="@dimen/hvac_panel_handle_bar_width"
         android:layout_height="@dimen/hvac_panel_handle_bar_height"
-        android:layout_marginEnd="@dimen/hvac_panel_handle_bar_margin_end"
-        android:layout_marginStart="@dimen/hvac_panel_handle_bar_margin_start"
-        android:layout_marginTop="@dimen/hvac_panel_handle_bar_margin_top"
+        android:layout_gravity="center"
         android:background="@drawable/hvac_panel_handle_bar"/>
 </merge>

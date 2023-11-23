@@ -176,7 +176,7 @@ TEST(file, RootDirectoryWindows) {
 }
 #endif
 
-TEST(file, WriteStringToFd) {
+TEST(file, WriteStringToFd_StringLiteral) {
   TemporaryFile tf;
   ASSERT_NE(tf.fd, -1) << tf.path;
   ASSERT_TRUE(android::base::WriteStringToFd("abc", tf.fd));
@@ -186,6 +186,32 @@ TEST(file, WriteStringToFd) {
   std::string s;
   ASSERT_TRUE(android::base::ReadFdToString(tf.fd, &s)) << strerror(errno);
   EXPECT_EQ("abc", s);
+}
+
+TEST(file, WriteStringToFd_String) {
+  std::string testStr = "def";
+  TemporaryFile tf;
+  ASSERT_NE(tf.fd, -1) << tf.path;
+  ASSERT_TRUE(android::base::WriteStringToFd(testStr, tf.fd));
+
+  ASSERT_EQ(0, lseek(tf.fd, 0, SEEK_SET)) << strerror(errno);
+
+  std::string s;
+  ASSERT_TRUE(android::base::ReadFdToString(tf.fd, &s)) << strerror(errno);
+  EXPECT_EQ(testStr, s);
+}
+
+TEST(file, WriteStringToFd_StringView) {
+  std::string_view testStrView = "ghi";
+  TemporaryFile tf;
+  ASSERT_NE(tf.fd, -1) << tf.path;
+  ASSERT_TRUE(android::base::WriteStringToFd(testStrView, tf.fd));
+
+  ASSERT_EQ(0, lseek(tf.fd, 0, SEEK_SET)) << strerror(errno);
+
+  std::string s;
+  ASSERT_TRUE(android::base::ReadFdToString(tf.fd, &s)) << strerror(errno);
+  EXPECT_EQ(testStrView, s);
 }
 
 TEST(file, WriteFully) {
@@ -350,6 +376,15 @@ TEST(file, Dirname) {
   EXPECT_EQ("/system/bin", android::base::Dirname("/system/bin/sh"));
   EXPECT_EQ(".", android::base::Dirname("sh"));
   EXPECT_EQ("/system/bin", android::base::Dirname("/system/bin/sh/"));
+
+  // Since we've copy & pasted bionic's implementation, copy & paste the tests.
+  EXPECT_EQ(".", android::base::Dirname(""));
+  EXPECT_EQ("/usr", android::base::Dirname("/usr/lib"));
+  EXPECT_EQ("/", android::base::Dirname("/usr/"));
+  EXPECT_EQ(".", android::base::Dirname("usr"));
+  EXPECT_EQ(".", android::base::Dirname("."));
+  EXPECT_EQ(".", android::base::Dirname(".."));
+  EXPECT_EQ("/", android::base::Dirname("/"));
 }
 
 TEST(file, ReadFileToString_capacity) {

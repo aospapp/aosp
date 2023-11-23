@@ -24,9 +24,9 @@ import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Equivalence;
+import com.squareup.javapoet.ClassName;
 import dagger.Reusable;
 import dagger.producers.ProductionScope;
-import java.lang.annotation.Annotation;
 import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.TypeElement;
@@ -66,26 +66,35 @@ public abstract class Scope {
    * Returns {@code true} if {@code scopeAnnotationType} is a {@link javax.inject.Scope} annotation.
    */
   public static boolean isScope(TypeElement scopeAnnotationType) {
-    return isAnnotationPresent(scopeAnnotationType, javax.inject.Scope.class);
+    return isAnnotationPresent(scopeAnnotationType, SCOPE.canonicalName())
+        || isAnnotationPresent(scopeAnnotationType, SCOPE_JAVAX.canonicalName());
   }
+
+  private static final ClassName PRODUCTION_SCOPE =
+      ClassName.get("dagger.producers", "ProductionScope");
+  private static final ClassName SINGLETON = ClassName.get("jakarta.inject", "Singleton");
+  private static final ClassName SINGLETON_JAVAX = ClassName.get("javax.inject", "Singleton");
+  private static final ClassName REUSABLE = ClassName.get("dagger", "Reusable");
+  private static final ClassName SCOPE = ClassName.get("jakarta.inject", "Scope");
+  private static final ClassName SCOPE_JAVAX = ClassName.get("javax.inject", "Scope");
 
   /** Returns {@code true} if this scope is the {@link Singleton @Singleton} scope. */
   public final boolean isSingleton() {
-    return isScope(Singleton.class);
+    return isScope(SINGLETON) || isScope(SINGLETON_JAVAX);
   }
 
   /** Returns {@code true} if this scope is the {@link Reusable @Reusable} scope. */
   public final boolean isReusable() {
-    return isScope(Reusable.class);
+    return isScope(REUSABLE);
   }
 
   /** Returns {@code true} if this scope is the {@link ProductionScope @ProductionScope} scope. */
   public final boolean isProductionScope() {
-    return isScope(ProductionScope.class);
+    return isScope(PRODUCTION_SCOPE);
   }
 
-  private boolean isScope(Class<? extends Annotation> annotation) {
-    return scopeAnnotationElement().getQualifiedName().contentEquals(annotation.getCanonicalName());
+  private boolean isScope(ClassName className) {
+    return scopeAnnotationElement().getQualifiedName().contentEquals(className.canonicalName());
   }
 
   /** Returns a debug representation of the scope. */

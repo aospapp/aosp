@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,10 +14,11 @@
 package android
 
 import (
-	"android/soong/android/allowlists"
-	"android/soong/bazel"
 	"fmt"
 	"testing"
+
+	"android/soong/android/allowlists"
+	"android/soong/bazel"
 
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
@@ -69,6 +70,20 @@ func TestConvertAllModulesInPackage(t *testing.T) {
 				"a/b/c": allowlists.Bp2BuildDefaultTrueRecursively,
 			},
 			packageDir: "a",
+		},
+		{
+			prefixes: allowlists.Bp2BuildConfig{
+				"a":   allowlists.Bp2BuildDefaultFalseRecursively,
+				"a/b": allowlists.Bp2BuildDefaultTrue,
+			},
+			packageDir: "a/b",
+		},
+		{
+			prefixes: allowlists.Bp2BuildConfig{
+				"a":   allowlists.Bp2BuildDefaultFalseRecursively,
+				"a/b": allowlists.Bp2BuildDefaultTrueRecursively,
+			},
+			packageDir: "a/b/c",
 		},
 	}
 
@@ -132,6 +147,20 @@ func TestModuleOptIn(t *testing.T) {
 			},
 			packageDir: "a",
 		},
+		{
+			prefixes: allowlists.Bp2BuildConfig{
+				"a":   allowlists.Bp2BuildDefaultFalseRecursively,
+				"a/b": allowlists.Bp2BuildDefaultTrue,
+			},
+			packageDir: "a/b/c",
+		},
+		{
+			prefixes: allowlists.Bp2BuildConfig{
+				"a":   allowlists.Bp2BuildDefaultTrueRecursively,
+				"a/b": allowlists.Bp2BuildDefaultFalseRecursively,
+			},
+			packageDir: "a/b/c",
+		},
 	}
 
 	for _, test := range testCases {
@@ -157,7 +186,7 @@ func (m TestBazelModule) GenerateBuildActions(blueprint.ModuleContext) {
 
 type TestBazelConversionContext struct {
 	omc       bazel.OtherModuleTestContext
-	allowlist bp2BuildConversionAllowlist
+	allowlist Bp2BuildConversionAllowlist
 	errors    []string
 }
 
@@ -182,7 +211,7 @@ func (bcc *TestBazelConversionContext) ModuleErrorf(format string, args ...inter
 func (bcc *TestBazelConversionContext) Config() Config {
 	return Config{
 		&config{
-			bp2buildPackageConfig: bcc.allowlist,
+			Bp2buildPackageConfig: bcc.allowlist,
 		},
 	}
 }
@@ -201,7 +230,7 @@ func TestBp2BuildAllowlist(t *testing.T) {
 		shouldConvert  bool
 		expectedErrors []string
 		module         TestBazelModule
-		allowlist      bp2BuildConversionAllowlist
+		allowlist      Bp2BuildConversionAllowlist
 	}{
 		{
 			description:   "allowlist enables module",
@@ -214,7 +243,7 @@ func TestBp2BuildAllowlist(t *testing.T) {
 				},
 				BazelModuleBase: bazelableBazelModuleBase,
 			},
-			allowlist: bp2BuildConversionAllowlist{
+			allowlist: Bp2BuildConversionAllowlist{
 				moduleAlwaysConvert: map[string]bool{
 					"foo": true,
 				},
@@ -232,7 +261,7 @@ func TestBp2BuildAllowlist(t *testing.T) {
 				},
 				BazelModuleBase: bazelableBazelModuleBase,
 			},
-			allowlist: bp2BuildConversionAllowlist{
+			allowlist: Bp2BuildConversionAllowlist{
 				moduleAlwaysConvert: map[string]bool{
 					"foo": true,
 				},
@@ -253,7 +282,7 @@ func TestBp2BuildAllowlist(t *testing.T) {
 				},
 				BazelModuleBase: bazelableBazelModuleBase,
 			},
-			allowlist: bp2BuildConversionAllowlist{
+			allowlist: Bp2BuildConversionAllowlist{
 				moduleAlwaysConvert: map[string]bool{
 					"foo": true,
 				},
@@ -263,30 +292,9 @@ func TestBp2BuildAllowlist(t *testing.T) {
 			},
 		},
 		{
-			description:    "module in allowlist and existing BUILD file",
-			shouldConvert:  false,
-			expectedErrors: []string{"A module cannot be in a directory listed in keepExistingBuildFile and also be in moduleAlwaysConvert. Directory: 'existing/build/dir'"},
-			module: TestBazelModule{
-				TestModuleInfo: bazel.TestModuleInfo{
-					ModuleName: "foo",
-					Typ:        "rule1",
-					Dir:        "existing/build/dir",
-				},
-				BazelModuleBase: bazelableBazelModuleBase,
-			},
-			allowlist: bp2BuildConversionAllowlist{
-				moduleAlwaysConvert: map[string]bool{
-					"foo": true,
-				},
-				keepExistingBuildFile: map[string]bool{
-					"existing/build/dir": true,
-				},
-			},
-		},
-		{
 			description:    "module allowlist and enabled directory",
 			shouldConvert:  false,
-			expectedErrors: []string{"A module cannot be in a directory marked Bp2BuildDefaultTrue or Bp2BuildDefaultTrueRecursively and also be in moduleAlwaysConvert. Directory: 'existing/build/dir'"},
+			expectedErrors: []string{"A module cannot be in a directory marked Bp2BuildDefaultTrue or Bp2BuildDefaultTrueRecursively and also be in moduleAlwaysConvert. Directory: 'existing/build/dir' Module: 'foo'"},
 			module: TestBazelModule{
 				TestModuleInfo: bazel.TestModuleInfo{
 					ModuleName: "foo",
@@ -295,7 +303,7 @@ func TestBp2BuildAllowlist(t *testing.T) {
 				},
 				BazelModuleBase: bazelableBazelModuleBase,
 			},
-			allowlist: bp2BuildConversionAllowlist{
+			allowlist: Bp2BuildConversionAllowlist{
 				moduleAlwaysConvert: map[string]bool{
 					"foo": true,
 				},
@@ -307,7 +315,7 @@ func TestBp2BuildAllowlist(t *testing.T) {
 		{
 			description:    "module allowlist and enabled subdirectory",
 			shouldConvert:  false,
-			expectedErrors: []string{"A module cannot be in a directory marked Bp2BuildDefaultTrue or Bp2BuildDefaultTrueRecursively and also be in moduleAlwaysConvert. Directory: 'existing/build/dir'"},
+			expectedErrors: []string{"A module cannot be in a directory marked Bp2BuildDefaultTrue or Bp2BuildDefaultTrueRecursively and also be in moduleAlwaysConvert. Directory: 'existing/build/dir' Module: 'foo'"},
 			module: TestBazelModule{
 				TestModuleInfo: bazel.TestModuleInfo{
 					ModuleName: "foo",
@@ -316,7 +324,7 @@ func TestBp2BuildAllowlist(t *testing.T) {
 				},
 				BazelModuleBase: bazelableBazelModuleBase,
 			},
-			allowlist: bp2BuildConversionAllowlist{
+			allowlist: Bp2BuildConversionAllowlist{
 				moduleAlwaysConvert: map[string]bool{
 					"foo": true,
 				},
@@ -343,7 +351,7 @@ func TestBp2BuildAllowlist(t *testing.T) {
 					},
 				},
 			},
-			allowlist: bp2BuildConversionAllowlist{
+			allowlist: Bp2BuildConversionAllowlist{
 				moduleAlwaysConvert: map[string]bool{
 					"foo": true,
 				},
@@ -384,5 +392,47 @@ func TestBp2BuildAllowlist(t *testing.T) {
 				t.Errorf("Expected errors to be: %v, but were: %v", test.expectedErrors, bcc.errors)
 			}
 		})
+	}
+}
+
+func TestBp2buildAllowList(t *testing.T) {
+	allowlist := GetBp2BuildAllowList()
+	for k, v := range allowlists.Bp2buildDefaultConfig {
+		if allowlist.defaultConfig[k] != v {
+			t.Errorf("bp2build default config of %s: expected: %v, got: %v", k, v, allowlist.defaultConfig[k])
+		}
+	}
+	for k, v := range allowlists.Bp2buildKeepExistingBuildFile {
+		if allowlist.keepExistingBuildFile[k] != v {
+			t.Errorf("bp2build keep existing build file of %s: expected: %v, got: %v", k, v, allowlist.keepExistingBuildFile[k])
+		}
+	}
+	for _, k := range allowlists.Bp2buildModuleTypeAlwaysConvertList {
+		if !allowlist.moduleTypeAlwaysConvert[k] {
+			t.Errorf("bp2build module type always convert of %s: expected: true, got: %v", k, allowlist.moduleTypeAlwaysConvert[k])
+		}
+	}
+	for _, k := range allowlists.Bp2buildModuleDoNotConvertList {
+		if !allowlist.moduleDoNotConvert[k] {
+			t.Errorf("bp2build module do not convert of %s: expected: true, got: %v", k, allowlist.moduleDoNotConvert[k])
+		}
+	}
+}
+
+func TestShouldKeepExistingBuildFileForDir(t *testing.T) {
+	allowlist := NewBp2BuildAllowlist()
+	// entry "a/b2/c2" is moot because of its parent "a/b2"
+	allowlist.SetKeepExistingBuildFile(map[string]bool{"a": false, "a/b1": false, "a/b2": true, "a/b1/c1": true, "a/b2/c2": false})
+	truths := []string{"a", "a/b1", "a/b2", "a/b1/c1", "a/b2/c", "a/b2/c2", "a/b2/c2/d"}
+	falsities := []string{"a1", "a/b", "a/b1/c"}
+	for _, dir := range truths {
+		if !allowlist.ShouldKeepExistingBuildFileForDir(dir) {
+			t.Errorf("%s expected TRUE but was FALSE", dir)
+		}
+	}
+	for _, dir := range falsities {
+		if allowlist.ShouldKeepExistingBuildFileForDir(dir) {
+			t.Errorf("%s expected FALSE but was TRUE", dir)
+		}
 	}
 }

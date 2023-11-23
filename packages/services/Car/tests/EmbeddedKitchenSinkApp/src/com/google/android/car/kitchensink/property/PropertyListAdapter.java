@@ -57,7 +57,6 @@ class PropertyListAdapter extends BaseAdapter implements ListAdapter {
     private final PropertyListEventListener mListener;
     private final CarPropertyManager mMgr;
     private final List<PropertyInfo> mPropInfo;
-    private final TextView mTvEventLog;
     private String[] mItems;
 
     PropertyListAdapter(List<PropertyInfo> propInfo, CarPropertyManager mgr, TextView eventLog,
@@ -66,7 +65,6 @@ class PropertyListAdapter extends BaseAdapter implements ListAdapter {
         mListener = new PropertyListEventListener(eventLog, svEventLog);
         mMgr = mgr;
         mPropInfo = propInfo;
-        mTvEventLog = eventLog;
     }
 
     @Override

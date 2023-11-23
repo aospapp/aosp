@@ -17,7 +17,6 @@
 This test script exercises different GATT connection tests.
 """
 
-import pprint
 from queue import Empty
 import time
 
@@ -112,8 +111,9 @@ class GattConnectTest(BluetoothBaseTest):
             return False
         return True
 
-    def _verify_mtu_changed_on_client_and_server(
-            self, expected_mtu, gatt_callback, gatt_server_callback):
+    def _verify_mtu_changed_on_client_and_server(self, expected_mtu,
+                                                 gatt_callback,
+                                                 gatt_server_callback):
         expected_event = gatt_cb_strings['mtu_changed'].format(gatt_callback)
         try:
             mtu_event = self.cen_ad.ed.pop_event(expected_event,
@@ -1069,8 +1069,9 @@ class GattConnectTest(BluetoothBaseTest):
         advertise_callback = self.per_ad.droid.bleGenBleAdvertiseCallback()
 
         # Step 1: Start advertisement
-        self.per_ad.droid.bleStartBleAdvertising(
-            advertise_callback, advertise_data, advertise_settings)
+        self.per_ad.droid.bleStartBleAdvertising(advertise_callback,
+                                                 advertise_data,
+                                                 advertise_settings)
 
         # Setup scan settings for low_latency scanning and to include the local name
         # of the advertisement started in step 1.
@@ -1094,8 +1095,8 @@ class GattConnectTest(BluetoothBaseTest):
         expected_event_name = scan_result.format(scan_callback)
         try:
             mac_address_pre_restart = self.cen_ad.ed.pop_event(
-                expected_event_name, self.default_timeout)['data']['Result'][
-                    'deviceInfo']['address']
+                expected_event_name, self.default_timeout
+            )['data']['Result']['deviceInfo']['address']
             self.log.info(
                 "Peripheral advertisement found with mac address: {}".format(
                     mac_address_pre_restart))
@@ -1106,24 +1107,25 @@ class GattConnectTest(BluetoothBaseTest):
         # Step 3: Restart peripheral advertising such that a new mac address is
         # created.
         self.per_ad.droid.bleStopBleAdvertising(advertise_callback)
-        self.per_ad.droid.bleStartBleAdvertising(
-            advertise_callback, advertise_data, advertise_settings)
+        self.per_ad.droid.bleStartBleAdvertising(advertise_callback,
+                                                 advertise_data,
+                                                 advertise_settings)
 
         mac_address_post_restart = mac_address_pre_restart
 
         while True:
             try:
                 mac_address_post_restart = self.cen_ad.ed.pop_event(
-                    expected_event_name, self.default_timeout)['data']['Result'][
-                        'deviceInfo']['address']
+                    expected_event_name, self.default_timeout
+                )['data']['Result']['deviceInfo']['address']
                 self.log.info(
-                    "Peripheral advertisement found with mac address: {}".format(
-                        mac_address_post_restart))
+                    "Peripheral advertisement found with mac address: {}".
+                    format(mac_address_post_restart))
             except Empty:
                 self.log.info("Peripheral advertisement not found")
                 test_result = False
 
-            if  mac_address_pre_restart != mac_address_post_restart:
+            if mac_address_pre_restart != mac_address_post_restart:
                 break
 
         self.cen_ad.droid.bleStopBleScan(scan_callback)

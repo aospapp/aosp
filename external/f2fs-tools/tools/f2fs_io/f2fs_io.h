@@ -30,10 +30,10 @@
 # define UNUSED(x) x
 #endif
 
-typedef u_int64_t	u64;
-typedef u_int32_t	u32;
-typedef u_int16_t	u16;
-typedef u_int8_t	u8;
+typedef uint64_t	u64;
+typedef uint32_t	u32;
+typedef uint16_t	u16;
+typedef uint8_t		u8;
 
 #ifndef HAVE_LINUX_TYPES_H
 typedef u8	__u8;
@@ -90,6 +90,7 @@ typedef u32	__be32;
 						struct f2fs_comp_option)
 #define F2FS_IOC_DECOMPRESS_FILE        _IO(F2FS_IOCTL_MAGIC, 23)
 #define F2FS_IOC_COMPRESS_FILE          _IO(F2FS_IOCTL_MAGIC, 24)
+#define F2FS_IOC_START_ATOMIC_REPLACE	_IO(F2FS_IOCTL_MAGIC, 25)
 
 #ifndef FSCRYPT_POLICY_V1
 #define FSCRYPT_POLICY_V1		0

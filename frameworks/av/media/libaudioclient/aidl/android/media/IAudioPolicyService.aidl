@@ -22,13 +22,14 @@ import android.media.AudioAttributesEx;
 import android.media.AudioAttributesInternal;
 import android.media.AudioDirectMode;
 import android.media.AudioMix;
+import android.media.AudioMixerAttributesInternal;
 import android.media.AudioOffloadMode;
-import android.media.AudioPatch;
+import android.media.AudioPatchFw;
 import android.media.AudioPolicyDeviceState;
 import android.media.AudioPolicyForcedConfig;
 import android.media.AudioPolicyForceUse;
-import android.media.AudioPort;
-import android.media.AudioPortConfig;
+import android.media.AudioPortFw;
+import android.media.AudioPortConfigFw;
 import android.media.AudioPortRole;
 import android.media.AudioPortType;
 import android.media.AudioProductStrategy;
@@ -137,7 +138,7 @@ interface IAudioPolicyService {
 
     int /* product_strategy_t */ getStrategyForStream(AudioStreamType stream);
 
-    AudioDevice[] getDevicesForAttributes(in AudioAttributesEx attr, boolean forVolume);
+    AudioDevice[] getDevicesForAttributes(in AudioAttributesInternal attr, boolean forVolume);
 
     int /* audio_io_handle_t */ getOutputForEffect(in EffectDescriptor desc);
 
@@ -202,7 +203,9 @@ interface IAudioPolicyService {
                                     in AudioAttributesInternal attributes);
 
     /**
-     * List available audio ports and their attributes. Returns the generation.
+     * List currently attached audio ports and their attributes. Returns the generation.
+     * The generation is incremented each time when anything changes in the ports
+     * configuration.
      *
      * On input, count represents the maximum length of the returned array.
      * On output, count is the total number of elements, which may be larger than the array size.
@@ -212,16 +215,23 @@ interface IAudioPolicyService {
     int listAudioPorts(AudioPortRole role,
                        AudioPortType type,
                        inout Int count,
-                       out AudioPort[] ports);
+                       out AudioPortFw[] ports);
+
+    /**
+     * List all device ports declared in the configuration (including currently detached ones)
+     * 'role' can be 'NONE' to get both input and output devices,
+     * 'SINK' for output devices, and 'SOURCE' for input devices.
+     */
+    AudioPortFw[] listDeclaredDevicePorts(AudioPortRole role);
 
     /** Get attributes for the audio port with the given id (AudioPort.hal.id field). */
-    AudioPort getAudioPort(int /* audio_port_handle_t */ portId);
+    AudioPortFw getAudioPort(int /* audio_port_handle_t */ portId);
 
     /**
      * Create an audio patch between several source and sink ports.
      * The handle argument is used when updating an existing patch.
      */
-    int /* audio_patch_handle_t */ createAudioPatch(in AudioPatch patch, int handle);
+    int /* audio_patch_handle_t */ createAudioPatch(in AudioPatchFw patch, int handle);
 
     /** Release an audio patch. */
     void releaseAudioPatch(int /* audio_patch_handle_t */ handle);
@@ -234,10 +244,10 @@ interface IAudioPolicyService {
      * Passing '0' on input and inspecting the value on output is a common way of determining the
      * number of elements without actually retrieving them.
      */
-    int listAudioPatches(inout Int count, out AudioPatch[] patches);
+    int listAudioPatches(inout Int count, out AudioPatchFw[] patches);
 
     /** Set audio port configuration. */
-    void setAudioPortConfig(in AudioPortConfig config);
+    void setAudioPortConfig(in AudioPortConfigFw config);
 
     void registerClient(IAudioPolicyServiceClient client);
 
@@ -261,7 +271,7 @@ interface IAudioPolicyService {
 
     void removeUserIdDeviceAffinities(int userId);
 
-    int /* audio_port_handle_t */ startAudioSource(in AudioPortConfig source,
+    int /* audio_port_handle_t */ startAudioSource(in AudioPortConfigFw source,
                                                    in AudioAttributesInternal attributes);
 
     void stopAudioSource(int /* audio_port_handle_t */ portId);
@@ -312,12 +322,21 @@ interface IAudioPolicyService {
 
     boolean isUltrasoundSupported();
 
+    /**
+     * Queries if there is hardware support for requesting audio capture content from
+     * the DSP hotword pipeline.
+     *
+     * @param lookbackAudio true if additionally querying for the ability to capture audio
+     *                      from the pipeline prior to capture stream open.
+     */
+    boolean isHotwordStreamSupported(boolean lookbackAudio);
+
     AudioProductStrategy[] listAudioProductStrategies();
-    int /* product_strategy_t */ getProductStrategyFromAudioAttributes(in AudioAttributesEx aa,
-                                                                       boolean fallbackOnDefault);
+    int /* product_strategy_t */ getProductStrategyFromAudioAttributes(
+            in AudioAttributesInternal aa, boolean fallbackOnDefault);
 
     AudioVolumeGroup[] listAudioVolumeGroups();
-    int /* volume_group_t */ getVolumeGroupFromAudioAttributes(in AudioAttributesEx aa,
+    int /* volume_group_t */ getVolumeGroupFromAudioAttributes(in AudioAttributesInternal aa,
                                                                boolean fallbackOnDefault);
 
     void setRttEnabled(boolean enabled);
@@ -329,7 +348,10 @@ interface IAudioPolicyService {
                                    in AudioDevice[] devices);
 
     void removeDevicesRoleForStrategy(int /* product_strategy_t */ strategy,
-                                       DeviceRole role);
+                                      DeviceRole role,
+                                      in AudioDevice[] devices);
+
+    void clearDevicesRoleForStrategy(int /* product_strategy_t */ strategy, DeviceRole role);
 
     AudioDevice[] getDevicesForRoleAndStrategy(int /* product_strategy_t */ strategy,
                                                DeviceRole role);
@@ -390,6 +412,60 @@ interface IAudioPolicyService {
      * for the specified audio attributes.
      */
     AudioProfile[] getDirectProfilesForAttributes(in AudioAttributesInternal attr);
+
+    /**
+     * Return a list of AudioMixerAttributes that can be used to set preferred mixer attributes
+     * for the given device.
+     */
+    AudioMixerAttributesInternal[] getSupportedMixerAttributes(
+            int /* audio_port_handle_t */ portId);
+
+    /**
+     * Set preferred mixer attributes for a given device on a given audio attributes.
+     * When conflicting requests are received, the last request will be honored.
+     * The preferred mixer attributes can only be set when 1) the usage is media, 2) the
+     * given device is currently available, 3) the given device is usb device, 4) the given mixer
+     * attributes is supported by the given device.
+     *
+     * @param attr the audio attributes whose mixer attributes should be set.
+     * @param portId the port id of the device to be routed.
+     * @param uid the uid of the request client. The uid will be used to recognize the ownership for
+     *            the preferred mixer attributes. All the playback with same audio attributes from
+     *            the same uid will be attached to the mixer with the preferred attributes if the
+     *            playback is routed to the given device.
+     * @param mixerAttr the preferred mixer attributes.
+     */
+    void setPreferredMixerAttributes(in AudioAttributesInternal attr,
+                                     int /* audio_port_handle_t */ portId,
+                                     int /* uid_t */ uid,
+                                     in AudioMixerAttributesInternal mixerAttr);
+
+    /**
+     * Get preferred mixer attributes for a given device on a given audio attributes.
+     * Null will be returned if there is no preferred mixer attributes set or it has
+     * been cleared.
+     *
+     * @param attr the audio attributes whose mixer attributes should be set.
+     * @param portId the port id of the device to be routed.
+     */
+    @nullable AudioMixerAttributesInternal getPreferredMixerAttributes(
+            in AudioAttributesInternal attr,
+            int /* audio_port_handle_t */ portId);
+
+    /**
+     * Clear preferred mixer attributes for a given device on a given audio attributes that
+     * is previously set via setPreferredMixerAttributes.
+     *
+     * @param attr the audio attributes whose mixer attributes should be set.
+     * @param portId the port id of the device to be routed.
+     * @param uid the uid of the request client. The uid is used to identify the ownership for the
+     *            preferred mixer attributes. The preferred mixer attributes will only be cleared
+     *            if the uid is the same as the owner of current preferred mixer attributes.
+     */
+    void clearPreferredMixerAttributes(in AudioAttributesInternal attr,
+                                       int /* audio_port_handle_t */ portId,
+                                       int /* uid_t */ uid);
+
 
     // When adding a new method, please review and update
     // AudioPolicyService.cpp AudioPolicyService::onTransact()

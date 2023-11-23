@@ -1,16 +1,27 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use serde::{Deserialize, Serialize};
+use std::arch::x86_64::CpuidResult;
+#[cfg(any(unix, feature = "haxm", feature = "whpx"))]
+use std::arch::x86_64::__cpuid;
+#[cfg(any(unix, feature = "haxm", feature = "whpx"))]
+use std::arch::x86_64::_rdtsc;
 
-use base::{error, Result};
+use base::error;
+use base::Result;
 use bit_field::*;
 use downcast_rs::impl_downcast;
-
+use serde::Deserialize;
+use serde::Serialize;
 use vm_memory::GuestAddress;
 
-use crate::{Hypervisor, IrqRoute, IrqSource, IrqSourceChip, Vcpu, Vm};
+use crate::Hypervisor;
+use crate::IrqRoute;
+use crate::IrqSource;
+use crate::IrqSourceChip;
+use crate::Vcpu;
+use crate::Vm;
 
 /// A trait for managing cpuids for an x86_64 hypervisor and for checking its capabilities.
 pub trait HypervisorX86_64: Hypervisor {
@@ -84,9 +95,24 @@ pub trait VcpuX86_64: Vcpu {
     /// Sets the VCPU extended control registers.
     fn set_xcrs(&self, xcrs: &[Register]) -> Result<()>;
 
+    /// Gets the VCPU x87 FPU, MMX, XMM, YMM and MXCSR registers.
+    fn get_xsave(&self) -> Result<Xsave>;
+
+    /// Sets the VCPU x87 FPU, MMX, XMM, YMM and MXCSR registers.
+    fn set_xsave(&self, xsave: &Xsave) -> Result<()>;
+
+    /// Gets the VCPU Events states.
+    fn get_vcpu_events(&self) -> Result<VcpuEvents>;
+
+    /// Sets the VCPU Events states.
+    fn set_vcpu_events(&self, vcpu_evts: &VcpuEvents) -> Result<()>;
+
     /// Gets the model-specific registers.  `msrs` specifies the MSR indexes to be queried, and
     /// on success contains their indexes and values.
     fn get_msrs(&self, msrs: &mut Vec<Register>) -> Result<()>;
+
+    /// Gets the model-specific registers. Returns all the MSRs for the VCPU.
+    fn get_all_msrs(&self) -> Result<Vec<Register>>;
 
     /// Sets the model-specific registers.
     fn set_msrs(&self, msrs: &[Register]) -> Result<()>;
@@ -99,9 +125,179 @@ pub trait VcpuX86_64: Vcpu {
 
     /// Sets up debug registers and configure vcpu for handling guest debug events.
     fn set_guest_debug(&self, addrs: &[GuestAddress], enable_singlestep: bool) -> Result<()>;
+
+    /// This function should be called after `Vcpu::run` returns `VcpuExit::Cpuid`, and `entry`
+    /// should represent the result of emulating the CPUID instruction. The `handle_cpuid` function
+    /// will then set the appropriate registers on the vcpu.
+    fn handle_cpuid(&mut self, entry: &CpuIdEntry) -> Result<()>;
+
+    /// Get the guest->host TSC offset
+    fn get_tsc_offset(&self) -> Result<u64>;
+
+    /// Set the guest->host TSC offset
+    fn set_tsc_offset(&self, offset: u64) -> Result<()>;
+
+    /// Snapshot vCPU state
+    fn snapshot(&self) -> anyhow::Result<VcpuSnapshot> {
+        Ok(VcpuSnapshot {
+            vcpu_id: self.id(),
+            regs: self.get_regs()?,
+            sregs: self.get_sregs()?,
+            debug_regs: self.get_debugregs()?,
+            xcrs: self.get_xcrs()?,
+            msrs: self.get_all_msrs()?,
+            xsave: self.get_xsave()?,
+            vcpu_events: self.get_vcpu_events()?,
+            tsc_offset: self.get_tsc_offset()?,
+        })
+    }
+
+    fn restore(&mut self, snapshot: &VcpuSnapshot) -> anyhow::Result<()> {
+        assert_eq!(snapshot.vcpu_id, self.id());
+        self.set_regs(&snapshot.regs)?;
+        self.set_sregs(&snapshot.sregs)?;
+        self.set_debugregs(&snapshot.debug_regs)?;
+        self.set_xcrs(&snapshot.xcrs)?;
+        self.set_msrs(&snapshot.msrs)?;
+        self.set_xsave(&snapshot.xsave)?;
+        self.set_vcpu_events(&snapshot.vcpu_events)?;
+        self.set_tsc_offset(snapshot.tsc_offset)?;
+        Ok(())
+    }
+}
+
+/// x86 specific vCPU snapshot.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct VcpuSnapshot {
+    pub vcpu_id: usize,
+    regs: Regs,
+    sregs: Sregs,
+    debug_regs: DebugRegs,
+    xcrs: Vec<Register>,
+    msrs: Vec<Register>,
+    xsave: Xsave,
+    vcpu_events: VcpuEvents,
+    tsc_offset: u64,
 }
 
 impl_downcast!(VcpuX86_64);
+
+// TSC MSR
+pub const MSR_IA32_TSC: u32 = 0x00000010;
+
+/// Implementation of get_tsc_offset that uses VcpuX86_64::get_msrs.
+#[cfg(any(unix, feature = "haxm", feature = "whpx"))]
+pub(crate) fn get_tsc_offset_from_msr(vcpu: &impl VcpuX86_64) -> Result<u64> {
+    let mut regs = vec![Register {
+        id: crate::MSR_IA32_TSC,
+        value: 0,
+    }];
+
+    // Safe because _rdtsc takes no arguments
+    let host_before_tsc = unsafe { _rdtsc() };
+
+    // get guest TSC value from our hypervisor
+    vcpu.get_msrs(&mut regs)?;
+
+    // Safe because _rdtsc takes no arguments
+    let host_after_tsc = unsafe { _rdtsc() };
+
+    // Average the before and after host tsc to get the best value
+    let host_tsc = ((host_before_tsc as u128 + host_after_tsc as u128) / 2) as u64;
+
+    Ok(regs[0].value.wrapping_sub(host_tsc))
+}
+
+/// Implementation of get_tsc_offset that uses VcpuX86_64::get_msrs.
+#[cfg(any(unix, feature = "haxm", feature = "whpx"))]
+pub(crate) fn set_tsc_offset_via_msr(vcpu: &impl VcpuX86_64, offset: u64) -> Result<()> {
+    // Safe because _rdtsc takes no arguments
+    let host_tsc = unsafe { _rdtsc() };
+
+    let regs = vec![Register {
+        id: crate::MSR_IA32_TSC,
+        value: host_tsc.wrapping_add(offset),
+    }];
+
+    // set guest TSC value from our hypervisor
+    vcpu.set_msrs(&regs)
+}
+
+/// Gets host cpu max physical address bits.
+#[cfg(any(unix, feature = "haxm", feature = "whpx"))]
+pub(crate) fn host_phys_addr_bits() -> u8 {
+    let highest_ext_function = unsafe { __cpuid(0x80000000) };
+    if highest_ext_function.eax >= 0x80000008 {
+        let addr_size = unsafe { __cpuid(0x80000008) };
+        // Low 8 bits of 0x80000008 leaf: host physical address size in bits.
+        addr_size.eax as u8
+    } else {
+        36
+    }
+}
+
+/// Initial state for x86_64 VCPUs.
+#[derive(Clone, Default)]
+pub struct VcpuInitX86_64 {
+    /// General-purpose registers.
+    pub regs: Regs,
+
+    /// Special registers.
+    pub sregs: Sregs,
+
+    /// Floating-point registers.
+    pub fpu: Fpu,
+
+    /// Machine-specific registers.
+    pub msrs: Vec<Register>,
+}
+
+/// Hold the CPU feature configurations that are needed to setup a vCPU.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CpuConfigX86_64 {
+    /// whether to force using a calibrated TSC leaf (0x15).
+    pub force_calibrated_tsc_leaf: bool,
+
+    /// whether enabling host cpu topology.
+    pub host_cpu_topology: bool,
+
+    /// whether expose HWP feature to the guest.
+    pub enable_hwp: bool,
+
+    /// whether enabling host cpu topology.
+    pub enable_pnp_data: bool,
+
+    /// Wheter diabling SMT (Simultaneous Multithreading).
+    pub no_smt: bool,
+
+    /// whether enabling ITMT scheduler
+    pub itmt: bool,
+
+    /// whether setting hybrid CPU type
+    pub hybrid_type: Option<CpuHybridType>,
+}
+
+impl CpuConfigX86_64 {
+    pub fn new(
+        force_calibrated_tsc_leaf: bool,
+        host_cpu_topology: bool,
+        enable_hwp: bool,
+        enable_pnp_data: bool,
+        no_smt: bool,
+        itmt: bool,
+        hybrid_type: Option<CpuHybridType>,
+    ) -> Self {
+        CpuConfigX86_64 {
+            force_calibrated_tsc_leaf,
+            host_cpu_topology,
+            enable_hwp,
+            enable_pnp_data,
+            no_smt,
+            itmt,
+            hybrid_type,
+        }
+    }
+}
 
 /// A CpuId Entry contains supported feature information for the given processor.
 /// This can be modified by the hypervisor to pass additional information to the guest kernel
@@ -109,17 +305,14 @@ impl_downcast!(VcpuX86_64);
 /// by the cpu for a given function and index/subfunction (passed into the cpu via the eax and ecx
 /// register respectively).
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CpuIdEntry {
     pub function: u32,
     pub index: u32,
     // flags is needed for KVM.  We store it on CpuIdEntry to preserve the flags across
     // get_supported_cpuids() -> kvm_cpuid2 -> CpuId -> kvm_cpuid2 -> set_cpuid().
     pub flags: u32,
-    pub eax: u32,
-    pub ebx: u32,
-    pub ecx: u32,
-    pub edx: u32,
+    pub cpuid: CpuidResult,
 }
 
 /// A container for the list of cpu id entries for the hypervisor and underlying cpu.
@@ -211,7 +404,7 @@ pub enum Level {
 
 /// Represents a IOAPIC redirection table entry.
 #[bitfield]
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IoapicRedirectionTableEntry {
     vector: BitField8,
     #[bits = 3]
@@ -265,8 +458,9 @@ pub enum PicSelect {
 }
 
 #[repr(C)]
-#[derive(enumn::N, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(enumn::N, Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum PicInitState {
+    #[default]
     Icw1 = 0,
     Icw2 = 1,
     Icw3 = 2,
@@ -280,12 +474,6 @@ impl From<u8> for PicInitState {
             error!("Invalid PicInitState {}, setting to 0", item);
             PicInitState::Icw1
         })
-    }
-}
-
-impl Default for PicInitState {
-    fn default() -> Self {
-        PicInitState::Icw1
     }
 }
 
@@ -478,7 +666,7 @@ impl IrqRoute {
 
 /// State of a VCPU's general purpose registers.
 #[repr(C)]
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Regs {
     pub rax: u64,
     pub rbx: u64,
@@ -500,9 +688,34 @@ pub struct Regs {
     pub rflags: u64,
 }
 
+impl Default for Regs {
+    fn default() -> Self {
+        Regs {
+            rax: 0,
+            rbx: 0,
+            rcx: 0,
+            rdx: 0,
+            rsi: 0,
+            rdi: 0,
+            rsp: 0,
+            rbp: 0,
+            r8: 0,
+            r9: 0,
+            r10: 0,
+            r11: 0,
+            r12: 0,
+            r13: 0,
+            r14: 0,
+            r15: 0,
+            rip: 0xfff0, // Reset vector.
+            rflags: 0x2, // Bit 1 (0x2) is always 1.
+        }
+    }
+}
+
 /// State of a memory segment.
 #[repr(C)]
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
 pub struct Segment {
     pub base: u64,
     pub limit: u32,
@@ -519,7 +732,7 @@ pub struct Segment {
 
 /// State of a global descriptor table or interrupt descriptor table.
 #[repr(C)]
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
 pub struct DescriptorTable {
     pub base: u64,
     pub limit: u16,
@@ -527,7 +740,7 @@ pub struct DescriptorTable {
 
 /// State of a VCPU's special registers.
 #[repr(C)]
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Sregs {
     pub cs: Segment,
     pub ds: Segment,
@@ -545,16 +758,106 @@ pub struct Sregs {
     pub cr4: u64,
     pub cr8: u64,
     pub efer: u64,
-    pub apic_base: u64,
+}
 
-    /// A bitmap of pending external interrupts.  At most one bit may be set.  This interrupt has
-    /// been acknowledged by the APIC but not yet injected into the cpu core.
-    pub interrupt_bitmap: [u64; 4usize],
+impl Default for Sregs {
+    fn default() -> Self {
+        // Intel SDM Vol. 3A, 3.4.5.1 ("Code- and Data-Segment Descriptor Types")
+        const SEG_TYPE_DATA: u8 = 0b0000;
+        const SEG_TYPE_DATA_WRITABLE: u8 = 0b0010;
+
+        const SEG_TYPE_CODE: u8 = 0b1000;
+        const SEG_TYPE_CODE_READABLE: u8 = 0b0010;
+
+        const SEG_TYPE_ACCESSED: u8 = 0b0001;
+
+        // Intel SDM Vol. 3A, 3.4.5 ("Segment Descriptors")
+        const SEG_S_SYSTEM: u8 = 0; // System segment.
+        const SEG_S_CODE_OR_DATA: u8 = 1; // Data/code segment.
+
+        // 16-bit real-mode code segment (reset vector).
+        let code_seg = Segment {
+            base: 0xffff0000,
+            limit: 0xffff,
+            selector: 0xf000,
+            type_: SEG_TYPE_CODE | SEG_TYPE_CODE_READABLE | SEG_TYPE_ACCESSED, // 11
+            present: 1,
+            s: SEG_S_CODE_OR_DATA,
+            ..Default::default()
+        };
+
+        // 16-bit real-mode data segment.
+        let data_seg = Segment {
+            base: 0,
+            limit: 0xffff,
+            selector: 0,
+            type_: SEG_TYPE_DATA | SEG_TYPE_DATA_WRITABLE | SEG_TYPE_ACCESSED, // 3
+            present: 1,
+            s: SEG_S_CODE_OR_DATA,
+            ..Default::default()
+        };
+
+        // 16-bit TSS segment.
+        let task_seg = Segment {
+            base: 0,
+            limit: 0xffff,
+            selector: 0,
+            type_: SEG_TYPE_CODE | SEG_TYPE_CODE_READABLE | SEG_TYPE_ACCESSED, // 11
+            present: 1,
+            s: SEG_S_SYSTEM,
+            ..Default::default()
+        };
+
+        // Local descriptor table.
+        let ldt = Segment {
+            base: 0,
+            limit: 0xffff,
+            selector: 0,
+            type_: SEG_TYPE_DATA | SEG_TYPE_DATA_WRITABLE, // 2
+            present: 1,
+            s: SEG_S_SYSTEM,
+            ..Default::default()
+        };
+
+        // Global descriptor table.
+        let gdt = DescriptorTable {
+            base: 0,
+            limit: 0xffff,
+        };
+
+        // Interrupt descriptor table.
+        let idt = DescriptorTable {
+            base: 0,
+            limit: 0xffff,
+        };
+
+        let cr0 = (1 << 4) // CR0.ET (reserved, always 1)
+                | (1 << 30); // CR0.CD (cache disable)
+
+        Sregs {
+            cs: code_seg,
+            ds: data_seg,
+            es: data_seg,
+            fs: data_seg,
+            gs: data_seg,
+            ss: data_seg,
+            tr: task_seg,
+            ldt,
+            gdt,
+            idt,
+            cr0,
+            cr2: 0,
+            cr3: 0,
+            cr4: 0,
+            cr8: 0,
+            efer: 0,
+        }
+    }
 }
 
 /// State of a VCPU's floating point unit.
 #[repr(C)]
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Fpu {
     pub fpr: [[u8; 16usize]; 8usize],
     pub fcw: u16,
@@ -567,9 +870,73 @@ pub struct Fpu {
     pub mxcsr: u32,
 }
 
+impl Default for Fpu {
+    fn default() -> Self {
+        Fpu {
+            fpr: Default::default(),
+            fcw: 0x37f, // Intel SDM Vol. 1, 13.6
+            fsw: 0,
+            ftwx: 0,
+            last_opcode: 0,
+            last_ip: 0,
+            last_dp: 0,
+            xmm: Default::default(),
+            mxcsr: 0x1f80, // Intel SDM Vol. 1, 11.6.4
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VcpuEvents {
+    pub exception: VcpuExceptionState,
+    pub interrupt: VcpuInterruptState,
+    pub nmi: VcpuNmiState,
+    pub sipi_vector: Option<u32>,
+    pub smi: VcpuSmiState,
+    pub triple_fault: VcpuTripleFaultState,
+    pub exception_payload: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VcpuExceptionState {
+    pub injected: bool,
+    pub nr: u8,
+    pub has_error_code: bool,
+    pub pending: Option<bool>,
+    pub error_code: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VcpuInterruptState {
+    pub injected: bool,
+    pub nr: u8,
+    pub soft: bool,
+    pub shadow: Option<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VcpuNmiState {
+    pub injected: bool,
+    pub pending: Option<bool>,
+    pub masked: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VcpuSmiState {
+    pub smm: Option<bool>,
+    pub pending: bool,
+    pub smm_inside_nmi: bool,
+    pub latched_init: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VcpuTripleFaultState {
+    pub pending: Option<bool>,
+}
+
 /// State of a VCPU's debug registers.
 #[repr(C)]
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
 pub struct DebugRegs {
     pub db: [u64; 4usize],
     pub dr6: u64,
@@ -582,3 +949,17 @@ pub struct Register {
     pub id: u32,
     pub value: u64,
 }
+
+/// The hybrid type for intel hybrid CPU.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CpuHybridType {
+    /// Intel Atom.
+    Atom,
+    /// Intel Core.
+    Core,
+}
+
+/// State of the VCPU's x87 FPU, MMX, XMM, YMM registers.
+/// May contain more state depending on enabled extensions.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Xsave(pub Vec<u32>);

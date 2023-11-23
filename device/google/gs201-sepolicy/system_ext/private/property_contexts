@@ -1,0 +1,2 @@
+# Fingerprint (UDFPS) GHBM/LHBM toggle
+persist.fingerprint.ghbm    u:object_r:fingerprint_ghbm_prop:s0    exact    bool

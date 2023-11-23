@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.app.appsearch.AppSearchSchema;
 
+import com.android.server.appsearch.icing.proto.JoinableConfig;
 import com.android.server.appsearch.icing.proto.PropertyConfigProto;
 import com.android.server.appsearch.icing.proto.SchemaTypeConfigProto;
 import com.android.server.appsearch.icing.proto.StringIndexingConfig;
@@ -147,5 +148,53 @@ public class SchemaToProtoConverterTest {
                 .isEqualTo(expectedMusicRecordingProto);
         assertThat(SchemaToProtoConverter.toAppSearchSchema(expectedMusicRecordingProto))
                 .isEqualTo(musicRecordingSchema);
+    }
+
+    @Test
+    public void testGetProto_JoinableConfig() {
+        AppSearchSchema albumSchema =
+                new AppSearchSchema.Builder("Album")
+                        .addProperty(
+                                new AppSearchSchema.StringPropertyConfig.Builder("artist")
+                                        .setCardinality(
+                                                AppSearchSchema.PropertyConfig.CARDINALITY_OPTIONAL)
+                                        .setJoinableValueType(
+                                                AppSearchSchema.StringPropertyConfig
+                                                        .JOINABLE_VALUE_TYPE_QUALIFIED_ID)
+                                        .build())
+                        .build();
+
+        JoinableConfig joinableConfig =
+                JoinableConfig.newBuilder()
+                        .setValueType(JoinableConfig.ValueType.Code.QUALIFIED_ID)
+                        // TODO(b/274157614) change this to be "true" when we can access hidden API
+                        //  in servicestest or we unhide setPropagateDelete in AppSearchSchema.
+                        .setPropagateDelete(false)
+                        .build();
+
+        SchemaTypeConfigProto expectedAlbumProto =
+                SchemaTypeConfigProto.newBuilder()
+                        .setSchemaType("Album")
+                        .setVersion(0)
+                        .addProperties(
+                                PropertyConfigProto.newBuilder()
+                                        .setPropertyName("artist")
+                                        .setDataType(PropertyConfigProto.DataType.Code.STRING)
+                                        .setCardinality(
+                                                PropertyConfigProto.Cardinality.Code.OPTIONAL)
+                                        .setStringIndexingConfig(
+                                                StringIndexingConfig.newBuilder()
+                                                        .setTermMatchType(
+                                                                TermMatchType.Code.UNKNOWN)
+                                                        .setTokenizerType(
+                                                                StringIndexingConfig.TokenizerType
+                                                                        .Code.NONE))
+                                        .setJoinableConfig(joinableConfig))
+                        .build();
+
+        assertThat(SchemaToProtoConverter.toSchemaTypeConfigProto(albumSchema, /*version=*/ 0))
+                .isEqualTo(expectedAlbumProto);
+        assertThat(SchemaToProtoConverter.toAppSearchSchema(expectedAlbumProto))
+                .isEqualTo(albumSchema);
     }
 }

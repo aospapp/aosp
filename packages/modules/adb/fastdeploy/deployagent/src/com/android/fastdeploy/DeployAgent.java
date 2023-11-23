@@ -245,7 +245,7 @@ public final class DeployAgent {
         outputStream.flush();
         if (bytesWritten != newSize) {
             throw new PatchFormatException(String.format(
-                    "output size mismatch (expected %ld but wrote %ld)", newSize, bytesWritten));
+                    "output size mismatch (expected %d but wrote %d)", newSize, bytesWritten));
         }
         return bytesWritten;
     }
@@ -324,7 +324,7 @@ public final class DeployAgent {
             p.waitFor();
             if (bytesWritten != newSize) {
                 throw new PatchFormatException(
-                        String.format("output size mismatch (expected %d but wrote %)", newSize,
+                        String.format("output size mismatch (expected %d but wrote %d)", newSize,
                                 bytesWritten));
             }
             return p.exitValue();

@@ -65,6 +65,9 @@ var ErrBadMagic = errors.New("unsupported magic")
 // an irregular (non-executable) file.
 var ErrBadPath = errors.New("file is not a regular executable")
 
+// ErrOutOfRange indicates an erroneous value for MinExtFlagSize.
+var ErrOutOfRange = errors.New("flag length invalid for export")
+
 // digestFileCap unpacks a file capability and returns it in a *Set
 // form.
 func digestFileCap(d []byte, sz int, err error) (*Set, error) {
@@ -264,7 +267,7 @@ func (c *Set) SetFd(file *os.File) error {
 
 //go:uintptrescapes
 
-// SetFile attempts to set the file capabilities of the specfied
+// SetFile attempts to set the file capabilities of the specified
 // filename. This function can also be used to delete a file's
 // capabilities, by calling with c = nil.
 //
@@ -311,7 +314,8 @@ func (c *Set) SetFile(path string) error {
 const ExtMagic = uint32(0x5101c290)
 
 // Import imports a Set from a byte array where it has been stored in
-// a portable (lossless) way.
+// a portable (lossless) way. That is values exported by
+// libcap.cap_copy_ext() and Export().
 func Import(d []byte) (*Set, error) {
 	b := bytes.NewBuffer(d)
 	var m uint32
@@ -344,27 +348,45 @@ func Import(d []byte) (*Set, error) {
 	return c, nil
 }
 
+// To strictly match libcap, this value defaults to 8. Setting it to
+// zero can generate smaller external representations. Such smaller
+// representations can be imported by libcap and the Go package just
+// fine, we just default to the default libcap representation for
+// legacy reasons.
+var MinExtFlagSize = uint(8)
+
 // Export exports a Set into a lossless byte array format where it is
 // stored in a portable way. Note, any namespace owner in the Set
 // content is not exported by this function.
+//
+// Note, Export() generates exported byte streams that are importable
+// by libcap.cap_copy_int() as well as Import().
 func (c *Set) Export() ([]byte, error) {
 	if c == nil {
 		return nil, ErrBadSet
+	}
+	if MinExtFlagSize > 255 {
+		return nil, ErrOutOfRange
 	}
 	b := new(bytes.Buffer)
 	binary.Write(b, binary.LittleEndian, ExtMagic)
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	var n = byte(0)
+	var n = uint(0)
 	for i, f := range c.flat {
-		if u := f[Effective] | f[Permitted] | f[Inheritable]; u != 0 {
-			n = 4 * byte(i)
-			for ; u != 0; u >>= 8 {
-				n++
+		if nn := 4 * uint(i); nn+4 > n {
+			if u := f[Effective] | f[Permitted] | f[Inheritable]; u != 0 {
+				n = nn
+				for ; u != 0; u >>= 8 {
+					n++
+				}
 			}
 		}
 	}
-	b.Write([]byte{n})
+	if n < MinExtFlagSize {
+		n = MinExtFlagSize
+	}
+	b.Write([]byte{byte(n)})
 	for _, f := range c.flat {
 		if n == 0 {
 			break
@@ -381,6 +403,10 @@ func (c *Set) Export() ([]byte, error) {
 			per >>= 8
 			inh >>= 8
 		}
+	}
+	for n > 0 {
+		n--
+		b.Write([]byte{0, 0, 0})
 	}
 	return b.Bytes(), nil
 }

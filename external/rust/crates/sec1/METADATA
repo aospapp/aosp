@@ -1,0 +1,20 @@
+name: "sec1"
+description: "Pure Rust implementation of SEC1: Elliptic Curve Cryptography encoding formats including ASN.1 DER-serialized private keys (also described in RFC5915) as well as the Elliptic-Curve-Point-to-Octet-String and Octet-String-to-Elliptic Curve-Point encoding algorithms."
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://crates.io/crates/sec1"
+  }
+  url {
+    type: ARCHIVE
+    value: "https://static.crates.io/crates/sec1/sec1-0.3.0.crate"
+  }
+  version: "0.3.0"
+  # Dual-licensed, using the least restrictive per go/thirdpartylicenses#same.
+  license_type: NOTICE
+  last_upgrade_date {
+    year: 2022
+    month: 9
+    day: 6
+  }
+}

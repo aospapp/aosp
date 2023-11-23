@@ -50,13 +50,17 @@ RemoteKeyMintOperation::~RemoteKeyMintOperation() {
 }
 
 ScopedAStatus RemoteKeyMintOperation::updateAad(
-    const vector<uint8_t>& input,
-    const optional<HardwareAuthToken>& /* authToken */,
+    const vector<uint8_t>& input, const optional<HardwareAuthToken>& authToken,
     const optional<TimeStampToken>& /* timestampToken */) {
   UpdateOperationRequest request(impl_.message_version());
   request.op_handle = opHandle_;
   request.additional_params.push_back(TAG_ASSOCIATED_DATA, input.data(),
                                       input.size());
+  if (authToken) {
+    auto tokenAsVec(authToken2AidlVec(*authToken));
+    request.additional_params.push_back(keymaster::TAG_AUTH_TOKEN,
+                                        tokenAsVec.data(), tokenAsVec.size());
+  }
 
   UpdateOperationResponse response(impl_.message_version());
   impl_.UpdateOperation(request, &response);
@@ -65,8 +69,7 @@ ScopedAStatus RemoteKeyMintOperation::updateAad(
 }
 
 ScopedAStatus RemoteKeyMintOperation::update(
-    const vector<uint8_t>& input,
-    const optional<HardwareAuthToken>& /* authToken */,
+    const vector<uint8_t>& input, const optional<HardwareAuthToken>& authToken,
     const optional<TimeStampToken>&
     /* timestampToken */,
     vector<uint8_t>* output) {
@@ -75,6 +78,11 @@ ScopedAStatus RemoteKeyMintOperation::update(
   UpdateOperationRequest request(impl_.message_version());
   request.op_handle = opHandle_;
   request.input.Reinitialize(input.data(), input.size());
+  if (authToken) {
+    auto tokenAsVec(authToken2AidlVec(*authToken));
+    request.additional_params.push_back(keymaster::TAG_AUTH_TOKEN,
+                                        tokenAsVec.data(), tokenAsVec.size());
+  }
 
   UpdateOperationResponse response(impl_.message_version());
   impl_.UpdateOperation(request, &response);
@@ -92,9 +100,9 @@ ScopedAStatus RemoteKeyMintOperation::update(
 ScopedAStatus RemoteKeyMintOperation::finish(
     const optional<vector<uint8_t>>& input,      //
     const optional<vector<uint8_t>>& signature,  //
-    const optional<HardwareAuthToken>& /* authToken */,
+    const optional<HardwareAuthToken>& authToken,
     const optional<TimeStampToken>& /* timestampToken */,
-    const optional<vector<uint8_t>>& /* confirmationToken */,
+    const optional<vector<uint8_t>>& confirmationToken,
     vector<uint8_t>* output) {
   if (!output) {
     return ScopedAStatus(AStatus_fromServiceSpecificError(
@@ -104,8 +112,19 @@ ScopedAStatus RemoteKeyMintOperation::finish(
   FinishOperationRequest request(impl_.message_version());
   request.op_handle = opHandle_;
   if (input) request.input.Reinitialize(input->data(), input->size());
-  if (signature)
+  if (signature) {
     request.signature.Reinitialize(signature->data(), signature->size());
+  }
+  if (authToken) {
+    auto tokenAsVec(authToken2AidlVec(*authToken));
+    request.additional_params.push_back(keymaster::TAG_AUTH_TOKEN,
+                                        tokenAsVec.data(), tokenAsVec.size());
+  }
+  if (confirmationToken) {
+    request.additional_params.push_back(keymaster::TAG_CONFIRMATION_TOKEN,
+                                        confirmationToken->data(),
+                                        confirmationToken->size());
+  }
 
   FinishOperationResponse response(impl_.message_version());
   impl_.FinishOperation(request, &response);

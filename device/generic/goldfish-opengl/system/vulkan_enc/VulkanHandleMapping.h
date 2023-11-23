@@ -18,7 +18,8 @@
 
 #include "VulkanHandles.h"
 
-namespace goldfish_vk {
+namespace gfxstream {
+namespace vk {
 
 class VulkanHandleMapping {
 public:
@@ -45,4 +46,5 @@ public:
     GOLDFISH_VK_LIST_HANDLE_TYPES(DECLARE_HANDLE_MAP_OVERRIDE)
 };
 
-} // namespace goldfish_vk
+}  // namespace vk
+}  // namespace gfxstream

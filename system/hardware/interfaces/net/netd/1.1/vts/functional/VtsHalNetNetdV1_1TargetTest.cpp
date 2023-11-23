@@ -321,6 +321,7 @@ TEST_P(NetdHidlTest, TestForwarding) {
     EXPECT_EQ(0, countMatchingIpRules(regex2));
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(NetdHidlTest);
 INSTANTIATE_TEST_SUITE_P(
     PerInstance, NetdHidlTest,
     testing::ValuesIn(android::hardware::getAllHalInstanceNames(INetd::descriptor)),

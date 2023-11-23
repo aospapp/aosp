@@ -9,21 +9,18 @@ from __future__ import print_function
 
 import logging
 import logging.handlers
-import mox
 import multiprocessing
+import os
 import tempfile
 import time
-import os
 import unittest
 
 from autotest_lib.site_utils import log_socket_server
 from six.moves import range
 
 
-class TestLogSocketServer(mox.MoxTestBase):
-    """Test LogSocketServer can start and save logs to a local file.
-    """
-
+class TestLogSocketServer(unittest.TestCase):
+    """Test LogSocketServer can start and save logs to a local file."""
 
     def log_call(self, value, port):
         """Method to be called in a new process to log to a socket server.
@@ -36,7 +33,6 @@ class TestLogSocketServer(mox.MoxTestBase):
         logging.getLogger().addHandler(socketHandler)
         logging.getLogger().level = logging.INFO
         logging.info(value)
-
 
     def testMultiProcessLoggingSuccess(self):
         """Test log can be saved from multiple processes."""
@@ -65,7 +61,7 @@ class TestLogSocketServer(mox.MoxTestBase):
         # Read log to confirm all logs are written to file.
         num_lines = sum(1 for line in open(log_filename))
         if process_number != num_lines:
-            logging.warn('Not all log messages were written to file %s. '
+            logging.warning('Not all log messages were written to file %s. '
                          'Expected number of logs: %s, Logs found in file: %s',
                          log_filename, process_number, num_lines)
         self.assertNotEqual(0, num_lines, 'No log message was written to file '

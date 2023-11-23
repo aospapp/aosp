@@ -71,6 +71,10 @@ public class BuildNumberPreferenceController extends PreferenceController<Prefer
             return false;
         }
 
+        if (mUserManager.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES)) {
+            return false;
+        }
+
         if (!DevelopmentSettingsUtil.isDeviceProvisioned(getContext())) {
             return false;
         }

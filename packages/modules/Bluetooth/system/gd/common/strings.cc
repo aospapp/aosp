@@ -16,6 +16,7 @@
 
 #include "common/strings.h"
 
+#include <algorithm>
 #include <charconv>
 #include <cstdlib>
 #include <functional>
@@ -26,13 +27,13 @@
 
 namespace {
 
-struct IsSpace : std::unary_function<std::string::value_type, bool> {
+struct IsSpace {
   bool operator()(std::string::value_type v) {
     return isspace(static_cast<int>(v));
   }
 };
 
-struct IsHexDigit : std::unary_function<std::string::value_type, bool> {
+struct IsHexDigit {
   bool operator()(std::string::value_type v) {
     return isxdigit(static_cast<int>(v));
   }

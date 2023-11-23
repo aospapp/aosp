@@ -464,4 +464,12 @@ public class A2dpSinkServiceTest {
         assertThat(mService.setConnectionPolicy(mDevice1,
                 BluetoothProfile.CONNECTION_POLICY_ALLOWED)).isFalse();
     }
+
+    @Test
+    public void testDumpDoesNotCrash() {
+        mockDevicePriority(mDevice1, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+        setupDeviceConnection(mDevice1);
+
+        mService.dump(new StringBuilder());
+    }
 }

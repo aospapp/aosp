@@ -251,13 +251,13 @@ public class PackageWatchdogTest {
         TestObserver(String name, CountDownLatch latch) {
             mName = name;
             mLatch = latch;
-            mImpact = PackageWatchdog.PackageHealthObserverImpact.USER_IMPACT_MEDIUM;
+            mImpact = PackageWatchdog.PackageHealthObserverImpact.USER_IMPACT_LEVEL_30;
         }
 
         TestObserver(String name) {
             mName = name;
             mLatch = new CountDownLatch(1);
-            mImpact = PackageWatchdog.PackageHealthObserverImpact.USER_IMPACT_MEDIUM;
+            mImpact = PackageWatchdog.PackageHealthObserverImpact.USER_IMPACT_LEVEL_30;
         }
 
         public int onHealthCheckFailed(VersionedPackage versionedPackage, int failureReason,

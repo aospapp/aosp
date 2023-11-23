@@ -60,7 +60,9 @@ interface ICredential {
                                       in boolean allowUsingExpiredKeys,
                                       in boolean incrementUsageCount);
 
-    void setAvailableAuthenticationKeys(in int keyCount, in int maxUsesPerKey);
+    void setAvailableAuthenticationKeys(in int keyCount,
+                                        in int maxUsesPerKey,
+                                        in long minValidTimeMillis);
 
     AuthKeyParcel[] getAuthKeysNeedingCertification();
 
@@ -72,6 +74,8 @@ interface ICredential {
                                        in byte[] staticAuthData);
 
     int[] getAuthenticationDataUsageCount();
+
+    long[] getAuthenticationDataExpirations();
 
     IWritableCredential update();
 }

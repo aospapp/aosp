@@ -70,7 +70,7 @@ public class SeccompDeviceTest {
 
     // The service start can take a long time, because seccomp denials will
     // cause process crashes and dumps, which we waitpid() for sequentially.
-    private static final int SERVICE_START_TIMEOUT_MS = 120000;
+    private static final int SERVICE_START_TIMEOUT_MS = 180000;
 
     private JSONObject mAllowedSyscallMap;
     private JSONObject mBlockedSyscallMap;
@@ -199,7 +199,9 @@ public class SeccompDeviceTest {
             return "x86_64";
         } else if (CpuFeatures.isX86Cpu()) {
             return "x86";
-        } else {
+        } else if (CpuFeatures.isRiscv64Cpu()) {
+            return "riscv64";
+        }else {
             Assert.fail("Unsupported architecture");
             return null;
         }

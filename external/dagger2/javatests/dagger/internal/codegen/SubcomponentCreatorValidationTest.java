@@ -19,18 +19,18 @@ package dagger.internal.codegen;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static dagger.internal.codegen.CompilerMode.DEFAULT_MODE;
 import static dagger.internal.codegen.TestUtils.message;
-import static dagger.internal.codegen.binding.ComponentCreatorAnnotation.SUBCOMPONENT_BUILDER;
-import static dagger.internal.codegen.binding.ComponentCreatorAnnotation.SUBCOMPONENT_FACTORY;
-import static dagger.internal.codegen.binding.ComponentCreatorKind.BUILDER;
-import static dagger.internal.codegen.binding.ComponentCreatorKind.FACTORY;
-import static dagger.internal.codegen.binding.ComponentKind.SUBCOMPONENT;
+import static dagger.internal.codegen.base.ComponentCreatorAnnotation.SUBCOMPONENT_BUILDER;
+import static dagger.internal.codegen.base.ComponentCreatorAnnotation.SUBCOMPONENT_FACTORY;
+import static dagger.internal.codegen.base.ComponentCreatorKind.BUILDER;
+import static dagger.internal.codegen.base.ComponentCreatorKind.FACTORY;
+import static dagger.internal.codegen.base.ComponentKind.SUBCOMPONENT;
 import static dagger.internal.codegen.binding.ErrorMessages.ComponentCreatorMessages.moreThanOneRefToSubcomponent;
 import static dagger.internal.codegen.binding.ErrorMessages.componentMessagesFor;
 
 import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
-import dagger.internal.codegen.binding.ComponentCreatorAnnotation;
+import dagger.internal.codegen.base.ComponentCreatorAnnotation;
 import java.util.Collection;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
@@ -52,17 +52,19 @@ public class SubcomponentCreatorValidationTest extends ComponentCreatorTestHelpe
 
   @Test
   public void testRefSubcomponentAndSubCreatorFails() {
-    JavaFileObject componentFile = preprocessedJavaFile("test.ParentComponent",
-        "package test;",
-        "",
-        "import dagger.Component;",
-        "import javax.inject.Provider;",
-        "",
-        "@Component",
-        "interface ParentComponent {",
-        "  ChildComponent child();",
-        "  ChildComponent.Builder builder();",
-        "}");
+    JavaFileObject componentFile =
+        preprocessedJavaFile(
+            "test.ParentComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import javax.inject.Provider;",
+            "",
+            "@Component",
+            "interface ParentComponent {",
+            "  ChildComponent child();",
+            "  ChildComponent.Builder childComponentBuilder();",
+            "}");
     JavaFileObject childComponentFile = preprocessedJavaFile("test.ChildComponent",
         "package test;",
         "",
@@ -82,7 +84,7 @@ public class SubcomponentCreatorValidationTest extends ComponentCreatorTestHelpe
             String.format(
                 moreThanOneRefToSubcomponent(),
                 "test.ChildComponent",
-                process("[child(), builder()]")))
+                process("[child(), childComponentBuilder()]")))
         .inFile(componentFile);
   }
 
@@ -244,16 +246,18 @@ public class SubcomponentCreatorValidationTest extends ComponentCreatorTestHelpe
 
   @Test
   public void testCreatorMissingFactoryMethodFails() {
-    JavaFileObject componentFile = preprocessedJavaFile("test.ParentComponent",
-        "package test;",
-        "",
-        "import dagger.Component;",
-        "import javax.inject.Provider;",
-        "",
-        "@Component",
-        "interface ParentComponent {",
-        "  ChildComponent.Builder builder();",
-        "}");
+    JavaFileObject componentFile =
+        preprocessedJavaFile(
+            "test.ParentComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import javax.inject.Provider;",
+            "",
+            "@Component",
+            "interface ParentComponent {",
+            "  ChildComponent.Builder childComponentBuilder();",
+            "}");
     JavaFileObject childComponentFile = preprocessedJavaFile("test.ChildComponent",
         "package test;",
         "",
@@ -726,8 +730,7 @@ public class SubcomponentCreatorValidationTest extends ComponentCreatorTestHelpe
                 "  interface Factory {",
                 "    ChildComponent create(String s, Integer i);",
                 "  }")
-            .addLines( //
-                "}")
+            .addLines("}")
             .build();
     Compilation compilation = compile(componentFile, childComponentFile);
     assertThat(compilation).failed();

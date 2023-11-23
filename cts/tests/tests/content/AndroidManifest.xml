@@ -34,6 +34,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.content.cts.permission.TEST_GRANTED"
                      android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
 
@@ -92,6 +93,21 @@
          android:protectionLevel="normal"/>
 
     <permission android:name="android.content.cts.REQUIRED_MULTI_GRANT_3"
+                android:protectionLevel="normal"/>
+
+    <permission android:name="android.content.cts.permission.NO_MAX_SDK"
+        android:protectionLevel="normal"/>
+
+    <permission android:name="android.content.cts.permission.MAX_SDK_IGNORE"
+        android:maxSdkVersion="29"
+        android:protectionLevel="normal"/>
+
+    <permission android:name="android.content.cts.permission.MAX_SDK_CREATE"
+        android:maxSdkVersion="10001"
+        android:protectionLevel="normal"/>
+
+    <permission android:name="android.content.cts.permission.CURRENT_MAX_SDK"
+                android:maxSdkVersion="current"
                 android:protectionLevel="normal"/>
 
     <uses-permission android:name="android.content.cts.REQUIRED_FEATURE_DEFINED"
@@ -290,10 +306,26 @@
 
         <service android:name="android.content.cts.MockContextService"/>
         <activity android:name=".content.ContextCtsActivity"
-             android:label="ContextCtsActivity"
-             android:exported="true">
+                  android:label="ContextCtsActivity"
+                  android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
+            </intent-filter>
+        </activity>
+        <activity android:name="android.content.cts.ContextCtsExportedActivity"
+                  android:label="ContextCtsExportedActivity"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.cts.action.TEST_EXPORTED"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
+        <activity android:name="android.content.cts.ContextCtsNonExportedActivity"
+                  android:label="ContextCtsNonExportedActivity"
+                  android:exported="false">
+            <intent-filter>
+                <action android:name="android.cts.action.TEST_NON_EXPORTED"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
 
@@ -331,6 +363,12 @@
                 <action android:name="android.content.cts.BroadcastReceiverTest.BROADCAST_MOCKTEST"/>
                 <action android:name="android.content.cts.BroadcastReceiverTest.BROADCAST_TESTABORT"/>
                 <action android:name="android.content.cts.ContextTest.BROADCAST_TESTORDER"/>
+            </intent-filter>
+        </receiver>
+        <receiver android:name="android.content.cts.BroadcastReceiverTest$TestNonExportedReceiver"
+                  android:exported="false">
+            <intent-filter android:priority="3">
+                <action android:name="android.content.cts.BroadcastReceiverTest.TEST_NOT_EXPORTED"/>
             </intent-filter>
         </receiver>
 
@@ -550,6 +588,38 @@
             </intent-filter>
 	</activity>
 
+        <!-- The test module disables manifest merging, so manually include AndroidX Activities -->
+        <activity
+            android:name="androidx.test.core.app.InstrumentationActivityInvoker$BootstrapActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="androidx.test.core.app.InstrumentationActivityInvoker$EmptyActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="androidx.test.core.app.InstrumentationActivityInvoker$EmptyFloatingActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.content.res.cts.config.activity.ApplyOverrideConfigActivity" />
+
+        <activity android:name="android.content.res.cts.config.activity.CreateConfigBaseContextActivity" />
+
+        <activity android:name="android.content.res.cts.config.activity.CreateConfigInflaterContextActivity" />
+
+        <activity
+            android:name="android.content.res.cts.config.activity.ApplyOverrideConfigHandleOrientationActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"/>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

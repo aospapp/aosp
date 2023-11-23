@@ -28,4 +28,33 @@ android_test_helper_app {
         "general-tests",
         "sts",
     ],
+    // Generate a locale split.
+    package_splits: ["pl"],
+}
+
+android_test_helper_app {
+    name: "CtsEmptyTestAppV2",
+    resource_dirs: ["res_v2"],
+    defaults: ["cts_defaults"],
+    sdk_version: "current",
+    min_sdk_version: "23",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "arcts",
+        "cts",
+        "general-tests",
+        "sts",
+    ],
+}
+
+android_test_helper_app {
+    name: "CtsEmptyTestApp_FullScreenIntent",
+    defaults: ["cts_defaults"],
+    manifest: "AndroidManifest_FullScreenIntent.xml",
+    sdk_version: "current",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
 }

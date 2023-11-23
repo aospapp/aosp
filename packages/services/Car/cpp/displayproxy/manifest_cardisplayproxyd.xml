@@ -17,5 +17,6 @@
     <hal format="aidl">
         <name>android.frameworks.automotive.display</name>
         <fqname>ICarDisplayProxy/default</fqname>
+        <version>2</version>
     </hal>
 </manifest>

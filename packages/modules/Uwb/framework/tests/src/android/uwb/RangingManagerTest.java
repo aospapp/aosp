@@ -29,10 +29,13 @@ import static org.mockito.Mockito.when;
 
 import android.content.AttributionSource;
 import android.os.PersistableBundle;
+import android.os.Process;
 import android.os.RemoteException;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
+
+import com.android.modules.utils.build.SdkLevel;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -54,11 +57,13 @@ public class RangingManagerTest {
     private static final @RangingChangeReason int REASON = RangingChangeReason.UNKNOWN;
     private static final UwbAddress ADDRESS = UwbAddress.fromBytes(new byte[] {0x0, 0x1});
     private static final byte[] DATA = new byte[] {0x0, 0x1};
-    private static final int UID = 343453;
+    private static final int UID = Process.myUid();
     private static final String PACKAGE_NAME = "com.uwb.test";
     private static final AttributionSource ATTRIBUTION_SOURCE =
             new AttributionSource.Builder(UID).setPackageName(PACKAGE_NAME).build();
     private static final String VALID_CHIP_ID = "validChipId";
+    private static final int HANDLE_ID = 12;
+    private static final int PID = Process.myPid();
 
     @Test
     public void testOpenSession_OpenRangingInvoked() throws RemoteException {
@@ -120,7 +125,7 @@ public class RangingManagerTest {
         RangingManager rangingManager = new RangingManager(adapter);
         RangingSession.Callback callback = mock(RangingSession.Callback.class);
 
-        rangingManager.onRangingOpened(new SessionHandle(2));
+        rangingManager.onRangingOpened(new SessionHandle(HANDLE_ID, ATTRIBUTION_SOURCE, PID));
         verify(callback, times(0)).onOpened(any());
     }
 
@@ -250,6 +255,13 @@ public class RangingManagerTest {
 
         rangingManager.onServiceConnected(handle, PARAMS);
         verify(callback, times(1)).onServiceConnected(eq(PARAMS));
+
+        // Test should only run on U+ devices.
+        if (SdkLevel.isAtLeastU()) {
+            rangingManager.onRangingRoundsUpdateDtTagStatus(handle, PARAMS);
+            verify(callback, times(1))
+                    .onRangingRoundsUpdateDtTagStatus(eq(PARAMS));
+        }
 
         rangingManager.onRangingClosed(handle, REASON, PARAMS);
         verify(callback, times(1)).onClosed(eq(REASON), eq(PARAMS));
@@ -450,6 +462,10 @@ public class RangingManagerTest {
                 RangingChangeReason.REMOTE_REQUEST, RangingSession.Callback.REASON_REMOTE_REQUEST);
 
         runReason(RangingChangeReason.SYSTEM_POLICY, RangingSession.Callback.REASON_SYSTEM_POLICY);
+
+        runReason(
+                RangingChangeReason.SYSTEM_REGULATION,
+                RangingSession.Callback.REASON_SYSTEM_REGULATION);
 
         runReason(
                 RangingChangeReason.BAD_PARAMETERS, RangingSession.Callback.REASON_BAD_PARAMETERS);

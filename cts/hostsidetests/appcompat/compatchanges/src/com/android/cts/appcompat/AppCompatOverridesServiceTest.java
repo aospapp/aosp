@@ -16,6 +16,7 @@
 
 package com.android.cts.appcompat;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -91,7 +92,7 @@ public class AppCompatOverridesServiceTest extends CompatChangeGatingTestCase {
 
         // Now install the app and the override should be applied
         installPackage(OVERRIDE_PKG_VERSION_1_FILENAME, false);
-        Thread.sleep(WAIT_TIME_MS);
+        RunUtil.getDefault().sleep(WAIT_TIME_MS);
 
         ctsChange = getChange(CTS_CHANGE_ID);
         assertThat(ctsChange.hasRawOverrides).isTrue();
@@ -103,7 +104,7 @@ public class AppCompatOverridesServiceTest extends CompatChangeGatingTestCase {
 
         // Now uninstall the app and the override should be removed
         uninstallPackage(OVERRIDE_PKG, false);
-        Thread.sleep(WAIT_TIME_MS);
+        RunUtil.getDefault().sleep(WAIT_TIME_MS);
 
         ctsChange = getChange(CTS_CHANGE_ID);
         assertThat(ctsChange.hasRawOverrides).isFalse();
@@ -248,7 +249,7 @@ public class AppCompatOverridesServiceTest extends CompatChangeGatingTestCase {
         // Now remove entry in flag and the override should be removed
         putFlagValue(OVERRIDE_PKG, CTS_CHANGE_ID + "");
         uninstallPackage(OVERRIDE_PKG, false);
-        Thread.sleep(WAIT_TIME_MS);
+        RunUtil.getDefault().sleep(WAIT_TIME_MS);
 
         ctsChange = getChange(CTS_CHANGE_ID);
         assertThat(ctsChange.hasRawOverrides).isFalse();
@@ -271,7 +272,7 @@ public class AppCompatOverridesServiceTest extends CompatChangeGatingTestCase {
         // Now uninstall the app and the override should be removed
         uninstallPackage(OVERRIDE_PKG, false);
         putFlagValue(OVERRIDE_PKG, CTS_CHANGE_ID + "");
-        Thread.sleep(WAIT_TIME_MS);
+        RunUtil.getDefault().sleep(WAIT_TIME_MS);
 
         ctsChange = getChange(CTS_CHANGE_ID);
         assertThat(ctsChange.hasRawOverrides).isFalse();

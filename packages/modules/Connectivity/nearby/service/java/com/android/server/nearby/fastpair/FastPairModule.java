@@ -24,6 +24,7 @@ import com.android.server.nearby.common.locator.Module;
 import com.android.server.nearby.fastpair.cache.FastPairCacheManager;
 import com.android.server.nearby.fastpair.footprint.FootprintsDeviceManager;
 import com.android.server.nearby.fastpair.halfsheet.FastPairHalfSheetManager;
+import com.android.server.nearby.fastpair.notification.FastPairNotificationManager;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -52,6 +53,9 @@ public class FastPairModule extends Module {
             locator.bind(FastPairHalfSheetManager.class, new FastPairHalfSheetManager(context));
         } else if (type.equals(FastPairAdvHandler.class)) {
             locator.bind(FastPairAdvHandler.class, new FastPairAdvHandler(context));
+        } else if (type.equals(FastPairNotificationManager.class)) {
+            locator.bind(FastPairNotificationManager.class,
+                    new FastPairNotificationManager(context));
         } else if (type.equals(Clock.class)) {
             locator.bind(Clock.class, new Clock() {
                 @Override

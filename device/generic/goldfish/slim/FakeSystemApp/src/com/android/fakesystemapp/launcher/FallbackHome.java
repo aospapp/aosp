@@ -82,12 +82,6 @@ public final class FallbackHome extends Activity {
                     .addCategory(Intent.CATEGORY_HOME);
             final ResolveInfo homeInfo = getPackageManager().resolveActivity(homeIntent, 0);
             if (Objects.equals(this.getClass().getName(), homeInfo.activityInfo.name)) {
-                if (UserManager.isSplitSystemUser()
-                        && UserHandle.myUserId() == UserHandle.USER_SYSTEM) {
-                    // This avoids the situation where the system user has no home activity after
-                    // SUW and this activity continues to throw out warnings. See b/28870689.
-                    return;
-                }
                 Log.d(TAG, "User unlocked but no home; let's hope someone enables one soon?");
                 mHandler.sendEmptyMessageDelayed(0, 500);
             } else {

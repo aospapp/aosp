@@ -27,7 +27,7 @@ import subprocess
 
 from update_payload import common
 from update_payload import payload
-from update_payload import update_metadata_pb2
+import update_metadata_pb2
 
 
 class TestError(Exception):

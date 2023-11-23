@@ -17,6 +17,8 @@
 #ifndef SRC_TRACE_PROCESSOR_IMPORTERS_COMMON_TRACK_TRACKER_H_
 #define SRC_TRACE_PROCESSOR_IMPORTERS_COMMON_TRACK_TRACKER_H_
 
+#include <optional>
+#include "src/trace_processor/importers/common/args_tracker.h"
 #include "src/trace_processor/storage/trace_storage.h"
 #include "src/trace_processor/types/trace_processor_context.h"
 
@@ -26,6 +28,25 @@ namespace trace_processor {
 // Tracks and stores tracks based on track types, ids and scopes.
 class TrackTracker {
  public:
+  // Enum which groups global tracks to avoid an explosion of tracks at the top
+  // level.
+  // Try and keep members of this enum high level as every entry here
+  // corresponds to ~1 extra UI track.
+  enum class Group : uint32_t {
+    kMemory = 0,
+    kIo,
+    kVirtio,
+    kNetwork,
+    kPower,
+    kDeviceState,
+    kThermals,
+    kClockFrequency,
+
+    // Keep this last.
+    kSizeSentinel,
+  };
+  using SetArgsCallback = std::function<void(ArgsTracker::BoundInserter&)>;
+
   explicit TrackTracker(TraceProcessorContext*);
 
   // Interns a thread track into the storage.
@@ -64,7 +85,9 @@ class TrackTracker {
   TrackId GetOrCreateTriggerTrack();
 
   // Interns a global counter track into the storage.
-  TrackId InternGlobalCounterTrack(StringId name,
+  TrackId InternGlobalCounterTrack(Group group,
+                                   StringId name,
+                                   SetArgsCallback = {},
                                    StringId unit = kNullStringId,
                                    StringId description = kNullStringId);
 
@@ -88,6 +111,22 @@ class TrackTracker {
 
   // Interns a counter track associated with a GPU into the storage.
   TrackId InternGpuCounterTrack(StringId name, uint32_t gpu_id);
+
+  // Interns energy counter track associated with a
+  // Energy breakdown into the storage.
+  TrackId InternEnergyCounterTrack(StringId name,
+                                   int32_t consumer_id,
+                                   StringId consumer_type,
+                                   int32_t ordinal);
+  // Interns a per process energy counter track associated with a
+  // Energy into the storage.
+  TrackId InternUidCounterTrack(StringId name, int32_t uid);
+
+  // Interns a per process energy consumer counter track associated with a
+  // Energy Uid into the storage.
+  TrackId InternEnergyPerUidCounterTrack(StringId name,
+                                         int32_t consumer_id,
+                                         int32_t uid);
 
   // Creates a counter track associated with a GPU into the storage.
   TrackId CreateGpuCounterTrack(StringId name,
@@ -125,7 +164,7 @@ class TrackTracker {
     }
   };
   struct ChromeTrackTuple {
-    base::Optional<int64_t> upid;
+    std::optional<int64_t> upid;
     int64_t source_id = 0;
     StringId source_scope = StringId::Null();
 
@@ -135,6 +174,12 @@ class TrackTracker {
              std::tie(r.source_id, r.upid, r.source_scope);
     }
   };
+  static constexpr size_t kGroupCount =
+      static_cast<uint32_t>(Group::kSizeSentinel);
+
+  TrackId InternTrackForGroup(Group group);
+
+  std::array<std::optional<TrackId>, kGroupCount> group_track_ids_;
 
   std::map<UniqueTid, TrackId> thread_tracks_;
   std::map<UniquePid, TrackId> process_tracks_;
@@ -153,9 +198,13 @@ class TrackTracker {
   std::map<std::pair<StringId, int32_t>, TrackId> irq_counter_tracks_;
   std::map<std::pair<StringId, int32_t>, TrackId> softirq_counter_tracks_;
   std::map<std::pair<StringId, uint32_t>, TrackId> gpu_counter_tracks_;
+  std::map<std::pair<StringId, int32_t>, TrackId> energy_counter_tracks_;
+  std::map<std::pair<StringId, int32_t>, TrackId> uid_counter_tracks_;
+  std::map<std::pair<StringId, int32_t>, TrackId>
+      energy_per_uid_counter_tracks_;
 
-  base::Optional<TrackId> chrome_global_instant_track_id_;
-  base::Optional<TrackId> trigger_track_id_;
+  std::optional<TrackId> chrome_global_instant_track_id_;
+  std::optional<TrackId> trigger_track_id_;
 
   const StringId source_key_ = kNullStringId;
   const StringId source_id_key_ = kNullStringId;

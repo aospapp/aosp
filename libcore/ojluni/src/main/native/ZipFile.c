@@ -54,6 +54,7 @@
 #define STORED 0
 
 static jfieldID jzfileID;
+jmethodID jzOnZipEntryAccessID;
 
 static int OPEN_READ = java_util_zip_ZipFile_OPEN_READ;
 static int OPEN_DELETE = java_util_zip_ZipFile_OPEN_DELETE;
@@ -63,6 +64,8 @@ static void ZipFile_initIDs(JNIEnv *env)
     jclass cls = (*env)->FindClass(env, "java/util/zip/ZipFile");
     jzfileID = (*env)->GetFieldID(env, cls, "jzfile", "J");
     assert(jzfileID != 0);
+    jzOnZipEntryAccessID = (*env)->GetMethodID(env, cls, "onZipEntryAccess", "([BI)V");
+    assert(jzOnZipEntryAccessID != 0);
 }
 
 
@@ -84,7 +87,8 @@ ThrowZipException(JNIEnv *env, const char *msg)
 }
 
 JNIEXPORT jlong JNICALL
-ZipFile_open(JNIEnv *env, jclass cls, jstring name,
+// Android changed: Changed to non-static java method.
+ZipFile_open(JNIEnv *env, jobject thiz, jstring name,
                                         jint mode, jlong lastModified,
                                         jboolean usemmap)
 {
@@ -115,7 +119,8 @@ ZipFile_open(JNIEnv *env, jclass cls, jstring name,
                 goto finally;
             }
 #endif
-            zip = ZIP_Put_In_Cache0(path, zfd, &msg, lastModified, usemmap);
+            // Android changed: Pass jni env and thiz object into the method.
+            zip = ZIP_Put_In_Cache0(env, thiz, path, zfd, &msg, lastModified, usemmap);
         }
 
         if (zip != 0) {

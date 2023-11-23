@@ -8,12 +8,13 @@ AUTHOR = 'chromeos-bluetooth'
 NAME = 'bluetooth_AdapterSAHealth.sa_adapter_suspend_resume_test'
 PURPOSE = ('batch of Bluetooth stand along health tests')
 CRITERIA = 'Pass all health test'
-ATTRIBUTES = 'suite:bluetooth_flaky' # TODO(b/148470930)
+ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_standalone'
 TIME = 'MEDIUM'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
 DEPENDENCIES = 'bluetooth'
+PY_VERSION = 3
 
 DOC = """
     A Batch of Bluetooth stand alone health tests. This test is written as a

@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Kifaa kisichojulikana"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Haijulikani"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Haijawekwa"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Hali ya ndegeni"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Huwezi kutumia Bluetooth kifaa kikiwa katika hali ya Ndegeni."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -37,7 +38,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="8612187577686515660">"Sawa"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="3221412098281076974">"Muda ulikatika wakati wa kukubali faili inayoingia kutoka \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5381395500920804895">"Faili Zinazoingia"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="2669135531488877921">"<xliff:g id="SENDER">%1$s</xliff:g> ako tayari kutuma faili: <xliff:g id="FILE">%2$s</xliff:g>"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="2669135531488877921">"Faili kutoka <xliff:g id="SENDER">%1$s</xliff:g> iko tayari kutumwa: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="8445265771083510696">"Kushiriki kwa bluetooth: Inapokea <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="2330252358543000567">"Kushiriki kwa bluetooth: Imepokea <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received_fail" msgid="9059153354809379374">"Kushiriki kwa Bluetooth: Faili <xliff:g id="FILE">%1$s</xliff:g> haijapokewa"</string>
@@ -109,8 +110,8 @@
     <string name="transfer_clear_dlg_msg" msgid="586117930961007311">"Vipengee vyote vitafutwa kutoka kwenye orodha."</string>
     <string name="outbound_noti_title" msgid="2045560896819618979">"Kushiriki kwa bluetooth: Faili zilizotumwa"</string>
     <string name="inbound_noti_title" msgid="3730993443609581977">"Kushiriki kwa bluetooth: Faili zilizopokelewa"</string>
-    <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{Haijafanikiwa #.}other{Hazijafanikiwa #.}}"</string>
-    <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{Imefanikiwa #, %1$s}other{Zimefanikiwa #, %1$s}}"</string>
+    <string name="noti_caption_unsuccessful" msgid="6679288016450410835">"{count,plural, =1{# haijafanikiwa.}other{# hazijafanikiwa.}}"</string>
+    <string name="noti_caption_success" msgid="7652777514009569713">"{count,plural, =1{# imefanikiwa, %1$s}other{# zimefanikiwa, %1$s}}"</string>
     <string name="transfer_menu_clear_all" msgid="3014459758656427076">"Futa orodha"</string>
     <string name="transfer_menu_open" msgid="5193344638774400131">"Fungua"</string>
     <string name="transfer_menu_clear" msgid="7213491281898188730">"Futa kutoka orodha"</string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Sauti ya Bluetooth"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Haiwezi kutuma faili zinazozidi GB 4"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Unganisha kwenye Bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth itawashwa katika hali ya ndegeni"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Usipozima Bluetooth, kifaa chako kitakumbuka kuiwasha wakati mwingine utakapokuwa katika hali ya ndegeni"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth itaendelea kuwaka"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Kifaa chako kitaendelea kuwasha Bluetooth katika hali ya ndegeni. Zima Bluetooth iwapo hutaki iendelee kuwaka."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi na Bluetooth zitaendelea kuwaka"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Kifaa chako kitaendelea kuwasha Wi-Fi na Bluetooth ukiwa katika hali ya ndegeni. Zima Wi-Fi na Bluetooth ikiwa hutaki ziendelee kuwaka."</string>
 </resources>

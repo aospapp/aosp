@@ -46,6 +46,8 @@ BlockType GetBlockType(TQualifier qualifier)
             return BlockType::BLOCK_UNIFORM;
         case EvqBuffer:
             return BlockType::BLOCK_BUFFER;
+        case EvqPixelLocalEXT:
+            return BlockType::PIXEL_LOCAL_EXT;
         default:
             UNREACHABLE();
             return BlockType::BLOCK_UNIFORM;
@@ -209,6 +211,7 @@ class CollectVariablesTraverser : public TIntermTraverser
     bool mHelperInvocationAdded;
     bool mFragCoordAdded;
     bool mLastFragDataAdded;
+    bool mLastFragColorAdded;
     bool mFragColorAdded;
     bool mFragDataAdded;
     bool mFragDepthAdded;
@@ -292,6 +295,7 @@ CollectVariablesTraverser::CollectVariablesTraverser(
       mHelperInvocationAdded(false),
       mFragCoordAdded(false),
       mLastFragDataAdded(false),
+      mLastFragColorAdded(false),
       mFragColorAdded(false),
       mFragDataAdded(false),
       mFragDepthAdded(false),
@@ -573,7 +577,7 @@ void CollectVariablesTraverser::visitSymbol(TIntermSymbol *symbol)
                 recordBuiltInAttributeUsed(symbol->variable(), &mLocalInvocationIndexAdded);
                 return;
             case EvqInstanceID:
-                // Whenever the SH_INITIALIZE_BUILTINS_FOR_INSTANCED_MULTIVIEW option is set,
+                // Whenever the initializeBuiltinsForInstancedMultiview option is set,
                 // gl_InstanceID is added inside expressions to initialize ViewID_OVR and
                 // InstanceID. Note that gl_InstanceID is not added to the symbol table for ESSL1
                 // shaders.
@@ -593,6 +597,9 @@ void CollectVariablesTraverser::visitSymbol(TIntermSymbol *symbol)
                 return;
             case EvqLastFragData:
                 recordBuiltInVaryingUsed(symbol->variable(), &mLastFragDataAdded, mInputVaryings);
+                return;
+            case EvqLastFragColor:
+                recordBuiltInVaryingUsed(symbol->variable(), &mLastFragColorAdded, mInputVaryings);
                 return;
             case EvqFragColor:
                 recordBuiltInFragmentOutputUsed(symbol->variable(), &mFragColorAdded);
@@ -630,14 +637,10 @@ void CollectVariablesTraverser::visitSymbol(TIntermSymbol *symbol)
                                              mInputVaryings);
                 }
                 break;
-            case EvqLayer:
+            case EvqLayerOut:
                 if (mShaderType == GL_GEOMETRY_SHADER_EXT)
                 {
                     recordBuiltInVaryingUsed(symbol->variable(), &mLayerAdded, mOutputVaryings);
-                }
-                else if (mShaderType == GL_FRAGMENT_SHADER)
-                {
-                    recordBuiltInVaryingUsed(symbol->variable(), &mLayerAdded, mInputVaryings);
                 }
                 else
                 {
@@ -645,6 +648,10 @@ void CollectVariablesTraverser::visitSymbol(TIntermSymbol *symbol)
                            (IsExtensionEnabled(mExtensionBehavior, TExtension::OVR_multiview2) ||
                             IsExtensionEnabled(mExtensionBehavior, TExtension::OVR_multiview)));
                 }
+                break;
+            case EvqLayerIn:
+                ASSERT(mShaderType == GL_FRAGMENT_SHADER);
+                recordBuiltInVaryingUsed(symbol->variable(), &mLayerAdded, mInputVaryings);
                 break;
             case EvqShared:
                 if (mShaderType == GL_COMPUTE_SHADER)
@@ -909,8 +916,10 @@ ShaderVariable CollectVariablesTraverser::recordVarying(const TIntermSymbol &var
         case EvqFlatOut:
         case EvqNoPerspectiveOut:
         case EvqCentroidOut:
-        case EvqGeometryOut:
         case EvqSampleOut:
+        case EvqNoPerspectiveCentroidOut:
+        case EvqNoPerspectiveSampleOut:
+        case EvqGeometryOut:
             if (mSymbolTable->isVaryingInvariant(variable.variable()) || type.isInvariant())
             {
                 varying.isInvariant = true;
@@ -1019,6 +1028,12 @@ void CollectVariablesTraverser::recordInterfaceBlock(const char *instanceName,
         interfaceBlock->layout           = GetBlockLayoutType(blockType->blockStorage());
     }
 
+    // Consider an SSBO readonly if all its fields are readonly.  Note that ANGLE doesn't keep the
+    // readonly qualifier applied to the interface block itself, but rather applies it to the
+    // fields.
+    ASSERT(!interfaceBlockType.getMemoryQualifier().readonly);
+    bool isReadOnly = true;
+
     // Gather field information
     bool anyFieldStaticallyUsed = false;
 
@@ -1047,10 +1062,20 @@ void CollectVariablesTraverser::recordInterfaceBlock(const char *instanceName,
         fieldVariable.isRowMajorLayout =
             (fieldType.getLayoutQualifier().matrixPacking == EmpRowMajor);
         interfaceBlock->fields.push_back(fieldVariable);
+
+        // The SSBO is not readonly if any field is not readonly.
+        if (!fieldType.getMemoryQualifier().readonly)
+        {
+            isReadOnly = false;
+        }
     }
     if (anyFieldStaticallyUsed)
     {
         interfaceBlock->staticUse = true;
+    }
+    if (interfaceBlock->blockType == BlockType::BLOCK_BUFFER)
+    {
+        interfaceBlock->isReadOnly = isReadOnly;
     }
 }
 
@@ -1061,10 +1086,11 @@ ShaderVariable CollectVariablesTraverser::recordUniform(const TIntermSymbol &var
     uniform.binding = variable.getType().getLayoutQualifier().binding;
     uniform.imageUnitFormat =
         GetImageInternalFormatType(variable.getType().getLayoutQualifier().imageInternalFormat);
-    uniform.location  = variable.getType().getLayoutQualifier().location;
-    uniform.offset    = variable.getType().getLayoutQualifier().offset;
-    uniform.readonly  = variable.getType().getMemoryQualifier().readonly;
-    uniform.writeonly = variable.getType().getMemoryQualifier().writeonly;
+    uniform.location      = variable.getType().getLayoutQualifier().location;
+    uniform.offset        = variable.getType().getLayoutQualifier().offset;
+    uniform.rasterOrdered = variable.getType().getLayoutQualifier().rasterOrdered;
+    uniform.readonly      = variable.getType().getMemoryQualifier().readonly;
+    uniform.writeonly     = variable.getType().getMemoryQualifier().writeonly;
     return uniform;
 }
 
@@ -1120,6 +1146,10 @@ bool CollectVariablesTraverser::visitDeclaration(Visit, TIntermDeclaration *node
                     break;
                 case EvqBuffer:
                     mShaderStorageBlocks->push_back(interfaceBlock);
+                    break;
+                case EvqPixelLocalEXT:
+                    // EXT_shader_pixel_local_storage is completely self-contained within the
+                    // shader, so we don't need to gather any info on it.
                     break;
                 default:
                     UNREACHABLE();
@@ -1230,8 +1260,9 @@ bool CollectVariablesTraverser::visitBinary(Visit, TIntermBinary *binaryNode)
         {
             MarkActive(ioBlockVar);
         }
-        else
+        else if (qualifier != EvqPixelLocalEXT)
         {
+
             if (!namedBlock)
             {
                 namedBlock = findNamedInterfaceBlock(interfaceBlock->name());

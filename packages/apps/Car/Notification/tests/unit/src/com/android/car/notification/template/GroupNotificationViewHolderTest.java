@@ -18,6 +18,10 @@ package com.android.car.notification.template;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.app.Notification;
@@ -161,6 +165,23 @@ public class GroupNotificationViewHolderTest {
 
         verify(mCarNotificationViewAdapter)
                 .setExpanded(group.getGroupKey(), group.isSeen(), /* isExpanded= */ false);
+    }
+
+    @Test
+    public void resetNotifications_removeAllGroupedNotifications() {
+        CarNotificationViewAdapter mockAdapter = mock(CarNotificationViewAdapter.class);
+        NotificationGroup group = getNotificationGroup(/* size= */ 22);
+        mGroupNotificationViewHolder.setAdapter(mockAdapter);
+        mGroupNotificationViewHolder
+                .bind(group, mCarNotificationViewAdapter, /* isExpanded= */ true);
+
+        mGroupNotificationViewHolder.collapseGroup();
+
+        // equal to 1 because the expected behaviour is to collapse the
+        // GroupNotificationViewHolder by removing all notifications and
+        // displaying to top notification or GroupNotificationSummary.
+        verify(mockAdapter, times(1)).setNotifications(
+                argThat(notificationGroupList -> notificationGroupList.size() == 1), eq(false));
     }
 
     private NotificationGroup getNotificationGroup(int size) {

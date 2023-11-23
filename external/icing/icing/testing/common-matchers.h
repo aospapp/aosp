@@ -15,20 +15,28 @@
 #ifndef ICING_TESTING_COMMON_MATCHERS_H_
 #define ICING_TESTING_COMMON_MATCHERS_H_
 
+#include <algorithm>
+#include <cinttypes>
 #include <cmath>
+#include <string>
+#include <vector>
 
 #include "icing/text_classifier/lib3/utils/base/status.h"
 #include "icing/text_classifier/lib3/utils/base/status_macros.h"
-#include "icing/text_classifier/lib3/utils/base/statusor.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "icing/absl_ports/str_join.h"
 #include "icing/index/hit/doc-hit-info.h"
+#include "icing/index/hit/hit.h"
+#include "icing/index/iterator/doc-hit-info-iterator-test-util.h"
 #include "icing/legacy/core/icing-string-util.h"
+#include "icing/portable/equals-proto.h"
 #include "icing/proto/search.pb.h"
+#include "icing/proto/status.pb.h"
+#include "icing/schema/joinable-property.h"
 #include "icing/schema/schema-store.h"
 #include "icing/schema/section.h"
-#include "icing/util/status-macros.h"
+#include "icing/scoring/scored-document-hit.h"
 
 namespace icing {
 namespace lib {
@@ -50,68 +58,166 @@ MATCHER_P2(EqualsDocHitInfo, document_id, section_ids, "") {
   const DocHitInfo& actual = arg;
   SectionIdMask section_mask = kSectionIdMaskNone;
   for (SectionId section_id : section_ids) {
-    section_mask |= 1U << section_id;
+    section_mask |= UINT64_C(1) << section_id;
   }
   *result_listener << IcingStringUtil::StringPrintf(
-      "(actual is {document_id=%d, section_mask=%d}, but expected was "
-      "{document_id=%d, section_mask=%d}.)",
+      "(actual is {document_id=%d, section_mask=%" PRIu64
+      "}, but expected was "
+      "{document_id=%d, section_mask=%" PRIu64 "}.)",
       actual.document_id(), actual.hit_section_ids_mask(), document_id,
       section_mask);
   return actual.document_id() == document_id &&
          actual.hit_section_ids_mask() == section_mask;
 }
 
+struct ExtractTermFrequenciesResult {
+  std::array<Hit::TermFrequency, kTotalNumSections> term_frequencies = {0};
+  SectionIdMask section_mask = kSectionIdMaskNone;
+};
+// Extracts the term frequencies represented by the section_ids_tf_map.
+// Returns:
+//   - a SectionIdMask representing all sections that appears as entries in the
+//     map, even if they have an entry with term_frequency==0
+//   - an array representing the term frequencies for each section. Sections not
+//     present in section_ids_tf_map have a term frequency of 0.
+ExtractTermFrequenciesResult ExtractTermFrequencies(
+    const std::unordered_map<SectionId, Hit::TermFrequency>&
+        section_ids_tf_map);
+
+struct CheckTermFrequencyResult {
+  std::string expected_term_frequencies_str;
+  std::string actual_term_frequencies_str;
+  bool term_frequencies_match = true;
+};
+// Checks that the term frequencies in actual_term_frequencies match those
+// specified in expected_section_ids_tf_map. If there is no entry in
+// expected_section_ids_tf_map, then it is assumed that the term frequency for
+// that section is 0.
+// Returns:
+//   - a bool indicating if the term frequencies match
+//   - debug strings representing the contents of the actual and expected term
+//     term frequency arrays.
+CheckTermFrequencyResult CheckTermFrequency(
+    const std::array<Hit::TermFrequency, kTotalNumSections>&
+        expected_term_frequencies,
+    const std::array<Hit::TermFrequency, kTotalNumSections>&
+        actual_term_frequencies);
+
 // Used to match a DocHitInfo
 MATCHER_P2(EqualsDocHitInfoWithTermFrequency, document_id,
            section_ids_to_term_frequencies_map, "") {
-  const DocHitInfo& actual = arg;
-  SectionIdMask section_mask = kSectionIdMaskNone;
-
-  bool term_frequency_as_expected = true;
-  std::vector<Hit::TermFrequency> expected_tfs;
-  std::vector<Hit::TermFrequency> actual_tfs;
-  for (auto itr = section_ids_to_term_frequencies_map.begin();
-       itr != section_ids_to_term_frequencies_map.end(); itr++) {
-    SectionId section_id = itr->first;
-    section_mask |= 1U << section_id;
-    expected_tfs.push_back(itr->second);
-    actual_tfs.push_back(actual.hit_term_frequency(section_id));
-    if (actual.hit_term_frequency(section_id) != itr->second) {
-      term_frequency_as_expected = false;
-    }
+  const DocHitInfoTermFrequencyPair& actual = arg;
+  std::array<Hit::TermFrequency, kTotalNumSections> actual_tf_array;
+  for (SectionId section_id = 0; section_id < kTotalNumSections; ++section_id) {
+    actual_tf_array[section_id] = actual.hit_term_frequency(section_id);
   }
-  std::string actual_term_frequencies = absl_ports::StrCat(
-      "[", absl_ports::StrJoin(actual_tfs, ",", absl_ports::NumberFormatter()),
-      "]");
-  std::string expected_term_frequencies = absl_ports::StrCat(
-      "[",
-      absl_ports::StrJoin(expected_tfs, ",", absl_ports::NumberFormatter()),
-      "]");
+  ExtractTermFrequenciesResult expected =
+      ExtractTermFrequencies(section_ids_to_term_frequencies_map);
+  CheckTermFrequencyResult check_tf_result =
+      CheckTermFrequency(expected.term_frequencies, actual_tf_array);
+
   *result_listener << IcingStringUtil::StringPrintf(
-      "(actual is {document_id=%d, section_mask=%d, term_frequencies=%s}, but "
-      "expected was "
-      "{document_id=%d, section_mask=%d, term_frequencies=%s}.)",
-      actual.document_id(), actual.hit_section_ids_mask(),
-      actual_term_frequencies.c_str(), document_id, section_mask,
-      expected_term_frequencies.c_str());
-  return actual.document_id() == document_id &&
-         actual.hit_section_ids_mask() == section_mask &&
-         term_frequency_as_expected;
+      "(actual is {document_id=%d, section_mask=%" PRIu64
+      ", term_frequencies=%s}, but expected was "
+      "{document_id=%d, section_mask=%" PRIu64 ", term_frequencies=%s}.)",
+      actual.doc_hit_info().document_id(),
+      actual.doc_hit_info().hit_section_ids_mask(),
+      check_tf_result.actual_term_frequencies_str.c_str(), document_id,
+      expected.section_mask,
+      check_tf_result.expected_term_frequencies_str.c_str());
+  return actual.doc_hit_info().document_id() == document_id &&
+         actual.doc_hit_info().hit_section_ids_mask() ==
+             expected.section_mask &&
+         check_tf_result.term_frequencies_match;
 }
+
+MATCHER_P2(EqualsTermMatchInfo, term, section_ids_to_term_frequencies_map, "") {
+  const TermMatchInfo& actual = arg;
+  std::string term_str(term);
+  ExtractTermFrequenciesResult expected =
+      ExtractTermFrequencies(section_ids_to_term_frequencies_map);
+  CheckTermFrequencyResult check_tf_result =
+      CheckTermFrequency(expected.term_frequencies, actual.term_frequencies);
+  *result_listener << IcingStringUtil::StringPrintf(
+      "(actual is {term=%s, section_mask=%" PRIu64
+      ", term_frequencies=%s}, but expected was "
+      "{term=%s, section_mask=%" PRIu64 ", term_frequencies=%s}.)",
+      actual.term.data(), actual.section_ids_mask,
+      check_tf_result.actual_term_frequencies_str.c_str(), term_str.data(),
+      expected.section_mask,
+      check_tf_result.expected_term_frequencies_str.c_str());
+  return actual.term == term &&
+         actual.section_ids_mask == expected.section_mask &&
+         check_tf_result.term_frequencies_match;
+}
+
+class ScoredDocumentHitFormatter {
+ public:
+  std::string operator()(const ScoredDocumentHit& scored_document_hit) {
+    return IcingStringUtil::StringPrintf(
+        "(document_id=%d, hit_section_id_mask=%" PRId64 ", score=%.2f)",
+        scored_document_hit.document_id(),
+        scored_document_hit.hit_section_id_mask(), scored_document_hit.score());
+  }
+};
+
+class ScoredDocumentHitEqualComparator {
+ public:
+  bool operator()(const ScoredDocumentHit& lhs,
+                  const ScoredDocumentHit& rhs) const {
+    return lhs.document_id() == rhs.document_id() &&
+           lhs.hit_section_id_mask() == rhs.hit_section_id_mask() &&
+           std::fabs(lhs.score() - rhs.score()) < 1e-6;
+  }
+};
 
 // Used to match a ScoredDocumentHit
 MATCHER_P(EqualsScoredDocumentHit, expected_scored_document_hit, "") {
-  if (arg.document_id() != expected_scored_document_hit.document_id() ||
-      arg.hit_section_id_mask() !=
-          expected_scored_document_hit.hit_section_id_mask() ||
-      std::fabs(arg.score() - expected_scored_document_hit.score()) > 1e-6) {
+  ScoredDocumentHitEqualComparator equal_comparator;
+  if (!equal_comparator(arg, expected_scored_document_hit)) {
+    ScoredDocumentHitFormatter formatter;
+    *result_listener << "Expected: " << formatter(expected_scored_document_hit)
+                     << ". Actual: " << formatter(arg);
+    return false;
+  }
+  return true;
+}
+
+// Used to match a JoinedScoredDocumentHit
+MATCHER_P(EqualsJoinedScoredDocumentHit, expected_joined_scored_document_hit,
+          "") {
+  ScoredDocumentHitEqualComparator equal_comparator;
+  if (std::fabs(arg.final_score() -
+                expected_joined_scored_document_hit.final_score()) > 1e-6 ||
+      !equal_comparator(
+          arg.parent_scored_document_hit(),
+          expected_joined_scored_document_hit.parent_scored_document_hit()) ||
+      arg.child_scored_document_hits().size() !=
+          expected_joined_scored_document_hit.child_scored_document_hits()
+              .size() ||
+      !std::equal(
+          arg.child_scored_document_hits().cbegin(),
+          arg.child_scored_document_hits().cend(),
+          expected_joined_scored_document_hit.child_scored_document_hits()
+              .cbegin(),
+          equal_comparator)) {
+    ScoredDocumentHitFormatter formatter;
+
     *result_listener << IcingStringUtil::StringPrintf(
-        "Expected: document_id=%d, hit_section_id_mask=%d, score=%.2f. Actual: "
-        "document_id=%d, hit_section_id_mask=%d, score=%.2f",
-        expected_scored_document_hit.document_id(),
-        expected_scored_document_hit.hit_section_id_mask(),
-        expected_scored_document_hit.score(), arg.document_id(),
-        arg.hit_section_id_mask(), arg.score());
+        "Expected: final_score=%.2f, parent_scored_document_hit=%s, "
+        "child_scored_document_hits=[%s]. Actual: final_score=%.2f, "
+        "parent_scored_document_hit=%s, child_scored_document_hits=[%s]",
+        expected_joined_scored_document_hit.final_score(),
+        formatter(
+            expected_joined_scored_document_hit.parent_scored_document_hit())
+            .c_str(),
+        absl_ports::StrJoin(
+            expected_joined_scored_document_hit.child_scored_document_hits(),
+            ",", formatter)
+            .c_str(),
+        arg.final_score(), formatter(arg.parent_scored_document_hit()).c_str(),
+        absl_ports::StrJoin(arg.child_scored_document_hits(), ",", formatter)
+            .c_str());
     return false;
   }
   return true;
@@ -274,73 +380,34 @@ MATCHER_P(EqualsSetSchemaResult, expected, "") {
   return false;
 }
 
-std::string StatusCodeToString(libtextclassifier3::StatusCode code) {
-  switch (code) {
-    case libtextclassifier3::StatusCode::OK:
-      return "OK";
-    case libtextclassifier3::StatusCode::CANCELLED:
-      return "CANCELLED";
-    case libtextclassifier3::StatusCode::UNKNOWN:
-      return "UNKNOWN";
-    case libtextclassifier3::StatusCode::INVALID_ARGUMENT:
-      return "INVALID_ARGUMENT";
-    case libtextclassifier3::StatusCode::DEADLINE_EXCEEDED:
-      return "DEADLINE_EXCEEDED";
-    case libtextclassifier3::StatusCode::NOT_FOUND:
-      return "NOT_FOUND";
-    case libtextclassifier3::StatusCode::ALREADY_EXISTS:
-      return "ALREADY_EXISTS";
-    case libtextclassifier3::StatusCode::PERMISSION_DENIED:
-      return "PERMISSION_DENIED";
-    case libtextclassifier3::StatusCode::RESOURCE_EXHAUSTED:
-      return "RESOURCE_EXHAUSTED";
-    case libtextclassifier3::StatusCode::FAILED_PRECONDITION:
-      return "FAILED_PRECONDITION";
-    case libtextclassifier3::StatusCode::ABORTED:
-      return "ABORTED";
-    case libtextclassifier3::StatusCode::OUT_OF_RANGE:
-      return "OUT_OF_RANGE";
-    case libtextclassifier3::StatusCode::UNIMPLEMENTED:
-      return "UNIMPLEMENTED";
-    case libtextclassifier3::StatusCode::INTERNAL:
-      return "INTERNAL";
-    case libtextclassifier3::StatusCode::UNAVAILABLE:
-      return "UNAVAILABLE";
-    case libtextclassifier3::StatusCode::DATA_LOSS:
-      return "DATA_LOSS";
-    case libtextclassifier3::StatusCode::UNAUTHENTICATED:
-      return "UNAUTHENTICATED";
-    default:
-      return "";
-  }
+MATCHER_P3(EqualsSectionMetadata, expected_id, expected_property_path,
+           expected_property_config_proto, "") {
+  const SectionMetadata& actual = arg;
+  return actual.id == expected_id && actual.path == expected_property_path &&
+         actual.data_type == expected_property_config_proto.data_type() &&
+         actual.tokenizer ==
+             expected_property_config_proto.string_indexing_config()
+                 .tokenizer_type() &&
+         actual.term_match_type ==
+             expected_property_config_proto.string_indexing_config()
+                 .term_match_type() &&
+         actual.numeric_match_type ==
+             expected_property_config_proto.integer_indexing_config()
+                 .numeric_match_type();
 }
 
-std::string ProtoStatusCodeToString(StatusProto::Code code) {
-  switch (code) {
-    case StatusProto::OK:
-      return "OK";
-    case StatusProto::UNKNOWN:
-      return "UNKNOWN";
-    case StatusProto::INVALID_ARGUMENT:
-      return "INVALID_ARGUMENT";
-    case StatusProto::NOT_FOUND:
-      return "NOT_FOUND";
-    case StatusProto::ALREADY_EXISTS:
-      return "ALREADY_EXISTS";
-    case StatusProto::OUT_OF_SPACE:
-      return "OUT_OF_SPACE";
-    case StatusProto::FAILED_PRECONDITION:
-      return "FAILED_PRECONDITION";
-    case StatusProto::ABORTED:
-      return "ABORTED";
-    case StatusProto::INTERNAL:
-      return "INTERNAL";
-    case StatusProto::WARNING_DATA_LOSS:
-      return "WARNING_DATA_LOSS";
-    default:
-      return "";
-  }
+MATCHER_P3(EqualsJoinablePropertyMetadata, expected_id, expected_property_path,
+           expected_property_config_proto, "") {
+  const JoinablePropertyMetadata& actual = arg;
+  return actual.id == expected_id && actual.path == expected_property_path &&
+         actual.data_type == expected_property_config_proto.data_type() &&
+         actual.value_type ==
+             expected_property_config_proto.joinable_config().value_type();
 }
+
+std::string StatusCodeToString(libtextclassifier3::StatusCode code);
+
+std::string ProtoStatusCodeToString(StatusProto::Code code);
 
 MATCHER(IsOk, "") {
   libtextclassifier3::StatusAdapter adapter(arg);
@@ -430,6 +497,11 @@ MATCHER_P(EqualsSearchResultIgnoreStatsAndScores, expected, "") {
   actual_copy.clear_debug_info();
   for (SearchResultProto::ResultProto& result :
        *actual_copy.mutable_results()) {
+    // Joined results
+    for (SearchResultProto::ResultProto& joined_result :
+         *result.mutable_joined_results()) {
+      joined_result.clear_score();
+    }
     result.clear_score();
   }
 
@@ -438,10 +510,15 @@ MATCHER_P(EqualsSearchResultIgnoreStatsAndScores, expected, "") {
   expected_copy.clear_debug_info();
   for (SearchResultProto::ResultProto& result :
        *expected_copy.mutable_results()) {
+    // Joined results
+    for (SearchResultProto::ResultProto& joined_result :
+         *result.mutable_joined_results()) {
+      joined_result.clear_score();
+    }
     result.clear_score();
   }
-  return ExplainMatchResult(testing::EqualsProto(expected_copy), actual_copy,
-                            result_listener);
+  return ExplainMatchResult(portable_equals_proto::EqualsProto(expected_copy),
+                            actual_copy, result_listener);
 }
 
 // TODO(tjbarron) Remove this once icing has switched to depend on TC3 Status
@@ -459,6 +536,10 @@ MATCHER_P(EqualsSearchResultIgnoreStatsAndScores, expected, "") {
   auto statusor = (rexpr);                                    \
   ICING_ASSERT_OK(statusor.status());                         \
   lhs = std::move(statusor).ValueOrDie()
+
+#define ICING_ASSERT_HAS_VALUE_AND_ASSIGN(lhs, rexpr) \
+  ASSERT_TRUE(rexpr);                                 \
+  lhs = rexpr.value()
 
 }  // namespace lib
 }  // namespace icing

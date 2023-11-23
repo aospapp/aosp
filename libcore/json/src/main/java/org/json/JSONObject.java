@@ -82,8 +82,8 @@ import libcore.util.Nullable;
  * <p>Instances of this class are not thread safe. Although this class is
  * nonfinal, it was not designed for inheritance and should not be subclassed.
  * In particular, self-use by overrideable methods is not specified. See
- * <i>Effective Java</i> Item 17, "Design and Document or inheritance or else
- * prohibit it" for further information.
+ * <i>Effective Java, 3rd edition</i> Item 19, "Design and Document for
+ * inheritance or else prohibit it" for further information.
  */
 public class JSONObject {
 

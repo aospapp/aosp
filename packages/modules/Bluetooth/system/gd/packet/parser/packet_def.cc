@@ -31,7 +31,7 @@ PacketField* PacketDef::GetNewField(const std::string&, ParseLocation) const {
   return nullptr;  // Packets can't be fields
 }
 
-void PacketDef::GenParserDefinition(std::ostream& s) const {
+void PacketDef::GenParserDefinition(std::ostream& s, bool generate_fuzzing, bool generate_tests) const {
   s << "class " << name_ << "View";
   if (parent_ != nullptr) {
     s << " : public " << parent_->name_ << "View {";
@@ -49,7 +49,9 @@ void PacketDef::GenParserDefinition(std::ostream& s) const {
     s << "{ return " << name_ << "View(std::move(packet)); }";
   }
 
-  GenTestingParserFromBytes(s);
+  if (generate_fuzzing || generate_tests) {
+    GenTestingParserFromBytes(s);
+  }
 
   std::set<std::string> fixed_types = {
       FixedScalarField::kFieldType,
@@ -177,17 +179,29 @@ void PacketDef::GenValidator(std::ostream& s) const {
     }
   }
 
-  // Write the function declaration.
-  s << "virtual bool IsValid() " << (parent_ != nullptr ? " override" : "") << " {";
-  s << "if (was_validated_) { return true; } ";
-  s << "else { was_validated_ = true; was_validated_ = IsValid_(); return was_validated_; }";
-  s << "}";
+  // Generate the public validator IsValid().
+  // The method only needs to be generated for the top most class.
+  if (parent_ == nullptr) {
+    s << "bool IsValid() {" << std::endl;
+    s << "  if (was_validated_) {" << std::endl;
+    s << "    return true;" << std::endl;
+    s << "  } else {" << std::endl;
+    s << "    was_validated_ = true;" << std::endl;
+    s << "    return (was_validated_ = Validate());" << std::endl;
+    s << "  }" << std::endl;
+    s << "}" << std::endl;
+  }
 
-  s << "protected:";
-  s << "virtual bool IsValid_() const {";
-
-  if (parent_ != nullptr) {
-    s << "if (!" << parent_->name_ << "View::IsValid_()) { return false; } ";
+  // Generate the private validator Validate().
+  // The method is overridden by all child classes.
+  s << "protected:" << std::endl;
+  if (parent_ == nullptr) {
+    s << "virtual bool Validate() const {" << std::endl;
+  } else {
+    s << "bool Validate() const override {" << std::endl;
+    s << "  if (!" << parent_->name_ << "View::Validate()) {" << std::endl;
+    s << "    return false;" << std::endl;
+    s << "  }" << std::endl;
   }
 
   // Offset by the parents known size. We know that any dynamic fields can
@@ -237,6 +251,7 @@ void PacketDef::GenValidator(std::ostream& s) const {
         }
         s << "size_t end_sum_index = size() - (" << started_field->GetSize() << " - " << end_offset << ") / 8;";
       }
+      s << "if (end_sum_index >= size()) { return false; }";
       if (is_little_endian_) {
         s << "auto checksum_view = GetLittleEndianSubview(sum_index, end_sum_index);";
       } else {
@@ -347,7 +362,7 @@ void PacketDef::GenParserToString(std::ostream& s) const {
   s << "}\n";
 }
 
-void PacketDef::GenBuilderDefinition(std::ostream& s) const {
+void PacketDef::GenBuilderDefinition(std::ostream& s, bool generate_fuzzing, bool generate_tests) const {
   s << "class " << name_ << "Builder";
   if (parent_ != nullptr) {
     s << " : public " << parent_->name_ << "Builder";
@@ -366,8 +381,10 @@ void PacketDef::GenBuilderDefinition(std::ostream& s) const {
     GenBuilderCreate(s);
     s << "\n";
 
-    GenTestingFromView(s);
-    s << "\n";
+    if (generate_fuzzing || generate_tests) {
+      GenTestingFromView(s);
+      s << "\n";
+    }
   }
 
   GenSerialize(s);
@@ -386,11 +403,20 @@ void PacketDef::GenBuilderDefinition(std::ostream& s) const {
   GenMembers(s);
   s << "};\n";
 
-  GenTestDefine(s);
-  s << "\n";
+  if (generate_tests) {
+    GenTestDefine(s);
+    s << "\n";
+  }
 
-  GenFuzzTestDefine(s);
-  s << "\n";
+  if (generate_fuzzing || generate_tests) {
+    GenReflectTestDefine(s);
+    s << "\n";
+  }
+
+  if (generate_fuzzing) {
+    GenFuzzTestDefine(s);
+    s << "\n";
+  }
 }
 
 void PacketDef::GenTestingFromView(std::ostream& s) const {
@@ -483,7 +509,7 @@ void PacketDef::GenTestDefine(std::ostream& s) const {
   s << "\n#endif";
 }
 
-void PacketDef::GenFuzzTestDefine(std::ostream& s) const {
+void PacketDef::GenReflectTestDefine(std::ostream& s) const {
   s << "#if defined(PACKET_FUZZ_TESTING) || defined(PACKET_TESTING)\n";
   s << "#define DEFINE_" << name_ << "ReflectionFuzzTest() ";
   s << "void Run" << name_ << "ReflectionFuzzTest(const uint8_t* data, size_t size) {";
@@ -497,6 +523,9 @@ void PacketDef::GenFuzzTestDefine(std::ostream& s) const {
   s << "packet->Serialize(it);";
   s << "}";
   s << "\n#endif\n";
+}
+
+void PacketDef::GenFuzzTestDefine(std::ostream& s) const {
   s << "#ifdef PACKET_FUZZ_TESTING\n";
   s << "#define DEFINE_AND_REGISTER_" << name_ << "ReflectionFuzzTest(REGISTRY) ";
   s << "DEFINE_" << name_ << "ReflectionFuzzTest();";
@@ -1406,8 +1435,8 @@ void PacketDef::GenRustBuilderTest(std::ostream& s) const {
     }
     for (size_t i = 1; i < lineage.size(); i++) {
       s << "_ => {";
-      s << "println!(\"Couldn't parse " << util::CamelCaseToUnderScore(lineage[lineage.size() - i]->name_);
-      s << "{:02x?}\", " << util::CamelCaseToUnderScore(lineage[lineage.size() - i - 1]->name_) << "_packet); ";
+      s << "panic!(\"Couldn't parse " << util::CamelCaseToUnderScore(lineage[lineage.size() - i]->name_);
+      s << "\n {:#02x?}\", " << util::CamelCaseToUnderScore(lineage[lineage.size() - i - 1]->name_) << "_packet); ";
       s << "}}}";
     }
 

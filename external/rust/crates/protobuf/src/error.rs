@@ -1,151 +1,133 @@
-//! Protobuf error type
-
-use std::error::Error;
-use std::fmt;
 use std::io;
 use std::str;
 
+use crate::reflect::error::ReflectError;
 use crate::wire_format::WireType;
 
-/// `Result` alias for `ProtobufError`
-pub type ProtobufResult<T> = Result<T, ProtobufError>;
+/// [`Result`] alias for [`Error`].
+pub type Result<T> = std::result::Result<T, crate::Error>;
 
 /// Enum values added here for diagnostic purposes.
 /// Users should not depend on specific values.
-#[derive(Debug)]
-pub enum WireError {
-    /// Could not read complete message because stream is EOF
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum WireError {
+    #[error("Unexpected EOF")]
     UnexpectedEof,
-    /// Wrong wire type for given field
+    #[error("Unexpected wire type")]
     UnexpectedWireType(WireType),
-    /// Incorrect tag value
+    #[error("Incorrect tag")]
     IncorrectTag(u32),
-    /// Malformed map field
-    IncompleteMap,
-    /// Malformed varint
+    #[error("Incorrect varint")]
     IncorrectVarint,
-    /// String is not valid UTD-8
+    #[error("Invalid UTF-8 sequence")]
     Utf8Error,
-    /// Enum value is unknown
-    InvalidEnumValue(i32),
-    /// Message is too nested
+    #[error("Invalid enum `{}` value: {}", .0, .1)]
+    InvalidEnumValue(&'static str, i32),
+    #[error("Over recursion limit")]
     OverRecursionLimit,
-    /// Could not read complete message because stream is EOF
+    #[error("Truncated message")]
     TruncatedMessage,
-    /// Other error
-    Other,
-}
-
-impl fmt::Display for WireError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            WireError::Utf8Error => write!(f, "invalid UTF-8 sequence"),
-            WireError::UnexpectedWireType(..) => write!(f, "unexpected wire type"),
-            WireError::InvalidEnumValue(..) => write!(f, "invalid enum value"),
-            WireError::IncorrectTag(..) => write!(f, "incorrect tag"),
-            WireError::IncorrectVarint => write!(f, "incorrect varint"),
-            WireError::IncompleteMap => write!(f, "incomplete map"),
-            WireError::UnexpectedEof => write!(f, "unexpected EOF"),
-            WireError::OverRecursionLimit => write!(f, "over recursion limit"),
-            WireError::TruncatedMessage => write!(f, "truncated message"),
-            WireError::Other => write!(f, "other error"),
-        }
-    }
+    // not really possible
+    #[error("Limit overflow")]
+    LimitOverflow,
+    #[error("New limit must not be greater than current limit")]
+    LimitIncrease,
+    #[error("Encoded message size {0} is too large")]
+    MessageTooLarge(u64),
+    #[error("Value too large for u32: {}", .0)]
+    U32Overflow(u64),
+    #[error("Value too large for i32: {}", .0)]
+    I32Overflow(i64),
 }
 
 /// Generic protobuf error
-#[derive(Debug)]
-pub enum ProtobufError {
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum ProtobufError {
     /// I/O error when reading or writing
-    IoError(io::Error),
+    #[error(transparent)]
+    IoError(#[from] io::Error),
     /// Malformed input
-    WireError(WireError),
+    #[error(transparent)]
+    WireError(#[from] WireError),
+    #[error(transparent)]
+    Reflect(#[from] ReflectError),
     /// Protocol contains a string which is not valid UTF-8 string
-    Utf8(str::Utf8Error),
-    /// Not all required fields set
-    MessageNotInitialized {
-        /// Message name
-        message: &'static str,
-    },
+    #[error("UTF-8 decode error")]
+    Utf8(
+        #[source]
+        #[from]
+        str::Utf8Error,
+    ),
+    /// Not all required fields of message set.
+    #[error("Message `{}` is missing required fields", .0)]
+    MessageNotInitialized(String),
+    /// Message is too large.
+    #[error("Provided buffer has not enough capacity to write message `{0}`")]
+    BufferHasNotEnoughCapacity(String),
+    /// Protobuf type and runtime types mismatch.
+    #[error("Protobuf type and runtime types are not compatible")]
+    IncompatibleProtobufTypeAndRuntimeType,
+    /// Group field type not implemented.
+    #[error("Group field is not supported")]
+    GroupIsNotImplemented,
 }
 
-impl ProtobufError {
-    /// Create message not initialized error.
-    #[doc(hidden)]
-    pub fn message_not_initialized(message: &'static str) -> ProtobufError {
-        ProtobufError::MessageNotInitialized { message: message }
+/// Error type for protobuf operations.
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
+pub struct Error(pub(crate) Box<ProtobufError>);
+
+impl From<ProtobufError> for Error {
+    #[cold]
+    fn from(e: ProtobufError) -> Self {
+        Self(Box::new(e))
     }
 }
 
-impl fmt::Display for ProtobufError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            // not sure that cause should be included in message
-            &ProtobufError::IoError(ref e) => write!(f, "IO error: {}", e),
-            &ProtobufError::WireError(ref e) => fmt::Display::fmt(e, f),
-            &ProtobufError::Utf8(ref e) => write!(f, "{}", e),
-            &ProtobufError::MessageNotInitialized { .. } => write!(f, "not all message fields set"),
-        }
+impl From<WireError> for Error {
+    #[cold]
+    fn from(e: WireError) -> Self {
+        Self(Box::new(ProtobufError::WireError(e)))
     }
 }
 
-impl Error for ProtobufError {
-    #[allow(deprecated)] // call to `description`
-    fn description(&self) -> &str {
-        match self {
-            // not sure that cause should be included in message
-            &ProtobufError::IoError(ref e) => e.description(),
-            &ProtobufError::WireError(ref e) => match *e {
-                WireError::Utf8Error => "invalid UTF-8 sequence",
-                WireError::UnexpectedWireType(..) => "unexpected wire type",
-                WireError::InvalidEnumValue(..) => "invalid enum value",
-                WireError::IncorrectTag(..) => "incorrect tag",
-                WireError::IncorrectVarint => "incorrect varint",
-                WireError::IncompleteMap => "incomplete map",
-                WireError::UnexpectedEof => "unexpected EOF",
-                WireError::OverRecursionLimit => "over recursion limit",
-                WireError::TruncatedMessage => "truncated message",
-                WireError::Other => "other error",
-            },
-            &ProtobufError::Utf8(ref e) => &e.description(),
-            &ProtobufError::MessageNotInitialized { .. } => "not all message fields set",
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn Error> {
-        match self {
-            &ProtobufError::IoError(ref e) => Some(e),
-            &ProtobufError::Utf8(ref e) => Some(e),
-            &ProtobufError::WireError(..) => None,
-            &ProtobufError::MessageNotInitialized { .. } => None,
-        }
+impl From<ReflectError> for Error {
+    #[cold]
+    fn from(e: ReflectError) -> Self {
+        Self(Box::new(ProtobufError::Reflect(e)))
     }
 }
 
-impl From<io::Error> for ProtobufError {
-    fn from(err: io::Error) -> Self {
-        ProtobufError::IoError(err)
-    }
-}
-
-impl From<str::Utf8Error> for ProtobufError {
-    fn from(err: str::Utf8Error) -> Self {
-        ProtobufError::Utf8(err)
-    }
-}
-
-impl From<ProtobufError> for io::Error {
-    fn from(err: ProtobufError) -> Self {
-        match err {
+impl From<Error> for io::Error {
+    #[cold]
+    fn from(err: Error) -> Self {
+        match *err.0 {
             ProtobufError::IoError(e) => e,
             ProtobufError::WireError(e) => {
                 io::Error::new(io::ErrorKind::InvalidData, ProtobufError::WireError(e))
             }
-            ProtobufError::MessageNotInitialized { message: msg } => io::Error::new(
+            ProtobufError::MessageNotInitialized(message) => io::Error::new(
                 io::ErrorKind::InvalidInput,
-                ProtobufError::MessageNotInitialized { message: msg },
+                ProtobufError::MessageNotInitialized(message),
             ),
             e => io::Error::new(io::ErrorKind::Other, Box::new(e)),
         }
+    }
+}
+
+impl From<io::Error> for Error {
+    #[cold]
+    fn from(err: io::Error) -> Self {
+        Error(Box::new(ProtobufError::IoError(err)))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::mem;
+
+    #[test]
+    fn error_size() {
+        assert_eq!(mem::size_of::<usize>(), mem::size_of::<crate::Error>());
     }
 }

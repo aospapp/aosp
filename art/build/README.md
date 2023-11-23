@@ -31,13 +31,13 @@ the module. It is also mutually exclusive with the other ones.
 
     See the [Android source access
     instructions](https://source.android.com/setup/build/downloading) for
-    further details.
+    further details. Google internal users please see [go/sync](http://go/sync).
 
 2.  Set up the development environment:
 
     ```
     banchan com.android.art <arch>
-    export SOONG_ALLOW_MISSING_DEPENDENCIES=true
+    export SOONG_ALLOW_MISSING_DEPENDENCIES=true BUILD_BROKEN_DISABLE_BAZEL=true
     ```
 
     For Google internal builds on the internal master-art branch, specify
@@ -45,7 +45,7 @@ the module. It is also mutually exclusive with the other ones.
 
     ```
     banchan com.google.android.art mainline_modules_<arch>
-    export SOONG_ALLOW_MISSING_DEPENDENCIES=true
+    export SOONG_ALLOW_MISSING_DEPENDENCIES=true BUILD_BROKEN_DISABLE_BAZEL=true
     ```
 
     `<arch>` is the device architecture, one of `arm`, `arm64`, `x86`, or

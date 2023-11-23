@@ -18,7 +18,7 @@ package com.android.compatibility.common.util;
 
 import android.app.UiAutomation;
 
-import androidx.test.InstrumentationRegistry;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
@@ -96,8 +96,17 @@ public class ShellIdentityUtils {
      */
     public static <T, U> T invokeMethodWithShellPermissions(U targetObject,
             ShellPermissionMethodHelper<T, U> methodHelper) {
-        final UiAutomation uiAutomation =
-                InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        UiAutomation uiAutomation = null;
+        //Retry multiple times for UIAutomation connection timed out fail
+        for (int i = 0; i < 5; i++) {
+            uiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+            if (uiAutomation != null) {
+                break;
+            }
+        }
+        if (uiAutomation == null) {
+            throw new IllegalStateException("Could not get UiAutomation");
+        }
         try {
             uiAutomation.adoptShellPermissionIdentity();
             return methodHelper.callMethod(targetObject);

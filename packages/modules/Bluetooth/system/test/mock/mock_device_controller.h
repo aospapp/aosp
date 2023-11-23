@@ -24,7 +24,7 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
+#include "test/common/mock_functions.h"
 
 // Original included files, if any
 // NOTE: Since this is a mock file with mock definitions some number of
@@ -32,18 +32,8 @@ extern std::map<std::string, int> mock_function_count_map;
 //       still applies, but crafting proper inclusion is out of scope
 //       for this effort.  This compilation unit may compile as-is, or
 //       may need attention to prune the inclusion set.
-#include <base/logging.h>
 
 #include "btcore/include/device_features.h"
-#include "btcore/include/event_mask.h"
-#include "btcore/include/module.h"
-#include "btcore/include/version.h"
-#include "device/include/controller.h"
-#include "main/shim/controller.h"
-#include "main/shim/shim.h"
-#include "osi/include/future.h"
-#include "osi/include/properties.h"
-#include "stack/include/btm_ble_api.h"
 
 // Mocked compile conditionals, if any
 #ifndef UNUSED_ATTR

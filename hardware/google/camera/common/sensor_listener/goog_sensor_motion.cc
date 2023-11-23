@@ -147,6 +147,13 @@ void GoogSensorMotion::QuerySensorEventsBetweenTimestamps(
   event_arrival_timestamps->clear();
 
   std::lock_guard<std::mutex> l(event_buffer_lock_);
+
+  event_timestamps->reserve(event_buffer_.size());
+  motion_vector_x->reserve(event_buffer_.size());
+  motion_vector_y->reserve(event_buffer_.size());
+  motion_vector_z->reserve(event_buffer_.size());
+  event_arrival_timestamps->reserve(event_buffer_.size());
+
   for (const auto& event : event_buffer_) {
     int64_t event_time = event.sensor_event.timestamp;
     if (event_time <= start_time || event_time > end_time) {

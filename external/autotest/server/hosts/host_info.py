@@ -411,7 +411,7 @@ def get_store_from_machine(machine):
     """Obtain the host_info_store object stuffed in the machine dict.
 
     The machine argument to jobs can be a string (a hostname) or a dict because
-    of legacy reasons. If we can't get a real store, return a dummy.
+    of legacy reasons. If we can't get a real store, return a stub.
     """
     if isinstance(machine, dict):
         return machine['host_info_store']
@@ -462,7 +462,7 @@ def json_deserialize(file_obj):
 
     try:
         return HostInfo(deserialized_json['labels'],
-                        deserialized_json['attributes'],
+                        deserialized_json.get('attributes', {}),
                         deserialized_json.get('stable_versions', {}))
     except KeyError as e:
         raise DeserializationError('Malformed serialized host_info: %r' % e)

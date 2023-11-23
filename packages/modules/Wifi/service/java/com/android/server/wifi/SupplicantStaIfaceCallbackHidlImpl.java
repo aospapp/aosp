@@ -59,18 +59,23 @@ abstract class SupplicantStaIfaceCallbackHidlImpl extends ISupplicantStaIfaceCal
     private final String mIfaceName;
     private final Object mLock;
     private final WifiMonitor mWifiMonitor;
+    private final SsidTranslator mSsidTranslator;
     // Used to help check for PSK password mismatch & EAP connection failure.
     private int mStateBeforeDisconnect = State.INACTIVE;
+    // Current SSID in WifiSsid.toString() format. May be translated to UTF-8 if SSID translation
+    // is enabled.
     private String mCurrentSsid = null;
 
     SupplicantStaIfaceCallbackHidlImpl(@NonNull SupplicantStaIfaceHalHidlImpl staIfaceHal,
             @NonNull String ifaceName,
             @NonNull Object lock,
-            @NonNull WifiMonitor wifiMonitor) {
+            @NonNull WifiMonitor wifiMonitor,
+            @NonNull SsidTranslator ssidTranslator) {
         mStaIfaceHal = staIfaceHal;
         mIfaceName = ifaceName;
         mLock = lock;
         mWifiMonitor = wifiMonitor;
+        mSsidTranslator = ssidTranslator;
     }
 
     /**
@@ -171,8 +176,8 @@ abstract class SupplicantStaIfaceCallbackHidlImpl extends ISupplicantStaIfaceCal
             mStaIfaceHal.logCallback("onStateChanged");
             SupplicantState newSupplicantState =
                     supplicantHidlStateToFrameworkState(newState);
-            WifiSsid wifiSsid =
-                    WifiSsid.fromBytes(NativeUtil.byteArrayFromArrayList(ssid));
+            WifiSsid wifiSsid = mSsidTranslator.getTranslatedSsidForStaIface(
+                    WifiSsid.fromBytes(NativeUtil.byteArrayFromArrayList(ssid)), mIfaceName);
             String bssidStr = NativeUtil.macAddressFromByteArray(bssid);
             if (newState != State.DISCONNECTED) {
                 // onStateChanged(DISCONNECTED) may come before onDisconnected(), so add this
@@ -190,11 +195,11 @@ abstract class SupplicantStaIfaceCallbackHidlImpl extends ISupplicantStaIfaceCal
                         mIfaceName, mStaIfaceHal.getCurrentNetworkId(mIfaceName), filsHlpSent,
                         wifiSsid, bssidStr);
             } else if (newState == State.ASSOCIATING) {
-                mCurrentSsid = NativeUtil.encodeSsid(ssid);
+                mCurrentSsid = wifiSsid.toString();
             }
             mWifiMonitor.broadcastSupplicantStateChangeEvent(
                     mIfaceName, mStaIfaceHal.getCurrentNetworkId(mIfaceName), wifiSsid,
-                    bssidStr, newSupplicantState);
+                    bssidStr, 0, newSupplicantState);
         }
     }
 
@@ -283,13 +288,14 @@ abstract class SupplicantStaIfaceCallbackHidlImpl extends ISupplicantStaIfaceCal
                     mStaIfaceHal.getCurrentNetworkLocalConfig(mIfaceName);
             if (curConfiguration != null) {
                 if (mStateBeforeDisconnect == State.FOURWAY_HANDSHAKE
-                        && WifiConfigurationUtil.isConfigForPskNetwork(curConfiguration)
+                        && (WifiConfigurationUtil.isConfigForPskNetwork(curConfiguration)
+                        || WifiConfigurationUtil.isConfigForWapiPskNetwork(curConfiguration))
                         && (!locallyGenerated || reasonCode != ReasonCode.IE_IN_4WAY_DIFFERS)) {
                     mWifiMonitor.broadcastAuthenticationFailureEvent(
                             mIfaceName, WifiManager.ERROR_AUTH_FAILURE_WRONG_PSWD, -1,
                             mCurrentSsid, MacAddress.fromBytes(bssid));
                 } else if (mStateBeforeDisconnect == State.ASSOCIATED
-                        && WifiConfigurationUtil.isConfigForEapNetwork(curConfiguration)) {
+                        && WifiConfigurationUtil.isConfigForEnterpriseNetwork(curConfiguration)) {
                     mWifiMonitor.broadcastAuthenticationFailureEvent(
                             mIfaceName, WifiManager.ERROR_AUTH_FAILURE_EAP_FAILURE, -1,
                             mCurrentSsid, MacAddress.fromBytes(bssid));
@@ -311,13 +317,20 @@ abstract class SupplicantStaIfaceCallbackHidlImpl extends ISupplicantStaIfaceCal
                         + curConfiguration.networkId + ".");
                 mStaIfaceHal.removePmkCacheEntry(curConfiguration.networkId);
             }
-            // Special handling for WPA3-Personal networks. If the password is
-            // incorrect, the AP will send association rejection, with status code 1
-            // (unspecified failure). In SAE networks, the password authentication
-            // is not related to the 4-way handshake. In this case, we will send an
-            // authentication failure event up.
             if (assocRejectInfo.statusCode
-                    == SupplicantStaIfaceHal.StaIfaceStatusCode.UNSPECIFIED_FAILURE) {
+                    == SupplicantStaIfaceHal.StaIfaceStatusCode.CHALLENGE_FAIL
+                    && WifiConfigurationUtil.isConfigForWepNetwork(curConfiguration)) {
+                mStaIfaceHal.logCallback("WEP incorrect password");
+                isWrongPwd = true;
+            } else if (assocRejectInfo.statusCode
+                    == SupplicantStaIfaceHal.StaIfaceStatusCode.UNSPECIFIED_FAILURE
+                    || assocRejectInfo.statusCode
+                    == SupplicantStaIfaceHal.StaIfaceStatusCode.CHALLENGE_FAIL) {
+                // Special handling for WPA3-Personal networks. If the password is
+                // incorrect, the AP will send association rejection, with status code 1
+                // (unspecified failure) or 15 (challenge fail). In SAE networks, the password
+                // authentication is not related to the 4-way handshake. In this case, we will
+                // send an authentication failure event up.
                 // Network Selection status is guaranteed to be initialized
                 SecurityParams params = curConfiguration.getNetworkSelectionStatus()
                         .getCandidateSecurityParams();
@@ -331,11 +344,6 @@ abstract class SupplicantStaIfaceCallbackHidlImpl extends ISupplicantStaIfaceCal
                         mStaIfaceHal.logCallback("SAE association rejection");
                     }
                 }
-            } else if (assocRejectInfo.statusCode
-                    == SupplicantStaIfaceHal.StaIfaceStatusCode.CHALLENGE_FAIL
-                    && WifiConfigurationUtil.isConfigForWepNetwork(curConfiguration)) {
-                mStaIfaceHal.logCallback("WEP incorrect password");
-                isWrongPwd = true;
             }
         }
 
@@ -349,7 +357,7 @@ abstract class SupplicantStaIfaceCallbackHidlImpl extends ISupplicantStaIfaceCal
             }
             mWifiMonitor.broadcastAuthenticationFailureEvent(
                     mIfaceName, WifiManager.ERROR_AUTH_FAILURE_WRONG_PSWD, -1,
-                    mCurrentSsid, bssidAsMacAddress);
+                    assocRejectInfo.ssid, bssidAsMacAddress);
         }
         mWifiMonitor.broadcastAssociationRejectionEvent(mIfaceName, assocRejectInfo);
         mStateBeforeDisconnect = State.INACTIVE;
@@ -360,6 +368,10 @@ abstract class SupplicantStaIfaceCallbackHidlImpl extends ISupplicantStaIfaceCal
         assocRejectData.statusCode = halToFrameworkStatusCode(assocRejectData.statusCode);
         assocRejectData.mboAssocDisallowedReason = halToFrameworkMboAssocDisallowedReasonCode(
                 assocRejectData.mboAssocDisallowedReason);
+        assocRejectData.ssid = NativeUtil.byteArrayToArrayList(
+                mSsidTranslator.getTranslatedSsidForStaIface(
+                        WifiSsid.fromBytes(NativeUtil.byteArrayFromArrayList(assocRejectData.ssid)),
+                        mIfaceName).getBytes());
         AssocRejectEventInfo assocRejectInfo = new AssocRejectEventInfo(assocRejectData);
         handleAssocRejectEvent(assocRejectInfo);
     }
@@ -379,9 +391,26 @@ abstract class SupplicantStaIfaceCallbackHidlImpl extends ISupplicantStaIfaceCal
     public void onAuthenticationTimeout(byte[/* 6 */] bssid) {
         synchronized (mLock) {
             mStaIfaceHal.logCallback("onAuthenticationTimeout");
-            mWifiMonitor.broadcastAuthenticationFailureEvent(
-                    mIfaceName, WifiManager.ERROR_AUTH_FAILURE_TIMEOUT, -1,
-                    mCurrentSsid, MacAddress.fromBytes(bssid));
+            WifiConfiguration curConfiguration =
+                    mStaIfaceHal.getCurrentNetworkLocalConfig(mIfaceName);
+            if (curConfiguration != null
+                    && (WifiConfigurationUtil.isConfigForPskNetwork(curConfiguration)
+                    || WifiConfigurationUtil.isConfigForWapiPskNetwork(curConfiguration))
+                    && !curConfiguration.getNetworkSelectionStatus().hasEverConnected()
+                    && mStateBeforeDisconnect == State.FOURWAY_HANDSHAKE) {
+                // Some AP implementations doesn't send de-authentication or dis-association
+                // frame after EAPOL failure. They keep retry EAPOL M1 frames. This leads to
+                // authentication timeout in supplicant. If this network was not connected before,
+                // the authentication timeout may be due to wrong password.
+                Log.d(TAG, "EAPOL H/S failed in first connect attempt. Possibly a wrong password");
+                mWifiMonitor.broadcastAuthenticationFailureEvent(
+                        mIfaceName, WifiManager.ERROR_AUTH_FAILURE_WRONG_PSWD, -1,
+                        mCurrentSsid, MacAddress.fromBytes(bssid));
+            } else {
+                mWifiMonitor.broadcastAuthenticationFailureEvent(
+                        mIfaceName, WifiManager.ERROR_AUTH_FAILURE_TIMEOUT, -1,
+                        mCurrentSsid, MacAddress.fromBytes(bssid));
+            }
         }
     }
 

@@ -16,10 +16,13 @@
 
 package com.android.server.wm;
 
+import static android.car.PlatformVersion.VERSION_CODES;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.annotation.UserIdInt;
+import android.car.PlatformVersionMismatchException;
 import android.car.app.CarActivityManager;
 import android.car.builtin.os.UserManagerHelper;
 import android.car.builtin.util.Slogf;
@@ -30,9 +33,11 @@ import android.hardware.display.DisplayManager;
 import android.os.ServiceSpecificException;
 import android.util.ArrayMap;
 import android.util.Log;
+import android.util.Pair;
 import android.util.SparseIntArray;
 import android.view.Display;
 
+import com.android.car.internal.util.VersionUtils;
 import com.android.internal.annotations.GuardedBy;
 
 import java.util.ArrayList;
@@ -50,6 +55,8 @@ public final class CarLaunchParamsModifierUpdatableImpl
         implements CarLaunchParamsModifierUpdatable {
     private static final String TAG = "CAR.LAUNCH";
     private static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
+    // Comes from android.os.UserHandle.USER_NULL.
+    private static final int USER_NULL = -10000;
 
     private final CarLaunchParamsModifierInterface mBuiltin;
     private final Object mLock = new Object();
@@ -57,7 +64,7 @@ public final class CarLaunchParamsModifierUpdatableImpl
     // Always start with USER_SYSTEM as the timing of handleCurrentUserSwitching(USER_SYSTEM) is not
     // guaranteed to be earler than 1st Activity launch.
     @GuardedBy("mLock")
-    private int mCurrentDriverUser = UserManagerHelper.USER_SYSTEM;
+    private int mDriverUser = UserManagerHelper.USER_SYSTEM;
 
     // TODO: Switch from tracking displays to tracking display areas instead
     /**
@@ -145,17 +152,65 @@ public final class CarLaunchParamsModifierUpdatableImpl
         }
     }
 
-    /** Notifies user starting. */
-    public void handleUserStarting(int startingUser) {
-       // Do nothing
+    @Override
+    public void handleUserVisibilityChanged(int userId, boolean visible) {
+        synchronized (mLock) {
+            if (DBG) {
+                Slogf.d(TAG, "handleUserVisibilityChanged user=%d, visible=%b",
+                        userId, visible);
+            }
+            if (userId != mDriverUser || visible) {
+                return;
+            }
+            int currentOrTargetUserId = getCurrentOrTargetUserId();
+            maySwitchCurrentDriver(currentOrTargetUserId);
+        }
+    }
+
+    private int getCurrentOrTargetUserId() {
+        if (!VersionUtils.isPlatformVersionAtLeastU()) {
+            throw new PlatformVersionMismatchException(VERSION_CODES.UPSIDE_DOWN_CAKE_0);
+        }
+        Pair<Integer, Integer> currentAndTargetUserIds = mBuiltin.getCurrentAndTargetUserIds();
+        int currentUserId = currentAndTargetUserIds.first;
+        int targetUserId = currentAndTargetUserIds.second;
+        int currentOrTargetUserId = targetUserId != USER_NULL ? targetUserId : currentUserId;
+        return currentOrTargetUserId;
     }
 
     /** Notifies user switching. */
     public void handleCurrentUserSwitching(@UserIdInt int newUserId) {
+        if (DBG) Slogf.d(TAG, "handleCurrentUserSwitching user=%d", newUserId);
+        maySwitchCurrentDriver(newUserId);
+    }
+
+    private void maySwitchCurrentDriver(int userId) {
         synchronized (mLock) {
-            mCurrentDriverUser = newUserId;
+            if (DBG) {
+                Slogf.d(TAG, "maySwitchCurrentDriver old=%d, new=%d", mDriverUser, userId);
+            }
+            if (mDriverUser == userId) {
+                return;
+            }
+            mDriverUser = userId;
             mDefaultDisplayForProfileUser.clear();
             mDisplayToProfileUserMapping.clear();
+        }
+    }
+
+    /** Notifies user starting. */
+    public void handleUserStarting(int startingUser) {
+        if (DBG) Slogf.d(TAG, "handleUserStarting user=%d", startingUser);
+        // Do nothing
+    }
+
+    /** Notifies user stopped. */
+    public void handleUserStopped(@UserIdInt int stoppedUser) {
+        if (DBG) Slogf.d(TAG, "handleUserStopped user=%d", stoppedUser);
+        // Note that the current user is never stopped. It always takes switching into
+        // non-current user before stopping the user.
+        synchronized (mLock) {
+            removeUserFromAllowlistsLocked(stoppedUser);
         }
     }
 
@@ -167,15 +222,6 @@ public final class CarLaunchParamsModifierUpdatableImpl
             }
         }
         mDefaultDisplayForProfileUser.delete(userId);
-    }
-
-    /** Notifies user stopped. */
-    public void handleUserStopped(@UserIdInt int stoppedUser) {
-        // Note that the current user is never stopped. It always takes switching into
-        // non-current user before stopping the user.
-        synchronized (mLock) {
-            removeUserFromAllowlistsLocked(stoppedUser);
-        }
     }
 
     /**
@@ -198,7 +244,7 @@ public final class CarLaunchParamsModifierUpdatableImpl
                             + " not in passenger display list:%s", displayId, mPassengerDisplays);
                     continue;
                 }
-                if (userId == mCurrentDriverUser) {
+                if (userId == mDriverUser) {
                     mDisplayToProfileUserMapping.delete(displayId);
                 } else {
                     mDisplayToProfileUserMapping.put(displayId, userId);
@@ -272,11 +318,11 @@ public final class CarLaunchParamsModifierUpdatableImpl
         TaskDisplayAreaWrapper originalDisplayArea = currentParams.getPreferredTaskDisplayArea();
         // DisplayArea where CarLaunchParamsModifier targets to launch the Activity.
         TaskDisplayAreaWrapper targetDisplayArea = null;
-        if (DBG) {
-            Slogf.d(TAG, "onCalculate, userId:%d original displayArea:%s ActivityOptions:%s",
-                    userId, originalDisplayArea, options);
-        }
         ComponentName activityName = activity.getComponentName();
+        if (DBG) {
+            Slogf.d(TAG, "onCalculate, userId:%d original displayArea:%s actvity:%s options:%s",
+                    userId, originalDisplayArea, activityName, options);
+        }
         decision:
         synchronized (mLock) {
             // If originalDisplayArea is set, respect that before ActivityOptions check.
@@ -307,19 +353,22 @@ public final class CarLaunchParamsModifierUpdatableImpl
                 targetDisplayArea = mBuiltin.getDefaultTaskDisplayAreaOnDisplay(
                         Display.DEFAULT_DISPLAY);
             }
-            if (userId == mCurrentDriverUser) {
+            if (userId == mDriverUser) {
                 // Respect the existing DisplayArea.
+                if (DBG) Slogf.d(TAG, "Skip the further check for Driver");
                 break decision;
             }
             if (userId == UserManagerHelper.USER_SYSTEM) {
                 // This will be only allowed if it has FLAG_SHOW_FOR_ALL_USERS.
                 // The flag is not immediately accessible here so skip the check.
                 // But other WM policy will enforce it.
+                if (DBG) Slogf.d(TAG, "Skip the further check for SystemUser");
                 break decision;
             }
             // Now user is a passenger.
             if (mPassengerDisplays.isEmpty()) {
                 // No displays for passengers. This could be old user and do not do anything.
+                if (DBG) Slogf.d(TAG, "Skip the further check for no PassengerDisplays");
                 break decision;
             }
             if (targetDisplayArea == null) {
@@ -333,16 +382,18 @@ public final class CarLaunchParamsModifierUpdatableImpl
             Display display = targetDisplayArea.getDisplay();
             if ((display.getFlags() & Display.FLAG_PRIVATE) != 0) {
                 // private display should follow its own restriction rule.
+                if (DBG) Slogf.d(TAG, "Skip the further check for the private display");
                 break decision;
             }
             if (DisplayHelper.getType(display) == DisplayHelper.TYPE_VIRTUAL) {
                 // TODO(b/132903422) : We need to update this after the bug is resolved.
                 // For now, don't change anything.
+                if (DBG) Slogf.d(TAG, "Skip the further check for the virtual display");
                 break decision;
             }
-            int userForDisplay = mDisplayToProfileUserMapping.get(display.getDisplayId(),
-                    UserManagerHelper.USER_NULL);
+            int userForDisplay = getUserForDisplayLocked(display.getDisplayId());
             if (userForDisplay == userId) {
+                if (DBG) Slogf.d(TAG, "The display is assigned for the user");
                 break decision;
             }
             targetDisplayArea = getAlternativeDisplayAreaForPassengerLocked(
@@ -350,8 +401,14 @@ public final class CarLaunchParamsModifierUpdatableImpl
         }
         if (targetDisplayArea != null && originalDisplayArea != targetDisplayArea) {
             Slogf.i(TAG, "Changed launching display, user:%d requested display area:%s"
-                    + " target display area:", userId, originalDisplayArea, targetDisplayArea);
+                    + " target display area:%s", userId, originalDisplayArea, targetDisplayArea);
             outParams.setPreferredTaskDisplayArea(targetDisplayArea);
+            if (VersionUtils.isPlatformVersionAtLeastU()
+                    && options != null
+                    && options.getLaunchWindowingMode()
+                    != ActivityOptionsWrapper.WINDOWING_MODE_UNDEFINED) {
+                outParams.setWindowingMode(options.getLaunchWindowingMode());
+            }
             return LaunchParamsWrapper.RESULT_DONE;
         } else {
             return LaunchParamsWrapper.RESULT_SKIP;
@@ -359,9 +416,23 @@ public final class CarLaunchParamsModifierUpdatableImpl
     }
 
     @GuardedBy("mLock")
+    private int getUserForDisplayLocked(int displayId) {
+        int userForDisplay = mDisplayToProfileUserMapping.get(displayId,
+                UserManagerHelper.USER_NULL);
+        if (userForDisplay != UserManagerHelper.USER_NULL) {
+            return userForDisplay;
+        }
+        if (VersionUtils.isPlatformVersionAtLeastU()) {
+            userForDisplay = mBuiltin.getUserAssignedToDisplay(displayId);
+        }
+        return userForDisplay;
+    }
+
+    @GuardedBy("mLock")
     @Nullable
     private TaskDisplayAreaWrapper getAlternativeDisplayAreaForPassengerLocked(int userId,
             @NonNull ActivityRecordWrapper activtyRecord, @Nullable RequestWrapper request) {
+        if (DBG) Slogf.d(TAG, "getAlternativeDisplayAreaForPassengerLocked:%d", userId);
         List<TaskDisplayAreaWrapper> fallbacks = mBuiltin.getFallbackDisplayAreasForActivity(
                 activtyRecord, request);
         for (int i = 0, size = fallbacks.size(); i < size; ++i) {
@@ -401,8 +472,18 @@ public final class CarLaunchParamsModifierUpdatableImpl
             int displayId = mDefaultDisplayForProfileUser.get(userId);
             return mBuiltin.getDefaultTaskDisplayAreaOnDisplay(displayId);
         }
+        if (VersionUtils.isPlatformVersionAtLeastU()) {
+            int displayId = mBuiltin.getMainDisplayAssignedToUser(userId);
+            if (displayId != Display.INVALID_DISPLAY) {
+                return mBuiltin.getDefaultTaskDisplayAreaOnDisplay(displayId);
+            }
+        }
         if (!mPassengerDisplays.isEmpty()) {
             int displayId = mPassengerDisplays.get(0);
+            if (DBG) {
+                Slogf.d(TAG, "fallbackDisplayAreaForUserLocked: userId=%d, displayId=%d",
+                        userId, displayId);
+            }
             return mBuiltin.getDefaultTaskDisplayAreaOnDisplay(displayId);
         }
         return null;

@@ -17,27 +17,13 @@
 #include "src/trace_processor/containers/string_pool.h"
 
 #include <limits>
+#include <tuple>
 
 #include "perfetto/base/logging.h"
 #include "perfetto/ext/base/utils.h"
 
 namespace perfetto {
 namespace trace_processor {
-
-// static
-constexpr size_t StringPool::kNumBlockIndexBits;
-// static
-constexpr size_t StringPool::kNumBlockOffsetBits;
-// static
-constexpr size_t StringPool::kLargeStringFlagBitMask;
-// static
-constexpr size_t StringPool::kBlockOffsetBitMask;
-// static
-constexpr size_t StringPool::kBlockIndexBitMask;
-// static
-constexpr size_t StringPool::kBlockSizeBytes;
-// static
-constexpr size_t StringPool::kMinLargeStringSizeBytes;
 
 StringPool::StringPool() {
   static_assert(

@@ -34,9 +34,12 @@ import com.android.car.apps.common.testutils.InstantTaskExecutorRule;
 import com.android.car.carlauncher.homescreen.HomeCardInterface;
 import com.android.car.carlauncher.homescreen.ui.CardHeader;
 import com.android.car.carlauncher.homescreen.ui.DescriptiveTextWithControlsView;
+import com.android.car.carlauncher.homescreen.ui.SeekBarViewModel;
 import com.android.car.media.common.MediaItemMetadata;
+import com.android.car.media.common.playback.PlaybackProgress;
 import com.android.car.media.common.playback.PlaybackViewModel;
 import com.android.car.media.common.source.MediaSource;
+import com.android.car.media.common.source.MediaSourceColors;
 import com.android.car.media.common.source.MediaSourceViewModel;
 
 import org.junit.After;
@@ -55,10 +58,24 @@ public class MediaViewModelTest {
     private static final Drawable APP_ICON = null;
     private static final CharSequence SONG_TITLE = "test song title";
     private static final CharSequence ARTIST_NAME = "test artist name";
+    private static final boolean IS_TIME_AVAILABLE = true;
+    private static final CharSequence CURRENT_TIME = "1:00";
+    private static final CharSequence MAX_TIME = "10:00";
+    private static final double PROGRESS_FRACTION = 0.01;
+    private static final int COLORS = 0;
+    private static final int DEFAULT_COLORS = 1;
+
 
     private MediaViewModel mMediaViewModel;
     private MutableLiveData<MediaSource> mLiveMediaSource = new MutableLiveData<>();
     private MutableLiveData<MediaItemMetadata> mLiveMetadata = new MutableLiveData<>();
+    private MutableLiveData<MediaSourceColors> mLiveColors = new MutableLiveData<>();
+    private MutableLiveData<PlaybackProgress> mLiveProgress = new MutableLiveData<>();
+    private MutableLiveData<PlaybackViewModel.PlaybackStateWrapper> mLivePlaybackState =
+            new MutableLiveData<>();
+
+    private MutableLiveData<PlaybackViewModel.PlaybackController> mPlaybackController =
+            new MutableLiveData<>();
 
     @Mock
     private MediaSourceViewModel mSourceViewModel;
@@ -69,12 +86,17 @@ public class MediaViewModelTest {
     @Mock
     private MediaItemMetadata mMetadata;
     @Mock
+    private MediaSourceColors mColors;
+    @Mock
+    private PlaybackProgress mProgress;
+    @Mock
     private HomeCardInterface.Presenter mPresenter;
 
     // The tests use the MediaViewModel's observers. To avoid errors with invoking observeForever
     // on a background thread, this rule configures LiveData to execute each task synchronously.
     @Rule
     public final InstantTaskExecutorRule mTaskExecutorRule = new InstantTaskExecutorRule();
+    private int mSeekBarMax;
 
     @Before
     public void setUp() {
@@ -83,8 +105,14 @@ public class MediaViewModelTest {
                 mSourceViewModel, mPlaybackViewModel);
         when(mSourceViewModel.getPrimaryMediaSource()).thenReturn(mLiveMediaSource);
         when(mPlaybackViewModel.getMetadata()).thenReturn(mLiveMetadata);
+        when(mPlaybackViewModel.getMediaSourceColors()).thenReturn(mLiveColors);
+        when(mPlaybackViewModel.getProgress()).thenReturn(mLiveProgress);
+        when(mPlaybackViewModel.getPlaybackStateWrapper()).thenReturn(mLivePlaybackState);
+        when(mPlaybackViewModel.getPlaybackController()).thenReturn(mPlaybackController);
         mMediaViewModel.setPresenter(mPresenter);
         mMediaViewModel.onCreate(ApplicationProvider.getApplicationContext());
+        mSeekBarMax = ApplicationProvider.getApplicationContext().getResources().getInteger(
+                com.android.car.carlauncher.R.integer.optional_seekbar_max);
         reset(mPresenter);
     }
 
@@ -107,7 +135,7 @@ public class MediaViewModelTest {
     public void changeSourceAndMetadata_updatesModel() {
         when(mMediaSource.getDisplayName()).thenReturn(APP_NAME);
         when(mMediaSource.getIcon()).thenReturn(APP_ICON);
-        when(mMetadata.getArtist()).thenReturn(ARTIST_NAME);
+        when(mMetadata.getSubtitle()).thenReturn(ARTIST_NAME);
         when(mMetadata.getTitle()).thenReturn(SONG_TITLE);
 
         mLiveMediaSource.setValue(mMediaSource);
@@ -138,13 +166,14 @@ public class MediaViewModelTest {
         assertNull(header.getCardIcon());
         DescriptiveTextWithControlsView content =
                 (DescriptiveTextWithControlsView) mMediaViewModel.getCardContent();
-        assertNull(content.getTitle());
-        assertNull(content.getSubtitle());
+        assertEquals(content.getTitle().toString(), "");
+        assertEquals(content.getTitle().toString(), "");
+
     }
 
     @Test
     public void changeMetadataOnly_doesNotCallPresenter() {
-        when(mMetadata.getArtist()).thenReturn(ARTIST_NAME);
+        when(mMetadata.getSubtitle()).thenReturn(ARTIST_NAME);
         when(mMetadata.getTitle()).thenReturn(SONG_TITLE);
 
         mLiveMetadata.setValue(mMetadata);
@@ -155,6 +184,40 @@ public class MediaViewModelTest {
                 (DescriptiveTextWithControlsView) mMediaViewModel.getCardContent();
         assertEquals(content.getTitle(), SONG_TITLE);
         assertEquals(content.getSubtitle(), ARTIST_NAME);
+    }
+
+    @Test
+    public void changeTimeOnly_updateModel() {
+        when(mProgress.getProgressFraction()).thenReturn(PROGRESS_FRACTION);
+        when(mProgress.hasTime()).thenReturn(IS_TIME_AVAILABLE);
+        when(mProgress.getCurrentTimeText()).thenReturn(CURRENT_TIME);
+        when(mProgress.getMaxTimeText()).thenReturn(MAX_TIME);
+
+        mLiveProgress.setValue(mProgress);
+
+        verify(mPresenter).onModelUpdated(mMediaViewModel, IS_TIME_AVAILABLE);
+        DescriptiveTextWithControlsView content =
+                (DescriptiveTextWithControlsView) mMediaViewModel.getCardContent();
+        SeekBarViewModel seekBarViewModel = content.getSeekBarViewModel();
+        assertEquals(seekBarViewModel.getTimes().toString(), CURRENT_TIME + "/" + MAX_TIME);
+        assertEquals(seekBarViewModel.getProgress(), (int) (mSeekBarMax * PROGRESS_FRACTION));
+    }
+
+    @Test
+    public void changeColor_updateModel() {
+        when(mColors.getAccentColor(DEFAULT_COLORS)).thenReturn(COLORS);
+        when(mProgress.hasTime()).thenReturn(IS_TIME_AVAILABLE);
+        when(mProgress.getCurrentTimeText()).thenReturn(CURRENT_TIME);
+        when(mProgress.getMaxTimeText()).thenReturn(MAX_TIME);
+
+        mLiveProgress.setValue(mProgress);
+        mLiveColors.setValue(mColors);
+
+        verify(mPresenter, times(1)).onModelUpdated(mMediaViewModel, false);
+        DescriptiveTextWithControlsView content =
+                (DescriptiveTextWithControlsView) mMediaViewModel.getCardContent();
+        SeekBarViewModel seekBarViewModel = content.getSeekBarViewModel();
+        assertEquals(seekBarViewModel.getSeekBarColor(), COLORS);
     }
 }
 

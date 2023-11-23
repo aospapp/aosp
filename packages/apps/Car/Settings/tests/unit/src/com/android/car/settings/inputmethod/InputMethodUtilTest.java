@@ -149,19 +149,32 @@ public class InputMethodUtilTest {
 
     @Test
     public void getPermittedAndEnabledInputMethodList_withGoogleTypingIME_doesNotIncludeIME() {
+        List<InputMethodInfo> googleVoiceTypingIMEList = new ArrayList<>();
+
         InputMethodInfo placeholderIME = createMockInputMethodInfoWithSubtypes(
                 mPackageManager, mInputMethodManager, PLACEHOLDER_PACKAGE_NAME);
-        InputMethodInfo googleVoiceTypingIME = createMockInputMethodInfoWithSubtypes(
-                mPackageManager, mInputMethodManager, InputMethodUtil.GOOGLE_VOICE_TYPING);
+
+        for (String gvtPackageName : InputMethodUtil.GVT_PACKAGE_NAMES) {
+            InputMethodInfo googleVoiceTypingIME = createMockInputMethodInfoWithSubtypes(
+                    mPackageManager, mInputMethodManager, gvtPackageName);
+            googleVoiceTypingIMEList.add(googleVoiceTypingIME);
+        }
         when(mInputMethodManager.getEnabledInputMethodList())
-                .thenReturn(Arrays.asList(placeholderIME, googleVoiceTypingIME));
+                .thenReturn(
+                        new ArrayList<InputMethodInfo>(googleVoiceTypingIMEList) {{
+                            add(placeholderIME);
+                        }});
         when(mDevicePolicyManager.getPermittedInputMethodsForCurrentUser()).thenReturn(null);
 
         List<InputMethodInfo> results = InputMethodUtil.getPermittedAndEnabledInputMethodList(
                 mInputMethodManager, mDevicePolicyManager);
 
         assertThat(results).contains(placeholderIME);
-        assertThat(results).doesNotContain(googleVoiceTypingIME);
+
+        // Check that the result does not contain any of the statically defined Voice Typing IMEs
+        for (InputMethodInfo googleVoiceTypingIME : googleVoiceTypingIMEList) {
+            assertThat(results).doesNotContain(googleVoiceTypingIME);
+        }
     }
 
     @Test

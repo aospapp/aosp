@@ -19,6 +19,7 @@ package android.app.cts;
 import static org.junit.Assert.assertSame;
 
 import android.os.Parcel;
+import android.os.Process;
 import android.os.UserHandle;
 import android.test.AndroidTestCase;
 
@@ -75,5 +76,13 @@ public class UserHandleTest extends AndroidTestCase {
         assertEquals(
                 UserHandle.SYSTEM.getUid(TEST_APP_ID),
                 UserHandle.getUid(UserHandle.SYSTEM.getIdentifier(), TEST_APP_ID));
+    }
+
+    public void testGetSharedAppGid() {
+        assertEquals(UserHandle.getSharedAppGid(Process.ROOT_UID), Process.ROOT_UID);
+        assertEquals(UserHandle.getSharedAppGid(Process.SYSTEM_UID), Process.SYSTEM_UID);
+        assertEquals(UserHandle.getSharedAppGid(Process.FIRST_APPLICATION_UID), 50000);
+        assertEquals(UserHandle.getSharedAppGid(Process.FIRST_APPLICATION_UID + 1000), 51000);
+        assertEquals(UserHandle.getSharedAppGid(android.os.Process.LAST_APPLICATION_UID + 1), -1);
     }
 }

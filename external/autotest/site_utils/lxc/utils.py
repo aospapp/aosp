@@ -76,14 +76,14 @@ def is_vm():
         logging.debug('virt-what output: %s', virt)
         return bool(virt)
     except error.CmdError:
-        logging.warn('Package virt-what is not installed, default to assume '
+        logging.warning('Package virt-what is not installed, default to assume '
                      'it is not a virtual machine.')
         return False
 
 
 def destroy(path, name,
             force=True, snapshots=False, ignore_status=False, timeout=-1):
-  """
+    """
   Destroy an LXC container.
 
   @param force: Destroy even if running. Default true.
@@ -94,15 +94,16 @@ def destroy(path, name,
 
   @returns: CmdResult object from the shell command
   """
-  cmd = 'sudo lxc-destroy -P %s -n %s' % (path, name)
-  if force:
-    cmd += ' -f'
-  if snapshots:
-    cmd += ' -s'
-  if timeout >= 0:
-    return utils.run(cmd, ignore_status=ignore_status, timeout=timeout)
-  else:
-    return utils.run(cmd, ignore_status=ignore_status)
+    cmd = 'sudo lxc-destroy -P %s -n %s' % (path, name)
+    if force:
+        cmd += ' -f'
+    if snapshots:
+        cmd += ' -s'
+    if timeout >= 0:
+        return utils.run(cmd, ignore_status=ignore_status, timeout=timeout)
+    else:
+        return utils.run(cmd, ignore_status=ignore_status)
+
 
 def clone(lxc_path, src_name, new_path, dst_name, snapshot):
     """Clones a container.
@@ -254,7 +255,7 @@ def sudo_commands(commands):
 
     if combine:
         with tempfile.NamedTemporaryFile() as temp:
-            temp.write("set -e\n")
+            temp.write(b"set -e\n")
             temp.writelines([command+"\n" for command in commands])
             logging.info("Commands to run: %s", str(commands))
             return utils.run("sudo bash %s" % temp.name)

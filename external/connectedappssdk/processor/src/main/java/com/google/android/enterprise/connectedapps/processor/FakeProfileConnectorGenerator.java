@@ -15,6 +15,8 @@
  */
 package com.google.android.enterprise.connectedapps.processor;
 
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.prepend;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.transformClassName;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.ABSTRACT_FAKE_PROFILE_CONNECTOR_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.CONTEXT_CLASSNAME;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -29,19 +31,19 @@ import javax.lang.model.element.Modifier;
 
 class FakeProfileConnectorGenerator {
   private boolean generated = false;
-  private final ProfileConnectorInfo connector;
   private final GeneratorUtilities generatorUtilities;
+  private final ProfileConnectorInfo profileConnector;
 
   public FakeProfileConnectorGenerator(
       GeneratorContext generatorContext, ProfileConnectorInfo connector) {
     this.generatorUtilities = new GeneratorUtilities(checkNotNull(generatorContext));
-    this.connector = checkNotNull(connector);
+    this.profileConnector = checkNotNull(connector);
   }
 
   void generate() {
     if (generated) {
       throw new IllegalStateException(
-          "FakeProfileConectorGenerator#generate can only be called once");
+          "FakeProfileConnectorGenerator#generate can only be called once");
     }
     generated = true;
 
@@ -49,7 +51,7 @@ class FakeProfileConnectorGenerator {
   }
 
   private void generateFakeProfileConnector() {
-    ClassName className = getFakeProfileConnectorClassName(connector);
+    ClassName className = getFakeProfileConnectorClassName(profileConnector);
 
     TypeSpec.Builder classBuilder =
         TypeSpec.classBuilder(className)
@@ -57,13 +59,13 @@ class FakeProfileConnectorGenerator {
                 "Fake Profile Connector for {@link $1T}.\n\n"
                     + "<p>All functionality is implemented by {@link $2T}, this class is just used"
                     + " for compatibility with the {@link $1T} interface.\n",
-                connector.connectorClassName(),
+                profileConnector.connectorClassName(),
                 ABSTRACT_FAKE_PROFILE_CONNECTOR_CLASSNAME)
             .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-            .addSuperinterface(connector.connectorClassName())
+            .addSuperinterface(profileConnector.connectorClassName())
             .superclass(ABSTRACT_FAKE_PROFILE_CONNECTOR_CLASSNAME);
 
-    if (connector.primaryProfile().equals(ProfileType.UNKNOWN)) {
+    if (profileConnector.primaryProfile().equals(ProfileType.UNKNOWN)) {
       // Special case - we need to provide the profile type to the fake.
       classBuilder.addMethod(
           MethodSpec.constructorBuilder()
@@ -85,16 +87,16 @@ class FakeProfileConnectorGenerator {
               .addModifiers(Modifier.PUBLIC)
               .addParameter(CONTEXT_CLASSNAME, "context")
               .addStatement(
-                  "super(context, $T.$L)", ProfileType.class, connector.primaryProfile().name())
+                  "super(context, $T.$L)",
+                  ProfileType.class,
+                  profileConnector.primaryProfile().name())
               .build());
     }
 
     generatorUtilities.writeClassToFile(className.packageName(), classBuilder);
   }
 
-  static ClassName getFakeProfileConnectorClassName(ProfileConnectorInfo connector) {
-    return ClassName.get(
-        connector.connectorClassName().packageName(),
-        "Fake" + connector.connectorClassName().simpleName());
+  static ClassName getFakeProfileConnectorClassName(ProfileConnectorInfo profileConnector) {
+    return transformClassName(profileConnector.connectorClassName(), prepend("Fake"));
   }
 }

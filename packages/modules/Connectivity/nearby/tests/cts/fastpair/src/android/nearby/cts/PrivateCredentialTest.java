@@ -99,4 +99,19 @@ public class PrivateCredentialTest {
         assertThat(credentialElement.getKey()).isEqualTo(KEY);
         assertThat(Arrays.equals(credentialElement.getValue(), VALUE)).isTrue();
     }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 33, codeName = "T")
+    public void describeContents() {
+        PrivateCredential credential = mBuilder.build();
+        assertThat(credential.describeContents()).isEqualTo(0);
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 33, codeName = "T")
+    public void testCreatorNewArray() {
+        PrivateCredential[]  credentials =
+                PrivateCredential.CREATOR.newArray(2);
+        assertThat(credentials.length).isEqualTo(2);
+    }
 }

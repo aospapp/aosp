@@ -148,7 +148,8 @@ class AidegenConfig:
         """Load data from configuration file."""
         if os.path.exists(self._CONFIG_FILE_PATH):
             try:
-                with open(self._CONFIG_FILE_PATH) as cfg_file:
+                with open(self._CONFIG_FILE_PATH, 'r',
+                          encoding='utf-8') as cfg_file:
                     self._config = json.load(cfg_file)
             except ValueError as err:
                 info = '{} format is incorrect, error: {}'.format(
@@ -161,12 +162,13 @@ class AidegenConfig:
     def _save_aidegen_config(self):
         """Save data to configuration file."""
         if self._is_config_modified():
-            with open(self._CONFIG_FILE_PATH, 'w') as cfg_file:
+            with open(self._CONFIG_FILE_PATH, 'w',
+                      encoding='utf-8') as cfg_file:
                 json.dump(self._config, cfg_file, indent=4)
 
     def _is_config_modified(self):
         """Check if configuration data is modified."""
-        return any(key for key in self._config if not key in self._config_backup
+        return any(key for key in self._config if key not in self._config_backup
                    or self._config[key] != self._config_backup[key])
 
     def _create_config_folder(self):
@@ -214,7 +216,7 @@ class AidegenConfig:
 
         1. Create two empty folders named src and gen.
         2. Create an empty file named AndroidManifest.xml
-        3. Create the enable_denugger.iml.
+        3. Create the enable_debugger.iml.
 
         Args:
             android_sdk_version: The version name of the Android Sdk in the
@@ -295,7 +297,7 @@ class IdeaProperties:
 
     Class Attributes:
         _PROPERTIES_FILE: The property file name of IntelliJ.
-        _KEY_FILESIZE: The key name of the maximun file size.
+        _KEY_FILESIZE: The key name of the maximum file size.
         _FILESIZE_LIMIT: The value to be set as the max file size.
         _RE_SEARCH_FILESIZE: A regular expression to find the current max file
                              size.

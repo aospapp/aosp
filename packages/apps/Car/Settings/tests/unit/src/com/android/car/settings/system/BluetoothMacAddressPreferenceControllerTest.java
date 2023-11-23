@@ -17,6 +17,7 @@
 package com.android.car.settings.system;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -95,10 +96,64 @@ public class BluetoothMacAddressPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_featureBluetooth_unsupportedOnDevice_zoneWrite() {
+        when(mMockPm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)).thenReturn(false);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_featureBluetooth_unsupportedOnDevice_zoneRead() {
+        when(mMockPm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)).thenReturn(false);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_featureBluetooth_unsupportedOnDevice_zoneHidden() {
+        when(mMockPm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)).thenReturn(false);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
     public void getAvailabilityStatus_enableDefaultAdapter_availableForViewing() {
         when(mMockPm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)).thenReturn(true);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(
                 AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_enableDefaultAdapter_availableForViewing_zoneWrite() {
+        when(mMockPm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)).thenReturn(true);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_enableDefaultAdapter_availableForViewing_zoneRead() {
+        when(mMockPm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)).thenReturn(true);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_enableDefaultAdapter_availableForViewing_zoneHidden() {
+        when(mMockPm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)).thenReturn(true);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 }

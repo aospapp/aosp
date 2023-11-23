@@ -1,10 +1,16 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import fcntl, logging, os, re, stat, struct, time
 from autotest_lib.client.bin import fio_util, test, utils
 from autotest_lib.client.common_lib import error
+import six
 
 
 class FioTest(test.test):
@@ -20,6 +26,7 @@ class FioTest(test.test):
     DEFAULT_FILE_SIZE = 1024 * 1024 * 1024
     VERIFY_OPTION = 'v'
     CONTINUE_ERRORS = 'verify'
+    DEVICE_REGEX = r'.*(sd[a-z]|mmcblk[0-9]+|nvme[0-9]+n[0-9]+|loop[0-9]|dm\-[0-9]+)p?[0-9]*'
     REMOVABLE = False
 
     # Initialize fail counter used to determine test pass/fail.
@@ -49,10 +56,11 @@ class FioTest(test.test):
         # Then read the vendor and model name in its grand-parent directory.
 
         # Obtain the device name by stripping the partition number.
-        # For example, sda3 => sda; mmcblk1p3 => mmcblk1, nvme0n1p3 => nvme0n1.
-        device = re.match(r'.*(sd[a-z]|mmcblk[0-9]+|nvme[0-9]+n[0-9]+)p?[0-9]*',
-                          self.__filename).group(1)
-        findsys = utils.run('find /sys/devices -name %s | grep -v virtual'
+        # For example, sda3 => sda; mmcblk1p3 => mmcblk1, nvme0n1p3 => nvme0n1,
+        # loop1p1 => loop1; dm-1 => dm-1 (no partitions/multipath device
+        # support for device mapper).
+        device = re.match(self.DEVICE_REGEX, self.__filename).group(1)
+        findsys = utils.run('find /sys/devices -name %s'
                             % device)
         device_path = findsys.stdout.rstrip()
 
@@ -183,10 +191,12 @@ class FioTest(test.test):
            stat.S_ISBLK(os.stat(self.__filename).st_mode) and \
            self.__filesize != 0 and blkdiscard:
             try:
+                logging.info("Doing a blkdiscard using ioctl %s",
+                             self.IOCTL_TRIM_CMD)
                 fd = os.open(self.__filename, os.O_RDWR)
                 fcntl.ioctl(fd, self.IOCTL_TRIM_CMD,
                             struct.pack('QQ', 0, self.__filesize))
-            except IOError, err:
+            except IOError as err:
                 logging.info("blkdiscard failed %s", err)
                 pass
             finally:
@@ -220,13 +230,13 @@ class FioTest(test.test):
                                 'device': self.__description})
         logging.info('Device Description: %s', self.__description)
         self.write_perf_keyval(results)
-        for k, v in results.iteritems():
+        for k, v in six.iteritems(results):
             if k.endswith('_error'):
                 self._error_code = int(v)
                 if self._error_code != 0 and self._fail_count == 0:
                     self._fail_count = 1
             elif k.endswith('_total_err'):
-                self._fail_count = int(v)
+                self._fail_count += int(v)
         if self._fail_count > 0:
             if self.REMOVABLE and not self.__verify_only:
                 raise error.TestWarn('%s failed verifications, '

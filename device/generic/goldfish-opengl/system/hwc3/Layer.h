@@ -31,8 +31,8 @@ class Layer {
   Layer(const Layer&) = delete;
   Layer& operator=(const Layer&) = delete;
 
-  Layer(Layer&&) = default;
-  Layer& operator=(Layer&&) = default;
+  Layer(Layer&&) = delete;
+  Layer& operator=(Layer&&) = delete;
 
   int64_t getId() const { return mId; }
 

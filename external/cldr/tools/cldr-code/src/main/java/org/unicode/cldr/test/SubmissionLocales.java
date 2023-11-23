@@ -1,52 +1,79 @@
 package org.unicode.cldr.test;
 
+import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.unicode.cldr.util.GrammarInfo;
 import org.unicode.cldr.util.Organization;
 import org.unicode.cldr.util.RegexUtilities;
 import org.unicode.cldr.util.StandardCodes;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 
 public final class SubmissionLocales {
-    public static Set<String> NEW_CLDR_LOCALES = ImmutableSet.of(
-        "ceb",  // Cebuano (not new in release, but needs major changes)
-        "mai",  // Maithili
-        "mni",  // Manipuri (Bengali script)-Apple as well
-        "sat",  // Santali -(Apple use Olck script)
-        "kok",  // Konkani -(Note: this is already covered by a MS vetter at Modern level)
-        "sd_Deva",   // Sindhi (Devanagari)
-        "su",   // Sundanese (script TBD)
-        "pcm"  // Nigerian Pidgin
-//        "cad",  // Caddo
-//        "gn"    // Guarani
-        );
 
+    public static final Set<String> CLDR_LOCALES = StandardCodes.make().getLocaleToLevel(Organization.cldr).keySet();
+
+    /**
+     * Non-CLDR Locales, but consistently have high level of engagement from volunteers to keep at modern level.
+     * Reevaluate for each release based on meeting 95+% of modern, moderate, and basic coverage
+     */
     public static Set<String> HIGH_LEVEL_LOCALES = ImmutableSet.of(
         "chr",  // Cherokee
         "gd",   // Scottish Gaelic, Gaelic
-        "fo"    // Faroese
+        "fo",   // Faroese
+        "kok",  // Konkani
+        "pcm",  // Nigerian Pidgin
+        "ha",   // Hausa
+        "hsb",  // Upper Sorbian
+        "dsb",  // Lower Sorbian
+        "yue_Hans",   // Cantonese (Simplified)
+        "to"    //  Tongan
         );
 
-    // have to have a lazy eval because otherwise CLDRConfig is called too early in the boot process
-    public static Set<String> CLDR_LOCALES = ImmutableSet.<String>builder()
+    public static final Set<String> CLDR_OR_HIGH_LEVEL_LOCALES = ImmutableSet.<String>builder()
+        .addAll(CLDR_LOCALES)
         .addAll(HIGH_LEVEL_LOCALES)
-        .addAll(NEW_CLDR_LOCALES)
-        .addAll(StandardCodes.make().getLocaleToLevel(Organization.cldr).keySet()).build();
+        .build();
 
-//            synchronized (SUBMISSION) {
-//                if (CLDR_LOCALES == null) {
-//                    CLDR_LOCALES = ImmutableSet.<String>builder()
-//                        .addAll(HIGH_LEVEL_LOCALES)
-//                        .addAll(StandardCodes.make().getLocaleToLevel(Organization.cldr).keySet()).build();
-//                }
-//            }
+    /**
+     * Update this in each limited release.
+     */
+    public static final Set<String> LOCALES_FOR_LIMITED;
+    static {
+        Set<String> temp = new HashSet<>(CLDR_OR_HIGH_LEVEL_LOCALES);
+        temp.retainAll(GrammarInfo.getGrammarLocales());
+        LOCALES_FOR_LIMITED = ImmutableSortedSet.copyOf(temp);
+    }
 
-    public static final Pattern ALLOWED_IN_LIMITED_PATHS =
-    Pattern.compile("//ldml/annotations/annotation.*[🤵👰⬆➡⬇⬅♾✖➕➖➗]");
+    /**
+     * New locales in this release, where we want to allow any paths even if others are restricted
+     */
+    public static Set<String> ALLOW_ALL_PATHS = ImmutableSet.of(
+        "brx",
+        "ks",
+        "ks_Deva",
+        "rhg"   // Rohingya
+        );
 
+    public static Set<String> LOCALES_ALLOWED_IN_LIMITED = ImmutableSet.<String>builder()
+        .addAll(LOCALES_FOR_LIMITED)
+        .addAll(ALLOW_ALL_PATHS)
+        .build();
+
+    public static final Pattern PATHS_ALLOWED_IN_LIMITED = Pattern.compile(
+        "//ldml/"
+            // v43: All person names
+            // + "(personNames/.*"
+            // v43: Turkey and its alternate
+            // + "|localeDisplayNames/territories/territory\\[@type=\"TR\"\\].*"
+            + "|units/unitLength\\[@type=\"long\"]"
+            // v43: Exemplar city for America/Ciudad_Juarez
+            + "|dates/timeZoneNames/zone[@type=\"America/Ciudad_Juarez\"]/exemplarCity"
+        + ")");
 
     /* Example of special paths
      * Pattern.compile(
@@ -85,15 +112,15 @@ public final class SubmissionLocales {
 
         // don't limit new locales or errors
 
-        if (SubmissionLocales.NEW_CLDR_LOCALES.contains(localeString) || isError) {
+        if (SubmissionLocales.ALLOW_ALL_PATHS.contains(localeString) || isError) {
             return true;
         } else {
             int debug = 0; // for debugging
         }
 
-        // all but CLDR locales are otherwise locked
+        // all but specific locales are otherwise locked
 
-        if (!SubmissionLocales.CLDR_LOCALES.contains(localeString)) {
+        if (!SubmissionLocales.LOCALES_ALLOWED_IN_LIMITED.contains(localeString)) {
             return false;
         } else {
             int debug = 0; // for debugging
@@ -124,10 +151,10 @@ public final class SubmissionLocales {
      * @return
      */
     public static boolean pathAllowedInLimitedSubmission(String path) {
-        if (ALLOWED_IN_LIMITED_PATHS == null) {
+        if (PATHS_ALLOWED_IN_LIMITED == null) {
             return false;
         }
-        final Matcher matcher = SubmissionLocales.ALLOWED_IN_LIMITED_PATHS.matcher(path);
+        final Matcher matcher = SubmissionLocales.PATHS_ALLOWED_IN_LIMITED.matcher(path);
         boolean result = matcher.lookingAt();
         if (DEBUG_REGEX && !result) {
             System.out.println(RegexUtilities.showMismatch(matcher, path));

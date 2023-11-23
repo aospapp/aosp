@@ -16,8 +16,11 @@
 
 package com.googlecode.android_scripting.facade;
 
+import static android.app.usage.NetworkStats.Bucket.METERED_YES;
 import static android.net.ConnectivityManager.TYPE_MOBILE;
 import static android.net.NetworkStats.UID_ALL;
+import static android.net.NetworkTemplate.MATCH_MOBILE;
+import static android.net.NetworkTemplate.MATCH_WIFI;
 import static android.telephony.TelephonyManager.SIM_STATE_READY;
 import static android.text.format.DateUtils.FORMAT_ABBREV_MONTH;
 import static android.text.format.DateUtils.FORMAT_SHOW_DATE;
@@ -39,6 +42,7 @@ import android.util.Pair;
 
 import java.time.ZonedDateTime;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * DataUsageController.
@@ -87,7 +91,8 @@ public class DataUsageController {
         if (subscriberId == null) {
             return warn("no subscriber id");
         }
-        NetworkTemplate template = NetworkTemplate.buildTemplateMobileAll(subscriberId);
+        NetworkTemplate template = new NetworkTemplate.Builder(MATCH_MOBILE)
+                .setMeteredness(METERED_YES).setSubscriberIds(Set.of(subscriberId)).build();
         template = NetworkTemplate.normalize(template, mTelephonyManager.getMergedSubscriberIds());
 
         return getDataUsageInfo(template);
@@ -101,7 +106,8 @@ public class DataUsageController {
         if (subscriberId == null) {
             return warn("no subscriber id");
         }
-        NetworkTemplate template = NetworkTemplate.buildTemplateMobileAll(subscriberId);
+        NetworkTemplate template = new NetworkTemplate.Builder(MATCH_MOBILE)
+                .setMeteredness(METERED_YES).setSubscriberIds(Set.of(subscriberId)).build();
         template = NetworkTemplate.normalize(template, mTelephonyManager.getMergedSubscriberIds());
 
         return getDataUsageInfo(template, uId);
@@ -112,7 +118,7 @@ public class DataUsageController {
      * @return DataUsageInfo: The Wifi data usage information.
      */
     public DataUsageInfo getWifiDataUsageInfo() {
-        NetworkTemplate template = NetworkTemplate.buildTemplateWifiWildcard();
+        NetworkTemplate template = new NetworkTemplate.Builder(MATCH_WIFI).build();
         return getDataUsageInfo(template);
     }
 

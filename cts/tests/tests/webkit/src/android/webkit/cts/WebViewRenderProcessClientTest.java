@@ -16,46 +16,79 @@
 
 package android.webkit.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+
 import android.platform.test.annotations.AppModeFull;
-import android.test.ActivityInstrumentationTestCase2;
 import android.view.KeyEvent;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewRenderProcess;
 import android.webkit.WebViewRenderProcessClient;
 
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.MediumTest;
+
 import com.android.compatibility.common.util.NullWebViewUtils;
 
 import com.google.common.util.concurrent.SettableFuture;
+
+import org.junit.After;
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @AppModeFull
-public class WebViewRenderProcessClientTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class WebViewRenderProcessClientTest extends SharedWebViewTest {
     private WebViewOnUiThread mOnUiThread;
 
-    public WebViewRenderProcessClientTest() {
-        super("com.android.cts.webkit", WebViewCtsActivity.class);
-    }
+    @Rule
+    public ActivityScenarioRule mActivityScenarioRule =
+            new ActivityScenarioRule(WebViewCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        final WebViewCtsActivity activity = getActivity();
-        WebView webView = activity.getWebView();
-        if (webView != null) {
-            mOnUiThread = new WebViewOnUiThread(webView);
+    @Before
+    public void setUp() throws Exception {
+        WebView webview = getTestEnvironment().getWebView();
+        if (webview != null) {
+            mOnUiThread = new WebViewOnUiThread(webview);
         }
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         if (mOnUiThread != null) {
             mOnUiThread.cleanUp();
         }
-        super.tearDown();
+    }
+
+    @Override
+    protected SharedWebViewTestEnvironment createTestEnvironment() {
+        Assume.assumeTrue("WebView is not available", NullWebViewUtils.isWebViewAvailable());
+
+        SharedWebViewTestEnvironment.Builder builder = new SharedWebViewTestEnvironment.Builder();
+
+        mActivityScenarioRule
+                .getScenario()
+                .onActivity(
+                        activity -> {
+                            WebView webView = ((WebViewCtsActivity) activity).getWebView();
+                            builder.setHostAppInvoker(
+                                            SharedWebViewTestEnvironment.createHostAppInvoker(
+                                                activity))
+                                    .setWebView(webView);
+                        });
+
+        return builder.build();
     }
 
     private static class JSBlocker {
@@ -151,18 +184,13 @@ public class WebViewRenderProcessClientTest extends ActivityInstrumentationTestC
         WebkitUtils.waitForFuture(rendererUnblocked);
     }
 
+    @Test
     public void testWebViewRenderProcessClientWithoutExecutor() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         testWebViewRenderProcessClientOnExecutor(null);
     }
 
+    @Test
     public void testWebViewRenderProcessClientWithExecutor() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         final AtomicInteger executorCount = new AtomicInteger();
         testWebViewRenderProcessClientOnExecutor(new Executor() {
             @Override
@@ -174,11 +202,8 @@ public class WebViewRenderProcessClientTest extends ActivityInstrumentationTestC
         assertEquals(2, executorCount.get());
     }
 
+    @Test
     public void testSetWebViewRenderProcessClient() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         assertNull("Initially the renderer client should be null",
                 mOnUiThread.getWebViewRenderProcessClient());
 

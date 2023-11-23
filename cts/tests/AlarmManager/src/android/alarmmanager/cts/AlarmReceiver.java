@@ -16,41 +16,77 @@
 
 package android.alarmmanager.cts;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.SystemClock;
 import android.util.Log;
-import android.util.LongArray;
 
 import androidx.annotation.GuardedBy;
+import androidx.test.InstrumentationRegistry;
 
-import java.util.Arrays;
+import java.io.File;
+import java.util.function.LongConsumer;
 
 public class AlarmReceiver extends BroadcastReceiver {
     private static final String TAG = AlarmReceiver.class.getSimpleName();
-    public static final String ALARM_ACTION = "android.alarmmanager.cts.ALARM";
-    public static final String EXTRA_ALARM_ID = "android.alarmmanager.cts.extra.ALARM_ID";
-    public static final String EXTRA_QUOTAED = "android.alarmmanager.cts.extra.QUOTAED";
+    private static final String ALARM_ACTION = "android.alarmmanager.cts.ALARM";
+    private static final String EXTRA_ALARM_ID = "android.alarmmanager.cts.extra.ALARM_ID";
+    private static final String EXTRA_QUOTAED = "android.alarmmanager.cts.extra.QUOTAED";
 
-    static Object sWaitLock = new Object();
+    private static final Context sContext = InstrumentationRegistry.getTargetContext();
+    /** Package global history of quotaed alarms received -- useful in quota calculations */
+    private static final PersistableEventHistory sHistory = new PersistableEventHistory(
+            new File(sContext.getFilesDir(), "alarm-history.xml"));
+    /** Listener alarms or older apps use a lower quota that is managed separately **/
+    private static final PersistableEventHistory sCompatHistory = new PersistableEventHistory(
+            new File(sContext.getFilesDir(), "alarm-compat-history.xml"));
 
+    private static Object sWaitLock = new Object();
     @GuardedBy("sWaitLock")
     private static int sLastAlarmId;
-    /** Process global history of all alarms received -- useful in quota calculations */
-    private static LongArray sHistory = new LongArray();
 
-    static synchronized long getNthLastAlarmTime(int n) {
-        if (n <= 0 || n > sHistory.size()) {
-            return 0;
+    static void onAlarm(int id, LongConsumer historyRecorder) {
+        Log.d(TAG, "Alarm " + id + " received");
+
+        historyRecorder.accept(SystemClock.elapsedRealtime());
+        synchronized (sWaitLock) {
+            sLastAlarmId = id;
+            sWaitLock.notifyAll();
         }
-        return sHistory.get(sHistory.size() - n);
     }
 
-    private static synchronized void recordAlarmTime(long timeOfReceipt) {
-        if (sHistory.size() == 0 || sHistory.get(sHistory.size() - 1) < timeOfReceipt) {
-            sHistory.add(timeOfReceipt);
+    static AlarmManager.OnAlarmListener createListener(int id, boolean quotaed) {
+        return () -> onAlarm(id, quotaed ? sCompatHistory::recordLatestEvent : (t -> {}));
+    }
+
+    static PendingIntent getAlarmSender(int id, boolean quotaed) {
+        final Intent alarmAction = new Intent(ALARM_ACTION)
+                .setClass(sContext, AlarmReceiver.class)
+                .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+                .putExtra(EXTRA_ALARM_ID, id)
+                .putExtra(EXTRA_QUOTAED, quotaed);
+        return PendingIntent.getBroadcast(sContext, 0, alarmAction,
+                PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+    }
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        if (ALARM_ACTION.equals(intent.getAction())) {
+            final int id = intent.getIntExtra(EXTRA_ALARM_ID, -1);
+            final boolean quotaed = intent.getBooleanExtra(EXTRA_QUOTAED, false);
+            onAlarm(id, quotaed ? sHistory::recordLatestEvent : (t -> {}));
         }
+    }
+
+    static long getNthLastAlarmTime(int n) {
+        return sHistory.getNthLastEventTime(n);
+    }
+
+    static long getNthLastCompatAlarmTime(int n) {
+        return sCompatHistory.getNthLastEventTime(n);
     }
 
     static boolean waitForAlarm(int alarmId, long timeOut) throws InterruptedException {
@@ -68,27 +104,9 @@ public class AlarmReceiver extends BroadcastReceiver {
      */
     static void dumpState() {
         synchronized (sWaitLock) {
-            Log.i(TAG, "Last id: " + sLastAlarmId);
+            Log.i(TAG, "Last alarm id: " + sLastAlarmId);
         }
-        synchronized (AlarmReceiver.class) {
-            if (sHistory.size() > 0) {
-                Log.i(TAG, "History of quotaed alarms: " + Arrays.toString(sHistory.toArray()));
-            }
-        }
-    }
-
-    @Override
-    public void onReceive(Context context, Intent intent) {
-        if (ALARM_ACTION.equals(intent.getAction())) {
-            final int id = intent.getIntExtra(EXTRA_ALARM_ID, -1);
-            final boolean quotaed = intent.getBooleanExtra(EXTRA_QUOTAED, false);
-            if (quotaed) {
-                recordAlarmTime(SystemClock.elapsedRealtime());
-            }
-            synchronized (sWaitLock) {
-                sLastAlarmId = id;
-                sWaitLock.notifyAll();
-            }
-        }
+        sHistory.dump("History of quotaed alarms");
+        sCompatHistory.dump("History of quotaed compat alarms");
     }
 }

@@ -22,7 +22,9 @@
 #include <vector>
 
 #include "icing/text_classifier/lib3/utils/base/statusor.h"
+#include "icing/absl_ports/mutex.h"
 #include "icing/tokenization/language-segmenter.h"
+#include "unicode/ubrk.h"
 
 namespace icing {
 namespace lib {
@@ -41,7 +43,14 @@ namespace lib {
 // class. Other special tokenization logic will be in each tokenizer.
 class IcuLanguageSegmenter : public LanguageSegmenter {
  public:
-  explicit IcuLanguageSegmenter(std::string locale);
+  static libtextclassifier3::StatusOr<std::unique_ptr<IcuLanguageSegmenter>>
+  Create(std::string&& locale);
+
+  ~IcuLanguageSegmenter() override {
+    if (cached_break_iterator_ != nullptr) {
+      ubrk_close(cached_break_iterator_);
+    }
+  }
 
   IcuLanguageSegmenter(const IcuLanguageSegmenter&) = delete;
   IcuLanguageSegmenter& operator=(const IcuLanguageSegmenter&) = delete;
@@ -69,8 +78,32 @@ class IcuLanguageSegmenter : public LanguageSegmenter {
       std::string_view text) const override;
 
  private:
+  // Declared a friend so that it can call AcceptBreakIterator.
+  friend class IcuLanguageSegmenterIterator;
+
+  explicit IcuLanguageSegmenter(std::string&& locale, UBreakIterator* iterator)
+      : locale_(std::move(locale)), cached_break_iterator_(iterator) {}
+
+  // Returns a UBreakIterator that the caller owns.
+  // If cached_break_iterator_ is non-null, transfers ownership to caller and
+  // sets cached_break_iterator_ to null.
+  // If cached_break_iterator is null, creates a new UBreakIterator and
+  // transfers ownership to caller.
+  UBreakIterator* ProduceBreakIterator() const;
+
+  // Caller transfers ownership of itr to IcuLanguageSegmenter.
+  // If cached_break_iterator_ is null, itr becomes the cached_break_iterator_
+  // If cached_break_iterator_ is non-null, then itr will be closed.
+  void ReturnBreakIterator(UBreakIterator* itr) const;
+
   // Used to help segment text
   const std::string locale_;
+
+  // The underlying class that does the segmentation, ubrk_close() must be
+  // called after using.
+  mutable UBreakIterator* cached_break_iterator_ ICING_GUARDED_BY(mutex_);
+
+  mutable absl_ports::shared_mutex mutex_;
 };
 
 }  // namespace lib

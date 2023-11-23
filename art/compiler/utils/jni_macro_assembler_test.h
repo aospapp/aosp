@@ -20,6 +20,7 @@
 #include "jni_macro_assembler.h"
 
 #include "assembler_test_base.h"
+#include "base/macros.h"
 #include "base/malloc_arena_pool.h"
 #include "common_runtime_test.h"  // For ScratchFile
 
@@ -30,7 +31,7 @@
 #include <fstream>
 #include <iterator>
 
-namespace art {
+namespace art HIDDEN {
 
 template<typename Ass>
 class JNIMacroAssemblerTest : public AssemblerTestBase {
@@ -39,7 +40,7 @@ class JNIMacroAssemblerTest : public AssemblerTestBase {
     return assembler_.get();
   }
 
-  typedef std::string (*TestFn)(JNIMacroAssemblerTest* assembler_test, Ass* assembler);
+  using TestFn = std::string (*)(JNIMacroAssemblerTest *, Ass *);
 
   void DriverFn(TestFn f, const std::string& test_name) {
     DriverWrapper(f(this, assembler_.get()), test_name);

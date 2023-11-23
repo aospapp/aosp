@@ -17,6 +17,7 @@
 package com.android.textclassifier.utils;
 
 import com.google.common.base.Preconditions;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.PrintWriter;
 
 /**
@@ -36,6 +37,7 @@ public final class IndentingPrintWriter {
   }
 
   /** Prints a string. */
+  @CanIgnoreReturnValue
   public IndentingPrintWriter println(String string) {
     writer.print(currentIndent);
     writer.print(string);
@@ -44,12 +46,14 @@ public final class IndentingPrintWriter {
   }
 
   /** Prints a empty line */
+  @CanIgnoreReturnValue
   public IndentingPrintWriter println() {
     writer.println();
     return this;
   }
 
   /** Increases indents for subsequent texts. */
+  @CanIgnoreReturnValue
   public IndentingPrintWriter increaseIndent() {
     indentBuilder.append(SINGLE_INDENT);
     currentIndent = indentBuilder.toString();
@@ -57,6 +61,7 @@ public final class IndentingPrintWriter {
   }
 
   /** Decreases indents for subsequent texts. */
+  @CanIgnoreReturnValue
   public IndentingPrintWriter decreaseIndent() {
     indentBuilder.delete(0, SINGLE_INDENT.length());
     currentIndent = indentBuilder.toString();
@@ -64,6 +69,7 @@ public final class IndentingPrintWriter {
   }
 
   /** Prints a key-valued pair. */
+  @CanIgnoreReturnValue
   public IndentingPrintWriter printPair(String key, Object value) {
     println(String.format("%s=%s", key, String.valueOf(value)));
     return this;

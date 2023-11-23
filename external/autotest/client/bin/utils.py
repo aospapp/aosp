@@ -14,6 +14,7 @@ from __future__ import division
 from __future__ import print_function
 
 import base64
+import chardet
 import collections
 import errno
 import glob
@@ -28,6 +29,7 @@ import shutil
 import signal
 import string
 import subprocess
+import sys
 import tempfile
 import time
 import uuid
@@ -309,7 +311,10 @@ def get_cpu_soc_family():
     return family
 
 
+# When adding entries here, also add them at the right spot in the
+# INTEL_*_ORDER lists below.
 INTEL_UARCH_TABLE = {
+    '06_9A': 'Alder Lake',
     '06_4C': 'Airmont',
     '06_1C': 'Atom',
     '06_26': 'Atom',
@@ -366,6 +371,15 @@ INTEL_UARCH_TABLE = {
     '06_2F': 'Westmere',
 }
 
+INTEL_ATOM_ORDER = ['Silvermont', 'Airmont', 'Goldmont', 'Tremont', 'Gracemont']
+
+INTEL_BIGCORE_ORDER = [
+        'Prescott', 'Presler', 'Dothan', 'Merom', 'Nehalem', 'Westmere',
+        'Sandy Bridge', 'Ivy Bridge', 'Ivy Bridge-E', 'Haswell', 'Haswell-E',
+        'Broadwell', 'Skylake', 'Kaby Lake', 'Coffee Lake', 'Whiskey Lake',
+        'Cannon Lake', 'Comet Lake', 'Ice Lake', 'Tiger Lake', 'Alder Lake'
+]
+
 
 def get_intel_cpu_uarch(numeric=False):
     """Return the Intel microarchitecture we're running on, or None.
@@ -386,7 +400,43 @@ def get_intel_cpu_uarch(numeric=False):
     return INTEL_UARCH_TABLE.get(family_model, family_model)
 
 
-INTEL_SILVERMONT_BCLK_TABLE = [83333, 100000, 133333, 116667, 80000];
+def is_intel_uarch_older_than(reference):
+    """Returns True if the DUT's is older than reference, False otherwise.
+
+    Raises a test error exception if the uarch is unknown to make developers
+    add entries to the tables above.
+    """
+
+    uarch = get_intel_cpu_uarch()
+    if uarch is None:
+        raise error.TestError("Doing Intel test for non-Intel hardware.")
+
+    if "_" in uarch:
+        raise error.TestError("Intel uarch unknown. Add to tables.")
+
+    if reference not in INTEL_BIGCORE_ORDER and reference not in INTEL_ATOM_ORDER:
+        raise error.TestError("Testing for unknown reference Intel uarch.")
+
+    result = False
+
+    if reference in INTEL_BIGCORE_ORDER:
+        for v in INTEL_BIGCORE_ORDER:
+            if v == reference:
+                break
+            if v == uarch:
+                result = True
+
+    elif reference in INTEL_ATOM_ORDER:
+        for v in INTEL_ATOM_ORDER:
+            if v == reference:
+                break
+            if v == uarch:
+                result = True
+
+    return result
+
+
+INTEL_SILVERMONT_BCLK_TABLE = [83333, 100000, 133333, 116667, 80000]
 
 
 def get_intel_bclk_khz():
@@ -402,6 +452,15 @@ def get_intel_bclk_khz():
     return 100000
 
 
+def get_energy_usage():
+    """On Intel chips that support it, return the energy usage."""
+    if get_intel_cpu_uarch() == None:
+        return 0
+
+    with open('/sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj') as fd:
+        return fd.readline()
+
+
 def get_current_kernel_arch():
     """Get the machine architecture, now just a wrap of 'uname -m'."""
     return os.popen('uname -m').read().rstrip()
@@ -410,10 +469,10 @@ def get_current_kernel_arch():
 def count_cpus():
     """number of CPUs in the local machine according to /proc/cpuinfo"""
     try:
-       return multiprocessing.cpu_count()
+        return multiprocessing.cpu_count()
     except Exception:
-       logging.exception('can not get cpu count from'
-                        ' multiprocessing.cpu_count()')
+        logging.exception('can not get cpu count from'
+                          ' multiprocessing.cpu_count()')
     cpuinfo = get_cpuinfo()
     # Returns at least one cpu. Check comment #1 in crosbug.com/p/9582.
     return len(cpuinfo) or 1
@@ -750,6 +809,8 @@ def get_disk_from_filename(filename):
                 maj_min = dmsetup_output[4]
             elif dmsetup_output[2] == 'crypt':
                 maj_min = dmsetup_output[6]
+            elif dmsetup_output[2] in ['thin', 'thin-pool', 'linear']:
+                maj_min = dmsetup_output[3]
             cmd = 'realpath "/dev/block/%s"' % maj_min
         elif filename.startswith('/dev/loop'):
             cmd = 'losetup -O BACK-FILE "%s" | tail -1' % filename
@@ -1109,12 +1170,12 @@ def get_chrome_remote_debugging_port():
     _, command = get_oldest_by_name('chrome')
     matches = re.search('--remote-debugging-port=([0-9]+)', command)
     if not matches:
-      return 0
+        return 0
     port = int(matches.group(1))
     if port:
-      return port
+        return port
     with open('/home/chronos/DevToolsActivePort') as f:
-      return int(f.readline().rstrip())
+        return int(f.readline().rstrip())
 
 
 def get_process_list(name, command_line=None):
@@ -1398,6 +1459,8 @@ def wait_for_idle_cpu(timeout, utilization):
         logging.info('After waiting %.1fs CPU utilization is %.3f.',
                      time_passed, fraction_active_time)
         if time_passed > timeout:
+            if fraction_active_time < utilization:
+                break
             logging.warning('CPU did not become idle.')
             log_process_activity()
             # crosbug.com/37389
@@ -1622,7 +1685,7 @@ def get_ec_temperatures():
     except Exception as e:
         logging.warning('Unable to read temperature sensors using ectool %s.',
                         e)
-    # Sanity check for real world values.
+    # Check for real world values.
     if not all(10.0 <= temperature <= 150.0 for temperature in temperatures):
         logging.warning('Unreasonable EC temperatures: %s.', temperatures)
     return temperatures
@@ -1639,7 +1702,7 @@ def get_current_temperature_max():
         temperature = max(all_temps)
     else:
         temperature = -1
-    # Sanity check for real world values.
+    # Check for real world values.
     assert ((temperature > 10.0) and
             (temperature < 150.0)), ('Unreasonable temperature %.1fC.' %
                                      temperature)
@@ -1662,7 +1725,7 @@ def get_cpu_max_frequency():
         except IOError:
             continue
         max_frequency = max(frequency, max_frequency)
-    # Sanity check.
+    # Confidence check.
     assert max_frequency > 1e8, ('Unreasonably low CPU frequency: %.1f' %
             max_frequency)
     return max_frequency
@@ -1707,6 +1770,22 @@ def get_chromeos_version():
     @return chromeos release version.
     """
     return get_board_property('CHROMEOS_RELEASE_VERSION')
+
+
+def get_android_version():
+    """
+    Get the Android SDK version from /etc/lsb-release.
+
+    @return android sdk version.
+    """
+    return get_board_property('CHROMEOS_ARC_ANDROID_SDK_VERSION')
+
+
+def is_arcvm():
+    try:
+        return int(get_android_version()) >= 30
+    except:
+        return False
 
 
 def get_platform():
@@ -1754,6 +1833,14 @@ def get_firmware_version():
     @returns a string representing this host's firmware version.
     """
     return utils.run('crossystem fwid').stdout.strip()
+
+
+def get_hardware_id():
+    """Get hardware id as strings.
+
+    @returns a string representing this host's hardware id.
+    """
+    return utils.run('crossystem hwid').stdout.strip()
 
 
 def get_hardware_revision():
@@ -1845,7 +1932,7 @@ def get_mem_total():
     Returns the total memory available in the system in MBytes.
     """
     mem_total = _get_float_from_file(_MEMINFO, 'MemTotal:', 'MemTotal:', ' kB')
-    # Sanity check, all Chromebooks have at least 1GB of memory.
+    # Confidence check, all Chromebooks have at least 1GB of memory.
     assert mem_total > 256 * 1024, 'Unreasonable amount of memory.'
     return int(mem_total / 1024)
 
@@ -1964,7 +2051,7 @@ def get_gpu_family():
         return pciid_to_intel_architecture[device_id]
 
 # TODO(ihf): Consider using /etc/lsb-release DEVICETYPE != CHROMEBOOK/CHROMEBASE
-# for sanity check, but usage seems a bit inconsistent. See
+# for confidence check, but usage seems a bit inconsistent. See
 # src/third_party/chromiumos-overlay/eclass/appid.eclass
 _BOARDS_WITHOUT_MONITOR = [
     'anglar', 'mccloud', 'monroe', 'ninja', 'rikku', 'guado', 'jecht', 'tidus',
@@ -2048,7 +2135,7 @@ def get_kernel_partition(root_part=None):
     @param root_part: current root partition
     """
     if not root_part:
-         root_part = get_root_partition()
+        root_part = get_root_partition()
     current_kernel_map = {'3': '2', '5': '4'}
     return root_part[:-1] + current_kernel_map[root_part[-1]]
 
@@ -2110,7 +2197,7 @@ def is_package_installed(package):
         utils.run(_CHECK_PACKAGE_INSTALLED_COMMAND % package)
         return True
     except error.CmdError:
-        logging.warn('Package %s is not installed.', package)
+        logging.warning('Package %s is not installed.', package)
         return False
 
 
@@ -2123,7 +2210,7 @@ def is_python_package_installed(package):
         __import__(package)
         return True
     except ImportError:
-        logging.warn('Python package %s is not installed.', package)
+        logging.warning('Python package %s is not installed.', package)
         return False
 
 
@@ -2213,27 +2300,38 @@ def recursive_func(obj, func, types, sequence_types=(list, tuple, set),
                     return result_obj
                 except ValueError:
                     pass
-
-        result_obj = func(obj)
-        return result_obj
+        try:
+            result_obj = func(obj)
+            return result_obj
+        except UnicodeEncodeError:
+            pass
     else:
         return obj
+
+
+def is_python2():
+    """True if it is interpreted by Python 2."""
+    return sys.version_info.major == 2
 
 
 def base64_recursive_encode(obj):
     """Apply base64 encode recursively into the obj structure.
 
-    Most of the string-like types could be traced to basestring and bytearray
-    as follows:
-        str: basestring
-        bytes: basestring
-        dbus.String: basestring
-        dbus.Signature: basestring
-        dbus.ByteArray: basestring
+    Python 2 case:
+        Most of the string-like types could be traced to basestring and bytearray
+        as follows:
+            str: basestring
+            bytes: basestring
+            dbus.String: basestring
+            dbus.Signature: basestring
+            dbus.ByteArray: basestring
 
-    Note that all the above types except dbus.String could be traced back to
-    str. In order to cover dbus.String, basestring is used as the ancestor
-    class for string-like types.
+        Note that all the above types except dbus.String could be traced back to
+        str. In order to cover dbus.String, basestring is used as the ancestor
+        class for string-like types.
+
+    Python 3 case:
+        Perform base64 encode on bytes element only.
 
     The other type that needs encoding with base64 in a structure includes
         bytearray: bytearray
@@ -2246,24 +2344,13 @@ def base64_recursive_encode(obj):
         dbus.Dictionary: dict
 
     An example code and output look like
+    in Python 2:
         obj = {'a': 10, 'b': 'hello',
                'c': [100, 200, bytearray(b'\xf0\xf1\xf2\xf3\xf4')],
                'd': {784: bytearray(b'@\x14\x01P'),
                      78.0: bytearray(b'\x10\x05\x0b\x10\xb2\x1b\x00')}}
         encode_obj = base64_recursive_encode(obj)
         decode_obj = base64_recursive_decode(encode_obj)
-
-        print 'obj: ', obj
-        print 'encode_obj: ', encode_obj
-        print 'decode_obj: ', decode_obj
-        print 'Equal?', obj == decode_obj
-
-        Output:
-        obj:  {'a': 10,
-               'c': [100, 200, bytearray(b'\xf0\xf1\xf2\xf3\xf4')],
-               'b': 'hello',
-               'd': {784: bytearray(b'@\x14\x01P'),
-                     78.0: bytearray(b'\x10\x05\x0b\x10\xb2\x1b\x00')}}
 
         encode_obj:  {'YQ==': 10,
                       'Yw==': [100, 200, '8PHy8/Q='],
@@ -2274,13 +2361,34 @@ def base64_recursive_encode(obj):
                       'b': 'hello',
                       'd': {784: '@\x14\x01P',
                             78.0: '\x10\x05\x0b\x10\xb2\x1b\x00'}}
-        Equal? True
+
+    in Python 3:
+        obj = {'a': 10, 'b': 'hello',
+               'c': [100, 200, bytearray(b'\xf0\xf1\xf2\xf3\xf4')],
+               'd': {784: bytearray(b'@\x14\x01P'),
+                     78.0: bytearray(b'\x10\x05\x0b\x10\xb2\x1b\x00')}}
+        encode_obj = base64_recursive_encode(obj)
+        decode_obj = base64_recursive_decode(encode_obj)
+
+        encode_obj:  {'a': 10,
+                      'c': [100, 200, '8PHy8/Q='],
+                      'b': 'hello',
+                      'ZA==': {784: 'QBQBUA==', 78.0: 'EAULELIbAA=='}}
+        decode_obj:  {'a': 10,
+                      'c': [100, 200, '\xf0\xf1\xf2\xf3\xf4'],
+                      'b': 'hello',
+                      'd': {784: '@\x14\x01P',
+                            78.0: '\x10\x05\x0b\x10\xb2\x1b\x00'}}
 
     @param obj: the object to apply base64 encoding recursively.
 
     @return: the base64 encoded object.
     """
-    encode_types = (six.string_types, bytearray)
+    if is_python2():
+        encode_types = (six.string_types, bytearray)
+    else:
+        encode_types = (bytes, bytearray)
+
     return recursive_func(obj, base64.standard_b64encode, encode_types)
 
 
@@ -2291,6 +2399,40 @@ def base64_recursive_decode(obj):
 
     @return: the base64 decoded object.
     """
-    decode_types = (six.string_types,)
+    if is_python2():
+        decode_types = (six.string_types, )
+    else:
+        decode_types = (bytes, bytearray)
     return recursive_func(obj, base64.standard_b64decode, decode_types,
                           fix_num_key=True)
+
+
+def bytes_to_str_recursive(obj):
+    """Converts obj's bytes elements to str.
+
+    It focuses on elements in the input obj whose type is bytes or byearray.
+    For the elements, it first guesses the encoding of the input bytes (or
+    bytearray) and decode the bytes to str. For unknown encoding, try UTF-8.
+    If it still fails, converts the element as "ERROR_DECODE_BYTES_TO_STR".
+
+    @param obj: an object.
+
+    @return: an object that converts the input object's bytes elements to
+        strings.
+    """
+    # Python 2's bytes is equivalent to string. Do nothing.
+    if is_python2():
+        return obj
+
+    def bytes_to_str(bytes_obj):
+        guessed_encoding = chardet.detect(bytes_obj).get('encoding')
+        if not guessed_encoding:
+            guessed_encoding = 'utf-8'
+        try:
+            return bytes_obj.decode(guessed_encoding, 'backslashreplace')
+        except:
+            logging.info("Failed to decode bytes %r to str with encoding %r",
+                         bytes_obj, guessed_encoding)
+            return 'ERROR_DECODE_BYTES_TO_STR'
+
+    return recursive_func(obj, bytes_to_str, (bytes, bytearray))

@@ -46,7 +46,7 @@ class MultiRangeHttpFetcher : public HttpFetcher, public HttpFetcherDelegate {
  public:
   // Takes ownership of the passed in fetcher.
   explicit MultiRangeHttpFetcher(HttpFetcher* base_fetcher)
-      : HttpFetcher(base_fetcher->proxy_resolver()),
+      : HttpFetcher(),
         base_fetcher_(base_fetcher),
         base_fetcher_active_(false),
         pending_transfer_ended_(false),
@@ -101,7 +101,8 @@ class MultiRangeHttpFetcher : public HttpFetcher, public HttpFetcherDelegate {
   }
   // TODO(deymo): Determine if this method should be virtual in HttpFetcher so
   // this call is sent to the base_fetcher_.
-  virtual void SetProxies(const std::deque<std::string>& proxies) {
+  void SetProxies(const std::deque<std::string>& proxies) override {
+    HttpFetcher::SetProxies(proxies);
     base_fetcher_->SetProxies(proxies);
   }
 

@@ -19,9 +19,7 @@ package com.android.systemui.car.hvac;
 import static android.car.VehiclePropertyIds.HVAC_POWER_ON;
 import static android.car.VehiclePropertyIds.HVAC_TEMPERATURE_SET;
 
-import static com.android.systemui.car.hvac.HvacUtils.celsiusToFahrenheit;
-import static com.android.systemui.car.hvac.HvacUtils.fahrenheitToCelsius;
-
+import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
 import android.content.Context;
 import android.content.res.TypedArray;
@@ -36,6 +34,8 @@ import androidx.annotation.VisibleForTesting;
 import androidx.core.content.ContextCompat;
 
 import com.android.systemui.R;
+
+import java.util.List;
 
 /**
  *  A fork of {@link TemperatureControlView} that supports touch feedback on HVAC buttons.
@@ -57,11 +57,10 @@ public class CarUiPortraitTemperatureControlView extends LinearLayout implements
     private View mIncreaseButton;
     private View mDecreaseButton;
     private float mMinTempC;
+    private float mMinTempF;
     private float mMaxTempC;
     private String mTemperatureFormatCelsius;
     private String mTemperatureFormatFahrenheit;
-    private int mTemperatureIncrementFractionCelsius;
-    private int mTemperatureIncrementFractionFahrenheit;
     private float mTemperatureIncrementCelsius;
     private float mTemperatureIncrementFahrenheit;
     private float mCurrentTempC;
@@ -75,16 +74,13 @@ public class CarUiPortraitTemperatureControlView extends LinearLayout implements
                 R.string.hvac_temperature_format_celsius);
         mTemperatureFormatFahrenheit = getResources().getString(
                 R.string.hvac_temperature_format_fahrenheit);
-        mTemperatureIncrementFractionCelsius = getResources().getInteger(
-                R.integer.celsius_increment_fraction);
-        mTemperatureIncrementFractionFahrenheit = getResources().getInteger(
-                R.integer.fahrenheit_increment_fraction);
-        mTemperatureIncrementCelsius =
-                1f / mTemperatureIncrementFractionCelsius;
-        mTemperatureIncrementFahrenheit =
-                1f / mTemperatureIncrementFractionFahrenheit;
+        mTemperatureIncrementCelsius = getResources().getFloat(
+                R.fraction.celsius_temperature_increment);
+        mTemperatureIncrementFahrenheit = getResources().getFloat(
+                R.fraction.fahrenheit_temperature_increment);
 
         mMinTempC = getResources().getFloat(R.dimen.hvac_min_value_celsius);
+        mMinTempF = getResources().getFloat(R.dimen.hvac_min_value_fahrenheit);
         mMaxTempC = getResources().getFloat(R.dimen.hvac_max_value_celsius);
         mAvailableTextColor = ContextCompat.getColor(getContext(), R.color.system_bar_text_color);
         mUnavailableTextColor = ContextCompat.getColor(getContext(),
@@ -134,6 +130,19 @@ public class CarUiPortraitTemperatureControlView extends LinearLayout implements
         mHvacPropertySetter = hvacPropertySetter;
     }
 
+    @Override
+    public void setConfigInfo(CarPropertyConfig<?> carPropertyConfig) {
+        List<Integer> configArray = carPropertyConfig.getConfigArray();
+        // Need to divide by 10 because config array values are temperature values that have been
+        // multiplied by 10.
+        mMinTempC = configArray.get(0) / 10f;
+        mMaxTempC = configArray.get(1) / 10f;
+        mTemperatureIncrementCelsius = configArray.get(2) / 10f;
+
+        mMinTempF = configArray.get(3) / 10f;
+        mTemperatureIncrementFahrenheit = configArray.get(5) / 10f;
+    }
+
     /**
      * Returns {@code true} if temperature should be available for change.
      */
@@ -169,12 +178,12 @@ public class CarUiPortraitTemperatureControlView extends LinearLayout implements
     }
 
     @VisibleForTesting
-    float getTemperatureIncrementInCelsius() {
+    float getCelsiusTemperatureIncrement() {
         return mTemperatureIncrementCelsius;
     }
 
     @VisibleForTesting
-    float getTemperatureIncrementInFahrenheit() {
+    float getFahrenheitTemperatureIncrement() {
         return mTemperatureIncrementFahrenheit;
     }
 
@@ -188,30 +197,15 @@ public class CarUiPortraitTemperatureControlView extends LinearLayout implements
     private void incrementTemperature(boolean increment) {
         if (!mPowerOn) return;
 
-        float newTempC;
-        if (mDisplayInFahrenheit) {
-            float currentTempF = celsiusToFahrenheit(mCurrentTempC);
-            float newTempF = increment
-                    ? currentTempF + mTemperatureIncrementFahrenheit
-                    : currentTempF - mTemperatureIncrementFahrenheit;
-            newTempC = fahrenheitToCelsius(newTempF);
-        } else {
-            newTempC = increment
-                    ? mCurrentTempC + mTemperatureIncrementCelsius
-                    : mCurrentTempC - mTemperatureIncrementCelsius;
-        }
-
+        float newTempC = increment
+                ? mCurrentTempC + mTemperatureIncrementCelsius
+                : mCurrentTempC - mTemperatureIncrementCelsius;
         setTemperature(newTempC);
     }
 
     private void updateTemperatureView() {
-        float tempToDisplayUnformatted = roundToClosestFraction(
-                mDisplayInFahrenheit ? celsiusToFahrenheit(mCurrentTempC) : mCurrentTempC);
-        // Set mCurrentTempC value to tempToDisplayUnformatted so their values sync in the next
-        // setTemperature call.
-        mCurrentTempC = mDisplayInFahrenheit
-                ? fahrenheitToCelsius(tempToDisplayUnformatted)
-                : tempToDisplayUnformatted;
+        float tempToDisplayUnformatted =
+                mDisplayInFahrenheit ? celsiusToFahrenheit(mCurrentTempC) : mCurrentTempC;
 
         mTempInDisplay = String.format(
                 mDisplayInFahrenheit ? mTemperatureFormatFahrenheit : mTemperatureFormatCelsius,
@@ -219,7 +213,8 @@ public class CarUiPortraitTemperatureControlView extends LinearLayout implements
         mContext.getMainExecutor().execute(this::updateTemperatureViewUiThread);
     }
 
-    private void setTemperature(float tempC) {
+    private void setTemperature(float tempCParam) {
+        float tempC = tempCParam;
         tempC = Math.min(tempC, mMaxTempC);
         tempC = Math.max(tempC, mMinTempC);
         if (isTemperatureAvailableForChange()) {
@@ -251,6 +246,9 @@ public class CarUiPortraitTemperatureControlView extends LinearLayout implements
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
                     mContext.getMainThreadHandler().removeCallbacks(repeatClickRunnable);
+                    break;
+                default:
+                    break;
             }
 
             // Return false to maintain touch ripple.
@@ -258,10 +256,8 @@ public class CarUiPortraitTemperatureControlView extends LinearLayout implements
         });
     }
 
-    private float roundToClosestFraction(float rawFloat) {
-        float incrementFraction = mDisplayInFahrenheit
-                ? mTemperatureIncrementFractionFahrenheit
-                : mTemperatureIncrementFractionCelsius;
-        return Math.round(rawFloat * incrementFraction) / incrementFraction;
+    private float celsiusToFahrenheit(float tempC) {
+        int numIncrements = Math.round((tempC - mMinTempC) / mTemperatureIncrementCelsius);
+        return mTemperatureIncrementFahrenheit * numIncrements + mMinTempF;
     }
 }

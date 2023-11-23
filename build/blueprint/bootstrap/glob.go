@@ -44,7 +44,7 @@ import (
 // in a build failure with a "missing and no known rule to make it" error.
 
 var (
-	_ = pctx.VariableFunc("globCmd", func(config interface{}) (string, error) {
+	_ = pctx.VariableFunc("globCmd", func(ctx blueprint.VariableFuncContext, config interface{}) (string, error) {
 		return filepath.Join(config.(BootstrapConfig).SoongOutDir(), "bpglob"), nil
 	})
 
@@ -237,6 +237,8 @@ func generateGlobNinjaFile(glob *GlobSingleton, config interface{}) ([]byte, []e
 		return nil, errs
 	}
 
+	// PrepareBuildActions() will write $OUTDIR/soong/globs/$m/$i files
+	// where $m=bp2build|build and $i=0..numGlobBuckets
 	extraDeps, errs = ctx.PrepareBuildActions(config)
 	if len(extraDeps) > 0 {
 		return nil, []error{fmt.Errorf("shouldn't have extra deps")}

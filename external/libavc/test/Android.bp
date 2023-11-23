@@ -7,10 +7,10 @@ package {
     default_applicable_licenses: ["external_libavc_license"],
 }
 
-cc_test {
-    name: "avcdec",
+cc_defaults {
+    name: "avcdec_defaults",
     gtest: false,
-    host_supported:true,
+    host_supported: true,
     cflags: [
         "-DPROFILE_ENABLE",
         "-DARM",
@@ -19,11 +19,6 @@ cc_test {
         "-Wall",
         "-Werror",
     ],
-    local_include_dirs: [
-        "decoder/",
-    ],
-    srcs: ["decoder/main.c"],
-    static_libs: ["libavcdec"],
     shared_libs: ["liblog"],
     target: {
         darwin: {
@@ -32,11 +27,10 @@ cc_test {
     },
 }
 
-cc_test {
-    name: "avcenc",
+cc_defaults {
+    name: "avcenc_defaults",
     gtest: false,
     host_supported: true,
-
     cflags: [
         "-DPROFILE_ENABLE",
         "-DARM",
@@ -47,8 +41,37 @@ cc_test {
         "-Wno-unused-variable",
     ],
     local_include_dirs: [
-        "encoder/",
+        "encoder",
     ],
+    static_libs: ["libavcenc"],
+}
+
+cc_test {
+    name: "avcdec",
+    defaults: ["avcdec_defaults"],
+    local_include_dirs: [
+        "decoder",
+    ],
+    srcs: ["decoder/main.c"],
+    static_libs: ["libavcdec"],
+}
+
+cc_test {
+    name: "mvcdec",
+    defaults: ["avcdec_defaults"],
+    local_include_dirs: [
+        "mvcdec",
+    ],
+    srcs: ["mvcdec/main.c"],
+    static_libs: [
+        "libmvcdec",
+    ],
+}
+
+cc_test {
+    name: "avcenc",
+    defaults: ["avcenc_defaults"],
+
     srcs: [
         "encoder/main.c",
         "encoder/psnr.c",
@@ -56,5 +79,42 @@ cc_test {
         "encoder/output.c",
         "encoder/recon.c",
     ],
-    static_libs: ["libavcenc"],
+}
+
+cc_test {
+    name: "svcenc",
+    defaults: ["avcenc_defaults"],
+
+    local_include_dirs: [
+        "svcenc",
+    ],
+
+    srcs: [
+        "svcenc/main.c",
+        "svcenc/input.c",
+        "svcenc/output.c",
+        "svcenc/psnr.c",
+        "svcenc/recon.c",
+    ],
+
+    static_libs: [
+        "libsvcenc",
+    ],
+}
+
+cc_test {
+    name: "svcdec",
+    defaults: ["avcdec_defaults"],
+
+    local_include_dirs: [
+        "svcdec",
+    ],
+
+    srcs: [
+        "svcdec/main.c",
+    ],
+
+    static_libs: [
+        "libsvcdec",
+    ],
 }

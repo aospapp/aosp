@@ -42,7 +42,6 @@ import com.android.settingslib.RestrictedPreference;
 import com.android.settingslib.wifi.AccessPoint;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.library.network.WifiHelper;
 
 import java.util.List;
 
@@ -207,7 +206,7 @@ public class WifiDetailsFragment extends SettingsPreferenceFragment
                     return false;
                 });
 
-        boolean canModifyNetwork = !WifiHelper.isNetworkLockedDown(
+        boolean canModifyNetwork = !WifiConfigHelper.isNetworkLockedDown(
                 getContext(), wifiConfiguration);
         if (canModifyNetwork) {
             mProxySettingsPref.setDisabledByAdmin(null);
@@ -248,17 +247,14 @@ public class WifiDetailsFragment extends SettingsPreferenceFragment
             return;
         }
         mMacAddressPref.setTitle(
-                (mAccessPoint.getConfig().macRandomizationSetting
-                        == WifiConfiguration.RANDOMIZATION_PERSISTENT)
+                (mConnectivityListener.isWifiMacAddressRandomized(mAccessPoint))
                         ? R.string.title_randomized_mac_address
                         : R.string.title_mac_address);
     }
 
     private void updateRandomMacPref() {
         mRandomMacPref.setVisible(mConnectivityListener.isMacAddressRandomizationSupported());
-        boolean isMacRandomized =
-                (mConnectivityListener.getWifiMacRandomizationSetting(mAccessPoint)
-                        == WifiConfiguration.RANDOMIZATION_PERSISTENT);
+        boolean isMacRandomized = mConnectivityListener.isWifiMacAddressRandomized(mAccessPoint);
         mRandomMacPref.setValue(isMacRandomized ? VALUE_MAC_RANDOM : VALUE_MAC_DEVICE);
         if (mAccessPoint.isEphemeral() || mAccessPoint.isPasspoint()
                 || mAccessPoint.isPasspointConfig()) {

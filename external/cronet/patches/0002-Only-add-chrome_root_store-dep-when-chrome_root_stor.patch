@@ -1,0 +1,29 @@
+From 9ff115d6a9f7026e0e83931dd0d326f89d6eed90 Mon Sep 17 00:00:00 2001
+From: Patrick Rohr <prohr@google.com>
+Date: Wed, 29 Mar 2023 23:41:16 +0000
+Subject: [PATCH] Only add chrome_root_store dep when
+ chrome_root_store_supported is true
+
+This dependency is already added on line 1400 and correctly gated by
+the chrome_root_store_supported flag.
+
+Change-Id: I88f38bfe73d982fbe168a9d9aee19f3862f3480f
+---
+ net/BUILD.gn | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/net/BUILD.gn b/net/BUILD.gn
+index d61bb9e4c58cf..b129e3cacaf7e 100644
+--- a/net/BUILD.gn
++++ b/net/BUILD.gn
+@@ -1070,7 +1070,6 @@ component("net") {
+     ":cronet_buildflags",
+     ":net_deps",
+     "//build:chromeos_buildflags",
+-    "//net/data/ssl/chrome_root_store:gen_root_store_inc",
+     "//net/http:transport_security_state_generated_files",
+   ]
+ 
+-- 
+2.40.0.348.gf938b09366-goog
+

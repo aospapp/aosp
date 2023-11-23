@@ -26,7 +26,7 @@ import android.telecom.PhoneAccount;
 import android.telecom.TelecomManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
-import android.telephony.cts.TelephonyUtils;
+import android.telephony.cts.util.TelephonyUtils;
 import android.telephony.emergency.EmergencyNumber;
 
 import androidx.test.InstrumentationRegistry;

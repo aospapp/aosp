@@ -50,6 +50,7 @@ public class ManageApplicationsController implements LifecycleObserver {
 
     private ApplicationsState.Session mAppSession;
     private ApplicationsState mApplicationsState;
+    private List<ApplicationsState.AppEntry> mApps;
     private final ApplicationsState.Callbacks mAppSessionCallbacks =
             new ApplicationsState.Callbacks() {
 
@@ -121,6 +122,7 @@ public class ManageApplicationsController implements LifecycleObserver {
     }
 
     private void updateAppList(ArrayList<ApplicationsState.AppEntry> apps) {
+        mApps = apps;
         PreferenceGroup group = mCallback.getAppPreferenceGroup();
         final List<Preference> newList = new ArrayList<>(apps.size() + 1);
         for (final ApplicationsState.AppEntry entry : apps) {
@@ -146,6 +148,10 @@ public class ManageApplicationsController implements LifecycleObserver {
         } else {
             group.addPreference(mCallback.getEmptyPreference());
         }
+    }
+
+    public List<ApplicationsState.AppEntry> getApps() {
+        return mApps;
     }
 
     /**

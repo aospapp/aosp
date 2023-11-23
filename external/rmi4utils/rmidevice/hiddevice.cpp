@@ -40,13 +40,21 @@
 #define RMI_READ_DATA_REPORT_ID             0xb // Input Report
 #define RMI_ATTN_REPORT_ID                  0xc // Input Report
 #define RMI_SET_RMI_MODE_REPORT_ID          0xf // Feature Report
+#define RMI_SET_LID_MODE_REPORT_ID          0xe // Feature Report
 
-enum hid_report_type {
-	HID_REPORT_TYPE_UNKNOWN			= 0x0,
-	HID_REPORT_TYPE_INPUT			= 0x81,
-	HID_REPORT_TYPE_OUTPUT			= 0x91,
-	HID_REPORT_TYPE_FEATURE			= 0xb1,
+
+// Make sure that none of the enums/macros conflict with possible
+// kernel definition/names.
+enum hid_rmi4_report_type {
+  HID_RMI4_REPORT_UNKNOWN = 0,
+  HID_RMI4_REPORT_INPUT = 1,
+  HID_RMI4_REPORT_OUTPUT = 2,
+  HID_RMI4_REPORT_FEATURE = 3,
 };
+
+#define HID_RMI4_REPORT_TYPE_INPUT			0x81
+#define HID_RMI4_REPORT_TYPE_OUTPUT			0x91
+#define HID_RMI4_REPORT_TYPE_FEATURE			0xb1
 
 #define HID_RMI4_REPORT_ID			0
 #define HID_RMI4_READ_INPUT_COUNT		1
@@ -161,7 +169,7 @@ void HIDDevice::ParseReportDescriptor()
 	int totalReportSize = 0;
 	int reportSize = 0;
 	int reportCount = 0;
-	enum hid_report_type hidReportType = HID_REPORT_TYPE_UNKNOWN;
+	enum hid_rmi4_report_type hidReportType = HID_RMI4_REPORT_UNKNOWN;
 	bool inCollection = false;
 
 	for (unsigned int i = 0; i < m_rptDesc.size; ++i) {
@@ -179,16 +187,16 @@ void HIDDevice::ParseReportDescriptor()
 					totalReportSize = (reportSize * reportCount) >> 3;
 
 					switch (hidReportType) {
-						case HID_REPORT_TYPE_INPUT:
+						case HID_RMI4_REPORT_INPUT:
 							m_inputReportSize = totalReportSize + 1;
 							break;
-						case HID_REPORT_TYPE_OUTPUT:
+						case HID_RMI4_REPORT_OUTPUT:
 							m_outputReportSize = totalReportSize + 1;
 							break;
-						case HID_REPORT_TYPE_FEATURE:
+						case HID_RMI4_REPORT_FEATURE:
 							m_featureReportSize = totalReportSize + 1;
 							break;
-						case HID_REPORT_TYPE_UNKNOWN:
+						case HID_RMI4_REPORT_UNKNOWN:
 						default:
 							break;
 					}
@@ -198,7 +206,7 @@ void HIDDevice::ParseReportDescriptor()
 				totalReportSize = 0;
 				reportSize = 0;
 				reportCount = 0;
-				hidReportType = HID_REPORT_TYPE_UNKNOWN;
+				hidReportType = HID_RMI4_REPORT_UNKNOWN;
 
 				isReport = true;
 			}
@@ -218,14 +226,18 @@ void HIDDevice::ParseReportDescriptor()
 					continue;
 				}
 
-				if (m_rptDesc.value[i] == HID_REPORT_TYPE_INPUT)
-					hidReportType = HID_REPORT_TYPE_INPUT;
+				if (m_rptDesc.value[i] == RMI_SET_LID_MODE_REPORT_ID) {
+					hasVendorDefineLIDMode = true;
+				}
 
-				if (m_rptDesc.value[i] == HID_REPORT_TYPE_OUTPUT)
-					hidReportType = HID_REPORT_TYPE_OUTPUT;
+				if (m_rptDesc.value[i] == HID_RMI4_REPORT_TYPE_INPUT)
+					hidReportType = HID_RMI4_REPORT_INPUT;
 
-				if (m_rptDesc.value[i] == HID_REPORT_TYPE_FEATURE) {
-					hidReportType = HID_REPORT_TYPE_FEATURE;
+				if (m_rptDesc.value[i] == HID_RMI4_REPORT_TYPE_OUTPUT)
+					hidReportType = HID_RMI4_REPORT_OUTPUT;
+
+				if (m_rptDesc.value[i] == HID_RMI4_REPORT_TYPE_FEATURE) {
+					hidReportType = HID_RMI4_REPORT_FEATURE;
 				}
 			}
 		}
@@ -291,9 +303,18 @@ int HIDDevice::Read(unsigned short addr, unsigned char *buf, unsigned short len)
 	size_t bytesToRequest;
 	int reportId;
 	int rc;
+	struct timeval tv;
+	int resendCount = 0;
 
+	tv.tv_sec = 10 / 1000;
+	tv.tv_usec = (10 % 1000) * 1000;
+	
 	if (!m_deviceOpen)
 		return -1;
+
+	if (m_hasDebug) {
+		fprintf(stdout, "R %02x : ", addr);
+	}
 
 	if (m_bytesPerReadRequest)
 		bytesPerRequest = m_bytesPerReadRequest;
@@ -301,6 +322,13 @@ int HIDDevice::Read(unsigned short addr, unsigned char *buf, unsigned short len)
 		bytesPerRequest = len;
 
 	for (totalBytesRead = 0; totalBytesRead < len; totalBytesRead += bytesReadPerRequest) {
+Resend:
+		if (GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD) {
+			if (resendCount == 3) {
+				fprintf(stderr, "resend count exceed, return as failure\n");
+				return -1;
+			}
+		}
 		count = 0;
 		if ((len - totalBytesRead) < bytesPerRequest)
 			bytesToRequest = len % bytesPerRequest;
@@ -334,7 +362,13 @@ int HIDDevice::Read(unsigned short addr, unsigned char *buf, unsigned short len)
 
 		bytesReadPerRequest = 0;
 		while (bytesReadPerRequest < bytesToRequest) {
-			rc = GetReport(&reportId);
+			if (GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD) {
+				// Add timeout 10 ms for select() called in GetReport().
+				rc = GetReport(&reportId, &tv);
+			} else {
+				// Touch Screen
+				rc = GetReport(&reportId);
+			}
 			if (rc > 0 && reportId == RMI_READ_DATA_REPORT_ID) {
 				if (static_cast<ssize_t>(m_inputReportSize) <
 				    std::max(HID_RMI4_READ_INPUT_COUNT,
@@ -350,9 +384,23 @@ int HIDDevice::Read(unsigned short addr, unsigned char *buf, unsigned short len)
 					bytesInDataReport);
 				bytesReadPerRequest += bytesInDataReport;
 				m_dataBytesRead = 0;
+				if (GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD) {
+					// Resend sheme is supported on TP only.
+					resendCount = 0;
+				}
+			} else if (GetDeviceType() == RMI_DEVICE_TYPE_TOUCHPAD) {
+				fprintf(stderr, "Some error with GetReport : rc(%d), reportID(0x%x)\n", rc, reportId);
+				resendCount += 1;
+				goto Resend;
 			}
 		}
 		addr += bytesPerRequest;
+	}
+	if (m_hasDebug) {
+		for (int i=0 ; i<len ; i++) {
+			fprintf(stdout, "%02x ", buf[i]);
+		}
+		fprintf(stdout, "\n");
 	}
 
 	return totalBytesRead;
@@ -374,6 +422,14 @@ int HIDDevice::Write(unsigned short addr, const unsigned char *buf, unsigned sho
 	m_outputReport[HID_RMI4_WRITE_OUTPUT_ADDR + 1] = (addr >> 8) & 0xFF;
 	memcpy(&m_outputReport[HID_RMI4_WRITE_OUTPUT_DATA], buf, len);
 
+	if (m_hasDebug) {
+		fprintf(stdout, "W %02x : ", addr);
+		for (int i=0 ; i<len ; i++) {
+			fprintf(stdout, "%02x ", buf[i]);
+		}
+		fprintf(stdout, "\n");
+	}
+
 	for (;;) {
 		m_bCancel = false;
 		count = write(m_fd, m_outputReport, m_outputReportSize);
@@ -391,11 +447,11 @@ int HIDDevice::SetMode(int mode)
 {
 	int rc;
 	char buf[2];
-
+	
 	if (!m_deviceOpen)
 		return -1;
 
-	buf[0] = 0xF;
+	buf[0] = RMI_SET_RMI_MODE_REPORT_ID;
 	buf[1] = mode;
 	rc = ioctl(m_fd, HIDIOCSFEATURE(2), buf);
 	if (rc < 0) {
@@ -403,6 +459,44 @@ int HIDDevice::SetMode(int mode)
 		return rc;
 	}
 
+	return 0;
+}
+
+int HIDDevice::ToggleInterruptMask(bool enable)
+{
+	int rc;
+	char buf[2];
+
+	if (GetDeviceType() != RMI_DEVICE_TYPE_TOUCHPAD) {
+		fprintf(stdout, "Not TP, skip toggle interrupts mask\n");
+		return 0;
+	}
+
+	// We can have information to see whether it exists this feature report currentlt.
+	// However, it might have no action even we set this feature with specific value.
+	// Need FW team's help to query more information about the existence of functions.
+	if (!hasVendorDefineLIDMode) {
+		if (m_hasDebug) {
+			fprintf(stdout, "no LID mode feature, return\n");
+		}
+		return 0;
+	}
+	
+	if (!m_deviceOpen)
+		return -1;
+
+	buf[0] = RMI_SET_LID_MODE_REPORT_ID;
+	if (enable) {
+		buf[1] = 0;
+	} else {
+		buf[1] = 8;
+	}
+	rc = ioctl(m_fd, HIDIOCSFEATURE(2), buf);
+	if (rc < 0) {
+		perror("HIDIOCSFEATURE");
+		return rc;
+	}
+	Sleep(10);
 	return 0;
 }
 
@@ -655,11 +749,9 @@ bool HIDDevice::CheckABSEvent()
 	int fd=-1;
 	unsigned int type;
 	int abs[6] = {0};
-	int k;
 	struct dirent **namelist;
-	int i, ndev, devnum, match;
-	char *filename;
-	int max_device = 0;
+	int i, ndev;
+
     char input_event_name[PATH_MAX];
 	unsigned long bit[EV_MAX][NBITS(KEY_MAX)];
 
@@ -793,15 +885,8 @@ bool HIDDevice::FindTransportDevice(uint32_t bus, std::string & hidDeviceName,
 
 	if (bus == BUS_I2C) {
 		devicePrefix += "i2c/";
-		// From new patch released on 2020/11, i2c_hid would be renamed as i2c_hid_acpi,
-		// and also need backward compatible.
-		std::string driverPathTemp = devicePrefix + "drivers/i2c_hid/";
-		DIR *driverPathtest = opendir(driverPathTemp.c_str());
-		if(!driverPathtest) {
-			driverPath = devicePrefix + "drivers/i2c_hid_acpi/";
-		} else {
-			driverPath = devicePrefix + "drivers/i2c_hid/";
-		}
+		// The i2c driver module installed on system is vary (i2c_hid, i2c_hid_acpi, i2c_hid_of),
+		// so we will assign driver path until we get device name later.
 	} else {
 		devicePrefix += "usb/";
 		driverPath = devicePrefix + "drivers/usbhid/";
@@ -840,8 +925,25 @@ bool HIDDevice::FindTransportDevice(uint32_t bus, std::string & hidDeviceName,
 		}
 		closedir(devDir);
 
-		if (deviceFound)
+		if (deviceFound) {
+			if (bus == BUS_I2C) {
+				std::fstream ueventfile;
+				std::string ueventfilepath = fullLinkPath + "/uevent";
+				std::string uevent;
+				std::string modulename;
+				ueventfile.open(ueventfilepath.c_str(), std::ios::in);
+				if(ueventfile.is_open()) {
+					getline(ueventfile, uevent);
+					modulename = uevent.substr(uevent.find("=") + 1, std::string::npos);
+					driverPath = devicePrefix + "drivers/";
+					driverPath += modulename;
+					driverPath += "/";
+				}
+				ueventfile.close();
+			}
 			break;
+		}
+			
 	}
 	closedir(devicesDir);
 

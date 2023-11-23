@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <sys/eventfd.h>
@@ -197,6 +197,7 @@ static void *client_thread(void *arg)
 					// connection closed or error
 					shutdown(conn_i.fd, SHUT_RDWR);
 				} else {
+					pthread_mutex_unlock(&lock);
 					break;
 				}
 				add_socket_pollin(&ring, conn_i.fd);

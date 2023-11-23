@@ -968,6 +968,7 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
         // of the participants, we can get into a situation where the participant is added twice.
         synchronized (mUpdateSyncRoot) {
             int oldParticipantCount = mConferenceParticipantConnections.size();
+            boolean wasFullConference = isFullConference();
             boolean newParticipantsAdded = false;
             boolean oldParticipantsRemoved = false;
             ArrayList<ConferenceParticipant> newParticipants = new ArrayList<>(participants.size());
@@ -980,23 +981,25 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
             // event package; some carriers are known to keep a disconnected participant around in
             // subsequent CEP updates with a state of disconnected, even though its no longer part
             // of the conference.
-            // Note: We consider 0 to still be a single party conference since some carriers will
-            // send a conference event package with JUST the host in it when the conference is
-            // disconnected.  We don't want to change back to conference mode prior to disconnection
-            // or we will not log the call.
-            boolean isSinglePartyConference = participants.stream()
+            final long numActiveCepParticipantsOtherThanHost = participants.stream()
                     .filter(p -> {
                         Pair<Uri, Uri> pIdent = new Pair<>(p.getHandle(), p.getEndpoint());
                         return !Objects.equals(mHostParticipantIdentity, pIdent)
                                 && p.getState() != Connection.STATE_DISCONNECTED;
                     })
-                    .count() <= 1;
+                    .count();
+            // We consider 0 to still be a single party conference since some carriers
+            // will send a conference event package with JUST the host in it when the conference
+            // is disconnected.  We don't want to change back to conference mode prior to
+            // disconnection or we will not log the call.
+            final boolean isCepForSinglePartyConference =
+                    numActiveCepParticipantsOtherThanHost <= 1;
 
             // We will only process the CEP data if:
             // 1. We're not emulating a single party call.
             // 2. We're emulating a single party call and the CEP contains more than just the
             //    single party
-            if ((!isMultiparty() && !isSinglePartyConference)
+            if ((!isMultiparty() && !isCepForSinglePartyConference)
                     || isMultiparty()) {
                 // Add any new participants and update existing.
                 for (ConferenceParticipant participant : participants) {
@@ -1082,15 +1085,17 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
 
             int newParticipantCount = mConferenceParticipantConnections.size();
             Log.v(this, "handleConferenceParticipantsUpdate: oldParticipantCount=%d, "
-                            + "newParticipantcount=%d", oldParticipantCount, newParticipantCount);
-            // If the single party call emulation fature flag is enabled, we can potentially treat
+                            + "newParticipantCount=%d, isMultiPty=%b, cepParticipantCt=%d",
+                    oldParticipantCount, newParticipantCount, isMultiparty(),
+                    numActiveCepParticipantsOtherThanHost);
+            // If the single party call emulation feature flag is enabled, we can potentially treat
             // the conference as a single party call when there is just one participant.
             if (mFeatureFlagProxy.isUsingSinglePartyCallEmulation() &&
                     !mConferenceHost.isAdhocConferenceCall()) {
                 if (oldParticipantCount != 1 && newParticipantCount == 1) {
                     // If number of participants goes to 1, emulate a single party call.
                     startEmulatingSinglePartyCall();
-                } else if (!isMultiparty() && !isSinglePartyConference) {
+                } else if (!isMultiparty() && !isCepForSinglePartyConference) {
                     // Number of participants increased, so stop emulating a single party call.
                     stopEmulatingSinglePartyCall();
                 }
@@ -1102,14 +1107,20 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
                 updateManageConference();
             }
 
+            // If the "fullness" of the conference changed, we need to inform listeners.
+            // Ie tell ImsConferenceController.
+            if (wasFullConference != isFullConference()) {
+                notifyConferenceCapacityChanged();
+            }
+
             // If the conference is empty and we're supposed to do a local disconnect, do so now.
             if (mCarrierConfig.shouldLocalDisconnectEmptyConference()
                     // If we dropped from > 0 participants to zero
                     // OR if the conference had a single participant and is emulating a standalone
                     // call.
                     && (oldParticipantCount > 0 || !isMultiparty())
-                    // AND the CEP says there is nobody left any more.
-                    && newParticipantCount == 0) {
+                    // AND the CEP says there is nobody left anymore.
+                    && numActiveCepParticipantsOtherThanHost == 0) {
                 Log.i(this, "handleConferenceParticipantsUpdate: empty conference; "
                         + "local disconnect.");
                 onDisconnect();

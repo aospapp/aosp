@@ -55,7 +55,8 @@
     <uses-permission android:name="android.permission.DISPATCH_NFC_MESSAGE" />
     <uses-permission android:name="android.permission.OVERRIDE_WIFI_CONFIG" />
     <uses-permission android:name="android.permission.DEVICE_POWER" />
-    <uses-permission android:name="android.permission.ACCESS_VR_MANAGER"/>
+    <uses-permission android:name="android.permission.ACCESS_VR_STATE"/>
+    <uses-permission android:name="android.permission.RESTRICTED_VR_ACCESS"/>
     <uses-permission android:name="android.permission.USER_ACTIVITY" />
     <uses-permission android:name="android.permission.BIND_RESOLVER_RANKER_SERVICE" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -64,6 +65,7 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SUBSCRIBE_TO_KEYGUARD_LOCKED_STATE" />
 
     <application android:name=".NfcApplication"
                  android:icon="@drawable/icon"
@@ -123,36 +125,11 @@
             android:noHistory="true"
             android:configChanges="orientation|keyboardHidden|screenSize"
         />
-        <activity android:name=".BeamShareActivity"
-            android:finishOnCloseSystemDialogs="true"
-            android:theme="@android:style/Theme.Translucent"
-            android:label="@string/android_beam"
-            android:noHistory="true"
-            android:exported="true"
-            android:excludeFromRecents="true">
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="*/*" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.SEND_MULTIPLE" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="*/*" />
-            </intent-filter>
-        </activity>
         <activity android:name=".ConfirmConnectToWifiNetworkActivity"
             android:finishOnCloseSystemDialogs="true"
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:noHistory="true"
-        />
-
-        <service android:name=".beam.BeamSendService"
-            android:process=":beam"
-        />
-        <service android:name=".beam.BeamReceiveService"
-            android:process=":beam"
         />
 
         <receiver android:name=".NfcBootCompletedReceiver"

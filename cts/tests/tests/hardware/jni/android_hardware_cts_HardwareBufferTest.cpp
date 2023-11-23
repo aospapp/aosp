@@ -15,11 +15,15 @@
  *
  */
 
-#include <android/hardware_buffer.h>
-
 #include <jni.h>
 
+#include <android/binder_parcel.h>
+#include <android/binder_parcel_jni.h>
+#include <android/hardware_buffer.h>
 #include <android/hardware_buffer_jni.h>
+#include <android/hardware_buffer_aidl.h>
+
+#include <nativehelper/JNIHelp.h>
 
 #define LOG_TAG "HardwareBufferTest"
 
@@ -37,23 +41,55 @@ static jobject android_hardware_HardwareBuffer_nativeCreateHardwareBuffer(JNIEnv
 
     // TODO: Change this to res == NO_ERROR after b/77153085 is fixed
     if (res == 0) {
-        return AHardwareBuffer_toHardwareBuffer(env, buffer);
+        jobject ret = AHardwareBuffer_toHardwareBuffer(env, buffer);
+        AHardwareBuffer_release(buffer);
+        return ret;
     } else {
         return 0;
     }
 }
 
-static void android_hardware_HardwareBuffer_nativeReleaseHardwareBuffer(JNIEnv* env, jclass,
-        jobject hardwareBufferObj) {
-    AHardwareBuffer* buffer = AHardwareBuffer_fromHardwareBuffer(env, hardwareBufferObj);
+static jobject android_hardware_HardwareBuffer_nativeReadHardwareBuffer(JNIEnv* env, jclass,
+        jobject parcelObj) {
+    AParcel* parcel = AParcel_fromJavaParcel(env, parcelObj);
+    if (!parcel) {
+        jniThrowExceptionFmt(env, "android/os/BadParcelableException",
+                                "null parcel");
+        return nullptr;
+    }
+    AHardwareBuffer* buffer;
+    binder_status_t status = AHardwareBuffer_readFromParcel(parcel, &buffer);
+    AParcel_delete(parcel);
+
+    if (status != STATUS_OK) {
+        jniThrowExceptionFmt(env, "android/os/BadParcelableException",
+                        "Failed to readFromParcel, status %d (%s)", status, strerror(-status));
+        return nullptr;
+    }
+    jobject ret = AHardwareBuffer_toHardwareBuffer(env, buffer);
     AHardwareBuffer_release(buffer);
+    return ret;
+}
+
+static void android_hardware_HardwareBuffer_nativeWriteHardwareBuffer(JNIEnv* env, jclass,
+        jobject hardwareBufferObj, jobject parcelObj) {
+    AHardwareBuffer* buffer = AHardwareBuffer_fromHardwareBuffer(env, hardwareBufferObj);
+    AParcel* parcel = AParcel_fromJavaParcel(env, parcelObj);
+    binder_status_t status = AHardwareBuffer_writeToParcel(buffer, parcel);
+    AParcel_delete(parcel);
+    if (status != STATUS_OK) {
+        jniThrowExceptionFmt(env, "android/os/BadParcelableException",
+                        "Failed to writeToParcel, status %d (%s)", status, strerror(-status));
+    }
 }
 
 static JNINativeMethod gMethods[] = {
     { "nativeCreateHardwareBuffer", "(IIIIJ)Landroid/hardware/HardwareBuffer;",
             (void *) android_hardware_HardwareBuffer_nativeCreateHardwareBuffer },
-    { "nativeReleaseHardwareBuffer", "(Landroid/hardware/HardwareBuffer;)V",
-           (void *) android_hardware_HardwareBuffer_nativeReleaseHardwareBuffer },
+    { "nativeReadHardwareBuffer", "(Landroid/os/Parcel;)Landroid/hardware/HardwareBuffer;",
+           (void *) android_hardware_HardwareBuffer_nativeReadHardwareBuffer },
+    { "nativeWriteHardwareBuffer", "(Landroid/hardware/HardwareBuffer;Landroid/os/Parcel;)V",
+           (void *) android_hardware_HardwareBuffer_nativeWriteHardwareBuffer },
 };
 
 int register_android_hardware_cts_HardwareBufferTest(JNIEnv* env)

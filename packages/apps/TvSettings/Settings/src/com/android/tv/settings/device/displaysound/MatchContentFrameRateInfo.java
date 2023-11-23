@@ -42,6 +42,15 @@ public class MatchContentFrameRateInfo {
         }
     }
 
+    /** A class that hosts {@link InfoFragment} for seamless match content frame rate
+     * preference if seamless switching is not supported by connected display device. */
+    public static class SeamlessUnsupportedInfoFragment extends BaseInfoFragment {
+        @Override
+        protected int getSummaryResId() {
+            return R.string.match_content_frame_rate_seamless_not_supported_summary;
+        }
+    }
+
     /** A class that hosts {@link InfoFragment} for non seamless match content frame rate
      * preference. */
     public static class NonSeamlessInfoFragment extends BaseInfoFragment {

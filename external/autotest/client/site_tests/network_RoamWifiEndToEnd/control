@@ -6,6 +6,7 @@ AUTHOR = 'bmahadev, harpreet, krisr'
 NAME = 'network_RoamWifiEndToEnd'
 TIME = 'FAST'
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 DOC = """
   Client side of the network_WiFi_RoamEndToEnd server test that sets up the

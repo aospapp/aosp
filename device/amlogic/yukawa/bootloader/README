@@ -1,25 +1,25 @@
 Build Mainline u-boot - bl33:
 =============================
 
-Main Wiki Page : https://gitlab.com/baylibre/amlogic/atv/u-boot/wikis/home
+Main Wiki Page : https://gitlab.baylibre.com/baylibre/amlogic/atv/u-boot/wikis/home
 
 Download the toolchain : gcc-linaro-7.2.1-2017.11-x86_64_aarch64-elf
         http://releases.linaro.org/components/toolchain/binaries/7.2-2017.11/aarch64-elf/gcc-linaro-7.2.1-2017.11-x86_64_aarch64-elf.tar.xz
 
 Download U-Boot Source Code From :
-        https://gitlab.com/baylibre/amlogic/atv/u-boot.git
+        https://gitlab.baylibre.com/baylibre/amlogic/atv/u-boot.git
 
 actual tag :  u-boot/v2021.07/integ-20210712
 dev branch :  u-boot/v2021.07/integ
 
 link to U-Boot aosp release wiki page :
-https://gitlab.com/baylibre/amlogic/atv/u-boot/wikis/U-Boot-for-Yukawa-Release
+https://gitlab.baylibre.com/baylibre/amlogic/atv/u-boot/wikis/U-Boot-for-Yukawa-Release
 
 Compile:
 
         export PATH=<path-to-toolchain>/gcc-linaro-7.2.1-2017.11-x86_64_aarch64-elf/bin:$PATH
         export CROSS_COMPILE=aarch64-elf-
-        git clone https://gitlab.com/baylibre/amlogic/atv/u-boot.git
+        git clone https://gitlab.baylibre.com/baylibre/amlogic/atv/u-boot.git
         cd u-boot
         git checkout u-boot/v2021.07/integ-20210712
         make [sei510|sei610|sei610_ab|khadas-vim3_android|khadas-vim3_android_ab|khadas-vim3l_android|khadas-vim3l_android_ab]_defconfig
@@ -55,7 +55,7 @@ after reboot if partitions table need to be updated:
         fastboot oem format
 
 More informations to update and flash bootloader on Yukawa:
-https://gitlab.com/baylibre/amlogic/atv/u-boot/wikis/U-Boot-for-Yukawa
+https://gitlab.baylibre.com/baylibre/amlogic/atv/u-boot/wikis/U-Boot-for-Yukawa
 
 
 Generate new fip_packages for Khadas VIM3/3L

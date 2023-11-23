@@ -11,7 +11,7 @@ cc_library_static {
         "PathUtils.cpp",
         "UnicodeUtils.cpp",
     ],
-    cflags: ["-Wall", "-Werror"],
+    defaults: ["libminikin_defaults"],
     export_include_dirs: ["."],
     shared_libs: ["libxml2", "libft2"],
     static_libs: ["libminikin"],

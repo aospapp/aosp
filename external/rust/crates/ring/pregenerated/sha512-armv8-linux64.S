@@ -10,6 +10,7 @@
 
 #if !defined(OPENSSL_NO_ASM)
 #if defined(__aarch64__)
+#include "ring_core_generated/prefix_symbols_asm.h"
 // Copyright 2014-2016 The OpenSSL Project Authors. All Rights Reserved.
 //
 // Licensed under the OpenSSL license (the "License").  You may not use
@@ -50,18 +51,18 @@
 //	and the gap is only 40-90%.
 
 #ifndef	__KERNEL__
-# include <GFp/arm_arch.h>
+# include <ring-core/arm_arch.h>
 #endif
 
 .text
 
 
-.hidden	GFp_armcap_P
-.globl	GFp_sha512_block_data_order
-.hidden	GFp_sha512_block_data_order
-.type	GFp_sha512_block_data_order,%function
+.hidden	OPENSSL_armcap_P
+.globl	sha512_block_data_order
+.hidden	sha512_block_data_order
+.type	sha512_block_data_order,%function
 .align	6
-GFp_sha512_block_data_order:
+sha512_block_data_order:
 	AARCH64_SIGN_LINK_REGISTER
 	stp	x29,x30,[sp,#-128]!
 	add	x29,sp,#0
@@ -1025,7 +1026,7 @@ GFp_sha512_block_data_order:
 	ldp	x29,x30,[sp],#128
 	AARCH64_VALIDATE_LINK_REGISTER
 	ret
-.size	GFp_sha512_block_data_order,.-GFp_sha512_block_data_order
+.size	sha512_block_data_order,.-sha512_block_data_order
 
 .section	.rodata
 .align	6

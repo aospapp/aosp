@@ -21,7 +21,6 @@ package {
 android_test {
     name: "WifiStrengthScannerUtil",
 
-    static_libs: ["ub-uiautomator"],
     srcs: ["src/**/*.java"],
     sdk_version: "23",
 }

@@ -18,9 +18,13 @@ package android.security.cts;
 
 import android.app.Service;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.IBinder;
 import android.os.Process;
 import android.util.Log;
+
+import com.android.compatibility.common.util.BlockingBroadcastReceiver;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -79,6 +83,11 @@ public class IsolatedService extends Service {
             return Process.isIsolated();
         }
 
+        public void registerBroadcastReceiver() throws SecurityException {
+            BlockingBroadcastReceiver receiver = new BlockingBroadcastReceiver(
+                    getApplicationContext());
+            registerReceiver(receiver, new IntentFilter("testAction"));
+        }
     };
 
     @Override

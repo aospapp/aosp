@@ -46,8 +46,6 @@ import android.widget.TextView.BufferType;
 import androidx.test.filters.MediumTest;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.compatibility.common.util.CtsKeyEventUtil;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -216,7 +214,7 @@ public class TextKeyListenerTest extends KeyListenerTestCase {
         mInstrumentation.waitForIdleSync();
         assertEquals("", mTextView.getText().toString());
 
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mTextView, KeyEvent.KEYCODE_4);
+        sendKeys(mTextView, KeyEvent.KEYCODE_4);
         waitForListenerTimeout();
         String text = mTextView.getText().toString();
         int keyType = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD).getKeyboardType();
@@ -249,7 +247,7 @@ public class TextKeyListenerTest extends KeyListenerTestCase {
         // test ACTION_MULTIPLE KEYCODE_UNKNOWN key event.
         KeyEvent event = new KeyEvent(SystemClock.uptimeMillis(), text,
                 1, KeyEvent.FLAG_WOKE_HERE);
-        CtsKeyEventUtil.sendKey(mInstrumentation, mTextView, event);
+        sendKey(mTextView, event);
         mInstrumentation.waitForIdleSync();
         // the text of TextView is never changed, onKeyOther never works.
 //        assertEquals(text, mTextView.getText().toString()); issue 1731439

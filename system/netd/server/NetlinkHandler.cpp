@@ -106,7 +106,7 @@ void NetlinkHandler::onEvent(NetlinkEvent *evt) {
 
     if (!strcmp(subsys, "net")) {
         NetlinkEvent::Action action = evt->getAction();
-        const char *iface = evt->findParam("INTERFACE");
+        const char *iface = evt->findParam("INTERFACE") ?: "";
         if (action == NetlinkEvent::Action::kAdd) {
             notifyInterfaceAdded(iface);
         } else if (action == NetlinkEvent::Action::kRemove) {

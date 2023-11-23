@@ -66,14 +66,24 @@ static constexpr const char* kApexStatusSysprop = "apexd.status";
 static constexpr const char* kApexStatusStarting = "starting";
 static constexpr const char* kApexStatusActivated = "activated";
 static constexpr const char* kApexStatusReady = "ready";
+
 static constexpr const char* kMultiApexSelectPersistPrefix =
     "persist.vendor.apex.";
 static constexpr const char* kMultiApexSelectBootconfigPrefix =
     "ro.boot.vendor.apex.";
+static const std::vector<std::string> kMultiApexSelectPrefix = {
+    // Check persist props first, to allow users to override bootconfig.
+    kMultiApexSelectPersistPrefix,
+    kMultiApexSelectBootconfigPrefix,
+};
 
 static constexpr const char* kVmPayloadMetadataPartitionProp =
     "apexd.payload_metadata.path";
 static constexpr const std::chrono::seconds kBlockApexWaitTime(10);
+
+static constexpr const char* kApexAllReadyProp = "apex.all.ready";
+static constexpr const char* kCtlApexLoadSysprop = "ctl.apex_load";
+static constexpr const char* kCtlApexUnloadSysprop = "ctl.apex_unload";
 
 static constexpr const char* kMetadataSepolicyStagedDir =
     "/metadata/sepolicy/staged";

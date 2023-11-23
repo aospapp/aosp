@@ -45,6 +45,7 @@ struct MemUsage {
     uint64_t file_pmd_mapped;
     uint64_t shared_hugetlb;
     uint64_t private_hugetlb;
+    uint64_t locked;
 
     uint64_t thp;
 
@@ -64,6 +65,7 @@ struct MemUsage {
           file_pmd_mapped(0),
           shared_hugetlb(0),
           private_hugetlb(0),
+          locked(0),
           thp(0) {}
 
     ~MemUsage() = default;

@@ -26,7 +26,6 @@ android_test_helper_app {
         "androidx.test.ext.junit",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
-        "ub-uiautomator",
     ],
     libs: [
         "android.test.runner",

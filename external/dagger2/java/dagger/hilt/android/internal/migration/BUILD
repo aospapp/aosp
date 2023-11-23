@@ -18,6 +18,11 @@
 package(default_visibility = ["//:src"])
 
 android_library(
+    name = "has_custom_inject",
+    srcs = ["HasCustomInject.java"],
+)
+
+android_library(
     name = "injected_by_hilt",
     srcs = ["InjectedByHilt.java"],
 )

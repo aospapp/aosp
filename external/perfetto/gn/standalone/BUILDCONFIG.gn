@@ -65,13 +65,13 @@ declare_args() {
 default_configs = [
   "//gn/standalone:debug_symbols",
   "//gn/standalone:default",
-  "//gn/standalone:c++11",
   "//gn/standalone:extra_warnings",
   "//gn/standalone:no_exceptions",
   "//gn/standalone:no_rtti",
   "//gn/standalone:visibility_hidden",
   "//gn/standalone/libc++:config",
   "//gn/standalone/sanitizers:sanitizers_cflags",
+  "//gn/standalone:c++17",
 ]
 
 if (is_win) {

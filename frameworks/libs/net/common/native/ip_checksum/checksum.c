@@ -32,20 +32,16 @@
  *   len         - length of data
  */
 uint32_t ip_checksum_add(uint32_t current, const void* data, int len) {
-    uint32_t checksum = current;
-    int left = len;
     const uint16_t* data_16 = data;
 
-    while (left > 1) {
-        checksum += *data_16;
+    while (len >= 2) {
+        current += *data_16;
         data_16++;
-        left -= 2;
+        len -= 2;
     }
-    if (left) {
-        checksum += *(uint8_t*)data_16;
-    }
+    if (len) current += *(uint8_t*)data_16;  // assumes little endian!
 
-    return checksum;
+    return current;
 }
 
 /* function: ip_checksum_fold
@@ -54,9 +50,8 @@ uint32_t ip_checksum_add(uint32_t current, const void* data, int len) {
  *   returns: the folded checksum in network byte order
  */
 uint16_t ip_checksum_fold(uint32_t temp_sum) {
-    while (temp_sum > 0xffff) {
-        temp_sum = (temp_sum >> 16) + (temp_sum & 0xFFFF);
-    }
+    temp_sum = (temp_sum >> 16) + (temp_sum & 0xFFFF);
+    temp_sum = (temp_sum >> 16) + (temp_sum & 0xFFFF);
     return temp_sum;
 }
 
@@ -75,12 +70,7 @@ uint16_t ip_checksum_finish(uint32_t temp_sum) {
  *   len  - length of data
  */
 uint16_t ip_checksum(const void* data, int len) {
-    // TODO: consider starting from 0xffff so the checksum of a buffer entirely consisting of zeros
-    // is correctly calculated as 0.
-    uint32_t temp_sum;
-
-    temp_sum = ip_checksum_add(0, data, len);
-    return ip_checksum_finish(temp_sum);
+    return ip_checksum_finish(ip_checksum_add(0xFFFF, data, len));
 }
 
 /* function: ipv6_pseudo_header_checksum
@@ -92,7 +82,6 @@ uint16_t ip_checksum(const void* data, int len) {
 uint32_t ipv6_pseudo_header_checksum(const struct ip6_hdr* ip6, uint32_t len, uint8_t protocol) {
     uint32_t checksum_len = htonl(len);
     uint32_t checksum_next = htonl(protocol);
-
     uint32_t current = 0;
 
     current = ip_checksum_add(current, &(ip6->ip6_src), sizeof(struct in6_addr));
@@ -109,11 +98,8 @@ uint32_t ipv6_pseudo_header_checksum(const struct ip6_hdr* ip6, uint32_t len, ui
  *   len     - the transport length (transport header + payload)
  */
 uint32_t ipv4_pseudo_header_checksum(const struct iphdr* ip, uint16_t len) {
-    uint16_t temp_protocol, temp_length;
-
-    temp_protocol = htons(ip->protocol);
-    temp_length = htons(len);
-
+    uint16_t temp_protocol = htons(ip->protocol);
+    uint16_t temp_length = htons(len);
     uint32_t current = 0;
 
     current = ip_checksum_add(current, &(ip->saddr), sizeof(uint32_t));
@@ -135,7 +121,7 @@ uint16_t ip_checksum_adjust(uint16_t checksum, uint32_t old_hdr_sum, uint32_t ne
     // Algorithm suggested in RFC 1624.
     // http://tools.ietf.org/html/rfc1624#section-3
     checksum = ~checksum;
-    uint16_t folded_sum = ip_checksum_fold(checksum + new_hdr_sum);
+    uint16_t folded_sum = ip_checksum_fold(new_hdr_sum + checksum);
     uint16_t folded_old = ip_checksum_fold(old_hdr_sum);
     if (folded_sum > folded_old) {
         return ~(folded_sum - folded_old);

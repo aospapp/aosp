@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"naviazať sa na premietaciu službu"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"Umožňuje držiteľovi naviazať sa na najvyššiu úroveň rozhrania premietacej služby. Bežné aplikácie by toto nastavenie nemali nikdy potrebovať."</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"Klientska služba VMS"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"Naviazať sa na klienty VMS"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"Vykresľovanie klastra prístrojov"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"Získavať údaje o klastri prístrojov"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"Služba vstupov auta"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"Spravovať udalosti vstupu"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"Túto funkciu nie je možné používať za jazdy"</string>
     <string name="exit_button_message" msgid="5375678491245394542">"Ak chcete začať odznova s bezpečnými funkciami aplikácie, vyberte tlačidlo <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
     <string name="exit_button" msgid="3491899413031549265">"Späť"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"Vaše zariadenie bude vymazané"</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"Daná aplikácia na správu sa nedá použiť. Vaše zariadenie bude vymazané.\n\nV prípade otázok kontaktujte správcu organizácie."</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> ovplyvňuje výkon systému"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"Ak chcete zlepšiť výkon systému, deaktivujte aplikáciu. Môžete ju znova aktivovať v Nastaveniach."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"Ak chcete túto aplikáciu naďalej používať, uprednostnite ju."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"Ak chcete zlepšiť výkon systému, odinštalujte aplikáciu."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"Deaktivovať aplikáciu"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"Pre túto aplikáciu je zablokované spustenie na pozadí. Ak ju chcete naďalej používať na pozadí, nastavte ju ako prioritnú."</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"Zavrieť"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"Uprednostniť aplikáciu"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"Odinštalovať aplikáciu"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"Aplikácia <xliff:g id="ID_1">^1</xliff:g> bola deaktivovaná. Môžete ju znova aktivovať v Nastaveniach."</string>
 </resources>

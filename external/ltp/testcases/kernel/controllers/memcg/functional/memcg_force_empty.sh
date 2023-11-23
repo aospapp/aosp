@@ -11,7 +11,6 @@
 MEMCG_TESTFUNC=test
 TST_CNT=6
 
-. memcg_lib.sh
 
 # Test memory.force_empty
 test1()
@@ -51,7 +50,8 @@ test6()
 {
 	# writing to non-empty top mem cgroup's force_empty
 	# should return failure
-	EXPECT_FAIL echo 1 \> /dev/memcg/memory.force_empty
+	EXPECT_FAIL echo 1 \> "$mount_point/memory.force_empty"
 }
 
+. memcg_lib.sh
 tst_run

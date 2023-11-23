@@ -20,7 +20,9 @@
 #include <map>
 #include <string>
 
-namespace emugl {
+namespace gfxstream {
+namespace gl {
+namespace {
 
 static const char kTestVertexShader[] = R"(
 attribute vec4 position;
@@ -414,4 +416,6 @@ TEST_F(SnapshotGlProgramTest, UseProgramAndUniforms) {
     doCheckedSnapshot();
 }
 
-}  // namespace emugl
+}  // namespace
+}  // namespace gl
+}  // namespace gfxstream

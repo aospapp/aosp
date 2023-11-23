@@ -1,0 +1,39 @@
+[package]
+name = "pica"
+authors = [
+  "Adrien Larbanet",
+  "Charlie Boutier",
+  "David Duarte",
+  "Henri Chataing",
+]
+version = "0.1.2"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "pica"
+path = "src/lib.rs"
+
+[[bin]]
+name = "server"
+path = "src/bin/server/mod.rs"
+
+[features]
+default = ["web"]
+web = ["hyper", "tokio/rt-multi-thread"]
+
+[dependencies]
+tokio = { version = "1.25.0", features = [ "fs", "io-util", "macros", "net", "rt" ] }
+tokio-stream = { version = "0.1.8", features = ["sync"] }
+bytes = "1"
+anyhow = "1.0.56"
+num-derive = "*"
+num-traits = "*"
+thiserror = "*"
+glam = "0.23.0"
+hyper = { version = "0.14", features = ["server", "stream", "http1", "tcp"], optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+hex = "0.4.3"
+clap = { version = "4.1.8", default-features = false, features = ["derive", "error-context", "help", "std", "usage"] }

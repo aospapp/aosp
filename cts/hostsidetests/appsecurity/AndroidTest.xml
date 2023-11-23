@@ -20,6 +20,10 @@
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <target_preparer class="android.appsecurity.cts.AppSecurityPreparer" />
+    <!-- disable DeprecatedAbi warning -->
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="setprop debug.wm.disable_deprecated_abi_dialog 1" />
+    </target_preparer>
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsAppSecurityHostTestCases.jar" />
         <option name="runtime-hint" value="20m" />

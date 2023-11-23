@@ -24,7 +24,7 @@
 
 #define LOG_TAG "bta_gattc_api"
 
-#include <base/bind.h>
+#include <base/functional/bind.h>
 #include <base/logging.h>
 
 #include <ios>
@@ -92,7 +92,13 @@ void BTA_GATTC_AppRegister(tBTA_GATTC_CBACK* p_client_cb,
 }
 
 static void app_deregister_impl(tGATT_IF client_if) {
-  bta_gattc_deregister(bta_gattc_cl_get_regcb(client_if));
+  tBTA_GATTC_RCB* p_clreg = bta_gattc_cl_get_regcb(client_if);
+
+  if (p_clreg != nullptr) {
+    bta_gattc_deregister(p_clreg);
+  } else {
+    LOG_ERROR("Unknown GATT ID: %d, state: %d", client_if, bta_gattc_cb.state);
+  }
 }
 /*******************************************************************************
  *
@@ -119,7 +125,7 @@ void BTA_GATTC_AppDeregister(tGATT_IF client_if) {
  *
  * Parameters       client_if: server interface.
  *                  remote_bda: remote device BD address.
- *                  is_direct: direct connection or background auto connection
+ *                  connection_type: connection type used for the peer device
  *                  transport: Transport to be used for GATT connection
  *                             (BREDR/LE)
  *                  initiating_phys: LE PHY to use, optional
@@ -128,15 +134,16 @@ void BTA_GATTC_AppDeregister(tGATT_IF client_if) {
  *
  ******************************************************************************/
 void BTA_GATTC_Open(tGATT_IF client_if, const RawAddress& remote_bda,
-                    bool is_direct, bool opportunistic) {
+                    tBTM_BLE_CONN_TYPE connection_type, bool opportunistic) {
   uint8_t phy = controller_get_interface()->get_le_all_initiating_phys();
-  BTA_GATTC_Open(client_if, remote_bda, is_direct, BT_TRANSPORT_LE,
+  BTA_GATTC_Open(client_if, remote_bda, connection_type, BT_TRANSPORT_LE,
                  opportunistic, phy);
 }
 
 void BTA_GATTC_Open(tGATT_IF client_if, const RawAddress& remote_bda,
-                    bool is_direct, tBT_TRANSPORT transport, bool opportunistic,
-                    uint8_t initiating_phys) {
+                    tBLE_ADDR_TYPE addr_type,
+                    tBTM_BLE_CONN_TYPE connection_type, tBT_TRANSPORT transport,
+                    bool opportunistic, uint8_t initiating_phys) {
   tBTA_GATTC_DATA data = {
       .api_conn =
           {
@@ -145,8 +152,9 @@ void BTA_GATTC_Open(tGATT_IF client_if, const RawAddress& remote_bda,
                       .event = BTA_GATTC_API_OPEN_EVT,
                   },
               .remote_bda = remote_bda,
+              .remote_addr_type = addr_type,
               .client_if = client_if,
-              .is_direct = is_direct,
+              .connection_type = connection_type,
               .transport = transport,
               .initiating_phys = initiating_phys,
               .opportunistic = opportunistic,
@@ -154,6 +162,13 @@ void BTA_GATTC_Open(tGATT_IF client_if, const RawAddress& remote_bda,
   };
 
   post_on_bt_main([data]() { bta_gattc_process_api_open(&data); });
+}
+
+void BTA_GATTC_Open(tGATT_IF client_if, const RawAddress& remote_bda,
+                    tBTM_BLE_CONN_TYPE connection_type, tBT_TRANSPORT transport,
+                    bool opportunistic, uint8_t initiating_phys) {
+  BTA_GATTC_Open(client_if, remote_bda, BLE_ADDR_PUBLIC, connection_type,
+                 BT_TRANSPORT_LE, opportunistic, initiating_phys);
 }
 
 /*******************************************************************************
@@ -727,7 +742,7 @@ tGATT_STATUS BTA_GATTC_DeregisterForNotifications(tGATT_IF client_if,
   tBTA_GATTC_RCB* p_clreg = bta_gattc_cl_get_regcb(client_if);
   if (p_clreg == NULL) {
     LOG(ERROR) << __func__ << " client_if=" << +client_if
-               << " not registered bd_addr=" << bda;
+               << " not registered bd_addr=" << ADDRESS_TO_LOGGABLE_STR(bda);
     return GATT_ILLEGAL_PARAMETER;
   }
 
@@ -735,13 +750,15 @@ tGATT_STATUS BTA_GATTC_DeregisterForNotifications(tGATT_IF client_if,
     if (p_clreg->notif_reg[i].in_use &&
         p_clreg->notif_reg[i].remote_bda == bda &&
         p_clreg->notif_reg[i].handle == handle) {
-      VLOG(1) << __func__ << " deregistered bd_addr=" << bda;
+      VLOG(1) << __func__ << " deregistered bd_addr="
+              << ADDRESS_TO_LOGGABLE_STR(bda);
       memset(&p_clreg->notif_reg[i], 0, sizeof(tBTA_GATTC_NOTIF_REG));
       return GATT_SUCCESS;
     }
   }
 
-  LOG(ERROR) << __func__ << " registration not found bd_addr=" << bda;
+  LOG(ERROR) << __func__ << " registration not found bd_addr="
+             << ADDRESS_TO_LOGGABLE_STR(bda);
   return GATT_ERROR;
 }
 

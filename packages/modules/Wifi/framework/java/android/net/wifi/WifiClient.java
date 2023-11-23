@@ -21,12 +21,15 @@ import android.annotation.SystemApi;
 import android.net.MacAddress;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.util.Log;
 
 import java.util.Objects;
 
 /** @hide */
 @SystemApi
 public final class WifiClient implements Parcelable {
+
+    private static final String TAG = "WifiClient";
 
     private final MacAddress mMacAddress;
 
@@ -61,9 +64,12 @@ public final class WifiClient implements Parcelable {
 
     /** @hide */
     public WifiClient(@NonNull MacAddress macAddress, @NonNull String apInstanceIdentifier) {
-        Objects.requireNonNull(macAddress, "mMacAddress must not be null.");
-
-        this.mMacAddress = macAddress;
+        if (macAddress == null) {
+            Log.wtf(TAG, "Null MacAddress provided");
+            this.mMacAddress = WifiManager.ALL_ZEROS_MAC_ADDRESS;
+        } else {
+            this.mMacAddress = macAddress;
+        }
         this.mApInstanceIdentifier = apInstanceIdentifier;
     }
 

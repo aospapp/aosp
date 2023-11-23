@@ -19,18 +19,16 @@
  *   Functions generated:11
  */
 
-#include <map>
-#include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
 #include <base/logging.h>
 
 #include <functional>
+#include <map>
 #include <mutex>
+#include <string>
 #include <thread>
 
 #include "common/metric_id_allocator.h"
+#include "test/common/mock_functions.h"
 #include "types/raw_address.h"
 
 #ifndef UNUSED_ATTR
@@ -65,42 +63,42 @@ class MockMetricIdAllocator : public MetricIdAllocator {
 MockMetricIdAllocator metric_id_allocator;
 
 MetricIdAllocator& MetricIdAllocator::GetInstance() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return metric_id_allocator;
 }
 MetricIdAllocator::~MetricIdAllocator() {}
 bool MetricIdAllocator::Close() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool MetricIdAllocator::Init(
     const std::unordered_map<RawAddress, int>& paired_device_map,
     Callback save_id_callback, Callback forget_device_callback) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool MetricIdAllocator::IsEmpty() const {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool MetricIdAllocator::IsValidId(const int id) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 bool MetricIdAllocator::SaveDevice(const RawAddress& mac_address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return false;
 }
 int MetricIdAllocator::AllocateId(const RawAddress& mac_address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 void MetricIdAllocator::ForgetDevice(const RawAddress& mac_address) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 void MetricIdAllocator::ForgetDevicePostprocess(const RawAddress& mac_address,
                                                 const int id) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }
 
 }  // namespace common

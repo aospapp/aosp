@@ -15,6 +15,7 @@ GOOGLETEST_SRCS += $(CHRE_PREFIX)/pal/tests/src/version_test.cc
 GOOGLETEST_SRCS += $(CHRE_PREFIX)/pal/tests/src/wwan_test.cc
 
 GOOGLETEST_PAL_IMPL_SRCS += $(CHRE_PREFIX)/pal/tests/src/audio_pal_impl_test.cc
+GOOGLETEST_PAL_IMPL_SRCS += $(CHRE_PREFIX)/pal/tests/src/ble_pal_impl_test.cc
 GOOGLETEST_PAL_IMPL_SRCS += $(CHRE_PREFIX)/pal/tests/src/gnss_pal_impl_test.cc
 GOOGLETEST_PAL_IMPL_SRCS += $(CHRE_PREFIX)/pal/tests/src/sensor_pal_impl_test.cc
 GOOGLETEST_PAL_IMPL_SRCS += $(CHRE_PREFIX)/pal/tests/src/wifi_pal_impl_test.cc

@@ -22,8 +22,11 @@
 #include <array>
 
 namespace compos_key {
+constexpr size_t ED25519_SEED_LEN = 32;
+
 using PrivateKey = std::array<uint8_t, ED25519_PRIVATE_KEY_LEN>;
 using PublicKey = std::array<uint8_t, ED25519_PUBLIC_KEY_LEN>;
+using Seed = std::array<uint8_t, ED25519_SEED_LEN>;
 using Signature = std::array<uint8_t, ED25519_SIGNATURE_LEN>;
 
 struct Ed25519KeyPair {
@@ -31,8 +34,7 @@ struct Ed25519KeyPair {
     PublicKey public_key;
 };
 
-android::base::Result<Ed25519KeyPair> deriveKeyFromSecret(const uint8_t* secret,
-                                                          size_t secret_size);
+android::base::Result<Ed25519KeyPair> keyFromSeed(const Seed& seed);
 
 android::base::Result<Signature> sign(const PrivateKey& private_key, const uint8_t* data,
                                       size_t data_size);

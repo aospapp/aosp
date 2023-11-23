@@ -20,7 +20,7 @@ cc_library_static {
     name: "libtcutils",
     srcs: ["tcutils.cpp"],
     export_include_dirs: ["include"],
-    header_libs: ["bpf_syscall_wrappers"],
+    header_libs: ["bpf_headers"],
     shared_libs: [
         "liblog",
     ],
@@ -53,7 +53,7 @@ cc_test {
         "-Werror",
         "-Wno-error=unused-variable",
     ],
-    header_libs: ["bpf_syscall_wrappers"],
+    header_libs: ["bpf_headers"],
     static_libs: [
         "libgmock",
         "libtcutils",

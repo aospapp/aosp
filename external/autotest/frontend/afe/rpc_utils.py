@@ -8,20 +8,19 @@ __author__ = 'showard@google.com (Steve Howard)'
 
 import collections
 import datetime
-from functools import wraps
 import inspect
 import logging
 import os
-import sys
+from functools import wraps
+
 import django.db.utils
 import django.http
-
-from autotest_lib.frontend import thread_local
-from autotest_lib.frontend.afe import models, model_logic
-from autotest_lib.client.common_lib import control_data, error
-from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib import time_utils
+import six
+from autotest_lib.client.common_lib import (control_data, error, global_config,
+                                            time_utils)
 from autotest_lib.client.common_lib.cros import dev_server
+from autotest_lib.frontend import thread_local
+from autotest_lib.frontend.afe import model_logic, models
 from autotest_lib.server import utils as server_utils
 from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
@@ -74,7 +73,7 @@ def _prepare_data(data):
     """
     if isinstance(data, dict):
         new_data = {}
-        for key, value in data.iteritems():
+        for key, value in six.iteritems(data):
             new_data[key] = _prepare_data(value)
         return new_data
     elif (isinstance(data, list) or isinstance(data, tuple) or
@@ -113,7 +112,7 @@ def _gather_unique_dicts(dict_iterable):
     objects = collections.OrderedDict()
     for obj in dict_iterable:
         objects.setdefault(obj['id'], obj)
-    return objects.values()
+    return list(objects.values())
 
 
 def extra_job_status_filters(not_yet_run=False, running=False, finished=False):
@@ -225,7 +224,7 @@ def afe_test_dict_to_test_object(test_dict):
         return test_dict
 
     numerized_dict = {}
-    for key, value in test_dict.iteritems():
+    for key, value in six.iteritems(test_dict):
         try:
             numerized_dict[key] = int(value)
         except (ValueError, TypeError):
@@ -242,7 +241,7 @@ def _check_is_server_test(test_type):
     @returns A boolean to identify if the test type is server test.
     """
     if test_type is not None:
-        if isinstance(test_type, basestring):
+        if isinstance(test_type, six.string_types):
             try:
                 test_type = control_data.CONTROL_TYPE.get_value(test_type)
             except AttributeError:
@@ -262,7 +261,7 @@ def prepare_generate_control_file(tests, profilers, db_tests=True):
     # ensure tests are all the same type
     try:
         test_type = get_consistent_value(test_objects, 'test_type')
-    except InconsistencyException, exc:
+    except InconsistencyException as exc:
         test1, test2 = exc.args
         raise model_logic.ValidationError(
             {'tests' : 'You cannot run both test_suites and server-side '
@@ -300,11 +299,12 @@ def check_job_dependencies(host_objects, job_dependencies):
     for index, dependency in enumerate(job_dependencies):
         if not provision.is_for_special_action(dependency):
             try:
-              label = models.Label.smart_get(dependency)
+                label = models.Label.smart_get(dependency)
             except models.Label.DoesNotExist:
-              logging.info('Label %r does not exist, so it cannot '
-                           'be replaced by static label.', dependency)
-              label = None
+                logging.info(
+                        'Label %r does not exist, so it cannot '
+                        'be replaced by static label.', dependency)
+                label = None
 
             if label is not None and label.is_replaced_by_static():
                 ok_hosts = ok_hosts.filter(static_labels__name=dependency)
@@ -381,7 +381,7 @@ def check_abort_synchronous_jobs(host_queue_entries):
 
 def check_modify_host(update_data):
     """
-    Sanity check modify_host* requests.
+    Check modify_host* requests.
 
     @param update_data: A dictionary with the changes to make to a host
             or hosts.
@@ -481,9 +481,10 @@ def get_job_info(job, preserve_metahosts=False, queue_entry_filter_data=None):
 
 def check_for_duplicate_hosts(host_objects):
     host_counts = collections.Counter(host_objects)
-    duplicate_hostnames = {host.hostname
-                           for host, count in host_counts.iteritems()
-                           if count > 1}
+    duplicate_hostnames = {
+            host.hostname
+            for host, count in six.iteritems(host_counts) if count > 1
+    }
     if duplicate_hostnames:
         raise model_logic.ValidationError(
                 {'hosts' : 'Duplicate hosts: %s'
@@ -854,7 +855,7 @@ def _allowed_hosts_for_main_job(host_objects):
     if num_shards > 1:
         return False
     if num_shards == 1:
-        hosts_on_shard = shard_host_map.values()[0]
+        hosts_on_shard = list(shard_host_map.values())[0]
         assert len(hosts_on_shard) <= len(host_objects)
         return len(hosts_on_shard) == len(host_objects)
     else:
@@ -973,12 +974,10 @@ def _persist_records_with_type_sent_from_shard(
     @param shard: The shard the records were sent from.
     @param records: The records sent in their serialized format.
     @param record_type: Type of the objects represented by records.
-    @param args: Additional arguments that will be passed on to the sanity
-                 checks.
-    @param kwargs: Additional arguments that will be passed on to the sanity
-                  checks.
+    @param args: Additional arguments that will be passed on to the checks.
+    @param kwargs: Additional arguments that will be passed on to the checks.
 
-    @raises error.UnallowedRecordsSentToMain if any of the sanity checks fail.
+    @raises error.UnallowedRecordsSentToMain if any of the checks fail.
 
     @returns: List of primary keys of the processed records.
     """
@@ -993,7 +992,7 @@ def _persist_records_with_type_sent_from_shard(
                     pk, record_type))
 
         try:
-            current_record.sanity_check_update_from_shard(
+            current_record._check_update_from_shard(
                 shard, serialized_record, *args, **kwargs)
         except error.IgnorableUnallowedRecordsSentToMain:
             # An illegal record change was attempted, but it was of a non-fatal
@@ -1008,13 +1007,13 @@ def _persist_records_with_type_sent_from_shard(
 
 def persist_records_sent_from_shard(shard, jobs, hqes):
     """
-    Sanity checking then saving serialized records sent to main from shard.
+    Checking then saving serialized records sent to main from shard.
 
     During heartbeats shards upload jobs and hostqueuentries. This performs
-    some sanity checks on these and then updates the existing records for those
+    some checks on these and then updates the existing records for those
     entries with the updated ones from the heartbeat.
 
-    The sanity checks include:
+    The checks include:
     - Checking if the objects sent already exist on the main.
     - Checking if the objects sent were assigned to this shard.
     - hostqueueentries must be sent together with their jobs.
@@ -1023,7 +1022,7 @@ def persist_records_sent_from_shard(shard, jobs, hqes):
     @param jobs: The jobs the shard sent.
     @param hqes: The hostqueuentries the shart sent.
 
-    @raises error.UnallowedRecordsSentToMain if any of the sanity checks fail.
+    @raises error.UnallowedRecordsSentToMain if any of the checks fail.
     """
     job_ids_persisted = _persist_records_with_type_sent_from_shard(
             shard, jobs, models.Job)
@@ -1035,7 +1034,7 @@ def persist_records_sent_from_shard(shard, jobs, hqes):
 def forward_single_host_rpc_to_shard(func):
     """This decorator forwards rpc calls that modify a host to a shard.
 
-    If a host is assigned to a shard, rpcs that change his attributes should be
+    If a host is assigned to a shard, rpcs that change the host attributes should be
     forwarded to the shard.
 
     This assumes the first argument of the function represents a host id.
@@ -1058,8 +1057,7 @@ def forward_single_host_rpc_to_shard(func):
             shard_hostname = host.shard.hostname
         ret = func(**kwargs)
         if shard_hostname and not server_utils.is_shard():
-            run_rpc_on_multiple_hostnames(func.func_name,
-                                          [shard_hostname],
+            run_rpc_on_multiple_hostnames(func.__name__, [shard_hostname],
                                           **kwargs)
         return ret
 
@@ -1081,16 +1079,14 @@ def fanout_rpc(host_objs, rpc_name, include_hostnames=True, **kwargs):
     shard_host_map = bucket_hosts_by_shard(host_objs)
 
     # Execute the rpc against the appropriate shards.
-    for shard, hostnames in shard_host_map.iteritems():
+    for shard, hostnames in six.iteritems(shard_host_map):
         if include_hostnames:
             kwargs['hosts'] = hostnames
         try:
             run_rpc_on_multiple_hostnames(rpc_name, [shard], **kwargs)
-        except:
-            ei = sys.exc_info()
-            new_exc = error.RPCException('RPC %s failed on shard %s due to '
-                    '%s: %s' % (rpc_name, shard, ei[0].__name__, ei[1]))
-            raise new_exc.__class__, new_exc, ei[2]
+        except Exception as e:
+            raise error.RPCException('RPC %s failed on shard %s due to %s' %
+                                     (rpc_name, shard, e))
 
 
 def run_rpc_on_multiple_hostnames(rpc_call, shard_hostnames, **kwargs):
@@ -1168,7 +1164,7 @@ def route_rpc_to_main(func):
             afe = frontend_wrappers.RetryingAFE(
                     server=server_utils.get_global_afe_hostname(),
                     user=thread_local.get_user())
-            return afe.run(func.func_name, **kwargs)
+            return afe.run(func.__name__, **kwargs)
         return func(**kwargs)
 
     return replacement

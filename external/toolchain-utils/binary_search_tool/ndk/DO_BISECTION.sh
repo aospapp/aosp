@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2016 Google LLC
 #
 # This is an example script to show users the steps for bisecting an NDK
 # application for Android. Our example is the Teapot app that comes bundled with

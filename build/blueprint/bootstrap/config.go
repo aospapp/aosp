@@ -25,7 +25,7 @@ import (
 )
 
 func bootstrapVariable(name string, value func(BootstrapConfig) string) blueprint.Variable {
-	return pctx.VariableFunc(name, func(config interface{}) (string, error) {
+	return pctx.VariableFunc(name, func(ctx blueprint.VariableFuncContext, config interface{}) (string, error) {
 		c, ok := config.(BootstrapConfig)
 		if !ok {
 			panic(fmt.Sprintf("Bootstrap rules were passed a configuration that does not include theirs, config=%q",
@@ -105,10 +105,11 @@ const (
 )
 
 type PrimaryBuilderInvocation struct {
-	Inputs      []string
-	Outputs     []string
-	Args        []string
-	Console     bool
-	Description string
-	Env         map[string]string
+	Inputs          []string
+	OrderOnlyInputs []string
+	Outputs         []string
+	Args            []string
+	Console         bool
+	Description     string
+	Env             map[string]string
 }

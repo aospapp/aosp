@@ -13,12 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Common operations between managing GCE and Cuttlefish devices.
-
-This module provides the common operations between managing GCE (device_driver)
-and Cuttlefish (create_cuttlefish_action) devices. Should not be called
-directly.
-"""
+"""Common operations to create remote devices."""
 
 import logging
 import os
@@ -109,16 +104,19 @@ class DevicePool:
         for _ in range(num):
             instance = self._device_factory.CreateInstance()
             ip = self._compute_client.GetInstanceIP(instance)
-            time_info = self._compute_client.execution_time if hasattr(
-                self._compute_client, "execution_time") else {}
+            time_info = {
+                stage: round(exec_time, 2) for stage, exec_time in
+                getattr(self._compute_client, "execution_time", {}).items()}
             stage = self._compute_client.stage if hasattr(
                 self._compute_client, "stage") else 0
             openwrt = self._compute_client.openwrt if hasattr(
                 self._compute_client, "openwrt") else False
+            gce_hostname = self._compute_client.gce_hostname if hasattr(
+                self._compute_client, "gce_hostname") else None
             self.devices.append(
                 avd.AndroidVirtualDevice(ip=ip, instance_name=instance,
                                          time_info=time_info, stage=stage,
-                                         openwrt=openwrt))
+                                         openwrt=openwrt, gce_hostname=gce_hostname))
 
     @utils.TimeExecute(function_description="Waiting for AVD(s) to boot up",
                        result_evaluator=utils.BootEvaluator)
@@ -208,24 +206,10 @@ def _GetErrorType(error):
             return constants.GCE_QUOTA_ERROR
     return constants.ACLOUD_UNKNOWN_ERROR
 
-def _GetAdbPort(avd_type, base_instance_num):
-    """Get Adb port according to avd_type and device offset.
-
-    Args:
-        avd_type: String, the AVD type(cuttlefish, goldfish...).
-        base_instance_num: int, device offset.
-
-    Returns:
-        int, adb port.
-    """
-    if avd_type in utils.AVD_PORT_DICT:
-        return utils.AVD_PORT_DICT[avd_type].adb_port + base_instance_num - 1
-    return None
-
-# pylint: disable=too-many-locals,unused-argument,too-many-branches
+# pylint: disable=too-many-locals,unused-argument,too-many-branches,too-many-statements
 def CreateDevices(command, cfg, device_factory, num, avd_type,
-                  report_internal_ip=False, autoconnect=False,
-                  serial_log_file=None, client_adb_port=None,
+                  report_internal_ip=False, autoconnect=False, serial_log_file=None,
+                  client_adb_port=None, client_fastboot_port=None,
                   boot_timeout_secs=None, unlock_screen=False,
                   wait_for_boot=True, connect_webrtc=False,
                   ssh_private_key_path=None,
@@ -247,6 +231,7 @@ def CreateDevices(command, cfg, device_factory, num, avd_type,
         serial_log_file: String, the file path to tar the serial logs.
         autoconnect: Boolean, whether to auto connect to device.
         client_adb_port: Integer, Specify port for adb forwarding.
+        client_fastboot_port: Integer, Specify port for fastboot forwarding.
         boot_timeout_secs: Integer, boot timeout secs.
         unlock_screen: Boolean, whether to unlock screen after invoke vnc client.
         wait_for_boot: Boolean, True to check serial log include boot up
@@ -288,15 +273,16 @@ def CreateDevices(command, cfg, device_factory, num, avd_type,
         for device in device_pool.devices:
             ip = (device.ip.internal if report_internal_ip
                   else device.ip.external)
-            base_instance_num = 1
-            if constants.BASE_INSTANCE_NUM in device_pool._compute_client.dict_report:
-                base_instance_num = device_pool._compute_client.dict_report[constants.BASE_INSTANCE_NUM]
-            adb_port = _GetAdbPort(
-                avd_type,
-                base_instance_num
-            )
+            extra_args_ssh_tunnel=cfg.extra_args_ssh_tunnel
+            # TODO(b/154175542): Report multiple devices.
+            vnc_ports = device_factory.GetVncPorts()
+            adb_ports = device_factory.GetAdbPorts()
+            fastboot_ports = device_factory.GetFastbootPorts()
+            if not vnc_ports[0] and not adb_ports[0] and not fastboot_ports[0]:
+                vnc_ports[0], adb_ports[0], fastboot_ports[0] = utils.AVD_PORT_DICT[avd_type]
+
             device_dict = {
-                "ip": ip + (":" + str(adb_port) if adb_port else ""),
+                "ip": ip + (":" + str(adb_ports[0]) if adb_ports[0] else ""),
                 "instance_name": device.instance_name
             }
             if device.build_info:
@@ -305,35 +291,45 @@ def CreateDevices(command, cfg, device_factory, num, avd_type,
                 device_dict.update(device.time_info)
             if device.openwrt:
                 device_dict.update(device_factory.GetOpenWrtInfoDict())
+            if device.gce_hostname:
+                device_dict[constants.GCE_HOSTNAME] = device.gce_hostname
+                logger.debug(
+                    "To connect with hostname, erase the extra_args_ssh_tunnel: %s",
+                    extra_args_ssh_tunnel)
+                extra_args_ssh_tunnel=""
             if autoconnect and reporter.status == report.Status.SUCCESS:
-                forwarded_ports = utils.AutoConnect(
-                    ip_addr=ip,
-                    rsa_key_file=(ssh_private_key_path or
-                                  cfg.ssh_private_key_path),
-                    target_vnc_port=utils.AVD_PORT_DICT[avd_type].vnc_port,
-                    target_adb_port=adb_port,
-                    ssh_user=ssh_user,
-                    client_adb_port=client_adb_port,
-                    extra_args_ssh_tunnel=cfg.extra_args_ssh_tunnel)
-                device_dict[constants.VNC_PORT] = forwarded_ports.vnc_port
-                device_dict[constants.ADB_PORT] = forwarded_ports.adb_port
-                device_dict[constants.DEVICE_SERIAL] = (
-                    constants.REMOTE_INSTANCE_ADB_SERIAL %
-                    forwarded_ports.adb_port)
-                if unlock_screen:
-                    AdbTools(forwarded_ports.adb_port).AutoUnlockScreen()
+                forwarded_ports = _EstablishDeviceConnections(
+                    device.gce_hostname or ip,
+                    vnc_ports, adb_ports, fastboot_ports,
+                    client_adb_port, client_fastboot_port, ssh_user,
+                    ssh_private_key_path=(ssh_private_key_path or
+                                          cfg.ssh_private_key_path),
+                    extra_args_ssh_tunnel=extra_args_ssh_tunnel,
+                    unlock_screen=unlock_screen)
+                if forwarded_ports:
+                    forwarded_port = forwarded_ports[0]
+                    device_dict[constants.VNC_PORT] = forwarded_port.vnc_port
+                    device_dict[constants.ADB_PORT] = forwarded_port.adb_port
+                    device_dict[constants.FASTBOOT_PORT] = forwarded_port.fastboot_port
+                    device_dict[constants.DEVICE_SERIAL] = (
+                        constants.REMOTE_INSTANCE_ADB_SERIAL %
+                        forwarded_port.adb_port)
             if connect_webrtc and reporter.status == report.Status.SUCCESS:
                 webrtc_local_port = utils.PickFreePort()
                 device_dict[constants.WEBRTC_PORT] = webrtc_local_port
                 utils.EstablishWebRTCSshTunnel(
-                    ip_addr=ip,
+                    ip_addr=device.gce_hostname or ip,
                     webrtc_local_port=webrtc_local_port,
                     rsa_key_file=(ssh_private_key_path or
                                   cfg.ssh_private_key_path),
                     ssh_user=ssh_user,
-                    extra_args_ssh_tunnel=cfg.extra_args_ssh_tunnel)
+                    extra_args_ssh_tunnel=extra_args_ssh_tunnel)
             if device.instance_name in logs:
                 device_dict[constants.LOGS] = logs[device.instance_name]
+            if hasattr(device_factory, 'GetFetchCvdWrapperLogIfExist'):
+                fetch_cvd_wrapper_log = device_factory.GetFetchCvdWrapperLogIfExist()
+                if fetch_cvd_wrapper_log:
+                    device_dict["fetch_cvd_wrapper_log"] = fetch_cvd_wrapper_log
             if device.instance_name in failures:
                 reporter.SetErrorType(constants.ACLOUD_BOOT_UP_ERROR)
                 if device.stage:
@@ -347,3 +343,45 @@ def CreateDevices(command, cfg, device_factory, num, avd_type,
         reporter.AddError(str(e))
         reporter.SetStatus(report.Status.FAIL)
     return reporter
+
+
+def _EstablishDeviceConnections(ip, vnc_ports, adb_ports, fastboot_ports,
+                                client_adb_port, client_fastboot_port,
+                                ssh_user, ssh_private_key_path,
+                                extra_args_ssh_tunnel, unlock_screen):
+    """Establish the adb and vnc connections.
+
+    Create the ssh tunnels with adb ports and vnc ports. Then unlock the device
+    screen via the adb port.
+
+    Args:
+        ip: String, the IPv4 address.
+        vnc_ports: List of integer, the vnc ports.
+        adb_ports: List of integer, the adb ports.
+        fastboot_ports: List of integer, the fastboot ports.
+        client_adb_port: Integer, Specify port for adb forwarding.
+        client_fastboot_port: Integer, Specify port for fastboot forwarding.
+        ssh_user: String, the user name for SSH tunneling.
+        ssh_private_key_path: String, the private key for SSH tunneling.
+        extra_args_ssh_tunnel: String, extra args for ssh tunnel connection.
+        unlock_screen: Boolean, whether to unlock screen after invoking vnc client.
+
+    Returns:
+        A list of namedtuple of (vnc_port, adb_port)
+    """
+    forwarded_ports = []
+    for vnc_port, adb_port, fastboot_port in zip(vnc_ports, adb_ports, fastboot_ports):
+        forwarded_port = utils.AutoConnect(
+            ip_addr=ip,
+            rsa_key_file=ssh_private_key_path,
+            target_vnc_port=vnc_port,
+            target_adb_port=adb_port,
+            target_fastboot_port=fastboot_port,
+            ssh_user=ssh_user,
+            client_adb_port=client_adb_port,
+            client_fastboot_port=client_fastboot_port,
+            extra_args_ssh_tunnel=extra_args_ssh_tunnel)
+        forwarded_ports.append(forwarded_port)
+        if unlock_screen:
+            AdbTools(forwarded_port.adb_port).AutoUnlockScreen()
+    return forwarded_ports

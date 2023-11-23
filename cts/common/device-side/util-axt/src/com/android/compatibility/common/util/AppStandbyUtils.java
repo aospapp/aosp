@@ -16,6 +16,8 @@
 
 package com.android.compatibility.common.util;
 
+import static com.android.compatibility.common.util.UserSettings.Namespace.GLOBAL;
+
 import android.app.usage.UsageStatsManager;
 import android.util.Log;
 
@@ -25,6 +27,7 @@ public class AppStandbyUtils {
     private static final String TAG = "CtsAppStandbyUtils";
     private static final UsageStatsManager sUsageStatsManager = InstrumentationRegistry
             .getTargetContext().getSystemService(UsageStatsManager.class);
+    private static final UserSettings sGlobalSettings = new UserSettings(GLOBAL);
 
     /**
      * Returns if app standby is enabled.
@@ -48,7 +51,7 @@ public class AppStandbyUtils {
     public static void setAppStandbyEnabledAtRuntime(boolean enabled) {
         final String value = enabled ? "1" : "0";
         Log.d(TAG, "Setting AppStandby " + (enabled ? "enabled" : "disabled") + " at runtime.");
-        SettingsUtils.putGlobalSetting("app_standby_enabled", value);
+        sGlobalSettings.set("app_standby_enabled", value);
     }
 
     /**

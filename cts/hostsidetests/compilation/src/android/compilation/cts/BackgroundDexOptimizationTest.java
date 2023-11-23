@@ -16,9 +16,11 @@
 
 package android.compilation.cts;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tradefed.device.ITestDevice;
@@ -30,10 +32,8 @@ import com.google.common.io.ByteStreams;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.FixMethodOrder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.MethodSorters;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -48,19 +48,13 @@ import java.util.concurrent.TimeoutException;
  * Tests background dex optimization which runs as idle job.
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
-// Tests for post boot optimization must run first because they reboot the device into a clean
-// state, which can benefit other tests so that they don't have to reboot again.
-// Tests for idle optimizations won't work without a reboot in some cases. See
-// `testIdleOptimization*` for more details. However, we can't do a reboot for every test case
-// because it will cause the test to time out.
-@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public final class BackgroundDexOptimizationTest extends BaseHostJUnit4Test {
     private static final long REBOOT_TIMEOUT_MS = 600_000;
-    private static final long JOB_START_TIMEOUT_MS = 10_000;
+    private static final long JOB_START_TIMEOUT_MS = 30_000;
     private static final long DEXOPT_TIMEOUT_MS = 1_200_000;
     // Cancel should be faster. It will be usually much shorter but we cannot make it too short
     // as CTS cannot enforce unspecified performance.
-    private static final long DEXOPT_CANCEL_TIMEOUT_MS = 10_000;
+    private static final long DEXOPT_CANCEL_TIMEOUT_MS = 30_000;
     private static final long POLLING_TIME_SLICE = 200;
 
     private static final String CMD_DUMP_PACKAGE_DEXOPT = "dumpsys -t 100 package dexopt";
@@ -77,7 +71,7 @@ public final class BackgroundDexOptimizationTest extends BaseHostJUnit4Test {
 
     private static final String CMD_DELETE_ODEX = "pm delete-dexopt " + APPLICATION_PACKAGE;
 
-    private static final boolean DBG_LOG_CMD = false;
+    private static final boolean DBG_LOG_CMD = true;
 
     // Uses internal consts defined in BackgroundDexOptService only for testing purpose.
     private static final int STATUS_OK = 0;
@@ -90,52 +84,21 @@ public final class BackgroundDexOptimizationTest extends BaseHostJUnit4Test {
     @Before
     public void setUp() throws Exception {
         mDevice = getDevice();
+        assumeFalse(mDevice.getBooleanProperty("dalvik.vm.useartservice", false));
         assertThat(mDevice.waitForBootComplete(REBOOT_TIMEOUT_MS)).isTrue();
         // Turn off the display to simulate the idle state in terms of power consumption.
         toggleScreenOn(false);
     }
 
-    @Test
-    // Add an "A" in the name to make it run before other tests.
-    public void testAPostBootOptimizationCompleted() throws Exception {
-        // Should reboot to put the device into known states (= post boot optimization not run yet).
-        rebootAndCheckDexOptEnabled();
-
-        // Note that post boot job runs only once until it is completed.
-        completePostBootOptimization();
-    }
-
-    @Test
-    // Add an "A" in the name to make it run before other tests.
-    public void testAPostBootOptimizationCancelled() throws Exception {
-        // Should reboot to put the device into known states (= post boot optimization not run yet).
-        rebootAndCheckDexOptEnabled();
-
-        reinstallAppPackage();
-        LastDeviceExecutionTime timeBefore = getLastExecutionTime();
-        postJobSchedulerJob(CMD_START_POST_BOOT);
-
-        // Wait until it is started.
-        pollingCheck("Post boot start timeout", JOB_START_TIMEOUT_MS,
-                () -> getLastExecutionTime().startTime >= timeBefore.deviceCurrentTime);
-
-        // Now cancel it.
+    @After
+    public void tearDown() throws Exception {
+        // Restore the display state. CTS runs display on state by default. So we need to turn it
+        // on again.
+        toggleScreenOn(true);
+        // Cancel all active dexopt jobs.
+        executeShellCommand(CMD_CANCEL_IDLE);
         executeShellCommand(CMD_CANCEL_POST_BOOT);
-
-        // Wait until it is completed or cancelled. We cannot prevent faster devices with small
-        // number of APKs to complete very quickly, so completion while cancelling can happen.
-        pollingCheck("Post boot cancel timeout", DEXOPT_CANCEL_TIMEOUT_MS,
-                () -> getLastExecutionTime().duration >= 0);
-
-        int status = getLastDexOptStatus();
-        assertThat(status).isAnyOf(STATUS_OK, STATUS_DEX_OPT_FAILED, STATUS_CANCELLED);
-        if (status == STATUS_CANCELLED) {
-            assertThat(checkFinishedPostBootUpdate()).isFalse();
-            // If cancelled, we can complete it by running it again.
-            completePostBootOptimization();
-        } else {
-            assertThat(checkFinishedPostBootUpdate()).isTrue();
-        }
+        mDevice.uninstallPackage(APPLICATION_PACKAGE);
     }
 
     @Test
@@ -227,17 +190,6 @@ public final class BackgroundDexOptimizationTest extends BaseHostJUnit4Test {
         assertThat(status).isAnyOf(STATUS_OK, STATUS_DEX_OPT_FAILED);
     }
 
-    @After
-    public void tearDown() throws Exception {
-        // Restore the display state. CTS runs display on state by default. So we need to turn it
-        // on again.
-        toggleScreenOn(true);
-        // Cancel all active dexopt jobs.
-        executeShellCommand(CMD_CANCEL_IDLE);
-        executeShellCommand(CMD_CANCEL_POST_BOOT);
-        mDevice.uninstallPackage(APPLICATION_PACKAGE);
-    }
-
     /**
      * Turns on or off the screen.
      */
@@ -275,7 +227,7 @@ public final class BackgroundDexOptimizationTest extends BaseHostJUnit4Test {
         executeShellCommand(CMD_DELETE_ODEX);
         executeShellCommand(CMD_APP_ACTIVITY_LAUNCH);
         // Give short time to run some code.
-        Thread.sleep(500);
+        RunUtil.getDefault().sleep(500);
     }
 
     private boolean checkDexOptEnabled() throws Exception {
@@ -337,7 +289,7 @@ public final class BackgroundDexOptimizationTest extends BaseHostJUnit4Test {
         for (String line: getDexOptDumpForBgDexOpt()) {
             String[] vals = line.split(":");
             switch (vals[0]) {
-                case "mLastExecutionStartTimeMs":
+                case "mLastExecutionStartUptimeMs":
                     startTime = Long.parseLong(vals[1]);
                     break;
                 case "mLastExecutionDurationMs":
@@ -352,7 +304,23 @@ public final class BackgroundDexOptimizationTest extends BaseHostJUnit4Test {
         return new LastDeviceExecutionTime(startTime, duration, deviceCurrentTime);
     }
 
-    private static void pollingCheck(CharSequence message, long timeout,
+    private String getLastStatusDump() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("\n--LastStatus--\n");
+        try {
+            sb.append(getLastExecutionTime());
+            sb.append("\n");
+            sb.append("Last DexOpt Status:");
+            sb.append(getLastDexOptStatus());
+            sb.append("\n");
+        } catch (Exception e) {
+            sb.append("\nGetting status failed:" + e);
+        }
+
+        return sb.toString();
+    }
+
+    private void pollingCheck(CharSequence message, long timeout,
             Callable<Boolean> condition) throws Exception {
         long expirationTime = System.currentTimeMillis() + timeout;
         while (System.currentTimeMillis() < expirationTime) {
@@ -363,18 +331,9 @@ public final class BackgroundDexOptimizationTest extends BaseHostJUnit4Test {
             } catch (TimeoutException e) {
                 // DUMP TIMEOUT has happened. Ignore it as we have to retry.
             }
-            Thread.sleep(POLLING_TIME_SLICE);
+            RunUtil.getDefault().sleep(POLLING_TIME_SLICE);
         }
-
-        fail(message.toString());
-    }
-
-    private void rebootAndCheckDexOptEnabled() throws Exception {
-        mDevice.reboot();
-        assertThat(mDevice.waitForBootComplete(REBOOT_TIMEOUT_MS)).isTrue();
-        // This requires PackageManager to be alive. So run after reboot as the previous failure
-        // may have device in booting state.
-        assumeTrue(checkDexOptEnabled());
+        fail(message.toString() + getLastStatusDump());
     }
 
     private void ensurePostBootOptimizationCompleted() throws Exception {
@@ -392,6 +351,12 @@ public final class BackgroundDexOptimizationTest extends BaseHostJUnit4Test {
             this.startTime = startTime;
             this.duration = duration;
             this.deviceCurrentTime = deviceCurrentTime;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("LastExecution{startTime=%d, duration=%d, deviceTime=%d}",
+                    startTime, duration, deviceCurrentTime);
         }
     }
 }

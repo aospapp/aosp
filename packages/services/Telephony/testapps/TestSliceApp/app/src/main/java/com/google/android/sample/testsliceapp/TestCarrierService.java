@@ -21,6 +21,7 @@ import android.service.carrier.CarrierIdentifier;
 import android.service.carrier.CarrierService;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
+import android.util.Log;
 
 /**
  * Carrier Service that sets the carrier config upon being bound by the system. Requires UICC
@@ -32,11 +33,13 @@ public class TestCarrierService extends CarrierService {
         CarrierConfigManager cfgMgr =
                 (CarrierConfigManager) getSystemService(Context.CARRIER_CONFIG_SERVICE);
         cfgMgr.notifyConfigChangedForSubId(SubscriptionManager.getDefaultSubscriptionId());
+        Log.d("TestCarrierService", "onCreate + ");
     }
 
     @Override
     public PersistableBundle onLoadConfig(CarrierIdentifier carrierIdentifier) {
         PersistableBundle config = new PersistableBundle();
+        Log.d("TestCarrierService", "onLoadConfig + ");
         return config;
     }
 }

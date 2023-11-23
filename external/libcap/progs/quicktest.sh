@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Run through a series of tests to try out the various capability
-# manipulations posible through exec.
+# manipulations possible through exec.
 #
 # [Run this as root in a root-enabled process tree.]
 
@@ -43,6 +43,7 @@ pass_capsh () {
 }
 
 pass_capsh --print
+pass_capsh --current
 
 # Validate that PATH expansion works
 PATH=$(/bin/pwd)/junk:$(/bin/pwd) capsh == == == --modes
@@ -89,7 +90,7 @@ pass_capsh --keep=0 --keep=1 --keep=0 --keep=1 --print
 /bin/chmod u+s tcapsh
 /bin/ls -l tcapsh
 
-# leverage keep caps to maintain capabilities accross a change of euid
+# leverage keep caps to maintain capabilities across a change of euid
 # from setuid root to capable luser (as per wireshark/dumpcap 0.99.7)
 # This test is subtle. It is testing that a change to self, dropping
 # euid=0 back to that of the luser keeps capabilities.
@@ -204,7 +205,7 @@ EOF
 
     # Next force the privileged binary to have an empty capability set.
     # This is sort of the opposite of privileged - it should ensure that
-    # the file can never aquire privilege by the ambient method.
+    # the file can never acquire privilege by the ambient method.
     ./setcap = ./privileged
     fail_capsh --keep=1 --uid=$nouid --inh=cap_setuid --addamb=cap_setuid -- -c "./privileged --print --uid=1"
 
@@ -258,5 +259,12 @@ else
     echo "no Go support compiled, so skipping Go tests"
 fi
 rm -f compare-cap
+
+echo "attempt to exploit kernel bug"
+./uns_test
+if [ $? -ne 0 ]; then
+    echo "upgrade your kernel"
+    exit 1
+fi
 
 echo "ALL TESTS PASSED!"

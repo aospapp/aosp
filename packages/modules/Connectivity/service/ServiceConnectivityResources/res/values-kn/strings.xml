@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="connectivityResourcesAppLabel" msgid="2476261877900882974">"ಸಿಸ್ಟಂ ಸಂಪರ್ಕ ಕಲ್ಪಿಸುವಿಕೆ ಮಾಹಿತಿಯ ಮೂಲಗಳು"</string>
+    <string name="connectivityResourcesAppLabel" msgid="2476261877900882974">"ಸಿಸ್ಟಂ ಕನೆಕ್ಟಿವಿಟಿ ಮಾಹಿತಿಯ ಮೂಲಗಳು"</string>
     <string name="wifi_available_sign_in" msgid="8041178343789805553">"ವೈ-ಫೈ ನೆಟ್‍ವರ್ಕ್‌ಗೆ ಸೈನ್ ಇನ್ ಮಾಡಿ"</string>
     <string name="network_available_sign_in" msgid="2622520134876355561">"ನೆಟ್‌ವರ್ಕ್‌ಗೆ ಸೈನ್ ಇನ್ ಮಾಡಿ"</string>
     <!-- no translation found for network_available_sign_in_detailed (8439369644697866359) -->
@@ -30,7 +30,7 @@
     <string name="network_partial_connectivity" msgid="5549503845834993258">"<xliff:g id="NETWORK_SSID">%1$s</xliff:g> ಸೀಮಿತ ಸಂಪರ್ಕ ಕಲ್ಪಿಸುವಿಕೆಯನ್ನು ಹೊಂದಿದೆ"</string>
     <string name="network_partial_connectivity_detailed" msgid="4732435946300249845">"ಹೇಗಾದರೂ ಸಂಪರ್ಕಿಸಲು ಟ್ಯಾಪ್ ಮಾಡಿ"</string>
     <string name="network_switch_metered" msgid="5016937523571166319">"<xliff:g id="NETWORK_TYPE">%1$s</xliff:g> ಗೆ ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
-    <string name="network_switch_metered_detail" msgid="1257300152739542096">"<xliff:g id="PREVIOUS_NETWORK">%2$s</xliff:g> ಇಂಟರ್ನೆಟ್ ಪ್ರವೇಶ ಹೊಂದಿಲ್ಲದಿರುವಾಗ, ಸಾಧನವು <xliff:g id="NEW_NETWORK">%1$s</xliff:g> ಬಳಸುತ್ತದೆ. ಶುಲ್ಕಗಳು ಅನ್ವಯವಾಗಬಹುದು."</string>
+    <string name="network_switch_metered_detail" msgid="1257300152739542096">"<xliff:g id="PREVIOUS_NETWORK">%2$s</xliff:g> ಇಂಟರ್ನೆಟ್ ಆ್ಯಕ್ಸೆಸ್ ಹೊಂದಿಲ್ಲದಿರುವಾಗ, ಸಾಧನವು <xliff:g id="NEW_NETWORK">%1$s</xliff:g> ಬಳಸುತ್ತದೆ. ಶುಲ್ಕಗಳು ಅನ್ವಯವಾಗಬಹುದು."</string>
     <string name="network_switch_metered_toast" msgid="70691146054130335">"<xliff:g id="PREVIOUS_NETWORK">%1$s</xliff:g> ರಿಂದ <xliff:g id="NEW_NETWORK">%2$s</xliff:g> ಗೆ ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
   <string-array name="network_switch_type_name">
     <item msgid="3004933964374161223">"ಮೊಬೈಲ್ ಡೇಟಾ"</item>

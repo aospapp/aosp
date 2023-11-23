@@ -21,7 +21,7 @@
  * vkr_ring_create.
  */
 struct vkr_ring_layout {
-   struct virgl_resource *resource;
+   const struct vkr_resource_attachment *attachment;
 
    struct vkr_region head;
    struct vkr_region tail;
@@ -86,7 +86,7 @@ struct vkr_ring {
    struct list_head head;
 
    /* ring regions */
-   struct virgl_resource *resource;
+   const struct vkr_resource_attachment *attachment;
    struct vkr_ring_control control;
    struct vkr_ring_buffer buffer;
    struct vkr_ring_extra extra;

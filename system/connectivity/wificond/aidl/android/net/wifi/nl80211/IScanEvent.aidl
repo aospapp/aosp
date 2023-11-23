@@ -22,5 +22,8 @@ package android.net.wifi.nl80211;
  */
 interface IScanEvent {
   oneway void OnScanResultReady();
+  // This callback is deprecated in Android 14.
+  // Newer wificond implementation should call OnScanRequestFailed().
   oneway void OnScanFailed();
+  oneway void OnScanRequestFailed(int errorCode);
 }

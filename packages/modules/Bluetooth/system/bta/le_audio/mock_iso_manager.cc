@@ -46,6 +46,11 @@ void IsoManager::RegisterBigCallbacks(
   pimpl_->RegisterBigCallbacks(callbacks);
 }
 
+void IsoManager::RegisterOnIsoTrafficActiveCallback(void callback(bool)) const {
+  if (!pimpl_) return;
+  pimpl_->RegisterOnIsoTrafficActiveCallbacks(callback);
+}
+
 void IsoManager::CreateCig(uint8_t cig_id,
                            struct iso_manager::cig_create_params cig_params) {
   if (!pimpl_) return;
@@ -58,7 +63,9 @@ void IsoManager::ReconfigureCig(
   pimpl_->ReconfigureCig(cig_id, std::move(cig_params));
 }
 
-void IsoManager::RemoveCig(uint8_t cig_id) { pimpl_->RemoveCig(cig_id); }
+void IsoManager::RemoveCig(uint8_t cig_id, bool force) {
+  pimpl_->RemoveCig(cig_id, force);
+}
 
 void IsoManager::EstablishCis(
     struct iso_manager::cis_establish_params conn_params) {
@@ -131,7 +138,7 @@ void IsoManager::Start() {
   // It is needed here as IsoManager which is a singleton creates it, but in
   // this mock we want to destroy and recreate the mock on each test case.
   if (!pimpl_) {
-    pimpl_ = std::make_unique<impl>();
+    pimpl_ = std::make_unique<testing::NiceMock<impl>>();
   }
 
   mock_pimpl_ = pimpl_.get();

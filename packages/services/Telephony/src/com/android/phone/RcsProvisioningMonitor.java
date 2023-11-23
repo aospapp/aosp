@@ -828,7 +828,7 @@ public class RcsProvisioningMonitor {
 
     private void onConfigReceived(int subId, byte[] config, boolean isCompressed) {
         logv("onConfigReceived, subId:" + subId + ", config:"
-                + config + ", isCompressed:" + isCompressed);
+                + Arrays.toString(config) + ", isCompressed:" + isCompressed);
         RcsProvisioningInfo info = mRcsProvisioningInfos.get(subId);
         if (info == null) {
             logd("sub[" + subId + "] has been removed");

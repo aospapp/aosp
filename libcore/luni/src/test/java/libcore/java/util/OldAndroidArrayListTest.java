@@ -31,11 +31,11 @@ public class OldAndroidArrayListTest extends TestCase {
         assertEquals(0, array.size());
         assertTrue(array.isEmpty());
 
-        array.add(new Integer(0));
-        array.add(0, new Integer(1));
-        array.add(1, new Integer(2));
-        array.add(new Integer(3));
-        array.add(new Integer(1));
+        array.add(Integer.valueOf(0));
+        array.add(0, Integer.valueOf(1));
+        array.add(1, Integer.valueOf(2));
+        array.add(Integer.valueOf(3));
+        array.add(Integer.valueOf(1));
 
         assertEquals(5, array.size());
         assertFalse(array.isEmpty());
@@ -47,11 +47,11 @@ public class OldAndroidArrayListTest extends TestCase {
         assertEquals(1, ((Integer) array.get(4)).intValue());
 
         assertFalse(array.contains(null));
-        assertTrue(array.contains(new Integer(2)));
-        assertEquals(0, array.indexOf(new Integer(1)));
-        assertEquals(4, array.lastIndexOf(new Integer(1)));
-        assertTrue(array.indexOf(new Integer(5)) < 0);
-        assertTrue(array.lastIndexOf(new Integer(5)) < 0);
+        assertTrue(array.contains(Integer.valueOf(2)));
+        assertEquals(0, array.indexOf(Integer.valueOf(1)));
+        assertEquals(4, array.lastIndexOf(Integer.valueOf(1)));
+        assertTrue(array.indexOf(Integer.valueOf(5)) < 0);
+        assertTrue(array.lastIndexOf(Integer.valueOf(5)) < 0);
 
         array.remove(1);
         array.remove(1);
@@ -63,18 +63,18 @@ public class OldAndroidArrayListTest extends TestCase {
         assertEquals(1, ((Integer) array.get(2)).intValue());
 
         assertFalse(array.contains(null));
-        assertFalse(array.contains(new Integer(2)));
-        assertEquals(0, array.indexOf(new Integer(1)));
-        assertEquals(2, array.lastIndexOf(new Integer(1)));
-        assertTrue(array.indexOf(new Integer(5)) < 0);
-        assertTrue(array.lastIndexOf(new Integer(5)) < 0);
+        assertFalse(array.contains(Integer.valueOf(2)));
+        assertEquals(0, array.indexOf(Integer.valueOf(1)));
+        assertEquals(2, array.lastIndexOf(Integer.valueOf(1)));
+        assertTrue(array.indexOf(Integer.valueOf(5)) < 0);
+        assertTrue(array.lastIndexOf(Integer.valueOf(5)) < 0);
 
         array.clear();
 
         assertEquals(0, array.size());
         assertTrue(array.isEmpty());
-        assertTrue(array.indexOf(new Integer(5)) < 0);
-        assertTrue(array.lastIndexOf(new Integer(5)) < 0);
+        assertTrue(array.indexOf(Integer.valueOf(5)) < 0);
+        assertTrue(array.lastIndexOf(Integer.valueOf(5)) < 0);
 
         ArrayList al = new ArrayList();
 

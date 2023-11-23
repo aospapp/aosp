@@ -44,6 +44,19 @@ class FakeVolumeInterface : public VolumeInterface {
   virtual void SetVolume(int8_t volume) {}
 };
 
+class FakePlayerSettingsInterface : public PlayerSettingsInterface {
+ public:
+  virtual void ListPlayerSettings(ListPlayerSettingsCallback cb) {}
+  virtual void ListPlayerSettingValues(PlayerAttribute setting,
+                                       ListPlayerSettingValuesCallback cb) {}
+  virtual void GetCurrentPlayerSettingValue(
+      std::vector<PlayerAttribute> attributes,
+      GetCurrentPlayerSettingValueCallback cb) {}
+  virtual void SetPlayerSettings(std::vector<PlayerAttribute> attributes,
+                                 std::vector<uint8_t> values,
+                                 SetPlayerSettingValueCallback cb) {}
+};
+
 class FakeA2dpInterface : public A2dpInterface {
  public:
   virtual RawAddress active_peer() { return RawAddress(); }
@@ -54,9 +67,18 @@ class FakeA2dpInterface : public A2dpInterface {
 
 bool get_pts_avrcp_test(void) { return false; }
 
-const stack_config_t interface = {
-    nullptr, get_pts_avrcp_test, nullptr, nullptr, nullptr, nullptr, nullptr,
-    nullptr};
+const stack_config_t interface = {nullptr, get_pts_avrcp_test,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr, nullptr,
+                                  nullptr};
 
 void Callback(uint8_t, bool, std::unique_ptr<::bluetooth::PacketBuilder>) {}
 
@@ -64,13 +86,14 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size) {
   FakeMediaInterface fmi;
   FakeVolumeInterface fvi;
   FakeA2dpInterface fai;
+  FakePlayerSettingsInterface fpsi;
 
   std::vector<uint8_t> Packet(Data, Data + Size);
   Device device(RawAddress::kAny, true,
                 base::Bind([](uint8_t, bool,
                               std::unique_ptr<::bluetooth::PacketBuilder>) {}),
                 0xFFFF, 0xFFFF);
-  device.RegisterInterfaces(&fmi, &fai, &fvi);
+  device.RegisterInterfaces(&fmi, &fai, &fvi, &fpsi);
 
   auto browse_request = TestPacketType<BrowsePacket>::Make(Packet);
   device.BrowseMessageReceived(1, browse_request);

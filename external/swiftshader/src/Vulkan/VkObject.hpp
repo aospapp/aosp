@@ -48,7 +48,7 @@ static VkResult Create(const VkAllocationCallbacks *pAllocator, const CreateInfo
 	void *memory = nullptr;
 	if(size)
 	{
-		memory = vk::allocateHostMemory(size, REQUIRED_MEMORY_ALIGNMENT, pAllocator, T::GetAllocationScope());
+		memory = vk::allocateHostMemory(size, vk::HOST_MEMORY_ALLOCATION_ALIGNMENT, pAllocator, T::GetAllocationScope());
 		if(!memory)
 		{
 			return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -163,6 +163,23 @@ public:
 		return reinterpret_cast<VkT>(this);
 	}
 };
+
+template <typename T>
+const T *GetExtendedStruct(const void *pNext, VkStructureType sType)
+{
+	const VkBaseInStructure *extendedStruct = reinterpret_cast<const VkBaseInStructure *>(pNext);
+	while(extendedStruct)
+	{
+		if(extendedStruct->sType == sType)
+		{
+			return reinterpret_cast<const T *>(extendedStruct);
+		}
+
+		extendedStruct = extendedStruct->pNext;
+	}
+
+	return nullptr;
+}
 
 }  // namespace vk
 

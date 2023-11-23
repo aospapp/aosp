@@ -668,6 +668,11 @@ static void usfstl_vhost_user_handle_msg(struct usfstl_loop_entry *entry)
 		USFSTL_ASSERT(msg.payload.vring_state.num == 0);
 		usfstl_vhost_user_virtq_kick(dev, msg.payload.vring_state.idx);
 		break;
+	case VHOST_USER_GET_SHARED_MEMORY_REGIONS:
+		USFSTL_ASSERT_EQ(len, (ssize_t)0, "%zd");
+		reply_len = sizeof(uint64_t);
+		msg.payload.u64 = 0;
+		break;
 	default:
 		USFSTL_ASSERT(0, "Unsupported message: %d\n", msg.hdr.request);
 	}

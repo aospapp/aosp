@@ -14,17 +14,23 @@
  * limitations under the License.
  */
 
-#include <fuzzer/FuzzedDataProvider.h>
-#include <sys/time.h>
-#include <iostream>
 #include "Common.h"
 #include "Enumerator.h"
 #include "HalCamera.h"
 #include "MockHWCamera.h"
 
+#include <fuzzer/FuzzedDataProvider.h>
+
+#include <sys/time.h>
+
+#include <iostream>
+
 namespace android::automotive::evs::V1_1::implementation {
 
 namespace {
+
+using ::android::hardware::automotive::evs::V1_1::EvsEventDesc;
+using ::android::hardware::automotive::evs::V1_1::EvsEventType;
 
 enum EvsFuzzFuncs {
     EVS_FUZZ_MAKE_VIRTUAL_CAMERA = 0,    // verify makeVirtualCamera

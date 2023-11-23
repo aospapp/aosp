@@ -21,12 +21,14 @@ import static android.content.pm.PackageManager.FEATURE_TELEPHONY;
 
 import static androidx.test.InstrumentationRegistry.getContext;
 
+import static com.android.compatibility.common.util.BatteryUtils.hasBattery;
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 import static com.android.testutils.MiscAsserts.assertThrows;
 import static com.android.testutils.TestPermissionUtil.runAsShell;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -97,6 +99,7 @@ public class BatteryStatsManagerTest{
     @RequiresDevice // Virtual hardware does not support wifi battery stats
     public void testReportNetworkInterfaceForTransports() throws Exception {
         try {
+            assumeTrue("Battery is not present. Ignore test.", hasBattery());
             // Simulate the device being unplugged from charging.
             executeShellCommand("cmd battery unplug");
             executeShellCommand("cmd battery set status " + BATTERY_STATUS_DISCHARGING);
@@ -151,6 +154,13 @@ public class BatteryStatsManagerTest{
         // ConnectivityService will call BatteryStatsManager.reportMobileRadioPowerState when
         // removing data activity tracking.
         mCtsNetUtils.ensureWifiConnected();
+
+        // There's rate limit to update mobile battery so if ConnectivityService calls
+        // BatteryStatsManager.reportMobileRadioPowerState when default network changed,
+        // the mobile stats might not be updated. But if the mobile update due to other
+        // reasons (plug/unplug, battery level change, etc) will be unaffected. Thus here
+        // dumps the battery stats to trigger a full sync of data.
+        executeShellCommand("dumpsys batterystats");
 
         // Check cellular battery stats are updated.
         runAsShell(UPDATE_DEVICE_STATS,

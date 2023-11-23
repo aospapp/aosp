@@ -18,7 +18,6 @@
 
 #include <memory>
 
-#include "gd/rust/topshim/common/utils.h"
 #include "include/hardware/bluetooth.h"
 #include "rust/cxx.h"
 #include "src/profiles/a2dp.rs.h"
@@ -32,9 +31,26 @@ namespace rust {
 namespace internal {
 static A2dpSinkIntf* g_a2dp_sink_if;
 
-static void connection_state_cb(const RawAddress&, btav_connection_state_t) {}
-static void audio_state_cb(const RawAddress&, btav_audio_state_t) {}
-static void audio_config_cb(const RawAddress&, uint32_t, uint8_t) {}
+static A2dpError to_rust_error(const btav_error_t& error) {
+  A2dpError a2dp_error = {
+      .status = error.status,
+      .error_code = error.error_code,
+      .error_msg = error.error_msg.value_or(""),
+  };
+  return a2dp_error;
+}
+
+static void connection_state_cb(
+    const RawAddress& addr, btav_connection_state_t state, const btav_error_t& error) {
+  A2dpError a2dp_error = to_rust_error(error);
+  rusty::sink_connection_state_callback(addr, state, a2dp_error);
+}
+static void audio_state_cb(const RawAddress& addr, btav_audio_state_t state) {
+  rusty::sink_audio_state_callback(addr, state);
+}
+static void audio_config_cb(const RawAddress& addr, uint32_t sample_rate, uint8_t channel_count) {
+  rusty::sink_audio_config_callback(addr, sample_rate, channel_count);
+}
 
 btav_sink_callbacks_t g_a2dp_sink_callbacks = {
     sizeof(btav_sink_callbacks_t),
@@ -63,16 +79,16 @@ int A2dpSinkIntf::init() const {
   return intf_->init(&internal::g_a2dp_sink_callbacks, 1);
 }
 
-int A2dpSinkIntf::connect(RustRawAddress bt_addr) const {
-  return intf_->connect(rusty::CopyFromRustAddress(bt_addr));
+int A2dpSinkIntf::connect(RawAddress addr) const {
+  return intf_->connect(addr);
 }
 
-int A2dpSinkIntf::disconnect(RustRawAddress bt_addr) const {
-  return intf_->disconnect(rusty::CopyFromRustAddress(bt_addr));
+int A2dpSinkIntf::disconnect(RawAddress addr) const {
+  return intf_->disconnect(addr);
 }
 
-int A2dpSinkIntf::set_active_device(RustRawAddress bt_addr) const {
-  return intf_->set_active_device(rusty::CopyFromRustAddress(bt_addr));
+int A2dpSinkIntf::set_active_device(RawAddress addr) const {
+  return intf_->set_active_device(addr);
 }
 
 void A2dpSinkIntf::cleanup() const {

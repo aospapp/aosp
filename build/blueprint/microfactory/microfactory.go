@@ -16,8 +16,8 @@
 // to `go install`, but doesn't require a GOPATH. A package->path mapping can
 // be specified as command line options:
 //
-//   -pkg-path android/soong=build/soong
-//   -pkg-path github.com/google/blueprint=build/blueprint
+//	-pkg-path android/soong=build/soong
+//	-pkg-path github.com/google/blueprint=build/blueprint
 //
 // The paths can be relative to the current working directory, or an absolute
 // path. Both packages and paths are compared with full directory names, so the
@@ -617,8 +617,6 @@ func rebuildMicrofactory(config *Config, mybin string) bool {
 	return true
 }
 
-// microfactory.bash will make a copy of this file renamed into the main package for use with `go run`
-func main() { Main() }
 func Main() {
 	var output, mybin string
 	var config Config

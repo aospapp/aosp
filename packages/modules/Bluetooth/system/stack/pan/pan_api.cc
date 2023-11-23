@@ -541,6 +541,7 @@ tPAN_RESULT PAN_WriteBuf(uint16_t handle, const RawAddress& dst,
     return PAN_FAILURE;
   }
 
+  uint16_t len = p_buf->len;
   result = BNEP_WriteBuf(pcb->handle, dst, p_buf, protocol, &src, ext);
   if (result == BNEP_IGNORE_CMD) {
     PAN_TRACE_DEBUG("PAN ignored data buf write to PANU");
@@ -552,7 +553,7 @@ tPAN_RESULT PAN_WriteBuf(uint16_t handle, const RawAddress& dst,
     return (tPAN_RESULT)result;
   }
 
-  pcb->write.octets += p_buf->len;
+  pcb->write.octets += len;
   pcb->write.packets++;
 
   PAN_TRACE_DEBUG("PAN successfully sent data buf to the PANU");
@@ -699,7 +700,7 @@ void PAN_Dumpsys(int fd) {
   const tPAN_CONN* pcb = &pan_cb.pcb[0];
   for (int i = 0; i < MAX_PAN_CONNS; i++, pcb++) {
     if (pcb->con_state == PAN_STATE_IDLE) continue;
-    LOG_DUMPSYS(fd, "  Id:%d peer:%s", i, PRIVATE_ADDRESS(pcb->rem_bda));
+    LOG_DUMPSYS(fd, "  Id:%d peer:%s", i, ADDRESS_TO_LOGGABLE_CSTR(pcb->rem_bda));
     LOG_DUMPSYS(
         fd,
         "    rx_packets:%-5lu rx_octets:%-8lu rx_errors:%-5lu rx_drops:%-5lu",

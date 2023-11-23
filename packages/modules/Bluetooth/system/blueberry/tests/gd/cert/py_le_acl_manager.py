@@ -21,10 +21,10 @@ from blueberry.tests.gd.cert.event_stream import IEventStream
 from blueberry.tests.gd.cert.captures import HciCaptures
 from blueberry.tests.gd.cert.closable import Closable
 from blueberry.tests.gd.cert.closable import safeClose
-from bluetooth_packets_python3 import hci_packets
 from blueberry.tests.gd.cert.truth import assertThat
 from datetime import timedelta
 from blueberry.facade.hci import le_acl_manager_facade_pb2 as le_acl_manager_facade
+import hci_packets as hci
 
 
 class PyLeAclManagerAclConnection(IEventStream, Closable):
@@ -61,7 +61,7 @@ class PyLeAclManagerAclConnection(IEventStream, Closable):
     def wait_for_disconnection_complete(self, timeout=timedelta(seconds=30)):
         disconnection_complete = HciCaptures.DisconnectionCompleteCapture()
         assertThat(self.connection_event_stream).emits(disconnection_complete, timeout=timeout)
-        self.disconnect_reason = disconnection_complete.get().GetReason()
+        self.disconnect_reason = disconnection_complete.get().reason
 
     def send(self, data):
         self.le_acl_manager.SendAclData(le_acl_manager_facade.LeAclData(handle=self.handle, payload=bytes(data)))
@@ -110,7 +110,7 @@ class PyLeAclManager(Closable):
         connection_fail = HciCaptures.LeConnectionCompleteCapture()
         assertThat(event_stream).emits(connection_fail, timeout=timedelta(seconds=35))
         complete = connection_fail.get()
-        assertThat(complete.GetStatus() == hci_packets.ErrorCode.CONNECTION_ACCEPT_TIMEOUT).isTrue()
+        assertThat(complete.status == hci.ErrorCode.CONNECTION_ACCEPT_TIMEOUT).isTrue()
 
     def cancel_connection(self, token):
         assertThat(token in self.outgoing_connection_event_streams).isTrue()
@@ -139,11 +139,11 @@ class PyLeAclManager(Closable):
         connection_complete = HciCaptures.LeConnectionCompleteCapture()
         assertThat(event_stream).emits(connection_complete)
         complete = connection_complete.get()
-        handle = complete.GetConnectionHandle()
-        remote = complete.GetPeerAddress()
-        remote_address_type = complete.GetPeerAddressType()
-        if complete.GetSubeventCode() == hci_packets.SubeventCode.ENHANCED_CONNECTION_COMPLETE:
-            address = complete.GetLocalResolvablePrivateAddress()
+        handle = complete.connection_handle
+        remote = repr(complete.peer_address)
+        remote_address_type = complete.peer_address_type
+        if complete.subevent_code == hci.SubeventCode.ENHANCED_CONNECTION_COMPLETE:
+            address = complete.local_resolvable_private_address
         else:
             address = None
         connection = PyLeAclManagerAclConnection(self.le_acl_manager, address, remote, remote_address_type, handle,

@@ -19,7 +19,7 @@
     <string name="app_name" msgid="6963366455471441257">"ইউএছবি হেণ্ডলাৰ"</string>
     <string name="usb_saved_devices" msgid="2829442070749964872">"ছেভ কৰি থোৱা ডিভাইচ"</string>
     <string name="usb_pref_delete_title" msgid="3885061814853467483">"ইউএছবি ডিভাইচ পৰিচালনা কৰা এপ্ আঁতৰাওক"</string>
-    <string name="usb_pref_delete_message" msgid="5849493572520646218">"আপুনি %1$sৰ বাবে থকা ডিফ’ল্ট পৰিচালক এপটো মচিব বিচৰাটো নিশ্চিতনে?"</string>
+    <string name="usb_pref_delete_message" msgid="5849493572520646218">"আপুনি %1$sৰ বাবে থকা ডিফ’ল্ট পৰিচালক এপ্‌টো মচিব বিচৰাটো নিশ্চিতনে?"</string>
     <string name="usb_pref_delete_yes" msgid="7803356145103146036">"হয়"</string>
     <string name="usb_pref_delete_cancel" msgid="5999791462730255929">"বাতিল কৰক"</string>
     <string name="usb_resolving_handlers" msgid="1943100136172948686">"সমৰ্থিত হেণ্ডলাৰসমূহ গোটোৱা হৈছে"</string>

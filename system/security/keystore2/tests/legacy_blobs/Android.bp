@@ -33,8 +33,6 @@ rust_test {
     rustlibs: [
         "libkeystore2_with_test_utils",
         "libkeystore2_crypto_rust",
-        "android.system.keystore2-V2-rust",
-        "android.hardware.security.keymint-V2-rust",
         "android.security.maintenance-rust",
         "android.security.authorization-rust",
         "librustutils",
@@ -46,6 +44,10 @@ rust_test {
         "liblibc",
         "libserde",
         "libthiserror",
+    ],
+    defaults: [
+        "keymint_use_latest_hal_aidl_rust",
+        "keystore2_use_latest_aidl_rust",
     ],
     require_root: true,
 }

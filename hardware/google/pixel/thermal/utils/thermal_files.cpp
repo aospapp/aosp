@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,13 +27,13 @@
 #include <algorithm>
 #include <string_view>
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace thermal {
-namespace V2_0 {
 namespace implementation {
 
-using android::base::StringPrintf;
+using ::android::base::StringPrintf;
 
 std::string ThermalFiles::getThermalFilePath(std::string_view thermal_name) const {
     auto sensor_itr = thermal_name_to_path_map_.find(thermal_name.data());
@@ -70,10 +70,10 @@ bool ThermalFiles::readThermalFile(std::string_view thermal_name, std::string *d
 
 bool ThermalFiles::writeCdevFile(std::string_view cdev_name, std::string_view data) {
     std::string file_path =
-            getThermalFilePath(android::base::StringPrintf("%s_%s", cdev_name.data(), "w"));
+            getThermalFilePath(::android::base::StringPrintf("%s_%s", cdev_name.data(), "w"));
 
     ATRACE_NAME(StringPrintf("ThermalFiles::writeCdevFile - %s", cdev_name.data()).c_str());
-    if (!android::base::WriteStringToFile(data.data(), file_path)) {
+    if (!::android::base::WriteStringToFile(data.data(), file_path)) {
         PLOG(WARNING) << "Failed to write cdev: " << cdev_name << " to " << data.data();
         return false;
     }
@@ -82,7 +82,7 @@ bool ThermalFiles::writeCdevFile(std::string_view cdev_name, std::string_view da
 }
 
 }  // namespace implementation
-}  // namespace V2_0
 }  // namespace thermal
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl

@@ -2,7 +2,7 @@
 //!
 //! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
 //! [crates-io]: https://img.shields.io/badge/crates.io-fc8d62?style=for-the-badge&labelColor=555555&logo=rust
-//! [docs-rs]: https://img.shields.io/badge/docs.rs-66c2a5?style=for-the-badge&labelColor=555555&logoColor=white&logo=data:image/svg+xml;base64,PHN2ZyByb2xlPSJpbWciIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmlld0JveD0iMCAwIDUxMiA1MTIiPjxwYXRoIGZpbGw9IiNmNWY1ZjUiIGQ9Ik00ODguNiAyNTAuMkwzOTIgMjE0VjEwNS41YzAtMTUtOS4zLTI4LjQtMjMuNC0zMy43bC0xMDAtMzcuNWMtOC4xLTMuMS0xNy4xLTMuMS0yNS4zIDBsLTEwMCAzNy41Yy0xNC4xIDUuMy0yMy40IDE4LjctMjMuNCAzMy43VjIxNGwtOTYuNiAzNi4yQzkuMyAyNTUuNSAwIDI2OC45IDAgMjgzLjlWMzk0YzAgMTMuNiA3LjcgMjYuMSAxOS45IDMyLjJsMTAwIDUwYzEwLjEgNS4xIDIyLjEgNS4xIDMyLjIgMGwxMDMuOS01MiAxMDMuOSA1MmMxMC4xIDUuMSAyMi4xIDUuMSAzMi4yIDBsMTAwLTUwYzEyLjItNi4xIDE5LjktMTguNiAxOS45LTMyLjJWMjgzLjljMC0xNS05LjMtMjguNC0yMy40LTMzLjd6TTM1OCAyMTQuOGwtODUgMzEuOXYtNjguMmw4NS0zN3Y3My4zek0xNTQgMTA0LjFsMTAyLTM4LjIgMTAyIDM4LjJ2LjZsLTEwMiA0MS40LTEwMi00MS40di0uNnptODQgMjkxLjFsLTg1IDQyLjV2LTc5LjFsODUtMzguOHY3NS40em0wLTExMmwtMTAyIDQxLjQtMTAyLTQxLjR2LS42bDEwMi0zOC4yIDEwMiAzOC4ydi42em0yNDAgMTEybC04NSA0Mi41di03OS4xbDg1LTM4Ljh2NzUuNHptMC0xMTJsLTEwMiA0MS40LTEwMi00MS40di0uNmwxMDItMzguMiAxMDIgMzguMnYuNnoiPjwvcGF0aD48L3N2Zz4K
+//! [docs-rs]: https://img.shields.io/badge/docs.rs-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs
 //!
 //! <br>
 //!
@@ -145,12 +145,16 @@
 //!
 //! <br>
 
+#![doc(html_root_url = "https://docs.rs/rustversion/1.0.12")]
 #![allow(
     clippy::cast_lossless,
     clippy::cast_possible_truncation,
+    clippy::derive_partial_eq_without_eq,
     clippy::doc_markdown,
     clippy::enum_glob_use,
     clippy::from_iter_instead_of_collect,
+    // https://github.com/rust-lang/rust-clippy/issues/8539
+    clippy::iter_with_drain,
     clippy::module_name_repetitions,
     clippy::must_use_candidate,
     clippy::needless_doctest_main,
@@ -167,6 +171,7 @@ mod bound;
 mod constfn;
 mod date;
 mod error;
+mod expand;
 mod expr;
 mod iter;
 mod release;
@@ -174,11 +179,9 @@ mod time;
 mod token;
 mod version;
 
-use crate::attr::Then;
-use crate::error::{Error, Result};
+use crate::error::Error;
 use crate::version::Version;
-use proc_macro::{Delimiter, Group, Ident, Punct, Spacing, Span, TokenStream, TokenTree};
-use std::iter::FromIterator;
+use proc_macro::TokenStream;
 
 // ANDROID: Soong is providing the version of rustc via an env variable.
 const ANDROID_RUSTVERSION: Option<&str> = option_env!("ANDROID_RUST_VERSION");
@@ -193,114 +196,62 @@ fn rust_version() -> Version {
 
 #[proc_macro_attribute]
 pub fn stable(args: TokenStream, input: TokenStream) -> TokenStream {
-    cfg("stable", args, input)
+    expand::cfg("stable", args, input)
 }
 
 #[proc_macro_attribute]
 pub fn beta(args: TokenStream, input: TokenStream) -> TokenStream {
-    cfg("beta", args, input)
+    expand::cfg("beta", args, input)
 }
 
 #[proc_macro_attribute]
 pub fn nightly(args: TokenStream, input: TokenStream) -> TokenStream {
-    cfg("nightly", args, input)
+    expand::cfg("nightly", args, input)
 }
 
 #[proc_macro_attribute]
 pub fn since(args: TokenStream, input: TokenStream) -> TokenStream {
-    cfg("since", args, input)
+    expand::cfg("since", args, input)
 }
 
 #[proc_macro_attribute]
 pub fn before(args: TokenStream, input: TokenStream) -> TokenStream {
-    cfg("before", args, input)
+    expand::cfg("before", args, input)
 }
 
 #[proc_macro_attribute]
 pub fn not(args: TokenStream, input: TokenStream) -> TokenStream {
-    cfg("not", args, input)
+    expand::cfg("not", args, input)
 }
 
 #[proc_macro_attribute]
 pub fn any(args: TokenStream, input: TokenStream) -> TokenStream {
-    cfg("any", args, input)
+    expand::cfg("any", args, input)
 }
 
 #[proc_macro_attribute]
 pub fn all(args: TokenStream, input: TokenStream) -> TokenStream {
-    cfg("all", args, input)
-}
-
-fn cfg(introducer: &str, args: TokenStream, input: TokenStream) -> TokenStream {
-    try_cfg(introducer, args, input).unwrap_or_else(Error::into_compile_error)
-}
-
-fn try_cfg(introducer: &str, args: TokenStream, input: TokenStream) -> Result<TokenStream> {
-    let introducer = Ident::new(introducer, Span::call_site());
-
-    let mut full_args = TokenStream::from(TokenTree::Ident(introducer));
-    if !args.is_empty() {
-        full_args.extend(std::iter::once(TokenTree::Group(Group::new(
-            Delimiter::Parenthesis,
-            args,
-        ))));
-    }
-
-    let ref mut full_args = iter::new(full_args);
-    let expr = expr::parse(full_args)?;
-    token::parse_end(full_args)?;
-
-    if expr.eval(rust_version()) {
-        Ok(input)
-    } else {
-        Ok(TokenStream::new())
-    }
+    expand::cfg("all", args, input)
 }
 
 #[proc_macro_attribute]
 pub fn attr(args: TokenStream, input: TokenStream) -> TokenStream {
     attr::parse(args)
-        .and_then(|args| try_attr(args, input))
+        .and_then(|args| expand::try_attr(args, input))
         .unwrap_or_else(Error::into_compile_error)
 }
 
-fn try_attr(args: attr::Args, input: TokenStream) -> Result<TokenStream> {
-    if !args.condition.eval(rust_version()) {
-        return Ok(input);
-    }
-
-    match args.then {
-        Then::Const(const_token) => constfn::insert_const(input, const_token),
-        Then::Attribute(then) => {
-            // #[cfg_attr(all(), #then)]
-            Ok(TokenStream::from_iter(
-                vec![
-                    TokenTree::Punct(Punct::new('#', Spacing::Alone)),
-                    TokenTree::Group(Group::new(
-                        Delimiter::Bracket,
-                        TokenStream::from_iter(vec![
-                            TokenTree::Ident(Ident::new("cfg_attr", Span::call_site())),
-                            TokenTree::Group(Group::new(
-                                Delimiter::Parenthesis,
-                                TokenStream::from_iter(
-                                    vec![
-                                        TokenTree::Ident(Ident::new("all", Span::call_site())),
-                                        TokenTree::Group(Group::new(
-                                            Delimiter::Parenthesis,
-                                            TokenStream::new(),
-                                        )),
-                                        TokenTree::Punct(Punct::new(',', Spacing::Alone)),
-                                    ]
-                                    .into_iter()
-                                    .chain(then),
-                                ),
-                            )),
-                        ]),
-                    )),
-                ]
-                .into_iter()
-                .chain(input),
-            ))
-        }
-    }
+#[cfg(not(cfg_macro_not_allowed))]
+#[proc_macro]
+pub fn cfg(input: TokenStream) -> TokenStream {
+    use proc_macro::{Ident, Span, TokenTree};
+    (|| {
+        let ref mut args = iter::new(input);
+        let expr = expr::parse(args)?;
+        token::parse_end(args)?;
+        let boolean = expr.eval(rust_version());
+        let ident = Ident::new(&boolean.to_string(), Span::call_site());
+        Ok(TokenStream::from(TokenTree::Ident(ident)))
+    })()
+    .unwrap_or_else(Error::into_compile_error)
 }

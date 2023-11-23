@@ -1,0 +1,37 @@
+# AoC devices
+/dev/acd-audio_output_tuning        u:object_r:aoc_device:s0
+/dev/acd-audio_bulk_tx              u:object_r:aoc_device:s0
+/dev/acd-audio_bulk_rx              u:object_r:aoc_device:s0
+/dev/acd-audio_input_tuning         u:object_r:aoc_device:s0
+/dev/acd-audio_input_bulk_tx        u:object_r:aoc_device:s0
+/dev/acd-audio_input_bulk_rx        u:object_r:aoc_device:s0
+/dev/acd-audio_rtp_tx               u:object_r:aoc_device:s0
+/dev/acd-audio_rtp_rx               u:object_r:aoc_device:s0
+/dev/acd-sound_trigger              u:object_r:aoc_device:s0
+/dev/acd-hotword_notification       u:object_r:aoc_device:s0
+/dev/acd-hotword_pcm                u:object_r:aoc_device:s0
+/dev/acd-ambient_pcm                u:object_r:aoc_device:s0
+/dev/acd-model_data                 u:object_r:aoc_device:s0
+/dev/acd-debug                      u:object_r:aoc_device:s0
+/dev/acd-audio_tap[0-9]*            u:object_r:aoc_device:s0
+/dev/acd-audio_dcdoff_ref           u:object_r:aoc_device:s0
+/dev/acd-com.google.umfw_stat       u:object_r:aoc_device:s0
+/dev/acd-com.google.usf             u:object_r:aoc_device:s0
+/dev/acd-com.google.usf.non_wake_up u:object_r:aoc_device:s0
+/dev/acd-logging                    u:object_r:aoc_device:s0
+/dev/aoc                            u:object_r:aoc_device:s0
+/dev/acd-audio_ap_offload_rx        u:object_r:aoc_device:s0
+/dev/acd-audio_ap_offload_tx        u:object_r:aoc_device:s0
+/dev/acd-mel_processor              u:object_r:aoc_device:s0
+
+# AoC vendor binaries
+/vendor/bin/aocd                    u:object_r:aocd_exec:s0
+/vendor/bin/aocdump                 u:object_r:aocdump_exec:s0
+/vendor/bin/dump/dump_aoc           u:object_r:dump_aoc_exec:s0
+
+# AoC audio files
+/vendor/etc/aoc(/.*)?               u:object_r:aoc_audio_file:s0
+
+# Aoc persist files
+/mnt/vendor/persist/aoc(/.*)?       u:object_r:persist_aoc_file:s0
+

@@ -59,7 +59,7 @@ using namespace std::literals;
 
 struct usb_handle {
     ~usb_handle() {
-      if (fd != -1) unix_close(fd);
+        if (fd != -1) unix_close(fd);
     }
 
     std::string path;
@@ -71,8 +71,14 @@ struct usb_handle {
     unsigned zero_mask;
     unsigned writeable = 1;
 
+    // The usbdevfs_urb structure ends in a variable length array of
+    // usbdevfs_iso_packet_desc. Since none of the usb calls ever attempt
+    // to fill in those values, ignore this warning.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-variable-sized-type-not-at-end"
     usbdevfs_urb urb_in;
     usbdevfs_urb urb_out;
+#pragma clang diagnostic pop
 
     bool urb_in_busy = false;
     bool urb_out_busy = false;

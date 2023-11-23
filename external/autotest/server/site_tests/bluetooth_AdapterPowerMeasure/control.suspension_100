@@ -6,7 +6,7 @@ from autotest_lib.server import utils
 from autotest_lib.server.cros.bluetooth import advertisements_data
 
 
-AUTHOR = 'Chrome OS Team'
+AUTHOR = 'ChromeOS Team'
 NAME = 'bluetooth_AdapterPowerMeasure.suspension_100'
 PURPOSE = 'Test power consumption of Bluetooth chip during system suspension.'
 CRITERIA = 'Bluetooth chip should consume power less than specified.'
@@ -16,6 +16,7 @@ TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
 DEPENDENCIES = 'bluetooth, working_bluetooth_btpeer:1, servo'
+PY_VERSION = 3
 
 DOC = """
 This test case verifies that the Bluetooth chip of the DUT does

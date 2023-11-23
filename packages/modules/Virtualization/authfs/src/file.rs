@@ -6,15 +6,13 @@ pub use attr::Attr;
 pub use dir::{InMemoryDir, RemoteDirEditor};
 pub use remote_file::{RemoteFileEditor, RemoteFileReader, RemoteMerkleTreeReader};
 
-use binder::unstable_api::{new_spibinder, AIBinder};
-use binder::FromIBinder;
+use crate::common::{divide_roundup, CHUNK_SIZE};
+use authfs_aidl_interface::aidl::com::android::virt::fs::IVirtFdService::IVirtFdService;
+use binder::{Status, StatusCode, Strong};
+use rpcbinder::RpcSession;
 use std::convert::TryFrom;
 use std::io;
 use std::path::{Path, MAIN_SEPARATOR};
-
-use crate::common::{divide_roundup, CHUNK_SIZE};
-use authfs_aidl_interface::aidl::com::android::virt::fs::IVirtFdService::IVirtFdService;
-use authfs_aidl_interface::binder::{Status, Strong};
 
 pub type VirtFdService = Strong<dyn IVirtFdService>;
 pub type VirtFdServiceStatus = Status;
@@ -24,21 +22,15 @@ pub type ChunkBuffer = [u8; CHUNK_SIZE as usize];
 pub const RPC_SERVICE_PORT: u32 = 3264;
 
 pub fn get_rpc_binder_service(cid: u32) -> io::Result<VirtFdService> {
-    // SAFETY: AIBinder returned by RpcClient has correct reference count, and the ownership can be
-    // safely taken by new_spibinder.
-    let ibinder = unsafe {
-        new_spibinder(binder_rpc_unstable_bindgen::RpcClient(cid, RPC_SERVICE_PORT) as *mut AIBinder)
-    };
-    if let Some(ibinder) = ibinder {
-        Ok(<dyn IVirtFdService>::try_from(ibinder).map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::AddrNotAvailable,
-                format!("Cannot connect to RPC service: {}", e),
-            )
-        })?)
-    } else {
-        Err(io::Error::new(io::ErrorKind::InvalidInput, "Invalid raw AIBinder"))
-    }
+    RpcSession::new().setup_vsock_client(cid, RPC_SERVICE_PORT).map_err(|e| match e {
+        StatusCode::BAD_VALUE => {
+            io::Error::new(io::ErrorKind::InvalidInput, "Invalid raw AIBinder")
+        }
+        _ => io::Error::new(
+            io::ErrorKind::AddrNotAvailable,
+            format!("Cannot connect to RPC service: {}", e),
+        ),
+    })
 }
 
 /// A trait for reading data by chunks. Chunks can be read by specifying the chunk index. Only the

@@ -31,8 +31,11 @@ class HidlCamera3Device :
             public Camera3Device {
   public:
 
-   explicit HidlCamera3Device(const String8& id, bool overrideForPerfClass,
-          bool legacyClient = false) : Camera3Device(id, overrideForPerfClass, legacyClient) { }
+   explicit HidlCamera3Device(std::shared_ptr<CameraServiceProxyWrapper>& cameraServiceProxyWrapper,
+        const String8& id, bool overrideForPerfClass, bool overrideToPortrait,
+        bool legacyClient = false) :
+        Camera3Device(cameraServiceProxyWrapper, id, overrideForPerfClass, overrideToPortrait,
+                legacyClient) { }
 
     virtual ~HidlCamera3Device() {}
 
@@ -81,9 +84,6 @@ class HidlCamera3Device :
             const hardware::hidl_vec<
                     hardware::camera::device::V3_2::StreamBuffer>& buffers) override;
 
-    // Handle one notify message
-    void notify(const hardware::camera::device::V3_2::NotifyMsg& msg);
-
     status_t switchToOffline(const std::vector<int32_t>& streamsToKeep,
             /*out*/ sp<CameraOfflineSessionBase>* session) override;
 
@@ -110,7 +110,8 @@ class HidlCamera3Device :
 
         virtual status_t configureStreams(const camera_metadata_t *sessionParams,
                 /*inout*/ camera_stream_configuration_t *config,
-                const std::vector<uint32_t>& bufferSizes) override;
+                const std::vector<uint32_t>& bufferSizes,
+                int64_t logId) override;
 
         // The injection camera configures the streams to hal.
         virtual status_t configureInjectedStreams(
@@ -175,7 +176,9 @@ class HidlCamera3Device :
                 sp<HalInterface> interface,
                 const Vector<int32_t>& sessionParamKeys,
                 bool useHalBufManager,
-                bool supportCameraMute);
+                bool supportCameraMute,
+                bool overrideToPortrait,
+                bool supportSettingsOverride);
 
         status_t switchToOffline(
                 const std::vector<int32_t>& streamsToKeep,
@@ -222,7 +225,9 @@ class HidlCamera3Device :
                 sp<HalInterface> interface,
                 const Vector<int32_t>& sessionParamKeys,
                 bool useHalBufManager,
-                bool supportCameraMute) override;
+                bool supportCameraMute,
+                bool overrideToPortrait,
+                bool supportSettingsOverride) override;
 
     virtual sp<Camera3DeviceInjectionMethods>
             createCamera3DeviceInjectionMethods(wp<Camera3Device>) override;

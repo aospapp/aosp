@@ -6,13 +6,10 @@
 #
 # Verify that keys are measured correctly based on policy.
 
-TST_NEEDS_CMDS="cmp cut grep sed xxd"
+TST_NEEDS_CMDS="cmp cut grep sed"
 TST_CNT=2
-TST_NEEDS_DEVICE=1
 TST_SETUP=setup
 TST_CLEANUP=cleanup
-
-. ima_setup.sh
 
 FUNC_KEYCHECK='func=KEY_CHECK'
 REQUIRED_POLICY="^measure.*$FUNC_KEYCHECK"
@@ -27,7 +24,6 @@ cleanup()
 {
 	tst_is_num $KEYRING_ID && keyctl clear $KEYRING_ID
 }
-
 
 require_valid_policy_template()
 {
@@ -82,7 +78,7 @@ test1()
 		algorithm=$(echo "$line" | cut -d' ' -f4 | cut -d':' -f1)
 		keyring=$(echo "$line" | cut -d' ' -f5)
 
-		echo "$line" | cut -d' ' -f6 | xxd -r -p > $test_file
+		echo "$line" | cut -d' ' -f6 | tst_hexdump -d > $test_file
 
 		if ! expected_digest="$(compute_digest $algorithm $test_file)"; then
 			tst_res TCONF "cannot compute digest for $algorithm"
@@ -126,7 +122,7 @@ test2()
 		tst_brk TBROK "unable to import a certificate into $keyring_name keyring"
 
 	grep $keyring_name $ASCII_MEASUREMENTS | tail -n1 | cut -d' ' -f6 | \
-		xxd -r -p > $temp_file
+		tst_hexdump -d > $temp_file
 
 	if [ ! -s $temp_file ]; then
 		tst_res TFAIL "keyring $keyring_name not found in $ASCII_MEASUREMENTS"
@@ -145,4 +141,5 @@ test2()
 	fi
 }
 
+. ima_setup.sh
 tst_run

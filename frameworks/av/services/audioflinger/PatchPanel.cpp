@@ -135,6 +135,10 @@ status_t AudioFlinger::PatchPanel::getAudioPort(struct audio_port_v7 *port)
 status_t AudioFlinger::PatchPanel::createAudioPatch(const struct audio_patch *patch,
                                    audio_patch_handle_t *handle,
                                    bool endpointPatch)
+ //unlocks AudioFlinger::mLock when calling ThreadBase::sendCreateAudioPatchConfigEvent
+ //to avoid deadlocks if the thread loop needs to acquire AudioFlinger::mLock
+ //before processing the create patch request.
+ NO_THREAD_SAFETY_ANALYSIS
 {
     if (handle == NULL || patch == NULL) {
         return BAD_VALUE;
@@ -245,7 +249,6 @@ status_t AudioFlinger::PatchPanel::createAudioPatch(const struct audio_patch *pa
                         status = INVALID_OPERATION;
                         goto exit;
                     }
-
                     sp<ThreadBase> thread =
                             mAudioFlinger.checkPlaybackThread_l(patch->sources[1].ext.mix.handle);
                     if (thread == 0) {
@@ -313,12 +316,19 @@ status_t AudioFlinger::PatchPanel::createAudioPatch(const struct audio_patch *pa
                         patch->sources[0].config_mask & AUDIO_PORT_CONFIG_FLAGS ?
                         patch->sources[0].flags.input : AUDIO_INPUT_FLAG_NONE;
                 audio_io_handle_t input = AUDIO_IO_HANDLE_NONE;
+                audio_source_t source = AUDIO_SOURCE_MIC;
+                // For telephony patches, propagate voice communication use case to record side
+                if (patch->num_sources == 2
+                        && patch->sources[1].ext.mix.usecase.stream
+                                == AUDIO_STREAM_VOICE_CALL) {
+                    source = AUDIO_SOURCE_VOICE_COMMUNICATION;
+                }
                 sp<ThreadBase> thread = mAudioFlinger.openInput_l(srcModule,
                                                                     &input,
                                                                     &config,
                                                                     device,
                                                                     address,
-                                                                    AUDIO_SOURCE_MIC,
+                                                                    source,
                                                                     flags,
                                                                     outputDevice,
                                                                     outputDeviceAddress);
@@ -349,11 +359,12 @@ status_t AudioFlinger::PatchPanel::createAudioPatch(const struct audio_patch *pa
                             goto exit;
                         }
                     }
+                    mAudioFlinger.unlock();
                     status = thread->sendCreateAudioPatchConfigEvent(patch, &halHandle);
+                    mAudioFlinger.lock();
                     if (status == NO_ERROR) {
                         newPatch.setThread(thread);
                     }
-
                     // remove stale audio patch with same input as sink if any
                     for (auto& iter : mPatches) {
                         if (iter.second.mAudioPatch.sinks[0].ext.mix.handle == thread->id()) {
@@ -415,7 +426,9 @@ status_t AudioFlinger::PatchPanel::createAudioPatch(const struct audio_patch *pa
                 mAudioFlinger.updateOutDevicesForRecordThreads_l(devices);
             }
 
+            mAudioFlinger.unlock();
             status = thread->sendCreateAudioPatchConfigEvent(patch, &halHandle);
+            mAudioFlinger.lock();
             if (status == NO_ERROR) {
                 newPatch.setThread(thread);
             }
@@ -442,7 +455,7 @@ exit:
     if (status == NO_ERROR) {
         *handle = (audio_patch_handle_t) mAudioFlinger.nextUniqueId(AUDIO_UNIQUE_ID_USE_PATCH);
         newPatch.mHalHandle = halHandle;
-        mAudioFlinger.mDeviceEffectManager.createAudioPatch(*handle, newPatch);
+        mAudioFlinger.mPatchCommandThread->createAudioPatch(*handle, newPatch);
         if (insertedModule != AUDIO_MODULE_HANDLE_NONE) {
             addSoftwarePatchToInsertedModules(insertedModule, *handle, &newPatch.mAudioPatch);
         }
@@ -516,9 +529,14 @@ status_t AudioFlinger::PatchPanel::Patch::createConnections(PatchPanel *panel)
     audio_output_flags_t outputFlags = mAudioPatch.sinks[0].config_mask & AUDIO_PORT_CONFIG_FLAGS ?
             mAudioPatch.sinks[0].flags.output : AUDIO_OUTPUT_FLAG_NONE;
     audio_stream_type_t streamType = AUDIO_STREAM_PATCH;
+    audio_source_t source = AUDIO_SOURCE_DEFAULT;
     if (mAudioPatch.num_sources == 2 && mAudioPatch.sources[1].type == AUDIO_PORT_TYPE_MIX) {
         // "reuse one existing output mix" case
         streamType = mAudioPatch.sources[1].ext.mix.usecase.stream;
+        // For telephony patches, propagate voice communication use case to record side
+        if (streamType == AUDIO_STREAM_VOICE_CALL) {
+            source = AUDIO_SOURCE_VOICE_COMMUNICATION;
+        }
     }
     if (mPlayback.thread()->hasFastMixer()) {
         // Create a fast track if the playback thread has fast mixer to get better performance.
@@ -546,7 +564,8 @@ status_t AudioFlinger::PatchPanel::Patch::createConnections(PatchPanel *panel)
                                                  inChannelMask,
                                                  format,
                                                  frameCount,
-                                                 inputFlags);
+                                                 inputFlags,
+                                                 source);
     } else {
         // use a pseudo LCM between input and output framecount
         int playbackShift = __builtin_ctz(playbackFrameCount);
@@ -566,7 +585,9 @@ status_t AudioFlinger::PatchPanel::Patch::createConnections(PatchPanel *panel)
                                                  frameCount,
                                                  nullptr,
                                                  (size_t)0 /* bufferSize */,
-                                                 inputFlags);
+                                                 inputFlags,
+                                                 {} /* timeout */,
+                                                 source);
     }
     status = mRecord.checkTrack(tempRecordTrack.get());
     if (status != NO_ERROR) {
@@ -714,7 +735,11 @@ String8 AudioFlinger::PatchPanel::Patch::dump(audio_patch_handle_t myHandle) con
 
 /* Disconnect a patch */
 status_t AudioFlinger::PatchPanel::releaseAudioPatch(audio_patch_handle_t handle)
-{
+ //unlocks AudioFlinger::mLock when calling ThreadBase::sendReleaseAudioPatchConfigEvent
+ //to avoid deadlocks if the thread loop needs to acquire AudioFlinger::mLock
+ //before processing the release patch request.
+ NO_THREAD_SAFETY_ANALYSIS
+ {
     ALOGV("%s handle %d", __func__, handle);
     status_t status = NO_ERROR;
 
@@ -751,7 +776,9 @@ status_t AudioFlinger::PatchPanel::releaseAudioPatch(audio_patch_handle_t handle
                         break;
                     }
                 }
+                mAudioFlinger.unlock();
                 status = thread->sendReleaseAudioPatchConfigEvent(removedPatch.mHalHandle);
+                mAudioFlinger.lock();
             } else {
                 status = hwDevice->releaseAudioPatch(removedPatch.mHalHandle);
             }
@@ -772,7 +799,9 @@ status_t AudioFlinger::PatchPanel::releaseAudioPatch(audio_patch_handle_t handle
                     break;
                 }
             }
+            mAudioFlinger.unlock();
             status = thread->sendReleaseAudioPatchConfigEvent(removedPatch.mHalHandle);
+            mAudioFlinger.lock();
         } break;
         default:
             status = BAD_VALUE;
@@ -785,7 +814,7 @@ status_t AudioFlinger::PatchPanel::releaseAudioPatch(audio_patch_handle_t handle
 void AudioFlinger::PatchPanel::erasePatch(audio_patch_handle_t handle) {
     mPatches.erase(handle);
     removeSoftwarePatchFromInsertedModules(handle);
-    mAudioFlinger.mDeviceEffectManager.releaseAudioPatch(handle);
+    mAudioFlinger.mPatchCommandThread->releaseAudioPatch(handle);
 }
 
 /* List connected audio ports and they attributes */

@@ -16,7 +16,7 @@
 #ifndef NATIVE_SUB_WINDOW_H
 #define NATIVE_SUB_WINDOW_H
 
-#include "render_api_platform_types.h"
+#include "render-utils/render_api_platform_types.h"
 
 #include <EGL/egl.h>
 
@@ -45,6 +45,7 @@ EGLNativeWindowType createSubWindow(FBNativeWindowType p_window,
                                     int y,
                                     int width,
                                     int height,
+                                    float dpr,
                                     SubWindowRepaintCallback repaint_callback,
                                     void* repaint_callback_param,
                                     int hideWindow);

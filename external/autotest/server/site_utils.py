@@ -10,8 +10,6 @@ from __future__ import print_function
 
 import collections
 import contextlib
-import grp
-import six.moves.http_client
 import json
 import logging
 import os
@@ -39,18 +37,12 @@ from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.server.cros.dynamic_suite import job_status
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
 
 
 CONFIG = global_config.global_config
-
-_SHERIFF_JS = CONFIG.get_config_value('NOTIFICATIONS', 'sheriffs', default='')
-_LAB_SHERIFF_JS = CONFIG.get_config_value(
-        'NOTIFICATIONS', 'lab_sheriffs', default='')
-_CHROMIUM_BUILD_URL = CONFIG.get_config_value(
-        'NOTIFICATIONS', 'chromium_build_url', default='')
 
 LAB_GOOD_STATES = ('open', 'throttled')
 
@@ -207,7 +199,7 @@ def get_build_from_afe(hostname, afe):
     return None
 
 
-# TODO(fdeng): fix get_sheriffs crbug.com/483254
+# TODO(ayatane): Can be deleted
 def get_sheriffs(lab_only=False):
     """
     Polls the javascript file that holds the identity of the sheriff and
@@ -219,30 +211,7 @@ def get_sheriffs(lab_only=False):
     @return: A list of chroium.org sheriff email addresses to cc on the bug.
              An empty list if failed to parse the javascript.
     """
-    sheriff_ids = []
-    sheriff_js_list = _LAB_SHERIFF_JS.split(',')
-    if not lab_only:
-        sheriff_js_list.extend(_SHERIFF_JS.split(','))
-
-    for sheriff_js in sheriff_js_list:
-        try:
-            url_content = utils.urlopen('%s%s'% (
-                _CHROMIUM_BUILD_URL, sheriff_js)).read()
-        except (ValueError, IOError) as e:
-            logging.warning('could not parse sheriff from url %s%s: %s',
-                             _CHROMIUM_BUILD_URL, sheriff_js, str(e))
-        except (urllib.error.URLError, six.moves.http_client.HTTPException) as e:
-            logging.warning('unexpected error reading from url "%s%s": %s',
-                             _CHROMIUM_BUILD_URL, sheriff_js, str(e))
-        else:
-            ldaps = re.search(r"document.write\('(.*)'\)", url_content)
-            if not ldaps:
-                logging.warning('Could not retrieve sheriff ldaps for: %s',
-                                 url_content)
-                continue
-            sheriff_ids += ['%s@chromium.org' % alias.replace(' ', '')
-                            for alias in ldaps.group(1).split(',')]
-    return sheriff_ids
+    return []
 
 
 def remote_wget(source_url, dest_path, ssh_cmd):
@@ -399,9 +368,9 @@ def get_test_views_from_tko(suite_job_id, tko):
     @param tko: an instance of TKO as defined in server/frontend.py.
     @return: A defaultdict where keys are test names and values are
              lists of test statuses, e.g.,
-             {'dummy_Fail.Error': ['ERROR'. 'ERROR'],
-              'dummy_Fail.NAError': ['TEST_NA'],
-              'dummy_Fail.RetrySuccess': ['ERROR', 'GOOD'],
+             {'stub_Fail.Error': ['ERROR'. 'ERROR'],
+              'stub_Fail.NAError': ['TEST_NA'],
+              'stub_Fail.RetrySuccess': ['ERROR', 'GOOD'],
               }
     @raise: Exception when there is no test view found.
 
@@ -422,7 +391,7 @@ def get_data_key(prefix, suite, build, board):
     Constructs a key string from parameters.
 
     @param prefix: Prefix for the generating key.
-    @param suite: a suite name. e.g., bvt-cq, bvt-inline, dummy
+    @param suite: a suite name. e.g., bvt-cq, bvt-inline, infra_qual
     @param build: The build string. This string should have a consistent
         format eg: x86-mario-release/R26-3570.0.0. If the format of this
         string changes such that we can't determine build_type or branch
@@ -473,29 +442,6 @@ def is_shard():
 def get_global_afe_hostname():
     """Read the hostname of the global AFE from the global configuration."""
     return CONFIG.get_config_value('SERVER', 'global_afe_hostname')
-
-
-def is_restricted_user(username):
-    """Determines if a user is in a restricted group.
-
-    User in restricted group only have access to main.
-
-    @param username: A string, representing a username.
-
-    @returns: True if the user is in a restricted group.
-    """
-    if not username:
-        return False
-
-    restricted_groups = CONFIG.get_config_value(
-            'AUTOTEST_WEB', 'restricted_groups', default='').split(',')
-    for group in restricted_groups:
-        try:
-            if group and username in grp.getgrnam(group).gr_mem:
-                return True
-        except KeyError as e:
-            logging.debug("%s is not a valid group.", group)
-    return False
 
 
 def get_special_task_status(is_complete, success, is_active):
@@ -692,26 +638,6 @@ def get_connection_pool_from_machine(machine):
     return machine.get('connection_pool')
 
 
-def get_creds_abspath(creds_file):
-    """Returns the abspath of the credentials file.
-
-    If creds_file is already an absolute path, just return it.
-    Otherwise, assume it is located in the creds directory
-    specified in global_config and return the absolute path.
-
-    @param: creds_path, a path to the credentials.
-    @return: An absolute path to the credentials file.
-    """
-    if not creds_file:
-        return None
-    if os.path.isabs(creds_file):
-        return creds_file
-    creds_dir = CONFIG.get_config_value('SERVER', 'creds_dir', default='')
-    if not creds_dir or not os.path.exists(creds_dir):
-        creds_dir = common.autotest_dir
-    return os.path.join(creds_dir, creds_file)
-
-
 def SetupTsMonGlobalState(*args, **kwargs):
     """Import-safe wrap around chromite.lib.ts_mon_config's setup function.
 
@@ -723,9 +649,9 @@ def SetupTsMonGlobalState(*args, **kwargs):
         # 1-2 seconds to the module import time and most users of site_utils
         # don't need it. The correct fix is to break apart site_utils into more
         # meaningful chunks.
-        from chromite.lib import ts_mon_config
-    except ImportError:
-        logging.warn('Unable to import chromite. Monarch is disabled.')
+        from autotest_lib.utils.frozen_chromite.lib import ts_mon_config
+    except ImportError as e:
+        logging.warning('Unable to import chromite. Monarch is disabled: %s', e)
         return TrivialContextManager()
 
     try:
@@ -847,19 +773,19 @@ def _report_result_size_metrics(result_size_info):
     metrics.Counter(RESULT_METRICS_PREFIX + 'client_result_collected_KB',
                     description='The total size (in KB) of test results '
                     'collected from test device. Set to be the total size of '
-                    'the given path.'
-                    ).increment_by(result_size_info.client_result_collected_KB,
-                                   fields=fields)
+                    'the given path.').increment_by(int(
+                            result_size_info.client_result_collected_KB),
+                                                    fields=fields)
     metrics.Counter(RESULT_METRICS_PREFIX + 'original_result_total_KB',
                     description='The original size (in KB) of test results '
-                    'before being trimmed.'
-                    ).increment_by(result_size_info.original_result_total_KB,
-                                   fields=fields)
+                    'before being trimmed.').increment_by(int(
+                            result_size_info.original_result_total_KB),
+                                                          fields=fields)
     metrics.Counter(RESULT_METRICS_PREFIX + 'result_uploaded_KB',
                     description='The total size (in KB) of test results to be '
-                    'uploaded.'
-                    ).increment_by(result_size_info.result_uploaded_KB,
-                                   fields=fields)
+                    'uploaded.').increment_by(int(
+                            result_size_info.result_uploaded_KB),
+                                              fields=fields)
 
 
 @metrics.SecondsTimerDecorator(

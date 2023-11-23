@@ -20,7 +20,7 @@ Recorded messages can be replayed offline with the `replay_messages` tool.  It r
 device and supports the following options:
 
 1. `interesting` - this prints 'interesting' statistics for each of the log buffer types (simple,
-   chatty, serialized).  The statistics are:
+   serialized).  The statistics are:
     1. Log Entry Count
     2. Size (the uncompressed size of the log messages in bytes)
     3. Overhead (the total cost of the log messages in memory in bytes)
@@ -35,8 +35,7 @@ device and supports the following options:
 4. `print_logs BUFFER_TYPE [buffers] [print_point]` - this prints the logs as processed by the given
   buffer_type from the buffers specified by `buffers` starting after the number of logs specified by
   `print_point` have been logged.  This acts as if a user called `logcat` immediately after the
-  specified logs have been logged, which is particularly useful since it will show the chatty
-  pruning messages at that point.  It additionally prints the statistics from `logcat -S` after the
+  specified logs have been logged.  It additionally prints the statistics from `logcat -S` after the
   logs.
   `buffers` is a comma separated list of the numeric buffer id values from `<android/log.h>`.  For
   example, `0,1,3` represents the main, radio, and system buffers.  It can can also be `all`.

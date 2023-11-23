@@ -1,0 +1,15 @@
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "atest-tradefed-shell",
+    srcs = glob(["res/**/*"]),
+)
+
+java_library(
+    name = "atest-tradefed",
+    resource_strip_prefix = "tools/asuite/atest/res",
+    resources = [
+        ":atest-tradefed-shell",
+    ],
+    target_compatible_with = ["//build/bazel/platforms/os:linux"],
+)

@@ -201,3 +201,48 @@ enum DisconnectCauseEnum {
      */
     CALL_PULLED = 12;
 }
+
+/**
+ * Indicating the failure reason why a new call cannot be made.
+ */
+enum CallFailureCauseEnum {
+    /**
+     * The call is normally started.
+     */
+    FAILURE_CAUSE_NONE = 0;
+
+    /**
+     * Necessary parameters are invalid or null.
+     */
+    FAILURE_CAUSE_INVALID_USE = 1;
+
+    /**
+     * There is an emergency call ongoing.
+     */
+    FAILURE_CAUSE_IN_EMERGENCY_CALL = 2;
+
+    /**
+     * There is an live call that cannot be held.
+     */
+    FAILURE_CAUSE_CANNOT_HOLD_CALL = 3;
+
+    /**
+     * There are maximum outgoing calls already.
+     */
+    FAILURE_CAUSE_MAX_OUTGOING_CALLS = 4;
+
+    /**
+     * There are maximum ringing calls already.
+     */
+    FAILURE_CAUSE_MAX_RINGING_CALLS = 5;
+
+    /**
+     * There are maximum calls in hold already.
+     */
+    FAILURE_CAUSE_MAX_HOLD_CALLS = 6;
+
+    /**
+     * There are maximum self-managed calls already.
+     */
+    FAILURE_CAUSE_MAX_SELF_MANAGED_CALLS = 7;
+}

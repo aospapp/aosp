@@ -79,7 +79,7 @@ public final class ProfileNetworkPreference implements Parcelable {
      * if included is not empty, then only included UIDs are applied.
      * if excluded is not empty, then it is all uids in the user profile except these UIDs.
      * @return Array of uids included for the profile preference.
-     * {@see #getExcludedUids()}
+     * @see #getExcludedUids()
      */
     public @NonNull int[] getIncludedUids() {
         return mIncludedUids.clone();
@@ -93,7 +93,7 @@ public final class ProfileNetworkPreference implements Parcelable {
      * <ul>If included is not empty, then only included UIDs are applied.</ul>
      * <ul>If excluded is not empty, then it is all uids in the user profile except these UIDs.</ul>
      * @return Array of uids not included for the profile preference.
-     * {@see #getIncludedUids()}
+     * @see #getIncludedUids()
      */
     public @NonNull int[] getExcludedUids() {
         return mExcludedUids.clone();
@@ -177,7 +177,7 @@ public final class ProfileNetworkPreference implements Parcelable {
         /**
          * This is a array of uids for which profile perefence is set.
          * Empty would mean that this preference applies to all uids in the profile.
-         * {@see #setExcludedUids(int[])}
+         * @see #setExcludedUids(int[])
          * Included UIDs and Excluded UIDs can't both be non-empty.
          * if both are empty, it means this request applies to all uids in the user profile.
          * if included is not empty, then only included UIDs are applied.
@@ -195,7 +195,7 @@ public final class ProfileNetworkPreference implements Parcelable {
 
         /**
          * This is a array of uids that are excluded for the profile perefence.
-         * {@see #setIncludedUids(int[])}
+         * @see #setIncludedUids(int[])
          * Included UIDs and Excluded UIDs can't both be non-empty.
          * if both are empty, it means this request applies to all uids in the user profile.
          * if included is not empty, then only included UIDs are applied.

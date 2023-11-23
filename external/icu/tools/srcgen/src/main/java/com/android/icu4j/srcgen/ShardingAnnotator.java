@@ -18,6 +18,7 @@ package com.android.icu4j.srcgen;
 import static com.google.currysrc.api.process.ast.PackageMatcher.getPackageName;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.currysrc.api.process.Context;
 import com.google.currysrc.api.process.Processor;
@@ -67,6 +68,16 @@ class ShardingAnnotator implements Processor {
                     "android.icu.dev.test.rbbi.RBBIMonkeyTest", "HiMemTestShard"
             );
 
+    /**
+     * A set of the fully-qualified names of test classes which should not have the sharding
+     * test annotations.
+     */
+    private static final ImmutableSet<String> IGNORED_CLASS_NAMES =
+            // Keys are in alphabetical order.
+            ImmutableSet.of(
+                    "android.icu.dev.test.message2.TestUtils"
+            );
+
     @Override
     public void process(Context context, CompilationUnit cu) {
         List types = cu.types();
@@ -83,10 +94,13 @@ class ShardingAnnotator implements Processor {
     }
 
     private boolean needsAnnotation(TypeDeclaration declaration) {
+        String className = getPackageName(declaration)  + '.'
+                + declaration.getName().getIdentifier();
         int modifiers = declaration.getModifiers();
         return !declaration.isInterface()
                 && !Modifier.isAbstract(modifiers)
-                && Modifier.isPublic(modifiers);
+                && Modifier.isPublic(modifiers)
+                && !IGNORED_CLASS_NAMES.contains(className);
     }
 
     private void annotateTestType(

@@ -69,6 +69,19 @@ pw_source_set("borrow") {
   ]
 }
 
+pw_source_set("inline_borrowable") {
+  public = [
+    "public/pw_sync/inline_borrowable.h",
+    "public/pw_sync/internal/borrowable_storage.h",
+  ]
+  public_deps = [
+    ":borrow",
+    ":mutex",
+    ":virtual_basic_lockable",
+  ]
+  public_configs = [ ":public_include_path" ]
+}
+
 pw_source_set("virtual_basic_lockable") {
   public_configs = [ ":public_include_path" ]
   public = [ "public/pw_sync/virtual_basic_lockable.h" ]
@@ -101,6 +114,18 @@ pw_facade("timed_mutex") {
     "$dir_pw_preprocessor",
   ]
   sources = [ "timed_mutex.cc" ]
+}
+
+pw_facade("recursive_mutex") {
+  backend = pw_sync_RECURSIVE_MUTEX_BACKEND
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_sync/recursive_mutex.h" ]
+  public_deps = [
+    ":lock_annotations",
+    "$dir_pw_preprocessor",
+  ]
+  sources = [ "recursive_mutex.cc" ]
+  visibility = [ ":*" ]
 }
 
 pw_facade("interrupt_spin_lock") {
@@ -173,6 +198,16 @@ pw_source_set("yield_core") {
   public_configs = [ ":public_include_path" ]
 }
 
+pw_facade("condition_variable") {
+  backend = pw_sync_CONDITION_VARIABLE_BACKEND
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_sync/condition_variable.h" ]
+  public_deps = [
+    "$dir_pw_chrono:system_clock",
+    "$dir_pw_sync:mutex",
+  ]
+}
+
 pw_test_group("tests") {
   tests = [
     ":borrow_test",
@@ -180,9 +215,11 @@ pw_test_group("tests") {
     ":counting_semaphore_facade_test",
     ":mutex_facade_test",
     ":timed_mutex_facade_test",
+    ":recursive_mutex_facade_test",
     ":interrupt_spin_lock_facade_test",
     ":thread_notification_facade_test",
     ":timed_thread_notification_facade_test",
+    ":inline_borrowable_test",
   ]
 }
 
@@ -192,6 +229,16 @@ pw_test("borrow_test") {
     ":borrow",
     ":virtual_basic_lockable",
     dir_pw_assert,
+  ]
+}
+
+pw_test("inline_borrowable_test") {
+  sources = [ "inline_borrowable_test.cc" ]
+  deps = [
+    ":inline_borrowable",
+    ":interrupt_spin_lock",
+    ":lock_annotations",
+    ":mutex",
   ]
 }
 
@@ -247,6 +294,19 @@ pw_test("timed_mutex_facade_test") {
   ]
 }
 
+pw_test("recursive_mutex_facade_test") {
+  enable_if = pw_sync_RECURSIVE_MUTEX_BACKEND != ""
+  sources = [
+    "recursive_mutex_facade_test.cc",
+    "recursive_mutex_facade_test_c.c",
+  ]
+  deps = [
+    ":recursive_mutex",
+    "$dir_pw_preprocessor",
+    pw_sync_RECURSIVE_MUTEX_BACKEND,
+  ]
+}
+
 pw_test("interrupt_spin_lock_facade_test") {
   enable_if = pw_sync_INTERRUPT_SPIN_LOCK_BACKEND != ""
   sources = [
@@ -275,6 +335,23 @@ pw_test("timed_thread_notification_facade_test") {
   deps = [
     ":timed_thread_notification",
     pw_sync_TIMED_THREAD_NOTIFICATION_BACKEND,
+  ]
+}
+
+# This needs to be instantiated per platform that provides
+# an implementation of $dir_pw_thread:test_threads and
+# $dir_pw_sync:condition_variable.
+pw_source_set("condition_variable_test") {
+  sources = [ "condition_variable_test.cc" ]
+  deps = [
+    ":condition_variable",
+    "$dir_pw_containers:vector",
+    "$dir_pw_sync:mutex",
+    "$dir_pw_sync:timed_thread_notification",
+    "$dir_pw_thread:sleep",
+    "$dir_pw_thread:test_threads",
+    "$dir_pw_thread:thread",
+    "$dir_pw_unit_test",
   ]
 }
 

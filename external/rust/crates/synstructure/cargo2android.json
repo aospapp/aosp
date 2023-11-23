@@ -1,0 +1,5 @@
+{
+  "host-first-multilib": true,
+  "run": true,
+  "features": "proc-macro"
+}

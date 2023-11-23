@@ -1,0 +1,32 @@
+type dmd, domain;
+type dmd_exec, vendor_file_type, exec_type, file_type;
+init_daemon_domain(dmd)
+
+# Grant to access serial device for external logging tool
+allow dmd serial_device:chr_file rw_file_perms;
+
+# Grant to access radio device
+allow dmd radio_device:chr_file rw_file_perms;
+
+# Grant to access slog dir/file
+allow dmd vendor_slog_file:dir create_dir_perms;
+allow dmd vendor_slog_file:file create_file_perms;
+
+# Grant to access tcp socket
+allow dmd node:tcp_socket node_bind;
+allow dmd self:tcp_socket { create_socket_perms_no_ioctl listen accept bind };
+
+# Grant to access log related properties
+set_prop(dmd, vendor_diag_prop)
+set_prop(dmd, vendor_slog_prop)
+set_prop(dmd, vendor_modem_prop)
+get_prop(dmd, vendor_persist_config_default_prop)
+
+# Grant to access hwservice manager
+get_prop(dmd, hwservicemanager_prop)
+allow dmd hidl_base_hwservice:hwservice_manager add;
+allow dmd hal_vendor_oem_hwservice:hwservice_manager { add find };
+binder_call(dmd, hwservicemanager)
+binder_call(dmd, modem_diagnostic_app)
+binder_call(dmd, modem_logging_control)
+binder_call(dmd, vendor_telephony_silentlogging_app)

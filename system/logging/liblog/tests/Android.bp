@@ -45,6 +45,18 @@ cc_benchmark {
 }
 
 // -----------------------------------------------------------------------------
+// Fuzzers.
+// -----------------------------------------------------------------------------
+
+cc_fuzz {
+    name: "liblog_convertPrintable_fuzzer",
+    srcs: [
+        "liblog_convertPrintable_fuzzer.cpp",
+    ],
+    static_libs: ["liblog"],
+}
+
+// -----------------------------------------------------------------------------
 // Unit tests.
 // -----------------------------------------------------------------------------
 
@@ -117,6 +129,7 @@ cc_test_host {
         "liblog_host_test.cpp",
         "liblog_default_tag.cpp",
         "liblog_global_state.cpp",
+        "logprint_test.cpp",
     ],
     isolated: true,
 }

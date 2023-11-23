@@ -115,7 +115,7 @@ ScopedAStatus HalDisplay::setDisplayState(DisplayState state) {
 
 std::string HalDisplay::toString(const char* indent) {
     std::string buffer;
-    if (mId == kInvalidDisplayId) {
+    if (mId == kDisplayIdUnavailable) {
         // Display identifier has not set
         StringAppendF(&buffer, "HalDisplay: Display port is unknown.\n");
     } else {

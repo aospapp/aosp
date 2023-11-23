@@ -19,6 +19,7 @@ import collections
 import itertools
 import json
 import math
+from acts_contrib.test_utils.wifi import wifi_performance_test_utils as wputils
 
 
 # Plotting Utilities
@@ -98,8 +99,8 @@ class BokehFigure():
     def init_plot(self):
         self.plot = bokeh.plotting.figure(
             sizing_mode=self.fig_property['sizing_mode'],
-            plot_width=self.fig_property['width'],
-            plot_height=self.fig_property['height'],
+            width=self.fig_property['width'],
+            height=self.fig_property['height'],
             title=self.fig_property['title'],
             tools=self.TOOLS,
             x_axis_type=self.fig_property['x_axis_type'],
@@ -326,7 +327,7 @@ class BokehFigure():
                                               figure_data=self.figure_data)
         output_file = output_file.replace('.html', '_plot_data.json')
         with open(output_file, 'w') as outfile:
-            json.dump(figure_dict, outfile, indent=4)
+            json.dump(wputils.serialize_dict(figure_dict), outfile, indent=4)
 
     def save_figure(self, output_file, save_json=True):
         """Function to save BokehFigure.

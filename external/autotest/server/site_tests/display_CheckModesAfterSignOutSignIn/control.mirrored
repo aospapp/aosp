@@ -14,7 +14,9 @@ TEST_CLASS = "display"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:display, suite:chameleon_hdmi"
 DEPENDENCIES = "chameleon, servo_state:WORKING"
-JOB_RETRIES = 2
+JOB_RETRIES = 1
+PY_VERSION = 3
+
 DOC = """
 1. Boot the Chromebook and login
 2. Set Mirrored mode

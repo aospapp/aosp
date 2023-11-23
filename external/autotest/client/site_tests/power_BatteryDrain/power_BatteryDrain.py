@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -18,13 +19,15 @@ class power_BatteryDrain(test.test):
     backlight = None
     keyboard_backlight = None
 
+    tick_count = 0
+
     url = 'https://crospower.page.link/power_BatteryDrain'
 
     def cleanup(self):
         '''Cleanup for a test run'''
         if self._force_discharge:
             if not power_utils.charge_control_by_ectool(True):
-                logging.warn('Can not restore from force discharge.')
+                logging.warning('Can not restore from force discharge.')
         if self.backlight:
             self.backlight.restore()
         if self.keyboard_backlight:
@@ -81,6 +84,10 @@ class power_BatteryDrain(test.test):
                 status.refresh()
                 if not force_discharge and status.on_ac():
                     raise ac_error
+                self.tick_count += 1
+                if self.tick_count % 60 == 0:
+                    logging.info('Battery charge percent: {}'.format(
+                            status.percent_display_charge()))
                 return status.percent_display_charge() <= drain_to_percent
 
             err = error.TestFail(

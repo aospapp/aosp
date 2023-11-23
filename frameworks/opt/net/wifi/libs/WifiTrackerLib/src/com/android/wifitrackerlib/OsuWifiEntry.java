@@ -22,7 +22,6 @@ import static com.android.wifitrackerlib.Utils.getBestScanResultByLevel;
 import static com.android.wifitrackerlib.WifiEntry.ConnectCallback.CONNECT_STATUS_FAILURE_UNKNOWN;
 
 import android.content.Context;
-import android.net.NetworkInfo;
 import android.net.Uri;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
@@ -185,8 +184,7 @@ class OsuWifiEntry extends WifiEntry {
 
     @WorkerThread
     @Override
-    protected boolean connectionInfoMatches(@NonNull WifiInfo wifiInfo,
-            @NonNull NetworkInfo networkInfo) {
+    protected boolean connectionInfoMatches(@NonNull WifiInfo wifiInfo) {
         return wifiInfo.isOsuAp() && TextUtils.equals(
                 wifiInfo.getPasspointProviderFriendlyName(), mOsuProvider.getFriendlyName());
     }

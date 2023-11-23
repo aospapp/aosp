@@ -35,9 +35,9 @@ import java.util.Optional;
 public class InitiateTransactionResponse extends FiRaResponse {
 
     @VisibleForTesting
-    static final Tag STATUS_TAG = new Tag((byte) 0x80);
+    public static final Tag STATUS_TAG = new Tag((byte) 0x80);
     @VisibleForTesting
-    static final Tag DATA_TAG = new Tag((byte) 0x81);
+    public static final Tag DATA_TAG = new Tag((byte) 0x81);
 
     /**
      * The data should be sent to the peer device.

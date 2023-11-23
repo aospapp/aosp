@@ -77,6 +77,12 @@ public class BluetoothLeScanner {
         mWrappedBluetoothLeScanner.stopScan(callbackIntent);
     }
 
+    /** Unwraps a Bluetooth LE scanner. */
+    @Nullable
+    public android.bluetooth.le.BluetoothLeScanner unwrap() {
+        return mWrappedBluetoothLeScanner;
+    }
+
     /** Wraps a Bluetooth LE scanner. */
     @Nullable
     public static BluetoothLeScanner wrap(

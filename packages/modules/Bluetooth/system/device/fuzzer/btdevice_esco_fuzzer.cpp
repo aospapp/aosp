@@ -41,6 +41,8 @@ constexpr interop_feature_t kInteropFeature[] = {
     interop_feature_t::INTEROP_AVRCP_1_4_ONLY,
     interop_feature_t::INTEROP_DISABLE_SNIFF,
     interop_feature_t::INTEROP_DISABLE_AVDTP_SUSPEND,
+    interop_feature_t::INTEROP_SLC_SKIP_BIND_COMMAND,
+    interop_feature_t::INTEROP_AVRCP_1_3_ONLY,
 };
 constexpr esco_codec_t kEscoCodec[] = {
     esco_codec_t::SCO_CODEC_CVSD_D1,  esco_codec_t::ESCO_CODEC_CVSD_S3,
@@ -71,6 +73,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
       interopFeature,
       mFuzzedDataProvider.ConsumeRandomLengthString(kMaxStringLength).c_str());
   esco_codec_t escoCodec = mFuzzedDataProvider.PickValueInArray(kEscoCodec);
-  esco_parameters_for_codec(escoCodec);
+  esco_parameters_for_codec(escoCodec, true);
   return 0;
 }

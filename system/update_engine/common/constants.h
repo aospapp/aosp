@@ -172,6 +172,23 @@ static constexpr const auto& kPayloadPropertyPowerwash = "POWERWASH";
 // This can be used to zero-rate OTA traffic by sending it over the correct
 // network.
 static constexpr const auto& kPayloadPropertyNetworkId = "NETWORK_ID";
+
+// Proxy URL to use for downloading OTA. This will be forwarded to libcurl
+static constexpr const auto& kPayloadPropertyNetworkProxy = "NETWORK_PROXY";
+
+// Set Virtual AB Compression's compression algorithm to "none", but still use
+// userspace snapshots and snapuserd for update installation.
+static constexpr const auto& kPayloadVABCNone = "VABC_NONE";
+// Enable/Disable VABC, falls back on plain VAB
+static constexpr const auto& kPayloadDisableVABC = "DISABLE_VABC";
+// Enable multi-threaded compression for VABC
+static constexpr const auto& kPayloadEnableThreading = "ENABLE_THREADING";
+// Enable batched writes for VABC
+static constexpr const auto& kPayloadBatchedWrites = "BATCHED_WRITES";
+
+// Max retry count for download
+static constexpr const auto& kPayloadDownloadRetry = "DOWNLOAD_RETRY";
+
 // Set "SWITCH_SLOT_ON_REBOOT=0" to skip marking the updated partitions active.
 // The default is 1 (always switch slot if update succeeded).
 static constexpr const auto& kPayloadPropertySwitchSlotOnReboot =
@@ -190,6 +207,9 @@ static constexpr const auto& kXGoogleUpdateInteractivity =
 static constexpr const auto& kXGoogleUpdateAppId = "X-Goog-Update-AppId";
 static constexpr const auto& kXGoogleUpdateUpdater = "X-Goog-Update-Updater";
 static constexpr const auto& kXGoogleUpdateSessionId = "X-Goog-SessionId";
+
+// Proxy URL for direction connection
+static constexpr const auto& kNoProxy = "direct://";
 
 // A download source is any combination of protocol and server (that's of
 // interest to us when looking at UMA metrics) using which we may download

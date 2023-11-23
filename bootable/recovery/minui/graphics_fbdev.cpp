@@ -44,7 +44,16 @@ void MinuiBackendFbdev::Blank(bool blank) {
 }
 
 void MinuiBackendFbdev::Blank(bool blank, DrmConnector index) {
-  fprintf(stderr, "Unsupported multiple connectors, blank = %d, index = %d\n", blank, index);
+  if (index == DRM_MAIN) {
+    MinuiBackendFbdev::Blank(blank);
+  } else {
+    fprintf(stderr, "Unsupported multiple connectors, blank = %d, index = %d\n", blank, index);
+  }
+}
+
+bool MinuiBackendFbdev::HasMultipleConnectors() {
+  fprintf(stderr, "Unsupported multiple connectors\n");
+  return false;
 }
 
 void MinuiBackendFbdev::SetDisplayedFramebuffer(size_t n) {

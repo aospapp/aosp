@@ -16,6 +16,7 @@
 #include <aidl/android/hardware/wifi/supplicant/ISupplicantStaIfaceCallback.h>
 #include <aidl/android/hardware/wifi/supplicant/ISupplicantStaNetworkCallback.h>
 
+#include "certificate_utils.h"
 #include "p2p_iface.h"
 #include "p2p_network.h"
 #include "rsn_supp/pmksa_cache.h"
@@ -61,6 +62,8 @@ public:
 	int notifyNetworkRequest(
 		struct wpa_supplicant *wpa_s, struct wpa_ssid *ssid, int type,
 		const char *param);
+	void notifyPermanentIdReqDenied(
+		struct wpa_supplicant *wpa_s);
 	void notifyAnqpQueryDone(
 		struct wpa_supplicant *wpa_s, const u8 *bssid, const char *result,
 		const struct wpa_bss_anqp *anqp);
@@ -101,7 +104,7 @@ public:
 		struct wpa_supplicant *wpa_s, const char *reason);
 	void notifyP2pGroupStarted(
 		struct wpa_supplicant *wpa_group_s, const struct wpa_ssid *ssid,
-		int persistent, int client);
+		int persistent, int client, const u8 *ip);
 	void notifyP2pGroupRemoved(
 		struct wpa_supplicant *wpa_group_s, const struct wpa_ssid *ssid,
 		const char *role);
@@ -125,8 +128,11 @@ public:
 		const u8 *p2p_dev_addr);
 	void notifyEapError(struct wpa_supplicant *wpa_s, int error_code);
 	void notifyDppConfigReceived(struct wpa_supplicant *wpa_s,
-			struct wpa_ssid *config);
+		struct wpa_ssid *config,
+		bool conn_status_requested);
 	void notifyDppConfigSent(struct wpa_supplicant *wpa_s);
+	void notifyDppConnectionStatusSent(struct wpa_supplicant *wpa_s,
+		enum dpp_status_error result);
 	void notifyDppSuccess(struct wpa_supplicant *wpa_s, DppEventType code);
 	void notifyDppFailure(struct wpa_supplicant *wpa_s,
 			DppFailureCode code);
@@ -157,6 +163,10 @@ public:
 	void notifyQosPolicyRequest(struct wpa_supplicant *wpa_s,
 			struct dscp_policy_data *policies,
 			int num_policies);
+	ssize_t getCertificate(const char* alias, uint8_t** value);
+	ssize_t listAliases(const char *prefix, char ***aliases);
+	void notifyQosPolicyScsResponse(struct wpa_supplicant *wpa_s,
+			unsigned int count, int **scs_resp);
 
 	// Methods called from aidl objects.
 	void notifyExtRadioWorkStart(struct wpa_supplicant *wpa_s, uint32_t id);
@@ -186,6 +196,8 @@ public:
 	int addStaNetworkCallbackAidlObject(
 		const std::string &ifname, int network_id,
 		const std::shared_ptr<ISupplicantStaNetworkCallback> &callback);
+	int registerNonStandardCertCallbackAidlObject(
+		const std::shared_ptr<INonStandardCertCallback> &callback);
 
 private:
 	AidlManager() = default;
@@ -273,6 +285,8 @@ private:
 		const std::string,
 		std::vector<std::shared_ptr<ISupplicantStaNetworkCallback>>>
 		sta_network_callbacks_map_;
+	// NonStandardCertCallback registered by the client.
+	std::shared_ptr<INonStandardCertCallback> non_standard_cert_callback_;
 };
 
 // The aidl interface uses some values which are the same as internal ones to

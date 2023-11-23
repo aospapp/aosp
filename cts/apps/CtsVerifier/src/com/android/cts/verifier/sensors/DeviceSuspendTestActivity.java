@@ -1,6 +1,7 @@
 package com.android.cts.verifier.sensors;
 
 import android.app.AlarmManager;
+import android.app.KeyguardManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -27,7 +28,6 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.sensors.base.SensorCtsVerifierTestActivity;
-import com.android.cts.verifier.sensors.helpers.SensorTestScreenManipulator;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -38,19 +38,17 @@ public class DeviceSuspendTestActivity
             super(DeviceSuspendTestActivity.class);
         }
 
-        private SensorTestScreenManipulator mScreenManipulator;
         private PowerManager.WakeLock mDeviceSuspendLock;
         private PendingIntent mPendingIntent;
         private AlarmManager mAlarmManager;
         private static String ACTION_ALARM = "DeviceSuspendTestActivity.ACTION_ALARM";
         private static String TAG = "DeviceSuspendSensorTest";
         private SensorManager mSensorManager;
+        private KeyguardManager mKeyguardManager;
 
         @Override
         protected void activitySetUp() throws InterruptedException {
             mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-            mScreenManipulator = new SensorTestScreenManipulator(this);
-            mScreenManipulator.initialize(this);
             LocalBroadcastManager.getInstance(this).registerReceiver(myBroadCastReceiver,
                                             new IntentFilter(ACTION_ALARM));
 
@@ -58,6 +56,8 @@ public class DeviceSuspendTestActivity
             mPendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
 
             mAlarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+
+            mKeyguardManager = getSystemService(KeyguardManager.class);
 
             PowerManager pm = (PowerManager)getSystemService(Context.POWER_SERVICE);
             mDeviceSuspendLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
@@ -75,7 +75,7 @@ public class DeviceSuspendTestActivity
 
         @Override
         protected void activityCleanUp() {
-            mScreenManipulator.turnScreenOn();
+            mKeyguardManager.requestDismissKeyguard(this, null);
             try {
                 playSound();
             } catch(InterruptedException e) {
@@ -94,10 +94,6 @@ public class DeviceSuspendTestActivity
             super.onDestroy();
             if (mDeviceSuspendLock != null && mDeviceSuspendLock.isHeld()) {
                 mDeviceSuspendLock.release();
-            }
-            if (mScreenManipulator != null) {
-                mScreenManipulator.releaseScreenOn();
-                mScreenManipulator.close();
             }
         }
 

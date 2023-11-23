@@ -29,7 +29,6 @@ import android.os.DropBoxManager;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
-import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;

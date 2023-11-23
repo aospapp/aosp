@@ -26,9 +26,28 @@ vkr_get_capset(void *capset)
       c->wire_format_version = vn_info_wire_format_version();
       c->vk_xml_version = vn_info_vk_xml_version();
       c->vk_ext_command_serialization_spec_version =
-         vn_info_extension_spec_version("VK_EXT_command_serialization");
+         vkr_extension_get_spec_version("VK_EXT_command_serialization");
       c->vk_mesa_venus_protocol_spec_version =
-         vn_info_extension_spec_version("VK_MESA_venus_protocol");
+         vkr_extension_get_spec_version("VK_MESA_venus_protocol");
+      /* After https://gitlab.freedesktop.org/virgl/virglrenderer/-/merge_requests/688,
+       * this flag is used to indicate render server config, and will be needed until drm
+       * virtio-gpu blob mem gets fixed to attach_resource before resource_map.
+       */
+      c->supports_blob_id_0 = (bool)(vkr_renderer_flags & VKR_RENDERER_RENDER_SERVER);
+
+      uint32_t ext_mask[VN_INFO_EXTENSION_MAX_NUMBER / 32 + 1] = { 0 };
+      vn_info_extension_mask_init(ext_mask);
+
+      static_assert(sizeof(ext_mask) <= sizeof(c->vk_extension_mask1),
+                    "Time to extend venus capset with vk_extension_mask2");
+      memcpy(c->vk_extension_mask1, ext_mask, sizeof(ext_mask));
+
+      /* set bit 0 to enable the extension mask(s) */
+      assert(!(c->vk_extension_mask1[0] & 0x1u));
+      c->vk_extension_mask1[0] |= 0x1u;
+
+      c->allow_vk_wait_syncs = 1;
+      c->supports_multiple_timelines = 1;
    }
 
    return sizeof(*c);
@@ -37,8 +56,6 @@ vkr_get_capset(void *capset)
 int
 vkr_renderer_init(uint32_t flags)
 {
-   /* TODO VKR_RENDERER_MULTI_PROCESS hint */
-
    if ((vkr_renderer_flags & VKR_RENDERER_ASYNC_FENCE_CB) &&
        !(vkr_renderer_flags & VKR_RENDERER_THREAD_SYNC))
       return -EINVAL;

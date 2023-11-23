@@ -21,11 +21,13 @@ import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
+import android.util.ArraySet;
 
 import com.android.internal.util.Preconditions;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * A class represents a device that can be discovered by multiple mediums.
@@ -123,13 +125,17 @@ public abstract class NearbyDevice {
 
     @Override
     public boolean equals(Object other) {
-        if (other instanceof NearbyDevice) {
-            NearbyDevice otherDevice = (NearbyDevice) other;
-            return Objects.equals(mName, otherDevice.mName)
-                    && mMediums == otherDevice.mMediums
-                    && mRssi == otherDevice.mRssi;
+        if (!(other instanceof NearbyDevice)) {
+            return false;
         }
-        return false;
+        NearbyDevice otherDevice = (NearbyDevice) other;
+        Set<Integer> mediumSet = new ArraySet<>(mMediums);
+        Set<Integer> otherMediumSet = new ArraySet<>(otherDevice.mMediums);
+        if (!mediumSet.equals(otherMediumSet)) {
+            return false;
+        }
+
+        return Objects.equals(mName, otherDevice.mName) && mRssi == otherDevice.mRssi;
     }
 
     @Override

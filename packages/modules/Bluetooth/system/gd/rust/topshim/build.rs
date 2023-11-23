@@ -1,5 +1,3 @@
-extern crate bindgen;
-
 use pkg_config::Config;
 use std::env;
 use std::path::PathBuf;
@@ -29,9 +27,17 @@ fn main() {
     let bt_searches =
         paths.iter().map(|tail| format!("-I{}{}", search_root, tail)).collect::<Vec<String>>();
 
-    // Also re-run the build if anything in the C++ build changes
-    for path in bt_searches.iter() {
-        println!("cargo:rerun-if-changed={}", path);
+    // Also re-run bindgen if anything in the C++ source changes. Unfortunately the Rust source
+    // files also reside in the same directory so any changes of Rust files (and other non-C files
+    // actually) will cause topshim to be rebuild. The TOPSHIM_SHOULD_REBUILD env variable is a
+    // development tool to speed up build that can be set to "no" if topshim is not expected to be
+    // change.
+    let topshim_should_rebuild = match env::var("TOPSHIM_SHOULD_REBUILD") {
+        Err(_) => true,
+        Ok(should_rebuild) => should_rebuild != "no",
+    };
+    if topshim_should_rebuild {
+        println!("cargo:rerun-if-changed={}{}", search_root, "/system/");
     }
 
     // "-x" and "c++" must be separate due to a bug
@@ -46,8 +52,11 @@ fn main() {
         .clang_args(clang_args)
         .enable_cxx_namespaces()
         .size_t_is_usize(true)
-        .allowlist_type("(bt_|bthh_|btgatt_|btsdp|bluetooth_sdp).*")
-        .allowlist_function("(bt_|bthh_|btgatt_|btsdp).*")
+        .blocklist_function("RawAddress_.*")
+        .blocklist_function(".*Uuid_.*")
+        .allowlist_type("(bt_|bthh_|btgatt_|btsdp|bluetooth_sdp|btsock_|bthf_|btrc_).*")
+        .allowlist_type("sock_connect_signal_t")
+        .allowlist_function("(bt_|bthh_|btgatt_|btsdp|osi_property_get).*")
         .allowlist_function("hal_util_.*")
         // We must opaque out std:: in order to prevent bindgen from choking
         .opaque_type("std::.*")

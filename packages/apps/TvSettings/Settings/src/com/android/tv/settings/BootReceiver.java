@@ -22,6 +22,7 @@ import android.content.Intent;
 import android.util.Log;
 
 import com.android.tv.settings.accessories.BluetoothDevicesService;
+import com.android.tv.settings.device.eco.EnergyModesHelper;
 
 /** The {@BroadcastReceiver} for performing actions upon device boot. */
 public class BootReceiver extends BroadcastReceiver {
@@ -45,5 +46,9 @@ public class BootReceiver extends BroadcastReceiver {
             Intent mainIntent = new Intent(context, BluetoothDevicesService.class);
             context.startService(mainIntent);
         }
+
+
+        EnergyModesHelper energyModesHelper = new EnergyModesHelper(context);
+        energyModesHelper.updateEnergyMode();
     }
 }

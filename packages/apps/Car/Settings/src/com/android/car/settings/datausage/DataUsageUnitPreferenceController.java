@@ -18,6 +18,8 @@ package com.android.car.settings.datausage;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.icu.text.MeasureFormat;
+import android.icu.util.MeasureUnit;
 
 import androidx.annotation.NonNull;
 import androidx.preference.PreferenceGroup;
@@ -74,15 +76,19 @@ public class DataUsageUnitPreferenceController extends GroupSelectionPreferenceC
     protected List<TwoStatePreference> getGroupPreferences() {
         List<TwoStatePreference> entries = new ArrayList<>();
 
+        MeasureFormat formatter = MeasureFormat.getInstance(
+                getContext().getResources().getConfiguration().locale,
+                MeasureFormat.FormatWidth.SHORT);
+
         // Create GB preference
         CarUiRadioButtonPreference gbPreference = new CarUiRadioButtonPreference(getContext());
         gbPreference.setKey(mGbPreferenceKey);
-        gbPreference.setTitle(com.android.internal.R.string.gigabyteShort);
+        gbPreference.setTitle(formatter.getUnitDisplayName(MeasureUnit.GIGABYTE));
 
         // Create MB preference
         CarUiRadioButtonPreference mbPreference = new CarUiRadioButtonPreference(getContext());
         mbPreference.setKey(mMbPreferenceKey);
-        mbPreference.setTitle(com.android.internal.R.string.megabyteShort);
+        mbPreference.setTitle(formatter.getUnitDisplayName(MeasureUnit.MEGABYTE));
 
         entries.add(gbPreference);
         entries.add(mbPreference);

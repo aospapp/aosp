@@ -45,7 +45,6 @@
     <dimen name="suggestions_padding_end">@*android:dimen/car_keyline_1</dimen>
     <dimen name="suggestions_action_bar_height">@*android:dimen/car_card_action_bar_height</dimen>
 
-    <!-- Quick Settings -->
     <dimen name="brightness_seekbar_margin_bottom">@*android:dimen/car_padding_4</dimen>
     <dimen name="brightness_seekbar_padding_horizontal">@*android:dimen/car_padding_3</dimen>
     <dimen name="brightness_seekbar_height">@*android:dimen/car_single_line_list_item_height</dimen>

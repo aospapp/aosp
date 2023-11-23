@@ -15,7 +15,7 @@ android_library {
         "Queryable",
         "statsdprotonano_mapped"
     ],
-    min_sdk_version: "27"
+    min_sdk_version: "29"
 }
 
 // Rewrite the proto packages for use by MetricsRecorder

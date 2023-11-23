@@ -24,7 +24,7 @@ Typical usage:
 
 sign_virt_apex uses external tools which are assumed to be available via PATH.
 - avbtool (--avbtool can override the tool)
-- lpmake, lpunpack, simg2img, img2simg
+- lpmake, lpunpack, simg2img, img2simg, initrd_bootconfig
 """
 import argparse
 import hashlib
@@ -102,9 +102,14 @@ def ParseArgs(argv):
     parser.add_argument(
         'input_dir',
         help='the directory having files to be packaged')
+    parser.add_argument(
+        '--do_not_update_bootconfigs',
+        action='store_true',
+        help='This will NOT update the vbmeta related bootconfigs while signing the apex.\
+            Used for testing only!!')
     args = parser.parse_args(argv)
     # preprocess --key_override into a map
-    args.key_overrides = dict()
+    args.key_overrides = {}
     if args.key_override:
         for pair in args.key_override:
             name, key = pair.split('=')
@@ -159,7 +164,7 @@ def AvbInfo(args, image_path):
         - a list of descriptors.
     """
     if not os.path.exists(image_path):
-        raise ValueError('Failed to find image: {}'.format(image_path))
+        raise ValueError(f'Failed to find image: {image_path}')
 
     output, ret_code = RunCommand(
         args, ['avbtool', 'info_image', '--image', image_path], expected_return_values={0, 1})
@@ -200,23 +205,19 @@ def AvbInfo(args, image_path):
     return info, descriptors
 
 
-# Look up a list of (key, value) with a key. Returns the value of the first matching pair.
+# Look up a list of (key, value) with a key. Returns the list of value(s) with the matching key.
+# The order of those values is maintained.
 def LookUp(pairs, key):
-    for k, v in pairs:
-        if key == k:
-            return v
-    return None
+    return [v for (k, v) in pairs if k == key]
 
 
-def AddHashFooter(args, key, image_path):
+def AddHashFooter(args, key, image_path, partition_name, additional_descriptors=None):
     if os.path.basename(image_path) in args.key_overrides:
         key = args.key_overrides[os.path.basename(image_path)]
-    info, descriptors = AvbInfo(args, image_path)
+    info, _ = AvbInfo(args, image_path)
     if info:
-        descriptor = LookUp(descriptors, 'Hash descriptor')
         image_size = ReadBytesSize(info['Image size'])
         algorithm = info['Algorithm']
-        partition_name = descriptor['Partition Name']
         partition_size = str(image_size)
 
         cmd = ['avbtool', 'add_hash_footer',
@@ -227,6 +228,9 @@ def AddHashFooter(args, key, image_path):
                '--image', image_path]
         if args.signing_args:
             cmd.extend(shlex.split(args.signing_args))
+        if additional_descriptors:
+            for image in additional_descriptors:
+                cmd.extend(['--include_descriptors_from_image', image])
         RunCommand(args, cmd)
 
 
@@ -235,22 +239,99 @@ def AddHashTreeFooter(args, key, image_path):
         key = args.key_overrides[os.path.basename(image_path)]
     info, descriptors = AvbInfo(args, image_path)
     if info:
-        descriptor = LookUp(descriptors, 'Hashtree descriptor')
+        descriptor = LookUp(descriptors, 'Hashtree descriptor')[0]
         image_size = ReadBytesSize(info['Image size'])
         algorithm = info['Algorithm']
         partition_name = descriptor['Partition Name']
+        hash_algorithm = descriptor['Hash Algorithm']
         partition_size = str(image_size)
-
         cmd = ['avbtool', 'add_hashtree_footer',
                '--key', key,
                '--algorithm', algorithm,
                '--partition_name', partition_name,
                '--partition_size', partition_size,
                '--do_not_generate_fec',
+               '--hash_algorithm', hash_algorithm,
                '--image', image_path]
         if args.signing_args:
             cmd.extend(shlex.split(args.signing_args))
         RunCommand(args, cmd)
+
+
+def UpdateVbmetaBootconfig(args, initrds, vbmeta_img):
+    # Update the bootconfigs in ramdisk
+    def detach_bootconfigs(initrd_bc, initrd, bc):
+        cmd = ['initrd_bootconfig', 'detach', initrd_bc, initrd, bc]
+        RunCommand(args, cmd)
+
+    def attach_bootconfigs(initrd_bc, initrd, bc):
+        cmd = ['initrd_bootconfig', 'attach',
+               initrd, bc, '--output', initrd_bc]
+        RunCommand(args, cmd)
+
+    # Validate that avb version used while signing the apex is the same as used by build server
+    def validate_avb_version(bootconfigs):
+        cmd = ['avbtool', 'version']
+        stdout, _ = RunCommand(args, cmd)
+        avb_version_curr = stdout.split(" ")[1].strip()
+        avb_version_curr = avb_version_curr[0:avb_version_curr.rfind('.')]
+
+        avb_version_bc = re.search(
+            r"androidboot.vbmeta.avb_version = \"([^\"]*)\"", bootconfigs).group(1)
+        if avb_version_curr != avb_version_bc:
+            raise Exception(f'AVB version mismatch between current & one & \
+                used to build bootconfigs:{avb_version_curr}&{avb_version_bc}')
+
+    def calc_vbmeta_digest():
+        cmd = ['avbtool', 'calculate_vbmeta_digest', '--image',
+               vbmeta_img, '--hash_algorithm', 'sha256']
+        stdout, _ = RunCommand(args, cmd)
+        return stdout.strip()
+
+    def calc_vbmeta_size():
+        cmd = ['avbtool', 'info_image', '--image', vbmeta_img]
+        stdout, _ = RunCommand(args, cmd)
+        size = 0
+        for line in stdout.split("\n"):
+            line = line.split(":")
+            if line[0] in ['Header Block', 'Authentication Block', 'Auxiliary Block']:
+                size += int(line[1].strip()[0:-6])
+        return size
+
+    def update_vbmeta_digest(bootconfigs):
+        # Update androidboot.vbmeta.digest in bootconfigs
+        result = re.search(
+            r"androidboot.vbmeta.digest = \"[^\"]*\"", bootconfigs)
+        if not result:
+            raise ValueError("Failed to find androidboot.vbmeta.digest")
+
+        return bootconfigs.replace(result.group(),
+                                   f'androidboot.vbmeta.digest = "{calc_vbmeta_digest()}"')
+
+    def update_vbmeta_size(bootconfigs):
+        # Update androidboot.vbmeta.size in bootconfigs
+        result = re.search(r"androidboot.vbmeta.size = [0-9]+", bootconfigs)
+        if not result:
+            raise ValueError("Failed to find androidboot.vbmeta.size")
+        return bootconfigs.replace(result.group(),
+                                   f'androidboot.vbmeta.size = {calc_vbmeta_size()}')
+
+    with tempfile.TemporaryDirectory() as work_dir:
+        tmp_initrd = os.path.join(work_dir, 'initrd')
+        tmp_bc = os.path.join(work_dir, 'bc')
+
+        for initrd in initrds:
+            detach_bootconfigs(initrd, tmp_initrd, tmp_bc)
+            bc_file = open(tmp_bc, "rt", encoding="utf-8")
+            bc_data = bc_file.read()
+            validate_avb_version(bc_data)
+            bc_data = update_vbmeta_digest(bc_data)
+            bc_data = update_vbmeta_size(bc_data)
+            bc_file.close()
+            bc_file = open(tmp_bc, "wt", encoding="utf-8")
+            bc_file.write(bc_data)
+            bc_file.flush()
+            attach_bootconfigs(initrd, tmp_initrd, tmp_bc)
 
 
 def MakeVbmetaImage(args, key, vbmeta_img, images=None, chained_partitions=None):
@@ -283,8 +364,7 @@ def MakeVbmetaImage(args, key, vbmeta_img, images=None, chained_partitions=None)
                 part_key = chained_partitions[part_name]
                 avbpubkey = os.path.join(work_dir, part_name + '.avbpubkey')
                 ExtractAvbPubkey(args, part_key, avbpubkey)
-                cmd.extend(['--chain_partition', '%s:%s:%s' %
-                           (part_name, ril, avbpubkey)])
+                cmd.extend(['--chain_partition', f'{part_name}:{ril}:{avbpubkey}'])
 
         if args.signing_args:
             cmd.extend(shlex.split(args.signing_args))
@@ -292,7 +372,7 @@ def MakeVbmetaImage(args, key, vbmeta_img, images=None, chained_partitions=None)
         RunCommand(args, cmd)
         # libavb expects to be able to read the maximum vbmeta size, so we must provide a partition
         # which matches this or the read will fail.
-        with open(vbmeta_img, 'a') as f:
+        with open(vbmeta_img, 'a', encoding='utf8') as f:
             f.truncate(65536)
 
 
@@ -311,68 +391,28 @@ def MakeSuperImage(args, partitions, output):
             tmp_img = os.path.join(work_dir, part)
             RunCommand(args, ['img2simg', img, tmp_img])
 
-            image_arg = '--image=%s=%s' % (part, img)
-            partition_arg = '--partition=%s:readonly:%d:default' % (
-                part, os.path.getsize(img))
+            image_arg = f'--image={part}={img}'
+            partition_arg = f'--partition={part}:readonly:{os.path.getsize(img)}:default'
             cmd.extend([image_arg, partition_arg])
 
         RunCommand(args, cmd)
 
 
-def SignSuperImg(args, key, super_img, work_dir):
-    # unpack super.img
-    UnpackSuperImg(args, super_img, work_dir)
-
-    system_a_img = os.path.join(work_dir, 'system_a.img')
-    vendor_a_img = os.path.join(work_dir, 'vendor_a.img')
-
-    # re-sign each partition
-    system_a_f = Async(AddHashTreeFooter, args, key, system_a_img)
-    vendor_a_f = Async(AddHashTreeFooter, args, key, vendor_a_img)
-
-    # 3. re-pack super.img
-    partitions = {"system_a": system_a_img, "vendor_a": vendor_a_img}
-    Async(MakeSuperImage, args, partitions, super_img, wait=[system_a_f, vendor_a_f])
-
-
-def ReplaceBootloaderPubkey(args, key, bootloader, bootloader_pubkey):
-    if os.path.basename(bootloader) in args.key_overrides:
-        key = args.key_overrides[os.path.basename(bootloader)]
-    # read old pubkey before replacement
-    with open(bootloader_pubkey, 'rb') as f:
-        old_pubkey = f.read()
-
-    # replace bootloader pubkey (overwrite the old one with the new one)
-    ExtractAvbPubkey(args, key, bootloader_pubkey)
-
-    # read new pubkey
-    with open(bootloader_pubkey, 'rb') as f:
-        new_pubkey = f.read()
-
-    assert len(old_pubkey) == len(new_pubkey)
-
-    # replace pubkey embedded in bootloader
-    with open(bootloader, 'r+b') as bl_f:
-        pos = bl_f.read().find(old_pubkey)
-        assert pos != -1
-        bl_f.seek(pos)
-        bl_f.write(new_pubkey)
-
+def GenVbmetaImage(args, image, output, partition_name):
+    cmd = ['avbtool', 'add_hash_footer', '--dynamic_partition_size',
+           '--do_not_append_vbmeta_image',
+           '--partition_name', partition_name,
+           '--image', image,
+           '--output_vbmeta_image', output]
+    RunCommand(args, cmd)
 
 # dict of (key, file) for re-sign/verification. keys are un-versioned for readability.
 virt_apex_files = {
-    'bootloader.pubkey': 'etc/microdroid_bootloader.avbpubkey',
-    'bootloader': 'etc/microdroid_bootloader',
-    'boot.img': 'etc/fs/microdroid_boot-5.10.img',
-    'vendor_boot.img': 'etc/fs/microdroid_vendor_boot-5.10.img',
-    'init_boot.img': 'etc/fs/microdroid_init_boot.img',
-    'super.img': 'etc/fs/microdroid_super.img',
+    'kernel': 'etc/fs/microdroid_kernel',
     'vbmeta.img': 'etc/fs/microdroid_vbmeta.img',
-    'vbmeta_bootconfig.img': 'etc/fs/microdroid_vbmeta_bootconfig.img',
-    'bootconfig.normal': 'etc/microdroid_bootconfig.normal',
-    'bootconfig.app_debuggable': 'etc/microdroid_bootconfig.app_debuggable',
-    'bootconfig.full_debuggable': 'etc/microdroid_bootconfig.full_debuggable',
-    'uboot_env.img': 'etc/uboot_env.img'
+    'super.img': 'etc/fs/microdroid_super.img',
+    'initrd_normal.img': 'etc/microdroid_initrd_normal.img',
+    'initrd_debuggable.img': 'etc/microdroid_initrd_debuggable.img',
 }
 
 
@@ -389,41 +429,42 @@ def SignVirtApex(args):
     system_a_img = os.path.join(unpack_dir.name, 'system_a.img')
     vendor_a_img = os.path.join(unpack_dir.name, 'vendor_a.img')
 
-    # Key(pubkey) embedded in bootloader should match with the one used to make VBmeta below
-    # while it's okay to use different keys for other image files.
-    replace_f = Async(ReplaceBootloaderPubkey, args,
-                      key, files['bootloader'], files['bootloader.pubkey'])
-
-    # re-sign bootloader, boot.img, vendor_boot.img, and init_boot.img
-    Async(AddHashFooter, args, key, files['bootloader'], wait=[replace_f])
-    boot_img_f = Async(AddHashFooter, args, key, files['boot.img'])
-    vendor_boot_img_f = Async(AddHashFooter, args, key, files['vendor_boot.img'])
-    init_boot_img_f = Async(AddHashFooter, args, key, files['init_boot.img'])
-
     # re-sign super.img
-    super_img_f = Async(SignSuperImg, args, key, files['super.img'], unpack_dir.name)
+    # 1. unpack super.img
+    # 2. resign system and vendor
+    # 3. repack super.img out of resigned system and vendor
+    UnpackSuperImg(args, files['super.img'], unpack_dir.name)
+    system_a_f = Async(AddHashTreeFooter, args, key, system_a_img)
+    vendor_a_f = Async(AddHashTreeFooter, args, key, vendor_a_img)
+    partitions = {"system_a": system_a_img, "vendor_a": vendor_a_img}
+    Async(MakeSuperImage, args, partitions,
+          files['super.img'], wait=[system_a_f, vendor_a_f])
 
-    # re-generate vbmeta from re-signed {boot, vendor_boot, init_boot, system_a, vendor_a}.img
-    Async(MakeVbmetaImage, args, key, files['vbmeta.img'],
-          images=[files['boot.img'], files['vendor_boot.img'],
-                  files['init_boot.img'], system_a_img, vendor_a_img],
-          wait=[boot_img_f, vendor_boot_img_f, init_boot_img_f, super_img_f])
+    # re-generate vbmeta from re-signed {system_a, vendor_a}.img
+    vbmeta_f = Async(MakeVbmetaImage, args, key, files['vbmeta.img'],
+                     images=[system_a_img, vendor_a_img],
+                     wait=[system_a_f, vendor_a_f])
 
-    # Re-sign bootconfigs and the uboot_env with the same key
-    bootconfig_sign_key = key
-    Async(AddHashFooter, args, bootconfig_sign_key, files['bootconfig.normal'])
-    Async(AddHashFooter, args, bootconfig_sign_key, files['bootconfig.app_debuggable'])
-    Async(AddHashFooter, args, bootconfig_sign_key, files['bootconfig.full_debuggable'])
-    Async(AddHashFooter, args, bootconfig_sign_key, files['uboot_env.img'])
+    vbmeta_bc_f = None
+    if not args.do_not_update_bootconfigs:
+        vbmeta_bc_f = Async(UpdateVbmetaBootconfig, args,
+                            [files['initrd_normal.img'],
+                                files['initrd_debuggable.img']], files['vbmeta.img'],
+                            wait=[vbmeta_f])
 
-    # Re-sign vbmeta_bootconfig with chained_partitions to "bootconfig" and
-    # "uboot_env". Note that, for now, `key` and `bootconfig_sign_key` are the
-    # same, but technically they can be different. Vbmeta records pubkeys which
-    # signed chained partitions.
-    Async(MakeVbmetaImage, args, key, files['vbmeta_bootconfig.img'], chained_partitions={
-        'bootconfig': bootconfig_sign_key,
-        'uboot_env': bootconfig_sign_key,
-    })
+    # Re-sign kernel. Note kernel's vbmeta contain addition descriptor from ramdisk(s)
+    initrd_normal_hashdesc = tempfile.NamedTemporaryFile(delete=False).name
+    initrd_debug_hashdesc = tempfile.NamedTemporaryFile(delete=False).name
+    initrd_n_f = Async(GenVbmetaImage, args, files['initrd_normal.img'],
+                       initrd_normal_hashdesc, "initrd_normal",
+                       wait=[vbmeta_bc_f] if vbmeta_bc_f is not None else [])
+    initrd_d_f = Async(GenVbmetaImage, args, files['initrd_debuggable.img'],
+                       initrd_debug_hashdesc, "initrd_debug",
+                       wait=[vbmeta_bc_f] if vbmeta_bc_f is not None else [])
+    Async(AddHashFooter, args, key, files['kernel'], partition_name="boot",
+          additional_descriptors=[
+              initrd_normal_hashdesc, initrd_debug_hashdesc],
+          wait=[initrd_n_f, initrd_d_f])
 
 
 def VerifyVirtApex(args):
@@ -443,27 +484,16 @@ def VerifyVirtApex(args):
             pubkey = f.read()
             pubkey_digest = hashlib.sha1(pubkey).hexdigest()
 
-    def contents(file):
-        with open(file, 'rb') as f:
-            return f.read()
-
-    def check_equals_pubkey(file):
-        assert contents(file) == pubkey, 'pubkey mismatch: %s' % file
-
-    def check_contains_pubkey(file):
-        assert contents(file).find(pubkey) != -1, 'pubkey missing: %s' % file
-
     def check_avb_pubkey(file):
         info, _ = AvbInfo(args, file)
-        assert info is not None, 'no avbinfo: %s' % file
-        assert info['Public key (sha1)'] == pubkey_digest, 'pubkey mismatch: %s' % file
+        assert info is not None, f'no avbinfo: {file}'
+        assert info['Public key (sha1)'] == pubkey_digest, f'pubkey mismatch: {file}'
 
     for f in files.values():
-        if f == files['bootloader.pubkey']:
-            Async(check_equals_pubkey, f)
-        elif f == files['bootloader']:
-            Async(check_contains_pubkey, f)
-        elif f == files['super.img']:
+        if f in (files['initrd_normal.img'], files['initrd_debuggable.img']):
+            # TODO(b/245277660): Verify that ramdisks contain the correct vbmeta digest
+            continue
+        if f == files['super.img']:
             Async(check_avb_pubkey, system_a_img)
             Async(check_avb_pubkey, vendor_a_img)
         else:
@@ -480,7 +510,7 @@ def main(argv):
             SignVirtApex(args)
         # ensure all tasks are completed without exceptions
         AwaitAll(tasks)
-    except: # pylint: disable=bare-except
+    except:  # pylint: disable=bare-except
         traceback.print_exc()
         sys.exit(1)
 

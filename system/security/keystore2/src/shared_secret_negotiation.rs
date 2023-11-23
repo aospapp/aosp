@@ -23,7 +23,8 @@ use android_hardware_security_sharedsecret::aidl::android::hardware::security::s
 };
 use android_security_compat::aidl::android::security::compat::IKeystoreCompatService::IKeystoreCompatService;
 use anyhow::Result;
-use keystore2_vintf::{get_aidl_instances, get_hidl_instances};
+use binder::get_declared_instances;
+use keystore2_vintf::get_hidl_instances;
 use std::fmt::{self, Display, Formatter};
 use std::time::Duration;
 
@@ -111,6 +112,8 @@ static KEYMASTER_PACKAGE_NAME: &str = "android.hardware.keymaster";
 static KEYMASTER_INTERFACE_NAME: &str = "IKeymasterDevice";
 static SHARED_SECRET_PACKAGE_NAME: &str = "android.hardware.security.sharedsecret";
 static SHARED_SECRET_INTERFACE_NAME: &str = "ISharedSecret";
+static SHARED_SECRET_PACKAGE_AND_INTERFACE_NAME: &str =
+    "android.hardware.security.sharedsecret.ISharedSecret";
 static COMPAT_PACKAGE_NAME: &str = "android.security.compat";
 
 /// Lists participants.
@@ -121,11 +124,11 @@ fn list_participants() -> Result<Vec<SharedSecretParticipant>> {
     let mut legacy_strongbox_found: bool = false;
     Ok([(4, 1), (4, 0)]
         .iter()
-        .map(|(ma, mi)| {
+        .flat_map(|(ma, mi)| {
             get_hidl_instances(KEYMASTER_PACKAGE_NAME, *ma, *mi, KEYMASTER_INTERFACE_NAME)
-                .into_iter()
+                .iter()
                 .filter_map(|name| {
-                    filter_map_legacy_km_instances(name, (*ma, *mi)).and_then(|sp| {
+                    filter_map_legacy_km_instances(name.to_string(), (*ma, *mi)).and_then(|sp| {
                         if let SharedSecretParticipant::Hidl { is_strongbox: true, .. } = &sp {
                             if !legacy_strongbox_found {
                                 legacy_strongbox_found = true;
@@ -140,10 +143,9 @@ fn list_participants() -> Result<Vec<SharedSecretParticipant>> {
                 })
                 .collect::<Vec<SharedSecretParticipant>>()
         })
-        .into_iter()
-        .flatten()
         .chain({
-            get_aidl_instances(SHARED_SECRET_PACKAGE_NAME, 1, SHARED_SECRET_INTERFACE_NAME)
+            get_declared_instances(SHARED_SECRET_PACKAGE_AND_INTERFACE_NAME)
+                .unwrap()
                 .into_iter()
                 .map(SharedSecretParticipant::Aidl)
                 .collect::<Vec<_>>()

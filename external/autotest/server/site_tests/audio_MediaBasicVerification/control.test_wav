@@ -14,6 +14,7 @@ TEST_CLASS = "audio"
 TEST_TYPE = "server"
 #ATTRIBUTES = "suite:chameleon_audio_unstable"
 DEPENDENCIES = "chameleon, audio_board, test_audiojack"
+PY_VERSION = 3
 
 DOC = """
 This test remotely tests audio quality over headphone.

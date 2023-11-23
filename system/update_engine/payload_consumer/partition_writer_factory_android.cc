@@ -19,6 +19,7 @@
 
 #include <base/logging.h>
 
+#include "update_engine/payload_consumer/partition_writer.h"
 #include "update_engine/payload_consumer/vabc_partition_writer.h"
 
 namespace chromeos_update_engine::partition_writer {

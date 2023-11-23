@@ -21,12 +21,15 @@ import static com.android.bedstead.nene.users.UserType.SECONDARY_USER_TYPE_NAME;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.testng.Assert.assertThrows;
+
 import com.android.bedstead.harrier.annotations.AfterClass;
 import com.android.bedstead.harrier.annotations.BeforeClass;
-import com.android.bedstead.harrier.annotations.EnsureHasNoSecondaryUser;
+import com.android.bedstead.harrier.annotations.EnsureHasNoAdditionalUser;
 import com.android.bedstead.harrier.annotations.EnsureHasNoWorkProfile;
 import com.android.bedstead.harrier.annotations.EnsureHasSecondaryUser;
 import com.android.bedstead.harrier.annotations.EnsureHasWorkProfile;
+import com.android.bedstead.harrier.annotations.RequireRunOnInitialUser;
 import com.android.bedstead.nene.TestApis;
 
 import org.junit.ClassRule;
@@ -36,8 +39,9 @@ import org.junit.runner.RunWith;
 
 @RunWith(BedsteadJUnit4.class)
 @EnsureHasWorkProfile
-@EnsureHasNoSecondaryUser
-public class DeviceStateClassAnnotationTest extends DeviceStateTestParent {
+@EnsureHasNoAdditionalUser
+@RequireRunOnInitialUser
+public final class DeviceStateClassAnnotationTest extends DeviceStateTestParent {
 
     @ClassRule
     @Rule
@@ -63,13 +67,14 @@ public class DeviceStateClassAnnotationTest extends DeviceStateTestParent {
         // We test here that ensureHasWorkProfile is processed before the test method
         // but ensureHasSecondaryUser is not processed
 
-        assertThat(TestApis.users().findProfileOfType(
-                TestApis.users().supportedType(MANAGED_PROFILE_TYPE_NAME),
-                TestApis.users().instrumented())
-        ).isNotNull();
-        assertThat(TestApis.users().findUserOfType(
-                TestApis.users().supportedType(SECONDARY_USER_TYPE_NAME))
-        ).isNull();
+        assertThat(
+                        TestApis.users()
+                                .findProfileOfType(
+                                        TestApis.users().supportedType(MANAGED_PROFILE_TYPE_NAME),
+                                        TestApis.users().initial()))
+                .isNotNull();
+
+        assertThrows(IllegalStateException.class, sDeviceState::additionalUser);
 
         // Test that the parent always runs before the child
         assertThat(sParentBeforeClassHasRun).isTrue();

@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/link/inet6.c	AF_INET6 link operations
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2010 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -16,6 +10,7 @@
 #include <netlink/route/link/inet6.h>
 #include <netlink-private/route/link/api.h>
 
+#include "netlink-private/route/utils.h"
 #include "netlink-private/utils.h"
 
 #define I6_ADDR_GEN_MODE_UNKNOWN	UINT8_MAX
@@ -141,7 +136,10 @@ static const uint8_t map_stat_id_from_IPSTATS_MIB_v2[__IPSTATS_MIB_MAX] = {
 	[33] = RTNL_LINK_IP6_ECT1PKTS,                  /* IPSTATS_MIB_ECT1PKTS                 */
 	[34] = RTNL_LINK_IP6_ECT0PKTS,                  /* IPSTATS_MIB_ECT0PKTS                 */
 	[35] = RTNL_LINK_IP6_CEPKTS,                    /* IPSTATS_MIB_CEPKTS                   */
+	[36] = RTNL_LINK_REASM_OVERLAPS,                /* IPSTATS_MIB_REASM_OVERLAPS           */
 };
+
+const uint8_t *const _nltst_map_stat_id_from_IPSTATS_MIB_v2 = map_stat_id_from_IPSTATS_MIB_v2;
 
 static int inet6_parse_protinfo(struct rtnl_link *link, struct nlattr *attr,
 				void *data)
@@ -211,6 +209,9 @@ static int inet6_parse_protinfo(struct rtnl_link *link, struct nlattr *attr,
 		uint64_t stat;
 		int i;
 		int len = min_t(int, __ICMP6_MIB_MAX, nla_len(tb[IFLA_INET6_ICMP6STATS]) / 8);
+
+		_NL_STATIC_ASSERT (__ICMP6_MIB_MAX == 6);
+		_NL_STATIC_ASSERT (RTNL_LINK_ICMP6_CSUMERRORS - RTNL_LINK_ICMP6_INMSGS + 1 == 5);
 
 		for (i = 1; i < len; i++) {
 			memcpy(&stat, &cnt[i * sizeof(stat)], sizeof(stat));
@@ -412,7 +413,7 @@ static void inet6_dump_stats(struct rtnl_link *link,
 	if (octets)
 		nl_dump(p, "%14.2f %3s ", octets, octetsUnit);
 	else
-		nl_dump(p, "%16" PRIu64 " B ", 0);
+		nl_dump(p, "%16u B ", 0);
 	
 	nl_dump(p, "%18" PRIu64 " %18" PRIu64 "\n",
 		link->l_stats[RTNL_LINK_IP6_INDISCARDS],
@@ -428,7 +429,7 @@ static void inet6_dump_stats(struct rtnl_link *link,
 	if (octets)
 		nl_dump(p, "%14.2f %3s ", octets, octetsUnit);
 	else
-		nl_dump(p, "%16" PRIu64 " B ", 0);
+		nl_dump(p, "%16u B ", 0);
 
 	nl_dump(p, "%18" PRIu64 " %18" PRIu64 "\n",
 		link->l_stats[RTNL_LINK_IP6_OUTDISCARDS],
@@ -444,7 +445,7 @@ static void inet6_dump_stats(struct rtnl_link *link,
 	if (octets)
 		nl_dump(p, "%14.2f %3s ", octets, octetsUnit);
 	else
-		nl_dump(p, "%16" PRIu64 " B ", 0);
+		nl_dump(p, "%16u B ", 0);
 
 	nl_dump(p, "%18" PRIu64 " ", link->l_stats[RTNL_LINK_IP6_INBCASTPKTS]);
 	octets = nl_cancel_down_bytes(link->l_stats[RTNL_LINK_IP6_INBCASTOCTETS],
@@ -452,7 +453,7 @@ static void inet6_dump_stats(struct rtnl_link *link,
 	if (octets)
 		nl_dump(p, "%14.2f %3s\n", octets, octetsUnit);
 	else
-		nl_dump(p, "%16" PRIu64 " B\n", 0);
+		nl_dump(p, "%16u B\n", 0);
 
 	nl_dump(p, "          OutMcastPkts     OutMcastOctets     "
 		   "  OutBcastPkts    OutBcastOctests\n");
@@ -464,7 +465,7 @@ static void inet6_dump_stats(struct rtnl_link *link,
 	if (octets)
 		nl_dump(p, "%14.2f %3s ", octets, octetsUnit);
 	else
-		nl_dump(p, "%16" PRIu64 " B ", 0);
+		nl_dump(p, "%16u B ", 0);
 
 	nl_dump(p, "%18" PRIu64 " ", link->l_stats[RTNL_LINK_IP6_OUTBCASTPKTS]);
 	octets = nl_cancel_down_bytes(link->l_stats[RTNL_LINK_IP6_OUTBCASTOCTETS],
@@ -472,7 +473,7 @@ static void inet6_dump_stats(struct rtnl_link *link,
 	if (octets)
 		nl_dump(p, "%14.2f %3s\n", octets, octetsUnit);
 	else
-		nl_dump(p, "%16" PRIu64 " B\n", 0);
+		nl_dump(p, "%16u B\n", 0);
 
 	nl_dump(p, "              ReasmOKs         ReasmFails     "
 		   "    ReasmReqds       ReasmTimeout\n");

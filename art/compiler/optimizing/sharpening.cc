@@ -34,7 +34,7 @@
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
 
-namespace art {
+namespace art HIDDEN {
 
 static bool IsInBootImage(ArtMethod* method) {
   gc::Heap* heap = Runtime::Current()->GetHeap();
@@ -63,9 +63,9 @@ HInvokeStaticOrDirect::DispatchInfo HSharpening::SharpenLoadMethod(
     bool for_interface_call,
     CodeGenerator* codegen) {
   if (kIsDebugBuild) {
-    ScopedObjectAccess soa(Thread::Current());  // Required for GetDeclaringClass below.
+    ScopedObjectAccess soa(Thread::Current());  // Required for `IsStringConstructor()` below.
     DCHECK(callee != nullptr);
-    DCHECK(!(callee->IsConstructor() && callee->GetDeclaringClass()->IsStringClass()));
+    DCHECK(!callee->IsStringConstructor());
   }
 
   MethodLoadKind method_load_kind;

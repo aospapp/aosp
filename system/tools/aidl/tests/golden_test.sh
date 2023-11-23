@@ -53,6 +53,7 @@ function _golden_test() {
     "aidl-test-fixedsizearray-java-source"
     "aidl-test-fixedsizearray-ndk-source"
     "aidl-test-fixedsizearray-rust-source"
+    "aidl-test-interface-cpp-analyzer-source"
   )
 
   local root="."
@@ -77,7 +78,7 @@ function _golden_test() {
       mkdir -p "$golden"
       cp -r "$built/gen" "$golden"
     else
-      diff -r "$built/gen" "$golden/gen" || e=1
+      diff -rN "$built/gen" "$golden/gen" || e=1
     fi
   done
 

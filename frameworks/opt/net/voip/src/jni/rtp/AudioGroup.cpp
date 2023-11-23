@@ -855,10 +855,9 @@ bool AudioGroup::DeviceThread::threadLoop()
         if (mGroup->platformHasAec()) {
             aec = new AudioEffect(mGroup->mAttributionSource);
             aec->set(FX_IID_AEC,
-                     NULL,
-                     0,
-                     0,
-                     0,
+                     nullptr, // uid
+                     0, // priority
+                     nullptr, // callback
                      record->getSessionId(),
                      AUDIO_IO_HANDLE_NONE); // record sessionId is sufficient.
             status_t status = aec->initCheck();

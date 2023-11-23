@@ -193,7 +193,7 @@ public class OnboardingActivity extends SetupActivity {
                                     params.getString(
                                             SetupSourcesFragment.ACTION_PARAM_KEY_INPUT_ID);
                             TvInputInfo input = mInputManager.getTvInputInfo(inputId);
-                            Intent intent = CommonUtils.createSetupIntent(input);
+                            Intent intent = mSetupUtils.createSetupIntent(this, input);
                             if (intent == null) {
                                 Toast.makeText(
                                                 this,

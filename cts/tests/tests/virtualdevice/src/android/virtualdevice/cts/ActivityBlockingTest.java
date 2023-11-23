@@ -22,12 +22,14 @@ import static android.Manifest.permission.ADD_TRUSTED_DISPLAY;
 import static android.Manifest.permission.CREATE_VIRTUAL_DEVICE;
 import static android.Manifest.permission.REAL_GET_TASKS;
 import static android.Manifest.permission.WAKE_LOCK;
+import static android.content.pm.PackageManager.FEATURE_FREEFORM_WINDOW_MANAGEMENT;
 import static android.virtualdevice.cts.util.VirtualDeviceTestUtils.createActivityOptions;
 import static android.virtualdevice.cts.util.VirtualDeviceTestUtils.createResultReceiver;
 
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -55,8 +57,8 @@ import android.hardware.display.VirtualDisplay;
 import android.media.ImageReader;
 import android.os.ResultReceiver;
 import android.platform.test.annotations.AppModeFull;
+import android.virtualdevice.cts.common.FakeAssociationRule;
 import android.virtualdevice.cts.util.EmptyActivity;
-import android.virtualdevice.cts.util.FakeAssociationRule;
 import android.virtualdevice.cts.util.TestAppHelper;
 import android.virtualdevice.cts.util.VirtualDeviceTestUtils.OnReceiveResultListener;
 
@@ -112,9 +114,13 @@ public class ActivityBlockingTest {
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
         Context context = getApplicationContext();
-        assumeTrue(
-                context.getPackageManager()
-                        .hasSystemFeature(PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS));
+        final PackageManager packageManager = context.getPackageManager();
+        assumeTrue(packageManager.hasSystemFeature(PackageManager.FEATURE_COMPANION_DEVICE_SETUP));
+        assumeTrue(packageManager.hasSystemFeature(
+                PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS));
+        // TODO(b/261155110): Re-enable tests once freeform mode is supported in Virtual Display.
+        assumeFalse("Skipping test: VirtualDisplay window policy doesn't support freeform.",
+                packageManager.hasSystemFeature(FEATURE_FREEFORM_WINDOW_MANAGEMENT));
         mVirtualDeviceManager = context.getSystemService(VirtualDeviceManager.class);
         mResultReceiver = createResultReceiver(mOnReceiveResultListener);
     }
@@ -136,6 +142,7 @@ public class ActivityBlockingTest {
         assertThrows(SecurityException.class, () ->
                 InstrumentationRegistry.getInstrumentation().getTargetContext()
                         .startActivity(intent, createActivityOptions(virtualDisplay)));
+        virtualDisplay.release();
     }
 
     @Test
@@ -159,6 +166,7 @@ public class ActivityBlockingTest {
                 /* newTask= */ false, mResultReceiver));
         verify(mOnReceiveResultListener, after(3000).never())
                 .onReceiveResult(anyInt(), any());
+        virtualDisplay.release();
     }
 
     @Test
@@ -176,6 +184,7 @@ public class ActivityBlockingTest {
                 argThat(result ->
                         result.getInt(TestAppHelper.EXTRA_DISPLAY)
                                 == virtualDisplay.getDisplay().getDisplayId()));
+        virtualDisplay.release();
     }
 
     @Test
@@ -199,6 +208,7 @@ public class ActivityBlockingTest {
 
         verify(mOnReceiveResultListener, after(3000).never())
                 .onReceiveResult(anyInt(), any());
+        virtualDisplay.release();
     }
 
     @Test
@@ -222,6 +232,7 @@ public class ActivityBlockingTest {
 
         verify(mOnReceiveResultListener, after(3000).never())
                 .onReceiveResult(anyInt(), any());
+        virtualDisplay.release();
     }
 
     @Test
@@ -254,11 +265,17 @@ public class ActivityBlockingTest {
         verify(mOnReceiveResultListener, after(3000).never())
                 .onReceiveResult(anyInt(), any());
 
-        verify(mActivityListener, timeout(3000).atLeastOnce()).onTopActivityChanged(
+        verify(mActivityListener, timeout(3000).times(1)).onTopActivityChanged(
                 eq(virtualDisplay.getDisplay().getDisplayId()),
                 eq(new ComponentName("android", BlockedAppStreamingActivity.class.getName())));
 
+        verify(mActivityListener, timeout(3000).times(1)).onTopActivityChanged(
+                eq(virtualDisplay.getDisplay().getDisplayId()),
+                eq(new ComponentName("android", BlockedAppStreamingActivity.class.getName())),
+                eq(context.getUserId()));
+
         emptyActivity.finish();
+        virtualDisplay.release();
     }
 
     @Test
@@ -296,11 +313,17 @@ public class ActivityBlockingTest {
                         result.getInt(TestAppHelper.EXTRA_DISPLAY)
                                 == virtualDisplay.getDisplay().getDisplayId()));
 
-        verify(mActivityListener, timeout(3000).atLeastOnce()).onTopActivityChanged(
+        verify(mActivityListener, timeout(3000).times(1)).onTopActivityChanged(
                 eq(virtualDisplay.getDisplay().getDisplayId()),
                 eq(allowedIntent.getComponent()));
 
+        verify(mActivityListener, timeout(3000).times(1)).onTopActivityChanged(
+                eq(virtualDisplay.getDisplay().getDisplayId()),
+                eq(allowedIntent.getComponent()),
+                eq(context.getUserId()));
+
         emptyActivity.finish();
+        virtualDisplay.release();
     }
 
     @Test
@@ -338,11 +361,17 @@ public class ActivityBlockingTest {
                         result.getInt(TestAppHelper.EXTRA_DISPLAY)
                                 == virtualDisplay.getDisplay().getDisplayId()));
 
-        verify(mActivityListener, timeout(3000).atLeastOnce()).onTopActivityChanged(
+        verify(mActivityListener, timeout(3000).times(1)).onTopActivityChanged(
                 eq(virtualDisplay.getDisplay().getDisplayId()),
                 eq(allowedIntent.getComponent()));
 
+        verify(mActivityListener, timeout(3000).times(1)).onTopActivityChanged(
+                eq(virtualDisplay.getDisplay().getDisplayId()),
+                eq(allowedIntent.getComponent()),
+                eq(context.getUserId()));
+
         emptyActivity.finish();
+        virtualDisplay.release();
     }
 
     @Test
@@ -369,17 +398,22 @@ public class ActivityBlockingTest {
         EmptyActivity.Callback callback = mock(EmptyActivity.Callback.class);
         emptyActivity.setCallback(callback);
 
-        emptyActivity.startActivity(allowedIntent,
-                createActivityOptions(virtualDisplay));
+        emptyActivity.startActivity(allowedIntent, createActivityOptions(virtualDisplay));
 
         verify(mOnReceiveResultListener, after(3000).never())
                 .onReceiveResult(anyInt(), any());
 
-        verify(mActivityListener, timeout(3000).atLeastOnce()).onTopActivityChanged(
+        verify(mActivityListener, timeout(3000).times(1)).onTopActivityChanged(
                 eq(virtualDisplay.getDisplay().getDisplayId()),
                 eq(new ComponentName("android", BlockedAppStreamingActivity.class.getName())));
 
+        verify(mActivityListener, timeout(3000).times(1)).onTopActivityChanged(
+                eq(virtualDisplay.getDisplay().getDisplayId()),
+                eq(new ComponentName("android", BlockedAppStreamingActivity.class.getName())),
+                eq(context.getUserId()));
+
         emptyActivity.finish();
+        virtualDisplay.release();
     }
 
     private VirtualDisplay createVirtualDisplay(@NonNull VirtualDeviceParams virtualDeviceParams,

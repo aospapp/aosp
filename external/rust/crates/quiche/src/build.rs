@@ -1,26 +1,6 @@
 // Additional parameters for Android build of BoringSSL.
 //
-// Android NDK < 18 with GCC.
-const CMAKE_PARAMS_ANDROID_NDK_OLD_GCC: &[(&str, &[(&str, &str)])] = &[
-    ("aarch64", &[(
-        "ANDROID_TOOLCHAIN_NAME",
-        "aarch64-linux-android-4.9",
-    )]),
-    ("arm", &[(
-        "ANDROID_TOOLCHAIN_NAME",
-        "arm-linux-androideabi-4.9",
-    )]),
-    ("x86", &[(
-        "ANDROID_TOOLCHAIN_NAME",
-        "x86-linux-android-4.9",
-    )]),
-    ("x86_64", &[(
-        "ANDROID_TOOLCHAIN_NAME",
-        "x86_64-linux-android-4.9",
-    )]),
-];
-
-// Android NDK >= 19.
+// Requires Android NDK >= 19.
 const CMAKE_PARAMS_ANDROID_NDK: &[(&str, &[(&str, &str)])] = &[
     ("aarch64", &[("ANDROID_ABI", "arm64-v8a")]),
     ("arm", &[("ANDROID_ABI", "armeabi-v7a")]),
@@ -52,7 +32,7 @@ const CMAKE_PARAMS_ARM_LINUX: &[(&str, &[(&str, &str)])] = &[
 /// so adjust library location based on platform and build target.
 /// See issue: https://github.com/alexcrichton/cmake-rs/issues/18
 fn get_boringssl_platform_output_path() -> String {
-    if cfg!(windows) {
+    if cfg!(target_env = "msvc") {
         // Code under this branch should match the logic in cmake-rs
         let debug_env_var =
             std::env::var("DEBUG").expect("DEBUG variable not defined in env");
@@ -97,17 +77,11 @@ fn get_boringssl_cmake_config() -> cmake::Config {
     // Add platform-specific parameters.
     match os.as_ref() {
         "android" => {
-            let cmake_params_android = if cfg!(feature = "ndk-old-gcc") {
-                CMAKE_PARAMS_ANDROID_NDK_OLD_GCC
-            } else {
-                CMAKE_PARAMS_ANDROID_NDK
-            };
-
             // We need ANDROID_NDK_HOME to be set properly.
             let android_ndk_home = std::env::var("ANDROID_NDK_HOME")
                 .expect("Please set ANDROID_NDK_HOME for Android build");
             let android_ndk_home = std::path::Path::new(&android_ndk_home);
-            for (android_arch, params) in cmake_params_android {
+            for (android_arch, params) in CMAKE_PARAMS_ANDROID_NDK {
                 if *android_arch == arch {
                     for (name, value) in *params {
                         boringssl_cmake.define(name, value);
@@ -145,7 +119,7 @@ fn get_boringssl_cmake_config() -> cmake::Config {
                 ""
             };
 
-            let cflag = format!("{} {}", bitcode_cflag, target_cflag);
+            let cflag = format!("{bitcode_cflag} {target_cflag}");
 
             boringssl_cmake.define("CMAKE_ASM_FLAGS", &cflag);
             boringssl_cmake.cflag(&cflag);
@@ -199,37 +173,52 @@ fn get_boringssl_cmake_config() -> cmake::Config {
 fn write_pkg_config() {
     use std::io::prelude::*;
 
-    let profile = std::env::var("PROFILE").unwrap();
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-    let target_dir = format!("{}/target/{}", manifest_dir, profile);
+    let target_dir = target_dir_path();
 
-    let out_path = std::path::Path::new(&target_dir).join("quiche.pc");
-    let mut out_file = std::fs::File::create(&out_path).unwrap();
+    let out_path = target_dir.as_path().join("quiche.pc");
+    let mut out_file = std::fs::File::create(out_path).unwrap();
 
-    let include_dir = format!("{}/include", manifest_dir);
+    let include_dir = format!("{manifest_dir}/include");
+
     let version = std::env::var("CARGO_PKG_VERSION").unwrap();
 
     let output = format!(
         "# quiche
 
-includedir={}
+includedir={include_dir}
 libdir={}
 
 Name: quiche
 Description: quiche library
 URL: https://github.com/cloudflare/quiche
-Version: {}
+Version: {version}
 Libs: -Wl,-rpath,${{libdir}} -L${{libdir}} -lquiche
 Cflags: -I${{includedir}}
 ",
-        include_dir, target_dir, version
+        target_dir.to_str().unwrap(),
     );
 
     out_file.write_all(output.as_bytes()).unwrap();
 }
 
+fn target_dir_path() -> std::path::PathBuf {
+    let out_dir = std::env::var("OUT_DIR").unwrap();
+    let out_dir = std::path::Path::new(&out_dir);
+
+    for p in out_dir.ancestors() {
+        if p.ends_with("build") {
+            return p.parent().unwrap().to_path_buf();
+        }
+    }
+
+    unreachable!();
+}
+
 fn main() {
-    if cfg!(feature = "boringssl-vendored") && !cfg!(feature = "boring-sys") {
+    if cfg!(feature = "boringssl-vendored") &&
+        !cfg!(feature = "boringssl-boring-crate")
+    {
         let bssl_dir = std::env::var("QUICHE_BSSL_PATH").unwrap_or_else(|_| {
             let mut cfg = get_boringssl_cmake_config();
 
@@ -238,24 +227,34 @@ fn main() {
                     .cxxflag("-DBORINGSSL_UNSAFE_FUZZER_MODE");
             }
 
-            cfg.build_target("bssl").build().display().to_string()
+            cfg.build_target("ssl").build();
+            cfg.build_target("crypto").build().display().to_string()
         });
 
         let build_path = get_boringssl_platform_output_path();
-        let build_dir = format!("{}/build/{}", bssl_dir, build_path);
-        println!("cargo:rustc-link-search=native={}", build_dir);
+        let mut build_dir = format!("{bssl_dir}/build/{build_path}");
 
-        println!("cargo:rustc-link-lib=static=crypto");
-        println!("cargo:rustc-link-lib=static=ssl");
+        // If build directory doesn't exist, use the specified path as is.
+        if !std::path::Path::new(&build_dir).is_dir() {
+            build_dir = bssl_dir;
+        }
+
+        println!("cargo:rustc-link-search=native={build_dir}");
+
+        let bssl_link_kind = std::env::var("QUICHE_BSSL_LINK_KIND")
+            .unwrap_or("static".to_string());
+        println!("cargo:rustc-link-lib={bssl_link_kind}=ssl");
+        println!("cargo:rustc-link-lib={bssl_link_kind}=crypto");
     }
 
-    if cfg!(feature = "boring-sys") {
-        println!("cargo:rustc-link-lib=static=crypto");
+    if cfg!(feature = "boringssl-boring-crate") {
         println!("cargo:rustc-link-lib=static=ssl");
+        println!("cargo:rustc-link-lib=static=crypto");
     }
 
     // MacOS: Allow cdylib to link with undefined symbols
-    if cfg!(target_os = "macos") {
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
+    if target_os == "macos" {
         println!("cargo:rustc-cdylib-link-arg=-Wl,-undefined,dynamic_lookup");
     }
 

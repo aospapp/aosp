@@ -41,7 +41,7 @@
  *     JNINativeMethod[] gMethods = {
  *         MAKE_JNI_NATIVE_METHOD("normal", "(I)Ljava/lang/Object;", KlassName_normal),
  *         MAKE_JNI_FAST_NATIVE_METHOD("fast", "(I)Ljava/lang/Object;", KlassName_fast),
- *         MAKE_JNI_CRITICAL_NATIVE_METHOD("critical", "(Z)I", KlassName_critical),
+ *         MAKE_JNI_CRITICAL_NATIVE_METHOD("critical", "(J)I", KlassName_critical),
  *     };
  *
  *     // Automatically infer the signature:

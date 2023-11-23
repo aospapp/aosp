@@ -68,8 +68,8 @@ public class OldMapEntryTest extends TestCase {
     public void testSetValue() {
         Mock_HashMap mhm = new Mock_HashMap();
 
-        mhm.fakePut(new Integer(1), "One");
-        mhm.fakePut(new Integer(2), "Two");
+        mhm.fakePut(Integer.valueOf(1), "One");
+        mhm.fakePut(Integer.valueOf(2), "Two");
 
         i = mhm.entrySet().iterator();
         me = (Map.Entry)i.next();
@@ -101,8 +101,8 @@ public class OldMapEntryTest extends TestCase {
     protected void setUp() throws Exception {
         hm = new HashMap();
 
-        hm.put(new Integer(1), "one");
-        hm.put(new Integer(2), "two");
+        hm.put(Integer.valueOf(1), "one");
+        hm.put(Integer.valueOf(2), "two");
 
         i = hm.entrySet().iterator();
         me = (Map.Entry)i.next();

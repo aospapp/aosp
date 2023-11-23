@@ -1,3 +1,1 @@
 import %workspace%/build/bazel/common.bazelrc
-
-build --host_platform //build/bazel/platforms:darwin_x86_64

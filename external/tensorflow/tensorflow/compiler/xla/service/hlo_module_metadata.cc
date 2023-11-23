@@ -38,7 +38,7 @@ Status HloModuleMetadata::MutateCurrentHloPassMetadata(
   TF_ASSIGN_OR_RETURN(HloPassMetadata * pass_metadata,
                       GetCurrentHloPassMetadata());
   mutator(pass_metadata);
-  return Status::OK();
+  return OkStatus();
 }
 
 void HloModuleMetadata::RecordPassStart() {
@@ -53,7 +53,7 @@ Status HloModuleMetadata::RecordPassEnd() {
                       GetCurrentHloPassMetadata());
   pass_metadata->set_end_timestamp_usec(env_->NowMicros());
   running_passes_.pop_back();
-  return Status::OK();
+  return OkStatus();
 }
 
 void HloModuleMetadata::set_prepartitioning_metadata(
@@ -77,7 +77,7 @@ void HloModuleMetadata::set_prepartitioning_metadata(
       running_passes_.push_back(added_pass_metadata);
       next_pass_id_ =
           std::max(next_pass_id_,
-                   static_cast<int64>(added_pass_metadata->pass_id()) + 1);
+                   static_cast<int64_t>(added_pass_metadata->pass_id()) + 1);
     } else {
       *prepartitioning_metadata_->add_pass_metadata() = pass_metadata;
     }

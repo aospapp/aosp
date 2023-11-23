@@ -74,11 +74,11 @@
     <string name="sort_dimension_size" msgid="2190547351159472884">"መጠን"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"የተቀየረበት ጊዜ"</string>
     <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"የፋይል ስም (ሀ እስከ ፐ)"</string>
-    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"አይነት (ሀ እስከ ፐ)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"ዓይነት (ሀ እስከ ፐ)"</string>
     <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"መጠን (ትንሹ መጀመሪያ)"</string>
     <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"ተቀይሯል (የድሮው መጀመሪያ)"</string>
     <string name="sort_dimension_name_descending" msgid="1514525521100423342">"የፋይል ስም (ፐ እስከ ሀ)"</string>
-    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"አይነት (ፐ እስከ ሀ)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"ዓይነት (ፐ እስከ ሀ)"</string>
     <string name="sort_dimension_size_descending" msgid="2367030017597348938">"መጠን (ትልቁ መጀመሪያ)"</string>
     <string name="sort_dimension_date_descending" msgid="5466839955763127113">"ተቀይሯል (አዲሱ መጀመሪያ)"</string>
     <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"ደርድር በ"</string>
@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"ሰነድን ማስቀመጥ አልተሳካም"</string>
     <string name="create_error" msgid="3092144450044861994">"አቃፊን መፍጠር አልተሳካም"</string>
     <string name="query_error" msgid="6625421453613879336">"አሁን ይዘትን መጫን አልተቻለም"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"የሥራ መገለጫ ባለበት ቆሟል"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"አብራ"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"የስራ መተግበሪያዎች ባሉበት ቆመዋል"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"የሥራ መተግበሪያዎችን አብራ"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"የሥራ ፋይሎችን መምረጥ አይቻልም"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"የእርስዎ አይቲ አስተዳዳሪ ከግል መተግበሪያ የሥራ ፋይሎችን እንዲደርሱ አይፈቅዱልዎትም"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"የግል ፋይሎችን መምረጥ አይቻልም"</string>

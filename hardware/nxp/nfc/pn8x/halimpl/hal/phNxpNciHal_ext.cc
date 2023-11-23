@@ -773,7 +773,8 @@ NFCSTATUS phNxpNciHal_write_ext(uint16_t* cmd_len, uint8_t* p_cmd_data,
     status = NFCSTATUS_FAILED;
   }
   // 2002 0904 3000 3100 3200 5000
-  else if ((p_cmd_data[0] == 0x20 && p_cmd_data[1] == 0x02) &&
+  else if (*cmd_len <= (NCI_MAX_DATA_LEN - 1) &&
+           (p_cmd_data[0] == 0x20 && p_cmd_data[1] == 0x02) &&
            ((p_cmd_data[2] == 0x09 && p_cmd_data[3] == 0x04) /*||
             (p_cmd_data[2] == 0x0D && p_cmd_data[3] == 0x04)*/
             )) {

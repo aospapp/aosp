@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright 2015 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -162,7 +162,7 @@ def ConfigFile(config):
     @param config: A list of config objects.  Each config object is a dictionary
                    which conforms to the format described in config.py.
     """
-    with tempfile.NamedTemporaryFile() as tmp:
+    with tempfile.NamedTemporaryFile(mode='w') as tmp:
         json.dump(config, tmp)
         tmp.flush()
         yield tmp.name

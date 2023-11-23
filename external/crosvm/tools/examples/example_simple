@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2022 The Chromium OS Authors. All rights reserved.
+# Copyright 2022 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -24,12 +24,11 @@ if ! [ -f rootfs ]; then
 fi
 
 # ANCHOR: run
-# Run crosvm without sandboxing.
+# Run crosvm.
 # The rootfs is an image of a partitioned hard drive, so we need to tell
 # the kernel which partition to use (vda5 in case of ubuntu-20.04).
-cargo run --features=all-linux -- run \
-    --disable-sandbox \
-    --rwroot ./rootfs \
+cargo run --no-default-features -- run \
+    --rwdisk ./rootfs \
     --initrd ./initrd.img-* \
     -p "root=/dev/vda5" \
     ./vmlinuz-*

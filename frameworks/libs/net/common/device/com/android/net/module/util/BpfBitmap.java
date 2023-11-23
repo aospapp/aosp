@@ -27,7 +27,7 @@ import androidx.annotation.NonNull;
  *
  */
 public class BpfBitmap {
-    private BpfMap<Struct.U32, Struct.S64> mBpfMap;
+    private BpfMap<Struct.S32, Struct.S64> mBpfMap;
 
     /**
      * Create a BpfBitmap map wrapper with "path" of filesystem.
@@ -35,8 +35,8 @@ public class BpfBitmap {
      * @param path The path of the BPF map.
      */
     public BpfBitmap(@NonNull String path) throws ErrnoException {
-        mBpfMap = new BpfMap<Struct.U32, Struct.S64>(path, BpfMap.BPF_F_RDWR,
-                Struct.U32.class, Struct.S64.class);
+        mBpfMap = new BpfMap<Struct.S32, Struct.S64>(path, BpfMap.BPF_F_RDWR,
+                Struct.S32.class, Struct.S64.class);
     }
 
     /**
@@ -44,7 +44,7 @@ public class BpfBitmap {
      *
      * @param key The key in the map corresponding to the value to return.
      */
-    private long getBpfMapValue(Struct.U32 key) throws ErrnoException  {
+    private long getBpfMapValue(Struct.S32 key) throws ErrnoException  {
         Struct.S64 curVal = mBpfMap.getValue(key);
         if (curVal != null) {
             return curVal.val;
@@ -61,7 +61,7 @@ public class BpfBitmap {
     public boolean get(int index) throws ErrnoException  {
         if (index < 0) return false;
 
-        Struct.U32 key = new Struct.U32(index >> 6);
+        Struct.S32 key = new Struct.S32(index >> 6);
         return ((getBpfMapValue(key) >>> (index & 63)) & 1L) != 0;
     }
 
@@ -92,7 +92,7 @@ public class BpfBitmap {
     public void set(int index, boolean set) throws ErrnoException {
         if (index < 0) throw new IllegalArgumentException("Index out of bounds.");
 
-        Struct.U32 key = new Struct.U32(index >> 6);
+        Struct.S32 key = new Struct.S32(index >> 6);
         long mask = (1L << (index & 63));
         long val = getBpfMapValue(key);
         if (set) val |= mask; else val &= ~mask;
@@ -114,7 +114,7 @@ public class BpfBitmap {
      * Checks if all bitmap values are 0.
      */
     public boolean isEmpty() throws ErrnoException {
-        Struct.U32 key = mBpfMap.getFirstKey();
+        Struct.S32 key = mBpfMap.getFirstKey();
         while (key != null) {
             if (getBpfMapValue(key) != 0) {
                 return false;

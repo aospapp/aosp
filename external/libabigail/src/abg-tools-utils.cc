@@ -44,6 +44,9 @@
 #include <sstream>
 
 #include "abg-dwarf-reader.h"
+#ifdef WITH_CTF
+#include "abg-ctf-reader.h"
+#endif
 #include "abg-internal.h"
 #include "abg-regex.h"
 
@@ -2142,8 +2145,8 @@ entry_of_file_with_name(const FTSENT *entry,
       || entry->fts_info == FTS_NS)
     return false;
 
-  string fpath = entry->fts_path;
-  if (string_ends_with(fpath, fname))
+  string fpath = ::basename(entry->fts_path);
+  if (fpath == fname)
     return true;
   return false;
 }
@@ -2487,12 +2490,238 @@ get_binary_paths_from_kernel_dist(const string&	dist_root,
 					   module_paths);
 }
 
+/// If the @ref origin is DWARF_ORIGIN it build a @ref corpus_group
+/// made of vmlinux kernel file and the linux kernel modules found
+/// under @p root directory and under its sub-directories, recursively.
+///
+/// @param origin the debug type information in vmlinux kernel and
+/// the linux kernel modules to be used to build the corpora @p group.
+///
+/// @param the group @ref corpus_group to be built.
+///
+/// @param vmlinux the path to the vmlinux binary.
+///
+/// @param modules a vector with the paths to the linux kernel
+/// modules.
+///
+/// @param root the path of the directory under which the kernel
+/// kernel modules were found.
+///
+/// @param di_root the directory in aboslute path which debug
+/// info is to be found for binaries under director @p root
+///
+/// @param suppr_paths the paths to the suppression specifications to
+/// apply while loading the binaries.
+///
+/// @param kabi_wl_path the paths to the kabi whitelist files to take
+/// into account while loading the binaries.
+///
+/// @param supprs the suppressions resulting from parsing the
+/// suppression specifications at @p suppr_paths.  This is set by this
+/// function.
+///
+/// @param verbose true if the function has to emit some verbose
+/// messages.
+///
+/// @param t time to trace time spent in each step.
+///
+/// @param env the environment to create the corpus_group in.
+static void
+maybe_load_vmlinux_dwarf_corpus(corpus::origin      origin,
+                                corpus_group_sptr&  group,
+                                const string&       vmlinux,
+                                vector<string>&     modules,
+                                const string&       root,
+                                vector<char**>&     di_roots,
+                                vector<string>&     suppr_paths,
+                                vector<string>&     kabi_wl_paths,
+                                suppressions_type&  supprs,
+                                bool                verbose,
+                                timer&              t,
+                                environment_sptr&   env)
+{
+  if (!(origin & corpus::DWARF_ORIGIN))
+    return;
+
+  abigail::elf_reader::status status = abigail::elf_reader::STATUS_OK;
+  dwarf_reader::read_context_sptr ctxt;
+  ctxt =
+   dwarf_reader::create_read_context(vmlinux, di_roots, env.get(),
+                                     /*read_all_types=*/false,
+                                     /*linux_kernel_mode=*/true);
+  dwarf_reader::set_do_log(*ctxt, verbose);
+
+  t.start();
+  load_generate_apply_suppressions(*ctxt, suppr_paths,
+                                   kabi_wl_paths, supprs);
+  t.stop();
+
+  if (verbose)
+    std::cerr << "loaded white list and generated suppr spec in: "
+     << t
+     << "\n";
+
+  group.reset(new corpus_group(env.get(), root));
+
+  set_read_context_corpus_group(*ctxt, group);
+
+  if (verbose)
+    std::cerr << "reading kernel binary '"
+     << vmlinux << "' ...\n" << std::flush;
+
+  // Read the vmlinux corpus and add it to the group.
+  t.start();
+  read_and_add_corpus_to_group_from_elf(*ctxt, *group, status);
+  t.stop();
+
+  if (verbose)
+    std::cerr << vmlinux
+     << " reading DONE:"
+     << t << "\n";
+
+  if (group->is_empty())
+    return;
+
+  // Now add the corpora of the modules to the corpus group.
+  int total_nb_modules = modules.size();
+  int cur_module_index = 1;
+  for (vector<string>::const_iterator m = modules.begin();
+       m != modules.end();
+       ++m, ++cur_module_index)
+    {
+      if (verbose)
+        std::cerr << "reading module '"
+         << *m << "' ("
+         << cur_module_index
+         << "/" << total_nb_modules
+         << ") ... " << std::flush;
+
+      reset_read_context(ctxt, *m, di_roots, env.get(),
+                         /*read_all_types=*/false,
+                         /*linux_kernel_mode=*/true);
+
+      load_generate_apply_suppressions(*ctxt, suppr_paths,
+                                       kabi_wl_paths, supprs);
+
+      set_read_context_corpus_group(*ctxt, group);
+
+      t.start();
+      read_and_add_corpus_to_group_from_elf(*ctxt,
+                                            *group, status);
+      t.stop();
+      if (verbose)
+        std::cerr << "module '"
+         << *m
+         << "' reading DONE: "
+         << t << "\n";
+    }
+}
+
+/// If the @ref origin is CTF_ORIGIN it build a @ref corpus_group
+/// made of vmlinux kernel file and the linux kernel modules found
+/// under @p root directory and under its sub-directories, recursively.
+///
+/// @param origin the debug type information in vmlinux kernel and
+/// the linux kernel modules to be used to build the corpora @p group.
+///
+/// @param group the @ref corpus_group to be built.
+///
+/// @param vmlinux the path to the vmlinux binary.
+///
+/// @param modules a vector with the paths to the linux kernel
+/// modules.
+///
+/// @param root the path of the directory under which the kernel
+/// kernel modules were found.
+///
+/// @param di_root the directory in aboslute path which debug
+/// info is to be found for binaries under director @p root
+///
+/// @param verbose true if the function has to emit some verbose
+/// messages.
+///
+/// @param t time to trace time spent in each step.
+///
+/// @param env the environment to create the corpus_group in.
+#ifdef WITH_CTF
+static void
+maybe_load_vmlinux_ctf_corpus(corpus::origin	  origin,
+                              corpus_group_sptr&  group,
+                              const string&       vmlinux,
+                              vector<string>&     modules,
+                              const string&       root,
+                              vector<char**>&     di_roots,
+                              bool                verbose,
+                              timer&              t,
+                              environment_sptr&   env)
+{
+  if (!(origin & corpus::CTF_ORIGIN))
+    return;
+
+  abigail::elf_reader::status status = abigail::elf_reader::STATUS_OK;
+  ctf_reader::read_context_sptr ctxt;
+  ctxt = ctf_reader::create_read_context(vmlinux, di_roots, env.get());
+  group.reset(new corpus_group(env.get(), root));
+  set_read_context_corpus_group(*ctxt, group);
+
+  if (verbose)
+    std::cerr << "reading kernel binary '"
+     << vmlinux << "' ...\n" << std::flush;
+
+  // Read the vmlinux corpus and add it to the group.
+  t.start();
+  read_and_add_corpus_to_group_from_elf(ctxt.get(), *group, status);
+  t.stop();
+
+  if (verbose)
+    std::cerr << vmlinux
+     << " reading DONE:"
+     << t << "\n";
+
+  if (group->is_empty())
+    return;
+
+  // Now add the corpora of the modules to the corpus group.
+  int total_nb_modules = modules.size();
+  int cur_module_index = 1;
+  for (vector<string>::const_iterator m = modules.begin();
+       m != modules.end();
+       ++m, ++cur_module_index)
+    {
+      if (verbose)
+        std::cerr << "reading module '"
+         << *m << "' ("
+         << cur_module_index
+         << "/" << total_nb_modules
+         << ") ... " << std::flush;
+
+      reset_read_context(ctxt, *m, di_roots, env.get());
+      set_read_context_corpus_group(*ctxt, group);
+
+      t.start();
+      read_and_add_corpus_to_group_from_elf(ctxt.get(),
+                                            *group, status);
+      t.stop();
+      if (verbose)
+        std::cerr << "module '"
+         << *m
+         << "' reading DONE: "
+         << t << "\n";
+    }
+}
+#endif
+
 /// Walk a given directory and build an instance of @ref corpus_group
 /// from the vmlinux kernel binary and the linux kernel modules found
 /// under that directory and under its sub-directories, recursively.
 ///
 /// The main corpus of the @ref corpus_group is made of the vmlinux
 /// binary.  The other corpora are made of the linux kernel binaries.
+///
+/// Depending of the @ref origin it delegates the corpus build @p group
+/// to:
+///     @ref maybe_load_vmlinux_dwarf_corpus
+///     @ref maybe_load_vmlinux_ctf_corpus
 ///
 /// @param root the path of the directory under which the kernel
 /// kernel modules are to be found.  The vmlinux can also be found
@@ -2529,10 +2758,11 @@ build_corpus_group_from_kernel_dist_under(const string&	root,
 					  vector<string>&	kabi_wl_paths,
 					  suppressions_type&	supprs,
 					  bool			verbose,
-					  environment_sptr&	env)
+					  environment_sptr&	env,
+					  corpus::origin	origin)
 {
   string vmlinux = vmlinux_path;
-  corpus_group_sptr result;
+  corpus_group_sptr group;
   vector<string> modules;
 
   if (verbose)
@@ -2549,7 +2779,6 @@ build_corpus_group_from_kernel_dist_under(const string&	root,
   if (verbose)
     std::cerr << "DONE: " << t << "\n";
 
-  dwarf_reader::read_context_sptr ctxt;
   if (got_binary_paths)
     {
       shared_ptr<char> di_root =
@@ -2557,86 +2786,19 @@ build_corpus_group_from_kernel_dist_under(const string&	root,
       char *di_root_ptr = di_root.get();
       vector<char**> di_roots;
       di_roots.push_back(&di_root_ptr);
-      abigail::elf_reader::status status = abigail::elf_reader::STATUS_OK;
-      corpus_group_sptr group;
-      if (!vmlinux.empty())
-	{
-	  ctxt =
-	    dwarf_reader::create_read_context(vmlinux, di_roots ,env.get(),
-					      /*read_all_types=*/false,
-					      /*linux_kernel_mode=*/true);
-	  dwarf_reader::set_do_log(*ctxt, verbose);
 
-	  t.start();
-	  load_generate_apply_suppressions(*ctxt, suppr_paths,
-					   kabi_wl_paths, supprs);
-	  t.stop();
-
-	  if (verbose)
-	    std::cerr << "loaded white list and generated suppr spec in: "
-		      << t
-		      << "\n";
-
-	  group.reset(new corpus_group(env.get(), root));
-
-	  set_read_context_corpus_group(*ctxt, group);
-
-	  if (verbose)
-	    std::cerr << "reading kernel binary '"
-		      << vmlinux << "' ...\n" << std::flush;
-
-	  // Read the vmlinux corpus and add it to the group.
-	  t.start();
-	  read_and_add_corpus_to_group_from_elf(*ctxt, *group, status);
-	  t.stop();
-
-	  if (verbose)
-	    std::cerr << vmlinux
-		      << " reading DONE:"
-		      << t << "\n";
-	}
-
-      if (!group->is_empty())
-	{
-	  // Now add the corpora of the modules to the corpus group.
-	  int total_nb_modules = modules.size();
-	  int cur_module_index = 1;
-	  for (vector<string>::const_iterator m = modules.begin();
-	       m != modules.end();
-	       ++m, ++cur_module_index)
-	    {
-	      if (verbose)
-		std::cerr << "reading module '"
-			  << *m << "' ("
-			  << cur_module_index
-			  << "/" << total_nb_modules
-			  << ") ... " << std::flush;
-
-	      reset_read_context(ctxt, *m, di_roots, env.get(),
-				 /*read_all_types=*/false,
-				 /*linux_kernel_mode=*/true);
-
-	      load_generate_apply_suppressions(*ctxt, suppr_paths,
-					       kabi_wl_paths, supprs);
-
-	      set_read_context_corpus_group(*ctxt, group);
-
-	      t.start();
-	      read_and_add_corpus_to_group_from_elf(*ctxt,
-						    *group, status);
-	      t.stop();
-	      if (verbose)
-		std::cerr << "module '"
-			  << *m
-			  << "' reading DONE: "
-			  << t << "\n";
-	    }
-
-	  result = group;
-	}
+      maybe_load_vmlinux_dwarf_corpus(origin, group, vmlinux,
+                                      modules, root, di_roots,
+                                      suppr_paths, kabi_wl_paths,
+                                      supprs, verbose, t, env);
+#ifdef WITH_CTF
+      maybe_load_vmlinux_ctf_corpus(origin, group, vmlinux,
+                                    modules, root, di_roots,
+                                    verbose, t, env);
+#endif
     }
 
-  return result;
+  return group;
 }
 
 }//end namespace tools_utils

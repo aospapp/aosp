@@ -348,7 +348,7 @@ std::string CppHeaderForType(const AidlDefinedType& defined_type) {
   if (auto unstructured = AidlCast<AidlParcelable>(defined_type); unstructured) {
     const std::string cpp_header = unstructured->GetCppHeader();
     AIDL_FATAL_IF(cpp_header.empty(), unstructured)
-        << "Parcelable " << unstructured->GetCanonicalName() << " has no C++ header defined.";
+        << "Parcelable " << unstructured->GetCanonicalName() << " has no cpp_header defined.";
     return cpp_header;
   }
   return HeaderFile(defined_type, ClassNames::RAW, /*use_os_sep=*/false);

@@ -21,7 +21,7 @@
       (Ex: date time temp) -->
     <item name="contextual_screen_percentage" type="dimen" format="float">.6</item>
 
-     <!--Used for the space between the top, and bottom of the screen and the content -->
+    <!--Used for the space between the top, and bottom of the screen and the content -->
     <dimen name="vertical_border_size">@*android:dimen/car_padding_1</dimen>
     <!-- Used for the space between the start, and end of the screen and the content -->
     <dimen name="horizontal_border_size">@*android:dimen/car_padding_1</dimen>
@@ -29,10 +29,21 @@
     <dimen name="main_screen_widget_margin">16dp</dimen>
 
     <!-- AppGridActivity -->
-    <dimen name="recent_apps_divider_margin">40dp</dimen>
+    <dimen name="app_grid_width">1440dp</dimen>
+    <dimen name="app_grid_height">628dp</dimen>
+    <dimen name="app_grid_margin_horizontal">70dp</dimen>
+    <dimen name="app_grid_margin_vertical">0dp</dimen>
+    <dimen name="app_icon_size">84dp</dimen>
+    <dimen name="app_icon_scaled_size">100dp</dimen>
     <item name="app_icon_opacity_unavailable" type="dimen" format="float">0.5</item>
     <item name="app_icon_opacity" type="dimen" format="float">1.0</item>
+    <dimen name="app_name_margin_horizontal">6dp</dimen>
+    <dimen name="app_item_highlight_corner_radius">18dp</dimen>
+    <dimen name="app_item_highlight_edge_width">5dp</dimen>
+    <dimen name="page_indicator_edge_corner_radius">4dp</dimen>
+    <dimen name="page_indicator_height">4dp</dimen>
     <!-- Gap between top of screen (statusbar) and header content -->
+    <dimen name="recent_apps_divider_margin">40dp</dimen>
     <dimen name="app_grid_header_margin">@*android:dimen/car_padding_4</dimen>
     <dimen name="panel_margin">@*android:dimen/car_margin</dimen>
     <!-- Height of the text and exit button on the app selection screen -->
@@ -44,7 +55,7 @@
     <dimen name="app_touch_target_padding">@*android:dimen/car_padding_2</dimen>
     <dimen name="app_touch_target_margin">@*android:dimen/car_padding_1</dimen>
     <dimen name="app_grid_row_margin">@*android:dimen/car_padding_4</dimen>
-    <dimen name="app_icon_description_margin">@*android:dimen/car_padding_4</dimen>
+    <dimen name="app_icon_description_margin">@*android:dimen/car_padding_2</dimen>
     <dimen name="app_icon_ripple_radius">@*android:dimen/car_radius_2</dimen>
 
     <!-- AppSearchActivity -->
@@ -95,4 +106,34 @@
     <dimen name="tap_text_margin">24dp</dimen>
 
     <dimen name="control_bar_padding">0dp</dimen>
+
+    <!-- percentage of view holders on the next page that must be fully visible to the user to
+    trigger page snap to the next page -->
+    <item name="page_snap_threshold" format="float" type="dimen">0.3</item>
+
+    <!-- Velocity value of a swipe to trigger a fling to the next page -->
+    <item name="fling_threshold" format="float" type="dimen">1000</item>
+
+    <!-- distance that users must drag (hold and attempt to move the app icon) to initiate
+    drag and drop for reordering app icons. -->
+    <dimen name="threshold_to_start_drag_drop">8dp</dimen>
+
+    <!-- Recent task -->
+    <dimen name="recent_task_icon_size">48dp</dimen>
+    <dimen name="recent_task_dismiss_button_size">@dimen/recent_task_icon_size</dimen>
+    <dimen name="recent_task_col_space">64dp</dimen>
+    <!-- The fraction that a recent task should move(from its original position) to
+         be considered as swiped -->
+    <item name="recent_task_swiped_threshold" type="dimen" format="float">0.3</item>
+    <!-- Pixel value by with a recent task should move(from its original position) to
+         start a swipe gesture. If the gesture has a smaller change, the gesture is forwarded to
+         other handlers. -->
+    <item name="recent_task_start_swipe_threshold" type="dimen" format="float">5</item>
+    <item name="disabled_recent_task_alpha" type="dimen" format="float">0.35</item>
+
+    <!--  task width can be calculated using the following formula:
+      available height of thumbnail * width of screen / height of screen between the insets
+      This will allow most task thumbnails to be displayed without cropping. -->
+    <dimen name="recent_task_width_first">894dp</dimen>
+    <dimen name="recent_task_width">359dp</dimen>
 </resources>

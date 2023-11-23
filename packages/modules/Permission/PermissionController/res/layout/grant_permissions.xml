@@ -29,6 +29,7 @@
     <LinearLayout
         android:id="@+id/grant_singleton"
         android:importantForAccessibility="no"
+        android:focusable="false"
         style="@style/PermissionGrantSingleton">
 
         <!-- The dialog -->
@@ -51,6 +52,7 @@
 
                     <TextView
                         android:id="@+id/permission_message"
+                        android:accessibilityHeading="true"
                         style="@style/PermissionGrantTitleMessage" />
 
                 </LinearLayout>
@@ -61,6 +63,30 @@
 
             </LinearLayout>
 
+            <!-- permission rationale  -->
+            <LinearLayout
+                android:id="@+id/permission_rationale_container"
+                style="@style/PermissionGrantPermissionRationaleContent">
+
+                <ImageView
+                    android:id="@+id/permission_rationale_icon"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_shield_exclamation_outline"
+                    style="@style/PermissionGrantPermissionRationaleIcon" />
+
+                <TextView
+                    android:id="@+id/permission_rationale_message"
+                    style="@style/PermissionGrantPermissionRationaleMessage" />
+
+                <ImageView
+                    android:id="@+id/permission_rationale_more_info_icon"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_more_info_arrow"
+                    style="@style/PermissionGrantPermissionRationaleMoreInfoIcon" />
+
+            </LinearLayout>
+
+            <!-- location (precise/approximate) animations -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -116,6 +142,16 @@
                     style="@style/PermissionGrantButtonAllowOneTime" />
 
                 <com.android.permissioncontroller.permission.ui.widget.SecureButton
+                    android:id="@+id/permission_allow_selected_button"
+                    android:text="@string/grant_dialog_button_allow_selected_photos"
+                    style="@style/PermissionGrantButtonAllowSelected" />
+
+                <com.android.permissioncontroller.permission.ui.widget.SecureButton
+                    android:id="@+id/permission_allow_all_button"
+                    android:text="@string/grant_dialog_button_allow_all"
+                    style="@style/PermissionGrantButtonAllowAll" />
+
+                <com.android.permissioncontroller.permission.ui.widget.SecureButton
                     android:id="@+id/permission_deny_button"
                     android:text="@string/grant_dialog_button_deny"
                     style="@style/PermissionGrantButtonDeny" />
@@ -144,6 +180,11 @@
                     android:id="@+id/permission_no_upgrade_one_time_and_dont_ask_again_button"
                     android:text="@string/grant_dialog_button_no_upgrade_one_time"
                     style="@style/PermissionGrantButtonNoUpgrade" />
+
+                <com.android.permissioncontroller.permission.ui.widget.SecureButton
+                    android:id="@+id/permission_dont_allow_more_selected_button"
+                    android:text="@string/grant_dialog_button_dont_select_more"
+                    style="@style/PermissionGrantButtonDeny" />
             </LinearLayout>
 
         </LinearLayout>

@@ -24,6 +24,10 @@ cc_defaults {
         "liblog",
         "libutils",
     ],
+    static_libs: [
+        "libbase",
+        "libnetdutils",
+    ],
     // To be compatible with Q devices, the min_sdk_version must be 29.
     min_sdk_version: "29",
 }

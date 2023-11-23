@@ -23,10 +23,8 @@
 //! on the the builder before it is used.
 
 use bindgen;
+use bindgen_cli;
 use std::env;
-
-#[path = "../../../src/options.rs"]
-mod options;
 
 /// Takes in a function describing adjustments to make to a builder
 /// initialized by the command line. `build(|x| x)` is equivalent to
@@ -36,7 +34,7 @@ mod options;
 pub fn build<C: FnOnce(bindgen::Builder) -> bindgen::Builder>(configure: C) {
     env_logger::init();
 
-    match options::builder_from_flags(env::args()) {
+    match bindgen_cli::builder_from_flags(env::args()) {
         Ok((builder, output, _)) => {
             configure(builder)
                 .generate()

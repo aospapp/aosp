@@ -21,16 +21,20 @@ import static android.hardware.automotive.vehicle.CustomInputType.CUSTOM_EVENT_F
 import static com.android.car.CarServiceUtils.toIntArray;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import android.car.CarOccupantZoneManager;
 import android.car.input.CarInputManager;
@@ -39,9 +43,15 @@ import android.car.input.RotaryEvent;
 import android.hardware.automotive.vehicle.RotaryInputType;
 import android.hardware.automotive.vehicle.VehicleDisplay;
 import android.hardware.automotive.vehicle.VehicleHwKeyInputAction;
+import android.hardware.automotive.vehicle.VehicleHwMotionButtonStateFlag;
+import android.hardware.automotive.vehicle.VehicleHwMotionInputAction;
+import android.hardware.automotive.vehicle.VehicleHwMotionInputSource;
+import android.hardware.automotive.vehicle.VehicleHwMotionToolType;
 import android.hardware.automotive.vehicle.VehicleProperty;
-import android.view.Display;
+import android.hardware.automotive.vehicle.VehiclePropertyStatus;
+import android.view.InputDevice;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 
 import androidx.test.filters.RequiresDevice;
 
@@ -55,6 +65,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -65,6 +76,7 @@ public class InputHalServiceTest {
     @Mock VehicleHal mVehicleHal;
     @Mock InputHalService.InputListener mInputListener;
     @Mock LongSupplier mUptimeSupplier;
+    @Mock PrintWriter mMockPrintWriter;
 
     private static final HalPropConfig HW_KEY_INPUT_CONFIG = new AidlHalPropConfig(
             AidlVehiclePropConfigBuilder.newBuilder(VehicleProperty.HW_KEY_INPUT).build());
@@ -341,7 +353,7 @@ public class InputHalServiceTest {
         assertThat(event.getEventTime()).isEqualTo(42L);
         assertThat(event.getDownTime()).isEqualTo(42L);
         assertThat(event.getRepeatCount()).isEqualTo(0);
-        assertThat(event.getDisplayId()).isEqualTo(Display.DEFAULT_DISPLAY);
+        // event.getDisplayId is not tested since it is assigned by CarInputService
     }
 
     @Test
@@ -621,6 +633,221 @@ public class InputHalServiceTest {
                 repeatCounter));
     }
 
+    @Test
+    public void dispatchesKeyInputEvent_perSeat_anyDisplay() {
+        // Arrange
+        subscribeListener();
+
+        // Act
+        KeyEvent event = dispatchSinglePerSeatEvent(
+                /* seat= */ 1,
+                VehicleDisplay.MAIN,
+                CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                KeyEvent.KEYCODE_HOME,
+                Key.UP,
+                /* repeatCount= */ 1,
+                /* downTime= */ SECONDS.toNanos(7),
+                /* timeStampNanos= */ SECONDS.toNanos(8)
+        );
+
+        // Assert
+        assertThat(event.getKeyCode()).isEqualTo(KeyEvent.KEYCODE_HOME);
+        assertThat(event.getAction()).isEqualTo(KeyEvent.ACTION_UP);
+        assertThat(event.getRepeatCount()).isEqualTo(1);
+        assertThat(event.getDownTime()).isEqualTo(SECONDS.toMillis(7));
+        assertThat(event.getEventTime()).isEqualTo(SECONDS.toMillis(8));
+    }
+
+    @Test
+    public void dispatchesKeyInputEvent_withSameEventTimeAndDownTime_perSeat_whenKeyDown() {
+        // Arrange
+        subscribeListener();
+
+        // Act
+        KeyEvent event = dispatchSinglePerSeatEvent(
+                /* seat= */ 1,
+                VehicleDisplay.MAIN,
+                CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                KeyEvent.KEYCODE_HOME,
+                Key.DOWN,
+                /* repeatCount= */ 1,
+                /* downTime= */ SECONDS.toNanos(7),
+                /* timeStampNanos= */ SECONDS.toNanos(8)
+        );
+
+        // Assert
+        assertThat(event.getKeyCode()).isEqualTo(KeyEvent.KEYCODE_HOME);
+        assertThat(event.getAction()).isEqualTo(KeyEvent.ACTION_DOWN);
+        assertThat(event.getRepeatCount()).isEqualTo(1);
+        assertThat(event.getDownTime()).isEqualTo(SECONDS.toMillis(7));
+        assertThat(event.getEventTime()).isEqualTo(SECONDS.toMillis(7));
+    }
+
+    @Test
+    public void dispatchesMotionInputEvent_perSeat_anyDisplay() {
+        // Arrange
+        subscribeListener();
+
+        // Act
+        MotionEvent event = dispatchSinglePerSeatMotionEvent(
+                /* seat= */ 1,
+                VehicleDisplay.MAIN,
+                CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                VehicleHwMotionInputSource.SOURCE_TOUCHSCREEN,
+                VehicleHwMotionInputAction.ACTION_DOWN,
+                VehicleHwMotionButtonStateFlag.BUTTON_PRIMARY,
+                /* pointerCount= */ 2,
+                /* pointerIds= */ new int[] {10, 20},
+                /* toolTypes= */ new int[] {VehicleHwMotionToolType.TOOL_TYPE_FINGER,
+                        VehicleHwMotionToolType.TOOL_TYPE_MOUSE},
+                /* xData= */ new float[] {100, 200},
+                /* yData= */ new float[] {300, 400},
+                /* pressureData= */ new float[] {1, 2},
+                /* sizeData= */ new float[] {3, 4},
+                /* downTimeNanos= */ SECONDS.toNanos(7),
+                /* timeStampNanos= */ SECONDS.toNanos(8)
+                );
+
+        // Assert
+        assertThat(event.getSource()).isEqualTo(InputDevice.SOURCE_TOUCHSCREEN);
+        assertThat(event.getAction()).isEqualTo(MotionEvent.ACTION_DOWN);
+        assertThat(event.getButtonState()).isEqualTo(MotionEvent.BUTTON_PRIMARY);
+        assertThat(event.getPointerCount()).isEqualTo(2);
+        assertThat(event.getPointerId(0)).isEqualTo(10);
+        assertThat(event.getPointerId(1)).isEqualTo(20);
+        assertThat(event.getToolType(0)).isEqualTo(MotionEvent.TOOL_TYPE_FINGER);
+        assertThat(event.getToolType(1)).isEqualTo(MotionEvent.TOOL_TYPE_MOUSE);
+        assertThat(event.getX(0)).isEqualTo(100);
+        assertThat(event.getX(1)).isEqualTo(200);
+        assertThat(event.getY(0)).isEqualTo(300);
+        assertThat(event.getY(1)).isEqualTo(400);
+        assertThat(event.getPressure(0)).isEqualTo(1);
+        assertThat(event.getPressure(1)).isEqualTo(2);
+        assertThat(event.getSize(0)).isEqualTo(3);
+        assertThat(event.getSize(1)).isEqualTo(4);
+        assertThat(event.getDownTime()).isEqualTo(SECONDS.toMillis(7));
+        assertThat(event.getEventTime()).isEqualTo(SECONDS.toMillis(8));
+    }
+
+    @Test
+    public void dump_withNoLastKeyEvent_printsEmpty() {
+        // Arrange
+        ArgumentCaptor<String> stringArgumentCaptor = ArgumentCaptor.forClass(String.class);
+
+        // Act
+        mInputHalService.dump(mMockPrintWriter);
+
+        // Assert
+        verify(mMockPrintWriter, atLeastOnce()).println(stringArgumentCaptor.capture());
+        List<String> strings = stringArgumentCaptor.getAllValues();
+        assertThat(strings.get(5)).startsWith("mLastFewDispatchedV2KeyEvents:");
+    }
+
+    @Test
+    public void dump_containsLastFewKeyEvents() {
+        // Arrange
+        subscribeListener();
+        ArgumentCaptor<String> stringArgumentCaptor = ArgumentCaptor.forClass(String.class);
+        dispatchMultipleV2KeyEvents(KeyEvent.KEYCODE_HOME, /* times= */ 1);
+        dispatchMultipleV2KeyEvents(KeyEvent.KEYCODE_BACK, /* times= */ 9);
+        dispatchMultipleV2KeyEvents(KeyEvent.KEYCODE_VOLUME_UP, /* times= */ 1);
+
+        // Act
+        mInputHalService.dump(mMockPrintWriter);
+
+        // Assert
+        verify(mMockPrintWriter, atLeastOnce()).println(stringArgumentCaptor.capture());
+        List<String> strings = stringArgumentCaptor.getAllValues();
+        int numHomeEvents = 0;
+        int numBackEvents = 0;
+        int numVolUpEvents = 0;
+        assertThat(strings.get(5)).startsWith("mLastFewDispatchedV2KeyEvents:");
+        for (int i = 5; i < strings.size(); i++) {
+            if (strings.get(i).contains("keyCode=KEYCODE_HOME")) {
+                numHomeEvents++;
+            } else if (strings.get(i).contains("keyCode=KEYCODE_BACK")) {
+                numBackEvents++;
+            } else if (strings.get(i).contains("keyCode=KEYCODE_VOLUME_UP")) {
+                numVolUpEvents++;
+            }
+        }
+        assertWithMessage("Number of home events").that(numHomeEvents).isEqualTo(0);
+        assertWithMessage("Number of back events").that(numBackEvents).isEqualTo(9);
+        assertWithMessage("Number of volume up events").that(numVolUpEvents).isEqualTo(1);
+    }
+
+    @Test
+    public void dump_containsLastFewMotionEvents() {
+        // Arrange
+        subscribeListener();
+        ArgumentCaptor<String> stringArgumentCaptor = ArgumentCaptor.forClass(String.class);
+        dispatchMultipleMotionEvents(VehicleHwMotionInputAction.ACTION_DOWN, /* times= */ 1);
+        dispatchMultipleMotionEvents(VehicleHwMotionInputAction.ACTION_MOVE, /* times= */ 9);
+        dispatchMultipleMotionEvents(VehicleHwMotionInputAction.ACTION_UP, /* times= */ 1);
+
+        // Act
+        mInputHalService.dump(mMockPrintWriter);
+
+        // Assert
+        verify(mMockPrintWriter, atLeastOnce()).println(stringArgumentCaptor.capture());
+        List<String> strings = stringArgumentCaptor.getAllValues();
+        int numMoveEvents = 0;
+        int numUpEvents = 0;
+        int numDownEvents = 0;
+        assertThat(strings.get(6)).startsWith("mLastFewDispatchedMotionEvents:");
+        for (int i = 6; i < strings.size(); i++) {
+            if (strings.get(i).contains("action=ACTION_DOWN")) {
+                numDownEvents++;
+            } else if (strings.get(i).contains("action=ACTION_MOVE")) {
+                numMoveEvents++;
+            } else if (strings.get(i).contains("action=ACTION_UP")) {
+                numUpEvents++;
+            }
+        }
+        // Number of down events should be 0 as only 10 recent events are stored.
+        assertWithMessage("Number of down events").that(numDownEvents).isEqualTo(0);
+        assertWithMessage("Number of move events").that(numMoveEvents).isEqualTo(9);
+        assertWithMessage("Number of up events").that(numUpEvents).isEqualTo(1);
+    }
+
+    private void dispatchMultipleMotionEvents(@VehicleHwMotionInputAction int action, int times) {
+        for (int i = 0; i < times; i++) {
+            dispatchSinglePerSeatMotionEvent(
+                    /* seat= */ 1,
+                    VehicleDisplay.MAIN,
+                    CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                    VehicleHwMotionInputSource.SOURCE_TOUCHSCREEN,
+                    action,
+                    VehicleHwMotionButtonStateFlag.BUTTON_PRIMARY,
+                    /* pointerCount= */ 2,
+                    /* pointerIds= */ new int[]{10, 20},
+                    /* toolTypes= */ new int[]{VehicleHwMotionToolType.TOOL_TYPE_FINGER,
+                            VehicleHwMotionToolType.TOOL_TYPE_MOUSE},
+                    /* xData= */ new float[]{100, 200},
+                    /* yData= */ new float[]{300, 400},
+                    /* pressureData= */ new float[]{1, 2},
+                    /* sizeData= */ new float[]{3, 4},
+                    /* downTimeNanos= */ SECONDS.toNanos(7),
+                    /* timeStampNanos= */ SECONDS.toNanos(8)
+            );
+        }
+    }
+
+    private void dispatchMultipleV2KeyEvents(int keyCode, int times) {
+        for (int i = 0; i < times; i++) {
+            dispatchSinglePerSeatEvent(
+                    /* seat= */ 1,
+                    VehicleDisplay.MAIN,
+                    CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                    keyCode,
+                    Key.DOWN,
+                    /* repeatCount= */ 1,
+                    /* downTime= */ SECONDS.toNanos(7),
+                    /* timeStampNanos= */ SECONDS.toNanos(9)
+            );
+        }
+    }
+
     private void subscribeListener() {
         mInputHalService.takeProperties(Set.of(HW_KEY_INPUT_CONFIG));
         assertThat(mInputHalService.isKeyInputSupported()).isTrue();
@@ -636,6 +863,73 @@ public class InputHalServiceTest {
         mInputHalService.onHalEvents(
                 List.of(makeKeyPropValue(action, code, actualDisplay)));
         verify(mInputListener).onKeyEvent(captor.capture(), eq(expectedDisplay));
+        reset(mInputListener);
+        return captor.getValue();
+    }
+
+    private KeyEvent dispatchSinglePerSeatEvent(int seat, int actualDisplay,
+            @DisplayTypeEnum int expectedDisplay, int code, Key action, int repeatCount,
+            long downTime, long timeStampNanos) {
+        ArgumentCaptor<KeyEvent> captor = ArgumentCaptor.forClass(KeyEvent.class);
+        reset(mInputListener);
+
+        int actionValue = (action == Key.DOWN
+                ? VehicleHwKeyInputAction.ACTION_DOWN
+                : VehicleHwKeyInputAction.ACTION_UP);
+        mInputHalService.onHalEvents(
+                List.of(mPropValueBuilder.build(VehicleProperty.HW_KEY_INPUT_V2,
+                        /* areaId= */ seat,
+                        /* timestamp= */ timeStampNanos,
+                        VehiclePropertyStatus.AVAILABLE,
+                        /* int32Values= */ new int[] {actualDisplay, code, actionValue,
+                                repeatCount},
+                        /* floatValues= */ new float[] {},
+                        /* int64Values= */ new long[] {downTime},
+                        /* stringValue= */ "",
+                        /* byteValue= */ new byte[] {}
+                )));
+        verify(mInputListener).onKeyEvent(captor.capture(), eq(expectedDisplay),
+                eq(seat));
+        reset(mInputListener);
+        return captor.getValue();
+    }
+
+    private MotionEvent dispatchSinglePerSeatMotionEvent(int seat, int actualDisplay,
+            @DisplayTypeEnum int expectedDisplay, int inputSource, int motionActionCode,
+            int buttonState, int pointerCount, int[] pointerIds, int[] toolTypes, float[] xData,
+            float[] yData, float[] pressureData, float[] sizeData, long downTimeNanos,
+            long timeStampNanos) {
+        ArgumentCaptor<MotionEvent> captor = ArgumentCaptor.forClass(MotionEvent.class);
+        reset(mInputListener);
+
+        int[] int32Array = new int[5 + 2 * pointerCount];
+        float[] floatArray = new float[4 * pointerCount];
+        int32Array[0] = actualDisplay;
+        int32Array[1] = inputSource;
+        int32Array[2] = motionActionCode;
+        int32Array[3] = buttonState;
+        int32Array[4] = pointerCount;
+        for (int i = 0; i < pointerCount; i++) {
+            int32Array[5 + i] = pointerIds[i];
+            int32Array[5 + pointerCount + i] = toolTypes[i];
+            floatArray[i] = xData[i];
+            floatArray[pointerCount + i] = yData[i];
+            floatArray[2 * pointerCount + i] = pressureData[i];
+            floatArray[3 * pointerCount + i] = sizeData[i];
+        }
+
+        mInputHalService.onHalEvents(
+                List.of(mPropValueBuilder.build(VehicleProperty.HW_MOTION_INPUT,
+                        /* areaId = */ seat,
+                        /* timestamp= */ timeStampNanos,
+                        VehiclePropertyStatus.AVAILABLE,
+                        int32Array,
+                        floatArray,
+                        /* int64Values= */ new long[] {downTimeNanos},
+                        /* stringValue= */ "",
+                        /* byteValue= */ new byte[] {}
+                )));
+        verify(mInputListener).onMotionEvent(captor.capture(), eq(expectedDisplay), eq(seat));
         reset(mInputListener);
         return captor.getValue();
     }

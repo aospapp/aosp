@@ -62,6 +62,9 @@ prebuilt_font {
 prebuilt_font {
     name: "NotoColorEmojiLegacy.ttf",
     src: "font/NotoColorEmojiCompatLegacy.ttf",
+    dist: {
+        targets: ["droidcore"],
+    },
 }
 
 android_test {

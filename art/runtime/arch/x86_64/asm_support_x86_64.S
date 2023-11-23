@@ -174,6 +174,7 @@ MACRO0(ALIGN_FUNCTION_ENTRY)
     // Prefix the assembly code with 0xFFs, which means there is no method header.
     .byte 0xFF, 0xFF, 0xFF, 0xFF
     // Cache alignment for function entry.
+    // Use 0xFF as the last 4 bytes of alignment stand for OatQuickMethodHeader.
     .balign 16, 0xFF
 END_MACRO
 
@@ -355,7 +356,7 @@ MACRO0(SETUP_SAVE_REFS_AND_ARGS_FRAME_REGISTERS_ONLY)
     PUSH rbx      // Callee save.
     PUSH_ARG rdx  // Quick arg 2.
     PUSH_ARG rcx  // Quick arg 3.
-    // Create space for FPR args and create 2 slots for ArtMethod*.
+    // Create space for FPR args and create 2 slots for ArtMethod* and padding.
     INCREASE_FRAME 16 + 12 * 8
     // Save FPRs.
     movq %xmm0, 16(%rsp)
@@ -485,11 +486,10 @@ MACRO0(DELIVER_PENDING_EXCEPTION)
 END_MACRO
 
 MACRO0(RETURN_OR_DELIVER_PENDING_EXCEPTION)
-    movq %gs:THREAD_EXCEPTION_OFFSET, %rcx // get exception field
-    testq %rcx, %rcx               // rcx == 0 ?
-    jnz 1f                         // if rcx != 0 goto 1
-    ret                            // return
-1:                                 // deliver exception on current thread
+    cmpq MACRO_LITERAL(0), %gs:THREAD_EXCEPTION_OFFSET  // compare exception field with 0
+    jne 1f                                              // if exception != 0 goto 1
+    ret                                                 // return
+1:                                                      // deliver exception on current thread
     DELIVER_PENDING_EXCEPTION
 END_MACRO
 

@@ -27,9 +27,9 @@ namespace watchdog {
 class MockVehicle final : public aidl::android::hardware::automotive::vehicle::BnVehicle {
 public:
     MockVehicle() {
-        ON_CALL(*this, unsubscribe(::testing::_, ::testing::_))
-                .WillByDefault(
-                        ::testing::Return(::testing::ByMove(std::move(ndk::ScopedAStatus::ok()))));
+        ON_CALL(*this, unsubscribe(::testing::_, ::testing::_)).WillByDefault([]() {
+            return ndk::ScopedAStatus::ok();
+        });
     }
 
     MOCK_METHOD(ndk::ScopedAStatus, getAllPropConfigs,

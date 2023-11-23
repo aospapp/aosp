@@ -11,11 +11,12 @@ bootstrap_go_package {
     ],
     srcs: [
         "arm_device.go",
+        "arm_linux_host.go",
         "arm64_device.go",
         "global.go",
         "lints.go",
+        "riscv64_device.go",
         "toolchain.go",
-        "allowed_list.go",
         "darwin_host.go",
         "x86_linux_bionic_host.go",
         "x86_linux_host.go",

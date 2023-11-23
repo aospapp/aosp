@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -65,7 +66,7 @@ class display_ResolutionList(test.test):
                     display_id = utils.wait_for_value_changed(
                             display_facade.get_first_external_display_id,
                             old_value=False)
-                    if display_id < 0:
+                    if int(display_id) < 0:
                         raise error.TestFail("No external display is found.")
 
                     # In mirror mode only display id is '0', as external

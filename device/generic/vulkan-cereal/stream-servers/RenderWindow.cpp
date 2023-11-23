@@ -14,8 +14,8 @@
 
 #include "RenderWindow.h"
 
-#include "base/Thread.h"
-#include "base/MessageChannel.h"
+#include "aemu/base/threads/Thread.h"
+#include "aemu/base/synchronization/MessageChannel.h"
 #include "host-common/logging.h"
 #include "FrameBuffer.h"
 #include "RendererImpl.h"
@@ -26,6 +26,8 @@
 #include <signal.h>
 #include <pthread.h>
 #endif
+
+namespace gfxstream {
 
 #define DEBUG 0
 
@@ -62,6 +64,9 @@ enum Command {
     CMD_REPAINT,
     CMD_HAS_GUEST_POSTED_A_FRAME,
     CMD_RESET_GUEST_POSTED_A_FRAME,
+    CMD_SET_VSYNC_HZ,
+    CMD_SET_DISPLAY_CONFIGS,
+    CMD_SET_DISPLAY_ACTIVE_CONFIG,
     CMD_FINALIZE,
 };
 
@@ -82,7 +87,7 @@ struct RenderWindowMessage {
 
         // CMD_SET_POST_CALLBACK
         struct {
-            emugl::Renderer::OnPostCallback on_post;
+            Renderer::OnPostCallback on_post;
             void* on_post_context;
             uint32_t on_post_displayId;
             bool use_bgra_readback;
@@ -112,6 +117,20 @@ struct RenderWindowMessage {
         // CMD_SET_ROTATION
         float rotation;
 
+        // CMD_SET_VSYNC_HZ
+        int vsyncHz;
+
+        // CMD_SET_COMPOSE_DIMENSIONS
+        struct {
+            int configId;
+            int width;
+            int height;
+            int dpiX;
+            int dpiY;
+        } displayConfigs;
+
+        int displayActiveConfig;
+
         // result of operations.
         bool result;
     };
@@ -138,9 +157,7 @@ struct RenderWindowMessage {
                 // this command may be issued even when frame buffer is not
                 // yet created (e.g. if CMD_INITIALIZE failed),
                 // so make sure we check if it is there before finalizing
-                if (const auto fb = FrameBuffer::getFB()) {
-                    fb->finalize();
-                }
+                FrameBuffer::finalize();
                 result = true;
                 break;
 
@@ -148,11 +165,13 @@ struct RenderWindowMessage {
                 GL_LOG("CMD_SET_POST_CALLBACK");
                 D("CMD_SET_POST_CALLBACK\n");
                 fb = FrameBuffer::getFB();
-                fb->setPostCallback(msg.set_post_callback.on_post,
-                                    msg.set_post_callback.on_post_context,
-                                    msg.set_post_callback.on_post_displayId,
-                                    msg.set_post_callback.use_bgra_readback);
-                result = true;
+                if (fb) {
+                    fb->setPostCallback(msg.set_post_callback.on_post,
+                                        msg.set_post_callback.on_post_context,
+                                        msg.set_post_callback.on_post_displayId,
+                                        msg.set_post_callback.use_bgra_readback);
+                    result = true;
+                }
                 break;
 
             case CMD_SETUP_SUBWINDOW:
@@ -176,24 +195,23 @@ struct RenderWindowMessage {
                     msg.subwindow.fbh,
                     msg.subwindow.dpr,
                     msg.subwindow.rotation);
-                result = FrameBuffer::getFB()->setupSubWindow(
-                        msg.subwindow.parent,
-                        msg.subwindow.wx,
-                        msg.subwindow.wy,
-                        msg.subwindow.ww,
-                        msg.subwindow.wh,
-                        msg.subwindow.fbw,
-                        msg.subwindow.fbh,
-                        msg.subwindow.dpr,
-                        msg.subwindow.rotation,
-                        msg.subwindow.deleteExisting,
+                fb = FrameBuffer::getFB();
+                if (fb) {
+                    result = FrameBuffer::getFB()->setupSubWindow(
+                        msg.subwindow.parent, msg.subwindow.wx, msg.subwindow.wy, msg.subwindow.ww,
+                        msg.subwindow.wh, msg.subwindow.fbw, msg.subwindow.fbh, msg.subwindow.dpr,
+                        msg.subwindow.rotation, msg.subwindow.deleteExisting,
                         msg.subwindow.hideWindow);
+                }
                 break;
 
             case CMD_REMOVE_SUBWINDOW:
                 GL_LOG("CMD_REMOVE_SUBWINDOW");
                 D("CMD_REMOVE_SUBWINDOW\n");
-                result = FrameBuffer::getFB()->removeSubWindow();
+                fb = FrameBuffer::getFB();
+                if (fb) {
+                    result = fb->removeSubWindow();
+                }
                 break;
 
             case CMD_SET_ROTATION:
@@ -251,6 +269,45 @@ struct RenderWindowMessage {
                 }
                 break;
 
+            case CMD_SET_VSYNC_HZ:
+                GL_LOG("CMD_SET_VSYNC_HZ");
+                D("CMD_SET_VSYNC_HZ\n");
+                fb = FrameBuffer::getFB();
+                if (fb) {
+                    fb->setVsyncHz(msg.vsyncHz);
+                    result = true;
+                } else {
+                    GL_LOG("CMD_RESET_GUEST_POSTED_A_FRAME: no FrameBuffer");
+                }
+                break;
+
+            case CMD_SET_DISPLAY_CONFIGS:
+                GL_LOG("CMD_SET_DISPLAY_CONFIGS");
+                D("CMD_SET_DISPLAY_CONFIGS");
+                fb = FrameBuffer::getFB();
+                if (fb) {
+                    fb->setDisplayConfigs(msg.displayConfigs.configId,
+                                          msg.displayConfigs.width,
+                                          msg.displayConfigs.height,
+                                          msg.displayConfigs.dpiX,
+                                          msg.displayConfigs.dpiY);
+                    result = true;
+                } else {
+                    GL_LOG("CMD_SET_DISPLAY_CONFIGS: no FrameBuffer");
+                }
+                break;
+
+            case CMD_SET_DISPLAY_ACTIVE_CONFIG:
+                GL_LOG("CMD_SET_DISPLAY_ACTIVE_CONFIG");
+                D("CMD_SET_DISPLAY_ACTIVE_CONFIG");
+                fb = FrameBuffer::getFB();
+                if (fb) {
+                    fb->setDisplayActiveConfig(msg.displayActiveConfig);
+                    result = true;
+                } else {
+                    GL_LOG("CMD_SET_DISPLAY_ACTIVE_CONFIG: no FrameBuffer");
+                }
+                break;
 
             default:
                 ;
@@ -449,10 +506,8 @@ bool RenderWindow::getHardwareStrings(const char** vendor,
     return true;
 }
 
-void RenderWindow::setPostCallback(emugl::Renderer::OnPostCallback onPost,
-                                   void* onPostContext,
-                                   uint32_t displayId,
-                                   bool useBgraReadback) {
+void RenderWindow::setPostCallback(Renderer::OnPostCallback onPost, void* onPostContext,
+                                   uint32_t displayId, bool useBgraReadback) {
     D("Entering\n");
     RenderWindowMessage msg = {};
     msg.cmd = CMD_SET_POST_CALLBACK;
@@ -469,13 +524,20 @@ bool RenderWindow::asyncReadbackSupported() {
     return FrameBuffer::getFB()->asyncReadbackSupported();
 }
 
-emugl::Renderer::ReadPixelsCallback RenderWindow::getReadPixelsCallback() {
+Renderer::ReadPixelsCallback RenderWindow::getReadPixelsCallback() {
     D("Entering\n");
     return FrameBuffer::getFB()->getReadPixelsCallback();
 }
 
-emugl::Renderer::FlushReadPixelPipeline
-RenderWindow::getFlushReadPixelPipeline() {
+void RenderWindow::addListener(Renderer::FrameBufferChangeEventListener* listener) {
+    FrameBuffer::getFB()->addListener(listener);
+}
+
+void RenderWindow::removeListener(Renderer::FrameBufferChangeEventListener* listener) {
+    FrameBuffer::getFB()->removeListener(listener);
+}
+
+Renderer::FlushReadPixelPipeline RenderWindow::getFlushReadPixelPipeline() {
     return FrameBuffer::getFB()->getFlushReadPixelPipeline();
 }
 bool RenderWindow::setupSubWindow(FBNativeWindowType window,
@@ -548,9 +610,12 @@ void RenderWindow::setTranslation(float px, float py) {
 }
 
 void RenderWindow::setScreenMask(int width, int height, const unsigned char* rgbaData) {
-    FrameBuffer* fb = FrameBuffer::getFB();
-    if (fb) {
-        fb->getTextureDraw()->setScreenMask(width, height, rgbaData);
+    if (FrameBuffer* fb = FrameBuffer::getFB()) {
+        if (fb->hasEmulationGl()) {
+            fb->getTextureDraw()->setScreenMask(width, height, rgbaData);
+        } else {
+            ERR("RenderWindow::setScreenMask() not supported without GL emulation.");
+        }
     }
 }
 
@@ -579,6 +644,38 @@ void RenderWindow::resetGuestPostedAFrame() {
     D("Exiting\n");
 }
 
+void RenderWindow::setVsyncHz(int vsyncHz) {
+    D("Entering\n");
+    RenderWindowMessage msg = {};
+    msg.cmd = CMD_SET_VSYNC_HZ;
+    msg.vsyncHz = vsyncHz;
+    (void) processMessage(msg);
+    D("Exiting\n");
+}
+
+void RenderWindow::setDisplayConfigs(int configId, int w, int h,
+                                     int dpiX, int dpiY) {
+    D("Entering\n");
+    RenderWindowMessage msg = {};
+    msg.cmd = CMD_SET_DISPLAY_CONFIGS;
+    msg.displayConfigs.configId = configId;
+    msg.displayConfigs.width = w;
+    msg.displayConfigs.height= h;
+    msg.displayConfigs.dpiX= dpiX;
+    msg.displayConfigs.dpiY = dpiY;
+    (void) processMessage(msg);
+    D("Exiting\n");
+}
+
+void RenderWindow::setDisplayActiveConfig(int configId) {
+    D("Entering\n");
+    RenderWindowMessage msg = {};
+    msg.cmd = CMD_SET_DISPLAY_ACTIVE_CONFIG;
+    msg.displayActiveConfig = configId;
+    (void) processMessage(msg);
+    D("Exiting\n");
+}
+
 bool RenderWindow::processMessage(const RenderWindowMessage& msg) {
     if (useThread()) {
         if (msg.cmd == CMD_REPAINT) {
@@ -593,3 +690,5 @@ bool RenderWindow::processMessage(const RenderWindowMessage& msg) {
         return msg.process();
     }
 }
+
+}  // namespace gfxstream

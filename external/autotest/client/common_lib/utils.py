@@ -20,7 +20,7 @@ import collections
 import datetime
 import errno
 import inspect
-import itertools
+import json
 import logging
 import os
 import pickle
@@ -316,7 +316,9 @@ class BgJob(object):
 
         data = os.read(pipe.fileno(), 1024)
         if isinstance(data, bytes) and six.PY3:
-            return data.decode()
+            # On rare occasion, an invalid byte will be read, causing this to
+            # crash. Ignoring these errors seems like the best option for now.
+            return data.decode(errors='ignore')
         return data
 
     def cleanup(self):
@@ -431,12 +433,13 @@ def write_one_line(filename, line):
     open_write_close(filename, str(line).rstrip('\n') + '\n')
 
 
-def open_write_close(filename, data):
-    f = open(filename, 'w')
-    try:
+def open_write_close(filename, data, is_binary=False):
+    open_mode = 'w'
+    if is_binary:
+        open_mode = 'wb'
+
+    with open(filename, open_mode) as f:
         f.write(data)
-    finally:
-        f.close()
 
 
 def locate_file(path, base_dir=None):
@@ -460,49 +463,6 @@ def locate_file(path, base_dir=None):
     if not os.path.isfile(path):
         raise error.TestFail('ERROR: Unable to find %s' % path)
     return path
-
-
-def matrix_to_string(matrix, header=None):
-    """
-    Return a pretty, aligned string representation of a nxm matrix.
-
-    This representation can be used to print any tabular data, such as
-    database results. It works by scanning the lengths of each element
-    in each column, and determining the format string dynamically.
-
-    @param matrix: Matrix representation (list with n rows of m elements).
-    @param header: Optional tuple or list with header elements to be displayed.
-    """
-    if type(header) is list:
-        header = tuple(header)
-    lengths = []
-    if header:
-        for column in header:
-            lengths.append(len(column))
-    for row in matrix:
-        for i, column in enumerate(row):
-            column = six.ensure_binary(six.text_type(column), "utf-8")
-            cl = len(column)
-            try:
-                ml = lengths[i]
-                if cl > ml:
-                    lengths[i] = cl
-            except IndexError:
-                lengths.append(cl)
-
-    lengths = tuple(lengths)
-    format_string = ""
-    for length in lengths:
-        format_string += "%-" + str(length) + "s "
-    format_string += "\n"
-
-    matrix_str = ""
-    if header:
-        matrix_str += format_string % header
-    for row in matrix:
-        matrix_str += format_string % tuple(row)
-
-    return matrix_str
 
 
 def read_keyval(path, type_tag=None):
@@ -698,8 +658,8 @@ def update_version(srcdir, preserve_srcdir, new_version, install,
     versionfile = os.path.join(srcdir, '.version')
     install_needed = True
 
-    if os.path.exists(versionfile):
-        old_version = pickle.load(open(versionfile))
+    if os.path.exists(versionfile) and os.path.getsize(versionfile) > 0:
+        old_version = pickle.load(open(versionfile, 'rb'))
         if old_version == new_version:
             install_needed = False
 
@@ -708,7 +668,7 @@ def update_version(srcdir, preserve_srcdir, new_version, install,
             shutil.rmtree(srcdir)
         install(*args, **dargs)
         if os.path.exists(srcdir):
-            pickle.dump(new_version, open(versionfile, 'w'))
+            pickle.dump(new_version, open(versionfile, 'wb'))
 
 
 def get_stderr_level(stderr_is_expected, stdout_level=DEFAULT_STDOUT_LEVEL):
@@ -921,7 +881,7 @@ def _wait_for_commands(bg_jobs, start_time, timeout):
             read_ready, write_ready, _ = select.select(read_list, write_list,
                                                        [], SELECT_TIMEOUT)
         except select.error as v:
-            if v[0] == errno.EINTR:
+            if v.args[0] == errno.EINTR:
                 logging.warning(v)
                 continue
             else:
@@ -936,7 +896,10 @@ def _wait_for_commands(bg_jobs, start_time, timeout):
             # we can write PIPE_BUF bytes without blocking
             # POSIX requires PIPE_BUF is >= 512
             bg_job = reverse_dict[file_obj]
-            file_obj.write(bg_job.string_stdin[:512])
+            string_stdin = bg_job.string_stdin[:512]
+            if isinstance(string_stdin, six.text_type):
+                string_stdin = string_stdin.encode('utf-8', 'strict')
+            file_obj.write(string_stdin)
             bg_job.string_stdin = bg_job.string_stdin[512:]
             # no more input data, close stdin, remove it from the select set
             if not bg_job.string_stdin:
@@ -1406,16 +1369,16 @@ class run_randomly:
             fn(*args, **dargs)
 
 
-def import_site_module(path, module, dummy=None, modulefile=None):
+def import_site_module(path, module, placeholder=None, modulefile=None):
     """
     Try to import the site specific module if it exists.
 
     @param path full filename of the source file calling this (ie __file__)
     @param module full module name
-    @param dummy dummy value to return in case there is no symbol to import
+    @param placeholder value to return in case there is no symbol to import
     @param modulefile module filename
 
-    @return site specific module or dummy
+    @return site specific module or placeholder
 
     @raises ImportError if the site file exists but imports fails
     """
@@ -1426,33 +1389,33 @@ def import_site_module(path, module, dummy=None, modulefile=None):
 
     if os.path.exists(os.path.join(os.path.dirname(path), modulefile)):
         return __import__(module, {}, {}, [short_module])
-    return dummy
+    return placeholder
 
 
-def import_site_symbol(path, module, name, dummy=None, modulefile=None):
+def import_site_symbol(path, module, name, placeholder=None, modulefile=None):
     """
     Try to import site specific symbol from site specific file if it exists
 
     @param path full filename of the source file calling this (ie __file__)
     @param module full module name
     @param name symbol name to be imported from the site file
-    @param dummy dummy value to return in case there is no symbol to import
+    @param placeholder value to return in case there is no symbol to import
     @param modulefile module filename
 
-    @return site specific symbol or dummy
+    @return site specific symbol or placeholder
 
     @raises ImportError if the site file exists but imports fails
     """
     module = import_site_module(path, module, modulefile=modulefile)
     if not module:
-        return dummy
+        return placeholder
 
     # special unique value to tell us if the symbol can't be imported
     cant_import = object()
 
     obj = getattr(module, name, cant_import)
     if obj is cant_import:
-        return dummy
+        return placeholder
 
     return obj
 
@@ -1489,7 +1452,7 @@ def import_site_class(path, module, classname, baseclass, modulefile=None):
     return res
 
 
-def import_site_function(path, module, funcname, dummy, modulefile=None):
+def import_site_function(path, module, funcname, placeholder, modulefile=None):
     """
     Try to import site specific function from site specific file if it exists
 
@@ -1497,15 +1460,15 @@ def import_site_function(path, module, funcname, dummy, modulefile=None):
         path: full filename of the source file calling this (ie __file__)
         module: full module name
         funcname: function name to be imported from site file
-        dummy: dummy function to return in case there is no function to import
+        placeholder: function to return in case there is no function to import
         modulefile: module filename
 
-    Returns: site specific function object or dummy
+    Returns: site specific function object or placeholder
 
     Raises: ImportError if the site file exists but imports fails
     """
 
-    return import_site_symbol(path, module, funcname, dummy, modulefile)
+    return import_site_symbol(path, module, funcname, placeholder, modulefile)
 
 
 def _get_pid_path(program_name):
@@ -1723,6 +1686,18 @@ def make(extra='', make='make', timeout=None, ignore_status=False):
     return system(cmd, timeout=timeout, ignore_status=ignore_status)
 
 
+def _cmp(x, y):
+    """
+    Replacement for built-in function cmp that was removed in Python 3
+
+    Compare the two objects x and y and return an integer according to
+    the outcome. The return value is negative if x < y, zero if x == y
+    and strictly positive if x > y.
+    """
+
+    return (x > y) - (x < y)
+
+
 def compare_versions(ver1, ver2):
     """Version number comparison between ver1 and ver2 strings.
 
@@ -1752,10 +1727,10 @@ def compare_versions(ver1, ver2):
         cx = ax.pop(0)
         cy = ay.pop(0)
         maxlen = max(len(cx), len(cy))
-        c = cmp(cx.zfill(maxlen), cy.zfill(maxlen))
+        c = _cmp(cx.zfill(maxlen), cy.zfill(maxlen))
         if c != 0:
             return c
-    return cmp(len(ax), len(ay))
+    return _cmp(len(ax), len(ay))
 
 
 def args_to_dict(args):
@@ -1830,7 +1805,7 @@ def rdmsr(address, cpu=0):
     """
     Reads an x86 MSR from the specified CPU, returns as long integer.
     """
-    with open('/dev/cpu/%s/msr' % cpu, 'r', 0) as fd:
+    with open('/dev/cpu/%s/msr' % cpu, 'rb', 0) as fd:
         fd.seek(address)
         return struct.unpack('=Q', fd.read(8))[0]
 
@@ -1932,23 +1907,64 @@ DEFAULT_OFFLOAD_GSURI = CONFIG.get_config_value(
 _MOBLAB_ETH_0 = 'eth0'
 _MOBLAB_ETH_1 = 'eth1'
 
+
+def _parse_subnet(subnet_str):
+    """Parse a subnet string to a (ip, mask) tuple."""
+    ip, mask = subnet_str.split('/')
+    return ip, int(mask)
+
+
 # A list of subnets that requires dedicated devserver and drone in the same
 # subnet. Each item is a tuple of (subnet_ip, mask_bits), e.g.,
 # ('192.168.0.0', 24))
 RESTRICTED_SUBNETS = []
 
+
 def _setup_restricted_subnets():
     restricted_subnets_list = CONFIG.get_config_value(
             'CROS', 'restricted_subnets', type=list, default=[])
-    # TODO(dshi): Remove the code to split subnet with `:` after R51 is
-    # off stable channel, and update shadow config to use `/` as
-    # delimiter for consistency.
-    for subnet in restricted_subnets_list:
-        ip, mask_bits = subnet.split('/') if '/' in subnet \
-                        else subnet.split(':')
-        RESTRICTED_SUBNETS.append((ip, int(mask_bits)))
+    global RESTRICTED_SUBNETS
+    RESTRICTED_SUBNETS = [_parse_subnet(s) for s in restricted_subnets_list]
+
 
 _setup_restricted_subnets()
+
+
+# A two level list of subnets, e.g. '[["1.1.1.0/24","1.1.2.0/24"],
+# ["1.2.1.0/24", "1.2.2.0/24"]]'. Each element of it is either a singleton list
+# of a restricted subnet, or a list of subnets which can communicate with each
+# other (i.e. p2p subnets).
+ALL_SUBNETS = []
+
+
+def _setup_all_subnets():
+    all_subnets_raw = CONFIG.get_config_value('CROS',
+                                              'p2p_subnets',
+                                              default='[]')
+    all_subnets = json.loads(all_subnets_raw)
+    for subnet_group in all_subnets:
+        ALL_SUBNETS.append([_parse_subnet(s) for s in subnet_group])
+
+    if not RESTRICTED_SUBNETS:
+        _setup_restricted_subnets()
+    for subnet in RESTRICTED_SUBNETS:
+        ALL_SUBNETS.append([subnet])
+
+
+_setup_all_subnets()
+
+
+def get_all_restricted_subnets():
+    """Returns all restricted subnets in a flat list, including subnets that
+    are part of a p2p group.
+
+    This helps us to check if a host is in a restricted subnet."""
+    result = []
+    for s in ALL_SUBNETS:
+        result.extend(s)
+
+    return result
+
 
 # regex pattern for CLIENT/wireless_ssid_ config. For example, global config
 # can have following config in CLIENT section to indicate that hosts in subnet
@@ -1964,13 +1980,13 @@ def get_moblab_serial_number():
     present, however fallback is the ethernet mac address.
     """
     for vpd_key in ['serial_number', 'ethernet_mac']:
-      try:
-          cmd_result = run('sudo vpd -g %s' % vpd_key)
-          if cmd_result and cmd_result.stdout:
-            return cmd_result.stdout
-      except error.CmdError as e:
-          logging.error(str(e))
-          logging.info(vpd_key)
+        try:
+            cmd_result = run('sudo vpd -g %s' % vpd_key)
+            if cmd_result and cmd_result.stdout:
+                return cmd_result.stdout
+        except error.CmdError as e:
+            logging.error(str(e))
+            logging.info(vpd_key)
     return 'NoSerialNumber'
 
 
@@ -1979,7 +1995,8 @@ def ping(host,
          tries=None,
          timeout=60,
          ignore_timeout=False,
-         user=None):
+         user=None,
+         interface=None):
     """Attempt to ping |host|.
 
     Shell out to 'ping' if host is an IPv4 addres or 'ping6' if host is an
@@ -2001,6 +2018,7 @@ def ping(host,
     @param timeout: number of seconds after which to kill 'ping' command.
     @param ignore_timeout: If true, timeouts won't raise CmdTimeoutError.
     @param user: Run as a specific user
+    @param interface: Run on a specific network interface
     @return exit code of ping command.
     """
     args = [host]
@@ -2010,6 +2028,8 @@ def ping(host,
         args.append('-w%d' % deadline)
     if tries:
         args.append('-c%d' % tries)
+    if interface:
+        args.append('-I%s' % interface)
 
     if user != None:
         args = [user, '-c', ' '.join([cmd] + args)]
@@ -2086,7 +2106,7 @@ def host_is_in_power_lab(hostname):
     @param hostname: The hostname to check.
     @returns True if hostname match power lab hostname, otherwise False.
     """
-    pattern = r'chromeos\d+-power-host\d+(\.cros(\.corp(\.google\.com)?)?)?$'
+    pattern = r'chromeos\d.*power.*(\.cros(\.corp(\.google\.com)?)?)?$'
     return re.match(pattern, hostname) is not None
 
 
@@ -2572,7 +2592,7 @@ def sudo_require_password():
         run('sudo -n true')
         return False
     except error.CmdError:
-        logging.warn('sudo command requires password.')
+        logging.warning('sudo command requires password.')
         return True
 
 
@@ -3328,3 +3348,21 @@ def crc8(buf):
     for i in buf:
         rv = _table_crc8[ (rv ^ i) & 0xff ]
     return rv
+
+
+def send_msg_to_terminal(job, msg):
+    """Send from the client side to the terminal.
+
+    ONLY to be used on non-scheduled tests (aka local runs).
+    Do not send anything which could be confused for a status.
+    See server/autotest.py client_logger for examples of status's NOT to use
+
+    @param job: The client job obj. Can be accessed from anything built off
+        test.test via self.job
+    @param msg: the msg to send.
+    """
+    status = os.fdopen(3, 'w', 2)
+    try:
+        status.write(msg + '\n')
+    finally:
+        status.flush()

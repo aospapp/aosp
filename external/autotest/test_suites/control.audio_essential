@@ -13,7 +13,7 @@ TEST_TYPE = "Server"
 
 DOC = """
 Audio tests that cover audio functionalities that are essential to the
-Chrome OS audio stack.
+ChromeOS audio stack.
 
 Generally the tests require chameleon and audio boards connected.
 Together with DUT and jack plugger bundled in audio-box environment for

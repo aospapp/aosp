@@ -16,19 +16,60 @@
 package android.contentcaptureservice.cts2;
 
 import android.app.Activity;
-import android.os.Handler;
-import android.os.Looper;
+import android.content.Intent;
+import android.os.Bundle;
+import android.util.Log;
+import android.view.contentcapture.ContentCaptureManager;
 
 /**
  * This activity is used to test temporary Content Capture Service interactions with activities
- * outside of its own package. It is intentionally empty.
+ * outside of its own package.
  */
 public class OutsideOfPackageActivity extends Activity {
 
+    private static final String TAG = "OutsideOfPackageActivity";
+    boolean mFinishActivity;
+
     @Override
-    public void onAttachedToWindow() {
-        super.onAttachedToWindow();
-        // finish activity after displayed.
-        new Handler(Looper.getMainLooper()).post(() -> finish());
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        Intent intent = getIntent();
+        mFinishActivity = intent.getBooleanExtra("finishActivity", false);
+
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        Log.d(TAG, "onNewIntent()");
+        super.onNewIntent(intent);
+        mFinishActivity = intent.getBooleanExtra("finishActivity", false);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Log.d(TAG, "onCreate(), mFinishActivity=" + mFinishActivity);
+        sendContentCaptureEnableStatussult();
+        if (mFinishActivity) {
+            finish();
+        }
+        Log.d(TAG, "finish onResume()");
+    }
+
+    private boolean isContentCaptureEnabled() {
+        ContentCaptureManager captureManager = getSystemService(ContentCaptureManager.class);
+        if (captureManager == null) {
+            return false;
+        }
+        return captureManager.isContentCaptureEnabled();
+    }
+
+    private void sendContentCaptureEnableStatussult() {
+        boolean isEnable = isContentCaptureEnabled();
+        Log.d(TAG, "send enable: " + isEnable + " for " + getPackageName());
+        Intent intent = new Intent("ACTION_ACTIVITY_CC_STATUS_TEST")
+                .addFlags(Intent.FLAG_RECEIVER_FOREGROUND | Intent.FLAG_RECEIVER_REGISTERED_ONLY)
+                .putExtra("cc_enable", isEnable);
+        sendBroadcast(intent);
     }
 }

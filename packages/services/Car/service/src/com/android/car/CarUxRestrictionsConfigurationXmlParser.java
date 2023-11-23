@@ -22,6 +22,7 @@ import static android.car.drivingstate.CarUxRestrictionsManager.UX_RESTRICTION_M
 
 import android.annotation.Nullable;
 import android.annotation.XmlRes;
+import android.car.CarOccupantZoneManager;
 import android.car.builtin.util.Slogf;
 import android.car.drivingstate.CarDrivingStateEvent;
 import android.car.drivingstate.CarUxRestrictions;
@@ -59,6 +60,9 @@ public final class CarUxRestrictionsConfigurationXmlParser {
 
     // XML attributes
     private static final String XML_PHYSICAL_PORT = "physicalPort";
+    private static final String XML_OCCUPANT_ZONE_ID = "occupantZoneId";
+    private static final String XML_DISPLAY_TYPE = "displayType";
+
     private static final String XML_STATE = "state";
     private static final String XML_MIN_SPEED = "minSpeed";
     private static final String XML_MAX_SPEED = "maxSpeed";
@@ -205,6 +209,23 @@ public final class CarUxRestrictionsConfigurationXmlParser {
         if (portValue != INVALID_PORT) {
             int port = CarUxRestrictionsConfiguration.Builder.validatePort(portValue);
             getCurrentBuilder().setPhysicalPort(port);
+        }
+
+        // read occupant zone id
+        int zoneIdValue = parser.getAttributeIntValue(XML_NAMESPACE, XML_OCCUPANT_ZONE_ID,
+                CarOccupantZoneManager.OccupantZoneInfo.INVALID_ZONE_ID);
+        if (zoneIdValue != CarOccupantZoneManager.OccupantZoneInfo.INVALID_ZONE_ID) {
+            int zoneId = CarUxRestrictionsConfiguration.Builder.validateOccupantZoneId(zoneIdValue);
+            getCurrentBuilder().setOccupantZoneId(zoneId);
+        }
+
+        // read occupant zone id
+        int displayTypeValue = parser.getAttributeIntValue(XML_NAMESPACE, XML_DISPLAY_TYPE,
+                CarOccupantZoneManager.DISPLAY_TYPE_UNKNOWN);
+        if (displayTypeValue != CarOccupantZoneManager.DISPLAY_TYPE_UNKNOWN) {
+            int displayType = CarUxRestrictionsConfiguration.Builder.validateDisplayType(
+                    displayTypeValue);
+            getCurrentBuilder().setDisplayType(displayType);
         }
 
         if (!traverseToTag(parser, XML_DRIVING_STATE)) {
@@ -392,6 +413,8 @@ public final class CarUxRestrictionsConfigurationXmlParser {
                 case XML_UXR_FULLY_RESTRICTED:
                     restrictionsValue = restrictionsValue
                             | CarUxRestrictions.UX_RESTRICTIONS_FULLY_RESTRICTED;
+                    break;
+                default:
                     break;
             }
         }

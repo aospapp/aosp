@@ -583,6 +583,86 @@ bool CanRun(const CPUFeatures& required, bool* queried_can_run = NULL);
 // we need to enable it in the infrastructure code for each test.
 static const CPUFeatures kInfrastructureCPUFeatures(CPUFeatures::kNEON);
 
+enum InputSet {
+  kIntInputSet = 0,
+  kFpInputSet,
+};
+
+// Initialise CPU registers to a predictable, non-zero set of values. This
+// sets core, vector, predicate and flag registers, though leaves the stack
+// pointer at its original value.
+void SetInitialMachineState(MacroAssembler* masm,
+                            InputSet input_set = kIntInputSet);
+
+// Compute a CRC32 hash of the machine state, and store it to dst. The hash
+// covers core (not sp), vector (lower 128 bits), predicate (lower 16 bits)
+// and flag registers.
+void ComputeMachineStateHash(MacroAssembler* masm, uint32_t* dst);
+
+// The TEST_SVE macro works just like the usual TEST macro, but the resulting
+// function receives a `const Test& config` argument, to allow it to query the
+// vector length.
+#ifdef VIXL_INCLUDE_SIMULATOR_AARCH64
+
+#define TEST_SVE_INNER(type, name)                            \
+  void Test##name(Test* config);                              \
+  Test* test_##name##_list[] =                                \
+      {Test::MakeSVETest(128,                                 \
+                         "AARCH64_" type "_" #name "_vl128",  \
+                         &Test##name),                        \
+       Test::MakeSVETest(384,                                 \
+                         "AARCH64_" type "_" #name "_vl384",  \
+                         &Test##name),                        \
+       Test::MakeSVETest(2048,                                \
+                         "AARCH64_" type "_" #name "_vl2048", \
+                         &Test##name)};                       \
+  void Test##name(Test* config)
+
+#define SVE_SETUP_WITH_FEATURES(...) \
+  SETUP_WITH_FEATURES(__VA_ARGS__);  \
+  simulator.SetVectorLengthInBits(config->sve_vl_in_bits())
+
+#else
+// Otherwise, just use whatever the hardware provides.
+static const int kSVEVectorLengthInBits =
+    CPUFeatures::InferFromOS().Has(CPUFeatures::kSVE)
+        ? CPU::ReadSVEVectorLengthInBits()
+        : kZRegMinSize;
+
+#define TEST_SVE_INNER(type, name)                           \
+  void Test##name(Test* config);                             \
+  Test* test_##name##_vlauto =                               \
+      Test::MakeSVETest(kSVEVectorLengthInBits,              \
+                        "AARCH64_" type "_" #name "_vlauto", \
+                        &Test##name);                        \
+  void Test##name(Test* config)
+
+#define SVE_SETUP_WITH_FEATURES(...) \
+  SETUP_WITH_FEATURES(__VA_ARGS__);  \
+  USE(config)
+
+#endif
+
+// Call masm->Insr repeatedly to allow test inputs to be set up concisely. This
+// is optimised for call-site clarity, not generated code quality, so it doesn't
+// exist in the MacroAssembler itself.
+//
+// Usage:
+//
+//    int values[] = { 42, 43, 44 };
+//    InsrHelper(&masm, z0.VnS(), values);    // Sets z0.S = { ..., 42, 43, 44 }
+//
+// The rightmost (highest-indexed) array element maps to the lowest-numbered
+// lane.
+template <typename T, size_t N>
+void InsrHelper(MacroAssembler* masm,
+                const ZRegister& zdn,
+                const T (&values)[N]) {
+  for (size_t i = 0; i < N; i++) {
+    masm->Insr(zdn, values[i]);
+  }
+}
+
 }  // namespace aarch64
 }  // namespace vixl
 

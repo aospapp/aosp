@@ -169,6 +169,7 @@ struct DisplayTestCommon : public testing::Test {
         EXPECT_CALL(mCompositionEngine, getRenderEngine()).WillRepeatedly(ReturnRef(mRenderEngine));
         EXPECT_CALL(mRenderEngine, supportsProtectedContent()).WillRepeatedly(Return(false));
         EXPECT_CALL(mRenderEngine, isProtected()).WillRepeatedly(Return(false));
+        EXPECT_CALL(mPowerAdvisor, usePowerHintSession()).WillRepeatedly(Return(false));
     }
 
     DisplayCreationArgs getDisplayCreationArgsForPhysicalDisplay() {
@@ -193,7 +194,7 @@ struct DisplayTestCommon : public testing::Test {
     StrictMock<Hwc2::mock::PowerAdvisor> mPowerAdvisor;
     StrictMock<renderengine::mock::RenderEngine> mRenderEngine;
     StrictMock<mock::CompositionEngine> mCompositionEngine;
-    sp<mock::NativeWindow> mNativeWindow = new StrictMock<mock::NativeWindow>();
+    sp<mock::NativeWindow> mNativeWindow = sp<StrictMock<mock::NativeWindow>>::make();
 };
 
 struct PartialMockDisplayTestCommon : public DisplayTestCommon {
@@ -523,7 +524,7 @@ TEST_F(DisplaySetReleasedLayersTest, doesNothingIfGpuDisplay) {
     auto args = getDisplayCreationArgsForGpuVirtualDisplay();
     std::shared_ptr<impl::Display> gpuDisplay = impl::createDisplay(mCompositionEngine, args);
 
-    sp<mock::LayerFE> layerXLayerFE = new StrictMock<mock::LayerFE>();
+    sp<mock::LayerFE> layerXLayerFE = sp<StrictMock<mock::LayerFE>>::make();
 
     {
         Output::ReleasedLayers releasedLayers;
@@ -541,7 +542,7 @@ TEST_F(DisplaySetReleasedLayersTest, doesNothingIfGpuDisplay) {
 }
 
 TEST_F(DisplaySetReleasedLayersTest, doesNothingIfNoLayersWithQueuedFrames) {
-    sp<mock::LayerFE> layerXLayerFE = new StrictMock<mock::LayerFE>();
+    sp<mock::LayerFE> layerXLayerFE = sp<StrictMock<mock::LayerFE>>::make();
 
     {
         Output::ReleasedLayers releasedLayers;
@@ -557,7 +558,7 @@ TEST_F(DisplaySetReleasedLayersTest, doesNothingIfNoLayersWithQueuedFrames) {
 }
 
 TEST_F(DisplaySetReleasedLayersTest, setReleasedLayers) {
-    sp<mock::LayerFE> unknownLayer = new StrictMock<mock::LayerFE>();
+    sp<mock::LayerFE> unknownLayer = sp<StrictMock<mock::LayerFE>>::make();
 
     CompositionRefreshArgs refreshArgs;
     refreshArgs.layersWithQueuedFrames.push_back(mLayer1.layerFE);
@@ -594,7 +595,7 @@ TEST_F(DisplayChooseCompositionStrategyTest, takesEarlyOutIfGpuDisplay) {
 TEST_F(DisplayChooseCompositionStrategyTest, takesEarlyOutOnHwcError) {
     EXPECT_CALL(*mDisplay, anyLayersRequireClientComposition()).WillOnce(Return(false));
     EXPECT_CALL(mHwComposer,
-                getDeviceCompositionChanges(HalDisplayId(DEFAULT_DISPLAY_ID), false, _, _, _, _))
+                getDeviceCompositionChanges(HalDisplayId(DEFAULT_DISPLAY_ID), false, _, _, _))
             .WillOnce(Return(INVALID_OPERATION));
 
     chooseCompositionStrategy(mDisplay.get());
@@ -618,8 +619,8 @@ TEST_F(DisplayChooseCompositionStrategyTest, normalOperation) {
             .WillOnce(Return(false));
 
     EXPECT_CALL(mHwComposer,
-                getDeviceCompositionChanges(HalDisplayId(DEFAULT_DISPLAY_ID), true, _, _, _, _))
-            .WillOnce(testing::DoAll(testing::SetArgPointee<5>(mDeviceRequestedChanges),
+                getDeviceCompositionChanges(HalDisplayId(DEFAULT_DISPLAY_ID), true, _, _, _))
+            .WillOnce(testing::DoAll(testing::SetArgPointee<4>(mDeviceRequestedChanges),
                                      Return(NO_ERROR)));
     EXPECT_CALL(*mDisplay, applyChangedTypesToLayers(mDeviceRequestedChanges.changedTypes))
             .Times(1);
@@ -671,8 +672,8 @@ TEST_F(DisplayChooseCompositionStrategyTest, normalOperationWithChanges) {
             .WillOnce(Return(false));
 
     EXPECT_CALL(mHwComposer,
-                getDeviceCompositionChanges(HalDisplayId(DEFAULT_DISPLAY_ID), true, _, _, _, _))
-            .WillOnce(DoAll(SetArgPointee<5>(mDeviceRequestedChanges), Return(NO_ERROR)));
+                getDeviceCompositionChanges(HalDisplayId(DEFAULT_DISPLAY_ID), true, _, _, _))
+            .WillOnce(DoAll(SetArgPointee<4>(mDeviceRequestedChanges), Return(NO_ERROR)));
     EXPECT_CALL(*mDisplay, applyChangedTypesToLayers(mDeviceRequestedChanges.changedTypes))
             .Times(1);
     EXPECT_CALL(*mDisplay, applyDisplayRequests(mDeviceRequestedChanges.displayRequests)).Times(1);
@@ -896,11 +897,11 @@ TEST_F(DisplayPresentAndGetFrameFencesTest, returnsNoFencesOnGpuDisplay) {
 }
 
 TEST_F(DisplayPresentAndGetFrameFencesTest, returnsPresentAndLayerFences) {
-    sp<Fence> presentFence = new Fence();
-    sp<Fence> layer1Fence = new Fence();
-    sp<Fence> layer2Fence = new Fence();
+    sp<Fence> presentFence = sp<Fence>::make();
+    sp<Fence> layer1Fence = sp<Fence>::make();
+    sp<Fence> layer2Fence = sp<Fence>::make();
 
-    EXPECT_CALL(mHwComposer, presentAndGetReleaseFences(HalDisplayId(DEFAULT_DISPLAY_ID), _, _))
+    EXPECT_CALL(mHwComposer, presentAndGetReleaseFences(HalDisplayId(DEFAULT_DISPLAY_ID), _))
             .Times(1);
     EXPECT_CALL(mHwComposer, getPresentFence(HalDisplayId(DEFAULT_DISPLAY_ID)))
             .WillOnce(Return(presentFence));
@@ -958,7 +959,7 @@ TEST_F(DisplayFinishFrameTest, doesNotSkipCompositionIfNotDirtyOnHwcDisplay) {
     mDisplay->editState().layerStackSpace.setContent(Rect(0, 0, 1, 1));
     mDisplay->editState().dirtyRegion = Region::INVALID_REGION;
 
-    mDisplay->finishFrame({}, std::move(mResultWithBuffer));
+    mDisplay->finishFrame(std::move(mResultWithBuffer));
 }
 
 TEST_F(DisplayFinishFrameTest, skipsCompositionIfNotDirty) {
@@ -970,16 +971,40 @@ TEST_F(DisplayFinishFrameTest, skipsCompositionIfNotDirty) {
 
     // We expect no calls to queueBuffer if composition was skipped.
     EXPECT_CALL(*renderSurface, queueBuffer(_)).Times(0);
+    EXPECT_CALL(*renderSurface, beginFrame(false));
 
     gpuDisplay->editState().isEnabled = true;
     gpuDisplay->editState().usesClientComposition = false;
     gpuDisplay->editState().layerStackSpace.setContent(Rect(0, 0, 1, 1));
     gpuDisplay->editState().dirtyRegion = Region::INVALID_REGION;
+    gpuDisplay->editState().lastCompositionHadVisibleLayers = true;
 
-    gpuDisplay->finishFrame({}, std::move(mResultWithoutBuffer));
+    gpuDisplay->beginFrame();
+    gpuDisplay->finishFrame(std::move(mResultWithoutBuffer));
 }
 
-TEST_F(DisplayFinishFrameTest, performsCompositionIfDirty) {
+TEST_F(DisplayFinishFrameTest, skipsCompositionIfEmpty) {
+    auto args = getDisplayCreationArgsForGpuVirtualDisplay();
+    std::shared_ptr<impl::Display> gpuDisplay = impl::createDisplay(mCompositionEngine, args);
+
+    mock::RenderSurface* renderSurface = new StrictMock<mock::RenderSurface>();
+    gpuDisplay->setRenderSurfaceForTest(std::unique_ptr<RenderSurface>(renderSurface));
+
+    // We expect no calls to queueBuffer if composition was skipped.
+    EXPECT_CALL(*renderSurface, queueBuffer(_)).Times(0);
+    EXPECT_CALL(*renderSurface, beginFrame(false));
+
+    gpuDisplay->editState().isEnabled = true;
+    gpuDisplay->editState().usesClientComposition = false;
+    gpuDisplay->editState().layerStackSpace.setContent(Rect(0, 0, 1, 1));
+    gpuDisplay->editState().dirtyRegion = Region(Rect(0, 0, 1, 1));
+    gpuDisplay->editState().lastCompositionHadVisibleLayers = false;
+
+    gpuDisplay->beginFrame();
+    gpuDisplay->finishFrame(std::move(mResultWithoutBuffer));
+}
+
+TEST_F(DisplayFinishFrameTest, performsCompositionIfDirtyAndNotEmpty) {
     auto args = getDisplayCreationArgsForGpuVirtualDisplay();
     std::shared_ptr<impl::Display> gpuDisplay = impl::createDisplay(mCompositionEngine, args);
 
@@ -988,12 +1013,16 @@ TEST_F(DisplayFinishFrameTest, performsCompositionIfDirty) {
 
     // We expect a single call to queueBuffer when composition is not skipped.
     EXPECT_CALL(*renderSurface, queueBuffer(_)).Times(1);
+    EXPECT_CALL(*renderSurface, beginFrame(true));
 
     gpuDisplay->editState().isEnabled = true;
     gpuDisplay->editState().usesClientComposition = false;
     gpuDisplay->editState().layerStackSpace.setContent(Rect(0, 0, 1, 1));
     gpuDisplay->editState().dirtyRegion = Region(Rect(0, 0, 1, 1));
-    gpuDisplay->finishFrame({}, std::move(mResultWithBuffer));
+    gpuDisplay->editState().lastCompositionHadVisibleLayers = true;
+
+    gpuDisplay->beginFrame();
+    gpuDisplay->finishFrame(std::move(mResultWithBuffer));
 }
 
 /*
@@ -1017,8 +1046,8 @@ struct DisplayFunctionalTest : public testing::Test {
     NiceMock<android::mock::HWComposer> mHwComposer;
     NiceMock<Hwc2::mock::PowerAdvisor> mPowerAdvisor;
     NiceMock<mock::CompositionEngine> mCompositionEngine;
-    sp<mock::NativeWindow> mNativeWindow = new NiceMock<mock::NativeWindow>();
-    sp<mock::DisplaySurface> mDisplaySurface = new NiceMock<mock::DisplaySurface>();
+    sp<mock::NativeWindow> mNativeWindow = sp<NiceMock<mock::NativeWindow>>::make();
+    sp<mock::DisplaySurface> mDisplaySurface = sp<NiceMock<mock::DisplaySurface>>::make();
     std::shared_ptr<Display> mDisplay;
     impl::RenderSurface* mRenderSurface;
 
@@ -1049,7 +1078,7 @@ TEST_F(DisplayFunctionalTest, postFramebufferCriticalCallsAreOrdered) {
 
     mDisplay->editState().isEnabled = true;
 
-    EXPECT_CALL(mHwComposer, presentAndGetReleaseFences(_, _, _));
+    EXPECT_CALL(mHwComposer, presentAndGetReleaseFences(_, _));
     EXPECT_CALL(*mDisplaySurface, onFrameCommitted());
 
     mDisplay->postFramebuffer();

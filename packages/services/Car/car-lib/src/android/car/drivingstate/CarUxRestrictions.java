@@ -404,7 +404,6 @@ public final class CarUxRestrictions implements Parcelable {
     }
 
     @Override
-    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return "DO: " + mRequiresDistractionOptimization + " UxR: " + mActiveRestrictions
                 + " time: " + mTimeStamp;

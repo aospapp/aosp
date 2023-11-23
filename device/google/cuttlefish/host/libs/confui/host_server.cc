@@ -16,8 +16,8 @@
 
 #include "host/libs/confui/host_server.h"
 
-#include <chrono>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <tuple>
 
@@ -29,15 +29,16 @@
 
 namespace cuttlefish {
 namespace confui {
-static auto CuttlefishConfigDefaultInstance() {
-  auto config = cuttlefish::CuttlefishConfig::Get();
-  CHECK(config) << "Config must not be null";
-  return config->ForDefaultInstance();
+namespace {
+
+template <typename Derived, typename Base>
+std::unique_ptr<Derived> DowncastTo(std::unique_ptr<Base>&& base) {
+  Base* tmp = base.release();
+  Derived* derived = static_cast<Derived*>(tmp);
+  return std::unique_ptr<Derived>(derived);
 }
 
-static int HalHostVsockPort() {
-  return CuttlefishConfigDefaultInstance().confui_host_vsock_port();
-}
+}  // namespace
 
 /**
  * null if not user/touch, or wrap it and ConfUiSecure{Selection,Touch}Message
@@ -45,39 +46,30 @@ static int HalHostVsockPort() {
  * ConfUiMessage must NOT ConfUiSecure{Selection,Touch}Message types
  */
 static std::unique_ptr<ConfUiMessage> WrapWithSecureFlag(
-    const ConfUiMessage& base_msg, const bool secure) {
-  switch (base_msg.GetType()) {
+    std::unique_ptr<ConfUiMessage>&& base_msg, const bool secure) {
+  switch (base_msg->GetType()) {
     case ConfUiCmd::kUserInputEvent: {
-      const ConfUiUserSelectionMessage& as_selection =
-          static_cast<const ConfUiUserSelectionMessage&>(base_msg);
-      return ToSecureSelectionMessage(as_selection, secure);
+      auto as_selection =
+          DowncastTo<ConfUiUserSelectionMessage>(std::move(base_msg));
+      return ToSecureSelectionMessage(std::move(as_selection), secure);
     }
     case ConfUiCmd::kUserTouchEvent: {
-      const ConfUiUserTouchMessage& as_touch =
-          static_cast<const ConfUiUserTouchMessage&>(base_msg);
-      return ToSecureTouchMessage(as_touch, secure);
+      auto as_touch = DowncastTo<ConfUiUserTouchMessage>(std::move(base_msg));
+      return ToSecureTouchMessage(std::move(as_touch), secure);
     }
     default:
       return nullptr;
   }
 }
 
-HostServer& HostServer::Get(
-    HostModeCtrl& host_mode_ctrl,
-    cuttlefish::ScreenConnectorFrameRenderer& screen_connector) {
-  static HostServer host_server{host_mode_ctrl, screen_connector};
-  return host_server;
-}
-
-HostServer::HostServer(
-    cuttlefish::HostModeCtrl& host_mode_ctrl,
-    cuttlefish::ScreenConnectorFrameRenderer& screen_connector)
+HostServer::HostServer(HostModeCtrl& host_mode_ctrl,
+                       ConfUiRenderer& host_renderer,
+                       const PipeConnectionPair& fd_pair)
     : display_num_(0),
+      host_renderer_{host_renderer},
       host_mode_ctrl_(host_mode_ctrl),
-      screen_connector_{screen_connector},
-      hal_vsock_port_(HalHostVsockPort()) {
-  ConfUiLog(DEBUG) << "Confirmation UI Host session is listening on: "
-                   << hal_vsock_port_;
+      from_guest_fifo_fd_(fd_pair.from_guest_),
+      to_guest_fifo_fd_(fd_pair.to_guest_) {
   const size_t max_elements = 20;
   auto ignore_new =
       [](ThreadSafeQueue<std::unique_ptr<ConfUiMessage>>::QueueImpl*) {
@@ -90,12 +82,18 @@ HostServer::HostServer(
       HostServer::Multiplexer::CreateQueue(max_elements, ignore_new));
 }
 
+bool HostServer::IsVirtioConsoleOpen() const {
+  return from_guest_fifo_fd_->IsOpen() && to_guest_fifo_fd_->IsOpen();
+}
+
+bool HostServer::CheckVirtioConsole() {
+  if (IsVirtioConsoleOpen()) return true;
+  ConfUiLog(FATAL) << "Virtio console is not open";
+  return false;
+}
+
 void HostServer::Start() {
-  guest_hal_socket_ =
-      cuttlefish::SharedFD::VsockServer(hal_vsock_port_, SOCK_STREAM);
-  if (!guest_hal_socket_->IsOpen()) {
-    ConfUiLog(FATAL) << "Confirmation UI host service mandates a server socket"
-                     << "to which the guest HAL to connect.";
+  if (!CheckVirtioConsole()) {
     return;
   }
   auto hal_cmd_fetching = [this]() { this->HalCmdFetcherLoop(); };
@@ -103,24 +101,20 @@ void HostServer::Start() {
   hal_input_fetcher_thread_ =
       thread::RunThread("HalInputLoop", hal_cmd_fetching);
   main_loop_thread_ = thread::RunThread("MainLoop", main);
-  ConfUiLog(DEBUG) << "configured internal vsock based input.";
+  ConfUiLog(DEBUG) << "host service started.";
   return;
 }
 
 void HostServer::HalCmdFetcherLoop() {
   while (true) {
-    if (!hal_cli_socket_->IsOpen()) {
-      ConfUiLog(DEBUG) << "client is disconnected";
-      std::unique_lock<std::mutex> lk(socket_flag_mtx_);
-      hal_cli_socket_ = EstablishHalConnection();
-      is_socket_ok_ = true;
-      continue;
+    if (!CheckVirtioConsole()) {
+      return;
     }
-    auto msg = RecvConfUiMsg(hal_cli_socket_);
+    auto msg = RecvConfUiMsg(from_guest_fifo_fd_);
     if (!msg) {
       ConfUiLog(ERROR) << "Error in RecvConfUiMsg from HAL";
-      hal_cli_socket_->Close();
-      is_socket_ok_ = false;
+      // TODO(kwstephenkim): error handling
+      // either file is not open, or ill-formatted message
       continue;
     }
     /*
@@ -130,7 +124,8 @@ void HostServer::HalCmdFetcherLoop() {
      * always guaranteed to be picked up reasonably soon.
      */
     constexpr bool is_secure = false;
-    auto to_override_if_user_input = WrapWithSecureFlag(*msg, is_secure);
+    auto to_override_if_user_input =
+        WrapWithSecureFlag(std::move(msg), is_secure);
     if (to_override_if_user_input) {
       msg = std::move(to_override_if_user_input);
     }
@@ -138,6 +133,12 @@ void HostServer::HalCmdFetcherLoop() {
   }
 }
 
+/**
+ * Send inputs generated not by auto-tester but by the human users
+ *
+ * Send such inputs into the command queue consumed by the state machine
+ * in the main loop/current session.
+ */
 void HostServer::SendUserSelection(std::unique_ptr<ConfUiMessage>& input) {
   if (!curr_session_ ||
       curr_session_->GetState() != MainLoopState::kInSession ||
@@ -146,7 +147,7 @@ void HostServer::SendUserSelection(std::unique_ptr<ConfUiMessage>& input) {
     return;
   }
   constexpr bool is_secure = true;
-  auto secure_input = WrapWithSecureFlag(*input, is_secure);
+  auto secure_input = WrapWithSecureFlag(std::move(input), is_secure);
   input_multiplexer_.Push(user_input_evt_q_id_, std::move(secure_input));
 }
 
@@ -156,9 +157,7 @@ void HostServer::TouchEvent(const int x, const int y, const bool is_down) {
   }
   std::unique_ptr<ConfUiMessage> input =
       std::make_unique<ConfUiUserTouchMessage>(GetCurrentSessionId(), x, y);
-  constexpr bool is_secure = true;
-  auto secure_input = WrapWithSecureFlag(*input, is_secure);
-  SendUserSelection(secure_input);
+  SendUserSelection(input);
 }
 
 void HostServer::UserAbortEvent() {
@@ -168,29 +167,7 @@ void HostServer::UserAbortEvent() {
   std::unique_ptr<ConfUiMessage> input =
       std::make_unique<ConfUiUserSelectionMessage>(GetCurrentSessionId(),
                                                    UserResponse::kUserAbort);
-  constexpr bool is_secure = true;
-  auto secure_input = WrapWithSecureFlag(*input, is_secure);
-  SendUserSelection(secure_input);
-}
-
-bool HostServer::IsConfUiActive() {
-  if (!curr_session_) {
-    return false;
-  }
-  return curr_session_->IsConfUiActive();
-}
-
-SharedFD HostServer::EstablishHalConnection() {
-  using namespace std::chrono_literals;
-  while (true) {
-    ConfUiLog(VERBOSE) << "Waiting hal accepting";
-    auto new_cli = SharedFD::Accept(*guest_hal_socket_);
-    ConfUiLog(VERBOSE) << "hal client accepted";
-    if (new_cli->IsOpen()) {
-      return new_cli;
-    }
-    std::this_thread::sleep_for(500ms);
-  }
+  SendUserSelection(input);
 }
 
 // read the comments in the header file
@@ -227,6 +204,9 @@ SharedFD HostServer::EstablishHalConnection() {
       auto [x, y] = touch_event.GetLocation();
       const bool is_confirm = curr_session_->IsConfirm(x, y);
       const bool is_cancel = curr_session_->IsCancel(x, y);
+      ConfUiLog(INFO) << "Touch at [" << x << ", " << y << "] was "
+                      << (is_cancel ? "CANCEL"
+                                    : (is_confirm ? "CONFIRM" : "INVALID"));
       if (!is_confirm && !is_cancel) {
         // ignore, take the next input
         continue;
@@ -235,7 +215,8 @@ SharedFD HostServer::EstablishHalConnection() {
           std::make_unique<ConfUiUserSelectionMessage>(
               GetCurrentSessionId(),
               (is_confirm ? UserResponse::kConfirm : UserResponse::kCancel));
-      input_ptr = WrapWithSecureFlag(*tmp_input_ptr, touch_event.IsSecure());
+      input_ptr =
+          WrapWithSecureFlag(std::move(tmp_input_ptr), touch_event.IsSecure());
     }
     Transition(input_ptr);
 
@@ -249,8 +230,8 @@ SharedFD HostServer::EstablishHalConnection() {
 }
 
 std::shared_ptr<Session> HostServer::CreateSession(const std::string& name) {
-  return std::make_shared<Session>(name, display_num_, host_mode_ctrl_,
-                                   screen_connector_);
+  return std::make_shared<Session>(name, display_num_, host_renderer_,
+                                   host_mode_ctrl_);
 }
 
 static bool IsUserAbort(ConfUiMessage& msg) {
@@ -270,7 +251,7 @@ void HostServer::Transition(std::unique_ptr<ConfUiMessage>& input_ptr) {
   FsmInput fsm_input = ToFsmInput(input);
   ConfUiLog(VERBOSE) << "Handling " << ToString(cmd);
   if (IsUserAbort(input)) {
-    curr_session_->UserAbort(hal_cli_socket_);
+    curr_session_->UserAbort(to_guest_fifo_fd_);
     return;
   }
 
@@ -278,7 +259,7 @@ void HostServer::Transition(std::unique_ptr<ConfUiMessage>& input_ptr) {
     curr_session_->Abort();
     return;
   }
-  curr_session_->Transition(hal_cli_socket_, fsm_input, input);
+  curr_session_->Transition(to_guest_fifo_fd_, fsm_input, input);
 }
 
 }  // end of namespace confui

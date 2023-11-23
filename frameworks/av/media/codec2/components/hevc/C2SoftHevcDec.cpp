@@ -664,6 +664,9 @@ status_t C2SoftHevcDec::resetDecoder() {
 void C2SoftHevcDec::resetPlugin() {
     mSignalledOutputEos = false;
     mTimeStart = mTimeEnd = systemTime();
+    if (mOutBlock) {
+        mOutBlock.reset();
+    }
 }
 
 status_t C2SoftHevcDec::deleteDecoder() {
@@ -917,7 +920,8 @@ void C2SoftHevcDec::process(
         if (0 < ps_decode_op->u4_pic_wd && 0 < ps_decode_op->u4_pic_ht) {
             if (mHeaderDecoded == false) {
                 mHeaderDecoded = true;
-                setParams(ALIGN128(ps_decode_op->u4_pic_wd), IVD_DECODE_FRAME);
+                mStride = ALIGN128(ps_decode_op->u4_pic_wd);
+                setParams(mStride, IVD_DECODE_FRAME);
             }
             if (ps_decode_op->u4_pic_wd != mWidth ||  ps_decode_op->u4_pic_ht != mHeight) {
                 mWidth = ps_decode_op->u4_pic_wd;

@@ -142,8 +142,7 @@ UEFIAvbBootKernelResult uefi_avb_boot_kernel(EFI_HANDLE efi_image_handle,
 
   boot = &slot_data->loaded_partitions[0];
   if (avb_strcmp(boot->partition_name, "boot") != 0) {
-    avb_errorv(
-        "Unexpected partition name '", boot->partition_name, "'.\n", NULL);
+    avb_error("Unexpected partition name '", boot->partition_name, "'.\n");
     ret = UEFI_AVB_BOOT_KERNEL_RESULT_ERROR_PARTITION_INVALID_FORMAT;
     goto out;
   }

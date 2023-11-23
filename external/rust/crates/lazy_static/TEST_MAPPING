@@ -2,22 +2,13 @@
 {
   "imports": [
     {
-      "path": "external/rust/crates/android_logger"
-    },
-    {
       "path": "external/rust/crates/base64"
     },
     {
-      "path": "external/rust/crates/crossbeam-deque"
+      "path": "external/rust/crates/clap/2.33.3"
     },
     {
-      "path": "external/rust/crates/crossbeam-epoch"
-    },
-    {
-      "path": "external/rust/crates/crossbeam-queue"
-    },
-    {
-      "path": "external/rust/crates/crossbeam-utils"
+      "path": "external/rust/crates/hashbrown"
     },
     {
       "path": "external/rust/crates/jni"
@@ -51,148 +42,46 @@
     },
     {
       "path": "external/rust/crates/xml-rs"
+    },
+    {
+      "path": "packages/modules/DnsResolver"
+    },
+    {
+      "path": "packages/modules/Virtualization/authfs"
+    },
+    {
+      "path": "packages/modules/Virtualization/microdroid_manager"
+    },
+    {
+      "path": "packages/modules/Virtualization/virtualizationmanager"
+    },
+    {
+      "path": "packages/modules/Virtualization/vm"
+    },
+    {
+      "path": "system/keymint/hal"
+    },
+    {
+      "path": "system/security/diced"
+    },
+    {
+      "path": "system/security/keystore2"
+    },
+    {
+      "path": "system/security/keystore2/legacykeystore"
+    },
+    {
+      "path": "system/security/keystore2/selinux"
     }
   ],
   "presubmit": [
     {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "diced_open_dice_cbor_test"
-    },
-    {
-      "name": "diced_sample_inputs_test"
-    },
-    {
-      "name": "diced_test"
-    },
-    {
-      "name": "diced_utils_test"
-    },
-    {
-      "name": "diced_vendor_test"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "keystore2_km_compat_test"
-    },
-    {
-      "name": "keystore2_selinux_concurrency_test"
-    },
-    {
-      "name": "keystore2_selinux_test"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "keystore2_test_utils_test"
-    },
-    {
       "name": "lazy_static_test_tests_test"
-    },
-    {
-      "name": "legacykeystore_test"
-    },
-    {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "logger_device_unit_tests"
-    },
-    {
-      "name": "logger_test_config_log_level"
-    },
-    {
-      "name": "logger_test_default_init"
-    },
-    {
-      "name": "logger_test_env_log_level"
-    },
-    {
-      "name": "logger_test_multiple_init"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ],
   "presubmit-rust": [
     {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "diced_open_dice_cbor_test"
-    },
-    {
-      "name": "diced_sample_inputs_test"
-    },
-    {
-      "name": "diced_test"
-    },
-    {
-      "name": "diced_utils_test"
-    },
-    {
-      "name": "diced_vendor_test"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "keystore2_km_compat_test"
-    },
-    {
-      "name": "keystore2_selinux_concurrency_test"
-    },
-    {
-      "name": "keystore2_selinux_test"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "keystore2_test_utils_test"
-    },
-    {
       "name": "lazy_static_test_tests_test"
-    },
-    {
-      "name": "legacykeystore_test"
-    },
-    {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "logger_device_unit_tests"
-    },
-    {
-      "name": "logger_test_config_log_level"
-    },
-    {
-      "name": "logger_test_default_init"
-    },
-    {
-      "name": "logger_test_env_log_level"
-    },
-    {
-      "name": "logger_test_multiple_init"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ]
 }
